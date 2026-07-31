@@ -2,6 +2,30 @@
 
 These instructions apply to the entire repository.
 
+## Cross-Conversation Continuity
+
+Do not rely on prior chat history when starting or resuming implementation.
+
+At the beginning of every implementation conversation:
+
+1. Read `docs/project-status.md` completely.
+2. Inspect the Git state and recent history as required below.
+3. Read the exact active task sections in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`.
+4. Read the design sections linked or implicated by those tasks in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+5. Confirm that the active batch in `docs/project-status.md` matches the code and Git history before editing.
+
+Complete only 1 to 3 implementation tasks per conversation. Prefer 1 task for complex domain, concurrency, deployment, or security work and 2 tasks for ordinary dependent work. Never begin a task outside the active batch merely because context remains available.
+
+Before each task checkpoint commit, update `docs/project-status.md` with:
+
+- Completed task numbers and outcomes.
+- Validation commands and results.
+- Commit hash if already known from the preceding checkpoint, otherwise the commit message that will identify the checkpoint.
+- Decisions, deviations, blockers, and external console state needed by the next conversation.
+- The exact next active batch of 1 to 3 tasks and its stop condition.
+
+Keep `docs/project-status.md` concise and current rather than turning it into a full historical log. Git history is the durable history. A new conversation should be able to resume safely from the repository alone.
+
 ## Git and GitHub Checkpoints
 
 At the beginning of every new task or conversation that may change repository files:
