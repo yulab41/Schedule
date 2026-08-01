@@ -8,6 +8,7 @@ export * from './scheduling-config.js';
 export * from './users.js';
 export * from './calendar.js';
 export * from './leaves.js';
+export * from './swaps.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';

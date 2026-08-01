@@ -631,6 +631,123 @@ describe('Web API client', () => {
       malformedClient.previewLeaveRequestApproval('group-1', 'leave-1', {}),
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
   });
+
+  it('previews, creates, and accepts swap requests with validated responses', async () => {
+    const assignment = {
+      actualMemberId: 'membership-b',
+      actualMemberName: '李医生',
+      assignmentId: 'assignment-1',
+      businessDate: '2026-09-01',
+      endsAt: '2026-09-01T16:00:00.000Z',
+      plannedMemberId: 'membership-a',
+      plannedMemberName: '张医生',
+      scheduleRoleId: 'role-1',
+      scheduleRoleName: '一线',
+      shiftTypeAbbreviation: '全',
+      shiftTypeColor: '#1F5AA6',
+      shiftTypeId: 'shift-1',
+      shiftTypeName: '全天班',
+      shiftTypeTextColor: '#FFFFFF',
+      slotPosition: 1,
+      startsAt: '2026-09-01T00:00:00.000Z',
+      version: 1,
+    } as const;
+    const swapRequest = {
+      createdAt: '2026-08-02T00:00:00.000Z',
+      groupId: 'group-1',
+      id: 'swap-1',
+      initiatorAssignment: assignment,
+      initiatorAssignmentId: 'assignment-1',
+      initiatorAssignmentVersion: 1,
+      initiatorMemberName: '张医生',
+      initiatorMembershipId: 'membership-a',
+      status: 'pending_target',
+      targetAssignment: {
+        ...assignment,
+        assignmentId: 'assignment-2',
+        businessDate: '2026-09-02',
+        plannedMemberId: 'membership-b',
+        plannedMemberName: '李医生',
+      },
+      targetAssignmentId: 'assignment-2',
+      targetAssignmentVersion: 1,
+      targetMemberName: '李医生',
+      targetMembershipId: 'membership-b',
+      version: 1,
+    } as const;
+    const preview = {
+      conflicts: [],
+      groupId: 'group-1',
+      initiatorAssignment: assignment,
+      initiatorEligibleForTargetShift: true,
+      nextStatus: 'pending_target',
+      requiresApproval: true,
+      targetAssignment: {
+        ...assignment,
+        assignmentId: 'assignment-2',
+        businessDate: '2026-09-02',
+        plannedMemberId: 'membership-b',
+        plannedMemberName: '李医生',
+      },
+      targetAutoAccepts: false,
+      targetEligibleForInitiatorShift: true,
+    } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(preview), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(swapRequest), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(swapRequest), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([swapRequest]), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ requiresApproval: true }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ autoAcceptSwaps: false }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const previewed = await client.previewSwap('group-1', {
+      initiatorAssignmentId: 'assignment-1',
+      targetAssignmentId: 'assignment-2',
+      targetMembershipId: 'membership-b',
+    });
+    expect(previewed.nextStatus).toBe('pending_target');
+    expect(previewed.conflicts).toEqual([]);
+    const created = await client.createSwapRequest('group-1', {
+      initiatorAssignmentId: 'assignment-1',
+      operationId: 'operation-1',
+      targetAssignmentId: 'assignment-2',
+      targetMembershipId: 'membership-b',
+    });
+    expect(created.status).toBe('pending_target');
+    const accepted = await client.acceptSwapRequest('group-1', 'swap-1', {
+      expectedVersion: 1,
+      operationId: 'operation-2',
+    });
+    expect(accepted.initiatorAssignmentVersion).toBe(1);
+    expect(await client.listMySwapRequests('group-1')).toEqual([swapRequest]);
+    expect(await client.getGroupSwapSettings('group-1')).toEqual({ requiresApproval: true });
+    expect(await client.getMySwapSettings('group-1')).toEqual({ autoAcceptSwaps: false });
+
+    const malformedClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ ...preview, nextStatus: 'unknown' }), {
+          status: 200,
+        }),
+      ),
+    });
+    await expect(
+      malformedClient.previewSwap('group-1', {
+        initiatorAssignmentId: 'assignment-1',
+        targetAssignmentId: 'assignment-2',
+        targetMembershipId: 'membership-b',
+      }),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

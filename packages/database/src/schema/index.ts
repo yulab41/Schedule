@@ -16,6 +16,7 @@ export * from './scheduling-config.js';
 export * from './schedules.js';
 export * from './manual-schedules.js';
 export * from './leaves.js';
+export * from './swaps.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
@@ -63,6 +64,9 @@ export const groups = mysqlTable(
       'shift-forward',
     ])
       .default('keep-original-order')
+      .notNull(),
+    swapApprovalRequired: tinyint('swap_approval_required', { unsigned: true })
+      .default(1)
       .notNull(),
     ...auditableColumns(),
   },

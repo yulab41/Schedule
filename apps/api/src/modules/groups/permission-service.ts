@@ -14,6 +14,7 @@ export type GroupPermission =
   | 'manageMembers'
   | 'manageRoster'
   | 'manageScheduleConfiguration'
+  | 'manageSwaps'
   | 'regenerateGroupCode'
   | 'transferOwnership'
   | 'viewContacts'
@@ -33,10 +34,12 @@ export interface ActiveGroup {
   readonly ownerUserId: string;
   readonly rulesVersion: number;
   readonly schedulePublishMode: SchedulePublishMode;
+  readonly swapApprovalRequired: boolean;
   readonly version: number;
 }
 
 export interface ActiveGroupMembership {
+  readonly autoAcceptSwaps: boolean;
   readonly id: string;
   readonly role: 'administrator' | 'member' | 'owner';
   readonly userId: string;
@@ -57,6 +60,7 @@ const permissionsByRole: Readonly<
     'manageMembers',
     'manageRoster',
     'manageScheduleConfiguration',
+    'manageSwaps',
     'viewContacts',
     'viewMembers',
     'viewScheduleConfiguration',
@@ -70,6 +74,7 @@ const permissionsByRole: Readonly<
     'manageMembers',
     'manageRoster',
     'manageScheduleConfiguration',
+    'manageSwaps',
     'regenerateGroupCode',
     'transferOwnership',
     'viewContacts',
@@ -118,6 +123,7 @@ export class GroupPermissionService {
   ): Promise<ActiveGroupMembership> {
     const [membership] = await transaction
       .select({
+        autoAcceptSwapsValue: groupMemberships.autoAcceptSwaps,
         id: groupMemberships.id,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
@@ -142,7 +148,12 @@ export class GroupPermissionService {
       });
     }
 
-    return membership;
+    return {
+      autoAcceptSwaps: membership.autoAcceptSwapsValue === 1,
+      id: membership.id,
+      role: membership.role,
+      userId: membership.userId,
+    };
   }
 
   public async getActiveMemberForUpdate(
@@ -152,6 +163,7 @@ export class GroupPermissionService {
   ): Promise<ActiveGroupMembership> {
     const [membership] = await transaction
       .select({
+        autoAcceptSwapsValue: groupMemberships.autoAcceptSwaps,
         id: groupMemberships.id,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
@@ -181,7 +193,12 @@ export class GroupPermissionService {
       });
     }
 
-    return membership;
+    return {
+      autoAcceptSwaps: membership.autoAcceptSwapsValue === 1,
+      id: membership.id,
+      role: membership.role,
+      userId: membership.userId,
+    };
   }
 
   private async getActiveUserForUpdate(
@@ -227,6 +244,7 @@ export class GroupPermissionService {
   ): Promise<ActiveGroup> {
     const [group] = await transaction
       .select({
+        swapApprovalRequiredValue: groups.swapApprovalRequired,
         groupCode: groups.groupCode,
         id: groups.id,
         leaveReflowStrategy: groups.leaveReflowStrategy,
@@ -249,6 +267,16 @@ export class GroupPermissionService {
       });
     }
 
-    return group;
+    return {
+      groupCode: group.groupCode,
+      id: group.id,
+      leaveReflowStrategy: group.leaveReflowStrategy,
+      name: group.name,
+      ownerUserId: group.ownerUserId,
+      rulesVersion: group.rulesVersion,
+      schedulePublishMode: group.schedulePublishMode,
+      swapApprovalRequired: group.swapApprovalRequiredValue === 1,
+      version: group.version,
+    };
   }
 }

@@ -9,6 +9,7 @@ import type {
   CalendarReadModel,
   ClaimGroupResponse,
   CreateLeaveRequestInput,
+  CreateSwapRequestInput,
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
   CreateManualScheduleTemplateRequest,
@@ -17,12 +18,14 @@ import type {
   GroupMemberContact,
   GroupSchedulePublishMode,
   GroupLeaveReflowStrategy,
+  GroupSwapSettings,
   GroupSummary,
   JsonObject,
   LeaveReflowPreview,
   LeaveRequest,
   ManualApplyPreview,
   ManualScheduleTemplate,
+  MemberSwapSettings,
   PreviewLeaveRequestInput,
   PreviewManualTemplateApplyRequest,
   RejectedLeaveRequestResult,
@@ -33,12 +36,18 @@ import type {
   ScheduleRole,
   SchedulingConfig,
   ShiftType,
+  SwapPairInput,
+  SwapPreview,
+  SwapRequest,
+  SwapRequestMutationInput,
   UpdateRotationRuleRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberRoleRequest,
   UpdateManualScheduleTemplateRequest,
   UpdateGroupLeaveReflowStrategyInput,
+  UpdateGroupSwapSettingsInput,
+  UpdateMemberSwapSettingsInput,
   UpdateShiftTypeRequest,
   UserProfile,
 } from '@schedule/contracts';
@@ -46,6 +55,11 @@ import type {
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 
 export interface ApiClient {
+  acceptSwapRequest(
+    groupId: string,
+    swapRequestId: string,
+    input: SwapRequestMutationInput,
+  ): Promise<SwapRequest>;
   addRosterEntries(
     groupId: string,
     input: { readonly realNames: readonly string[] },
@@ -55,13 +69,24 @@ export interface ApiClient {
     leaveRequestId: string,
     input: ApproveLeaveRequestInput,
   ): Promise<ApprovedLeaveRequestResult>;
+  approveSwapRequest(
+    groupId: string,
+    swapRequestId: string,
+    input: SwapRequestMutationInput,
+  ): Promise<SwapRequest>;
   applyManualTemplate(
     groupId: string,
     templateId: string,
     input: ApplyManualScheduleTemplateRequest,
   ): Promise<AppliedManualScheduleTemplateResult>;
   claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
+  cancelSwapRequest(
+    groupId: string,
+    swapRequestId: string,
+    input: SwapRequestMutationInput,
+  ): Promise<SwapRequest>;
   createLeaveRequest(groupId: string, input: CreateLeaveRequestInput): Promise<LeaveRequest>;
+  createSwapRequest(groupId: string, input: CreateSwapRequestInput): Promise<SwapRequest>;
   createManualScheduleTemplate(
     groupId: string,
     input: CreateManualScheduleTemplateRequest,
@@ -73,7 +98,9 @@ export interface ApiClient {
   deleteGroup(groupId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
+  getGroupSwapSettings(groupId: string): Promise<GroupSwapSettings>;
   getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
+  getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
   getSchedulePublishMode(groupId: string): Promise<GroupSchedulePublishMode>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
@@ -82,11 +109,14 @@ export interface ApiClient {
   listGroups(): Promise<GroupSummary[]>;
   listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]>;
   listMyLeaveRequests(groupId: string): Promise<LeaveRequest[]>;
+  listMySwapRequests(groupId: string): Promise<SwapRequest[]>;
+  listSwapApprovals(groupId: string): Promise<SwapRequest[]>;
   previewLeaveRequestApproval(
     groupId: string,
     leaveRequestId: string,
     input: PreviewLeaveRequestInput,
   ): Promise<LeaveReflowPreview>;
+  previewSwap(groupId: string, input: SwapPairInput): Promise<SwapPreview>;
   previewManualTemplateApply(
     groupId: string,
     templateId: string,
@@ -98,6 +128,11 @@ export interface ApiClient {
     leaveRequestId: string,
     input: RejectLeaveRequestInput,
   ): Promise<RejectedLeaveRequestResult>;
+  rejectSwapRequest(
+    groupId: string,
+    swapRequestId: string,
+    input: SwapRequestMutationInput,
+  ): Promise<SwapRequest>;
   reorderRotationMembers(
     groupId: string,
     roleId: string,
@@ -127,10 +162,18 @@ export interface ApiClient {
     membershipId: string,
     input: UpdateGroupMemberRoleRequest,
   ): Promise<GroupMember>;
+  updateGroupSwapSettings(
+    groupId: string,
+    input: UpdateGroupSwapSettingsInput,
+  ): Promise<GroupSwapSettings>;
   updateLeaveReflowStrategy(
     groupId: string,
     input: UpdateGroupLeaveReflowStrategyInput,
   ): Promise<GroupLeaveReflowStrategy>;
+  updateMySwapSettings(
+    groupId: string,
+    input: UpdateMemberSwapSettingsInput,
+  ): Promise<MemberSwapSettings>;
   updateRotationRule(
     groupId: string,
     roleId: string,
@@ -165,6 +208,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const fetchImplementation = options.fetch ?? fetch;
 
   return {
+    acceptSwapRequest(groupId, swapRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/accept`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapRequest,
+      );
+    },
     applyManualTemplate(groupId, templateId, input) {
       return requestJson(
         options.auth,
@@ -189,6 +245,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isApprovedLeaveRequestResult,
+      );
+    },
+    approveSwapRequest(groupId, swapRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/approve`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapRequest,
       );
     },
     addRosterEntries(groupId, input) {
@@ -217,6 +286,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isClaimGroupResponse,
       );
     },
+    cancelSwapRequest(groupId, swapRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/cancel`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapRequest,
+      );
+    },
     createLeaveRequest(groupId, input) {
       return requestJson(
         options.auth,
@@ -228,6 +310,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isLeaveRequest,
+      );
+    },
+    createSwapRequest(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapRequest,
       );
     },
     createManualScheduleTemplate(groupId, input) {
@@ -325,6 +420,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    getGroupSwapSettings(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/settings`,
+        { method: 'GET' },
+        isGroupSwapSettings,
+      );
+    },
     getLeaveReflowStrategy(groupId) {
       return requestJson(
         options.auth,
@@ -333,6 +438,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/leave-reflow-strategy`,
         { method: 'GET' },
         isGroupLeaveReflowStrategy,
+      );
+    },
+    getMySwapSettings(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/my-settings`,
+        { method: 'GET' },
+        isMemberSwapSettings,
       );
     },
     getSchedulePublishMode(groupId) {
@@ -415,6 +530,26 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isLeaveRequestList,
       );
     },
+    listMySwapRequests(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps`,
+        { method: 'GET' },
+        isSwapRequestList,
+      );
+    },
+    listSwapApprovals(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/approvals`,
+        { method: 'GET' },
+        isSwapRequestList,
+      );
+    },
     previewManualTemplateApply(groupId, templateId, input) {
       return requestJson(
         options.auth,
@@ -426,6 +561,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isManualApplyPreview,
+      );
+    },
+    previewSwap(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/preview`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapPreview,
       );
     },
     previewLeaveRequestApproval(groupId, leaveRequestId, input) {
@@ -465,6 +613,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isRejectedLeaveRequestResult,
+      );
+    },
+    rejectSwapRequest(groupId, swapRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/reject`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapRequest,
       );
     },
     reorderRotationMembers(groupId, roleId, input) {
@@ -545,6 +706,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isGroupMember,
       );
     },
+    updateGroupSwapSettings(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/settings`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isGroupSwapSettings,
+      );
+    },
     updateLeaveReflowStrategy(groupId, input) {
       return requestJson(
         options.auth,
@@ -556,6 +730,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isGroupLeaveReflowStrategy,
+      );
+    },
+    updateMySwapSettings(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/my-settings`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isMemberSwapSettings,
       );
     },
     updateRotationRule(groupId, roleId, input) {
@@ -1306,6 +1493,175 @@ function isStringNumberRecord(value: unknown): value is Readonly<Record<string, 
   }
 
   return Object.values(value).every((version) => typeof version === 'number');
+}
+
+function isSwapAssignmentSummary(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const assignment = value as {
+    actualMemberId?: unknown;
+    actualMemberName?: unknown;
+    assignmentId?: unknown;
+    businessDate?: unknown;
+    endsAt?: unknown;
+    plannedMemberId?: unknown;
+    plannedMemberName?: unknown;
+    scheduleRoleId?: unknown;
+    scheduleRoleName?: unknown;
+    shiftTypeAbbreviation?: unknown;
+    shiftTypeColor?: unknown;
+    shiftTypeId?: unknown;
+    shiftTypeName?: unknown;
+    shiftTypeTextColor?: unknown;
+    slotPosition?: unknown;
+    startsAt?: unknown;
+    version?: unknown;
+  };
+  return (
+    typeof assignment.assignmentId === 'string' &&
+    assignment.assignmentId.length > 0 &&
+    typeof assignment.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
+    typeof assignment.endsAt === 'string' &&
+    typeof assignment.scheduleRoleId === 'string' &&
+    assignment.scheduleRoleId.length > 0 &&
+    typeof assignment.scheduleRoleName === 'string' &&
+    typeof assignment.shiftTypeAbbreviation === 'string' &&
+    assignment.shiftTypeAbbreviation.length > 0 &&
+    typeof assignment.shiftTypeColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
+    typeof assignment.shiftTypeId === 'string' &&
+    assignment.shiftTypeId.length > 0 &&
+    typeof assignment.shiftTypeName === 'string' &&
+    assignment.shiftTypeName.length > 0 &&
+    typeof assignment.shiftTypeTextColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
+    typeof assignment.slotPosition === 'number' &&
+    Number.isInteger(assignment.slotPosition) &&
+    assignment.slotPosition >= 1 &&
+    typeof assignment.startsAt === 'string' &&
+    typeof assignment.version === 'number' &&
+    Number.isInteger(assignment.version) &&
+    assignment.version >= 1 &&
+    (assignment.actualMemberId === undefined || typeof assignment.actualMemberId === 'string') &&
+    (assignment.actualMemberName === undefined ||
+      typeof assignment.actualMemberName === 'string') &&
+    (assignment.plannedMemberId === undefined || typeof assignment.plannedMemberId === 'string') &&
+    (assignment.plannedMemberName === undefined || typeof assignment.plannedMemberName === 'string')
+  );
+}
+
+function isSwapPreview(value: unknown): value is SwapPreview {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const preview = value as Partial<SwapPreview>;
+  return (
+    Array.isArray(preview.conflicts) &&
+    preview.conflicts.every(isSwapConflict) &&
+    typeof preview.groupId === 'string' &&
+    preview.groupId.length > 0 &&
+    isSwapAssignmentSummary(preview.initiatorAssignment) &&
+    typeof preview.initiatorEligibleForTargetShift === 'boolean' &&
+    isSwapRequestStatus(preview.nextStatus) &&
+    typeof preview.requiresApproval === 'boolean' &&
+    isSwapAssignmentSummary(preview.targetAssignment) &&
+    typeof preview.targetAutoAccepts === 'boolean' &&
+    typeof preview.targetEligibleForInitiatorShift === 'boolean'
+  );
+}
+
+function isSwapConflict(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const conflict = value as {
+    assignmentId?: unknown;
+    code?: unknown;
+    membershipId?: unknown;
+    message?: unknown;
+  };
+  return (
+    (conflict.code === 'MEMBER_LEAVE_OVERLAP' ||
+      conflict.code === 'MEMBER_NOT_ELIGIBLE' ||
+      conflict.code === 'MEMBER_TIME_OVERLAP') &&
+    typeof conflict.membershipId === 'string' &&
+    conflict.membershipId.length > 0 &&
+    typeof conflict.message === 'string' &&
+    (conflict.assignmentId === undefined || typeof conflict.assignmentId === 'string')
+  );
+}
+
+function isSwapRequest(value: unknown): value is SwapRequest {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const request = value as Partial<SwapRequest>;
+  return (
+    typeof request.id === 'string' &&
+    request.id.length > 0 &&
+    typeof request.groupId === 'string' &&
+    request.groupId.length > 0 &&
+    typeof request.initiatorMembershipId === 'string' &&
+    request.initiatorMembershipId.length > 0 &&
+    typeof request.targetMembershipId === 'string' &&
+    request.targetMembershipId.length > 0 &&
+    typeof request.initiatorAssignmentId === 'string' &&
+    request.initiatorAssignmentId.length > 0 &&
+    typeof request.targetAssignmentId === 'string' &&
+    request.targetAssignmentId.length > 0 &&
+    typeof request.initiatorAssignmentVersion === 'number' &&
+    Number.isInteger(request.initiatorAssignmentVersion) &&
+    typeof request.targetAssignmentVersion === 'number' &&
+    Number.isInteger(request.targetAssignmentVersion) &&
+    isSwapRequestStatus(request.status) &&
+    typeof request.version === 'number' &&
+    Number.isInteger(request.version) &&
+    request.version >= 1 &&
+    typeof request.createdAt === 'string' &&
+    isSwapAssignmentSummary(request.initiatorAssignment) &&
+    isSwapAssignmentSummary(request.targetAssignment) &&
+    (request.initiatorMemberName === undefined ||
+      typeof request.initiatorMemberName === 'string') &&
+    (request.targetMemberName === undefined || typeof request.targetMemberName === 'string') &&
+    (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
+    (request.decidedAt === undefined || typeof request.decidedAt === 'string')
+  );
+}
+
+function isSwapRequestStatus(value: unknown): boolean {
+  return (
+    value === 'pending_target' ||
+    value === 'pending_approval' ||
+    value === 'completed' ||
+    value === 'rejected' ||
+    value === 'cancelled'
+  );
+}
+
+function isSwapRequestList(value: unknown): value is SwapRequest[] {
+  return Array.isArray(value) && value.every(isSwapRequest);
+}
+
+function isGroupSwapSettings(value: unknown): value is GroupSwapSettings {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { requiresApproval?: unknown }).requiresApproval === 'boolean'
+  );
+}
+
+function isMemberSwapSettings(value: unknown): value is MemberSwapSettings {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { autoAcceptSwaps?: unknown }).autoAcceptSwaps === 'boolean'
+  );
 }
 
 function isAppliedManualScheduleTemplateResult(

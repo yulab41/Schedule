@@ -24,6 +24,8 @@ import { registerManualScheduleApplyRoutes } from './modules/manual-schedules/ap
 import { ManualScheduleApplyService } from './modules/manual-schedules/apply-service.js';
 import { registerLeaveRoutes } from './modules/leaves/leave-routes.js';
 import { LeaveService } from './modules/leaves/leave-service.js';
+import { registerSwapRoutes } from './modules/swaps/swap-routes.js';
+import { SwapService } from './modules/swaps/swap-service.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -105,6 +107,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new ManualScheduleApplyService(options.databaseClient, scheduleRepository),
     );
     registerLeaveRoutes(app, new LeaveService(options.databaseClient));
+    registerSwapRoutes(app, new SwapService(options.databaseClient));
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }
