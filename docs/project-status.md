@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 4 complete; Task 5 is next.
+- Implementation code: Tasks 1 through 5 complete; Task 6 is next.
 
 ## Approved Sources
 
@@ -30,20 +30,22 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 3 completed: the verification job provides an isolated MySQL 8.4 service with disposable `TEST_MYSQL_*` credentials only; Dependabot groups npm and GitHub Actions version updates into at most one monthly pull request per ecosystem.
 - Task 4 completed: one Fastify application factory now powers thin local-server and CloudBase HTTP adapters, with `/health` and `/ready` endpoints and a UUID request ID on every response.
 - Task 4 completed: shared API error contracts provide safe code, message, request ID, and optional latest-data summaries; logs recursively redact passwords, tokens, and telephone fields while retaining only redacted error diagnostics.
+- Task 5 completed: the database package provides UTC MySQL/Drizzle connection clients, an isolated single-connection test factory, and one shared transaction helper that owns transaction boundaries.
+- Task 5 completed: the initial identity and group migration creates the seven approved tables with audit/version conventions, group-code retention through soft deletion, and database-enforced pending-roster-name uniqueness; the API migration entry point validates environment values before running the Drizzle journal.
 
 ## Active Batch
 
-- Task 5: Establish database connections, migrations, and transaction utilities.
-- Stop after Task 5, or earlier if the MySQL driver, migration, or transaction boundary exposes a blocker.
+- Task 6: Integrate CloudBase authentication.
+- Stop after Task 6, or earlier if CloudBase development credentials, authentication SDK behavior, or the identity mapping exposes a blocker.
 
-Task 5 is the only implementation task authorized for the next conversation. It must be validated and committed separately.
+Task 6 is the only implementation task authorized for the next conversation. It must be validated and committed separately.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 5 in the implementation plan.
-4. Read design sections 3, 13, 19, and 20, plus any section referenced by an unexpected issue.
+3. Read Task 6 in the implementation plan.
+4. Read design sections 3, 4, 19, and 20, plus any section referenced by an unexpected issue.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes.
 
 ## Known Environment State
@@ -52,11 +54,10 @@ Task 5 is the only implementation task authorized for the next conversation. It 
 - `main` was synchronized with `origin/main` before this handoff update.
 - Node.js v24.14.0, pnpm v11.9.0, Docker v29.4.0, and Docker Compose v5.1.2 were detected.
 - Docker Desktop is running. `medical-schedule-dev-mysql-1` remains healthy on host port 3306 and persists data in `medical-schedule-dev-mysql-data`.
-- The isolated test MySQL used host port 3307, was rebuilt successfully, then was stopped and removed. Its temporary data directory never used the development volume.
+- Task 5 validation started a new isolated MySQL on host port 3307, exercised the migration and compiled migration entry point, then stopped and removed it. Its temporary data directory never used the development volume.
 - A local `.env` was created from `.env.example`; it remains ignored and was not staged. Docker's sandboxed client can warn while reading the user's Docker config, but Compose validation and the live engine checks passed outside the sandbox.
-- Environment validation confirms required and well-formed values before startup. Actual database credential authentication remains the connection-layer responsibility of Task 5; Task 4 introduced no database client.
+- The API migration entry point reuses validated environment values, opens a UTC MySQL connection, applies the root `migrations/` Drizzle journal, and closes the connection. HTTP startup does not run migrations automatically.
 - GitHub Actions uses only disposable test database values and has read-only repository contents permission; no CloudBase, development, or production secret is referenced. Its first remote run `30681864912` was rejected before job execution because the `job` context is unavailable in a job-level `env`; the correction scopes all `TEST_MYSQL_*` values, including the dynamically assigned port, to the `Run tests` step. Corrected remote run `30682009680` passed in 1 minute 15 seconds.
-- The isolated test MySQL service was started for the CI reproduction, became healthy, and was then stopped and removed with its temporary data. The persistent development MySQL service and named volume remain untouched.
 - A user-owned whitespace-only edit remains unstaged in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`; do not stage or overwrite it.
 - No CloudBase development environment configuration or secrets are stored in the repository.
 - The local API is running from the Task 4 build at `http://127.0.0.1:3000`; `/health` and `/ready` both returned 200. This is a local process only, not a CloudBase deployment.
@@ -82,6 +83,8 @@ Task 5 is the only implementation task authorized for the next conversation. It 
 - Task 4: `pnpm --filter @schedule/api test` passed with 11 tests; `pnpm verify` passed formatting, ESLint, strict type checks, 12 Vitest tests, and all package/Web production builds; `pnpm exec prettier --check docs/development/local-setup.md` passed.
 - Task 4 live check: the rebuilt local API returned 200 from `/health` and `/ready`, each with a distinct UUID `x-request-id` header.
 - Task 4 checkpoint commit message: `feat(api): add runtime and error contract`.
+- Task 5: `pnpm --filter @schedule/database typecheck` passed; its isolated migration suite passed 6 tests for empty-database migration, idempotent reruns, UTC sessions, unmanaged-schema rejection, schema fidelity, database uniqueness, and transaction rollback.
+- Task 5: with the isolated test MySQL healthy, `pnpm verify` passed formatting, ESLint, strict types, 18 Vitest tests, and all production builds. The compiled API migration entry point also ran successfully against that test database before the service was removed.
 
 ## Recent Checkpoints
 
@@ -93,11 +96,13 @@ Task 5 is the only implementation task authorized for the next conversation. It 
 - `470ff00` — `docs: record local setup troubleshooting` (pushed to `origin/main`)
 - `66ba02c` — `ci: add repository verification workflow` (pushed; initial remote run rejected before job execution)
 - `a48a9ba` — `ci: scope test database variables to test step` (pushed; corrected Verify run passed)
+- Task 5 checkpoint commit message: `feat(db): add identity and group schema`
 
 ## Decisions and Blockers
 
 - Task 4 keeps Fastify logger configuration inside the application factory: tests may disable logging or provide a stream, but callers cannot bypass the redaction configuration. Every log argument and the final JSON log record are sanitized, covering arbitrary nested plain objects, arrays, and child bindings; request and error serializers remove request headers, query strings, error messages, and stacks.
-- No Task 4 blockers remain. CloudBase console configuration remains deferred until the deployment task.
+- Task 5 keeps group codes globally unique until a future recovery purge hard-deletes the group, preserving the 30-day soft-delete window. Stored generated columns with unique indexes enforce active memberships, active contacts, and pending roster names because MySQL does not provide portable partial unique indexes. Timestamps are `TIMESTAMP(3)` and every MySQL session is explicitly set to UTC.
+- The Drizzle journal is the migration source of truth; the API wrapper runs it explicitly rather than applying DDL during HTTP startup. No Task 5 blockers remain. CloudBase console configuration remains deferred until Task 6.
 
 ## Handoff Requirements
 

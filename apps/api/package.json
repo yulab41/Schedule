@@ -13,12 +13,14 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "migrate": "node --env-file=../../.env dist/migrate.js",
     "start": "node --env-file=../../.env dist/local-server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@schedule/contracts": "workspace:*",
+    "@schedule/database": "workspace:*",
     "@schedule/scheduling-domain": "workspace:*",
     "fastify": "5.11.0",
     "zod": "^4.1.12"

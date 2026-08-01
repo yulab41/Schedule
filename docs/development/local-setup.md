@@ -24,6 +24,17 @@ docker compose --env-file .env -f infra/docker/compose.yml ps
 
 The `mysql` service must show `healthy`. Its data is stored in the named Docker volume `medical-schedule-dev-mysql-data`, so stopping the service does not remove development data.
 
+## Apply Database Migrations
+
+Build the workspace, then run the controlled migration entry point:
+
+```powershell
+pnpm build
+pnpm --filter @schedule/api migrate
+```
+
+The entry point validates the same local environment values used by the API, connects with UTC session handling, applies the Drizzle migration journal, and closes the connection. It is safe to rerun: applied migrations are recorded in `__drizzle_migrations`. In a non-local environment, take the required backup before running migrations.
+
 ## Stop, Rebuild, and Inspect Development MySQL
 
 ```powershell
