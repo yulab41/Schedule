@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "baseUrl": ".",
+    "paths": {
+      "@schedule/contracts": ["packages/contracts/src/index.ts"],
+      "@schedule/database": ["packages/database/src/index.ts"],
+      "@schedule/scheduling-domain": ["packages/scheduling-domain/src/index.ts"]
+    }
+  }
+}

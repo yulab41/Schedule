@@ -1,0 +1,33 @@
+# Dependencies and package-manager state
+node_modules/
+.pnpm-store/
+
+# Build, test, and tool output
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Local databases and Docker data
+*.sqlite
+*.sqlite3
+*.db
+mysql-data/
+
+# Logs and editor files
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.idea/
+.vscode/

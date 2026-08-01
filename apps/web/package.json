@@ -1,0 +1,20 @@
+{
+  "name": "@schedule/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vue-tsc --noEmit && vite build",
+    "dev": "vite",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@schedule/contracts": "workspace:*",
+    "vue": "^3.5.21"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.1",
+    "vite": "^7.1.7",
+    "vue-tsc": "^3.0.7"
+  }
+}
