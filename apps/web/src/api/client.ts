@@ -2,6 +2,7 @@ import type {
   AddRosterEntriesResponse,
   ApiErrorCode,
   ApiErrorResponse,
+  CalendarReadModel,
   ClaimGroupResponse,
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
@@ -36,6 +37,7 @@ export interface ApiClient {
   createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
   createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
   deleteGroup(groupId: string): Promise<void>;
+  getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
@@ -186,6 +188,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}`,
         { method: 'DELETE' },
         isUndefined,
+      );
+    },
+    getCalendar(groupId, businessMonth) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
+        { method: 'GET' },
+        isCalendarReadModel,
       );
     },
     getCurrentProfile() {
@@ -423,6 +435,136 @@ function isAddRosterEntriesResponse(value: unknown): value is AddRosterEntriesRe
     typeof value.added === 'number' &&
     Number.isInteger(value.added) &&
     value.added > 0
+  );
+}
+
+function isCalendarReadModel(value: unknown): value is CalendarReadModel {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const calendar = value as Partial<CalendarReadModel>;
+  return (
+    typeof calendar.businessMonth === 'string' &&
+    /^\d{4}-\d{2}$/u.test(calendar.businessMonth) &&
+    typeof calendar.groupId === 'string' &&
+    Array.isArray(calendar.assignments) &&
+    calendar.assignments.every(isCalendarDutyAssignment) &&
+    Array.isArray(calendar.members) &&
+    calendar.members.every(isCalendarDutyMember) &&
+    Array.isArray(calendar.roles) &&
+    calendar.roles.every(isCalendarRoleSummary) &&
+    Array.isArray(calendar.shiftTypes) &&
+    calendar.shiftTypes.every(isCalendarShiftTypeSummary)
+  );
+}
+
+function isCalendarDutyAssignment(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const assignment = value as Partial<CalendarReadModel['assignments'][number]>;
+  return (
+    typeof assignment.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
+    typeof assignment.endsAt === 'string' &&
+    typeof assignment.id === 'string' &&
+    assignment.id.length > 0 &&
+    typeof assignment.startsAt === 'string' &&
+    typeof assignment.schedulePeriodId === 'string' &&
+    assignment.schedulePeriodId.length > 0 &&
+    typeof assignment.scheduleRoleId === 'string' &&
+    assignment.scheduleRoleId.length > 0 &&
+    typeof assignment.scheduleRoleName === 'string' &&
+    assignment.scheduleRoleName.length > 0 &&
+    typeof assignment.shiftTypeAbbreviation === 'string' &&
+    assignment.shiftTypeAbbreviation.length > 0 &&
+    typeof assignment.shiftTypeColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
+    typeof assignment.shiftTypeId === 'string' &&
+    assignment.shiftTypeId.length > 0 &&
+    typeof assignment.shiftTypeName === 'string' &&
+    assignment.shiftTypeName.length > 0 &&
+    typeof assignment.shiftTypeTextColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
+    typeof assignment.slotPosition === 'number' &&
+    Number.isInteger(assignment.slotPosition) &&
+    assignment.slotPosition >= 1 &&
+    Array.isArray(assignment.changeMarkers) &&
+    assignment.changeMarkers.every(isCalendarChangeMarker) &&
+    (assignment.actualMemberName === undefined ||
+      typeof assignment.actualMemberName === 'string') &&
+    (assignment.actualMembershipId === undefined ||
+      typeof assignment.actualMembershipId === 'string') &&
+    (assignment.plannedMemberName === undefined ||
+      typeof assignment.plannedMemberName === 'string') &&
+    (assignment.plannedMembershipId === undefined ||
+      typeof assignment.plannedMembershipId === 'string')
+  );
+}
+
+function isCalendarChangeMarker(value: unknown): boolean {
+  return (
+    value === 'swap' ||
+    value === 'leave-cover' ||
+    value === 'manual-adjustment' ||
+    value === 'overtime'
+  );
+}
+
+function isCalendarDutyMember(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const member = value as Partial<CalendarReadModel['members'][number]>;
+  return (
+    typeof member.membershipId === 'string' &&
+    member.membershipId.length > 0 &&
+    typeof member.realName === 'string' &&
+    member.realName.length > 0 &&
+    typeof member.isConfirmed === 'boolean' &&
+    (member.mobilePhone === undefined || typeof member.mobilePhone === 'string') &&
+    (member.shortPhone === undefined || typeof member.shortPhone === 'string')
+  );
+}
+
+function isCalendarRoleSummary(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const role = value as Partial<CalendarReadModel['roles'][number]>;
+  return (
+    typeof role.id === 'string' &&
+    role.id.length > 0 &&
+    typeof role.name === 'string' &&
+    role.name.length > 0
+  );
+}
+
+function isCalendarShiftTypeSummary(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const shiftType = value as Partial<CalendarReadModel['shiftTypes'][number]>;
+  return (
+    typeof shiftType.id === 'string' &&
+    shiftType.id.length > 0 &&
+    typeof shiftType.name === 'string' &&
+    shiftType.name.length > 0 &&
+    typeof shiftType.abbreviation === 'string' &&
+    shiftType.abbreviation.length > 0 &&
+    typeof shiftType.color === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(shiftType.color) &&
+    typeof shiftType.textColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(shiftType.textColor) &&
+    typeof shiftType.crossesMidnight === 'boolean' &&
+    typeof shiftType.isAllDay === 'boolean' &&
+    (shiftType.startTime === undefined || /^\d{2}:\d{2}$/u.test(shiftType.startTime)) &&
+    (shiftType.endTime === undefined || /^\d{2}:\d{2}$/u.test(shiftType.endTime))
   );
 }
 

@@ -4,6 +4,7 @@ export * from './groups.js';
 export * from './schedules.js';
 export * from './scheduling-config.js';
 export * from './users.js';
+export * from './calendar.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';

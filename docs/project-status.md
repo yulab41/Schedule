@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Two — Events and Scheduling Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 14 are complete and validated. Task 14's pending checkpoint is `feat(schedule): add generation preview and publishing`.
+- Implementation code: Tasks 1 through 15 are complete and validated. Task 15's pending checkpoint is `feat(calendar): show current month duty roster`.
 
 ## Approved Sources
 
@@ -56,20 +56,24 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 14 completed: administrators submit month, schedule-role IDs, and the group `rulesVersion` (now also returned by the scheduling config); stale rules versions return 409 before preview or save. Hard conflicts or vacancies block publication unless `acknowledgeBlockers: true` is sent, so publication is never silent.
 - Task 14 completed: `ScheduleRepository` now exposes `createDraftInTransaction` and `publishInTransaction` so multi-role generation, publication, replacement, and the `schedule_generation_completed` event commit atomically; re-generating a published month creates a new revision and replaces the prior version with linked events.
 - Task 14 completed: integration tests cover deterministic 31-day and leap-February previews with no persistence, member 403s, idempotent draft replay without duplicate assignments, stale rules versions, hard-conflict and vacancy publication blocking with acknowledgement, group auto-publish with version replacement, and idempotent explicit publication.
+- Task 15 completed: the calendar contract adds published duty assignments with assignment IDs, change markers, duty members with confirmed contacts, and role/shift-type summaries; `GET /groups/:groupId/calendar?businessMonth=YYYY-MM` returns only `published` periods for the group and month, excludes drafts and replaced revisions, and marks assignments affected by workflow events.
+- Task 15 completed: members can read the calendar and outsiders receive 403; invalid or missing months return 400. The query reuses existing period, assignment, contact, and event indexes, so no new migration is needed.
+- Task 15 completed: the Web workbench now defaults to the current China Standard Time month calendar with duty names visible directly in each day cell, previous/next month and today navigation, a year-month picker, role/shift-type/member and only-changes filters, today highlighting, and quick-dial popups (mobile dial links, desktop copy) that never construct links for unconfirmed or missing numbers.
+- Task 15 completed: calendar logic tests cover CST month boundaries, Monday-first month grids including leap February, filters, phone options and dial links, marker labels, and a stale-response guard; Web client tests cover the calendar request and response validation. API integration tests cover published-only data, member access, draft/replaced exclusion, invalid input, confirmed contacts, and marker wiring.
 
 ## Active Batch
 
-- Task 15: implement the current-month calendar read model.
-- Stop after the API returns the published calendar for a group/month and the Web workbench routes to the current month with visible duty names, month navigation, filtering, and phone links. Do not start Task 16.
+- Task 16: implement the manual cycle template editor.
+- Stop after the template editor supports role and member selection, dynamic date columns, shift-palette filling, clearing cells/rows/columns with confirmation, and saving templates without creating formal shifts. Do not start Task 17.
 
-Task 15 is the only implementation task authorized for the next conversation. Do not begin Task 16.
+Task 16 is the only implementation task authorized for the next conversation. Do not begin Task 17.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 15 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 7, 8, 15, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 16 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 9, 15, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -96,6 +100,7 @@ Task 15 is the only implementation task authorized for the next conversation. Do
 - Task 11 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 12 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 14 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
+- Task 15 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy. The local Vite development server still returns 200 at `http://127.0.0.1:5180`.
 
 ## Reusable Operational Notes
 
@@ -137,6 +142,7 @@ Task 15 is the only implementation task authorized for the next conversation. Do
 - Task 12: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; focused CST/status tests, migration tests, and schedule-period integration tests passed. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 72 Vitest tests (including 3 schedule-period integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 13: `pnpm exec vitest run packages/scheduling-domain/src/rotation`, `pnpm --filter @schedule/scheduling-domain typecheck`, and `pnpm lint` passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, 45 Vitest tests, and all production builds; 36 existing MySQL integration tests were skipped because no disposable `TEST_MYSQL_*` configuration was supplied. The Web build keeps the pre-existing large-entry warning at 640.36 KiB gzip.
 - Task 14: with the isolated test MySQL healthy, focused `pnpm vitest run packages/database/tests/migrations.test.ts apps/api/src/modules/schedules/schedule-repository.integration.test.ts apps/api/src/modules/schedules/schedule-generation.integration.test.ts` passed all 16 tests (7 new generation/publish integrations), and the five existing API integration suites passed 27 tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 88 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
+- Task 15: with the isolated test MySQL healthy, the focused calendar integration suite passed 6 tests (published-month read model, member access, draft/replaced exclusion, invalid input and outsider 403, confirmed contacts, and workflow-event markers). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 104 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 635.84 KiB gzip. Matching Compose `down` removed the temporary container and network.
 
 ## Recent Checkpoints
 
@@ -161,6 +167,7 @@ Task 15 is the only implementation task authorized for the next conversation. Do
 - Task 12 checkpoint commit message: `feat(schedule): add versioned periods and assignments`
 - Task 13 checkpoint commit message: `feat(schedule): implement deterministic rotation engine`
 - Task 14 checkpoint commit message: `feat(schedule): add generation preview and publishing`
+- Task 15 checkpoint commit message: `feat(calendar): show current month duty roster`
 
 ## Decisions and Blockers
 
@@ -190,6 +197,11 @@ Task 15 is the only implementation task authorized for the next conversation. Do
 - Task 14 uses `0006_schedule_generation.sql` because `0005` is already the period/assignment migration. `groups.schedule_publish_mode` defaults to `draft`, and the per-request `publishMode` override takes precedence over the group setting. `idempotency_keys.result` stores the completed save/publish response so replays return the exact original result without touching business tables; operation IDs are scoped per actor and scope, and a reused ID with a different request fingerprint returns 409.
 - Task 14 generation requires each requested role to have a configured start date (and a starting member when the rotation is non-empty); a rotation starting after the requested month is rejected with a clear message. The scheduling config response now includes `rulesVersion` so the Web client can submit the exact version it previewed.
 - Task 14 publication semantics: auto-publish and explicit publish both rebuild or reuse the preview and return 409 with the preview unless `acknowledgeBlockers: true` acknowledges hard conflicts or vacancies; drafts can always be saved with blockers. Notification dispatch for affected members is deliberately deferred to Task 23; the generation and publication events already carry `affectedMembershipIds` as the hook.
+- Task 15 shows only published periods; the administrator draft-view toggle from design section 7.3 is deferred because the Task 15 stop condition requires only the published calendar.
+- Task 15 change markers come from `schedule_events` whose `affectedShiftIds` contain the assignment, mapped by `toCalendarChangeMarker` in `apps/api/src/modules/calendar/calendar-query.ts`: `swap_completed` to 换, `leave_cover_completed` to 替, `assignment_manually_updated` to 调, and `duty_adjustment_completed` to 加. Tasks 19-21 must add or align their workflow event type names with that map; markers stay empty until those flows write such events.
+- Task 15 defers the per-shift event-timeline dialog from plan step 7 to Task 22 because no events HTTP route exists yet and the stop condition does not require it; the calendar contract already carries assignment IDs for that future lookup.
+- Task 15 puts calendar logic tests at `apps/web/src/features/calendar/current-month-calendar.spec.ts` (next to source) instead of the plan's `apps/web/tests/` path, following the repository's existing colocated test convention.
+- Task 15 rendered-page verification still requires a signed-in CloudBase session, which remains deferred to Task 30; the local Vite entry at `http://127.0.0.1:5180` returns 200 with the new calendar code hot-reloaded.
 
 ## Handoff Requirements
 
