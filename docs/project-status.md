@@ -54,6 +54,14 @@ Task 3 is the only implementation task authorized for the next conversation. It 
 - A user-owned whitespace-only edit remains unstaged in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`; do not stage or overwrite it.
 - No CloudBase development environment configuration or secrets are stored in the repository.
 
+## Reusable Operational Notes
+
+- Docker Desktop can be installed while its engine is stopped. If `docker info` reports a missing Docker named pipe, start Docker Desktop, wait for `docker info` to return a server version, then retry Compose.
+- Before diagnosing a silent `docker compose up --wait`, run `docker image inspect mysql:8.4`. If absent, run `docker pull mysql:8.4` and wait for the image to exist; no container or logs are expected before the image is available.
+- A sandboxed Docker client can warn that it cannot read the user's Docker config. Keep Compose syntax checks separate from live-engine validation; run the latter in an environment that can access Docker Desktop rather than treating the warning as a Compose-file failure.
+- Run API environment tests with `pnpm --filter @schedule/api test`; when `NODE_ENV=test`, provide only the `TEST_MYSQL_*` settings so the loader cannot fall back to development MySQL.
+- When a network or UI interruption occurs during a push, verify completion with `git status --short --branch` and `git ls-remote --heads origin main` before retrying. Never stage the user-owned plan edit shown above.
+
 ## Latest Validation
 
 - Task 1: `pnpm install --frozen-lockfile=false` passed after allowing only `esbuild` in pnpm's committed `allowBuilds` configuration.
@@ -69,7 +77,7 @@ Task 3 is the only implementation task authorized for the next conversation. It 
 - `0a375f0` — `docs: add automatic Git checkpoint policy`
 - `2238103` — `Initial commit`
 - `ae649b3` — `chore: scaffold TypeScript workspace` (pushed to `origin/main`)
-- Pending checkpoint: `chore: add local Docker development environment`
+- `c450405` — `chore: add local Docker development environment` (pushed to `origin/main`)
 
 ## Handoff Requirements
 
