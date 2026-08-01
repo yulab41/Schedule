@@ -8,12 +8,17 @@ import {
   type CloudbaseAuthClient,
   type CloudbaseSession,
 } from '../auth/cloudbase.js';
-import { ApiClientError, createApiClient, type ApiClient } from '../api/client.js';
+import { ApiClientError, createApiClient } from '../api/client.js';
 
 export type SessionStatus = 'anonymous' | 'authenticated' | 'error' | 'loading' | 'needs-profile';
 
+export interface UserProfileApi {
+  createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
+  getCurrentProfile(): Promise<UserProfile>;
+}
+
 export interface SessionDependencies {
-  readonly api: ApiClient;
+  readonly api: UserProfileApi;
   readonly auth: CloudbaseAuthClient;
 }
 

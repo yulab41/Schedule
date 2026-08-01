@@ -1,10 +1,26 @@
-import type { ApiErrorCode, ApiErrorResponse, UserProfile } from '@schedule/contracts';
+import type {
+  AddRosterEntriesResponse,
+  ApiErrorCode,
+  ApiErrorResponse,
+  ClaimGroupResponse,
+  CreateGroupRequest,
+  GroupSummary,
+  RegenerateGroupCodeRequest,
+  UserProfile,
+} from '@schedule/contracts';
 
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 
 export interface ApiClient {
+  addRosterEntries(
+    groupId: string,
+    input: { readonly realNames: readonly string[] },
+  ): Promise<AddRosterEntriesResponse>;
+  claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
+  createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
   createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
   getCurrentProfile(): Promise<UserProfile>;
+  regenerateGroupCode(groupId: string, input: RegenerateGroupCodeRequest): Promise<GroupSummary>;
 }
 
 export interface CreateApiClientOptions {
@@ -29,16 +45,80 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const fetchImplementation = options.fetch ?? fetch;
 
   return {
+    addRosterEntries(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/roster-entries`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isAddRosterEntriesResponse,
+      );
+    },
+    claimGroup(input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/groups/claim',
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isClaimGroupResponse,
+      );
+    },
+    createGroup(input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/groups',
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isGroupSummary,
+      );
+    },
     createCurrentProfile(input) {
-      return requestProfile(options.auth, fetchImplementation, baseUrl, '/users', {
-        body: JSON.stringify(input),
-        method: 'POST',
-      });
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/users',
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isUserProfile,
+      );
     },
     getCurrentProfile() {
-      return requestProfile(options.auth, fetchImplementation, baseUrl, '/users/me', {
-        method: 'GET',
-      });
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/users/me',
+        { method: 'GET' },
+        isUserProfile,
+      );
+    },
+    regenerateGroupCode(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/group-code`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isGroupSummary,
+      );
     },
   };
 }
@@ -62,13 +142,14 @@ export class ApiClientError extends Error {
   }
 }
 
-async function requestProfile(
+async function requestJson<ResponseBody>(
   auth: CloudbaseAuthClient,
   fetchImplementation: typeof fetch,
   baseUrl: string,
   path: string,
-  init: { readonly body?: string; readonly method: 'GET' | 'POST' },
-): Promise<UserProfile> {
+  init: { readonly body?: string; readonly method: 'GET' | 'POST' | 'PUT' },
+  isResponseBody: (value: unknown) => value is ResponseBody,
+): Promise<ResponseBody> {
   const session = getAuthenticatedSession(await auth.getSession());
 
   if (session === undefined) {
@@ -101,7 +182,7 @@ async function requestProfile(
     throw toApiClientError(response.status, body);
   }
 
-  if (!isUserProfile(body)) {
+  if (!isResponseBody(body)) {
     throw new ApiClientError({
       code: 'SERVICE_UNAVAILABLE',
       message: '服务返回了无效资料，请稍后重试。',
@@ -110,6 +191,29 @@ async function requestProfile(
   }
 
   return body;
+}
+
+function isAddRosterEntriesResponse(value: unknown): value is AddRosterEntriesResponse {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'added' in value &&
+    typeof value.added === 'number' &&
+    Number.isInteger(value.added) &&
+    value.added > 0
+  );
+}
+
+function isClaimGroupResponse(value: unknown): value is ClaimGroupResponse {
+  if (value === null || typeof value !== 'object' || !('status' in value)) {
+    return false;
+  }
+
+  if (value.status === 'request_created') {
+    return Object.keys(value).length === 1;
+  }
+
+  return value.status === 'claimed' && 'group' in value && isGroupSummary(value.group);
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -173,6 +277,26 @@ function isUserProfile(value: unknown): value is UserProfile {
     typeof profile.version === 'number' &&
     Number.isInteger(profile.version) &&
     profile.version >= 1
+  );
+}
+
+function isGroupSummary(value: unknown): value is GroupSummary {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const group = value as Partial<GroupSummary>;
+  return (
+    typeof group.id === 'string' &&
+    group.id.length > 0 &&
+    typeof group.name === 'string' &&
+    group.name.length > 0 &&
+    typeof group.groupCode === 'string' &&
+    /^\d{4}$/.test(group.groupCode) &&
+    (group.role === 'administrator' || group.role === 'member' || group.role === 'owner') &&
+    typeof group.version === 'number' &&
+    Number.isInteger(group.version) &&
+    group.version >= 1
   );
 }
 

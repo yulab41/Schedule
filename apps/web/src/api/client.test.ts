@@ -1,4 +1,4 @@
-import type { UserProfile } from '@schedule/contracts';
+import type { GroupSummary, UserProfile } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CloudbaseAuthClient } from '../auth/cloudbase.js';
@@ -11,6 +11,14 @@ vi.mock('@cloudbase/js-sdk', () => ({
 const profile: UserProfile = {
   id: 'profile-1',
   realName: '张医生',
+  version: 1,
+};
+
+const group: GroupSummary = {
+  groupCode: '1234',
+  id: 'group-1',
+  name: 'Emergency Department',
+  role: 'owner',
   version: 1,
 };
 
@@ -38,6 +46,56 @@ describe('Web API client', () => {
         },
         method: 'POST',
       }),
+    );
+  });
+
+  it('sends group creation, roster claiming, and group-code updates through authenticated API calls', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(group), { status: 201 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'request_created' }), { status: 202 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...group, groupCode: '9876', version: 2 }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.createGroup({ groupCode: '1234', name: 'Emergency Department' }),
+    ).resolves.toEqual(group);
+    await expect(client.claimGroup({ groupCode: '1234' })).resolves.toEqual({
+      status: 'request_created',
+    });
+    await expect(client.regenerateGroupCode(group.id, {})).resolves.toEqual({
+      ...group,
+      groupCode: '9876',
+      version: 2,
+    });
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups',
+      expect.objectContaining({
+        body: JSON.stringify({ groupCode: '1234', name: 'Emergency Department' }),
+        method: 'POST',
+      }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/claim',
+      expect.objectContaining({
+        body: JSON.stringify({ groupCode: '1234' }),
+        method: 'POST',
+      }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/groups/group-1/group-code',
+      expect.objectContaining({ body: '{}', method: 'PUT' }),
     );
   });
 

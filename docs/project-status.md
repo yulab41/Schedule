@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 7 are committed. The administrator-provisioned-account correction to Task 7 is complete and validated; this checkpoint is identified by `fix(web): remove self registration`.
+- Implementation code: Tasks 1 through 8 are complete and validated. Task 8's pending checkpoint is `feat(groups): add group codes and roster claiming`.
 
 ## Approved Sources
 
@@ -37,20 +37,23 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 7 correction completed: the Vue Web shell now supports only administrator-provisioned CloudBase username/password accounts. It has no public registration, email, or verification-code flow; login accounts are trimmed and lowercased before the SDK call, and passwords require only a nonempty value.
 - Task 7 completed: client API requests attach only the current CloudBase Bearer token; profile and session state validates responses, handles 401/403/409/network failures consistently, and never retains plaintext passwords or tokens in application state.
 - Task 7 correction completed: the obsolete registration view and SDK registration proxy were removed, while legacy `/register` now redirects to `/login`. A later WeChat identity must bind to the same stable UID as the administrator-provisioned account.
+- Task 8 completed: database-backed custom or random four-digit group codes allocate inside the group-creation transaction, retry random collisions, remain globally retained through soft deletion, and can be regenerated only by the group owner.
+- Task 8 completed: owners bulk-add uniquely pending roster names; profile-name exact matches atomically claim an entry, resolve a prior add-person request, and create membership. All group writes lock and recheck the active actor; non-matches store one pending administrator-add request without returning any group data, while persisted per-user group-code attempts return `429` after five requests per minute.
+- Task 8 completed: the Web workbench exposes group creation, roster paste, code regeneration, and group claiming; API/client, pure input, migration, and MySQL integration tests cover the workflow.
 
 ## Active Batch
 
-- Task 8: implement groups, four-digit group codes, and roster claiming.
-- Stop after the transaction-safe group-code and claiming workflow, its API and Web surfaces, and focused group tests are complete and checkpointed. Do not start Task 9.
+- Task 9: implement group-owner/admin permissions, member contacts, and safe group switching.
+- Stop after the role matrix, owner-transfer transaction, member-scoped contacts, group-switching UI, and focused permission tests are complete and checkpointed. Do not start Task 10.
 
-Task 8 is the only implementation task authorized for the next conversation. Do not begin Task 9.
+Task 9 is the only implementation task authorized for the next conversation. Do not begin Task 10.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 8 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 4.3, 5.1 through 5.3, and 19 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 9 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 4.2, 4.3, 5.3, 19, and 20 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -71,6 +74,7 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - Task 6 created an isolated MySQL on host port 3307 for verification, then stopped and removed it. It used only the disposable `schedule_test` database; the development MySQL on port 3306 remains healthy and independent.
 - Task 7 reads public `VITE_CLOUDBASE_*` configuration from the repository-root `.env` through Vite. The CloudBase HTTP deployment configuration and same-domain `/api` route remain Task 30 work; the API trusts only gateway-provided identity context, not the client Bearer header in local mode.
 - The CloudBase development environment is `schedule-dev-d1geh4w1l4af7359d`. The product policy uses administrator-created, lowercase username/password accounts; this repository deliberately contains neither CloudBase management credentials nor a public account-provisioning endpoint.
+- Task 8 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable tmpfs test schema, then removed its container and network after validation. The persistent development MySQL remains independent and healthy on port 3306.
 
 ## Reusable Operational Notes
 
@@ -104,6 +108,7 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - Task 7 correction: final `pnpm verify` passed Prettier, ESLint, strict type checks, 25 passing Vitest tests, and all production builds; 12 existing database/API integration tests were skipped because no disposable test database was configured. The Web build reports a 631 KiB gzip entry chunk after adding the CloudBase SDK.
 - Task 7 correction browser check: the local Vite app at `http://localhost:5175/register` redirected to `/login` and showed only a login-account field, password field, and login button. The local app has no CloudBase environment configuration, so no live credential submission was attempted. `git diff --check` also passed.
 - Task 7 correction review: an independent read-only review found no critical issue. The stale addendum status was changed to `已实施`; a focused test now proves one-character password acceptance and rejects an empty password before the SDK call.
+- Task 8: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed Prettier, ESLint, strict type checks, all 49 Vitest tests (including 9 group integrations), and all production builds. The temporary service was removed with the matching Compose `down` command after validation.
 
 ## Recent Checkpoints
 
@@ -121,6 +126,7 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - Task 7 checkpoint commit message: `feat(web): add registration and persistent session`
 - Account-policy correction design checkpoint commit message: `docs: specify admin-provisioned Web accounts`
 - Task 7 correction checkpoint commit message: `fix(web): remove self registration`
+- Task 8 checkpoint commit message: `feat(groups): add group codes and roster claiming`
 
 ## Decisions and Blockers
 
@@ -135,6 +141,9 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - Task 7 defers live CloudBase login and HTTP route verification to Task 30, which must configure the CloudBase HTTP access service with identity authentication and route `/api` through the trusted gateway. The client flow is covered with focused SDK and API mocks until that deployment work is available.
 - Adding the CloudBase SDK grows the initial Web entry chunk to 631 KiB gzip. Defer route-level splitting until later feature pages create a meaningful async boundary.
 - The Task 7 correction deliberately validates the declarative legacy-route redirect in the running Vite app rather than adding Vue/JSDOM support to the root Node-only Vitest configuration. Existing focused unit tests cover the session boundary; the browser check covers `/register` redirect behavior and the absence of registration UI.
+- Task 8 uses a durable, per-user, one-minute group-code attempt window rather than process-local state, so the `429` limit remains effective across CloudBase instances. The approved task requires rate limiting; an external CAPTCHA challenge is deferred until a CloudBase-compatible challenge provider can be configured without storing credentials in the repository.
+- A non-matching claim creates an idempotent pending `group_join_requests` row keyed by group and requesting user, keeps the requester's profile-name snapshot for administrators, and returns only `request_created`; it never exposes the group name, ID, or schedule data before membership exists.
+- Claiming resolves any matching pending join request in the same transaction. Every group mutation locks and rechecks the user's active state before changing groups, rosters, memberships, or group codes; integration tests use independent MySQL clients and distinct eligible users for code-creation and claim races.
 
 ## Handoff Requirements
 

@@ -153,3 +153,36 @@ export const idempotencyKeys = mysqlTable(
     index('idempotency_keys_expires_at_idx').on(table.expiresAt),
   ],
 );
+
+export const groupCodeAttempts = mysqlTable('group_code_attempts', {
+  userId: char('user_id', { length: 36 })
+    .primaryKey()
+    .references(() => users.id),
+  windowStartedAt: timestamp('window_started_at', { fsp: 3 }).defaultNow().notNull(),
+  attemptCount: int('attempt_count', { unsigned: true }).default(1).notNull(),
+});
+
+export const groupJoinRequests = mysqlTable(
+  'group_join_requests',
+  {
+    id: identifier(),
+    groupId: char('group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id),
+    requestingUserId: char('requesting_user_id', { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    requestedRealName: varchar('requested_real_name', { length: 100 }).notNull(),
+    status: mysqlEnum('status', ['pending', 'resolved', 'rejected']).default('pending').notNull(),
+    pendingRequestKey: varchar('pending_request_key', { length: 73 }).generatedAlwaysAs(
+      sql`if(deleted_at is null and status = 'pending', concat(group_id, ':', requesting_user_id), null)`,
+      { mode: 'stored' },
+    ),
+    ...auditableColumns(),
+  },
+  (table) => [
+    uniqueIndex('group_join_requests_pending_request_unique').on(table.pendingRequestKey),
+    index('group_join_requests_group_status_idx').on(table.groupId, table.status),
+    index('group_join_requests_user_status_idx').on(table.requestingUserId, table.status),
+  ],
+);

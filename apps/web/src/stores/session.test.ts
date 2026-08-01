@@ -1,10 +1,9 @@
 import type { UserProfile } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ApiClient } from '../api/client.js';
 import { ApiClientError } from '../api/client.js';
 import type { CloudbaseAuthClient, CloudbaseSession } from '../auth/cloudbase.js';
-import { createSessionManager } from './session.js';
+import { createSessionManager, type UserProfileApi } from './session.js';
 
 vi.mock('@cloudbase/js-sdk', () => ({
   default: { init: vi.fn() },
@@ -99,7 +98,7 @@ describe('session manager', () => {
   });
 });
 
-function createApiClient(overrides: Partial<ApiClient> = {}): ApiClient {
+function createApiClient(overrides: Partial<UserProfileApi> = {}): UserProfileApi {
   return {
     createCurrentProfile: vi.fn().mockResolvedValue(profile),
     getCurrentProfile: vi.fn().mockResolvedValue(profile),
