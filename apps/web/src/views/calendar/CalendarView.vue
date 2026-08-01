@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import type { CalendarReadModel, GroupSummary } from '@schedule/contracts';
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
+import {
+  getConflictLatestData,
+  getConflictMessage,
+  getVersionConflictSummary,
+  isDataConflictError,
+} from '../../api/conflict-handler.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import {
   addBusinessMonths,
   createLatestRequestTracker,
@@ -21,6 +28,9 @@ const api = createApiClient({ auth: cloudbaseAuth });
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendar = ref<CalendarReadModel>();
 const errorMessage = ref<string>();
+const conflictMessage = ref('');
+const conflictSummary = ref<string>();
+const conflictVisible = ref(false);
 const isLoading = ref(false);
 const membershipIds = ref<string[]>([]);
 const onlyChanges = ref(false);
@@ -61,6 +71,18 @@ watch(
   { immediate: true },
 );
 
+onMounted(() => {
+  window.addEventListener('focus', onWindowFocus);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', onWindowFocus);
+});
+
+function onWindowFocus(): void {
+  void loadCalendar();
+}
+
 async function loadCalendar(): Promise<void> {
   const request = requestTracker.begin();
   errorMessage.value = undefined;
@@ -74,13 +96,24 @@ async function loadCalendar(): Promise<void> {
     }
   } catch (error) {
     if (requestTracker.isCurrent(request)) {
-      errorMessage.value = getErrorMessage(error);
+      if (isDataConflictError(error)) {
+        conflictMessage.value = getConflictMessage(error);
+        conflictSummary.value = getVersionConflictSummary(getConflictLatestData(error));
+        conflictVisible.value = true;
+      } else {
+        errorMessage.value = getErrorMessage(error);
+      }
     }
   } finally {
     if (requestTracker.isCurrent(request)) {
       isLoading.value = false;
     }
   }
+}
+
+function refreshAfterConflict(): void {
+  conflictVisible.value = false;
+  void loadCalendar();
 }
 
 function goToPreviousMonth(): void {
@@ -147,6 +180,13 @@ function getErrorMessage(error: unknown): string {
         {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
       </p>
     </template>
+    <DataConflictDialog
+      :message="conflictMessage"
+      :summary="conflictSummary"
+      :visible="conflictVisible"
+      @close="conflictVisible = false"
+      @refresh="refreshAfterConflict"
+    />
   </section>
 </template>
 

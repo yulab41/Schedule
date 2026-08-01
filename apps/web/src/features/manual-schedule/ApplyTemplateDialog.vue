@@ -10,6 +10,7 @@ import type {
 import { computed, onMounted, ref } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
+import { isDataConflictError } from '../../api/conflict-handler.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { getTemplateDateColumns } from './manual-schedule-logic.js';
 
@@ -83,6 +84,9 @@ async function computePreview(): Promise<void> {
     });
     acknowledgeBlockers.value = false;
   } catch (error) {
+    if (isDataConflictError(error)) {
+      await loadContext();
+    }
     errorMessage.value = getErrorMessage(error);
   } finally {
     isPreviewing.value = false;
@@ -111,6 +115,9 @@ async function apply(): Promise<void> {
     });
     emit('applied', result);
   } catch (error) {
+    if (isDataConflictError(error)) {
+      await loadContext();
+    }
     errorMessage.value = getErrorMessage(error);
   } finally {
     isApplying.value = false;

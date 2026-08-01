@@ -14,6 +14,7 @@ import type {
   GroupMemberContact,
   GroupSchedulePublishMode,
   GroupSummary,
+  JsonObject,
   ManualApplyPreview,
   ManualScheduleTemplate,
   PreviewManualTemplateApplyRequest,
@@ -460,11 +461,13 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
 
 export class ApiClientError extends Error {
   public readonly code: ApiErrorCode | 'NETWORK_ERROR' | undefined;
+  public readonly latestData: JsonObject | undefined;
   public readonly requestId: string | undefined;
   public readonly status: number | undefined;
 
   public constructor(input: {
     readonly code?: ApiErrorCode | 'NETWORK_ERROR';
+    readonly latestData?: JsonObject;
     readonly message: string;
     readonly requestId?: string;
     readonly status?: number;
@@ -472,6 +475,7 @@ export class ApiClientError extends Error {
     super(input.message);
     this.name = 'ApiClientError';
     this.code = input.code;
+    this.latestData = input.latestData;
     this.requestId = input.requestId;
     this.status = input.status;
   }
@@ -878,6 +882,7 @@ function toApiClientError(status: number, body: unknown): ApiClientError {
   if (isApiErrorResponse(body)) {
     return new ApiClientError({
       code: body.error.code,
+      ...(body.error.latestData === undefined ? {} : { latestData: body.error.latestData }),
       message: body.error.message,
       requestId: body.error.requestId,
       status,

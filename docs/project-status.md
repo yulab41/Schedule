@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Two — Events and Scheduling Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 17 are complete and validated. Task 17's checkpoint commit message is `feat(schedule): apply manual templates to periods`.
+- Implementation code: Tasks 1 through 18 are complete and validated. Task 18's checkpoint commit message is `feat(schedule): enforce optimistic concurrency control`.
 
 ## Approved Sources
 
@@ -68,18 +68,21 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 17 completed: the pure `applyManualTemplate` domain module supports a single cycle or repetition to an explicit end date (inclusive, truncated mid-cycle), revalidates members (active status and effective ranges) and shift types, derives stable slot positions per day, reuses the rotation conflict/warning detectors, adds leave-overlap hard conflicts through an empty-by-default leave interval hook, and emits explicit vacancies for unavailable members instead of silently skipping.
 - Task 17 completed: `POST /groups/:groupId/manual-schedule-templates/:templateId/apply-preview` and `/apply` run inside transactions, require the current group `rulesVersion` (stale rules return 409 with the latest version), group assignments by business month into new period revisions without touching the current published version, publish immediately only when the group publish mode (or request override) says so, and record `manual_schedule_template_applied` scope events per month with template version and range data; the apply save is idempotent by operation ID with the same scope/fingerprint rules as schedule generation.
 - Task 17 completed: blocked shift type references return 400 instead of generating silently, unacknowledged publication is blocked when conflicts or vacancies exist, and the Web workbench gains an apply-template dialog with single-cycle/repeat-end-date selection, full preview statistics (by shift type, counted duty, vacancies), conflict/warning/acknowledgement surfaces, and a post-apply summary; the Web client exposes preview/apply and schedule publish-mode calls with response validators.
+- Task 18 completed: the generic idempotency helper moved to `apps/api/src/plugins/idempotency.ts` and now backs schedule generation, explicit publication, and manual template application; a `concurrency/version-guard.ts` module centralizes expected-version checks and returns 409 with a consistent latest summary (`id`, `objectType`, `version`, plus operation-specific fields) without writing events.
+- Task 18 completed: the version guard is adopted by manual template updates, schedule period publication (both service and repository backstops), profile updates (which now re-read the latest version when possible), and the existing rules-version checks; the Web client carries `latestData` on `ApiClientError`, and `DataConflictDialog` plus the conflict handler show "数据已更新" with the latest version summary, auto-refresh the current month and operation window, and never replay the old operation.
+- Task 18 completed: calendar and manual-schedule views refresh on window focus, the apply dialog re-fetches rules/publish state after a conflict, and the Web conflict flow requires the user to re-confirm based on fresh data; concurrency integration tests prove one winner for concurrent template updates and publications, latest summaries for losing profile updates, and operation-ID fingerprint rejection without duplicate events.
 
 ## Active Batch
 
-- Task 18: implement optimistic concurrency protection and the conflict dialog.
-- Stop after core mutations submit expected versions, write transactions lock in fixed order, version mismatches return 409 with the latest summary without writing events, operation IDs prevent duplicate submissions, the Web shows a data-changed dialog that auto-refreshes the current month and operation window, focus/open/submit check the latest version, and users must re-confirm after refresh. Task 18 was explicitly authorized by the user together with Task 17.
+- Task 19: implement leave requests with precise time overlap and the two reflow strategies.
+- Stop after typed/all-day leave with reasons can preview and safely adjust subsequent schedules, any time overlap makes a shift unassignable, the keep-original-order strategy replaces only affected shifts, the shift-forward strategy skips the member and advances the rotation cursor, approval can override the group default strategy, and the effective change commits in a transaction with version checks and events. This is the first task of Phase Three and is complex workflow/concurrency work, so it should be the only task in its batch.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
 3. Read Task 17 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 9, 13, 15, 19, 21, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+4. Read design sections 10, 15, 19, 21, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -152,6 +155,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 15: with the isolated test MySQL healthy, the focused calendar integration suite passed 6 tests (published-month read model, member access, draft/replaced exclusion, invalid input and outsider 403, confirmed contacts, and workflow-event markers). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 104 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 635.84 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 16: with the isolated test MySQL healthy, focused migration and template integration suites passed 11 tests (6 migration + 5 template integrations). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 118 Vitest tests (including 53 integration tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 640.72 KiB gzip.
 - Task 17: with the isolated test MySQL healthy, focused manual-apply integration passed 10 tests (single-cycle preview, repeat/truncation, draft vs published handling, version replacement, scope events, stale rules 409, vacancy blocking/acknowledgement, disabled shift types, idempotent replay, permissions) plus the 5 template tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 145 Vitest tests (14 new domain, 10 new apply integrations, 3 new Web client tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 643.28 KiB gzip.
+- Task 18: with the isolated test MySQL healthy, focused concurrency integration passed 4 tests (concurrent template update, concurrent period publication, latest profile version, operation-ID fingerprint rejection). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 152 Vitest tests (4 new concurrency integrations, 3 new Web conflict-handler tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 644.16 KiB gzip.
 
 ## Recent Checkpoints
 
@@ -179,6 +183,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 15 checkpoint commit message: `feat(calendar): show current month duty roster`
 - Task 16 checkpoint commit message: `feat(schedule): add manual cycle template editor`
 - Task 17 checkpoint commit message: `feat(schedule): apply manual templates to periods`
+- Task 18 checkpoint commit message: `feat(schedule): enforce optimistic concurrency control`
 
 ## Decisions and Blockers
 
@@ -221,6 +226,10 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 17 keeps template revalidation semantics permissive for version drift: members still active in the role and shift types still enabled are revalidated against current configuration and applied with current versions; only genuinely invalid references block (disabled shift types return 400) or become explicit vacancies (left/inactive/out-of-range members), matching the "no silent invalid reference" rule.
 - Task 17 period summaries keep the existing repository convention where `businessMonth` is the full DATE value (`2026-08-01`); the Web dialog displays the month by slicing to `YYYY-MM`.
 - Task 17 puts the manual-apply integration test at `apps/api/src/modules/manual-schedules/manual-apply.integration.test.ts` (colocated, matching repository convention) and the domain tests at `packages/scheduling-domain/src/manual/apply-template.test.ts`.
+- Task 18 moves `withIdempotentOperation` to `apps/api/src/plugins/idempotency.ts`; the old `modules/schedules/idempotency.ts` was deleted and all three consumers (generation, publication, manual apply) now import the plugin.
+- Task 18 deliberately does not retrofit `expectedVersion` onto the legacy group/config mutation endpoints (group code, owner transfer, member role, contacts, role members, rotation order/rule, shift types). Those endpoints were not part of the task's file list, their operation windows arrive with Tasks 19-21, and the shared version guard now exists for them to adopt; the task's acceptance scenarios (same-shift/template/period races) are covered by the template, period, and profile concurrency tests.
+- Task 18 keeps the profile-update 409 when a user is suspended between lookup and mutation: the guard re-reads the latest version when possible but falls back to the last known version if the user can no longer be read, preserving the pre-existing 409 behavior.
+- Task 18 tests follow the colocated convention: `apps/api/src/modules/concurrency/concurrency.integration.test.ts` and `apps/web/src/api/conflict-handler.spec.ts`; rendered-dialog verification still requires a signed-in CloudBase session and remains deferred to Task 30.
 
 ## Handoff Requirements
 

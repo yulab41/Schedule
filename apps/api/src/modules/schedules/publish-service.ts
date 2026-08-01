@@ -29,8 +29,9 @@ import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { withIdempotentOperation } from '../../plugins/idempotency.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
-import { withIdempotentOperation } from './idempotency.js';
 import { ScheduleRepository } from './schedule-repository.js';
 import { toLatestData, toPeriodSummary } from './shared.js';
 
@@ -90,14 +91,14 @@ export class SchedulePublishService {
     input: PublishSchedulePeriodRequest,
   ): Promise<PublishSchedulePeriodResult> {
     const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
-    if (period.version !== input.expectedVersion) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: { id: period.id, status: period.status, version: period.version },
-        statusCode: 409,
-        userMessage: '排班期间已被更新，请刷新后重试。',
-      });
-    }
+    assertExpectedVersion({
+      actualVersion: period.version,
+      expectedVersion: input.expectedVersion,
+      id: period.id,
+      latestData: { status: period.status },
+      objectType: 'schedule_period',
+      userMessage: '排班期间已被更新，请刷新后重试。',
+    });
 
     const assignments = await transaction
       .select()

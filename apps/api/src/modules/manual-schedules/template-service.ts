@@ -25,6 +25,7 @@ import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
 
@@ -166,14 +167,13 @@ export class ManualScheduleTemplateService {
         'manageScheduleConfiguration',
       );
       const template = await this.lockTemplate(transaction, authorization.group.id, templateId);
-      if (template.version !== input.expectedVersion) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          latestData: { id: template.id, version: template.version },
-          statusCode: 409,
-          userMessage: '模板已被其他管理员更新，请刷新后重试。',
-        });
-      }
+      assertExpectedVersion({
+        actualVersion: template.version,
+        expectedVersion: input.expectedVersion,
+        id: template.id,
+        objectType: 'manual_schedule_template',
+        userMessage: '模板已被其他管理员更新，请刷新后重试。',
+      });
 
       const references = await this.validateAndCaptureReferences(transaction, authorization, input);
       await transaction

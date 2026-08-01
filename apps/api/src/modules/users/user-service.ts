@@ -93,8 +93,19 @@ export class UserService {
       );
 
     if (result.affectedRows !== 1) {
+      let latestVersion = profile.version;
+      try {
+        latestVersion = (await this.getActiveProfile(identity.cloudbaseUid)).version;
+      } catch {
+        // A suspended or deleted user cannot be re-read; keep the last known version.
+      }
       throw new ApiError({
         code: 'CONFLICT',
+        latestData: {
+          id: profile.id,
+          objectType: 'user_profile',
+          version: latestVersion,
+        },
         statusCode: 409,
         userMessage: '资料已被更新，请刷新后重试。',
       });

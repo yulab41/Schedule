@@ -6,10 +6,17 @@ import type {
   ManualScheduleTemplate,
   SchedulingConfig,
 } from '@schedule/contracts';
-import { computed, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
+import {
+  getConflictLatestData,
+  getConflictMessage,
+  getVersionConflictSummary,
+  isDataConflictError,
+} from '../../api/conflict-handler.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
 import ApplyTemplateDialog from '../../features/manual-schedule/ApplyTemplateDialog.vue';
 import ClearActions from '../../features/manual-schedule/ClearActions.vue';
@@ -48,6 +55,9 @@ const staleCellKeys = ref<ReadonlySet<string>>(new Set());
 const undoStack = reactive(createTemplateUndoStack());
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
+const conflictMessage = ref('');
+const conflictSummary = ref<string>();
+const conflictVisible = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const applyTarget = ref<ManualScheduleTemplate>();
@@ -335,10 +345,26 @@ async function save(): Promise<void> {
     await loadData();
     openTemplate(saved);
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    if (isDataConflictError(error)) {
+      conflictMessage.value = getConflictMessage(error);
+      conflictSummary.value = getVersionConflictSummary(getConflictLatestData(error));
+      conflictVisible.value = true;
+    } else {
+      errorMessage.value = getErrorMessage(error);
+    }
   } finally {
     isSaving.value = false;
   }
+}
+
+function refreshAfterConflict(): void {
+  conflictVisible.value = false;
+  void loadData().then(() => {
+    const template = templates.value.find((candidate) => candidate.id === selectedTemplateId.value);
+    if (template !== undefined) {
+      openTemplate(template);
+    }
+  });
 }
 
 function openApplyDialog(): void {
@@ -366,6 +392,17 @@ function getErrorMessage(error: unknown): string {
 }
 
 void loadData();
+onMounted(() => {
+  window.addEventListener('focus', onWindowFocus);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', onWindowFocus);
+});
+
+function onWindowFocus(): void {
+  void loadData();
+}
 </script>
 
 <template>
@@ -453,6 +490,13 @@ void loadData();
       :template="applyTarget"
       @applied="onApplied"
       @close="applyTarget = undefined"
+    />
+    <DataConflictDialog
+      :message="conflictMessage"
+      :summary="conflictSummary"
+      :visible="conflictVisible"
+      @close="conflictVisible = false"
+      @refresh="refreshAfterConflict"
     />
   </section>
 </template>

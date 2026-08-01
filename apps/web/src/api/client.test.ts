@@ -447,6 +447,11 @@ describe('Web API client', () => {
         JSON.stringify({
           error: {
             code: 'CONFLICT',
+            latestData: {
+              id: 'template-1',
+              objectType: 'manual_schedule_template',
+              version: 2,
+            },
             message: '资料已发生变化。',
             requestId: 'request-1',
           },
@@ -461,6 +466,11 @@ describe('Web API client', () => {
 
     await expect(client.getCurrentProfile()).rejects.toMatchObject({
       code: 'CONFLICT',
+      latestData: {
+        id: 'template-1',
+        objectType: 'manual_schedule_template',
+        version: 2,
+      },
       requestId: 'request-1',
       status: 409,
     });

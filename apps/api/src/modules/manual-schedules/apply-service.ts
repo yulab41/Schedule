@@ -39,7 +39,7 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
-import { withIdempotentOperation } from '../schedules/idempotency.js';
+import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import {
   ScheduleRepository,
   type CreateShiftAssignmentInput,

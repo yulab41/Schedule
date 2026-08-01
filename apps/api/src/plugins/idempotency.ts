@@ -4,7 +4,7 @@ import type { DatabaseTransaction } from '@schedule/database';
 import { idempotencyKeys } from '@schedule/database';
 import { and, eq, sql } from 'drizzle-orm';
 
-import { ApiError } from '../../plugins/error-handler.js';
+import { ApiError } from './error-handler.js';
 
 const defaultIdempotencyLifetimeMilliseconds = 24 * 60 * 60 * 1000;
 
@@ -44,7 +44,7 @@ export async function withIdempotentOperation<Result>(
         status: 'processing',
       });
     } else if (existing.requestFingerprint !== input.requestFingerprint) {
-      throw operationConflict('该操作编号已被用于其他请求，请使用新的操作编号。');
+      throw operationConflict('该操作编号已用于其他请求，请使用新的操作编号。');
     } else if (existing.status === 'completed' && existing.result !== null) {
       return existing.result as unknown as Result;
     } else if (existing.status === 'processing' && existing.expiresAt.valueOf() > Date.now()) {

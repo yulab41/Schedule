@@ -21,6 +21,7 @@ import {
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { assertExpectedVersion as assertVersionMatch } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
 
 export interface CreateSchedulePeriodInput {
@@ -155,7 +156,7 @@ export class ScheduleRepository {
     input: SchedulePeriodMutationInput,
   ): Promise<SchedulePeriodRecord> {
     const target = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
-    assertExpectedVersion(target, input.expectedVersion);
+    assertExpectedPeriodVersion(target, input.expectedVersion);
     assertTransition(target.status, 'published');
 
     const [currentPublished] = await transaction
@@ -231,7 +232,7 @@ export class ScheduleRepository {
   public async withdraw(input: SchedulePeriodMutationInput): Promise<SchedulePeriodRecord> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const period = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
-      assertExpectedVersion(period, input.expectedVersion);
+      assertExpectedPeriodVersion(period, input.expectedVersion);
       assertTransition(period.status, 'withdrawn');
 
       await transaction
@@ -268,7 +269,7 @@ export class ScheduleRepository {
   ): Promise<SchedulePeriodRecord> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const period = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
-      assertExpectedVersion(period, input.expectedVersion);
+      assertExpectedPeriodVersion(period, input.expectedVersion);
       assertTransition(period.status, nextStatus);
 
       await transaction
@@ -529,20 +530,18 @@ function getAffectedMembershipIds(assignments: readonly CreateShiftAssignmentInp
   ];
 }
 
-function assertExpectedVersion(period: LockedSchedulePeriod, expectedVersion: number): void {
+function assertExpectedPeriodVersion(period: LockedSchedulePeriod, expectedVersion: number): void {
   if (
     !Number.isInteger(expectedVersion) ||
     expectedVersion < 1 ||
     period.version !== expectedVersion
   ) {
-    throw new ApiError({
-      code: 'CONFLICT',
-      latestData: {
-        id: period.id,
-        status: period.status,
-        version: period.version,
-      },
-      statusCode: 409,
+    assertVersionMatch({
+      actualVersion: period.version,
+      expectedVersion,
+      id: period.id,
+      latestData: { status: period.status },
+      objectType: 'schedule_period',
       userMessage: 'The schedule period has changed. Refresh and try again.',
     });
   }

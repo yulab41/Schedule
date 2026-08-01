@@ -43,9 +43,9 @@ import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
-import { withIdempotentOperation } from './idempotency.js';
 import { toLatestData, toPeriodSummary } from './shared.js';
 import { ScheduleRepository, type CreateShiftAssignmentInput } from './schedule-repository.js';
 

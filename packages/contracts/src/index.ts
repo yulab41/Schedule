@@ -1,4 +1,5 @@
 export * from './errors.js';
+export * from './concurrency.js';
 export * from './events.js';
 export * from './groups.js';
 export * from './manual-schedules.js';
