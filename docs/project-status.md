@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Two — Events and Scheduling Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 15 are complete and validated. Task 15's pending checkpoint is `feat(calendar): show current month duty roster`.
+- Implementation code: Tasks 1 through 16 are complete and validated. Task 16's checkpoint commit message is `feat(schedule): add manual cycle template editor`.
 
 ## Approved Sources
 
@@ -60,19 +60,24 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 15 completed: members can read the calendar and outsiders receive 403; invalid or missing months return 400. The query reuses existing period, assignment, contact, and event indexes, so no new migration is needed.
 - Task 15 completed: the Web workbench now defaults to the current China Standard Time month calendar with duty names visible directly in each day cell, previous/next month and today navigation, a year-month picker, role/shift-type/member and only-changes filters, today highlighting, and quick-dial popups (mobile dial links, desktop copy) that never construct links for unconfirmed or missing numbers.
 - Task 15 completed: calendar logic tests cover CST month boundaries, Monday-first month grids including leap February, filters, phone options and dial links, marker labels, and a stale-response guard; Web client tests cover the calendar request and response validation. API integration tests cover published-only data, member access, draft/replaced exclusion, invalid input, confirmed contacts, and marker wiring.
+- Task 16 completed: migration `0007_manual_schedule_templates.sql` adds `manual_schedule_templates`, `manual_schedule_template_members`, and `manual_schedule_cells` with cycle-day checks, soft-delete uniqueness, and stored member/role and shift-type version references.
+- Task 16 completed: the template service creates, lists, and updates templates in transactions; saving captures each member's current schedule-role version and each cell's shift-type configuration version, rejects disabled shift types and non-role members, enforces optimistic versions with 409 conflicts, appends created/updated events, and never creates formal shifts or periods.
+- Task 16 completed: the read model returns current role/shift-type state next to the saved reference versions, so members who left the role and disabled or reconfigured shift types are flagged as stale (`isStale`) instead of silently regenerating later.
+- Task 16 completed: the Web workbench gains a manual-schedule tab with template create/edit selection, schedule-role and member checkboxes, dynamic 1-31 day date columns with weekday and holiday-summary header rows, a shift palette restricted to enabled shift types, cell/row/column clearing with row/column confirmation, and a pre-save undo stack.
+- Task 16 completed: editor logic tests cover 7/30-day columns across month boundaries, targeted cell/row/column clearing, enabled-only filling, template round-tripping, and undo stack behavior; client tests cover create/list/update calls and malformed-response rejection; MySQL integration tests cover reference versions, no formal shifts, stale references, conflict updates, disabled shifts, permissions, and validation.
 
 ## Active Batch
 
-- Task 16: implement the manual cycle template editor.
-- Stop after the template editor supports role and member selection, dynamic date columns, shift-palette filling, clearing cells/rows/columns with confirmation, and saving templates without creating formal shifts. Do not start Task 17.
+- Task 17: implement template single application and cyclic application.
+- Stop after a manual template can apply one cycle or repeat to a specified end date with revalidation of members, shift types, leave, and time conflicts, a full preview and statistics summary, saving as a new schedule version without overwriting the current published version, group publish-mode draft/publish handling, and template version/scope events. Do not start Task 18.
 
-Task 16 is the only implementation task authorized for the next conversation. Do not begin Task 17.
+Task 17 is the only implementation task authorized for the next conversation. Do not begin Task 18.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 16 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+3. Read Task 17 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
 4. Read design sections 9, 15, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
@@ -101,6 +106,7 @@ Task 16 is the only implementation task authorized for the next conversation. Do
 - Task 12 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 14 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 15 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy. The local Vite development server still returns 200 at `http://127.0.0.1:5180`.
+- Task 16 validation reused the already-running `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema. The container and network were left running after verification; run the matching Compose `down` before the next validation round if desired. The persistent development MySQL on port 3306 remains independent and healthy.
 
 ## Reusable Operational Notes
 
@@ -143,6 +149,7 @@ Task 16 is the only implementation task authorized for the next conversation. Do
 - Task 13: `pnpm exec vitest run packages/scheduling-domain/src/rotation`, `pnpm --filter @schedule/scheduling-domain typecheck`, and `pnpm lint` passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, 45 Vitest tests, and all production builds; 36 existing MySQL integration tests were skipped because no disposable `TEST_MYSQL_*` configuration was supplied. The Web build keeps the pre-existing large-entry warning at 640.36 KiB gzip.
 - Task 14: with the isolated test MySQL healthy, focused `pnpm vitest run packages/database/tests/migrations.test.ts apps/api/src/modules/schedules/schedule-repository.integration.test.ts apps/api/src/modules/schedules/schedule-generation.integration.test.ts` passed all 16 tests (7 new generation/publish integrations), and the five existing API integration suites passed 27 tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 88 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 15: with the isolated test MySQL healthy, the focused calendar integration suite passed 6 tests (published-month read model, member access, draft/replaced exclusion, invalid input and outsider 403, confirmed contacts, and workflow-event markers). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 104 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 635.84 KiB gzip. Matching Compose `down` removed the temporary container and network.
+- Task 16: with the isolated test MySQL healthy, focused migration and template integration suites passed 11 tests (6 migration + 5 template integrations). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 118 Vitest tests (including 53 integration tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 640.72 KiB gzip.
 
 ## Recent Checkpoints
 
@@ -168,6 +175,7 @@ Task 16 is the only implementation task authorized for the next conversation. Do
 - Task 13 checkpoint commit message: `feat(schedule): implement deterministic rotation engine`
 - Task 14 checkpoint commit message: `feat(schedule): add generation preview and publishing`
 - Task 15 checkpoint commit message: `feat(calendar): show current month duty roster`
+- Task 16 checkpoint commit message: `feat(schedule): add manual cycle template editor`
 
 ## Decisions and Blockers
 
@@ -202,6 +210,9 @@ Task 16 is the only implementation task authorized for the next conversation. Do
 - Task 15 defers the per-shift event-timeline dialog from plan step 7 to Task 22 because no events HTTP route exists yet and the stop condition does not require it; the calendar contract already carries assignment IDs for that future lookup.
 - Task 15 puts calendar logic tests at `apps/web/src/features/calendar/current-month-calendar.spec.ts` (next to source) instead of the plan's `apps/web/tests/` path, following the repository's existing colocated test convention.
 - Task 15 rendered-page verification still requires a signed-in CloudBase session, which remains deferred to Task 30; the local Vite entry at `http://127.0.0.1:5180` returns 200 with the new calendar code hot-reloaded.
+- Task 16 uses `0007_manual_schedule_templates.sql` because `0005` and `0006` are already committed for periods and generation; the plan's illustrative `0005` filename must not be reused. Template edits soft-delete all prior members/cells and insert new rows, so each update remains append-only history while only non-deleted rows form the current template.
+- Task 16 template members match the scheduling-config role-member view (active memberships and users, non-deleted role links) and do not apply effective-from/effective-to filtering, which remains deferred to Task 17 revalidation together with leave and time-conflict checks. The editor palette filters to enabled shift types; stale disabled references from saved templates stay visible with a warning and cannot be re-filled.
+- Task 16 keeps the manual-schedule editor test colocated at `apps/web/src/features/manual-schedule/manual-schedule-editor.spec.ts` (next to source) instead of the plan's `apps/web/tests/` path, following the repository's existing colocated test convention. Rendered-page verification still requires a signed-in CloudBase session and remains deferred to Task 30.
 
 ## Handoff Requirements
 

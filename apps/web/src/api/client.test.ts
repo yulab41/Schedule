@@ -1,4 +1,9 @@
-import type { CalendarReadModel, GroupSummary, UserProfile } from '@schedule/contracts';
+import type {
+  CalendarReadModel,
+  GroupSummary,
+  ManualScheduleTemplate,
+  UserProfile,
+} from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CloudbaseAuthClient } from '../auth/cloudbase.js';
@@ -66,6 +71,41 @@ const calendar: CalendarReadModel = {
       textColor: '#FFFFFF',
     },
   ],
+};
+
+const manualTemplate: ManualScheduleTemplate = {
+  cells: [
+    {
+      currentShiftTypeConfigurationVersion: 1,
+      cycleDay: 1,
+      isShiftTypeEnabled: true,
+      isStale: false,
+      membershipId: 'membership-1',
+      shiftTypeAbbreviation: '全',
+      shiftTypeColor: '#1F5AA6',
+      shiftTypeConfigurationVersion: 1,
+      shiftTypeId: 'shift-1',
+      shiftTypeName: '全天班',
+      shiftTypeTextColor: '#FFFFFF',
+    },
+  ],
+  cycleDays: 7,
+  groupId: 'group-1',
+  id: 'template-1',
+  members: [
+    {
+      currentMemberScheduleRoleVersion: 1,
+      isAvailable: true,
+      isStale: false,
+      membershipId: 'membership-1',
+      memberScheduleRoleVersion: 1,
+      realName: '张医生',
+    },
+  ],
+  scheduleRoleId: 'role-1',
+  scheduleRoleName: '一线',
+  startDate: '2026-08-01',
+  version: 1,
 };
 
 describe('Web API client', () => {
@@ -174,6 +214,72 @@ describe('Web API client', () => {
     });
 
     await expect(client.getCalendar(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('creates, lists, and updates manual schedule templates through authenticated API calls', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(manualTemplate), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([manualTemplate]), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...manualTemplate, version: 2 }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+    const createInput = {
+      cells: [{ cycleDay: 1, membershipId: 'membership-1', shiftTypeId: 'shift-1' }],
+      cycleDays: 7,
+      membershipIds: ['membership-1'],
+      scheduleRoleId: 'role-1',
+      startDate: '2026-08-01',
+    };
+
+    await expect(client.createManualScheduleTemplate(group.id, createInput)).resolves.toEqual(
+      manualTemplate,
+    );
+    await expect(client.listManualScheduleTemplates(group.id)).resolves.toEqual([manualTemplate]);
+    await expect(
+      client.updateManualScheduleTemplate(group.id, manualTemplate.id, {
+        ...createInput,
+        expectedVersion: 1,
+      }),
+    ).resolves.toEqual({ ...manualTemplate, version: 2 });
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/manual-schedule-templates',
+      expect.objectContaining({
+        body: JSON.stringify(createInput),
+        method: 'POST',
+      }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/manual-schedule-templates',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/groups/group-1/manual-schedule-templates/template-1',
+      expect.objectContaining({ method: 'PUT' }),
+    );
+  });
+
+  it('rejects a malformed manual template response', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'template-1' }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listManualScheduleTemplates(group.id)).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });

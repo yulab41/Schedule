@@ -9,6 +9,7 @@ import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
 import MemberManager from '../features/members/MemberManager.vue';
 import SchedulingConfigPanel from '../features/scheduling-config/SchedulingConfigPanel.vue';
 import CalendarView from './calendar/CalendarView.vue';
+import ManualScheduleView from './schedules/ManualScheduleView.vue';
 
 const lastGroupStorageKey = 'schedule.last-group-id';
 const api = createApiClient({ auth: cloudbaseAuth });
@@ -16,6 +17,7 @@ const groups = ref<GroupSummary[]>([]);
 const currentGroupId = ref<string>();
 const errorMessage = ref<string>();
 const isLoading = ref(false);
+const activeTab = ref('calendar');
 
 onMounted(() => {
   void refreshGroups();
@@ -52,6 +54,11 @@ function currentGroup(): GroupSummary | undefined {
   return groups.value.find((group) => group.id === currentGroupId.value);
 }
 
+function selectGroupTab(groupId: string | undefined): void {
+  selectGroup(groupId);
+  activeTab.value = 'calendar';
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof ApiClientError ? error.message : '群组数据暂时无法加载，请稍后重试。';
 }
@@ -66,13 +73,24 @@ function getErrorMessage(error: unknown): string {
       <GroupSwitcher
         :groups="groups"
         :model-value="currentGroupId"
-        @update:model-value="selectGroup"
+        @update:model-value="selectGroupTab"
       />
       <section v-if="currentGroup() !== undefined" class="current-group-workbench">
         <h2>{{ currentGroup()?.name }}</h2>
-        <CalendarView :group="currentGroup()!" />
-        <MemberManager :group="currentGroup()!" @group-changed="refreshGroups" />
-        <SchedulingConfigPanel v-if="currentGroup()?.role !== 'member'" :group="currentGroup()!" />
+        <t-tabs v-model="activeTab">
+          <t-tab-panel value="calendar" label="排班日历">
+            <CalendarView :group="currentGroup()!" />
+          </t-tab-panel>
+          <t-tab-panel v-if="currentGroup()?.role !== 'member'" value="manual" label="手动排班">
+            <ManualScheduleView :group="currentGroup()!" />
+          </t-tab-panel>
+          <t-tab-panel value="members" label="成员">
+            <MemberManager :group="currentGroup()!" @group-changed="refreshGroups" />
+          </t-tab-panel>
+          <t-tab-panel v-if="currentGroup()?.role !== 'member'" value="config" label="排班配置">
+            <SchedulingConfigPanel :group="currentGroup()!" />
+          </t-tab-panel>
+        </t-tabs>
       </section>
       <GroupSetupPanel @groups-changed="refreshGroups" />
     </template>

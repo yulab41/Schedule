@@ -14,6 +14,7 @@ import {
 
 export * from './scheduling-config.js';
 export * from './schedules.js';
+export * from './manual-schedules.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 

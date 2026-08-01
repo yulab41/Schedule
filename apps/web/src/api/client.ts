@@ -6,10 +6,12 @@ import type {
   ClaimGroupResponse,
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
+  CreateManualScheduleTemplateRequest,
   CreateGroupRequest,
   GroupMember,
   GroupMemberContact,
   GroupSummary,
+  ManualScheduleTemplate,
   ReorderRotationMembersRequest,
   RegenerateGroupCodeRequest,
   ReplaceScheduleRoleMembersRequest,
@@ -20,6 +22,7 @@ import type {
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberRoleRequest,
+  UpdateManualScheduleTemplateRequest,
   UpdateShiftTypeRequest,
   UserProfile,
 } from '@schedule/contracts';
@@ -32,6 +35,10 @@ export interface ApiClient {
     input: { readonly realNames: readonly string[] },
   ): Promise<AddRosterEntriesResponse>;
   claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
+  createManualScheduleTemplate(
+    groupId: string,
+    input: CreateManualScheduleTemplateRequest,
+  ): Promise<ManualScheduleTemplate>;
   createScheduleRole(groupId: string, input: CreateScheduleRoleRequest): Promise<ScheduleRole>;
   createShiftType(groupId: string, input: CreateShiftTypeRequest): Promise<ShiftType>;
   createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
@@ -40,6 +47,7 @@ export interface ApiClient {
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
+  listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
@@ -58,6 +66,11 @@ export interface ApiClient {
     groupId: string,
     input: TransferGroupOwnershipRequest,
   ): Promise<GroupSummary>;
+  updateManualScheduleTemplate(
+    groupId: string,
+    templateId: string,
+    input: UpdateManualScheduleTemplateRequest,
+  ): Promise<ManualScheduleTemplate>;
   updateGroupMemberContact(
     groupId: string,
     membershipId: string,
@@ -126,6 +139,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isClaimGroupResponse,
+      );
+    },
+    createManualScheduleTemplate(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isManualScheduleTemplate,
       );
     },
     createScheduleRole(groupId, input) {
@@ -220,6 +246,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isSchedulingConfig,
       );
     },
+    listManualScheduleTemplates(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates`,
+        { method: 'GET' },
+        isManualScheduleTemplateList,
+      );
+    },
     listGroupContacts(groupId) {
       return requestJson(
         options.auth,
@@ -300,6 +336,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isGroupSummary,
+      );
+    },
+    updateManualScheduleTemplate(groupId, templateId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates/${encodeURIComponent(templateId)}`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isManualScheduleTemplate,
       );
     },
     updateGroupMemberContact(groupId, membershipId, input) {
@@ -847,6 +896,97 @@ function isGroupSummary(value: unknown): value is GroupSummary {
 
 function isGroupSummaryList(value: unknown): value is GroupSummary[] {
   return Array.isArray(value) && value.every(isGroupSummary);
+}
+
+function isManualScheduleTemplate(value: unknown): value is ManualScheduleTemplate {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const template = value as Partial<ManualScheduleTemplate>;
+  return (
+    typeof template.id === 'string' &&
+    template.id.length > 0 &&
+    typeof template.groupId === 'string' &&
+    template.groupId.length > 0 &&
+    typeof template.scheduleRoleId === 'string' &&
+    template.scheduleRoleId.length > 0 &&
+    typeof template.scheduleRoleName === 'string' &&
+    template.scheduleRoleName.length > 0 &&
+    typeof template.startDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(template.startDate) &&
+    typeof template.cycleDays === 'number' &&
+    Number.isInteger(template.cycleDays) &&
+    template.cycleDays >= 1 &&
+    template.cycleDays <= 31 &&
+    typeof template.version === 'number' &&
+    Number.isInteger(template.version) &&
+    template.version >= 1 &&
+    Array.isArray(template.members) &&
+    template.members.every(isManualScheduleTemplateMember) &&
+    Array.isArray(template.cells) &&
+    template.cells.every(isManualScheduleTemplateCell)
+  );
+}
+
+function isManualScheduleTemplateMember(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const member = value as Partial<ManualScheduleTemplate['members'][number]>;
+  return (
+    typeof member.membershipId === 'string' &&
+    member.membershipId.length > 0 &&
+    typeof member.realName === 'string' &&
+    member.realName.length > 0 &&
+    typeof member.memberScheduleRoleVersion === 'number' &&
+    Number.isInteger(member.memberScheduleRoleVersion) &&
+    member.memberScheduleRoleVersion >= 1 &&
+    typeof member.currentMemberScheduleRoleVersion === 'number' &&
+    Number.isInteger(member.currentMemberScheduleRoleVersion) &&
+    member.currentMemberScheduleRoleVersion >= 0 &&
+    typeof member.isAvailable === 'boolean' &&
+    typeof member.isStale === 'boolean'
+  );
+}
+
+function isManualScheduleTemplateCell(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const cell = value as Partial<ManualScheduleTemplate['cells'][number]>;
+  return (
+    typeof cell.cycleDay === 'number' &&
+    Number.isInteger(cell.cycleDay) &&
+    cell.cycleDay >= 1 &&
+    cell.cycleDay <= 31 &&
+    typeof cell.membershipId === 'string' &&
+    cell.membershipId.length > 0 &&
+    typeof cell.shiftTypeId === 'string' &&
+    cell.shiftTypeId.length > 0 &&
+    typeof cell.shiftTypeName === 'string' &&
+    cell.shiftTypeName.length > 0 &&
+    typeof cell.shiftTypeAbbreviation === 'string' &&
+    cell.shiftTypeAbbreviation.length > 0 &&
+    typeof cell.shiftTypeColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(cell.shiftTypeColor) &&
+    typeof cell.shiftTypeTextColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(cell.shiftTypeTextColor) &&
+    typeof cell.shiftTypeConfigurationVersion === 'number' &&
+    Number.isInteger(cell.shiftTypeConfigurationVersion) &&
+    cell.shiftTypeConfigurationVersion >= 1 &&
+    typeof cell.currentShiftTypeConfigurationVersion === 'number' &&
+    Number.isInteger(cell.currentShiftTypeConfigurationVersion) &&
+    cell.currentShiftTypeConfigurationVersion >= 0 &&
+    typeof cell.isShiftTypeEnabled === 'boolean' &&
+    typeof cell.isStale === 'boolean'
+  );
+}
+
+function isManualScheduleTemplateList(value: unknown): value is ManualScheduleTemplate[] {
+  return Array.isArray(value) && value.every(isManualScheduleTemplate);
 }
 
 function isUndefined(value: unknown): value is undefined {

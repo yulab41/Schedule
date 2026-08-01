@@ -42,11 +42,11 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-            AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments')`,
+          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells')`,
     );
 
-    expect(migrations).toEqual([{ count: 6 }]);
-    expect(tables).toEqual([{ count: 18 }]);
+    expect(migrations).toEqual([{ count: 7 }]);
+    expect(tables).toEqual([{ count: 21 }]);
   });
 
   it('uses UTC for every MySQL session', async () => {
@@ -170,6 +170,9 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS shift_assignments`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_periods`);
   await client.database.execute(sql`DROP TABLE IF EXISTS audit_logs`);
