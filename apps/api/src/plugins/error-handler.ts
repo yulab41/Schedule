@@ -1,0 +1,111 @@
+import type { ApiErrorCode, ApiErrorResponse, JsonObject } from '@schedule/contracts';
+import type { FastifyInstance } from 'fastify';
+
+const internalErrorMessage = '服务器暂时无法处理请求，请稍后重试。';
+const validationErrorMessage = '请求数据不符合要求。';
+
+export class ApiError extends Error {
+  public readonly code: ApiErrorCode;
+  public readonly statusCode: number;
+  public readonly userMessage: string;
+  public readonly latestData?: JsonObject;
+
+  public constructor(options: {
+    code: ApiErrorCode;
+    statusCode: number;
+    userMessage: string;
+    latestData?: JsonObject;
+  }) {
+    super(options.userMessage);
+    this.name = 'ApiError';
+    this.code = options.code;
+    this.statusCode = options.statusCode;
+    this.userMessage = options.userMessage;
+
+    if (options.latestData !== undefined) {
+      this.latestData = options.latestData;
+    }
+  }
+}
+
+export function registerErrorHandler(app: FastifyInstance): void {
+  app.setNotFoundHandler((request, reply) => {
+    reply.status(404).send(
+      createErrorResponse({
+        code: 'NOT_FOUND',
+        message: '请求的资源不存在。',
+        requestId: request.id,
+      }),
+    );
+  });
+
+  app.setErrorHandler((error, request, reply) => {
+    const apiError = toApiError(error);
+
+    if (apiError.statusCode >= 500) {
+      request.log.error(
+        {
+          code: apiError.code,
+          err: error,
+          requestId: request.id,
+        },
+        'Request failed unexpectedly',
+      );
+    }
+
+    const response =
+      apiError.latestData === undefined
+        ? createErrorResponse({
+            code: apiError.code,
+            message: apiError.userMessage,
+            requestId: request.id,
+          })
+        : createErrorResponse({
+            code: apiError.code,
+            message: apiError.userMessage,
+            requestId: request.id,
+            latestData: apiError.latestData,
+          });
+
+    reply.status(apiError.statusCode).send(response);
+  });
+}
+
+function toApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  if (typeof error === 'object' && error !== null && 'validation' in error) {
+    return new ApiError({
+      code: 'VALIDATION_FAILED',
+      statusCode: 400,
+      userMessage: validationErrorMessage,
+    });
+  }
+
+  return new ApiError({
+    code: 'INTERNAL_ERROR',
+    statusCode: 500,
+    userMessage: internalErrorMessage,
+  });
+}
+
+function createErrorResponse({
+  code,
+  message,
+  requestId,
+  latestData,
+}: {
+  code: ApiErrorCode;
+  message: string;
+  requestId: string;
+  latestData?: JsonObject;
+}): ApiErrorResponse {
+  const error =
+    latestData === undefined
+      ? { code, message, requestId }
+      : { code, message, requestId, latestData };
+
+  return { error };
+}

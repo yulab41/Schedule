@@ -58,3 +58,14 @@ pnpm --filter @schedule/api test
 ```
 
 The test verifies valid defaults and the clear errors for a missing database password and an invalid port. Configuration errors identify only field names and validation messages; they never include password values.
+
+## Run the Local API
+
+Build and start the API after the local configuration has been created:
+
+```powershell
+pnpm --filter @schedule/api build
+pnpm --filter @schedule/api start
+```
+
+The local server reads the repository `.env` file, validates it before listening, and serves `http://127.0.0.1:3000/health` and `http://127.0.0.1:3000/ready`. Until Task 5 adds the database connection, readiness confirms only that the API runtime is available.

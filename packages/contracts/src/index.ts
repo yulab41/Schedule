@@ -1,3 +1,5 @@
+export * from './errors.js';
+
 export interface SystemStatus {
   component: 'api' | 'web';
   ready: boolean;
