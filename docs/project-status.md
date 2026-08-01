@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Two — Events and Scheduling Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 12 are complete and validated. Task 12's pending checkpoint is `feat(schedule): add versioned periods and assignments`.
+- Implementation code: Tasks 1 through 13 are complete and validated. Task 13's pending checkpoint is `feat(schedule): implement deterministic rotation engine`.
 
 ## Approved Sources
 
@@ -49,20 +49,22 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 11 completed: transaction-only append writers couple events and audits to business changes; constrained cursor queries require a group and support date, member, and type filters with a maximum page size of 100. Audit metadata recursively redacts password, token, and telephone fields before persistence.
 - Task 12 completed: the `0005_schedule_periods_assignments` migration adds month-scoped period revisions, UTC shift assignments, scheduled and actual member snapshots, immutable shift-type/time/statistics snapshots, and an event foreign key to schedule periods.
 - Task 12 completed: the scheduling domain calculates China Standard Time business dates and UTC time ranges; the transactional repository creates drafts, submits or returns them, publishes with old-version replacement, withdraws versions, enforces expected versions, and appends business events.
+- Task 13 completed: the database-independent rotation domain deterministically generates fixed-order, per-role daily slots from the configured start date and member, supports multiple positions, emits stable role/date/position business keys, and retains no-member slots as explicit vacancies.
+- Task 13 completed: member eligibility handles active and effective-date state without changing the base cursor. Cross-role time overlap is reported as a hard conflict, and contiguous multi-assignment spans of at least 24 hours are warnings. Unit tests cover 7- and 30-day sequences, year/month/leap-day boundaries, CST 08:00 conversion, disabled members, conflicts, vacancies, cursor behavior, and idempotency.
 
 ## Active Batch
 
-- Task 13: implement the pure deterministic automatic rotation engine.
-- Stop after fixed-order, multi-role, idempotent pure generation with business keys, conflicts, continuous-duty warnings, and vacancies is complete, unit-tested across date boundaries, and checkpointed. Do not start Task 14.
+- Task 14: implement the automatic-generation preview and publishing API.
+- Stop after the domain engine is connected to versioned draft creation, authorization, idempotent generation preview, and controlled publication with events. Do not start Task 15.
 
-Task 13 is the only implementation task authorized for the next conversation. Do not begin Task 14.
+Task 14 is the only implementation task authorized for the next conversation. Do not begin Task 15.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 13 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 7, 8, 13, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 14 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 7, 8, 13, 14, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -126,6 +128,7 @@ Task 13 is the only implementation task authorized for the next conversation. Do
 - Task 10: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; matching Compose `down` then removed the temporary container and network. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, focused migration/configuration tests passed and final `pnpm verify` passed formatting, ESLint, strict type checks, all 59 Vitest tests (including 3 scheduling-configuration integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip.
 - Task 11: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; focused migration/event tests passed 10 assertions. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 63 Vitest tests (including 4 event/audit integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 12: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; focused CST/status tests, migration tests, and schedule-period integration tests passed. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 72 Vitest tests (including 3 schedule-period integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
+- Task 13: `pnpm exec vitest run packages/scheduling-domain/src/rotation`, `pnpm --filter @schedule/scheduling-domain typecheck`, and `pnpm lint` passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, 45 Vitest tests, and all production builds; 36 existing MySQL integration tests were skipped because no disposable `TEST_MYSQL_*` configuration was supplied. The Web build keeps the pre-existing large-entry warning at 640.36 KiB gzip.
 
 ## Recent Checkpoints
 
@@ -148,6 +151,7 @@ Task 13 is the only implementation task authorized for the next conversation. Do
 - Task 10 checkpoint commit message: `feat(schedule): add roles shifts and rotation settings`
 - Task 11 checkpoint commit message: `feat(events): add immutable event and audit logs`
 - Task 12 checkpoint commit message: `feat(schedule): add versioned periods and assignments`
+- Task 13 checkpoint commit message: `feat(schedule): implement deterministic rotation engine`
 
 ## Decisions and Blockers
 
@@ -173,6 +177,7 @@ Task 13 is the only implementation task authorized for the next conversation. Do
 - MySQL binary logging rejected trigger creation for the disposable non-superuser account, so append-only database privileges remain a deployment grant rather than a migration trigger. Audit metadata is recursively redacted for normalized password, token, and telephone field names before it reaches MySQL.
 - Task 12 uses `0005_schedule_periods_assignments.sql` because `0004` is already the event/audit migration. The stored `current_published_key` is unique only for non-deleted published rows; a role-row lock serializes revision allocation and publication, while the database unique index remains the final invariant.
 - Shift assignments retain UTC start/end timestamps, the CST start business date, shift configuration values, and planned/actual membership-name snapshots. Published periods are never modified by a replacement: a new period revision is published, the prior current version becomes `replaced`, and linked append-only events record both changes.
+- Task 13 has no persistence or API dependency: it accepts only domain values and creates no IDs or timestamps at execution time. Its business key is the encoded schedule-role ID plus CST business date and slot position, so equivalent generation is stable across retries. A disabled or out-of-effective-range member is skipped only for that slot; the cursor remains tied to the original ordered sequence. Generation does not apply leave, swap, or duty adjustments; those later workflow inputs must compose with this base result rather than mutate it.
 
 ## Handoff Requirements
 
