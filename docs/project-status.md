@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Two — Events and Scheduling Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 10 are complete and validated. Task 10's pending checkpoint is `feat(schedule): add roles shifts and rotation settings`.
+- Implementation code: Tasks 1 through 11 are complete and validated. Task 11's pending checkpoint is `feat(events): add immutable event and audit logs`.
 
 ## Approved Sources
 
@@ -45,20 +45,22 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 10 completed: the `0003_roles_shifts_rotations` migration adds schedule roles, multi-role member assignments, shift types, per-role rotation rules, and ordered rotation members; it backfills six templates for existing active groups and new groups create those templates in the same transaction.
 - Task 10 completed: owners and administrators can configure role membership, validated contiguous numeric rotation order, rotation parameters, and custom or prebuilt shift types. Non-all-day shifts require both times before enablement; service-calculated contrast text colors, immutable all-day timing, configuration versions, and stop-only shift lifecycle protect future schedule history.
 - Task 10 completed: contracts, authenticated API client, and the Web workbench expose the scheduling configuration without direct database writes. MySQL integration and domain tests cover templates, cross-day end dates, permissions, multiple roles, order validation, rotation rules, and disabled shifts.
+- Task 11 completed: the `0004_events_and_audit` migration adds separate immutable business-event and security-audit persistence with group/time/type/operation indexes, structured before/after and impact data, correlation IDs, and parent-event links.
+- Task 11 completed: transaction-only append writers couple events and audits to business changes; constrained cursor queries require a group and support date, member, and type filters with a maximum page size of 100. Audit metadata recursively redacts password, token, and telephone fields before persistence.
 
 ## Active Batch
 
-- Task 11: establish immutable schedule events and security audit foundations.
-- Stop after append-only event/audit persistence, transaction coupling, paginated constrained queries, and sensitive audit-data redaction are complete, validated, and checkpointed. Do not start Task 12.
+- Task 12: establish schedule periods, shift assignments, and published-version history.
+- Stop after UTC persistence, China Standard Time business dates, immutable shift snapshots, draft/publish/withdraw/replace state transitions, transactional published-version uniqueness, and event emission are complete, validated, and checkpointed. Do not start Task 13.
 
-Task 11 is the only implementation task authorized for the next conversation. Do not begin Task 12.
+Task 12 is the only implementation task authorized for the next conversation. Do not begin Task 13.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 11 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 14, 19, and 20 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 12 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 7, 13, 14, 19, and 20 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -82,6 +84,7 @@ Task 11 is the only implementation task authorized for the next conversation. Do
 - Task 8 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable tmpfs test schema, then removed its container and network after validation. The persistent development MySQL remains independent and healthy on port 3306.
 - Task 9 validation likewise started and then removed `medical-schedule-test-mysql-1` on host port 3307. The local Vite development server is running at `http://127.0.0.1:5180`; its HTML entry point returned 200. The in-app browser's loopback URL policy blocked a rendered-page check, and live CloudBase login remains deferred to Task 30.
 - Task 10 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
+- Task 11 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 
 ## Reusable Operational Notes
 
@@ -118,6 +121,7 @@ Task 11 is the only implementation task authorized for the next conversation. Do
 - Task 8: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed Prettier, ESLint, strict type checks, all 49 Vitest tests (including 9 group integrations), and all production builds. The temporary service was removed with the matching Compose `down` command after validation.
 - Task 9: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; the focused API group-permission suite passed 35 tests. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 54 Vitest tests (including 5 new group-permission integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 627.45 KiB gzip. The temporary service was removed with the matching Compose `down` command.
 - Task 10: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; matching Compose `down` then removed the temporary container and network. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, focused migration/configuration tests passed and final `pnpm verify` passed formatting, ESLint, strict type checks, all 59 Vitest tests (including 3 scheduling-configuration integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip.
+- Task 11: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; focused migration/event tests passed 10 assertions. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 63 Vitest tests (including 4 event/audit integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 
 ## Recent Checkpoints
 
@@ -138,6 +142,7 @@ Task 11 is the only implementation task authorized for the next conversation. Do
 - Task 8 checkpoint commit message: `feat(groups): add group codes and roster claiming`
 - Task 9 checkpoint commit message: `feat(groups): add roles contacts and group switching`
 - Task 10 checkpoint commit message: `feat(schedule): add roles shifts and rotation settings`
+- Task 11 checkpoint commit message: `feat(events): add immutable event and audit logs`
 
 ## Decisions and Blockers
 
@@ -158,6 +163,9 @@ Task 11 is the only implementation task authorized for the next conversation. Do
 - Task 9 keeps the group owner pointer and the active owner membership role as a transaction-checked invariant. A successful transfer demotes the former owner to administrator before promoting the target and updating the group pointer. Contact phone values are stored only per group membership; browser storage retains only a group ID and never contact or membership data.
 - Task 10 uses `0003_roles_shifts_rotations.sql` rather than the plan's illustrative `0002` filename because `0002_group_claiming.sql` is already committed. Shift removal has no business API; disabling preserves its versioned configuration for future assignment snapshots. The service derives `#111827` or `#FFFFFF` text color from each submitted background color, and the all-day template always remains 08:00-to-next-day-08:00 and enabled.
 - All isolated database-reset helpers now remove Task 10 tables first, keeping the one shared disposable MySQL schema reusable by every migration and API integration suite.
+- Task 11 uses `0004_events_and_audit.sql` because Task 10 already owns `0003`; Task 12 must use `0005` rather than its illustrative `0004` filename. `schedule_events` carries a nullable period ID without a foreign key until Task 12 creates `schedule_periods`.
+- `EventWriter` and `AuditWriter` accept only a `DatabaseTransaction` and expose append operations only. Corrections retain the original event and link a new event through `parent_event_id`; no API route can update or delete either log table. Production runtime credentials must be granted `SELECT` and `INSERT`, but not `UPDATE` or `DELETE`, on `schedule_events` and `audit_logs` when Task 30 configures the CloudBase database identity.
+- MySQL binary logging rejected trigger creation for the disposable non-superuser account, so append-only database privileges remain a deployment grant rather than a migration trigger. Audit metadata is recursively redacted for normalized password, token, and telephone field names before it reaches MySQL.
 
 ## Handoff Requirements
 

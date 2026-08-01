@@ -22,6 +22,13 @@
       "when": 1785542400002,
       "tag": "0003_roles_shifts_rotations",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785542400003,
+      "tag": "0004_events_and_audit",
+      "breakpoints": true
     }
   ]
 }

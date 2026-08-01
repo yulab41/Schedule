@@ -3,6 +3,7 @@ import {
   char,
   index,
   int,
+  json,
   mysqlEnum,
   mysqlTable,
   timestamp,
@@ -186,5 +187,71 @@ export const groupJoinRequests = mysqlTable(
     uniqueIndex('group_join_requests_pending_request_unique').on(table.pendingRequestKey),
     index('group_join_requests_group_status_idx').on(table.groupId, table.status),
     index('group_join_requests_user_status_idx').on(table.requestingUserId, table.status),
+  ],
+);
+
+export const scheduleEvents = mysqlTable(
+  'schedule_events',
+  {
+    id: identifier(),
+    groupId: char('group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id),
+    schedulePeriodId: char('schedule_period_id', { length: 36 }),
+    eventType: varchar('event_type', { length: 64 }).notNull(),
+    eventStatus: varchar('event_status', { length: 32 }).notNull(),
+    objectType: varchar('object_type', { length: 64 }).notNull(),
+    objectId: char('object_id', { length: 36 }),
+    operationId: char('operation_id', { length: 36 }).notNull(),
+    parentEventId: char('parent_event_id', { length: 36 }),
+    initiatedByUserId: char('initiated_by_user_id', { length: 36 }).references(() => users.id),
+    operatorUserId: char('operator_user_id', { length: 36 }).references(() => users.id),
+    approverUserId: char('approver_user_id', { length: 36 }).references(() => users.id),
+    reason: varchar('reason', { length: 1000 }),
+    beforeData: json('before_data').$type<Record<string, unknown>>(),
+    afterData: json('after_data').$type<Record<string, unknown>>(),
+    affectedMembershipIds: json('affected_membership_ids').$type<string[]>().notNull(),
+    affectedShiftIds: json('affected_shift_ids').$type<string[]>().notNull(),
+    statisticsDelta: json('statistics_delta').$type<Record<string, unknown>>(),
+    occurredAt: timestamp('occurred_at', { fsp: 3 }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('schedule_events_group_occurred_idx').on(table.groupId, table.occurredAt, table.id),
+    index('schedule_events_group_type_occurred_idx').on(
+      table.groupId,
+      table.eventType,
+      table.occurredAt,
+      table.id,
+    ),
+    index('schedule_events_period_occurred_idx').on(
+      table.schedulePeriodId,
+      table.occurredAt,
+      table.id,
+    ),
+    index('schedule_events_operation_idx').on(table.operationId),
+    index('schedule_events_parent_event_idx').on(table.parentEventId),
+  ],
+);
+
+export const auditLogs = mysqlTable(
+  'audit_logs',
+  {
+    id: identifier(),
+    groupId: char('group_id', { length: 36 }).references(() => groups.id),
+    actorUserId: char('actor_user_id', { length: 36 }).references(() => users.id),
+    action: varchar('action', { length: 64 }).notNull(),
+    outcome: varchar('outcome', { length: 32 }).notNull(),
+    targetType: varchar('target_type', { length: 64 }),
+    targetId: char('target_id', { length: 36 }),
+    operationId: char('operation_id', { length: 36 }).notNull(),
+    requestId: char('request_id', { length: 36 }),
+    metadata: json('metadata').$type<Record<string, unknown>>().notNull(),
+    occurredAt: timestamp('occurred_at', { fsp: 3 }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('audit_logs_group_occurred_idx').on(table.groupId, table.occurredAt, table.id),
+    index('audit_logs_actor_occurred_idx').on(table.actorUserId, table.occurredAt, table.id),
+    index('audit_logs_action_occurred_idx').on(table.action, table.occurredAt, table.id),
+    index('audit_logs_operation_idx').on(table.operationId),
   ],
 );
