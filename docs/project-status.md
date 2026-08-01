@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 6 are committed. Task 7 is complete, fully verified, and ready for its checkpoint commit.
+- Implementation code: Tasks 1 through 7 are committed. An administrator-provisioned-account correction to Task 7 is specified and awaits written review before implementation.
 
 ## Approved Sources
 
@@ -36,20 +36,21 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 6 completed: the CloudBase HTTP gateway's gzip-compressed Base64 request context is bounded, decoded, and maps its trusted `userId` to the business UID. Local authentication still ignores caller-supplied identity headers.
 - Task 7 completed: the Vue Web shell uses TDesign, Vue Router, Pinia, Vue Query, and the CloudBase JavaScript SDK for username/password sign-in, email-OTP registration, profile creation, logout, session recovery, and protected routes.
 - Task 7 completed: client API requests attach only the current CloudBase Bearer token; profile and session state validates responses, handles 401/403/409/network failures consistently, and never retains plaintext passwords or tokens in application state.
+- Account-policy correction specified: Web self-registration will be removed; authorized administrators create lowercase CloudBase login accounts, while a later WeChat identity binds to the same stable UID.
 
 ## Active Batch
 
-- Task 8: Implement groups, group codes, and the roster-claim workflow.
-- Stop after users can create a group, join using a valid group code and exact roster name, or submit a pending request without receiving group schedule data; focused validation must pass. Do not start Task 9.
+- Task 7 correction: remove Web self-registration and normalize login accounts for administrator-provisioned CloudBase accounts.
+- Stop after the written correction specification is reviewed, the approved design and implementation plan are synchronized, and the focused Web tests pass. Do not start Task 8.
 
-Task 8 is the only implementation task authorized for the next conversation. Do not begin Task 9.
+The Task 7 correction is the only implementation task authorized for the next conversation. Do not begin Task 8.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 8 in the implementation plan.
-4. Read design sections 4.1, 4.3, 5, and 20, plus any section referenced by an unexpected issue.
+3. Read `docs/superpowers/specs/2026-08-01-admin-provisioned-web-auth-design.md` completely.
+4. After written approval, synchronize Task 6 and Task 7 in the implementation plan and main design section 4.1 before editing code.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes.
 
 ## Known Environment State
@@ -69,6 +70,7 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - The development-only `auth-identity-probe` verified the signed-in UID `2083456390410330113`, returned no credentials or tokens, and was then removed along with `/task6-auth-probe`. `tcb routes list` and `tcb fn list` both returned no remaining temporary resources.
 - Task 6 created an isolated MySQL on host port 3307 for verification, then stopped and removed it. It used only the disposable `schedule_test` database; the development MySQL on port 3306 remains healthy and independent.
 - Task 7 reads public `VITE_CLOUDBASE_*` configuration from the repository-root `.env` through Vite. The CloudBase HTTP deployment configuration and same-domain `/api` route remain Task 30 work; the API trusts only gateway-provided identity context, not the client Bearer header in local mode.
+- CloudBase supports username/password login but does not allow public Web self-registration with only a username and password. The product policy is now administrator provisioning, so no browser-accessible management credential or registration API will be created.
 
 ## Reusable Operational Notes
 
@@ -100,6 +102,7 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - Task 7: `pnpm install --frozen-lockfile` passed after declaring `vue-demi: false` in pnpm build approval settings. Focused Web client tests passed: `pnpm exec vitest run apps/web/src/api/client.test.ts apps/web/src/stores/session.test.ts` (10 tests).
 - Task 7: final `pnpm verify` passed Prettier, ESLint, strict type checks, 26 passing Vitest tests, and all production builds; 12 existing database/API integration tests were skipped because no disposable test database was configured. The Web build reports a 632 KiB gzip entry chunk after adding the CloudBase SDK.
 - Task 7 browser check: the local Vite app at `http://localhost:5175/` showed functional login and registration views with no browser-console errors. The process is local development state only.
+- Account-policy correction: no code has changed yet. `pnpm exec prettier --check docs/project-status.md docs/superpowers/specs/2026-08-01-admin-provisioned-web-auth-design.md` and `git diff --check` passed; the correction specification awaits the user's written review before design, plan, and code changes.
 
 ## Recent Checkpoints
 
@@ -115,6 +118,7 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - `44b46a9` - `docs: clarify implementation batch size` (pushed to `origin/main`)
 - Task 6 checkpoint commit message: `feat(auth): add CloudBase username login integration`
 - Task 7 checkpoint commit message: `feat(web): add registration and persistent session`
+- Account-policy correction design checkpoint commit message: `docs: specify admin-provisioned Web accounts`
 
 ## Decisions and Blockers
 
@@ -128,6 +132,7 @@ Task 8 is the only implementation task authorized for the next conversation. Do 
 - Task 6 has no remaining blocker. Automated browser surfaces still block the CloudBase service domain, so the user completed the final signed-in request in a regular browser. The returned UID is recorded above; the temporary validation resources were removed immediately afterward.
 - Task 7 defers live CloudBase register/login and HTTP route verification to Task 30, which must configure the CloudBase HTTP access service with identity authentication and route `/api` through the trusted gateway. The client flow is covered with focused SDK and API mocks until that deployment work is available.
 - Adding the CloudBase SDK grows the initial Web entry chunk to 632 KiB gzip. Defer route-level splitting until later feature pages create a meaningful async boundary.
+- The prior email-OTP registration requirement is superseded by the administrator-provisioned-account design addendum. The Web client must normalize login account input to lowercase, but no new identity mapping table or registration endpoint is authorized.
 
 ## Handoff Requirements
 
