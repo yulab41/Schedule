@@ -42,11 +42,11 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells')`,
+          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests')`,
     );
 
-    expect(migrations).toEqual([{ count: 7 }]);
-    expect(tables).toEqual([{ count: 21 }]);
+    expect(migrations).toEqual([{ count: 8 }]);
+    expect(tables).toEqual([{ count: 22 }]);
   });
 
   it('uses UTC for every MySQL session', async () => {
@@ -185,6 +185,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_memberships`);
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);

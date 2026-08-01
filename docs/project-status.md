@@ -4,13 +4,13 @@ This file is the concise handoff entry point for every new implementation conver
 
 ## Current Position
 
-- Last updated: 2026-08-01
+- Last updated: 2026-08-02
 - Branch: `main`
 - Upstream: `origin/main`
 - Target release: Doctor Scheduling Web 1.0
-- Current phase: Phase Two — Events and Scheduling Foundation
+- Current phase: Phase Three — Leave, Swap, and Duty Adjustment Workflows
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 18 are complete and validated. Task 18's checkpoint commit message is `feat(schedule): enforce optimistic concurrency control`.
+- Implementation code: Tasks 1 through 19 are complete and validated. Task 19's checkpoint commit message is `feat(workflow): add leave requests and schedule reflow`.
 
 ## Approved Sources
 
@@ -71,18 +71,21 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 18 completed: the generic idempotency helper moved to `apps/api/src/plugins/idempotency.ts` and now backs schedule generation, explicit publication, and manual template application; a `concurrency/version-guard.ts` module centralizes expected-version checks and returns 409 with a consistent latest summary (`id`, `objectType`, `version`, plus operation-specific fields) without writing events.
 - Task 18 completed: the version guard is adopted by manual template updates, schedule period publication (both service and repository backstops), profile updates (which now re-read the latest version when possible), and the existing rules-version checks; the Web client carries `latestData` on `ApiClientError`, and `DataConflictDialog` plus the conflict handler show "数据已更新" with the latest version summary, auto-refresh the current month and operation window, and never replay the old operation.
 - Task 18 completed: calendar and manual-schedule views refresh on window focus, the apply dialog re-fetches rules/publish state after a conflict, and the Web conflict flow requires the user to re-confirm based on fresh data; concurrency integration tests prove one winner for concurrent template updates and publications, latest summaries for losing profile updates, and operation-ID fingerprint rejection without duplicate events.
+- Task 19 completed: migration `0008_leave_requests.sql` adds the per-member leave request table (type, UTC start/end, all-day flag, reason, status, applied reflow strategy, approver, version) and the per-group `leave_reflow_strategy` default column; the pure `leave/overlap.ts` and `leave/reflow.ts` domain modules implement precise half-open interval overlap, keep-original-order replacement, and a stateful shift-forward cursor that skips the leave member, advances subsequent slots, and lets them rejoin when the cursor returns.
+- Task 19 completed: members submit typed/all-day leave with a required reason and overlapping pending/approved leave returns 409; administrators preview affected shifts, per-member statistics deltas, conflicts, continuous-duty warnings, and vacancies before approval; approval can override the group default strategy, and applying a change is a single transaction that locks the request, periods, and assignments, checks the request version, rules version, and every affected period version, updates planned members (or creates explicit vacancies), persists the advanced rotation cursor, and appends `leave_request_approved` plus per-period `leave_cover_completed` events so the calendar shows the "替" marker.
+- Task 19 completed: Web workbench gains a 请假 tab with submit form, group default strategy setting, my-leaves list, administrator approval queue, and an approval dialog that regenerates the preview, allows a per-request strategy override, requires acknowledgement for conflicts/vacancies, and rejects or approves with the fresh versions; client validators, pure form logic tests, and 10 MySQL integration tests cover partial all-day overlap, both strategies, vacancy blocking/acknowledgement, stale request/period/rules versions, idempotent replay, permissions, rejection, and the group default.
 
 ## Active Batch
 
-- Task 19: implement leave requests with precise time overlap and the two reflow strategies.
-- Stop after typed/all-day leave with reasons can preview and safely adjust subsequent schedules, any time overlap makes a shift unassignable, the keep-original-order strategy replaces only affected shifts, the shift-forward strategy skips the member and advances the rotation cursor, approval can override the group default strategy, and the effective change commits in a transaction with version checks and events. This is the first task of Phase Three and is complex workflow/concurrency work, so it should be the only task in its batch.
+- Task 20: implement the member shift swap flow.
+- Stop after two members can exchange their own future shifts with automatic acceptance or administrator approval, both sides still have exactly one actual shift (no overtime/deduction pair), automatic acceptance cannot bypass an administrator-approval setting, concurrent swaps of the same shift let only one request succeed, and the effective swap commits in one transaction with version checks and events. This is complex workflow/concurrency work, so it should be the only task in its batch.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 17 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 10, 15, 19, 21, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 20 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 11, 13, 14, 19, 21, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -156,6 +159,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 16: with the isolated test MySQL healthy, focused migration and template integration suites passed 11 tests (6 migration + 5 template integrations). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 118 Vitest tests (including 53 integration tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 640.72 KiB gzip.
 - Task 17: with the isolated test MySQL healthy, focused manual-apply integration passed 10 tests (single-cycle preview, repeat/truncation, draft vs published handling, version replacement, scope events, stale rules 409, vacancy blocking/acknowledgement, disabled shift types, idempotent replay, permissions) plus the 5 template tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 145 Vitest tests (14 new domain, 10 new apply integrations, 3 new Web client tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 643.28 KiB gzip.
 - Task 18: with the isolated test MySQL healthy, focused concurrency integration passed 4 tests (concurrent template update, concurrent period publication, latest profile version, operation-ID fingerprint rejection). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 152 Vitest tests (4 new concurrency integrations, 3 new Web conflict-handler tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 644.16 KiB gzip.
+- Task 19: with the isolated test MySQL healthy, the focused leave suite passed 10 integrations (submit/overlap 409, partial all-day overlap preview and keep-original approval with calendar marker, shift-forward cursor advance and rejoin, vacancy blocking/acknowledgement, stale request/period versions, stale rules 409, idempotent approval replay, permissions, rejection, group default update), plus 6 migration tests and all 93 API/database integration tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 103 unit tests (77 integration tests skipped without a disposable database), and all production builds; 10 new domain tests and 11 new Web tests (client validators, leave form logic) are included. The Web build keeps the pre-existing large-entry warning at 656.95 KiB gzip.
 
 ## Recent Checkpoints
 
@@ -184,6 +188,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 16 checkpoint commit message: `feat(schedule): add manual cycle template editor`
 - Task 17 checkpoint commit message: `feat(schedule): apply manual templates to periods`
 - Task 18 checkpoint commit message: `feat(schedule): enforce optimistic concurrency control`
+- Task 19 checkpoint commit message: `feat(workflow): add leave requests and schedule reflow`
 
 ## Decisions and Blockers
 
@@ -230,6 +235,12 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 18 deliberately does not retrofit `expectedVersion` onto the legacy group/config mutation endpoints (group code, owner transfer, member role, contacts, role members, rotation order/rule, shift types). Those endpoints were not part of the task's file list, their operation windows arrive with Tasks 19-21, and the shared version guard now exists for them to adopt; the task's acceptance scenarios (same-shift/template/period races) are covered by the template, period, and profile concurrency tests.
 - Task 18 keeps the profile-update 409 when a user is suspended between lookup and mutation: the guard re-reads the latest version when possible but falls back to the last known version if the user can no longer be read, preserving the pre-existing 409 behavior.
 - Task 18 tests follow the colocated convention: `apps/api/src/modules/concurrency/concurrency.integration.test.ts` and `apps/web/src/api/conflict-handler.spec.ts`; rendered-dialog verification still requires a signed-in CloudBase session and remains deferred to Task 30.
+- Task 19 uses `0008_leave_requests.sql` because `0006` and `0007` are already committed for generation and manual templates; Task 20 must use `0009_swap_requests.sql` and Task 21 must use `0010_duty_adjustments.sql` rather than the plan's illustrative numbers. The plan's illustrative `packages/scheduling-domain/tests/leave-reflow.test.ts` and `apps/api/tests/leaves.integration.test.ts` are colocated as `src/leave/reflow.test.ts`, `src/leave/overlap.test.ts`, and `apps/api/src/modules/leaves/leaves.integration.test.ts` per repository convention.
+- Task 19 leaves the group default reflow strategy at `keep-original-order`; administrators can change it per group, and each approval can override it per request. The stored `leave_requests.reflow_strategy` records the strategy that will be (or was) applied, so the Web approval dialog defaults to the request's own strategy and shows the group default for comparison.
+- Task 19 reflow operates on the published periods whose business months overlap the leave window. Keep-original-order changes only the leave member's overlapping shifts; shift-forward recomputes every slot from the first affected step to the end of that month with a stateful cursor, persists the final cursor member position to `rotation_rules.current_position`, and bumps the group `rulesVersion` so subsequent generation/preview must use the fresh version. Cross-month continuation of the advanced cursor is not rewritten into already-published future months.
+- Task 19 reflow only changes `planned_membership_id`/`planned_member_name` and bumps each affected assignment's version; existing `actual_*` snapshots are left untouched because swaps and duty adjustments (Tasks 20-21) own actual-person changes. Candidates are scanned in the same role's rotation order and skipped when on approved leave, inactive/out-of-range, or time-conflicted; when no candidate exists the slot becomes an explicit `NO_ELIGIBLE_MEMBER` vacancy that blocks unacknowledged approval, and approved leaves of other members are respected while pending ones are not.
+- Task 19 writes `leave_request_submitted`, `leave_request_approved`, `leave_request_rejected`, and per-period `leave_cover_completed` events (the latter parented to the approval event with `affectedShiftIds` and the period ID so the existing calendar marker map shows "替"). Approve and reject are idempotent by operation ID; submit is not idempotent because an identical overlapping resubmission already returns 409, which prevents duplicate requests.
+- Task 19 statistics deltas are per-member assignment/counted/weekend changes within the affected months (holidays remain deferred to Task 24) and omit members with zero delta; assignment counts are preserved because reflow replaces members instead of removing shifts, so total deltas are normally zero while member deltas transfer coverage.
 
 ## Handoff Requirements
 

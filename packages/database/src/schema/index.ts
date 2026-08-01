@@ -15,6 +15,7 @@ import {
 export * from './scheduling-config.js';
 export * from './schedules.js';
 export * from './manual-schedules.js';
+export * from './leaves.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
@@ -56,6 +57,12 @@ export const groups = mysqlTable(
     rulesVersion: int('rules_version', { unsigned: true }).default(1).notNull(),
     schedulePublishMode: mysqlEnum('schedule_publish_mode', ['draft', 'published'])
       .default('draft')
+      .notNull(),
+    leaveReflowStrategy: mysqlEnum('leave_reflow_strategy', [
+      'keep-original-order',
+      'shift-forward',
+    ])
+      .default('keep-original-order')
       .notNull(),
     ...auditableColumns(),
   },

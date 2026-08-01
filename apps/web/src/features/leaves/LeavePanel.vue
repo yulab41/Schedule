@@ -1,0 +1,433 @@
+<script setup lang="ts">
+import type {
+  GroupLeaveReflowStrategy,
+  GroupSummary,
+  LeaveReflowStrategy,
+  LeaveRequest,
+  LeaveRequestType,
+} from '@schedule/contracts';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+
+import { ApiClientError, createApiClient } from '../../api/client.js';
+import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import LeaveApprovalDialog from './LeaveApprovalDialog.vue';
+import {
+  buildLeaveFormInterval,
+  formatLeaveRange,
+  getLeaveStatusLabel,
+  getLeaveTypeLabel,
+  getReflowStrategyLabel,
+  getTodayBusinessDate,
+  leaveTypeLabels,
+  reflowStrategyLabels,
+} from './leave-logic.js';
+
+const props = defineProps<{
+  readonly group: GroupSummary;
+}>();
+
+const api = createApiClient({ auth: cloudbaseAuth });
+const myRequests = ref<LeaveRequest[]>([]);
+const approvals = ref<LeaveRequest[]>([]);
+const strategy = ref<GroupLeaveReflowStrategy>();
+const leaveType = ref<LeaveRequestType>('sick');
+const startDate = ref(getTodayBusinessDate());
+const endDate = ref(getTodayBusinessDate());
+const startTime = ref('08:00');
+const endTime = ref('20:00');
+const allDay = ref(true);
+const reason = ref('');
+const errorMessage = ref<string>();
+const infoMessage = ref<string>();
+const isLoading = ref(false);
+const isSubmitting = ref(false);
+const approvalTarget = ref<LeaveRequest>();
+
+const canApprove = computed(() => props.group.role !== 'member');
+const leaveTypeOptions = computed(() =>
+  (Object.keys(leaveTypeLabels) as LeaveRequestType[]).map((type) => ({
+    label: leaveTypeLabels[type],
+    value: type,
+  })),
+);
+const strategyOptions = computed(() =>
+  (Object.keys(reflowStrategyLabels) as LeaveReflowStrategy[]).map((item) => ({
+    label: reflowStrategyLabels[item],
+    value: item,
+  })),
+);
+const pendingApprovals = computed(() =>
+  approvals.value.filter((request) => request.status === 'pending'),
+);
+const decidedApprovals = computed(() =>
+  approvals.value.filter((request) => request.status !== 'pending'),
+);
+
+async function loadData(): Promise<void> {
+  errorMessage.value = undefined;
+  isLoading.value = true;
+  const currentGroup = props.group;
+
+  try {
+    const [nextMine, nextApprovals, nextStrategy] = await Promise.all([
+      api.listMyLeaveRequests(currentGroup.id),
+      canApprove.value ? api.listLeaveRequestApprovals(currentGroup.id) : Promise.resolve([]),
+      api.getLeaveReflowStrategy(currentGroup.id),
+    ]);
+    myRequests.value = nextMine;
+    approvals.value = nextApprovals;
+    strategy.value = nextStrategy;
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function submit(): Promise<void> {
+  errorMessage.value = undefined;
+  infoMessage.value = undefined;
+  let interval;
+  try {
+    interval = buildLeaveFormInterval({
+      allDay: allDay.value,
+      endDate: endDate.value,
+      endTime: endTime.value,
+      startDate: startDate.value,
+      startTime: startTime.value,
+    });
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '请假时间不正确。';
+    return;
+  }
+  if (reason.value.trim().length === 0) {
+    errorMessage.value = '请填写请假原因。';
+    return;
+  }
+
+  isSubmitting.value = true;
+  try {
+    await api.createLeaveRequest(props.group.id, {
+      endsAt: interval.endsAt,
+      ...(allDay.value ? { isAllDay: true } : {}),
+      leaveType: leaveType.value,
+      reason: reason.value.trim(),
+      startsAt: interval.startsAt,
+    });
+    infoMessage.value = '请假申请已提交，等待管理员审批。';
+    reason.value = '';
+    await loadData();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+async function updateStrategy(
+  nextStrategy: string | number | boolean | object | null,
+): Promise<void> {
+  if (
+    typeof nextStrategy !== 'string' ||
+    (nextStrategy !== 'keep-original-order' && nextStrategy !== 'shift-forward')
+  ) {
+    return;
+  }
+
+  errorMessage.value = undefined;
+  try {
+    strategy.value = await api.updateLeaveReflowStrategy(props.group.id, {
+      strategy: nextStrategy,
+    });
+    infoMessage.value = '群组默认重排策略已更新，新提交的请假将使用该策略。';
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  }
+}
+
+function openApproval(request: LeaveRequest): void {
+  approvalTarget.value = request;
+}
+
+function onApprovalChanged(): void {
+  approvalTarget.value = undefined;
+  infoMessage.value = '请假申请已处理。';
+  void loadData();
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof ApiClientError ? error.message : '请假数据暂时无法加载，请稍后重试。';
+}
+
+void loadData();
+onMounted(() => {
+  window.addEventListener('focus', onWindowFocus);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', onWindowFocus);
+});
+
+function onWindowFocus(): void {
+  void loadData();
+}
+</script>
+
+<template>
+  <section class="leave-panel" :aria-busy="isLoading || isSubmitting">
+    <h2>请假与重排</h2>
+    <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
+    <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
+    <t-loading v-if="isLoading" text="正在加载请假数据" />
+    <template v-else>
+      <form class="leave-form" @submit.prevent="submit">
+        <fieldset>
+          <legend>提交请假</legend>
+          <label>
+            请假类型
+            <t-select v-model="leaveType" :options="leaveTypeOptions" />
+          </label>
+          <label>
+            开始日期
+            <input v-model="startDate" type="date" required />
+          </label>
+          <label v-if="!allDay">
+            开始时间
+            <input v-model="startTime" type="time" required />
+          </label>
+          <label>
+            结束日期
+            <input v-model="endDate" type="date" required />
+          </label>
+          <label v-if="!allDay">
+            结束时间
+            <input v-model="endTime" type="time" required />
+          </label>
+          <label class="all-day-field">
+            <input v-model="allDay" type="checkbox" />
+            全天请假（当天 08:00 至次日 08:00）
+          </label>
+          <label class="reason-field">
+            原因说明
+            <textarea
+              v-model="reason"
+              maxlength="1000"
+              placeholder="请填写请假原因"
+              required
+              rows="2"
+            />
+          </label>
+          <t-button theme="primary" type="submit" :loading="isSubmitting">提交请假</t-button>
+        </fieldset>
+      </form>
+
+      <div v-if="canApprove" class="approval-config">
+        <label>
+          群组默认重排策略
+          <t-select
+            :value="strategy?.strategy"
+            :options="strategyOptions"
+            @change="updateStrategy"
+          />
+        </label>
+        <span v-if="strategy !== undefined" class="strategy-hint">
+          审批时仍可对单个申请覆盖此默认策略。
+        </span>
+      </div>
+
+      <section v-if="canApprove" class="approval-section">
+        <h3>待审批（{{ pendingApprovals.length }}）</h3>
+        <table v-if="pendingApprovals.length > 0" class="leave-table">
+          <thead>
+            <tr>
+              <th>成员</th>
+              <th>类型</th>
+              <th>时间</th>
+              <th>原因</th>
+              <th>策略</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in pendingApprovals" :key="request.id">
+              <td>{{ request.memberName }}</td>
+              <td>{{ getLeaveTypeLabel(request.leaveType) }}</td>
+              <td>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</td>
+              <td>{{ request.reason }}</td>
+              <td>{{ getReflowStrategyLabel(request.reflowStrategy) }}</td>
+              <td>
+                <t-button variant="outline" @click="openApproval(request)">预览并审批</t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="table-empty">暂无待审批的请假申请。</p>
+      </section>
+
+      <section class="my-leaves">
+        <h3>我的请假（{{ myRequests.length }}）</h3>
+        <table v-if="myRequests.length > 0" class="leave-table">
+          <thead>
+            <tr>
+              <th>类型</th>
+              <th>时间</th>
+              <th>原因</th>
+              <th>策略</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in myRequests" :key="request.id">
+              <td>{{ getLeaveTypeLabel(request.leaveType) }}</td>
+              <td>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</td>
+              <td>{{ request.reason }}</td>
+              <td>{{ getReflowStrategyLabel(request.reflowStrategy) }}</td>
+              <td>{{ getLeaveStatusLabel(request.status) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="table-empty">暂无请假记录。</p>
+      </section>
+
+      <section v-if="canApprove && decidedApprovals.length > 0" class="approval-history">
+        <h3>已处理记录</h3>
+        <table class="leave-table">
+          <thead>
+            <tr>
+              <th>成员</th>
+              <th>时间</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in decidedApprovals" :key="request.id">
+              <td>{{ request.memberName }}</td>
+              <td>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</td>
+              <td>{{ getLeaveStatusLabel(request.status) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </template>
+    <LeaveApprovalDialog
+      v-if="approvalTarget !== undefined"
+      :group="group"
+      :request="approvalTarget"
+      @changed="onApprovalChanged"
+      @close="approvalTarget = undefined"
+    />
+  </section>
+</template>
+
+<style scoped>
+.leave-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.leave-panel h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.leave-panel h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.leave-form fieldset {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+}
+
+.leave-form legend,
+.approval-config {
+  color: #374151;
+  font-weight: 600;
+}
+
+.leave-form label,
+.approval-config label {
+  display: grid;
+  gap: 4px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.leave-form input,
+.leave-form textarea {
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.leave-form textarea {
+  resize: vertical;
+}
+
+.all-day-field {
+  display: flex !important;
+  gap: 6px;
+  align-items: center;
+}
+
+.all-day-field input {
+  min-height: auto;
+}
+
+.reason-field {
+  display: grid;
+}
+
+.approval-config {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+  font-weight: 400;
+}
+
+.strategy-hint {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.leave-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #ffffff;
+}
+
+.leave-table th,
+.leave-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.leave-table th {
+  color: #374151;
+  background: #f8fafc;
+}
+
+.table-empty {
+  margin: 0;
+  padding: 16px;
+  color: #6b7280;
+  font-size: 13px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+</style>

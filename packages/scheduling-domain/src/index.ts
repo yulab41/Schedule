@@ -2,6 +2,24 @@ import { workspaceName } from '@schedule/contracts';
 
 export { calculateReadableTextColor, calculateShiftEndDate } from './shift-time.js';
 export {
+  findLeaveOverlappingAssignments,
+  intervalsOverlap,
+  type MemberTimeInterval,
+  type TimeIntervalInput,
+} from './leave/overlap.js';
+export {
+  reflowLeaveAssignments,
+  type LeaveReflowInput,
+  type LeaveReflowInterval,
+  type LeaveReflowResult,
+  type LeaveReflowStrategy,
+  type ReflowAssignment,
+  type ReflowConflict,
+  type ReflowMember,
+  type ReflowRotationRule,
+  type ReflowVacancy,
+} from './leave/reflow.js';
+export {
   assertSchedulePeriodTransition,
   canTransitionSchedulePeriod,
   schedulePeriodStatuses,

@@ -520,6 +520,117 @@ describe('Web API client', () => {
       code: 'NETWORK_ERROR',
     });
   });
+
+  it('creates and lists leave requests with validated responses', async () => {
+    const leaveRequest = {
+      createdAt: '2026-08-01T00:00:00.000Z',
+      endsAt: '2026-08-02T00:00:00.000Z',
+      groupId: 'group-1',
+      id: 'leave-1',
+      isAllDay: true,
+      leaveType: 'sick',
+      memberName: '张医生',
+      membershipId: 'membership-1',
+      reason: '病假',
+      reflowStrategy: 'keep-original-order',
+      startsAt: '2026-08-01T00:00:00.000Z',
+      status: 'pending',
+      version: 1,
+    } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(leaveRequest), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([leaveRequest]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const created = await client.createLeaveRequest('group-1', {
+      endsAt: '2026-08-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '病假',
+      startsAt: '2026-08-01T00:00:00.000Z',
+    });
+    expect(created).toEqual(leaveRequest);
+    expect(await client.listMyLeaveRequests('group-1')).toEqual([leaveRequest]);
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
+  it('previews and approves a leave request and rejects malformed previews', async () => {
+    const leaveRequest = {
+      createdAt: '2026-08-01T00:00:00.000Z',
+      endsAt: '2026-08-02T00:00:00.000Z',
+      groupId: 'group-1',
+      id: 'leave-1',
+      isAllDay: true,
+      leaveType: 'sick',
+      memberName: '张医生',
+      membershipId: 'membership-1',
+      reason: '病假',
+      reflowStrategy: 'keep-original-order',
+      startsAt: '2026-08-01T00:00:00.000Z',
+      status: 'approved',
+      version: 2,
+    } as const;
+    const preview = {
+      affectedAssignments: [],
+      conflicts: [],
+      continuousDutyWarnings: [],
+      groupDefaultStrategy: 'keep-original-order',
+      leaveRequestId: 'leave-1',
+      leaveRequestVersion: 1,
+      periodVersions: { 'period-1': 2 },
+      rulesVersion: 3,
+      statisticsDelta: {
+        byMember: [],
+        totalAssignmentDelta: 0,
+        totalCountedDelta: 0,
+        totalWeekendDelta: 0,
+      },
+      strategy: 'keep-original-order',
+      vacancies: [],
+    } as const;
+    const approved = {
+      leaveRequest,
+      operationId: 'operation-1',
+      preview,
+      status: 'approved',
+      strategy: 'keep-original-order',
+    } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(preview), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(approved), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const previewed = await client.previewLeaveRequestApproval('group-1', 'leave-1', {});
+    expect(previewed.periodVersions).toEqual({ 'period-1': 2 });
+    const result = await client.approveLeaveRequest('group-1', 'leave-1', {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedRulesVersion: 3,
+      expectedVersion: 1,
+      operationId: 'operation-1',
+    });
+    expect(result.status).toBe('approved');
+    expect(result.leaveRequest.version).toBe(2);
+
+    const malformedClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ ...preview, periodVersions: undefined }), {
+          status: 200,
+        }),
+      ),
+    });
+    await expect(
+      malformedClient.previewLeaveRequestApproval('group-1', 'leave-1', {}),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

@@ -8,6 +8,7 @@ import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
 import MemberManager from '../features/members/MemberManager.vue';
 import SchedulingConfigPanel from '../features/scheduling-config/SchedulingConfigPanel.vue';
+import LeavePanel from '../features/leaves/LeavePanel.vue';
 import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
 
@@ -83,6 +84,9 @@ function getErrorMessage(error: unknown): string {
           </t-tab-panel>
           <t-tab-panel v-if="currentGroup()?.role !== 'member'" value="manual" label="手动排班">
             <ManualScheduleView :group="currentGroup()!" />
+          </t-tab-panel>
+          <t-tab-panel value="leave" label="请假">
+            <LeavePanel :group="currentGroup()!" />
           </t-tab-panel>
           <t-tab-panel value="members" label="成员">
             <MemberManager :group="currentGroup()!" @group-changed="refreshGroups" />

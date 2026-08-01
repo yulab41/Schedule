@@ -10,6 +10,7 @@ export type GroupPermission =
   | 'deleteGroup'
   | 'manageAdministrators'
   | 'manageContacts'
+  | 'manageLeaves'
   | 'manageMembers'
   | 'manageRoster'
   | 'manageScheduleConfiguration'
@@ -27,6 +28,7 @@ export interface ActiveGroupUser {
 export interface ActiveGroup {
   readonly groupCode: string;
   readonly id: string;
+  readonly leaveReflowStrategy: 'keep-original-order' | 'shift-forward';
   readonly name: string;
   readonly ownerUserId: string;
   readonly rulesVersion: number;
@@ -51,6 +53,7 @@ const permissionsByRole: Readonly<
 > = {
   administrator: [
     'manageContacts',
+    'manageLeaves',
     'manageMembers',
     'manageRoster',
     'manageScheduleConfiguration',
@@ -63,6 +66,7 @@ const permissionsByRole: Readonly<
     'deleteGroup',
     'manageAdministrators',
     'manageContacts',
+    'manageLeaves',
     'manageMembers',
     'manageRoster',
     'manageScheduleConfiguration',
@@ -225,6 +229,7 @@ export class GroupPermissionService {
       .select({
         groupCode: groups.groupCode,
         id: groups.id,
+        leaveReflowStrategy: groups.leaveReflowStrategy,
         name: groups.name,
         ownerUserId: groups.ownerUserId,
         rulesVersion: groups.rulesVersion,

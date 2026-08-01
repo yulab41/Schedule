@@ -4,8 +4,11 @@ import type {
   ApiErrorResponse,
   AppliedManualScheduleTemplateResult,
   ApplyManualScheduleTemplateRequest,
+  ApproveLeaveRequestInput,
+  ApprovedLeaveRequestResult,
   CalendarReadModel,
   ClaimGroupResponse,
+  CreateLeaveRequestInput,
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
   CreateManualScheduleTemplateRequest,
@@ -13,11 +16,17 @@ import type {
   GroupMember,
   GroupMemberContact,
   GroupSchedulePublishMode,
+  GroupLeaveReflowStrategy,
   GroupSummary,
   JsonObject,
+  LeaveReflowPreview,
+  LeaveRequest,
   ManualApplyPreview,
   ManualScheduleTemplate,
+  PreviewLeaveRequestInput,
   PreviewManualTemplateApplyRequest,
+  RejectedLeaveRequestResult,
+  RejectLeaveRequestInput,
   ReorderRotationMembersRequest,
   RegenerateGroupCodeRequest,
   ReplaceScheduleRoleMembersRequest,
@@ -29,6 +38,7 @@ import type {
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberRoleRequest,
   UpdateManualScheduleTemplateRequest,
+  UpdateGroupLeaveReflowStrategyInput,
   UpdateShiftTypeRequest,
   UserProfile,
 } from '@schedule/contracts';
@@ -40,12 +50,18 @@ export interface ApiClient {
     groupId: string,
     input: { readonly realNames: readonly string[] },
   ): Promise<AddRosterEntriesResponse>;
+  approveLeaveRequest(
+    groupId: string,
+    leaveRequestId: string,
+    input: ApproveLeaveRequestInput,
+  ): Promise<ApprovedLeaveRequestResult>;
   applyManualTemplate(
     groupId: string,
     templateId: string,
     input: ApplyManualScheduleTemplateRequest,
   ): Promise<AppliedManualScheduleTemplateResult>;
   claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
+  createLeaveRequest(groupId: string, input: CreateLeaveRequestInput): Promise<LeaveRequest>;
   createManualScheduleTemplate(
     groupId: string,
     input: CreateManualScheduleTemplateRequest,
@@ -57,18 +73,31 @@ export interface ApiClient {
   deleteGroup(groupId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
+  getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
   getSchedulePublishMode(groupId: string): Promise<GroupSchedulePublishMode>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
+  listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]>;
+  listMyLeaveRequests(groupId: string): Promise<LeaveRequest[]>;
+  previewLeaveRequestApproval(
+    groupId: string,
+    leaveRequestId: string,
+    input: PreviewLeaveRequestInput,
+  ): Promise<LeaveReflowPreview>;
   previewManualTemplateApply(
     groupId: string,
     templateId: string,
     input: PreviewManualTemplateApplyRequest,
   ): Promise<ManualApplyPreview>;
   regenerateGroupCode(groupId: string, input: RegenerateGroupCodeRequest): Promise<GroupSummary>;
+  rejectLeaveRequest(
+    groupId: string,
+    leaveRequestId: string,
+    input: RejectLeaveRequestInput,
+  ): Promise<RejectedLeaveRequestResult>;
   reorderRotationMembers(
     groupId: string,
     roleId: string,
@@ -98,6 +127,10 @@ export interface ApiClient {
     membershipId: string,
     input: UpdateGroupMemberRoleRequest,
   ): Promise<GroupMember>;
+  updateLeaveReflowStrategy(
+    groupId: string,
+    input: UpdateGroupLeaveReflowStrategyInput,
+  ): Promise<GroupLeaveReflowStrategy>;
   updateRotationRule(
     groupId: string,
     roleId: string,
@@ -145,6 +178,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isAppliedManualScheduleTemplateResult,
       );
     },
+    approveLeaveRequest(groupId, leaveRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/approve`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isApprovedLeaveRequestResult,
+      );
+    },
     addRosterEntries(groupId, input) {
       return requestJson(
         options.auth,
@@ -169,6 +215,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isClaimGroupResponse,
+      );
+    },
+    createLeaveRequest(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isLeaveRequest,
       );
     },
     createManualScheduleTemplate(groupId, input) {
@@ -266,6 +325,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    getLeaveReflowStrategy(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-reflow-strategy`,
+        { method: 'GET' },
+        isGroupLeaveReflowStrategy,
+      );
+    },
     getSchedulePublishMode(groupId) {
       return requestJson(
         options.auth,
@@ -326,6 +395,26 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isGroupSummaryList,
       );
     },
+    listLeaveRequestApprovals(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests/approvals`,
+        { method: 'GET' },
+        isLeaveRequestList,
+      );
+    },
+    listMyLeaveRequests(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests`,
+        { method: 'GET' },
+        isLeaveRequestList,
+      );
+    },
     previewManualTemplateApply(groupId, templateId, input) {
       return requestJson(
         options.auth,
@@ -339,6 +428,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isManualApplyPreview,
       );
     },
+    previewLeaveRequestApproval(groupId, leaveRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/preview`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isLeaveReflowPreview,
+      );
+    },
     regenerateGroupCode(groupId, input) {
       return requestJson(
         options.auth,
@@ -350,6 +452,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isGroupSummary,
+      );
+    },
+    rejectLeaveRequest(groupId, leaveRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/reject`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isRejectedLeaveRequestResult,
       );
     },
     reorderRotationMembers(groupId, roleId, input) {
@@ -428,6 +543,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isGroupMember,
+      );
+    },
+    updateLeaveReflowStrategy(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-reflow-strategy`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isGroupLeaveReflowStrategy,
       );
     },
     updateRotationRule(groupId, roleId, input) {
@@ -962,6 +1090,222 @@ function isGroupSchedulePublishMode(value: unknown): value is GroupSchedulePubli
 
   const publishMode = (value as { publishMode?: unknown }).publishMode;
   return publishMode === 'draft' || publishMode === 'published';
+}
+
+function isLeaveRequest(value: unknown): value is LeaveRequest {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const request = value as Partial<LeaveRequest>;
+  return (
+    typeof request.id === 'string' &&
+    request.id.length > 0 &&
+    typeof request.groupId === 'string' &&
+    request.groupId.length > 0 &&
+    typeof request.membershipId === 'string' &&
+    request.membershipId.length > 0 &&
+    (request.leaveType === 'training' ||
+      request.leaveType === 'rotation' ||
+      request.leaveType === 'sick' ||
+      request.leaveType === 'maternity' ||
+      request.leaveType === 'other') &&
+    typeof request.startsAt === 'string' &&
+    typeof request.endsAt === 'string' &&
+    typeof request.isAllDay === 'boolean' &&
+    typeof request.reason === 'string' &&
+    (request.status === 'pending' ||
+      request.status === 'approved' ||
+      request.status === 'rejected') &&
+    (request.reflowStrategy === 'keep-original-order' ||
+      request.reflowStrategy === 'shift-forward') &&
+    typeof request.version === 'number' &&
+    Number.isInteger(request.version) &&
+    request.version >= 1 &&
+    typeof request.createdAt === 'string' &&
+    (request.memberName === undefined || typeof request.memberName === 'string') &&
+    (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
+    (request.decidedAt === undefined || typeof request.decidedAt === 'string')
+  );
+}
+
+function isLeaveRequestList(value: unknown): value is LeaveRequest[] {
+  return Array.isArray(value) && value.every(isLeaveRequest);
+}
+
+function isGroupLeaveReflowStrategy(value: unknown): value is GroupLeaveReflowStrategy {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const strategy = (value as { strategy?: unknown }).strategy;
+  return strategy === 'keep-original-order' || strategy === 'shift-forward';
+}
+
+function isLeaveReflowPreview(value: unknown): value is LeaveReflowPreview {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const preview = value as Partial<LeaveReflowPreview>;
+  return (
+    Array.isArray(preview.affectedAssignments) &&
+    preview.affectedAssignments.every(isLeaveAffectedAssignment) &&
+    Array.isArray(preview.conflicts) &&
+    preview.conflicts.every(isLeaveReflowConflict) &&
+    Array.isArray(preview.continuousDutyWarnings) &&
+    preview.continuousDutyWarnings.every(isContinuousDutyWarning) &&
+    (preview.groupDefaultStrategy === 'keep-original-order' ||
+      preview.groupDefaultStrategy === 'shift-forward') &&
+    typeof preview.leaveRequestId === 'string' &&
+    preview.leaveRequestId.length > 0 &&
+    typeof preview.leaveRequestVersion === 'number' &&
+    Number.isInteger(preview.leaveRequestVersion) &&
+    isStringNumberRecord(preview.periodVersions) &&
+    typeof preview.rulesVersion === 'number' &&
+    Number.isInteger(preview.rulesVersion) &&
+    isLeaveStatisticsDelta(preview.statisticsDelta) &&
+    (preview.strategy === 'keep-original-order' || preview.strategy === 'shift-forward') &&
+    Array.isArray(preview.vacancies) &&
+    preview.vacancies.every(isScheduleGenerationVacancy)
+  );
+}
+
+function isLeaveAffectedAssignment(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const assignment = value as {
+    assignmentId?: unknown;
+    businessDate?: unknown;
+    endsAt?: unknown;
+    nextMemberId?: unknown;
+    nextMemberName?: unknown;
+    previousMemberId?: unknown;
+    previousMemberName?: unknown;
+    shiftTypeAbbreviation?: unknown;
+    shiftTypeColor?: unknown;
+    shiftTypeId?: unknown;
+    shiftTypeName?: unknown;
+    shiftTypeTextColor?: unknown;
+    slotPosition?: unknown;
+    startsAt?: unknown;
+  };
+  return (
+    typeof assignment.assignmentId === 'string' &&
+    assignment.assignmentId.length > 0 &&
+    typeof assignment.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
+    typeof assignment.endsAt === 'string' &&
+    typeof assignment.shiftTypeAbbreviation === 'string' &&
+    typeof assignment.shiftTypeColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
+    typeof assignment.shiftTypeId === 'string' &&
+    assignment.shiftTypeId.length > 0 &&
+    typeof assignment.shiftTypeName === 'string' &&
+    assignment.shiftTypeName.length > 0 &&
+    typeof assignment.shiftTypeTextColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
+    typeof assignment.slotPosition === 'number' &&
+    Number.isInteger(assignment.slotPosition) &&
+    assignment.slotPosition >= 1 &&
+    typeof assignment.startsAt === 'string' &&
+    (assignment.nextMemberId === undefined || typeof assignment.nextMemberId === 'string') &&
+    (assignment.nextMemberName === undefined || typeof assignment.nextMemberName === 'string') &&
+    (assignment.previousMemberId === undefined ||
+      typeof assignment.previousMemberId === 'string') &&
+    (assignment.previousMemberName === undefined ||
+      typeof assignment.previousMemberName === 'string')
+  );
+}
+
+function isLeaveReflowConflict(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const conflict = value as {
+    assignmentBusinessKeys?: unknown;
+    code?: unknown;
+    memberName?: unknown;
+    membershipId?: unknown;
+  };
+  return (
+    Array.isArray(conflict.assignmentBusinessKeys) &&
+    conflict.assignmentBusinessKeys.every((key) => typeof key === 'string') &&
+    (conflict.code === 'MEMBER_LEAVE_OVERLAP' || conflict.code === 'MEMBER_TIME_OVERLAP') &&
+    typeof conflict.membershipId === 'string' &&
+    conflict.membershipId.length > 0 &&
+    (conflict.memberName === undefined || typeof conflict.memberName === 'string')
+  );
+}
+
+function isLeaveStatisticsDelta(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const delta = value as {
+    byMember?: unknown;
+    totalAssignmentDelta?: unknown;
+    totalCountedDelta?: unknown;
+    totalWeekendDelta?: unknown;
+  };
+  return (
+    Array.isArray(delta.byMember) &&
+    delta.byMember.every(
+      (member) =>
+        member !== null &&
+        typeof member === 'object' &&
+        typeof (member as { membershipId?: unknown }).membershipId === 'string' &&
+        typeof (member as { realName?: unknown }).realName === 'string' &&
+        typeof (member as { assignmentDelta?: unknown }).assignmentDelta === 'number' &&
+        typeof (member as { countedDelta?: unknown }).countedDelta === 'number' &&
+        typeof (member as { weekendDelta?: unknown }).weekendDelta === 'number',
+    ) &&
+    typeof delta.totalAssignmentDelta === 'number' &&
+    typeof delta.totalCountedDelta === 'number' &&
+    typeof delta.totalWeekendDelta === 'number'
+  );
+}
+
+function isApprovedLeaveRequestResult(value: unknown): value is ApprovedLeaveRequestResult {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const result = value as Partial<ApprovedLeaveRequestResult>;
+  return (
+    isLeaveRequest(result.leaveRequest) &&
+    typeof result.operationId === 'string' &&
+    result.operationId.length > 0 &&
+    isLeaveReflowPreview(result.preview) &&
+    result.status === 'approved' &&
+    (result.strategy === 'keep-original-order' || result.strategy === 'shift-forward')
+  );
+}
+
+function isRejectedLeaveRequestResult(value: unknown): value is RejectedLeaveRequestResult {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const result = value as Partial<RejectedLeaveRequestResult>;
+  return (
+    isLeaveRequest(result.leaveRequest) &&
+    typeof result.operationId === 'string' &&
+    result.operationId.length > 0 &&
+    result.status === 'rejected'
+  );
+}
+
+function isStringNumberRecord(value: unknown): value is Readonly<Record<string, number>> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((version) => typeof version === 'number');
 }
 
 function isAppliedManualScheduleTemplateResult(

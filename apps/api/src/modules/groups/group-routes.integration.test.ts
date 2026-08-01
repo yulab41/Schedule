@@ -440,6 +440,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_memberships`);
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
