@@ -148,6 +148,84 @@ input {
   color: #111827;
 }
 
+.scheduling-config-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.scheduling-config-panel h2,
+.schedule-role-editor h3 {
+  margin: 0;
+}
+
+.scheduling-config-card .t-card__body {
+  display: grid;
+  gap: 16px;
+}
+
+.shift-type-list,
+.schedule-role-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.shift-editor,
+.new-role-form,
+.schedule-role-editor fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+}
+
+.shift-editor label,
+.new-role-form label,
+.schedule-role-editor fieldset label {
+  display: grid;
+  gap: 4px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.shift-editor input:not([type='checkbox']),
+.new-role-form input,
+.schedule-role-editor input:not([type='checkbox']),
+.schedule-role-editor select {
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+}
+
+.shift-color-preview {
+  display: inline-grid;
+  width: 40px;
+  height: 32px;
+  place-items: center;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.schedule-role-editor {
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+}
+
+.schedule-role-editor fieldset {
+  align-items: center;
+}
+
+.schedule-role-editor legend {
+  color: #374151;
+  font-weight: 600;
+}
+
 .group-contact-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
@@ -181,5 +259,12 @@ input {
   .group-switcher,
   .group-contact-form {
     grid-template-columns: 1fr;
+  }
+
+  .shift-editor,
+  .new-role-form,
+  .schedule-role-editor fieldset {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

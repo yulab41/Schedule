@@ -7,6 +7,7 @@ import { cloudbaseAuth } from '../auth/cloudbase.js';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
 import MemberManager from '../features/members/MemberManager.vue';
+import SchedulingConfigPanel from '../features/scheduling-config/SchedulingConfigPanel.vue';
 
 const lastGroupStorageKey = 'schedule.last-group-id';
 const api = createApiClient({ auth: cloudbaseAuth });
@@ -69,6 +70,7 @@ function getErrorMessage(error: unknown): string {
       <section v-if="currentGroup() !== undefined" class="current-group-workbench">
         <h2>{{ currentGroup()?.name }}</h2>
         <MemberManager :group="currentGroup()!" @group-changed="refreshGroups" />
+        <SchedulingConfigPanel v-if="currentGroup()?.role !== 'member'" :group="currentGroup()!" />
       </section>
       <GroupSetupPanel @groups-changed="refreshGroups" />
     </template>

@@ -3,14 +3,23 @@ import type {
   ApiErrorCode,
   ApiErrorResponse,
   ClaimGroupResponse,
+  CreateScheduleRoleRequest,
+  CreateShiftTypeRequest,
   CreateGroupRequest,
   GroupMember,
   GroupMemberContact,
   GroupSummary,
+  ReorderRotationMembersRequest,
   RegenerateGroupCodeRequest,
+  ReplaceScheduleRoleMembersRequest,
+  ScheduleRole,
+  SchedulingConfig,
+  ShiftType,
+  UpdateRotationRuleRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberRoleRequest,
+  UpdateShiftTypeRequest,
   UserProfile,
 } from '@schedule/contracts';
 
@@ -22,14 +31,27 @@ export interface ApiClient {
     input: { readonly realNames: readonly string[] },
   ): Promise<AddRosterEntriesResponse>;
   claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
+  createScheduleRole(groupId: string, input: CreateScheduleRoleRequest): Promise<ScheduleRole>;
+  createShiftType(groupId: string, input: CreateShiftTypeRequest): Promise<ShiftType>;
   createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
   createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
   deleteGroup(groupId: string): Promise<void>;
   getCurrentProfile(): Promise<UserProfile>;
+  getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
   regenerateGroupCode(groupId: string, input: RegenerateGroupCodeRequest): Promise<GroupSummary>;
+  reorderRotationMembers(
+    groupId: string,
+    roleId: string,
+    input: ReorderRotationMembersRequest,
+  ): Promise<ScheduleRole>;
+  replaceScheduleRoleMembers(
+    groupId: string,
+    roleId: string,
+    input: ReplaceScheduleRoleMembersRequest,
+  ): Promise<ScheduleRole>;
   transferGroupOwnership(
     groupId: string,
     input: TransferGroupOwnershipRequest,
@@ -44,6 +66,16 @@ export interface ApiClient {
     membershipId: string,
     input: UpdateGroupMemberRoleRequest,
   ): Promise<GroupMember>;
+  updateRotationRule(
+    groupId: string,
+    roleId: string,
+    input: UpdateRotationRuleRequest,
+  ): Promise<ScheduleRole>;
+  updateShiftType(
+    groupId: string,
+    shiftTypeId: string,
+    input: UpdateShiftTypeRequest,
+  ): Promise<ShiftType>;
 }
 
 export interface CreateApiClientOptions {
@@ -94,6 +126,32 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isClaimGroupResponse,
       );
     },
+    createScheduleRole(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedule-roles`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isScheduleRole,
+      );
+    },
+    createShiftType(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/shift-types`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isShiftType,
+      );
+    },
     createGroup(input) {
       return requestJson(
         options.auth,
@@ -140,6 +198,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    getSchedulingConfig(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/scheduling-config`,
+        { method: 'GET' },
+        isSchedulingConfig,
+      );
+    },
     listGroupContacts(groupId) {
       return requestJson(
         options.auth,
@@ -183,6 +251,32 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isGroupSummary,
       );
     },
+    reorderRotationMembers(groupId, roleId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}/rotation-members`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isScheduleRole,
+      );
+    },
+    replaceScheduleRoleMembers(groupId, roleId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}/members`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isScheduleRole,
+      );
+    },
     transferGroupOwnership(groupId, input) {
       return requestJson(
         options.auth,
@@ -220,6 +314,32 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isGroupMember,
+      );
+    },
+    updateRotationRule(groupId, roleId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}/rotation-rule`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isScheduleRole,
+      );
+    },
+    updateShiftType(groupId, shiftTypeId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/shift-types/${encodeURIComponent(shiftTypeId)}`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isShiftType,
       );
     },
   };
@@ -359,6 +479,144 @@ function isGroupMemberContactList(value: unknown): value is GroupMemberContact[]
 
 function isGroupMemberList(value: unknown): value is GroupMember[] {
   return Array.isArray(value) && value.every(isGroupMember);
+}
+
+function isScheduleRole(value: unknown): value is ScheduleRole {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const role = value as Partial<ScheduleRole>;
+  return (
+    typeof role.id === 'string' &&
+    role.id.length > 0 &&
+    typeof role.name === 'string' &&
+    role.name.length > 0 &&
+    typeof role.version === 'number' &&
+    Number.isInteger(role.version) &&
+    Array.isArray(role.members) &&
+    role.members.every(isScheduleRoleMember) &&
+    isRotationRule(role.rotationRule)
+  );
+}
+
+function isScheduleRoleMember(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const member = value as {
+    id?: unknown;
+    membershipId?: unknown;
+    position?: unknown;
+    realName?: unknown;
+    version?: unknown;
+  };
+  return (
+    typeof member.id === 'string' &&
+    member.id.length > 0 &&
+    typeof member.membershipId === 'string' &&
+    member.membershipId.length > 0 &&
+    typeof member.position === 'number' &&
+    Number.isInteger(member.position) &&
+    member.position >= 1 &&
+    typeof member.realName === 'string' &&
+    member.realName.length > 0 &&
+    typeof member.version === 'number' &&
+    Number.isInteger(member.version)
+  );
+}
+
+function isRotationRule(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const rule = value as {
+    currentPosition?: unknown;
+    defaultShiftTypeId?: unknown;
+    requiredMembersPerDay?: unknown;
+    startDate?: unknown;
+    startingMemberScheduleRoleId?: unknown;
+    version?: unknown;
+  };
+  return (
+    typeof rule.currentPosition === 'number' &&
+    Number.isInteger(rule.currentPosition) &&
+    rule.currentPosition >= 1 &&
+    typeof rule.defaultShiftTypeId === 'string' &&
+    rule.defaultShiftTypeId.length > 0 &&
+    typeof rule.requiredMembersPerDay === 'number' &&
+    Number.isInteger(rule.requiredMembersPerDay) &&
+    rule.requiredMembersPerDay >= 1 &&
+    typeof rule.version === 'number' &&
+    Number.isInteger(rule.version) &&
+    (rule.startDate === undefined || typeof rule.startDate === 'string') &&
+    (rule.startingMemberScheduleRoleId === undefined ||
+      typeof rule.startingMemberScheduleRoleId === 'string')
+  );
+}
+
+function isSchedulingConfig(value: unknown): value is SchedulingConfig {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const config = value as Partial<SchedulingConfig>;
+  return (
+    Array.isArray(config.groupMembers) &&
+    config.groupMembers.every(isSchedulingGroupMember) &&
+    Array.isArray(config.roles) &&
+    config.roles.every(isScheduleRole) &&
+    Array.isArray(config.shiftTypes) &&
+    config.shiftTypes.every(isShiftType)
+  );
+}
+
+function isSchedulingGroupMember(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const member = value as { membershipId?: unknown; realName?: unknown };
+  return (
+    typeof member.membershipId === 'string' &&
+    member.membershipId.length > 0 &&
+    typeof member.realName === 'string' &&
+    member.realName.length > 0
+  );
+}
+
+function isShiftType(value: unknown): value is ShiftType {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const shiftType = value as Partial<ShiftType>;
+  return (
+    typeof shiftType.id === 'string' &&
+    shiftType.id.length > 0 &&
+    typeof shiftType.name === 'string' &&
+    shiftType.name.length > 0 &&
+    typeof shiftType.abbreviation === 'string' &&
+    shiftType.abbreviation.length > 0 &&
+    typeof shiftType.color === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(shiftType.color) &&
+    typeof shiftType.textColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(shiftType.textColor) &&
+    typeof shiftType.displayOrder === 'number' &&
+    Number.isInteger(shiftType.displayOrder) &&
+    typeof shiftType.isAllDay === 'boolean' &&
+    typeof shiftType.isEnabled === 'boolean' &&
+    typeof shiftType.crossesMidnight === 'boolean' &&
+    typeof shiftType.countsTowardStatistics === 'boolean' &&
+    typeof shiftType.configurationVersion === 'number' &&
+    Number.isInteger(shiftType.configurationVersion) &&
+    typeof shiftType.version === 'number' &&
+    Number.isInteger(shiftType.version) &&
+    (shiftType.startTime === undefined || /^\d{2}:\d{2}$/.test(shiftType.startTime)) &&
+    (shiftType.endTime === undefined || /^\d{2}:\d{2}$/.test(shiftType.endTime))
+  );
 }
 
 function joinUrl(baseUrl: string, path: string): string {

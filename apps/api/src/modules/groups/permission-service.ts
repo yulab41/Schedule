@@ -11,10 +11,12 @@ export type GroupPermission =
   | 'manageContacts'
   | 'manageMembers'
   | 'manageRoster'
+  | 'manageScheduleConfiguration'
   | 'regenerateGroupCode'
   | 'transferOwnership'
   | 'viewContacts'
-  | 'viewMembers';
+  | 'viewMembers'
+  | 'viewScheduleConfiguration';
 
 export interface ActiveGroupUser {
   readonly id: string;
@@ -44,18 +46,28 @@ export interface GroupAuthorization {
 const permissionsByRole: Readonly<
   Record<ActiveGroupMembership['role'], readonly GroupPermission[]>
 > = {
-  administrator: ['manageContacts', 'manageMembers', 'manageRoster', 'viewContacts', 'viewMembers'],
-  member: ['viewContacts', 'viewMembers'],
+  administrator: [
+    'manageContacts',
+    'manageMembers',
+    'manageRoster',
+    'manageScheduleConfiguration',
+    'viewContacts',
+    'viewMembers',
+    'viewScheduleConfiguration',
+  ],
+  member: ['viewContacts', 'viewMembers', 'viewScheduleConfiguration'],
   owner: [
     'deleteGroup',
     'manageAdministrators',
     'manageContacts',
     'manageMembers',
     'manageRoster',
+    'manageScheduleConfiguration',
     'regenerateGroupCode',
     'transferOwnership',
     'viewContacts',
     'viewMembers',
+    'viewScheduleConfiguration',
   ],
 };
 

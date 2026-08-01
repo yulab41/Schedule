@@ -10,6 +10,8 @@ import { registerGroupRoutes } from './modules/groups/group-routes.js';
 import { GroupService } from './modules/groups/group-service.js';
 import { MembershipService } from './modules/groups/membership-service.js';
 import { ContactService } from './modules/groups/contact-service.js';
+import { registerSchedulingConfigRoutes } from './modules/scheduling-config/scheduling-config-routes.js';
+import { SchedulingConfigService } from './modules/scheduling-config/scheduling-config-service.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -74,6 +76,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new MembershipService(options.databaseClient),
       new ContactService(options.databaseClient),
     );
+    registerSchedulingConfigRoutes(app, new SchedulingConfigService(options.databaseClient));
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

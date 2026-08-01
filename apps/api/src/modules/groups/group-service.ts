@@ -26,6 +26,7 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { GroupCodeService } from './group-code-service.js';
 import { GroupPermissionService } from './permission-service.js';
+import { createDefaultShiftTypes } from '../scheduling-config/scheduling-config-service.js';
 
 interface ActiveGroupUser {
   readonly id: string;
@@ -309,6 +310,7 @@ export class GroupService {
         role: 'owner',
         userId: user.id,
       });
+      await createDefaultShiftTypes(transaction, groupId);
 
       return {
         groupCode,

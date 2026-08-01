@@ -425,6 +425,11 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS rotation_members`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS rotation_rules`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS shift_types`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS member_schedule_roles`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);

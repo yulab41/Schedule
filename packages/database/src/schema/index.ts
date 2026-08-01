@@ -11,6 +11,8 @@ import {
   varchar,
 } from 'drizzle-orm/mysql-core';
 
+export * from './scheduling-config.js';
+
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
 const auditableColumns = () => ({

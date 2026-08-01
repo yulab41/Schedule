@@ -42,11 +42,11 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-            AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests')`,
+            AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members')`,
     );
 
-    expect(migrations).toEqual([{ count: 2 }]);
-    expect(tables).toEqual([{ count: 9 }]);
+    expect(migrations).toEqual([{ count: 3 }]);
+    expect(tables).toEqual([{ count: 14 }]);
   });
 
   it('uses UTC for every MySQL session', async () => {
@@ -170,6 +170,11 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS rotation_members`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS rotation_rules`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS shift_types`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS member_schedule_roles`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);

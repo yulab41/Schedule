@@ -1,5 +1,6 @@
 export * from './errors.js';
 export * from './groups.js';
+export * from './scheduling-config.js';
 export * from './users.js';
 
 export interface SystemStatus {
