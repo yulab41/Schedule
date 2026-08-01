@@ -3,11 +3,9 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
 import {
-  CloudbaseAuthenticationError,
   cloudbaseAuth,
   getAuthenticatedSession,
   type CloudbaseAuthClient,
-  type CloudbaseAuthResult,
   type CloudbaseSession,
 } from '../auth/cloudbase.js';
 import { ApiClientError, createApiClient, type ApiClient } from '../api/client.js';
@@ -19,32 +17,14 @@ export interface SessionDependencies {
   readonly auth: CloudbaseAuthClient;
 }
 
-export interface RegisterInput {
-  readonly email: string;
-  readonly password: string;
-  readonly realName: string;
-  readonly username: string;
-}
-
-type VerifyEmailCode = (input: {
-  readonly token: string;
-}) => Promise<CloudbaseAuthResult<{ readonly session?: CloudbaseSession }>>;
-
-interface PendingRegistration {
-  readonly realName: string;
-  readonly verifyEmailCode: VerifyEmailCode;
-}
-
 export function createSessionManager(dependencies: SessionDependencies) {
   const errorMessage = ref<string | undefined>();
-  const pendingRegistration = ref<PendingRegistration | undefined>();
   const profile = ref<UserProfile | undefined>();
   const status = ref<SessionStatus>('loading');
   let restorePromise: Promise<void> | undefined;
 
   const isAuthenticated = computed(() => status.value === 'authenticated');
   const needsProfile = computed(() => status.value === 'needs-profile');
-  const hasPendingRegistration = computed(() => pendingRegistration.value !== undefined);
 
   async function restore(): Promise<void> {
     if (restorePromise !== undefined) {
@@ -62,7 +42,19 @@ export function createSessionManager(dependencies: SessionDependencies) {
     readonly username: string;
   }): Promise<void> {
     clearError();
-    const result = await dependencies.auth.signInWithPassword(input);
+    const username = normalizeLoginAccount(input.username);
+    if (username.length === 0) {
+      throw new SessionError('请输入登录账号。');
+    }
+
+    if (input.password.length === 0) {
+      throw new SessionError('请输入密码。');
+    }
+
+    const result = await dependencies.auth.signInWithPassword({
+      password: input.password,
+      username,
+    });
     const session = getAuthenticatedSession(result);
     if (session === undefined) {
       clearSession();
@@ -70,45 +62,6 @@ export function createSessionManager(dependencies: SessionDependencies) {
     }
 
     await loadProfile();
-  }
-
-  async function beginRegistration(input: RegisterInput): Promise<void> {
-    clearError();
-    const result = await dependencies.auth.signUp({
-      email: input.email,
-      password: input.password,
-      username: input.username,
-    });
-
-    if (result.error !== null && result.error !== undefined) {
-      throw new CloudbaseAuthenticationError(result.error.message ?? '无法发送邮箱验证码。');
-    }
-
-    const verifyEmailCode = result.data?.verifyOtp;
-    if (verifyEmailCode === undefined) {
-      throw new CloudbaseAuthenticationError('认证服务未返回邮箱验证码确认步骤。');
-    }
-
-    pendingRegistration.value = {
-      realName: input.realName,
-      verifyEmailCode,
-    };
-  }
-
-  async function completeRegistration(code: string): Promise<void> {
-    const pending = pendingRegistration.value;
-    if (pending === undefined) {
-      throw new SessionError('请先提交注册资料。');
-    }
-
-    const result = await pending.verifyEmailCode({ token: code });
-    const session = getAuthenticatedSession(result);
-    if (session === undefined) {
-      throw new SessionError('邮箱验证未能建立登录状态，请重试。');
-    }
-
-    pendingRegistration.value = undefined;
-    await createProfile(pending.realName);
   }
 
   async function completeProfile(realName: string): Promise<void> {
@@ -135,10 +88,6 @@ export function createSessionManager(dependencies: SessionDependencies) {
     } finally {
       clearSession();
     }
-  }
-
-  function discardPendingRegistration(): void {
-    pendingRegistration.value = undefined;
   }
 
   async function restoreSession(): Promise<void> {
@@ -199,7 +148,6 @@ export function createSessionManager(dependencies: SessionDependencies) {
   }
 
   function clearSession(): void {
-    pendingRegistration.value = undefined;
     profile.value = undefined;
     status.value = 'anonymous';
   }
@@ -209,12 +157,8 @@ export function createSessionManager(dependencies: SessionDependencies) {
   }
 
   return {
-    beginRegistration,
     completeProfile,
-    completeRegistration,
-    discardPendingRegistration,
     errorMessage,
-    hasPendingRegistration,
     isAuthenticated,
     needsProfile,
     profile,
@@ -223,6 +167,10 @@ export function createSessionManager(dependencies: SessionDependencies) {
     signOut,
     status,
   };
+}
+
+export function normalizeLoginAccount(username: string): string {
+  return username.trim().toLowerCase();
 }
 
 export const useSessionStore = defineStore('session', () =>

@@ -5,7 +5,6 @@ import { pinia } from '../stores/pinia.js';
 import { useSessionStore } from '../stores/session.js';
 import HomeView from '../views/HomeView.vue';
 import LoginView from '../views/auth/LoginView.vue';
-import RegisterView from '../views/auth/RegisterView.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -17,10 +16,8 @@ export const router = createRouter({
       path: '/login',
     },
     {
-      component: RegisterView,
-      meta: { guestOnly: true },
-      name: 'register',
       path: '/register',
+      redirect: { name: 'login' },
     },
     {
       component: AppLayout,

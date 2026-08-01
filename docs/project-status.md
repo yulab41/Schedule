@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 7 are committed. An administrator-provisioned-account correction to Task 7 is specified and awaits written review before implementation.
+- Implementation code: Tasks 1 through 7 are committed. The administrator-provisioned-account correction to Task 7 is complete and validated; this checkpoint is identified by `fix(web): remove self registration`.
 
 ## Approved Sources
 
@@ -34,24 +34,24 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 5 completed: the initial identity and group migration creates the seven approved tables with audit/version conventions, group-code retention through soft deletion, and database-enforced pending-roster-name uniqueness; the API migration entry point validates environment values before running the Drizzle journal.
 - Task 6 completed: CloudBase authentication is isolated behind `AuthPort`; user profiles map only the platform's stable UID and never store passwords.
 - Task 6 completed: the CloudBase HTTP gateway's gzip-compressed Base64 request context is bounded, decoded, and maps its trusted `userId` to the business UID. Local authentication still ignores caller-supplied identity headers.
-- Task 7 completed: the Vue Web shell uses TDesign, Vue Router, Pinia, Vue Query, and the CloudBase JavaScript SDK for username/password sign-in, email-OTP registration, profile creation, logout, session recovery, and protected routes.
+- Task 7 correction completed: the Vue Web shell now supports only administrator-provisioned CloudBase username/password accounts. It has no public registration, email, or verification-code flow; login accounts are trimmed and lowercased before the SDK call, and passwords require only a nonempty value.
 - Task 7 completed: client API requests attach only the current CloudBase Bearer token; profile and session state validates responses, handles 401/403/409/network failures consistently, and never retains plaintext passwords or tokens in application state.
-- Account-policy correction specified: Web self-registration will be removed; authorized administrators create lowercase CloudBase login accounts, while a later WeChat identity binds to the same stable UID.
+- Task 7 correction completed: the obsolete registration view and SDK registration proxy were removed, while legacy `/register` now redirects to `/login`. A later WeChat identity must bind to the same stable UID as the administrator-provisioned account.
 
 ## Active Batch
 
-- Task 7 correction: remove Web self-registration and normalize login accounts for administrator-provisioned CloudBase accounts.
-- Stop after the written correction specification is reviewed, the approved design and implementation plan are synchronized, and the focused Web tests pass. Do not start Task 8.
+- Task 8: implement groups, four-digit group codes, and roster claiming.
+- Stop after the transaction-safe group-code and claiming workflow, its API and Web surfaces, and focused group tests are complete and checkpointed. Do not start Task 9.
 
-The Task 7 correction is the only implementation task authorized for the next conversation. Do not begin Task 8.
+Task 8 is the only implementation task authorized for the next conversation. Do not begin Task 9.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read `docs/superpowers/specs/2026-08-01-admin-provisioned-web-auth-design.md` completely.
-4. After written approval, synchronize Task 6 and Task 7 in the implementation plan and main design section 4.1 before editing code.
-5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes.
+3. Read Task 8 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 4.3, 5.1 through 5.3, and 19 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
 
@@ -70,7 +70,7 @@ The Task 7 correction is the only implementation task authorized for the next co
 - The development-only `auth-identity-probe` verified the signed-in UID `2083456390410330113`, returned no credentials or tokens, and was then removed along with `/task6-auth-probe`. `tcb routes list` and `tcb fn list` both returned no remaining temporary resources.
 - Task 6 created an isolated MySQL on host port 3307 for verification, then stopped and removed it. It used only the disposable `schedule_test` database; the development MySQL on port 3306 remains healthy and independent.
 - Task 7 reads public `VITE_CLOUDBASE_*` configuration from the repository-root `.env` through Vite. The CloudBase HTTP deployment configuration and same-domain `/api` route remain Task 30 work; the API trusts only gateway-provided identity context, not the client Bearer header in local mode.
-- CloudBase supports username/password login but does not allow public Web self-registration with only a username and password. The product policy is now administrator provisioning, so no browser-accessible management credential or registration API will be created.
+- The CloudBase development environment is `schedule-dev-d1geh4w1l4af7359d`. The product policy uses administrator-created, lowercase username/password accounts; this repository deliberately contains neither CloudBase management credentials nor a public account-provisioning endpoint.
 
 ## Reusable Operational Notes
 
@@ -100,9 +100,10 @@ The Task 7 correction is the only implementation task authorized for the next co
 - Task 6 identity-context correction: CloudBase Functions Framework source inspection confirmed `X-Cloudbase-Context` uses `Base64 -> gzip -> JSON` and exposes the request user as `extendedContext.userId`. Tests first failed against the previous `uid` assumption, then passed after the `userId` correction. Focused formatting, type, and API adapter tests passed before final full verification.
 - Task 6 CloudBase runtime: CLI device authorization deployed `auth-identity-probe`; an initial route configuration using `SCF` failed, and changing only its resource type to `WEB_SCF` resolved it. The authenticated development request returned `{"uid":"2083456390410330113"}`. The temporary route and function were deleted after verification; route and function lists are both empty.
 - Task 7: `pnpm install --frozen-lockfile` passed after declaring `vue-demi: false` in pnpm build approval settings. Focused Web client tests passed: `pnpm exec vitest run apps/web/src/api/client.test.ts apps/web/src/stores/session.test.ts` (10 tests).
-- Task 7: final `pnpm verify` passed Prettier, ESLint, strict type checks, 26 passing Vitest tests, and all production builds; 12 existing database/API integration tests were skipped because no disposable test database was configured. The Web build reports a 632 KiB gzip entry chunk after adding the CloudBase SDK.
-- Task 7 browser check: the local Vite app at `http://localhost:5175/` showed functional login and registration views with no browser-console errors. The process is local development state only.
-- Account-policy correction: no code has changed yet. `pnpm exec prettier --check docs/project-status.md docs/superpowers/specs/2026-08-01-admin-provisioned-web-auth-design.md` and `git diff --check` passed; the correction specification awaits the user's written review before design, plan, and code changes.
+- Task 7 correction: focused Web client tests passed: `pnpm exec vitest run apps/web/src/api/client.test.ts apps/web/src/stores/session.test.ts` (9 tests). The tests assert trim/lowercase account normalization, acceptance of a one-character password without constraints, empty-password rejection before an SDK call, and no password retained by the session manager.
+- Task 7 correction: final `pnpm verify` passed Prettier, ESLint, strict type checks, 25 passing Vitest tests, and all production builds; 12 existing database/API integration tests were skipped because no disposable test database was configured. The Web build reports a 631 KiB gzip entry chunk after adding the CloudBase SDK.
+- Task 7 correction browser check: the local Vite app at `http://localhost:5175/register` redirected to `/login` and showed only a login-account field, password field, and login button. The local app has no CloudBase environment configuration, so no live credential submission was attempted. `git diff --check` also passed.
+- Task 7 correction review: an independent read-only review found no critical issue. The stale addendum status was changed to `已实施`; a focused test now proves one-character password acceptance and rejects an empty password before the SDK call.
 
 ## Recent Checkpoints
 
@@ -119,6 +120,7 @@ The Task 7 correction is the only implementation task authorized for the next co
 - Task 6 checkpoint commit message: `feat(auth): add CloudBase username login integration`
 - Task 7 checkpoint commit message: `feat(web): add registration and persistent session`
 - Account-policy correction design checkpoint commit message: `docs: specify admin-provisioned Web accounts`
+- Task 7 correction checkpoint commit message: `fix(web): remove self registration`
 
 ## Decisions and Blockers
 
@@ -128,11 +130,11 @@ The Task 7 correction is the only implementation task authorized for the next co
 - Task 6 isolates authentication behind `AuthPort`. The local adapter accepts only a non-anonymous CloudBase runtime UID, while the CloudBase HTTP adapter accepts only the `userId` decoded from the gateway's gzip-compressed Base64 per-request `x-cloudbase-context`, rejecting explicit `UNAUTHORIZED` or `NONE` contexts. This context is never enabled for the local server. User/password credential creation and token storage remain CloudBase responsibilities; the business database stores only the stable UID, status, and business profile.
 - User profiles expose their current version. A profile update requires that version and its `UPDATE` atomically requires the associated user to remain active and non-deleted before incrementing it; a stale or concurrently suspended account returns `409` rather than silently overwriting data. A soft-deleted user profile is not readable or writable through the current-profile endpoints.
 - The repository has one destructive disposable test schema. Root Vitest file parallelism is disabled so database migration and API integration test files cannot concurrently drop and recreate the same tables.
-- The CloudBase development environment is `schedule-dev-d1geh4w1l4af7359d`. Username/password login and email-verification login are enabled, with CloudBase built-in email relay enabled. CloudBase requires initial registration through email or phone verification before a user can bind a username/password; the Web registration flow must reflect this product constraint in Task 7.
+- The administrator-provisioned-account policy supersedes the prior email-OTP registration design. Administrators create lowercase CloudBase accounts through the controlled management surface; the Web application carries no management credential and creates no authentication account itself. It normalizes login input to lowercase before calling CloudBase, while business-profile completion after a successful first login remains distinct from account creation.
 - Task 6 has no remaining blocker. Automated browser surfaces still block the CloudBase service domain, so the user completed the final signed-in request in a regular browser. The returned UID is recorded above; the temporary validation resources were removed immediately afterward.
-- Task 7 defers live CloudBase register/login and HTTP route verification to Task 30, which must configure the CloudBase HTTP access service with identity authentication and route `/api` through the trusted gateway. The client flow is covered with focused SDK and API mocks until that deployment work is available.
-- Adding the CloudBase SDK grows the initial Web entry chunk to 632 KiB gzip. Defer route-level splitting until later feature pages create a meaningful async boundary.
-- The prior email-OTP registration requirement is superseded by the administrator-provisioned-account design addendum. The Web client must normalize login account input to lowercase, but no new identity mapping table or registration endpoint is authorized.
+- Task 7 defers live CloudBase login and HTTP route verification to Task 30, which must configure the CloudBase HTTP access service with identity authentication and route `/api` through the trusted gateway. The client flow is covered with focused SDK and API mocks until that deployment work is available.
+- Adding the CloudBase SDK grows the initial Web entry chunk to 631 KiB gzip. Defer route-level splitting until later feature pages create a meaningful async boundary.
+- The Task 7 correction deliberately validates the declarative legacy-route redirect in the running Vite app rather than adding Vue/JSDOM support to the root Node-only Vitest configuration. Existing focused unit tests cover the session boundary; the browser check covers `/register` redirect behavior and the absence of registration UI.
 
 ## Handoff Requirements
 

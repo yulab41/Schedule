@@ -124,6 +124,5 @@ function createAuthClient(): CloudbaseAuthClient {
     }),
     signInWithPassword: vi.fn(),
     signOut: vi.fn(),
-    signUp: vi.fn(),
   };
 }

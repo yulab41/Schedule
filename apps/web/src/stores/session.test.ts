@@ -63,53 +63,24 @@ describe('session manager', () => {
     expect(manager.status.value).toBe('anonymous');
   });
 
-  it('creates the business profile only after email verification creates a session', async () => {
-    const verifyOtp = vi.fn().mockResolvedValue({ data: { session: authenticatedSession } });
+  it('normalizes the login account without constraining the submitted password', async () => {
     const api = createApiClient();
-    const auth = createAuthClient({
-      signUp: vi.fn().mockResolvedValue({ data: { verifyOtp } }),
-    });
+    const auth = createAuthClient();
     const manager = createSessionManager({ api, auth });
 
-    await manager.beginRegistration({
-      email: 'doctor@example.com',
-      password: 'not-retained-after-submission',
-      realName: profile.realName,
-      username: 'doctor-zhang',
+    await manager.signIn({ password: '!', username: '  LinEnYu  ' });
+
+    expect(auth.signInWithPassword).toHaveBeenCalledWith({
+      password: '!',
+      username: 'linenyu',
     });
-
-    expect(api.createCurrentProfile).not.toHaveBeenCalled();
-
-    await manager.completeRegistration('123456');
-
-    expect(verifyOtp).toHaveBeenCalledWith({ token: '123456' });
-    expect(api.createCurrentProfile).toHaveBeenCalledWith({ realName: profile.realName });
     expect(manager.status.value).toBe('authenticated');
-  });
+    expect(manager).not.toHaveProperty('password');
 
-  it('keeps a verified account ready to complete its profile after a profile-creation failure', async () => {
-    const verifyOtp = vi.fn().mockResolvedValue({ data: { session: authenticatedSession } });
-    const api = createApiClient({
-      createCurrentProfile: vi
-        .fn()
-        .mockRejectedValue(new ApiClientError({ code: 'NETWORK_ERROR', message: '网络不可用。' })),
-    });
-    const auth = createAuthClient({
-      signUp: vi.fn().mockResolvedValue({ data: { verifyOtp } }),
-    });
-    const manager = createSessionManager({ api, auth });
-
-    await manager.beginRegistration({
-      email: 'doctor@example.com',
-      password: 'not-retained-after-submission',
-      realName: profile.realName,
-      username: 'doctor-zhang',
-    });
-
-    await expect(manager.completeRegistration('123456')).rejects.toThrow('网络不可用。');
-
-    expect(manager.hasPendingRegistration.value).toBe(false);
-    expect(manager.needsProfile.value).toBe(true);
+    await expect(manager.signIn({ password: '', username: 'linenyu' })).rejects.toThrow(
+      '请输入密码。',
+    );
+    expect(auth.signInWithPassword).toHaveBeenCalledTimes(1);
   });
 
   it('clears protected state even when CloudBase sign-out fails', async () => {
@@ -141,7 +112,6 @@ function createAuthClient(overrides: Partial<CloudbaseAuthClient> = {}): Cloudba
     getSession: vi.fn().mockResolvedValue({ data: { session: authenticatedSession } }),
     signInWithPassword: vi.fn().mockResolvedValue({ data: { session: authenticatedSession } }),
     signOut: vi.fn().mockResolvedValue({ data: {} }),
-    signUp: vi.fn(),
     ...overrides,
   };
 }

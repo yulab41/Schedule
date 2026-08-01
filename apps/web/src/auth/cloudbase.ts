@@ -23,17 +23,6 @@ export interface CloudbaseAuthClient {
     readonly username: string;
   }): Promise<CloudbaseAuthResult<{ readonly session?: CloudbaseSession }>>;
   signOut(): Promise<CloudbaseAuthResult<unknown>>;
-  signUp(input: {
-    readonly email: string;
-    readonly password: string;
-    readonly username: string;
-  }): Promise<
-    CloudbaseAuthResult<{
-      readonly verifyOtp?: (input: {
-        readonly token: string;
-      }) => Promise<CloudbaseAuthResult<{ readonly session?: CloudbaseSession }>>;
-    }>
-  >;
 }
 
 let authClient: CloudbaseAuthClient | undefined;
@@ -48,9 +37,6 @@ export const cloudbaseAuth: CloudbaseAuthClient = {
   },
   signOut() {
     return getCloudbaseAuthClient().signOut();
-  },
-  signUp(input) {
-    return getCloudbaseAuthClient().signUp(input);
   },
 };
 

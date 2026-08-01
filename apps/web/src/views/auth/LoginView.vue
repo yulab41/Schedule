@@ -23,6 +23,7 @@ async function submit(): Promise<void> {
   } catch (error) {
     submitError.value = getErrorMessage(error);
   } finally {
+    password.value = '';
     submitting.value = false;
   }
 }
@@ -38,11 +39,11 @@ async function submit(): Promise<void> {
             theme="error"
             :message="submitError ?? session.errorMessage ?? ''"
           />
-          <t-form-item label="用户名">
+          <t-form-item label="登录账号">
             <t-input
               v-model="username"
               autocomplete="username"
-              placeholder="请输入用户名"
+              placeholder="请输入登录账号"
               required
             />
           </t-form-item>
@@ -56,7 +57,6 @@ async function submit(): Promise<void> {
             />
           </t-form-item>
           <t-button block :loading="submitting" theme="primary" type="submit">登录</t-button>
-          <RouterLink :to="{ name: 'register' }">还没有账户？注册</RouterLink>
         </t-space>
       </form>
     </t-card>
