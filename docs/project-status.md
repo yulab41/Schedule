@@ -106,7 +106,7 @@ Task 17 is the only implementation task authorized for the next conversation. Do
 - Task 12 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 14 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 15 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy. The local Vite development server still returns 200 at `http://127.0.0.1:5180`.
-- Task 16 validation reused the already-running `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema. The container and network were left running after verification; run the matching Compose `down` before the next validation round if desired. The persistent development MySQL on port 3306 remains independent and healthy.
+- Task 16 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 
 ## Reusable Operational Notes
 
@@ -213,6 +213,7 @@ Task 17 is the only implementation task authorized for the next conversation. Do
 - Task 16 uses `0007_manual_schedule_templates.sql` because `0005` and `0006` are already committed for periods and generation; the plan's illustrative `0005` filename must not be reused. Template edits soft-delete all prior members/cells and insert new rows, so each update remains append-only history while only non-deleted rows form the current template.
 - Task 16 template members match the scheduling-config role-member view (active memberships and users, non-deleted role links) and do not apply effective-from/effective-to filtering, which remains deferred to Task 17 revalidation together with leave and time-conflict checks. The editor palette filters to enabled shift types; stale disabled references from saved templates stay visible with a warning and cannot be re-filled.
 - Task 16 keeps the manual-schedule editor test colocated at `apps/web/src/features/manual-schedule/manual-schedule-editor.spec.ts` (next to source) instead of the plan's `apps/web/tests/` path, following the repository's existing colocated test convention. Rendered-page verification still requires a signed-in CloudBase session and remains deferred to Task 30.
+- Task 16 passed an independent review before the checkpoint; the reviewer confirmed the implementation and validation, and the checkpoint commit `feat(schedule): add manual cycle template editor` was pushed to `origin/main`.
 
 ## Handoff Requirements
 
