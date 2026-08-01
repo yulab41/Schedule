@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import type { SystemStatus } from '@schedule/contracts';
+import { useSessionStore } from './stores/session.js';
 
-const status: SystemStatus = {
-  component: 'web',
-  ready: true,
-  summary: 'Workspace initialization complete.',
-};
+const session = useSessionStore();
 </script>
 
 <template>
-  <main>
-    <h1>医护排班系统</h1>
-    <p>{{ status.summary }}</p>
+  <main v-if="session.status === 'loading'" class="state-panel" aria-live="polite">
+    <t-loading text="正在确认登录状态" />
   </main>
+  <RouterView v-else />
 </template>

@@ -1,0 +1,121 @@
+:root {
+  color: #1f2937;
+  background: #f5f7fa;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.product-name {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.account-name {
+  color: #4b5563;
+  font-size: 14px;
+}
+
+.app-content {
+  padding: 24px;
+}
+
+.auth-page,
+.profile-panel,
+.state-panel {
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+  place-items: center;
+}
+
+.auth-card,
+.profile-panel .t-card {
+  width: min(100%, 440px);
+}
+
+.auth-card .t-card__body {
+  padding-top: 24px;
+}
+
+.state-panel {
+  min-height: calc(100vh - 104px);
+}
+
+.home-view {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.home-view h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.home-view p,
+.profile-panel p {
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    padding: 0 16px;
+  }
+
+  .app-content {
+    padding: 16px;
+  }
+
+  .auth-page,
+  .profile-panel,
+  .state-panel {
+    padding: 16px;
+  }
+
+  .account-name {
+    display: none;
+  }
+}

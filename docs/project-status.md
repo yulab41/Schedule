@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 5 are committed. Task 6 is complete, fully verified, and ready for its checkpoint commit.
+- Implementation code: Tasks 1 through 6 are committed. Task 7 is complete, fully verified, and ready for its checkpoint commit.
 
 ## Approved Sources
 
@@ -34,20 +34,22 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 5 completed: the initial identity and group migration creates the seven approved tables with audit/version conventions, group-code retention through soft deletion, and database-enforced pending-roster-name uniqueness; the API migration entry point validates environment values before running the Drizzle journal.
 - Task 6 completed: CloudBase authentication is isolated behind `AuthPort`; user profiles map only the platform's stable UID and never store passwords.
 - Task 6 completed: the CloudBase HTTP gateway's gzip-compressed Base64 request context is bounded, decoded, and maps its trusted `userId` to the business UID. Local authentication still ignores caller-supplied identity headers.
+- Task 7 completed: the Vue Web shell uses TDesign, Vue Router, Pinia, Vue Query, and the CloudBase JavaScript SDK for username/password sign-in, email-OTP registration, profile creation, logout, session recovery, and protected routes.
+- Task 7 completed: client API requests attach only the current CloudBase Bearer token; profile and session state validates responses, handles 401/403/409/network failures consistently, and never retains plaintext passwords or tokens in application state.
 
 ## Active Batch
 
-- Task 7: Establish the Web application shell and login experience.
-- Stop after registration, login, session recovery, and protected routing work against the completed Task 6 API contracts, with focused client-side validation passing. Do not start Task 8.
+- Task 8: Implement groups, group codes, and the roster-claim workflow.
+- Stop after users can create a group, join using a valid group code and exact roster name, or submit a pending request without receiving group schedule data; focused validation must pass. Do not start Task 9.
 
-Task 7 is the only implementation task authorized for the next conversation. Do not begin Task 8.
+Task 8 is the only implementation task authorized for the next conversation. Do not begin Task 9.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 7 in the implementation plan.
-4. Read design sections 3, 4, and 20, plus any section referenced by an unexpected issue.
+3. Read Task 8 in the implementation plan.
+4. Read design sections 4.1, 4.3, 5, and 20, plus any section referenced by an unexpected issue.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes.
 
 ## Known Environment State
@@ -66,6 +68,7 @@ Task 7 is the only implementation task authorized for the next conversation. Do 
 - Task 6 uses `@cloudbase/node-sdk` 3.18.5 for non-HTTP CloudBase runtime identities. For authenticated HTTP gateway requests, CloudBase injects a gzip-compressed Base64 context whose `userId` is the stable business UID.
 - The development-only `auth-identity-probe` verified the signed-in UID `2083456390410330113`, returned no credentials or tokens, and was then removed along with `/task6-auth-probe`. `tcb routes list` and `tcb fn list` both returned no remaining temporary resources.
 - Task 6 created an isolated MySQL on host port 3307 for verification, then stopped and removed it. It used only the disposable `schedule_test` database; the development MySQL on port 3306 remains healthy and independent.
+- Task 7 reads public `VITE_CLOUDBASE_*` configuration from the repository-root `.env` through Vite. The CloudBase HTTP deployment configuration and same-domain `/api` route remain Task 30 work; the API trusts only gateway-provided identity context, not the client Bearer header in local mode.
 
 ## Reusable Operational Notes
 
@@ -94,6 +97,9 @@ Task 7 is the only implementation task authorized for the next conversation. Do 
 - Task 6: API integration tests cover rejected missing/expired/logged-out identities, profile registration without password persistence, profile read/update ownership isolation, soft-deleted-profile exclusion, strict payload rejection, duplicate stable-UID registration, stale-version conflicts, and an account suspension interleaving with profile update. The CloudBase HTTP adapter accepts only a bounded, gzip-compressed Base64 gateway context and maps its `userId`; local runtime authentication ignores caller-provided HTTP headers.
 - Task 6 identity-context correction: CloudBase Functions Framework source inspection confirmed `X-Cloudbase-Context` uses `Base64 -> gzip -> JSON` and exposes the request user as `extendedContext.userId`. Tests first failed against the previous `uid` assumption, then passed after the `userId` correction. Focused formatting, type, and API adapter tests passed before final full verification.
 - Task 6 CloudBase runtime: CLI device authorization deployed `auth-identity-probe`; an initial route configuration using `SCF` failed, and changing only its resource type to `WEB_SCF` resolved it. The authenticated development request returned `{"uid":"2083456390410330113"}`. The temporary route and function were deleted after verification; route and function lists are both empty.
+- Task 7: `pnpm install --frozen-lockfile` passed after declaring `vue-demi: false` in pnpm build approval settings. Focused Web client tests passed: `pnpm exec vitest run apps/web/src/api/client.test.ts apps/web/src/stores/session.test.ts` (10 tests).
+- Task 7: final `pnpm verify` passed Prettier, ESLint, strict type checks, 26 passing Vitest tests, and all production builds; 12 existing database/API integration tests were skipped because no disposable test database was configured. The Web build reports a 632 KiB gzip entry chunk after adding the CloudBase SDK.
+- Task 7 browser check: the local Vite app at `http://localhost:5175/` showed functional login and registration views with no browser-console errors. The process is local development state only.
 
 ## Recent Checkpoints
 
@@ -108,6 +114,7 @@ Task 7 is the only implementation task authorized for the next conversation. Do 
 - Task 5 checkpoint commit message: `feat(db): add identity and group schema`
 - `44b46a9` - `docs: clarify implementation batch size` (pushed to `origin/main`)
 - Task 6 checkpoint commit message: `feat(auth): add CloudBase username login integration`
+- Task 7 checkpoint commit message: `feat(web): add registration and persistent session`
 
 ## Decisions and Blockers
 
@@ -119,6 +126,8 @@ Task 7 is the only implementation task authorized for the next conversation. Do 
 - The repository has one destructive disposable test schema. Root Vitest file parallelism is disabled so database migration and API integration test files cannot concurrently drop and recreate the same tables.
 - The CloudBase development environment is `schedule-dev-d1geh4w1l4af7359d`. Username/password login and email-verification login are enabled, with CloudBase built-in email relay enabled. CloudBase requires initial registration through email or phone verification before a user can bind a username/password; the Web registration flow must reflect this product constraint in Task 7.
 - Task 6 has no remaining blocker. Automated browser surfaces still block the CloudBase service domain, so the user completed the final signed-in request in a regular browser. The returned UID is recorded above; the temporary validation resources were removed immediately afterward.
+- Task 7 defers live CloudBase register/login and HTTP route verification to Task 30, which must configure the CloudBase HTTP access service with identity authentication and route `/api` through the trusted gateway. The client flow is covered with focused SDK and API mocks until that deployment work is available.
+- Adding the CloudBase SDK grows the initial Web entry chunk to 632 KiB gzip. Defer route-level splitting until later feature pages create a meaningful async boundary.
 
 ## Handoff Requirements
 

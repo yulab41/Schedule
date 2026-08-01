@@ -5,3 +5,4 @@ packages:
 allowBuilds:
   core-js-pure: false
   esbuild: true
+  vue-demi: false
