@@ -8,9 +8,9 @@ This file is the concise handoff entry point for every new implementation conver
 - Branch: `main`
 - Upstream: `origin/main`
 - Target release: Doctor Scheduling Web 1.0
-- Current phase: Phase Zero — Engineering Foundation
+- Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 and 2 complete; Task 3 is next.
+- Implementation code: Tasks 1 through 3 complete; Task 4 is next.
 
 ## Approved Sources
 
@@ -26,20 +26,22 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 1 completed: strict TypeScript, ESLint, Prettier, Vitest, build/typecheck scripts, secure pnpm build approval, and local-output/secret ignore rules.
 - Task 2 completed: separate Docker Compose definitions for persistent development MySQL and ephemeral isolated test MySQL, each with a database health check.
 - Task 2 completed: API Zod environment validation rejects missing required database settings and invalid ports without exposing password values; test mode maps only `TEST_MYSQL_*` values and local PowerShell setup and recovery steps are documented.
+- Task 3 completed: GitHub Actions verifies frozen dependency installation, GitHub configuration formatting, formatting, linting, strict types, unit tests, and builds on every push and pull request using Node.js 24 and the pnpm download cache.
+- Task 3 completed: the verification job provides an isolated MySQL 8.4 service with disposable `TEST_MYSQL_*` credentials only; Dependabot groups npm and GitHub Actions version updates into at most one monthly pull request per ecosystem.
 
 ## Active Batch
 
-- Task 3: Add GitHub repository verification automation.
-- Stop after Task 3, or earlier if GitHub Actions configuration or remote workflow availability exposes a blocker.
+- Task 4: Establish the API runtime and shared error contract.
+- Stop after Task 4, or earlier if the local Fastify runtime or CloudBase HTTP adapter boundary exposes a blocker.
 
-Task 3 is the only implementation task authorized for the next conversation. It must be validated and committed separately.
+Task 4 is the only implementation task authorized for the next conversation. It must be validated and committed separately.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 3 in the implementation plan.
-4. Read design sections 3 and 20, plus any section referenced by an unexpected issue.
+3. Read Task 4 in the implementation plan.
+4. Read design sections 3, 20, and 21, plus any section referenced by an unexpected issue.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes.
 
 ## Known Environment State
@@ -51,6 +53,8 @@ Task 3 is the only implementation task authorized for the next conversation. It 
 - The isolated test MySQL used host port 3307, was rebuilt successfully, then was stopped and removed. Its temporary data directory never used the development volume.
 - A local `.env` was created from `.env.example`; it remains ignored and was not staged. Docker's sandboxed client can warn while reading the user's Docker config, but Compose validation and the live engine checks passed outside the sandbox.
 - Environment validation confirms required and well-formed values before startup. Actual database credential authentication remains the connection-layer responsibility of Task 5; no database client or API listener was introduced ahead of Tasks 4 and 5.
+- GitHub Actions uses only disposable test database values and has read-only repository contents permission; no CloudBase, development, or production secret is referenced. Its first remote run remains to be checked after this checkpoint is pushed.
+- The isolated test MySQL service was started for the CI reproduction, became healthy, and was then stopped and removed with its temporary data. The persistent development MySQL service and named volume remain untouched.
 - A user-owned whitespace-only edit remains unstaged in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`; do not stage or overwrite it.
 - No CloudBase development environment configuration or secrets are stored in the repository.
 
@@ -70,6 +74,7 @@ Task 3 is the only implementation task authorized for the next conversation. It 
 - Task 2: `docker compose --env-file .env -f infra/docker/compose.yml config --quiet` and the test equivalent passed.
 - Task 2: both Compose services reached `healthy`; the test service was removed and rebuilt, while the development service and `medical-schedule-dev-mysql-data` remained healthy and present.
 - Task 2: `pnpm --filter @schedule/api test` passed with 5 environment tests; `pnpm verify` passed formatting, ESLint, strict type checks, 6 Vitest tests, and all production builds.
+- Task 3: with the isolated test MySQL healthy, `pnpm install --frozen-lockfile`, `pnpm exec prettier --check ".github/**/*.yml"`, `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` all passed. `pnpm exec prettier --check docs/development/ci.md` also passed.
 
 ## Recent Checkpoints
 
@@ -78,6 +83,8 @@ Task 3 is the only implementation task authorized for the next conversation. It 
 - `2238103` — `Initial commit`
 - `ae649b3` — `chore: scaffold TypeScript workspace` (pushed to `origin/main`)
 - `c450405` — `chore: add local Docker development environment` (pushed to `origin/main`)
+- `470ff00` — `docs: record local setup troubleshooting` (pushed to `origin/main`)
+- Pending checkpoint: `ci: add repository verification workflow`
 
 ## Handoff Requirements
 

@@ -1,0 +1,71 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Quality checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      TEST_MYSQL_HOST: 127.0.0.1
+      TEST_MYSQL_PORT: ${{ job.services.mysql.ports[3306] }}
+      TEST_MYSQL_DATABASE: schedule_test
+      TEST_MYSQL_USER: schedule_test_app
+      TEST_MYSQL_PASSWORD: schedule_test_password
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: schedule_test
+          MYSQL_USER: schedule_test_app
+          MYSQL_PASSWORD: schedule_test_password
+          MYSQL_ROOT_PASSWORD: schedule_test_root_password
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uschedule_test_app -pschedule_test_password"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check GitHub configuration formatting
+        run: pnpm exec prettier --check ".github/**/*.yml"
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
