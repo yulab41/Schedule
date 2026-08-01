@@ -1,7 +1,7 @@
 :root {
   color: #1f2937;
   background: #f5f7fa;
-  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -100,6 +100,65 @@ input {
   line-height: 1.6;
 }
 
+.group-switcher {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(180px, 320px);
+  gap: 12px;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.group-switcher label {
+  color: #374151;
+  font-weight: 600;
+}
+
+.current-group-workbench {
+  margin: 24px 0;
+}
+
+.current-group-workbench h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.member-list {
+  display: grid;
+  gap: 12px;
+}
+
+.member-row {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+}
+
+.member-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: #4b5563;
+}
+
+.member-summary strong {
+  color: #111827;
+}
+
+.group-contact-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.group-contact-form .t-form__item {
+  margin-bottom: 0;
+}
+
 @media (max-width: 640px) {
   .app-header {
     padding: 0 16px;
@@ -117,5 +176,10 @@ input {
 
   .account-name {
     display: none;
+  }
+
+  .group-switcher,
+  .group-contact-form {
+    grid-template-columns: 1fr;
   }
 }

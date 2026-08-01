@@ -25,6 +25,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { GroupCodeService } from './group-code-service.js';
+import { GroupPermissionService } from './permission-service.js';
 
 interface ActiveGroupUser {
   readonly id: string;
@@ -41,6 +42,7 @@ interface ActiveGroup {
 
 export class GroupService {
   private readonly groupCodeService: GroupCodeService;
+  private readonly permissionService = new GroupPermissionService();
 
   public constructor(
     private readonly databaseClient: DatabaseClient,
@@ -95,8 +97,12 @@ export class GroupService {
 
     try {
       return await withTransaction(this.databaseClient, async (transaction) => {
-        const user = await this.getActiveUserInTransaction(transaction, identity);
-        await this.getOwnedGroup(transaction, groupId, user.id);
+        await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageRoster',
+        );
         await transaction.insert(rosterEntries).values(
           input.realNames.map((realName) => ({
             groupId,

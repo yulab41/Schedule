@@ -8,6 +8,8 @@ import { UserService } from './modules/users/user-service.js';
 import { registerUserRoutes } from './modules/users/user-routes.js';
 import { registerGroupRoutes } from './modules/groups/group-routes.js';
 import { GroupService } from './modules/groups/group-service.js';
+import { MembershipService } from './modules/groups/membership-service.js';
+import { ContactService } from './modules/groups/contact-service.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -24,6 +26,8 @@ const sensitiveLogFields = [
   'authorization',
   'phone',
   'phoneNumber',
+  'mobilePhone',
+  'shortPhone',
   'mobile',
 ] as const;
 
@@ -64,7 +68,12 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.authPort !== undefined && options.databaseClient !== undefined) {
     registerAuthentication(app, options.authPort, options.readTrustedCloudbaseContext);
     registerUserRoutes(app, new UserService(options.databaseClient));
-    registerGroupRoutes(app, new GroupService(options.databaseClient));
+    registerGroupRoutes(
+      app,
+      new GroupService(options.databaseClient),
+      new MembershipService(options.databaseClient),
+      new ContactService(options.databaseClient),
+    );
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

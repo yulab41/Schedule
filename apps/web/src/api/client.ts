@@ -4,8 +4,13 @@ import type {
   ApiErrorResponse,
   ClaimGroupResponse,
   CreateGroupRequest,
+  GroupMember,
+  GroupMemberContact,
   GroupSummary,
   RegenerateGroupCodeRequest,
+  TransferGroupOwnershipRequest,
+  UpdateGroupMemberContactRequest,
+  UpdateGroupMemberRoleRequest,
   UserProfile,
 } from '@schedule/contracts';
 
@@ -19,8 +24,26 @@ export interface ApiClient {
   claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
   createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
   createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
+  deleteGroup(groupId: string): Promise<void>;
   getCurrentProfile(): Promise<UserProfile>;
+  listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
+  listGroupMembers(groupId: string): Promise<GroupMember[]>;
+  listGroups(): Promise<GroupSummary[]>;
   regenerateGroupCode(groupId: string, input: RegenerateGroupCodeRequest): Promise<GroupSummary>;
+  transferGroupOwnership(
+    groupId: string,
+    input: TransferGroupOwnershipRequest,
+  ): Promise<GroupSummary>;
+  updateGroupMemberContact(
+    groupId: string,
+    membershipId: string,
+    input: UpdateGroupMemberContactRequest,
+  ): Promise<GroupMemberContact>;
+  updateGroupMemberRole(
+    groupId: string,
+    membershipId: string,
+    input: UpdateGroupMemberRoleRequest,
+  ): Promise<GroupMember>;
 }
 
 export interface CreateApiClientOptions {
@@ -97,6 +120,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    deleteGroup(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}`,
+        { method: 'DELETE' },
+        isUndefined,
+      );
+    },
     getCurrentProfile() {
       return requestJson(
         options.auth,
@@ -105,6 +138,36 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         '/users/me',
         { method: 'GET' },
         isUserProfile,
+      );
+    },
+    listGroupContacts(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/contacts`,
+        { method: 'GET' },
+        isGroupMemberContactList,
+      );
+    },
+    listGroupMembers(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/members`,
+        { method: 'GET' },
+        isGroupMemberList,
+      );
+    },
+    listGroups() {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/groups',
+        { method: 'GET' },
+        isGroupSummaryList,
       );
     },
     regenerateGroupCode(groupId, input) {
@@ -118,6 +181,45 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isGroupSummary,
+      );
+    },
+    transferGroupOwnership(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/owner-transfer`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isGroupSummary,
+      );
+    },
+    updateGroupMemberContact(groupId, membershipId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isGroupMemberContact,
+      );
+    },
+    updateGroupMemberRole(groupId, membershipId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/role`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isGroupMember,
       );
     },
   };
@@ -147,7 +249,7 @@ async function requestJson<ResponseBody>(
   fetchImplementation: typeof fetch,
   baseUrl: string,
   path: string,
-  init: { readonly body?: string; readonly method: 'GET' | 'POST' | 'PUT' },
+  init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT' },
   isResponseBody: (value: unknown) => value is ResponseBody,
 ): Promise<ResponseBody> {
   const session = getAuthenticatedSession(await auth.getSession());
@@ -214,6 +316,49 @@ function isClaimGroupResponse(value: unknown): value is ClaimGroupResponse {
   }
 
   return value.status === 'claimed' && 'group' in value && isGroupSummary(value.group);
+}
+
+function isGroupMember(value: unknown): value is GroupMember {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const member = value as Partial<GroupMember>;
+  return (
+    typeof member.id === 'string' &&
+    member.id.length > 0 &&
+    typeof member.isCurrentUser === 'boolean' &&
+    typeof member.realName === 'string' &&
+    member.realName.length > 0 &&
+    (member.role === 'administrator' || member.role === 'member' || member.role === 'owner')
+  );
+}
+
+function isGroupMemberContact(value: unknown): value is GroupMemberContact {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const contact = value as Partial<GroupMemberContact>;
+  return (
+    typeof contact.membershipId === 'string' &&
+    contact.membershipId.length > 0 &&
+    typeof contact.isConfirmed === 'boolean' &&
+    typeof contact.version === 'number' &&
+    Number.isInteger(contact.version) &&
+    contact.version >= 0 &&
+    (contact.mobilePhone === undefined || typeof contact.mobilePhone === 'string') &&
+    (contact.shortPhone === undefined || typeof contact.shortPhone === 'string') &&
+    (contact.updatedAt === undefined || typeof contact.updatedAt === 'string')
+  );
+}
+
+function isGroupMemberContactList(value: unknown): value is GroupMemberContact[] {
+  return Array.isArray(value) && value.every(isGroupMemberContact);
+}
+
+function isGroupMemberList(value: unknown): value is GroupMember[] {
+  return Array.isArray(value) && value.every(isGroupMember);
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -298,6 +443,14 @@ function isGroupSummary(value: unknown): value is GroupSummary {
     Number.isInteger(group.version) &&
     group.version >= 1
   );
+}
+
+function isGroupSummaryList(value: unknown): value is GroupSummary[] {
+  return Array.isArray(value) && value.every(isGroupSummary);
+}
+
+function isUndefined(value: unknown): value is undefined {
+  return value === undefined;
 }
 
 function getHttpErrorMessage(status: number): string {

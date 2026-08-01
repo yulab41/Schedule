@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 8 are complete and validated. Task 8's pending checkpoint is `feat(groups): add group codes and roster claiming`.
+- Implementation code: Tasks 1 through 9 are complete and validated. Task 9's pending checkpoint is `feat(groups): add roles contacts and group switching`.
 
 ## Approved Sources
 
@@ -40,20 +40,22 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 8 completed: database-backed custom or random four-digit group codes allocate inside the group-creation transaction, retry random collisions, remain globally retained through soft deletion, and can be regenerated only by the group owner.
 - Task 8 completed: owners bulk-add uniquely pending roster names; profile-name exact matches atomically claim an entry, resolve a prior add-person request, and create membership. All group writes lock and recheck the active actor; non-matches store one pending administrator-add request without returning any group data, while persisted per-user group-code attempts return `429` after five requests per minute.
 - Task 8 completed: the Web workbench exposes group creation, roster paste, code regeneration, and group claiming; API/client, pure input, migration, and MySQL integration tests cover the workflow.
+- Task 9 completed: the group permission matrix now distinguishes owner, administrator, and member actions. Owner-only administrator appointment/removal, ownership transfer, and soft deletion run in transactions that preserve exactly one active owner; administrators can manage rosters and prefill contacts.
+- Task 9 completed: member contacts are scoped to active memberships, require the member's explicit confirmation, and never leak across groups. The Web workbench lists authorized groups afresh, remembers only the last group ID, clears data while switching, and refreshes membership state after ownership changes.
 
 ## Active Batch
 
-- Task 9: implement group-owner/admin permissions, member contacts, and safe group switching.
-- Stop after the role matrix, owner-transfer transaction, member-scoped contacts, group-switching UI, and focused permission tests are complete and checkpointed. Do not start Task 10.
+- Task 10: implement schedule roles, shift types, and rotation configuration.
+- Stop after schedule-role membership and order, shift-type lifecycle, and per-role rotation configuration are complete, validated, and checkpointed. Do not start Task 11.
 
-Task 9 is the only implementation task authorized for the next conversation. Do not begin Task 10.
+Task 10 is the only implementation task authorized for the next conversation. Do not begin Task 11.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 9 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 4.2, 4.3, 5.3, 19, and 20 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 10 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 5.4, 6, 8, 19, and 20 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -75,6 +77,7 @@ Task 9 is the only implementation task authorized for the next conversation. Do 
 - Task 7 reads public `VITE_CLOUDBASE_*` configuration from the repository-root `.env` through Vite. The CloudBase HTTP deployment configuration and same-domain `/api` route remain Task 30 work; the API trusts only gateway-provided identity context, not the client Bearer header in local mode.
 - The CloudBase development environment is `schedule-dev-d1geh4w1l4af7359d`. The product policy uses administrator-created, lowercase username/password accounts; this repository deliberately contains neither CloudBase management credentials nor a public account-provisioning endpoint.
 - Task 8 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable tmpfs test schema, then removed its container and network after validation. The persistent development MySQL remains independent and healthy on port 3306.
+- Task 9 validation likewise started and then removed `medical-schedule-test-mysql-1` on host port 3307. The local Vite development server is running at `http://127.0.0.1:5180`; its HTML entry point returned 200. The in-app browser's loopback URL policy blocked a rendered-page check, and live CloudBase login remains deferred to Task 30.
 
 ## Reusable Operational Notes
 
@@ -109,6 +112,7 @@ Task 9 is the only implementation task authorized for the next conversation. Do 
 - Task 7 correction browser check: the local Vite app at `http://localhost:5175/register` redirected to `/login` and showed only a login-account field, password field, and login button. The local app has no CloudBase environment configuration, so no live credential submission was attempted. `git diff --check` also passed.
 - Task 7 correction review: an independent read-only review found no critical issue. The stale addendum status was changed to `已实施`; a focused test now proves one-character password acceptance and rejects an empty password before the SDK call.
 - Task 8: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed Prettier, ESLint, strict type checks, all 49 Vitest tests (including 9 group integrations), and all production builds. The temporary service was removed with the matching Compose `down` command after validation.
+- Task 9: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; the focused API group-permission suite passed 35 tests. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 54 Vitest tests (including 5 new group-permission integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 627.45 KiB gzip. The temporary service was removed with the matching Compose `down` command.
 
 ## Recent Checkpoints
 
@@ -127,6 +131,7 @@ Task 9 is the only implementation task authorized for the next conversation. Do 
 - Account-policy correction design checkpoint commit message: `docs: specify admin-provisioned Web accounts`
 - Task 7 correction checkpoint commit message: `fix(web): remove self registration`
 - Task 8 checkpoint commit message: `feat(groups): add group codes and roster claiming`
+- Task 9 checkpoint commit message: `feat(groups): add roles contacts and group switching`
 
 ## Decisions and Blockers
 
@@ -144,6 +149,7 @@ Task 9 is the only implementation task authorized for the next conversation. Do 
 - Task 8 uses a durable, per-user, one-minute group-code attempt window rather than process-local state, so the `429` limit remains effective across CloudBase instances. The approved task requires rate limiting; an external CAPTCHA challenge is deferred until a CloudBase-compatible challenge provider can be configured without storing credentials in the repository.
 - A non-matching claim creates an idempotent pending `group_join_requests` row keyed by group and requesting user, keeps the requester's profile-name snapshot for administrators, and returns only `request_created`; it never exposes the group name, ID, or schedule data before membership exists.
 - Claiming resolves any matching pending join request in the same transaction. Every group mutation locks and rechecks the user's active state before changing groups, rosters, memberships, or group codes; integration tests use independent MySQL clients and distinct eligible users for code-creation and claim races.
+- Task 9 keeps the group owner pointer and the active owner membership role as a transaction-checked invariant. A successful transfer demotes the former owner to administrator before promoting the target and updating the group pointer. Contact phone values are stored only per group membership; browser storage retains only a group ID and never contact or membership data.
 
 ## Handoff Requirements
 

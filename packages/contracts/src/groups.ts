@@ -37,3 +37,33 @@ export type ClaimGroupResponse =
 export interface RegenerateGroupCodeRequest {
   readonly groupCode?: string;
 }
+
+export interface GroupMember {
+  readonly id: string;
+  readonly isCurrentUser: boolean;
+  readonly realName: string;
+  readonly role: GroupRole;
+}
+
+export interface GroupMemberContact {
+  readonly isConfirmed: boolean;
+  readonly membershipId: string;
+  readonly mobilePhone?: string;
+  readonly shortPhone?: string;
+  readonly updatedAt?: string;
+  readonly version: number;
+}
+
+export interface UpdateGroupMemberRoleRequest {
+  readonly role: Extract<GroupRole, 'administrator' | 'member'>;
+}
+
+export interface TransferGroupOwnershipRequest {
+  readonly membershipId: string;
+}
+
+export interface UpdateGroupMemberContactRequest {
+  readonly confirm?: true;
+  readonly mobilePhone?: string | null;
+  readonly shortPhone?: string | null;
+}

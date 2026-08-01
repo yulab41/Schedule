@@ -3,12 +3,17 @@ import type {
   ClaimGroupRequest,
   CreateGroupRequest,
   RegenerateGroupCodeRequest,
+  TransferGroupOwnershipRequest,
+  UpdateGroupMemberContactRequest,
+  UpdateGroupMemberRoleRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { ContactService } from './contact-service.js';
 import { GroupService } from './group-service.js';
+import { MembershipService } from './membership-service.js';
 
 const groupCodeSchema = z.string().regex(/^\d{4}$/);
 const groupIdSchema = z.string().uuid();
@@ -40,7 +45,40 @@ const regenerateGroupCodeInputSchema = z
   })
   .strict();
 
-export function registerGroupRoutes(app: FastifyInstance, groupService: GroupService): void {
+const membershipRoleSchema = z.enum(['administrator', 'member']);
+const membershipIdSchema = z.string().uuid();
+const phoneSchema = z.string().trim().min(1).max(32);
+
+const updateMemberRoleInputSchema = z
+  .object({
+    role: membershipRoleSchema,
+  })
+  .strict();
+
+const transferOwnershipInputSchema = z
+  .object({
+    membershipId: membershipIdSchema,
+  })
+  .strict();
+
+const updateContactInputSchema = z
+  .object({
+    confirm: z.literal(true).optional(),
+    mobilePhone: phoneSchema.nullable().optional(),
+    shortPhone: phoneSchema.nullable().optional(),
+  })
+  .strict()
+  .refine(
+    (input) =>
+      input.confirm === true || input.mobilePhone !== undefined || input.shortPhone !== undefined,
+  );
+
+export function registerGroupRoutes(
+  app: FastifyInstance,
+  groupService: GroupService,
+  membershipService: MembershipService,
+  contactService: ContactService,
+): void {
   app.post('/groups', { preHandler: app.authenticate }, async (request, reply) => {
     const group = await groupService.create(
       getAuthenticatedIdentity(request),
@@ -59,6 +97,18 @@ export function registerGroupRoutes(app: FastifyInstance, groupService: GroupSer
     return reply.code(result.status === 'claimed' ? 201 : 202).send(result);
   });
 
+  app.get('/groups', { preHandler: app.authenticate }, async (request) =>
+    membershipService.listGroups(getAuthenticatedIdentity(request)),
+  );
+
+  app.get('/groups/:groupId/members', { preHandler: app.authenticate }, async (request) =>
+    membershipService.listMembers(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
+  app.get('/groups/:groupId/contacts', { preHandler: app.authenticate }, async (request) =>
+    contactService.listContacts(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
   app.post('/groups/:groupId/roster-entries', { preHandler: app.authenticate }, async (request) =>
     groupService.addRosterEntries(
       getAuthenticatedIdentity(request),
@@ -74,6 +124,43 @@ export function registerGroupRoutes(app: FastifyInstance, groupService: GroupSer
       parseRegenerateGroupCodeInput(request.body),
     ),
   );
+
+  app.put(
+    '/groups/:groupId/members/:membershipId/role',
+    { preHandler: app.authenticate },
+    async (request) =>
+      membershipService.updateMemberRole(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseMembershipId(request),
+        parseUpdateMemberRoleInput(request.body),
+      ),
+  );
+
+  app.post('/groups/:groupId/owner-transfer', { preHandler: app.authenticate }, async (request) =>
+    membershipService.transferOwnership(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseTransferOwnershipInput(request.body),
+    ),
+  );
+
+  app.put(
+    '/groups/:groupId/members/:membershipId/contact',
+    { preHandler: app.authenticate },
+    async (request) =>
+      contactService.updateContact(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseMembershipId(request),
+        parseUpdateContactInput(request.body),
+      ),
+  );
+
+  app.delete('/groups/:groupId', { preHandler: app.authenticate }, async (request, reply) => {
+    await membershipService.deleteGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+    return reply.code(204).send();
+  });
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {
@@ -133,6 +220,48 @@ function parseGroupId(request: FastifyRequest): string {
   }
 
   return result.data;
+}
+
+function parseMembershipId(request: FastifyRequest): string {
+  const result = membershipIdSchema.safeParse(
+    (request.params as { membershipId?: unknown }).membershipId,
+  );
+  if (!result.success) {
+    throwValidationError();
+  }
+
+  return result.data;
+}
+
+function parseUpdateMemberRoleInput(value: unknown): UpdateGroupMemberRoleRequest {
+  const result = updateMemberRoleInputSchema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+
+  return result.data;
+}
+
+function parseTransferOwnershipInput(value: unknown): TransferGroupOwnershipRequest {
+  const result = transferOwnershipInputSchema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+
+  return result.data;
+}
+
+function parseUpdateContactInput(value: unknown): UpdateGroupMemberContactRequest {
+  const result = updateContactInputSchema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+
+  return {
+    ...(result.data.confirm === undefined ? {} : { confirm: result.data.confirm }),
+    ...(result.data.mobilePhone === undefined ? {} : { mobilePhone: result.data.mobilePhone }),
+    ...(result.data.shortPhone === undefined ? {} : { shortPhone: result.data.shortPhone }),
+  };
 }
 
 function throwValidationError(): never {

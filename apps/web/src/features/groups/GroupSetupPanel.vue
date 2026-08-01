@@ -6,6 +6,10 @@ import { ApiClientError, createApiClient } from '../../api/client.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { hasDuplicateRosterName, parseRosterNames } from './roster-input.js';
 
+const emit = defineEmits<{
+  'groups-changed': [groupId: string];
+}>();
+
 const api = createApiClient({ auth: cloudbaseAuth });
 const createdGroup = ref<GroupSummary>();
 const joinedGroup = ref<GroupSummary>();
@@ -33,6 +37,7 @@ async function createGroup(): Promise<void> {
     });
     createGroupName.value = '';
     customGroupCode.value = '';
+    emit('groups-changed', createdGroup.value.id);
     infoMessage.value = '群组已创建。请将待认领人员逐行粘贴到下方名单中。';
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
@@ -100,6 +105,7 @@ async function claimGroup(): Promise<void> {
 
     if (result.status === 'claimed') {
       joinedGroup.value = result.group;
+      emit('groups-changed', result.group.id);
       infoMessage.value = `已加入“${result.group.name}”。`;
       return;
     }
