@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Zero — Engineering Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Task 1 complete; Task 2 is next.
+- Implementation code: Tasks 1 and 2 complete; Task 3 is next.
 
 ## Approved Sources
 
@@ -24,19 +24,21 @@ This file is the concise handoff entry point for every new implementation conver
 - Automatic Git/GitHub checkpoint and cross-conversation handoff rules are active.
 - Task 1 completed: pnpm TypeScript workspace with minimal API, Vue Web, contracts, database, and scheduling-domain package entries.
 - Task 1 completed: strict TypeScript, ESLint, Prettier, Vitest, build/typecheck scripts, secure pnpm build approval, and local-output/secret ignore rules.
+- Task 2 completed: separate Docker Compose definitions for persistent development MySQL and ephemeral isolated test MySQL, each with a database health check.
+- Task 2 completed: API Zod environment validation rejects missing required database settings and invalid ports without exposing password values; test mode maps only `TEST_MYSQL_*` values and local PowerShell setup and recovery steps are documented.
 
 ## Active Batch
 
-- Task 2: Add the local Docker and environment configuration.
-- Stop after Task 2, or earlier if Docker availability or its required configuration exposes a blocker.
+- Task 3: Add GitHub repository verification automation.
+- Stop after Task 3, or earlier if GitHub Actions configuration or remote workflow availability exposes a blocker.
 
-Task 2 is the only remaining implementation task authorized for this conversation. It must be validated and committed separately.
+Task 3 is the only implementation task authorized for the next conversation. It must be validated and committed separately.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 2 in the implementation plan.
+3. Read Task 3 in the implementation plan.
 4. Read design sections 3 and 20, plus any section referenced by an unexpected issue.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes.
 
@@ -45,20 +47,29 @@ Task 2 is the only remaining implementation task authorized for this conversatio
 - The repository is connected to `https://github.com/yulab41/Schedule.git`.
 - `main` was synchronized with `origin/main` before this handoff update.
 - Node.js v24.14.0, pnpm v11.9.0, Docker v29.4.0, and Docker Compose v5.1.2 were detected.
-- Docker's client reported that the sandbox cannot read the user's Docker configuration file; Docker engine and compose startup are still unverified and are Task 2 validation.
+- Docker Desktop is running. `medical-schedule-dev-mysql-1` remains healthy on host port 3306 and persists data in `medical-schedule-dev-mysql-data`.
+- The isolated test MySQL used host port 3307, was rebuilt successfully, then was stopped and removed. Its temporary data directory never used the development volume.
+- A local `.env` was created from `.env.example`; it remains ignored and was not staged. Docker's sandboxed client can warn while reading the user's Docker config, but Compose validation and the live engine checks passed outside the sandbox.
+- Environment validation confirms required and well-formed values before startup. Actual database credential authentication remains the connection-layer responsibility of Task 5; no database client or API listener was introduced ahead of Tasks 4 and 5.
+- A user-owned whitespace-only edit remains unstaged in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`; do not stage or overwrite it.
 - No CloudBase development environment configuration or secrets are stored in the repository.
 
 ## Latest Validation
 
 - Task 1: `pnpm install --frozen-lockfile=false` passed after allowing only `esbuild` in pnpm's committed `allowBuilds` configuration.
 - Task 1: `pnpm verify` passed: Prettier, ESLint, strict TypeScript checks for five workspace packages, 1 Vitest test, and all package/Web production builds.
+- Task 2: `pnpm install --no-frozen-lockfile` passed and locked Zod 4.4.3.
+- Task 2: `docker compose --env-file .env -f infra/docker/compose.yml config --quiet` and the test equivalent passed.
+- Task 2: both Compose services reached `healthy`; the test service was removed and rebuilt, while the development service and `medical-schedule-dev-mysql-data` remained healthy and present.
+- Task 2: `pnpm --filter @schedule/api test` passed with 5 environment tests; `pnpm verify` passed formatting, ESLint, strict type checks, 6 Vitest tests, and all production builds.
 
 ## Recent Checkpoints
 
 - `0c58852` — `docs: add Web 1.0 implementation plan`
 - `0a375f0` — `docs: add automatic Git checkpoint policy`
 - `2238103` — `Initial commit`
-- Pending checkpoint: `chore: scaffold TypeScript workspace`
+- `ae649b3` — `chore: scaffold TypeScript workspace` (pushed to `origin/main`)
+- Pending checkpoint: `chore: add local Docker development environment`
 
 ## Handoff Requirements
 

@@ -50,6 +50,9 @@ importers:
       '@schedule/scheduling-domain':
         specifier: workspace:*
         version: link:../../packages/scheduling-domain
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
 
   apps/web:
     dependencies:
@@ -1342,6 +1345,9 @@ packages:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
     engines: {node: '>=18'}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
 snapshots:
 
   '@babel/helper-string-parser@7.29.7': {}
@@ -2530,3 +2536,5 @@ snapshots:
       strip-ansi: 7.2.0
 
   xml-name-validator@5.0.0: {}
+
+  zod@4.4.3: {}

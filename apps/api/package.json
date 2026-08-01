@@ -13,10 +13,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@schedule/contracts": "workspace:*",
-    "@schedule/scheduling-domain": "workspace:*"
+    "@schedule/scheduling-domain": "workspace:*",
+    "zod": "^4.1.12"
   }
 }
