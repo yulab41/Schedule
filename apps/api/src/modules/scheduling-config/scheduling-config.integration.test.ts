@@ -404,6 +404,8 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS shift_assignments`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS schedule_periods`);
   await client.database.execute(sql`DROP TABLE IF EXISTS audit_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_events`);
   await client.database.execute(sql`DROP TABLE IF EXISTS rotation_members`);

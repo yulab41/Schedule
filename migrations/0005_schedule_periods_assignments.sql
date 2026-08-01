@@ -1,0 +1,72 @@
+CREATE TABLE `schedule_periods` (
+  `id` CHAR(36) NOT NULL,
+  `group_id` CHAR(36) NOT NULL,
+  `schedule_role_id` CHAR(36) NOT NULL,
+  `business_month` DATE NOT NULL,
+  `revision` INT UNSIGNED NOT NULL,
+  `status` ENUM('draft', 'pending_publication', 'published', 'withdrawn', 'replaced') NOT NULL DEFAULT 'draft',
+  `rules_version` INT UNSIGNED NOT NULL,
+  `published_at` TIMESTAMP(3) NULL,
+  `withdrawn_at` TIMESTAMP(3) NULL,
+  `replaced_by_period_id` CHAR(36) NULL,
+  `current_published_key` VARCHAR(111) GENERATED ALWAYS AS (
+    IF(`deleted_at` IS NULL AND `status` = 'published', CONCAT(`group_id`, ':', `schedule_role_id`, ':', `business_month`), NULL)
+  ) STORED,
+  `created_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` TIMESTAMP(3) NULL,
+  `version` INT UNSIGNED NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `schedule_periods_revision_unique` (`group_id`, `schedule_role_id`, `business_month`, `revision`),
+  UNIQUE KEY `schedule_periods_current_published_unique` (`current_published_key`),
+  KEY `schedule_periods_group_month_status_idx` (`group_id`, `business_month`, `status`),
+  KEY `schedule_periods_role_month_idx` (`schedule_role_id`, `business_month`),
+  CONSTRAINT `schedule_periods_group_id_fk` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`),
+  CONSTRAINT `schedule_periods_schedule_role_id_fk` FOREIGN KEY (`schedule_role_id`) REFERENCES `schedule_roles` (`id`),
+  CONSTRAINT `schedule_periods_replaced_by_period_id_fk` FOREIGN KEY (`replaced_by_period_id`) REFERENCES `schedule_periods` (`id`),
+  CONSTRAINT `schedule_periods_month_start_check` CHECK (DAYOFMONTH(`business_month`) = 1),
+  CONSTRAINT `schedule_periods_revision_check` CHECK (`revision` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+--> statement-breakpoint
+CREATE TABLE `shift_assignments` (
+  `id` CHAR(36) NOT NULL,
+  `schedule_period_id` CHAR(36) NOT NULL,
+  `business_date` DATE NOT NULL,
+  `slot_position` INT UNSIGNED NOT NULL,
+  `shift_type_id` CHAR(36) NOT NULL,
+  `shift_type_name` VARCHAR(100) NOT NULL,
+  `shift_type_abbreviation` VARCHAR(16) NOT NULL,
+  `shift_type_color` CHAR(7) NOT NULL,
+  `shift_type_text_color` CHAR(7) NOT NULL,
+  `shift_type_configuration_version` INT UNSIGNED NOT NULL,
+  `shift_start_time` TIME NOT NULL,
+  `shift_end_time` TIME NOT NULL,
+  `crosses_midnight` TINYINT UNSIGNED NOT NULL,
+  `is_all_day` TINYINT UNSIGNED NOT NULL,
+  `counts_toward_statistics` TINYINT UNSIGNED NOT NULL,
+  `starts_at` TIMESTAMP(3) NOT NULL,
+  `ends_at` TIMESTAMP(3) NOT NULL,
+  `planned_membership_id` CHAR(36) NULL,
+  `planned_member_name` VARCHAR(100) NULL,
+  `actual_membership_id` CHAR(36) NULL,
+  `actual_member_name` VARCHAR(100) NULL,
+  `created_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` TIMESTAMP(3) NULL,
+  `version` INT UNSIGNED NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `shift_assignments_slot_unique` (`schedule_period_id`, `starts_at`, `slot_position`),
+  KEY `shift_assignments_period_business_date_idx` (`schedule_period_id`, `business_date`, `slot_position`),
+  KEY `shift_assignments_planned_member_date_idx` (`planned_membership_id`, `business_date`),
+  KEY `shift_assignments_actual_member_date_idx` (`actual_membership_id`, `business_date`),
+  CONSTRAINT `shift_assignments_schedule_period_id_fk` FOREIGN KEY (`schedule_period_id`) REFERENCES `schedule_periods` (`id`),
+  CONSTRAINT `shift_assignments_shift_type_id_fk` FOREIGN KEY (`shift_type_id`) REFERENCES `shift_types` (`id`),
+  CONSTRAINT `shift_assignments_planned_membership_id_fk` FOREIGN KEY (`planned_membership_id`) REFERENCES `group_memberships` (`id`),
+  CONSTRAINT `shift_assignments_actual_membership_id_fk` FOREIGN KEY (`actual_membership_id`) REFERENCES `group_memberships` (`id`),
+  CONSTRAINT `shift_assignments_slot_position_check` CHECK (`slot_position` > 0),
+  CONSTRAINT `shift_assignments_time_range_check` CHECK (`ends_at` > `starts_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+--> statement-breakpoint
+ALTER TABLE `schedule_events`
+  ADD CONSTRAINT `schedule_events_schedule_period_id_fk`
+  FOREIGN KEY (`schedule_period_id`) REFERENCES `schedule_periods` (`id`);
