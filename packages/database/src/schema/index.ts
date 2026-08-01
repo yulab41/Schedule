@@ -53,6 +53,9 @@ export const groups = mysqlTable(
       .notNull()
       .references(() => users.id),
     rulesVersion: int('rules_version', { unsigned: true }).default(1).notNull(),
+    schedulePublishMode: mysqlEnum('schedule_publish_mode', ['draft', 'published'])
+      .default('draft')
+      .notNull(),
     ...auditableColumns(),
   },
   (table) => [
@@ -142,6 +145,7 @@ export const idempotencyKeys = mysqlTable(
     operationKey: varchar('operation_key', { length: 128 }).notNull(),
     requestFingerprint: char('request_fingerprint', { length: 64 }).notNull(),
     status: mysqlEnum('status', ['processing', 'completed']).default('processing').notNull(),
+    result: json('result').$type<Record<string, unknown> | null>(),
     completedAt: timestamp('completed_at', { fsp: 3 }),
     expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
     createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),

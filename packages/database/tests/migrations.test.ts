@@ -45,7 +45,7 @@ describeWithDatabase('identity and group migrations', () => {
             AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments')`,
     );
 
-    expect(migrations).toEqual([{ count: 5 }]);
+    expect(migrations).toEqual([{ count: 6 }]);
     expect(tables).toEqual([{ count: 18 }]);
   });
 

@@ -27,6 +27,7 @@ export interface CreateSchedulePeriodInput {
   readonly actorUserId: string;
   readonly assignments: readonly CreateShiftAssignmentInput[];
   readonly businessMonth: string;
+  readonly expectedRulesVersion?: number;
   readonly groupId: string;
   readonly operationId: string;
   readonly scheduleRoleId: string;
@@ -69,60 +70,68 @@ export class ScheduleRepository {
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
   public async createDraft(input: CreateSchedulePeriodInput): Promise<SchedulePeriodRecord> {
+    return withTransaction(this.databaseClient, (transaction) =>
+      this.createDraftInTransaction(transaction, input),
+    );
+  }
+
+  public async createDraftInTransaction(
+    transaction: DatabaseTransaction,
+    input: CreateSchedulePeriodInput,
+  ): Promise<SchedulePeriodRecord> {
     const businessMonth = toBusinessMonthStart(input.businessMonth);
     validateAssignments(input.assignments, businessMonth);
 
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const scope = await this.lockScheduleScope(transaction, input.groupId, input.scheduleRoleId);
-      const [mostRecentPeriod] = await transaction
-        .select({ revision: schedulePeriods.revision })
-        .from(schedulePeriods)
-        .where(
-          and(
-            eq(schedulePeriods.groupId, input.groupId),
-            eq(schedulePeriods.scheduleRoleId, input.scheduleRoleId),
-            eq(schedulePeriods.businessMonth, businessMonth),
-          ),
-        )
-        .orderBy(desc(schedulePeriods.revision))
-        .limit(1);
-      const periodId = randomUUID();
-      const revision = (mostRecentPeriod?.revision ?? 0) + 1;
-      const assignmentRows = await this.snapshotAssignments(
-        transaction,
-        input,
-        businessMonth,
-        periodId,
-      );
+    const scope = await this.lockScheduleScope(transaction, input.groupId, input.scheduleRoleId);
+    assertExpectedRulesVersion(scope, input.expectedRulesVersion);
+    const [mostRecentPeriod] = await transaction
+      .select({ revision: schedulePeriods.revision })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, input.groupId),
+          eq(schedulePeriods.scheduleRoleId, input.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, businessMonth),
+        ),
+      )
+      .orderBy(desc(schedulePeriods.revision))
+      .limit(1);
+    const periodId = randomUUID();
+    const revision = (mostRecentPeriod?.revision ?? 0) + 1;
+    const assignmentRows = await this.snapshotAssignments(
+      transaction,
+      input,
+      businessMonth,
+      periodId,
+    );
 
-      await transaction.insert(schedulePeriods).values({
-        businessMonth,
-        groupId: input.groupId,
-        id: periodId,
-        revision,
-        rulesVersion: scope.rulesVersion,
-        scheduleRoleId: input.scheduleRoleId,
-      });
-      if (assignmentRows.length > 0) {
-        await transaction.insert(shiftAssignments).values(assignmentRows);
-      }
-      await this.eventWriter.append(transaction, {
-        affectedMembershipIds: getAffectedMembershipIds(input.assignments),
-        affectedShiftIds: assignmentRows.map((assignment) => assignment.id),
-        afterData: { businessMonth, revision, status: 'draft' },
-        eventStatus: 'completed',
-        eventType: 'schedule_period_created',
-        groupId: input.groupId,
-        initiatedByUserId: input.actorUserId,
-        objectId: periodId,
-        objectType: 'schedule_period',
-        operationId: input.operationId,
-        operatorUserId: input.actorUserId,
-        schedulePeriodId: periodId,
-      });
-
-      return this.readPeriod(transaction, periodId);
+    await transaction.insert(schedulePeriods).values({
+      businessMonth,
+      groupId: input.groupId,
+      id: periodId,
+      revision,
+      rulesVersion: scope.rulesVersion,
+      scheduleRoleId: input.scheduleRoleId,
     });
+    if (assignmentRows.length > 0) {
+      await transaction.insert(shiftAssignments).values(assignmentRows);
+    }
+    await this.eventWriter.append(transaction, {
+      affectedMembershipIds: getAffectedMembershipIds(input.assignments),
+      affectedShiftIds: assignmentRows.map((assignment) => assignment.id),
+      afterData: { businessMonth, revision, status: 'draft' },
+      eventStatus: 'completed',
+      eventType: 'schedule_period_created',
+      groupId: input.groupId,
+      initiatedByUserId: input.actorUserId,
+      objectId: periodId,
+      objectType: 'schedule_period',
+      operationId: input.operationId,
+      operatorUserId: input.actorUserId,
+      schedulePeriodId: periodId,
+    });
+
+    return this.readPeriod(transaction, periodId);
   }
 
   public async submitForPublication(
@@ -136,80 +145,87 @@ export class ScheduleRepository {
   }
 
   public async publish(input: SchedulePeriodMutationInput): Promise<SchedulePeriodRecord> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const target = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
-      assertExpectedVersion(target, input.expectedVersion);
-      assertTransition(target.status, 'published');
+    return withTransaction(this.databaseClient, (transaction) =>
+      this.publishInTransaction(transaction, input),
+    );
+  }
 
-      const [currentPublished] = await transaction
-        .select()
-        .from(schedulePeriods)
-        .where(
-          and(
-            eq(schedulePeriods.groupId, target.groupId),
-            eq(schedulePeriods.scheduleRoleId, target.scheduleRoleId),
-            eq(schedulePeriods.businessMonth, target.businessMonth),
-            eq(schedulePeriods.status, 'published'),
-            isNull(schedulePeriods.deletedAt),
-          ),
-        )
-        .limit(1)
-        .for('update');
-      const publishedAt = new Date();
+  public async publishInTransaction(
+    transaction: DatabaseTransaction,
+    input: SchedulePeriodMutationInput,
+  ): Promise<SchedulePeriodRecord> {
+    const target = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
+    assertExpectedVersion(target, input.expectedVersion);
+    assertTransition(target.status, 'published');
 
-      if (currentPublished !== undefined) {
-        await transaction
-          .update(schedulePeriods)
-          .set({
-            replacedByPeriodId: target.id,
-            status: 'replaced',
-            version: sql`${schedulePeriods.version} + 1`,
-          })
-          .where(eq(schedulePeriods.id, currentPublished.id));
-      }
+    const [currentPublished] = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, target.groupId),
+          eq(schedulePeriods.scheduleRoleId, target.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, target.businessMonth),
+          eq(schedulePeriods.status, 'published'),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    const publishedAt = new Date();
 
+    if (currentPublished !== undefined) {
       await transaction
         .update(schedulePeriods)
         .set({
-          publishedAt,
-          status: 'published',
+          replacedByPeriodId: target.id,
+          status: 'replaced',
           version: sql`${schedulePeriods.version} + 1`,
         })
-        .where(eq(schedulePeriods.id, target.id));
-      const published = await this.readPeriod(transaction, target.id);
-      const publicationEventId = await this.eventWriter.append(transaction, {
-        afterData: { status: published.status, version: published.version },
-        beforeData: { status: target.status, version: target.version },
+        .where(eq(schedulePeriods.id, currentPublished.id));
+    }
+
+    await transaction
+      .update(schedulePeriods)
+      .set({
+        publishedAt,
+        status: 'published',
+        version: sql`${schedulePeriods.version} + 1`,
+      })
+      .where(eq(schedulePeriods.id, target.id));
+    const published = await this.readPeriod(transaction, target.id);
+    const publicationEventId = await this.eventWriter.append(transaction, {
+      afterData: { status: published.status, version: published.version },
+      beforeData: { status: target.status, version: target.version },
+      eventStatus: 'completed',
+      eventType: 'schedule_period_published',
+      groupId: target.groupId,
+      initiatedByUserId: input.actorUserId,
+      objectId: target.id,
+      objectType: 'schedule_period',
+      operationId: input.operationId,
+      operatorUserId: input.actorUserId,
+      schedulePeriodId: target.id,
+    });
+
+    if (currentPublished !== undefined) {
+      await this.eventWriter.append(transaction, {
+        afterData: { replacedByPeriodId: target.id, status: 'replaced' },
+        beforeData: { status: 'published', version: currentPublished.version },
         eventStatus: 'completed',
-        eventType: 'schedule_period_published',
+        eventType: 'schedule_period_replaced',
         groupId: target.groupId,
         initiatedByUserId: input.actorUserId,
-        objectId: target.id,
+        objectId: currentPublished.id,
         objectType: 'schedule_period',
         operationId: input.operationId,
         operatorUserId: input.actorUserId,
-        schedulePeriodId: target.id,
+        parentEventId: publicationEventId,
+        schedulePeriodId: currentPublished.id,
       });
+    }
 
-      if (currentPublished !== undefined) {
-        await this.eventWriter.append(transaction, {
-          afterData: { replacedByPeriodId: target.id, status: 'replaced' },
-          beforeData: { status: 'published', version: currentPublished.version },
-          eventStatus: 'completed',
-          eventType: 'schedule_period_replaced',
-          groupId: target.groupId,
-          initiatedByUserId: input.actorUserId,
-          objectId: currentPublished.id,
-          objectType: 'schedule_period',
-          operationId: input.operationId,
-          operatorUserId: input.actorUserId,
-          parentEventId: publicationEventId,
-          schedulePeriodId: currentPublished.id,
-        });
-      }
-
-      return published;
-    });
+    return published;
   }
 
   public async withdraw(input: SchedulePeriodMutationInput): Promise<SchedulePeriodRecord> {
@@ -528,6 +544,20 @@ function assertExpectedVersion(period: LockedSchedulePeriod, expectedVersion: nu
       },
       statusCode: 409,
       userMessage: 'The schedule period has changed. Refresh and try again.',
+    });
+  }
+}
+
+function assertExpectedRulesVersion(
+  scope: { readonly rulesVersion: number },
+  expectedRulesVersion: number | undefined,
+): void {
+  if (expectedRulesVersion !== undefined && scope.rulesVersion !== expectedRulesVersion) {
+    throw new ApiError({
+      code: 'CONFLICT',
+      latestData: { rulesVersion: scope.rulesVersion },
+      statusCode: 409,
+      userMessage: '排班规则已更新，请刷新后重新生成。',
     });
   }
 }

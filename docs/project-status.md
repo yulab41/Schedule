@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Two — Events and Scheduling Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 13 are complete and validated. Task 13's pending checkpoint is `feat(schedule): implement deterministic rotation engine`.
+- Implementation code: Tasks 1 through 14 are complete and validated. Task 14's pending checkpoint is `feat(schedule): add generation preview and publishing`.
 
 ## Approved Sources
 
@@ -51,20 +51,25 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 12 completed: the scheduling domain calculates China Standard Time business dates and UTC time ranges; the transactional repository creates drafts, submits or returns them, publishes with old-version replacement, withdraws versions, enforces expected versions, and appends business events.
 - Task 13 completed: the database-independent rotation domain deterministically generates fixed-order, per-role daily slots from the configured start date and member, supports multiple positions, emits stable role/date/position business keys, and retains no-member slots as explicit vacancies.
 - Task 13 completed: member eligibility handles active and effective-date state without changing the base cursor. Cross-role time overlap is reported as a hard conflict, and contiguous multi-assignment spans of at least 24 hours are warnings. Unit tests cover 7- and 30-day sequences, year/month/leap-day boundaries, CST 08:00 conversion, disabled members, conflicts, vacancies, cursor behavior, and idempotency.
+- Task 14 completed: migration `0006_schedule_generation.sql` adds the per-group `schedule_publish_mode` (draft by default) and a JSON `result` column on `idempotency_keys` for exact idempotent replays; the Drizzle schema, migration test count, and contracts were updated with it.
+- Task 14 completed: `ScheduleGenerateService` exposes generation preview (no writes), idempotent draft or auto-publish save keyed by operation ID, and group publish-mode read/update; `SchedulePublishService` provides explicit controlled publication that rebuilds conflicts/warnings/vacancies from stored snapshots before publishing.
+- Task 14 completed: administrators submit month, schedule-role IDs, and the group `rulesVersion` (now also returned by the scheduling config); stale rules versions return 409 before preview or save. Hard conflicts or vacancies block publication unless `acknowledgeBlockers: true` is sent, so publication is never silent.
+- Task 14 completed: `ScheduleRepository` now exposes `createDraftInTransaction` and `publishInTransaction` so multi-role generation, publication, replacement, and the `schedule_generation_completed` event commit atomically; re-generating a published month creates a new revision and replaces the prior version with linked events.
+- Task 14 completed: integration tests cover deterministic 31-day and leap-February previews with no persistence, member 403s, idempotent draft replay without duplicate assignments, stale rules versions, hard-conflict and vacancy publication blocking with acknowledgement, group auto-publish with version replacement, and idempotent explicit publication.
 
 ## Active Batch
 
-- Task 14: implement the automatic-generation preview and publishing API.
-- Stop after the domain engine is connected to versioned draft creation, authorization, idempotent generation preview, and controlled publication with events. Do not start Task 15.
+- Task 15: implement the current-month calendar read model.
+- Stop after the API returns the published calendar for a group/month and the Web workbench routes to the current month with visible duty names, month navigation, filtering, and phone links. Do not start Task 16.
 
-Task 14 is the only implementation task authorized for the next conversation. Do not begin Task 15.
+Task 15 is the only implementation task authorized for the next conversation. Do not begin Task 16.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 14 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 7, 8, 13, 14, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 15 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 7, 8, 15, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -90,6 +95,7 @@ Task 14 is the only implementation task authorized for the next conversation. Do
 - Task 10 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 11 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 - Task 12 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
+- Task 14 validation started `medical-schedule-test-mysql-1` on host port 3307 with the disposable test schema, then removed its container and network after final verification. The persistent development MySQL on port 3306 remains independent and healthy.
 
 ## Reusable Operational Notes
 
@@ -97,6 +103,7 @@ Task 14 is the only implementation task authorized for the next conversation. Do
 - Before diagnosing a silent `docker compose up --wait`, run `docker image inspect mysql:8.4`. If absent, run `docker pull mysql:8.4` and wait for the image to exist; no container or logs are expected before the image is available.
 - A sandboxed Docker client can warn that it cannot read the user's Docker config. Keep Compose syntax checks separate from live-engine validation; run the latter in an environment that can access Docker Desktop rather than treating the warning as a Compose-file failure.
 - Run API environment tests with `pnpm --filter @schedule/api test`; when `NODE_ENV=test`, provide only the `TEST_MYSQL_*` settings so the loader cannot fall back to development MySQL.
+- Vitest resolves `@schedule/*` workspace packages through their built `dist` exports, not the source paths used by TypeScript. After changing contracts or database schema, rebuild those packages (`pnpm --filter @schedule/contracts build`, `pnpm --filter @schedule/database build`) before running API integration tests, or queries fail with `Cannot convert undefined or null to object` inside Drizzle.
 - When a network or UI interruption occurs during a push, verify completion with `git status --short --branch` and `git ls-remote --heads origin main` before retrying. Never stage the user-owned plan edit shown above.
 
 ## Latest Validation
@@ -129,6 +136,7 @@ Task 14 is the only implementation task authorized for the next conversation. Do
 - Task 11: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; focused migration/event tests passed 10 assertions. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 63 Vitest tests (including 4 event/audit integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 12: `docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait` reached `healthy`; focused CST/status tests, migration tests, and schedule-period integration tests passed. With only `TEST_MYSQL_*` values and `NODE_ENV=test`, final `pnpm verify` passed formatting, ESLint, strict type checks, all 72 Vitest tests (including 3 schedule-period integrations), and production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 13: `pnpm exec vitest run packages/scheduling-domain/src/rotation`, `pnpm --filter @schedule/scheduling-domain typecheck`, and `pnpm lint` passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, 45 Vitest tests, and all production builds; 36 existing MySQL integration tests were skipped because no disposable `TEST_MYSQL_*` configuration was supplied. The Web build keeps the pre-existing large-entry warning at 640.36 KiB gzip.
+- Task 14: with the isolated test MySQL healthy, focused `pnpm vitest run packages/database/tests/migrations.test.ts apps/api/src/modules/schedules/schedule-repository.integration.test.ts apps/api/src/modules/schedules/schedule-generation.integration.test.ts` passed all 16 tests (7 new generation/publish integrations), and the five existing API integration suites passed 27 tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 88 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 
 ## Recent Checkpoints
 
@@ -152,6 +160,7 @@ Task 14 is the only implementation task authorized for the next conversation. Do
 - Task 11 checkpoint commit message: `feat(events): add immutable event and audit logs`
 - Task 12 checkpoint commit message: `feat(schedule): add versioned periods and assignments`
 - Task 13 checkpoint commit message: `feat(schedule): implement deterministic rotation engine`
+- Task 14 checkpoint commit message: `feat(schedule): add generation preview and publishing`
 
 ## Decisions and Blockers
 
@@ -178,6 +187,9 @@ Task 14 is the only implementation task authorized for the next conversation. Do
 - Task 12 uses `0005_schedule_periods_assignments.sql` because `0004` is already the event/audit migration. The stored `current_published_key` is unique only for non-deleted published rows; a role-row lock serializes revision allocation and publication, while the database unique index remains the final invariant.
 - Shift assignments retain UTC start/end timestamps, the CST start business date, shift configuration values, and planned/actual membership-name snapshots. Published periods are never modified by a replacement: a new period revision is published, the prior current version becomes `replaced`, and linked append-only events record both changes.
 - Task 13 has no persistence or API dependency: it accepts only domain values and creates no IDs or timestamps at execution time. Its business key is the encoded schedule-role ID plus CST business date and slot position, so equivalent generation is stable across retries. A disabled or out-of-effective-range member is skipped only for that slot; the cursor remains tied to the original ordered sequence. Generation does not apply leave, swap, or duty adjustments; those later workflow inputs must compose with this base result rather than mutate it.
+- Task 14 uses `0006_schedule_generation.sql` because `0005` is already the period/assignment migration. `groups.schedule_publish_mode` defaults to `draft`, and the per-request `publishMode` override takes precedence over the group setting. `idempotency_keys.result` stores the completed save/publish response so replays return the exact original result without touching business tables; operation IDs are scoped per actor and scope, and a reused ID with a different request fingerprint returns 409.
+- Task 14 generation requires each requested role to have a configured start date (and a starting member when the rotation is non-empty); a rotation starting after the requested month is rejected with a clear message. The scheduling config response now includes `rulesVersion` so the Web client can submit the exact version it previewed.
+- Task 14 publication semantics: auto-publish and explicit publish both rebuild or reuse the preview and return 409 with the preview unless `acknowledgeBlockers: true` acknowledges hard conflicts or vacancies; drafts can always be saved with blockers. Notification dispatch for affected members is deliberately deferred to Task 23; the generation and publication events already carry `affectedMembershipIds` as the hook.
 
 ## Handoff Requirements
 

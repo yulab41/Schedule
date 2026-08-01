@@ -1,6 +1,7 @@
 export interface SchedulingConfig {
   readonly groupMembers: readonly SchedulingGroupMember[];
   readonly roles: readonly ScheduleRole[];
+  readonly rulesVersion: number;
   readonly shiftTypes: readonly ShiftType[];
 }
 

@@ -138,7 +138,7 @@ export class SchedulingConfigService {
         groupId,
         'viewScheduleConfiguration',
       );
-      return this.readConfig(transaction, authorization.group.id);
+      return this.readConfig(transaction, authorization.group.id, authorization.group.rulesVersion);
     });
   }
 
@@ -501,6 +501,7 @@ export class SchedulingConfigService {
   private async readConfig(
     transaction: DatabaseTransaction,
     groupId: string,
+    rulesVersion: number,
   ): Promise<SchedulingConfig> {
     const [groupMembers, roles, configuredShiftTypes] = await Promise.all([
       transaction
@@ -534,6 +535,7 @@ export class SchedulingConfigService {
     return {
       groupMembers,
       roles: await Promise.all(roles.map((role) => this.readRole(transaction, role.id))),
+      rulesVersion,
       shiftTypes: configuredShiftTypes.map(toShiftType),
     };
   }

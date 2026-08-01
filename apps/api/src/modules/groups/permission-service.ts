@@ -1,3 +1,4 @@
+import type { SchedulePublishMode } from '@schedule/contracts';
 import type { DatabaseTransaction } from '@schedule/database';
 import { groupMemberships, groups, userProfiles, users } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -28,6 +29,8 @@ export interface ActiveGroup {
   readonly id: string;
   readonly name: string;
   readonly ownerUserId: string;
+  readonly rulesVersion: number;
+  readonly schedulePublishMode: SchedulePublishMode;
   readonly version: number;
 }
 
@@ -224,6 +227,8 @@ export class GroupPermissionService {
         id: groups.id,
         name: groups.name,
         ownerUserId: groups.ownerUserId,
+        rulesVersion: groups.rulesVersion,
+        schedulePublishMode: groups.schedulePublishMode,
         version: groups.version,
       })
       .from(groups)
