@@ -1,3 +1,12 @@
+import type {
+  ScheduleGenerationStatistics,
+  ScheduleGenerationVacancy,
+  ScheduleGenerationWarning,
+  SchedulePeriodSummary,
+  SchedulePreviewAssignment,
+  SchedulePublishMode,
+} from './schedules.js';
+
 export interface ManualScheduleTemplateCellInput {
   readonly cycleDay: number;
   readonly membershipId: string;
@@ -49,4 +58,50 @@ export interface CreateManualScheduleTemplateRequest {
 
 export interface UpdateManualScheduleTemplateRequest extends CreateManualScheduleTemplateRequest {
   readonly expectedVersion: number;
+}
+
+export interface ManualApplyConflict {
+  readonly assignmentBusinessKeys: readonly string[];
+  readonly code: 'MEMBER_LEAVE_OVERLAP' | 'MEMBER_TIME_OVERLAP';
+  readonly memberName?: string;
+  readonly membershipId: string;
+}
+
+export interface ManualApplyPreview {
+  readonly applyEndDate: string;
+  readonly applyStartDate: string;
+  readonly assignments: readonly SchedulePreviewAssignment[];
+  readonly conflicts: readonly ManualApplyConflict[];
+  readonly continuousDutyWarnings: readonly ScheduleGenerationWarning[];
+  readonly cycleDays: number;
+  readonly rulesVersion: number;
+  readonly scheduleRoleId: string;
+  readonly scheduleRoleName: string;
+  readonly statistics: ScheduleGenerationStatistics;
+  readonly templateId: string;
+  readonly templateVersion: number;
+  readonly vacancies: readonly ScheduleGenerationVacancy[];
+}
+
+export interface PreviewManualTemplateApplyRequest {
+  readonly endDate?: string;
+  readonly expectedRulesVersion: number;
+}
+
+export interface ApplyManualScheduleTemplateRequest {
+  readonly acknowledgeBlockers?: boolean;
+  readonly endDate?: string;
+  readonly expectedRulesVersion: number;
+  readonly operationId: string;
+  readonly publishMode?: SchedulePublishMode;
+}
+
+export interface AppliedManualScheduleTemplateResult {
+  readonly operationId: string;
+  readonly periods: readonly SchedulePeriodSummary[];
+  readonly preview: ManualApplyPreview;
+  readonly publishMode: SchedulePublishMode;
+  readonly status: 'draft' | 'published';
+  readonly templateId: string;
+  readonly templateVersion: number;
 }

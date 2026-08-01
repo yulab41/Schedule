@@ -37,6 +37,18 @@ export type {
   RotationShiftType,
   RotationVacancy,
 } from './rotation/types.js';
+export {
+  applyManualTemplate,
+  createManualAssignmentBusinessKey,
+  type ManualApplyCell,
+  type ManualApplyConflict,
+  type ManualApplyMember,
+  type ManualApplyResult,
+  type ManualApplyShiftType,
+  type ManualApplyTemplateInput,
+  type ManualApplyVacancy,
+  type ManualLeaveInterval,
+} from './manual/apply-template.js';
 
 export function createDomainSummary(): string {
   return `${workspaceName} domain is ready.`;

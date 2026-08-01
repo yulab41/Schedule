@@ -1,7 +1,9 @@
 import type {
+  AppliedManualScheduleTemplateResult,
   CalendarReadModel,
   GroupSummary,
   ManualScheduleTemplate,
+  ManualApplyPreview,
   UserProfile,
 } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
@@ -106,6 +108,79 @@ const manualTemplate: ManualScheduleTemplate = {
   scheduleRoleName: '一线',
   startDate: '2026-08-01',
   version: 1,
+};
+
+const manualApplyPreview: ManualApplyPreview = {
+  applyEndDate: '2026-08-07',
+  applyStartDate: '2026-08-01',
+  assignments: [
+    {
+      businessDate: '2026-08-01',
+      endsAt: '2026-08-02T00:00:00.000Z',
+      plannedMemberId: 'membership-1',
+      plannedMemberName: '张医生',
+      scheduleRoleId: 'role-1',
+      scheduleRoleName: '一线',
+      shiftTypeAbbreviation: '全',
+      shiftTypeColor: '#1F5AA6',
+      shiftTypeId: 'shift-1',
+      shiftTypeName: '全天班',
+      slotPosition: 1,
+      startsAt: '2026-08-01T00:00:00.000Z',
+    },
+  ],
+  conflicts: [],
+  continuousDutyWarnings: [],
+  cycleDays: 7,
+  rulesVersion: 3,
+  scheduleRoleId: 'role-1',
+  scheduleRoleName: '一线',
+  statistics: {
+    assignmentCount: 1,
+    byRole: [
+      {
+        assignmentCount: 1,
+        countedAssignmentCount: 1,
+        scheduleRoleId: 'role-1',
+        scheduleRoleName: '一线',
+        vacancyCount: 0,
+      },
+    ],
+    byShiftType: [
+      {
+        assignmentCount: 1,
+        countedAssignmentCount: 1,
+        shiftTypeAbbreviation: '全',
+        shiftTypeId: 'shift-1',
+        shiftTypeName: '全天班',
+      },
+    ],
+    countedAssignmentCount: 1,
+    vacancyCount: 0,
+  },
+  templateId: 'template-1',
+  templateVersion: 1,
+  vacancies: [],
+};
+
+const appliedManualTemplate: AppliedManualScheduleTemplateResult = {
+  operationId: 'operation-1',
+  periods: [
+    {
+      businessMonth: '2026-08-01',
+      id: 'period-1',
+      revision: 1,
+      rulesVersion: 3,
+      scheduleRoleId: 'role-1',
+      status: 'draft',
+      version: 1,
+    },
+  ],
+  preview: manualApplyPreview,
+  publishMode: 'draft',
+  status: 'draft',
+  templateId: 'template-1',
+  templateVersion: 1,
 };
 
 describe('Web API client', () => {
@@ -268,6 +343,87 @@ describe('Web API client', () => {
       '/api/groups/group-1/manual-schedule-templates/template-1',
       expect.objectContaining({ method: 'PUT' }),
     );
+  });
+
+  it('previews and applies a manual schedule template through authenticated API calls', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(manualApplyPreview), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(appliedManualTemplate), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).resolves.toEqual(manualApplyPreview);
+    await expect(
+      client.applyManualTemplate(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+        operationId: 'operation-1',
+      }),
+    ).resolves.toEqual(appliedManualTemplate);
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/manual-schedule-templates/template-1/apply-preview',
+      expect.objectContaining({
+        body: JSON.stringify({ expectedRulesVersion: 3 }),
+        method: 'POST',
+      }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/manual-schedule-templates/template-1/apply',
+      expect.objectContaining({
+        body: JSON.stringify({ expectedRulesVersion: 3, operationId: 'operation-1' }),
+        method: 'POST',
+      }),
+    );
+  });
+
+  it('loads the group schedule publish mode', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ publishMode: 'published' }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getSchedulePublishMode(group.id)).resolves.toEqual({
+      publishMode: 'published',
+    });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      '/api/groups/group-1/schedule-publish-mode',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('rejects a malformed manual apply preview response', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ applyStartDate: '2026-08-01' }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
   });
 
   it('rejects a malformed manual template response', async () => {

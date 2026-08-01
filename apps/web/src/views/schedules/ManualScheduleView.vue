@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {
+  AppliedManualScheduleTemplateResult,
   CreateManualScheduleTemplateRequest,
   GroupSummary,
   ManualScheduleTemplate,
@@ -10,6 +11,7 @@ import { computed, reactive, ref } from 'vue';
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
+import ApplyTemplateDialog from '../../features/manual-schedule/ApplyTemplateDialog.vue';
 import ClearActions from '../../features/manual-schedule/ClearActions.vue';
 import ManualGrid from '../../features/manual-schedule/ManualGrid.vue';
 import ShiftPalette from '../../features/manual-schedule/ShiftPalette.vue';
@@ -48,6 +50,7 @@ const errorMessage = ref<string>();
 const infoMessage = ref<string>();
 const isLoading = ref(false);
 const isSaving = ref(false);
+const applyTarget = ref<ManualScheduleTemplate>();
 let requestVersion = 0;
 
 const roleOptions = computed(() =>
@@ -89,6 +92,7 @@ const rows = computed<readonly ManualGridRow[]>(() => {
   }));
 });
 const isEditing = computed(() => selectedTemplateId.value !== '');
+const canApply = computed(() => isEditing.value && applyTarget.value === undefined);
 const canClearCell = computed(() => selectedCell.value !== undefined);
 const canUndo = computed(() => undoStack.canUndo());
 const staleWarning = computed(
@@ -337,6 +341,26 @@ async function save(): Promise<void> {
   }
 }
 
+function openApplyDialog(): void {
+  const template = templates.value.find((candidate) => candidate.id === selectedTemplateId.value);
+  if (template !== undefined) {
+    applyTarget.value = template;
+  }
+}
+
+function onApplied(result: AppliedManualScheduleTemplateResult): void {
+  applyTarget.value = undefined;
+  infoMessage.value =
+    result.status === 'published'
+      ? `模板已应用并直接发布：${result.periods
+          .map((period) => period.businessMonth.slice(0, 7))
+          .join('、')}。`
+      : `模板已应用并保存为草稿：${result.periods
+          .map((period) => period.businessMonth.slice(0, 7))
+          .join('、')}。请确认后发布。`;
+  void loadData();
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof ApiClientError ? error.message : '模板暂时无法保存，请稍后重试。';
 }
@@ -417,9 +441,19 @@ void loadData();
         <t-button theme="primary" :loading="isSaving" @click="save">
           {{ isEditing ? '保存模板' : '创建模板' }}
         </t-button>
+        <t-button v-if="isEditing" variant="outline" :disabled="!canApply" @click="openApplyDialog">
+          应用模板
+        </t-button>
       </template>
       <p v-else class="editor-hint">请选择排班角色并勾选至少一位值班人员。</p>
     </template>
+    <ApplyTemplateDialog
+      v-if="applyTarget !== undefined"
+      :group="group"
+      :template="applyTarget"
+      @applied="onApplied"
+      @close="applyTarget = undefined"
+    />
   </section>
 </template>
 

@@ -20,6 +20,8 @@ import { registerCalendarRoutes } from './modules/calendar/calendar-routes.js';
 import { CalendarQuery } from './modules/calendar/calendar-query.js';
 import { registerManualScheduleTemplateRoutes } from './modules/manual-schedules/template-routes.js';
 import { ManualScheduleTemplateService } from './modules/manual-schedules/template-service.js';
+import { registerManualScheduleApplyRoutes } from './modules/manual-schedules/apply-routes.js';
+import { ManualScheduleApplyService } from './modules/manual-schedules/apply-service.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -95,6 +97,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerManualScheduleTemplateRoutes(
       app,
       new ManualScheduleTemplateService(options.databaseClient),
+    );
+    registerManualScheduleApplyRoutes(
+      app,
+      new ManualScheduleApplyService(options.databaseClient, scheduleRepository),
     );
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');

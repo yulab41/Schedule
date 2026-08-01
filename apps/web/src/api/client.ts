@@ -2,6 +2,8 @@ import type {
   AddRosterEntriesResponse,
   ApiErrorCode,
   ApiErrorResponse,
+  AppliedManualScheduleTemplateResult,
+  ApplyManualScheduleTemplateRequest,
   CalendarReadModel,
   ClaimGroupResponse,
   CreateScheduleRoleRequest,
@@ -10,8 +12,11 @@ import type {
   CreateGroupRequest,
   GroupMember,
   GroupMemberContact,
+  GroupSchedulePublishMode,
   GroupSummary,
+  ManualApplyPreview,
   ManualScheduleTemplate,
+  PreviewManualTemplateApplyRequest,
   ReorderRotationMembersRequest,
   RegenerateGroupCodeRequest,
   ReplaceScheduleRoleMembersRequest,
@@ -34,6 +39,11 @@ export interface ApiClient {
     groupId: string,
     input: { readonly realNames: readonly string[] },
   ): Promise<AddRosterEntriesResponse>;
+  applyManualTemplate(
+    groupId: string,
+    templateId: string,
+    input: ApplyManualScheduleTemplateRequest,
+  ): Promise<AppliedManualScheduleTemplateResult>;
   claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
   createManualScheduleTemplate(
     groupId: string,
@@ -46,11 +56,17 @@ export interface ApiClient {
   deleteGroup(groupId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
+  getSchedulePublishMode(groupId: string): Promise<GroupSchedulePublishMode>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
+  previewManualTemplateApply(
+    groupId: string,
+    templateId: string,
+    input: PreviewManualTemplateApplyRequest,
+  ): Promise<ManualApplyPreview>;
   regenerateGroupCode(groupId: string, input: RegenerateGroupCodeRequest): Promise<GroupSummary>;
   reorderRotationMembers(
     groupId: string,
@@ -115,6 +131,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const fetchImplementation = options.fetch ?? fetch;
 
   return {
+    applyManualTemplate(groupId, templateId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates/${encodeURIComponent(templateId)}/apply`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isAppliedManualScheduleTemplateResult,
+      );
+    },
     addRosterEntries(groupId, input) {
       return requestJson(
         options.auth,
@@ -236,6 +265,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    getSchedulePublishMode(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedule-publish-mode`,
+        { method: 'GET' },
+        isGroupSchedulePublishMode,
+      );
+    },
     getSchedulingConfig(groupId) {
       return requestJson(
         options.auth,
@@ -284,6 +323,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         '/groups',
         { method: 'GET' },
         isGroupSummaryList,
+      );
+    },
+    previewManualTemplateApply(groupId, templateId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/manual-schedule-templates/${encodeURIComponent(templateId)}/apply-preview`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isManualApplyPreview,
       );
     },
     regenerateGroupCode(groupId, input) {
@@ -896,6 +948,258 @@ function isGroupSummary(value: unknown): value is GroupSummary {
 
 function isGroupSummaryList(value: unknown): value is GroupSummary[] {
   return Array.isArray(value) && value.every(isGroupSummary);
+}
+
+function isGroupSchedulePublishMode(value: unknown): value is GroupSchedulePublishMode {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const publishMode = (value as { publishMode?: unknown }).publishMode;
+  return publishMode === 'draft' || publishMode === 'published';
+}
+
+function isAppliedManualScheduleTemplateResult(
+  value: unknown,
+): value is AppliedManualScheduleTemplateResult {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const result = value as Partial<AppliedManualScheduleTemplateResult>;
+  return (
+    typeof result.operationId === 'string' &&
+    result.operationId.length > 0 &&
+    Array.isArray(result.periods) &&
+    result.periods.every(isSchedulePeriodSummary) &&
+    isManualApplyPreview(result.preview) &&
+    (result.publishMode === 'draft' || result.publishMode === 'published') &&
+    (result.status === 'draft' || result.status === 'published') &&
+    typeof result.templateId === 'string' &&
+    result.templateId.length > 0 &&
+    typeof result.templateVersion === 'number' &&
+    Number.isInteger(result.templateVersion)
+  );
+}
+
+function isSchedulePeriodSummary(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const period = value as {
+    businessMonth?: unknown;
+    id?: unknown;
+    revision?: unknown;
+    status?: unknown;
+  };
+  return (
+    typeof period.businessMonth === 'string' &&
+    /^\d{4}-\d{2}/u.test(period.businessMonth) &&
+    typeof period.id === 'string' &&
+    period.id.length > 0 &&
+    typeof period.revision === 'number' &&
+    Number.isInteger(period.revision) &&
+    typeof period.status === 'string' &&
+    period.status.length > 0
+  );
+}
+
+function isManualApplyPreview(value: unknown): value is ManualApplyPreview {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const preview = value as Partial<ManualApplyPreview>;
+  return (
+    /^\d{4}-\d{2}-\d{2}$/u.test(preview.applyEndDate ?? '') &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(preview.applyStartDate ?? '') &&
+    Array.isArray(preview.assignments) &&
+    preview.assignments.every(isManualApplyAssignment) &&
+    Array.isArray(preview.conflicts) &&
+    preview.conflicts.every(isManualApplyConflict) &&
+    Array.isArray(preview.continuousDutyWarnings) &&
+    preview.continuousDutyWarnings.every(isContinuousDutyWarning) &&
+    typeof preview.cycleDays === 'number' &&
+    Number.isInteger(preview.cycleDays) &&
+    typeof preview.rulesVersion === 'number' &&
+    Number.isInteger(preview.rulesVersion) &&
+    typeof preview.scheduleRoleId === 'string' &&
+    preview.scheduleRoleId.length > 0 &&
+    typeof preview.scheduleRoleName === 'string' &&
+    preview.scheduleRoleName.length > 0 &&
+    isScheduleGenerationStatistics(preview.statistics) &&
+    typeof preview.templateId === 'string' &&
+    preview.templateId.length > 0 &&
+    typeof preview.templateVersion === 'number' &&
+    Number.isInteger(preview.templateVersion) &&
+    Array.isArray(preview.vacancies) &&
+    preview.vacancies.every(isScheduleGenerationVacancy)
+  );
+}
+
+function isManualApplyAssignment(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const assignment = value as {
+    businessDate?: unknown;
+    endsAt?: unknown;
+    plannedMemberId?: unknown;
+    plannedMemberName?: unknown;
+    scheduleRoleId?: unknown;
+    scheduleRoleName?: unknown;
+    shiftTypeAbbreviation?: unknown;
+    shiftTypeColor?: unknown;
+    shiftTypeId?: unknown;
+    shiftTypeName?: unknown;
+    slotPosition?: unknown;
+    startsAt?: unknown;
+  };
+  return (
+    typeof assignment.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
+    typeof assignment.endsAt === 'string' &&
+    typeof assignment.scheduleRoleId === 'string' &&
+    assignment.scheduleRoleId.length > 0 &&
+    typeof assignment.scheduleRoleName === 'string' &&
+    assignment.scheduleRoleName.length > 0 &&
+    typeof assignment.shiftTypeAbbreviation === 'string' &&
+    assignment.shiftTypeAbbreviation.length > 0 &&
+    typeof assignment.shiftTypeColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
+    typeof assignment.shiftTypeId === 'string' &&
+    assignment.shiftTypeId.length > 0 &&
+    typeof assignment.shiftTypeName === 'string' &&
+    assignment.shiftTypeName.length > 0 &&
+    typeof assignment.slotPosition === 'number' &&
+    Number.isInteger(assignment.slotPosition) &&
+    assignment.slotPosition >= 1 &&
+    typeof assignment.startsAt === 'string' &&
+    (assignment.plannedMemberId === undefined || typeof assignment.plannedMemberId === 'string') &&
+    (assignment.plannedMemberName === undefined || typeof assignment.plannedMemberName === 'string')
+  );
+}
+
+function isManualApplyConflict(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const conflict = value as {
+    assignmentBusinessKeys?: unknown;
+    code?: unknown;
+    memberName?: unknown;
+    membershipId?: unknown;
+  };
+  return (
+    Array.isArray(conflict.assignmentBusinessKeys) &&
+    conflict.assignmentBusinessKeys.every((key) => typeof key === 'string') &&
+    (conflict.code === 'MEMBER_LEAVE_OVERLAP' || conflict.code === 'MEMBER_TIME_OVERLAP') &&
+    typeof conflict.membershipId === 'string' &&
+    conflict.membershipId.length > 0 &&
+    (conflict.memberName === undefined || typeof conflict.memberName === 'string')
+  );
+}
+
+function isContinuousDutyWarning(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const warning = value as {
+    assignmentBusinessKeys?: unknown;
+    code?: unknown;
+    endsAt?: unknown;
+    membershipId?: unknown;
+    startsAt?: unknown;
+  };
+  return (
+    Array.isArray(warning.assignmentBusinessKeys) &&
+    warning.assignmentBusinessKeys.every((key) => typeof key === 'string') &&
+    warning.code === 'CONTINUOUS_DUTY_24_HOURS' &&
+    typeof warning.endsAt === 'string' &&
+    typeof warning.membershipId === 'string' &&
+    warning.membershipId.length > 0 &&
+    typeof warning.startsAt === 'string'
+  );
+}
+
+function isScheduleGenerationVacancy(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const vacancy = value as {
+    assignmentBusinessKey?: unknown;
+    businessDate?: unknown;
+    code?: unknown;
+    scheduleRoleId?: unknown;
+    slotPosition?: unknown;
+  };
+  return (
+    typeof vacancy.assignmentBusinessKey === 'string' &&
+    typeof vacancy.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(vacancy.businessDate) &&
+    vacancy.code === 'NO_ELIGIBLE_MEMBER' &&
+    typeof vacancy.scheduleRoleId === 'string' &&
+    typeof vacancy.slotPosition === 'number' &&
+    Number.isInteger(vacancy.slotPosition) &&
+    vacancy.slotPosition >= 1
+  );
+}
+
+function isScheduleGenerationStatistics(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const statistics = value as {
+    assignmentCount?: unknown;
+    byRole?: unknown;
+    byShiftType?: unknown;
+    countedAssignmentCount?: unknown;
+    vacancyCount?: unknown;
+  };
+  return (
+    typeof statistics.assignmentCount === 'number' &&
+    Number.isInteger(statistics.assignmentCount) &&
+    Array.isArray(statistics.byRole) &&
+    statistics.byRole.every(isRoleCount) &&
+    Array.isArray(statistics.byShiftType) &&
+    statistics.byShiftType.every(isShiftTypeCount) &&
+    typeof statistics.countedAssignmentCount === 'number' &&
+    Number.isInteger(statistics.countedAssignmentCount) &&
+    typeof statistics.vacancyCount === 'number' &&
+    Number.isInteger(statistics.vacancyCount)
+  );
+}
+
+function isRoleCount(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const role = value as {
+    assignmentCount?: unknown;
+    scheduleRoleId?: unknown;
+    vacancyCount?: unknown;
+  };
+  return (
+    typeof role.assignmentCount === 'number' &&
+    typeof role.scheduleRoleId === 'string' &&
+    typeof role.vacancyCount === 'number'
+  );
+}
+
+function isShiftTypeCount(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const shiftType = value as { assignmentCount?: unknown; shiftTypeId?: unknown };
+  return typeof shiftType.assignmentCount === 'number' && typeof shiftType.shiftTypeId === 'string';
 }
 
 function isManualScheduleTemplate(value: unknown): value is ManualScheduleTemplate {

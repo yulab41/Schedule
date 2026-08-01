@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Two — Events and Scheduling Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 16 are complete and validated. Task 16's checkpoint commit message is `feat(schedule): add manual cycle template editor`.
+- Implementation code: Tasks 1 through 17 are complete and validated. Task 17's checkpoint commit message is `feat(schedule): apply manual templates to periods`.
 
 ## Approved Sources
 
@@ -65,20 +65,21 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 16 completed: the read model returns current role/shift-type state next to the saved reference versions, so members who left the role and disabled or reconfigured shift types are flagged as stale (`isStale`) instead of silently regenerating later.
 - Task 16 completed: the Web workbench gains a manual-schedule tab with template create/edit selection, schedule-role and member checkboxes, dynamic 1-31 day date columns with weekday and holiday-summary header rows, a shift palette restricted to enabled shift types, cell/row/column clearing with row/column confirmation, and a pre-save undo stack.
 - Task 16 completed: editor logic tests cover 7/30-day columns across month boundaries, targeted cell/row/column clearing, enabled-only filling, template round-tripping, and undo stack behavior; client tests cover create/list/update calls and malformed-response rejection; MySQL integration tests cover reference versions, no formal shifts, stale references, conflict updates, disabled shifts, permissions, and validation.
+- Task 17 completed: the pure `applyManualTemplate` domain module supports a single cycle or repetition to an explicit end date (inclusive, truncated mid-cycle), revalidates members (active status and effective ranges) and shift types, derives stable slot positions per day, reuses the rotation conflict/warning detectors, adds leave-overlap hard conflicts through an empty-by-default leave interval hook, and emits explicit vacancies for unavailable members instead of silently skipping.
+- Task 17 completed: `POST /groups/:groupId/manual-schedule-templates/:templateId/apply-preview` and `/apply` run inside transactions, require the current group `rulesVersion` (stale rules return 409 with the latest version), group assignments by business month into new period revisions without touching the current published version, publish immediately only when the group publish mode (or request override) says so, and record `manual_schedule_template_applied` scope events per month with template version and range data; the apply save is idempotent by operation ID with the same scope/fingerprint rules as schedule generation.
+- Task 17 completed: blocked shift type references return 400 instead of generating silently, unacknowledged publication is blocked when conflicts or vacancies exist, and the Web workbench gains an apply-template dialog with single-cycle/repeat-end-date selection, full preview statistics (by shift type, counted duty, vacancies), conflict/warning/acknowledgement surfaces, and a post-apply summary; the Web client exposes preview/apply and schedule publish-mode calls with response validators.
 
 ## Active Batch
 
-- Task 17: implement template single application and cyclic application.
-- Stop after a manual template can apply one cycle or repeat to a specified end date with revalidation of members, shift types, leave, and time conflicts, a full preview and statistics summary, saving as a new schedule version without overwriting the current published version, group publish-mode draft/publish handling, and template version/scope events. Do not start Task 18.
-
-Task 17 is the only implementation task authorized for the next conversation. Do not begin Task 18.
+- Task 18: implement optimistic concurrency protection and the conflict dialog.
+- Stop after core mutations submit expected versions, write transactions lock in fixed order, version mismatches return 409 with the latest summary without writing events, operation IDs prevent duplicate submissions, the Web shows a data-changed dialog that auto-refreshes the current month and operation window, focus/open/submit check the latest version, and users must re-confirm after refresh. Task 18 was explicitly authorized by the user together with Task 17.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
 3. Read Task 17 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 9, 15, 19, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+4. Read design sections 9, 13, 15, 19, 21, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -150,6 +151,7 @@ Task 17 is the only implementation task authorized for the next conversation. Do
 - Task 14: with the isolated test MySQL healthy, focused `pnpm vitest run packages/database/tests/migrations.test.ts apps/api/src/modules/schedules/schedule-repository.integration.test.ts apps/api/src/modules/schedules/schedule-generation.integration.test.ts` passed all 16 tests (7 new generation/publish integrations), and the five existing API integration suites passed 27 tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 88 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 631.76 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 15: with the isolated test MySQL healthy, the focused calendar integration suite passed 6 tests (published-month read model, member access, draft/replaced exclusion, invalid input and outsider 403, confirmed contacts, and workflow-event markers). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 104 Vitest tests, and all production builds. The Web build keeps the pre-existing large-entry warning at 635.84 KiB gzip. Matching Compose `down` removed the temporary container and network.
 - Task 16: with the isolated test MySQL healthy, focused migration and template integration suites passed 11 tests (6 migration + 5 template integrations). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 118 Vitest tests (including 53 integration tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 640.72 KiB gzip.
+- Task 17: with the isolated test MySQL healthy, focused manual-apply integration passed 10 tests (single-cycle preview, repeat/truncation, draft vs published handling, version replacement, scope events, stale rules 409, vacancy blocking/acknowledgement, disabled shift types, idempotent replay, permissions) plus the 5 template tests. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 145 Vitest tests (14 new domain, 10 new apply integrations, 3 new Web client tests), and all production builds. The Web build keeps the pre-existing large-entry warning at 643.28 KiB gzip.
 
 ## Recent Checkpoints
 
@@ -176,6 +178,7 @@ Task 17 is the only implementation task authorized for the next conversation. Do
 - Task 14 checkpoint commit message: `feat(schedule): add generation preview and publishing`
 - Task 15 checkpoint commit message: `feat(calendar): show current month duty roster`
 - Task 16 checkpoint commit message: `feat(schedule): add manual cycle template editor`
+- Task 17 checkpoint commit message: `feat(schedule): apply manual templates to periods`
 
 ## Decisions and Blockers
 
@@ -214,6 +217,10 @@ Task 17 is the only implementation task authorized for the next conversation. Do
 - Task 16 template members match the scheduling-config role-member view (active memberships and users, non-deleted role links) and do not apply effective-from/effective-to filtering, which remains deferred to Task 17 revalidation together with leave and time-conflict checks. The editor palette filters to enabled shift types; stale disabled references from saved templates stay visible with a warning and cannot be re-filled.
 - Task 16 keeps the manual-schedule editor test colocated at `apps/web/src/features/manual-schedule/manual-schedule-editor.spec.ts` (next to source) instead of the plan's `apps/web/tests/` path, following the repository's existing colocated test convention. Rendered-page verification still requires a signed-in CloudBase session and remains deferred to Task 30.
 - Task 16 passed an independent review before the checkpoint; the reviewer confirmed the implementation and validation, and the checkpoint commit `feat(schedule): add manual cycle template editor` was pushed to `origin/main`.
+- Task 17 leaves the leave-request table absent (Task 19 owns it): the domain accepts leave intervals and reports `MEMBER_LEAVE_OVERLAP` conflicts, while the API currently passes no intervals; wiring real leave data is a Task 19 composition, and no schema change was made.
+- Task 17 keeps template revalidation semantics permissive for version drift: members still active in the role and shift types still enabled are revalidated against current configuration and applied with current versions; only genuinely invalid references block (disabled shift types return 400) or become explicit vacancies (left/inactive/out-of-range members), matching the "no silent invalid reference" rule.
+- Task 17 period summaries keep the existing repository convention where `businessMonth` is the full DATE value (`2026-08-01`); the Web dialog displays the month by slicing to `YYYY-MM`.
+- Task 17 puts the manual-apply integration test at `apps/api/src/modules/manual-schedules/manual-apply.integration.test.ts` (colocated, matching repository convention) and the domain tests at `packages/scheduling-domain/src/manual/apply-template.test.ts`.
 
 ## Handoff Requirements
 
