@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase One — Backend and Account Foundation
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 5 complete; Task 6 is next.
+- Implementation code: Tasks 1 through 5 are committed. Task 6 is complete, fully verified, and ready for its checkpoint commit.
 
 ## Approved Sources
 
@@ -32,20 +32,22 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 4 completed: shared API error contracts provide safe code, message, request ID, and optional latest-data summaries; logs recursively redact passwords, tokens, and telephone fields while retaining only redacted error diagnostics.
 - Task 5 completed: the database package provides UTC MySQL/Drizzle connection clients, an isolated single-connection test factory, and one shared transaction helper that owns transaction boundaries.
 - Task 5 completed: the initial identity and group migration creates the seven approved tables with audit/version conventions, group-code retention through soft deletion, and database-enforced pending-roster-name uniqueness; the API migration entry point validates environment values before running the Drizzle journal.
+- Task 6 completed: CloudBase authentication is isolated behind `AuthPort`; user profiles map only the platform's stable UID and never store passwords.
+- Task 6 completed: the CloudBase HTTP gateway's gzip-compressed Base64 request context is bounded, decoded, and maps its trusted `userId` to the business UID. Local authentication still ignores caller-supplied identity headers.
 
 ## Active Batch
 
-- Task 6: Integrate CloudBase authentication.
-- Stop after Task 6, or earlier if CloudBase development credentials, authentication SDK behavior, or the identity mapping exposes a blocker.
+- Task 7: Establish the Web application shell and login experience.
+- Stop after registration, login, session recovery, and protected routing work against the completed Task 6 API contracts, with focused client-side validation passing. Do not start Task 8.
 
-Task 6 is the only implementation task authorized for the next conversation. It must be validated and committed separately.
+Task 7 is the only implementation task authorized for the next conversation. Do not begin Task 8.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 6 in the implementation plan.
-4. Read design sections 3, 4, 19, and 20, plus any section referenced by an unexpected issue.
+3. Read Task 7 in the implementation plan.
+4. Read design sections 3, 4, and 20, plus any section referenced by an unexpected issue.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes.
 
 ## Known Environment State
@@ -58,9 +60,12 @@ Task 6 is the only implementation task authorized for the next conversation. It 
 - A local `.env` was created from `.env.example`; it remains ignored and was not staged. Docker's sandboxed client can warn while reading the user's Docker config, but Compose validation and the live engine checks passed outside the sandbox.
 - The API migration entry point reuses validated environment values, opens a UTC MySQL connection, applies the root `migrations/` Drizzle journal, and closes the connection. HTTP startup does not run migrations automatically.
 - GitHub Actions uses only disposable test database values and has read-only repository contents permission; no CloudBase, development, or production secret is referenced. Its first remote run `30681864912` was rejected before job execution because the `job` context is unavailable in a job-level `env`; the correction scopes all `TEST_MYSQL_*` values, including the dynamically assigned port, to the `Run tests` step. Corrected remote run `30682009680` passed in 1 minute 15 seconds.
-- A user-owned whitespace-only edit remains unstaged in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`; do not stage or overwrite it.
 - No CloudBase development environment configuration or secrets are stored in the repository.
 - The local API is running from the Task 4 build at `http://127.0.0.1:3000`; `/health` and `/ready` both returned 200. This is a local process only, not a CloudBase deployment.
+- The user-owned implementation-plan wording edit was committed and pushed separately as `44b46a9 docs: clarify implementation batch size`. It is already present on `origin/main` and must not be duplicated or amended.
+- Task 6 uses `@cloudbase/node-sdk` 3.18.5 for non-HTTP CloudBase runtime identities. For authenticated HTTP gateway requests, CloudBase injects a gzip-compressed Base64 context whose `userId` is the stable business UID.
+- The development-only `auth-identity-probe` verified the signed-in UID `2083456390410330113`, returned no credentials or tokens, and was then removed along with `/task6-auth-probe`. `tcb routes list` and `tcb fn list` both returned no remaining temporary resources.
+- Task 6 created an isolated MySQL on host port 3307 for verification, then stopped and removed it. It used only the disposable `schedule_test` database; the development MySQL on port 3306 remains healthy and independent.
 
 ## Reusable Operational Notes
 
@@ -85,6 +90,10 @@ Task 6 is the only implementation task authorized for the next conversation. It 
 - Task 4 checkpoint commit message: `feat(api): add runtime and error contract`.
 - Task 5: `pnpm --filter @schedule/database typecheck` passed; its isolated migration suite passed 6 tests for empty-database migration, idempotent reruns, UTC sessions, unmanaged-schema rejection, schema fidelity, database uniqueness, and transaction rollback.
 - Task 5: with the isolated test MySQL healthy, `pnpm verify` passed formatting, ESLint, strict types, 18 Vitest tests, and all production builds. The compiled API migration entry point also ran successfully against that test database before the service was removed.
+- Task 6: `pnpm install --frozen-lockfile` passed after explicitly disallowing the `core-js-pure` informational postinstall and retaining the existing allowed `esbuild` build. With disposable `TEST_MYSQL_*` settings, final `pnpm verify` passed Prettier, ESLint, strict type checks, 28 Vitest tests, and all production builds.
+- Task 6: API integration tests cover rejected missing/expired/logged-out identities, profile registration without password persistence, profile read/update ownership isolation, soft-deleted-profile exclusion, strict payload rejection, duplicate stable-UID registration, stale-version conflicts, and an account suspension interleaving with profile update. The CloudBase HTTP adapter accepts only a bounded, gzip-compressed Base64 gateway context and maps its `userId`; local runtime authentication ignores caller-provided HTTP headers.
+- Task 6 identity-context correction: CloudBase Functions Framework source inspection confirmed `X-Cloudbase-Context` uses `Base64 -> gzip -> JSON` and exposes the request user as `extendedContext.userId`. Tests first failed against the previous `uid` assumption, then passed after the `userId` correction. Focused formatting, type, and API adapter tests passed before final full verification.
+- Task 6 CloudBase runtime: CLI device authorization deployed `auth-identity-probe`; an initial route configuration using `SCF` failed, and changing only its resource type to `WEB_SCF` resolved it. The authenticated development request returned `{"uid":"2083456390410330113"}`. The temporary route and function were deleted after verification; route and function lists are both empty.
 
 ## Recent Checkpoints
 
@@ -97,12 +106,19 @@ Task 6 is the only implementation task authorized for the next conversation. It 
 - `66ba02c` — `ci: add repository verification workflow` (pushed; initial remote run rejected before job execution)
 - `a48a9ba` — `ci: scope test database variables to test step` (pushed; corrected Verify run passed)
 - Task 5 checkpoint commit message: `feat(db): add identity and group schema`
+- `44b46a9` - `docs: clarify implementation batch size` (pushed to `origin/main`)
+- Task 6 checkpoint commit message: `feat(auth): add CloudBase username login integration`
 
 ## Decisions and Blockers
 
 - Task 4 keeps Fastify logger configuration inside the application factory: tests may disable logging or provide a stream, but callers cannot bypass the redaction configuration. Every log argument and the final JSON log record are sanitized, covering arbitrary nested plain objects, arrays, and child bindings; request and error serializers remove request headers, query strings, error messages, and stacks.
 - Task 5 keeps group codes globally unique until a future recovery purge hard-deletes the group, preserving the 30-day soft-delete window. Stored generated columns with unique indexes enforce active memberships, active contacts, and pending roster names because MySQL does not provide portable partial unique indexes. Timestamps are `TIMESTAMP(3)` and every MySQL session is explicitly set to UTC.
 - The Drizzle journal is the migration source of truth; the API wrapper runs it explicitly rather than applying DDL during HTTP startup. No Task 5 blockers remain. CloudBase console configuration remains deferred until Task 6.
+- Task 6 isolates authentication behind `AuthPort`. The local adapter accepts only a non-anonymous CloudBase runtime UID, while the CloudBase HTTP adapter accepts only the `userId` decoded from the gateway's gzip-compressed Base64 per-request `x-cloudbase-context`, rejecting explicit `UNAUTHORIZED` or `NONE` contexts. This context is never enabled for the local server. User/password credential creation and token storage remain CloudBase responsibilities; the business database stores only the stable UID, status, and business profile.
+- User profiles expose their current version. A profile update requires that version and its `UPDATE` atomically requires the associated user to remain active and non-deleted before incrementing it; a stale or concurrently suspended account returns `409` rather than silently overwriting data. A soft-deleted user profile is not readable or writable through the current-profile endpoints.
+- The repository has one destructive disposable test schema. Root Vitest file parallelism is disabled so database migration and API integration test files cannot concurrently drop and recreate the same tables.
+- The CloudBase development environment is `schedule-dev-d1geh4w1l4af7359d`. Username/password login and email-verification login are enabled, with CloudBase built-in email relay enabled. CloudBase requires initial registration through email or phone verification before a user can bind a username/password; the Web registration flow must reflect this product constraint in Task 7.
+- Task 6 has no remaining blocker. Automated browser surfaces still block the CloudBase service domain, so the user completed the final signed-in request in a regular browser. The returned UID is recorded above; the temporary validation resources were removed immediately afterward.
 
 ## Handoff Requirements
 

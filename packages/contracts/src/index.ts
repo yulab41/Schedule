@@ -1,4 +1,5 @@
 export * from './errors.js';
+export * from './users.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';

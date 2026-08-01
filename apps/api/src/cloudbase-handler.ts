@@ -2,7 +2,7 @@ import type { OutgoingHttpHeaders } from 'node:http';
 
 import type { FastifyInstance, InjectOptions } from 'fastify';
 
-import { createApp } from './app.js';
+import { createCloudbaseRuntimeApp } from './runtime.js';
 
 export interface CloudbaseHttpEvent {
   readonly body?: string;
@@ -20,7 +20,9 @@ export interface CloudbaseHttpResponse {
   readonly statusCode: number;
 }
 
-export function createCloudbaseHandler(app: FastifyInstance = createApp()) {
+export function createCloudbaseHandler(app?: FastifyInstance) {
+  let runtimeApp = app;
+
   return async (event: CloudbaseHttpEvent): Promise<CloudbaseHttpResponse> => {
     const request: InjectOptions = {
       method: event.httpMethod ?? 'GET',
@@ -37,7 +39,8 @@ export function createCloudbaseHandler(app: FastifyInstance = createApp()) {
       request.payload = payload;
     }
 
-    const response = await app.inject(request);
+    runtimeApp ??= createCloudbaseRuntimeApp();
+    const response = await runtimeApp.inject(request);
 
     return {
       body: response.body,

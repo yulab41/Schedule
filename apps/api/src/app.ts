@@ -1,7 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
+import type { AuthPort } from './adapters/auth/auth-port.js';
+import type { DatabaseClient } from '@schedule/database';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
+import { UserService } from './modules/users/user-service.js';
+import { registerUserRoutes } from './modules/users/user-routes.js';
+import {
+  registerAuthentication,
+  type TrustedCloudbaseContextReader,
+} from './plugins/authenticate.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRequestContext } from './plugins/request-context.js';
 import { getApiStatus } from './status.js';
@@ -31,8 +39,11 @@ const normalizedSensitiveLogFields = new Set(
 );
 
 export interface CreateAppOptions {
+  readonly authPort?: AuthPort;
+  readonly databaseClient?: DatabaseClient;
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
+  readonly readTrustedCloudbaseContext?: TrustedCloudbaseContextReader;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
@@ -47,6 +58,13 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
   app.get('/health', () => getApiStatus());
   app.get('/ready', () => getApiStatus());
+
+  if (options.authPort !== undefined && options.databaseClient !== undefined) {
+    registerAuthentication(app, options.authPort, options.readTrustedCloudbaseContext);
+    registerUserRoutes(app, new UserService(options.databaseClient));
+  } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
+    throw new Error('Authentication and database dependencies must be configured together.');
+  }
 
   return app;
 }

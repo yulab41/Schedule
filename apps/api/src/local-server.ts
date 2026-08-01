@@ -1,11 +1,11 @@
 import { pathToFileURL } from 'node:url';
 
-import { createApp } from './app.js';
 import { loadEnvironment } from './config/env.js';
+import { createRuntimeApp } from './runtime.js';
 
 export async function startLocalServer(): Promise<void> {
   const environment = loadEnvironment();
-  const app = createApp();
+  const app = createRuntimeApp(environment);
 
   try {
     await app.listen({
