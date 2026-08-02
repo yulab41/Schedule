@@ -21,7 +21,7 @@
     "lint": "eslint \"{apps,packages}/**/*.{ts,vue}\" \"infra/scripts/**/*.ts\" --max-warnings=0",
     "test": "vitest run",
     "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run typecheck",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@cloudbase/cli": "3.7.0",

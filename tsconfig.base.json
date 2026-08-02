@@ -16,6 +16,7 @@
       "@schedule/contracts": ["packages/contracts/src/index.ts"],
       "@schedule/database": ["packages/database/src/index.ts"],
       "@schedule/scheduling-domain": ["packages/scheduling-domain/src/index.ts"],
+      "@schedule/test-fixtures": ["packages/test-fixtures/src/index.ts"],
       "@schedule/ui-tokens": ["packages/ui-tokens/src/index.ts"]
     }
   }

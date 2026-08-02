@@ -57,6 +57,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Build
+        run: pnpm build
+
       - name: Type check
         run: pnpm typecheck
 
@@ -69,6 +72,3 @@ jobs:
           TEST_MYSQL_USER: schedule_test_app
           TEST_MYSQL_PASSWORD: schedule_test_password
         run: pnpm test
-
-      - name: Build
-        run: pnpm build
