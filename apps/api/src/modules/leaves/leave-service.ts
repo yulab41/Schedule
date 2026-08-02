@@ -56,6 +56,11 @@ import {
   type ActiveGroup,
   type GroupAuthorization,
 } from '../groups/permission-service.js';
+import {
+  isConflictBlockedError,
+  writeConflictNotification,
+} from '../notifications/conflict-notifier.js';
+import { NotificationWriter } from '../notifications/notification-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 
 type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
@@ -108,6 +113,7 @@ interface ReflowContext {
 
 export class LeaveService {
   private readonly eventWriter = new EventWriter();
+  private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
@@ -171,7 +177,7 @@ export class LeaveService {
         reflowStrategy: authorization.group.leaveReflowStrategy,
         startsAt,
       });
-      await this.eventWriter.append(transaction, {
+      const submittedEventId = await this.eventWriter.append(transaction, {
         affectedMembershipIds: [authorization.membership.id],
         afterData: toLatestData({
           endsAt: endsAt.toISOString(),
@@ -189,6 +195,18 @@ export class LeaveService {
         operationId,
         operatorUserId: authorization.user.id,
         reason: input.reason,
+      });
+      await this.notificationWriter.append(transaction, {
+        administratorRecipients: true,
+        body: '成员提交了新的请假申请，请及时审批。',
+        excludeRecipientUserIds: [authorization.user.id],
+        groupId,
+        notificationType: 'approval_pending',
+        objectId: leaveRequestId,
+        objectType: 'leave_request',
+        payload: { requestType: 'leave' },
+        scheduleEventId: submittedEventId,
+        title: '新的请假申请待审批',
       });
 
       return this.readLeaveRequest(transaction, leaveRequestId);
@@ -278,32 +296,44 @@ export class LeaveService {
     leaveRequestId: string,
     input: ApproveLeaveRequestInput,
   ): Promise<ApprovedLeaveRequestResult> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageLeaves',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
+    try {
+      return await withTransaction(this.databaseClient, async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageLeaves',
+        );
+        return withIdempotentOperation(
+          transaction,
+          {
+            actorUserId: authorization.user.id,
+            operationId: input.operationId,
+            requestFingerprint: createApproveFingerprint({
+              acknowledgeBlockers: input.acknowledgeBlockers === true,
+              expectedPeriodVersions: input.expectedPeriodVersions,
+              expectedRulesVersion: input.expectedRulesVersion,
+              expectedVersion: input.expectedVersion,
+              groupId,
+              leaveRequestId,
+              strategy: input.strategy ?? null,
+            }),
+            scope: 'leave_request_approve',
+          },
+          () => this.runApproval(transaction, authorization, leaveRequestId, input),
+        );
+      });
+    } catch (error) {
+      if (error instanceof ApiError && isConflictBlockedError(error)) {
+        await writeConflictNotification(this.databaseClient, {
+          groupId,
+          identity,
           operationId: input.operationId,
-          requestFingerprint: createApproveFingerprint({
-            acknowledgeBlockers: input.acknowledgeBlockers === true,
-            expectedPeriodVersions: input.expectedPeriodVersions,
-            expectedRulesVersion: input.expectedRulesVersion,
-            expectedVersion: input.expectedVersion,
-            groupId,
-            leaveRequestId,
-            strategy: input.strategy ?? null,
-          }),
-          scope: 'leave_request_approve',
-        },
-        () => this.runApproval(transaction, authorization, leaveRequestId, input),
-      );
-    });
+          preview: error.latestData?.preview,
+        });
+      }
+      throw error;
+    }
   }
 
   public async reject(
@@ -519,9 +549,22 @@ export class LeaveService {
       reason: leaveRequest.reason,
       ...(context.periods[0] === undefined ? {} : { schedulePeriodId: context.periods[0].id }),
     });
+    await this.notificationWriter.append(transaction, {
+      body: '您的请假申请已批准。',
+      groupId: authorization.group.id,
+      notificationType: 'leave_request_approved',
+      objectId: leaveRequest.id,
+      objectType: 'leave_request',
+      payload: { reflowStrategy: strategy },
+      recipientMembershipIds: [leaveRequest.membershipId],
+      scheduleEventId: approvalEventId,
+      title: '请假申请已批准',
+    });
 
+    const coverEventIds: string[] = [];
+    const reflowedMembershipIds: string[] = [];
     if (affectedRows.length > 0) {
-      const reflowedMembershipIds = [
+      reflowedMembershipIds.push(
         ...new Set(
           [
             leaveRequest.membershipId,
@@ -537,12 +580,12 @@ export class LeaveService {
             }),
           ].filter((membershipId): membershipId is string => membershipId !== null),
         ),
-      ];
+      );
       for (const schedulePeriodId of [
         ...new Set(affectedRows.map((row) => row.schedulePeriodId)),
       ]) {
         const periodRows = affectedRows.filter((row) => row.schedulePeriodId === schedulePeriodId);
-        await this.eventWriter.append(transaction, {
+        const coverEventId = await this.eventWriter.append(transaction, {
           affectedMembershipIds: reflowedMembershipIds,
           affectedShiftIds: periodRows.map((row) => row.id),
           afterData: toLatestData({
@@ -561,7 +604,20 @@ export class LeaveService {
           parentEventId: approvalEventId,
           schedulePeriodId,
         });
+        coverEventIds.push(coverEventId);
       }
+    }
+    const firstCoverEventId = coverEventIds[0];
+    if (reflowedMembershipIds.length > 0 && firstCoverEventId !== undefined) {
+      await this.notificationWriter.append(transaction, {
+        body: '请假重排后，您的班次已调整。',
+        groupId: authorization.group.id,
+        notificationType: 'schedule_changed',
+        payload: { reason: 'leave_cover' },
+        recipientMembershipIds: reflowedMembershipIds,
+        scheduleEventId: firstCoverEventId,
+        title: '排班已调整',
+      });
     }
 
     const updatedLeaveRequest = await this.readLeaveRequest(transaction, leaveRequest.id);
@@ -617,7 +673,7 @@ export class LeaveService {
         version: sql`${leaveRequests.version} + 1`,
       })
       .where(eq(leaveRequests.id, leaveRequest.id));
-    await this.eventWriter.append(transaction, {
+    const rejectedEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [leaveRequest.membershipId],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
@@ -638,6 +694,16 @@ export class LeaveService {
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
       reason: leaveRequest.reason,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '您的请假申请已被驳回。',
+      groupId: authorization.group.id,
+      notificationType: 'leave_request_rejected',
+      objectId: leaveRequest.id,
+      objectType: 'leave_request',
+      recipientMembershipIds: [leaveRequest.membershipId],
+      scheduleEventId: rejectedEventId,
+      title: '请假申请已驳回',
     });
 
     return {

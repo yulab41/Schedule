@@ -71,6 +71,13 @@
       "when": 1785542400009,
       "tag": "0010_duty_adjustments",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785542400010,
+      "tag": "0011_notifications",
+      "breakpoints": true
     }
   ]
 }

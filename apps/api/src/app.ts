@@ -30,6 +30,10 @@ import { registerDutyAdjustmentRoutes } from './modules/duty-adjustments/duty-ad
 import { DutyAdjustmentService } from './modules/duty-adjustments/duty-adjustment-service.js';
 import { registerEventRoutes } from './modules/events/event-routes.js';
 import { EventQuery } from './modules/events/event-query.js';
+import { createPushDispatcher } from './modules/notifications/notification-dispatcher.js';
+import { NotificationQueryService } from './modules/notifications/notification-query.js';
+import { registerNotificationRoutes } from './modules/notifications/notification-routes.js';
+import { NotificationService } from './modules/notifications/notification-service.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -114,6 +118,11 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerSwapRoutes(app, new SwapService(options.databaseClient));
     registerDutyAdjustmentRoutes(app, new DutyAdjustmentService(options.databaseClient));
     registerEventRoutes(app, new EventQuery(options.databaseClient), options.databaseClient);
+    registerNotificationRoutes(
+      app,
+      new NotificationQueryService(options.databaseClient),
+      new NotificationService(options.databaseClient, createPushDispatcher(process.env)),
+    );
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

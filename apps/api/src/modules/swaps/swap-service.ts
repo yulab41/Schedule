@@ -42,6 +42,7 @@ import {
   type ActiveGroup,
   type GroupAuthorization,
 } from '../groups/permission-service.js';
+import { NotificationWriter } from '../notifications/notification-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
@@ -76,6 +77,7 @@ interface SwapContext {
 
 export class SwapService {
   private readonly eventWriter = new EventWriter();
+  private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
@@ -444,6 +446,43 @@ export class SwapService {
       operatorUserId: authorization.user.id,
       schedulePeriodId: context.initiatorPeriod.id,
     });
+    if (status === 'completed') {
+      await this.notificationWriter.append(transaction, {
+        body: '换班已完成，您的班次已更新。',
+        groupId: authorization.group.id,
+        notificationType: 'schedule_changed',
+        payload: { reason: 'swap', swapRequestId },
+        recipientMembershipIds: [context.initiatorMember.id, context.targetMember.id],
+        scheduleEventId: createdEventId,
+        title: '换班已完成',
+      });
+    } else {
+      await this.notificationWriter.append(transaction, {
+        body: '有人向您发起换班申请，请及时处理。',
+        groupId: authorization.group.id,
+        notificationType: 'swap_request_created',
+        objectId: swapRequestId,
+        objectType: 'swap_request',
+        payload: { status },
+        recipientMembershipIds: [context.targetMember.id],
+        scheduleEventId: createdEventId,
+        title: '新的换班申请',
+      });
+      if (status === 'pending_approval') {
+        await this.notificationWriter.append(transaction, {
+          administratorRecipients: true,
+          body: '成员提交了换班申请，等待您审批。',
+          excludeRecipientUserIds: [authorization.user.id],
+          groupId: authorization.group.id,
+          notificationType: 'approval_pending',
+          objectId: swapRequestId,
+          objectType: 'swap_request',
+          payload: { requestType: 'swap' },
+          scheduleEventId: createdEventId,
+          title: '换班申请待审批',
+        });
+      }
+    }
 
     if (status === 'completed') {
       await this.applySwap(
@@ -513,6 +552,40 @@ export class SwapService {
       operatorUserId: authorization.user.id,
       schedulePeriodId: context.initiatorPeriod.id,
     });
+    if (nextStatus === 'completed') {
+      await this.notificationWriter.append(transaction, {
+        body: '换班已完成，您的班次已更新。',
+        groupId: authorization.group.id,
+        notificationType: 'schedule_changed',
+        payload: { reason: 'swap', swapRequestId: request.id },
+        recipientMembershipIds: [context.initiatorMember.id, context.targetMember.id],
+        scheduleEventId: acceptedEventId,
+        title: '换班已完成',
+      });
+    } else {
+      await this.notificationWriter.append(transaction, {
+        body: '对方已接受换班申请，等待管理员审批。',
+        groupId: authorization.group.id,
+        notificationType: 'swap_request_accepted',
+        objectId: request.id,
+        objectType: 'swap_request',
+        recipientMembershipIds: [context.initiatorMember.id],
+        scheduleEventId: acceptedEventId,
+        title: '换班申请已接受',
+      });
+      await this.notificationWriter.append(transaction, {
+        administratorRecipients: true,
+        body: '换班申请已被双方接受，等待您审批。',
+        excludeRecipientUserIds: [authorization.user.id],
+        groupId: authorization.group.id,
+        notificationType: 'approval_pending',
+        objectId: request.id,
+        objectType: 'swap_request',
+        payload: { requestType: 'swap' },
+        scheduleEventId: acceptedEventId,
+        title: '换班申请待审批',
+      });
+    }
 
     if (nextStatus === 'completed') {
       await this.applySwap(
@@ -582,6 +655,15 @@ export class SwapService {
       operatorUserId: authorization.user.id,
       schedulePeriodId: context.initiatorPeriod.id,
     });
+    await this.notificationWriter.append(transaction, {
+      body: '换班已审批通过，您的班次已更新。',
+      groupId: authorization.group.id,
+      notificationType: 'schedule_changed',
+      payload: { reason: 'swap', swapRequestId: request.id },
+      recipientMembershipIds: [context.initiatorMember.id, context.targetMember.id],
+      scheduleEventId: approvedEventId,
+      title: '换班已生效',
+    });
     await this.applySwap(
       transaction,
       context,
@@ -636,7 +718,7 @@ export class SwapService {
         version: sql`${swapRequests.version} + 1`,
       })
       .where(eq(swapRequests.id, request.id));
-    await this.eventWriter.append(transaction, {
+    const rejectedEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [request.initiatorMembershipId, request.targetMembershipId],
       afterData: toLatestData({ status: 'rejected' }),
       beforeData: toLatestData({ status: request.status }),
@@ -648,6 +730,16 @@ export class SwapService {
       objectType: 'swap_request',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '换班申请已被驳回。',
+      groupId: authorization.group.id,
+      notificationType: 'swap_request_rejected',
+      objectId: request.id,
+      objectType: 'swap_request',
+      recipientMembershipIds: [request.initiatorMembershipId, request.targetMembershipId],
+      scheduleEventId: rejectedEventId,
+      title: '换班申请已驳回',
     });
 
     return this.readSwapRequest(transaction, request.id);
@@ -690,7 +782,7 @@ export class SwapService {
         version: sql`${swapRequests.version} + 1`,
       })
       .where(eq(swapRequests.id, request.id));
-    await this.eventWriter.append(transaction, {
+    const cancelledEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [request.initiatorMembershipId, request.targetMembershipId],
       afterData: toLatestData({ status: 'cancelled' }),
       beforeData: toLatestData({ status: request.status }),
@@ -702,6 +794,17 @@ export class SwapService {
       objectType: 'swap_request',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '换班申请已取消。',
+      excludeRecipientUserIds: [authorization.user.id],
+      groupId: authorization.group.id,
+      notificationType: 'swap_request_cancelled',
+      objectId: request.id,
+      objectType: 'swap_request',
+      recipientMembershipIds: [request.initiatorMembershipId, request.targetMembershipId],
+      scheduleEventId: cancelledEventId,
+      title: '换班申请已取消',
     });
 
     return this.readSwapRequest(transaction, request.id);

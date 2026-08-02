@@ -958,6 +958,85 @@ describe('Web API client', () => {
       { code: 'SERVICE_UNAVAILABLE', status: 200 },
     );
   });
+
+  it('lists notifications, marks read, and saves push settings with validated responses', async () => {
+    const notification = {
+      body: '您的值班将在 24 小时后开始。',
+      createdAt: '2026-08-02T00:00:00.000Z',
+      groupId: 'group-1',
+      id: 'notification-1',
+      isRead: false,
+      notificationType: 'duty_reminder',
+      objectType: 'shift_assignment',
+      payload: { leadHours: 24 },
+      recipientUserId: 'user-1',
+      shiftAssignmentId: 'assignment-1',
+      title: '值班提醒',
+    } as const;
+    const page = {
+      notifications: [notification],
+      unreadCount: 1,
+    } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(page), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ unreadCount: 1 }), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...notification, isRead: true }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ vapidPublicKey: 'test-key' }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ saved: true }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const listed = await client.listNotifications({ pageSize: 30 });
+    expect(listed.notifications[0]?.notificationType).toBe('duty_reminder');
+    expect(listed.unreadCount).toBe(1);
+    const unread = await client.getUnreadNotificationCount();
+    expect(unread.unreadCount).toBe(1);
+    const read = await client.markNotificationRead('notification-1');
+    expect(read.isRead).toBe(true);
+    const pushConfig = await client.getPushConfiguration();
+    expect(pushConfig.vapidPublicKey).toBe('test-key');
+    const saved = await client.savePushSubscription({
+      endpoint: 'https://push.example.com/endpoint',
+      keys: { auth: 'auth', p256dh: 'p256dh' },
+    });
+    expect(saved.saved).toBe(true);
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/notifications?pageSize=30',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/notifications/notification-1/read',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      5,
+      '/api/notifications/push-subscription',
+      expect.objectContaining({ method: 'PUT' }),
+    );
+
+    const malformedClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ notifications: [{ id: 'notification-1' }] }), {
+          status: 200,
+        }),
+      ),
+    });
+    await expect(malformedClient.listNotifications({ pageSize: 30 })).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

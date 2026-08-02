@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import NotificationBell from '../features/notifications/NotificationBell.vue';
 import { useSessionStore } from '../stores/session.js';
 
 const router = useRouter();
@@ -32,6 +33,7 @@ async function saveProfile(): Promise<void> {
     <t-header class="app-header">
       <RouterLink class="product-name" :to="{ name: 'home' }">医护排班系统</RouterLink>
       <div class="account-actions">
+        <NotificationBell />
         <span v-if="session.profile !== undefined" class="account-name">{{
           session.profile.realName
         }}</span>

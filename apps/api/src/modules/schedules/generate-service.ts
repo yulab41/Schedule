@@ -46,6 +46,11 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
+import {
+  isConflictBlockedError,
+  writeConflictNotification,
+} from '../notifications/conflict-notifier.js';
+import { NotificationWriter } from '../notifications/notification-writer.js';
 import { toLatestData, toPeriodSummary } from './shared.js';
 import { ScheduleRepository, type CreateShiftAssignmentInput } from './schedule-repository.js';
 
@@ -120,6 +125,7 @@ interface MutableRoleCount {
 
 export class ScheduleGenerateService {
   private readonly eventWriter = new EventWriter();
+  private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
 
   public constructor(
@@ -149,24 +155,36 @@ export class ScheduleGenerateService {
     groupId: string,
     input: SaveGeneratedScheduleRequest,
   ): Promise<SavedScheduleGeneration> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
+    try {
+      return await withTransaction(this.databaseClient, async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        return withIdempotentOperation(
+          transaction,
+          {
+            actorUserId: authorization.user.id,
+            operationId: input.operationId,
+            requestFingerprint: createGenerationFingerprint(authorization.group.id, input),
+            scope: 'schedule_generation',
+          },
+          () => this.runGeneration(transaction, authorization, input),
+        );
+      });
+    } catch (error) {
+      if (error instanceof ApiError && isConflictBlockedError(error)) {
+        await writeConflictNotification(this.databaseClient, {
+          groupId,
+          identity,
           operationId: input.operationId,
-          requestFingerprint: createGenerationFingerprint(authorization.group.id, input),
-          scope: 'schedule_generation',
-        },
-        () => this.runGeneration(transaction, authorization, input),
-      );
-    });
+          preview: error.latestData?.preview,
+        });
+      }
+      throw error;
+    }
   }
 
   public async getPublishMode(
@@ -245,7 +263,7 @@ export class ScheduleGenerateService {
       periods.push(toPeriodSummary(period));
     }
 
-    await this.eventWriter.append(transaction, {
+    const generationEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: getAffectedMembershipIds(context.domainResult.assignments),
       afterData: toLatestData({
         businessMonth: input.businessMonth,
@@ -264,6 +282,20 @@ export class ScheduleGenerateService {
         ? {}
         : { objectId: periods[0].id, schedulePeriodId: periods[0].id }),
     });
+    if (publishMode === 'published') {
+      const firstPeriodId = periods[0]?.id;
+      await this.notificationWriter.append(transaction, {
+        body: `您的 ${input.businessMonth} 排班已生成并发布，请查看日历。`,
+        groupId: authorization.group.id,
+        notificationType: 'schedule_generated',
+        ...(firstPeriodId === undefined ? {} : { objectId: firstPeriodId }),
+        objectType: 'schedule_period',
+        payload: { businessMonth: input.businessMonth, publishMode },
+        recipientMembershipIds: getAffectedMembershipIds(context.domainResult.assignments),
+        scheduleEventId: generationEventId,
+        title: '排班已生成',
+      });
+    }
 
     return {
       operationId: input.operationId,

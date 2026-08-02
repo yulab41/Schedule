@@ -32,6 +32,11 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
+import {
+  isConflictBlockedError,
+  writeConflictNotification,
+} from '../notifications/conflict-notifier.js';
+import { NotificationWriter } from '../notifications/notification-writer.js';
 import { ScheduleRepository } from './schedule-repository.js';
 import { toLatestData, toPeriodSummary } from './shared.js';
 
@@ -46,6 +51,7 @@ interface MutableShiftTypeCount {
 }
 
 export class SchedulePublishService {
+  private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
 
   public constructor(
@@ -59,29 +65,41 @@ export class SchedulePublishService {
     schedulePeriodId: string,
     input: PublishSchedulePeriodRequest,
   ): Promise<PublishSchedulePeriodResult> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
+    try {
+      return await withTransaction(this.databaseClient, async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        return withIdempotentOperation(
+          transaction,
+          {
+            actorUserId: authorization.user.id,
+            operationId: input.operationId,
+            requestFingerprint: createPublishFingerprint({
+              acknowledgeBlockers: input.acknowledgeBlockers === true,
+              expectedVersion: input.expectedVersion,
+              groupId: authorization.group.id,
+              schedulePeriodId,
+            }),
+            scope: 'schedule_period_publish',
+          },
+          () => this.publishInTransaction(transaction, authorization, schedulePeriodId, input),
+        );
+      });
+    } catch (error) {
+      if (error instanceof ApiError && isConflictBlockedError(error)) {
+        await writeConflictNotification(this.databaseClient, {
+          groupId,
+          identity,
           operationId: input.operationId,
-          requestFingerprint: createPublishFingerprint({
-            acknowledgeBlockers: input.acknowledgeBlockers === true,
-            expectedVersion: input.expectedVersion,
-            groupId: authorization.group.id,
-            schedulePeriodId,
-          }),
-          scope: 'schedule_period_publish',
-        },
-        () => this.publishInTransaction(transaction, authorization, schedulePeriodId, input),
-      );
-    });
+          preview: error.latestData?.preview,
+        });
+      }
+      throw error;
+    }
   }
 
   private async publishInTransaction(
@@ -124,6 +142,27 @@ export class SchedulePublishService {
       operationId: input.operationId,
       schedulePeriodId: period.id,
     });
+    const affectedMembershipIds = [
+      ...new Set(
+        assignments.flatMap((assignment) =>
+          [assignment.plannedMembershipId, assignment.actualMembershipId].filter(
+            (membershipId): membershipId is string => membershipId !== null,
+          ),
+        ),
+      ),
+    ];
+    if (affectedMembershipIds.length > 0) {
+      await this.notificationWriter.append(transaction, {
+        body: `您的 ${period.businessMonth} 排班已发布，请查看日历。`,
+        groupId: authorization.group.id,
+        notificationType: 'schedule_published',
+        objectId: period.id,
+        objectType: 'schedule_period',
+        payload: { businessMonth: period.businessMonth, scheduleRoleId: period.scheduleRoleId },
+        recipientMembershipIds: affectedMembershipIds,
+        title: '排班已发布',
+      });
+    }
 
     return { period: toPeriodSummary(published), preview };
   }

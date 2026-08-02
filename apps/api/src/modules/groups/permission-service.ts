@@ -13,6 +13,7 @@ export type GroupPermission =
   | 'manageContacts'
   | 'manageLeaves'
   | 'manageMembers'
+  | 'manageNotifications'
   | 'manageRoster'
   | 'manageScheduleConfiguration'
   | 'manageSwaps'
@@ -61,6 +62,7 @@ const permissionsByRole: Readonly<
     'manageDutyAdjustments',
     'manageLeaves',
     'manageMembers',
+    'manageNotifications',
     'manageRoster',
     'manageScheduleConfiguration',
     'manageSwaps',
@@ -76,6 +78,7 @@ const permissionsByRole: Readonly<
     'manageDutyAdjustments',
     'manageLeaves',
     'manageMembers',
+    'manageNotifications',
     'manageRoster',
     'manageScheduleConfiguration',
     'manageSwaps',

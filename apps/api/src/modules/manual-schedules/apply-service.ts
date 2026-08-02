@@ -39,6 +39,11 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
+import {
+  isConflictBlockedError,
+  writeConflictNotification,
+} from '../notifications/conflict-notifier.js';
+import { NotificationWriter } from '../notifications/notification-writer.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import {
   ScheduleRepository,
@@ -78,6 +83,7 @@ interface MutableRoleCount {
 
 export class ManualScheduleApplyService {
   private readonly eventWriter = new EventWriter();
+  private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
 
   public constructor(
@@ -116,32 +122,44 @@ export class ManualScheduleApplyService {
     templateId: string,
     input: ApplyManualScheduleTemplateRequest,
   ): Promise<AppliedManualScheduleTemplateResult> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageScheduleConfiguration',
-      );
+    try {
+      return await withTransaction(this.databaseClient, async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
 
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
+        return withIdempotentOperation(
+          transaction,
+          {
+            actorUserId: authorization.user.id,
+            operationId: input.operationId,
+            requestFingerprint: createApplyFingerprint({
+              acknowledgeBlockers: input.acknowledgeBlockers === true,
+              endDate: input.endDate ?? null,
+              expectedRulesVersion: input.expectedRulesVersion,
+              groupId: authorization.group.id,
+              publishMode: input.publishMode ?? null,
+              templateId,
+            }),
+            scope: 'manual_schedule_template_apply',
+          },
+          () => this.runApplication(transaction, authorization, templateId, input),
+        );
+      });
+    } catch (error) {
+      if (error instanceof ApiError && isConflictBlockedError(error)) {
+        await writeConflictNotification(this.databaseClient, {
+          groupId,
+          identity,
           operationId: input.operationId,
-          requestFingerprint: createApplyFingerprint({
-            acknowledgeBlockers: input.acknowledgeBlockers === true,
-            endDate: input.endDate ?? null,
-            expectedRulesVersion: input.expectedRulesVersion,
-            groupId: authorization.group.id,
-            publishMode: input.publishMode ?? null,
-            templateId,
-          }),
-          scope: 'manual_schedule_template_apply',
-        },
-        () => this.runApplication(transaction, authorization, templateId, input),
-      );
-    });
+          preview: error.latestData?.preview,
+        });
+      }
+      throw error;
+    }
   }
 
   private async runApplication(
@@ -162,6 +180,7 @@ export class ManualScheduleApplyService {
 
     const assignmentsByMonth = groupAssignmentsByMonth(context.assignments);
     const periods: SchedulePeriodSummary[] = [];
+    const appliedEventIds: string[] = [];
     for (const businessMonth of [...assignmentsByMonth.keys()].sort()) {
       const assignments = assignmentsByMonth.get(businessMonth);
       if (assignments === undefined || assignments.length === 0) {
@@ -187,7 +206,7 @@ export class ManualScheduleApplyService {
           : draft;
       periods.push(toPeriodSummary(period));
 
-      await this.eventWriter.append(transaction, {
+      const appliedEventId = await this.eventWriter.append(transaction, {
         affectedMembershipIds: getAffectedMembershipIds(context.assignments),
         afterData: {
           applyEndDate: context.preview.applyEndDate,
@@ -208,6 +227,21 @@ export class ManualScheduleApplyService {
         operationId: input.operationId,
         operatorUserId: authorization.user.id,
         schedulePeriodId: period.id,
+      });
+      appliedEventIds.push(appliedEventId);
+    }
+    const firstAppliedEventId = appliedEventIds[0];
+    if (publishMode === 'published' && firstAppliedEventId !== undefined) {
+      await this.notificationWriter.append(transaction, {
+        body: '手动模板已应用并发布，您的班次已更新。',
+        groupId: authorization.group.id,
+        notificationType: 'schedule_generated',
+        objectId: context.template.id,
+        objectType: 'manual_schedule_template',
+        payload: { publishMode, source: 'manual_template', templateId: context.template.id },
+        recipientMembershipIds: getAffectedMembershipIds(context.assignments),
+        scheduleEventId: firstAppliedEventId,
+        title: '排班已生成',
       });
     }
 

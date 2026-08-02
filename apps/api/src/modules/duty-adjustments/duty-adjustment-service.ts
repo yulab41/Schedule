@@ -42,6 +42,7 @@ import {
   type ActiveGroup,
   type GroupAuthorization,
 } from '../groups/permission-service.js';
+import { NotificationWriter } from '../notifications/notification-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
@@ -71,6 +72,7 @@ interface DutyAdjustmentContext {
 
 export class DutyAdjustmentService {
   private readonly eventWriter = new EventWriter();
+  private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
@@ -452,6 +454,43 @@ export class DutyAdjustmentService {
       ...(input.reason === undefined ? {} : { reason: input.reason }),
       schedulePeriodId: context.period.id,
     });
+    if (status === 'completed') {
+      await this.notificationWriter.append(transaction, {
+        body: '加扣班已完成，您的班次已更新。',
+        groupId: authorization.group.id,
+        notificationType: 'schedule_changed',
+        payload: { dutyAdjustmentId, reason: 'duty_adjustment' },
+        recipientMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
+        scheduleEventId: createdEventId,
+        title: '加扣班已完成',
+      });
+    } else {
+      await this.notificationWriter.append(transaction, {
+        body: '有人向您发起加扣班申请，请及时处理。',
+        groupId: authorization.group.id,
+        notificationType: 'duty_adjustment_request_created',
+        objectId: dutyAdjustmentId,
+        objectType: 'duty_adjustment',
+        payload: { status },
+        recipientMembershipIds: [context.overtimeMember.id],
+        scheduleEventId: createdEventId,
+        title: '新的加扣班申请',
+      });
+      if (status === 'pending_approval') {
+        await this.notificationWriter.append(transaction, {
+          administratorRecipients: true,
+          body: '成员提交了加扣班申请，等待您审批。',
+          excludeRecipientUserIds: [authorization.user.id],
+          groupId: authorization.group.id,
+          notificationType: 'approval_pending',
+          objectId: dutyAdjustmentId,
+          objectType: 'duty_adjustment',
+          payload: { requestType: 'duty_adjustment' },
+          scheduleEventId: createdEventId,
+          title: '加扣班申请待审批',
+        });
+      }
+    }
 
     if (status === 'completed') {
       await this.applyDutyAdjustment(
@@ -519,6 +558,15 @@ export class DutyAdjustmentService {
       operatorUserId: authorization.user.id,
       reason: input.reason,
       schedulePeriodId: context.period.id,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '管理员已为您调整加扣班，您的班次已更新。',
+      groupId: authorization.group.id,
+      notificationType: 'schedule_changed',
+      payload: { dutyAdjustmentId, reason: 'duty_adjustment' },
+      recipientMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
+      scheduleEventId: createdEventId,
+      title: '加扣班已完成',
     });
     await this.applyDutyAdjustment(
       transaction,
@@ -598,6 +646,40 @@ export class DutyAdjustmentService {
       ...(request.reason === null ? {} : { reason: request.reason }),
       schedulePeriodId: context.period.id,
     });
+    if (nextStatus === 'completed') {
+      await this.notificationWriter.append(transaction, {
+        body: '加扣班已完成，您的班次已更新。',
+        groupId: authorization.group.id,
+        notificationType: 'schedule_changed',
+        payload: { dutyAdjustmentId: request.id, reason: 'duty_adjustment' },
+        recipientMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
+        scheduleEventId: acceptedEventId,
+        title: '加扣班已完成',
+      });
+    } else {
+      await this.notificationWriter.append(transaction, {
+        body: '对方已接受加扣班申请，等待管理员审批。',
+        groupId: authorization.group.id,
+        notificationType: 'duty_adjustment_request_accepted',
+        objectId: request.id,
+        objectType: 'duty_adjustment',
+        recipientMembershipIds: [context.deductedMember.id],
+        scheduleEventId: acceptedEventId,
+        title: '加扣班申请已接受',
+      });
+      await this.notificationWriter.append(transaction, {
+        administratorRecipients: true,
+        body: '加扣班申请已被双方接受，等待您审批。',
+        excludeRecipientUserIds: [authorization.user.id],
+        groupId: authorization.group.id,
+        notificationType: 'approval_pending',
+        objectId: request.id,
+        objectType: 'duty_adjustment',
+        payload: { requestType: 'duty_adjustment' },
+        scheduleEventId: acceptedEventId,
+        title: '加扣班申请待审批',
+      });
+    }
 
     if (nextStatus === 'completed') {
       await this.applyDutyAdjustment(
@@ -677,6 +759,15 @@ export class DutyAdjustmentService {
       ...(request.reason === null ? {} : { reason: request.reason }),
       schedulePeriodId: context.period.id,
     });
+    await this.notificationWriter.append(transaction, {
+      body: '加扣班已审批通过，您的班次已更新。',
+      groupId: authorization.group.id,
+      notificationType: 'schedule_changed',
+      payload: { dutyAdjustmentId: request.id, reason: 'duty_adjustment' },
+      recipientMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
+      scheduleEventId: approvedEventId,
+      title: '加扣班已生效',
+    });
     await this.applyDutyAdjustment(
       transaction,
       context,
@@ -735,7 +826,7 @@ export class DutyAdjustmentService {
         version: sql`${dutyAdjustments.version} + 1`,
       })
       .where(eq(dutyAdjustments.id, request.id));
-    await this.eventWriter.append(transaction, {
+    const rejectedEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [request.deductedMembershipId, request.overtimeMembershipId],
       afterData: toLatestData({ status: 'rejected' }),
       beforeData: toLatestData({ status: request.status }),
@@ -748,6 +839,16 @@ export class DutyAdjustmentService {
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
       ...(request.reason === null ? {} : { reason: request.reason }),
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '加扣班申请已被驳回。',
+      groupId: authorization.group.id,
+      notificationType: 'duty_adjustment_request_rejected',
+      objectId: request.id,
+      objectType: 'duty_adjustment',
+      recipientMembershipIds: [request.deductedMembershipId, request.overtimeMembershipId],
+      scheduleEventId: rejectedEventId,
+      title: '加扣班申请已驳回',
     });
 
     return this.readDutyAdjustment(transaction, request.id);
@@ -794,7 +895,7 @@ export class DutyAdjustmentService {
         version: sql`${dutyAdjustments.version} + 1`,
       })
       .where(eq(dutyAdjustments.id, request.id));
-    await this.eventWriter.append(transaction, {
+    const cancelledEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [request.deductedMembershipId, request.overtimeMembershipId],
       afterData: toLatestData({ status: 'cancelled' }),
       beforeData: toLatestData({ status: request.status }),
@@ -807,6 +908,17 @@ export class DutyAdjustmentService {
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
       ...(request.reason === null ? {} : { reason: request.reason }),
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '加扣班申请已取消。',
+      excludeRecipientUserIds: [authorization.user.id],
+      groupId: authorization.group.id,
+      notificationType: 'duty_adjustment_request_cancelled',
+      objectId: request.id,
+      objectType: 'duty_adjustment',
+      recipientMembershipIds: [request.deductedMembershipId, request.overtimeMembershipId],
+      scheduleEventId: cancelledEventId,
+      title: '加扣班申请已取消',
     });
 
     return this.readDutyAdjustment(transaction, request.id);
@@ -881,7 +993,7 @@ export class DutyAdjustmentService {
         version: sql`${dutyAdjustments.version} + 1`,
       })
       .where(eq(dutyAdjustments.id, request.id));
-    await this.eventWriter.append(transaction, {
+    const revokedEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
       affectedShiftIds: [context.coveredAssignment.id],
       afterData: toLatestData({
@@ -905,6 +1017,16 @@ export class DutyAdjustmentService {
       operatorUserId: authorization.user.id,
       reason: input.reason,
       schedulePeriodId: context.period.id,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '加扣班已撤销，原排班已恢复。',
+      groupId: authorization.group.id,
+      notificationType: 'duty_adjustment_revoked',
+      objectId: request.id,
+      objectType: 'duty_adjustment',
+      recipientMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
+      scheduleEventId: revokedEventId,
+      title: '加扣班已撤销',
     });
 
     return this.readDutyAdjustment(transaction, request.id);

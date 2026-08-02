@@ -29,6 +29,13 @@ import type {
   ManualApplyPreview,
   ManualScheduleTemplate,
   MemberSwapSettings,
+  MemberNotificationPreferences,
+  NotificationPage,
+  NotificationRecord,
+  PushConfiguration,
+  UpdateGroupNotificationSettingsInput,
+  UpdateMemberNotificationPreferencesInput,
+  WebPushSubscriptionInput,
   PreviewLeaveRequestInput,
   PreviewManualTemplateApplyRequest,
   RejectedLeaveRequestResult,
@@ -73,6 +80,30 @@ export interface ApiClient {
     dutyAdjustmentId: string,
     input: DutyAdjustmentMutationInput,
   ): Promise<DutyAdjustmentRequest>;
+  deletePushSubscription(): Promise<{ readonly deleted: boolean }>;
+  getGroupNotificationSettings(
+    groupId: string,
+  ): Promise<{ readonly dutyReminderHours: readonly number[]; readonly groupId: string }>;
+  getMyNotificationPreferences(groupId: string): Promise<MemberNotificationPreferences>;
+  getPushConfiguration(): Promise<PushConfiguration>;
+  getUnreadNotificationCount(): Promise<{ readonly unreadCount: number }>;
+  listNotifications(query: {
+    readonly cursor?: string;
+    readonly groupId?: string;
+    readonly pageSize?: number;
+    readonly unreadOnly?: boolean;
+  }): Promise<NotificationPage>;
+  markAllNotificationsRead(groupId?: string): Promise<{ readonly count: number }>;
+  markNotificationRead(notificationId: string): Promise<NotificationRecord>;
+  savePushSubscription(input: WebPushSubscriptionInput): Promise<{ readonly saved: boolean }>;
+  updateGroupNotificationSettings(
+    groupId: string,
+    input: UpdateGroupNotificationSettingsInput,
+  ): Promise<{ readonly dutyReminderHours: readonly number[]; readonly groupId: string }>;
+  updateMyNotificationPreferences(
+    groupId: string,
+    input: UpdateMemberNotificationPreferencesInput,
+  ): Promise<MemberNotificationPreferences>;
   acceptSwapRequest(
     groupId: string,
     swapRequestId: string,
@@ -270,6 +301,142 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const fetchImplementation = options.fetch ?? fetch;
 
   return {
+    deletePushSubscription() {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/notifications/push-subscription',
+        { method: 'DELETE' },
+        isDeletedResult,
+      );
+    },
+    getGroupNotificationSettings(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/notification-settings`,
+        { method: 'GET' },
+        isGroupNotificationSettings,
+      );
+    },
+    getMyNotificationPreferences(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/notification-preferences/mine`,
+        { method: 'GET' },
+        isMemberNotificationPreferences,
+      );
+    },
+    getPushConfiguration() {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/notifications/push-config',
+        { method: 'GET' },
+        isPushConfiguration,
+      );
+    },
+    getUnreadNotificationCount() {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/notifications/unread-count',
+        { method: 'GET' },
+        isUnreadCountResult,
+      );
+    },
+    listNotifications(query) {
+      const params = new URLSearchParams();
+      if (query.cursor !== undefined) {
+        params.set('cursor', query.cursor);
+      }
+      if (query.groupId !== undefined) {
+        params.set('groupId', query.groupId);
+      }
+      if (query.pageSize !== undefined) {
+        params.set('pageSize', String(query.pageSize));
+      }
+      if (query.unreadOnly === true) {
+        params.set('unreadOnly', 'true');
+      }
+      const queryString = params.toString();
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/notifications${queryString === '' ? '' : `?${queryString}`}`,
+        { method: 'GET' },
+        isNotificationPage,
+      );
+    },
+    markAllNotificationsRead(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/notifications/read-all',
+        {
+          method: 'POST',
+          ...(groupId === undefined ? {} : { body: JSON.stringify({ groupId }) }),
+        },
+        isReadAllResult,
+      );
+    },
+    markNotificationRead(notificationId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/notifications/${encodeURIComponent(notificationId)}/read`,
+        { method: 'POST' },
+        isNotificationRecord,
+      );
+    },
+    savePushSubscription(input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/notifications/push-subscription',
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isSavedResult,
+      );
+    },
+    updateGroupNotificationSettings(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/notification-settings`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isGroupNotificationSettings,
+      );
+    },
+    updateMyNotificationPreferences(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/notification-preferences/mine`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isMemberNotificationPreferences,
+      );
+    },
     acceptDutyAdjustment(groupId, dutyAdjustmentId, input) {
       return requestJson(
         options.auth,
@@ -2474,6 +2641,133 @@ function isManualScheduleTemplateCell(value: unknown): boolean {
 
 function isManualScheduleTemplateList(value: unknown): value is ManualScheduleTemplate[] {
   return Array.isArray(value) && value.every(isManualScheduleTemplate);
+}
+
+function isNotificationRecord(value: unknown): value is NotificationRecord {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const notification = value as Partial<NotificationRecord>;
+  return (
+    typeof notification.id === 'string' &&
+    notification.id.length > 0 &&
+    typeof notification.recipientUserId === 'string' &&
+    notification.recipientUserId.length > 0 &&
+    typeof notification.notificationType === 'string' &&
+    notification.notificationType.length > 0 &&
+    typeof notification.title === 'string' &&
+    notification.title.length > 0 &&
+    typeof notification.body === 'string' &&
+    notification.body.length > 0 &&
+    typeof notification.createdAt === 'string' &&
+    typeof notification.isRead === 'boolean' &&
+    (notification.groupId === undefined || typeof notification.groupId === 'string') &&
+    (notification.objectId === undefined || typeof notification.objectId === 'string') &&
+    (notification.objectType === undefined || typeof notification.objectType === 'string') &&
+    (notification.payload === undefined || isJsonObjectValue(notification.payload)) &&
+    (notification.scheduleEventId === undefined ||
+      typeof notification.scheduleEventId === 'string') &&
+    (notification.shiftAssignmentId === undefined ||
+      typeof notification.shiftAssignmentId === 'string')
+  );
+}
+
+function isNotificationPage(value: unknown): value is NotificationPage {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const page = value as Partial<NotificationPage>;
+  return (
+    Array.isArray(page.notifications) &&
+    page.notifications.every(isNotificationRecord) &&
+    typeof page.unreadCount === 'number' &&
+    Number.isInteger(page.unreadCount) &&
+    (page.nextCursor === undefined || typeof page.nextCursor === 'string')
+  );
+}
+
+function isUnreadCountResult(value: unknown): value is { readonly unreadCount: number } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { unreadCount?: unknown }).unreadCount === 'number' &&
+    Number.isInteger((value as { unreadCount: number }).unreadCount)
+  );
+}
+
+function isReadAllResult(value: unknown): value is { readonly count: number } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { count?: unknown }).count === 'number' &&
+    Number.isInteger((value as { count: number }).count)
+  );
+}
+
+function isSavedResult(value: unknown): value is { readonly saved: boolean } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { saved?: unknown }).saved === 'boolean'
+  );
+}
+
+function isDeletedResult(value: unknown): value is { readonly deleted: boolean } {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { deleted?: unknown }).deleted === 'boolean'
+  );
+}
+
+function isGroupNotificationSettings(
+  value: unknown,
+): value is { readonly dutyReminderHours: readonly number[]; readonly groupId: string } {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const settings = value as {
+    dutyReminderHours?: unknown;
+    groupId?: unknown;
+  };
+  return (
+    typeof settings.groupId === 'string' &&
+    settings.groupId.length > 0 &&
+    Array.isArray(settings.dutyReminderHours) &&
+    settings.dutyReminderHours.every(
+      (hour) => typeof hour === 'number' && Number.isInteger(hour) && hour >= 1,
+    )
+  );
+}
+
+function isMemberNotificationPreferences(value: unknown): value is MemberNotificationPreferences {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const preferences = value as Partial<MemberNotificationPreferences>;
+  return (
+    typeof preferences.membershipId === 'string' &&
+    preferences.membershipId.length > 0 &&
+    typeof preferences.browserNotificationsEnabled === 'boolean' &&
+    (preferences.dutyReminderHours === null ||
+      (Array.isArray(preferences.dutyReminderHours) &&
+        preferences.dutyReminderHours.every(
+          (hour) => typeof hour === 'number' && Number.isInteger(hour) && hour >= 1,
+        )))
+  );
+}
+
+function isPushConfiguration(value: unknown): value is PushConfiguration {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    ((value as { vapidPublicKey?: unknown }).vapidPublicKey === null ||
+      typeof (value as { vapidPublicKey?: unknown }).vapidPublicKey === 'string')
+  );
 }
 
 function isUndefined(value: unknown): value is undefined {

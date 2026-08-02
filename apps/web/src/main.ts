@@ -6,6 +6,9 @@ import 'tdesign-vue-next/es/style/index.css';
 import App from './App.vue';
 import { router } from './router/index.js';
 import { pinia } from './stores/pinia.js';
+import { registerServiceWorker } from './register-service-worker.js';
 import './styles/base.css';
 
 createApp(App).use(pinia).use(router).use(VueQueryPlugin).use(TDesign).mount('#app');
+
+void registerServiceWorker();

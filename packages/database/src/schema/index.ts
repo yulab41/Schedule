@@ -18,6 +18,7 @@ export * from './manual-schedules.js';
 export * from './leaves.js';
 export * from './swaps.js';
 export * from './duty-adjustments.js';
+export * from './notifications.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
