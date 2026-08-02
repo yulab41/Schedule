@@ -2,16 +2,26 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   CreateUserProfileRequest,
+  DeregisterAccountResult,
   UpdateUserProfileRequest,
   UserProfile,
 } from '@schedule/contracts';
-import { type DatabaseClient, userProfiles, users, withTransaction } from '@schedule/database';
+import {
+  type DatabaseClient,
+  groupMemberContacts,
+  userProfiles,
+  users,
+  withTransaction,
+} from '@schedule/database';
 import { and, eq, exists, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { AuditWriter } from '../audit/audit-writer.js';
 
 export class UserService {
+  private readonly auditWriter = new AuditWriter();
+
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
   public async register(
@@ -112,6 +122,62 @@ export class UserService {
     }
 
     return { ...profile, realName: input.realName, version: profile.version + 1 };
+  }
+
+  public async deregisterOwnAccount(
+    identity: AuthenticatedIdentity,
+  ): Promise<DeregisterAccountResult> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const [user] = await transaction
+        .select({ id: users.id, status: users.status })
+        .from(users)
+        .where(and(eq(users.cloudbaseUid, identity.cloudbaseUid), isNull(users.deletedAt)))
+        .limit(1)
+        .for('update');
+
+      if (user === undefined || user.status !== 'active') {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '当前账号不可注销。',
+        });
+      }
+
+      await transaction
+        .update(users)
+        .set({
+          cloudbaseUid: null,
+          deletedAt: sql`current_timestamp(3)`,
+          status: 'deleted',
+          version: sql`${users.version} + 1`,
+        })
+        .where(eq(users.id, user.id));
+      await transaction
+        .update(groupMemberContacts)
+        .set({
+          isConfirmed: 0,
+          mobilePhone: null,
+          shortPhone: null,
+          version: sql`${groupMemberContacts.version} + 1`,
+        })
+        .where(
+          sql`membership_id IN (
+            SELECT id FROM group_memberships
+            WHERE user_id = ${user.id} AND deleted_at IS NULL
+          )`,
+        );
+      await this.auditWriter.append(transaction, {
+        action: 'user_deregister',
+        actorUserId: user.id,
+        metadata: { deregisteredAt: new Date().toISOString() },
+        operationId: randomUUID(),
+        outcome: 'completed',
+        targetId: user.id,
+        targetType: 'user',
+      });
+
+      return { id: user.id, status: 'deleted' };
+    });
   }
 
   private async getActiveProfile(cloudbaseUid: string): Promise<UserProfile> {

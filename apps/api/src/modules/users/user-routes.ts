@@ -40,6 +40,10 @@ export function registerUserRoutes(app: FastifyInstance, userService: UserServic
       parseUpdateProfileInput(request.body),
     ),
   );
+
+  app.post('/users/me/deregister', { preHandler: app.authenticate }, async (request) =>
+    userService.deregisterOwnAccount(getAuthenticatedIdentity(request)),
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

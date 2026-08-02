@@ -112,6 +112,9 @@ importers:
 
   infra/scripts:
     dependencies:
+      '@schedule/api':
+        specifier: workspace:*
+        version: link:../../apps/api
       '@schedule/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

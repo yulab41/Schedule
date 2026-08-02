@@ -13,15 +13,21 @@ const databaseSettings = {
   MYSQL_USER: requiredTextSchema,
   MYSQL_PASSWORD: requiredTextSchema,
 };
+const operationSettings = {
+  BACKUP_DIR: requiredTextSchema.default('./backups'),
+  BACKUP_ENCRYPTION_KEY: z.string().trim().min(1).optional(),
+};
 
 export const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   ...applicationSettings,
   ...databaseSettings,
+  ...operationSettings,
 });
 const testEnvironmentSchema = z.object({
   NODE_ENV: z.literal('test'),
   ...applicationSettings,
+  BACKUP_DIR: requiredTextSchema.default('./backups'),
   TEST_MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
   TEST_MYSQL_PORT: portSchema.default(3307),
   TEST_MYSQL_DATABASE: requiredTextSchema,
@@ -50,6 +56,7 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
       NODE_ENV: testResult.data.NODE_ENV,
       API_HOST: testResult.data.API_HOST,
       API_PORT: testResult.data.API_PORT,
+      BACKUP_DIR: testResult.data.BACKUP_DIR,
       MYSQL_HOST: testResult.data.TEST_MYSQL_HOST,
       MYSQL_PORT: testResult.data.TEST_MYSQL_PORT,
       MYSQL_DATABASE: testResult.data.TEST_MYSQL_DATABASE,

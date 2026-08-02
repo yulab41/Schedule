@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@schedule/api": "workspace:*",
     "@schedule/contracts": "workspace:*",
     "@schedule/database": "workspace:*",
     "drizzle-orm": "0.45.2"

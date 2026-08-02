@@ -22,6 +22,7 @@ export * from './notifications.js';
 export * from './holidays.js';
 export * from './statistics.js';
 export * from './exports.js';
+export * from './platform.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
@@ -36,7 +37,7 @@ export const users = mysqlTable(
   'users',
   {
     id: identifier(),
-    cloudbaseUid: varchar('cloudbase_uid', { length: 128 }).notNull(),
+    cloudbaseUid: varchar('cloudbase_uid', { length: 128 }),
     status: mysqlEnum('status', ['active', 'suspended', 'deleted']).default('active').notNull(),
     ...auditableColumns(),
   },

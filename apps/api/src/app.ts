@@ -37,6 +37,9 @@ import { NotificationService } from './modules/notifications/notification-servic
 import { registerHolidayRoutes } from './modules/holidays/holiday-routes.js';
 import { HolidayService } from './modules/holidays/holiday-service.js';
 import { parseHolidayAdminUids } from './modules/holidays/holiday-admin.js';
+import { registerPlatformAdminRoutes } from './modules/platform-admin/platform-admin-routes.js';
+import { PlatformAdminService } from './modules/platform-admin/platform-admin-service.js';
+import { parsePlatformAdminUids } from './modules/platform-admin/platform-admin.js';
 import { registerStatisticsRoutes } from './modules/statistics/statistics-routes.js';
 import { StatisticsService } from './modules/statistics/statistics-service.js';
 import { registerExportRoutes } from './modules/exports/export-routes.js';
@@ -81,6 +84,7 @@ export interface CreateAppOptions {
   readonly holidayAdminUids?: ReadonlySet<string>;
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
+  readonly platformAdminUids?: ReadonlySet<string>;
   readonly readTrustedCloudbaseContext?: TrustedCloudbaseContextReader;
 }
 
@@ -140,6 +144,13 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     );
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
     registerExportRoutes(app, new ExportService(options.databaseClient));
+    registerPlatformAdminRoutes(
+      app,
+      new PlatformAdminService(
+        options.databaseClient,
+        options.platformAdminUids ?? parsePlatformAdminUids(process.env),
+      ),
+    );
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

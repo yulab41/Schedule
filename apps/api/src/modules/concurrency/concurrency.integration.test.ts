@@ -408,6 +408,8 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);

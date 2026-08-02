@@ -42,11 +42,23 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs')`,
+          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives')`,
     );
 
-    expect(migrations).toEqual([{ count: 14 }]);
-    expect(tables).toEqual([{ count: 35 }]);
+    expect(migrations).toEqual([{ count: 17 }]);
+    expect(tables).toEqual([{ count: 37 }]);
+  });
+
+  it('allows identity detachment through a nullable cloudbase UID', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    const userId = randomUUID();
+
+    await client.database.execute(sql`INSERT INTO users (id) VALUES (${userId})`);
+
+    const [rows] = (await client.database.execute(
+      sql`SELECT cloudbase_uid FROM users WHERE id = ${userId}`,
+    )) as unknown as [{ cloudbase_uid: string | null }[], unknown];
+    expect(rows[0]?.cloudbase_uid).toBeNull();
   });
 
   it('uses UTC for every MySQL session', async () => {
@@ -170,6 +182,8 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
