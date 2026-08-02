@@ -1,7 +1,11 @@
+@import './tokens.css';
+
 :root {
-  color: #1f2937;
-  background: #f5f7fa;
-  font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-background);
+  font-family: var(--app-font-family);
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-normal);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -17,8 +21,15 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
 }
 
 #app {
@@ -33,15 +44,15 @@ input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 56px;
+  min-height: var(--ui-layout-header-height);
   padding: 0 24px;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--ui-color-surface);
+  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .product-name {
-  color: #111827;
-  font-size: 18px;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xl);
   font-weight: 600;
   text-decoration: none;
 }
@@ -53,12 +64,30 @@ input {
 }
 
 .account-name {
-  color: #4b5563;
-  font-size: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-md);
 }
 
 .app-content {
-  padding: 24px;
+  padding: var(--ui-spacing-lg);
+}
+
+.skip-link {
+  position: absolute;
+  z-index: var(--ui-z-index-dialog);
+  top: 8px;
+  left: 8px;
+  padding: 8px 12px;
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 .auth-page,
@@ -84,20 +113,20 @@ input {
 }
 
 .home-view {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .home-view h1 {
   margin: 0 0 8px;
-  font-size: 24px;
+  font-size: var(--ui-font-size-xxl);
   font-weight: 600;
 }
 
 .home-view p,
 .profile-panel p {
-  color: #4b5563;
-  line-height: 1.6;
+  color: var(--ui-color-text-secondary);
+  line-height: var(--ui-line-height-normal);
 }
 
 .group-switcher {
@@ -109,7 +138,7 @@ input {
 }
 
 .group-switcher label {
-  color: #374151;
+  color: var(--ui-color-text-secondary);
   font-weight: 600;
 }
 
@@ -119,7 +148,7 @@ input {
 
 .current-group-workbench h2 {
   margin: 0 0 12px;
-  font-size: 20px;
+  font-size: var(--ui-font-size-xl);
   font-weight: 600;
 }
 
@@ -132,8 +161,8 @@ input {
   display: grid;
   gap: 12px;
   padding: 16px;
-  background: #ffffff;
-  border: 1px solid #dbe3ea;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
   border-radius: 6px;
 }
 
@@ -141,11 +170,11 @@ input {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 16px;
-  color: #4b5563;
+  color: var(--ui-color-text-secondary);
 }
 
 .member-summary strong {
-  color: #111827;
+  color: var(--ui-color-text-primary);
 }
 
 .scheduling-config-panel {
@@ -254,6 +283,10 @@ input {
 
   .account-name {
     display: none;
+  }
+
+  .product-name {
+    font-size: var(--ui-font-size-lg);
   }
 
   .group-switcher,

@@ -78,6 +78,7 @@ import type {
 } from '@schedule/contracts';
 
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
+import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
 
 export interface ApiClient {
   acceptDutyAdjustment(
@@ -298,6 +299,7 @@ export interface CreateApiClientOptions {
   readonly apiBaseUrl?: string;
   readonly auth: CloudbaseAuthClient;
   readonly fetch?: typeof fetch;
+  readonly isOnline?: () => boolean;
 }
 
 const knownApiErrorCodes = new Set<ApiErrorCode>([
@@ -314,6 +316,43 @@ const knownApiErrorCodes = new Set<ApiErrorCode>([
 export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const baseUrl = options.apiBaseUrl ?? import.meta.env.VITE_API_BASE_URL ?? '/api';
   const fetchImplementation = options.fetch ?? fetch;
+  const isOnline = options.isOnline ?? isNavigatorOnline;
+
+  function requestJson<ResponseBody>(
+    auth: CloudbaseAuthClient,
+    fetchImplementationOverride: typeof fetch,
+    baseUrlOverride: string,
+    path: string,
+    init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT' },
+    isResponseBody: (value: unknown) => value is ResponseBody,
+  ): Promise<ResponseBody> {
+    return requestJsonWithOnline(
+      auth,
+      fetchImplementationOverride,
+      baseUrlOverride,
+      path,
+      init,
+      isResponseBody,
+      isOnline,
+    );
+  }
+
+  function requestText(
+    auth: CloudbaseAuthClient,
+    fetchImplementationOverride: typeof fetch,
+    baseUrlOverride: string,
+    path: string,
+    init: { readonly method: 'GET' },
+  ): Promise<string> {
+    return requestTextWithOnline(
+      auth,
+      fetchImplementationOverride,
+      baseUrlOverride,
+      path,
+      init,
+      isOnline,
+    );
+  }
 
   return {
     createExportJob(groupId, input) {
@@ -1293,13 +1332,13 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
 }
 
 export class ApiClientError extends Error {
-  public readonly code: ApiErrorCode | 'NETWORK_ERROR' | undefined;
+  public readonly code: ApiErrorCode | 'NETWORK_ERROR' | 'OFFLINE' | undefined;
   public readonly latestData: JsonObject | undefined;
   public readonly requestId: string | undefined;
   public readonly status: number | undefined;
 
   public constructor(input: {
-    readonly code?: ApiErrorCode | 'NETWORK_ERROR';
+    readonly code?: ApiErrorCode | 'NETWORK_ERROR' | 'OFFLINE';
     readonly latestData?: JsonObject;
     readonly message: string;
     readonly requestId?: string;
@@ -1314,15 +1353,24 @@ export class ApiClientError extends Error {
   }
 }
 
-async function requestJson<ResponseBody>(
+async function requestJsonWithOnline<ResponseBody>(
   auth: CloudbaseAuthClient,
   fetchImplementation: typeof fetch,
   baseUrl: string,
   path: string,
   init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT' },
   isResponseBody: (value: unknown) => value is ResponseBody,
+  isOnline: () => boolean,
 ): Promise<ResponseBody> {
   const session = getAuthenticatedSession(await auth.getSession());
+
+  const offlineError = getOfflineSubmitError(isOnline(), init.method);
+  if (offlineError !== undefined) {
+    throw new ApiClientError({
+      code: 'OFFLINE',
+      message: offlineError,
+    });
+  }
 
   if (session === undefined) {
     throw new ApiClientError({
@@ -1365,14 +1413,24 @@ async function requestJson<ResponseBody>(
   return body;
 }
 
-async function requestText(
+async function requestTextWithOnline(
   auth: CloudbaseAuthClient,
   fetchImplementation: typeof fetch,
   baseUrl: string,
   path: string,
   init: { readonly method: 'GET' },
+  isOnline: () => boolean,
 ): Promise<string> {
   const session = getAuthenticatedSession(await auth.getSession());
+
+  const offlineError = getOfflineSubmitError(isOnline(), init.method);
+  if (offlineError !== undefined) {
+    throw new ApiClientError({
+      code: 'OFFLINE',
+      message: offlineError,
+    });
+  }
+
   if (session === undefined) {
     throw new ApiClientError({
       code: 'AUTHENTICATION_REQUIRED',

@@ -1,0 +1,7 @@
+@import '@schedule/ui-tokens/tokens.css';
+
+:root {
+  --app-drawer-width: 280px;
+  --app-font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --app-nav-item-height: 40px;
+}

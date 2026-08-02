@@ -1,0 +1,53 @@
+:root {
+  --ui-color-background: #f5f7fa;
+  --ui-color-border: #e5e7eb;
+  --ui-color-border-strong: #dbe3ea;
+  --ui-color-danger: #dc2626;
+  --ui-color-danger-light: #fef2f2;
+  --ui-color-focus-ring: #1f5aa6;
+  --ui-color-near-black: #111827;
+  --ui-color-primary: #1f5aa6;
+  --ui-color-primary-border: #bfdbfe;
+  --ui-color-primary-light: #eff6ff;
+  --ui-color-success: #16a34a;
+  --ui-color-success-light: #f0fdf4;
+  --ui-color-surface: #ffffff;
+  --ui-color-text-muted: #6b7280;
+  --ui-color-text-primary: #111827;
+  --ui-color-text-secondary: #4b5563;
+  --ui-color-warning: #b45309;
+  --ui-color-warning-light: #fef3c7;
+  --ui-color-white: #ffffff;
+
+  --ui-spacing-none: 0;
+  --ui-spacing-xxs: 4px;
+  --ui-spacing-xs: 8px;
+  --ui-spacing-sm: 12px;
+  --ui-spacing-md: 16px;
+  --ui-spacing-lg: 24px;
+  --ui-spacing-xl: 32px;
+
+  --ui-font-size-xs: 11px;
+  --ui-font-size-sm: 13px;
+  --ui-font-size-md: 14px;
+  --ui-font-size-lg: 16px;
+  --ui-font-size-xl: 18px;
+  --ui-font-size-xxl: 24px;
+  --ui-line-height-tight: 1.3;
+  --ui-line-height-normal: 1.6;
+
+  --ui-breakpoint-mobile: 640px;
+  --ui-breakpoint-tablet: 768px;
+  --ui-breakpoint-desktop: 1024px;
+
+  --ui-layout-bottom-nav-height: 64px;
+  --ui-layout-header-height: 56px;
+  --ui-layout-sidebar-width: 240px;
+
+  --ui-z-index-drawer: 100;
+  --ui-z-index-sticky: 10;
+  --ui-z-index-dialog: 1000;
+
+  --ui-duration-fast: 120ms;
+  --ui-duration-normal: 200ms;
+}

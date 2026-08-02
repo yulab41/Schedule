@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { ApiClientError, createApiClient } from '../api/client.js';
 import { cloudbaseAuth } from '../auth/cloudbase.js';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
+import WorkbenchNav from '../features/layout/WorkbenchNav.vue';
+import {
+  getDesktopNavItems,
+  getPrimaryMobileNavItems,
+  getSecondaryMobileNavItems,
+  type WorkbenchTabId,
+} from '../features/layout/workbench-nav.js';
 import MemberManager from '../features/members/MemberManager.vue';
 import SchedulingConfigPanel from '../features/scheduling-config/SchedulingConfigPanel.vue';
 import LeavePanel from '../features/leaves/LeavePanel.vue';
@@ -24,8 +31,12 @@ const groups = ref<GroupSummary[]>([]);
 const currentGroupId = ref<string>();
 const errorMessage = ref<string>();
 const isLoading = ref(false);
-const activeTab = ref('calendar');
+const activeTab = ref<WorkbenchTabId>('calendar');
 const exportDialogVisible = ref(false);
+
+const desktopItems = computed(() => getDesktopNavItems(currentGroup()?.role ?? 'member'));
+const primaryItems = computed(() => getPrimaryMobileNavItems(currentGroup()?.role ?? 'member'));
+const secondaryItems = computed(() => getSecondaryMobileNavItems(currentGroup()?.role ?? 'member'));
 
 onMounted(() => {
   void refreshGroups();
@@ -96,40 +107,90 @@ function getErrorMessage(error: unknown): string {
           :group="currentGroup()!"
           @close="exportDialogVisible = false"
         />
-        <t-tabs v-model="activeTab">
-          <t-tab-panel value="calendar" label="排班日历">
-            <CalendarView :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel v-if="currentGroup()?.role !== 'member'" value="manual" label="手动排班">
-            <ManualScheduleView :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel value="leave" label="请假">
-            <LeavePanel :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel value="swap" label="换班">
-            <SwapPanel :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel value="duty" label="加扣班">
-            <DutyAdjustmentPanel :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel value="events" label="事件">
-            <EventCenterView :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel value="notifications" label="通知">
-            <NotificationSettingsPanel :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel value="statistics" label="统计">
-            <StatisticsView :group="currentGroup()!" />
-          </t-tab-panel>
-          <t-tab-panel value="members" label="成员">
-            <MemberManager :group="currentGroup()!" @group-changed="refreshGroups" />
-          </t-tab-panel>
-          <t-tab-panel v-if="currentGroup()?.role !== 'member'" value="config" label="排班配置">
-            <SchedulingConfigPanel :group="currentGroup()!" />
-          </t-tab-panel>
-        </t-tabs>
+        <div class="workbench-layout">
+          <WorkbenchNav
+            :active-tab="activeTab"
+            :desktop-items="desktopItems"
+            :primary-items="primaryItems"
+            :secondary-items="secondaryItems"
+            @select="activeTab = $event"
+          />
+          <section class="workbench-panels">
+            <CalendarView v-if="activeTab === 'calendar'" :group="currentGroup()!" />
+            <ManualScheduleView
+              v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
+              :group="currentGroup()!"
+            />
+            <LeavePanel v-if="activeTab === 'leave'" :group="currentGroup()!" />
+            <SwapPanel v-if="activeTab === 'swap'" :group="currentGroup()!" />
+            <DutyAdjustmentPanel v-if="activeTab === 'duty'" :group="currentGroup()!" />
+            <EventCenterView v-if="activeTab === 'events'" :group="currentGroup()!" />
+            <NotificationSettingsPanel
+              v-if="activeTab === 'notifications'"
+              :group="currentGroup()!"
+            />
+            <StatisticsView v-if="activeTab === 'statistics'" :group="currentGroup()!" />
+            <MemberManager
+              v-if="activeTab === 'members'"
+              :group="currentGroup()!"
+              @group-changed="refreshGroups"
+            />
+            <SchedulingConfigPanel
+              v-if="activeTab === 'config' && currentGroup()?.role !== 'member'"
+              :group="currentGroup()!"
+            />
+          </section>
+        </div>
       </section>
       <GroupSetupPanel @groups-changed="refreshGroups" />
     </template>
   </section>
 </template>
+
+<style scoped>
+.home-view {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-view h1 {
+  margin: 0 0 8px;
+  font-size: var(--ui-font-size-xxl);
+  font-weight: 600;
+}
+
+.current-group-workbench {
+  margin: 24px 0;
+}
+
+.current-group-workbench h2 {
+  margin: 0 0 12px;
+  font-size: var(--ui-font-size-xl);
+  font-weight: 600;
+}
+
+.workbench-actions {
+  margin-bottom: 12px;
+}
+
+.workbench-layout {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.workbench-panels {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .workbench-layout {
+    display: block;
+  }
+
+  .workbench-panels {
+    padding-bottom: calc(var(--ui-layout-bottom-nav-height) + 24px);
+  }
+}
+</style>

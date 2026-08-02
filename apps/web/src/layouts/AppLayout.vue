@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import NotificationBell from '../features/notifications/NotificationBell.vue';
+import OfflineBanner from '../pwa/OfflineBanner.vue';
 import { useSessionStore } from '../stores/session.js';
 
 const router = useRouter();
@@ -30,6 +31,7 @@ async function saveProfile(): Promise<void> {
 
 <template>
   <t-layout class="app-layout">
+    <a class="skip-link" href="#app-content">跳到主要内容</a>
     <t-header class="app-header">
       <RouterLink class="product-name" :to="{ name: 'home' }">医护排班系统</RouterLink>
       <div class="account-actions">
@@ -40,7 +42,8 @@ async function saveProfile(): Promise<void> {
         <t-button variant="text" @click="signOut">退出登录</t-button>
       </div>
     </t-header>
-    <t-content class="app-content">
+    <t-content id="app-content" class="app-content" tabindex="-1">
+      <OfflineBanner />
       <section v-if="session.status === 'loading'" class="state-panel" aria-live="polite">
         <t-loading text="正在恢复登录状态" />
       </section>

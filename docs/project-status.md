@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Four — Holidays and Statistics
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 26 are complete and validated. Task 26's checkpoint commit message is `feat(exports): add audited schedule exports`.
+- Implementation code: Tasks 1 through 27 are complete and validated. Task 27's checkpoint commit message is `feat(web): add responsive PWA experience`.
 
 ## Approved Sources
 
@@ -102,18 +102,24 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 26 completed: migration `0014_export_jobs.sql` adds the async export job table (type/period/role/member scope, pending/running/completed/failed status, stored CSV content, row count, short-lived expiry, download marker); the Drizzle journal, schema, contracts, and migration count (14 migrations, 35 tables) were updated with it.
 - Task 26 completed: `apps/api/src/modules/exports/` exposes admin-only export creation (`manageScheduleConfiguration`), job status, and download endpoints; every export creation and download appends a security-audit record; server-side validation rejects invalid periods and roles/memberships outside the group; the pure CSV builder emits schedule rows (date/weekday/role/shift type/times/planned and actual members/vacancy) and statistics rows (per-member counts plus totals) that never contain long/short phone numbers or audit content, with escaping covered by unit tests.
 - Task 26 completed: `ExportJobProcessor` (`--job=export-jobs`) picks up pending jobs, generates the CSV from published periods/assignments or recomputed statistics (with optional role/member filters reusing the Task 25 computation), stores the content with a 15-minute download expiry, and marks failures without exposing internals; `run-job.ts` gained the new job. The Web workbench gains an admin 导出 dialog with type/period/role/member selection, job polling, and CSV download; client methods, validators, export-logic helpers, and 5 MySQL integration tests cover permission denial, phone-free content, audit records, scope filters, expiry, and processor idempotency; `pnpm verify` passes with all 266 Vitest tests plus all production builds.
+- Task 27 completed: the new `@schedule/ui-tokens` workspace package owns the light-blue/light-green/white palette, spacing, font-size/line-height, breakpoint, layout, and z-index tokens plus WCAG contrast helpers (`calculateContrastRatio`, `isTextReadable`, `pickReadableTextColor`); `apps/web/src/styles/tokens.css` maps them to CSS custom properties consumed by the responsive shell.
+- Task 27 completed: the workbench now uses a desktop sidebar (all features) and a mobile bottom bar with four primary entries (排班日历/请假/换班/加扣班) plus a 更多 drawer for the rest; the pure `workbench-nav` module filters administrator-only entries by role, and focus order equals the visual order for keyboard users. `AppLayout` gained a skip-to-content link, focusable content landmark, and an offline banner.
+- Task 27 completed: the calendar offers responsive 月/周/列表 views; touch phones default to the week view (and the month view auto-scrolls to today's row), so today's duty names are visible on the first screen without clicking; the shared day-grouping helpers drive MonthGrid, the new WeekGrid, and the new ListGrid.
+- Task 27 completed: the service worker now performs read-only caching only — app shell and static assets cache-first, calendar reads use stale-while-revalidate with a 12-entry recent-schedule cap, navigation is network-first, and every other API call is network-only. Offline mutations are blocked before fetch with an explicit `OFFLINE` client error ("提交已暂停…恢复网络后请重新提交") and are never queued or silently replayed; offline calendar reads still work from cache.
+- Task 27 completed: PWA installability is complete via `apps/web/src/manifest.ts` emitted as `manifest.webmanifest` by a Vite plugin, theme-color/apple meta tags, and generated 192/512/maskable PNG icons; shift-type colors remain paired with abbreviation text everywhere, and the scheduling-config editor now previews the readable text color live and warns when the best black/white contrast is below 4.5:1.
+- Task 27 completed: verification covers token contrast and font-size floors, keyboard/focus-order mapping, mobile-first today visibility, cache pruning and offline guard behavior, nav role filtering, and week/list builders through colocated unit tests (responsive/accessibility specs live under `apps/web/src/pwa/` and `features/` per repository convention rather than the plan's illustrative `apps/web/tests/` path).
 
 ## Active Batch
 
-- Task 27: complete the responsive PWA and accessibility experience.
-- Stop after the `packages/ui-tokens` design-token package, desktop sidebar/mobile bottom navigation, responsive month/week/list calendar views whose mobile first screen shows today's duty names, read-only caching of static assets and recent schedules with offline submits blocked and explained (never silently queued), shift-type colors paired with text or icons, and verified font size/contrast/keyboard/focus-order behavior. This task touches build config, layout, and service-worker caching, so it should be the only task in its batch.
+- Task 28: implement backup, recovery, soft-deletion, and platform operations.
+- Stop after daily encrypted backups with 30-daily/12-monthly retention, a restore drill script for an isolated database, the 30-day group recycle bin with recovery, account deregistration that detaches identity/contact while preserving name snapshots, platform-admin holiday/ban/task-status controls, and audit records for every platform operation. The user requested Tasks 27-29 in this conversation, so Task 29 (full concurrency, performance, and security validation) follows in the same conversation after Task 28's checkpoint.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 27 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 15 and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 28 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 20 and 24.2 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`, plus the group soft-delete and account sections they implicate.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -199,6 +205,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 24: with the isolated test MySQL healthy, the focused holiday suite passed 6 integrations (admin gate and anonymous 401, diff preview against confirmed data, draft-hidden/confirmed-readable with 409/400 cases, historical-version preservation, coverage plus batch-keyed next-year alert, audit records), and the migration suite passed 12/32. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 240 Vitest tests (41 test files), and all production builds including the new `@schedule/test-fixtures` package and the `infra/scripts` holiday importer. The offline importer was also exercised against the disposable test schema (draft version created; invalid input rejected with exit 1).
 - Task 25: with the isolated test MySQL healthy, the focused statistics suite passed 5 integrations (weekend/holiday mutual exclusion, draft/replaced-revision exclusion, event-triggered refresh with swap/duty net-zero impact, matched/mismatched recalculate checks, year aggregation), the migration suite passed 13/34, and 6 new domain tests plus 3 Web logic tests and 1 Web client test passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 255 Vitest tests (44 test files), and all production builds. The Web build keeps the pre-existing large-entry warning.
 - Task 26: with the isolated test MySQL healthy, the focused export suite passed 5 integrations (schedule CSV without phones plus audit records, member/outsider denial and server-side scope validation, statistics-year CSV with totals, member/role filters, expired/unfinished download rejection), the migration suite passed 14/35, and 3 CSV-builder tests, 2 export-logic tests, and 1 Web client test passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 266 Vitest tests (47 test files), and all production builds. The Web build keeps the pre-existing large-entry warning.
+- Task 27: `pnpm install --no-frozen-lockfile` added the `@schedule/ui-tokens` workspace package; `pnpm --filter @schedule/web build` passed and emitted `manifest.webmanifest`, the service-worker asset, and the PNG icons. `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, and the full `pnpm test` passed: 169 Vitest tests ran green (127 database-backed integration tests skipped without a disposable MySQL), including 6 new calendar-view tests, 4 nav tests, 5 ui-tokens tests, 2 cache-rule tests, 2 offline-guard tests, 5 accessibility tests, 4 responsive tests, and 2 new client offline tests. The Web build keeps the pre-existing large-entry warning (680.37 KiB gzip).
 
 ## Recent Checkpoints
 
@@ -235,6 +242,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 24 checkpoint commit message: `feat(holidays): add versioned official calendar`
 - Task 25 checkpoint commit message: `feat(statistics): add duty and adjustment reports`
 - Task 26 checkpoint commit message: `feat(exports): add audited schedule exports`
+- Task 27 checkpoint commit message: `feat(web): add responsive PWA experience`
 
 ## Decisions and Blockers
 

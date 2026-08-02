@@ -521,6 +521,37 @@ describe('Web API client', () => {
     });
   });
 
+  it('blocks offline mutations with an explanation and never queues them', async () => {
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+      isOnline: () => false,
+    });
+
+    await expect(
+      client.createGroup({ groupCode: '1234', name: 'Emergency Department' }),
+    ).rejects.toMatchObject({
+      code: 'OFFLINE',
+      message: expect.stringContaining('提交已暂停') as string,
+    });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it('still allows read-only calendar requests while offline', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(calendar), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+      isOnline: () => false,
+    });
+
+    await expect(client.getCalendar(group.id, '2026-08')).resolves.toEqual(calendar);
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
   it('creates and lists leave requests with validated responses', async () => {
     const leaveRequest = {
       createdAt: '2026-08-01T00:00:00.000Z',

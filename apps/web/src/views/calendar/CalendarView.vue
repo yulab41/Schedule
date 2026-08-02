@@ -5,7 +5,7 @@ import type {
   GroupSummary,
   ScheduleEvent,
 } from '@schedule/contracts';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import {
@@ -23,7 +23,18 @@ import {
   getBusinessMonthLabel,
   getCurrentBusinessMonth,
 } from '../../features/calendar/calendar-logic.js';
+import {
+  addWeeks,
+  getBusinessDate,
+  getBusinessMonthOf,
+  getPreferredViewMode,
+  getVisibleWeekForMonth,
+  getWeekLabel,
+  type CalendarViewMode,
+} from '../../features/calendar/calendar-views.js';
+import ListGrid from '../../features/calendar/ListGrid.vue';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
+import WeekGrid from '../../features/calendar/WeekGrid.vue';
 import EventTimeline from '../../features/events/EventTimeline.vue';
 
 const props = defineProps<{
@@ -46,8 +57,10 @@ const membershipIds = ref<string[]>([]);
 const onlyChanges = ref(false);
 const roleIds = ref<string[]>([]);
 const shiftTypeIds = ref<string[]>([]);
+const viewMode = ref<CalendarViewMode>('month');
+const weekStart = ref('');
 const requestTracker = createLatestRequestTracker();
-const today = getCurrentBusinessMonth();
+const todayBusinessDate = getBusinessDate();
 
 const visibleAssignments = computed(() =>
   filterCalendarAssignments(calendar.value?.assignments ?? [], {
@@ -76,12 +89,24 @@ const memberOptions = computed(() =>
 watch(
   () => [props.group.id, businessMonth.value],
   () => {
+    if (viewMode.value === 'week') {
+      weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
+    }
     void loadCalendar();
   },
   { immediate: true },
 );
 
+watch(viewMode, () => {
+  if (viewMode.value === 'week' && weekStart.value === '') {
+    weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
+  }
+});
+
 onMounted(() => {
+  const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+  viewMode.value = getPreferredViewMode(coarsePointer ? 'coarse' : 'fine', window.innerWidth);
+  weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   window.addEventListener('focus', onWindowFocus);
 });
 
@@ -103,6 +128,7 @@ async function loadCalendar(): Promise<void> {
     const nextCalendar = await api.getCalendar(props.group.id, businessMonth.value);
     if (requestTracker.isCurrent(request)) {
       calendar.value = nextCalendar;
+      await scrollToTodayOnMobile();
     }
   } catch (error) {
     if (requestTracker.isCurrent(request)) {
@@ -121,6 +147,17 @@ async function loadCalendar(): Promise<void> {
   }
 }
 
+async function scrollToTodayOnMobile(): Promise<void> {
+  if (viewMode.value !== 'month' || !window.matchMedia('(max-width: 640px)').matches) {
+    return;
+  }
+
+  await nextTick();
+  document
+    .querySelector('[data-today="true"]')
+    ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 function refreshAfterConflict(): void {
   conflictVisible.value = false;
   void loadCalendar();
@@ -136,6 +173,33 @@ function goToNextMonth(): void {
 
 function goToToday(): void {
   businessMonth.value = getCurrentBusinessMonth();
+  weekStart.value = getWeekStartOfToday();
+}
+
+function getWeekStartOfToday(): string {
+  return getVisibleWeekForMonth(getCurrentBusinessMonth(), todayBusinessDate);
+}
+
+function goToPreviousWeek(): void {
+  weekStart.value = addWeeks(weekStart.value, -1);
+  syncMonthToWeek();
+}
+
+function goToNextWeek(): void {
+  weekStart.value = addWeeks(weekStart.value, 1);
+  syncMonthToWeek();
+}
+
+function goToThisWeek(): void {
+  weekStart.value = getWeekStartOfToday();
+  businessMonth.value = getCurrentBusinessMonth();
+}
+
+function syncMonthToWeek(): void {
+  const weekMonth = getBusinessMonthOf(weekStart.value);
+  if (weekMonth !== businessMonth.value) {
+    businessMonth.value = weekMonth;
+  }
 }
 
 async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise<void> {
@@ -166,6 +230,11 @@ function getErrorMessage(error: unknown): string {
     <h2>排班日历</h2>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <div class="calendar-toolbar">
+      <t-radio-group v-model="viewMode" aria-label="日历视图">
+        <t-radio-button value="month">月</t-radio-button>
+        <t-radio-button value="week">周</t-radio-button>
+        <t-radio-button value="list">列表</t-radio-button>
+      </t-radio-group>
       <div class="month-navigation">
         <t-button variant="outline" @click="goToPreviousMonth">上一月</t-button>
         <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
@@ -175,6 +244,12 @@ function getErrorMessage(error: unknown): string {
           年月
           <input v-model="businessMonth" type="month" />
         </label>
+      </div>
+      <div v-if="viewMode === 'week'" class="week-navigation">
+        <t-button variant="outline" @click="goToPreviousWeek">上一周</t-button>
+        <strong>{{ getWeekLabel(weekStart) }}</strong>
+        <t-button variant="outline" @click="goToNextWeek">下一周</t-button>
+        <t-button variant="outline" @click="goToThisWeek">本周</t-button>
       </div>
       <div class="calendar-filters">
         <label class="changes-filter">
@@ -197,17 +272,34 @@ function getErrorMessage(error: unknown): string {
     </div>
     <t-loading v-if="isLoading" text="正在加载排班日历" />
     <template v-else-if="calendar !== undefined">
-      <MonthGrid
-        v-if="visibleAssignments.length > 0"
+      <WeekGrid
+        v-if="viewMode === 'week'"
         :assignments="visibleAssignments"
-        :business-month="calendar.businessMonth"
         :members="calendar.members"
-        :today="today"
+        :today="todayBusinessDate"
+        :week-start="weekStart"
         @open-events="openAssignmentEvents"
       />
-      <p v-else class="calendar-empty">
-        {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
-      </p>
+      <template v-else>
+        <MonthGrid
+          v-if="viewMode === 'month' && visibleAssignments.length > 0"
+          :assignments="visibleAssignments"
+          :business-month="calendar.businessMonth"
+          :members="calendar.members"
+          :today="todayBusinessDate"
+          @open-events="openAssignmentEvents"
+        />
+        <ListGrid
+          v-else-if="viewMode === 'list' && visibleAssignments.length > 0"
+          :assignments="visibleAssignments"
+          :members="calendar.members"
+          :today="todayBusinessDate"
+          @open-events="openAssignmentEvents"
+        />
+        <p v-else class="calendar-empty">
+          {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
+        </p>
+      </template>
     </template>
     <DataConflictDialog
       :message="conflictMessage"
@@ -247,7 +339,7 @@ function getErrorMessage(error: unknown): string {
 
 .calendar-view h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--ui-font-size-xl);
   font-weight: 600;
 }
 
@@ -256,16 +348,18 @@ function getErrorMessage(error: unknown): string {
   gap: 8px;
 }
 
-.month-navigation {
+.month-navigation,
+.week-navigation {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
 
-.month-navigation strong {
+.month-navigation strong,
+.week-navigation strong {
   min-width: 96px;
-  font-size: 16px;
+  font-size: var(--ui-font-size-lg);
   text-align: center;
 }
 
@@ -273,8 +367,8 @@ function getErrorMessage(error: unknown): string {
   display: inline-flex;
   gap: 6px;
   align-items: center;
-  color: #374151;
-  font-size: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-md);
 }
 
 .month-picker input {
@@ -295,41 +389,41 @@ function getErrorMessage(error: unknown): string {
   display: inline-flex;
   gap: 6px;
   align-items: center;
-  color: #374151;
-  font-size: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-md);
 }
 
 .filter-field {
   display: grid;
   gap: 4px;
   min-width: 160px;
-  color: #374151;
-  font-size: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-md);
 }
 
 .calendar-empty {
   padding: 24px;
-  color: #6b7280;
+  color: var(--ui-color-text-muted);
   text-align: center;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
   border-radius: 6px;
 }
 
 .assignment-events-meta {
   margin: 0 0 12px;
-  color: #374151;
-  font-size: 13px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
   font-weight: 600;
 }
 
 .assignment-events-empty {
   margin: 0;
   padding: 16px;
-  color: #6b7280;
+  color: var(--ui-color-text-muted);
   text-align: center;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background: var(--ui-color-background);
+  border: 1px solid var(--ui-color-border);
   border-radius: 6px;
 }
 </style>

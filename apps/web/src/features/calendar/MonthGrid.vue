@@ -3,6 +3,7 @@ import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contr
 import { computed } from 'vue';
 
 import { buildMonthGrid, getDutyMembershipId, type CalendarGridWeek } from './calendar-logic.js';
+import { groupAssignmentsByDate } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
 
 const props = defineProps<{
@@ -18,24 +19,7 @@ const emit = defineEmits<{
 const membersById = computed(
   () => new Map(props.members.map((member) => [member.membershipId, member])),
 );
-const assignmentsByDate = computed(() => {
-  const byDate = new Map<string, CalendarDutyAssignment[]>();
-  for (const assignment of props.assignments) {
-    const list = byDate.get(assignment.businessDate) ?? [];
-    list.push(assignment);
-    byDate.set(assignment.businessDate, list);
-  }
-  for (const list of byDate.values()) {
-    list.sort(
-      (first, second) =>
-        first.scheduleRoleName.localeCompare(second.scheduleRoleName, 'zh-Hans-CN') ||
-        first.slotPosition - second.slotPosition ||
-        first.schedulePeriodId.localeCompare(second.schedulePeriodId),
-    );
-  }
-
-  return byDate;
-});
+const assignmentsByDate = computed(() => groupAssignmentsByDate(props.assignments));
 
 const [yearText = '', monthText = ''] = props.businessMonth.split('-');
 const year = Number(yearText);
@@ -47,7 +31,7 @@ function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | und
   return membershipId === undefined ? undefined : membersById.value.get(membershipId);
 }
 
-function assignmentsFor(date: string | undefined): CalendarDutyAssignment[] {
+function assignmentsFor(date: string | undefined): readonly CalendarDutyAssignment[] {
   return date === undefined ? [] : (assignmentsByDate.value.get(date) ?? []);
 }
 </script>
@@ -65,6 +49,8 @@ function assignmentsFor(date: string | undefined): CalendarDutyAssignment[] {
         :key="cellIndex"
         class="day-cell"
         :class="{ 'is-today': cell?.businessDate === today }"
+        :data-today="cell?.businessDate === today ? 'true' : undefined"
+        :aria-current="cell?.businessDate === today ? 'date' : undefined"
       >
         <template v-if="cell !== null">
           <span class="day-number">{{ cell.businessDate.slice(8) }}</span>

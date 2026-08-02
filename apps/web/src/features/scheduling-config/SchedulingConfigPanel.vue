@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary, ScheduleRole, ShiftType, ShiftTypeInput } from '@schedule/contracts';
+import { getBestContrastRatio, pickReadableTextColor } from '@schedule/ui-tokens';
 import { ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
@@ -231,6 +232,17 @@ function getShiftDraft(shiftTypeId: string): ShiftTypeDraft {
   return draft;
 }
 
+function previewStyle(draft: ShiftTypeDraft): { backgroundColor: string; color: string } {
+  return {
+    backgroundColor: draft.color,
+    color: pickReadableTextColor(draft.color),
+  };
+}
+
+function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
+  return getBestContrastRatio(draft.color) < 4.5;
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof ApiClientError ? error.message : '排班配置暂时无法保存，请稍后重试。';
 }
@@ -250,6 +262,9 @@ function getErrorMessage(error: unknown): string {
           <label>名称<input v-model="newShift.name" maxlength="100" required /></label>
           <label>简称<input v-model="newShift.abbreviation" maxlength="16" required /></label>
           <label>颜色<input v-model="newShift.color" type="color" /></label>
+          <span v-if="hasInsufficientContrast(newShift)" class="contrast-warning" role="status">
+            对比度不足 4.5:1，建议选择更深或更浅的颜色。
+          </span>
           <label>开始<input v-model="newShift.startTime" type="time" /></label>
           <label>结束<input v-model="newShift.endTime" type="time" /></label>
           <label><input v-model="newShift.crossesMidnight" type="checkbox" /> 跨日</label>
@@ -266,13 +281,7 @@ function getErrorMessage(error: unknown): string {
             class="shift-editor"
             @submit.prevent="saveShift(shiftType)"
           >
-            <span
-              class="shift-color-preview"
-              :style="{
-                backgroundColor: getShiftDraft(shiftType.id).color,
-                color: shiftType.textColor,
-              }"
-            >
+            <span class="shift-color-preview" :style="previewStyle(getShiftDraft(shiftType.id))">
               {{ getShiftDraft(shiftType.id).abbreviation || '班' }}
             </span>
             <label
@@ -285,6 +294,13 @@ function getErrorMessage(error: unknown): string {
                 required
             /></label>
             <label>颜色<input v-model="getShiftDraft(shiftType.id).color" type="color" /></label>
+            <span
+              v-if="hasInsufficientContrast(getShiftDraft(shiftType.id))"
+              class="contrast-warning"
+              role="status"
+            >
+              对比度不足 4.5:1，建议选择更深或更浅的颜色。
+            </span>
             <label
               >开始<input
                 v-model="getShiftDraft(shiftType.id).startTime"
@@ -406,3 +422,11 @@ function getErrorMessage(error: unknown): string {
     </template>
   </section>
 </template>
+
+<style scoped>
+.contrast-warning {
+  color: var(--ui-color-warning);
+  font-size: var(--ui-font-size-sm);
+  font-weight: 500;
+}
+</style>
