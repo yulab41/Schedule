@@ -187,6 +187,67 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(draftCount).toEqual([{ count: 1 }]);
   });
 
+  it('lists drafts with role names and publishes a selected draft', async () => {
+    const templateId = await createTemplate();
+    const applied = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(applied.statusCode).toBe(200);
+    const period = (
+      applied.json() as {
+        readonly periods: readonly {
+          readonly id: string;
+          readonly version: number;
+        }[];
+      }
+    ).periods[0];
+    expect(period).toBeDefined();
+
+    const drafts = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods`,
+    });
+    expect(drafts.statusCode).toBe(200);
+    expect(drafts.json()).toEqual([
+      expect.objectContaining({
+        businessMonth: '2026-08-01',
+        id: period?.id,
+        scheduleRoleId: primaryRoleId,
+        scheduleRoleName: '一线',
+        status: 'draft',
+        version: period?.version,
+      }),
+    ]);
+
+    const memberDrafts = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods`,
+    });
+    expect(memberDrafts.statusCode).toBe(403);
+
+    const published = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        expectedVersion: period?.version,
+        operationId: randomUUID(),
+      },
+      url: `/groups/${groupId}/schedules/${period?.id}/publish`,
+    });
+    expect(published.statusCode).toBe(200);
+
+    const emptyDrafts = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods`,
+    });
+    expect(emptyDrafts.statusCode).toBe(200);
+    expect(emptyDrafts.json()).toEqual([]);
+  });
+
   it('publishes immediately when the group publish mode is published and replaces the prior version', async () => {
     const templateId = await createTemplate();
     await updatePublishMode('published');

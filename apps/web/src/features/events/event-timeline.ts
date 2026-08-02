@@ -1,4 +1,11 @@
-import type { CalendarChangeMarker, JsonObject, ScheduleEvent } from '@schedule/contracts';
+import type {
+  CalendarChangeMarker,
+  CalendarDutyAssignment,
+  JsonObject,
+  ScheduleEvent,
+} from '@schedule/contracts';
+
+import { getDutyMemberName } from '../calendar/calendar-logic.js';
 
 const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 
@@ -135,6 +142,82 @@ export function extractEventChanges(event: ScheduleEvent): readonly EventChangeI
   return changes;
 }
 
+export function buildEventNarrative(
+  event: ScheduleEvent,
+  assignment?: CalendarDutyAssignment,
+): string | undefined {
+  const before = event.beforeData ?? {};
+  const after = event.afterData ?? {};
+
+  switch (event.eventType) {
+    case 'swap_completed': {
+      const beforeInitiator = readNestedMemberName(before.initiatorAssignment);
+      const afterInitiator = readNestedMemberName(after.initiatorAssignment);
+      const beforeTarget = readNestedMemberName(before.targetAssignment);
+      const afterTarget = readNestedMemberName(after.targetAssignment);
+      if (beforeInitiator !== undefined && afterInitiator !== undefined) {
+        return `${beforeInitiator} 与 ${afterInitiator} 互换班次：原 ${beforeInitiator} 的班次现由 ${afterInitiator} 值班${
+          beforeTarget !== undefined && afterTarget !== undefined
+            ? `，原 ${beforeTarget} 的班次现由 ${afterTarget} 值班`
+            : ''
+        }。`;
+      }
+      break;
+    }
+    case 'leave_cover_completed': {
+      const strategy =
+        after.strategy === 'shift-forward'
+          ? '整体顺延'
+          : after.strategy === 'keep-original-order'
+            ? '保持原顺序'
+            : '';
+      const dutyName = assignment === undefined ? undefined : getDutyMemberName(assignment);
+      return dutyName === undefined
+        ? `请假替班完成${strategy === '' ? '' : `（${strategy}）`}。`
+        : `请假替班完成${strategy === '' ? '' : `（${strategy}）`}，该班次现由 ${dutyName} 值班。`;
+    }
+    case 'duty_adjustment_completed': {
+      const beforeName = readTopLevelMemberName(before);
+      const afterName = readTopLevelMemberName(after);
+      if (beforeName !== undefined && afterName !== undefined && beforeName !== afterName) {
+        return `加扣班完成：原值班 ${beforeName} 的班次现由 ${afterName} 代值。`;
+      }
+      break;
+    }
+    case 'duty_adjustment_revoked': {
+      const restoredName = readTopLevelMemberName(after);
+      if (restoredName !== undefined) {
+        return `加扣班已撤销：值班恢复为 ${restoredName}。`;
+      }
+      break;
+    }
+    case 'assignment_manually_updated': {
+      const beforeName = readTopLevelMemberName(before);
+      const afterName = readTopLevelMemberName(after);
+      if (beforeName !== undefined || afterName !== undefined) {
+        return `人工调整班次：值班人员由 ${beforeName ?? '未设置'} 改为 ${afterName ?? '未设置'}。`;
+      }
+      break;
+    }
+    case 'schedule_period_published':
+      return assignment === undefined
+        ? '排班已发布。'
+        : `${assignment.scheduleRoleName} 排班已发布。`;
+    case 'schedule_period_replaced':
+      return '排班版本已被新版本替代。';
+    case 'schedule_period_withdrawn':
+      return '该排班版本已撤回。';
+    case 'schedule_generation_completed':
+      return '自动排班已生成。';
+    case 'manual_schedule_template_applied':
+      return '手动模板已应用并生成该班次。';
+    default:
+      return undefined;
+  }
+
+  return undefined;
+}
+
 export function buildEventTimelineItems(
   events: readonly ScheduleEvent[],
 ): readonly EventTimelineItem[] {
@@ -185,4 +268,27 @@ function formatPrimitive(value: string | number | boolean | null | undefined): s
     return '未设置';
   }
   return String(value);
+}
+
+function readNestedMemberName(value: unknown): string | undefined {
+  if (value === null || typeof value !== 'object') {
+    return undefined;
+  }
+
+  return readMemberNameFromObject(value);
+}
+
+function readTopLevelMemberName(value: JsonObject): string | undefined {
+  return readMemberNameFromObject(value);
+}
+
+function readMemberNameFromObject(value: object): string | undefined {
+  const record = value as { actualMemberName?: unknown; plannedMemberName?: unknown };
+  if (typeof record.actualMemberName === 'string' && record.actualMemberName.length > 0) {
+    return record.actualMemberName;
+  }
+  if (typeof record.plannedMemberName === 'string' && record.plannedMemberName.length > 0) {
+    return record.plannedMemberName;
+  }
+  return undefined;
 }

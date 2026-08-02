@@ -4,13 +4,27 @@ This file is the concise handoff entry point for every new implementation conver
 
 ## Current Position
 
-- Last updated: 2026-08-02
+- Last updated: 2026-08-03
 - Branch: `main`
 - Upstream: `origin/main`
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Four — Holidays and Statistics
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 32 are complete. Web 1.0 (`v1.0.0`) is released under the user-accepted 公网 + 单账号全局授权 compromise: `pnpm verify` passed 322/322 (60 test files) with the isolated MySQL, the live smoke and database backup record are documented in `docs/releases/web-1.0-acceptance.md`, and the release commit message is `release: web scheduling system 1.0`. Next active batch: none (production formalization resumes when the user approves paid items; 微信小程序 is the next product phase).
+- Implementation code: Tasks 1 through 32 are complete. Web 1.0 (`v1.0.0`) is released under the user-accepted 公网 + 单账号全局授权 compromise: `pnpm verify` passed 322/322 (60 test files) with the isolated MySQL, the live smoke and database backup record are documented in `docs/releases/web-1.0-acceptance.md`, and the release commit message is `release: web scheduling system 1.0`.
+- 2026-08-03 bug-fix round: Web 1.0 feedback fixes are implemented and `pnpm verify` passed 327/327 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；若手动排班方向或日历单日班种显示仍异常，请截图并复核 PWA 缓存版本（仓库代码已为人员行/日期列）。
+
+## 2026-08-03 Bug-Fix Round (Post-Release Feedback)
+
+Completed in this round (one batch, checkpoint commit message: `fix(web): address web 1.0 calendar, publish, members and event feedback`):
+
+- Login: `credentials not found` during session restore is now treated as anonymous instead of showing an error on the login page; wrong-credential sign-in shows a friendly Chinese message. Web unit tests cover both paths.
+- Calendar: every device now defaults to the month view; the month grid always renders even when no schedule is published (calendar-app behavior); confirmed official holidays for the displayed year are fetched from `GET /holidays?year=` and shown as off-day names / make-up-workday "班" tags in month, week, and list views; a day with exactly one duty person hides the shift-type badge per user requirement.
+- Manual schedule publish: new backend `GET /groups/:groupId/schedule-periods` lists drafts with role names (administrator-only, integration-tested); the Web client exposes draft listing and period publishing; the 手动排班 page now has a 草稿排班 section with 发布 buttons and a conflict/vacancy acknowledgement flow for blocked publications. Applied-draft message now points to the draft section.
+- Members: MemberManager gains an 添加成员 form (admin/owner only) that adds real names to the pending roster with the existing claim flow; owner label remains 群主 only (user decision A).
+- Navigation: 创建群组/加入群组 cards are removed from the HomeView bottom and moved into a new 群组管理 workbench tab (desktop sidebar; mobile 更多 drawer); users without any group still see the setup panel directly.
+- Events: the calendar assignment event dialog now shows human-readable narratives (swap names both sides, leave-cover strategy and current duty member, duty-adjustment before/after members, publish/replace/withdraw text) and no raw JSON; the Event Center keeps the collapsible 查看原始数据 section.
+- Leave and visuals: 提交请假 button is full-width with no overflow; visual pass with the default TDesign theme (calendar toolbar card, sticky manual-grid headers, header shadow and spacing).
+- Manual grid orientation: the repository code already renders 值班人员 as rows and dates as columns; no orientation change was needed. If the live site still shows dates as rows, treat it as a stale deployment/PWA cache and re-verify after redeploy.
 
 ## Approved Sources
 
@@ -195,6 +209,7 @@ This file is the concise handoff entry point for every new implementation conver
 
 ## Latest Validation
 
+- 2026-08-03 bug-fix round: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 327 Vitest tests (60 files) and all production builds, including the new draft-list/publish integration test and updated session/calendar/event/nav unit tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - Task 1: `pnpm install --frozen-lockfile=false` passed after allowing only `esbuild` in pnpm's committed `allowBuilds` configuration.
 - Task 1: `pnpm verify` passed: Prettier, ESLint, strict TypeScript checks for five workspace packages, 1 Vitest test, and all package/Web production builds.
 - Task 2: `pnpm install --no-frozen-lockfile` passed and locked Zod 4.4.3.

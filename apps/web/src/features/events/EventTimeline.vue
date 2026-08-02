@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { ScheduleEvent } from '@schedule/contracts';
+import type { CalendarDutyAssignment, ScheduleEvent } from '@schedule/contracts';
 import { computed } from 'vue';
 
 import ChangeBadge from '../calendar/ChangeBadge.vue';
 import {
+  buildEventNarrative,
   buildEventTimelineItems,
   extractEventChanges,
   formatEventTime,
@@ -14,13 +15,20 @@ import {
 
 const props = withDefaults(
   defineProps<{
+    readonly assignment?: CalendarDutyAssignment | undefined;
     readonly events: readonly ScheduleEvent[];
     readonly showRawData?: boolean;
   }>(),
-  { showRawData: false },
+  { assignment: undefined, showRawData: false },
 );
 
 const items = computed(() => buildEventTimelineItems(props.events));
+const narratives = computed(
+  () =>
+    new Map(
+      items.value.map((item) => [item.event.id, buildEventNarrative(item.event, props.assignment)]),
+    ),
+);
 </script>
 
 <template>
@@ -34,6 +42,9 @@ const items = computed(() => buildEventTimelineItems(props.events));
           {{ getEventRelationLabel(item.event) }}
         </span>
       </div>
+      <p v-if="narratives.get(item.event.id) !== undefined" class="entry-narrative">
+        {{ narratives.get(item.event.id) }}
+      </p>
       <p v-if="item.event.reason !== undefined" class="entry-reason">
         原因：{{ item.event.reason }}
       </p>
@@ -106,6 +117,18 @@ const items = computed(() => buildEventTimelineItems(props.events));
 .entry-relation.correction {
   color: #b45309;
   background: #fef3c7;
+}
+
+.entry-narrative {
+  margin: 0;
+  padding: 8px 10px;
+  color: #111827;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .entry-reason {

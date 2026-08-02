@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contracts';
+import type {
+  CalendarDutyAssignment,
+  CalendarDutyMember,
+  ConfirmedHolidayDate,
+} from '@schedule/contracts';
 import { computed } from 'vue';
 
 import { getWeekDays, getWeekdayLabel, groupAssignmentsByDate } from './calendar-views.js';
@@ -8,6 +12,7 @@ import { getDutyMembershipId } from './calendar-logic.js';
 
 const props = defineProps<{
   readonly assignments: readonly CalendarDutyAssignment[];
+  readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
   readonly members: readonly CalendarDutyMember[];
   readonly today: string;
   readonly weekStart: string;
@@ -30,6 +35,14 @@ function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | und
 function assignmentsFor(date: string): readonly CalendarDutyAssignment[] {
   return assignmentsByDate.value.get(date) ?? [];
 }
+
+function holidayFor(date: string): ConfirmedHolidayDate | undefined {
+  return props.holidays.get(date);
+}
+
+function isSoleDuty(date: string): boolean {
+  return assignmentsFor(date).length === 1;
+}
 </script>
 
 <template>
@@ -46,6 +59,16 @@ function assignmentsFor(date: string): readonly CalendarDutyAssignment[] {
         <header class="day-header">
           <span class="day-number">{{ date.slice(8) }}</span>
           <span class="weekday">{{ getWeekdayLabel(date) }}</span>
+          <span
+            v-if="holidayFor(date) !== undefined"
+            class="holiday-tag"
+            :class="{
+              'is-off-day': holidayFor(date)?.isOffDay === true,
+              'is-workday': holidayFor(date)?.isWorkday === true,
+            }"
+          >
+            {{ holidayFor(date)?.isOffDay === true ? holidayFor(date)?.holidayName : '班' }}
+          </span>
         </header>
         <ul class="duty-list">
           <li
@@ -54,6 +77,7 @@ function assignmentsFor(date: string): readonly CalendarDutyAssignment[] {
           >
             <DutyCell
               :assignment="assignment"
+              :hide-shift-badge="isSoleDuty(date)"
               :member="memberFor(assignment)"
               @open-events="emit('open-events', $event)"
             />
@@ -116,6 +140,27 @@ function assignmentsFor(date: string): readonly CalendarDutyAssignment[] {
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-sm);
   font-weight: 600;
+}
+
+.holiday-tag {
+  max-width: 100%;
+  padding: 1px 5px;
+  overflow: hidden;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.holiday-tag.is-off-day {
+  color: #b42318;
+  background: #fee4e2;
+}
+
+.holiday-tag.is-workday {
+  color: #1f5aa6;
+  background: #e8f1fb;
 }
 
 .duty-list {

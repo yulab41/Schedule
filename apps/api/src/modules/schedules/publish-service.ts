@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type {
   PublishSchedulePeriodRequest,
   PublishSchedulePeriodResult,
+  ScheduleDraftSummary,
   ScheduleGenerationConflict,
   ScheduleGenerationPreview,
   ScheduleGenerationRoleCount,
@@ -61,6 +62,21 @@ export class SchedulePublishService {
     private readonly repository: ScheduleRepository,
   ) {
     this.statisticsService = new StatisticsService(this.databaseClient);
+  }
+
+  public async listDrafts(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<ScheduleDraftSummary[]> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      return this.repository.listDraftsInTransaction(transaction, authorization.group.id);
+    });
   }
 
   public async publishDraft(

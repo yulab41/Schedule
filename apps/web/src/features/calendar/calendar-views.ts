@@ -105,11 +105,8 @@ export function getWeekIndexForToday(
   return index === -1 ? undefined : index;
 }
 
-export function getPreferredViewMode(
-  pointer: PointerPreference,
-  viewportWidth: number,
-): CalendarViewMode {
-  return viewportWidth < breakpointTokens.tablet || pointer === 'coarse' ? 'week' : 'month';
+export function getPreferredViewMode(): CalendarViewMode {
+  return 'month';
 }
 
 export function getViewportTier(viewportWidth: number): 'desktop' | 'mobile' | 'tablet' {

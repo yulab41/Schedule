@@ -2,6 +2,7 @@ import type { ScheduleEvent } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildEventNarrative,
   buildEventTimelineItems,
   extractEventChanges,
   formatEventTime,
@@ -75,5 +76,62 @@ describe('event timeline logic', () => {
     expect(items.map((item) => item.event.id)).toEqual(['event-1', 'event-2']);
     expect(items[0]).toMatchObject({ isCorrection: false, marker: 'swap' });
     expect(items[1]).toMatchObject({ isCorrection: true });
+  });
+
+  it('writes human-readable swap and duty adjustment narratives', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: {
+            initiatorAssignment: { actualMemberName: 'B Doctor' },
+            targetAssignment: { actualMemberName: 'A Doctor' },
+          },
+          beforeData: {
+            initiatorAssignment: { actualMemberName: 'A Doctor' },
+            targetAssignment: { actualMemberName: 'B Doctor' },
+          },
+        }),
+      ),
+    ).toBe(
+      'A Doctor 与 B Doctor 互换班次：原 A Doctor 的班次现由 B Doctor 值班，原 B Doctor 的班次现由 A Doctor 值班。',
+    );
+
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: { actualMemberName: 'B Doctor' },
+          beforeData: { actualMemberName: 'A Doctor' },
+          eventType: 'duty_adjustment_completed',
+        }),
+      ),
+    ).toBe('加扣班完成：原值班 A Doctor 的班次现由 B Doctor 代值。');
+  });
+
+  it('names the current duty member in leave cover narratives', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: { reflowedShiftIds: ['assignment-1'], strategy: 'shift-forward' },
+          eventType: 'leave_cover_completed',
+        }),
+        {
+          businessDate: '2026-08-05',
+          changeMarkers: ['leave-cover'],
+          endsAt: '2026-08-05T16:00:00.000Z',
+          id: 'assignment-1',
+          plannedMemberName: 'C Doctor',
+          schedulePeriodId: 'period-1',
+          scheduleRoleId: 'role-1',
+          scheduleRoleName: '一线',
+          shiftTypeAbbreviation: '全',
+          shiftTypeColor: '#1F5AA6',
+          shiftTypeId: 'shift-1',
+          shiftTypeName: '全天班',
+          shiftTypeTextColor: '#FFFFFF',
+          slotPosition: 1,
+          startsAt: '2026-08-05T00:00:00.000Z',
+        },
+      ),
+    ).toBe('请假替班完成（整体顺延），该班次现由 C Doctor 值班。');
   });
 });

@@ -13,6 +13,7 @@ import ChangeBadge from './ChangeBadge.vue';
 
 const props = defineProps<{
   readonly assignment: CalendarDutyAssignment;
+  readonly hideShiftBadge?: boolean;
   readonly member: CalendarDutyMember | undefined;
 }>();
 const emit = defineEmits<{
@@ -63,6 +64,7 @@ onUnmounted(() => {
       {{ dutyName }}
     </span>
     <span
+      v-if="!hideShiftBadge"
       class="shift-badge"
       :style="{ backgroundColor: assignment.shiftTypeColor, color: assignment.shiftTypeTextColor }"
       :title="assignment.shiftTypeName"

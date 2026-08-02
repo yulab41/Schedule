@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { ScheduleDraftSummary } from '@schedule/contracts';
 import {
   groups,
   groupMemberships,
@@ -74,6 +75,50 @@ export class ScheduleRepository {
     return withTransaction(this.databaseClient, (transaction) =>
       this.createDraftInTransaction(transaction, input),
     );
+  }
+
+  public async listDrafts(groupId: string): Promise<ScheduleDraftSummary[]> {
+    return withTransaction(this.databaseClient, (transaction) =>
+      this.listDraftsInTransaction(transaction, groupId),
+    );
+  }
+
+  public async listDraftsInTransaction(
+    transaction: DatabaseTransaction,
+    groupId: string,
+  ): Promise<ScheduleDraftSummary[]> {
+    const rows = await transaction
+      .select({
+        businessMonth: schedulePeriods.businessMonth,
+        id: schedulePeriods.id,
+        revision: schedulePeriods.revision,
+        rulesVersion: schedulePeriods.rulesVersion,
+        scheduleRoleId: schedulePeriods.scheduleRoleId,
+        scheduleRoleName: scheduleRoles.name,
+        status: schedulePeriods.status,
+        version: schedulePeriods.version,
+      })
+      .from(schedulePeriods)
+      .innerJoin(scheduleRoles, eq(scheduleRoles.id, schedulePeriods.scheduleRoleId))
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.status, 'draft'),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      )
+      .orderBy(desc(schedulePeriods.businessMonth), desc(schedulePeriods.revision));
+
+    return rows.map((row) => ({
+      businessMonth: row.businessMonth,
+      id: row.id,
+      revision: row.revision,
+      rulesVersion: row.rulesVersion,
+      scheduleRoleId: row.scheduleRoleId,
+      scheduleRoleName: row.scheduleRoleName,
+      status: row.status,
+      version: row.version,
+    }));
   }
 
   public async createDraftInTransaction(

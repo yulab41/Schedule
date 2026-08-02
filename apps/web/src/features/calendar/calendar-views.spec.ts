@@ -90,10 +90,8 @@ describe('Calendar view helpers', () => {
     expect(getWeekIndexForToday(weeks, '2026-09-01')).toBeUndefined();
   });
 
-  it('defaults touch phones to the week view so today is visible without scrolling', () => {
-    expect(getPreferredViewMode('coarse', 375)).toBe('week');
-    expect(getPreferredViewMode('coarse', 1024)).toBe('week');
-    expect(getPreferredViewMode('fine', 1280)).toBe('month');
+  it('defaults every device to the month calendar view', () => {
+    expect(getPreferredViewMode()).toBe('month');
   });
 
   it('groups and orders assignments per day for month, week, and list views', () => {

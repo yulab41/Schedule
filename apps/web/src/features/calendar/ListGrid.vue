@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contracts';
+import type {
+  CalendarDutyAssignment,
+  CalendarDutyMember,
+  ConfirmedHolidayDate,
+} from '@schedule/contracts';
 import { computed } from 'vue';
 
 import { getDutyMembershipId } from './calendar-logic.js';
@@ -8,6 +12,7 @@ import DutyCell from './DutyCell.vue';
 
 const props = defineProps<{
   readonly assignments: readonly CalendarDutyAssignment[];
+  readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
   readonly members: readonly CalendarDutyMember[];
   readonly today: string;
 }>();
@@ -24,6 +29,14 @@ function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | und
   const membershipId = getDutyMembershipId(assignment);
   return membershipId === undefined ? undefined : membersById.value.get(membershipId);
 }
+
+function holidayFor(date: string): ConfirmedHolidayDate | undefined {
+  return props.holidays.get(date);
+}
+
+function isSoleDuty(assignments: readonly CalendarDutyAssignment[]): boolean {
+  return assignments.length === 1;
+}
 </script>
 
 <template>
@@ -38,12 +51,27 @@ function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | und
       <header class="day-header">
         <strong>{{ day.businessDate.slice(5) }}</strong>
         <span>{{ day.weekdayLabel }}</span>
+        <span
+          v-if="holidayFor(day.businessDate) !== undefined"
+          class="holiday-tag"
+          :class="{
+            'is-off-day': holidayFor(day.businessDate)?.isOffDay === true,
+            'is-workday': holidayFor(day.businessDate)?.isWorkday === true,
+          }"
+        >
+          {{
+            holidayFor(day.businessDate)?.isOffDay === true
+              ? holidayFor(day.businessDate)?.holidayName
+              : '班'
+          }}
+        </span>
         <span v-if="day.isToday" class="today-badge">今天</span>
       </header>
       <ul class="duty-list">
         <li v-for="assignment in day.assignments" :key="assignment.id">
           <DutyCell
             :assignment="assignment"
+            :hide-shift-badge="isSoleDuty(day.assignments)"
             :member="memberFor(assignment)"
             @open-events="emit('open-events', $event)"
           />
@@ -91,6 +119,23 @@ function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | und
   border-radius: 10px;
   font-size: var(--ui-font-size-xs);
   font-weight: 600;
+}
+
+.holiday-tag {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.holiday-tag.is-off-day {
+  color: #b42318;
+  background: #fee4e2;
+}
+
+.holiday-tag.is-workday {
+  color: #1f5aa6;
+  background: #e8f1fb;
 }
 
 .duty-list {

@@ -4,6 +4,7 @@ import type {
   CreateManualScheduleTemplateRequest,
   GroupSummary,
   ManualScheduleTemplate,
+  ScheduleDraftSummary,
   SchedulingConfig,
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
@@ -43,6 +44,7 @@ const props = defineProps<{
 const api = createApiClient({ auth: cloudbaseAuth });
 const config = ref<SchedulingConfig>();
 const templates = ref<ManualScheduleTemplate[]>([]);
+const drafts = ref<ScheduleDraftSummary[]>([]);
 const selectedTemplateId = ref('');
 const scheduleRoleId = ref('');
 const membershipIds = ref<string[]>([]);
@@ -60,6 +62,10 @@ const conflictSummary = ref<string>();
 const conflictVisible = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
+const isPublishingId = ref<string>();
+const blockedDraft = ref<ScheduleDraftSummary>();
+const blockedDraftMessage = ref('');
+const acknowledgeBlockers = ref(false);
 const applyTarget = ref<ManualScheduleTemplate>();
 let requestVersion = 0;
 
@@ -117,11 +123,13 @@ function loadData(): Promise<void> {
   return Promise.all([
     api.getSchedulingConfig(props.group.id),
     api.listManualScheduleTemplates(props.group.id),
+    api.listScheduleDrafts(props.group.id),
   ])
-    .then(([nextConfig, nextTemplates]) => {
+    .then(([nextConfig, nextTemplates, nextDrafts]) => {
       if (currentRequest === requestVersion) {
         config.value = nextConfig;
         templates.value = nextTemplates;
+        drafts.value = nextDrafts;
       }
     })
     .catch((error: unknown) => {
@@ -383,8 +391,35 @@ function onApplied(result: AppliedManualScheduleTemplateResult): void {
           .join('、')}。`
       : `模板已应用并保存为草稿：${result.periods
           .map((period) => period.businessMonth.slice(0, 7))
-          .join('、')}。请确认后发布。`;
+          .join('、')}。请在下方草稿区确认发布。`;
   void loadData();
+}
+
+async function publishDraft(draft: ScheduleDraftSummary, acknowledge = false): Promise<void> {
+  errorMessage.value = undefined;
+  blockedDraft.value = undefined;
+  blockedDraftMessage.value = '';
+  isPublishingId.value = draft.id;
+
+  try {
+    await api.publishSchedulePeriod(props.group.id, draft.id, {
+      ...(acknowledge ? { acknowledgeBlockers: true } : {}),
+      expectedVersion: draft.version,
+      operationId: crypto.randomUUID(),
+    });
+    infoMessage.value = `已发布 ${draft.businessMonth.slice(0, 7)} 的排班草稿。`;
+    await loadData();
+  } catch (error) {
+    if (isDataConflictError(error)) {
+      blockedDraft.value = draft;
+      blockedDraftMessage.value = getConflictMessage(error);
+      acknowledgeBlockers.value = false;
+    } else {
+      errorMessage.value = getErrorMessage(error);
+    }
+  } finally {
+    isPublishingId.value = undefined;
+  }
 }
 
 function getErrorMessage(error: unknown): string {
@@ -483,6 +518,43 @@ function onWindowFocus(): void {
         </t-button>
       </template>
       <p v-else class="editor-hint">请选择排班角色并勾选至少一位值班人员。</p>
+
+      <section v-if="drafts.length > 0" class="draft-section">
+        <h3>草稿排班</h3>
+        <p class="draft-hint">模板应用后保存为草稿，确认发布后成员才能在日历中看到。</p>
+        <div class="draft-list">
+          <article v-for="draft in drafts" :key="draft.id" class="draft-row">
+            <div class="draft-summary">
+              <strong>{{ draft.businessMonth.slice(0, 7) }}</strong>
+              <span>{{ draft.scheduleRoleName }}</span>
+              <span>第 {{ draft.revision }} 版</span>
+            </div>
+            <t-button
+              size="small"
+              theme="primary"
+              :loading="isPublishingId === draft.id"
+              @click="publishDraft(draft)"
+            >
+              发布
+            </t-button>
+          </article>
+        </div>
+        <div v-if="blockedDraft !== undefined" class="blocker-panel">
+          <t-alert theme="warning" :message="blockedDraftMessage" />
+          <label class="acknowledge-field">
+            <input v-model="acknowledgeBlockers" type="checkbox" />
+            我已了解冲突和空缺，确认发布
+          </label>
+          <t-button
+            theme="danger"
+            variant="outline"
+            :loading="isPublishingId === blockedDraft.id"
+            @click="publishDraft(blockedDraft, true)"
+          >
+            确认发布
+          </t-button>
+        </div>
+      </section>
     </template>
     <ApplyTemplateDialog
       v-if="applyTarget !== undefined"
@@ -566,6 +638,71 @@ function onWindowFocus(): void {
 .editor-hint {
   margin: 0;
   color: #6b7280;
+  font-size: 13px;
+}
+
+.draft-section {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+}
+
+.draft-section h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.draft-hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.draft-list {
+  display: grid;
+  gap: 8px;
+}
+
+.draft-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.draft-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.draft-summary strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.blocker-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.acknowledge-field {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #92400e;
   font-size: 13px;
 }
 </style>

@@ -102,6 +102,10 @@ export interface SchedulePeriodSummary {
   readonly version: number;
 }
 
+export interface ScheduleDraftSummary extends SchedulePeriodSummary {
+  readonly scheduleRoleName: string;
+}
+
 export interface SavedScheduleGeneration {
   readonly operationId: string;
   readonly periods: readonly SchedulePeriodSummary[];

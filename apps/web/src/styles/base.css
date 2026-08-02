@@ -48,6 +48,7 @@ textarea {
   padding: 0 24px;
   background: var(--ui-color-surface);
   border-bottom: 1px solid var(--ui-color-border);
+  box-shadow: 0 1px 2px rgb(17 24 39 / 4%);
 }
 
 .product-name {
@@ -70,6 +71,9 @@ textarea {
 
 .app-content {
   padding: var(--ui-spacing-lg);
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
 }
 
 .skip-link {
@@ -121,6 +125,11 @@ textarea {
   margin: 0 0 8px;
   font-size: var(--ui-font-size-xxl);
   font-weight: 600;
+}
+
+.current-group-workbench h2 {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .home-view p,

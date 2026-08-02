@@ -157,6 +157,10 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
   background: #f8fafc;
 }
 
+.member-header {
+  z-index: 4;
+}
+
 .date-header {
   display: grid;
   gap: 2px;
@@ -164,6 +168,9 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
   padding: 6px;
   text-align: center;
   background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .date-value {
@@ -181,6 +188,9 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
   height: 22px;
   padding: 0;
   background: #f0fdf4;
+  position: sticky;
+  top: 48px;
+  z-index: 3;
 }
 
 .member-name {

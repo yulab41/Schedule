@@ -56,14 +56,21 @@ export function createSessionManager(dependencies: SessionDependencies) {
       throw new SessionError('请输入密码。');
     }
 
-    const result = await dependencies.auth.signInWithPassword({
-      password: input.password,
-      username,
-    });
-    const session = getAuthenticatedSession(result);
-    if (session === undefined) {
-      clearSession();
-      throw new SessionError('登录状态未能建立，请重试。');
+    try {
+      const result = await dependencies.auth.signInWithPassword({
+        password: input.password,
+        username,
+      });
+      const session = getAuthenticatedSession(result);
+      if (session === undefined) {
+        clearSession();
+        throw new SessionError('登录状态未能建立，请重试。');
+      }
+    } catch (error) {
+      if (isMissingSessionError(error)) {
+        throw new SessionError('账号或密码不正确，请重试。');
+      }
+      throw error;
     }
 
     await loadProfile();
@@ -75,6 +82,10 @@ export function createSessionManager(dependencies: SessionDependencies) {
     try {
       session = getAuthenticatedSession(await dependencies.auth.getSession());
     } catch (error) {
+      if (isMissingSessionError(error)) {
+        clearSession();
+        throw new SessionError('登录状态已失效，请重新登录。');
+      }
       handleSessionError(error, 'needs-profile');
       throw error;
     }
@@ -108,6 +119,10 @@ export function createSessionManager(dependencies: SessionDependencies) {
 
       await loadProfile();
     } catch (error) {
+      if (isMissingSessionError(error)) {
+        clearSession();
+        return;
+      }
       handleSessionError(error);
     }
   }
@@ -198,4 +213,11 @@ export function getErrorMessage(error: unknown): string {
   }
 
   return '操作未完成，请稍后重试。';
+}
+
+function isMissingSessionError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /credentials?\s+not\s+found|credential\s*not\s*found/iu.test(error.message)
+  );
 }

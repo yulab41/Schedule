@@ -358,6 +358,7 @@ function onWindowFocus(): void {
   gap: 4px;
   color: #374151;
   font-size: 14px;
+  min-width: 0;
 }
 
 .leave-form input,
@@ -371,6 +372,15 @@ function onWindowFocus(): void {
 
 .leave-form textarea {
   resize: vertical;
+}
+
+.leave-form .t-button {
+  width: 100%;
+  white-space: normal;
+}
+
+.leave-form fieldset {
+  min-width: 0;
 }
 
 .all-day-field {

@@ -135,6 +135,7 @@ function getErrorMessage(error: unknown): string {
               :group="currentGroup()!"
               @group-changed="refreshGroups"
             />
+            <GroupSetupPanel v-if="activeTab === 'groups'" @groups-changed="refreshGroups" />
             <SchedulingConfigPanel
               v-if="activeTab === 'config' && currentGroup()?.role !== 'member'"
               :group="currentGroup()!"
@@ -142,7 +143,7 @@ function getErrorMessage(error: unknown): string {
           </section>
         </div>
       </section>
-      <GroupSetupPanel @groups-changed="refreshGroups" />
+      <GroupSetupPanel v-else @groups-changed="refreshGroups" />
     </template>
   </section>
 </template>

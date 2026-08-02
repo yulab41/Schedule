@@ -2,6 +2,7 @@
 import type {
   CalendarDutyAssignment,
   CalendarReadModel,
+  ConfirmedHolidayDate,
   GroupSummary,
   ScheduleEvent,
 } from '@schedule/contracts';
@@ -27,7 +28,6 @@ import {
   addWeeks,
   getBusinessDate,
   getBusinessMonthOf,
-  getPreferredViewMode,
   getVisibleWeekForMonth,
   getWeekLabel,
   type CalendarViewMode,
@@ -44,6 +44,7 @@ const props = defineProps<{
 const api = createApiClient({ auth: cloudbaseAuth });
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendar = ref<CalendarReadModel>();
+const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const errorMessage = ref<string>();
 const conflictMessage = ref('');
 const conflictSummary = ref<string>();
@@ -104,8 +105,7 @@ watch(viewMode, () => {
 });
 
 onMounted(() => {
-  const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-  viewMode.value = getPreferredViewMode(coarsePointer ? 'coarse' : 'fine', window.innerWidth);
+  viewMode.value = 'month';
   weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   window.addEventListener('focus', onWindowFocus);
 });
@@ -143,6 +143,23 @@ async function loadCalendar(): Promise<void> {
   } finally {
     if (requestTracker.isCurrent(request)) {
       isLoading.value = false;
+    }
+  }
+
+  await loadHolidays(request);
+}
+
+async function loadHolidays(request: number): Promise<void> {
+  const year = Number(businessMonth.value.slice(0, 4));
+  try {
+    const nextHolidays = await api.getHolidays(year);
+    if (requestTracker.isCurrent(request)) {
+      holidays.value = new Map(nextHolidays.dates.map((date) => [date.date, date] as const));
+    }
+  } catch {
+    // 节假日缺失不应阻断排班日历，保持空节假日状态。
+    if (requestTracker.isCurrent(request)) {
+      holidays.value = new Map();
     }
   }
 }
@@ -275,31 +292,32 @@ function getErrorMessage(error: unknown): string {
       <WeekGrid
         v-if="viewMode === 'week'"
         :assignments="visibleAssignments"
+        :holidays="holidays"
         :members="calendar.members"
         :today="todayBusinessDate"
         :week-start="weekStart"
         @open-events="openAssignmentEvents"
       />
-      <template v-else>
-        <MonthGrid
-          v-if="viewMode === 'month' && visibleAssignments.length > 0"
-          :assignments="visibleAssignments"
-          :business-month="calendar.businessMonth"
-          :members="calendar.members"
-          :today="todayBusinessDate"
-          @open-events="openAssignmentEvents"
-        />
-        <ListGrid
-          v-else-if="viewMode === 'list' && visibleAssignments.length > 0"
-          :assignments="visibleAssignments"
-          :members="calendar.members"
-          :today="todayBusinessDate"
-          @open-events="openAssignmentEvents"
-        />
-        <p v-else class="calendar-empty">
-          {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
-        </p>
-      </template>
+      <MonthGrid
+        v-else-if="viewMode === 'month'"
+        :assignments="visibleAssignments"
+        :business-month="calendar.businessMonth"
+        :holidays="holidays"
+        :members="calendar.members"
+        :today="todayBusinessDate"
+        @open-events="openAssignmentEvents"
+      />
+      <ListGrid
+        v-else-if="viewMode === 'list' && visibleAssignments.length > 0"
+        :assignments="visibleAssignments"
+        :holidays="holidays"
+        :members="calendar.members"
+        :today="todayBusinessDate"
+        @open-events="openAssignmentEvents"
+      />
+      <p v-else-if="viewMode === 'list'" class="calendar-empty">
+        {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
+      </p>
     </template>
     <DataConflictDialog
       :message="conflictMessage"
@@ -322,8 +340,8 @@ function getErrorMessage(error: unknown): string {
         <t-loading v-if="isLoadingEvents" text="正在加载事件记录" />
         <EventTimeline
           v-else-if="assignmentEvents.length > 0"
+          :assignment="selectedAssignment"
           :events="assignmentEvents"
-          show-raw-data
         />
         <p v-else class="assignment-events-empty">该班次暂无事件记录。</p>
       </template>
@@ -345,7 +363,11 @@ function getErrorMessage(error: unknown): string {
 
 .calendar-toolbar {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  padding: 12px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
 }
 
 .month-navigation,

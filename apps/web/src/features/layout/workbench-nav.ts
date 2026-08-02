@@ -5,6 +5,7 @@ export type WorkbenchTabId =
   | 'config'
   | 'duty'
   | 'events'
+  | 'groups'
   | 'leave'
   | 'manual'
   | 'members'
@@ -22,6 +23,7 @@ export interface WorkbenchNavItem {
 
 export const workbenchNavItems: readonly WorkbenchNavItem[] = [
   { id: 'calendar', label: '排班日历', requiresAdministrator: false },
+  { id: 'groups', label: '群组管理', requiresAdministrator: false },
   { id: 'manual', label: '手动排班', requiresAdministrator: true },
   { id: 'leave', label: '请假', requiresAdministrator: false },
   { id: 'swap', label: '换班', requiresAdministrator: false },

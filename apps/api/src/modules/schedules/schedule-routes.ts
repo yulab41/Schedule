@@ -58,6 +58,10 @@ export function registerScheduleRoutes(
   generateService: ScheduleGenerateService,
   publishService: SchedulePublishService,
 ): void {
+  app.get('/groups/:groupId/schedule-periods', { preHandler: app.authenticate }, (request) =>
+    publishService.listDrafts(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
   app.get('/groups/:groupId/schedule-publish-mode', { preHandler: app.authenticate }, (request) =>
     generateService.getPublishMode(getAuthenticatedIdentity(request), parseGroupId(request)),
   );

@@ -96,6 +96,34 @@ describe('session manager', () => {
     expect(manager.profile.value).toBeUndefined();
     expect(manager.status.value).toBe('anonymous');
   });
+
+  it('treats a missing CloudBase credential as anonymous instead of an error', async () => {
+    const api = createApiClient();
+    const auth = createAuthClient({
+      getSession: vi.fn().mockRejectedValue(new Error('credentials not found')),
+    });
+    const manager = createSessionManager({ api, auth });
+
+    await manager.restore();
+
+    expect(api.getCurrentProfile).not.toHaveBeenCalled();
+    expect(manager.status.value).toBe('anonymous');
+    expect(manager.errorMessage.value).toBeUndefined();
+  });
+
+  it('shows a friendly message when sign-in reports missing credentials', async () => {
+    const manager = createSessionManager({
+      api: createApiClient(),
+      auth: createAuthClient({
+        signInWithPassword: vi.fn().mockRejectedValue(new Error('Credentials Not Found')),
+      }),
+    });
+
+    await expect(manager.signIn({ password: 'secret', username: 'linenyu' })).rejects.toThrow(
+      '账号或密码不正确，请重试。',
+    );
+    expect(manager.status.value).toBe('loading');
+  });
 });
 
 function createApiClient(overrides: Partial<UserProfileApi> = {}): UserProfileApi {

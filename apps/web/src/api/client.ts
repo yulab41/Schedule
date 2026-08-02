@@ -24,6 +24,7 @@ import type {
   GroupLeaveReflowStrategy,
   GroupSwapSettings,
   GroupSummary,
+  HolidayReadModel,
   JsonObject,
   LeaveReflowPreview,
   LeaveRequest,
@@ -35,6 +36,9 @@ import type {
   NotificationPage,
   NotificationRecord,
   PushConfiguration,
+  PublishSchedulePeriodRequest,
+  PublishSchedulePeriodResult,
+  ScheduleDraftSummary,
   StatisticsRecalculateCheckResult,
   YearStatistics,
   UpdateGroupNotificationSettingsInput,
@@ -174,6 +178,7 @@ export interface ApiClient {
   deleteGroup(groupId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
+  getHolidays(year: number): Promise<HolidayReadModel>;
   getMonthStatistics(groupId: string, businessMonth: string): Promise<MonthStatisticsSnapshot>;
   getEventDetail(groupId: string, eventId: string): Promise<ScheduleEventDetail>;
   getGroupEvents(
@@ -186,6 +191,7 @@ export interface ApiClient {
   getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
   getSchedulePublishMode(groupId: string): Promise<GroupSchedulePublishMode>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
+  listScheduleDrafts(groupId: string): Promise<ScheduleDraftSummary[]>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
@@ -197,6 +203,11 @@ export interface ApiClient {
   listMySwapRequests(groupId: string): Promise<SwapRequest[]>;
   listSwapApprovals(groupId: string): Promise<SwapRequest[]>;
   getYearStatistics(groupId: string, year: number): Promise<YearStatistics>;
+  publishSchedulePeriod(
+    groupId: string,
+    schedulePeriodId: string,
+    input: PublishSchedulePeriodRequest,
+  ): Promise<PublishSchedulePeriodResult>;
   previewLeaveRequestApproval(
     groupId: string,
     leaveRequestId: string,
@@ -846,6 +857,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    getHolidays(year) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/holidays?year=${encodeURIComponent(String(year))}`,
+        { method: 'GET' },
+        isHolidayReadModel,
+      );
+    },
     getEventDetail(groupId, eventId) {
       return requestJson(
         options.auth,
@@ -943,6 +964,26 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/schedule-publish-mode`,
         { method: 'GET' },
         isGroupSchedulePublishMode,
+      );
+    },
+    listScheduleDrafts(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedule-periods`,
+        { method: 'GET' },
+        isScheduleDraftSummaryList,
+      );
+    },
+    publishSchedulePeriod(groupId, schedulePeriodId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/publish`,
+        { method: 'POST', body: JSON.stringify(input) },
+        isPublishSchedulePeriodResult,
       );
     },
     getSchedulingConfig(groupId) {
@@ -2548,6 +2589,60 @@ function isSchedulePeriodSummary(value: unknown): boolean {
     Number.isInteger(period.revision) &&
     typeof period.status === 'string' &&
     period.status.length > 0
+  );
+}
+
+function isScheduleDraftSummaryList(value: unknown): value is ScheduleDraftSummary[] {
+  return Array.isArray(value) && value.every(isScheduleDraftSummary);
+}
+
+function isScheduleDraftSummary(value: unknown): boolean {
+  if (!isSchedulePeriodSummary(value)) {
+    return false;
+  }
+
+  const draft = value as Partial<ScheduleDraftSummary>;
+  return typeof draft.scheduleRoleName === 'string' && draft.scheduleRoleName.length > 0;
+}
+
+function isPublishSchedulePeriodResult(value: unknown): value is PublishSchedulePeriodResult {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const result = value as Partial<PublishSchedulePeriodResult>;
+  const preview = result.preview as { businessMonth?: unknown; statistics?: unknown } | undefined;
+  return (
+    isSchedulePeriodSummary(result.period) &&
+    preview !== undefined &&
+    preview !== null &&
+    typeof preview === 'object' &&
+    typeof preview.businessMonth === 'string' &&
+    preview.statistics !== null &&
+    typeof preview.statistics === 'object'
+  );
+}
+
+function isHolidayReadModel(value: unknown): value is HolidayReadModel {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const holiday = value as Partial<HolidayReadModel>;
+  return (
+    typeof holiday.confirmed === 'boolean' &&
+    typeof holiday.year === 'number' &&
+    Number.isInteger(holiday.year) &&
+    Array.isArray(holiday.dates) &&
+    holiday.dates.every(
+      (date) =>
+        date !== null &&
+        typeof date === 'object' &&
+        typeof (date as { date?: unknown }).date === 'string' &&
+        typeof (date as { holidayName?: unknown }).holidayName === 'string' &&
+        typeof (date as { isOffDay?: unknown }).isOffDay === 'boolean' &&
+        typeof (date as { isWorkday?: unknown }).isWorkday === 'boolean',
+    )
   );
 }
 
