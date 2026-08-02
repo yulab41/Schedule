@@ -748,6 +748,155 @@ describe('Web API client', () => {
       }),
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
   });
+
+  it('previews, creates, accepts, directly applies, and revokes duty adjustments', async () => {
+    const assignment = {
+      actualMemberId: 'membership-a',
+      actualMemberName: '张医生',
+      assignmentId: 'assignment-1',
+      businessDate: '2026-09-01',
+      endsAt: '2026-09-01T16:00:00.000Z',
+      plannedMemberId: 'membership-a',
+      plannedMemberName: '张医生',
+      scheduleRoleId: 'role-1',
+      scheduleRoleName: '一线',
+      shiftTypeAbbreviation: '全',
+      shiftTypeColor: '#1F5AA6',
+      shiftTypeId: 'shift-1',
+      shiftTypeName: '全天班',
+      shiftTypeTextColor: '#FFFFFF',
+      slotPosition: 1,
+      startsAt: '2026-09-01T00:00:00.000Z',
+      version: 1,
+    } as const;
+    const preview = {
+      conflicts: [],
+      coveredAssignment: assignment,
+      deductedMemberName: '张医生',
+      groupId: 'group-1',
+      nextStatus: 'pending_target',
+      overtimeAutoAccepts: false,
+      overtimeMemberName: '李医生',
+      requiresApproval: true,
+    } as const;
+    const dutyAdjustment = {
+      assignmentVersion: 1,
+      coveredAssignment: assignment,
+      coveredAssignmentId: 'assignment-1',
+      createdAt: '2026-08-02T00:00:00.000Z',
+      deductedMemberName: '张医生',
+      deductedMembershipId: 'membership-a',
+      groupId: 'group-1',
+      id: 'duty-1',
+      overtimeMemberName: '李医生',
+      overtimeMembershipId: 'membership-b',
+      status: 'pending_target',
+      version: 1,
+    } as const;
+    const completedAdjustment = {
+      ...dutyAdjustment,
+      decidedAt: '2026-08-02T01:00:00.000Z',
+      status: 'completed',
+      version: 2,
+    } as const;
+    const revokedAdjustment = {
+      ...completedAdjustment,
+      reason: '排班重新调整',
+      status: 'revoked',
+      version: 3,
+    } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(preview), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dutyAdjustment), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dutyAdjustment), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([dutyAdjustment]), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ requiresApproval: true }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(completedAdjustment), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(revokedAdjustment), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const previewed = await client.previewDutyAdjustment('group-1', {
+      coveredAssignmentId: 'assignment-1',
+      overtimeMembershipId: 'membership-b',
+    });
+    expect(previewed.nextStatus).toBe('pending_target');
+    expect(previewed.conflicts).toEqual([]);
+    const created = await client.createDutyAdjustmentRequest('group-1', {
+      coveredAssignmentId: 'assignment-1',
+      operationId: 'operation-1',
+      overtimeMembershipId: 'membership-b',
+    });
+    expect(created.status).toBe('pending_target');
+    const accepted = await client.acceptDutyAdjustment('group-1', 'duty-1', {
+      expectedVersion: 1,
+      operationId: 'operation-2',
+    });
+    expect(accepted.assignmentVersion).toBe(1);
+    expect(await client.listMyDutyAdjustments('group-1')).toEqual([dutyAdjustment]);
+    expect(await client.getGroupDutyAdjustmentSettings('group-1')).toEqual({
+      requiresApproval: true,
+    });
+    const direct = await client.createDirectDutyAdjustment('group-1', {
+      coveredAssignmentId: 'assignment-1',
+      operationId: 'operation-3',
+      overtimeMembershipId: 'membership-b',
+      reason: '管理员直接代值',
+    });
+    expect(direct.status).toBe('completed');
+    const revoked = await client.revokeDutyAdjustment('group-1', 'duty-1', {
+      expectedVersion: 2,
+      operationId: 'operation-4',
+      reason: '排班重新调整',
+    });
+    expect(revoked.status).toBe('revoked');
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/duty-adjustments/preview',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/duty-adjustments',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/groups/group-1/duty-adjustments/duty-1/accept',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      6,
+      '/api/groups/group-1/duty-adjustments/direct',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      7,
+      '/api/groups/group-1/duty-adjustments/duty-1/revoke',
+      expect.objectContaining({ method: 'POST' }),
+    );
+
+    const malformedClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ ...preview, nextStatus: 'unknown' }), {
+          status: 200,
+        }),
+      ),
+    });
+    await expect(
+      malformedClient.previewDutyAdjustment('group-1', {
+        coveredAssignmentId: 'assignment-1',
+        overtimeMembershipId: 'membership-b',
+      }),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

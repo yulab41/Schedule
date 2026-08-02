@@ -9,6 +9,7 @@ export * from './users.js';
 export * from './calendar.js';
 export * from './leaves.js';
 export * from './swaps.js';
+export * from './duty-adjustments.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';

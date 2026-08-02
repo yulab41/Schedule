@@ -8,6 +8,7 @@ import { ApiError } from '../../plugins/error-handler.js';
 
 export type GroupPermission =
   | 'deleteGroup'
+  | 'manageDutyAdjustments'
   | 'manageAdministrators'
   | 'manageContacts'
   | 'manageLeaves'
@@ -28,6 +29,7 @@ export interface ActiveGroupUser {
 
 export interface ActiveGroup {
   readonly groupCode: string;
+  readonly dutyAdjustmentApprovalRequired: boolean;
   readonly id: string;
   readonly leaveReflowStrategy: 'keep-original-order' | 'shift-forward';
   readonly name: string;
@@ -56,6 +58,7 @@ const permissionsByRole: Readonly<
 > = {
   administrator: [
     'manageContacts',
+    'manageDutyAdjustments',
     'manageLeaves',
     'manageMembers',
     'manageRoster',
@@ -70,6 +73,7 @@ const permissionsByRole: Readonly<
     'deleteGroup',
     'manageAdministrators',
     'manageContacts',
+    'manageDutyAdjustments',
     'manageLeaves',
     'manageMembers',
     'manageRoster',
@@ -244,6 +248,7 @@ export class GroupPermissionService {
   ): Promise<ActiveGroup> {
     const [group] = await transaction
       .select({
+        dutyAdjustmentApprovalRequiredValue: groups.dutyAdjustmentApprovalRequired,
         swapApprovalRequiredValue: groups.swapApprovalRequired,
         groupCode: groups.groupCode,
         id: groups.id,
@@ -268,6 +273,7 @@ export class GroupPermissionService {
     }
 
     return {
+      dutyAdjustmentApprovalRequired: group.dutyAdjustmentApprovalRequiredValue === 1,
       groupCode: group.groupCode,
       id: group.id,
       leaveReflowStrategy: group.leaveReflowStrategy,

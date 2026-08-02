@@ -1,7 +1,7 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type { SwapPreview, SwapRequest } from '@schedule/contracts';
+import type { DutyAdjustmentPreview, DutyAdjustmentRequest } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
@@ -18,7 +18,7 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 
-describeWithDatabase('member shift swaps', () => {
+describeWithDatabase('paired duty adjustments', () => {
   let allDayShiftTypeId: string;
   let app: ReturnType<typeof createApp>;
   let client: DatabaseClient;
@@ -55,27 +55,25 @@ describeWithDatabase('member shift swaps', () => {
     }
   });
 
-  it('previews a swap pair and completes it after the target accepts manually', async () => {
+  it('previews a pair and completes it after the overtime member accepts and the admin approves', async () => {
     const context = await seedPublishedRotation();
-    await updateGroupSettings('owner-token', context.groupId, false);
 
-    const previewResponse = await previewSwap('a-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.aSep1.id,
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+    const previewResponse = await previewDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      overtimeMembershipId: context.membershipIds.b,
     });
     expect(previewResponse.statusCode).toBe(200);
-    const preview = previewResponse.json() as SwapPreview;
+    const preview = previewResponse.json() as DutyAdjustmentPreview;
     expect(preview).toMatchObject({
       conflicts: [],
+      deductedMemberName: 'A Doctor',
       groupId: context.groupId,
-      initiatorEligibleForTargetShift: true,
       nextStatus: 'pending_target',
-      requiresApproval: false,
-      targetAutoAccepts: false,
-      targetEligibleForInitiatorShift: true,
+      overtimeAutoAccepts: false,
+      overtimeMemberName: 'B Doctor',
+      requiresApproval: true,
     });
-    expect(preview.initiatorAssignment).toMatchObject({
+    expect(preview.coveredAssignment).toMatchObject({
       assignmentId: context.assignments.aSep1.id,
       businessDate: '2026-09-01',
       plannedMemberId: context.membershipIds.a,
@@ -83,59 +81,69 @@ describeWithDatabase('member shift swaps', () => {
       shiftTypeName: '全天班',
     });
 
-    const created = await createSwap('a-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.aSep1.id,
+    const created = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+      overtimeMembershipId: context.membershipIds.b,
     });
     expect(created.statusCode).toBe(201);
-    const createdBody = created.json() as SwapRequest;
+    const createdBody = created.json() as DutyAdjustmentRequest;
     expect(createdBody).toMatchObject({
-      initiatorMemberName: 'A Doctor',
+      deductedMemberName: 'A Doctor',
+      overtimeMemberName: 'B Doctor',
       status: 'pending_target',
-      targetMemberName: 'B Doctor',
       version: 1,
     });
-    expect(createdBody.initiatorAssignmentVersion).toBe(context.assignments.aSep1.version);
-    expect(createdBody.targetAssignmentVersion).toBe(context.assignments.bSep2.version);
+    expect(createdBody.assignmentVersion).toBe(context.assignments.aSep1.version);
 
-    const mineAsB = (await listMySwaps('b-token', context.groupId)).json() as SwapRequest[];
+    const mineAsB = (
+      await listMyDutyAdjustments('b-token', context.groupId)
+    ).json() as DutyAdjustmentRequest[];
     expect(mineAsB.map((request) => request.id)).toContain(createdBody.id);
 
-    const accepted = await acceptSwap('b-token', context.groupId, createdBody.id, {
+    const accepted = await acceptDutyAdjustment('b-token', context.groupId, createdBody.id, {
       expectedVersion: 1,
       operationId: randomUUID(),
     });
     expect(accepted.statusCode).toBe(200);
     expect(accepted.json()).toMatchObject({
-      status: 'completed',
+      status: 'pending_approval',
       version: 2,
     });
 
-    const actuals = await readActualMembers(context);
-    expect(actuals.aSep1).toEqual({
+    const approved = await approveDutyAdjustment('owner-token', context.groupId, createdBody.id, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json()).toMatchObject({
+      status: 'completed',
+      version: 3,
+    });
+
+    const actual = await readActualMember(context.assignments.aSep1.id);
+    expect(actual).toEqual({
       actualMembershipId: context.membershipIds.b,
       actualMemberName: 'B Doctor',
     });
-    expect(actuals.bSep2).toEqual({
-      actualMembershipId: context.membershipIds.a,
-      actualMemberName: 'A Doctor',
-    });
-    const planned = await readPlannedMembers(context);
-    expect(planned.aSep1).toBe(context.membershipIds.a);
-    expect(planned.bSep2).toBe(context.membershipIds.b);
+    const planned = await readPlannedMember(context.assignments.aSep1.id);
+    expect(planned).toBe(context.membershipIds.a);
 
     const eventTypes = (
       await client.database.execute(
         sql`SELECT event_type AS eventType
             FROM schedule_events
-            WHERE group_id = ${context.groupId} AND event_type LIKE 'swap%'`,
+            WHERE group_id = ${context.groupId} AND event_type LIKE 'duty_adjustment%'`,
       )
     )[0] as unknown as readonly { eventType: string }[];
     const types = eventTypes.map((row) => row.eventType).sort();
     expect(types).toEqual(
-      ['swap_request_created', 'swap_request_accepted', 'swap_completed'].sort(),
+      [
+        'duty_adjustment_request_created',
+        'duty_adjustment_request_accepted',
+        'duty_adjustment_request_approved',
+        'duty_adjustment_completed',
+      ].sort(),
     );
 
     const calendar = (
@@ -144,42 +152,36 @@ describeWithDatabase('member shift swaps', () => {
     const sep1 = calendar.assignments.find(
       (assignment) => assignment.businessDate === '2026-09-01',
     );
-    const sep2 = calendar.assignments.find(
-      (assignment) => assignment.businessDate === '2026-09-02',
-    );
-    expect(sep1).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['swap'] });
-    expect(sep2).toMatchObject({ actualMemberName: 'A Doctor', changeMarkers: ['swap'] });
+    expect(sep1).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['overtime'] });
   });
 
-  it('completes immediately when the target auto-accepts and the group does not require approval', async () => {
+  it('completes immediately when the overtime member auto-accepts and the group does not require approval', async () => {
     const context = await seedPublishedRotation();
     expect((await updateGroupSettings('owner-token', context.groupId, false)).statusCode).toBe(200);
     expect((await updateMySettings('b-token', context.groupId, true)).statusCode).toBe(200);
 
     const preview = (
-      await previewSwap('a-token', context.groupId, {
-        initiatorAssignmentId: context.assignments.aSep1.id,
-        targetAssignmentId: context.assignments.bSep2.id,
-        targetMembershipId: context.membershipIds.b,
+      await previewDutyAdjustment('a-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
+        overtimeMembershipId: context.membershipIds.b,
       })
-    ).json() as SwapPreview;
+    ).json() as DutyAdjustmentPreview;
     expect(preview).toMatchObject({
       nextStatus: 'completed',
+      overtimeAutoAccepts: true,
       requiresApproval: false,
-      targetAutoAccepts: true,
     });
 
-    const created = await createSwap('a-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.aSep1.id,
+    const created = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+      overtimeMembershipId: context.membershipIds.b,
     });
     expect(created.statusCode).toBe(201);
     expect(created.json()).toMatchObject({ status: 'completed', version: 2 });
-    const actuals = await readActualMembers(context);
-    expect(actuals.aSep1.actualMembershipId).toBe(context.membershipIds.b);
-    expect(actuals.bSep2.actualMembershipId).toBe(context.membershipIds.a);
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
+      context.membershipIds.b,
+    );
   });
 
   it('does not let automatic acceptance bypass administrator approval', async () => {
@@ -189,82 +191,123 @@ describeWithDatabase('member shift swaps', () => {
       requiresApproval: true,
     });
 
-    const created = await createSwap('a-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.aSep1.id,
+    const created = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+      overtimeMembershipId: context.membershipIds.b,
     });
     expect(created.statusCode).toBe(201);
-    const createdBody = created.json() as SwapRequest;
+    const createdBody = created.json() as DutyAdjustmentRequest;
     expect(createdBody.status).toBe('pending_approval');
-    expect((await readActualMembers(context)).aSep1.actualMembershipId).toBeNull();
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBeNull();
 
-    const memberApproval = await approveSwap('b-token', context.groupId, createdBody.id, {
+    const memberApproval = await approveDutyAdjustment('b-token', context.groupId, createdBody.id, {
       expectedVersion: 1,
       operationId: randomUUID(),
     });
     expect(memberApproval.statusCode).toBe(403);
 
-    const approved = await approveSwap('owner-token', context.groupId, createdBody.id, {
+    const approved = await approveDutyAdjustment('owner-token', context.groupId, createdBody.id, {
       expectedVersion: 1,
       operationId: randomUUID(),
     });
     expect(approved.statusCode).toBe(200);
     expect(approved.json()).toMatchObject({ status: 'completed', version: 2 });
-    expect((await readActualMembers(context)).aSep1.actualMembershipId).toBe(
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
       context.membershipIds.b,
     );
   });
 
-  it('lets only one active swap request use the same shift', async () => {
+  it('lets only one active relation use the same shift and blocks swaps on it', async () => {
     const context = await seedPublishedRotation();
-    const first = await createSwap('a-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.aSep1.id,
+    const first = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+      overtimeMembershipId: context.membershipIds.b,
     });
     expect(first.statusCode).toBe(201);
 
-    const second = await createSwap('a-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.aSep1.id,
+    const second = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.cSep3.id,
-      targetMembershipId: context.membershipIds.c,
+      overtimeMembershipId: context.membershipIds.c,
     });
     expect(second.statusCode).toBe(409);
-    expect((second.json() as ErrorResponse).error.message).toContain('已有待处理');
+    expect((second.json() as ErrorResponse).error.message).toContain('已有一组');
 
-    const third = await createSwap('c-token', context.groupId, {
+    const blockedSwap = await createSwap('c-token', context.groupId, {
       initiatorAssignmentId: context.assignments.cSep3.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+      targetAssignmentId: context.assignments.aSep1.id,
+      targetMembershipId: context.membershipIds.a,
     });
-    expect(third.statusCode).toBe(409);
+    expect(blockedSwap.statusCode).toBe(409);
+    expect((blockedSwap.json() as ErrorResponse).error.message).toContain('加扣班');
+
+    await rejectDutyAdjustment(
+      'b-token',
+      context.groupId,
+      (first.json() as DutyAdjustmentRequest).id,
+      {
+        expectedVersion: 1,
+        operationId: randomUUID(),
+      },
+    );
+    const third = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.c,
+    });
+    expect(third.statusCode).toBe(201);
+    const thirdBody = third.json() as DutyAdjustmentRequest;
+    await acceptDutyAdjustment('c-token', context.groupId, thirdBody.id, {
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    await approveDutyAdjustment('owner-token', context.groupId, thirdBody.id, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+
+    const fourth = await createDutyAdjustment('c-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
+    expect(fourth.statusCode).toBe(409);
+
+    await revokeDutyAdjustment('owner-token', context.groupId, thirdBody.id, {
+      expectedVersion: 3,
+      operationId: randomUUID(),
+      reason: '重新安排',
+    });
+    const fifth = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
+    expect(fifth.statusCode).toBe(201);
 
     const [requestCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM swap_requests WHERE group_id = ${context.groupId}`,
+      sql`SELECT COUNT(*) AS count FROM duty_adjustments WHERE group_id = ${context.groupId}`,
     );
-    expect(requestCount).toEqual([{ count: 1 }]);
+    expect(requestCount).toEqual([{ count: 3 }]);
   });
 
-  it('invalidates the swap when either assignment version changes', async () => {
+  it('invalidates the request when the covered assignment version changes', async () => {
     const context = await seedPublishedRotation();
     const created = (
-      await createSwap('a-token', context.groupId, {
-        initiatorAssignmentId: context.assignments.aSep1.id,
+      await createDutyAdjustment('a-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
         operationId: randomUUID(),
-        targetAssignmentId: context.assignments.bSep2.id,
-        targetMembershipId: context.membershipIds.b,
+        overtimeMembershipId: context.membershipIds.b,
       })
-    ).json() as SwapRequest;
+    ).json() as DutyAdjustmentRequest;
 
     await client.database.execute(
       sql`UPDATE shift_assignments SET version = version + 1 WHERE id = ${context.assignments.aSep1.id}`,
     );
-    const accepted = await acceptSwap('b-token', context.groupId, created.id, {
+    const accepted = await acceptDutyAdjustment('b-token', context.groupId, created.id, {
       expectedVersion: 1,
       operationId: randomUUID(),
     });
@@ -274,31 +317,23 @@ describeWithDatabase('member shift swaps', () => {
       objectType: 'shift_assignment',
       version: context.assignments.aSep1.version + 1,
     });
-    expect((await readActualMembers(context)).aSep1.actualMembershipId).toBeNull();
-
-    const rejected = await rejectSwap('b-token', context.groupId, created.id, {
-      expectedVersion: 1,
-      operationId: randomUUID(),
-    });
-    expect(rejected.statusCode).toBe(200);
-    expect(rejected.json()).toMatchObject({ status: 'rejected' });
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBeNull();
   });
 
-  it('blocks swaps when the receiving member is no longer in the role', async () => {
+  it('blocks requests when the overtime member is no longer in the role or has approved leave', async () => {
     const context = await seedPublishedRotation();
     await replaceRoleMembers(context.groupId, context.roleId, [
       context.membershipIds.a,
       context.membershipIds.c,
     ]);
 
-    const created = await createSwap('b-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.bSep2.id,
+    const notEligible = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.aSep1.id,
-      targetMembershipId: context.membershipIds.a,
+      overtimeMembershipId: context.membershipIds.b,
     });
-    expect(created.statusCode).toBe(409);
-    const latestData = (created.json() as ErrorResponse).error.latestData as {
+    expect(notEligible.statusCode).toBe(409);
+    const latestData = (notEligible.json() as ErrorResponse).error.latestData as {
       conflicts: readonly { code: string; membershipId: string }[];
     };
     expect(latestData.conflicts).toEqual([
@@ -307,10 +342,12 @@ describeWithDatabase('member shift swaps', () => {
         membershipId: context.membershipIds.b,
       }),
     ]);
-  });
 
-  it('blocks swaps when the receiving member has approved leave overlap', async () => {
-    const context = await seedPublishedRotation();
+    await replaceRoleMembers(context.groupId, context.roleId, [
+      context.membershipIds.a,
+      context.membershipIds.b,
+      context.membershipIds.c,
+    ]);
     const leaveRequestId = (
       await submitLeave('b-token', context.groupId, {
         endsAt: '2026-09-02T00:00:00.000Z',
@@ -334,17 +371,19 @@ describeWithDatabase('member shift swaps', () => {
       ).statusCode,
     ).toBe(200);
 
-    const created = await createSwap('a-token', context.groupId, {
-      initiatorAssignmentId: context.assignments.aSep1.id,
+    const leaveConflict = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+      overtimeMembershipId: context.membershipIds.b,
     });
-    expect(created.statusCode).toBe(409);
-    const latestData = (created.json() as ErrorResponse).error.latestData as {
-      conflicts: readonly { code: string; membershipId: string }[];
-    };
-    expect(latestData.conflicts).toEqual([
+    expect(leaveConflict.statusCode).toBe(409);
+    expect(
+      (
+        (leaveConflict.json() as ErrorResponse).error.latestData as {
+          conflicts: readonly { code: string; membershipId: string }[];
+        }
+      ).conflicts,
+    ).toEqual([
       expect.objectContaining({
         code: 'MEMBER_LEAVE_OVERLAP',
         membershipId: context.membershipIds.b,
@@ -352,107 +391,273 @@ describeWithDatabase('member shift swaps', () => {
     ]);
   });
 
-  it('rejects and cancels pending swaps without touching actual members', async () => {
+  it('requires a reason and administrator permission for direct application', async () => {
+    const context = await seedPublishedRotation();
+    const withoutReason = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
+    expect(withoutReason.statusCode).toBe(400);
+
+    const asMember = await createDirectDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '成员不能直接代值',
+    });
+    expect(asMember.statusCode).toBe(403);
+
+    const direct = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '管理员安排 B 代值',
+    });
+    expect(direct.statusCode).toBe(201);
+    const directBody = direct.json() as DutyAdjustmentRequest;
+    expect(directBody).toMatchObject({
+      reason: '管理员安排 B 代值',
+      status: 'completed',
+      version: 2,
+    });
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
+      context.membershipIds.b,
+    );
+
+    const calendar = (
+      await getCalendar('a-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    const sep1 = calendar.assignments.find(
+      (assignment) => assignment.businessDate === '2026-09-01',
+    );
+    expect(sep1).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['overtime'] });
+  });
+
+  it('rejects and cancels pending requests without touching the actual member', async () => {
     const context = await seedPublishedRotation();
     const first = (
-      await createSwap('a-token', context.groupId, {
-        initiatorAssignmentId: context.assignments.aSep1.id,
+      await createDutyAdjustment('a-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
         operationId: randomUUID(),
-        targetAssignmentId: context.assignments.bSep2.id,
-        targetMembershipId: context.membershipIds.b,
+        overtimeMembershipId: context.membershipIds.b,
       })
-    ).json() as SwapRequest;
-    const rejected = await rejectSwap('b-token', context.groupId, first.id, {
+    ).json() as DutyAdjustmentRequest;
+    const rejected = await rejectDutyAdjustment('b-token', context.groupId, first.id, {
       expectedVersion: 1,
       operationId: randomUUID(),
     });
     expect(rejected.statusCode).toBe(200);
     expect(rejected.json()).toMatchObject({ status: 'rejected' });
-    expect((await readActualMembers(context)).aSep1.actualMembershipId).toBeNull();
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBeNull();
 
     const second = (
-      await createSwap('a-token', context.groupId, {
-        initiatorAssignmentId: context.assignments.aSep4.id,
+      await createDutyAdjustment('a-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep4.id,
         operationId: randomUUID(),
-        targetAssignmentId: context.assignments.cSep3.id,
-        targetMembershipId: context.membershipIds.c,
+        overtimeMembershipId: context.membershipIds.c,
       })
-    ).json() as SwapRequest;
-    const cancelled = await cancelSwap('a-token', context.groupId, second.id, {
+    ).json() as DutyAdjustmentRequest;
+    const cancelled = await cancelDutyAdjustment('a-token', context.groupId, second.id, {
       expectedVersion: 1,
       operationId: randomUUID(),
     });
     expect(cancelled.statusCode).toBe(200);
     expect(cancelled.json()).toMatchObject({ status: 'cancelled' });
 
-    const approveRejected = await approveSwap('owner-token', context.groupId, first.id, {
+    const approveRejected = await approveDutyAdjustment('owner-token', context.groupId, first.id, {
       expectedVersion: 2,
       operationId: randomUUID(),
     });
     expect(approveRejected.statusCode).toBe(409);
   });
 
+  it('revokes a completed relation with a required reason and restores the deducted member', async () => {
+    const context = await seedPublishedRotation();
+    const created = (
+      await createDutyAdjustment('a-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
+        operationId: randomUUID(),
+        overtimeMembershipId: context.membershipIds.b,
+      })
+    ).json() as DutyAdjustmentRequest;
+    await acceptDutyAdjustment('b-token', context.groupId, created.id, {
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    const completed = (
+      await approveDutyAdjustment('owner-token', context.groupId, created.id, {
+        expectedVersion: 2,
+        operationId: randomUUID(),
+      })
+    ).json() as DutyAdjustmentRequest;
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
+      context.membershipIds.b,
+    );
+
+    const withoutReason = await revokeDutyAdjustment('owner-token', context.groupId, completed.id, {
+      expectedVersion: 3,
+      operationId: randomUUID(),
+    });
+    expect(withoutReason.statusCode).toBe(400);
+
+    const revoked = await revokeDutyAdjustment('owner-token', context.groupId, completed.id, {
+      expectedVersion: 3,
+      operationId: randomUUID(),
+      reason: 'B 临时请假取消代值',
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json()).toMatchObject({
+      reason: 'B 临时请假取消代值',
+      status: 'revoked',
+      version: 4,
+    });
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
+      context.membershipIds.a,
+    );
+    expect(await readPlannedMember(context.assignments.aSep1.id)).toBe(context.membershipIds.a);
+
+    const eventTypes = (
+      await client.database.execute(
+        sql`SELECT event_type AS eventType
+            FROM schedule_events
+            WHERE group_id = ${context.groupId} AND event_type = 'duty_adjustment_revoked'`,
+      )
+    )[0] as unknown as readonly { eventType: string }[];
+    expect(eventTypes).toHaveLength(1);
+
+    const [rowCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM duty_adjustments WHERE group_id = ${context.groupId}`,
+    );
+    expect(rowCount).toEqual([{ count: 1 }]);
+  });
+
+  it('keeps both history rows when the same member adds once and deducts once', async () => {
+    const context = await seedPublishedRotation();
+    const first = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
+    await acceptDutyAdjustment(
+      'b-token',
+      context.groupId,
+      (first.json() as DutyAdjustmentRequest).id,
+      {
+        expectedVersion: 1,
+        operationId: randomUUID(),
+      },
+    );
+    await approveDutyAdjustment(
+      'owner-token',
+      context.groupId,
+      (first.json() as DutyAdjustmentRequest).id,
+      {
+        expectedVersion: 2,
+        operationId: randomUUID(),
+      },
+    );
+
+    const second = await createDutyAdjustment('b-token', context.groupId, {
+      coveredAssignmentId: context.assignments.bSep2.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.a,
+    });
+    await acceptDutyAdjustment(
+      'a-token',
+      context.groupId,
+      (second.json() as DutyAdjustmentRequest).id,
+      {
+        expectedVersion: 1,
+        operationId: randomUUID(),
+      },
+    );
+    await approveDutyAdjustment(
+      'owner-token',
+      context.groupId,
+      (second.json() as DutyAdjustmentRequest).id,
+      {
+        expectedVersion: 2,
+        operationId: randomUUID(),
+      },
+    );
+
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
+      context.membershipIds.b,
+    );
+    expect((await readActualMember(context.assignments.bSep2.id)).actualMembershipId).toBe(
+      context.membershipIds.a,
+    );
+    const [rowCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM duty_adjustments WHERE group_id = ${context.groupId}`,
+    );
+    const [completedEvents] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count
+          FROM schedule_events
+          WHERE group_id = ${context.groupId} AND event_type = 'duty_adjustment_completed'`,
+    );
+    expect(rowCount).toEqual([{ count: 2 }]);
+    expect(completedEvents).toEqual([{ count: 2 }]);
+  });
+
   it('replays the same create operation id without duplicates', async () => {
     const context = await seedPublishedRotation();
     const operationId = randomUUID();
     const body = {
-      initiatorAssignmentId: context.assignments.aSep1.id,
+      coveredAssignmentId: context.assignments.aSep1.id,
       operationId,
-      targetAssignmentId: context.assignments.bSep2.id,
-      targetMembershipId: context.membershipIds.b,
+      overtimeMembershipId: context.membershipIds.b,
     };
 
-    const first = await createSwap('a-token', context.groupId, body);
+    const first = await createDutyAdjustment('a-token', context.groupId, body);
     expect(first.statusCode).toBe(201);
-    const replay = await createSwap('a-token', context.groupId, body);
+    const replay = await createDutyAdjustment('a-token', context.groupId, body);
     expect(replay.statusCode).toBe(201);
     expect(replay.json()).toEqual(first.json());
 
     const [requestCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM swap_requests WHERE group_id = ${context.groupId}`,
+      sql`SELECT COUNT(*) AS count FROM duty_adjustments WHERE group_id = ${context.groupId}`,
     );
     const [eventCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_events WHERE event_type = 'swap_request_created'`,
+      sql`SELECT COUNT(*) AS count FROM schedule_events WHERE event_type = 'duty_adjustment_request_created'`,
     );
     expect(requestCount).toEqual([{ count: 1 }]);
     expect(eventCount).toEqual([{ count: 1 }]);
   });
 
-  it('restricts swap permissions and exposes settings', async () => {
+  it('restricts permissions and exposes group settings', async () => {
     const context = await seedPublishedRotation();
     expect(
       (
-        await previewSwap('outsider-token', context.groupId, {
-          initiatorAssignmentId: context.assignments.aSep1.id,
-          targetAssignmentId: context.assignments.bSep2.id,
-          targetMembershipId: context.membershipIds.b,
+        await previewDutyAdjustment('outsider-token', context.groupId, {
+          coveredAssignmentId: context.assignments.aSep1.id,
+          overtimeMembershipId: context.membershipIds.b,
         })
       ).statusCode,
     ).toBe(403);
     expect(
       (
-        await createSwap('outsider-token', context.groupId, {
-          initiatorAssignmentId: context.assignments.aSep1.id,
+        await createDutyAdjustment('outsider-token', context.groupId, {
+          coveredAssignmentId: context.assignments.aSep1.id,
           operationId: randomUUID(),
-          targetAssignmentId: context.assignments.bSep2.id,
-          targetMembershipId: context.membershipIds.b,
+          overtimeMembershipId: context.membershipIds.b,
         })
       ).statusCode,
     ).toBe(403);
 
     const created = (
-      await createSwap('a-token', context.groupId, {
-        initiatorAssignmentId: context.assignments.aSep1.id,
+      await createDutyAdjustment('a-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
         operationId: randomUUID(),
-        targetAssignmentId: context.assignments.bSep2.id,
-        targetMembershipId: context.membershipIds.b,
+        overtimeMembershipId: context.membershipIds.b,
       })
-    ).json() as SwapRequest;
+    ).json() as DutyAdjustmentRequest;
     expect(
       (
-        await acceptSwap('a-token', context.groupId, created.id, {
+        await revokeDutyAdjustment('a-token', context.groupId, created.id, {
           expectedVersion: 1,
           operationId: randomUUID(),
+          reason: '成员不能撤销',
         })
       ).statusCode,
     ).toBe(403);
@@ -461,17 +666,13 @@ describeWithDatabase('member shift swaps', () => {
     });
     expect((await updateGroupSettings('b-token', context.groupId, false)).statusCode).toBe(403);
     expect((await updateGroupSettings('owner-token', context.groupId, false)).statusCode).toBe(200);
-    expect((await getMySettings('b-token', context.groupId)).json()).toEqual({
-      autoAcceptSwaps: false,
-    });
-    expect((await updateMySettings('b-token', context.groupId, true)).statusCode).toBe(200);
-    expect((await getMySettings('b-token', context.groupId)).json()).toEqual({
-      autoAcceptSwaps: true,
+    expect((await getGroupSettings('b-token', context.groupId)).json()).toEqual({
+      requiresApproval: false,
     });
   });
 
   async function seedPublishedRotation(): Promise<Context> {
-    const groupId = await createGroup('Swap group', '5678');
+    const groupId = await createGroup('Duty group', '5678');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await addRosterEntry(groupId, 'C Doctor');
@@ -548,6 +749,166 @@ describeWithDatabase('member shift swaps', () => {
     };
   }
 
+  async function createDutyAdjustment(
+    token: string,
+    groupId: string,
+    body: {
+      readonly coveredAssignmentId: string;
+      readonly operationId: string;
+      readonly overtimeMembershipId: string;
+      readonly reason?: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments`,
+    });
+  }
+
+  async function previewDutyAdjustment(
+    token: string,
+    groupId: string,
+    body: {
+      readonly coveredAssignmentId: string;
+      readonly overtimeMembershipId: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/preview`,
+    });
+  }
+
+  async function createDirectDutyAdjustment(
+    token: string,
+    groupId: string,
+    body: {
+      readonly coveredAssignmentId: string;
+      readonly operationId: string;
+      readonly overtimeMembershipId: string;
+      readonly reason?: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/direct`,
+    });
+  }
+
+  async function acceptDutyAdjustment(
+    token: string,
+    groupId: string,
+    dutyAdjustmentId: string,
+    body: { readonly expectedVersion: number; readonly operationId: string },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/accept`,
+    });
+  }
+
+  async function approveDutyAdjustment(
+    token: string,
+    groupId: string,
+    dutyAdjustmentId: string,
+    body: { readonly expectedVersion: number; readonly operationId: string },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/approve`,
+    });
+  }
+
+  async function rejectDutyAdjustment(
+    token: string,
+    groupId: string,
+    dutyAdjustmentId: string,
+    body: { readonly expectedVersion: number; readonly operationId: string },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/reject`,
+    });
+  }
+
+  async function cancelDutyAdjustment(
+    token: string,
+    groupId: string,
+    dutyAdjustmentId: string,
+    body: { readonly expectedVersion: number; readonly operationId: string },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/cancel`,
+    });
+  }
+
+  async function revokeDutyAdjustment(
+    token: string,
+    groupId: string,
+    dutyAdjustmentId: string,
+    body: {
+      readonly expectedVersion: number;
+      readonly operationId: string;
+      readonly reason?: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/revoke`,
+    });
+  }
+
+  async function listMyDutyAdjustments(token: string, groupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/duty-adjustments`,
+    });
+  }
+
+  async function getGroupSettings(token: string, groupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/duty-adjustments/settings`,
+    });
+  }
+
+  async function updateGroupSettings(token: string, groupId: string, requiresApproval: boolean) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'PUT',
+      payload: { requiresApproval },
+      url: `/groups/${groupId}/duty-adjustments/settings`,
+    });
+  }
+
+  async function updateMySettings(token: string, groupId: string, autoAcceptSwaps: boolean) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'PUT',
+      payload: { autoAcceptSwaps },
+      url: `/groups/${groupId}/swaps/my-settings`,
+    });
+  }
+
   async function createSwap(
     token: string,
     groupId: string,
@@ -563,121 +924,6 @@ describeWithDatabase('member shift swaps', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/swaps`,
-    });
-  }
-
-  async function previewSwap(
-    token: string,
-    groupId: string,
-    body: {
-      readonly initiatorAssignmentId: string;
-      readonly targetAssignmentId: string;
-      readonly targetMembershipId: string;
-    },
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: body,
-      url: `/groups/${groupId}/swaps/preview`,
-    });
-  }
-
-  async function acceptSwap(
-    token: string,
-    groupId: string,
-    swapRequestId: string,
-    body: { readonly expectedVersion: number; readonly operationId: string },
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: body,
-      url: `/groups/${groupId}/swaps/${swapRequestId}/accept`,
-    });
-  }
-
-  async function approveSwap(
-    token: string,
-    groupId: string,
-    swapRequestId: string,
-    body: { readonly expectedVersion: number; readonly operationId: string },
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: body,
-      url: `/groups/${groupId}/swaps/${swapRequestId}/approve`,
-    });
-  }
-
-  async function rejectSwap(
-    token: string,
-    groupId: string,
-    swapRequestId: string,
-    body: { readonly expectedVersion: number; readonly operationId: string },
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: body,
-      url: `/groups/${groupId}/swaps/${swapRequestId}/reject`,
-    });
-  }
-
-  async function cancelSwap(
-    token: string,
-    groupId: string,
-    swapRequestId: string,
-    body: { readonly expectedVersion: number; readonly operationId: string },
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: body,
-      url: `/groups/${groupId}/swaps/${swapRequestId}/cancel`,
-    });
-  }
-
-  async function listMySwaps(token: string, groupId: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'GET',
-      url: `/groups/${groupId}/swaps`,
-    });
-  }
-
-  async function getGroupSettings(token: string, groupId: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'GET',
-      url: `/groups/${groupId}/swaps/settings`,
-    });
-  }
-
-  async function updateGroupSettings(token: string, groupId: string, requiresApproval: boolean) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'PUT',
-      payload: { requiresApproval },
-      url: `/groups/${groupId}/swaps/settings`,
-    });
-  }
-
-  async function getMySettings(token: string, groupId: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'GET',
-      url: `/groups/${groupId}/swaps/my-settings`,
-    });
-  }
-
-  async function updateMySettings(token: string, groupId: string, autoAcceptSwaps: boolean) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'PUT',
-      payload: { autoAcceptSwaps },
-      url: `/groups/${groupId}/swaps/my-settings`,
     });
   }
 
@@ -726,50 +972,35 @@ describeWithDatabase('member shift swaps', () => {
     });
   }
 
-  async function readActualMembers(context: Context): Promise<{
-    aSep1: ActualMemberValue;
-    aSep4: ActualMemberValue;
-    bSep2: ActualMemberValue;
-    cSep3: ActualMemberValue;
-  }> {
-    const ids = Object.values(context.assignments).map((assignment) => assignment.id);
+  async function readActualMember(assignmentId: string): Promise<ActualMemberValue> {
     const rows = (
       await client.database.execute(
-        sql`SELECT id, actual_membership_id AS actualMembershipId, actual_member_name AS actualMemberName
-            FROM shift_assignments WHERE id IN (${ids[0]}, ${ids[1]}, ${ids[2]}, ${ids[3]})`,
+        sql`SELECT actual_membership_id AS actualMembershipId,
+                   actual_member_name AS actualMemberName
+            FROM shift_assignments
+            WHERE id = ${assignmentId}`,
       )
     )[0] as unknown as readonly {
       actualMemberName: string | null;
       actualMembershipId: string | null;
-      id: string;
     }[];
-    const byId = new Map(rows.map((row) => [row.id, row]));
-    return {
-      aSep1: toActualValue(byId.get(context.assignments.aSep1.id)),
-      aSep4: toActualValue(byId.get(context.assignments.aSep4.id)),
-      bSep2: toActualValue(byId.get(context.assignments.bSep2.id)),
-      cSep3: toActualValue(byId.get(context.assignments.cSep3.id)),
-    };
+    return (
+      rows[0] ?? {
+        actualMemberName: null,
+        actualMembershipId: null,
+      }
+    );
   }
 
-  async function readPlannedMembers(context: Context): Promise<{
-    aSep1: string | null;
-    aSep4: string | null;
-    bSep2: string | null;
-    cSep3: string | null;
-  }> {
+  async function readPlannedMember(assignmentId: string): Promise<string | null> {
     const rows = (
       await client.database.execute(
-        sql`SELECT id, planned_membership_id AS plannedMembershipId FROM shift_assignments`,
+        sql`SELECT planned_membership_id AS plannedMembershipId
+            FROM shift_assignments
+            WHERE id = ${assignmentId}`,
       )
-    )[0] as unknown as readonly { id: string; plannedMembershipId: string | null }[];
-    const byId = new Map(rows.map((row) => [row.id, row.plannedMembershipId]));
-    return {
-      aSep1: byId.get(context.assignments.aSep1.id) ?? null,
-      aSep4: byId.get(context.assignments.aSep4.id) ?? null,
-      bSep2: byId.get(context.assignments.bSep2.id) ?? null,
-      cSep3: byId.get(context.assignments.cSep3.id) ?? null,
-    };
+    )[0] as unknown as readonly { plannedMembershipId: string | null }[];
+    return rows[0]?.plannedMembershipId ?? null;
   }
 
   async function generatePublished(groupId: string, roleId: string, rulesVersion: number) {
@@ -973,20 +1204,6 @@ function toAssignment(
     throw new Error('The seeded assignment is missing.');
   }
   return { id: row.id, version: row.version };
-}
-
-function toActualValue(
-  row:
-    | {
-        readonly actualMemberName: string | null;
-        readonly actualMembershipId: string | null;
-      }
-    | undefined,
-): ActualMemberValue {
-  return {
-    actualMemberName: row?.actualMemberName ?? null,
-    actualMembershipId: row?.actualMembershipId ?? null,
-  };
 }
 
 function createFakeAuthPort(tokens: Readonly<Record<string, string>>): AuthPort {

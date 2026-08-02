@@ -1,4 +1,4 @@
-import { fileURLToPath } from 'node:url';
+﻿import { fileURLToPath } from 'node:url';
 
 import {
   createTestDatabaseClient,
@@ -291,6 +291,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS duty_adjustments`);
   await client.database.execute(sql`DROP TABLE IF EXISTS shift_assignments`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_periods`);
   await client.database.execute(sql`DROP TABLE IF EXISTS audit_logs`);

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import type { ManualApplyPreview, ShiftType } from '@schedule/contracts';
@@ -663,6 +663,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS duty_adjustments`);
   await client.database.execute(sql`DROP TABLE IF EXISTS shift_assignments`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_periods`);
   await client.database.execute(sql`DROP TABLE IF EXISTS audit_logs`);

@@ -17,6 +17,7 @@ export * from './schedules.js';
 export * from './manual-schedules.js';
 export * from './leaves.js';
 export * from './swaps.js';
+export * from './duty-adjustments.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
@@ -66,6 +67,11 @@ export const groups = mysqlTable(
       .default('keep-original-order')
       .notNull(),
     swapApprovalRequired: tinyint('swap_approval_required', { unsigned: true })
+      .default(1)
+      .notNull(),
+    dutyAdjustmentApprovalRequired: tinyint('duty_adjustment_approval_required', {
+      unsigned: true,
+    })
       .default(1)
       .notNull(),
     ...auditableColumns(),

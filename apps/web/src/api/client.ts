@@ -8,6 +8,8 @@ import type {
   ApprovedLeaveRequestResult,
   CalendarReadModel,
   ClaimGroupResponse,
+  CreateDirectDutyAdjustmentInput,
+  CreateDutyAdjustmentRequestInput,
   CreateLeaveRequestInput,
   CreateSwapRequestInput,
   CreateScheduleRoleRequest,
@@ -16,6 +18,7 @@ import type {
   CreateGroupRequest,
   GroupMember,
   GroupMemberContact,
+  GroupDutyAdjustmentSettings,
   GroupSchedulePublishMode,
   GroupLeaveReflowStrategy,
   GroupSwapSettings,
@@ -33,6 +36,7 @@ import type {
   ReorderRotationMembersRequest,
   RegenerateGroupCodeRequest,
   ReplaceScheduleRoleMembersRequest,
+  RevokeDutyAdjustmentInput,
   ScheduleRole,
   SchedulingConfig,
   ShiftType,
@@ -40,10 +44,15 @@ import type {
   SwapPreview,
   SwapRequest,
   SwapRequestMutationInput,
+  DutyAdjustmentMutationInput,
+  DutyAdjustmentPairInput,
+  DutyAdjustmentPreview,
+  DutyAdjustmentRequest,
   UpdateRotationRuleRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberRoleRequest,
+  UpdateGroupDutyAdjustmentSettingsInput,
   UpdateManualScheduleTemplateRequest,
   UpdateGroupLeaveReflowStrategyInput,
   UpdateGroupSwapSettingsInput,
@@ -55,6 +64,11 @@ import type {
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 
 export interface ApiClient {
+  acceptDutyAdjustment(
+    groupId: string,
+    dutyAdjustmentId: string,
+    input: DutyAdjustmentMutationInput,
+  ): Promise<DutyAdjustmentRequest>;
   acceptSwapRequest(
     groupId: string,
     swapRequestId: string,
@@ -69,6 +83,11 @@ export interface ApiClient {
     leaveRequestId: string,
     input: ApproveLeaveRequestInput,
   ): Promise<ApprovedLeaveRequestResult>;
+  approveDutyAdjustment(
+    groupId: string,
+    dutyAdjustmentId: string,
+    input: DutyAdjustmentMutationInput,
+  ): Promise<DutyAdjustmentRequest>;
   approveSwapRequest(
     groupId: string,
     swapRequestId: string,
@@ -85,8 +104,21 @@ export interface ApiClient {
     swapRequestId: string,
     input: SwapRequestMutationInput,
   ): Promise<SwapRequest>;
+  cancelDutyAdjustment(
+    groupId: string,
+    dutyAdjustmentId: string,
+    input: DutyAdjustmentMutationInput,
+  ): Promise<DutyAdjustmentRequest>;
   createLeaveRequest(groupId: string, input: CreateLeaveRequestInput): Promise<LeaveRequest>;
   createSwapRequest(groupId: string, input: CreateSwapRequestInput): Promise<SwapRequest>;
+  createDirectDutyAdjustment(
+    groupId: string,
+    input: CreateDirectDutyAdjustmentInput,
+  ): Promise<DutyAdjustmentRequest>;
+  createDutyAdjustmentRequest(
+    groupId: string,
+    input: CreateDutyAdjustmentRequestInput,
+  ): Promise<DutyAdjustmentRequest>;
   createManualScheduleTemplate(
     groupId: string,
     input: CreateManualScheduleTemplateRequest,
@@ -98,6 +130,7 @@ export interface ApiClient {
   deleteGroup(groupId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
+  getGroupDutyAdjustmentSettings(groupId: string): Promise<GroupDutyAdjustmentSettings>;
   getGroupSwapSettings(groupId: string): Promise<GroupSwapSettings>;
   getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
   getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
@@ -107,7 +140,9 @@ export interface ApiClient {
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
+  listDutyAdjustmentApprovals(groupId: string): Promise<DutyAdjustmentRequest[]>;
   listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]>;
+  listMyDutyAdjustments(groupId: string): Promise<DutyAdjustmentRequest[]>;
   listMyLeaveRequests(groupId: string): Promise<LeaveRequest[]>;
   listMySwapRequests(groupId: string): Promise<SwapRequest[]>;
   listSwapApprovals(groupId: string): Promise<SwapRequest[]>;
@@ -116,6 +151,10 @@ export interface ApiClient {
     leaveRequestId: string,
     input: PreviewLeaveRequestInput,
   ): Promise<LeaveReflowPreview>;
+  previewDutyAdjustment(
+    groupId: string,
+    input: DutyAdjustmentPairInput,
+  ): Promise<DutyAdjustmentPreview>;
   previewSwap(groupId: string, input: SwapPairInput): Promise<SwapPreview>;
   previewManualTemplateApply(
     groupId: string,
@@ -133,6 +172,16 @@ export interface ApiClient {
     swapRequestId: string,
     input: SwapRequestMutationInput,
   ): Promise<SwapRequest>;
+  rejectDutyAdjustment(
+    groupId: string,
+    dutyAdjustmentId: string,
+    input: DutyAdjustmentMutationInput,
+  ): Promise<DutyAdjustmentRequest>;
+  revokeDutyAdjustment(
+    groupId: string,
+    dutyAdjustmentId: string,
+    input: RevokeDutyAdjustmentInput,
+  ): Promise<DutyAdjustmentRequest>;
   reorderRotationMembers(
     groupId: string,
     roleId: string,
@@ -162,6 +211,10 @@ export interface ApiClient {
     membershipId: string,
     input: UpdateGroupMemberRoleRequest,
   ): Promise<GroupMember>;
+  updateGroupDutyAdjustmentSettings(
+    groupId: string,
+    input: UpdateGroupDutyAdjustmentSettingsInput,
+  ): Promise<GroupDutyAdjustmentSettings>;
   updateGroupSwapSettings(
     groupId: string,
     input: UpdateGroupSwapSettingsInput,
@@ -208,6 +261,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const fetchImplementation = options.fetch ?? fetch;
 
   return {
+    acceptDutyAdjustment(groupId, dutyAdjustmentId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/accept`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentRequest,
+      );
+    },
     acceptSwapRequest(groupId, swapRequestId, input) {
       return requestJson(
         options.auth,
@@ -245,6 +311,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isApprovedLeaveRequestResult,
+      );
+    },
+    approveDutyAdjustment(groupId, dutyAdjustmentId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/approve`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentRequest,
       );
     },
     approveSwapRequest(groupId, swapRequestId, input) {
@@ -299,6 +378,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isSwapRequest,
       );
     },
+    cancelDutyAdjustment(groupId, dutyAdjustmentId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/cancel`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentRequest,
+      );
+    },
     createLeaveRequest(groupId, input) {
       return requestJson(
         options.auth,
@@ -310,6 +402,32 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isLeaveRequest,
+      );
+    },
+    createDirectDutyAdjustment(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/direct`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentRequest,
+      );
+    },
+    createDutyAdjustmentRequest(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentRequest,
       );
     },
     createSwapRequest(groupId, input) {
@@ -420,6 +538,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    getGroupDutyAdjustmentSettings(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/settings`,
+        { method: 'GET' },
+        isGroupDutyAdjustmentSettings,
+      );
+    },
     getGroupSwapSettings(groupId) {
       return requestJson(
         options.auth,
@@ -510,6 +638,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isGroupSummaryList,
       );
     },
+    listDutyAdjustmentApprovals(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/approvals`,
+        { method: 'GET' },
+        isDutyAdjustmentRequestList,
+      );
+    },
     listLeaveRequestApprovals(groupId) {
       return requestJson(
         options.auth,
@@ -518,6 +656,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/leave-requests/approvals`,
         { method: 'GET' },
         isLeaveRequestList,
+      );
+    },
+    listMyDutyAdjustments(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments`,
+        { method: 'GET' },
+        isDutyAdjustmentRequestList,
       );
     },
     listMyLeaveRequests(groupId) {
@@ -561,6 +709,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isManualApplyPreview,
+      );
+    },
+    previewDutyAdjustment(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/preview`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentPreview,
       );
     },
     previewSwap(groupId, input) {
@@ -626,6 +787,32 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isSwapRequest,
+      );
+    },
+    rejectDutyAdjustment(groupId, dutyAdjustmentId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/reject`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentRequest,
+      );
+    },
+    revokeDutyAdjustment(groupId, dutyAdjustmentId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/revoke`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isDutyAdjustmentRequest,
       );
     },
     reorderRotationMembers(groupId, roleId, input) {
@@ -704,6 +891,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isGroupMember,
+      );
+    },
+    updateGroupDutyAdjustmentSettings(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/settings`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isGroupDutyAdjustmentSettings,
       );
     },
     updateGroupSwapSettings(groupId, input) {
@@ -1661,6 +1861,162 @@ function isMemberSwapSettings(value: unknown): value is MemberSwapSettings {
     value !== null &&
     typeof value === 'object' &&
     typeof (value as { autoAcceptSwaps?: unknown }).autoAcceptSwaps === 'boolean'
+  );
+}
+
+function isDutyAdjustmentAssignmentSummary(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const assignment = value as {
+    actualMemberId?: unknown;
+    actualMemberName?: unknown;
+    assignmentId?: unknown;
+    businessDate?: unknown;
+    endsAt?: unknown;
+    plannedMemberId?: unknown;
+    plannedMemberName?: unknown;
+    scheduleRoleId?: unknown;
+    scheduleRoleName?: unknown;
+    shiftTypeAbbreviation?: unknown;
+    shiftTypeColor?: unknown;
+    shiftTypeId?: unknown;
+    shiftTypeName?: unknown;
+    shiftTypeTextColor?: unknown;
+    slotPosition?: unknown;
+    startsAt?: unknown;
+    version?: unknown;
+  };
+  return (
+    typeof assignment.assignmentId === 'string' &&
+    assignment.assignmentId.length > 0 &&
+    typeof assignment.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
+    typeof assignment.endsAt === 'string' &&
+    typeof assignment.scheduleRoleId === 'string' &&
+    assignment.scheduleRoleId.length > 0 &&
+    typeof assignment.scheduleRoleName === 'string' &&
+    typeof assignment.shiftTypeAbbreviation === 'string' &&
+    assignment.shiftTypeAbbreviation.length > 0 &&
+    typeof assignment.shiftTypeColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
+    typeof assignment.shiftTypeId === 'string' &&
+    assignment.shiftTypeId.length > 0 &&
+    typeof assignment.shiftTypeName === 'string' &&
+    assignment.shiftTypeName.length > 0 &&
+    typeof assignment.shiftTypeTextColor === 'string' &&
+    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
+    typeof assignment.slotPosition === 'number' &&
+    Number.isInteger(assignment.slotPosition) &&
+    assignment.slotPosition >= 1 &&
+    typeof assignment.startsAt === 'string' &&
+    typeof assignment.version === 'number' &&
+    Number.isInteger(assignment.version) &&
+    assignment.version >= 1 &&
+    (assignment.actualMemberId === undefined || typeof assignment.actualMemberId === 'string') &&
+    (assignment.actualMemberName === undefined ||
+      typeof assignment.actualMemberName === 'string') &&
+    (assignment.plannedMemberId === undefined || typeof assignment.plannedMemberId === 'string') &&
+    (assignment.plannedMemberName === undefined || typeof assignment.plannedMemberName === 'string')
+  );
+}
+
+function isDutyAdjustmentConflict(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const conflict = value as {
+    assignmentId?: unknown;
+    code?: unknown;
+    membershipId?: unknown;
+    message?: unknown;
+  };
+  return (
+    (conflict.code === 'MEMBER_LEAVE_OVERLAP' ||
+      conflict.code === 'MEMBER_NOT_ELIGIBLE' ||
+      conflict.code === 'MEMBER_TIME_OVERLAP') &&
+    typeof conflict.membershipId === 'string' &&
+    conflict.membershipId.length > 0 &&
+    typeof conflict.message === 'string' &&
+    (conflict.assignmentId === undefined || typeof conflict.assignmentId === 'string')
+  );
+}
+
+function isDutyAdjustmentPreview(value: unknown): value is DutyAdjustmentPreview {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const preview = value as Partial<DutyAdjustmentPreview>;
+  return (
+    Array.isArray(preview.conflicts) &&
+    preview.conflicts.every(isDutyAdjustmentConflict) &&
+    isDutyAdjustmentAssignmentSummary(preview.coveredAssignment) &&
+    (preview.deductedMemberName === undefined || typeof preview.deductedMemberName === 'string') &&
+    typeof preview.groupId === 'string' &&
+    preview.groupId.length > 0 &&
+    isDutyAdjustmentRequestStatus(preview.nextStatus) &&
+    typeof preview.overtimeAutoAccepts === 'boolean' &&
+    (preview.overtimeMemberName === undefined || typeof preview.overtimeMemberName === 'string') &&
+    typeof preview.requiresApproval === 'boolean'
+  );
+}
+
+function isDutyAdjustmentRequestStatus(value: unknown): boolean {
+  return (
+    value === 'pending_target' ||
+    value === 'pending_approval' ||
+    value === 'completed' ||
+    value === 'rejected' ||
+    value === 'cancelled' ||
+    value === 'revoked'
+  );
+}
+
+function isDutyAdjustmentRequest(value: unknown): value is DutyAdjustmentRequest {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const request = value as Partial<DutyAdjustmentRequest>;
+  return (
+    typeof request.id === 'string' &&
+    request.id.length > 0 &&
+    typeof request.groupId === 'string' &&
+    request.groupId.length > 0 &&
+    typeof request.coveredAssignmentId === 'string' &&
+    request.coveredAssignmentId.length > 0 &&
+    typeof request.overtimeMembershipId === 'string' &&
+    request.overtimeMembershipId.length > 0 &&
+    typeof request.deductedMembershipId === 'string' &&
+    request.deductedMembershipId.length > 0 &&
+    typeof request.assignmentVersion === 'number' &&
+    Number.isInteger(request.assignmentVersion) &&
+    isDutyAdjustmentRequestStatus(request.status) &&
+    typeof request.version === 'number' &&
+    Number.isInteger(request.version) &&
+    request.version >= 1 &&
+    typeof request.createdAt === 'string' &&
+    isDutyAdjustmentAssignmentSummary(request.coveredAssignment) &&
+    (request.overtimeMemberName === undefined || typeof request.overtimeMemberName === 'string') &&
+    (request.deductedMemberName === undefined || typeof request.deductedMemberName === 'string') &&
+    (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
+    (request.decidedAt === undefined || typeof request.decidedAt === 'string') &&
+    (request.reason === undefined || typeof request.reason === 'string')
+  );
+}
+
+function isDutyAdjustmentRequestList(value: unknown): value is DutyAdjustmentRequest[] {
+  return Array.isArray(value) && value.every(isDutyAdjustmentRequest);
+}
+
+function isGroupDutyAdjustmentSettings(value: unknown): value is GroupDutyAdjustmentSettings {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { requiresApproval?: unknown }).requiresApproval === 'boolean'
   );
 }
 

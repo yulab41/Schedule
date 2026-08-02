@@ -16,6 +16,7 @@ import type {
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
+  dutyAdjustments,
   groupMemberships,
   groups,
   leaveRequests,
@@ -405,6 +406,10 @@ export class SwapService {
         userMessage: '其中一个班次已有待处理的换班申请，请刷新后重试。',
       });
     }
+    await this.assertNoActiveDutyAdjustments(transaction, authorization.group.id, [
+      context.initiatorAssignment.id,
+      context.targetAssignment.id,
+    ]);
 
     const swapRequestId = randomUUID();
     const status = context.nextStatus;
@@ -1105,6 +1110,35 @@ export class SwapService {
         ),
       )
       .for('update');
+  }
+
+  private async assertNoActiveDutyAdjustments(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    assignmentIds: readonly string[],
+  ): Promise<void> {
+    const activeAdjustments = await transaction
+      .select()
+      .from(dutyAdjustments)
+      .where(
+        and(
+          eq(dutyAdjustments.groupId, groupId),
+          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval', 'completed']),
+          inArray(dutyAdjustments.coveredAssignmentId, [...assignmentIds]),
+          isNull(dutyAdjustments.deletedAt),
+        ),
+      )
+      .for('update');
+    if (activeAdjustments.length > 0) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: {
+          dutyAdjustmentIds: activeAdjustments.map((adjustment) => adjustment.id),
+        },
+        statusCode: 409,
+        userMessage: '其中一个班次已有待处理或生效中的加扣班关系，请先撤销后再换班。',
+      });
+    }
   }
 
   private assertStoredAssignmentVersions(context: SwapContext, request: LockedSwapRequest): void {
