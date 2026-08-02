@@ -9,10 +9,12 @@
     "pnpm": ">=11.0.0 <12.0.0"
   },
   "scripts": {
-    "build": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run build",
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\"",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\"",
-    "lint": "eslint \"{apps,packages}/**/*.{ts,vue}\" --max-warnings=0",
+    "build": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run build && pnpm holidays:build",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\" \"infra/scripts/**/*.ts\"",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\" \"infra/scripts/**/*.ts\"",
+    "holidays:build": "tsc -p infra/scripts/tsconfig.json",
+    "holidays:import": "node --env-file=.env infra/scripts/dist/import-holidays.js",
+    "lint": "eslint \"{apps,packages}/**/*.{ts,vue}\" \"infra/scripts/**/*.ts\" --max-warnings=0",
     "test": "vitest run",
     "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run typecheck",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"

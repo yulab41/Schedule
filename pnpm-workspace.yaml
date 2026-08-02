@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - infra/scripts
 
 allowBuilds:
   core-js-pure: false

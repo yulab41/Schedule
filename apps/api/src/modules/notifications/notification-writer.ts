@@ -17,7 +17,7 @@ export interface NotificationWriteInput {
   readonly body: string;
   readonly browserDelivery?: boolean;
   readonly excludeRecipientUserIds?: readonly string[];
-  readonly groupId: string;
+  readonly groupId?: string;
   readonly notificationType: string;
   readonly objectId?: string;
   readonly objectType?: string;
@@ -41,7 +41,7 @@ export class NotificationWriter {
       const notificationId = randomUUID();
       await transaction.insert(notifications).values({
         body: input.body,
-        groupId: input.groupId,
+        ...(input.groupId === undefined ? {} : { groupId: input.groupId }),
         id: notificationId,
         notificationType: input.notificationType,
         ...(input.objectId === undefined ? {} : { objectId: input.objectId }),
@@ -81,7 +81,11 @@ export class NotificationWriter {
   ): Promise<readonly string[]> {
     const userIds = new Set(input.recipientUserIds ?? []);
 
-    if (input.recipientMembershipIds !== undefined && input.recipientMembershipIds.length > 0) {
+    if (
+      input.groupId !== undefined &&
+      input.recipientMembershipIds !== undefined &&
+      input.recipientMembershipIds.length > 0
+    ) {
       const rows = await transaction
         .select({ userId: groupMemberships.userId })
         .from(groupMemberships)
@@ -101,7 +105,7 @@ export class NotificationWriter {
       }
     }
 
-    if (input.administratorRecipients === true) {
+    if (input.groupId !== undefined && input.administratorRecipients === true) {
       const rows = await transaction
         .select({ userId: groupMemberships.userId })
         .from(groupMemberships)
@@ -131,31 +135,35 @@ export class NotificationWriter {
   private async shouldDispatchBrowser(
     transaction: DatabaseTransaction,
     userId: string,
-    groupId: string,
+    groupId: string | undefined,
   ): Promise<boolean> {
-    const [membership] = await transaction
-      .select({ id: groupMemberships.id })
-      .from(groupMemberships)
-      .where(
-        and(
-          eq(groupMemberships.groupId, groupId),
-          eq(groupMemberships.userId, userId),
-          eq(groupMemberships.status, 'active'),
-          isNull(groupMemberships.deletedAt),
-        ),
-      )
-      .limit(1);
-    if (membership === undefined) {
-      return false;
-    }
+    if (groupId !== undefined) {
+      const [membership] = await transaction
+        .select({ id: groupMemberships.id })
+        .from(groupMemberships)
+        .where(
+          and(
+            eq(groupMemberships.groupId, groupId),
+            eq(groupMemberships.userId, userId),
+            eq(groupMemberships.status, 'active'),
+            isNull(groupMemberships.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (membership === undefined) {
+        return false;
+      }
 
-    const [preference] = await transaction
-      .select({ browserNotificationsEnabled: notificationPreferences.browserNotificationsEnabled })
-      .from(notificationPreferences)
-      .where(eq(notificationPreferences.membershipId, membership.id))
-      .limit(1);
-    if (preference !== undefined && preference.browserNotificationsEnabled === 0) {
-      return false;
+      const [preference] = await transaction
+        .select({
+          browserNotificationsEnabled: notificationPreferences.browserNotificationsEnabled,
+        })
+        .from(notificationPreferences)
+        .where(eq(notificationPreferences.membershipId, membership.id))
+        .limit(1);
+      if (preference !== undefined && preference.browserNotificationsEnabled === 0) {
+        return false;
+      }
     }
 
     const [subscription] = await transaction

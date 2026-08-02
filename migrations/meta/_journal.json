@@ -78,6 +78,13 @@
       "when": 1785542400010,
       "tag": "0011_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785542400011,
+      "tag": "0012_holiday_calendar",
+      "breakpoints": true
     }
   ]
 }

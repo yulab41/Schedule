@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import type { DatabaseClient } from '@schedule/database';
 import {
   groups,
@@ -7,13 +5,13 @@ import {
   notificationSettings,
   schedulePeriods,
   shiftAssignments,
-  type DatabaseTransaction,
   withTransaction,
 } from '@schedule/database';
-import { and, eq, gt, isNull, lte, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte } from 'drizzle-orm';
 
 import { NotificationWriter } from '../modules/notifications/notification-writer.js';
 import { normalizeReminderHours } from '../modules/notifications/reminder-hours.js';
+import { claimBatch } from './notification-batch.js';
 
 const defaultDutyReminderHours: readonly number[] = [24, 2];
 const maximumReminderHours = 720;
@@ -232,19 +230,6 @@ export class DutyReminderJob {
       return 'created';
     });
   }
-}
-
-async function claimBatch(
-  transaction: DatabaseTransaction,
-  batchKey: string,
-  jobType: string,
-): Promise<boolean> {
-  const [header] = await transaction.execute(
-    sql`INSERT IGNORE INTO notification_batches (id, batch_key, job_type)
-        VALUES (${randomUUID()}, ${batchKey}, ${jobType})`,
-  );
-
-  return header.affectedRows > 0;
 }
 
 function isInsideReminderWindow(startsAt: Date, leadHours: number, now: Date): boolean {

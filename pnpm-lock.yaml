@@ -68,6 +68,10 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.4.3
+    devDependencies:
+      '@schedule/test-fixtures':
+        specifier: workspace:*
+        version: link:../../packages/test-fixtures
 
   apps/web:
     dependencies:
@@ -103,6 +107,18 @@ importers:
         specifier: ^3.0.7
         version: 3.3.8(typescript@5.9.3)
 
+  infra/scripts:
+    dependencies:
+      '@schedule/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@schedule/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(mysql2@3.23.2(@types/node@24.13.3))
+
   packages/contracts: {}
 
   packages/database:
@@ -119,6 +135,8 @@ importers:
       '@schedule/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/test-fixtures: {}
 
 packages:
 

@@ -1,0 +1,15 @@
+{
+  "name": "@schedule/holiday-import-script",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@schedule/contracts": "workspace:*",
+    "@schedule/database": "workspace:*",
+    "drizzle-orm": "0.45.2"
+  }
+}

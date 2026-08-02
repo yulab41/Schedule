@@ -1262,6 +1262,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_settings`);
   await client.database.execute(sql`DROP TABLE IF EXISTS web_push_subscriptions`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_batches`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS holiday_dates`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS holiday_calendar_versions`);
   await client.database.execute(sql`DROP TABLE IF EXISTS shift_assignments`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_periods`);
   await client.database.execute(sql`DROP TABLE IF EXISTS audit_logs`);

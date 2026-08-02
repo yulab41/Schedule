@@ -34,6 +34,9 @@ import { createPushDispatcher } from './modules/notifications/notification-dispa
 import { NotificationQueryService } from './modules/notifications/notification-query.js';
 import { registerNotificationRoutes } from './modules/notifications/notification-routes.js';
 import { NotificationService } from './modules/notifications/notification-service.js';
+import { registerHolidayRoutes } from './modules/holidays/holiday-routes.js';
+import { HolidayService } from './modules/holidays/holiday-service.js';
+import { parseHolidayAdminUids } from './modules/holidays/holiday-admin.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -71,6 +74,7 @@ const normalizedSensitiveLogFields = new Set(
 export interface CreateAppOptions {
   readonly authPort?: AuthPort;
   readonly databaseClient?: DatabaseClient;
+  readonly holidayAdminUids?: ReadonlySet<string>;
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
   readonly readTrustedCloudbaseContext?: TrustedCloudbaseContextReader;
@@ -122,6 +126,13 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       app,
       new NotificationQueryService(options.databaseClient),
       new NotificationService(options.databaseClient, createPushDispatcher(process.env)),
+    );
+    registerHolidayRoutes(
+      app,
+      new HolidayService(
+        options.databaseClient,
+        options.holidayAdminUids ?? parseHolidayAdminUids(process.env),
+      ),
     );
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
