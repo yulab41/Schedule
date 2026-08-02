@@ -39,6 +39,8 @@ import { HolidayService } from './modules/holidays/holiday-service.js';
 import { parseHolidayAdminUids } from './modules/holidays/holiday-admin.js';
 import { registerStatisticsRoutes } from './modules/statistics/statistics-routes.js';
 import { StatisticsService } from './modules/statistics/statistics-service.js';
+import { registerExportRoutes } from './modules/exports/export-routes.js';
+import { ExportService } from './modules/exports/export-service.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -137,6 +139,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       ),
     );
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
+    registerExportRoutes(app, new ExportService(options.databaseClient));
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

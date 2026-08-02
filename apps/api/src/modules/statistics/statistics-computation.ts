@@ -37,25 +37,33 @@ export interface MonthStatisticsResult {
   readonly summary: StatisticsSummary;
 }
 
+export interface StatisticsComputationFilters {
+  readonly membershipIds?: readonly string[];
+  readonly roleIds?: readonly string[];
+}
+
 export class StatisticsComputation {
   public async computeMonth(
     transaction: DatabaseTransaction,
     groupId: string,
     businessMonth: string,
+    filters: StatisticsComputationFilters = {},
   ): Promise<MonthStatisticsResult> {
+    const periodConditions = [
+      eq(schedulePeriods.groupId, groupId),
+      eq(schedulePeriods.businessMonth, businessMonth),
+      eq(schedulePeriods.status, 'published'),
+      isNull(schedulePeriods.deletedAt),
+    ];
+    if (filters.roleIds !== undefined && filters.roleIds.length > 0) {
+      periodConditions.push(inArray(schedulePeriods.scheduleRoleId, [...filters.roleIds]));
+    }
     const periods = await transaction
       .select()
       .from(schedulePeriods)
-      .where(
-        and(
-          eq(schedulePeriods.groupId, groupId),
-          eq(schedulePeriods.businessMonth, businessMonth),
-          eq(schedulePeriods.status, 'published'),
-          isNull(schedulePeriods.deletedAt),
-        ),
-      );
+      .where(and(...periodConditions));
     const periodIds = periods.map((period) => period.id);
-    const assignments =
+    let assignments =
       periodIds.length === 0
         ? []
         : await transaction
@@ -67,6 +75,16 @@ export class StatisticsComputation {
                 isNull(shiftAssignments.deletedAt),
               ),
             );
+    if (filters.membershipIds !== undefined && filters.membershipIds.length > 0) {
+      const membershipSet = new Set(filters.membershipIds);
+      assignments = assignments.filter(
+        (assignment) =>
+          (assignment.plannedMembershipId !== null &&
+            membershipSet.has(assignment.plannedMembershipId)) ||
+          (assignment.actualMembershipId !== null &&
+            membershipSet.has(assignment.actualMembershipId)),
+      );
+    }
     const roleIds = [...new Set(periods.map((period) => period.scheduleRoleId))];
     const roles =
       roleIds.length === 0

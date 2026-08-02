@@ -1171,6 +1171,69 @@ describe('Web API client', () => {
       status: 200,
     });
   });
+
+  it('creates, polls, and downloads export jobs with validated responses', async () => {
+    const pendingJob = {
+      createdAt: '2026-08-02T00:00:00.000Z',
+      exportType: 'schedule',
+      groupId: 'group-1',
+      id: 'export-job-1',
+      period: '2026-10',
+      periodType: 'month',
+      status: 'pending',
+    } as const;
+    const completedJob = {
+      ...pendingJob,
+      completedAt: '2026-08-02T00:00:01.000Z',
+      expiresAt: '2026-08-02T00:15:01.000Z',
+      rowCount: 2,
+      status: 'completed',
+    } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(pendingJob), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(completedJob), { status: 200 }))
+      .mockResolvedValueOnce(new Response('日期,星期\r\n2026-10-01,周四\r\n', { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const created = await client.createExportJob('group-1', {
+      exportType: 'schedule',
+      period: '2026-10',
+    });
+    expect(created.status).toBe('pending');
+    const fetched = await client.getExportJob('group-1', 'export-job-1');
+    expect(fetched.status).toBe('completed');
+    expect(fetched.rowCount).toBe(2);
+    const csv = await client.downloadExport('group-1', 'export-job-1');
+    expect(csv).toContain('2026-10-01');
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/exports',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/groups/group-1/exports/export-job-1/download',
+      expect.objectContaining({ method: 'GET' }),
+    );
+
+    const malformedClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(JSON.stringify({ id: 'export-job-1' }), { status: 201 })),
+    });
+    await expect(
+      malformedClient.createExportJob('group-1', {
+        exportType: 'schedule',
+        period: '2026-10',
+      }),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 201 });
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

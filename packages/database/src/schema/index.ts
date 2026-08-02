@@ -21,6 +21,7 @@ export * from './duty-adjustments.js';
 export * from './notifications.js';
 export * from './holidays.js';
 export * from './statistics.js';
+export * from './exports.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 

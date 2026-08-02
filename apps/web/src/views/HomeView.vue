@@ -14,6 +14,7 @@ import DutyAdjustmentPanel from '../features/duty-adjustments/DutyAdjustmentPane
 import EventCenterView from './events/EventCenterView.vue';
 import NotificationSettingsPanel from '../features/notifications/NotificationSettingsPanel.vue';
 import StatisticsView from './statistics/StatisticsView.vue';
+import ExportDialog from '../features/exports/ExportDialog.vue';
 import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
 
@@ -24,6 +25,7 @@ const currentGroupId = ref<string>();
 const errorMessage = ref<string>();
 const isLoading = ref(false);
 const activeTab = ref('calendar');
+const exportDialogVisible = ref(false);
 
 onMounted(() => {
   void refreshGroups();
@@ -83,6 +85,17 @@ function getErrorMessage(error: unknown): string {
       />
       <section v-if="currentGroup() !== undefined" class="current-group-workbench">
         <h2>{{ currentGroup()?.name }}</h2>
+        <div v-if="currentGroup()?.role !== 'member'" class="workbench-actions">
+          <t-button variant="outline" size="small" @click="exportDialogVisible = true">
+            导出
+          </t-button>
+        </div>
+        <ExportDialog
+          v-if="exportDialogVisible"
+          v-model="exportDialogVisible"
+          :group="currentGroup()!"
+          @close="exportDialogVisible = false"
+        />
         <t-tabs v-model="activeTab">
           <t-tab-panel value="calendar" label="排班日历">
             <CalendarView :group="currentGroup()!" />

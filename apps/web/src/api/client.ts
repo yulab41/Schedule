@@ -8,6 +8,7 @@ import type {
   ApprovedLeaveRequestResult,
   CalendarReadModel,
   ClaimGroupResponse,
+  CreateScheduleExportInput,
   CreateDirectDutyAdjustmentInput,
   CreateDutyAdjustmentRequestInput,
   CreateLeaveRequestInput,
@@ -52,6 +53,7 @@ import type {
   ScheduleEventDetail,
   ScheduleEventPage,
   ScheduleEventQuery,
+  ScheduleExportJob,
   SchedulingConfig,
   ShiftType,
   SwapPairInput,
@@ -83,7 +85,10 @@ export interface ApiClient {
     dutyAdjustmentId: string,
     input: DutyAdjustmentMutationInput,
   ): Promise<DutyAdjustmentRequest>;
+  createExportJob(groupId: string, input: CreateScheduleExportInput): Promise<ScheduleExportJob>;
   deletePushSubscription(): Promise<{ readonly deleted: boolean }>;
+  downloadExport(groupId: string, exportJobId: string): Promise<string>;
+  getExportJob(groupId: string, exportJobId: string): Promise<ScheduleExportJob>;
   getGroupNotificationSettings(
     groupId: string,
   ): Promise<{ readonly dutyReminderHours: readonly number[]; readonly groupId: string }>;
@@ -311,6 +316,38 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const fetchImplementation = options.fetch ?? fetch;
 
   return {
+    createExportJob(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/exports`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isScheduleExportJob,
+      );
+    },
+    downloadExport(groupId, exportJobId) {
+      return requestText(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}/download`,
+        { method: 'GET' },
+      );
+    },
+    getExportJob(groupId, exportJobId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}`,
+        { method: 'GET' },
+        isScheduleExportJob,
+      );
+    },
     getMonthStatistics(groupId, businessMonth) {
       return requestJson(
         options.auth,
@@ -1326,6 +1363,51 @@ async function requestJson<ResponseBody>(
   }
 
   return body;
+}
+
+async function requestText(
+  auth: CloudbaseAuthClient,
+  fetchImplementation: typeof fetch,
+  baseUrl: string,
+  path: string,
+  init: { readonly method: 'GET' },
+): Promise<string> {
+  const session = getAuthenticatedSession(await auth.getSession());
+  if (session === undefined) {
+    throw new ApiClientError({
+      code: 'AUTHENTICATION_REQUIRED',
+      message: '登录状态已失效，请重新登录。',
+      status: 401,
+    });
+  }
+
+  let response: Response;
+  try {
+    response = await fetchImplementation(joinUrl(baseUrl, path), {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      method: init.method,
+    });
+  } catch {
+    throw new ApiClientError({
+      code: 'NETWORK_ERROR',
+      message: '无法连接到服务，请检查网络后重试。',
+    });
+  }
+
+  const text = await response.text();
+  if (!response.ok) {
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = undefined;
+    }
+    throw toApiClientError(response.status, body);
+  }
+
+  return text;
 }
 
 function isAddRosterEntriesResponse(value: unknown): value is AddRosterEntriesResponse {
@@ -2999,6 +3081,31 @@ function isStatisticsRecalculateCheckResult(
     isStatisticsSummary(result.recomputed) &&
     isStatisticsSummary(result.snapshot) &&
     typeof result.snapshotVersion === 'number'
+  );
+}
+
+function isScheduleExportJob(value: unknown): value is ScheduleExportJob {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const job = value as Partial<ScheduleExportJob>;
+  return (
+    typeof job.id === 'string' &&
+    typeof job.groupId === 'string' &&
+    (job.exportType === 'schedule' || job.exportType === 'statistics') &&
+    (job.periodType === 'month' || job.periodType === 'year') &&
+    typeof job.period === 'string' &&
+    (job.status === 'pending' ||
+      job.status === 'running' ||
+      job.status === 'completed' ||
+      job.status === 'failed') &&
+    typeof job.createdAt === 'string' &&
+    (job.completedAt === undefined || typeof job.completedAt === 'string') &&
+    (job.error === undefined || typeof job.error === 'string') &&
+    (job.expiresAt === undefined || typeof job.expiresAt === 'string') &&
+    (job.membershipId === undefined || typeof job.membershipId === 'string') &&
+    (job.roleId === undefined || typeof job.roleId === 'string') &&
+    (job.rowCount === undefined || typeof job.rowCount === 'number')
   );
 }
 
