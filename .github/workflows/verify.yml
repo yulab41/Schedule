@@ -46,7 +46,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check GitHub configuration formatting
-        run: pnpm exec prettier --check ".github/**/*.yml"
+        run: >-
+          pnpm exec prettier --check ".github/**/*.yml"
+          "docs/deployment/**/*.md"
+          "infra/cloudbase/**/*.{json,js}"
 
       - name: Check formatting
         run: pnpm format:check

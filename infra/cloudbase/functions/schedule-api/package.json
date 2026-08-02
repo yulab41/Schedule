@@ -1,0 +1,11 @@
+{
+  "name": "schedule-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-contained CloudBase HTTP event function for the scheduling API.",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  }
+}

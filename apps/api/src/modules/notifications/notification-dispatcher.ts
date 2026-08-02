@@ -1,8 +1,4 @@
-import { createRequire } from 'node:module';
-
 import type { JsonObject } from '@schedule/contracts';
-
-const require = createRequire(import.meta.url);
 
 export interface PushSubscriptionDetails {
   readonly auth: string;
@@ -31,13 +27,18 @@ interface WebPushLibrary {
 export class WebPushDispatcher implements PushDispatcher {
   public readonly isConfigured: boolean;
   public readonly vapidPublicKey: string | null;
-  private readonly library: WebPushLibrary;
+  private readonly privateKey: string | undefined;
+  private readonly publicKey: string | undefined;
+  private readonly subject: string | undefined;
+  private libraryPromise: Promise<WebPushLibrary> | undefined;
 
   public constructor(values: NodeJS.ProcessEnv) {
-    this.library = require('web-push') as WebPushLibrary;
     const subject = values.VAPID_SUBJECT;
     const publicKey = values.VAPID_PUBLIC_KEY;
     const privateKey = values.VAPID_PRIVATE_KEY;
+    this.subject = subject;
+    this.publicKey = publicKey;
+    this.privateKey = privateKey;
     this.isConfigured =
       subject !== undefined &&
       subject.length > 0 &&
@@ -45,15 +46,30 @@ export class WebPushDispatcher implements PushDispatcher {
       publicKey.length > 0 &&
       privateKey !== undefined &&
       privateKey.length > 0;
-    this.vapidPublicKey = this.isConfigured ? (publicKey as string) : null;
-
-    if (this.isConfigured) {
-      this.library.setVapidDetails(subject as string, publicKey as string, privateKey as string);
-    }
+    this.vapidPublicKey = this.isConfigured && publicKey !== undefined ? publicKey : null;
   }
 
   public async send(subscription: PushSubscriptionDetails, payload: PushPayload): Promise<void> {
-    await this.library.sendNotification(subscription, JSON.stringify(payload));
+    const library = await this.getLibrary();
+    await library.sendNotification(subscription, JSON.stringify(payload));
+  }
+
+  private getLibrary(): Promise<WebPushLibrary> {
+    this.libraryPromise ??= import('web-push').then((module) => {
+      const library = (module as { readonly default?: WebPushLibrary }).default;
+      if (library === undefined) {
+        throw new Error('web-push did not expose a default export.');
+      }
+      if (this.isConfigured) {
+        library.setVapidDetails(
+          this.subject as string,
+          this.publicKey as string,
+          this.privateKey as string,
+        );
+      }
+      return library;
+    });
+    return this.libraryPromise;
   }
 }
 

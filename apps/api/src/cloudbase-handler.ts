@@ -20,6 +20,13 @@ export interface CloudbaseHttpResponse {
   readonly statusCode: number;
 }
 
+/**
+ * Path prefix used by the CloudBase HTTP access service for the same-domain
+ * `/api` route. The gateway may pass the full path (with this prefix) or the
+ * remainder after the trigger path, so the handler accepts both forms.
+ */
+export const cloudbaseApiPathPrefix = '/api';
+
 export function createCloudbaseHandler(app?: FastifyInstance) {
   let runtimeApp = app;
 
@@ -53,6 +60,16 @@ export function createCloudbaseHandler(app?: FastifyInstance) {
 
 export const handler = createCloudbaseHandler();
 
+export function normalizeCloudbasePath(path: string): string {
+  if (path === cloudbaseApiPathPrefix) {
+    return '/';
+  }
+
+  return path.startsWith(`${cloudbaseApiPathPrefix}/`)
+    ? path.slice(cloudbaseApiPathPrefix.length)
+    : path;
+}
+
 function getHeaders(headers: CloudbaseHttpEvent['headers']): Record<string, string> | undefined {
   if (headers === undefined) {
     return undefined;
@@ -80,7 +97,7 @@ function getResponseHeaders(headers: OutgoingHttpHeaders): Record<string, string
 }
 
 function getUrl(event: CloudbaseHttpEvent): string {
-  const url = new URL(event.path ?? '/', 'http://cloudbase.local');
+  const url = new URL(normalizeCloudbasePath(event.path ?? '/'), 'http://cloudbase.local');
 
   for (const [name, value] of Object.entries(event.queryStringParameters ?? {})) {
     if (value !== undefined) {

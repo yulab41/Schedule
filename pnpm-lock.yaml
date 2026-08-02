@@ -8,12 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@cloudbase/cli':
+        specifier: 3.7.0
+        version: 3.7.0
       '@eslint/js':
         specifier: ^9.37.0
         version: 9.39.5
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
+      esbuild:
+        specifier: ^0.28.1
+        version: 0.28.1
       eslint:
         specifier: ^9.37.0
         version: 9.39.5
@@ -242,6 +248,10 @@ packages:
         optional: true
       ws:
         optional: true
+
+  '@cloudbase/cli@3.7.0':
+    resolution: {integrity: sha512-RvClk8kG0aoUgrplyDto/gpKP5Q2z8Yw15Y9niRwU5/DY7R8ZijERtg52YW/zJjO6M4jlRozYXYNBLRe2Q1DRg==}
+    hasBin: true
 
   '@cloudbase/database@1.4.3':
     resolution: {integrity: sha512-JzmdsGjy9LwzSQQ0Fv4OlNHNK61BRXdJSembTpy4408AQA3q2Ip3N5eB3v9OpAlFMvP/6MGmOQ/ZuUPKfJddJA==}
@@ -2451,6 +2461,8 @@ snapshots:
     optionalDependencies:
       '@cloudbase/signature-nodejs': 2.2.0
       jsonwebtoken: 9.0.3
+
+  '@cloudbase/cli@3.7.0': {}
 
   '@cloudbase/database@1.4.3':
     dependencies:

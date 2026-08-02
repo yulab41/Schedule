@@ -1,0 +1,114 @@
+name: Deploy Development
+
+on:
+  workflow_run:
+    workflows: [Verify]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudbase-development
+  cancel-in-progress: false
+
+jobs:
+  deploy-development:
+    name: Deploy CloudBase development environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: development
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web app and CloudBase function bundles
+        env:
+          VITE_API_BASE_URL: /api
+          VITE_CLOUDBASE_ENV_ID: ${{ vars.CLOUDBASE_DEV_ENV_ID }}
+        run: |
+          pnpm build
+          pnpm cloudbase:build
+
+      - name: Log in to CloudBase CLI
+        working-directory: infra/cloudbase
+        env:
+          TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
+        run: pnpm exec tcb login --apiKeyId "$TENCENT_SECRET_ID" --apiKey "$TENCENT_SECRET_KEY"
+
+      - name: Deploy API cloud function
+        working-directory: infra/cloudbase
+        env:
+          CLOUDBASE_DEV_ENV_ID: ${{ vars.CLOUDBASE_DEV_ENV_ID }}
+        run: |
+          if ! pnpm exec tcb fn code update schedule-api -e "$CLOUDBASE_DEV_ENV_ID" --json; then
+            pnpm exec tcb fn deploy schedule-api -e "$CLOUDBASE_DEV_ENV_ID" --json
+          fi
+
+      - name: Deploy scheduled-jobs cloud function
+        working-directory: infra/cloudbase
+        env:
+          CLOUDBASE_DEV_ENV_ID: ${{ vars.CLOUDBASE_DEV_ENV_ID }}
+        run: |
+          if ! pnpm exec tcb fn code update schedule-jobs -e "$CLOUDBASE_DEV_ENV_ID" --json; then
+            pnpm exec tcb fn deploy schedule-jobs -e "$CLOUDBASE_DEV_ENV_ID" --json
+          fi
+
+      - name: Deploy static web hosting
+        working-directory: infra/cloudbase
+        env:
+          CLOUDBASE_DEV_ENV_ID: ${{ vars.CLOUDBASE_DEV_ENV_ID }}
+        run: >-
+          pnpm exec tcb hosting deploy ../../apps/web/dist
+          -e "$CLOUDBASE_DEV_ENV_ID" --concurrency 10 --retry-count 3 --json
+
+      - name: Check API health through the /api route
+        env:
+          CLOUDBASE_DEV_DOMAIN: ${{ vars.CLOUDBASE_DEV_DOMAIN }}
+        run: |
+          for attempt in $(seq 1 12); do
+            code=$(curl -sS -o /tmp/api-health.json -D /tmp/api-health.headers \
+              -w '%{http_code}' "https://${CLOUDBASE_DEV_DOMAIN}/api/health" || true)
+            if [ "$code" = "200" ] && grep -q '"status"' /tmp/api-health.json; then
+              grep -qi 'x-request-id:' /tmp/api-health.headers || true
+              echo "API health OK"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "API health check failed" >&2
+          exit 1
+
+      - name: Check web page
+        env:
+          CLOUDBASE_DEV_DOMAIN: ${{ vars.CLOUDBASE_DEV_DOMAIN }}
+        run: |
+          for attempt in $(seq 1 6); do
+            code=$(curl -sS -o /tmp/web-index.html -w '%{http_code}' \
+              "https://${CLOUDBASE_DEV_DOMAIN}/" || true)
+            if [ "$code" = "200" ] && grep -q 'id="app"' /tmp/web-index.html; then
+              echo "Web page OK"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Web page check failed" >&2
+          exit 1
