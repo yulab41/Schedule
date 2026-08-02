@@ -51,7 +51,7 @@ FLUSH PRIVILEGES;
 2. 静态网站托管设置页配置 404 回落（Vue history 模式刷新路由必需）：新版控制台在「重定向规则 → 错误码重定向」把 404 重定向到 `index.html`（旧版在「设置 → 错误页面」填 `index.html`）。等价实现：COS `putBucketWebsite` 的 `RoutingRules` 加 `HttpErrorCodeReturnedEquals=404 → ReplaceKeyWith=index.html`（本次开发环境即用此方式，实测生效）。
 3. HTTP 访问服务中，把开发默认域名关联两类资源：
    - 静态网站托管：应用模式，触发路径 `/`；
-   - 云函数 `schedule-api`：资源类型选择 云函数（`SCF`，事件型函数；不要选 Web 云函数 `WEB_SCF`），触发路径 `/api`，开启路径透传；网关鉴权保持关闭，由 API 自身按 `x-cloudbase-context` 校验登录态（这样 `/api/health` 可匿名探测，业务路由仍返回 401）。
+   - 云函数 `schedule-api`：资源类型选择 云函数（`SCF`，事件型函数；不要选 Web 云函数 `WEB_SCF`），触发路径 `/api`，开启路径透传；网关鉴权必须开启（否则网关不校验登录态、也不注入 `x-cloudbase-context`，登录后业务请求会全部 401 并陷入“请先登录”循环）。为了保持匿名健康检查，再单独添加一条 `/api/health` 路由指向同一函数、关闭鉴权（实测更具体的路径优先匹配，匿名 200、其余 `/api/*` 走鉴权）。
 
 开发默认域名只用于开发和内部测试；2025 年 10 月后新建环境的默认域名会保留访问提示中间页，正式环境必须走任务 31 的备案自定义域名。
 
