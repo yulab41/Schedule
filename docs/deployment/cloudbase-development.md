@@ -2,6 +2,8 @@
 
 本文档对应实施计划任务 30：把 `main` 分支部署到独立 CloudBase 开发环境 `schedule-dev-d1geh4w1l4af7359d`，前端与 API 使用同一开发域名，`/api` 通过 CloudBase HTTP 访问服务路由到云函数。
 
+> 实战补充：2026-08-02 上线过程的完整踩坑记录、可复用命令和当前线上配置见 `docs/deployment/cloudbase-ops-notes.md`，动手前先读。
+
 ## 架构
 
 - Web 静态资源：CloudBase 静态网站托管（Vue history 模式，404 通过“错误码重定向”回落到 `index.html`）。
@@ -112,14 +114,15 @@ tcb --config-file infra/cloudbase/cloudbaserc.json \
 
 1. 先在 CloudBase 控制台或 `docs/operations/backup-and-restore.md` 流程完成迁移前备份。
 2. 确保本机可以访问 CloudBase MySQL（使用「直连服务」外网地址并把本机公网 IP 加入放行，或在 DMC 执行；也可以使用 `@cloudbase/manager-node` 的 `mysql.runSql` 通过 CloudBase 接口直接执行 SQL）。
-3. 以 CloudBase MySQL 的连接信息临时覆盖 `.env` 中的 `MYSQL_*`（不要把值提交到仓库），然后执行：
+3. CynosDB 的默认 `sql_mode` 与本地 MySQL 8.4 不同：迁移前先执行 `SET SESSION sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'`（去掉 `NO_ZERO_DATE`），否则日期为 0000-00-00 的既有数据会导致 DDL 失败。
+4. 以 CloudBase MySQL 的连接信息临时覆盖 `.env` 中的 `MYSQL_*`（不要把值提交到仓库），然后执行：
 
 ```bash
 pnpm --filter @schedule/api migrate
 ```
 
-4. 确认迁移日志成功且迁移表数量与 `docs/project-status.md` 记录一致，恢复本地 `.env`。
-5. 迁移后再部署新代码；部署失败时保留上一可用版本并回滚，不要在同一构建中混合迁移与发布。
+5. 确认迁移日志成功且迁移表数量与 `docs/project-status.md` 记录一致，恢复本地 `.env`。
+6. 迁移后再部署新代码；部署失败时保留上一可用版本并回滚，不要在同一构建中混合迁移与发布。
 
 ## 三、GitHub 环境与密钥
 

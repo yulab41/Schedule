@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Four — Holidays and Statistics
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 29 are complete and validated. Task 29's checkpoint commit message is `test: validate concurrency performance and security`. Task 30's deployment pipeline and live environment wiring are complete and verified except the final signed-in browser round trip.
+- Implementation code: Tasks 1 through 29 are complete and validated. Task 29's checkpoint commit message is `test: validate concurrency performance and security`. Task 30's deployment pipeline and live environment wiring are complete and verified; the signed-in browser flow is in progress (login and page rendering verified, profile/group/schedule/workflow round trip remains).
 
 ## Approved Sources
 
@@ -132,16 +132,17 @@ This file is the concise handoff entry point for every new implementation conver
 
 ## Active Batch
 
-- Task 30 (in progress): deploy and configure the CloudBase development environment. Everything except the signed-in browser round trip is done and verified: `/api` route live with `SCF` upstream, 7 timer triggers created, public MySQL connected (password upgraded, env vars switched), SPA 404 fallback working, Deploy Development green.
-- Stop after a signed-in browser flow verifies login (`admin01`), profile completion, group creation, calendar, and one workflow round trip (e.g., leave approval or swap) with the calendar marker after refresh. Remaining work is purely user verification in the browser; log correlation is available via `tcb fn log`/console log search with `x-request-id` and job `runId`.
+- Task 30 (in progress): deploy and configure the CloudBase development environment. Everything except the final browser acceptance steps is done and verified: `/api` route live with `SCF` upstream and gateway auth on, 7 timer triggers created, public MySQL connected (password upgraded, env vars switched), SPA 404 fallback working, Deploy Development green, SDK login verified end to end.
+- Stop after a signed-in browser flow verifies profile completion, group creation, calendar, and one workflow round trip (e.g., leave approval or swap) with the calendar marker after refresh. Login (`admin01`) and page rendering are already confirmed working; remaining work is purely user verification in the browser; log correlation is available via console log search with `x-request-id` and job `runId`.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
 3. Read Task 30 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 23 and 24 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`, plus the security/restore sections they implicate.
-5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
+4. Read `docs/deployment/cloudbase-ops-notes.md` completely before any CloudBase console/CLI work: it records the live environment, reusable commands, and every pitfall/fix from the 2026-08-02 deployment (routes, auth, static hosting 404, MySQL direct connection, CLI quoting, deploy fixes).
+5. Read design sections 23 and 24 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`, plus the security/restore sections they implicate.
+6. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
 
@@ -154,6 +155,10 @@ This file is the concise handoff entry point for every new implementation conver
 - The API migration entry point reuses validated environment values, opens a UTC MySQL connection, applies the root `migrations/` Drizzle journal, and closes the connection. HTTP startup does not run migrations automatically.
 - GitHub Actions uses only disposable test database values and has read-only repository contents permission; no CloudBase, development, or production secret is referenced. Its first remote run `30681864912` was rejected before job execution because the `job` context is unavailable in a job-level `env`; the correction scopes all `TEST_MYSQL_*` values, including the dynamically assigned port, to the `Run tests` step. Corrected remote run `30682009680` passed in 1 minute 15 seconds.
 - No CloudBase credentials or secrets are stored in the repository; `infra/cloudbase/cloudbaserc.json` contains only the public environment ID `schedule-dev-d1geh4w1l4af7359d` and function runtime settings. The `@cloudbase/cli` 3.7.0 devDependency provides `pnpm exec tcb` for local and CI deployment commands.
+- Tooling established 2026-08-02: GitHub CLI is installed at `C:\Program Files\GitHub CLI\gh.exe` but is not on PATH (`$gh = 'C:\Program Files\GitHub CLI\gh.exe'`); CloudBase CLI is `pnpm exec tcb` (or `node node_modules/@cloudbase/cli/dist/standalone/cli.js` for quote-sensitive JSON args); `@cloudbase/manager-node` and `cos-nodejs-sdk-v5` were installed into `%TEMP%\mgrwork` and `%TEMP%\coswork` as throwaway ops tooling (reinstall with `npm install --prefix ...` when needed). `infra/cloudbase/cloudbaserc.local.json` (gitignored) holds the dev DB password, backup key, and VAPID private key for `tcb config update fn` pushes.
+- CAM sub-account `schedule` has `QcloudTCBFullAccess` + `QcloudSCFFullAccess` + `QcloudCOSFullAccess` + `QcloudCDNFullAccess`; it has no `cynosdb` permission, and CloudBase-managed CDN domains are invisible to its direct `cdn` API calls. The CloudBase manager SDK (`mysql.runSql`, `describeClusterDetail`, `hosting.setWebsiteDocument`) works through the TCB API with these keys.
+- Live dev wiring 2026-08-02: routes `/` (STATIC_STORE), `/api` (SCF, gateway auth on, path passthrough), `/api/health` (SCF, auth off, anonymous); 7 `schedule-jobs` timer triggers; both functions' env vars point at the MySQL direct-connection public endpoint `sh-cynosdbmysql-grp-3vcucsya.sql.tencentcdb.com:24819` with the upgraded `schedule_app` password; SPA 404 fallback via COS `RoutingRules` (404 → `index.html`); Deploy Development run 30749213419 passed end to end; SDK sign-in as `admin01` returns the expected first-login `needs-profile` state.
+- Security TODO: the CAM SecretId/SecretKey pair was pasted into chat during deployment; rotate the keys in CAM after Task 30 acceptance and update GitHub `development` secrets (`TENCENT_SECRET_ID`/`TENCENT_SECRET_KEY`) accordingly. MySQL `schedule_app` uses a single management-level account over the public endpoint as an accepted dev compromise; production (Task 31) must move to VPC/private networking plus a dedicated runtime account.
 - The local API is running from the Task 4 build at `http://127.0.0.1:3000`; `/health` and `/ready` both returned 200. This is a local process only, not a CloudBase deployment.
 - The user-owned implementation-plan wording edit was committed and pushed separately as `44b46a9 docs: clarify implementation batch size`. It is already present on `origin/main` and must not be duplicated or amended.
 - Task 6 uses `@cloudbase/node-sdk` 3.18.5 for non-HTTP CloudBase runtime identities. For authenticated HTTP gateway requests, CloudBase injects a gzip-compressed Base64 context whose `userId` is the stable business UID.
