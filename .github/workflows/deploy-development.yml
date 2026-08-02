@@ -94,7 +94,7 @@ jobs:
           for attempt in $(seq 1 12); do
             code=$(curl -sS -o /tmp/api-health.json -D /tmp/api-health.headers \
               -w '%{http_code}' "https://${domain}/api/health" || true)
-            if [ "$code" = "200" ] && grep -q '"status"' /tmp/api-health.json; then
+            if [ "$code" = "200" ] && grep -q '"ready"' /tmp/api-health.json; then
               grep -qi 'x-request-id:' /tmp/api-health.headers || true
               echo "API health OK"
               exit 0

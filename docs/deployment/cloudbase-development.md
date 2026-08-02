@@ -5,7 +5,7 @@
 ## 架构
 
 - Web 静态资源：CloudBase 静态网站托管（Vue history 模式，错误页配置为 `index.html`）。
-- API：事件型云函数 `schedule-api`，通过 HTTP 访问服务以 `WEB_SCF` 资源类型挂在开发域名 `/api` 触发路径下，开启路径透传；网关把登录态注入 `x-cloudbase-context`，业务层只信任该上下文。
+- API：事件型云函数 `schedule-api`，通过 HTTP 访问服务以 `SCF` 资源类型挂在开发域名 `/api` 触发路径下，开启路径透传；网关把登录态注入 `x-cloudbase-context`，业务层只信任该上下文（实测事件型函数必须选 `SCF`，选 `WEB_SCF` 会返回 400；`WEB_SCF` 仅用于 Web/HTTP 型函数）。
 - 定时任务：事件型云函数 `schedule-jobs`，由控制台定时触发器调用，按触发器名称分发到 `database-backup`、`duty-reminders`、`export-jobs`、`group-recycle`、`holiday-alerts`、`notification-retry`、`statistics-rebuild`。
 - 数据库：CloudBase MySQL（腾讯云数据库 MySQL），云函数通过私有网络/VPC 连接；`schedule_events` 与 `audit_logs` 只授予 `SELECT`/`INSERT`。
 - 部署：GitHub Actions 在 `main` 分支验证通过后自动部署；密钥只在 GitHub 环境级 Secret 与 CloudBase 控制台环境变量中，不进入仓库。
@@ -22,7 +22,7 @@
 
 ### 1. 数据库
 
-在 CloudBase 控制台创建/关联云数据库 MySQL，记录内网连接地址、端口、数据库名和账号。云函数配置页开启“高级配置/私有网络”，选择 MySQL 所在的 VPC 与子网，函数即可通过内网地址连接。
+在 CloudBase 控制台创建/关联云数据库 MySQL，记录连接地址、端口、数据库名和账号。生产/正式环境应开启云函数“高级配置/私有网络”，选择 MySQL 所在的 VPC 与子网，通过内网地址连接（VPC 需要付费）。开发环境实测走“免费公网”方案：临时开启 MySQL 外网访问，在安全组入站规则放通 `0.0.0.0/0`（TCP 外网端口），云函数默认即具备公网出口、无需 VPC；开发期可接受，生产必须收回。
 
 业务账号按最小权限创建。`schedule_events` 和 `audit_logs` 是追加式日志表，运行账号不能拥有 `UPDATE`/`DELETE`：
 
@@ -51,7 +51,7 @@ FLUSH PRIVILEGES;
 2. 静态网站托管设置页把“错误页面”配置为 `index.html`（Vue history 模式刷新路由必需）。
 3. HTTP 访问服务中，把开发默认域名关联两类资源：
    - 静态网站托管：应用模式，触发路径 `/`；
-   - 云函数 `schedule-api`：资源类型选择 Web 云函数（`WEB_SCF`），触发路径 `/api`，开启路径透传；网关鉴权保持关闭，由 API 自身按 `x-cloudbase-context` 校验登录态（这样 `/api/health` 可匿名探测，业务路由仍返回 401）。
+   - 云函数 `schedule-api`：资源类型选择 云函数（`SCF`，事件型函数；不要选 Web 云函数 `WEB_SCF`），触发路径 `/api`，开启路径透传；网关鉴权保持关闭，由 API 自身按 `x-cloudbase-context` 校验登录态（这样 `/api/health` 可匿名探测，业务路由仍返回 401）。
 
 开发默认域名只用于开发和内部测试；2025 年 10 月后新建环境的默认域名会保留访问提示中间页，正式环境必须走任务 31 的备案自定义域名。
 
@@ -59,21 +59,21 @@ FLUSH PRIVILEGES;
 
 在控制台 → 云函数 → `schedule-api` / `schedule-jobs` → 函数配置 → 环境变量中填写（两个函数都需要数据库变量；`schedule-jobs` 额外需要备份与推送变量）：
 
-| 变量                    | 说明                  | 示例/要求                          |
-| ----------------------- | --------------------- | ---------------------------------- |
-| `NODE_ENV`              | 运行模式              | `production`                       |
-| `MYSQL_HOST`            | MySQL 内网地址        | CloudBase 控制台提供               |
-| `MYSQL_PORT`            | MySQL 端口            | `3306`                             |
-| `MYSQL_DATABASE`        | 业务库                | `schedule_dev`                     |
-| `MYSQL_USER`            | 业务账号              | `schedule_app`                     |
-| `MYSQL_PASSWORD`        | 业务账号密码          | 强密码，勿入仓库                   |
-| `VAPID_SUBJECT`         | Web Push 联系人       | `mailto:...`                       |
-| `VAPID_PUBLIC_KEY`      | Web Push 公钥         | 见下方生成命令                     |
-| `VAPID_PRIVATE_KEY`     | Web Push 私钥         | 仅云函数环境变量                   |
-| `HOLIDAY_ADMIN_UIDS`    | 节假日管理 UID 白名单 | 逗号分隔的 CloudBase UID           |
-| `PLATFORM_ADMIN_UIDS`   | 平台管理 UID 白名单   | 逗号分隔的 CloudBase UID           |
-| `BACKUP_DIR`            | 开发环境备份目录      | `/tmp/backups`（函数磁盘为临时盘） |
-| `BACKUP_ENCRYPTION_KEY` | 备份加密密钥          | 64 位十六进制或 base64 的 32 字节  |
+| 变量                    | 说明                  | 示例/要求                                 |
+| ----------------------- | --------------------- | ----------------------------------------- |
+| `NODE_ENV`              | 运行模式              | `production`                              |
+| `MYSQL_HOST`            | MySQL 连接地址        | 开发用外网地址；生产用 VPC 内网地址       |
+| `MYSQL_PORT`            | MySQL 端口            | 开发用外网端口（如 `24819`）；生产 `3306` |
+| `MYSQL_DATABASE`        | 业务库                | `schedule_dev`                            |
+| `MYSQL_USER`            | 业务账号              | `schedule_app`                            |
+| `MYSQL_PASSWORD`        | 业务账号密码          | 强密码，勿入仓库                          |
+| `VAPID_SUBJECT`         | Web Push 联系人       | `mailto:...`                              |
+| `VAPID_PUBLIC_KEY`      | Web Push 公钥         | 见下方生成命令                            |
+| `VAPID_PRIVATE_KEY`     | Web Push 私钥         | 仅云函数环境变量                          |
+| `HOLIDAY_ADMIN_UIDS`    | 节假日管理 UID 白名单 | 逗号分隔的 CloudBase UID                  |
+| `PLATFORM_ADMIN_UIDS`   | 平台管理 UID 白名单   | 逗号分隔的 CloudBase UID                  |
+| `BACKUP_DIR`            | 开发环境备份目录      | `/tmp/backups`（函数磁盘为临时盘）        |
+| `BACKUP_ENCRYPTION_KEY` | 备份加密密钥          | 64 位十六进制或 base64 的 32 字节         |
 
 VAPID 密钥生成：
 
