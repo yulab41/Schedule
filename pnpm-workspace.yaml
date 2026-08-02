@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - infra/scripts
+  - tests/*
 
 allowBuilds:
   core-js-pure: false

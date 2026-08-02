@@ -14,6 +14,8 @@
     "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\" \"infra/scripts/**/*.ts\"",
     "holidays:build": "tsc -p infra/scripts/tsconfig.json",
     "holidays:import": "node --env-file=.env infra/scripts/dist/import-holidays.js",
+    "load:build": "tsc -p tests/load/tsconfig.json",
+    "load:test": "node --env-file=.env tests/load/dist/run-load-test.js",
     "restore:backup": "node --env-file=.env infra/scripts/dist/restore-backup.js",
     "lint": "eslint \"{apps,packages}/**/*.{ts,vue}\" \"infra/scripts/**/*.ts\" --max-warnings=0",
     "test": "vitest run",

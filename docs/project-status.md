@@ -10,7 +10,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Target release: Doctor Scheduling Web 1.0
 - Current phase: Phase Four — Holidays and Statistics
 - Implementation plan: Approved by the user
-- Implementation code: Tasks 1 through 28 are complete and validated. Task 28's checkpoint commit message is `feat(ops): add backup recovery and platform controls`.
+- Implementation code: Tasks 1 through 29 are complete and validated. Task 29's checkpoint commit message is `test: validate concurrency performance and security`.
 
 ## Approved Sources
 
@@ -113,18 +113,21 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 28 completed: `restoreBackupArchive` and the `infra/scripts/restore-backup.ts` drill script apply migrations to an isolated `RESTORE_MYSQL_*` database, insert rows with foreign-key checks disabled, skip generated columns (detected via information_schema `VIRTUAL/STORED GENERATED`, not the `DEFAULT_GENERATED` timestamp extras), and verify every table's row count and checksum; wrong keys and tampered archives fail closed. `StatisticsRebuildJob` (`--job=statistics-rebuild`) recomputes group-month snapshots from all published periods, and `GroupRecycleJob` (`--job=group-recycle`) hard-purges groups past the 30-day window in foreign-key order, freeing their group codes.
 - Task 28 completed: `recordJobRun` wraps every CLI job in `run-job.ts` and writes running/completed/failed rows to `platform_job_runs`; the platform-admin module (`PLATFORM_ADMIN_UIDS` allow list, separate from holiday admins) exposes admin-only `GET /platform/jobs`, `GET /platform/backups`, `POST /platform/groups/:groupId/restore` (30-day recycle), and `PUT /platform/users/:userId/status` (ban/unban), all audited.
 - Task 28 completed: account deregistration (`POST /users/me/deregister`) nulls the CloudBase UID, marks the user deleted, clears membership contact phones/confirmation, keeps the name/profile snapshot for history, and lets the same CloudBase identity register again later; restore, status changes, and deregistration all append security-audit records.
+- Task 29 completed: `tests/load` (workspace package `@schedule/load-tests`) seeds a synthetic 100-group/2,000-user dataset plus a 100-member generation group and a swap-race group, then runs 100 concurrent calendar reads, 100 leave submissions plus 20 approvals, a 20-way same-shift swap race, and 100-member × 12-month generation, recording cold start, per-scenario latency, and database status metrics; `pnpm load:build` / `pnpm load:test` reproduce it and fail loudly on any acceptance invariant.
+- Task 29 completed: `tests/security` (workspace package `@schedule/security-tests`) adds the security acceptance matrix — cross-group 403 isolation with no data leakage across calendar/members/contacts/events/config/exports, the five-then-429 group-code guessing limit, idempotent approval replay without duplicate events/audits/rows, and stale-approval rollback without partial events — and `docs/testing/performance-report.md` plus `docs/testing/security-checklist.md` record conditions, measured results, and capacity recommendations.
+- Task 29 completed: measured results (Windows host, MySQL 8.4 in Docker, in-process Fastify + real MySQL pool): seed 191 ms; cold start 151 ms / first request 17 ms; 100 calendar reads 202 ms; 100 leave submissions 432 ms; 20 approvals 644 ms; swap race 394 ms with exactly 1 winner and 19 conflicts; 12 previews for 100 members 122 ms and first-month publish 364 ms; total run 3.4 s. No acceptance-related defect was found, so no production fix was needed beyond the harness itself.
 
 ## Active Batch
 
-- Task 29: execute the full concurrency, performance, and security validation.
-- Stop after a synthetic 100-group/2000-user load dataset, concurrent calendar/submission/approval and same-shift race runs, a 100-member 12-month generation case, authorization/group-code-guess/duplicate-submission/log checks, and `docs/testing/performance-report.md` plus `docs/testing/security-checklist.md` with only acceptance-target fixes. The user requested Tasks 27-29 in this conversation; Task 29 is the final task of this conversation.
+- Task 30: deploy and configure the CloudBase development environment.
+- Stop after the CloudBase HTTP access service with identity authentication routes `/api` through the trusted gateway, the API function uses the business database with SELECT/INSERT-only runtime grants (no UPDATE/DELETE on events/audits), VAPID and platform-admin environment values are configured in CloudBase, and a signed-in browser flow verifies login, calendar, and one workflow round trip. This task needs CloudBase console credentials and user coordination, so it is the only task in its batch.
 
 ## Required Reading for the Next Conversation
 
 1. Read this file completely.
 2. Read `AGENTS.md` completely.
-3. Read Task 29 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
-4. Read design sections 20, 21, and 22 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`.
+3. Read Task 30 in `docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md` completely.
+4. Read design sections 23 and 24 in `docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`, plus the security/restore sections they implicate.
 5. Inspect `git status --short --branch`, `git log -5 --oneline --decorate`, the current branch, and remotes, then confirm the active batch matches the checkpoint.
 
 ## Known Environment State
@@ -212,6 +215,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 26: with the isolated test MySQL healthy, the focused export suite passed 5 integrations (schedule CSV without phones plus audit records, member/outsider denial and server-side scope validation, statistics-year CSV with totals, member/role filters, expired/unfinished download rejection), the migration suite passed 14/35, and 3 CSV-builder tests, 2 export-logic tests, and 1 Web client test passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 266 Vitest tests (47 test files), and all production builds. The Web build keeps the pre-existing large-entry warning.
 - Task 27: `pnpm install --no-frozen-lockfile` added the `@schedule/ui-tokens` workspace package; `pnpm --filter @schedule/web build` passed and emitted `manifest.webmanifest`, the service-worker asset, and the PNG icons. `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, and the full `pnpm test` passed: 169 Vitest tests ran green (127 database-backed integration tests skipped without a disposable MySQL), including 6 new calendar-view tests, 4 nav tests, 5 ui-tokens tests, 2 cache-rule tests, 2 offline-guard tests, 5 accessibility tests, 4 responsive tests, and 2 new client offline tests. The Web build keeps the pre-existing large-entry warning (680.37 KiB gzip).
 - Task 28: with the isolated test MySQL healthy, the new platform-admin suite passed 7 integrations (recycle restore plus audit, purge freeing the group code, deregistration detaching identity/contacts, suspend/reactivate, job-run records, encrypted backup→reset→restore round-trip with matching counts/checksums, and statistics rebuild fixing a corrupted snapshot), the migration suite passed 17 migrations/37 tables plus a nullable-UID test, and 8 new unit tests (5 backup-archive format, 3 retention) passed. Final `pnpm verify` passed formatting, ESLint, strict type checks, all 312 Vitest tests (57 test files) including every MySQL integration suite, and all production builds including the new `restore-backup` infra script. The Web build keeps the pre-existing large-entry warning (671.64 KiB gzip).
+- Task 29: `pnpm load:test` passed against the isolated test MySQL with the 100-group/2,000-user dataset and every acceptance assertion (100/100 calendar reads, 100/100 leave submissions, 20/20 approvals, exactly 1-of-20 swap winner with 19 conflicts, 12-month 100-member previews plus publish, no cross-group leaks); the new security matrix passed 4/4 (cross-group isolation, code-guess 429, idempotent replay, stale-approval rollback). Final `pnpm verify` passed formatting, ESLint, strict type checks, all 316 Vitest tests (58 test files) including the new security suite, and all production builds. The Web build keeps the pre-existing large-entry warning (671.64 KiB gzip).
 
 ## Recent Checkpoints
 
@@ -250,6 +254,7 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 26 checkpoint commit message: `feat(exports): add audited schedule exports`
 - Task 27 checkpoint commit message: `feat(web): add responsive PWA experience`
 - Task 28 checkpoint commit message: `feat(ops): add backup recovery and platform controls`
+- Task 29 checkpoint commit message: `test: validate concurrency performance and security`
 
 ## Decisions and Blockers
 
@@ -339,6 +344,9 @@ This file is the concise handoff entry point for every new implementation conver
 - Task 28 backup storage is the local `BackupStorage` implementation behind `BACKUP_DIR`; the restricted-cloud-storage destination is a Task 30 deployment concern and the job contract already isolates storage behind the interface. `BACKUP_ENCRYPTION_KEY` is required and backups fail closed when missing.
 - Task 28 `GroupRecycleJob` hard-deletes the group and its group-scoped rows (including that group's schedule events and audit rows) after the 30-day recycle window, which is the platform purge that frees group codes; append-only immutability applies to live business data, not to purge of an expired recycle item.
 - Task 28 platform administration uses the separate `PLATFORM_ADMIN_UIDS` allow list; holiday imports keep using `HOLIDAY_ADMIN_UIDS` so existing Task 24 gates and tests are unchanged. Every platform write (restore, status change, deregistration) appends a security-audit row.
+- Task 29 keeps `tests/load` and `tests/security` as workspace packages (`@schedule/load-tests`, `@schedule/security-tests`) so their `@schedule/*` imports resolve through pnpm links; the load harness is compiled separately (`pnpm load:build`/`pnpm load:test`) because it must run as a standalone script, while the security matrix is a normal Vitest integration suite that runs in `pnpm test`. Neither package is added to the root `typecheck`/`lint`/`format` globs because the load package typechecks against built API dist; both are typechecked and linted manually in this conversation and documented in the reports.
+- Task 29 loads the application factory directly from `apps/api/dist/app.js` instead of the `@schedule/api` index because the index re-exports the CloudBase adapter whose `@cloudbase/node-sdk` CJS named import breaks plain Node ESM execution; this matches how the app's own tests import `createApp` from `app.js`.
+- Task 29 measured no acceptance-related defect, so no production code change was required; the only fixes during the task were to the harness itself (fresh rules-version re-reads after config mutations, generated-column-safe restore from Task 28, reserved-word aliases, and the security matrix's roster-claim setup).
 
 ## Handoff Requirements
 
