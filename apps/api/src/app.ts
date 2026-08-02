@@ -28,6 +28,8 @@ import { registerSwapRoutes } from './modules/swaps/swap-routes.js';
 import { SwapService } from './modules/swaps/swap-service.js';
 import { registerDutyAdjustmentRoutes } from './modules/duty-adjustments/duty-adjustment-routes.js';
 import { DutyAdjustmentService } from './modules/duty-adjustments/duty-adjustment-service.js';
+import { registerEventRoutes } from './modules/events/event-routes.js';
+import { EventQuery } from './modules/events/event-query.js';
 import {
   registerAuthentication,
   type TrustedCloudbaseContextReader,
@@ -111,6 +113,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerLeaveRoutes(app, new LeaveService(options.databaseClient));
     registerSwapRoutes(app, new SwapService(options.databaseClient));
     registerDutyAdjustmentRoutes(app, new DutyAdjustmentService(options.databaseClient));
+    registerEventRoutes(app, new EventQuery(options.databaseClient), options.databaseClient);
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');
   }

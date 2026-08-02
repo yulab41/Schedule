@@ -11,6 +11,9 @@ const props = defineProps<{
   readonly members: readonly CalendarDutyMember[];
   readonly today?: string;
 }>();
+const emit = defineEmits<{
+  (event: 'open-events', assignment: CalendarDutyAssignment): void;
+}>();
 
 const membersById = computed(
   () => new Map(props.members.map((member) => [member.membershipId, member])),
@@ -70,7 +73,11 @@ function assignmentsFor(date: string | undefined): CalendarDutyAssignment[] {
               v-for="assignment in assignmentsFor(cell.businessDate)"
               :key="`${assignment.schedulePeriodId}:${assignment.businessDate}:${assignment.slotPosition}`"
             >
-              <DutyCell :assignment="assignment" :member="memberFor(assignment)" />
+              <DutyCell
+                :assignment="assignment"
+                :member="memberFor(assignment)"
+                @open-events="emit('open-events', $event)"
+              />
             </li>
           </ul>
         </template>

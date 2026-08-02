@@ -897,6 +897,67 @@ describe('Web API client', () => {
       }),
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
   });
+
+  it('lists and details schedule events with validated responses', async () => {
+    const scheduleEvent = {
+      affectedMembershipIds: ['membership-a', 'membership-b'],
+      affectedShiftIds: ['assignment-1'],
+      afterData: { actualMemberName: '李医生' },
+      beforeData: { actualMemberName: '张医生' },
+      eventStatus: 'completed',
+      eventType: 'swap_completed',
+      groupId: 'group-1',
+      id: 'event-1',
+      objectType: 'swap_request',
+      occurredAt: '2026-08-02T00:00:00.000Z',
+      operationId: 'operation-1',
+      reason: '换班',
+      schedulePeriodId: 'period-1',
+    } as const;
+    const page = { events: [scheduleEvent], nextCursor: 'cursor-1' } as const;
+    const detail = { event: scheduleEvent, relatedEvents: [] } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(page), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(detail), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const listed = await client.getGroupEvents('group-1', {
+      pageSize: 50,
+      shiftId: 'assignment-1',
+    });
+    expect(listed.events[0]?.eventType).toBe('swap_completed');
+    expect(listed.nextCursor).toBe('cursor-1');
+    const eventDetail = await client.getEventDetail('group-1', 'event-1');
+    expect(eventDetail.event.id).toBe('event-1');
+    expect(eventDetail.relatedEvents).toEqual([]);
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/events?pageSize=50&shiftId=assignment-1',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/events/event-1',
+      expect.objectContaining({ method: 'GET' }),
+    );
+
+    const malformedClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(JSON.stringify({ ...page, events: [{ id: 'event-1' }] }), {
+          status: 200,
+        }),
+      ),
+    });
+    await expect(malformedClient.getGroupEvents('group-1', { pageSize: 50 })).rejects.toMatchObject(
+      { code: 'SERVICE_UNAVAILABLE', status: 200 },
+    );
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

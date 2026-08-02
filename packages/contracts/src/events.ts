@@ -49,13 +49,21 @@ export interface ScheduleEventQuery {
   readonly from?: string;
   readonly groupId: string;
   readonly membershipId?: string;
+  readonly operatorUserId?: string;
   readonly pageSize?: number;
+  readonly scheduleRoleId?: string;
+  readonly shiftId?: string;
   readonly to?: string;
 }
 
 export interface ScheduleEventPage {
   readonly events: readonly ScheduleEvent[];
   readonly nextCursor?: string;
+}
+
+export interface ScheduleEventDetail {
+  readonly event: ScheduleEvent;
+  readonly relatedEvents: readonly ScheduleEvent[];
 }
 
 export interface AuditLogWriteInput {

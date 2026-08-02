@@ -1,16 +1,19 @@
 import type {
   JsonObject,
   ScheduleEvent,
+  ScheduleEventDetail,
   ScheduleEventPage,
   ScheduleEventQuery,
 } from '@schedule/contracts';
 import {
+  schedulePeriods,
   scheduleEvents,
+  shiftAssignments,
   type DatabaseClient,
   type DatabaseTransaction,
   withTransaction,
 } from '@schedule/database';
-import { and, desc, eq, gte, inArray, lt, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
 
@@ -26,10 +29,50 @@ interface EventCursor {
 export class EventQuery {
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
+  public async getDetail(groupId: string, eventId: string): Promise<ScheduleEventDetail> {
+    return withTransaction(this.databaseClient, (transaction) =>
+      this.getDetailInTransaction(transaction, groupId, eventId),
+    );
+  }
+
   public async list(query: ScheduleEventQuery): Promise<ScheduleEventPage> {
     return withTransaction(this.databaseClient, (transaction) =>
       this.listInTransaction(transaction, query),
     );
+  }
+
+  public async getDetailInTransaction(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    eventId: string,
+  ): Promise<ScheduleEventDetail> {
+    const [eventRow] = await transaction
+      .select()
+      .from(scheduleEvents)
+      .where(and(eq(scheduleEvents.id, eventId), eq(scheduleEvents.groupId, groupId)))
+      .limit(1);
+    if (eventRow === undefined) {
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '事件不存在或不属于该群组。',
+      });
+    }
+
+    const relatedRows = await this.loadRelatedEvents(transaction, groupId, eventRow);
+    const rows = [...relatedRows, eventRow];
+    rows.sort(
+      (first, second) =>
+        first.occurredAt.valueOf() - second.occurredAt.valueOf() ||
+        first.id.localeCompare(second.id),
+    );
+
+    return {
+      event: toScheduleEvent(eventRow),
+      relatedEvents: rows
+        .filter((row) => row.id !== eventRow.id)
+        .map((row) => toScheduleEvent(row)),
+    };
   }
 
   public async listInTransaction(
@@ -69,6 +112,22 @@ export class EventQuery {
       );
     }
 
+    if (query.operatorUserId !== undefined) {
+      conditions.push(eq(scheduleEvents.operatorUserId, query.operatorUserId));
+    }
+
+    if (query.shiftId !== undefined) {
+      conditions.push(
+        sql`json_contains(${scheduleEvents.affectedShiftIds}, json_quote(${query.shiftId}))`,
+      );
+    }
+
+    if (query.scheduleRoleId !== undefined) {
+      conditions.push(
+        await this.buildRoleCondition(transaction, query.groupId, query.scheduleRoleId),
+      );
+    }
+
     if (cursor !== undefined) {
       const cursorCondition = or(
         lt(scheduleEvents.occurredAt, cursor.occurredAt),
@@ -95,6 +154,97 @@ export class EventQuery {
         ? { nextCursor: encodeCursor(lastEvent.occurredAt, lastEvent.id) }
         : {}),
     };
+  }
+
+  private async buildRoleCondition(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    scheduleRoleId: string,
+  ): Promise<SQL> {
+    const periods = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.scheduleRoleId, scheduleRoleId),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      );
+    const periodIds = periods.map((period) => period.id);
+    const assignments =
+      periodIds.length === 0
+        ? []
+        : await transaction
+            .select({ id: shiftAssignments.id })
+            .from(shiftAssignments)
+            .where(
+              and(
+                inArray(shiftAssignments.schedulePeriodId, periodIds),
+                isNull(shiftAssignments.deletedAt),
+              ),
+            );
+    const assignmentIds = assignments.map((assignment) => assignment.id);
+
+    if (periodIds.length === 0 && assignmentIds.length === 0) {
+      return sql`1 = 0`;
+    }
+
+    const roleConditions: SQL[] = [];
+    if (periodIds.length > 0) {
+      roleConditions.push(inArray(scheduleEvents.schedulePeriodId, periodIds));
+    }
+    for (const assignmentId of assignmentIds) {
+      roleConditions.push(
+        sql`json_contains(${scheduleEvents.affectedShiftIds}, json_quote(${assignmentId}))`,
+      );
+    }
+
+    return or(...roleConditions) ?? sql`1 = 0`;
+  }
+
+  private async loadRelatedEvents(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    eventRow: typeof scheduleEvents.$inferSelect,
+  ): Promise<readonly (typeof scheduleEvents.$inferSelect)[]> {
+    const related = new Map<string, typeof scheduleEvents.$inferSelect>();
+    const maximumRelatedEvents = 100;
+
+    let parentId = eventRow.parentEventId;
+    while (parentId !== null && related.size < maximumRelatedEvents) {
+      const [parent] = await transaction
+        .select()
+        .from(scheduleEvents)
+        .where(and(eq(scheduleEvents.id, parentId), eq(scheduleEvents.groupId, groupId)))
+        .limit(1);
+      if (parent === undefined) {
+        break;
+      }
+      related.set(parent.id, parent);
+      parentId = parent.parentEventId;
+    }
+
+    let frontier = [eventRow.id];
+    while (frontier.length > 0 && related.size < maximumRelatedEvents) {
+      const children = await transaction
+        .select()
+        .from(scheduleEvents)
+        .where(
+          and(eq(scheduleEvents.groupId, groupId), inArray(scheduleEvents.parentEventId, frontier)),
+        )
+        .limit(maximumRelatedEvents - related.size);
+      frontier = [];
+      for (const child of children) {
+        if (related.has(child.id)) {
+          continue;
+        }
+        related.set(child.id, child);
+        frontier.push(child.id);
+      }
+    }
+
+    return [...related.values()];
   }
 }
 

@@ -11,6 +11,7 @@ import SchedulingConfigPanel from '../features/scheduling-config/SchedulingConfi
 import LeavePanel from '../features/leaves/LeavePanel.vue';
 import SwapPanel from '../features/swaps/SwapPanel.vue';
 import DutyAdjustmentPanel from '../features/duty-adjustments/DutyAdjustmentPanel.vue';
+import EventCenterView from './events/EventCenterView.vue';
 import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
 
@@ -95,6 +96,9 @@ function getErrorMessage(error: unknown): string {
           </t-tab-panel>
           <t-tab-panel value="duty" label="加扣班">
             <DutyAdjustmentPanel :group="currentGroup()!" />
+          </t-tab-panel>
+          <t-tab-panel value="events" label="事件">
+            <EventCenterView :group="currentGroup()!" />
           </t-tab-panel>
           <t-tab-panel value="members" label="成员">
             <MemberManager :group="currentGroup()!" @group-changed="refreshGroups" />

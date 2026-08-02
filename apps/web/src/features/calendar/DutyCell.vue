@@ -6,15 +6,17 @@ import {
   buildDialLink,
   formatShiftTimeRange,
   getAvailablePhoneOptions,
-  getCalendarMarkerDescription,
-  getCalendarMarkerLabel,
   getDutyMemberName,
   type PhoneOption,
 } from './calendar-logic.js';
+import ChangeBadge from './ChangeBadge.vue';
 
 const props = defineProps<{
   readonly assignment: CalendarDutyAssignment;
   readonly member: CalendarDutyMember | undefined;
+}>();
+const emit = defineEmits<{
+  (event: 'open-events', assignment: CalendarDutyAssignment): void;
 }>();
 
 const isMenuOpen = ref(false);
@@ -67,14 +69,17 @@ onUnmounted(() => {
     >
       {{ assignment.shiftTypeAbbreviation }}
     </span>
-    <span
-      v-for="marker in assignment.changeMarkers"
-      :key="marker"
-      class="change-marker"
-      :title="getCalendarMarkerDescription(marker)"
+    <ChangeBadge v-for="marker in assignment.changeMarkers" :key="marker" :marker="marker" />
+    <button
+      v-if="assignment.changeMarkers.length > 0"
+      type="button"
+      class="events-button"
+      title="查看该班次的事件记录"
+      aria-label="查看该班次的事件记录"
+      @click.stop="emit('open-events', assignment)"
     >
-      {{ getCalendarMarkerLabel(marker) }}
-    </span>
+      事件
+    </button>
     <span v-if="phoneOptions.length > 0" class="phone-action">
       <button
         type="button"
@@ -135,8 +140,7 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.shift-badge,
-.change-marker {
+.shift-badge {
   display: inline-grid;
   min-width: 18px;
   min-height: 18px;
@@ -147,9 +151,15 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.change-marker {
-  background: #fef3c7;
-  color: #92400e;
+.events-button {
+  padding: 0 6px;
+  color: #1f5aa6;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .phone-button {

@@ -38,6 +38,10 @@ import type {
   ReplaceScheduleRoleMembersRequest,
   RevokeDutyAdjustmentInput,
   ScheduleRole,
+  ScheduleEvent,
+  ScheduleEventDetail,
+  ScheduleEventPage,
+  ScheduleEventQuery,
   SchedulingConfig,
   ShiftType,
   SwapPairInput,
@@ -130,6 +134,11 @@ export interface ApiClient {
   deleteGroup(groupId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
+  getEventDetail(groupId: string, eventId: string): Promise<ScheduleEventDetail>;
+  getGroupEvents(
+    groupId: string,
+    query: Omit<ScheduleEventQuery, 'groupId'>,
+  ): Promise<ScheduleEventPage>;
   getGroupDutyAdjustmentSettings(groupId: string): Promise<GroupDutyAdjustmentSettings>;
   getGroupSwapSettings(groupId: string): Promise<GroupSwapSettings>;
   getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
@@ -536,6 +545,55 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         '/users/me',
         { method: 'GET' },
         isUserProfile,
+      );
+    },
+    getEventDetail(groupId, eventId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/events/${encodeURIComponent(eventId)}`,
+        { method: 'GET' },
+        isScheduleEventDetail,
+      );
+    },
+    getGroupEvents(groupId, query) {
+      const params = new URLSearchParams();
+      if (query.cursor !== undefined) {
+        params.set('cursor', query.cursor);
+      }
+      if (query.eventTypes !== undefined && query.eventTypes.length > 0) {
+        params.set('eventTypes', query.eventTypes.join(','));
+      }
+      if (query.from !== undefined) {
+        params.set('from', query.from);
+      }
+      if (query.membershipId !== undefined) {
+        params.set('membershipId', query.membershipId);
+      }
+      if (query.operatorUserId !== undefined) {
+        params.set('operatorUserId', query.operatorUserId);
+      }
+      if (query.pageSize !== undefined) {
+        params.set('pageSize', String(query.pageSize));
+      }
+      if (query.scheduleRoleId !== undefined) {
+        params.set('scheduleRoleId', query.scheduleRoleId);
+      }
+      if (query.shiftId !== undefined) {
+        params.set('shiftId', query.shiftId);
+      }
+      if (query.to !== undefined) {
+        params.set('to', query.to);
+      }
+      const queryString = params.toString();
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/events${queryString === '' ? '' : `?${queryString}`}`,
+        { method: 'GET' },
+        isScheduleEventPage,
       );
     },
     getGroupDutyAdjustmentSettings(groupId) {
@@ -2010,6 +2068,70 @@ function isDutyAdjustmentRequest(value: unknown): value is DutyAdjustmentRequest
 
 function isDutyAdjustmentRequestList(value: unknown): value is DutyAdjustmentRequest[] {
   return Array.isArray(value) && value.every(isDutyAdjustmentRequest);
+}
+
+function isJsonObjectValue(value: unknown): value is JsonObject {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isScheduleEvent(value: unknown): value is ScheduleEvent {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const event = value as Partial<ScheduleEvent>;
+  return (
+    typeof event.id === 'string' &&
+    event.id.length > 0 &&
+    typeof event.groupId === 'string' &&
+    event.groupId.length > 0 &&
+    typeof event.eventType === 'string' &&
+    event.eventType.length > 0 &&
+    typeof event.eventStatus === 'string' &&
+    typeof event.objectType === 'string' &&
+    typeof event.operationId === 'string' &&
+    typeof event.occurredAt === 'string' &&
+    Array.isArray(event.affectedMembershipIds) &&
+    event.affectedMembershipIds.every((membershipId) => typeof membershipId === 'string') &&
+    Array.isArray(event.affectedShiftIds) &&
+    event.affectedShiftIds.every((shiftId) => typeof shiftId === 'string') &&
+    (event.afterData === undefined || isJsonObjectValue(event.afterData)) &&
+    (event.approverUserId === undefined || typeof event.approverUserId === 'string') &&
+    (event.beforeData === undefined || isJsonObjectValue(event.beforeData)) &&
+    (event.initiatedByUserId === undefined || typeof event.initiatedByUserId === 'string') &&
+    (event.objectId === undefined || typeof event.objectId === 'string') &&
+    (event.operatorUserId === undefined || typeof event.operatorUserId === 'string') &&
+    (event.parentEventId === undefined || typeof event.parentEventId === 'string') &&
+    (event.reason === undefined || typeof event.reason === 'string') &&
+    (event.schedulePeriodId === undefined || typeof event.schedulePeriodId === 'string') &&
+    (event.statisticsDelta === undefined || isJsonObjectValue(event.statisticsDelta))
+  );
+}
+
+function isScheduleEventPage(value: unknown): value is ScheduleEventPage {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const page = value as Partial<ScheduleEventPage>;
+  return (
+    Array.isArray(page.events) &&
+    page.events.every(isScheduleEvent) &&
+    (page.nextCursor === undefined || typeof page.nextCursor === 'string')
+  );
+}
+
+function isScheduleEventDetail(value: unknown): value is ScheduleEventDetail {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const detail = value as Partial<ScheduleEventDetail>;
+  return (
+    isScheduleEvent(detail.event) &&
+    Array.isArray(detail.relatedEvents) &&
+    detail.relatedEvents.every(isScheduleEvent)
+  );
 }
 
 function isGroupDutyAdjustmentSettings(value: unknown): value is GroupDutyAdjustmentSettings {

@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { CalendarReadModel, GroupSummary } from '@schedule/contracts';
+import type {
+  CalendarDutyAssignment,
+  CalendarReadModel,
+  GroupSummary,
+  ScheduleEvent,
+} from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
@@ -19,6 +24,7 @@ import {
   getCurrentBusinessMonth,
 } from '../../features/calendar/calendar-logic.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
+import EventTimeline from '../../features/events/EventTimeline.vue';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -32,6 +38,10 @@ const conflictMessage = ref('');
 const conflictSummary = ref<string>();
 const conflictVisible = ref(false);
 const isLoading = ref(false);
+const isLoadingEvents = ref(false);
+const selectedAssignment = ref<CalendarDutyAssignment>();
+const assignmentEvents = ref<readonly ScheduleEvent[]>([]);
+const eventDialogVisible = ref(false);
 const membershipIds = ref<string[]>([]);
 const onlyChanges = ref(false);
 const roleIds = ref<string[]>([]);
@@ -128,6 +138,24 @@ function goToToday(): void {
   businessMonth.value = getCurrentBusinessMonth();
 }
 
+async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise<void> {
+  selectedAssignment.value = assignment;
+  assignmentEvents.value = [];
+  eventDialogVisible.value = true;
+  isLoadingEvents.value = true;
+  try {
+    const page = await api.getGroupEvents(props.group.id, {
+      pageSize: 100,
+      shiftId: assignment.id,
+    });
+    assignmentEvents.value = page.events;
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isLoadingEvents.value = false;
+  }
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof ApiClientError ? error.message : '排班日历暂时无法加载，请稍后重试。';
 }
@@ -175,6 +203,7 @@ function getErrorMessage(error: unknown): string {
         :business-month="calendar.businessMonth"
         :members="calendar.members"
         :today="today"
+        @open-events="openAssignmentEvents"
       />
       <p v-else class="calendar-empty">
         {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
@@ -187,6 +216,26 @@ function getErrorMessage(error: unknown): string {
       @close="conflictVisible = false"
       @refresh="refreshAfterConflict"
     />
+    <t-dialog
+      v-model:visible="eventDialogVisible"
+      header="班次事件记录"
+      :footer="false"
+      width="640px"
+    >
+      <template v-if="selectedAssignment !== undefined">
+        <p class="assignment-events-meta">
+          {{ selectedAssignment.businessDate }} {{ selectedAssignment.shiftTypeName }} ·
+          {{ selectedAssignment.scheduleRoleName }}
+        </p>
+        <t-loading v-if="isLoadingEvents" text="正在加载事件记录" />
+        <EventTimeline
+          v-else-if="assignmentEvents.length > 0"
+          :events="assignmentEvents"
+          show-raw-data
+        />
+        <p v-else class="assignment-events-empty">该班次暂无事件记录。</p>
+      </template>
+    </t-dialog>
   </section>
 </template>
 
@@ -263,6 +312,23 @@ function getErrorMessage(error: unknown): string {
   color: #6b7280;
   text-align: center;
   background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.assignment-events-meta {
+  margin: 0 0 12px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.assignment-events-empty {
+  margin: 0;
+  padding: 16px;
+  color: #6b7280;
+  text-align: center;
+  background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
 }
