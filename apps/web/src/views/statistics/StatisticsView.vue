@@ -182,11 +182,11 @@ function getErrorMessage(error: unknown): string {
           />
         </t-card>
         <div class="statistics-breakdowns">
-          <t-card title="按排班角色">
+          <t-card title="按排班岗位">
             <t-table
               :data="summary.byRole"
               :columns="[
-                { colKey: 'scheduleRoleName', title: '角色' },
+                { colKey: 'scheduleRoleName', title: '岗位' },
                 { colKey: 'plannedCount', title: '计划' },
                 { colKey: 'actualCount', title: '实际' },
               ]"

@@ -190,6 +190,39 @@ describeWithDatabase('scheduling configuration', () => {
     );
   });
 
+  it('deletes an unused role and blocks deleting a role that already has schedule periods', async () => {
+    const groupId = await createClaimedGroup();
+    const unusedRole = await createRole(groupId, '备用岗');
+
+    const deleted = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedule-roles/${unusedRole.id}`,
+    });
+    expect(deleted.statusCode).toBe(200);
+
+    const configAfterDelete = await getConfig('owner-token', groupId);
+    expect(configAfterDelete.roles.map((role) => role.name)).not.toContain('备用岗');
+
+    const usedRole = await createRole(groupId, '一线');
+    await client.database.execute(
+      sql`INSERT INTO schedule_periods (id, group_id, schedule_role_id, business_month, revision, rules_version)
+          VALUES ('00000000-0000-4000-8000-000000000001', ${groupId}, ${usedRole.id}, '2026-08-01', 1, ${configAfterDelete.rulesVersion})`,
+    );
+    const blocked = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedule-roles/${usedRole.id}`,
+    });
+    expect(blocked.statusCode).toBe(400);
+    expect(blocked.json()).toMatchObject({
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: '该排班岗位已用于排班，为保留历史数据不能删除。',
+      },
+    });
+  });
+
   it('keeps disabled shift configuration available while blocking direct member changes', async () => {
     const groupId = await createClaimedGroup();
     const createShift = await app.inject({
@@ -341,6 +374,7 @@ interface SchedulingConfigResponse {
     readonly name: string;
   }[];
   readonly shiftTypes: readonly ShiftTypeResponse[];
+  readonly rulesVersion: number;
 }
 
 interface ShiftTypeResponse {

@@ -130,6 +130,47 @@ describeWithDatabase('manual schedule templates', () => {
     expect(list.json()).toEqual([template]);
   });
 
+  it('soft-deletes a template and hides it from later lists', async () => {
+    const created = await createTemplate({
+      cells: [{ cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId }],
+      cycleDays: 7,
+      membershipIds: [ownerMembershipId],
+      startDate: '2026-08-01',
+    });
+    expect(created.statusCode).toBe(201);
+    const template = created.json() as ManualScheduleTemplate;
+
+    const deleted = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/manual-schedule-templates/${template.id}`,
+    });
+    expect(deleted.statusCode).toBe(200);
+
+    const list = await listTemplates();
+    expect(list.statusCode).toBe(200);
+    expect(list.json()).toEqual([]);
+
+    const [eventCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_events WHERE event_type = 'manual_schedule_template_deleted' AND object_id = ${template.id}`,
+    );
+    expect(eventCount).toEqual([{ count: 1 }]);
+
+    const again = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/manual-schedule-templates/${template.id}`,
+    });
+    expect(again.statusCode).toBe(404);
+
+    const memberDelete = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/manual-schedule-templates/${template.id}`,
+    });
+    expect(memberDelete.statusCode).toBe(403);
+  });
+
   it('updates a template by replacing members and cells with the expected version', async () => {
     const created = await createTemplate({
       cells: [

@@ -274,7 +274,7 @@ function getErrorMessage(error: unknown): string {
           只看变动
         </label>
         <label v-if="roleOptions.length > 0" class="filter-field">
-          排班角色
+          排班岗位
           <t-select v-model="roleIds" multiple :options="roleOptions" clearable />
         </label>
         <label v-if="shiftTypeOptions.length > 0" class="filter-field">

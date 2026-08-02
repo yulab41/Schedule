@@ -234,7 +234,7 @@ function getErrorMessage(error: unknown): string {
           <t-alert
             v-if="preview.vacancies.length > 0"
             theme="warning"
-            :message="`发现 ${preview.vacancies.length} 个待处理空缺（成员已离开角色或不在生效区间）。`"
+            :message="`发现 ${preview.vacancies.length} 个待处理空缺（成员已离开岗位或不在生效区间）。`"
           />
 
           <label v-if="hasBlockers" class="acknowledge-field">

@@ -152,12 +152,12 @@ function getCurrentCstMonth(): string {
           </option>
         </select>
       </t-form-item>
-      <t-form-item label="排班角色" name="roleId">
+      <t-form-item label="排班岗位" name="roleId">
         <t-select
           v-model="roleId"
           :options="roles.map((role) => ({ label: role.name, value: role.id }))"
           clearable
-          placeholder="全部角色"
+          placeholder="全部岗位"
         />
       </t-form-item>
       <t-form-item label="成员" name="membershipId">

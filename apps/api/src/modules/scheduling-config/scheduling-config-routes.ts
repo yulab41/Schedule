@@ -118,6 +118,17 @@ export function registerSchedulingConfigRoutes(
       ),
   );
 
+  app.delete(
+    '/groups/:groupId/schedule-roles/:roleId',
+    { preHandler: app.authenticate },
+    (request) =>
+      schedulingConfigService.deleteRole(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseRoleId(request),
+      ),
+  );
+
   app.post('/groups/:groupId/shift-types', { preHandler: app.authenticate }, (request, reply) =>
     schedulingConfigService
       .createShiftType(

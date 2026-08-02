@@ -230,6 +230,50 @@ export class ManualScheduleTemplateService {
     });
   }
 
+  public async delete(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    templateId: string,
+  ): Promise<void> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const template = await this.lockTemplate(transaction, authorization.group.id, templateId);
+      await transaction
+        .update(manualScheduleTemplates)
+        .set({
+          deletedAt: sql`current_timestamp(3)`,
+          version: sql`${manualScheduleTemplates.version} + 1`,
+        })
+        .where(eq(manualScheduleTemplates.id, template.id));
+      await this.softDeleteTemplateContent(transaction, template.id);
+      await this.eventWriter.append(transaction, {
+        afterData: {
+          scheduleRoleId: template.scheduleRoleId,
+          version: template.version + 1,
+        },
+        beforeData: {
+          cycleDays: template.cycleDays,
+          scheduleRoleId: template.scheduleRoleId,
+          startDate: template.startDate,
+          version: template.version,
+        },
+        eventStatus: 'completed',
+        eventType: 'manual_schedule_template_deleted',
+        groupId: authorization.group.id,
+        initiatedByUserId: authorization.user.id,
+        objectId: template.id,
+        objectType: 'manual_schedule_template',
+        operationId: randomUUID(),
+        operatorUserId: authorization.user.id,
+      });
+    });
+  }
+
   private async validateAndCaptureReferences(
     transaction: DatabaseTransaction,
     authorization: GroupAuthorization,

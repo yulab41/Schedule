@@ -207,12 +207,12 @@ function getErrorMessage(error: unknown): string {
         />
       </label>
       <label class="filter-field">
-        排班角色
+        排班岗位
         <t-select
           :value="scheduleRoleId"
           :options="roleOptions"
           clearable
-          placeholder="全部角色"
+          placeholder="全部岗位"
           @change="scheduleRoleId = $event === undefined || $event === null ? '' : String($event)"
         />
       </label>

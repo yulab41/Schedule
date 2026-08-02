@@ -81,14 +81,14 @@ async function loadConfig(): Promise<void> {
 
 async function createRole(): Promise<void> {
   if (newRoleName.value.trim() === '') {
-    errorMessage.value = '请填写排班角色名称。';
+    errorMessage.value = '请填写排班岗位名称。';
     return;
   }
 
   await save(async () => {
     await api.createScheduleRole(props.group.id, { name: newRoleName.value });
     newRoleName.value = '';
-    infoMessage.value = '排班角色已创建，请配置成员和轮值规则。';
+    infoMessage.value = '排班岗位已创建，请配置成员和轮值规则。';
   });
 }
 
@@ -97,7 +97,7 @@ async function saveRoleMembers(role: ScheduleRole): Promise<void> {
     await api.replaceScheduleRoleMembers(props.group.id, role.id, {
       membershipIds: getRoleDraft(role.id).memberIds,
     });
-    infoMessage.value = '排班角色成员已保存。';
+    infoMessage.value = '排班岗位成员已保存。';
   });
 }
 
@@ -146,6 +146,17 @@ async function saveShift(shiftType: ShiftType): Promise<void> {
     );
     infoMessage.value = `${shiftType.name}已保存。`;
   });
+}
+
+async function deleteRole(role: ScheduleRole): Promise<void> {
+  if (!window.confirm(`确定删除排班岗位“${role.name}”吗？删除后不可恢复。`)) {
+    return;
+  }
+
+  await save(async () => {
+    await api.deleteScheduleRole(props.group.id, role.id);
+  });
+  infoMessage.value = `排班岗位“${role.name}”已删除。`;
 }
 
 async function save(operation: () => Promise<void>): Promise<void> {
@@ -217,7 +228,7 @@ function toRoleDraft(role: ScheduleRole): RoleDraft {
 function getRoleDraft(roleId: string): RoleDraft {
   const draft = roleDrafts.value[roleId];
   if (draft === undefined) {
-    throw new Error('排班角色配置尚未加载。');
+    throw new Error('排班岗位配置尚未加载。');
   }
 
   return draft;
@@ -341,13 +352,19 @@ function getErrorMessage(error: unknown): string {
         </div>
       </t-card>
 
-      <t-card title="排班角色与轮值" class="scheduling-config-card">
+      <t-card title="排班岗位与轮值" class="scheduling-config-card">
+        <p>排班岗位指值班班次岗位（如一线、二线），不是成员姓名。</p>
         <form class="new-role-form" @submit.prevent="createRole">
-          <label>角色名称<input v-model="newRoleName" maxlength="100" required /></label>
-          <t-button theme="primary" type="submit" :loading="isSaving">新增角色</t-button>
+          <label>岗位名称<input v-model="newRoleName" maxlength="100" required /></label>
+          <t-button theme="primary" type="submit" :loading="isSaving">新增岗位</t-button>
         </form>
         <article v-for="role in config.roles" :key="role.id" class="schedule-role-editor">
-          <h3>{{ role.name }}</h3>
+          <div class="role-editor-header">
+            <h3>岗位：{{ role.name }}</h3>
+            <t-button theme="danger" variant="text" :loading="isSaving" @click="deleteRole(role)">
+              删除岗位
+            </t-button>
+          </div>
           <fieldset>
             <legend>参与成员</legend>
             <label v-for="member in config.groupMembers" :key="member.membershipId">
@@ -424,6 +441,17 @@ function getErrorMessage(error: unknown): string {
 </template>
 
 <style scoped>
+.role-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.role-editor-header h3 {
+  margin: 0;
+}
+
 .contrast-warning {
   color: var(--ui-color-warning);
   font-size: var(--ui-font-size-sm);

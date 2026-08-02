@@ -12,6 +12,16 @@ This file is the concise handoff entry point for every new implementation conver
 - Implementation plan: Approved by the user
 - Implementation code: Tasks 1 through 32 are complete. Web 1.0 (`v1.0.0`) is released under the user-accepted 公网 + 单账号全局授权 compromise: `pnpm verify` passed 322/322 (60 test files) with the isolated MySQL, the live smoke and database backup record are documented in `docs/releases/web-1.0-acceptance.md`, and the release commit message is `release: web scheduling system 1.0`.
 - 2026-08-03 bug-fix round: Web 1.0 feedback fixes are implemented and `pnpm verify` passed 327/327 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；若手动排班方向或日历单日班种显示仍异常，请截图并复核 PWA 缓存版本（仓库代码已为人员行/日期列）。
+- 2026-08-03 round 2: role/template deletion and 排班岗位 wording are implemented and `pnpm verify` passed 329/329 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；删除功能与文案改动已推送 `main`。
+
+## 2026-08-03 Round 2 (Deletion and Wording)
+
+Checkpoint commit message: `feat(schedule): add role and template deletion, clarify duty post wording`
+
+- 排班角色 user-facing wording: the Web UI now calls the concept 排班岗位 (duty post) with a clarifying hint “如一线、二线，不是成员姓名”；backend/API/DB names remain `schedule_role`/排班角色. Labels updated in 排班配置, 手动排班, 日历筛选, 事件中心, 导出, 统计 and event timeline text.
+- Manual schedule template deletion: new `DELETE /groups/:groupId/manual-schedule-templates/:templateId` soft-deletes the template and its cells/member rows, appends `manual_schedule_template_deleted`; the 手动排班 editor now has a 删除模板 button with confirmation. Integration-tested (delete, re-delete 404, member 403, event written).
+- Schedule role deletion: new `DELETE /groups/:groupId/schedule-roles/:roleId` soft-deletes the role plus its member/rotation rows and bumps the group rules version, but refuses deletion when any schedule period references the role (history protection) or a live manual template still uses it. 排班配置 role cards now have a 删除岗位 button with confirmation. Integration-tested (unused role deletes; used role blocked with a clear message).
+- Web API client gained `deleteManualScheduleTemplate` and `deleteScheduleRole`.
 
 ## 2026-08-03 Bug-Fix Round (Post-Release Feedback)
 
@@ -209,6 +219,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 2: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 329 Vitest tests (60 files) and all production builds, including the new template-delete and role-delete integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 bug-fix round: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 327 Vitest tests (60 files) and all production builds, including the new draft-list/publish integration test and updated session/calendar/event/nav unit tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - Task 1: `pnpm install --frozen-lockfile=false` passed after allowing only `esbuild` in pnpm's committed `allowBuilds` configuration.
 - Task 1: `pnpm verify` passed: Prettier, ESLint, strict TypeScript checks for five workspace packages, 1 Vitest test, and all package/Web production builds.

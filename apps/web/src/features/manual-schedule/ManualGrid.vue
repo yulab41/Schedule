@@ -75,7 +75,7 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
         <tr v-for="row in rows" :key="row.membershipId">
           <th class="member-name" scope="row">
             {{ row.realName }}
-            <span v-if="row.isStale" class="stale-badge" title="该成员已不在排班角色或引用已变更">
+            <span v-if="row.isStale" class="stale-badge" title="该成员已不在排班岗位或引用已变更">
               失效
             </span>
           </th>

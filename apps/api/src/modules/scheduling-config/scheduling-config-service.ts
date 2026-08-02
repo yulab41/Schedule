@@ -18,9 +18,11 @@ import {
   type DatabaseTransaction,
   groupMemberships,
   groups,
+  manualScheduleTemplates,
   memberScheduleRoles,
   rotationMembers,
   rotationRules,
+  schedulePeriods,
   scheduleRoles,
   shiftTypes,
   userProfiles,
@@ -284,6 +286,85 @@ export class SchedulingConfigService {
 
       await this.bumpGroupRulesVersion(transaction, authorization.group.id);
       return this.readRole(transaction, role.id);
+    });
+  }
+
+  public async deleteRole(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    roleId: string,
+  ): Promise<void> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
+
+      const usedPeriod = await transaction
+        .select({ id: schedulePeriods.id })
+        .from(schedulePeriods)
+        .where(eq(schedulePeriods.scheduleRoleId, role.id))
+        .limit(1);
+      if (usedPeriod[0] !== undefined) {
+        throw validationError('该排班岗位已用于排班，为保留历史数据不能删除。');
+      }
+
+      const usedTemplate = await transaction
+        .select({ id: manualScheduleTemplates.id })
+        .from(manualScheduleTemplates)
+        .where(
+          and(
+            eq(manualScheduleTemplates.scheduleRoleId, role.id),
+            isNull(manualScheduleTemplates.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (usedTemplate[0] !== undefined) {
+        throw validationError('该排班岗位仍被手动排班模板使用，请先删除相关模板。');
+      }
+
+      const rule = await this.getRuleForUpdate(transaction, role.id);
+      await Promise.all([
+        transaction
+          .update(memberScheduleRoles)
+          .set({
+            deletedAt: sql`current_timestamp(3)`,
+            version: sql`${memberScheduleRoles.version} + 1`,
+          })
+          .where(
+            and(
+              eq(memberScheduleRoles.scheduleRoleId, role.id),
+              isNull(memberScheduleRoles.deletedAt),
+            ),
+          ),
+        transaction
+          .update(rotationMembers)
+          .set({
+            deletedAt: sql`current_timestamp(3)`,
+            version: sql`${rotationMembers.version} + 1`,
+          })
+          .where(
+            and(eq(rotationMembers.rotationRuleId, rule.id), isNull(rotationMembers.deletedAt)),
+          ),
+        transaction
+          .update(rotationRules)
+          .set({
+            deletedAt: sql`current_timestamp(3)`,
+            version: sql`${rotationRules.version} + 1`,
+          })
+          .where(and(eq(rotationRules.scheduleRoleId, role.id), isNull(rotationRules.deletedAt))),
+        transaction
+          .update(scheduleRoles)
+          .set({
+            deletedAt: sql`current_timestamp(3)`,
+            version: sql`${scheduleRoles.version} + 1`,
+          })
+          .where(eq(scheduleRoles.id, role.id)),
+      ]);
+      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
     });
   }
 
@@ -637,7 +718,7 @@ export class SchedulingConfigService {
     roleId: string,
   ) {
     const [role] = await transaction
-      .select({ id: scheduleRoles.id })
+      .select({ id: scheduleRoles.id, name: scheduleRoles.name, version: scheduleRoles.version })
       .from(scheduleRoles)
       .where(
         and(

@@ -73,6 +73,17 @@ export function registerManualScheduleTemplateRoutes(
         parseUpdateInput(request.body),
       ),
   );
+
+  app.delete(
+    '/groups/:groupId/manual-schedule-templates/:templateId',
+    { preHandler: app.authenticate },
+    (request) =>
+      templateService.delete(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseTemplateId(request),
+      ),
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

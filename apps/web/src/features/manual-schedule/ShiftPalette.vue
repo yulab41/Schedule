@@ -14,7 +14,7 @@ const emit = defineEmits<{
   <section class="shift-palette" aria-label="班种按钮">
     <h3>选择班种</h3>
     <p v-if="shiftTypes.length === 0" class="palette-empty">
-      当前角色没有可用的启用班种，请先在排班配置中启用。
+      当前岗位没有可用的启用班种，请先在排班配置中启用。
     </p>
     <div v-else class="palette-buttons">
       <button

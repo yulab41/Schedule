@@ -62,6 +62,7 @@ const conflictSummary = ref<string>();
 const conflictVisible = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
+const isDeleting = ref(false);
 const isPublishingId = ref<string>();
 const blockedDraft = ref<ScheduleDraftSummary>();
 const blockedDraftMessage = ref('');
@@ -307,7 +308,7 @@ async function save(): Promise<void> {
   infoMessage.value = undefined;
 
   if (scheduleRoleId.value === '') {
-    errorMessage.value = '请先选择排班角色。';
+    errorMessage.value = '请先选择排班岗位。';
     return;
   }
   if (membershipIds.value.length === 0) {
@@ -379,6 +380,33 @@ function openApplyDialog(): void {
   const template = templates.value.find((candidate) => candidate.id === selectedTemplateId.value);
   if (template !== undefined) {
     applyTarget.value = template;
+  }
+}
+
+async function deleteTemplate(): Promise<void> {
+  const template = templates.value.find((candidate) => candidate.id === selectedTemplateId.value);
+  if (template === undefined) {
+    return;
+  }
+  if (
+    !window.confirm(
+      `确定删除模板“${template.scheduleRoleName} · ${template.startDate} · ${template.cycleDays}天”吗？删除后不可恢复。`,
+    )
+  ) {
+    return;
+  }
+
+  errorMessage.value = undefined;
+  isDeleting.value = true;
+  try {
+    await api.deleteManualScheduleTemplate(props.group.id, template.id);
+    resetEditor();
+    infoMessage.value = '模板已删除。';
+    await loadData();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isDeleting.value = false;
   }
 }
 
@@ -457,7 +485,7 @@ function onWindowFocus(): void {
           />
         </label>
         <label>
-          排班角色
+          排班岗位
           <t-select :value="scheduleRoleId" :options="roleOptions" @change="onRoleChange" />
         </label>
         <label>
@@ -473,7 +501,7 @@ function onWindowFocus(): void {
       <fieldset class="member-selector">
         <legend>值班人员</legend>
         <p v-if="roleMembers.length === 0" class="member-empty">
-          该排班角色还没有成员，请先在排班配置中添加。
+          该排班岗位还没有成员，请先在排班配置中添加。
         </p>
         <label v-for="member in roleMembers" :key="member.membershipId">
           <input
@@ -488,7 +516,7 @@ function onWindowFocus(): void {
       <t-alert
         v-if="staleWarning"
         theme="warning"
-        message="模板包含失效引用（成员已不在角色中，或班种已停用/配置已变更）。保存时会重新校验，请确认后再继续。"
+        message="模板包含失效引用（成员已不在岗位中，或班种已停用/配置已变更）。保存时会重新校验，请确认后再继续。"
       />
 
       <template v-if="rows.length > 0 && columns.length > 0">
@@ -516,8 +544,17 @@ function onWindowFocus(): void {
         <t-button v-if="isEditing" variant="outline" :disabled="!canApply" @click="openApplyDialog">
           应用模板
         </t-button>
+        <t-button
+          v-if="isEditing"
+          theme="danger"
+          variant="outline"
+          :loading="isDeleting"
+          @click="deleteTemplate"
+        >
+          删除模板
+        </t-button>
       </template>
-      <p v-else class="editor-hint">请选择排班角色并勾选至少一位值班人员。</p>
+      <p v-else class="editor-hint">请选择排班岗位并勾选至少一位值班人员。</p>
 
       <section v-if="drafts.length > 0" class="draft-section">
         <h3>草稿排班</h3>
