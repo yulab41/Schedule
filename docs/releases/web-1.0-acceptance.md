@@ -28,7 +28,7 @@
 | `GET /api/groups/:id/statistics?businessMonth=2026-08` | 200：林恩宇 5 个计值班次统计                                                                                                                                                    |
 | `GET /api/groups/:id/events?pageSize=5`                | 200：`leave_request_submitted` → `leave_request_approved` → `leave_cover_completed` 事件链（请假 `b513ff59-ff58-49ba-82a2-e970ddc1cd10`）                                       |
 | `GET /api/groups/:id/leave-reflow-strategy`            | 200：`keep-original-order`                                                                                                                                                      |
-| `GET /api/holidays?year=2026`                          | 200：`confirmed:false`（节假日数据待导入，功能已由测试覆盖）                                                                                                                    |
+| `GET /api/holidays?year=2026`                          | 200：`confirmed:true`，39 条官方安排（2026-08-03 导入确认，国办发明电〔2025〕7 号）                                                                                             |
 | `GET /api/platform/jobs`                               | 200：`database-backup`、`statistics-rebuild` 均 completed                                                                                                                       |
 | `GET /api/platform/backups`                            | 200：归档 `22fc2b6d-b5b0-4dc5-9b8b-1201401378f3`（37 表、471 行、SHA-256 已记录）                                                                                               |
 | 线上备份任务                                           | `schedule_database_backup` 触发成功，`runId fd441b12-df1f-4408-9b6a-40968fa1ed47`，归档 `backups/monthly/2026-08-02T14-37-40.657Z.backup`（769,544 字节，monthly 保留档）       |
@@ -62,7 +62,7 @@
 
 ## 5. 遗留项与注意事项
 
-- 2026 年法定节假日数据尚未导入（`GET /holidays` 返回 `confirmed:false`）；导入工具与确认 API 已就绪，数据确认后节假日显示与统计自动生效。
+- 2026 年法定节假日已导入并确认（39 条，含 6 个调休上班日），数据集与来源见 `infra/holidays/`；2027 年数据待官方通知发布后按同一流程导入。
 - 浏览器级最终确认项（手机拨号、浏览器推送授权、PWA 安装）请用户在正式域名上过一遍；相关逻辑已由自动化测试覆盖。
 - CAM 子账号密钥轮换、单账号公网 MySQL、备份持久化等安全/付费事项按 Task 31 记录延后处理。
 - 默认域名作为正式入口是本次妥协方案的一部分；自定义域名与 ICP 备案完成后按 `docs/deployment/dns-and-https.md` 切换。

@@ -150,6 +150,7 @@ This file is the concise handoff entry point for every new implementation conver
 ## Known Environment State
 
 - Release decision 2026-08-02: Web 1.0 uses the existing CloudBase development environment (`schedule-dev-d1geh4w1l4af7359d`) and its default domain as the entry, under the accepted 公网 + 单账号全局授权 compromise. Paid formalization items are skipped/deferred; the upgrade path is recorded in `docs/deployment/production-readiness.md`.
+- 2026 年法定节假日（2026-08-03 北京时间）已通过线上节假日管理 API 导入并确认：39 条（33 个放假日 + 6 个调休上班日），版本 `2476826f-389e-4304-bf53-85ceb5d730e8`（version 1，confirmed），数据来源《国务院办公厅关于2026年部分节假日安排的通知》（国办发明电〔2025〕7 号）；数据集与说明在 `infra/holidays/`。`GET /api/holidays?year=2026` 返回 `confirmed:true` 且 39 条；coverage 显示 `confirmedYears: [2026]`。
 - The repository is connected to `https://github.com/yulab41/Schedule.git`.
 - `main` was synchronized with `origin/main` before this handoff update.
 - Node.js v24.14.0, pnpm v11.9.0, Docker v29.4.0, and Docker Compose v5.1.2 were detected.
