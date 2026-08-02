@@ -12,6 +12,15 @@ updates:
       npm-dependencies:
         patterns:
           - '*'
+    ignore:
+      # typescript-eslint and the Vue toolchain do not support TypeScript 7
+      # yet; remove these ignores once supported and verified.
+      - dependency-name: 'typescript'
+        versions:
+          - '>=7'
+      - dependency-name: 'eslint'
+        versions:
+          - '>=10'
 
   - package-ecosystem: github-actions
     directory: '/'
