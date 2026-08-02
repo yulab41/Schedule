@@ -1037,6 +1037,140 @@ describe('Web API client', () => {
       status: 200,
     });
   });
+
+  it('loads month and year statistics and runs recalculation checks', async () => {
+    const summary = {
+      actualCount: 1,
+      byRole: [
+        {
+          actualCount: 1,
+          plannedCount: 1,
+          scheduleRoleId: 'role-1',
+          scheduleRoleName: 'Primary',
+        },
+      ],
+      byShiftType: [
+        {
+          actualCount: 1,
+          plannedCount: 1,
+          shiftTypeId: 'shift-1',
+          shiftTypeName: 'All Day',
+        },
+      ],
+      countedActualCount: 1,
+      countedPlannedCount: 1,
+      deductionCount: 0,
+      holidayCount: 0,
+      leaveCoverCount: 0,
+      manualAdjustmentCount: 0,
+      members: [
+        {
+          actualCount: 1,
+          actualVsPlanned: [],
+          byRole: [
+            {
+              actualCount: 1,
+              plannedCount: 1,
+              scheduleRoleId: 'role-1',
+              scheduleRoleName: 'Primary',
+            },
+          ],
+          byShiftType: [
+            {
+              actualCount: 1,
+              plannedCount: 1,
+              shiftTypeId: 'shift-1',
+              shiftTypeName: 'All Day',
+            },
+          ],
+          countedActualCount: 1,
+          countedPlannedCount: 1,
+          deductionCount: 0,
+          deltaCount: 0,
+          holidayCount: 0,
+          leaveCoverCount: 0,
+          manualAdjustmentCount: 0,
+          membershipId: 'membership-1',
+          netDutyAdjustment: 0,
+          overtimeCount: 0,
+          plannedCount: 1,
+          realName: 'A Doctor',
+          swapCount: 0,
+          weekendCount: 0,
+        },
+      ],
+      netDutyAdjustment: 0,
+      overtimeCount: 0,
+      plannedCount: 1,
+      swapCount: 0,
+      weekendCount: 0,
+    } as const;
+    const monthSnapshot = {
+      businessMonth: '2026-10',
+      computedAt: '2026-08-02T00:00:00.000Z',
+      groupId: 'group-1',
+      summary,
+      version: 1,
+    } as const;
+    const year = { months: [{ businessMonth: '2026-10', summary }], summary, year: 2026 } as const;
+    const checkResult = {
+      businessMonth: '2026-10',
+      matched: true,
+      mismatches: [],
+      recomputed: summary,
+      snapshot: summary,
+      snapshotVersion: 1,
+    } as const;
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(monthSnapshot), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(year), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(checkResult), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(monthSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const month = await client.getMonthStatistics('group-1', '2026-10');
+    expect(month.summary.actualCount).toBe(1);
+    expect(month.version).toBe(1);
+    const yearResult = await client.getYearStatistics('group-1', 2026);
+    expect(yearResult.months).toHaveLength(1);
+    const check = await client.recalculateStatistics('group-1', '2026-10');
+    expect(check.matched).toBe(true);
+    const refreshed = await client.refreshMonthStatistics('group-1', '2026-10');
+    expect(refreshed.businessMonth).toBe('2026-10');
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/statistics?businessMonth=2026-10',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/statistics/year?year=2026',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/groups/group-1/statistics/recalculate-check',
+      expect.objectContaining({ method: 'POST' }),
+    );
+
+    const malformedClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ businessMonth: '2026-10' }), { status: 200 }),
+        ),
+    });
+    await expect(malformedClient.getMonthStatistics('group-1', '2026-10')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

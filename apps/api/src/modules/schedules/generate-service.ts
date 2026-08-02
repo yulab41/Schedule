@@ -51,6 +51,7 @@ import {
   writeConflictNotification,
 } from '../notifications/conflict-notifier.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
+import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData, toPeriodSummary } from './shared.js';
 import { ScheduleRepository, type CreateShiftAssignmentInput } from './schedule-repository.js';
 
@@ -127,11 +128,14 @@ export class ScheduleGenerateService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly statisticsService: StatisticsService;
 
   public constructor(
     private readonly databaseClient: DatabaseClient,
     private readonly repository: ScheduleRepository,
-  ) {}
+  ) {
+    this.statisticsService = new StatisticsService(this.databaseClient);
+  }
 
   public async preview(
     identity: AuthenticatedIdentity,
@@ -295,6 +299,12 @@ export class ScheduleGenerateService {
         scheduleEventId: generationEventId,
         title: '排班已生成',
       });
+      await this.statisticsService.refreshInTransaction(
+        transaction,
+        authorization.group.id,
+        `${input.businessMonth}-01`,
+        generationEventId,
+      );
     }
 
     return {

@@ -13,6 +13,7 @@ import SwapPanel from '../features/swaps/SwapPanel.vue';
 import DutyAdjustmentPanel from '../features/duty-adjustments/DutyAdjustmentPanel.vue';
 import EventCenterView from './events/EventCenterView.vue';
 import NotificationSettingsPanel from '../features/notifications/NotificationSettingsPanel.vue';
+import StatisticsView from './statistics/StatisticsView.vue';
 import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
 
@@ -103,6 +104,9 @@ function getErrorMessage(error: unknown): string {
           </t-tab-panel>
           <t-tab-panel value="notifications" label="通知">
             <NotificationSettingsPanel :group="currentGroup()!" />
+          </t-tab-panel>
+          <t-tab-panel value="statistics" label="统计">
+            <StatisticsView :group="currentGroup()!" />
           </t-tab-panel>
           <t-tab-panel value="members" label="成员">
             <MemberManager :group="currentGroup()!" @group-changed="refreshGroups" />

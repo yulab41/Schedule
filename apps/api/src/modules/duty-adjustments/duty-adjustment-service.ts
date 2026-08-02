@@ -43,6 +43,7 @@ import {
   type GroupAuthorization,
 } from '../groups/permission-service.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
+import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
@@ -74,8 +75,11 @@ export class DutyAdjustmentService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly statisticsService: StatisticsService;
 
-  public constructor(private readonly databaseClient: DatabaseClient) {}
+  public constructor(private readonly databaseClient: DatabaseClient) {
+    this.statisticsService = new StatisticsService(this.databaseClient);
+  }
 
   public async preview(
     identity: AuthenticatedIdentity,
@@ -1028,6 +1032,11 @@ export class DutyAdjustmentService {
       scheduleEventId: revokedEventId,
       title: '加扣班已撤销',
     });
+    await this.statisticsService.refreshInTransaction(
+      transaction,
+      authorization.group.id,
+      context.period.businessMonth,
+    );
 
     return this.readDutyAdjustment(transaction, request.id);
   }
@@ -1087,6 +1096,11 @@ export class DutyAdjustmentService {
       parentEventId,
       schedulePeriodId: context.period.id,
     });
+    await this.statisticsService.refreshInTransaction(
+      transaction,
+      context.group.id,
+      context.period.businessMonth,
+    );
   }
 
   private async loadDutyAdjustmentContext(

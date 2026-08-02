@@ -12,6 +12,7 @@ export * from './swaps.js';
 export * from './duty-adjustments.js';
 export * from './notifications.js';
 export * from './holidays.js';
+export * from './statistics.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';

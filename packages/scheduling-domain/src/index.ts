@@ -32,6 +32,15 @@ export {
   type ChinaStandardTimeShiftRange,
   type ChinaStandardTimeShiftRangeInput,
 } from './time.js';
+export {
+  calculateMonthStatistics,
+  mergeMonthStatistics,
+  type StatisticsCalculationInput,
+  type StatisticsAssignmentInput,
+  type StatisticsHolidayInput,
+  type StatisticsMemberNameInput,
+  type StatisticsWorkflowCountInput,
+} from './statistics/calculate.js';
 export { findContinuousDutyWarnings, findRotationHardConflicts } from './conflicts.js';
 export {
   assertBusinessDate,

@@ -61,6 +61,7 @@ import {
   writeConflictNotification,
 } from '../notifications/conflict-notifier.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
+import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
 
 type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
@@ -115,8 +116,11 @@ export class LeaveService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly statisticsService: StatisticsService;
 
-  public constructor(private readonly databaseClient: DatabaseClient) {}
+  public constructor(private readonly databaseClient: DatabaseClient) {
+    this.statisticsService = new StatisticsService(this.databaseClient);
+  }
 
   public async submit(
     identity: AuthenticatedIdentity,
@@ -618,6 +622,13 @@ export class LeaveService {
         scheduleEventId: firstCoverEventId,
         title: '排班已调整',
       });
+    }
+    for (const period of context.periods) {
+      await this.statisticsService.refreshInTransaction(
+        transaction,
+        authorization.group.id,
+        period.businessMonth,
+      );
     }
 
     const updatedLeaveRequest = await this.readLeaveRequest(transaction, leaveRequest.id);

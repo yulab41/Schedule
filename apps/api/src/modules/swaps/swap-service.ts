@@ -43,6 +43,7 @@ import {
   type GroupAuthorization,
 } from '../groups/permission-service.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
+import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
@@ -79,8 +80,11 @@ export class SwapService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly statisticsService: StatisticsService;
 
-  public constructor(private readonly databaseClient: DatabaseClient) {}
+  public constructor(private readonly databaseClient: DatabaseClient) {
+    this.statisticsService = new StatisticsService(this.databaseClient);
+  }
 
   public async preview(
     identity: AuthenticatedIdentity,
@@ -898,6 +902,16 @@ export class SwapService {
         parentEventId,
         schedulePeriodId,
       });
+    }
+    for (const businessMonth of new Set([
+      context.initiatorPeriod.businessMonth,
+      context.targetPeriod.businessMonth,
+    ])) {
+      await this.statisticsService.refreshInTransaction(
+        transaction,
+        context.group.id,
+        businessMonth,
+      );
     }
   }
 

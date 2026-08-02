@@ -37,6 +37,7 @@ import {
   writeConflictNotification,
 } from '../notifications/conflict-notifier.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
+import { StatisticsService } from '../statistics/statistics-service.js';
 import { ScheduleRepository } from './schedule-repository.js';
 import { toLatestData, toPeriodSummary } from './shared.js';
 
@@ -53,11 +54,14 @@ interface MutableShiftTypeCount {
 export class SchedulePublishService {
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly statisticsService: StatisticsService;
 
   public constructor(
     private readonly databaseClient: DatabaseClient,
     private readonly repository: ScheduleRepository,
-  ) {}
+  ) {
+    this.statisticsService = new StatisticsService(this.databaseClient);
+  }
 
   public async publishDraft(
     identity: AuthenticatedIdentity,
@@ -163,6 +167,11 @@ export class SchedulePublishService {
         title: '排班已发布',
       });
     }
+    await this.statisticsService.refreshInTransaction(
+      transaction,
+      authorization.group.id,
+      period.businessMonth,
+    );
 
     return { period: toPeriodSummary(published), preview };
   }

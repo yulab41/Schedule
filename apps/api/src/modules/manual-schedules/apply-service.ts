@@ -44,6 +44,7 @@ import {
   writeConflictNotification,
 } from '../notifications/conflict-notifier.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
+import { StatisticsService } from '../statistics/statistics-service.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import {
   ScheduleRepository,
@@ -85,11 +86,14 @@ export class ManualScheduleApplyService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly statisticsService: StatisticsService;
 
   public constructor(
     private readonly databaseClient: DatabaseClient,
     private readonly repository: ScheduleRepository,
-  ) {}
+  ) {
+    this.statisticsService = new StatisticsService(this.databaseClient);
+  }
 
   public async preview(
     identity: AuthenticatedIdentity,
@@ -229,6 +233,14 @@ export class ManualScheduleApplyService {
         schedulePeriodId: period.id,
       });
       appliedEventIds.push(appliedEventId);
+      if (publishMode === 'published') {
+        await this.statisticsService.refreshInTransaction(
+          transaction,
+          authorization.group.id,
+          `${businessMonth}-01`,
+          appliedEventId,
+        );
+      }
     }
     const firstAppliedEventId = appliedEventIds[0];
     if (publishMode === 'published' && firstAppliedEventId !== undefined) {
