@@ -4,10 +4,10 @@
 
 ## 架构
 
-- Web 静态资源：CloudBase 静态网站托管（Vue history 模式，错误页配置为 `index.html`）。
+- Web 静态资源：CloudBase 静态网站托管（Vue history 模式，404 通过“错误码重定向”回落到 `index.html`）。
 - API：事件型云函数 `schedule-api`，通过 HTTP 访问服务以 `SCF` 资源类型挂在开发域名 `/api` 触发路径下，开启路径透传；网关把登录态注入 `x-cloudbase-context`，业务层只信任该上下文（实测事件型函数必须选 `SCF`，选 `WEB_SCF` 会返回 400；`WEB_SCF` 仅用于 Web/HTTP 型函数）。
 - 定时任务：事件型云函数 `schedule-jobs`，由控制台定时触发器调用，按触发器名称分发到 `database-backup`、`duty-reminders`、`export-jobs`、`group-recycle`、`holiday-alerts`、`notification-retry`、`statistics-rebuild`。
-- 数据库：CloudBase MySQL（腾讯云数据库 MySQL），云函数通过私有网络/VPC 连接；`schedule_events` 与 `audit_logs` 只授予 `SELECT`/`INSERT`。
+- 数据库：CloudBase 关联 MySQL（TDSQL-C）。开发环境实测使用“直连服务”外网地址；生产环境应开启云函数私有网络/VPC 走内网地址。`schedule_events` 与 `audit_logs` 只授予 `SELECT`/`INSERT`。
 - 部署：GitHub Actions 在 `main` 分支验证通过后自动部署；密钥只在 GitHub 环境级 Secret 与 CloudBase 控制台环境变量中，不进入仓库。
 
 ## 前置条件
@@ -22,7 +22,7 @@
 
 ### 1. 数据库
 
-在 CloudBase 控制台创建/关联云数据库 MySQL，记录连接地址、端口、数据库名和账号。生产/正式环境应开启云函数“高级配置/私有网络”，选择 MySQL 所在的 VPC 与子网，通过内网地址连接（VPC 需要付费）。开发环境实测走“免费公网”方案：临时开启 MySQL 外网访问，在安全组入站规则放通 `0.0.0.0/0`（TCP 外网端口），云函数默认即具备公网出口、无需 VPC；开发期可接受，生产必须收回。
+在 CloudBase 控制台创建/关联云数据库 MySQL，记录连接地址、端口、数据库名和账号。生产/正式环境应开启云函数“高级配置/私有网络”，选择 MySQL 所在的 VPC 与子网，通过内网地址连接（VPC 需要付费）。开发环境实测走“免费公网”方案：CloudBase 控制台 → 数据库 → MySQL → 「直连服务」开启外网地址（`sh-cynosdbmysql-grp-*.sql.tencentcdb.com:<外网端口>`），云函数默认具备公网出口，实测无需额外白名单即可连接；TDSQL-C 控制台对 CloudBase 托管的集群会提示“当前状态不允许操作集群”，不要在那里改安全组。本机调试如需直连，需要把本机公网 IP 加入放行（本机为 IPv6 时通常不便，可用 DMC 或 RunSql 代替）。开发期单账号 + 公网 + 全局授权是可接受的妥协，生产必须收回为 VPC 内网 + 专用运行账号。
 
 业务账号按最小权限创建。`schedule_events` 和 `audit_logs` 是追加式日志表，运行账号不能拥有 `UPDATE`/`DELETE`：
 
@@ -48,7 +48,7 @@ FLUSH PRIVILEGES;
 ### 3. 静态网站托管与 HTTP 访问服务
 
 1. 部署 Web 构建产物（可由下方 CI 完成，或本地执行 `tcb hosting deploy ../../apps/web/dist -e <envId>`）。
-2. 静态网站托管设置页把“错误页面”配置为 `index.html`（Vue history 模式刷新路由必需）。
+2. 静态网站托管设置页配置 404 回落（Vue history 模式刷新路由必需）：新版控制台在「重定向规则 → 错误码重定向」把 404 重定向到 `index.html`（旧版在「设置 → 错误页面」填 `index.html`）。等价实现：COS `putBucketWebsite` 的 `RoutingRules` 加 `HttpErrorCodeReturnedEquals=404 → ReplaceKeyWith=index.html`（本次开发环境即用此方式，实测生效）。
 3. HTTP 访问服务中，把开发默认域名关联两类资源：
    - 静态网站托管：应用模式，触发路径 `/`；
    - 云函数 `schedule-api`：资源类型选择 云函数（`SCF`，事件型函数；不要选 Web 云函数 `WEB_SCF`），触发路径 `/api`，开启路径透传；网关鉴权保持关闭，由 API 自身按 `x-cloudbase-context` 校验登录态（这样 `/api/health` 可匿名探测，业务路由仍返回 401）。
@@ -111,7 +111,7 @@ tcb --config-file infra/cloudbase/cloudbaserc.json \
 迁移不会在任何自动部署流程中执行，也不在每次前端构建时触发。首次上线和每次迁移文件变更后，由操作者手动执行：
 
 1. 先在 CloudBase 控制台或 `docs/operations/backup-and-restore.md` 流程完成迁移前备份。
-2. 确保本机可以访问 CloudBase MySQL（临时开通公网直连并在用后关闭，或使用跳板机）。
+2. 确保本机可以访问 CloudBase MySQL（使用「直连服务」外网地址并把本机公网 IP 加入放行，或在 DMC 执行；也可以使用 `@cloudbase/manager-node` 的 `mysql.runSql` 通过 CloudBase 接口直接执行 SQL）。
 3. 以 CloudBase MySQL 的连接信息临时覆盖 `.env` 中的 `MYSQL_*`（不要把值提交到仓库），然后执行：
 
 ```bash
