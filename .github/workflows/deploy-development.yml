@@ -64,8 +64,8 @@ jobs:
         env:
           CLOUDBASE_DEV_ENV_ID: ${{ vars.CLOUDBASE_DEV_ENV_ID }}
         run: |
-          if ! pnpm exec tcb fn code update schedule-api -e "$CLOUDBASE_DEV_ENV_ID" --json; then
-            pnpm exec tcb fn deploy schedule-api -e "$CLOUDBASE_DEV_ENV_ID" --json
+          if ! pnpm exec tcb fn code update schedule-api -e "$CLOUDBASE_DEV_ENV_ID" --deployMode zip --json; then
+            pnpm exec tcb fn deploy schedule-api -e "$CLOUDBASE_DEV_ENV_ID" --deployMode zip --json
           fi
 
       - name: Deploy scheduled-jobs cloud function
@@ -73,8 +73,8 @@ jobs:
         env:
           CLOUDBASE_DEV_ENV_ID: ${{ vars.CLOUDBASE_DEV_ENV_ID }}
         run: |
-          if ! pnpm exec tcb fn code update schedule-jobs -e "$CLOUDBASE_DEV_ENV_ID" --json; then
-            pnpm exec tcb fn deploy schedule-jobs -e "$CLOUDBASE_DEV_ENV_ID" --json
+          if ! pnpm exec tcb fn code update schedule-jobs -e "$CLOUDBASE_DEV_ENV_ID" --deployMode zip --json; then
+            pnpm exec tcb fn deploy schedule-jobs -e "$CLOUDBASE_DEV_ENV_ID" --deployMode zip --json
           fi
 
       - name: Deploy static web hosting
