@@ -177,6 +177,45 @@ describe('event timeline logic', () => {
     ).toBe('A Doctor 与 B Doctor 互换班次（由 A Doctor 发起，发起时间 2026-08-03 09:00）。');
   });
 
+  it('falls back to planned and current duty names when a swap event has no before actual names', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: {
+            initiatorAssignment: { actualMemberId: 'membership-b', actualMemberName: '洪晨善' },
+            initiatorAssignmentId: 'assignment-1',
+            targetAssignment: { actualMemberId: 'membership-a', actualMemberName: '林恩宇' },
+            targetAssignmentId: 'assignment-2',
+          },
+          beforeData: {
+            initiatorAssignment: { actualMemberId: null, actualMemberName: null },
+            initiatorAssignmentId: 'assignment-1',
+            targetAssignment: { actualMemberId: null, actualMemberName: null },
+            targetAssignmentId: 'assignment-2',
+          },
+        }),
+        {
+          actualMemberName: '林恩宇',
+          businessDate: '2026-08-18',
+          changeMarkers: ['swap'],
+          endsAt: '2026-08-18T16:00:00.000Z',
+          id: 'assignment-2',
+          plannedMemberName: '洪晨善',
+          schedulePeriodId: 'period-1',
+          scheduleRoleId: 'role-1',
+          scheduleRoleName: '一线',
+          shiftTypeAbbreviation: '全',
+          shiftTypeColor: '#1F5AA6',
+          shiftTypeId: 'shift-1',
+          shiftTypeName: '全天班',
+          shiftTypeTextColor: '#FFFFFF',
+          slotPosition: 1,
+          startsAt: '2026-08-18T00:00:00.000Z',
+        },
+      ),
+    ).toBe('洪晨善 与 林恩宇 互换班次。');
+  });
+
   it('builds a full swap chain for one shift across multiple swaps', () => {
     const events = [
       event({

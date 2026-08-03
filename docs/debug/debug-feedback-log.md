@@ -239,6 +239,17 @@
 - 附加发现（未修代码）：无 body 的 POST 若用 PowerShell `Invoke-RestMethod` 默认请求头调用，Fastify 因无对应 Content-Type 解析器抛 `FST_ERR_CTP_INVALID_MEDIA_TYPE`，被错误处理器归一化为 500；Web 前端用 fetch + JSON 不受影响，已列入待办排查项。
 - 状态：已完成（待用户强刷本地日历验收）。
 
+### 轮次 27（提交：fix(events): include planned names in swap events and fall back to duty names）
+- 用户反馈：换班事件弹窗又显示“换班已生效。”，之前精简的“林恩宇 与 黄耿杰 互换班次（由 … 发起，发起时间 …）”消失；同时指出加扣班事件能正确显示“加扣班完成：林恩宇 的班次由 洪晨善 代值（由 本地管理员 发起）”，质疑是否真是计划/实际人员问题。
+- 根因：
+  - 换班完成事件（`swap_completed`）的 before/after 只写 `actualMemberName`（实际人员）。新发布的排班只有计划人员、实际人员为空，因此“换班前”一侧姓名为空，前端叙述因双方姓名不全落入兜底文案“换班已生效。”。
+  - 加扣班事件之所以正常：后端直接写入 `deductedMemberName`/`overtimeMemberName`/`initiatorMemberName` 等姓名字段，前端另有“取不到就用班次计划人员”的兜底。
+- 修复/功能：
+  - 后端 `applySwap` 写 `swap_completed` 事件时，before/after 的 `initiatorAssignment`/`targetAssignment` 同时携带计划与实际的成员 ID/姓名（空字段省略），新事件不再缺“换班前”姓名。
+  - 前端 `buildEventNarrative` 对 `swap_completed` 增加回退：按当前班次匹配发起方/目标方，换班前姓名取不到时回退到班次计划人员，换班后取不到时回退到班次当前实际人员；旧事件（无计划字段）也能正确显示“洪晨善 与 林恩宇 互换班次。”。
+- 验证：`pnpm verify` 354/354（60 个测试文件，隔离 MySQL；新增前端回退单测与后端换班事件数据集成断言）。
+- 状态：已完成（本地 API 已用新构建重启；前端 Vite 热更新；旧换班事件刷新后即显示完整叙述）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。

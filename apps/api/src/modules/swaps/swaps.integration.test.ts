@@ -181,6 +181,42 @@ describeWithDatabase('member shift swaps', () => {
     const actuals = await readActualMembers(context);
     expect(actuals.aSep1.actualMembershipId).toBe(context.membershipIds.b);
     expect(actuals.bSep2.actualMembershipId).toBe(context.membershipIds.a);
+
+    const swapEvents = (
+      await client.database.execute(
+        sql`SELECT before_data AS beforeData, after_data AS afterData
+            FROM schedule_events
+            WHERE group_id = ${context.groupId} AND event_type = 'swap_completed'`,
+      )
+    )[0] as unknown as readonly {
+      readonly afterData: {
+        readonly initiatorAssignment?: {
+          readonly actualMemberId?: string | null;
+          readonly actualMemberName?: string | null;
+          readonly plannedMemberId?: string | null;
+          readonly plannedMemberName?: string | null;
+        };
+      };
+      readonly beforeData: {
+        readonly initiatorAssignment?: {
+          readonly actualMemberId?: string | null;
+          readonly actualMemberName?: string | null;
+          readonly plannedMemberId?: string | null;
+          readonly plannedMemberName?: string | null;
+        };
+      };
+    }[];
+    expect(swapEvents).toHaveLength(1);
+    expect(swapEvents[0]?.beforeData.initiatorAssignment).toMatchObject({
+      plannedMemberId: context.membershipIds.a,
+      plannedMemberName: 'A Doctor',
+    });
+    expect(swapEvents[0]?.afterData.initiatorAssignment).toMatchObject({
+      actualMemberId: context.membershipIds.b,
+      actualMemberName: 'B Doctor',
+      plannedMemberId: context.membershipIds.a,
+      plannedMemberName: 'A Doctor',
+    });
   });
 
   it('does not let automatic acceptance bypass administrator approval', async () => {

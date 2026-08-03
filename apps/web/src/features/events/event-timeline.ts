@@ -170,11 +170,31 @@ export function buildEventNarrative(
 
   switch (event.eventType) {
     case 'swap_completed': {
-      const initiatorName = readNestedMemberName(before.initiatorAssignment);
       const beforeInitiator = readNestedMemberName(before.initiatorAssignment);
+      const beforeTarget = readNestedMemberName(before.targetAssignment);
       const afterInitiator = readNestedMemberName(after.initiatorAssignment);
-      if (beforeInitiator !== undefined && afterInitiator !== undefined) {
+      const afterTarget = readNestedMemberName(after.targetAssignment);
+      let beforeName = beforeInitiator ?? beforeTarget;
+      let afterName = afterInitiator ?? afterTarget;
+      if (assignment !== undefined) {
+        const assignmentIsInitiator =
+          before.initiatorAssignmentId === assignment.id ||
+          after.initiatorAssignmentId === assignment.id;
+        const assignmentIsTarget =
+          before.targetAssignmentId === assignment.id || after.targetAssignmentId === assignment.id;
+        if (assignmentIsInitiator) {
+          beforeName = beforeInitiator;
+          afterName = afterInitiator;
+        } else if (assignmentIsTarget) {
+          beforeName = beforeTarget;
+          afterName = afterTarget;
+        }
+      }
+      beforeName ??= assignment?.plannedMemberName;
+      afterName ??= assignment?.actualMemberName;
+      if (beforeName !== undefined && afterName !== undefined) {
         const details: string[] = [];
+        const initiatorName = readNestedMemberName(before.initiatorAssignment);
         if (initiatorName !== undefined) {
           details.push(`由 ${initiatorName} 发起`);
         }
@@ -182,7 +202,7 @@ export function buildEventNarrative(
           details.push(`发起时间 ${formatEventTime(context.initiatedAt)}`);
         }
         const detailText = details.length === 0 ? '' : `（${details.join('，')}）`;
-        return `${beforeInitiator} 与 ${afterInitiator} 互换班次${detailText}。`;
+        return `${beforeName} 与 ${afterName} 互换班次${detailText}。`;
       }
       break;
     }

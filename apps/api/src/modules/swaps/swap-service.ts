@@ -949,14 +949,16 @@ export class SwapService {
     approverUserId: string | null,
   ): Promise<void> {
     const decidedAt = new Date();
-    const beforeInitiator = {
-      actualMemberId: context.initiatorAssignment.actualMembershipId,
-      actualMemberName: context.initiatorAssignment.actualMemberName,
-    };
-    const beforeTarget = {
-      actualMemberId: context.targetAssignment.actualMembershipId,
-      actualMemberName: context.targetAssignment.actualMemberName,
-    };
+    const beforeInitiator = toEventAssignmentData(
+      context.initiatorAssignment,
+      context.initiatorAssignment.actualMembershipId,
+      context.initiatorAssignment.actualMemberName,
+    );
+    const beforeTarget = toEventAssignmentData(
+      context.targetAssignment,
+      context.targetAssignment.actualMembershipId,
+      context.targetAssignment.actualMemberName,
+    );
 
     await transaction
       .update(shiftAssignments)
@@ -1002,15 +1004,17 @@ export class SwapService {
         affectedShiftIds,
         afterData: toLatestData({
           initiatorAssignmentId: context.initiatorAssignment.id,
-          initiatorAssignment: {
-            actualMemberId: context.targetMember.id,
-            actualMemberName: context.targetMember.realName,
-          },
+          initiatorAssignment: toEventAssignmentData(
+            context.initiatorAssignment,
+            context.targetMember.id,
+            context.targetMember.realName,
+          ),
           targetAssignmentId: context.targetAssignment.id,
-          targetAssignment: {
-            actualMemberId: context.initiatorMember.id,
-            actualMemberName: context.initiatorMember.realName,
-          },
+          targetAssignment: toEventAssignmentData(
+            context.targetAssignment,
+            context.initiatorMember.id,
+            context.initiatorMember.realName,
+          ),
         }),
         beforeData: toLatestData({
           initiatorAssignmentId: context.initiatorAssignment.id,
@@ -1748,6 +1752,23 @@ function toSwapAssignmentSummary(
     slotPosition: assignment.slotPosition,
     startsAt: assignment.startsAt.toISOString(),
     version: assignment.version,
+  };
+}
+
+function toEventAssignmentData(
+  assignment: LockedShiftAssignment,
+  actualMemberId: string | null,
+  actualMemberName: string | null,
+): Record<string, string> {
+  return {
+    ...(assignment.plannedMembershipId === null
+      ? {}
+      : { plannedMemberId: assignment.plannedMembershipId }),
+    ...(assignment.plannedMemberName === null
+      ? {}
+      : { plannedMemberName: assignment.plannedMemberName }),
+    ...(actualMemberId === null ? {} : { actualMemberId }),
+    ...(actualMemberName === null ? {} : { actualMemberName }),
   };
 }
 
