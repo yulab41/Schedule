@@ -8,7 +8,7 @@ import { computed } from 'vue';
 
 import { getWeekDays, getWeekdayLabel, groupAssignmentsByDate } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
-import { getDutyMembershipId } from './calendar-logic.js';
+import { getDutyMembershipId, getHolidayShortLabel } from './calendar-logic.js';
 
 const props = defineProps<{
   readonly assignments: readonly CalendarDutyAssignment[];
@@ -40,6 +40,14 @@ function holidayFor(date: string): ConfirmedHolidayDate | undefined {
   return props.holidays.get(date);
 }
 
+function holidayTitle(date: string): string | undefined {
+  const holiday = holidayFor(date);
+  if (holiday === undefined) {
+    return undefined;
+  }
+  return holiday.isOffDay ? holiday.holidayName : `${holiday.holidayName}（调休上班）`;
+}
+
 function isSoleDuty(date: string): boolean {
   return assignmentsFor(date).length === 1;
 }
@@ -66,8 +74,13 @@ function isSoleDuty(date: string): boolean {
               'is-off-day': holidayFor(date)?.isOffDay === true,
               'is-workday': holidayFor(date)?.isWorkday === true,
             }"
+            :title="holidayTitle(date)"
           >
-            {{ holidayFor(date)?.isOffDay === true ? holidayFor(date)?.holidayName : '班' }}
+            {{
+              holidayFor(date)?.isOffDay === true
+                ? getHolidayShortLabel(holidayFor(date)?.holidayName ?? '')
+                : '班'
+            }}
           </span>
         </header>
         <ul class="duty-list">

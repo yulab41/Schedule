@@ -24,12 +24,23 @@ const isMenuOpen = ref(false);
 const dutyName = computed(() => getDutyMemberName(props.assignment) ?? '待定');
 const shiftTimeRange = computed(() => formatShiftTimeRange(props.assignment));
 const phoneOptions = computed<readonly PhoneOption[]>(() => getAvailablePhoneOptions(props.member));
+const canCall = computed(() => phoneOptions.value.length > 0);
 const hasUnconfirmedPhone = computed(
   () =>
     props.member !== undefined &&
     !props.member.isConfirmed &&
     (props.member.mobilePhone !== undefined || props.member.shortPhone !== undefined),
 );
+const nameTitle = computed(() => {
+  const base = `${props.assignment.shiftTypeName}（${shiftTimeRange.value}）`;
+  if (canCall.value) {
+    return `${base} · 点击拨打电话`;
+  }
+  if (hasUnconfirmedPhone.value) {
+    return `${base} · 号码未确认，无法拨号`;
+  }
+  return base;
+});
 const isCoarsePointer =
   typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches ?? false);
 
@@ -60,9 +71,18 @@ onUnmounted(() => {
 
 <template>
   <div class="duty-cell">
-    <span class="duty-name" :title="`${assignment.shiftTypeName}（${shiftTimeRange}）`">
+    <button
+      v-if="canCall"
+      type="button"
+      class="duty-name is-callable"
+      :aria-expanded="isMenuOpen"
+      :aria-label="`拨打${dutyName}电话`"
+      :title="nameTitle"
+      @click.stop="toggleMenu"
+    >
       {{ dutyName }}
-    </span>
+    </button>
+    <span v-else class="duty-name" :title="nameTitle">{{ dutyName }}</span>
     <span
       v-if="!hideShiftBadge"
       class="shift-badge"
@@ -82,46 +102,23 @@ onUnmounted(() => {
     >
       事件
     </button>
-    <span v-if="phoneOptions.length > 0" class="phone-action">
-      <button
-        type="button"
-        class="phone-button"
-        :aria-label="`拨打${dutyName}电话`"
-        :aria-expanded="isMenuOpen"
-        @click.stop="toggleMenu"
-      >
-        📞
-      </button>
-      <div v-if="isMenuOpen" class="phone-menu" @click.stop>
-        <template v-if="isCoarsePointer">
-          <a
-            v-for="option in phoneOptions"
-            :key="option.number"
-            :href="buildDialLink(option.number)"
-          >
-            拨打{{ option.label }} {{ option.number }}
-          </a>
-        </template>
-        <template v-else>
-          <button
-            v-for="option in phoneOptions"
-            :key="option.number"
-            type="button"
-            @click="copyNumber(option.number)"
-          >
-            复制{{ option.label }} {{ option.number }}
-          </button>
-        </template>
-      </div>
-    </span>
-    <span
-      v-else-if="hasUnconfirmedPhone"
-      class="phone-unavailable"
-      title="号码未确认，无法拨号"
-      aria-label="号码未确认，无法拨号"
-    >
-      📞
-    </span>
+    <div v-if="isMenuOpen && canCall" class="phone-menu" @click.stop>
+      <template v-if="isCoarsePointer">
+        <a v-for="option in phoneOptions" :key="option.number" :href="buildDialLink(option.number)">
+          拨打{{ option.label }} {{ option.number }}
+        </a>
+      </template>
+      <template v-else>
+        <button
+          v-for="option in phoneOptions"
+          :key="option.number"
+          type="button"
+          @click="copyNumber(option.number)"
+        >
+          复制{{ option.label }} {{ option.number }}
+        </button>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -140,6 +137,22 @@ onUnmounted(() => {
 .duty-name {
   color: #111827;
   font-weight: 600;
+}
+
+.duty-name.is-callable {
+  padding: 0;
+  color: #111827;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.duty-name.is-callable:hover {
+  color: #1f5aa6;
+  text-decoration: underline;
 }
 
 .shift-badge {
@@ -164,19 +177,6 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.phone-button {
-  padding: 0 2px;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.phone-unavailable {
-  font-size: 12px;
-  opacity: 0.45;
-}
-
 .phone-menu {
   position: absolute;
   z-index: 10;
@@ -184,7 +184,7 @@ onUnmounted(() => {
   left: 0;
   display: grid;
   gap: 2px;
-  min-width: 132px;
+  min-width: 150px;
   padding: 4px;
   background: #ffffff;
   border: 1px solid #dbe3ea;

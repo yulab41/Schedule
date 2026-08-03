@@ -14,6 +14,14 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 bug-fix round: Web 1.0 feedback fixes are implemented and `pnpm verify` passed 327/327 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；若手动排班方向或日历单日班种显示仍异常，请截图并复核 PWA 缓存版本（仓库代码已为人员行/日期列）。
 - 2026-08-03 round 2: role/template deletion and 排班岗位 wording are implemented and `pnpm verify` passed 329/329 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；删除功能与文案改动已推送 `main`。
 - 2026-08-03 round 3: manual-grid rendering hardening and event-dialog readability fallback are implemented and `pnpm verify` passed 330/330 (60 test files) with the isolated MySQL. PWA cache names were bumped to force clients onto the new bundle.
+- 2026-08-03 round 4: calendar phone interaction and holiday labels are optimized and `pnpm verify` passed 331/331 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 4 (Calendar Phone and Holiday Labels)
+
+Checkpoint commit message: `feat(calendar): tap duty name to call and compact holiday labels`
+
+- Calendar phone interaction: the separate 📞 phone button and the dimmed unconfirmed-phone icon are removed; tapping the duty member's name now opens the same phone menu (mobile dials 长号/短号, desktop copies). The name is a real button with aria-label/expanded state when a confirmed number exists; unconfirmed numbers are only surfaced in the hover tooltip.
+- Holiday labels: month/week/list grids now show compact short labels (国庆→国庆节、清明→清明节、五一→劳动节、端午→端午节、中秋→中秋节) with the full name in the tooltip, and fall back to a 4-character cap for any custom long names, so day cells no longer truncate to “...”.
 
 ## 2026-08-03 Round 3 (Grid Rendering and Event Readability)
 
@@ -228,6 +236,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 4: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 331 Vitest tests (60 files) and all production builds; the calendar-logic spec now covers holiday short labels. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 3: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 330 Vitest tests (60 files) and all production builds; the web bundle now emits a new service-worker hash and v2 cache names. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 2: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 329 Vitest tests (60 files) and all production builds, including the new template-delete and role-delete integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 bug-fix round: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 327 Vitest tests (60 files) and all production builds, including the new draft-list/publish integration test and updated session/calendar/event/nav unit tests. The temporary test service was removed with matching Compose `down --volumes` after validation.

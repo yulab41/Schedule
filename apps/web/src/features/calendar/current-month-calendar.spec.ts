@@ -13,6 +13,7 @@ import {
   getCalendarMarkerLabel,
   getCurrentBusinessMonth,
   getDutyMemberName,
+  getHolidayShortLabel,
 } from './calendar-logic.js';
 
 describe('current month calendar logic', () => {
@@ -134,6 +135,14 @@ describe('current month calendar logic', () => {
       '人工调整',
       '加班',
     ]);
+  });
+
+  it('shortens long holiday names for compact calendar cells', () => {
+    expect(getHolidayShortLabel('国庆节')).toBe('国庆');
+    expect(getHolidayShortLabel('清明节')).toBe('清明');
+    expect(getHolidayShortLabel('劳动节')).toBe('五一');
+    expect(getHolidayShortLabel('春节')).toBe('春节');
+    expect(getHolidayShortLabel('中国人民解放军建军纪念日')).toBe('中国人民');
   });
 
   it('ignores stale calendar responses after a newer request starts', () => {

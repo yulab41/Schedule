@@ -178,6 +178,26 @@ export function getCalendarMarkerDescription(marker: CalendarChangeMarker): stri
   }
 }
 
+const holidayShortLabels: Readonly<Record<string, string>> = {
+  元旦: '元旦',
+  除夕: '除夕',
+  春节: '春节',
+  清明节: '清明',
+  劳动节: '五一',
+  端午节: '端午',
+  中秋节: '中秋',
+  国庆节: '国庆',
+};
+
+export function getHolidayShortLabel(holidayName: string): string {
+  const known = holidayShortLabels[holidayName];
+  if (known !== undefined) {
+    return known;
+  }
+
+  return holidayName.length <= 4 ? holidayName : holidayName.slice(0, 4);
+}
+
 export interface LatestRequestTracker {
   begin(): number;
   isCurrent(version: number): boolean;
