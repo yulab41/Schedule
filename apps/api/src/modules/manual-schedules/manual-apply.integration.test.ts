@@ -410,6 +410,11 @@ describeWithDatabase('manual schedule template apply', () => {
         (item) => item.status === 'published',
       ),
     ).toBe(true);
+    expect(
+      (publishedHistory.json() as readonly { readonly operationId?: string }[]).every(
+        (item) => typeof item.operationId === 'string',
+      ),
+    ).toBe(true);
 
     const second = await applyTemplate(templateId, {
       expectedRulesVersion: rulesVersion,

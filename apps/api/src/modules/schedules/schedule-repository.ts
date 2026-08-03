@@ -143,7 +143,7 @@ export class ScheduleRepository {
       .where(and(eq(schedulePeriods.groupId, groupId), isNull(schedulePeriods.deletedAt)))
       .orderBy(desc(schedulePeriods.businessMonth), desc(schedulePeriods.revision));
 
-    const draftIds = rows.filter((row) => row.status === 'draft').map((row) => row.id);
+    const allPeriodIds = rows.map((row) => row.id);
     const applyRanges = new Map<
       string,
       {
@@ -152,7 +152,7 @@ export class ScheduleRepository {
         readonly operationId: string;
       }
     >();
-    if (draftIds.length > 0) {
+    if (allPeriodIds.length > 0) {
       const events = await transaction
         .select({
           afterData: scheduleEvents.afterData,
@@ -163,7 +163,7 @@ export class ScheduleRepository {
         .where(
           and(
             eq(scheduleEvents.eventType, 'manual_schedule_template_applied'),
-            inArray(scheduleEvents.schedulePeriodId, draftIds),
+            inArray(scheduleEvents.schedulePeriodId, allPeriodIds),
           ),
         );
       for (const event of events) {

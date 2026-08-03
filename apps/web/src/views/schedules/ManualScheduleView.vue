@@ -197,6 +197,10 @@ const versionMonthGroups = computed(() => {
   return [...groups.values()]
     .map((group) => ({
       ...group,
+      archived: [...group.items]
+        .filter((item) => item.status !== 'published')
+        .sort((first, second) => second.revision - first.revision),
+      current: [...group.items].filter((item) => item.status === 'published'),
       items: [...group.items].sort((first, second) => second.revision - first.revision),
     }))
     .sort((first, second) => second.businessMonth.localeCompare(first.businessMonth));
@@ -618,7 +622,7 @@ function closeDraftPreview(): void {
 }
 
 async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
-  const label = draft.status === 'draft' ? '排班草稿' : `第 ${draft.revision} 版归档记录`;
+  const label = draft.status === 'draft' ? '排班草稿' : `草稿 ${draftCode(draft)} 归档记录`;
   if (
     !window.confirm(`确定删除 ${draft.businessMonth.slice(0, 7)} 的${label}吗？删除后不可恢复。`)
   ) {
@@ -637,6 +641,10 @@ async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
   } finally {
     isDeletingDraftId.value = undefined;
   }
+}
+
+function draftCode(item: SchedulePeriodHistoryItem): string {
+  return (item.operationId ?? item.id).slice(0, 8);
 }
 
 function getErrorMessage(error: unknown): string {
@@ -843,12 +851,10 @@ function onWindowFocus(): void {
               <strong>{{ monthGroup.businessMonth.slice(0, 7) }}</strong>
               <span>{{ monthGroup.roleName }}</span>
             </div>
-            <div v-for="item in monthGroup.items" :key="item.id" class="version-row">
+            <div v-for="item in monthGroup.current" :key="item.id" class="version-row">
               <div class="draft-summary">
-                <span :class="['version-badge', { 'is-current': item.status === 'published' }]">
-                  {{ item.status === 'published' ? '当前已发布' : '已归档' }}
-                </span>
-                <span>第 {{ item.revision }} 版</span>
+                <span class="version-badge is-current">当前已发布</span>
+                <span>草稿 {{ draftCode(item) }}</span>
               </div>
               <t-space size="small">
                 <t-button
@@ -859,18 +865,36 @@ function onWindowFocus(): void {
                 >
                   查看
                 </t-button>
-                <t-button
-                  v-if="item.status !== 'published'"
-                  size="small"
-                  theme="danger"
-                  variant="text"
-                  :loading="isDeletingDraftId === item.id"
-                  @click="deleteDraft(item)"
-                >
-                  删除
-                </t-button>
               </t-space>
             </div>
+            <details v-if="monthGroup.archived.length > 0" class="archived-details">
+              <summary>已归档（{{ monthGroup.archived.length }}）</summary>
+              <div v-for="item in monthGroup.archived" :key="item.id" class="version-row">
+                <div class="draft-summary">
+                  <span class="version-badge">已归档</span>
+                  <span>草稿 {{ draftCode(item) }}</span>
+                </div>
+                <t-space size="small">
+                  <t-button
+                    size="small"
+                    variant="outline"
+                    :loading="isPreviewingDraftId === item.id"
+                    @click="openDraftPreview(item)"
+                  >
+                    查看
+                  </t-button>
+                  <t-button
+                    size="small"
+                    theme="danger"
+                    variant="text"
+                    :loading="isDeletingDraftId === item.id"
+                    @click="deleteDraft(item)"
+                  >
+                    删除
+                  </t-button>
+                </t-space>
+              </div>
+            </details>
           </article>
         </div>
       </section>
@@ -1124,6 +1148,18 @@ function onWindowFocus(): void {
 .month-group-header strong {
   color: #111827;
   font-size: 14px;
+}
+
+.archived-details {
+  border-top: 1px dashed #e5e7eb;
+}
+
+.archived-details summary {
+  padding: 8px 0 4px;
+  color: #1f5aa6;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .version-row {
