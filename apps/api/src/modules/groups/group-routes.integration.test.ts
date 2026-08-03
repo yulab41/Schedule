@@ -407,6 +407,104 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(membership?.userId).toBe(outsiderUser?.id);
   });
 
+  it('deletes unclaimed and formal members and auto-removes their workflow rows', async () => {
+    const group = await createGroup('Delete member group', '9012');
+    const groupId = (group.json() as { id: string }).id;
+    await addRosterEntry(groupId, 'Outsider Doctor');
+
+    const members = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    const rows = members.json() as {
+      readonly id: string;
+      readonly isCurrentUser: boolean;
+      readonly isPendingRoster?: boolean;
+      readonly realName: string;
+      readonly role: string;
+    }[];
+    const outsider = rows.find((row) => row.realName === 'Outsider Doctor');
+    const owner = rows.find((row) => row.role === 'owner');
+    expect(outsider).toBeDefined();
+    expect(owner).toBeDefined();
+
+    const contact = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13700000000' },
+      url: `/groups/${groupId}/members/${outsider?.id}/contact`,
+    });
+    expect(contact.statusCode).toBe(200);
+    await client.database.execute(
+      sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, reason, status, reflow_strategy)
+          VALUES ('00000000-0000-4000-8000-000000000003', ${groupId}, ${outsider?.id}, 'sick',
+                  '2026-08-05 00:00:00', '2026-08-05 23:59:59', 'test', 'pending', 'keep-original-order')`,
+    );
+    const [placeholderUser] = await client.database
+      .select({ userId: groupMemberships.userId })
+      .from(groupMemberships)
+      .where(eq(groupMemberships.id, outsider?.id as string));
+
+    await client.database.execute(
+      sql`INSERT INTO roster_entries (id, group_id, real_name)
+          VALUES ('00000000-0000-4000-8000-000000000004', ${groupId}, 'Legacy Roster Doctor')`,
+    );
+    const memberForbidden = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/members/00000000-0000-4000-8000-000000000004`,
+    });
+    expect(memberForbidden.statusCode).toBe(403);
+
+    const deletedRoster = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/members/00000000-0000-4000-8000-000000000004`,
+    });
+    expect(deletedRoster.statusCode).toBe(200);
+
+    const deletedMember = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/members/${outsider?.id}`,
+    });
+    expect(deletedMember.statusCode).toBe(200);
+
+    const ownerBlocked = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/members/${owner?.id}`,
+    });
+    expect(ownerBlocked.statusCode).toBe(409);
+
+    const afterMembers = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    const afterRows = afterMembers.json() as { readonly realName: string }[];
+    expect(afterRows.map((row) => row.realName)).not.toContain('Outsider Doctor');
+    expect(afterRows.map((row) => row.realName)).not.toContain('Legacy Roster Doctor');
+
+    const [leaveCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM leave_requests WHERE membership_id = ${outsider?.id}`,
+    );
+    const [contactCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM group_member_contacts WHERE membership_id = ${outsider?.id}`,
+    );
+    const [membershipCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM group_memberships WHERE id = ${outsider?.id}`,
+    );
+    const [userCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM users WHERE id = ${placeholderUser?.userId}`,
+    );
+    expect(leaveCount).toEqual([{ count: 0 }]);
+    expect(contactCount).toEqual([{ count: 0 }]);
+    expect(membershipCount).toEqual([{ count: 0 }]);
+    expect(userCount).toEqual([{ count: 0 }]);
+  });
+
   it('invalidates the previous code immediately when the owner regenerates it', async () => {
     const group = await createGroup('Code rotation group', '5678');
     const groupId = (group.json() as { id: string }).id;

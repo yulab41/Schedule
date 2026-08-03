@@ -119,6 +119,17 @@ export function registerGroupRoutes(
     membershipService.listMembers(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
+  app.delete(
+    '/groups/:groupId/members/:membershipId',
+    { preHandler: app.authenticate },
+    async (request) =>
+      membershipService.deleteMember(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseMembershipId(request),
+      ),
+  );
+
   app.get('/groups/:groupId/contacts', { preHandler: app.authenticate }, async (request) =>
     contactService.listContacts(getAuthenticatedIdentity(request), parseGroupId(request)),
   );

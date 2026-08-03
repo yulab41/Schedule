@@ -24,6 +24,7 @@ const rosterMessage = ref<string>();
 const isLoading = ref(false);
 const isAddingRoster = ref(false);
 const isUpdating = ref(false);
+const isDeletingMemberId = ref<string>();
 let requestVersion = 0;
 
 const contactsByMembershipId = computed(
@@ -136,6 +137,29 @@ async function convertPending(names: readonly string[]): Promise<void> {
     errorMessage.value = getErrorMessage(error);
   } finally {
     isUpdating.value = false;
+  }
+}
+
+async function deleteMember(member: GroupMember): Promise<void> {
+  const isPending = member.isPendingRoster === true;
+  const label = isPending ? '未认领成员' : '成员';
+  const message = isPending
+    ? `确定删除未认领成员“${member.realName}”吗？删除后如需加入请重新添加。`
+    : `确定删除成员“${member.realName}”吗？其未处理的请假/换班/加扣班申请将自动取消，历史排班保留姓名。`;
+  if (!window.confirm(message)) {
+    return;
+  }
+
+  errorMessage.value = undefined;
+  isDeletingMemberId.value = member.id;
+  try {
+    await api.deleteGroupMember(props.group.id, member.id);
+    rosterMessage.value = `已删除${label}“${member.realName}”。`;
+    await loadMembers();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isDeletingMemberId.value = undefined;
   }
 }
 
@@ -285,6 +309,15 @@ function getErrorMessage(error: unknown): string {
           @click="convertPending([member.realName])"
         >
           转为正式成员
+        </t-button>
+        <t-button
+          v-if="canAddMembers && member.isCurrentUser !== true && member.role !== 'owner'"
+          theme="danger"
+          variant="text"
+          :loading="isDeletingMemberId === member.id"
+          @click="deleteMember(member)"
+        >
+          {{ member.isPendingRoster === true ? '删除未认领成员' : '删除成员' }}
         </t-button>
         <GroupContactForm
           v-if="canEditContact(member) && member.isPendingRoster !== true"

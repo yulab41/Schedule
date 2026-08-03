@@ -7,14 +7,23 @@ import type {
 } from '@schedule/contracts';
 import {
   type DatabaseClient,
+  type DatabaseTransaction,
+  dutyAdjustments,
+  groupJoinRequests,
   groupMemberships,
+  groupMemberContacts,
   groups,
+  leaveRequests,
+  memberScheduleRoles,
   rosterEntries,
+  rotationMembers,
+  shiftAssignments,
+  swapRequests,
   userProfiles,
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -130,6 +139,264 @@ export class MembershipService {
           first.id.localeCompare(second.id),
       );
     });
+  }
+
+  public async deleteMember(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    memberId: string,
+  ): Promise<void> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageMembers',
+      );
+      const rosterEntry = await this.findPendingRosterForUpdate(
+        transaction,
+        authorization.group.id,
+        memberId,
+      );
+      let membership = await this.findMembershipForUpdate(
+        transaction,
+        authorization.group.id,
+        memberId,
+      );
+      if (membership === undefined && rosterEntry !== undefined) {
+        membership = await this.findMembershipByRealNameForUpdate(
+          transaction,
+          authorization.group.id,
+          rosterEntry.realName,
+        );
+      }
+      if (membership === undefined && rosterEntry === undefined) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '成员不存在或不可用。',
+        });
+      }
+
+      if (membership !== undefined) {
+        if (membership.role === 'owner') {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '不能删除群主，请先转让群主身份。',
+          });
+        }
+        if (membership.role === 'administrator' && authorization.membership.role !== 'owner') {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '只有群主可以删除管理员。',
+          });
+        }
+
+        await this.hardDeleteMembership(transaction, membership);
+      }
+
+      const realName = membership?.realName ?? rosterEntry?.realName;
+      if (realName !== undefined) {
+        await transaction
+          .delete(rosterEntries)
+          .where(
+            and(
+              eq(rosterEntries.groupId, authorization.group.id),
+              eq(rosterEntries.status, 'pending'),
+              isNull(rosterEntries.deletedAt),
+              sql`binary ${rosterEntries.realName} = binary ${realName}`,
+            ),
+          );
+      }
+    });
+  }
+
+  private async findPendingRosterForUpdate(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    memberId: string,
+  ) {
+    const [rosterEntry] = await transaction
+      .select({ id: rosterEntries.id, realName: rosterEntries.realName })
+      .from(rosterEntries)
+      .where(
+        and(
+          eq(rosterEntries.groupId, groupId),
+          eq(rosterEntries.id, memberId),
+          eq(rosterEntries.status, 'pending'),
+          isNull(rosterEntries.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+
+    return rosterEntry;
+  }
+
+  private async findMembershipForUpdate(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    memberId: string,
+  ) {
+    const [membership] = await transaction
+      .select({
+        cloudbaseUid: users.cloudbaseUid,
+        id: groupMemberships.id,
+        realName: userProfiles.realName,
+        role: groupMemberships.role,
+        userId: groupMemberships.userId,
+      })
+      .from(groupMemberships)
+      .innerJoin(users, eq(users.id, groupMemberships.userId))
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(
+        and(
+          eq(groupMemberships.groupId, groupId),
+          eq(groupMemberships.id, memberId),
+          eq(groupMemberships.status, 'active'),
+          isNull(groupMemberships.deletedAt),
+          isNull(users.deletedAt),
+          isNull(userProfiles.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+
+    return membership;
+  }
+
+  private async findMembershipByRealNameForUpdate(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    realName: string,
+  ) {
+    const [membership] = await transaction
+      .select({
+        cloudbaseUid: users.cloudbaseUid,
+        id: groupMemberships.id,
+        realName: userProfiles.realName,
+        role: groupMemberships.role,
+        userId: groupMemberships.userId,
+      })
+      .from(groupMemberships)
+      .innerJoin(users, eq(users.id, groupMemberships.userId))
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(
+        and(
+          eq(groupMemberships.groupId, groupId),
+          eq(groupMemberships.status, 'active'),
+          isNull(groupMemberships.deletedAt),
+          isNull(users.deletedAt),
+          isNull(userProfiles.deletedAt),
+          sql`binary ${userProfiles.realName} = binary ${realName}`,
+        ),
+      )
+      .limit(1)
+      .for('update');
+
+    return membership;
+  }
+
+  private async hardDeleteMembership(
+    transaction: DatabaseTransaction,
+    membership: {
+      readonly cloudbaseUid: string | null;
+      readonly id: string;
+      readonly userId: string;
+    },
+  ): Promise<void> {
+    await transaction
+      .update(shiftAssignments)
+      .set({
+        plannedMembershipId: null,
+        version: sql`${shiftAssignments.version} + 1`,
+      })
+      .where(
+        and(
+          eq(shiftAssignments.plannedMembershipId, membership.id),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+    await transaction
+      .update(shiftAssignments)
+      .set({
+        actualMembershipId: null,
+        version: sql`${shiftAssignments.version} + 1`,
+      })
+      .where(
+        and(
+          eq(shiftAssignments.actualMembershipId, membership.id),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+
+    const roleMembers = await transaction
+      .select({ id: memberScheduleRoles.id })
+      .from(memberScheduleRoles)
+      .where(
+        and(
+          eq(memberScheduleRoles.membershipId, membership.id),
+          isNull(memberScheduleRoles.deletedAt),
+        ),
+      );
+    if (roleMembers.length > 0) {
+      const roleMemberIds = roleMembers.map((member) => member.id);
+      await transaction
+        .delete(rotationMembers)
+        .where(inArray(rotationMembers.memberScheduleRoleId, roleMemberIds));
+      await transaction
+        .delete(memberScheduleRoles)
+        .where(inArray(memberScheduleRoles.id, roleMemberIds));
+    }
+
+    await transaction
+      .delete(groupMemberContacts)
+      .where(eq(groupMemberContacts.membershipId, membership.id));
+    await transaction.delete(leaveRequests).where(eq(leaveRequests.membershipId, membership.id));
+    await transaction
+      .delete(swapRequests)
+      .where(
+        or(
+          eq(swapRequests.initiatorMembershipId, membership.id),
+          eq(swapRequests.targetMembershipId, membership.id),
+        ),
+      );
+    await transaction
+      .delete(dutyAdjustments)
+      .where(
+        or(
+          eq(dutyAdjustments.overtimeMembershipId, membership.id),
+          eq(dutyAdjustments.deductedMembershipId, membership.id),
+        ),
+      );
+    await transaction.delete(groupMemberships).where(eq(groupMemberships.id, membership.id));
+
+    if (membership.cloudbaseUid === null) {
+      const [remainingMembership] = await transaction
+        .select({ id: groupMemberships.id })
+        .from(groupMemberships)
+        .where(
+          and(eq(groupMemberships.userId, membership.userId), isNull(groupMemberships.deletedAt)),
+        )
+        .limit(1);
+      const [pendingRequest] = await transaction
+        .select({ id: groupJoinRequests.id })
+        .from(groupJoinRequests)
+        .where(
+          and(
+            eq(groupJoinRequests.requestingUserId, membership.userId),
+            eq(groupJoinRequests.status, 'pending'),
+            isNull(groupJoinRequests.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (remainingMembership === undefined && pendingRequest === undefined) {
+        await transaction.delete(userProfiles).where(eq(userProfiles.userId, membership.userId));
+        await transaction.delete(users).where(eq(users.id, membership.userId));
+      }
+    }
   }
 
   public async updateMemberRole(

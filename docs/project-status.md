@@ -18,6 +18,16 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 5: member-page additions now create real members immediately and `pnpm verify` passed 332/332 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 6: manual-schedule drafts now support delete, re-preview, and overwrite-on-reapply and `pnpm verify` passed 334/334 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 7: pending roster entries are merged into the member page with an 未认领 badge and can be converted to formal members; `pnpm verify` passed 335/335 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 8: members and unclaimed members can now be deleted per user decisions (hard delete + auto-remove workflow rows); `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 8 (Member Deletion)
+
+Checkpoint commit message: `feat(groups): delete formal and unclaimed members`
+
+- New `DELETE /groups/:groupId/members/:memberId` (manageMembers; administrators cannot delete other administrators, and the owner can never be deleted). Member rows get a 删除成员 / 删除未认领成员 button with confirmation.
+- Per user decisions: formal members are hard-deleted; all their pending/related leave, swap, and duty-adjustment rows are removed automatically; shift assignments keep the member-name snapshots but detach the membership reference; role memberships, rotation rows, contacts, and the membership row are removed; unbound placeholder users/profiles are hard-deleted when they have no remaining memberships.
+- Unclaimed member deletion also removes the matching pending roster entry (decision A).
+- Integration test covers member-forbidden 403, roster deletion, membership deletion with contact/leave cleanup and placeholder-user removal, and owner-delete 409.
 
 ## 2026-08-03 Round 7 (Roster Merged Into Member Page)
 
@@ -267,6 +277,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 8: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds, including the new member-deletion integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 7: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 335 Vitest tests (60 files) and all production builds, including the new roster-merge/convert integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 6: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 334 Vitest tests (60 files) and all production builds, including the new draft preview/delete and draft-overwrite integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 5: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 332 Vitest tests (60 files) and all production builds, including the new direct-member-add and claim-binding integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.

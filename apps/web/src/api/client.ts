@@ -186,6 +186,7 @@ export interface ApiClient {
   createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
   createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
   deleteGroup(groupId: string): Promise<void>;
+  deleteGroupMember(groupId: string, memberId: string): Promise<void>;
   deleteManualScheduleTemplate(groupId: string, templateId: string): Promise<void>;
   deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
@@ -876,6 +877,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}`,
+        { method: 'DELETE' },
+        isUndefined,
+      );
+    },
+    deleteGroupMember(groupId, memberId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
         { method: 'DELETE' },
         isUndefined,
       );
