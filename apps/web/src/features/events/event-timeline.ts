@@ -202,7 +202,7 @@ export function buildEventNarrative(
           details.push(`发起时间 ${formatEventTime(context.initiatedAt)}`);
         }
         const detailText = details.length === 0 ? '' : `（${details.join('，')}）`;
-        return `${beforeName} 与 ${afterName} 互换班次${detailText}。`;
+        return `${beforeName} → ${afterName}${detailText}`;
       }
       break;
     }
@@ -247,7 +247,7 @@ export function buildEventNarrative(
       const afterName = readTopLevelMemberName(after) ?? readString(after.overtimeMemberName);
       const initiatorName = readString(after.initiatorMemberName);
       if (afterName !== undefined) {
-        return `加扣班完成：${beforeName ?? '原值班人员'} 的班次由 ${afterName} 代值${
+        return `${beforeName ?? '原值班人员'} 的班次由 ${afterName} 代值${
           initiatorName === undefined ? '' : `（由 ${initiatorName} 发起）`
         }。`;
       }
@@ -345,6 +345,42 @@ export function buildSwapChainSummary(
     .map((step) => `${formatEventTime(step.occurredAt)} ${step.before} → ${step.after}`)
     .join('；');
   return `人员变更链：${names.join(' → ')}（${steps.length} 次换班；${detail}）`;
+}
+
+export function buildDutyAdjustmentChainSummary(
+  events: readonly ScheduleEvent[],
+  assignmentId: string,
+): string | undefined {
+  const steps = events
+    .filter(
+      (event) =>
+        event.eventType === 'duty_adjustment_completed' &&
+        event.affectedShiftIds.includes(assignmentId),
+    )
+    .map(extractDutyAdjustmentStep)
+    .filter((step): step is DutyAdjustmentChainStep => step !== undefined)
+    .sort(
+      (first, second) =>
+        first.occurredAt.localeCompare(second.occurredAt) ||
+        first.eventId.localeCompare(second.eventId),
+    );
+  if (steps.length === 0) {
+    return undefined;
+  }
+
+  const names: string[] = [];
+  for (const step of steps) {
+    if (names.length === 0) {
+      names.push(step.before);
+    }
+    if (names[names.length - 1] !== step.after) {
+      names.push(step.after);
+    }
+  }
+  const detail = steps
+    .map((step) => `${formatEventTime(step.occurredAt)} ${step.deducted}-1 → ${step.overtime}+1`)
+    .join('；');
+  return `人员变更链：${names.join(' → ')}（${steps.length} 次加扣班；${detail}）`;
 }
 
 function buildChangeFallbackNarrative(event: ScheduleEvent): string | undefined {
@@ -464,6 +500,41 @@ interface SwapChainStep {
   readonly before: string;
   readonly eventId: string;
   readonly occurredAt: string;
+}
+
+interface DutyAdjustmentChainStep {
+  readonly after: string;
+  readonly before: string;
+  readonly deducted: string;
+  readonly eventId: string;
+  readonly occurredAt: string;
+  readonly overtime: string;
+}
+
+function extractDutyAdjustmentStep(event: ScheduleEvent): DutyAdjustmentChainStep | undefined {
+  const before = event.beforeData ?? {};
+  const after = event.afterData ?? {};
+  const deducted = readString(after.deductedMemberName) ?? readString(before.deductedMemberName);
+  const overtime = readString(after.overtimeMemberName) ?? readString(before.overtimeMemberName);
+  const beforeName = readTopLevelMemberName(before) ?? deducted;
+  const afterName = readTopLevelMemberName(after) ?? overtime;
+  if (
+    deducted === undefined ||
+    overtime === undefined ||
+    beforeName === undefined ||
+    afterName === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    after: afterName,
+    before: beforeName,
+    deducted,
+    eventId: event.id,
+    occurredAt: event.occurredAt,
+    overtime,
+  };
 }
 
 function extractSwapSideChange(

@@ -2,6 +2,7 @@ import type { ScheduleEvent } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildDutyAdjustmentChainSummary,
   buildEventNarrative,
   buildEventTimelineItems,
   buildSwapChainSummary,
@@ -111,7 +112,7 @@ describe('event timeline logic', () => {
           },
         }),
       ),
-    ).toBe('A Doctor 与 B Doctor 互换班次（由 A Doctor 发起）。');
+    ).toBe('A Doctor → B Doctor（由 A Doctor 发起）');
 
     expect(
       buildEventNarrative(
@@ -121,7 +122,7 @@ describe('event timeline logic', () => {
           eventType: 'duty_adjustment_completed',
         }),
       ),
-    ).toBe('加扣班完成：A Doctor 的班次由 B Doctor 代值。');
+    ).toBe('A Doctor 的班次由 B Doctor 代值。');
   });
 
   it('shows the deducted member and initiator in duty adjustment narratives', () => {
@@ -155,7 +156,7 @@ describe('event timeline logic', () => {
           startsAt: '2026-08-08T00:00:00.000Z',
         },
       ),
-    ).toBe('加扣班完成：A Doctor 的班次由 B Doctor 代值（由 A Doctor 发起）。');
+    ).toBe('A Doctor 的班次由 B Doctor 代值（由 A Doctor 发起）。');
   });
 
   it('includes the initiator and request time in swap narratives', () => {
@@ -174,7 +175,7 @@ describe('event timeline logic', () => {
         undefined,
         { initiatedAt: '2026-08-03T01:00:00.000Z' },
       ),
-    ).toBe('A Doctor 与 B Doctor 互换班次（由 A Doctor 发起，发起时间 2026-08-03 09:00）。');
+    ).toBe('A Doctor → B Doctor（由 A Doctor 发起，发起时间 2026-08-03 09:00）');
   });
 
   it('falls back to planned and current duty names when a swap event has no before actual names', () => {
@@ -213,7 +214,7 @@ describe('event timeline logic', () => {
           startsAt: '2026-08-18T00:00:00.000Z',
         },
       ),
-    ).toBe('洪晨善 与 林恩宇 互换班次。');
+    ).toBe('洪晨善 → 林恩宇');
   });
 
   it('builds a full swap chain for one shift across multiple swaps', () => {
@@ -248,6 +249,49 @@ describe('event timeline logic', () => {
 
     expect(buildSwapChainSummary(events, 'assignment-1')).toContain(
       '人员变更链：Lin Enyu → Feng Qin → Hong Chenshan（2 次换班',
+    );
+  });
+
+  it('builds a full duty adjustment chain for one shift across multiple adjustments', () => {
+    const events = [
+      event({
+        afterData: {
+          actualMemberId: 'membership-b',
+          actualMemberName: 'B Doctor',
+          deductedMemberName: 'A Doctor',
+          initiatorMemberName: 'Admin Doctor',
+          overtimeMemberName: 'B Doctor',
+        },
+        beforeData: {
+          actualMemberId: 'membership-a',
+          actualMemberName: 'A Doctor',
+          deductedMemberName: 'A Doctor',
+          overtimeMemberName: 'B Doctor',
+        },
+        eventType: 'duty_adjustment_completed',
+        occurredAt: '2026-08-08T01:00:00.000Z',
+      }),
+      event({
+        afterData: {
+          actualMemberId: 'membership-c',
+          actualMemberName: 'C Doctor',
+          deductedMemberName: 'B Doctor',
+          initiatorMemberName: 'Admin Doctor',
+          overtimeMemberName: 'C Doctor',
+        },
+        beforeData: {
+          actualMemberId: 'membership-b',
+          actualMemberName: 'B Doctor',
+          deductedMemberName: 'B Doctor',
+          overtimeMemberName: 'C Doctor',
+        },
+        eventType: 'duty_adjustment_completed',
+        occurredAt: '2026-08-08T03:00:00.000Z',
+      }),
+    ];
+
+    expect(buildDutyAdjustmentChainSummary(events, 'assignment-1')).toBe(
+      '人员变更链：A Doctor → B Doctor → C Doctor（2 次加扣班；2026-08-08 09:00 A Doctor-1 → B Doctor+1；2026-08-08 11:00 B Doctor-1 → C Doctor+1）',
     );
   });
 
