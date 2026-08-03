@@ -136,7 +136,9 @@ function createApiClient(overrides: Partial<UserProfileApi> = {}): UserProfileAp
 
 function createAuthClient(overrides: Partial<CloudbaseAuthClient> = {}): CloudbaseAuthClient {
   return {
+    clearDevIdentity: vi.fn(),
     getSession: vi.fn().mockResolvedValue({ data: { session: authenticatedSession } }),
+    setDevIdentity: vi.fn(),
     signInWithPassword: vi.fn().mockResolvedValue({ data: { session: authenticatedSession } }),
     signOut: vi.fn().mockResolvedValue({ data: {} }),
     ...overrides,

@@ -1269,6 +1269,7 @@ describe('Web API client', () => {
 
 function createAuthClient(): CloudbaseAuthClient {
   return {
+    clearDevIdentity: vi.fn(),
     getSession: vi.fn().mockResolvedValue({
       data: {
         session: {
@@ -1277,6 +1278,7 @@ function createAuthClient(): CloudbaseAuthClient {
         },
       },
     }),
+    setDevIdentity: vi.fn(),
     signInWithPassword: vi.fn(),
     signOut: vi.fn(),
   };

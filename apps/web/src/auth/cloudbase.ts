@@ -17,7 +17,9 @@ export interface CloudbaseAuthResult<T> {
 }
 
 export interface CloudbaseAuthClient {
+  clearDevIdentity(): void;
   getSession(): Promise<CloudbaseAuthResult<{ readonly session?: CloudbaseSession }>>;
+  setDevIdentity(uid: string): void;
   signInWithPassword(input: {
     readonly password: string;
     readonly username: string;
@@ -26,16 +28,29 @@ export interface CloudbaseAuthClient {
 }
 
 let authClient: CloudbaseAuthClient | undefined;
+let devIdentityUid: string | undefined;
 
 // Resolving the SDK lazily keeps the startup shell available when local env is incomplete.
 export const cloudbaseAuth: CloudbaseAuthClient = {
+  clearDevIdentity() {
+    devIdentityUid = undefined;
+  },
   getSession() {
+    if (devIdentityUid !== undefined) {
+      return Promise.resolve({
+        data: { session: { access_token: devIdentityUid } },
+      });
+    }
     return getCloudbaseAuthClient().getSession();
+  },
+  setDevIdentity(uid) {
+    devIdentityUid = uid;
   },
   signInWithPassword(input) {
     return getCloudbaseAuthClient().signInWithPassword(input);
   },
   signOut() {
+    devIdentityUid = undefined;
     return getCloudbaseAuthClient().signOut();
   },
 };

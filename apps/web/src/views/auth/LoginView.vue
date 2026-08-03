@@ -11,6 +11,7 @@ const username = ref('');
 const route = useRoute();
 const router = useRouter();
 const session = useSessionStore();
+const devAuthEnabled = import.meta.env.VITE_AUTH_DEV_MODE === 'true';
 
 async function submit(): Promise<void> {
   submitError.value = undefined;
@@ -24,6 +25,21 @@ async function submit(): Promise<void> {
     submitError.value = getErrorMessage(error);
   } finally {
     password.value = '';
+    submitting.value = false;
+  }
+}
+
+async function submitDev(uid: string): Promise<void> {
+  submitError.value = undefined;
+  submitting.value = true;
+
+  try {
+    await session.signInDev(uid);
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
+    await router.replace(redirect);
+  } catch (error) {
+    submitError.value = getErrorMessage(error);
+  } finally {
     submitting.value = false;
   }
 }
@@ -57,6 +73,27 @@ async function submit(): Promise<void> {
             />
           </t-form-item>
           <t-button block :loading="submitting" theme="primary" type="submit">登录</t-button>
+          <template v-if="devAuthEnabled">
+            <t-divider>本地开发登录</t-divider>
+            <t-space direction="vertical" size="small" style="width: 100%">
+              <t-button
+                block
+                variant="outline"
+                :loading="submitting"
+                @click="submitDev('local-admin')"
+              >
+                本地管理员
+              </t-button>
+              <t-button
+                block
+                variant="outline"
+                :loading="submitting"
+                @click="submitDev('local-member')"
+              >
+                本地成员
+              </t-button>
+            </t-space>
+          </template>
         </t-space>
       </form>
     </t-card>

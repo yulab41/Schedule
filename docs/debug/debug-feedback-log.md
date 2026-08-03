@@ -211,6 +211,16 @@
 - 验证：`pnpm --filter @schedule/api build` 通过；本地健康检查通过。
 - 状态：已完成（本地可用；`.env` 的 `MYSQL_HOST=127.0.0.1` 与 `VITE_*` 为本地配置，不入库）。
 
+### 轮次 24（提交：feat(auth): add local dev login mode and seeded dev accounts）
+- 问题：本地 Web 用 CloudBase admin01 登录失败（本地 API 没有 CloudBase 运行时上下文），询问是否应注册本地管理员/成员账号。
+- 修复/功能：
+  - 本地 API 新增开发认证模式（`AUTH_DEV_MODE=true`）：接受 `Bearer local-admin` / `Bearer local-member` 作为本地身份。
+  - Web 登录页在 `VITE_AUTH_DEV_MODE=true` 时显示“本地管理员 / 本地成员”按钮，直接进入本地会话。
+  - Vite 开发代理 `/api` → `http://127.0.0.1:3000`（去掉 `/api` 前缀），本地页面无需改 API 地址。
+  - 本地已创建账号：`local-admin`（本地管理员）、`local-member`（本地成员）。
+- 验证：`pnpm verify` 通过；`http://localhost:5173/api/users/me` 经代理返回本地管理员 200。
+- 状态：已完成（本地可登录调试；`.env` 中 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE` 为本地配置，不入库）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。

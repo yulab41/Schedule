@@ -76,6 +76,12 @@ export function createSessionManager(dependencies: SessionDependencies) {
     await loadProfile();
   }
 
+  async function signInDev(uid: string): Promise<void> {
+    clearError();
+    dependencies.auth.setDevIdentity(uid);
+    await loadProfile();
+  }
+
   async function completeProfile(realName: string): Promise<void> {
     clearError();
     let session: CloudbaseSession | undefined;
@@ -183,6 +189,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
     needsProfile,
     profile,
     restore,
+    signInDev,
     signIn,
     signOut,
     status,

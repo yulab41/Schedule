@@ -22,6 +22,15 @@ function webAppManifestPlugin(): Plugin {
 export default defineConfig({
   envDir: '../..',
   plugins: [vue(), webAppManifestPlugin()],
+  server: {
+    proxy: {
+      '/api': {
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        target: 'http://127.0.0.1:3000',
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

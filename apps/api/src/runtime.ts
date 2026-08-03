@@ -5,6 +5,7 @@ import {
   createCloudbaseAuthPort,
   createCloudbaseHttpAuthPort,
 } from './adapters/auth/cloudbase-auth.js';
+import { createDevAuthPort } from './adapters/auth/dev-auth.js';
 import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
 
@@ -26,7 +27,9 @@ export function createRuntimeApp(
   const app = createApp({
     authPort: options.cloudbaseHttpGateway
       ? createCloudbaseHttpAuthPort()
-      : createCloudbaseAuthPort(),
+      : process.env.AUTH_DEV_MODE === 'true'
+        ? createDevAuthPort()
+        : createCloudbaseAuthPort(),
     databaseClient,
     ...(options.cloudbaseHttpGateway
       ? { readTrustedCloudbaseContext: readCloudbaseGatewayContext }
