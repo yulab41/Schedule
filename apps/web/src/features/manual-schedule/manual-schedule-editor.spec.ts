@@ -1,4 +1,8 @@
-import type { ManualScheduleTemplate, ShiftType } from '@schedule/contracts';
+import type {
+  ManualScheduleTemplate,
+  SchedulePeriodHistoryItem,
+  ShiftType,
+} from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -7,6 +11,8 @@ import {
   clearColumn,
   clearRow,
   createTemplateUndoStack,
+  findPublishedOverlapMonths,
+  formatScheduleDraftCode,
   getTemplateCellShiftTypeId,
   getTemplateDateColumns,
   isShiftTypeFillable,
@@ -113,7 +119,47 @@ describe('manual schedule template editor logic', () => {
 
     expect(undo.canUndo()).toBe(false);
   });
+
+  it('formats draft codes from the precise China business time', () => {
+    expect(formatScheduleDraftCode('2026-08-03T06:07:08.123Z')).toBe('D20260803-140708');
+    expect(formatScheduleDraftCode('invalid')).toBe('D时间未知');
+  });
+
+  it('lists every published month overlapping the same scheduling role', () => {
+    const drafts = [
+      historyItem({ businessMonth: '2026-08', id: 'draft-august', status: 'draft' }),
+      historyItem({ businessMonth: '2026-09', id: 'draft-september', status: 'draft' }),
+      historyItem({ businessMonth: '2026-10', id: 'draft-october', status: 'draft' }),
+    ];
+    const history = [
+      historyItem({ businessMonth: '2026-09-01', id: 'published-september', status: 'published' }),
+      historyItem({ businessMonth: '2026-08', id: 'published-august', status: 'published' }),
+      historyItem({
+        businessMonth: '2026-10',
+        id: 'other-role-october',
+        scheduleRoleId: 'role-2',
+        status: 'published',
+      }),
+      historyItem({ businessMonth: '2026-10', id: 'replaced-october', status: 'replaced' }),
+    ];
+
+    expect(findPublishedOverlapMonths(drafts, history)).toEqual(['2026-08', '2026-09']);
+  });
 });
+
+function historyItem(
+  overrides: Partial<SchedulePeriodHistoryItem> & Pick<SchedulePeriodHistoryItem, 'id' | 'status'>,
+): SchedulePeriodHistoryItem {
+  return {
+    businessMonth: '2026-08',
+    createdAt: '2026-08-03T06:07:08.123Z',
+    revision: 1,
+    scheduleRoleId: 'role-1',
+    scheduleRoleName: '一线',
+    version: 1,
+    ...overrides,
+  };
+}
 
 function shiftType(overrides: Partial<ShiftType>): ShiftType {
   return {

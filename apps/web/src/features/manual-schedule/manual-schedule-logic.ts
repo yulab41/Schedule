@@ -1,4 +1,4 @@
-import type { ManualScheduleTemplate } from '@schedule/contracts';
+import type { ManualScheduleTemplate, SchedulePeriodHistoryItem } from '@schedule/contracts';
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六'] as const;
 
@@ -132,6 +132,48 @@ export function createTemplateUndoStack(): TemplateUndoStack {
       stack.push(new Map(snapshot));
     },
   };
+}
+
+export function formatScheduleDraftCode(createdAt: string): string {
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) {
+    return 'D时间未知';
+  }
+
+  const chinaTime = new Date(created.getTime() + 8 * 60 * 60 * 1000);
+  const date = [
+    chinaTime.getUTCFullYear(),
+    String(chinaTime.getUTCMonth() + 1).padStart(2, '0'),
+    String(chinaTime.getUTCDate()).padStart(2, '0'),
+  ].join('');
+  const time = [
+    String(chinaTime.getUTCHours()).padStart(2, '0'),
+    String(chinaTime.getUTCMinutes()).padStart(2, '0'),
+    String(chinaTime.getUTCSeconds()).padStart(2, '0'),
+  ].join('');
+
+  return `D${date}-${time}`;
+}
+
+export function findPublishedOverlapMonths(
+  drafts: readonly SchedulePeriodHistoryItem[],
+  history: readonly SchedulePeriodHistoryItem[],
+): readonly string[] {
+  const publishedKeys = new Set(
+    history
+      .filter((item) => item.status === 'published')
+      .map((item) => `${item.scheduleRoleId}|${item.businessMonth.slice(0, 7)}`),
+  );
+
+  return [
+    ...new Set(
+      drafts
+        .filter((draft) =>
+          publishedKeys.has(`${draft.scheduleRoleId}|${draft.businessMonth.slice(0, 7)}`),
+        )
+        .map((draft) => draft.businessMonth.slice(0, 7)),
+    ),
+  ].sort();
 }
 
 function addDays(value: string, days: number): string {

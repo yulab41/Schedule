@@ -32,6 +32,8 @@ import {
   clearRow,
   createCellKey,
   createTemplateUndoStack,
+  findPublishedOverlapMonths,
+  formatScheduleDraftCode,
   getTemplateDateColumns,
   templateToCellMap,
   type ManualGridRow,
@@ -89,6 +91,7 @@ interface DraftBatch {
 
 interface BlockedBatch {
   readonly batch: DraftBatch;
+  readonly conflictingMonths: readonly string[];
   readonly message: string;
   readonly needsReplace: boolean;
 }
@@ -554,18 +557,26 @@ async function publishBatch(
     if (isDataConflictError(error)) {
       const latest = getConflictLatestData(error) as
         { existingPublishedPeriodId?: unknown } | undefined;
-      batchBlocked.value =
-        latest?.existingPublishedPeriodId !== undefined
-          ? {
-              batch,
-              message: '发布范围包含已有已发布排班的月份，请确认覆盖发布。',
-              needsReplace: true,
-            }
-          : {
-              batch,
-              message: getConflictMessage(error),
-              needsReplace: false,
-            };
+      if (latest?.existingPublishedPeriodId !== undefined) {
+        try {
+          history.value = await api.listSchedulePeriodHistory(props.group.id);
+        } catch {
+          // Keep the existing snapshot; the conflict itself remains actionable.
+        }
+        batchBlocked.value = {
+          batch,
+          conflictingMonths: findPublishedOverlapMonths(batch.items, history.value),
+          message: '发布范围包含已有已发布排班的月份，请确认覆盖发布。',
+          needsReplace: true,
+        };
+      } else {
+        batchBlocked.value = {
+          batch,
+          conflictingMonths: [],
+          message: getConflictMessage(error),
+          needsReplace: false,
+        };
+      }
     } else {
       errorMessage.value = getErrorMessage(error);
     }
@@ -644,7 +655,7 @@ async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
 }
 
 function draftCode(item: SchedulePeriodHistoryItem): string {
-  return (item.operationId ?? item.id).slice(0, 8);
+  return formatScheduleDraftCode(item.createdAt);
 }
 
 function getErrorMessage(error: unknown): string {
@@ -767,6 +778,7 @@ function onWindowFocus(): void {
           <article v-for="batch in draftBatches" :key="batch.key" class="draft-row">
             <div class="draft-summary">
               <strong>{{ batch.rangeStart }} 至 {{ batch.rangeEnd }}</strong>
+              <span>草稿 {{ draftCode(batch.items[0]!) }}</span>
               <span>{{ batch.roleName }}</span>
               <span>共 {{ batch.items.length }} 个月</span>
               <span class="month-chips">
@@ -806,6 +818,15 @@ function onWindowFocus(): void {
         <div v-if="batchBlocked !== undefined" class="blocker-panel">
           <t-alert theme="warning" :message="batchBlocked.message" />
           <template v-if="batchBlocked.needsReplace">
+            <div v-if="batchBlocked.conflictingMonths.length > 0" class="month-chips">
+              <span
+                v-for="month in batchBlocked.conflictingMonths"
+                :key="month"
+                class="month-chip is-conflict"
+              >
+                {{ month }}
+              </span>
+            </div>
             <label class="replace-field">
               <input v-model="replacePublished" type="checkbox" />
               覆盖已发布排班（替换同岗位同月份的旧排班）
@@ -813,8 +834,9 @@ function onWindowFocus(): void {
             <t-button
               theme="danger"
               variant="outline"
+              :disabled="!replacePublished"
               :loading="isPublishingId === batchBlocked.batch.key"
-              @click="publishBatch(batchBlocked.batch, false, true)"
+              @click="publishBatch(batchBlocked.batch, false, replacePublished)"
             >
               确认覆盖发布
             </t-button>
@@ -827,8 +849,9 @@ function onWindowFocus(): void {
             <t-button
               theme="danger"
               variant="outline"
+              :disabled="!acknowledgeBlockers"
               :loading="isPublishingId === batchBlocked.batch.key"
-              @click="publishBatch(batchBlocked.batch, true)"
+              @click="publishBatch(batchBlocked.batch, acknowledgeBlockers)"
             >
               确认发布
             </t-button>
@@ -1125,6 +1148,13 @@ function onWindowFocus(): void {
 
 .month-chip:hover {
   background: #dbeafe;
+}
+
+.month-chip.is-conflict {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #f59e0b;
+  cursor: default;
 }
 
 .month-group {
