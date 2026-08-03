@@ -164,7 +164,10 @@ export interface ApiClient {
     templateId: string,
     input: ApplyManualScheduleTemplateRequest,
   ): Promise<AppliedManualScheduleTemplateResult>;
-  claimGroup(input: { readonly groupCode: string }): Promise<ClaimGroupResponse>;
+  claimGroup(input: {
+    readonly groupCode: string;
+    readonly realName: string;
+  }): Promise<ClaimGroupResponse>;
   cancelSwapRequest(
     groupId: string,
     swapRequestId: string,

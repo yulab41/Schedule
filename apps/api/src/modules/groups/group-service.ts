@@ -260,6 +260,7 @@ export class GroupService {
 
     return withTransaction(this.databaseClient, async (transaction) => {
       const user = await this.getActiveUserInTransaction(transaction, identity);
+      const claimRealName = input.realName?.trim() ?? user.realName;
       const [group] = await transaction
         .select({
           groupCode: groups.groupCode,
@@ -311,7 +312,7 @@ export class GroupService {
             eq(rosterEntries.groupId, group.id),
             eq(rosterEntries.status, 'pending'),
             isNull(rosterEntries.deletedAt),
-            sql`binary ${rosterEntries.realName} = binary ${user.realName}`,
+            sql`binary ${rosterEntries.realName} = binary ${claimRealName}`,
           ),
         )
         .limit(1)
@@ -321,7 +322,7 @@ export class GroupService {
         const unboundMembership = await this.findUnboundMembership(
           transaction,
           group.id,
-          user.realName,
+          claimRealName,
         );
         if (unboundMembership !== undefined) {
           const placeholderUserId = unboundMembership.userId;
@@ -347,6 +348,7 @@ export class GroupService {
               ),
             );
           await this.removePlaceholderUserIfUnused(transaction, placeholderUserId);
+          await this.updateClaimedProfile(transaction, user.id, claimRealName);
 
           return {
             group: toGroupSummary(group, unboundMembership.role),
@@ -374,6 +376,7 @@ export class GroupService {
           role: 'member',
           userId: user.id,
         });
+        await this.updateClaimedProfile(transaction, user.id, claimRealName);
 
         return {
           group: toGroupSummary(group, 'member'),
@@ -409,10 +412,11 @@ export class GroupService {
             isNull(groupJoinRequests.deletedAt),
           ),
         );
+      await this.updateClaimedProfile(transaction, user.id, claimRealName);
       const unboundMembership = await this.findUnboundMembership(
         transaction,
         group.id,
-        user.realName,
+        claimRealName,
       );
       if (unboundMembership !== undefined) {
         await transaction
@@ -442,6 +446,20 @@ export class GroupService {
         status: 'claimed',
       };
     });
+  }
+
+  private async updateClaimedProfile(
+    transaction: DatabaseTransaction,
+    userId: string,
+    realName: string,
+  ): Promise<void> {
+    await transaction
+      .update(userProfiles)
+      .set({
+        realName,
+        version: sql`${userProfiles.version} + 1`,
+      })
+      .where(eq(userProfiles.userId, userId));
   }
 
   private async findUnboundMembership(

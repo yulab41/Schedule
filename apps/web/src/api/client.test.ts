@@ -228,7 +228,7 @@ describe('Web API client', () => {
     await expect(
       client.createGroup({ groupCode: '1234', name: 'Emergency Department' }),
     ).resolves.toEqual(group);
-    await expect(client.claimGroup({ groupCode: '1234' })).resolves.toEqual({
+    await expect(client.claimGroup({ groupCode: '1234', realName: 'Lin Enyu' })).resolves.toEqual({
       status: 'request_created',
     });
     await expect(client.regenerateGroupCode(group.id, {})).resolves.toEqual({
@@ -249,7 +249,7 @@ describe('Web API client', () => {
       2,
       '/api/groups/claim',
       expect.objectContaining({
-        body: JSON.stringify({ groupCode: '1234' }),
+        body: JSON.stringify({ groupCode: '1234', realName: 'Lin Enyu' }),
         method: 'POST',
       }),
     );

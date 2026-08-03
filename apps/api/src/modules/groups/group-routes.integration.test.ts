@@ -8,6 +8,7 @@ import {
   groups,
   migrateDatabase,
   rosterEntries,
+  userProfiles,
   users,
   type DatabaseClient,
   type DatabaseConnectionOptions,
@@ -139,7 +140,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const groupId = (group.json() as { id: string }).id;
     await addRosterEntry(groupId, 'Candidate Doctor');
 
-    const response = await claimGroup('candidate-token', '3456');
+    const response = await claimGroup('candidate-token', '3456', 'Candidate Doctor');
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
@@ -177,11 +178,11 @@ describeWithDatabase('groups and roster claiming', () => {
       const results = await Promise.allSettled([
         new GroupService(firstClient).claim(
           { cloudbaseUid: 'cloudbase-candidate' },
-          { groupCode: '4012' },
+          { groupCode: '4012', realName: 'Candidate Doctor' },
         ),
         new GroupService(secondClient).claim(
           { cloudbaseUid: 'cloudbase-other-candidate' },
-          { groupCode: '4012' },
+          { groupCode: '4012', realName: 'Candidate Doctor' },
         ),
       ]);
 
@@ -219,7 +220,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const groupId = (group.json() as { id: string }).id;
     await addRosterEntry(groupId, 'Candidate Doctor');
 
-    const response = await claimGroup('outsider-token', '4567');
+    const response = await claimGroup('outsider-token', '4567', 'Outsider Doctor');
 
     expect(response.statusCode).toBe(201);
     expect(response.json()).toMatchObject({
@@ -247,6 +248,33 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(pendingRequests).toHaveLength(0);
   });
 
+  it('uses the entered real name when claiming and updates the profile', async () => {
+    const group = await createGroup('Real name claim group', '6543');
+    const groupId = (group.json() as { id: string }).id;
+    await addRosterEntry(groupId, 'Lin Enyu');
+
+    const response = await claimGroup('outsider-token', '6543', 'Lin Enyu');
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ status: 'claimed' });
+
+    const [outsider] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    const [profile] = await client.database
+      .select({ realName: userProfiles.realName })
+      .from(userProfiles)
+      .where(eq(userProfiles.userId, outsider?.id as string));
+    expect(profile?.realName).toBe('Lin Enyu');
+    const members = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    const rows = members.json() as { realName: string }[];
+    expect(rows.some((row) => row.realName === 'Lin Enyu')).toBe(true);
+  });
+
   it('resolves an earlier pending join request when the member joins directly', async () => {
     const group = await createGroup('Request resolution group', '5123');
     const groupId = (group.json() as { id: string }).id;
@@ -261,7 +289,7 @@ describeWithDatabase('groups and roster claiming', () => {
       requestingUserId: outsider?.id as string,
     });
 
-    const claimed = await claimGroup('outsider-token', '5123');
+    const claimed = await claimGroup('outsider-token', '5123', 'Outsider Doctor');
     const [request] = await client.database
       .select({ status: groupJoinRequests.status })
       .from(groupJoinRequests)
@@ -329,7 +357,7 @@ describeWithDatabase('groups and roster claiming', () => {
     });
     expect(memberForbidden.statusCode).toBe(403);
 
-    const claimed = await claimGroup('outsider-token', '3456');
+    const claimed = await claimGroup('outsider-token', '3456', 'Outsider Doctor');
     expect(claimed.statusCode).toBe(201);
     expect(claimed.json()).toMatchObject({ status: 'claimed' });
 
@@ -413,7 +441,7 @@ describeWithDatabase('groups and roster claiming', () => {
     });
     expect(again.json()).toEqual({ converted: 0, skipped: 1 });
 
-    const claimed = await claimGroup('outsider-token', '8901');
+    const claimed = await claimGroup('outsider-token', '8901', 'Outsider Doctor');
     expect(claimed.statusCode).toBe(201);
     const [membership] = await client.database
       .select({ userId: groupMemberships.userId })
@@ -535,8 +563,8 @@ describeWithDatabase('groups and roster claiming', () => {
       payload: { groupCode: '6789' },
       url: `/groups/${groupId}/group-code`,
     });
-    const oldCodeClaim = await claimGroup('candidate-token', '5678');
-    const newCodeClaim = await claimGroup('candidate-token', '6789');
+    const oldCodeClaim = await claimGroup('candidate-token', '5678', 'Candidate Doctor');
+    const newCodeClaim = await claimGroup('candidate-token', '6789', 'Candidate Doctor');
 
     expect(regenerated.statusCode).toBe(200);
     expect(regenerated.json()).toMatchObject({ groupCode: '6789', version: 2 });
@@ -547,7 +575,7 @@ describeWithDatabase('groups and roster claiming', () => {
   it('limits repeated code guesses before resolving group membership', async () => {
     const responses = [];
     for (let attempt = 0; attempt < 6; attempt += 1) {
-      responses.push(await claimGroup('outsider-token', '9999'));
+      responses.push(await claimGroup('outsider-token', '9999', 'Outsider Doctor'));
     }
 
     expect(responses.filter((response) => response.statusCode === 404)).toHaveLength(5);
@@ -605,11 +633,11 @@ describeWithDatabase('groups and roster claiming', () => {
     });
   }
 
-  function claimGroup(token: string, groupCode: string) {
+  function claimGroup(token: string, groupCode: string, realName: string) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: { groupCode },
+      payload: { groupCode, realName },
       url: '/groups/claim',
     });
   }

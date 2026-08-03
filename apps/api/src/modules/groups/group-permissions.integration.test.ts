@@ -245,7 +245,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const claim = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'POST',
-      payload: { groupCode: '1234' },
+      payload: { groupCode: '1234', realName: 'Candidate Doctor' },
       url: '/groups/claim',
     });
 

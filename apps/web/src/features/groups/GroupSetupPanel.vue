@@ -16,6 +16,7 @@ const joinedGroup = ref<GroupSummary>();
 const createGroupName = ref('');
 const customGroupCode = ref('');
 const claimCode = ref('');
+const claimRealName = ref('');
 const rosterNames = ref('');
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
@@ -100,8 +101,12 @@ async function claimGroup(): Promise<void> {
   isClaiming.value = true;
 
   try {
-    const result = await api.claimGroup({ groupCode: claimCode.value.trim() });
+    const result = await api.claimGroup({
+      groupCode: claimCode.value.trim(),
+      realName: claimRealName.value.trim(),
+    });
     claimCode.value = '';
+    claimRealName.value = '';
 
     if (result.status === 'claimed') {
       joinedGroup.value = result.group;
@@ -168,6 +173,14 @@ function getErrorMessage(error: unknown): string {
 
     <t-card title="加入群组" class="group-card">
       <form @submit.prevent="claimGroup">
+        <t-form-item label="真实姓名" name="claimRealName">
+          <t-input
+            v-model="claimRealName"
+            maxlength="100"
+            placeholder="请输入您的真实姓名"
+            required
+          />
+        </t-form-item>
         <t-form-item label="四位群组码" name="claimCode">
           <t-input v-model="claimCode" inputmode="numeric" maxlength="4" pattern="\d{4}" required />
         </t-form-item>

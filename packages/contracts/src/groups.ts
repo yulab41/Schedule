@@ -40,6 +40,7 @@ export interface ConvertPendingRosterResponse {
 
 export interface ClaimGroupRequest {
   readonly groupCode: string;
+  readonly realName?: string;
 }
 
 export type ClaimGroupResponse =

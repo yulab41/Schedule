@@ -50,6 +50,7 @@ const addGroupMembersInputSchema = z
 const claimGroupInputSchema = z
   .object({
     groupCode: groupCodeSchema,
+    realName: realNameSchema.optional(),
   })
   .strict();
 
@@ -263,7 +264,10 @@ function parseClaimGroupInput(value: unknown): ClaimGroupRequest {
     throwValidationError();
   }
 
-  return result.data;
+  return {
+    groupCode: result.data.groupCode,
+    ...(result.data.realName === undefined ? {} : { realName: result.data.realName }),
+  };
 }
 
 function parseRegenerateGroupCodeInput(value: unknown): RegenerateGroupCodeRequest {
