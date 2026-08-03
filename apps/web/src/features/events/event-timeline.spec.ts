@@ -134,4 +134,16 @@ describe('event timeline logic', () => {
       ),
     ).toBe('请假替班完成（整体顺延），该班次现由 C Doctor 值班。');
   });
+
+  it('falls back to a readable sentence for event types without a dedicated template', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: { actualMemberName: 'B Doctor' },
+          beforeData: { actualMemberName: 'A Doctor' },
+          eventType: 'unknown_change',
+        }),
+      ),
+    ).toBe('班次变动：实际人员 由 A Doctor 改为 B Doctor。');
+  });
 });

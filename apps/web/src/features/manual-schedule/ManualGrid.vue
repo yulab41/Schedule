@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ShiftType } from '@schedule/contracts';
+import type { ConfirmedHolidayDate, ShiftType } from '@schedule/contracts';
 import { computed } from 'vue';
 
 import {
@@ -13,6 +13,7 @@ import {
 const props = defineProps<{
   readonly cells: TemplateCellMap;
   readonly columns: readonly TemplateDateColumn[];
+  readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
   readonly rows: readonly ManualGridRow[];
   readonly selectedCell: ManualGridSelection | undefined;
   readonly shiftTypes: readonly ShiftType[];
@@ -25,6 +26,9 @@ const emit = defineEmits<{
 
 const shiftTypesById = computed(
   () => new Map(props.shiftTypes.map((shiftType) => [shiftType.id, shiftType])),
+);
+const hasHolidayDates = computed(() =>
+  props.columns.some((column) => props.holidays.has(column.date)),
 );
 
 function isSelected(cycleDay: number, membershipId: string): boolean {
@@ -51,6 +55,10 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
   const shiftTypeId = getTemplateCellShiftTypeId(props.cells, cycleDay, membershipId);
   return shiftTypeId === undefined ? undefined : shiftTypesById.value.get(shiftTypeId);
 }
+
+function holidayFor(date: string): ConfirmedHolidayDate | undefined {
+  return props.holidays.get(date);
+}
 </script>
 
 <template>
@@ -58,16 +66,29 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
     <table class="manual-grid">
       <thead>
         <tr class="date-header-row">
-          <th class="member-header">值班人员</th>
+          <th class="member-header" scope="col">值班人员 ↓</th>
           <th v-for="column in columns" :key="column.cycleDay" class="date-header">
             <span class="date-value">{{ column.date.slice(5) }}</span>
             <span class="weekday-value">周{{ column.weekday }}</span>
           </th>
         </tr>
-        <tr class="holiday-header-row" aria-label="节假日摘要">
+        <tr v-if="hasHolidayDates" class="holiday-header-row" aria-label="节假日摘要">
           <th class="member-header">节假日</th>
           <th v-for="column in columns" :key="column.cycleDay" class="holiday-summary">
-            <!-- 节假日名称由节假日数据任务填充 -->
+            <span
+              v-if="holidayFor(column.date)?.isOffDay === true"
+              class="holiday-name"
+              :title="holidayFor(column.date)?.holidayName"
+            >
+              {{ holidayFor(column.date)?.holidayName }}
+            </span>
+            <span
+              v-else-if="holidayFor(column.date)?.isWorkday === true"
+              class="workday-badge"
+              title="调休上班日"
+            >
+              班
+            </span>
           </th>
         </tr>
       </thead>
@@ -125,7 +146,7 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;
+  table-layout: auto;
   min-width: 640px;
   font-size: 13px;
 }
@@ -148,29 +169,22 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
 
 .member-header,
 .member-name {
-  position: sticky;
-  left: 0;
-  z-index: 2;
   min-width: 120px;
   padding: 8px;
   text-align: left;
   background: #f8fafc;
 }
 
-.member-header {
-  z-index: 4;
-}
-
 .date-header {
-  display: grid;
-  gap: 2px;
-  min-width: 88px;
+  min-width: 84px;
   padding: 6px;
   text-align: center;
   background: #f8fafc;
-  position: sticky;
-  top: 0;
-  z-index: 3;
+  white-space: nowrap;
+}
+
+.date-header span {
+  display: block;
 }
 
 .date-value {
@@ -184,13 +198,33 @@ function shiftTypeFor(cycleDay: number, membershipId: string): ShiftType | undef
 }
 
 .holiday-header-row .holiday-summary {
-  min-width: 88px;
+  min-width: 84px;
   height: 22px;
   padding: 0;
   background: #f0fdf4;
-  position: sticky;
-  top: 48px;
-  z-index: 3;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.holiday-name {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  color: #b42318;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.workday-badge {
+  display: inline-block;
+  padding: 0 4px;
+  color: #1f5aa6;
+  background: #e8f1fb;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .member-name {

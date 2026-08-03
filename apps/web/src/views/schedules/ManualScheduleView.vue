@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type {
   AppliedManualScheduleTemplateResult,
+  ConfirmedHolidayDate,
   CreateManualScheduleTemplateRequest,
   GroupSummary,
   ManualScheduleTemplate,
   ScheduleDraftSummary,
   SchedulingConfig,
 } from '@schedule/contracts';
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import {
@@ -45,6 +46,7 @@ const api = createApiClient({ auth: cloudbaseAuth });
 const config = ref<SchedulingConfig>();
 const templates = ref<ManualScheduleTemplate[]>([]);
 const drafts = ref<ScheduleDraftSummary[]>([]);
+const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const selectedTemplateId = ref('');
 const scheduleRoleId = ref('');
 const membershipIds = ref<string[]>([]);
@@ -116,6 +118,10 @@ const staleWarning = computed(
   () => staleMemberIds.value.length > 0 || staleCellKeys.value.size > 0,
 );
 
+watch(startDate, () => {
+  void loadHolidays();
+});
+
 function loadData(): Promise<void> {
   const currentRequest = ++requestVersion;
   errorMessage.value = undefined;
@@ -143,6 +149,23 @@ function loadData(): Promise<void> {
         isLoading.value = false;
       }
     });
+}
+
+async function loadHolidays(): Promise<void> {
+  const years = new Set<number>([Number(startDate.value.slice(0, 4))]);
+  const lastColumn = columns.value[columns.value.length - 1];
+  if (lastColumn !== undefined) {
+    years.add(Number(lastColumn.date.slice(0, 4)));
+  }
+
+  try {
+    const results = await Promise.all([...years].map((year) => api.getHolidays(year)));
+    holidays.value = new Map(
+      results.flatMap((result) => result.dates.map((date) => [date.date, date] as const)),
+    );
+  } catch {
+    holidays.value = new Map();
+  }
 }
 
 function onTemplateChange(value: string | number | boolean | object | null): void {
@@ -455,6 +478,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 void loadData();
+void loadHolidays();
 onMounted(() => {
   window.addEventListener('focus', onWindowFocus);
 });
@@ -520,9 +544,13 @@ function onWindowFocus(): void {
       />
 
       <template v-if="rows.length > 0 && columns.length > 0">
+        <p class="grid-hint">
+          表格方向：值班人员为行（↓），日期为列（→），点选单元格后从下方班种按钮填充。
+        </p>
         <ManualGrid
           :cells="cells"
           :columns="columns"
+          :holidays="holidays"
           :rows="rows"
           :selected-cell="selectedCell"
           :shift-types="enabledShiftTypes"
@@ -620,6 +648,12 @@ function onWindowFocus(): void {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+}
+
+.grid-hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
 }
 
 .editor-config {

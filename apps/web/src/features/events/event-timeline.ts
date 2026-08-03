@@ -213,10 +213,24 @@ export function buildEventNarrative(
     case 'manual_schedule_template_applied':
       return '手动模板已应用并生成该班次。';
     default:
-      return undefined;
+      return buildChangeFallbackNarrative(event);
   }
 
-  return undefined;
+  return buildChangeFallbackNarrative(event);
+}
+
+function buildChangeFallbackNarrative(event: ScheduleEvent): string | undefined {
+  const changes = extractEventChanges(event);
+  if (changes.length === 0) {
+    return undefined;
+  }
+
+  return `班次变动：${changes
+    .map(
+      (change) =>
+        `${change.label} 由 ${change.before ?? '未设置'} 改为 ${change.after ?? '未设置'}`,
+    )
+    .join('；')}。`;
 }
 
 export function buildEventTimelineItems(

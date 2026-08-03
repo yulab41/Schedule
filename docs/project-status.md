@@ -13,6 +13,15 @@ This file is the concise handoff entry point for every new implementation conver
 - Implementation code: Tasks 1 through 32 are complete. Web 1.0 (`v1.0.0`) is released under the user-accepted 公网 + 单账号全局授权 compromise: `pnpm verify` passed 322/322 (60 test files) with the isolated MySQL, the live smoke and database backup record are documented in `docs/releases/web-1.0-acceptance.md`, and the release commit message is `release: web scheduling system 1.0`.
 - 2026-08-03 bug-fix round: Web 1.0 feedback fixes are implemented and `pnpm verify` passed 327/327 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；若手动排班方向或日历单日班种显示仍异常，请截图并复核 PWA 缓存版本（仓库代码已为人员行/日期列）。
 - 2026-08-03 round 2: role/template deletion and 排班岗位 wording are implemented and `pnpm verify` passed 329/329 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；删除功能与文案改动已推送 `main`。
+- 2026-08-03 round 3: manual-grid rendering hardening and event-dialog readability fallback are implemented and `pnpm verify` passed 330/330 (60 test files) with the isolated MySQL. PWA cache names were bumped to force clients onto the new bundle.
+
+## 2026-08-03 Round 3 (Grid Rendering and Event Readability)
+
+Checkpoint commit message: `fix(web): harden manual grid orientation and event readability`
+
+- Manual schedule grid: removed the sticky table-header and `display:grid` cell styles added in round 1 (likely sources of the date-header misrendering in mobile/WeChat webviews); dates are now plain per-column `<th>` headers with an explicit 值班人员 ↓ / 日期 → hint above the grid; the empty holiday placeholder row is now only rendered when the cycle actually contains holidays, and it shows real holiday names / 调休“班” tags fetched from the holiday API.
+- Calendar event dialog: every event now gets a human-readable sentence. Known event types use dedicated narratives (swap/leave cover/duty adjustment/publish), and any other event type falls back to “班次变动：实际人员 由 A 改为 B” style text built from before/after data; the calendar dialog still never shows raw JSON.
+- PWA cache: shell/schedule cache names bumped to v2 so previously installed clients drop the old cached app shell and load the new bundle after the next deployment.
 
 ## 2026-08-03 Round 2 (Deletion and Wording)
 
@@ -219,6 +228,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 3: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 330 Vitest tests (60 files) and all production builds; the web bundle now emits a new service-worker hash and v2 cache names. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 2: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 329 Vitest tests (60 files) and all production builds, including the new template-delete and role-delete integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 bug-fix round: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 327 Vitest tests (60 files) and all production builds, including the new draft-list/publish integration test and updated session/calendar/event/nav unit tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - Task 1: `pnpm install --frozen-lockfile=false` passed after allowing only `esbuild` in pnpm's committed `allowBuilds` configuration.
