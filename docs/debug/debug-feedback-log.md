@@ -195,6 +195,15 @@
 - 验证：`pnpm verify` 353/353（隔离 MySQL）。
 - 状态：已完成（待用户验收）；排班大项（月历式预览、发布记录撤销/恢复/删除、发布前工作流清理、未来日期发布限制与既往排班模块）仍列入下一步。
 
+### 轮次 22（提交：chore(dev): add local dev runner and speed up verify）
+- 用户反馈/需求：GitHub 质量检查慢；收到 TDSQL-C 内存使用率告警；希望先把 Web 1.0 跑在本地，减少频繁 Deploy 与访问腾讯云。
+- 处理：
+  - 新增本地开发入口：`pnpm dev`（先构建 API，再并行启动本地 API + Vite Web），Web 通过本地 `.env` 的 `VITE_API_BASE_URL=http://127.0.0.1:3000/api` 访问本地 API；`.env` 不入库。
+  - Verify 工作流增加 `concurrency`（同一分支/PR 的新推送自动取消旧 run）并缓存 Vite/esbuild 构建缓存，减少排队与重复构建。
+  - 内存告警排查建议（非本轮代码缺陷）：CI 使用隔离 MySQL，不会直接抬高线上库内存；需查看 TDSQL-C 监控、`SHOW FULL PROCESSLIST`、慢查询与定时任务（备份/统计重建）时段，必要时升配或优化连接数。
+- 验证：`pnpm format:check` 通过；本地 `pnpm dev` 命令已加入（需本地 MySQL 容器运行）。
+- 状态：已完成（待用户本地验收）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。

@@ -17,6 +17,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "dev": "node --env-file=../../.env dist/local-server.js",
     "migrate": "node --env-file=../../.env dist/migrate.js",
     "start": "node --env-file=../../.env dist/local-server.js",
     "test": "vitest run",

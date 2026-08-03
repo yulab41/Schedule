@@ -11,6 +11,9 @@
   "scripts": {
     "build": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run build && pnpm holidays:build",
     "cloudbase:build": "esbuild infra/cloudbase/functions/schedule-api/src/main.js --bundle --platform=node --target=node20 --format=cjs --log-override:empty-import-meta=silent --outfile=infra/cloudbase/functions/schedule-api/index.js && esbuild infra/cloudbase/functions/schedule-jobs/src/main.js --bundle --platform=node --target=node20 --format=cjs --log-override:empty-import-meta=silent --outfile=infra/cloudbase/functions/schedule-jobs/index.js",
+    "dev": "pnpm --filter @schedule/api build && pnpm --parallel --filter @schedule/api --filter @schedule/web run dev",
+    "dev:api": "pnpm --filter @schedule/api build && pnpm --filter @schedule/api start",
+    "dev:web": "pnpm --filter @schedule/web dev",
     "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\" \"infra/scripts/**/*.ts\" \"infra/cloudbase/**/*.{json,js}\"",
     "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\" \"infra/scripts/**/*.ts\" \"infra/cloudbase/**/*.{json,js}\"",
     "holidays:build": "tsc -p infra/scripts/tsconfig.json",
