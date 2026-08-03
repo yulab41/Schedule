@@ -6,6 +6,7 @@ import ChangeBadge from '../calendar/ChangeBadge.vue';
 import {
   buildEventNarrative,
   buildEventTimelineItems,
+  buildSwapChainSummary,
   extractEventChanges,
   formatEventTime,
   formatJsonValue,
@@ -23,15 +24,46 @@ const props = withDefaults(
 );
 
 const items = computed(() => buildEventTimelineItems(props.events));
+const initiatedAtBySwapRequest = computed(() => {
+  const map = new Map<string, string>();
+  for (const event of props.events) {
+    if (
+      event.objectType === 'swap_request' &&
+      event.eventType === 'swap_request_created' &&
+      event.objectId !== undefined &&
+      !map.has(event.objectId)
+    ) {
+      map.set(event.objectId, event.occurredAt);
+    }
+  }
+  return map;
+});
 const narratives = computed(
   () =>
     new Map(
-      items.value.map((item) => [item.event.id, buildEventNarrative(item.event, props.assignment)]),
+      items.value.map((item) => {
+        const initiatedAt =
+          item.event.objectId === undefined
+            ? undefined
+            : initiatedAtBySwapRequest.value.get(item.event.objectId);
+        return [
+          item.event.id,
+          buildEventNarrative(item.event, props.assignment, {
+            ...(initiatedAt === undefined ? {} : { initiatedAt }),
+          }),
+        ];
+      }),
     ),
+);
+const swapChain = computed(() =>
+  props.assignment === undefined
+    ? undefined
+    : buildSwapChainSummary(props.events, props.assignment.id),
 );
 </script>
 
 <template>
+  <p v-if="swapChain !== undefined" class="swap-chain">{{ swapChain }}</p>
   <ol class="event-timeline">
     <li v-for="item in items" :key="item.event.id" class="timeline-entry">
       <div class="entry-heading">
@@ -77,6 +109,18 @@ const narratives = computed(
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.swap-chain {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  color: #111827;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .timeline-entry {

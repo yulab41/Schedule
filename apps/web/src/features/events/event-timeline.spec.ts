@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEventNarrative,
   buildEventTimelineItems,
+  buildSwapChainSummary,
   extractEventChanges,
   formatEventTime,
   getEventMarker,
@@ -111,7 +112,7 @@ describe('event timeline logic', () => {
         }),
       ),
     ).toBe(
-      'A Doctor 与 B Doctor 互换班次：原 A Doctor 的班次现由 B Doctor 值班，原 B Doctor 的班次现由 A Doctor 值班。',
+      'A Doctor 与 B Doctor 互换班次（由 A Doctor 发起）：原 A Doctor 的班次现由 B Doctor 值班，原 B Doctor 的班次现由 A Doctor 值班。',
     );
 
     expect(
@@ -123,6 +124,62 @@ describe('event timeline logic', () => {
         }),
       ),
     ).toBe('加扣班完成：原值班 A Doctor 的班次现由 B Doctor 代值。');
+  });
+
+  it('includes the initiator and request time in swap narratives', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: {
+            initiatorAssignment: { actualMemberName: 'B Doctor' },
+            targetAssignment: { actualMemberName: 'A Doctor' },
+          },
+          beforeData: {
+            initiatorAssignment: { actualMemberName: 'A Doctor' },
+            targetAssignment: { actualMemberName: 'B Doctor' },
+          },
+        }),
+        undefined,
+        { initiatedAt: '2026-08-03T01:00:00.000Z' },
+      ),
+    ).toBe(
+      'A Doctor 与 B Doctor 互换班次（由 A Doctor 发起，发起时间 2026-08-03 09:00）：原 A Doctor 的班次现由 B Doctor 值班，原 B Doctor 的班次现由 A Doctor 值班。',
+    );
+  });
+
+  it('builds a full swap chain for one shift across multiple swaps', () => {
+    const events = [
+      event({
+        afterData: {
+          initiatorAssignment: { actualMemberName: 'Feng Qin' },
+          initiatorAssignmentId: 'assignment-1',
+          targetAssignment: { actualMemberName: 'Lin Enyu' },
+          targetAssignmentId: 'assignment-2',
+        },
+        beforeData: {
+          initiatorAssignment: { actualMemberName: 'Lin Enyu' },
+          targetAssignment: { actualMemberName: 'Feng Qin' },
+        },
+        occurredAt: '2026-08-08T01:00:00.000Z',
+      }),
+      event({
+        afterData: {
+          initiatorAssignment: { actualMemberName: 'Hong Chenshan' },
+          initiatorAssignmentId: 'assignment-1',
+          targetAssignment: { actualMemberName: 'Feng Qin' },
+          targetAssignmentId: 'assignment-3',
+        },
+        beforeData: {
+          initiatorAssignment: { actualMemberName: 'Feng Qin' },
+          targetAssignment: { actualMemberName: 'Hong Chenshan' },
+        },
+        occurredAt: '2026-08-08T03:00:00.000Z',
+      }),
+    ];
+
+    expect(buildSwapChainSummary(events, 'assignment-1')).toContain(
+      '人员变更链：Lin Enyu → Feng Qin → Hong Chenshan（2 次换班',
+    );
   });
 
   it('names the current duty member in leave cover narratives', () => {

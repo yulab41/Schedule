@@ -355,7 +355,7 @@ export class ScheduleRepository {
     }
     await this.eventWriter.append(transaction, {
       affectedMembershipIds: getAffectedMembershipIds(input.assignments),
-      affectedShiftIds: assignmentRows.map((assignment) => assignment.id),
+      affectedShiftIds: [],
       afterData: { businessMonth, revision, status: 'draft' },
       eventStatus: 'completed',
       eventType: 'schedule_period_created',

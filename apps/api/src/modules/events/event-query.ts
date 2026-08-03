@@ -13,13 +13,43 @@ import {
   type DatabaseTransaction,
   withTransaction,
 } from '@schedule/database';
-import { and, desc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  notInArray,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
 
 const defaultPageSize = 50;
 const maximumPageSize = 100;
 const maximumEventTypes = 20;
+
+const nonShiftScopedEventTypes = new Set([
+  'manual_schedule_template_applied',
+  'manual_schedule_template_created',
+  'manual_schedule_template_deleted',
+  'manual_schedule_template_updated',
+  'rotation_order_changed',
+  'schedule_generation_completed',
+  'schedule_period_created',
+  'schedule_period_deleted',
+  'schedule_period_published',
+  'schedule_period_replaced',
+  'schedule_period_withdrawn',
+  'schedule_role_changed',
+  'schedule_role_corrected',
+  'shift_type_changed',
+]);
 
 interface EventCursor {
   readonly id: string;
@@ -120,6 +150,7 @@ export class EventQuery {
       conditions.push(
         sql`json_contains(${scheduleEvents.affectedShiftIds}, json_quote(${query.shiftId}))`,
       );
+      conditions.push(notInArray(scheduleEvents.eventType, [...nonShiftScopedEventTypes]));
     }
 
     if (query.scheduleRoleId !== undefined) {

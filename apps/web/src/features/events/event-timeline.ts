@@ -21,6 +21,10 @@ export interface EventTimelineItem {
   readonly marker?: CalendarChangeMarker;
 }
 
+export interface EventNarrativeContext {
+  readonly initiatedAt?: string;
+}
+
 export const eventTypeLabels: Readonly<Record<string, string>> = {
   assignment_manually_updated: '人工调整班次',
   duty_adjustment_completed: '加扣班生效',
@@ -61,15 +65,19 @@ export const eventTypeLabels: Readonly<Record<string, string>> = {
 const changeLabels: Readonly<Record<string, string>> = {
   actualMemberId: '实际人员',
   actualMemberName: '实际人员',
+  businessMonth: '排班月份',
   plannedMemberId: '计划人员',
   plannedMemberName: '计划人员',
   reason: '原因',
+  revision: '版本号',
+  rulesVersion: '规则版本',
   scheduleRoleId: '排班岗位',
   scheduleRoleName: '排班岗位',
   shiftTypeAbbreviation: '班种',
   shiftTypeId: '班种',
   shiftTypeName: '班种',
   status: '状态',
+  strategy: '重排策略',
 };
 
 const skippedChangeKeys = new Set([
@@ -155,18 +163,28 @@ export function extractEventChanges(event: ScheduleEvent): readonly EventChangeI
 export function buildEventNarrative(
   event: ScheduleEvent,
   assignment?: CalendarDutyAssignment,
+  context: EventNarrativeContext = {},
 ): string | undefined {
   const before = event.beforeData ?? {};
   const after = event.afterData ?? {};
 
   switch (event.eventType) {
     case 'swap_completed': {
+      const initiatorName = readNestedMemberName(before.initiatorAssignment);
       const beforeInitiator = readNestedMemberName(before.initiatorAssignment);
       const afterInitiator = readNestedMemberName(after.initiatorAssignment);
       const beforeTarget = readNestedMemberName(before.targetAssignment);
       const afterTarget = readNestedMemberName(after.targetAssignment);
       if (beforeInitiator !== undefined && afterInitiator !== undefined) {
-        return `${beforeInitiator} 与 ${afterInitiator} 互换班次：原 ${beforeInitiator} 的班次现由 ${afterInitiator} 值班${
+        const details: string[] = [];
+        if (initiatorName !== undefined) {
+          details.push(`由 ${initiatorName} 发起`);
+        }
+        if (context.initiatedAt !== undefined) {
+          details.push(`发起时间 ${formatEventTime(context.initiatedAt)}`);
+        }
+        const detailText = details.length === 0 ? '' : `（${details.join('，')}）`;
+        return `${beforeInitiator} 与 ${afterInitiator} 互换班次${detailText}：原 ${beforeInitiator} 的班次现由 ${afterInitiator} 值班${
           beforeTarget !== undefined && afterTarget !== undefined
             ? `，原 ${beforeTarget} 的班次现由 ${afterTarget} 值班`
             : ''
@@ -276,6 +294,38 @@ export function buildEventNarrative(
   return buildChangeFallbackNarrative(event);
 }
 
+export function buildSwapChainSummary(
+  events: readonly ScheduleEvent[],
+  assignmentId: string,
+): string | undefined {
+  const steps = events
+    .filter((event) => event.eventType === 'swap_completed')
+    .map((event) => extractSwapSideChange(event, assignmentId))
+    .filter((step): step is SwapChainStep => step !== undefined)
+    .sort(
+      (first, second) =>
+        first.occurredAt.localeCompare(second.occurredAt) ||
+        first.eventId.localeCompare(second.eventId),
+    );
+  if (steps.length === 0) {
+    return undefined;
+  }
+
+  const names: string[] = [];
+  for (const step of steps) {
+    if (names.length === 0) {
+      names.push(step.before);
+    }
+    if (names[names.length - 1] !== step.after) {
+      names.push(step.after);
+    }
+  }
+  const detail = steps
+    .map((step) => `${formatEventTime(step.occurredAt)} ${step.before} → ${step.after}`)
+    .join('；');
+  return `人员变更链：${names.join(' → ')}（${steps.length} 次换班；${detail}）`;
+}
+
 function buildChangeFallbackNarrative(event: ScheduleEvent): string | undefined {
   const changes = extractEventChanges(event);
   if (changes.length === 0) {
@@ -380,6 +430,50 @@ function readMemberNameFromObject(value: object): string | undefined {
   }
   if (typeof record.plannedMemberName === 'string' && record.plannedMemberName.length > 0) {
     return record.plannedMemberName;
+  }
+  return undefined;
+}
+
+interface SwapChainStep {
+  readonly after: string;
+  readonly before: string;
+  readonly eventId: string;
+  readonly occurredAt: string;
+}
+
+function extractSwapSideChange(
+  event: ScheduleEvent,
+  assignmentId: string,
+): SwapChainStep | undefined {
+  const before = event.beforeData ?? {};
+  const after = event.afterData ?? {};
+  const beforeInitiator = readNestedMemberName(before.initiatorAssignment);
+  const afterInitiator = readNestedMemberName(after.initiatorAssignment);
+  const beforeTarget = readNestedMemberName(before.targetAssignment);
+  const afterTarget = readNestedMemberName(after.targetAssignment);
+  if (
+    after.initiatorAssignmentId === assignmentId &&
+    beforeInitiator !== undefined &&
+    afterInitiator !== undefined
+  ) {
+    return {
+      after: afterInitiator,
+      before: beforeInitiator,
+      eventId: event.id,
+      occurredAt: event.occurredAt,
+    };
+  }
+  if (
+    after.targetAssignmentId === assignmentId &&
+    beforeTarget !== undefined &&
+    afterTarget !== undefined
+  ) {
+    return {
+      after: afterTarget,
+      before: beforeTarget,
+      eventId: event.id,
+      occurredAt: event.occurredAt,
+    };
   }
   return undefined;
 }

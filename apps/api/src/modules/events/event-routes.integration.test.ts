@@ -144,6 +144,36 @@ describeWithDatabase('schedule event center routes', () => {
     expect(noRoleEvents.events).toEqual([]);
   });
 
+  it('excludes period-level events from per-shift queries even when they list the shift', async () => {
+    const context = await seedSwapEvents();
+    const periodEventId = randomUUID();
+    const periodRows = (
+      await client.database.execute(
+        sql`SELECT id FROM schedule_periods WHERE group_id = ${context.groupId} LIMIT 1`,
+      )
+    )[0] as unknown as readonly { id: string }[];
+    const periodId = periodRows[0]?.id as string;
+    await withTransaction(client, (transaction) =>
+      new EventWriter().append(transaction, {
+        affectedMembershipIds: [],
+        affectedShiftIds: [context.assignments.aSep1],
+        afterData: { businessMonth: '2026-09-01', revision: 1, status: 'draft' },
+        eventStatus: 'completed',
+        eventType: 'schedule_period_created',
+        groupId: context.groupId,
+        objectId: periodEventId,
+        objectType: 'schedule_period',
+        operationId: randomUUID(),
+        schedulePeriodId: periodId,
+      }),
+    );
+
+    const byShift = (
+      await listEvents('b-token', context.groupId, { shiftId: context.assignments.aSep1 })
+    ).json() as ScheduleEventPage;
+    expect(byShift.events.map((event) => event.id)).not.toContain(periodEventId);
+  });
+
   it('returns the event detail with its parent and child chain and rejects other groups', async () => {
     const context = await seedSwapEvents();
     const otherGroupId = await createGroup('Other group', '3456');
