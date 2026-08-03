@@ -45,7 +45,7 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'group_join_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives')`,
     );
 
-    expect(migrations).toEqual([{ count: 19 }]);
+    expect(migrations).toEqual([{ count: 20 }]);
     expect(tables).toEqual([{ count: 37 }]);
   });
 
@@ -83,6 +83,20 @@ describeWithDatabase('identity and group migrations', () => {
   it('matches the unsigned tinyint columns in the migration', () => {
     expect(groupMemberships.autoAcceptSwaps.getSQLType()).toBe('tinyint unsigned');
     expect(groupMemberContacts.isConfirmed.getSQLType()).toBe('tinyint unsigned');
+  });
+
+  it('pins explicit defaults for leave request timestamps to prevent ON UPDATE drift', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    const rows = (
+      await client.database.execute(sql`
+        SELECT EXTRA AS extra
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'leave_requests'
+          AND COLUMN_NAME = 'starts_at'
+      `)
+    )[0] as unknown as readonly { extra: string }[];
+    expect(rows[0]?.extra).not.toContain('on update');
   });
 
   it('enforces active group codes and pending roster names in the database', async () => {

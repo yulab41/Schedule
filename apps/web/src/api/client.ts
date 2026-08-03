@@ -32,6 +32,8 @@ import type {
   HolidayReadModel,
   JsonObject,
   LeaveReflowPreview,
+  LeaveRequestMutationInput,
+  LeaveRequestMutationResult,
   LeaveRequest,
   ManualApplyPreview,
   ManualScheduleTemplate,
@@ -258,6 +260,16 @@ export interface ApiClient {
     leaveRequestId: string,
     input: RejectLeaveRequestInput,
   ): Promise<RejectedLeaveRequestResult>;
+  cancelLeaveRequest(
+    groupId: string,
+    leaveRequestId: string,
+    input: LeaveRequestMutationInput,
+  ): Promise<LeaveRequestMutationResult>;
+  revokeLeaveRequest(
+    groupId: string,
+    leaveRequestId: string,
+    input: LeaveRequestMutationInput,
+  ): Promise<LeaveRequestMutationResult>;
   rejectSwapRequest(
     groupId: string,
     swapRequestId: string,
@@ -1325,6 +1337,32 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isRejectedLeaveRequestResult,
       );
     },
+    cancelLeaveRequest(groupId, leaveRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/cancel`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isLeaveRequestMutationResult,
+      );
+    },
+    revokeLeaveRequest(groupId, leaveRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/revoke`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isLeaveRequestMutationResult,
+      );
+    },
     rejectSwapRequest(groupId, swapRequestId, input) {
       return requestJson(
         options.auth,
@@ -2314,6 +2352,21 @@ function isRejectedLeaveRequestResult(value: unknown): value is RejectedLeaveReq
     typeof result.operationId === 'string' &&
     result.operationId.length > 0 &&
     result.status === 'rejected'
+  );
+}
+
+function isLeaveRequestMutationResult(value: unknown): value is LeaveRequestMutationResult {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const result = value as Partial<LeaveRequestMutationResult>;
+  return (
+    typeof result.leaveRequestId === 'string' &&
+    result.leaveRequestId.length > 0 &&
+    typeof result.operationId === 'string' &&
+    result.operationId.length > 0 &&
+    (result.status === 'cancelled' || result.status === 'revoked')
   );
 }
 

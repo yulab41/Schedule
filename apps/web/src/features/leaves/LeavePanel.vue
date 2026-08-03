@@ -149,6 +149,48 @@ function openApproval(request: LeaveRequest): void {
   approvalTarget.value = request;
 }
 
+async function cancelRequest(request: LeaveRequest): Promise<void> {
+  if (!window.confirm('确定取消该请假申请吗？')) {
+    return;
+  }
+  await runLeaveMutation(
+    () =>
+      api.cancelLeaveRequest(props.group.id, request.id, {
+        expectedVersion: request.version,
+        operationId: crypto.randomUUID(),
+      }),
+    '请假申请已取消。',
+  );
+}
+
+async function revokeRequest(request: LeaveRequest): Promise<void> {
+  if (!window.confirm('确定撤销该已批准的请假吗？撤销后如需恢复原排班，请重新生成或发布排班。')) {
+    return;
+  }
+  await runLeaveMutation(
+    () =>
+      api.revokeLeaveRequest(props.group.id, request.id, {
+        expectedVersion: request.version,
+        operationId: crypto.randomUUID(),
+      }),
+    '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
+  );
+}
+
+async function runLeaveMutation(
+  mutation: () => Promise<unknown>,
+  successMessage: string,
+): Promise<void> {
+  errorMessage.value = undefined;
+  try {
+    await mutation();
+    infoMessage.value = successMessage;
+    await loadData();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  }
+}
+
 function onApprovalChanged(): void {
   approvalTarget.value = undefined;
   infoMessage.value = '请假申请已处理。';
@@ -274,6 +316,7 @@ function onWindowFocus(): void {
               <th>原因</th>
               <th>策略</th>
               <th>状态</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -283,6 +326,24 @@ function onWindowFocus(): void {
               <td>{{ request.reason }}</td>
               <td>{{ getReflowStrategyLabel(request.reflowStrategy) }}</td>
               <td>{{ getLeaveStatusLabel(request.status) }}</td>
+              <td>
+                <t-button
+                  v-if="request.status === 'pending'"
+                  theme="danger"
+                  variant="text"
+                  @click="cancelRequest(request)"
+                >
+                  取消
+                </t-button>
+                <t-button
+                  v-if="request.status === 'approved'"
+                  theme="danger"
+                  variant="text"
+                  @click="revokeRequest(request)"
+                >
+                  撤销
+                </t-button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -297,6 +358,7 @@ function onWindowFocus(): void {
               <th>成员</th>
               <th>时间</th>
               <th>状态</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -304,6 +366,16 @@ function onWindowFocus(): void {
               <td>{{ request.memberName }}</td>
               <td>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</td>
               <td>{{ getLeaveStatusLabel(request.status) }}</td>
+              <td>
+                <t-button
+                  v-if="request.status === 'approved'"
+                  theme="danger"
+                  variant="text"
+                  @click="revokeRequest(request)"
+                >
+                  撤销
+                </t-button>
+              </td>
             </tr>
           </tbody>
         </table>

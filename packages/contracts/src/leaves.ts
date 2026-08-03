@@ -101,6 +101,17 @@ export interface RejectLeaveRequestInput {
   readonly operationId: string;
 }
 
+export interface LeaveRequestMutationInput {
+  readonly expectedVersion: number;
+  readonly operationId: string;
+}
+
+export interface LeaveRequestMutationResult {
+  readonly leaveRequestId: string;
+  readonly operationId: string;
+  readonly status: 'cancelled' | 'revoked';
+}
+
 export interface ApprovedLeaveRequestResult {
   readonly leaveRequest: LeaveRequest;
   readonly operationId: string;

@@ -98,6 +98,98 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(invalid.statusCode).toBe(400);
   });
 
+  it('lets the applicant cancel a pending leave request and records the event', async () => {
+    const context = await seedPublishedRotation();
+    const leaveRequestId = await createLeave(context, 'a-token', {
+      endsAt: '2026-08-02T00:00:00.000Z',
+      leaveType: 'sick',
+      reason: '取消测试',
+      startsAt: '2026-08-01T16:00:00.000Z',
+    });
+
+    const asOtherMember = await cancelLeave('b-token', context.groupId, leaveRequestId, {
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(asOtherMember.statusCode).toBe(403);
+
+    const cancelled = await cancelLeave('a-token', context.groupId, leaveRequestId, {
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(cancelled.statusCode).toBe(200);
+    expect(cancelled.json()).toMatchObject({
+      leaveRequestId,
+      status: 'cancelled',
+    });
+
+    const mine = (await listMyLeaves('a-token', context.groupId)).json() as LeaveRequest[];
+    expect(mine.map((request) => request.id)).not.toContain(leaveRequestId);
+    const [eventRows] = await client.database.execute(
+      sql`SELECT event_type AS eventType FROM schedule_events WHERE object_id = ${leaveRequestId}`,
+    );
+    expect(
+      (eventRows as unknown as readonly { eventType: string }[]).map((row) => row.eventType),
+    ).toContain('leave_request_cancelled');
+
+    const again = await cancelLeave('a-token', context.groupId, leaveRequestId, {
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(again.statusCode).toBe(404);
+  });
+
+  it('lets an administrator revoke an approved leave request and removes swap blocking', async () => {
+    const context = await seedPublishedRotation();
+    const leaveRequestId = await createLeave(context, 'a-token', {
+      endsAt: '2026-08-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '撤销测试',
+      startsAt: '2026-08-01T16:00:00.000Z',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveRequestId)
+    ).json() as LeaveReflowPreview;
+    expect(
+      (
+        await approveLeave('owner-token', context.groupId, leaveRequestId, {
+          expectedPeriodVersions: preview.periodVersions,
+          expectedRulesVersion: preview.rulesVersion,
+          expectedVersion: 1,
+          operationId: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(200);
+
+    const asMember = await revokeLeave('b-token', context.groupId, leaveRequestId, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(asMember.statusCode).toBe(403);
+
+    const revoked = await revokeLeave('owner-token', context.groupId, leaveRequestId, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json()).toMatchObject({
+      leaveRequestId,
+      status: 'revoked',
+    });
+
+    const approvals = (
+      await listLeaveApprovals('owner-token', context.groupId)
+    ).json() as LeaveRequest[];
+    expect(approvals.map((request) => request.id)).not.toContain(leaveRequestId);
+    const [eventRows] = await client.database.execute(
+      sql`SELECT event_type AS eventType FROM schedule_events WHERE object_id = ${leaveRequestId}`,
+    );
+    expect(
+      (eventRows as unknown as readonly { eventType: string }[]).map((row) => row.eventType),
+    ).toContain('leave_request_revoked');
+  });
+
   it('previews a partial all-day overlap and keeps the original order on approval', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
@@ -623,6 +715,50 @@ describeWithDatabase('leave requests and reflow', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/leave-requests`,
+    });
+  }
+
+  async function listMyLeaves(token: string, groupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/leave-requests`,
+    });
+  }
+
+  async function listLeaveApprovals(token: string, groupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/leave-requests/approvals`,
+    });
+  }
+
+  async function cancelLeave(
+    token: string,
+    groupId: string,
+    leaveRequestId: string,
+    body: { readonly expectedVersion: number; readonly operationId: string },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/leave-requests/${leaveRequestId}/cancel`,
+    });
+  }
+
+  async function revokeLeave(
+    token: string,
+    groupId: string,
+    leaveRequestId: string,
+    body: { readonly expectedVersion: number; readonly operationId: string },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/leave-requests/${leaveRequestId}/revoke`,
     });
   }
 

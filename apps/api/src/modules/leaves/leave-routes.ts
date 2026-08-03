@@ -1,6 +1,7 @@
 import type {
   ApproveLeaveRequestInput,
   CreateLeaveRequestInput,
+  LeaveRequestMutationInput,
   PreviewLeaveRequestInput,
   RejectLeaveRequestInput,
   UpdateGroupLeaveReflowStrategyInput,
@@ -53,6 +54,8 @@ const rejectInputSchema = z
     operationId: operationIdSchema,
   })
   .strict();
+
+const mutationInputSchema = rejectInputSchema;
 
 const updateStrategyInputSchema = z
   .object({
@@ -115,6 +118,30 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
         parseGroupId(request),
         parseLeaveRequestId(request),
         parseRejectInput(request.body),
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/leave-requests/:leaveRequestId/cancel',
+    { preHandler: app.authenticate },
+    (request) =>
+      leaveService.cancel(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseLeaveRequestId(request),
+        parseMutationInput(request.body),
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/leave-requests/:leaveRequestId/revoke',
+    { preHandler: app.authenticate },
+    (request) =>
+      leaveService.revoke(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseLeaveRequestId(request),
+        parseMutationInput(request.body),
       ),
   );
 
@@ -188,6 +215,10 @@ function parseApproveInput(value: unknown): ApproveLeaveRequestInput {
 
 function parseRejectInput(value: unknown): RejectLeaveRequestInput {
   return parseOrThrow(rejectInputSchema, value);
+}
+
+function parseMutationInput(value: unknown): LeaveRequestMutationInput {
+  return parseOrThrow(mutationInputSchema, value);
 }
 
 function parseUpdateStrategyInput(value: unknown): UpdateGroupLeaveReflowStrategyInput {

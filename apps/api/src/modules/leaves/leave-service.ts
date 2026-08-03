@@ -11,6 +11,8 @@ import type {
   LeaveReflowPreview,
   LeaveReflowStrategy,
   LeaveRequest,
+  LeaveRequestMutationInput,
+  LeaveRequestMutationResult,
   LeaveStatisticsDelta,
   PreviewLeaveRequestInput,
   RejectedLeaveRequestResult,
@@ -374,6 +376,66 @@ export class LeaveService {
     });
   }
 
+  public async cancel(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    leaveRequestId: string,
+    input: LeaveRequestMutationInput,
+  ): Promise<LeaveRequestMutationResult> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: authorization.user.id,
+          operationId: input.operationId,
+          requestFingerprint: createLeaveMutationFingerprint({
+            expectedVersion: input.expectedVersion,
+            groupId,
+            leaveRequestId,
+          }),
+          scope: 'leave_request_cancel',
+        },
+        () => this.runCancellation(transaction, identity, authorization, leaveRequestId, input),
+      );
+    });
+  }
+
+  public async revoke(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    leaveRequestId: string,
+    input: LeaveRequestMutationInput,
+  ): Promise<LeaveRequestMutationResult> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: authorization.user.id,
+          operationId: input.operationId,
+          requestFingerprint: createLeaveMutationFingerprint({
+            expectedVersion: input.expectedVersion,
+            groupId,
+            leaveRequestId,
+          }),
+          scope: 'leave_request_revoke',
+        },
+        () => this.runRevocation(transaction, identity, authorization, leaveRequestId, input),
+      );
+    });
+  }
+
   public async getGroupStrategy(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -722,6 +784,208 @@ export class LeaveService {
       leaveRequest: await this.readLeaveRequest(transaction, leaveRequest.id),
       operationId: input.operationId,
       status: 'rejected',
+    };
+  }
+
+  private async runCancellation(
+    transaction: DatabaseTransaction,
+    identity: AuthenticatedIdentity,
+    authorization: GroupAuthorization,
+    leaveRequestId: string,
+    input: LeaveRequestMutationInput,
+  ): Promise<LeaveRequestMutationResult> {
+    const leaveRequest = await this.lockLeaveRequest(
+      transaction,
+      authorization.group.id,
+      leaveRequestId,
+    );
+    if (leaveRequest.status !== 'pending') {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: {
+          id: leaveRequest.id,
+          objectType: 'leave_request',
+          status: leaveRequest.status,
+          version: leaveRequest.version,
+        },
+        statusCode: 409,
+        userMessage: '只能取消待审批的请假申请。',
+      });
+    }
+    const isOwner = leaveRequest.membershipId === authorization.membership.id;
+    if (!isOwner) {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        authorization.group.id,
+        'manageLeaves',
+      );
+    }
+    assertExpectedVersion({
+      actualVersion: leaveRequest.version,
+      expectedVersion: input.expectedVersion,
+      id: leaveRequest.id,
+      latestData: { status: leaveRequest.status },
+      objectType: 'leave_request',
+      userMessage: '请假申请已被其他操作更新，请刷新后重试。',
+    });
+
+    await transaction
+      .update(leaveRequests)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        version: sql`${leaveRequests.version} + 1`,
+      })
+      .where(eq(leaveRequests.id, leaveRequest.id));
+    const cancelledEventId = await this.eventWriter.append(transaction, {
+      affectedMembershipIds: [leaveRequest.membershipId],
+      afterData: toLatestData({
+        status: 'cancelled',
+        version: leaveRequest.version + 1,
+      }),
+      beforeData: toLatestData({
+        status: leaveRequest.status,
+        version: leaveRequest.version,
+      }),
+      eventStatus: 'completed',
+      eventType: 'leave_request_cancelled',
+      groupId: authorization.group.id,
+      initiatedByUserId: authorization.user.id,
+      objectId: leaveRequest.id,
+      objectType: 'leave_request',
+      operationId: input.operationId,
+      operatorUserId: authorization.user.id,
+      reason: leaveRequest.reason,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '请假申请已取消。',
+      groupId: authorization.group.id,
+      notificationType: 'leave_request_cancelled',
+      objectId: leaveRequest.id,
+      objectType: 'leave_request',
+      recipientMembershipIds: [leaveRequest.membershipId],
+      scheduleEventId: cancelledEventId,
+      title: '请假申请已取消',
+    });
+    if (isOwner) {
+      await this.notificationWriter.append(transaction, {
+        administratorRecipients: true,
+        body: '成员取消了请假申请。',
+        excludeRecipientUserIds: [authorization.user.id],
+        groupId: authorization.group.id,
+        notificationType: 'leave_request_cancelled',
+        objectId: leaveRequest.id,
+        objectType: 'leave_request',
+        scheduleEventId: cancelledEventId,
+        title: '请假申请已取消',
+      });
+    }
+
+    return {
+      leaveRequestId: leaveRequest.id,
+      operationId: input.operationId,
+      status: 'cancelled',
+    };
+  }
+
+  private async runRevocation(
+    transaction: DatabaseTransaction,
+    identity: AuthenticatedIdentity,
+    authorization: GroupAuthorization,
+    leaveRequestId: string,
+    input: LeaveRequestMutationInput,
+  ): Promise<LeaveRequestMutationResult> {
+    const leaveRequest = await this.lockLeaveRequest(
+      transaction,
+      authorization.group.id,
+      leaveRequestId,
+    );
+    if (leaveRequest.status !== 'approved') {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: {
+          id: leaveRequest.id,
+          objectType: 'leave_request',
+          status: leaveRequest.status,
+          version: leaveRequest.version,
+        },
+        statusCode: 409,
+        userMessage: '只能撤销已批准的请假申请。',
+      });
+    }
+    const isOwner = leaveRequest.membershipId === authorization.membership.id;
+    if (!isOwner) {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        authorization.group.id,
+        'manageLeaves',
+      );
+    }
+    assertExpectedVersion({
+      actualVersion: leaveRequest.version,
+      expectedVersion: input.expectedVersion,
+      id: leaveRequest.id,
+      latestData: { status: leaveRequest.status },
+      objectType: 'leave_request',
+      userMessage: '请假申请已被其他操作更新，请刷新后重试。',
+    });
+
+    await transaction
+      .update(leaveRequests)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        version: sql`${leaveRequests.version} + 1`,
+      })
+      .where(eq(leaveRequests.id, leaveRequest.id));
+    const revokedEventId = await this.eventWriter.append(transaction, {
+      affectedMembershipIds: [leaveRequest.membershipId],
+      afterData: toLatestData({
+        status: 'revoked',
+        version: leaveRequest.version + 1,
+      }),
+      beforeData: toLatestData({
+        status: leaveRequest.status,
+        version: leaveRequest.version,
+      }),
+      eventStatus: 'completed',
+      eventType: 'leave_request_revoked',
+      groupId: authorization.group.id,
+      initiatedByUserId: authorization.user.id,
+      objectId: leaveRequest.id,
+      objectType: 'leave_request',
+      operationId: input.operationId,
+      operatorUserId: authorization.user.id,
+      reason: leaveRequest.reason,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
+      groupId: authorization.group.id,
+      notificationType: 'leave_request_revoked',
+      objectId: leaveRequest.id,
+      objectType: 'leave_request',
+      recipientMembershipIds: [leaveRequest.membershipId],
+      scheduleEventId: revokedEventId,
+      title: '请假已撤销',
+    });
+    if (isOwner) {
+      await this.notificationWriter.append(transaction, {
+        administratorRecipients: true,
+        body: '成员撤销了已批准的请假。',
+        excludeRecipientUserIds: [authorization.user.id],
+        groupId: authorization.group.id,
+        notificationType: 'leave_request_revoked',
+        objectId: leaveRequest.id,
+        objectType: 'leave_request',
+        scheduleEventId: revokedEventId,
+        title: '请假已撤销',
+      });
+    }
+
+    return {
+      leaveRequestId: leaveRequest.id,
+      operationId: input.operationId,
+      status: 'revoked',
     };
   }
 
@@ -1358,6 +1622,14 @@ function toLeaveRequest(leaveRequest: LockedLeaveRequest, realName: string): Lea
     status: leaveRequest.status,
     version: leaveRequest.version,
   };
+}
+
+function createLeaveMutationFingerprint(input: {
+  readonly expectedVersion: number;
+  readonly groupId: string;
+  readonly leaveRequestId: string;
+}): string {
+  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }
 
 function createApproveFingerprint(input: {
