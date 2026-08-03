@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@cloudbase/node-sdk": "3.18.5",
+    "@cloudbase/node-sdk": "4.0.3",
     "@schedule/contracts": "workspace:*",
     "@schedule/database": "workspace:*",
     "@schedule/scheduling-domain": "workspace:*",
