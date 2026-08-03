@@ -166,14 +166,15 @@ function getErrorMessage(error: unknown): string {
               {
                 colKey: 'netDutyAdjustment',
                 title: '净值',
-                cell: (row: { netDutyAdjustment: number }) =>
-                  formatNetDutyAdjustment(row.netDutyAdjustment),
+                cell: (_h: unknown, params: { row: { netDutyAdjustment: number } }) =>
+                  formatNetDutyAdjustment(params.row.netDutyAdjustment),
               },
               { colKey: 'deltaCount', title: '增减' },
               {
                 colKey: 'actualVsPlannedCount',
                 title: '原实对照',
-                cell: (row: { actualVsPlanned: readonly unknown[] }) => row.actualVsPlanned.length,
+                cell: (_h: unknown, params: { row: { actualVsPlanned: readonly unknown[] } }) =>
+                  params.row.actualVsPlanned.length,
               },
             ]"
             :max-height="480"

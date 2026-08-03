@@ -250,6 +250,15 @@
 - 验证：`pnpm verify` 354/354（60 个测试文件，隔离 MySQL；新增前端回退单测与后端换班事件数据集成断言）。
 - 状态：已完成（本地 API 已用新构建重启；前端 Vite 热更新；旧换班事件刷新后即显示完整叙述）。
 
+### 轮次 28（提交：fix(web): fix statistics table cell params and lingering panel）
+- 用户反馈：只要点击“统计”，之后切换到其他页面，统计内容会一直残留并出现在其他页面内容下方。
+- 根因：
+  - 统计页成员表格的两处自定义 `cell` 把第一个参数当作行数据，但 TDesign 的 `cell(h, params)` 第一个参数是渲染函数 `h`，第二个参数才是 `{ row, col, rowIndex }`。
+  - “原实对照”列执行 `row.actualVsPlanned.length` 时在 `h` 上取属性报错，Vue 渲染中断后卸载流程被破坏，导致切走页面时统计组件未卸载、残留到其他页面下方；“净值”列也因此一直显示 `undefined`。
+- 修复/功能：`StatisticsView.vue` 两处 `cell` 改为 `(_h, params)` 并从 `params.row` 取值。
+- 验证：`pnpm verify` 354/354（隔离 MySQL）；本地 Playwright 实测：进统计无报错、净值列不再出现 `undefined`，切回日历/成员后 `.statistics-view` 计数为 0（完全卸载）。
+- 状态：已完成（待用户强刷验收）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
