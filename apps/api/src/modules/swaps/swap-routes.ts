@@ -1,4 +1,5 @@
 import type {
+  CreateDirectSwapInput,
   CreateSwapRequestInput,
   SwapPairInput,
   SwapRequestMutationInput,
@@ -20,6 +21,7 @@ const versionSchema = z.number().int().min(1);
 const swapPairInputSchema = z
   .object({
     initiatorAssignmentId: uuidSchema,
+    initiatorMembershipId: uuidSchema.optional(),
     targetAssignmentId: uuidSchema,
     targetMembershipId: uuidSchema,
   })
@@ -28,6 +30,14 @@ const swapPairInputSchema = z
 const createSwapInputSchema = swapPairInputSchema
   .extend({
     operationId: operationIdSchema,
+  })
+  .strict();
+
+const directCreateSwapInputSchema = z
+  .object({
+    initiatorAssignmentId: uuidSchema,
+    operationId: operationIdSchema,
+    targetAssignmentId: uuidSchema,
   })
   .strict();
 
@@ -65,6 +75,16 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseCreateInput(request.body),
+      )
+      .then((swapRequest) => reply.code(201).send(swapRequest)),
+  );
+
+  app.post('/groups/:groupId/swaps/direct', { preHandler: app.authenticate }, (request, reply) =>
+    swapService
+      .createDirect(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseDirectCreateInput(request.body),
       )
       .then((swapRequest) => reply.code(201).send(swapRequest)),
   );
@@ -174,11 +194,36 @@ function parseSwapRequestId(request: FastifyRequest): string {
 }
 
 function parseSwapPairInput(value: unknown): SwapPairInput {
-  return parseOrThrow(swapPairInputSchema, value);
+  const parsed = parseOrThrow(swapPairInputSchema, value);
+  return parsed.initiatorMembershipId === undefined
+    ? {
+        initiatorAssignmentId: parsed.initiatorAssignmentId,
+        targetAssignmentId: parsed.targetAssignmentId,
+        targetMembershipId: parsed.targetMembershipId,
+      }
+    : {
+        initiatorAssignmentId: parsed.initiatorAssignmentId,
+        initiatorMembershipId: parsed.initiatorMembershipId,
+        targetAssignmentId: parsed.targetAssignmentId,
+        targetMembershipId: parsed.targetMembershipId,
+      };
 }
 
 function parseCreateInput(value: unknown): CreateSwapRequestInput {
-  return parseOrThrow(createSwapInputSchema, value);
+  const parsed = parseOrThrow(createSwapInputSchema, value);
+  return {
+    initiatorAssignmentId: parsed.initiatorAssignmentId,
+    operationId: parsed.operationId,
+    targetAssignmentId: parsed.targetAssignmentId,
+    targetMembershipId: parsed.targetMembershipId,
+    ...(parsed.initiatorMembershipId === undefined
+      ? {}
+      : { initiatorMembershipId: parsed.initiatorMembershipId }),
+  };
+}
+
+function parseDirectCreateInput(value: unknown): CreateDirectSwapInput {
+  return parseOrThrow(directCreateSwapInputSchema, value);
 }
 
 function parseMutationInput(value: unknown): SwapRequestMutationInput {

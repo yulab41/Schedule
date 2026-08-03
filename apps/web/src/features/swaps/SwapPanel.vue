@@ -45,6 +45,15 @@ const infoMessage = ref<string>();
 const isLoading = ref(false);
 const isPreviewing = ref(false);
 const isSubmitting = ref(false);
+const adminInitiatorMembershipId = ref('');
+const adminInitiatorAssignmentId = ref('');
+const adminTargetMembershipId = ref('');
+const adminTargetAssignmentId = ref('');
+const adminPreview = ref<SwapPreview>();
+const adminErrorMessage = ref<string>();
+const adminInfoMessage = ref<string>();
+const adminIsPreviewing = ref(false);
+const adminIsSubmitting = ref(false);
 
 const canApprove = computed(() => props.group.role !== 'member');
 const candidates = computed(() =>
@@ -76,6 +85,34 @@ const targetAssignmentOptions = computed(() => {
     }),
   );
 });
+const adminMemberOptions = computed(() =>
+  (calendar.value?.members ?? []).map((member) => ({
+    label: member.realName,
+    value: member.membershipId,
+  })),
+);
+const adminInitiatorAssignmentOptions = computed(() => {
+  if (adminInitiatorMembershipId.value === '') {
+    return [];
+  }
+  return (candidates.value?.assignmentsByTarget.get(adminInitiatorMembershipId.value) ?? []).map(
+    (assignment) => ({
+      label: formatSwapAssignmentOption(assignment),
+      value: assignment.id,
+    }),
+  );
+});
+const adminTargetAssignmentOptions = computed(() => {
+  if (adminTargetMembershipId.value === '') {
+    return [];
+  }
+  return (candidates.value?.assignmentsByTarget.get(adminTargetMembershipId.value) ?? []).map(
+    (assignment) => ({
+      label: formatSwapAssignmentOption(assignment),
+      value: assignment.id,
+    }),
+  );
+});
 const incomingRequests = computed(() =>
   mySwapRequests.value.filter(
     (request) =>
@@ -97,6 +134,7 @@ watch(
   () => [props.group.id, businessMonth.value],
   () => {
     resetForm();
+    resetAdminForm();
     void loadData();
   },
   { immediate: true },
@@ -145,6 +183,14 @@ function resetForm(): void {
   preview.value = undefined;
 }
 
+function resetAdminForm(): void {
+  adminInitiatorMembershipId.value = '';
+  adminInitiatorAssignmentId.value = '';
+  adminTargetMembershipId.value = '';
+  adminTargetAssignmentId.value = '';
+  adminPreview.value = undefined;
+}
+
 function onTargetChange(value: string | number | boolean | object | null): void {
   if (typeof value !== 'string') {
     return;
@@ -165,6 +211,38 @@ function onTargetAssignmentChange(value: string | number | boolean | object | nu
   if (typeof value === 'string') {
     selectedTargetAssignmentId.value = value;
     preview.value = undefined;
+  }
+}
+
+function onAdminInitiatorChange(value: string | number | boolean | object | null): void {
+  if (typeof value !== 'string') {
+    return;
+  }
+  adminInitiatorMembershipId.value = value;
+  adminInitiatorAssignmentId.value = '';
+  adminPreview.value = undefined;
+}
+
+function onAdminTargetChange(value: string | number | boolean | object | null): void {
+  if (typeof value !== 'string') {
+    return;
+  }
+  adminTargetMembershipId.value = value;
+  adminTargetAssignmentId.value = '';
+  adminPreview.value = undefined;
+}
+
+function onAdminInitiatorAssignmentChange(value: string | number | boolean | object | null): void {
+  if (typeof value === 'string') {
+    adminInitiatorAssignmentId.value = value;
+    adminPreview.value = undefined;
+  }
+}
+
+function onAdminTargetAssignmentChange(value: string | number | boolean | object | null): void {
+  if (typeof value === 'string') {
+    adminTargetAssignmentId.value = value;
+    adminPreview.value = undefined;
   }
 }
 
@@ -232,6 +310,73 @@ async function submit(): Promise<void> {
     }
   } finally {
     isSubmitting.value = false;
+  }
+}
+
+async function computeAdminPreview(): Promise<void> {
+  adminErrorMessage.value = undefined;
+  if (
+    adminInitiatorMembershipId.value === '' ||
+    adminInitiatorAssignmentId.value === '' ||
+    adminTargetMembershipId.value === '' ||
+    adminTargetAssignmentId.value === ''
+  ) {
+    adminErrorMessage.value = '请先选择两位成员及其班次。';
+    return;
+  }
+  if (adminInitiatorMembershipId.value === adminTargetMembershipId.value) {
+    adminErrorMessage.value = '换班双方必须是不同成员。';
+    return;
+  }
+
+  adminIsPreviewing.value = true;
+  try {
+    adminPreview.value = await api.previewSwap(props.group.id, {
+      initiatorAssignmentId: adminInitiatorAssignmentId.value,
+      initiatorMembershipId: adminInitiatorMembershipId.value,
+      targetAssignmentId: adminTargetAssignmentId.value,
+      targetMembershipId: adminTargetMembershipId.value,
+    });
+  } catch (error) {
+    if (error instanceof ApiClientError && error.code === 'CONFLICT') {
+      adminErrorMessage.value = '班次或成员状态已变化，请刷新后重新选择。';
+      void loadData();
+    } else {
+      adminErrorMessage.value = getErrorMessage(error);
+    }
+  } finally {
+    adminIsPreviewing.value = false;
+  }
+}
+
+async function submitAdminSwap(): Promise<void> {
+  adminErrorMessage.value = undefined;
+  if (adminPreview.value === undefined) {
+    await computeAdminPreview();
+    if (adminPreview.value === undefined) {
+      return;
+    }
+  }
+
+  adminIsSubmitting.value = true;
+  try {
+    const created = await api.createDirectSwapRequest(props.group.id, {
+      initiatorAssignmentId: adminInitiatorAssignmentId.value,
+      operationId: crypto.randomUUID(),
+      targetAssignmentId: adminTargetAssignmentId.value,
+    });
+    adminInfoMessage.value = `已为 ${created.initiatorMemberName ?? ''} 与 ${created.targetMemberName ?? ''} 完成换班，实际班次已交换。`;
+    resetAdminForm();
+    await loadData();
+  } catch (error) {
+    if (error instanceof ApiClientError && error.code === 'CONFLICT') {
+      adminErrorMessage.value = '班次已有待处理的换班申请或状态已变化，请刷新后重试。';
+      void loadData();
+    } else {
+      adminErrorMessage.value = getErrorMessage(error);
+    }
+  } finally {
+    adminIsSubmitting.value = false;
   }
 }
 
@@ -412,6 +557,94 @@ function getErrorMessage(error: unknown): string {
         />
       </template>
 
+      <section v-if="canApprove" class="admin-swap-section">
+        <h3>管理员换班（无需对方同意/审批）</h3>
+        <t-alert
+          v-if="adminErrorMessage !== undefined"
+          theme="error"
+          :message="adminErrorMessage"
+        />
+        <t-alert
+          v-if="adminInfoMessage !== undefined"
+          theme="success"
+          :message="adminInfoMessage"
+        />
+        <form class="swap-form" @submit.prevent="submitAdminSwap">
+          <fieldset>
+            <legend>选择双方班次</legend>
+            <label>
+              成员一
+              <t-select
+                :value="adminInitiatorMembershipId"
+                :options="adminMemberOptions"
+                placeholder="选择成员一"
+                @change="onAdminInitiatorChange"
+              />
+            </label>
+            <label>
+              成员一的班次
+              <t-select
+                :value="adminInitiatorAssignmentId"
+                :options="adminInitiatorAssignmentOptions"
+                placeholder="选择成员一的未来班次"
+                @change="onAdminInitiatorAssignmentChange"
+              />
+            </label>
+            <label>
+              成员二
+              <t-select
+                :value="adminTargetMembershipId"
+                :options="adminMemberOptions"
+                placeholder="选择成员二"
+                @change="onAdminTargetChange"
+              />
+            </label>
+            <label>
+              成员二的班次
+              <t-select
+                :value="adminTargetAssignmentId"
+                :options="adminTargetAssignmentOptions"
+                placeholder="选择成员二的未来班次"
+                @change="onAdminTargetAssignmentChange"
+              />
+            </label>
+            <div class="form-actions">
+              <t-button variant="outline" :loading="adminIsPreviewing" @click="computeAdminPreview">
+                生成预览
+              </t-button>
+              <t-button theme="primary" type="submit" :loading="adminIsSubmitting">
+                直接执行换班
+              </t-button>
+            </div>
+          </fieldset>
+        </form>
+        <template v-if="adminPreview !== undefined">
+          <div class="preview-summary">
+            <p>
+              {{
+                adminPreview.initiatorAssignment.actualMemberName ??
+                adminPreview.initiatorAssignment.plannedMemberName
+              }}
+              的班次：{{ formatSwapAssignmentSummaryOption(adminPreview.initiatorAssignment) }}
+            </p>
+            <p>
+              {{
+                adminPreview.targetAssignment.actualMemberName ??
+                adminPreview.targetAssignment.plannedMemberName
+              }}
+              的班次：{{ formatSwapAssignmentSummaryOption(adminPreview.targetAssignment) }}
+            </p>
+            <p class="next-status">执行后立即生效，无需审批和成员同意。</p>
+          </div>
+          <t-alert
+            v-for="conflict in adminPreview.conflicts"
+            :key="conflict.code + conflict.membershipId + (conflict.assignmentId ?? '')"
+            theme="error"
+            :message="getSwapConflictMessage(conflict)"
+          />
+        </template>
+      </section>
+
       <section v-if="incomingRequests.length > 0" class="list-section">
         <h3>待我接受（{{ incomingRequests.length }}）</h3>
         <table class="swap-table">
@@ -536,6 +769,15 @@ function getErrorMessage(error: unknown): string {
   margin: 0 0 8px;
   font-size: 15px;
   font-weight: 600;
+}
+
+.admin-swap-section {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  background: #fefce8;
+  border: 1px solid #e5d9a8;
+  border-radius: 6px;
 }
 
 .settings-row {

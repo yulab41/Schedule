@@ -4,6 +4,9 @@ export { calculateReadableTextColor, calculateShiftEndDate } from './shift-time.
 export {
   findLeaveOverlappingAssignments,
   intervalsOverlap,
+  leaveOverlapsInterval,
+  type BusinessDateIntervalInput,
+  type LeaveIntervalInput,
   type MemberTimeInterval,
   type TimeIntervalInput,
 } from './leave/overlap.js';

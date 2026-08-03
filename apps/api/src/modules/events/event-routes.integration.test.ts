@@ -260,6 +260,26 @@ describeWithDatabase('schedule event center routes', () => {
     const bSep2 = byDate.get('2026-09-02') as string;
     expect(aSep1).toBeDefined();
     expect(bSep2).toBeDefined();
+    expect(
+      (
+        await app.inject({
+          headers: { authorization: 'Bearer b-token' },
+          method: 'PUT',
+          payload: { autoAcceptSwaps: false },
+          url: `/groups/${groupId}/swaps/my-settings`,
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await app.inject({
+          headers: { authorization: 'Bearer owner-token' },
+          method: 'PUT',
+          payload: { requiresApproval: true },
+          url: `/groups/${groupId}/swaps/settings`,
+        })
+      ).statusCode,
+    ).toBe(200);
 
     const created = (
       await createSwap('a-token', groupId, {

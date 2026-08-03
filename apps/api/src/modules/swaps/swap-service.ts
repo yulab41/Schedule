@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import type {
+  CreateDirectSwapInput,
   CreateSwapRequestInput,
   GroupSwapSettings,
   MemberSwapSettings,
@@ -29,7 +30,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { intervalsOverlap } from '@schedule/scheduling-domain';
+import { intervalsOverlap, leaveOverlapsInterval } from '@schedule/scheduling-domain';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -98,10 +99,19 @@ export class SwapService {
         groupId,
         'viewScheduleConfiguration',
       );
+      const initiatorMembershipId = input.initiatorMembershipId ?? authorization.membership.id;
+      if (initiatorMembershipId !== authorization.membership.id) {
+        await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageSwaps',
+        );
+      }
       const context = await this.loadSwapContext(
         transaction,
         authorization.group,
-        authorization.membership.id,
+        initiatorMembershipId,
         input.targetMembershipId,
         input.initiatorAssignmentId,
         input.targetAssignmentId,
@@ -137,6 +147,35 @@ export class SwapService {
           scope: 'swap_request_create',
         },
         () => this.runCreation(transaction, authorization, input),
+      );
+    });
+  }
+
+  public async createDirect(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: CreateDirectSwapInput,
+  ): Promise<SwapRequest> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageSwaps',
+      );
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: authorization.user.id,
+          operationId: input.operationId,
+          requestFingerprint: createDirectSwapFingerprint({
+            groupId,
+            initiatorAssignmentId: input.initiatorAssignmentId,
+            targetAssignmentId: input.targetAssignmentId,
+          }),
+          scope: 'swap_request_direct_create',
+        },
+        () => this.runDirectCreation(transaction, authorization, input),
       );
     });
   }
@@ -338,6 +377,7 @@ export class SwapService {
         .update(groups)
         .set({
           swapApprovalRequired: input.requiresApproval ? 1 : 0,
+          swapApprovalRequiredManuallySet: 1,
           version: sql`${groups.version} + 1`,
         })
         .where(eq(groups.id, authorization.group.id));
@@ -377,6 +417,7 @@ export class SwapService {
         .update(groupMemberships)
         .set({
           autoAcceptSwaps: input.autoAcceptSwaps ? 1 : 0,
+          autoAcceptSwapsManuallySet: 1,
           version: sql`${groupMemberships.version} + 1`,
         })
         .where(eq(groupMemberships.id, authorization.membership.id));
@@ -499,6 +540,90 @@ export class SwapService {
         null,
       );
     }
+
+    return this.readSwapRequest(transaction, swapRequestId);
+  }
+
+  private async runDirectCreation(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    input: CreateDirectSwapInput,
+  ): Promise<SwapRequest> {
+    const context = await this.loadDirectSwapContext(
+      transaction,
+      authorization.group,
+      input.initiatorAssignmentId,
+      input.targetAssignmentId,
+    );
+    this.assertNoSwapConflicts(context);
+    const activeRequests = await this.findActiveSwapRequests(transaction, authorization.group.id, [
+      context.initiatorAssignment.id,
+      context.targetAssignment.id,
+    ]);
+    if (activeRequests.length > 0) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: { swapRequestIds: activeRequests.map((request) => request.id) },
+        statusCode: 409,
+        userMessage: '其中一个班次已有待处理的换班申请，请刷新后重试。',
+      });
+    }
+    await this.assertNoActiveDutyAdjustments(transaction, authorization.group.id, [
+      context.initiatorAssignment.id,
+      context.targetAssignment.id,
+    ]);
+
+    const swapRequestId = randomUUID();
+    const decidedAt = new Date();
+    await transaction.insert(swapRequests).values({
+      approverUserId: authorization.user.id,
+      decidedAt,
+      groupId: authorization.group.id,
+      id: swapRequestId,
+      initiatorAssignmentId: context.initiatorAssignment.id,
+      initiatorAssignmentVersion: context.initiatorAssignment.version,
+      initiatorMembershipId: context.initiatorMember.id,
+      status: 'completed',
+      targetAssignmentId: context.targetAssignment.id,
+      targetAssignmentVersion: context.targetAssignment.version,
+      targetMembershipId: context.targetMember.id,
+    });
+    const createdEventId = await this.eventWriter.append(transaction, {
+      affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
+      afterData: toLatestData({
+        approverUserId: authorization.user.id,
+        initiatorAssignmentId: context.initiatorAssignment.id,
+        status: 'completed',
+        targetAssignmentId: context.targetAssignment.id,
+      }),
+      eventStatus: 'completed',
+      eventType: 'swap_request_created',
+      groupId: authorization.group.id,
+      initiatedByUserId: authorization.user.id,
+      objectId: swapRequestId,
+      objectType: 'swap_request',
+      operationId: input.operationId,
+      operatorUserId: authorization.user.id,
+      schedulePeriodId: context.initiatorPeriod.id,
+    });
+    await this.notificationWriter.append(transaction, {
+      body: '管理员已为您完成换班，您的班次已更新。',
+      groupId: authorization.group.id,
+      notificationType: 'schedule_changed',
+      payload: { reason: 'swap', swapRequestId },
+      recipientMembershipIds: [context.initiatorMember.id, context.targetMember.id],
+      scheduleEventId: createdEventId,
+      title: '换班已完成',
+    });
+    await this.applySwap(
+      transaction,
+      context,
+      swapRequestId,
+      authorization.user.id,
+      input.operationId,
+      createdEventId,
+      authorization.user.id,
+    );
 
     return this.readSwapRequest(transaction, swapRequestId);
   }
@@ -1072,6 +1197,56 @@ export class SwapService {
     };
   }
 
+  private async loadDirectSwapContext(
+    transaction: DatabaseTransaction,
+    group: ActiveGroup,
+    initiatorAssignmentId: string,
+    targetAssignmentId: string,
+  ): Promise<SwapContext> {
+    if (initiatorAssignmentId === targetAssignmentId) {
+      throw validationError('不能与自己的同一个班次换班。');
+    }
+    const assignments = await transaction
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          inArray(shiftAssignments.id, [initiatorAssignmentId, targetAssignmentId]),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      )
+      .for('update');
+    const initiatorAssignment = assignments.find(
+      (assignment) => assignment.id === initiatorAssignmentId,
+    );
+    const targetAssignment = assignments.find((assignment) => assignment.id === targetAssignmentId);
+    if (initiatorAssignment === undefined || targetAssignment === undefined) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '其中一个班次已不存在，请刷新后重新选择。',
+      });
+    }
+    const initiatorMembershipId = getDutyMembershipId(initiatorAssignment);
+    const targetMembershipId = getDutyMembershipId(targetAssignment);
+    if (initiatorMembershipId === null || targetMembershipId === null) {
+      throw validationError('班次缺少当值成员，无法直接换班。');
+    }
+    if (initiatorMembershipId === targetMembershipId) {
+      throw validationError('换班双方必须是不同成员。');
+    }
+
+    return this.loadSwapContext(
+      transaction,
+      group,
+      initiatorMembershipId,
+      targetMembershipId,
+      initiatorAssignmentId,
+      targetAssignmentId,
+      true,
+    );
+  }
+
   private async findEligibilityConflicts(
     transaction: DatabaseTransaction,
     groupId: string,
@@ -1136,7 +1311,9 @@ export class SwapService {
           isNull(leaveRequests.deletedAt),
         ),
       );
-    const overlappingLeave = leaves.find((leave) => intervalsOverlap(leave, receivedAssignment));
+    const overlappingLeave = leaves.find((leave) =>
+      leaveOverlapsInterval(leave, receivedAssignment),
+    );
     if (overlappingLeave !== undefined) {
       conflicts.push({
         assignmentId: receivedAssignment.id,
@@ -1311,6 +1488,7 @@ export class SwapService {
     }
     let query = transaction
       .select({
+        autoAcceptSwapsManuallySet: groupMemberships.autoAcceptSwapsManuallySet,
         autoAcceptSwaps: groupMemberships.autoAcceptSwaps,
         id: groupMemberships.id,
         membershipDeletedAt: groupMemberships.deletedAt,
@@ -1338,7 +1516,7 @@ export class SwapService {
       rows.map((row) => [
         row.id,
         {
-          autoAcceptSwaps: row.autoAcceptSwaps,
+          autoAcceptSwaps: row.autoAcceptSwapsManuallySet === 1 ? row.autoAcceptSwaps : 1,
           id: row.id,
           isActive:
             row.membershipStatus === 'active' &&
@@ -1612,6 +1790,14 @@ function createSwapPairFingerprint(input: {
   readonly initiatorAssignmentId: string;
   readonly targetAssignmentId: string;
   readonly targetMembershipId: string;
+}): string {
+  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+}
+
+function createDirectSwapFingerprint(input: {
+  readonly groupId: string;
+  readonly initiatorAssignmentId: string;
+  readonly targetAssignmentId: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }

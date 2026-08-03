@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { findLeaveOverlappingAssignments, intervalsOverlap } from './overlap.js';
+import {
+  findLeaveOverlappingAssignments,
+  intervalsOverlap,
+  leaveOverlapsInterval,
+} from './overlap.js';
 
 describe('leave overlap', () => {
   it('reports any partial overlap as a conflict', () => {
@@ -54,5 +58,46 @@ describe('leave overlap', () => {
         startsAt: new Date('2026-08-01T20:00:00.000Z'),
       }),
     ).toEqual([assignments[0]]);
+  });
+
+  it('compares all-day leaves by China business date instead of raw UTC timestamps', () => {
+    const allDayLeaveStoredAsUtcMidnight = {
+      endsAt: new Date('2026-09-02T00:00:00.000Z'),
+      isAllDay: 1 as const,
+      startsAt: new Date('2026-09-01T00:00:00.000Z'),
+    };
+    const sep1ChinaShift = {
+      businessDate: '2026-09-01',
+      endsAt: new Date('2026-09-01T16:00:00.000Z'),
+      startsAt: new Date('2026-08-31T16:00:00.000Z'),
+    };
+    const sep2ChinaShift = {
+      businessDate: '2026-09-02',
+      endsAt: new Date('2026-09-02T16:00:00.000Z'),
+      startsAt: new Date('2026-09-01T16:00:00.000Z'),
+    };
+
+    expect(leaveOverlapsInterval(allDayLeaveStoredAsUtcMidnight, sep1ChinaShift)).toBe(true);
+    expect(leaveOverlapsInterval(allDayLeaveStoredAsUtcMidnight, sep2ChinaShift)).toBe(false);
+  });
+
+  it('keeps raw interval comparison for partial-day leaves', () => {
+    const partialLeave = {
+      endsAt: new Date('2026-09-01T12:00:00.000Z'),
+      isAllDay: false as const,
+      startsAt: new Date('2026-09-01T08:00:00.000Z'),
+    };
+    expect(
+      leaveOverlapsInterval(partialLeave, {
+        endsAt: new Date('2026-09-01T16:00:00.000Z'),
+        startsAt: new Date('2026-09-01T09:00:00.000Z'),
+      }),
+    ).toBe(true);
+    expect(
+      leaveOverlapsInterval(partialLeave, {
+        endsAt: new Date('2026-09-02T16:00:00.000Z'),
+        startsAt: new Date('2026-09-02T00:00:00.000Z'),
+      }),
+    ).toBe(false);
   });
 });

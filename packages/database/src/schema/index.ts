@@ -72,7 +72,12 @@ export const groups = mysqlTable(
       .default('keep-original-order')
       .notNull(),
     swapApprovalRequired: tinyint('swap_approval_required', { unsigned: true })
-      .default(1)
+      .default(0)
+      .notNull(),
+    swapApprovalRequiredManuallySet: tinyint('swap_approval_required_manually_set', {
+      unsigned: true,
+    })
+      .default(0)
       .notNull(),
     dutyAdjustmentApprovalRequired: tinyint('duty_adjustment_approval_required', {
       unsigned: true,
@@ -123,7 +128,12 @@ export const groupMemberships = mysqlTable(
       .references(() => users.id),
     role: mysqlEnum('role', ['owner', 'administrator', 'member']).default('member').notNull(),
     status: mysqlEnum('status', ['active', 'inactive']).default('active').notNull(),
-    autoAcceptSwaps: tinyint('auto_accept_swaps', { unsigned: true }).default(0).notNull(),
+    autoAcceptSwaps: tinyint('auto_accept_swaps', { unsigned: true }).default(1).notNull(),
+    autoAcceptSwapsManuallySet: tinyint('auto_accept_swaps_manually_set', {
+      unsigned: true,
+    })
+      .default(0)
+      .notNull(),
     activeUserId: char('active_user_id', { length: 36 }).generatedAlwaysAs(
       sql`if(deleted_at is null and status = 'active', user_id, null)`,
       { mode: 'stored' },

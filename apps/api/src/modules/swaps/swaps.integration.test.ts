@@ -58,6 +58,7 @@ describeWithDatabase('member shift swaps', () => {
   it('previews a swap pair and completes it after the target accepts manually', async () => {
     const context = await seedPublishedRotation();
     await updateGroupSettings('owner-token', context.groupId, false);
+    await updateMySettings('b-token', context.groupId, false);
 
     const previewResponse = await previewSwap('a-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -185,6 +186,7 @@ describeWithDatabase('member shift swaps', () => {
   it('does not let automatic acceptance bypass administrator approval', async () => {
     const context = await seedPublishedRotation();
     await updateMySettings('b-token', context.groupId, true);
+    await updateGroupSettings('owner-token', context.groupId, true);
     expect((await getGroupSettings('b-token', context.groupId)).json()).toEqual({
       requiresApproval: true,
     });
@@ -217,8 +219,53 @@ describeWithDatabase('member shift swaps', () => {
     );
   });
 
+  it('lets an owner directly swap any two members without approval or consent', async () => {
+    const context = await seedPublishedRotation();
+
+    const previewResponse = await previewSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      initiatorMembershipId: context.membershipIds.a,
+      targetAssignmentId: context.assignments.bSep2.id,
+      targetMembershipId: context.membershipIds.b,
+    });
+    expect(previewResponse.statusCode).toBe(200);
+    expect(previewResponse.json() as SwapPreview).toMatchObject({
+      conflicts: [],
+      nextStatus: 'completed',
+      requiresApproval: false,
+      targetAutoAccepts: true,
+    });
+
+    const created = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as SwapRequest;
+    expect(createdBody).toMatchObject({
+      initiatorMemberName: 'A Doctor',
+      status: 'completed',
+      targetMemberName: 'B Doctor',
+      version: 2,
+    });
+
+    const actuals = await readActualMembers(context);
+    expect(actuals.aSep1).toEqual({
+      actualMembershipId: context.membershipIds.b,
+      actualMemberName: 'B Doctor',
+    });
+    expect(actuals.bSep2).toEqual({
+      actualMembershipId: context.membershipIds.a,
+      actualMemberName: 'A Doctor',
+    });
+    const mineAsA = (await listMySwaps('a-token', context.groupId)).json() as SwapRequest[];
+    expect(mineAsA.map((request) => request.id)).toContain(createdBody.id);
+  });
+
   it('lets only one active swap request use the same shift', async () => {
     const context = await seedPublishedRotation();
+    await updateMySettings('b-token', context.groupId, false);
     const first = await createSwap('a-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
       operationId: randomUUID(),
@@ -252,6 +299,7 @@ describeWithDatabase('member shift swaps', () => {
 
   it('invalidates the swap when either assignment version changes', async () => {
     const context = await seedPublishedRotation();
+    await updateMySettings('b-token', context.groupId, false);
     const created = (
       await createSwap('a-token', context.groupId, {
         initiatorAssignmentId: context.assignments.aSep1.id,
@@ -354,6 +402,8 @@ describeWithDatabase('member shift swaps', () => {
 
   it('rejects and cancels pending swaps without touching actual members', async () => {
     const context = await seedPublishedRotation();
+    await updateMySettings('b-token', context.groupId, false);
+    await updateMySettings('c-token', context.groupId, false);
     const first = (
       await createSwap('a-token', context.groupId, {
         initiatorAssignmentId: context.assignments.aSep1.id,
@@ -439,7 +489,20 @@ describeWithDatabase('member shift swaps', () => {
         })
       ).statusCode,
     ).toBe(403);
+    expect(
+      (
+        await directSwap('a-token', context.groupId, {
+          initiatorAssignmentId: context.assignments.aSep1.id,
+          operationId: randomUUID(),
+          targetAssignmentId: context.assignments.bSep2.id,
+        })
+      ).statusCode,
+    ).toBe(403);
 
+    expect((await getMySettings('b-token', context.groupId)).json()).toEqual({
+      autoAcceptSwaps: true,
+    });
+    await updateMySettings('b-token', context.groupId, false);
     const created = (
       await createSwap('a-token', context.groupId, {
         initiatorAssignmentId: context.assignments.aSep1.id,
@@ -457,7 +520,7 @@ describeWithDatabase('member shift swaps', () => {
       ).statusCode,
     ).toBe(403);
     expect((await getGroupSettings('b-token', context.groupId)).json()).toEqual({
-      requiresApproval: true,
+      requiresApproval: false,
     });
     expect((await updateGroupSettings('b-token', context.groupId, false)).statusCode).toBe(403);
     expect((await updateGroupSettings('owner-token', context.groupId, false)).statusCode).toBe(200);
@@ -566,11 +629,29 @@ describeWithDatabase('member shift swaps', () => {
     });
   }
 
+  async function directSwap(
+    token: string,
+    groupId: string,
+    body: {
+      readonly initiatorAssignmentId: string;
+      readonly operationId: string;
+      readonly targetAssignmentId: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/swaps/direct`,
+    });
+  }
+
   async function previewSwap(
     token: string,
     groupId: string,
     body: {
       readonly initiatorAssignmentId: string;
+      readonly initiatorMembershipId?: string;
       readonly targetAssignmentId: string;
       readonly targetMembershipId: string;
     },

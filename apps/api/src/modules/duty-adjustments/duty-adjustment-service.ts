@@ -11,6 +11,7 @@ import type {
   DutyAdjustmentRequest,
   DutyAdjustmentStatus,
   GroupDutyAdjustmentSettings,
+  MemberSwapSettings,
   RevokeDutyAdjustmentInput,
   UpdateGroupDutyAdjustmentSettingsInput,
 } from '@schedule/contracts';
@@ -29,7 +30,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { intervalsOverlap } from '@schedule/scheduling-domain';
+import { intervalsOverlap, leaveOverlapsInterval } from '@schedule/scheduling-domain';
 import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -403,6 +404,35 @@ export class DutyAdjustmentService {
         .where(eq(groups.id, authorization.group.id));
 
       return { requiresApproval: input.requiresApproval };
+    });
+  }
+
+  public async getMySettings(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<MemberSwapSettings> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      const [membership] = await transaction
+        .select({
+          autoAcceptSwaps: groupMemberships.autoAcceptSwaps,
+          autoAcceptSwapsManuallySet: groupMemberships.autoAcceptSwapsManuallySet,
+        })
+        .from(groupMemberships)
+        .where(eq(groupMemberships.id, authorization.membership.id))
+        .limit(1);
+
+      return {
+        autoAcceptSwaps:
+          membership !== undefined &&
+          membership.autoAcceptSwapsManuallySet === 1 &&
+          membership.autoAcceptSwaps === 1,
+      };
     });
   }
 
@@ -1291,7 +1321,9 @@ export class DutyAdjustmentService {
           isNull(leaveRequests.deletedAt),
         ),
       );
-    const overlappingLeave = leaves.find((leave) => intervalsOverlap(leave, coveredAssignment));
+    const overlappingLeave = leaves.find((leave) =>
+      leaveOverlapsInterval(leave, coveredAssignment),
+    );
     if (overlappingLeave !== undefined) {
       conflicts.push({
         assignmentId: coveredAssignment.id,
@@ -1475,6 +1507,7 @@ export class DutyAdjustmentService {
     }
     let query = transaction
       .select({
+        autoAcceptSwapsManuallySet: groupMemberships.autoAcceptSwapsManuallySet,
         autoAcceptSwaps: groupMemberships.autoAcceptSwaps,
         id: groupMemberships.id,
         membershipDeletedAt: groupMemberships.deletedAt,
@@ -1502,7 +1535,7 @@ export class DutyAdjustmentService {
       rows.map((row) => [
         row.id,
         {
-          autoAcceptSwaps: row.autoAcceptSwaps,
+          autoAcceptSwaps: row.autoAcceptSwapsManuallySet === 1 ? row.autoAcceptSwaps : 0,
           id: row.id,
           isActive:
             row.membershipStatus === 'active' &&

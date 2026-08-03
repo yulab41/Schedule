@@ -22,6 +22,18 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 9: draft preview validation, draft-delete reliability, and publish-overwrite confirmation are fixed; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 10: draft delete/overwrite 500 root cause fixed (live schema drift) and live schedules cleared; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 11: manual drafts now display as one start-to-end batch with one-click range publish, plus a per-month publication history; `pnpm verify` passed 337/337 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 12: swap leave-conflict false positive fixed, swap defaults changed to auto-accept + no approval (with manual-override tracking), and admins/owners can directly swap any two members; `pnpm verify` passed 340/340 (60 test files) with the isolated MySQL. Next active batch: 部署后用户验收；确认迁移 0019 对存量成员/群组生效，并验证管理员换班入口。
+
+## 2026-08-03 Round 12 (Swap Defaults, Leave Overlap Fix, Admin Direct Swap)
+
+Checkpoint commit message: `feat(swaps): default auto-accept without approval and admin direct swap`
+
+- Bug fix: all-day leave overlap is now compared by China business date (via `leaveOverlapsInterval`) instead of raw UTC timestamps, so a one-day all-day leave no longer falsely blocks a swap on the adjacent China business day. The same comparison is used by duty-adjustment eligibility so the same false positive cannot recur there.
+- Defaults: new memberships default to `auto_accept_swaps = 1` and new groups default to `swap_approval_required = 0`. Migration `0019_swap_defaults.sql` applies both defaults to all existing rows and adds `auto_accept_swaps_manually_set` / `swap_approval_required_manually_set` flags so a member/admin who has manually toggled the setting keeps their choice; untouched members effectively auto-accept and groups effectively require no swap approval.
+- Duty adjustments keep their previous behavior until the member manually toggles auto-accept (new `GET /groups/:groupId/duty-adjustments/my-settings` returns the duty-effective value while the swap panel shows the swap-effective default).
+- Admin/owner direct swap: new `POST /groups/:groupId/swaps/direct` lets owners/administrators swap any two members' future shifts without target consent or approval; admin preview is supported via optional `initiatorMembershipId` on the existing preview endpoint. The Web 换班 panel gains a 管理员换班 form visible to owners/administrators.
+- Migration journal now registers `0018` and `0019`; `0018` default was corrected from `1970-01-01 00:00:00.000` to `1970-01-01 00:00:01.000` so fresh MySQL 8.4 databases accept it (the old literal is below the TIMESTAMP minimum).
+- Validation: `pnpm verify` passed 340/340 (60 test files) with the isolated test MySQL, including new migration, direct-swap, permission, notification, and event-filter coverage.
 
 ## 2026-08-03 Round 11 (Draft Batches and Publication History)
 

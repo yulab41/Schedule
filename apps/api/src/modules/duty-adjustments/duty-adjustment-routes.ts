@@ -193,6 +193,13 @@ export function registerDutyAdjustmentRoutes(
         parseUpdateGroupSettingsInput(request.body),
       ),
   );
+
+  app.get(
+    '/groups/:groupId/duty-adjustments/my-settings',
+    { preHandler: app.authenticate },
+    (request) =>
+      dutyAdjustmentService.getMySettings(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

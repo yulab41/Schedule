@@ -120,6 +120,20 @@
       "when": 1785542400016,
       "tag": "0017_users_identity_detach",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785542400017,
+      "tag": "0018_fix_shift_assignment_timestamps",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785542400018,
+      "tag": "0019_swap_defaults",
+      "breakpoints": true
     }
   ]
 }

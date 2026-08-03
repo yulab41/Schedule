@@ -134,7 +134,7 @@ async function loadData(): Promise<void> {
         api.getCalendar(props.group.id, businessMonth.value),
         api.listGroupMembers(props.group.id),
         api.getGroupDutyAdjustmentSettings(props.group.id),
-        api.getMySwapSettings(props.group.id),
+        api.getMyDutyAdjustmentSettings(props.group.id),
         api.listMyDutyAdjustments(props.group.id),
         canApprove.value ? api.listDutyAdjustmentApprovals(props.group.id) : Promise.resolve([]),
       ]);

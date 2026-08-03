@@ -45,12 +45,19 @@ export interface SwapPreview {
 
 export interface SwapPairInput {
   readonly initiatorAssignmentId: string;
+  readonly initiatorMembershipId?: string;
   readonly targetAssignmentId: string;
   readonly targetMembershipId: string;
 }
 
 export interface CreateSwapRequestInput extends SwapPairInput {
   readonly operationId: string;
+}
+
+export interface CreateDirectSwapInput {
+  readonly initiatorAssignmentId: string;
+  readonly operationId: string;
+  readonly targetAssignmentId: string;
 }
 
 export interface SwapRequest {

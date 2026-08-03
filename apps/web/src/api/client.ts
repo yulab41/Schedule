@@ -15,6 +15,7 @@ import type {
   CreateScheduleExportInput,
   CreateDirectDutyAdjustmentInput,
   CreateDutyAdjustmentRequestInput,
+  CreateDirectSwapInput,
   CreateLeaveRequestInput,
   CreateSwapRequestInput,
   CreateScheduleRoleRequest,
@@ -172,6 +173,7 @@ export interface ApiClient {
   ): Promise<DutyAdjustmentRequest>;
   createLeaveRequest(groupId: string, input: CreateLeaveRequestInput): Promise<LeaveRequest>;
   createSwapRequest(groupId: string, input: CreateSwapRequestInput): Promise<SwapRequest>;
+  createDirectSwapRequest(groupId: string, input: CreateDirectSwapInput): Promise<SwapRequest>;
   createDirectDutyAdjustment(
     groupId: string,
     input: CreateDirectDutyAdjustmentInput,
@@ -205,6 +207,7 @@ export interface ApiClient {
   getGroupSwapSettings(groupId: string): Promise<GroupSwapSettings>;
   getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
   getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
+  getMyDutyAdjustmentSettings(groupId: string): Promise<MemberSwapSettings>;
   getSchedulePublishMode(groupId: string): Promise<GroupSchedulePublishMode>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
   getScheduleDraftPreview(
@@ -814,6 +817,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isSwapRequest,
       );
     },
+    createDirectSwapRequest(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/direct`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapRequest,
+      );
+    },
     createManualScheduleTemplate(groupId, input) {
       return requestJson(
         options.auth,
@@ -1034,6 +1050,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/swaps/my-settings`,
+        { method: 'GET' },
+        isMemberSwapSettings,
+      );
+    },
+    getMyDutyAdjustmentSettings(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/my-settings`,
         { method: 'GET' },
         isMemberSwapSettings,
       );

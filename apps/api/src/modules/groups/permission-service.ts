@@ -130,6 +130,7 @@ export class GroupPermissionService {
   ): Promise<ActiveGroupMembership> {
     const [membership] = await transaction
       .select({
+        autoAcceptSwapsManuallySetValue: groupMemberships.autoAcceptSwapsManuallySet,
         autoAcceptSwapsValue: groupMemberships.autoAcceptSwaps,
         id: groupMemberships.id,
         role: groupMemberships.role,
@@ -156,7 +157,10 @@ export class GroupPermissionService {
     }
 
     return {
-      autoAcceptSwaps: membership.autoAcceptSwapsValue === 1,
+      autoAcceptSwaps:
+        membership.autoAcceptSwapsManuallySetValue === 1
+          ? membership.autoAcceptSwapsValue === 1
+          : true,
       id: membership.id,
       role: membership.role,
       userId: membership.userId,
@@ -170,6 +174,7 @@ export class GroupPermissionService {
   ): Promise<ActiveGroupMembership> {
     const [membership] = await transaction
       .select({
+        autoAcceptSwapsManuallySetValue: groupMemberships.autoAcceptSwapsManuallySet,
         autoAcceptSwapsValue: groupMemberships.autoAcceptSwaps,
         id: groupMemberships.id,
         role: groupMemberships.role,
@@ -201,7 +206,10 @@ export class GroupPermissionService {
     }
 
     return {
-      autoAcceptSwaps: membership.autoAcceptSwapsValue === 1,
+      autoAcceptSwaps:
+        membership.autoAcceptSwapsManuallySetValue === 1
+          ? membership.autoAcceptSwapsValue === 1
+          : true,
       id: membership.id,
       role: membership.role,
       userId: membership.userId,
@@ -252,6 +260,7 @@ export class GroupPermissionService {
     const [group] = await transaction
       .select({
         dutyAdjustmentApprovalRequiredValue: groups.dutyAdjustmentApprovalRequired,
+        swapApprovalRequiredManuallySetValue: groups.swapApprovalRequiredManuallySet,
         swapApprovalRequiredValue: groups.swapApprovalRequired,
         groupCode: groups.groupCode,
         id: groups.id,
@@ -284,7 +293,10 @@ export class GroupPermissionService {
       ownerUserId: group.ownerUserId,
       rulesVersion: group.rulesVersion,
       schedulePublishMode: group.schedulePublishMode,
-      swapApprovalRequired: group.swapApprovalRequiredValue === 1,
+      swapApprovalRequired:
+        group.swapApprovalRequiredManuallySetValue === 1
+          ? group.swapApprovalRequiredValue === 1
+          : false,
       version: group.version,
     };
   }
