@@ -21,6 +21,14 @@ export interface AddRosterEntriesResponse {
   readonly added: number;
 }
 
+export interface AddGroupMembersRequest {
+  readonly realNames: readonly string[];
+}
+
+export interface AddGroupMembersResponse {
+  readonly added: number;
+}
+
 export interface ClaimGroupRequest {
   readonly groupCode: string;
 }

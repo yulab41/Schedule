@@ -258,6 +258,73 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(request).toEqual({ status: 'resolved' });
   });
 
+  it('adds members directly and binds the identity when the member claims the group', async () => {
+    const group = await createGroup('Direct member group', '3456');
+    const groupId = (group.json() as { id: string }).id;
+
+    const added = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { realNames: ['Outsider Doctor'] },
+      url: `/groups/${groupId}/members`,
+    });
+    expect(added.statusCode).toBe(200);
+    expect(added.json()).toEqual({ added: 1 });
+
+    const members = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    expect(members.statusCode).toBe(200);
+    const outsiderMembership = (
+      members.json() as {
+        readonly id: string;
+        readonly realName: string;
+        readonly role: string;
+      }[]
+    ).find((member) => member.realName === 'Outsider Doctor');
+    expect(outsiderMembership).toMatchObject({ role: 'member' });
+
+    const contact = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13800000000' },
+      url: `/groups/${groupId}/members/${outsiderMembership?.id}/contact`,
+    });
+    expect(contact.statusCode).toBe(200);
+
+    const duplicate = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { realNames: ['Outsider Doctor'] },
+      url: `/groups/${groupId}/members`,
+    });
+    expect(duplicate.statusCode).toBe(409);
+
+    const memberForbidden = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'POST',
+      payload: { realNames: ['Blocked Name'] },
+      url: `/groups/${groupId}/members`,
+    });
+    expect(memberForbidden.statusCode).toBe(403);
+
+    const claimed = await claimGroup('outsider-token', '3456');
+    expect(claimed.statusCode).toBe(201);
+    expect(claimed.json()).toMatchObject({ status: 'claimed' });
+
+    const [membership] = await client.database
+      .select({ userId: groupMemberships.userId })
+      .from(groupMemberships)
+      .where(eq(groupMemberships.id, outsiderMembership?.id as string));
+    const [outsider] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    expect(membership?.userId).toBe(outsider?.id);
+  });
+
   it('invalidates the previous code immediately when the owner regenerates it', async () => {
     const group = await createGroup('Code rotation group', '5678');
     const groupId = (group.json() as { id: string }).id;

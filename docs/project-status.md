@@ -15,6 +15,16 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 2: role/template deletion and 排班岗位 wording are implemented and `pnpm verify` passed 329/329 (60 test files) with the isolated MySQL. Next active batch: 线上重新部署后由用户验收；删除功能与文案改动已推送 `main`。
 - 2026-08-03 round 3: manual-grid rendering hardening and event-dialog readability fallback are implemented and `pnpm verify` passed 330/330 (60 test files) with the isolated MySQL. PWA cache names were bumped to force clients onto the new bundle.
 - 2026-08-03 round 4: calendar phone interaction and holiday labels are optimized and `pnpm verify` passed 331/331 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 5: member-page additions now create real members immediately and `pnpm verify` passed 332/332 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 5 (Direct Member Addition)
+
+Checkpoint commit message: `feat(groups): add members directly and bind identity on claim`
+
+- New `POST /groups/:groupId/members` (manageMembers, administrators and owners) creates a real, unbound member record immediately (placeholder user + profile + active membership). The member shows up in the member list right away, contacts can be entered, and the member can be added to schedule roles; the same group cannot contain two active members with the same name, and a name already pending in the roster blocks direct addition.
+- Claim flow extension: when a user claims a group code and there is no pending roster entry, the system now looks for an unbound membership with the same real name in that group, rebinds that membership to the claiming account (keeping its id, contacts, role memberships and scheduling history), resolves any pending join request, and removes the placeholder user only when it has no remaining memberships.
+- Web 成员 page: the add-member form now calls the direct-add endpoint and explains that added members are immediately schedulable and bind to the member's account on claim. The bulk roster-paste flow in 群组管理 remains claim-based.
+- Integration test covers direct add → member list/contact → duplicate rejection → member 403 → claim binding keeps the same membership id and rebinds the user.
 
 ## 2026-08-03 Round 4 (Calendar Phone and Holiday Labels)
 
@@ -236,6 +246,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 5: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 332 Vitest tests (60 files) and all production builds, including the new direct-member-add and claim-binding integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 4: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 331 Vitest tests (60 files) and all production builds; the calendar-logic spec now covers holiday short labels. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 3: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 330 Vitest tests (60 files) and all production builds; the web bundle now emits a new service-worker hash and v2 cache names. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 2: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 329 Vitest tests (60 files) and all production builds, including the new template-delete and role-delete integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.

@@ -1,4 +1,6 @@
 import type {
+  AddGroupMembersRequest,
+  AddGroupMembersResponse,
   AddRosterEntriesResponse,
   ApiErrorCode,
   ApiErrorResponse,
@@ -126,6 +128,7 @@ export interface ApiClient {
     groupId: string,
     input: { readonly realNames: readonly string[] },
   ): Promise<AddRosterEntriesResponse>;
+  addGroupMembers(groupId: string, input: AddGroupMembersRequest): Promise<AddGroupMembersResponse>;
   approveLeaveRequest(
     groupId: string,
     leaveRequestId: string,
@@ -666,6 +669,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/roster-entries`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isAddRosterEntriesResponse,
+      );
+    },
+    addGroupMembers(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/members`,
         {
           body: JSON.stringify(input),
           method: 'POST',

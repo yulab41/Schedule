@@ -97,9 +97,9 @@ async function addMembers(): Promise<void> {
 
   isAddingRoster.value = true;
   try {
-    const result = await api.addRosterEntries(props.group.id, { realNames: names });
+    const result = await api.addGroupMembers(props.group.id, { realNames: names });
     rosterNames.value = '';
-    rosterMessage.value = `已添加 ${result.added} 位待认领成员，成员用真实姓名和群组码认领后自动加入。`;
+    rosterMessage.value = `已添加 ${result.added} 位成员，可直接填写手机号和参与排班；成员登录后用真实姓名和群组码认领即可绑定账号。`;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -176,6 +176,9 @@ function getErrorMessage(error: unknown): string {
           placeholder="例如：&#10;张三&#10;李四"
           rows="3"
         />
+        <small class="add-member-hint">
+          添加后立即成为正式成员，可填写手机号、加入排班岗位；成员之后用真实姓名和群组码认领时自动绑定账号。
+        </small>
       </label>
       <t-button theme="primary" type="submit" :loading="isAddingRoster">添加成员</t-button>
     </form>
@@ -256,6 +259,12 @@ function getErrorMessage(error: unknown): string {
   gap: 4px;
   color: #374151;
   font-size: 14px;
+}
+
+.add-member-hint {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .add-member-form textarea {

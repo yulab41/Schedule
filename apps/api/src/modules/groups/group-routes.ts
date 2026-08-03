@@ -1,4 +1,5 @@
 import type {
+  AddGroupMembersRequest,
   AddRosterEntriesRequest,
   ClaimGroupRequest,
   CreateGroupRequest,
@@ -30,6 +31,12 @@ const createGroupInputSchema = z
 const rosterEntriesInputSchema = z
   .object({
     realNames: z.array(realNameSchema).min(1).max(500),
+  })
+  .strict();
+
+const addGroupMembersInputSchema = z
+  .object({
+    realNames: z.array(realNameSchema).min(1).max(100),
   })
   .strict();
 
@@ -117,6 +124,14 @@ export function registerGroupRoutes(
     ),
   );
 
+  app.post('/groups/:groupId/members', { preHandler: app.authenticate }, async (request) =>
+    groupService.addGroupMembers(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseAddGroupMembersInput(request.body),
+    ),
+  );
+
   app.put('/groups/:groupId/group-code', { preHandler: app.authenticate }, async (request) =>
     groupService.regenerateCode(
       getAuthenticatedIdentity(request),
@@ -188,6 +203,15 @@ function parseCreateGroupInput(value: unknown): CreateGroupRequest {
 
 function parseRosterEntriesInput(value: unknown): AddRosterEntriesRequest {
   const result = rosterEntriesInputSchema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+
+  return result.data;
+}
+
+function parseAddGroupMembersInput(value: unknown): AddGroupMembersRequest {
+  const result = addGroupMembersInputSchema.safeParse(value);
   if (!result.success) {
     throwValidationError();
   }
