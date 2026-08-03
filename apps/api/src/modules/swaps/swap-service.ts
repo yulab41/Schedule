@@ -1622,9 +1622,8 @@ export class SwapService {
       transaction
         .select()
         .from(shiftAssignments)
-        .where(
-          and(inArray(shiftAssignments.id, [...assignmentIds]), isNull(shiftAssignments.deletedAt)),
-        ),
+        // Historical workflows remain readable after their schedule version is archived.
+        .where(inArray(shiftAssignments.id, [...assignmentIds])),
     ]);
     const periodIds = [...new Set(assignments.map((assignment) => assignment.schedulePeriodId))];
     const periodRows =
@@ -1633,7 +1632,7 @@ export class SwapService {
         : await transaction
             .select()
             .from(schedulePeriods)
-            .where(and(inArray(schedulePeriods.id, periodIds), isNull(schedulePeriods.deletedAt)));
+            .where(inArray(schedulePeriods.id, periodIds));
     const periodById = new Map(periodRows.map((period) => [period.id, period]));
     const roleIds = [...new Set(periodRows.map((period) => period.scheduleRoleId))];
     const roleNamesById = await this.loadRoleNames(transaction, roleIds);

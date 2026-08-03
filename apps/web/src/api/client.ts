@@ -30,6 +30,7 @@ import type {
   GroupSwapSettings,
   GroupSummary,
   GuestCalendarReadModel,
+  GuestGroupSummary,
   HolidayReadModel,
   JsonObject,
   LeaveReflowPreview,
@@ -123,6 +124,7 @@ export interface ApiClient {
     readonly pageSize?: number;
     readonly unreadOnly?: boolean;
   }): Promise<NotificationPage>;
+  listGuestGroups(): Promise<readonly GuestGroupSummary[]>;
   markAllNotificationsRead(groupId?: string): Promise<{ readonly count: number }>;
   markNotificationRead(notificationId: string): Promise<NotificationRecord>;
   savePushSubscription(input: WebPushSubscriptionInput): Promise<{ readonly saved: boolean }>;
@@ -207,6 +209,7 @@ export interface ApiClient {
   deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getGuestCalendar(groupCode: string, businessMonth: string): Promise<GuestCalendarReadModel>;
+  getGuestGroupCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getMonthStatistics(groupId: string, businessMonth: string): Promise<MonthStatisticsSnapshot>;
@@ -582,6 +585,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/notifications${queryString === '' ? '' : `?${queryString}`}`,
         { method: 'GET' },
         isNotificationPage,
+      );
+    },
+    listGuestGroups() {
+      return requestPublicJsonWithOnline(
+        fetchImplementation,
+        baseUrl,
+        '/guest/groups',
+        { method: 'GET' },
+        isGuestGroupSummaryList,
+        isOnline,
       );
     },
     markAllNotificationsRead(groupId) {
@@ -991,6 +1004,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify({ businessMonth, groupCode }),
           method: 'POST',
         },
+        isGuestCalendarReadModel,
+        isOnline,
+      );
+    },
+    getGuestGroupCalendar(groupId, businessMonth) {
+      return requestPublicJsonWithOnline(
+        fetchImplementation,
+        baseUrl,
+        `/guest/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
+        { method: 'GET' },
         isGuestCalendarReadModel,
         isOnline,
       );
@@ -1873,6 +1896,19 @@ function isGuestCalendarReadModel(value: unknown): value is GuestCalendarReadMod
     typeof value === 'object' &&
     typeof (value as Partial<GuestCalendarReadModel>).groupName === 'string' &&
     isCalendarReadModel((value as Partial<GuestCalendarReadModel>).calendar)
+  );
+}
+
+function isGuestGroupSummaryList(value: unknown): value is readonly GuestGroupSummary[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (group) =>
+        group !== null &&
+        typeof group === 'object' &&
+        typeof (group as Partial<GuestGroupSummary>).id === 'string' &&
+        typeof (group as Partial<GuestGroupSummary>).name === 'string',
+    )
   );
 }
 

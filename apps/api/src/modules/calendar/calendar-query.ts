@@ -6,6 +6,7 @@ import type {
   CalendarRoleSummary,
   CalendarShiftTypeSummary,
   GuestCalendarReadModel,
+  GuestGroupSummary,
 } from '@schedule/contracts';
 import {
   groups,
@@ -156,6 +157,42 @@ export class CalendarQuery {
         userMessage: '群组码无效或群组不可用。',
       });
     }
+    return this.readGuestMonthForGroup(group, businessMonth);
+  }
+
+  public async listGuestGroups(): Promise<readonly GuestGroupSummary[]> {
+    return this.databaseClient.database
+      .select({ id: groups.id, name: groups.name })
+      .from(groups)
+      .where(isNull(groups.deletedAt))
+      .orderBy(asc(groups.name), asc(groups.id));
+  }
+
+  public async readGuestMonthByGroupId(
+    groupId: string,
+    businessMonth: string,
+  ): Promise<GuestCalendarReadModel> {
+    assertValidBusinessMonth(businessMonth);
+    const [group] = await this.databaseClient.database
+      .select({ id: groups.id, name: groups.name })
+      .from(groups)
+      .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
+      .limit(1);
+    if (group === undefined) {
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '群组不存在或不可用。',
+      });
+    }
+
+    return this.readGuestMonthForGroup(group, businessMonth);
+  }
+
+  private async readGuestMonthForGroup(
+    group: { readonly id: string; readonly name: string },
+    businessMonth: string,
+  ): Promise<GuestCalendarReadModel> {
     const calendar = await withTransaction(this.databaseClient, async (transaction) => {
       const periods = await transaction
         .select({ id: schedulePeriods.id, scheduleRoleId: schedulePeriods.scheduleRoleId })

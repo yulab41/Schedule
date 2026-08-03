@@ -6,6 +6,7 @@ import {
   createTestDatabaseClient,
   migrateDatabase,
   schedulePeriods,
+  shiftAssignments,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
@@ -433,6 +434,29 @@ describeWithDatabase('paired duty adjustments', () => {
       (assignment) => assignment.businessDate === '2026-09-01',
     );
     expect(sep1).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['overtime'] });
+  });
+
+  it('keeps archived assignment snapshots readable in approval history', async () => {
+    const context = await seedPublishedRotation();
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '历史记录回归测试',
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as DutyAdjustmentRequest;
+
+    await client.database
+      .update(shiftAssignments)
+      .set({ deletedAt: new Date() })
+      .where(eq(shiftAssignments.id, context.assignments.aSep1.id));
+
+    const approvals = await listDutyAdjustmentApprovals('owner-token', context.groupId);
+    expect(approvals.statusCode, approvals.body).toBe(200);
+    expect((approvals.json() as DutyAdjustmentRequest[]).map((request) => request.id)).toContain(
+      createdBody.id,
+    );
   });
 
   it('rejects and cancels pending requests without touching the actual member', async () => {
@@ -959,6 +983,14 @@ describeWithDatabase('paired duty adjustments', () => {
       headers: { authorization: `Bearer ${token}` },
       method: 'GET',
       url: `/groups/${groupId}/duty-adjustments`,
+    });
+  }
+
+  async function listDutyAdjustmentApprovals(token: string, groupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/duty-adjustments/approvals`,
     });
   }
 

@@ -1,5 +1,5 @@
-export const scheduleCacheName = 'schedule-schedules-v2';
-export const shellCacheName = 'schedule-shell-v2';
+export const scheduleCacheName = 'schedule-schedules-v3';
+export const shellCacheName = 'schedule-shell-v3';
 export const maxScheduleCacheEntries = 12;
 
 export function isCalendarRequest(url: URL): boolean {

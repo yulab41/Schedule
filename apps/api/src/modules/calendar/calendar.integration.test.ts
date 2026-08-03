@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
-import { CalendarQuery, toCalendarChangeMarker } from './calendar-query.js';
+import { toCalendarChangeMarker } from './calendar-query.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -204,7 +204,7 @@ describeWithDatabase('current month calendar read model', () => {
     });
   });
 
-  it('allows guest calendar access by group code without exposing contact details', async () => {
+  it('lists guest groups and reads the selected calendar without exposing contact details', async () => {
     await savePublished('2026-08');
     const contact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -218,17 +218,13 @@ describeWithDatabase('current month calendar read model', () => {
     });
     expect(contact.statusCode).toBe(200);
 
-    const directResult = await new CalendarQuery(client).readGuestMonth(
-      '0'.repeat(64),
-      '1234',
-      '2026-08',
-    );
-    expect(directResult.groupName).toBe('Calendar group');
+    const groupsResponse = await app.inject({ method: 'GET', url: '/guest/groups' });
+    expect(groupsResponse.statusCode, groupsResponse.body).toBe(200);
+    expect(groupsResponse.json()).toEqual([{ id: groupId, name: 'Calendar group' }]);
 
     const response = await app.inject({
-      method: 'POST',
-      payload: { businessMonth: '2026-08', groupCode: '1234' },
-      url: '/guest/calendar',
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08`,
     });
 
     expect(response.statusCode, response.body).toBe(200);

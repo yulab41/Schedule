@@ -277,6 +277,33 @@ describe('Web API client', () => {
     );
   });
 
+  it('lists public guest groups and reads a selected month without a group code', async () => {
+    const guestGroups = [{ id: group.id, name: group.name }];
+    const guestCalendar = { calendar, groupName: group.name };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(guestGroups), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(guestCalendar), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listGuestGroups()).resolves.toEqual(guestGroups);
+    await expect(client.getGuestGroupCalendar(group.id, '2026-08')).resolves.toEqual(guestCalendar);
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/guest/groups',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/guest/groups/group-1/calendar?businessMonth=2026-08',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   it('rejects a malformed calendar response', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

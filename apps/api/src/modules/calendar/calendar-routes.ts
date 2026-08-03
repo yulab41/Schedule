@@ -40,6 +40,12 @@ export function registerCalendarRoutes(app: FastifyInstance, calendarQuery: Cale
       ),
   );
 
+  app.get('/guest/groups', () => calendarQuery.listGuestGroups());
+
+  app.get('/guest/groups/:groupId/calendar', (request) =>
+    calendarQuery.readGuestMonthByGroupId(parseGroupId(request), parseBusinessMonth(request.query)),
+  );
+
   app.post('/guest/calendar', (request) => {
     const input = parseOrThrow(guestCalendarInputSchema, request.body);
     return calendarQuery.readGuestMonth(

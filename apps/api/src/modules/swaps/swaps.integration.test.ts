@@ -301,6 +301,28 @@ describeWithDatabase('member shift swaps', () => {
     expect(mineAsA.map((request) => request.id)).toContain(createdBody.id);
   });
 
+  it('keeps archived assignment snapshots readable in approval history', async () => {
+    const context = await seedPublishedRotation();
+    const created = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as SwapRequest;
+
+    await client.database
+      .update(shiftAssignments)
+      .set({ deletedAt: new Date() })
+      .where(eq(shiftAssignments.id, context.assignments.aSep1.id));
+
+    const approvals = await listSwapApprovals('owner-token', context.groupId);
+    expect(approvals.statusCode, approvals.body).toBe(200);
+    expect((approvals.json() as SwapRequest[]).map((request) => request.id)).toContain(
+      createdBody.id,
+    );
+  });
+
   it('revokes active swaps when an archived schedule version is republished', async () => {
     const archivedContext = await seedPublishedRotation();
     const rulesVersion = (await getConfig('owner-token', archivedContext.groupId)).rulesVersion;
@@ -878,6 +900,14 @@ describeWithDatabase('member shift swaps', () => {
       headers: { authorization: `Bearer ${token}` },
       method: 'GET',
       url: `/groups/${groupId}/swaps`,
+    });
+  }
+
+  async function listSwapApprovals(token: string, groupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/swaps/approvals`,
     });
   }
 

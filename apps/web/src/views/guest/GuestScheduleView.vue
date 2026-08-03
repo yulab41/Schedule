@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import type { ConfirmedHolidayDate, GuestCalendarReadModel } from '@schedule/contracts';
-import { ref } from 'vue';
+import type {
+  ConfirmedHolidayDate,
+  GuestCalendarReadModel,
+  GuestGroupSummary,
+} from '@schedule/contracts';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
@@ -17,21 +21,37 @@ const router = useRouter();
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendarResult = ref<GuestCalendarReadModel>();
 const errorMessage = ref<string>();
-const groupCode = ref('');
+const guestGroups = ref<readonly GuestGroupSummary[]>([]);
 const isLoading = ref(false);
+const isLoadingGroups = ref(false);
+const selectedGroup = ref<GuestGroupSummary>();
 const holidays = new Map<string, ConfirmedHolidayDate>();
 
+async function loadGuestGroups(): Promise<void> {
+  errorMessage.value = undefined;
+  isLoadingGroups.value = true;
+  try {
+    guestGroups.value = await api.listGuestGroups();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof ApiClientError ? error.message : '群组暂时无法加载，请稍后重试。';
+  } finally {
+    isLoadingGroups.value = false;
+  }
+}
+
 async function loadCalendar(): Promise<void> {
-  const normalizedCode = groupCode.value.trim();
-  if (!/^\d{4}$/.test(normalizedCode)) {
-    errorMessage.value = '请输入 4 位群组码。';
+  if (selectedGroup.value === undefined) {
     return;
   }
 
   errorMessage.value = undefined;
   isLoading.value = true;
   try {
-    calendarResult.value = await api.getGuestCalendar(normalizedCode, businessMonth.value);
+    calendarResult.value = await api.getGuestGroupCalendar(
+      selectedGroup.value.id,
+      businessMonth.value,
+    );
   } catch (error) {
     calendarResult.value = undefined;
     errorMessage.value =
@@ -41,18 +61,24 @@ async function loadCalendar(): Promise<void> {
   }
 }
 
-async function changeMonth(delta: number): Promise<void> {
-  businessMonth.value = addBusinessMonths(businessMonth.value, delta);
-  if (calendarResult.value !== undefined) {
-    await loadCalendar();
-  }
+async function selectGroup(group: GuestGroupSummary): Promise<void> {
+  selectedGroup.value = group;
+  businessMonth.value = getCurrentBusinessMonth();
+  await loadCalendar();
 }
 
-async function selectMonth(): Promise<void> {
-  if (calendarResult.value !== undefined) {
-    await loadCalendar();
-  }
+async function changeMonth(delta: number): Promise<void> {
+  businessMonth.value = addBusinessMonths(businessMonth.value, delta);
+  await loadCalendar();
 }
+
+function returnToGroupList(): void {
+  calendarResult.value = undefined;
+  errorMessage.value = undefined;
+  selectedGroup.value = undefined;
+}
+
+onMounted(() => void loadGuestGroups());
 </script>
 
 <template>
@@ -64,22 +90,29 @@ async function selectMonth(): Promise<void> {
 
     <section v-if="calendarResult === undefined" class="guest-access-panel">
       <h1>访客查看</h1>
-      <form class="guest-access-form" @submit.prevent="loadCalendar">
-        <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
-        <t-form-item label="群组码">
-          <t-input
-            v-model="groupCode"
-            autocomplete="one-time-code"
-            inputmode="numeric"
-            maxlength="4"
-            placeholder="请输入 4 位群组码"
-          />
-        </t-form-item>
-        <t-form-item label="月份">
-          <input v-model="businessMonth" class="guest-month-input" type="month" />
-        </t-form-item>
-        <t-button block :loading="isLoading" theme="primary" type="submit">查看排班</t-button>
-      </form>
+      <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
+      <t-loading v-if="isLoadingGroups" text="正在加载群组" />
+      <div v-else class="guest-group-list">
+        <t-button
+          v-for="group in guestGroups"
+          :key="group.id"
+          block
+          :loading="isLoading && selectedGroup?.id === group.id"
+          variant="outline"
+          @click="selectGroup(group)"
+        >
+          {{ group.name }}
+        </t-button>
+        <t-button
+          v-if="errorMessage !== undefined"
+          block
+          variant="outline"
+          @click="loadGuestGroups"
+        >
+          重新加载
+        </t-button>
+        <t-empty v-else-if="guestGroups.length === 0" description="暂无可查看的群组" />
+      </div>
     </section>
 
     <section v-else class="guest-calendar" :aria-busy="isLoading">
@@ -88,15 +121,7 @@ async function selectMonth(): Promise<void> {
           <span class="guest-label">访客查看</span>
           <h1>{{ calendarResult.groupName }}</h1>
         </div>
-        <t-button
-          variant="outline"
-          @click="
-            calendarResult = undefined;
-            errorMessage = undefined;
-          "
-        >
-          更换群组
-        </t-button>
+        <t-button variant="outline" @click="returnToGroupList"> 更换群组 </t-button>
       </div>
 
       <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
@@ -104,10 +129,6 @@ async function selectMonth(): Promise<void> {
         <t-button variant="outline" @click="changeMonth(-1)">上一月</t-button>
         <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
         <t-button variant="outline" @click="changeMonth(1)">下一月</t-button>
-        <label>
-          年月
-          <input v-model="businessMonth" type="month" @change="selectMonth" />
-        </label>
       </div>
 
       <t-loading v-if="isLoading" text="正在加载排班" />
@@ -155,17 +176,9 @@ async function selectMonth(): Promise<void> {
   font-size: var(--ui-font-size-xl);
 }
 
-.guest-access-form {
+.guest-group-list {
   display: grid;
-  gap: 16px;
-}
-
-.guest-month-input,
-.guest-calendar-toolbar input {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid var(--ui-color-border-strong);
-  border-radius: 4px;
+  gap: 8px;
 }
 
 .guest-calendar {
@@ -202,13 +215,6 @@ async function selectMonth(): Promise<void> {
 .guest-calendar-toolbar strong {
   min-width: 88px;
   text-align: center;
-}
-
-.guest-calendar-toolbar label {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  color: var(--ui-color-text-secondary);
 }
 
 @media (max-width: 640px) {
