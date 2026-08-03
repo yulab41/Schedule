@@ -311,6 +311,7 @@ export class MembershipService {
       .update(shiftAssignments)
       .set({
         plannedMembershipId: null,
+        startsAt: sql`${shiftAssignments.startsAt}`,
         version: sql`${shiftAssignments.version} + 1`,
       })
       .where(
@@ -323,6 +324,7 @@ export class MembershipService {
       .update(shiftAssignments)
       .set({
         actualMembershipId: null,
+        startsAt: sql`${shiftAssignments.startsAt}`,
         version: sql`${shiftAssignments.version} + 1`,
       })
       .where(

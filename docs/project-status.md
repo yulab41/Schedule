@@ -20,6 +20,16 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 7: pending roster entries are merged into the member page with an 未认领 badge and can be converted to formal members; `pnpm verify` passed 335/335 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 8: members and unclaimed members can now be deleted per user decisions (hard delete + auto-remove workflow rows); `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 9: draft preview validation, draft-delete reliability, and publish-overwrite confirmation are fixed; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 10: draft delete/overwrite 500 root cause fixed (live schema drift) and live schedules cleared; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 10 (Shift Timestamp Schema Fix + Live Cleanup)
+
+Checkpoint commit message: `fix(schedule): prevent shift assignment timestamp rewrite and clear stale schedules`
+
+- Root cause: the live CynosDB server has `explicit_defaults_for_timestamp=OFF`, so `shift_assignments.starts_at` was created with implicit `ON UPDATE CURRENT_TIMESTAMP(3)`. Every bulk assignment update (draft delete, overwrite, member delete) rewrote all `starts_at` values to now, colliding on the `(schedule_period_id, starts_at, slot_position)` unique key and returning 500 “服务器暂时无法处理请求”.
+- Fixes: the live table was corrected to `starts_at/ends_at TIMESTAMP(3) NOT NULL` (no auto-update), matching the repo migration; new migration `0018_fix_shift_assignment_timestamps.sql` pins explicit defaults so CynosDB/fresh DBs can never drift again; all `shift_assignments` UPDATE sites (draft soft-delete, member delete, leave reflow, swap, duty adjustment) now explicitly preserve `starts_at` as defense in depth.
+- Live data cleared as requested: all 23 schedule periods (16 drafts + 5 published + 2 replaced) and 638 shift assignments soft-deleted, statistics snapshots deleted (rebuildable cache). Manual templates, members, roles, contacts, and event history were kept.
+- Verified against the live database that the exact delete sequence now succeeds; full `pnpm verify` passes with the new migration applied to a fresh DB.
 
 ## 2026-08-03 Round 9 (Draft Preview/Delete and Publish Overwrite)
 
@@ -286,6 +296,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 10: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds; the migration suite confirms `0018` applies cleanly. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 9: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds, including the publish-overwrite-blocked/replace integration assertions. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 8: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds, including the new member-deletion integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 7: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 335 Vitest tests (60 files) and all production builds, including the new roster-merge/convert integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.

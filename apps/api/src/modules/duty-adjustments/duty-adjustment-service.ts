@@ -984,6 +984,7 @@ export class DutyAdjustmentService {
       .set({
         actualMembershipId: context.deductedMember.id,
         actualMemberName: context.deductedMember.realName,
+        startsAt: sql`${shiftAssignments.startsAt}`,
         version: sql`${shiftAssignments.version} + 1`,
       })
       .where(eq(shiftAssignments.id, context.coveredAssignment.id));
@@ -1060,6 +1061,7 @@ export class DutyAdjustmentService {
       .set({
         actualMembershipId: context.overtimeMember.id,
         actualMemberName: context.overtimeMember.realName,
+        startsAt: sql`${shiftAssignments.startsAt}`,
         version: sql`${shiftAssignments.version} + 1`,
       })
       .where(eq(shiftAssignments.id, context.coveredAssignment.id));

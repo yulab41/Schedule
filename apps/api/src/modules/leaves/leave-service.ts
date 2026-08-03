@@ -495,6 +495,7 @@ export class LeaveService {
               ? null
               : (context.memberNamesById.get(nextMembershipId) ?? null),
           plannedMembershipId: nextMembershipId,
+          startsAt: sql`${shiftAssignments.startsAt}`,
           version: sql`${shiftAssignments.version} + 1`,
         })
         .where(eq(shiftAssignments.id, row.id));

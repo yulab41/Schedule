@@ -548,6 +548,7 @@ export class ScheduleRepository {
       .update(shiftAssignments)
       .set({
         deletedAt: sql`current_timestamp(3)`,
+        startsAt: sql`${shiftAssignments.startsAt}`,
         version: sql`${shiftAssignments.version} + 1`,
       })
       .where(

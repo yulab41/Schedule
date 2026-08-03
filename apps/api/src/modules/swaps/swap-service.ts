@@ -838,6 +838,7 @@ export class SwapService {
       .set({
         actualMembershipId: context.targetMember.id,
         actualMemberName: context.targetMember.realName,
+        startsAt: sql`${shiftAssignments.startsAt}`,
         version: sql`${shiftAssignments.version} + 1`,
       })
       .where(eq(shiftAssignments.id, context.initiatorAssignment.id));
@@ -846,6 +847,7 @@ export class SwapService {
       .set({
         actualMembershipId: context.initiatorMember.id,
         actualMemberName: context.initiatorMember.realName,
+        startsAt: sql`${shiftAssignments.startsAt}`,
         version: sql`${shiftAssignments.version} + 1`,
       })
       .where(eq(shiftAssignments.id, context.targetAssignment.id));
