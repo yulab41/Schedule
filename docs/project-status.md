@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–25 已完成；最新验证基线 `pnpm verify` 353/353（60 个测试文件，隔离 MySQL）；轮次 25 仅 Web 改动，`pnpm typecheck` + `pnpm test` 198/198 通过
-- Next actions: 本地验收（Web `http://localhost:5173`，本地账号 `local-admin`/`local-member`；当前重点：添加成员后列表自动刷新）+ 部署后线上验收；下一轮规划：月历式草稿/发布/应用预览、发布记录撤销/恢复/删除、发布前工作流清理、未来日期发布限制与既往排班模块
+- Debug rounds: 1–26 已完成；最新验证基线 `pnpm verify` 353/353（60 个测试文件，隔离 MySQL）；轮次 25/26 为 Web/本地环境改动
+- Next actions: 本地验收（Web `http://localhost:5173`，本地账号 `local-admin`/`local-member`；当前重点：添加成员后列表自动刷新、本地节假日标注恢复）+ 部署后线上验收；下一轮规划：月历式草稿/发布/应用预览、发布记录撤销/恢复/删除、发布前工作流清理、未来日期发布限制与既往排班模块
 
 ## Debug / Test Feedback Log
 
@@ -28,7 +28,7 @@
 ## Completed Work（摘要）
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-03 调试期轮次 1–25 全部完成并部署（用户反馈、根因、修复、验证详见 debug 日志；最新基线 353/353）。
+- 2026-08-03 调试期轮次 1–26 全部完成并部署（用户反馈、根因、修复、验证详见 debug 日志；最新基线 353/353）。
 - 线上数据操作（2026-08-03）：按用户要求清空线上草稿与排班（23 个排班期间、638 条班次软删除，统计快照清空；模板/成员/岗位/班种/联系方式/事件历史保留）；线上迁移已执行至 20 条（`0018`/`0019`/`0020`）。
 
 ## Active Batch
@@ -52,7 +52,7 @@
 - CynosDB `explicit_defaults_for_timestamp=OFF`：TIMESTAMP 列必须显式写明默认值，否则隐式带 `ON UPDATE CURRENT_TIMESTAMP`（`0018`/`0020` 已修复；新增 TIMESTAMP 列需遵循）。
 - 部署铁律：含新迁移的发布必须先对线上库执行迁移（`pnpm --filter @schedule/api migrate`，带线上 `MYSQL_*` 环境），再部署代码；否则线上全站 500（轮次 12 事故）。
 - 2026 法定节假日已导入并确认（39 条，`confirmedYears: [2026]`）。
-- 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用；隔离测试库端口 3307（临时容器用完即删）。
+- 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用（含 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE`/`HOLIDAY_ADMIN_UIDS=local-admin`）；本地库已导入并确认 2026 节假日（39 条，v1）；隔离测试库端口 3307（临时容器用完即删）。
 - 工具：`gh` 位于 `C:\Program Files\GitHub CLI\gh.exe`；CloudBase CLI 用 `pnpm exec tcb`；CAM 子账号 `schedule` 有 TCB/SCF/COS/CDN 权限（无 cynosdb）。
 - 安全 TODO：CAM SecretId/SecretKey 曾贴入对话，需轮换并更新 GitHub `development` secrets；生产化另需 VPC 内网与专用运行账号（妥协与升级路径见 `docs/deployment/production-readiness.md`）。
 

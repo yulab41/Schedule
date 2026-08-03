@@ -37,6 +37,23 @@ node --env-file=.env infra/scripts/dist/import-holidays.js --file=infra/holidays
 
 离线导入只写草稿，确认仍需走线上确认接口。
 
+### 本地开发（与线上同数据）
+
+本地库若为空（节假日标注不显示），按以下步骤导入并确认：
+
+```powershell
+pnpm holidays:build
+node --env-file=.env infra/scripts/dist/import-holidays.js --file=infra/holidays/holidays-2026.json --year=2026
+```
+
+导入得到草稿 `calendarVersionId` 后，确认本地 `.env` 已配置 `HOLIDAY_ADMIN_UIDS=local-admin`，重启本地 API，再调用：
+
+```powershell
+curl.exe -X POST -H "Authorization: Bearer local-admin" "http://127.0.0.1:3000/holidays/versions/<calendarVersionId>/confirm"
+```
+
+验证：`curl.exe -H "Authorization: Bearer local-admin" "http://127.0.0.1:3000/holidays?year=2026"` 应返回 `confirmed: true` 与 39 条日期。注意：PowerShell `Invoke-RestMethod` 无 body POST 会带非 JSON 默认 Content-Type，触发 API 500，请用 `curl` 或带 `-ContentType 'application/json'`。
+
 ## 注意事项
 
 - `packages/test-fixtures` 中的节假日数据是合成测试数据，不得作为正式数据导入。

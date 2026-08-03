@@ -228,8 +228,21 @@
 - 验证：`pnpm typecheck` 通过；`pnpm test` 198/198 通过（155 项 API 用例因未启动隔离 MySQL 跳过，本改动仅涉及 Web 组件）。
 - 状态：已完成（待用户强刷 http://localhost:5173 验收）。
 
+### 轮次 26（提交：docs(holidays): document local holiday import for dev mode）
+- 用户反馈：本地模式下节假日标注没有了。
+- 我方自查发现：本地 MySQL 的 `holiday_calendar_versions`/`holiday_dates` 为空（0 条），`GET /holidays?year=2026` 返回 `confirmed: false`；节假日标注只读取数据库中的“已确认版本”，与前端代码无关。
+- 修复/功能：
+  - 本地 `.env` 新增 `HOLIDAY_ADMIN_UIDS=local-admin`（本地管理员可导入/确认节假日；`.env` 不入库）。
+  - 通过离线导入器将 `infra/holidays/holidays-2026.json`（39 条）导入本地库为草稿，并用本地管理员调用确认接口，保留版本 v1（confirmed）。
+  - `infra/holidays/README.md` 补充本地开发导入步骤，避免本地库重置后再次出现无标注。
+- 验证：`GET /holidays?year=2026` 经本地 API 返回 `confirmed: true` 与 39 条日期（与线上一致）；本地日历刷新后即显示节假日标签。
+- 附加发现（未修代码）：无 body 的 POST 若用 PowerShell `Invoke-RestMethod` 默认请求头调用，Fastify 因无对应 Content-Type 解析器抛 `FST_ERR_CTP_INVALID_MEDIA_TYPE`，被错误处理器归一化为 500；Web 前端用 fetch + JSON 不受影响，已列入待办排查项。
+- 状态：已完成（待用户强刷本地日历验收）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
+- 本地库重置后需重新导入并确认 2026 节假日（步骤见 `infra/holidays/README.md`）；必要时把本地节假日种子并入 `pnpm dev` 初始化。
+- 待排查：Fastify 对不支持的 Content-Type 返回 500（应为 4xx），仅影响非标准客户端（如 PowerShell 无 body POST）。
 - 继续按本日志模板追加用户测试反馈与修复记录。
 - 微信小程序：等 Web 功能稳定后按设计 26.1 另建独立实施计划（账号绑定沿用 CloudBase UID 方案）。
