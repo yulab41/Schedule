@@ -221,6 +221,13 @@
 - 验证：`pnpm verify` 通过；`http://localhost:5173/api/users/me` 经代理返回本地管理员 200。
 - 状态：已完成（本地可登录调试；`.env` 中 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE` 为本地配置，不入库）。
 
+### 轮次 25（提交：fix(web): refresh member list after adding members）
+- 用户反馈：成员页面添加成员后不会自动刷新，希望点击“添加成员”后立即看到成员列表。
+- 我方自查发现：`MemberManager.vue` 的 `addMembers()` 成功后只清空输入框并设置提示文案，未重新加载列表；同页 `convertPending`/`deleteMember`/`updateRole` 均会 `await loadMembers()`。
+- 修复/功能：`addMembers()` 在 `api.addGroupMembers` 成功后补上 `await loadMembers()`，新成员立即出现在列表中。
+- 验证：`pnpm typecheck` 通过；`pnpm test` 198/198 通过（155 项 API 用例因未启动隔离 MySQL 跳过，本改动仅涉及 Web 组件）。
+- 状态：已完成（待用户强刷 http://localhost:5173 验收）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。

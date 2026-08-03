@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–24 已完成；最新验证基线 `pnpm verify` 353/353（60 个测试文件，隔离 MySQL）
-- Next actions: 本地验收（Web `http://localhost:5173`，本地账号 `local-admin`/`local-member`）+ 部署后线上验收（当前重点：加扣班事件人类化显示、草稿编号与归档折叠、8/3 请假审批应无重排、8/6/8/7 手动安排提示）；下一轮规划：月历式草稿/发布/应用预览、发布记录撤销/恢复/删除、发布前工作流清理、未来日期发布限制与既往排班模块
+- Debug rounds: 1–25 已完成；最新验证基线 `pnpm verify` 353/353（60 个测试文件，隔离 MySQL）；轮次 25 仅 Web 改动，`pnpm typecheck` + `pnpm test` 198/198 通过
+- Next actions: 本地验收（Web `http://localhost:5173`，本地账号 `local-admin`/`local-member`；当前重点：添加成员后列表自动刷新）+ 部署后线上验收；下一轮规划：月历式草稿/发布/应用预览、发布记录撤销/恢复/删除、发布前工作流清理、未来日期发布限制与既往排班模块
 
 ## Debug / Test Feedback Log
 
@@ -28,7 +28,7 @@
 ## Completed Work（摘要）
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-03 调试期轮次 1–24 全部完成并部署（用户反馈、根因、修复、验证详见 debug 日志；最新基线 353/353）。
+- 2026-08-03 调试期轮次 1–25 全部完成并部署（用户反馈、根因、修复、验证详见 debug 日志；最新基线 353/353）。
 - 线上数据操作（2026-08-03）：按用户要求清空线上草稿与排班（23 个排班期间、638 条班次软删除，统计快照清空；模板/成员/岗位/班种/联系方式/事件历史保留）；线上迁移已执行至 20 条（`0018`/`0019`/`0020`）。
 
 ## Active Batch

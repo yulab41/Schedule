@@ -104,6 +104,7 @@ async function addMembers(): Promise<void> {
     const result = await api.addGroupMembers(props.group.id, { realNames: names });
     rosterNames.value = '';
     rosterMessage.value = `已添加 ${result.added} 位成员，可直接填写手机号和参与排班；成员登录后用真实姓名和群组码认领即可绑定账号。`;
+    await loadMembers();
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
