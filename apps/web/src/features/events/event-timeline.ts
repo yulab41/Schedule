@@ -31,8 +31,10 @@ export const eventTypeLabels: Readonly<Record<string, string>> = {
   duty_adjustment_request_rejected: '加扣班申请已驳回',
   duty_adjustment_revoked: '加扣班已撤销',
   leave_cover_completed: '请假替班完成',
+  leave_request_cancelled: '请假申请已取消',
   leave_request_approved: '请假已批准',
   leave_request_rejected: '请假已驳回',
+  leave_request_revoked: '请假已撤销',
   leave_request_submitted: '请假已提交',
   manual_schedule_template_applied: '手动模板已应用',
   manual_schedule_template_created: '手动模板已创建',
@@ -74,18 +76,24 @@ const skippedChangeKeys = new Set([
   'affectedMembershipIds',
   'affectedShiftIds',
   'approverUserId',
+  'createdAt',
+  'decidedAt',
+  'deletedAt',
   'groupId',
   'initiatedByUserId',
+  'occurredAt',
   'objectId',
   'objectType',
   'operationId',
   'operatorUserId',
   'parentEventId',
   'schedulePeriodId',
+  'updatedAt',
+  'version',
 ]);
 
 export function getEventTypeLabel(eventType: string): string {
-  return eventTypeLabels[eventType] ?? eventType.replaceAll('_', ' ');
+  return eventTypeLabels[eventType] ?? '排班变更';
 }
 
 export function getEventMarker(eventType: string): CalendarChangeMarker | undefined {
@@ -166,6 +174,16 @@ export function buildEventNarrative(
       }
       break;
     }
+    case 'swap_request_created':
+      return '换班申请已提交。';
+    case 'swap_request_accepted':
+      return '对方已接受换班申请。';
+    case 'swap_request_approved':
+      return '管理员已批准换班申请。';
+    case 'swap_request_rejected':
+      return '换班申请已被拒绝。';
+    case 'swap_request_cancelled':
+      return '换班申请已取消。';
     case 'leave_cover_completed': {
       const strategy =
         after.strategy === 'shift-forward'
@@ -178,6 +196,16 @@ export function buildEventNarrative(
         ? `请假替班完成${strategy === '' ? '' : `（${strategy}）`}。`
         : `请假替班完成${strategy === '' ? '' : `（${strategy}）`}，该班次现由 ${dutyName} 值班。`;
     }
+    case 'leave_request_submitted':
+      return '请假申请已提交。';
+    case 'leave_request_approved':
+      return '请假已批准。';
+    case 'leave_request_rejected':
+      return '请假申请已被拒绝。';
+    case 'leave_request_cancelled':
+      return '请假申请已取消。';
+    case 'leave_request_revoked':
+      return '请假已撤销；如需恢复原排班，请重新生成或发布排班。';
     case 'duty_adjustment_completed': {
       const beforeName = readTopLevelMemberName(before);
       const afterName = readTopLevelMemberName(after);
@@ -186,6 +214,16 @@ export function buildEventNarrative(
       }
       break;
     }
+    case 'duty_adjustment_request_created':
+      return '加扣班申请已提交。';
+    case 'duty_adjustment_request_accepted':
+      return '加班成员已接受加扣班申请。';
+    case 'duty_adjustment_request_approved':
+      return '管理员已批准加扣班申请。';
+    case 'duty_adjustment_request_rejected':
+      return '加扣班申请已被拒绝。';
+    case 'duty_adjustment_request_cancelled':
+      return '加扣班申请已取消。';
     case 'duty_adjustment_revoked': {
       const restoredName = readTopLevelMemberName(after);
       if (restoredName !== undefined) {
@@ -205,6 +243,10 @@ export function buildEventNarrative(
       return assignment === undefined
         ? '排班已发布。'
         : `${assignment.scheduleRoleName} 排班已发布。`;
+    case 'schedule_period_created':
+      return '排班版本已创建。';
+    case 'schedule_period_deleted':
+      return '排班草稿已删除。';
     case 'schedule_period_replaced':
       return '排班版本已被新版本替代。';
     case 'schedule_period_withdrawn':
@@ -213,6 +255,20 @@ export function buildEventNarrative(
       return '自动排班已生成。';
     case 'manual_schedule_template_applied':
       return '手动模板已应用并生成该班次。';
+    case 'manual_schedule_template_created':
+      return '手动排班模板已创建。';
+    case 'manual_schedule_template_updated':
+      return '手动排班模板已更新。';
+    case 'manual_schedule_template_deleted':
+      return '手动排班模板已删除。';
+    case 'schedule_role_changed':
+      return '排班岗位已调整。';
+    case 'schedule_role_corrected':
+      return '排班岗位已更正。';
+    case 'shift_type_changed':
+      return '班种已调整。';
+    case 'rotation_order_changed':
+      return '轮值顺序已调整。';
     default:
       return buildChangeFallbackNarrative(event);
   }
@@ -223,7 +279,7 @@ export function buildEventNarrative(
 function buildChangeFallbackNarrative(event: ScheduleEvent): string | undefined {
   const changes = extractEventChanges(event);
   if (changes.length === 0) {
-    return undefined;
+    return `${getEventTypeLabel(event.eventType)}。`;
   }
 
   return `班次变动：${changes
@@ -283,8 +339,27 @@ function formatPrimitive(value: string | number | boolean | null | undefined): s
   if (value === undefined) {
     return '未设置';
   }
+  if (typeof value === 'string') {
+    const statusLabel = statusLabels[value];
+    if (statusLabel !== undefined) {
+      return statusLabel;
+    }
+  }
   return String(value);
 }
+
+const statusLabels: Readonly<Record<string, string>> = {
+  active: '生效中',
+  approved: '已批准',
+  cancelled: '已取消',
+  completed: '已完成',
+  inactive: '已停用',
+  pending: '待审批',
+  pending_approval: '待管理员审批',
+  pending_target: '待对方接受',
+  rejected: '已拒绝',
+  revoked: '已撤销',
+};
 
 function readNestedMemberName(value: unknown): string | undefined {
   if (value === null || typeof value !== 'object') {

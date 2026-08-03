@@ -29,7 +29,7 @@ function event(overrides: Partial<ScheduleEvent> = {}): ScheduleEvent {
 describe('event timeline logic', () => {
   it('labels known and unknown event types and maps calendar markers', () => {
     expect(getEventTypeLabel('swap_completed')).toBe('换班已生效');
-    expect(getEventTypeLabel('unknown_type')).toBe('unknown type');
+    expect(getEventTypeLabel('unknown_type')).toBe('排班变更');
     expect(getEventMarker('duty_adjustment_completed')).toBe('overtime');
     expect(getEventMarker('leave_cover_completed')).toBe('leave-cover');
     expect(getEventMarker('swap_request_created')).toBeUndefined();
@@ -60,8 +60,26 @@ describe('event timeline logic', () => {
 
     expect(changes).toEqual([
       { after: 'B Doctor', before: 'A Doctor', label: '实际人员' },
-      { after: 'completed', before: 'pending_approval', label: '状态' },
+      { after: '已完成', before: '待管理员审批', label: '状态' },
     ]);
+  });
+
+  it('skips internal timestamps and version fields in change extraction', () => {
+    const changes = extractEventChanges(
+      event({
+        afterData: {
+          decidedAt: '2026-08-02T01:00:00.000Z',
+          status: 'approved',
+          version: 2,
+        },
+        beforeData: {
+          status: 'pending',
+          version: 1,
+        },
+      }),
+    );
+
+    expect(changes).toEqual([{ after: '已批准', before: '待审批', label: '状态' }]);
   });
 
   it('builds a chronologically ordered timeline with correction and marker flags', () => {
@@ -133,6 +151,25 @@ describe('event timeline logic', () => {
         },
       ),
     ).toBe('请假替班完成（整体顺延），该班次现由 C Doctor 值班。');
+  });
+
+  it('writes human-readable narratives for swap and leave workflow events', () => {
+    expect(buildEventNarrative(event({ eventType: 'swap_request_created' }))).toBe(
+      '换班申请已提交。',
+    );
+    expect(buildEventNarrative(event({ eventType: 'leave_request_revoked' }))).toBe(
+      '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
+    );
+    expect(buildEventNarrative(event({ eventType: 'leave_request_cancelled' }))).toBe(
+      '请假申请已取消。',
+    );
+    expect(
+      buildEventNarrative(
+        event({
+          eventType: 'some_unknown_event',
+        }),
+      ),
+    ).toBe('排班变更。');
   });
 
   it('falls back to a readable sentence for event types without a dedicated template', () => {

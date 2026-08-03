@@ -62,6 +62,22 @@ describe('swap flow logic', () => {
     ).toEqual(['assignment-2', 'assignment-3']);
   });
 
+  it('excludes past assignments from my assignments and target options', () => {
+    const pastCalendar: CalendarReadModel = {
+      ...calendar,
+      assignments: [
+        assignment('past-me', '2026-07-01', 'me'),
+        assignment('past-target', '2026-07-02', 'target'),
+        assignment('assignment-4', '2026-09-04', 'me'),
+      ],
+    };
+
+    const candidates = buildSwapCandidates(pastCalendar, 'me');
+    expect(candidates.myAssignments.map((item) => item.id)).toEqual(['assignment-4']);
+    expect(candidates.targetOptions.map((member) => member.membershipId)).toEqual([]);
+    expect(candidates.assignmentsByTarget.has('target')).toBe(false);
+  });
+
   it('resolves the next status from group and member settings', () => {
     expect(resolveNextSwapStatus(true, false)).toBe('pending_target');
     expect(resolveNextSwapStatus(true, true)).toBe('pending_approval');

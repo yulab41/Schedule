@@ -29,12 +29,12 @@ export function buildSwapCandidates(
   calendar: CalendarReadModel,
   myMembershipId: string,
 ): SwapCandidateOptions {
-  const myAssignments = calendar.assignments.filter(
+  const futureAssignments = calendar.assignments.filter(isFutureAssignment);
+  const myAssignments = futureAssignments.filter(
     (assignment) => getDutyMembershipId(assignment) === myMembershipId,
   );
-  const targetOptions = calendar.members.filter((member) => member.membershipId !== myMembershipId);
   const assignmentsByTarget = new Map<string, CalendarDutyAssignment[]>();
-  for (const assignment of calendar.assignments) {
+  for (const assignment of futureAssignments) {
     const dutyMemberId = getDutyMembershipId(assignment);
     if (dutyMemberId === undefined) {
       continue;
@@ -43,6 +43,10 @@ export function buildSwapCandidates(
     assignments.push(assignment);
     assignmentsByTarget.set(dutyMemberId, assignments);
   }
+  const targetOptions = calendar.members.filter(
+    (member) =>
+      member.membershipId !== myMembershipId && assignmentsByTarget.has(member.membershipId),
+  );
 
   return { assignmentsByTarget, myAssignments, targetOptions };
 }
@@ -99,4 +103,8 @@ function formatChinaStandardTime(value: string): string {
     .toISOString()
     .slice(5, 16)
     .replace('T', ' ');
+}
+
+function isFutureAssignment(assignment: CalendarDutyAssignment): boolean {
+  return new Date(assignment.startsAt).valueOf() > Date.now();
 }
