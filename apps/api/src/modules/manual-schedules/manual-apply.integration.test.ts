@@ -269,7 +269,7 @@ describeWithDatabase('manual schedule template apply', () => {
     });
     expect(preview.statusCode).toBe(200);
     expect(preview.json()).toMatchObject({
-      businessMonth: '2026-08-01',
+      businessMonth: '2026-08',
       rulesVersion,
       scheduleRoleIds: [primaryRoleId],
     });
@@ -360,9 +360,23 @@ describeWithDatabase('manual schedule template apply', () => {
       operationId: randomUUID(),
     });
     expect(first.statusCode).toBe(200);
+
+    const blocked = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect(blocked.json()).toMatchObject({
+      error: {
+        code: 'CONFLICT',
+        latestData: { existingPublishedPeriodId: expect.any(String) },
+      },
+    });
+
     const second = await applyTemplate(templateId, {
       expectedRulesVersion: rulesVersion,
       operationId: randomUUID(),
+      replacePublished: true,
     });
     expect(second.statusCode).toBe(200);
 
@@ -668,6 +682,7 @@ describeWithDatabase('manual schedule template apply', () => {
       readonly expectedRulesVersion: number;
       readonly operationId: string;
       readonly publishMode?: 'draft' | 'published';
+      readonly replacePublished?: boolean;
       readonly replaceExistingDrafts?: boolean;
     },
     token = 'owner-token',

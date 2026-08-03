@@ -19,6 +19,15 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 6: manual-schedule drafts now support delete, re-preview, and overwrite-on-reapply and `pnpm verify` passed 334/334 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 7: pending roster entries are merged into the member page with an 未认领 badge and can be converted to formal members; `pnpm verify` passed 335/335 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 8: members and unclaimed members can now be deleted per user decisions (hard delete + auto-remove workflow rows); `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 9: draft preview validation, draft-delete reliability, and publish-overwrite confirmation are fixed; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 9 (Draft Preview/Delete and Publish Overwrite)
+
+Checkpoint commit message: `fix(schedule): draft preview validation, delete reliability, publish overwrite guard`
+
+- Draft preview: the stored-draft preview now reports the business month as `YYYY-MM` (it previously returned the stored `YYYY-MM-01` DATE, which the Web validator rejected as “服务返回了无效资料”). The preview dialog now loads correctly.
+- Draft delete: the delete endpoint was verified working; the Web page now also removes the deleted draft from the local list immediately before refreshing, so the row can never linger after a successful delete. Multiple same-month drafts from before the dedup fix must each be deleted once (the overwrite-on-apply flow prevents new duplicates).
+- Publish overwrite: publishing a draft (or applying a template in 直接发布 mode) when the same role+month already has a published schedule now returns a 409 with `existingPublishedPeriodId` and the UI requires the admin to tick “覆盖已发布排班/覆盖已有排班” before proceeding; without acknowledgement the publish/apply is blocked, so two schedules for the same role/month/day can never both appear. Replacements still create a new revision and mark the old one `replaced` (calendar shows only the latest).
 
 ## 2026-08-03 Round 8 (Member Deletion)
 
@@ -277,6 +286,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 9: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds, including the publish-overwrite-blocked/replace integration assertions. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 8: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds, including the new member-deletion integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 7: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 335 Vitest tests (60 files) and all production builds, including the new roster-merge/convert integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 6: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 334 Vitest tests (60 files) and all production builds, including the new draft preview/delete and draft-overwrite integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.

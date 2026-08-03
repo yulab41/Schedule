@@ -16,6 +16,7 @@ export interface PublishSchedulePeriodRequest {
   readonly acknowledgeBlockers?: boolean;
   readonly expectedVersion: number;
   readonly operationId: string;
+  readonly replacePublished?: boolean;
 }
 
 export interface SchedulePreviewAssignment {

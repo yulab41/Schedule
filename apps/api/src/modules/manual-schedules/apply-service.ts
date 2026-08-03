@@ -22,6 +22,7 @@ import {
   manualScheduleTemplates,
   memberScheduleRoles,
   scheduleRoles,
+  schedulePeriods,
   shiftTypes,
   userProfiles,
   users,
@@ -146,6 +147,7 @@ export class ManualScheduleApplyService {
               expectedRulesVersion: input.expectedRulesVersion,
               groupId: authorization.group.id,
               publishMode: input.publishMode ?? null,
+              replacePublished: input.replacePublished === true,
               replaceExistingDrafts: input.replaceExistingDrafts === true,
               templateId,
             }),
@@ -192,6 +194,35 @@ export class ManualScheduleApplyService {
           context.template.scheduleRoleId,
           businessMonth,
         );
+      }
+    }
+    if (publishMode === 'published' && input.replacePublished !== true) {
+      for (const businessMonth of [...assignmentsByMonth.keys()]) {
+        const [existingPublished] = await transaction
+          .select({ id: schedulePeriods.id })
+          .from(schedulePeriods)
+          .where(
+            and(
+              eq(schedulePeriods.groupId, authorization.group.id),
+              eq(schedulePeriods.scheduleRoleId, context.template.scheduleRoleId),
+              eq(schedulePeriods.businessMonth, `${businessMonth}-01`),
+              eq(schedulePeriods.status, 'published'),
+              isNull(schedulePeriods.deletedAt),
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (existingPublished !== undefined) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            latestData: toLatestData({
+              existingPublishedPeriodId: existingPublished.id,
+              status: 'published',
+            }),
+            statusCode: 409,
+            userMessage: '该岗位该月份已有已发布排班，请确认覆盖发布。',
+          });
+        }
       }
     }
     const periods: SchedulePeriodSummary[] = [];
@@ -800,6 +831,7 @@ function createApplyFingerprint(input: {
   readonly expectedRulesVersion: number;
   readonly groupId: string;
   readonly publishMode: string | null;
+  readonly replacePublished: boolean;
   readonly replaceExistingDrafts: boolean;
   readonly templateId: string;
 }): string {

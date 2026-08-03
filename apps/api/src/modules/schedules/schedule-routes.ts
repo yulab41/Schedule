@@ -44,6 +44,7 @@ const publishPeriodInputSchema = z
     acknowledgeBlockers: z.boolean().optional(),
     expectedVersion: z.number().int().min(1),
     operationId: operationIdSchema,
+    replacePublished: z.boolean().optional(),
   })
   .strict();
 
@@ -183,6 +184,7 @@ function parsePublishPeriodInput(value: unknown): PublishSchedulePeriodRequest {
       : { acknowledgeBlockers: input.acknowledgeBlockers }),
     expectedVersion: input.expectedVersion,
     operationId: input.operationId,
+    ...(input.replacePublished === undefined ? {} : { replacePublished: input.replacePublished }),
   };
 }
 

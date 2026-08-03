@@ -70,7 +70,9 @@ const isPublishingId = ref<string>();
 const isDeletingDraftId = ref<string>();
 const blockedDraft = ref<ScheduleDraftSummary>();
 const blockedDraftMessage = ref('');
+const blockedDraftNeedsReplace = ref(false);
 const acknowledgeBlockers = ref(false);
+const replacePublished = ref(false);
 const previewDialogVisible = ref(false);
 const previewTarget = ref<ScheduleDraftSummary>();
 const draftPreview = ref<ScheduleGenerationPreview>();
@@ -453,10 +455,16 @@ function onApplied(result: AppliedManualScheduleTemplateResult): void {
   void loadData();
 }
 
-async function publishDraft(draft: ScheduleDraftSummary, acknowledge = false): Promise<void> {
+async function publishDraft(
+  draft: ScheduleDraftSummary,
+  acknowledge = false,
+  replace = false,
+): Promise<void> {
   errorMessage.value = undefined;
   blockedDraft.value = undefined;
   blockedDraftMessage.value = '';
+  blockedDraftNeedsReplace.value = false;
+  replacePublished.value = false;
   isPublishingId.value = draft.id;
 
   try {
@@ -464,14 +472,25 @@ async function publishDraft(draft: ScheduleDraftSummary, acknowledge = false): P
       ...(acknowledge ? { acknowledgeBlockers: true } : {}),
       expectedVersion: draft.version,
       operationId: crypto.randomUUID(),
+      ...(replace ? { replacePublished: true } : {}),
     });
     infoMessage.value = `已发布 ${draft.businessMonth.slice(0, 7)} 的排班草稿。`;
     await loadData();
   } catch (error) {
     if (isDataConflictError(error)) {
-      blockedDraft.value = draft;
-      blockedDraftMessage.value = getConflictMessage(error);
-      acknowledgeBlockers.value = false;
+      const latest = getConflictLatestData(error) as
+        { existingPublishedPeriodId?: unknown } | undefined;
+      if (latest?.existingPublishedPeriodId !== undefined) {
+        blockedDraft.value = draft;
+        blockedDraftMessage.value = '该岗位该月份已有已发布排班，请确认覆盖发布。';
+        blockedDraftNeedsReplace.value = true;
+        replacePublished.value = false;
+      } else {
+        blockedDraft.value = draft;
+        blockedDraftMessage.value = getConflictMessage(error);
+        blockedDraftNeedsReplace.value = false;
+        acknowledgeBlockers.value = false;
+      }
     } else {
       errorMessage.value = getErrorMessage(error);
     }
@@ -514,6 +533,12 @@ async function deleteDraft(draft: ScheduleDraftSummary): Promise<void> {
   isDeletingDraftId.value = draft.id;
   try {
     await api.deleteScheduleDraft(props.group.id, draft.id);
+    drafts.value = drafts.value.filter((item) => item.id !== draft.id);
+    if (blockedDraft.value?.id === draft.id) {
+      blockedDraft.value = undefined;
+      blockedDraftMessage.value = '';
+      blockedDraftNeedsReplace.value = false;
+    }
     infoMessage.value = `已删除 ${draft.businessMonth.slice(0, 7)} 的排班草稿。`;
     await loadData();
   } catch (error) {
@@ -677,18 +702,34 @@ function onWindowFocus(): void {
         </div>
         <div v-if="blockedDraft !== undefined" class="blocker-panel">
           <t-alert theme="warning" :message="blockedDraftMessage" />
-          <label class="acknowledge-field">
-            <input v-model="acknowledgeBlockers" type="checkbox" />
-            我已了解冲突和空缺，确认发布
-          </label>
-          <t-button
-            theme="danger"
-            variant="outline"
-            :loading="isPublishingId === blockedDraft.id"
-            @click="publishDraft(blockedDraft, true)"
-          >
-            确认发布
-          </t-button>
+          <template v-if="blockedDraftNeedsReplace">
+            <label class="replace-field">
+              <input v-model="replacePublished" type="checkbox" />
+              覆盖已发布排班（替换同岗位同月份的旧排班）
+            </label>
+            <t-button
+              theme="danger"
+              variant="outline"
+              :loading="isPublishingId === blockedDraft.id"
+              @click="publishDraft(blockedDraft, false, true)"
+            >
+              确认覆盖发布
+            </t-button>
+          </template>
+          <template v-else>
+            <label class="acknowledge-field">
+              <input v-model="acknowledgeBlockers" type="checkbox" />
+              我已了解冲突和空缺，确认发布
+            </label>
+            <t-button
+              theme="danger"
+              variant="outline"
+              :loading="isPublishingId === blockedDraft.id"
+              @click="publishDraft(blockedDraft, true)"
+            >
+              确认发布
+            </t-button>
+          </template>
         </div>
       </section>
     </template>
@@ -911,6 +952,15 @@ function onWindowFocus(): void {
   align-items: center;
   color: #92400e;
   font-size: 13px;
+}
+
+.replace-field {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #1f5aa6;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .draft-preview-meta {

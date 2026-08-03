@@ -26,7 +26,7 @@ import {
   findRotationHardConflicts,
   type GeneratedRotationAssignment,
 } from '@schedule/scheduling-domain';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, ne } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -188,6 +188,33 @@ export class SchedulePublishService {
       userMessage: '排班期间已被更新，请刷新后重试。',
     });
 
+    const [existingPublished] = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, authorization.group.id),
+          eq(schedulePeriods.scheduleRoleId, period.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, period.businessMonth),
+          eq(schedulePeriods.status, 'published'),
+          isNull(schedulePeriods.deletedAt),
+          ne(schedulePeriods.id, period.id),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (existingPublished !== undefined && input.replacePublished !== true) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({
+          existingPublishedPeriodId: existingPublished.id,
+          status: 'published',
+        }),
+        statusCode: 409,
+        userMessage: '该岗位该月份已有已发布排班，请确认覆盖发布。',
+      });
+    }
+
     const assignments = await transaction
       .select()
       .from(shiftAssignments)
@@ -307,7 +334,7 @@ export class SchedulePublishService {
       assignments: assignments.map((assignment) =>
         toStoredPreviewAssignment(period.scheduleRoleId, roleName, assignment),
       ),
-      businessMonth: period.businessMonth,
+      businessMonth: period.businessMonth.slice(0, 7),
       continuousDutyWarnings: findContinuousDutyWarnings(domainAssignments).map(
         (warning): ScheduleGenerationWarning => {
           const memberName = memberNamesById.get(warning.membershipId);

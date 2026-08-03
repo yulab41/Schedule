@@ -11,7 +11,7 @@ import type {
 import { computed, onMounted, ref } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
-import { isDataConflictError } from '../../api/conflict-handler.js';
+import { getConflictLatestData, isDataConflictError } from '../../api/conflict-handler.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { getTemplateDateColumns } from './manual-schedule-logic.js';
 
@@ -34,6 +34,8 @@ const endDate = ref(getDefaultEndDate());
 const preview = ref<ManualApplyPreview>();
 const acknowledgeBlockers = ref(false);
 const replaceExistingDrafts = ref(false);
+const replacePublished = ref(false);
+const needsReplacePublished = ref(false);
 const isLoading = ref(true);
 const isPreviewing = ref(false);
 const isApplying = ref(false);
@@ -104,6 +106,8 @@ async function computePreview(): Promise<void> {
     });
     acknowledgeBlockers.value = false;
     replaceExistingDrafts.value = false;
+    replacePublished.value = false;
+    needsReplacePublished.value = false;
   } catch (error) {
     if (isDataConflictError(error)) {
       await loadContext();
@@ -128,6 +132,10 @@ async function apply(): Promise<void> {
     errorMessage.value = '目标月份已有该岗位的草稿，请勾选“覆盖已有草稿”后再应用。';
     return;
   }
+  if (needsReplacePublished.value && !replacePublished.value) {
+    errorMessage.value = '目标月份已有该岗位的已发布排班，请勾选“覆盖已有排班”后再应用。';
+    return;
+  }
 
   errorMessage.value = undefined;
   isApplying.value = true;
@@ -136,12 +144,21 @@ async function apply(): Promise<void> {
       ...(hasBlockers.value && acknowledgeBlockers.value ? { acknowledgeBlockers: true } : {}),
       expectedRulesVersion: config.value.rulesVersion,
       operationId: crypto.randomUUID(),
+      ...(replacePublished.value ? { replacePublished: true } : {}),
       ...(replaceExistingDrafts.value ? { replaceExistingDrafts: true } : {}),
       ...(repeatEnabled.value ? { endDate: endDate.value } : {}),
     });
     emit('applied', result);
   } catch (error) {
     if (isDataConflictError(error)) {
+      const latest = getConflictLatestData(error) as
+        { existingPublishedPeriodId?: unknown } | undefined;
+      if (latest?.existingPublishedPeriodId !== undefined) {
+        needsReplacePublished.value = true;
+        replacePublished.value = false;
+        errorMessage.value = '目标月份已有该岗位的已发布排班，请勾选“覆盖已有排班”后再应用。';
+        return;
+      }
       await loadContext();
     }
     errorMessage.value = getErrorMessage(error);
@@ -273,6 +290,17 @@ function getErrorMessage(error: unknown): string {
             <label class="replace-field">
               <input v-model="replaceExistingDrafts" type="checkbox" />
               覆盖已有草稿（删除同岗位同月份的旧草稿后重新应用）
+            </label>
+          </template>
+
+          <template v-if="needsReplacePublished">
+            <t-alert
+              theme="warning"
+              message="该岗位在目标月份已有已发布排班，覆盖后旧排班将被替换。"
+            />
+            <label class="replace-field">
+              <input v-model="replacePublished" type="checkbox" />
+              覆盖已有排班（替换同岗位同月份的已发布排班）
             </label>
           </template>
 
