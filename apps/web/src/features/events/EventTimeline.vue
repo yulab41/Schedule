@@ -68,7 +68,13 @@ const swapChain = computed(() =>
       <div class="entry-heading">
         <time class="entry-time">{{ formatEventTime(item.event.occurredAt) }}</time>
         <ChangeBadge v-if="item.marker !== undefined" :marker="item.marker" />
-        <strong v-if="item.event.eventType !== 'swap_completed'" class="entry-type">
+        <strong
+          v-if="
+            item.event.eventType !== 'swap_completed' &&
+            item.event.eventType !== 'duty_adjustment_completed'
+          "
+          class="entry-type"
+        >
           {{ getEventTypeLabel(item.event.eventType) }}
         </strong>
       </div>
@@ -78,7 +84,12 @@ const swapChain = computed(() =>
       <p v-if="item.event.reason !== undefined" class="entry-reason">
         原因：{{ item.event.reason }}
       </p>
-      <ul v-if="extractEventChanges(item.event).length > 0" class="entry-changes">
+      <ul
+        v-if="
+          extractEventChanges(item.event).length > 0 && narratives.get(item.event.id) === undefined
+        "
+        class="entry-changes"
+      >
         <li v-for="change in extractEventChanges(item.event)" :key="change.label">
           <span class="change-label">{{ change.label }}</span>
           <span class="change-value"

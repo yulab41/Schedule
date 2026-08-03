@@ -534,6 +534,7 @@ export class DutyAdjustmentService {
         authorization.user.id,
         input.operationId,
         createdEventId,
+        context.deductedMember.realName,
         null,
       );
     }
@@ -609,6 +610,7 @@ export class DutyAdjustmentService {
       authorization.user.id,
       input.operationId,
       createdEventId,
+      authorization.user.realName,
       authorization.user.id,
     );
 
@@ -723,6 +725,7 @@ export class DutyAdjustmentService {
         authorization.user.id,
         input.operationId,
         acceptedEventId,
+        context.deductedMember.realName,
         null,
       );
     } else {
@@ -809,6 +812,7 @@ export class DutyAdjustmentService {
       authorization.user.id,
       input.operationId,
       approvedEventId,
+      context.deductedMember.realName,
       authorization.user.id,
     );
 
@@ -1079,6 +1083,7 @@ export class DutyAdjustmentService {
     actorUserId: string,
     operationId: string,
     parentEventId: string,
+    initiatorMemberName: string,
     approverUserId: string | null,
   ): Promise<void> {
     const beforeActual = {
@@ -1112,10 +1117,15 @@ export class DutyAdjustmentService {
       afterData: toLatestData({
         actualMemberId: context.overtimeMember.id,
         actualMemberName: context.overtimeMember.realName,
+        deductedMemberName: context.deductedMember.realName,
+        initiatorMemberName,
+        overtimeMemberName: context.overtimeMember.realName,
       }),
       beforeData: toLatestData({
         actualMemberId: beforeActual.actualMemberId,
         actualMemberName: beforeActual.actualMemberName,
+        deductedMemberName: context.deductedMember.realName,
+        overtimeMemberName: context.overtimeMember.realName,
       }),
       eventStatus: 'completed',
       eventType: 'duty_adjustment_completed',

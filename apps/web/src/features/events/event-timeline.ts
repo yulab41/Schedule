@@ -219,10 +219,17 @@ export function buildEventNarrative(
     case 'leave_request_revoked':
       return '请假已撤销；如需恢复原排班，请重新生成或发布排班。';
     case 'duty_adjustment_completed': {
-      const beforeName = readTopLevelMemberName(before);
-      const afterName = readTopLevelMemberName(after);
-      if (beforeName !== undefined && afterName !== undefined && beforeName !== afterName) {
-        return `加扣班完成：原值班 ${beforeName} 的班次现由 ${afterName} 代值。`;
+      const beforeName =
+        readTopLevelMemberName(before) ??
+        readString(before.deductedMemberName) ??
+        readString(after.deductedMemberName) ??
+        assignment?.plannedMemberName;
+      const afterName = readTopLevelMemberName(after) ?? readString(after.overtimeMemberName);
+      const initiatorName = readString(after.initiatorMemberName);
+      if (afterName !== undefined) {
+        return `加扣班完成：${beforeName ?? '原值班人员'} 的班次由 ${afterName} 代值${
+          initiatorName === undefined ? '' : `（由 ${initiatorName} 发起）`
+        }。`;
       }
       break;
     }
@@ -426,6 +433,10 @@ function readMemberNameFromObject(value: object): string | undefined {
     return record.plannedMemberName;
   }
   return undefined;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 interface SwapChainStep {

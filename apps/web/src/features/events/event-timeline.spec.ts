@@ -121,7 +121,41 @@ describe('event timeline logic', () => {
           eventType: 'duty_adjustment_completed',
         }),
       ),
-    ).toBe('加扣班完成：原值班 A Doctor 的班次现由 B Doctor 代值。');
+    ).toBe('加扣班完成：A Doctor 的班次由 B Doctor 代值。');
+  });
+
+  it('shows the deducted member and initiator in duty adjustment narratives', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: {
+            actualMemberName: 'B Doctor',
+            deductedMemberName: 'A Doctor',
+            initiatorMemberName: 'A Doctor',
+            overtimeMemberName: 'B Doctor',
+          },
+          beforeData: { actualMemberId: null, actualMemberName: null },
+          eventType: 'duty_adjustment_completed',
+        }),
+        {
+          businessDate: '2026-08-08',
+          changeMarkers: ['overtime'],
+          endsAt: '2026-08-08T16:00:00.000Z',
+          id: 'assignment-1',
+          plannedMemberName: 'A Doctor',
+          schedulePeriodId: 'period-1',
+          scheduleRoleId: 'role-1',
+          scheduleRoleName: '一线',
+          shiftTypeAbbreviation: '全',
+          shiftTypeColor: '#1F5AA6',
+          shiftTypeId: 'shift-1',
+          shiftTypeName: '全天班',
+          shiftTypeTextColor: '#FFFFFF',
+          slotPosition: 1,
+          startsAt: '2026-08-08T00:00:00.000Z',
+        },
+      ),
+    ).toBe('加扣班完成：A Doctor 的班次由 B Doctor 代值（由 A Doctor 发起）。');
   });
 
   it('includes the initiator and request time in swap narratives', () => {
