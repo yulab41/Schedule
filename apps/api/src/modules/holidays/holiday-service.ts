@@ -268,18 +268,13 @@ export class HolidayService {
   ): Promise<HolidayReadModel> {
     return withTransaction(this.databaseClient, async (transaction) => {
       await requireActiveUser(transaction, identity);
-      const confirmed = await this.loadLatestConfirmed(transaction, year);
-      if (confirmed === undefined) {
-        return { confirmed: false, dates: [], year };
-      }
+      return this.readConfirmedYear(transaction, year);
+    });
+  }
 
-      return {
-        confirmed: true,
-        dates: confirmed.dates
-          .map(toConfirmedHolidayDate)
-          .sort((first, second) => first.date.localeCompare(second.date)),
-        year,
-      };
+  public async getConfirmedPublic(year: number): Promise<HolidayReadModel> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      return this.readConfirmedYear(transaction, year);
     });
   }
 
@@ -335,6 +330,24 @@ export class HolidayService {
       .where(eq(holidayDates.calendarVersionId, version.id));
 
     return { dates, id: version.id, version: version.version };
+  }
+
+  private async readConfirmedYear(
+    transaction: DatabaseTransaction,
+    year: number,
+  ): Promise<HolidayReadModel> {
+    const confirmed = await this.loadLatestConfirmed(transaction, year);
+    if (confirmed === undefined) {
+      return { confirmed: false, dates: [], year };
+    }
+
+    return {
+      confirmed: true,
+      dates: confirmed.dates
+        .map(toConfirmedHolidayDate)
+        .sort((first, second) => first.date.localeCompare(second.date)),
+      year,
+    };
   }
 
   private async readVersion(

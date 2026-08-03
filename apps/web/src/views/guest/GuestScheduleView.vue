@@ -11,9 +11,11 @@ import { ApiClientError, createApiClient } from '../../api/client.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import {
   addBusinessMonths,
+  createLatestRequestTracker,
   getBusinessMonthLabel,
   getCurrentBusinessMonth,
 } from '../../features/calendar/calendar-logic.js';
+import { getBusinessDate } from '../../features/calendar/calendar-views.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 
 const api = createApiClient({ auth: cloudbaseAuth });
@@ -25,7 +27,8 @@ const guestGroups = ref<readonly GuestGroupSummary[]>([]);
 const isLoading = ref(false);
 const isLoadingGroups = ref(false);
 const selectedGroup = ref<GuestGroupSummary>();
-const holidays = new Map<string, ConfirmedHolidayDate>();
+const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
+const requestTracker = createLatestRequestTracker();
 
 async function loadGuestGroups(): Promise<void> {
   errorMessage.value = undefined;
@@ -45,19 +48,42 @@ async function loadCalendar(): Promise<void> {
     return;
   }
 
+  const request = requestTracker.begin();
   errorMessage.value = undefined;
   isLoading.value = true;
   try {
-    calendarResult.value = await api.getGuestGroupCalendar(
+    const nextCalendar = await api.getGuestGroupCalendar(
       selectedGroup.value.id,
       businessMonth.value,
     );
+    if (requestTracker.isCurrent(request)) {
+      calendarResult.value = nextCalendar;
+      await loadHolidays(request);
+    }
   } catch (error) {
-    calendarResult.value = undefined;
-    errorMessage.value =
-      error instanceof ApiClientError ? error.message : '排班暂时无法加载，请稍后重试。';
+    if (requestTracker.isCurrent(request)) {
+      calendarResult.value = undefined;
+      errorMessage.value =
+        error instanceof ApiClientError ? error.message : '排班暂时无法加载，请稍后重试。';
+    }
   } finally {
-    isLoading.value = false;
+    if (requestTracker.isCurrent(request)) {
+      isLoading.value = false;
+    }
+  }
+}
+
+async function loadHolidays(request: number): Promise<void> {
+  const year = Number(businessMonth.value.slice(0, 4));
+  try {
+    const nextHolidays = await api.getGuestHolidays(year);
+    if (requestTracker.isCurrent(request)) {
+      holidays.value = new Map(nextHolidays.dates.map((date) => [date.date, date] as const));
+    }
+  } catch {
+    if (requestTracker.isCurrent(request)) {
+      holidays.value = new Map();
+    }
   }
 }
 
@@ -138,6 +164,7 @@ onMounted(() => void loadGuestGroups());
         :business-month="calendarResult.calendar.businessMonth"
         :holidays="holidays"
         :members="calendarResult.calendar.members"
+        :today="getBusinessDate()"
       />
     </section>
   </main>

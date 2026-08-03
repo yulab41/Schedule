@@ -89,7 +89,14 @@ export class CalendarQuery {
         )
         .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
 
-      return this.buildCalendar(transaction, authorization.group.id, businessMonth, periods, true);
+      return this.buildCalendar(
+        transaction,
+        authorization.group.id,
+        businessMonth,
+        periods,
+        true,
+        true,
+      );
     });
   }
 
@@ -133,6 +140,7 @@ export class CalendarQuery {
         authorization.group.id,
         period.businessMonth.slice(0, 7),
         [period],
+        true,
         true,
       );
     });
@@ -206,7 +214,7 @@ export class CalendarQuery {
           ),
         )
         .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
-      return this.buildCalendar(transaction, group.id, businessMonth, periods, false);
+      return this.buildCalendar(transaction, group.id, businessMonth, periods, true, false);
     });
     return { calendar, groupName: group.name };
   }
@@ -217,6 +225,7 @@ export class CalendarQuery {
     businessMonth: string,
     periods: readonly { readonly id: string; readonly scheduleRoleId: string }[],
     includeContacts: boolean,
+    includeChangeMarkers: boolean,
   ): Promise<CalendarReadModel> {
     if (periods.length === 0) {
       return emptyCalendar(groupId, businessMonth);
@@ -243,28 +252,30 @@ export class CalendarQuery {
         .select({ id: scheduleRoles.id, name: scheduleRoles.name })
         .from(scheduleRoles)
         .where(and(inArray(scheduleRoles.id, roleIds), isNull(scheduleRoles.deletedAt))),
-      transaction
-        .select({
-          affectedShiftIds: scheduleEvents.affectedShiftIds,
-          eventType: scheduleEvents.eventType,
-          occurredAt: scheduleEvents.occurredAt,
-        })
-        .from(scheduleEvents)
-        .where(
-          and(
-            eq(scheduleEvents.groupId, groupId),
-            inArray(scheduleEvents.schedulePeriodId, periodIds),
-            inArray(scheduleEvents.eventType, [...calendarMarkerEventTypes]),
-          ),
-        )
-        .orderBy(asc(scheduleEvents.occurredAt), asc(scheduleEvents.id)),
+      includeChangeMarkers
+        ? transaction
+            .select({
+              affectedShiftIds: scheduleEvents.affectedShiftIds,
+              eventType: scheduleEvents.eventType,
+              occurredAt: scheduleEvents.occurredAt,
+            })
+            .from(scheduleEvents)
+            .where(
+              and(
+                eq(scheduleEvents.groupId, groupId),
+                inArray(scheduleEvents.schedulePeriodId, periodIds),
+                inArray(scheduleEvents.eventType, [...calendarMarkerEventTypes]),
+              ),
+            )
+            .orderBy(asc(scheduleEvents.occurredAt), asc(scheduleEvents.id))
+        : Promise.resolve([]),
     ]);
 
     const roleNamesById = new Map(roles.map((role) => [role.id, role.name]));
     const scheduleRoleIdByPeriodId = new Map(
       periods.map((period) => [period.id, period.scheduleRoleId]),
     );
-    const markersByShiftId = collectMarkers(markerEvents);
+    const markersByShiftId = includeChangeMarkers ? collectMarkers(markerEvents) : new Map();
     const memberNamesById = collectMemberNames(assignments);
     const membershipIds = [...memberNamesById.keys()].sort();
     const contactsByMembershipId = includeContacts

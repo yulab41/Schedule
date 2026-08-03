@@ -212,6 +212,7 @@ export interface ApiClient {
   getGuestGroupCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
   getHolidays(year: number): Promise<HolidayReadModel>;
+  getGuestHolidays(year: number): Promise<HolidayReadModel>;
   getMonthStatistics(groupId: string, businessMonth: string): Promise<MonthStatisticsSnapshot>;
   getEventDetail(groupId: string, eventId: string): Promise<ScheduleEventDetail>;
   getGroupEvents(
@@ -1036,6 +1037,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/holidays?year=${encodeURIComponent(String(year))}`,
         { method: 'GET' },
         isHolidayReadModel,
+      );
+    },
+    getGuestHolidays(year) {
+      return requestPublicJsonWithOnline(
+        fetchImplementation,
+        baseUrl,
+        `/guest/holidays?year=${encodeURIComponent(String(year))}`,
+        { method: 'GET' },
+        isHolidayReadModel,
+        isOnline,
       );
     },
     getEventDetail(groupId, eventId) {

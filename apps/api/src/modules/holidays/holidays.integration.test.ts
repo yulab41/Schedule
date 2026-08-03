@@ -233,6 +233,43 @@ describeWithDatabase('holiday data management', () => {
     expect(duplicateDateImport.statusCode).toBe(400);
   });
 
+  it('exposes only confirmed holiday dates through the public guest endpoint', async () => {
+    const imported = await importCalendar('admin-token', 2026, holidays2026Fixture);
+    const calendarVersionId = (imported.json() as { calendarVersionId: string }).calendarVersionId;
+    await confirmVersion('admin-token', calendarVersionId);
+
+    const guest = await app.inject({
+      method: 'GET',
+      url: '/guest/holidays?year=2026',
+    });
+    expect(guest.statusCode, guest.body).toBe(200);
+    const guestBody = guest.json() as HolidayReadModel;
+    expect(guestBody).toMatchObject({ confirmed: true, year: 2026 });
+    expect(guestBody.dates).toHaveLength(holidays2026Fixture.length);
+    expect(guestBody.dates[0]).toMatchObject({
+      date: '2026-01-01',
+      holidayName: '元旦',
+      isOffDay: true,
+      isWorkday: false,
+    });
+
+    const missingYear = await app.inject({
+      method: 'GET',
+      url: '/guest/holidays?year=2027',
+    });
+    expect(missingYear.statusCode).toBe(200);
+    expect(missingYear.json()).toMatchObject({ confirmed: false, dates: [], year: 2027 });
+
+    const invalidYear = await app.inject({
+      method: 'GET',
+      url: '/guest/holidays?year=abc',
+    });
+    expect(invalidYear.statusCode).toBe(400);
+
+    const authenticated = await app.inject({ method: 'GET', url: '/holidays?year=2026' });
+    expect(authenticated.statusCode).toBe(401);
+  });
+
   it('preserves historical versions when a newer year is imported', async () => {
     const imported2025 = await importCalendar('admin-token', 2025, holidays2025Fixture);
     const version2025 = (imported2025.json() as { calendarVersionId: string }).calendarVersionId;

@@ -29,6 +29,10 @@ export function getCurrentBusinessMonth(date: Date = new Date()): string {
   return new Date(date.valueOf() + chinaStandardTimeOffsetMilliseconds).toISOString().slice(0, 7);
 }
 
+export function isPastBusinessDate(businessDate: string, today: string): boolean {
+  return businessDate < today;
+}
+
 export function addBusinessMonths(businessMonth: string, delta: number): string {
   if (!businessMonthPattern.test(businessMonth) || !Number.isInteger(delta)) {
     throw new Error('The business month must use the YYYY-MM format.');

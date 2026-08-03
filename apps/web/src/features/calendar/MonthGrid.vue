@@ -10,6 +10,7 @@ import {
   buildMonthGrid,
   getDutyMembershipId,
   getHolidayShortLabel,
+  isPastBusinessDate,
   type CalendarGridWeek,
 } from './calendar-logic.js';
 import { groupAssignmentsByDate } from './calendar-views.js';
@@ -74,7 +75,10 @@ function isSoleDuty(date: string | undefined): boolean {
         v-for="(cell, cellIndex) in week"
         :key="cellIndex"
         class="day-cell"
-        :class="{ 'is-today': cell?.businessDate === today }"
+        :class="{
+          'is-past': cell !== null && isPastBusinessDate(cell.businessDate, today ?? ''),
+          'is-today': cell?.businessDate === today,
+        }"
         :data-today="cell?.businessDate === today ? 'true' : undefined"
         :aria-current="cell?.businessDate === today ? 'date' : undefined"
       >
@@ -147,8 +151,16 @@ function isSoleDuty(date: string | undefined): boolean {
   border: 2px solid #1f5aa6;
 }
 
+.day-cell.is-past {
+  background: #f3f4f6;
+}
+
 .day-cell.is-off-day {
   background: #fdf7f0;
+}
+
+.day-cell.is-past.is-off-day {
+  background: #f1ece6;
 }
 
 .day-number {
@@ -157,6 +169,19 @@ function isSoleDuty(date: string | undefined): boolean {
   color: #374151;
   font-size: 12px;
   font-weight: 600;
+}
+
+.day-cell.is-past .day-number {
+  color: #4b5563;
+}
+
+.day-cell.is-past :deep(.duty-name),
+.day-cell.is-past :deep(.duty-name.is-callable) {
+  color: #4b5563;
+}
+
+.day-cell.is-past :deep(.duty-name.is-callable:hover) {
+  color: #374151;
 }
 
 .is-today .day-number {

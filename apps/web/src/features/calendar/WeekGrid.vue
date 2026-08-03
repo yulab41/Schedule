@@ -8,7 +8,7 @@ import { computed } from 'vue';
 
 import { getWeekDays, getWeekdayLabel, groupAssignmentsByDate } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
-import { getDutyMembershipId, getHolidayShortLabel } from './calendar-logic.js';
+import { getDutyMembershipId, getHolidayShortLabel, isPastBusinessDate } from './calendar-logic.js';
 
 const props = defineProps<{
   readonly assignments: readonly CalendarDutyAssignment[];
@@ -60,7 +60,10 @@ function isSoleDuty(date: string): boolean {
         v-for="date in days"
         :key="date"
         class="day-cell"
-        :class="{ 'is-today': date === today }"
+        :class="{
+          'is-past': isPastBusinessDate(date, today),
+          'is-today': date === today,
+        }"
         :data-today="date === today ? 'true' : undefined"
         :aria-current="date === today ? 'date' : undefined"
       >
@@ -125,6 +128,10 @@ function isSoleDuty(date: string): boolean {
   border: 2px solid var(--ui-color-primary);
 }
 
+.day-cell.is-past {
+  background: #f3f4f6;
+}
+
 .day-header {
   display: flex;
   gap: 6px;
@@ -142,6 +149,20 @@ function isSoleDuty(date: string): boolean {
   border-radius: 50%;
   font-size: var(--ui-font-size-sm);
   font-weight: 600;
+}
+
+.day-cell.is-past .day-number,
+.day-cell.is-past .weekday {
+  color: #4b5563;
+}
+
+.day-cell.is-past :deep(.duty-name),
+.day-cell.is-past :deep(.duty-name.is-callable) {
+  color: #4b5563;
+}
+
+.day-cell.is-past :deep(.duty-name.is-callable:hover) {
+  color: #374151;
 }
 
 .is-today .day-number {

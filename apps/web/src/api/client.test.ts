@@ -304,6 +304,35 @@ describe('Web API client', () => {
     );
   });
 
+  it('loads confirmed holidays through the public guest endpoint', async () => {
+    const guestHolidays = {
+      confirmed: true,
+      dates: [
+        {
+          date: '2026-01-01',
+          holidayName: '元旦',
+          isOffDay: true,
+          isWorkday: false,
+        },
+      ],
+      year: 2026,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(guestHolidays), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getGuestHolidays(2026)).resolves.toEqual(guestHolidays);
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      '/api/guest/holidays?year=2026',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   it('rejects a malformed calendar response', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

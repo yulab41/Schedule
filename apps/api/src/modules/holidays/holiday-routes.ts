@@ -32,6 +32,10 @@ export function registerHolidayRoutes(app: FastifyInstance, holidayService: Holi
     holidayService.getConfirmed(getAuthenticatedIdentity(request), parseYearQuery(request)),
   );
 
+  app.get('/guest/holidays', (request) =>
+    holidayService.getConfirmedPublic(parseYearQuery(request)),
+  );
+
   app.post('/holidays/import-preview', { preHandler: app.authenticate }, (request) =>
     holidayService.previewImport(getAuthenticatedIdentity(request), parseImportInput(request.body)),
   );

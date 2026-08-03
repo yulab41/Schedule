@@ -204,7 +204,7 @@ describeWithDatabase('current month calendar read model', () => {
     });
   });
 
-  it('lists guest groups and reads the selected calendar without exposing contact details', async () => {
+  it('lists guest groups and reads the selected calendar with contacts but without event markers', async () => {
     await savePublished('2026-08');
     const contact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -237,8 +237,61 @@ describeWithDatabase('current month calendar read model', () => {
     });
     const body = response.json() as { calendar: CalendarReadModel };
     expect(body.calendar.assignments).toHaveLength(31);
-    expect(body.calendar.members.every((member) => member.mobilePhone === undefined)).toBe(true);
-    expect(body.calendar.members.every((member) => member.shortPhone === undefined)).toBe(true);
+    const ownerMember = body.calendar.members.find(
+      (member) => member.membershipId === ownerMembershipId,
+    );
+    expect(ownerMember).toMatchObject({
+      isConfirmed: true,
+      mobilePhone: '13800138000',
+      realName: 'Owner Doctor',
+      shortPhone: '12345',
+    });
+    expect(
+      body.calendar.assignments.every((assignment) => assignment.changeMarkers.length === 0),
+    ).toBe(true);
+  });
+
+  it('hides workflow change markers from guests even when events exist', async () => {
+    const saved = await savePublished('2026-08');
+    const periodId = (saved.json() as SavedScheduleGeneration).periods[0]?.id as string;
+    const [assignmentRow] = await client.database
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, periodId))
+      .orderBy(sql`${shiftAssignments.businessDate}`)
+      .limit(1);
+    const assignmentId = assignmentRow?.id as string;
+
+    await client.database.insert(scheduleEvents).values({
+      affectedMembershipIds: [],
+      affectedShiftIds: [assignmentId],
+      eventStatus: 'completed',
+      eventType: 'swap_completed',
+      groupId,
+      id: randomUUID(),
+      objectId: assignmentId,
+      objectType: 'shift_assignment',
+      operationId: randomUUID(),
+      schedulePeriodId: periodId,
+    });
+
+    const authenticated = (
+      await readCalendar('owner-token', '2026-08')
+    ).json() as CalendarReadModel;
+    expect(
+      authenticated.assignments.find((assignment) => assignment.id === assignmentId)?.changeMarkers,
+    ).toEqual(['swap']);
+
+    const guest = (
+      await app.inject({
+        method: 'GET',
+        url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08`,
+      })
+    ).json() as { calendar: CalendarReadModel };
+    expect(
+      guest.calendar.assignments.find((assignment) => assignment.id === assignmentId)
+        ?.changeMarkers,
+    ).toEqual([]);
   });
 
   it('rate limits repeated invalid guest group codes', async () => {
