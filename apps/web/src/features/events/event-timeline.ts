@@ -173,8 +173,6 @@ export function buildEventNarrative(
       const initiatorName = readNestedMemberName(before.initiatorAssignment);
       const beforeInitiator = readNestedMemberName(before.initiatorAssignment);
       const afterInitiator = readNestedMemberName(after.initiatorAssignment);
-      const beforeTarget = readNestedMemberName(before.targetAssignment);
-      const afterTarget = readNestedMemberName(after.targetAssignment);
       if (beforeInitiator !== undefined && afterInitiator !== undefined) {
         const details: string[] = [];
         if (initiatorName !== undefined) {
@@ -184,11 +182,7 @@ export function buildEventNarrative(
           details.push(`发起时间 ${formatEventTime(context.initiatedAt)}`);
         }
         const detailText = details.length === 0 ? '' : `（${details.join('，')}）`;
-        return `${beforeInitiator} 与 ${afterInitiator} 互换班次${detailText}：原 ${beforeInitiator} 的班次现由 ${afterInitiator} 值班${
-          beforeTarget !== undefined && afterTarget !== undefined
-            ? `，原 ${beforeTarget} 的班次现由 ${afterTarget} 值班`
-            : ''
-        }。`;
+        return `${beforeInitiator} 与 ${afterInitiator} 互换班次${detailText}。`;
       }
       break;
     }

@@ -111,9 +111,7 @@ describe('event timeline logic', () => {
           },
         }),
       ),
-    ).toBe(
-      'A Doctor 与 B Doctor 互换班次（由 A Doctor 发起）：原 A Doctor 的班次现由 B Doctor 值班，原 B Doctor 的班次现由 A Doctor 值班。',
-    );
+    ).toBe('A Doctor 与 B Doctor 互换班次（由 A Doctor 发起）。');
 
     expect(
       buildEventNarrative(
@@ -142,9 +140,7 @@ describe('event timeline logic', () => {
         undefined,
         { initiatedAt: '2026-08-03T01:00:00.000Z' },
       ),
-    ).toBe(
-      'A Doctor 与 B Doctor 互换班次（由 A Doctor 发起，发起时间 2026-08-03 09:00）：原 A Doctor 的班次现由 B Doctor 值班，原 B Doctor 的班次现由 A Doctor 值班。',
-    );
+    ).toBe('A Doctor 与 B Doctor 互换班次（由 A Doctor 发起，发起时间 2026-08-03 09:00）。');
   });
 
   it('builds a full swap chain for one shift across multiple swaps', () => {

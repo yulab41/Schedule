@@ -10,7 +10,6 @@ import {
   extractEventChanges,
   formatEventTime,
   formatJsonValue,
-  getEventRelationLabel,
   getEventTypeLabel,
 } from './event-timeline.js';
 
@@ -69,10 +68,9 @@ const swapChain = computed(() =>
       <div class="entry-heading">
         <time class="entry-time">{{ formatEventTime(item.event.occurredAt) }}</time>
         <ChangeBadge v-if="item.marker !== undefined" :marker="item.marker" />
-        <strong class="entry-type">{{ getEventTypeLabel(item.event.eventType) }}</strong>
-        <span class="entry-relation" :class="{ correction: item.isCorrection }">
-          {{ getEventRelationLabel(item.event) }}
-        </span>
+        <strong v-if="item.event.eventType !== 'swap_completed'" class="entry-type">
+          {{ getEventTypeLabel(item.event.eventType) }}
+        </strong>
       </div>
       <p v-if="narratives.get(item.event.id) !== undefined" class="entry-narrative">
         {{ narratives.get(item.event.id) }}
