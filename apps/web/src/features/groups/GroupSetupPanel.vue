@@ -69,7 +69,7 @@ async function saveRoster(): Promise<void> {
       realNames: parsedRosterNames.value,
     });
     rosterNames.value = '';
-    infoMessage.value = `已添加 ${result.added} 位待认领人员。`;
+    infoMessage.value = `已添加 ${result.added} 位成员（未认领状态，已可转正排班；成员用真实姓名和群组码认领后自动绑定账号）。`;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {

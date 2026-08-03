@@ -32,6 +32,9 @@ const contactsByMembershipId = computed(
 const canManageAdministrators = computed(() => props.group.role === 'owner');
 const canAddMembers = computed(() => props.group.role !== 'member');
 const canManageContacts = computed(() => props.group.role !== 'member');
+const pendingMembers = computed(() =>
+  members.value.filter((member) => member.isPendingRoster === true),
+);
 
 watch(
   () => [props.group.id, props.group.version],
@@ -104,6 +107,35 @@ async function addMembers(): Promise<void> {
     errorMessage.value = getErrorMessage(error);
   } finally {
     isAddingRoster.value = false;
+  }
+}
+
+async function convertPending(names: readonly string[]): Promise<void> {
+  if (names.length === 0) {
+    return;
+  }
+  if (
+    !window.confirm(
+      `确定将 ${names.length} 位待认领成员转为正式成员吗？转正后可填写手机号并参与排班。`,
+    )
+  ) {
+    return;
+  }
+
+  errorMessage.value = undefined;
+  rosterMessage.value = undefined;
+  isUpdating.value = true;
+  try {
+    const result = await api.convertRosterEntries(props.group.id, { realNames: [...names] });
+    rosterMessage.value =
+      result.skipped > 0
+        ? `已转正 ${result.converted} 位成员，跳过 ${result.skipped} 位（已存在或找不到）。`
+        : `已转正 ${result.converted} 位成员。`;
+    await loadMembers();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isUpdating.value = false;
   }
 }
 
@@ -182,12 +214,32 @@ function getErrorMessage(error: unknown): string {
       </label>
       <t-button theme="primary" type="submit" :loading="isAddingRoster">添加成员</t-button>
     </form>
+    <div v-if="pendingMembers.length > 0" class="pending-panel">
+      <t-alert
+        theme="warning"
+        :message="`有 ${pendingMembers.length} 位待认领成员尚未转为正式成员，转正后才能填写手机号和参与排班。`"
+      />
+      <t-button
+        variant="outline"
+        :loading="isUpdating"
+        @click="convertPending(pendingMembers.map((member) => member.realName))"
+      >
+        全部转为正式成员
+      </t-button>
+    </div>
     <t-loading v-if="isLoading" text="正在加载成员" />
     <div v-else class="member-list">
       <article v-for="member in members" :key="member.id" class="member-row">
         <div class="member-summary">
           <strong>{{ member.realName }}</strong>
           <span>{{ roleLabel(member.role) }}</span>
+          <span
+            v-if="member.isUnclaimed === true"
+            class="unclaimed-badge"
+            title="已添加但尚未绑定登录账号，成员用真实姓名和群组码认领后自动绑定"
+          >
+            未认领
+          </span>
           <span v-if="contactFor(member)?.mobilePhone !== undefined">
             长号：{{ contactFor(member)?.mobilePhone }}
           </span>
@@ -196,7 +248,11 @@ function getErrorMessage(error: unknown): string {
           </span>
           <span v-if="contactFor(member)?.isConfirmed === false">联系方式待确认</span>
         </div>
-        <t-space v-if="canManageAdministrators && member.role !== 'owner'">
+        <t-space
+          v-if="
+            canManageAdministrators && member.role !== 'owner' && member.isPendingRoster !== true
+          "
+        >
           <t-button
             v-if="member.role === 'member'"
             variant="outline"
@@ -222,8 +278,16 @@ function getErrorMessage(error: unknown): string {
             转让群主
           </t-button>
         </t-space>
+        <t-button
+          v-if="member.isPendingRoster === true && canAddMembers"
+          variant="outline"
+          :loading="isUpdating"
+          @click="convertPending([member.realName])"
+        >
+          转为正式成员
+        </t-button>
         <GroupContactForm
-          v-if="canEditContact(member)"
+          v-if="canEditContact(member) && member.isPendingRoster !== true"
           :can-confirm="member.isCurrentUser"
           :contact="contactFor(member)"
           :group-id="group.id"
@@ -245,6 +309,11 @@ function getErrorMessage(error: unknown): string {
 </template>
 
 <style scoped>
+.pending-panel {
+  display: grid;
+  gap: 10px;
+}
+
 .add-member-form {
   display: grid;
   gap: 10px;
@@ -265,6 +334,15 @@ function getErrorMessage(error: unknown): string {
   color: #6b7280;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.unclaimed-badge {
+  padding: 1px 6px;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .add-member-form textarea {

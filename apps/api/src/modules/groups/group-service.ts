@@ -7,6 +7,8 @@ import type {
   AddRosterEntriesResponse,
   ClaimGroupRequest,
   ClaimGroupResponse,
+  ConvertPendingRosterRequest,
+  ConvertPendingRosterResponse,
   CreateGroupRequest,
   GroupSummary,
   RegenerateGroupCodeRequest,
@@ -100,19 +102,27 @@ export class GroupService {
 
     try {
       return await withTransaction(this.databaseClient, async (transaction) => {
-        await this.permissionService.requirePermission(
+        const authorization = await this.permissionService.requirePermission(
           transaction,
           identity,
           groupId,
           'manageRoster',
         );
-        await transaction.insert(rosterEntries).values(
-          input.realNames.map((realName) => ({
+        for (const realName of input.realNames) {
+          await this.assertNoSameNameInGroup(transaction, authorization.group.id, realName);
+        }
+        for (const realName of input.realNames) {
+          await this.createUnboundMemberInTransaction(
+            transaction,
+            authorization.group.id,
+            realName,
+          );
+          await transaction.insert(rosterEntries).values({
             groupId,
             id: randomUUID(),
             realName,
-          })),
-        );
+          });
+        }
 
         return { added: input.realNames.length };
       });
@@ -127,6 +137,70 @@ export class GroupService {
 
       throw error;
     }
+  }
+
+  public async convertRosterEntries(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: ConvertPendingRosterRequest,
+  ): Promise<ConvertPendingRosterResponse> {
+    ensureDistinctNames(input.realNames);
+
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageRoster',
+      );
+      let converted = 0;
+      let skipped = 0;
+      for (const realName of input.realNames) {
+        const [rosterEntry] = await transaction
+          .select({ id: rosterEntries.id })
+          .from(rosterEntries)
+          .where(
+            and(
+              eq(rosterEntries.groupId, authorization.group.id),
+              eq(rosterEntries.status, 'pending'),
+              isNull(rosterEntries.deletedAt),
+              sql`binary ${rosterEntries.realName} = binary ${realName}`,
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (rosterEntry === undefined) {
+          skipped += 1;
+          continue;
+        }
+
+        const [existingMember] = await transaction
+          .select({ id: groupMemberships.id })
+          .from(groupMemberships)
+          .innerJoin(users, eq(users.id, groupMemberships.userId))
+          .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+          .where(
+            and(
+              eq(groupMemberships.groupId, authorization.group.id),
+              eq(groupMemberships.status, 'active'),
+              isNull(groupMemberships.deletedAt),
+              isNull(users.deletedAt),
+              isNull(userProfiles.deletedAt),
+              sql`binary ${userProfiles.realName} = binary ${realName}`,
+            ),
+          )
+          .limit(1);
+        if (existingMember !== undefined) {
+          skipped += 1;
+          continue;
+        }
+
+        await this.createUnboundMemberInTransaction(transaction, authorization.group.id, realName);
+        converted += 1;
+      }
+
+      return { converted, skipped };
+    });
   }
 
   public async addGroupMembers(
@@ -148,24 +222,32 @@ export class GroupService {
       }
 
       for (const realName of input.realNames) {
-        const userId = randomUUID();
-        await transaction.insert(users).values({
-          cloudbaseUid: null,
-          id: userId,
-        });
-        await transaction.insert(userProfiles).values({
-          realName,
-          userId,
-        });
-        await transaction.insert(groupMemberships).values({
-          groupId: authorization.group.id,
-          id: randomUUID(),
-          role: 'member',
-          userId,
-        });
+        await this.createUnboundMemberInTransaction(transaction, authorization.group.id, realName);
       }
 
       return { added: input.realNames.length };
+    });
+  }
+
+  private async createUnboundMemberInTransaction(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    realName: string,
+  ): Promise<void> {
+    const userId = randomUUID();
+    await transaction.insert(users).values({
+      cloudbaseUid: null,
+      id: userId,
+    });
+    await transaction.insert(userProfiles).values({
+      realName,
+      userId,
+    });
+    await transaction.insert(groupMemberships).values({
+      groupId,
+      id: randomUUID(),
+      role: 'member',
+      userId,
     });
   }
 
@@ -315,6 +397,27 @@ export class GroupService {
             isNull(groupJoinRequests.deletedAt),
           ),
         );
+      const unboundMembership = await this.findUnboundMembership(
+        transaction,
+        group.id,
+        user.realName,
+      );
+      if (unboundMembership !== undefined) {
+        await transaction
+          .update(groupMemberships)
+          .set({
+            userId: user.id,
+            version: sql`${groupMemberships.version} + 1`,
+          })
+          .where(eq(groupMemberships.id, unboundMembership.id));
+        await this.removePlaceholderUserIfUnused(transaction, unboundMembership.userId);
+
+        return {
+          group: toGroupSummary(group, unboundMembership.role),
+          status: 'claimed',
+        };
+      }
+
       await transaction.insert(groupMemberships).values({
         groupId: group.id,
         id: randomUUID(),

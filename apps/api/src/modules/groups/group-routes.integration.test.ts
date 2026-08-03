@@ -325,6 +325,88 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(membership?.userId).toBe(outsider?.id);
   });
 
+  it('lists pending roster entries as unclaimed members and converts them to formal members', async () => {
+    const group = await createGroup('Roster merge group', '8901');
+    const groupId = (group.json() as { id: string }).id;
+
+    await client.database.execute(
+      sql`INSERT INTO roster_entries (id, group_id, real_name)
+          VALUES ('00000000-0000-4000-8000-000000000002', ${groupId}, 'Legacy Doctor')`,
+    );
+    await addRosterEntry(groupId, 'Outsider Doctor');
+
+    const members = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    expect(members.statusCode).toBe(200);
+    const rows = members.json() as {
+      readonly id: string;
+      readonly isPendingRoster?: boolean;
+      readonly isUnclaimed?: boolean;
+      readonly realName: string;
+    }[];
+    const legacy = rows.find((row) => row.realName === 'Legacy Doctor');
+    expect(legacy).toMatchObject({ isPendingRoster: true, isUnclaimed: true });
+    const outsider = rows.find((row) => row.realName === 'Outsider Doctor');
+    expect(outsider).toMatchObject({ isUnclaimed: true });
+    expect(outsider?.isPendingRoster).not.toBe(true);
+
+    const converted = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { realNames: ['Legacy Doctor'] },
+      url: `/groups/${groupId}/roster-entries/convert`,
+    });
+    expect(converted.statusCode).toBe(200);
+    expect(converted.json()).toEqual({ converted: 1, skipped: 0 });
+
+    const afterMembers = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    const convertedRow = (
+      afterMembers.json() as {
+        readonly id: string;
+        readonly isPendingRoster?: boolean;
+        readonly isUnclaimed?: boolean;
+        readonly realName: string;
+      }[]
+    ).find((row) => row.realName === 'Legacy Doctor');
+    expect(convertedRow).toMatchObject({ isUnclaimed: true });
+    expect(convertedRow?.isPendingRoster).not.toBe(true);
+
+    const contact = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13900000000' },
+      url: `/groups/${groupId}/members/${convertedRow?.id}/contact`,
+    });
+    expect(contact.statusCode).toBe(200);
+
+    const again = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { realNames: ['Legacy Doctor'] },
+      url: `/groups/${groupId}/roster-entries/convert`,
+    });
+    expect(again.json()).toEqual({ converted: 0, skipped: 1 });
+
+    const claimed = await claimGroup('outsider-token', '8901');
+    expect(claimed.statusCode).toBe(201);
+    const [membership] = await client.database
+      .select({ userId: groupMemberships.userId })
+      .from(groupMemberships)
+      .where(eq(groupMemberships.id, outsider?.id as string));
+    const [outsiderUser] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    expect(membership?.userId).toBe(outsiderUser?.id);
+  });
+
   it('invalidates the previous code immediately when the owner regenerates it', async () => {
     const group = await createGroup('Code rotation group', '5678');
     const groupId = (group.json() as { id: string }).id;

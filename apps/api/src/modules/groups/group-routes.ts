@@ -2,6 +2,7 @@ import type {
   AddGroupMembersRequest,
   AddRosterEntriesRequest,
   ClaimGroupRequest,
+  ConvertPendingRosterRequest,
   CreateGroupRequest,
   RegenerateGroupCodeRequest,
   TransferGroupOwnershipRequest,
@@ -29,6 +30,12 @@ const createGroupInputSchema = z
   .strict();
 
 const rosterEntriesInputSchema = z
+  .object({
+    realNames: z.array(realNameSchema).min(1).max(500),
+  })
+  .strict();
+
+const convertRosterEntriesInputSchema = z
   .object({
     realNames: z.array(realNameSchema).min(1).max(500),
   })
@@ -124,6 +131,17 @@ export function registerGroupRoutes(
     ),
   );
 
+  app.post(
+    '/groups/:groupId/roster-entries/convert',
+    { preHandler: app.authenticate },
+    async (request) =>
+      groupService.convertRosterEntries(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseConvertRosterEntriesInput(request.body),
+      ),
+  );
+
   app.post('/groups/:groupId/members', { preHandler: app.authenticate }, async (request) =>
     groupService.addGroupMembers(
       getAuthenticatedIdentity(request),
@@ -203,6 +221,15 @@ function parseCreateGroupInput(value: unknown): CreateGroupRequest {
 
 function parseRosterEntriesInput(value: unknown): AddRosterEntriesRequest {
   const result = rosterEntriesInputSchema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+
+  return result.data;
+}
+
+function parseConvertRosterEntriesInput(value: unknown): ConvertPendingRosterRequest {
+  const result = convertRosterEntriesInputSchema.safeParse(value);
   if (!result.success) {
     throwValidationError();
   }

@@ -29,6 +29,15 @@ export interface AddGroupMembersResponse {
   readonly added: number;
 }
 
+export interface ConvertPendingRosterRequest {
+  readonly realNames: readonly string[];
+}
+
+export interface ConvertPendingRosterResponse {
+  readonly converted: number;
+  readonly skipped: number;
+}
+
 export interface ClaimGroupRequest {
   readonly groupCode: string;
 }
@@ -48,6 +57,8 @@ export interface RegenerateGroupCodeRequest {
 
 export interface GroupMember {
   readonly id: string;
+  readonly isPendingRoster?: boolean;
+  readonly isUnclaimed?: boolean;
   readonly isCurrentUser: boolean;
   readonly realName: string;
   readonly role: GroupRole;

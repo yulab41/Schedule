@@ -9,6 +9,7 @@ import {
   type DatabaseClient,
   groupMemberships,
   groups,
+  rosterEntries,
   userProfiles,
   users,
   withTransaction,
@@ -69,6 +70,7 @@ export class MembershipService {
       );
       const members = await transaction
         .select({
+          cloudbaseUid: users.cloudbaseUid,
           id: groupMemberships.id,
           realName: userProfiles.realName,
           role: groupMemberships.role,
@@ -88,13 +90,45 @@ export class MembershipService {
           ),
         )
         .orderBy(asc(userProfiles.realName), asc(groupMemberships.id));
+      const pendingRoster = await transaction
+        .select({ id: rosterEntries.id, realName: rosterEntries.realName })
+        .from(rosterEntries)
+        .where(
+          and(
+            eq(rosterEntries.groupId, authorization.group.id),
+            eq(rosterEntries.status, 'pending'),
+            isNull(rosterEntries.deletedAt),
+          ),
+        )
+        .orderBy(asc(rosterEntries.realName), asc(rosterEntries.id));
 
-      return members.map((member) => ({
+      const memberRows: GroupMember[] = members.map((member) => ({
         id: member.id,
         isCurrentUser: member.userId === authorization.user.id,
+        isUnclaimed: member.cloudbaseUid === null,
         realName: member.realName,
         role: member.role,
       }));
+      const memberNames = new Set(memberRows.map((member) => member.realName));
+      for (const roster of pendingRoster) {
+        if (memberNames.has(roster.realName)) {
+          continue;
+        }
+        memberRows.push({
+          id: roster.id,
+          isCurrentUser: false,
+          isPendingRoster: true,
+          isUnclaimed: true,
+          realName: roster.realName,
+          role: 'member',
+        });
+      }
+
+      return memberRows.sort(
+        (first, second) =>
+          first.realName.localeCompare(second.realName, 'zh-Hans-CN') ||
+          first.id.localeCompare(second.id),
+      );
     });
   }
 

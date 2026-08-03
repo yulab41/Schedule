@@ -17,6 +17,17 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 4: calendar phone interaction and holiday labels are optimized and `pnpm verify` passed 331/331 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 5: member-page additions now create real members immediately and `pnpm verify` passed 332/332 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 6: manual-schedule drafts now support delete, re-preview, and overwrite-on-reapply and `pnpm verify` passed 334/334 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 7: pending roster entries are merged into the member page with an 未认领 badge and can be converted to formal members; `pnpm verify` passed 335/335 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 7 (Roster Merged Into Member Page)
+
+Checkpoint commit message: `feat(groups): merge pending roster into member page with unclaimed conversion`
+
+- Member list API now also returns pending roster entries as synthetic member rows (`isPendingRoster: true`, `isUnclaimed: true`), and every unbound membership is flagged `isUnclaimed` (no CloudBase account bound yet).
+- 成员 page shows an 未认领 badge, a per-row 转为正式成员 button, and a 全部转为正式成员 bulk action backed by the new `POST /groups/:groupId/roster-entries/convert` endpoint (idempotent: already-converted names are skipped). Historical pending entries from before the direct-add feature therefore become visible and can be converted without re-adding.
+- New roster additions (群组管理 bulk paste) now create the unbound membership at the same time as the pending roster row, so they are visible/schedulable immediately and still bind to the member's account on claim.
+- Claim flow now binds an existing unbound membership even when a pending roster row is present (no duplicate memberships), resolves the roster row as claimed, and removes the placeholder user when unused.
+- Integration test covers legacy pending row display → convert → contacts usable → idempotent re-convert → claim binding without duplicates.
 
 ## 2026-08-03 Round 6 (Manual Schedule Draft Management)
 
@@ -256,6 +267,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 7: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 335 Vitest tests (60 files) and all production builds, including the new roster-merge/convert integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 6: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 334 Vitest tests (60 files) and all production builds, including the new draft preview/delete and draft-overwrite integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 5: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 332 Vitest tests (60 files) and all production builds, including the new direct-member-add and claim-binding integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 4: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 331 Vitest tests (60 files) and all production builds; the calendar-logic spec now covers holiday short labels. The temporary test service was removed with matching Compose `down --volumes` after validation.

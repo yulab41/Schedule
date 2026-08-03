@@ -2,6 +2,8 @@ import type {
   AddGroupMembersRequest,
   AddGroupMembersResponse,
   AddRosterEntriesResponse,
+  ConvertPendingRosterRequest,
+  ConvertPendingRosterResponse,
   ApiErrorCode,
   ApiErrorResponse,
   AppliedManualScheduleTemplateResult,
@@ -130,6 +132,10 @@ export interface ApiClient {
     input: { readonly realNames: readonly string[] },
   ): Promise<AddRosterEntriesResponse>;
   addGroupMembers(groupId: string, input: AddGroupMembersRequest): Promise<AddGroupMembersResponse>;
+  convertRosterEntries(
+    groupId: string,
+    input: ConvertPendingRosterRequest,
+  ): Promise<ConvertPendingRosterResponse>;
   approveLeaveRequest(
     groupId: string,
     leaveRequestId: string,
@@ -693,6 +699,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isAddRosterEntriesResponse,
+      );
+    },
+    convertRosterEntries(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/roster-entries/convert`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isConvertPendingRosterResponse,
       );
     },
     claimGroup(input) {
@@ -1584,6 +1603,21 @@ function isAddRosterEntriesResponse(value: unknown): value is AddRosterEntriesRe
   );
 }
 
+function isConvertPendingRosterResponse(value: unknown): value is ConvertPendingRosterResponse {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'converted' in value &&
+    typeof value.converted === 'number' &&
+    Number.isInteger(value.converted) &&
+    value.converted >= 0 &&
+    'skipped' in value &&
+    typeof value.skipped === 'number' &&
+    Number.isInteger(value.skipped) &&
+    value.skipped >= 0
+  );
+}
+
 function isCalendarReadModel(value: unknown): value is CalendarReadModel {
   if (value === null || typeof value !== 'object') {
     return false;
@@ -1736,6 +1770,8 @@ function isGroupMember(value: unknown): value is GroupMember {
     typeof member.id === 'string' &&
     member.id.length > 0 &&
     typeof member.isCurrentUser === 'boolean' &&
+    (member.isUnclaimed === undefined || typeof member.isUnclaimed === 'boolean') &&
+    (member.isPendingRoster === undefined || typeof member.isPendingRoster === 'boolean') &&
     typeof member.realName === 'string' &&
     member.realName.length > 0 &&
     (member.role === 'administrator' || member.role === 'member' || member.role === 'owner')
