@@ -41,6 +41,7 @@ import type {
   PublishSchedulePeriodRequest,
   PublishSchedulePeriodResult,
   ScheduleDraftSummary,
+  ScheduleGenerationPreview,
   StatisticsRecalculateCheckResult,
   YearStatistics,
   UpdateGroupNotificationSettingsInput,
@@ -196,6 +197,10 @@ export interface ApiClient {
   getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
   getSchedulePublishMode(groupId: string): Promise<GroupSchedulePublishMode>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
+  getScheduleDraftPreview(
+    groupId: string,
+    schedulePeriodId: string,
+  ): Promise<ScheduleGenerationPreview>;
   listScheduleDrafts(groupId: string): Promise<ScheduleDraftSummary[]>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
@@ -213,6 +218,7 @@ export interface ApiClient {
     schedulePeriodId: string,
     input: PublishSchedulePeriodRequest,
   ): Promise<PublishSchedulePeriodResult>;
+  deleteScheduleDraft(groupId: string, schedulePeriodId: string): Promise<void>;
   previewLeaveRequestApproval(
     groupId: string,
     leaveRequestId: string,
@@ -1014,6 +1020,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isScheduleDraftSummaryList,
       );
     },
+    getScheduleDraftPreview(groupId, schedulePeriodId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/preview`,
+        { method: 'GET' },
+        isScheduleGenerationPreview,
+      );
+    },
     publishSchedulePeriod(groupId, schedulePeriodId, input) {
       return requestJson(
         options.auth,
@@ -1022,6 +1038,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/publish`,
         { method: 'POST', body: JSON.stringify(input) },
         isPublishSchedulePeriodResult,
+      );
+    },
+    deleteScheduleDraft(groupId, schedulePeriodId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}`,
+        { method: 'DELETE' },
+        isUndefined,
       );
     },
     getSchedulingConfig(groupId) {
@@ -2632,6 +2658,32 @@ function isSchedulePeriodSummary(value: unknown): boolean {
 
 function isScheduleDraftSummaryList(value: unknown): value is ScheduleDraftSummary[] {
   return Array.isArray(value) && value.every(isScheduleDraftSummary);
+}
+
+function isScheduleGenerationPreview(value: unknown): value is ScheduleGenerationPreview {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const preview = value as Partial<ScheduleGenerationPreview>;
+  const assignments = preview.assignments ?? [];
+  return (
+    typeof preview.businessMonth === 'string' &&
+    /^\d{4}-\d{2}$/u.test(preview.businessMonth) &&
+    typeof preview.rulesVersion === 'number' &&
+    Number.isInteger(preview.rulesVersion) &&
+    Array.isArray(assignments) &&
+    assignments.every(
+      (assignment) =>
+        assignment !== null &&
+        typeof assignment === 'object' &&
+        typeof assignment.businessDate === 'string' &&
+        typeof assignment.shiftTypeId === 'string',
+    ) &&
+    Array.isArray(preview.scheduleRoleIds) &&
+    preview.statistics !== null &&
+    typeof preview.statistics === 'object'
+  );
 }
 
 function isScheduleDraftSummary(value: unknown): boolean {

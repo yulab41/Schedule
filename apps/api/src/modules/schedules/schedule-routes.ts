@@ -93,6 +93,17 @@ export function registerScheduleRoutes(
     ),
   );
 
+  app.get(
+    '/groups/:groupId/schedules/:schedulePeriodId/preview',
+    { preHandler: app.authenticate },
+    (request) =>
+      publishService.previewDraft(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSchedulePeriodId(request),
+      ),
+  );
+
   app.post(
     '/groups/:groupId/schedules/:schedulePeriodId/publish',
     { preHandler: app.authenticate },
@@ -102,6 +113,17 @@ export function registerScheduleRoutes(
         parseGroupId(request),
         parseSchedulePeriodId(request),
         parsePublishPeriodInput(request.body),
+      ),
+  );
+
+  app.delete(
+    '/groups/:groupId/schedules/:schedulePeriodId',
+    { preHandler: app.authenticate },
+    (request) =>
+      publishService.deleteDraft(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSchedulePeriodId(request),
       ),
   );
 }

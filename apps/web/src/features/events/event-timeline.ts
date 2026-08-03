@@ -41,6 +41,7 @@ export const eventTypeLabels: Readonly<Record<string, string>> = {
   rotation_order_changed: '轮值顺序已调整',
   schedule_generation_completed: '自动排班已生成',
   schedule_period_created: '排班版本已创建',
+  schedule_period_deleted: '排班草稿已删除',
   schedule_period_published: '排班已发布',
   schedule_period_replaced: '排班版本已替换',
   schedule_period_withdrawn: '排班版本已撤回',

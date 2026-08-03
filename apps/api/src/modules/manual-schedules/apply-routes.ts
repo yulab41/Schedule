@@ -29,6 +29,7 @@ const applyInputSchema = z
     expectedRulesVersion: rulesVersionSchema,
     operationId: operationIdSchema,
     publishMode: publishModeSchema.optional(),
+    replaceExistingDrafts: z.boolean().optional(),
   })
   .strict();
 
@@ -99,6 +100,9 @@ function parseApplyInput(value: unknown): ApplyManualScheduleTemplateRequest {
     expectedRulesVersion: input.expectedRulesVersion,
     operationId: input.operationId,
     ...(input.publishMode === undefined ? {} : { publishMode: input.publishMode }),
+    ...(input.replaceExistingDrafts === undefined
+      ? {}
+      : { replaceExistingDrafts: input.replaceExistingDrafts }),
   };
 }
 

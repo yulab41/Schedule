@@ -6,6 +6,7 @@ import type {
   GroupSummary,
   ManualScheduleTemplate,
   ScheduleDraftSummary,
+  ScheduleGenerationPreview,
   SchedulingConfig,
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
@@ -66,9 +67,15 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const isDeleting = ref(false);
 const isPublishingId = ref<string>();
+const isDeletingDraftId = ref<string>();
 const blockedDraft = ref<ScheduleDraftSummary>();
 const blockedDraftMessage = ref('');
 const acknowledgeBlockers = ref(false);
+const previewDialogVisible = ref(false);
+const previewTarget = ref<ScheduleDraftSummary>();
+const draftPreview = ref<ScheduleGenerationPreview>();
+const isPreviewingDraftId = ref<string>();
+const draftPreviewError = ref<string>();
 const applyTarget = ref<ManualScheduleTemplate>();
 let requestVersion = 0;
 
@@ -473,6 +480,49 @@ async function publishDraft(draft: ScheduleDraftSummary, acknowledge = false): P
   }
 }
 
+async function openDraftPreview(draft: ScheduleDraftSummary): Promise<void> {
+  previewTarget.value = draft;
+  draftPreview.value = undefined;
+  draftPreviewError.value = undefined;
+  previewDialogVisible.value = true;
+  isPreviewingDraftId.value = draft.id;
+
+  try {
+    draftPreview.value = await api.getScheduleDraftPreview(props.group.id, draft.id);
+  } catch (error) {
+    draftPreviewError.value = getErrorMessage(error);
+  } finally {
+    isPreviewingDraftId.value = undefined;
+  }
+}
+
+function closeDraftPreview(): void {
+  previewDialogVisible.value = false;
+  previewTarget.value = undefined;
+  draftPreview.value = undefined;
+  draftPreviewError.value = undefined;
+}
+
+async function deleteDraft(draft: ScheduleDraftSummary): Promise<void> {
+  if (
+    !window.confirm(`确定删除 ${draft.businessMonth.slice(0, 7)} 的排班草稿吗？删除后不可恢复。`)
+  ) {
+    return;
+  }
+
+  errorMessage.value = undefined;
+  isDeletingDraftId.value = draft.id;
+  try {
+    await api.deleteScheduleDraft(props.group.id, draft.id);
+    infoMessage.value = `已删除 ${draft.businessMonth.slice(0, 7)} 的排班草稿。`;
+    await loadData();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isDeletingDraftId.value = undefined;
+  }
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof ApiClientError ? error.message : '模板暂时无法保存，请稍后重试。';
 }
@@ -586,7 +636,9 @@ function onWindowFocus(): void {
 
       <section v-if="drafts.length > 0" class="draft-section">
         <h3>草稿排班</h3>
-        <p class="draft-hint">模板应用后保存为草稿，确认发布后成员才能在日历中看到。</p>
+        <p class="draft-hint">
+          模板应用后保存为草稿，确认发布后成员才能在日历中看到；重复应用时可选择覆盖旧草稿，也可在此手动删除。
+        </p>
         <div class="draft-list">
           <article v-for="draft in drafts" :key="draft.id" class="draft-row">
             <div class="draft-summary">
@@ -594,14 +646,33 @@ function onWindowFocus(): void {
               <span>{{ draft.scheduleRoleName }}</span>
               <span>第 {{ draft.revision }} 版</span>
             </div>
-            <t-button
-              size="small"
-              theme="primary"
-              :loading="isPublishingId === draft.id"
-              @click="publishDraft(draft)"
-            >
-              发布
-            </t-button>
+            <t-space size="small">
+              <t-button
+                size="small"
+                variant="outline"
+                :loading="isPreviewingDraftId === draft.id"
+                @click="openDraftPreview(draft)"
+              >
+                预览
+              </t-button>
+              <t-button
+                size="small"
+                theme="primary"
+                :loading="isPublishingId === draft.id"
+                @click="publishDraft(draft)"
+              >
+                发布
+              </t-button>
+              <t-button
+                size="small"
+                theme="danger"
+                variant="text"
+                :loading="isDeletingDraftId === draft.id"
+                @click="deleteDraft(draft)"
+              >
+                删除
+              </t-button>
+            </t-space>
           </article>
         </div>
         <div v-if="blockedDraft !== undefined" class="blocker-panel">
@@ -628,6 +699,71 @@ function onWindowFocus(): void {
       @applied="onApplied"
       @close="applyTarget = undefined"
     />
+    <t-dialog
+      v-model:visible="previewDialogVisible"
+      header="草稿预览"
+      :footer="false"
+      width="640px"
+      @close="closeDraftPreview"
+    >
+      <template v-if="previewTarget !== undefined">
+        <p class="draft-preview-meta">
+          {{ previewTarget.businessMonth.slice(0, 7) }} · {{ previewTarget.scheduleRoleName }}
+        </p>
+        <t-loading v-if="isPreviewingDraftId === previewTarget.id" text="正在生成预览" />
+        <template v-else>
+          <t-alert
+            v-if="draftPreviewError !== undefined"
+            theme="error"
+            :message="draftPreviewError"
+          />
+          <template v-else-if="draftPreview !== undefined">
+            <div class="preview-stats">
+              <span>班次 {{ draftPreview.statistics.assignmentCount }}</span>
+              <span>计入值班 {{ draftPreview.statistics.countedAssignmentCount }}</span>
+              <span>空缺 {{ draftPreview.statistics.vacancyCount }}</span>
+            </div>
+            <table
+              v-if="draftPreview.statistics.byShiftType.length > 0"
+              class="draft-preview-table"
+            >
+              <thead>
+                <tr>
+                  <th>班种</th>
+                  <th>班次数</th>
+                  <th>计入值班</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="shiftType in draftPreview.statistics.byShiftType"
+                  :key="shiftType.shiftTypeId"
+                >
+                  <td>{{ shiftType.shiftTypeName }}（{{ shiftType.shiftTypeAbbreviation }}）</td>
+                  <td>{{ shiftType.assignmentCount }}</td>
+                  <td>{{ shiftType.countedAssignmentCount }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <t-alert
+              v-if="draftPreview.hardConflicts.length > 0"
+              theme="error"
+              :message="`发现 ${draftPreview.hardConflicts.length} 处硬冲突。`"
+            />
+            <t-alert
+              v-if="draftPreview.continuousDutyWarnings.length > 0"
+              theme="warning"
+              :message="`发现 ${draftPreview.continuousDutyWarnings.length} 处连续值班风险。`"
+            />
+            <t-alert
+              v-if="draftPreview.vacancies.length > 0"
+              theme="warning"
+              :message="`发现 ${draftPreview.vacancies.length} 个待处理空缺。`"
+            />
+          </template>
+        </template>
+      </template>
+    </t-dialog>
     <DataConflictDialog
       :message="conflictMessage"
       :summary="conflictSummary"
@@ -775,5 +911,42 @@ function onWindowFocus(): void {
   align-items: center;
   color: #92400e;
   font-size: 13px;
+}
+
+.draft-preview-meta {
+  margin: 0 0 12px;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.preview-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 12px;
+  color: #111827;
+  background: #eff6ff;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.draft-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.draft-preview-table th,
+.draft-preview-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.draft-preview-table th {
+  color: #374151;
+  background: #f8fafc;
 }
 </style>

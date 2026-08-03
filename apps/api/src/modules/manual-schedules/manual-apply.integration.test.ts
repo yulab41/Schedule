@@ -248,6 +248,109 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(emptyDrafts.json()).toEqual([]);
   });
 
+  it('previews and deletes a saved draft', async () => {
+    const templateId = await createTemplate();
+    const applied = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(applied.statusCode).toBe(200);
+    const period = (
+      applied.json() as {
+        readonly periods: readonly { readonly id: string }[];
+      }
+    ).periods[0];
+    expect(period).toBeDefined();
+
+    const preview = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedules/${period?.id}/preview`,
+    });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json()).toMatchObject({
+      businessMonth: '2026-08-01',
+      rulesVersion,
+      scheduleRoleIds: [primaryRoleId],
+    });
+    expect((preview.json() as { assignments: readonly unknown[] }).assignments).toHaveLength(2);
+
+    const deleted = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedules/${period?.id}`,
+    });
+    expect(deleted.statusCode).toBe(200);
+
+    const drafts = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods`,
+    });
+    expect(drafts.json()).toEqual([]);
+
+    const missingPreview = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedules/${period?.id}/preview`,
+    });
+    expect(missingPreview.statusCode).toBe(404);
+
+    const missingPublish = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { expectedVersion: 1, operationId: randomUUID() },
+      url: `/groups/${groupId}/schedules/${period?.id}/publish`,
+    });
+    expect(missingPublish.statusCode).toBe(404);
+  });
+
+  it('replaces existing drafts for the same role and month when requested', async () => {
+    const templateId = await createTemplate();
+    const first = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(first.statusCode).toBe(200);
+    const firstPeriod = (
+      first.json() as {
+        readonly periods: readonly { readonly id: string }[];
+      }
+    ).periods[0];
+
+    const second = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+      replaceExistingDrafts: true,
+    });
+    expect(second.statusCode).toBe(200);
+    const secondPeriod = (
+      second.json() as {
+        readonly periods: readonly { readonly id: string }[];
+      }
+    ).periods[0];
+    expect(secondPeriod?.id).not.toBe(firstPeriod?.id);
+
+    const drafts = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods`,
+    });
+    expect(drafts.json()).toEqual([
+      expect.objectContaining({ id: secondPeriod?.id, status: 'draft' }),
+    ]);
+
+    const oldPeriodRows = (await client.database.execute(
+      sql`SELECT deleted_at AS deletedAt FROM schedule_periods WHERE id = ${firstPeriod?.id}`,
+    )) as unknown as { readonly deletedAt: string | null }[];
+    expect(oldPeriodRows[0]?.deletedAt).not.toBeNull();
+    const [activeDraftCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_periods
+          WHERE group_id = ${groupId} AND business_month = '2026-08-01' AND status = 'draft' AND deleted_at IS NULL`,
+    );
+    expect(activeDraftCount).toEqual([{ count: 1 }]);
+  });
+
   it('publishes immediately when the group publish mode is published and replaces the prior version', async () => {
     const templateId = await createTemplate();
     await updatePublishMode('published');
@@ -565,6 +668,7 @@ describeWithDatabase('manual schedule template apply', () => {
       readonly expectedRulesVersion: number;
       readonly operationId: string;
       readonly publishMode?: 'draft' | 'published';
+      readonly replaceExistingDrafts?: boolean;
     },
     token = 'owner-token',
   ) {

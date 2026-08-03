@@ -5,6 +5,7 @@ import type {
   GroupSummary,
   ManualApplyPreview,
   ManualScheduleTemplate,
+  ScheduleDraftSummary,
   SchedulingConfig,
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
@@ -27,10 +28,12 @@ const emit = defineEmits<{
 const api = createApiClient({ auth: cloudbaseAuth });
 const config = ref<SchedulingConfig>();
 const publishMode = ref<GroupSchedulePublishMode>();
+const drafts = ref<ScheduleDraftSummary[]>([]);
 const repeatEnabled = ref(false);
 const endDate = ref(getDefaultEndDate());
 const preview = ref<ManualApplyPreview>();
 const acknowledgeBlockers = ref(false);
+const replaceExistingDrafts = ref(false);
 const isLoading = ref(true);
 const isPreviewing = ref(false);
 const isApplying = ref(false);
@@ -44,6 +47,21 @@ const hasBlockers = computed(() => blockerCount.value > 0);
 const publishLabel = computed(() =>
   publishMode.value?.publishMode === 'published' ? '直接发布' : '保存草稿',
 );
+const affectedMonths = computed(() => {
+  if (preview.value === undefined) {
+    return new Set<string>();
+  }
+  return new Set(
+    preview.value.assignments.map((assignment) => assignment.businessDate.slice(0, 7)),
+  );
+});
+const overlappingDrafts = computed(() =>
+  drafts.value.filter(
+    (draft) =>
+      draft.scheduleRoleId === props.template.scheduleRoleId &&
+      affectedMonths.value.has(draft.businessMonth.slice(0, 7)),
+  ),
+);
 
 onMounted(() => {
   void loadContext();
@@ -53,12 +71,14 @@ async function loadContext(): Promise<void> {
   errorMessage.value = undefined;
   isLoading.value = true;
   try {
-    const [nextConfig, nextPublishMode] = await Promise.all([
+    const [nextConfig, nextPublishMode, nextDrafts] = await Promise.all([
       api.getSchedulingConfig(props.group.id),
       api.getSchedulePublishMode(props.group.id),
+      api.listScheduleDrafts(props.group.id),
     ]);
     config.value = nextConfig;
     publishMode.value = nextPublishMode;
+    drafts.value = nextDrafts;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -83,6 +103,7 @@ async function computePreview(): Promise<void> {
       ...(repeatEnabled.value ? { endDate: endDate.value } : {}),
     });
     acknowledgeBlockers.value = false;
+    replaceExistingDrafts.value = false;
   } catch (error) {
     if (isDataConflictError(error)) {
       await loadContext();
@@ -103,6 +124,10 @@ async function apply(): Promise<void> {
       return;
     }
   }
+  if (overlappingDrafts.value.length > 0 && !replaceExistingDrafts.value) {
+    errorMessage.value = '目标月份已有该岗位的草稿，请勾选“覆盖已有草稿”后再应用。';
+    return;
+  }
 
   errorMessage.value = undefined;
   isApplying.value = true;
@@ -111,6 +136,7 @@ async function apply(): Promise<void> {
       ...(hasBlockers.value && acknowledgeBlockers.value ? { acknowledgeBlockers: true } : {}),
       expectedRulesVersion: config.value.rulesVersion,
       operationId: crypto.randomUUID(),
+      ...(replaceExistingDrafts.value ? { replaceExistingDrafts: true } : {}),
       ...(repeatEnabled.value ? { endDate: endDate.value } : {}),
     });
     emit('applied', result);
@@ -237,6 +263,19 @@ function getErrorMessage(error: unknown): string {
             :message="`发现 ${preview.vacancies.length} 个待处理空缺（成员已离开岗位或不在生效区间）。`"
           />
 
+          <template v-if="overlappingDrafts.length > 0">
+            <t-alert
+              theme="warning"
+              :message="`该岗位在目标月份已有 ${overlappingDrafts.length} 份草稿（${[
+                ...new Set(overlappingDrafts.map((draft) => draft.businessMonth.slice(0, 7))),
+              ].join('、')}）。`"
+            />
+            <label class="replace-field">
+              <input v-model="replaceExistingDrafts" type="checkbox" />
+              覆盖已有草稿（删除同岗位同月份的旧草稿后重新应用）
+            </label>
+          </template>
+
           <label v-if="hasBlockers" class="acknowledge-field">
             <input v-model="acknowledgeBlockers" type="checkbox" />
             我已知晓冲突和空缺，确认按预览结果{{ publishLabel }}。
@@ -332,5 +371,14 @@ function getErrorMessage(error: unknown): string {
   align-items: center;
   color: #92400e;
   font-size: 13px;
+}
+
+.replace-field {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #1f5aa6;
+  font-size: 13px;
+  font-weight: 600;
 }
 </style>

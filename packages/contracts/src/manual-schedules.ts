@@ -94,6 +94,7 @@ export interface ApplyManualScheduleTemplateRequest {
   readonly expectedRulesVersion: number;
   readonly operationId: string;
   readonly publishMode?: SchedulePublishMode;
+  readonly replaceExistingDrafts?: boolean;
 }
 
 export interface AppliedManualScheduleTemplateResult {

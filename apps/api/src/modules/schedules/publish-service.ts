@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import type {
   PublishSchedulePeriodRequest,
@@ -76,6 +76,56 @@ export class SchedulePublishService {
         'manageScheduleConfiguration',
       );
       return this.repository.listDraftsInTransaction(transaction, authorization.group.id);
+    });
+  }
+
+  public async deleteDraft(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    schedulePeriodId: string,
+  ): Promise<void> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      await this.repository.deleteDraftInTransaction(transaction, {
+        actorUserId: authorization.user.id,
+        groupId: authorization.group.id,
+        operationId: randomUUID(),
+        schedulePeriodId,
+      });
+    });
+  }
+
+  public async previewDraft(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    schedulePeriodId: string,
+  ): Promise<ScheduleGenerationPreview> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
+      const assignments = await transaction
+        .select()
+        .from(shiftAssignments)
+        .where(
+          and(eq(shiftAssignments.schedulePeriodId, period.id), isNull(shiftAssignments.deletedAt)),
+        )
+        .orderBy(
+          asc(shiftAssignments.businessDate),
+          asc(shiftAssignments.slotPosition),
+          asc(shiftAssignments.id),
+        );
+
+      return this.buildPreviewFromStoredAssignments(transaction, period, assignments);
     });
   }
 

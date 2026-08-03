@@ -146,6 +146,7 @@ export class ManualScheduleApplyService {
               expectedRulesVersion: input.expectedRulesVersion,
               groupId: authorization.group.id,
               publishMode: input.publishMode ?? null,
+              replaceExistingDrafts: input.replaceExistingDrafts === true,
               templateId,
             }),
             scope: 'manual_schedule_template_apply',
@@ -183,6 +184,16 @@ export class ManualScheduleApplyService {
     assertPublicationBlockers(context.preview, publishMode, input.acknowledgeBlockers === true);
 
     const assignmentsByMonth = groupAssignmentsByMonth(context.assignments);
+    if (input.replaceExistingDrafts === true) {
+      for (const businessMonth of [...assignmentsByMonth.keys()]) {
+        await this.repository.softDeleteDraftsInTransaction(
+          transaction,
+          authorization.group.id,
+          context.template.scheduleRoleId,
+          businessMonth,
+        );
+      }
+    }
     const periods: SchedulePeriodSummary[] = [];
     const appliedEventIds: string[] = [];
     for (const businessMonth of [...assignmentsByMonth.keys()].sort()) {
@@ -789,6 +800,7 @@ function createApplyFingerprint(input: {
   readonly expectedRulesVersion: number;
   readonly groupId: string;
   readonly publishMode: string | null;
+  readonly replaceExistingDrafts: boolean;
   readonly templateId: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');

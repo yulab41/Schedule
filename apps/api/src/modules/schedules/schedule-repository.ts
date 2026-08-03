@@ -121,6 +121,106 @@ export class ScheduleRepository {
     }));
   }
 
+  public async softDeleteDraftsInTransaction(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    scheduleRoleId: string,
+    businessMonth: string,
+  ): Promise<void> {
+    const monthStart = toBusinessMonthStart(businessMonth);
+    const drafts = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.scheduleRoleId, scheduleRoleId),
+          eq(schedulePeriods.businessMonth, monthStart),
+          eq(schedulePeriods.status, 'draft'),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      )
+      .for('update');
+    if (drafts.length === 0) {
+      return;
+    }
+
+    const draftIds = drafts.map((draft) => draft.id);
+    await transaction
+      .update(schedulePeriods)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        version: sql`${schedulePeriods.version} + 1`,
+      })
+      .where(inArray(schedulePeriods.id, draftIds));
+    for (const draftId of draftIds) {
+      await this.softDeleteAssignments(transaction, draftId);
+    }
+  }
+
+  public async deleteDraftInTransaction(
+    transaction: DatabaseTransaction,
+    input: {
+      readonly actorUserId: string;
+      readonly groupId: string;
+      readonly operationId: string;
+      readonly schedulePeriodId: string;
+    },
+  ): Promise<void> {
+    const [period] = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.id, input.schedulePeriodId),
+          eq(schedulePeriods.groupId, input.groupId),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (period === undefined) {
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '排班草稿不存在或不可用。',
+      });
+    }
+    if (period.status !== 'draft') {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '只能删除草稿排班，已发布的排班不能删除。',
+      });
+    }
+
+    await transaction
+      .update(schedulePeriods)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        version: sql`${schedulePeriods.version} + 1`,
+      })
+      .where(eq(schedulePeriods.id, period.id));
+    await this.softDeleteAssignments(transaction, period.id);
+    await this.eventWriter.append(transaction, {
+      afterData: {
+        businessMonth: period.businessMonth,
+        scheduleRoleId: period.scheduleRoleId,
+        status: 'draft',
+        version: period.version + 1,
+      },
+      eventStatus: 'completed',
+      eventType: 'schedule_period_deleted',
+      groupId: input.groupId,
+      initiatedByUserId: input.actorUserId,
+      objectId: period.id,
+      objectType: 'schedule_period',
+      operationId: input.operationId,
+      operatorUserId: input.actorUserId,
+      schedulePeriodId: period.id,
+    });
+  }
+
   public async createDraftInTransaction(
     transaction: DatabaseTransaction,
     input: CreateSchedulePeriodInput,
@@ -425,6 +525,37 @@ export class ScheduleRepository {
         startsAt: timeRange.startsAt,
       };
     });
+  }
+
+  private async softDeleteAssignments(
+    transaction: DatabaseTransaction,
+    schedulePeriodId: string,
+  ): Promise<void> {
+    const assignments = await transaction
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, schedulePeriodId),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+    if (assignments.length === 0) {
+      return;
+    }
+
+    await transaction
+      .update(shiftAssignments)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        version: sql`${shiftAssignments.version} + 1`,
+      })
+      .where(
+        inArray(
+          shiftAssignments.id,
+          assignments.map((assignment) => assignment.id),
+        ),
+      );
   }
 
   private async lockPeriodWithScope(

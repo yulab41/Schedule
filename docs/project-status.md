@@ -16,6 +16,16 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 3: manual-grid rendering hardening and event-dialog readability fallback are implemented and `pnpm verify` passed 330/330 (60 test files) with the isolated MySQL. PWA cache names were bumped to force clients onto the new bundle.
 - 2026-08-03 round 4: calendar phone interaction and holiday labels are optimized and `pnpm verify` passed 331/331 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 5: member-page additions now create real members immediately and `pnpm verify` passed 332/332 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 6: manual-schedule drafts now support delete, re-preview, and overwrite-on-reapply and `pnpm verify` passed 334/334 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 6 (Manual Schedule Draft Management)
+
+Checkpoint commit message: `feat(schedule): manage manual drafts with preview, delete, and overwrite`
+
+- Template deletion already existed (删除模板 beside 应用模板) and remains in place.
+- Draft deletion: new `DELETE /groups/:groupId/schedules/:schedulePeriodId` soft-deletes a draft (and its assignments) and appends `schedule_period_deleted`; published periods cannot be deleted. The 草稿排班 list now has 预览 / 发布 / 删除 buttons.
+- Draft re-preview: new `GET /groups/:groupId/schedules/:schedulePeriodId/preview` rebuilds the stored draft preview; the Web 预览 button opens a dialog with assignment/statistics/conflict/vacancy summary.
+- Draft dedup: applying a template now detects existing drafts for the same role and target months inside the apply dialog; the admin must tick “覆盖已有草稿” before applying, which atomically soft-deletes the old drafts (same role+month) and creates the new revision, so drafts no longer pile up. Without the flag, overlapping drafts block the apply.
 
 ## 2026-08-03 Round 5 (Direct Member Addition)
 
@@ -246,6 +256,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 6: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 334 Vitest tests (60 files) and all production builds, including the new draft preview/delete and draft-overwrite integration tests. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 5: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 332 Vitest tests (60 files) and all production builds, including the new direct-member-add and claim-binding integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 4: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 331 Vitest tests (60 files) and all production builds; the calendar-logic spec now covers holiday short labels. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 3: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 330 Vitest tests (60 files) and all production builds; the web bundle now emits a new service-worker hash and v2 cache names. The temporary test service was removed with matching Compose `down --volumes` after validation.
