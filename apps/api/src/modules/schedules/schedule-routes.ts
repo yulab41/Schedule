@@ -2,6 +2,7 @@ import type {
   GenerateSchedulePreviewRequest,
   PublishSchedulePeriodBatchRequest,
   PublishSchedulePeriodRequest,
+  SchedulePeriodMutationRequest,
   SaveGeneratedScheduleRequest,
   UpdateGroupSchedulePublishModeRequest,
 } from '@schedule/contracts';
@@ -32,6 +33,7 @@ const generatePreviewInputSchema = z
 const saveGeneratedInputSchema = z
   .object({
     acknowledgeBlockers: z.boolean().optional(),
+    acknowledgeWorkflowRevocations: z.boolean().optional(),
     businessMonth: businessMonthSchema,
     operationId: operationIdSchema,
     publishMode: publishModeSchema.optional(),
@@ -43,6 +45,7 @@ const saveGeneratedInputSchema = z
 const publishPeriodInputSchema = z
   .object({
     acknowledgeBlockers: z.boolean().optional(),
+    acknowledgeWorkflowRevocations: z.boolean().optional(),
     expectedVersion: z.number().int().min(1),
     operationId: operationIdSchema,
     replacePublished: z.boolean().optional(),
@@ -52,6 +55,7 @@ const publishPeriodInputSchema = z
 const publishBatchInputSchema = z
   .object({
     acknowledgeBlockers: z.boolean().optional(),
+    acknowledgeWorkflowRevocations: z.boolean().optional(),
     operationId: operationIdSchema,
     replacePublished: z.boolean().optional(),
     schedulePeriodIds: z.array(schedulePeriodIdSchema).min(1).max(100),
@@ -100,6 +104,30 @@ export function registerScheduleRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseGeneratePreviewInput(request.body),
+      ),
+  );
+
+  app.get(
+    '/groups/:groupId/schedules/:schedulePeriodId/change-impact',
+    { preHandler: app.authenticate },
+    (request) =>
+      publishService.previewChangeImpact(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSchedulePeriodId(request),
+        parseChangeImpactAction(request.query),
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/schedules/:schedulePeriodId/withdraw',
+    { preHandler: app.authenticate },
+    (request) =>
+      publishService.withdrawPeriod(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSchedulePeriodId(request),
+        parsePeriodMutationInput(request.body),
       ),
   );
 
@@ -196,6 +224,9 @@ function parseSaveGeneratedInput(value: unknown): SaveGeneratedScheduleRequest {
     ...(input.acknowledgeBlockers === undefined
       ? {}
       : { acknowledgeBlockers: input.acknowledgeBlockers }),
+    ...(input.acknowledgeWorkflowRevocations === undefined
+      ? {}
+      : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
     businessMonth: input.businessMonth,
     operationId: input.operationId,
     ...(input.publishMode === undefined ? {} : { publishMode: input.publishMode }),
@@ -210,6 +241,9 @@ function parsePublishPeriodInput(value: unknown): PublishSchedulePeriodRequest {
     ...(input.acknowledgeBlockers === undefined
       ? {}
       : { acknowledgeBlockers: input.acknowledgeBlockers }),
+    ...(input.acknowledgeWorkflowRevocations === undefined
+      ? {}
+      : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
     expectedVersion: input.expectedVersion,
     operationId: input.operationId,
     ...(input.replacePublished === undefined ? {} : { replacePublished: input.replacePublished }),
@@ -222,10 +256,36 @@ function parsePublishBatchInput(value: unknown): PublishSchedulePeriodBatchReque
     ...(input.acknowledgeBlockers === undefined
       ? {}
       : { acknowledgeBlockers: input.acknowledgeBlockers }),
+    ...(input.acknowledgeWorkflowRevocations === undefined
+      ? {}
+      : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
     operationId: input.operationId,
     ...(input.replacePublished === undefined ? {} : { replacePublished: input.replacePublished }),
     schedulePeriodIds: input.schedulePeriodIds,
   };
+}
+
+const periodMutationInputSchema = z
+  .object({
+    acknowledgeWorkflowRevocations: z.boolean().optional(),
+    expectedVersion: z.number().int().min(1),
+    operationId: operationIdSchema,
+  })
+  .strict();
+
+function parsePeriodMutationInput(value: unknown): SchedulePeriodMutationRequest {
+  const input = parseOrThrow(periodMutationInputSchema, value);
+  return {
+    ...(input.acknowledgeWorkflowRevocations === undefined
+      ? {}
+      : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
+    expectedVersion: input.expectedVersion,
+    operationId: input.operationId,
+  };
+}
+
+function parseChangeImpactAction(query: unknown): 'publish' | 'withdraw' {
+  return parseOrThrow(z.object({ action: z.enum(['publish', 'withdraw']) }).strict(), query).action;
 }
 
 function parseUpdatePublishModeInput(value: unknown): UpdateGroupSchedulePublishModeRequest {

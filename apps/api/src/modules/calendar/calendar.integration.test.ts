@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
-import { toCalendarChangeMarker } from './calendar-query.js';
+import { CalendarQuery, toCalendarChangeMarker } from './calendar-query.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -204,6 +204,115 @@ describeWithDatabase('current month calendar read model', () => {
     });
   });
 
+  it('allows guest calendar access by group code without exposing contact details', async () => {
+    await savePublished('2026-08');
+    const contact = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: {
+        confirm: true,
+        mobilePhone: '13800138000',
+        shortPhone: '12345',
+      },
+      url: `/groups/${groupId}/members/${ownerMembershipId}/contact`,
+    });
+    expect(contact.statusCode).toBe(200);
+
+    const directResult = await new CalendarQuery(client).readGuestMonth(
+      '0'.repeat(64),
+      '1234',
+      '2026-08',
+    );
+    expect(directResult.groupName).toBe('Calendar group');
+
+    const response = await app.inject({
+      method: 'POST',
+      payload: { businessMonth: '2026-08', groupCode: '1234' },
+      url: '/guest/calendar',
+    });
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json()).toMatchObject({
+      groupName: 'Calendar group',
+      calendar: {
+        assignments: expect.any(Array),
+        businessMonth: '2026-08',
+      },
+    });
+    const body = response.json() as { calendar: CalendarReadModel };
+    expect(body.calendar.assignments).toHaveLength(31);
+    expect(body.calendar.members.every((member) => member.mobilePhone === undefined)).toBe(true);
+    expect(body.calendar.members.every((member) => member.shortPhone === undefined)).toBe(true);
+  });
+
+  it('rate limits repeated invalid guest group codes', async () => {
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await app.inject({
+        headers: { 'user-agent': 'guest-rate-limit-test' },
+        method: 'POST',
+        payload: { businessMonth: '2026-08', groupCode: '9999' },
+        url: '/guest/calendar',
+      });
+      expect(response.statusCode).toBe(404);
+    }
+
+    const limited = await app.inject({
+      headers: { 'user-agent': 'guest-rate-limit-test' },
+      method: 'POST',
+      payload: { businessMonth: '2026-08', groupCode: '9999' },
+      url: '/guest/calendar',
+    });
+    expect(limited.statusCode).toBe(429);
+  });
+
+  it('does not reset the guest failure budget after a valid group code', async () => {
+    const headers = { 'user-agent': 'guest-rate-limit-reset-test' };
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const response = await app.inject({
+        headers,
+        method: 'POST',
+        payload: { businessMonth: '2026-08', groupCode: '9999' },
+        url: '/guest/calendar',
+      });
+      expect(response.statusCode).toBe(404);
+    }
+
+    const valid = await app.inject({
+      headers,
+      method: 'POST',
+      payload: { businessMonth: '2026-08', groupCode: '1234' },
+      url: '/guest/calendar',
+    });
+    expect(valid.statusCode, valid.body).toBe(200);
+
+    const limited = await app.inject({
+      headers,
+      method: 'POST',
+      payload: { businessMonth: '2026-08', groupCode: '9999' },
+      url: '/guest/calendar',
+    });
+    expect(limited.statusCode).toBe(429);
+  });
+
+  it('reads the exact archived publication version as a calendar', async () => {
+    const first = await savePublished('2026-08');
+    await savePublished('2026-08');
+    const archivedPeriodId = (first.json() as SavedScheduleGeneration).periods[0]?.id as string;
+
+    const response = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/calendar/periods/${archivedPeriodId}`,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const calendar = response.json() as CalendarReadModel;
+    expect(calendar.assignments).toHaveLength(31);
+    expect(new Set(calendar.assignments.map((assignment) => assignment.schedulePeriodId))).toEqual(
+      new Set([archivedPeriodId]),
+    );
+  });
+
   it('marks assignments affected by workflow events', async () => {
     const saved = await savePublished('2026-08');
     const periodId = (saved.json() as SavedScheduleGeneration).periods[0]?.id as string;
@@ -238,6 +347,25 @@ describeWithDatabase('current month calendar read model', () => {
 
     expect(marked.changeMarkers).toEqual(['swap']);
     expect(unmarked.changeMarkers).toEqual([]);
+
+    await client.database.insert(scheduleEvents).values({
+      affectedMembershipIds: [],
+      affectedShiftIds: [assignmentId],
+      eventStatus: 'completed',
+      eventType: 'swap_revoked',
+      groupId,
+      id: randomUUID(),
+      objectId: assignmentId,
+      objectType: 'swap_request',
+      operationId: randomUUID(),
+      reason: '排班变更',
+      schedulePeriodId: periodId,
+    });
+
+    const restored = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    expect(
+      restored.assignments.find((assignment) => assignment.id === assignmentId)?.changeMarkers,
+    ).toEqual([]);
   });
 
   async function registerUser(token: string, realName: string): Promise<void> {
@@ -479,6 +607,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS member_schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS guest_schedule_access_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);

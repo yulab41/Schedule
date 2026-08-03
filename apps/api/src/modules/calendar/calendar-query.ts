@@ -5,8 +5,11 @@ import type {
   CalendarReadModel,
   CalendarRoleSummary,
   CalendarShiftTypeSummary,
+  GuestCalendarReadModel,
 } from '@schedule/contracts';
 import {
+  groups,
+  guestScheduleAccessAttempts,
   groupMemberContacts,
   scheduleEvents,
   schedulePeriods,
@@ -17,7 +20,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { assertBusinessMonthContainsDate } from '@schedule/scheduling-domain';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -28,6 +31,8 @@ export const calendarMarkerEventTypes = [
   'leave_cover_completed',
   'assignment_manually_updated',
   'duty_adjustment_completed',
+  'duty_adjustment_revoked',
+  'swap_revoked',
 ] as const;
 
 export function toCalendarChangeMarker(eventType: string): CalendarChangeMarker | undefined {
@@ -83,71 +88,187 @@ export class CalendarQuery {
         )
         .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
 
-      if (periods.length === 0) {
-        return emptyCalendar(authorization.group.id, businessMonth);
+      return this.buildCalendar(transaction, authorization.group.id, businessMonth, periods, true);
+    });
+  }
+
+  public async readPeriod(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    schedulePeriodId: string,
+  ): Promise<CalendarReadModel> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const [period] = await transaction
+        .select({
+          businessMonth: schedulePeriods.businessMonth,
+          id: schedulePeriods.id,
+          scheduleRoleId: schedulePeriods.scheduleRoleId,
+        })
+        .from(schedulePeriods)
+        .where(
+          and(
+            eq(schedulePeriods.id, schedulePeriodId),
+            eq(schedulePeriods.groupId, authorization.group.id),
+            isNull(schedulePeriods.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (period === undefined) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '排班发布记录不存在或不可用。',
+        });
       }
 
-      const periodIds = periods.map((period) => period.id);
-      const roleIds = [...new Set(periods.map((period) => period.scheduleRoleId))];
-      const [assignments, roles, markerEvents] = await Promise.all([
-        transaction
-          .select()
-          .from(shiftAssignments)
-          .where(
-            and(
-              inArray(shiftAssignments.schedulePeriodId, periodIds),
-              isNull(shiftAssignments.deletedAt),
-            ),
-          )
-          .orderBy(
-            asc(shiftAssignments.businessDate),
-            asc(shiftAssignments.slotPosition),
-            asc(shiftAssignments.id),
-          ),
-        transaction
-          .select({ id: scheduleRoles.id, name: scheduleRoles.name })
-          .from(scheduleRoles)
-          .where(and(inArray(scheduleRoles.id, roleIds), isNull(scheduleRoles.deletedAt))),
-        transaction
-          .select({
-            affectedShiftIds: scheduleEvents.affectedShiftIds,
-            eventType: scheduleEvents.eventType,
-          })
-          .from(scheduleEvents)
-          .where(
-            and(
-              eq(scheduleEvents.groupId, authorization.group.id),
-              inArray(scheduleEvents.schedulePeriodId, periodIds),
-              inArray(scheduleEvents.eventType, [...calendarMarkerEventTypes]),
-            ),
-          ),
-      ]);
-
-      const roleNamesById = new Map(roles.map((role) => [role.id, role.name]));
-      const scheduleRoleIdByPeriodId = new Map(
-        periods.map((period) => [period.id, period.scheduleRoleId]),
+      return this.buildCalendar(
+        transaction,
+        authorization.group.id,
+        period.businessMonth.slice(0, 7),
+        [period],
+        true,
       );
-      const markersByShiftId = collectMarkers(markerEvents);
-      const memberNamesById = collectMemberNames(assignments);
-      const membershipIds = [...memberNamesById.keys()].sort();
-      const contactsByMembershipId = await this.readContacts(transaction, membershipIds);
-
-      return {
-        assignments: assignments.map((assignment) =>
-          toCalendarAssignment(
-            assignment,
-            scheduleRoleIdByPeriodId,
-            roleNamesById,
-            markersByShiftId,
-          ),
-        ),
-        businessMonth,
-        groupId: authorization.group.id,
-        members: buildMembers(memberNamesById, contactsByMembershipId),
-        roles: buildRoleSummaries(roleNamesById),
-        shiftTypes: buildShiftTypeSummaries(assignments),
-      };
     });
+  }
+
+  public async readGuestMonth(
+    accessKey: string,
+    groupCode: string,
+    businessMonth: string,
+  ): Promise<GuestCalendarReadModel> {
+    assertValidBusinessMonth(businessMonth);
+    const [group] = await this.databaseClient.database
+      .select({ id: groups.id, name: groups.name })
+      .from(groups)
+      .where(and(eq(groups.groupCode, groupCode), isNull(groups.deletedAt)))
+      .limit(1);
+    if (group === undefined) {
+      await this.consumeFailedGuestAccess(accessKey);
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '群组码无效或群组不可用。',
+      });
+    }
+    const calendar = await withTransaction(this.databaseClient, async (transaction) => {
+      const periods = await transaction
+        .select({ id: schedulePeriods.id, scheduleRoleId: schedulePeriods.scheduleRoleId })
+        .from(schedulePeriods)
+        .where(
+          and(
+            eq(schedulePeriods.groupId, group.id),
+            eq(schedulePeriods.businessMonth, `${businessMonth}-01`),
+            eq(schedulePeriods.status, 'published'),
+            isNull(schedulePeriods.deletedAt),
+          ),
+        )
+        .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
+      return this.buildCalendar(transaction, group.id, businessMonth, periods, false);
+    });
+    return { calendar, groupName: group.name };
+  }
+
+  private async buildCalendar(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    businessMonth: string,
+    periods: readonly { readonly id: string; readonly scheduleRoleId: string }[],
+    includeContacts: boolean,
+  ): Promise<CalendarReadModel> {
+    if (periods.length === 0) {
+      return emptyCalendar(groupId, businessMonth);
+    }
+
+    const periodIds = periods.map((period) => period.id);
+    const roleIds = [...new Set(periods.map((period) => period.scheduleRoleId))];
+    const [assignments, roles, markerEvents] = await Promise.all([
+      transaction
+        .select()
+        .from(shiftAssignments)
+        .where(
+          and(
+            inArray(shiftAssignments.schedulePeriodId, periodIds),
+            isNull(shiftAssignments.deletedAt),
+          ),
+        )
+        .orderBy(
+          asc(shiftAssignments.businessDate),
+          asc(shiftAssignments.slotPosition),
+          asc(shiftAssignments.id),
+        ),
+      transaction
+        .select({ id: scheduleRoles.id, name: scheduleRoles.name })
+        .from(scheduleRoles)
+        .where(and(inArray(scheduleRoles.id, roleIds), isNull(scheduleRoles.deletedAt))),
+      transaction
+        .select({
+          affectedShiftIds: scheduleEvents.affectedShiftIds,
+          eventType: scheduleEvents.eventType,
+          occurredAt: scheduleEvents.occurredAt,
+        })
+        .from(scheduleEvents)
+        .where(
+          and(
+            eq(scheduleEvents.groupId, groupId),
+            inArray(scheduleEvents.schedulePeriodId, periodIds),
+            inArray(scheduleEvents.eventType, [...calendarMarkerEventTypes]),
+          ),
+        )
+        .orderBy(asc(scheduleEvents.occurredAt), asc(scheduleEvents.id)),
+    ]);
+
+    const roleNamesById = new Map(roles.map((role) => [role.id, role.name]));
+    const scheduleRoleIdByPeriodId = new Map(
+      periods.map((period) => [period.id, period.scheduleRoleId]),
+    );
+    const markersByShiftId = collectMarkers(markerEvents);
+    const memberNamesById = collectMemberNames(assignments);
+    const membershipIds = [...memberNamesById.keys()].sort();
+    const contactsByMembershipId = includeContacts
+      ? await this.readContacts(transaction, membershipIds)
+      : new Map<string, ContactRow>();
+
+    return {
+      assignments: assignments.map((assignment) =>
+        toCalendarAssignment(assignment, scheduleRoleIdByPeriodId, roleNamesById, markersByShiftId),
+      ),
+      businessMonth,
+      groupId,
+      members: buildMembers(memberNamesById, contactsByMembershipId),
+      roles: buildRoleSummaries(roleNamesById),
+      shiftTypes: buildShiftTypeSummaries(assignments),
+    };
+  }
+
+  private async consumeFailedGuestAccess(accessKey: string): Promise<void> {
+    const windowExpired = sql`${guestScheduleAccessAttempts.windowStartedAt} < timestampadd(second, -60, current_timestamp(3))`;
+    await this.databaseClient.database
+      .insert(guestScheduleAccessAttempts)
+      .values({ accessKey })
+      .onDuplicateKeyUpdate({
+        set: {
+          attemptCount: sql`if(${windowExpired}, 1, ${guestScheduleAccessAttempts.attemptCount} + 1)`,
+          windowStartedAt: sql`if(${windowExpired}, current_timestamp(3), ${guestScheduleAccessAttempts.windowStartedAt})`,
+        },
+      });
+    const [attempt] = await this.databaseClient.database
+      .select({ count: guestScheduleAccessAttempts.attemptCount })
+      .from(guestScheduleAccessAttempts)
+      .where(eq(guestScheduleAccessAttempts.accessKey, accessKey))
+      .limit(1);
+    if (attempt !== undefined && attempt.count > 5) {
+      throw new ApiError({
+        code: 'RATE_LIMITED',
+        statusCode: 429,
+        userMessage: '群组码尝试过于频繁，请稍后重试。',
+      });
+    }
   }
 
   private async readContacts(
@@ -185,6 +306,21 @@ function collectMarkers(
 ): ReadonlyMap<string, readonly CalendarChangeMarker[]> {
   const markersByShiftId = new Map<string, CalendarChangeMarker[]>();
   for (const event of events) {
+    const revokedMarker =
+      event.eventType === 'swap_revoked'
+        ? 'swap'
+        : event.eventType === 'duty_adjustment_revoked'
+          ? 'overtime'
+          : undefined;
+    if (revokedMarker !== undefined) {
+      for (const shiftId of event.affectedShiftIds) {
+        markersByShiftId.set(
+          shiftId,
+          (markersByShiftId.get(shiftId) ?? []).filter((marker) => marker !== revokedMarker),
+        );
+      }
+      continue;
+    }
     const marker = toCalendarChangeMarker(event.eventType);
     if (marker === undefined) {
       continue;

@@ -19,6 +19,7 @@ export interface SwapCandidateOptions {
 
 export const swapStatusLabels: Readonly<Record<SwapRequestStatus, string>> = {
   cancelled: '已取消',
+  revoked: '已撤销',
   completed: '已生效',
   pending_approval: '待管理员审批',
   pending_target: '待对方接受',

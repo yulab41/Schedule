@@ -203,6 +203,12 @@ export const groupCodeAttempts = mysqlTable('group_code_attempts', {
   attemptCount: int('attempt_count', { unsigned: true }).default(1).notNull(),
 });
 
+export const guestScheduleAccessAttempts = mysqlTable('guest_schedule_access_attempts', {
+  accessKey: char('access_key', { length: 64 }).primaryKey(),
+  windowStartedAt: timestamp('window_started_at', { fsp: 3 }).defaultNow().notNull(),
+  attemptCount: int('attempt_count', { unsigned: true }).default(1).notNull(),
+});
+
 export const groupJoinRequests = mysqlTable(
   'group_join_requests',
   {

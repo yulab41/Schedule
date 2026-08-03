@@ -73,6 +73,9 @@ async function submitDev(uid: string): Promise<void> {
             />
           </t-form-item>
           <t-button block :loading="submitting" theme="primary" type="submit">登录</t-button>
+          <t-button block variant="outline" @click="router.push({ name: 'guest-schedule' })">
+            访客查看排班
+          </t-button>
           <template v-if="devAuthEnabled">
             <t-divider>本地开发登录</t-divider>
             <t-space direction="vertical" size="small" style="width: 100%">

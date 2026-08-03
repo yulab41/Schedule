@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type {
   AppliedManualScheduleTemplateResult,
+  CalendarReadModel,
   ConfirmedHolidayDate,
   CreateManualScheduleTemplateRequest,
   GroupSummary,
   ManualScheduleTemplate,
+  ScheduleChangeImpactPreview,
   ScheduleGenerationPreview,
   SchedulePeriodHistoryItem,
+  ScheduleWorkflowImpact,
   SchedulingConfig,
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
@@ -21,6 +24,7 @@ import {
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
+import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import ApplyTemplateDialog from '../../features/manual-schedule/ApplyTemplateDialog.vue';
 import ClearActions from '../../features/manual-schedule/ClearActions.vue';
 import ManualGrid from '../../features/manual-schedule/ManualGrid.vue';
@@ -72,13 +76,22 @@ const isPublishingId = ref<string>();
 const isDeletingDraftId = ref<string>();
 const batchBlocked = ref<BlockedBatch>();
 const acknowledgeBlockers = ref(false);
+const acknowledgeWorkflowRevocations = ref(false);
 const replacePublished = ref(false);
 const previewDialogVisible = ref(false);
 const previewTarget = ref<SchedulePeriodHistoryItem>();
 const draftPreview = ref<ScheduleGenerationPreview>();
+const periodCalendar = ref<CalendarReadModel>();
 const isPreviewingDraftId = ref<string>();
 const draftPreviewError = ref<string>();
 const applyTarget = ref<ManualScheduleTemplate>();
+const periodMutationVisible = ref(false);
+const periodMutationTarget = ref<SchedulePeriodHistoryItem>();
+const periodMutationAction = ref<'publish' | 'withdraw'>('withdraw');
+const periodMutationImpact = ref<ScheduleChangeImpactPreview>();
+const periodMutationPublishPreview = ref<ScheduleGenerationPreview>();
+const isLoadingPeriodMutation = ref(false);
+const isMutatingPeriod = ref(false);
 let requestVersion = 0;
 
 interface DraftBatch {
@@ -94,7 +107,20 @@ interface BlockedBatch {
   readonly conflictingMonths: readonly string[];
   readonly message: string;
   readonly needsReplace: boolean;
+  readonly workflowImpacts: readonly ScheduleWorkflowImpact[];
 }
+
+const hasPeriodMutationBlockers = computed(
+  () =>
+    periodMutationAction.value === 'publish' &&
+    ((periodMutationPublishPreview.value?.hardConflicts.length ?? 0) > 0 ||
+      (periodMutationPublishPreview.value?.vacancies.length ?? 0) > 0),
+);
+const periodMutationRequiresAcknowledgement = computed(
+  () =>
+    hasPeriodMutationBlockers.value ||
+    (periodMutationImpact.value?.workflowImpacts.length ?? 0) > 0,
+);
 
 const roleOptions = computed(() =>
   (config.value?.roles ?? []).map((role) => ({ label: role.name, value: role.id })),
@@ -537,16 +563,19 @@ async function publishBatch(
   batch: DraftBatch,
   acknowledge = false,
   replace = false,
+  acknowledgeWorkflows = false,
 ): Promise<void> {
   errorMessage.value = undefined;
   batchBlocked.value = undefined;
   acknowledgeBlockers.value = false;
+  acknowledgeWorkflowRevocations.value = false;
   replacePublished.value = false;
   isPublishingId.value = batch.key;
 
   try {
     const result = await api.publishScheduleDraftBatch(props.group.id, {
       ...(acknowledge ? { acknowledgeBlockers: true } : {}),
+      ...(acknowledgeWorkflows ? { acknowledgeWorkflowRevocations: true } : {}),
       operationId: crypto.randomUUID(),
       ...(replace ? { replacePublished: true } : {}),
       schedulePeriodIds: batch.items.map((item) => item.id),
@@ -556,7 +585,12 @@ async function publishBatch(
   } catch (error) {
     if (isDataConflictError(error)) {
       const latest = getConflictLatestData(error) as
-        { existingPublishedPeriodId?: unknown } | undefined;
+        | {
+            existingPublishedPeriodId?: unknown;
+            workflowImpacts?: readonly ScheduleWorkflowImpact[];
+          }
+        | undefined;
+      const workflowImpacts = Array.isArray(latest?.workflowImpacts) ? latest.workflowImpacts : [];
       if (latest?.existingPublishedPeriodId !== undefined) {
         try {
           history.value = await api.listSchedulePeriodHistory(props.group.id);
@@ -568,6 +602,7 @@ async function publishBatch(
           conflictingMonths: findPublishedOverlapMonths(batch.items, history.value),
           message: '发布范围包含已有已发布排班的月份，请确认覆盖发布。',
           needsReplace: true,
+          workflowImpacts,
         };
       } else {
         batchBlocked.value = {
@@ -575,6 +610,7 @@ async function publishBatch(
           conflictingMonths: [],
           message: getConflictMessage(error),
           needsReplace: false,
+          workflowImpacts,
         };
       }
     } else {
@@ -612,12 +648,17 @@ async function deleteBatch(batch: DraftBatch): Promise<void> {
 async function openDraftPreview(draft: SchedulePeriodHistoryItem): Promise<void> {
   previewTarget.value = draft;
   draftPreview.value = undefined;
+  periodCalendar.value = undefined;
   draftPreviewError.value = undefined;
   previewDialogVisible.value = true;
   isPreviewingDraftId.value = draft.id;
 
   try {
-    draftPreview.value = await api.getScheduleDraftPreview(props.group.id, draft.id);
+    if (draft.status === 'draft') {
+      draftPreview.value = await api.getScheduleDraftPreview(props.group.id, draft.id);
+    } else {
+      periodCalendar.value = await api.getSchedulePeriodCalendar(props.group.id, draft.id);
+    }
   } catch (error) {
     draftPreviewError.value = getErrorMessage(error);
   } finally {
@@ -629,7 +670,79 @@ function closeDraftPreview(): void {
   previewDialogVisible.value = false;
   previewTarget.value = undefined;
   draftPreview.value = undefined;
+  periodCalendar.value = undefined;
   draftPreviewError.value = undefined;
+}
+
+async function preparePeriodMutation(
+  item: SchedulePeriodHistoryItem,
+  action: 'publish' | 'withdraw',
+): Promise<void> {
+  periodMutationTarget.value = item;
+  periodMutationAction.value = action;
+  periodMutationImpact.value = undefined;
+  periodMutationPublishPreview.value = undefined;
+  acknowledgeWorkflowRevocations.value = false;
+  periodMutationVisible.value = true;
+  isLoadingPeriodMutation.value = true;
+
+  try {
+    const [impact, publishPreview] = await Promise.all([
+      api.previewScheduleChange(props.group.id, item.id, action),
+      action === 'publish'
+        ? api.getScheduleDraftPreview(props.group.id, item.id)
+        : Promise.resolve(undefined),
+    ]);
+    periodMutationImpact.value = impact;
+    periodMutationPublishPreview.value = publishPreview;
+  } catch (error) {
+    periodMutationVisible.value = false;
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isLoadingPeriodMutation.value = false;
+  }
+}
+
+async function confirmPeriodMutation(): Promise<void> {
+  const target = periodMutationTarget.value;
+  if (
+    target === undefined ||
+    (periodMutationRequiresAcknowledgement.value && !acknowledgeWorkflowRevocations.value)
+  ) {
+    return;
+  }
+
+  isMutatingPeriod.value = true;
+  errorMessage.value = undefined;
+  try {
+    if (periodMutationAction.value === 'withdraw') {
+      await api.withdrawSchedulePeriod(props.group.id, target.id, {
+        ...(acknowledgeWorkflowRevocations.value ? { acknowledgeWorkflowRevocations: true } : {}),
+        expectedVersion: target.version,
+        operationId: crypto.randomUUID(),
+      });
+      infoMessage.value = `${target.businessMonth.slice(0, 7)} 的当前排班已撤销并归档。`;
+    } else {
+      await api.publishSchedulePeriod(props.group.id, target.id, {
+        ...(hasPeriodMutationBlockers.value ? { acknowledgeBlockers: true } : {}),
+        ...(acknowledgeWorkflowRevocations.value ? { acknowledgeWorkflowRevocations: true } : {}),
+        expectedVersion: target.version,
+        operationId: crypto.randomUUID(),
+        replacePublished: true,
+      });
+      infoMessage.value = `${target.businessMonth.slice(0, 7)} 的归档排班已重新发布。`;
+    }
+    periodMutationVisible.value = false;
+    await loadData();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isMutatingPeriod.value = false;
+  }
+}
+
+function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
+  return impact.kind === 'swap' ? '换班' : '加扣班';
 }
 
 async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
@@ -831,12 +944,33 @@ function onWindowFocus(): void {
               <input v-model="replacePublished" type="checkbox" />
               覆盖已发布排班（替换同岗位同月份的旧排班）
             </label>
+            <div v-if="batchBlocked.workflowImpacts.length > 0" class="workflow-impact-list">
+              <strong>覆盖后将撤销以下已生效或处理中事件：</strong>
+              <span v-for="impact in batchBlocked.workflowImpacts" :key="impact.id">
+                {{ workflowKindLabel(impact) }} · {{ impact.memberNames.join('、') }} ·
+                {{ impact.businessDates.join('、') }}
+              </span>
+              <label class="acknowledge-field">
+                <input v-model="acknowledgeWorkflowRevocations" type="checkbox" />
+                我已了解这些事件将因排班变更被撤销
+              </label>
+            </div>
             <t-button
               theme="danger"
               variant="outline"
-              :disabled="!replacePublished"
+              :disabled="
+                !replacePublished ||
+                (batchBlocked.workflowImpacts.length > 0 && !acknowledgeWorkflowRevocations)
+              "
               :loading="isPublishingId === batchBlocked.batch.key"
-              @click="publishBatch(batchBlocked.batch, false, replacePublished)"
+              @click="
+                publishBatch(
+                  batchBlocked.batch,
+                  false,
+                  replacePublished,
+                  acknowledgeWorkflowRevocations,
+                )
+              "
             >
               确认覆盖发布
             </t-button>
@@ -862,7 +996,7 @@ function onWindowFocus(): void {
       <section v-if="versionMonthGroups.length > 0" class="draft-section">
         <h3>排班发布记录</h3>
         <p class="draft-hint">
-          每个月的已发布与已归档版本；新排班发布后旧版本自动归档，可查看和删除。
+          每个月的当前与归档版本；可查看版本月历、撤销当前排班或重新发布归档版本。
         </p>
         <div class="draft-list">
           <article
@@ -888,6 +1022,14 @@ function onWindowFocus(): void {
                 >
                   查看
                 </t-button>
+                <t-button
+                  size="small"
+                  theme="danger"
+                  variant="outline"
+                  @click="preparePeriodMutation(item, 'withdraw')"
+                >
+                  撤销发布
+                </t-button>
               </t-space>
             </div>
             <details v-if="monthGroup.archived.length > 0" class="archived-details">
@@ -905,6 +1047,14 @@ function onWindowFocus(): void {
                     @click="openDraftPreview(item)"
                   >
                     查看
+                  </t-button>
+                  <t-button
+                    size="small"
+                    theme="primary"
+                    variant="outline"
+                    @click="preparePeriodMutation(item, 'publish')"
+                  >
+                    重新发布
                   </t-button>
                   <t-button
                     size="small"
@@ -931,9 +1081,9 @@ function onWindowFocus(): void {
     />
     <t-dialog
       v-model:visible="previewDialogVisible"
-      header="草稿预览"
+      :header="previewTarget?.status === 'draft' ? '草稿预览' : '排班版本月历'"
       :footer="false"
-      width="640px"
+      :width="previewTarget?.status === 'draft' ? '640px' : 'min(1100px, 96vw)'"
       @close="closeDraftPreview"
     >
       <template v-if="previewTarget !== undefined">
@@ -991,7 +1141,65 @@ function onWindowFocus(): void {
               :message="`发现 ${draftPreview.vacancies.length} 个待处理空缺。`"
             />
           </template>
+          <MonthGrid
+            v-else-if="periodCalendar !== undefined"
+            :assignments="periodCalendar.assignments"
+            :business-month="periodCalendar.businessMonth"
+            :holidays="holidays"
+            :members="periodCalendar.members"
+          />
         </template>
+      </template>
+    </t-dialog>
+    <t-dialog
+      v-model:visible="periodMutationVisible"
+      :confirm-btn="{
+        content: periodMutationAction === 'withdraw' ? '确认撤销发布' : '确认重新发布',
+        disabled:
+          isLoadingPeriodMutation ||
+          (periodMutationRequiresAcknowledgement && !acknowledgeWorkflowRevocations),
+        loading: isMutatingPeriod,
+        theme: periodMutationAction === 'withdraw' ? 'danger' : 'primary',
+      }"
+      :header="periodMutationAction === 'withdraw' ? '撤销当前排班' : '重新发布归档排班'"
+      width="640px"
+      @confirm="confirmPeriodMutation"
+    >
+      <t-loading v-if="isLoadingPeriodMutation" text="正在检查排班变更影响" />
+      <template v-else-if="periodMutationTarget !== undefined">
+        <p class="draft-preview-meta">
+          {{ periodMutationTarget.businessMonth.slice(0, 7) }} ·
+          {{ periodMutationTarget.scheduleRoleName }}
+        </p>
+        <t-alert
+          v-if="periodMutationAction === 'withdraw'"
+          theme="warning"
+          message="撤销后该版本将进入归档，本月将不再显示此版本的排班。"
+        />
+        <t-alert
+          v-else
+          theme="info"
+          message="重新发布后，该版本将成为当前排班，原当前版本自动进入归档。"
+        />
+        <div
+          v-if="(periodMutationImpact?.workflowImpacts.length ?? 0) > 0"
+          class="workflow-impact-list"
+        >
+          <strong>本次变更将撤销以下事件，撤销原因为“排班变更”：</strong>
+          <span v-for="impact in periodMutationImpact?.workflowImpacts ?? []" :key="impact.id">
+            {{ workflowKindLabel(impact) }} · {{ impact.memberNames.join('、') }} ·
+            {{ impact.businessDates.join('、') }}
+          </span>
+        </div>
+        <t-alert
+          v-if="hasPeriodMutationBlockers"
+          theme="warning"
+          :message="`该归档版本包含 ${periodMutationPublishPreview?.hardConflicts.length ?? 0} 处硬冲突和 ${periodMutationPublishPreview?.vacancies.length ?? 0} 个空缺。`"
+        />
+        <label v-if="periodMutationRequiresAcknowledgement" class="acknowledge-field">
+          <input v-model="acknowledgeWorkflowRevocations" type="checkbox" />
+          我已了解上述影响，确认继续
+        </label>
       </template>
     </t-dialog>
     <DataConflictDialog
@@ -1219,6 +1427,17 @@ function onWindowFocus(): void {
 .blocker-panel {
   display: grid;
   gap: 10px;
+}
+
+.workflow-impact-list {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .acknowledge-field {

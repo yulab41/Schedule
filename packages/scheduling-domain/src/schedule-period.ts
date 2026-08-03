@@ -14,8 +14,8 @@ const permittedTransitions: Readonly<
   draft: ['pending_publication', 'published', 'withdrawn'],
   pending_publication: ['draft', 'published', 'withdrawn'],
   published: ['withdrawn', 'replaced'],
-  replaced: [],
-  withdrawn: [],
+  replaced: ['published'],
+  withdrawn: ['published'],
 };
 
 export function canTransitionSchedulePeriod(

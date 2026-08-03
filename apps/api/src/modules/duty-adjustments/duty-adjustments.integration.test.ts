@@ -5,10 +5,11 @@ import type { DutyAdjustmentPreview, DutyAdjustmentRequest } from '@schedule/con
 import {
   createTestDatabaseClient,
   migrateDatabase,
+  schedulePeriods,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -530,6 +531,84 @@ describeWithDatabase('paired duty adjustments', () => {
       sql`SELECT COUNT(*) AS count FROM duty_adjustments WHERE group_id = ${context.groupId}`,
     );
     expect(rowCount).toEqual([{ count: 1 }]);
+  });
+
+  it('requires acknowledgement before withdrawing a schedule with active duty adjustments', async () => {
+    const context = await seedPublishedRotation();
+    const completed = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '管理员安排 B 代值',
+    });
+    expect(completed.statusCode).toBe(201);
+    const completedBody = completed.json() as DutyAdjustmentRequest;
+
+    const periodRows = await client.database
+      .select({ id: schedulePeriods.id, version: schedulePeriods.version })
+      .from(schedulePeriods)
+      .where(
+        and(eq(schedulePeriods.groupId, context.groupId), eq(schedulePeriods.status, 'published')),
+      );
+    const period = periodRows[0];
+    expect(period).toBeDefined();
+
+    const preview = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${context.groupId}/schedules/${period?.id}/change-impact?action=withdraw`,
+    });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json()).toMatchObject({
+      action: 'withdraw',
+      workflowImpacts: [
+        {
+          businessDates: ['2026-09-01'],
+          id: completedBody.id,
+          kind: 'duty_adjustment',
+          memberNames: ['A Doctor', 'B Doctor'],
+          status: 'completed',
+        },
+      ],
+    });
+
+    const blocked = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { expectedVersion: period?.version, operationId: randomUUID() },
+      url: `/groups/${context.groupId}/schedules/${period?.id}/withdraw`,
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect((blocked.json() as ErrorResponse).error.latestData).toMatchObject({
+      workflowImpacts: [{ id: completedBody.id, kind: 'duty_adjustment' }],
+    });
+
+    const withdrawn = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        acknowledgeWorkflowRevocations: true,
+        expectedVersion: period?.version,
+        operationId: randomUUID(),
+      },
+      url: `/groups/${context.groupId}/schedules/${period?.id}/withdraw`,
+    });
+    expect(withdrawn.statusCode).toBe(200);
+    expect(withdrawn.json()).toMatchObject({
+      period: { status: 'withdrawn' },
+      workflowImpacts: [{ id: completedBody.id, kind: 'duty_adjustment' }],
+    });
+
+    const mine = (
+      await listMyDutyAdjustments('a-token', context.groupId)
+    ).json() as DutyAdjustmentRequest[];
+    expect(mine.find((request) => request.id === completedBody.id)).toMatchObject({
+      revocationReason: '排班变更',
+      status: 'revoked',
+    });
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
+      context.membershipIds.a,
+    );
   });
 
   it('keeps both history rows when the same member adds once and deducts once', async () => {
@@ -1279,6 +1358,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS member_schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS guest_schedule_access_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);

@@ -5,10 +5,12 @@ import type { SwapPreview, SwapRequest } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
+  schedulePeriods,
+  shiftAssignments,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -297,6 +299,121 @@ describeWithDatabase('member shift swaps', () => {
     });
     const mineAsA = (await listMySwaps('a-token', context.groupId)).json() as SwapRequest[];
     expect(mineAsA.map((request) => request.id)).toContain(createdBody.id);
+  });
+
+  it('revokes active swaps when an archived schedule version is republished', async () => {
+    const archivedContext = await seedPublishedRotation();
+    const rulesVersion = (await getConfig('owner-token', archivedContext.groupId)).rulesVersion;
+    expect(
+      (await generatePublished(archivedContext.groupId, archivedContext.roleId, rulesVersion))
+        .statusCode,
+    ).toBe(200);
+
+    const periodRows = await client.database
+      .select({
+        id: schedulePeriods.id,
+        status: schedulePeriods.status,
+        version: schedulePeriods.version,
+      })
+      .from(schedulePeriods)
+      .where(eq(schedulePeriods.groupId, archivedContext.groupId))
+      .orderBy(schedulePeriods.revision);
+    const archivedPeriod = periodRows.find((period) => period.status === 'replaced');
+    expect(archivedPeriod).toBeDefined();
+
+    const assignmentRows = await client.database
+      .select({
+        businessDate: shiftAssignments.businessDate,
+        id: shiftAssignments.id,
+        plannedMembershipId: shiftAssignments.plannedMembershipId,
+        version: shiftAssignments.version,
+      })
+      .from(shiftAssignments)
+      .innerJoin(schedulePeriods, eq(schedulePeriods.id, shiftAssignments.schedulePeriodId))
+      .where(
+        and(
+          eq(schedulePeriods.groupId, archivedContext.groupId),
+          eq(schedulePeriods.status, 'published'),
+          inArray(shiftAssignments.businessDate, ['2026-09-01', '2026-09-02']),
+        ),
+      )
+      .orderBy(shiftAssignments.businessDate);
+    const currentByDate = new Map(assignmentRows.map((row) => [row.businessDate, row]));
+    const currentContext: Context = {
+      ...archivedContext,
+      assignments: {
+        ...archivedContext.assignments,
+        aSep1: toAssignment(currentByDate.get('2026-09-01')),
+        bSep2: toAssignment(currentByDate.get('2026-09-02')),
+      },
+    };
+    const swap = await directSwap('owner-token', currentContext.groupId, {
+      initiatorAssignmentId: currentContext.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: currentContext.assignments.bSep2.id,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as SwapRequest;
+
+    const impact = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${currentContext.groupId}/schedules/${archivedPeriod?.id}/change-impact?action=publish`,
+    });
+    expect(impact.statusCode).toBe(200);
+    expect(impact.json()).toMatchObject({
+      action: 'publish',
+      workflowImpacts: [
+        {
+          businessDates: ['2026-09-01', '2026-09-02'],
+          id: swapBody.id,
+          kind: 'swap',
+          memberNames: ['A Doctor', 'B Doctor'],
+          status: 'completed',
+        },
+      ],
+    });
+
+    const blocked = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        expectedVersion: archivedPeriod?.version,
+        operationId: randomUUID(),
+        replacePublished: true,
+      },
+      url: `/groups/${currentContext.groupId}/schedules/${archivedPeriod?.id}/publish`,
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect((blocked.json() as ErrorResponse).error.latestData).toMatchObject({
+      workflowImpacts: [{ id: swapBody.id, kind: 'swap' }],
+    });
+
+    const republished = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        acknowledgeWorkflowRevocations: true,
+        expectedVersion: archivedPeriod?.version,
+        operationId: randomUUID(),
+        replacePublished: true,
+      },
+      url: `/groups/${currentContext.groupId}/schedules/${archivedPeriod?.id}/publish`,
+    });
+    expect(republished.statusCode).toBe(200);
+    expect(republished.json()).toMatchObject({
+      period: { id: archivedPeriod?.id, status: 'published' },
+      workflowImpacts: [{ id: swapBody.id, kind: 'swap' }],
+    });
+
+    const mine = (await listMySwaps('a-token', currentContext.groupId)).json() as SwapRequest[];
+    expect(mine.find((request) => request.id === swapBody.id)).toMatchObject({
+      revocationReason: '排班变更',
+      status: 'revoked',
+    });
+    const restoredActuals = await readActualMembers(currentContext);
+    expect(restoredActuals.aSep1.actualMembershipId).toBe(currentContext.membershipIds.a);
+    expect(restoredActuals.bSep2.actualMembershipId).toBe(currentContext.membershipIds.b);
   });
 
   it('lets only one active swap request use the same shift', async () => {
@@ -1179,6 +1296,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS member_schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS guest_schedule_access_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);

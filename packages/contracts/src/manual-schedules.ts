@@ -90,6 +90,7 @@ export interface PreviewManualTemplateApplyRequest {
 
 export interface ApplyManualScheduleTemplateRequest {
   readonly acknowledgeBlockers?: boolean;
+  readonly acknowledgeWorkflowRevocations?: boolean;
   readonly endDate?: string;
   readonly expectedRulesVersion: number;
   readonly operationId: string;

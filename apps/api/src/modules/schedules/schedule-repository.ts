@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ScheduleDraftSummary, SchedulePeriodHistoryItem } from '@schedule/contracts';
+import type {
+  ScheduleDraftSummary,
+  SchedulePeriodHistoryItem,
+  ScheduleWorkflowImpact,
+} from '@schedule/contracts';
 import {
   groups,
   groupMemberships,
@@ -25,6 +29,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { ApiError } from '../../plugins/error-handler.js';
 import { assertExpectedVersion as assertVersionMatch } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
+import { ScheduleWorkflowInvalidationService } from './workflow-invalidation-service.js';
 
 export interface CreateSchedulePeriodInput {
   readonly actorUserId: string;
@@ -45,6 +50,7 @@ export interface CreateShiftAssignmentInput {
 }
 
 export interface SchedulePeriodMutationInput {
+  readonly acknowledgeWorkflowRevocations?: boolean;
   readonly actorUserId: string;
   readonly expectedVersion: number;
   readonly operationId: string;
@@ -69,6 +75,7 @@ type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
 
 export class ScheduleRepository {
   private readonly eventWriter = new EventWriter();
+  private readonly workflowInvalidationService = new ScheduleWorkflowInvalidationService();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
@@ -411,6 +418,26 @@ export class ScheduleRepository {
       .for('update');
     const publishedAt = new Date();
 
+    const invalidatedPeriodIds = [
+      ...(currentPublished === undefined ? [] : [currentPublished.id]),
+      ...(target.status === 'replaced' || target.status === 'withdrawn' ? [target.id] : []),
+    ];
+    const workflowImpacts = await this.workflowInvalidationService.listImpacts(
+      transaction,
+      invalidatedPeriodIds,
+      true,
+    );
+    assertWorkflowRevocationsAcknowledged(
+      workflowImpacts,
+      input.acknowledgeWorkflowRevocations === true,
+    );
+    await this.workflowInvalidationService.invalidate(transaction, {
+      actorUserId: input.actorUserId,
+      groupId: target.groupId,
+      operationId: input.operationId,
+      periodIds: invalidatedPeriodIds,
+    });
+
     if (currentPublished !== undefined) {
       await transaction
         .update(schedulePeriods)
@@ -426,8 +453,10 @@ export class ScheduleRepository {
       .update(schedulePeriods)
       .set({
         publishedAt,
+        replacedByPeriodId: null,
         status: 'published',
         version: sql`${schedulePeriods.version} + 1`,
+        withdrawnAt: null,
       })
       .where(eq(schedulePeriods.id, target.id));
     const published = await this.readPeriod(transaction, target.id);
@@ -466,36 +495,65 @@ export class ScheduleRepository {
   }
 
   public async withdraw(input: SchedulePeriodMutationInput): Promise<SchedulePeriodRecord> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const period = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
-      assertExpectedPeriodVersion(period, input.expectedVersion);
-      assertTransition(period.status, 'withdrawn');
+    return withTransaction(this.databaseClient, (transaction) =>
+      this.withdrawInTransaction(transaction, input),
+    );
+  }
 
-      await transaction
-        .update(schedulePeriods)
-        .set({
-          status: 'withdrawn',
-          version: sql`${schedulePeriods.version} + 1`,
-          withdrawnAt: new Date(),
-        })
-        .where(eq(schedulePeriods.id, period.id));
-      const withdrawn = await this.readPeriod(transaction, period.id);
-      await this.eventWriter.append(transaction, {
-        afterData: { status: withdrawn.status, version: withdrawn.version },
-        beforeData: { status: period.status, version: period.version },
-        eventStatus: 'completed',
-        eventType: 'schedule_period_withdrawn',
-        groupId: period.groupId,
-        initiatedByUserId: input.actorUserId,
-        objectId: period.id,
-        objectType: 'schedule_period',
-        operationId: input.operationId,
-        operatorUserId: input.actorUserId,
-        schedulePeriodId: period.id,
-      });
-
-      return withdrawn;
+  public async withdrawInTransaction(
+    transaction: DatabaseTransaction,
+    input: SchedulePeriodMutationInput,
+  ): Promise<SchedulePeriodRecord> {
+    const period = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
+    assertExpectedPeriodVersion(period, input.expectedVersion);
+    assertTransition(period.status, 'withdrawn');
+    const workflowImpacts = await this.workflowInvalidationService.listImpacts(
+      transaction,
+      [period.id],
+      true,
+    );
+    assertWorkflowRevocationsAcknowledged(
+      workflowImpacts,
+      input.acknowledgeWorkflowRevocations === true,
+    );
+    await this.workflowInvalidationService.invalidate(transaction, {
+      actorUserId: input.actorUserId,
+      groupId: period.groupId,
+      operationId: input.operationId,
+      periodIds: [period.id],
     });
+
+    await transaction
+      .update(schedulePeriods)
+      .set({
+        status: 'withdrawn',
+        version: sql`${schedulePeriods.version} + 1`,
+        withdrawnAt: new Date(),
+      })
+      .where(eq(schedulePeriods.id, period.id));
+    const withdrawn = await this.readPeriod(transaction, period.id);
+    await this.eventWriter.append(transaction, {
+      afterData: { status: withdrawn.status, version: withdrawn.version },
+      beforeData: { status: period.status, version: period.version },
+      eventStatus: 'completed',
+      eventType: 'schedule_period_withdrawn',
+      groupId: period.groupId,
+      initiatedByUserId: input.actorUserId,
+      objectId: period.id,
+      objectType: 'schedule_period',
+      operationId: input.operationId,
+      operatorUserId: input.actorUserId,
+      schedulePeriodId: period.id,
+    });
+
+    return withdrawn;
+  }
+
+  public listWorkflowImpactsInTransaction(
+    transaction: DatabaseTransaction,
+    periodIds: readonly string[],
+  ): Promise<readonly ScheduleWorkflowImpact[]> {
+    return this.workflowInvalidationService.listImpacts(transaction, periodIds);
   }
 
   private async transition(
@@ -863,6 +921,28 @@ function toSchedulePeriodRecord(period: LockedSchedulePeriod): SchedulePeriodRec
 
 function validationError(userMessage: string): ApiError {
   return new ApiError({ code: 'VALIDATION_FAILED', statusCode: 400, userMessage });
+}
+
+function assertWorkflowRevocationsAcknowledged(
+  workflowImpacts: readonly ScheduleWorkflowImpact[],
+  acknowledged: boolean,
+): void {
+  if (workflowImpacts.length === 0 || acknowledged) {
+    return;
+  }
+
+  throw new ApiError({
+    code: 'CONFLICT',
+    latestData: {
+      workflowImpacts: workflowImpacts.map((impact) => ({
+        ...impact,
+        businessDates: [...impact.businessDates],
+        memberNames: [...impact.memberNames],
+      })),
+    },
+    statusCode: 409,
+    userMessage: `本次排班变更将撤销 ${workflowImpacts.length} 条换班或加扣班记录，请确认后继续。`,
+  });
 }
 
 function notFound(userMessage: string): ApiError {

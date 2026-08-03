@@ -6,6 +6,7 @@ import type {
   ManualApplyPreview,
   ManualScheduleTemplate,
   ScheduleDraftSummary,
+  ScheduleWorkflowImpact,
   SchedulingConfig,
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
@@ -36,6 +37,8 @@ const acknowledgeBlockers = ref(false);
 const replaceExistingDrafts = ref(false);
 const replacePublished = ref(false);
 const needsReplacePublished = ref(false);
+const workflowImpacts = ref<readonly ScheduleWorkflowImpact[]>([]);
+const acknowledgeWorkflowRevocations = ref(false);
 const isLoading = ref(true);
 const isPreviewing = ref(false);
 const isApplying = ref(false);
@@ -63,6 +66,13 @@ const overlappingDrafts = computed(() =>
       draft.scheduleRoleId === props.template.scheduleRoleId &&
       affectedMonths.value.has(draft.businessMonth.slice(0, 7)),
   ),
+);
+const canConfirmApply = computed(
+  () =>
+    (!hasBlockers.value || acknowledgeBlockers.value) &&
+    (overlappingDrafts.value.length === 0 || replaceExistingDrafts.value) &&
+    (!needsReplacePublished.value || replacePublished.value) &&
+    (workflowImpacts.value.length === 0 || acknowledgeWorkflowRevocations.value),
 );
 
 onMounted(() => {
@@ -108,6 +118,8 @@ async function computePreview(): Promise<void> {
     replaceExistingDrafts.value = false;
     replacePublished.value = false;
     needsReplacePublished.value = false;
+    workflowImpacts.value = [];
+    acknowledgeWorkflowRevocations.value = false;
   } catch (error) {
     if (isDataConflictError(error)) {
       await loadContext();
@@ -136,12 +148,17 @@ async function apply(): Promise<void> {
     errorMessage.value = '目标月份已有该岗位的已发布排班，请勾选“覆盖已有排班”后再应用。';
     return;
   }
+  if (workflowImpacts.value.length > 0 && !acknowledgeWorkflowRevocations.value) {
+    errorMessage.value = '覆盖会撤销已有换班或加扣班事件，请确认后再应用。';
+    return;
+  }
 
   errorMessage.value = undefined;
   isApplying.value = true;
   try {
     const result = await api.applyManualTemplate(props.group.id, props.template.id, {
       ...(hasBlockers.value && acknowledgeBlockers.value ? { acknowledgeBlockers: true } : {}),
+      ...(acknowledgeWorkflowRevocations.value ? { acknowledgeWorkflowRevocations: true } : {}),
       expectedRulesVersion: config.value.rulesVersion,
       operationId: crypto.randomUUID(),
       ...(replacePublished.value ? { replacePublished: true } : {}),
@@ -152,11 +169,20 @@ async function apply(): Promise<void> {
   } catch (error) {
     if (isDataConflictError(error)) {
       const latest = getConflictLatestData(error) as
-        { existingPublishedPeriodId?: unknown } | undefined;
+        | {
+            existingPublishedPeriodId?: unknown;
+            workflowImpacts?: readonly ScheduleWorkflowImpact[];
+          }
+        | undefined;
+      workflowImpacts.value = Array.isArray(latest?.workflowImpacts) ? latest.workflowImpacts : [];
       if (latest?.existingPublishedPeriodId !== undefined) {
         needsReplacePublished.value = true;
         replacePublished.value = false;
         errorMessage.value = '目标月份已有该岗位的已发布排班，请勾选“覆盖已有排班”后再应用。';
+        return;
+      }
+      if (workflowImpacts.value.length > 0) {
+        errorMessage.value = '覆盖会撤销以下换班或加扣班事件，请确认后再应用。';
         return;
       }
       await loadContext();
@@ -186,13 +212,22 @@ function getErrorMessage(error: unknown): string {
 
   return '模板暂时无法应用，请稍后重试。';
 }
+
+function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
+  return impact.kind === 'swap' ? '换班' : '加扣班';
+}
 </script>
 
 <template>
   <t-dialog
     v-model:visible="visible"
     :cancel-btn="{ content: '关闭' }"
-    :confirm-btn="{ content: '应用模板', loading: isApplying, theme: 'primary' }"
+    :confirm-btn="{
+      content: '应用模板',
+      disabled: preview !== undefined && !canConfirmApply,
+      loading: isApplying,
+      theme: 'primary',
+    }"
     :header="`应用模板：${template.scheduleRoleName}`"
     width="680px"
     @cancel="close"
@@ -304,6 +339,18 @@ function getErrorMessage(error: unknown): string {
             </label>
           </template>
 
+          <div v-if="workflowImpacts.length > 0" class="workflow-impact-list">
+            <strong>覆盖后将撤销以下事件，撤销原因为“排班变更”：</strong>
+            <span v-for="impact in workflowImpacts" :key="impact.id">
+              {{ workflowKindLabel(impact) }} · {{ impact.memberNames.join('、') }} ·
+              {{ impact.businessDates.join('、') }}
+            </span>
+            <label class="acknowledge-field">
+              <input v-model="acknowledgeWorkflowRevocations" type="checkbox" />
+              我已了解这些事件将被撤销
+            </label>
+          </div>
+
           <label v-if="hasBlockers" class="acknowledge-field">
             <input v-model="acknowledgeBlockers" type="checkbox" />
             我已知晓冲突和空缺，确认按预览结果{{ publishLabel }}。
@@ -408,5 +455,16 @@ function getErrorMessage(error: unknown): string {
   color: #1f5aa6;
   font-size: 13px;
   font-weight: 600;
+}
+
+.workflow-impact-list {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  font-size: 13px;
 }
 </style>

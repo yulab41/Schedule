@@ -29,6 +29,7 @@ import type {
   GroupLeaveReflowStrategy,
   GroupSwapSettings,
   GroupSummary,
+  GuestCalendarReadModel,
   HolidayReadModel,
   JsonObject,
   LeaveReflowPreview,
@@ -50,7 +51,10 @@ import type {
   PublishSchedulePeriodRequest,
   PublishSchedulePeriodResult,
   ScheduleDraftSummary,
+  ScheduleChangeImpactPreview,
   ScheduleGenerationPreview,
+  SchedulePeriodMutationRequest,
+  SchedulePeriodMutationResult,
   SchedulePeriodHistoryItem,
   StatisticsRecalculateCheckResult,
   YearStatistics,
@@ -202,6 +206,7 @@ export interface ApiClient {
   deleteManualScheduleTemplate(groupId: string, templateId: string): Promise<void>;
   deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
+  getGuestCalendar(groupCode: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   getCurrentProfile(): Promise<UserProfile>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getMonthStatistics(groupId: string, businessMonth: string): Promise<MonthStatisticsSnapshot>;
@@ -221,6 +226,12 @@ export interface ApiClient {
     groupId: string,
     schedulePeriodId: string,
   ): Promise<ScheduleGenerationPreview>;
+  getSchedulePeriodCalendar(groupId: string, schedulePeriodId: string): Promise<CalendarReadModel>;
+  previewScheduleChange(
+    groupId: string,
+    schedulePeriodId: string,
+    action: 'publish' | 'withdraw',
+  ): Promise<ScheduleChangeImpactPreview>;
   listSchedulePeriodHistory(groupId: string): Promise<SchedulePeriodHistoryItem[]>;
   listScheduleDrafts(groupId: string): Promise<ScheduleDraftSummary[]>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
@@ -248,6 +259,11 @@ export interface ApiClient {
     input: PublishSchedulePeriodBatchRequest,
   ): Promise<PublishSchedulePeriodBatchResult>;
   deleteScheduleDraft(groupId: string, schedulePeriodId: string): Promise<void>;
+  withdrawSchedulePeriod(
+    groupId: string,
+    schedulePeriodId: string,
+    input: SchedulePeriodMutationRequest,
+  ): Promise<SchedulePeriodMutationResult>;
   previewLeaveRequestApproval(
     groupId: string,
     leaveRequestId: string,
@@ -966,6 +982,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isCalendarReadModel,
       );
     },
+    getGuestCalendar(groupCode, businessMonth) {
+      return requestPublicJsonWithOnline(
+        fetchImplementation,
+        baseUrl,
+        '/guest/calendar',
+        {
+          body: JSON.stringify({ businessMonth, groupCode }),
+          method: 'POST',
+        },
+        isGuestCalendarReadModel,
+        isOnline,
+      );
+    },
     getCurrentProfile() {
       return requestJson(
         options.auth,
@@ -1115,6 +1144,26 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isScheduleGenerationPreview,
       );
     },
+    getSchedulePeriodCalendar(groupId, schedulePeriodId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/calendar/periods/${encodeURIComponent(schedulePeriodId)}`,
+        { method: 'GET' },
+        isCalendarReadModel,
+      );
+    },
+    previewScheduleChange(groupId, schedulePeriodId, action) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/change-impact?action=${encodeURIComponent(action)}`,
+        { method: 'GET' },
+        isScheduleChangeImpactPreview,
+      );
+    },
     listSchedulePeriodHistory(groupId) {
       return requestJson(
         options.auth,
@@ -1156,6 +1205,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}`,
         { method: 'DELETE' },
         isUndefined,
+      );
+    },
+    withdrawSchedulePeriod(groupId, schedulePeriodId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/withdraw`,
+        { body: JSON.stringify(input), method: 'POST' },
+        isSchedulePeriodMutationResult,
       );
     },
     getSchedulingConfig(groupId) {
@@ -1605,6 +1664,47 @@ export class ApiClientError extends Error {
   }
 }
 
+async function requestPublicJsonWithOnline<ResponseBody>(
+  fetchImplementation: typeof fetch,
+  baseUrl: string,
+  path: string,
+  init: { readonly body?: string; readonly method: 'GET' | 'POST' },
+  isResponseBody: (value: unknown) => value is ResponseBody,
+  isOnline: () => boolean,
+): Promise<ResponseBody> {
+  const offlineError = getOfflineSubmitError(isOnline(), init.method);
+  if (offlineError !== undefined) {
+    throw new ApiClientError({ code: 'OFFLINE', message: offlineError });
+  }
+
+  let response: Response;
+  try {
+    response = await fetchImplementation(joinUrl(baseUrl, path), {
+      headers: init.body === undefined ? {} : { 'Content-Type': 'application/json' },
+      method: init.method,
+      ...(init.body === undefined ? {} : { body: init.body }),
+    });
+  } catch {
+    throw new ApiClientError({
+      code: 'NETWORK_ERROR',
+      message: '无法连接到服务，请检查网络后重试。',
+    });
+  }
+
+  const body = await readJson(response);
+  if (!response.ok) {
+    throw toApiClientError(response.status, body);
+  }
+  if (!isResponseBody(body)) {
+    throw new ApiClientError({
+      code: 'SERVICE_UNAVAILABLE',
+      message: '服务返回了无效资料，请稍后重试。',
+      status: response.status,
+    });
+  }
+  return body;
+}
+
 async function requestJsonWithOnline<ResponseBody>(
   auth: CloudbaseAuthClient,
   fetchImplementation: typeof fetch,
@@ -1764,6 +1864,15 @@ function isCalendarReadModel(value: unknown): value is CalendarReadModel {
     calendar.roles.every(isCalendarRoleSummary) &&
     Array.isArray(calendar.shiftTypes) &&
     calendar.shiftTypes.every(isCalendarShiftTypeSummary)
+  );
+}
+
+function isGuestCalendarReadModel(value: unknown): value is GuestCalendarReadModel {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as Partial<GuestCalendarReadModel>).groupName === 'string' &&
+    isCalendarReadModel((value as Partial<GuestCalendarReadModel>).calendar)
   );
 }
 
@@ -2551,7 +2660,8 @@ function isSwapRequest(value: unknown): value is SwapRequest {
       typeof request.initiatorMemberName === 'string') &&
     (request.targetMemberName === undefined || typeof request.targetMemberName === 'string') &&
     (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
-    (request.decidedAt === undefined || typeof request.decidedAt === 'string')
+    (request.decidedAt === undefined || typeof request.decidedAt === 'string') &&
+    (request.revocationReason === undefined || typeof request.revocationReason === 'string')
   );
 }
 
@@ -2561,7 +2671,8 @@ function isSwapRequestStatus(value: unknown): boolean {
     value === 'pending_approval' ||
     value === 'completed' ||
     value === 'rejected' ||
-    value === 'cancelled'
+    value === 'cancelled' ||
+    value === 'revoked'
   );
 }
 
@@ -2725,7 +2836,8 @@ function isDutyAdjustmentRequest(value: unknown): value is DutyAdjustmentRequest
     (request.deductedMemberName === undefined || typeof request.deductedMemberName === 'string') &&
     (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
     (request.decidedAt === undefined || typeof request.decidedAt === 'string') &&
-    (request.reason === undefined || typeof request.reason === 'string')
+    (request.reason === undefined || typeof request.reason === 'string') &&
+    (request.revocationReason === undefined || typeof request.revocationReason === 'string')
   );
 }
 
@@ -2942,7 +3054,57 @@ function isPublishSchedulePeriodResult(value: unknown): value is PublishSchedule
     typeof preview === 'object' &&
     typeof preview.businessMonth === 'string' &&
     preview.statistics !== null &&
-    typeof preview.statistics === 'object'
+    typeof preview.statistics === 'object' &&
+    Array.isArray(result.workflowImpacts) &&
+    result.workflowImpacts.every(isScheduleWorkflowImpact)
+  );
+}
+
+function isScheduleWorkflowImpact(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const impact = value as {
+    businessDates?: unknown;
+    id?: unknown;
+    kind?: unknown;
+    memberNames?: unknown;
+    status?: unknown;
+  };
+  return (
+    Array.isArray(impact.businessDates) &&
+    impact.businessDates.every((date) => typeof date === 'string') &&
+    typeof impact.id === 'string' &&
+    (impact.kind === 'swap' || impact.kind === 'duty_adjustment') &&
+    Array.isArray(impact.memberNames) &&
+    impact.memberNames.every((name) => typeof name === 'string') &&
+    typeof impact.status === 'string'
+  );
+}
+
+function isScheduleChangeImpactPreview(value: unknown): value is ScheduleChangeImpactPreview {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const preview = value as Partial<ScheduleChangeImpactPreview>;
+  return (
+    (preview.action === 'publish' || preview.action === 'withdraw') &&
+    Array.isArray(preview.affectedPeriodIds) &&
+    preview.affectedPeriodIds.every((id) => typeof id === 'string') &&
+    Array.isArray(preview.workflowImpacts) &&
+    preview.workflowImpacts.every(isScheduleWorkflowImpact)
+  );
+}
+
+function isSchedulePeriodMutationResult(value: unknown): value is SchedulePeriodMutationResult {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+  const result = value as Partial<SchedulePeriodMutationResult>;
+  return (
+    isSchedulePeriodSummary(result.period) &&
+    Array.isArray(result.workflowImpacts) &&
+    result.workflowImpacts.every(isScheduleWorkflowImpact)
   );
 }
 

@@ -47,6 +47,7 @@ export const dutyAdjustments = mysqlTable(
     decidedAt: timestamp('decided_at', { fsp: 3 }),
     approverUserId: char('approver_user_id', { length: 36 }),
     reason: varchar('reason', { length: 1000 }),
+    revocationReason: varchar('revocation_reason', { length: 1000 }),
     ...auditableColumns(),
   },
   (table) => [

@@ -60,6 +60,7 @@ export const eventTypeLabels: Readonly<Record<string, string>> = {
   swap_request_cancelled: '换班申请已取消',
   swap_request_created: '换班申请已提交',
   swap_request_rejected: '换班申请已驳回',
+  swap_revoked: '换班已撤销',
 };
 
 const changeLabels: Readonly<Record<string, string>> = {
@@ -216,6 +217,8 @@ export function buildEventNarrative(
       return '换班申请已被拒绝。';
     case 'swap_request_cancelled':
       return '换班申请已取消。';
+    case 'swap_revoked':
+      return '换班已因排班变更撤销，值班人员已恢复为当前排班版本。';
     case 'leave_cover_completed': {
       const strategy =
         after.strategy === 'shift-forward'
@@ -268,7 +271,7 @@ export function buildEventNarrative(
       if (restoredName !== undefined) {
         return `加扣班已撤销：值班恢复为 ${restoredName}。`;
       }
-      break;
+      return '加扣班已因排班变更撤销，值班人员已恢复为当前排班版本。';
     }
     case 'assignment_manually_updated': {
       const beforeName = readTopLevelMemberName(before);

@@ -5,6 +5,7 @@ import type {
   PublishSchedulePeriodBatchRequest,
   PublishSchedulePeriodBatchResult,
   PublishSchedulePeriodResult,
+  ScheduleChangeImpactPreview,
   ScheduleDraftSummary,
   ScheduleGenerationConflict,
   ScheduleGenerationPreview,
@@ -14,6 +15,8 @@ import type {
   ScheduleGenerationVacancy,
   ScheduleGenerationWarning,
   SchedulePeriodHistoryItem,
+  SchedulePeriodMutationRequest,
+  SchedulePeriodMutationResult,
   SchedulePreviewAssignment,
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
@@ -117,6 +120,7 @@ export class SchedulePublishService {
             operationId: input.operationId,
             requestFingerprint: createBatchPublishFingerprint({
               acknowledgeBlockers: input.acknowledgeBlockers === true,
+              acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
               groupId: authorization.group.id,
               replacePublished: input.replacePublished === true,
               schedulePeriodIds: [...new Set(input.schedulePeriodIds)].sort(),
@@ -148,6 +152,7 @@ export class SchedulePublishService {
     for (const schedulePeriodId of new Set(input.schedulePeriodIds)) {
       const result = await this.publishInTransaction(transaction, authorization, schedulePeriodId, {
         acknowledgeBlockers: input.acknowledgeBlockers === true,
+        acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
         operationId: randomUUID(),
         replacePublished: input.replacePublished === true,
       });
@@ -228,8 +233,10 @@ export class SchedulePublishService {
             operationId: input.operationId,
             requestFingerprint: createPublishFingerprint({
               acknowledgeBlockers: input.acknowledgeBlockers === true,
+              acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
               expectedVersion: input.expectedVersion,
               groupId: authorization.group.id,
+              replacePublished: input.replacePublished === true,
               schedulePeriodId,
             }),
             scope: 'schedule_period_publish',
@@ -285,12 +292,21 @@ export class SchedulePublishService {
       )
       .limit(1)
       .for('update');
+    const affectedPeriodIds = [
+      ...(existingPublished === undefined ? [] : [existingPublished.id]),
+      ...(period.status === 'replaced' || period.status === 'withdrawn' ? [period.id] : []),
+    ];
+    const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(
+      transaction,
+      affectedPeriodIds,
+    );
     if (existingPublished !== undefined && input.replacePublished !== true) {
       throw new ApiError({
         code: 'CONFLICT',
         latestData: toLatestData({
           existingPublishedPeriodId: existingPublished.id,
           status: 'published',
+          workflowImpacts,
         }),
         statusCode: 409,
         userMessage: '该岗位该月份已有已发布排班，请确认覆盖发布。',
@@ -317,6 +333,7 @@ export class SchedulePublishService {
 
     const published = await this.repository.publishInTransaction(transaction, {
       actorUserId: authorization.user.id,
+      acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
       expectedVersion: period.version,
       operationId: input.operationId,
       schedulePeriodId: period.id,
@@ -348,7 +365,94 @@ export class SchedulePublishService {
       period.businessMonth,
     );
 
-    return { period: toPeriodSummary(published), preview };
+    return { period: toPeriodSummary(published), preview, workflowImpacts };
+  }
+
+  public async previewChangeImpact(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    schedulePeriodId: string,
+    action: 'publish' | 'withdraw',
+  ): Promise<ScheduleChangeImpactPreview> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
+      const affectedPeriodIds =
+        action === 'withdraw'
+          ? [period.id]
+          : await this.getPublishAffectedPeriodIds(transaction, authorization.group.id, period);
+      return {
+        action,
+        affectedPeriodIds,
+        workflowImpacts: await this.repository.listWorkflowImpactsInTransaction(
+          transaction,
+          affectedPeriodIds,
+        ),
+      };
+    });
+  }
+
+  public async withdrawPeriod(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    schedulePeriodId: string,
+    input: SchedulePeriodMutationRequest,
+  ): Promise<SchedulePeriodMutationResult> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
+      const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(transaction, [
+        period.id,
+      ]);
+      const withdrawn = await this.repository.withdrawInTransaction(transaction, {
+        actorUserId: authorization.user.id,
+        acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
+        expectedVersion: input.expectedVersion,
+        operationId: input.operationId,
+        schedulePeriodId: period.id,
+      });
+      await this.statisticsService.refreshInTransaction(
+        transaction,
+        authorization.group.id,
+        period.businessMonth,
+      );
+      return { period: toPeriodSummary(withdrawn), workflowImpacts };
+    });
+  }
+
+  private async getPublishAffectedPeriodIds(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    period: LockedSchedulePeriod,
+  ): Promise<string[]> {
+    const [current] = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.scheduleRoleId, period.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, period.businessMonth),
+          eq(schedulePeriods.status, 'published'),
+          isNull(schedulePeriods.deletedAt),
+          ne(schedulePeriods.id, period.id),
+        ),
+      )
+      .limit(1);
+    return [
+      ...(current === undefined ? [] : [current.id]),
+      ...(period.status === 'replaced' || period.status === 'withdrawn' ? [period.id] : []),
+    ];
   }
 
   private async lockPeriod(
@@ -463,8 +567,10 @@ export class SchedulePublishService {
 
 function createPublishFingerprint(input: {
   readonly acknowledgeBlockers: boolean;
+  readonly acknowledgeWorkflowRevocations: boolean;
   readonly expectedVersion: number;
   readonly groupId: string;
+  readonly replacePublished: boolean;
   readonly schedulePeriodId: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
@@ -472,6 +578,7 @@ function createPublishFingerprint(input: {
 
 function createBatchPublishFingerprint(input: {
   readonly acknowledgeBlockers: boolean;
+  readonly acknowledgeWorkflowRevocations: boolean;
   readonly groupId: string;
   readonly replacePublished: boolean;
   readonly schedulePeriodIds: readonly string[];

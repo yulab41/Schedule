@@ -54,3 +54,13 @@ export interface CalendarReadModel {
   readonly roles: readonly CalendarRoleSummary[];
   readonly shiftTypes: readonly CalendarShiftTypeSummary[];
 }
+
+export interface GuestCalendarReadModel {
+  readonly calendar: CalendarReadModel;
+  readonly groupName: string;
+}
+
+export interface ReadGuestCalendarRequest {
+  readonly businessMonth: string;
+  readonly groupCode: string;
+}

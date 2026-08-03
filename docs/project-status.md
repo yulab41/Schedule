@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–32 已完成；最新验证基线 `pnpm verify` 358/358（60 个测试文件，隔离 MySQL）
-- Next actions: 本地验收（Web `http://localhost:5173`，本地账号 `local-admin`/`local-member`；轮次 32 已恢复发布冲突月份标签、真实覆盖确认门槛和时间型草稿编号）+ 手动部署 CloudBase（Deploy Development 仅手动触发）；下一批只处理排班版本变化时的工作流失效与一致性，其他新增需求详见 debug 日志轮次 32
+- Debug rounds: 1–33 已完成；最新验证基线 362/362（60 个测试文件，隔离 MySQL）
+- Next actions: 本地验收轮次 33（访客页 `http://127.0.0.1:5174/guest`，管理员端可用本地账号 `local-admin`）；本轮不部署 CloudBase，后续仍只允许手动触发部署
 
 ## Debug / Test Feedback Log
 
@@ -28,14 +28,15 @@
 ## Completed Work（摘要）
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-03 调试期轮次 1–32 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 358/358；CloudBase 部署保持手动触发，本轮未部署）。
+- 2026-08-03 调试期轮次 1–33 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 362/362；CloudBase 部署保持手动触发，本轮未部署）。
+- 轮次 33 完成排班变更工作流撤销、发布版本月历、当前撤销/归档重发、已发布草稿归档体验和群组码访客只读月历；检查点提交以 `feat(schedules): add publication lifecycle and guest calendar` 识别。
 - 线上数据操作（2026-08-03）：按用户要求清空线上草稿与排班（23 个排班期间、638 条班次软删除，统计快照清空；模板/成员/岗位/班种/联系方式/事件历史保留）；线上迁移已执行至 20 条（`0018`/`0019`/`0020`）。
 
 ## Active Batch
 
-- 32 任务计划已完结；当前为调试/测试批次。轮次 32 已完成发布冲突月份标签、覆盖确认门槛和时间型草稿编号，等待用户本地验收。
-- 下一活动批次仅 1 项复杂领域任务：统一处理手动覆盖、发布替换、撤销发布和归档重发造成的换班/加扣班等工作流失效；操作前提示受影响事件，确认后追加撤销事件并把业务记录置为“已撤销（排班变更）”。
-- 停止条件：事务、并发、事件链、加扣班/换班页面状态的定向集成测试和 `pnpm verify` 通过；不提前开始月历式记录详情、草稿归档体验或访客模式。
+- 32 项实施计划已完结；当前为 Web 1.0 调试/验收批次。轮次 33 的三个任务已完成：工作流一致性、排班版本生命周期、访客只读月历。
+- 下一活动批次（最多 2 项）：1. 用户本地验收轮次 32/33 并修复验收回归；2. 排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题。
+- 停止条件：用户报告的验收回归完成定向测试并通过完整验证；不启动微信小程序，不部署 CloudBase。
 
 ## Required Reading for the Next Conversation
 
@@ -53,7 +54,7 @@
 - CynosDB `explicit_defaults_for_timestamp=OFF`：TIMESTAMP 列必须显式写明默认值，否则隐式带 `ON UPDATE CURRENT_TIMESTAMP`（`0018`/`0020` 已修复；新增 TIMESTAMP 列需遵循）。
 - 部署铁律：含新迁移的发布必须先对线上库执行迁移（`pnpm --filter @schedule/api migrate`，带线上 `MYSQL_*` 环境），再部署代码；否则线上全站 500（轮次 12 事故）。
 - 2026 法定节假日已导入并确认（39 条，`confirmedYears: [2026]`）。
-- 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用（含 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE`/`HOLIDAY_ADMIN_UIDS=local-admin`）；本地库已导入并确认 2026 节假日（39 条，v1）；隔离测试库端口 3307（临时容器用完即删）。
+- 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用（含 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE`/`HOLIDAY_ADMIN_UIDS=local-admin`）；本地库已导入并确认 2026 节假日（39 条，v1）；隔离测试库端口 3307 当前运行。独立验收服务为 API `127.0.0.1:3001`、Web `127.0.0.1:5174`，没有替换用户原有 3000/5173 进程。
 - 工具：`gh` 位于 `C:\Program Files\GitHub CLI\gh.exe`；CloudBase CLI 用 `pnpm exec tcb`；CAM 子账号 `schedule` 有 TCB/SCF/COS/CDN 权限（无 cynosdb）。
 - 安全 TODO：CAM SecretId/SecretKey 曾贴入对话，需轮换并更新 GitHub `development` secrets；生产化另需 VPC 内网与专用运行账号（妥协与升级路径见 `docs/deployment/production-readiness.md`）。
 
@@ -63,7 +64,7 @@
 - 隔离测试库：`docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait`，以 `NODE_ENV=test` + `TEST_MYSQL_*` 运行 `pnpm verify`，结束后 `down --volumes`。
 - 修改 contracts/database 后需先 `pnpm --filter @schedule/contracts build` / `pnpm --filter @schedule/database build` 再跑 API 集成测试。
 - Web 改动上线后提醒用户强制刷新（PWA 缓存）；必要时升级 shell/schedule 缓存版本号。
-- GitHub Actions 的 Deploy 由 Verify 成功触发；Verify 失败则该提交不部署，以上线状态以 `gh run list` 为准。
+- GitHub Actions 的 Verify 由 push/PR 触发；Deploy Development 仅允许手动触发，以上线状态以 `gh run list` 为准。
 - 每次 push 后确认 `git status --short --branch` 与远端一致再继续。
 
 ## Decisions and Blockers（仅保留当前仍相关）
@@ -71,6 +72,8 @@
 - 迁移先行规则（轮次 12 事故教训，必须遵守）。
 - 撤销已批准请假不会自动还原已重排班次；如需恢复请重新生成/发布排班（轮次 13）。
 - “覆盖已发布排班”确认项保留：设计规格禁止静默覆盖；轮次 32 已修复为必须真实勾选后才能提交。
+- 排班变更只自动撤销换班/加扣班工作流，不自动撤销请假；撤销原因固定记录为“排班变更”。归档重发恢复所选原版本，不重新激活旧工作流效果。
+- 已发布草稿自动离开活动草稿区，其编号与排班内容保留在当前/归档发布版本记录；访客无需登录，只能凭群组码读取月历，不返回电话、事件或管理能力，失败尝试按来源限流。
 - 草稿过期提醒（设计 16.2）未实现，留待后续轮次。
 - 生产化妥协（公网 + 单账号全局授权）：风险与升级路径见 `docs/deployment/production-readiness.md`；CAM key 轮换为安全 TODO。
 - 当前无阻塞；待用户验收项见 debug 日志“待办 / 下一步”。

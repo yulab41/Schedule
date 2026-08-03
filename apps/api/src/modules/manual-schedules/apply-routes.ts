@@ -25,6 +25,7 @@ const previewInputSchema = z
 const applyInputSchema = z
   .object({
     acknowledgeBlockers: z.boolean().optional(),
+    acknowledgeWorkflowRevocations: z.boolean().optional(),
     endDate: endDateSchema.optional(),
     expectedRulesVersion: rulesVersionSchema,
     operationId: operationIdSchema,
@@ -97,6 +98,9 @@ function parseApplyInput(value: unknown): ApplyManualScheduleTemplateRequest {
     ...(input.acknowledgeBlockers === undefined
       ? {}
       : { acknowledgeBlockers: input.acknowledgeBlockers }),
+    ...(input.acknowledgeWorkflowRevocations === undefined
+      ? {}
+      : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
     ...(input.endDate === undefined ? {} : { endDate: input.endDate }),
     expectedRulesVersion: input.expectedRulesVersion,
     operationId: input.operationId,

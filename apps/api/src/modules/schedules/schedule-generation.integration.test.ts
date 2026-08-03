@@ -11,6 +11,7 @@ import {
   migrateDatabase,
   scheduleEvents,
   schedulePeriods,
+  shiftAssignments,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
@@ -311,16 +312,56 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
 
     const config = await getConfig('owner-token', groupId);
     const saveBody = {
-      businessMonth: '2026-08',
+      businessMonth: '2030-08',
       operationId: randomUUID(),
       rulesVersion: config.rulesVersion,
       scheduleRoleIds: [primaryRoleId],
     };
     const first = await saveSchedule(groupId, saveBody);
-    const second = await saveSchedule(groupId, {
+    expect(first.statusCode).toBe(200);
+    const firstPeriod = (first.json() as SavedScheduleGeneration).periods[0];
+    const firstAssignments = await client.database
+      .select({
+        id: shiftAssignments.id,
+        plannedMembershipId: shiftAssignments.plannedMembershipId,
+      })
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, firstPeriod?.id as string))
+      .orderBy(shiftAssignments.businessDate);
+    const initiatorAssignment = firstAssignments.find(
+      (assignment) => assignment.plannedMembershipId === ownerMembershipId,
+    );
+    const targetAssignment = firstAssignments.find(
+      (assignment) => assignment.plannedMembershipId === candidateMembershipId,
+    );
+    expect(initiatorAssignment).toBeDefined();
+    expect(targetAssignment).toBeDefined();
+    const directSwap = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        initiatorAssignmentId: initiatorAssignment?.id,
+        operationId: randomUUID(),
+        targetAssignmentId: targetAssignment?.id,
+      },
+      url: `/groups/${groupId}/swaps/direct`,
+    });
+    expect(directSwap.statusCode, directSwap.body).toBe(201);
+
+    const secondBody = {
       ...saveBody,
       operationId: randomUUID(),
+    };
+    const blocked = await saveSchedule(groupId, secondBody);
+    expect(blocked.statusCode).toBe(409);
+    expect((blocked.json() as ErrorResponse).error.latestData).toMatchObject({
+      workflowImpacts: [{ kind: 'swap', status: 'completed' }],
     });
+    const second = await saveSchedule(groupId, {
+      ...secondBody,
+      acknowledgeWorkflowRevocations: true,
+    });
+    expect(second.statusCode).toBe(200);
 
     expect((first.json() as SavedScheduleGeneration).periods[0]).toMatchObject({
       revision: 1,
@@ -663,6 +704,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS member_schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS schedule_roles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS guest_schedule_access_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);

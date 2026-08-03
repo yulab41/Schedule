@@ -143,6 +143,7 @@ export class ManualScheduleApplyService {
             operationId: input.operationId,
             requestFingerprint: createApplyFingerprint({
               acknowledgeBlockers: input.acknowledgeBlockers === true,
+              acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
               endDate: input.endDate ?? null,
               expectedRulesVersion: input.expectedRulesVersion,
               groupId: authorization.group.id,
@@ -196,34 +197,51 @@ export class ManualScheduleApplyService {
         );
       }
     }
-    if (publishMode === 'published' && input.replacePublished !== true) {
-      for (const businessMonth of [...assignmentsByMonth.keys()]) {
-        const [existingPublished] = await transaction
-          .select({ id: schedulePeriods.id })
-          .from(schedulePeriods)
-          .where(
-            and(
-              eq(schedulePeriods.groupId, authorization.group.id),
-              eq(schedulePeriods.scheduleRoleId, context.template.scheduleRoleId),
-              eq(schedulePeriods.businessMonth, `${businessMonth}-01`),
-              eq(schedulePeriods.status, 'published'),
-              isNull(schedulePeriods.deletedAt),
-            ),
-          )
-          .limit(1)
-          .for('update');
-        if (existingPublished !== undefined) {
-          throw new ApiError({
-            code: 'CONFLICT',
-            latestData: toLatestData({
-              existingPublishedPeriodId: existingPublished.id,
-              status: 'published',
-            }),
-            statusCode: 409,
-            userMessage: '该岗位该月份已有已发布排班，请确认覆盖发布。',
-          });
-        }
-      }
+    const existingPublishedPeriods =
+      publishMode !== 'published'
+        ? []
+        : await transaction
+            .select({ businessMonth: schedulePeriods.businessMonth, id: schedulePeriods.id })
+            .from(schedulePeriods)
+            .where(
+              and(
+                eq(schedulePeriods.groupId, authorization.group.id),
+                eq(schedulePeriods.scheduleRoleId, context.template.scheduleRoleId),
+                inArray(
+                  schedulePeriods.businessMonth,
+                  [...assignmentsByMonth.keys()].map((month) => `${month}-01`),
+                ),
+                eq(schedulePeriods.status, 'published'),
+                isNull(schedulePeriods.deletedAt),
+              ),
+            )
+            .for('update');
+    const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(
+      transaction,
+      existingPublishedPeriods.map((period) => period.id),
+    );
+    if (existingPublishedPeriods.length > 0 && input.replacePublished !== true) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({
+          conflictingMonths: existingPublishedPeriods.map((period) =>
+            period.businessMonth.slice(0, 7),
+          ),
+          existingPublishedPeriodId: existingPublishedPeriods[0]?.id,
+          status: 'published',
+          workflowImpacts,
+        }),
+        statusCode: 409,
+        userMessage: '发布范围包含已有已发布排班的月份，请确认覆盖发布。',
+      });
+    }
+    if (workflowImpacts.length > 0 && input.acknowledgeWorkflowRevocations !== true) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({ workflowImpacts }),
+        statusCode: 409,
+        userMessage: `覆盖发布将撤销 ${workflowImpacts.length} 条换班或加扣班记录，请确认后继续。`,
+      });
     }
     const periods: SchedulePeriodSummary[] = [];
     const appliedEventIds: string[] = [];
@@ -245,6 +263,7 @@ export class ManualScheduleApplyService {
         publishMode === 'published'
           ? await this.repository.publishInTransaction(transaction, {
               actorUserId: authorization.user.id,
+              acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
               expectedVersion: draft.version,
               operationId: input.operationId,
               schedulePeriodId: draft.id,
@@ -827,6 +846,7 @@ function toManualApplyShiftType(shiftType: typeof shiftTypes.$inferSelect): Manu
 
 function createApplyFingerprint(input: {
   readonly acknowledgeBlockers: boolean;
+  readonly acknowledgeWorkflowRevocations: boolean;
   readonly endDate: string | null;
   readonly expectedRulesVersion: number;
   readonly groupId: string;

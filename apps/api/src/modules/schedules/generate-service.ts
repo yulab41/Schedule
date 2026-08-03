@@ -258,6 +258,9 @@ export class ScheduleGenerateService {
       const period =
         publishMode === 'published'
           ? await this.repository.publishInTransaction(transaction, {
+              ...(input.acknowledgeWorkflowRevocations === undefined
+                ? {}
+                : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
               actorUserId: authorization.user.id,
               expectedVersion: draft.version,
               operationId: input.operationId,
@@ -512,6 +515,7 @@ function createGenerationFingerprint(groupId: string, input: SaveGeneratedSchedu
     .update(
       JSON.stringify({
         acknowledgeBlockers: input.acknowledgeBlockers === true,
+        acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
         businessMonth: input.businessMonth,
         groupId,
         publishMode: input.publishMode ?? null,

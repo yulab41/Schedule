@@ -9,11 +9,13 @@ export interface GenerateSchedulePreviewRequest {
 
 export interface SaveGeneratedScheduleRequest extends GenerateSchedulePreviewRequest {
   readonly acknowledgeBlockers?: boolean;
+  readonly acknowledgeWorkflowRevocations?: boolean;
   readonly operationId: string;
 }
 
 export interface PublishSchedulePeriodRequest {
   readonly acknowledgeBlockers?: boolean;
+  readonly acknowledgeWorkflowRevocations?: boolean;
   readonly expectedVersion: number;
   readonly operationId: string;
   readonly replacePublished?: boolean;
@@ -122,8 +124,36 @@ export interface SchedulePeriodHistoryItem {
   readonly version: number;
 }
 
+export type ScheduleWorkflowKind = 'duty_adjustment' | 'swap';
+
+export interface ScheduleWorkflowImpact {
+  readonly businessDates: readonly string[];
+  readonly id: string;
+  readonly kind: ScheduleWorkflowKind;
+  readonly memberNames: readonly string[];
+  readonly status: string;
+}
+
+export interface ScheduleChangeImpactPreview {
+  readonly action: 'publish' | 'withdraw';
+  readonly affectedPeriodIds: readonly string[];
+  readonly workflowImpacts: readonly ScheduleWorkflowImpact[];
+}
+
+export interface SchedulePeriodMutationRequest {
+  readonly acknowledgeWorkflowRevocations?: boolean;
+  readonly expectedVersion: number;
+  readonly operationId: string;
+}
+
+export interface SchedulePeriodMutationResult {
+  readonly period: SchedulePeriodSummary;
+  readonly workflowImpacts: readonly ScheduleWorkflowImpact[];
+}
+
 export interface PublishSchedulePeriodBatchRequest {
   readonly acknowledgeBlockers?: boolean;
+  readonly acknowledgeWorkflowRevocations?: boolean;
   readonly operationId: string;
   readonly replacePublished?: boolean;
   readonly schedulePeriodIds: readonly string[];
@@ -152,4 +182,5 @@ export interface UpdateGroupSchedulePublishModeRequest {
 export interface PublishSchedulePeriodResult {
   readonly period: SchedulePeriodSummary;
   readonly preview: ScheduleGenerationPreview;
+  readonly workflowImpacts: readonly ScheduleWorkflowImpact[];
 }

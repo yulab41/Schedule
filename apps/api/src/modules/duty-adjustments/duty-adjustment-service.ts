@@ -1686,6 +1686,7 @@ export class DutyAdjustmentService {
         ...(overtimeMember === undefined ? {} : { overtimeMemberName: overtimeMember.realName }),
         overtimeMembershipId: row.overtimeMembershipId,
         ...(row.reason === null ? {} : { reason: row.reason }),
+        ...(row.revocationReason === null ? {} : { revocationReason: row.revocationReason }),
         status: row.status,
         version: row.version,
       };

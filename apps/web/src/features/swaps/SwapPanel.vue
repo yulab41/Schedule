@@ -733,7 +733,12 @@ function getErrorMessage(error: unknown): string {
                   )
                 }}
               </td>
-              <td>{{ getSwapStatusLabel(request.status) }}</td>
+              <td>
+                {{ getSwapStatusLabel(request.status) }}
+                <small v-if="request.revocationReason !== undefined" class="status-reason">
+                  {{ request.revocationReason }}
+                </small>
+              </td>
               <td>
                 <t-button
                   v-if="myPendingRequests.some((pending) => pending.id === request.id)"
@@ -877,5 +882,11 @@ function getErrorMessage(error: unknown): string {
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
+}
+
+.status-reason {
+  display: block;
+  margin-top: 2px;
+  color: #92400e;
 }
 </style>

@@ -1,5 +1,5 @@
 export type SwapRequestStatus =
-  'pending_target' | 'pending_approval' | 'completed' | 'rejected' | 'cancelled';
+  'pending_target' | 'pending_approval' | 'completed' | 'rejected' | 'cancelled' | 'revoked';
 
 export type SwapConflictCode =
   'MEMBER_LEAVE_OVERLAP' | 'MEMBER_NOT_ELIGIBLE' | 'MEMBER_TIME_OVERLAP';
@@ -71,6 +71,7 @@ export interface SwapRequest {
   readonly initiatorAssignmentVersion: number;
   readonly initiatorMemberName?: string;
   readonly initiatorMembershipId: string;
+  readonly revocationReason?: string;
   readonly status: SwapRequestStatus;
   readonly targetAssignment: SwapAssignmentSummary;
   readonly targetAssignmentId: string;

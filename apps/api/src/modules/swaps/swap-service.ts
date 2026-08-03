@@ -1662,6 +1662,7 @@ export class SwapService {
         initiatorAssignmentVersion: row.initiatorAssignmentVersion,
         ...(initiatorMember === undefined ? {} : { initiatorMemberName: initiatorMember.realName }),
         initiatorMembershipId: row.initiatorMembershipId,
+        ...(row.revocationReason === null ? {} : { revocationReason: row.revocationReason }),
         status: row.status,
         targetAssignment: toSwapAssignmentSummary(
           row.targetAssignmentId,

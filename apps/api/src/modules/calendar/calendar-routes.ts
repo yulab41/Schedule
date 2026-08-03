@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -10,6 +12,13 @@ const calendarQuerySchema = z
     businessMonth: z.string().regex(/^\d{4}-\d{2}$/),
   })
   .strict();
+const schedulePeriodIdSchema = z.string().uuid();
+const guestCalendarInputSchema = z
+  .object({
+    businessMonth: z.string().regex(/^\d{4}-\d{2}$/),
+    groupCode: z.string().regex(/^\d{4}$/),
+  })
+  .strict();
 
 export function registerCalendarRoutes(app: FastifyInstance, calendarQuery: CalendarQuery): void {
   app.get('/groups/:groupId/calendar', { preHandler: app.authenticate }, (request) =>
@@ -19,6 +28,26 @@ export function registerCalendarRoutes(app: FastifyInstance, calendarQuery: Cale
       parseBusinessMonth(request.query),
     ),
   );
+
+  app.get(
+    '/groups/:groupId/calendar/periods/:schedulePeriodId',
+    { preHandler: app.authenticate },
+    (request) =>
+      calendarQuery.readPeriod(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSchedulePeriodId(request),
+      ),
+  );
+
+  app.post('/guest/calendar', (request) => {
+    const input = parseOrThrow(guestCalendarInputSchema, request.body);
+    return calendarQuery.readGuestMonth(
+      createGuestAccessKey(request),
+      input.groupCode,
+      input.businessMonth,
+    );
+  });
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {
@@ -39,6 +68,19 @@ function parseGroupId(request: FastifyRequest): string {
 
 function parseBusinessMonth(query: unknown): string {
   return parseOrThrow(calendarQuerySchema, query).businessMonth;
+}
+
+function parseSchedulePeriodId(request: FastifyRequest): string {
+  return parseOrThrow(
+    schedulePeriodIdSchema,
+    (request.params as { schedulePeriodId?: unknown }).schedulePeriodId,
+  );
+}
+
+function createGuestAccessKey(request: FastifyRequest): string {
+  return createHash('sha256')
+    .update(`${request.ip}|${request.headers['user-agent'] ?? ''}`)
+    .digest('hex');
 }
 
 function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {
