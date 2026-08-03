@@ -2,10 +2,6 @@ name: Deploy Development
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: [Verify]
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: read
@@ -20,16 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: development
-    if: >-
-      ${{
-        github.event_name == 'workflow_dispatch' ||
-        github.event.workflow_run.conclusion == 'success'
-      }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6

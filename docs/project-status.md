@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–28 已完成；最新验证基线 `pnpm verify` 354/354（60 个测试文件，隔离 MySQL）
-- Next actions: 本地验收（Web `http://localhost:5173`，本地账号 `local-admin`/`local-member`；当前重点：添加成员后列表自动刷新、本地节假日标注恢复、换班事件叙述恢复完整姓名、统计页切换后不残留）+ 部署后线上验收；下一轮规划：月历式草稿/发布/应用预览、发布记录撤销/恢复/删除、发布前工作流清理、未来日期发布限制与既往排班模块
+- Debug rounds: 1–29 已完成；最新验证基线 `pnpm verify` 354/354（60 个测试文件，隔离 MySQL）
+- Next actions: 本地验收（Web `http://localhost:5173`，本地账号 `local-admin`/`local-member`；当前重点：添加成员后列表自动刷新、本地节假日标注恢复、换班事件叙述恢复完整姓名、统计页切换后不残留、加入群组直接生效）+ 手动部署 CloudBase（Deploy Development 已改为手动触发）；下一轮规划：月历式草稿/发布/应用预览、发布记录撤销/恢复/删除、发布前工作流清理、未来日期发布限制与既往排班模块
 
 ## Debug / Test Feedback Log
 
@@ -28,13 +28,13 @@
 ## Completed Work（摘要）
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-03 调试期轮次 1–28 全部完成并部署（用户反馈、根因、修复、验证详见 debug 日志；最新基线 354/354）。
+- 2026-08-03 调试期轮次 1–29 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 354/354；CloudBase 部署改为手动触发，round 29 未自动部署）。
 - 线上数据操作（2026-08-03）：按用户要求清空线上草稿与排班（23 个排班期间、638 条班次软删除，统计快照清空；模板/成员/岗位/班种/联系方式/事件历史保留）；线上迁移已执行至 20 条（`0018`/`0019`/`0020`）。
 
 ## Active Batch
 
 - 32 任务计划已完结；当前为调试/测试批次：等待用户按 debug 日志与发布说明验收，并继续追加反馈轮次。
-- 每轮默认动作：复现/修复用户反馈 → `pnpm verify`（隔离 MySQL）→ 更新 debug 日志与本文件 → commit + push（GitHub Actions 自动部署 CloudBase）。
+- 每轮默认动作：复现/修复用户反馈 → `pnpm verify`（隔离 MySQL）→ 更新 debug 日志与本文件 → commit + push（GitHub Actions 只跑 Verify；CloudBase 部署由手动触发 Deploy Development）。
 
 ## Required Reading for the Next Conversation
 

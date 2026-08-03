@@ -65,19 +65,21 @@ jobs:
           "docs/deployment/**/*.md"
           "infra/cloudbase/**/*.{json,js}"
 
-      - name: Check formatting
-        run: pnpm format:check
+      - name: Check formatting, lint, and types
+        run: |
+          pnpm format:check &
+          format_pid=$!
+          pnpm lint &
+          lint_pid=$!
+          pnpm typecheck &
+          typecheck_pid=$!
+          fail=0
+          wait "$format_pid" || fail=1
+          wait "$lint_pid" || fail=1
+          wait "$typecheck_pid" || fail=1
+          exit $fail
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Build
-        run: pnpm build
-
-      - name: Type check
-        run: pnpm typecheck
-
-      - name: Run tests
+      - name: Build and run tests
         env:
           NODE_ENV: test
           TEST_MYSQL_HOST: 127.0.0.1
@@ -85,4 +87,12 @@ jobs:
           TEST_MYSQL_DATABASE: schedule_test
           TEST_MYSQL_USER: schedule_test_app
           TEST_MYSQL_PASSWORD: schedule_test_password
-        run: pnpm test
+        run: |
+          pnpm build &
+          build_pid=$!
+          pnpm test &
+          test_pid=$!
+          fail=0
+          wait "$build_pid" || fail=1
+          wait "$test_pid" || fail=1
+          exit $fail

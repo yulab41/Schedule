@@ -12,6 +12,8 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
+import { randomUUID } from 'node:crypto';
+
 import { and, eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -164,7 +166,7 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(membership).toEqual({ role: 'member' });
   });
 
-  it('allows only one concurrent same-name claim to create an active membership', async () => {
+  it('lets concurrent same-name claims join without conflicts', async () => {
     const group = await createGroup('Concurrent claim group', '4012');
     const groupId = (group.json() as { id: string }).id;
     await addRosterEntry(groupId, 'Candidate Doctor');
@@ -187,12 +189,7 @@ describeWithDatabase('groups and roster claiming', () => {
         results.filter(
           (result) => result.status === 'fulfilled' && result.value.status === 'claimed',
         ),
-      ).toHaveLength(1);
-      expect(
-        results.filter(
-          (result) => result.status === 'fulfilled' && result.value.status === 'request_created',
-        ),
-      ).toHaveLength(1);
+      ).toHaveLength(2);
     } finally {
       await firstClient.close();
       await secondClient.close();
@@ -209,39 +206,61 @@ describeWithDatabase('groups and roster claiming', () => {
         ),
       );
 
-    expect(memberships).toHaveLength(1);
+    expect(memberships).toHaveLength(2);
+    const claimedRosterEntries = await client.database
+      .select({ id: rosterEntries.id })
+      .from(rosterEntries)
+      .where(and(eq(rosterEntries.groupId, groupId), eq(rosterEntries.status, 'claimed')));
+    expect(claimedRosterEntries).toHaveLength(1);
   });
 
-  it('creates a generic add-person request without disclosing group data when no roster entry matches', async () => {
+  it('joins directly with the profile real name when no roster entry matches', async () => {
     const group = await createGroup('Private group', '4567');
     const groupId = (group.json() as { id: string }).id;
     await addRosterEntry(groupId, 'Candidate Doctor');
 
     const response = await claimGroup('outsider-token', '4567');
 
-    expect(response.statusCode).toBe(202);
-    expect(response.json()).toEqual({ status: 'request_created' });
-    const [request] = await client.database
-      .select({
-        groupId: groupJoinRequests.groupId,
-        requestedRealName: groupJoinRequests.requestedRealName,
-        status: groupJoinRequests.status,
-      })
-      .from(groupJoinRequests);
-
-    expect(request).toEqual({
-      groupId,
-      requestedRealName: 'Outsider Doctor',
-      status: 'pending',
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      group: { id: groupId, name: 'Private group' },
+      status: 'claimed',
     });
+    const [outsider] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    const memberships = await client.database
+      .select({ id: groupMemberships.id })
+      .from(groupMemberships)
+      .where(
+        and(
+          eq(groupMemberships.groupId, groupId),
+          eq(groupMemberships.userId, outsider?.id as string),
+        ),
+      );
+    expect(memberships).toHaveLength(1);
+    const pendingRequests = await client.database
+      .select({ id: groupJoinRequests.id })
+      .from(groupJoinRequests)
+      .where(eq(groupJoinRequests.status, 'pending'));
+    expect(pendingRequests).toHaveLength(0);
   });
 
-  it('resolves an earlier add-person request when the owner later adds a matching roster entry', async () => {
+  it('resolves an earlier pending join request when the member joins directly', async () => {
     const group = await createGroup('Request resolution group', '5123');
     const groupId = (group.json() as { id: string }).id;
+    const [outsider] = await client.database
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.cloudbaseUid, 'cloudbase-outsider'));
+    await client.database.insert(groupJoinRequests).values({
+      groupId,
+      id: randomUUID(),
+      requestedRealName: 'Outsider Doctor',
+      requestingUserId: outsider?.id as string,
+    });
 
-    const initialRequest = await claimGroup('outsider-token', '5123');
-    await addRosterEntry(groupId, 'Outsider Doctor');
     const claimed = await claimGroup('outsider-token', '5123');
     const [request] = await client.database
       .select({ status: groupJoinRequests.status })
@@ -253,8 +272,8 @@ describeWithDatabase('groups and roster claiming', () => {
         ),
       );
 
-    expect(initialRequest.statusCode).toBe(202);
     expect(claimed.statusCode).toBe(201);
+    expect(claimed.json()).toMatchObject({ status: 'claimed' });
     expect(request).toEqual({ status: 'resolved' });
   });
 

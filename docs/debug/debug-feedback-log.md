@@ -259,9 +259,23 @@
 - 验证：`pnpm verify` 354/354（隔离 MySQL）；本地 Playwright 实测：进统计无报错、净值列不再出现 `undefined`，切回日历/成员后 `.statistics-view` 计数为 0（完全卸载）。
 - 状态：已完成（待用户强刷验收）。
 
+### 轮次 29（提交：fix(ci): manual CloudBase deploy and direct group joining）
+- 用户反馈/需求：
+  - 本地部署与 debug 时不要再自动推送到 CloudBase；GitHub 上仍看到 Deploy Development 在跑，询问是否正常；希望 quality check 快一些，本地提交保留在 GitHub 用于回溯。
+  - 担心“本地提交上传到 CloudBase 能否顺利承接最新版本”，因为 CloudBase 已属旧版且部署转移出现各种 bug。
+  - 登录/加入群组时提示“需要管理员同意”，但原设定应是输入群组码 + 真实姓名直接加入；管理员侧既没有审批提示，成员页也没有审批模块。
+- 根因与处理：
+  - CI 自动部署：`deploy-development.yml` 之前由 Verify 成功后自动触发（`workflow_run`），最近多次部署失败。已改为仅 `workflow_dispatch` 手动触发；push/PR 仍跑 Verify（质量门禁）。
+  - Verify 提速：`verify.yml` 将格式/ lint/类型检查并行、构建与测试并行，缩短串行耗时；保留缓存与并发取消。
+  - CloudBase 部署失败根因：round 23 为本地 ESM 引入的 `createRequire(import.meta.url)` 在 CloudBase CJS 打包中位于模块顶层，`import.meta.url` 为 undefined，函数加载即抛错（`/api/health` 返回 `FUNCTIONS_INVOCATION_FAILED`）。修复：`cloudbase-auth.ts` 把 SDK 加载改为懒加载（仅在非网关认证端口真正使用时才 `require`），CloudBase 网关路径完全不触发；重新构建 bundle 本地验证 `/api/health` 200。
+  - 加入群组：`GroupService.claim` 在群组码有效但姓名不在名单/无未绑定成员时，不再创建待审批请求，而是直接用资料真实姓名创建正式成员并返回 `claimed`，同时把该用户旧的 pending 加入请求置为 `resolved`；同步更新集成测试（直接加入、旧请求解析、同名并发加入）。
+- 验证：`pnpm verify` 354/354（60 个测试文件，隔离 MySQL）；群组 + 认证集成测试 21/21；CloudBase bundle 本地加载 `/api/health` 200；本地 API 已用新构建重启。
+- 状态：已完成（CloudBase 部署改为手动触发，本次未执行；用户强刷本地验证加入群组直接生效）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
+- 需要上线 CloudBase 时：在 GitHub Actions 手动运行 Deploy Development（会先构建最新代码并做健康检查）；部署前若含新迁移需先对线上库执行迁移。
 - 本地库重置后需重新导入并确认 2026 节假日（步骤见 `infra/holidays/README.md`）；必要时把本地节假日种子并入 `pnpm dev` 初始化。
 - 待排查：Fastify 对不支持的 Content-Type 返回 500（应为 4xx），仅影响非标准客户端（如 PowerShell 无 body POST）。
 - 继续按本日志模板追加用户测试反馈与修复记录。

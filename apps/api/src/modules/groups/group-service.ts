@@ -355,18 +355,30 @@ export class GroupService {
         }
 
         await transaction
-          .insert(groupJoinRequests)
-          .values({
-            groupId: group.id,
-            id: randomUUID(),
-            requestedRealName: user.realName,
-            requestingUserId: user.id,
+          .update(groupJoinRequests)
+          .set({
+            status: 'resolved',
+            version: sql`${groupJoinRequests.version} + 1`,
           })
-          .onDuplicateKeyUpdate({
-            set: { updatedAt: sql`current_timestamp(3)` },
-          });
+          .where(
+            and(
+              eq(groupJoinRequests.groupId, group.id),
+              eq(groupJoinRequests.requestingUserId, user.id),
+              eq(groupJoinRequests.status, 'pending'),
+              isNull(groupJoinRequests.deletedAt),
+            ),
+          );
+        await transaction.insert(groupMemberships).values({
+          groupId: group.id,
+          id: randomUUID(),
+          role: 'member',
+          userId: user.id,
+        });
 
-        return { status: 'request_created' };
+        return {
+          group: toGroupSummary(group, 'member'),
+          status: 'claimed',
+        };
       }
 
       await transaction
