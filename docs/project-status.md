@@ -21,6 +21,18 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 8: members and unclaimed members can now be deleted per user decisions (hard delete + auto-remove workflow rows); `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 9: draft preview validation, draft-delete reliability, and publish-overwrite confirmation are fixed; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 10: draft delete/overwrite 500 root cause fixed (live schema drift) and live schedules cleared; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
+- 2026-08-03 round 11: manual drafts now display as one start-to-end batch with one-click range publish, plus a per-month publication history; `pnpm verify` passed 337/337 (60 test files) with the isolated MySQL.
+
+## 2026-08-03 Round 11 (Draft Batches and Publication History)
+
+Checkpoint commit message: `feat(schedule): batch drafts with range publish and publication history`
+
+- Draft preview validation hardened: the Web validator now accepts `YYYY-MM` and `YYYY-MM-DD` business months (the backend already returns `YYYY-MM`), eliminating the “服务返回了无效资料” failure even with mixed deploy timing/cache.
+- Manual schedule drafts are now grouped by the original template-apply operation into ONE row showing the full range (开始日期 至 结束日期, e.g. 2026-08-01 至 2026-09-05) and month count, instead of one draft per month with revision numbers.
+- New batch publish endpoint `POST /groups/:groupId/schedules/publish-batch` publishes the entire range atomically in one click (single idempotent operation, per-month versions published inside one transaction; overwrite/blocker acknowledgement supported).
+- New history endpoint `GET /groups/:groupId/schedule-periods/history` returns every non-deleted period with role, month, revision/version, timestamps, and (for drafts) the applied range + operationId.
+- 手动排班 page now has 排班草稿 (batch cards with 发布整个排班/删除草稿 and per-month preview chips) and 排班发布记录 (per month: 当前已发布 第 N 版 + 已归档 versions; archived versions can be viewed and deleted, current published cannot).
+- Deletion now also covers archived (replaced/withdrawn) versions via the existing period-delete endpoint; only the current published version is protected.
 
 ## 2026-08-03 Round 10 (Shift Timestamp Schema Fix + Live Cleanup)
 
@@ -296,6 +308,7 @@ Completed in this round (one batch, checkpoint commit message: `fix(web): addres
 
 ## Latest Validation
 
+- 2026-08-03 round 11: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 337 Vitest tests (60 files) and all production builds, including the history/batch-publish/archive-delete integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 10: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds; the migration suite confirms `0018` applies cleanly. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 9: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds, including the publish-overwrite-blocked/replace integration assertions. The temporary test service was removed with matching Compose `down --volumes` after validation.
 - 2026-08-03 round 8: with the isolated test MySQL healthy, `pnpm verify` passed Prettier, ESLint, strict types, all 336 Vitest tests (60 files) and all production builds, including the new member-deletion integration test. The temporary test service was removed with matching Compose `down --volumes` after validation.

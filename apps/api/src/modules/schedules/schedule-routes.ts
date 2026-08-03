@@ -1,5 +1,6 @@
 import type {
   GenerateSchedulePreviewRequest,
+  PublishSchedulePeriodBatchRequest,
   PublishSchedulePeriodRequest,
   SaveGeneratedScheduleRequest,
   UpdateGroupSchedulePublishModeRequest,
@@ -48,6 +49,15 @@ const publishPeriodInputSchema = z
   })
   .strict();
 
+const publishBatchInputSchema = z
+  .object({
+    acknowledgeBlockers: z.boolean().optional(),
+    operationId: operationIdSchema,
+    replacePublished: z.boolean().optional(),
+    schedulePeriodIds: z.array(schedulePeriodIdSchema).min(1).max(100),
+  })
+  .strict();
+
 const updatePublishModeInputSchema = z
   .object({
     publishMode: publishModeSchema,
@@ -61,6 +71,13 @@ export function registerScheduleRoutes(
 ): void {
   app.get('/groups/:groupId/schedule-periods', { preHandler: app.authenticate }, (request) =>
     publishService.listDrafts(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
+  app.get(
+    '/groups/:groupId/schedule-periods/history',
+    { preHandler: app.authenticate },
+    (request) =>
+      publishService.listHistory(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
   app.get('/groups/:groupId/schedule-publish-mode', { preHandler: app.authenticate }, (request) =>
@@ -114,6 +131,17 @@ export function registerScheduleRoutes(
         parseGroupId(request),
         parseSchedulePeriodId(request),
         parsePublishPeriodInput(request.body),
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/schedules/publish-batch',
+    { preHandler: app.authenticate },
+    (request) =>
+      publishService.publishDraftBatch(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parsePublishBatchInput(request.body),
       ),
   );
 
@@ -185,6 +213,18 @@ function parsePublishPeriodInput(value: unknown): PublishSchedulePeriodRequest {
     expectedVersion: input.expectedVersion,
     operationId: input.operationId,
     ...(input.replacePublished === undefined ? {} : { replacePublished: input.replacePublished }),
+  };
+}
+
+function parsePublishBatchInput(value: unknown): PublishSchedulePeriodBatchRequest {
+  const input = parseOrThrow(publishBatchInputSchema, value);
+  return {
+    ...(input.acknowledgeBlockers === undefined
+      ? {}
+      : { acknowledgeBlockers: input.acknowledgeBlockers }),
+    operationId: input.operationId,
+    ...(input.replacePublished === undefined ? {} : { replacePublished: input.replacePublished }),
+    schedulePeriodIds: input.schedulePeriodIds,
   };
 }
 

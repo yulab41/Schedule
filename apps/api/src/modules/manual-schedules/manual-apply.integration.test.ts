@@ -351,6 +351,127 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(activeDraftCount).toEqual([{ count: 1 }]);
   });
 
+  it('lists history with batch ranges, publishes a whole range at once, and archives/deletes versions', async () => {
+    const templateId = await createTemplate();
+    const applyOperationId = randomUUID();
+    const applied = await applyTemplate(templateId, {
+      endDate: '2026-09-05',
+      expectedRulesVersion: rulesVersion,
+      operationId: applyOperationId,
+    });
+    expect(applied.statusCode).toBe(200);
+    const appliedBody = applied.json() as {
+      readonly periods: readonly { readonly id: string }[];
+      readonly preview: { readonly applyEndDate: string; readonly applyStartDate: string };
+    };
+    expect(appliedBody.periods).toHaveLength(2);
+
+    const history = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods/history`,
+    });
+    expect(history.statusCode).toBe(200);
+    const items = history.json() as {
+      readonly applyEndDate?: string;
+      readonly applyStartDate?: string;
+      readonly businessMonth: string;
+      readonly operationId?: string;
+      readonly status: string;
+    }[];
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.businessMonth).sort()).toEqual(['2026-08', '2026-09']);
+    expect(items.every((item) => item.status === 'draft')).toBe(true);
+    expect(items.every((item) => item.operationId === applyOperationId)).toBe(true);
+    expect(items.every((item) => item.applyStartDate === '2026-08-01')).toBe(true);
+    expect(items.every((item) => item.applyEndDate === '2026-09-05')).toBe(true);
+
+    const batchPublish = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        operationId: randomUUID(),
+        schedulePeriodIds: appliedBody.periods.map((period) => period.id),
+      },
+      url: `/groups/${groupId}/schedules/publish-batch`,
+    });
+    expect(batchPublish.statusCode).toBe(200);
+    expect((batchPublish.json() as { readonly periods: readonly unknown[] }).periods).toHaveLength(
+      2,
+    );
+
+    const publishedHistory = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods/history`,
+    });
+    expect(
+      (publishedHistory.json() as readonly { readonly status: string }[]).every(
+        (item) => item.status === 'published',
+      ),
+    ).toBe(true);
+
+    const second = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(second.statusCode).toBe(200);
+    const secondDrafts = (
+      second.json() as {
+        readonly periods: readonly { readonly id: string }[];
+      }
+    ).periods;
+    const replaceBatch = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        operationId: randomUUID(),
+        replacePublished: true,
+        schedulePeriodIds: secondDrafts.map((period) => period.id),
+      },
+      url: `/groups/${groupId}/schedules/publish-batch`,
+    });
+    expect(replaceBatch.statusCode).toBe(200);
+
+    const replacedHistory = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods/history`,
+    });
+    const replacedItems = replacedHistory.json() as readonly {
+      readonly id: string;
+      readonly status: string;
+    }[];
+    const archived = replacedItems.filter((item) => item.status === 'replaced');
+    const current = replacedItems.find((item) => item.status === 'published');
+    expect(archived.length).toBeGreaterThan(0);
+    expect(current).toBeDefined();
+
+    const deleteArchived = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedules/${archived[0]?.id}`,
+    });
+    expect(deleteArchived.statusCode).toBe(200);
+    const afterDelete = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/schedule-periods/history`,
+    });
+    expect(
+      (afterDelete.json() as readonly { readonly id: string }[]).some(
+        (item) => item.id === archived[0]?.id,
+      ),
+    ).toBe(false);
+
+    const deleteCurrent = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedules/${current?.id}`,
+    });
+    expect(deleteCurrent.statusCode).toBe(409);
+  });
+
   it('publishes immediately when the group publish mode is published and replaces the prior version', async () => {
     const templateId = await createTemplate();
     await updatePublishMode('published');

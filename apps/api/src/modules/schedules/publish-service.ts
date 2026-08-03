@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type {
   PublishSchedulePeriodRequest,
+  PublishSchedulePeriodBatchRequest,
+  PublishSchedulePeriodBatchResult,
   PublishSchedulePeriodResult,
   ScheduleDraftSummary,
   ScheduleGenerationConflict,
@@ -11,6 +13,7 @@ import type {
   ScheduleGenerationStatistics,
   ScheduleGenerationVacancy,
   ScheduleGenerationWarning,
+  SchedulePeriodHistoryItem,
   SchedulePreviewAssignment,
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
@@ -77,6 +80,81 @@ export class SchedulePublishService {
       );
       return this.repository.listDraftsInTransaction(transaction, authorization.group.id);
     });
+  }
+
+  public async listHistory(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<SchedulePeriodHistoryItem[]> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      return this.repository.listHistoryInTransaction(transaction, authorization.group.id);
+    });
+  }
+
+  public async publishDraftBatch(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: PublishSchedulePeriodBatchRequest,
+  ): Promise<PublishSchedulePeriodBatchResult> {
+    try {
+      return await withTransaction(this.databaseClient, async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        return withIdempotentOperation(
+          transaction,
+          {
+            actorUserId: authorization.user.id,
+            operationId: input.operationId,
+            requestFingerprint: createBatchPublishFingerprint({
+              acknowledgeBlockers: input.acknowledgeBlockers === true,
+              groupId: authorization.group.id,
+              replacePublished: input.replacePublished === true,
+              schedulePeriodIds: [...new Set(input.schedulePeriodIds)].sort(),
+            }),
+            scope: 'schedule_period_publish_batch',
+          },
+          () => this.runBatchPublish(transaction, authorization, input),
+        );
+      });
+    } catch (error) {
+      if (error instanceof ApiError && isConflictBlockedError(error)) {
+        await writeConflictNotification(this.databaseClient, {
+          groupId,
+          identity,
+          operationId: input.operationId,
+          preview: error.latestData?.preview,
+        });
+      }
+      throw error;
+    }
+  }
+
+  private async runBatchPublish(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    input: PublishSchedulePeriodBatchRequest,
+  ): Promise<PublishSchedulePeriodBatchResult> {
+    const periods = [];
+    for (const schedulePeriodId of new Set(input.schedulePeriodIds)) {
+      const result = await this.publishInTransaction(transaction, authorization, schedulePeriodId, {
+        acknowledgeBlockers: input.acknowledgeBlockers === true,
+        operationId: randomUUID(),
+        replacePublished: input.replacePublished === true,
+      });
+      periods.push(result.period);
+    }
+
+    return { periods };
   }
 
   public async deleteDraft(
@@ -176,17 +254,21 @@ export class SchedulePublishService {
     transaction: DatabaseTransaction,
     authorization: GroupAuthorization,
     schedulePeriodId: string,
-    input: PublishSchedulePeriodRequest,
+    input: Omit<PublishSchedulePeriodRequest, 'expectedVersion'> & {
+      readonly expectedVersion?: number;
+    },
   ): Promise<PublishSchedulePeriodResult> {
     const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
-    assertExpectedVersion({
-      actualVersion: period.version,
-      expectedVersion: input.expectedVersion,
-      id: period.id,
-      latestData: { status: period.status },
-      objectType: 'schedule_period',
-      userMessage: '排班期间已被更新，请刷新后重试。',
-    });
+    if (input.expectedVersion !== undefined) {
+      assertExpectedVersion({
+        actualVersion: period.version,
+        expectedVersion: input.expectedVersion,
+        id: period.id,
+        latestData: { status: period.status },
+        objectType: 'schedule_period',
+        userMessage: '排班期间已被更新，请刷新后重试。',
+      });
+    }
 
     const [existingPublished] = await transaction
       .select({ id: schedulePeriods.id })
@@ -384,6 +466,15 @@ function createPublishFingerprint(input: {
   readonly expectedVersion: number;
   readonly groupId: string;
   readonly schedulePeriodId: string;
+}): string {
+  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+}
+
+function createBatchPublishFingerprint(input: {
+  readonly acknowledgeBlockers: boolean;
+  readonly groupId: string;
+  readonly replacePublished: boolean;
+  readonly schedulePeriodIds: readonly string[];
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }

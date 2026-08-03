@@ -40,10 +40,13 @@ import type {
   NotificationPage,
   NotificationRecord,
   PushConfiguration,
+  PublishSchedulePeriodBatchRequest,
+  PublishSchedulePeriodBatchResult,
   PublishSchedulePeriodRequest,
   PublishSchedulePeriodResult,
   ScheduleDraftSummary,
   ScheduleGenerationPreview,
+  SchedulePeriodHistoryItem,
   StatisticsRecalculateCheckResult,
   YearStatistics,
   UpdateGroupNotificationSettingsInput,
@@ -208,6 +211,7 @@ export interface ApiClient {
     groupId: string,
     schedulePeriodId: string,
   ): Promise<ScheduleGenerationPreview>;
+  listSchedulePeriodHistory(groupId: string): Promise<SchedulePeriodHistoryItem[]>;
   listScheduleDrafts(groupId: string): Promise<ScheduleDraftSummary[]>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
@@ -225,6 +229,10 @@ export interface ApiClient {
     schedulePeriodId: string,
     input: PublishSchedulePeriodRequest,
   ): Promise<PublishSchedulePeriodResult>;
+  publishScheduleDraftBatch(
+    groupId: string,
+    input: PublishSchedulePeriodBatchRequest,
+  ): Promise<PublishSchedulePeriodBatchResult>;
   deleteScheduleDraft(groupId: string, schedulePeriodId: string): Promise<void>;
   previewLeaveRequestApproval(
     groupId: string,
@@ -1060,6 +1068,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isScheduleGenerationPreview,
       );
     },
+    listSchedulePeriodHistory(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedule-periods/history`,
+        { method: 'GET' },
+        isSchedulePeriodHistoryItemList,
+      );
+    },
     publishSchedulePeriod(groupId, schedulePeriodId, input) {
       return requestJson(
         options.auth,
@@ -1068,6 +1086,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/publish`,
         { method: 'POST', body: JSON.stringify(input) },
         isPublishSchedulePeriodResult,
+      );
+    },
+    publishScheduleDraftBatch(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/schedules/publish-batch`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isPublishSchedulePeriodBatchResult,
       );
     },
     deleteScheduleDraft(groupId, schedulePeriodId) {
@@ -2707,6 +2738,44 @@ function isScheduleDraftSummaryList(value: unknown): value is ScheduleDraftSumma
   return Array.isArray(value) && value.every(isScheduleDraftSummary);
 }
 
+function isSchedulePeriodHistoryItemList(value: unknown): value is SchedulePeriodHistoryItem[] {
+  return Array.isArray(value) && value.every(isSchedulePeriodHistoryItem);
+}
+
+function isSchedulePeriodHistoryItem(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const item = value as Partial<SchedulePeriodHistoryItem>;
+  return (
+    typeof item.id === 'string' &&
+    item.id.length > 0 &&
+    typeof item.businessMonth === 'string' &&
+    /^\d{4}-\d{2}$/u.test(item.businessMonth) &&
+    typeof item.scheduleRoleId === 'string' &&
+    item.scheduleRoleId.length > 0 &&
+    typeof item.scheduleRoleName === 'string' &&
+    item.scheduleRoleName.length > 0 &&
+    typeof item.revision === 'number' &&
+    Number.isInteger(item.revision) &&
+    item.revision >= 1 &&
+    typeof item.version === 'number' &&
+    Number.isInteger(item.version) &&
+    item.version >= 1 &&
+    typeof item.createdAt === 'string' &&
+    (item.status === 'draft' ||
+      item.status === 'pending_publication' ||
+      item.status === 'published' ||
+      item.status === 'replaced' ||
+      item.status === 'withdrawn') &&
+    (item.applyStartDate === undefined || typeof item.applyStartDate === 'string') &&
+    (item.applyEndDate === undefined || typeof item.applyEndDate === 'string') &&
+    (item.operationId === undefined || typeof item.operationId === 'string') &&
+    (item.publishedAt === undefined || typeof item.publishedAt === 'string')
+  );
+}
+
 function isScheduleGenerationPreview(value: unknown): value is ScheduleGenerationPreview {
   if (value === null || typeof value !== 'object') {
     return false;
@@ -2716,7 +2785,7 @@ function isScheduleGenerationPreview(value: unknown): value is ScheduleGeneratio
   const assignments = preview.assignments ?? [];
   return (
     typeof preview.businessMonth === 'string' &&
-    /^\d{4}-\d{2}$/u.test(preview.businessMonth) &&
+    /^\d{4}-\d{2}(-\d{2})?$/u.test(preview.businessMonth) &&
     typeof preview.rulesVersion === 'number' &&
     Number.isInteger(preview.rulesVersion) &&
     Array.isArray(assignments) &&
@@ -2757,6 +2826,18 @@ function isPublishSchedulePeriodResult(value: unknown): value is PublishSchedule
     typeof preview.businessMonth === 'string' &&
     preview.statistics !== null &&
     typeof preview.statistics === 'object'
+  );
+}
+
+function isPublishSchedulePeriodBatchResult(
+  value: unknown,
+): value is PublishSchedulePeriodBatchResult {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'periods' in value &&
+    Array.isArray(value.periods) &&
+    value.periods.every(isSchedulePeriodSummary)
   );
 }
 

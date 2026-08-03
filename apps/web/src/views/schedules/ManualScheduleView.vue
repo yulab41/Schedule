@@ -5,8 +5,8 @@ import type {
   CreateManualScheduleTemplateRequest,
   GroupSummary,
   ManualScheduleTemplate,
-  ScheduleDraftSummary,
   ScheduleGenerationPreview,
+  SchedulePeriodHistoryItem,
   SchedulingConfig,
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
@@ -46,7 +46,7 @@ const props = defineProps<{
 const api = createApiClient({ auth: cloudbaseAuth });
 const config = ref<SchedulingConfig>();
 const templates = ref<ManualScheduleTemplate[]>([]);
-const drafts = ref<ScheduleDraftSummary[]>([]);
+const history = ref<SchedulePeriodHistoryItem[]>([]);
 const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const selectedTemplateId = ref('');
 const scheduleRoleId = ref('');
@@ -68,18 +68,30 @@ const isSaving = ref(false);
 const isDeleting = ref(false);
 const isPublishingId = ref<string>();
 const isDeletingDraftId = ref<string>();
-const blockedDraft = ref<ScheduleDraftSummary>();
-const blockedDraftMessage = ref('');
-const blockedDraftNeedsReplace = ref(false);
+const batchBlocked = ref<BlockedBatch>();
 const acknowledgeBlockers = ref(false);
 const replacePublished = ref(false);
 const previewDialogVisible = ref(false);
-const previewTarget = ref<ScheduleDraftSummary>();
+const previewTarget = ref<SchedulePeriodHistoryItem>();
 const draftPreview = ref<ScheduleGenerationPreview>();
 const isPreviewingDraftId = ref<string>();
 const draftPreviewError = ref<string>();
 const applyTarget = ref<ManualScheduleTemplate>();
 let requestVersion = 0;
+
+interface DraftBatch {
+  readonly items: readonly SchedulePeriodHistoryItem[];
+  readonly key: string;
+  readonly rangeEnd: string;
+  readonly rangeStart: string;
+  readonly roleName: string;
+}
+
+interface BlockedBatch {
+  readonly batch: DraftBatch;
+  readonly message: string;
+  readonly needsReplace: boolean;
+}
 
 const roleOptions = computed(() =>
   (config.value?.roles ?? []).map((role) => ({ label: role.name, value: role.id })),
@@ -126,6 +138,69 @@ const canUndo = computed(() => undoStack.canUndo());
 const staleWarning = computed(
   () => staleMemberIds.value.length > 0 || staleCellKeys.value.size > 0,
 );
+const draftBatches = computed<readonly DraftBatch[]>(() => {
+  const groups = new Map<string, SchedulePeriodHistoryItem[]>();
+  for (const item of history.value) {
+    if (item.status !== 'draft') {
+      continue;
+    }
+    const key = item.operationId ?? item.id;
+    const list = groups.get(key) ?? [];
+    list.push(item);
+    groups.set(key, list);
+  }
+
+  return [...groups.values()]
+    .map((items) => {
+      const sorted = [...items].sort(
+        (first, second) =>
+          first.businessMonth.localeCompare(second.businessMonth) ||
+          first.revision - second.revision,
+      );
+      const first = sorted[0];
+      const last = sorted[sorted.length - 1];
+      return {
+        items: sorted,
+        key: first?.operationId ?? first?.id ?? '',
+        rangeEnd: last?.applyEndDate ?? `${last?.businessMonth ?? ''}-01`,
+        rangeStart: first?.applyStartDate ?? `${first?.businessMonth ?? ''}-01`,
+        roleName: first?.scheduleRoleName ?? '',
+      };
+    })
+    .sort((first, second) =>
+      (second.items[0]?.businessMonth ?? '').localeCompare(first.items[0]?.businessMonth ?? ''),
+    );
+});
+const versionMonthGroups = computed(() => {
+  const groups = new Map<
+    string,
+    {
+      businessMonth: string;
+      items: SchedulePeriodHistoryItem[];
+      roleName: string;
+    }
+  >();
+  for (const item of history.value) {
+    if (item.status === 'draft') {
+      continue;
+    }
+    const key = `${item.businessMonth}|${item.scheduleRoleId}`;
+    const group = groups.get(key) ?? {
+      businessMonth: item.businessMonth,
+      items: [],
+      roleName: item.scheduleRoleName,
+    };
+    group.items.push(item);
+    groups.set(key, group);
+  }
+
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      items: [...group.items].sort((first, second) => second.revision - first.revision),
+    }))
+    .sort((first, second) => second.businessMonth.localeCompare(first.businessMonth));
+});
 
 watch(startDate, () => {
   void loadHolidays();
@@ -139,13 +214,13 @@ function loadData(): Promise<void> {
   return Promise.all([
     api.getSchedulingConfig(props.group.id),
     api.listManualScheduleTemplates(props.group.id),
-    api.listScheduleDrafts(props.group.id),
+    api.listSchedulePeriodHistory(props.group.id),
   ])
-    .then(([nextConfig, nextTemplates, nextDrafts]) => {
+    .then(([nextConfig, nextTemplates, nextHistory]) => {
       if (currentRequest === requestVersion) {
         config.value = nextConfig;
         templates.value = nextTemplates;
-        drafts.value = nextDrafts;
+        history.value = nextHistory;
       }
     })
     .catch((error: unknown) => {
@@ -446,51 +521,47 @@ function onApplied(result: AppliedManualScheduleTemplateResult): void {
   applyTarget.value = undefined;
   infoMessage.value =
     result.status === 'published'
-      ? `模板已应用并直接发布：${result.periods
-          .map((period) => period.businessMonth.slice(0, 7))
-          .join('、')}。`
-      : `模板已应用并保存为草稿：${result.periods
-          .map((period) => period.businessMonth.slice(0, 7))
-          .join('、')}。请在下方草稿区确认发布。`;
+      ? `模板已应用并直接发布：${result.preview.applyStartDate} 至 ${result.preview.applyEndDate}。`
+      : `模板已应用并保存为草稿：${result.preview.applyStartDate} 至 ${result.preview.applyEndDate}（共 ${result.periods.length} 个月），可在下方草稿区一次发布。`;
   void loadData();
 }
 
-async function publishDraft(
-  draft: ScheduleDraftSummary,
+async function publishBatch(
+  batch: DraftBatch,
   acknowledge = false,
   replace = false,
 ): Promise<void> {
   errorMessage.value = undefined;
-  blockedDraft.value = undefined;
-  blockedDraftMessage.value = '';
-  blockedDraftNeedsReplace.value = false;
+  batchBlocked.value = undefined;
+  acknowledgeBlockers.value = false;
   replacePublished.value = false;
-  isPublishingId.value = draft.id;
+  isPublishingId.value = batch.key;
 
   try {
-    await api.publishSchedulePeriod(props.group.id, draft.id, {
+    const result = await api.publishScheduleDraftBatch(props.group.id, {
       ...(acknowledge ? { acknowledgeBlockers: true } : {}),
-      expectedVersion: draft.version,
       operationId: crypto.randomUUID(),
       ...(replace ? { replacePublished: true } : {}),
+      schedulePeriodIds: batch.items.map((item) => item.id),
     });
-    infoMessage.value = `已发布 ${draft.businessMonth.slice(0, 7)} 的排班草稿。`;
+    infoMessage.value = `已发布 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班（共 ${result.periods.length} 个月）。`;
     await loadData();
   } catch (error) {
     if (isDataConflictError(error)) {
       const latest = getConflictLatestData(error) as
         { existingPublishedPeriodId?: unknown } | undefined;
-      if (latest?.existingPublishedPeriodId !== undefined) {
-        blockedDraft.value = draft;
-        blockedDraftMessage.value = '该岗位该月份已有已发布排班，请确认覆盖发布。';
-        blockedDraftNeedsReplace.value = true;
-        replacePublished.value = false;
-      } else {
-        blockedDraft.value = draft;
-        blockedDraftMessage.value = getConflictMessage(error);
-        blockedDraftNeedsReplace.value = false;
-        acknowledgeBlockers.value = false;
-      }
+      batchBlocked.value =
+        latest?.existingPublishedPeriodId !== undefined
+          ? {
+              batch,
+              message: '发布范围包含已有已发布排班的月份，请确认覆盖发布。',
+              needsReplace: true,
+            }
+          : {
+              batch,
+              message: getConflictMessage(error),
+              needsReplace: false,
+            };
     } else {
       errorMessage.value = getErrorMessage(error);
     }
@@ -499,7 +570,31 @@ async function publishDraft(
   }
 }
 
-async function openDraftPreview(draft: ScheduleDraftSummary): Promise<void> {
+async function deleteBatch(batch: DraftBatch): Promise<void> {
+  if (
+    !window.confirm(
+      `确定删除 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班草稿吗（共 ${batch.items.length} 个月）？删除后不可恢复。`,
+    )
+  ) {
+    return;
+  }
+
+  errorMessage.value = undefined;
+  isDeletingDraftId.value = batch.key;
+  try {
+    for (const item of batch.items) {
+      await api.deleteScheduleDraft(props.group.id, item.id);
+    }
+    infoMessage.value = `已删除 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班草稿。`;
+    await loadData();
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error);
+  } finally {
+    isDeletingDraftId.value = undefined;
+  }
+}
+
+async function openDraftPreview(draft: SchedulePeriodHistoryItem): Promise<void> {
   previewTarget.value = draft;
   draftPreview.value = undefined;
   draftPreviewError.value = undefined;
@@ -522,9 +617,10 @@ function closeDraftPreview(): void {
   draftPreviewError.value = undefined;
 }
 
-async function deleteDraft(draft: ScheduleDraftSummary): Promise<void> {
+async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
+  const label = draft.status === 'draft' ? '排班草稿' : `第 ${draft.revision} 版归档记录`;
   if (
-    !window.confirm(`确定删除 ${draft.businessMonth.slice(0, 7)} 的排班草稿吗？删除后不可恢复。`)
+    !window.confirm(`确定删除 ${draft.businessMonth.slice(0, 7)} 的${label}吗？删除后不可恢复。`)
   ) {
     return;
   }
@@ -533,13 +629,8 @@ async function deleteDraft(draft: ScheduleDraftSummary): Promise<void> {
   isDeletingDraftId.value = draft.id;
   try {
     await api.deleteScheduleDraft(props.group.id, draft.id);
-    drafts.value = drafts.value.filter((item) => item.id !== draft.id);
-    if (blockedDraft.value?.id === draft.id) {
-      blockedDraft.value = undefined;
-      blockedDraftMessage.value = '';
-      blockedDraftNeedsReplace.value = false;
-    }
-    infoMessage.value = `已删除 ${draft.businessMonth.slice(0, 7)} 的排班草稿。`;
+    history.value = history.value.filter((item) => item.id !== draft.id);
+    infoMessage.value = `已删除 ${draft.businessMonth.slice(0, 7)} 的${label}。`;
     await loadData();
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
@@ -659,50 +750,54 @@ function onWindowFocus(): void {
       </template>
       <p v-else class="editor-hint">请选择排班岗位并勾选至少一位值班人员。</p>
 
-      <section v-if="drafts.length > 0" class="draft-section">
-        <h3>草稿排班</h3>
+      <section v-if="draftBatches.length > 0" class="draft-section">
+        <h3>排班草稿</h3>
         <p class="draft-hint">
-          模板应用后保存为草稿，确认发布后成员才能在日历中看到；重复应用时可选择覆盖旧草稿，也可在此手动删除。
+          模板应用后按开始到结束时间保存为一条草稿，可一次发布整个范围；重复应用时可选择覆盖旧草稿。
         </p>
         <div class="draft-list">
-          <article v-for="draft in drafts" :key="draft.id" class="draft-row">
+          <article v-for="batch in draftBatches" :key="batch.key" class="draft-row">
             <div class="draft-summary">
-              <strong>{{ draft.businessMonth.slice(0, 7) }}</strong>
-              <span>{{ draft.scheduleRoleName }}</span>
-              <span>第 {{ draft.revision }} 版</span>
+              <strong>{{ batch.rangeStart }} 至 {{ batch.rangeEnd }}</strong>
+              <span>{{ batch.roleName }}</span>
+              <span>共 {{ batch.items.length }} 个月</span>
+              <span class="month-chips">
+                <button
+                  v-for="item in batch.items"
+                  :key="item.id"
+                  type="button"
+                  class="month-chip"
+                  :title="`预览 ${item.businessMonth.slice(0, 7)}`"
+                  @click="openDraftPreview(item)"
+                >
+                  {{ item.businessMonth.slice(0, 7) }}
+                </button>
+              </span>
             </div>
             <t-space size="small">
               <t-button
                 size="small"
-                variant="outline"
-                :loading="isPreviewingDraftId === draft.id"
-                @click="openDraftPreview(draft)"
-              >
-                预览
-              </t-button>
-              <t-button
-                size="small"
                 theme="primary"
-                :loading="isPublishingId === draft.id"
-                @click="publishDraft(draft)"
+                :loading="isPublishingId === batch.key"
+                @click="publishBatch(batch)"
               >
-                发布
+                发布整个排班
               </t-button>
               <t-button
                 size="small"
                 theme="danger"
                 variant="text"
-                :loading="isDeletingDraftId === draft.id"
-                @click="deleteDraft(draft)"
+                :loading="isDeletingDraftId === batch.key"
+                @click="deleteBatch(batch)"
               >
-                删除
+                删除草稿
               </t-button>
             </t-space>
           </article>
         </div>
-        <div v-if="blockedDraft !== undefined" class="blocker-panel">
-          <t-alert theme="warning" :message="blockedDraftMessage" />
-          <template v-if="blockedDraftNeedsReplace">
+        <div v-if="batchBlocked !== undefined" class="blocker-panel">
+          <t-alert theme="warning" :message="batchBlocked.message" />
+          <template v-if="batchBlocked.needsReplace">
             <label class="replace-field">
               <input v-model="replacePublished" type="checkbox" />
               覆盖已发布排班（替换同岗位同月份的旧排班）
@@ -710,8 +805,8 @@ function onWindowFocus(): void {
             <t-button
               theme="danger"
               variant="outline"
-              :loading="isPublishingId === blockedDraft.id"
-              @click="publishDraft(blockedDraft, false, true)"
+              :loading="isPublishingId === batchBlocked.batch.key"
+              @click="publishBatch(batchBlocked.batch, false, true)"
             >
               确认覆盖发布
             </t-button>
@@ -724,12 +819,59 @@ function onWindowFocus(): void {
             <t-button
               theme="danger"
               variant="outline"
-              :loading="isPublishingId === blockedDraft.id"
-              @click="publishDraft(blockedDraft, true)"
+              :loading="isPublishingId === batchBlocked.batch.key"
+              @click="publishBatch(batchBlocked.batch, true)"
             >
               确认发布
             </t-button>
           </template>
+        </div>
+      </section>
+
+      <section v-if="versionMonthGroups.length > 0" class="draft-section">
+        <h3>排班发布记录</h3>
+        <p class="draft-hint">
+          每个月的已发布与已归档版本；新排班发布后旧版本自动归档，可查看和删除。
+        </p>
+        <div class="draft-list">
+          <article
+            v-for="monthGroup in versionMonthGroups"
+            :key="`${monthGroup.businessMonth}|${monthGroup.roleName}`"
+            class="month-group"
+          >
+            <div class="month-group-header">
+              <strong>{{ monthGroup.businessMonth.slice(0, 7) }}</strong>
+              <span>{{ monthGroup.roleName }}</span>
+            </div>
+            <div v-for="item in monthGroup.items" :key="item.id" class="version-row">
+              <div class="draft-summary">
+                <span :class="['version-badge', { 'is-current': item.status === 'published' }]">
+                  {{ item.status === 'published' ? '当前已发布' : '已归档' }}
+                </span>
+                <span>第 {{ item.revision }} 版</span>
+              </div>
+              <t-space size="small">
+                <t-button
+                  size="small"
+                  variant="outline"
+                  :loading="isPreviewingDraftId === item.id"
+                  @click="openDraftPreview(item)"
+                >
+                  查看
+                </t-button>
+                <t-button
+                  v-if="item.status !== 'published'"
+                  size="small"
+                  theme="danger"
+                  variant="text"
+                  :loading="isDeletingDraftId === item.id"
+                  @click="deleteDraft(item)"
+                >
+                  删除
+                </t-button>
+              </t-space>
+            </div>
+          </article>
         </div>
       </section>
     </template>
@@ -939,6 +1081,73 @@ function onWindowFocus(): void {
 .draft-summary strong {
   color: #111827;
   font-size: 14px;
+}
+
+.month-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.month-chip {
+  padding: 2px 8px;
+  color: #1f5aa6;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.month-chip:hover {
+  background: #dbeafe;
+}
+
+.month-group {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.month-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.month-group-header strong {
+  color: #111827;
+  font-size: 14px;
+}
+
+.version-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.version-badge {
+  padding: 1px 6px;
+  color: #6b7280;
+  background: #e5e7eb;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.version-badge.is-current {
+  color: #166534;
+  background: #dcfce7;
 }
 
 .blocker-panel {

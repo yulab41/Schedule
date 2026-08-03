@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ScheduleDraftSummary } from '@schedule/contracts';
+import type { ScheduleDraftSummary, SchedulePeriodHistoryItem } from '@schedule/contracts';
 import {
   groups,
   groupMemberships,
+  scheduleEvents,
   schedulePeriods,
   scheduleRoles,
   shiftAssignments,
@@ -121,6 +122,92 @@ export class ScheduleRepository {
     }));
   }
 
+  public async listHistoryInTransaction(
+    transaction: DatabaseTransaction,
+    groupId: string,
+  ): Promise<SchedulePeriodHistoryItem[]> {
+    const rows = await transaction
+      .select({
+        businessMonth: schedulePeriods.businessMonth,
+        createdAt: schedulePeriods.createdAt,
+        id: schedulePeriods.id,
+        publishedAt: schedulePeriods.publishedAt,
+        revision: schedulePeriods.revision,
+        scheduleRoleId: schedulePeriods.scheduleRoleId,
+        scheduleRoleName: scheduleRoles.name,
+        status: schedulePeriods.status,
+        version: schedulePeriods.version,
+      })
+      .from(schedulePeriods)
+      .innerJoin(scheduleRoles, eq(scheduleRoles.id, schedulePeriods.scheduleRoleId))
+      .where(and(eq(schedulePeriods.groupId, groupId), isNull(schedulePeriods.deletedAt)))
+      .orderBy(desc(schedulePeriods.businessMonth), desc(schedulePeriods.revision));
+
+    const draftIds = rows.filter((row) => row.status === 'draft').map((row) => row.id);
+    const applyRanges = new Map<
+      string,
+      {
+        readonly applyEndDate: string;
+        readonly applyStartDate: string;
+        readonly operationId: string;
+      }
+    >();
+    if (draftIds.length > 0) {
+      const events = await transaction
+        .select({
+          afterData: scheduleEvents.afterData,
+          operationId: scheduleEvents.operationId,
+          schedulePeriodId: scheduleEvents.schedulePeriodId,
+        })
+        .from(scheduleEvents)
+        .where(
+          and(
+            eq(scheduleEvents.eventType, 'manual_schedule_template_applied'),
+            inArray(scheduleEvents.schedulePeriodId, draftIds),
+          ),
+        );
+      for (const event of events) {
+        const after = event.afterData as
+          { applyEndDate?: unknown; applyStartDate?: unknown } | null | undefined;
+        if (
+          event.schedulePeriodId !== null &&
+          after !== null &&
+          after !== undefined &&
+          typeof after.applyStartDate === 'string' &&
+          typeof after.applyEndDate === 'string'
+        ) {
+          applyRanges.set(event.schedulePeriodId, {
+            applyEndDate: after.applyEndDate,
+            applyStartDate: after.applyStartDate,
+            operationId: event.operationId,
+          });
+        }
+      }
+    }
+
+    return rows.map((row) => {
+      const range = applyRanges.get(row.id);
+      return {
+        ...(range === undefined
+          ? {}
+          : {
+              applyEndDate: range.applyEndDate,
+              applyStartDate: range.applyStartDate,
+              operationId: range.operationId,
+            }),
+        businessMonth: row.businessMonth.slice(0, 7),
+        createdAt: row.createdAt.toISOString(),
+        id: row.id,
+        ...(row.publishedAt === null ? {} : { publishedAt: row.publishedAt.toISOString() }),
+        revision: row.revision,
+        scheduleRoleId: row.scheduleRoleId,
+        scheduleRoleName: row.scheduleRoleName,
+        status: row.status,
+        version: row.version,
+      };
+    });
+  }
+
   public async softDeleteDraftsInTransaction(
     transaction: DatabaseTransaction,
     groupId: string,
@@ -186,11 +273,15 @@ export class ScheduleRepository {
         userMessage: '排班草稿不存在或不可用。',
       });
     }
-    if (period.status !== 'draft') {
+    if (
+      period.status !== 'draft' &&
+      period.status !== 'replaced' &&
+      period.status !== 'withdrawn'
+    ) {
       throw new ApiError({
         code: 'CONFLICT',
         statusCode: 409,
-        userMessage: '只能删除草稿排班，已发布的排班不能删除。',
+        userMessage: '只能删除草稿或已归档的排班版本，当前发布的排班不能删除。',
       });
     }
 
@@ -206,7 +297,7 @@ export class ScheduleRepository {
       afterData: {
         businessMonth: period.businessMonth,
         scheduleRoleId: period.scheduleRoleId,
-        status: 'draft',
+        status: period.status,
         version: period.version + 1,
       },
       eventStatus: 'completed',

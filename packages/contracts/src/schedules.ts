@@ -107,6 +107,32 @@ export interface ScheduleDraftSummary extends SchedulePeriodSummary {
   readonly scheduleRoleName: string;
 }
 
+export interface SchedulePeriodHistoryItem {
+  readonly applyEndDate?: string;
+  readonly applyStartDate?: string;
+  readonly businessMonth: string;
+  readonly createdAt: string;
+  readonly id: string;
+  readonly operationId?: string;
+  readonly publishedAt?: string;
+  readonly revision: number;
+  readonly scheduleRoleId: string;
+  readonly scheduleRoleName: string;
+  readonly status: 'draft' | 'pending_publication' | 'published' | 'replaced' | 'withdrawn';
+  readonly version: number;
+}
+
+export interface PublishSchedulePeriodBatchRequest {
+  readonly acknowledgeBlockers?: boolean;
+  readonly operationId: string;
+  readonly replacePublished?: boolean;
+  readonly schedulePeriodIds: readonly string[];
+}
+
+export interface PublishSchedulePeriodBatchResult {
+  readonly periods: readonly SchedulePeriodSummary[];
+}
+
 export interface SavedScheduleGeneration {
   readonly operationId: string;
   readonly periods: readonly SchedulePeriodSummary[];
