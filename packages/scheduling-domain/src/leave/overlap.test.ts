@@ -100,4 +100,29 @@ describe('leave overlap', () => {
       }),
     ).toBe(false);
   });
+
+  it('finds all-day leave overlap by business date even when assignment timestamps are stored as UTC midnight', () => {
+    const assignments = [
+      {
+        businessDate: '2026-09-02',
+        endsAt: new Date('2026-09-03T00:00:00.000Z'),
+        plannedMembershipId: 'member-a',
+        startsAt: new Date('2026-09-02T00:00:00.000Z'),
+      },
+      {
+        businessDate: '2026-09-01',
+        endsAt: new Date('2026-09-02T00:00:00.000Z'),
+        plannedMembershipId: 'member-a',
+        startsAt: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    ];
+    const leave = {
+      endsAt: new Date('2026-09-02T00:00:00.000Z'),
+      isAllDay: 1 as const,
+      membershipId: 'member-a',
+      startsAt: new Date('2026-09-01T00:00:00.000Z'),
+    };
+
+    expect(findLeaveOverlappingAssignments(assignments, leave)).toEqual([assignments[1]]);
+  });
 });

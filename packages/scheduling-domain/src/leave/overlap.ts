@@ -6,6 +6,7 @@ export interface TimeIntervalInput {
 }
 
 export interface MemberTimeInterval extends TimeIntervalInput {
+  readonly isAllDay?: boolean | number;
   readonly membershipId: string;
 }
 
@@ -17,7 +18,7 @@ export function intervalsOverlap(left: TimeIntervalInput, right: TimeIntervalInp
 }
 
 export interface LeaveIntervalInput extends TimeIntervalInput {
-  readonly isAllDay: boolean | number;
+  readonly isAllDay?: boolean | number;
 }
 
 export interface BusinessDateIntervalInput extends TimeIntervalInput {
@@ -45,6 +46,7 @@ export function findLeaveOverlappingAssignments<
 >(assignments: readonly Assignment[], leave: MemberTimeInterval): Assignment[] {
   return assignments.filter(
     (assignment) =>
-      assignment.plannedMembershipId === leave.membershipId && intervalsOverlap(assignment, leave),
+      assignment.plannedMembershipId === leave.membershipId &&
+      leaveOverlapsInterval(leave, assignment),
   );
 }

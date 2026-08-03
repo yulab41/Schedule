@@ -149,6 +149,7 @@ async function loadAffectedShifts(): Promise<void> {
   try {
     affectedShifts.value = await api.getLeaveAffectedShifts(props.group.id, {
       endsAt: interval.endsAt,
+      isAllDay: true,
       startsAt: interval.startsAt,
     });
   } catch {

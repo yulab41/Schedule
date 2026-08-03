@@ -1,7 +1,11 @@
 import { findContinuousDutyWarnings, findRotationHardConflicts } from '../conflicts.js';
 import type { ContinuousDutyWarning } from '../rotation/types.js';
 
-import { findLeaveOverlappingAssignments, intervalsOverlap } from './overlap.js';
+import {
+  findLeaveOverlappingAssignments,
+  intervalsOverlap,
+  leaveOverlapsInterval,
+} from './overlap.js';
 
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
@@ -9,6 +13,7 @@ export type LeaveReflowStrategy = 'keep-original-order' | 'shift-forward';
 
 export interface LeaveReflowInterval {
   readonly endsAt: Date;
+  readonly isAllDay?: boolean | number;
   readonly membershipId: string;
   readonly startsAt: Date;
 }
@@ -373,7 +378,7 @@ function findRemainingLeaveConflicts(
     for (const leave of leaves) {
       if (
         leave.membershipId === assignment.plannedMembershipId &&
-        intervalsOverlap(leave, assignment)
+        leaveOverlapsInterval(leave, assignment)
       ) {
         conflicts.push({
           assignmentBusinessKeys: [assignment.businessKey],

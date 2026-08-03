@@ -44,6 +44,7 @@ import {
   createRotationBusinessKey,
   getChinaStandardTimeBusinessDate,
   intervalsOverlap,
+  leaveOverlapsInterval,
   reflowLeaveAssignments,
   type LeaveReflowInterval,
   type ReflowAssignment,
@@ -180,6 +181,7 @@ export class LeaveService {
         authorization.membership.id,
         startsAt,
         endsAt,
+        input.isAllDay === true ? 1 : 0,
       );
       let reflowStrategy = authorization.group.leaveReflowStrategy;
       if (input.resolutionMode === 'shift-forward') {
@@ -190,6 +192,7 @@ export class LeaveService {
         const affectedShifts = await this.buildAffectedShiftList(
           transaction,
           authorization.group.id,
+          authorization.membership.id,
           affectedAssignments,
         );
         const uncoveredShifts = affectedShifts.filter((shift) => !shift.isCovered);
@@ -277,8 +280,14 @@ export class LeaveService {
         authorization.membership.id,
         startsAt,
         endsAt,
+        input.isAllDay === true ? 1 : 0,
       );
-      return this.buildAffectedShiftList(transaction, authorization.group.id, assignments);
+      return this.buildAffectedShiftList(
+        transaction,
+        authorization.group.id,
+        authorization.membership.id,
+        assignments,
+      );
     });
   }
 
@@ -1058,6 +1067,7 @@ export class LeaveService {
     membershipId: string,
     startsAt: Date,
     endsAt: Date,
+    isAllDay: boolean | number,
   ): Promise<readonly LockedShiftAssignment[]> {
     const leaveStartDate = getChinaStandardTimeBusinessDate(startsAt);
     const leaveEndDate = getChinaStandardTimeBusinessDate(endsAt);
@@ -1097,13 +1107,14 @@ export class LeaveService {
     return rows.filter(
       (assignment) =>
         getDutyMembershipId(assignment) === membershipId &&
-        intervalsOverlap(assignment, { endsAt, startsAt }),
+        leaveOverlapsInterval({ endsAt, isAllDay, startsAt }, assignment),
     );
   }
 
   private async buildAffectedShiftList(
     transaction: DatabaseTransaction,
     groupId: string,
+    membershipId: string,
     assignments: readonly LockedShiftAssignment[],
   ): Promise<readonly LeaveAffectedShift[]> {
     if (assignments.length === 0) {
@@ -1113,13 +1124,15 @@ export class LeaveService {
     const swapRows = await transaction
       .select({
         initiatorAssignmentId: swapRequests.initiatorAssignmentId,
+        initiatorMembershipId: swapRequests.initiatorMembershipId,
         targetAssignmentId: swapRequests.targetAssignmentId,
+        targetMembershipId: swapRequests.targetMembershipId,
       })
       .from(swapRequests)
       .where(
         and(
           eq(swapRequests.groupId, groupId),
-          inArray(swapRequests.status, ['pending_target', 'pending_approval', 'completed']),
+          inArray(swapRequests.status, ['pending_target', 'pending_approval']),
           isNull(swapRequests.deletedAt),
           or(
             inArray(swapRequests.initiatorAssignmentId, assignmentIds),
@@ -1128,19 +1141,29 @@ export class LeaveService {
         ),
       );
     const adjustmentRows = await transaction
-      .select({ coveredAssignmentId: dutyAdjustments.coveredAssignmentId })
+      .select({
+        coveredAssignmentId: dutyAdjustments.coveredAssignmentId,
+        overtimeMembershipId: dutyAdjustments.overtimeMembershipId,
+      })
       .from(dutyAdjustments)
       .where(
         and(
           eq(dutyAdjustments.groupId, groupId),
-          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval', 'completed']),
+          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval']),
           isNull(dutyAdjustments.deletedAt),
           inArray(dutyAdjustments.coveredAssignmentId, assignmentIds),
         ),
       );
     const coveredAssignmentIds = new Set<string>([
-      ...swapRows.flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId]),
-      ...adjustmentRows.map((row) => row.coveredAssignmentId),
+      ...swapRows
+        .filter(
+          (row) =>
+            row.initiatorMembershipId === membershipId || row.targetMembershipId === membershipId,
+        )
+        .flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId]),
+      ...adjustmentRows
+        .filter((row) => row.overtimeMembershipId !== membershipId)
+        .map((row) => row.coveredAssignmentId),
     ]);
 
     return assignments.map((assignment) => ({
@@ -1221,6 +1244,7 @@ export class LeaveService {
       );
     const leaveIntervals: LeaveReflowInterval[] = leaves.map((leave) => ({
       endsAt: leave.endsAt,
+      isAllDay: leave.isAllDay === 1,
       membershipId: leave.membershipId,
       startsAt: leave.startsAt,
     }));
@@ -1234,6 +1258,7 @@ export class LeaveService {
     ) {
       leaveIntervals.push({
         endsAt: leaveRequest.endsAt,
+        isAllDay: leaveRequest.isAllDay === 1,
         membershipId: leaveRequest.membershipId,
         startsAt: leaveRequest.startsAt,
       });
@@ -1282,6 +1307,7 @@ export class LeaveService {
       assignments: domainAssignments,
       leave: {
         endsAt: leaveRequest.endsAt,
+        isAllDay: leaveRequest.isAllDay === 1,
         membershipId: leaveRequest.membershipId,
         startsAt: leaveRequest.startsAt,
       },

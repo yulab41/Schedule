@@ -198,6 +198,7 @@ describeWithDatabase('leave requests and reflow', () => {
     const affected = (
       await affectedShifts('a-token', context.groupId, {
         endsAt: leaveEnd,
+        isAllDay: true,
         startsAt: leaveStart,
       })
     ).json() as readonly { businessDate: string; isCovered: boolean }[];
@@ -250,6 +251,7 @@ describeWithDatabase('leave requests and reflow', () => {
     const covered = (
       await affectedShifts('a-token', context.groupId, {
         endsAt: leaveEnd,
+        isAllDay: true,
         startsAt: leaveStart,
       })
     ).json() as readonly { businessDate: string; isCovered: boolean }[];
@@ -275,6 +277,64 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     expect(forwarded.statusCode).toBe(201);
     expect(forwarded.json()).toMatchObject({ reflowStrategy: 'shift-forward' });
+  });
+
+  it('does not count a completed historical swap as leave coverage', async () => {
+    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
+    const assignmentRows = (
+      await client.database.execute(
+        sql`SELECT id, business_date AS businessDate, planned_membership_id AS plannedMembershipId
+            FROM shift_assignments
+            WHERE schedule_period_id = ${context.periodId}
+              AND business_date IN ('2026-09-01', '2026-09-02')`,
+      )
+    )[0] as unknown as readonly {
+      businessDate: string;
+      id: string;
+      plannedMembershipId: string | null;
+    }[];
+    const aSep1 = assignmentRows.find(
+      (row) =>
+        row.businessDate === '2026-09-01' && row.plannedMembershipId === context.membershipIds.a,
+    )?.id;
+    const bSep2 = assignmentRows.find(
+      (row) =>
+        row.businessDate === '2026-09-02' && row.plannedMembershipId === context.membershipIds.b,
+    )?.id;
+    const swap = await createSwapRequest('a-token', context.groupId, {
+      initiatorAssignmentId: aSep1!,
+      operationId: randomUUID(),
+      targetAssignmentId: bSep2!,
+      targetMembershipId: context.membershipIds.b!,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as { id: string; version: number };
+    expect(
+      (await acceptSwapRequest('b-token', context.groupId, swapBody.id, swapBody.version))
+        .statusCode,
+    ).toBe(200);
+
+    const affected = (
+      await affectedShifts('a-token', context.groupId, {
+        endsAt: '2026-09-03T00:00:00.000Z',
+        isAllDay: true,
+        startsAt: '2026-09-02T00:00:00.000Z',
+      })
+    ).json() as readonly { businessDate: string; isCovered: boolean }[];
+    expect(affected).toEqual([
+      expect.objectContaining({ businessDate: '2026-09-02', isCovered: false }),
+    ]);
+
+    const blocked = await submitLeave('a-token', context.groupId, {
+      endsAt: '2026-09-03T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '历史换班不算覆盖',
+      resolutionMode: 'manual',
+      startsAt: '2026-09-02T00:00:00.000Z',
+    });
+    expect(blocked.statusCode).toBe(409);
   });
 
   it('previews a partial all-day overlap and keeps the original order on approval', async () => {
@@ -809,7 +869,7 @@ describeWithDatabase('leave requests and reflow', () => {
   async function affectedShifts(
     token: string,
     groupId: string,
-    body: { readonly endsAt: string; readonly startsAt: string },
+    body: { readonly endsAt: string; readonly isAllDay?: boolean; readonly startsAt: string },
   ) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
@@ -834,6 +894,20 @@ describeWithDatabase('leave requests and reflow', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/swaps`,
+    });
+  }
+
+  async function acceptSwapRequest(
+    token: string,
+    groupId: string,
+    swapRequestId: string,
+    expectedVersion: number,
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: { expectedVersion, operationId: randomUUID() },
+      url: `/groups/${groupId}/swaps/${swapRequestId}/accept`,
     });
   }
 

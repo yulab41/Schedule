@@ -51,6 +51,7 @@ const blockerCount = computed(
   () => (preview.value?.conflicts.length ?? 0) + (preview.value?.vacancies.length ?? 0),
 );
 const hasBlockers = computed(() => blockerCount.value > 0);
+const hasAffectedAssignments = computed(() => (preview.value?.affectedAssignments.length ?? 0) > 0);
 
 onMounted(() => {
   void loadContext();
@@ -185,51 +186,57 @@ function getErrorMessage(error: unknown): string {
           </div>
         </dl>
 
-        <label class="strategy-field">
-          重排策略
-          <t-select :value="strategy" :options="strategyOptions" @change="onStrategyChange" />
-        </label>
-        <p class="strategy-hint">
-          群组默认：{{ getReflowStrategyLabel(groupDefaultStrategy) }}。
-          审批时可以对本申请单独覆盖。
-        </p>
-
-        <t-button variant="outline" :loading="isPreviewing" @click="refreshPreview">
-          生成重排预览
-        </t-button>
-
-        <template v-if="preview !== undefined">
-          <p class="statistics-delta">
-            统计变化：{{ summarizeStatisticsDelta(preview.statisticsDelta) }}
+        <template v-if="hasAffectedAssignments">
+          <label class="strategy-field">
+            重排策略
+            <t-select :value="strategy" :options="strategyOptions" @change="onStrategyChange" />
+          </label>
+          <p class="strategy-hint">
+            群组默认：{{ getReflowStrategyLabel(groupDefaultStrategy) }}。
+            审批时可以对本申请单独覆盖。
           </p>
 
-          <ul v-if="preview.affectedAssignments.length > 0" class="affected-list">
-            <li v-for="assignment in preview.affectedAssignments" :key="assignment.assignmentId">
-              {{ formatAffectedAssignment(assignment) }}
-            </li>
-          </ul>
-          <p v-else class="no-impact">该请假不与任何已发布班次重叠，无需重排。</p>
+          <t-button variant="outline" :loading="isPreviewing" @click="refreshPreview">
+            生成重排预览
+          </t-button>
+        </template>
+        <p v-else-if="preview !== undefined" class="no-impact">
+          该请假不影响已发布排班，无需重排。
+        </p>
 
-          <t-alert
-            v-if="preview.conflicts.length > 0"
-            theme="error"
-            :message="`发现 ${preview.conflicts.length} 处硬冲突（请假或时间重叠）。`"
-          />
-          <t-alert
-            v-if="preview.continuousDutyWarnings.length > 0"
-            theme="warning"
-            :message="`发现 ${preview.continuousDutyWarnings.length} 处连续值班风险（至少 24 小时）。`"
-          />
-          <t-alert
-            v-if="preview.vacancies.length > 0"
-            theme="warning"
-            :message="`发现 ${preview.vacancies.length} 个待处理空缺（无可用替班成员）。`"
-          />
+        <template v-if="preview !== undefined">
+          <template v-if="hasAffectedAssignments">
+            <p class="statistics-delta">
+              统计变化：{{ summarizeStatisticsDelta(preview.statisticsDelta) }}
+            </p>
 
-          <label v-if="hasBlockers" class="acknowledge-field">
-            <input v-model="acknowledgeBlockers" type="checkbox" />
-            我已知晓冲突和空缺，确认按预览结果批准该请假。
-          </label>
+            <ul class="affected-list">
+              <li v-for="assignment in preview.affectedAssignments" :key="assignment.assignmentId">
+                {{ formatAffectedAssignment(assignment) }}
+              </li>
+            </ul>
+
+            <t-alert
+              v-if="preview.conflicts.length > 0"
+              theme="error"
+              :message="`发现 ${preview.conflicts.length} 处硬冲突（请假或时间重叠）。`"
+            />
+            <t-alert
+              v-if="preview.continuousDutyWarnings.length > 0"
+              theme="warning"
+              :message="`发现 ${preview.continuousDutyWarnings.length} 处连续值班风险（至少 24 小时）。`"
+            />
+            <t-alert
+              v-if="preview.vacancies.length > 0"
+              theme="warning"
+              :message="`发现 ${preview.vacancies.length} 个待处理空缺（无可用替班成员）。`"
+            />
+
+            <label v-if="hasBlockers" class="acknowledge-field">
+              <input v-model="acknowledgeBlockers" type="checkbox" />
+              我已知晓冲突和空缺，确认按预览结果批准该请假。
+            </label>
+          </template>
 
           <div class="approval-actions">
             <t-button theme="danger" variant="outline" :loading="isRejecting" @click="reject">

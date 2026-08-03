@@ -24,6 +24,7 @@ export interface LeaveAffectedShift {
 
 export interface LeaveAffectedShiftsInput {
   readonly endsAt: string;
+  readonly isAllDay?: boolean;
   readonly startsAt: string;
 }
 

@@ -37,6 +37,7 @@ const createLeaveInputSchema = z
 const affectedShiftsInputSchema = z
   .object({
     endsAt: datetimeSchema,
+    isAllDay: z.boolean().optional(),
     startsAt: datetimeSchema,
   })
   .strict();
@@ -215,7 +216,12 @@ function parseCreateInput(value: unknown): CreateLeaveRequestInput {
 }
 
 function parseAffectedShiftsInput(value: unknown): LeaveAffectedShiftsInput {
-  return parseOrThrow(affectedShiftsInputSchema, value);
+  const input = parseOrThrow(affectedShiftsInputSchema, value);
+  return {
+    endsAt: input.endsAt,
+    ...(input.isAllDay === undefined ? {} : { isAllDay: input.isAllDay }),
+    startsAt: input.startsAt,
+  };
 }
 
 function parsePreviewInput(value: unknown): PreviewLeaveRequestInput {
