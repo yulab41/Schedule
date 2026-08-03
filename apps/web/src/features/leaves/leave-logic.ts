@@ -35,11 +35,11 @@ export interface LeaveFormInterval {
 }
 
 export function buildLeaveFormInterval(input: {
-  readonly allDay: boolean;
+  readonly allDay?: boolean;
   readonly endDate: string;
-  readonly endTime: string;
+  readonly endTime?: string;
   readonly startDate: string;
-  readonly startTime: string;
+  readonly startTime?: string;
 }): LeaveFormInterval {
   if (input.startDate.length === 0 || input.endDate.length === 0) {
     throw new Error('请选择请假开始和结束日期。');
@@ -48,7 +48,7 @@ export function buildLeaveFormInterval(input: {
     throw new Error('结束日期不能早于开始日期。');
   }
 
-  if (input.allDay) {
+  if (input.allDay !== false) {
     const start = parseLocalDateStart(input.startDate);
     const end = parseLocalDateStart(input.endDate);
     return {
@@ -57,6 +57,9 @@ export function buildLeaveFormInterval(input: {
     };
   }
 
+  if (input.startTime === undefined || input.endTime === undefined) {
+    throw new Error('请选择开始和结束时间（HH:mm）。');
+  }
   if (!timePattern.test(input.startTime) || !timePattern.test(input.endTime)) {
     throw new Error('请选择开始和结束时间（HH:mm）。');
   }
@@ -72,7 +75,22 @@ export function buildLeaveFormInterval(input: {
   };
 }
 
-export function formatLeaveRange(startsAt: string, endsAt: string): string {
+export function getLeaveDayCount(startDate: string, endDate: string): number {
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf()) || end < start) {
+    return 0;
+  }
+  return Math.round((end.valueOf() - start.valueOf()) / millisecondsPerDay) + 1;
+}
+
+export function formatLeaveRange(startsAt: string, endsAt: string, isAllDay = true): string {
+  if (isAllDay) {
+    const startDate = toChinaDate(startsAt);
+    const endInclusiveDate = addDays(toChinaDate(endsAt), -1);
+    const dayCount = getLeaveDayCount(startDate, endInclusiveDate);
+    return `${formatMonthDay(startDate)} 至 ${formatMonthDay(endInclusiveDate)}（共 ${dayCount} 天）`;
+  }
   return `${formatCstDateTime(startsAt)} 至 ${formatCstDateTime(endsAt)}`;
 }
 
@@ -125,6 +143,22 @@ function parseLocalDateTime(date: string, time: string): Date {
     throw new Error('请假时间格式无效。');
   }
   return value;
+}
+
+function toChinaDate(value: string): string {
+  return new Date(new Date(value).valueOf() + chinaStandardTimeOffsetMilliseconds)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function addDays(value: string, days: number): string {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatMonthDay(value: string): string {
+  return value.slice(5);
 }
 
 function formatCstDateTime(value: string): string {

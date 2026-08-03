@@ -177,7 +177,7 @@ function getErrorMessage(error: unknown): string {
           </div>
           <div>
             <dt>时间范围</dt>
-            <dd>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</dd>
+            <dd>{{ formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay) }}</dd>
           </div>
           <div>
             <dt>原因</dt>

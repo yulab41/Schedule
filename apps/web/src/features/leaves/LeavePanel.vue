@@ -14,6 +14,7 @@ import LeaveApprovalDialog from './LeaveApprovalDialog.vue';
 import {
   buildLeaveFormInterval,
   formatLeaveRange,
+  getLeaveDayCount,
   getLeaveStatusLabel,
   getLeaveTypeLabel,
   getReflowStrategyLabel,
@@ -33,9 +34,6 @@ const strategy = ref<GroupLeaveReflowStrategy>();
 const leaveType = ref<LeaveRequestType>('sick');
 const startDate = ref(getTodayBusinessDate());
 const endDate = ref(getTodayBusinessDate());
-const startTime = ref('08:00');
-const endTime = ref('20:00');
-const allDay = ref(true);
 const reason = ref('');
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
@@ -62,6 +60,7 @@ const pendingApprovals = computed(() =>
 const decidedApprovals = computed(() =>
   approvals.value.filter((request) => request.status !== 'pending'),
 );
+const leaveDayCount = computed(() => getLeaveDayCount(startDate.value, endDate.value));
 
 async function loadData(): Promise<void> {
   errorMessage.value = undefined;
@@ -90,11 +89,9 @@ async function submit(): Promise<void> {
   let interval;
   try {
     interval = buildLeaveFormInterval({
-      allDay: allDay.value,
+      allDay: true,
       endDate: endDate.value,
-      endTime: endTime.value,
       startDate: startDate.value,
-      startTime: startTime.value,
     });
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '请假时间不正确。';
@@ -109,7 +106,7 @@ async function submit(): Promise<void> {
   try {
     await api.createLeaveRequest(props.group.id, {
       endsAt: interval.endsAt,
-      ...(allDay.value ? { isAllDay: true } : {}),
+      isAllDay: true,
       leaveType: leaveType.value,
       reason: reason.value.trim(),
       startsAt: interval.startsAt,
@@ -233,22 +230,14 @@ function onWindowFocus(): void {
             开始日期
             <input v-model="startDate" type="date" required />
           </label>
-          <label v-if="!allDay">
-            开始时间
-            <input v-model="startTime" type="time" required />
-          </label>
           <label>
             结束日期
             <input v-model="endDate" type="date" required />
           </label>
-          <label v-if="!allDay">
-            结束时间
-            <input v-model="endTime" type="time" required />
-          </label>
-          <label class="all-day-field">
-            <input v-model="allDay" type="checkbox" />
-            全天请假（当天 08:00 至次日 08:00）
-          </label>
+          <p class="all-day-hint">请假按整天计算（不允许请半天）。</p>
+          <p v-if="leaveDayCount > 0" class="day-count-hint">
+            已选 {{ startDate }} 至 {{ endDate }}，共请假 {{ leaveDayCount }} 天。
+          </p>
           <label class="reason-field">
             原因说明
             <textarea
@@ -294,7 +283,7 @@ function onWindowFocus(): void {
             <tr v-for="request in pendingApprovals" :key="request.id">
               <td>{{ request.memberName }}</td>
               <td>{{ getLeaveTypeLabel(request.leaveType) }}</td>
-              <td>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</td>
+              <td>{{ formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay) }}</td>
               <td>{{ request.reason }}</td>
               <td>{{ getReflowStrategyLabel(request.reflowStrategy) }}</td>
               <td>
@@ -322,7 +311,7 @@ function onWindowFocus(): void {
           <tbody>
             <tr v-for="request in myRequests" :key="request.id">
               <td>{{ getLeaveTypeLabel(request.leaveType) }}</td>
-              <td>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</td>
+              <td>{{ formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay) }}</td>
               <td>{{ request.reason }}</td>
               <td>{{ getReflowStrategyLabel(request.reflowStrategy) }}</td>
               <td>{{ getLeaveStatusLabel(request.status) }}</td>
@@ -364,7 +353,7 @@ function onWindowFocus(): void {
           <tbody>
             <tr v-for="request in decidedApprovals" :key="request.id">
               <td>{{ request.memberName }}</td>
-              <td>{{ formatLeaveRange(request.startsAt, request.endsAt) }}</td>
+              <td>{{ formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay) }}</td>
               <td>{{ getLeaveStatusLabel(request.status) }}</td>
               <td>
                 <t-button
@@ -455,14 +444,16 @@ function onWindowFocus(): void {
   min-width: 0;
 }
 
-.all-day-field {
-  display: flex !important;
-  gap: 6px;
-  align-items: center;
+.all-day-hint,
+.day-count-hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
 }
 
-.all-day-field input {
-  min-height: auto;
+.day-count-hint {
+  color: #1f5aa6;
+  font-weight: 600;
 }
 
 .reason-field {

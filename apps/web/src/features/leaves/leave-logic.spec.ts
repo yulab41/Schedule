@@ -5,6 +5,7 @@ import {
   buildLeaveFormInterval,
   formatAffectedAssignment,
   formatLeaveRange,
+  getLeaveDayCount,
   getLeaveTypeLabel,
   getReflowStrategyLabel,
   summarizeStatisticsDelta,
@@ -15,9 +16,7 @@ describe('leave form logic', () => {
     const interval = buildLeaveFormInterval({
       allDay: true,
       endDate: '2026-08-02',
-      endTime: '',
       startDate: '2026-08-01',
-      startTime: '',
     });
 
     expect(interval.startsAt).toBe('2026-07-31T16:00:00.000Z');
@@ -41,9 +40,7 @@ describe('leave form logic', () => {
       buildLeaveFormInterval({
         allDay: true,
         endDate: '2026-08-01',
-        endTime: '',
         startDate: '2026-08-02',
-        startTime: '',
       }),
     ).toThrow('结束日期');
     expect(() =>
@@ -67,9 +64,15 @@ describe('leave form logic', () => {
   });
 
   it('formats ranges, assignment changes, and statistics deltas', () => {
-    expect(formatLeaveRange('2026-08-01T00:00:00.000Z', '2026-08-02T00:00:00.000Z')).toBe(
+    expect(formatLeaveRange('2026-08-01T00:00:00.000Z', '2026-08-03T00:00:00.000Z')).toBe(
+      '08-01 至 08-02（共 2 天）',
+    );
+    expect(formatLeaveRange('2026-08-01T00:00:00.000Z', '2026-08-02T00:00:00.000Z', false)).toBe(
       '08-01 08:00 至 08-02 08:00',
     );
+    expect(getLeaveDayCount('2026-08-03', '2026-08-03')).toBe(1);
+    expect(getLeaveDayCount('2026-08-03', '2026-08-04')).toBe(2);
+    expect(getLeaveDayCount('2026-08-04', '2026-08-03')).toBe(0);
     expect(
       formatAffectedAssignment({
         assignmentId: 'assignment-1',
