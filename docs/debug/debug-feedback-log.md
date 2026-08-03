@@ -204,6 +204,13 @@
 - 验证：`pnpm format:check` 通过；本地 `pnpm dev` 命令已加入（需本地 MySQL 容器运行）。
 - 状态：已完成（待用户本地验收）。
 
+### 轮次 23（提交：fix(api): load cloudbase node sdk via createRequire for local dev）
+- 问题：本地 `pnpm --filter @schedule/api start` 启动失败，`@cloudbase/node-sdk` 在 Node ESM 下没有具名导出 `init`（与 web-push 同类问题）。
+- 修复/功能：`cloudbase-auth.ts` 改用 `createRequire(import.meta.url)` 加载 `@cloudbase/node-sdk`；本地 API 可正常启动。
+- 本地部署完成：本地 MySQL 已授权宿主访问并完成迁移；API `http://127.0.0.1:3000/health` 200；Web `http://localhost:5173` 200。
+- 验证：`pnpm --filter @schedule/api build` 通过；本地健康检查通过。
+- 状态：已完成（本地可用；`.env` 的 `MYSQL_HOST=127.0.0.1` 与 `VITE_*` 为本地配置，不入库）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。

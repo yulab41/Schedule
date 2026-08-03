@@ -1,7 +1,9 @@
-import { init } from '@cloudbase/node-sdk';
+import { createRequire } from 'node:module';
 import { gunzipSync } from 'node:zlib';
 
 import type { AuthPort } from './auth-port.js';
+
+const require = createRequire(import.meta.url);
 
 interface CloudbaseUserInfo {
   readonly isAnonymous: boolean;
@@ -10,8 +12,16 @@ interface CloudbaseUserInfo {
 
 type CloudbaseUserInfoReader = () => CloudbaseUserInfo;
 
+const cloudbaseSdk = require('@cloudbase/node-sdk') as {
+  init(): {
+    auth(): {
+      getUserInfo(): CloudbaseUserInfo;
+    };
+  };
+};
+
 export function createCloudbaseAuthPort(
-  readUserInfo: CloudbaseUserInfoReader = () => init().auth().getUserInfo(),
+  readUserInfo: CloudbaseUserInfoReader = () => cloudbaseSdk.init().auth().getUserInfo(),
 ): AuthPort {
   return {
     async authenticate() {
