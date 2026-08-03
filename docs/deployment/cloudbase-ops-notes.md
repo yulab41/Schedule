@@ -17,7 +17,7 @@
 - VPC：`vpc-600y03ms/subnet-kp45m5o5`；内网 `172.17.0.6:3306`；直连外网 `sh-cynosdbmysql-grp-3vcucsya.sql.tencentcdb.com:24819`。
 - 业务库：`schedule_dev`；账号：`schedule_app`（开发期单账号妥协，全局授权 + 公网；生产必须 VPC 内网 + 专用运行账号）。
 - 数据库密码等敏感值：见 `infra/cloudbase/cloudbaserc.local.json`（gitignored，勿提交）与云函数环境变量；DMC 也用它。
-- 迁移已应用：17 条迁移记录、37 张业务表 + `__drizzle_migrations`。
+- 迁移已应用：19 条迁移记录、37 张业务表 + `__drizzle_migrations`（2026-08-03 round 12 已补跑 `0018`/`0019`）。
 
 ### 云函数与路由
 

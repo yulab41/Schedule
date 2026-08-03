@@ -23,6 +23,7 @@ This file is the concise handoff entry point for every new implementation conver
 - 2026-08-03 round 10: draft delete/overwrite 500 root cause fixed (live schema drift) and live schedules cleared; `pnpm verify` passed 336/336 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 11: manual drafts now display as one start-to-end batch with one-click range publish, plus a per-month publication history; `pnpm verify` passed 337/337 (60 test files) with the isolated MySQL.
 - 2026-08-03 round 12: swap leave-conflict false positive fixed, swap defaults changed to auto-accept + no approval (with manual-override tracking), and admins/owners can directly swap any two members; `pnpm verify` passed 340/340 (60 test files) with the isolated MySQL. Next active batch: 部署后用户验收；确认迁移 0019 对存量成员/群组生效，并验证管理员换班入口。
+- 2026-08-03 round 12 incident: after the round-12 deploy, all authenticated pages returned 500 because the CloudBase deploy workflow does not run database migrations and the live DB still had only 17 migration records (missing `0018`/`0019` columns). The pending migrations were run against the live database (`pnpm --filter @schedule/api migrate` with live `MYSQL_*` env from `cloudbaserc.local.json`); live migration count is now 19, the new columns exist, defaults were applied (group `swap_approval_required=0`, memberships `auto_accept_swaps=1`, manual flags 0), and a live authenticated `GET /groups` returns 200. Next active batch: 用户重新验收线上页面；后续任何含迁移的发布必须先在线上库执行迁移再部署代码。
 
 ## 2026-08-03 Round 12 (Swap Defaults, Leave Overlap Fix, Admin Direct Swap)
 
