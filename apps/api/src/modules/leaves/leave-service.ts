@@ -5,7 +5,9 @@ import type {
   ApproveLeaveRequestInput,
   CreateLeaveRequestInput,
   GroupLeaveReflowStrategy,
+  LeaveAffectedShift,
   LeaveAffectedAssignment,
+  LeaveAffectedShiftsInput,
   LeaveMemberStatisticsDelta,
   LeaveReflowConflict,
   LeaveReflowPreview,
@@ -23,6 +25,7 @@ import type {
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
+  dutyAdjustments,
   groupMemberships,
   groups,
   leaveRequests,
@@ -32,6 +35,7 @@ import {
   schedulePeriods,
   scheduleRoles,
   shiftAssignments,
+  swapRequests,
   userProfiles,
   users,
   withTransaction,
@@ -46,7 +50,7 @@ import {
   type ReflowMember,
   type ReflowRotationRule,
 } from '@schedule/scheduling-domain';
-import { and, asc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -170,6 +174,36 @@ export class LeaveService {
         });
       }
 
+      const affectedAssignments = await this.loadAffectedAssignments(
+        transaction,
+        authorization.group.id,
+        authorization.membership.id,
+        startsAt,
+        endsAt,
+      );
+      let reflowStrategy = authorization.group.leaveReflowStrategy;
+      if (input.resolutionMode === 'shift-forward') {
+        reflowStrategy = 'shift-forward';
+      }
+      if (input.resolutionMode === 'manual') {
+        reflowStrategy = 'keep-original-order';
+        const affectedShifts = await this.buildAffectedShiftList(
+          transaction,
+          authorization.group.id,
+          affectedAssignments,
+        );
+        const uncoveredShifts = affectedShifts.filter((shift) => !shift.isCovered);
+        if (uncoveredShifts.length > 0) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            latestData: { affectedShifts: toLatestData(uncoveredShifts) },
+            statusCode: 409,
+            userMessage:
+              '请假期间有未安排的班次：请先为以下班次完成换班或加扣班安排，或改选“顺延”。',
+          });
+        }
+      }
+
       const operationId = randomUUID();
       const leaveRequestId = randomUUID();
       await transaction.insert(leaveRequests).values({
@@ -180,7 +214,7 @@ export class LeaveService {
         leaveType: input.leaveType,
         membershipId: authorization.membership.id,
         reason: input.reason,
-        reflowStrategy: authorization.group.leaveReflowStrategy,
+        reflowStrategy,
         startsAt,
       });
       const submittedEventId = await this.eventWriter.append(transaction, {
@@ -189,7 +223,8 @@ export class LeaveService {
           endsAt: endsAt.toISOString(),
           isAllDay: input.isAllDay === true,
           leaveType: input.leaveType,
-          reflowStrategy: authorization.group.leaveReflowStrategy,
+          reflowStrategy,
+          ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
           startsAt: startsAt.toISOString(),
         }),
         eventStatus: 'completed',
@@ -216,6 +251,34 @@ export class LeaveService {
       });
 
       return this.readLeaveRequest(transaction, leaveRequestId);
+    });
+  }
+
+  public async affectedShifts(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: LeaveAffectedShiftsInput,
+  ): Promise<readonly LeaveAffectedShift[]> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      const startsAt = parseTimestamp(input.startsAt, '开始时间');
+      const endsAt = parseTimestamp(input.endsAt, '结束时间');
+      if (startsAt.valueOf() >= endsAt.valueOf()) {
+        throw validationError('结束时间必须晚于开始时间。');
+      }
+      const assignments = await this.loadAffectedAssignments(
+        transaction,
+        authorization.group.id,
+        authorization.membership.id,
+        startsAt,
+        endsAt,
+      );
+      return this.buildAffectedShiftList(transaction, authorization.group.id, assignments);
     });
   }
 
@@ -989,6 +1052,106 @@ export class LeaveService {
     };
   }
 
+  private async loadAffectedAssignments(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    membershipId: string,
+    startsAt: Date,
+    endsAt: Date,
+  ): Promise<readonly LockedShiftAssignment[]> {
+    const leaveStartDate = getChinaStandardTimeBusinessDate(startsAt);
+    const leaveEndDate = getChinaStandardTimeBusinessDate(endsAt);
+    const startMonth = `${leaveStartDate.slice(0, 7)}-01`;
+    const endMonth = `${leaveEndDate.slice(0, 7)}-01`;
+    const periods = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.status, 'published'),
+          isNull(schedulePeriods.deletedAt),
+          gte(schedulePeriods.businessMonth, startMonth),
+          lte(schedulePeriods.businessMonth, endMonth),
+        ),
+      );
+    if (periods.length === 0) {
+      return [];
+    }
+    const periodIds = periods.map((period) => period.id);
+    const rows = await transaction
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          inArray(shiftAssignments.schedulePeriodId, periodIds),
+          or(
+            eq(shiftAssignments.actualMembershipId, membershipId),
+            eq(shiftAssignments.plannedMembershipId, membershipId),
+          ),
+          isNull(shiftAssignments.deletedAt),
+          sql`${shiftAssignments.startsAt} > NOW()`,
+        ),
+      );
+
+    return rows.filter(
+      (assignment) =>
+        getDutyMembershipId(assignment) === membershipId &&
+        intervalsOverlap(assignment, { endsAt, startsAt }),
+    );
+  }
+
+  private async buildAffectedShiftList(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    assignments: readonly LockedShiftAssignment[],
+  ): Promise<readonly LeaveAffectedShift[]> {
+    if (assignments.length === 0) {
+      return [];
+    }
+    const assignmentIds = assignments.map((assignment) => assignment.id);
+    const swapRows = await transaction
+      .select({
+        initiatorAssignmentId: swapRequests.initiatorAssignmentId,
+        targetAssignmentId: swapRequests.targetAssignmentId,
+      })
+      .from(swapRequests)
+      .where(
+        and(
+          eq(swapRequests.groupId, groupId),
+          inArray(swapRequests.status, ['pending_target', 'pending_approval', 'completed']),
+          isNull(swapRequests.deletedAt),
+          or(
+            inArray(swapRequests.initiatorAssignmentId, assignmentIds),
+            inArray(swapRequests.targetAssignmentId, assignmentIds),
+          ),
+        ),
+      );
+    const adjustmentRows = await transaction
+      .select({ coveredAssignmentId: dutyAdjustments.coveredAssignmentId })
+      .from(dutyAdjustments)
+      .where(
+        and(
+          eq(dutyAdjustments.groupId, groupId),
+          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval', 'completed']),
+          isNull(dutyAdjustments.deletedAt),
+          inArray(dutyAdjustments.coveredAssignmentId, assignmentIds),
+        ),
+      );
+    const coveredAssignmentIds = new Set<string>([
+      ...swapRows.flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId]),
+      ...adjustmentRows.map((row) => row.coveredAssignmentId),
+    ]);
+
+    return assignments.map((assignment) => ({
+      assignmentId: assignment.id,
+      businessDate: assignment.businessDate,
+      isCovered: coveredAssignmentIds.has(assignment.id),
+      shiftTypeAbbreviation: assignment.shiftTypeAbbreviation,
+      shiftTypeName: assignment.shiftTypeName,
+    }));
+  }
+
   private async loadReflowContext(
     transaction: DatabaseTransaction,
     group: ActiveGroup,
@@ -1622,6 +1785,10 @@ function toLeaveRequest(leaveRequest: LockedLeaveRequest, realName: string): Lea
     status: leaveRequest.status,
     version: leaveRequest.version,
   };
+}
+
+function getDutyMembershipId(assignment: LockedShiftAssignment): string | null {
+  return assignment.actualMembershipId ?? assignment.plannedMembershipId;
 }
 
 function createLeaveMutationFingerprint(input: {

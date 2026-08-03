@@ -1,6 +1,7 @@
 import type {
   ApproveLeaveRequestInput,
   CreateLeaveRequestInput,
+  LeaveAffectedShiftsInput,
   LeaveRequestMutationInput,
   PreviewLeaveRequestInput,
   RejectLeaveRequestInput,
@@ -17,6 +18,7 @@ const leaveRequestIdSchema = z.string().uuid();
 const operationIdSchema = z.string().uuid();
 const leaveTypeSchema = z.enum(['training', 'rotation', 'sick', 'maternity', 'other']);
 const strategySchema = z.enum(['keep-original-order', 'shift-forward']);
+const resolutionModeSchema = z.enum(['manual', 'shift-forward']);
 const datetimeSchema = z.string().datetime({ offset: true });
 const versionSchema = z.number().int().min(1);
 const periodVersionsSchema = z.record(z.string().uuid(), versionSchema);
@@ -27,6 +29,14 @@ const createLeaveInputSchema = z
     isAllDay: z.boolean().optional(),
     leaveType: leaveTypeSchema,
     reason: z.string().trim().min(1).max(1000),
+    resolutionMode: resolutionModeSchema.optional(),
+    startsAt: datetimeSchema,
+  })
+  .strict();
+
+const affectedShiftsInputSchema = z
+  .object({
+    endsAt: datetimeSchema,
     startsAt: datetimeSchema,
   })
   .strict();
@@ -76,6 +86,17 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
 
   app.get('/groups/:groupId/leave-requests', { preHandler: app.authenticate }, (request) =>
     leaveService.listMine(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
+  app.post(
+    '/groups/:groupId/leave-requests/affected-shifts',
+    { preHandler: app.authenticate },
+    (request) =>
+      leaveService.affectedShifts(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseAffectedShiftsInput(request.body),
+      ),
   );
 
   app.get(
@@ -188,8 +209,13 @@ function parseCreateInput(value: unknown): CreateLeaveRequestInput {
     ...(input.isAllDay === undefined ? {} : { isAllDay: input.isAllDay }),
     leaveType: input.leaveType,
     reason: input.reason,
+    ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
     startsAt: input.startsAt,
   };
+}
+
+function parseAffectedShiftsInput(value: unknown): LeaveAffectedShiftsInput {
+  return parseOrThrow(affectedShiftsInputSchema, value);
 }
 
 function parsePreviewInput(value: unknown): PreviewLeaveRequestInput {

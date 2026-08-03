@@ -190,6 +190,93 @@ describeWithDatabase('leave requests and reflow', () => {
     ).toContain('leave_request_revoked');
   });
 
+  it('requires manual coverage or shift-forward when leave overlaps published shifts', async () => {
+    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const leaveStart = '2026-09-01T00:00:00.000Z';
+    const leaveEnd = '2026-09-02T00:00:00.000Z';
+
+    const affected = (
+      await affectedShifts('a-token', context.groupId, {
+        endsAt: leaveEnd,
+        startsAt: leaveStart,
+      })
+    ).json() as readonly { businessDate: string; isCovered: boolean }[];
+    expect(affected).toEqual([
+      expect.objectContaining({ businessDate: '2026-09-01', isCovered: false }),
+    ]);
+
+    const blocked = await submitLeave('a-token', context.groupId, {
+      endsAt: leaveEnd,
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '手动未安排',
+      resolutionMode: 'manual',
+      startsAt: leaveStart,
+    });
+    expect(blocked.statusCode).toBe(409);
+
+    const assignmentRows = (
+      await client.database.execute(
+        sql`SELECT id, business_date AS businessDate, planned_membership_id AS plannedMembershipId
+            FROM shift_assignments
+            WHERE schedule_period_id = ${context.periodId}
+              AND business_date IN ('2026-09-01', '2026-09-02')`,
+      )
+    )[0] as unknown as readonly {
+      businessDate: string;
+      id: string;
+      plannedMembershipId: string | null;
+    }[];
+    const aSep1 = assignmentRows.find(
+      (row) =>
+        row.businessDate === '2026-09-01' && row.plannedMembershipId === context.membershipIds.a,
+    )?.id;
+    const bSep2 = assignmentRows.find(
+      (row) =>
+        row.businessDate === '2026-09-02' && row.plannedMembershipId === context.membershipIds.b,
+    )?.id;
+    expect(aSep1).toBeDefined();
+    expect(bSep2).toBeDefined();
+    expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
+    const swap = await createSwapRequest('a-token', context.groupId, {
+      initiatorAssignmentId: aSep1!,
+      operationId: randomUUID(),
+      targetAssignmentId: bSep2!,
+      targetMembershipId: context.membershipIds.b!,
+    });
+    expect(swap.statusCode).toBe(201);
+    expect(swap.json()).toMatchObject({ status: 'pending_target' });
+
+    const covered = (
+      await affectedShifts('a-token', context.groupId, {
+        endsAt: leaveEnd,
+        startsAt: leaveStart,
+      })
+    ).json() as readonly { businessDate: string; isCovered: boolean }[];
+    expect(covered.find((shift) => shift.businessDate === '2026-09-01')?.isCovered).toBe(true);
+
+    const accepted = await submitLeave('a-token', context.groupId, {
+      endsAt: leaveEnd,
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '已安排换班',
+      resolutionMode: 'manual',
+      startsAt: leaveStart,
+    });
+    expect(accepted.statusCode).toBe(201);
+
+    const forwarded = await submitLeave('a-token', context.groupId, {
+      endsAt: '2026-09-08T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'other',
+      reason: '顺延',
+      resolutionMode: 'shift-forward',
+      startsAt: '2026-09-07T00:00:00.000Z',
+    });
+    expect(forwarded.statusCode).toBe(201);
+    expect(forwarded.json()).toMatchObject({ reflowStrategy: 'shift-forward' });
+  });
+
   it('previews a partial all-day overlap and keeps the original order on approval', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
@@ -612,6 +699,7 @@ describeWithDatabase('leave requests and reflow', () => {
 
   async function seedPublishedRotation(
     memberKeys: readonly string[] = ['a', 'b', 'c'],
+    businessMonth = '2026-08',
   ): Promise<Context> {
     const groupId = await createGroup('Leave group', '4321');
     await addRosterEntry(groupId, 'A Doctor');
@@ -663,15 +751,15 @@ describeWithDatabase('leave requests and reflow', () => {
       currentPosition: 1,
       defaultShiftTypeId: allDayShiftTypeId,
       requiredMembersPerDay: 1,
-      startDate: '2026-08-01',
+      startDate: `${businessMonth}-01`,
       startingMemberScheduleRoleId: startingMemberScheduleRoleId as string,
     });
     const rulesVersion = (await getConfig('owner-token', groupId)).rulesVersion;
-    const generated = await generatePublished(groupId, roleId, rulesVersion);
+    const generated = await generatePublished(groupId, roleId, rulesVersion, businessMonth);
     expect(generated.statusCode).toBe(200);
     const periodRows = (
       await client.database.execute(
-        sql`SELECT id FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-08-01' AND status = 'published'`,
+        sql`SELECT id FROM schedule_periods WHERE group_id = ${groupId} AND business_month = ${`${businessMonth}-01`} AND status = 'published'`,
       )
     )[0] as unknown as readonly { id: string }[];
     const periodId = periodRows[0]?.id as string;
@@ -715,6 +803,46 @@ describeWithDatabase('leave requests and reflow', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/leave-requests`,
+    });
+  }
+
+  async function affectedShifts(
+    token: string,
+    groupId: string,
+    body: { readonly endsAt: string; readonly startsAt: string },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/leave-requests/affected-shifts`,
+    });
+  }
+
+  async function createSwapRequest(
+    token: string,
+    groupId: string,
+    body: {
+      readonly initiatorAssignmentId: string;
+      readonly operationId: string;
+      readonly targetAssignmentId: string;
+      readonly targetMembershipId: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/swaps`,
+    });
+  }
+
+  async function updateSwapAutoAccept(token: string, groupId: string, autoAcceptSwaps: boolean) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'PUT',
+      payload: { autoAcceptSwaps },
+      url: `/groups/${groupId}/swaps/my-settings`,
     });
   }
 
@@ -855,12 +983,17 @@ describeWithDatabase('leave requests and reflow', () => {
     return rows.slice(0, dayCount).map((row) => row.plannedMemberName ?? '');
   }
 
-  async function generatePublished(groupId: string, roleId: string, rulesVersion: number) {
+  async function generatePublished(
+    groupId: string,
+    roleId: string,
+    rulesVersion: number,
+    businessMonth = '2026-08',
+  ) {
     return app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
       payload: {
-        businessMonth: '2026-08',
+        businessMonth,
         operationId: randomUUID(),
         publishMode: 'published',
         rulesVersion,

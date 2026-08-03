@@ -2,11 +2,12 @@
 import type {
   GroupLeaveReflowStrategy,
   GroupSummary,
+  LeaveAffectedShift,
   LeaveReflowStrategy,
   LeaveRequest,
   LeaveRequestType,
 } from '@schedule/contracts';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
@@ -34,6 +35,9 @@ const strategy = ref<GroupLeaveReflowStrategy>();
 const leaveType = ref<LeaveRequestType>('sick');
 const startDate = ref(getTodayBusinessDate());
 const endDate = ref(getTodayBusinessDate());
+const resolutionMode = ref<'manual' | 'shift-forward'>('shift-forward');
+const affectedShifts = ref<readonly LeaveAffectedShift[]>([]);
+const affectedShiftsLoading = ref(false);
 const reason = ref('');
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
@@ -61,6 +65,9 @@ const decidedApprovals = computed(() =>
   approvals.value.filter((request) => request.status !== 'pending'),
 );
 const leaveDayCount = computed(() => getLeaveDayCount(startDate.value, endDate.value));
+const uncoveredAffectedShifts = computed(() =>
+  affectedShifts.value.filter((shift) => !shift.isCovered),
+);
 
 async function loadData(): Promise<void> {
   errorMessage.value = undefined;
@@ -109,6 +116,7 @@ async function submit(): Promise<void> {
       isAllDay: true,
       leaveType: leaveType.value,
       reason: reason.value.trim(),
+      resolutionMode: resolutionMode.value,
       startsAt: interval.startsAt,
     });
     infoMessage.value = '请假申请已提交，等待管理员审批。';
@@ -118,6 +126,35 @@ async function submit(): Promise<void> {
     errorMessage.value = getErrorMessage(error);
   } finally {
     isSubmitting.value = false;
+  }
+}
+
+async function loadAffectedShifts(): Promise<void> {
+  if (startDate.value.length === 0 || endDate.value.length === 0) {
+    affectedShifts.value = [];
+    return;
+  }
+  let interval;
+  try {
+    interval = buildLeaveFormInterval({
+      allDay: true,
+      endDate: endDate.value,
+      startDate: startDate.value,
+    });
+  } catch {
+    affectedShifts.value = [];
+    return;
+  }
+  affectedShiftsLoading.value = true;
+  try {
+    affectedShifts.value = await api.getLeaveAffectedShifts(props.group.id, {
+      endsAt: interval.endsAt,
+      startsAt: interval.startsAt,
+    });
+  } catch {
+    affectedShifts.value = [];
+  } finally {
+    affectedShiftsLoading.value = false;
   }
 }
 
@@ -199,6 +236,10 @@ function getErrorMessage(error: unknown): string {
 }
 
 void loadData();
+void loadAffectedShifts();
+watch([startDate, endDate], () => {
+  void loadAffectedShifts();
+});
 onMounted(() => {
   window.addEventListener('focus', onWindowFocus);
 });
@@ -238,6 +279,36 @@ function onWindowFocus(): void {
           <p v-if="leaveDayCount > 0" class="day-count-hint">
             已选 {{ startDate }} 至 {{ endDate }}，共请假 {{ leaveDayCount }} 天。
           </p>
+          <fieldset class="resolution-fieldset">
+            <legend>请假期间排班处理方式（二选一）</legend>
+            <label class="resolution-option">
+              <input v-model="resolutionMode" type="radio" value="shift-forward" />
+              顺延：后续排班自动顺延，无需手动换班/加扣班
+            </label>
+            <label class="resolution-option">
+              <input v-model="resolutionMode" type="radio" value="manual" />
+              手动安排：请假期间的班次需先完成换班或加扣班
+            </label>
+          </fieldset>
+          <div v-if="affectedShiftsLoading" class="affected-hint">正在检查请假期间班次…</div>
+          <template v-else-if="affectedShifts.length > 0">
+            <p class="affected-title">请假期间涉及 {{ affectedShifts.length }} 个班次：</p>
+            <ul class="affected-list">
+              <li v-for="shift in affectedShifts" :key="shift.assignmentId">
+                {{ shift.businessDate }} {{ shift.shiftTypeName }}（{{
+                  shift.shiftTypeAbbreviation
+                }}）—
+                {{ shift.isCovered ? '已安排换班/加扣班' : '未安排' }}
+              </li>
+            </ul>
+            <p
+              v-if="resolutionMode === 'manual' && uncoveredAffectedShifts.length > 0"
+              class="affected-warning"
+            >
+              请先到“换班”或“加扣班”中为以上“未安排”班次完成安排，才能提交。
+            </p>
+          </template>
+          <p v-else class="affected-hint">请假期间没有已发布的未来班次。</p>
           <label class="reason-field">
             原因说明
             <textarea
@@ -454,6 +525,64 @@ function onWindowFocus(): void {
 .day-count-hint {
   color: #1f5aa6;
   font-weight: 600;
+}
+
+.resolution-fieldset {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+}
+
+.resolution-fieldset legend {
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.resolution-option {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 6px;
+  align-items: center;
+  color: #374151;
+  font-size: 13px;
+}
+
+.resolution-option input {
+  min-height: auto;
+}
+
+.affected-hint,
+.affected-title {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.affected-title {
+  color: #374151;
+  font-weight: 600;
+}
+
+.affected-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 0 0 20px;
+  color: #374151;
+  font-size: 13px;
+}
+
+.affected-warning {
+  margin: 0;
+  padding: 8px 10px;
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .reason-field {

@@ -3,12 +3,27 @@ import type { ScheduleGenerationVacancy, ScheduleGenerationWarning } from './sch
 export type LeaveRequestType = 'training' | 'rotation' | 'sick' | 'maternity' | 'other';
 export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected';
 export type LeaveReflowStrategy = 'keep-original-order' | 'shift-forward';
+export type LeaveResolutionMode = 'manual' | 'shift-forward';
 
 export interface CreateLeaveRequestInput {
   readonly endsAt: string;
   readonly isAllDay?: boolean;
   readonly leaveType: LeaveRequestType;
   readonly reason: string;
+  readonly resolutionMode?: LeaveResolutionMode;
+  readonly startsAt: string;
+}
+
+export interface LeaveAffectedShift {
+  readonly assignmentId: string;
+  readonly businessDate: string;
+  readonly isCovered: boolean;
+  readonly shiftTypeAbbreviation: string;
+  readonly shiftTypeName: string;
+}
+
+export interface LeaveAffectedShiftsInput {
+  readonly endsAt: string;
   readonly startsAt: string;
 }
 

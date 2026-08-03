@@ -32,6 +32,8 @@ import type {
   HolidayReadModel,
   JsonObject,
   LeaveReflowPreview,
+  LeaveAffectedShift,
+  LeaveAffectedShiftsInput,
   LeaveRequestMutationInput,
   LeaveRequestMutationResult,
   LeaveRequest,
@@ -226,6 +228,10 @@ export interface ApiClient {
   listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]>;
   listMyDutyAdjustments(groupId: string): Promise<DutyAdjustmentRequest[]>;
   listMyLeaveRequests(groupId: string): Promise<LeaveRequest[]>;
+  getLeaveAffectedShifts(
+    groupId: string,
+    input: LeaveAffectedShiftsInput,
+  ): Promise<readonly LeaveAffectedShift[]>;
   listMySwapRequests(groupId: string): Promise<SwapRequest[]>;
   listSwapApprovals(groupId: string): Promise<SwapRequest[]>;
   getYearStatistics(groupId: string, year: number): Promise<YearStatistics>;
@@ -1239,6 +1245,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isLeaveRequestList,
       );
     },
+    getLeaveAffectedShifts(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave-requests/affected-shifts`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isLeaveAffectedShiftList,
+      );
+    },
     listMySwapRequests(groupId) {
       return requestJson(
         options.auth,
@@ -2186,6 +2205,22 @@ function isLeaveRequest(value: unknown): value is LeaveRequest {
 
 function isLeaveRequestList(value: unknown): value is LeaveRequest[] {
   return Array.isArray(value) && value.every(isLeaveRequest);
+}
+
+function isLeaveAffectedShiftList(value: unknown): value is readonly LeaveAffectedShift[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        item !== null &&
+        typeof item === 'object' &&
+        typeof (item as { assignmentId?: unknown }).assignmentId === 'string' &&
+        typeof (item as { businessDate?: unknown }).businessDate === 'string' &&
+        typeof (item as { isCovered?: unknown }).isCovered === 'boolean' &&
+        typeof (item as { shiftTypeAbbreviation?: unknown }).shiftTypeAbbreviation === 'string' &&
+        typeof (item as { shiftTypeName?: unknown }).shiftTypeName === 'string',
+    )
+  );
 }
 
 function isGroupLeaveReflowStrategy(value: unknown): value is GroupLeaveReflowStrategy {
