@@ -37,11 +37,13 @@ export interface LeaveRequest {
   readonly groupId: string;
   readonly id: string;
   readonly isAllDay: boolean;
+  readonly isRevocable?: boolean;
   readonly leaveType: LeaveRequestType;
   readonly memberName?: string;
   readonly membershipId: string;
   readonly reason: string;
   readonly reflowStrategy: LeaveReflowStrategy;
+  readonly revocationBlockedReason?: string;
   readonly startsAt: string;
   readonly status: LeaveRequestStatus;
   readonly version: number;

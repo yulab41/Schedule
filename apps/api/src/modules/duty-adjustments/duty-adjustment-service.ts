@@ -348,7 +348,7 @@ export class DutyAdjustmentService {
         transaction,
         identity,
         groupId,
-        'manageDutyAdjustments',
+        'viewScheduleConfiguration',
       );
       return withIdempotentOperation(
         transaction,
@@ -973,6 +973,18 @@ export class DutyAdjustmentService {
       authorization.group.id,
       dutyAdjustmentId,
     );
+    const isParty =
+      request.deductedMembershipId === authorization.membership.id ||
+      request.overtimeMembershipId === authorization.membership.id;
+    if (authorization.membership.role === 'member') {
+      if (request.status !== 'completed' || !isParty) {
+        throw new ApiError({
+          code: 'FORBIDDEN',
+          statusCode: 403,
+          userMessage: '只有管理员或加扣班双方可以撤销已生效的加扣班。',
+        });
+      }
+    }
     if (request.status !== 'completed') {
       throw alreadyHandled(request);
     }
@@ -984,6 +996,24 @@ export class DutyAdjustmentService {
       objectType: 'duty_adjustment',
       userMessage: '加扣班记录已被其他操作更新，请刷新后重试。',
     });
+
+    const [coveredRow] = await transaction
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.id, request.coveredAssignmentId),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (coveredRow === undefined) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该加扣班的班次已失效（排班版本变更），无法直接撤销。',
+      });
+    }
 
     const context = await this.loadDutyAdjustmentContext(
       transaction,
@@ -1683,6 +1713,20 @@ export class DutyAdjustmentService {
       const period = periodById.get(coveredAssignment?.schedulePeriodId ?? '');
       const decidedByMemberName =
         row.approverUserId === null ? undefined : approverNameByUserId.get(row.approverUserId);
+      let isRevocable: boolean | undefined;
+      let revocationBlockedReason: string | undefined;
+      if (row.status === 'completed') {
+        const stateMatches =
+          coveredAssignment !== undefined &&
+          coveredAssignment.deletedAt === null &&
+          coveredAssignment.actualMembershipId === (overtimeMember?.id ?? null);
+        if (stateMatches) {
+          isRevocable = true;
+        } else {
+          isRevocable = false;
+          revocationBlockedReason = '该加扣班后续还有排班变动或班次已失效，请按先后顺序撤销。';
+        }
+      }
       return {
         ...(row.approverUserId === null
           ? {}
@@ -1704,9 +1748,11 @@ export class DutyAdjustmentService {
         ...(deductedMember === undefined ? {} : { deductedMemberName: deductedMember.realName }),
         groupId: row.groupId,
         id: row.id,
+        ...(isRevocable === undefined ? {} : { isRevocable }),
         ...(overtimeMember === undefined ? {} : { overtimeMemberName: overtimeMember.realName }),
         overtimeMembershipId: row.overtimeMembershipId,
         ...(row.reason === null ? {} : { reason: row.reason }),
+        ...(revocationBlockedReason === undefined ? {} : { revocationBlockedReason }),
         ...(row.revocationReason === null ? {} : { revocationReason: row.revocationReason }),
         status: row.status,
         version: row.version,

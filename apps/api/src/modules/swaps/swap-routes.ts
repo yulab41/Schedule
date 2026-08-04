@@ -1,6 +1,7 @@
 import type {
   CreateDirectSwapInput,
   CreateSwapRequestInput,
+  RevokeSwapRequestInput,
   SwapPairInput,
   SwapRequestMutationInput,
   UpdateGroupSwapSettingsInput,
@@ -45,6 +46,14 @@ const mutationInputSchema = z
   .object({
     expectedVersion: versionSchema,
     operationId: operationIdSchema,
+  })
+  .strict();
+
+const revokeSwapInputSchema = z
+  .object({
+    expectedVersion: versionSchema,
+    operationId: operationIdSchema,
+    reason: z.string().trim().min(1).max(1000),
   })
   .strict();
 
@@ -145,6 +154,18 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
       ),
   );
 
+  app.post(
+    '/groups/:groupId/swaps/:swapRequestId/revoke',
+    { preHandler: app.authenticate },
+    (request) =>
+      swapService.revokeCompleted(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSwapRequestId(request),
+        parseRevokeSwapInput(request.body),
+      ),
+  );
+
   app.get('/groups/:groupId/swaps/settings', { preHandler: app.authenticate }, (request) =>
     swapService.getGroupSettings(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
@@ -228,6 +249,10 @@ function parseDirectCreateInput(value: unknown): CreateDirectSwapInput {
 
 function parseMutationInput(value: unknown): SwapRequestMutationInput {
   return parseOrThrow(mutationInputSchema, value);
+}
+
+function parseRevokeSwapInput(value: unknown): RevokeSwapRequestInput {
+  return parseOrThrow(revokeSwapInputSchema, value);
 }
 
 function parseUpdateGroupSettingsInput(value: unknown): UpdateGroupSwapSettingsInput {

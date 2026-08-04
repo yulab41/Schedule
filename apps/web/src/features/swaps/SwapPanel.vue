@@ -125,6 +125,17 @@ const pendingApprovals = computed(() =>
 const handledApprovals = computed(() =>
   approvals.value.filter((request) => request.status !== 'pending_approval'),
 );
+const completedSwaps = computed(() =>
+  approvals.value.filter(
+    (request) => request.status === 'completed' && request.isRevocable !== false,
+  ),
+);
+const archivedSwapCount = computed(
+  () =>
+    approvals.value.filter(
+      (request) => request.status === 'completed' && request.isRevocable === false,
+    ).length,
+);
 const myPendingRequests = computed(() =>
   mySwapRequests.value.filter(
     (request) =>
@@ -421,6 +432,27 @@ async function cancel(request: SwapRequest): Promise<void> {
     api.cancelSwapRequest(props.group.id, request.id, {
       expectedVersion: request.version,
       operationId: crypto.randomUUID(),
+    }),
+  );
+}
+
+async function revokeSwap(request: SwapRequest): Promise<void> {
+  const reason = window.prompt(
+    `确定撤销与 ${getCounterpartName(request)} 的换班吗？请填写撤销原因（必填）：`,
+    '',
+  );
+  if (reason === null) {
+    return;
+  }
+  if (reason.trim() === '') {
+    errorMessage.value = '撤销换班必须填写原因。';
+    return;
+  }
+  await runMutation(() =>
+    api.revokeSwapRequest(props.group.id, request.id, {
+      expectedVersion: request.version,
+      operationId: crypto.randomUUID(),
+      reason: reason.trim(),
     }),
   );
 }
@@ -729,6 +761,41 @@ function getErrorMessage(error: unknown): string {
         </table>
       </section>
 
+      <section
+        v-if="canApprove && (completedSwaps.length > 0 || archivedSwapCount > 0)"
+        class="list-section"
+      >
+        <h3>已生效待撤销（{{ completedSwaps.length }}）</h3>
+        <table v-if="completedSwaps.length > 0" class="swap-table">
+          <thead>
+            <tr>
+              <th>发起人</th>
+              <th>目标成员</th>
+              <th>班次</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in completedSwaps" :key="request.id">
+              <td>{{ request.initiatorMemberName }}</td>
+              <td>{{ request.targetMemberName }}</td>
+              <td>
+                {{ request.initiatorAssignment.businessDate }}
+                → {{ request.targetAssignment.businessDate }}
+              </td>
+              <td>
+                <t-button theme="danger" variant="text" @click="revokeSwap(request)">
+                  撤销
+                </t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="archivedSwapCount > 0" class="table-empty">
+          另有 {{ archivedSwapCount }} 条因后续排班变动而失效的换班记录已自动归档。
+        </p>
+      </section>
+
       <section class="list-section">
         <h3>我的换班申请（{{ mySwapRequests.length }}）</h3>
         <table v-if="mySwapRequests.length > 0" class="swap-table">
@@ -763,6 +830,9 @@ function getErrorMessage(error: unknown): string {
                 <small v-if="request.revocationReason !== undefined" class="status-reason">
                   {{ request.revocationReason }}
                 </small>
+                <small v-if="request.revocationBlockedReason !== undefined" class="status-reason">
+                  {{ request.revocationBlockedReason }}
+                </small>
               </td>
               <td>
                 <t-button
@@ -770,6 +840,14 @@ function getErrorMessage(error: unknown): string {
                   theme="danger"
                   variant="text"
                   @click="cancel(request)"
+                >
+                  撤销
+                </t-button>
+                <t-button
+                  v-if="request.status === 'completed' && request.isRevocable !== false"
+                  theme="danger"
+                  variant="text"
+                  @click="revokeSwap(request)"
                 >
                   撤销
                 </t-button>

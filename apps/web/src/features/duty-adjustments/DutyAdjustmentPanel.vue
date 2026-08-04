@@ -103,7 +103,15 @@ const handledApprovals = computed(() =>
   ),
 );
 const completedAdjustments = computed(() =>
-  approvals.value.filter((request) => request.status === 'completed'),
+  approvals.value.filter(
+    (request) => request.status === 'completed' && request.isRevocable !== false,
+  ),
+);
+const archivedDutyCount = computed(
+  () =>
+    approvals.value.filter(
+      (request) => request.status === 'completed' && request.isRevocable === false,
+    ).length,
 );
 const myPendingRequests = computed(() =>
   myDutyAdjustments.value.filter(
@@ -630,9 +638,12 @@ function getErrorMessage(error: unknown): string {
         </table>
       </section>
 
-      <section v-if="canApprove && completedAdjustments.length > 0" class="list-section">
+      <section
+        v-if="canApprove && (completedAdjustments.length > 0 || archivedDutyCount > 0)"
+        class="list-section"
+      >
         <h3>已生效待撤销（{{ completedAdjustments.length }}）</h3>
-        <table class="duty-adjustment-table">
+        <table v-if="completedAdjustments.length > 0" class="duty-adjustment-table">
           <thead>
             <tr>
               <th>扣班成员</th>
@@ -661,6 +672,9 @@ function getErrorMessage(error: unknown): string {
             </tr>
           </tbody>
         </table>
+        <p v-if="archivedDutyCount > 0" class="table-empty">
+          另有 {{ archivedDutyCount }} 条因后续排班变动而失效的加扣班记录已自动归档。
+        </p>
       </section>
 
       <section class="list-section">
@@ -690,6 +704,9 @@ function getErrorMessage(error: unknown): string {
                 <small v-if="request.revocationReason !== undefined" class="status-reason">
                   {{ request.revocationReason }}
                 </small>
+                <small v-if="request.revocationBlockedReason !== undefined" class="status-reason">
+                  {{ request.revocationBlockedReason }}
+                </small>
               </td>
               <td>
                 <t-button
@@ -697,6 +714,14 @@ function getErrorMessage(error: unknown): string {
                   theme="danger"
                   variant="text"
                   @click="cancel(request)"
+                >
+                  撤销
+                </t-button>
+                <t-button
+                  v-if="request.status === 'completed' && request.isRevocable !== false"
+                  theme="danger"
+                  variant="text"
+                  @click="revoke(request)"
                 >
                   撤销
                 </t-button>

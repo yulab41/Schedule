@@ -20,6 +20,7 @@ import type {
   CreateDirectSwapInput,
   CreateLeaveRequestInput,
   CreateSwapRequestInput,
+  RevokeSwapRequestInput,
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
   CreateManualScheduleTemplateRequest,
@@ -323,6 +324,11 @@ export interface ApiClient {
     groupId: string,
     swapRequestId: string,
     input: SwapRequestMutationInput,
+  ): Promise<SwapRequest>;
+  revokeSwapRequest(
+    groupId: string,
+    swapRequestId: string,
+    input: RevokeSwapRequestInput,
   ): Promise<SwapRequest>;
   rejectDutyAdjustment(
     groupId: string,
@@ -1583,6 +1589,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/reject`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isSwapRequest,
+      );
+    },
+    revokeSwapRequest(groupId, swapRequestId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/revoke`,
         {
           body: JSON.stringify(input),
           method: 'POST',

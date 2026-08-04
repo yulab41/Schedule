@@ -1,7 +1,7 @@
 ﻿import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type { SwapPreview, SwapRequest } from '@schedule/contracts';
+import type { DutyAdjustmentRequest, SwapPreview, SwapRequest } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
@@ -321,6 +321,95 @@ describeWithDatabase('member shift swaps', () => {
     expect(swapEvents).toHaveLength(1);
     expect(swapEvents[0]?.beforeData.initiatorMemberName).toBe('Owner Doctor');
     expect(swapEvents[0]?.afterData.initiatorMemberName).toBe('Owner Doctor');
+  });
+
+  it('lets admins and parties revoke completed swaps in reverse order only', async () => {
+    const context = await seedPublishedRotation();
+    const first = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(first.statusCode).toBe(201);
+    const firstBody = first.json() as SwapRequest;
+
+    const second = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+    });
+    expect(second.statusCode).toBe(201);
+    const secondBody = second.json() as SwapRequest;
+
+    const duty = await createDirectDuty('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.a,
+      reason: '代值',
+    });
+    expect(duty.statusCode).toBe(201);
+    const dutyBody = duty.json() as DutyAdjustmentRequest;
+
+    const approvals = (
+      await listSwapApprovals('owner-token', context.groupId)
+    ).json() as SwapRequest[];
+    expect(approvals.find((request) => request.id === firstBody.id)?.isRevocable).toBe(false);
+    expect(approvals.find((request) => request.id === secondBody.id)?.isRevocable).toBe(false);
+    const dutyApprovals = (
+      await app.inject({
+        headers: { authorization: 'Bearer owner-token' },
+        method: 'GET',
+        url: `/groups/${context.groupId}/duty-adjustments/approvals`,
+      })
+    ).json() as DutyAdjustmentRequest[];
+    expect(dutyApprovals.find((request) => request.id === dutyBody.id)?.isRevocable).toBe(true);
+
+    const blockedFirst = await revokeSwap('owner-token', context.groupId, firstBody.id, {
+      expectedVersion: firstBody.version,
+      operationId: randomUUID(),
+      reason: '顺序测试',
+    });
+    expect(blockedFirst.statusCode, blockedFirst.body).toBe(409);
+
+    const blockedSecond = await revokeSwap('owner-token', context.groupId, secondBody.id, {
+      expectedVersion: secondBody.version,
+      operationId: randomUUID(),
+      reason: '顺序测试',
+    });
+    expect(blockedSecond.statusCode, blockedSecond.body).toBe(409);
+
+    const revokeDutyByParty = await revokeDuty('a-token', context.groupId, dutyBody.id, {
+      expectedVersion: dutyBody.version,
+      operationId: randomUUID(),
+      reason: '当事人撤销',
+    });
+    expect(revokeDutyByParty.statusCode, revokeDutyByParty.body).toBe(200);
+
+    const revokeSecondByParty = await revokeSwap('c-token', context.groupId, secondBody.id, {
+      expectedVersion: secondBody.version,
+      operationId: randomUUID(),
+      reason: '当事人撤销',
+    });
+    expect(revokeSecondByParty.statusCode, revokeSecondByParty.body).toBe(200);
+
+    const revokeFirstByParty = await revokeSwap('b-token', context.groupId, firstBody.id, {
+      expectedVersion: firstBody.version,
+      operationId: randomUUID(),
+      reason: '当事人撤销',
+    });
+    expect(revokeFirstByParty.statusCode, revokeFirstByParty.body).toBe(200);
+
+    const actuals = await readActualMembers(context);
+    expect(actuals.aSep1.actualMembershipId).toBe(context.membershipIds.a);
+    expect(actuals.bSep2.actualMembershipId).toBe(context.membershipIds.b);
+    expect(actuals.cSep3.actualMembershipId).toBe(context.membershipIds.c);
+
+    const outsider = await revokeSwap('outsider-token', context.groupId, firstBody.id, {
+      expectedVersion: firstBody.version,
+      operationId: randomUUID(),
+      reason: '越权',
+    });
+    expect(outsider.statusCode).toBe(403);
   });
 
   it('keeps archived assignment snapshots readable in approval history', async () => {
@@ -840,6 +929,60 @@ describeWithDatabase('member shift swaps', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/swaps/direct`,
+    });
+  }
+
+  async function revokeSwap(
+    token: string,
+    groupId: string,
+    swapRequestId: string,
+    body: {
+      readonly expectedVersion: number;
+      readonly operationId: string;
+      readonly reason: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/swaps/${swapRequestId}/revoke`,
+    });
+  }
+
+  async function createDirectDuty(
+    token: string,
+    groupId: string,
+    body: {
+      readonly coveredAssignmentId: string;
+      readonly operationId: string;
+      readonly overtimeMembershipId: string;
+      readonly reason: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/direct`,
+    });
+  }
+
+  async function revokeDuty(
+    token: string,
+    groupId: string,
+    dutyAdjustmentId: string,
+    body: {
+      readonly expectedVersion: number;
+      readonly operationId: string;
+      readonly reason: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/revoke`,
     });
   }
 

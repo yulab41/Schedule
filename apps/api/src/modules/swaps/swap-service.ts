@@ -5,6 +5,7 @@ import type {
   CreateSwapRequestInput,
   GroupSwapSettings,
   MemberSwapSettings,
+  RevokeSwapRequestInput,
   SwapAssignmentSummary,
   SwapConflict,
   SwapPairInput,
@@ -346,6 +347,52 @@ export class SwapService {
     });
   }
 
+  public async revokeCompleted(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    swapRequestId: string,
+    input: RevokeSwapRequestInput,
+  ): Promise<SwapRequest> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewScheduleConfiguration',
+      );
+      const request = await this.lockSwapRequest(
+        transaction,
+        authorization.group.id,
+        swapRequestId,
+      );
+      const isParty =
+        request.initiatorMembershipId === authorization.membership.id ||
+        request.targetMembershipId === authorization.membership.id;
+      if (authorization.membership.role === 'member' && !isParty) {
+        throw new ApiError({
+          code: 'FORBIDDEN',
+          statusCode: 403,
+          userMessage: '只有管理员或换班双方可以撤销该换班。',
+        });
+      }
+
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: authorization.user.id,
+          operationId: input.operationId,
+          requestFingerprint: createMutationFingerprint({
+            expectedVersion: input.expectedVersion,
+            groupId,
+            swapRequestId,
+          }),
+          scope: 'swap_request_revoke',
+        },
+        () => this.runSwapRevocation(transaction, authorization, swapRequestId, input),
+      );
+    });
+  }
+
   public async getGroupSettings(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -424,6 +471,204 @@ export class SwapService {
 
       return { autoAcceptSwaps: input.autoAcceptSwaps };
     });
+  }
+
+  private async runSwapRevocation(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    swapRequestId: string,
+    input: RevokeSwapRequestInput,
+  ): Promise<SwapRequest> {
+    const request = await this.lockSwapRequest(transaction, authorization.group.id, swapRequestId);
+    if (request.status !== 'completed') {
+      throw alreadyHandled(request);
+    }
+    assertExpectedVersion({
+      actualVersion: request.version,
+      expectedVersion: input.expectedVersion,
+      id: request.id,
+      latestData: { status: request.status },
+      objectType: 'swap_request',
+      userMessage: '换班记录已被其他操作更新，请刷新后重试。',
+    });
+
+    const assignmentRows = await transaction
+      .select({ id: shiftAssignments.id, schedulePeriodId: shiftAssignments.schedulePeriodId })
+      .from(shiftAssignments)
+      .where(
+        and(
+          inArray(shiftAssignments.id, [request.initiatorAssignmentId, request.targetAssignmentId]),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+    if (assignmentRows.length !== 2) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该换班的班次已失效（排班版本变更），无法直接撤销。',
+      });
+    }
+
+    const assignments = await transaction
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          inArray(shiftAssignments.id, [request.initiatorAssignmentId, request.targetAssignmentId]),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      )
+      .for('update');
+    const initiatorAssignment = assignments.find(
+      (assignment) => assignment.id === request.initiatorAssignmentId,
+    );
+    const targetAssignment = assignments.find(
+      (assignment) => assignment.id === request.targetAssignmentId,
+    );
+    const periodRows = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(
+        and(
+          inArray(schedulePeriods.id, [
+            initiatorAssignment?.schedulePeriodId ?? '',
+            targetAssignment?.schedulePeriodId ?? '',
+          ]),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      );
+    const initiatorPeriod = periodRows.find(
+      (period) => period.id === initiatorAssignment?.schedulePeriodId,
+    );
+    const targetPeriod = periodRows.find(
+      (period) => period.id === targetAssignment?.schedulePeriodId,
+    );
+    if (
+      initiatorAssignment === undefined ||
+      targetAssignment === undefined ||
+      initiatorPeriod === undefined ||
+      targetPeriod === undefined
+    ) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该换班的班次已失效（排班版本变更），无法直接撤销。',
+      });
+    }
+    const members = await this.loadMembers(transaction, authorization.group.id, [
+      request.initiatorMembershipId,
+      request.targetMembershipId,
+    ]);
+    const initiatorMember = members.get(request.initiatorMembershipId);
+    const targetMember = members.get(request.targetMembershipId);
+    if (initiatorMember === undefined || targetMember === undefined) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该换班涉及成员已失效，无法直接撤销。',
+      });
+    }
+
+    const initiatorStateMatches = initiatorAssignment.actualMembershipId === targetMember.id;
+    const targetStateMatches = targetAssignment.actualMembershipId === initiatorMember.id;
+    if (!initiatorStateMatches || !targetStateMatches) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该换班后续还有排班变动，请按先后顺序撤销。',
+      });
+    }
+
+    const beforeInitiator = {
+      actualMemberId: initiatorAssignment.actualMembershipId,
+      actualMemberName: initiatorAssignment.actualMemberName,
+    };
+    await transaction
+      .update(shiftAssignments)
+      .set({
+        actualMembershipId: initiatorMember.id,
+        actualMemberName: initiatorMember.realName,
+        startsAt: sql`${shiftAssignments.startsAt}`,
+        version: sql`${shiftAssignments.version} + 1`,
+      })
+      .where(eq(shiftAssignments.id, initiatorAssignment.id));
+    await transaction
+      .update(shiftAssignments)
+      .set({
+        actualMembershipId: targetMember.id,
+        actualMemberName: targetMember.realName,
+        startsAt: sql`${shiftAssignments.startsAt}`,
+        version: sql`${shiftAssignments.version} + 1`,
+      })
+      .where(eq(shiftAssignments.id, targetAssignment.id));
+    await transaction
+      .update(swapRequests)
+      .set({
+        decidedAt: new Date(),
+        revocationReason: input.reason,
+        status: 'revoked',
+        version: sql`${swapRequests.version} + 1`,
+      })
+      .where(eq(swapRequests.id, request.id));
+
+    const affectedMembershipIds = [initiatorMember.id, targetMember.id];
+    const periodByAssignmentId = new Map<string, string>([
+      [initiatorAssignment.id, initiatorPeriod.id],
+      [targetAssignment.id, targetPeriod.id],
+    ]);
+    let lastEventId = '';
+    for (const schedulePeriodId of [...new Set(periodByAssignmentId.values())]) {
+      const affectedShiftIds = [initiatorAssignment.id, targetAssignment.id].filter(
+        (assignmentId) => periodByAssignmentId.get(assignmentId) === schedulePeriodId,
+      );
+      lastEventId = await this.eventWriter.append(transaction, {
+        affectedMembershipIds,
+        affectedShiftIds,
+        afterData: toLatestData({
+          actualMemberId: initiatorMember.id,
+          actualMemberName: initiatorMember.realName,
+          reason: input.reason,
+          status: 'revoked',
+        }),
+        beforeData: toLatestData({
+          actualMemberId: beforeInitiator.actualMemberId,
+          actualMemberName: beforeInitiator.actualMemberName,
+          status: 'completed',
+        }),
+        eventStatus: 'completed',
+        eventType: 'swap_revoked',
+        groupId: authorization.group.id,
+        initiatedByUserId: authorization.user.id,
+        objectId: request.id,
+        objectType: 'swap_request',
+        operationId: input.operationId,
+        operatorUserId: authorization.user.id,
+        reason: input.reason,
+        schedulePeriodId,
+      });
+    }
+    await this.notificationWriter.append(transaction, {
+      body: '换班已撤销，双方实际班次已恢复。',
+      groupId: authorization.group.id,
+      notificationType: 'swap_revoked',
+      objectId: request.id,
+      objectType: 'swap_request',
+      recipientMembershipIds: affectedMembershipIds,
+      ...(lastEventId === '' ? {} : { scheduleEventId: lastEventId }),
+      title: '换班已撤销',
+    });
+    for (const businessMonth of new Set([
+      initiatorPeriod.businessMonth,
+      targetPeriod.businessMonth,
+    ])) {
+      await this.statisticsService.refreshInTransaction(
+        transaction,
+        authorization.group.id,
+        businessMonth,
+      );
+    }
+
+    return this.readSwapRequest(transaction, request.id);
   }
 
   private async runCreation(
@@ -1659,7 +1904,6 @@ export class SwapService {
     const roleIds = [...new Set(periodRows.map((period) => period.scheduleRoleId))];
     const roleNamesById = await this.loadRoleNames(transaction, roleIds);
     const assignmentById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
-
     return rows.map((row): SwapRequest => {
       const initiatorMember = members.get(row.initiatorMembershipId);
       const targetMember = members.get(row.targetMembershipId);
@@ -1669,6 +1913,24 @@ export class SwapService {
       const targetPeriod = periodById.get(targetAssignment?.schedulePeriodId ?? '');
       const decidedByMemberName =
         row.approverUserId === null ? undefined : approverNameByUserId.get(row.approverUserId);
+      let isRevocable: boolean | undefined;
+      let revocationBlockedReason: string | undefined;
+      if (row.status === 'completed') {
+        const initiatorStateMatches =
+          initiatorAssignment !== undefined &&
+          initiatorAssignment.deletedAt === null &&
+          initiatorAssignment.actualMembershipId === (targetMember?.id ?? null);
+        const targetStateMatches =
+          targetAssignment !== undefined &&
+          targetAssignment.deletedAt === null &&
+          targetAssignment.actualMembershipId === (initiatorMember?.id ?? null);
+        if (initiatorStateMatches && targetStateMatches) {
+          isRevocable = true;
+        } else {
+          isRevocable = false;
+          revocationBlockedReason = '该换班后续还有排班变动或班次已失效，请按先后顺序撤销。';
+        }
+      }
       return {
         ...(row.approverUserId === null
           ? {}
@@ -1690,6 +1952,8 @@ export class SwapService {
         initiatorAssignmentVersion: row.initiatorAssignmentVersion,
         ...(initiatorMember === undefined ? {} : { initiatorMemberName: initiatorMember.realName }),
         initiatorMembershipId: row.initiatorMembershipId,
+        ...(isRevocable === undefined ? {} : { isRevocable }),
+        ...(revocationBlockedReason === undefined ? {} : { revocationBlockedReason }),
         ...(row.revocationReason === null ? {} : { revocationReason: row.revocationReason }),
         status: row.status,
         targetAssignment: toSwapAssignmentSummary(

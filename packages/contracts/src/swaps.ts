@@ -72,6 +72,8 @@ export interface SwapRequest {
   readonly initiatorAssignmentVersion: number;
   readonly initiatorMemberName?: string;
   readonly initiatorMembershipId: string;
+  readonly isRevocable?: boolean;
+  readonly revocationBlockedReason?: string;
   readonly revocationReason?: string;
   readonly status: SwapRequestStatus;
   readonly targetAssignment: SwapAssignmentSummary;
@@ -85,6 +87,10 @@ export interface SwapRequest {
 export interface SwapRequestMutationInput {
   readonly expectedVersion: number;
   readonly operationId: string;
+}
+
+export interface RevokeSwapRequestInput extends SwapRequestMutationInput {
+  readonly reason: string;
 }
 
 export interface GroupSwapSettings {

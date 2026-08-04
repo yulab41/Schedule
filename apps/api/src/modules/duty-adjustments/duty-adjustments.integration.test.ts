@@ -463,6 +463,36 @@ describeWithDatabase('paired duty adjustments', () => {
     ).toBe('Owner Doctor');
   });
 
+  it('archives completed adjustments whose shift no longer exists and blocks direct revoke', async () => {
+    const context = await seedPublishedRotation();
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '归档测试',
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as DutyAdjustmentRequest;
+
+    await client.database
+      .update(shiftAssignments)
+      .set({ deletedAt: new Date() })
+      .where(eq(shiftAssignments.id, context.assignments.aSep1.id));
+
+    const approvals = await listDutyAdjustmentApprovals('owner-token', context.groupId);
+    const row = (approvals.json() as DutyAdjustmentRequest[]).find(
+      (request) => request.id === createdBody.id,
+    );
+    expect(row?.isRevocable).toBe(false);
+
+    const revoked = await revokeDutyAdjustment('owner-token', context.groupId, createdBody.id, {
+      expectedVersion: createdBody.version,
+      operationId: randomUUID(),
+      reason: '归档测试',
+    });
+    expect(revoked.statusCode, revoked.body).toBe(409);
+  });
+
   it('rejects and cancels pending requests without touching the actual member', async () => {
     const context = await seedPublishedRotation();
     const first = (

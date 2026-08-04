@@ -69,9 +69,11 @@ export interface DutyAdjustmentRequest {
   readonly deductedMembershipId: string;
   readonly groupId: string;
   readonly id: string;
+  readonly isRevocable?: boolean;
   readonly overtimeMemberName?: string;
   readonly overtimeMembershipId: string;
   readonly reason?: string;
+  readonly revocationBlockedReason?: string;
   readonly revocationReason?: string;
   readonly status: DutyAdjustmentStatus;
   readonly version: number;

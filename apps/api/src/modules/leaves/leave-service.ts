@@ -1850,6 +1850,7 @@ function toLeaveRequest(
     groupId: leaveRequest.groupId,
     id: leaveRequest.id,
     isAllDay: leaveRequest.isAllDay === 1,
+    ...(leaveRequest.status === 'approved' ? { isRevocable: true } : {}),
     leaveType: leaveRequest.leaveType,
     memberName: realName,
     membershipId: leaveRequest.membershipId,
