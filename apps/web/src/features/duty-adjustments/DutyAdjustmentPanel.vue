@@ -97,6 +97,11 @@ const incomingRequests = computed(() =>
 const pendingApprovals = computed(() =>
   approvals.value.filter((request) => request.status === 'pending_approval'),
 );
+const handledApprovals = computed(() =>
+  approvals.value.filter((request) =>
+    ['cancelled', 'rejected', 'revoked'].includes(request.status),
+  ),
+);
 const completedAdjustments = computed(() =>
   approvals.value.filter((request) => request.status === 'completed'),
 );
@@ -594,6 +599,37 @@ function getErrorMessage(error: unknown): string {
         </table>
       </section>
 
+      <section v-if="canApprove && handledApprovals.length > 0" class="list-section">
+        <h3>已受理记录（{{ handledApprovals.length }}）</h3>
+        <table class="duty-adjustment-table">
+          <thead>
+            <tr>
+              <th>扣班成员</th>
+              <th>加班成员</th>
+              <th>班次</th>
+              <th>状态</th>
+              <th>处理人</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in handledApprovals" :key="request.id">
+              <td>{{ request.deductedMemberName }}</td>
+              <td>{{ request.overtimeMemberName }}</td>
+              <td>
+                {{
+                  formatDutyAdjustmentShiftTime(
+                    request.coveredAssignment.startsAt,
+                    request.coveredAssignment.endsAt,
+                  )
+                }}
+              </td>
+              <td>{{ getDutyAdjustmentStatusLabel(request.status) }}</td>
+              <td>{{ request.decidedByMemberName ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       <section v-if="canApprove && completedAdjustments.length > 0" class="list-section">
         <h3>已生效待撤销（{{ completedAdjustments.length }}）</h3>
         <table class="duty-adjustment-table">
@@ -602,6 +638,7 @@ function getErrorMessage(error: unknown): string {
               <th>扣班成员</th>
               <th>加班成员</th>
               <th>班次</th>
+              <th>处理人</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -617,6 +654,7 @@ function getErrorMessage(error: unknown): string {
                   )
                 }}
               </td>
+              <td>{{ request.decidedByMemberName ?? '—' }}</td>
               <td>
                 <t-button theme="danger" variant="text" @click="revoke(request)">撤销</t-button>
               </td>

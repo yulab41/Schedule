@@ -122,6 +122,9 @@ const incomingRequests = computed(() =>
 const pendingApprovals = computed(() =>
   approvals.value.filter((request) => request.status === 'pending_approval'),
 );
+const handledApprovals = computed(() =>
+  approvals.value.filter((request) => request.status !== 'pending_approval'),
+);
 const myPendingRequests = computed(() =>
   mySwapRequests.value.filter(
     (request) =>
@@ -699,6 +702,28 @@ function getErrorMessage(error: unknown): string {
                 <t-button variant="outline" @click="approve(request)">批准</t-button>
                 <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
               </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section v-if="canApprove && handledApprovals.length > 0" class="list-section">
+        <h3>已受理记录（{{ handledApprovals.length }}）</h3>
+        <table class="swap-table">
+          <thead>
+            <tr>
+              <th>发起人</th>
+              <th>目标成员</th>
+              <th>状态</th>
+              <th>处理人</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in handledApprovals" :key="request.id">
+              <td>{{ request.initiatorMemberName }}</td>
+              <td>{{ request.targetMemberName }}</td>
+              <td>{{ getSwapStatusLabel(request.status) }}</td>
+              <td>{{ request.decidedByMemberName ?? '—' }}</td>
             </tr>
           </tbody>
         </table>

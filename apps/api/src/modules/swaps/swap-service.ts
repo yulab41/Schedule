@@ -1632,6 +1632,21 @@ export class SwapService {
         // Historical workflows remain readable after their schedule version is archived.
         .where(inArray(shiftAssignments.id, [...assignmentIds])),
     ]);
+    const approverUserIds = [
+      ...new Set(rows.flatMap((row) => (row.approverUserId === null ? [] : [row.approverUserId]))),
+    ];
+    const approverProfiles =
+      approverUserIds.length === 0
+        ? []
+        : await transaction
+            .select({ realName: userProfiles.realName, userId: userProfiles.userId })
+            .from(userProfiles)
+            .where(
+              and(inArray(userProfiles.userId, approverUserIds), isNull(userProfiles.deletedAt)),
+            );
+    const approverNameByUserId = new Map(
+      approverProfiles.map((profile) => [profile.userId, profile.realName]),
+    );
     const periodIds = [...new Set(assignments.map((assignment) => assignment.schedulePeriodId))];
     const periodRows =
       periodIds.length === 0
@@ -1652,8 +1667,15 @@ export class SwapService {
       const targetAssignment = assignmentById.get(row.targetAssignmentId);
       const initiatorPeriod = periodById.get(initiatorAssignment?.schedulePeriodId ?? '');
       const targetPeriod = periodById.get(targetAssignment?.schedulePeriodId ?? '');
+      const decidedByMemberName =
+        row.approverUserId === null ? undefined : approverNameByUserId.get(row.approverUserId);
       return {
-        ...(row.approverUserId === null ? {} : { approverUserId: row.approverUserId }),
+        ...(row.approverUserId === null
+          ? {}
+          : {
+              approverUserId: row.approverUserId,
+              ...(decidedByMemberName === undefined ? {} : { decidedByMemberName }),
+            }),
         createdAt: row.createdAt.toISOString(),
         ...(row.decidedAt === null ? {} : { decidedAt: row.decidedAt.toISOString() }),
         groupId: row.groupId,

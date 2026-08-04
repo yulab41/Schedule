@@ -63,6 +63,7 @@ export interface DutyAdjustmentRequest {
   readonly coveredAssignment: DutyAdjustmentAssignmentSummary;
   readonly coveredAssignmentId: string;
   readonly createdAt: string;
+  readonly decidedByMemberName?: string;
   readonly decidedAt?: string;
   readonly deductedMemberName?: string;
   readonly deductedMembershipId: string;

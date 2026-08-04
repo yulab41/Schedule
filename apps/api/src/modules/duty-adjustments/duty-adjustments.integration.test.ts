@@ -457,6 +457,10 @@ describeWithDatabase('paired duty adjustments', () => {
     expect((approvals.json() as DutyAdjustmentRequest[]).map((request) => request.id)).toContain(
       createdBody.id,
     );
+    expect(
+      (approvals.json() as DutyAdjustmentRequest[]).find((request) => request.id === createdBody.id)
+        ?.decidedByMemberName,
+    ).toBe('Owner Doctor');
   });
 
   it('rejects and cancels pending requests without touching the actual member', async () => {

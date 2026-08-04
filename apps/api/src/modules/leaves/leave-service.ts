@@ -1627,7 +1627,27 @@ export class LeaveService {
       )
       .orderBy(asc(leaveRequests.createdAt), asc(leaveRequests.id));
 
-    return rows.map((row) => toLeaveRequest(row.leaveRequest, row.realName));
+    const approverUserIds = [
+      ...new Set(
+        rows.flatMap((row) =>
+          row.leaveRequest.approverUserId === null ? [] : [row.leaveRequest.approverUserId],
+        ),
+      ),
+    ];
+    const approverProfiles =
+      approverUserIds.length === 0
+        ? []
+        : await transaction
+            .select({ realName: userProfiles.realName, userId: userProfiles.userId })
+            .from(userProfiles)
+            .where(
+              and(inArray(userProfiles.userId, approverUserIds), isNull(userProfiles.deletedAt)),
+            );
+    const approverNameByUserId = new Map(
+      approverProfiles.map((profile) => [profile.userId, profile.realName]),
+    );
+
+    return rows.map((row) => toLeaveRequest(row.leaveRequest, row.realName, approverNameByUserId));
   }
 
   private async readLeaveRequest(
@@ -1653,7 +1673,24 @@ export class LeaveService {
       });
     }
 
-    return toLeaveRequest(row.leaveRequest, row.realName);
+    const approverNameByUserId = new Map<string, string>();
+    if (row.leaveRequest.approverUserId !== null) {
+      const [approver] = await transaction
+        .select({ realName: userProfiles.realName })
+        .from(userProfiles)
+        .where(
+          and(
+            eq(userProfiles.userId, row.leaveRequest.approverUserId),
+            isNull(userProfiles.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (approver !== undefined) {
+        approverNameByUserId.set(row.leaveRequest.approverUserId, approver.realName);
+      }
+    }
+
+    return toLeaveRequest(row.leaveRequest, row.realName, approverNameByUserId);
   }
 }
 
@@ -1791,11 +1828,22 @@ function toLoadedRotationMember(row: MemberRow): LoadedRotationMember {
   };
 }
 
-function toLeaveRequest(leaveRequest: LockedLeaveRequest, realName: string): LeaveRequest {
+function toLeaveRequest(
+  leaveRequest: LockedLeaveRequest,
+  realName: string,
+  approverNameByUserId: ReadonlyMap<string, string>,
+): LeaveRequest {
+  const decidedByMemberName =
+    leaveRequest.approverUserId === null
+      ? undefined
+      : approverNameByUserId.get(leaveRequest.approverUserId);
   return {
     ...(leaveRequest.approverUserId === null
       ? {}
-      : { approverUserId: leaveRequest.approverUserId }),
+      : {
+          approverUserId: leaveRequest.approverUserId,
+          ...(decidedByMemberName === undefined ? {} : { decidedByMemberName }),
+        }),
     createdAt: leaveRequest.createdAt.toISOString(),
     ...(leaveRequest.decidedAt === null ? {} : { decidedAt: leaveRequest.decidedAt.toISOString() }),
     endsAt: leaveRequest.endsAt.toISOString(),

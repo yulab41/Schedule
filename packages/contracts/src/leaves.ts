@@ -31,6 +31,7 @@ export interface LeaveAffectedShiftsInput {
 export interface LeaveRequest {
   readonly approverUserId?: string;
   readonly createdAt: string;
+  readonly decidedByMemberName?: string;
   readonly decidedAt?: string;
   readonly endsAt: string;
   readonly groupId: string;

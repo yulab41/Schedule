@@ -419,6 +419,7 @@ function onWindowFocus(): void {
               <th>成员</th>
               <th>时间</th>
               <th>状态</th>
+              <th>处理人</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -427,6 +428,7 @@ function onWindowFocus(): void {
               <td>{{ request.memberName }}</td>
               <td>{{ formatLeaveRange(request.startsAt, request.endsAt, request.isAllDay) }}</td>
               <td>{{ getLeaveStatusLabel(request.status) }}</td>
+              <td>{{ request.decidedByMemberName ?? '—' }}</td>
               <td>
                 <t-button
                   v-if="request.status === 'approved'"

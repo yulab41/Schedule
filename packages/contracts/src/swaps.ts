@@ -63,6 +63,7 @@ export interface CreateDirectSwapInput {
 export interface SwapRequest {
   readonly approverUserId?: string;
   readonly createdAt: string;
+  readonly decidedByMemberName?: string;
   readonly decidedAt?: string;
   readonly groupId: string;
   readonly id: string;

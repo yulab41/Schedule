@@ -1648,6 +1648,21 @@ export class DutyAdjustmentService {
         // Historical workflows remain readable after their schedule version is archived.
         .where(inArray(shiftAssignments.id, [...assignmentIds])),
     ]);
+    const approverUserIds = [
+      ...new Set(rows.flatMap((row) => (row.approverUserId === null ? [] : [row.approverUserId]))),
+    ];
+    const approverProfiles =
+      approverUserIds.length === 0
+        ? []
+        : await transaction
+            .select({ realName: userProfiles.realName, userId: userProfiles.userId })
+            .from(userProfiles)
+            .where(
+              and(inArray(userProfiles.userId, approverUserIds), isNull(userProfiles.deletedAt)),
+            );
+    const approverNameByUserId = new Map(
+      approverProfiles.map((profile) => [profile.userId, profile.realName]),
+    );
     const periodIds = [...new Set(assignments.map((assignment) => assignment.schedulePeriodId))];
     const periodRows =
       periodIds.length === 0
@@ -1666,8 +1681,15 @@ export class DutyAdjustmentService {
       const deductedMember = members.get(row.deductedMembershipId);
       const coveredAssignment = assignmentById.get(row.coveredAssignmentId);
       const period = periodById.get(coveredAssignment?.schedulePeriodId ?? '');
+      const decidedByMemberName =
+        row.approverUserId === null ? undefined : approverNameByUserId.get(row.approverUserId);
       return {
-        ...(row.approverUserId === null ? {} : { approverUserId: row.approverUserId }),
+        ...(row.approverUserId === null
+          ? {}
+          : {
+              approverUserId: row.approverUserId,
+              ...(decidedByMemberName === undefined ? {} : { decidedByMemberName }),
+            }),
         assignmentVersion: row.assignmentVersion,
         coveredAssignment: toDutyAdjustmentAssignmentSummary(
           row.coveredAssignmentId,

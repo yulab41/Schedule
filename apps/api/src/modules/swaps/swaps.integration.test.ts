@@ -255,6 +255,14 @@ describeWithDatabase('member shift swaps', () => {
     expect((await readActualMembers(context)).aSep1.actualMembershipId).toBe(
       context.membershipIds.b,
     );
+    const approvals = (
+      await listSwapApprovals('owner-token', context.groupId)
+    ).json() as SwapRequest[];
+    expect(approvals[0]).toMatchObject({
+      decidedByMemberName: 'Owner Doctor',
+      id: createdBody.id,
+      status: 'completed',
+    });
   });
 
   it('lets an owner directly swap any two members without approval or consent', async () => {
