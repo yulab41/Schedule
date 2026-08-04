@@ -299,6 +299,20 @@ describeWithDatabase('member shift swaps', () => {
     });
     const mineAsA = (await listMySwaps('a-token', context.groupId)).json() as SwapRequest[];
     expect(mineAsA.map((request) => request.id)).toContain(createdBody.id);
+
+    const swapEvents = (
+      await client.database.execute(
+        sql`SELECT before_data AS beforeData, after_data AS afterData
+            FROM schedule_events
+            WHERE group_id = ${context.groupId} AND event_type = 'swap_completed'`,
+      )
+    )[0] as unknown as readonly {
+      readonly afterData: { readonly initiatorMemberName?: string };
+      readonly beforeData: { readonly initiatorMemberName?: string };
+    }[];
+    expect(swapEvents).toHaveLength(1);
+    expect(swapEvents[0]?.beforeData.initiatorMemberName).toBe('Owner Doctor');
+    expect(swapEvents[0]?.afterData.initiatorMemberName).toBe('Owner Doctor');
   });
 
   it('keeps archived assignment snapshots readable in approval history', async () => {

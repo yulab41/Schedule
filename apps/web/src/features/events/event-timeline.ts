@@ -195,7 +195,10 @@ export function buildEventNarrative(
       afterName ??= assignment?.actualMemberName;
       if (beforeName !== undefined && afterName !== undefined) {
         const details: string[] = [];
-        const initiatorName = readNestedMemberName(before.initiatorAssignment);
+        const initiatorName =
+          readString(before.initiatorMemberName) ??
+          readString(after.initiatorMemberName) ??
+          readNestedMemberName(before.initiatorAssignment);
         if (initiatorName !== undefined) {
           details.push(`由 ${initiatorName} 发起`);
         }

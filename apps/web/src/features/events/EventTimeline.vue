@@ -68,8 +68,6 @@ const dutyChain = computed(() =>
 </script>
 
 <template>
-  <p v-if="swapChain !== undefined" class="chain-summary">{{ swapChain }}</p>
-  <p v-if="dutyChain !== undefined" class="chain-summary">{{ dutyChain }}</p>
   <ol class="event-timeline">
     <li v-for="item in items" :key="item.event.id" class="timeline-entry">
       <div class="entry-heading">
@@ -116,6 +114,13 @@ const dutyChain = computed(() =>
       </details>
     </li>
   </ol>
+  <details v-if="swapChain !== undefined || dutyChain !== undefined" class="chain-details">
+    <summary>人员变更链</summary>
+    <div class="chain-content">
+      <p v-if="swapChain !== undefined" class="chain-summary">{{ swapChain }}</p>
+      <p v-if="dutyChain !== undefined" class="chain-summary">{{ dutyChain }}</p>
+    </div>
+  </details>
 </template>
 
 <style scoped>
@@ -128,7 +133,7 @@ const dutyChain = computed(() =>
 }
 
 .chain-summary {
-  margin: 0 0 10px;
+  margin: 0;
   padding: 10px 12px;
   color: #111827;
   background: #eff6ff;
@@ -137,6 +142,28 @@ const dutyChain = computed(() =>
   font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
+}
+
+.chain-details {
+  margin-top: 12px;
+  color: #374151;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.chain-details summary {
+  padding: 8px 12px;
+  color: #1f5aa6;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.chain-content {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
 }
 
 .timeline-entry {

@@ -178,6 +178,25 @@ describe('event timeline logic', () => {
     ).toBe('A Doctor → B Doctor（由 A Doctor 发起，发起时间 2026-08-03 09:00）');
   });
 
+  it('shows the acting account as the swap initiator when recorded', () => {
+    expect(
+      buildEventNarrative(
+        event({
+          afterData: {
+            initiatorAssignment: { actualMemberName: 'B Doctor' },
+            initiatorMemberName: 'Owner Doctor',
+            targetAssignment: { actualMemberName: 'A Doctor' },
+          },
+          beforeData: {
+            initiatorAssignment: { actualMemberName: 'A Doctor' },
+            initiatorMemberName: 'Owner Doctor',
+            targetAssignment: { actualMemberName: 'B Doctor' },
+          },
+        }),
+      ),
+    ).toBe('A Doctor → B Doctor（由 Owner Doctor 发起）');
+  });
+
   it('falls back to planned and current duty names when a swap event has no before actual names', () => {
     expect(
       buildEventNarrative(
