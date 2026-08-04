@@ -148,6 +148,13 @@
       "when": 1785542400020,
       "tag": "0021_schedule_change_workflows_and_guest_access",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785542400021,
+      "tag": "0022_membership_claim_requests",
+      "breakpoints": true
     }
   ]
 }

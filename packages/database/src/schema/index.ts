@@ -234,6 +234,32 @@ export const groupJoinRequests = mysqlTable(
   ],
 );
 
+export const membershipClaimRequests = mysqlTable(
+  'membership_claim_requests',
+  {
+    id: identifier(),
+    groupId: char('group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id),
+    requestingUserId: char('requesting_user_id', { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    targetMembershipId: char('target_membership_id', { length: 36 })
+      .notNull()
+      .references(() => groupMemberships.id),
+    status: mysqlEnum('status', ['pending', 'approved', 'rejected', 'cancelled'])
+      .default('pending')
+      .notNull(),
+    decidedAt: timestamp('decided_at', { fsp: 3 }),
+    decidedByUserId: char('decided_by_user_id', { length: 36 }).references(() => users.id),
+    ...auditableColumns(),
+  },
+  (table) => [
+    index('membership_claim_requests_group_status_idx').on(table.groupId, table.status),
+    index('membership_claim_requests_target_status_idx').on(table.targetMembershipId, table.status),
+  ],
+);
+
 export const scheduleEvents = mysqlTable(
   'schedule_events',
   {

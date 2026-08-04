@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `membership_claim_requests` (
+  `id` CHAR(36) NOT NULL,
+  `group_id` CHAR(36) NOT NULL,
+  `requesting_user_id` CHAR(36) NOT NULL,
+  `target_membership_id` CHAR(36) NOT NULL,
+  `status` ENUM('pending', 'approved', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending',
+  `decided_at` TIMESTAMP(3) NULL,
+  `decided_by_user_id` CHAR(36) NULL,
+  `created_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` TIMESTAMP(3) NULL,
+  `version` INT UNSIGNED NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `membership_claim_requests_group_status_idx` (`group_id`, `status`),
+  KEY `membership_claim_requests_target_status_idx` (`target_membership_id`, `status`),
+  CONSTRAINT `fk_membership_claim_group` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`),
+  CONSTRAINT `fk_membership_claim_requester` FOREIGN KEY (`requesting_user_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_membership_claim_target` FOREIGN KEY (`target_membership_id`) REFERENCES `group_memberships` (`id`),
+  CONSTRAINT `fk_membership_claim_decider` FOREIGN KEY (`decided_by_user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

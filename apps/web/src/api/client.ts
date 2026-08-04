@@ -4,6 +4,8 @@ import type {
   AddRosterEntriesResponse,
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
+  CreateMembershipClaimRequest,
+  CreateMembershipClaimResponse,
   ApiErrorCode,
   ApiErrorResponse,
   AppliedManualScheduleTemplateResult,
@@ -43,6 +45,8 @@ import type {
   ManualScheduleTemplate,
   MemberSwapSettings,
   MemberNotificationPreferences,
+  MembershipClaimLookupResponse,
+  MembershipClaimRequest,
   MonthStatisticsSnapshot,
   NotificationPage,
   NotificationRecord,
@@ -242,6 +246,22 @@ export interface ApiClient {
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
+  lookupClaimMatches(groupId: string, realName: string): Promise<MembershipClaimLookupResponse>;
+  createMembershipClaimRequest(
+    groupId: string,
+    input: CreateMembershipClaimRequest,
+  ): Promise<CreateMembershipClaimResponse>;
+  listMembershipClaimRequests(groupId: string): Promise<MembershipClaimRequest[]>;
+  approveMembershipClaimRequest(
+    groupId: string,
+    claimRequestId: string,
+  ): Promise<MembershipClaimRequest>;
+  rejectMembershipClaimRequest(
+    groupId: string,
+    claimRequestId: string,
+  ): Promise<MembershipClaimRequest>;
+  revokeMembershipClaim(groupId: string, membershipId: string): Promise<void>;
+  updateProfile(realName: string): Promise<UserProfile>;
   listDutyAdjustmentApprovals(groupId: string): Promise<DutyAdjustmentRequest[]>;
   listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]>;
   listMyDutyAdjustments(groupId: string): Promise<DutyAdjustmentRequest[]>;
@@ -404,7 +424,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     fetchImplementationOverride: typeof fetch,
     baseUrlOverride: string,
     path: string,
-    init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT' },
+    init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT' },
     isResponseBody: (value: unknown) => value is ResponseBody,
   ): Promise<ResponseBody> {
     return requestJsonWithOnline(
@@ -1029,6 +1049,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUserProfile,
       );
     },
+    updateProfile(realName) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/users/me',
+        {
+          body: JSON.stringify({ realName }),
+          method: 'PATCH',
+        },
+        isUserProfile,
+      );
+    },
     getHolidays(year) {
       return requestJson(
         options.auth,
@@ -1289,6 +1322,72 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/members`,
         { method: 'GET' },
         isGroupMemberList,
+      );
+    },
+    lookupClaimMatches(groupId, realName) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/claim-lookups`,
+        {
+          body: JSON.stringify({ realName }),
+          method: 'POST',
+        },
+        isMembershipClaimLookupResponse,
+      );
+    },
+    createMembershipClaimRequest(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/claim-requests`,
+        {
+          body: JSON.stringify(input),
+          method: 'POST',
+        },
+        isCreateMembershipClaimResponse,
+      );
+    },
+    listMembershipClaimRequests(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/claim-requests`,
+        { method: 'GET' },
+        isMembershipClaimRequestList,
+      );
+    },
+    approveMembershipClaimRequest(groupId, claimRequestId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/claim-requests/${encodeURIComponent(claimRequestId)}/approve`,
+        { method: 'POST' },
+        isMembershipClaimRequest,
+      );
+    },
+    rejectMembershipClaimRequest(groupId, claimRequestId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/claim-requests/${encodeURIComponent(claimRequestId)}/reject`,
+        { method: 'POST' },
+        isMembershipClaimRequest,
+      );
+    },
+    revokeMembershipClaim(groupId, membershipId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/revoke-claim`,
+        { method: 'POST' },
+        isUndefined,
       );
     },
     listGroups() {
@@ -1744,7 +1843,7 @@ async function requestJsonWithOnline<ResponseBody>(
   fetchImplementation: typeof fetch,
   baseUrl: string,
   path: string,
-  init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT' },
+  init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT' },
   isResponseBody: (value: unknown) => value is ResponseBody,
   isOnline: () => boolean,
 ): Promise<ResponseBody> {
@@ -2042,6 +2141,82 @@ function isClaimGroupResponse(value: unknown): value is ClaimGroupResponse {
   }
 
   return value.status === 'claimed' && 'group' in value && isGroupSummary(value.group);
+}
+
+function isMembershipClaimLookupEntry(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const entry = value as {
+    readonly isUnclaimed?: unknown;
+    readonly membershipId?: unknown;
+    readonly realName?: unknown;
+    readonly role?: unknown;
+  };
+  return (
+    typeof entry.membershipId === 'string' &&
+    entry.membershipId.length > 0 &&
+    typeof entry.realName === 'string' &&
+    entry.realName.length > 0 &&
+    typeof entry.isUnclaimed === 'boolean' &&
+    (entry.role === 'administrator' || entry.role === 'member' || entry.role === 'owner')
+  );
+}
+
+function isMembershipClaimLookupResponse(value: unknown): value is MembershipClaimLookupResponse {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const body = value as Partial<MembershipClaimLookupResponse>;
+  return Array.isArray(body.matches) && body.matches.every(isMembershipClaimLookupEntry);
+}
+
+function isMembershipClaimRequest(value: unknown): value is MembershipClaimRequest {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const claim = value as Partial<MembershipClaimRequest>;
+  return (
+    typeof claim.id === 'string' &&
+    claim.id.length > 0 &&
+    typeof claim.groupId === 'string' &&
+    claim.groupId.length > 0 &&
+    typeof claim.requestingUserId === 'string' &&
+    claim.requestingUserId.length > 0 &&
+    typeof claim.requestingUserRealName === 'string' &&
+    typeof claim.targetMembershipId === 'string' &&
+    claim.targetMembershipId.length > 0 &&
+    typeof claim.targetMemberRealName === 'string' &&
+    typeof claim.status === 'string' &&
+    typeof claim.createdAt === 'string' &&
+    typeof claim.version === 'number' &&
+    (claim.decidedAt === undefined || typeof claim.decidedAt === 'string') &&
+    (claim.decidedByRealName === undefined || typeof claim.decidedByRealName === 'string') &&
+    (claim.decidedByUserId === undefined || typeof claim.decidedByUserId === 'string')
+  );
+}
+
+function isMembershipClaimRequestList(value: unknown): value is MembershipClaimRequest[] {
+  return Array.isArray(value) && value.every(isMembershipClaimRequest);
+}
+
+function isCreateMembershipClaimResponse(value: unknown): value is CreateMembershipClaimResponse {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const body = value as { readonly direct?: unknown; readonly request?: unknown };
+  if (typeof body.direct !== 'boolean') {
+    return false;
+  }
+  if (body.direct === true) {
+    return body.request === undefined;
+  }
+
+  return body.request !== undefined && isMembershipClaimRequest(body.request);
 }
 
 function isGroupMember(value: unknown): value is GroupMember {

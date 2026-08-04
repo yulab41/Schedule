@@ -9,7 +9,7 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–38 已完成；最新验证基线 370/370（60 个测试文件，隔离 MySQL）
+- Debug rounds: 1–39 已完成；最新验证基线 375/375（61 个测试文件，隔离 MySQL）
 - Next actions: 排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
 
 ## Debug / Test Feedback Log
@@ -28,10 +28,11 @@
 ## Completed Work（摘要）
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-04 调试期轮次 1–38 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 370/370；CloudBase 部署保持手动触发，本轮未部署）。
+- 2026-08-04 调试期轮次 1–39 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 375/375；CloudBase 部署保持手动触发，本轮未部署）。
 - 轮次 35 按用户要求开放访客节假日、联系电话与当天标记，并禁止换班/加扣班等事件标记与事件入口；月/周/列表日历对过去日期统一显示深灰色（访客与用户/管理员模式一致）。检查点提交 `feat(guest): expose holidays and contacts while hiding events, gray past dates` 识别。
 - 轮次 37 修复管理员发起的换班事件在首页弹窗错误显示“由成员一发出”，改为按实际操作账户显示发起人；人员变更链移到事件弹窗底部并默认折叠。检查点提交 `fix(events): show acting account for admin swaps; collapsible change chain` 识别。
 - 轮次 38 合并换班/加扣班人员变更链为一条、去掉日历“事件”按钮并改为点击“换/加”等标记打开事件弹窗、恢复点击姓名弹出联系电话（未确认号码仅可复制）。检查点提交 `fix(events): merge change chains, marker-click events, restore phone menu` 识别。
+- 轮次 39 新增成员身份认领工作流（同名检测、普通成员申请/管理员审批、管理员直认领与撤销、群主保护），成员页改为紧凑表格布局；新增迁移 0022。检查点提交 `feat(members): identity claim workflow with admin approval and compact member table` 识别。
 - 轮次 33 完成排班变更工作流撤销、发布版本月历、当前撤销/归档重发、已发布草稿归档体验和群组码访客只读月历；检查点提交以 `feat(schedules): add publication lifecycle and guest calendar` 识别。
 - 轮次 34 修复历史软删除排班导致换班/加扣班审批页 500，访客改为公开群组名称列表和当月默认月历，并将 PWA 缓存升级到 v3 以清除旧发布记录前端资源；检查点提交以 `fix(schedules): restore history and guest access` 识别。
 - 线上数据操作（2026-08-03）：按用户要求清空线上草稿与排班（23 个排班期间、638 条班次软删除，统计快照清空；模板/成员/岗位/班种/联系方式/事件历史保留）；线上迁移已执行至 20 条（`0018`/`0019`/`0020`）。

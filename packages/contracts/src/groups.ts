@@ -57,13 +57,61 @@ export interface RegenerateGroupCodeRequest {
 }
 
 export interface GroupMember {
+  readonly claimRequestStatus?: 'pending' | 'rejected';
+  readonly claimedByName?: string;
   readonly id: string;
+  readonly isClaimedByCurrentUser?: boolean;
   readonly isPendingRoster?: boolean;
   readonly isUnclaimed?: boolean;
   readonly isCurrentUser: boolean;
   readonly realName: string;
   readonly role: GroupRole;
 }
+
+export type MembershipClaimRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+
+export interface MembershipClaimLookupRequest {
+  readonly realName: string;
+}
+
+export interface MembershipClaimLookupEntry {
+  readonly isUnclaimed: boolean;
+  readonly membershipId: string;
+  readonly realName: string;
+  readonly role: GroupRole;
+}
+
+export interface MembershipClaimLookupResponse {
+  readonly matches: readonly MembershipClaimLookupEntry[];
+}
+
+export interface CreateMembershipClaimRequest {
+  readonly membershipId: string;
+}
+
+export interface MembershipClaimRequest {
+  readonly createdAt: string;
+  readonly decidedAt?: string;
+  readonly decidedByRealName?: string;
+  readonly decidedByUserId?: string;
+  readonly groupId: string;
+  readonly id: string;
+  readonly requestingUserRealName: string;
+  readonly requestingUserId: string;
+  readonly status: MembershipClaimRequestStatus;
+  readonly targetMemberRealName: string;
+  readonly targetMembershipId: string;
+  readonly version: number;
+}
+
+export type CreateMembershipClaimResponse =
+  | {
+      readonly direct: true;
+    }
+  | {
+      readonly direct: false;
+      readonly request: MembershipClaimRequest;
+    };
 
 export interface GroupMemberContact {
   readonly isConfirmed: boolean;
