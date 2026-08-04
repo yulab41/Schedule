@@ -186,6 +186,30 @@ describe('deterministic rotation generation', () => {
     ]);
   });
 
+  it('skips members on approved leave dates without changing the base cursor', () => {
+    const rule = createRule('primary', createMembers('a', 'b'), 'a', {
+      rotationStartDate: '2028-01-01',
+    });
+
+    const result = generateRotation({
+      endDate: '2028-01-04',
+      leaveIntervals: [
+        { businessDate: '2028-01-02', membershipId: 'b' },
+        { businessDate: '2028-01-03', membershipId: 'a' },
+      ],
+      rules: [rule],
+      startDate: '2028-01-01',
+    });
+
+    expect(result.assignments.map((assignment) => assignment.plannedMembershipId)).toEqual([
+      'a',
+      'a',
+      'b',
+      'b',
+    ]);
+    expect(result.vacancies).toEqual([]);
+  });
+
   it('reports time overlap as a hard cross-role conflict', () => {
     const result = generateRotation({
       endDate: '2028-01-01',

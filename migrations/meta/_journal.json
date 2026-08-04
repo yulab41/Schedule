@@ -155,6 +155,13 @@
       "when": 1785542400021,
       "tag": "0022_membership_claim_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785542400022,
+      "tag": "0023_optional_leave_reason",
+      "breakpoints": true
     }
   ]
 }

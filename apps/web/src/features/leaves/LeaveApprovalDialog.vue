@@ -27,6 +27,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   changed: [];
   close: [];
+  navigate: [tab: 'duty' | 'manual' | 'swap'];
 }>();
 
 const api = createApiClient({ auth: cloudbaseAuth });
@@ -146,6 +147,11 @@ function close(): void {
   emit('close');
 }
 
+function navigate(tab: 'duty' | 'manual' | 'swap'): void {
+  emit('navigate', tab);
+  emit('close');
+}
+
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
     return error.message;
@@ -186,22 +192,43 @@ function getErrorMessage(error: unknown): string {
           </div>
         </dl>
 
+        <template v-if="preview !== undefined">
+          <p class="affected-count">请假期间涉及 {{ preview.affectedShiftCount }} 个已发布班次。</p>
+          <p v-if="preview.overlapsUnpublishedPeriod" class="unpublished-warning">
+            请假范围在未发布排班的时间段，无法调班；批准后仅记录请假，后续发布排班时将避开该成员。
+          </p>
+          <div class="navigate-row">
+            <t-button variant="outline" size="small" @click="navigate('swap')">前往换班</t-button>
+            <t-button variant="outline" size="small" @click="navigate('duty')">前往加扣班</t-button>
+            <t-button variant="outline" size="small" @click="navigate('manual')">
+              前往手动排班
+            </t-button>
+          </div>
+        </template>
+
         <template v-if="hasAffectedAssignments">
           <label class="strategy-field">
             重排策略
             <t-select :value="strategy" :options="strategyOptions" @change="onStrategyChange" />
           </label>
           <p class="strategy-hint">
-            群组默认：{{ getReflowStrategyLabel(groupDefaultStrategy) }}。
-            审批时可以对本申请单独覆盖。
+            群组默认：{{
+              getReflowStrategyLabel(groupDefaultStrategy)
+            }}；管理员可先通过换班、加扣班或手动排班完成安排，再选择顺延或保持原顺序重排。
           </p>
-
           <t-button variant="outline" :loading="isPreviewing" @click="refreshPreview">
             生成重排预览
           </t-button>
         </template>
-        <p v-else-if="preview !== undefined" class="no-impact">
-          该请假不影响已发布排班，无需重排。
+        <p
+          v-else-if="
+            preview !== undefined &&
+            preview.affectedShiftCount === 0 &&
+            !preview.overlapsUnpublishedPeriod
+          "
+          class="no-impact"
+        >
+          该请假未涉及已发布班次。
         </p>
 
         <template v-if="preview !== undefined">
@@ -242,7 +269,9 @@ function getErrorMessage(error: unknown): string {
             <t-button theme="danger" variant="outline" :loading="isRejecting" @click="reject">
               驳回
             </t-button>
-            <t-button theme="primary" :loading="isApproving" @click="approve">批准并重排</t-button>
+            <t-button theme="primary" :loading="isApproving" @click="approve">
+              {{ hasAffectedAssignments ? '批准并重排' : '批准' }}
+            </t-button>
           </div>
         </template>
       </template>
@@ -294,6 +323,33 @@ function getErrorMessage(error: unknown): string {
   margin: 0;
   color: #6b7280;
   font-size: 13px;
+}
+
+.affected-count {
+  margin: 0;
+  padding: 10px 12px;
+  color: #1f2937;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.unpublished-warning {
+  margin: 0;
+  padding: 10px 12px;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.navigate-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .statistics-delta {

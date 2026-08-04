@@ -25,14 +25,21 @@ export interface RotationRule {
 
 export interface RotationGenerationInput {
   readonly endDate: string;
+  readonly leaveIntervals?: readonly RotationLeaveInterval[];
   readonly rules: readonly RotationRule[];
   readonly startDate: string;
 }
 
 export interface RotationCursorInput {
   readonly businessDate: string;
+  readonly leaveIntervals?: readonly RotationLeaveInterval[];
   readonly rule: RotationRule;
   readonly slotPosition: number;
+}
+
+export interface RotationLeaveInterval {
+  readonly businessDate: string;
+  readonly membershipId: string;
 }
 
 export interface RotationCursor {

@@ -175,36 +175,12 @@ export class LeaveService {
         });
       }
 
-      const affectedAssignments = await this.loadAffectedAssignments(
-        transaction,
-        authorization.group.id,
-        authorization.membership.id,
-        startsAt,
-        endsAt,
-        input.isAllDay === true ? 1 : 0,
-      );
       let reflowStrategy = authorization.group.leaveReflowStrategy;
       if (input.resolutionMode === 'shift-forward') {
         reflowStrategy = 'shift-forward';
       }
       if (input.resolutionMode === 'manual') {
         reflowStrategy = 'keep-original-order';
-        const affectedShifts = await this.buildAffectedShiftList(
-          transaction,
-          authorization.group.id,
-          authorization.membership.id,
-          affectedAssignments,
-        );
-        const uncoveredShifts = affectedShifts.filter((shift) => !shift.isCovered);
-        if (uncoveredShifts.length > 0) {
-          throw new ApiError({
-            code: 'CONFLICT',
-            latestData: { affectedShifts: toLatestData(uncoveredShifts) },
-            statusCode: 409,
-            userMessage:
-              '请假期间有未安排的班次：请先为以下班次完成换班或加扣班安排，或改选“顺延”。',
-          });
-        }
       }
 
       const operationId = randomUUID();
@@ -216,7 +192,7 @@ export class LeaveService {
         isAllDay: input.isAllDay === true ? 1 : 0,
         leaveType: input.leaveType,
         membershipId: authorization.membership.id,
-        reason: input.reason,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
         reflowStrategy,
         startsAt,
       });
@@ -238,7 +214,7 @@ export class LeaveService {
         objectType: 'leave_request',
         operationId,
         operatorUserId: authorization.user.id,
-        reason: input.reason,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
       });
       await this.notificationWriter.append(transaction, {
         administratorRecipients: true,
@@ -685,7 +661,7 @@ export class LeaveService {
       objectType: 'leave_request',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
-      reason: leaveRequest.reason,
+      ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
       ...(context.periods[0] === undefined ? {} : { schedulePeriodId: context.periods[0].id }),
     });
     await this.notificationWriter.append(transaction, {
@@ -839,7 +815,7 @@ export class LeaveService {
       objectType: 'leave_request',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
-      reason: leaveRequest.reason,
+      ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
     await this.notificationWriter.append(transaction, {
       body: '您的请假申请已被驳回。',
@@ -927,7 +903,7 @@ export class LeaveService {
       objectType: 'leave_request',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
-      reason: leaveRequest.reason,
+      ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
     await this.notificationWriter.append(transaction, {
       body: '请假申请已取消。',
@@ -1028,7 +1004,7 @@ export class LeaveService {
       objectType: 'leave_request',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
-      reason: leaveRequest.reason,
+      ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
     await this.notificationWriter.append(transaction, {
       body: '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
@@ -1204,6 +1180,19 @@ export class LeaveService {
       periodQuery = periodQuery.for('update') as typeof periodQuery;
     }
     const periods = await periodQuery;
+    const [draftPeriod] = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, group.id),
+          eq(schedulePeriods.status, 'draft'),
+          isNull(schedulePeriods.deletedAt),
+          gte(schedulePeriods.businessMonth, startMonth),
+          lte(schedulePeriods.businessMonth, endMonth),
+        ),
+      )
+      .limit(1);
     const periodById = new Map(periods.map((period) => [period.id, period]));
     const scheduleRoleIdByPeriodId = new Map(
       periods.map((period) => [period.id, period.scheduleRoleId] as const),
@@ -1331,12 +1320,21 @@ export class LeaveService {
         ];
       }),
     );
+    const affectedShiftCount = assignments.filter(
+      (assignment) =>
+        assignment.businessDate >= leaveStartDate &&
+        assignment.businessDate <= leaveEndDate &&
+        (assignment.plannedMembershipId === leaveRequest.membershipId ||
+          assignment.actualMembershipId === leaveRequest.membershipId),
+    ).length;
 
     const preview = this.buildPreview({
+      affectedShiftCount,
       domainResult,
       group,
       leaveRequest,
       memberNamesById,
+      overlapsUnpublishedPeriod: draftPeriod !== undefined,
       periodById,
       periods,
       rowByBusinessKey,
@@ -1355,10 +1353,12 @@ export class LeaveService {
   }
 
   private buildPreview(input: {
+    readonly affectedShiftCount: number;
     readonly domainResult: ReturnType<typeof reflowLeaveAssignments>;
     readonly group: ActiveGroup;
     readonly leaveRequest: LockedLeaveRequest;
     readonly memberNamesById: ReadonlyMap<string, string>;
+    readonly overlapsUnpublishedPeriod: boolean;
     readonly periodById: ReadonlyMap<string, LockedSchedulePeriod>;
     readonly periods: readonly LockedSchedulePeriod[];
     readonly rowByBusinessKey: ReadonlyMap<string, LockedShiftAssignment>;
@@ -1404,6 +1404,7 @@ export class LeaveService {
 
     return {
       affectedAssignments,
+      affectedShiftCount: input.affectedShiftCount,
       conflicts: input.domainResult.conflicts.map((conflict): LeaveReflowConflict => {
         const memberName = input.memberNamesById.get(conflict.membershipId);
         return {
@@ -1429,6 +1430,7 @@ export class LeaveService {
       groupDefaultStrategy: input.group.leaveReflowStrategy,
       leaveRequestId: input.leaveRequest.id,
       leaveRequestVersion: input.leaveRequest.version,
+      overlapsUnpublishedPeriod: input.overlapsUnpublishedPeriod,
       periodVersions: Object.fromEntries(
         input.periods.map((period) => [period.id, period.version]),
       ),
@@ -1854,7 +1856,7 @@ function toLeaveRequest(
     leaveType: leaveRequest.leaveType,
     memberName: realName,
     membershipId: leaveRequest.membershipId,
-    reason: leaveRequest.reason,
+    ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     reflowStrategy: leaveRequest.reflowStrategy,
     startsAt: leaveRequest.startsAt.toISOString(),
     status: leaveRequest.status,

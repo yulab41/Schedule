@@ -31,7 +31,12 @@ export function generateRotation(input: RotationGenerationInput): RotationGenera
           businessDate,
           slotPosition,
         );
-        const member = findEligibleRotationMember({ businessDate, rule, slotPosition });
+        const member = findEligibleRotationMember({
+          businessDate,
+          ...(input.leaveIntervals === undefined ? {} : { leaveIntervals: input.leaveIntervals }),
+          rule,
+          slotPosition,
+        });
         assignments.push({
           businessDate,
           businessKey,

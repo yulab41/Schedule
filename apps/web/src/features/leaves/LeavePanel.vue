@@ -28,6 +28,10 @@ const props = defineProps<{
   readonly group: GroupSummary;
 }>();
 
+const emit = defineEmits<{
+  navigate: [tab: 'duty' | 'manual' | 'swap'];
+}>();
+
 const api = createApiClient({ auth: cloudbaseAuth });
 const myRequests = ref<LeaveRequest[]>([]);
 const approvals = ref<LeaveRequest[]>([]);
@@ -35,7 +39,6 @@ const strategy = ref<GroupLeaveReflowStrategy>();
 const leaveType = ref<LeaveRequestType>('sick');
 const startDate = ref(getTodayBusinessDate());
 const endDate = ref(getTodayBusinessDate());
-const resolutionMode = ref<'manual' | 'shift-forward'>('shift-forward');
 const affectedShifts = ref<readonly LeaveAffectedShift[]>([]);
 const affectedShiftsLoading = ref(false);
 const reason = ref('');
@@ -104,19 +107,13 @@ async function submit(): Promise<void> {
     errorMessage.value = error instanceof Error ? error.message : '请假时间不正确。';
     return;
   }
-  if (reason.value.trim().length === 0) {
-    errorMessage.value = '请填写请假原因。';
-    return;
-  }
-
   isSubmitting.value = true;
   try {
     await api.createLeaveRequest(props.group.id, {
       endsAt: interval.endsAt,
       isAllDay: true,
       leaveType: leaveType.value,
-      reason: reason.value.trim(),
-      resolutionMode: resolutionMode.value,
+      ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
       startsAt: interval.startsAt,
     });
     infoMessage.value = '请假申请已提交，等待管理员审批。';
@@ -232,6 +229,10 @@ function onApprovalChanged(): void {
   void loadData();
 }
 
+function navigateTo(tab: 'duty' | 'manual' | 'swap'): void {
+  emit('navigate', tab);
+}
+
 function getErrorMessage(error: unknown): string {
   return error instanceof ApiClientError ? error.message : '请假数据暂时无法加载，请稍后重试。';
 }
@@ -280,17 +281,6 @@ function onWindowFocus(): void {
           <p v-if="leaveDayCount > 0" class="day-count-hint">
             已选 {{ startDate }} 至 {{ endDate }}，共请假 {{ leaveDayCount }} 天。
           </p>
-          <fieldset class="resolution-fieldset">
-            <legend>请假期间排班处理方式（二选一）</legend>
-            <label class="resolution-option">
-              <input v-model="resolutionMode" type="radio" value="shift-forward" />
-              顺延：后续排班自动顺延，无需手动换班/加扣班
-            </label>
-            <label class="resolution-option">
-              <input v-model="resolutionMode" type="radio" value="manual" />
-              手动安排：请假期间的班次需先完成换班或加扣班
-            </label>
-          </fieldset>
           <div v-if="affectedShiftsLoading" class="affected-hint">正在检查请假期间班次…</div>
           <template v-else-if="affectedShifts.length > 0">
             <p class="affected-title">请假期间涉及 {{ affectedShifts.length }} 个班次：</p>
@@ -302,21 +292,17 @@ function onWindowFocus(): void {
                 {{ shift.isCovered ? '已安排换班/加扣班' : '未安排' }}
               </li>
             </ul>
-            <p
-              v-if="resolutionMode === 'manual' && uncoveredAffectedShifts.length > 0"
-              class="affected-warning"
-            >
-              请先到“换班”或“加扣班”中为以上“未安排”班次完成安排，才能提交。
+            <p v-if="uncoveredAffectedShifts.length > 0" class="affected-warning">
+              建议先到“换班”或“加扣班”中为以上“未安排”班次完成安排，但不作为强制选择，即使没有安排，也可提交申请。
             </p>
           </template>
           <p v-else class="affected-hint">请假期间没有已发布的未来班次。</p>
           <label class="reason-field">
-            原因说明
+            原因说明（选填）
             <textarea
               v-model="reason"
               maxlength="1000"
-              placeholder="请填写请假原因"
-              required
+              placeholder="请填写请假原因（选填）"
               rows="2"
             />
           </label>
@@ -450,6 +436,7 @@ function onWindowFocus(): void {
       :request="approvalTarget"
       @changed="onApprovalChanged"
       @close="approvalTarget = undefined"
+      @navigate="navigateTo"
     />
   </section>
 </template>

@@ -62,6 +62,7 @@ export type {
   RotationGenerationInput,
   RotationGenerationResult,
   RotationHardConflict,
+  RotationLeaveInterval,
   RotationMember,
   RotationRule,
   RotationShiftType,

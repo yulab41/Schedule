@@ -9,7 +9,7 @@ export interface CreateLeaveRequestInput {
   readonly endsAt: string;
   readonly isAllDay?: boolean;
   readonly leaveType: LeaveRequestType;
-  readonly reason: string;
+  readonly reason?: string;
   readonly resolutionMode?: LeaveResolutionMode;
   readonly startsAt: string;
 }
@@ -41,7 +41,7 @@ export interface LeaveRequest {
   readonly leaveType: LeaveRequestType;
   readonly memberName?: string;
   readonly membershipId: string;
-  readonly reason: string;
+  readonly reason?: string;
   readonly reflowStrategy: LeaveReflowStrategy;
   readonly revocationBlockedReason?: string;
   readonly startsAt: string;
@@ -90,11 +90,13 @@ export interface LeaveStatisticsDelta {
 
 export interface LeaveReflowPreview {
   readonly affectedAssignments: readonly LeaveAffectedAssignment[];
+  readonly affectedShiftCount: number;
   readonly conflicts: readonly LeaveReflowConflict[];
   readonly continuousDutyWarnings: readonly ScheduleGenerationWarning[];
   readonly groupDefaultStrategy: LeaveReflowStrategy;
   readonly leaveRequestId: string;
   readonly leaveRequestVersion: number;
+  readonly overlapsUnpublishedPeriod: boolean;
   readonly periodVersions: Readonly<Record<string, number>>;
   readonly rulesVersion: number;
   readonly statisticsDelta: LeaveStatisticsDelta;

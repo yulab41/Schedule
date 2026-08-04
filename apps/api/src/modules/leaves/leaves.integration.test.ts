@@ -190,7 +190,7 @@ describeWithDatabase('leave requests and reflow', () => {
     ).toContain('leave_request_revoked');
   });
 
-  it('requires manual coverage or shift-forward when leave overlaps published shifts', async () => {
+  it('submits leave without forcing manual coverage and reflows on approval', async () => {
     const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
     const leaveStart = '2026-09-01T00:00:00.000Z';
     const leaveEnd = '2026-09-02T00:00:00.000Z';
@@ -206,7 +206,7 @@ describeWithDatabase('leave requests and reflow', () => {
       expect.objectContaining({ businessDate: '2026-09-01', isCovered: false }),
     ]);
 
-    const blocked = await submitLeave('a-token', context.groupId, {
+    const submitted = await submitLeave('a-token', context.groupId, {
       endsAt: leaveEnd,
       isAllDay: true,
       leaveType: 'sick',
@@ -214,7 +214,8 @@ describeWithDatabase('leave requests and reflow', () => {
       resolutionMode: 'manual',
       startsAt: leaveStart,
     });
-    expect(blocked.statusCode).toBe(409);
+    expect(submitted.statusCode).toBe(201);
+    expect(submitted.json()).toMatchObject({ reflowStrategy: 'keep-original-order' });
 
     const assignmentRows = (
       await client.database.execute(
@@ -257,16 +258,6 @@ describeWithDatabase('leave requests and reflow', () => {
     ).json() as readonly { businessDate: string; isCovered: boolean }[];
     expect(covered.find((shift) => shift.businessDate === '2026-09-01')?.isCovered).toBe(true);
 
-    const accepted = await submitLeave('a-token', context.groupId, {
-      endsAt: leaveEnd,
-      isAllDay: true,
-      leaveType: 'sick',
-      reason: '已安排换班',
-      resolutionMode: 'manual',
-      startsAt: leaveStart,
-    });
-    expect(accepted.statusCode).toBe(201);
-
     const forwarded = await submitLeave('a-token', context.groupId, {
       endsAt: '2026-09-08T00:00:00.000Z',
       isAllDay: true,
@@ -279,7 +270,19 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(forwarded.json()).toMatchObject({ reflowStrategy: 'shift-forward' });
   });
 
-  it('does not count a completed historical swap as leave coverage', async () => {
+  it('submits a leave without a reason', async () => {
+    const context = await seedPublishedRotation(['a'], '2026-09');
+    const created = await submitLeave('a-token', context.groupId, {
+      endsAt: '2026-09-04T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      startsAt: '2026-09-03T00:00:00.000Z',
+    });
+    expect(created.statusCode).toBe(201);
+    expect((created.json() as LeaveRequest).reason).toBeUndefined();
+  });
+
+  it('does not count a completed historical swap as leave coverage but still allows submission', async () => {
     const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
     expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
     const assignmentRows = (
@@ -326,7 +329,7 @@ describeWithDatabase('leave requests and reflow', () => {
       expect.objectContaining({ businessDate: '2026-09-02', isCovered: false }),
     ]);
 
-    const blocked = await submitLeave('a-token', context.groupId, {
+    const submitted = await submitLeave('a-token', context.groupId, {
       endsAt: '2026-09-03T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
@@ -334,7 +337,7 @@ describeWithDatabase('leave requests and reflow', () => {
       resolutionMode: 'manual',
       startsAt: '2026-09-02T00:00:00.000Z',
     });
-    expect(blocked.statusCode).toBe(409);
+    expect(submitted.statusCode).toBe(201);
   });
 
   it('previews a partial all-day overlap and keeps the original order on approval', async () => {

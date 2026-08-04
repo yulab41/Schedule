@@ -34,7 +34,7 @@ export const leaveRequests = mysqlTable(
     startsAt: timestamp('starts_at', { fsp: 3 }).notNull(),
     endsAt: timestamp('ends_at', { fsp: 3 }).notNull(),
     isAllDay: tinyint('is_all_day', { unsigned: true }).default(0).notNull(),
-    reason: varchar('reason', { length: 1000 }).notNull(),
+    reason: varchar('reason', { length: 1000 }),
     status: mysqlEnum('status', ['pending', 'approved', 'rejected']).default('pending').notNull(),
     reflowStrategy: mysqlEnum('reflow_strategy', ['keep-original-order', 'shift-forward'])
       .default('keep-original-order')

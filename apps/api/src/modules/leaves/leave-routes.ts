@@ -28,7 +28,7 @@ const createLeaveInputSchema = z
     endsAt: datetimeSchema,
     isAllDay: z.boolean().optional(),
     leaveType: leaveTypeSchema,
-    reason: z.string().trim().min(1).max(1000),
+    reason: z.string().trim().min(1).max(1000).optional(),
     resolutionMode: resolutionModeSchema.optional(),
     startsAt: datetimeSchema,
   })
@@ -209,7 +209,7 @@ function parseCreateInput(value: unknown): CreateLeaveRequestInput {
     endsAt: input.endsAt,
     ...(input.isAllDay === undefined ? {} : { isAllDay: input.isAllDay }),
     leaveType: input.leaveType,
-    reason: input.reason,
+    ...(input.reason === undefined ? {} : { reason: input.reason }),
     ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
     startsAt: input.startsAt,
   };

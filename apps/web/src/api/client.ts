@@ -2540,7 +2540,7 @@ function isLeaveRequest(value: unknown): value is LeaveRequest {
     typeof request.startsAt === 'string' &&
     typeof request.endsAt === 'string' &&
     typeof request.isAllDay === 'boolean' &&
-    typeof request.reason === 'string' &&
+    (request.reason === undefined || typeof request.reason === 'string') &&
     (request.status === 'pending' ||
       request.status === 'approved' ||
       request.status === 'rejected') &&
@@ -2552,7 +2552,12 @@ function isLeaveRequest(value: unknown): value is LeaveRequest {
     typeof request.createdAt === 'string' &&
     (request.memberName === undefined || typeof request.memberName === 'string') &&
     (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
-    (request.decidedAt === undefined || typeof request.decidedAt === 'string')
+    (request.decidedByMemberName === undefined ||
+      typeof request.decidedByMemberName === 'string') &&
+    (request.decidedAt === undefined || typeof request.decidedAt === 'string') &&
+    (request.isRevocable === undefined || typeof request.isRevocable === 'boolean') &&
+    (request.revocationBlockedReason === undefined ||
+      typeof request.revocationBlockedReason === 'string')
   );
 }
 

@@ -121,7 +121,11 @@ function getErrorMessage(error: unknown): string {
               v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
               :group="currentGroup()!"
             />
-            <LeavePanel v-if="activeTab === 'leave'" :group="currentGroup()!" />
+            <LeavePanel
+              v-if="activeTab === 'leave'"
+              :group="currentGroup()!"
+              @navigate="activeTab = $event"
+            />
             <SwapPanel v-if="activeTab === 'swap'" :group="currentGroup()!" />
             <DutyAdjustmentPanel v-if="activeTab === 'duty'" :group="currentGroup()!" />
             <EventCenterView v-if="activeTab === 'events'" :group="currentGroup()!" />

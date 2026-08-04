@@ -89,9 +89,18 @@ export function findEligibleRotationMember(input: RotationCursorInput): Rotation
 
   const orderedMembers = getOrderedRotationMembers(input.rule);
   const cursorIndex = cursor.member.position - 1;
+  const leaveMembershipIds = new Set(
+    (input.leaveIntervals ?? [])
+      .filter((leave) => leave.businessDate === input.businessDate)
+      .map((leave) => leave.membershipId),
+  );
   for (let offset = 0; offset < orderedMembers.length; offset += 1) {
     const member = orderedMembers[(cursorIndex + offset) % orderedMembers.length];
-    if (member !== undefined && isRotationMemberEligible(member, input.businessDate)) {
+    if (
+      member !== undefined &&
+      isRotationMemberEligible(member, input.businessDate) &&
+      !leaveMembershipIds.has(member.membershipId)
+    ) {
       return member;
     }
   }

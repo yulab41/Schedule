@@ -21,6 +21,7 @@ import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   groupMemberships,
   groups,
+  leaveRequests,
   memberScheduleRoles,
   rotationMembers,
   rotationRules,
@@ -33,13 +34,15 @@ import {
 import {
   assertBusinessMonthContainsDate,
   generateRotation,
+  getChinaStandardTimeBusinessDate,
   type GeneratedRotationAssignment,
+  type RotationLeaveInterval,
   type RotationGenerationResult,
   type RotationMember,
   type RotationRule,
   type RotationShiftType,
 } from '@schedule/scheduling-domain';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -343,8 +346,15 @@ export class ScheduleGenerateService {
     const monthStart = `${businessMonth}-01`;
     const monthEnd = getBusinessMonthEnd(businessMonth);
     const domainRules = loadedRoles.map((role) => toDomainRotationRule(role, monthStart));
+    const leaveIntervals = await this.loadApprovedLeaveIntervals(
+      transaction,
+      authorization.group.id,
+      monthStart,
+      monthEnd,
+    );
     const domainResult = generateRotation({
       endDate: monthEnd,
+      leaveIntervals,
       rules: domainRules,
       startDate: monthStart,
     });
@@ -451,6 +461,44 @@ export class ScheduleGenerateService {
         startingMemberScheduleRoleId: role.startingMemberScheduleRoleId,
       };
     });
+  }
+
+  private async loadApprovedLeaveIntervals(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    monthStart: string,
+    monthEnd: string,
+  ): Promise<readonly RotationLeaveInterval[]> {
+    const rows = await transaction
+      .select({
+        endsAt: leaveRequests.endsAt,
+        membershipId: leaveRequests.membershipId,
+        startsAt: leaveRequests.startsAt,
+      })
+      .from(leaveRequests)
+      .where(
+        and(
+          eq(leaveRequests.groupId, groupId),
+          eq(leaveRequests.status, 'approved'),
+          isNull(leaveRequests.deletedAt),
+          lte(leaveRequests.startsAt, new Date(`${monthEnd}T16:00:00.000Z`)),
+          gte(leaveRequests.endsAt, new Date(`${monthStart}T00:00:00.000Z`)),
+        ),
+      );
+    const intervals: RotationLeaveInterval[] = [];
+    for (const row of rows) {
+      const leaveStart = getChinaStandardTimeBusinessDate(row.startsAt);
+      const leaveEnd = getChinaStandardTimeBusinessDate(row.endsAt);
+      for (let date = leaveStart; date <= leaveEnd;) {
+        if (date >= monthStart && date <= monthEnd) {
+          intervals.push({ businessDate: date, membershipId: row.membershipId });
+        }
+        const next = new Date(`${date}T00:00:00.000Z`);
+        next.setUTCDate(next.getUTCDate() + 1);
+        date = next.toISOString().slice(0, 10);
+      }
+    }
+    return intervals;
   }
 
   private async loadRotationMembers(
