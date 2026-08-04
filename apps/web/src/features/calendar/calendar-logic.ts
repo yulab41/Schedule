@@ -21,6 +21,7 @@ export interface CalendarAssignmentFilters {
 }
 
 export interface PhoneOption {
+  readonly isConfirmed: boolean;
   readonly label: string;
   readonly number: string;
 }
@@ -129,16 +130,24 @@ export function filterCalendarAssignments(
 export function getAvailablePhoneOptions(
   member: CalendarDutyMember | undefined,
 ): readonly PhoneOption[] {
-  if (member === undefined || !member.isConfirmed) {
+  if (member === undefined) {
     return [];
   }
 
   const options: PhoneOption[] = [];
   if (member.mobilePhone !== undefined && member.mobilePhone.length > 0) {
-    options.push({ label: '长号', number: member.mobilePhone });
+    options.push({
+      isConfirmed: member.isConfirmed,
+      label: '长号',
+      number: member.mobilePhone,
+    });
   }
   if (member.shortPhone !== undefined && member.shortPhone.length > 0) {
-    options.push({ label: '短号', number: member.shortPhone });
+    options.push({
+      isConfirmed: member.isConfirmed,
+      label: '短号',
+      number: member.shortPhone,
+    });
   }
 
   return options;

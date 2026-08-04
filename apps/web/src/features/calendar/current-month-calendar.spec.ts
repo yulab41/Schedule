@@ -100,11 +100,19 @@ describe('current month calendar logic', () => {
     expect(getDutyMemberName(assignment())).toBe('张医生');
   });
 
-  it('only offers confirmed phone numbers and builds valid dial links', () => {
+  it('offers phone numbers with confirmation state and builds valid dial links', () => {
     expect(getAvailablePhoneOptions(undefined)).toEqual([]);
     expect(
       getAvailablePhoneOptions({ isConfirmed: false, membershipId: 'm', realName: '张医生' }),
     ).toEqual([]);
+    expect(
+      getAvailablePhoneOptions({
+        isConfirmed: false,
+        membershipId: 'm',
+        mobilePhone: '13800138000',
+        realName: '张医生',
+      }),
+    ).toEqual([{ isConfirmed: false, label: '长号', number: '13800138000' }]);
     expect(
       getAvailablePhoneOptions({
         isConfirmed: true,
@@ -114,8 +122,8 @@ describe('current month calendar logic', () => {
         shortPhone: '12345',
       }),
     ).toEqual([
-      { label: '长号', number: '13800138000' },
-      { label: '短号', number: '12345' },
+      { isConfirmed: true, label: '长号', number: '13800138000' },
+      { isConfirmed: true, label: '短号', number: '12345' },
     ]);
     expect(
       getAvailablePhoneOptions({

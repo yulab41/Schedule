@@ -2,6 +2,7 @@ import type { ScheduleEvent } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildChangeChainSummary,
   buildDutyAdjustmentChainSummary,
   buildEventNarrative,
   buildEventTimelineItems,
@@ -311,6 +312,45 @@ describe('event timeline logic', () => {
 
     expect(buildDutyAdjustmentChainSummary(events, 'assignment-1')).toBe(
       '人员变更链：A Doctor → B Doctor → C Doctor（2 次加扣班；2026-08-08 09:00 A Doctor-1 → B Doctor+1；2026-08-08 11:00 B Doctor-1 → C Doctor+1）',
+    );
+  });
+
+  it('merges swap and duty adjustment steps into one chronological chain', () => {
+    const events = [
+      event({
+        afterData: {
+          initiatorAssignment: { actualMemberName: 'Hong Chenshan' },
+          initiatorAssignmentId: 'assignment-1',
+          targetAssignment: { actualMemberName: 'Lin Enyu' },
+          targetAssignmentId: 'assignment-2',
+        },
+        beforeData: {
+          initiatorAssignment: { actualMemberName: 'Lin Enyu' },
+          targetAssignment: { actualMemberName: 'Hong Chenshan' },
+        },
+        occurredAt: '2026-08-08T01:00:00.000Z',
+      }),
+      event({
+        afterData: {
+          actualMemberId: 'membership-c',
+          actualMemberName: 'C Doctor',
+          deductedMemberName: 'Hong Chenshan',
+          initiatorMemberName: 'Admin Doctor',
+          overtimeMemberName: 'C Doctor',
+        },
+        beforeData: {
+          actualMemberId: 'membership-b',
+          actualMemberName: 'Hong Chenshan',
+          deductedMemberName: 'Hong Chenshan',
+          overtimeMemberName: 'C Doctor',
+        },
+        eventType: 'duty_adjustment_completed',
+        occurredAt: '2026-08-08T03:00:00.000Z',
+      }),
+    ];
+
+    expect(buildChangeChainSummary(events, 'assignment-1')).toBe(
+      '人员变更链：Lin Enyu → Hong Chenshan → C Doctor（2 次变更；2026-08-08 09:00 换班 Lin Enyu → Hong Chenshan；2026-08-08 11:00 加扣班 Hong Chenshan-1 → C Doctor+1）',
     );
   });
 

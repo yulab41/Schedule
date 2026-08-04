@@ -321,6 +321,68 @@ export function buildEventNarrative(
   return buildChangeFallbackNarrative(event);
 }
 
+export interface ChangeChainStep {
+  readonly after: string;
+  readonly before: string;
+  readonly detail: string;
+  readonly eventId: string;
+  readonly occurredAt: string;
+  readonly type: '换班' | '加扣班';
+}
+
+export function buildChangeChainSummary(
+  events: readonly ScheduleEvent[],
+  assignmentId: string,
+): string | undefined {
+  const steps: ChangeChainStep[] = [];
+  for (const event of events) {
+    if (event.eventType === 'swap_completed') {
+      const step = extractSwapSideChange(event, assignmentId);
+      if (step !== undefined) {
+        steps.push({
+          ...step,
+          detail: `${step.before} → ${step.after}`,
+          type: '换班',
+        });
+      }
+    } else if (
+      event.eventType === 'duty_adjustment_completed' &&
+      event.affectedShiftIds.includes(assignmentId)
+    ) {
+      const step = extractDutyAdjustmentStep(event);
+      if (step !== undefined) {
+        steps.push({
+          ...step,
+          detail: `${step.deducted}-1 → ${step.overtime}+1`,
+          type: '加扣班',
+        });
+      }
+    }
+  }
+  if (steps.length === 0) {
+    return undefined;
+  }
+  steps.sort(
+    (first, second) =>
+      first.occurredAt.localeCompare(second.occurredAt) ||
+      first.eventId.localeCompare(second.eventId),
+  );
+
+  const names: string[] = [];
+  for (const step of steps) {
+    if (names.length === 0) {
+      names.push(step.before);
+    }
+    if (names[names.length - 1] !== step.after) {
+      names.push(step.after);
+    }
+  }
+  const detail = steps
+    .map((step) => `${formatEventTime(step.occurredAt)} ${step.type} ${step.detail}`)
+    .join('；');
+  return `人员变更链：${names.join(' → ')}（${steps.length} 次变更；${detail}）`;
+}
+
 export function buildSwapChainSummary(
   events: readonly ScheduleEvent[],
   assignmentId: string,

@@ -6,6 +6,7 @@ import {
   buildDialLink,
   formatShiftTimeRange,
   getAvailablePhoneOptions,
+  getCalendarMarkerDescription,
   getDutyMemberName,
   type PhoneOption,
 } from './calendar-logic.js';
@@ -25,19 +26,10 @@ const dutyName = computed(() => getDutyMemberName(props.assignment) ?? '待定')
 const shiftTimeRange = computed(() => formatShiftTimeRange(props.assignment));
 const phoneOptions = computed<readonly PhoneOption[]>(() => getAvailablePhoneOptions(props.member));
 const canCall = computed(() => phoneOptions.value.length > 0);
-const hasUnconfirmedPhone = computed(
-  () =>
-    props.member !== undefined &&
-    !props.member.isConfirmed &&
-    (props.member.mobilePhone !== undefined || props.member.shortPhone !== undefined),
-);
 const nameTitle = computed(() => {
   const base = `${props.assignment.shiftTypeName}（${shiftTimeRange.value}）`;
   if (canCall.value) {
-    return `${base} · 点击拨打电话`;
-  }
-  if (hasUnconfirmedPhone.value) {
-    return `${base} · 号码未确认，无法拨号`;
+    return `${base} · 点击查看联系电话`;
   }
   return base;
 });
@@ -91,22 +83,34 @@ onUnmounted(() => {
     >
       {{ assignment.shiftTypeAbbreviation }}
     </span>
-    <ChangeBadge v-for="marker in assignment.changeMarkers" :key="marker" :marker="marker" />
     <button
-      v-if="assignment.changeMarkers.length > 0"
+      v-for="marker in assignment.changeMarkers"
+      :key="marker"
       type="button"
-      class="events-button"
-      title="查看该班次的事件记录"
-      aria-label="查看该班次的事件记录"
+      class="change-marker-button"
+      :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+      :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
       @click.stop="emit('open-events', assignment)"
     >
-      事件
+      <ChangeBadge :marker="marker" />
     </button>
     <div v-if="isMenuOpen && canCall" class="phone-menu" @click.stop>
       <template v-if="isCoarsePointer">
-        <a v-for="option in phoneOptions" :key="option.number" :href="buildDialLink(option.number)">
+        <a
+          v-for="option in phoneOptions.filter((entry) => entry.isConfirmed)"
+          :key="option.number"
+          :href="buildDialLink(option.number)"
+        >
           拨打{{ option.label }} {{ option.number }}
         </a>
+        <button
+          v-for="option in phoneOptions.filter((entry) => !entry.isConfirmed)"
+          :key="option.number"
+          type="button"
+          @click="copyNumber(option.number)"
+        >
+          复制{{ option.label }}（未确认） {{ option.number }}
+        </button>
       </template>
       <template v-else>
         <button
@@ -115,7 +119,7 @@ onUnmounted(() => {
           type="button"
           @click="copyNumber(option.number)"
         >
-          复制{{ option.label }} {{ option.number }}
+          复制{{ option.label }}{{ option.isConfirmed ? '' : '（未确认）' }} {{ option.number }}
         </button>
       </template>
     </div>
@@ -166,15 +170,16 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-.events-button {
-  padding: 0 6px;
-  color: #1f5aa6;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 4px;
+.change-marker-button {
+  padding: 0;
+  background: none;
+  border: 0;
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
+}
+
+.change-marker-button:hover :deep(.change-marker) {
+  outline: 2px solid #fbbf24;
+  outline-offset: 1px;
 }
 
 .phone-menu {

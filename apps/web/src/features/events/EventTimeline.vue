@@ -6,8 +6,7 @@ import ChangeBadge from '../calendar/ChangeBadge.vue';
 import {
   buildEventNarrative,
   buildEventTimelineItems,
-  buildDutyAdjustmentChainSummary,
-  buildSwapChainSummary,
+  buildChangeChainSummary,
   extractEventChanges,
   formatEventTime,
   formatJsonValue,
@@ -55,15 +54,10 @@ const narratives = computed(
       }),
     ),
 );
-const swapChain = computed(() =>
+const changeChain = computed(() =>
   props.assignment === undefined
     ? undefined
-    : buildSwapChainSummary(props.events, props.assignment.id),
-);
-const dutyChain = computed(() =>
-  props.assignment === undefined
-    ? undefined
-    : buildDutyAdjustmentChainSummary(props.events, props.assignment.id),
+    : buildChangeChainSummary(props.events, props.assignment.id),
 );
 </script>
 
@@ -114,11 +108,10 @@ const dutyChain = computed(() =>
       </details>
     </li>
   </ol>
-  <details v-if="swapChain !== undefined || dutyChain !== undefined" class="chain-details">
+  <details v-if="changeChain !== undefined" class="chain-details">
     <summary>人员变更链</summary>
     <div class="chain-content">
-      <p v-if="swapChain !== undefined" class="chain-summary">{{ swapChain }}</p>
-      <p v-if="dutyChain !== undefined" class="chain-summary">{{ dutyChain }}</p>
+      <p class="chain-summary">{{ changeChain }}</p>
     </div>
   </details>
 </template>
