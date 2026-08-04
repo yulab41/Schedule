@@ -393,14 +393,15 @@ describeWithDatabase('paired duty adjustments', () => {
     ]);
   });
 
-  it('requires a reason and administrator permission for direct application', async () => {
+  it('allows direct application without a reason and requires administrator permission', async () => {
     const context = await seedPublishedRotation();
     const withoutReason = await createDirectDutyAdjustment('owner-token', context.groupId, {
-      coveredAssignmentId: context.assignments.aSep1.id,
+      coveredAssignmentId: context.assignments.cSep3.id,
       operationId: randomUUID(),
-      overtimeMembershipId: context.membershipIds.b,
+      overtimeMembershipId: context.membershipIds.a,
     });
-    expect(withoutReason.statusCode).toBe(400);
+    expect(withoutReason.statusCode, withoutReason.body).toBe(201);
+    expect(withoutReason.json()).toMatchObject({ status: 'completed' });
 
     const asMember = await createDirectDutyAdjustment('a-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
@@ -531,7 +532,7 @@ describeWithDatabase('paired duty adjustments', () => {
     expect(approveRejected.statusCode).toBe(409);
   });
 
-  it('revokes a completed relation with a required reason and restores the deducted member', async () => {
+  it('revokes a completed relation with or without a reason and restores the deducted member', async () => {
     const context = await seedPublishedRotation();
     const created = (
       await createDutyAdjustment('a-token', context.groupId, {
@@ -558,18 +559,33 @@ describeWithDatabase('paired duty adjustments', () => {
       expectedVersion: 3,
       operationId: randomUUID(),
     });
-    expect(withoutReason.statusCode).toBe(400);
+    expect(withoutReason.statusCode, withoutReason.body).toBe(200);
+    expect(withoutReason.json()).toMatchObject({ status: 'revoked', version: 4 });
+    expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
+      context.membershipIds.a,
+    );
 
-    const revoked = await revokeDutyAdjustment('owner-token', context.groupId, completed.id, {
-      expectedVersion: 3,
-      operationId: randomUUID(),
-      reason: 'B 临时请假取消代值',
-    });
-    expect(revoked.statusCode).toBe(200);
-    expect(revoked.json()).toMatchObject({
+    const second = (
+      await createDirectDutyAdjustment('owner-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
+        operationId: randomUUID(),
+        overtimeMembershipId: context.membershipIds.b,
+      })
+    ).json() as DutyAdjustmentRequest;
+    const revokedWithReason = await revokeDutyAdjustment(
+      'owner-token',
+      context.groupId,
+      second.id,
+      {
+        expectedVersion: second.version,
+        operationId: randomUUID(),
+        reason: 'B 临时请假取消代值',
+      },
+    );
+    expect(revokedWithReason.statusCode, revokedWithReason.body).toBe(200);
+    expect(revokedWithReason.json()).toMatchObject({
       reason: 'B 临时请假取消代值',
       status: 'revoked',
-      version: 4,
     });
     expect((await readActualMember(context.assignments.aSep1.id)).actualMembershipId).toBe(
       context.membershipIds.a,
@@ -583,12 +599,33 @@ describeWithDatabase('paired duty adjustments', () => {
             WHERE group_id = ${context.groupId} AND event_type = 'duty_adjustment_revoked'`,
       )
     )[0] as unknown as readonly { eventType: string }[];
-    expect(eventTypes).toHaveLength(1);
+    expect(eventTypes).toHaveLength(2);
 
     const [rowCount] = await client.database.execute<{ count: number }>(
       sql`SELECT COUNT(*) AS count FROM duty_adjustments WHERE group_id = ${context.groupId}`,
     );
-    expect(rowCount).toEqual([{ count: 1 }]);
+    expect(rowCount).toEqual([{ count: 2 }]);
+  });
+
+  it('keeps the original reason when revoking without a reason', async () => {
+    const context = await seedPublishedRotation();
+    const created = (
+      await createDirectDutyAdjustment('owner-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
+        operationId: randomUUID(),
+        overtimeMembershipId: context.membershipIds.b,
+        reason: '原始原因',
+      })
+    ).json() as DutyAdjustmentRequest;
+    const revoked = await revokeDutyAdjustment('owner-token', context.groupId, created.id, {
+      expectedVersion: created.version,
+      operationId: randomUUID(),
+    });
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    expect(revoked.json()).toMatchObject({
+      reason: '原始原因',
+      status: 'revoked',
+    });
   });
 
   it('requires acknowledgement before withdrawing a schedule with active duty adjustments', async () => {

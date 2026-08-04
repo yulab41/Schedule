@@ -36,7 +36,7 @@ const createInputSchema = pairInputSchema
 const directCreateInputSchema = pairInputSchema
   .extend({
     operationId: operationIdSchema,
-    reason: reasonSchema,
+    reason: reasonSchema.optional(),
   })
   .strict();
 
@@ -51,7 +51,7 @@ const revokeInputSchema = z
   .object({
     expectedVersion: versionSchema,
     operationId: operationIdSchema,
-    reason: reasonSchema,
+    reason: reasonSchema.optional(),
   })
   .strict();
 
@@ -246,7 +246,19 @@ function parseCreateInput(value: unknown): CreateDutyAdjustmentRequestInput {
 }
 
 function parseDirectCreateInput(value: unknown): CreateDirectDutyAdjustmentInput {
-  return parseOrThrow(directCreateInputSchema, value);
+  const parsed = parseOrThrow(directCreateInputSchema, value);
+  return parsed.reason === undefined
+    ? {
+        coveredAssignmentId: parsed.coveredAssignmentId,
+        operationId: parsed.operationId,
+        overtimeMembershipId: parsed.overtimeMembershipId,
+      }
+    : {
+        coveredAssignmentId: parsed.coveredAssignmentId,
+        operationId: parsed.operationId,
+        overtimeMembershipId: parsed.overtimeMembershipId,
+        reason: parsed.reason,
+      };
 }
 
 function parseMutationInput(value: unknown): DutyAdjustmentMutationInput {
@@ -254,7 +266,17 @@ function parseMutationInput(value: unknown): DutyAdjustmentMutationInput {
 }
 
 function parseRevokeInput(value: unknown): RevokeDutyAdjustmentInput {
-  return parseOrThrow(revokeInputSchema, value);
+  const parsed = parseOrThrow(revokeInputSchema, value);
+  return parsed.reason === undefined
+    ? {
+        expectedVersion: parsed.expectedVersion,
+        operationId: parsed.operationId,
+      }
+    : {
+        expectedVersion: parsed.expectedVersion,
+        operationId: parsed.operationId,
+        reason: parsed.reason,
+      };
 }
 
 function parseUpdateGroupSettingsInput(value: unknown): UpdateGroupDutyAdjustmentSettingsInput {

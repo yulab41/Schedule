@@ -157,7 +157,7 @@ export class DutyAdjustmentService {
             coveredAssignmentId: input.coveredAssignmentId,
             groupId,
             overtimeMembershipId: input.overtimeMembershipId,
-            reason: input.reason,
+            ...(input.reason === undefined ? {} : { reason: input.reason }),
           }),
           scope: 'duty_adjustment_direct_create',
         },
@@ -359,7 +359,7 @@ export class DutyAdjustmentService {
             dutyAdjustmentId,
             expectedVersion: input.expectedVersion,
             groupId,
-            reason: input.reason,
+            ...(input.reason === undefined ? {} : { reason: input.reason }),
           }),
           scope: 'duty_adjustment_revoke',
         },
@@ -573,7 +573,7 @@ export class DutyAdjustmentService {
       groupId: authorization.group.id,
       id: dutyAdjustmentId,
       overtimeMembershipId: context.overtimeMember.id,
-      reason: input.reason,
+      ...(input.reason === undefined ? {} : { reason: input.reason }),
       status: 'completed',
     });
     const createdEventId = await this.eventWriter.append(transaction, {
@@ -591,7 +591,7 @@ export class DutyAdjustmentService {
       objectType: 'duty_adjustment',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
-      reason: input.reason,
+      ...(input.reason === undefined ? {} : { reason: input.reason }),
       schedulePeriodId: context.period.id,
     });
     await this.notificationWriter.append(transaction, {
@@ -1057,7 +1057,7 @@ export class DutyAdjustmentService {
       .set({
         approverUserId: authorization.user.id,
         decidedAt: new Date(),
-        reason: input.reason,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
         status: 'revoked',
         version: sql`${dutyAdjustments.version} + 1`,
       })
@@ -1068,7 +1068,7 @@ export class DutyAdjustmentService {
       afterData: toLatestData({
         actualMemberId: context.deductedMember.id,
         actualMemberName: context.deductedMember.realName,
-        reason: input.reason,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
         status: 'revoked',
       }),
       beforeData: toLatestData({
@@ -1084,7 +1084,7 @@ export class DutyAdjustmentService {
       objectType: 'duty_adjustment',
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
-      reason: input.reason,
+      ...(input.reason === undefined ? {} : { reason: input.reason }),
       schedulePeriodId: context.period.id,
     });
     await this.notificationWriter.append(transaction, {

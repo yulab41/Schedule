@@ -271,10 +271,6 @@ async function submitDirect(): Promise<void> {
     errorMessage.value = '请选择被代班班次和加班成员。';
     return;
   }
-  if (adminReason.value.trim() === '') {
-    errorMessage.value = '管理员直接代值必须填写原因。';
-    return;
-  }
 
   isAdminSubmitting.value = true;
   try {
@@ -282,7 +278,7 @@ async function submitDirect(): Promise<void> {
       coveredAssignmentId: selectedAdminAssignmentId.value,
       operationId: crypto.randomUUID(),
       overtimeMembershipId: selectedAdminOvertimeMembershipId.value,
-      reason: adminReason.value.trim(),
+      ...(adminReason.value.trim() === '' ? {} : { reason: adminReason.value.trim() }),
     });
     infoMessage.value = `管理员代值已生效：${created.deductedMemberName ?? ''} 扣班，${created.overtimeMemberName ?? ''} 加班。`;
     resetForm();
@@ -343,21 +339,17 @@ async function cancel(request: DutyAdjustmentRequest): Promise<void> {
 
 async function revoke(request: DutyAdjustmentRequest): Promise<void> {
   const revokeReason = window.prompt(
-    `确定撤销 ${request.deductedMemberName ?? ''} 与 ${request.overtimeMemberName ?? ''} 的加扣班关系吗？请填写撤销原因（必填）：`,
+    `确定撤销 ${request.deductedMemberName ?? ''} 与 ${request.overtimeMemberName ?? ''} 的加扣班关系吗？请填写撤销原因（选填）：`,
     '',
   );
   if (revokeReason === null) {
-    return;
-  }
-  if (revokeReason.trim() === '') {
-    errorMessage.value = '撤销加扣班必须填写原因。';
     return;
   }
   await runMutation(() =>
     api.revokeDutyAdjustment(props.group.id, request.id, {
       expectedVersion: request.version,
       operationId: crypto.randomUUID(),
-      reason: revokeReason.trim(),
+      ...(revokeReason.trim() === '' ? {} : { reason: revokeReason.trim() }),
     }),
   );
 }
@@ -505,7 +497,7 @@ function getErrorMessage(error: unknown): string {
       <form v-if="canApprove" class="duty-adjustment-form" @submit.prevent="submitDirect">
         <fieldset>
           <legend>管理员直接代值</legend>
-          <p class="field-hint">直接生效，不需要双方确认或审批，但必须填写原因。</p>
+          <p class="field-hint">直接生效，不需要双方确认或审批；原因选填。</p>
           <label>
             月份
             <input v-model="businessMonth" type="month" />
@@ -529,13 +521,8 @@ function getErrorMessage(error: unknown): string {
             />
           </label>
           <label>
-            原因（必填）
-            <input
-              v-model="adminReason"
-              maxlength="1000"
-              placeholder="管理员直接代值必须填写原因"
-              required
-            />
+            原因（选填）
+            <input v-model="adminReason" maxlength="1000" placeholder="填写代值原因（选填）" />
           </label>
           <div class="form-actions">
             <t-button theme="primary" type="submit" :loading="isAdminSubmitting">

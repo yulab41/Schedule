@@ -54,7 +54,7 @@ export interface CreateDutyAdjustmentRequestInput extends DutyAdjustmentPairInpu
 
 export interface CreateDirectDutyAdjustmentInput extends DutyAdjustmentPairInput {
   readonly operationId: string;
-  readonly reason: string;
+  readonly reason?: string;
 }
 
 export interface DutyAdjustmentRequest {
@@ -85,7 +85,7 @@ export interface DutyAdjustmentMutationInput {
 }
 
 export interface RevokeDutyAdjustmentInput extends DutyAdjustmentMutationInput {
-  readonly reason: string;
+  readonly reason?: string;
 }
 
 export interface GroupDutyAdjustmentSettings {
