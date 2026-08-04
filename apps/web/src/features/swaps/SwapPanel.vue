@@ -438,21 +438,17 @@ async function cancel(request: SwapRequest): Promise<void> {
 
 async function revokeSwap(request: SwapRequest): Promise<void> {
   const reason = window.prompt(
-    `确定撤销与 ${getCounterpartName(request)} 的换班吗？请填写撤销原因（必填）：`,
+    `确定撤销与 ${getCounterpartName(request)} 的换班吗？请填写撤销原因（选填）：`,
     '',
   );
   if (reason === null) {
-    return;
-  }
-  if (reason.trim() === '') {
-    errorMessage.value = '撤销换班必须填写原因。';
     return;
   }
   await runMutation(() =>
     api.revokeSwapRequest(props.group.id, request.id, {
       expectedVersion: request.version,
       operationId: crypto.randomUUID(),
-      reason: reason.trim(),
+      ...(reason.trim() === '' ? {} : { reason: reason.trim() }),
     }),
   );
 }

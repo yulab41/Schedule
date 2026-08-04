@@ -90,7 +90,7 @@ export interface SwapRequestMutationInput {
 }
 
 export interface RevokeSwapRequestInput extends SwapRequestMutationInput {
-  readonly reason: string;
+  readonly reason?: string;
 }
 
 export interface GroupSwapSettings {

@@ -605,7 +605,7 @@ export class SwapService {
       .update(swapRequests)
       .set({
         decidedAt: new Date(),
-        revocationReason: input.reason,
+        ...(input.reason === undefined ? {} : { revocationReason: input.reason }),
         status: 'revoked',
         version: sql`${swapRequests.version} + 1`,
       })
@@ -627,7 +627,7 @@ export class SwapService {
         afterData: toLatestData({
           actualMemberId: initiatorMember.id,
           actualMemberName: initiatorMember.realName,
-          reason: input.reason,
+          ...(input.reason === undefined ? {} : { reason: input.reason }),
           status: 'revoked',
         }),
         beforeData: toLatestData({
@@ -643,7 +643,7 @@ export class SwapService {
         objectType: 'swap_request',
         operationId: input.operationId,
         operatorUserId: authorization.user.id,
-        reason: input.reason,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
         schedulePeriodId,
       });
     }

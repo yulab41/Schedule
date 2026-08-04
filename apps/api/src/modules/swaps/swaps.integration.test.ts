@@ -412,6 +412,28 @@ describeWithDatabase('member shift swaps', () => {
     expect(outsider.statusCode).toBe(403);
   });
 
+  it('revokes a completed swap without a reason and restores both shifts', async () => {
+    const context = await seedPublishedRotation();
+    const created = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as SwapRequest;
+
+    const revoked = await revokeSwap('owner-token', context.groupId, createdBody.id, {
+      expectedVersion: createdBody.version,
+      operationId: randomUUID(),
+    });
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    expect(revoked.json()).toMatchObject({ status: 'revoked' });
+
+    const actuals = await readActualMembers(context);
+    expect(actuals.aSep1.actualMembershipId).toBe(context.membershipIds.a);
+    expect(actuals.bSep2.actualMembershipId).toBe(context.membershipIds.b);
+  });
+
   it('keeps archived assignment snapshots readable in approval history', async () => {
     const context = await seedPublishedRotation();
     const created = await directSwap('owner-token', context.groupId, {
@@ -939,13 +961,16 @@ describeWithDatabase('member shift swaps', () => {
     body: {
       readonly expectedVersion: number;
       readonly operationId: string;
-      readonly reason: string;
+      readonly reason?: string;
     },
   ) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: body,
+      payload:
+        body.reason === undefined
+          ? { expectedVersion: body.expectedVersion, operationId: body.operationId }
+          : body,
       url: `/groups/${groupId}/swaps/${swapRequestId}/revoke`,
     });
   }

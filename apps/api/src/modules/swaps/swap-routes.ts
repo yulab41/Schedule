@@ -53,7 +53,7 @@ const revokeSwapInputSchema = z
   .object({
     expectedVersion: versionSchema,
     operationId: operationIdSchema,
-    reason: z.string().trim().min(1).max(1000),
+    reason: z.string().trim().min(1).max(1000).optional(),
   })
   .strict();
 
@@ -252,7 +252,17 @@ function parseMutationInput(value: unknown): SwapRequestMutationInput {
 }
 
 function parseRevokeSwapInput(value: unknown): RevokeSwapRequestInput {
-  return parseOrThrow(revokeSwapInputSchema, value);
+  const parsed = parseOrThrow(revokeSwapInputSchema, value);
+  return parsed.reason === undefined
+    ? {
+        expectedVersion: parsed.expectedVersion,
+        operationId: parsed.operationId,
+      }
+    : {
+        expectedVersion: parsed.expectedVersion,
+        operationId: parsed.operationId,
+        reason: parsed.reason,
+      };
 }
 
 function parseUpdateGroupSettingsInput(value: unknown): UpdateGroupSwapSettingsInput {
