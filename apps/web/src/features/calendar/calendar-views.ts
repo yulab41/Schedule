@@ -134,6 +134,7 @@ export function groupAssignmentsByDate(
   for (const list of byDate.values()) {
     list.sort(
       (first, second) =>
+        getShiftStartOrder(first) - getShiftStartOrder(second) ||
         first.scheduleRoleName.localeCompare(second.scheduleRoleName, 'zh-Hans-CN') ||
         first.slotPosition - second.slotPosition ||
         first.schedulePeriodId.localeCompare(second.schedulePeriodId),
@@ -141,6 +142,18 @@ export function groupAssignmentsByDate(
   }
 
   return byDate;
+}
+
+function getShiftStartOrder(assignment: CalendarDutyAssignment): number {
+  const shiftedMinutes = minutesInChinaStandardTime(assignment.startsAt);
+  // 00:00（跨日凌晨班，如 N 班）按当日最后排序，使 A/P/N 按时间顺序显示。
+  return shiftedMinutes === 0 ? 24 * 60 : shiftedMinutes;
+}
+
+function minutesInChinaStandardTime(value: string): number {
+  const total = Date.parse(value) + chinaStandardTimeOffsetMilliseconds;
+  const dayStart = Math.floor(total / 86_400_000) * 86_400_000;
+  return Math.floor((total - dayStart) / 60_000);
 }
 
 export function buildDayList(

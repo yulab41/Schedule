@@ -86,6 +86,7 @@ export interface ManualApplyPreview {
 export interface PreviewManualTemplateApplyRequest {
   readonly endDate?: string;
   readonly expectedRulesVersion: number;
+  readonly startDate?: string;
 }
 
 export interface ApplyManualScheduleTemplateRequest {
@@ -97,6 +98,7 @@ export interface ApplyManualScheduleTemplateRequest {
   readonly publishMode?: SchedulePublishMode;
   readonly replacePublished?: boolean;
   readonly replaceExistingDrafts?: boolean;
+  readonly startDate?: string;
 }
 
 export interface AppliedManualScheduleTemplateResult {

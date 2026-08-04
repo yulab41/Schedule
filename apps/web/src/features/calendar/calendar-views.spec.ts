@@ -106,4 +106,19 @@ describe('Calendar view helpers', () => {
     expect(days[1]?.businessDate).toBe('2026-08-05');
     expect(days[1]?.isToday).toBe(false);
   });
+
+  it('orders multiple shift types on the same day by shift start time', () => {
+    const assignments = [
+      assignment('2026-08-05', 1),
+      { ...assignment('2026-08-05', 2), startsAt: '2026-08-05T08:00:00.000Z' },
+      { ...assignment('2026-08-05', 3), startsAt: '2026-08-04T16:00:00.000Z' },
+    ];
+    const grouped = groupAssignmentsByDate(assignments);
+    const day = grouped.get('2026-08-05') ?? [];
+    expect(day.map((item) => item.startsAt)).toEqual([
+      '2026-08-05T00:00:00.000Z',
+      '2026-08-05T08:00:00.000Z',
+      '2026-08-04T16:00:00.000Z',
+    ]);
+  });
 });

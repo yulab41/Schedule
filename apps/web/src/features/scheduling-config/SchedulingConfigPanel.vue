@@ -18,13 +18,7 @@ interface ShiftTypeDraft {
 }
 
 interface RoleDraft {
-  currentPosition: number;
-  defaultShiftTypeId: string;
   memberIds: string[];
-  positions: Record<string, number>;
-  requiredMembersPerDay: number;
-  startDate: string;
-  startingMemberScheduleRoleId: string;
 }
 
 const props = defineProps<{
@@ -88,7 +82,7 @@ async function createRole(): Promise<void> {
   await save(async () => {
     await api.createScheduleRole(props.group.id, { name: newRoleName.value });
     newRoleName.value = '';
-    infoMessage.value = '排班岗位已创建，请配置成员和轮值规则。';
+    infoMessage.value = '排班岗位已创建，请配置参与成员。';
   });
 }
 
@@ -98,34 +92,6 @@ async function saveRoleMembers(role: ScheduleRole): Promise<void> {
       membershipIds: getRoleDraft(role.id).memberIds,
     });
     infoMessage.value = '排班岗位成员已保存。';
-  });
-}
-
-async function saveRoleOrder(role: ScheduleRole): Promise<void> {
-  await save(async () => {
-    const draft = getRoleDraft(role.id);
-    await api.reorderRotationMembers(props.group.id, role.id, {
-      members: role.members.map((member) => ({
-        position: Number(draft.positions[member.id]),
-        scheduleRoleMemberId: member.id,
-      })),
-    });
-    infoMessage.value = '轮值顺序已保存。';
-  });
-}
-
-async function saveRotationRule(role: ScheduleRole): Promise<void> {
-  await save(async () => {
-    const draft = getRoleDraft(role.id);
-    await api.updateRotationRule(props.group.id, role.id, {
-      currentPosition: Number(draft.currentPosition),
-      defaultShiftTypeId: draft.defaultShiftTypeId,
-      requiredMembersPerDay: Number(draft.requiredMembersPerDay),
-      startDate: draft.startDate === '' ? null : draft.startDate,
-      startingMemberScheduleRoleId:
-        draft.startingMemberScheduleRoleId === '' ? null : draft.startingMemberScheduleRoleId,
-    });
-    infoMessage.value = '轮值规则已保存。';
   });
 }
 
@@ -215,13 +181,7 @@ function toShiftTypeInput(draft: ShiftTypeDraft): ShiftTypeInput {
 
 function toRoleDraft(role: ScheduleRole): RoleDraft {
   return {
-    currentPosition: role.rotationRule.currentPosition,
-    defaultShiftTypeId: role.rotationRule.defaultShiftTypeId,
     memberIds: role.members.map((member) => member.membershipId),
-    positions: Object.fromEntries(role.members.map((member) => [member.id, member.position])),
-    requiredMembersPerDay: role.rotationRule.requiredMembersPerDay,
-    startDate: role.rotationRule.startDate ?? '',
-    startingMemberScheduleRoleId: role.rotationRule.startingMemberScheduleRoleId ?? '',
   };
 }
 
@@ -352,7 +312,7 @@ function getErrorMessage(error: unknown): string {
         </div>
       </t-card>
 
-      <t-card title="排班岗位与轮值" class="scheduling-config-card">
+      <t-card title="排班岗位" class="scheduling-config-card">
         <p>排班岗位指值班班次岗位（如一线、二线），不是成员姓名。</p>
         <form class="new-role-form" @submit.prevent="createRole">
           <label>岗位名称<input v-model="newRoleName" maxlength="100" required /></label>
@@ -379,61 +339,6 @@ function getErrorMessage(error: unknown): string {
               保存成员
             </t-button>
           </fieldset>
-          <fieldset>
-            <legend>轮值顺序</legend>
-            <label v-for="member in role.members" :key="member.id">
-              {{ member.realName }}
-              <input
-                v-model.number="getRoleDraft(role.id).positions[member.id]"
-                min="1"
-                type="number"
-              />
-            </label>
-            <t-button variant="outline" :loading="isSaving" @click="saveRoleOrder(role)">
-              保存顺序
-            </t-button>
-          </fieldset>
-          <fieldset class="rotation-rule-editor">
-            <legend>轮值规则</legend>
-            <label>
-              默认班种
-              <select v-model="getRoleDraft(role.id).defaultShiftTypeId">
-                <option
-                  v-for="shiftType in config.shiftTypes.filter((item) => item.isEnabled)"
-                  :key="shiftType.id"
-                  :value="shiftType.id"
-                >
-                  {{ shiftType.name }}（{{ shiftType.abbreviation }}）
-                </option>
-              </select>
-            </label>
-            <label
-              >每天人数<input
-                v-model.number="getRoleDraft(role.id).requiredMembersPerDay"
-                min="1"
-                max="100"
-                type="number"
-            /></label>
-            <label>起始日期<input v-model="getRoleDraft(role.id).startDate" type="date" /></label>
-            <label>
-              起始成员
-              <select v-model="getRoleDraft(role.id).startingMemberScheduleRoleId">
-                <option value="">未设置</option>
-                <option v-for="member in role.members" :key="member.id" :value="member.id">
-                  {{ member.realName }}
-                </option>
-              </select>
-            </label>
-            <label
-              >当前游标<input
-                v-model.number="getRoleDraft(role.id).currentPosition"
-                min="1"
-                type="number"
-            /></label>
-            <t-button variant="outline" :loading="isSaving" @click="saveRotationRule(role)">
-              保存规则
-            </t-button>
-          </fieldset>
         </article>
       </t-card>
     </template>
@@ -441,6 +346,113 @@ function getErrorMessage(error: unknown): string {
 </template>
 
 <style scoped>
+.scheduling-config-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.scheduling-config-card :deep(.t-card__body) {
+  display: grid;
+  gap: 10px;
+}
+
+.scheduling-config-card > p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.shift-editor {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px 10px;
+  align-items: center;
+  padding: 10px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.shift-editor label {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.shift-editor input,
+.shift-editor select {
+  min-height: 30px;
+  padding: 4px 6px;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+}
+
+.shift-editor input[type='checkbox'] {
+  min-height: auto;
+}
+
+.shift-type-list {
+  display: grid;
+  gap: 8px;
+}
+
+.shift-color-preview {
+  display: inline-grid;
+  min-width: 28px;
+  min-height: 28px;
+  place-items: center;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.new-role-form,
+.schedule-role-editor fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.new-role-form label,
+.schedule-role-editor fieldset label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: #374151;
+  font-size: 13px;
+}
+
+.new-role-form input {
+  min-height: 30px;
+  padding: 4px 6px;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+}
+
+.schedule-role-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #dbe3ea;
+  border-radius: 6px;
+}
+
+.schedule-role-editor fieldset {
+  margin: 0;
+}
+
+.schedule-role-editor fieldset legend {
+  padding: 0 6px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .role-editor-header {
   display: flex;
   align-items: center;

@@ -24,6 +24,7 @@ import {
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
+import { getBusinessDate } from '../../features/calendar/calendar-views.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import ApplyTemplateDialog from '../../features/manual-schedule/ApplyTemplateDialog.vue';
 import ClearActions from '../../features/manual-schedule/ClearActions.vue';
@@ -38,6 +39,7 @@ import {
   createTemplateUndoStack,
   findPublishedOverlapMonths,
   formatScheduleDraftCode,
+  getNextAvailableStartDate,
   getTemplateDateColumns,
   templateToCellMap,
   type ManualGridRow,
@@ -61,6 +63,7 @@ const startDate = ref(getCurrentBusinessMonth() + '-01');
 const cycleDays = ref(7);
 const cells = ref<TemplateCellMap>(new Map());
 const selectedCell = ref<ManualGridSelection>();
+const activeShiftTypeId = ref<string>();
 const staleMemberIds = ref<string[]>([]);
 const staleCellKeys = ref<ReadonlySet<string>>(new Set());
 const undoStack = reactive(createTemplateUndoStack());
@@ -85,6 +88,7 @@ const periodCalendar = ref<CalendarReadModel>();
 const isPreviewingDraftId = ref<string>();
 const draftPreviewError = ref<string>();
 const applyTarget = ref<ManualScheduleTemplate>();
+const applyStartDate = ref('');
 const periodMutationVisible = ref(false);
 const periodMutationTarget = ref<SchedulePeriodHistoryItem>();
 const periodMutationAction = ref<'publish' | 'withdraw'>('withdraw');
@@ -319,7 +323,11 @@ function openTemplate(template: ManualScheduleTemplate): void {
   selectedTemplateId.value = template.id;
   scheduleRoleId.value = template.scheduleRoleId;
   membershipIds.value = template.members.map((member) => member.membershipId);
-  startDate.value = template.startDate;
+  startDate.value = getNextAvailableStartDate(
+    history.value,
+    template.scheduleRoleId,
+    getBusinessDate(),
+  );
   cycleDays.value = template.cycleDays;
   cells.value = templateToCellMap(template);
   staleMemberIds.value = template.members
@@ -331,6 +339,7 @@ function openTemplate(template: ManualScheduleTemplate): void {
       .map((cell) => createCellKey(cell.cycleDay, cell.membershipId)),
   );
   selectedCell.value = undefined;
+  activeShiftTypeId.value = undefined;
   undoStack.clear();
 }
 
@@ -342,6 +351,8 @@ function resetEditor(): void {
   cycleDays.value = 7;
   cells.value = new Map();
   selectedCell.value = undefined;
+  activeShiftTypeId.value = undefined;
+  applyStartDate.value = '';
   staleMemberIds.value = [];
   staleCellKeys.value = new Set();
   undoStack.clear();
@@ -360,29 +371,27 @@ function toggleMember(membershipId: string): void {
   }
 }
 
-function selectCell(selection: ManualGridSelection): void {
+function handleCellClick(selection: ManualGridSelection): void {
   selectedCell.value =
     selectedCell.value !== undefined &&
     selectedCell.value.cycleDay === selection.cycleDay &&
     selectedCell.value.membershipId === selection.membershipId
       ? undefined
       : selection;
+  if (activeShiftTypeId.value !== undefined) {
+    pushUndo();
+    cells.value = applyShiftToCell(
+      cells.value,
+      selection.cycleDay,
+      selection.membershipId,
+      activeShiftTypeId.value,
+    );
+    infoMessage.value = undefined;
+  }
 }
 
-function applyShift(shiftTypeId: string): void {
-  if (selectedCell.value === undefined) {
-    infoMessage.value = '请先点击一个单元格，再选择班种。';
-    return;
-  }
-
-  pushUndo();
-  cells.value = applyShiftToCell(
-    cells.value,
-    selectedCell.value.cycleDay,
-    selectedCell.value.membershipId,
-    shiftTypeId,
-  );
-  infoMessage.value = undefined;
+function selectShiftType(shiftTypeId: string): void {
+  activeShiftTypeId.value = activeShiftTypeId.value === shiftTypeId ? undefined : shiftTypeId;
 }
 
 function clearSelectedCell(): void {
@@ -519,6 +528,11 @@ function refreshAfterConflict(): void {
 function openApplyDialog(): void {
   const template = templates.value.find((candidate) => candidate.id === selectedTemplateId.value);
   if (template !== undefined) {
+    applyStartDate.value = getNextAvailableStartDate(
+      history.value,
+      template.scheduleRoleId,
+      getBusinessDate(),
+    );
     applyTarget.value = template;
   }
 }
@@ -843,7 +857,7 @@ function onWindowFocus(): void {
 
       <template v-if="rows.length > 0 && columns.length > 0">
         <p class="grid-hint">
-          表格方向：值班人员为行（↓），日期为列（→），点选单元格后从下方班种按钮填充。
+          表格方向：值班人员为行（↓），日期为列（→）；先点击班种保持选中，再点击单元格即可填充；再次点击同班种取消选择。
         </p>
         <ManualGrid
           :cells="cells"
@@ -853,9 +867,13 @@ function onWindowFocus(): void {
           :selected-cell="selectedCell"
           :shift-types="enabledShiftTypes"
           :stale-cell-keys="staleCellKeys"
-          @select-cell="selectCell"
+          @select-cell="handleCellClick"
         />
-        <ShiftPalette :shift-types="enabledShiftTypes" @select="applyShift" />
+        <ShiftPalette
+          :active-shift-type-id="activeShiftTypeId"
+          :shift-types="enabledShiftTypes"
+          @select="selectShiftType"
+        />
         <ClearActions
           :can-clear-cell="canClearCell"
           :can-undo="canUndo"
@@ -1075,6 +1093,7 @@ function onWindowFocus(): void {
     <ApplyTemplateDialog
       v-if="applyTarget !== undefined"
       :group="group"
+      :start-date="applyStartDate"
       :template="applyTarget"
       @applied="onApplied"
       @close="applyTarget = undefined"

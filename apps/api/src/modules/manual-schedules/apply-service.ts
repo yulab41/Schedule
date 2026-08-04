@@ -115,6 +115,7 @@ export class ManualScheduleApplyService {
         templateId,
         input.expectedRulesVersion,
         input.endDate,
+        input.startDate,
       );
 
       return context.preview;
@@ -150,6 +151,7 @@ export class ManualScheduleApplyService {
               publishMode: input.publishMode ?? null,
               replacePublished: input.replacePublished === true,
               replaceExistingDrafts: input.replaceExistingDrafts === true,
+              startDate: input.startDate ?? null,
               templateId,
             }),
             scope: 'manual_schedule_template_apply',
@@ -182,6 +184,7 @@ export class ManualScheduleApplyService {
       templateId,
       input.expectedRulesVersion,
       input.endDate,
+      input.startDate,
     );
     const publishMode = input.publishMode ?? authorization.group.schedulePublishMode;
     assertPublicationBlockers(context.preview, publishMode, input.acknowledgeBlockers === true);
@@ -335,6 +338,7 @@ export class ManualScheduleApplyService {
     templateId: string,
     expectedRulesVersion: number,
     endDate: string | undefined,
+    startDate: string | undefined,
   ): Promise<ApplyContext> {
     if (authorization.group.rulesVersion !== expectedRulesVersion) {
       throw new ApiError({
@@ -346,6 +350,7 @@ export class ManualScheduleApplyService {
     }
 
     const template = await this.lockTemplate(transaction, authorization.group.id, templateId);
+    const applyStartDate = startDate ?? template.startDate;
     const [role] = await transaction
       .select({ name: scheduleRoles.name })
       .from(scheduleRoles)
@@ -451,13 +456,13 @@ export class ManualScheduleApplyService {
       members,
       scheduleRoleId: template.scheduleRoleId,
       shiftTypes: distinctShiftTypes,
-      startDate: template.startDate,
+      startDate: applyStartDate,
     });
 
     return {
       assignments: domainResult.assignments,
       preview: buildPreview({
-        applyStartDate: template.startDate,
+        applyStartDate,
         cycleDays: template.cycleDays,
         domainResult,
         endDate,
@@ -853,6 +858,7 @@ function createApplyFingerprint(input: {
   readonly publishMode: string | null;
   readonly replacePublished: boolean;
   readonly replaceExistingDrafts: boolean;
+  readonly startDate: string | null;
   readonly templateId: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');

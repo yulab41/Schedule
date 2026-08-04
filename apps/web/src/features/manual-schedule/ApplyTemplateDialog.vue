@@ -18,6 +18,7 @@ import { getTemplateDateColumns } from './manual-schedule-logic.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
+  readonly startDate: string;
   readonly template: ManualScheduleTemplate;
 }>();
 
@@ -27,6 +28,7 @@ const emit = defineEmits<{
 }>();
 
 const api = createApiClient({ auth: cloudbaseAuth });
+const rangeStart = computed(() => props.startDate || props.template.startDate);
 const config = ref<SchedulingConfig>();
 const publishMode = ref<GroupSchedulePublishMode>();
 const drafts = ref<ScheduleDraftSummary[]>([]);
@@ -102,8 +104,8 @@ async function computePreview(): Promise<void> {
   if (config.value === undefined) {
     return;
   }
-  if (repeatEnabled.value && endDate.value < props.template.startDate) {
-    errorMessage.value = '结束日期不能早于模板开始日期。';
+  if (repeatEnabled.value && endDate.value < rangeStart.value) {
+    errorMessage.value = '结束日期不能早于应用开始日期。';
     return;
   }
 
@@ -113,6 +115,7 @@ async function computePreview(): Promise<void> {
     preview.value = await api.previewManualTemplateApply(props.group.id, props.template.id, {
       expectedRulesVersion: config.value.rulesVersion,
       ...(repeatEnabled.value ? { endDate: endDate.value } : {}),
+      startDate: rangeStart.value,
     });
     acknowledgeBlockers.value = false;
     replaceExistingDrafts.value = false;
@@ -164,6 +167,7 @@ async function apply(): Promise<void> {
       ...(replacePublished.value ? { replacePublished: true } : {}),
       ...(replaceExistingDrafts.value ? { replaceExistingDrafts: true } : {}),
       ...(repeatEnabled.value ? { endDate: endDate.value } : {}),
+      startDate: rangeStart.value,
     });
     emit('applied', result);
   } catch (error) {
@@ -198,8 +202,8 @@ function close(): void {
 }
 
 function getDefaultEndDate(): string {
-  const columns = getTemplateDateColumns(props.template.startDate, props.template.cycleDays);
-  return columns[columns.length - 1]?.date ?? props.template.startDate;
+  const columns = getTemplateDateColumns(rangeStart.value, props.template.cycleDays);
+  return columns[columns.length - 1]?.date ?? rangeStart.value;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -241,15 +245,15 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
         <dl class="template-summary">
           <div>
             <dt>模板</dt>
-            <dd>{{ template.startDate }} 起 · {{ template.cycleDays }} 天周期</dd>
+            <dd>{{ template.cycleDays }} 天周期</dd>
           </div>
           <div>
             <dt>应用范围</dt>
             <dd>
               {{
                 repeatEnabled
-                  ? `${template.startDate} 至 ${endDate}`
-                  : `仅一轮（${template.startDate} 至 ${getDefaultEndDate()}）`
+                  ? `${rangeStart} 至 ${endDate}`
+                  : `仅一轮（${rangeStart} 至 ${getDefaultEndDate()}）`
               }}
             </dd>
           </div>

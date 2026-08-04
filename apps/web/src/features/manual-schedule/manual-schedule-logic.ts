@@ -176,6 +176,20 @@ export function findPublishedOverlapMonths(
   ].sort();
 }
 
+export function getNextAvailableStartDate(
+  history: readonly SchedulePeriodHistoryItem[],
+  scheduleRoleId: string,
+  fallbackDate: string,
+): string {
+  const latestEnd = history
+    .filter((item) => item.scheduleRoleId === scheduleRoleId)
+    .map((item) => item.applyEndDate ?? `${item.businessMonth.slice(0, 7)}-01`)
+    .filter((value) => isValidDate(value))
+    .sort()
+    .at(-1);
+  return latestEnd === undefined ? fallbackDate : addDays(latestEnd, 1);
+}
+
 function addDays(value: string, days: number): string {
   const { day, month, year } = parseDate(value);
   const date = new Date(Date.UTC(year, month - 1, day + days));

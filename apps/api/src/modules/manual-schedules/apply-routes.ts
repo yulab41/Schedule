@@ -12,6 +12,7 @@ const groupIdSchema = z.string().uuid();
 const templateIdSchema = z.string().uuid();
 const operationIdSchema = z.string().uuid();
 const endDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const startDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const rulesVersionSchema = z.number().int().min(1);
 const publishModeSchema = z.enum(['draft', 'published']);
 
@@ -19,6 +20,7 @@ const previewInputSchema = z
   .object({
     endDate: endDateSchema.optional(),
     expectedRulesVersion: rulesVersionSchema,
+    startDate: startDateSchema.optional(),
   })
   .strict();
 
@@ -32,6 +34,7 @@ const applyInputSchema = z
     publishMode: publishModeSchema.optional(),
     replacePublished: z.boolean().optional(),
     replaceExistingDrafts: z.boolean().optional(),
+    startDate: startDateSchema.optional(),
   })
   .strict();
 
@@ -89,6 +92,7 @@ function parsePreviewInput(value: unknown): PreviewManualTemplateApplyRequest {
   return {
     expectedRulesVersion: input.expectedRulesVersion,
     ...(input.endDate === undefined ? {} : { endDate: input.endDate }),
+    ...(input.startDate === undefined ? {} : { startDate: input.startDate }),
   };
 }
 
@@ -109,6 +113,7 @@ function parseApplyInput(value: unknown): ApplyManualScheduleTemplateRequest {
     ...(input.replaceExistingDrafts === undefined
       ? {}
       : { replaceExistingDrafts: input.replaceExistingDrafts }),
+    ...(input.startDate === undefined ? {} : { startDate: input.startDate }),
   };
 }
 

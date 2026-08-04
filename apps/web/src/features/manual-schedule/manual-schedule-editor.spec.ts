@@ -13,6 +13,7 @@ import {
   createTemplateUndoStack,
   findPublishedOverlapMonths,
   formatScheduleDraftCode,
+  getNextAvailableStartDate,
   getTemplateCellShiftTypeId,
   getTemplateDateColumns,
   isShiftTypeFillable,
@@ -52,6 +53,28 @@ describe('manual schedule template editor logic', () => {
     expect(getTemplateCellShiftTypeId(cleared, 1, 'member-1')).toBeUndefined();
     expect(getTemplateCellShiftTypeId(cleared, 2, 'member-1')).toBe('shift-b');
     expect(cleared.size).toBe(2);
+  });
+
+  it('computes the next available start date after the latest scheduled range', () => {
+    const history = [
+      {
+        applyEndDate: '2026-10-31',
+        businessMonth: '2026-10-01',
+        id: 'period-1',
+        scheduleRoleId: 'role-1',
+        status: 'published',
+      },
+      {
+        applyEndDate: '2026-09-30',
+        businessMonth: '2026-09-01',
+        id: 'period-2',
+        scheduleRoleId: 'role-2',
+        status: 'draft',
+      },
+    ] as unknown as SchedulePeriodHistoryItem[];
+
+    expect(getNextAvailableStartDate(history, 'role-1', '2026-08-01')).toBe('2026-11-01');
+    expect(getNextAvailableStartDate(history, 'role-3', '2026-08-01')).toBe('2026-08-01');
   });
 
   it('clears a whole row or column without touching other ranges', () => {

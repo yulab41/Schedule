@@ -2,6 +2,7 @@
 import type { ShiftType } from '@schedule/contracts';
 
 defineProps<{
+  readonly activeShiftTypeId: string | undefined;
   readonly shiftTypes: readonly ShiftType[];
 }>();
 
@@ -21,6 +22,7 @@ const emit = defineEmits<{
         v-for="shiftType in shiftTypes"
         :key="shiftType.id"
         type="button"
+        :class="{ 'is-active': activeShiftTypeId === shiftType.id }"
         :style="{ backgroundColor: shiftType.color, color: shiftType.textColor }"
         :title="shiftType.name"
         @click="emit('select', shiftType.id)"
@@ -70,6 +72,11 @@ const emit = defineEmits<{
 
 .palette-buttons button:hover {
   filter: brightness(1.08);
+}
+
+.palette-buttons button.is-active {
+  outline: 3px solid #1f5aa6;
+  outline-offset: 2px;
 }
 
 .palette-buttons button:focus-visible {
