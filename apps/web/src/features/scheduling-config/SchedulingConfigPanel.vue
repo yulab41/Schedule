@@ -375,8 +375,8 @@ function getErrorMessage(error: unknown): string {
 .shift-editor {
   display: grid;
   grid-template-columns:
-    auto minmax(120px, 1.4fr) minmax(70px, 1fr) auto minmax(0, 1fr) minmax(100px, 1fr)
-    minmax(100px, 1fr) auto auto auto auto;
+    auto minmax(0, 130px) minmax(0, 90px) auto minmax(0, 1fr) minmax(0, 110px) minmax(0, 110px)
+    auto auto auto auto;
   gap: 6px 10px;
   align-items: center;
   padding: 8px 10px;
@@ -387,8 +387,8 @@ function getErrorMessage(error: unknown): string {
 
 .new-shift-editor {
   grid-template-columns:
-    auto auto minmax(120px, 1.4fr) minmax(70px, 1fr) auto minmax(0, 1fr)
-    minmax(100px, 1fr) minmax(100px, 1fr) auto auto auto auto;
+    auto auto minmax(0, 130px) minmax(0, 90px) auto minmax(0, 1fr) minmax(0, 110px)
+    minmax(0, 110px) auto auto auto auto;
 }
 
 .shift-editor .shift-color-preview {
@@ -482,16 +482,32 @@ function getErrorMessage(error: unknown): string {
 .shift-editor label {
   display: grid;
   gap: 2px;
+  min-width: 0;
   font-size: 13px;
   color: #374151;
 }
 
-.shift-editor input,
+.shift-editor input:not([type='checkbox']):not([type='color']),
 .shift-editor select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 30px;
   padding: 4px 6px;
   border: 1px solid #9ca3af;
   border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.shift-editor input[type='color'] {
+  width: 100%;
+  min-width: 0;
+  max-width: 44px;
+  min-height: 30px;
+  padding: 2px;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .shift-editor input[type='checkbox'] {
