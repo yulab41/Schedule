@@ -65,6 +65,20 @@ describe('manual schedule template editor logic', () => {
         status: 'published',
       },
       {
+        applyEndDate: '2027-03-08',
+        businessMonth: '2027-03-01',
+        id: 'period-archived',
+        scheduleRoleId: 'role-1',
+        status: 'replaced',
+      },
+      {
+        applyEndDate: '2027-03-31',
+        businessMonth: '2027-03-01',
+        id: 'period-deleted',
+        scheduleRoleId: 'role-1',
+        status: 'withdrawn',
+      },
+      {
         applyEndDate: '2026-09-30',
         businessMonth: '2026-09-01',
         id: 'period-2',

@@ -1327,9 +1327,28 @@ export class LeaveService {
         (assignment.plannedMembershipId === leaveRequest.membershipId ||
           assignment.actualMembershipId === leaveRequest.membershipId),
     ).length;
+    const affectedShifts = assignments
+      .filter(
+        (assignment) =>
+          assignment.businessDate >= leaveStartDate &&
+          assignment.businessDate <= leaveEndDate &&
+          (assignment.plannedMembershipId === leaveRequest.membershipId ||
+            assignment.actualMembershipId === leaveRequest.membershipId),
+      )
+      .map((assignment) => {
+        const memberName = assignment.actualMemberName ?? assignment.plannedMemberName ?? undefined;
+        return {
+          businessDate: assignment.businessDate,
+          ...(memberName === undefined ? {} : { memberName }),
+          shiftTypeAbbreviation: assignment.shiftTypeAbbreviation,
+          shiftTypeName: assignment.shiftTypeName,
+        };
+      })
+      .sort((first, second) => first.businessDate.localeCompare(second.businessDate));
 
     const preview = this.buildPreview({
       affectedShiftCount,
+      affectedShifts,
       domainResult,
       group,
       leaveRequest,
@@ -1354,6 +1373,12 @@ export class LeaveService {
 
   private buildPreview(input: {
     readonly affectedShiftCount: number;
+    readonly affectedShifts: readonly {
+      readonly businessDate: string;
+      readonly memberName?: string;
+      readonly shiftTypeAbbreviation: string;
+      readonly shiftTypeName: string;
+    }[];
     readonly domainResult: ReturnType<typeof reflowLeaveAssignments>;
     readonly group: ActiveGroup;
     readonly leaveRequest: LockedLeaveRequest;
@@ -1405,6 +1430,7 @@ export class LeaveService {
     return {
       affectedAssignments,
       affectedShiftCount: input.affectedShiftCount,
+      affectedShifts: input.affectedShifts,
       conflicts: input.domainResult.conflicts.map((conflict): LeaveReflowConflict => {
         const memberName = input.memberNamesById.get(conflict.membershipId);
         return {

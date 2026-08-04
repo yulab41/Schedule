@@ -22,6 +22,13 @@ export interface LeaveAffectedShift {
   readonly shiftTypeName: string;
 }
 
+export interface LeavePreviewAffectedShift {
+  readonly businessDate: string;
+  readonly memberName?: string;
+  readonly shiftTypeAbbreviation: string;
+  readonly shiftTypeName: string;
+}
+
 export interface LeaveAffectedShiftsInput {
   readonly endsAt: string;
   readonly isAllDay?: boolean;
@@ -91,6 +98,7 @@ export interface LeaveStatisticsDelta {
 export interface LeaveReflowPreview {
   readonly affectedAssignments: readonly LeaveAffectedAssignment[];
   readonly affectedShiftCount: number;
+  readonly affectedShifts: readonly LeavePreviewAffectedShift[];
   readonly conflicts: readonly LeaveReflowConflict[];
   readonly continuousDutyWarnings: readonly ScheduleGenerationWarning[];
   readonly groupDefaultStrategy: LeaveReflowStrategy;

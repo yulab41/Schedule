@@ -617,6 +617,35 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(publishedCount).toEqual([{ count: 1 }]);
   });
 
+  it('blocks preview and apply when an approved leave overlaps the applied range', async () => {
+    const templateId = await createTemplate();
+    await client.database.execute(
+      sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day, status, reflow_strategy)
+          VALUES (${randomUUID()}, ${groupId}, ${candidateMembershipId}, 'sick',
+                  '2026-08-01 16:00:00', '2026-08-02 15:59:59', 1, 'approved', 'keep-original-order')`,
+    );
+
+    const preview = await applyPreview(templateId, { expectedRulesVersion: rulesVersion });
+    expect(preview.statusCode).toBe(409);
+    expect(preview.json()).toMatchObject({
+      error: {
+        code: 'CONFLICT',
+        message: expect.stringContaining('Candidate Doctor'),
+      },
+    });
+
+    const applied = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+      publishMode: 'published',
+    });
+    expect(applied.statusCode).toBe(409);
+    const [periodCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
+    );
+    expect(periodCount).toEqual([{ count: 0 }]);
+  });
+
   it('rejects templates that reference a disabled shift type', async () => {
     const customShift = await createEnabledShiftType();
     const templateId = await createTemplate([

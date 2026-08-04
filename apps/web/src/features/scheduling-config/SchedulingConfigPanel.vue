@@ -229,18 +229,26 @@ function getErrorMessage(error: unknown): string {
       <t-card title="班种" class="scheduling-config-card">
         <p>全天班固定为 08:00 至次日 08:00。其他预建班种需先填写时间，才可启用。</p>
         <form class="shift-editor new-shift-editor" @submit.prevent="createShift">
-          <strong>新增自定义班种</strong>
-          <label>名称<input v-model="newShift.name" maxlength="100" required /></label>
-          <label>简称<input v-model="newShift.abbreviation" maxlength="16" required /></label>
-          <label>颜色<input v-model="newShift.color" type="color" /></label>
+          <strong class="new-shift-title">新增自定义班种</strong>
+          <label class="field-name"
+            >名称<input v-model="newShift.name" maxlength="100" required
+          /></label>
+          <label class="field-abbreviation"
+            >简称<input v-model="newShift.abbreviation" maxlength="16" required
+          /></label>
+          <label class="field-color">颜色<input v-model="newShift.color" type="color" /></label>
           <span v-if="hasInsufficientContrast(newShift)" class="contrast-warning" role="status">
-            对比度不足 4.5:1，建议选择更深或更浅的颜色。
+            对比度不足 4.5:1
           </span>
-          <label>开始<input v-model="newShift.startTime" type="time" /></label>
-          <label>结束<input v-model="newShift.endTime" type="time" /></label>
-          <label><input v-model="newShift.crossesMidnight" type="checkbox" /> 跨日</label>
-          <label><input v-model="newShift.isEnabled" type="checkbox" /> 启用</label>
-          <label
+          <label class="field-start">开始<input v-model="newShift.startTime" type="time" /></label>
+          <label class="field-end">结束<input v-model="newShift.endTime" type="time" /></label>
+          <label class="field-crosses-midnight"
+            ><input v-model="newShift.crossesMidnight" type="checkbox" /> 跨日</label
+          >
+          <label class="field-enabled"
+            ><input v-model="newShift.isEnabled" type="checkbox" /> 启用</label
+          >
+          <label class="field-counts"
             ><input v-model="newShift.countsTowardStatistics" type="checkbox" /> 计入统计</label
           >
           <t-button theme="primary" type="submit" :loading="isSaving">新增班种</t-button>
@@ -255,36 +263,39 @@ function getErrorMessage(error: unknown): string {
             <span class="shift-color-preview" :style="previewStyle(getShiftDraft(shiftType.id))">
               {{ getShiftDraft(shiftType.id).abbreviation || '班' }}
             </span>
-            <label
+            <label class="field-name"
               >名称<input v-model="getShiftDraft(shiftType.id).name" maxlength="100" required
             /></label>
-            <label
+            <label class="field-abbreviation"
               >简称<input
                 v-model="getShiftDraft(shiftType.id).abbreviation"
                 maxlength="16"
                 required
             /></label>
-            <label>颜色<input v-model="getShiftDraft(shiftType.id).color" type="color" /></label>
+            <label class="field-color"
+              >颜色<input v-model="getShiftDraft(shiftType.id).color" type="color"
+            /></label>
             <span
               v-if="hasInsufficientContrast(getShiftDraft(shiftType.id))"
               class="contrast-warning"
               role="status"
+              title="建议选择更深或更浅的颜色。"
             >
-              对比度不足 4.5:1，建议选择更深或更浅的颜色。
+              对比度不足 4.5:1
             </span>
-            <label
+            <label class="field-start"
               >开始<input
                 v-model="getShiftDraft(shiftType.id).startTime"
                 :disabled="shiftType.isAllDay"
                 type="time"
             /></label>
-            <label
+            <label class="field-end"
               >结束<input
                 v-model="getShiftDraft(shiftType.id).endTime"
                 :disabled="shiftType.isAllDay"
                 type="time"
             /></label>
-            <label
+            <label class="field-crosses-midnight"
               ><input
                 v-model="getShiftDraft(shiftType.id).crossesMidnight"
                 :disabled="shiftType.isAllDay"
@@ -292,7 +303,7 @@ function getErrorMessage(error: unknown): string {
               />
               跨日</label
             >
-            <label
+            <label class="field-enabled"
               ><input
                 v-model="getShiftDraft(shiftType.id).isEnabled"
                 :disabled="shiftType.isAllDay"
@@ -300,7 +311,7 @@ function getErrorMessage(error: unknown): string {
               />
               启用</label
             >
-            <label
+            <label class="field-counts"
               ><input
                 v-model="getShiftDraft(shiftType.id).countsTowardStatistics"
                 type="checkbox"
@@ -363,13 +374,109 @@ function getErrorMessage(error: unknown): string {
 
 .shift-editor {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns:
+    auto minmax(120px, 1.4fr) minmax(70px, 1fr) auto minmax(0, 1fr) minmax(100px, 1fr)
+    minmax(100px, 1fr) auto auto auto auto;
   gap: 6px 10px;
   align-items: center;
-  padding: 10px;
+  padding: 8px 10px;
   background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
+}
+
+.new-shift-editor {
+  grid-template-columns:
+    auto auto minmax(120px, 1.4fr) minmax(70px, 1fr) auto minmax(0, 1fr)
+    minmax(100px, 1fr) minmax(100px, 1fr) auto auto auto auto;
+}
+
+.shift-editor .shift-color-preview {
+  grid-column: 1;
+}
+
+.shift-editor .field-name {
+  grid-column: 2;
+}
+
+.shift-editor .field-abbreviation {
+  grid-column: 3;
+}
+
+.shift-editor .field-color {
+  grid-column: 4;
+}
+
+.shift-editor .contrast-warning {
+  grid-column: 5;
+}
+
+.shift-editor .field-start {
+  grid-column: 6;
+}
+
+.shift-editor .field-end {
+  grid-column: 7;
+}
+
+.shift-editor .field-crosses-midnight {
+  grid-column: 8;
+}
+
+.shift-editor .field-enabled {
+  grid-column: 9;
+}
+
+.shift-editor .field-counts {
+  grid-column: 10;
+}
+
+.shift-editor > .t-button {
+  grid-column: 11;
+}
+
+.new-shift-editor .new-shift-title {
+  grid-column: 1 / 3;
+}
+
+.new-shift-editor .field-name {
+  grid-column: 3;
+}
+
+.new-shift-editor .field-abbreviation {
+  grid-column: 4;
+}
+
+.new-shift-editor .field-color {
+  grid-column: 5;
+}
+
+.new-shift-editor .contrast-warning {
+  grid-column: 6;
+}
+
+.new-shift-editor .field-start {
+  grid-column: 7;
+}
+
+.new-shift-editor .field-end {
+  grid-column: 8;
+}
+
+.new-shift-editor .field-crosses-midnight {
+  grid-column: 9;
+}
+
+.new-shift-editor .field-enabled {
+  grid-column: 10;
+}
+
+.new-shift-editor .field-counts {
+  grid-column: 11;
+}
+
+.new-shift-editor > .t-button {
+  grid-column: 12;
 }
 
 .shift-editor label {
@@ -393,7 +500,7 @@ function getErrorMessage(error: unknown): string {
 
 .shift-type-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .shift-color-preview {
@@ -468,5 +575,8 @@ function getErrorMessage(error: unknown): string {
   color: var(--ui-color-warning);
   font-size: var(--ui-font-size-sm);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

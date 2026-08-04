@@ -17,6 +17,7 @@ import type {
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   groupMemberships,
+  leaveRequests,
   manualScheduleCells,
   manualScheduleTemplateMembers,
   manualScheduleTemplates,
@@ -30,11 +31,13 @@ import {
 } from '@schedule/database';
 import {
   applyManualTemplate,
+  getChinaStandardTimeBusinessDate,
   type GeneratedRotationAssignment,
   type ManualApplyMember,
+  type ManualLeaveInterval,
   type ManualApplyShiftType,
 } from '@schedule/scheduling-domain';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -444,6 +447,18 @@ export class ManualScheduleApplyService {
         shiftTypesForApply.map((shiftType) => [shiftType.id, shiftType] as const),
       ).values(),
     ];
+    const applyEndDate = endDate ?? addDays(applyStartDate, template.cycleDays - 1);
+    const approvedLeaves = await this.loadApprovedLeavesInRange(
+      transaction,
+      authorization.group.id,
+      applyStartDate,
+      applyEndDate,
+    );
+    const leaveIntervals: ManualLeaveInterval[] = approvedLeaves.map((leave) => ({
+      endsAt: leave.endsAt,
+      membershipId: leave.membershipId,
+      startsAt: leave.startsAt,
+    }));
 
     const domainResult = applyManualTemplate({
       cells: templateCells.map((cell) => ({
@@ -453,11 +468,51 @@ export class ManualScheduleApplyService {
       })),
       cycleDays: template.cycleDays,
       ...(endDate === undefined ? {} : { endDate }),
+      leaveIntervals,
       members,
       scheduleRoleId: template.scheduleRoleId,
       shiftTypes: distinctShiftTypes,
       startDate: applyStartDate,
     });
+    const leaveConflicts = domainResult.conflicts.filter(
+      (conflict) => conflict.code === 'MEMBER_LEAVE_OVERLAP',
+    );
+    if (leaveConflicts.length > 0) {
+      const conflictMembershipIds = new Set(
+        leaveConflicts.map((conflict) => conflict.membershipId),
+      );
+      const leaveMessages = approvedLeaves
+        .filter((leave) => conflictMembershipIds.has(leave.membershipId))
+        .map((leave) => {
+          const memberName = memberNamesById.get(leave.membershipId) ?? '';
+          const startDateLabel = getChinaStandardTimeBusinessDate(leave.startsAt);
+          const endDateLabel = getChinaStandardTimeBusinessDate(leave.endsAt);
+          return `${memberName} 于 ${startDateLabel} 至 ${endDateLabel} 请假`;
+        });
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({
+          preview: buildPreview({
+            applyStartDate,
+            cycleDays: template.cycleDays,
+            domainResult,
+            endDate,
+            memberNamesById,
+            roleName: role.name,
+            rulesVersion: expectedRulesVersion,
+            scheduleRoleId: template.scheduleRoleId,
+            shiftTypesById: currentShiftTypesById,
+            templateId: template.id,
+            templateVersion: template.version,
+          }),
+        }),
+        statusCode: 409,
+        userMessage:
+          leaveMessages.length > 0
+            ? `检测到已批准请假：${leaveMessages.join('；')}。请调整排班后重新应用。`
+            : '应用范围包含已批准请假，请调整排班后重新应用。',
+      });
+    }
 
     return {
       assignments: domainResult.assignments,
@@ -476,6 +531,36 @@ export class ManualScheduleApplyService {
       }),
       template,
     };
+  }
+
+  private async loadApprovedLeavesInRange(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<
+    readonly {
+      readonly endsAt: Date;
+      readonly membershipId: string;
+      readonly startsAt: Date;
+    }[]
+  > {
+    return transaction
+      .select({
+        endsAt: leaveRequests.endsAt,
+        membershipId: leaveRequests.membershipId,
+        startsAt: leaveRequests.startsAt,
+      })
+      .from(leaveRequests)
+      .where(
+        and(
+          eq(leaveRequests.groupId, groupId),
+          eq(leaveRequests.status, 'approved'),
+          isNull(leaveRequests.deletedAt),
+          lte(leaveRequests.startsAt, new Date(`${endDate}T16:00:00.000Z`)),
+          gte(leaveRequests.endsAt, new Date(`${startDate}T00:00:00.000Z`)),
+        ),
+      );
   }
 
   private async lockTemplate(

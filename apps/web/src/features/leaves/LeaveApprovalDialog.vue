@@ -53,6 +53,7 @@ const blockerCount = computed(
 );
 const hasBlockers = computed(() => blockerCount.value > 0);
 const hasAffectedAssignments = computed(() => (preview.value?.affectedAssignments.length ?? 0) > 0);
+const affectedShifts = computed(() => preview.value?.affectedShifts ?? []);
 
 onMounted(() => {
   void loadContext();
@@ -194,6 +195,17 @@ function getErrorMessage(error: unknown): string {
 
         <template v-if="preview !== undefined">
           <p class="affected-count">请假期间涉及 {{ preview.affectedShiftCount }} 个已发布班次。</p>
+          <ul v-if="affectedShifts.length > 0" class="affected-shift-list">
+            <li
+              v-for="shift in affectedShifts"
+              :key="`${shift.businessDate}-${shift.memberName ?? ''}-${shift.shiftTypeAbbreviation}`"
+            >
+              {{ shift.businessDate }} {{ shift.shiftTypeName }}（{{
+                shift.shiftTypeAbbreviation
+              }}）：
+              {{ shift.memberName ?? '未知成员' }}
+            </li>
+          </ul>
           <p v-if="preview.overlapsUnpublishedPeriod" class="unpublished-warning">
             请假范围在未发布排班的时间段，无法调班；批准后仅记录请假，后续发布排班时将避开该成员。
           </p>
@@ -334,6 +346,17 @@ function getErrorMessage(error: unknown): string {
   border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
+}
+
+.affected-shift-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px 10px 28px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .unpublished-warning {

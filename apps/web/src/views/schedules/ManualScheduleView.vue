@@ -380,12 +380,18 @@ function handleCellClick(selection: ManualGridSelection): void {
       : selection;
   if (activeShiftTypeId.value !== undefined) {
     pushUndo();
-    cells.value = applyShiftToCell(
-      cells.value,
-      selection.cycleDay,
-      selection.membershipId,
-      activeShiftTypeId.value,
+    const currentShiftTypeId = cells.value.get(
+      createCellKey(selection.cycleDay, selection.membershipId),
     );
+    cells.value =
+      currentShiftTypeId === activeShiftTypeId.value
+        ? clearCell(cells.value, selection.cycleDay, selection.membershipId)
+        : applyShiftToCell(
+            cells.value,
+            selection.cycleDay,
+            selection.membershipId,
+            activeShiftTypeId.value,
+          );
     infoMessage.value = undefined;
   }
 }
@@ -502,6 +508,7 @@ async function save(): Promise<void> {
     infoMessage.value = '模板已保存，尚未创建任何正式班次。';
     await loadData();
     openTemplate(saved);
+    startDate.value = saved.startDate;
   } catch (error) {
     if (isDataConflictError(error)) {
       conflictMessage.value = getConflictMessage(error);
@@ -528,11 +535,7 @@ function refreshAfterConflict(): void {
 function openApplyDialog(): void {
   const template = templates.value.find((candidate) => candidate.id === selectedTemplateId.value);
   if (template !== undefined) {
-    applyStartDate.value = getNextAvailableStartDate(
-      history.value,
-      template.scheduleRoleId,
-      getBusinessDate(),
-    );
+    applyStartDate.value = startDate.value;
     applyTarget.value = template;
   }
 }

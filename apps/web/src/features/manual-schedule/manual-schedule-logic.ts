@@ -182,7 +182,7 @@ export function getNextAvailableStartDate(
   fallbackDate: string,
 ): string {
   const latestEnd = history
-    .filter((item) => item.scheduleRoleId === scheduleRoleId)
+    .filter((item) => item.scheduleRoleId === scheduleRoleId && item.status === 'published')
     .map((item) => item.applyEndDate ?? `${item.businessMonth.slice(0, 7)}-01`)
     .filter((value) => isValidDate(value))
     .sort()
