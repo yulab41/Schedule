@@ -150,6 +150,17 @@ export function registerSchedulingConfigRoutes(
         parseShiftTypeInput(request.body),
       ),
   );
+
+  app.delete(
+    '/groups/:groupId/shift-types/:shiftTypeId',
+    { preHandler: app.authenticate },
+    (request) =>
+      schedulingConfigService.deleteShiftType(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseShiftTypeId(request),
+      ),
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

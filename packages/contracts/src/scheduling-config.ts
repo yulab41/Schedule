@@ -45,6 +45,7 @@ export interface ShiftType {
   readonly endTime?: string;
   readonly id: string;
   readonly isAllDay: boolean;
+  readonly isBuiltIn: boolean;
   readonly isEnabled: boolean;
   readonly name: string;
   readonly startTime?: string;

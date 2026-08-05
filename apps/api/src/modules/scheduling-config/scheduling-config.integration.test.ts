@@ -223,6 +223,48 @@ describeWithDatabase('scheduling configuration', () => {
     });
   });
 
+  it('deletes unused custom shift types and keeps built-in shift types', async () => {
+    const groupId = await createClaimedGroup();
+    const createShift = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        abbreviation: '删',
+        color: '#111827',
+        countsTowardStatistics: true,
+        crossesMidnight: false,
+        endTime: '18:00',
+        isEnabled: true,
+        name: '可删除班种',
+        startTime: '09:00',
+      },
+      url: `/groups/${groupId}/shift-types`,
+    });
+    expect(createShift.statusCode).toBe(201);
+    const shiftType = createShift.json() as ShiftTypeResponse;
+    expect(shiftType.isBuiltIn).toBe(false);
+
+    const builtIn = (await getConfig('owner-token', groupId)).shiftTypes.find(
+      (shift) => shift.isBuiltIn,
+    );
+    expect(builtIn).toBeDefined();
+    const builtInDelete = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/shift-types/${builtIn?.id}`,
+    });
+    expect(builtInDelete.statusCode).toBe(400);
+
+    const deleted = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/shift-types/${shiftType.id}`,
+    });
+    expect(deleted.statusCode).toBe(200);
+    const configAfter = await getConfig('owner-token', groupId);
+    expect(configAfter.shiftTypes.find((shift) => shift.id === shiftType.id)).toBeUndefined();
+  });
+
   it('keeps disabled shift configuration available while blocking direct member changes', async () => {
     const groupId = await createClaimedGroup();
     const createShift = await app.inject({
@@ -386,6 +428,7 @@ interface ShiftTypeResponse {
   readonly endTime?: string;
   readonly id: string;
   readonly isAllDay: boolean;
+  readonly isBuiltIn: boolean;
   readonly isEnabled: boolean;
   readonly name: string;
   readonly startTime?: string;

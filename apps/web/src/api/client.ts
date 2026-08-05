@@ -218,6 +218,7 @@ export interface ApiClient {
   deleteGroupMember(groupId: string, memberId: string): Promise<void>;
   deleteManualScheduleTemplate(groupId: string, templateId: string): Promise<void>;
   deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
+  deleteShiftType(groupId: string, shiftTypeId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getGuestCalendar(groupCode: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   getGuestGroupCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
@@ -1030,6 +1031,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}`,
+        { method: 'DELETE' },
+        isUndefined,
+      );
+    },
+    deleteShiftType(groupId, shiftTypeId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/shift-types/${encodeURIComponent(shiftTypeId)}`,
         { method: 'DELETE' },
         isUndefined,
       );
@@ -2481,6 +2492,7 @@ function isShiftType(value: unknown): value is ShiftType {
     typeof shiftType.displayOrder === 'number' &&
     Number.isInteger(shiftType.displayOrder) &&
     typeof shiftType.isAllDay === 'boolean' &&
+    typeof shiftType.isBuiltIn === 'boolean' &&
     typeof shiftType.isEnabled === 'boolean' &&
     typeof shiftType.crossesMidnight === 'boolean' &&
     typeof shiftType.countsTowardStatistics === 'boolean' &&

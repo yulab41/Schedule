@@ -209,6 +209,7 @@ function shiftType(overrides: Partial<ShiftType>): ShiftType {
     endTime: '08:00',
     id: 'shift-1',
     isAllDay: true,
+    isBuiltIn: true,
     isEnabled: false,
     name: '全天班',
     startTime: '08:00',

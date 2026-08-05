@@ -119,13 +119,28 @@ async function deleteRole(role: ScheduleRole): Promise<void> {
     return;
   }
 
-  await save(async () => {
+  const deleted = await save(async () => {
     await api.deleteScheduleRole(props.group.id, role.id);
   });
-  infoMessage.value = `排班岗位“${role.name}”已删除。`;
+  if (deleted) {
+    infoMessage.value = `排班岗位“${role.name}”已删除。`;
+  }
 }
 
-async function save(operation: () => Promise<void>): Promise<void> {
+async function deleteShift(shiftType: ShiftType): Promise<void> {
+  if (!window.confirm(`确定删除班种“${shiftType.name}”吗？删除后不可恢复。`)) {
+    return;
+  }
+
+  const deleted = await save(async () => {
+    await api.deleteShiftType(props.group.id, shiftType.id);
+  });
+  if (deleted) {
+    infoMessage.value = `班种“${shiftType.name}”已删除。`;
+  }
+}
+
+async function save(operation: () => Promise<void>): Promise<boolean> {
   errorMessage.value = undefined;
   infoMessage.value = undefined;
   isSaving.value = true;
@@ -133,8 +148,10 @@ async function save(operation: () => Promise<void>): Promise<void> {
   try {
     await operation();
     await loadConfig();
+    return true;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
+    return false;
   } finally {
     isSaving.value = false;
   }
@@ -318,7 +335,19 @@ function getErrorMessage(error: unknown): string {
               />
               计入统计</label
             >
-            <t-button type="submit" variant="outline" :loading="isSaving">保存</t-button>
+            <div class="shift-editor-actions">
+              <t-button type="submit" variant="outline" :loading="isSaving">保存</t-button>
+              <t-button
+                v-if="!shiftType.isBuiltIn"
+                type="button"
+                theme="danger"
+                variant="text"
+                :loading="isSaving"
+                @click="deleteShift(shiftType)"
+              >
+                删除
+              </t-button>
+            </div>
           </form>
         </div>
       </t-card>
@@ -431,8 +460,11 @@ function getErrorMessage(error: unknown): string {
   grid-column: 10;
 }
 
-.shift-editor > .t-button {
+.shift-editor-actions {
   grid-column: 11;
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 
 .new-shift-editor .new-shift-title {

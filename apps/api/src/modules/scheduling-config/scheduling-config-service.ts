@@ -18,6 +18,7 @@ import {
   type DatabaseTransaction,
   groupMemberships,
   groups,
+  manualScheduleCells,
   manualScheduleTemplates,
   memberScheduleRoles,
   rotationMembers,
@@ -579,6 +580,65 @@ export class SchedulingConfigService {
     });
   }
 
+  public async deleteShiftType(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    shiftTypeId: string,
+  ): Promise<void> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const existing = await this.getShiftTypeForUpdate(
+        transaction,
+        authorization.group.id,
+        shiftTypeId,
+      );
+      if (existing.templateKey !== null) {
+        throw validationError('内置班种不能删除，只能停用。');
+      }
+
+      const [ruleUsingShiftType] = await transaction
+        .select({ id: rotationRules.id })
+        .from(rotationRules)
+        .where(
+          and(eq(rotationRules.defaultShiftTypeId, existing.id), isNull(rotationRules.deletedAt)),
+        )
+        .limit(1)
+        .for('update');
+      if (ruleUsingShiftType !== undefined) {
+        throw validationError('该班种仍被排班岗位作为默认班种使用，请先更换后再删除。');
+      }
+
+      const [cellUsingShiftType] = await transaction
+        .select({ id: manualScheduleCells.id })
+        .from(manualScheduleCells)
+        .where(
+          and(
+            eq(manualScheduleCells.shiftTypeId, existing.id),
+            isNull(manualScheduleCells.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (cellUsingShiftType !== undefined) {
+        throw validationError('该班种仍被手动排班模板使用，请先删除相关模板。');
+      }
+
+      await transaction
+        .update(shiftTypes)
+        .set({
+          deletedAt: sql`current_timestamp(3)`,
+          version: sql`${shiftTypes.version} + 1`,
+        })
+        .where(eq(shiftTypes.id, existing.id));
+      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+    });
+  }
+
   private async readConfig(
     transaction: DatabaseTransaction,
     groupId: string,
@@ -818,7 +878,12 @@ export class SchedulingConfigService {
     shiftTypeId: string,
   ) {
     const [shiftType] = await transaction
-      .select({ id: shiftTypes.id, isAllDay: shiftTypes.isAllDay, isEnabled: shiftTypes.isEnabled })
+      .select({
+        id: shiftTypes.id,
+        isAllDay: shiftTypes.isAllDay,
+        isEnabled: shiftTypes.isEnabled,
+        templateKey: shiftTypes.templateKey,
+      })
       .from(shiftTypes)
       .where(
         and(
@@ -1081,6 +1146,7 @@ function toShiftType(shiftType: typeof shiftTypes.$inferSelect): ShiftType {
     ...(shiftType.endTime === null ? {} : { endTime: normalizeTime(shiftType.endTime) }),
     id: shiftType.id,
     isAllDay: shiftType.isAllDay === 1,
+    isBuiltIn: shiftType.templateKey !== null,
     isEnabled: shiftType.isEnabled === 1,
     name: shiftType.name,
     ...(shiftType.startTime === null ? {} : { startTime: normalizeTime(shiftType.startTime) }),
