@@ -1306,7 +1306,7 @@ export class LeaveService {
     const affectedShiftCount = assignments.filter(
       (assignment) =>
         assignment.businessDate >= leaveStartDate &&
-        assignment.businessDate <= leaveEndDate &&
+        assignment.businessDate < leaveEndDate &&
         (assignment.plannedMembershipId === leaveRequest.membershipId ||
           assignment.actualMembershipId === leaveRequest.membershipId),
     ).length;
@@ -1314,7 +1314,7 @@ export class LeaveService {
       .filter(
         (assignment) =>
           assignment.businessDate >= leaveStartDate &&
-          assignment.businessDate <= leaveEndDate &&
+          assignment.businessDate < leaveEndDate &&
           (assignment.plannedMembershipId === leaveRequest.membershipId ||
             assignment.actualMembershipId === leaveRequest.membershipId),
       )

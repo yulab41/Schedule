@@ -318,6 +318,26 @@ describeWithDatabase('leave requests and reflow', () => {
     expect((created.json() as LeaveRequest).reason).toBeUndefined();
   });
 
+  it('excludes the exclusive end-date shift from affected shifts', async () => {
+    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const leaveRequestId = await createLeave(context, 'a-token', {
+      endsAt: '2026-09-04T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '截止日排他测试',
+      startsAt: '2026-09-01T00:00:00.000Z',
+    });
+
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveRequestId)
+    ).json() as LeaveReflowPreview;
+    expect(preview.affectedShiftCount).toBe(1);
+    expect(preview.affectedShifts.map((shift) => shift.businessDate)).toEqual(['2026-09-01']);
+    expect(
+      preview.affectedAssignments.some((assignment) => assignment.businessDate === '2026-09-04'),
+    ).toBe(false);
+  });
+
   it('does not count a completed historical swap as leave coverage but still allows submission', async () => {
     const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
     expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
