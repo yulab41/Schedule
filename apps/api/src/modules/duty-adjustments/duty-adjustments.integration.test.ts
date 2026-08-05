@@ -393,7 +393,7 @@ describeWithDatabase('paired duty adjustments', () => {
     ]);
   });
 
-  it('allows duty adjustment creation while the overtime member has a pending leave', async () => {
+  it('blocks duty adjustment creation while the overtime member has a pending leave', async () => {
     const context = await seedPublishedRotation();
     const leave = await submitLeave('b-token', context.groupId, {
       endsAt: '2026-09-02T00:00:00.000Z',
@@ -409,7 +409,35 @@ describeWithDatabase('paired duty adjustments', () => {
       operationId: randomUUID(),
       overtimeMembershipId: context.membershipIds.b,
     });
+    expect(created.statusCode).toBe(409);
+    expect((created.json() as ErrorResponse).error.message).toContain('请假');
+  });
+
+  it('rechecks pending leave when the overtime member accepts the duty adjustment', async () => {
+    const context = await seedPublishedRotation();
+    const created = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
     expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as DutyAdjustmentRequest;
+
+    const leave = await submitLeave('b-token', context.groupId, {
+      endsAt: '2026-09-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '接受前请假',
+      startsAt: '2026-09-01T00:00:00.000Z',
+    });
+    expect(leave.statusCode).toBe(201);
+
+    const accepted = await acceptDutyAdjustment('b-token', context.groupId, createdBody.id, {
+      expectedVersion: createdBody.version,
+      operationId: randomUUID(),
+    });
+    expect(accepted.statusCode).toBe(409);
+    expect((accepted.json() as ErrorResponse).error.message).toContain('请假');
   });
 
   it('blocks duty adjustment creation when the shift has a pending swap', async () => {

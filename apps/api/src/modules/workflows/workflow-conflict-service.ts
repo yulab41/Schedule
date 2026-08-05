@@ -17,6 +17,7 @@ export type WorkflowConflictCode =
   | 'MEMBER_LEAVE_OVERLAP'
   | 'MEMBER_TIME_OVERLAP'
   | 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST'
+  | 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT'
   | 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT';
 
 export interface WorkflowConflict {
@@ -193,6 +194,72 @@ export class WorkflowConflictService {
         code: 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT',
         membershipId: adjustment.overtimeMembershipId,
         message: '其中一个班次已有待处理的加扣班申请，请先处理后再发起换班。',
+      });
+    }
+
+    return conflicts;
+  }
+
+  public async findDutyAdjustmentAssignmentConflicts(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    coveredAssignmentId: string,
+    excludingDutyAdjustmentId: string | undefined,
+    lockRows: boolean,
+  ): Promise<readonly WorkflowConflict[]> {
+    const conflicts: WorkflowConflict[] = [];
+
+    let swapQuery = transaction
+      .select()
+      .from(swapRequests)
+      .where(
+        and(
+          eq(swapRequests.groupId, groupId),
+          inArray(swapRequests.status, ['pending_target', 'pending_approval']),
+          or(
+            eq(swapRequests.initiatorAssignmentId, coveredAssignmentId),
+            eq(swapRequests.targetAssignmentId, coveredAssignmentId),
+          ),
+          isNull(swapRequests.deletedAt),
+        ),
+      );
+    if (lockRows) {
+      swapQuery = swapQuery.for('update') as typeof swapQuery;
+    }
+    const activeSwaps = await swapQuery;
+    for (const request of activeSwaps) {
+      conflicts.push({
+        assignmentId: coveredAssignmentId,
+        code: 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST',
+        membershipId: request.initiatorMembershipId,
+        message: '该班次已有待处理的换班申请，请刷新后重试。',
+      });
+    }
+
+    let dutyQuery = transaction
+      .select()
+      .from(dutyAdjustments)
+      .where(
+        and(
+          eq(dutyAdjustments.groupId, groupId),
+          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval', 'completed']),
+          eq(dutyAdjustments.coveredAssignmentId, coveredAssignmentId),
+          isNull(dutyAdjustments.deletedAt),
+          ...(excludingDutyAdjustmentId === undefined
+            ? []
+            : [ne(dutyAdjustments.id, excludingDutyAdjustmentId)]),
+        ),
+      );
+    if (lockRows) {
+      dutyQuery = dutyQuery.for('update') as typeof dutyQuery;
+    }
+    const activeAdjustments = await dutyQuery;
+    for (const adjustment of activeAdjustments) {
+      conflicts.push({
+        assignmentId: coveredAssignmentId,
+        code: 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT',
+        membershipId: adjustment.overtimeMembershipId,
+        message: '该班次已有一组待处理或生效中的加扣班关系，请先撤销后再代值。',
       });
     }
 

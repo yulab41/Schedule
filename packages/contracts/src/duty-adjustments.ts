@@ -2,7 +2,11 @@ export type DutyAdjustmentStatus =
   'pending_target' | 'pending_approval' | 'completed' | 'rejected' | 'cancelled' | 'revoked';
 
 export type DutyAdjustmentConflictCode =
-  'MEMBER_LEAVE_OVERLAP' | 'MEMBER_NOT_ELIGIBLE' | 'MEMBER_TIME_OVERLAP';
+  | 'MEMBER_LEAVE_OVERLAP'
+  | 'MEMBER_NOT_ELIGIBLE'
+  | 'MEMBER_TIME_OVERLAP'
+  | 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST'
+  | 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT';
 
 export interface DutyAdjustmentAssignmentSummary {
   readonly actualMemberId?: string;

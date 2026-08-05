@@ -20,22 +20,15 @@ import {
   dutyAdjustments,
   groupMemberships,
   groups,
-  leaveRequests,
-  memberScheduleRoles,
   schedulePeriods,
   scheduleRoles,
   shiftAssignments,
-  swapRequests,
   userProfiles,
   users,
   withTransaction,
 } from '@schedule/database';
-import {
-  intervalsOverlap,
-  isPastBusinessDate,
-  leaveOverlapsInterval,
-} from '@schedule/scheduling-domain';
-import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { isPastBusinessDate } from '@schedule/scheduling-domain';
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -50,7 +43,11 @@ import {
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
-import { WorkflowConflictService } from '../workflows/workflow-conflict-service.js';
+import {
+  getCurrentDutyMembershipId,
+  WorkflowConflictService,
+  type WorkflowConflict,
+} from '../workflows/workflow-conflict-service.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -64,6 +61,7 @@ interface DutyAdjustmentMemberRow {
 }
 
 interface DutyAdjustmentContext {
+  readonly activeWorkflowConflicts: readonly DutyAdjustmentConflict[];
   readonly conflicts: readonly DutyAdjustmentConflict[];
   readonly coveredAssignment: LockedShiftAssignment;
   readonly coveredAssignmentVersion: number;
@@ -456,11 +454,7 @@ export class DutyAdjustmentService {
       true,
     );
     this.assertNoDutyAdjustmentConflicts(context);
-    await this.assertNoActiveWorkflows(
-      transaction,
-      authorization.group.id,
-      context.coveredAssignment.id,
-    );
+    this.assertNoActiveWorkflows(context);
 
     const dutyAdjustmentId = randomUUID();
     const status = context.nextStatus;
@@ -562,11 +556,7 @@ export class DutyAdjustmentService {
       true,
     );
     this.assertNoDutyAdjustmentConflicts(context);
-    await this.assertNoActiveWorkflows(
-      transaction,
-      authorization.group.id,
-      context.coveredAssignment.id,
-    );
+    this.assertNoActiveWorkflows(context);
 
     const dutyAdjustmentId = randomUUID();
     const decidedAt = new Date();
@@ -660,15 +650,12 @@ export class DutyAdjustmentService {
       request.coveredAssignmentId,
       request.deductedMembershipId,
       true,
+      false,
+      request.id,
     );
     this.assertStoredAssignmentVersion(context, request);
     this.assertNoDutyAdjustmentConflicts(context);
-    await this.assertNoActiveWorkflows(
-      transaction,
-      authorization.group.id,
-      context.coveredAssignment.id,
-      request.id,
-    );
+    this.assertNoActiveWorkflows(context);
 
     const nextStatus = authorization.group.dutyAdjustmentApprovalRequired
       ? 'pending_approval'
@@ -774,15 +761,12 @@ export class DutyAdjustmentService {
       request.coveredAssignmentId,
       request.deductedMembershipId,
       true,
+      false,
+      request.id,
     );
     this.assertStoredAssignmentVersion(context, request);
     this.assertNoDutyAdjustmentConflicts(context);
-    await this.assertNoActiveWorkflows(
-      transaction,
-      authorization.group.id,
-      context.coveredAssignment.id,
-      request.id,
-    );
+    this.assertNoActiveWorkflows(context);
 
     const approvedEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
@@ -1036,6 +1020,7 @@ export class DutyAdjustmentService {
       request.deductedMembershipId,
       true,
       true,
+      request.id,
     );
     const laterWorkflows = await this.workflowConflictService.findLaterAssignmentWorkflows(
       transaction,
@@ -1054,7 +1039,7 @@ export class DutyAdjustmentService {
         userMessage: '该加扣班后续还有换班或加扣班变动，请按先后顺序撤销。',
       });
     }
-    if (getDutyMembershipId(context.coveredAssignment) !== context.overtimeMember.id) {
+    if (getCurrentDutyMembershipId(context.coveredAssignment) !== context.overtimeMember.id) {
       throw new ApiError({
         code: 'CONFLICT',
         latestData: toLatestData({
@@ -1212,6 +1197,7 @@ export class DutyAdjustmentService {
     deductedMembershipId: string | null,
     lockRows = false,
     skipDeductedDutyCheck = false,
+    excludingDutyAdjustmentId?: string,
   ): Promise<DutyAdjustmentContext> {
     if (overtimeMembershipId === deductedMembershipId) {
       throw validationError('加班成员和扣班成员必须是不同成员。');
@@ -1257,7 +1243,7 @@ export class DutyAdjustmentService {
     }
 
     assertFutureShift(coveredAssignment, '被代班班次');
-    const currentDutyMembershipId = getDutyMembershipId(coveredAssignment);
+    const currentDutyMembershipId = getCurrentDutyMembershipId(coveredAssignment);
     if (currentDutyMembershipId === null) {
       throw validationError('该班次没有当值成员，无法发起加扣班。');
     }
@@ -1290,19 +1276,32 @@ export class DutyAdjustmentService {
     }
 
     const roleNamesById = await this.loadRoleNames(transaction, [period.scheduleRoleId]);
-    const conflicts = await this.findEligibilityConflicts(
-      transaction,
-      group.id,
-      overtimeMember.id,
-      coveredAssignment,
-      period.scheduleRoleId,
-      lockRows,
-    );
+    const conflicts = (
+      await this.workflowConflictService.findMemberEligibilityConflicts(
+        transaction,
+        group.id,
+        overtimeMember.id,
+        coveredAssignment,
+        period.scheduleRoleId,
+        coveredAssignment.id,
+        lockRows,
+      )
+    ).map(toDutyAdjustmentConflict);
+    const activeWorkflowConflicts = (
+      await this.workflowConflictService.findDutyAdjustmentAssignmentConflicts(
+        transaction,
+        group.id,
+        coveredAssignment.id,
+        excludingDutyAdjustmentId,
+        lockRows,
+      )
+    ).map(toDutyAdjustmentConflict);
     const requiresApproval = group.dutyAdjustmentApprovalRequired;
     const overtimeAutoAccepts = overtimeMember.autoAcceptSwaps === 1;
     const nextStatus = resolveNextDutyAdjustmentStatus(requiresApproval, overtimeAutoAccepts);
 
     return {
+      activeWorkflowConflicts,
       conflicts,
       coveredAssignment,
       coveredAssignmentVersion: coveredAssignment.version,
@@ -1313,6 +1312,7 @@ export class DutyAdjustmentService {
       overtimeMember,
       period,
       preview: buildDutyAdjustmentPreview({
+        activeWorkflowConflicts,
         conflicts,
         coveredAssignment,
         deductedMember,
@@ -1328,210 +1328,17 @@ export class DutyAdjustmentService {
     };
   }
 
-  private async findEligibilityConflicts(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    overtimeMembershipId: string,
-    coveredAssignment: LockedShiftAssignment,
-    receivedRoleId: string,
-    lockRows: boolean,
-  ): Promise<DutyAdjustmentConflict[]> {
-    const conflicts: DutyAdjustmentConflict[] = [];
-    let roleQuery = transaction
-      .select({
-        effectiveFrom: memberScheduleRoles.effectiveFrom,
-        effectiveTo: memberScheduleRoles.effectiveTo,
-        membershipDeletedAt: groupMemberships.deletedAt,
-        membershipStatus: groupMemberships.status,
-        userDeletedAt: users.deletedAt,
-        userStatus: users.status,
-      })
-      .from(memberScheduleRoles)
-      .innerJoin(groupMemberships, eq(groupMemberships.id, memberScheduleRoles.membershipId))
-      .innerJoin(users, eq(users.id, groupMemberships.userId))
-      .where(
-        and(
-          eq(memberScheduleRoles.scheduleRoleId, receivedRoleId),
-          eq(memberScheduleRoles.membershipId, overtimeMembershipId),
-          isNull(memberScheduleRoles.deletedAt),
-        ),
-      )
-      .limit(1);
-    if (lockRows) {
-      roleQuery = roleQuery.for('update') as typeof roleQuery;
-    }
-    const [roleMember] = await roleQuery;
-    const isInRole =
-      roleMember !== undefined &&
-      roleMember.membershipStatus === 'active' &&
-      roleMember.userStatus === 'active' &&
-      roleMember.membershipDeletedAt === null &&
-      roleMember.userDeletedAt === null &&
-      (roleMember.effectiveFrom === null ||
-        roleMember.effectiveFrom <= coveredAssignment.businessDate) &&
-      (roleMember.effectiveTo === null || roleMember.effectiveTo >= coveredAssignment.businessDate);
-    if (!isInRole) {
-      conflicts.push({
-        assignmentId: coveredAssignment.id,
-        code: 'MEMBER_NOT_ELIGIBLE',
-        membershipId: overtimeMembershipId,
-        message: '该成员不在班次的排班角色中或不在生效区间。',
-      });
+  private assertNoActiveWorkflows(context: DutyAdjustmentContext): void {
+    if (context.activeWorkflowConflicts.length === 0) {
+      return;
     }
 
-    const leaves = await transaction
-      .select()
-      .from(leaveRequests)
-      .where(
-        and(
-          eq(leaveRequests.groupId, groupId),
-          eq(leaveRequests.membershipId, overtimeMembershipId),
-          eq(leaveRequests.status, 'approved'),
-          isNull(leaveRequests.deletedAt),
-        ),
-      );
-    const overlappingLeave = leaves.find((leave) =>
-      leaveOverlapsInterval(leave, coveredAssignment),
-    );
-    if (overlappingLeave !== undefined) {
-      conflicts.push({
-        assignmentId: coveredAssignment.id,
-        code: 'MEMBER_LEAVE_OVERLAP',
-        membershipId: overtimeMembershipId,
-        message: '该成员在班次时间内有已批准请假。',
-      });
-    }
-
-    const conflictingAssignments = await this.findMemberTimeConflicts(
-      transaction,
-      groupId,
-      overtimeMembershipId,
-      coveredAssignment,
-    );
-    const conflictingAssignment = conflictingAssignments[0];
-    if (conflictingAssignment !== undefined) {
-      conflicts.push({
-        assignmentId: conflictingAssignment.id,
-        code: 'MEMBER_TIME_OVERLAP',
-        membershipId: overtimeMembershipId,
-        message: '该成员在班次时间内另有排班。',
-      });
-    }
-
-    return conflicts;
-  }
-
-  private async findMemberTimeConflicts(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    membershipId: string,
-    coveredAssignment: LockedShiftAssignment,
-  ): Promise<readonly LockedShiftAssignment[]> {
-    const periods = await transaction
-      .select({ id: schedulePeriods.id })
-      .from(schedulePeriods)
-      .where(
-        and(
-          eq(schedulePeriods.groupId, groupId),
-          eq(schedulePeriods.status, 'published'),
-          isNull(schedulePeriods.deletedAt),
-        ),
-      );
-    const periodIds = periods.map((period) => period.id);
-    if (periodIds.length === 0) {
-      return [];
-    }
-    const rows = await transaction
-      .select()
-      .from(shiftAssignments)
-      .where(
-        and(
-          inArray(shiftAssignments.schedulePeriodId, periodIds),
-          or(
-            eq(shiftAssignments.actualMembershipId, membershipId),
-            eq(shiftAssignments.plannedMembershipId, membershipId),
-          ),
-          isNull(shiftAssignments.deletedAt),
-        ),
-      );
-
-    return rows.filter(
-      (assignment) =>
-        assignment.id !== coveredAssignment.id &&
-        getDutyMembershipId(assignment) === membershipId &&
-        intervalsOverlap(assignment, coveredAssignment),
-    );
-  }
-
-  private async assertNoActiveWorkflows(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    coveredAssignmentId: string,
-    excludingDutyAdjustmentId?: string,
-  ): Promise<void> {
-    const activeDutyAdjustments = await this.findActiveDutyAdjustments(
-      transaction,
-      groupId,
-      [coveredAssignmentId],
-      excludingDutyAdjustmentId,
-    );
-    if (activeDutyAdjustments.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: { dutyAdjustmentIds: activeDutyAdjustments.map((request) => request.id) },
-        statusCode: 409,
-        userMessage: '该班次已有一组待处理或生效中的加扣班关系，请先撤销后再代值。',
-      });
-    }
-
-    const activeSwaps = await transaction
-      .select()
-      .from(swapRequests)
-      .where(
-        and(
-          eq(swapRequests.groupId, groupId),
-          inArray(swapRequests.status, ['pending_target', 'pending_approval']),
-          or(
-            eq(swapRequests.initiatorAssignmentId, coveredAssignmentId),
-            eq(swapRequests.targetAssignmentId, coveredAssignmentId),
-          ),
-          isNull(swapRequests.deletedAt),
-        ),
-      )
-      .for('update');
-    if (activeSwaps.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: { swapRequestIds: activeSwaps.map((request) => request.id) },
-        statusCode: 409,
-        userMessage: '该班次已有待处理的换班申请，请刷新后重试。',
-      });
-    }
-  }
-
-  private async findActiveDutyAdjustments(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    assignmentIds: readonly string[],
-    excludingDutyAdjustmentId?: string,
-  ): Promise<readonly LockedDutyAdjustment[]> {
-    const idFilter =
-      excludingDutyAdjustmentId === undefined
-        ? undefined
-        : ne(dutyAdjustments.id, excludingDutyAdjustmentId);
-    return transaction
-      .select()
-      .from(dutyAdjustments)
-      .where(
-        and(
-          eq(dutyAdjustments.groupId, groupId),
-          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval', 'completed']),
-          inArray(dutyAdjustments.coveredAssignmentId, [...assignmentIds]),
-          isNull(dutyAdjustments.deletedAt),
-          ...(idFilter === undefined ? [] : [idFilter]),
-        ),
-      )
-      .for('update');
+    throw new ApiError({
+      code: 'CONFLICT',
+      latestData: toLatestData({ conflicts: context.activeWorkflowConflicts }),
+      statusCode: 409,
+      userMessage: context.activeWorkflowConflicts.map((conflict) => conflict.message).join('；'),
+    });
   }
 
   private assertStoredAssignmentVersion(
@@ -1791,6 +1598,7 @@ export class DutyAdjustmentService {
 }
 
 function buildDutyAdjustmentPreview(input: {
+  readonly activeWorkflowConflicts: readonly DutyAdjustmentConflict[];
   readonly conflicts: readonly DutyAdjustmentConflict[];
   readonly coveredAssignment: LockedShiftAssignment;
   readonly deductedMember: DutyAdjustmentMemberRow;
@@ -1803,7 +1611,7 @@ function buildDutyAdjustmentPreview(input: {
   readonly roleNamesById: ReadonlyMap<string, string>;
 }): DutyAdjustmentPreview {
   return {
-    conflicts: input.conflicts,
+    conflicts: [...input.conflicts, ...input.activeWorkflowConflicts],
     coveredAssignment: toDutyAdjustmentAssignmentSummary(
       input.coveredAssignment.id,
       input.coveredAssignment,
@@ -1868,8 +1676,13 @@ function resolveNextDutyAdjustmentStatus(
   return requiresApproval ? 'pending_approval' : 'completed';
 }
 
-function getDutyMembershipId(assignment: LockedShiftAssignment): string | null {
-  return assignment.actualMembershipId ?? assignment.plannedMembershipId;
+function toDutyAdjustmentConflict(conflict: WorkflowConflict): DutyAdjustmentConflict {
+  return {
+    ...(conflict.assignmentId === undefined ? {} : { assignmentId: conflict.assignmentId }),
+    code: conflict.code as DutyAdjustmentConflict['code'],
+    membershipId: conflict.membershipId,
+    message: conflict.message,
+  };
 }
 
 function assertFutureShift(assignment: LockedShiftAssignment, label: string): void {
