@@ -101,6 +101,7 @@ const acknowledgePastDates = ref(false);
 const isLoadingPeriodMutation = ref(false);
 const isMutatingPeriod = ref(false);
 let requestVersion = 0;
+let midnightRefreshTimer: number | undefined;
 
 interface DraftBatch {
   readonly items: readonly SchedulePeriodHistoryItem[];
@@ -828,14 +829,36 @@ void loadData();
 void loadHolidays();
 onMounted(() => {
   window.addEventListener('focus', onWindowFocus);
+  scheduleMidnightRefresh();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('focus', onWindowFocus);
+  if (midnightRefreshTimer !== undefined) {
+    window.clearTimeout(midnightRefreshTimer);
+    midnightRefreshTimer = undefined;
+  }
 });
 
 function onWindowFocus(): void {
   void loadData();
+}
+
+function scheduleMidnightRefresh(): void {
+  if (midnightRefreshTimer !== undefined) {
+    window.clearTimeout(midnightRefreshTimer);
+  }
+  const now = Date.now();
+  const today = getBusinessDate();
+  const [yearText = '', monthText = '', dayText = ''] = today.split('-');
+  const nextMidnightUtc =
+    Date.UTC(Number(yearText), Number(monthText) - 1, Number(dayText) + 1) - 8 * 60 * 60 * 1000;
+  const delay = Math.max(1000, nextMidnightUtc - now + 5000);
+  midnightRefreshTimer = window.setTimeout(() => {
+    void loadData();
+    void loadHolidays();
+    scheduleMidnightRefresh();
+  }, delay);
 }
 </script>
 
