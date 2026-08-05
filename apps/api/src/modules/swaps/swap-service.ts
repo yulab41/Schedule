@@ -64,6 +64,7 @@ interface SwapMemberRow {
 }
 
 interface SwapContext {
+  readonly activeWorkflowConflicts: readonly SwapConflict[];
   readonly conflicts: readonly SwapConflict[];
   readonly group: ActiveGroup;
   readonly initiatorAssignment: LockedShiftAssignment;
@@ -1430,11 +1431,18 @@ export class SwapService {
       lockRows,
     );
     const conflicts = [...targetConflicts, ...initiatorConflicts];
+    const activeWorkflowConflicts = await this.findActiveWorkflowConflicts(
+      transaction,
+      group.id,
+      [initiatorAssignment.id, targetAssignment.id],
+      lockRows,
+    );
     const requiresApproval = group.swapApprovalRequired;
     const targetAutoAccepts = targetMember.autoAcceptSwaps === 1;
     const nextStatus = resolveNextStatus(requiresApproval, targetAutoAccepts);
 
     return {
+      activeWorkflowConflicts,
       conflicts,
       group,
       initiatorAssignment,
@@ -1444,6 +1452,7 @@ export class SwapService {
       initiatorPeriod,
       nextStatus,
       preview: buildSwapPreview({
+        activeWorkflowConflicts,
         conflicts,
         group,
         initiatorAssignment,
@@ -1660,8 +1669,9 @@ export class SwapService {
     transaction: DatabaseTransaction,
     groupId: string,
     assignmentIds: readonly string[],
+    lockRows = false,
   ): Promise<readonly LockedSwapRequest[]> {
-    return transaction
+    let query = transaction
       .select()
       .from(swapRequests)
       .where(
@@ -1674,16 +1684,20 @@ export class SwapService {
           ),
           isNull(swapRequests.deletedAt),
         ),
-      )
-      .for('update');
+      );
+    if (lockRows) {
+      query = query.for('update') as typeof query;
+    }
+    return query;
   }
 
-  private async assertNoActiveDutyAdjustments(
+  private async findActiveDutyAdjustments(
     transaction: DatabaseTransaction,
     groupId: string,
     assignmentIds: readonly string[],
-  ): Promise<void> {
-    const activeAdjustments = await transaction
+    lockRows = false,
+  ): Promise<readonly (typeof dutyAdjustments.$inferSelect)[]> {
+    let query = transaction
       .select()
       .from(dutyAdjustments)
       .where(
@@ -1693,8 +1707,64 @@ export class SwapService {
           inArray(dutyAdjustments.coveredAssignmentId, [...assignmentIds]),
           isNull(dutyAdjustments.deletedAt),
         ),
-      )
-      .for('update');
+      );
+    if (lockRows) {
+      query = query.for('update') as typeof query;
+    }
+    return query;
+  }
+
+  private async findActiveWorkflowConflicts(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    assignmentIds: readonly string[],
+    lockRows: boolean,
+  ): Promise<readonly SwapConflict[]> {
+    const conflicts: SwapConflict[] = [];
+    const activeSwaps = await this.findActiveSwapRequests(
+      transaction,
+      groupId,
+      assignmentIds,
+      lockRows,
+    );
+    for (const request of activeSwaps) {
+      conflicts.push({
+        assignmentId: assignmentIds.includes(request.initiatorAssignmentId)
+          ? request.initiatorAssignmentId
+          : request.targetAssignmentId,
+        code: 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST',
+        membershipId: request.initiatorMembershipId,
+        message: '其中一个班次已有待处理的换班申请，请先处理后再发起新换班。',
+      });
+    }
+    const activeAdjustments = await this.findActiveDutyAdjustments(
+      transaction,
+      groupId,
+      assignmentIds,
+      lockRows,
+    );
+    for (const adjustment of activeAdjustments) {
+      conflicts.push({
+        assignmentId: adjustment.coveredAssignmentId,
+        code: 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT',
+        membershipId: adjustment.overtimeMembershipId,
+        message: '其中一个班次已有待处理或生效中的加扣班关系，请先撤销后再换班。',
+      });
+    }
+    return conflicts;
+  }
+
+  private async assertNoActiveDutyAdjustments(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    assignmentIds: readonly string[],
+  ): Promise<void> {
+    const activeAdjustments = await this.findActiveDutyAdjustments(
+      transaction,
+      groupId,
+      assignmentIds,
+      true,
+    );
     if (activeAdjustments.length > 0) {
       throw new ApiError({
         code: 'CONFLICT',
@@ -1987,6 +2057,7 @@ export class SwapService {
 }
 
 function buildSwapPreview(input: {
+  readonly activeWorkflowConflicts: readonly SwapConflict[];
   readonly conflicts: readonly SwapConflict[];
   readonly group: ActiveGroup;
   readonly initiatorAssignment: LockedShiftAssignment;
@@ -2001,7 +2072,7 @@ function buildSwapPreview(input: {
   readonly targetPeriod: LockedSchedulePeriod;
 }): SwapPreview {
   return {
-    conflicts: input.conflicts,
+    conflicts: [...input.conflicts, ...input.activeWorkflowConflicts],
     groupId: input.group.id,
     initiatorAssignment: toSwapAssignmentSummary(
       input.initiatorAssignment.id,

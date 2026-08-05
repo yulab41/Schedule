@@ -2936,7 +2936,9 @@ function isSwapConflict(value: unknown): boolean {
   return (
     (conflict.code === 'MEMBER_LEAVE_OVERLAP' ||
       conflict.code === 'MEMBER_NOT_ELIGIBLE' ||
-      conflict.code === 'MEMBER_TIME_OVERLAP') &&
+      conflict.code === 'MEMBER_TIME_OVERLAP' ||
+      conflict.code === 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST' ||
+      conflict.code === 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT') &&
     typeof conflict.membershipId === 'string' &&
     conflict.membershipId.length > 0 &&
     typeof conflict.message === 'string' &&

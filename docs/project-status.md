@@ -9,12 +9,12 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–48 已完成；最新验证基线 392/392（62 个测试文件，隔离 MySQL）
-- Next actions: 等待用户强刷复核轮次 48（加扣班不再显示既往班次）与轮次 47（已过日期锁定/既往排班/排班补录）；上线前需先对线上库执行迁移 0024 再部署代码；随后排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
+- Debug rounds: 1–49 已完成；最新验证基线 394/394（62 个测试文件，隔离 MySQL）
+- Next actions: 等待用户强刷复核轮次 49（换班预览显示加扣班/待处理换班拦截原因）、轮次 48（加扣班不再显示既往班次）与轮次 47（已过日期锁定/既往排班/排班补录）；上线前需先对线上库执行迁移 0024 再部署代码；随后排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
 
 ## Debug / Test Feedback Log
 
-- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–48 明细、待办/下一步）
+- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–49 明细、待办/下一步）
 - 本文件不再重复逐轮内容，避免每轮对话重复读取同一份日志
 
 ## Approved Sources
@@ -28,7 +28,7 @@
 ## Completed Work（摘要）
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-05 调试期轮次 1–48 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 392/392；CloudBase 部署保持手动触发，本轮未部署）。
+- 2026-08-05 调试期轮次 1–49 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 394/394；CloudBase 部署保持手动触发，本轮未部署）。
 - 轮次 35 按用户要求开放访客节假日、联系电话与当天标记，并禁止换班/加扣班等事件标记与事件入口；月/周/列表日历对过去日期统一显示深灰色（访客与用户/管理员模式一致）。检查点提交 `feat(guest): expose holidays and contacts while hiding events, gray past dates` 识别。
 - 轮次 37 修复管理员发起的换班事件在首页弹窗错误显示“由成员一发出”，改为按实际操作账户显示发起人；人员变更链移到事件弹窗底部并默认折叠。检查点提交 `fix(events): show acting account for admin swaps; collapsible change chain` 识别。
 - 轮次 38 合并换班/加扣班人员变更链为一条、去掉日历“事件”按钮并改为点击“换/加”等标记打开事件弹窗、恢复点击姓名弹出联系电话（未确认号码仅可复制）。检查点提交 `fix(events): merge change chains, marker-click events, restore phone menu` 识别。
@@ -42,6 +42,7 @@
 - 轮次 46 手动排班起始日期只统计已发布记录（归档/删除不影响自动检测），且手动修改后保存/应用以手动日期为准；手动排班/模板应用检测已批准请假并阻断；再次点击当前班种可清除单元格；审批弹窗列出具体冲突班次；班种配置改为每班种一行紧凑布局。检查点提交 `fix(schedules): published-only next start, leave-aware manual apply, toggle-off paint, one-row shift config` 识别；追加提交 `fix(scheduling-config): prevent shift type editor field overlap` 修复班种输入框重叠。
 - 轮次 47 已过日期硬性锁定：新增 `past` 排班状态（既往排班），发布/替换/撤销自动把已过班次移入既往期间并锁定；已过期月份禁止撤销/重发并自动清理其草稿与归档；手动模板应用禁止回填已过日期；换班/请假/加扣班撤销阻断已过日期；新增“排班补录”页面与接口（仅管理员/群主，修改留痕 `schedule_backfill_completed` 事件）。检查点提交 `feat(schedules): lock past dates, past-schedule archive, backfill corrections with audit` 识别；追加提交 `fix(web): accept past schedule status in history validator` 修复手动排班“服务返回了无效资料”；追加提交 `feat(web): auto-refresh manual schedule locks at midnight` 实现零点自动刷新锁定状态；追加提交 `fix(calendar): keep past duty names callable with clear hover cue` 恢复既往排班联系电话可点击提示；追加提交 `feat(backfill): calendar painting with shift/member palettes and unique period list` 重构排班补录为日历配班交互并去重既往月份；追加提交 `fix(manual-apply): surface detailed conflict reasons instead of generic refresh hint` 应用模板冲突显示具体原因；追加提交 `feat(backfill): free month navigation, staged confirm painting, name-only shift labels` 实现补录自由跳转月份/空月新增班次、待确认后生效与全称班种按钮；追加提交 `feat(backfill): multi-date staged painting without per-cell prompts` 补录连续多日期点选后一次确认；追加提交 `fix(backfill): hide only manual-adjustment markers, keep swap and duty markers` 补录日历仅隐藏“调”标记；追加提交 `feat(backfill): current-state backfill trace with revert cancel` 补录痕迹跟随班次当前状态、撤销即抵消并移除日历“调”标记。
 - 轮次 48 加扣班下拉不再出现既往（已过/已开始）班次：“我的班次”与管理员“被代班班次”只保留 `startsAt > now` 的未来班次，与换班候选和后端 `assertFutureShift` 校验一致。检查点提交 `fix(duty-adjustments): exclude past shifts from candidate options` 识别。
+- 轮次 49 换班预览新增活跃工作流检查：存在待处理换班或待处理/生效中加扣班时，预览直接返回具体冲突；前端提交失败改为展示后端原始原因，不再被通用提示吞掉。检查点提交 `fix(swaps): surface active workflow blockers in preview` 识别。
 - 轮次 33 完成排班变更工作流撤销、发布版本月历、当前撤销/归档重发、已发布草稿归档体验和群组码访客只读月历；检查点提交以 `feat(schedules): add publication lifecycle and guest calendar` 识别。
 - 轮次 34 修复历史软删除排班导致换班/加扣班审批页 500，访客改为公开群组名称列表和当月默认月历，并将 PWA 缓存升级到 v3 以清除旧发布记录前端资源；检查点提交以 `fix(schedules): restore history and guest access` 识别。
 - 线上数据操作（2026-08-03）：按用户要求清空线上草稿与排班（23 个排班期间、638 条班次软删除，统计快照清空；模板/成员/岗位/班种/联系方式/事件历史保留）；线上迁移已执行至 20 条（`0018`/`0019`/`0020`）。
@@ -50,6 +51,7 @@
 
 - 32 项实施计划已完结；当前为 Web 1.0 调试/验收批次。轮次 34 已完成排班版本验收回归、工作流历史读取和访客访问策略调整。
 - 轮次 48 已处理加扣班下拉展示既往班次的问题；下一活动批次仍为 Fastify 非标准 Content-Type 问题。
+- 轮次 49 已处理换班预览未显示加扣班/待处理换班拦截的问题；下一活动批次仍为 Fastify 非标准 Content-Type 问题。
 - 下一活动批次（1 项）：排查并修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题。
 - 停止条件：该问题完成定向测试并通过完整验证；不启动微信小程序，不部署 CloudBase。
 

@@ -639,6 +639,66 @@ describeWithDatabase('member shift swaps', () => {
     expect(requestCount).toEqual([{ count: 1 }]);
   });
 
+  it('surfaces active duty adjustments in swap preview and still blocks creation', async () => {
+    const context = await seedPublishedRotation();
+    const duty = await createDirectDuty('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '代值',
+    });
+    expect(duty.statusCode).toBe(201);
+
+    const previewResponse = await previewSwap('b-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: context.assignments.cSep3.id,
+      targetMembershipId: context.membershipIds.c,
+    });
+    expect(previewResponse.statusCode).toBe(200);
+    const preview = previewResponse.json() as SwapPreview;
+    expect(preview.conflicts).toEqual([
+      expect.objectContaining({
+        assignmentId: context.assignments.aSep1.id,
+        code: 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT',
+        membershipId: context.membershipIds.b,
+      }),
+    ]);
+
+    const created = await createSwap('b-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+      targetMembershipId: context.membershipIds.c,
+    });
+    expect(created.statusCode).toBe(409);
+    expect((created.json() as ErrorResponse).error.message).toContain('加扣班');
+  });
+
+  it('surfaces pending swap requests in swap preview', async () => {
+    const context = await seedPublishedRotation();
+    await updateMySettings('b-token', context.groupId, false);
+    const first = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+      targetMembershipId: context.membershipIds.b,
+    });
+    expect(first.statusCode).toBe(201);
+
+    const previewResponse = await previewSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: context.assignments.cSep3.id,
+      targetMembershipId: context.membershipIds.c,
+    });
+    expect(previewResponse.statusCode).toBe(200);
+    expect((previewResponse.json() as SwapPreview).conflicts).toEqual([
+      expect.objectContaining({
+        assignmentId: context.assignments.aSep1.id,
+        code: 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST',
+      }),
+    ]);
+  });
+
   it('invalidates the swap when either assignment version changes', async () => {
     const context = await seedPublishedRotation();
     await updateMySettings('b-token', context.groupId, false);

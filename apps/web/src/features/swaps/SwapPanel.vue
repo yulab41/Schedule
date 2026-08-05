@@ -279,11 +279,9 @@ async function computePreview(): Promise<void> {
       targetMembershipId: selectedTargetMembershipId.value,
     });
   } catch (error) {
+    errorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      errorMessage.value = '班次或成员状态已变化，请刷新后重新选择。';
       void loadData();
-    } else {
-      errorMessage.value = getErrorMessage(error);
     }
   } finally {
     isPreviewing.value = false;
@@ -316,11 +314,9 @@ async function submit(): Promise<void> {
     resetForm();
     await loadData();
   } catch (error) {
+    errorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      errorMessage.value = '班次已有待处理的换班申请或状态已变化，请刷新后重试。';
       void loadData();
-    } else {
-      errorMessage.value = getErrorMessage(error);
     }
   } finally {
     isSubmitting.value = false;
@@ -352,11 +348,9 @@ async function computeAdminPreview(): Promise<void> {
       targetMembershipId: adminTargetMembershipId.value,
     });
   } catch (error) {
+    adminErrorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      adminErrorMessage.value = '班次或成员状态已变化，请刷新后重新选择。';
       void loadData();
-    } else {
-      adminErrorMessage.value = getErrorMessage(error);
     }
   } finally {
     adminIsPreviewing.value = false;
@@ -383,11 +377,9 @@ async function submitAdminSwap(): Promise<void> {
     resetAdminForm();
     await loadData();
   } catch (error) {
+    adminErrorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      adminErrorMessage.value = '班次已有待处理的换班申请或状态已变化，请刷新后重试。';
       void loadData();
-    } else {
-      adminErrorMessage.value = getErrorMessage(error);
     }
   } finally {
     adminIsSubmitting.value = false;
@@ -459,11 +451,9 @@ async function runMutation(mutation: () => Promise<SwapRequest>): Promise<void> 
     await mutation();
     await loadData();
   } catch (error) {
+    errorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      errorMessage.value = '换班申请或班次状态已变化，请刷新后重试。';
       void loadData();
-    } else {
-      errorMessage.value = getErrorMessage(error);
     }
   }
 }
