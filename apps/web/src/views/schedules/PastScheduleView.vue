@@ -75,6 +75,7 @@ const pendingStages = computed(() =>
     }))
     .sort((first, second) => first.date.localeCompare(second.date)),
 );
+const stagedDateSet = computed(() => new Set(staged.value.keys()));
 
 onMounted(() => {
   void loadData();
@@ -231,14 +232,12 @@ function clickDate(date: string): void {
   const next = new Map(staged.value);
   next.set(date, { memberId: activeMemberId.value, shiftTypeId: activeShiftTypeId.value });
   staged.value = next;
-  infoMessage.value = `已加入待确认：${date}。点击“确认补录”后生效。`;
 }
 
 function removeStage(date: string): void {
   const next = new Map(staged.value);
   next.delete(date);
   staged.value = next;
-  infoMessage.value = `已取消 ${date} 的待补录项，不会生成任何记录。`;
 }
 
 function clearStaged(): void {
@@ -387,12 +386,13 @@ function getErrorMessage(error: unknown): string {
         </div>
 
         <p class="paint-hint">
-          提示：灰色为未来日期（不可补录），正常底色为既往日期；再次点击已加入待确认的日期可取消该项（不会生成记录）。
+          提示：灰色为未来日期（不可补录），正常底色为既往日期；可连续点击多个日期加入待确认（蓝色描边），再统一点击“确认补录”一次性生效；再次点击已加入的日期可取消该项（不会生成记录）。
         </p>
 
         <MonthGrid
           :assignments="calendar.assignments"
           :business-month="calendar.businessMonth"
+          :highlighted-dates="stagedDateSet"
           :holidays="holidays"
           :invert-past-colors="true"
           :members="calendar.members"

@@ -19,6 +19,7 @@ import DutyCell from './DutyCell.vue';
 const props = defineProps<{
   readonly assignments: readonly CalendarDutyAssignment[];
   readonly businessMonth: string;
+  readonly highlightedDates?: ReadonlySet<string>;
   readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
   readonly invertPastColors?: boolean;
   readonly members: readonly CalendarDutyMember[];
@@ -83,6 +84,7 @@ function isSoleDuty(date: string | undefined): boolean {
         class="day-cell"
         :data-date="cell?.businessDate"
         :class="{
+          'is-staged': cell !== null && highlightedDates?.has(cell.businessDate) === true,
           'is-past': cell !== null && isPastBusinessDate(cell.businessDate, today ?? ''),
           'is-today': cell?.businessDate === today,
         }"
@@ -157,6 +159,11 @@ function isSoleDuty(date: string | undefined): boolean {
 
 .day-cell.is-today {
   border: 2px solid #1f5aa6;
+}
+
+.day-cell.is-staged {
+  outline: 2px solid #1f5aa6;
+  outline-offset: -2px;
 }
 
 .day-cell.is-past {
