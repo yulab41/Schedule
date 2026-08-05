@@ -181,7 +181,8 @@ function isSoleDuty(date: string | undefined): boolean {
 }
 
 .day-cell.is-past :deep(.duty-name.is-callable:hover) {
-  color: #374151;
+  color: #1f5aa6;
+  text-decoration: underline;
 }
 
 .is-today .day-number {

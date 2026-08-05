@@ -134,7 +134,8 @@ function isSoleDuty(assignments: readonly CalendarDutyAssignment[]): boolean {
 }
 
 .day-row.is-past :deep(.duty-name.is-callable:hover) {
-  color: #374151;
+  color: #1f5aa6;
+  text-decoration: underline;
 }
 
 .day-header strong {
