@@ -104,6 +104,7 @@ describeWithDatabase('past schedule backfill', () => {
 
     const periods = (await listPastPeriods('owner-token')).json() as PastSchedulePeriod[];
     expect(periods.some((period) => period.id === pastPeriodId)).toBe(true);
+    expect(periods.filter((period) => period.businessMonth === '2026-08')).toHaveLength(1);
 
     const assignments = (
       await listPastAssignments('owner-token', pastPeriodId as string)

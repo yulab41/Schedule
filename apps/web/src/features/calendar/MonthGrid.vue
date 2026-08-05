@@ -75,6 +75,7 @@ function isSoleDuty(date: string | undefined): boolean {
         v-for="(cell, cellIndex) in week"
         :key="cellIndex"
         class="day-cell"
+        :data-date="cell?.businessDate"
         :class="{
           'is-past': cell !== null && isPastBusinessDate(cell.businessDate, today ?? ''),
           'is-today': cell?.businessDate === today,

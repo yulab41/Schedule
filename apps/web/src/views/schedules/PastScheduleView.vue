@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import type {
+  CalendarDutyAssignment,
+  CalendarReadModel,
+  ConfirmedHolidayDate,
   GroupSummary,
-  PastScheduleAssignment,
   PastSchedulePeriod,
   ShiftType,
+  SchedulingGroupMember,
 } from '@schedule/contracts';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import MonthGrid from '../../features/calendar/MonthGrid.vue';
+import { getBusinessDate } from '../../features/calendar/calendar-views.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -17,29 +22,34 @@ const props = defineProps<{
 const api = createApiClient({ auth: cloudbaseAuth });
 const periods = ref<readonly PastSchedulePeriod[]>([]);
 const selectedPeriodId = ref('');
-const assignments = ref<readonly PastScheduleAssignment[]>([]);
 const shiftTypes = ref<readonly ShiftType[]>([]);
-const members = ref<
-  readonly {
-    readonly membershipId: string;
-    readonly realName: string;
-  }[]
->([]);
+const members = ref<readonly SchedulingGroupMember[]>([]);
+const calendar = ref<CalendarReadModel>();
+const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
+const activeShiftTypeId = ref('');
+const activeMemberId = ref('');
+const reason = ref('');
 const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
-const editTarget = ref<PastScheduleAssignment>();
-const editVisible = ref(false);
-const editMemberId = ref('');
-const editShiftTypeId = ref('');
-const editReason = ref('');
+
+const today = getBusinessDate();
+const assignmentsByDate = computed(() => {
+  const map = new Map<string, CalendarDutyAssignment[]>();
+  for (const assignment of calendar.value?.assignments ?? []) {
+    const list = map.get(assignment.businessDate) ?? [];
+    list.push(assignment);
+    map.set(assignment.businessDate, list);
+  }
+  return map;
+});
 
 onMounted(() => {
   void loadData();
 });
 
-async function loadData(preferredPeriodId?: string): Promise<void> {
+async function loadData(): Promise<void> {
   errorMessage.value = undefined;
   isLoading.value = true;
   try {
@@ -50,12 +60,10 @@ async function loadData(preferredPeriodId?: string): Promise<void> {
     periods.value = nextPeriods;
     shiftTypes.value = nextConfig.shiftTypes.filter((shiftType) => shiftType.isEnabled);
     members.value = nextConfig.groupMembers;
-    const nextPeriodId =
-      preferredPeriodId ??
-      (periods.value.some((period) => period.id === selectedPeriodId.value)
-        ? selectedPeriodId.value
-        : (periods.value[0]?.id ?? ''));
-    await selectPeriod(nextPeriodId);
+    const nextPeriodId = periods.value.some((period) => period.id === selectedPeriodId.value)
+      ? selectedPeriodId.value
+      : (periods.value[0]?.id ?? '');
+    await loadCalendar(nextPeriodId);
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -63,63 +71,123 @@ async function loadData(preferredPeriodId?: string): Promise<void> {
   }
 }
 
-async function selectPeriod(periodId: string): Promise<void> {
+async function loadCalendar(periodId: string): Promise<void> {
   selectedPeriodId.value = periodId;
-  assignments.value = [];
+  calendar.value = undefined;
+  holidays.value = new Map();
   if (periodId === '') {
     return;
   }
   try {
-    assignments.value = await api.listPastScheduleAssignments(props.group.id, periodId);
+    const [nextCalendar, nextHolidays] = await Promise.all([
+      api.getSchedulePeriodCalendar(props.group.id, periodId),
+      loadHolidays(periodId),
+    ]);
+    calendar.value = nextCalendar;
+    holidays.value = nextHolidays;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   }
 }
 
-function openEdit(assignment: PastScheduleAssignment): void {
-  editTarget.value = assignment;
-  editVisible.value = true;
-  editMemberId.value = assignment.actualMemberId ?? '';
-  editShiftTypeId.value = assignment.shiftTypeId;
-  editReason.value = '';
+async function loadHolidays(periodId: string): Promise<ReadonlyMap<string, ConfirmedHolidayDate>> {
+  const period = periods.value.find((candidate) => candidate.id === periodId);
+  const year = Number(period?.businessMonth.slice(0, 4) ?? new Date().getFullYear());
+  const result = await api.getHolidays(year);
+  return new Map(result.dates.map((date) => [date.date, date] as const));
 }
 
-async function saveEdit(): Promise<void> {
-  const target = editTarget.value;
-  if (target === undefined || selectedPeriodId.value === '') {
+function selectShiftType(shiftTypeId: string): void {
+  activeShiftTypeId.value = activeShiftTypeId.value === shiftTypeId ? '' : shiftTypeId;
+}
+
+function selectMember(memberId: string): void {
+  activeMemberId.value = activeMemberId.value === memberId ? '' : memberId;
+}
+
+function onCalendarClick(event: MouseEvent): void {
+  const cell = (event.target as HTMLElement | null)?.closest?.('.day-cell') as
+    HTMLElement | undefined;
+  const date = cell?.dataset.date;
+  if (date === undefined || date === '') {
     return;
   }
-  if (editMemberId.value === '' && editShiftTypeId.value === '') {
-    errorMessage.value = '请选择补录后的值班成员或班种。';
+  void paintDate(date);
+}
+
+async function paintDate(date: string): Promise<void> {
+  errorMessage.value = undefined;
+  if (activeShiftTypeId.value === '' || activeMemberId.value === '') {
+    infoMessage.value = '请先在下方选择班种和成员（保持选中），再点击日历日期进行补录。';
+    return;
+  }
+  if (date >= today) {
+    errorMessage.value = `该日期（${date}）尚未过去，请使用正常排班功能修改。`;
     return;
   }
 
-  errorMessage.value = undefined;
+  const assignments = assignmentsByDate.value.get(date) ?? [];
+  if (assignments.length === 0) {
+    infoMessage.value = `该日期（${date}）没有可补录的班次；补录仅用于修改既往已存在的班次。`;
+    return;
+  }
+  const target = assignments[0];
+  if (target === undefined) {
+    infoMessage.value = `该日期（${date}）没有可补录的班次；补录仅用于修改既往已存在的班次。`;
+    return;
+  }
+  const matches =
+    target.actualMembershipId === activeMemberId.value &&
+    target.shiftTypeId === activeShiftTypeId.value;
+  if (matches) {
+    if (target.plannedMembershipId === null || target.plannedMembershipId === undefined) {
+      infoMessage.value = `该班次没有计划成员可恢复，请直接选择其他成员补录。`;
+      return;
+    }
+    const restored = await savePaint(target, {
+      actualMembershipId: target.plannedMembershipId,
+    });
+    if (restored) {
+      infoMessage.value = `已取消 ${date} 的补录，恢复为计划成员（${target.plannedMemberName ?? ''}）。`;
+    }
+    return;
+  }
+
+  const member = members.value.find((candidate) => candidate.membershipId === activeMemberId.value);
+  const saved = await savePaint(target, {
+    actualMembershipId: activeMemberId.value,
+    shiftTypeId: activeShiftTypeId.value,
+  });
+  if (saved) {
+    infoMessage.value =
+      assignments.length > 1
+        ? `已补录 ${date}（该日共 ${assignments.length} 个班次，本次修改第 1 个）。`
+        : `已补录 ${date}：${member?.realName ?? ''} · ${shiftTypes.value.find((item) => item.id === activeShiftTypeId.value)?.name ?? ''}，并留下“排班补录”事件记录。`;
+  }
+}
+
+async function savePaint(
+  target: CalendarDutyAssignment,
+  input: { readonly actualMembershipId: string; readonly shiftTypeId?: string },
+): Promise<boolean> {
+  if (selectedPeriodId.value === '') {
+    return false;
+  }
   isSaving.value = true;
   try {
-    await api.updatePastScheduleAssignment(
-      props.group.id,
-      selectedPeriodId.value,
-      target.assignmentId,
-      {
-        ...(editMemberId.value === '' ? {} : { actualMembershipId: editMemberId.value }),
-        ...(editShiftTypeId.value === '' ? {} : { shiftTypeId: editShiftTypeId.value }),
-        ...(editReason.value.trim() === '' ? {} : { reason: editReason.value.trim() }),
-      },
-    );
-    infoMessage.value = `已补录 ${target.businessDate} 的班次，并留下“排班补录”事件记录。`;
-    editTarget.value = undefined;
-    editVisible.value = false;
-    await loadData(selectedPeriodId.value);
+    await api.updatePastScheduleAssignment(props.group.id, selectedPeriodId.value, target.id, {
+      actualMembershipId: input.actualMembershipId,
+      ...(input.shiftTypeId === undefined ? {} : { shiftTypeId: input.shiftTypeId }),
+      ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
+    });
+    await loadCalendar(selectedPeriodId.value);
+    return true;
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
+    return false;
   } finally {
     isSaving.value = false;
   }
-}
-
-function memberName(assignment: PastScheduleAssignment): string {
-  return assignment.actualMemberName ?? assignment.plannedMemberName ?? '未设置';
 }
 
 function getErrorMessage(error: unknown): string {
@@ -132,14 +200,14 @@ function getErrorMessage(error: unknown): string {
     <h2>排班补录</h2>
     <t-alert
       theme="info"
-      message="仅管理员与群主可进入。可修改已过日期的排班，每次修改都会生成“排班补录”事件记录；未过日期请使用正常排班功能。"
+      message="仅管理员与群主可进入。可补录既往月份与年份的排班；先选择班种和成员（再次点击取消选中），再点击日历中的已过日期进行配班，每次修改都会留下“排班补录”事件记录。"
     />
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
     <t-loading v-if="isLoading" text="正在加载既往排班" />
     <template v-else>
       <label class="period-select">
-        既往排班
+        既往排班月份
         <t-select
           :value="selectedPeriodId"
           :options="
@@ -150,84 +218,64 @@ function getErrorMessage(error: unknown): string {
           "
           placeholder="请选择要补录的排班"
           @change="
-            (value: string | number | boolean | object | null) => selectPeriod(String(value ?? ''))
+            (value: string | number | boolean | object | null) => loadCalendar(String(value ?? ''))
           "
         />
       </label>
 
-      <div v-if="assignments.length === 0" class="empty-hint">暂无已过日期的班次需要补录。</div>
-      <table v-else class="assignment-table">
-        <thead>
-          <tr>
-            <th>日期</th>
-            <th>班种</th>
-            <th>当值成员</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="assignment in assignments" :key="assignment.assignmentId">
-            <td>{{ assignment.businessDate }}</td>
-            <td>{{ assignment.shiftTypeName }}（{{ assignment.shiftTypeAbbreviation }}）</td>
-            <td>{{ memberName(assignment) }}</td>
-            <td>
-              <t-button variant="outline" size="small" @click="openEdit(assignment)">修改</t-button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </template>
+      <template v-if="calendar !== undefined">
+        <div class="palette-section">
+          <div class="palette-row">
+            <span class="palette-label">班种</span>
+            <button
+              v-for="shiftType in shiftTypes"
+              :key="shiftType.id"
+              type="button"
+              class="palette-button shift-type-button"
+              :class="{ 'is-active': activeShiftTypeId === shiftType.id }"
+              :style="{
+                backgroundColor: shiftType.color,
+                color: shiftType.textColor,
+              }"
+              @click="selectShiftType(shiftType.id)"
+            >
+              {{ shiftType.abbreviation }}
+              <span class="palette-name">{{ shiftType.name }}</span>
+            </button>
+          </div>
+          <div class="palette-row">
+            <span class="palette-label">成员</span>
+            <button
+              v-for="member in members"
+              :key="member.membershipId"
+              type="button"
+              class="palette-button member-button"
+              :class="{ 'is-active': activeMemberId === member.membershipId }"
+              @click="selectMember(member.membershipId)"
+            >
+              {{ member.realName }}
+            </button>
+          </div>
+          <label class="reason-field">
+            补录说明（选填，作用于下一次补录）
+            <t-textarea v-model="reason" :maxlength="1000" placeholder="记录本次补录原因" />
+          </label>
+          <p class="paint-hint">
+            提示：点击日历中已过日期的格子完成配班；再次点击已相同配班的日期可取消补录（恢复计划成员）。
+          </p>
+        </div>
 
-    <t-dialog
-      v-model:visible="editVisible"
-      :confirm-btn="{
-        content: '保存补录',
-        disabled: isSaving,
-        loading: isSaving,
-        theme: 'primary',
-      }"
-      :header="`排班补录：${editTarget?.businessDate ?? ''}`"
-      width="520px"
-      @confirm="saveEdit"
-      @close="editVisible = false"
-    >
-      <div v-if="editTarget !== undefined" class="edit-dialog">
-        <p class="edit-summary">
-          原班次：{{ editTarget.shiftTypeName }}（{{ editTarget.shiftTypeAbbreviation }}）· 当值
-          {{ memberName(editTarget) }}
-        </p>
-        <label>
-          补录后值班成员
-          <t-select
-            v-model="editMemberId"
-            :options="
-              members.map((member) => ({
-                label: member.realName,
-                value: member.membershipId,
-              }))
-            "
-            placeholder="保持原成员"
-          />
-        </label>
-        <label>
-          补录后班种
-          <t-select
-            v-model="editShiftTypeId"
-            :options="
-              shiftTypes.map((shiftType) => ({
-                label: `${shiftType.name}（${shiftType.abbreviation}）`,
-                value: shiftType.id,
-              }))
-            "
-            placeholder="保持原班种"
-          />
-        </label>
-        <label>
-          补录说明（选填）
-          <t-textarea v-model="editReason" :maxlength="1000" placeholder="记录本次补录原因" />
-        </label>
-      </div>
-    </t-dialog>
+        <MonthGrid
+          :assignments="calendar.assignments"
+          :business-month="calendar.businessMonth"
+          :holidays="holidays"
+          :members="calendar.members"
+          :today="today"
+          @click="onCalendarClick"
+        />
+      </template>
+      <div v-else class="empty-hint">暂无既往排班可补录。</div>
+    </template>
   </section>
 </template>
 
@@ -260,47 +308,77 @@ function getErrorMessage(error: unknown): string {
   border-radius: 6px;
 }
 
-.assignment-table {
-  width: 100%;
-  border-collapse: collapse;
+.palette-section {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
+}
+
+.palette-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.palette-label {
+  min-width: 40px;
+  color: #6b7280;
   font-size: 13px;
-}
-
-.assignment-table th,
-.assignment-table td {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.assignment-table th {
-  color: #374151;
-  background: #f8fafc;
   font-weight: 600;
 }
 
-.edit-dialog {
-  display: grid;
-  gap: 12px;
+.palette-button {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
 }
 
-.edit-dialog label {
+.palette-button.is-active {
+  outline: 2px solid #1f5aa6;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgb(31 90 166 / 18%);
+}
+
+.member-button {
+  color: #1f2937;
+  background: #f8fafc;
+}
+
+.member-button.is-active {
+  color: #ffffff;
+  background: #1f5aa6;
+  border-color: #1f5aa6;
+}
+
+.shift-type-button.is-active {
+  outline-color: #1f5aa6;
+}
+
+.palette-name {
+  font-weight: 400;
+}
+
+.reason-field {
   display: grid;
   gap: 4px;
+  max-width: 480px;
   color: #374151;
-  font-size: 14px;
+  font-size: 13px;
 }
 
-.edit-summary {
+.paint-hint {
   margin: 0;
-  padding: 10px 12px;
-  color: #1f2937;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
+  color: #6b7280;
   font-size: 13px;
 }
 </style>

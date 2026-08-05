@@ -76,17 +76,32 @@ export class PastScheduleService {
             ),
           ),
         )
-        .orderBy(desc(schedulePeriods.businessMonth), asc(scheduleRoles.name));
+        .orderBy(
+          desc(schedulePeriods.businessMonth),
+          asc(scheduleRoles.name),
+          sql`case when ${schedulePeriods.status} = 'past' then 0 else 1 end`,
+          desc(schedulePeriods.revision),
+        );
+      const seenKeys = new Set<string>();
+      const periods: PastSchedulePeriod[] = [];
+      for (const row of rows) {
+        const key = `${row.businessMonth}|${row.scheduleRoleId}`;
+        if (seenKeys.has(key)) {
+          continue;
+        }
+        seenKeys.add(key);
+        periods.push({
+          businessMonth: row.businessMonth.slice(0, 7),
+          id: row.id,
+          periodStatus: row.status === 'past' ? 'past' : 'published',
+          revision: row.revision,
+          scheduleRoleId: row.scheduleRoleId,
+          scheduleRoleName: row.scheduleRoleName,
+          version: row.version,
+        });
+      }
 
-      return rows.map((row) => ({
-        businessMonth: row.businessMonth.slice(0, 7),
-        id: row.id,
-        periodStatus: row.status === 'past' ? 'past' : 'published',
-        revision: row.revision,
-        scheduleRoleId: row.scheduleRoleId,
-        scheduleRoleName: row.scheduleRoleName,
-        version: row.version,
-      }));
+      return periods;
     });
   }
 
