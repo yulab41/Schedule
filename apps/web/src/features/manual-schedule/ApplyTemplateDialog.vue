@@ -208,9 +208,6 @@ function getDefaultEndDate(): string {
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof ApiClientError) {
-    if (error.code === 'CONFLICT') {
-      return '排班规则或模板已被其他操作更新，请刷新后重新确认。';
-    }
     return error.message;
   }
 
