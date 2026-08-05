@@ -6,7 +6,7 @@ export type SwapConflictCode =
   | 'MEMBER_NOT_ELIGIBLE'
   | 'MEMBER_TIME_OVERLAP'
   | 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST'
-  | 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT';
+  | 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT';
 
 export interface SwapAssignmentSummary {
   readonly actualMemberId?: string;

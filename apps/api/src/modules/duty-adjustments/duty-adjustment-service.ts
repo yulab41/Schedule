@@ -50,6 +50,7 @@ import {
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
+import { WorkflowConflictService } from '../workflows/workflow-conflict-service.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -80,6 +81,7 @@ export class DutyAdjustmentService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly workflowConflictService = new WorkflowConflictService();
   private readonly statisticsService: StatisticsService;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
@@ -1035,7 +1037,23 @@ export class DutyAdjustmentService {
       true,
       true,
     );
-    this.assertStoredAssignmentVersion(context, request);
+    const laterWorkflows = await this.workflowConflictService.findLaterAssignmentWorkflows(
+      transaction,
+      authorization.group.id,
+      context.coveredAssignment.id,
+      request.createdAt,
+      request.id,
+    );
+    if (laterWorkflows.length > 0) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({
+          laterWorkflowIds: laterWorkflows.map((workflow) => workflow.id),
+        }),
+        statusCode: 409,
+        userMessage: '该加扣班后续还有换班或加扣班变动，请按先后顺序撤销。',
+      });
+    }
     if (getDutyMembershipId(context.coveredAssignment) !== context.overtimeMember.id) {
       throw new ApiError({
         code: 'CONFLICT',

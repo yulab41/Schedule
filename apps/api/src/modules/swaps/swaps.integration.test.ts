@@ -639,7 +639,7 @@ describeWithDatabase('member shift swaps', () => {
     expect(requestCount).toEqual([{ count: 1 }]);
   });
 
-  it('surfaces active duty adjustments in swap preview and still blocks creation', async () => {
+  it('allows swap creation after a completed duty adjustment and preserves the duty relation', async () => {
     const context = await seedPublishedRotation();
     const duty = await createDirectDuty('owner-token', context.groupId, {
       coveredAssignmentId: context.assignments.aSep1.id,
@@ -648,6 +648,7 @@ describeWithDatabase('member shift swaps', () => {
       reason: '代值',
     });
     expect(duty.statusCode).toBe(201);
+    const dutyBody = duty.json() as DutyAdjustmentRequest;
 
     const previewResponse = await previewSwap('b-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -655,14 +656,7 @@ describeWithDatabase('member shift swaps', () => {
       targetMembershipId: context.membershipIds.c,
     });
     expect(previewResponse.statusCode).toBe(200);
-    const preview = previewResponse.json() as SwapPreview;
-    expect(preview.conflicts).toEqual([
-      expect.objectContaining({
-        assignmentId: context.assignments.aSep1.id,
-        code: 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT',
-        membershipId: context.membershipIds.b,
-      }),
-    ]);
+    expect((previewResponse.json() as SwapPreview).conflicts).toEqual([]);
 
     const created = await createSwap('b-token', context.groupId, {
       initiatorAssignmentId: context.assignments.aSep1.id,
@@ -670,8 +664,23 @@ describeWithDatabase('member shift swaps', () => {
       targetAssignmentId: context.assignments.cSep3.id,
       targetMembershipId: context.membershipIds.c,
     });
-    expect(created.statusCode).toBe(409);
-    expect((created.json() as ErrorResponse).error.message).toContain('加扣班');
+    expect(created.statusCode).toBe(201);
+
+    const [dutyRows] = await client.database.execute(
+      sql`SELECT status, overtime_membership_id AS overtimeMembershipId, deducted_membership_id AS deductedMembershipId
+          FROM duty_adjustments
+          WHERE id = ${dutyBody.id}`,
+    );
+    expect(dutyRows).toEqual([
+      {
+        deductedMembershipId: context.membershipIds.a,
+        overtimeMembershipId: context.membershipIds.b,
+        status: 'completed',
+      },
+    ]);
+    const actuals = await readActualMembers(context);
+    expect(actuals.aSep1.actualMembershipId).toBe(context.membershipIds.c);
+    expect(actuals.cSep3.actualMembershipId).toBe(context.membershipIds.b);
   });
 
   it('surfaces pending swap requests in swap preview', async () => {
@@ -697,6 +706,143 @@ describeWithDatabase('member shift swaps', () => {
         code: 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST',
       }),
     ]);
+  });
+
+  it('blocks swap creation while a duty adjustment is still pending', async () => {
+    const context = await seedPublishedRotation();
+    await updateMySettings('b-token', context.groupId, false);
+    const duty = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
+    expect(duty.statusCode).toBe(201);
+
+    const previewResponse = await previewSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: context.assignments.cSep3.id,
+      targetMembershipId: context.membershipIds.c,
+    });
+    expect(previewResponse.statusCode).toBe(200);
+    expect((previewResponse.json() as SwapPreview).conflicts).toEqual([
+      expect.objectContaining({
+        assignmentId: context.assignments.aSep1.id,
+        code: 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT',
+      }),
+    ]);
+
+    const created = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+      targetMembershipId: context.membershipIds.c,
+    });
+    expect(created.statusCode).toBe(409);
+    expect((created.json() as ErrorResponse).error.message).toContain('加扣班');
+  });
+
+  it('blocks swap creation while the receiving member has a pending leave', async () => {
+    const context = await seedPublishedRotation();
+    const leave = await submitLeave('c-token', context.groupId, {
+      endsAt: '2026-09-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '待审批请假',
+      startsAt: '2026-09-01T00:00:00.000Z',
+    });
+    expect(leave.statusCode).toBe(201);
+
+    const created = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+      targetMembershipId: context.membershipIds.c,
+    });
+    expect(created.statusCode).toBe(409);
+    expect((created.json() as ErrorResponse).error.message).toContain('请假');
+  });
+
+  it('enforces reverse-order revocation across swap and duty chains', async () => {
+    const context = await seedPublishedRotation();
+    const swap = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as SwapRequest;
+
+    const duty = await createDirectDuty('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.c,
+      reason: '代值',
+    });
+    expect(duty.statusCode).toBe(201);
+    const dutyBody = duty.json() as DutyAdjustmentRequest;
+
+    const blockedSwapRevoke = await revokeSwap('owner-token', context.groupId, swapBody.id, {
+      expectedVersion: swapBody.version,
+      operationId: randomUUID(),
+      reason: '先撤换班',
+    });
+    expect(blockedSwapRevoke.statusCode).toBe(409);
+
+    const revokedDuty = await revokeDuty('owner-token', context.groupId, dutyBody.id, {
+      expectedVersion: dutyBody.version,
+      operationId: randomUUID(),
+      reason: '先撤加扣班',
+    });
+    expect(revokedDuty.statusCode).toBe(200);
+
+    const revokedSwap = await revokeSwap('owner-token', context.groupId, swapBody.id, {
+      expectedVersion: swapBody.version,
+      operationId: randomUUID(),
+      reason: '再撤换班',
+    });
+    expect(revokedSwap.statusCode).toBe(200);
+  });
+
+  it('requires swap revocation before revoking an earlier duty adjustment', async () => {
+    const context = await seedPublishedRotation();
+    const duty = await createDirectDuty('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '代值',
+    });
+    expect(duty.statusCode).toBe(201);
+    const dutyBody = duty.json() as DutyAdjustmentRequest;
+
+    const swap = await createSwap('b-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+      targetMembershipId: context.membershipIds.c,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as SwapRequest;
+
+    const blockedDutyRevoke = await revokeDuty('owner-token', context.groupId, dutyBody.id, {
+      expectedVersion: dutyBody.version,
+      operationId: randomUUID(),
+      reason: '先撤加扣班',
+    });
+    expect(blockedDutyRevoke.statusCode).toBe(409);
+
+    const revokedSwap = await revokeSwap('owner-token', context.groupId, swapBody.id, {
+      expectedVersion: swapBody.version,
+      operationId: randomUUID(),
+      reason: '先撤换班',
+    });
+    expect(revokedSwap.statusCode).toBe(200);
+
+    const revokedDuty = await revokeDuty('owner-token', context.groupId, dutyBody.id, {
+      expectedVersion: dutyBody.version,
+      operationId: randomUUID(),
+      reason: '再撤加扣班',
+    });
+    expect(revokedDuty.statusCode).toBe(200);
   });
 
   it('invalidates the swap when either assignment version changes', async () => {
@@ -1084,6 +1230,23 @@ describeWithDatabase('member shift swaps', () => {
       method: 'POST',
       payload: body,
       url: `/groups/${groupId}/duty-adjustments/direct`,
+    });
+  }
+
+  async function createDutyAdjustment(
+    token: string,
+    groupId: string,
+    body: {
+      readonly coveredAssignmentId: string;
+      readonly operationId: string;
+      readonly overtimeMembershipId: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments`,
     });
   }
 

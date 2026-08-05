@@ -376,6 +376,46 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(submitted.statusCode).toBe(201);
   });
 
+  it('locks current behavior: leave approval proceeds while a completed duty adjustment makes the member actual', async () => {
+    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const [assignmentRows] = await client.database.execute(
+      sql`SELECT id
+          FROM shift_assignments
+          WHERE schedule_period_id = ${context.periodId}
+            AND business_date = '2026-09-01'
+          LIMIT 1`,
+    );
+    const assignmentId = (assignmentRows as unknown as readonly { id: string }[])[0]?.id as string;
+    expect(assignmentId).toBeDefined();
+
+    const duty = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: assignmentId,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b!,
+      reason: '代值',
+    });
+    expect(duty.statusCode).toBe(201);
+
+    const leaveRequestId = await createLeave(context, 'b-token', {
+      endsAt: '2026-09-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '实际当值请假',
+      startsAt: '2026-09-01T00:00:00.000Z',
+    });
+    const preview = (await previewLeave('owner-token', context.groupId, leaveRequestId)).json() as {
+      periodVersions: Record<string, number>;
+      rulesVersion: number;
+    };
+    const approved = await approveLeave('owner-token', context.groupId, leaveRequestId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedRulesVersion: preview.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(approved.statusCode).toBe(200);
+  });
+
   it('previews a partial all-day overlap and keeps the original order on approval', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
@@ -894,6 +934,24 @@ describeWithDatabase('leave requests and reflow', () => {
     const response = await submitLeave(token, context.groupId, body);
     expect(response.statusCode).toBe(201);
     return (response.json() as LeaveRequest).id;
+  }
+
+  async function createDirectDutyAdjustment(
+    token: string,
+    groupId: string,
+    body: {
+      readonly coveredAssignmentId: string;
+      readonly operationId: string;
+      readonly overtimeMembershipId: string;
+      readonly reason: string;
+    },
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: body,
+      url: `/groups/${groupId}/duty-adjustments/direct`,
+    });
   }
 
   async function submitLeave(token: string, groupId: string, body: object) {

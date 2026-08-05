@@ -18,11 +18,8 @@ import type {
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
-  dutyAdjustments,
   groupMemberships,
   groups,
-  leaveRequests,
-  memberScheduleRoles,
   schedulePeriods,
   scheduleRoles,
   shiftAssignments,
@@ -31,11 +28,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import {
-  intervalsOverlap,
-  isPastBusinessDate,
-  leaveOverlapsInterval,
-} from '@schedule/scheduling-domain';
+import { isPastBusinessDate } from '@schedule/scheduling-domain';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -51,6 +44,11 @@ import {
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
+import {
+  getCurrentDutyMembershipId,
+  WorkflowConflictService,
+  type WorkflowConflict,
+} from '../workflows/workflow-conflict-service.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -87,6 +85,7 @@ export class SwapService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly workflowConflictService = new WorkflowConflictService();
   private readonly statisticsService: StatisticsService;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
@@ -701,22 +700,7 @@ export class SwapService {
       true,
     );
     this.assertNoSwapConflicts(context);
-    const activeRequests = await this.findActiveSwapRequests(transaction, authorization.group.id, [
-      context.initiatorAssignment.id,
-      context.targetAssignment.id,
-    ]);
-    if (activeRequests.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: { swapRequestIds: activeRequests.map((request) => request.id) },
-        statusCode: 409,
-        userMessage: '其中一个班次已有待处理的换班申请，请刷新后重试。',
-      });
-    }
-    await this.assertNoActiveDutyAdjustments(transaction, authorization.group.id, [
-      context.initiatorAssignment.id,
-      context.targetAssignment.id,
-    ]);
+    this.assertNoActiveWorkflowConflicts(context);
 
     const swapRequestId = randomUUID();
     const status = context.nextStatus;
@@ -817,22 +801,7 @@ export class SwapService {
       input.targetAssignmentId,
     );
     this.assertNoSwapConflicts(context);
-    const activeRequests = await this.findActiveSwapRequests(transaction, authorization.group.id, [
-      context.initiatorAssignment.id,
-      context.targetAssignment.id,
-    ]);
-    if (activeRequests.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: { swapRequestIds: activeRequests.map((request) => request.id) },
-        statusCode: 409,
-        userMessage: '其中一个班次已有待处理的换班申请，请刷新后重试。',
-      });
-    }
-    await this.assertNoActiveDutyAdjustments(transaction, authorization.group.id, [
-      context.initiatorAssignment.id,
-      context.targetAssignment.id,
-    ]);
+    this.assertNoActiveWorkflowConflicts(context);
 
     const swapRequestId = randomUUID();
     const decidedAt = new Date();
@@ -1401,10 +1370,10 @@ export class SwapService {
 
     assertFutureShift(initiatorAssignment, '发起人的班次');
     assertFutureShift(targetAssignment, '目标班次');
-    if (getDutyMembershipId(initiatorAssignment) !== initiatorMembershipId) {
+    if (getCurrentDutyMembershipId(initiatorAssignment) !== initiatorMembershipId) {
       throw validationError('只能选择自己当值的班次发起换班。');
     }
-    if (getDutyMembershipId(targetAssignment) !== targetMembershipId) {
+    if (getCurrentDutyMembershipId(targetAssignment) !== targetMembershipId) {
       throw validationError('目标班次必须由目标成员当值。');
     }
 
@@ -1412,31 +1381,37 @@ export class SwapService {
       initiatorPeriod.scheduleRoleId,
       targetPeriod.scheduleRoleId,
     ]);
-    const targetConflicts = await this.findEligibilityConflicts(
-      transaction,
-      group.id,
-      targetMember.id,
-      initiatorAssignment,
-      initiatorPeriod.scheduleRoleId,
-      targetAssignment.id,
-      lockRows,
-    );
-    const initiatorConflicts = await this.findEligibilityConflicts(
-      transaction,
-      group.id,
-      initiatorMember.id,
-      targetAssignment,
-      targetPeriod.scheduleRoleId,
-      initiatorAssignment.id,
-      lockRows,
-    );
+    const targetConflicts = (
+      await this.workflowConflictService.findMemberEligibilityConflicts(
+        transaction,
+        group.id,
+        targetMember.id,
+        initiatorAssignment,
+        initiatorPeriod.scheduleRoleId,
+        targetAssignment.id,
+        lockRows,
+      )
+    ).map(toSwapConflict);
+    const initiatorConflicts = (
+      await this.workflowConflictService.findMemberEligibilityConflicts(
+        transaction,
+        group.id,
+        initiatorMember.id,
+        targetAssignment,
+        targetPeriod.scheduleRoleId,
+        initiatorAssignment.id,
+        lockRows,
+      )
+    ).map(toSwapConflict);
     const conflicts = [...targetConflicts, ...initiatorConflicts];
-    const activeWorkflowConflicts = await this.findActiveWorkflowConflicts(
-      transaction,
-      group.id,
-      [initiatorAssignment.id, targetAssignment.id],
-      lockRows,
-    );
+    const activeWorkflowConflicts = (
+      await this.workflowConflictService.findSwapAssignmentConflicts(
+        transaction,
+        group.id,
+        [initiatorAssignment.id, targetAssignment.id],
+        lockRows,
+      )
+    ).map(toSwapConflict);
     const requiresApproval = group.swapApprovalRequired;
     const targetAutoAccepts = targetMember.autoAcceptSwaps === 1;
     const nextStatus = resolveNextStatus(requiresApproval, targetAutoAccepts);
@@ -1506,8 +1481,8 @@ export class SwapService {
         userMessage: '其中一个班次已不存在，请刷新后重新选择。',
       });
     }
-    const initiatorMembershipId = getDutyMembershipId(initiatorAssignment);
-    const targetMembershipId = getDutyMembershipId(targetAssignment);
+    const initiatorMembershipId = getCurrentDutyMembershipId(initiatorAssignment);
+    const targetMembershipId = getCurrentDutyMembershipId(targetAssignment);
     if (initiatorMembershipId === null || targetMembershipId === null) {
       throw validationError('班次缺少当值成员，无法直接换班。');
     }
@@ -1526,255 +1501,21 @@ export class SwapService {
     );
   }
 
-  private async findEligibilityConflicts(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    receivingMembershipId: string,
-    receivedAssignment: LockedShiftAssignment,
-    receivedRoleId: string,
-    ownAssignmentId: string,
-    lockRows: boolean,
-  ): Promise<SwapConflict[]> {
-    const conflicts: SwapConflict[] = [];
-    let roleQuery = transaction
-      .select({
-        effectiveFrom: memberScheduleRoles.effectiveFrom,
-        effectiveTo: memberScheduleRoles.effectiveTo,
-        membershipDeletedAt: groupMemberships.deletedAt,
-        membershipStatus: groupMemberships.status,
-        userDeletedAt: users.deletedAt,
-        userStatus: users.status,
-      })
-      .from(memberScheduleRoles)
-      .innerJoin(groupMemberships, eq(groupMemberships.id, memberScheduleRoles.membershipId))
-      .innerJoin(users, eq(users.id, groupMemberships.userId))
-      .where(
-        and(
-          eq(memberScheduleRoles.scheduleRoleId, receivedRoleId),
-          eq(memberScheduleRoles.membershipId, receivingMembershipId),
-          isNull(memberScheduleRoles.deletedAt),
-        ),
-      )
-      .limit(1);
-    if (lockRows) {
-      roleQuery = roleQuery.for('update') as typeof roleQuery;
-    }
-    const [roleMember] = await roleQuery;
-    const isInRole =
-      roleMember !== undefined &&
-      roleMember.membershipStatus === 'active' &&
-      roleMember.userStatus === 'active' &&
-      roleMember.membershipDeletedAt === null &&
-      roleMember.userDeletedAt === null &&
-      (roleMember.effectiveFrom === null ||
-        roleMember.effectiveFrom <= receivedAssignment.businessDate) &&
-      (roleMember.effectiveTo === null ||
-        roleMember.effectiveTo >= receivedAssignment.businessDate);
-    if (!isInRole) {
-      conflicts.push({
-        assignmentId: receivedAssignment.id,
-        code: 'MEMBER_NOT_ELIGIBLE',
-        membershipId: receivingMembershipId,
-        message: '该成员不在班次的排班角色中或不在生效区间。',
-      });
+  private assertNoActiveWorkflowConflicts(context: SwapContext): void {
+    if (context.activeWorkflowConflicts.length === 0) {
+      return;
     }
 
-    const leaves = await transaction
-      .select()
-      .from(leaveRequests)
-      .where(
-        and(
-          eq(leaveRequests.groupId, groupId),
-          eq(leaveRequests.membershipId, receivingMembershipId),
-          eq(leaveRequests.status, 'approved'),
-          isNull(leaveRequests.deletedAt),
-        ),
-      );
-    const overlappingLeave = leaves.find((leave) =>
-      leaveOverlapsInterval(leave, receivedAssignment),
-    );
-    if (overlappingLeave !== undefined) {
-      conflicts.push({
-        assignmentId: receivedAssignment.id,
-        code: 'MEMBER_LEAVE_OVERLAP',
-        membershipId: receivingMembershipId,
-        message: '该成员在班次时间内有已批准请假。',
-      });
-    }
-
-    const conflictingAssignments = await this.findMemberTimeConflicts(
-      transaction,
-      groupId,
-      receivingMembershipId,
-      ownAssignmentId,
-      receivedAssignment,
-    );
-    const conflictingAssignment = conflictingAssignments[0];
-    if (conflictingAssignment !== undefined) {
-      conflicts.push({
-        assignmentId: conflictingAssignment.id,
-        code: 'MEMBER_TIME_OVERLAP',
-        membershipId: receivingMembershipId,
-        message: '该成员在班次时间内另有排班。',
-      });
-    }
-
-    return conflicts;
-  }
-
-  private async findMemberTimeConflicts(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    membershipId: string,
-    ownAssignmentId: string,
-    receivedAssignment: LockedShiftAssignment,
-  ): Promise<readonly LockedShiftAssignment[]> {
-    const periods = await transaction
-      .select({ id: schedulePeriods.id })
-      .from(schedulePeriods)
-      .where(
-        and(
-          eq(schedulePeriods.groupId, groupId),
-          eq(schedulePeriods.status, 'published'),
-          isNull(schedulePeriods.deletedAt),
-        ),
-      );
-    const periodIds = periods.map((period) => period.id);
-    if (periodIds.length === 0) {
-      return [];
-    }
-    const rows = await transaction
-      .select()
-      .from(shiftAssignments)
-      .where(
-        and(
-          inArray(shiftAssignments.schedulePeriodId, periodIds),
-          or(
-            eq(shiftAssignments.actualMembershipId, membershipId),
-            eq(shiftAssignments.plannedMembershipId, membershipId),
-          ),
-          isNull(shiftAssignments.deletedAt),
-        ),
-      );
-
-    return rows.filter(
-      (assignment) =>
-        assignment.id !== ownAssignmentId &&
-        getDutyMembershipId(assignment) === membershipId &&
-        intervalsOverlap(assignment, receivedAssignment),
-    );
-  }
-
-  private async findActiveSwapRequests(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    assignmentIds: readonly string[],
-    lockRows = false,
-  ): Promise<readonly LockedSwapRequest[]> {
-    let query = transaction
-      .select()
-      .from(swapRequests)
-      .where(
-        and(
-          eq(swapRequests.groupId, groupId),
-          inArray(swapRequests.status, ['pending_target', 'pending_approval']),
-          or(
-            inArray(swapRequests.initiatorAssignmentId, [...assignmentIds]),
-            inArray(swapRequests.targetAssignmentId, [...assignmentIds]),
-          ),
-          isNull(swapRequests.deletedAt),
-        ),
-      );
-    if (lockRows) {
-      query = query.for('update') as typeof query;
-    }
-    return query;
-  }
-
-  private async findActiveDutyAdjustments(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    assignmentIds: readonly string[],
-    lockRows = false,
-  ): Promise<readonly (typeof dutyAdjustments.$inferSelect)[]> {
-    let query = transaction
-      .select()
-      .from(dutyAdjustments)
-      .where(
-        and(
-          eq(dutyAdjustments.groupId, groupId),
-          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval', 'completed']),
-          inArray(dutyAdjustments.coveredAssignmentId, [...assignmentIds]),
-          isNull(dutyAdjustments.deletedAt),
-        ),
-      );
-    if (lockRows) {
-      query = query.for('update') as typeof query;
-    }
-    return query;
-  }
-
-  private async findActiveWorkflowConflicts(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    assignmentIds: readonly string[],
-    lockRows: boolean,
-  ): Promise<readonly SwapConflict[]> {
-    const conflicts: SwapConflict[] = [];
-    const activeSwaps = await this.findActiveSwapRequests(
-      transaction,
-      groupId,
-      assignmentIds,
-      lockRows,
-    );
-    for (const request of activeSwaps) {
-      conflicts.push({
-        assignmentId: assignmentIds.includes(request.initiatorAssignmentId)
-          ? request.initiatorAssignmentId
-          : request.targetAssignmentId,
-        code: 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST',
-        membershipId: request.initiatorMembershipId,
-        message: '其中一个班次已有待处理的换班申请，请先处理后再发起新换班。',
-      });
-    }
-    const activeAdjustments = await this.findActiveDutyAdjustments(
-      transaction,
-      groupId,
-      assignmentIds,
-      lockRows,
-    );
-    for (const adjustment of activeAdjustments) {
-      conflicts.push({
-        assignmentId: adjustment.coveredAssignmentId,
-        code: 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT',
-        membershipId: adjustment.overtimeMembershipId,
-        message: '其中一个班次已有待处理或生效中的加扣班关系，请先撤销后再换班。',
-      });
-    }
-    return conflicts;
-  }
-
-  private async assertNoActiveDutyAdjustments(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    assignmentIds: readonly string[],
-  ): Promise<void> {
-    const activeAdjustments = await this.findActiveDutyAdjustments(
-      transaction,
-      groupId,
-      assignmentIds,
-      true,
-    );
-    if (activeAdjustments.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: {
-          dutyAdjustmentIds: activeAdjustments.map((adjustment) => adjustment.id),
-        },
-        statusCode: 409,
-        userMessage: '其中一个班次已有待处理或生效中的加扣班关系，请先撤销后再换班。',
-      });
-    }
+    throw new ApiError({
+      code: 'CONFLICT',
+      latestData: toLatestData({
+        conflicts: context.activeWorkflowConflicts,
+        initiatorAssignment: context.preview.initiatorAssignment,
+        targetAssignment: context.preview.targetAssignment,
+      }),
+      statusCode: 409,
+      userMessage: context.activeWorkflowConflicts.map((conflict) => conflict.message).join('；'),
+    });
   }
 
   private assertStoredAssignmentVersions(context: SwapContext, request: LockedSwapRequest): void {
@@ -2160,8 +1901,13 @@ function resolveNextStatus(
   return requiresApproval ? 'pending_approval' : 'completed';
 }
 
-function getDutyMembershipId(assignment: LockedShiftAssignment): string | null {
-  return assignment.actualMembershipId ?? assignment.plannedMembershipId;
+function toSwapConflict(conflict: WorkflowConflict): SwapConflict {
+  return {
+    ...(conflict.assignmentId === undefined ? {} : { assignmentId: conflict.assignmentId }),
+    code: conflict.code as SwapConflict['code'],
+    membershipId: conflict.membershipId,
+    message: conflict.message,
+  };
 }
 
 function assertFutureShift(assignment: LockedShiftAssignment, label: string): void {
