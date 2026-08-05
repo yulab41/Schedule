@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {
+  CalendarChangeMarker,
   CalendarDutyAssignment,
   CalendarDutyMember,
   ConfirmedHolidayDate,
@@ -19,11 +20,11 @@ import DutyCell from './DutyCell.vue';
 const props = defineProps<{
   readonly assignments: readonly CalendarDutyAssignment[];
   readonly businessMonth: string;
+  readonly hideMarkerTypes?: readonly CalendarChangeMarker[];
   readonly highlightedDates?: ReadonlySet<string>;
   readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
   readonly invertPastColors?: boolean;
   readonly members: readonly CalendarDutyMember[];
-  readonly showMarkers?: boolean;
   readonly today?: string;
 }>();
 const emit = defineEmits<{
@@ -47,6 +48,11 @@ function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | und
 
 function assignmentsFor(date: string | undefined): readonly CalendarDutyAssignment[] {
   return date === undefined ? [] : (assignmentsByDate.value.get(date) ?? []);
+}
+
+function visibleMarkers(assignment: CalendarDutyAssignment): readonly CalendarChangeMarker[] {
+  const hidden = new Set(props.hideMarkerTypes ?? []);
+  return assignment.changeMarkers.filter((marker) => !hidden.has(marker));
 }
 
 function holidayFor(date: string | undefined): ConfirmedHolidayDate | undefined {
@@ -116,8 +122,8 @@ function isSoleDuty(date: string | undefined): boolean {
               <DutyCell
                 :assignment="assignment"
                 :hide-shift-badge="isSoleDuty(cell.businessDate)"
+                :markers="visibleMarkers(assignment)"
                 :member="memberFor(assignment)"
-                :show-markers="showMarkers !== false"
                 @open-events="emit('open-events', $event)"
               />
             </li>

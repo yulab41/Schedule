@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contracts';
+import type {
+  CalendarChangeMarker,
+  CalendarDutyAssignment,
+  CalendarDutyMember,
+} from '@schedule/contracts';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import {
@@ -15,8 +19,8 @@ import ChangeBadge from './ChangeBadge.vue';
 const props = defineProps<{
   readonly assignment: CalendarDutyAssignment;
   readonly hideShiftBadge?: boolean;
+  readonly markers?: readonly CalendarChangeMarker[];
   readonly member: CalendarDutyMember | undefined;
-  readonly showMarkers?: boolean;
 }>();
 const emit = defineEmits<{
   (event: 'open-events', assignment: CalendarDutyAssignment): void;
@@ -26,6 +30,7 @@ const isMenuOpen = ref(false);
 const dutyName = computed(() => getDutyMemberName(props.assignment) ?? '待定');
 const shiftTimeRange = computed(() => formatShiftTimeRange(props.assignment));
 const phoneOptions = computed<readonly PhoneOption[]>(() => getAvailablePhoneOptions(props.member));
+const visibleMarkers = computed(() => props.markers ?? props.assignment.changeMarkers);
 const canCall = computed(() => phoneOptions.value.length > 0);
 const nameTitle = computed(() => {
   const base = `${props.assignment.shiftTypeName}（${shiftTimeRange.value}）`;
@@ -84,19 +89,17 @@ onUnmounted(() => {
     >
       {{ assignment.shiftTypeAbbreviation }}
     </span>
-    <template v-if="showMarkers !== false">
-      <button
-        v-for="marker in assignment.changeMarkers"
-        :key="marker"
-        type="button"
-        class="change-marker-button"
-        :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-        :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-        @click.stop="emit('open-events', assignment)"
-      >
-        <ChangeBadge :marker="marker" />
-      </button>
-    </template>
+    <button
+      v-for="marker in visibleMarkers"
+      :key="marker"
+      type="button"
+      class="change-marker-button"
+      :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+      :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+      @click.stop="emit('open-events', assignment)"
+    >
+      <ChangeBadge :marker="marker" />
+    </button>
     <div v-if="isMenuOpen && canCall" class="phone-menu" @click.stop>
       <template v-if="isCoarsePointer">
         <a

@@ -396,7 +396,7 @@ function getErrorMessage(error: unknown): string {
           :holidays="holidays"
           :invert-past-colors="true"
           :members="calendar.members"
-          :show-markers="false"
+          :hide-marker-types="['manual-adjustment']"
           :today="today"
           @click="onCalendarClick"
         />
