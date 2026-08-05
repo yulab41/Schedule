@@ -198,6 +198,61 @@ describeWithDatabase('past schedule backfill', () => {
     });
   });
 
+  it('creates backfill assignments for months without a published schedule', async () => {
+    const created = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        actualMembershipId: ownerMembershipId,
+        businessDate: '2026-07-01',
+        reason: '空月补录',
+        scheduleRoleId: primaryRoleId,
+        shiftTypeId: allDayShiftTypeId,
+      },
+      url: `/groups/${groupId}/past-schedules/assignments`,
+    });
+    expect(created.statusCode, created.body).toBe(200);
+    const body = created.json() as {
+      readonly assignment: PastScheduleAssignment;
+      readonly eventId: string;
+    };
+    expect(body.assignment.businessDate).toBe('2026-07-01');
+    expect(body.assignment.actualMemberId).toBe(ownerMembershipId);
+
+    const [periodRows] = await client.database.execute(
+      sql`SELECT status FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-07-01' AND deleted_at IS NULL`,
+    );
+    expect(
+      (periodRows as unknown as readonly { status: string }[]).map((row) => row.status),
+    ).toEqual(['past']);
+
+    const [eventRows] = await client.database.execute(
+      sql`SELECT after_data AS afterData FROM schedule_events WHERE id = ${body.eventId}`,
+    );
+    const event = (
+      eventRows as unknown as readonly {
+        readonly afterData: { readonly created?: boolean; readonly source?: string };
+      }[]
+    )[0];
+    expect(event?.afterData).toMatchObject({ created: true, source: 'schedule_backfill' });
+
+    const periods = (await listPastPeriods('owner-token')).json() as PastSchedulePeriod[];
+    expect(periods.filter((period) => period.businessMonth === '2026-07')).toHaveLength(1);
+
+    const future = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: {
+        actualMembershipId: ownerMembershipId,
+        businessDate: '2026-09-01',
+        scheduleRoleId: primaryRoleId,
+        shiftTypeId: allDayShiftTypeId,
+      },
+      url: `/groups/${groupId}/past-schedules/assignments`,
+    });
+    expect(future.statusCode).toBe(409);
+  });
+
   async function publishMonth(businessMonth: string): Promise<void> {
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },

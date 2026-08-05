@@ -2,10 +2,12 @@ import type { UpdatePastScheduleAssignmentInput } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import type { CreatePastScheduleAssignmentInput } from '@schedule/contracts';
 import { ApiError } from '../../plugins/error-handler.js';
 import { PastScheduleService } from './past-schedule-service.js';
 
 const uuidSchema = z.string().uuid();
+const businessDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const updateAssignmentInputSchema = z
   .object({
     actualMembershipId: uuidSchema.optional(),
@@ -17,6 +19,15 @@ const updateAssignmentInputSchema = z
     (value) => value.actualMembershipId !== undefined || value.shiftTypeId !== undefined,
     '至少选择一项修改内容（值班成员或班种）。',
   );
+const createAssignmentInputSchema = z
+  .object({
+    actualMembershipId: uuidSchema,
+    businessDate: businessDateSchema,
+    reason: z.string().trim().min(1).max(1000).optional(),
+    scheduleRoleId: uuidSchema,
+    shiftTypeId: uuidSchema,
+  })
+  .strict();
 
 export function registerPastScheduleRoutes(
   app: FastifyInstance,
@@ -34,6 +45,17 @@ export function registerPastScheduleRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSchedulePeriodId(request),
+      ),
+  );
+
+  app.post(
+    '/groups/:groupId/past-schedules/assignments',
+    { preHandler: app.authenticate },
+    (request) =>
+      service.createAssignment(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseCreateAssignmentInput(request.body),
       ),
   );
 
@@ -86,6 +108,17 @@ function parseUpdateAssignmentInput(value: unknown): UpdatePastScheduleAssignmen
       : { actualMembershipId: input.actualMembershipId }),
     ...(input.reason === undefined ? {} : { reason: input.reason }),
     ...(input.shiftTypeId === undefined ? {} : { shiftTypeId: input.shiftTypeId }),
+  };
+}
+
+function parseCreateAssignmentInput(value: unknown): CreatePastScheduleAssignmentInput {
+  const input = parseOrThrow(createAssignmentInputSchema, value);
+  return {
+    actualMembershipId: input.actualMembershipId,
+    businessDate: input.businessDate,
+    ...(input.reason === undefined ? {} : { reason: input.reason }),
+    scheduleRoleId: input.scheduleRoleId,
+    shiftTypeId: input.shiftTypeId,
   };
 }
 

@@ -5,7 +5,8 @@ import type {
   ConfirmedHolidayDate,
   GroupSummary,
   PastSchedulePeriod,
-  ShiftType,
+  ScheduleEvent,
+  SchedulingConfig,
   SchedulingGroupMember,
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
@@ -13,19 +14,35 @@ import { computed, onMounted, ref } from 'vue';
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
+import {
+  addBusinessMonths,
+  getBusinessMonthLabel,
+  getCurrentBusinessMonth,
+} from '../../features/calendar/calendar-logic.js';
 import { getBusinessDate } from '../../features/calendar/calendar-views.js';
+
+interface StagedPaint {
+  readonly memberId: string;
+  readonly shiftTypeId: string;
+}
 
 const props = defineProps<{
   readonly group: GroupSummary;
 }>();
 
 const api = createApiClient({ auth: cloudbaseAuth });
+const config = ref<SchedulingConfig>();
 const periods = ref<readonly PastSchedulePeriod[]>([]);
-const selectedPeriodId = ref('');
-const shiftTypes = ref<readonly ShiftType[]>([]);
-const members = ref<readonly SchedulingGroupMember[]>([]);
+const businessMonth = ref(getCurrentBusinessMonth());
+const roleId = ref('');
+const shiftTypes = computed(() =>
+  (config.value?.shiftTypes ?? []).filter((shiftType) => shiftType.isEnabled),
+);
+const members = computed<readonly SchedulingGroupMember[]>(() => config.value?.groupMembers ?? []);
 const calendar = ref<CalendarReadModel>();
 const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
+const staged = ref<ReadonlyMap<string, StagedPaint>>(new Map());
+const events = ref<readonly ScheduleEvent[]>([]);
 const activeShiftTypeId = ref('');
 const activeMemberId = ref('');
 const reason = ref('');
@@ -35,6 +52,9 @@ const errorMessage = ref<string>();
 const infoMessage = ref<string>();
 
 const today = getBusinessDate();
+const roleOptions = computed(() =>
+  (config.value?.roles ?? []).map((role) => ({ label: role.name, value: role.id })),
+);
 const assignmentsByDate = computed(() => {
   const map = new Map<string, CalendarDutyAssignment[]>();
   for (const assignment of calendar.value?.assignments ?? []) {
@@ -44,6 +64,17 @@ const assignmentsByDate = computed(() => {
   }
   return map;
 });
+const pendingStages = computed(() =>
+  [...staged.value.entries()]
+    .map(([date, paint]) => ({
+      date,
+      memberName:
+        members.value.find((member) => member.membershipId === paint.memberId)?.realName ?? '',
+      shiftTypeName:
+        shiftTypes.value.find((shiftType) => shiftType.id === paint.shiftTypeId)?.name ?? '',
+    }))
+    .sort((first, second) => first.date.localeCompare(second.date)),
+);
 
 onMounted(() => {
   void loadData();
@@ -58,12 +89,12 @@ async function loadData(): Promise<void> {
       api.getSchedulingConfig(props.group.id),
     ]);
     periods.value = nextPeriods;
-    shiftTypes.value = nextConfig.shiftTypes.filter((shiftType) => shiftType.isEnabled);
-    members.value = nextConfig.groupMembers;
-    const nextPeriodId = periods.value.some((period) => period.id === selectedPeriodId.value)
-      ? selectedPeriodId.value
-      : (periods.value[0]?.id ?? '');
-    await loadCalendar(nextPeriodId);
+    config.value = nextConfig;
+    if (roleId.value === '' && nextConfig.roles.length > 0) {
+      roleId.value = nextConfig.roles[0]?.id ?? '';
+    }
+    await loadCalendar();
+    await loadEvents();
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -71,17 +102,22 @@ async function loadData(): Promise<void> {
   }
 }
 
-async function loadCalendar(periodId: string): Promise<void> {
-  selectedPeriodId.value = periodId;
+async function loadCalendar(): Promise<void> {
   calendar.value = undefined;
   holidays.value = new Map();
-  if (periodId === '') {
+  if (roleId.value === '') {
     return;
   }
+  const period = periods.value.find(
+    (candidate) =>
+      candidate.businessMonth === businessMonth.value && candidate.scheduleRoleId === roleId.value,
+  );
   try {
     const [nextCalendar, nextHolidays] = await Promise.all([
-      api.getSchedulePeriodCalendar(props.group.id, periodId),
-      loadHolidays(periodId),
+      period === undefined
+        ? Promise.resolve(buildEmptyCalendar())
+        : api.getSchedulePeriodCalendar(props.group.id, period.id),
+      loadHolidays(),
     ]);
     calendar.value = nextCalendar;
     holidays.value = nextHolidays;
@@ -90,11 +126,65 @@ async function loadCalendar(periodId: string): Promise<void> {
   }
 }
 
-async function loadHolidays(periodId: string): Promise<ReadonlyMap<string, ConfirmedHolidayDate>> {
-  const period = periods.value.find((candidate) => candidate.id === periodId);
-  const year = Number(period?.businessMonth.slice(0, 4) ?? new Date().getFullYear());
+async function loadHolidays(): Promise<ReadonlyMap<string, ConfirmedHolidayDate>> {
+  const year = Number(businessMonth.value.slice(0, 4));
   const result = await api.getHolidays(year);
   return new Map(result.dates.map((date) => [date.date, date] as const));
+}
+
+async function loadEvents(): Promise<void> {
+  try {
+    const page = await api.getGroupEvents(props.group.id, {
+      eventTypes: ['schedule_backfill_completed'],
+      pageSize: 20,
+    });
+    events.value = page.events;
+  } catch {
+    events.value = [];
+  }
+}
+
+function buildEmptyCalendar(): CalendarReadModel {
+  const role = config.value?.roles.find((candidate) => candidate.id === roleId.value);
+  return {
+    assignments: [],
+    businessMonth: businessMonth.value,
+    groupId: props.group.id,
+    members: members.value.map((member) => ({
+      isConfirmed: false,
+      membershipId: member.membershipId,
+      realName: member.realName,
+    })),
+    roles: role === undefined ? [] : [{ id: role.id, name: role.name }],
+    shiftTypes: shiftTypes.value.map((shiftType) => ({
+      abbreviation: shiftType.abbreviation,
+      color: shiftType.color,
+      crossesMidnight: shiftType.crossesMidnight,
+      ...(shiftType.endTime === undefined ? {} : { endTime: shiftType.endTime }),
+      id: shiftType.id,
+      isAllDay: shiftType.isAllDay,
+      name: shiftType.name,
+      ...(shiftType.startTime === undefined ? {} : { startTime: shiftType.startTime }),
+      textColor: shiftType.textColor,
+    })),
+  };
+}
+
+function changeMonth(delta: number): void {
+  businessMonth.value = addBusinessMonths(businessMonth.value, delta);
+  void loadCalendar();
+}
+
+function onMonthInput(value: string): void {
+  if (/^\d{4}-\d{2}$/u.test(value)) {
+    businessMonth.value = value;
+    void loadCalendar();
+  }
+}
+
+function onRoleChange(value: string | number | boolean | object | null): void {
+  roleId.value = String(value ?? '');
+  void loadCalendar();
 }
 
 function selectShiftType(shiftTypeId: string): void {
@@ -112,82 +202,88 @@ function onCalendarClick(event: MouseEvent): void {
   if (date === undefined || date === '') {
     return;
   }
-  void paintDate(date);
+  clickDate(date);
 }
 
-async function paintDate(date: string): Promise<void> {
+function clickDate(date: string): void {
   errorMessage.value = undefined;
+  if (staged.value.has(date)) {
+    removeStage(date);
+    return;
+  }
   if (activeShiftTypeId.value === '' || activeMemberId.value === '') {
-    infoMessage.value = '请先在下方选择班种和成员（保持选中），再点击日历日期进行补录。';
+    infoMessage.value = '请先选择班种和成员（保持选中），再点击既往日期进行配班。';
     return;
   }
   if (date >= today) {
     errorMessage.value = `该日期（${date}）尚未过去，请使用正常排班功能修改。`;
     return;
   }
-
-  const assignments = assignmentsByDate.value.get(date) ?? [];
-  if (assignments.length === 0) {
-    infoMessage.value = `该日期（${date}）没有可补录的班次；补录仅用于修改既往已存在的班次。`;
+  const existing = assignmentsByDate.value.get(date)?.[0];
+  if (
+    existing !== undefined &&
+    existing.actualMembershipId === activeMemberId.value &&
+    existing.shiftTypeId === activeShiftTypeId.value
+  ) {
+    infoMessage.value = `该日期（${date}）已是此配班，无需重复补录。`;
     return;
   }
-  const target = assignments[0];
-  if (target === undefined) {
-    infoMessage.value = `该日期（${date}）没有可补录的班次；补录仅用于修改既往已存在的班次。`;
-    return;
-  }
-  const matches =
-    target.actualMembershipId === activeMemberId.value &&
-    target.shiftTypeId === activeShiftTypeId.value;
-  if (matches) {
-    if (target.plannedMembershipId === null || target.plannedMembershipId === undefined) {
-      infoMessage.value = `该班次没有计划成员可恢复，请直接选择其他成员补录。`;
-      return;
-    }
-    const restored = await savePaint(target, {
-      actualMembershipId: target.plannedMembershipId,
-    });
-    if (restored) {
-      infoMessage.value = `已取消 ${date} 的补录，恢复为计划成员（${target.plannedMemberName ?? ''}）。`;
-    }
-    return;
-  }
-
-  const member = members.value.find((candidate) => candidate.membershipId === activeMemberId.value);
-  const saved = await savePaint(target, {
-    actualMembershipId: activeMemberId.value,
-    shiftTypeId: activeShiftTypeId.value,
-  });
-  if (saved) {
-    infoMessage.value =
-      assignments.length > 1
-        ? `已补录 ${date}（该日共 ${assignments.length} 个班次，本次修改第 1 个）。`
-        : `已补录 ${date}：${member?.realName ?? ''} · ${shiftTypes.value.find((item) => item.id === activeShiftTypeId.value)?.name ?? ''}，并留下“排班补录”事件记录。`;
-  }
+  const next = new Map(staged.value);
+  next.set(date, { memberId: activeMemberId.value, shiftTypeId: activeShiftTypeId.value });
+  staged.value = next;
+  infoMessage.value = `已加入待确认：${date}。点击“确认补录”后生效。`;
 }
 
-async function savePaint(
-  target: CalendarDutyAssignment,
-  input: { readonly actualMembershipId: string; readonly shiftTypeId?: string },
-): Promise<boolean> {
-  if (selectedPeriodId.value === '') {
-    return false;
+function removeStage(date: string): void {
+  const next = new Map(staged.value);
+  next.delete(date);
+  staged.value = next;
+  infoMessage.value = `已取消 ${date} 的待补录项，不会生成任何记录。`;
+}
+
+function clearStaged(): void {
+  staged.value = new Map();
+  infoMessage.value = '已清空待确认的补录项。';
+}
+
+async function confirmStaged(): Promise<void> {
+  if (staged.value.size === 0) {
+    infoMessage.value = '没有待确认的补录项。';
+    return;
   }
   isSaving.value = true;
+  errorMessage.value = undefined;
+  let confirmedCount = 0;
   try {
-    await api.updatePastScheduleAssignment(props.group.id, selectedPeriodId.value, target.id, {
-      actualMembershipId: input.actualMembershipId,
-      ...(input.shiftTypeId === undefined ? {} : { shiftTypeId: input.shiftTypeId }),
-      ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
-    });
-    await loadCalendar(selectedPeriodId.value);
-    return true;
+    for (const [date, paint] of [...staged.value.entries()].sort(([a], [b]) =>
+      a.localeCompare(b),
+    )) {
+      await api.createPastScheduleAssignment(props.group.id, {
+        actualMembershipId: paint.memberId,
+        businessDate: date,
+        ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
+        scheduleRoleId: roleId.value,
+        shiftTypeId: paint.shiftTypeId,
+      });
+      confirmedCount += 1;
+    }
+    staged.value = new Map();
+    infoMessage.value = `已确认补录 ${confirmedCount} 条，并留下“排班补录”事件记录。`;
+    await loadData();
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
-    return false;
+    infoMessage.value = `已确认 ${confirmedCount} 条，其余未提交成功，请重试。`;
   } finally {
     isSaving.value = false;
   }
+}
+
+function formatEventTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return value;
+  }
+  return date.toLocaleString('zh-CN', { hour12: false });
 }
 
 function getErrorMessage(error: unknown): string {
@@ -200,28 +296,37 @@ function getErrorMessage(error: unknown): string {
     <h2>排班补录</h2>
     <t-alert
       theme="info"
-      message="仅管理员与群主可进入。可补录既往月份与年份的排班；先选择班种和成员（再次点击取消选中），再点击日历中的已过日期进行配班，每次修改都会留下“排班补录”事件记录。"
+      message="仅管理员与群主可进入，可自由切换既往月份/年份。先选择班种和成员（再次点击取消选中），再点击日历中的既往日期配班；确认后才会生效并留下“排班补录”事件记录。"
     />
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
     <t-loading v-if="isLoading" text="正在加载既往排班" />
     <template v-else>
-      <label class="period-select">
-        既往排班月份
-        <t-select
-          :value="selectedPeriodId"
-          :options="
-            periods.map((period) => ({
-              label: `${period.businessMonth} · ${period.scheduleRoleName}`,
-              value: period.id,
-            }))
-          "
-          placeholder="请选择要补录的排班"
-          @change="
-            (value: string | number | boolean | object | null) => loadCalendar(String(value ?? ''))
-          "
-        />
-      </label>
+      <div class="controls">
+        <label>
+          排班岗位
+          <t-select
+            :value="roleId"
+            :options="roleOptions"
+            placeholder="请选择排班岗位"
+            @change="onRoleChange"
+          />
+        </label>
+        <label>
+          月份
+          <span class="month-nav">
+            <t-button variant="outline" size="small" @click="changeMonth(-1)">上一月</t-button>
+            <input
+              :value="businessMonth"
+              class="month-input"
+              type="month"
+              @change="onMonthInput(($event.target as HTMLInputElement).value)"
+            />
+            <t-button variant="outline" size="small" @click="changeMonth(1)">下一月</t-button>
+          </span>
+        </label>
+        <span class="month-label">{{ getBusinessMonthLabel(businessMonth) }}</span>
+      </div>
 
       <template v-if="calendar !== undefined">
         <div class="palette-section">
@@ -239,8 +344,7 @@ function getErrorMessage(error: unknown): string {
               }"
               @click="selectShiftType(shiftType.id)"
             >
-              {{ shiftType.abbreviation }}
-              <span class="palette-name">{{ shiftType.name }}</span>
+              {{ shiftType.name }}
             </button>
           </div>
           <div class="palette-row">
@@ -257,24 +361,61 @@ function getErrorMessage(error: unknown): string {
             </button>
           </div>
           <label class="reason-field">
-            补录说明（选填，作用于下一次补录）
+            补录说明（选填，作用于本次确认）
             <t-textarea v-model="reason" :maxlength="1000" placeholder="记录本次补录原因" />
           </label>
-          <p class="paint-hint">
-            提示：点击日历中已过日期的格子完成配班；再次点击已相同配班的日期可取消补录（恢复计划成员）。
-          </p>
         </div>
+
+        <div v-if="pendingStages.length > 0" class="staged-panel">
+          <strong>待确认补录（{{ pendingStages.length }}）</strong>
+          <span
+            v-for="item in pendingStages"
+            :key="item.date"
+            class="staged-item"
+            @click="removeStage(item.date)"
+          >
+            {{ item.date }}：{{ item.memberName }} · {{ item.shiftTypeName }}（点击移除）
+          </span>
+          <t-space size="small">
+            <t-button theme="primary" :loading="isSaving" @click="confirmStaged">
+              确认补录
+            </t-button>
+            <t-button variant="outline" :disabled="isSaving" @click="clearStaged">
+              清空草稿
+            </t-button>
+          </t-space>
+        </div>
+
+        <p class="paint-hint">
+          提示：灰色为未来日期（不可补录），正常底色为既往日期；再次点击已加入待确认的日期可取消该项（不会生成记录）。
+        </p>
 
         <MonthGrid
           :assignments="calendar.assignments"
           :business-month="calendar.businessMonth"
           :holidays="holidays"
+          :invert-past-colors="true"
           :members="calendar.members"
+          :show-markers="false"
           :today="today"
           @click="onCalendarClick"
         />
       </template>
-      <div v-else class="empty-hint">暂无既往排班可补录。</div>
+
+      <section v-if="events.length > 0" class="events-section">
+        <h3>最近补录事件记录</h3>
+        <ul>
+          <li v-for="event in events" :key="event.id">
+            <span class="event-time">{{ formatEventTime(event.occurredAt) }}</span>
+            {{ event.afterData?.businessDate ?? '' }} ·
+            {{ event.afterData?.actualMemberName ?? '' }}
+            <template v-if="event.afterData?.created === true">（新增）</template>
+            <template v-if="typeof event.afterData?.reason === 'string'">
+              · {{ event.afterData.reason }}
+            </template>
+          </li>
+        </ul>
+      </section>
     </template>
   </section>
 </template>
@@ -291,21 +432,42 @@ function getErrorMessage(error: unknown): string {
   font-weight: 600;
 }
 
-.period-select {
-  display: grid;
-  gap: 4px;
-  max-width: 420px;
-  color: #374151;
-  font-size: 14px;
-}
-
-.empty-hint {
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: end;
   padding: 12px;
-  color: #6b7280;
-  font-size: 13px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
+}
+
+.controls label {
+  display: grid;
+  gap: 4px;
+  color: #374151;
+  font-size: 13px;
+}
+
+.month-nav {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.month-input {
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+}
+
+.month-label {
+  align-self: center;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .palette-section {
@@ -360,14 +522,6 @@ function getErrorMessage(error: unknown): string {
   border-color: #1f5aa6;
 }
 
-.shift-type-button.is-active {
-  outline-color: #1f5aa6;
-}
-
-.palette-name {
-  font-weight: 400;
-}
-
 .reason-field {
   display: grid;
   gap: 4px;
@@ -376,9 +530,72 @@ function getErrorMessage(error: unknown): string {
   font-size: 13px;
 }
 
+.staged-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+  color: #1f2937;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.staged-item {
+  padding: 4px 8px;
+  color: #1f5aa6;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.staged-item:hover {
+  background: #dbeafe;
+}
+
 .paint-hint {
   margin: 0;
   color: #6b7280;
   font-size: 13px;
+}
+
+.events-section {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.events-section h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.events-section ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.events-section li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e5e7eb;
+}
+
+.event-time {
+  color: #6b7280;
 }
 </style>

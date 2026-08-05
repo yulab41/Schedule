@@ -14,6 +14,7 @@ import type {
   ApprovedLeaveRequestResult,
   CalendarReadModel,
   ClaimGroupResponse,
+  CreatePastScheduleAssignmentInput,
   CreateScheduleExportInput,
   CreateDirectDutyAdjustmentInput,
   CreateDutyAdjustmentRequestInput,
@@ -250,6 +251,10 @@ export interface ApiClient {
     schedulePeriodId: string,
     assignmentId: string,
     input: UpdatePastScheduleAssignmentInput,
+  ): Promise<UpdatePastScheduleAssignmentResult>;
+  createPastScheduleAssignment(
+    groupId: string,
+    input: CreatePastScheduleAssignmentInput,
   ): Promise<UpdatePastScheduleAssignmentResult>;
   previewScheduleChange(
     groupId: string,
@@ -1269,6 +1274,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(schedulePeriodId)}/assignments/${encodeURIComponent(assignmentId)}`,
         { body: JSON.stringify(input), method: 'PUT' },
+        isUpdatePastScheduleAssignmentResult,
+      );
+    },
+    createPastScheduleAssignment(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/past-schedules/assignments`,
+        { body: JSON.stringify(input), method: 'POST' },
         isUpdatePastScheduleAssignmentResult,
       );
     },

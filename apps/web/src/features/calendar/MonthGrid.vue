@@ -20,7 +20,9 @@ const props = defineProps<{
   readonly assignments: readonly CalendarDutyAssignment[];
   readonly businessMonth: string;
   readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
+  readonly invertPastColors?: boolean;
   readonly members: readonly CalendarDutyMember[];
+  readonly showMarkers?: boolean;
   readonly today?: string;
 }>();
 const emit = defineEmits<{
@@ -64,7 +66,11 @@ function isSoleDuty(date: string | undefined): boolean {
 </script>
 
 <template>
-  <section class="month-grid" aria-label="排班日历">
+  <section
+    class="month-grid"
+    :class="{ 'invert-past-colors': invertPastColors === true }"
+    aria-label="排班日历"
+  >
     <div class="weekday-row" aria-hidden="true">
       <span v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']" :key="weekday">
         {{ weekday }}
@@ -109,6 +115,7 @@ function isSoleDuty(date: string | undefined): boolean {
                 :assignment="assignment"
                 :hide-shift-badge="isSoleDuty(cell.businessDate)"
                 :member="memberFor(assignment)"
+                :show-markers="showMarkers !== false"
                 @open-events="emit('open-events', $event)"
               />
             </li>
@@ -162,6 +169,36 @@ function isSoleDuty(date: string | undefined): boolean {
 
 .day-cell.is-past.is-off-day {
   background: #f1ece6;
+}
+
+.month-grid.invert-past-colors .day-cell:not(.is-past) {
+  background: #f3f4f6;
+}
+
+.month-grid.invert-past-colors .day-cell.is-past {
+  background: #ffffff;
+}
+
+.month-grid.invert-past-colors .day-cell.is-past.is-off-day {
+  background: #fdf7f0;
+}
+
+.month-grid.invert-past-colors .day-cell:not(.is-past) .day-number {
+  color: #6b7280;
+}
+
+.month-grid.invert-past-colors .day-cell.is-past .day-number {
+  color: #374151;
+}
+
+.month-grid.invert-past-colors .day-cell:not(.is-past) :deep(.duty-name),
+.month-grid.invert-past-colors .day-cell:not(.is-past) :deep(.duty-name.is-callable) {
+  color: #6b7280;
+}
+
+.month-grid.invert-past-colors .day-cell.is-past :deep(.duty-name),
+.month-grid.invert-past-colors .day-cell.is-past :deep(.duty-name.is-callable) {
+  color: #111827;
 }
 
 .day-number {

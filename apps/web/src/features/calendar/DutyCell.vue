@@ -16,6 +16,7 @@ const props = defineProps<{
   readonly assignment: CalendarDutyAssignment;
   readonly hideShiftBadge?: boolean;
   readonly member: CalendarDutyMember | undefined;
+  readonly showMarkers?: boolean;
 }>();
 const emit = defineEmits<{
   (event: 'open-events', assignment: CalendarDutyAssignment): void;
@@ -83,17 +84,19 @@ onUnmounted(() => {
     >
       {{ assignment.shiftTypeAbbreviation }}
     </span>
-    <button
-      v-for="marker in assignment.changeMarkers"
-      :key="marker"
-      type="button"
-      class="change-marker-button"
-      :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-      :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-      @click.stop="emit('open-events', assignment)"
-    >
-      <ChangeBadge :marker="marker" />
-    </button>
+    <template v-if="showMarkers !== false">
+      <button
+        v-for="marker in assignment.changeMarkers"
+        :key="marker"
+        type="button"
+        class="change-marker-button"
+        :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+        :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+        @click.stop="emit('open-events', assignment)"
+      >
+        <ChangeBadge :marker="marker" />
+      </button>
+    </template>
     <div v-if="isMenuOpen && canCall" class="phone-menu" @click.stop>
       <template v-if="isCoarsePointer">
         <a

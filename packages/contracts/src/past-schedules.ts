@@ -27,6 +27,14 @@ export interface UpdatePastScheduleAssignmentInput {
   readonly shiftTypeId?: string;
 }
 
+export interface CreatePastScheduleAssignmentInput {
+  readonly actualMembershipId: string;
+  readonly businessDate: string;
+  readonly reason?: string;
+  readonly scheduleRoleId: string;
+  readonly shiftTypeId: string;
+}
+
 export interface UpdatePastScheduleAssignmentResult {
   readonly assignment: PastScheduleAssignment;
   readonly eventId: string;

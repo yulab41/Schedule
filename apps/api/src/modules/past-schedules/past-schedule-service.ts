@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  CreatePastScheduleAssignmentInput,
   PastScheduleAssignment,
   PastSchedulePeriod,
   UpdatePastScheduleAssignmentInput,
@@ -8,6 +9,7 @@ import type {
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
+  groups,
   groupMemberships,
   schedulePeriods,
   scheduleRoles,
@@ -22,7 +24,7 @@ import {
   isPastBusinessDate,
   toChinaStandardTimeShiftRange,
 } from '@schedule/scheduling-domain';
-import { and, asc, desc, eq, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -304,6 +306,221 @@ export class PastScheduleService {
 
       return { assignment: toPastScheduleAssignment(updated), eventId };
     });
+  }
+
+  public async createAssignment(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: CreatePastScheduleAssignmentInput,
+  ): Promise<UpdatePastScheduleAssignmentResult> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      if (!/^\d{4}-\d{2}-\d{2}$/u.test(input.businessDate)) {
+        throw new ApiError({
+          code: 'VALIDATION_FAILED',
+          statusCode: 400,
+          userMessage: '补录日期格式不正确。',
+        });
+      }
+      if (!isPastBusinessDate(input.businessDate)) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: `该班次日期（${input.businessDate}）尚未过去，请使用正常排班功能修改。`,
+        });
+      }
+      const period = await this.findOrCreatePastPeriod(
+        transaction,
+        authorization,
+        input.scheduleRoleId,
+        input.businessDate,
+      );
+      const memberName = await this.readMemberName(
+        transaction,
+        authorization,
+        input.actualMembershipId,
+      );
+      const shiftType = await this.readShiftType(transaction, authorization, input.shiftTypeId);
+      const timeRange = toChinaStandardTimeShiftRange({
+        businessDate: input.businessDate,
+        crossesMidnight: shiftType.crossesMidnight === 1,
+        endTime: (shiftType.endTime as string).slice(0, 5),
+        startTime: (shiftType.startTime as string).slice(0, 5),
+      });
+      const shiftSnapshot = {
+        shiftEndTime: (shiftType.endTime as string).slice(0, 5),
+        shiftStartTime: (shiftType.startTime as string).slice(0, 5),
+        shiftTypeAbbreviation: shiftType.abbreviation,
+        shiftTypeColor: shiftType.color,
+        shiftTypeConfigurationVersion: shiftType.configurationVersion,
+        shiftTypeId: shiftType.id,
+        shiftTypeName: shiftType.name,
+        shiftTypeTextColor: shiftType.textColor,
+        crossesMidnight: shiftType.crossesMidnight,
+        isAllDay: shiftType.isAllDay,
+        countsTowardStatistics: shiftType.countsTowardStatistics,
+      };
+
+      const [existing] = await transaction
+        .select()
+        .from(shiftAssignments)
+        .where(
+          and(
+            eq(shiftAssignments.schedulePeriodId, period.id),
+            eq(shiftAssignments.businessDate, input.businessDate),
+            isNull(shiftAssignments.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      let created = false;
+      let assignmentId: string;
+      if (existing !== undefined) {
+        assignmentId = existing.id;
+        await transaction
+          .update(shiftAssignments)
+          .set({
+            actualMembershipId: input.actualMembershipId,
+            actualMemberName: memberName,
+            ...shiftSnapshot,
+            endsAt: timeRange.endsAt,
+            startsAt: timeRange.startsAt,
+            version: sql`${shiftAssignments.version} + 1`,
+          })
+          .where(eq(shiftAssignments.id, existing.id));
+      } else {
+        created = true;
+        assignmentId = randomUUID();
+        await transaction.insert(shiftAssignments).values({
+          actualMembershipId: input.actualMembershipId,
+          actualMemberName: memberName,
+          businessDate: input.businessDate,
+          id: assignmentId,
+          plannedMembershipId: input.actualMembershipId,
+          plannedMemberName: memberName,
+          schedulePeriodId: period.id,
+          slotPosition: 1,
+          ...shiftSnapshot,
+          endsAt: timeRange.endsAt,
+          startsAt: timeRange.startsAt,
+        });
+      }
+      const [updated] = await transaction
+        .select()
+        .from(shiftAssignments)
+        .where(eq(shiftAssignments.id, assignmentId));
+      if (updated === undefined) {
+        throw new Error('The backfilled assignment could not be read back.');
+      }
+
+      const eventId = await this.eventWriter.append(transaction, {
+        affectedMembershipIds: [input.actualMembershipId],
+        affectedShiftIds: [assignmentId],
+        afterData: {
+          actualMemberId: input.actualMembershipId,
+          actualMemberName: memberName,
+          assignmentId,
+          businessDate: input.businessDate,
+          created,
+          ...(input.reason === undefined ? {} : { reason: input.reason }),
+          shiftTypeId: shiftType.id,
+          source: 'schedule_backfill',
+        },
+        beforeData: {},
+        eventStatus: 'completed',
+        eventType: 'schedule_backfill_completed',
+        groupId: authorization.group.id,
+        initiatedByUserId: authorization.user.id,
+        objectId: assignmentId,
+        objectType: 'shift_assignment',
+        operationId: randomUUID(),
+        operatorUserId: authorization.user.id,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
+        schedulePeriodId: period.id,
+      });
+      await this.statisticsService.refreshInTransaction(
+        transaction,
+        authorization.group.id,
+        `${input.businessDate.slice(0, 7)}-01`,
+      );
+
+      return { assignment: toPastScheduleAssignment(updated), eventId };
+    });
+  }
+
+  private async findOrCreatePastPeriod(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    scheduleRoleId: string,
+    businessDate: string,
+  ): Promise<typeof schedulePeriods.$inferSelect> {
+    const businessMonth = `${businessDate.slice(0, 7)}-01`;
+    const [existing] = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, authorization.group.id),
+          eq(schedulePeriods.scheduleRoleId, scheduleRoleId),
+          eq(schedulePeriods.businessMonth, businessMonth),
+          inArray(schedulePeriods.status, ['past', 'published']),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      )
+      .orderBy(
+        sql`case when ${schedulePeriods.status} = 'past' then 0 else 1 end`,
+        desc(schedulePeriods.revision),
+      )
+      .limit(1)
+      .for('update');
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const [mostRecentPeriod] = await transaction
+      .select({ revision: schedulePeriods.revision })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, authorization.group.id),
+          eq(schedulePeriods.scheduleRoleId, scheduleRoleId),
+          eq(schedulePeriods.businessMonth, businessMonth),
+        ),
+      )
+      .orderBy(desc(schedulePeriods.revision))
+      .limit(1)
+      .for('update');
+    const revision = (mostRecentPeriod?.revision ?? 0) + 1;
+    const [groupRow] = await transaction
+      .select({ rulesVersion: groups.rulesVersion })
+      .from(groups)
+      .where(eq(groups.id, authorization.group.id))
+      .limit(1);
+    const pastPeriodId = randomUUID();
+    await transaction.insert(schedulePeriods).values({
+      businessMonth,
+      groupId: authorization.group.id,
+      id: pastPeriodId,
+      revision,
+      rulesVersion: groupRow?.rulesVersion ?? 1,
+      scheduleRoleId,
+      status: 'past',
+    });
+    const [created] = await transaction
+      .select()
+      .from(schedulePeriods)
+      .where(eq(schedulePeriods.id, pastPeriodId))
+      .limit(1);
+    if (created === undefined) {
+      throw new Error('The past schedule period could not be read back.');
+    }
+
+    return created;
   }
 
   private async lockDisplayablePeriod(

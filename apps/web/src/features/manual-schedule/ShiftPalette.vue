@@ -24,11 +24,9 @@ const emit = defineEmits<{
         type="button"
         :class="{ 'is-active': activeShiftTypeId === shiftType.id }"
         :style="{ backgroundColor: shiftType.color, color: shiftType.textColor }"
-        :title="shiftType.name"
         @click="emit('select', shiftType.id)"
       >
-        {{ shiftType.abbreviation }}
-        <span class="palette-name">{{ shiftType.name }}</span>
+        {{ shiftType.name }}
       </button>
     </div>
   </section>
