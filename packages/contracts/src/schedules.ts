@@ -120,7 +120,8 @@ export interface SchedulePeriodHistoryItem {
   readonly revision: number;
   readonly scheduleRoleId: string;
   readonly scheduleRoleName: string;
-  readonly status: 'draft' | 'pending_publication' | 'published' | 'replaced' | 'withdrawn';
+  readonly status:
+    'draft' | 'pending_publication' | 'published' | 'replaced' | 'withdrawn' | 'past';
   readonly version: number;
 }
 

@@ -434,6 +434,40 @@ describeWithDatabase('member shift swaps', () => {
     expect(actuals.bSep2.actualMembershipId).toBe(context.membershipIds.b);
   });
 
+  it('blocks revoking a completed swap whose shifts are already past', async () => {
+    const context = await seedPublishedRotation();
+    const created = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET business_date = '2026-08-01', starts_at = '2026-07-31 16:00:00', ends_at = '2026-08-01 16:00:00'
+          WHERE id = ${context.assignments.aSep1.id}`,
+    );
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET business_date = '2026-08-02', starts_at = '2026-08-01 16:00:00', ends_at = '2026-08-02 16:00:00'
+          WHERE id = ${context.assignments.bSep2.id}`,
+    );
+
+    const blocked = await revokeSwap('owner-token', context.groupId, createdBody.id, {
+      expectedVersion: createdBody.version,
+      operationId: randomUUID(),
+    });
+    expect(blocked.statusCode, blocked.body).toBe(409);
+    expect(blocked.json()).toMatchObject({
+      error: {
+        code: 'CONFLICT',
+        message: expect.stringContaining('已过日期'),
+      },
+    });
+  });
+
   it('keeps archived assignment snapshots readable in approval history', async () => {
     const context = await seedPublishedRotation();
     const created = await directSwap('owner-token', context.groupId, {

@@ -36,6 +36,7 @@ export const schedulePeriods = mysqlTable(
       'published',
       'withdrawn',
       'replaced',
+      'past',
     ])
       .default('draft')
       .notNull(),

@@ -162,6 +162,13 @@
       "when": 1785542400022,
       "tag": "0023_optional_leave_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1785542400023,
+      "tag": "0024_add_past_schedule_status",
+      "breakpoints": true
     }
   ]
 }

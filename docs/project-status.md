@@ -9,12 +9,12 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–46 已完成；最新验证基线 384/384（61 个测试文件，隔离 MySQL）
-- Next actions: 等待用户复核轮次 46（手动排班日期/班种单行/请假列表与阻断）；随后排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
+- Debug rounds: 1–47 已完成；最新验证基线 390/390（62 个测试文件，隔离 MySQL）
+- Next actions: 等待用户复核轮次 47（已过日期锁定/既往排班/排班补录）；上线前需先对线上库执行迁移 0024 再部署代码；随后排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
 
 ## Debug / Test Feedback Log
 
-- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–46 明细、待办/下一步）
+- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–47 明细、待办/下一步）
 - 本文件不再重复逐轮内容，避免每轮对话重复读取同一份日志
 
 ## Approved Sources
@@ -28,7 +28,7 @@
 ## Completed Work（摘要）
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-04 调试期轮次 1–46 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 384/384；CloudBase 部署保持手动触发，本轮未部署）。
+- 2026-08-04 调试期轮次 1–47 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 390/390；CloudBase 部署保持手动触发，本轮未部署）。
 - 轮次 35 按用户要求开放访客节假日、联系电话与当天标记，并禁止换班/加扣班等事件标记与事件入口；月/周/列表日历对过去日期统一显示深灰色（访客与用户/管理员模式一致）。检查点提交 `feat(guest): expose holidays and contacts while hiding events, gray past dates` 识别。
 - 轮次 37 修复管理员发起的换班事件在首页弹窗错误显示“由成员一发出”，改为按实际操作账户显示发起人；人员变更链移到事件弹窗底部并默认折叠。检查点提交 `fix(events): show acting account for admin swaps; collapsible change chain` 识别。
 - 轮次 38 合并换班/加扣班人员变更链为一条、去掉日历“事件”按钮并改为点击“换/加”等标记打开事件弹窗、恢复点击姓名弹出联系电话（未确认号码仅可复制）。检查点提交 `fix(events): merge change chains, marker-click events, restore phone menu` 识别。
@@ -40,6 +40,7 @@
 - 轮次 44 请假原因改为选填；提交不再强制手动/顺延二选一（受影响班次提示不阻断）；审批弹窗显示涉及班次数并提供换班/加扣班/手动排班跳转；自动排班跳过已批准请假成员（迁移 0023）。检查点提交 `feat(leaves): optional reason, non-blocking affected shifts, approval with adjustment shortcuts and leave-aware generation` 识别。
 - 轮次 45 日历按班种时间排序（A/P/N）；手动排班改为班种绘制模式；模板应用起始日期自动取已排班之后的首个未排日期；排班配置紧凑化并移除轮值规则/轮值顺序入口（废除前端自动排班模块）。检查点提交 `feat(schedules): shift-time calendar ordering, manual paint mode, next-free template start, compact config and rotation removal` 识别。
 - 轮次 46 手动排班起始日期只统计已发布记录（归档/删除不影响自动检测），且手动修改后保存/应用以手动日期为准；手动排班/模板应用检测已批准请假并阻断；再次点击当前班种可清除单元格；审批弹窗列出具体冲突班次；班种配置改为每班种一行紧凑布局。检查点提交 `fix(schedules): published-only next start, leave-aware manual apply, toggle-off paint, one-row shift config` 识别；追加提交 `fix(scheduling-config): prevent shift type editor field overlap` 修复班种输入框重叠。
+- 轮次 47 已过日期硬性锁定：新增 `past` 排班状态（既往排班），发布/替换/撤销自动把已过班次移入既往期间并锁定；已过期月份禁止撤销/重发并自动清理其草稿与归档；手动模板应用禁止回填已过日期；换班/请假/加扣班撤销阻断已过日期；新增“排班补录”页面与接口（仅管理员/群主，修改留痕 `schedule_backfill_completed` 事件）。检查点提交 `feat(schedules): lock past dates, past-schedule archive, backfill corrections with audit` 识别。
 - 轮次 33 完成排班变更工作流撤销、发布版本月历、当前撤销/归档重发、已发布草稿归档体验和群组码访客只读月历；检查点提交以 `feat(schedules): add publication lifecycle and guest calendar` 识别。
 - 轮次 34 修复历史软删除排班导致换班/加扣班审批页 500，访客改为公开群组名称列表和当月默认月历，并将 PWA 缓存升级到 v3 以清除旧发布记录前端资源；检查点提交以 `fix(schedules): restore history and guest access` 识别。
 - 线上数据操作（2026-08-03）：按用户要求清空线上草稿与排班（23 个排班期间、638 条班次软删除，统计快照清空；模板/成员/岗位/班种/联系方式/事件历史保留）；线上迁移已执行至 20 条（`0018`/`0019`/`0020`）。

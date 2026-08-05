@@ -43,6 +43,8 @@ import { parsePlatformAdminUids } from './modules/platform-admin/platform-admin.
 import { registerStatisticsRoutes } from './modules/statistics/statistics-routes.js';
 import { StatisticsService } from './modules/statistics/statistics-service.js';
 import { registerExportRoutes } from './modules/exports/export-routes.js';
+import { registerPastScheduleRoutes } from './modules/past-schedules/past-schedule-routes.js';
+import { PastScheduleService } from './modules/past-schedules/past-schedule-service.js';
 import { ExportService } from './modules/exports/export-service.js';
 import {
   registerAuthentication,
@@ -144,6 +146,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     );
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
     registerExportRoutes(app, new ExportService(options.databaseClient));
+    registerPastScheduleRoutes(app, new PastScheduleService(options.databaseClient));
     registerPlatformAdminRoutes(
       app,
       new PlatformAdminService(

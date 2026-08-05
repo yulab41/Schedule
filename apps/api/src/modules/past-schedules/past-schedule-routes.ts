@@ -1,0 +1,103 @@
+import type { UpdatePastScheduleAssignmentInput } from '@schedule/contracts';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+
+import { ApiError } from '../../plugins/error-handler.js';
+import { PastScheduleService } from './past-schedule-service.js';
+
+const uuidSchema = z.string().uuid();
+const updateAssignmentInputSchema = z
+  .object({
+    actualMembershipId: uuidSchema.optional(),
+    reason: z.string().trim().min(1).max(1000).optional(),
+    shiftTypeId: uuidSchema.optional(),
+  })
+  .strict()
+  .refine(
+    (value) => value.actualMembershipId !== undefined || value.shiftTypeId !== undefined,
+    '至少选择一项修改内容（值班成员或班种）。',
+  );
+
+export function registerPastScheduleRoutes(
+  app: FastifyInstance,
+  service: PastScheduleService,
+): void {
+  app.get('/groups/:groupId/past-schedules', { preHandler: app.authenticate }, (request) =>
+    service.listPeriods(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
+  app.get(
+    '/groups/:groupId/past-schedules/:schedulePeriodId/assignments',
+    { preHandler: app.authenticate },
+    (request) =>
+      service.listAssignments(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSchedulePeriodId(request),
+      ),
+  );
+
+  app.put(
+    '/groups/:groupId/past-schedules/:schedulePeriodId/assignments/:assignmentId',
+    { preHandler: app.authenticate },
+    (request) =>
+      service.updateAssignment(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseSchedulePeriodId(request),
+        parseAssignmentId(request),
+        parseUpdateAssignmentInput(request.body),
+      ),
+  );
+}
+
+function getAuthenticatedIdentity(request: FastifyRequest) {
+  if (request.authenticatedIdentity === null) {
+    throw new ApiError({
+      code: 'AUTHENTICATION_REQUIRED',
+      statusCode: 401,
+      userMessage: '需要先登录后才能继续。',
+    });
+  }
+
+  return request.authenticatedIdentity;
+}
+
+function parseGroupId(request: FastifyRequest): string {
+  return parseOrThrow(uuidSchema, (request.params as { groupId?: unknown }).groupId);
+}
+
+function parseSchedulePeriodId(request: FastifyRequest): string {
+  return parseOrThrow(
+    uuidSchema,
+    (request.params as { schedulePeriodId?: unknown }).schedulePeriodId,
+  );
+}
+
+function parseAssignmentId(request: FastifyRequest): string {
+  return parseOrThrow(uuidSchema, (request.params as { assignmentId?: unknown }).assignmentId);
+}
+
+function parseUpdateAssignmentInput(value: unknown): UpdatePastScheduleAssignmentInput {
+  const input = parseOrThrow(updateAssignmentInputSchema, value);
+  return {
+    ...(input.actualMembershipId === undefined
+      ? {}
+      : { actualMembershipId: input.actualMembershipId }),
+    ...(input.reason === undefined ? {} : { reason: input.reason }),
+    ...(input.shiftTypeId === undefined ? {} : { shiftTypeId: input.shiftTypeId }),
+  };
+}
+
+function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new ApiError({
+      code: 'VALIDATION_FAILED',
+      statusCode: 400,
+      userMessage: result.error.issues[0]?.message ?? '请求数据不符合要求。',
+    });
+  }
+
+  return result.data;
+}

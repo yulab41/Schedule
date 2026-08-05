@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import type { LeaveReflowPreview, LeaveRequest } from '@schedule/contracts';
@@ -59,11 +59,11 @@ describeWithDatabase('leave requests and reflow', () => {
     const context = await seedPublishedRotation();
 
     const submitted = await submitLeave('a-token', context.groupId, {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '发烧需要休息',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
     expect(submitted.statusCode).toBe(201);
     expect(submitted.json()).toMatchObject({
@@ -79,21 +79,21 @@ describeWithDatabase('leave requests and reflow', () => {
     });
 
     const overlap = await submitLeave('a-token', context.groupId, {
-      endsAt: '2026-08-02T12:00:00.000Z',
+      endsAt: '2026-09-02T12:00:00.000Z',
       isAllDay: false,
       leaveType: 'other',
       reason: '重复提交',
-      startsAt: '2026-08-01T12:00:00.000Z',
+      startsAt: '2026-09-01T12:00:00.000Z',
     });
     expect(overlap.statusCode).toBe(409);
     expect((overlap.json() as ErrorResponse).error.message).toContain('重叠');
 
     const invalid = await submitLeave('a-token', context.groupId, {
-      endsAt: '2026-08-01T00:00:00.000Z',
+      endsAt: '2026-09-01T00:00:00.000Z',
       isAllDay: false,
       leaveType: 'other',
       reason: '时间颠倒',
-      startsAt: '2026-08-02T00:00:00.000Z',
+      startsAt: '2026-09-02T00:00:00.000Z',
     });
     expect(invalid.statusCode).toBe(400);
   });
@@ -101,10 +101,10 @@ describeWithDatabase('leave requests and reflow', () => {
   it('lets the applicant cancel a pending leave request and records the event', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       leaveType: 'sick',
       reason: '取消测试',
-      startsAt: '2026-08-01T16:00:00.000Z',
+      startsAt: '2026-09-01T16:00:00.000Z',
     });
 
     const asOtherMember = await cancelLeave('b-token', context.groupId, leaveRequestId, {
@@ -142,11 +142,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('lets an administrator revoke an approved leave request and removes swap blocking', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '撤销测试',
-      startsAt: '2026-08-01T16:00:00.000Z',
+      startsAt: '2026-09-01T16:00:00.000Z',
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
@@ -188,6 +188,42 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(
       (eventRows as unknown as readonly { eventType: string }[]).map((row) => row.eventType),
     ).toContain('leave_request_revoked');
+  });
+
+  it('blocks revoking an approved leave that includes past dates', async () => {
+    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    const leaveRequestId = await createLeave(context, 'a-token', {
+      endsAt: '2026-08-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '已过日期撤销测试',
+      startsAt: '2026-08-01T00:00:00.000Z',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveRequestId)
+    ).json() as LeaveReflowPreview;
+    expect(
+      (
+        await approveLeave('owner-token', context.groupId, leaveRequestId, {
+          expectedPeriodVersions: preview.periodVersions,
+          expectedRulesVersion: preview.rulesVersion,
+          expectedVersion: 1,
+          operationId: randomUUID(),
+        })
+      ).statusCode,
+    ).toBe(200);
+
+    const blocked = await revokeLeave('owner-token', context.groupId, leaveRequestId, {
+      expectedVersion: 2,
+      operationId: randomUUID(),
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect(blocked.json()).toMatchObject({
+      error: {
+        code: 'CONFLICT',
+        message: expect.stringContaining('已过日期'),
+      },
+    });
   });
 
   it('submits leave without forcing manual coverage and reflows on approval', async () => {
@@ -343,10 +379,10 @@ describeWithDatabase('leave requests and reflow', () => {
   it('previews a partial all-day overlap and keeps the original order on approval', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-01T20:00:00.000Z',
+      endsAt: '2026-09-01T20:00:00.000Z',
       leaveType: 'training',
       reason: '外出进修半天',
-      startsAt: '2026-08-01T16:00:00.000Z',
+      startsAt: '2026-09-01T16:00:00.000Z',
     });
 
     const previewResponse = await previewLeave('owner-token', context.groupId, leaveRequestId);
@@ -355,7 +391,7 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(preview).toMatchObject({
       affectedAssignments: [
         {
-          businessDate: '2026-08-01',
+          businessDate: '2026-09-01',
           nextMemberId: context.membershipIds.b,
           nextMemberName: 'B Doctor',
           previousMemberId: context.membershipIds.a,
@@ -379,14 +415,14 @@ describeWithDatabase('leave requests and reflow', () => {
           countedDelta: -1,
           membershipId: context.membershipIds.a,
           realName: 'A Doctor',
-          weekendDelta: -1,
+          weekendDelta: 0,
         },
         {
           assignmentDelta: 1,
           countedDelta: 1,
           membershipId: context.membershipIds.b,
           realName: 'B Doctor',
-          weekendDelta: 1,
+          weekendDelta: 0,
         },
       ],
       totalAssignmentDelta: 0,
@@ -414,11 +450,11 @@ describeWithDatabase('leave requests and reflow', () => {
     );
     expect(coverEvents).toEqual([{ count: 1 }]);
 
-    const calendar = await getCalendar('owner-token', context.groupId, '2026-08');
+    const calendar = await getCalendar('owner-token', context.groupId, '2026-09');
     expect(calendar.statusCode).toBe(200);
     const calendarBody = calendar.json() as CalendarResponse;
     const firstAssignment = calendarBody.assignments.find(
-      (assignment) => assignment.businessDate === '2026-08-01',
+      (assignment) => assignment.businessDate === '2026-09-01',
     );
     expect(firstAssignment?.plannedMemberName).toBe('B Doctor');
     expect(firstAssignment?.changeMarkers).toContain('leave-cover');
@@ -427,11 +463,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('shift-forward skips the member, advances the cursor, and lets them rejoin', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '病假一天',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
 
     const previewResponse = await previewLeave(
@@ -445,7 +481,7 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(preview.strategy).toBe('shift-forward');
     expect(
       preview.affectedAssignments.map((assignment) => assignment.businessDate).slice(0, 6),
-    ).toEqual(['2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06']);
+    ).toEqual(['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06']);
 
     const approval = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       expectedPeriodVersions: preview.periodVersions,
@@ -468,7 +504,7 @@ describeWithDatabase('leave requests and reflow', () => {
     const [cursor] = await client.database.execute<{ position: number; version: number }>(
       sql`SELECT current_position AS position, version FROM rotation_rules WHERE schedule_role_id = ${context.roleId}`,
     );
-    expect(cursor).toEqual([{ position: 2, version: context.rotationRuleVersion + 1 }]);
+    expect(cursor).toEqual([{ position: 1, version: context.rotationRuleVersion + 1 }]);
     const [nextRulesVersion] = await client.database.execute<{ rulesVersion: number }>(
       sql`SELECT rules_version AS rulesVersion FROM \`groups\` WHERE id = ${context.groupId}`,
     );
@@ -493,11 +529,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('creates a pending vacancy when no cover exists and blocks unacknowledged approval', async () => {
     const context = await seedPublishedRotation(['a']);
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '无人替班',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
 
     const previewResponse = await previewLeave('owner-token', context.groupId, leaveRequestId);
@@ -505,7 +541,7 @@ describeWithDatabase('leave requests and reflow', () => {
     const preview = previewResponse.json() as LeaveReflowPreview;
     expect(preview.vacancies).toHaveLength(1);
     expect(preview.vacancies[0]).toMatchObject({
-      businessDate: '2026-08-01',
+      businessDate: '2026-09-01',
       code: 'NO_ELIGIBLE_MEMBER',
       scheduleRoleId: context.roleId,
       slotPosition: 1,
@@ -533,7 +569,7 @@ describeWithDatabase('leave requests and reflow', () => {
     });
     expect(acknowledged.statusCode).toBe(200);
     const [vacancyRows] = await client.database.execute<{ plannedMemberName: string | null }>(
-      sql`SELECT planned_member_name AS plannedMemberName FROM shift_assignments WHERE schedule_period_id = ${context.periodId} AND business_date = '2026-08-01'`,
+      sql`SELECT planned_member_name AS plannedMemberName FROM shift_assignments WHERE schedule_period_id = ${context.periodId} AND business_date = '2026-09-01'`,
     );
     expect(vacancyRows).toEqual([{ plannedMemberName: null }]);
   });
@@ -541,11 +577,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('rejects stale leave versions and stale period versions', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '版本冲突',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
@@ -573,11 +609,11 @@ describeWithDatabase('leave requests and reflow', () => {
     });
 
     const secondLeaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-04T00:00:00.000Z',
+      endsAt: '2026-09-04T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'other',
       reason: '期间版本变化',
-      startsAt: '2026-08-03T00:00:00.000Z',
+      startsAt: '2026-09-03T00:00:00.000Z',
     });
     const secondPreview = (
       await previewLeave('owner-token', context.groupId, secondLeaveRequestId)
@@ -602,11 +638,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('rejects stale rules versions with the latest rules version', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '规则变化',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
@@ -628,11 +664,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('replays the same approval operation id without duplicates', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '幂等',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
     const preview = (
       await previewLeave('owner-token', context.groupId, leaveRequestId)
@@ -663,11 +699,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('restricts preview and approval permissions', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '权限',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
 
     expect((await previewLeave('b-token', context.groupId, leaveRequestId)).statusCode).toBe(403);
@@ -703,11 +739,11 @@ describeWithDatabase('leave requests and reflow', () => {
   it('rejects a pending request with an event and blocks later approval', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '取消申请',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
 
     const rejected = await rejectLeave('owner-token', context.groupId, leaveRequestId, {
@@ -750,11 +786,11 @@ describeWithDatabase('leave requests and reflow', () => {
     );
 
     const submitted = await submitLeave('a-token', context.groupId, {
-      endsAt: '2026-08-02T00:00:00.000Z',
+      endsAt: '2026-09-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
       reason: '默认顺延',
-      startsAt: '2026-08-01T00:00:00.000Z',
+      startsAt: '2026-09-01T00:00:00.000Z',
     });
     expect(submitted.statusCode).toBe(201);
     expect(submitted.json()).toMatchObject({ reflowStrategy: 'shift-forward' });
@@ -762,7 +798,7 @@ describeWithDatabase('leave requests and reflow', () => {
 
   async function seedPublishedRotation(
     memberKeys: readonly string[] = ['a', 'b', 'c'],
-    businessMonth = '2026-08',
+    businessMonth = '2026-09',
   ): Promise<Context> {
     const groupId = await createGroup('Leave group', '4321');
     await addRosterEntry(groupId, 'A Doctor');
@@ -1064,7 +1100,7 @@ describeWithDatabase('leave requests and reflow', () => {
     groupId: string,
     roleId: string,
     rulesVersion: number,
-    businessMonth = '2026-08',
+    businessMonth = '2026-09',
   ) {
     return app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -1090,7 +1126,7 @@ describeWithDatabase('leave requests and reflow', () => {
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
       payload: {
-        businessMonth: '2026-08',
+        businessMonth: '2026-09',
         rulesVersion,
         scheduleRoleIds: [roleId],
       },

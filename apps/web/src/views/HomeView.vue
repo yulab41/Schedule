@@ -24,6 +24,7 @@ import StatisticsView from './statistics/StatisticsView.vue';
 import ExportDialog from '../features/exports/ExportDialog.vue';
 import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
+import PastScheduleView from './schedules/PastScheduleView.vue';
 
 const lastGroupStorageKey = 'schedule.last-group-id';
 const api = createApiClient({ auth: cloudbaseAuth });
@@ -119,6 +120,11 @@ function getErrorMessage(error: unknown): string {
             <CalendarView v-if="activeTab === 'calendar'" :group="currentGroup()!" />
             <ManualScheduleView
               v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
+              :group="currentGroup()!"
+              @navigate="activeTab = $event"
+            />
+            <PastScheduleView
+              v-if="activeTab === 'backfill' && currentGroup()?.role !== 'member'"
               :group="currentGroup()!"
             />
             <LeavePanel

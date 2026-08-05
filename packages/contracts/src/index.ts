@@ -4,6 +4,7 @@ export * from './events.js';
 export * from './groups.js';
 export * from './manual-schedules.js';
 export * from './schedules.js';
+export * from './past-schedules.js';
 export * from './scheduling-config.js';
 export * from './users.js';
 export * from './calendar.js';

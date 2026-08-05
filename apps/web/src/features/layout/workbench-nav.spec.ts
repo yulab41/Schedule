@@ -33,6 +33,7 @@ describe('Workbench navigation', () => {
     expect(getSecondaryMobileNavItems('owner').map((item) => item.id)).toEqual([
       'groups',
       'manual',
+      'backfill',
       'events',
       'notifications',
       'statistics',

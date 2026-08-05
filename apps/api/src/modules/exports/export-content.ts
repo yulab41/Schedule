@@ -29,7 +29,7 @@ async function buildScheduleContent(
   const monthRange = getPeriodRange(job.periodType, job.period);
   const periodConditions = [
     eq(schedulePeriods.groupId, job.groupId),
-    eq(schedulePeriods.status, 'published'),
+    inArray(schedulePeriods.status, ['published', 'past']),
     isNull(schedulePeriods.deletedAt),
     gte(schedulePeriods.businessMonth, monthRange.start),
     lte(schedulePeriods.businessMonth, monthRange.end),

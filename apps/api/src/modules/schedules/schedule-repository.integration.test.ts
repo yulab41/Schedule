@@ -89,7 +89,7 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
 
   it('moves draft periods through publication, replacement, and withdrawal with linked events', async () => {
     const repository = new ScheduleRepository(client);
-    const first = await repository.createDraft(createDraftInput('2026-08', '2026-08-01'));
+    const first = await repository.createDraft(createDraftInput('2026-09', '2026-09-01'));
     const pending = await repository.submitForPublication({
       actorUserId: ownerUserId,
       expectedVersion: first.version,
@@ -102,7 +102,7 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       operationId: randomUUID(),
       schedulePeriodId: pending.id,
     });
-    const second = await repository.createDraft(createDraftInput('2026-08', '2026-08-02'));
+    const second = await repository.createDraft(createDraftInput('2026-09', '2026-09-02'));
     const replacement = await repository.publish({
       actorUserId: ownerUserId,
       expectedVersion: second.version,
@@ -147,6 +147,62 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
         { eventType: 'schedule_period_withdrawn', schedulePeriodId: second.id },
       ]),
     );
+  });
+
+  it('locks past dates into a past period when publishing or withdrawing a current month', async () => {
+    const repository = new ScheduleRepository(client);
+    const first = await repository.createDraft(createDraftInput('2026-08', '2026-08-01'));
+    const published = await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: first.version,
+      operationId: randomUUID(),
+      schedulePeriodId: first.id,
+    });
+    expect(published).toMatchObject({ status: 'published' });
+
+    const storedAfterFirstPublish = await client.database
+      .select({
+        id: schedulePeriods.id,
+        status: schedulePeriods.status,
+      })
+      .from(schedulePeriods)
+      .where(eq(schedulePeriods.groupId, groupId))
+      .orderBy(schedulePeriods.revision);
+    expect(storedAfterFirstPublish).toEqual(
+      expect.arrayContaining([
+        { id: published.id, status: 'published' },
+        expect.objectContaining({ status: 'past' }),
+      ]),
+    );
+    const [publishedAssignments] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM shift_assignments WHERE schedule_period_id = ${published.id} AND deleted_at IS NULL`,
+    );
+    expect(publishedAssignments).toEqual([{ count: 0 }]);
+    const [pastAssignments] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM shift_assignments sa
+          INNER JOIN schedule_periods sp ON sp.id = sa.schedule_period_id
+          WHERE sp.status = 'past' AND sa.deleted_at IS NULL AND sp.deleted_at IS NULL`,
+    );
+    expect(pastAssignments).toEqual([{ count: 1 }]);
+
+    const second = await repository.createDraft(createDraftInput('2026-08', '2026-08-02'));
+    const replacement = await repository.publish({
+      actorUserId: ownerUserId,
+      expectedVersion: second.version,
+      operationId: randomUUID(),
+      schedulePeriodId: second.id,
+    });
+    const withdrawn = await repository.withdraw({
+      actorUserId: ownerUserId,
+      expectedVersion: replacement.version,
+      operationId: randomUUID(),
+      schedulePeriodId: replacement.id,
+    });
+    expect(withdrawn).toMatchObject({ status: 'withdrawn' });
+    const [pastPeriodCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId} AND status = 'past' AND deleted_at IS NULL`,
+    );
+    expect(pastPeriodCount).toEqual([{ count: 1 }]);
   });
 
   it('serializes concurrent publication so a group role month has one current version', async () => {

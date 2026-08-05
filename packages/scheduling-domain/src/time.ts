@@ -23,6 +23,18 @@ export function getChinaStandardTimeBusinessDate(timestamp: Date): string {
     .slice(0, 10);
 }
 
+export function getCurrentBusinessMonth(now = new Date()): string {
+  return getChinaStandardTimeBusinessDate(now).slice(0, 7);
+}
+
+export function isPastBusinessDate(businessDate: string, now = new Date()): boolean {
+  return businessDate < getChinaStandardTimeBusinessDate(now);
+}
+
+export function isPastBusinessMonth(businessMonth: string, now = new Date()): boolean {
+  return businessMonth < getCurrentBusinessMonth(now);
+}
+
 export function toChinaStandardTimeShiftRange(
   input: ChinaStandardTimeShiftRangeInput,
 ): ChinaStandardTimeShiftRange {

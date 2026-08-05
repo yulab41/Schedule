@@ -50,6 +50,9 @@ import {
 const props = defineProps<{
   readonly group: GroupSummary;
 }>();
+const emit = defineEmits<{
+  navigate: [tab: 'backfill'];
+}>();
 
 const api = createApiClient({ auth: cloudbaseAuth });
 const config = ref<SchedulingConfig>();
@@ -94,6 +97,7 @@ const periodMutationTarget = ref<SchedulePeriodHistoryItem>();
 const periodMutationAction = ref<'publish' | 'withdraw'>('withdraw');
 const periodMutationImpact = ref<ScheduleChangeImpactPreview>();
 const periodMutationPublishPreview = ref<ScheduleGenerationPreview>();
+const acknowledgePastDates = ref(false);
 const isLoadingPeriodMutation = ref(false);
 const isMutatingPeriod = ref(false);
 let requestVersion = 0;
@@ -120,9 +124,14 @@ const hasPeriodMutationBlockers = computed(
     ((periodMutationPublishPreview.value?.hardConflicts.length ?? 0) > 0 ||
       (periodMutationPublishPreview.value?.vacancies.length ?? 0) > 0),
 );
+const periodMutationHasPastDates = computed(
+  () =>
+    periodMutationTarget.value !== undefined && hasPastDatesInVersion(periodMutationTarget.value),
+);
 const periodMutationRequiresAcknowledgement = computed(
   () =>
     hasPeriodMutationBlockers.value ||
+    periodMutationHasPastDates.value ||
     (periodMutationImpact.value?.workflowImpacts.length ?? 0) > 0,
 );
 
@@ -231,9 +240,10 @@ const versionMonthGroups = computed(() => {
     .map((group) => ({
       ...group,
       archived: [...group.items]
-        .filter((item) => item.status !== 'published')
+        .filter((item) => item.status === 'replaced' || item.status === 'withdrawn')
         .sort((first, second) => second.revision - first.revision),
       current: [...group.items].filter((item) => item.status === 'published'),
+      past: [...group.items].filter((item) => item.status === 'past'),
       items: [...group.items].sort((first, second) => second.revision - first.revision),
     }))
     .sort((first, second) => second.businessMonth.localeCompare(first.businessMonth));
@@ -700,6 +710,7 @@ async function preparePeriodMutation(
   periodMutationImpact.value = undefined;
   periodMutationPublishPreview.value = undefined;
   acknowledgeWorkflowRevocations.value = false;
+  acknowledgePastDates.value = false;
   periodMutationVisible.value = true;
   isLoadingPeriodMutation.value = true;
 
@@ -724,7 +735,8 @@ async function confirmPeriodMutation(): Promise<void> {
   const target = periodMutationTarget.value;
   if (
     target === undefined ||
-    (periodMutationRequiresAcknowledgement.value && !acknowledgeWorkflowRevocations.value)
+    (periodMutationRequiresAcknowledgement.value && !acknowledgeWorkflowRevocations.value) ||
+    (periodMutationHasPastDates.value && !acknowledgePastDates.value)
   ) {
     return;
   }
@@ -786,6 +798,26 @@ async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
 
 function draftCode(item: SchedulePeriodHistoryItem): string {
   return formatScheduleDraftCode(item.createdAt);
+}
+
+function isPastMonth(item: SchedulePeriodHistoryItem): boolean {
+  return item.businessMonth.slice(0, 7) < getCurrentBusinessMonth();
+}
+
+function hasPastDatesInVersion(item: SchedulePeriodHistoryItem): boolean {
+  if (isPastMonth(item)) {
+    return true;
+  }
+  const month = item.businessMonth.slice(0, 7);
+  if (month > getCurrentBusinessMonth()) {
+    return false;
+  }
+  const startDate = item.applyStartDate ?? `${month}-01`;
+  return startDate < getBusinessDate();
+}
+
+function navigateBackfill(): void {
+  emit('navigate', 'backfill');
 }
 
 function getErrorMessage(error: unknown): string {
@@ -1017,7 +1049,7 @@ function onWindowFocus(): void {
       <section v-if="versionMonthGroups.length > 0" class="draft-section">
         <h3>排班发布记录</h3>
         <p class="draft-hint">
-          每个月的当前与归档版本；可查看版本月历、撤销当前排班或重新发布归档版本。
+          月份已过的排班自动转为“既往排班（锁定）”，已过日期不可修改；已归档版本会随月份过期自动清理。
         </p>
         <div class="draft-list">
           <article
@@ -1031,7 +1063,12 @@ function onWindowFocus(): void {
             </div>
             <div v-for="item in monthGroup.current" :key="item.id" class="version-row">
               <div class="draft-summary">
-                <span class="version-badge is-current">当前已发布</span>
+                <span
+                  class="version-badge"
+                  :class="{ 'is-current': !isPastMonth(item), 'is-past': isPastMonth(item) }"
+                >
+                  {{ isPastMonth(item) ? '既往排班（锁定）' : '当前已发布' }}
+                </span>
                 <span>草稿 {{ draftCode(item) }}</span>
               </div>
               <t-space size="small">
@@ -1044,12 +1081,40 @@ function onWindowFocus(): void {
                   查看
                 </t-button>
                 <t-button
+                  v-if="isPastMonth(item)"
+                  size="small"
+                  variant="outline"
+                  @click="navigateBackfill"
+                >
+                  排班补录
+                </t-button>
+                <t-button
+                  v-if="!isPastMonth(item)"
                   size="small"
                   theme="danger"
                   variant="outline"
                   @click="preparePeriodMutation(item, 'withdraw')"
                 >
                   撤销发布
+                </t-button>
+              </t-space>
+            </div>
+            <div v-for="item in monthGroup.past" :key="item.id" class="version-row">
+              <div class="draft-summary">
+                <span class="version-badge is-past">既往排班（锁定）</span>
+                <span>草稿 {{ draftCode(item) }}</span>
+              </div>
+              <t-space size="small">
+                <t-button
+                  size="small"
+                  variant="outline"
+                  :loading="isPreviewingDraftId === item.id"
+                  @click="openDraftPreview(item)"
+                >
+                  查看
+                </t-button>
+                <t-button size="small" variant="outline" @click="navigateBackfill">
+                  排班补录
                 </t-button>
               </t-space>
             </div>
@@ -1179,7 +1244,8 @@ function onWindowFocus(): void {
         content: periodMutationAction === 'withdraw' ? '确认撤销发布' : '确认重新发布',
         disabled:
           isLoadingPeriodMutation ||
-          (periodMutationRequiresAcknowledgement && !acknowledgeWorkflowRevocations),
+          (periodMutationRequiresAcknowledgement && !acknowledgeWorkflowRevocations) ||
+          (periodMutationHasPastDates && !acknowledgePastDates),
         loading: isMutatingPeriod,
         theme: periodMutationAction === 'withdraw' ? 'danger' : 'primary',
       }"
@@ -1196,12 +1262,21 @@ function onWindowFocus(): void {
         <t-alert
           v-if="periodMutationAction === 'withdraw'"
           theme="warning"
-          message="撤销后该版本将进入归档，本月将不再显示此版本的排班。"
+          :message="
+            periodMutationHasPastDates
+              ? '撤销后仅未来日期失效；已过日期将保留为既往排班（锁定），仍在月历中显示且不可修改。'
+              : '撤销后该版本将进入归档，本月将不再显示此版本的排班。'
+          "
         />
         <t-alert
           v-else
           theme="info"
           message="重新发布后，该版本将成为当前排班，原当前版本自动进入归档。"
+        />
+        <t-alert
+          v-if="periodMutationAction === 'publish' && periodMutationHasPastDates"
+          theme="warning"
+          message="该版本包含已过日期；已过日期不可修改，发布后仍保持既往排班（锁定）状态，是否发布？"
         />
         <div
           v-if="(periodMutationImpact?.workflowImpacts.length ?? 0) > 0"
@@ -1221,6 +1296,13 @@ function onWindowFocus(): void {
         <label v-if="periodMutationRequiresAcknowledgement" class="acknowledge-field">
           <input v-model="acknowledgeWorkflowRevocations" type="checkbox" />
           我已了解上述影响，确认继续
+        </label>
+        <label
+          v-if="periodMutationAction === 'publish' && periodMutationHasPastDates"
+          class="acknowledge-field"
+        >
+          <input v-model="acknowledgePastDates" type="checkbox" />
+          我已了解已过日期不可修改，确认发布
         </label>
       </template>
     </t-dialog>
@@ -1444,6 +1526,11 @@ function onWindowFocus(): void {
 .version-badge.is-current {
   color: #166534;
   background: #dcfce7;
+}
+
+.version-badge.is-past {
+  color: #4b5563;
+  background: #e5e7eb;
 }
 
 .blocker-panel {

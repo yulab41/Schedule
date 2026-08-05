@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import type { ManualApplyPreview, ShiftType } from '@schedule/contracts';
@@ -85,8 +85,8 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(preview.statusCode).toBe(200);
     const body = preview.json() as ManualApplyPreview;
     expect(body).toMatchObject({
-      applyEndDate: '2026-08-07',
-      applyStartDate: '2026-08-01',
+      applyEndDate: '2026-09-07',
+      applyStartDate: '2026-09-01',
       cycleDays: 7,
       rulesVersion,
       scheduleRoleId: primaryRoleId,
@@ -95,8 +95,8 @@ describeWithDatabase('manual schedule template apply', () => {
       templateVersion: 1,
     });
     expect(body.assignments.map((assignment) => assignment.businessDate)).toEqual([
-      '2026-08-01',
-      '2026-08-02',
+      '2026-09-01',
+      '2026-09-02',
     ]);
     expect(body.assignments[0]).toMatchObject({
       plannedMemberId: ownerMembershipId,
@@ -127,27 +127,27 @@ describeWithDatabase('manual schedule template apply', () => {
     const templateId = await createTemplate();
 
     const preview = await applyPreview(templateId, {
-      endDate: '2026-09-05',
+      endDate: '2026-10-06',
       expectedRulesVersion: rulesVersion,
     });
     const body = preview.json() as ManualApplyPreview;
 
-    expect(body.applyEndDate).toBe('2026-09-05');
+    expect(body.applyEndDate).toBe('2026-10-06');
     expect(body.assignments.map((assignment) => assignment.businessDate)).toEqual([
-      '2026-08-01',
-      '2026-08-02',
-      '2026-08-08',
-      '2026-08-09',
-      '2026-08-15',
-      '2026-08-16',
-      '2026-08-22',
-      '2026-08-23',
-      '2026-08-29',
-      '2026-08-30',
-      '2026-09-05',
+      '2026-09-01',
+      '2026-09-02',
+      '2026-09-08',
+      '2026-09-09',
+      '2026-09-15',
+      '2026-09-16',
+      '2026-09-22',
+      '2026-09-23',
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-06',
     ]);
     expect(body.statistics.assignmentCount).toBe(11);
-    expect(body.assignments.some((assignment) => assignment.businessDate === '2026-09-06')).toBe(
+    expect(body.assignments.some((assignment) => assignment.businessDate === '2026-10-07')).toBe(
       false,
     );
   });
@@ -174,14 +174,14 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(saved.publishMode).toBe('draft');
     expect(saved.status).toBe('draft');
     expect(saved.periods).toEqual([
-      expect.objectContaining({ businessMonth: '2026-08-01', status: 'draft' }),
+      expect.objectContaining({ businessMonth: '2026-09-01', status: 'draft' }),
     ]);
 
     const [publishedCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-08-01' AND status = 'published'`,
+      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-09-01' AND status = 'published'`,
     );
     const [draftCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-08-01' AND status = 'draft'`,
+      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-09-01' AND status = 'draft'`,
     );
     expect(publishedCount).toEqual([{ count: 1 }]);
     expect(draftCount).toEqual([{ count: 1 }]);
@@ -212,7 +212,7 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(drafts.statusCode).toBe(200);
     expect(drafts.json()).toEqual([
       expect.objectContaining({
-        businessMonth: '2026-08-01',
+        businessMonth: '2026-09-01',
         id: period?.id,
         scheduleRoleId: primaryRoleId,
         scheduleRoleName: '一线',
@@ -269,7 +269,7 @@ describeWithDatabase('manual schedule template apply', () => {
     });
     expect(preview.statusCode).toBe(200);
     expect(preview.json()).toMatchObject({
-      businessMonth: '2026-08',
+      businessMonth: '2026-09',
       rulesVersion,
       scheduleRoleIds: [primaryRoleId],
     });
@@ -346,7 +346,7 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(oldPeriodRows[0]?.deletedAt).not.toBeNull();
     const [activeDraftCount] = await client.database.execute<{ count: number }>(
       sql`SELECT COUNT(*) AS count FROM schedule_periods
-          WHERE group_id = ${groupId} AND business_month = '2026-08-01' AND status = 'draft' AND deleted_at IS NULL`,
+          WHERE group_id = ${groupId} AND business_month = '2026-09-01' AND status = 'draft' AND deleted_at IS NULL`,
     );
     expect(activeDraftCount).toEqual([{ count: 1 }]);
   });
@@ -355,7 +355,7 @@ describeWithDatabase('manual schedule template apply', () => {
     const templateId = await createTemplate();
     const applyOperationId = randomUUID();
     const applied = await applyTemplate(templateId, {
-      endDate: '2026-09-05',
+      endDate: '2026-10-06',
       expectedRulesVersion: rulesVersion,
       operationId: applyOperationId,
     });
@@ -380,11 +380,11 @@ describeWithDatabase('manual schedule template apply', () => {
       readonly status: string;
     }[];
     expect(items).toHaveLength(2);
-    expect(items.map((item) => item.businessMonth).sort()).toEqual(['2026-08', '2026-09']);
+    expect(items.map((item) => item.businessMonth).sort()).toEqual(['2026-09', '2026-10']);
     expect(items.every((item) => item.status === 'draft')).toBe(true);
     expect(items.every((item) => item.operationId === applyOperationId)).toBe(true);
-    expect(items.every((item) => item.applyStartDate === '2026-08-01')).toBe(true);
-    expect(items.every((item) => item.applyEndDate === '2026-09-05')).toBe(true);
+    expect(items.every((item) => item.applyStartDate === '2026-09-01')).toBe(true);
+    expect(items.every((item) => item.applyEndDate === '2026-10-06')).toBe(true);
 
     const batchPublish = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -507,7 +507,7 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(second.statusCode).toBe(200);
 
     const [statuses] = await client.database.execute<{ status: string; revision: number }>(
-      sql`SELECT status, revision FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-08-01' ORDER BY revision`,
+      sql`SELECT status, revision FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-09-01' ORDER BY revision`,
     );
     expect(statuses).toEqual([
       { revision: 1, status: 'replaced' },
@@ -522,7 +522,7 @@ describeWithDatabase('manual schedule template apply', () => {
   it('records template version and scope events for every applied month', async () => {
     const templateId = await createTemplate();
     const response = await applyTemplate(templateId, {
-      endDate: '2026-09-05',
+      endDate: '2026-10-06',
       expectedRulesVersion: rulesVersion,
       operationId: randomUUID(),
     });
@@ -546,12 +546,12 @@ describeWithDatabase('manual schedule template apply', () => {
     }[];
     expect(events).toHaveLength(2);
     expect(events.map((event) => event.afterData.businessMonth).sort()).toEqual([
-      '2026-08',
       '2026-09',
+      '2026-10',
     ]);
     expect(events[0]?.afterData).toMatchObject({
-      applyEndDate: '2026-09-05',
-      applyStartDate: '2026-08-01',
+      applyEndDate: '2026-10-06',
+      applyStartDate: '2026-09-01',
       cycleDays: 7,
       publishMode: 'draft',
       rulesVersion,
@@ -587,7 +587,7 @@ describeWithDatabase('manual schedule template apply', () => {
     const previewBody = preview.json() as ManualApplyPreview;
     expect(previewBody.vacancies).toHaveLength(1);
     expect(previewBody.vacancies[0]).toMatchObject({
-      businessDate: '2026-08-02',
+      businessDate: '2026-09-02',
       code: 'NO_ELIGIBLE_MEMBER',
       scheduleRoleId: primaryRoleId,
       slotPosition: 1,
@@ -612,7 +612,7 @@ describeWithDatabase('manual schedule template apply', () => {
     });
     expect(acknowledged.statusCode).toBe(200);
     const [publishedCount] = await client.database.execute<{ count: number }>(
-      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-08-01' AND status = 'published'`,
+      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-09-01' AND status = 'published'`,
     );
     expect(publishedCount).toEqual([{ count: 1 }]);
   });
@@ -622,7 +622,7 @@ describeWithDatabase('manual schedule template apply', () => {
     await client.database.execute(
       sql`INSERT INTO leave_requests (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day, status, reflow_strategy)
           VALUES (${randomUUID()}, ${groupId}, ${candidateMembershipId}, 'sick',
-                  '2026-08-01 16:00:00', '2026-08-02 15:59:59', 1, 'approved', 'keep-original-order')`,
+                  '2026-09-01 16:00:00', '2026-09-02 15:59:59', 1, 'approved', 'keep-original-order')`,
     );
 
     const preview = await applyPreview(templateId, { expectedRulesVersion: rulesVersion });
@@ -644,6 +644,25 @@ describeWithDatabase('manual schedule template apply', () => {
       sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
     );
     expect(periodCount).toEqual([{ count: 0 }]);
+  });
+
+  it('blocks preview and apply when the template start date is already past', async () => {
+    const templateId = await createTemplate(undefined, '2026-08-01');
+
+    const preview = await applyPreview(templateId, { expectedRulesVersion: rulesVersion });
+    expect(preview.statusCode).toBe(409);
+    expect(preview.json()).toMatchObject({
+      error: {
+        code: 'CONFLICT',
+        message: expect.stringContaining('已过日期'),
+      },
+    });
+
+    const applied = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(applied.statusCode).toBe(409);
   });
 
   it('rejects templates that reference a disabled shift type', async () => {
@@ -798,6 +817,7 @@ describeWithDatabase('manual schedule template apply', () => {
       { cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId },
       { cycleDay: 2, membershipId: candidateMembershipId, shiftTypeId: allDayShiftTypeId },
     ],
+    startDate = '2026-09-01',
   ): Promise<string> {
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -807,7 +827,7 @@ describeWithDatabase('manual schedule template apply', () => {
         cycleDays: 7,
         membershipIds: [ownerMembershipId, candidateMembershipId],
         scheduleRoleId: primaryRoleId,
-        startDate: '2026-08-01',
+        startDate,
       },
       url: `/groups/${groupId}/manual-schedule-templates`,
     });

@@ -34,6 +34,7 @@ export const calendarMarkerEventTypes = [
   'duty_adjustment_completed',
   'duty_adjustment_revoked',
   'swap_revoked',
+  'schedule_backfill_completed',
 ] as const;
 
 export function toCalendarChangeMarker(eventType: string): CalendarChangeMarker | undefined {
@@ -43,6 +44,7 @@ export function toCalendarChangeMarker(eventType: string): CalendarChangeMarker 
     case 'leave_cover_completed':
       return 'leave-cover';
     case 'assignment_manually_updated':
+    case 'schedule_backfill_completed':
       return 'manual-adjustment';
     case 'duty_adjustment_completed':
       return 'overtime';
@@ -83,7 +85,7 @@ export class CalendarQuery {
           and(
             eq(schedulePeriods.groupId, authorization.group.id),
             eq(schedulePeriods.businessMonth, monthStart),
-            eq(schedulePeriods.status, 'published'),
+            inArray(schedulePeriods.status, ['published', 'past']),
             isNull(schedulePeriods.deletedAt),
           ),
         )
@@ -209,7 +211,7 @@ export class CalendarQuery {
           and(
             eq(schedulePeriods.groupId, group.id),
             eq(schedulePeriods.businessMonth, `${businessMonth}-01`),
-            eq(schedulePeriods.status, 'published'),
+            inArray(schedulePeriods.status, ['published', 'past']),
             isNull(schedulePeriods.deletedAt),
           ),
         )

@@ -4,6 +4,7 @@ export const schedulePeriodStatuses = [
   'published',
   'withdrawn',
   'replaced',
+  'past',
 ] as const;
 
 export type SchedulePeriodStatus = (typeof schedulePeriodStatuses)[number];
@@ -16,6 +17,7 @@ const permittedTransitions: Readonly<
   published: ['withdrawn', 'replaced'],
   replaced: ['published'],
   withdrawn: ['published'],
+  past: [],
 };
 
 export function canTransitionSchedulePeriod(

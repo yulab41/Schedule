@@ -277,7 +277,7 @@ describeWithDatabase('optimistic concurrency protection', () => {
         cycleDays: 7,
         membershipIds: [ownerMembershipId],
         scheduleRoleId: primaryRoleId,
-        startDate: '2026-08-01',
+        startDate: '2026-09-01',
       },
       url: `/groups/${groupId}/manual-schedule-templates`,
     });

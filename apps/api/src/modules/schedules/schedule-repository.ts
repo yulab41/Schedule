@@ -21,10 +21,13 @@ import {
 import {
   assertBusinessMonthContainsDate,
   canTransitionSchedulePeriod,
+  getChinaStandardTimeBusinessDate,
+  isPastBusinessDate,
+  isPastBusinessMonth,
   toChinaStandardTimeShiftRange,
   type SchedulePeriodStatus,
 } from '@schedule/scheduling-domain';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
 import { assertExpectedVersion as assertVersionMatch } from '../concurrency/version-guard.js';
@@ -95,6 +98,7 @@ export class ScheduleRepository {
     transaction: DatabaseTransaction,
     groupId: string,
   ): Promise<ScheduleDraftSummary[]> {
+    await this.cleanupStalePastPeriods(transaction, groupId);
     const rows = await transaction
       .select({
         businessMonth: schedulePeriods.businessMonth,
@@ -133,6 +137,7 @@ export class ScheduleRepository {
     transaction: DatabaseTransaction,
     groupId: string,
   ): Promise<SchedulePeriodHistoryItem[]> {
+    await this.cleanupStalePastPeriods(transaction, groupId);
     const rows = await transaction
       .select({
         businessMonth: schedulePeriods.businessMonth,
@@ -417,6 +422,49 @@ export class ScheduleRepository {
       .limit(1)
       .for('update');
     const publishedAt = new Date();
+    if (
+      (target.status === 'replaced' || target.status === 'withdrawn') &&
+      isPastBusinessMonth(target.businessMonth.slice(0, 7))
+    ) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该月份已过，既往排班已锁定，无法重新发布。',
+      });
+    }
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    const targetAssignments = await this.loadPeriodAssignments(transaction, target.id);
+    const currentAssignments =
+      currentPublished === undefined
+        ? []
+        : await this.loadPeriodAssignments(transaction, currentPublished.id);
+    const targetPastAssignments = targetAssignments.filter((assignment) =>
+      isPastBusinessDate(assignment.businessDate),
+    );
+    const currentPastAssignments = currentAssignments.filter((assignment) =>
+      isPastBusinessDate(assignment.businessDate),
+    );
+    if (currentPastAssignments.length > 0 || targetPastAssignments.length > 0) {
+      const source =
+        currentPastAssignments.length > 0
+          ? {
+              period: currentPublished as LockedSchedulePeriod,
+              assignments: currentPastAssignments,
+            }
+          : { period: target, assignments: targetPastAssignments };
+      const preservedPastPeriodId = await this.preservePastAssignments(
+        transaction,
+        source.period,
+        source.assignments,
+      );
+      if (currentPastAssignments.length > 0) {
+        await this.softDeleteAssignmentsBefore(transaction, currentPublished?.id ?? '', today);
+      }
+      if (targetPastAssignments.length > 0) {
+        await this.softDeleteAssignmentsBefore(transaction, target.id, today);
+      }
+      void preservedPastPeriodId;
+    }
 
     const invalidatedPeriodIds = [
       ...(currentPublished === undefined ? [] : [currentPublished.id]),
@@ -507,6 +555,24 @@ export class ScheduleRepository {
     const period = await this.lockPeriodWithScope(transaction, input.schedulePeriodId);
     assertExpectedPeriodVersion(period, input.expectedVersion);
     assertTransition(period.status, 'withdrawn');
+    if (isPastBusinessMonth(period.businessMonth.slice(0, 7))) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '该月份已过，既往排班已锁定，无法撤销发布。',
+      });
+    }
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    const pastAssignments = (await this.loadPeriodAssignments(transaction, period.id)).filter(
+      (assignment) => isPastBusinessDate(assignment.businessDate),
+    );
+    const preservedPastPeriodId =
+      pastAssignments.length === 0
+        ? undefined
+        : await this.preservePastAssignments(transaction, period, pastAssignments);
+    if (pastAssignments.length > 0) {
+      await this.softDeleteAssignmentsBefore(transaction, period.id, today);
+    }
     const workflowImpacts = await this.workflowInvalidationService.listImpacts(
       transaction,
       [period.id],
@@ -533,7 +599,11 @@ export class ScheduleRepository {
       .where(eq(schedulePeriods.id, period.id));
     const withdrawn = await this.readPeriod(transaction, period.id);
     await this.eventWriter.append(transaction, {
-      afterData: { status: withdrawn.status, version: withdrawn.version },
+      afterData: {
+        ...(preservedPastPeriodId === undefined ? {} : { preservedPastPeriodId, status: 'past' }),
+        status: withdrawn.status,
+        version: withdrawn.version,
+      },
       beforeData: { status: period.status, version: period.version },
       eventStatus: 'completed',
       eventType: 'schedule_period_withdrawn',
@@ -704,6 +774,166 @@ export class ScheduleRepository {
         inArray(
           shiftAssignments.id,
           assignments.map((assignment) => assignment.id),
+        ),
+      );
+  }
+
+  private async loadPeriodAssignments(
+    transaction: DatabaseTransaction,
+    schedulePeriodId: string,
+  ): Promise<(typeof shiftAssignments.$inferSelect)[]> {
+    return transaction
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, schedulePeriodId),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      )
+      .orderBy(
+        asc(shiftAssignments.businessDate),
+        asc(shiftAssignments.slotPosition),
+        asc(shiftAssignments.id),
+      );
+  }
+
+  private async softDeleteAssignmentsBefore(
+    transaction: DatabaseTransaction,
+    schedulePeriodId: string,
+    businessDate: string,
+  ): Promise<void> {
+    const assignments = await transaction
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, schedulePeriodId),
+          isNull(shiftAssignments.deletedAt),
+          lt(shiftAssignments.businessDate, businessDate),
+        ),
+      );
+    if (assignments.length === 0) {
+      return;
+    }
+
+    await transaction
+      .update(shiftAssignments)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        startsAt: sql`${shiftAssignments.startsAt}`,
+        version: sql`${shiftAssignments.version} + 1`,
+      })
+      .where(
+        inArray(
+          shiftAssignments.id,
+          assignments.map((assignment) => assignment.id),
+        ),
+      );
+  }
+
+  private async preservePastAssignments(
+    transaction: DatabaseTransaction,
+    source: LockedSchedulePeriod,
+    pastAssignments: readonly (typeof shiftAssignments.$inferSelect)[],
+  ): Promise<string> {
+    const [existingPast] = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, source.groupId),
+          eq(schedulePeriods.scheduleRoleId, source.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, source.businessMonth),
+          eq(schedulePeriods.status, 'past'),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (existingPast !== undefined) {
+      return existingPast.id;
+    }
+
+    const [mostRecentPeriod] = await transaction
+      .select({ revision: schedulePeriods.revision })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, source.groupId),
+          eq(schedulePeriods.scheduleRoleId, source.scheduleRoleId),
+          eq(schedulePeriods.businessMonth, source.businessMonth),
+        ),
+      )
+      .orderBy(desc(schedulePeriods.revision))
+      .limit(1)
+      .for('update');
+    const revision = (mostRecentPeriod?.revision ?? 0) + 1;
+    const pastPeriodId = randomUUID();
+    await transaction.insert(schedulePeriods).values({
+      businessMonth: source.businessMonth,
+      groupId: source.groupId,
+      id: pastPeriodId,
+      publishedAt: source.publishedAt,
+      revision,
+      rulesVersion: source.rulesVersion,
+      scheduleRoleId: source.scheduleRoleId,
+      status: 'past',
+    });
+    if (pastAssignments.length > 0) {
+      await transaction
+        .update(shiftAssignments)
+        .set({
+          schedulePeriodId: pastPeriodId,
+          startsAt: sql`${shiftAssignments.startsAt}`,
+          version: sql`${shiftAssignments.version} + 1`,
+        })
+        .where(
+          inArray(
+            shiftAssignments.id,
+            pastAssignments.map((assignment) => assignment.id),
+          ),
+        );
+    }
+
+    return pastPeriodId;
+  }
+
+  private async cleanupStalePastPeriods(
+    transaction: DatabaseTransaction,
+    groupId: string,
+  ): Promise<void> {
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    const pastMonthStart = `${today.slice(0, 7)}-01`;
+    const stalePeriods = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          inArray(schedulePeriods.status, ['draft', 'replaced', 'withdrawn']),
+          isNull(schedulePeriods.deletedAt),
+          lt(schedulePeriods.businessMonth, pastMonthStart),
+        ),
+      )
+      .for('update');
+    if (stalePeriods.length === 0) {
+      return;
+    }
+
+    for (const period of stalePeriods) {
+      await this.softDeleteAssignments(transaction, period.id);
+    }
+    await transaction
+      .update(schedulePeriods)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        version: sql`${schedulePeriods.version} + 1`,
+      })
+      .where(
+        inArray(
+          schedulePeriods.id,
+          stalePeriods.map((period) => period.id),
         ),
       );
   }

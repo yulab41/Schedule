@@ -22,6 +22,7 @@ const workflowEventTypes = [
   'duty_adjustment_revoked',
   'leave_cover_completed',
   'manual_schedule_template_applied',
+  'schedule_backfill_completed',
 ] as const;
 
 interface MutableWorkflowCounts {
@@ -52,7 +53,7 @@ export class StatisticsComputation {
     const periodConditions = [
       eq(schedulePeriods.groupId, groupId),
       eq(schedulePeriods.businessMonth, businessMonth),
-      eq(schedulePeriods.status, 'published'),
+      inArray(schedulePeriods.status, ['published', 'past']),
       isNull(schedulePeriods.deletedAt),
     ];
     if (filters.roleIds !== undefined && filters.roleIds.length > 0) {
@@ -232,6 +233,10 @@ function buildWorkflowCounts(
         add(membershipId, 'leaveCover', 1);
       }
     } else if (event.eventType === 'manual_schedule_template_applied') {
+      for (const membershipId of event.affectedMembershipIds) {
+        add(membershipId, 'manualAdjustment', 1);
+      }
+    } else if (event.eventType === 'schedule_backfill_completed') {
       for (const membershipId of event.affectedMembershipIds) {
         add(membershipId, 'manualAdjustment', 1);
       }

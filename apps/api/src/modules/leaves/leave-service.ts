@@ -44,6 +44,7 @@ import {
   createRotationBusinessKey,
   getChinaStandardTimeBusinessDate,
   intervalsOverlap,
+  isPastBusinessDate,
   leaveOverlapsInterval,
   reflowLeaveAssignments,
   type LeaveReflowInterval,
@@ -959,6 +960,14 @@ export class LeaveService {
         },
         statusCode: 409,
         userMessage: '只能撤销已批准的请假申请。',
+      });
+    }
+    const leaveStartDate = getChinaStandardTimeBusinessDate(leaveRequest.startsAt);
+    if (isPastBusinessDate(leaveStartDate)) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: `该请假涉及已过日期（${leaveStartDate} 起），已过日期不可修改，无法撤销。`,
       });
     }
     const isOwner = leaveRequest.membershipId === authorization.membership.id;

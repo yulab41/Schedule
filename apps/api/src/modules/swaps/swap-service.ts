@@ -31,7 +31,11 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { intervalsOverlap, leaveOverlapsInterval } from '@schedule/scheduling-domain';
+import {
+  intervalsOverlap,
+  isPastBusinessDate,
+  leaveOverlapsInterval,
+} from '@schedule/scheduling-domain';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -553,6 +557,16 @@ export class SwapService {
         code: 'CONFLICT',
         statusCode: 409,
         userMessage: '该换班的班次已失效（排班版本变更），无法直接撤销。',
+      });
+    }
+    const pastDates = [initiatorAssignment, targetAssignment]
+      .map((assignment) => assignment.businessDate)
+      .filter((businessDate) => isPastBusinessDate(businessDate));
+    if (pastDates.length > 0) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: `该换班涉及已过日期（${[...new Set(pastDates)].join('、')}），已过日期不可修改，无法撤销。`,
       });
     }
     const members = await this.loadMembers(transaction, authorization.group.id, [

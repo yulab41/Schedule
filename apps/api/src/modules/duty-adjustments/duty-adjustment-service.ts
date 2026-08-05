@@ -30,7 +30,11 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { intervalsOverlap, leaveOverlapsInterval } from '@schedule/scheduling-domain';
+import {
+  intervalsOverlap,
+  isPastBusinessDate,
+  leaveOverlapsInterval,
+} from '@schedule/scheduling-domain';
 import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
@@ -998,7 +1002,7 @@ export class DutyAdjustmentService {
     });
 
     const [coveredRow] = await transaction
-      .select({ id: shiftAssignments.id })
+      .select({ businessDate: shiftAssignments.businessDate, id: shiftAssignments.id })
       .from(shiftAssignments)
       .where(
         and(
@@ -1012,6 +1016,13 @@ export class DutyAdjustmentService {
         code: 'CONFLICT',
         statusCode: 409,
         userMessage: '该加扣班的班次已失效（排班版本变更），无法直接撤销。',
+      });
+    }
+    if (isPastBusinessDate(coveredRow.businessDate)) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: `该加扣班涉及已过日期（${coveredRow.businessDate}），已过日期不可修改，无法撤销。`,
       });
     }
 

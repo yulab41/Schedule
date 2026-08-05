@@ -31,6 +31,9 @@ export {
 export {
   assertBusinessMonthContainsDate,
   getChinaStandardTimeBusinessDate,
+  getCurrentBusinessMonth,
+  isPastBusinessDate,
+  isPastBusinessMonth,
   toChinaStandardTimeShiftRange,
   type ChinaStandardTimeShiftRange,
   type ChinaStandardTimeShiftRangeInput,

@@ -354,6 +354,14 @@ export class ManualScheduleApplyService {
 
     const template = await this.lockTemplate(transaction, authorization.group.id, templateId);
     const applyStartDate = startDate ?? template.startDate;
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    if (applyStartDate < today) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: `应用范围包含已过日期（${applyStartDate} 早于今天 ${today}），已过日期不可修改。请将开始日期调整为今天或之后；如需修改既往排班，请使用“排班补录”。`,
+      });
+    }
     const [role] = await transaction
       .select({ name: scheduleRoles.name })
       .from(scheduleRoles)

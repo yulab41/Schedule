@@ -14,6 +14,7 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
+import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
 import { eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -149,14 +150,18 @@ describeWithDatabase('current month calendar read model', () => {
 
     const first = await savePublished('2026-08');
     const second = await savePublished('2026-08');
+    const firstPeriodId = (first.json() as SavedScheduleGeneration).periods[0]?.id as string;
     const latestPeriodId = (second.json() as SavedScheduleGeneration).periods[0]?.id as string;
-    expect((first.json() as SavedScheduleGeneration).periods[0]?.id).not.toBe(latestPeriodId);
+    expect(firstPeriodId).not.toBe(latestPeriodId);
 
     const calendar = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
     expect(calendar.assignments).toHaveLength(31);
-    expect(new Set(calendar.assignments.map((assignment) => assignment.schedulePeriodId))).toEqual(
-      new Set([latestPeriodId]),
+    const displayedPeriodIds = new Set(
+      calendar.assignments.map((assignment) => assignment.schedulePeriodId),
     );
+    expect(displayedPeriodIds.has(latestPeriodId)).toBe(true);
+    expect(displayedPeriodIds.has(firstPeriodId)).toBe(false);
+    expect(displayedPeriodIds.size).toBe(2);
   });
 
   it('rejects invalid months and users outside the group', async () => {
@@ -356,7 +361,10 @@ describeWithDatabase('current month calendar read model', () => {
 
     expect(response.statusCode).toBe(200);
     const calendar = response.json() as CalendarReadModel;
-    expect(calendar.assignments).toHaveLength(31);
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    const pastDayCount = Number(today.slice(8)) - 1;
+    expect(calendar.assignments).toHaveLength(31 - pastDayCount);
+    expect(calendar.assignments.every((assignment) => assignment.businessDate >= today)).toBe(true);
     expect(new Set(calendar.assignments.map((assignment) => assignment.schedulePeriodId))).toEqual(
       new Set([archivedPeriodId]),
     );

@@ -51,6 +51,8 @@ import type {
   MonthStatisticsSnapshot,
   NotificationPage,
   NotificationRecord,
+  PastScheduleAssignment,
+  PastSchedulePeriod,
   PushConfiguration,
   PublishSchedulePeriodBatchRequest,
   PublishSchedulePeriodBatchResult,
@@ -66,6 +68,8 @@ import type {
   YearStatistics,
   UpdateGroupNotificationSettingsInput,
   UpdateMemberNotificationPreferencesInput,
+  UpdatePastScheduleAssignmentInput,
+  UpdatePastScheduleAssignmentResult,
   WebPushSubscriptionInput,
   PreviewLeaveRequestInput,
   PreviewManualTemplateApplyRequest,
@@ -236,6 +240,17 @@ export interface ApiClient {
     schedulePeriodId: string,
   ): Promise<ScheduleGenerationPreview>;
   getSchedulePeriodCalendar(groupId: string, schedulePeriodId: string): Promise<CalendarReadModel>;
+  listPastSchedulePeriods(groupId: string): Promise<readonly PastSchedulePeriod[]>;
+  listPastScheduleAssignments(
+    groupId: string,
+    schedulePeriodId: string,
+  ): Promise<readonly PastScheduleAssignment[]>;
+  updatePastScheduleAssignment(
+    groupId: string,
+    schedulePeriodId: string,
+    assignmentId: string,
+    input: UpdatePastScheduleAssignmentInput,
+  ): Promise<UpdatePastScheduleAssignmentResult>;
   previewScheduleChange(
     groupId: string,
     schedulePeriodId: string,
@@ -1225,6 +1240,36 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/calendar/periods/${encodeURIComponent(schedulePeriodId)}`,
         { method: 'GET' },
         isCalendarReadModel,
+      );
+    },
+    listPastSchedulePeriods(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/past-schedules`,
+        { method: 'GET' },
+        isPastSchedulePeriodList,
+      );
+    },
+    listPastScheduleAssignments(groupId, schedulePeriodId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(schedulePeriodId)}/assignments`,
+        { method: 'GET' },
+        isPastScheduleAssignmentList,
+      );
+    },
+    updatePastScheduleAssignment(groupId, schedulePeriodId, assignmentId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(schedulePeriodId)}/assignments/${encodeURIComponent(assignmentId)}`,
+        { body: JSON.stringify(input), method: 'PUT' },
+        isUpdatePastScheduleAssignmentResult,
       );
     },
     previewScheduleChange(groupId, schedulePeriodId, action) {
@@ -3215,6 +3260,72 @@ function isScheduleDraftSummaryList(value: unknown): value is ScheduleDraftSumma
 
 function isSchedulePeriodHistoryItemList(value: unknown): value is SchedulePeriodHistoryItem[] {
   return Array.isArray(value) && value.every(isSchedulePeriodHistoryItem);
+}
+
+function isPastSchedulePeriodList(value: unknown): value is PastSchedulePeriod[] {
+  return Array.isArray(value) && value.every(isPastSchedulePeriod);
+}
+
+function isPastSchedulePeriod(value: unknown): value is PastSchedulePeriod {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const period = value as Partial<PastSchedulePeriod>;
+  return (
+    typeof period.id === 'string' &&
+    period.id.length > 0 &&
+    typeof period.businessMonth === 'string' &&
+    /^\d{4}-\d{2}$/u.test(period.businessMonth) &&
+    (period.periodStatus === 'past' || period.periodStatus === 'published') &&
+    typeof period.scheduleRoleId === 'string' &&
+    period.scheduleRoleId.length > 0 &&
+    typeof period.scheduleRoleName === 'string' &&
+    period.scheduleRoleName.length > 0 &&
+    typeof period.revision === 'number' &&
+    Number.isInteger(period.revision) &&
+    typeof period.version === 'number' &&
+    Number.isInteger(period.version)
+  );
+}
+
+function isPastScheduleAssignmentList(value: unknown): value is PastScheduleAssignment[] {
+  return Array.isArray(value) && value.every(isPastScheduleAssignment);
+}
+
+function isPastScheduleAssignment(value: unknown): value is PastScheduleAssignment {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const assignment = value as Partial<PastScheduleAssignment>;
+  return (
+    typeof assignment.assignmentId === 'string' &&
+    assignment.assignmentId.length > 0 &&
+    typeof assignment.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
+    typeof assignment.shiftTypeId === 'string' &&
+    assignment.shiftTypeId.length > 0 &&
+    typeof assignment.shiftTypeName === 'string' &&
+    typeof assignment.shiftTypeAbbreviation === 'string' &&
+    typeof assignment.slotPosition === 'number' &&
+    Number.isInteger(assignment.slotPosition)
+  );
+}
+
+function isUpdatePastScheduleAssignmentResult(
+  value: unknown,
+): value is UpdatePastScheduleAssignmentResult {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const result = value as Partial<UpdatePastScheduleAssignmentResult>;
+  return (
+    isPastScheduleAssignment(result.assignment) &&
+    typeof result.eventId === 'string' &&
+    result.eventId.length > 0
+  );
 }
 
 function isSchedulePeriodHistoryItem(value: unknown): boolean {

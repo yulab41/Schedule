@@ -51,6 +51,7 @@ export const eventTypeLabels: Readonly<Record<string, string>> = {
   schedule_period_published: '排班已发布',
   schedule_period_replaced: '排班版本已替换',
   schedule_period_withdrawn: '排班版本已撤回',
+  schedule_backfill_completed: '排班补录',
   schedule_role_changed: '排班岗位已调整',
   schedule_role_corrected: '排班岗位已更正',
   shift_type_changed: '班种已调整',
@@ -112,6 +113,7 @@ export function getEventMarker(eventType: string): CalendarChangeMarker | undefi
     case 'leave_cover_completed':
       return 'leave-cover';
     case 'assignment_manually_updated':
+    case 'schedule_backfill_completed':
       return 'manual-adjustment';
     case 'duty_adjustment_completed':
       return 'overtime';
@@ -281,6 +283,17 @@ export function buildEventNarrative(
       const afterName = readTopLevelMemberName(after);
       if (beforeName !== undefined || afterName !== undefined) {
         return `人工调整班次：值班人员由 ${beforeName ?? '未设置'} 改为 ${afterName ?? '未设置'}。`;
+      }
+      break;
+    }
+    case 'schedule_backfill_completed': {
+      const beforeName = readTopLevelMemberName(before);
+      const afterName = readTopLevelMemberName(after);
+      const reason = readString(after?.reason);
+      if (beforeName !== undefined || afterName !== undefined) {
+        return `排班补录：值班人员由 ${beforeName ?? '未设置'} 改为 ${afterName ?? '未设置'}${
+          reason === undefined ? '' : `（${reason}）`
+        }。`;
       }
       break;
     }
