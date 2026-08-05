@@ -30,10 +30,11 @@ export function buildDutyAdjustmentCandidates(
   calendar: CalendarReadModel,
   myMembershipId: string,
 ): DutyAdjustmentCandidateOptions {
-  const myAssignments = calendar.assignments.filter(
+  const futureAssignments = calendar.assignments.filter(isFutureAssignment);
+  const myAssignments = futureAssignments.filter(
     (assignment) => getDutyMembershipId(assignment) === myMembershipId,
   );
-  const adminShiftOptions = calendar.assignments.filter(
+  const adminShiftOptions = futureAssignments.filter(
     (assignment) => getDutyMembershipId(assignment) !== undefined,
   );
   const overtimeOptions = calendar.members.filter(
@@ -41,6 +42,10 @@ export function buildDutyAdjustmentCandidates(
   );
 
   return { adminShiftOptions, myAssignments, overtimeOptions };
+}
+
+function isFutureAssignment(assignment: CalendarDutyAssignment): boolean {
+  return new Date(assignment.startsAt).valueOf() > Date.now();
 }
 
 export function getDutyAdjustmentStatusLabel(status: DutyAdjustmentStatus): string {

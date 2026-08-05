@@ -63,6 +63,22 @@ describe('duty adjustment flow logic', () => {
     expect(candidates.overtimeOptions.map((member) => member.membershipId)).toEqual(['target']);
   });
 
+  it('excludes past assignments from my shifts and admin shift options', () => {
+    const pastCalendar: CalendarReadModel = {
+      ...calendar,
+      assignments: [
+        assignment('past-me', '2026-07-01', 'me'),
+        assignment('past-target', '2026-07-02', 'target'),
+        assignment('future-me', '2026-09-04', 'me'),
+      ],
+    };
+
+    const candidates = buildDutyAdjustmentCandidates(pastCalendar, 'me');
+    expect(candidates.myAssignments.map((shift) => shift.id)).toEqual(['future-me']);
+    expect(candidates.adminShiftOptions.map((shift) => shift.id)).toEqual(['future-me']);
+    expect(candidates.overtimeOptions.map((member) => member.membershipId)).toEqual(['target']);
+  });
+
   it('resolves the next status from group and overtime member settings', () => {
     expect(resolveNextDutyAdjustmentStatus(true, false)).toBe('pending_target');
     expect(resolveNextDutyAdjustmentStatus(true, true)).toBe('pending_approval');
