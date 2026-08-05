@@ -1367,7 +1367,7 @@ export class DutyAdjustmentService {
           coveredAssignment: context.preview.coveredAssignment,
         }),
         statusCode: 409,
-        userMessage: '加扣班预检发现资格、请假或时间冲突，无法继续。',
+        userMessage: context.conflicts.map((conflict) => conflict.message).join('；'),
       });
     }
   }

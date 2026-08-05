@@ -279,10 +279,10 @@ async function computePreview(): Promise<void> {
       targetMembershipId: selectedTargetMembershipId.value,
     });
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      void loadData();
+      await loadData();
     }
+    errorMessage.value = getErrorMessage(error);
   } finally {
     isPreviewing.value = false;
   }
@@ -314,10 +314,10 @@ async function submit(): Promise<void> {
     resetForm();
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      void loadData();
+      await loadData();
     }
+    errorMessage.value = getErrorMessage(error);
   } finally {
     isSubmitting.value = false;
   }
@@ -348,10 +348,10 @@ async function computeAdminPreview(): Promise<void> {
       targetMembershipId: adminTargetMembershipId.value,
     });
   } catch (error) {
-    adminErrorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      void loadData();
+      await loadData();
     }
+    adminErrorMessage.value = getErrorMessage(error);
   } finally {
     adminIsPreviewing.value = false;
   }
@@ -377,10 +377,10 @@ async function submitAdminSwap(): Promise<void> {
     resetAdminForm();
     await loadData();
   } catch (error) {
-    adminErrorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      void loadData();
+      await loadData();
     }
+    adminErrorMessage.value = getErrorMessage(error);
   } finally {
     adminIsSubmitting.value = false;
   }
@@ -451,10 +451,10 @@ async function runMutation(mutation: () => Promise<SwapRequest>): Promise<void> 
     await mutation();
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      void loadData();
+      await loadData();
     }
+    errorMessage.value = getErrorMessage(error);
   }
 }
 

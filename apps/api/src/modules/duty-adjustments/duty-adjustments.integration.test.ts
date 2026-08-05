@@ -391,6 +391,15 @@ describeWithDatabase('paired duty adjustments', () => {
         membershipId: context.membershipIds.b,
       }),
     ]);
+
+    const directConflict = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '管理员代值',
+    });
+    expect(directConflict.statusCode).toBe(409);
+    expect((directConflict.json() as ErrorResponse).error.message).toContain('请假');
   });
 
   it('blocks duty adjustment creation while the overtime member has a pending leave', async () => {

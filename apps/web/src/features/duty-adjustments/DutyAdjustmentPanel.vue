@@ -218,11 +218,9 @@ async function computePreview(): Promise<void> {
     });
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      errorMessage.value = '班次或成员状态已变化，请刷新后重新选择。';
-      void loadData();
-    } else {
-      errorMessage.value = getErrorMessage(error);
+      await loadData();
     }
+    errorMessage.value = getErrorMessage(error);
   } finally {
     isPreviewing.value = false;
   }
@@ -255,11 +253,9 @@ async function submit(): Promise<void> {
     await loadData();
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      errorMessage.value = '该班次已有待处理或生效中的加扣班/换班关系，请先处理后再试。';
-      void loadData();
-    } else {
-      errorMessage.value = getErrorMessage(error);
+      await loadData();
     }
+    errorMessage.value = getErrorMessage(error);
   } finally {
     isSubmitting.value = false;
   }
@@ -285,11 +281,9 @@ async function submitDirect(): Promise<void> {
     await loadData();
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      errorMessage.value = '该班次已有待处理或生效中的加扣班/换班关系，请先处理后再试。';
-      void loadData();
-    } else {
-      errorMessage.value = getErrorMessage(error);
+      await loadData();
     }
+    errorMessage.value = getErrorMessage(error);
   } finally {
     isAdminSubmitting.value = false;
   }
@@ -362,11 +356,9 @@ async function runMutation(mutation: () => Promise<DutyAdjustmentRequest>): Prom
     await loadData();
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
-      errorMessage.value = '加扣班记录或班次状态已变化，请刷新后重试。';
-      void loadData();
-    } else {
-      errorMessage.value = getErrorMessage(error);
+      await loadData();
     }
+    errorMessage.value = getErrorMessage(error);
   }
 }
 
