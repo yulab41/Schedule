@@ -12,6 +12,8 @@ export interface PastScheduleAssignment {
   readonly actualMemberId?: string;
   readonly actualMemberName?: string;
   readonly assignmentId: string;
+  readonly backfillAt?: string;
+  readonly backfillReason?: string;
   readonly businessDate: string;
   readonly plannedMemberId?: string;
   readonly plannedMemberName?: string;
@@ -37,5 +39,16 @@ export interface CreatePastScheduleAssignmentInput {
 
 export interface UpdatePastScheduleAssignmentResult {
   readonly assignment: PastScheduleAssignment;
-  readonly eventId: string;
+  readonly eventId?: string;
+}
+
+export interface PastScheduleBackfillRecord {
+  readonly actualMemberName?: string;
+  readonly assignmentId: string;
+  readonly backfilledAt: string;
+  readonly businessDate: string;
+  readonly operatorName: string;
+  readonly reason?: string;
+  readonly shiftTypeAbbreviation: string;
+  readonly shiftTypeName: string;
 }

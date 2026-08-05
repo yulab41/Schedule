@@ -4,8 +4,8 @@ import type {
   CalendarReadModel,
   ConfirmedHolidayDate,
   GroupSummary,
+  PastScheduleBackfillRecord,
   PastSchedulePeriod,
-  ScheduleEvent,
   SchedulingConfig,
   SchedulingGroupMember,
 } from '@schedule/contracts';
@@ -42,7 +42,7 @@ const members = computed<readonly SchedulingGroupMember[]>(() => config.value?.g
 const calendar = ref<CalendarReadModel>();
 const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const staged = ref<ReadonlyMap<string, StagedPaint>>(new Map());
-const events = ref<readonly ScheduleEvent[]>([]);
+const records = ref<readonly PastScheduleBackfillRecord[]>([]);
 const activeShiftTypeId = ref('');
 const activeMemberId = ref('');
 const reason = ref('');
@@ -95,7 +95,7 @@ async function loadData(): Promise<void> {
       roleId.value = nextConfig.roles[0]?.id ?? '';
     }
     await loadCalendar();
-    await loadEvents();
+    await loadRecords();
   } catch (error) {
     errorMessage.value = getErrorMessage(error);
   } finally {
@@ -133,15 +133,11 @@ async function loadHolidays(): Promise<ReadonlyMap<string, ConfirmedHolidayDate>
   return new Map(result.dates.map((date) => [date.date, date] as const));
 }
 
-async function loadEvents(): Promise<void> {
+async function loadRecords(): Promise<void> {
   try {
-    const page = await api.getGroupEvents(props.group.id, {
-      eventTypes: ['schedule_backfill_completed'],
-      pageSize: 20,
-    });
-    events.value = page.events;
+    records.value = await api.listPastScheduleBackfillRecords(props.group.id);
   } catch {
-    events.value = [];
+    records.value = [];
   }
 }
 
@@ -223,7 +219,7 @@ function clickDate(date: string): void {
   const existing = assignmentsByDate.value.get(date)?.[0];
   if (
     existing !== undefined &&
-    existing.actualMembershipId === activeMemberId.value &&
+    (existing.actualMembershipId ?? existing.plannedMembershipId) === activeMemberId.value &&
     existing.shiftTypeId === activeShiftTypeId.value
   ) {
     infoMessage.value = `该日期（${date}）已是此配班，无需重复补录。`;
@@ -402,17 +398,17 @@ function getErrorMessage(error: unknown): string {
         />
       </template>
 
-      <section v-if="events.length > 0" class="events-section">
-        <h3>最近补录事件记录</h3>
+      <section v-if="records.length > 0" class="events-section">
+        <h3>最近补录记录</h3>
         <ul>
-          <li v-for="event in events" :key="event.id">
-            <span class="event-time">{{ formatEventTime(event.occurredAt) }}</span>
-            {{ event.afterData?.businessDate ?? '' }} ·
-            {{ event.afterData?.actualMemberName ?? '' }}
-            <template v-if="event.afterData?.created === true">（新增）</template>
-            <template v-if="typeof event.afterData?.reason === 'string'">
-              · {{ event.afterData.reason }}
-            </template>
+          <li v-for="record in records" :key="record.assignmentId">
+            <span class="event-time">{{ formatEventTime(record.backfilledAt) }}</span>
+            {{ record.businessDate }} · {{ record.actualMemberName ?? '' }} ·
+            {{ record.shiftTypeName }}
+            <template v-if="record.reason !== undefined"> · {{ record.reason }}</template>
+            <template v-if="record.operatorName !== ''">
+              · 操作人：{{ record.operatorName }}</template
+            >
           </li>
         </ul>
       </section>

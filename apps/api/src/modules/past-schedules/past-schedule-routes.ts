@@ -48,6 +48,13 @@ export function registerPastScheduleRoutes(
       ),
   );
 
+  app.get(
+    '/groups/:groupId/past-schedules/backfill-records',
+    { preHandler: app.authenticate },
+    (request) =>
+      service.listBackfillRecords(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
   app.post(
     '/groups/:groupId/past-schedules/assignments',
     { preHandler: app.authenticate },

@@ -93,6 +93,9 @@ export const shiftAssignments = mysqlTable(
     plannedMemberName: varchar('planned_member_name', { length: 100 }),
     actualMembershipId: char('actual_membership_id', { length: 36 }),
     actualMemberName: varchar('actual_member_name', { length: 100 }),
+    backfillAt: timestamp('backfill_at', { fsp: 3 }),
+    backfillOperatorUserId: char('backfill_operator_user_id', { length: 36 }),
+    backfillReason: varchar('backfill_reason', { length: 1000 }),
     ...auditableColumns(),
   },
   (table) => [

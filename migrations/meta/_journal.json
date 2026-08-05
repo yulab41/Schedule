@@ -169,6 +169,13 @@
       "when": 1785542400023,
       "tag": "0024_add_past_schedule_status",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785542400024,
+      "tag": "0025_add_backfill_trace",
+      "breakpoints": true
     }
   ]
 }

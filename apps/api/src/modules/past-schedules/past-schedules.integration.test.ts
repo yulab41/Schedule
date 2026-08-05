@@ -131,37 +131,57 @@ describeWithDatabase('past schedule backfill', () => {
       await listPastAssignments('owner-token', pastPeriodId)
     ).json() as PastScheduleAssignment[];
     const target = pastAssignments[0] as PastScheduleAssignment;
+    const currentDutyMemberId = target.actualMemberId ?? target.plannedMemberId;
     const nextMemberId =
-      target.actualMemberId === ownerMembershipId ? candidateMembershipId : ownerMembershipId;
+      currentDutyMemberId === ownerMembershipId ? candidateMembershipId : ownerMembershipId;
 
     const updated = await updatePastAssignment('owner-token', pastPeriodId, target.assignmentId, {
       actualMembershipId: nextMemberId,
       reason: '实际值班人员更正',
     });
     expect(updated.statusCode).toBe(200);
-    const body = updated.json() as {
-      readonly assignment: PastScheduleAssignment;
-      readonly eventId: string;
-    };
+    const body = updated.json() as { readonly assignment: PastScheduleAssignment };
     expect(body.assignment.actualMemberId).toBe(nextMemberId);
-    expect(body.eventId.length).toBeGreaterThan(0);
+    expect(body.assignment.backfillAt).toBeDefined();
+    expect(body.assignment.backfillReason).toBe('实际值班人员更正');
 
-    const [eventRows] = await client.database.execute(
-      sql`SELECT event_type AS eventType, after_data AS afterData
-          FROM schedule_events
-          WHERE id = ${body.eventId}`,
+    const [traceRows] = await client.database.execute(
+      sql`SELECT backfill_at AS backfillAt FROM shift_assignments WHERE id = ${target.assignmentId}`,
     );
-    const event = (
-      eventRows as unknown as readonly {
-        readonly afterData: { readonly source?: string; readonly businessDate?: string };
-        readonly eventType: string;
-      }[]
-    )[0];
-    expect(event?.eventType).toBe('schedule_backfill_completed');
-    expect(event?.afterData).toMatchObject({
-      businessDate: target.businessDate,
-      source: 'schedule_backfill',
+    expect(
+      (traceRows as unknown as readonly { backfillAt: string | null }[])[0]?.backfillAt,
+    ).not.toBeNull();
+    const [backfillEventCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_events WHERE group_id = ${groupId} AND event_type = 'schedule_backfill_completed'`,
+    );
+    expect(backfillEventCount).toEqual([{ count: 0 }]);
+
+    const records = (await listBackfillRecords('owner-token')).json() as readonly {
+      readonly assignmentId: string;
+      readonly backfilledAt: string;
+      readonly operatorName: string;
+    }[];
+    expect(records.some((record) => record.assignmentId === target.assignmentId)).toBe(true);
+    expect(records[0]?.operatorName).toBe('Owner Doctor');
+
+    const reverted = await updatePastAssignment('owner-token', pastPeriodId, target.assignmentId, {
+      actualMembershipId: target.plannedMemberId as string,
     });
+    expect(reverted.statusCode).toBe(200);
+    const revertedBody = reverted.json() as { readonly assignment: PastScheduleAssignment };
+    expect(revertedBody.assignment.backfillAt).toBeUndefined();
+    const [revertedTraceRows] = await client.database.execute(
+      sql`SELECT backfill_at AS backfillAt FROM shift_assignments WHERE id = ${target.assignmentId}`,
+    );
+    expect(
+      (revertedTraceRows as unknown as readonly { backfillAt: string | null }[])[0]?.backfillAt,
+    ).toBeNull();
+    const recordsAfterRevert = (await listBackfillRecords('owner-token')).json() as readonly {
+      readonly assignmentId: string;
+    }[];
+    expect(recordsAfterRevert.some((record) => record.assignmentId === target.assignmentId)).toBe(
+      false,
+    );
 
     const forbidden = await updatePastAssignment(
       'candidate-token',
@@ -212,12 +232,11 @@ describeWithDatabase('past schedule backfill', () => {
       url: `/groups/${groupId}/past-schedules/assignments`,
     });
     expect(created.statusCode, created.body).toBe(200);
-    const body = created.json() as {
-      readonly assignment: PastScheduleAssignment;
-      readonly eventId: string;
-    };
+    const body = created.json() as { readonly assignment: PastScheduleAssignment };
     expect(body.assignment.businessDate).toBe('2026-07-01');
     expect(body.assignment.actualMemberId).toBe(ownerMembershipId);
+    expect(body.assignment.backfillAt).toBeDefined();
+    expect(body.assignment.backfillReason).toBe('空月补录');
 
     const [periodRows] = await client.database.execute(
       sql`SELECT status FROM schedule_periods WHERE group_id = ${groupId} AND business_month = '2026-07-01' AND deleted_at IS NULL`,
@@ -226,15 +245,17 @@ describeWithDatabase('past schedule backfill', () => {
       (periodRows as unknown as readonly { status: string }[]).map((row) => row.status),
     ).toEqual(['past']);
 
-    const [eventRows] = await client.database.execute(
-      sql`SELECT after_data AS afterData FROM schedule_events WHERE id = ${body.eventId}`,
+    const [backfillEventCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_events WHERE group_id = ${groupId} AND event_type = 'schedule_backfill_completed'`,
     );
-    const event = (
-      eventRows as unknown as readonly {
-        readonly afterData: { readonly created?: boolean; readonly source?: string };
-      }[]
-    )[0];
-    expect(event?.afterData).toMatchObject({ created: true, source: 'schedule_backfill' });
+    expect(backfillEventCount).toEqual([{ count: 0 }]);
+
+    const records = (await listBackfillRecords('owner-token')).json() as readonly {
+      readonly assignmentId: string;
+    }[];
+    expect(records.some((record) => record.assignmentId === body.assignment.assignmentId)).toBe(
+      true,
+    );
 
     const periods = (await listPastPeriods('owner-token')).json() as PastSchedulePeriod[];
     expect(periods.filter((period) => period.businessMonth === '2026-07')).toHaveLength(1);
@@ -300,6 +321,14 @@ describeWithDatabase('past schedule backfill', () => {
       headers: { authorization: `Bearer ${token}` },
       method: 'GET',
       url: `/groups/${groupId}/past-schedules/${periodId}/assignments`,
+    });
+  }
+
+  function listBackfillRecords(token: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/past-schedules/backfill-records`,
     });
   }
 

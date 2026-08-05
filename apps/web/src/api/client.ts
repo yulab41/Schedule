@@ -53,6 +53,7 @@ import type {
   NotificationPage,
   NotificationRecord,
   PastScheduleAssignment,
+  PastScheduleBackfillRecord,
   PastSchedulePeriod,
   PushConfiguration,
   PublishSchedulePeriodBatchRequest,
@@ -246,6 +247,7 @@ export interface ApiClient {
     groupId: string,
     schedulePeriodId: string,
   ): Promise<readonly PastScheduleAssignment[]>;
+  listPastScheduleBackfillRecords(groupId: string): Promise<readonly PastScheduleBackfillRecord[]>;
   updatePastScheduleAssignment(
     groupId: string,
     schedulePeriodId: string,
@@ -1265,6 +1267,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(schedulePeriodId)}/assignments`,
         { method: 'GET' },
         isPastScheduleAssignmentList,
+      );
+    },
+    listPastScheduleBackfillRecords(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/past-schedules/backfill-records`,
+        { method: 'GET' },
+        isPastScheduleBackfillRecordList,
       );
     },
     updatePastScheduleAssignment(groupId, schedulePeriodId, assignmentId, input) {
@@ -3308,6 +3320,29 @@ function isPastScheduleAssignmentList(value: unknown): value is PastScheduleAssi
   return Array.isArray(value) && value.every(isPastScheduleAssignment);
 }
 
+function isPastScheduleBackfillRecordList(value: unknown): value is PastScheduleBackfillRecord[] {
+  return Array.isArray(value) && value.every(isPastScheduleBackfillRecord);
+}
+
+function isPastScheduleBackfillRecord(value: unknown): value is PastScheduleBackfillRecord {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Partial<PastScheduleBackfillRecord>;
+  return (
+    typeof record.assignmentId === 'string' &&
+    record.assignmentId.length > 0 &&
+    typeof record.businessDate === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/u.test(record.businessDate) &&
+    typeof record.backfilledAt === 'string' &&
+    record.backfilledAt.length > 0 &&
+    typeof record.operatorName === 'string' &&
+    typeof record.shiftTypeName === 'string' &&
+    typeof record.shiftTypeAbbreviation === 'string'
+  );
+}
+
 function isPastScheduleAssignment(value: unknown): value is PastScheduleAssignment {
   if (value === null || typeof value !== 'object') {
     return false;
@@ -3338,8 +3373,8 @@ function isUpdatePastScheduleAssignmentResult(
   const result = value as Partial<UpdatePastScheduleAssignmentResult>;
   return (
     isPastScheduleAssignment(result.assignment) &&
-    typeof result.eventId === 'string' &&
-    result.eventId.length > 0
+    (result.eventId === undefined ||
+      (typeof result.eventId === 'string' && result.eventId.length > 0))
   );
 }
 
