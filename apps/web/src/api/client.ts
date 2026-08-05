@@ -3354,7 +3354,8 @@ function isSchedulePeriodHistoryItem(value: unknown): boolean {
       item.status === 'pending_publication' ||
       item.status === 'published' ||
       item.status === 'replaced' ||
-      item.status === 'withdrawn') &&
+      item.status === 'withdrawn' ||
+      item.status === 'past') &&
     (item.applyStartDate === undefined || typeof item.applyStartDate === 'string') &&
     (item.applyEndDate === undefined || typeof item.applyEndDate === 'string') &&
     (item.operationId === undefined || typeof item.operationId === 'string') &&
