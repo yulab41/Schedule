@@ -221,6 +221,20 @@ describeWithDatabase('scheduling configuration', () => {
         message: '该排班岗位已用于排班，为保留历史数据不能删除。',
       },
     });
+
+    await client.database.execute(
+      sql`UPDATE schedule_periods SET deleted_at = CURRENT_TIMESTAMP(3)
+          WHERE id = '00000000-0000-4000-8000-000000000001'`,
+    );
+    const deletedAfterSoftDelete = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedule-roles/${usedRole.id}`,
+    });
+    expect(deletedAfterSoftDelete.statusCode).toBe(200);
+    expect((await getConfig('owner-token', groupId)).roles.map((role) => role.name)).not.toContain(
+      '一线',
+    );
   });
 
   it('deletes unused custom shift types and keeps built-in shift types', async () => {

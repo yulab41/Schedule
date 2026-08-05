@@ -307,7 +307,7 @@ export class SchedulingConfigService {
       const usedPeriod = await transaction
         .select({ id: schedulePeriods.id })
         .from(schedulePeriods)
-        .where(eq(schedulePeriods.scheduleRoleId, role.id))
+        .where(and(eq(schedulePeriods.scheduleRoleId, role.id), isNull(schedulePeriods.deletedAt)))
         .limit(1);
       if (usedPeriod[0] !== undefined) {
         throw validationError('该排班岗位已用于排班，为保留历史数据不能删除。');
