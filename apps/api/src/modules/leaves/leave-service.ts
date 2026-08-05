@@ -26,7 +26,6 @@ import type {
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
-  dutyAdjustments,
   groupMemberships,
   groups,
   leaveRequests,
@@ -36,7 +35,6 @@ import {
   schedulePeriods,
   scheduleRoles,
   shiftAssignments,
-  swapRequests,
   userProfiles,
   users,
   withTransaction,
@@ -72,7 +70,10 @@ import {
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
-import { WorkflowConflictService } from '../workflows/workflow-conflict-service.js';
+import {
+  getCurrentDutyMembershipId,
+  WorkflowConflictService,
+} from '../workflows/workflow-conflict-service.js';
 
 type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
@@ -1103,7 +1104,7 @@ export class LeaveService {
 
     return rows.filter(
       (assignment) =>
-        getDutyMembershipId(assignment) === membershipId &&
+        getCurrentDutyMembershipId(assignment) === membershipId &&
         leaveOverlapsInterval({ endsAt, isAllDay, startsAt }, assignment),
     );
   }
@@ -1117,51 +1118,12 @@ export class LeaveService {
     if (assignments.length === 0) {
       return [];
     }
-    const assignmentIds = assignments.map((assignment) => assignment.id);
-    const swapRows = await transaction
-      .select({
-        initiatorAssignmentId: swapRequests.initiatorAssignmentId,
-        initiatorMembershipId: swapRequests.initiatorMembershipId,
-        targetAssignmentId: swapRequests.targetAssignmentId,
-        targetMembershipId: swapRequests.targetMembershipId,
-      })
-      .from(swapRequests)
-      .where(
-        and(
-          eq(swapRequests.groupId, groupId),
-          inArray(swapRequests.status, ['pending_target', 'pending_approval']),
-          isNull(swapRequests.deletedAt),
-          or(
-            inArray(swapRequests.initiatorAssignmentId, assignmentIds),
-            inArray(swapRequests.targetAssignmentId, assignmentIds),
-          ),
-        ),
-      );
-    const adjustmentRows = await transaction
-      .select({
-        coveredAssignmentId: dutyAdjustments.coveredAssignmentId,
-        overtimeMembershipId: dutyAdjustments.overtimeMembershipId,
-      })
-      .from(dutyAdjustments)
-      .where(
-        and(
-          eq(dutyAdjustments.groupId, groupId),
-          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval']),
-          isNull(dutyAdjustments.deletedAt),
-          inArray(dutyAdjustments.coveredAssignmentId, assignmentIds),
-        ),
-      );
-    const coveredAssignmentIds = new Set<string>([
-      ...swapRows
-        .filter(
-          (row) =>
-            row.initiatorMembershipId === membershipId || row.targetMembershipId === membershipId,
-        )
-        .flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId]),
-      ...adjustmentRows
-        .filter((row) => row.overtimeMembershipId !== membershipId)
-        .map((row) => row.coveredAssignmentId),
-    ]);
+    const coveredAssignmentIds = await this.workflowConflictService.findLeaveCoverageAssignmentIds(
+      transaction,
+      groupId,
+      membershipId,
+      assignments.map((assignment) => assignment.id),
+    );
 
     return assignments.map((assignment) => ({
       assignmentId: assignment.id,
@@ -1927,10 +1889,6 @@ function toLeaveRequest(
     status: leaveRequest.status,
     version: leaveRequest.version,
   };
-}
-
-function getDutyMembershipId(assignment: LockedShiftAssignment): string | null {
-  return assignment.actualMembershipId ?? assignment.plannedMembershipId;
 }
 
 function createLeaveMutationFingerprint(input: {

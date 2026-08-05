@@ -402,6 +402,62 @@ export class WorkflowConflictService {
       }));
   }
 
+  public async findLeaveCoverageAssignmentIds(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    membershipId: string,
+    assignmentIds: readonly string[],
+  ): Promise<ReadonlySet<string>> {
+    if (assignmentIds.length === 0) {
+      return new Set();
+    }
+    const swapRows = await transaction
+      .select({
+        initiatorAssignmentId: swapRequests.initiatorAssignmentId,
+        initiatorMembershipId: swapRequests.initiatorMembershipId,
+        targetAssignmentId: swapRequests.targetAssignmentId,
+        targetMembershipId: swapRequests.targetMembershipId,
+      })
+      .from(swapRequests)
+      .where(
+        and(
+          eq(swapRequests.groupId, groupId),
+          inArray(swapRequests.status, ['pending_target', 'pending_approval']),
+          or(
+            inArray(swapRequests.initiatorAssignmentId, [...assignmentIds]),
+            inArray(swapRequests.targetAssignmentId, [...assignmentIds]),
+          ),
+          isNull(swapRequests.deletedAt),
+        ),
+      );
+    const adjustmentRows = await transaction
+      .select({
+        coveredAssignmentId: dutyAdjustments.coveredAssignmentId,
+        overtimeMembershipId: dutyAdjustments.overtimeMembershipId,
+      })
+      .from(dutyAdjustments)
+      .where(
+        and(
+          eq(dutyAdjustments.groupId, groupId),
+          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval']),
+          inArray(dutyAdjustments.coveredAssignmentId, [...assignmentIds]),
+          isNull(dutyAdjustments.deletedAt),
+        ),
+      );
+
+    return new Set([
+      ...swapRows
+        .filter(
+          (row) =>
+            row.initiatorMembershipId === membershipId || row.targetMembershipId === membershipId,
+        )
+        .flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId]),
+      ...adjustmentRows
+        .filter((row) => row.overtimeMembershipId !== membershipId)
+        .map((row) => row.coveredAssignmentId),
+    ]);
+  }
+
   private async findMemberTimeConflicts(
     transaction: DatabaseTransaction,
     groupId: string,
