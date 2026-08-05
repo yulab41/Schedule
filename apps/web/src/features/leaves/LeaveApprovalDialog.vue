@@ -261,6 +261,11 @@ function getErrorMessage(error: unknown): string {
               :message="`发现 ${preview.conflicts.length} 处硬冲突（请假或时间重叠）。`"
             />
             <t-alert
+              v-if="preview.workflowBlockers.length > 0"
+              theme="error"
+              :message="preview.workflowBlockers.map((blocker) => blocker.message).join('；')"
+            />
+            <t-alert
               v-if="preview.continuousDutyWarnings.length > 0"
               theme="warning"
               :message="`发现 ${preview.continuousDutyWarnings.length} 处连续值班风险（至少 24 小时）。`"

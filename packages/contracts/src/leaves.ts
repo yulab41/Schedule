@@ -80,6 +80,11 @@ export interface LeaveReflowConflict {
   readonly membershipId: string;
 }
 
+export interface LeaveWorkflowBlocker {
+  readonly assignmentId: string;
+  readonly message: string;
+}
+
 export interface LeaveMemberStatisticsDelta {
   readonly assignmentDelta: number;
   readonly countedDelta: number;
@@ -110,6 +115,7 @@ export interface LeaveReflowPreview {
   readonly statisticsDelta: LeaveStatisticsDelta;
   readonly strategy: LeaveReflowStrategy;
   readonly vacancies: readonly ScheduleGenerationVacancy[];
+  readonly workflowBlockers: readonly LeaveWorkflowBlocker[];
 }
 
 export interface PreviewLeaveRequestInput {

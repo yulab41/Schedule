@@ -376,7 +376,7 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(submitted.statusCode).toBe(201);
   });
 
-  it('locks current behavior: leave approval proceeds while a completed duty adjustment makes the member actual', async () => {
+  it('blocks leave approval while a completed duty adjustment makes the member actual', async () => {
     const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
     const [assignmentRows] = await client.database.execute(
       sql`SELECT id
@@ -403,17 +403,81 @@ describeWithDatabase('leave requests and reflow', () => {
       reason: '实际当值请假',
       startsAt: '2026-09-01T00:00:00.000Z',
     });
-    const preview = (await previewLeave('owner-token', context.groupId, leaveRequestId)).json() as {
-      periodVersions: Record<string, number>;
-      rulesVersion: number;
-    };
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveRequestId)
+    ).json() as LeaveReflowPreview;
+    expect(preview.workflowBlockers).toEqual([
+      expect.objectContaining({
+        assignmentId,
+        message: expect.stringContaining('换班或加扣班'),
+      }),
+    ]);
     const approved = await approveLeave('owner-token', context.groupId, leaveRequestId, {
       expectedPeriodVersions: preview.periodVersions,
       expectedRulesVersion: preview.rulesVersion,
       expectedVersion: 1,
       operationId: randomUUID(),
     });
-    expect(approved.statusCode).toBe(200);
+    expect(approved.statusCode).toBe(409);
+    expect((approved.json() as ErrorResponse).error.message).toContain('换班或加扣班');
+  });
+
+  it('blocks leave approval while a completed swap makes the member actual', async () => {
+    const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
+    expect((await updateSwapAutoAccept('b-token', context.groupId, false)).statusCode).toBe(200);
+    const [assignmentRows] = await client.database.execute(
+      sql`SELECT id, business_date AS businessDate, planned_membership_id AS plannedMembershipId
+          FROM shift_assignments
+          WHERE schedule_period_id = ${context.periodId}
+            AND business_date IN ('2026-09-01', '2026-09-02')`,
+    );
+    const rows = assignmentRows as unknown as readonly {
+      businessDate: string;
+      id: string;
+      plannedMembershipId: string | null;
+    }[];
+    const aSep1 = rows.find(
+      (row) =>
+        row.businessDate === '2026-09-01' && row.plannedMembershipId === context.membershipIds.a,
+    )?.id;
+    const bSep2 = rows.find(
+      (row) =>
+        row.businessDate === '2026-09-02' && row.plannedMembershipId === context.membershipIds.b,
+    )?.id;
+    expect(aSep1).toBeDefined();
+    expect(bSep2).toBeDefined();
+
+    const swap = await createSwapRequest('a-token', context.groupId, {
+      initiatorAssignmentId: aSep1!,
+      operationId: randomUUID(),
+      targetAssignmentId: bSep2!,
+      targetMembershipId: context.membershipIds.b!,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as { id: string; version: number };
+    expect(
+      (await acceptSwapRequest('b-token', context.groupId, swapBody.id, swapBody.version))
+        .statusCode,
+    ).toBe(200);
+
+    const leaveRequestId = await createLeave(context, 'b-token', {
+      endsAt: '2026-09-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      reason: '换班后实际当值请假',
+      startsAt: '2026-09-01T00:00:00.000Z',
+    });
+    const preview = (
+      await previewLeave('owner-token', context.groupId, leaveRequestId)
+    ).json() as LeaveReflowPreview;
+    expect(preview.workflowBlockers.length).toBeGreaterThan(0);
+    const approved = await approveLeave('owner-token', context.groupId, leaveRequestId, {
+      expectedPeriodVersions: preview.periodVersions,
+      expectedRulesVersion: preview.rulesVersion,
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+    expect(approved.statusCode).toBe(409);
   });
 
   it('previews a partial all-day overlap and keeps the original order on approval', async () => {

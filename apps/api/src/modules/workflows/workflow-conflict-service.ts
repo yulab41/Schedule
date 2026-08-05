@@ -18,10 +18,11 @@ export type WorkflowConflictCode =
   | 'MEMBER_TIME_OVERLAP'
   | 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST'
   | 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT'
-  | 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT';
+  | 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT'
+  | 'LEAVE_OVERLAPS_ACTUAL_DUTY_WORKFLOW';
 
 export interface WorkflowConflict {
-  readonly assignmentId?: string;
+  readonly assignmentId: string;
   readonly code: WorkflowConflictCode;
   readonly membershipId: string;
   readonly message: string;
@@ -311,6 +312,94 @@ export class WorkflowConflictService {
         kind: 'duty_adjustment',
       })),
     ];
+  }
+
+  public async findLeaveWorkflowBlockers(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    membershipId: string,
+    startsAt: Date,
+    endsAt: Date,
+    isAllDay: boolean | number,
+  ): Promise<readonly WorkflowConflict[]> {
+    const periods = await transaction
+      .select({ id: schedulePeriods.id })
+      .from(schedulePeriods)
+      .where(
+        and(
+          eq(schedulePeriods.groupId, groupId),
+          eq(schedulePeriods.status, 'published'),
+          isNull(schedulePeriods.deletedAt),
+        ),
+      );
+    const periodIds = periods.map((period) => period.id);
+    if (periodIds.length === 0) {
+      return [];
+    }
+    const assignments = await transaction
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          inArray(shiftAssignments.schedulePeriodId, periodIds),
+          eq(shiftAssignments.actualMembershipId, membershipId),
+          gt(shiftAssignments.startsAt, new Date()),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      );
+    const overlappingAssignments = assignments.filter((assignment) =>
+      leaveOverlapsInterval({ endsAt, isAllDay, startsAt }, assignment),
+    );
+    if (overlappingAssignments.length === 0) {
+      return [];
+    }
+    const assignmentIds = overlappingAssignments.map((assignment) => assignment.id);
+    const completedSwaps = await transaction
+      .select()
+      .from(swapRequests)
+      .where(
+        and(
+          eq(swapRequests.groupId, groupId),
+          eq(swapRequests.status, 'completed'),
+          or(
+            inArray(swapRequests.initiatorAssignmentId, assignmentIds),
+            inArray(swapRequests.targetAssignmentId, assignmentIds),
+          ),
+          isNull(swapRequests.deletedAt),
+        ),
+      );
+    const completedAdjustments = await transaction
+      .select()
+      .from(dutyAdjustments)
+      .where(
+        and(
+          eq(dutyAdjustments.groupId, groupId),
+          eq(dutyAdjustments.status, 'completed'),
+          inArray(dutyAdjustments.coveredAssignmentId, assignmentIds),
+          isNull(dutyAdjustments.deletedAt),
+        ),
+      );
+    const swapAssignmentIds = new Set(
+      completedSwaps.flatMap((request) => [
+        request.initiatorAssignmentId,
+        request.targetAssignmentId,
+      ]),
+    );
+    const adjustmentAssignmentIds = new Set(
+      completedAdjustments.map((adjustment) => adjustment.coveredAssignmentId),
+    );
+
+    return overlappingAssignments
+      .filter(
+        (assignment) =>
+          swapAssignmentIds.has(assignment.id) || adjustmentAssignmentIds.has(assignment.id),
+      )
+      .map((assignment): WorkflowConflict => ({
+        assignmentId: assignment.id,
+        code: 'LEAVE_OVERLAPS_ACTUAL_DUTY_WORKFLOW',
+        membershipId,
+        message: `该成员在 ${assignment.businessDate} 班次因换班或加扣班实际当值，请假前请先撤销相关换班/加扣班。`,
+      }));
   }
 
   private async findMemberTimeConflicts(

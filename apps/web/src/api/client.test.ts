@@ -678,6 +678,7 @@ describe('Web API client', () => {
       },
       strategy: 'keep-original-order',
       vacancies: [],
+      workflowBlockers: [],
     } as const;
     const approved = {
       leaveRequest,

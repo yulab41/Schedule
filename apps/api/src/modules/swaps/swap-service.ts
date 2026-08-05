@@ -1903,7 +1903,7 @@ function resolveNextStatus(
 
 function toSwapConflict(conflict: WorkflowConflict): SwapConflict {
   return {
-    ...(conflict.assignmentId === undefined ? {} : { assignmentId: conflict.assignmentId }),
+    assignmentId: conflict.assignmentId,
     code: conflict.code as SwapConflict['code'],
     membershipId: conflict.membershipId,
     message: conflict.message,

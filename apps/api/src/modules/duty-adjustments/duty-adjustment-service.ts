@@ -1678,7 +1678,7 @@ function resolveNextDutyAdjustmentStatus(
 
 function toDutyAdjustmentConflict(conflict: WorkflowConflict): DutyAdjustmentConflict {
   return {
-    ...(conflict.assignmentId === undefined ? {} : { assignmentId: conflict.assignmentId }),
+    assignmentId: conflict.assignmentId,
     code: conflict.code as DutyAdjustmentConflict['code'],
     membershipId: conflict.membershipId,
     message: conflict.message,

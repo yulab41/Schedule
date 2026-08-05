@@ -16,6 +16,7 @@ import type {
   LeaveRequestMutationInput,
   LeaveRequestMutationResult,
   LeaveStatisticsDelta,
+  LeaveWorkflowBlocker,
   PreviewLeaveRequestInput,
   RejectedLeaveRequestResult,
   RejectLeaveRequestInput,
@@ -71,6 +72,7 @@ import {
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { toLatestData } from '../schedules/shared.js';
+import { WorkflowConflictService } from '../workflows/workflow-conflict-service.js';
 
 type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
@@ -118,12 +120,14 @@ interface ReflowContext {
   readonly periods: readonly LockedSchedulePeriod[];
   readonly preview: LeaveReflowPreview;
   readonly rowByBusinessKey: ReadonlyMap<string, LockedShiftAssignment>;
+  readonly workflowBlockers: readonly LeaveWorkflowBlocker[];
 }
 
 export class LeaveService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly workflowConflictService = new WorkflowConflictService();
   private readonly statisticsService: StatisticsService;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
@@ -573,6 +577,14 @@ export class LeaveService {
       strategy,
       true,
     );
+    if (context.workflowBlockers.length > 0) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({ workflowBlockers: context.workflowBlockers }),
+        statusCode: 409,
+        userMessage: context.workflowBlockers.map((blocker) => blocker.message).join('；'),
+      });
+    }
     this.assertExpectedPeriodVersions(context.periods, input.expectedPeriodVersions);
 
     const hasBlockers =
@@ -1355,6 +1367,20 @@ export class LeaveService {
       })
       .sort((first, second) => first.businessDate.localeCompare(second.businessDate));
 
+    const workflowBlockers = (
+      await this.workflowConflictService.findLeaveWorkflowBlockers(
+        transaction,
+        group.id,
+        leaveRequest.membershipId,
+        leaveRequest.startsAt,
+        leaveRequest.endsAt,
+        leaveRequest.isAllDay,
+      )
+    ).map((blocker): LeaveWorkflowBlocker => ({
+      assignmentId: blocker.assignmentId,
+      message: blocker.message,
+    }));
+
     const preview = this.buildPreview({
       affectedShiftCount,
       affectedShifts,
@@ -1367,6 +1393,7 @@ export class LeaveService {
       periods,
       rowByBusinessKey,
       strategy,
+      workflowBlockers,
     });
 
     return {
@@ -1377,6 +1404,7 @@ export class LeaveService {
       periods,
       preview,
       rowByBusinessKey,
+      workflowBlockers,
     };
   }
 
@@ -1397,6 +1425,7 @@ export class LeaveService {
     readonly periods: readonly LockedSchedulePeriod[];
     readonly rowByBusinessKey: ReadonlyMap<string, LockedShiftAssignment>;
     readonly strategy: LeaveReflowStrategy;
+    readonly workflowBlockers: readonly LeaveWorkflowBlocker[];
   }): LeaveReflowPreview {
     const adjustedByKey = new Map(
       input.domainResult.assignments.map((assignment) => [assignment.businessKey, assignment]),
@@ -1484,6 +1513,7 @@ export class LeaveService {
         scheduleRoleId: vacancy.scheduleRoleId,
         slotPosition: vacancy.slotPosition,
       })),
+      workflowBlockers: input.workflowBlockers,
     };
   }
 

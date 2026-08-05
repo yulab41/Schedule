@@ -2687,7 +2687,23 @@ function isLeaveReflowPreview(value: unknown): value is LeaveReflowPreview {
     isLeaveStatisticsDelta(preview.statisticsDelta) &&
     (preview.strategy === 'keep-original-order' || preview.strategy === 'shift-forward') &&
     Array.isArray(preview.vacancies) &&
-    preview.vacancies.every(isScheduleGenerationVacancy)
+    preview.vacancies.every(isScheduleGenerationVacancy) &&
+    Array.isArray(preview.workflowBlockers) &&
+    preview.workflowBlockers.every(isLeaveWorkflowBlocker)
+  );
+}
+
+function isLeaveWorkflowBlocker(value: unknown): boolean {
+  if (value === null || typeof value !== 'object') {
+    return false;
+  }
+
+  const blocker = value as { assignmentId?: unknown; message?: unknown };
+  return (
+    typeof blocker.assignmentId === 'string' &&
+    blocker.assignmentId.length > 0 &&
+    typeof blocker.message === 'string' &&
+    blocker.message.length > 0
   );
 }
 
