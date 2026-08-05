@@ -569,6 +569,30 @@ export class SwapService {
         userMessage: `该换班涉及已过日期（${[...new Set(pastDates)].join('、')}），已过日期不可修改，无法撤销。`,
       });
     }
+    const laterWorkflows = [
+      ...(await this.workflowConflictService.findLaterAssignmentWorkflows(
+        transaction,
+        authorization.group.id,
+        request.initiatorAssignmentId,
+        request.createdAt,
+      )),
+      ...(await this.workflowConflictService.findLaterAssignmentWorkflows(
+        transaction,
+        authorization.group.id,
+        request.targetAssignmentId,
+        request.createdAt,
+      )),
+    ];
+    if (laterWorkflows.length > 0) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        latestData: toLatestData({
+          laterWorkflowIds: laterWorkflows.map((workflow) => workflow.id),
+        }),
+        statusCode: 409,
+        userMessage: '该换班后续还有换班或加扣班变动，请按先后顺序撤销。',
+      });
+    }
     const members = await this.loadMembers(transaction, authorization.group.id, [
       request.initiatorMembershipId,
       request.targetMembershipId,

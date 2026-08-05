@@ -845,6 +845,47 @@ describeWithDatabase('member shift swaps', () => {
     expect(revokedDuty.statusCode).toBe(200);
   });
 
+  it('blocks revoking an earlier swap while a later swap still exists', async () => {
+    const context = await seedPublishedRotation();
+    const first = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(first.statusCode).toBe(201);
+    const firstBody = first.json() as SwapRequest;
+
+    const second = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+    });
+    expect(second.statusCode).toBe(201);
+    const secondBody = second.json() as SwapRequest;
+
+    const blockedFirstRevoke = await revokeSwap('owner-token', context.groupId, firstBody.id, {
+      expectedVersion: firstBody.version,
+      operationId: randomUUID(),
+      reason: '先撤较早换班',
+    });
+    expect(blockedFirstRevoke.statusCode).toBe(409);
+    expect((blockedFirstRevoke.json() as ErrorResponse).error.message).toContain('后续');
+
+    const revokedSecond = await revokeSwap('owner-token', context.groupId, secondBody.id, {
+      expectedVersion: secondBody.version,
+      operationId: randomUUID(),
+      reason: '先撤较晚换班',
+    });
+    expect(revokedSecond.statusCode).toBe(200);
+
+    const revokedFirst = await revokeSwap('owner-token', context.groupId, firstBody.id, {
+      expectedVersion: firstBody.version,
+      operationId: randomUUID(),
+      reason: '再撤较早换班',
+    });
+    expect(revokedFirst.statusCode).toBe(200);
+  });
+
   it('invalidates the swap when either assignment version changes', async () => {
     const context = await seedPublishedRotation();
     await updateMySettings('b-token', context.groupId, false);
