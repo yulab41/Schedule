@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 1 日历读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 2 holidays 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -627,3 +627,20 @@
 3. `isUndefined` 仍被 7 个非日历守卫引用，本轮未删除；后续批次替换完对应守卫后一并清理——症状是死代码留存但不破坏编译。
 
 下次计划：#7.1 子步骤 3 批次 2（holidays 读模型：`isHolidayReadModel`/`isConfirmedHolidayDate` 先写锁定测试再替换；随后按读模型族推进 groups/membership、schedules、swaps/duty 等剩余守卫）
+
+### 轮次 13 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 2 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 holidays 读模型手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/holidays.ts`（新增 `confirmedHolidayDateSchema`/`holidayReadModelSchema` 2 个 schema，`ConfirmedHolidayDate`/`HolidayReadModel` 类型改为由 schema 派生，约束与旧守卫一致：布尔/整数/字符串字段，`passthrough()` 保留未知字段；旧守卫只查 `typeof string`，故日期与名称不额外加格式/非空限制）；`apps/web/src/api/client.ts`（`getHolidays`/`getGuestHolidays` 2 处调用点改用 `isResponseBodyFromSchema(holidayReadModelSchema)`，删除 `isHolidayReadModel` 手写守卫）；`apps/web/src/api/client.test.ts`（先新增 7 条锁定测试再替换：未知字段透传、非整数 year、confirmed 非布尔、缺 dates 数组、日期条目缺 holidayName、isOffDay 非布尔、date 非字符串；34 → 41 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 458/458 ✅（68 个测试文件，隔离 MySQL；新增 7 条 client 锁定测试）
+
+提交：0c352f1，推送结果见对话回复
+
+不确定点：
+1. 旧守卫只校验字段类型不校验内容，schema 因此对 `date`/`holidayName` 仅用 `z.string()` 不加格式/非空约束——若未来想让非法日期格式在客户端直接暴露，需另加 regex，出错症状是格式异常的日期仍能通过读模型。
+2. `isConfirmedHolidayDate` 没有独立守卫（校验内嵌于 `isHolidayReadModel.dates.every`），本轮按实际代码以 `confirmedHolidayDateSchema` 收敛内嵌校验，未产生额外导出守卫。
+3. `passthrough()` 保留未知字段与旧守卫一致；若未来要捕获 API 契约漂移，需改为 strip/strict 并显式断言——症状是未知字段继续透传而非报“服务返回了无效资料”。
+
+下次计划：#7.1 子步骤 3 批次 3（groups/membership 读模型：按读模型族先写锁定测试再替换剩余 `isX` 守卫；随后推进 schedules、swaps/duty 等）

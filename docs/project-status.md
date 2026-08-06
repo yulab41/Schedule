@@ -9,9 +9,9 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–56 已完成；fix-progress 轮次 1–12 已完成（轮次 12 = #7.1 子步骤 3 批次 1：日历读模型 zod schema 替换 8 个手写守卫）；最新验证基线 451/451（68 个测试文件，隔离 MySQL）
+- Debug rounds: 1–56 已完成；fix-progress 轮次 1–13 已完成（轮次 13 = #7.1 子步骤 3 批次 2：holidays 读模型 zod schema 替换手写守卫）；最新验证基线 458/458（68 个测试文件，隔离 MySQL）
 - Deployment: Web 1.0 已部署到阿里云 ECS 试用机（`8.148.183.46`，Ubuntu 22.04，Docker Compose：mysql 8.4 + api + nginx/web），迁移 0031 已执行，`/health`、`/api/health`、首页均 200，开发模式认证可用；待用户在阿里云安全组放行 80 端口后完成公网验收
-- Next actions: fix-progress 轮次 13 目标为 #7.1 子步骤 3 批次 2（holidays 读模型：`isHolidayReadModel`/`isConfirmedHolidayDate` 先写锁定测试再替换，随后按读模型族推进剩余手写 `isX` 守卫）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
+- Next actions: fix-progress 轮次 14 目标为 #7.1 子步骤 3 批次 3（groups/membership 读模型：先写锁定测试再替换剩余 `isX` 守卫，随后推进 schedules、swaps/duty 等）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
@@ -28,6 +28,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-07 fix-progress 轮次 13：完成 #7.1 子步骤 3 批次 2（holidays 读模型）——`packages/contracts/src/holidays.ts` 新增 `confirmedHolidayDateSchema`/`holidayReadModelSchema` 2 个运行时 schema，`ConfirmedHolidayDate`/`HolidayReadModel` 类型改为由 schema 派生（约束与旧守卫一致：布尔/整数/字符串字段，`passthrough()` 保留未知字段）；`apps/web/src/api/client.ts` 的 `getHolidays`/`getGuestHolidays` 改用 `isResponseBodyFromSchema(holidayReadModelSchema)`，删除 `isHolidayReadModel` 手写守卫；`client.test.ts` 先写 7 条锁定测试（未知字段透传、非整数 year、confirmed 非布尔、缺 dates 数组、日期条目缺 holidayName、isOffDay 非布尔、date 非字符串）再替换，34 → 41 条；`pnpm verify` 458/458 通过。
 - 2026-08-07 fix-progress 轮次 12：开始 #7.1 子步骤 3（日历读模型批次）——`packages/contracts` 新增 `zod` 依赖，`calendar.ts` 新增 9 个运行时 schema（变动标记、班次、成员、角色、班种、日历、访客日历、访客群组、访客群组列表）并将 8 个读模型类型改为由 schema 派生，约束与旧手写守卫一致（日期/月份/颜色/时间正则、非空字符串、整数 ≥1、枚举标记、可选字段、`passthrough()` 保留未知字段）；`apps/web/src/api/client.ts` 新增通用 `JsonSchema` + `isResponseBodyFromSchema` 桥接，`getCalendar`/`getSchedulePeriodCalendar`/`getGuestCalendar`/`getGuestGroupCalendar`/`listGuestGroups` 5 处调用点改用 schema，删除 8 个 `isCalendar*`/`isGuest*` 手写守卫；`client.test.ts` 先写 6 条锁定测试（未知变动标记、业务月份格式、空姓名、非法颜色、访客日历缺群名、访客群组缺名称）再替换，28 → 34 条；`pnpm verify` 451/451 通过。
 - 2026-08-06 fix-progress 轮次 11：收敛 #7.1 子步骤 2 并完成 #7.2——`packages/contracts/src/errors.ts` 新增运行时 `apiErrorCodes` 列表作为错误码唯一来源，`ApiErrorCode` 联合类型改为由它派生；`apps/web/src/api/client.ts` 的 `knownApiErrorCodes` 改为 `new Set(apiErrorCodes)`（删除本地字面量表），`isApiErrorResponse` 去掉 `as ApiErrorCode` 强转；新增 3 条锁定测试（契约列表完整且无重复、全部错误码映射为类型化客户端错误、未知码回退通用 HTTP 文案），`client.test.ts` 26 → 28 条；`pnpm verify` 445/445 通过。
 - 2026-08-06 fix-progress 轮次 10：收敛 #7.1 子步骤 1 的 client.ts 重复请求函数——新增共享 `requestWithOnline`（离线/会话/网络错误/fetch 发起统一）与 `parseJsonResponse`/`parseTextResponse`，删除 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline` 三个复制函数，4 个公开端点改用新 `requestPublicJson` 包装；复核 `isUndefined` 实际被 7 处守卫使用（非死代码）未删；`client.test.ts` 新增 2 条锁定测试（公开请求不带 token、文本下载错误映射），24 → 26 条；`pnpm verify` 442/442 通过。
@@ -63,6 +64,7 @@
 
 ## Active Batch
 
+- fix-progress 轮次 13（#7.1 子步骤 3 批次 2）已完成：contracts 新增 holidays 读模型族 2 个 schema（`confirmedHolidayDateSchema`/`holidayReadModelSchema`），`ConfirmedHolidayDate`/`HolidayReadModel` 类型由 schema 派生，client.ts 的 `getHolidays`/`getGuestHolidays` 改用 `isResponseBodyFromSchema` 并删除 `isHolidayReadModel` 手写守卫，先新增 7 条锁定测试再替换，`pnpm verify` 458/458 通过；下一活动批次为 fix-progress 轮次 14（#7.1 子步骤 3 批次 3：groups/membership 读模型先写锁定测试再替换剩余 `isX` 守卫）。
 - fix-progress 轮次 12（#7.1 子步骤 3 批次 1）已完成：contracts 引入 zod 并新增日历读模型族 9 个 schema，8 个读模型类型由 schema 派生，client.ts 用通用 `isResponseBodyFromSchema` 替换 8 个手写守卫（5 个调用点），先新增 6 条锁定测试再替换，`pnpm verify` 451/451 通过；下一活动批次为 fix-progress 轮次 13（#7.1 子步骤 3 批次 2：holidays 读模型 `isHolidayReadModel`/`isConfirmedHolidayDate` 先写锁定测试再替换）。
 - fix-progress 轮次 9（#2.1）已完成：ui-tokens 8 组令牌收敛为 `packages/ui-tokens/src/tokens.ts` 单一来源（含 `tokenGroups` 前缀/格式元数据），`index.ts` re-export 保持公共 API，新增 `scripts/generate-tokens-css.mjs` + `pnpm tokens:generate`，新增 1 条“已提交 `tokens.css` == 生成器输出”锁定测试；`pnpm verify` 440/440 通过；下一活动批次为 fix-progress 轮次 10（#7.1，client.ts 校验器拆子步骤）。
 - fix-progress 轮次 8（#7.5）已完成：删除 event-timeline 三个仅 spec 引用的死导出与 `isCorrection` 字段、移除 `getEventMarker` 导出、删除 `.entry-relation` 样式，spec 同步改写并用 `buildEventTimelineItems` 保持标记映射覆盖；`pnpm verify` 439/439 通过；下一活动批次为 fix-progress 轮次 9（#2.1，ui-tokens 单一来源生成）。
@@ -84,7 +86,7 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：fix-progress 轮次 13 处理 #7.1 子步骤 3 批次 2（holidays 读模型 schema 替换）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
+- 下一活动批次：fix-progress 轮次 14 处理 #7.1 子步骤 3 批次 3（groups/membership 读模型 schema 替换）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
 - 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
 - 停止条件：上线健康检查通过且用户验收完成。
 
