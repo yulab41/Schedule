@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 9 events/notifications 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 10 statistics 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -763,3 +763,20 @@
 3. 未读数/已读数/保存/删除四个小结果 schema 未派生导出类型（方法签名内联 `{ readonly count: number }` 等），schema 推断类型可赋值；若未来要统一导出，可在 notifications.ts 增加类型别名。
 
 下次计划：#7.1 子步骤 3 批次 10（statistics 读模型：`isStatisticsRoleCount`/`isStatisticsShiftTypeCount`/`isStatisticsMemberRow`/`isStatisticsSummary`/`isMonthStatisticsSnapshot`/`isYearStatistics`/`isStatisticsRecalculateCheckResult` 先写锁定测试再替换；随后推进 exports/platform、users/profile 等收尾批次）
+
+### 轮次 21 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 10 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 statistics 读模型族 7 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/statistics.ts`（新增 `statisticsRoleCountSchema`/`statisticsShiftTypeCountSchema`/`statisticsMemberRowSchema`/`statisticsSummarySchema`/`monthStatisticsSnapshotSchema`/`yearStatisticsSchema`/`statisticsRecalculateCheckResultSchema`，7 个读模型类型由 schema 派生；`actualVsPlanned` 用 `z.custom` 保持旧守卫“仅数组”的宽松检查，其余字段按旧守卫 typeof number/string 校验）；`apps/web/src/api/client.ts`（4 处调用点改用 `isResponseBodyFromSchema`，删除 `isStatisticsRoleCount`/`isStatisticsShiftTypeCount`/`isStatisticsMemberRow`/`isStatisticsSummary`/`isMonthStatisticsSnapshot`/`isYearStatistics`/`isStatisticsRecalculateCheckResult` 7 个手写守卫）；`apps/web/src/api/client.test.ts`（先新增 12 条锁定测试再替换：actualVsPlanned 任意条目放行、月份 version 非数字、summary 缺 members、年度 months 非数组、月度 summary 缺 byRole、matched 非布尔、mismatch 非字符串、summary members 非数组、member actualVsPlanned 非数组、member realName 非字符串、role plannedCount 非数字、shiftType shiftTypeName 非字符串；124 → 136 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 553/553 ✅（68 个测试文件，隔离 MySQL；新增 12 条 client 锁定测试）
+
+提交：0ec535c，推送结果见对话回复
+
+不确定点：
+1. `statisticsMemberRowSchema.actualVsPlanned` 用 `z.custom` 只校验数组（旧守卫行为），导出类型保留 `StatisticsActualVsPlannedEntry[]`；若未来要校验条目内容需换子 schema——出错症状是任意条目仍通过（与旧行为一致）。
+2. `monthStatisticsSnapshotSchema.version`/`yearStatisticsSchema.year` 等按旧守卫只校验 number 不校验整数，schema 保持 `z.number()`；若未来想收紧需改 `.int()`。
+3. statistics 家族与 schedule generation 统计（`scheduleGenerationStatisticsSchema`）是两套独立 schema，字段语义相近但分属不同读模型；若未来想合并需先统一契约。
+
+下次计划：#7.1 子步骤 3 批次 11（exports/platform + users/profile 收尾读模型：`isScheduleExportJob`/`isUserProfile` 先写锁定测试再替换；随后 client.ts 仅剩基础设施守卫 `isApiErrorResponse`/`isUndefined`，按需另开清理轮）
