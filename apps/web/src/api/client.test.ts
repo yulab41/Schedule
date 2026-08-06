@@ -1949,6 +1949,231 @@ describe('Web API client', () => {
     });
   });
 
+  it('rejects a manual apply preview with a malformed apply start date', async () => {
+    const invalidPreview = { ...manualApplyPreview, applyStartDate: '2026-8-1' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual apply preview with a non-integer cycle days', async () => {
+    const invalidPreview = { ...manualApplyPreview, cycleDays: 7.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual apply preview with a malformed assignment color', async () => {
+    const invalidPreview = {
+      ...manualApplyPreview,
+      assignments: [{ ...manualApplyPreview.assignments[0], shiftTypeColor: 'blue' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual apply preview with an unknown conflict code', async () => {
+    const invalidPreview = {
+      ...manualApplyPreview,
+      conflicts: [{ code: 'UNKNOWN', membershipId: 'membership-1', message: '冲突' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual apply preview with a non-array vacancies field', async () => {
+    const invalidPreview = { ...manualApplyPreview, vacancies: {} };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual apply preview with a non-integer statistics count', async () => {
+    const invalidPreview = {
+      ...manualApplyPreview,
+      statistics: { ...manualApplyPreview.statistics, assignmentCount: 1.5 },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewManualTemplateApply(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual schedule template with a cycle days above 31', async () => {
+    const invalidTemplate = { ...manualTemplate, cycleDays: 32 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidTemplate]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listManualScheduleTemplates(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual schedule template member with a zero member role version', async () => {
+    const invalidTemplate = {
+      ...manualTemplate,
+      members: [{ ...manualTemplate.members[0], memberScheduleRoleVersion: 0 }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidTemplate]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listManualScheduleTemplates(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a manual schedule template cell with a zero cycle day', async () => {
+    const invalidTemplate = {
+      ...manualTemplate,
+      cells: [{ ...manualTemplate.cells[0], cycleDay: 0 }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidTemplate]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listManualScheduleTemplates(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an applied manual template result with the wrong status', async () => {
+    const invalidResult = { ...appliedManualTemplate, status: 'pending' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.applyManualTemplate(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+        operationId: 'op-1',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an applied manual template result with a non-integer template version', async () => {
+    const invalidResult = { ...appliedManualTemplate, templateVersion: 1.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.applyManualTemplate(group.id, manualTemplate.id, {
+        expectedRulesVersion: 3,
+        operationId: 'op-1',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
   it('rejects a malformed calendar response', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

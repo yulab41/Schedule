@@ -91,6 +91,17 @@ export interface ScheduleGenerationShiftTypeCount {
   readonly shiftTypeName: string;
 }
 
+// 旧守卫只校验 assignmentCount/shiftTypeId；schema 保持同样不约束其余字段。
+export const scheduleGenerationShiftTypeCountSchema = z
+  .object({
+    assignmentCount: z.number(),
+    countedAssignmentCount: z.custom<number>(() => true).optional(),
+    shiftTypeAbbreviation: z.custom<string>(() => true).optional(),
+    shiftTypeId: z.string(),
+    shiftTypeName: z.custom<string>(() => true).optional(),
+  })
+  .passthrough();
+
 export interface ScheduleGenerationRoleCount {
   readonly assignmentCount: number;
   readonly countedAssignmentCount: number;
@@ -99,6 +110,17 @@ export interface ScheduleGenerationRoleCount {
   readonly vacancyCount: number;
 }
 
+// 旧守卫只校验 assignmentCount/scheduleRoleId/vacancyCount；schema 保持同样不约束其余字段。
+export const scheduleGenerationRoleCountSchema = z
+  .object({
+    assignmentCount: z.number(),
+    countedAssignmentCount: z.custom<number>(() => true).optional(),
+    scheduleRoleId: z.string(),
+    scheduleRoleName: z.custom<string>(() => true).optional(),
+    vacancyCount: z.number(),
+  })
+  .passthrough();
+
 export interface ScheduleGenerationStatistics {
   readonly assignmentCount: number;
   readonly byRole: readonly ScheduleGenerationRoleCount[];
@@ -106,6 +128,16 @@ export interface ScheduleGenerationStatistics {
   readonly countedAssignmentCount: number;
   readonly vacancyCount: number;
 }
+
+export const scheduleGenerationStatisticsSchema = z
+  .object({
+    assignmentCount: z.number().int(),
+    byRole: z.readonly(z.array(scheduleGenerationRoleCountSchema)),
+    byShiftType: z.readonly(z.array(scheduleGenerationShiftTypeCountSchema)),
+    countedAssignmentCount: z.number().int(),
+    vacancyCount: z.number().int(),
+  })
+  .passthrough();
 
 // 旧守卫只校验这两个字段；其余字段由完整契约类型补充。
 export const schedulePreviewAssignmentSchema = z
