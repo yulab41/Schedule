@@ -6,8 +6,8 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，无已跟踪改动（用户未跟踪文件见下）。
-- 当前测试基线：`pnpm verify` 440/440（66 个测试文件，隔离 MySQL，轮次 9 后）。
-- 轮次 5 开始时工作区仍含用户未跟踪文件（`.dockerignore`、`docs/deployment/aliyun-ecs.md`、`infra/docker/*`），不属于本轮任务，未纳入提交。
+- 当前测试基线：`pnpm verify` 445/445（68 个测试文件，隔离 MySQL，轮次 11 后）。
+- 工作区原未跟踪的 `.dockerignore`、`docs/deployment/aliyun-ecs.md`、`infra/docker/*` 已于 2026-08-06 由用户提交 7de6d6e（阿里云 ECS Docker 部署）纳入仓库，不属于 fix-progress 轮次任务。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
 ## 1. 修复任务约束协议（每轮必须遵守）
@@ -55,7 +55,8 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 1/3 完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 2/3 完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
@@ -270,9 +271,10 @@
 建议：从 `@schedule/contracts` 或共享 zod schema 生成类型守卫（或改为 zod `.parse` 统一校验），删除 `isUndefined` 等死代码。
 > 子步骤拆分（2026-08-06 轮次 10 补订；原“必须拆子步骤，见第 4 节”的引用在第 4 节无对应内容，以此处为准）：
 > 1. ✅（轮次 10）把三个几乎相同的请求函数收敛为一个共享请求管道（`requestWithOnline` + `parseJsonResponse`/`parseTextResponse`），行为由 `client.test.ts` 26 条测试锁定。经复核，`isUndefined` 实际被 7 个响应守卫引用，并非死代码，审查快照已过期，不删除。
-> 2. 把 `knownApiErrorCodes` / `isApiErrorResponse` 从 `@schedule/contracts` 的错误码联合类型派生，或加编译期一致性测试（与 #7.2 合并评估）。
+> 2. ✅（轮次 11）`ApiErrorCode` 联合类型改为由契约运行时列表 `apiErrorCodes` 派生；`knownApiErrorCodes` 直接引用该列表，`isApiErrorResponse` 删除 `as ApiErrorCode` 强转；#7.2 一并完成，新增 3 条锁定测试。
 > 3. 从 `@schedule/contracts` 引入运行时 schema（zod），按读模型分批替换 113 个手写 `isX` 守卫；每批先写锁定测试再替换，禁止一次性大改；随守卫移除同步删除不再使用的 `isUndefined` 等死代码。
 > 完成情况（子步骤 1，2026-08-06）：已删 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline`，新增共享 `requestWithOnline`（统一离线检查、可选会话、网络错误与 fetch 发起）与 `parseJsonResponse`/`parseTextResponse`（JSON 校验/文本与错误解析），`createApiClient` 内新增 `requestPublicJson` 包装，4 个公开端点改用；新增 2 条锁定测试（公开请求不带 Authorization、文本下载 404 映射为类型化错误）；`pnpm verify` 442/442 通过。本条目中的行号为审查时快照，重构后已过期。
+> 完成情况（子步骤 2，2026-08-06）：`packages/contracts/src/errors.ts` 新增运行时 `apiErrorCodes` 列表作为错误码唯一来源，`ApiErrorCode` 联合类型改为由它派生；`apps/web/src/api/client.ts` 的 `knownApiErrorCodes` 改为 `new Set(apiErrorCodes)`，删除本地字面量表与 `as ApiErrorCode` 强转；新增 3 条锁定测试（契约列表完整且无重复、全部错误码映射为类型化客户端错误、未知码回退通用 HTTP 文案）；`pnpm verify` 445/445 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.2 客户端错误码表与契约联合类型双份维护**
 位置：[client.ts (line 435)](E:/AItools/Schedule/apps/web/src/api/client.ts:435)（435–443 行）；[errors.ts (line 1)](E:/AItools/Schedule/packages/contracts/src/errors.ts:1)
@@ -280,6 +282,7 @@
 问题：`knownApiErrorCodes` 用字面量重建了 `ApiErrorCode` 联合类型；契约新增错误码时，漏改这里会让合法错误被当成未知响应。
 严重等级：轻微
 建议：用 `z.enum`/运行时 schema 从 contracts 直接派生，或加一个编译期一致性测试。
+> 完成情况（轮次 11，2026-08-06）：已改为从 `@schedule/contracts` 的 `apiErrorCodes` 运行时列表直接派生 `ApiErrorCode`，客户端 `knownApiErrorCodes` 不再重建字面量表，`isApiErrorResponse` 去掉强转；新增契约列表完整/无重复与客户端全码映射/未知码回退锁定测试共 3 条；`pnpm verify` 445/445 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.3 服务端时区常量复制到 8 个前端文件**
 位置：[calendar-logic.ts (line 7)](E:/AItools/Schedule/apps/web/src/features/calendar/calendar-logic.ts:7)（第 7 行）、[calendar-views.ts (line 10)](E:/AItools/Schedule/apps/web/src/features/calendar/calendar-views.ts:10)、[swap-logic.ts (line 12)](E:/AItools/Schedule/apps/web/src/features/swaps/swap-logic.ts:12)、[duty-adjustment-logic.ts (line 12)](E:/AItools/Schedule/apps/web/src/features/duty-adjustments/duty-adjustment-logic.ts:12)、[leave-logic.ts (line 9)](E:/AItools/Schedule/apps/web/src/features/leaves/leave-logic.ts:9)、[event-timeline.ts (line 10)](E:/AItools/Schedule/apps/web/src/features/events/event-timeline.ts:10)，以及 [StatisticsView.vue (line 34)](E:/AItools/Schedule/apps/web/src/views/statistics/StatisticsView.vue:34)、[ExportDialog.vue (line 112)](E:/AItools/Schedule/apps/web/src/features/exports/ExportDialog.vue:112)、[ManualScheduleView.vue (line 855)](E:/AItools/Schedule/apps/web/src/views/schedules/ManualScheduleView.vue:855) 中裸写 `8 * 60 * 60 * 1000`
@@ -587,3 +590,22 @@
 3. `isUndefined` 在审查快照中标注为“从未使用”，但当前 7 处响应守卫引用它；本轮未删除以免破坏编译，待子步骤 3 引入 schema 后随守卫移除一并清理。
 
 下次计划：#7.1 子步骤 2（`knownApiErrorCodes`/`isApiErrorResponse` 与契约错误码单一来源，随带评估 #7.2）
+
+### 轮次 11 – 2026-08-06
+
+目标：#7.1 子步骤 2（随带 #7.2）—— 把客户端 `knownApiErrorCodes`/`isApiErrorResponse` 与契约错误码收敛为单一来源，消除双份字面量表。
+
+修改文件：`packages/contracts/src/errors.ts`（新增运行时 `apiErrorCodes` 列表作为错误码唯一来源，`ApiErrorCode` 联合类型改为由它派生）；新增 `packages/contracts/src/errors.test.ts`（1 条契约列表完整且无重复锁定测试）；`apps/web/src/api/client.ts`（`knownApiErrorCodes` 改为 `new Set(apiErrorCodes)`，删除本地字面量表与 `as ApiErrorCode` 强转）；`apps/web/src/api/client.test.ts`（新增 2 条：全部契约错误码映射为类型化客户端错误、未知码回退通用 HTTP 文案；26 → 28 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 445/445 ✅（68 个测试文件，隔离 MySQL；新增 3 条：contracts 1 条 + client 2 条）
+
+提交：5ba3993，推送结果见对话回复
+
+备注：本轮开始时仓库存在用户本地提交 7de6d6e（阿里云 ECS Docker 部署配置与文档，含 project-status 的 Deployment 段），非本轮任务，保留并在本轮推送时一并上传。
+
+不确定点：
+1. `apiErrorCodes` 以 `as const` 数组导出，运行时仍是可变数组；若未来有代码误 push 进新值，契约与客户端会同时漂移，但 `errors.test.ts` 的完整列表断言会在 CI 失败——症状是新增错误码必须先过测试才能入库。
+2. 客户端 `knownApiErrorCodes` 改为 `Set<string>` 后行为与旧 `Set<ApiErrorCode>` 完全一致；契约新增错误码后客户端无需任何改动即自动识别——症状是新增合法错误码被正确映射为类型化错误，而非回退通用 HTTP 文案。
+3. `ApiErrorCode` 由显式联合改为数组派生，类型值完全一致，API 层 `error-handler.ts` 仅用类型不受影响；若未来需要给错误码附加元数据（如 HTTP 状态映射），可在此单一来源扩展。
+
+下次计划：#7.1 子步骤 3（从 `@schedule/contracts` 引入运行时 schema，按读模型分批替换 113 个手写 `isX` 守卫；每批先写锁定测试再替换，禁止一次性大改）
