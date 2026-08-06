@@ -54,6 +54,17 @@ export interface ScheduleGenerationWarning {
   readonly startsAt: string;
 }
 
+export const scheduleGenerationWarningSchema = z
+  .object({
+    assignmentBusinessKeys: z.readonly(z.array(z.string())),
+    code: z.literal('CONTINUOUS_DUTY_24_HOURS'),
+    endsAt: z.string(),
+    membershipId: z.string().min(1),
+    memberName: z.string().optional(),
+    startsAt: z.string(),
+  })
+  .passthrough();
+
 export interface ScheduleGenerationVacancy {
   readonly assignmentBusinessKey: string;
   readonly businessDate: string;
@@ -61,6 +72,16 @@ export interface ScheduleGenerationVacancy {
   readonly scheduleRoleId: string;
   readonly slotPosition: number;
 }
+
+export const scheduleGenerationVacancySchema = z
+  .object({
+    assignmentBusinessKey: z.string(),
+    businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    code: z.literal('NO_ELIGIBLE_MEMBER'),
+    scheduleRoleId: z.string(),
+    slotPosition: z.number().int().min(1),
+  })
+  .passthrough();
 
 export interface ScheduleGenerationShiftTypeCount {
   readonly assignmentCount: number;

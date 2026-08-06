@@ -1,8 +1,24 @@
-import type { ScheduleGenerationVacancy, ScheduleGenerationWarning } from './schedules.js';
+import { z } from 'zod';
 
-export type LeaveRequestType = 'training' | 'rotation' | 'sick' | 'maternity' | 'other';
-export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected';
-export type LeaveReflowStrategy = 'keep-original-order' | 'shift-forward';
+import {
+  scheduleGenerationVacancySchema,
+  scheduleGenerationWarningSchema,
+  type ScheduleGenerationVacancy,
+  type ScheduleGenerationWarning,
+} from './schedules.js';
+
+export const leaveRequestTypeSchema = z.enum([
+  'training',
+  'rotation',
+  'sick',
+  'maternity',
+  'other',
+]);
+export type LeaveRequestType = z.infer<typeof leaveRequestTypeSchema>;
+export const leaveRequestStatusSchema = z.enum(['pending', 'approved', 'rejected']);
+export type LeaveRequestStatus = z.infer<typeof leaveRequestStatusSchema>;
+export const leaveReflowStrategySchema = z.enum(['keep-original-order', 'shift-forward']);
+export type LeaveReflowStrategy = z.infer<typeof leaveReflowStrategySchema>;
 export type LeaveResolutionMode = 'manual' | 'shift-forward';
 
 export interface CreateLeaveRequestInput {
@@ -14,13 +30,17 @@ export interface CreateLeaveRequestInput {
   readonly startsAt: string;
 }
 
-export interface LeaveAffectedShift {
-  readonly assignmentId: string;
-  readonly businessDate: string;
-  readonly isCovered: boolean;
-  readonly shiftTypeAbbreviation: string;
-  readonly shiftTypeName: string;
-}
+export const leaveAffectedShiftSchema = z
+  .object({
+    assignmentId: z.string(),
+    businessDate: z.string(),
+    isCovered: z.boolean(),
+    shiftTypeAbbreviation: z.string(),
+    shiftTypeName: z.string(),
+  })
+  .passthrough();
+export type LeaveAffectedShift = z.infer<typeof leaveAffectedShiftSchema>;
+export const leaveAffectedShiftListSchema = z.array(leaveAffectedShiftSchema);
 
 export interface LeavePreviewAffectedShift {
   readonly businessDate: string;
@@ -35,72 +55,118 @@ export interface LeaveAffectedShiftsInput {
   readonly startsAt: string;
 }
 
-export interface LeaveRequest {
-  readonly approverUserId?: string;
-  readonly createdAt: string;
-  readonly decidedByMemberName?: string;
-  readonly decidedAt?: string;
-  readonly endsAt: string;
-  readonly groupId: string;
-  readonly id: string;
-  readonly isAllDay: boolean;
-  readonly isRevocable?: boolean;
-  readonly leaveType: LeaveRequestType;
-  readonly memberName?: string;
-  readonly membershipId: string;
-  readonly reason?: string;
-  readonly reflowStrategy: LeaveReflowStrategy;
-  readonly revocationBlockedReason?: string;
-  readonly startsAt: string;
-  readonly status: LeaveRequestStatus;
-  readonly version: number;
-}
+export const leaveRequestSchema = z
+  .object({
+    approverUserId: z.string().optional(),
+    createdAt: z.string(),
+    decidedByMemberName: z.string().optional(),
+    decidedAt: z.string().optional(),
+    endsAt: z.string(),
+    groupId: z.string().min(1),
+    id: z.string().min(1),
+    isAllDay: z.boolean(),
+    isRevocable: z.boolean().optional(),
+    leaveType: leaveRequestTypeSchema,
+    memberName: z.string().optional(),
+    membershipId: z.string().min(1),
+    reason: z.string().optional(),
+    reflowStrategy: leaveReflowStrategySchema,
+    revocationBlockedReason: z.string().optional(),
+    startsAt: z.string(),
+    status: leaveRequestStatusSchema,
+    version: z.number().int().min(1),
+  })
+  .passthrough();
+export type LeaveRequest = z.infer<typeof leaveRequestSchema>;
+export const leaveRequestListSchema = z.array(leaveRequestSchema);
 
-export interface LeaveAffectedAssignment {
-  readonly assignmentId: string;
-  readonly businessDate: string;
-  readonly endsAt: string;
-  readonly nextMemberId?: string;
-  readonly nextMemberName?: string;
-  readonly previousMemberId?: string;
-  readonly previousMemberName?: string;
-  readonly shiftTypeAbbreviation: string;
-  readonly shiftTypeColor: string;
-  readonly shiftTypeId: string;
-  readonly shiftTypeName: string;
-  readonly shiftTypeTextColor: string;
-  readonly slotPosition: number;
-  readonly startsAt: string;
-}
+export const leaveAffectedAssignmentSchema = z
+  .object({
+    assignmentId: z.string().min(1),
+    businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    endsAt: z.string(),
+    nextMemberId: z.string().optional(),
+    nextMemberName: z.string().optional(),
+    previousMemberId: z.string().optional(),
+    previousMemberName: z.string().optional(),
+    shiftTypeAbbreviation: z.string(),
+    shiftTypeColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    shiftTypeId: z.string().min(1),
+    shiftTypeName: z.string().min(1),
+    shiftTypeTextColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    slotPosition: z.number().int().min(1),
+    startsAt: z.string(),
+  })
+  .passthrough();
+export type LeaveAffectedAssignment = z.infer<typeof leaveAffectedAssignmentSchema>;
 
-export interface LeaveReflowConflict {
-  readonly assignmentBusinessKeys: readonly string[];
-  readonly code: 'MEMBER_LEAVE_OVERLAP' | 'MEMBER_TIME_OVERLAP';
-  readonly memberName?: string;
-  readonly membershipId: string;
-}
+export const leaveReflowConflictSchema = z
+  .object({
+    assignmentBusinessKeys: z.readonly(z.array(z.string())),
+    code: z.enum(['MEMBER_LEAVE_OVERLAP', 'MEMBER_TIME_OVERLAP']),
+    memberName: z.string().optional(),
+    membershipId: z.string().min(1),
+  })
+  .passthrough();
+export type LeaveReflowConflict = z.infer<typeof leaveReflowConflictSchema>;
 
-export interface LeaveWorkflowBlocker {
-  readonly assignmentId: string;
-  readonly message: string;
-}
+export const leaveWorkflowBlockerSchema = z
+  .object({
+    assignmentId: z.string().min(1),
+    message: z.string().min(1),
+  })
+  .passthrough();
+export type LeaveWorkflowBlocker = z.infer<typeof leaveWorkflowBlockerSchema>;
 
-export interface LeaveMemberStatisticsDelta {
-  readonly assignmentDelta: number;
-  readonly countedDelta: number;
-  readonly membershipId: string;
-  readonly realName: string;
-  readonly weekendDelta: number;
-}
+export const leaveMemberStatisticsDeltaSchema = z
+  .object({
+    assignmentDelta: z.number(),
+    countedDelta: z.number(),
+    membershipId: z.string(),
+    realName: z.string(),
+    weekendDelta: z.number(),
+  })
+  .passthrough();
+export type LeaveMemberStatisticsDelta = z.infer<typeof leaveMemberStatisticsDeltaSchema>;
 
-export interface LeaveStatisticsDelta {
-  readonly byMember: readonly LeaveMemberStatisticsDelta[];
-  readonly totalAssignmentDelta: number;
-  readonly totalCountedDelta: number;
-  readonly totalWeekendDelta: number;
-}
+export const leaveStatisticsDeltaSchema = z
+  .object({
+    byMember: z.readonly(z.array(leaveMemberStatisticsDeltaSchema)),
+    totalAssignmentDelta: z.number(),
+    totalCountedDelta: z.number(),
+    totalWeekendDelta: z.number(),
+  })
+  .passthrough();
+export type LeaveStatisticsDelta = z.infer<typeof leaveStatisticsDeltaSchema>;
 
-export interface LeaveReflowPreview {
+export const leaveReflowPreviewSchema = z
+  .object({
+    affectedAssignments: z.readonly(z.array(leaveAffectedAssignmentSchema)),
+    // 旧守卫不校验以下字段；schema 保持同样不约束，导出类型保留必填。
+    affectedShiftCount: z.custom<number>(() => true).optional(),
+    affectedShifts: z.custom<readonly LeavePreviewAffectedShift[]>(() => true).optional(),
+    conflicts: z.readonly(z.array(leaveReflowConflictSchema)),
+    continuousDutyWarnings: z.readonly(z.array(scheduleGenerationWarningSchema)),
+    groupDefaultStrategy: leaveReflowStrategySchema,
+    leaveRequestId: z.string().min(1),
+    leaveRequestVersion: z.number().int(),
+    overlapsUnpublishedPeriod: z.custom<boolean>(() => true).optional(),
+    periodVersions: z.custom<Readonly<Record<string, number>>>(
+      (value) =>
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        Object.values(value).every((version) => typeof version === 'number'),
+    ),
+    rulesVersion: z.number().int(),
+    statisticsDelta: leaveStatisticsDeltaSchema,
+    strategy: leaveReflowStrategySchema,
+    vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)),
+    workflowBlockers: z.readonly(z.array(leaveWorkflowBlockerSchema)),
+  })
+  .passthrough();
+// schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
+export type LeaveReflowPreview = {
   readonly affectedAssignments: readonly LeaveAffectedAssignment[];
   readonly affectedShiftCount: number;
   readonly affectedShifts: readonly LeavePreviewAffectedShift[];
@@ -116,7 +182,7 @@ export interface LeaveReflowPreview {
   readonly strategy: LeaveReflowStrategy;
   readonly vacancies: readonly ScheduleGenerationVacancy[];
   readonly workflowBlockers: readonly LeaveWorkflowBlocker[];
-}
+};
 
 export interface PreviewLeaveRequestInput {
   readonly strategy?: LeaveReflowStrategy;
@@ -141,29 +207,48 @@ export interface LeaveRequestMutationInput {
   readonly operationId: string;
 }
 
-export interface LeaveRequestMutationResult {
-  readonly leaveRequestId: string;
-  readonly operationId: string;
-  readonly status: 'cancelled' | 'revoked';
-}
+export const leaveRequestMutationResultSchema = z
+  .object({
+    leaveRequestId: z.string().min(1),
+    operationId: z.string().min(1),
+    status: z.enum(['cancelled', 'revoked']),
+  })
+  .passthrough();
+export type LeaveRequestMutationResult = z.infer<typeof leaveRequestMutationResultSchema>;
 
-export interface ApprovedLeaveRequestResult {
+export const approvedLeaveRequestResultSchema = z
+  .object({
+    leaveRequest: leaveRequestSchema,
+    operationId: z.string().min(1),
+    preview: leaveReflowPreviewSchema,
+    status: z.literal('approved'),
+    strategy: leaveReflowStrategySchema,
+  })
+  .passthrough();
+// schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
+export type ApprovedLeaveRequestResult = {
   readonly leaveRequest: LeaveRequest;
   readonly operationId: string;
   readonly preview: LeaveReflowPreview;
   readonly status: 'approved';
   readonly strategy: LeaveReflowStrategy;
-}
+};
 
-export interface RejectedLeaveRequestResult {
-  readonly leaveRequest: LeaveRequest;
-  readonly operationId: string;
-  readonly status: 'rejected';
-}
+export const rejectedLeaveRequestResultSchema = z
+  .object({
+    leaveRequest: leaveRequestSchema,
+    operationId: z.string().min(1),
+    status: z.literal('rejected'),
+  })
+  .passthrough();
+export type RejectedLeaveRequestResult = z.infer<typeof rejectedLeaveRequestResultSchema>;
 
-export interface GroupLeaveReflowStrategy {
-  readonly strategy: LeaveReflowStrategy;
-}
+export const groupLeaveReflowStrategySchema = z
+  .object({
+    strategy: leaveReflowStrategySchema,
+  })
+  .passthrough();
+export type GroupLeaveReflowStrategy = z.infer<typeof groupLeaveReflowStrategySchema>;
 
 export interface UpdateGroupLeaveReflowStrategyInput {
   readonly strategy: LeaveReflowStrategy;

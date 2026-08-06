@@ -113,6 +113,7 @@ import type {
 import {
   addRosterEntriesResponseSchema,
   apiErrorCodes,
+  approvedLeaveRequestResultSchema,
   calendarReadModelSchema,
   claimGroupResponseSchema,
   convertPendingRosterResponseSchema,
@@ -131,7 +132,13 @@ import {
   groupSwapSettingsSchema,
   groupSummaryListSchema,
   groupSummarySchema,
+  groupLeaveReflowStrategySchema,
   holidayReadModelSchema,
+  leaveAffectedShiftListSchema,
+  leaveReflowPreviewSchema,
+  leaveRequestListSchema,
+  leaveRequestMutationResultSchema,
+  leaveRequestSchema,
   membershipClaimLookupResponseSchema,
   membershipClaimRequestListSchema,
   membershipClaimRequestSchema,
@@ -141,6 +148,7 @@ import {
   pastSchedulePeriodListSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
+  rejectedLeaveRequestResultSchema,
   scheduleChangeImpactPreviewSchema,
   scheduleDraftSummaryListSchema,
   scheduleGenerationPreviewSchema,
@@ -813,7 +821,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isApprovedLeaveRequestResult,
+        isResponseBodyMatching<ApprovedLeaveRequestResult>(approvedLeaveRequestResultSchema),
       );
     },
     approveDutyAdjustment(groupId, dutyAdjustmentId, input) {
@@ -930,7 +938,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isLeaveRequest,
+        isResponseBodyFromSchema(leaveRequestSchema),
       );
     },
     createDirectDutyAdjustment(groupId, input) {
@@ -1249,7 +1257,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/leave-reflow-strategy`,
         { method: 'GET' },
-        isGroupLeaveReflowStrategy,
+        isResponseBodyFromSchema(groupLeaveReflowStrategySchema),
       );
     },
     getMySwapSettings(groupId) {
@@ -1560,7 +1568,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/leave-requests/approvals`,
         { method: 'GET' },
-        isLeaveRequestList,
+        isResponseBodyFromSchema(leaveRequestListSchema),
       );
     },
     listMyDutyAdjustments(groupId) {
@@ -1580,7 +1588,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/leave-requests`,
         { method: 'GET' },
-        isLeaveRequestList,
+        isResponseBodyFromSchema(leaveRequestListSchema),
       );
     },
     getLeaveAffectedShifts(groupId, input) {
@@ -1593,7 +1601,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isLeaveAffectedShiftList,
+        isResponseBodyFromSchema(leaveAffectedShiftListSchema),
       );
     },
     listMySwapRequests(groupId) {
@@ -1665,7 +1673,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isLeaveReflowPreview,
+        isResponseBodyMatching<LeaveReflowPreview>(leaveReflowPreviewSchema),
       );
     },
     regenerateGroupCode(groupId, input) {
@@ -1691,7 +1699,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isRejectedLeaveRequestResult,
+        isResponseBodyFromSchema(rejectedLeaveRequestResultSchema),
       );
     },
     cancelLeaveRequest(groupId, leaveRequestId, input) {
@@ -1704,7 +1712,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isLeaveRequestMutationResult,
+        isResponseBodyFromSchema(leaveRequestMutationResultSchema),
       );
     },
     revokeLeaveRequest(groupId, leaveRequestId, input) {
@@ -1717,7 +1725,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isLeaveRequestMutationResult,
+        isResponseBodyFromSchema(leaveRequestMutationResultSchema),
       );
     },
     rejectSwapRequest(groupId, swapRequestId, input) {
@@ -1886,7 +1894,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isGroupLeaveReflowStrategy,
+        isResponseBodyFromSchema(groupLeaveReflowStrategySchema),
       );
     },
     updateMySwapSettings(groupId, input) {
@@ -2124,274 +2132,6 @@ function isUserProfile(value: unknown): value is UserProfile {
     Number.isInteger(profile.version) &&
     profile.version >= 1
   );
-}
-
-function isLeaveRequest(value: unknown): value is LeaveRequest {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const request = value as Partial<LeaveRequest>;
-  return (
-    typeof request.id === 'string' &&
-    request.id.length > 0 &&
-    typeof request.groupId === 'string' &&
-    request.groupId.length > 0 &&
-    typeof request.membershipId === 'string' &&
-    request.membershipId.length > 0 &&
-    (request.leaveType === 'training' ||
-      request.leaveType === 'rotation' ||
-      request.leaveType === 'sick' ||
-      request.leaveType === 'maternity' ||
-      request.leaveType === 'other') &&
-    typeof request.startsAt === 'string' &&
-    typeof request.endsAt === 'string' &&
-    typeof request.isAllDay === 'boolean' &&
-    (request.reason === undefined || typeof request.reason === 'string') &&
-    (request.status === 'pending' ||
-      request.status === 'approved' ||
-      request.status === 'rejected') &&
-    (request.reflowStrategy === 'keep-original-order' ||
-      request.reflowStrategy === 'shift-forward') &&
-    typeof request.version === 'number' &&
-    Number.isInteger(request.version) &&
-    request.version >= 1 &&
-    typeof request.createdAt === 'string' &&
-    (request.memberName === undefined || typeof request.memberName === 'string') &&
-    (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
-    (request.decidedByMemberName === undefined ||
-      typeof request.decidedByMemberName === 'string') &&
-    (request.decidedAt === undefined || typeof request.decidedAt === 'string') &&
-    (request.isRevocable === undefined || typeof request.isRevocable === 'boolean') &&
-    (request.revocationBlockedReason === undefined ||
-      typeof request.revocationBlockedReason === 'string')
-  );
-}
-
-function isLeaveRequestList(value: unknown): value is LeaveRequest[] {
-  return Array.isArray(value) && value.every(isLeaveRequest);
-}
-
-function isLeaveAffectedShiftList(value: unknown): value is readonly LeaveAffectedShift[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (item) =>
-        item !== null &&
-        typeof item === 'object' &&
-        typeof (item as { assignmentId?: unknown }).assignmentId === 'string' &&
-        typeof (item as { businessDate?: unknown }).businessDate === 'string' &&
-        typeof (item as { isCovered?: unknown }).isCovered === 'boolean' &&
-        typeof (item as { shiftTypeAbbreviation?: unknown }).shiftTypeAbbreviation === 'string' &&
-        typeof (item as { shiftTypeName?: unknown }).shiftTypeName === 'string',
-    )
-  );
-}
-
-function isGroupLeaveReflowStrategy(value: unknown): value is GroupLeaveReflowStrategy {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const strategy = (value as { strategy?: unknown }).strategy;
-  return strategy === 'keep-original-order' || strategy === 'shift-forward';
-}
-
-function isLeaveReflowPreview(value: unknown): value is LeaveReflowPreview {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const preview = value as Partial<LeaveReflowPreview>;
-  return (
-    Array.isArray(preview.affectedAssignments) &&
-    preview.affectedAssignments.every(isLeaveAffectedAssignment) &&
-    Array.isArray(preview.conflicts) &&
-    preview.conflicts.every(isLeaveReflowConflict) &&
-    Array.isArray(preview.continuousDutyWarnings) &&
-    preview.continuousDutyWarnings.every(isContinuousDutyWarning) &&
-    (preview.groupDefaultStrategy === 'keep-original-order' ||
-      preview.groupDefaultStrategy === 'shift-forward') &&
-    typeof preview.leaveRequestId === 'string' &&
-    preview.leaveRequestId.length > 0 &&
-    typeof preview.leaveRequestVersion === 'number' &&
-    Number.isInteger(preview.leaveRequestVersion) &&
-    isStringNumberRecord(preview.periodVersions) &&
-    typeof preview.rulesVersion === 'number' &&
-    Number.isInteger(preview.rulesVersion) &&
-    isLeaveStatisticsDelta(preview.statisticsDelta) &&
-    (preview.strategy === 'keep-original-order' || preview.strategy === 'shift-forward') &&
-    Array.isArray(preview.vacancies) &&
-    preview.vacancies.every(isScheduleGenerationVacancy) &&
-    Array.isArray(preview.workflowBlockers) &&
-    preview.workflowBlockers.every(isLeaveWorkflowBlocker)
-  );
-}
-
-function isLeaveWorkflowBlocker(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const blocker = value as { assignmentId?: unknown; message?: unknown };
-  return (
-    typeof blocker.assignmentId === 'string' &&
-    blocker.assignmentId.length > 0 &&
-    typeof blocker.message === 'string' &&
-    blocker.message.length > 0
-  );
-}
-
-function isLeaveAffectedAssignment(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const assignment = value as {
-    assignmentId?: unknown;
-    businessDate?: unknown;
-    endsAt?: unknown;
-    nextMemberId?: unknown;
-    nextMemberName?: unknown;
-    previousMemberId?: unknown;
-    previousMemberName?: unknown;
-    shiftTypeAbbreviation?: unknown;
-    shiftTypeColor?: unknown;
-    shiftTypeId?: unknown;
-    shiftTypeName?: unknown;
-    shiftTypeTextColor?: unknown;
-    slotPosition?: unknown;
-    startsAt?: unknown;
-  };
-  return (
-    typeof assignment.assignmentId === 'string' &&
-    assignment.assignmentId.length > 0 &&
-    typeof assignment.businessDate === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
-    typeof assignment.endsAt === 'string' &&
-    typeof assignment.shiftTypeAbbreviation === 'string' &&
-    typeof assignment.shiftTypeColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
-    typeof assignment.shiftTypeId === 'string' &&
-    assignment.shiftTypeId.length > 0 &&
-    typeof assignment.shiftTypeName === 'string' &&
-    assignment.shiftTypeName.length > 0 &&
-    typeof assignment.shiftTypeTextColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
-    typeof assignment.slotPosition === 'number' &&
-    Number.isInteger(assignment.slotPosition) &&
-    assignment.slotPosition >= 1 &&
-    typeof assignment.startsAt === 'string' &&
-    (assignment.nextMemberId === undefined || typeof assignment.nextMemberId === 'string') &&
-    (assignment.nextMemberName === undefined || typeof assignment.nextMemberName === 'string') &&
-    (assignment.previousMemberId === undefined ||
-      typeof assignment.previousMemberId === 'string') &&
-    (assignment.previousMemberName === undefined ||
-      typeof assignment.previousMemberName === 'string')
-  );
-}
-
-function isLeaveReflowConflict(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const conflict = value as {
-    assignmentBusinessKeys?: unknown;
-    code?: unknown;
-    memberName?: unknown;
-    membershipId?: unknown;
-  };
-  return (
-    Array.isArray(conflict.assignmentBusinessKeys) &&
-    conflict.assignmentBusinessKeys.every((key) => typeof key === 'string') &&
-    (conflict.code === 'MEMBER_LEAVE_OVERLAP' || conflict.code === 'MEMBER_TIME_OVERLAP') &&
-    typeof conflict.membershipId === 'string' &&
-    conflict.membershipId.length > 0 &&
-    (conflict.memberName === undefined || typeof conflict.memberName === 'string')
-  );
-}
-
-function isLeaveStatisticsDelta(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const delta = value as {
-    byMember?: unknown;
-    totalAssignmentDelta?: unknown;
-    totalCountedDelta?: unknown;
-    totalWeekendDelta?: unknown;
-  };
-  return (
-    Array.isArray(delta.byMember) &&
-    delta.byMember.every(
-      (member) =>
-        member !== null &&
-        typeof member === 'object' &&
-        typeof (member as { membershipId?: unknown }).membershipId === 'string' &&
-        typeof (member as { realName?: unknown }).realName === 'string' &&
-        typeof (member as { assignmentDelta?: unknown }).assignmentDelta === 'number' &&
-        typeof (member as { countedDelta?: unknown }).countedDelta === 'number' &&
-        typeof (member as { weekendDelta?: unknown }).weekendDelta === 'number',
-    ) &&
-    typeof delta.totalAssignmentDelta === 'number' &&
-    typeof delta.totalCountedDelta === 'number' &&
-    typeof delta.totalWeekendDelta === 'number'
-  );
-}
-
-function isApprovedLeaveRequestResult(value: unknown): value is ApprovedLeaveRequestResult {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const result = value as Partial<ApprovedLeaveRequestResult>;
-  return (
-    isLeaveRequest(result.leaveRequest) &&
-    typeof result.operationId === 'string' &&
-    result.operationId.length > 0 &&
-    isLeaveReflowPreview(result.preview) &&
-    result.status === 'approved' &&
-    (result.strategy === 'keep-original-order' || result.strategy === 'shift-forward')
-  );
-}
-
-function isRejectedLeaveRequestResult(value: unknown): value is RejectedLeaveRequestResult {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const result = value as Partial<RejectedLeaveRequestResult>;
-  return (
-    isLeaveRequest(result.leaveRequest) &&
-    typeof result.operationId === 'string' &&
-    result.operationId.length > 0 &&
-    result.status === 'rejected'
-  );
-}
-
-function isLeaveRequestMutationResult(value: unknown): value is LeaveRequestMutationResult {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const result = value as Partial<LeaveRequestMutationResult>;
-  return (
-    typeof result.leaveRequestId === 'string' &&
-    result.leaveRequestId.length > 0 &&
-    typeof result.operationId === 'string' &&
-    result.operationId.length > 0 &&
-    (result.status === 'cancelled' || result.status === 'revoked')
-  );
-}
-
-function isStringNumberRecord(value: unknown): value is Readonly<Record<string, number>> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return false;
-  }
-
-  return Object.values(value).every((version) => typeof version === 'number');
 }
 
 function isJsonObjectValue(value: unknown): value is JsonObject {

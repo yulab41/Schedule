@@ -1,12 +1,20 @@
 import type {
   AppliedManualScheduleTemplateResult,
   CalendarReadModel,
+  ApprovedLeaveRequestResult,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
   GroupMember,
   GroupMemberContact,
   GroupSummary,
   HolidayReadModel,
+  LeaveAffectedAssignment,
+  LeaveAffectedShift,
+  LeaveReflowPreview,
+  LeaveRequest,
+  LeaveRequestMutationResult,
+  LeaveStatisticsDelta,
+  LeaveWorkflowBlocker,
   ManualScheduleTemplate,
   ManualApplyPreview,
   MembershipClaimRequest,
@@ -338,6 +346,85 @@ const dutyAdjustmentRequest: DutyAdjustmentRequest = {
   overtimeMembershipId: 'membership-2',
   status: 'pending_target',
   version: 1,
+};
+
+const leaveRequest: LeaveRequest = {
+  createdAt: '2026-08-01T00:00:00.000Z',
+  endsAt: '2026-08-05T00:00:00.000Z',
+  groupId: 'group-1',
+  id: 'leave-1',
+  isAllDay: true,
+  leaveType: 'training',
+  membershipId: 'membership-1',
+  reflowStrategy: 'keep-original-order',
+  startsAt: '2026-08-01T00:00:00.000Z',
+  status: 'pending',
+  version: 1,
+};
+
+const leaveAffectedShift: LeaveAffectedShift = {
+  assignmentId: 'assignment-1',
+  businessDate: '2026-08-01',
+  isCovered: false,
+  shiftTypeAbbreviation: '全',
+  shiftTypeName: '全天班',
+};
+
+const leaveAffectedAssignment: LeaveAffectedAssignment = {
+  assignmentId: 'assignment-1',
+  businessDate: '2026-08-01',
+  endsAt: '2026-08-02T00:00:00.000Z',
+  shiftTypeAbbreviation: '全',
+  shiftTypeColor: '#1F5AA6',
+  shiftTypeId: 'shift-1',
+  shiftTypeName: '全天班',
+  shiftTypeTextColor: '#FFFFFF',
+  slotPosition: 1,
+  startsAt: '2026-07-31T16:00:00.000Z',
+};
+
+const leaveStatisticsDelta: LeaveStatisticsDelta = {
+  byMember: [],
+  totalAssignmentDelta: 0,
+  totalCountedDelta: 0,
+  totalWeekendDelta: 0,
+};
+
+const leaveWorkflowBlocker: LeaveWorkflowBlocker = {
+  assignmentId: 'assignment-1',
+  message: '存在后续工作流',
+};
+
+const leaveReflowPreview: LeaveReflowPreview = {
+  affectedAssignments: [],
+  affectedShiftCount: 0,
+  affectedShifts: [],
+  conflicts: [],
+  continuousDutyWarnings: [],
+  groupDefaultStrategy: 'keep-original-order',
+  leaveRequestId: 'leave-1',
+  leaveRequestVersion: 1,
+  overlapsUnpublishedPeriod: false,
+  periodVersions: {},
+  rulesVersion: 3,
+  statisticsDelta: leaveStatisticsDelta,
+  strategy: 'keep-original-order',
+  vacancies: [],
+  workflowBlockers: [],
+};
+
+const approvedLeaveResult: ApprovedLeaveRequestResult = {
+  leaveRequest,
+  operationId: 'op-1',
+  preview: leaveReflowPreview,
+  status: 'approved',
+  strategy: 'keep-original-order',
+};
+
+const leaveRequestMutationResult: LeaveRequestMutationResult = {
+  leaveRequestId: 'leave-1',
+  operationId: 'op-1',
+  status: 'cancelled',
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -1595,6 +1682,268 @@ describe('Web API client', () => {
     });
 
     await expect(client.getGroupDutyAdjustmentSettings(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave request with an unknown status', async () => {
+    const invalidRequest = { ...leaveRequest, status: 'unknown' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidRequest]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listMyLeaveRequests(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave request with an unknown leave type', async () => {
+    const invalidRequest = { ...leaveRequest, leaveType: 'vacation' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidRequest), { status: 201 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.createLeaveRequest(group.id, {
+        endsAt: '2026-08-05T00:00:00.000Z',
+        isAllDay: true,
+        leaveType: 'training',
+        startsAt: '2026-08-01T00:00:00.000Z',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 201,
+    });
+  });
+
+  it('rejects a leave request with a non-integer version', async () => {
+    const invalidRequest = { ...leaveRequest, version: 1.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidRequest]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listLeaveRequestApprovals(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an affected shift list with a non-boolean isCovered', async () => {
+    const invalidShift = { ...leaveAffectedShift, isCovered: 'yes' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidShift]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.getLeaveAffectedShifts(group.id, {
+        endsAt: '2026-08-05T00:00:00.000Z',
+        startsAt: '2026-08-01T00:00:00.000Z',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('accepts a leave reflow preview missing the unvalidated fields', async () => {
+    const minimalPreview = {
+      affectedAssignments: leaveReflowPreview.affectedAssignments,
+      conflicts: leaveReflowPreview.conflicts,
+      continuousDutyWarnings: leaveReflowPreview.continuousDutyWarnings,
+      groupDefaultStrategy: leaveReflowPreview.groupDefaultStrategy,
+      leaveRequestId: leaveReflowPreview.leaveRequestId,
+      leaveRequestVersion: leaveReflowPreview.leaveRequestVersion,
+      periodVersions: leaveReflowPreview.periodVersions,
+      rulesVersion: leaveReflowPreview.rulesVersion,
+      statisticsDelta: leaveReflowPreview.statisticsDelta,
+      strategy: leaveReflowPreview.strategy,
+      vacancies: leaveReflowPreview.vacancies,
+      workflowBlockers: leaveReflowPreview.workflowBlockers,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(minimalPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).resolves.toEqual(minimalPreview);
+  });
+
+  it('rejects a leave reflow preview with a non-array conflicts field', async () => {
+    const invalidPreview = { ...leaveReflowPreview, conflicts: {} };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave reflow preview with non-numeric period versions', async () => {
+    const invalidPreview = { ...leaveReflowPreview, periodVersions: { 'period-1': 'x' } };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave reflow preview with an empty workflow blocker message', async () => {
+    const invalidPreview = {
+      ...leaveReflowPreview,
+      workflowBlockers: [{ ...leaveWorkflowBlocker, message: '' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave reflow preview with a malformed affected assignment color', async () => {
+    const invalidPreview = {
+      ...leaveReflowPreview,
+      affectedAssignments: [{ ...leaveAffectedAssignment, shiftTypeColor: 'blue' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave reflow preview with a non-number statistics total', async () => {
+    const invalidPreview = {
+      ...leaveReflowPreview,
+      statisticsDelta: { ...leaveStatisticsDelta, totalAssignmentDelta: '1' },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects group leave reflow strategy with an unknown strategy', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ strategy: 'manual' }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getLeaveReflowStrategy(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an approved leave result with the wrong status', async () => {
+    const invalidResult = { ...approvedLeaveResult, status: 'rejected' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.approveLeaveRequest(group.id, leaveRequest.id, {
+        expectedPeriodVersions: {},
+        expectedRulesVersion: 3,
+        expectedVersion: 1,
+        operationId: 'op-1',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave request mutation result with an unknown status', async () => {
+    const invalidResult = { ...leaveRequestMutationResult, status: 'pending' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.cancelLeaveRequest(group.id, leaveRequest.id, {
+        expectedVersion: 1,
+        operationId: 'op-1',
+      }),
+    ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
