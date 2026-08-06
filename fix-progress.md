@@ -6,7 +6,7 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，无已跟踪改动（用户未跟踪文件见下）。
-- 当前测试基线：`pnpm verify` 445/445（68 个测试文件，隔离 MySQL，轮次 11 后）。
+- 当前测试基线：`pnpm verify` 451/451（68 个测试文件，隔离 MySQL，轮次 12 后）。
 - 工作区原未跟踪的 `.dockerignore`、`docs/deployment/aliyun-ecs.md`、`infra/docker/*` 已于 2026-08-06 由用户提交 7de6d6e（阿里云 ECS Docker 部署）纳入仓库，不属于 fix-progress 轮次任务。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 2/3 完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 1 日历读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -275,6 +275,7 @@
 > 3. 从 `@schedule/contracts` 引入运行时 schema（zod），按读模型分批替换 113 个手写 `isX` 守卫；每批先写锁定测试再替换，禁止一次性大改；随守卫移除同步删除不再使用的 `isUndefined` 等死代码。
 > 完成情况（子步骤 1，2026-08-06）：已删 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline`，新增共享 `requestWithOnline`（统一离线检查、可选会话、网络错误与 fetch 发起）与 `parseJsonResponse`/`parseTextResponse`（JSON 校验/文本与错误解析），`createApiClient` 内新增 `requestPublicJson` 包装，4 个公开端点改用；新增 2 条锁定测试（公开请求不带 Authorization、文本下载 404 映射为类型化错误）；`pnpm verify` 442/442 通过。本条目中的行号为审查时快照，重构后已过期。
 > 完成情况（子步骤 2，2026-08-06）：`packages/contracts/src/errors.ts` 新增运行时 `apiErrorCodes` 列表作为错误码唯一来源，`ApiErrorCode` 联合类型改为由它派生；`apps/web/src/api/client.ts` 的 `knownApiErrorCodes` 改为 `new Set(apiErrorCodes)`，删除本地字面量表与 `as ApiErrorCode` 强转；新增 3 条锁定测试（契约列表完整且无重复、全部错误码映射为类型化客户端错误、未知码回退通用 HTTP 文案）；`pnpm verify` 445/445 通过。本条目中的行号为审查时快照，重构后已过期。
+> 完成情况（子步骤 3 · 批次 1，2026-08-07）：`packages/contracts` 新增 `zod` 依赖；`calendar.ts` 新增 `calendarChangeMarkerSchema`/`calendarDutyAssignmentSchema`/`calendarDutyMemberSchema`/`calendarRoleSummarySchema`/`calendarShiftTypeSummarySchema`/`calendarReadModelSchema`/`guestCalendarReadModelSchema`/`guestGroupSummarySchema`/`guestGroupSummaryListSchema` 9 个运行时 schema，8 个读模型类型改为由 schema 派生（约束与旧守卫一致：日期/月份/颜色/时间正则、非空字符串、整数 ≥1、枚举标记、可选字段、`passthrough()` 保留未知字段）；`apps/web/src/api/client.ts` 新增通用 `JsonSchema` + `isResponseBodyFromSchema` 桥接，`getCalendar`/`getSchedulePeriodCalendar`/`getGuestCalendar`/`getGuestGroupCalendar`/`listGuestGroups` 5 处调用点改用 schema，删除 `isCalendarReadModel`/`isGuestCalendarReadModel`/`isGuestGroupSummaryList`/`isCalendarDutyAssignment`/`isCalendarChangeMarker`/`isCalendarDutyMember`/`isCalendarRoleSummary`/`isCalendarShiftTypeSummary` 8 个手写守卫；`client.test.ts` 先新增 6 条锁定测试（未知变动标记、业务月份格式、空姓名、非法颜色、访客日历缺群名、访客群组列表缺名称）再替换，28 → 34 条；`pnpm verify` 451/451 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.2 客户端错误码表与契约联合类型双份维护**
 位置：[client.ts (line 435)](E:/AItools/Schedule/apps/web/src/api/client.ts:435)（435–443 行）；[errors.ts (line 1)](E:/AItools/Schedule/packages/contracts/src/errors.ts:1)
@@ -609,3 +610,20 @@
 3. `ApiErrorCode` 由显式联合改为数组派生，类型值完全一致，API 层 `error-handler.ts` 仅用类型不受影响；若未来需要给错误码附加元数据（如 HTTP 状态映射），可在此单一来源扩展。
 
 下次计划：#7.1 子步骤 3（从 `@schedule/contracts` 引入运行时 schema，按读模型分批替换 113 个手写 `isX` 守卫；每批先写锁定测试再替换，禁止一次性大改）
+
+### 轮次 12 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 1 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把日历读模型族 8 个手写 `isX` 守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/package.json`（新增 `zod` 依赖）；`packages/contracts/src/calendar.ts`（新增 9 个 schema：`calendarChangeMarkerSchema`/`calendarDutyAssignmentSchema`/`calendarDutyMemberSchema`/`calendarRoleSummarySchema`/`calendarShiftTypeSummarySchema`/`calendarReadModelSchema`/`guestCalendarReadModelSchema`/`guestGroupSummarySchema`/`guestGroupSummaryListSchema`，8 个读模型类型改为由 schema 派生，约束与旧守卫一致：日期/月份/颜色/时间正则、非空字符串、整数 ≥1、枚举标记、可选字段、`passthrough()` 保留未知字段）；`apps/web/src/api/client.ts`（新增通用 `JsonSchema` + `isResponseBodyFromSchema` 桥接，`getCalendar`/`getSchedulePeriodCalendar`/`getGuestCalendar`/`getGuestGroupCalendar`/`listGuestGroups` 5 处调用点改用 schema，删除 `isCalendarReadModel`/`isGuestCalendarReadModel`/`isGuestGroupSummaryList`/`isCalendarDutyAssignment`/`isCalendarChangeMarker`/`isCalendarDutyMember`/`isCalendarRoleSummary`/`isCalendarShiftTypeSummary` 8 个手写守卫）；`apps/web/src/api/client.test.ts`（先新增 6 条锁定测试再替换：未知变动标记、业务月份格式、空姓名、非法颜色、访客日历缺群名、访客群组列表缺名称；28 → 34 条）；`pnpm-lock.yaml`（pnpm 11 重排 + contracts importer 新增 zod）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 451/451 ✅（68 个测试文件，隔离 MySQL；新增 6 条 client 锁定测试）
+
+提交：32cc513，推送结果见对话回复
+
+不确定点：
+1. schema 使用 `passthrough()` 保留未知字段，与旧守卫“不拒绝额外字段”一致；若未来要捕获契约漂移（API 新增字段而 schema 未同步），需要改为默认 strip 或 strict 并显式断言——症状是未知字段继续透传而非报“服务返回了无效资料”。
+2. 日历读模型类型由 `z.infer` 派生（接口 → 类型别名），结构兼容且 API/Web 类型检查均通过；若未来有代码依赖“接口可声明合并”，需要改用 `z.interface()` 或保留显式接口——症状是扩展同名接口时报 TS 重复标识符错误。
+3. `isUndefined` 仍被 7 个非日历守卫引用，本轮未删除；后续批次替换完对应守卫后一并清理——症状是死代码留存但不破坏编译。
+
+下次计划：#7.1 子步骤 3 批次 2（holidays 读模型：`isHolidayReadModel`/`isConfirmedHolidayDate` 先写锁定测试再替换；随后按读模型族推进 groups/membership、schedules、swaps/duty 等剩余守卫）
