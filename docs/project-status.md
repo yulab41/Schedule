@@ -10,7 +10,7 @@
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
 - Debug rounds: 1–56 已完成；最新验证基线 420/420（62 个测试文件，隔离 MySQL）
-- Next actions: 等待用户强刷复核轮次 53/52/51/50/49/48/47；失效工作流自动归档/自愈已完成（轮次 55）；Fastify 非标准 Content-Type 已修复（轮次 56）；本轮执行上线：先对线上库执行迁移 0026–0031 再触发 CloudBase 部署；部署后等待用户验收并启动微信小程序立项
+- Next actions: 等待用户强刷复核轮次 53/52/51/50/49/48/47；失效工作流自动归档/自愈已完成（轮次 55）；Fastify 非标准 Content-Type 已修复（轮次 56）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
@@ -63,8 +63,8 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：执行上线（迁移 0026–0031 + CloudBase 部署），部署后等待用户验收并启动微信小程序立项（设计 26.1）。
-- 上线前置：对线上库执行迁移 0026–0031 后再部署代码；部署后启动巡检自动清理既有失效残留。
+- 下一活动批次：用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
+- 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
 - 停止条件：上线健康检查通过且用户验收完成。
 
 ## Required Reading for the Next Conversation
@@ -79,7 +79,8 @@
 ## Known Environment State（关键信息；详细命令见 cloudbase-ops-notes）
 
 - CloudBase 开发环境 `schedule-dev-d1geh4w1l4af7359d`（公网 + 单账号全局授权妥协）；`/api` 走 SCF + 网关鉴权，`/api/health` 匿名。
-- 线上 MySQL（CynosDB 公共端点）：`sh-cynosdbmysql-grp-3vcucsya.sql.tencentcdb.com:24819`，库 `schedule_dev`，用户 `schedule_app`；凭据在 CloudBase 函数环境与 `infra/cloudbase/cloudbaserc.local.json`（gitignored），不入库。线上迁移记录 20 条；本地迁移已到 0031，上线前必须先对线上库执行 0026–0031。
+- 线上 MySQL（CynosDB 公共端点）：`sh-cynosdbmysql-grp-3vcucsya.sql.tencentcdb.com:24819`，库 `schedule_dev`，用户 `schedule_app`；凭据在 CloudBase 函数环境与 `infra/cloudbase/cloudbaserc.local.json`（gitignored），不入库。线上迁移记录已到 31 条（0021–0031 已应用）。
+- CloudBase 环境当前状态：`InsufficientBalance`（余额不足），API 函数不可调用；需充值后重新触发部署验证。
 - CynosDB `explicit_defaults_for_timestamp=OFF`：TIMESTAMP 列必须显式写明默认值，否则隐式带 `ON UPDATE CURRENT_TIMESTAMP`（`0018`/`0020` 已修复；新增 TIMESTAMP 列需遵循）。
 - 部署铁律：含新迁移的发布必须先对线上库执行迁移（`pnpm --filter @schedule/api migrate`，带线上 `MYSQL_*` 环境），再部署代码；否则线上全站 500（轮次 12 事故）。
 - 2026 法定节假日已导入并确认（39 条，`confirmedYears: [2026]`）。

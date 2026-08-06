@@ -640,7 +640,8 @@
 - 根因：Fastify 框架错误 `FST_ERR_CTP_INVALID_MEDIA_TYPE`（415）与 `FST_ERR_CTP_INVALID_JSON_BODY`（400）未被错误处理器识别，统一落入 500。
 - 修复/功能：错误处理器识别 Fastify 框架 4xx 错误并保留其状态码；415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`（契约与 Web 客户端已知码表同步），其余框架 4xx 映射 `VALIDATION_FAILED`。
 - 验证：`pnpm verify` 通过（62 个测试文件 / 420 个测试），新增“非标准 Content-Type 返回 415”“非法 JSON 返回 400”定向回归测试。
-- 状态：已完成，随本轮一起上线。
+- 上线执行：已对线上库执行迁移 0021–0031（线上迁移记录 20 → 31 条，含此前积压的 0021–0025 与新增 0026–0031；`workflow_sequence` 回填完成）；已触发 Deploy Development，API/schedule-jobs 云函数与静态托管均上传成功；但 CloudBase 环境余额不足（`FUNCTIONS_INVOCATION_FAILED / InsufficientBalance`），`/api/health` 无法被函数响应，健康检查未通过。
+- 状态：代码与数据库已就绪，待用户为 CloudBase 环境充值/恢复可用后重新触发部署验证。
 
 ## 待办 / 下一步
 
