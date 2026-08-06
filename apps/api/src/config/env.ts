@@ -20,12 +20,14 @@ const operationSettings = {
 
 export const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
   ...applicationSettings,
   ...databaseSettings,
   ...operationSettings,
 });
 const testEnvironmentSchema = z.object({
   NODE_ENV: z.literal('test'),
+  AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
   ...applicationSettings,
   BACKUP_DIR: requiredTextSchema.default('./backups'),
   TEST_MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
@@ -54,6 +56,7 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
 
     return {
       NODE_ENV: testResult.data.NODE_ENV,
+      AUTH_DEV_MODE: testResult.data.AUTH_DEV_MODE,
       API_HOST: testResult.data.API_HOST,
       API_PORT: testResult.data.API_PORT,
       BACKUP_DIR: testResult.data.BACKUP_DIR,

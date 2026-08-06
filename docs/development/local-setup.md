@@ -15,6 +15,15 @@ Copy-Item .env.example .env
 
 Use local-only passwords in `.env`. Do not copy CloudBase, test, or production credentials into this file.
 
+## Local Development Auth
+
+The `.env.example` includes two local-only switches:
+
+- `VITE_AUTH_DEV_MODE=true` shows the “本地管理员 / 本地成员” buttons on the login page.
+- `AUTH_DEV_MODE=true` makes the API accept `Bearer local-admin` / `Bearer local-member` as local identities.
+
+Both default to `false`. The API enables the development auth port only when `NODE_ENV=development` and `AUTH_DEV_MODE=true`; a leaked switch cannot activate it in test or production mode.
+
 ## Start Development MySQL
 
 ```powershell

@@ -13,10 +13,20 @@ describe('loadEnvironment', () => {
     expect(loadEnvironment(validEnvironment)).toMatchObject({
       API_HOST: '127.0.0.1',
       API_PORT: 3000,
+      AUTH_DEV_MODE: 'false',
       MYSQL_HOST: '127.0.0.1',
       MYSQL_PORT: 3306,
       NODE_ENV: 'development',
     });
+  });
+
+  it('validates the development auth switch as a strict boolean string', () => {
+    expect(loadEnvironment({ ...validEnvironment, AUTH_DEV_MODE: 'true' })).toMatchObject({
+      AUTH_DEV_MODE: 'true',
+    });
+    expect(() => loadEnvironment({ ...validEnvironment, AUTH_DEV_MODE: 'yes' })).toThrow(
+      /AUTH_DEV_MODE/,
+    );
   });
 
   it('maps test database settings without falling back to development values', () => {

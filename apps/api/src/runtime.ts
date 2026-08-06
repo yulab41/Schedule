@@ -14,6 +14,14 @@ interface RuntimeAppOptions {
   readonly cloudbaseHttpGateway?: boolean;
 }
 
+/**
+ * Dev auth accepts any Bearer token as a CloudBase UID, so it must never
+ * activate outside an explicitly opted-in development process.
+ */
+export function isDevAuthEnabled(environment: Environment): boolean {
+  return environment.NODE_ENV === 'development' && environment.AUTH_DEV_MODE === 'true';
+}
+
 export function createRuntimeApp(
   environment: Environment = loadEnvironment(),
   options: RuntimeAppOptions = {},
@@ -28,7 +36,7 @@ export function createRuntimeApp(
   const app = createApp({
     authPort: options.cloudbaseHttpGateway
       ? createCloudbaseHttpAuthPort()
-      : process.env.AUTH_DEV_MODE === 'true'
+      : isDevAuthEnabled(environment)
         ? createDevAuthPort()
         : createCloudbaseAuthPort(),
     databaseClient,
