@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–56 已完成；fix-progress 轮次 1（#3.1）、2（#4.1）、3（#7.3）、4（#3.2）、5（#1.1）、6（#3.3）、7（#3.4/#1.2）、8（#7.5）、9（#2.1）已完成；最新验证基线 440/440（66 个测试文件，隔离 MySQL）
-- Next actions: fix-progress 轮次 10 目标为 #7.1（client.ts 2200 行手写校验器 + 重复请求函数，按第 4 节拆子步骤）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
+- Debug rounds: 1–56 已完成；fix-progress 轮次 1–9 已完成，轮次 10（#7.1 子步骤 1：client.ts 重复请求函数收敛）已完成；最新验证基线 442/442（67 个测试文件，隔离 MySQL）
+- Next actions: fix-progress 轮次 11 目标为 #7.1 子步骤 2（`knownApiErrorCodes`/`isApiErrorResponse` 与契约错误码单一来源，随带评估 #7.2）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
@@ -27,6 +27,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-06 fix-progress 轮次 10：收敛 #7.1 子步骤 1 的 client.ts 重复请求函数——新增共享 `requestWithOnline`（离线/会话/网络错误/fetch 发起统一）与 `parseJsonResponse`/`parseTextResponse`，删除 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline` 三个复制函数，4 个公开端点改用新 `requestPublicJson` 包装；复核 `isUndefined` 实际被 7 处守卫使用（非死代码）未删；`client.test.ts` 新增 2 条锁定测试（公开请求不带 token、文本下载错误映射），24 → 26 条；`pnpm verify` 442/442 通过。
 - 2026-08-06 fix-progress 轮次 9：收敛 #2.1 的 ui-tokens CSS/TS 双份维护——新增 `packages/ui-tokens/src/tokens.ts` 作为 8 组令牌唯一来源（含 `tokenGroups` 前缀/格式元数据），`index.ts` 改为显式 re-export（公共 API 不变）；新增 `scripts/generate-tokens-css.mjs` 生成 `tokens.css`（`pnpm tokens:generate`）与 `tokens-css.test.ts` 锁定测试（已提交 CSS == 生成器 `--stdout` 输出）；`pnpm verify` 440/440 通过。
 - 2026-08-06 fix-progress 轮次 8：清理 #7.5 的 event-timeline 死代码——`apps/web/src/features/events/event-timeline.ts` 删除 `getEventRelationLabel`/`buildSwapChainSummary`/`buildDutyAdjustmentChainSummary` 三个仅被 spec 引用的导出与 `EventTimelineItem.isCorrection` 字段，`getEventMarker` 改为模块私有（仅 `buildEventTimelineItems` 内部使用）；`EventTimeline.vue` 删除未使用的 `.entry-relation`/`.entry-relation.correction` 样式；`event-timeline.spec.ts` 同步删除对应导入与 2 条死代码测试，并用 `buildEventTimelineItems` 补 1 条日历标记映射测试（保持行为覆盖）；`pnpm verify` 439/439 通过。
 - 2026-08-06 fix-progress 轮次 6：收敛 #3.3 的任务分派静默兜底——`apps/api/src/jobs/runner.ts` 的 if 链 + 导出兜底改为 `Record<JobName, JobRunner>` 穷举映射表（新增 `JobName` 时 TypeScript 强制补充分支），`jobNames` 从映射表派生为单一来源，`runJob` 只做映射查找；新增 `runner.spec.ts` 2 条映射一致性锁定测试；`pnpm verify` 436/436 通过。
@@ -59,6 +60,7 @@
 
 ## Active Batch
 
+- fix-progress 轮次 10（#7.1 子步骤 1）已完成：client.ts 三个重复请求函数收敛为共享 `requestWithOnline` + JSON/文本解析器，公开/认证/文本三条路径行为由 `client.test.ts` 26 条测试锁定；下一活动批次为 fix-progress 轮次 11（#7.1 子步骤 2：错误码表与契约错误码单一来源，随带评估 #7.2）。
 - fix-progress 轮次 9（#2.1）已完成：ui-tokens 8 组令牌收敛为 `packages/ui-tokens/src/tokens.ts` 单一来源（含 `tokenGroups` 前缀/格式元数据），`index.ts` re-export 保持公共 API，新增 `scripts/generate-tokens-css.mjs` + `pnpm tokens:generate`，新增 1 条“已提交 `tokens.css` == 生成器输出”锁定测试；`pnpm verify` 440/440 通过；下一活动批次为 fix-progress 轮次 10（#7.1，client.ts 校验器拆子步骤）。
 - fix-progress 轮次 8（#7.5）已完成：删除 event-timeline 三个仅 spec 引用的死导出与 `isCorrection` 字段、移除 `getEventMarker` 导出、删除 `.entry-relation` 样式，spec 同步改写并用 `buildEventTimelineItems` 保持标记映射覆盖；`pnpm verify` 439/439 通过；下一活动批次为 fix-progress 轮次 9（#2.1，ui-tokens 单一来源生成）。
 - fix-progress 轮次 7（#3.4/#1.2）已完成：AUTH_DEV_MODE 纳入 env schema（严格 `'true'`/`'false'` 默认 false），runtime 显式双条件（`NODE_ENV=development` 且开关开启）才启用任意 Bearer 认证端口，`.env.example` 补两个本地开关并同步本地文档；新增 4 条锁定测试，`pnpm verify` 440/440 通过；下一活动批次为 fix-progress 轮次 8（#7.5）。
@@ -102,6 +104,7 @@
 - 部署铁律：含新迁移的发布必须先对线上库执行迁移（`pnpm --filter @schedule/api migrate`，带线上 `MYSQL_*` 环境），再部署代码；否则线上全站 500（轮次 12 事故）。
 - 2026 法定节假日已导入并确认（39 条，`confirmedYears: [2026]`）。
 - 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用（含 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE`/`HOLIDAY_ADMIN_UIDS=local-admin`）；本地库已导入并确认 2026 节假日（39 条，v1）；隔离测试库端口 3307 当前运行。用户原端口 API `127.0.0.1:3000` 与验收 API `127.0.0.1:3001` 均为最新构建（轮次 36 已重启 3000 修复陈旧进程）；Web 为用户原 `localhost:5173`（代理 3000）与验收 `127.0.0.1:5174`（代理 3001）；PWA shell/排班缓存当前为 `v4`。
+- pnpm v11 依赖状态检查在 node_modules 元数据陈旧时会尝试以 production 裁剪 devDependencies（报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`）；已重新 `pnpm install` 恢复完整依赖（`.modules.yaml` 现为 `devDependencies: true`）。如再遇到该错误，先 `pnpm install` 再跑 `pnpm verify`，不要依赖 `CI=true` 让 pnpm 自行裁剪。
 - 工具：`gh` 位于 `C:\Program Files\GitHub CLI\gh.exe`；CloudBase CLI 用 `pnpm exec tcb`；CAM 子账号 `schedule` 有 TCB/SCF/COS/CDN 权限（无 cynosdb）。
 - 安全 TODO：CAM SecretId/SecretKey 曾贴入对话，需轮换并更新 GitHub `development` secrets；生产化另需 VPC 内网与专用运行账号（妥协与升级路径见 `docs/deployment/production-readiness.md`）。
 

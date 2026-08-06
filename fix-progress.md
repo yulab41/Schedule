@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 必须拆子步骤，见第 4 节 |
+| P2 | #7.1（子步骤 1/3 完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
@@ -268,6 +268,11 @@
 问题：`client.ts` 共 4221 行，其中约 51% 是手写类型守卫样板。契约层加字段、改字段时，这里必须人工同步，否则线上表现为“服务返回了无效资料”（本项目已多次出现该提示）；三个请求函数也只是复制后微调。这是整个代码库最大的“复制粘贴后微调参数”实例。
 严重等级：严重
 建议：从 `@schedule/contracts` 或共享 zod schema 生成类型守卫（或改为 zod `.parse` 统一校验），删除 `isUndefined` 等死代码。
+> 子步骤拆分（2026-08-06 轮次 10 补订；原“必须拆子步骤，见第 4 节”的引用在第 4 节无对应内容，以此处为准）：
+> 1. ✅（轮次 10）把三个几乎相同的请求函数收敛为一个共享请求管道（`requestWithOnline` + `parseJsonResponse`/`parseTextResponse`），行为由 `client.test.ts` 26 条测试锁定。经复核，`isUndefined` 实际被 7 个响应守卫引用，并非死代码，审查快照已过期，不删除。
+> 2. 把 `knownApiErrorCodes` / `isApiErrorResponse` 从 `@schedule/contracts` 的错误码联合类型派生，或加编译期一致性测试（与 #7.2 合并评估）。
+> 3. 从 `@schedule/contracts` 引入运行时 schema（zod），按读模型分批替换 113 个手写 `isX` 守卫；每批先写锁定测试再替换，禁止一次性大改；随守卫移除同步删除不再使用的 `isUndefined` 等死代码。
+> 完成情况（子步骤 1，2026-08-06）：已删 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline`，新增共享 `requestWithOnline`（统一离线检查、可选会话、网络错误与 fetch 发起）与 `parseJsonResponse`/`parseTextResponse`（JSON 校验/文本与错误解析），`createApiClient` 内新增 `requestPublicJson` 包装，4 个公开端点改用；新增 2 条锁定测试（公开请求不带 Authorization、文本下载 404 映射为类型化错误）；`pnpm verify` 442/442 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.2 客户端错误码表与契约联合类型双份维护**
 位置：[client.ts (line 435)](E:/AItools/Schedule/apps/web/src/api/client.ts:435)（435–443 行）；[errors.ts (line 1)](E:/AItools/Schedule/packages/contracts/src/errors.ts:1)
@@ -565,3 +570,20 @@
 3. 令牌组顺序/前缀/格式元数据集中在 `tokens.ts` 的 `tokenGroups`；新增令牌组若漏登记到该表，CSS 不会自动包含它，而现有锁定测试只对比“已登记组”的输出——症状是新增令牌只在 TS 可用、对应 CSS 变量缺失。
 
 下次计划：#7.1（client.ts 2200 行手写校验器 + 重复请求函数，P2 高风险高收益，按第 4 节拆子步骤）
+
+### 轮次 10 – 2026-08-06
+
+目标：#7.1 子步骤 1 —— 把 client.ts 三个几乎相同的请求函数收敛为一个共享请求管道，消除复制粘贴样板。
+
+修改文件：`apps/web/src/api/client.ts`（新增 `requestWithOnline`：统一离线检查、可选会话获取、网络错误与 fetch 发起；新增 `parseJsonResponse`/`parseTextResponse`：JSON 校验/文本与错误解析；删除 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline` 三个复制函数；`createApiClient` 内新增 `requestPublicJson` 包装，`listGuestGroups`/`getGuestCalendar`/`getGuestGroupCalendar`/`getGuestHolidays` 4 个公开端点改用；`isUndefined` 经复核被 7 个守卫使用，非死代码，未删）；`apps/web/src/api/client.test.ts`（新增 2 条锁定测试：公开请求不带 Authorization / 认证文本下载带 token；文本下载 404 错误体映射为 `ApiClientError`）；同步更新 `docs/project-status.md` 与 `fix-progress.md`（补订 #7.1 子步骤拆分并纠正 `isUndefined` 死代码结论）。
+
+测试结果：`pnpm verify` 442/442 ✅（67 个测试文件，隔离 MySQL；`client.test.ts` 24 → 26 条）
+
+提交：待检查点提交后回填
+
+不确定点：
+1. `requestWithOnline` 合并了公开/认证两条请求路径，错误与校验顺序沿用原实现（先读 body、非 2xx 先抛错误、再校验）；若后续有人调整 `parseJsonResponse` 顺序（先校验后判错），公开端点 4xx 会变成“服务返回了无效资料”——症状是公开错误提示丢失原始错误码。
+2. 文本下载错误映射依赖错误体包含 `requestId`（`isApiErrorResponse` 既有契约），测试按真实错误体补 `requestId`；若未来错误响应缺 `requestId`，文本下载错误会回退通用 HTTP 文案——症状是 404 显示“服务暂时不可用”而非具体原因，属既有行为非本轮引入。
+3. `isUndefined` 在审查快照中标注为“从未使用”，但当前 7 处响应守卫引用它；本轮未删除以免破坏编译，待子步骤 3 引入 schema 后随守卫移除一并清理。
+
+下次计划：#7.1 子步骤 2（`knownApiErrorCodes`/`isApiErrorResponse` 与契约错误码单一来源，随带评估 #7.2）

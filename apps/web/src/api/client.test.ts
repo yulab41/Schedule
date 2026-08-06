@@ -1322,6 +1322,60 @@ describe('Web API client', () => {
       }),
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 201 });
   });
+
+  it('keeps public requests token-free and sends the token for authenticated text downloads', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify([{ id: 'group-1', name: '门诊' }]), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response('日期,星期\r\n2026-10-01,周四\r\n', { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await client.listGuestGroups();
+    await client.downloadExport('group-1', 'export-job-1');
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/guest/groups',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]).not.toHaveProperty('headers.Authorization');
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/exports/export-job-1/download',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer signed-in-token' }),
+      }),
+    );
+  });
+
+  it('maps a text download error response to the typed client error', async () => {
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'NOT_FOUND',
+              message: '导出不存在或已过期。',
+              requestId: 'request-1',
+            },
+          }),
+          { status: 404 },
+        ),
+      ),
+    });
+
+    await expect(client.downloadExport('group-1', 'missing')).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      requestId: 'request-1',
+      status: 404,
+    });
+  });
 });
 
 function createAuthClient(): CloudbaseAuthClient {

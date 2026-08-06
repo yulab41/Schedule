@@ -457,15 +457,33 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT' },
     isResponseBody: (value: unknown) => value is ResponseBody,
   ): Promise<ResponseBody> {
-    return requestJsonWithOnline(
+    return requestWithOnline({
       auth,
-      fetchImplementationOverride,
-      baseUrlOverride,
-      path,
+      baseUrl: baseUrlOverride,
+      fetchImplementation: fetchImplementationOverride,
       init,
-      isResponseBody,
       isOnline,
-    );
+      parseResponse: (response) => parseJsonResponse(response, isResponseBody),
+      path,
+    });
+  }
+
+  function requestPublicJson<ResponseBody>(
+    fetchImplementationOverride: typeof fetch,
+    baseUrlOverride: string,
+    path: string,
+    init: { readonly body?: string; readonly method: 'GET' | 'POST' },
+    isResponseBody: (value: unknown) => value is ResponseBody,
+  ): Promise<ResponseBody> {
+    return requestWithOnline({
+      auth: undefined,
+      baseUrl: baseUrlOverride,
+      fetchImplementation: fetchImplementationOverride,
+      init,
+      isOnline,
+      parseResponse: (response) => parseJsonResponse(response, isResponseBody),
+      path,
+    });
   }
 
   function requestText(
@@ -475,14 +493,15 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     path: string,
     init: { readonly method: 'GET' },
   ): Promise<string> {
-    return requestTextWithOnline(
+    return requestWithOnline({
       auth,
-      fetchImplementationOverride,
-      baseUrlOverride,
-      path,
+      baseUrl: baseUrlOverride,
+      fetchImplementation: fetchImplementationOverride,
       init,
       isOnline,
-    );
+      parseResponse: parseTextResponse,
+      path,
+    });
   }
 
   return {
@@ -639,13 +658,12 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listGuestGroups() {
-      return requestPublicJsonWithOnline(
+      return requestPublicJson(
         fetchImplementation,
         baseUrl,
         '/guest/groups',
         { method: 'GET' },
         isGuestGroupSummaryList,
-        isOnline,
       );
     },
     markAllNotificationsRead(groupId) {
@@ -1057,7 +1075,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     getGuestCalendar(groupCode, businessMonth) {
-      return requestPublicJsonWithOnline(
+      return requestPublicJson(
         fetchImplementation,
         baseUrl,
         '/guest/calendar',
@@ -1066,17 +1084,15 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isGuestCalendarReadModel,
-        isOnline,
       );
     },
     getGuestGroupCalendar(groupId, businessMonth) {
-      return requestPublicJsonWithOnline(
+      return requestPublicJson(
         fetchImplementation,
         baseUrl,
         `/guest/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
         { method: 'GET' },
         isGuestCalendarReadModel,
-        isOnline,
       );
     },
     getCurrentProfile() {
@@ -1113,13 +1129,12 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     getGuestHolidays(year) {
-      return requestPublicJsonWithOnline(
+      return requestPublicJson(
         fetchImplementation,
         baseUrl,
         `/guest/holidays?year=${encodeURIComponent(String(year))}`,
         { method: 'GET' },
         isHolidayReadModel,
-        isOnline,
       );
     },
     getEventDetail(groupId, eventId) {
@@ -1900,25 +1915,44 @@ export class ApiClientError extends Error {
   }
 }
 
-async function requestPublicJsonWithOnline<ResponseBody>(
-  fetchImplementation: typeof fetch,
-  baseUrl: string,
-  path: string,
-  init: { readonly body?: string; readonly method: 'GET' | 'POST' },
-  isResponseBody: (value: unknown) => value is ResponseBody,
-  isOnline: () => boolean,
-): Promise<ResponseBody> {
-  const offlineError = getOfflineSubmitError(isOnline(), init.method);
+async function requestWithOnline<ResponseBody>(options: {
+  readonly auth: CloudbaseAuthClient | undefined;
+  readonly baseUrl: string;
+  readonly fetchImplementation: typeof fetch;
+  readonly init: {
+    readonly body?: string;
+    readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
+  };
+  readonly isOnline: () => boolean;
+  readonly parseResponse: (response: Response) => Promise<ResponseBody>;
+  readonly path: string;
+}): Promise<ResponseBody> {
+  const offlineError = getOfflineSubmitError(options.isOnline(), options.init.method);
   if (offlineError !== undefined) {
     throw new ApiClientError({ code: 'OFFLINE', message: offlineError });
   }
 
+  const session =
+    options.auth === undefined
+      ? undefined
+      : getAuthenticatedSession(await options.auth.getSession());
+  if (session === undefined && options.auth !== undefined) {
+    throw new ApiClientError({
+      code: 'AUTHENTICATION_REQUIRED',
+      message: '登录状态已失效，请重新登录。',
+      status: 401,
+    });
+  }
+
   let response: Response;
   try {
-    response = await fetchImplementation(joinUrl(baseUrl, path), {
-      headers: init.body === undefined ? {} : { 'Content-Type': 'application/json' },
-      method: init.method,
-      ...(init.body === undefined ? {} : { body: init.body }),
+    response = await options.fetchImplementation(joinUrl(options.baseUrl, options.path), {
+      headers: {
+        ...(session === undefined ? {} : { Authorization: `Bearer ${session.access_token}` }),
+        ...(options.init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      method: options.init.method,
+      ...(options.init.body === undefined ? {} : { body: options.init.body }),
     });
   } catch {
     throw new ApiClientError({
@@ -1927,64 +1961,13 @@ async function requestPublicJsonWithOnline<ResponseBody>(
     });
   }
 
-  const body = await readJson(response);
-  if (!response.ok) {
-    throw toApiClientError(response.status, body);
-  }
-  if (!isResponseBody(body)) {
-    throw new ApiClientError({
-      code: 'SERVICE_UNAVAILABLE',
-      message: '服务返回了无效资料，请稍后重试。',
-      status: response.status,
-    });
-  }
-  return body;
+  return options.parseResponse(response);
 }
 
-async function requestJsonWithOnline<ResponseBody>(
-  auth: CloudbaseAuthClient,
-  fetchImplementation: typeof fetch,
-  baseUrl: string,
-  path: string,
-  init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT' },
+async function parseJsonResponse<ResponseBody>(
+  response: Response,
   isResponseBody: (value: unknown) => value is ResponseBody,
-  isOnline: () => boolean,
 ): Promise<ResponseBody> {
-  const session = getAuthenticatedSession(await auth.getSession());
-
-  const offlineError = getOfflineSubmitError(isOnline(), init.method);
-  if (offlineError !== undefined) {
-    throw new ApiClientError({
-      code: 'OFFLINE',
-      message: offlineError,
-    });
-  }
-
-  if (session === undefined) {
-    throw new ApiClientError({
-      code: 'AUTHENTICATION_REQUIRED',
-      message: '登录状态已失效，请重新登录。',
-      status: 401,
-    });
-  }
-
-  let response: Response;
-  try {
-    response = await fetchImplementation(joinUrl(baseUrl, path), {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      },
-      method: init.method,
-      ...(init.body === undefined ? {} : { body: init.body }),
-    });
-  } catch {
-    throw new ApiClientError({
-      code: 'NETWORK_ERROR',
-      message: '无法连接到服务，请检查网络后重试。',
-    });
-  }
-
   const body = await readJson(response);
   if (!response.ok) {
     throw toApiClientError(response.status, body);
@@ -2001,47 +1984,7 @@ async function requestJsonWithOnline<ResponseBody>(
   return body;
 }
 
-async function requestTextWithOnline(
-  auth: CloudbaseAuthClient,
-  fetchImplementation: typeof fetch,
-  baseUrl: string,
-  path: string,
-  init: { readonly method: 'GET' },
-  isOnline: () => boolean,
-): Promise<string> {
-  const session = getAuthenticatedSession(await auth.getSession());
-
-  const offlineError = getOfflineSubmitError(isOnline(), init.method);
-  if (offlineError !== undefined) {
-    throw new ApiClientError({
-      code: 'OFFLINE',
-      message: offlineError,
-    });
-  }
-
-  if (session === undefined) {
-    throw new ApiClientError({
-      code: 'AUTHENTICATION_REQUIRED',
-      message: '登录状态已失效，请重新登录。',
-      status: 401,
-    });
-  }
-
-  let response: Response;
-  try {
-    response = await fetchImplementation(joinUrl(baseUrl, path), {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      method: init.method,
-    });
-  } catch {
-    throw new ApiClientError({
-      code: 'NETWORK_ERROR',
-      message: '无法连接到服务，请检查网络后重试。',
-    });
-  }
-
+async function parseTextResponse(response: Response): Promise<string> {
   const text = await response.text();
   if (!response.ok) {
     let body: unknown;
