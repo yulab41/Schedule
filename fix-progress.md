@@ -6,7 +6,7 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，无已跟踪改动（用户未跟踪文件见下）。
-- 当前测试基线：`pnpm verify` 439/439（66 个测试文件，隔离 MySQL，轮次 8 后）。
+- 当前测试基线：`pnpm verify` 440/440（66 个测试文件，隔离 MySQL，轮次 9 后）。
 - 轮次 5 开始时工作区仍含用户未跟踪文件（`.dockerignore`、`docs/deployment/aliyun-ecs.md`、`infra/docker/*`），不属于本轮任务，未纳入提交。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
@@ -54,7 +54,7 @@
 | ✅ | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | 已完成（轮次 6）：`Record<JobName, Factory>` 穷举映射 + 锁定测试，见第 7 节 |
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
-| P1 | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 单一来源生成 |
+| ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
 | P2 | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 必须拆子步骤，见第 4 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -112,6 +112,7 @@
 问题：同一组颜色/间距/字号同时存在于 CSS 自定义属性和 TS 常量两份文件，靠人工保持一致；没有生成器或单一来源。
 严重等级：严重
 建议：从一份 token 定义（如 JSON/TS）生成 `.css` 与 TS 导出，或删除其一。
+> 完成情况（轮次 9，2026-08-06）：已将 8 组令牌收敛为 `packages/ui-tokens/src/tokens.ts` 单一来源（含 `tokenGroups` 前缀/格式元数据），`src/index.ts` 改为显式 re-export（公共 API 不变）；新增 `scripts/generate-tokens-css.mjs` 从该来源生成 `tokens.css`（`pnpm tokens:generate`），并新增 `tokens-css.test.ts` 锁定“已提交 CSS 必须与生成器输出逐字节一致”；`pnpm verify` 440/440 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **2.2 数据库客户端使用 mysql2 内部属性并异步设时区**
 位置：[client.ts (line 23)](E:/AItools/Schedule/packages/database/src/client.ts:23)（23–41 行）
@@ -409,6 +410,7 @@
 
 - `past-schedule-service.ts`（259/387）与 `workflow-invalidation-service.ts`（143）对 `shift_assignments` 的更新未走统一助手、也未显式保留 `starts_at`。若线上 CynosDB 在迁移 0018 后仍存在隐式 `ON UPDATE`（可用 information_schema 复核），这 3 处是潜在时间漂移点；建议后续轮次评估并入 `updateShiftAssignments`。
 - `apps/web/src/features/manual-schedule/manual-schedule-logic.ts`（143 行）仍裸写 `8 * 60 * 60 * 1000`，不在审查清单的 9 个文件内；`apps/web/src/features/leaves/leave-logic.ts` 的 `parseLocalDateStart` 用 `T00:00:00+08:00` 字面量表达同一“业务日期→中国零时 UTC”换算。建议后续轮次统一并入领域包（可复用 `toChinaStandardTimeUtcTimestamp`），本轮未动。
+- `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
 
 ## 7. 轮次记录
 
@@ -546,3 +548,20 @@
 3. 测试总数从 440 减到 439 是预期净减（删 2 条死代码测试 + 加 1 条替代测试）；若用户预期测试数只增不减，这是行为覆盖保持下的有意收缩。
 
 下次计划：#2.1（ui-tokens CSS/TS 双份维护，单一来源生成）
+
+### 轮次 9 – 2026-08-06
+
+目标：#2.1 把 ui-tokens 的 CSS/TS 双份令牌收敛为单一来源，`tokens.css` 改为生成物并加锁定测试。
+
+修改文件：新增 `packages/ui-tokens/src/tokens.ts`（8 组令牌唯一来源 + `tokenGroups` 前缀/格式元数据）；`src/index.ts` 改为从 `tokens.ts` 显式 re-export（公共 API 不变）；新增 `packages/ui-tokens/scripts/generate-tokens-css.mjs` 与包脚本 `generate`/根脚本 `tokens:generate`；新增 `src/tokens-css.test.ts`（1 条锁定测试：已提交 `tokens.css` 必须与生成器 `--stdout` 输出逐字节一致）；`tokens.css` 由生成器重写（仅补一处组间空行，全部值不变）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 440/440 ✅（66 个测试文件，隔离 MySQL；新增 1 条生成锁定测试）
+
+提交：（本轮检查点提交后补录）
+
+不确定点：
+1. 生成器用 Node 24 原生 TS 类型剥离导入 `tokens.ts`（.mjs → .ts），CI 已固定 Node 24 且本地验证通过；若未来 Node 版本下调或类型剥离行为变化，生成器会直接报错——症状是 `tokens:generate` 与锁定测试失败。
+2. `tokens.css` 是入库生成物，修改令牌后必须重跑 `pnpm tokens:generate`；锁定测试会在忘记重跑时失败——症状是 verify 中 `tokens-css.test.ts` 失败。
+3. 令牌组顺序/前缀/格式元数据集中在 `tokens.ts` 的 `tokenGroups`；新增令牌组若漏登记到该表，CSS 不会自动包含它，而现有锁定测试只对比“已登记组”的输出——症状是新增令牌只在 TS 可用、对应 CSS 变量缺失。
+
+下次计划：#7.1（client.ts 2200 行手写校验器 + 重复请求函数，P2 高风险高收益，按第 4 节拆子步骤）
