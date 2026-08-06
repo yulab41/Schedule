@@ -63,6 +63,48 @@ describe('API runtime', () => {
     expect(response.body).not.toContain('unhandled-token-should-not-reach-the-client');
   });
 
+  it('returns 415 for unsupported content types instead of 500', async () => {
+    const app = createTestApp();
+    app.post('/echo', async (request) => ({ body: request.body }));
+
+    const response = await app.inject({
+      headers: { 'content-type': 'application/octet-stream' },
+      method: 'POST',
+      payload: 'hello=world',
+      url: '/echo',
+    });
+
+    expect(response.statusCode).toBe(415);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'UNSUPPORTED_MEDIA_TYPE',
+        message: '不支持的请求内容类型。',
+        requestId: response.headers['x-request-id'],
+      },
+    });
+  });
+
+  it('returns 400 for an invalid JSON body instead of 500', async () => {
+    const app = createTestApp();
+    app.post('/echo', async (request) => ({ body: request.body }));
+
+    const response = await app.inject({
+      headers: { 'content-type': 'application/json' },
+      method: 'POST',
+      payload: 'not-json',
+      url: '/echo',
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: '请求数据不符合要求。',
+        requestId: response.headers['x-request-id'],
+      },
+    });
+  });
+
   it('returns declared conflicts with the latest data summary', async () => {
     const app = createTestApp();
     app.get('/conflict', () => {

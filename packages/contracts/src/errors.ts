@@ -3,6 +3,7 @@ export type ApiErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'VALIDATION_FAILED'
+  | 'UNSUPPORTED_MEDIA_TYPE'
   | 'CONFLICT'
   | 'RATE_LIMITED'
   | 'SERVICE_UNAVAILABLE'

@@ -2,6 +2,7 @@ import type { ApiErrorCode, ApiErrorResponse, JsonObject } from '@schedule/contr
 import type { FastifyInstance } from 'fastify';
 
 const internalErrorMessage = '服务器暂时无法处理请求，请稍后重试。';
+const unsupportedMediaTypeErrorMessage = '不支持的请求内容类型。';
 const validationErrorMessage = '请求数据不符合要求。';
 
 export class ApiError extends Error {
@@ -76,11 +77,21 @@ function toApiError(error: unknown): ApiError {
     return error;
   }
 
-  if (typeof error === 'object' && error !== null && 'validation' in error) {
+  if (isFastifyValidationError(error)) {
     return new ApiError({
       code: 'VALIDATION_FAILED',
       statusCode: 400,
       userMessage: validationErrorMessage,
+    });
+  }
+
+  const clientErrorStatus = readFastifyClientErrorStatus(error);
+  if (clientErrorStatus !== undefined) {
+    return new ApiError({
+      code: clientErrorStatus === 415 ? 'UNSUPPORTED_MEDIA_TYPE' : 'VALIDATION_FAILED',
+      statusCode: clientErrorStatus,
+      userMessage:
+        clientErrorStatus === 415 ? unsupportedMediaTypeErrorMessage : validationErrorMessage,
     });
   }
 
@@ -89,6 +100,24 @@ function toApiError(error: unknown): ApiError {
     statusCode: 500,
     userMessage: internalErrorMessage,
   });
+}
+
+function isFastifyValidationError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'validation' in error;
+}
+
+function readFastifyClientErrorStatus(error: unknown): number | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+
+  const statusCode = (error as { statusCode?: unknown }).statusCode;
+  return typeof statusCode === 'number' &&
+    Number.isInteger(statusCode) &&
+    statusCode >= 400 &&
+    statusCode < 500
+    ? statusCode
+    : undefined;
 }
 
 function createErrorResponse({

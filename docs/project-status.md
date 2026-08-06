@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–55 已完成；最新验证基线 418/418（62 个测试文件，隔离 MySQL）
-- Next actions: 等待用户强刷复核轮次 53/52/51/50/49/48/47；失效工作流自动归档/自愈已完成（轮次 55）；上线前需先对线上库执行迁移 0026–0031 再部署代码；随后排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
+- Debug rounds: 1–56 已完成；最新验证基线 420/420（62 个测试文件，隔离 MySQL）
+- Next actions: 等待用户强刷复核轮次 53/52/51/50/49/48/47；失效工作流自动归档/自愈已完成（轮次 55）；Fastify 非标准 Content-Type 已修复（轮次 56）；本轮执行上线：先对线上库执行迁移 0026–0031 再触发 CloudBase 部署；部署后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
@@ -62,9 +62,10 @@
 - 轮次 53 岗位删除改为忽略已软删除的排班期间，解决“页面看不到护理排班但后端仍提示已用于排班”的数据不一致。
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
-- 下一活动批次（1 项）：排查并修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题。
+- 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
+- 下一活动批次：执行上线（迁移 0026–0031 + CloudBase 部署），部署后等待用户验收并启动微信小程序立项（设计 26.1）。
 - 上线前置：对线上库执行迁移 0026–0031 后再部署代码；部署后启动巡检自动清理既有失效残留。
-- 停止条件：该问题完成定向测试并通过完整验证；不启动微信小程序，不部署 CloudBase。
+- 停止条件：上线健康检查通过且用户验收完成。
 
 ## Required Reading for the Next Conversation
 
