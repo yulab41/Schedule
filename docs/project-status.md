@@ -10,6 +10,7 @@
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
 - Debug rounds: 1–56 已完成；fix-progress 轮次 1–9 已完成，轮次 10（#7.1 子步骤 1：client.ts 重复请求函数收敛）已完成；最新验证基线 442/442（67 个测试文件，隔离 MySQL）
+- Deployment: Web 1.0 已部署到阿里云 ECS 试用机（`8.148.183.46`，Ubuntu 22.04，Docker Compose：mysql 8.4 + api + nginx/web），迁移 0031 已执行，`/health`、`/api/health`、首页均 200，开发模式认证可用；待用户在阿里云安全组放行 80 端口后完成公网验收
 - Next actions: fix-progress 轮次 11 目标为 #7.1 子步骤 2（`knownApiErrorCodes`/`isApiErrorResponse` 与契约错误码单一来源，随带评估 #7.2）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
@@ -126,6 +127,7 @@
 - 已发布草稿自动离开活动草稿区，其编号与排班内容保留在当前/归档发布版本记录；访客无需登录，从公开群组名称列表选择群组后直接读取当天所在月份的月历，不返回群组码、电话、事件或管理能力；加入群组的群组码失败尝试仍按来源限流。
 - 草稿过期提醒（设计 16.2）未实现，留待后续轮次。
 - 生产化妥协（公网 + 单账号全局授权）：风险与升级路径见 `docs/deployment/production-readiness.md`；CAM key 轮换为安全 TODO。
+- 阿里云迁移（2026-08-06，用户决定弃用腾讯云）：Web 1.0 已用 `infra/docker/compose.prod.yml` 部署到阿里云 ECS 试用机；试用机仅 1.6G 内存，镜像构建/依赖安装均会卡死系统，因此 API 依赖树由开发机 `pnpm deploy` 后拍平上传挂载（`runtime/api-flat/node_modules`），Web 前端由开发机 `vite build` 后上传挂载，服务器不做任何编译；登录认证暂为开发模式（`AUTH_DEV_MODE=true`），自建认证改造为后续任务。
 - 当前无阻塞；待用户验收项见 debug 日志“待办 / 下一步”。
 
 ## Handoff Requirements

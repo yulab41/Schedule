@@ -1,0 +1,60 @@
+# Aliyun ECS Docker 部署
+
+> 2026-08-06：Web 1.0 从腾讯云 CloudBase 迁移到阿里云 ECS 试用机
+> （`8.148.183.46`，Ubuntu 22.04，Docker 预装）。
+> 登录认证暂用开发模式（`AUTH_DEV_MODE=true`），自建认证改造见后续任务。
+
+## 架构
+
+```
+用户 ── HTTP :80 ──> Nginx (web 容器)
+                        │ /api/* 去掉前缀后转发
+                        ▼
+                     Fastify (api 容器) ──> MySQL 8.4 (mysql 容器)
+```
+
+三个容器都在同一台 ECS 上：
+
+- `mysql`：数据卷 `schedule_mysql_data`
+- `api`：Fastify 服务，数据卷 `schedule_backups`（`BACKUP_DIR=/data/backups`）
+- `web`：Nginx 提供 Vue SPA 静态文件并反向代理 `/api`；试用机上的 `web`
+  服务直接挂载本机构建的 `apps/web/dist`（不在这台 1.6G 内存的 ECS 上编译）
+
+## 首次部署
+
+```bash
+cd /opt/schedule
+cp .env.production.example .env.production   # 生成随机密码并填写
+docker compose --env-file .env.production -f infra/docker/compose.prod.yml pull mysql nginx
+# 在本机构建前端：pnpm --filter @schedule/web exec vite build，然后上传 apps/web/dist
+docker compose --env-file .env.production -f infra/docker/compose.prod.yml up -d
+docker compose --env-file .env.production -f infra/docker/compose.prod.yml run --rm api node apps/api/dist/migrate.js
+```
+
+健康检查：
+
+```bash
+curl -s http://127.0.0.1/health
+curl -s http://127.0.0.1/api/health
+```
+
+## 环境变量
+
+`MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`：
+MySQL 数据库名和账号（`api` 容器通过 compose 网络连接 `mysql:3306`）。
+
+`BACKUP_ENCRYPTION_KEY`：32 字节（64 位 hex 或 base64），备份失败即关闭。
+
+`VAPID_*`：Web Push 可选；不配置时推送功能停用。
+
+`HOLIDAY_ADMIN_UIDS` / `PLATFORM_ADMIN_UIDS`：开发模式下为测试 UID
+（例如 `local-admin`），自建认证落地后改为正式 UID。
+
+## 当前限制与后续任务
+
+- 认证为开发模式（页面提供“本地管理员/本地成员”按钮），正式上线前必须完成
+  自建登录认证改造并移除 CloudBase 依赖。
+- 暂未配置 HTTPS / 自定义域名 / ICP 备案；微信小程序上线前按
+  `docs/deployment/dns-and-https.md` 与 `icp-checklist.md` 补齐。
+- 定时任务（duty reminders 等）暂未在 Docker 中配置 cron，需后续补充。
+- 腾讯云 CynosDB 历史数据迁移需要数据库连接凭据，另行确认后执行。
