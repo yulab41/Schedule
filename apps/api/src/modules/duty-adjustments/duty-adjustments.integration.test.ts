@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type { DutyAdjustmentPreview, DutyAdjustmentRequest } from '@schedule/contracts';
+import type {
+  DutyAdjustmentPreview,
+  DutyAdjustmentRequest,
+  SwapRequest,
+} from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
@@ -9,12 +13,17 @@ import {
   shiftAssignments,
   type DatabaseClient,
   type DatabaseConnectionOptions,
+  withTransaction,
 } from '@schedule/database';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import {
+  staleWorkflowArchiveReason,
+  WorkflowSelfHealingService,
+} from '../workflows/workflow-self-healing-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -568,6 +577,233 @@ describeWithDatabase('paired duty adjustments', () => {
       reason: '归档测试',
     });
     expect(revoked.statusCode, revoked.body).toBe(409);
+  });
+
+  it('locks stale completed duty adjustments as non-revocable with lingering markers', async () => {
+    const context = await seedPublishedRotation();
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '失效工作流特征化测试',
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as DutyAdjustmentRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id = ${context.assignments.aSep1.id}`,
+    );
+
+    const approvals = (
+      await listDutyAdjustmentApprovals('owner-token', context.groupId)
+    ).json() as DutyAdjustmentRequest[];
+    expect(approvals.find((request) => request.id === createdBody.id)).toMatchObject({
+      isRevocable: false,
+      revocationBlockedReason: expect.stringContaining('后续'),
+      status: 'completed',
+    });
+
+    const calendar = (
+      await getCalendar('owner-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    const sep1 = calendar.assignments.find(
+      (assignment) => assignment.businessDate === '2026-09-01',
+    );
+    expect(sep1).toMatchObject({ changeMarkers: ['overtime'] });
+
+    const revoked = await revokeDutyAdjustment('owner-token', context.groupId, createdBody.id, {
+      expectedVersion: createdBody.version,
+      operationId: randomUUID(),
+      reason: '尝试撤销失效加扣班',
+    });
+    expect(revoked.statusCode, revoked.body).toBe(409);
+  });
+
+  it('detects stale completed duty adjustments as archiveable candidates', async () => {
+    const context = await seedPublishedRotation();
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '核心检测测试',
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as DutyAdjustmentRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id = ${context.assignments.aSep1.id}`,
+    );
+
+    const selfHealing = new WorkflowSelfHealingService(client);
+    const stale = await withTransaction(client, (transaction) =>
+      selfHealing.findStaleCompletedWorkflows(transaction, {
+        assignmentIds: [context.assignments.aSep1.id],
+        groupId: context.groupId,
+      }),
+    );
+    expect(stale.map((candidate) => candidate.id)).toEqual([createdBody.id]);
+    expect(stale[0]).toMatchObject({ kind: 'duty_adjustment', version: 2 });
+  });
+
+  it('archives a stale completed duty adjustment, clears the marker, and unblocks new adjustments', async () => {
+    const context = await seedPublishedRotation();
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '自动归档测试',
+    });
+    expect(created.statusCode).toBe(201);
+    const createdBody = created.json() as DutyAdjustmentRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id = ${context.assignments.aSep1.id}`,
+    );
+
+    const selfHealing = new WorkflowSelfHealingService(client);
+    const ownerUserId = await readOwnerUserId();
+    const archived = await withTransaction(client, (transaction) =>
+      selfHealing.archiveStaleCompletedWorkflows(transaction, {
+        actorUserId: ownerUserId,
+        assignmentIds: [context.assignments.aSep1.id],
+        groupId: context.groupId,
+        operationId: randomUUID(),
+      }),
+    );
+    expect(archived).toEqual([
+      { id: createdBody.id, kind: 'duty_adjustment', version: createdBody.version + 1 },
+    ]);
+
+    const adjustmentRows = (
+      await client.database.execute(
+        sql`SELECT status, revocation_reason AS revocationReason, version
+          FROM duty_adjustments
+          WHERE id = ${createdBody.id}`,
+      )
+    )[0] as unknown as readonly {
+      revocationReason: string;
+      status: string;
+      version: number;
+    }[];
+    expect(adjustmentRows).toEqual([
+      { revocationReason: staleWorkflowArchiveReason, status: 'revoked', version: 3 },
+    ]);
+
+    const revokedEvents = (
+      await client.database.execute(
+        sql`SELECT after_data AS afterData
+          FROM schedule_events
+          WHERE object_id = ${createdBody.id} AND event_type = 'duty_adjustment_revoked'`,
+      )
+    )[0] as unknown as readonly {
+      afterData: { actualMemberId: string; actualMemberName: string; status: string };
+    }[];
+    expect(revokedEvents).toHaveLength(1);
+    expect(revokedEvents[0]?.afterData).toMatchObject({
+      actualMemberId: context.membershipIds.a,
+      actualMemberName: 'A Doctor',
+      status: 'revoked',
+    });
+
+    expect(await readActualMember(context.assignments.aSep1.id)).toEqual({
+      actualMembershipId: context.membershipIds.a,
+      actualMemberName: 'A Doctor',
+    });
+
+    const calendar = (
+      await getCalendar('owner-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    const sep1 = calendar.assignments.find(
+      (assignment) => assignment.businessDate === '2026-09-01',
+    );
+    expect(sep1).toMatchObject({ changeMarkers: [] });
+
+    const statistics = (
+      await app.inject({
+        headers: { authorization: 'Bearer owner-token' },
+        method: 'GET',
+        url: `/groups/${context.groupId}/statistics?businessMonth=2026-09`,
+      })
+    ).json() as {
+      readonly summary: {
+        readonly members: readonly {
+          readonly deductionCount: number;
+          readonly membershipId: string;
+          readonly overtimeCount: number;
+        }[];
+      };
+    };
+    const memberA = statistics.summary.members.find(
+      (member) => member.membershipId === context.membershipIds.a,
+    );
+    const memberB = statistics.summary.members.find(
+      (member) => member.membershipId === context.membershipIds.b,
+    );
+    expect(memberA?.overtimeCount ?? 0).toBe(0);
+    expect(memberA?.deductionCount ?? 0).toBe(0);
+    expect(memberB?.overtimeCount ?? 0).toBe(0);
+    expect(memberB?.deductionCount ?? 0).toBe(0);
+
+    const unblocked = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.c,
+    });
+    expect(unblocked.statusCode, unblocked.body).toBe(201);
+  });
+
+  it('auto-archives a stale completed swap when a later pending duty adjustment is rejected', async () => {
+    const context = await seedPublishedRotation();
+    const completed = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+      targetMembershipId: context.membershipIds.b,
+    });
+    expect(completed.statusCode).toBe(201);
+    const completedBody = completed.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id IN (${context.assignments.aSep1.id}, ${context.assignments.bSep2.id})`,
+    );
+
+    const pending = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.c,
+    });
+    expect(pending.statusCode, pending.body).toBe(201);
+    const pendingBody = pending.json() as DutyAdjustmentRequest;
+    expect(pendingBody.status).toBe('pending_target');
+
+    const rejected = await rejectDutyAdjustment('c-token', context.groupId, pendingBody.id, {
+      expectedVersion: pendingBody.version,
+      operationId: randomUUID(),
+    });
+    expect(rejected.statusCode, rejected.body).toBe(200);
+
+    const swapRows = (
+      await client.database.execute(
+        sql`SELECT status FROM swap_requests WHERE id = ${completedBody.id}`,
+      )
+    )[0] as unknown as readonly { status: string }[];
+    expect(swapRows).toEqual([{ status: 'revoked' }]);
+
+    const calendar = (
+      await getCalendar('owner-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    expect(
+      calendar.assignments.find((assignment) => assignment.businessDate === '2026-09-01')
+        ?.changeMarkers,
+    ).toEqual([]);
   });
 
   it('rejects and cancels pending requests without touching the actual member', async () => {
@@ -1287,6 +1523,19 @@ describeWithDatabase('paired duty adjustments', () => {
     expect(response.statusCode).toBe(201);
   }
 
+  async function readOwnerUserId(): Promise<string> {
+    const rows = (
+      await client.database.execute(
+        sql`SELECT id FROM users WHERE cloudbase_uid = 'cloudbase-owner'`,
+      )
+    )[0] as unknown as readonly { id: string }[];
+    const ownerUserId = rows[0]?.id;
+    if (ownerUserId === undefined) {
+      throw new Error('The owner user is missing.');
+    }
+    return ownerUserId;
+  }
+
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -1516,6 +1765,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS duty_adjustments`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS workflow_sequence_allocations`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_deliveries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notifications`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_preferences`);

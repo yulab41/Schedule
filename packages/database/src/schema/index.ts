@@ -23,6 +23,7 @@ export * from './holidays.js';
 export * from './statistics.js';
 export * from './exports.js';
 export * from './platform.js';
+export * from './workflow-sequences.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 

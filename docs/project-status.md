@@ -4,13 +4,13 @@
 
 ## Current Position
 
-- Last updated: 2026-08-05
+- Last updated: 2026-08-06
 - Branch: `main` / Upstream: `origin/main`
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–54 已完成；最新验证基线 406/406（62 个测试文件，隔离 MySQL）
-- Next actions: 等待用户强刷复核轮次 54（8/21、8/22 日历标签清除）、53/52/51/50/49/48/47；统一工作流冲突检查器重构已完成；上线前需先对线上库执行迁移 0024 再部署代码；随后排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
+- Debug rounds: 1–55 已完成；最新验证基线 418/418（62 个测试文件，隔离 MySQL）
+- Next actions: 等待用户强刷复核轮次 53/52/51/50/49/48/47；失效工作流自动归档/自愈已完成（轮次 55）；上线前需先对线上库执行迁移 0026–0031 再部署代码；随后排查 Fastify 非标准 Content-Type 被错误归一化为 500 的问题；本轮不部署 CloudBase，后续仍只允许手动触发部署
 
 ## Debug / Test Feedback Log
 
@@ -61,7 +61,9 @@
 - 轮次 52 新增自定义班种删除能力，并修复岗位删除失败时仍显示“已删除”的双重提示。
 - 轮次 53 岗位删除改为忽略已软删除的排班期间，解决“页面看不到护理排班但后端仍提示已用于排班”的数据不一致。
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
+- 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 下一活动批次（1 项）：排查并修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题。
+- 上线前置：对线上库执行迁移 0026–0031 后再部署代码；部署后启动巡检自动清理既有失效残留。
 - 停止条件：该问题完成定向测试并通过完整验证；不启动微信小程序，不部署 CloudBase。
 
 ## Required Reading for the Next Conversation
@@ -76,7 +78,7 @@
 ## Known Environment State（关键信息；详细命令见 cloudbase-ops-notes）
 
 - CloudBase 开发环境 `schedule-dev-d1geh4w1l4af7359d`（公网 + 单账号全局授权妥协）；`/api` 走 SCF + 网关鉴权，`/api/health` 匿名。
-- 线上 MySQL（CynosDB 公共端点）：`sh-cynosdbmysql-grp-3vcucsya.sql.tencentcdb.com:24819`，库 `schedule_dev`，用户 `schedule_app`；凭据在 CloudBase 函数环境与 `infra/cloudbase/cloudbaserc.local.json`（gitignored），不入库。迁移记录 20 条。
+- 线上 MySQL（CynosDB 公共端点）：`sh-cynosdbmysql-grp-3vcucsya.sql.tencentcdb.com:24819`，库 `schedule_dev`，用户 `schedule_app`；凭据在 CloudBase 函数环境与 `infra/cloudbase/cloudbaserc.local.json`（gitignored），不入库。线上迁移记录 20 条；本地迁移已到 0031，上线前必须先对线上库执行 0026–0031。
 - CynosDB `explicit_defaults_for_timestamp=OFF`：TIMESTAMP 列必须显式写明默认值，否则隐式带 `ON UPDATE CURRENT_TIMESTAMP`（`0018`/`0020` 已修复；新增 TIMESTAMP 列需遵循）。
 - 部署铁律：含新迁移的发布必须先对线上库执行迁移（`pnpm --filter @schedule/api migrate`，带线上 `MYSQL_*` 环境），再部署代码；否则线上全站 500（轮次 12 事故）。
 - 2026 法定节假日已导入并确认（39 条，`confirmedYears: [2026]`）。

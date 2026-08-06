@@ -376,6 +376,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'group_member_contacts',
     'leave_requests',
     'swap_requests',
+    'workflow_sequence_allocations',
     'group_memberships',
     'roster_entries',
     'idempotency_keys',

@@ -1,0 +1,5 @@
+CREATE TABLE `workflow_sequence_allocations` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `allocated_at` TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import type { DutyAdjustmentRequest, SwapPreview, SwapRequest } from '@schedule/contracts';
@@ -9,12 +9,17 @@ import {
   shiftAssignments,
   type DatabaseClient,
   type DatabaseConnectionOptions,
+  withTransaction,
 } from '@schedule/database';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import {
+  staleWorkflowArchiveReason,
+  WorkflowSelfHealingService,
+} from '../workflows/workflow-self-healing-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -886,6 +891,328 @@ describeWithDatabase('member shift swaps', () => {
     expect(revokedFirst.statusCode).toBe(200);
   });
 
+  it('locks stale completed swaps as non-revocable with lingering markers', async () => {
+    const context = await seedPublishedRotation();
+    const swap = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id IN (${context.assignments.aSep1.id}, ${context.assignments.bSep2.id})`,
+    );
+
+    const approvals = (
+      await listSwapApprovals('owner-token', context.groupId)
+    ).json() as SwapRequest[];
+    expect(approvals.find((request) => request.id === swapBody.id)).toMatchObject({
+      isRevocable: false,
+      revocationBlockedReason: expect.stringContaining('后续'),
+      status: 'completed',
+    });
+
+    const calendar = (
+      await getCalendar('owner-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    expect(
+      calendar.assignments.find((assignment) => assignment.id === context.assignments.aSep1.id)
+        ?.changeMarkers,
+    ).toEqual(['swap']);
+
+    const revoked = await revokeSwap('owner-token', context.groupId, swapBody.id, {
+      expectedVersion: swapBody.version,
+      operationId: randomUUID(),
+      reason: '尝试撤销失效换班',
+    });
+    expect(revoked.statusCode).toBe(409);
+  });
+
+  it('detects stale completed swaps as archiveable candidates', async () => {
+    const context = await seedPublishedRotation();
+    const swap = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id IN (${context.assignments.aSep1.id}, ${context.assignments.bSep2.id})`,
+    );
+
+    const selfHealing = new WorkflowSelfHealingService(client);
+    const stale = await withTransaction(client, (transaction) =>
+      selfHealing.findStaleCompletedWorkflows(transaction, {
+        assignmentIds: [context.assignments.aSep1.id, context.assignments.bSep2.id],
+        groupId: context.groupId,
+      }),
+    );
+    expect(stale.map((candidate) => candidate.id)).toEqual([swapBody.id]);
+    expect(stale[0]).toMatchObject({
+      assignmentIds: [context.assignments.aSep1.id, context.assignments.bSep2.id],
+      kind: 'swap',
+      version: 2,
+    });
+  });
+
+  it('keeps earlier chain swaps out of detection while a later swap exists', async () => {
+    const context = await seedPublishedRotation();
+    const first = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(first.statusCode).toBe(201);
+    const firstBody = first.json() as SwapRequest;
+    const second = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+    });
+    expect(second.statusCode).toBe(201);
+    const secondBody = second.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id = ${context.assignments.aSep1.id}`,
+    );
+
+    const selfHealing = new WorkflowSelfHealingService(client);
+    const stale = await withTransaction(client, (transaction) =>
+      selfHealing.findStaleCompletedWorkflows(transaction, {
+        assignmentIds: [context.assignments.aSep1.id],
+        groupId: context.groupId,
+      }),
+    );
+    expect(stale.map((candidate) => candidate.id)).toEqual([secondBody.id]);
+    expect(stale[0]?.id).not.toBe(firstBody.id);
+  });
+
+  it('archives a stale completed swap with a revocation event without touching actual members', async () => {
+    const context = await seedPublishedRotation();
+    const swap = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id IN (${context.assignments.aSep1.id}, ${context.assignments.bSep2.id})`,
+    );
+
+    const selfHealing = new WorkflowSelfHealingService(client);
+    const ownerUserId = await readOwnerUserId();
+    const archived = await withTransaction(client, (transaction) =>
+      selfHealing.archiveStaleCompletedWorkflows(transaction, {
+        actorUserId: ownerUserId,
+        assignmentIds: [context.assignments.aSep1.id, context.assignments.bSep2.id],
+        groupId: context.groupId,
+        operationId: randomUUID(),
+      }),
+    );
+    expect(archived).toEqual([{ id: swapBody.id, kind: 'swap', version: swapBody.version + 1 }]);
+
+    const swapRows = (
+      await client.database.execute(
+        sql`SELECT status, revocation_reason AS revocationReason, version
+          FROM swap_requests
+          WHERE id = ${swapBody.id}`,
+      )
+    )[0] as unknown as readonly {
+      revocationReason: string;
+      status: string;
+      version: number;
+    }[];
+    expect(swapRows).toEqual([
+      { revocationReason: staleWorkflowArchiveReason, status: 'revoked', version: 3 },
+    ]);
+
+    const revokedEvents = (
+      await client.database.execute(
+        sql`SELECT affected_shift_ids AS affectedShiftIds
+          FROM schedule_events
+          WHERE object_id = ${swapBody.id} AND event_type = 'swap_revoked'`,
+      )
+    )[0] as unknown as readonly { affectedShiftIds: readonly string[] }[];
+    expect(revokedEvents).toHaveLength(1);
+    expect((revokedEvents[0] as { affectedShiftIds: readonly string[] }).affectedShiftIds).toEqual(
+      expect.arrayContaining([context.assignments.aSep1.id, context.assignments.bSep2.id]),
+    );
+
+    const actuals = await readActualMembers(context);
+    expect(actuals.aSep1).toEqual({
+      actualMembershipId: context.membershipIds.a,
+      actualMemberName: 'A Doctor',
+    });
+    expect(actuals.bSep2).toEqual({
+      actualMembershipId: context.membershipIds.b,
+      actualMemberName: 'B Doctor',
+    });
+
+    const calendar = (
+      await getCalendar('owner-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    expect(
+      calendar.assignments.find((assignment) => assignment.id === context.assignments.aSep1.id)
+        ?.changeMarkers,
+    ).toEqual([]);
+    expect(
+      calendar.assignments.find((assignment) => assignment.id === context.assignments.bSep2.id)
+        ?.changeMarkers,
+    ).toEqual([]);
+
+    const approvals = (
+      await listSwapApprovals('owner-token', context.groupId)
+    ).json() as SwapRequest[];
+    expect(approvals.find((request) => request.id === swapBody.id)).toMatchObject({
+      status: 'revoked',
+    });
+  });
+
+  it('archives the whole stale swap chain in one run and stays idempotent', async () => {
+    const context = await seedPublishedRotation();
+    const first = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(first.statusCode).toBe(201);
+    const firstBody = first.json() as SwapRequest;
+    const second = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.cSep3.id,
+    });
+    expect(second.statusCode).toBe(201);
+    const secondBody = second.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id = ${context.assignments.aSep1.id}`,
+    );
+
+    const selfHealing = new WorkflowSelfHealingService(client);
+    const ownerUserId = await readOwnerUserId();
+    const archiveInput = {
+      actorUserId: ownerUserId,
+      assignmentIds: [context.assignments.aSep1.id],
+      groupId: context.groupId,
+      operationId: randomUUID(),
+    };
+    const archived = await withTransaction(client, (transaction) =>
+      selfHealing.archiveStaleCompletedWorkflows(transaction, archiveInput),
+    );
+    expect(archived.map((record) => record.id).sort()).toEqual(
+      [firstBody.id, secondBody.id].sort(),
+    );
+
+    const swapRows = (
+      await client.database.execute(
+        sql`SELECT id, status
+          FROM swap_requests
+          WHERE id IN (${firstBody.id}, ${secondBody.id})`,
+      )
+    )[0] as unknown as readonly { id: string; status: string }[];
+    expect(swapRows.map((row) => row.status)).toEqual(['revoked', 'revoked']);
+
+    const repeated = await withTransaction(client, (transaction) =>
+      selfHealing.archiveStaleCompletedWorkflows(transaction, archiveInput),
+    );
+    expect(repeated).toEqual([]);
+  });
+
+  it('auto-archives a stale completed swap when a later pending swap is cancelled', async () => {
+    const context = await seedPublishedRotation();
+    const completed = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(completed.statusCode).toBe(201);
+    const completedBody = completed.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id IN (${context.assignments.aSep1.id}, ${context.assignments.bSep2.id})`,
+    );
+
+    await updateMySettings('b-token', context.groupId, false);
+    const pending = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+      targetMembershipId: context.membershipIds.b,
+    });
+    expect(pending.statusCode, pending.body).toBe(201);
+    const pendingBody = pending.json() as SwapRequest;
+    expect(pendingBody.status).toBe('pending_target');
+
+    const cancelled = await cancelSwap('a-token', context.groupId, pendingBody.id, {
+      expectedVersion: pendingBody.version,
+      operationId: randomUUID(),
+    });
+    expect(cancelled.statusCode, cancelled.body).toBe(200);
+
+    const swapRows = (
+      await client.database.execute(
+        sql`SELECT status FROM swap_requests WHERE id = ${completedBody.id}`,
+      )
+    )[0] as unknown as readonly { status: string }[];
+    expect(swapRows).toEqual([{ status: 'revoked' }]);
+
+    const calendar = (
+      await getCalendar('owner-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    expect(
+      calendar.assignments.find((assignment) => assignment.id === context.assignments.aSep1.id)
+        ?.changeMarkers,
+    ).toEqual([]);
+  });
+
+  it('startup sweep archives stale completed workflows across all groups and stays idempotent', async () => {
+    const context = await seedPublishedRotation();
+    const swap = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(swap.statusCode).toBe(201);
+    const swapBody = swap.json() as SwapRequest;
+
+    await client.database.execute(
+      sql`UPDATE shift_assignments
+          SET actual_membership_id = planned_membership_id, actual_member_name = planned_member_name
+          WHERE id IN (${context.assignments.aSep1.id}, ${context.assignments.bSep2.id})`,
+    );
+
+    const selfHealing = new WorkflowSelfHealingService(client);
+    const archived = await selfHealing.runStartupSweep();
+    expect(archived.map((record) => record.id)).toContain(swapBody.id);
+
+    const swapRows = (
+      await client.database.execute(sql`SELECT status FROM swap_requests WHERE id = ${swapBody.id}`)
+    )[0] as unknown as readonly { status: string }[];
+    expect(swapRows).toEqual([{ status: 'revoked' }]);
+
+    const repeated = await selfHealing.runStartupSweep();
+    expect(repeated).toEqual([]);
+  });
+
   it('invalidates the swap when either assignment version changes', async () => {
     const context = await seedPublishedRotation();
     await updateMySettings('b-token', context.groupId, false);
@@ -1550,6 +1877,19 @@ describeWithDatabase('member shift swaps', () => {
     expect(response.statusCode).toBe(201);
   }
 
+  async function readOwnerUserId(): Promise<string> {
+    const rows = (
+      await client.database.execute(
+        sql`SELECT id FROM users WHERE cloudbase_uid = 'cloudbase-owner'`,
+      )
+    )[0] as unknown as readonly { id: string }[];
+    const ownerUserId = rows[0]?.id;
+    if (ownerUserId === undefined) {
+      throw new Error('The owner user is missing.');
+    }
+    return ownerUserId;
+  }
+
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -1699,6 +2039,7 @@ interface CalendarResponse {
     readonly actualMemberName?: string;
     readonly businessDate: string;
     readonly changeMarkers: readonly string[];
+    readonly id: string;
   }[];
 }
 
@@ -1793,6 +2134,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS duty_adjustments`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS workflow_sequence_allocations`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_deliveries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notifications`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_preferences`);

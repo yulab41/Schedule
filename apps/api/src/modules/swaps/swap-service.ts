@@ -49,6 +49,8 @@ import {
   WorkflowConflictService,
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
+import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
+import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -86,10 +88,12 @@ export class SwapService {
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
   private readonly workflowConflictService = new WorkflowConflictService();
+  private readonly workflowSelfHealingService: WorkflowSelfHealingService;
   private readonly statisticsService: StatisticsService;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
     this.statisticsService = new StatisticsService(this.databaseClient);
+    this.workflowSelfHealingService = new WorkflowSelfHealingService(this.databaseClient);
   }
 
   public async preview(
@@ -574,13 +578,13 @@ export class SwapService {
         transaction,
         authorization.group.id,
         request.initiatorAssignmentId,
-        request.createdAt,
+        request.workflowSequence,
       )),
       ...(await this.workflowConflictService.findLaterAssignmentWorkflows(
         transaction,
         authorization.group.id,
         request.targetAssignmentId,
-        request.createdAt,
+        request.workflowSequence,
       )),
     ];
     if (laterWorkflows.length > 0) {
@@ -706,6 +710,11 @@ export class SwapService {
       );
     }
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.initiatorAssignmentId,
+      request.targetAssignmentId,
+    ]);
+
     return this.readSwapRequest(transaction, request.id);
   }
 
@@ -727,6 +736,7 @@ export class SwapService {
     this.assertNoActiveWorkflowConflicts(context);
 
     const swapRequestId = randomUUID();
+    const workflowSequence = await allocateWorkflowSequence(transaction);
     const status = context.nextStatus;
     const decidedAt = status === 'completed' ? new Date() : null;
     await transaction.insert(swapRequests).values({
@@ -741,6 +751,7 @@ export class SwapService {
       targetAssignmentId: context.targetAssignment.id,
       targetAssignmentVersion: context.targetAssignment.version,
       targetMembershipId: context.targetMember.id,
+      workflowSequence,
     });
     const createdEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
@@ -810,6 +821,11 @@ export class SwapService {
       );
     }
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      context.initiatorAssignment.id,
+      context.targetAssignment.id,
+    ]);
+
     return this.readSwapRequest(transaction, swapRequestId);
   }
 
@@ -828,6 +844,7 @@ export class SwapService {
     this.assertNoActiveWorkflowConflicts(context);
 
     const swapRequestId = randomUUID();
+    const workflowSequence = await allocateWorkflowSequence(transaction);
     const decidedAt = new Date();
     await transaction.insert(swapRequests).values({
       approverUserId: authorization.user.id,
@@ -841,6 +858,7 @@ export class SwapService {
       targetAssignmentId: context.targetAssignment.id,
       targetAssignmentVersion: context.targetAssignment.version,
       targetMembershipId: context.targetMember.id,
+      workflowSequence,
     });
     const createdEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
@@ -879,6 +897,11 @@ export class SwapService {
       createdEventId,
       authorization.user.id,
     );
+
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      context.initiatorAssignment.id,
+      context.targetAssignment.id,
+    ]);
 
     return this.readSwapRequest(transaction, swapRequestId);
   }
@@ -989,6 +1012,11 @@ export class SwapService {
         .where(eq(swapRequests.id, request.id));
     }
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.initiatorAssignmentId,
+      request.targetAssignmentId,
+    ]);
+
     return this.readSwapRequest(transaction, request.id);
   }
 
@@ -1060,6 +1088,11 @@ export class SwapService {
       authorization.user.id,
     );
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.initiatorAssignmentId,
+      request.targetAssignmentId,
+    ]);
+
     return this.readSwapRequest(transaction, request.id);
   }
 
@@ -1128,6 +1161,11 @@ export class SwapService {
       title: '换班申请已驳回',
     });
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.initiatorAssignmentId,
+      request.targetAssignmentId,
+    ]);
+
     return this.readSwapRequest(transaction, request.id);
   }
 
@@ -1192,6 +1230,11 @@ export class SwapService {
       scheduleEventId: cancelledEventId,
       title: '换班申请已取消',
     });
+
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.initiatorAssignmentId,
+      request.targetAssignmentId,
+    ]);
 
     return this.readSwapRequest(transaction, request.id);
   }
@@ -1304,6 +1347,20 @@ export class SwapService {
         businessMonth,
       );
     }
+  }
+
+  private async healStaleCompletedWorkflows(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    operationId: string,
+    assignmentIds: readonly string[],
+  ): Promise<void> {
+    await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+      actorUserId: authorization.user.id,
+      assignmentIds,
+      groupId: authorization.group.id,
+      operationId,
+    });
   }
 
   private async loadSwapContext(

@@ -42,11 +42,11 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives')`,
+          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives')`,
     );
 
-    expect(migrations).toEqual([{ count: 25 }]);
-    expect(tables).toEqual([{ count: 39 }]);
+    expect(migrations).toEqual([{ count: 31 }]);
+    expect(tables).toEqual([{ count: 40 }]);
   });
 
   it('allows identity detachment through a nullable cloudbase UID', async () => {
@@ -202,6 +202,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS duty_adjustments`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS workflow_sequence_allocations`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_deliveries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notifications`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_preferences`);

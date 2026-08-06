@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   char,
   index,
   int,
@@ -24,6 +25,9 @@ export const swapRequests = mysqlTable(
   {
     id: identifier(),
     groupId: char('group_id', { length: 36 }).notNull(),
+    workflowSequence: bigint('workflow_sequence', { mode: 'number', unsigned: true })
+      .default(0)
+      .notNull(),
     initiatorMembershipId: char('initiator_membership_id', { length: 36 }).notNull(),
     targetMembershipId: char('target_membership_id', { length: 36 }).notNull(),
     initiatorAssignmentId: char('initiator_assignment_id', { length: 36 }).notNull(),
@@ -69,5 +73,10 @@ export const swapRequests = mysqlTable(
     index('swap_requests_group_status_idx').on(table.groupId, table.status),
     index('swap_requests_initiator_status_idx').on(table.initiatorMembershipId, table.status),
     index('swap_requests_target_status_idx').on(table.targetMembershipId, table.status),
+    index('swap_requests_initiator_sequence_idx').on(
+      table.initiatorAssignmentId,
+      table.workflowSequence,
+    ),
+    index('swap_requests_target_sequence_idx').on(table.targetAssignmentId, table.workflowSequence),
   ],
 );

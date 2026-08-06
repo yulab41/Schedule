@@ -33,6 +33,12 @@ export interface LaterAssignmentWorkflow {
   readonly kind: 'duty_adjustment' | 'swap';
 }
 
+export const activeAssignmentWorkflowStatuses = [
+  'pending_target',
+  'pending_approval',
+  'completed',
+] as const;
+
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
 
 export function getCurrentDutyMembershipId(assignment: LockedShiftAssignment): string | null {
@@ -271,7 +277,7 @@ export class WorkflowConflictService {
     transaction: DatabaseTransaction,
     groupId: string,
     assignmentId: string,
-    afterCreatedAt: Date,
+    afterWorkflowSequence: number,
     excludingDutyAdjustmentId?: string,
   ): Promise<readonly LaterAssignmentWorkflow[]> {
     const laterSwaps = await transaction
@@ -280,12 +286,12 @@ export class WorkflowConflictService {
       .where(
         and(
           eq(swapRequests.groupId, groupId),
-          inArray(swapRequests.status, ['pending_target', 'pending_approval', 'completed']),
+          inArray(swapRequests.status, [...activeAssignmentWorkflowStatuses]),
           or(
             eq(swapRequests.initiatorAssignmentId, assignmentId),
             eq(swapRequests.targetAssignmentId, assignmentId),
           ),
-          gt(swapRequests.createdAt, afterCreatedAt),
+          gt(swapRequests.workflowSequence, afterWorkflowSequence),
           isNull(swapRequests.deletedAt),
         ),
       );
@@ -295,9 +301,9 @@ export class WorkflowConflictService {
       .where(
         and(
           eq(dutyAdjustments.groupId, groupId),
-          inArray(dutyAdjustments.status, ['pending_target', 'pending_approval', 'completed']),
+          inArray(dutyAdjustments.status, [...activeAssignmentWorkflowStatuses]),
           eq(dutyAdjustments.coveredAssignmentId, assignmentId),
-          gt(dutyAdjustments.createdAt, afterCreatedAt),
+          gt(dutyAdjustments.workflowSequence, afterWorkflowSequence),
           isNull(dutyAdjustments.deletedAt),
           ...(excludingDutyAdjustmentId === undefined
             ? []

@@ -48,6 +48,8 @@ import {
   WorkflowConflictService,
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
+import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
+import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -80,10 +82,12 @@ export class DutyAdjustmentService {
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
   private readonly workflowConflictService = new WorkflowConflictService();
+  private readonly workflowSelfHealingService: WorkflowSelfHealingService;
   private readonly statisticsService: StatisticsService;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
     this.statisticsService = new StatisticsService(this.databaseClient);
+    this.workflowSelfHealingService = new WorkflowSelfHealingService(this.databaseClient);
   }
 
   public async preview(
@@ -457,6 +461,7 @@ export class DutyAdjustmentService {
     this.assertNoActiveWorkflows(context);
 
     const dutyAdjustmentId = randomUUID();
+    const workflowSequence = await allocateWorkflowSequence(transaction);
     const status = context.nextStatus;
     const decidedAt = status === 'completed' ? new Date() : null;
     await transaction.insert(dutyAdjustments).values({
@@ -470,6 +475,7 @@ export class DutyAdjustmentService {
       overtimeMembershipId: context.overtimeMember.id,
       ...(input.reason === undefined ? {} : { reason: input.reason }),
       status,
+      workflowSequence,
     });
     const createdEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
@@ -539,6 +545,10 @@ export class DutyAdjustmentService {
       );
     }
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      context.coveredAssignment.id,
+    ]);
+
     return this.readDutyAdjustment(transaction, dutyAdjustmentId);
   }
 
@@ -559,6 +569,7 @@ export class DutyAdjustmentService {
     this.assertNoActiveWorkflows(context);
 
     const dutyAdjustmentId = randomUUID();
+    const workflowSequence = await allocateWorkflowSequence(transaction);
     const decidedAt = new Date();
     await transaction.insert(dutyAdjustments).values({
       approverUserId: authorization.user.id,
@@ -571,6 +582,7 @@ export class DutyAdjustmentService {
       overtimeMembershipId: context.overtimeMember.id,
       ...(input.reason === undefined ? {} : { reason: input.reason }),
       status: 'completed',
+      workflowSequence,
     });
     const createdEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
@@ -609,6 +621,10 @@ export class DutyAdjustmentService {
       authorization.user.realName,
       authorization.user.id,
     );
+
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      context.coveredAssignment.id,
+    ]);
 
     return this.readDutyAdjustment(transaction, dutyAdjustmentId);
   }
@@ -728,6 +744,10 @@ export class DutyAdjustmentService {
         .where(eq(dutyAdjustments.id, request.id));
     }
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.coveredAssignmentId,
+    ]);
+
     return this.readDutyAdjustment(transaction, request.id);
   }
 
@@ -806,6 +826,10 @@ export class DutyAdjustmentService {
       authorization.user.id,
     );
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.coveredAssignmentId,
+    ]);
+
     return this.readDutyAdjustment(transaction, request.id);
   }
 
@@ -879,6 +903,10 @@ export class DutyAdjustmentService {
       title: '加扣班申请已驳回',
     });
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.coveredAssignmentId,
+    ]);
+
     return this.readDutyAdjustment(transaction, request.id);
   }
 
@@ -948,6 +976,10 @@ export class DutyAdjustmentService {
       scheduleEventId: cancelledEventId,
       title: '加扣班申请已取消',
     });
+
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.coveredAssignmentId,
+    ]);
 
     return this.readDutyAdjustment(transaction, request.id);
   }
@@ -1026,7 +1058,7 @@ export class DutyAdjustmentService {
       transaction,
       authorization.group.id,
       context.coveredAssignment.id,
-      request.createdAt,
+      request.workflowSequence,
       request.id,
     );
     if (laterWorkflows.length > 0) {
@@ -1117,7 +1149,25 @@ export class DutyAdjustmentService {
       context.period.businessMonth,
     );
 
+    await this.healStaleCompletedWorkflows(transaction, authorization, input.operationId, [
+      request.coveredAssignmentId,
+    ]);
+
     return this.readDutyAdjustment(transaction, request.id);
+  }
+
+  private async healStaleCompletedWorkflows(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    operationId: string,
+    assignmentIds: readonly string[],
+  ): Promise<void> {
+    await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+      actorUserId: authorization.user.id,
+      assignmentIds,
+      groupId: authorization.group.id,
+      operationId,
+    });
   }
 
   private async applyDutyAdjustment(

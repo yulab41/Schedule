@@ -176,6 +176,48 @@
       "when": 1785542400024,
       "tag": "0025_add_backfill_trace",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1785542400025,
+      "tag": "0026_create_workflow_sequence_allocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1785542400026,
+      "tag": "0027_add_swap_workflow_sequence",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1785542400027,
+      "tag": "0028_add_duty_adjustment_workflow_sequence",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1785542400028,
+      "tag": "0029_seed_workflow_sequence_allocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785542400029,
+      "tag": "0030_backfill_swap_workflow_sequence",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1785542400030,
+      "tag": "0031_backfill_duty_adjustment_workflow_sequence",
+      "breakpoints": true
     }
   ]
 }

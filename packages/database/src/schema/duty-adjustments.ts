@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   char,
   index,
   int,
@@ -24,6 +25,9 @@ export const dutyAdjustments = mysqlTable(
   {
     id: identifier(),
     groupId: char('group_id', { length: 36 }).notNull(),
+    workflowSequence: bigint('workflow_sequence', { mode: 'number', unsigned: true })
+      .default(0)
+      .notNull(),
     coveredAssignmentId: char('covered_assignment_id', { length: 36 }).notNull(),
     overtimeMembershipId: char('overtime_membership_id', { length: 36 }).notNull(),
     deductedMembershipId: char('deducted_membership_id', { length: 36 }).notNull(),
@@ -57,5 +61,9 @@ export const dutyAdjustments = mysqlTable(
     index('duty_adjustments_group_status_idx').on(table.groupId, table.status),
     index('duty_adjustments_overtime_status_idx').on(table.overtimeMembershipId, table.status),
     index('duty_adjustments_deducted_status_idx').on(table.deductedMembershipId, table.status),
+    index('duty_adjustments_covered_sequence_idx').on(
+      table.coveredAssignmentId,
+      table.workflowSequence,
+    ),
   ],
 );

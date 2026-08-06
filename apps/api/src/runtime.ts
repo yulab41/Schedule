@@ -8,6 +8,7 @@ import {
 import { createDevAuthPort } from './adapters/auth/dev-auth.js';
 import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
+import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
 
 interface RuntimeAppOptions {
   readonly cloudbaseHttpGateway?: boolean;
@@ -34,6 +35,14 @@ export function createRuntimeApp(
     ...(options.cloudbaseHttpGateway
       ? { readTrustedCloudbaseContext: readCloudbaseGatewayContext }
       : {}),
+  });
+
+  const workflowSelfHealingService = new WorkflowSelfHealingService(databaseClient);
+  void workflowSelfHealingService.runStartupSweep().catch((error: unknown) => {
+    app.log.error(
+      { error, event: 'startup_workflow_sweep_failed' },
+      'Startup stale workflow sweep failed.',
+    );
   });
 
   app.addHook('onClose', async () => databaseClient.close());

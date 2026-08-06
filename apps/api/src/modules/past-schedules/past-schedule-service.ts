@@ -31,13 +31,16 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
+import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
 
 export class PastScheduleService {
   private readonly permissionService = new GroupPermissionService();
   private readonly statisticsService: StatisticsService;
+  private readonly workflowSelfHealingService: WorkflowSelfHealingService;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
     this.statisticsService = new StatisticsService(this.databaseClient);
+    this.workflowSelfHealingService = new WorkflowSelfHealingService(this.databaseClient);
   }
 
   public async listPeriods(
@@ -289,6 +292,12 @@ export class PastScheduleService {
         authorization.group.id,
         `${assignment.businessDate.slice(0, 7)}-01`,
       );
+      await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+        actorUserId: authorization.user.id,
+        assignmentIds: [assignment.id],
+        groupId: authorization.group.id,
+        operationId: randomUUID(),
+      });
 
       return { assignment: toPastScheduleAssignment(updated) };
     });
@@ -428,6 +437,12 @@ export class PastScheduleService {
         authorization.group.id,
         `${input.businessDate.slice(0, 7)}-01`,
       );
+      await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+        actorUserId: authorization.user.id,
+        assignmentIds: [assignmentId],
+        groupId: authorization.group.id,
+        operationId: randomUUID(),
+      });
 
       return { assignment: toPastScheduleAssignment(updated) };
     });

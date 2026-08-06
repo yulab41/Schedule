@@ -274,6 +274,66 @@ describeWithDatabase('past schedule backfill', () => {
     expect(future.statusCode).toBe(409);
   });
 
+  it('auto-archives a stale completed duty adjustment when a past assignment is backfilled', async () => {
+    await publishMonth('2026-08');
+    const pastPeriodId = (await findPastPeriodId()) as string;
+    const pastAssignments = (
+      await listPastAssignments('owner-token', pastPeriodId)
+    ).json() as PastScheduleAssignment[];
+    const target = pastAssignments[0] as PastScheduleAssignment;
+    const plannedMemberId = target.plannedMemberId as string;
+    const overtimeMembershipId =
+      plannedMemberId === ownerMembershipId ? candidateMembershipId : ownerMembershipId;
+    const assignmentRows = (
+      await client.database.execute(
+        sql`SELECT version FROM shift_assignments WHERE id = ${target.assignmentId}`,
+      )
+    )[0] as unknown as readonly { version: number }[];
+    const sequenceRows = (
+      await client.database.execute(
+        sql`SELECT COALESCE(MAX(workflow_sequence), 0) AS sequence
+          FROM duty_adjustments`,
+      )
+    )[0] as unknown as readonly { sequence: number }[];
+    const nextWorkflowSequence = (sequenceRows[0]?.sequence ?? 0) + 1;
+
+    const dutyId = randomUUID();
+    await client.database.execute(
+      sql`INSERT INTO duty_adjustments (
+          id, group_id, covered_assignment_id, overtime_membership_id,
+          deducted_membership_id, assignment_version, status, workflow_sequence, decided_at
+        ) VALUES (
+          ${dutyId}, ${groupId}, ${target.assignmentId}, ${overtimeMembershipId},
+          ${plannedMemberId}, ${assignmentRows[0]?.version ?? 1}, 'completed',
+          ${nextWorkflowSequence}, NOW(3)
+        )`,
+    );
+
+    const covered = await updatePastAssignment('owner-token', pastPeriodId, target.assignmentId, {
+      actualMembershipId: overtimeMembershipId,
+      reason: '补录为代值人员',
+    });
+    expect(covered.statusCode, covered.body).toBe(200);
+
+    const reverted = await updatePastAssignment('owner-token', pastPeriodId, target.assignmentId, {
+      actualMembershipId: plannedMemberId,
+      reason: '改回计划人员触发自愈',
+    });
+    expect(reverted.statusCode, reverted.body).toBe(200);
+
+    const adjustmentRows = (
+      await client.database.execute(sql`SELECT status FROM duty_adjustments WHERE id = ${dutyId}`)
+    )[0] as unknown as readonly { status: string }[];
+    expect(adjustmentRows).toEqual([{ status: 'revoked' }]);
+
+    const [revokedEvents] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count
+          FROM schedule_events
+          WHERE object_id = ${dutyId} AND event_type = 'duty_adjustment_revoked'`,
+    );
+    expect(revokedEvents).toEqual([{ count: 1 }]);
+  });
+
   async function publishMonth(businessMonth: string): Promise<void> {
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -491,6 +551,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS duty_adjustments`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS workflow_sequence_allocations`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_deliveries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notifications`);
   await client.database.execute(sql`DROP TABLE IF EXISTS notification_preferences`);
