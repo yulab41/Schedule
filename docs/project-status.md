@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–56 已完成；fix-progress 轮次 1（#3.1）、2（#4.1）、3（#7.3）、4（#3.2）、5（#1.1）、6（#3.3）已完成；最新验证基线 436/436（65 个测试文件，隔离 MySQL）
-- Next actions: fix-progress 轮次 7 目标为 #3.4（AUTH_DEV_MODE 无 NODE_ENV 防线，显式双条件 + env schema，`.env.example` 开发模式开关随 #1.2 一并做）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
+- Debug rounds: 1–56 已完成；fix-progress 轮次 1（#3.1）、2（#4.1）、3（#7.3）、4（#3.2）、5（#1.1）、6（#3.3）、7（#3.4/#1.2）已完成；最新验证基线 440/440（66 个测试文件，隔离 MySQL）
+- Next actions: fix-progress 轮次 8 目标为 #7.5（event-timeline 死代码，删函数/字段/样式并同步 spec）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
@@ -28,6 +28,7 @@
 ## Completed Work（摘要）
 
 - 2026-08-06 fix-progress 轮次 6：收敛 #3.3 的任务分派静默兜底——`apps/api/src/jobs/runner.ts` 的 if 链 + 导出兜底改为 `Record<JobName, JobRunner>` 穷举映射表（新增 `JobName` 时 TypeScript 强制补充分支），`jobNames` 从映射表派生为单一来源，`runJob` 只做映射查找；新增 `runner.spec.ts` 2 条映射一致性锁定测试；`pnpm verify` 436/436 通过。
+- 2026-08-06 fix-progress 轮次 7：收敛 #3.4/#1.2 的开发认证环境防线——`apps/api/src/config/env.ts` 正式/测试 schema 新增 `AUTH_DEV_MODE: z.enum(['true', 'false']).default('false')`；`apps/api/src/runtime.ts` 新增 `isDevAuthEnabled`（`NODE_ENV === 'development' && AUTH_DEV_MODE === 'true'`）替换裸 `process.env` 检查；`.env.example` 补 `VITE_AUTH_DEV_MODE`/`AUTH_DEV_MODE` 两个本地开关并注明禁止上线，`docs/development/local-setup.md` 补本地开发认证说明；新增 4 条锁定测试；`pnpm verify` 440/440 通过。
 - 2026-08-06 fix-progress 轮次 4：收敛 #3.2 的日志/审计脱敏双份清单——新增 `apps/api/src/security/redact.ts` 共享模块（唯一敏感字段清单、`logRedactionPaths`、递归脱敏），`app.ts` 与 `audit-writer.ts` 删除各自清单与实现并统一引用（日志补上 `telephone`）；新增 6 条共享模块单元测试，日志/审计两端一致性测试扩展至完整字段；`pnpm verify` 434/434 通过。
 - 2026-08-06 fix-progress 轮次 5：收敛 #1.1 的文档过期/自相矛盾——重写 `docs/debug/debug-feedback-log.md`“待办 / 下一步”（删除“既往排班模块未实现”“Fastify 415 待排查”等已解决条目，上线状态改为“迁移与部署已执行、仅剩余额阻塞”，保留 #4.5 待用户确认的登记）；`docs/project-status.md` 轮次范围 1–49 → 1–56，当前批次与下一步同步更新；纯文档修改，`pnpm verify` 434/434 通过。
 - 2026-08-06 fix-progress 轮次 3：收敛 #7.3 的中国时区算法——领域包导出唯一 `chinaStandardTimeOffsetMilliseconds` 与 `toChinaStandardTimeUtcTimestamp`，web 新增 `@schedule/scheduling-domain` 依赖，9 个前端文件删除重复常量/裸魔法数并改用领域函数（calendar-logic/calendar-views 保留薄包装），StatisticsView/ExportDialog/ManualScheduleView 三个视图裸写随本轮一并替换（#8.2 视为完成）；新增 1 条 UTC 换算锁定测试；`pnpm verify` 428/428 通过。
@@ -56,6 +57,7 @@
 
 ## Active Batch
 
+- fix-progress 轮次 7（#3.4/#1.2）已完成：AUTH_DEV_MODE 纳入 env schema（严格 `'true'`/`'false'` 默认 false），runtime 显式双条件（`NODE_ENV=development` 且开关开启）才启用任意 Bearer 认证端口，`.env.example` 补两个本地开关并同步本地文档；新增 4 条锁定测试，`pnpm verify` 440/440 通过；下一活动批次为 fix-progress 轮次 8（#7.5）。
 - fix-progress 轮次 4（#3.2）已完成：日志/审计敏感字段清单与脱敏实现合并为 `apps/api/src/security/redact.ts` 共享模块（`redactSensitiveFields` + 派生 `logRedactionPaths`），日志补上 `telephone`，两端一致性测试覆盖完整字段；下一活动批次为 fix-progress 轮次 5（#1.1）。
 - fix-progress 轮次 5（#1.1）已完成：以当前代码与 Git 历史为准重写 debug 日志“待办 / 下一步”与 project-status 轮次/批次表述，删除已解决条目（既往排班模块、Fastify 415），保留 #4.5“仅未来日期发布”登记；纯文档修改，一致性核对通过；下一活动批次为 fix-progress 轮次 6（#3.3）。
 - fix-progress 轮次 6（#3.3）已完成：任务分派从 if 链 + 导出兜底改为 `Record<JobName, JobRunner>` 穷举映射（新增任务名时编译期强制补充分支），`jobNames` 由映射表派生，`runJob` 删除静默兜底；新增 2 条映射一致性锁定测试，`pnpm verify` 436/436 通过；下一活动批次为 fix-progress 轮次 7（#3.4）。
@@ -73,7 +75,7 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：fix-progress 轮次 7 处理 P1 #3.4（AUTH_DEV_MODE 无 NODE_ENV 防线，显式双条件 + env schema；`.env.example` 开发模式开关随 #1.2 一并做）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
+- 下一活动批次：fix-progress 轮次 8 处理 P1 #7.5（event-timeline 死代码，删函数/字段/样式并同步 spec）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
 - 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
 - 停止条件：上线健康检查通过且用户验收完成。
 

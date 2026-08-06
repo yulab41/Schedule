@@ -6,7 +6,7 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，无已跟踪改动（用户未跟踪文件见下）。
-- 当前测试基线：`pnpm verify` 434/434（64 个测试文件，隔离 MySQL，轮次 5 后）。
+- 当前测试基线：`pnpm verify` 440/440（66 个测试文件，隔离 MySQL，轮次 7 后）。
 - 轮次 5 开始时工作区仍含用户未跟踪文件（`.dockerignore`、`docs/deployment/aliyun-ecs.md`、`infra/docker/*`），不属于本轮任务，未纳入提交。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
@@ -52,7 +52,7 @@
 | ✅ | #3.2 | 日志/审计脱敏清单双份且已漂移 | 严重 | 低 | 高（安全控制） | 已完成（轮次 4）：合并为共享脱敏模块，见第 7 节 |
 | ✅ | #1.1 | 文档过期/自相矛盾（待办、轮次、415） | 轻微 | 零 | 中 | 已完成（轮次 5）：重写待办/下一步与轮次表述，见第 7 节 |
 | ✅ | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | 已完成（轮次 6）：`Record<JobName, Factory>` 穷举映射 + 锁定测试，见第 7 节 |
-| P1 | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 显式双条件 + env schema |
+| ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | P1 | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 删函数/字段/样式并同步 spec |
 | P1 | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 单一来源生成 |
 | P2 | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 必须拆子步骤，见第 4 节 |
@@ -72,7 +72,7 @@
 | P3 | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | schema 元数据生成或外键级联 |
 | P3 | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 记录失败上下文 |
 | P3 | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 合并带可选截止日期 |
-| P3 | #1.2 | .env.example 缺开发模式开关 | 轻微 | 零 | 低 | 随 #3.4 一并做 |
+| ✅ | #1.2 | .env.example 缺开发模式开关 | 轻微 | 零 | 低 | 已完成（轮次 7）：随 #3.4 一并补两个开关项，见第 7 节 |
 | P3 | #1.3 | 工作区残留（空目录/日志/构建产物） | 轻微 | 零 | 低 | 清理命令，不入库 |
 | P3 | #9.3 | 加载/安全测试直写 DB 与 stub 认证 | 轻微 | 低 | 低 | 复用 database schema 与 API 入口 |
 
@@ -95,6 +95,7 @@
 问题：本地 `.env` 使用 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true`，但 `.env.example` 没有任何说明，新环境无法复现本地开发配置；而 `AUTH_DEV_MODE` 又没有进后端 `env.ts` 的 schema（见 3.4），属于“只存在于运行时魔法字符串”的配置。
 严重等级：轻微
 建议：在 `.env.example` 补两个开关项，并在 `env.ts` 中用 `z.literal`/`z.enum` 声明它。
+> 完成情况（轮次 7，2026-08-06）：已在 `.env.example` 补 `VITE_AUTH_DEV_MODE=false` / `AUTH_DEV_MODE=false` 两个开关项并注明本地专用、禁止上线；`docs/development/local-setup.md` 增加本地开发认证说明；后端 `AUTH_DEV_MODE` 已纳入 `env.ts` schema（见 3.4）。本条目中的行号为审查时快照，修改后已过期。
 
 **1.3 工作区残留产物（未入库）**
 位置：`cloudfunctions/auth-identity-probe`（空目录）；`infra/cloudbase/functions/*/index.js`（约 10 万行/5 万行打包产物）；`local-api*.log`、`local-web*.log`；`tests/load/node_modules`、`tests/security/node_modules`、`infra/scripts/node_modules`、`packages/database/dist` 等
@@ -158,6 +159,7 @@
 问题：`process.env.AUTH_DEV_MODE === 'true'` 直接选择“任意 Bearer token 即身份”的认证端口，没有 `NODE_ENV !== 'production'` 防线，也没有 schema 校验。当前 CloudBase 网关路径恰好绕开了它，但这是一个“一旦重构路由就可能上线”的隐形后门。
 严重等级：轻微
 建议：显式加 `NODE_ENV === 'development'` 双条件，并把该变量纳入 `env.ts` 校验。
+> 完成情况（轮次 7，2026-08-06）：已在 `env.ts` 的正式/测试 schema 增加 `AUTH_DEV_MODE: z.enum(['true', 'false']).default('false')`；`runtime.ts` 新增 `isDevAuthEnabled` 显式双条件（`NODE_ENV === 'development' && AUTH_DEV_MODE === 'true'`），`createRuntimeApp` 只读校验后的环境值，不再直接碰 `process.env`；新增 1 条 schema 严格布尔字符串校验 + 3 条防线锁定测试（缺省/关闭不开、production/test 即使开启也不开）；`pnpm verify` 440/440 通过。本条目中的行号为审查时快照，修改后已过期。
 
 **3.5 幂等键插入用宽泛 catch 当重复键判断**
 位置：[idempotency.ts (line 34)](E:/AItools/Schedule/apps/api/src/plugins/idempotency.ts:34)（34–52 行）
@@ -509,3 +511,20 @@
 3. 映射工厂在 `runJob` 调用时才构造处理器（与旧 if 链一致，惰性构造不变）；新增需要不同构造参数的任务时，只需扩展 `JobRunner` 签名与该任务的分支。
 
 下次计划：#3.4（AUTH_DEV_MODE 无 NODE_ENV 防线，显式双条件 + env schema；`#1.2` 的 `.env.example` 开发模式开关随本轮一并做）
+
+### 轮次 7 – 2026-08-06
+
+目标：#3.4 给 AUTH_DEV_MODE 加 `NODE_ENV=development` 显式防线并纳入 env schema；随带 #1.2 补 `.env.example` 开发模式开关。
+
+修改文件：`apps/api/src/config/env.ts`（`environmentSchema`/`testEnvironmentSchema` 新增 `AUTH_DEV_MODE: z.enum(['true', 'false']).default('false')`，测试分支同步返回）；`apps/api/src/runtime.ts`（新增 `isDevAuthEnabled` 纯函数：`NODE_ENV === 'development' && AUTH_DEV_MODE === 'true'`，替换裸 `process.env` 检查）；新增 `apps/api/src/runtime.spec.ts`（3 条防线锁定测试：development+true 开启、缺省/关闭不开、production/test 即使开启也不开）；`apps/api/src/config/env.test.ts`（新增 1 条 schema 严格布尔字符串校验）；`.env.example`（补 `VITE_AUTH_DEV_MODE=false`/`AUTH_DEV_MODE=false` 并注明本地专用、禁止上线）；`docs/development/local-setup.md`（新增本地开发认证说明）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 440/440 ✅（66 个测试文件，隔离 MySQL；新增 4 条：1 条 env schema + 3 条防线）
+
+提交：3ab05a6，推送结果见对话回复
+
+不确定点：
+1. 防线采用审计建议的严格 `NODE_ENV === 'development'`（而非 `!== 'production'`）：若未来需要在 `NODE_ENV=test` 的本地验收进程里使用开发认证，需要显式放开——出错症状是 test 模式下本地登录按钮仍出现但 API 返回 401（被 CloudBase 认证端口拒绝）。
+2. `AUTH_DEV_MODE` 已进入 `testEnvironmentSchema` 且默认 false：测试进程即使误设 true 也不会启用开发认证，符合防线语义；若未来测试需要它，需改防线本身。
+3. `.env.example` 仅作文档/模板，Vite 与 API 只读 `.env`；新环境从模板复制后不会自动获得 true 开关——出错症状是新本地环境没有“本地管理员/本地成员”按钮，属预期默认安全。
+
+下次计划：#7.5（event-timeline 死代码，删函数/字段/样式并同步 spec）
