@@ -1,6 +1,8 @@
 import type {
   AppliedManualScheduleTemplateResult,
   CalendarReadModel,
+  DutyAdjustmentPreview,
+  DutyAdjustmentRequest,
   GroupMember,
   GroupMemberContact,
   GroupSummary,
@@ -16,6 +18,9 @@ import type {
   ScheduleGenerationPreview,
   SchedulePeriodHistoryItem,
   ScheduleRole,
+  SwapAssignmentSummary,
+  SwapPreview,
+  SwapRequest,
   SchedulingConfig,
   ShiftType,
   ScheduleWorkflowImpact,
@@ -267,6 +272,72 @@ const pastScheduleBackfillRecord: PastScheduleBackfillRecord = {
   operatorName: '张医生',
   shiftTypeAbbreviation: '全',
   shiftTypeName: '全天班',
+};
+
+const swapAssignment: SwapAssignmentSummary = {
+  assignmentId: 'assignment-1',
+  businessDate: '2026-08-01',
+  endsAt: '2026-08-02T00:00:00.000Z',
+  scheduleRoleId: 'role-1',
+  scheduleRoleName: '一线',
+  shiftTypeAbbreviation: '全',
+  shiftTypeColor: '#1F5AA6',
+  shiftTypeId: 'shift-1',
+  shiftTypeName: '全天班',
+  shiftTypeTextColor: '#FFFFFF',
+  slotPosition: 1,
+  startsAt: '2026-07-31T16:00:00.000Z',
+  version: 1,
+};
+
+const swapPreview: SwapPreview = {
+  conflicts: [],
+  groupId: 'group-1',
+  initiatorAssignment: swapAssignment,
+  initiatorEligibleForTargetShift: true,
+  nextStatus: 'pending_target',
+  requiresApproval: false,
+  targetAssignment: { ...swapAssignment, assignmentId: 'assignment-2' },
+  targetAutoAccepts: true,
+  targetEligibleForInitiatorShift: true,
+};
+
+const swapRequest: SwapRequest = {
+  createdAt: '2026-08-01T00:00:00.000Z',
+  groupId: 'group-1',
+  id: 'swap-1',
+  initiatorAssignment: swapAssignment,
+  initiatorAssignmentId: 'assignment-1',
+  initiatorAssignmentVersion: 1,
+  initiatorMembershipId: 'membership-1',
+  status: 'pending_target',
+  targetAssignment: { ...swapAssignment, assignmentId: 'assignment-2' },
+  targetAssignmentId: 'assignment-2',
+  targetAssignmentVersion: 1,
+  targetMembershipId: 'membership-2',
+  version: 1,
+};
+
+const dutyAdjustmentPreview: DutyAdjustmentPreview = {
+  conflicts: [],
+  coveredAssignment: { ...swapAssignment },
+  groupId: 'group-1',
+  nextStatus: 'pending_target',
+  overtimeAutoAccepts: true,
+  requiresApproval: false,
+};
+
+const dutyAdjustmentRequest: DutyAdjustmentRequest = {
+  assignmentVersion: 1,
+  coveredAssignment: { ...swapAssignment },
+  coveredAssignmentId: 'assignment-1',
+  createdAt: '2026-08-01T00:00:00.000Z',
+  deductedMembershipId: 'membership-1',
+  groupId: 'group-1',
+  id: 'duty-1',
+  overtimeMembershipId: 'membership-2',
+  status: 'pending_target',
+  version: 1,
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -1288,6 +1359,242 @@ describe('Web API client', () => {
         { actualMembershipId: 'membership-2' },
       ),
     ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a swap preview with an unknown conflict code', async () => {
+    const invalidPreview = {
+      ...swapPreview,
+      conflicts: [{ code: 'UNKNOWN', membershipId: 'membership-1', message: '冲突' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewSwap(group.id, {
+        initiatorAssignmentId: 'assignment-1',
+        targetAssignmentId: 'assignment-2',
+        targetMembershipId: 'membership-2',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a swap preview whose assignment has a non-integer version', async () => {
+    const invalidPreview = {
+      ...swapPreview,
+      initiatorAssignment: { ...swapAssignment, version: 1.5 },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewSwap(group.id, {
+        initiatorAssignmentId: 'assignment-1',
+        targetAssignmentId: 'assignment-2',
+        targetMembershipId: 'membership-2',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a swap preview whose assignment has a malformed shift type color', async () => {
+    const invalidPreview = {
+      ...swapPreview,
+      targetAssignment: { ...swapAssignment, assignmentId: 'assignment-2', shiftTypeColor: 'blue' },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewSwap(group.id, {
+        initiatorAssignmentId: 'assignment-1',
+        targetAssignmentId: 'assignment-2',
+        targetMembershipId: 'membership-2',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a swap request with an unknown status', async () => {
+    const invalidRequest = { ...swapRequest, status: 'unknown' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidRequest]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listMySwapRequests(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a swap request with an empty target assignment id', async () => {
+    const invalidRequest = { ...swapRequest, targetAssignmentId: '' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidRequest]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listSwapApprovals(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects group swap settings with a non-boolean requiresApproval', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ requiresApproval: 'yes' }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getGroupSwapSettings(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects member swap settings with a non-boolean autoAcceptSwaps', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ autoAcceptSwaps: 'yes' }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMySwapSettings(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a duty adjustment preview with an unknown status', async () => {
+    const invalidPreview = { ...dutyAdjustmentPreview, nextStatus: 'unknown' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewDutyAdjustment(group.id, {
+        coveredAssignmentId: 'assignment-1',
+        overtimeMembershipId: 'membership-2',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a duty adjustment conflict with an unknown code', async () => {
+    const invalidPreview = {
+      ...dutyAdjustmentPreview,
+      conflicts: [{ code: 'UNKNOWN', membershipId: 'membership-1', message: '冲突' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewDutyAdjustment(group.id, {
+        coveredAssignmentId: 'assignment-1',
+        overtimeMembershipId: 'membership-2',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a duty adjustment request with a non-integer assignment version', async () => {
+    const invalidRequest = { ...dutyAdjustmentRequest, assignmentVersion: 1.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidRequest]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listMyDutyAdjustments(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a duty adjustment request whose covered assignment has a zero slot position', async () => {
+    const invalidRequest = {
+      ...dutyAdjustmentRequest,
+      coveredAssignment: { ...swapAssignment, slotPosition: 0 },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidRequest]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listDutyAdjustmentApprovals(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects group duty adjustment settings with a non-boolean requiresApproval', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ requiresApproval: 'yes' }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getGroupDutyAdjustmentSettings(group.id)).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });

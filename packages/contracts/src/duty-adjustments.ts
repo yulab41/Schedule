@@ -1,50 +1,70 @@
-export type DutyAdjustmentStatus =
-  'pending_target' | 'pending_approval' | 'completed' | 'rejected' | 'cancelled' | 'revoked';
+import { z } from 'zod';
 
-export type DutyAdjustmentConflictCode =
-  | 'MEMBER_LEAVE_OVERLAP'
-  | 'MEMBER_NOT_ELIGIBLE'
-  | 'MEMBER_TIME_OVERLAP'
-  | 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST'
-  | 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT';
+export const dutyAdjustmentStatusSchema = z.enum([
+  'pending_target',
+  'pending_approval',
+  'completed',
+  'rejected',
+  'cancelled',
+  'revoked',
+]);
+export type DutyAdjustmentStatus = z.infer<typeof dutyAdjustmentStatusSchema>;
 
-export interface DutyAdjustmentAssignmentSummary {
-  readonly actualMemberId?: string;
-  readonly actualMemberName?: string;
-  readonly assignmentId: string;
-  readonly businessDate: string;
-  readonly endsAt: string;
-  readonly plannedMemberId?: string;
-  readonly plannedMemberName?: string;
-  readonly scheduleRoleId: string;
-  readonly scheduleRoleName: string;
-  readonly shiftTypeAbbreviation: string;
-  readonly shiftTypeColor: string;
-  readonly shiftTypeId: string;
-  readonly shiftTypeName: string;
-  readonly shiftTypeTextColor: string;
-  readonly slotPosition: number;
-  readonly startsAt: string;
-  readonly version: number;
-}
+export const dutyAdjustmentConflictCodeSchema = z.enum([
+  'MEMBER_LEAVE_OVERLAP',
+  'MEMBER_NOT_ELIGIBLE',
+  'MEMBER_TIME_OVERLAP',
+  'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST',
+  'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT',
+]);
+export type DutyAdjustmentConflictCode = z.infer<typeof dutyAdjustmentConflictCodeSchema>;
 
-export interface DutyAdjustmentConflict {
-  readonly assignmentId?: string;
-  readonly code: DutyAdjustmentConflictCode;
-  readonly membershipId: string;
-  readonly message: string;
-}
+export const dutyAdjustmentAssignmentSummarySchema = z
+  .object({
+    actualMemberId: z.string().optional(),
+    actualMemberName: z.string().optional(),
+    assignmentId: z.string().min(1),
+    businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    endsAt: z.string(),
+    plannedMemberId: z.string().optional(),
+    plannedMemberName: z.string().optional(),
+    scheduleRoleId: z.string().min(1),
+    scheduleRoleName: z.string(),
+    shiftTypeAbbreviation: z.string().min(1),
+    shiftTypeColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    shiftTypeId: z.string().min(1),
+    shiftTypeName: z.string().min(1),
+    shiftTypeTextColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    slotPosition: z.number().int().min(1),
+    startsAt: z.string(),
+    version: z.number().int().min(1),
+  })
+  .passthrough();
+export type DutyAdjustmentAssignmentSummary = z.infer<typeof dutyAdjustmentAssignmentSummarySchema>;
 
-export interface DutyAdjustmentPreview {
-  readonly conflicts: readonly DutyAdjustmentConflict[];
-  readonly coveredAssignment: DutyAdjustmentAssignmentSummary;
-  readonly deductedMemberName?: string;
-  readonly groupId: string;
-  readonly nextStatus: DutyAdjustmentStatus;
-  readonly overtimeAutoAccepts: boolean;
-  readonly overtimeMemberName?: string;
-  readonly requiresApproval: boolean;
-}
+export const dutyAdjustmentConflictSchema = z
+  .object({
+    assignmentId: z.string().optional(),
+    code: dutyAdjustmentConflictCodeSchema,
+    membershipId: z.string().min(1),
+    message: z.string(),
+  })
+  .passthrough();
+export type DutyAdjustmentConflict = z.infer<typeof dutyAdjustmentConflictSchema>;
+
+export const dutyAdjustmentPreviewSchema = z
+  .object({
+    conflicts: z.readonly(z.array(dutyAdjustmentConflictSchema)),
+    coveredAssignment: dutyAdjustmentAssignmentSummarySchema,
+    deductedMemberName: z.string().optional(),
+    groupId: z.string().min(1),
+    nextStatus: dutyAdjustmentStatusSchema,
+    overtimeAutoAccepts: z.boolean(),
+    overtimeMemberName: z.string().optional(),
+    requiresApproval: z.boolean(),
+  })
+  .passthrough();
+export type DutyAdjustmentPreview = z.infer<typeof dutyAdjustmentPreviewSchema>;
 
 export interface DutyAdjustmentPairInput {
   readonly coveredAssignmentId: string;
@@ -61,27 +81,31 @@ export interface CreateDirectDutyAdjustmentInput extends DutyAdjustmentPairInput
   readonly reason?: string;
 }
 
-export interface DutyAdjustmentRequest {
-  readonly approverUserId?: string;
-  readonly assignmentVersion: number;
-  readonly coveredAssignment: DutyAdjustmentAssignmentSummary;
-  readonly coveredAssignmentId: string;
-  readonly createdAt: string;
-  readonly decidedByMemberName?: string;
-  readonly decidedAt?: string;
-  readonly deductedMemberName?: string;
-  readonly deductedMembershipId: string;
-  readonly groupId: string;
-  readonly id: string;
-  readonly isRevocable?: boolean;
-  readonly overtimeMemberName?: string;
-  readonly overtimeMembershipId: string;
-  readonly reason?: string;
-  readonly revocationBlockedReason?: string;
-  readonly revocationReason?: string;
-  readonly status: DutyAdjustmentStatus;
-  readonly version: number;
-}
+export const dutyAdjustmentRequestSchema = z
+  .object({
+    approverUserId: z.string().optional(),
+    assignmentVersion: z.number().int(),
+    coveredAssignment: dutyAdjustmentAssignmentSummarySchema,
+    coveredAssignmentId: z.string().min(1),
+    createdAt: z.string(),
+    decidedByMemberName: z.string().optional(),
+    decidedAt: z.string().optional(),
+    deductedMemberName: z.string().optional(),
+    deductedMembershipId: z.string().min(1),
+    groupId: z.string().min(1),
+    id: z.string().min(1),
+    isRevocable: z.boolean().optional(),
+    overtimeMemberName: z.string().optional(),
+    overtimeMembershipId: z.string().min(1),
+    reason: z.string().optional(),
+    revocationBlockedReason: z.string().optional(),
+    revocationReason: z.string().optional(),
+    status: dutyAdjustmentStatusSchema,
+    version: z.number().int().min(1),
+  })
+  .passthrough();
+export type DutyAdjustmentRequest = z.infer<typeof dutyAdjustmentRequestSchema>;
+export const dutyAdjustmentRequestListSchema = z.array(dutyAdjustmentRequestSchema);
 
 export interface DutyAdjustmentMutationInput {
   readonly expectedVersion: number;
@@ -92,9 +116,12 @@ export interface RevokeDutyAdjustmentInput extends DutyAdjustmentMutationInput {
   readonly reason?: string;
 }
 
-export interface GroupDutyAdjustmentSettings {
-  readonly requiresApproval: boolean;
-}
+export const groupDutyAdjustmentSettingsSchema = z
+  .object({
+    requiresApproval: z.boolean(),
+  })
+  .passthrough();
+export type GroupDutyAdjustmentSettings = z.infer<typeof groupDutyAdjustmentSettingsSchema>;
 
 export interface UpdateGroupDutyAdjustmentSettingsInput {
   readonly requiresApproval: boolean;

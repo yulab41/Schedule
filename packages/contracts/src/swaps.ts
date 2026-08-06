@@ -1,51 +1,71 @@
-export type SwapRequestStatus =
-  'pending_target' | 'pending_approval' | 'completed' | 'rejected' | 'cancelled' | 'revoked';
+import { z } from 'zod';
 
-export type SwapConflictCode =
-  | 'MEMBER_LEAVE_OVERLAP'
-  | 'MEMBER_NOT_ELIGIBLE'
-  | 'MEMBER_TIME_OVERLAP'
-  | 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST'
-  | 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT';
+export const swapRequestStatusSchema = z.enum([
+  'pending_target',
+  'pending_approval',
+  'completed',
+  'rejected',
+  'cancelled',
+  'revoked',
+]);
+export type SwapRequestStatus = z.infer<typeof swapRequestStatusSchema>;
 
-export interface SwapAssignmentSummary {
-  readonly actualMemberId?: string;
-  readonly actualMemberName?: string;
-  readonly assignmentId: string;
-  readonly businessDate: string;
-  readonly endsAt: string;
-  readonly plannedMemberId?: string;
-  readonly plannedMemberName?: string;
-  readonly scheduleRoleId: string;
-  readonly scheduleRoleName: string;
-  readonly shiftTypeAbbreviation: string;
-  readonly shiftTypeColor: string;
-  readonly shiftTypeId: string;
-  readonly shiftTypeName: string;
-  readonly shiftTypeTextColor: string;
-  readonly slotPosition: number;
-  readonly startsAt: string;
-  readonly version: number;
-}
+export const swapConflictCodeSchema = z.enum([
+  'MEMBER_LEAVE_OVERLAP',
+  'MEMBER_NOT_ELIGIBLE',
+  'MEMBER_TIME_OVERLAP',
+  'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST',
+  'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT',
+]);
+export type SwapConflictCode = z.infer<typeof swapConflictCodeSchema>;
 
-export interface SwapConflict {
-  readonly assignmentId?: string;
-  readonly code: SwapConflictCode;
-  readonly membershipId: string;
-  readonly message: string;
-}
+export const swapAssignmentSummarySchema = z
+  .object({
+    actualMemberId: z.string().optional(),
+    actualMemberName: z.string().optional(),
+    assignmentId: z.string().min(1),
+    businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    endsAt: z.string(),
+    plannedMemberId: z.string().optional(),
+    plannedMemberName: z.string().optional(),
+    scheduleRoleId: z.string().min(1),
+    scheduleRoleName: z.string(),
+    shiftTypeAbbreviation: z.string().min(1),
+    shiftTypeColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    shiftTypeId: z.string().min(1),
+    shiftTypeName: z.string().min(1),
+    shiftTypeTextColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    slotPosition: z.number().int().min(1),
+    startsAt: z.string(),
+    version: z.number().int().min(1),
+  })
+  .passthrough();
+export type SwapAssignmentSummary = z.infer<typeof swapAssignmentSummarySchema>;
 
-export interface SwapPreview {
-  readonly conflicts: readonly SwapConflict[];
-  readonly groupId: string;
-  readonly initiatorAssignment: SwapAssignmentSummary;
-  readonly initiatorEligibleForTargetShift: boolean;
-  readonly nextStatus: SwapRequestStatus;
-  readonly requiresApproval: boolean;
-  readonly targetAssignment: SwapAssignmentSummary;
-  readonly targetAutoAccepts: boolean;
-  readonly targetEligibleForInitiatorShift: boolean;
-}
+export const swapConflictSchema = z
+  .object({
+    assignmentId: z.string().optional(),
+    code: swapConflictCodeSchema,
+    membershipId: z.string().min(1),
+    message: z.string(),
+  })
+  .passthrough();
+export type SwapConflict = z.infer<typeof swapConflictSchema>;
+
+export const swapPreviewSchema = z
+  .object({
+    conflicts: z.readonly(z.array(swapConflictSchema)),
+    groupId: z.string().min(1),
+    initiatorAssignment: swapAssignmentSummarySchema,
+    initiatorEligibleForTargetShift: z.boolean(),
+    nextStatus: swapRequestStatusSchema,
+    requiresApproval: z.boolean(),
+    targetAssignment: swapAssignmentSummarySchema,
+    targetAutoAccepts: z.boolean(),
+    targetEligibleForInitiatorShift: z.boolean(),
+  })
+  .passthrough();
+export type SwapPreview = z.infer<typeof swapPreviewSchema>;
 
 export interface SwapPairInput {
   readonly initiatorAssignmentId: string;
@@ -64,29 +84,33 @@ export interface CreateDirectSwapInput {
   readonly targetAssignmentId: string;
 }
 
-export interface SwapRequest {
-  readonly approverUserId?: string;
-  readonly createdAt: string;
-  readonly decidedByMemberName?: string;
-  readonly decidedAt?: string;
-  readonly groupId: string;
-  readonly id: string;
-  readonly initiatorAssignment: SwapAssignmentSummary;
-  readonly initiatorAssignmentId: string;
-  readonly initiatorAssignmentVersion: number;
-  readonly initiatorMemberName?: string;
-  readonly initiatorMembershipId: string;
-  readonly isRevocable?: boolean;
-  readonly revocationBlockedReason?: string;
-  readonly revocationReason?: string;
-  readonly status: SwapRequestStatus;
-  readonly targetAssignment: SwapAssignmentSummary;
-  readonly targetAssignmentId: string;
-  readonly targetAssignmentVersion: number;
-  readonly targetMemberName?: string;
-  readonly targetMembershipId: string;
-  readonly version: number;
-}
+export const swapRequestSchema = z
+  .object({
+    approverUserId: z.string().optional(),
+    createdAt: z.string(),
+    decidedByMemberName: z.string().optional(),
+    decidedAt: z.string().optional(),
+    groupId: z.string().min(1),
+    id: z.string().min(1),
+    initiatorAssignment: swapAssignmentSummarySchema,
+    initiatorAssignmentId: z.string().min(1),
+    initiatorAssignmentVersion: z.number().int(),
+    initiatorMemberName: z.string().optional(),
+    initiatorMembershipId: z.string().min(1),
+    isRevocable: z.boolean().optional(),
+    revocationBlockedReason: z.string().optional(),
+    revocationReason: z.string().optional(),
+    status: swapRequestStatusSchema,
+    targetAssignment: swapAssignmentSummarySchema,
+    targetAssignmentId: z.string().min(1),
+    targetAssignmentVersion: z.number().int(),
+    targetMemberName: z.string().optional(),
+    targetMembershipId: z.string().min(1),
+    version: z.number().int().min(1),
+  })
+  .passthrough();
+export type SwapRequest = z.infer<typeof swapRequestSchema>;
+export const swapRequestListSchema = z.array(swapRequestSchema);
 
 export interface SwapRequestMutationInput {
   readonly expectedVersion: number;
@@ -97,17 +121,23 @@ export interface RevokeSwapRequestInput extends SwapRequestMutationInput {
   readonly reason?: string;
 }
 
-export interface GroupSwapSettings {
-  readonly requiresApproval: boolean;
-}
+export const groupSwapSettingsSchema = z
+  .object({
+    requiresApproval: z.boolean(),
+  })
+  .passthrough();
+export type GroupSwapSettings = z.infer<typeof groupSwapSettingsSchema>;
 
 export interface UpdateGroupSwapSettingsInput {
   readonly requiresApproval: boolean;
 }
 
-export interface MemberSwapSettings {
-  readonly autoAcceptSwaps: boolean;
-}
+export const memberSwapSettingsSchema = z
+  .object({
+    autoAcceptSwaps: z.boolean(),
+  })
+  .passthrough();
+export type MemberSwapSettings = z.infer<typeof memberSwapSettingsSchema>;
 
 export interface UpdateMemberSwapSettingsInput {
   readonly autoAcceptSwaps: boolean;

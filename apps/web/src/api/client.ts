@@ -117,19 +117,25 @@ import {
   claimGroupResponseSchema,
   convertPendingRosterResponseSchema,
   createMembershipClaimResponseSchema,
+  dutyAdjustmentPreviewSchema,
+  dutyAdjustmentRequestListSchema,
+  dutyAdjustmentRequestSchema,
   guestCalendarReadModelSchema,
   guestGroupSummaryListSchema,
+  groupDutyAdjustmentSettingsSchema,
   groupMemberContactListSchema,
   groupMemberContactSchema,
   groupMemberListSchema,
   groupMemberSchema,
   groupSchedulePublishModeSchema,
+  groupSwapSettingsSchema,
   groupSummaryListSchema,
   groupSummarySchema,
   holidayReadModelSchema,
   membershipClaimLookupResponseSchema,
   membershipClaimRequestListSchema,
   membershipClaimRequestSchema,
+  memberSwapSettingsSchema,
   pastScheduleAssignmentListSchema,
   pastScheduleBackfillRecordListSchema,
   pastSchedulePeriodListSchema,
@@ -144,6 +150,9 @@ import {
   schedulePeriodMutationResultSchema,
   schedulingConfigSchema,
   shiftTypeSchema,
+  swapPreviewSchema,
+  swapRequestListSchema,
+  swapRequestSchema,
   updatePastScheduleAssignmentResultSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
@@ -765,7 +774,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentRequest,
+        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
       );
     },
     acceptSwapRequest(groupId, swapRequestId, input) {
@@ -778,7 +787,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapRequest,
+        isResponseBodyFromSchema(swapRequestSchema),
       );
     },
     applyManualTemplate(groupId, templateId, input) {
@@ -817,7 +826,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentRequest,
+        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
       );
     },
     approveSwapRequest(groupId, swapRequestId, input) {
@@ -830,7 +839,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapRequest,
+        isResponseBodyFromSchema(swapRequestSchema),
       );
     },
     addRosterEntries(groupId, input) {
@@ -895,7 +904,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapRequest,
+        isResponseBodyFromSchema(swapRequestSchema),
       );
     },
     cancelDutyAdjustment(groupId, dutyAdjustmentId, input) {
@@ -908,7 +917,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentRequest,
+        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
       );
     },
     createLeaveRequest(groupId, input) {
@@ -934,7 +943,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentRequest,
+        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
       );
     },
     createDutyAdjustmentRequest(groupId, input) {
@@ -947,7 +956,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentRequest,
+        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
       );
     },
     createSwapRequest(groupId, input) {
@@ -960,7 +969,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapRequest,
+        isResponseBodyFromSchema(swapRequestSchema),
       );
     },
     createDirectSwapRequest(groupId, input) {
@@ -973,7 +982,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapRequest,
+        isResponseBodyFromSchema(swapRequestSchema),
       );
     },
     createManualScheduleTemplate(groupId, input) {
@@ -1220,7 +1229,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/duty-adjustments/settings`,
         { method: 'GET' },
-        isGroupDutyAdjustmentSettings,
+        isResponseBodyFromSchema(groupDutyAdjustmentSettingsSchema),
       );
     },
     getGroupSwapSettings(groupId) {
@@ -1230,7 +1239,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/swaps/settings`,
         { method: 'GET' },
-        isGroupSwapSettings,
+        isResponseBodyFromSchema(groupSwapSettingsSchema),
       );
     },
     getLeaveReflowStrategy(groupId) {
@@ -1250,7 +1259,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/swaps/my-settings`,
         { method: 'GET' },
-        isMemberSwapSettings,
+        isResponseBodyFromSchema(memberSwapSettingsSchema),
       );
     },
     getMyDutyAdjustmentSettings(groupId) {
@@ -1260,7 +1269,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/duty-adjustments/my-settings`,
         { method: 'GET' },
-        isMemberSwapSettings,
+        isResponseBodyFromSchema(memberSwapSettingsSchema),
       );
     },
     getSchedulePublishMode(groupId) {
@@ -1541,7 +1550,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/duty-adjustments/approvals`,
         { method: 'GET' },
-        isDutyAdjustmentRequestList,
+        isResponseBodyFromSchema(dutyAdjustmentRequestListSchema),
       );
     },
     listLeaveRequestApprovals(groupId) {
@@ -1561,7 +1570,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/duty-adjustments`,
         { method: 'GET' },
-        isDutyAdjustmentRequestList,
+        isResponseBodyFromSchema(dutyAdjustmentRequestListSchema),
       );
     },
     listMyLeaveRequests(groupId) {
@@ -1594,7 +1603,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/swaps`,
         { method: 'GET' },
-        isSwapRequestList,
+        isResponseBodyFromSchema(swapRequestListSchema),
       );
     },
     listSwapApprovals(groupId) {
@@ -1604,7 +1613,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/swaps/approvals`,
         { method: 'GET' },
-        isSwapRequestList,
+        isResponseBodyFromSchema(swapRequestListSchema),
       );
     },
     previewManualTemplateApply(groupId, templateId, input) {
@@ -1630,7 +1639,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentPreview,
+        isResponseBodyFromSchema(dutyAdjustmentPreviewSchema),
       );
     },
     previewSwap(groupId, input) {
@@ -1643,7 +1652,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapPreview,
+        isResponseBodyFromSchema(swapPreviewSchema),
       );
     },
     previewLeaveRequestApproval(groupId, leaveRequestId, input) {
@@ -1721,7 +1730,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapRequest,
+        isResponseBodyFromSchema(swapRequestSchema),
       );
     },
     revokeSwapRequest(groupId, swapRequestId, input) {
@@ -1734,7 +1743,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isSwapRequest,
+        isResponseBodyFromSchema(swapRequestSchema),
       );
     },
     rejectDutyAdjustment(groupId, dutyAdjustmentId, input) {
@@ -1747,7 +1756,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentRequest,
+        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
       );
     },
     revokeDutyAdjustment(groupId, dutyAdjustmentId, input) {
@@ -1760,7 +1769,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isDutyAdjustmentRequest,
+        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
       );
     },
     reorderRotationMembers(groupId, roleId, input) {
@@ -1851,7 +1860,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isGroupDutyAdjustmentSettings,
+        isResponseBodyFromSchema(groupDutyAdjustmentSettingsSchema),
       );
     },
     updateGroupSwapSettings(groupId, input) {
@@ -1864,7 +1873,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isGroupSwapSettings,
+        isResponseBodyFromSchema(groupSwapSettingsSchema),
       );
     },
     updateLeaveReflowStrategy(groupId, input) {
@@ -1890,7 +1899,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isMemberSwapSettings,
+        isResponseBodyFromSchema(memberSwapSettingsSchema),
       );
     },
     updateRotationRule(groupId, roleId, input) {
@@ -2385,330 +2394,6 @@ function isStringNumberRecord(value: unknown): value is Readonly<Record<string, 
   return Object.values(value).every((version) => typeof version === 'number');
 }
 
-function isSwapAssignmentSummary(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const assignment = value as {
-    actualMemberId?: unknown;
-    actualMemberName?: unknown;
-    assignmentId?: unknown;
-    businessDate?: unknown;
-    endsAt?: unknown;
-    plannedMemberId?: unknown;
-    plannedMemberName?: unknown;
-    scheduleRoleId?: unknown;
-    scheduleRoleName?: unknown;
-    shiftTypeAbbreviation?: unknown;
-    shiftTypeColor?: unknown;
-    shiftTypeId?: unknown;
-    shiftTypeName?: unknown;
-    shiftTypeTextColor?: unknown;
-    slotPosition?: unknown;
-    startsAt?: unknown;
-    version?: unknown;
-  };
-  return (
-    typeof assignment.assignmentId === 'string' &&
-    assignment.assignmentId.length > 0 &&
-    typeof assignment.businessDate === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
-    typeof assignment.endsAt === 'string' &&
-    typeof assignment.scheduleRoleId === 'string' &&
-    assignment.scheduleRoleId.length > 0 &&
-    typeof assignment.scheduleRoleName === 'string' &&
-    typeof assignment.shiftTypeAbbreviation === 'string' &&
-    assignment.shiftTypeAbbreviation.length > 0 &&
-    typeof assignment.shiftTypeColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
-    typeof assignment.shiftTypeId === 'string' &&
-    assignment.shiftTypeId.length > 0 &&
-    typeof assignment.shiftTypeName === 'string' &&
-    assignment.shiftTypeName.length > 0 &&
-    typeof assignment.shiftTypeTextColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
-    typeof assignment.slotPosition === 'number' &&
-    Number.isInteger(assignment.slotPosition) &&
-    assignment.slotPosition >= 1 &&
-    typeof assignment.startsAt === 'string' &&
-    typeof assignment.version === 'number' &&
-    Number.isInteger(assignment.version) &&
-    assignment.version >= 1 &&
-    (assignment.actualMemberId === undefined || typeof assignment.actualMemberId === 'string') &&
-    (assignment.actualMemberName === undefined ||
-      typeof assignment.actualMemberName === 'string') &&
-    (assignment.plannedMemberId === undefined || typeof assignment.plannedMemberId === 'string') &&
-    (assignment.plannedMemberName === undefined || typeof assignment.plannedMemberName === 'string')
-  );
-}
-
-function isSwapPreview(value: unknown): value is SwapPreview {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const preview = value as Partial<SwapPreview>;
-  return (
-    Array.isArray(preview.conflicts) &&
-    preview.conflicts.every(isSwapConflict) &&
-    typeof preview.groupId === 'string' &&
-    preview.groupId.length > 0 &&
-    isSwapAssignmentSummary(preview.initiatorAssignment) &&
-    typeof preview.initiatorEligibleForTargetShift === 'boolean' &&
-    isSwapRequestStatus(preview.nextStatus) &&
-    typeof preview.requiresApproval === 'boolean' &&
-    isSwapAssignmentSummary(preview.targetAssignment) &&
-    typeof preview.targetAutoAccepts === 'boolean' &&
-    typeof preview.targetEligibleForInitiatorShift === 'boolean'
-  );
-}
-
-function isSwapConflict(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const conflict = value as {
-    assignmentId?: unknown;
-    code?: unknown;
-    membershipId?: unknown;
-    message?: unknown;
-  };
-  return (
-    (conflict.code === 'MEMBER_LEAVE_OVERLAP' ||
-      conflict.code === 'MEMBER_NOT_ELIGIBLE' ||
-      conflict.code === 'MEMBER_TIME_OVERLAP' ||
-      conflict.code === 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST' ||
-      conflict.code === 'ASSIGNMENT_HAS_PENDING_DUTY_ADJUSTMENT') &&
-    typeof conflict.membershipId === 'string' &&
-    conflict.membershipId.length > 0 &&
-    typeof conflict.message === 'string' &&
-    (conflict.assignmentId === undefined || typeof conflict.assignmentId === 'string')
-  );
-}
-
-function isSwapRequest(value: unknown): value is SwapRequest {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const request = value as Partial<SwapRequest>;
-  return (
-    typeof request.id === 'string' &&
-    request.id.length > 0 &&
-    typeof request.groupId === 'string' &&
-    request.groupId.length > 0 &&
-    typeof request.initiatorMembershipId === 'string' &&
-    request.initiatorMembershipId.length > 0 &&
-    typeof request.targetMembershipId === 'string' &&
-    request.targetMembershipId.length > 0 &&
-    typeof request.initiatorAssignmentId === 'string' &&
-    request.initiatorAssignmentId.length > 0 &&
-    typeof request.targetAssignmentId === 'string' &&
-    request.targetAssignmentId.length > 0 &&
-    typeof request.initiatorAssignmentVersion === 'number' &&
-    Number.isInteger(request.initiatorAssignmentVersion) &&
-    typeof request.targetAssignmentVersion === 'number' &&
-    Number.isInteger(request.targetAssignmentVersion) &&
-    isSwapRequestStatus(request.status) &&
-    typeof request.version === 'number' &&
-    Number.isInteger(request.version) &&
-    request.version >= 1 &&
-    typeof request.createdAt === 'string' &&
-    isSwapAssignmentSummary(request.initiatorAssignment) &&
-    isSwapAssignmentSummary(request.targetAssignment) &&
-    (request.initiatorMemberName === undefined ||
-      typeof request.initiatorMemberName === 'string') &&
-    (request.targetMemberName === undefined || typeof request.targetMemberName === 'string') &&
-    (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
-    (request.decidedAt === undefined || typeof request.decidedAt === 'string') &&
-    (request.revocationReason === undefined || typeof request.revocationReason === 'string')
-  );
-}
-
-function isSwapRequestStatus(value: unknown): boolean {
-  return (
-    value === 'pending_target' ||
-    value === 'pending_approval' ||
-    value === 'completed' ||
-    value === 'rejected' ||
-    value === 'cancelled' ||
-    value === 'revoked'
-  );
-}
-
-function isSwapRequestList(value: unknown): value is SwapRequest[] {
-  return Array.isArray(value) && value.every(isSwapRequest);
-}
-
-function isGroupSwapSettings(value: unknown): value is GroupSwapSettings {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as { requiresApproval?: unknown }).requiresApproval === 'boolean'
-  );
-}
-
-function isMemberSwapSettings(value: unknown): value is MemberSwapSettings {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as { autoAcceptSwaps?: unknown }).autoAcceptSwaps === 'boolean'
-  );
-}
-
-function isDutyAdjustmentAssignmentSummary(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const assignment = value as {
-    actualMemberId?: unknown;
-    actualMemberName?: unknown;
-    assignmentId?: unknown;
-    businessDate?: unknown;
-    endsAt?: unknown;
-    plannedMemberId?: unknown;
-    plannedMemberName?: unknown;
-    scheduleRoleId?: unknown;
-    scheduleRoleName?: unknown;
-    shiftTypeAbbreviation?: unknown;
-    shiftTypeColor?: unknown;
-    shiftTypeId?: unknown;
-    shiftTypeName?: unknown;
-    shiftTypeTextColor?: unknown;
-    slotPosition?: unknown;
-    startsAt?: unknown;
-    version?: unknown;
-  };
-  return (
-    typeof assignment.assignmentId === 'string' &&
-    assignment.assignmentId.length > 0 &&
-    typeof assignment.businessDate === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
-    typeof assignment.endsAt === 'string' &&
-    typeof assignment.scheduleRoleId === 'string' &&
-    assignment.scheduleRoleId.length > 0 &&
-    typeof assignment.scheduleRoleName === 'string' &&
-    typeof assignment.shiftTypeAbbreviation === 'string' &&
-    assignment.shiftTypeAbbreviation.length > 0 &&
-    typeof assignment.shiftTypeColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
-    typeof assignment.shiftTypeId === 'string' &&
-    assignment.shiftTypeId.length > 0 &&
-    typeof assignment.shiftTypeName === 'string' &&
-    assignment.shiftTypeName.length > 0 &&
-    typeof assignment.shiftTypeTextColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
-    typeof assignment.slotPosition === 'number' &&
-    Number.isInteger(assignment.slotPosition) &&
-    assignment.slotPosition >= 1 &&
-    typeof assignment.startsAt === 'string' &&
-    typeof assignment.version === 'number' &&
-    Number.isInteger(assignment.version) &&
-    assignment.version >= 1 &&
-    (assignment.actualMemberId === undefined || typeof assignment.actualMemberId === 'string') &&
-    (assignment.actualMemberName === undefined ||
-      typeof assignment.actualMemberName === 'string') &&
-    (assignment.plannedMemberId === undefined || typeof assignment.plannedMemberId === 'string') &&
-    (assignment.plannedMemberName === undefined || typeof assignment.plannedMemberName === 'string')
-  );
-}
-
-function isDutyAdjustmentConflict(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const conflict = value as {
-    assignmentId?: unknown;
-    code?: unknown;
-    membershipId?: unknown;
-    message?: unknown;
-  };
-  return (
-    (conflict.code === 'MEMBER_LEAVE_OVERLAP' ||
-      conflict.code === 'MEMBER_NOT_ELIGIBLE' ||
-      conflict.code === 'MEMBER_TIME_OVERLAP' ||
-      conflict.code === 'ASSIGNMENT_HAS_ACTIVE_SWAP_REQUEST' ||
-      conflict.code === 'ASSIGNMENT_HAS_ACTIVE_DUTY_ADJUSTMENT') &&
-    typeof conflict.membershipId === 'string' &&
-    conflict.membershipId.length > 0 &&
-    typeof conflict.message === 'string' &&
-    (conflict.assignmentId === undefined || typeof conflict.assignmentId === 'string')
-  );
-}
-
-function isDutyAdjustmentPreview(value: unknown): value is DutyAdjustmentPreview {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const preview = value as Partial<DutyAdjustmentPreview>;
-  return (
-    Array.isArray(preview.conflicts) &&
-    preview.conflicts.every(isDutyAdjustmentConflict) &&
-    isDutyAdjustmentAssignmentSummary(preview.coveredAssignment) &&
-    (preview.deductedMemberName === undefined || typeof preview.deductedMemberName === 'string') &&
-    typeof preview.groupId === 'string' &&
-    preview.groupId.length > 0 &&
-    isDutyAdjustmentRequestStatus(preview.nextStatus) &&
-    typeof preview.overtimeAutoAccepts === 'boolean' &&
-    (preview.overtimeMemberName === undefined || typeof preview.overtimeMemberName === 'string') &&
-    typeof preview.requiresApproval === 'boolean'
-  );
-}
-
-function isDutyAdjustmentRequestStatus(value: unknown): boolean {
-  return (
-    value === 'pending_target' ||
-    value === 'pending_approval' ||
-    value === 'completed' ||
-    value === 'rejected' ||
-    value === 'cancelled' ||
-    value === 'revoked'
-  );
-}
-
-function isDutyAdjustmentRequest(value: unknown): value is DutyAdjustmentRequest {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const request = value as Partial<DutyAdjustmentRequest>;
-  return (
-    typeof request.id === 'string' &&
-    request.id.length > 0 &&
-    typeof request.groupId === 'string' &&
-    request.groupId.length > 0 &&
-    typeof request.coveredAssignmentId === 'string' &&
-    request.coveredAssignmentId.length > 0 &&
-    typeof request.overtimeMembershipId === 'string' &&
-    request.overtimeMembershipId.length > 0 &&
-    typeof request.deductedMembershipId === 'string' &&
-    request.deductedMembershipId.length > 0 &&
-    typeof request.assignmentVersion === 'number' &&
-    Number.isInteger(request.assignmentVersion) &&
-    isDutyAdjustmentRequestStatus(request.status) &&
-    typeof request.version === 'number' &&
-    Number.isInteger(request.version) &&
-    request.version >= 1 &&
-    typeof request.createdAt === 'string' &&
-    isDutyAdjustmentAssignmentSummary(request.coveredAssignment) &&
-    (request.overtimeMemberName === undefined || typeof request.overtimeMemberName === 'string') &&
-    (request.deductedMemberName === undefined || typeof request.deductedMemberName === 'string') &&
-    (request.approverUserId === undefined || typeof request.approverUserId === 'string') &&
-    (request.decidedAt === undefined || typeof request.decidedAt === 'string') &&
-    (request.reason === undefined || typeof request.reason === 'string') &&
-    (request.revocationReason === undefined || typeof request.revocationReason === 'string')
-  );
-}
-
-function isDutyAdjustmentRequestList(value: unknown): value is DutyAdjustmentRequest[] {
-  return Array.isArray(value) && value.every(isDutyAdjustmentRequest);
-}
-
 function isJsonObjectValue(value: unknown): value is JsonObject {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -2770,14 +2455,6 @@ function isScheduleEventDetail(value: unknown): value is ScheduleEventDetail {
     isScheduleEvent(detail.event) &&
     Array.isArray(detail.relatedEvents) &&
     detail.relatedEvents.every(isScheduleEvent)
-  );
-}
-
-function isGroupDutyAdjustmentSettings(value: unknown): value is GroupDutyAdjustmentSettings {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as { requiresApproval?: unknown }).requiresApproval === 'boolean'
   );
 }
 
