@@ -185,20 +185,6 @@ const changeChain = computed(() =>
   font-size: 14px;
 }
 
-.entry-relation {
-  padding: 1px 6px;
-  color: #1f5aa6;
-  background: #eff6ff;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.entry-relation.correction {
-  color: #b45309;
-  background: #fef3c7;
-}
-
 .entry-narrative {
   margin: 0;
   padding: 8px 10px;

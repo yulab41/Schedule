@@ -6,7 +6,7 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，无已跟踪改动（用户未跟踪文件见下）。
-- 当前测试基线：`pnpm verify` 440/440（66 个测试文件，隔离 MySQL，轮次 7 后）。
+- 当前测试基线：`pnpm verify` 439/439（66 个测试文件，隔离 MySQL，轮次 8 后）。
 - 轮次 5 开始时工作区仍含用户未跟踪文件（`.dockerignore`、`docs/deployment/aliyun-ecs.md`、`infra/docker/*`），不属于本轮任务，未纳入提交。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
@@ -53,7 +53,7 @@
 | ✅ | #1.1 | 文档过期/自相矛盾（待办、轮次、415） | 轻微 | 零 | 中 | 已完成（轮次 5）：重写待办/下一步与轮次表述，见第 7 节 |
 | ✅ | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | 已完成（轮次 6）：`Record<JobName, Factory>` 穷举映射 + 锁定测试，见第 7 节 |
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
-| P1 | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 删函数/字段/样式并同步 spec |
+| ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | P1 | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 单一来源生成 |
 | P2 | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 必须拆子步骤，见第 4 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
@@ -296,6 +296,7 @@
 问题：轮次 19/21 把“更正/撤销”标签从界面移除后，相关函数、`isCorrection` 计算、`.entry-relation` 样式全部保留，仅被 spec 引用“续命”；`getEventMarker` 也只在 spec 中被直接调用。这是典型的“留一手”。
 严重等级：轻微
 建议：删除未被生产代码引用的导出与样式，同步删除或改写对应 spec。
+> 完成情况（轮次 8，2026-08-06）：已删除 `getEventRelationLabel`/`buildSwapChainSummary`/`buildDutyAdjustmentChainSummary` 三个仅 spec 引用的导出与 `EventTimelineItem.isCorrection` 字段，`getEventMarker` 改为模块私有（`buildEventTimelineItems` 仍内部使用）；`EventTimeline.vue` 删除 `.entry-relation`/`.entry-relation.correction` 样式；`event-timeline.spec.ts` 删除对应导入与 2 条死代码测试，并用 `buildEventTimelineItems` 补 1 条日历标记映射测试保持行为覆盖；`pnpm verify` 439/439 通过。本条目中的行号为审查时快照，删除后已过期。
 
 **7.6 “调”标记映射与文档矛盾**
 位置：[calendar-query.ts (line 33)](E:/AItools/Schedule/apps/api/src/modules/calendar/calendar-query.ts:33)（33–47 行）；[calendar-logic.ts (line 168)](E:/AItools/Schedule/apps/web/src/features/calendar/calendar-logic.ts:168)（168–190 行）；[MonthGrid.vue (line 55)](E:/AItools/Schedule/apps/web/src/features/calendar/MonthGrid.vue:55)
@@ -528,3 +529,20 @@
 3. `.env.example` 仅作文档/模板，Vite 与 API 只读 `.env`；新环境从模板复制后不会自动获得 true 开关——出错症状是新本地环境没有“本地管理员/本地成员”按钮，属预期默认安全。
 
 下次计划：#7.5（event-timeline 死代码，删函数/字段/样式并同步 spec）
+
+### 轮次 8 – 2026-08-06
+
+目标：#7.5 删除 event-timeline 中仅被 spec 引用的死函数/字段/样式，同步改写 spec。
+
+修改文件：`apps/web/src/features/events/event-timeline.ts`（删除 `getEventRelationLabel`、`buildSwapChainSummary`、`buildDutyAdjustmentChainSummary` 三个导出与 `EventTimelineItem.isCorrection` 字段；`getEventMarker` 改为模块私有，仅 `buildEventTimelineItems` 内部使用）；`EventTimeline.vue`（删除未使用的 `.entry-relation`/`.entry-relation.correction` 样式）；`event-timeline.spec.ts`（删除对应导入与 2 条死代码测试，新增 1 条经 `buildEventTimelineItems` 的标记映射测试保持行为覆盖）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 439/439 ✅（66 个测试文件，隔离 MySQL；事件时间线 spec 16 → 15 条：删 2 条 + 加 1 条标记映射）
+
+提交：（本轮检查点提交后补录）
+
+不确定点：
+1. `getEventMarker` 保留为模块私有函数，因为 `buildEventTimelineItems` 仍在生产路径使用；若未来需要独立于时间线的标记查询，需重新导出——出错症状是其他模块无法直接获取标记映射（编译期可见）。
+2. 删除 `buildSwapChainSummary`/`buildDutyAdjustmentChainSummary` 后，合并链 `buildChangeChainSummary` 保留（生产“人员变更链”折叠区在用），其内部复用的两个提取助手不受影响——出错症状是合并链行为不变，纯删除不改语义。
+3. 测试总数从 440 减到 439 是预期净减（删 2 条死代码测试 + 加 1 条替代测试）；若用户预期测试数只增不减，这是行为覆盖保持下的有意收缩。
+
+下次计划：#2.1（ui-tokens CSS/TS 双份维护，单一来源生成）

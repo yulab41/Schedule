@@ -3,14 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildChangeChainSummary,
-  buildDutyAdjustmentChainSummary,
   buildEventNarrative,
   buildEventTimelineItems,
-  buildSwapChainSummary,
   extractEventChanges,
   formatEventTime,
-  getEventMarker,
-  getEventRelationLabel,
   getEventTypeLabel,
 } from './event-timeline.js';
 
@@ -30,18 +26,13 @@ function event(overrides: Partial<ScheduleEvent> = {}): ScheduleEvent {
 }
 
 describe('event timeline logic', () => {
-  it('labels known and unknown event types and maps calendar markers', () => {
+  it('labels known and unknown event types', () => {
     expect(getEventTypeLabel('swap_completed')).toBe('换班已生效');
     expect(getEventTypeLabel('unknown_type')).toBe('排班变更');
-    expect(getEventMarker('duty_adjustment_completed')).toBe('overtime');
-    expect(getEventMarker('leave_cover_completed')).toBe('leave-cover');
-    expect(getEventMarker('swap_request_created')).toBeUndefined();
   });
 
-  it('formats event times in China Standard Time and relation labels', () => {
+  it('formats event times in China Standard Time', () => {
     expect(formatEventTime('2026-08-01T16:30:00.000Z')).toBe('2026-08-02 00:30');
-    expect(getEventRelationLabel(event())).toBe('原始事件');
-    expect(getEventRelationLabel(event({ parentEventId: 'event-0' }))).toBe('更正/撤销');
   });
 
   it('extracts before/after person, status, and reason changes while skipping ids and nested data', () => {
@@ -85,7 +76,7 @@ describe('event timeline logic', () => {
     expect(changes).toEqual([{ after: '已批准', before: '待审批', label: '状态' }]);
   });
 
-  it('builds a chronologically ordered timeline with correction and marker flags', () => {
+  it('builds a chronologically ordered timeline with marker flags', () => {
     const correction = event({
       eventType: 'duty_adjustment_revoked',
       id: 'event-2',
@@ -95,8 +86,18 @@ describe('event timeline logic', () => {
     const items = buildEventTimelineItems([correction, event()]);
 
     expect(items.map((item) => item.event.id)).toEqual(['event-1', 'event-2']);
-    expect(items[0]).toMatchObject({ isCorrection: false, marker: 'swap' });
-    expect(items[1]).toMatchObject({ isCorrection: true });
+    expect(items[0]).toMatchObject({ marker: 'swap' });
+    expect(items[1]?.marker).toBeUndefined();
+  });
+
+  it('maps completed workflow events to calendar markers', () => {
+    const markers = buildEventTimelineItems([
+      event({ eventType: 'duty_adjustment_completed' }),
+      event({ eventType: 'leave_cover_completed' }),
+      event({ eventType: 'swap_request_created' }),
+    ]).map((item) => item.marker);
+
+    expect(markers).toEqual(['overtime', 'leave-cover', undefined]);
   });
 
   it('writes human-readable swap and duty adjustment narratives', () => {
@@ -235,84 +236,6 @@ describe('event timeline logic', () => {
         },
       ),
     ).toBe('洪晨善 → 林恩宇');
-  });
-
-  it('builds a full swap chain for one shift across multiple swaps', () => {
-    const events = [
-      event({
-        afterData: {
-          initiatorAssignment: { actualMemberName: 'Feng Qin' },
-          initiatorAssignmentId: 'assignment-1',
-          targetAssignment: { actualMemberName: 'Lin Enyu' },
-          targetAssignmentId: 'assignment-2',
-        },
-        beforeData: {
-          initiatorAssignment: { actualMemberName: 'Lin Enyu' },
-          targetAssignment: { actualMemberName: 'Feng Qin' },
-        },
-        occurredAt: '2026-08-08T01:00:00.000Z',
-      }),
-      event({
-        afterData: {
-          initiatorAssignment: { actualMemberName: 'Hong Chenshan' },
-          initiatorAssignmentId: 'assignment-1',
-          targetAssignment: { actualMemberName: 'Feng Qin' },
-          targetAssignmentId: 'assignment-3',
-        },
-        beforeData: {
-          initiatorAssignment: { actualMemberName: 'Feng Qin' },
-          targetAssignment: { actualMemberName: 'Hong Chenshan' },
-        },
-        occurredAt: '2026-08-08T03:00:00.000Z',
-      }),
-    ];
-
-    expect(buildSwapChainSummary(events, 'assignment-1')).toContain(
-      '人员变更链：Lin Enyu → Feng Qin → Hong Chenshan（2 次换班',
-    );
-  });
-
-  it('builds a full duty adjustment chain for one shift across multiple adjustments', () => {
-    const events = [
-      event({
-        afterData: {
-          actualMemberId: 'membership-b',
-          actualMemberName: 'B Doctor',
-          deductedMemberName: 'A Doctor',
-          initiatorMemberName: 'Admin Doctor',
-          overtimeMemberName: 'B Doctor',
-        },
-        beforeData: {
-          actualMemberId: 'membership-a',
-          actualMemberName: 'A Doctor',
-          deductedMemberName: 'A Doctor',
-          overtimeMemberName: 'B Doctor',
-        },
-        eventType: 'duty_adjustment_completed',
-        occurredAt: '2026-08-08T01:00:00.000Z',
-      }),
-      event({
-        afterData: {
-          actualMemberId: 'membership-c',
-          actualMemberName: 'C Doctor',
-          deductedMemberName: 'B Doctor',
-          initiatorMemberName: 'Admin Doctor',
-          overtimeMemberName: 'C Doctor',
-        },
-        beforeData: {
-          actualMemberId: 'membership-b',
-          actualMemberName: 'B Doctor',
-          deductedMemberName: 'B Doctor',
-          overtimeMemberName: 'C Doctor',
-        },
-        eventType: 'duty_adjustment_completed',
-        occurredAt: '2026-08-08T03:00:00.000Z',
-      }),
-    ];
-
-    expect(buildDutyAdjustmentChainSummary(events, 'assignment-1')).toBe(
-      '人员变更链：A Doctor → B Doctor → C Doctor（2 次加扣班；2026-08-08 09:00 A Doctor-1 → B Doctor+1；2026-08-08 11:00 B Doctor-1 → C Doctor+1）',
-    );
   });
 
   it('merges swap and duty adjustment steps into one chronological chain', () => {

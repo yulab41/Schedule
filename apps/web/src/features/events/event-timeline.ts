@@ -16,7 +16,6 @@ export interface EventChangeItem {
 
 export interface EventTimelineItem {
   readonly event: ScheduleEvent;
-  readonly isCorrection: boolean;
   readonly marker?: CalendarChangeMarker;
 }
 
@@ -105,7 +104,7 @@ export function getEventTypeLabel(eventType: string): string {
   return eventTypeLabels[eventType] ?? '排班变更';
 }
 
-export function getEventMarker(eventType: string): CalendarChangeMarker | undefined {
+function getEventMarker(eventType: string): CalendarChangeMarker | undefined {
   switch (eventType) {
     case 'swap_completed':
       return 'swap';
@@ -127,10 +126,6 @@ export function formatEventTime(occurredAt: string): string {
     .replace('T', ' ')
     .slice(0, 16);
   return `${shifted.slice(0, 10)} ${shifted.slice(11)}`;
-}
-
-export function getEventRelationLabel(event: ScheduleEvent): string {
-  return event.parentEventId === undefined ? '原始事件' : '更正/撤销';
 }
 
 export function extractEventChanges(event: ScheduleEvent): readonly EventChangeItem[] {
@@ -395,74 +390,6 @@ export function buildChangeChainSummary(
   return `人员变更链：${names.join(' → ')}（${steps.length} 次变更；${detail}）`;
 }
 
-export function buildSwapChainSummary(
-  events: readonly ScheduleEvent[],
-  assignmentId: string,
-): string | undefined {
-  const steps = events
-    .filter((event) => event.eventType === 'swap_completed')
-    .map((event) => extractSwapSideChange(event, assignmentId))
-    .filter((step): step is SwapChainStep => step !== undefined)
-    .sort(
-      (first, second) =>
-        first.occurredAt.localeCompare(second.occurredAt) ||
-        first.eventId.localeCompare(second.eventId),
-    );
-  if (steps.length === 0) {
-    return undefined;
-  }
-
-  const names: string[] = [];
-  for (const step of steps) {
-    if (names.length === 0) {
-      names.push(step.before);
-    }
-    if (names[names.length - 1] !== step.after) {
-      names.push(step.after);
-    }
-  }
-  const detail = steps
-    .map((step) => `${formatEventTime(step.occurredAt)} ${step.before} → ${step.after}`)
-    .join('；');
-  return `人员变更链：${names.join(' → ')}（${steps.length} 次换班；${detail}）`;
-}
-
-export function buildDutyAdjustmentChainSummary(
-  events: readonly ScheduleEvent[],
-  assignmentId: string,
-): string | undefined {
-  const steps = events
-    .filter(
-      (event) =>
-        event.eventType === 'duty_adjustment_completed' &&
-        event.affectedShiftIds.includes(assignmentId),
-    )
-    .map(extractDutyAdjustmentStep)
-    .filter((step): step is DutyAdjustmentChainStep => step !== undefined)
-    .sort(
-      (first, second) =>
-        first.occurredAt.localeCompare(second.occurredAt) ||
-        first.eventId.localeCompare(second.eventId),
-    );
-  if (steps.length === 0) {
-    return undefined;
-  }
-
-  const names: string[] = [];
-  for (const step of steps) {
-    if (names.length === 0) {
-      names.push(step.before);
-    }
-    if (names[names.length - 1] !== step.after) {
-      names.push(step.after);
-    }
-  }
-  const detail = steps
-    .map((step) => `${formatEventTime(step.occurredAt)} ${step.deducted}-1 → ${step.overtime}+1`)
-    .join('；');
-  return `人员变更链：${names.join(' → ')}（${steps.length} 次加扣班；${detail}）`;
-}
-
 function buildChangeFallbackNarrative(event: ScheduleEvent): string | undefined {
   const changes = extractEventChanges(event);
   if (changes.length === 0) {
@@ -487,7 +414,6 @@ export function buildEventTimelineItems(
     )
     .map((event) => ({
       event,
-      isCorrection: event.parentEventId !== undefined,
       ...(getEventMarker(event.eventType) === undefined
         ? {}
         : { marker: getEventMarker(event.eventType) as CalendarChangeMarker }),

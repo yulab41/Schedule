@@ -9,8 +9,8 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–56 已完成；fix-progress 轮次 1（#3.1）、2（#4.1）、3（#7.3）、4（#3.2）、5（#1.1）、6（#3.3）、7（#3.4/#1.2）已完成；最新验证基线 440/440（66 个测试文件，隔离 MySQL）
-- Next actions: fix-progress 轮次 8 目标为 #7.5（event-timeline 死代码，删函数/字段/样式并同步 spec）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
+- Debug rounds: 1–56 已完成；fix-progress 轮次 1（#3.1）、2（#4.1）、3（#7.3）、4（#3.2）、5（#1.1）、6（#3.3）、7（#3.4/#1.2）、8（#7.5）已完成；最新验证基线 439/439（66 个测试文件，隔离 MySQL）
+- Next actions: fix-progress 轮次 9 目标为 #2.1（ui-tokens CSS/TS 双份维护，单一来源生成）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
@@ -27,6 +27,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-06 fix-progress 轮次 8：清理 #7.5 的 event-timeline 死代码——`apps/web/src/features/events/event-timeline.ts` 删除 `getEventRelationLabel`/`buildSwapChainSummary`/`buildDutyAdjustmentChainSummary` 三个仅被 spec 引用的导出与 `EventTimelineItem.isCorrection` 字段，`getEventMarker` 改为模块私有（仅 `buildEventTimelineItems` 内部使用）；`EventTimeline.vue` 删除未使用的 `.entry-relation`/`.entry-relation.correction` 样式；`event-timeline.spec.ts` 同步删除对应导入与 2 条死代码测试，并用 `buildEventTimelineItems` 补 1 条日历标记映射测试（保持行为覆盖）；`pnpm verify` 439/439 通过。
 - 2026-08-06 fix-progress 轮次 6：收敛 #3.3 的任务分派静默兜底——`apps/api/src/jobs/runner.ts` 的 if 链 + 导出兜底改为 `Record<JobName, JobRunner>` 穷举映射表（新增 `JobName` 时 TypeScript 强制补充分支），`jobNames` 从映射表派生为单一来源，`runJob` 只做映射查找；新增 `runner.spec.ts` 2 条映射一致性锁定测试；`pnpm verify` 436/436 通过。
 - 2026-08-06 fix-progress 轮次 7：收敛 #3.4/#1.2 的开发认证环境防线——`apps/api/src/config/env.ts` 正式/测试 schema 新增 `AUTH_DEV_MODE: z.enum(['true', 'false']).default('false')`；`apps/api/src/runtime.ts` 新增 `isDevAuthEnabled`（`NODE_ENV === 'development' && AUTH_DEV_MODE === 'true'`）替换裸 `process.env` 检查；`.env.example` 补 `VITE_AUTH_DEV_MODE`/`AUTH_DEV_MODE` 两个本地开关并注明禁止上线，`docs/development/local-setup.md` 补本地开发认证说明；新增 4 条锁定测试；`pnpm verify` 440/440 通过。
 - 2026-08-06 fix-progress 轮次 4：收敛 #3.2 的日志/审计脱敏双份清单——新增 `apps/api/src/security/redact.ts` 共享模块（唯一敏感字段清单、`logRedactionPaths`、递归脱敏），`app.ts` 与 `audit-writer.ts` 删除各自清单与实现并统一引用（日志补上 `telephone`）；新增 6 条共享模块单元测试，日志/审计两端一致性测试扩展至完整字段；`pnpm verify` 434/434 通过。
@@ -57,6 +58,7 @@
 
 ## Active Batch
 
+- fix-progress 轮次 8（#7.5）已完成：删除 event-timeline 三个仅 spec 引用的死导出与 `isCorrection` 字段、移除 `getEventMarker` 导出、删除 `.entry-relation` 样式，spec 同步改写并用 `buildEventTimelineItems` 保持标记映射覆盖；`pnpm verify` 439/439 通过；下一活动批次为 fix-progress 轮次 9（#2.1，ui-tokens 单一来源生成）。
 - fix-progress 轮次 7（#3.4/#1.2）已完成：AUTH_DEV_MODE 纳入 env schema（严格 `'true'`/`'false'` 默认 false），runtime 显式双条件（`NODE_ENV=development` 且开关开启）才启用任意 Bearer 认证端口，`.env.example` 补两个本地开关并同步本地文档；新增 4 条锁定测试，`pnpm verify` 440/440 通过；下一活动批次为 fix-progress 轮次 8（#7.5）。
 - fix-progress 轮次 4（#3.2）已完成：日志/审计敏感字段清单与脱敏实现合并为 `apps/api/src/security/redact.ts` 共享模块（`redactSensitiveFields` + 派生 `logRedactionPaths`），日志补上 `telephone`，两端一致性测试覆盖完整字段；下一活动批次为 fix-progress 轮次 5（#1.1）。
 - fix-progress 轮次 5（#1.1）已完成：以当前代码与 Git 历史为准重写 debug 日志“待办 / 下一步”与 project-status 轮次/批次表述，删除已解决条目（既往排班模块、Fastify 415），保留 #4.5“仅未来日期发布”登记；纯文档修改，一致性核对通过；下一活动批次为 fix-progress 轮次 6（#3.3）。
