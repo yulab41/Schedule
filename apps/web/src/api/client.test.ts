@@ -8,6 +8,9 @@ import type {
   ManualScheduleTemplate,
   ManualApplyPreview,
   MembershipClaimRequest,
+  ScheduleRole,
+  SchedulingConfig,
+  ShiftType,
   UserProfile,
 } from '@schedule/contracts';
 import { apiErrorCodes } from '@schedule/contracts';
@@ -116,6 +119,52 @@ const membershipClaimRequest: MembershipClaimRequest = {
   targetMemberRealName: '李医生',
   targetMembershipId: 'membership-2',
   version: 1,
+};
+
+const scheduleRole: ScheduleRole = {
+  id: 'role-1',
+  members: [
+    {
+      id: 'role-member-1',
+      membershipId: 'membership-1',
+      position: 1,
+      realName: '张医生',
+      version: 1,
+    },
+  ],
+  name: '一线',
+  rotationRule: {
+    currentPosition: 1,
+    defaultShiftTypeId: 'shift-1',
+    requiredMembersPerDay: 1,
+    version: 1,
+  },
+  version: 1,
+};
+
+const shiftType: ShiftType = {
+  abbreviation: '全',
+  color: '#1F5AA6',
+  configurationVersion: 1,
+  countsTowardStatistics: true,
+  crossesMidnight: true,
+  displayOrder: 1,
+  endTime: '08:00',
+  id: 'shift-1',
+  isAllDay: true,
+  isBuiltIn: true,
+  isEnabled: true,
+  name: '全天班',
+  startTime: '08:00',
+  textColor: '#FFFFFF',
+  version: 1,
+};
+
+const schedulingConfig: SchedulingConfig = {
+  groupMembers: [{ membershipId: 'membership-1', realName: '张医生' }],
+  roles: [scheduleRole],
+  rulesVersion: 3,
+  shiftTypes: [shiftType],
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -735,6 +784,176 @@ describe('Web API client', () => {
     });
 
     await expect(client.getSchedulePublishMode(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('accepts a scheduling config without a rules version', async () => {
+    const configWithoutRulesVersion = {
+      groupMembers: schedulingConfig.groupMembers,
+      roles: schedulingConfig.roles,
+      shiftTypes: schedulingConfig.shiftTypes,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(configWithoutRulesVersion), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getSchedulingConfig(group.id)).resolves.toEqual(configWithoutRulesVersion);
+  });
+
+  it('rejects a scheduling config with a non-array roles field', async () => {
+    const invalidConfig = { ...schedulingConfig, roles: {} };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidConfig), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getSchedulingConfig(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a scheduling config with a scheduling group member whose real name is empty', async () => {
+    const invalidConfig = {
+      ...schedulingConfig,
+      groupMembers: [{ membershipId: 'membership-1', realName: '' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidConfig), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getSchedulingConfig(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule role response with a non-integer version', async () => {
+    const invalidRole = { ...scheduleRole, version: 1.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidRole), { status: 201 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.createScheduleRole(group.id, { name: '一线' })).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 201,
+    });
+  });
+
+  it('rejects a schedule role response whose member has a zero position', async () => {
+    const invalidRole = {
+      ...scheduleRole,
+      members: [{ ...scheduleRole.members[0], position: 0 }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidRole), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.replaceScheduleRoleMembers(group.id, scheduleRole.id, {
+        membershipIds: ['membership-1'],
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule role response whose rotation rule requires zero members per day', async () => {
+    const invalidRole = {
+      ...scheduleRole,
+      rotationRule: { ...scheduleRole.rotationRule, requiredMembersPerDay: 0 },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidRole), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.updateRotationRule(group.id, scheduleRole.id, {
+        currentPosition: 1,
+        defaultShiftTypeId: 'shift-1',
+        requiredMembersPerDay: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a shift type response with a malformed color', async () => {
+    const invalidShiftType = { ...shiftType, color: 'blue' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidShiftType), { status: 201 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.createShiftType(group.id, {
+        abbreviation: '全',
+        color: '#1F5AA6',
+        countsTowardStatistics: true,
+        crossesMidnight: true,
+        endTime: '08:00',
+        isEnabled: true,
+        name: '全天班',
+        startTime: '08:00',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 201,
+    });
+  });
+
+  it('rejects a shift type response with a malformed start time', async () => {
+    const invalidShiftType = { ...shiftType, startTime: '8:00' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidShiftType), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.updateShiftType(group.id, shiftType.id, {
+        abbreviation: '全',
+        color: '#1F5AA6',
+        countsTowardStatistics: true,
+        crossesMidnight: true,
+        endTime: '08:00',
+        isEnabled: true,
+        name: '全天班',
+        startTime: '08:00',
+      }),
+    ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });

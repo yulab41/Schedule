@@ -1,57 +1,86 @@
-export interface SchedulingConfig {
-  readonly groupMembers: readonly SchedulingGroupMember[];
-  readonly roles: readonly ScheduleRole[];
+import { z } from 'zod';
+
+export const schedulingGroupMemberSchema = z
+  .object({
+    membershipId: z.string().min(1),
+    realName: z.string().min(1),
+  })
+  .passthrough();
+export type SchedulingGroupMember = z.infer<typeof schedulingGroupMemberSchema>;
+
+export const scheduleRoleMemberSchema = z
+  .object({
+    id: z.string().min(1),
+    membershipId: z.string().min(1),
+    position: z.number().int().min(1),
+    realName: z.string().min(1),
+    version: z.number().int(),
+  })
+  .passthrough();
+export type ScheduleRoleMember = z.infer<typeof scheduleRoleMemberSchema>;
+
+export const rotationRuleSchema = z
+  .object({
+    currentPosition: z.number().int().min(1),
+    defaultShiftTypeId: z.string().min(1),
+    requiredMembersPerDay: z.number().int().min(1),
+    startDate: z.string().optional(),
+    startingMemberScheduleRoleId: z.string().optional(),
+    version: z.number().int(),
+  })
+  .passthrough();
+export type RotationRule = z.infer<typeof rotationRuleSchema>;
+
+export const scheduleRoleSchema = z
+  .object({
+    id: z.string().min(1),
+    members: z.readonly(z.array(scheduleRoleMemberSchema)),
+    name: z.string().min(1),
+    rotationRule: rotationRuleSchema,
+    version: z.number().int(),
+  })
+  .passthrough();
+export type ScheduleRole = z.infer<typeof scheduleRoleSchema>;
+
+export const shiftTypeSchema = z
+  .object({
+    abbreviation: z.string().min(1),
+    color: z.string().regex(/^#[\dA-F]{6}$/iu),
+    configurationVersion: z.number().int(),
+    countsTowardStatistics: z.boolean(),
+    crossesMidnight: z.boolean(),
+    displayOrder: z.number().int(),
+    endTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/u)
+      .optional(),
+    id: z.string().min(1),
+    isAllDay: z.boolean(),
+    isBuiltIn: z.boolean(),
+    isEnabled: z.boolean(),
+    name: z.string().min(1),
+    startTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/u)
+      .optional(),
+    textColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    version: z.number().int(),
+  })
+  .passthrough();
+export type ShiftType = z.infer<typeof shiftTypeSchema>;
+
+export const schedulingConfigSchema = z
+  .object({
+    groupMembers: z.readonly(z.array(schedulingGroupMemberSchema)),
+    roles: z.readonly(z.array(scheduleRoleSchema)),
+    // 旧守卫不校验 rulesVersion；schema 允许缺省或任意值，导出类型保持必填 number。
+    rulesVersion: z.custom<number>(() => true).optional(),
+    shiftTypes: z.readonly(z.array(shiftTypeSchema)),
+  })
+  .passthrough();
+export type SchedulingConfig = z.infer<typeof schedulingConfigSchema> & {
   readonly rulesVersion: number;
-  readonly shiftTypes: readonly ShiftType[];
-}
-
-export interface SchedulingGroupMember {
-  readonly membershipId: string;
-  readonly realName: string;
-}
-
-export interface ScheduleRole {
-  readonly id: string;
-  readonly members: readonly ScheduleRoleMember[];
-  readonly name: string;
-  readonly rotationRule: RotationRule;
-  readonly version: number;
-}
-
-export interface ScheduleRoleMember {
-  readonly id: string;
-  readonly membershipId: string;
-  readonly position: number;
-  readonly realName: string;
-  readonly version: number;
-}
-
-export interface RotationRule {
-  readonly currentPosition: number;
-  readonly defaultShiftTypeId: string;
-  readonly requiredMembersPerDay: number;
-  readonly startDate?: string;
-  readonly startingMemberScheduleRoleId?: string;
-  readonly version: number;
-}
-
-export interface ShiftType {
-  readonly abbreviation: string;
-  readonly color: string;
-  readonly configurationVersion: number;
-  readonly countsTowardStatistics: boolean;
-  readonly crossesMidnight: boolean;
-  readonly displayOrder: number;
-  readonly endTime?: string;
-  readonly id: string;
-  readonly isAllDay: boolean;
-  readonly isBuiltIn: boolean;
-  readonly isEnabled: boolean;
-  readonly name: string;
-  readonly startTime?: string;
-  readonly textColor: string;
-  readonly version: number;
-}
+};
 
 export interface CreateScheduleRoleRequest {
   readonly name: string;

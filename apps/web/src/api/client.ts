@@ -130,6 +130,9 @@ import {
   membershipClaimLookupResponseSchema,
   membershipClaimRequestListSchema,
   membershipClaimRequestSchema,
+  scheduleRoleSchema,
+  schedulingConfigSchema,
+  shiftTypeSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
@@ -984,7 +987,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isScheduleRole,
+        isResponseBodyFromSchema(scheduleRoleSchema),
       );
     },
     createShiftType(groupId, input) {
@@ -997,7 +1000,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isShiftType,
+        isResponseBodyFromSchema(shiftTypeSchema),
       );
     },
     createGroup(input) {
@@ -1408,7 +1411,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/scheduling-config`,
         { method: 'GET' },
-        isSchedulingConfig,
+        isSchedulingConfigResponse,
       );
     },
     listManualScheduleTemplates(groupId) {
@@ -1756,7 +1759,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isScheduleRole,
+        isResponseBodyFromSchema(scheduleRoleSchema),
       );
     },
     replaceScheduleRoleMembers(groupId, roleId, input) {
@@ -1769,7 +1772,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isScheduleRole,
+        isResponseBodyFromSchema(scheduleRoleSchema),
       );
     },
     transferGroupOwnership(groupId, input) {
@@ -1886,7 +1889,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isScheduleRole,
+        isResponseBodyFromSchema(scheduleRoleSchema),
       );
     },
     updateShiftType(groupId, shiftTypeId, input) {
@@ -1899,7 +1902,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isShiftType,
+        isResponseBodyFromSchema(shiftTypeSchema),
       );
     },
   };
@@ -2023,143 +2026,9 @@ function isResponseBodyFromSchema<ResponseBody>(
   return (value: unknown): value is ResponseBody => schema.safeParse(value).success;
 }
 
-function isScheduleRole(value: unknown): value is ScheduleRole {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const role = value as Partial<ScheduleRole>;
-  return (
-    typeof role.id === 'string' &&
-    role.id.length > 0 &&
-    typeof role.name === 'string' &&
-    role.name.length > 0 &&
-    typeof role.version === 'number' &&
-    Number.isInteger(role.version) &&
-    Array.isArray(role.members) &&
-    role.members.every(isScheduleRoleMember) &&
-    isRotationRule(role.rotationRule)
-  );
-}
-
-function isScheduleRoleMember(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const member = value as {
-    id?: unknown;
-    membershipId?: unknown;
-    position?: unknown;
-    realName?: unknown;
-    version?: unknown;
-  };
-  return (
-    typeof member.id === 'string' &&
-    member.id.length > 0 &&
-    typeof member.membershipId === 'string' &&
-    member.membershipId.length > 0 &&
-    typeof member.position === 'number' &&
-    Number.isInteger(member.position) &&
-    member.position >= 1 &&
-    typeof member.realName === 'string' &&
-    member.realName.length > 0 &&
-    typeof member.version === 'number' &&
-    Number.isInteger(member.version)
-  );
-}
-
-function isRotationRule(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const rule = value as {
-    currentPosition?: unknown;
-    defaultShiftTypeId?: unknown;
-    requiredMembersPerDay?: unknown;
-    startDate?: unknown;
-    startingMemberScheduleRoleId?: unknown;
-    version?: unknown;
-  };
-  return (
-    typeof rule.currentPosition === 'number' &&
-    Number.isInteger(rule.currentPosition) &&
-    rule.currentPosition >= 1 &&
-    typeof rule.defaultShiftTypeId === 'string' &&
-    rule.defaultShiftTypeId.length > 0 &&
-    typeof rule.requiredMembersPerDay === 'number' &&
-    Number.isInteger(rule.requiredMembersPerDay) &&
-    rule.requiredMembersPerDay >= 1 &&
-    typeof rule.version === 'number' &&
-    Number.isInteger(rule.version) &&
-    (rule.startDate === undefined || typeof rule.startDate === 'string') &&
-    (rule.startingMemberScheduleRoleId === undefined ||
-      typeof rule.startingMemberScheduleRoleId === 'string')
-  );
-}
-
-function isSchedulingConfig(value: unknown): value is SchedulingConfig {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const config = value as Partial<SchedulingConfig>;
-  return (
-    Array.isArray(config.groupMembers) &&
-    config.groupMembers.every(isSchedulingGroupMember) &&
-    Array.isArray(config.roles) &&
-    config.roles.every(isScheduleRole) &&
-    Array.isArray(config.shiftTypes) &&
-    config.shiftTypes.every(isShiftType)
-  );
-}
-
-function isSchedulingGroupMember(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const member = value as { membershipId?: unknown; realName?: unknown };
-  return (
-    typeof member.membershipId === 'string' &&
-    member.membershipId.length > 0 &&
-    typeof member.realName === 'string' &&
-    member.realName.length > 0
-  );
-}
-
-function isShiftType(value: unknown): value is ShiftType {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const shiftType = value as Partial<ShiftType>;
-  return (
-    typeof shiftType.id === 'string' &&
-    shiftType.id.length > 0 &&
-    typeof shiftType.name === 'string' &&
-    shiftType.name.length > 0 &&
-    typeof shiftType.abbreviation === 'string' &&
-    shiftType.abbreviation.length > 0 &&
-    typeof shiftType.color === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(shiftType.color) &&
-    typeof shiftType.textColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(shiftType.textColor) &&
-    typeof shiftType.displayOrder === 'number' &&
-    Number.isInteger(shiftType.displayOrder) &&
-    typeof shiftType.isAllDay === 'boolean' &&
-    typeof shiftType.isBuiltIn === 'boolean' &&
-    typeof shiftType.isEnabled === 'boolean' &&
-    typeof shiftType.crossesMidnight === 'boolean' &&
-    typeof shiftType.countsTowardStatistics === 'boolean' &&
-    typeof shiftType.configurationVersion === 'number' &&
-    Number.isInteger(shiftType.configurationVersion) &&
-    typeof shiftType.version === 'number' &&
-    Number.isInteger(shiftType.version) &&
-    (shiftType.startTime === undefined || /^\d{2}:\d{2}$/.test(shiftType.startTime)) &&
-    (shiftType.endTime === undefined || /^\d{2}:\d{2}$/.test(shiftType.endTime))
-  );
+function isSchedulingConfigResponse(value: unknown): value is SchedulingConfig {
+  // schema 允许缺省 rulesVersion（旧守卫不校验该字段）；导出类型保持必填供模板应用使用。
+  return schedulingConfigSchema.safeParse(value).success;
 }
 
 function joinUrl(baseUrl: string, path: string): string {
