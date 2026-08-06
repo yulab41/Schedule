@@ -51,7 +51,7 @@
 | ✅ | #7.3 | 中国时区算法在 9 个文件重复 | 严重 | 中低 | 高（时区事故反复出现） | 已完成（轮次 3）：统一到 scheduling-domain 并机械替换，见第 7 节 |
 | ✅ | #3.2 | 日志/审计脱敏清单双份且已漂移 | 严重 | 低 | 高（安全控制） | 已完成（轮次 4）：合并为共享脱敏模块，见第 7 节 |
 | ✅ | #1.1 | 文档过期/自相矛盾（待办、轮次、415） | 轻微 | 零 | 中 | 已完成（轮次 5）：重写待办/下一步与轮次表述，见第 7 节 |
-| P1 | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | switch 穷举 + default 抛错 |
+| ✅ | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | 已完成（轮次 6）：`Record<JobName, Factory>` 穷举映射 + 锁定测试，见第 7 节 |
 | P1 | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 显式双条件 + env schema |
 | P1 | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 删函数/字段/样式并同步 spec |
 | P1 | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 单一来源生成 |
@@ -150,6 +150,7 @@
 问题：`JobName` 联合类型有 7 个值，if 链覆盖 6 个，最后一个 `return new ExportJobProcessor(client).run()` 作为“兜底”。未来新增任务类型时，忘记加分支会静默执行导出任务而不是报错。
 严重等级：轻微
 建议：改为 `switch` 穷举并在 `default` 抛错，或用映射表 `Record<JobName, Factory>`。
+> 完成情况（轮次 6，2026-08-06）：已把 if 链 + 导出兜底改为 `Record<JobName, JobRunner>` 穷举映射表，新增 `JobName` 时 TypeScript 会在映射表强制补充分支，运行时不再存在静默兜底路径；`jobNames` 改为从映射表派生（单一运行时来源）；新增 `runner.spec.ts` 2 条“映射覆盖全部任务名、每个名字都有工厂”的锁定测试；`pnpm verify` 436/436 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **3.4 开发认证开关无环境防线**
 位置：[runtime.ts (line 30)](E:/AItools/Schedule/apps/api/src/runtime.ts:30)（30–33 行）；[dev-auth.ts (line 1)](E:/AItools/Schedule/apps/api/src/adapters/auth/dev-auth.ts:1)
@@ -491,3 +492,20 @@
 2. 待办清单中的“用户强刷后复核”条目全部保留，未做任何判断；这些是等待用户验收项，若用户已验收，后续轮次按反馈收敛。
 
 下次计划：#3.3（任务分派默认分支静默落到导出任务，switch 穷举 + default 抛错）
+
+### 轮次 6 – 2026-08-06
+
+目标：#3.3 把任务分派的 if 链 + 导出兜底改为 `Record<JobName, Factory>` 穷举映射，消除“新任务名被静默当作导出任务执行”的路径。
+
+修改文件：`apps/api/src/jobs/runner.ts`（`jobRunners` 穷举映射表：7 个 `JobName` 各自对应处理器工厂，新增任务名时 TypeScript 强制补充分支；`jobNames` 改为从映射表派生，删除手写重复数组；`runJob` 只做映射查找，删除静默兜底）；新增 `apps/api/src/jobs/runner.spec.ts`（2 条锁定测试：映射键与 `jobNames` 完全一致、每个任务名都有工厂函数）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 436/436 ✅（65 个测试文件，隔离 MySQL；新增 2 条分派映射锁定测试）
+
+提交：见对话回复（短哈希），推送结果见对话回复
+
+不确定点：
+1. 采用审计建议中的“映射表”方案而非 switch+default：编译期由 `Record<JobName, JobRunner>` 保证穷举，若未来绕过类型系统（如把字符串强转后传入），会以 `undefined is not a function` 快速失败而不是静默跑导出任务——症状是任务直接报错而非产生错误导出。
+2. `jobNames` 现在是 `Object.keys(jobRunners)` 派生数组，顺序与映射表插入顺序一致；若未来平台管理页依赖 `jobNames` 顺序，需以映射表顺序为准。
+3. 映射工厂在 `runJob` 调用时才构造处理器（与旧 if 链一致，惰性构造不变）；新增需要不同构造参数的任务时，只需扩展 `JobRunner` 签名与该任务的分支。
+
+下次计划：#3.4（AUTH_DEV_MODE 无 NODE_ENV 防线，显式双条件 + env schema；`#1.2` 的 `.env.example` 开发模式开关随本轮一并做）
