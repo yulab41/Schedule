@@ -29,6 +29,7 @@
 
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
 - 2026-08-05 调试期轮次 1–49 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 394/394；CloudBase 部署保持手动触发，本轮未部署）。
+- 2026-08-06 全库合规审查报告全文并入 `fix-progress.md`（清单编号与报告证据一一对应，含文件/行号/原文/建议），并补充原清单缺失的 #2.2/#7.2/#2.3/#8.2 与外部阻塞登记；该文件成为 Web 1.0 合规修复阶段的新对话唯一切入点。检查点提交 `docs: integrate full compliance audit report into fix-progress checklist` 识别。
 - 轮次 35 按用户要求开放访客节假日、联系电话与当天标记，并禁止换班/加扣班等事件标记与事件入口；月/周/列表日历对过去日期统一显示深灰色（访客与用户/管理员模式一致）。检查点提交 `feat(guest): expose holidays and contacts while hiding events, gray past dates` 识别。
 - 轮次 37 修复管理员发起的换班事件在首页弹窗错误显示“由成员一发出”，改为按实际操作账户显示发起人；人员变更链移到事件弹窗底部并默认折叠。检查点提交 `fix(events): show acting account for admin swaps; collapsible change chain` 识别。
 - 轮次 38 合并换班/加扣班人员变更链为一条、去掉日历“事件”按钮并改为点击“换/加”等标记打开事件弹窗、恢复点击姓名弹出联系电话（未确认号码仅可复制）。检查点提交 `fix(events): merge change chains, marker-click events, restore phone menu` 识别。
@@ -63,18 +64,19 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
+- 下一活动批次：按 `fix-progress.md` 第 2 节开始 Web 1.0 合规修复（建议从 P1 #1.1 文档修正热身或 P0 #3.1/#4.1 开始）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
 - 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
 - 停止条件：上线健康检查通过且用户验收完成。
 
 ## Required Reading for the Next Conversation
 
 1. 本文件（精简版）。
-2. `AGENTS.md`。
-3. `docs/debug/debug-feedback-log.md`（每轮只需读一遍，后续轮次在其上追加）。
-4. `docs/deployment/cloudbase-ops-notes.md`（涉及 CloudBase 控制台/CLI 时必须读）。
-5. 设计规格相关章节（按当轮任务定位；常用 22/23/24/27）。
-6. `git status --short --branch`、`git log -5 --oneline --decorate`、remotes，确认当前批次与代码一致。
+2. `fix-progress.md`（Web 1.0 合规修复的唯一切入点，含审查报告全文证据）。
+3. `AGENTS.md`。
+4. `docs/debug/debug-feedback-log.md`（每轮只需读一遍，后续轮次在其上追加）。
+5. `docs/deployment/cloudbase-ops-notes.md`（涉及 CloudBase 控制台/CLI 时必须读）。
+6. 设计规格相关章节（按当轮任务定位；常用 22/23/24/27）。
+7. `git status --short --branch`、`git log -5 --oneline --decorate`、remotes，确认当前批次与代码一致。
 
 ## Known Environment State（关键信息；详细命令见 cloudbase-ops-notes）
 
