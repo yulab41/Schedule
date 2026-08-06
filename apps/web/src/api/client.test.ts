@@ -2,6 +2,7 @@ import type {
   AppliedManualScheduleTemplateResult,
   CalendarReadModel,
   GroupSummary,
+  HolidayReadModel,
   ManualScheduleTemplate,
   ManualApplyPreview,
   UserProfile,
@@ -74,6 +75,19 @@ const calendar: CalendarReadModel = {
       textColor: '#FFFFFF',
     },
   ],
+};
+
+const holidays: HolidayReadModel = {
+  confirmed: true,
+  dates: [
+    {
+      date: '2026-01-01',
+      holidayName: '元旦',
+      isOffDay: true,
+      isWorkday: false,
+    },
+  ],
+  year: 2026,
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -332,6 +346,127 @@ describe('Web API client', () => {
       '/api/guest/holidays?year=2026',
       expect.objectContaining({ method: 'GET' }),
     );
+  });
+
+  it('accepts a holidays response with unknown fields', async () => {
+    const extendedHolidays = { ...holidays, extra: 'kept' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(extendedHolidays), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getHolidays(2026)).resolves.toEqual(extendedHolidays);
+  });
+
+  it('rejects a holidays response with a non-integer year', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ...holidays, year: 2026.5 }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a holidays response whose confirmed flag is not a boolean', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ...holidays, confirmed: 'true' }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a holidays response without a dates array', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ confirmed: true, year: 2026 }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a holidays date entry missing its holiday name', async () => {
+    const invalidHolidays = {
+      ...holidays,
+      dates: [{ date: '2026-01-01', isOffDay: true, isWorkday: false }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidHolidays), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a holidays date entry with a non-boolean isOffDay', async () => {
+    const invalidHolidays = {
+      ...holidays,
+      dates: [{ ...holidays.dates[0], isOffDay: 'yes' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidHolidays), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a holidays date entry with a non-string date', async () => {
+    const invalidHolidays = {
+      ...holidays,
+      dates: [{ ...holidays.dates[0], date: 20260101 }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidHolidays), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
   });
 
   it('rejects a malformed calendar response', async () => {

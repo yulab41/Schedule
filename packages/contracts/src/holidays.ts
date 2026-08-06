@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export type HolidayImportChange = 'added' | 'changed' | 'removed' | 'unchanged';
 
 export interface HolidayDateInput {
@@ -48,18 +50,24 @@ export interface HolidayImportResult {
   readonly year: number;
 }
 
-export interface ConfirmedHolidayDate {
-  readonly date: string;
-  readonly holidayName: string;
-  readonly isOffDay: boolean;
-  readonly isWorkday: boolean;
-}
+export const confirmedHolidayDateSchema = z
+  .object({
+    date: z.string(),
+    holidayName: z.string(),
+    isOffDay: z.boolean(),
+    isWorkday: z.boolean(),
+  })
+  .passthrough();
+export type ConfirmedHolidayDate = z.infer<typeof confirmedHolidayDateSchema>;
 
-export interface HolidayReadModel {
-  readonly confirmed: boolean;
-  readonly dates: readonly ConfirmedHolidayDate[];
-  readonly year: number;
-}
+export const holidayReadModelSchema = z
+  .object({
+    confirmed: z.boolean(),
+    dates: z.readonly(z.array(confirmedHolidayDateSchema)),
+    year: z.number().int(),
+  })
+  .passthrough();
+export type HolidayReadModel = z.infer<typeof holidayReadModelSchema>;
 
 export interface HolidayCoverage {
   readonly confirmedYears: readonly number[];

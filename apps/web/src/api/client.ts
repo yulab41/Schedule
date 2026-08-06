@@ -115,6 +115,7 @@ import {
   calendarReadModelSchema,
   guestCalendarReadModelSchema,
   guestGroupSummaryListSchema,
+  holidayReadModelSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
@@ -1122,7 +1123,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/holidays?year=${encodeURIComponent(String(year))}`,
         { method: 'GET' },
-        isHolidayReadModel,
+        isResponseBodyFromSchema(holidayReadModelSchema),
       );
     },
     getGuestHolidays(year) {
@@ -1131,7 +1132,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/guest/holidays?year=${encodeURIComponent(String(year))}`,
         { method: 'GET' },
-        isHolidayReadModel,
+        isResponseBodyFromSchema(holidayReadModelSchema),
       );
     },
     getEventDetail(groupId, eventId) {
@@ -3358,29 +3359,6 @@ function isPublishSchedulePeriodBatchResult(
     'periods' in value &&
     Array.isArray(value.periods) &&
     value.periods.every(isSchedulePeriodSummary)
-  );
-}
-
-function isHolidayReadModel(value: unknown): value is HolidayReadModel {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const holiday = value as Partial<HolidayReadModel>;
-  return (
-    typeof holiday.confirmed === 'boolean' &&
-    typeof holiday.year === 'number' &&
-    Number.isInteger(holiday.year) &&
-    Array.isArray(holiday.dates) &&
-    holiday.dates.every(
-      (date) =>
-        date !== null &&
-        typeof date === 'object' &&
-        typeof (date as { date?: unknown }).date === 'string' &&
-        typeof (date as { holidayName?: unknown }).holidayName === 'string' &&
-        typeof (date as { isOffDay?: unknown }).isOffDay === 'boolean' &&
-        typeof (date as { isWorkday?: unknown }).isWorkday === 'boolean',
-    )
   );
 }
 
