@@ -1,16 +1,24 @@
-export interface StatisticsRoleCount {
-  readonly actualCount: number;
-  readonly plannedCount: number;
-  readonly scheduleRoleId: string;
-  readonly scheduleRoleName: string;
-}
+import { z } from 'zod';
 
-export interface StatisticsShiftTypeCount {
-  readonly actualCount: number;
-  readonly plannedCount: number;
-  readonly shiftTypeId: string;
-  readonly shiftTypeName: string;
-}
+export const statisticsRoleCountSchema = z
+  .object({
+    actualCount: z.number(),
+    plannedCount: z.number(),
+    scheduleRoleId: z.string(),
+    scheduleRoleName: z.string(),
+  })
+  .passthrough();
+export type StatisticsRoleCount = z.infer<typeof statisticsRoleCountSchema>;
+
+export const statisticsShiftTypeCountSchema = z
+  .object({
+    actualCount: z.number(),
+    plannedCount: z.number(),
+    shiftTypeId: z.string(),
+    shiftTypeName: z.string(),
+  })
+  .passthrough();
+export type StatisticsShiftTypeCount = z.infer<typeof statisticsShiftTypeCountSchema>;
 
 export interface StatisticsActualVsPlannedEntry {
   readonly actualMemberId?: string;
@@ -21,67 +29,93 @@ export interface StatisticsActualVsPlannedEntry {
   readonly shiftTypeName: string;
 }
 
-export interface StatisticsMemberRow {
-  readonly actualCount: number;
-  readonly actualVsPlanned: readonly StatisticsActualVsPlannedEntry[];
-  readonly byRole: readonly StatisticsRoleCount[];
-  readonly byShiftType: readonly StatisticsShiftTypeCount[];
-  readonly countedActualCount: number;
-  readonly countedPlannedCount: number;
-  readonly deductionCount: number;
-  readonly deltaCount: number;
-  readonly holidayCount: number;
-  readonly leaveCoverCount: number;
-  readonly manualAdjustmentCount: number;
-  readonly membershipId: string;
-  readonly netDutyAdjustment: number;
-  readonly overtimeCount: number;
-  readonly plannedCount: number;
-  readonly realName: string;
-  readonly swapCount: number;
-  readonly weekendCount: number;
-}
+export const statisticsMemberRowSchema = z
+  .object({
+    actualCount: z.number(),
+    // 旧守卫只校验 actualVsPlanned 为数组；导出类型保留完整契约。
+    actualVsPlanned: z.custom<readonly StatisticsActualVsPlannedEntry[]>((value) =>
+      Array.isArray(value),
+    ),
+    byRole: z.readonly(z.array(statisticsRoleCountSchema)),
+    byShiftType: z.readonly(z.array(statisticsShiftTypeCountSchema)),
+    countedActualCount: z.number(),
+    countedPlannedCount: z.number(),
+    deductionCount: z.number(),
+    deltaCount: z.number(),
+    holidayCount: z.number(),
+    leaveCoverCount: z.number(),
+    manualAdjustmentCount: z.number(),
+    membershipId: z.string(),
+    netDutyAdjustment: z.number(),
+    overtimeCount: z.number(),
+    plannedCount: z.number(),
+    realName: z.string(),
+    swapCount: z.number(),
+    weekendCount: z.number(),
+  })
+  .passthrough();
+export type StatisticsMemberRow = z.infer<typeof statisticsMemberRowSchema>;
 
-export interface StatisticsSummary {
-  readonly actualCount: number;
-  readonly byRole: readonly StatisticsRoleCount[];
-  readonly byShiftType: readonly StatisticsShiftTypeCount[];
-  readonly countedActualCount: number;
-  readonly countedPlannedCount: number;
-  readonly deductionCount: number;
-  readonly holidayCount: number;
-  readonly leaveCoverCount: number;
-  readonly manualAdjustmentCount: number;
-  readonly members: readonly StatisticsMemberRow[];
-  readonly netDutyAdjustment: number;
-  readonly overtimeCount: number;
-  readonly plannedCount: number;
-  readonly swapCount: number;
-  readonly weekendCount: number;
-}
+export const statisticsSummarySchema = z
+  .object({
+    actualCount: z.number(),
+    byRole: z.readonly(z.array(statisticsRoleCountSchema)),
+    byShiftType: z.readonly(z.array(statisticsShiftTypeCountSchema)),
+    countedActualCount: z.number(),
+    countedPlannedCount: z.number(),
+    deductionCount: z.number(),
+    holidayCount: z.number(),
+    leaveCoverCount: z.number(),
+    manualAdjustmentCount: z.number(),
+    members: z.readonly(z.array(statisticsMemberRowSchema)),
+    netDutyAdjustment: z.number(),
+    overtimeCount: z.number(),
+    plannedCount: z.number(),
+    swapCount: z.number(),
+    weekendCount: z.number(),
+  })
+  .passthrough();
+export type StatisticsSummary = z.infer<typeof statisticsSummarySchema>;
 
-export interface MonthStatisticsSnapshot {
-  readonly businessMonth: string;
-  readonly computedAt: string;
-  readonly groupId: string;
-  readonly summary: StatisticsSummary;
-  readonly version: number;
-}
+export const monthStatisticsSnapshotSchema = z
+  .object({
+    businessMonth: z.string(),
+    computedAt: z.string(),
+    groupId: z.string(),
+    summary: statisticsSummarySchema,
+    version: z.number(),
+  })
+  .passthrough();
+export type MonthStatisticsSnapshot = z.infer<typeof monthStatisticsSnapshotSchema>;
 
-export interface YearStatistics {
-  readonly months: readonly {
-    readonly businessMonth: string;
-    readonly summary: StatisticsSummary;
-  }[];
-  readonly summary: StatisticsSummary;
-  readonly year: number;
-}
+export const yearStatisticsSchema = z
+  .object({
+    months: z.readonly(
+      z.array(
+        z
+          .object({
+            businessMonth: z.string(),
+            summary: statisticsSummarySchema,
+          })
+          .passthrough(),
+      ),
+    ),
+    summary: statisticsSummarySchema,
+    year: z.number(),
+  })
+  .passthrough();
+export type YearStatistics = z.infer<typeof yearStatisticsSchema>;
 
-export interface StatisticsRecalculateCheckResult {
-  readonly businessMonth: string;
-  readonly matched: boolean;
-  readonly mismatches: readonly string[];
-  readonly recomputed: StatisticsSummary;
-  readonly snapshot: StatisticsSummary;
-  readonly snapshotVersion: number;
-}
+export const statisticsRecalculateCheckResultSchema = z
+  .object({
+    businessMonth: z.string(),
+    matched: z.boolean(),
+    mismatches: z.readonly(z.array(z.string())),
+    recomputed: statisticsSummarySchema,
+    snapshot: statisticsSummarySchema,
+    snapshotVersion: z.number(),
+  })
+  .passthrough();
+export type StatisticsRecalculateCheckResult = z.infer<
+  typeof statisticsRecalculateCheckResultSchema
+>;

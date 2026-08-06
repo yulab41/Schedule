@@ -149,6 +149,7 @@ import {
   membershipClaimRequestSchema,
   memberNotificationPreferencesSchema,
   memberSwapSettingsSchema,
+  monthStatisticsSnapshotSchema,
   pastScheduleAssignmentListSchema,
   pastScheduleBackfillRecordListSchema,
   pastSchedulePeriodListSchema,
@@ -173,8 +174,10 @@ import {
   swapPreviewSchema,
   swapRequestListSchema,
   swapRequestSchema,
+  statisticsRecalculateCheckResultSchema,
   unreadCountResultSchema,
   updatePastScheduleAssignmentResultSchema,
+  yearStatisticsSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
@@ -601,7 +604,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/statistics?businessMonth=${encodeURIComponent(businessMonth)}`,
         { method: 'GET' },
-        isMonthStatisticsSnapshot,
+        isResponseBodyFromSchema(monthStatisticsSnapshotSchema),
       );
     },
     getYearStatistics(groupId, year) {
@@ -611,7 +614,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/statistics/year?year=${encodeURIComponent(String(year))}`,
         { method: 'GET' },
-        isYearStatistics,
+        isResponseBodyFromSchema(yearStatisticsSchema),
       );
     },
     recalculateStatistics(groupId, businessMonth) {
@@ -624,7 +627,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify({ businessMonth }),
           method: 'POST',
         },
-        isStatisticsRecalculateCheckResult,
+        isResponseBodyFromSchema(statisticsRecalculateCheckResultSchema),
       );
     },
     refreshMonthStatistics(groupId, businessMonth) {
@@ -637,7 +640,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify({ businessMonth }),
           method: 'POST',
         },
-        isMonthStatisticsSnapshot,
+        isResponseBodyFromSchema(monthStatisticsSnapshotSchema),
       );
     },
     deletePushSubscription() {
@@ -2146,182 +2149,6 @@ function isUserProfile(value: unknown): value is UserProfile {
     typeof profile.version === 'number' &&
     Number.isInteger(profile.version) &&
     profile.version >= 1
-  );
-}
-
-function isStatisticsRoleCount(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const count = value as {
-    actualCount?: unknown;
-    plannedCount?: unknown;
-    scheduleRoleId?: unknown;
-    scheduleRoleName?: unknown;
-  };
-  return (
-    typeof count.actualCount === 'number' &&
-    typeof count.plannedCount === 'number' &&
-    typeof count.scheduleRoleId === 'string' &&
-    typeof count.scheduleRoleName === 'string'
-  );
-}
-
-function isStatisticsShiftTypeCount(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const count = value as {
-    actualCount?: unknown;
-    plannedCount?: unknown;
-    shiftTypeId?: unknown;
-    shiftTypeName?: unknown;
-  };
-  return (
-    typeof count.actualCount === 'number' &&
-    typeof count.plannedCount === 'number' &&
-    typeof count.shiftTypeId === 'string' &&
-    typeof count.shiftTypeName === 'string'
-  );
-}
-
-function isStatisticsMemberRow(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const row = value as {
-    actualCount?: unknown;
-    actualVsPlanned?: unknown;
-    byRole?: unknown;
-    byShiftType?: unknown;
-    countedActualCount?: unknown;
-    countedPlannedCount?: unknown;
-    deductionCount?: unknown;
-    deltaCount?: unknown;
-    holidayCount?: unknown;
-    leaveCoverCount?: unknown;
-    manualAdjustmentCount?: unknown;
-    membershipId?: unknown;
-    netDutyAdjustment?: unknown;
-    overtimeCount?: unknown;
-    plannedCount?: unknown;
-    realName?: unknown;
-    swapCount?: unknown;
-    weekendCount?: unknown;
-  };
-  return (
-    typeof row.actualCount === 'number' &&
-    Array.isArray(row.actualVsPlanned) &&
-    Array.isArray(row.byRole) &&
-    row.byRole.every(isStatisticsRoleCount) &&
-    Array.isArray(row.byShiftType) &&
-    row.byShiftType.every(isStatisticsShiftTypeCount) &&
-    typeof row.countedActualCount === 'number' &&
-    typeof row.countedPlannedCount === 'number' &&
-    typeof row.deductionCount === 'number' &&
-    typeof row.deltaCount === 'number' &&
-    typeof row.holidayCount === 'number' &&
-    typeof row.leaveCoverCount === 'number' &&
-    typeof row.manualAdjustmentCount === 'number' &&
-    typeof row.membershipId === 'string' &&
-    typeof row.netDutyAdjustment === 'number' &&
-    typeof row.overtimeCount === 'number' &&
-    typeof row.plannedCount === 'number' &&
-    typeof row.realName === 'string' &&
-    typeof row.swapCount === 'number' &&
-    typeof row.weekendCount === 'number'
-  );
-}
-
-function isStatisticsSummary(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const summary = value as {
-    actualCount?: unknown;
-    byRole?: unknown;
-    byShiftType?: unknown;
-    countedActualCount?: unknown;
-    countedPlannedCount?: unknown;
-    deductionCount?: unknown;
-    holidayCount?: unknown;
-    leaveCoverCount?: unknown;
-    manualAdjustmentCount?: unknown;
-    members?: unknown;
-    netDutyAdjustment?: unknown;
-    overtimeCount?: unknown;
-    plannedCount?: unknown;
-    swapCount?: unknown;
-    weekendCount?: unknown;
-  };
-  return (
-    typeof summary.actualCount === 'number' &&
-    Array.isArray(summary.byRole) &&
-    summary.byRole.every(isStatisticsRoleCount) &&
-    Array.isArray(summary.byShiftType) &&
-    summary.byShiftType.every(isStatisticsShiftTypeCount) &&
-    typeof summary.countedActualCount === 'number' &&
-    typeof summary.countedPlannedCount === 'number' &&
-    typeof summary.deductionCount === 'number' &&
-    typeof summary.holidayCount === 'number' &&
-    typeof summary.leaveCoverCount === 'number' &&
-    typeof summary.manualAdjustmentCount === 'number' &&
-    Array.isArray(summary.members) &&
-    summary.members.every(isStatisticsMemberRow) &&
-    typeof summary.netDutyAdjustment === 'number' &&
-    typeof summary.overtimeCount === 'number' &&
-    typeof summary.plannedCount === 'number' &&
-    typeof summary.swapCount === 'number' &&
-    typeof summary.weekendCount === 'number'
-  );
-}
-
-function isMonthStatisticsSnapshot(value: unknown): value is MonthStatisticsSnapshot {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const snapshot = value as Partial<MonthStatisticsSnapshot>;
-  return (
-    typeof snapshot.businessMonth === 'string' &&
-    typeof snapshot.computedAt === 'string' &&
-    typeof snapshot.groupId === 'string' &&
-    typeof snapshot.version === 'number' &&
-    isStatisticsSummary(snapshot.summary)
-  );
-}
-
-function isYearStatistics(value: unknown): value is YearStatistics {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const year = value as Partial<YearStatistics>;
-  return (
-    typeof year.year === 'number' &&
-    Array.isArray(year.months) &&
-    year.months.every(
-      (month) =>
-        typeof (month as { businessMonth?: unknown }).businessMonth === 'string' &&
-        isStatisticsSummary((month as { summary?: unknown }).summary),
-    ) &&
-    isStatisticsSummary(year.summary)
-  );
-}
-
-function isStatisticsRecalculateCheckResult(
-  value: unknown,
-): value is StatisticsRecalculateCheckResult {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const result = value as Partial<StatisticsRecalculateCheckResult>;
-  return (
-    typeof result.businessMonth === 'string' &&
-    typeof result.matched === 'boolean' &&
-    Array.isArray(result.mismatches) &&
-    result.mismatches.every((entry) => typeof entry === 'string') &&
-    isStatisticsSummary(result.recomputed) &&
-    isStatisticsSummary(result.snapshot) &&
-    typeof result.snapshotVersion === 'number'
   );
 }
 

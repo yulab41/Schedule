@@ -20,6 +20,7 @@ import type {
   ManualApplyPreview,
   MembershipClaimRequest,
   MemberNotificationPreferences,
+  MonthStatisticsSnapshot,
   NotificationRecord,
   PastScheduleAssignment,
   PastScheduleBackfillRecord,
@@ -30,6 +31,9 @@ import type {
   ScheduleGenerationPreview,
   SchedulePeriodHistoryItem,
   ScheduleRole,
+  StatisticsMemberRow,
+  StatisticsRecalculateCheckResult,
+  StatisticsSummary,
   SwapAssignmentSummary,
   SwapPreview,
   SwapRequest,
@@ -37,6 +41,7 @@ import type {
   ShiftType,
   ScheduleWorkflowImpact,
   UserProfile,
+  YearStatistics,
 } from '@schedule/contracts';
 import { apiErrorCodes } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
@@ -462,6 +467,82 @@ const memberNotificationPreferences: MemberNotificationPreferences = {
   browserNotificationsEnabled: true,
   dutyReminderHours: [24],
   membershipId: 'membership-1',
+};
+
+const statisticsRoleCount = {
+  actualCount: 1,
+  plannedCount: 1,
+  scheduleRoleId: 'role-1',
+  scheduleRoleName: '一线',
+};
+
+const statisticsShiftTypeCount = {
+  actualCount: 1,
+  plannedCount: 1,
+  shiftTypeId: 'shift-1',
+  shiftTypeName: '全天班',
+};
+
+const statisticsMemberRow: StatisticsMemberRow = {
+  actualCount: 1,
+  actualVsPlanned: [],
+  byRole: [statisticsRoleCount],
+  byShiftType: [statisticsShiftTypeCount],
+  countedActualCount: 1,
+  countedPlannedCount: 1,
+  deductionCount: 0,
+  deltaCount: 0,
+  holidayCount: 0,
+  leaveCoverCount: 0,
+  manualAdjustmentCount: 0,
+  membershipId: 'membership-1',
+  netDutyAdjustment: 0,
+  overtimeCount: 0,
+  plannedCount: 1,
+  realName: '张医生',
+  swapCount: 0,
+  weekendCount: 0,
+};
+
+const statisticsSummary: StatisticsSummary = {
+  actualCount: 1,
+  byRole: [statisticsRoleCount],
+  byShiftType: [statisticsShiftTypeCount],
+  countedActualCount: 1,
+  countedPlannedCount: 1,
+  deductionCount: 0,
+  holidayCount: 0,
+  leaveCoverCount: 0,
+  manualAdjustmentCount: 0,
+  members: [statisticsMemberRow],
+  netDutyAdjustment: 0,
+  overtimeCount: 0,
+  plannedCount: 1,
+  swapCount: 0,
+  weekendCount: 0,
+};
+
+const monthStatisticsSnapshot: MonthStatisticsSnapshot = {
+  businessMonth: '2026-08',
+  computedAt: '2026-08-01T00:00:00.000Z',
+  groupId: 'group-1',
+  summary: statisticsSummary,
+  version: 1,
+};
+
+const yearStatistics: YearStatistics = {
+  months: [{ businessMonth: '2026-08', summary: statisticsSummary }],
+  summary: statisticsSummary,
+  year: 2026,
+};
+
+const statisticsRecalculateCheckResult: StatisticsRecalculateCheckResult = {
+  businessMonth: '2026-08',
+  matched: true,
+  mismatches: [],
+  recomputed: statisticsSummary,
+  snapshot: statisticsSummary,
+  snapshotVersion: 1,
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -2422,6 +2503,221 @@ describe('Web API client', () => {
     });
 
     await expect(client.getPushConfiguration()).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('accepts a statistics member row with arbitrary actualVsPlanned entries', async () => {
+    const lenientRow = { ...statisticsMemberRow, actualVsPlanned: ['anything'] };
+    const lenientSnapshot = {
+      ...monthStatisticsSnapshot,
+      summary: { ...statisticsSummary, members: [lenientRow] },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(lenientSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMonthStatistics(group.id, '2026-08')).resolves.toEqual(lenientSnapshot);
+  });
+
+  it('rejects month statistics with a non-number version', async () => {
+    const invalidSnapshot = { ...monthStatisticsSnapshot, version: '1' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects month statistics with a summary missing members', async () => {
+    const invalidSnapshot = {
+      ...monthStatisticsSnapshot,
+      summary: { ...statisticsSummary, members: undefined },
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.refreshMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects year statistics with a non-array months field', async () => {
+    const invalidYear = { ...yearStatistics, months: {} };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidYear), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getYearStatistics(group.id, 2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects year statistics with a month summary missing byRole', async () => {
+    const invalidYear = {
+      ...yearStatistics,
+      months: [{ businessMonth: '2026-08', summary: { ...statisticsSummary, byRole: undefined } }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidYear), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getYearStatistics(group.id, 2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a recalculate check result with a non-boolean matched flag', async () => {
+    const invalidResult = { ...statisticsRecalculateCheckResult, matched: 'yes' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.recalculateStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a recalculate check result with a non-string mismatch', async () => {
+    const invalidResult = { ...statisticsRecalculateCheckResult, mismatches: [5] };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.recalculateStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects statistics summary with a non-array members field', async () => {
+    const invalidSummary = { ...statisticsSummary, members: {} };
+    const invalidSnapshot = { ...monthStatisticsSnapshot, summary: invalidSummary };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a statistics member row with a non-array actualVsPlanned field', async () => {
+    const invalidRow = { ...statisticsMemberRow, actualVsPlanned: 'x' };
+    const invalidSummary = {
+      ...statisticsSummary,
+      members: [invalidRow],
+    };
+    const invalidSnapshot = { ...monthStatisticsSnapshot, summary: invalidSummary };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a statistics member row with a non-string real name', async () => {
+    const invalidRow = { ...statisticsMemberRow, realName: 5 };
+    const invalidSummary = { ...statisticsSummary, members: [invalidRow] };
+    const invalidSnapshot = { ...monthStatisticsSnapshot, summary: invalidSummary };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a statistics role count with a non-number planned count', async () => {
+    const invalidSummary = {
+      ...statisticsSummary,
+      byRole: [{ ...statisticsRoleCount, plannedCount: '1' }],
+    };
+    const invalidSnapshot = { ...monthStatisticsSnapshot, summary: invalidSummary };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a statistics shift type count with a non-string shift type name', async () => {
+    const invalidSummary = {
+      ...statisticsSummary,
+      byShiftType: [{ ...statisticsShiftTypeCount, shiftTypeName: 5 }],
+    };
+    const invalidSnapshot = { ...monthStatisticsSnapshot, summary: invalidSummary };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSnapshot), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
