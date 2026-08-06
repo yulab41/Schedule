@@ -110,6 +110,7 @@ import type {
   UserProfile,
 } from '@schedule/contracts';
 
+import { apiErrorCodes } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
 
@@ -432,17 +433,8 @@ export interface CreateApiClientOptions {
   readonly isOnline?: () => boolean;
 }
 
-const knownApiErrorCodes = new Set<ApiErrorCode>([
-  'AUTHENTICATION_REQUIRED',
-  'FORBIDDEN',
-  'NOT_FOUND',
-  'VALIDATION_FAILED',
-  'UNSUPPORTED_MEDIA_TYPE',
-  'CONFLICT',
-  'RATE_LIMITED',
-  'SERVICE_UNAVAILABLE',
-  'INTERNAL_ERROR',
-]);
+// Built from the contract list so a new error code reaches the client automatically.
+const knownApiErrorCodes = new Set<string>(apiErrorCodes);
 
 export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const baseUrl = options.apiBaseUrl ?? import.meta.env.VITE_API_BASE_URL ?? '/api';
@@ -2489,7 +2481,7 @@ function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
     typeof error === 'object' &&
     'code' in error &&
     typeof error.code === 'string' &&
-    knownApiErrorCodes.has(error.code as ApiErrorCode) &&
+    knownApiErrorCodes.has(error.code) &&
     'message' in error &&
     typeof error.message === 'string' &&
     'requestId' in error &&

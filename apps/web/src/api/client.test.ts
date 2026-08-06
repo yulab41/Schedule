@@ -6,6 +6,7 @@ import type {
   ManualApplyPreview,
   UserProfile,
 } from '@schedule/contracts';
+import { apiErrorCodes } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CloudbaseAuthClient } from '../auth/cloudbase.js';
@@ -530,6 +531,60 @@ describe('Web API client', () => {
       requestId: 'request-1',
       status: 409,
     });
+  });
+
+  it('maps every contract error code to a typed client error', async () => {
+    for (const code of apiErrorCodes) {
+      const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code,
+              message: `message-${code}`,
+              requestId: `request-${code}`,
+            },
+          }),
+          { status: 400 },
+        ),
+      );
+      const client = createApiClient({
+        auth: createAuthClient(),
+        fetch: fetchImplementation,
+      });
+
+      await expect(client.getCurrentProfile()).rejects.toMatchObject({
+        code,
+        message: `message-${code}`,
+        requestId: `request-${code}`,
+        status: 400,
+      });
+    }
+  });
+
+  it('treats an unknown error code as a generic HTTP failure', async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 'NOT_A_REAL_CODE',
+            message: 'unknown body',
+            requestId: 'request-unknown',
+          },
+        }),
+        { status: 400 },
+      ),
+    );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    const error = await client.getCurrentProfile().catch((caught: unknown) => caught);
+    expect(error).toMatchObject({
+      message: '服务暂时不可用，请稍后重试。',
+      status: 400,
+    });
+    expect((error as { code?: string }).code).toBeUndefined();
   });
 
   it('rejects a malformed successful profile response', async () => {
