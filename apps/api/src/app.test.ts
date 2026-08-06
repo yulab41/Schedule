@@ -145,6 +145,7 @@ describe('API runtime', () => {
         accessToken: 'token-value',
         password: 'password-value',
         phoneNumber: '13800138000',
+        telephone: '010-12345678',
         metadata: {
           section: {
             row: {
@@ -191,6 +192,7 @@ describe('API runtime', () => {
     expect(output).not.toContain('token-value');
     expect(output).not.toContain('password-value');
     expect(output).not.toContain('13800138000');
+    expect(output).not.toContain('010-12345678');
     expect(output).not.toContain('deep-password-value');
     expect(output).not.toContain('13900139000');
     expect(output).not.toContain('deep-token-value');

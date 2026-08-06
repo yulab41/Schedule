@@ -6,7 +6,8 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，`git status` 干净。
-- 当前测试基线：`pnpm verify` 428/428（63 个测试文件，隔离 MySQL，轮次 3 后）。
+- 当前测试基线：`pnpm verify` 434/434（64 个测试文件，隔离 MySQL，轮次 4 后）。
+- 轮次 4 开始时工作区含用户未跟踪文件（`.dockerignore`、`docs/deployment/aliyun-ecs.md`、`infra/docker/*`），不属于本轮任务，未纳入提交。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
 ## 1. 修复任务约束协议（每轮必须遵守）
@@ -48,7 +49,7 @@
 | ✅ | #3.1 | starts_at 环境补丁散落 12 处 | 严重 | 中 | 极高（防线上数据损坏复发） | 已完成（轮次 1）：统一助手 + 锁定测试，见第 7 节 |
 | ✅ | #4.1 | swap/duty 服务复制（loadMembers/loadRoleNames） | 严重 | 中 | 极高 | 已完成（轮次 2）：共享 GroupMemberReader + 锁定测试，见第 7 节 |
 | ✅ | #7.3 | 中国时区算法在 9 个文件重复 | 严重 | 中低 | 高（时区事故反复出现） | 已完成（轮次 3）：统一到 scheduling-domain 并机械替换，见第 7 节 |
-| P1 | #3.2 | 日志/审计脱敏清单双份且已漂移 | 严重 | 低 | 高（安全控制） | 合并为共享脱敏模块 |
+| ✅ | #3.2 | 日志/审计脱敏清单双份且已漂移 | 严重 | 低 | 高（安全控制） | 已完成（轮次 4）：合并为共享脱敏模块，见第 7 节 |
 | P1 | #1.1 | 文档过期/自相矛盾（待办、轮次、415） | 轻微 | 零 | 中 | 零风险热身轮，为后续轮次提供正确上下文 |
 | P1 | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | switch 穷举 + default 抛错 |
 | P1 | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 显式双条件 + env schema |
@@ -139,6 +140,7 @@
 问题：`sensitiveLogFields` 与 `sensitiveFields` 是两套独立清单 + 两套几乎相同的 `normalizeFieldName`/递归脱敏实现，且清单已经不一致（审计含 `telephone`，日志不含）。任何新增敏感字段都需要同时改两处，漏改即可能造成日志泄露。
 严重等级：严重
 建议：把敏感字段清单与脱敏工具抽成单一共享模块（如 `packages/contracts` 或 api 内 `security/redact.ts`），日志与审计共用，并加一致性测试。
+> 完成情况（轮次 4，2026-08-06）：已抽为 `apps/api/src/security/redact.ts` 的 `redactSensitiveFields` 共享模块，敏感字段清单合并双份差异（日志补上 `telephone`），`logRedactionPaths` 由同一清单派生；`app.ts` 与 `audit-writer.ts` 删除各自清单与递归实现；新增 6 条共享模块单元测试，并扩展日志（`telephone`）与审计（全字段）一致性测试；`pnpm verify` 434/434 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **3.3 任务分派默认分支静默落到导出任务**
 位置：[runner.ts (line 38)](E:/AItools/Schedule/apps/api/src/jobs/runner.ts:38)（38–59 行）
@@ -454,3 +456,20 @@
 3. `calendar-logic.ts`/`calendar-views.ts` 保留薄包装（re-export/委托）以维持十余个 Vue 文件与测试的既有导入面；若后续希望彻底删除包装、所有调用点直连领域包，需再开一轮机械替换。
 
 下次计划：#3.2（日志/审计脱敏清单双份维护，合并为共享脱敏模块）
+
+### 轮次 4 – 2026-08-06
+
+目标：#3.2 把日志/审计两套敏感字段清单与脱敏实现合并为单一共享模块，消除清单漂移。
+
+修改文件：新增 `apps/api/src/security/redact.ts`（唯一敏感字段清单 + `logRedactionPaths` + 递归脱敏）与 `redact.test.ts`（6 条单元测试）；`app.ts` 删除本地 `sensitiveLogFields`/`normalizeLogFieldName`/递归实现并改用共享模块；`audit-writer.ts` 删除本地 `sensitiveFields`/`redactValue`/`normalizeFieldName` 并改用共享模块；`app.test.ts` 日志测试补充 `telephone`；`events.integration.test.ts` 审计测试扩展到完整敏感字段并作为一致性测试；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 434/434 ✅（64 个测试文件，隔离 MySQL；新增 6 条共享模块单元测试）
+
+提交：见本次提交短哈希，推送结果见对话回复
+
+不确定点：
+1. 合并清单以审计侧为准补上 `telephone`，日志行为因此扩大脱敏范围（之前日志不会屏蔽 `telephone` 字段）；如果出错，症状是日志中 `telephone` 值不再出现，属于预期收紧。
+2. 共享脱敏只递归普通对象/数组，非普通对象（如 Date）原样保留；若未来日志参数里出现需要脱敏的类实例字段，需要先序列化——症状是类实例内的敏感字段出现在日志中。
+3. `logRedactionPaths` 仍限定 4 层以内的 Pino 静态路径，更深的嵌套由 `redactSensitiveFields` 兜底；若未来 Pino 输出链路绕过 logMethod 钩子，深层脱敏依赖不变。
+
+下次计划：#1.1（文档过期/自相矛盾，以当前代码与 Git 历史为准重写待办/下一步）

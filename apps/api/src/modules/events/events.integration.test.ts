@@ -211,9 +211,18 @@ describeWithDatabase('immutable schedule events and security audits', () => {
       auditWriter.append(transaction, {
         action: 'login_failed',
         metadata: {
-          nested: { mobilePhone: '13800000000', token: 'nested-token' },
+          accessToken: 'access-token',
+          authorization: 'Bearer secret',
+          mobile: '13911112222',
+          mobilePhone: '13800000000',
           password: 'plaintext-password',
-          request: { telephone: '010-12345678' },
+          phone: '13711112222',
+          phoneNumber: '13611112222',
+          refreshToken: 'refresh-token',
+          request: { authorization: 'Bearer nested', telephone: '010-12345678' },
+          shortPhone: '6666',
+          telephone: '010-87654321',
+          token: 'nested-token',
           username: 'doctor',
         },
         operationId: randomUUID(),
@@ -226,9 +235,18 @@ describeWithDatabase('immutable schedule events and security audits', () => {
       .where(eq(auditLogs.id, auditLogId));
 
     expect(auditLog?.metadata).toEqual({
-      nested: { mobilePhone: '[REDACTED]', token: '[REDACTED]' },
+      accessToken: '[REDACTED]',
+      authorization: '[REDACTED]',
+      mobile: '[REDACTED]',
+      mobilePhone: '[REDACTED]',
       password: '[REDACTED]',
-      request: { telephone: '[REDACTED]' },
+      phone: '[REDACTED]',
+      phoneNumber: '[REDACTED]',
+      refreshToken: '[REDACTED]',
+      request: { authorization: '[REDACTED]', telephone: '[REDACTED]' },
+      shortPhone: '[REDACTED]',
+      telephone: '[REDACTED]',
+      token: '[REDACTED]',
       username: 'doctor',
     });
   });
