@@ -130,9 +130,21 @@ import {
   membershipClaimLookupResponseSchema,
   membershipClaimRequestListSchema,
   membershipClaimRequestSchema,
+  pastScheduleAssignmentListSchema,
+  pastScheduleBackfillRecordListSchema,
+  pastSchedulePeriodListSchema,
+  publishSchedulePeriodBatchResultSchema,
+  publishSchedulePeriodResultSchema,
+  scheduleChangeImpactPreviewSchema,
+  scheduleDraftSummaryListSchema,
+  scheduleGenerationPreviewSchema,
+  schedulePeriodSummarySchema,
   scheduleRoleSchema,
+  schedulePeriodHistoryItemListSchema,
+  schedulePeriodMutationResultSchema,
   schedulingConfigSchema,
   shiftTypeSchema,
+  updatePastScheduleAssignmentResultSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
@@ -1268,7 +1280,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedule-periods`,
         { method: 'GET' },
-        isScheduleDraftSummaryList,
+        isResponseBodyMatching<ScheduleDraftSummary[]>(scheduleDraftSummaryListSchema),
       );
     },
     getScheduleDraftPreview(groupId, schedulePeriodId) {
@@ -1278,7 +1290,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/preview`,
         { method: 'GET' },
-        isScheduleGenerationPreview,
+        isResponseBodyMatching<ScheduleGenerationPreview>(scheduleGenerationPreviewSchema),
       );
     },
     getSchedulePeriodCalendar(groupId, schedulePeriodId) {
@@ -1298,7 +1310,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/past-schedules`,
         { method: 'GET' },
-        isPastSchedulePeriodList,
+        isResponseBodyFromSchema(pastSchedulePeriodListSchema),
       );
     },
     listPastScheduleAssignments(groupId, schedulePeriodId) {
@@ -1308,7 +1320,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(schedulePeriodId)}/assignments`,
         { method: 'GET' },
-        isPastScheduleAssignmentList,
+        isResponseBodyFromSchema(pastScheduleAssignmentListSchema),
       );
     },
     listPastScheduleBackfillRecords(groupId) {
@@ -1318,7 +1330,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/past-schedules/backfill-records`,
         { method: 'GET' },
-        isPastScheduleBackfillRecordList,
+        isResponseBodyFromSchema(pastScheduleBackfillRecordListSchema),
       );
     },
     updatePastScheduleAssignment(groupId, schedulePeriodId, assignmentId, input) {
@@ -1328,7 +1340,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(schedulePeriodId)}/assignments/${encodeURIComponent(assignmentId)}`,
         { body: JSON.stringify(input), method: 'PUT' },
-        isUpdatePastScheduleAssignmentResult,
+        isResponseBodyFromSchema(updatePastScheduleAssignmentResultSchema),
       );
     },
     createPastScheduleAssignment(groupId, input) {
@@ -1338,7 +1350,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/past-schedules/assignments`,
         { body: JSON.stringify(input), method: 'POST' },
-        isUpdatePastScheduleAssignmentResult,
+        isResponseBodyFromSchema(updatePastScheduleAssignmentResultSchema),
       );
     },
     previewScheduleChange(groupId, schedulePeriodId, action) {
@@ -1348,7 +1360,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/change-impact?action=${encodeURIComponent(action)}`,
         { method: 'GET' },
-        isScheduleChangeImpactPreview,
+        isResponseBodyFromSchema(scheduleChangeImpactPreviewSchema),
       );
     },
     listSchedulePeriodHistory(groupId) {
@@ -1358,7 +1370,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedule-periods/history`,
         { method: 'GET' },
-        isSchedulePeriodHistoryItemList,
+        isResponseBodyFromSchema(schedulePeriodHistoryItemListSchema),
       );
     },
     publishSchedulePeriod(groupId, schedulePeriodId, input) {
@@ -1368,7 +1380,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/publish`,
         { method: 'POST', body: JSON.stringify(input) },
-        isPublishSchedulePeriodResult,
+        isResponseBodyMatching<PublishSchedulePeriodResult>(publishSchedulePeriodResultSchema),
       );
     },
     publishScheduleDraftBatch(groupId, input) {
@@ -1381,7 +1393,9 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isPublishSchedulePeriodBatchResult,
+        isResponseBodyMatching<PublishSchedulePeriodBatchResult>(
+          publishSchedulePeriodBatchResultSchema,
+        ),
       );
     },
     deleteScheduleDraft(groupId, schedulePeriodId) {
@@ -1401,7 +1415,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/withdraw`,
         { body: JSON.stringify(input), method: 'POST' },
-        isSchedulePeriodMutationResult,
+        isResponseBodyMatching<SchedulePeriodMutationResult>(schedulePeriodMutationResultSchema),
       );
     },
     getSchedulingConfig(groupId) {
@@ -2029,6 +2043,13 @@ function isResponseBodyFromSchema<ResponseBody>(
 function isSchedulingConfigResponse(value: unknown): value is SchedulingConfig {
   // schema 允许缺省 rulesVersion（旧守卫不校验该字段）；导出类型保持必填供模板应用使用。
   return schedulingConfigSchema.safeParse(value).success;
+}
+
+function isResponseBodyMatching<ResponseBody>(
+  schema: JsonSchema<unknown>,
+): (value: unknown) => value is ResponseBody {
+  // 用于 schema 推断类型比导出契约类型更宽松的读模型（旧守卫忽略的必填字段）。
+  return (value: unknown): value is ResponseBody => schema.safeParse(value).success;
 }
 
 function joinUrl(baseUrl: string, path: string): string {
@@ -2772,7 +2793,7 @@ function isAppliedManualScheduleTemplateResult(
     typeof result.operationId === 'string' &&
     result.operationId.length > 0 &&
     Array.isArray(result.periods) &&
-    result.periods.every(isSchedulePeriodSummary) &&
+    result.periods.every((period) => schedulePeriodSummarySchema.safeParse(period).success) &&
     isManualApplyPreview(result.preview) &&
     (result.publishMode === 'draft' || result.publishMode === 'published') &&
     (result.status === 'draft' || result.status === 'published') &&
@@ -2780,276 +2801,6 @@ function isAppliedManualScheduleTemplateResult(
     result.templateId.length > 0 &&
     typeof result.templateVersion === 'number' &&
     Number.isInteger(result.templateVersion)
-  );
-}
-
-function isSchedulePeriodSummary(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const period = value as {
-    businessMonth?: unknown;
-    id?: unknown;
-    revision?: unknown;
-    status?: unknown;
-  };
-  return (
-    typeof period.businessMonth === 'string' &&
-    /^\d{4}-\d{2}/u.test(period.businessMonth) &&
-    typeof period.id === 'string' &&
-    period.id.length > 0 &&
-    typeof period.revision === 'number' &&
-    Number.isInteger(period.revision) &&
-    typeof period.status === 'string' &&
-    period.status.length > 0
-  );
-}
-
-function isScheduleDraftSummaryList(value: unknown): value is ScheduleDraftSummary[] {
-  return Array.isArray(value) && value.every(isScheduleDraftSummary);
-}
-
-function isSchedulePeriodHistoryItemList(value: unknown): value is SchedulePeriodHistoryItem[] {
-  return Array.isArray(value) && value.every(isSchedulePeriodHistoryItem);
-}
-
-function isPastSchedulePeriodList(value: unknown): value is PastSchedulePeriod[] {
-  return Array.isArray(value) && value.every(isPastSchedulePeriod);
-}
-
-function isPastSchedulePeriod(value: unknown): value is PastSchedulePeriod {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const period = value as Partial<PastSchedulePeriod>;
-  return (
-    typeof period.id === 'string' &&
-    period.id.length > 0 &&
-    typeof period.businessMonth === 'string' &&
-    /^\d{4}-\d{2}$/u.test(period.businessMonth) &&
-    (period.periodStatus === 'past' || period.periodStatus === 'published') &&
-    typeof period.scheduleRoleId === 'string' &&
-    period.scheduleRoleId.length > 0 &&
-    typeof period.scheduleRoleName === 'string' &&
-    period.scheduleRoleName.length > 0 &&
-    typeof period.revision === 'number' &&
-    Number.isInteger(period.revision) &&
-    typeof period.version === 'number' &&
-    Number.isInteger(period.version)
-  );
-}
-
-function isPastScheduleAssignmentList(value: unknown): value is PastScheduleAssignment[] {
-  return Array.isArray(value) && value.every(isPastScheduleAssignment);
-}
-
-function isPastScheduleBackfillRecordList(value: unknown): value is PastScheduleBackfillRecord[] {
-  return Array.isArray(value) && value.every(isPastScheduleBackfillRecord);
-}
-
-function isPastScheduleBackfillRecord(value: unknown): value is PastScheduleBackfillRecord {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const record = value as Partial<PastScheduleBackfillRecord>;
-  return (
-    typeof record.assignmentId === 'string' &&
-    record.assignmentId.length > 0 &&
-    typeof record.businessDate === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(record.businessDate) &&
-    typeof record.backfilledAt === 'string' &&
-    record.backfilledAt.length > 0 &&
-    typeof record.operatorName === 'string' &&
-    typeof record.shiftTypeName === 'string' &&
-    typeof record.shiftTypeAbbreviation === 'string'
-  );
-}
-
-function isPastScheduleAssignment(value: unknown): value is PastScheduleAssignment {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const assignment = value as Partial<PastScheduleAssignment>;
-  return (
-    typeof assignment.assignmentId === 'string' &&
-    assignment.assignmentId.length > 0 &&
-    typeof assignment.businessDate === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
-    typeof assignment.shiftTypeId === 'string' &&
-    assignment.shiftTypeId.length > 0 &&
-    typeof assignment.shiftTypeName === 'string' &&
-    typeof assignment.shiftTypeAbbreviation === 'string' &&
-    typeof assignment.slotPosition === 'number' &&
-    Number.isInteger(assignment.slotPosition)
-  );
-}
-
-function isUpdatePastScheduleAssignmentResult(
-  value: unknown,
-): value is UpdatePastScheduleAssignmentResult {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const result = value as Partial<UpdatePastScheduleAssignmentResult>;
-  return (
-    isPastScheduleAssignment(result.assignment) &&
-    (result.eventId === undefined ||
-      (typeof result.eventId === 'string' && result.eventId.length > 0))
-  );
-}
-
-function isSchedulePeriodHistoryItem(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const item = value as Partial<SchedulePeriodHistoryItem>;
-  return (
-    typeof item.id === 'string' &&
-    item.id.length > 0 &&
-    typeof item.businessMonth === 'string' &&
-    /^\d{4}-\d{2}$/u.test(item.businessMonth) &&
-    typeof item.scheduleRoleId === 'string' &&
-    item.scheduleRoleId.length > 0 &&
-    typeof item.scheduleRoleName === 'string' &&
-    item.scheduleRoleName.length > 0 &&
-    typeof item.revision === 'number' &&
-    Number.isInteger(item.revision) &&
-    item.revision >= 1 &&
-    typeof item.version === 'number' &&
-    Number.isInteger(item.version) &&
-    item.version >= 1 &&
-    typeof item.createdAt === 'string' &&
-    (item.status === 'draft' ||
-      item.status === 'pending_publication' ||
-      item.status === 'published' ||
-      item.status === 'replaced' ||
-      item.status === 'withdrawn' ||
-      item.status === 'past') &&
-    (item.applyStartDate === undefined || typeof item.applyStartDate === 'string') &&
-    (item.applyEndDate === undefined || typeof item.applyEndDate === 'string') &&
-    (item.operationId === undefined || typeof item.operationId === 'string') &&
-    (item.publishedAt === undefined || typeof item.publishedAt === 'string')
-  );
-}
-
-function isScheduleGenerationPreview(value: unknown): value is ScheduleGenerationPreview {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const preview = value as Partial<ScheduleGenerationPreview>;
-  const assignments = preview.assignments ?? [];
-  return (
-    typeof preview.businessMonth === 'string' &&
-    /^\d{4}-\d{2}(-\d{2})?$/u.test(preview.businessMonth) &&
-    typeof preview.rulesVersion === 'number' &&
-    Number.isInteger(preview.rulesVersion) &&
-    Array.isArray(assignments) &&
-    assignments.every(
-      (assignment) =>
-        assignment !== null &&
-        typeof assignment === 'object' &&
-        typeof assignment.businessDate === 'string' &&
-        typeof assignment.shiftTypeId === 'string',
-    ) &&
-    Array.isArray(preview.scheduleRoleIds) &&
-    preview.statistics !== null &&
-    typeof preview.statistics === 'object'
-  );
-}
-
-function isScheduleDraftSummary(value: unknown): boolean {
-  if (!isSchedulePeriodSummary(value)) {
-    return false;
-  }
-
-  const draft = value as Partial<ScheduleDraftSummary>;
-  return typeof draft.scheduleRoleName === 'string' && draft.scheduleRoleName.length > 0;
-}
-
-function isPublishSchedulePeriodResult(value: unknown): value is PublishSchedulePeriodResult {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const result = value as Partial<PublishSchedulePeriodResult>;
-  const preview = result.preview as { businessMonth?: unknown; statistics?: unknown } | undefined;
-  return (
-    isSchedulePeriodSummary(result.period) &&
-    preview !== undefined &&
-    preview !== null &&
-    typeof preview === 'object' &&
-    typeof preview.businessMonth === 'string' &&
-    preview.statistics !== null &&
-    typeof preview.statistics === 'object' &&
-    Array.isArray(result.workflowImpacts) &&
-    result.workflowImpacts.every(isScheduleWorkflowImpact)
-  );
-}
-
-function isScheduleWorkflowImpact(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const impact = value as {
-    businessDates?: unknown;
-    id?: unknown;
-    kind?: unknown;
-    memberNames?: unknown;
-    status?: unknown;
-  };
-  return (
-    Array.isArray(impact.businessDates) &&
-    impact.businessDates.every((date) => typeof date === 'string') &&
-    typeof impact.id === 'string' &&
-    (impact.kind === 'swap' || impact.kind === 'duty_adjustment') &&
-    Array.isArray(impact.memberNames) &&
-    impact.memberNames.every((name) => typeof name === 'string') &&
-    typeof impact.status === 'string'
-  );
-}
-
-function isScheduleChangeImpactPreview(value: unknown): value is ScheduleChangeImpactPreview {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const preview = value as Partial<ScheduleChangeImpactPreview>;
-  return (
-    (preview.action === 'publish' || preview.action === 'withdraw') &&
-    Array.isArray(preview.affectedPeriodIds) &&
-    preview.affectedPeriodIds.every((id) => typeof id === 'string') &&
-    Array.isArray(preview.workflowImpacts) &&
-    preview.workflowImpacts.every(isScheduleWorkflowImpact)
-  );
-}
-
-function isSchedulePeriodMutationResult(value: unknown): value is SchedulePeriodMutationResult {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const result = value as Partial<SchedulePeriodMutationResult>;
-  return (
-    isSchedulePeriodSummary(result.period) &&
-    Array.isArray(result.workflowImpacts) &&
-    result.workflowImpacts.every(isScheduleWorkflowImpact)
-  );
-}
-
-function isPublishSchedulePeriodBatchResult(
-  value: unknown,
-): value is PublishSchedulePeriodBatchResult {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    'periods' in value &&
-    Array.isArray(value.periods) &&
-    value.periods.every(isSchedulePeriodSummary)
   );
 }
 

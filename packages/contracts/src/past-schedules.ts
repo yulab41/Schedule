@@ -1,27 +1,37 @@
-export interface PastSchedulePeriod {
-  readonly businessMonth: string;
-  readonly id: string;
-  readonly periodStatus: 'past' | 'published';
-  readonly revision: number;
-  readonly scheduleRoleId: string;
-  readonly scheduleRoleName: string;
-  readonly version: number;
-}
+import { z } from 'zod';
 
-export interface PastScheduleAssignment {
-  readonly actualMemberId?: string;
-  readonly actualMemberName?: string;
-  readonly assignmentId: string;
-  readonly backfillAt?: string;
-  readonly backfillReason?: string;
-  readonly businessDate: string;
-  readonly plannedMemberId?: string;
-  readonly plannedMemberName?: string;
-  readonly shiftTypeAbbreviation: string;
-  readonly shiftTypeId: string;
-  readonly shiftTypeName: string;
-  readonly slotPosition: number;
-}
+export const pastSchedulePeriodSchema = z
+  .object({
+    businessMonth: z.string().regex(/^\d{4}-\d{2}$/u),
+    id: z.string().min(1),
+    periodStatus: z.enum(['past', 'published']),
+    revision: z.number().int(),
+    scheduleRoleId: z.string().min(1),
+    scheduleRoleName: z.string().min(1),
+    version: z.number().int(),
+  })
+  .passthrough();
+export type PastSchedulePeriod = z.infer<typeof pastSchedulePeriodSchema>;
+export const pastSchedulePeriodListSchema = z.array(pastSchedulePeriodSchema);
+
+export const pastScheduleAssignmentSchema = z
+  .object({
+    actualMemberId: z.string().optional(),
+    actualMemberName: z.string().optional(),
+    assignmentId: z.string().min(1),
+    backfillAt: z.string().optional(),
+    backfillReason: z.string().optional(),
+    businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    plannedMemberId: z.string().optional(),
+    plannedMemberName: z.string().optional(),
+    shiftTypeAbbreviation: z.string(),
+    shiftTypeId: z.string().min(1),
+    shiftTypeName: z.string(),
+    slotPosition: z.number().int(),
+  })
+  .passthrough();
+export type PastScheduleAssignment = z.infer<typeof pastScheduleAssignmentSchema>;
+export const pastScheduleAssignmentListSchema = z.array(pastScheduleAssignmentSchema);
 
 export interface UpdatePastScheduleAssignmentInput {
   readonly actualMembershipId?: string;
@@ -37,18 +47,27 @@ export interface CreatePastScheduleAssignmentInput {
   readonly shiftTypeId: string;
 }
 
-export interface UpdatePastScheduleAssignmentResult {
-  readonly assignment: PastScheduleAssignment;
-  readonly eventId?: string;
-}
+export const updatePastScheduleAssignmentResultSchema = z
+  .object({
+    assignment: pastScheduleAssignmentSchema,
+    eventId: z.string().min(1).optional(),
+  })
+  .passthrough();
+export type UpdatePastScheduleAssignmentResult = z.infer<
+  typeof updatePastScheduleAssignmentResultSchema
+>;
 
-export interface PastScheduleBackfillRecord {
-  readonly actualMemberName?: string;
-  readonly assignmentId: string;
-  readonly backfilledAt: string;
-  readonly businessDate: string;
-  readonly operatorName: string;
-  readonly reason?: string;
-  readonly shiftTypeAbbreviation: string;
-  readonly shiftTypeName: string;
-}
+export const pastScheduleBackfillRecordSchema = z
+  .object({
+    actualMemberName: z.string().optional(),
+    assignmentId: z.string().min(1),
+    backfilledAt: z.string().min(1),
+    businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    operatorName: z.string(),
+    reason: z.string().optional(),
+    shiftTypeAbbreviation: z.string(),
+    shiftTypeName: z.string(),
+  })
+  .passthrough();
+export type PastScheduleBackfillRecord = z.infer<typeof pastScheduleBackfillRecordSchema>;
+export const pastScheduleBackfillRecordListSchema = z.array(pastScheduleBackfillRecordSchema);

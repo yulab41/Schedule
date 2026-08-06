@@ -8,9 +8,17 @@ import type {
   ManualScheduleTemplate,
   ManualApplyPreview,
   MembershipClaimRequest,
+  PastScheduleAssignment,
+  PastScheduleBackfillRecord,
+  PastSchedulePeriod,
+  ScheduleChangeImpactPreview,
+  ScheduleDraftSummary,
+  ScheduleGenerationPreview,
+  SchedulePeriodHistoryItem,
   ScheduleRole,
   SchedulingConfig,
   ShiftType,
+  ScheduleWorkflowImpact,
   UserProfile,
 } from '@schedule/contracts';
 import { apiErrorCodes } from '@schedule/contracts';
@@ -165,6 +173,100 @@ const schedulingConfig: SchedulingConfig = {
   roles: [scheduleRole],
   rulesVersion: 3,
   shiftTypes: [shiftType],
+};
+
+const scheduleDraft: ScheduleDraftSummary = {
+  businessMonth: '2026-08',
+  id: 'period-1',
+  revision: 1,
+  rulesVersion: 3,
+  scheduleRoleId: 'role-1',
+  scheduleRoleName: '一线',
+  status: 'draft',
+  version: 1,
+};
+
+const schedulePeriodHistoryItem: SchedulePeriodHistoryItem = {
+  businessMonth: '2026-08',
+  createdAt: '2026-08-01T00:00:00.000Z',
+  id: 'period-1',
+  revision: 1,
+  scheduleRoleId: 'role-1',
+  scheduleRoleName: '一线',
+  status: 'draft',
+  version: 1,
+};
+
+const scheduleWorkflowImpact: ScheduleWorkflowImpact = {
+  businessDates: ['2026-08-01'],
+  id: 'impact-1',
+  kind: 'swap',
+  memberNames: ['张医生', '李医生'],
+  status: 'pending',
+};
+
+const scheduleGenerationPreview: ScheduleGenerationPreview = {
+  assignments: [
+    {
+      businessDate: '2026-08-01',
+      endsAt: '2026-08-02T00:00:00.000Z',
+      scheduleRoleId: 'role-1',
+      scheduleRoleName: '一线',
+      shiftTypeAbbreviation: '全',
+      shiftTypeColor: '#1F5AA6',
+      shiftTypeId: 'shift-1',
+      shiftTypeName: '全天班',
+      slotPosition: 1,
+      startsAt: '2026-07-31T16:00:00.000Z',
+    },
+  ],
+  businessMonth: '2026-08',
+  continuousDutyWarnings: [],
+  hardConflicts: [],
+  rulesVersion: 3,
+  scheduleRoleIds: ['role-1'],
+  statistics: {
+    assignmentCount: 1,
+    byRole: [],
+    byShiftType: [],
+    countedAssignmentCount: 1,
+    vacancyCount: 0,
+  },
+  vacancies: [],
+};
+
+const scheduleChangeImpactPreview: ScheduleChangeImpactPreview = {
+  action: 'publish',
+  affectedPeriodIds: ['period-1'],
+  workflowImpacts: [scheduleWorkflowImpact],
+};
+
+const pastSchedulePeriod: PastSchedulePeriod = {
+  businessMonth: '2026-07',
+  id: 'past-1',
+  periodStatus: 'past',
+  revision: 1,
+  scheduleRoleId: 'role-1',
+  scheduleRoleName: '一线',
+  version: 1,
+};
+
+const pastScheduleAssignment: PastScheduleAssignment = {
+  assignmentId: 'assignment-1',
+  businessDate: '2026-07-01',
+  shiftTypeAbbreviation: '全',
+  shiftTypeId: 'shift-1',
+  shiftTypeName: '全天班',
+  slotPosition: 1,
+};
+
+const pastScheduleBackfillRecord: PastScheduleBackfillRecord = {
+  assignmentId: 'assignment-1',
+  backfilledAt: '2026-08-01T00:00:00.000Z',
+  businessDate: '2026-07-01',
+  operatorName: '张医生',
+  shiftTypeAbbreviation: '全',
+  shiftTypeName: '全天班',
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -953,6 +1055,238 @@ describe('Web API client', () => {
         name: '全天班',
         startTime: '08:00',
       }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('accepts a schedule draft summary missing the unvalidated period fields', async () => {
+    const minimalDraft = {
+      businessMonth: scheduleDraft.businessMonth,
+      id: scheduleDraft.id,
+      revision: scheduleDraft.revision,
+      scheduleRoleName: scheduleDraft.scheduleRoleName,
+      status: scheduleDraft.status,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([minimalDraft]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listScheduleDrafts(group.id)).resolves.toEqual([minimalDraft]);
+  });
+
+  it('rejects a schedule draft list entry with a non-integer revision', async () => {
+    const invalidDraft = { ...scheduleDraft, revision: 1.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidDraft]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listScheduleDrafts(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule period history item with an unknown status', async () => {
+    const invalidItem = { ...schedulePeriodHistoryItem, status: 'archived' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidItem]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listSchedulePeriodHistory(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule draft preview with a non-array schedule role ids field', async () => {
+    const invalidPreview = { ...scheduleGenerationPreview, scheduleRoleIds: 'role-1' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.getScheduleDraftPreview(group.id, schedulePeriodHistoryItem.id),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule change impact preview with an unknown action', async () => {
+    const invalidPreview = { ...scheduleChangeImpactPreview, action: 'delete' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewScheduleChange(group.id, schedulePeriodHistoryItem.id, 'publish'),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a publish schedule period result with non-array workflow impacts', async () => {
+    const invalidResult = {
+      period: scheduleDraft,
+      preview: scheduleGenerationPreview,
+      workflowImpacts: {},
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.publishSchedulePeriod(group.id, schedulePeriodHistoryItem.id, {
+        expectedVersion: 1,
+        operationId: 'op-1',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a publish batch result whose period has an empty status', async () => {
+    const invalidPeriod = { ...scheduleDraft, status: '' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ periods: [invalidPeriod] }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.publishScheduleDraftBatch(group.id, {
+        operationId: 'op-1',
+        schedulePeriodIds: [schedulePeriodHistoryItem.id],
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule period mutation result with a malformed period', async () => {
+    const invalidResult = {
+      period: { ...scheduleDraft, id: '' },
+      workflowImpacts: [scheduleWorkflowImpact],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.withdrawSchedulePeriod(group.id, schedulePeriodHistoryItem.id, {
+        expectedVersion: 1,
+        operationId: 'op-1',
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a past schedule period with a malformed business month', async () => {
+    const invalidPeriod = { ...pastSchedulePeriod, businessMonth: '2026-7' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidPeriod]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listPastSchedulePeriods(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a past schedule assignment with a non-integer slot position', async () => {
+    const invalidAssignment = { ...pastScheduleAssignment, slotPosition: 1.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidAssignment]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.listPastScheduleAssignments(group.id, pastSchedulePeriod.id),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a past schedule backfill record with a malformed business date', async () => {
+    const invalidRecord = { ...pastScheduleBackfillRecord, businessDate: '2026-7-1' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidRecord]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listPastScheduleBackfillRecords(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an update past schedule result with an empty event id', async () => {
+    const invalidResult = { assignment: pastScheduleAssignment, eventId: '' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidResult), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.updatePastScheduleAssignment(
+        group.id,
+        pastSchedulePeriod.id,
+        pastScheduleAssignment.assignmentId,
+        { actualMembershipId: 'membership-2' },
+      ),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
