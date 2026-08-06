@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 8 manual-schedules 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 9 events/notifications 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -746,3 +746,20 @@
 3. `isContinuousDutyWarning`/`isScheduleGenerationVacancy` 等共享助手已随本批删除，契约侧 `scheduleGenerationWarningSchema`/`scheduleGenerationVacancySchema` 成为唯一校验来源；若未来手动排班预览与排班生成预览的字段约束分化，需分别在契约层扩展。
 
 下次计划：#7.1 子步骤 3 批次 9（events/notifications 读模型：`isScheduleEvent`/`isScheduleEventPage`/`isScheduleEventDetail`/`isNotificationRecord`/`isNotificationPage`/`isUnreadCountResult`/`isReadAllResult`/`isSavedResult`/`isDeletedResult`/`isGroupNotificationSettings`/`isMemberNotificationPreferences`/`isPushConfiguration` 先写锁定测试再替换；随后推进 statistics、exports/platform 等）
+
+### 轮次 20 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 9 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 events/notifications 读模型族 13 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/events.ts`（新增 `scheduleEventSchema`/`scheduleEventPageSchema`/`scheduleEventDetailSchema`，3 个读模型类型由 schema 派生，JsonObject 可选字段用 `z.custom` 复刻“对象且非数组”检查）；`packages/contracts/src/notifications.ts`（新增 `notificationRecordSchema`/`notificationPageSchema`/`unreadCountResultSchema`/`readAllResultSchema`/`savedResultSchema`/`deletedResultSchema`/`groupNotificationSettingsSchema`/`memberNotificationPreferencesSchema`/`pushConfigurationSchema`，5 个读模型类型由 schema 派生；`dutyReminderHours` 保持整数 ≥1、可空联合按接口）；`apps/web/src/api/client.ts`（13 处调用点改用 `isResponseBodyFromSchema`，删除 `isJsonObjectValue`/`isScheduleEvent`/`isScheduleEventPage`/`isScheduleEventDetail`/`isNotificationRecord`/`isNotificationPage`/`isUnreadCountResult`/`isReadAllResult`/`isSavedResult`/`isDeletedResult`/`isGroupNotificationSettings`/`isMemberNotificationPreferences`/`isPushConfiguration` 13 个手写守卫）；`apps/web/src/api/client.test.ts`（先新增 13 条锁定测试再替换：事件 affectedShiftIds 非数组、afterData 为数组、页 nextCursor 非字符串、详情 related event 缺 id、通知空标题、页 unreadCount 非整数、未读数非整数、已读数非整数、saved 非布尔、deleted 非布尔、群设置提醒小时非整数、个人偏好提醒小时 0、推送配置 vapid 键非 null/字符串；111 → 124 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 541/541 ✅（68 个测试文件，隔离 MySQL；新增 13 条 client 锁定测试）
+
+提交：5e271f2，推送结果见对话回复
+
+不确定点：
+1. `scheduleEventSchema`/`notificationRecordSchema` 的 JsonObject 可选字段用 `z.custom` 复刻旧 `isJsonObjectValue`（对象且非数组），若未来要校验字段内容需换 `z.record`/自定义细化——出错症状是任意对象仍通过（与旧行为一致）。
+2. `memberNotificationPreferencesSchema` 的 `dutyReminderHours` 用 `z.union([z.null(), z.readonly(z.array(...))])`，缺失或 undefined 会拒绝（与旧守卫一致）；若未来接口允许省略该字段，需改 optional。
+3. 未读数/已读数/保存/删除四个小结果 schema 未派生导出类型（方法签名内联 `{ readonly count: number }` 等），schema 推断类型可赋值；若未来要统一导出，可在 notifications.ts 增加类型别名。
+
+下次计划：#7.1 子步骤 3 批次 10（statistics 读模型：`isStatisticsRoleCount`/`isStatisticsShiftTypeCount`/`isStatisticsMemberRow`/`isStatisticsSummary`/`isMonthStatisticsSnapshot`/`isYearStatistics`/`isStatisticsRecalculateCheckResult` 先写锁定测试再替换；随后推进 exports/platform、users/profile 等收尾批次）
