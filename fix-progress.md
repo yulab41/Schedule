@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 4 scheduling-config 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 5 schedules/past-schedules 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -678,3 +678,20 @@
 3. 派生类型带 `passthrough()` 索引签名，构造侧更宽松；若未来要捕获契约漂移需改 strip/strict——症状是未知字段继续透传而非报“服务返回了无效资料”。
 
 下次计划：#7.1 子步骤 3 批次 5（schedules/past-schedules 读模型：`isSchedulePeriodSummary`/`isScheduleDraftSummary`/`isScheduleDraftSummaryList`/`isSchedulePeriodHistoryItem`/`isSchedulePeriodHistoryItemList`/`isPastSchedulePeriod`/`isPastSchedulePeriodList`/`isPastScheduleAssignment`/`isPastScheduleAssignmentList`/`isPastScheduleBackfillRecord` 等先写锁定测试再替换；随后推进 swaps/duty 等）
+
+### 轮次 16 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 5 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 schedules/past-schedules 读模型族 18 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/schedules.ts`（新增 `schedulePreviewAssignmentSchema`/`schedulePeriodSummarySchema`/`scheduleDraftSummarySchema`（+List）/`schedulePeriodHistoryItemSchema`（+List）/`scheduleWorkflowImpactSchema`/`scheduleChangeImpactPreviewSchema`/`scheduleGenerationPreviewSchema`/`schedulePeriodMutationResultSchema`/`publishSchedulePeriodBatchResultSchema`/`publishSchedulePeriodResultSchema`，8 个读模型类型改为 schema 派生或显式契约别名；旧守卫忽略的必填字段用 `z.custom(...).optional()` 保持宽松、导出类型保留必填；嵌套数组用 `z.readonly` 保持接口 readonly 语义）；`packages/contracts/src/past-schedules.ts`（新增 `pastSchedulePeriodSchema`（+List）/`pastScheduleAssignmentSchema`（+List）/`pastScheduleBackfillRecordSchema`（+List）/`updatePastScheduleAssignmentResultSchema`，4 个读模型类型由 schema 派生）；`apps/web/src/api/client.ts`（12 处调用点改用 schema：7 处 `isResponseBodyFromSchema`、5 处新增 `isResponseBodyMatching<T>` 类型化桥接；删除 `isSchedulePeriodSummary`/`isScheduleDraftSummaryList`/`isSchedulePeriodHistoryItemList`/`isPastSchedulePeriodList`/`isPastSchedulePeriod`/`isPastScheduleAssignmentList`/`isPastScheduleBackfillRecordList`/`isPastScheduleBackfillRecord`/`isPastScheduleAssignment`/`isUpdatePastScheduleAssignmentResult`/`isSchedulePeriodHistoryItem`/`isScheduleGenerationPreview`/`isScheduleDraftSummary`/`isPublishSchedulePeriodResult`/`isScheduleWorkflowImpact`/`isScheduleChangeImpactPreview`/`isSchedulePeriodMutationResult`/`isPublishSchedulePeriodBatchResult` 18 个手写守卫；`isAppliedManualScheduleTemplateResult` 复用 `schedulePeriodSummarySchema` 校验 periods，避免保留重复助手）；`apps/web/src/api/client.test.ts`（先新增 12 条锁定测试再替换：草稿缺未校验字段放行、非整数 revision、历史未知状态、预览 scheduleRoleIds 非数组、变更预览未知 action、发布结果 workflowImpacts 非数组、批量发布 period status 空、变更结果 period 缺 id、既往期间月份格式、既往班次 slotPosition 非整数、补录日期格式、更新结果 eventId 空；63 → 75 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 492/492 ✅（68 个测试文件，隔离 MySQL；新增 12 条 client 锁定测试）
+
+提交：1c7d1fb，推送结果见对话回复
+
+不确定点：
+1. `publishSchedulePeriodResultSchema` 的 preview 复用完整 `scheduleGenerationPreviewSchema`，而旧 publish 守卫只检查 preview 的 businessMonth 为字符串与 statistics 为对象——若未来 API 在 publish 结果里返回不完整 preview，客户端会比旧版更早拒绝。
+2. `SchedulePeriodSummary`/`ScheduleGenerationPreview` 等“旧守卫忽略必填字段”的类型使用显式契约别名而非 `z.infer`，schema 只校验旧检查过的字段；若未来想收紧（缺字段即拒绝），需把这些字段改为必填 zod 校验并改回派生类型。
+3. `isResponseBodyMatching<T>` 用显式类型参数表达契约类型，schema 推断类型更宽松；若调用点传错类型参数，编译期由方法返回类型兜底，但谓词本身不再由 schema 推断保证一致。
+
+下次计划：#7.1 子步骤 3 批次 6（swaps/duty 读模型：`isSwapAssignmentSummary`/`isSwapPreview`/`isSwapConflict`/`isSwapRequest`/`isSwapRequestStatus`/`isSwapRequestList`/`isGroupSwapSettings`/`isMemberSwapSettings`/`isDutyAdjustmentAssignmentSummary`/`isDutyAdjustmentConflict`/`isDutyAdjustmentPreview`/`isDutyAdjustmentRequestStatus`/`isDutyAdjustmentRequest`/`isDutyAdjustmentRequestList`/`isGroupDutyAdjustmentSettings` 先写锁定测试再替换；随后推进 leaves、manual-schedules 等）
