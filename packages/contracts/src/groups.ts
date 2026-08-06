@@ -1,12 +1,18 @@
-export type GroupRole = 'administrator' | 'member' | 'owner';
+import { z } from 'zod';
 
-export interface GroupSummary {
-  readonly groupCode: string;
-  readonly id: string;
-  readonly name: string;
-  readonly role: GroupRole;
-  readonly version: number;
-}
+export const groupRoleSchema = z.enum(['administrator', 'member', 'owner']);
+export type GroupRole = z.infer<typeof groupRoleSchema>;
+
+export const groupSummarySchema = z
+  .object({
+    groupCode: z.string().regex(/^\d{4}$/u),
+    id: z.string().min(1),
+    name: z.string().min(1),
+    role: groupRoleSchema,
+    version: z.number().int().min(1),
+  })
+  .passthrough();
+export type GroupSummary = z.infer<typeof groupSummarySchema>;
 
 export interface CreateGroupRequest {
   readonly groupCode?: string;
@@ -17,9 +23,12 @@ export interface AddRosterEntriesRequest {
   readonly realNames: readonly string[];
 }
 
-export interface AddRosterEntriesResponse {
-  readonly added: number;
-}
+export const addRosterEntriesResponseSchema = z
+  .object({
+    added: z.number().int().min(1),
+  })
+  .passthrough();
+export type AddRosterEntriesResponse = z.infer<typeof addRosterEntriesResponseSchema>;
 
 export interface AddGroupMembersRequest {
   readonly realNames: readonly string[];
@@ -33,40 +42,43 @@ export interface ConvertPendingRosterRequest {
   readonly realNames: readonly string[];
 }
 
-export interface ConvertPendingRosterResponse {
-  readonly converted: number;
-  readonly skipped: number;
-}
+export const convertPendingRosterResponseSchema = z
+  .object({
+    converted: z.number().int().min(0),
+    skipped: z.number().int().min(0),
+  })
+  .passthrough();
+export type ConvertPendingRosterResponse = z.infer<typeof convertPendingRosterResponseSchema>;
 
 export interface ClaimGroupRequest {
   readonly groupCode: string;
   readonly realName?: string;
 }
 
-export type ClaimGroupResponse =
-  | {
-      readonly group: GroupSummary;
-      readonly status: 'claimed';
-    }
-  | {
-      readonly status: 'request_created';
-    };
+export const claimGroupResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('request_created') }).strict(),
+  z.object({ status: z.literal('claimed'), group: groupSummarySchema }).passthrough(),
+]);
+export type ClaimGroupResponse = z.infer<typeof claimGroupResponseSchema>;
 
 export interface RegenerateGroupCodeRequest {
   readonly groupCode?: string;
 }
 
-export interface GroupMember {
-  readonly claimRequestStatus?: 'pending' | 'rejected';
-  readonly claimedByName?: string;
-  readonly id: string;
-  readonly isClaimedByCurrentUser?: boolean;
-  readonly isPendingRoster?: boolean;
-  readonly isUnclaimed?: boolean;
-  readonly isCurrentUser: boolean;
-  readonly realName: string;
-  readonly role: GroupRole;
-}
+export const groupMemberSchema = z
+  .object({
+    claimRequestStatus: z.enum(['pending', 'rejected']).optional(),
+    claimedByName: z.string().optional(),
+    id: z.string().min(1),
+    isClaimedByCurrentUser: z.boolean().optional(),
+    isCurrentUser: z.boolean(),
+    isPendingRoster: z.boolean().optional(),
+    isUnclaimed: z.boolean().optional(),
+    realName: z.string().min(1),
+    role: groupRoleSchema,
+  })
+  .passthrough();
+export type GroupMember = z.infer<typeof groupMemberSchema>;
 
 export type MembershipClaimRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
@@ -74,53 +86,69 @@ export interface MembershipClaimLookupRequest {
   readonly realName: string;
 }
 
-export interface MembershipClaimLookupEntry {
-  readonly isUnclaimed: boolean;
-  readonly membershipId: string;
-  readonly realName: string;
-  readonly role: GroupRole;
-}
+export const membershipClaimLookupEntrySchema = z
+  .object({
+    isUnclaimed: z.boolean(),
+    membershipId: z.string().min(1),
+    realName: z.string().min(1),
+    role: groupRoleSchema,
+  })
+  .passthrough();
+export type MembershipClaimLookupEntry = z.infer<typeof membershipClaimLookupEntrySchema>;
 
-export interface MembershipClaimLookupResponse {
-  readonly matches: readonly MembershipClaimLookupEntry[];
-}
+export const membershipClaimLookupResponseSchema = z
+  .object({
+    matches: z.readonly(z.array(membershipClaimLookupEntrySchema)),
+  })
+  .passthrough();
+export type MembershipClaimLookupResponse = z.infer<typeof membershipClaimLookupResponseSchema>;
 
 export interface CreateMembershipClaimRequest {
   readonly membershipId: string;
 }
 
-export interface MembershipClaimRequest {
-  readonly createdAt: string;
-  readonly decidedAt?: string;
-  readonly decidedByRealName?: string;
-  readonly decidedByUserId?: string;
-  readonly groupId: string;
-  readonly id: string;
-  readonly requestingUserRealName: string;
-  readonly requestingUserId: string;
-  readonly status: MembershipClaimRequestStatus;
-  readonly targetMemberRealName: string;
-  readonly targetMembershipId: string;
-  readonly version: number;
-}
+export const membershipClaimRequestSchema = z
+  .object({
+    createdAt: z.string(),
+    decidedAt: z.string().optional(),
+    decidedByRealName: z.string().optional(),
+    decidedByUserId: z.string().optional(),
+    groupId: z.string().min(1),
+    id: z.string().min(1),
+    requestingUserId: z.string().min(1),
+    requestingUserRealName: z.string(),
+    // 旧守卫只校验 status 为字符串；类型保留枚举，供前端状态标签穷举。
+    status: z.custom<MembershipClaimRequestStatus>((value) => typeof value === 'string'),
+    targetMemberRealName: z.string(),
+    targetMembershipId: z.string().min(1),
+    version: z.number(),
+  })
+  .passthrough();
+export type MembershipClaimRequest = z.infer<typeof membershipClaimRequestSchema>;
 
-export type CreateMembershipClaimResponse =
-  | {
-      readonly direct: true;
-    }
-  | {
-      readonly direct: false;
-      readonly request: MembershipClaimRequest;
-    };
+export const membershipClaimRequestListSchema = z.array(membershipClaimRequestSchema);
 
-export interface GroupMemberContact {
-  readonly isConfirmed: boolean;
-  readonly membershipId: string;
-  readonly mobilePhone?: string;
-  readonly shortPhone?: string;
-  readonly updatedAt?: string;
-  readonly version: number;
-}
+export const createMembershipClaimResponseSchema = z.discriminatedUnion('direct', [
+  z.object({ direct: z.literal(true), request: z.undefined().optional() }).passthrough(),
+  z.object({ direct: z.literal(false), request: membershipClaimRequestSchema }).passthrough(),
+]);
+export type CreateMembershipClaimResponse = z.infer<typeof createMembershipClaimResponseSchema>;
+
+export const groupMemberContactSchema = z
+  .object({
+    isConfirmed: z.boolean(),
+    membershipId: z.string().min(1),
+    mobilePhone: z.string().optional(),
+    shortPhone: z.string().optional(),
+    updatedAt: z.string().optional(),
+    version: z.number().int().min(0),
+  })
+  .passthrough();
+export type GroupMemberContact = z.infer<typeof groupMemberContactSchema>;
+
+export const groupMemberContactListSchema = z.array(groupMemberContactSchema);
+export const groupMemberListSchema = z.array(groupMemberSchema);
+export const groupSummaryListSchema = z.array(groupSummarySchema);
 
 export interface UpdateGroupMemberRoleRequest {
   readonly role: Extract<GroupRole, 'administrator' | 'member'>;

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export type SchedulePublishMode = 'draft' | 'published';
 
 export interface GenerateSchedulePreviewRequest {
@@ -172,9 +174,12 @@ export interface SavedScheduleGeneration {
   readonly status: 'draft' | 'published';
 }
 
-export interface GroupSchedulePublishMode {
-  readonly publishMode: SchedulePublishMode;
-}
+export const groupSchedulePublishModeSchema = z
+  .object({
+    publishMode: z.enum(['draft', 'published']),
+  })
+  .passthrough();
+export type GroupSchedulePublishMode = z.infer<typeof groupSchedulePublishModeSchema>;
 
 export interface UpdateGroupSchedulePublishModeRequest {
   readonly publishMode: SchedulePublishMode;

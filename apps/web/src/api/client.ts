@@ -111,11 +111,25 @@ import type {
 } from '@schedule/contracts';
 
 import {
+  addRosterEntriesResponseSchema,
   apiErrorCodes,
   calendarReadModelSchema,
+  claimGroupResponseSchema,
+  convertPendingRosterResponseSchema,
+  createMembershipClaimResponseSchema,
   guestCalendarReadModelSchema,
   guestGroupSummaryListSchema,
+  groupMemberContactListSchema,
+  groupMemberContactSchema,
+  groupMemberListSchema,
+  groupMemberSchema,
+  groupSchedulePublishModeSchema,
+  groupSummaryListSchema,
+  groupSummarySchema,
   holidayReadModelSchema,
+  membershipClaimLookupResponseSchema,
+  membershipClaimRequestListSchema,
+  membershipClaimRequestSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
@@ -814,7 +828,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isAddRosterEntriesResponse,
+        isResponseBodyFromSchema(addRosterEntriesResponseSchema),
       );
     },
     addGroupMembers(groupId, input) {
@@ -827,7 +841,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isAddRosterEntriesResponse,
+        isResponseBodyFromSchema(addRosterEntriesResponseSchema),
       );
     },
     convertRosterEntries(groupId, input) {
@@ -840,7 +854,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isConvertPendingRosterResponse,
+        isResponseBodyFromSchema(convertPendingRosterResponseSchema),
       );
     },
     claimGroup(input) {
@@ -853,7 +867,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isClaimGroupResponse,
+        isResponseBodyFromSchema(claimGroupResponseSchema),
       );
     },
     cancelSwapRequest(groupId, swapRequestId, input) {
@@ -996,7 +1010,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isGroupSummary,
+        isResponseBodyFromSchema(groupSummarySchema),
       );
     },
     createCurrentProfile(input) {
@@ -1241,7 +1255,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedule-publish-mode`,
         { method: 'GET' },
-        isGroupSchedulePublishMode,
+        isResponseBodyFromSchema(groupSchedulePublishModeSchema),
       );
     },
     listScheduleDrafts(groupId) {
@@ -1414,7 +1428,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/contacts`,
         { method: 'GET' },
-        isGroupMemberContactList,
+        isResponseBodyFromSchema(groupMemberContactListSchema),
       );
     },
     listGroupMembers(groupId) {
@@ -1424,7 +1438,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/members`,
         { method: 'GET' },
-        isGroupMemberList,
+        isResponseBodyFromSchema(groupMemberListSchema),
       );
     },
     lookupClaimMatches(groupId, realName) {
@@ -1437,7 +1451,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify({ realName }),
           method: 'POST',
         },
-        isMembershipClaimLookupResponse,
+        isResponseBodyFromSchema(membershipClaimLookupResponseSchema),
       );
     },
     createMembershipClaimRequest(groupId, input) {
@@ -1450,7 +1464,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isCreateMembershipClaimResponse,
+        isResponseBodyFromSchema(createMembershipClaimResponseSchema),
       );
     },
     listMembershipClaimRequests(groupId) {
@@ -1460,7 +1474,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/claim-requests`,
         { method: 'GET' },
-        isMembershipClaimRequestList,
+        isResponseBodyFromSchema(membershipClaimRequestListSchema),
       );
     },
     approveMembershipClaimRequest(groupId, claimRequestId) {
@@ -1470,7 +1484,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/claim-requests/${encodeURIComponent(claimRequestId)}/approve`,
         { method: 'POST' },
-        isMembershipClaimRequest,
+        isResponseBodyFromSchema(membershipClaimRequestSchema),
       );
     },
     rejectMembershipClaimRequest(groupId, claimRequestId) {
@@ -1480,7 +1494,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/claim-requests/${encodeURIComponent(claimRequestId)}/reject`,
         { method: 'POST' },
-        isMembershipClaimRequest,
+        isResponseBodyFromSchema(membershipClaimRequestSchema),
       );
     },
     revokeMembershipClaim(groupId, membershipId) {
@@ -1500,7 +1514,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         '/groups',
         { method: 'GET' },
-        isGroupSummaryList,
+        isResponseBodyFromSchema(groupSummaryListSchema),
       );
     },
     listDutyAdjustmentApprovals(groupId) {
@@ -1638,7 +1652,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isGroupSummary,
+        isResponseBodyFromSchema(groupSummarySchema),
       );
     },
     rejectLeaveRequest(groupId, leaveRequestId, input) {
@@ -1768,7 +1782,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isGroupSummary,
+        isResponseBodyFromSchema(groupSummarySchema),
       );
     },
     updateManualScheduleTemplate(groupId, templateId, input) {
@@ -1794,7 +1808,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isGroupMemberContact,
+        isResponseBodyFromSchema(groupMemberContactSchema),
       );
     },
     updateGroupMemberRole(groupId, membershipId, input) {
@@ -1807,7 +1821,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isGroupMember,
+        isResponseBodyFromSchema(groupMemberSchema),
       );
     },
     updateGroupDutyAdjustmentSettings(groupId, input) {
@@ -2007,165 +2021,6 @@ function isResponseBodyFromSchema<ResponseBody>(
   schema: JsonSchema<ResponseBody>,
 ): (value: unknown) => value is ResponseBody {
   return (value: unknown): value is ResponseBody => schema.safeParse(value).success;
-}
-
-function isAddRosterEntriesResponse(value: unknown): value is AddRosterEntriesResponse {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    'added' in value &&
-    typeof value.added === 'number' &&
-    Number.isInteger(value.added) &&
-    value.added > 0
-  );
-}
-
-function isConvertPendingRosterResponse(value: unknown): value is ConvertPendingRosterResponse {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    'converted' in value &&
-    typeof value.converted === 'number' &&
-    Number.isInteger(value.converted) &&
-    value.converted >= 0 &&
-    'skipped' in value &&
-    typeof value.skipped === 'number' &&
-    Number.isInteger(value.skipped) &&
-    value.skipped >= 0
-  );
-}
-
-function isClaimGroupResponse(value: unknown): value is ClaimGroupResponse {
-  if (value === null || typeof value !== 'object' || !('status' in value)) {
-    return false;
-  }
-
-  if (value.status === 'request_created') {
-    return Object.keys(value).length === 1;
-  }
-
-  return value.status === 'claimed' && 'group' in value && isGroupSummary(value.group);
-}
-
-function isMembershipClaimLookupEntry(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const entry = value as {
-    readonly isUnclaimed?: unknown;
-    readonly membershipId?: unknown;
-    readonly realName?: unknown;
-    readonly role?: unknown;
-  };
-  return (
-    typeof entry.membershipId === 'string' &&
-    entry.membershipId.length > 0 &&
-    typeof entry.realName === 'string' &&
-    entry.realName.length > 0 &&
-    typeof entry.isUnclaimed === 'boolean' &&
-    (entry.role === 'administrator' || entry.role === 'member' || entry.role === 'owner')
-  );
-}
-
-function isMembershipClaimLookupResponse(value: unknown): value is MembershipClaimLookupResponse {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const body = value as Partial<MembershipClaimLookupResponse>;
-  return Array.isArray(body.matches) && body.matches.every(isMembershipClaimLookupEntry);
-}
-
-function isMembershipClaimRequest(value: unknown): value is MembershipClaimRequest {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const claim = value as Partial<MembershipClaimRequest>;
-  return (
-    typeof claim.id === 'string' &&
-    claim.id.length > 0 &&
-    typeof claim.groupId === 'string' &&
-    claim.groupId.length > 0 &&
-    typeof claim.requestingUserId === 'string' &&
-    claim.requestingUserId.length > 0 &&
-    typeof claim.requestingUserRealName === 'string' &&
-    typeof claim.targetMembershipId === 'string' &&
-    claim.targetMembershipId.length > 0 &&
-    typeof claim.targetMemberRealName === 'string' &&
-    typeof claim.status === 'string' &&
-    typeof claim.createdAt === 'string' &&
-    typeof claim.version === 'number' &&
-    (claim.decidedAt === undefined || typeof claim.decidedAt === 'string') &&
-    (claim.decidedByRealName === undefined || typeof claim.decidedByRealName === 'string') &&
-    (claim.decidedByUserId === undefined || typeof claim.decidedByUserId === 'string')
-  );
-}
-
-function isMembershipClaimRequestList(value: unknown): value is MembershipClaimRequest[] {
-  return Array.isArray(value) && value.every(isMembershipClaimRequest);
-}
-
-function isCreateMembershipClaimResponse(value: unknown): value is CreateMembershipClaimResponse {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const body = value as { readonly direct?: unknown; readonly request?: unknown };
-  if (typeof body.direct !== 'boolean') {
-    return false;
-  }
-  if (body.direct === true) {
-    return body.request === undefined;
-  }
-
-  return body.request !== undefined && isMembershipClaimRequest(body.request);
-}
-
-function isGroupMember(value: unknown): value is GroupMember {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const member = value as Partial<GroupMember>;
-  return (
-    typeof member.id === 'string' &&
-    member.id.length > 0 &&
-    typeof member.isCurrentUser === 'boolean' &&
-    (member.isUnclaimed === undefined || typeof member.isUnclaimed === 'boolean') &&
-    (member.isPendingRoster === undefined || typeof member.isPendingRoster === 'boolean') &&
-    typeof member.realName === 'string' &&
-    member.realName.length > 0 &&
-    (member.role === 'administrator' || member.role === 'member' || member.role === 'owner')
-  );
-}
-
-function isGroupMemberContact(value: unknown): value is GroupMemberContact {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const contact = value as Partial<GroupMemberContact>;
-  return (
-    typeof contact.membershipId === 'string' &&
-    contact.membershipId.length > 0 &&
-    typeof contact.isConfirmed === 'boolean' &&
-    typeof contact.version === 'number' &&
-    Number.isInteger(contact.version) &&
-    contact.version >= 0 &&
-    (contact.mobilePhone === undefined || typeof contact.mobilePhone === 'string') &&
-    (contact.shortPhone === undefined || typeof contact.shortPhone === 'string') &&
-    (contact.updatedAt === undefined || typeof contact.updatedAt === 'string')
-  );
-}
-
-function isGroupMemberContactList(value: unknown): value is GroupMemberContact[] {
-  return Array.isArray(value) && value.every(isGroupMemberContact);
-}
-
-function isGroupMemberList(value: unknown): value is GroupMember[] {
-  return Array.isArray(value) && value.every(isGroupMember);
 }
 
 function isScheduleRole(value: unknown): value is ScheduleRole {
@@ -2370,39 +2225,6 @@ function isUserProfile(value: unknown): value is UserProfile {
     Number.isInteger(profile.version) &&
     profile.version >= 1
   );
-}
-
-function isGroupSummary(value: unknown): value is GroupSummary {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const group = value as Partial<GroupSummary>;
-  return (
-    typeof group.id === 'string' &&
-    group.id.length > 0 &&
-    typeof group.name === 'string' &&
-    group.name.length > 0 &&
-    typeof group.groupCode === 'string' &&
-    /^\d{4}$/.test(group.groupCode) &&
-    (group.role === 'administrator' || group.role === 'member' || group.role === 'owner') &&
-    typeof group.version === 'number' &&
-    Number.isInteger(group.version) &&
-    group.version >= 1
-  );
-}
-
-function isGroupSummaryList(value: unknown): value is GroupSummary[] {
-  return Array.isArray(value) && value.every(isGroupSummary);
-}
-
-function isGroupSchedulePublishMode(value: unknown): value is GroupSchedulePublishMode {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const publishMode = (value as { publishMode?: unknown }).publishMode;
-  return publishMode === 'draft' || publishMode === 'published';
 }
 
 function isLeaveRequest(value: unknown): value is LeaveRequest {
