@@ -82,7 +82,6 @@ import type {
   ReplaceScheduleRoleMembersRequest,
   RevokeDutyAdjustmentInput,
   ScheduleRole,
-  ScheduleEvent,
   ScheduleEventDetail,
   ScheduleEventPage,
   ScheduleEventQuery,
@@ -119,6 +118,7 @@ import {
   claimGroupResponseSchema,
   convertPendingRosterResponseSchema,
   createMembershipClaimResponseSchema,
+  deletedResultSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
   dutyAdjustmentRequestSchema,
@@ -134,6 +134,7 @@ import {
   groupSummaryListSchema,
   groupSummarySchema,
   groupLeaveReflowStrategySchema,
+  groupNotificationSettingsSchema,
   holidayReadModelSchema,
   leaveAffectedShiftListSchema,
   leaveReflowPreviewSchema,
@@ -146,15 +147,23 @@ import {
   membershipClaimLookupResponseSchema,
   membershipClaimRequestListSchema,
   membershipClaimRequestSchema,
+  memberNotificationPreferencesSchema,
   memberSwapSettingsSchema,
   pastScheduleAssignmentListSchema,
   pastScheduleBackfillRecordListSchema,
   pastSchedulePeriodListSchema,
+  notificationPageSchema,
+  notificationRecordSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
+  pushConfigurationSchema,
+  readAllResultSchema,
   rejectedLeaveRequestResultSchema,
+  savedResultSchema,
   scheduleChangeImpactPreviewSchema,
   scheduleDraftSummaryListSchema,
+  scheduleEventDetailSchema,
+  scheduleEventPageSchema,
   scheduleGenerationPreviewSchema,
   scheduleRoleSchema,
   schedulePeriodHistoryItemListSchema,
@@ -164,6 +173,7 @@ import {
   swapPreviewSchema,
   swapRequestListSchema,
   swapRequestSchema,
+  unreadCountResultSchema,
   updatePastScheduleAssignmentResultSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
@@ -637,7 +647,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         '/notifications/push-subscription',
         { method: 'DELETE' },
-        isDeletedResult,
+        isResponseBodyFromSchema(deletedResultSchema),
       );
     },
     getGroupNotificationSettings(groupId) {
@@ -647,7 +657,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/notification-settings`,
         { method: 'GET' },
-        isGroupNotificationSettings,
+        isResponseBodyFromSchema(groupNotificationSettingsSchema),
       );
     },
     getMyNotificationPreferences(groupId) {
@@ -657,7 +667,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/notification-preferences/mine`,
         { method: 'GET' },
-        isMemberNotificationPreferences,
+        isResponseBodyFromSchema(memberNotificationPreferencesSchema),
       );
     },
     getPushConfiguration() {
@@ -667,7 +677,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         '/notifications/push-config',
         { method: 'GET' },
-        isPushConfiguration,
+        isResponseBodyFromSchema(pushConfigurationSchema),
       );
     },
     getUnreadNotificationCount() {
@@ -677,7 +687,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         '/notifications/unread-count',
         { method: 'GET' },
-        isUnreadCountResult,
+        isResponseBodyFromSchema(unreadCountResultSchema),
       );
     },
     listNotifications(query) {
@@ -701,7 +711,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/notifications${queryString === '' ? '' : `?${queryString}`}`,
         { method: 'GET' },
-        isNotificationPage,
+        isResponseBodyFromSchema(notificationPageSchema),
       );
     },
     listGuestGroups() {
@@ -723,7 +733,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
           ...(groupId === undefined ? {} : { body: JSON.stringify({ groupId }) }),
         },
-        isReadAllResult,
+        isResponseBodyFromSchema(readAllResultSchema),
       );
     },
     markNotificationRead(notificationId) {
@@ -733,7 +743,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/notifications/${encodeURIComponent(notificationId)}/read`,
         { method: 'POST' },
-        isNotificationRecord,
+        isResponseBodyFromSchema(notificationRecordSchema),
       );
     },
     savePushSubscription(input) {
@@ -746,7 +756,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isSavedResult,
+        isResponseBodyFromSchema(savedResultSchema),
       );
     },
     updateGroupNotificationSettings(groupId, input) {
@@ -759,7 +769,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isGroupNotificationSettings,
+        isResponseBodyFromSchema(groupNotificationSettingsSchema),
       );
     },
     updateMyNotificationPreferences(groupId, input) {
@@ -772,7 +782,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'PUT',
         },
-        isMemberNotificationPreferences,
+        isResponseBodyFromSchema(memberNotificationPreferencesSchema),
       );
     },
     acceptDutyAdjustment(groupId, dutyAdjustmentId, input) {
@@ -1193,7 +1203,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/events/${encodeURIComponent(eventId)}`,
         { method: 'GET' },
-        isScheduleEventDetail,
+        isResponseBodyFromSchema(scheduleEventDetailSchema),
       );
     },
     getGroupEvents(groupId, query) {
@@ -1232,7 +1242,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/events${queryString === '' ? '' : `?${queryString}`}`,
         { method: 'GET' },
-        isScheduleEventPage,
+        isResponseBodyFromSchema(scheduleEventPageSchema),
       );
     },
     getGroupDutyAdjustmentSettings(groupId) {
@@ -2136,197 +2146,6 @@ function isUserProfile(value: unknown): value is UserProfile {
     typeof profile.version === 'number' &&
     Number.isInteger(profile.version) &&
     profile.version >= 1
-  );
-}
-
-function isJsonObjectValue(value: unknown): value is JsonObject {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isScheduleEvent(value: unknown): value is ScheduleEvent {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const event = value as Partial<ScheduleEvent>;
-  return (
-    typeof event.id === 'string' &&
-    event.id.length > 0 &&
-    typeof event.groupId === 'string' &&
-    event.groupId.length > 0 &&
-    typeof event.eventType === 'string' &&
-    event.eventType.length > 0 &&
-    typeof event.eventStatus === 'string' &&
-    typeof event.objectType === 'string' &&
-    typeof event.operationId === 'string' &&
-    typeof event.occurredAt === 'string' &&
-    Array.isArray(event.affectedMembershipIds) &&
-    event.affectedMembershipIds.every((membershipId) => typeof membershipId === 'string') &&
-    Array.isArray(event.affectedShiftIds) &&
-    event.affectedShiftIds.every((shiftId) => typeof shiftId === 'string') &&
-    (event.afterData === undefined || isJsonObjectValue(event.afterData)) &&
-    (event.approverUserId === undefined || typeof event.approverUserId === 'string') &&
-    (event.beforeData === undefined || isJsonObjectValue(event.beforeData)) &&
-    (event.initiatedByUserId === undefined || typeof event.initiatedByUserId === 'string') &&
-    (event.objectId === undefined || typeof event.objectId === 'string') &&
-    (event.operatorUserId === undefined || typeof event.operatorUserId === 'string') &&
-    (event.parentEventId === undefined || typeof event.parentEventId === 'string') &&
-    (event.reason === undefined || typeof event.reason === 'string') &&
-    (event.schedulePeriodId === undefined || typeof event.schedulePeriodId === 'string') &&
-    (event.statisticsDelta === undefined || isJsonObjectValue(event.statisticsDelta))
-  );
-}
-
-function isScheduleEventPage(value: unknown): value is ScheduleEventPage {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const page = value as Partial<ScheduleEventPage>;
-  return (
-    Array.isArray(page.events) &&
-    page.events.every(isScheduleEvent) &&
-    (page.nextCursor === undefined || typeof page.nextCursor === 'string')
-  );
-}
-
-function isScheduleEventDetail(value: unknown): value is ScheduleEventDetail {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const detail = value as Partial<ScheduleEventDetail>;
-  return (
-    isScheduleEvent(detail.event) &&
-    Array.isArray(detail.relatedEvents) &&
-    detail.relatedEvents.every(isScheduleEvent)
-  );
-}
-
-function isNotificationRecord(value: unknown): value is NotificationRecord {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const notification = value as Partial<NotificationRecord>;
-  return (
-    typeof notification.id === 'string' &&
-    notification.id.length > 0 &&
-    typeof notification.recipientUserId === 'string' &&
-    notification.recipientUserId.length > 0 &&
-    typeof notification.notificationType === 'string' &&
-    notification.notificationType.length > 0 &&
-    typeof notification.title === 'string' &&
-    notification.title.length > 0 &&
-    typeof notification.body === 'string' &&
-    notification.body.length > 0 &&
-    typeof notification.createdAt === 'string' &&
-    typeof notification.isRead === 'boolean' &&
-    (notification.groupId === undefined || typeof notification.groupId === 'string') &&
-    (notification.objectId === undefined || typeof notification.objectId === 'string') &&
-    (notification.objectType === undefined || typeof notification.objectType === 'string') &&
-    (notification.payload === undefined || isJsonObjectValue(notification.payload)) &&
-    (notification.scheduleEventId === undefined ||
-      typeof notification.scheduleEventId === 'string') &&
-    (notification.shiftAssignmentId === undefined ||
-      typeof notification.shiftAssignmentId === 'string')
-  );
-}
-
-function isNotificationPage(value: unknown): value is NotificationPage {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const page = value as Partial<NotificationPage>;
-  return (
-    Array.isArray(page.notifications) &&
-    page.notifications.every(isNotificationRecord) &&
-    typeof page.unreadCount === 'number' &&
-    Number.isInteger(page.unreadCount) &&
-    (page.nextCursor === undefined || typeof page.nextCursor === 'string')
-  );
-}
-
-function isUnreadCountResult(value: unknown): value is { readonly unreadCount: number } {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as { unreadCount?: unknown }).unreadCount === 'number' &&
-    Number.isInteger((value as { unreadCount: number }).unreadCount)
-  );
-}
-
-function isReadAllResult(value: unknown): value is { readonly count: number } {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as { count?: unknown }).count === 'number' &&
-    Number.isInteger((value as { count: number }).count)
-  );
-}
-
-function isSavedResult(value: unknown): value is { readonly saved: boolean } {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as { saved?: unknown }).saved === 'boolean'
-  );
-}
-
-function isDeletedResult(value: unknown): value is { readonly deleted: boolean } {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as { deleted?: unknown }).deleted === 'boolean'
-  );
-}
-
-function isGroupNotificationSettings(
-  value: unknown,
-): value is { readonly dutyReminderHours: readonly number[]; readonly groupId: string } {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const settings = value as {
-    dutyReminderHours?: unknown;
-    groupId?: unknown;
-  };
-  return (
-    typeof settings.groupId === 'string' &&
-    settings.groupId.length > 0 &&
-    Array.isArray(settings.dutyReminderHours) &&
-    settings.dutyReminderHours.every(
-      (hour) => typeof hour === 'number' && Number.isInteger(hour) && hour >= 1,
-    )
-  );
-}
-
-function isMemberNotificationPreferences(value: unknown): value is MemberNotificationPreferences {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const preferences = value as Partial<MemberNotificationPreferences>;
-  return (
-    typeof preferences.membershipId === 'string' &&
-    preferences.membershipId.length > 0 &&
-    typeof preferences.browserNotificationsEnabled === 'boolean' &&
-    (preferences.dutyReminderHours === null ||
-      (Array.isArray(preferences.dutyReminderHours) &&
-        preferences.dutyReminderHours.every(
-          (hour) => typeof hour === 'number' && Number.isInteger(hour) && hour >= 1,
-        )))
-  );
-}
-
-function isPushConfiguration(value: unknown): value is PushConfiguration {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    ((value as { vapidPublicKey?: unknown }).vapidPublicKey === null ||
-      typeof (value as { vapidPublicKey?: unknown }).vapidPublicKey === 'string')
   );
 }
 

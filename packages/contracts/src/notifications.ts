@@ -1,20 +1,29 @@
+import { z } from 'zod';
+
 import type { JsonObject } from './errors.js';
 
-export interface NotificationRecord {
-  readonly body: string;
-  readonly createdAt: string;
-  readonly groupId?: string;
-  readonly id: string;
-  readonly isRead: boolean;
-  readonly notificationType: string;
-  readonly objectId?: string;
-  readonly objectType?: string;
-  readonly payload?: JsonObject;
-  readonly recipientUserId: string;
-  readonly scheduleEventId?: string;
-  readonly shiftAssignmentId?: string;
-  readonly title: string;
-}
+const jsonObjectSchema = z.custom<JsonObject>(
+  (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
+);
+
+export const notificationRecordSchema = z
+  .object({
+    body: z.string().min(1),
+    createdAt: z.string(),
+    groupId: z.string().optional(),
+    id: z.string().min(1),
+    isRead: z.boolean(),
+    notificationType: z.string().min(1),
+    objectId: z.string().optional(),
+    objectType: z.string().optional(),
+    payload: jsonObjectSchema.optional(),
+    recipientUserId: z.string().min(1),
+    scheduleEventId: z.string().optional(),
+    shiftAssignmentId: z.string().optional(),
+    title: z.string().min(1),
+  })
+  .passthrough();
+export type NotificationRecord = z.infer<typeof notificationRecordSchema>;
 
 export interface NotificationQuery {
   readonly cursor?: string;
@@ -23,26 +32,59 @@ export interface NotificationQuery {
   readonly unreadOnly?: boolean;
 }
 
-export interface NotificationPage {
-  readonly nextCursor?: string;
-  readonly notifications: readonly NotificationRecord[];
-  readonly unreadCount: number;
-}
+export const notificationPageSchema = z
+  .object({
+    nextCursor: z.string().optional(),
+    notifications: z.readonly(z.array(notificationRecordSchema)),
+    unreadCount: z.number().int(),
+  })
+  .passthrough();
+export type NotificationPage = z.infer<typeof notificationPageSchema>;
 
-export interface GroupNotificationSettings {
-  readonly dutyReminderHours: readonly number[];
-  readonly groupId: string;
-}
+export const unreadCountResultSchema = z
+  .object({
+    unreadCount: z.number().int(),
+  })
+  .passthrough();
+
+export const readAllResultSchema = z
+  .object({
+    count: z.number().int(),
+  })
+  .passthrough();
+
+export const savedResultSchema = z
+  .object({
+    saved: z.boolean(),
+  })
+  .passthrough();
+
+export const deletedResultSchema = z
+  .object({
+    deleted: z.boolean(),
+  })
+  .passthrough();
+
+export const groupNotificationSettingsSchema = z
+  .object({
+    dutyReminderHours: z.readonly(z.array(z.number().int().min(1))),
+    groupId: z.string().min(1),
+  })
+  .passthrough();
+export type GroupNotificationSettings = z.infer<typeof groupNotificationSettingsSchema>;
 
 export interface UpdateGroupNotificationSettingsInput {
   readonly dutyReminderHours: readonly number[];
 }
 
-export interface MemberNotificationPreferences {
-  readonly browserNotificationsEnabled: boolean;
-  readonly dutyReminderHours: readonly number[] | null;
-  readonly membershipId: string;
-}
+export const memberNotificationPreferencesSchema = z
+  .object({
+    browserNotificationsEnabled: z.boolean(),
+    dutyReminderHours: z.union([z.null(), z.readonly(z.array(z.number().int().min(1)))]),
+    membershipId: z.string().min(1),
+  })
+  .passthrough();
+export type MemberNotificationPreferences = z.infer<typeof memberNotificationPreferencesSchema>;
 
 export interface UpdateMemberNotificationPreferencesInput {
   readonly browserNotificationsEnabled?: boolean;
@@ -57,6 +99,9 @@ export interface WebPushSubscriptionInput {
   };
 }
 
-export interface PushConfiguration {
-  readonly vapidPublicKey: string | null;
-}
+export const pushConfigurationSchema = z
+  .object({
+    vapidPublicKey: z.union([z.null(), z.string()]),
+  })
+  .passthrough();
+export type PushConfiguration = z.infer<typeof pushConfigurationSchema>;

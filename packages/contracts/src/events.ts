@@ -1,26 +1,51 @@
+import { z } from 'zod';
+
 import type { JsonObject } from './errors.js';
 
-export interface ScheduleEvent {
-  readonly affectedMembershipIds: readonly string[];
-  readonly affectedShiftIds: readonly string[];
-  readonly afterData?: JsonObject;
-  readonly approverUserId?: string;
-  readonly beforeData?: JsonObject;
-  readonly eventStatus: string;
-  readonly eventType: string;
-  readonly groupId: string;
-  readonly id: string;
-  readonly initiatedByUserId?: string;
-  readonly objectId?: string;
-  readonly objectType: string;
-  readonly occurredAt: string;
-  readonly operationId: string;
-  readonly operatorUserId?: string;
-  readonly parentEventId?: string;
-  readonly reason?: string;
-  readonly schedulePeriodId?: string;
-  readonly statisticsDelta?: JsonObject;
-}
+const jsonObjectSchema = z.custom<JsonObject>(
+  (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
+);
+
+export const scheduleEventSchema = z
+  .object({
+    affectedMembershipIds: z.readonly(z.array(z.string())),
+    affectedShiftIds: z.readonly(z.array(z.string())),
+    afterData: jsonObjectSchema.optional(),
+    approverUserId: z.string().optional(),
+    beforeData: jsonObjectSchema.optional(),
+    eventStatus: z.string(),
+    eventType: z.string().min(1),
+    groupId: z.string().min(1),
+    id: z.string().min(1),
+    initiatedByUserId: z.string().optional(),
+    objectId: z.string().optional(),
+    objectType: z.string(),
+    occurredAt: z.string(),
+    operationId: z.string(),
+    operatorUserId: z.string().optional(),
+    parentEventId: z.string().optional(),
+    reason: z.string().optional(),
+    schedulePeriodId: z.string().optional(),
+    statisticsDelta: jsonObjectSchema.optional(),
+  })
+  .passthrough();
+export type ScheduleEvent = z.infer<typeof scheduleEventSchema>;
+
+export const scheduleEventPageSchema = z
+  .object({
+    events: z.readonly(z.array(scheduleEventSchema)),
+    nextCursor: z.string().optional(),
+  })
+  .passthrough();
+export type ScheduleEventPage = z.infer<typeof scheduleEventPageSchema>;
+
+export const scheduleEventDetailSchema = z
+  .object({
+    event: scheduleEventSchema,
+    relatedEvents: z.readonly(z.array(scheduleEventSchema)),
+  })
+  .passthrough();
+export type ScheduleEventDetail = z.infer<typeof scheduleEventDetailSchema>;
 
 export interface ScheduleEventWriteInput {
   readonly affectedMembershipIds?: readonly string[];
@@ -54,16 +79,6 @@ export interface ScheduleEventQuery {
   readonly scheduleRoleId?: string;
   readonly shiftId?: string;
   readonly to?: string;
-}
-
-export interface ScheduleEventPage {
-  readonly events: readonly ScheduleEvent[];
-  readonly nextCursor?: string;
-}
-
-export interface ScheduleEventDetail {
-  readonly event: ScheduleEvent;
-  readonly relatedEvents: readonly ScheduleEvent[];
 }
 
 export interface AuditLogWriteInput {

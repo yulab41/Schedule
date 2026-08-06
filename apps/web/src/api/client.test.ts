@@ -4,6 +4,7 @@ import type {
   ApprovedLeaveRequestResult,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
+  GroupNotificationSettings,
   GroupMember,
   GroupMemberContact,
   GroupSummary,
@@ -18,11 +19,14 @@ import type {
   ManualScheduleTemplate,
   ManualApplyPreview,
   MembershipClaimRequest,
+  MemberNotificationPreferences,
+  NotificationRecord,
   PastScheduleAssignment,
   PastScheduleBackfillRecord,
   PastSchedulePeriod,
   ScheduleChangeImpactPreview,
   ScheduleDraftSummary,
+  ScheduleEvent,
   ScheduleGenerationPreview,
   SchedulePeriodHistoryItem,
   ScheduleRole,
@@ -425,6 +429,39 @@ const leaveRequestMutationResult: LeaveRequestMutationResult = {
   leaveRequestId: 'leave-1',
   operationId: 'op-1',
   status: 'cancelled',
+};
+
+const scheduleEvent: ScheduleEvent = {
+  affectedMembershipIds: ['membership-1'],
+  affectedShiftIds: ['assignment-1'],
+  eventStatus: 'completed',
+  eventType: 'swap_completed',
+  groupId: 'group-1',
+  id: 'event-1',
+  objectType: 'swap',
+  occurredAt: '2026-08-01T00:00:00.000Z',
+  operationId: 'op-1',
+};
+
+const notificationRecord: NotificationRecord = {
+  body: '排班有更新',
+  createdAt: '2026-08-01T00:00:00.000Z',
+  id: 'notification-1',
+  isRead: false,
+  notificationType: 'schedule_change',
+  recipientUserId: 'user-1',
+  title: '排班更新',
+};
+
+const groupNotificationSettings: GroupNotificationSettings = {
+  dutyReminderHours: [24, 2],
+  groupId: 'group-1',
+};
+
+const memberNotificationPreferences: MemberNotificationPreferences = {
+  browserNotificationsEnabled: true,
+  dutyReminderHours: [24],
+  membershipId: 'membership-1',
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -2169,6 +2206,222 @@ describe('Web API client', () => {
         operationId: 'op-1',
       }),
     ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule event with a non-array affected shift ids', async () => {
+    const invalidEvent = { ...scheduleEvent, affectedShiftIds: 'assignment-1' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ events: [invalidEvent] }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getGroupEvents(group.id, { pageSize: 50 })).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule event with an array afterData', async () => {
+    const invalidEvent = { ...scheduleEvent, afterData: [] };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ events: [invalidEvent] }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getGroupEvents(group.id, { pageSize: 50 })).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule event page with a non-string next cursor', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ events: [scheduleEvent], nextCursor: 5 }), { status: 200 }),
+      );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getGroupEvents(group.id, { pageSize: 50 })).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule event detail with a malformed related event', async () => {
+    const invalidDetail = {
+      event: scheduleEvent,
+      relatedEvents: [{ ...scheduleEvent, id: '' }],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidDetail), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getEventDetail(group.id, scheduleEvent.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a notification record with an empty title', async () => {
+    const invalidRecord = { ...notificationRecord, title: '' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidRecord), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.markNotificationRead(notificationRecord.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a notification page with a non-integer unread count', async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ notifications: [notificationRecord], unreadCount: 1.5 }), {
+        status: 200,
+      }),
+    );
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listNotifications({ pageSize: 30 })).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an unread count result with a non-integer count', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ unreadCount: 1.5 }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getUnreadNotificationCount()).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a read-all result with a non-integer count', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ count: 1.5 }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.markAllNotificationsRead(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a saved result with a non-boolean saved flag', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ saved: 'yes' }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.savePushSubscription({
+        endpoint: 'https://example.com/push',
+        keys: { auth: 'auth', p256dh: 'p256dh' },
+      }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a deleted result with a non-boolean deleted flag', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ deleted: 'yes' }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.deletePushSubscription()).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects group notification settings with a non-integer reminder hour', async () => {
+    const invalidSettings = { ...groupNotificationSettings, dutyReminderHours: [1.5] };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidSettings), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getGroupNotificationSettings(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects member notification preferences with a zero reminder hour', async () => {
+    const invalidPreferences = {
+      ...memberNotificationPreferences,
+      dutyReminderHours: [0],
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreferences), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMyNotificationPreferences(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects push configuration with a non-null non-string vapid key', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ vapidPublicKey: 5 }), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getPushConfiguration()).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
