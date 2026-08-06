@@ -9,12 +9,12 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–56 已完成；fix-progress 轮次 1（#3.1）、2（#4.1）、3（#7.3）、4（#3.2）已完成；最新验证基线 434/434（64 个测试文件，隔离 MySQL）
-- Next actions: fix-progress 轮次 5 目标为 #1.1（文档过期/自相矛盾，重写待办/下一步）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
+- Debug rounds: 1–56 已完成；fix-progress 轮次 1（#3.1）、2（#4.1）、3（#7.3）、4（#3.2）、5（#1.1）已完成；最新验证基线 434/434（64 个测试文件，隔离 MySQL）
+- Next actions: fix-progress 轮次 6 目标为 #3.3（任务分派默认分支静默落到导出任务，改 switch 穷举 + default 抛错）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
-- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–49 明细、待办/下一步）
+- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–56 明细、待办/下一步）
 - 本文件不再重复逐轮内容，避免每轮对话重复读取同一份日志
 
 ## Approved Sources
@@ -28,11 +28,12 @@
 ## Completed Work（摘要）
 
 - 2026-08-06 fix-progress 轮次 4：收敛 #3.2 的日志/审计脱敏双份清单——新增 `apps/api/src/security/redact.ts` 共享模块（唯一敏感字段清单、`logRedactionPaths`、递归脱敏），`app.ts` 与 `audit-writer.ts` 删除各自清单与实现并统一引用（日志补上 `telephone`）；新增 6 条共享模块单元测试，日志/审计两端一致性测试扩展至完整字段；`pnpm verify` 434/434 通过。
+- 2026-08-06 fix-progress 轮次 5：收敛 #1.1 的文档过期/自相矛盾——重写 `docs/debug/debug-feedback-log.md`“待办 / 下一步”（删除“既往排班模块未实现”“Fastify 415 待排查”等已解决条目，上线状态改为“迁移与部署已执行、仅剩余额阻塞”，保留 #4.5 待用户确认的登记）；`docs/project-status.md` 轮次范围 1–49 → 1–56，当前批次与下一步同步更新；纯文档修改，`pnpm verify` 434/434 通过。
 - 2026-08-06 fix-progress 轮次 3：收敛 #7.3 的中国时区算法——领域包导出唯一 `chinaStandardTimeOffsetMilliseconds` 与 `toChinaStandardTimeUtcTimestamp`，web 新增 `@schedule/scheduling-domain` 依赖，9 个前端文件删除重复常量/裸魔法数并改用领域函数（calendar-logic/calendar-views 保留薄包装），StatisticsView/ExportDialog/ManualScheduleView 三个视图裸写随本轮一并替换（#8.2 视为完成）；新增 1 条 UTC 换算锁定测试；`pnpm verify` 428/428 通过。
 - 2026-08-06 fix-progress 轮次 2：收敛 #4.1 的 swap/duty 重复成员/角色读取为共享 `GroupMemberReader`（`apps/api/src/modules/groups/group-member-reader.ts`），`loadMembers` 用 `autoAcceptSwapsDefault` 显式表达差异（swap=1、duty=0），`loadRoleNames` 共享；两个服务删除私有复制实现与重复类型；新增“从未设置偏好”默认行为锁定测试 2 条 + 共享读取器集成测试 4 条；`pnpm verify` 427/427 通过。
 - 2026-08-06 fix-progress 轮次 1：收敛 #3.1 的 starts_at 环境补丁为统一 `updateShiftAssignments` 助手（注释 CynosDB `explicit_defaults_for_timestamp=OFF` 原因），5 个文件 12 处调用点全部改用助手；新增“批量更新不改变 starts_at（模拟 ON UPDATE）”锁定测试；`pnpm verify` 421/421 通过。
 - Tasks 1–32 全部完成并发布 `v1.0.0`（发布基线 322/322）；验收记录见 `docs/releases/web-1.0-acceptance.md`，发布提交 `release: web scheduling system 1.0`（tag `v1.0.0`）。
-- 2026-08-05 调试期轮次 1–49 全部完成（用户反馈、根因、修复、验证详见 debug 日志；最新基线 394/394；CloudBase 部署保持手动触发，本轮未部署）。
+- 调试期轮次 1–56 已全部完成（2026-08-05 完成 1–49，随后完成 50–56；用户反馈、根因、修复、验证详见 debug 日志；当前基线 434/434）。
 - 2026-08-06 全库合规审查报告全文并入 `fix-progress.md`（清单编号与报告证据一一对应，含文件/行号/原文/建议），并补充原清单缺失的 #2.2/#7.2/#2.3/#8.2 与外部阻塞登记；该文件成为 Web 1.0 合规修复阶段的新对话唯一切入点。检查点提交 `docs: integrate full compliance audit report into fix-progress checklist` 识别。
 - 轮次 35 按用户要求开放访客节假日、联系电话与当天标记，并禁止换班/加扣班等事件标记与事件入口；月/周/列表日历对过去日期统一显示深灰色（访客与用户/管理员模式一致）。检查点提交 `feat(guest): expose holidays and contacts while hiding events, gray past dates` 识别。
 - 轮次 37 修复管理员发起的换班事件在首页弹窗错误显示“由成员一发出”，改为按实际操作账户显示发起人；人员变更链移到事件弹窗底部并默认折叠。检查点提交 `fix(events): show acting account for admin swaps; collapsible change chain` 识别。
@@ -55,6 +56,7 @@
 ## Active Batch
 
 - fix-progress 轮次 4（#3.2）已完成：日志/审计敏感字段清单与脱敏实现合并为 `apps/api/src/security/redact.ts` 共享模块（`redactSensitiveFields` + 派生 `logRedactionPaths`），日志补上 `telephone`，两端一致性测试覆盖完整字段；下一活动批次为 fix-progress 轮次 5（#1.1）。
+- fix-progress 轮次 5（#1.1）已完成：以当前代码与 Git 历史为准重写 debug 日志“待办 / 下一步”与 project-status 轮次/批次表述，删除已解决条目（既往排班模块、Fastify 415），保留 #4.5“仅未来日期发布”登记；纯文档修改，一致性核对通过；下一活动批次为 fix-progress 轮次 6（#3.3）。
 - 32 项实施计划已完结；当前为 Web 1.0 调试/验收批次。轮次 34 已完成排班版本验收回归、工作流历史读取和访客访问策略调整。
 - 轮次 48 已处理加扣班下拉展示既往班次的问题；下一活动批次仍为 Fastify 非标准 Content-Type 问题。
 - 轮次 49 已处理换班预览未显示加扣班/待处理换班拦截的问题；下一活动批次仍为 Fastify 非标准 Content-Type 问题。
@@ -69,7 +71,7 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：fix-progress 轮次 5 处理 P1 #1.1（文档过期/自相矛盾，以当前代码与 Git 历史为准重写“待办/下一步”）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
+- 下一活动批次：fix-progress 轮次 6 处理 P1 #3.3（任务分派默认分支静默落到导出任务，switch 穷举 + default 抛错）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
 - 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
 - 停止条件：上线健康检查通过且用户验收完成。
 
