@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 3 groups/membership 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 4 scheduling-config 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -661,3 +661,20 @@
 3. 除 status 外的类型均由 `z.infer` 派生，`passthrough()` 使派生类型带 `[x: string]: unknown` 索引签名，构造侧更宽松；若未来要捕获契约漂移需改 strip/strict——症状是未知字段继续透传而非报“服务返回了无效资料”。
 
 下次计划：#7.1 子步骤 3 批次 4（scheduling-config 读模型：`isSchedulingConfig`/`isScheduleRole`/`isScheduleRoleMember`/`isRotationRule`/`isShiftType`/`isSchedulingGroupMember` 先写锁定测试再替换；随后推进 schedules/past-schedules、swaps/duty 等）
+
+### 轮次 15 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 4 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 scheduling-config 读模型族 6 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/scheduling-config.ts`（新增 `schedulingGroupMemberSchema`/`scheduleRoleMemberSchema`/`rotationRuleSchema`/`scheduleRoleSchema`/`shiftTypeSchema`/`schedulingConfigSchema` 6 个 schema，6 个读模型类型改为由 schema 派生，约束与旧守卫一致：非空字符串、整数、position/currentPosition/requiredMembersPerDay ≥1、颜色/时间正则、可选 startDate/startTime/endTime、`passthrough()`；`rulesVersion` 因旧守卫不校验而用 `z.custom<number>(() => true).optional()` 保持缺省/任意值放行，导出类型用交叉类型保持必填 number）；`apps/web/src/api/client.ts`（`createScheduleRole`/`createShiftType`/`getSchedulingConfig`/`reorderRotationMembers`/`replaceScheduleRoleMembers`/`updateRotationRule`/`updateShiftType` 7 处调用点改用 schema，删除 `isScheduleRole`/`isScheduleRoleMember`/`isRotationRule`/`isSchedulingConfig`/`isSchedulingGroupMember`/`isShiftType` 6 个手写守卫；`getSchedulingConfig` 用 `isSchedulingConfigResponse` 轻量谓词包装，使 schema 允许缺省 rulesVersion 而导出类型保持必填）；`apps/web/src/api/client.test.ts`（先新增 8 条锁定测试再替换：缺 rulesVersion 放行、roles 非数组、组员空姓名、角色非整数 version、成员 position 0、轮值 requiredMembersPerDay 0、班种非法颜色、班种非法 startTime；55 → 63 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 480/480 ✅（68 个测试文件，隔离 MySQL；新增 8 条 client 锁定测试）
+
+提交：57c43b7，推送结果见对话回复
+
+不确定点：
+1. `rulesVersion` 用 `z.custom<number>(() => true).optional()` 保持旧守卫“完全不校验”的宽松行为，导出类型仍为必填 number；若未来想真正校验该字段，需改成 `z.number().int()`——出错症状是缺省或异常 rulesVersion 仍能通过读模型（与旧行为一致）。
+2. `getSchedulingConfig` 使用 `isSchedulingConfigResponse` 类型谓词包装 schema，因为 schema 推断类型允许缺省 rulesVersion 而导出类型要求必填；若未来 schema 改为必填，可删掉包装直接使用 `isResponseBodyFromSchema`。
+3. 派生类型带 `passthrough()` 索引签名，构造侧更宽松；若未来要捕获契约漂移需改 strip/strict——症状是未知字段继续透传而非报“服务返回了无效资料”。
+
+下次计划：#7.1 子步骤 3 批次 5（schedules/past-schedules 读模型：`isSchedulePeriodSummary`/`isScheduleDraftSummary`/`isScheduleDraftSummaryList`/`isSchedulePeriodHistoryItem`/`isSchedulePeriodHistoryItemList`/`isPastSchedulePeriod`/`isPastSchedulePeriodList`/`isPastScheduleAssignment`/`isPastScheduleAssignmentList`/`isPastScheduleBackfillRecord` 等先写锁定测试再替换；随后推进 swaps/duty 等）
