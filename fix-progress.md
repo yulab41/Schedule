@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 2 holidays 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 3 groups/membership 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -644,3 +644,20 @@
 3. `passthrough()` 保留未知字段与旧守卫一致；若未来要捕获 API 契约漂移，需改为 strip/strict 并显式断言——症状是未知字段继续透传而非报“服务返回了无效资料”。
 
 下次计划：#7.1 子步骤 3 批次 3（groups/membership 读模型：按读模型族先写锁定测试再替换剩余 `isX` 守卫；随后推进 schedules、swaps/duty 等）
+
+### 轮次 14 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 3 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 groups/membership 读模型族 15 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/groups.ts`（新增 `groupRoleSchema` 与 `groupSummarySchema`/`addRosterEntriesResponseSchema`/`convertPendingRosterResponseSchema`/`claimGroupResponseSchema`/`groupMemberSchema`/`membershipClaimLookupEntrySchema`/`membershipClaimLookupResponseSchema`/`membershipClaimRequestSchema`/`membershipClaimRequestListSchema`/`createMembershipClaimResponseSchema`/`groupMemberContactSchema`/`groupMemberContactListSchema`/`groupMemberListSchema`/`groupSummaryListSchema`，11 个读模型类型改为由 schema 派生；`claimGroupResponseSchema` 的 `request_created` 分支用 `.strict()` 保持旧守卫“仅 status 一个键”的精确检查，`membershipClaimRequestSchema.status` 用 `z.custom<MembershipClaimRequestStatus>` 保持“任意字符串通过”的旧行为同时保留枚举类型）；`packages/contracts/src/schedules.ts`（新增 `groupSchedulePublishModeSchema`，`GroupSchedulePublishMode` 类型改为派生）；`apps/web/src/api/client.ts`（16 处调用点改用 `isResponseBodyFromSchema`，删除 `isGroupSummary`/`isGroupSummaryList`/`isAddRosterEntriesResponse`/`isConvertPendingRosterResponse`/`isClaimGroupResponse`/`isMembershipClaimLookupEntry`/`isMembershipClaimLookupResponse`/`isMembershipClaimRequest`/`isMembershipClaimRequestList`/`isCreateMembershipClaimResponse`/`isGroupMember`/`isGroupMemberContact`/`isGroupMemberContactList`/`isGroupMemberList`/`isGroupSchedulePublishMode` 15 个手写守卫）；`apps/web/src/api/client.test.ts`（先新增 14 条锁定测试再替换：非正 added、负 skipped、claimed 缺 group、认领查询非法角色、未知 status 放行、非数字 version、direct 响应带 request、非 direct 响应缺 request、成员可选字段、空 realName、负版本联系方式、非法群组码、未知角色、未知发布模式；41 → 55 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 472/472 ✅（68 个测试文件，隔离 MySQL；新增 14 条 client 锁定测试）
+
+提交：5b590a3，推送结果见对话回复
+
+不确定点：
+1. `membershipClaimRequestSchema.status` 用 `z.custom<MembershipClaimRequestStatus>` 保持旧守卫“仅校验字符串”的行为，导出类型仍为枚举；若未来想收紧为运行时枚举校验，需改成 `z.enum`——出错症状是未知状态仍能通过读模型（与旧行为一致）。
+2. `claimGroupResponseSchema` 的 `request_created` 分支用 `.strict()` 复刻旧守卫“仅 status 一个键”的精确检查，`claimed` 分支 `passthrough()` 允许额外字段；若 API 未来给 `request_created` 响应增加字段，客户端会开始拒绝——症状是认领返回“服务返回了无效资料”。
+3. 除 status 外的类型均由 `z.infer` 派生，`passthrough()` 使派生类型带 `[x: string]: unknown` 索引签名，构造侧更宽松；若未来要捕获契约漂移需改 strip/strict——症状是未知字段继续透传而非报“服务返回了无效资料”。
+
+下次计划：#7.1 子步骤 3 批次 4（scheduling-config 读模型：`isSchedulingConfig`/`isScheduleRole`/`isScheduleRoleMember`/`isRotationRule`/`isShiftType`/`isSchedulingGroupMember` 先写锁定测试再替换；随后推进 schedules/past-schedules、swaps/duty 等）
