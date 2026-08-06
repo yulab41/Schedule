@@ -110,7 +110,12 @@ import type {
   UserProfile,
 } from '@schedule/contracts';
 
-import { apiErrorCodes } from '@schedule/contracts';
+import {
+  apiErrorCodes,
+  calendarReadModelSchema,
+  guestCalendarReadModelSchema,
+  guestGroupSummaryListSchema,
+} from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
 
@@ -655,7 +660,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         '/guest/groups',
         { method: 'GET' },
-        isGuestGroupSummaryList,
+        isResponseBodyFromSchema(guestGroupSummaryListSchema),
       );
     },
     markAllNotificationsRead(groupId) {
@@ -1063,7 +1068,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
         { method: 'GET' },
-        isCalendarReadModel,
+        isResponseBodyFromSchema(calendarReadModelSchema),
       );
     },
     getGuestCalendar(groupCode, businessMonth) {
@@ -1075,7 +1080,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify({ businessMonth, groupCode }),
           method: 'POST',
         },
-        isGuestCalendarReadModel,
+        isResponseBodyFromSchema(guestCalendarReadModelSchema),
       );
     },
     getGuestGroupCalendar(groupId, businessMonth) {
@@ -1084,7 +1089,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/guest/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
         { method: 'GET' },
-        isGuestCalendarReadModel,
+        isResponseBodyFromSchema(guestCalendarReadModelSchema),
       );
     },
     getCurrentProfile() {
@@ -1265,7 +1270,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/calendar/periods/${encodeURIComponent(schedulePeriodId)}`,
         { method: 'GET' },
-        isCalendarReadModel,
+        isResponseBodyFromSchema(calendarReadModelSchema),
       );
     },
     listPastSchedulePeriods(groupId) {
@@ -1991,6 +1996,18 @@ async function parseTextResponse(response: Response): Promise<string> {
   return text;
 }
 
+interface JsonSchema<ResponseBody> {
+  readonly safeParse: (
+    value: unknown,
+  ) => { readonly data: ResponseBody; readonly success: true } | { readonly success: false };
+}
+
+function isResponseBodyFromSchema<ResponseBody>(
+  schema: JsonSchema<ResponseBody>,
+): (value: unknown) => value is ResponseBody {
+  return (value: unknown): value is ResponseBody => schema.safeParse(value).success;
+}
+
 function isAddRosterEntriesResponse(value: unknown): value is AddRosterEntriesResponse {
   return (
     value !== null &&
@@ -2014,158 +2031,6 @@ function isConvertPendingRosterResponse(value: unknown): value is ConvertPending
     typeof value.skipped === 'number' &&
     Number.isInteger(value.skipped) &&
     value.skipped >= 0
-  );
-}
-
-function isCalendarReadModel(value: unknown): value is CalendarReadModel {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const calendar = value as Partial<CalendarReadModel>;
-  return (
-    typeof calendar.businessMonth === 'string' &&
-    /^\d{4}-\d{2}$/u.test(calendar.businessMonth) &&
-    typeof calendar.groupId === 'string' &&
-    Array.isArray(calendar.assignments) &&
-    calendar.assignments.every(isCalendarDutyAssignment) &&
-    Array.isArray(calendar.members) &&
-    calendar.members.every(isCalendarDutyMember) &&
-    Array.isArray(calendar.roles) &&
-    calendar.roles.every(isCalendarRoleSummary) &&
-    Array.isArray(calendar.shiftTypes) &&
-    calendar.shiftTypes.every(isCalendarShiftTypeSummary)
-  );
-}
-
-function isGuestCalendarReadModel(value: unknown): value is GuestCalendarReadModel {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    typeof (value as Partial<GuestCalendarReadModel>).groupName === 'string' &&
-    isCalendarReadModel((value as Partial<GuestCalendarReadModel>).calendar)
-  );
-}
-
-function isGuestGroupSummaryList(value: unknown): value is readonly GuestGroupSummary[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (group) =>
-        group !== null &&
-        typeof group === 'object' &&
-        typeof (group as Partial<GuestGroupSummary>).id === 'string' &&
-        typeof (group as Partial<GuestGroupSummary>).name === 'string',
-    )
-  );
-}
-
-function isCalendarDutyAssignment(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const assignment = value as Partial<CalendarReadModel['assignments'][number]>;
-  return (
-    typeof assignment.businessDate === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/u.test(assignment.businessDate) &&
-    typeof assignment.endsAt === 'string' &&
-    typeof assignment.id === 'string' &&
-    assignment.id.length > 0 &&
-    typeof assignment.startsAt === 'string' &&
-    typeof assignment.schedulePeriodId === 'string' &&
-    assignment.schedulePeriodId.length > 0 &&
-    typeof assignment.scheduleRoleId === 'string' &&
-    assignment.scheduleRoleId.length > 0 &&
-    typeof assignment.scheduleRoleName === 'string' &&
-    assignment.scheduleRoleName.length > 0 &&
-    typeof assignment.shiftTypeAbbreviation === 'string' &&
-    assignment.shiftTypeAbbreviation.length > 0 &&
-    typeof assignment.shiftTypeColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeColor) &&
-    typeof assignment.shiftTypeId === 'string' &&
-    assignment.shiftTypeId.length > 0 &&
-    typeof assignment.shiftTypeName === 'string' &&
-    assignment.shiftTypeName.length > 0 &&
-    typeof assignment.shiftTypeTextColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(assignment.shiftTypeTextColor) &&
-    typeof assignment.slotPosition === 'number' &&
-    Number.isInteger(assignment.slotPosition) &&
-    assignment.slotPosition >= 1 &&
-    Array.isArray(assignment.changeMarkers) &&
-    assignment.changeMarkers.every(isCalendarChangeMarker) &&
-    (assignment.actualMemberName === undefined ||
-      typeof assignment.actualMemberName === 'string') &&
-    (assignment.actualMembershipId === undefined ||
-      typeof assignment.actualMembershipId === 'string') &&
-    (assignment.plannedMemberName === undefined ||
-      typeof assignment.plannedMemberName === 'string') &&
-    (assignment.plannedMembershipId === undefined ||
-      typeof assignment.plannedMembershipId === 'string')
-  );
-}
-
-function isCalendarChangeMarker(value: unknown): boolean {
-  return (
-    value === 'swap' ||
-    value === 'leave-cover' ||
-    value === 'manual-adjustment' ||
-    value === 'overtime'
-  );
-}
-
-function isCalendarDutyMember(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const member = value as Partial<CalendarReadModel['members'][number]>;
-  return (
-    typeof member.membershipId === 'string' &&
-    member.membershipId.length > 0 &&
-    typeof member.realName === 'string' &&
-    member.realName.length > 0 &&
-    typeof member.isConfirmed === 'boolean' &&
-    (member.mobilePhone === undefined || typeof member.mobilePhone === 'string') &&
-    (member.shortPhone === undefined || typeof member.shortPhone === 'string')
-  );
-}
-
-function isCalendarRoleSummary(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const role = value as Partial<CalendarReadModel['roles'][number]>;
-  return (
-    typeof role.id === 'string' &&
-    role.id.length > 0 &&
-    typeof role.name === 'string' &&
-    role.name.length > 0
-  );
-}
-
-function isCalendarShiftTypeSummary(value: unknown): boolean {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const shiftType = value as Partial<CalendarReadModel['shiftTypes'][number]>;
-  return (
-    typeof shiftType.id === 'string' &&
-    shiftType.id.length > 0 &&
-    typeof shiftType.name === 'string' &&
-    shiftType.name.length > 0 &&
-    typeof shiftType.abbreviation === 'string' &&
-    shiftType.abbreviation.length > 0 &&
-    typeof shiftType.color === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(shiftType.color) &&
-    typeof shiftType.textColor === 'string' &&
-    /^#[\dA-F]{6}$/iu.test(shiftType.textColor) &&
-    typeof shiftType.crossesMidnight === 'boolean' &&
-    typeof shiftType.isAllDay === 'boolean' &&
-    (shiftType.startTime === undefined || /^\d{2}:\d{2}$/u.test(shiftType.startTime)) &&
-    (shiftType.endTime === undefined || /^\d{2}:\d{2}$/u.test(shiftType.endTime))
   );
 }
 
