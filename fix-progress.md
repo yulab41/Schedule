@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 7 leaves 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 8 manual-schedules 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -729,3 +729,20 @@
 3. `approvedLeaveRequestResultSchema`/`leaveReflowPreviewSchema` 的推断类型比导出契约类型宽松，调用点用 `isResponseBodyMatching<T>` 桥接；若调用点传错类型参数，编译期由方法返回类型兜底。
 
 下次计划：#7.1 子步骤 3 批次 8（manual-schedules 读模型：`isManualApplyPreview`/`isManualApplyAssignment`/`isManualApplyConflict`/`isContinuousDutyWarning`/`isManualScheduleTemplate`/`isManualScheduleTemplateMember`/`isManualScheduleTemplateCell`/`isManualScheduleTemplateList`/`isAppliedManualScheduleTemplateResult`/`isScheduleGenerationVacancy`/`isScheduleGenerationStatistics`/`isRoleCount`/`isShiftTypeCount` 先写锁定测试再替换；随后推进 events/notifications、statistics 等）
+
+### 轮次 19 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 8 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 manual-schedules 读模型族 13 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/manual-schedules.ts`（新增 `manualScheduleTemplateMemberSchema`/`manualScheduleTemplateCellSchema`/`manualScheduleTemplateSchema`（+List）/`manualApplyConflictSchema`/`manualApplyAssignmentSchema`/`manualApplyPreviewSchema`/`appliedManualScheduleTemplateResultSchema`，3+1 个读模型类型由 schema 派生，`ManualApplyPreview`/`AppliedManualScheduleTemplateResult` 用显式契约别名；`manualApplyAssignmentSchema` 按旧守卫要求 `scheduleRoleName` 非空）；`packages/contracts/src/schedules.ts`（新增 `scheduleGenerationRoleCountSchema`/`scheduleGenerationShiftTypeCountSchema`/`scheduleGenerationStatisticsSchema`，对旧守卫忽略的统计分项字段保持宽松）；`apps/web/src/api/client.ts`（5 处调用点改用 schema：3 处 `isResponseBodyFromSchema`、2 处 `isResponseBodyMatching<T>`（manual apply preview 与 applied 结果），删除 `isAppliedManualScheduleTemplateResult`/`isManualApplyPreview`/`isManualApplyAssignment`/`isManualApplyConflict`/`isContinuousDutyWarning`/`isScheduleGenerationVacancy`/`isScheduleGenerationStatistics`/`isRoleCount`/`isShiftTypeCount`/`isManualScheduleTemplate`/`isManualScheduleTemplateMember`/`isManualScheduleTemplateCell`/`isManualScheduleTemplateList` 13 个手写守卫；至此上一轮遗留的 `isContinuousDutyWarning`/`isScheduleGenerationVacancy` 助手随本批一并清理，`schedulePeriodSummarySchema` 不再被 client.ts 直接引用）；`apps/web/src/api/client.test.ts`（先新增 11 条锁定测试再替换：applyStartDate 格式、cycleDays 非整数、assignment 颜色、冲突码、vacancies 非数组、统计计数非整数、cycleDays 32、member 版本 0、cell cycleDay 0、applied 状态错误、templateVersion 非整数；100 → 111 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 528/528 ✅（68 个测试文件，隔离 MySQL；新增 11 条 client 锁定测试）
+
+提交：570c814，推送结果见对话回复
+
+不确定点：
+1. `manualApplyAssignmentSchema` 按旧守卫把 `scheduleRoleName` 当作非空必填，而 `SchedulePreviewAssignment` 接口该字段是可选的；schema 推断类型比契约类型更严，导出类型未改动——出错症状是缺 scheduleRoleName 的预览赋值会被拒绝（与旧行为一致）。
+2. `scheduleGenerationRoleCountSchema`/`scheduleGenerationShiftTypeCountSchema` 对旧守卫未校验的字段保持宽松（`z.custom(...).optional()`），但导出接口仍要求这些字段；`ManualApplyPreview`/`AppliedManualScheduleTemplateResult` 用显式契约别名 + `isResponseBodyMatching<T>` 桥接——若调用点传错类型参数，编译期由方法返回类型兜底。
+3. `isContinuousDutyWarning`/`isScheduleGenerationVacancy` 等共享助手已随本批删除，契约侧 `scheduleGenerationWarningSchema`/`scheduleGenerationVacancySchema` 成为唯一校验来源；若未来手动排班预览与排班生成预览的字段约束分化，需分别在契约层扩展。
+
+下次计划：#7.1 子步骤 3 批次 9（events/notifications 读模型：`isScheduleEvent`/`isScheduleEventPage`/`isScheduleEventDetail`/`isNotificationRecord`/`isNotificationPage`/`isUnreadCountResult`/`isReadAllResult`/`isSavedResult`/`isDeletedResult`/`isGroupNotificationSettings`/`isMemberNotificationPreferences`/`isPushConfiguration` 先写锁定测试再替换；随后推进 statistics、exports/platform 等）
