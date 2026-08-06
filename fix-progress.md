@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 6 swaps/duty 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 7 leaves 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -712,3 +712,20 @@
 3. 状态/冲突码用 `z.enum` 派生联合类型，与旧守卫枚举一致；若未来新增合法状态而未同步契约，客户端会拒绝——出错症状是新增状态被当作“服务返回了无效资料”。
 
 下次计划：#7.1 子步骤 3 批次 7（leaves 读模型：`isLeaveRequest`/`isLeaveRequestList`/`isLeaveAffectedShiftList`/`isLeaveWorkflowBlocker`/`isLeaveAffectedAssignment`/`isLeaveReflowConflict`/`isLeaveStatisticsDelta`/`isLeaveReflowPreview`/`isGroupLeaveReflowStrategy`/`isApprovedLeaveRequestResult`/`isRejectedLeaveRequestResult`/`isLeaveRequestMutationResult` 先写锁定测试再替换；随后推进 manual-schedules、events/notifications 等）
+
+### 轮次 18 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 7 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 leaves 读模型族 12 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/leaves.ts`（新增 `leaveRequestTypeSchema`/`leaveRequestStatusSchema`/`leaveReflowStrategySchema`/`leaveAffectedShiftSchema`（+List）/`leaveRequestSchema`（+List）/`leaveAffectedAssignmentSchema`/`leaveReflowConflictSchema`/`leaveWorkflowBlockerSchema`/`leaveMemberStatisticsDeltaSchema`/`leaveStatisticsDeltaSchema`/`leaveReflowPreviewSchema`/`approvedLeaveRequestResultSchema`/`rejectedLeaveRequestResultSchema`/`leaveRequestMutationResultSchema`/`groupLeaveReflowStrategySchema`，13 个读模型类型由 schema 派生或显式契约别名；`leaveReflowPreviewSchema` 对旧守卫忽略的 `affectedShiftCount`/`affectedShifts`/`overlapsUnpublishedPeriod` 保持宽松、导出类型保留必填，`periodVersions` 用 `z.custom` 复刻“对象且值全为 number”检查）；`packages/contracts/src/schedules.ts`（新增 `scheduleGenerationWarningSchema`/`scheduleGenerationVacancySchema` 供 reflow preview 复用）；`apps/web/src/api/client.ts`（11 处调用点改用 schema：9 处 `isResponseBodyFromSchema`、2 处 `isResponseBodyMatching<T>`（approve 结果与 reflow preview），删除 `isLeaveRequest`/`isLeaveRequestList`/`isLeaveAffectedShiftList`/`isGroupLeaveReflowStrategy`/`isLeaveReflowPreview`/`isLeaveWorkflowBlocker`/`isLeaveAffectedAssignment`/`isLeaveReflowConflict`/`isLeaveStatisticsDelta`/`isApprovedLeaveRequestResult`/`isRejectedLeaveRequestResult`/`isLeaveRequestMutationResult` 12 个手写守卫及随之无引用的 `isStringNumberRecord`）；`apps/web/src/api/client.test.ts`（先新增 13 条锁定测试再替换：未知状态、未知 leaveType、非整数 version、受影响班次 isCovered 非布尔、reflow preview 缺未校验字段放行、conflicts 非数组、periodVersions 值非数字、workflow blocker 空消息、affected assignment 非法颜色、statistics 总数非数字、群策略未知值、approved 结果状态错误、mutation 结果状态错误；87 → 100 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 517/517 ✅（68 个测试文件，隔离 MySQL；新增 13 条 client 锁定测试）
+
+提交：cf6a61d，推送结果见对话回复
+
+不确定点：
+1. `leaveReflowPreviewSchema` 对 `affectedShiftCount`/`affectedShifts`/`overlapsUnpublishedPeriod` 保持旧守卫的宽松（`z.custom(...).optional()`），导出类型保留必填；若未来想收紧需改为必填校验——出错症状是缺字段仍能通过读模型（与旧行为一致）。
+2. `scheduleGenerationWarningSchema`/`scheduleGenerationVacancySchema` 新增在 schedules.ts 并先被 leave reflow preview 使用；client 里 `isContinuousDutyWarning`/`isScheduleGenerationVacancy` 仍被 manual-apply 预览使用，待 manual-schedules 批次替换后清理——出错症状是两处校验并存但不冲突。
+3. `approvedLeaveRequestResultSchema`/`leaveReflowPreviewSchema` 的推断类型比导出契约类型宽松，调用点用 `isResponseBodyMatching<T>` 桥接；若调用点传错类型参数，编译期由方法返回类型兜底。
+
+下次计划：#7.1 子步骤 3 批次 8（manual-schedules 读模型：`isManualApplyPreview`/`isManualApplyAssignment`/`isManualApplyConflict`/`isContinuousDutyWarning`/`isManualScheduleTemplate`/`isManualScheduleTemplateMember`/`isManualScheduleTemplateCell`/`isManualScheduleTemplateList`/`isAppliedManualScheduleTemplateResult`/`isScheduleGenerationVacancy`/`isScheduleGenerationStatistics`/`isRoleCount`/`isShiftTypeCount` 先写锁定测试再替换；随后推进 events/notifications、statistics 等）
