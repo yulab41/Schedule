@@ -446,7 +446,7 @@
 
 测试结果：`pnpm verify` 428/428 ✅（63 个测试文件，隔离 MySQL；含新增 1 条领域换算测试）
 
-提交：待填写
+提交：7a16c85，推送成功（origin/main，aaf955e..7a16c85）
 
 不确定点：
 1. `@schedule/scheduling-domain` 的 dist 是 Vite 运行时解析路径（web 依赖包 exports），TS 走 tsconfig paths 指向 src；若未来只跑 `pnpm dev:web` 而未先构建领域包，浏览器会拿到旧 dist——症状是新增导出缺失导致页面构建报错。当前 `pnpm dev`/`verify` 都会先构建领域包，已覆盖。
