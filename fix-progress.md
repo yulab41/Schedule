@@ -412,7 +412,7 @@
 
 测试结果：`pnpm verify` 421/421 ✅（62 个测试文件，隔离 MySQL；含新增 1 条锁定测试）
 
-提交：待回填
+提交：1f37298，推送成功（origin/main，5706c87..1f37298）
 
 不确定点：
 1. 本地/CI 的 MySQL 8.4 默认 `explicit_defaults_for_timestamp=ON`，锁定测试靠 ALTER 模拟线上 CynosDB 隐患；若线上库结构已完全无 ON UPDATE，该保留逻辑属于防御性收敛而非必须——出错症状是测试在模拟环境下失效，不会直接影响线上。
