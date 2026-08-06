@@ -43,6 +43,7 @@ import {
 } from '../groups/permission-service.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
+import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 import {
   getCurrentDutyMembershipId,
@@ -625,24 +626,14 @@ export class SwapService {
       actualMemberId: initiatorAssignment.actualMembershipId,
       actualMemberName: initiatorAssignment.actualMemberName,
     };
-    await transaction
-      .update(shiftAssignments)
-      .set({
-        actualMembershipId: initiatorMember.id,
-        actualMemberName: initiatorMember.realName,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(eq(shiftAssignments.id, initiatorAssignment.id));
-    await transaction
-      .update(shiftAssignments)
-      .set({
-        actualMembershipId: targetMember.id,
-        actualMemberName: targetMember.realName,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(eq(shiftAssignments.id, targetAssignment.id));
+    await updateShiftAssignments(transaction, eq(shiftAssignments.id, initiatorAssignment.id), {
+      actualMembershipId: initiatorMember.id,
+      actualMemberName: initiatorMember.realName,
+    });
+    await updateShiftAssignments(transaction, eq(shiftAssignments.id, targetAssignment.id), {
+      actualMembershipId: targetMember.id,
+      actualMemberName: targetMember.realName,
+    });
     await transaction
       .update(swapRequests)
       .set({
@@ -1261,24 +1252,22 @@ export class SwapService {
       context.targetAssignment.actualMemberName,
     );
 
-    await transaction
-      .update(shiftAssignments)
-      .set({
+    await updateShiftAssignments(
+      transaction,
+      eq(shiftAssignments.id, context.initiatorAssignment.id),
+      {
         actualMembershipId: context.targetMember.id,
         actualMemberName: context.targetMember.realName,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(eq(shiftAssignments.id, context.initiatorAssignment.id));
-    await transaction
-      .update(shiftAssignments)
-      .set({
+      },
+    );
+    await updateShiftAssignments(
+      transaction,
+      eq(shiftAssignments.id, context.targetAssignment.id),
+      {
         actualMembershipId: context.initiatorMember.id,
         actualMemberName: context.initiatorMember.realName,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(eq(shiftAssignments.id, context.targetAssignment.id));
+      },
+    );
     await transaction
       .update(swapRequests)
       .set({

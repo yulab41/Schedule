@@ -14,6 +14,7 @@ import {
   shiftTypes,
   userProfiles,
   users,
+  withTransaction,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
@@ -247,6 +248,67 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       );
 
     expect(currentPeriods).toHaveLength(1);
+  });
+
+  it('keeps starts_at pinned when bulk-updating shift assignments', async () => {
+    const repository = new ScheduleRepository(client);
+    const period = await repository.createDraft({
+      ...createDraftInput('2026-10', '2026-10-01'),
+      assignments: [
+        {
+          actualMembershipId: memberId,
+          businessDate: '2026-10-01',
+          plannedMembershipId: memberId,
+          shiftTypeId,
+          slotPosition: 1,
+        },
+        {
+          actualMembershipId: memberId,
+          businessDate: '2026-10-02',
+          plannedMembershipId: memberId,
+          shiftTypeId,
+          slotPosition: 1,
+        },
+      ],
+    });
+
+    // Reproduce the CynosDB hazard (explicit_defaults_for_timestamp=OFF) where a
+    // TIMESTAMP column can carry an implicit ON UPDATE CURRENT_TIMESTAMP.
+    await client.database.execute(sql`
+      ALTER TABLE shift_assignments
+      MODIFY starts_at TIMESTAMP(3) NOT NULL DEFAULT '1970-01-01 00:00:01.000'
+        ON UPDATE CURRENT_TIMESTAMP(3)
+    `);
+
+    const before = await client.database
+      .select({ id: shiftAssignments.id, startsAt: shiftAssignments.startsAt })
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, period.id))
+      .orderBy(shiftAssignments.businessDate);
+
+    await withTransaction(client, (transaction) =>
+      repository.deleteDraftInTransaction(transaction, {
+        actorUserId: ownerUserId,
+        groupId,
+        operationId: randomUUID(),
+        schedulePeriodId: period.id,
+      }),
+    );
+
+    const after = await client.database
+      .select({
+        deletedAt: shiftAssignments.deletedAt,
+        id: shiftAssignments.id,
+        startsAt: shiftAssignments.startsAt,
+      })
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, period.id))
+      .orderBy(shiftAssignments.businessDate);
+
+    expect(after.map((row) => row.startsAt.toISOString())).toEqual(
+      before.map((row) => row.startsAt.toISOString()),
+    );
+    expect(after.every((row) => row.deletedAt !== null)).toBe(true);
   });
 
   function createDraftInput(businessMonth: string, businessDate: string) {

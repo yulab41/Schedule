@@ -32,6 +32,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { ApiError } from '../../plugins/error-handler.js';
 import { assertExpectedVersion as assertVersionMatch } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
+import { updateShiftAssignments } from './shift-assignment-writer.js';
 import { ScheduleWorkflowInvalidationService } from './workflow-invalidation-service.js';
 
 export interface CreateSchedulePeriodInput {
@@ -763,19 +764,14 @@ export class ScheduleRepository {
       return;
     }
 
-    await transaction
-      .update(shiftAssignments)
-      .set({
-        deletedAt: sql`current_timestamp(3)`,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(
-        inArray(
-          shiftAssignments.id,
-          assignments.map((assignment) => assignment.id),
-        ),
-      );
+    await updateShiftAssignments(
+      transaction,
+      inArray(
+        shiftAssignments.id,
+        assignments.map((assignment) => assignment.id),
+      ),
+      { deletedAt: sql`current_timestamp(3)` },
+    );
   }
 
   private async loadPeriodAssignments(
@@ -817,19 +813,14 @@ export class ScheduleRepository {
       return;
     }
 
-    await transaction
-      .update(shiftAssignments)
-      .set({
-        deletedAt: sql`current_timestamp(3)`,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(
-        inArray(
-          shiftAssignments.id,
-          assignments.map((assignment) => assignment.id),
-        ),
-      );
+    await updateShiftAssignments(
+      transaction,
+      inArray(
+        shiftAssignments.id,
+        assignments.map((assignment) => assignment.id),
+      ),
+      { deletedAt: sql`current_timestamp(3)` },
+    );
   }
 
   private async preservePastAssignments(
@@ -881,19 +872,14 @@ export class ScheduleRepository {
       status: 'past',
     });
     if (pastAssignments.length > 0) {
-      await transaction
-        .update(shiftAssignments)
-        .set({
-          schedulePeriodId: pastPeriodId,
-          startsAt: sql`${shiftAssignments.startsAt}`,
-          version: sql`${shiftAssignments.version} + 1`,
-        })
-        .where(
-          inArray(
-            shiftAssignments.id,
-            pastAssignments.map((assignment) => assignment.id),
-          ),
-        );
+      await updateShiftAssignments(
+        transaction,
+        inArray(
+          shiftAssignments.id,
+          pastAssignments.map((assignment) => assignment.id),
+        ),
+        { schedulePeriodId: pastPeriodId },
+      );
     }
 
     return pastPeriodId;

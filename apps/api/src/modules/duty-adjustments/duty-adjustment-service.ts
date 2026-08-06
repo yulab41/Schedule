@@ -42,6 +42,7 @@ import {
 } from '../groups/permission-service.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
+import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 import {
   getCurrentDutyMembershipId,
@@ -1089,15 +1090,14 @@ export class DutyAdjustmentService {
       actualMemberId: context.coveredAssignment.actualMembershipId,
       actualMemberName: context.coveredAssignment.actualMemberName,
     };
-    await transaction
-      .update(shiftAssignments)
-      .set({
+    await updateShiftAssignments(
+      transaction,
+      eq(shiftAssignments.id, context.coveredAssignment.id),
+      {
         actualMembershipId: context.deductedMember.id,
         actualMemberName: context.deductedMember.realName,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(eq(shiftAssignments.id, context.coveredAssignment.id));
+      },
+    );
     await transaction
       .update(dutyAdjustments)
       .set({
@@ -1185,15 +1185,14 @@ export class DutyAdjustmentService {
       actualMemberName: context.coveredAssignment.actualMemberName,
     };
 
-    await transaction
-      .update(shiftAssignments)
-      .set({
+    await updateShiftAssignments(
+      transaction,
+      eq(shiftAssignments.id, context.coveredAssignment.id),
+      {
         actualMembershipId: context.overtimeMember.id,
         actualMemberName: context.overtimeMember.realName,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(eq(shiftAssignments.id, context.coveredAssignment.id));
+      },
+    );
     await transaction
       .update(dutyAdjustments)
       .set({

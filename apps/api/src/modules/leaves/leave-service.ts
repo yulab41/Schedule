@@ -69,6 +69,7 @@ import {
 } from '../notifications/conflict-notifier.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
+import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 import {
   getCurrentDutyMembershipId,
@@ -611,18 +612,13 @@ export class LeaveService {
       const adjusted = adjustedByKey.get(businessKey);
       const nextMembershipId = adjusted?.plannedMembershipId ?? null;
       affectedRows.push(row);
-      await transaction
-        .update(shiftAssignments)
-        .set({
-          plannedMemberName:
-            nextMembershipId === null
-              ? null
-              : (context.memberNamesById.get(nextMembershipId) ?? null),
-          plannedMembershipId: nextMembershipId,
-          startsAt: sql`${shiftAssignments.startsAt}`,
-          version: sql`${shiftAssignments.version} + 1`,
-        })
-        .where(eq(shiftAssignments.id, row.id));
+      await updateShiftAssignments(transaction, eq(shiftAssignments.id, row.id), {
+        plannedMemberName:
+          nextMembershipId === null
+            ? null
+            : (context.memberNamesById.get(nextMembershipId) ?? null),
+        plannedMembershipId: nextMembershipId,
+      });
     }
 
     const decidedAt = new Date();

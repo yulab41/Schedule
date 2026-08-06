@@ -35,6 +35,7 @@ import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { GroupPermissionService } from './permission-service.js';
 
 export class MembershipService {
@@ -998,32 +999,22 @@ export class MembershipService {
       readonly userId: string;
     },
   ): Promise<void> {
-    await transaction
-      .update(shiftAssignments)
-      .set({
-        plannedMembershipId: null,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(
-        and(
-          eq(shiftAssignments.plannedMembershipId, membership.id),
-          isNull(shiftAssignments.deletedAt),
-        ),
-      );
-    await transaction
-      .update(shiftAssignments)
-      .set({
-        actualMembershipId: null,
-        startsAt: sql`${shiftAssignments.startsAt}`,
-        version: sql`${shiftAssignments.version} + 1`,
-      })
-      .where(
-        and(
-          eq(shiftAssignments.actualMembershipId, membership.id),
-          isNull(shiftAssignments.deletedAt),
-        ),
-      );
+    await updateShiftAssignments(
+      transaction,
+      and(
+        eq(shiftAssignments.plannedMembershipId, membership.id),
+        isNull(shiftAssignments.deletedAt),
+      ),
+      { plannedMembershipId: null },
+    );
+    await updateShiftAssignments(
+      transaction,
+      and(
+        eq(shiftAssignments.actualMembershipId, membership.id),
+        isNull(shiftAssignments.deletedAt),
+      ),
+      { actualMembershipId: null },
+    );
 
     const roleMembers = await transaction
       .select({ id: memberScheduleRoles.id })
