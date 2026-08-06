@@ -6,6 +6,7 @@ import type {
   StatisticsSummary,
   YearStatistics,
 } from '@schedule/contracts';
+import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { computed, onMounted, ref } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
@@ -22,17 +23,13 @@ const props = defineProps<{
 
 const api = createApiClient({ auth: cloudbaseAuth });
 const viewMode = ref<'month' | 'year'>('month');
-const businessMonth = ref(getCurrentCstMonth());
-const year = ref(Number(getCurrentCstMonth().slice(0, 4)));
+const businessMonth = ref(getCurrentBusinessMonth());
+const year = ref(Number(getCurrentBusinessMonth().slice(0, 4)));
 const isLoading = ref(false);
 const errorMessage = ref<string>();
 const monthData = ref<MonthStatisticsSnapshot>();
 const yearData = ref<YearStatistics>();
 const checkResult = ref<StatisticsRecalculateCheckResult>();
-
-function getCurrentCstMonth(): string {
-  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
-}
 
 const summary = computed<StatisticsSummary | undefined>(() =>
   viewMode.value === 'month' ? monthData.value?.summary : yearData.value?.summary,

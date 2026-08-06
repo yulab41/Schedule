@@ -30,10 +30,12 @@ export {
 } from './schedule-period.js';
 export {
   assertBusinessMonthContainsDate,
+  chinaStandardTimeOffsetMilliseconds,
   getChinaStandardTimeBusinessDate,
   getCurrentBusinessMonth,
   isPastBusinessDate,
   isPastBusinessMonth,
+  toChinaStandardTimeUtcTimestamp,
   toChinaStandardTimeShiftRange,
   type ChinaStandardTimeShiftRange,
   type ChinaStandardTimeShiftRangeInput,

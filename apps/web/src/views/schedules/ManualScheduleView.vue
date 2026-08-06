@@ -12,6 +12,7 @@ import type {
   ScheduleWorkflowImpact,
   SchedulingConfig,
 } from '@schedule/contracts';
+import { toChinaStandardTimeUtcTimestamp } from '@schedule/scheduling-domain';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
@@ -850,9 +851,8 @@ function scheduleMidnightRefresh(): void {
   }
   const now = Date.now();
   const today = getBusinessDate();
-  const [yearText = '', monthText = '', dayText = ''] = today.split('-');
   const nextMidnightUtc =
-    Date.UTC(Number(yearText), Number(monthText) - 1, Number(dayText) + 1) - 8 * 60 * 60 * 1000;
+    toChinaStandardTimeUtcTimestamp(today, '00:00').valueOf() + 24 * 60 * 60 * 1000;
   const delay = Math.max(1000, nextMidnightUtc - now + 5000);
   midnightRefreshTimer = window.setTimeout(() => {
     void loadData();

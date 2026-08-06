@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { getChinaStandardTimeBusinessDate, toChinaStandardTimeShiftRange } from './time.js';
+import {
+  getChinaStandardTimeBusinessDate,
+  toChinaStandardTimeShiftRange,
+  toChinaStandardTimeUtcTimestamp,
+} from './time.js';
 
 describe('China Standard Time schedule helpers', () => {
   it('stores a cross-day all-day assignment in UTC while retaining its CST business date', () => {
@@ -38,5 +42,14 @@ describe('China Standard Time schedule helpers', () => {
         startTime: '08:00',
       }),
     ).toThrow('after its start');
+  });
+
+  it('converts a China Standard Time date and time to the UTC instant', () => {
+    expect(toChinaStandardTimeUtcTimestamp('2026-08-06', '00:00')).toEqual(
+      new Date('2026-08-05T16:00:00.000Z'),
+    );
+    expect(toChinaStandardTimeUtcTimestamp('2026-08-06', '08:00')).toEqual(
+      new Date('2026-08-06T00:00:00.000Z'),
+    );
   });
 });

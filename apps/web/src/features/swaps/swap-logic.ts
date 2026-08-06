@@ -6,10 +6,9 @@ import type {
   SwapAssignmentSummary,
   SwapRequestStatus,
 } from '@schedule/contracts';
+import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
 
 import { getDutyMembershipId, getDutyMemberName } from '../calendar/calendar-logic.js';
-
-const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 
 export interface SwapCandidateOptions {
   readonly assignmentsByTarget: ReadonlyMap<string, readonly CalendarDutyAssignment[]>;

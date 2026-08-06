@@ -11,6 +11,7 @@
   "dependencies": {
     "@cloudbase/js-sdk": "3.7.0",
     "@schedule/contracts": "workspace:*",
+    "@schedule/scheduling-domain": "workspace:*",
     "@schedule/ui-tokens": "workspace:*",
     "@tanstack/vue-query": "^5.101.4",
     "pinia": "^4.0.2",

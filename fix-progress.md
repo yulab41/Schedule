@@ -6,7 +6,7 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，`git status` 干净。
-- 当前测试基线：`pnpm verify` 427/427（63 个测试文件，隔离 MySQL，轮次 2 后）。
+- 当前测试基线：`pnpm verify` 428/428（63 个测试文件，隔离 MySQL，轮次 3 后）。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
 ## 1. 修复任务约束协议（每轮必须遵守）
@@ -31,7 +31,7 @@
 4. 执行修改：只改目标问题；**发现其他问题不要顺手改**，记入本文件“第 6 节 TODO（新发现）”回报。
 5. 验证回归：`pnpm verify` 全通过；测试失败时不得改测试来掩盖，要报告失败详情。
 6. 更新本文件“轮次记录”，格式见第 5 节模板。
-7. 回复末尾：附上更新后的本文件全文 + 列出本次最不确定的 1–3 个点（如果出错会表现为什么症状）。
+7. 回复末尾：列出本次最不确定的 1–3 个点（如果出错会表现为什么症状）。
 
 ### 硬性约束
 - 禁止 `any` / `as any`；类型严格推导（现有 `as unknown as` 遗留按所属问题簇逐步清理）。
@@ -47,7 +47,7 @@
 |---|---|---|---|---|---|---|
 | ✅ | #3.1 | starts_at 环境补丁散落 12 处 | 严重 | 中 | 极高（防线上数据损坏复发） | 已完成（轮次 1）：统一助手 + 锁定测试，见第 7 节 |
 | ✅ | #4.1 | swap/duty 服务复制（loadMembers/loadRoleNames） | 严重 | 中 | 极高 | 已完成（轮次 2）：共享 GroupMemberReader + 锁定测试，见第 7 节 |
-| P1 | #7.3 | 中国时区算法在 9 个文件重复 | 严重 | 中低 | 高（时区事故反复出现） | 抽单一工具后机械替换 |
+| ✅ | #7.3 | 中国时区算法在 9 个文件重复 | 严重 | 中低 | 高（时区事故反复出现） | 已完成（轮次 3）：统一到 scheduling-domain 并机械替换，见第 7 节 |
 | P1 | #3.2 | 日志/审计脱敏清单双份且已漂移 | 严重 | 低 | 高（安全控制） | 合并为共享脱敏模块 |
 | P1 | #1.1 | 文档过期/自相矛盾（待办、轮次、415） | 轻微 | 零 | 中 | 零风险热身轮，为后续轮次提供正确上下文 |
 | P1 | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | switch 穷举 + default 抛错 |
@@ -57,6 +57,7 @@
 | P2 | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 必须拆子步骤，见第 4 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
+| ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
 | P2 | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 按状态码映射并补测试 |
 | P2 | #4.2/#4.3 | 冲突断言双轨 + 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 必须在 #4.1 之后做，拆多轮 |
 | P3 | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | **需用户确认规则**（今天能否发布/跨月行为） |
@@ -75,8 +76,6 @@
 | P3 | #9.3 | 加载/安全测试直写 DB 与 stub 认证 | 轻微 | 低 | 低 | 复用 database schema 与 API 入口 |
 
 ## 3. 问题簇详情（执行时按此卡片理解目标）
-
-​	查基线：`git status` 干净、`main` 与 `origin/main` 同步；384 个跟踪文件；测试基线 420/420；无已提交密钥；ESLint/Prettier/类型检查均严格开启。以下按模块输出，违规项标注四条铁律：①不打补丁 ②代码自解释 ③不留残渣 ④部署一致。
 
 ### 1. 根目录 / 工程配置与文档
 
@@ -275,6 +274,7 @@
 问题：同一“中国业务日期”算法在 9 个文件里重复，且部分写成裸 `8 * 60 * 60 * 1000` 魔法数；后端领域包已有正确实现却不被复用。轮次 12/18 的时区误判事故正是这类重复逻辑产生的。
 严重等级：严重
 建议：抽一个 `packages/business-time`（或让 web 依赖 scheduling-domain 的纯函数），统一替换全部调用点。
+> 完成情况（轮次 3，2026-08-06）：`@schedule/scheduling-domain` 导出唯一 `chinaStandardTimeOffsetMilliseconds` 与 `toChinaStandardTimeUtcTimestamp`；web 新增领域包依赖并删除 9 个文件的重复常量/实现（calendar-logic/calendar-views 保留薄包装），三个视图的裸魔法数改为领域函数；`pnpm verify` 428/428 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.4 换班/加扣班候选逻辑重复**
 位置：[swap-logic.ts (line 109)](E:/AItools/Schedule/apps/web/src/features/swaps/swap-logic.ts:109)（`isFutureAssignment` 109–112 行）；[duty-adjustment-logic.ts (line 47)](E:/AItools/Schedule/apps/web/src/features/duty-adjustments/duty-adjustment-logic.ts:47)（47–50 行）
@@ -312,6 +312,7 @@
 问题：`Date.now() + 8 * 60 * 60 * 1000`、`Date.UTC(...) - 8 * 60 * 60 * 1000` 魔法数直接内联，无命名常量，与 7.3 同类问题叠加。
 严重等级：轻微
 建议：并入 7.3 的统一时间工具。
+> 完成情况（轮次 3，2026-08-06）：三处裸写已随 #7.3 一并替换为领域函数（`getCurrentBusinessMonth` / `toChinaStandardTimeUtcTimestamp`），本条视为完成。
 
 ### 9. infra / tests
 
@@ -399,6 +400,7 @@
 > 修复过程中发现的其他问题一律记在这里回报用户，不顺手改。初始为空。
 
 - `past-schedule-service.ts`（259/387）与 `workflow-invalidation-service.ts`（143）对 `shift_assignments` 的更新未走统一助手、也未显式保留 `starts_at`。若线上 CynosDB 在迁移 0018 后仍存在隐式 `ON UPDATE`（可用 information_schema 复核），这 3 处是潜在时间漂移点；建议后续轮次评估并入 `updateShiftAssignments`。
+- `apps/web/src/features/manual-schedule/manual-schedule-logic.ts`（143 行）仍裸写 `8 * 60 * 60 * 1000`，不在审查清单的 9 个文件内；`apps/web/src/features/leaves/leave-logic.ts` 的 `parseLocalDateStart` 用 `T00:00:00+08:00` 字面量表达同一“业务日期→中国零时 UTC”换算。建议后续轮次统一并入领域包（可复用 `toChinaStandardTimeUtcTimestamp`），本轮未动。
 
 ## 7. 轮次记录
 
@@ -435,3 +437,20 @@
 3. 新集成测试以裸 SQL 造数（沿用各测试文件的 `resetDatabase` 模式）；若未来 schema 字段变更，测试种子 SQL 需要同步——症状是该测试文件建数据失败，不影响生产代码。
 
 下次计划：#7.3（中国时区算法在 9 个文件重复，抽单一工具后机械替换）
+
+### 轮次 3 – 2026-08-06
+
+目标：#7.3 把 9 个前端文件重复的中国时区算法收敛到 `@schedule/scheduling-domain`，统一替换全部调用点。
+
+修改文件：`packages/scheduling-domain/src/time.ts`（导出唯一 `chinaStandardTimeOffsetMilliseconds` 与 `toChinaStandardTimeUtcTimestamp`，内部转换改走常量）与 `index.ts`；`time.test.ts` 新增 1 条 UTC 换算锁定测试；`apps/web/package.json` 新增 `@schedule/scheduling-domain` 依赖（含 pnpm-lock）；6 个 feature 逻辑文件删除各自重复常量并改为领域导入（`calendar-logic.ts` 的 `getCurrentBusinessMonth` 改为 re-export、`calendar-views.ts` 的 `getBusinessDate` 改为委托）；`StatisticsView.vue`/`ExportDialog.vue` 删除本地 `getCurrentCstMonth` 并改用 `getCurrentBusinessMonth`；`ManualScheduleView.vue` 零点刷新计算改用 `toChinaStandardTimeUtcTimestamp`；#8.2 的三个视图裸写随本轮一并处理；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 428/428 ✅（63 个测试文件，隔离 MySQL；含新增 1 条领域换算测试）
+
+提交：待填写
+
+不确定点：
+1. `@schedule/scheduling-domain` 的 dist 是 Vite 运行时解析路径（web 依赖包 exports），TS 走 tsconfig paths 指向 src；若未来只跑 `pnpm dev:web` 而未先构建领域包，浏览器会拿到旧 dist——症状是新增导出缺失导致页面构建报错。当前 `pnpm dev`/`verify` 都会先构建领域包，已覆盖。
+2. `toChinaStandardTimeUtcTimestamp` 使用固定 +08:00 偏移（沿用领域包既有实现）；若未来引入历史夏令时等极端场景需重审，当前项目所有业务日期都按现代中国标准时间处理——出错症状是所有跨零点换算同时偏移 1 小时。
+3. `calendar-logic.ts`/`calendar-views.ts` 保留薄包装（re-export/委托）以维持十余个 Vue 文件与测试的既有导入面；若后续希望彻底删除包装、所有调用点直连领域包，需再开一轮机械替换。
+
+下次计划：#3.2（日志/审计脱敏清单双份维护，合并为共享脱敏模块）

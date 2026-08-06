@@ -5,8 +5,11 @@ import type {
   LeaveRequestType,
   LeaveStatisticsDelta,
 } from '@schedule/contracts';
+import {
+  chinaStandardTimeOffsetMilliseconds,
+  getChinaStandardTimeBusinessDate,
+} from '@schedule/scheduling-domain';
 
-const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 const timePattern = /^\d{2}:\d{2}$/u;
 
@@ -126,7 +129,7 @@ export function getReflowStrategyLabel(strategy: LeaveReflowStrategy): string {
 }
 
 export function getTodayBusinessDate(): string {
-  return new Date(Date.now() + chinaStandardTimeOffsetMilliseconds).toISOString().slice(0, 10);
+  return getChinaStandardTimeBusinessDate(new Date());
 }
 
 function parseLocalDateStart(date: string): Date {

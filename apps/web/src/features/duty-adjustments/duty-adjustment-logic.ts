@@ -6,10 +6,9 @@ import type {
   DutyAdjustmentAssignmentSummary,
   DutyAdjustmentStatus,
 } from '@schedule/contracts';
+import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
 
 import { getDutyMemberName, getDutyMembershipId } from '../calendar/calendar-logic.js';
-
-const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 
 export interface DutyAdjustmentCandidateOptions {
   readonly adminShiftOptions: readonly CalendarDutyAssignment[];

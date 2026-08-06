@@ -1,4 +1,8 @@
 import type { CalendarDutyAssignment } from '@schedule/contracts';
+import {
+  chinaStandardTimeOffsetMilliseconds,
+  getChinaStandardTimeBusinessDate,
+} from '@schedule/scheduling-domain';
 import { breakpointTokens } from '@schedule/ui-tokens';
 
 import type { CalendarGridWeek } from './calendar-logic.js';
@@ -7,7 +11,6 @@ export type CalendarViewMode = 'list' | 'month' | 'week';
 
 export type PointerPreference = 'coarse' | 'fine';
 
-const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 const businessDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/u;
 
 export interface DayListEntry {
@@ -18,7 +21,7 @@ export interface DayListEntry {
 }
 
 export function getBusinessDate(date: Date = new Date()): string {
-  return new Date(date.valueOf() + chinaStandardTimeOffsetMilliseconds).toISOString().slice(0, 10);
+  return getChinaStandardTimeBusinessDate(date);
 }
 
 export function getBusinessMonthOf(businessDate: string): string {

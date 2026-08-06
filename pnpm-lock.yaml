@@ -87,6 +87,9 @@ importers:
       '@schedule/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@schedule/scheduling-domain':
+        specifier: workspace:*
+        version: link:../../packages/scheduling-domain
       '@schedule/ui-tokens':
         specifier: workspace:*
         version: link:../../packages/ui-tokens

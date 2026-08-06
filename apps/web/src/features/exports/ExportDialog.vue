@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary, ScheduleExportJob, ScheduleExportType } from '@schedule/contracts';
+import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -18,8 +19,8 @@ const api = createApiClient({ auth: cloudbaseAuth });
 const visible = defineModel<boolean>({ required: true });
 const exportType = ref<ScheduleExportType>('schedule');
 const periodType = ref<'month' | 'year'>('month');
-const businessMonth = ref(getCurrentCstMonth());
-const year = ref(Number(getCurrentCstMonth().slice(0, 4)));
+const businessMonth = ref(getCurrentBusinessMonth());
+const year = ref(Number(getCurrentBusinessMonth().slice(0, 4)));
 const roleId = ref<string>();
 const membershipId = ref<string>();
 const roles = ref<readonly { readonly id: string; readonly name: string }[]>([]);
@@ -106,10 +107,6 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error && error.message.length > 0
     ? error.message
     : '导出暂时无法完成，请稍后重试。';
-}
-
-function getCurrentCstMonth(): string {
-  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
 }
 </script>
 

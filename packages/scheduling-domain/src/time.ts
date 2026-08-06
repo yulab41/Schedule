@@ -1,4 +1,5 @@
-const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
+// 中国标准时间固定偏移的唯一来源：数据库存 UTC，页面与领域统一按 +08:00 换算。
+export const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 
 export interface ChinaStandardTimeShiftRangeInput {
   readonly businessDate: string;
@@ -38,8 +39,8 @@ export function isPastBusinessMonth(businessMonth: string, now = new Date()): bo
 export function toChinaStandardTimeShiftRange(
   input: ChinaStandardTimeShiftRangeInput,
 ): ChinaStandardTimeShiftRange {
-  const start = toUtcTimestamp(input.businessDate, input.startTime);
-  const end = toUtcTimestamp(input.businessDate, input.endTime);
+  const start = toChinaStandardTimeUtcTimestamp(input.businessDate, input.startTime);
+  const end = toChinaStandardTimeUtcTimestamp(input.businessDate, input.endTime);
   const endsAt = input.crossesMidnight ? new Date(end.valueOf() + 24 * 60 * 60 * 1000) : end;
 
   if (endsAt <= start) {
@@ -53,6 +54,14 @@ export function toChinaStandardTimeShiftRange(
   };
 }
 
+export function toChinaStandardTimeUtcTimestamp(businessDate: string, time: string): Date {
+  const { day, month, year } = assertValidDate(businessDate);
+  const { hour, minute } = parseTime(time);
+  return new Date(
+    Date.UTC(year, month - 1, day, hour, minute) - chinaStandardTimeOffsetMilliseconds,
+  );
+}
+
 export function assertBusinessMonthContainsDate(businessMonth: string, businessDate: string): void {
   if (!/^\d{4}-\d{2}$/u.test(businessMonth)) {
     throw new Error('The business month must use the YYYY-MM format.');
@@ -62,12 +71,6 @@ export function assertBusinessMonthContainsDate(businessMonth: string, businessD
   if (!businessDate.startsWith(`${businessMonth}-`)) {
     throw new Error('The shift business date must belong to the schedule period month.');
   }
-}
-
-function toUtcTimestamp(date: string, time: string): Date {
-  const { day, month, year } = assertValidDate(date);
-  const { hour, minute } = parseTime(time);
-  return new Date(Date.UTC(year, month - 1, day, hour - 8, minute));
 }
 
 function assertValidDate(value: string): {

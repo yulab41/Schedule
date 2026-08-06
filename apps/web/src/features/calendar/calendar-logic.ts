@@ -3,8 +3,8 @@ import type {
   CalendarDutyAssignment,
   CalendarDutyMember,
 } from '@schedule/contracts';
+import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
 
-const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 const businessMonthPattern = /^\d{4}-\d{2}$/u;
 
 export interface CalendarGridCell {
@@ -26,9 +26,7 @@ export interface PhoneOption {
   readonly number: string;
 }
 
-export function getCurrentBusinessMonth(date: Date = new Date()): string {
-  return new Date(date.valueOf() + chinaStandardTimeOffsetMilliseconds).toISOString().slice(0, 7);
-}
+export { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 
 export function isPastBusinessDate(businessDate: string, today: string): boolean {
   return businessDate < today;
