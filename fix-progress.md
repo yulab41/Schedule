@@ -6,7 +6,7 @@
 ## 0. 基线
 
 - 分支：`main`，与 `origin/main` 同步，`git status` 干净。
-- 当前测试基线：`pnpm verify` 420/420（62 个测试文件，隔离 MySQL）。
+- 当前测试基线：`pnpm verify` 427/427（63 个测试文件，隔离 MySQL，轮次 2 后）。
 - 审查结论：致命问题 0 项；严重 6 项；轻微约 20 项；健康度 6.5/10。
 
 ## 1. 修复任务约束协议（每轮必须遵守）
@@ -46,7 +46,7 @@
 | 优先级 | 编号 | 问题 | 原严重度 | 风险 | 收益 | 备注 |
 |---|---|---|---|---|---|---|
 | ✅ | #3.1 | starts_at 环境补丁散落 12 处 | 严重 | 中 | 极高（防线上数据损坏复发） | 已完成（轮次 1）：统一助手 + 锁定测试，见第 7 节 |
-| P0 | #4.1 | swap/duty 服务复制（loadMembers/loadRoleNames） | 严重 | 中 | 极高 | 用户点名，先写锁定测试 |
+| ✅ | #4.1 | swap/duty 服务复制（loadMembers/loadRoleNames） | 严重 | 中 | 极高 | 已完成（轮次 2）：共享 GroupMemberReader + 锁定测试，见第 7 节 |
 | P1 | #7.3 | 中国时区算法在 9 个文件重复 | 严重 | 中低 | 高（时区事故反复出现） | 抽单一工具后机械替换 |
 | P1 | #3.2 | 日志/审计脱敏清单双份且已漂移 | 严重 | 低 | 高（安全控制） | 合并为共享脱敏模块 |
 | P1 | #1.1 | 文档过期/自相矛盾（待办、轮次、415） | 轻微 | 零 | 中 | 零风险热身轮，为后续轮次提供正确上下文 |
@@ -184,6 +184,7 @@
 问题：两个文件里的 `loadMembers` 几乎逐行相同（唯一差异是 `autoAcceptSwaps` 默认值 1 vs 0），`loadRoleNames` 完全一致。该差异没有任何注释说明是刻意设计，看起来就是“复制后微调参数”；再加上两文件各 1600–1900 行的体量，任何一处修复都容易漏改另一处。
 严重等级：严重
 建议：把成员/角色读取提升到共享服务（`WorkflowConflictService` 旁或新 `GroupMemberReader`），差异字段用显式参数表达。
+> 完成情况（轮次 2，2026-08-06）：已抽为 `apps/api/src/modules/groups/group-member-reader.ts` 的 `GroupMemberReader`，`loadMembers` 通过 `autoAcceptSwapsDefault` 显式表达 swap=1/duty=0 的差异，`loadRoleNames` 完全共享；两个服务全部调用点改用 `memberReader`，删除私有复制与重复成员行类型；新增 2 条“从未设置偏好”默认行为锁定测试 + 4 条共享读取器集成测试；`pnpm verify` 427/427 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **4.2 冲突检查后仍保留各自“预检 + 断言”双轨**
 位置：[swap-service.ts (line 1590)](E:/AItools/Schedule/apps/api/src/modules/swaps/swap-service.ts:1590)（assertNoActiveWorkflowConflicts/assertNoSwapConflicts）；[duty-adjustment-service.ts (line 1381)](E:/AItools/Schedule/apps/api/src/modules/duty-adjustments/duty-adjustment-service.ts:1381)（assertNoActiveWorkflows/assertNoDutyAdjustmentConflicts）
@@ -379,8 +380,6 @@
 - #5.2：group-recycle 是否允许改成外键级联（影响历史数据与线上库结构）。
 
 ## 5. 轮次记录模板
-
-```markdown
 轮次 N – YYYY-MM-DD
 
 目标：#编号 一句话
@@ -394,7 +393,6 @@
 不确定点：1–3 条（含“如果出错会表现为什么症状”）
 
 下次计划：#编号
-```
 
 ## 6. TODO（新发现问题登记处）
 
@@ -420,3 +418,20 @@
 3. past-schedule 与 workflow-invalidation 的 3 处更新未纳入助手（见第 6 节 TODO），若线上 CynosDB 仍会隐式 ON UPDATE，这 3 处是残余漂移源；症状是补录/排班失效操作把 starts_at 改写为当前时间。
 
 下次计划：#4.1（swap/duty 服务 loadMembers/loadRoleNames 复制收敛，先写锁定测试）
+
+### 轮次 2 – 2026-08-06
+
+目标：#4.1 把 swap/duty 两个服务复制的 loadMembers/loadRoleNames 收敛为共享 GroupMemberReader，差异字段用显式参数表达。
+
+修改文件：新增 `apps/api/src/modules/groups/group-member-reader.ts`（共享成员/角色读取器）；新增 `group-member-reader.integration.test.ts`（4 条共享读取器测试）；重构 `swap-service.ts`、`duty-adjustment-service.ts`（删除私有 loadMembers/loadRoleNames 与重复成员行类型，全部调用点改用 `memberReader`，显式传 `{ autoAcceptSwapsDefault: 1 | 0 }`）；`swaps.integration.test.ts` 与 `duty-adjustments.integration.test.ts` 各新增 1 条“从未设置偏好”默认行为锁定测试；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 427/427 ✅（63 个测试文件，隔离 MySQL；新增 6 条：2 条锁定 + 4 条共享读取器）
+
+提交：待提交后回填短哈希 + 推送结果
+
+不确定点：
+1. `autoAcceptSwapsDefault` 语义（换班默认接受 1、加扣班默认不自动接受 0）是现有产品行为，已用共享参数显式表达并注释；若产品后续希望两流程默认一致，只改调用点参数即可——出错症状是“从未设置偏好”的成员自动接受状态与预期不符，但已有锁定测试兜底。
+2. 共享读取器放在 `apps/api/src/modules/groups/` 下，与 `GroupPermissionService` 同模块；若后续 leave 服务也要读成员/角色，直接复用即可。
+3. 新集成测试以裸 SQL 造数（沿用各测试文件的 `resetDatabase` 模式）；若未来 schema 字段变更，测试种子 SQL 需要同步——症状是该测试文件建数据失败，不影响生产代码。
+
+下次计划：#7.3（中国时区算法在 9 个文件重复，抽单一工具后机械替换）

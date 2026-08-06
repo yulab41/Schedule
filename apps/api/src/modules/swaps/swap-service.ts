@@ -21,11 +21,9 @@ import {
   groupMemberships,
   groups,
   schedulePeriods,
-  scheduleRoles,
   shiftAssignments,
   swapRequests,
   userProfiles,
-  users,
   withTransaction,
 } from '@schedule/database';
 import { isPastBusinessDate } from '@schedule/scheduling-domain';
@@ -36,6 +34,7 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
+import { GroupMemberReader, type GroupMemberRow } from '../groups/group-member-reader.js';
 import {
   GroupPermissionService,
   type ActiveGroup,
@@ -57,13 +56,6 @@ type LockedSwapRequest = typeof swapRequests.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
 
-interface SwapMemberRow {
-  readonly autoAcceptSwaps: number;
-  readonly id: string;
-  readonly isActive: boolean;
-  readonly realName: string;
-}
-
 interface SwapContext {
   readonly activeWorkflowConflicts: readonly SwapConflict[];
   readonly conflicts: readonly SwapConflict[];
@@ -71,7 +63,7 @@ interface SwapContext {
   readonly initiatorAssignment: LockedShiftAssignment;
   readonly initiatorAssignmentVersion: number;
   readonly initiatorEligibleForTargetShift: boolean;
-  readonly initiatorMember: SwapMemberRow;
+  readonly initiatorMember: GroupMemberRow;
   readonly initiatorPeriod: LockedSchedulePeriod;
   readonly nextStatus: SwapRequestStatus;
   readonly preview: SwapPreview;
@@ -80,7 +72,7 @@ interface SwapContext {
   readonly targetAssignmentVersion: number;
   readonly targetAutoAccepts: boolean;
   readonly targetEligibleForInitiatorShift: boolean;
-  readonly targetMember: SwapMemberRow;
+  readonly targetMember: GroupMemberRow;
   readonly targetPeriod: LockedSchedulePeriod;
 }
 
@@ -88,6 +80,7 @@ export class SwapService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly memberReader = new GroupMemberReader();
   private readonly workflowConflictService = new WorkflowConflictService();
   private readonly workflowSelfHealingService: WorkflowSelfHealingService;
   private readonly statisticsService: StatisticsService;
@@ -598,10 +591,12 @@ export class SwapService {
         userMessage: '该换班后续还有换班或加扣班变动，请按先后顺序撤销。',
       });
     }
-    const members = await this.loadMembers(transaction, authorization.group.id, [
-      request.initiatorMembershipId,
-      request.targetMembershipId,
-    ]);
+    const members = await this.memberReader.loadMembers(
+      transaction,
+      authorization.group.id,
+      [request.initiatorMembershipId, request.targetMembershipId],
+      { autoAcceptSwapsDefault: 1 },
+    );
     const initiatorMember = members.get(request.initiatorMembershipId);
     const targetMember = members.get(request.targetMembershipId);
     if (initiatorMember === undefined || targetMember === undefined) {
@@ -1368,10 +1363,11 @@ export class SwapService {
       throw validationError('不能与自己的同一个班次换班。');
     }
 
-    const members = await this.loadMembers(
+    const members = await this.memberReader.loadMembers(
       transaction,
       group.id,
       [initiatorMembershipId, targetMembershipId],
+      { autoAcceptSwapsDefault: 1 },
       lockRows,
     );
     const initiatorMember = members.get(initiatorMembershipId);
@@ -1447,7 +1443,7 @@ export class SwapService {
       throw validationError('目标班次必须由目标成员当值。');
     }
 
-    const roleNamesById = await this.loadRoleNames(transaction, [
+    const roleNamesById = await this.memberReader.loadRoleNames(transaction, [
       initiatorPeriod.scheduleRoleId,
       targetPeriod.scheduleRoleId,
     ]);
@@ -1628,73 +1624,6 @@ export class SwapService {
     }
   }
 
-  private async loadMembers(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    membershipIds: readonly string[],
-    lockRows = false,
-  ): Promise<ReadonlyMap<string, SwapMemberRow>> {
-    if (membershipIds.length === 0) {
-      return new Map();
-    }
-    let query = transaction
-      .select({
-        autoAcceptSwapsManuallySet: groupMemberships.autoAcceptSwapsManuallySet,
-        autoAcceptSwaps: groupMemberships.autoAcceptSwaps,
-        id: groupMemberships.id,
-        membershipDeletedAt: groupMemberships.deletedAt,
-        membershipStatus: groupMemberships.status,
-        realName: userProfiles.realName,
-        userDeletedAt: users.deletedAt,
-        userStatus: users.status,
-      })
-      .from(groupMemberships)
-      .innerJoin(users, eq(users.id, groupMemberships.userId))
-      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-      .where(
-        and(
-          eq(groupMemberships.groupId, groupId),
-          inArray(groupMemberships.id, [...membershipIds]),
-          isNull(groupMemberships.deletedAt),
-        ),
-      );
-    if (lockRows) {
-      query = query.for('update') as typeof query;
-    }
-    const rows = await query;
-
-    return new Map(
-      rows.map((row) => [
-        row.id,
-        {
-          autoAcceptSwaps: row.autoAcceptSwapsManuallySet === 1 ? row.autoAcceptSwaps : 1,
-          id: row.id,
-          isActive:
-            row.membershipStatus === 'active' &&
-            row.userStatus === 'active' &&
-            row.membershipDeletedAt === null &&
-            row.userDeletedAt === null,
-          realName: row.realName,
-        },
-      ]),
-    );
-  }
-
-  private async loadRoleNames(
-    transaction: DatabaseTransaction,
-    roleIds: readonly string[],
-  ): Promise<ReadonlyMap<string, string>> {
-    if (roleIds.length === 0) {
-      return new Map();
-    }
-    const rows = await transaction
-      .select({ id: scheduleRoles.id, name: scheduleRoles.name })
-      .from(scheduleRoles)
-      .where(and(inArray(scheduleRoles.id, [...roleIds]), isNull(scheduleRoles.deletedAt)));
-
-    return new Map(rows.map((row) => [row.id, row.name]));
-  }
-
   private async lockSwapRequest(
     transaction: DatabaseTransaction,
     groupId: string,
@@ -1765,7 +1694,9 @@ export class SwapService {
       ...new Set(rows.flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId])),
     ];
     const [members, assignments] = await Promise.all([
-      this.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds),
+      this.memberReader.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds, {
+        autoAcceptSwapsDefault: 1,
+      }),
       transaction
         .select()
         .from(shiftAssignments)
@@ -1797,7 +1728,7 @@ export class SwapService {
             .where(inArray(schedulePeriods.id, periodIds));
     const periodById = new Map(periodRows.map((period) => [period.id, period]));
     const roleIds = [...new Set(periodRows.map((period) => period.scheduleRoleId))];
-    const roleNamesById = await this.loadRoleNames(transaction, roleIds);
+    const roleNamesById = await this.memberReader.loadRoleNames(transaction, roleIds);
     const assignmentById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
     return rows.map((row): SwapRequest => {
       const initiatorMember = members.get(row.initiatorMembershipId);

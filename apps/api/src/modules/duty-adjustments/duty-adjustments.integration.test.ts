@@ -195,6 +195,31 @@ describeWithDatabase('paired duty adjustments', () => {
     );
   });
 
+  it('treats an overtime member who never set the preference as not auto-accepting', async () => {
+    const context = await seedPublishedRotation();
+    await updateGroupSettings('owner-token', context.groupId, false);
+
+    const preview = (
+      await previewDutyAdjustment('a-token', context.groupId, {
+        coveredAssignmentId: context.assignments.aSep1.id,
+        overtimeMembershipId: context.membershipIds.b,
+      })
+    ).json() as DutyAdjustmentPreview;
+    expect(preview).toMatchObject({
+      nextStatus: 'pending_target',
+      overtimeAutoAccepts: false,
+      requiresApproval: false,
+    });
+
+    const created = await createDutyAdjustment('a-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({ status: 'pending_target', version: 1 });
+  });
+
   it('does not let automatic acceptance bypass administrator approval', async () => {
     const context = await seedPublishedRotation();
     await updateMySettings('b-token', context.groupId, true);

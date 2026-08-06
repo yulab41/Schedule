@@ -21,10 +21,8 @@ import {
   groupMemberships,
   groups,
   schedulePeriods,
-  scheduleRoles,
   shiftAssignments,
   userProfiles,
-  users,
   withTransaction,
 } from '@schedule/database';
 import { isPastBusinessDate } from '@schedule/scheduling-domain';
@@ -35,6 +33,7 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
+import { GroupMemberReader, type GroupMemberRow } from '../groups/group-member-reader.js';
 import {
   GroupPermissionService,
   type ActiveGroup,
@@ -56,23 +55,16 @@ type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
 
-interface DutyAdjustmentMemberRow {
-  readonly autoAcceptSwaps: number;
-  readonly id: string;
-  readonly isActive: boolean;
-  readonly realName: string;
-}
-
 interface DutyAdjustmentContext {
   readonly activeWorkflowConflicts: readonly DutyAdjustmentConflict[];
   readonly conflicts: readonly DutyAdjustmentConflict[];
   readonly coveredAssignment: LockedShiftAssignment;
   readonly coveredAssignmentVersion: number;
-  readonly deductedMember: DutyAdjustmentMemberRow;
+  readonly deductedMember: GroupMemberRow;
   readonly group: ActiveGroup;
   readonly nextStatus: DutyAdjustmentStatus;
   readonly overtimeAutoAccepts: boolean;
-  readonly overtimeMember: DutyAdjustmentMemberRow;
+  readonly overtimeMember: GroupMemberRow;
   readonly period: LockedSchedulePeriod;
   readonly preview: DutyAdjustmentPreview;
   readonly requiresApproval: boolean;
@@ -82,6 +74,7 @@ export class DutyAdjustmentService {
   private readonly eventWriter = new EventWriter();
   private readonly notificationWriter = new NotificationWriter();
   private readonly permissionService = new GroupPermissionService();
+  private readonly memberReader = new GroupMemberReader();
   private readonly workflowConflictService = new WorkflowConflictService();
   private readonly workflowSelfHealingService: WorkflowSelfHealingService;
   private readonly statisticsService: StatisticsService;
@@ -1308,10 +1301,11 @@ export class DutyAdjustmentService {
       throw validationError('加班成员和扣班成员必须是不同成员。');
     }
 
-    const members = await this.loadMembers(
+    const members = await this.memberReader.loadMembers(
       transaction,
       group.id,
       [overtimeMembershipId, effectiveDeductedMembershipId],
+      { autoAcceptSwapsDefault: 0 },
       lockRows,
     );
     const overtimeMember = members.get(overtimeMembershipId);
@@ -1324,7 +1318,9 @@ export class DutyAdjustmentService {
       });
     }
 
-    const roleNamesById = await this.loadRoleNames(transaction, [period.scheduleRoleId]);
+    const roleNamesById = await this.memberReader.loadRoleNames(transaction, [
+      period.scheduleRoleId,
+    ]);
     const conflicts = (
       await this.workflowConflictService.findMemberEligibilityConflicts(
         transaction,
@@ -1421,73 +1417,6 @@ export class DutyAdjustmentService {
     }
   }
 
-  private async loadMembers(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    membershipIds: readonly string[],
-    lockRows = false,
-  ): Promise<ReadonlyMap<string, DutyAdjustmentMemberRow>> {
-    if (membershipIds.length === 0) {
-      return new Map();
-    }
-    let query = transaction
-      .select({
-        autoAcceptSwapsManuallySet: groupMemberships.autoAcceptSwapsManuallySet,
-        autoAcceptSwaps: groupMemberships.autoAcceptSwaps,
-        id: groupMemberships.id,
-        membershipDeletedAt: groupMemberships.deletedAt,
-        membershipStatus: groupMemberships.status,
-        realName: userProfiles.realName,
-        userDeletedAt: users.deletedAt,
-        userStatus: users.status,
-      })
-      .from(groupMemberships)
-      .innerJoin(users, eq(users.id, groupMemberships.userId))
-      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-      .where(
-        and(
-          eq(groupMemberships.groupId, groupId),
-          inArray(groupMemberships.id, [...membershipIds]),
-          isNull(groupMemberships.deletedAt),
-        ),
-      );
-    if (lockRows) {
-      query = query.for('update') as typeof query;
-    }
-    const rows = await query;
-
-    return new Map(
-      rows.map((row) => [
-        row.id,
-        {
-          autoAcceptSwaps: row.autoAcceptSwapsManuallySet === 1 ? row.autoAcceptSwaps : 0,
-          id: row.id,
-          isActive:
-            row.membershipStatus === 'active' &&
-            row.userStatus === 'active' &&
-            row.membershipDeletedAt === null &&
-            row.userDeletedAt === null,
-          realName: row.realName,
-        },
-      ]),
-    );
-  }
-
-  private async loadRoleNames(
-    transaction: DatabaseTransaction,
-    roleIds: readonly string[],
-  ): Promise<ReadonlyMap<string, string>> {
-    if (roleIds.length === 0) {
-      return new Map();
-    }
-    const rows = await transaction
-      .select({ id: scheduleRoles.id, name: scheduleRoles.name })
-      .from(scheduleRoles)
-      .where(and(inArray(scheduleRoles.id, [...roleIds]), isNull(scheduleRoles.deletedAt)));
-
-    return new Map(rows.map((row) => [row.id, row.name]));
-  }
-
   private async lockDutyAdjustment(
     transaction: DatabaseTransaction,
     groupId: string,
@@ -1556,7 +1485,9 @@ export class DutyAdjustmentService {
     ];
     const assignmentIds = [...new Set(rows.map((row) => row.coveredAssignmentId))];
     const [members, assignments] = await Promise.all([
-      this.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds),
+      this.memberReader.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds, {
+        autoAcceptSwapsDefault: 0,
+      }),
       transaction
         .select()
         .from(shiftAssignments)
@@ -1588,7 +1519,7 @@ export class DutyAdjustmentService {
             .where(inArray(schedulePeriods.id, periodIds));
     const periodById = new Map(periodRows.map((period) => [period.id, period]));
     const roleIds = [...new Set(periodRows.map((period) => period.scheduleRoleId))];
-    const roleNamesById = await this.loadRoleNames(transaction, roleIds);
+    const roleNamesById = await this.memberReader.loadRoleNames(transaction, roleIds);
     const assignmentById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
 
     return rows.map((row): DutyAdjustmentRequest => {
@@ -1650,11 +1581,11 @@ function buildDutyAdjustmentPreview(input: {
   readonly activeWorkflowConflicts: readonly DutyAdjustmentConflict[];
   readonly conflicts: readonly DutyAdjustmentConflict[];
   readonly coveredAssignment: LockedShiftAssignment;
-  readonly deductedMember: DutyAdjustmentMemberRow;
+  readonly deductedMember: GroupMemberRow;
   readonly group: ActiveGroup;
   readonly nextStatus: DutyAdjustmentStatus;
   readonly overtimeAutoAccepts: boolean;
-  readonly overtimeMember: DutyAdjustmentMemberRow;
+  readonly overtimeMember: GroupMemberRow;
   readonly period: LockedSchedulePeriod;
   readonly requiresApproval: boolean;
   readonly roleNamesById: ReadonlyMap<string, string>;
