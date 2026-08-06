@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 5 schedules/past-schedules 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| P2 | #7.1（子步骤 3 进行中：批次 6 swaps/duty 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -695,3 +695,20 @@
 3. `isResponseBodyMatching<T>` 用显式类型参数表达契约类型，schema 推断类型更宽松；若调用点传错类型参数，编译期由方法返回类型兜底，但谓词本身不再由 schema 推断保证一致。
 
 下次计划：#7.1 子步骤 3 批次 6（swaps/duty 读模型：`isSwapAssignmentSummary`/`isSwapPreview`/`isSwapConflict`/`isSwapRequest`/`isSwapRequestStatus`/`isSwapRequestList`/`isGroupSwapSettings`/`isMemberSwapSettings`/`isDutyAdjustmentAssignmentSummary`/`isDutyAdjustmentConflict`/`isDutyAdjustmentPreview`/`isDutyAdjustmentRequestStatus`/`isDutyAdjustmentRequest`/`isDutyAdjustmentRequestList`/`isGroupDutyAdjustmentSettings` 先写锁定测试再替换；随后推进 leaves、manual-schedules 等）
+
+### 轮次 17 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 6 —— 从 `@schedule/contracts` 引入 zod 运行时 schema，把 swaps/duty 读模型族 15 个手写守卫替换为 schema 解析；先写锁定测试再替换。
+
+修改文件：`packages/contracts/src/swaps.ts`（新增 `swapRequestStatusSchema`/`swapConflictCodeSchema`/`swapAssignmentSummarySchema`/`swapConflictSchema`/`swapPreviewSchema`/`swapRequestSchema`（+List）/`groupSwapSettingsSchema`/`memberSwapSettingsSchema`，8 个读模型类型由 schema 派生，约束与旧守卫一致：状态/冲突码枚举、日期/颜色正则、整数 ≥1、可选字段、`passthrough()`、嵌套数组 `z.readonly`）；`packages/contracts/src/duty-adjustments.ts`（新增 `dutyAdjustmentStatusSchema`/`dutyAdjustmentConflictCodeSchema`/`dutyAdjustmentAssignmentSummarySchema`/`dutyAdjustmentConflictSchema`/`dutyAdjustmentPreviewSchema`/`dutyAdjustmentRequestSchema`（+List）/`groupDutyAdjustmentSettingsSchema`，7 个读模型类型由 schema 派生）；`apps/web/src/api/client.ts`（27 处调用点改用 `isResponseBodyFromSchema`，删除 `isSwapAssignmentSummary`/`isSwapPreview`/`isSwapConflict`/`isSwapRequest`/`isSwapRequestStatus`/`isSwapRequestList`/`isGroupSwapSettings`/`isMemberSwapSettings`/`isDutyAdjustmentAssignmentSummary`/`isDutyAdjustmentConflict`/`isDutyAdjustmentPreview`/`isDutyAdjustmentRequestStatus`/`isDutyAdjustmentRequest`/`isDutyAdjustmentRequestList`/`isGroupDutyAdjustmentSettings` 15 个手写守卫）；`apps/web/src/api/client.test.ts`（先新增 12 条锁定测试再替换：换班预览未知冲突码、非整数 version、非法班种颜色、未知状态、空 targetAssignmentId、群换班设置非布尔、个人换班设置非布尔、加扣班预览未知状态、未知冲突码、非整数 assignmentVersion、slotPosition 0、群加扣班设置非布尔；75 → 87 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 504/504 ✅（68 个测试文件，隔离 MySQL；新增 12 条 client 锁定测试）
+
+提交：d8e0655，推送结果见对话回复
+
+不确定点：
+1. swap/duty 的 assignment summary 中 `scheduleRoleName` 旧守卫只校验字符串不校验非空，schema 保持 `z.string()`（无 min）；若未来想收紧需加 `.min(1)`——出错症状是空 scheduleRoleName 仍能通过读模型（与旧行为一致）。
+2. `swapRequestSchema`/`dutyAdjustmentRequestSchema` 补充了旧守卫未检查的可选字段（`decidedByMemberName`/`isRevocable`/`revocationBlockedReason`），按接口类型校验；若未来这些字段的服务器值类型变化，客户端会比旧版更早拒绝。
+3. 状态/冲突码用 `z.enum` 派生联合类型，与旧守卫枚举一致；若未来新增合法状态而未同步契约，客户端会拒绝——出错症状是新增状态被当作“服务返回了无效资料”。
+
+下次计划：#7.1 子步骤 3 批次 7（leaves 读模型：`isLeaveRequest`/`isLeaveRequestList`/`isLeaveAffectedShiftList`/`isLeaveWorkflowBlocker`/`isLeaveAffectedAssignment`/`isLeaveReflowConflict`/`isLeaveStatisticsDelta`/`isLeaveReflowPreview`/`isGroupLeaveReflowStrategy`/`isApprovedLeaveRequestResult`/`isRejectedLeaveRequestResult`/`isLeaveRequestMutationResult` 先写锁定测试再替换；随后推进 manual-schedules、events/notifications 等）

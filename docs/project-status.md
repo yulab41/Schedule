@@ -9,9 +9,9 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–56 已完成；fix-progress 轮次 1–16 已完成（轮次 16 = #7.1 子步骤 3 批次 5：schedules/past-schedules 读模型 zod schema 替换 18 个手写守卫）；最新验证基线 492/492（68 个测试文件，隔离 MySQL）
+- Debug rounds: 1–56 已完成；fix-progress 轮次 1–17 已完成（轮次 17 = #7.1 子步骤 3 批次 6：swaps/duty 读模型 zod schema 替换 15 个手写守卫）；最新验证基线 504/504（68 个测试文件，隔离 MySQL）
 - Deployment: Web 1.0 已部署到阿里云 ECS 试用机（`8.148.183.46`，Ubuntu 22.04，Docker Compose：mysql 8.4 + api + nginx/web），迁移 0031 已执行，`/health`、`/api/health`、首页均 200，开发模式认证可用；待用户在阿里云安全组放行 80 端口后完成公网验收
-- Next actions: fix-progress 轮次 17 目标为 #7.1 子步骤 3 批次 6（swaps/duty 读模型：`isSwapPreview`/`isSwapRequest`/`isDutyAdjustmentPreview`/`isDutyAdjustmentRequest`/`isGroupSwapSettings`/`isGroupDutyAdjustmentSettings` 等先写锁定测试再替换，随后推进 leaves、manual-schedules 等）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
+- Next actions: fix-progress 轮次 18 目标为 #7.1 子步骤 3 批次 7（leaves 读模型：`isLeaveRequest`/`isLeaveReflowPreview`/`isLeaveAffectedShiftList`/`isGroupLeaveReflowStrategy`/`isApprovedLeaveRequestResult` 等先写锁定测试再替换，随后推进 manual-schedules、events/notifications 等）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
 
 ## Debug / Test Feedback Log
 
@@ -28,6 +28,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-07 fix-progress 轮次 17：完成 #7.1 子步骤 3 批次 6（swaps/duty 读模型）——`packages/contracts/src/swaps.ts` 新增 8 个 schema（含列表），`packages/contracts/src/duty-adjustments.ts` 新增 7 个 schema（含列表），8+7 个读模型类型由 schema 派生（状态/冲突码枚举、日期/颜色正则、整数 ≥1、可选字段、`passthrough()`、嵌套数组 `z.readonly`）；`apps/web/src/api/client.ts` 27 处调用点改用 `isResponseBodyFromSchema`，删除 15 个手写守卫；`client.test.ts` 先写 12 条锁定测试再替换，75 → 87 条；`pnpm verify` 504/504 通过。
 - 2026-08-07 fix-progress 轮次 16：完成 #7.1 子步骤 3 批次 5（schedules/past-schedules 读模型）——`packages/contracts/src/schedules.ts` 新增 10 个 schema（含列表），`packages/contracts/src/past-schedules.ts` 新增 7 个 schema（含列表），8+4 个读模型类型由 schema 派生或显式契约别名（旧守卫忽略的必填字段用 `z.custom(...).optional()` 保持宽松、导出类型保留必填；嵌套数组用 `z.readonly`）；`apps/web/src/api/client.ts` 12 处调用点改用 schema（5 处用新增 `isResponseBodyMatching<T>` 类型化桥接），删除 18 个手写守卫，`isAppliedManualScheduleTemplateResult` 复用 `schedulePeriodSummarySchema`；`client.test.ts` 先写 12 条锁定测试再替换，63 → 75 条；`pnpm verify` 492/492 通过。
 - 2026-08-07 fix-progress 轮次 15：完成 #7.1 子步骤 3 批次 4（scheduling-config 读模型）——`packages/contracts/src/scheduling-config.ts` 新增 6 个 schema（`schedulingGroupMemberSchema`/`scheduleRoleMemberSchema`/`rotationRuleSchema`/`scheduleRoleSchema`/`shiftTypeSchema`/`schedulingConfigSchema`），6 个读模型类型改为由 schema 派生（约束与旧守卫一致；`rulesVersion` 用 `z.custom<number>(() => true).optional()` 保持旧守卫“不校验”的宽松行为，导出类型交叉保持必填 number）；`apps/web/src/api/client.ts` 7 处调用点改用 schema，删除 6 个手写守卫，`getSchedulingConfig` 用 `isSchedulingConfigResponse` 谓词包装；`client.test.ts` 先写 8 条锁定测试再替换，55 → 63 条；`pnpm verify` 480/480 通过。
 - 2026-08-07 fix-progress 轮次 14：完成 #7.1 子步骤 3 批次 3（groups/membership 读模型）——`packages/contracts/src/groups.ts` 新增 `groupRoleSchema` 与 15 个读模型/列表 schema，11 个读模型类型改为由 schema 派生（约束与旧守卫一致；`claimGroupResponseSchema` 的 `request_created` 分支 `.strict()` 保持“仅 status 一个键”，`membershipClaimRequestSchema.status` 用 `z.custom<MembershipClaimRequestStatus>` 保持字符串校验同时保留枚举类型）；`packages/contracts/src/schedules.ts` 新增 `groupSchedulePublishModeSchema`；`apps/web/src/api/client.ts` 16 处调用点改用 `isResponseBodyFromSchema`，删除 15 个手写守卫；`client.test.ts` 先写 14 条锁定测试再替换，41 → 55 条；`pnpm verify` 472/472 通过。
@@ -67,6 +68,7 @@
 
 ## Active Batch
 
+- fix-progress 轮次 17（#7.1 子步骤 3 批次 6）已完成：contracts 新增 swaps/duty 读模型族 schema（swaps.ts 8 个 + duty-adjustments.ts 7 个），15 个读模型类型由 schema 派生（状态/冲突码枚举、日期/颜色正则、整数 ≥1、可选字段、`passthrough()`、嵌套数组 `z.readonly`），client.ts 27 处调用点改用 `isResponseBodyFromSchema` 并删除 15 个手写守卫，先新增 12 条锁定测试再替换，`pnpm verify` 504/504 通过；下一活动批次为 fix-progress 轮次 18（#7.1 子步骤 3 批次 7：leaves 读模型先写锁定测试再替换）。
 - fix-progress 轮次 16（#7.1 子步骤 3 批次 5）已完成：contracts 新增 schedules/past-schedules 读模型族 schema（schedules.ts 10 个 + past-schedules.ts 7 个），8+4 个读模型类型由 schema 派生或显式契约别名（旧守卫忽略的必填字段保持宽松、导出类型保留必填，嵌套数组用 `z.readonly`），client.ts 12 处调用点改用 schema（5 处 `isResponseBodyMatching<T>` 桥接）并删除 18 个手写守卫，先新增 12 条锁定测试再替换，`pnpm verify` 492/492 通过；下一活动批次为 fix-progress 轮次 17（#7.1 子步骤 3 批次 6：swaps/duty 读模型先写锁定测试再替换）。
 - fix-progress 轮次 15（#7.1 子步骤 3 批次 4）已完成：contracts 新增 scheduling-config 读模型族 6 个 schema，6 个读模型类型由 schema 派生（`rulesVersion` 用 `z.custom<number>(() => true).optional()` 保持旧守卫“不校验”行为、导出类型保持必填 number），client.ts 7 处调用点改用 schema 并删除 6 个手写守卫（`getSchedulingConfig` 用 `isSchedulingConfigResponse` 谓词包装），先新增 8 条锁定测试再替换，`pnpm verify` 480/480 通过；下一活动批次为 fix-progress 轮次 16（#7.1 子步骤 3 批次 5：schedules/past-schedules 读模型先写锁定测试再替换）。
 - fix-progress 轮次 14（#7.1 子步骤 3 批次 3）已完成：contracts 新增 groups/membership 读模型族 schema（`groupRoleSchema` + 15 个读模型/列表 schema），11 个读模型类型由 schema 派生（含 `claimGroupResponseSchema` 的 `request_created` `.strict()` 精确键检查、`membershipClaimRequestSchema.status` 的 `z.custom` 字符串放行 + 枚举类型），client.ts 16 处调用点改用 `isResponseBodyFromSchema` 并删除 15 个手写守卫，先新增 14 条锁定测试再替换，`pnpm verify` 472/472 通过；下一活动批次为 fix-progress 轮次 15（#7.1 子步骤 3 批次 4：scheduling-config 读模型先写锁定测试再替换）。
@@ -92,7 +94,7 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：fix-progress 轮次 17 处理 #7.1 子步骤 3 批次 6（swaps/duty 读模型 schema 替换）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
+- 下一活动批次：fix-progress 轮次 18 处理 #7.1 子步骤 3 批次 7（leaves 读模型 schema 替换）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
 - 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
 - 停止条件：上线健康检查通过且用户验收完成。
 
