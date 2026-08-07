@@ -33,25 +33,17 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
-import { EventWriter } from '../events/event-writer.js';
-import { GroupMemberReader, type GroupMemberRow } from '../groups/group-member-reader.js';
-import {
-  GroupPermissionService,
-  type ActiveGroup,
-  type GroupAuthorization,
-} from '../groups/permission-service.js';
-import { NotificationWriter } from '../notifications/notification-writer.js';
-import { StatisticsService } from '../statistics/statistics-service.js';
+import type { GroupMemberRow } from '../groups/group-member-reader.js';
+import type { ActiveGroup, GroupAuthorization } from '../groups/permission-service.js';
 import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 import {
   getCurrentDutyMembershipId,
-  WorkflowConflictService,
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
-import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
+import { WorkflowServices } from '../workflows/workflow-services.js';
 
 type LockedSwapRequest = typeof swapRequests.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -78,17 +70,10 @@ interface SwapContext {
 }
 
 export class SwapService {
-  private readonly eventWriter = new EventWriter();
-  private readonly notificationWriter = new NotificationWriter();
-  private readonly permissionService = new GroupPermissionService();
-  private readonly memberReader = new GroupMemberReader();
-  private readonly workflowConflictService = new WorkflowConflictService();
-  private readonly workflowSelfHealingService: WorkflowSelfHealingService;
-  private readonly statisticsService: StatisticsService;
+  private readonly services: WorkflowServices;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
-    this.statisticsService = new StatisticsService(this.databaseClient);
-    this.workflowSelfHealingService = new WorkflowSelfHealingService(this.databaseClient);
+    this.services = new WorkflowServices(databaseClient);
   }
 
   public async preview(
@@ -97,7 +82,7 @@ export class SwapService {
     input: SwapPairInput,
   ): Promise<SwapPreview> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -105,7 +90,7 @@ export class SwapService {
       );
       const initiatorMembershipId = input.initiatorMembershipId ?? authorization.membership.id;
       if (initiatorMembershipId !== authorization.membership.id) {
-        await this.permissionService.requirePermission(
+        await this.services.permissionService.requirePermission(
           transaction,
           identity,
           groupId,
@@ -136,7 +121,7 @@ export class SwapService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createSwapPairFingerprint({
         groupId,
         initiatorAssignmentId: input.initiatorAssignmentId,
@@ -159,7 +144,7 @@ export class SwapService {
       identity,
       operationId: input.operationId,
       permission: 'manageSwaps',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createDirectSwapFingerprint({
         groupId,
         initiatorAssignmentId: input.initiatorAssignmentId,
@@ -176,7 +161,7 @@ export class SwapService {
     groupId: string,
   ): Promise<readonly SwapRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -206,7 +191,12 @@ export class SwapService {
     groupId: string,
   ): Promise<readonly SwapRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      await this.permissionService.requirePermission(transaction, identity, groupId, 'manageSwaps');
+      await this.services.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageSwaps',
+      );
       const rows = await transaction
         .select()
         .from(swapRequests)
@@ -229,7 +219,7 @@ export class SwapService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         expectedVersion: input.expectedVersion,
         groupId,
@@ -253,7 +243,7 @@ export class SwapService {
       identity,
       operationId: input.operationId,
       permission: 'manageSwaps',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         expectedVersion: input.expectedVersion,
         groupId,
@@ -277,7 +267,7 @@ export class SwapService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         expectedVersion: input.expectedVersion,
         groupId,
@@ -301,7 +291,7 @@ export class SwapService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         expectedVersion: input.expectedVersion,
         groupId,
@@ -320,7 +310,7 @@ export class SwapService {
     input: RevokeSwapRequestInput,
   ): Promise<SwapRequest> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -364,7 +354,7 @@ export class SwapService {
     groupId: string,
   ): Promise<GroupSwapSettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -380,7 +370,7 @@ export class SwapService {
     input: UpdateGroupSwapSettingsInput,
   ): Promise<GroupSwapSettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -404,7 +394,7 @@ export class SwapService {
     groupId: string,
   ): Promise<MemberSwapSettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -420,7 +410,7 @@ export class SwapService {
     input: UpdateMemberSwapSettingsInput,
   ): Promise<MemberSwapSettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -532,13 +522,13 @@ export class SwapService {
       });
     }
     const laterWorkflows = [
-      ...(await this.workflowConflictService.findLaterAssignmentWorkflows(
+      ...(await this.services.workflowConflictService.findLaterAssignmentWorkflows(
         transaction,
         authorization.group.id,
         request.initiatorAssignmentId,
         request.workflowSequence,
       )),
-      ...(await this.workflowConflictService.findLaterAssignmentWorkflows(
+      ...(await this.services.workflowConflictService.findLaterAssignmentWorkflows(
         transaction,
         authorization.group.id,
         request.targetAssignmentId,
@@ -555,7 +545,7 @@ export class SwapService {
         userMessage: '该换班后续还有换班或加扣班变动，请按先后顺序撤销。',
       });
     }
-    const members = await this.memberReader.loadMembers(
+    const members = await this.services.memberReader.loadMembers(
       transaction,
       authorization.group.id,
       [request.initiatorMembershipId, request.targetMembershipId],
@@ -613,7 +603,7 @@ export class SwapService {
       const affectedShiftIds = [initiatorAssignment.id, targetAssignment.id].filter(
         (assignmentId) => periodByAssignmentId.get(assignmentId) === schedulePeriodId,
       );
-      lastEventId = await this.eventWriter.append(transaction, {
+      lastEventId = await this.services.eventWriter.append(transaction, {
         affectedMembershipIds,
         affectedShiftIds,
         afterData: toLatestData({
@@ -639,7 +629,7 @@ export class SwapService {
         schedulePeriodId,
       });
     }
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '换班已撤销，双方实际班次已恢复。',
       groupId: authorization.group.id,
       notificationType: 'swap_revoked',
@@ -653,7 +643,7 @@ export class SwapService {
       initiatorPeriod.businessMonth,
       targetPeriod.businessMonth,
     ])) {
-      await this.statisticsService.refreshInTransaction(
+      await this.services.statisticsService.refreshInTransaction(
         transaction,
         authorization.group.id,
         businessMonth,
@@ -702,7 +692,7 @@ export class SwapService {
       targetMembershipId: context.targetMember.id,
       workflowSequence,
     });
-    const createdEventId = await this.eventWriter.append(transaction, {
+    const createdEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
       afterData: toLatestData({
         initiatorAssignmentId: context.initiatorAssignment.id,
@@ -720,7 +710,7 @@ export class SwapService {
       schedulePeriodId: context.initiatorPeriod.id,
     });
     if (status === 'completed') {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '换班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -730,7 +720,7 @@ export class SwapService {
         title: '换班已完成',
       });
     } else {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '有人向您发起换班申请，请及时处理。',
         groupId: authorization.group.id,
         notificationType: 'swap_request_created',
@@ -742,7 +732,7 @@ export class SwapService {
         title: '新的换班申请',
       });
       if (status === 'pending_approval') {
-        await this.notificationWriter.append(transaction, {
+        await this.services.notificationWriter.append(transaction, {
           administratorRecipients: true,
           body: '成员提交了换班申请，等待您审批。',
           excludeRecipientUserIds: [authorization.user.id],
@@ -808,7 +798,7 @@ export class SwapService {
       targetMembershipId: context.targetMember.id,
       workflowSequence,
     });
-    const createdEventId = await this.eventWriter.append(transaction, {
+    const createdEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
@@ -826,7 +816,7 @@ export class SwapService {
       operatorUserId: authorization.user.id,
       schedulePeriodId: context.initiatorPeriod.id,
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '管理员已为您完成换班，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -893,7 +883,7 @@ export class SwapService {
     this.assertNoWorkflowConflicts(context, false);
 
     const nextStatus = authorization.group.swapApprovalRequired ? 'pending_approval' : 'completed';
-    const acceptedEventId = await this.eventWriter.append(transaction, {
+    const acceptedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
       afterData: toLatestData({ status: nextStatus }),
       beforeData: toLatestData({ status: request.status }),
@@ -908,7 +898,7 @@ export class SwapService {
       schedulePeriodId: context.initiatorPeriod.id,
     });
     if (nextStatus === 'completed') {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '换班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -918,7 +908,7 @@ export class SwapService {
         title: '换班已完成',
       });
     } else {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '对方已接受换班申请，等待管理员审批。',
         groupId: authorization.group.id,
         notificationType: 'swap_request_accepted',
@@ -928,7 +918,7 @@ export class SwapService {
         scheduleEventId: acceptedEventId,
         title: '换班申请已接受',
       });
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         administratorRecipients: true,
         body: '换班申请已被双方接受，等待您审批。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -999,7 +989,7 @@ export class SwapService {
     this.assertStoredAssignmentVersions(context, request);
     this.assertNoWorkflowConflicts(context, false);
 
-    const approvedEventId = await this.eventWriter.append(transaction, {
+    const approvedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
@@ -1016,7 +1006,7 @@ export class SwapService {
       operatorUserId: authorization.user.id,
       schedulePeriodId: context.initiatorPeriod.id,
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '换班已审批通过，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -1054,7 +1044,7 @@ export class SwapService {
     const request = await this.lockSwapRequest(transaction, authorization.group.id, swapRequestId);
     const isTarget = request.targetMembershipId === authorization.membership.id;
     if (!isTarget) {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         authorization.group.id,
@@ -1085,7 +1075,7 @@ export class SwapService {
         version: sql`${swapRequests.version} + 1`,
       })
       .where(eq(swapRequests.id, request.id));
-    const rejectedEventId = await this.eventWriter.append(transaction, {
+    const rejectedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [request.initiatorMembershipId, request.targetMembershipId],
       afterData: toLatestData({ status: 'rejected' }),
       beforeData: toLatestData({ status: request.status }),
@@ -1098,7 +1088,7 @@ export class SwapService {
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '换班申请已被驳回。',
       groupId: authorization.group.id,
       notificationType: 'swap_request_rejected',
@@ -1127,7 +1117,7 @@ export class SwapService {
     const request = await this.lockSwapRequest(transaction, authorization.group.id, swapRequestId);
     const isInitiator = request.initiatorMembershipId === authorization.membership.id;
     if (!isInitiator) {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         authorization.group.id,
@@ -1154,7 +1144,7 @@ export class SwapService {
         version: sql`${swapRequests.version} + 1`,
       })
       .where(eq(swapRequests.id, request.id));
-    const cancelledEventId = await this.eventWriter.append(transaction, {
+    const cancelledEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [request.initiatorMembershipId, request.targetMembershipId],
       afterData: toLatestData({ status: 'cancelled' }),
       beforeData: toLatestData({ status: request.status }),
@@ -1167,7 +1157,7 @@ export class SwapService {
       operationId: input.operationId,
       operatorUserId: authorization.user.id,
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '换班申请已取消。',
       excludeRecipientUserIds: [authorization.user.id],
       groupId: authorization.group.id,
@@ -1246,7 +1236,7 @@ export class SwapService {
       const affectedShiftIds = [context.initiatorAssignment.id, context.targetAssignment.id].filter(
         (assignmentId) => periodByAssignmentId.get(assignmentId) === schedulePeriodId,
       );
-      await this.eventWriter.append(transaction, {
+      await this.services.eventWriter.append(transaction, {
         affectedMembershipIds,
         affectedShiftIds,
         afterData: toLatestData({
@@ -1287,7 +1277,7 @@ export class SwapService {
       context.initiatorPeriod.businessMonth,
       context.targetPeriod.businessMonth,
     ])) {
-      await this.statisticsService.refreshInTransaction(
+      await this.services.statisticsService.refreshInTransaction(
         transaction,
         context.group.id,
         businessMonth,
@@ -1301,7 +1291,7 @@ export class SwapService {
     operationId: string,
     assignmentIds: readonly string[],
   ): Promise<void> {
-    await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+    await this.services.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
       actorUserId: authorization.user.id,
       assignmentIds,
       groupId: authorization.group.id,
@@ -1325,7 +1315,7 @@ export class SwapService {
       throw validationError('不能与自己的同一个班次换班。');
     }
 
-    const members = await this.memberReader.loadMembers(
+    const members = await this.services.memberReader.loadMembers(
       transaction,
       group.id,
       [initiatorMembershipId, targetMembershipId],
@@ -1405,12 +1395,12 @@ export class SwapService {
       throw validationError('目标班次必须由目标成员当值。');
     }
 
-    const roleNamesById = await this.memberReader.loadRoleNames(transaction, [
+    const roleNamesById = await this.services.memberReader.loadRoleNames(transaction, [
       initiatorPeriod.scheduleRoleId,
       targetPeriod.scheduleRoleId,
     ]);
     const targetConflicts = (
-      await this.workflowConflictService.findMemberEligibilityConflicts(
+      await this.services.workflowConflictService.findMemberEligibilityConflicts(
         transaction,
         group.id,
         targetMember.id,
@@ -1421,7 +1411,7 @@ export class SwapService {
       )
     ).map(toSwapConflict);
     const initiatorConflicts = (
-      await this.workflowConflictService.findMemberEligibilityConflicts(
+      await this.services.workflowConflictService.findMemberEligibilityConflicts(
         transaction,
         group.id,
         initiatorMember.id,
@@ -1433,7 +1423,7 @@ export class SwapService {
     ).map(toSwapConflict);
     const conflicts = [...targetConflicts, ...initiatorConflicts];
     const activeWorkflowConflicts = (
-      await this.workflowConflictService.findSwapAssignmentConflicts(
+      await this.services.workflowConflictService.findSwapAssignmentConflicts(
         transaction,
         group.id,
         [initiatorAssignment.id, targetAssignment.id],
@@ -1560,7 +1550,7 @@ export class SwapService {
     context: SwapContext,
     includeActiveWorkflowConflicts: boolean,
   ): void {
-    this.workflowConflictService.assertNoWorkflowConflicts({
+    this.services.workflowConflictService.assertNoWorkflowConflicts({
       activeWorkflowConflicts: includeActiveWorkflowConflicts
         ? context.activeWorkflowConflicts
         : [],
@@ -1642,7 +1632,7 @@ export class SwapService {
       ...new Set(rows.flatMap((row) => [row.initiatorAssignmentId, row.targetAssignmentId])),
     ];
     const [members, assignments] = await Promise.all([
-      this.memberReader.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds, {
+      this.services.memberReader.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds, {
         autoAcceptSwapsDefault: 1,
       }),
       transaction
@@ -1676,7 +1666,7 @@ export class SwapService {
             .where(inArray(schedulePeriods.id, periodIds));
     const periodById = new Map(periodRows.map((period) => [period.id, period]));
     const roleIds = [...new Set(periodRows.map((period) => period.scheduleRoleId))];
-    const roleNamesById = await this.memberReader.loadRoleNames(transaction, roleIds);
+    const roleNamesById = await this.services.memberReader.loadRoleNames(transaction, roleIds);
     const assignmentById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
     return rows.map((row): SwapRequest => {
       const initiatorMember = members.get(row.initiatorMembershipId);

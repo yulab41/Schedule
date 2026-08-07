@@ -57,24 +57,15 @@ import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
-import { EventWriter } from '../events/event-writer.js';
-import {
-  GroupPermissionService,
-  type ActiveGroup,
-  type GroupAuthorization,
-} from '../groups/permission-service.js';
+import type { ActiveGroup, GroupAuthorization } from '../groups/permission-service.js';
 import {
   isConflictBlockedError,
   writeConflictNotification,
 } from '../notifications/conflict-notifier.js';
-import { NotificationWriter } from '../notifications/notification-writer.js';
-import { StatisticsService } from '../statistics/statistics-service.js';
 import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
-import {
-  getCurrentDutyMembershipId,
-  WorkflowConflictService,
-} from '../workflows/workflow-conflict-service.js';
+import { getCurrentDutyMembershipId } from '../workflows/workflow-conflict-service.js';
+import { WorkflowServices } from '../workflows/workflow-services.js';
 
 type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
@@ -126,14 +117,10 @@ interface ReflowContext {
 }
 
 export class LeaveService {
-  private readonly eventWriter = new EventWriter();
-  private readonly notificationWriter = new NotificationWriter();
-  private readonly permissionService = new GroupPermissionService();
-  private readonly workflowConflictService = new WorkflowConflictService();
-  private readonly statisticsService: StatisticsService;
+  private readonly services: WorkflowServices;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
-    this.statisticsService = new StatisticsService(this.databaseClient);
+    this.services = new WorkflowServices(databaseClient);
   }
 
   public async submit(
@@ -142,7 +129,7 @@ export class LeaveService {
     input: CreateLeaveRequestInput,
   ): Promise<LeaveRequest> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -203,7 +190,7 @@ export class LeaveService {
         reflowStrategy,
         startsAt,
       });
-      const submittedEventId = await this.eventWriter.append(transaction, {
+      const submittedEventId = await this.services.eventWriter.append(transaction, {
         affectedMembershipIds: [authorization.membership.id],
         afterData: toLatestData({
           endsAt: endsAt.toISOString(),
@@ -223,7 +210,7 @@ export class LeaveService {
         operatorUserId: authorization.user.id,
         ...(input.reason === undefined ? {} : { reason: input.reason }),
       });
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         administratorRecipients: true,
         body: '成员提交了新的请假申请，请及时审批。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -246,7 +233,7 @@ export class LeaveService {
     input: LeaveAffectedShiftsInput,
   ): Promise<readonly LeaveAffectedShift[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -279,7 +266,7 @@ export class LeaveService {
     groupId: string,
   ): Promise<readonly LeaveRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -294,7 +281,7 @@ export class LeaveService {
     groupId: string,
   ): Promise<readonly LeaveRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -311,7 +298,7 @@ export class LeaveService {
     input: PreviewLeaveRequestInput,
   ): Promise<LeaveReflowPreview> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -319,7 +306,7 @@ export class LeaveService {
       );
       const leaveRequest = await this.lockLeaveRequest(transaction, groupId, leaveRequestId);
       if (leaveRequest.membershipId !== authorization.membership.id) {
-        await this.permissionService.requirePermission(
+        await this.services.permissionService.requirePermission(
           transaction,
           identity,
           groupId,
@@ -359,7 +346,7 @@ export class LeaveService {
   ): Promise<ApprovedLeaveRequestResult> {
     try {
       return await withTransaction(this.databaseClient, async (transaction) => {
-        const authorization = await this.permissionService.requirePermission(
+        const authorization = await this.services.permissionService.requirePermission(
           transaction,
           identity,
           groupId,
@@ -404,7 +391,7 @@ export class LeaveService {
     input: RejectLeaveRequestInput,
   ): Promise<RejectedLeaveRequestResult> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -438,7 +425,7 @@ export class LeaveService {
     input: LeaveRequestMutationInput,
   ): Promise<LeaveRequestMutationResult> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -468,7 +455,7 @@ export class LeaveService {
     input: LeaveRequestMutationInput,
   ): Promise<LeaveRequestMutationResult> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -496,7 +483,7 @@ export class LeaveService {
     groupId: string,
   ): Promise<GroupLeaveReflowStrategy> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -512,7 +499,7 @@ export class LeaveService {
     input: UpdateGroupLeaveReflowStrategyInput,
   ): Promise<GroupLeaveReflowStrategy> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -649,7 +636,7 @@ export class LeaveService {
         .where(eq(groups.id, authorization.group.id));
     }
 
-    const approvalEventId = await this.eventWriter.append(transaction, {
+    const approvalEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [leaveRequest.membershipId],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
@@ -674,7 +661,7 @@ export class LeaveService {
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
       ...(context.periods[0] === undefined ? {} : { schedulePeriodId: context.periods[0].id }),
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '您的请假申请已批准。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_approved',
@@ -710,7 +697,7 @@ export class LeaveService {
         ...new Set(affectedRows.map((row) => row.schedulePeriodId)),
       ]) {
         const periodRows = affectedRows.filter((row) => row.schedulePeriodId === schedulePeriodId);
-        const coverEventId = await this.eventWriter.append(transaction, {
+        const coverEventId = await this.services.eventWriter.append(transaction, {
           affectedMembershipIds: reflowedMembershipIds,
           affectedShiftIds: periodRows.map((row) => row.id),
           afterData: toLatestData({
@@ -734,7 +721,7 @@ export class LeaveService {
     }
     const firstCoverEventId = coverEventIds[0];
     if (reflowedMembershipIds.length > 0 && firstCoverEventId !== undefined) {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '请假重排后，您的班次已调整。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -745,7 +732,7 @@ export class LeaveService {
       });
     }
     for (const period of context.periods) {
-      await this.statisticsService.refreshInTransaction(
+      await this.services.statisticsService.refreshInTransaction(
         transaction,
         authorization.group.id,
         period.businessMonth,
@@ -805,7 +792,7 @@ export class LeaveService {
         version: sql`${leaveRequests.version} + 1`,
       })
       .where(eq(leaveRequests.id, leaveRequest.id));
-    const rejectedEventId = await this.eventWriter.append(transaction, {
+    const rejectedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [leaveRequest.membershipId],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
@@ -827,7 +814,7 @@ export class LeaveService {
       operatorUserId: authorization.user.id,
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '您的请假申请已被驳回。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_rejected',
@@ -872,7 +859,7 @@ export class LeaveService {
     }
     const isOwner = leaveRequest.membershipId === authorization.membership.id;
     if (!isOwner) {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         authorization.group.id,
@@ -895,7 +882,7 @@ export class LeaveService {
         version: sql`${leaveRequests.version} + 1`,
       })
       .where(eq(leaveRequests.id, leaveRequest.id));
-    const cancelledEventId = await this.eventWriter.append(transaction, {
+    const cancelledEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [leaveRequest.membershipId],
       afterData: toLatestData({
         status: 'cancelled',
@@ -915,7 +902,7 @@ export class LeaveService {
       operatorUserId: authorization.user.id,
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '请假申请已取消。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_cancelled',
@@ -926,7 +913,7 @@ export class LeaveService {
       title: '请假申请已取消',
     });
     if (isOwner) {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         administratorRecipients: true,
         body: '成员取消了请假申请。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -981,7 +968,7 @@ export class LeaveService {
     }
     const isOwner = leaveRequest.membershipId === authorization.membership.id;
     if (!isOwner) {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         authorization.group.id,
@@ -1004,7 +991,7 @@ export class LeaveService {
         version: sql`${leaveRequests.version} + 1`,
       })
       .where(eq(leaveRequests.id, leaveRequest.id));
-    const revokedEventId = await this.eventWriter.append(transaction, {
+    const revokedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [leaveRequest.membershipId],
       afterData: toLatestData({
         status: 'revoked',
@@ -1024,7 +1011,7 @@ export class LeaveService {
       operatorUserId: authorization.user.id,
       ...(leaveRequest.reason === null ? {} : { reason: leaveRequest.reason }),
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
       groupId: authorization.group.id,
       notificationType: 'leave_request_revoked',
@@ -1035,7 +1022,7 @@ export class LeaveService {
       title: '请假已撤销',
     });
     if (isOwner) {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         administratorRecipients: true,
         body: '成员撤销了已批准的请假。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -1114,12 +1101,13 @@ export class LeaveService {
     if (assignments.length === 0) {
       return [];
     }
-    const coveredAssignmentIds = await this.workflowConflictService.findLeaveCoverageAssignmentIds(
-      transaction,
-      groupId,
-      membershipId,
-      assignments.map((assignment) => assignment.id),
-    );
+    const coveredAssignmentIds =
+      await this.services.workflowConflictService.findLeaveCoverageAssignmentIds(
+        transaction,
+        groupId,
+        membershipId,
+        assignments.map((assignment) => assignment.id),
+      );
 
     return assignments.map((assignment) => ({
       assignmentId: assignment.id,
@@ -1326,7 +1314,7 @@ export class LeaveService {
       .sort((first, second) => first.businessDate.localeCompare(second.businessDate));
 
     const workflowBlockers = (
-      await this.workflowConflictService.findLeaveWorkflowBlockers(
+      await this.services.workflowConflictService.findLeaveWorkflowBlockers(
         transaction,
         group.id,
         leaveRequest.membershipId,

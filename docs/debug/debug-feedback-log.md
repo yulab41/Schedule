@@ -687,8 +687,18 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（#4.3 子步骤 1；#4.3 整体进行中）。
 
+### 轮次 28（fix-progress #4.3 子步骤 2a，提交：refactor(workflows): consolidate shared workflow dependencies）
+- 目标/需求：#4.3 拆多轮的第二步——把换班/加扣班/请假三个服务各自实例化的同一套依赖收敛为共享容器，消除“三件套”重复实例化。
+- 根因：三个 1000+ 行服务从功能开发起各自 `new` eventWriter/notificationWriter/permissionService 等依赖，新增依赖需改三处。
+- 修复/功能：新增 `apps/api/src/modules/workflows/workflow-services.ts` 的 `WorkflowServices` 容器（含成员读取、冲突查询、统计、自愈等全部共享依赖，构造无副作用）；三个服务删除各自依赖字段与构造逻辑，131 处 `this.<dep>` 引用改为 `this.services.<dep>`，类型导入保留。
+- 行为变化清单：无（同一依赖类实例、同一构造参数，调用点逐一不变；leave 新增未使用的 memberReader/selfHealing 实例但构造无副作用）。
+- 验证：`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、duty 24/24、leave 19/19（NODE_ENV=test + TEST_MYSQL_*，隔离库 3307）。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：已完成（#4.3 子步骤 2a；#4.3 整体进行中）。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：换班/加扣班/请假全流程与事件/通知/权限行为不变（轮次 28 相关，纯依赖收敛）。
 - 用户强刷后复核：换班/加扣班创建、接受、审批、拒绝、取消、撤销操作与幂等重放行为不变（轮次 27 相关）。
 - 用户强刷后复核：换班提交失败时提示具体冲突原因而非通用文案（轮次 26 相关）。
 - 用户强刷后复核：接口 404/429 返回语义化错误码而非 VALIDATION_FAILED（轮次 25 相关，正常操作不易触发，供接口调用方复核）。

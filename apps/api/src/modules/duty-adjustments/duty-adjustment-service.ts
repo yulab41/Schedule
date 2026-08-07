@@ -31,25 +31,17 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
-import { EventWriter } from '../events/event-writer.js';
-import { GroupMemberReader, type GroupMemberRow } from '../groups/group-member-reader.js';
-import {
-  GroupPermissionService,
-  type ActiveGroup,
-  type GroupAuthorization,
-} from '../groups/permission-service.js';
-import { NotificationWriter } from '../notifications/notification-writer.js';
-import { StatisticsService } from '../statistics/statistics-service.js';
+import type { GroupMemberRow } from '../groups/group-member-reader.js';
+import type { ActiveGroup, GroupAuthorization } from '../groups/permission-service.js';
 import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 import {
   getCurrentDutyMembershipId,
-  WorkflowConflictService,
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
 import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
-import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
+import { WorkflowServices } from '../workflows/workflow-services.js';
 
 type LockedDutyAdjustment = typeof dutyAdjustments.$inferSelect;
 type LockedShiftAssignment = typeof shiftAssignments.$inferSelect;
@@ -71,17 +63,10 @@ interface DutyAdjustmentContext {
 }
 
 export class DutyAdjustmentService {
-  private readonly eventWriter = new EventWriter();
-  private readonly notificationWriter = new NotificationWriter();
-  private readonly permissionService = new GroupPermissionService();
-  private readonly memberReader = new GroupMemberReader();
-  private readonly workflowConflictService = new WorkflowConflictService();
-  private readonly workflowSelfHealingService: WorkflowSelfHealingService;
-  private readonly statisticsService: StatisticsService;
+  private readonly services: WorkflowServices;
 
   public constructor(private readonly databaseClient: DatabaseClient) {
-    this.statisticsService = new StatisticsService(this.databaseClient);
-    this.workflowSelfHealingService = new WorkflowSelfHealingService(this.databaseClient);
+    this.services = new WorkflowServices(databaseClient);
   }
 
   public async preview(
@@ -90,7 +75,7 @@ export class DutyAdjustmentService {
     input: DutyAdjustmentPairInput,
   ): Promise<DutyAdjustmentPreview> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -119,7 +104,7 @@ export class DutyAdjustmentService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createDutyAdjustmentPairFingerprint({
         coveredAssignmentId: input.coveredAssignmentId,
         groupId,
@@ -142,7 +127,7 @@ export class DutyAdjustmentService {
       identity,
       operationId: input.operationId,
       permission: 'manageDutyAdjustments',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createDutyAdjustmentPairFingerprint({
         coveredAssignmentId: input.coveredAssignmentId,
         groupId,
@@ -160,7 +145,7 @@ export class DutyAdjustmentService {
     groupId: string,
   ): Promise<readonly DutyAdjustmentRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -190,7 +175,7 @@ export class DutyAdjustmentService {
     groupId: string,
   ): Promise<readonly DutyAdjustmentRequest[]> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -218,7 +203,7 @@ export class DutyAdjustmentService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         dutyAdjustmentId,
         expectedVersion: input.expectedVersion,
@@ -242,7 +227,7 @@ export class DutyAdjustmentService {
       identity,
       operationId: input.operationId,
       permission: 'manageDutyAdjustments',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         dutyAdjustmentId,
         expectedVersion: input.expectedVersion,
@@ -266,7 +251,7 @@ export class DutyAdjustmentService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         dutyAdjustmentId,
         expectedVersion: input.expectedVersion,
@@ -290,7 +275,7 @@ export class DutyAdjustmentService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         dutyAdjustmentId,
         expectedVersion: input.expectedVersion,
@@ -314,7 +299,7 @@ export class DutyAdjustmentService {
       identity,
       operationId: input.operationId,
       permission: 'viewScheduleConfiguration',
-      permissionService: this.permissionService,
+      permissionService: this.services.permissionService,
       requestFingerprint: createMutationFingerprint({
         dutyAdjustmentId,
         expectedVersion: input.expectedVersion,
@@ -332,7 +317,7 @@ export class DutyAdjustmentService {
     groupId: string,
   ): Promise<GroupDutyAdjustmentSettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -348,7 +333,7 @@ export class DutyAdjustmentService {
     input: UpdateGroupDutyAdjustmentSettingsInput,
   ): Promise<GroupDutyAdjustmentSettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -371,7 +356,7 @@ export class DutyAdjustmentService {
     groupId: string,
   ): Promise<MemberSwapSettings> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
+      const authorization = await this.services.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
@@ -427,7 +412,7 @@ export class DutyAdjustmentService {
       status,
       workflowSequence,
     });
-    const createdEventId = await this.eventWriter.append(transaction, {
+    const createdEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
       afterData: toLatestData({
         coveredAssignmentId: context.coveredAssignment.id,
@@ -445,7 +430,7 @@ export class DutyAdjustmentService {
       schedulePeriodId: context.period.id,
     });
     if (status === 'completed') {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '加扣班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -455,7 +440,7 @@ export class DutyAdjustmentService {
         title: '加扣班已完成',
       });
     } else {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '有人向您发起加扣班申请，请及时处理。',
         groupId: authorization.group.id,
         notificationType: 'duty_adjustment_request_created',
@@ -467,7 +452,7 @@ export class DutyAdjustmentService {
         title: '新的加扣班申请',
       });
       if (status === 'pending_approval') {
-        await this.notificationWriter.append(transaction, {
+        await this.services.notificationWriter.append(transaction, {
           administratorRecipients: true,
           body: '成员提交了加扣班申请，等待您审批。',
           excludeRecipientUserIds: [authorization.user.id],
@@ -533,7 +518,7 @@ export class DutyAdjustmentService {
       status: 'completed',
       workflowSequence,
     });
-    const createdEventId = await this.eventWriter.append(transaction, {
+    const createdEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
@@ -551,7 +536,7 @@ export class DutyAdjustmentService {
       ...(input.reason === undefined ? {} : { reason: input.reason }),
       schedulePeriodId: context.period.id,
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '管理员已为您调整加扣班，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -624,7 +609,7 @@ export class DutyAdjustmentService {
     const nextStatus = authorization.group.dutyAdjustmentApprovalRequired
       ? 'pending_approval'
       : 'completed';
-    const acceptedEventId = await this.eventWriter.append(transaction, {
+    const acceptedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
       afterData: toLatestData({ status: nextStatus }),
       beforeData: toLatestData({ status: request.status }),
@@ -640,7 +625,7 @@ export class DutyAdjustmentService {
       schedulePeriodId: context.period.id,
     });
     if (nextStatus === 'completed') {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '加扣班已完成，您的班次已更新。',
         groupId: authorization.group.id,
         notificationType: 'schedule_changed',
@@ -650,7 +635,7 @@ export class DutyAdjustmentService {
         title: '加扣班已完成',
       });
     } else {
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         body: '对方已接受加扣班申请，等待管理员审批。',
         groupId: authorization.group.id,
         notificationType: 'duty_adjustment_request_accepted',
@@ -660,7 +645,7 @@ export class DutyAdjustmentService {
         scheduleEventId: acceptedEventId,
         title: '加扣班申请已接受',
       });
-      await this.notificationWriter.append(transaction, {
+      await this.services.notificationWriter.append(transaction, {
         administratorRecipients: true,
         body: '加扣班申请已被双方接受，等待您审批。',
         excludeRecipientUserIds: [authorization.user.id],
@@ -735,7 +720,7 @@ export class DutyAdjustmentService {
     this.assertStoredAssignmentVersion(context, request);
     this.assertNoWorkflowConflicts(context);
 
-    const approvedEventId = await this.eventWriter.append(transaction, {
+    const approvedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
       afterData: toLatestData({
         approverUserId: authorization.user.id,
@@ -753,7 +738,7 @@ export class DutyAdjustmentService {
       ...(request.reason === null ? {} : { reason: request.reason }),
       schedulePeriodId: context.period.id,
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '加扣班已审批通过，您的班次已更新。',
       groupId: authorization.group.id,
       notificationType: 'schedule_changed',
@@ -794,7 +779,7 @@ export class DutyAdjustmentService {
     );
     const isOvertimeMember = request.overtimeMembershipId === authorization.membership.id;
     if (!isOvertimeMember) {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         authorization.group.id,
@@ -825,7 +810,7 @@ export class DutyAdjustmentService {
         version: sql`${dutyAdjustments.version} + 1`,
       })
       .where(eq(dutyAdjustments.id, request.id));
-    const rejectedEventId = await this.eventWriter.append(transaction, {
+    const rejectedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [request.deductedMembershipId, request.overtimeMembershipId],
       afterData: toLatestData({ status: 'rejected' }),
       beforeData: toLatestData({ status: request.status }),
@@ -839,7 +824,7 @@ export class DutyAdjustmentService {
       operatorUserId: authorization.user.id,
       ...(request.reason === null ? {} : { reason: request.reason }),
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '加扣班申请已被驳回。',
       groupId: authorization.group.id,
       notificationType: 'duty_adjustment_request_rejected',
@@ -871,7 +856,7 @@ export class DutyAdjustmentService {
     );
     const isInitiator = request.deductedMembershipId === authorization.membership.id;
     if (!isInitiator) {
-      await this.permissionService.requirePermission(
+      await this.services.permissionService.requirePermission(
         transaction,
         identity,
         authorization.group.id,
@@ -898,7 +883,7 @@ export class DutyAdjustmentService {
         version: sql`${dutyAdjustments.version} + 1`,
       })
       .where(eq(dutyAdjustments.id, request.id));
-    const cancelledEventId = await this.eventWriter.append(transaction, {
+    const cancelledEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [request.deductedMembershipId, request.overtimeMembershipId],
       afterData: toLatestData({ status: 'cancelled' }),
       beforeData: toLatestData({ status: request.status }),
@@ -912,7 +897,7 @@ export class DutyAdjustmentService {
       operatorUserId: authorization.user.id,
       ...(request.reason === null ? {} : { reason: request.reason }),
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '加扣班申请已取消。',
       excludeRecipientUserIds: [authorization.user.id],
       groupId: authorization.group.id,
@@ -1001,7 +986,7 @@ export class DutyAdjustmentService {
       true,
       request.id,
     );
-    const laterWorkflows = await this.workflowConflictService.findLaterAssignmentWorkflows(
+    const laterWorkflows = await this.services.workflowConflictService.findLaterAssignmentWorkflows(
       transaction,
       authorization.group.id,
       context.coveredAssignment.id,
@@ -1054,7 +1039,7 @@ export class DutyAdjustmentService {
         version: sql`${dutyAdjustments.version} + 1`,
       })
       .where(eq(dutyAdjustments.id, request.id));
-    const revokedEventId = await this.eventWriter.append(transaction, {
+    const revokedEventId = await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
       affectedShiftIds: [context.coveredAssignment.id],
       afterData: toLatestData({
@@ -1079,7 +1064,7 @@ export class DutyAdjustmentService {
       ...(input.reason === undefined ? {} : { reason: input.reason }),
       schedulePeriodId: context.period.id,
     });
-    await this.notificationWriter.append(transaction, {
+    await this.services.notificationWriter.append(transaction, {
       body: '加扣班已撤销，原排班已恢复。',
       groupId: authorization.group.id,
       notificationType: 'duty_adjustment_revoked',
@@ -1089,7 +1074,7 @@ export class DutyAdjustmentService {
       scheduleEventId: revokedEventId,
       title: '加扣班已撤销',
     });
-    await this.statisticsService.refreshInTransaction(
+    await this.services.statisticsService.refreshInTransaction(
       transaction,
       authorization.group.id,
       context.period.businessMonth,
@@ -1108,7 +1093,7 @@ export class DutyAdjustmentService {
     operationId: string,
     assignmentIds: readonly string[],
   ): Promise<void> {
-    await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+    await this.services.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
       actorUserId: authorization.user.id,
       assignmentIds,
       groupId: authorization.group.id,
@@ -1150,7 +1135,7 @@ export class DutyAdjustmentService {
       })
       .where(eq(dutyAdjustments.id, dutyAdjustmentId));
 
-    await this.eventWriter.append(transaction, {
+    await this.services.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
       affectedShiftIds: [context.coveredAssignment.id],
       afterData: toLatestData({
@@ -1177,7 +1162,7 @@ export class DutyAdjustmentService {
       parentEventId,
       schedulePeriodId: context.period.id,
     });
-    await this.statisticsService.refreshInTransaction(
+    await this.services.statisticsService.refreshInTransaction(
       transaction,
       context.group.id,
       context.period.businessMonth,
@@ -1254,7 +1239,7 @@ export class DutyAdjustmentService {
       throw validationError('加班成员和扣班成员必须是不同成员。');
     }
 
-    const members = await this.memberReader.loadMembers(
+    const members = await this.services.memberReader.loadMembers(
       transaction,
       group.id,
       [overtimeMembershipId, effectiveDeductedMembershipId],
@@ -1271,11 +1256,11 @@ export class DutyAdjustmentService {
       });
     }
 
-    const roleNamesById = await this.memberReader.loadRoleNames(transaction, [
+    const roleNamesById = await this.services.memberReader.loadRoleNames(transaction, [
       period.scheduleRoleId,
     ]);
     const conflicts = (
-      await this.workflowConflictService.findMemberEligibilityConflicts(
+      await this.services.workflowConflictService.findMemberEligibilityConflicts(
         transaction,
         group.id,
         overtimeMember.id,
@@ -1286,7 +1271,7 @@ export class DutyAdjustmentService {
       )
     ).map(toDutyAdjustmentConflict);
     const activeWorkflowConflicts = (
-      await this.workflowConflictService.findDutyAdjustmentAssignmentConflicts(
+      await this.services.workflowConflictService.findDutyAdjustmentAssignmentConflicts(
         transaction,
         group.id,
         coveredAssignment.id,
@@ -1344,7 +1329,7 @@ export class DutyAdjustmentService {
   }
 
   private assertNoWorkflowConflicts(context: DutyAdjustmentContext): void {
-    this.workflowConflictService.assertNoWorkflowConflicts({
+    this.services.workflowConflictService.assertNoWorkflowConflicts({
       activeWorkflowConflicts: context.activeWorkflowConflicts,
       conflicts: context.conflicts,
       latestData: {
@@ -1421,7 +1406,7 @@ export class DutyAdjustmentService {
     ];
     const assignmentIds = [...new Set(rows.map((row) => row.coveredAssignmentId))];
     const [members, assignments] = await Promise.all([
-      this.memberReader.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds, {
+      this.services.memberReader.loadMembers(transaction, rows[0]?.groupId ?? '', membershipIds, {
         autoAcceptSwapsDefault: 0,
       }),
       transaction
@@ -1455,7 +1440,7 @@ export class DutyAdjustmentService {
             .where(inArray(schedulePeriods.id, periodIds));
     const periodById = new Map(periodRows.map((period) => [period.id, period]));
     const roleIds = [...new Set(periodRows.map((period) => period.scheduleRoleId))];
-    const roleNamesById = await this.memberReader.loadRoleNames(transaction, roleIds);
+    const roleNamesById = await this.services.memberReader.loadRoleNames(transaction, roleIds);
     const assignmentById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
 
     return rows.map((row): DutyAdjustmentRequest => {

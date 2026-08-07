@@ -75,7 +75,7 @@
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
 | ✅ | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 已完成（轮次 25）：按状态码映射，见第 7 节 |
 | ✅ | #4.2 | 冲突断言双轨（swap/duty 各自“预检 + 断言”） | 轻微 | 高 | 高 | 已完成（轮次 26）：统一为共享 `assertNoWorkflowConflicts`，见第 7 节 |
-| P2 | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 进行中（轮次 27：入口骨架已抽，swap/duty 13 个入口迁移；依赖容器/leave 待续） |
+| P2 | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 进行中（轮次 27 入口骨架 + 轮次 28 依赖容器已完成；leave 入口迁移待续） |
 | P3 | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | **需用户确认规则**（今天能否发布/跨月行为） |
 | P3 | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | **需用户确认**：保留旧数据兼容还是彻底移除 |
 | P3 | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 检查 1062 错误码 |
@@ -935,3 +935,27 @@
 不确定点：1. swap `revokeCompleted` 仍未迁移（幂等前有锁定 + 角色预检），若未来给骨架加 `beforeIdempotentOperation` 钩子可一并迁移——出错症状是维持现状，无行为变化。2. leave 的 approve 带“冲突通知”catch 包装、submit 无外部 operationId，入口形态不同，留待子步骤 2 单独处理。3. 三服务各自实例化的依赖（eventWriter/notificationWriter/permissionService 等）本轮未合并为共享容器，属 #4.3 后续子步骤。
 
 下次计划：#4.3 子步骤 2（leave 入口迁移 + 三服务依赖容器收敛）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。
+
+### 轮次 28 – 2026-08-07
+
+目标：#4.3 子步骤 2a —— 收敛三服务各自实例化的依赖为共享 `WorkflowServices` 容器（eventWriter/notificationWriter/permissionService/memberReader/workflowConflictService/statisticsService/workflowSelfHealingService），三服务全部改经容器引用。
+
+引入点：三服务自功能开发起各自 `new` 同一套依赖（审计卡 #4.3 登记，无单一引入提交）。
+
+为什么现有测试没拦住：实例化与引用方式不影响行为，单测无法感知；本轮用 swap 31 + duty 24 + leave 19 集成测试作为回归网。
+
+修改文件：新增 `apps/api/src/modules/workflows/workflow-services.ts`（共享依赖容器，构造无副作用）；`apps/api/src/modules/swaps/swap-service.ts`、`apps/api/src/modules/duty-adjustments/duty-adjustment-service.ts`、`apps/api/src/modules/leaves/leave-service.ts` 删除各自 7/7/5 个依赖字段与构造逻辑，改为 `private readonly services = new WorkflowServices(databaseClient)`，131 处 `this.<dep>` 引用机械替换为 `this.services.<dep>`；类型导入保留（GroupMemberRow/ActiveGroup/GroupAuthorization/WorkflowConflict 等）。
+
+语义等价审计：同一依赖类实例、同一构造参数（databaseClient），方法调用点逐一不变；leave 新增未使用的 memberReader/selfHealing 实例（构造无副作用），无行为差异；app.ts 的 `new XxxService(databaseClient)` 构造方式不变。
+
+测试结果：`pnpm verify` 579/579 ✅（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、duty 24/24、leave 19/19（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：已完成（#4.3 子步骤 2a；#4.3 整体进行中）。
+
+提交：`refactor(workflows): consolidate shared workflow dependencies`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. leave 现在会构造未使用的 memberReader/selfHealing 实例（无副作用、开销可忽略）；若希望按需注入，可改为可选字段或构造参数。2. `runAuthorizedMutation` 仍为独立函数并接收 databaseClient/permissionService 参数；后续可移入容器方法进一步简化调用点。3. 三服务的 runXxx 领域逻辑仍各自保留（入口骨架已抽、依赖已收敛，状态机迁移留待后续子步骤）。
+
+下次计划：#4.3 子步骤 2b（leave 入口迁移：骨架增加错误钩子支持 approve 冲突通知，迁移 approve/reject/cancel/revoke，评估 submit 幂等化）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。
