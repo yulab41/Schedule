@@ -822,6 +822,16 @@
 - 验证：`pnpm verify` 582/582 通过（72 个测试文件，隔离 MySQL；删除 12 条 CloudBase 专属测试）；运行/浏览器验证：pnpm smoke:browser 通过（管理员/成员/访客全流程无浏览器错误，临时 3002/5175 服务已关闭）；pnpm smoke:check-core 通过（核心链路 auth/session/client 有改动，记录满足校验）。
 - 状态：CloudBase 清理完成，#3.6/#9.1/#9.2 ✅；部署目标固定阿里云 ECS（待用户部署/验收）。
 
+### 轮次 40（fix-progress 第 6 节 TODO 三条 + web-push 声明缺失，提交：0762083 / 89587eb / d4224d5 / 2c321bb）
+
+- 目标/需求：清理 fix-progress 第 6 节登记的 3 条新发现问题（shift_assignments 更新未走统一助手、前端两处时区字面量、CI build/test 并行），并修复 tests/security typecheck 的 web-push 声明缺失。
+- 根因/引入点：`workflow-invalidation-service.ts` 的 shift_assignments 更新自 `7c783c7` 起未显式保留 starts_at（真漂移点）；`past-schedule-service.ts` 两处自 `0bcc39f` 起每次显式写 startsAt/endsAt（有意改班次时间，非漂移点）；前端两处字面量是 #7.3 统一时区后的遗漏点；CI 并行是 2026-08-06 Verify 失败的根因；web-push 声明缺失因 security 测试直接 import API 源码且 tsconfig 不含声明文件（轮次 38 发现）。
+- 修复/功能：workflow-invalidation 改走 `updateShiftAssignments`（version+1 保留、显式 pin starts_at），新增模拟隐式 ON UPDATE 的回归测试（旧代码以 `shift_assignments_slot_unique` 重复键失败）；`formatScheduleDraftCode` 改用 `chinaStandardTimeOffsetMilliseconds`；`parseLocalDateStart` 改用 `toChinaStandardTimeUtcTimestamp`（catch 保留中文文案），新增无效日期拒绝测试；`verify.yml` 改为 build 完成后才 test；`tests/security/tsconfig.json` include 增加 `../../apps/api/src/types/**/*.d.ts`。
+- 行为变化清单：正常 MySQL 下 TODO1 行为等价（仅显式回写 starts_at）；TODO2 有效日期逐毫秒等价，日历无效日期（2026-02-30）由静默滚动改为拒绝，文案不变；TODO3 仅执行顺序；web-push 仅类型检查范围，无运行时影响。
+- 验证：`pnpm verify` 584/584 ✅（72 个测试文件，隔离 MySQL；新增 2 条）；定向 `pnpm --filter @schedule/security-tests typecheck` 通过；`pnpm exec prettier --check ".github/**/*.yml"` 通过。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：第 6 节 TODO 三条 ✅；web-push 声明缺失 ✅（均无用户界面变化，无需用户强刷）。
+
 ## 待办 / 下一步
 
 - 用户决策（2026-08-07）：CloudBase 弃用并已清理；部署目标固定阿里云 ECS；#3.6/#9.1/#9.2 随平台清理关闭。
@@ -846,7 +856,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-07）：CloudBase 清理完成，按阿里云部署路径推进——自建账号密码认证、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署；新发现 TODO：tests/security typecheck 因 web-push 缺类型声明失败（非本轮引入）。
+- 下一活动批次（2026-08-07）：fix-progress 轮次 40 已完成（第 6 节 TODO 三条 + web-push 声明缺失）；按阿里云部署路径推进——自建账号密码认证、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。

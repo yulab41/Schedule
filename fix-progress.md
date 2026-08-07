@@ -477,8 +477,13 @@
 > 修复过程中发现的其他问题一律记在这里回报用户，不顺手改。初始为空。
 
 - `past-schedule-service.ts`（259/387）与 `workflow-invalidation-service.ts`（143）对 `shift_assignments` 的更新未走统一助手、也未显式保留 `starts_at`。若线上 CynosDB 在迁移 0018 后仍存在隐式 `ON UPDATE`（可用 information_schema 复核），这 3 处是潜在时间漂移点；建议后续轮次评估并入 `updateShiftAssignments`。
+  > 完成情况（轮次 40）：评估结论——past-schedule 两处每次更新都显式写 `startsAt/endsAt`（补录改班次时间是有意为之），不是漂移点；统一助手当前刻意禁止在 changes 中传 startsAt（防误改），故保留直写。`workflow-invalidation-service.ts` 一处是真漂移点，已改走 `updateShiftAssignments`（version+1 与 actual 重置不变，显式 pin `starts_at`）；新增模拟隐式 ON UPDATE 的回归测试，旧代码以 `shift_assignments_slot_unique` 重复键失败、新代码通过。
 - `apps/web/src/features/manual-schedule/manual-schedule-logic.ts`（143 行）仍裸写 `8 * 60 * 60 * 1000`，不在审查清单的 9 个文件内；`apps/web/src/features/leaves/leave-logic.ts` 的 `parseLocalDateStart` 用 `T00:00:00+08:00` 字面量表达同一“业务日期→中国零时 UTC”换算。建议后续轮次统一并入领域包（可复用 `toChinaStandardTimeUtcTimestamp`），本轮未动。
+  > 完成情况（轮次 40）：`formatScheduleDraftCode` 改用 `chinaStandardTimeOffsetMilliseconds`，`parseLocalDateStart` 改用 `toChinaStandardTimeUtcTimestamp(date, '00:00')`（catch 保留原中文文案）；行为收紧：日历无效日期（如 2026-02-30）从“静默滚动到 3 月 2 日”变为抛“请假日期格式无效。”，新增锁定测试。
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
+  > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
+- `tests/security` typecheck 因 `apps/api/src/modules/notifications/notification-dispatcher.ts` 引用的 `web-push` 缺类型声明而失败（apps/api 自身 typecheck 有 `src/types/web-push.d.ts` 覆盖；tests/security 的 tsconfig include 不含该声明；轮次 38 发现，登记于 project-status/debug 日志）。
+  > 完成情况（轮次 40）：`tests/security/tsconfig.json` include 增加 `../../apps/api/src/types/**/*.d.ts`（指向唯一声明源），`pnpm --filter @schedule/security-tests typecheck` 通过。
 
 ## 7. 轮次记录
 
@@ -1287,3 +1292,27 @@
 不确定点：1. 密码登录在自建认证落地前不可用（登录页仍显示账号密码表单，提交会提示“尚未实现”）；若需要可先行隐藏表单。2. `cloudbaseUid` 字段名/列名保留（业务持久化），重命名需数据库迁移，另开轮。3. `runtime/api-flat`（阿里云依赖树挂载件）未在本次重建，下次部署前需重新生成（已移除 @cloudbase 依赖）。
 
 下次计划：按阿里云部署路径推进（自建认证 → 域名/备案/HTTPS → 定时任务 → 正式 MySQL）；等待用户部署/验收本轮清理；同时保留用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–38 相关验收项。
+
+### 轮次 40 – 2026-08-07
+
+目标：清理第 6 节 TODO 三条（starts_at 漂移点评估、前端时区字面量并入领域包、CI build/test 并行），并修复 project-status/debug 日志登记的 tests/security web-push 声明缺失。
+
+引入点：`workflow-invalidation-service.ts` 的 shift_assignments 更新自 `7c783c7`（publication lifecycle）引入后一直未显式保留 starts_at；`past-schedule-service.ts` 两处更新自 `0bcc39f`（current-state backfill）引入，更新时显式写 startsAt/endsAt。前端两处字面量是轮次 3（#7.3）统一时区工具后的遗漏点。`verify.yml` build/test 并行自 CI 建立起存在，是 2026-08-06 轮次 8/9 前后 Verify 失败的根因。web-push 声明缺失：security 测试直接 import apps/api 源码，tsconfig include 不含 `apps/api/src/types/web-push.d.ts`（轮次 38 发现）。
+
+为什么现有测试没拦住：starts_at 漂移依赖 CynosDB 的隐式 ON UPDATE，本地 MySQL 8.4 默认 `explicit_defaults_for_timestamp=ON`，不模拟就不会漂移；新回归测试先 ALTER 模拟隐患，旧代码在更新时因 `shift_assignments_slot_unique`（period+starts_at+slot）重复键直接报错，新代码通过。前端字面量与领域包常量/助手逐值等价，旧测试（D20260803-140708、2026-07-31T16:00:00.000Z）已锁定正常输出；仅无效日历日期行为不同，新增测试锁定拒绝。CI 并行是全新检出时序问题，本地有构建产物时无法复现，改为顺序执行。web-push 不在 `pnpm verify` 的 typecheck 范围（只覆盖 packages/apps），所以全绿但该 typecheck 一直失败。
+
+修改文件：`workflow-invalidation-service.ts`（改走 `updateShiftAssignments`，version+1 保留、显式 pin starts_at）；`schedule-repository.integration.test.ts`（新增 1 条模拟隐式 ON UPDATE 的回归测试）；`manual-schedule-logic.ts`（`chinaStandardTimeOffsetMilliseconds` 替换裸 `8 * 60 * 60 * 1000`）；`leave-logic.ts`（`parseLocalDateStart` 改用 `toChinaStandardTimeUtcTimestamp(date, '00:00')`，catch 后仍抛原中文文案）；`leave-logic.spec.ts`（新增无效日期拒绝测试）；`.github/workflows/verify.yml`（build 完成后才 test）；`tests/security/tsconfig.json`（include 增加 `../../apps/api/src/types/**/*.d.ts`）。
+
+语义等价审计与行为变化清单：TODO1——与旧实现相比仅新增 `starts_at = starts_at` 显式回写（正常 MySQL 无差异；CynosDB 隐式 ON UPDATE 下防漂移并避免唯一键冲突），version+1、actual 字段重置、where 条件逐项一致，调用点仅此一处；past-schedule 两处因有意改班次时间保留直写，登记评估结论。TODO2——有效日期输出逐毫秒等价（已有测试锁定）；行为收紧：日历无效日期从“静默滚动”变为抛错，文案不变；manual-schedule 常量替换输出不变。TODO3——仅执行顺序变化，检查内容不变。web-push——tsconfig 仅多包含一个 .d.ts（唯一声明源），无运行时影响。
+
+测试结果：`pnpm verify` 584/584 ✅（72 个测试文件，隔离 MySQL；新增 2 条：schedule-repository 6/6、leave-logic 7/7）；定向 `pnpm --filter @schedule/security-tests typecheck` 通过；`pnpm exec prettier --check ".github/**/*.yml"` 通过。
+
+运行/浏览器验证：未涉及 Web 核心链路（web 改动在 features 逻辑，API 改动在 schedules 模块，未触碰 api/auth/router/pwa/session/contracts/vite/.env.example）；pnpm smoke:check-core 通过（无核心链路变更，无需浏览器冒烟）。
+
+状态：第 6 节 TODO 三条 ✅；web-push 声明缺失 ✅（均无用户界面变化，无需用户强刷）。
+
+提交：0762083（`fix(schedules): pin starts_at when invalidating workflow assignments`）、89587eb（`refactor(web): reuse scheduling-domain China time helpers`）、d4224d5（`ci: build before running tests in verify workflow`）、2c321bb（`fix(security-tests): include web-push ambient declaration`）；推送结果见对话回复
+
+不确定点：1. 无效日历日期（2026-02-30）由“滚动到 3 月 2 日”变为“拒绝”，属收紧；日期选择器不会产生该输入，若未来出现兼容诉求需另开轮。2. `tests/security/tsconfig.json` 通过 include 引用 API 的声明文件；若声明文件迁移位置需同步此 include。3. past-schedule 两处更新仍直写，未并入统一助手（有意为之，评估结论已登记）。
+
+下次计划：按阿里云部署路径推进（自建认证 → 域名/备案/HTTPS → 定时任务 → 正式 MySQL）；等待用户部署/验收；同时保留用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–39 相关验收项。
