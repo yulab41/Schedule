@@ -529,13 +529,13 @@
 
 测试结果：改动前基线 `pnpm verify` 584/584 ✅（72 测试文件，隔离 MySQL）；改动后 `docker compose --env-file .env.production.example -f infra/docker/compose.prod.yml config --quiet` ✅；改动后 `pnpm verify` 584/584 ✅（72 测试文件）；`pnpm exec prettier --check ".github/**/*.yml" "docs/deployment/**/*.md"` ✅；`pnpm smoke:check-core` ✅（未涉及 Web 核心链路）。
 
-运行/浏览器验证：真实 nginx:1.27-alpine 容器实测——开启门禁：无凭据 `curl` → 401 + `WWW-Authenticate: Basic realm="Trial_access"`，带凭据 → 200；关闭门禁（容器内无 `.htpasswd` 文件）→ 200 正常启动。无头 Edge（playwright-core）实测——开启门禁无凭据访问被浏览器拒绝（`net::ERR_INVALID_AUTH_CREDENTIALS`，页面内容不可见），带凭据 → 200 显示页面；关闭门禁无凭据 → 200。
+运行/浏览器验证：真实 nginx:1.27-alpine 容器实测——开启门禁：无凭据 `curl` → 401 + `WWW-Authenticate: Basic realm="Trial_access"`，带凭据 → 200；关闭门禁（容器内无 `.htpasswd` 文件）→ 200 正常启动。无头 Edge（playwright-core）实测——开启门禁无凭据访问被浏览器拒绝（`net::ERR_INVALID_AUTH_CREDENTIALS`，页面内容不可见），带凭据 → 200 显示页面；关闭门禁无凭据 → 200。已于同日直接部署到 ECS 并启用：公网 `http://8.148.183.46/` 无凭据 401、带凭据 200，`/api/health` 无凭据 401/带凭据 200，真实浏览器（无头 Edge）无凭据被拒、带凭据进入登录页。
 
-状态：#N2 ✅（已完成：本地容器 + 浏览器运行验证通过；配置与文档就绪，待用户按部署手册在 ECS 启用后复核）。
+状态：#N2 ✅（已完成：已在 ECS 启用门禁并通过公网/浏览器实测；凭据仅存于服务器 `.htpasswd`，待用户浏览器复核）。
 
 提交：7d78fe6（`feat(deploy): add temporary basic auth gate to trial nginx`）；docs checkpoint 提交见下方（推送结果见对话回复）。
 
-不确定点：1. 门禁开启后 `infra/docker/.htpasswd` 必须先由操作者在服务器创建（compose 对不存在的挂载源会生成目录，nginx 读取该路径会失败）；若忘记创建，启用后所有请求 5xx，症状明显。2. 部署文档推荐 `openssl passwd -apr1`/htpasswd 哈希；若图省事用 `{PLAIN}` 明文格式，必须保证文件权限 600。3. Basic Auth 的用户名/密码是共用凭据，仅适合可信测试人员；微信登录落地后若未及时移除，用户会先被密码框拦住。
+不确定点：1. `infra/docker/.htpasswd` 必须先创建且权限必须让容器内 nginx 用户可读（`chmod 644`；`600` 会因 bind mount 保留宿主属主导致 nginx 读取时 `Permission denied`，带凭据请求 500）；compose 对不存在的挂载源会生成目录，忘记创建同样 5xx。2. nginx 在启动/重载时读取密码文件，修改 `.htpasswd` 后必须重建 web 容器才生效。3. Basic Auth 的用户名/密码是共用凭据，仅适合可信测试人员；微信登录落地后若未及时移除，用户会先被密码框拦住。
 
 下次计划：N7（#7.3 时区转换收尾：领域包补 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数并替换 8 个前端文件）→ N3/N4 等快速清理项；同时按阿里云部署路径推进自建/微信认证。
 

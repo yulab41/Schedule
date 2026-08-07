@@ -57,7 +57,9 @@ Nginx 增加浏览器密码提示（HTTP Basic Auth）作为临时门禁。
 1. 在服务器上生成密码文件（任选一种）：
    - OpenSSL：`printf 'trial:%s\n' "$(openssl passwd -apr1 '<换成强密码>')" > infra/docker/.htpasswd`
    - Apache htpasswd 容器：`docker run --rm httpd:2.4-alpine htpasswd -nbB trial '<换成强密码>' > infra/docker/.htpasswd`
-2. 收紧文件权限：`chmod 600 infra/docker/.htpasswd`
+2. 设置文件权限为容器内 nginx 用户可读：`chmod 644 infra/docker/.htpasswd`
+   （bind mount 保留宿主机属主；若用 `600` 会导致容器内 nginx 工作进程读取失败，
+   带凭据的请求会返回 500）。
 3. 在 `.env.production` 设置 `NGINX_BASIC_AUTH_REALM=Trial_access`
    （任意非 `off` 值都表示开启；`off` 表示不拦截）。
 4. 重建并重启 web 容器：
@@ -66,6 +68,9 @@ Nginx 增加浏览器密码提示（HTTP Basic Auth）作为临时门禁。
    - `curl -i http://127.0.0.1/` → `401 Unauthorized`
    - `curl -u trial:'<密码>' http://127.0.0.1/` → `200 OK`
    - 浏览器打开 `http://8.148.183.46` 会先弹出“用户名+密码”提示，输入正确后才能进入。
+
+> 修改 `.htpasswd` 后需要重建 web 容器（`up -d --force-recreate web`）才会生效；
+> nginx 在启动/重载时读取该文件。
 
 ### 关闭门禁（微信/正式上线前必须执行）
 
