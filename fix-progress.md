@@ -978,7 +978,7 @@
 
 状态：已完成（#4.3 子步骤 2b；#4.3 整体进行中，剩 swap `revokeCompleted` 与 submit 幂等化评估）。
 
-提交：`refactor(workflows): migrate leave entries to shared mutation skeleton`（提交后回填短哈希），推送结果见对话回复
+提交：7fcd6ae（`refactor(workflows): migrate leave entries to shared mutation skeleton`），推送结果见对话回复
 
 不确定点：1. `onError` 钩子对 swap/duty 现有调用无影响（未传则不执行），骨架改为 async 后语义不变。2. submit 幂等化需要给 `CreateLeaveRequestInput` 加 operationId（契约/路由/Web 调用点），属 API 变更，待用户/后续轮次决定。3. swap `revokeCompleted` 的前置锁定 + 角色预检仍未迁移，待骨架支持 `beforeIdempotentOperation` 钩子。
 
