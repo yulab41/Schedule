@@ -1026,7 +1026,7 @@
 
 状态：#4.5 ✅、#7.6 ✅（待用户强刷复核：PWA 缓存升级后日历不再显示“调”、生成/发布过去月份提示补录）。
 
-提交：`feat(schedules): reject fully past months and drop manual-adjustment marker`（提交后回填短哈希），推送结果见对话回复
+提交：60d918a（`feat(schedules): reject fully past months and drop manual-adjustment marker`），推送结果见对话回复
 
 不确定点：1. `isPastBusinessMonth` 按业务月判断：月初生成/发布当月仍允许（已过日期由保留既往逻辑保护）；若希望“新周期不得覆盖今天之前的任何日期”，需按日校验，另开轮。2. 旧 PWA 缓存若未被 v6 清理前可能短暂报错，需用户强刷/重新注册。3. 事件中心仍保留“人工调整班次/排班补录”叙述（无标记徽标）；若希望连叙述也移除需另行决策。
 

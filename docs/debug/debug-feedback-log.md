@@ -714,7 +714,7 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#4.3 ✅、#4.4 ✅。
 
-### 轮次 31（fix-progress #4.5 + #7.6，提交：feat(schedules): reject fully past months and drop manual-adjustment marker）
+### 轮次 31（fix-progress #4.5 + #7.6，提交：60d918a feat(schedules): reject fully past months and drop manual-adjustment marker）
 - 用户决策：#4.5 方案 1（整月早于当前业务月才拒绝，当月/今天允许，跨月按保留既往逻辑）；#7.6 方案 A（移除“调”映射与渲染，保留历史事件数据，不做数据迁移）。
 - 目标/需求：#4.5 发布/自动生成补上“仅未来日期”限制；#7.6 结束 manual-adjustment“调”标记的半移除状态。
 - 根因：#4.5 发布/生成入口无日期校验，可生成/发布整段已过月份；#7.6 契约/查询/Web 仍保留 manual-adjustment → “调”映射，旧事件继续显示“调”。
