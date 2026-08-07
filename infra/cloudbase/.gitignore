@@ -1,4 +1,0 @@
-# CloudBase CLI local state and generated bundles
-.cloudbase/
-*.local.json
-functions/*/index.js

@@ -47,12 +47,8 @@ import type {
 import { apiErrorCodes } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CloudbaseAuthClient } from '../auth/cloudbase.js';
+import type { AuthClient } from '../auth/local-auth.js';
 import { createApiClient } from './client.js';
-
-vi.mock('@cloudbase/js-sdk', () => ({
-  default: { init: vi.fn() },
-}));
 
 const profile: UserProfile = {
   id: 'profile-1',
@@ -665,7 +661,7 @@ const appliedManualTemplate: AppliedManualScheduleTemplateResult = {
 };
 
 describe('Web API client', () => {
-  it('sends the current CloudBase access token to the profile endpoint', async () => {
+  it('sends the current access token to the profile endpoint', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(profile), { status: 201 }));
@@ -4079,7 +4075,7 @@ describe('Web API client', () => {
   });
 });
 
-function createAuthClient(): CloudbaseAuthClient {
+function createAuthClient(): AuthClient {
   return {
     clearDevIdentity: vi.fn(),
     getSession: vi.fn().mockResolvedValue({

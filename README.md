@@ -16,8 +16,8 @@
 
 - pnpm + TypeScript 严格模式 + ESLint + Prettier + Vitest
 - Vue 3 + Vite（Web）、Fastify（API）、Drizzle ORM（MySQL 8.4）
-- 腾讯云 CloudBase（云函数、HTTP 访问服务、静态托管、身份认证、MySQL）
-- GitHub Actions（验证与自动部署）
+- 阿里云 ECS（Docker Compose：Nginx + Fastify + MySQL 8.4）
+- GitHub Actions（验证）
 
 ## 快速开始
 
@@ -32,8 +32,7 @@ pnpm verify                   # 格式、Lint、构建、类型检查、测试
 
 ## 部署
 
-- CloudBase 开发环境部署手册：`docs/deployment/cloudbase-development.md`
-- 部署实战记录（路由、鉴权、MySQL、CLI 踩坑）：`docs/deployment/cloudbase-ops-notes.md`
+- 阿里云 ECS Docker 部署手册：`docs/deployment/aliyun-ecs.md`
 - 生产就绪与正式化升级（域名、备案、VPC、专用账号）：`docs/deployment/production-readiness.md`
 - 发布验收记录：`docs/releases/web-1.0-acceptance.md`
 

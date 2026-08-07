@@ -5,7 +5,7 @@
 ## 2026 年（已确认上线）
 
 - 规范数据文件：`holidays-2026.json`，共 39 条（33 个放假日 + 6 个调休上班日）。
-- 线上状态：2026-08-03（北京时间）已通过 CloudBase 环境 `schedule-dev-d1geh4w1l4af7359d` 的节假日管理 API 导入并确认。
+- 线上状态：2026-08-03（北京时间）已通过开发环境节假日管理 API 导入并确认。
   - 版本：`2476826f-389e-4304-bf53-85ceb5d730e8`（version 1，confirmed）
   - 验证：`GET /api/holidays?year=2026` 返回 `confirmed: true` 与 39 条日期；`GET /api/holidays/coverage` 显示 `confirmedYears: [2026]`。
 

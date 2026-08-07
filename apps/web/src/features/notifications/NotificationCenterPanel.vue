@@ -4,10 +4,10 @@ import { onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { formatNotificationTime, getNotificationLabel } from './notification-logic.js';
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const emit = defineEmits<{
   (event: 'unread-changed', unreadCount: number): void;
 }>();

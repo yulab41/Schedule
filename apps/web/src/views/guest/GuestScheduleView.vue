@@ -9,7 +9,7 @@ import { useRouter } from 'vue-router';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import {
   addBusinessMonths,
   createLatestRequestTracker,
@@ -19,7 +19,7 @@ import {
 import { getBusinessDate } from '../../features/calendar/calendar-views.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const router = useRouter();
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendarResult = ref<GuestCalendarReadModel>();

@@ -13,18 +13,11 @@ declare module 'fastify' {
   }
 }
 
-export type TrustedCloudbaseContextReader = (request: FastifyRequest) => string | undefined;
-
-export function registerAuthentication(
-  app: FastifyInstance,
-  authPort: AuthPort,
-  readTrustedCloudbaseContext?: TrustedCloudbaseContextReader,
-): void {
+export function registerAuthentication(app: FastifyInstance, authPort: AuthPort): void {
   app.decorateRequest('authenticatedIdentity', null);
   app.decorate('authenticate', async (request: FastifyRequest) => {
     const identity = await authPort.authenticate({
       authorization: request.headers.authorization,
-      trustedCloudbaseContext: readTrustedCloudbaseContext?.(request),
     });
 
     if (identity === undefined) {

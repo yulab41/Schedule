@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../api/client.js';
 import { toUserMessage } from '../utils/user-message.js';
-import { cloudbaseAuth } from '../auth/cloudbase.js';
+import { localAuth } from '../auth/local-auth.js';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
 import WorkbenchNav from '../features/layout/WorkbenchNav.vue';
@@ -28,7 +28,7 @@ import ManualScheduleView from './schedules/ManualScheduleView.vue';
 import PastScheduleView from './schedules/PastScheduleView.vue';
 
 const lastGroupStorageKey = 'schedule.last-group-id';
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const groups = ref<GroupSummary[]>([]);
 const currentGroupId = ref<string>();
 const errorMessage = ref<string>();

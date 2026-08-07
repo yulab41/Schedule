@@ -2,11 +2,11 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { getGenericBrowserNotificationBody } from './notification-logic.js';
 import NotificationCenterPanel from './NotificationCenterPanel.vue';
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const isOpen = ref(false);
 const unreadCount = ref(0);
 let timer: number | undefined;

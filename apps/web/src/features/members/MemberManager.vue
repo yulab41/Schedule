@@ -10,7 +10,7 @@ import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { hasDuplicateRosterName, parseRosterNames } from '../groups/roster-input.js';
 import GroupContactForm from '../profile/GroupContactForm.vue';
 
@@ -22,7 +22,7 @@ const emit = defineEmits<{
   'group-changed': [];
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const members = ref<GroupMember[]>([]);
 const contacts = ref<GroupMemberContact[]>([]);
 const claimRequests = ref<MembershipClaimRequest[]>([]);

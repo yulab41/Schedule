@@ -62,8 +62,8 @@ Seeding the full dataset took **191 ms**.
   grow materially.
 - Browser push and export jobs are out-of-band; their queue tables and batch
   keys already make them idempotent, so they do not add to request latency.
-- For production, keep the MySQL instance on the same region as CloudBase
-  functions, size memory for `Innodb_buffer_pool_size` above the working set of
+- For production, keep the MySQL instance in the same region as the ECS
+  deployment, size memory for `Innodb_buffer_pool_size` above the working set of
   ~100 groups, and monitor `Threads_running`/slow-query logs before raising the
   pool's `connectionLimit`.
 - Re-run `pnpm load:test` after every schema or query change that touches

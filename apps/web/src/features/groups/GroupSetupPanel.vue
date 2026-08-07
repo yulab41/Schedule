@@ -4,14 +4,14 @@ import { computed, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { hasDuplicateRosterName, parseRosterNames } from './roster-input.js';
 
 const emit = defineEmits<{
   'groups-changed': [groupId: string];
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const createdGroup = ref<GroupSummary>();
 const joinedGroup = ref<GroupSummary>();
 const createGroupName = ref('');

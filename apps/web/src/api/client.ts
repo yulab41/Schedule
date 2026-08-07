@@ -181,7 +181,7 @@ import {
   userProfileSchema,
   yearStatisticsSchema,
 } from '@schedule/contracts';
-import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
+import { getAuthenticatedSession, type AuthClient } from '../auth/local-auth.js';
 import { getOfflineSubmitError, isNavigatorOnline } from '../pwa/offline-guard.js';
 
 export interface ApiClient {
@@ -498,7 +498,7 @@ export interface ApiClient {
 
 export interface CreateApiClientOptions {
   readonly apiBaseUrl?: string;
-  readonly auth: CloudbaseAuthClient;
+  readonly auth: AuthClient;
   readonly fetch?: typeof fetch;
   readonly isOnline?: () => boolean;
 }
@@ -512,7 +512,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const isOnline = options.isOnline ?? isNavigatorOnline;
 
   function requestJson<ResponseBody>(
-    auth: CloudbaseAuthClient,
+    auth: AuthClient,
     fetchImplementationOverride: typeof fetch,
     baseUrlOverride: string,
     path: string,
@@ -549,7 +549,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   }
 
   function requestText(
-    auth: CloudbaseAuthClient,
+    auth: AuthClient,
     fetchImplementationOverride: typeof fetch,
     baseUrlOverride: string,
     path: string,
@@ -1982,7 +1982,7 @@ export class ApiClientError extends Error {
 }
 
 async function requestWithOnline<ResponseBody>(options: {
-  readonly auth: CloudbaseAuthClient | undefined;
+  readonly auth: AuthClient | undefined;
   readonly baseUrl: string;
   readonly fetchImplementation: typeof fetch;
   readonly init: {

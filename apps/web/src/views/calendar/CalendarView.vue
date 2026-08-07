@@ -16,7 +16,7 @@ import {
   getVersionConflictSummary,
   isDataConflictError,
 } from '../../api/conflict-handler.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import {
   addBusinessMonths,
@@ -42,7 +42,7 @@ const props = defineProps<{
   readonly group: GroupSummary;
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendar = ref<CalendarReadModel>();
 const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());

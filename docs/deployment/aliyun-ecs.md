@@ -2,7 +2,9 @@
 
 > 2026-08-06：Web 1.0 从腾讯云 CloudBase 迁移到阿里云 ECS 试用机
 > （`8.148.183.46`，Ubuntu 22.04，Docker 预装）。
-> 登录认证暂用开发模式（`AUTH_DEV_MODE=true`），自建认证改造见后续任务。
+> 2026-08-07：CloudBase 已弃用并清理；部署目标固定为阿里云 ECS。
+> 试用期认证以开发模式运行（`NODE_ENV=development` + `AUTH_DEV_MODE=true`），
+> 自建认证改造见后续任务；正式上线前必须切回 `NODE_ENV=production`。
 
 ## 架构
 
@@ -53,7 +55,7 @@ MySQL 数据库名和账号（`api` 容器通过 compose 网络连接 `mysql:330
 ## 当前限制与后续任务
 
 - 认证为开发模式（页面提供“本地管理员/本地成员”按钮），正式上线前必须完成
-  自建登录认证改造并移除 CloudBase 依赖。
+  自建登录认证改造（当前无账号密码后端）。
 - 暂未配置 HTTPS / 自定义域名 / ICP 备案；微信小程序上线前按
   `docs/deployment/dns-and-https.md` 与 `icp-checklist.md` 补齐。
 - 定时任务（duty reminders 等）暂未在 Docker 中配置 cron，需后续补充。

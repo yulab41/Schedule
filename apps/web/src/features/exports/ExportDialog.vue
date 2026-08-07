@@ -5,7 +5,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { buildExportFileName, getExportPeriodLabel, isExportJobFinished } from './export-logic.js';
 
 const props = defineProps<{
@@ -16,7 +16,7 @@ const emit = defineEmits<{
   (event: 'close'): void;
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const visible = defineModel<boolean>({ required: true });
 const exportType = ref<ScheduleExportType>('schedule');
 const periodType = ref<'month' | 'year'>('month');

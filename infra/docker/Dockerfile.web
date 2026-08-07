@@ -26,11 +26,9 @@ COPY . .
 
 ARG VITE_API_BASE_URL=/api
 ARG VITE_AUTH_DEV_MODE=false
-ARG VITE_CLOUDBASE_ENV_ID=
 
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_AUTH_DEV_MODE=$VITE_AUTH_DEV_MODE
-ENV VITE_CLOUDBASE_ENV_ID=$VITE_CLOUDBASE_ENV_ID
 
 # Skip vue-tsc here: typechecking runs in CI (pnpm verify). The 1.6 GiB trial
 # ECS wedges when both vue-tsc and vite run during an image build.

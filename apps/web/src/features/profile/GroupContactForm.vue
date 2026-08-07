@@ -4,7 +4,7 @@ import { ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 
 const props = defineProps<{
   readonly canConfirm: boolean;
@@ -17,7 +17,7 @@ const emit = defineEmits<{
   saved: [];
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const mobilePhone = ref('');
 const shortPhone = ref('');
 const errorMessage = ref<string>();

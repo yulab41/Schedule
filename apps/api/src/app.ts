@@ -46,10 +46,7 @@ import { registerExportRoutes } from './modules/exports/export-routes.js';
 import { registerPastScheduleRoutes } from './modules/past-schedules/past-schedule-routes.js';
 import { PastScheduleService } from './modules/past-schedules/past-schedule-service.js';
 import { ExportService } from './modules/exports/export-service.js';
-import {
-  registerAuthentication,
-  type TrustedCloudbaseContextReader,
-} from './plugins/authenticate.js';
+import { registerAuthentication } from './plugins/authenticate.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRequestContext } from './plugins/request-context.js';
 import { logRedactionPaths, redactSensitiveFields } from './security/redact.js';
@@ -65,7 +62,6 @@ export interface CreateAppOptions {
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
   readonly platformAdminUids?: ReadonlySet<string>;
-  readonly readTrustedCloudbaseContext?: TrustedCloudbaseContextReader;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
@@ -82,7 +78,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   app.get('/ready', () => getApiStatus());
 
   if (options.authPort !== undefined && options.databaseClient !== undefined) {
-    registerAuthentication(app, options.authPort, options.readTrustedCloudbaseContext);
+    registerAuthentication(app, options.authPort);
     registerUserRoutes(app, new UserService(options.databaseClient));
     registerGroupRoutes(
       app,

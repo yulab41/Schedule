@@ -4,7 +4,7 @@ GitHub Actions runs the `Verify` workflow for every push and pull request. It us
 
 ## Test Database
 
-The workflow starts an isolated MySQL 8.4 service container for the complete job. It supplies only disposable `TEST_MYSQL_*` values to the test process; it never supplies development, CloudBase, or production credentials. The service's dynamically assigned host port is provided through `TEST_MYSQL_PORT`.
+The workflow starts an isolated MySQL 8.4 service container for the complete job. It supplies only disposable `TEST_MYSQL_*` values to the test process; it never supplies development or production credentials. The service's dynamically assigned host port is provided through `TEST_MYSQL_PORT`.
 
 The current tests validate environment loading. Database integration tests introduced by later tasks use the same service and variables without changing this credential boundary.
 

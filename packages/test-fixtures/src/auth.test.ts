@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createFakeAuthPort } from './auth.js';
 
 describe('createFakeAuthPort', () => {
-  it('maps bearer tokens to cloudbase uids and rejects unknown tokens', async () => {
+  it('maps bearer tokens to external uids and rejects unknown tokens', async () => {
     const port = createFakeAuthPort((token) =>
       token === 'member-token' ? 'uid-member' : undefined,
     );

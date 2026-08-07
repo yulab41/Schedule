@@ -4,7 +4,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { registerServiceWorker, subscribeToPush } from '../../register-service-worker.js';
 import { formatReminderHours, parseReminderHoursInput } from './notification-logic.js';
 
@@ -12,7 +12,7 @@ const props = defineProps<{
   group: GroupSummary;
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const canManageSettings = computed(() => props.group.role !== 'member');
 
 const groupHoursInput = ref('');

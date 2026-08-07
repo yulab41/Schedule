@@ -11,7 +11,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import LeaveApprovalDialog from './LeaveApprovalDialog.vue';
 import {
   buildLeaveFormInterval,
@@ -33,7 +33,7 @@ const emit = defineEmits<{
   navigate: [tab: 'duty' | 'manual' | 'swap'];
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const myRequests = ref<LeaveRequest[]>([]);
 const approvals = ref<LeaveRequest[]>([]);
 const strategy = ref<GroupLeaveReflowStrategy>();

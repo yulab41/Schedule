@@ -13,7 +13,7 @@ From the repository root, create the ignored local environment file once:
 Copy-Item .env.example .env
 ```
 
-Use local-only passwords in `.env`. Do not copy CloudBase, test, or production credentials into this file.
+Use local-only passwords in `.env`. Do not copy test or production credentials into this file.
 
 ## Local Development Auth
 

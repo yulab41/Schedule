@@ -38,9 +38,10 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      # Temporary self-hosted deployment uses dev auth until the CloudBase
-      # authentication replacement task is implemented.
-      AUTH_DEV_MODE: "true"
+      # 试用期自托管部署以开发模式运行（NODE_ENV=development + AUTH_DEV_MODE=true），
+      # 使本地开发认证端口生效；正式上线前必须完成自建认证并切回 NODE_ENV=production。
+      NODE_ENV: development
+      AUTH_DEV_MODE: 'true'
       BACKUP_DIR: /data/backups
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
@@ -65,7 +66,7 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
+      - '80:80'
     volumes:
       - ../../apps/web/dist:/usr/share/nginx/html:ro
       - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro

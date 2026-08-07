@@ -13,7 +13,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
 import {
   buildDutyAdjustmentCandidates,
@@ -29,7 +29,7 @@ const props = defineProps<{
   readonly group: GroupSummary;
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendar = ref<CalendarReadModel>();
 const members = ref<GroupMember[]>([]);

@@ -11,7 +11,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import {
   formatNetDutyAdjustment,
   sortMembersByActualCount,
@@ -22,7 +22,7 @@ const props = defineProps<{
   group: GroupSummary;
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const viewMode = ref<'month' | 'year'>('month');
 const businessMonth = ref(getCurrentBusinessMonth());
 const year = ref(Number(getCurrentBusinessMonth().slice(0, 4)));

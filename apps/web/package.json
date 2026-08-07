@@ -9,7 +9,6 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@cloudbase/js-sdk": "3.7.0",
     "@schedule/contracts": "workspace:*",
     "@schedule/scheduling-domain": "workspace:*",
     "@schedule/ui-tokens": "workspace:*",

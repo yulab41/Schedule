@@ -63,7 +63,6 @@ jobs:
         run: >-
           pnpm exec prettier --check ".github/**/*.yml"
           "docs/deployment/**/*.md"
-          "infra/cloudbase/**/*.{json,js}"
 
       - name: Check formatting, lint, and types
         run: |

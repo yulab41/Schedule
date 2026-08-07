@@ -14,7 +14,7 @@ import { computed, onMounted, ref } from 'vue';
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { getConflictLatestData, isDataConflictError } from '../../api/conflict-handler.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { getTemplateDateColumns } from './manual-schedule-logic.js';
 
 const props = defineProps<{
@@ -28,7 +28,7 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const rangeStart = computed(() => props.startDate || props.template.startDate);
 const config = ref<SchedulingConfig>();
 const publishMode = ref<GroupSchedulePublishMode>();

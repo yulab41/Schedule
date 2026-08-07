@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
-import { createCloudbaseHandler } from './cloudbase-handler.js';
 import { ApiError } from './plugins/error-handler.js';
 
 const apps: FastifyInstance[] = [];
@@ -18,21 +17,6 @@ afterEach(async () => {
 });
 
 describe('API runtime', () => {
-  it('returns the same health result through local and CloudBase adapters', async () => {
-    const app = createTestApp();
-    const localResponse = await app.inject({ method: 'GET', url: '/health' });
-    const cloudbaseResponse = await createCloudbaseHandler(app)({
-      httpMethod: 'GET',
-      path: '/health',
-    });
-
-    expect(cloudbaseResponse.statusCode).toBe(localResponse.statusCode);
-    expect(JSON.parse(cloudbaseResponse.body)).toEqual(localResponse.json());
-    expect(cloudbaseResponse.headers['x-request-id']).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
-  });
-
   it('provides a ready endpoint without creating a database connection', async () => {
     const response = await createTestApp().inject({
       method: 'GET',

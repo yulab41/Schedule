@@ -3,11 +3,11 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
 import {
-  cloudbaseAuth,
+  localAuth,
   getAuthenticatedSession,
-  type CloudbaseAuthClient,
-  type CloudbaseSession,
-} from '../auth/cloudbase.js';
+  type AuthClient,
+  type AuthSession,
+} from '../auth/local-auth.js';
 import { ApiClientError, createApiClient } from '../api/client.js';
 import { toUserMessage } from '../utils/user-message.js';
 
@@ -20,7 +20,7 @@ export interface UserProfileApi {
 
 export interface SessionDependencies {
   readonly api: UserProfileApi;
-  readonly auth: CloudbaseAuthClient;
+  readonly auth: AuthClient;
 }
 
 export function createSessionManager(dependencies: SessionDependencies) {
@@ -85,7 +85,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
 
   async function completeProfile(realName: string): Promise<void> {
     clearError();
-    let session: CloudbaseSession | undefined;
+    let session: AuthSession | undefined;
     try {
       session = getAuthenticatedSession(await dependencies.auth.getSession());
     } catch (error) {
@@ -203,8 +203,8 @@ export function normalizeLoginAccount(username: string): string {
 
 export const useSessionStore = defineStore('session', () =>
   createSessionManager({
-    api: createApiClient({ auth: cloudbaseAuth }),
-    auth: cloudbaseAuth,
+    api: createApiClient({ auth: localAuth }),
+    auth: localAuth,
   }),
 );
 

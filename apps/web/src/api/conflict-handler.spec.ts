@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { vi } from 'vitest';
 
 import { ApiClientError } from './client.js';
 import {
@@ -8,10 +7,6 @@ import {
   getVersionConflictSummary,
   isDataConflictError,
 } from './conflict-handler.js';
-
-vi.mock('@cloudbase/js-sdk', () => ({
-  default: { init: vi.fn() },
-}));
 
 describe('Web conflict handler', () => {
   it('recognizes API conflict errors and reads the latest summary', () => {

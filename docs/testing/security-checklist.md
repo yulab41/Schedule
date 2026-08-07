@@ -14,20 +14,19 @@ in `tests/security/security.integration.test.ts`; the load harness
 | Partial-transaction rollback           | A stale approval returns 409 and writes no `leave_request_approved` event; every workflow suite verifies the same pattern for generation, templates, swaps, and duty adjustments.            | Pass                                     |
 | Concurrent same-shift writes           | 20 parallel swap creations on one shift leave exactly one active request (database-enforced unique index).                                                                                   | Pass (load harness)                      |
 | Sensitive log redaction                | Passwords, tokens, and telephone fields (nested, format-payload, child-binding) are replaced with `[REDACTED]`; error stacks never reach clients or logs.                                    | Pass (`apps/api/src/app.test.ts`)        |
-| No plaintext credentials               | `.env` and secrets are gitignored; CloudBase credentials are never stored in the repository; login passwords never enter application state.                                                  | Pass (repo audit, session tests)         |
+| No plaintext credentials               | `.env` and secrets are gitignored; cloud credentials are never stored in the repository; login passwords never enter application state.                                                      | Pass (repo audit, session tests)         |
 | Phone privacy in exports               | Export CSV content excludes phone numbers; export creation/download is audit-logged.                                                                                                         | Pass (export suite)                      |
 | Append-only events and audits          | No API route can update or delete `schedule_events`/`audit_logs`; corrections append linked events; production grants will be SELECT/INSERT-only.                                            | Pass (event suite)                       |
 | Platform operations audited            | Holiday import/confirm, group restore, user status changes, and deregistration each write a security-audit row.                                                                              | Pass (holiday + platform suites)         |
 | Backup encryption                      | Archives are AES-256-GCM encrypted; restore fails on a wrong key or tampered ciphertext; backup rows carry SHA-256.                                                                          | Pass (backup unit + platform suite)      |
-| Recycle-window enforcement             | Restore outside 30 days is rejected and the purge job frees group codes; deregistration nulls the CloudBase UID and clears contacts.                                                         | Pass (platform suite)                    |
+| Recycle-window enforcement             | Restore outside 30 days is rejected and the purge job frees group codes; deregistration nulls the external UID and clears contacts.                                                          | Pass (platform suite)                    |
 
 ## Residual notes
 
-- The CloudBase HTTP gateway identity context is trusted only through the
-  bounded, gzip-compressed gateway header; local mode ignores caller identity
-  headers (Task 6/30 deployment contract).
+- The API trusts only the `Authorization` header through the `AuthPort`
+  contract; caller-supplied identity headers are never trusted.
 - Rate limiting exists for group-code attempts and idempotent operation IDs; a
-  CAPTCHA provider is deferred until a CloudBase-compatible challenge service
-  can be configured without storing credentials (documented Task 8 decision).
+  CAPTCHA provider is deferred until a challenge service can be configured
+  without storing credentials (documented Task 8 decision).
 - The draft-expiry admin reminder from design 16.2 remains unimplemented
   (schema has no draft-expiry concept); revisit with the next planning batch.

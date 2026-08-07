@@ -2,12 +2,8 @@ import type { UserProfile } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ApiClientError } from '../api/client.js';
-import type { CloudbaseAuthClient, CloudbaseSession } from '../auth/cloudbase.js';
+import type { AuthClient, AuthSession } from '../auth/local-auth.js';
 import { createSessionManager, type UserProfileApi } from './session.js';
-
-vi.mock('@cloudbase/js-sdk', () => ({
-  default: { init: vi.fn() },
-}));
 
 const profile: UserProfile = {
   id: 'profile-1',
@@ -15,13 +11,13 @@ const profile: UserProfile = {
   version: 1,
 };
 
-const authenticatedSession: CloudbaseSession = {
+const authenticatedSession: AuthSession = {
   access_token: 'signed-in-token',
   user: { is_anonymous: false },
 };
 
 describe('session manager', () => {
-  it('recovers a verified CloudBase session before exposing protected data', async () => {
+  it('recovers a verified session before exposing protected data', async () => {
     const api = createApiClient();
     const auth = createAuthClient();
     const manager = createSessionManager({ api, auth });
@@ -33,7 +29,7 @@ describe('session manager', () => {
     expect(manager.status.value).toBe('authenticated');
   });
 
-  it('remains anonymous without a confirmed CloudBase session', async () => {
+  it('remains anonymous without a confirmed session', async () => {
     const api = createApiClient();
     const auth = createAuthClient({
       getSession: vi.fn().mockResolvedValue({ data: {} }),
@@ -82,7 +78,7 @@ describe('session manager', () => {
     expect(auth.signInWithPassword).toHaveBeenCalledTimes(1);
   });
 
-  it('clears protected state even when CloudBase sign-out fails', async () => {
+  it('clears protected state even when sign-out fails', async () => {
     const manager = createSessionManager({
       api: createApiClient(),
       auth: createAuthClient({
@@ -97,7 +93,7 @@ describe('session manager', () => {
     expect(manager.status.value).toBe('anonymous');
   });
 
-  it('treats a missing CloudBase credential as anonymous instead of an error', async () => {
+  it('treats a missing credential as anonymous instead of an error', async () => {
     const api = createApiClient();
     const auth = createAuthClient({
       getSession: vi.fn().mockRejectedValue(new Error('credentials not found')),
@@ -134,7 +130,7 @@ function createApiClient(overrides: Partial<UserProfileApi> = {}): UserProfileAp
   };
 }
 
-function createAuthClient(overrides: Partial<CloudbaseAuthClient> = {}): CloudbaseAuthClient {
+function createAuthClient(overrides: Partial<AuthClient> = {}): AuthClient {
   return {
     clearDevIdentity: vi.fn(),
     getSession: vi.fn().mockResolvedValue({ data: { session: authenticatedSession } }),

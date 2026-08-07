@@ -10,7 +10,7 @@ import { computed, onMounted, ref } from 'vue';
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { isDataConflictError } from '../../api/conflict-handler.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import {
   formatAffectedAssignment,
   formatLeaveRange,
@@ -31,7 +31,7 @@ const emit = defineEmits<{
   navigate: [tab: 'duty' | 'manual' | 'swap'];
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const visible = ref(true);
 const preview = ref<LeaveReflowPreview>();
 const strategy = ref<LeaveReflowStrategy>(props.request.reflowStrategy);

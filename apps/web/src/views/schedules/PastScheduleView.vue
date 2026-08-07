@@ -13,7 +13,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import {
   addBusinessMonths,
@@ -31,7 +31,7 @@ const props = defineProps<{
   readonly group: GroupSummary;
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const config = ref<SchedulingConfig>();
 const periods = ref<readonly PastSchedulePeriod[]>([]);
 const businessMonth = ref(getCurrentBusinessMonth());

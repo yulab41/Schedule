@@ -1,21 +1,18 @@
 import { createDatabaseClient } from '@schedule/database';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 
-import {
-  createCloudbaseAuthPort,
-  createCloudbaseHttpAuthPort,
-} from './adapters/auth/cloudbase-auth.js';
+import type { AuthPort } from './adapters/auth/auth-port.js';
 import { createDevAuthPort } from './adapters/auth/dev-auth.js';
 import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
 import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
 
 interface RuntimeAppOptions {
-  readonly cloudbaseHttpGateway?: boolean;
+  readonly authPort?: AuthPort;
 }
 
 /**
- * Dev auth accepts any Bearer token as a CloudBase UID, so it must never
+ * Dev auth accepts any Bearer token as an external UID, so it must never
  * activate outside an explicitly opted-in development process.
  */
 export function isDevAuthEnabled(environment: Environment): boolean {
@@ -26,6 +23,14 @@ export function createRuntimeApp(
   environment: Environment = loadEnvironment(),
   options: RuntimeAppOptions = {},
 ): FastifyInstance {
+  const authPort =
+    options.authPort ?? (isDevAuthEnabled(environment) ? createDevAuthPort() : undefined);
+  if (authPort === undefined) {
+    throw new Error(
+      'No authentication port configured. Enable AUTH_DEV_MODE in development or pass an authPort.',
+    );
+  }
+
   const databaseClient = createDatabaseClient({
     database: environment.MYSQL_DATABASE,
     host: environment.MYSQL_HOST,
@@ -34,15 +39,8 @@ export function createRuntimeApp(
     user: environment.MYSQL_USER,
   });
   const app = createApp({
-    authPort: options.cloudbaseHttpGateway
-      ? createCloudbaseHttpAuthPort()
-      : isDevAuthEnabled(environment)
-        ? createDevAuthPort()
-        : createCloudbaseAuthPort(),
+    authPort,
     databaseClient,
-    ...(options.cloudbaseHttpGateway
-      ? { readTrustedCloudbaseContext: readCloudbaseGatewayContext }
-      : {}),
   });
 
   const workflowSelfHealingService = new WorkflowSelfHealingService(databaseClient);
@@ -56,15 +54,4 @@ export function createRuntimeApp(
   app.addHook('onClose', async () => databaseClient.close());
 
   return app;
-}
-
-export function createCloudbaseRuntimeApp(
-  environment: Environment = loadEnvironment(),
-): FastifyInstance {
-  return createRuntimeApp(environment, { cloudbaseHttpGateway: true });
-}
-
-function readCloudbaseGatewayContext(request: FastifyRequest): string | undefined {
-  const context = request.headers['x-cloudbase-context'];
-  return typeof context === 'string' ? context : undefined;
 }

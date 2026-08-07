@@ -23,7 +23,7 @@ import {
   getVersionConflictSummary,
   isDataConflictError,
 } from '../../api/conflict-handler.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
 import { getBusinessDate } from '../../features/calendar/calendar-views.js';
@@ -56,7 +56,7 @@ const emit = defineEmits<{
   navigate: [tab: 'backfill'];
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const config = ref<SchedulingConfig>();
 const templates = ref<ManualScheduleTemplate[]>([]);
 const history = ref<SchedulePeriodHistoryItem[]>([]);

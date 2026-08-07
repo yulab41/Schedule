@@ -9,7 +9,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
-import { cloudbaseAuth } from '../../auth/cloudbase.js';
+import { localAuth } from '../../auth/local-auth.js';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
 import EventTimeline from '../../features/events/EventTimeline.vue';
 import {
@@ -22,7 +22,7 @@ const props = defineProps<{
   readonly group: GroupSummary;
 }>();
 
-const api = createApiClient({ auth: cloudbaseAuth });
+const api = createApiClient({ auth: localAuth });
 const calendar = ref<CalendarReadModel>();
 const from = ref('');
 const to = ref('');
