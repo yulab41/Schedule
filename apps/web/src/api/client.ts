@@ -165,6 +165,7 @@ import {
   scheduleDraftSummaryListSchema,
   scheduleEventDetailSchema,
   scheduleEventPageSchema,
+  scheduleExportJobSchema,
   scheduleGenerationPreviewSchema,
   scheduleRoleSchema,
   schedulePeriodHistoryItemListSchema,
@@ -177,6 +178,7 @@ import {
   statisticsRecalculateCheckResultSchema,
   unreadCountResultSchema,
   updatePastScheduleAssignmentResultSchema,
+  userProfileSchema,
   yearStatisticsSchema,
 } from '@schedule/contracts';
 import { getAuthenticatedSession, type CloudbaseAuthClient } from '../auth/cloudbase.js';
@@ -575,7 +577,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isScheduleExportJob,
+        isResponseBodyFromSchema(scheduleExportJobSchema),
       );
     },
     downloadExport(groupId, exportJobId) {
@@ -594,7 +596,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}`,
         { method: 'GET' },
-        isScheduleExportJob,
+        isResponseBodyFromSchema(scheduleExportJobSchema),
       );
     },
     getMonthStatistics(groupId, businessMonth) {
@@ -1073,7 +1075,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify(input),
           method: 'POST',
         },
-        isUserProfile,
+        isResponseBodyFromSchema(userProfileSchema),
       );
     },
     deleteGroup(groupId) {
@@ -1164,7 +1166,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         baseUrl,
         '/users/me',
         { method: 'GET' },
-        isUserProfile,
+        isResponseBodyFromSchema(userProfileSchema),
       );
     },
     updateProfile(realName) {
@@ -1177,7 +1179,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           body: JSON.stringify({ realName }),
           method: 'PATCH',
         },
-        isUserProfile,
+        isResponseBodyFromSchema(userProfileSchema),
       );
     },
     getHolidays(year) {
@@ -2132,48 +2134,6 @@ function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
     typeof error.message === 'string' &&
     'requestId' in error &&
     typeof error.requestId === 'string'
-  );
-}
-
-function isUserProfile(value: unknown): value is UserProfile {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-
-  const profile = value as Partial<UserProfile>;
-  return (
-    typeof profile.id === 'string' &&
-    profile.id.length > 0 &&
-    typeof profile.realName === 'string' &&
-    profile.realName.length > 0 &&
-    typeof profile.version === 'number' &&
-    Number.isInteger(profile.version) &&
-    profile.version >= 1
-  );
-}
-
-function isScheduleExportJob(value: unknown): value is ScheduleExportJob {
-  if (value === null || typeof value !== 'object') {
-    return false;
-  }
-  const job = value as Partial<ScheduleExportJob>;
-  return (
-    typeof job.id === 'string' &&
-    typeof job.groupId === 'string' &&
-    (job.exportType === 'schedule' || job.exportType === 'statistics') &&
-    (job.periodType === 'month' || job.periodType === 'year') &&
-    typeof job.period === 'string' &&
-    (job.status === 'pending' ||
-      job.status === 'running' ||
-      job.status === 'completed' ||
-      job.status === 'failed') &&
-    typeof job.createdAt === 'string' &&
-    (job.completedAt === undefined || typeof job.completedAt === 'string') &&
-    (job.error === undefined || typeof job.error === 'string') &&
-    (job.expiresAt === undefined || typeof job.expiresAt === 'string') &&
-    (job.membershipId === undefined || typeof job.membershipId === 'string') &&
-    (job.roleId === undefined || typeof job.roleId === 'string') &&
-    (job.rowCount === undefined || typeof job.rowCount === 'number')
   );
 }
 

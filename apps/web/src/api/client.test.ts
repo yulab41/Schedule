@@ -30,6 +30,7 @@ import type {
   ScheduleEvent,
   ScheduleGenerationPreview,
   SchedulePeriodHistoryItem,
+  ScheduleExportJob,
   ScheduleRole,
   StatisticsMemberRow,
   StatisticsRecalculateCheckResult,
@@ -543,6 +544,16 @@ const statisticsRecalculateCheckResult: StatisticsRecalculateCheckResult = {
   recomputed: statisticsSummary,
   snapshot: statisticsSummary,
   snapshotVersion: 1,
+};
+
+const scheduleExportJob: ScheduleExportJob = {
+  createdAt: '2026-08-01T00:00:00.000Z',
+  exportType: 'schedule',
+  groupId: 'group-1',
+  id: 'export-1',
+  period: '2026-08',
+  periodType: 'month',
+  status: 'completed',
 };
 
 const manualTemplate: ManualScheduleTemplate = {
@@ -2718,6 +2729,127 @@ describe('Web API client', () => {
     });
 
     await expect(client.getMonthStatistics(group.id, '2026-08')).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an export job with an unknown export type', async () => {
+    const invalidJob = { ...scheduleExportJob, exportType: 'csv' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidJob), { status: 201 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.createExportJob(group.id, { exportType: 'schedule', period: '2026-08' }),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 201,
+    });
+  });
+
+  it('rejects an export job with an unknown status', async () => {
+    const invalidJob = { ...scheduleExportJob, status: 'unknown' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidJob), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getExportJob(group.id, scheduleExportJob.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an export job with a non-string period', async () => {
+    const invalidJob = { ...scheduleExportJob, period: 202608 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidJob), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getExportJob(group.id, scheduleExportJob.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects an export job missing createdAt', async () => {
+    const invalidJob = {
+      exportType: scheduleExportJob.exportType,
+      groupId: scheduleExportJob.groupId,
+      id: scheduleExportJob.id,
+      period: scheduleExportJob.period,
+      periodType: scheduleExportJob.periodType,
+      status: scheduleExportJob.status,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidJob), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getExportJob(group.id, scheduleExportJob.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a user profile with an empty id', async () => {
+    const invalidProfile = { ...profile, id: '' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidProfile), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getCurrentProfile()).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a user profile with an empty real name', async () => {
+    const invalidProfile = { ...profile, realName: '' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidProfile), { status: 201 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.createCurrentProfile({ realName: '张医生' })).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 201,
+    });
+  });
+
+  it('rejects a user profile with a non-integer version', async () => {
+    const invalidProfile = { ...profile, version: 1.5 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidProfile), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.updateProfile('张医生')).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });

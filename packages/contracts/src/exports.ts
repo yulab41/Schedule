@@ -1,6 +1,11 @@
-export type ScheduleExportType = 'schedule' | 'statistics';
-export type ScheduleExportPeriodType = 'month' | 'year';
-export type ScheduleExportStatus = 'completed' | 'failed' | 'pending' | 'running';
+import { z } from 'zod';
+
+export const scheduleExportTypeSchema = z.enum(['schedule', 'statistics']);
+export type ScheduleExportType = z.infer<typeof scheduleExportTypeSchema>;
+export const scheduleExportPeriodTypeSchema = z.enum(['month', 'year']);
+export type ScheduleExportPeriodType = z.infer<typeof scheduleExportPeriodTypeSchema>;
+export const scheduleExportStatusSchema = z.enum(['completed', 'failed', 'pending', 'running']);
+export type ScheduleExportStatus = z.infer<typeof scheduleExportStatusSchema>;
 
 export interface CreateScheduleExportInput {
   readonly exportType: ScheduleExportType;
@@ -9,18 +14,21 @@ export interface CreateScheduleExportInput {
   readonly roleId?: string;
 }
 
-export interface ScheduleExportJob {
-  readonly completedAt?: string;
-  readonly createdAt: string;
-  readonly error?: string;
-  readonly expiresAt?: string;
-  readonly exportType: ScheduleExportType;
-  readonly groupId: string;
-  readonly id: string;
-  readonly membershipId?: string;
-  readonly period: string;
-  readonly periodType: ScheduleExportPeriodType;
-  readonly roleId?: string;
-  readonly rowCount?: number;
-  readonly status: ScheduleExportStatus;
-}
+export const scheduleExportJobSchema = z
+  .object({
+    completedAt: z.string().optional(),
+    createdAt: z.string(),
+    error: z.string().optional(),
+    expiresAt: z.string().optional(),
+    exportType: scheduleExportTypeSchema,
+    groupId: z.string(),
+    id: z.string(),
+    membershipId: z.string().optional(),
+    period: z.string(),
+    periodType: scheduleExportPeriodTypeSchema,
+    roleId: z.string().optional(),
+    rowCount: z.number().optional(),
+    status: scheduleExportStatusSchema,
+  })
+  .passthrough();
+export type ScheduleExportJob = z.infer<typeof scheduleExportJobSchema>;
