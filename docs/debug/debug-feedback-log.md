@@ -724,7 +724,7 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（涉及 contracts + PWA，记录已满足校验）。
 - 状态：#4.5 ✅、#7.6 ✅（待用户强刷复核：日历不再显示“调”、生成/发布过去月份提示补录）。
 
-### 轮次 32（fix-progress #3.5，提交：fix(api): treat only duplicate key errors as idempotency replays）
+### 轮次 32（fix-progress #3.5，提交：370bb87 fix(api): treat only duplicate key errors as idempotency replays）
 - 目标/需求：幂等键首次 insert 的宽 catch 把“唯一键冲突”和“数据库故障”混为一谈，故障路径会做两次无谓插入尝试；改为仅 MySQL 重复键（`ER_DUP_ENTRY`）走查重路径。
 - 根因：`withIdempotentOperation` 的 catch 无异常类型判断，任何 insert 失败都会先读再插。
 - 修复/功能：新增 `apps/api/src/database-error.ts` 的 `getDatabaseErrorCode`（沿 code/cause 链读取驱动错误码）与 `isDuplicateKeyError`；`idempotency.ts` 的 catch 改为非重复键立即 rethrow，重复键路径（查重/指纹冲突/completed 重放/processing 冲突/过期重试）逐分支不变。

@@ -1050,7 +1050,7 @@
 
 状态：#3.5 ✅。
 
-提交：`fix(api): treat only duplicate key errors as idempotency replays`（提交后回填短哈希），推送结果见对话回复
+提交：370bb87（`fix(api): treat only duplicate key errors as idempotency replays`），推送结果见对话回复
 
 不确定点：1. mysql2 重复键错误码依赖驱动形态（`code='ER_DUP_ENTRY'`，可能包在 `cause` 里）；helper 已覆盖直接/包装两种形态，若未来换驱动需同步。2. group-service 私有 `getDatabaseErrorCode` 与 user-service 内联 `ER_DUP_ENTRY` 检查仍各自实现，可后续统一到本助手（未顺手改）。3. 并发双请求同时插入：一个成功、一个 ER_DUP_ENTRY 后进入 processing 冲突分支返回 409（行为不变）。
 
