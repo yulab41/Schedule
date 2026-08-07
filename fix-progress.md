@@ -70,8 +70,8 @@
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
 | ✅ | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 已完成（轮次 12–22）：子步骤 1–3 全部完成，113 个读模型守卫替换为契约 schema，见第 7 节 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
-| P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
-| P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
+| ✅ | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 已完成（轮次 23）：合并共享 workflow 逻辑，见第 7 节 |
+| ✅ | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 已完成（轮次 24）：抽共享 toUserMessage，见第 7 节 |
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
 | P2 | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 按状态码映射并补测试 |
 | P2 | #4.2/#4.3 | 冲突断言双轨 + 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 必须在 #4.1 之后做，拆多轮 |
@@ -838,3 +838,27 @@
 不确定点：1. `filterFutureAssignments` 未暴露显式时钟参数，测试用 2000/2099 远年日期避免依赖当前时间；若未来需要可注入时钟，可加可选 `now` 并在共享 builder 透传。2. 共享 `WorkflowRequestStatus = SwapRequestStatus | DutyAdjustmentStatus` 依赖两个契约状态枚举当前完全同构；若未来二者分化，需把参数化文案/映射拆回各自模块。3. swap/duty 的 `formatXAssignmentOption`、`formatXShiftTime` 与 `formatChinaStandardTime` 仍各复制一份（审计卡未列入本项范围），如需一并收敛可另开一轮。
 
 下次计划：按清单继续 #8.1（15 个页面重复错误文案模板抽 `toUserMessage`）；同时等待用户强刷复核轮次 57 及既往排班/换班/加扣班相关验收项。
+
+### 轮次 24 – 2026-08-07
+
+目标：#8.1 —— 抽取共享 `toUserMessage(error, fallback)`，替换视图/组件里重复的 `error instanceof ApiClientError ? error.message : '<兜底>'` 与 `error instanceof Error && error.message.length > 0 ? ...` 模板，统一错误文案处理规则；纯重构，文案字面逐页保留。
+
+引入点：审计驱动的重构而非回归修复；重复模板由各页面在功能开发时逐页复制产生（审计卡 #8.1，无单一引入提交），组件侧存在 `ApiClientError` 与 `Error` 两种变体，而 `stores/session.ts` 早已有共享 `getErrorMessage`（Error 语义）未被组件复用。
+
+为什么现有测试没拦住：组件本地 `getErrorMessage` 无任何单测锁定；`pnpm verify` 只覆盖编译、契约与共享逻辑，不校验页面级文案模板。新增 `apps/web/src/utils/user-message.spec.ts` 4 条锁定测试覆盖 ApiClientError、普通 Error、空 message、非 Error 四类输入。
+
+修改文件：新增 `apps/web/src/utils/user-message.ts`（`toUserMessage(error, fallback)` = `error instanceof Error && error.message.length > 0 ? error.message : fallback`）与 `user-message.spec.ts`；21 个调用方删除本地 `getErrorMessage`/内联三元并改用 `toUserMessage(error, '<原兜底文案>')`：GuestScheduleView（2 处内联）、HomeView、EventCenterView、PastScheduleView、CalendarView、ManualScheduleView、GroupContactForm、StatisticsView、SchedulingConfigPanel、DutyAdjustmentPanel（保留 ApiClientError 冲突判断）、GroupSetupPanel、ApplyTemplateDialog、MemberManager、LeaveApprovalDialog、LeavePanel、SwapPanel（保留 ApiClientError 冲突判断）、ExportDialog、NotificationCenterPanel、NotificationSettingsPanel、LoginView、stores/session.ts（删除导出 `getErrorMessage`，内部与登录页改用 `toUserMessage(error, '操作未完成，请稍后重试。')`）；16 个仅用 `ApiClientError` 做文案判断的文件移除该导入。
+
+语义等价审计：逐调用点对比——原 15 个 ApiClientError 模板仅在 `ApiClientError` 时返回 message；新统一规则对任何 `Error`（含 ApiClientError）返回非空 message，否则兜底。行为变化清单：①非 ApiClientError 的 Error 在原先只判 ApiClientError 的页面从“显示兜底”变为“显示其 message”，与 session store/登录页既有行为一致（有意的统一）；②message 为空的 ApiClientError 从返回空串变为显示兜底；③ExportDialog/NotificationCenterPanel/NotificationSettingsPanel/session/LoginView 语义完全不变；④兜底文案逐页保留原值（参数化）；纯同步纯函数，无 this/接收者、异步/错误路径、空值或副作用差异，调用次数 1:1。
+
+测试结果：`pnpm verify` 572/572 ✅（70 个测试文件，隔离 MySQL；新增 4 条 toUserMessage 锁定测试）。
+
+运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（本轮涉及核心链路 `stores/session.ts`，记录已满足校验）。
+
+状态：已完成（单测 + 浏览器冒烟通过；待用户本地验收时强刷复核各页面 API 错误提示不变）。
+
+提交：`refactor(web): extract shared toUserMessage for error copy`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. 统一为 Error 语义后，原先只显示 ApiClientError 的页面若捕获到非 ApiClientError 的 Error，会显示其原始 message 而非兜底文案——出错症状是用户看到技术性英文/异常文本；如不希望暴露，可改为只接受 ApiClientError 并把 session 登录错误单独保留。2. GuestScheduleView 的两处兜底（群组/排班）与其他页面的“数据/日历/记录”措辞不同，本次按参数保留原值；若后续要彻底统一字面，需产品确认。3. 非 Error 实例但带 message 的普通对象仍走兜底（与旧行为一致），本轮未扩展。
+
+下次计划：按清单继续 #3.7（框架 4xx 全部归一化为 VALIDATION_FAILED，按状态码映射并补测试）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。

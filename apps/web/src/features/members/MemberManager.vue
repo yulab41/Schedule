@@ -8,7 +8,8 @@ import type {
 } from '@schedule/contracts';
 import { computed, ref, watch } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { hasDuplicateRosterName, parseRosterNames } from '../groups/roster-input.js';
 import GroupContactForm from '../profile/GroupContactForm.vue';
@@ -93,7 +94,7 @@ async function loadMembers(): Promise<void> {
     }
   } catch (error) {
     if (currentRequest === requestVersion) {
-      errorMessage.value = getErrorMessage(error);
+      errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
     }
   } finally {
     if (currentRequest === requestVersion) {
@@ -110,7 +111,7 @@ async function updateRole(member: GroupMember, role: 'administrator' | 'member')
     await api.updateGroupMemberRole(props.group.id, member.id, { role });
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -136,7 +137,7 @@ async function addMembers(): Promise<void> {
     rosterMessage.value = `已添加 ${result.added} 位成员，可直接填写手机号和参与排班；成员登录后用真实姓名和群组码认领即可绑定账号。`;
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isAddingRoster.value = false;
   }
@@ -165,7 +166,7 @@ async function convertPending(names: readonly string[]): Promise<void> {
         : `已转正 ${result.converted} 位成员。`;
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -188,7 +189,7 @@ async function deleteMember(member: GroupMember): Promise<void> {
     rosterMessage.value = `已删除${label}“${member.realName}”。`;
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isDeletingMemberId.value = undefined;
   }
@@ -206,7 +207,7 @@ async function transferOwnership(member: GroupMember): Promise<void> {
     await loadMembers();
     emit('group-changed');
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -223,7 +224,7 @@ async function deleteGroup(): Promise<void> {
     await api.deleteGroup(props.group.id);
     emit('group-changed');
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -251,7 +252,7 @@ async function submitIdentity(): Promise<void> {
     selectedClaimTargetId.value = lookup.matches[0]?.membershipId;
     identityDialogVisible.value = true;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isCheckingIdentity.value = false;
   }
@@ -274,7 +275,7 @@ async function confirmIdentityClaim(): Promise<void> {
       : '已向管理员发送认领申请，等待批准后生效。';
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -296,7 +297,7 @@ async function claimMember(member: GroupMember): Promise<void> {
       : `已向管理员发送认领“${member.realName}”的申请，等待批准后生效。`;
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -313,7 +314,7 @@ async function revokeClaim(member: GroupMember): Promise<void> {
     identityMessage.value = `已撤销成员“${member.realName}”的认领。`;
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -340,7 +341,7 @@ async function decideClaim(request: MembershipClaimRequest, approve: boolean): P
     identityMessage.value = approve ? '已同意该认领申请。' : '已驳回该认领申请。';
     await loadMembers();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
     isUpdating.value = false;
   }
@@ -389,10 +390,6 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
     case 'cancelled':
       return '已取消';
   }
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '成员数据暂时无法加载，请稍后重试。';
 }
 </script>
 

@@ -9,6 +9,7 @@ import {
   type CloudbaseSession,
 } from '../auth/cloudbase.js';
 import { ApiClientError, createApiClient } from '../api/client.js';
+import { toUserMessage } from '../utils/user-message.js';
 
 export type SessionStatus = 'anonymous' | 'authenticated' | 'error' | 'loading' | 'needs-profile';
 
@@ -170,7 +171,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
     }
 
     status.value = fallbackStatus;
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   }
 
   function clearSession(): void {
@@ -212,14 +213,6 @@ export class SessionError extends Error {
     super(message);
     this.name = 'SessionError';
   }
-}
-
-export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.length > 0) {
-    return error.message;
-  }
-
-  return '操作未完成，请稍后重试。';
 }
 
 function isMissingSessionError(error: unknown): boolean {

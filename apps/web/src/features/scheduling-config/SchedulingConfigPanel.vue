@@ -3,7 +3,8 @@ import type { GroupSummary, ScheduleRole, ShiftType, ShiftTypeInput } from '@sch
 import { getBestContrastRatio, pickReadableTextColor } from '@schedule/ui-tokens';
 import { ref, watch } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 
 interface ShiftTypeDraft {
@@ -64,7 +65,7 @@ async function loadConfig(): Promise<void> {
     }
   } catch (error) {
     if (currentRequest === requestVersion) {
-      errorMessage.value = getErrorMessage(error);
+      errorMessage.value = toUserMessage(error, '排班配置暂时无法保存，请稍后重试。');
     }
   } finally {
     if (currentRequest === requestVersion) {
@@ -150,7 +151,7 @@ async function save(operation: () => Promise<void>): Promise<boolean> {
     await loadConfig();
     return true;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '排班配置暂时无法保存，请稍后重试。');
     return false;
   } finally {
     isSaving.value = false;
@@ -229,10 +230,6 @@ function previewStyle(draft: ShiftTypeDraft): { backgroundColor: string; color: 
 
 function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
   return getBestContrastRatio(draft.color) < 4.5;
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '排班配置暂时无法保存，请稍后重试。';
 }
 </script>
 

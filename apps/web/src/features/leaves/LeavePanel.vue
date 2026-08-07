@@ -9,7 +9,8 @@ import type {
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import LeaveApprovalDialog from './LeaveApprovalDialog.vue';
 import {
@@ -87,7 +88,7 @@ async function loadData(): Promise<void> {
     approvals.value = nextApprovals;
     strategy.value = nextStrategy;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '请假数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -120,7 +121,7 @@ async function submit(): Promise<void> {
     reason.value = '';
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '请假数据暂时无法加载，请稍后重试。');
   } finally {
     isSubmitting.value = false;
   }
@@ -173,7 +174,7 @@ async function updateStrategy(
     });
     infoMessage.value = '群组默认重排策略已更新，新提交的请假将使用该策略。';
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '请假数据暂时无法加载，请稍后重试。');
   }
 }
 
@@ -219,7 +220,7 @@ async function runLeaveMutation(
     infoMessage.value = successMessage;
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '请假数据暂时无法加载，请稍后重试。');
   }
 }
 
@@ -231,10 +232,6 @@ function onApprovalChanged(): void {
 
 function navigateTo(tab: 'duty' | 'manual' | 'swap'): void {
   emit('navigate', tab);
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '请假数据暂时无法加载，请稍后重试。';
 }
 
 void loadData();

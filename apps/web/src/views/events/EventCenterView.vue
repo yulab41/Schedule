@@ -7,7 +7,8 @@ import type {
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
 import EventTimeline from '../../features/events/EventTimeline.vue';
@@ -114,7 +115,7 @@ async function loadEvents(): Promise<void> {
     events.value = [...page.events];
     nextCursor.value = page.nextCursor;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '事件数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -133,7 +134,7 @@ async function loadMore(): Promise<void> {
     events.value = [...events.value, ...page.events];
     nextCursor.value = page.nextCursor;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '事件数据暂时无法加载，请稍后重试。');
   } finally {
     isLoadingMore.value = false;
   }
@@ -145,7 +146,7 @@ async function openDetail(event: ScheduleEvent): Promise<void> {
     detail.value = await api.getEventDetail(props.group.id, event.id);
     detailVisible.value = true;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '事件数据暂时无法加载，请稍后重试。');
   } finally {
     isLoadingDetail.value = false;
   }
@@ -176,10 +177,6 @@ function affectedMemberNames(event: ScheduleEvent): string {
   return event.affectedMembershipIds
     .map((membershipId) => memberNameById.value.get(membershipId) ?? '未知成员')
     .join('、');
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '事件数据暂时无法加载，请稍后重试。';
 }
 </script>
 

@@ -3,6 +3,7 @@ import type { NotificationRecord } from '@schedule/contracts';
 import { onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { formatNotificationTime, getNotificationLabel } from './notification-logic.js';
 
@@ -34,7 +35,7 @@ async function loadMore(): Promise<void> {
     nextCursor.value = page.nextCursor;
     emitUnreadChanged();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '通知数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -68,12 +69,6 @@ async function markAllRead(): Promise<void> {
 function emitUnreadChanged(): void {
   const unreadCount = notifications.value.filter((entry) => !entry.isRead).length;
   emit('unread-changed', unreadCount);
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message.length > 0
-    ? error.message
-    : '通知数据暂时无法加载，请稍后重试。';
 }
 </script>
 

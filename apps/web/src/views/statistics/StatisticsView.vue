@@ -9,7 +9,8 @@ import type {
 import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { computed, onMounted, ref } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import {
   formatNetDutyAdjustment,
@@ -54,7 +55,7 @@ async function load(): Promise<void> {
       monthData.value = undefined;
     }
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '统计数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -66,7 +67,7 @@ async function refreshSnapshot(): Promise<void> {
   try {
     monthData.value = await api.refreshMonthStatistics(props.group.id, businessMonth.value);
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '统计数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -78,14 +79,10 @@ async function runRecalculateCheck(): Promise<void> {
   try {
     checkResult.value = await api.recalculateStatistics(props.group.id, businessMonth.value);
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '统计数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '统计数据暂时无法加载，请稍后重试。';
 }
 </script>
 

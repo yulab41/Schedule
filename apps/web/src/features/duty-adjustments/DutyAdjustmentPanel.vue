@@ -12,6 +12,7 @@ import type {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
 import {
@@ -160,7 +161,7 @@ async function loadData(): Promise<void> {
     const currentUser = nextMembers.find((member) => member.isCurrentUser);
     myMembershipId.value = currentUser?.id;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '加扣班数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -220,7 +221,7 @@ async function computePreview(): Promise<void> {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
       await loadData();
     }
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '加扣班数据暂时无法加载，请稍后重试。');
   } finally {
     isPreviewing.value = false;
   }
@@ -255,7 +256,7 @@ async function submit(): Promise<void> {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
       await loadData();
     }
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '加扣班数据暂时无法加载，请稍后重试。');
   } finally {
     isSubmitting.value = false;
   }
@@ -283,7 +284,7 @@ async function submitDirect(): Promise<void> {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
       await loadData();
     }
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '加扣班数据暂时无法加载，请稍后重试。');
   } finally {
     isAdminSubmitting.value = false;
   }
@@ -358,7 +359,7 @@ async function runMutation(mutation: () => Promise<DutyAdjustmentRequest>): Prom
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
       await loadData();
     }
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '加扣班数据暂时无法加载，请稍后重试。');
   }
 }
 
@@ -369,7 +370,7 @@ async function updateGroupRequiresApproval(checked: boolean): Promise<void> {
     });
     infoMessage.value = checked ? '加扣班已改为需要管理员审批。' : '加扣班已改为无需管理员审批。';
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '加扣班数据暂时无法加载，请稍后重试。');
   }
 }
 
@@ -380,7 +381,7 @@ async function updateAutoAccept(checked: boolean): Promise<void> {
     });
     infoMessage.value = checked ? '已开启自动接受换班/加扣班。' : '已关闭自动接受换班/加扣班。';
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '加扣班数据暂时无法加载，请稍后重试。');
   }
 }
 
@@ -392,10 +393,6 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
   return request.overtimeMembershipId === myMembershipId.value
     ? (request.deductedMemberName ?? '')
     : (request.overtimeMemberName ?? '');
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '加扣班数据暂时无法加载，请稍后重试。';
 }
 </script>
 

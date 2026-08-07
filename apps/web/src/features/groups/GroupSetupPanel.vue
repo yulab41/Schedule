@@ -2,7 +2,8 @@
 import type { GroupSummary } from '@schedule/contracts';
 import { computed, ref } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { hasDuplicateRosterName, parseRosterNames } from './roster-input.js';
 
@@ -41,7 +42,7 @@ async function createGroup(): Promise<void> {
     emit('groups-changed', createdGroup.value.id);
     infoMessage.value = '群组已创建。请将待认领人员逐行粘贴到下方名单中。';
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
     isCreating.value = false;
   }
@@ -72,7 +73,7 @@ async function saveRoster(): Promise<void> {
     rosterNames.value = '';
     infoMessage.value = `已添加 ${result.added} 位成员（未认领状态，已可转正排班；成员用真实姓名和群组码认领后自动绑定账号）。`;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
     isSavingRoster.value = false;
   }
@@ -90,7 +91,7 @@ async function regenerateCode(): Promise<void> {
     createdGroup.value = await api.regenerateGroupCode(createdGroup.value.id, {});
     infoMessage.value = '群组码已更新，旧码立即失效。';
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
     isRegeneratingCode.value = false;
   }
@@ -117,7 +118,7 @@ async function claimGroup(): Promise<void> {
 
     infoMessage.value = '已向管理员提交添加人员请求，群组排班暂不会开放。';
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
     isClaiming.value = false;
   }
@@ -126,14 +127,6 @@ async function claimGroup(): Promise<void> {
 function resetMessages(): void {
   errorMessage.value = undefined;
   infoMessage.value = undefined;
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    return error.message;
-  }
-
-  return '操作未完成，请稍后重试。';
 }
 </script>
 

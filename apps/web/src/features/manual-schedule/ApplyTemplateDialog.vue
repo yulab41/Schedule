@@ -11,7 +11,8 @@ import type {
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { getConflictLatestData, isDataConflictError } from '../../api/conflict-handler.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { getTemplateDateColumns } from './manual-schedule-logic.js';
@@ -94,7 +95,7 @@ async function loadContext(): Promise<void> {
     publishMode.value = nextPublishMode;
     drafts.value = nextDrafts;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法应用，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -127,7 +128,7 @@ async function computePreview(): Promise<void> {
     if (isDataConflictError(error)) {
       await loadContext();
     }
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法应用，请稍后重试。');
   } finally {
     isPreviewing.value = false;
   }
@@ -191,7 +192,7 @@ async function apply(): Promise<void> {
       }
       await loadContext();
     }
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法应用，请稍后重试。');
   } finally {
     isApplying.value = false;
   }
@@ -204,14 +205,6 @@ function close(): void {
 function getDefaultEndDate(): string {
   const columns = getTemplateDateColumns(rangeStart.value, props.template.cycleDays);
   return columns[columns.length - 1]?.date ?? rangeStart.value;
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    return error.message;
-  }
-
-  return '模板暂时无法应用，请稍后重试。';
 }
 
 function workflowKindLabel(impact: ScheduleWorkflowImpact): string {

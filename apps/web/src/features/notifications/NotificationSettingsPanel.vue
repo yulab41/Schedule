@@ -3,6 +3,7 @@ import type { GroupSummary } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { registerServiceWorker, subscribeToPush } from '../../register-service-worker.js';
 import { formatReminderHours, parseReminderHoursInput } from './notification-logic.js';
@@ -53,7 +54,7 @@ async function load(): Promise<void> {
       groupHoursInput.value = formatReminderHours(groupSettings.dutyReminderHours);
     }
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '通知设置暂时无法保存，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -65,7 +66,7 @@ async function saveGroupSettings(): Promise<void> {
     await api.updateGroupNotificationSettings(props.group.id, { dutyReminderHours });
     showSuccess('群组提醒时间已保存。');
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '通知设置暂时无法保存，请稍后重试。');
   }
 }
 
@@ -83,7 +84,7 @@ async function saveMyPreferences(): Promise<void> {
     });
     showSuccess('个人提醒设置已保存。');
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '通知设置暂时无法保存，请稍后重试。');
   }
 }
 
@@ -159,12 +160,6 @@ function showSuccess(message: string): void {
   window.setTimeout(() => {
     successMessage.value = undefined;
   }, 3000);
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message.length > 0
-    ? error.message
-    : '通知设置暂时无法保存，请稍后重试。';
 }
 </script>
 

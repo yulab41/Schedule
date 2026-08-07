@@ -7,7 +7,8 @@ import type {
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { isDataConflictError } from '../../api/conflict-handler.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import {
@@ -69,7 +70,7 @@ async function loadContext(): Promise<void> {
     ]);
     groupDefaultStrategy.value = strategyResult.strategy;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '请假审批暂时无法完成，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -87,7 +88,7 @@ async function refreshPreview(): Promise<void> {
     if (isDataConflictError(error)) {
       errorMessage.value = '排班数据已被其他操作更新，请重新生成预览。';
     } else {
-      errorMessage.value = getErrorMessage(error);
+      errorMessage.value = toUserMessage(error, '请假审批暂时无法完成，请稍后重试。');
     }
   } finally {
     isPreviewing.value = false;
@@ -122,7 +123,7 @@ async function approve(): Promise<void> {
     });
     emit('changed');
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '请假审批暂时无法完成，请稍后重试。');
   } finally {
     isApproving.value = false;
   }
@@ -138,7 +139,7 @@ async function reject(): Promise<void> {
     });
     emit('changed');
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '请假审批暂时无法完成，请稍后重试。');
   } finally {
     isRejecting.value = false;
   }
@@ -151,13 +152,6 @@ function close(): void {
 function navigate(tab: 'duty' | 'manual' | 'swap'): void {
   emit('navigate', tab);
   emit('close');
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    return error.message;
-  }
-  return '请假审批暂时无法完成，请稍后重试。';
 }
 </script>
 

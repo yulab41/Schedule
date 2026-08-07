@@ -4,6 +4,7 @@ import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import { buildExportFileName, getExportPeriodLabel, isExportJobFinished } from './export-logic.js';
 
@@ -51,7 +52,7 @@ async function loadOptions(): Promise<void> {
     }
     members.value = [...memberMap.entries()].map(([id, realName]) => ({ id, realName }));
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '导出暂时无法完成，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -76,7 +77,7 @@ async function runExport(): Promise<void> {
     downloadCsv(buildExportFileName(finishedJob.exportType, finishedJob.period), content);
     successMessage.value = `导出完成：${getExportPeriodLabel(finishedJob.period)}。`;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '导出暂时无法完成，请稍后重试。');
   } finally {
     isWorking.value = false;
   }
@@ -101,12 +102,6 @@ function downloadCsv(fileName: string, content: string): void {
   anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message.length > 0
-    ? error.message
-    : '导出暂时无法完成，请稍后重试。';
 }
 </script>
 

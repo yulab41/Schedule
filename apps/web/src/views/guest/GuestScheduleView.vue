@@ -7,7 +7,8 @@ import type {
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import {
   addBusinessMonths,
@@ -36,8 +37,7 @@ async function loadGuestGroups(): Promise<void> {
   try {
     guestGroups.value = await api.listGuestGroups();
   } catch (error) {
-    errorMessage.value =
-      error instanceof ApiClientError ? error.message : '群组暂时无法加载，请稍后重试。';
+    errorMessage.value = toUserMessage(error, '群组暂时无法加载，请稍后重试。');
   } finally {
     isLoadingGroups.value = false;
   }
@@ -63,8 +63,7 @@ async function loadCalendar(): Promise<void> {
   } catch (error) {
     if (requestTracker.isCurrent(request)) {
       calendarResult.value = undefined;
-      errorMessage.value =
-        error instanceof ApiClientError ? error.message : '排班暂时无法加载，请稍后重试。';
+      errorMessage.value = toUserMessage(error, '排班暂时无法加载，请稍后重试。');
     }
   } finally {
     if (requestTracker.isCurrent(request)) {

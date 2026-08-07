@@ -2,7 +2,8 @@
 import type { GroupMemberContact } from '@schedule/contracts';
 import { ref, watch } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 
 const props = defineProps<{
@@ -48,7 +49,7 @@ async function saveContact(): Promise<void> {
       : '联系方式已保存，等待成员确认。';
     emit('saved');
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '联系方式暂时无法保存，请稍后重试。');
   } finally {
     isSaving.value = false;
   }
@@ -57,10 +58,6 @@ async function saveContact(): Promise<void> {
 function emptyToNull(value: string): string | null {
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '联系方式暂时无法保存，请稍后重试。';
 }
 </script>
 

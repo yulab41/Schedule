@@ -651,8 +651,18 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误；脚本 2026-08-07 落地后补跑）。
 - 状态：已完成，待用户浏览器强刷复核。
 
+### 轮次 24（fix-progress #8.1，提交：refactor(web): extract shared toUserMessage for error copy）
+- 目标/需求：合规审查发现 15 个页面重复“`error instanceof ApiClientError ? error.message : '<兜底>'`”错误文案模板，且各有微调；抽取共享 `toUserMessage(error, fallback)` 并统一处理规则。
+- 根因：功能开发时逐页复制文案模板，组件侧出现 `ApiClientError` 与 `Error` 两种变体；`stores/session.ts` 已有的共享 `getErrorMessage`（Error 语义）未被组件复用。
+- 修复/功能：新增 `apps/web/src/utils/user-message.ts` 的 `toUserMessage(error, fallback)`（`error instanceof Error && error.message.length > 0 ? error.message : fallback`）；21 个调用方（19 个页面/组件 + LoginView + session store）删除本地 `getErrorMessage`/内联三元并改为传原兜底文案调用；`session.ts` 删除导出 `getErrorMessage`，登录链路统一到同一工具；16 个仅用 `ApiClientError` 做文案判断的文件移除该导入（DutyAdjustmentPanel/SwapPanel 保留冲突判断）。
+- 行为变化清单（统一为 Error 语义）：①非 ApiClientError 的 Error 在原先只判 ApiClientError 的页面从“显示兜底”变为“显示其 message”（与 session/登录页既有行为一致）；②message 为空的 ApiClientError 从空串变为兜底；③ExportDialog/NotificationCenterPanel/NotificationSettingsPanel/session/LoginView 完全不变；④兜底文案逐页保留原值。
+- 验证：新增 `user-message.spec.ts` 4 条锁定测试（ApiClientError/普通 Error/空 message/非 Error）；`pnpm verify` 572/572 通过（70 个测试文件，隔离 MySQL）。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（涉及核心链路 `stores/session.ts`，记录已满足校验）。
+- 状态：已完成，待用户浏览器强刷复核。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：各页面 API 错误仍显示服务端 message、非 API 错误显示兜底文案（轮次 24 相关）。
 - 用户强刷后复核：管理员/成员模式可正常进入工作台（轮次 57 相关）。
 - 用户强刷后复核：8/21、8/22 日历不再显示换班/加扣班标签（轮次 54 相关）。
 - 用户强刷后复核：护理岗位在排班记录已软删除后可以删除（轮次 53 相关）。

@@ -11,7 +11,8 @@ import type {
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import { cloudbaseAuth } from '../../auth/cloudbase.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import {
@@ -97,7 +98,7 @@ async function loadData(): Promise<void> {
     await loadCalendar();
     await loadRecords();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '排班补录暂时无法完成，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -123,7 +124,7 @@ async function loadCalendar(): Promise<void> {
     calendar.value = nextCalendar;
     holidays.value = nextHolidays;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '排班补录暂时无法完成，请稍后重试。');
   }
 }
 
@@ -266,7 +267,7 @@ async function confirmStaged(): Promise<void> {
     infoMessage.value = `已确认补录 ${confirmedCount} 条，并留下“排班补录”事件记录。`;
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '排班补录暂时无法完成，请稍后重试。');
     infoMessage.value = `已确认 ${confirmedCount} 条，其余未提交成功，请重试。`;
   } finally {
     isSaving.value = false;
@@ -279,10 +280,6 @@ function formatEventTime(value: string): string {
     return value;
   }
   return date.toLocaleString('zh-CN', { hour12: false });
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '排班补录暂时无法完成，请稍后重试。';
 }
 </script>
 

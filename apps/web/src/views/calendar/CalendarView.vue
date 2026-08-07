@@ -8,7 +8,8 @@ import type {
 } from '@schedule/contracts';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import {
   getConflictLatestData,
   getConflictMessage,
@@ -137,7 +138,7 @@ async function loadCalendar(): Promise<void> {
         conflictSummary.value = getVersionConflictSummary(getConflictLatestData(error));
         conflictVisible.value = true;
       } else {
-        errorMessage.value = getErrorMessage(error);
+        errorMessage.value = toUserMessage(error, '排班日历暂时无法加载，请稍后重试。');
       }
     }
   } finally {
@@ -231,14 +232,10 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
     });
     assignmentEvents.value = page.events;
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '排班日历暂时无法加载，请稍后重试。');
   } finally {
     isLoadingEvents.value = false;
   }
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '排班日历暂时无法加载，请稍后重试。';
 }
 </script>
 

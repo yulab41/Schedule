@@ -15,7 +15,8 @@ import type {
 import { toChinaStandardTimeUtcTimestamp } from '@schedule/scheduling-domain';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
-import { ApiClientError, createApiClient } from '../../api/client.js';
+import { createApiClient } from '../../api/client.js';
+import { toUserMessage } from '../../utils/user-message.js';
 import {
   getConflictLatestData,
   getConflictMessage,
@@ -274,7 +275,7 @@ function loadData(): Promise<void> {
     })
     .catch((error: unknown) => {
       if (currentRequest === requestVersion) {
-        errorMessage.value = getErrorMessage(error);
+        errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
       }
     })
     .finally(() => {
@@ -527,7 +528,7 @@ async function save(): Promise<void> {
       conflictSummary.value = getVersionConflictSummary(getConflictLatestData(error));
       conflictVisible.value = true;
     } else {
-      errorMessage.value = getErrorMessage(error);
+      errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
     }
   } finally {
     isSaving.value = false;
@@ -573,7 +574,7 @@ async function deleteTemplate(): Promise<void> {
     infoMessage.value = '模板已删除。';
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
   } finally {
     isDeleting.value = false;
   }
@@ -643,7 +644,7 @@ async function publishBatch(
         };
       }
     } else {
-      errorMessage.value = getErrorMessage(error);
+      errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
     }
   } finally {
     isPublishingId.value = undefined;
@@ -668,7 +669,7 @@ async function deleteBatch(batch: DraftBatch): Promise<void> {
     infoMessage.value = `已删除 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班草稿。`;
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
   } finally {
     isDeletingDraftId.value = undefined;
   }
@@ -689,7 +690,7 @@ async function openDraftPreview(draft: SchedulePeriodHistoryItem): Promise<void>
       periodCalendar.value = await api.getSchedulePeriodCalendar(props.group.id, draft.id);
     }
   } catch (error) {
-    draftPreviewError.value = getErrorMessage(error);
+    draftPreviewError.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
   } finally {
     isPreviewingDraftId.value = undefined;
   }
@@ -727,7 +728,7 @@ async function preparePeriodMutation(
     periodMutationPublishPreview.value = publishPreview;
   } catch (error) {
     periodMutationVisible.value = false;
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
   } finally {
     isLoadingPeriodMutation.value = false;
   }
@@ -766,7 +767,7 @@ async function confirmPeriodMutation(): Promise<void> {
     periodMutationVisible.value = false;
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
   } finally {
     isMutatingPeriod.value = false;
   }
@@ -792,7 +793,7 @@ async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
     infoMessage.value = `已删除 ${draft.businessMonth.slice(0, 7)} 的${label}。`;
     await loadData();
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '模板暂时无法保存，请稍后重试。');
   } finally {
     isDeletingDraftId.value = undefined;
   }
@@ -820,10 +821,6 @@ function hasPastDatesInVersion(item: SchedulePeriodHistoryItem): boolean {
 
 function navigateBackfill(): void {
   emit('navigate', 'backfill');
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '模板暂时无法保存，请稍后重试。';
 }
 
 void loadData();

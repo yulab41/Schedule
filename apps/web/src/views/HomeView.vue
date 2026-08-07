@@ -2,7 +2,8 @@
 import type { GroupSummary } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
 
-import { ApiClientError, createApiClient } from '../api/client.js';
+import { createApiClient } from '../api/client.js';
+import { toUserMessage } from '../utils/user-message.js';
 import { cloudbaseAuth } from '../auth/cloudbase.js';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
@@ -55,7 +56,7 @@ async function refreshGroups(preferredGroupId?: string): Promise<void> {
     const nextGroup = nextGroups.find((group) => group.id === savedGroupId) ?? nextGroups[0];
     selectGroup(nextGroup?.id);
   } catch (error) {
-    errorMessage.value = getErrorMessage(error);
+    errorMessage.value = toUserMessage(error, '群组数据暂时无法加载，请稍后重试。');
   } finally {
     isLoading.value = false;
   }
@@ -77,10 +78,6 @@ function currentGroup(): GroupSummary | undefined {
 function selectGroupTab(groupId: string | undefined): void {
   selectGroup(groupId);
   activeTab.value = 'calendar';
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof ApiClientError ? error.message : '群组数据暂时无法加载，请稍后重试。';
 }
 </script>
 

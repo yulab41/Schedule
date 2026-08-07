@@ -2,7 +2,8 @@
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { getErrorMessage, useSessionStore } from '../../stores/session.js';
+import { useSessionStore } from '../../stores/session.js';
+import { toUserMessage } from '../../utils/user-message.js';
 
 const password = ref('');
 const submitError = ref<string | undefined>();
@@ -22,7 +23,7 @@ async function submit(): Promise<void> {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
     await router.replace(redirect);
   } catch (error) {
-    submitError.value = getErrorMessage(error);
+    submitError.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
     password.value = '';
     submitting.value = false;
@@ -38,7 +39,7 @@ async function submitDev(uid: string): Promise<void> {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/';
     await router.replace(redirect);
   } catch (error) {
-    submitError.value = getErrorMessage(error);
+    submitError.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
     submitting.value = false;
   }
