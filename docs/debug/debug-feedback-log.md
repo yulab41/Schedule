@@ -678,7 +678,7 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（API 冲突响应文案/结构统一，用户界面无直接变化）。
 
-### 轮次 27（fix-progress #4.3 子步骤 1，提交：refactor(workflows): extract authorized mutation entry skeleton）
+### 轮次 27（fix-progress #4.3 子步骤 1，提交：beae8e8 refactor(workflows): extract authorized mutation entry skeleton）
 - 目标/需求：#4.3 拆多轮的第一步——把 swap/duty 各 7 个事务入口重复的“开事务 → 鉴权 → 幂等执行”样板抽成共享骨架，服务只提供权限、指纹、作用域与领域 run 函数。
 - 根因：三个 1000+ 行服务从功能开发起各自复制 runXxx 入口样板，整体呈“上帝服务”形态。
 - 修复/功能：新增 `apps/api/src/modules/workflows/workflow-operation.ts` 的 `runAuthorizedMutation`；swap 6 个入口（create/createDirect/accept/approve/reject/cancel）与 duty 7 个入口（create/createDirect/accept/approve/reject/cancel/revoke）改调共享骨架；duty 删除 `withIdempotentOperation` 导入，swap 保留（`revokeCompleted` 在幂等操作前有锁定 + 成员/管理员角色预检，暂不迁移，避免改变错误优先级）。

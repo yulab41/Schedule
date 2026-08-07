@@ -930,7 +930,7 @@
 
 状态：已完成（#4.3 子步骤 1；#4.3 整体进行中）。
 
-提交：`refactor(workflows): extract authorized mutation entry skeleton`（提交后回填短哈希），推送结果见对话回复
+提交：beae8e8（`refactor(workflows): extract authorized mutation entry skeleton`），推送结果见对话回复
 
 不确定点：1. swap `revokeCompleted` 仍未迁移（幂等前有锁定 + 角色预检），若未来给骨架加 `beforeIdempotentOperation` 钩子可一并迁移——出错症状是维持现状，无行为变化。2. leave 的 approve 带“冲突通知”catch 包装、submit 无外部 operationId，入口形态不同，留待子步骤 2 单独处理。3. 三服务各自实例化的依赖（eventWriter/notificationWriter/permissionService 等）本轮未合并为共享容器，属 #4.3 后续子步骤。
 
