@@ -481,13 +481,13 @@
 - **N3 ✅（轮次 44 已修复）** `apps/api/src/jobs/run-job.ts` 的 `getJobName` 手写 7 项任务名单，与 runner 穷举映射重复维护（#3.3 同类残留）。修复：`runner.ts` 导出 `isJobName`（基于 `jobRunners` 键判断），`run-job.ts` 改用 `jobNames`/`isJobName` 生成用法与解析，删除手写名单。
 - **N4 ✅（轮次 45 已修复）** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。修复：删除该类；`createPushDispatcher` 始终返回 `WebPushDispatcher`，全库无引用。
 - **N5 ✅（轮次 46 已修复）** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。修复：重试插入再次撞唯一键时捕获并返回 409“相同请求正在处理中，请稍后重试。”，新增确定性单测。
-- **N6 ⏳ 轻微** `cloudbaseUid` 字段/列名在平台弃用后保留（已登记），重命名需数据库迁移。
+- **N6 ✅（轮次 49 决策：不重命名）** `cloudbaseUid` 字段/列名在平台弃用后保留（已登记），重命名需数据库迁移。决策：该字段实际承担“外部稳定 UID”职责（认证端口、用户服务、平台管理员/节假日管理员均依赖），不是 CloudBase 专属残留；保留现名，等自建/微信认证落地时如需中性命名再随认证迁移一起改。
 - **N7 ✅（轮次 43 已修复）** #7.3 只统一了时区常量，前端 7 个文件仍各自手写“偏移 + toISOString 截取”转换（event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic；N7 原文写 8 个，rg 全量核对实际命中 7 个），已由领域包 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数统一替换。
 - **N8 ✅（轮次 47 第一批完成）** contracts zod schema 保留 `z.custom(() => true)`（leaves.ts 146–154、groups.ts 121）与大量 `.passthrough()`，校验强度低于类型声明，需逐步收紧。第一批：消除全部 `z.custom(() => true)`，groups status 收紧为枚举；`.passthrough()` 未知键放行仍保留，待下一批。
 - **N9 ✅（轮次 48 已修复）** `package.json` format:check/format 不覆盖 `scripts/*.mjs` 与 `packages/*/scripts/*.mjs`（smoke-browser、generate-tokens-css 无格式门禁）；`.prettierignore` 仍残留 CloudBase 条目。修复：两个脚本追加 mjs glob，删除 `.prettierignore`，并格式化 `scripts/smoke-browser.mjs`。
-- **N10 ⏳ 轻微** `.env.example` 把 `VITE_API_PROXY_TARGET` 写进环境文件说明，但 vite.config 只读 `process.env`，写入 `.env` 不生效（需 `loadEnv` 或改文档为“shell 环境变量”）。
-- **N11 ⏳ 轻微** 文档滞后：project-status PWA 缓存 v5/v6 矛盾、CHANGELOG 仍以 CloudBase 为当前栈、fix-progress.md 已膨胀至 179KB（建议归档逐轮明细）。
-- **N12 ⏳ 轻微** 工作区残留：空 `cloudfunctions/` 目录、`logs/` 4 个日志文件（#1.3 收尾不彻底）。
+- **N10 ✅（轮次 49 已修复）** `.env.example` 把 `VITE_API_PROXY_TARGET` 写进环境文件说明，但 vite.config 只读 `process.env`，写入 `.env` 不生效（需 `loadEnv` 或改文档为“shell 环境变量”）。修复：`vite.config.ts` 改用 `loadEnv` 从根目录 `.env` 读取，`.env.example` 注释同步。
+- **N11 ✅（轮次 49 已修复）** 文档滞后：project-status PWA 缓存 v5/v6 矛盾、CHANGELOG 仍以 CloudBase 为当前栈、fix-progress.md 已膨胀至 179KB（建议归档逐轮明细）。修复：project-status 统一为 v6；CHANGELOG 新增 Unreleased 当前栈说明；fix-progress 归档评估后暂不执行（仍是唯一切入点，Git 历史为持久记录）。
+- **N12 ⏳ 部分完成（轮次 49）** 工作区残留：空 `cloudfunctions/` 目录已清理；`logs/` 4 个日志文件因本地 API/Web 进程正在使用无法移动/删除，待停止本地服务后清理。
 - **N13 ⏳ 轻微** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割（Vue Router 懒加载/手动分包）。
 - **N14 ⏳ 轻微（环境）** `infra/docker/compose.test.yml` 测试库数据目录为 512MB tmpfs，完整套件 + binlog 会顶满后 MySQL 以 `binlog_error_action=ABORT_SERVER` 崩溃（2026-08-07 验证时实测崩溃，清理 Docker Build Cache 56.9GB 并 `down --volumes` 重置后恢复）；建议提高 tmpfs 上限或关闭 binlog，并记录“全量 verify 前先重置测试库”。
 
@@ -682,6 +682,30 @@
 不确定点：1. 工作区存在未跟踪 `scripts/ecs-auth-loop-evidence.mjs`（用户/外部生成）；为通过新门禁已做格式整理但未暂存、未提交，是否保留/删除由用户决定。2. 删除 `.prettierignore` 后若未来需要忽略特定脚本，应显式重建该文件。
 
 下次计划：N10/N11/N12 快速清理（VITE_API_PROXY_TARGET 文档、project-status/CHANGELOG 文档滞后、工作区残留）；N6（cloudbaseUid 重命名）需数据库迁移，另排。
+
+### 轮次 49 – 2026-08-08
+
+目标：N6 去留决策 + N10/N11/N12 快速清理。
+
+N6 决策：`cloudbaseUid`/`users.cloudbase_uid` 虽名为 CloudBase，但实际是“外部稳定 UID”载体——认证端口 `AuthPort`、用户注册/登录、群组认领、平台管理员、节假日管理员全部依赖它；CloudBase 弃用只删除了平台代码，不改变该字段的业务职责。重命名需数据库迁移且会大范围改动，收益仅为命名中性化；决策为**保留现名、关闭 N6**，等自建/微信认证落地时如需中性命名再随认证迁移一起改。
+
+N10：`apps/web/vite.config.ts` 从 `defineConfig({...})` 改为函数式配置，用 `loadEnv(mode, 仓库根目录, '')` 读取 `VITE_API_PROXY_TARGET`，写入根目录 `.env` 现在真正生效；`.env.example` 注释同步。验证：`pnpm verify` 596/596 ✅，pnpm smoke:browser 通过。
+
+N11：`docs/project-status.md` Known Environment 的“PWA shell/排班缓存当前为 v5”改为 v6（与 Current Position/代码 `cache-logic.ts` 一致）；`CHANGELOG.md` 新增 Unreleased 段，记录“弃用 CloudBase、阿里云 ECS、本地开发身份会话、临时门禁、PWA v6”；fix-progress 归档评估后暂不执行——文件仍是唯一切入点且 Git 历史已是持久记录，等调试阶段结束再归档。
+
+N12：空目录 `cloudfunctions/` 已移动到系统临时目录（可恢复）；`logs/` 4 个日志文件（api-3000.err.log/api-3000.log/web-5173.err.log/web-5173.log）被当前本地 API/Web 进程占用，Windows 拒绝移动/删除，本轮未强删；登记为待本地服务停止后清理。
+
+测试结果：`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL；N10 无新增测试，web build 覆盖 vite.config）。
+
+运行/浏览器验证：vite.config/.env.example 属核心链路，pnpm smoke:browser 通过（登录/管理员/成员/访客无浏览器错误）；pnpm smoke:check-core 通过（本轮记录满足校验）。
+
+状态：N6 ✅（决策关闭）、N10 ✅、N11 ✅、N12 ⏳ 部分完成（logs 待服务停止后清理）。
+
+提交：5e7dd5e（`fix(web): load VITE_API_PROXY_TARGET from root env`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. `loadEnv(..., '')` 会加载根目录 `.env` 全部变量到 Node 侧配置；Vite 仍按自身规则只暴露 `VITE_` 前缀给浏览器，不影响运行时。2. logs 文件被占用是本地开发环境状态，CI/新检出无此问题；停止本地服务后可执行 `Remove-Item logs/*.log`。3. N11 未做 fix-progress 物理归档，文件仍约 190KB；后续如需瘦身需另开一轮专门归档。
+
+下次计划：N12 收尾（停止本地 dev 后清理 logs）→ N13（vite 分包）/N14（测试库 tmpfs 上限）等；N8 第二批（`.passthrough()` 收紧）继续排队；部署路径继续推进。
 
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。

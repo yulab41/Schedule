@@ -2,6 +2,13 @@
 
 本项目的所有重要变更都会记录在此文件中，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Changed
+
+- 部署与认证：弃用腾讯云 CloudBase，部署目标改为阿里云 ECS Docker Compose；前端认证切换为本地开发身份会话，自建/微信账号登录落地前保留临时浏览器密码门禁。
+- PWA shell/排班缓存升级至 `v6`（移除 `manual-adjustment` 标记后旧缓存会被新契约拒绝，需强刷重新注册）。
+
 ## [1.0.0] - 2026-08-02
 
 ### 新增
