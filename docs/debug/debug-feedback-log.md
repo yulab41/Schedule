@@ -724,8 +724,18 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（涉及 contracts + PWA，记录已满足校验）。
 - 状态：#4.5 ✅、#7.6 ✅（待用户强刷复核：日历不再显示“调”、生成/发布过去月份提示补录）。
 
+### 轮次 32（fix-progress #3.5，提交：fix(api): treat only duplicate key errors as idempotency replays）
+- 目标/需求：幂等键首次 insert 的宽 catch 把“唯一键冲突”和“数据库故障”混为一谈，故障路径会做两次无谓插入尝试；改为仅 MySQL 重复键（`ER_DUP_ENTRY`）走查重路径。
+- 根因：`withIdempotentOperation` 的 catch 无异常类型判断，任何 insert 失败都会先读再插。
+- 修复/功能：新增 `apps/api/src/database-error.ts` 的 `getDatabaseErrorCode`（沿 code/cause 链读取驱动错误码）与 `isDuplicateKeyError`；`idempotency.ts` 的 catch 改为非重复键立即 rethrow，重复键路径（查重/指纹冲突/completed 重放/processing 冲突/过期重试）逐分支不变。
+- 行为变化清单：非重复键数据库错误从“读一次再插一次后仍抛错”变为“立即抛出”（异常最终仍传播，消除两次无谓尝试）；重复键路径行为不变。
+- 验证：新增 `database-error.spec.ts` 4 条锁定测试（code 读取、cause 链、非对象、仅 ER_DUP_ENTRY 判定）；`pnpm verify` 585/585 通过（72 个测试文件，隔离 MySQL）；定向集成 swap 31/31（含幂等重放）。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：#3.5 ✅。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：换班/加扣班/请假等幂等操作重放行为不变（轮次 32 相关，正常操作不易触发）。
 - 用户强刷后复核：日历不再显示“调”标记，排班补录页正常（轮次 31 相关，PWA 缓存已升 v6）。
 - 用户强刷后复核：生成/发布整段已过月份会提示前往“排班补录”（轮次 31 相关，正常操作不易触发）。
 - 用户强刷后复核：换班撤销（含成员/管理员权限）与既往排班软删除行为不变（轮次 30 相关，纯重构）。

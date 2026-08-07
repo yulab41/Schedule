@@ -78,7 +78,7 @@
 | ✅ | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 已完成（轮次 27–30）：入口骨架 + 依赖容器 + 全部入口迁移，见第 7 节 |
 | ✅ | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | 已完成（轮次 31，用户确认方案 1）：整段已过月份拒绝，见第 7 节 |
 | ✅ | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | 已完成（轮次 31，用户确认方案 A）：移除渲染、保留事件数据，见第 7 节 |
-| P3 | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 检查 1062 错误码 |
+| ✅ | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 已完成（轮次 32）：仅重复键走查重路径，见第 7 节 |
 | P3 | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 顶层创建或 Promise 单例 |
 | P3 | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | API 包暴露 cloudbase 入口 |
 | P3 | #9.1 | cloudbaserc 未声明 env，环境不可复现 | 轻微 | 低 | 中 | 需与控制台协调 |
@@ -1031,3 +1031,27 @@
 不确定点：1. `isPastBusinessMonth` 按业务月判断：月初生成/发布当月仍允许（已过日期由保留既往逻辑保护）；若希望“新周期不得覆盖今天之前的任何日期”，需按日校验，另开轮。2. 旧 PWA 缓存若未被 v6 清理前可能短暂报错，需用户强刷/重新注册。3. 事件中心仍保留“人工调整班次/排班补录”叙述（无标记徽标）；若希望连叙述也移除需另行决策。
 
 下次计划：按清单继续 #3.5（idempotency 宽 catch 当重复键，检查 1062 错误码）；同时等待用户强刷复核本轮与轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。
+
+### 轮次 32 – 2026-08-07
+
+目标：#3.5 —— idempotency 首次 insert 的宽 catch 改为仅当 MySQL 重复键（`ER_DUP_ENTRY`）才走“查重/重放/冲突”路径，其他数据库错误立即抛出，避免故障路径做两次无谓插入尝试。
+
+引入点：宽 catch 自 idempotency 功能引入起存在（审计卡 #3.5 登记，无单一引入提交）。
+
+为什么现有测试没拦住：现有集成测试只覆盖重复键重放路径（真实重复键行为不变），未覆盖“非重复键错误不再被吞并重试”的断言；新增 `database-error.spec.ts` 4 条锁定 `getDatabaseErrorCode`（code/cause 链/非对象）与 `isDuplicateKeyError`。
+
+修改文件：新增 `apps/api/src/database-error.ts`（`getDatabaseErrorCode` 沿 code/cause 链读取驱动错误码 + `isDuplicateKeyError`）与 `database-error.spec.ts`；`apps/api/src/plugins/idempotency.ts` 的 catch 改为 `if (!isDuplicateKeyError(error)) throw error;` 后再查重。
+
+语义等价审计：重复键路径（查重、指纹冲突、completed 重放、processing 冲突、过期后重试）逐分支不变；非重复键错误从“读一次再插一次后仍抛错”变为“立即抛出”——异常最终仍会传播（与旧行为最终一致），但不再做两次无谓数据库尝试，这是本项修复的目标行为变化。
+
+测试结果：`pnpm verify` 585/585 ✅（72 个测试文件，隔离 MySQL；新增 4 条数据库错误助手测试）；定向集成 swap 31/31（含幂等重放，`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#3.5 ✅。
+
+提交：`fix(api): treat only duplicate key errors as idempotency replays`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. mysql2 重复键错误码依赖驱动形态（`code='ER_DUP_ENTRY'`，可能包在 `cause` 里）；helper 已覆盖直接/包装两种形态，若未来换驱动需同步。2. group-service 私有 `getDatabaseErrorCode` 与 user-service 内联 `ER_DUP_ENTRY` 检查仍各自实现，可后续统一到本助手（未顺手改）。3. 并发双请求同时插入：一个成功、一个 ER_DUP_ENTRY 后进入 processing 冲突分支返回 409（行为不变）。
+
+下次计划：按清单继续 #3.6（CloudBase 处理器惰性单例竞态，顶层创建或 Promise 单例化）；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。

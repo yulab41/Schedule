@@ -5,6 +5,7 @@ import { idempotencyKeys } from '@schedule/database';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { ApiError } from './error-handler.js';
+import { isDuplicateKeyError } from '../database-error.js';
 
 const defaultIdempotencyLifetimeMilliseconds = 24 * 60 * 60 * 1000;
 
@@ -31,7 +32,11 @@ export async function withIdempotentOperation<Result>(
       scope: input.scope,
       status: 'processing',
     });
-  } catch {
+  } catch (error) {
+    if (!isDuplicateKeyError(error)) {
+      throw error;
+    }
+
     const existing = await readExistingOperation(transaction, input);
     if (existing === undefined) {
       await transaction.insert(idempotencyKeys).values({
