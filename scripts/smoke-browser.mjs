@@ -90,16 +90,16 @@ function findBrowserExecutable() {
     if (fs.existsSync(candidate)) return candidate;
   }
 
-  fail(
-    '未找到可用的 Edge/Chrome。请安装浏览器，或通过 SMOKE_BROWSER_PATH 指定可执行文件路径。',
-    3,
-  );
+  fail('未找到可用的 Edge/Chrome。请安装浏览器，或通过 SMOKE_BROWSER_PATH 指定可执行文件路径。', 3);
 }
 
 async function waitForBodyText(page, text, timeoutMs = 20000, label = text) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const body = await page.locator('body').innerText().catch(() => '');
+    const body = await page
+      .locator('body')
+      .innerText()
+      .catch(() => '');
     if (body.includes(text)) return;
     await page.waitForTimeout(250);
   }
