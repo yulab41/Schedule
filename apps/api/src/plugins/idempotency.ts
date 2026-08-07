@@ -23,15 +23,7 @@ export async function withIdempotentOperation<Result>(
   operation: () => Promise<Result>,
 ): Promise<Result> {
   try {
-    await transaction.insert(idempotencyKeys).values({
-      actorUserId: input.actorUserId,
-      expiresAt: input.expiresAt ?? new Date(Date.now() + defaultIdempotencyLifetimeMilliseconds),
-      id: randomUUID(),
-      operationKey: input.operationId,
-      requestFingerprint: input.requestFingerprint,
-      scope: input.scope,
-      status: 'processing',
-    });
+    await insertIdempotencyKey(transaction, input);
   } catch (error) {
     if (!isDuplicateKeyError(error)) {
       throw error;
@@ -39,21 +31,19 @@ export async function withIdempotentOperation<Result>(
 
     const existing = await readExistingOperation(transaction, input);
     if (existing === undefined) {
-      await transaction.insert(idempotencyKeys).values({
-        actorUserId: input.actorUserId,
-        expiresAt: input.expiresAt ?? new Date(Date.now() + defaultIdempotencyLifetimeMilliseconds),
-        id: randomUUID(),
-        operationKey: input.operationId,
-        requestFingerprint: input.requestFingerprint,
-        scope: input.scope,
-        status: 'processing',
-      });
-    } else if (existing.requestFingerprint !== input.requestFingerprint) {
-      throw operationConflict('该操作编号已用于其他请求，请使用新的操作编号。');
-    } else if (existing.status === 'completed' && existing.result !== null) {
-      return existing.result as unknown as Result;
-    } else if (existing.status === 'processing' && existing.expiresAt.valueOf() > Date.now()) {
-      throw operationConflict('相同请求正在处理中，请稍后重试。');
+      try {
+        await insertIdempotencyKey(transaction, input);
+      } catch (retryError) {
+        if (!isDuplicateKeyError(retryError)) {
+          throw retryError;
+        }
+        throw operationConflict('相同请求正在处理中，请稍后重试。');
+      }
+    } else {
+      const resolved = await resolveExistingOperation<Result>(existing, input);
+      if (resolved !== undefined) {
+        return resolved;
+      }
     }
   }
 
@@ -77,6 +67,21 @@ export async function withIdempotentOperation<Result>(
   return result;
 }
 
+async function insertIdempotencyKey(
+  transaction: DatabaseTransaction,
+  input: IdempotentOperationInput,
+): Promise<void> {
+  await transaction.insert(idempotencyKeys).values({
+    actorUserId: input.actorUserId,
+    expiresAt: input.expiresAt ?? new Date(Date.now() + defaultIdempotencyLifetimeMilliseconds),
+    id: randomUUID(),
+    operationKey: input.operationId,
+    requestFingerprint: input.requestFingerprint,
+    scope: input.scope,
+    status: 'processing',
+  });
+}
+
 async function readExistingOperation(
   transaction: DatabaseTransaction,
   input: IdempotentOperationInput,
@@ -95,6 +100,22 @@ async function readExistingOperation(
     .for('update');
 
   return existing;
+}
+
+async function resolveExistingOperation<Result>(
+  existing: NonNullable<Awaited<ReturnType<typeof readExistingOperation>>>,
+  input: IdempotentOperationInput,
+): Promise<Result | undefined> {
+  if (existing.requestFingerprint !== input.requestFingerprint) {
+    throw operationConflict('该操作编号已用于其他请求，请使用新的操作编号。');
+  }
+  if (existing.status === 'completed' && existing.result !== null) {
+    return existing.result as unknown as Result;
+  }
+  if (existing.status === 'processing' && existing.expiresAt.valueOf() > Date.now()) {
+    throw operationConflict('相同请求正在处理中，请稍后重试。');
+  }
+  return undefined;
 }
 
 function operationConflict(userMessage: string): ApiError {
