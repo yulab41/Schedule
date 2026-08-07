@@ -30,7 +30,6 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
-import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
 import { GroupMemberReader, type GroupMemberRow } from '../groups/group-member-reader.js';
@@ -48,6 +47,7 @@ import {
   WorkflowConflictService,
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
+import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
 
@@ -113,28 +113,21 @@ export class DutyAdjustmentService {
     groupId: string,
     input: CreateDutyAdjustmentRequestInput,
   ): Promise<DutyAdjustmentRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createDutyAdjustmentPairFingerprint({
+        coveredAssignmentId: input.coveredAssignmentId,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createDutyAdjustmentPairFingerprint({
-            coveredAssignmentId: input.coveredAssignmentId,
-            groupId,
-            overtimeMembershipId: input.overtimeMembershipId,
-            ...(input.reason === undefined ? {} : { reason: input.reason }),
-          }),
-          scope: 'duty_adjustment_create',
-        },
-        () => this.runCreation(transaction, authorization, input),
-      );
+        overtimeMembershipId: input.overtimeMembershipId,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
+      }),
+      run: (transaction, authorization) => this.runCreation(transaction, authorization, input),
+      scope: 'duty_adjustment_create',
     });
   }
 
@@ -143,28 +136,22 @@ export class DutyAdjustmentService {
     groupId: string,
     input: CreateDirectDutyAdjustmentInput,
   ): Promise<DutyAdjustmentRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'manageDutyAdjustments',
+      permissionService: this.permissionService,
+      requestFingerprint: createDutyAdjustmentPairFingerprint({
+        coveredAssignmentId: input.coveredAssignmentId,
         groupId,
-        'manageDutyAdjustments',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createDutyAdjustmentPairFingerprint({
-            coveredAssignmentId: input.coveredAssignmentId,
-            groupId,
-            overtimeMembershipId: input.overtimeMembershipId,
-            ...(input.reason === undefined ? {} : { reason: input.reason }),
-          }),
-          scope: 'duty_adjustment_direct_create',
-        },
-        () => this.runDirectCreation(transaction, authorization, input),
-      );
+        overtimeMembershipId: input.overtimeMembershipId,
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
+      }),
+      run: (transaction, authorization) =>
+        this.runDirectCreation(transaction, authorization, input),
+      scope: 'duty_adjustment_direct_create',
     });
   }
 
@@ -225,27 +212,21 @@ export class DutyAdjustmentService {
     dutyAdjustmentId: string,
     input: DutyAdjustmentMutationInput,
   ): Promise<DutyAdjustmentRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        dutyAdjustmentId,
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            dutyAdjustmentId,
-            expectedVersion: input.expectedVersion,
-            groupId,
-          }),
-          scope: 'duty_adjustment_accept',
-        },
-        () => this.runAcceptance(transaction, authorization, dutyAdjustmentId, input),
-      );
+      }),
+      run: (transaction, authorization) =>
+        this.runAcceptance(transaction, authorization, dutyAdjustmentId, input),
+      scope: 'duty_adjustment_accept',
     });
   }
 
@@ -255,27 +236,21 @@ export class DutyAdjustmentService {
     dutyAdjustmentId: string,
     input: DutyAdjustmentMutationInput,
   ): Promise<DutyAdjustmentRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'manageDutyAdjustments',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        dutyAdjustmentId,
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageDutyAdjustments',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            dutyAdjustmentId,
-            expectedVersion: input.expectedVersion,
-            groupId,
-          }),
-          scope: 'duty_adjustment_approve',
-        },
-        () => this.runApproval(transaction, authorization, dutyAdjustmentId, input),
-      );
+      }),
+      run: (transaction, authorization) =>
+        this.runApproval(transaction, authorization, dutyAdjustmentId, input),
+      scope: 'duty_adjustment_approve',
     });
   }
 
@@ -285,27 +260,21 @@ export class DutyAdjustmentService {
     dutyAdjustmentId: string,
     input: DutyAdjustmentMutationInput,
   ): Promise<DutyAdjustmentRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        dutyAdjustmentId,
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            dutyAdjustmentId,
-            expectedVersion: input.expectedVersion,
-            groupId,
-          }),
-          scope: 'duty_adjustment_reject',
-        },
-        () => this.runRejection(transaction, identity, authorization, dutyAdjustmentId, input),
-      );
+      }),
+      run: (transaction, authorization) =>
+        this.runRejection(transaction, identity, authorization, dutyAdjustmentId, input),
+      scope: 'duty_adjustment_reject',
     });
   }
 
@@ -315,27 +284,21 @@ export class DutyAdjustmentService {
     dutyAdjustmentId: string,
     input: DutyAdjustmentMutationInput,
   ): Promise<DutyAdjustmentRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        dutyAdjustmentId,
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            dutyAdjustmentId,
-            expectedVersion: input.expectedVersion,
-            groupId,
-          }),
-          scope: 'duty_adjustment_cancel',
-        },
-        () => this.runCancellation(transaction, identity, authorization, dutyAdjustmentId, input),
-      );
+      }),
+      run: (transaction, authorization) =>
+        this.runCancellation(transaction, identity, authorization, dutyAdjustmentId, input),
+      scope: 'duty_adjustment_cancel',
     });
   }
 
@@ -345,28 +308,22 @@ export class DutyAdjustmentService {
     dutyAdjustmentId: string,
     input: RevokeDutyAdjustmentInput,
   ): Promise<DutyAdjustmentRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        dutyAdjustmentId,
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            dutyAdjustmentId,
-            expectedVersion: input.expectedVersion,
-            groupId,
-            ...(input.reason === undefined ? {} : { reason: input.reason }),
-          }),
-          scope: 'duty_adjustment_revoke',
-        },
-        () => this.runRevocation(transaction, authorization, dutyAdjustmentId, input),
-      );
+        ...(input.reason === undefined ? {} : { reason: input.reason }),
+      }),
+      run: (transaction, authorization) =>
+        this.runRevocation(transaction, authorization, dutyAdjustmentId, input),
+      scope: 'duty_adjustment_revoke',
     });
   }
 

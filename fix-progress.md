@@ -75,7 +75,7 @@
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
 | ✅ | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 已完成（轮次 25）：按状态码映射，见第 7 节 |
 | ✅ | #4.2 | 冲突断言双轨（swap/duty 各自“预检 + 断言”） | 轻微 | 高 | 高 | 已完成（轮次 26）：统一为共享 `assertNoWorkflowConflicts`，见第 7 节 |
-| P2 | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 必须在 #4.1/#4.2 之后做，拆多轮 |
+| P2 | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 进行中（轮次 27：入口骨架已抽，swap/duty 13 个入口迁移；依赖容器/leave 待续） |
 | P3 | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | **需用户确认规则**（今天能否发布/跨月行为） |
 | P3 | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | **需用户确认**：保留旧数据兼容还是彻底移除 |
 | P3 | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 检查 1062 错误码 |
@@ -911,3 +911,27 @@
 不确定点：1. swap accept/approve 的“只查资格冲突”依赖 `findSwapAssignmentConflicts` 无排除参数这一现状；若未来给 swap 查询加排除参数，可让 accept/approve 也重查活动工作流（与 duty 对齐）——出错症状是 accept/approve 误报“已有待处理换班/加扣班”409。2. swap 资格冲突文案从通用改为具体拼接，提交失败提示更长更具体；若希望保留简短通用文案，需把 message 生成改为参数化。3. leave 的 `workflowBlockers` 断言仍是独立实现（latestData 结构不同），未纳入本次范围，留待 #4.3 状态机骨架时评估。
 
 下次计划：按清单继续 #4.3（三服务 `eventWriter`/`notificationWriter`/`permissionService` 三件套与 runXxx 状态机抽骨架，拆多轮）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。
+
+### 轮次 27 – 2026-08-07
+
+目标：#4.3 子步骤 1 —— 抽取共享“开事务 → 鉴权 → 幂等执行”入口骨架 `runAuthorizedMutation`，迁移 swap 6 个 + duty 7 个事务入口，消除 13 处重复样板。
+
+引入点：三服务各自维护 runXxx 入口样板自功能开发起复制演进（审计卡 #4.3 登记，无单一引入提交）。
+
+为什么现有测试没拦住：样板重复不改变行为，单测无法感知；集成测试（swap 31、duty 24）覆盖全部入口与幂等重放，作为本轮回归网。
+
+修改文件：新增 `apps/api/src/modules/workflows/workflow-operation.ts`（`runAuthorizedMutation`：`withTransaction` → `requirePermission` → `withIdempotentOperation`，参数化 permission/scope/fingerprint/run）；`apps/api/src/modules/swaps/swap-service.ts` 6 个入口（create/createDirect/accept/approve/reject/cancel）与 `apps/api/src/modules/duty-adjustments/duty-adjustment-service.ts` 7 个入口（create/createDirect/accept/approve/reject/cancel/revoke）改调共享骨架；duty 删除 `withIdempotentOperation` 导入；swap 保留该导入（`revokeCompleted` 在幂等操作前有“锁定请求 + 成员/管理员角色预检”，未迁移）。
+
+语义等价审计：逐入口对比——事务边界（骨架仍用 `withTransaction`）、鉴权顺序与权限名、幂等 scope/operationId/requestFingerprint/actorUserId、run 回调参数（reject/cancel 额外捕获 identity）逐一相同；无 this/接收者、异步/错误路径、空值或副作用差异；swap `revokeCompleted` 保持原实现，避免把幂等键插入移到角色预检之前改变错误优先级。
+
+测试结果：`pnpm verify` 579/579 ✅（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、duty 24/24（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：已完成（#4.3 子步骤 1；#4.3 整体进行中）。
+
+提交：`refactor(workflows): extract authorized mutation entry skeleton`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. swap `revokeCompleted` 仍未迁移（幂等前有锁定 + 角色预检），若未来给骨架加 `beforeIdempotentOperation` 钩子可一并迁移——出错症状是维持现状，无行为变化。2. leave 的 approve 带“冲突通知”catch 包装、submit 无外部 operationId，入口形态不同，留待子步骤 2 单独处理。3. 三服务各自实例化的依赖（eventWriter/notificationWriter/permissionService 等）本轮未合并为共享容器，属 #4.3 后续子步骤。
+
+下次计划：#4.3 子步骤 2（leave 入口迁移 + 三服务依赖容器收敛）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。

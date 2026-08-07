@@ -49,6 +49,7 @@ import {
   WorkflowConflictService,
   type WorkflowConflict,
 } from '../workflows/workflow-conflict-service.js';
+import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { allocateWorkflowSequence } from '../workflows/workflow-sequence-allocator.js';
 import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
 
@@ -129,28 +130,21 @@ export class SwapService {
     groupId: string,
     input: CreateSwapRequestInput,
   ): Promise<SwapRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createSwapPairFingerprint({
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createSwapPairFingerprint({
-            groupId,
-            initiatorAssignmentId: input.initiatorAssignmentId,
-            targetAssignmentId: input.targetAssignmentId,
-            targetMembershipId: input.targetMembershipId,
-          }),
-          scope: 'swap_request_create',
-        },
-        () => this.runCreation(transaction, authorization, input),
-      );
+        initiatorAssignmentId: input.initiatorAssignmentId,
+        targetAssignmentId: input.targetAssignmentId,
+        targetMembershipId: input.targetMembershipId,
+      }),
+      run: (transaction, authorization) => this.runCreation(transaction, authorization, input),
+      scope: 'swap_request_create',
     });
   }
 
@@ -159,27 +153,21 @@ export class SwapService {
     groupId: string,
     input: CreateDirectSwapInput,
   ): Promise<SwapRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'manageSwaps',
+      permissionService: this.permissionService,
+      requestFingerprint: createDirectSwapFingerprint({
         groupId,
-        'manageSwaps',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createDirectSwapFingerprint({
-            groupId,
-            initiatorAssignmentId: input.initiatorAssignmentId,
-            targetAssignmentId: input.targetAssignmentId,
-          }),
-          scope: 'swap_request_direct_create',
-        },
-        () => this.runDirectCreation(transaction, authorization, input),
-      );
+        initiatorAssignmentId: input.initiatorAssignmentId,
+        targetAssignmentId: input.targetAssignmentId,
+      }),
+      run: (transaction, authorization) =>
+        this.runDirectCreation(transaction, authorization, input),
+      scope: 'swap_request_direct_create',
     });
   }
 
@@ -235,27 +223,21 @@ export class SwapService {
     swapRequestId: string,
     input: SwapRequestMutationInput,
   ): Promise<SwapRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            expectedVersion: input.expectedVersion,
-            groupId,
-            swapRequestId,
-          }),
-          scope: 'swap_request_accept',
-        },
-        () => this.runAcceptance(transaction, authorization, swapRequestId, input),
-      );
+        swapRequestId,
+      }),
+      run: (transaction, authorization) =>
+        this.runAcceptance(transaction, authorization, swapRequestId, input),
+      scope: 'swap_request_accept',
     });
   }
 
@@ -265,27 +247,21 @@ export class SwapService {
     swapRequestId: string,
     input: SwapRequestMutationInput,
   ): Promise<SwapRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'manageSwaps',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageSwaps',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            expectedVersion: input.expectedVersion,
-            groupId,
-            swapRequestId,
-          }),
-          scope: 'swap_request_approve',
-        },
-        () => this.runApproval(transaction, authorization, swapRequestId, input),
-      );
+        swapRequestId,
+      }),
+      run: (transaction, authorization) =>
+        this.runApproval(transaction, authorization, swapRequestId, input),
+      scope: 'swap_request_approve',
     });
   }
 
@@ -295,27 +271,21 @@ export class SwapService {
     swapRequestId: string,
     input: SwapRequestMutationInput,
   ): Promise<SwapRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            expectedVersion: input.expectedVersion,
-            groupId,
-            swapRequestId,
-          }),
-          scope: 'swap_request_reject',
-        },
-        () => this.runRejection(transaction, identity, authorization, swapRequestId, input),
-      );
+        swapRequestId,
+      }),
+      run: (transaction, authorization) =>
+        this.runRejection(transaction, identity, authorization, swapRequestId, input),
+      scope: 'swap_request_reject',
     });
   }
 
@@ -325,27 +295,21 @@ export class SwapService {
     swapRequestId: string,
     input: SwapRequestMutationInput,
   ): Promise<SwapRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            expectedVersion: input.expectedVersion,
-            groupId,
-            swapRequestId,
-          }),
-          scope: 'swap_request_cancel',
-        },
-        () => this.runCancellation(transaction, identity, authorization, swapRequestId, input),
-      );
+        swapRequestId,
+      }),
+      run: (transaction, authorization) =>
+        this.runCancellation(transaction, identity, authorization, swapRequestId, input),
+      scope: 'swap_request_cancel',
     });
   }
 

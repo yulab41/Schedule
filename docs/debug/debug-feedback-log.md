@@ -678,8 +678,18 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（API 冲突响应文案/结构统一，用户界面无直接变化）。
 
+### 轮次 27（fix-progress #4.3 子步骤 1，提交：refactor(workflows): extract authorized mutation entry skeleton）
+- 目标/需求：#4.3 拆多轮的第一步——把 swap/duty 各 7 个事务入口重复的“开事务 → 鉴权 → 幂等执行”样板抽成共享骨架，服务只提供权限、指纹、作用域与领域 run 函数。
+- 根因：三个 1000+ 行服务从功能开发起各自复制 runXxx 入口样板，整体呈“上帝服务”形态。
+- 修复/功能：新增 `apps/api/src/modules/workflows/workflow-operation.ts` 的 `runAuthorizedMutation`；swap 6 个入口（create/createDirect/accept/approve/reject/cancel）与 duty 7 个入口（create/createDirect/accept/approve/reject/cancel/revoke）改调共享骨架；duty 删除 `withIdempotentOperation` 导入，swap 保留（`revokeCompleted` 在幂等操作前有锁定 + 成员/管理员角色预检，暂不迁移，避免改变错误优先级）。
+- 行为变化清单：无（纯重构；事务边界、鉴权顺序与权限名、幂等 scope/operationId/fingerprint/actorUserId、run 回调参数逐一等价）。
+- 验证：`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、duty 24/24（NODE_ENV=test + TEST_MYSQL_*，隔离库 3307）。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：已完成（#4.3 子步骤 1；#4.3 整体进行中）。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：换班/加扣班创建、接受、审批、拒绝、取消、撤销操作与幂等重放行为不变（轮次 27 相关）。
 - 用户强刷后复核：换班提交失败时提示具体冲突原因而非通用文案（轮次 26 相关）。
 - 用户强刷后复核：接口 404/429 返回语义化错误码而非 VALIDATION_FAILED（轮次 25 相关，正常操作不易触发，供接口调用方复核）。
 - 用户强刷后复核：各页面 API 错误仍显示服务端 message、非 API 错误显示兜底文案（轮次 24 相关）。
