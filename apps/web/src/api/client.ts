@@ -2012,14 +2012,18 @@ async function requestWithOnline<ResponseBody>(options: {
 
   let response: Response;
   try {
-    response = await options.fetchImplementation(joinUrl(options.baseUrl, options.path), {
-      headers: {
-        ...(session === undefined ? {} : { Authorization: `Bearer ${session.access_token}` }),
-        ...(options.init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    response = await options.fetchImplementation.call(
+      globalThis,
+      joinUrl(options.baseUrl, options.path),
+      {
+        headers: {
+          ...(session === undefined ? {} : { Authorization: `Bearer ${session.access_token}` }),
+          ...(options.init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        method: options.init.method,
+        ...(options.init.body === undefined ? {} : { body: options.init.body }),
       },
-      method: options.init.method,
-      ...(options.init.body === undefined ? {} : { body: options.init.body }),
-    });
+    );
   } catch {
     throw new ApiClientError({
       code: 'NETWORK_ERROR',

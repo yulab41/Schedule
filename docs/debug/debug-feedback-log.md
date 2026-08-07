@@ -643,8 +643,16 @@
 - 上线执行：已对线上库执行迁移 0021–0031（线上迁移记录 20 → 31 条，含此前积压的 0021–0025 与新增 0026–0031；`workflow_sequence` 回填完成）；已触发 Deploy Development，API/schedule-jobs 云函数与静态托管均上传成功；但 CloudBase 环境余额不足（`FUNCTIONS_INVOCATION_FAILED / InsufficientBalance`），`/api/health` 无法被函数响应，健康检查未通过。
 - 状态：代码与数据库已就绪，待用户为 CloudBase 环境充值/恢复可用后重新触发部署验证。
 
+### 轮次 57（提交：fix(web): keep the native fetch receiver for API requests）
+- 用户反馈/需求：本地部署首页可显示，但点击“本地管理员/本地成员”（开发模式登录按钮，即管理员/成员模式）后都无法进入页面，停留登录页并提示“无法连接到服务，请检查网络后重试。”
+- 根因：`apps/web/src/api/client.ts` 的 `requestWithOnline` 以 `options.fetchImplementation(...)` 形式调用 fetch，`this` 被绑定到 `options` 普通对象；浏览器原生 `fetch` 要求接收者为 Window/globalThis，在 ES Module 严格模式下抛出 `TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation`，被统一捕获为 `NETWORK_ERROR`，请求根本没有发出（Playwright 路由与网络面板均无 `/api/users/me` 请求）。
+- 修复/功能：改为 `options.fetchImplementation.call(globalThis, url, init)`，显式传回全局接收者；自定义 fetch（测试 mock）行为不变。
+- 验证：新增回归测试“keeps the global receiver when calling the default fetch”，用接收者敏感 mock 断言 `mock.contexts[0] === globalThis`（修复前失败、修复后通过）；`pnpm verify` 561/561 通过（68 个测试文件，隔离 MySQL）；无头 Edge 实测“本地管理员”进入管理员工作台（林恩宇）、“本地成员”进入成员工作台（徐漫彬），无控制台错误。
+- 状态：已完成，待用户浏览器强刷复核。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：管理员/成员模式可正常进入工作台（轮次 57 相关）。
 - 用户强刷后复核：8/21、8/22 日历不再显示换班/加扣班标签（轮次 54 相关）。
 - 用户强刷后复核：护理岗位在排班记录已软删除后可以删除（轮次 53 相关）。
 - 用户强刷后复核：自定义班种可删除，岗位删除失败时只显示错误提示（轮次 52 相关）。

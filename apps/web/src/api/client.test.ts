@@ -691,6 +691,27 @@ describe('Web API client', () => {
     );
   });
 
+  it('keeps the global receiver when calling the default fetch', async () => {
+    const receiverSensitiveFetch = vi.fn<typeof fetch>().mockImplementation(function (
+      this: unknown,
+    ) {
+      if (this === undefined) {
+        throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+      }
+      return Promise.resolve(new Response(JSON.stringify(profile), { status: 200 }));
+    });
+    vi.stubGlobal('fetch', receiverSensitiveFetch);
+
+    try {
+      const client = createApiClient({ auth: createAuthClient() });
+      await expect(client.getCurrentProfile()).resolves.toEqual(profile);
+      expect(receiverSensitiveFetch).toHaveBeenCalled();
+      expect(receiverSensitiveFetch.mock.contexts[0]).toBe(globalThis);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('sends group creation, roster claiming, and group-code updates through authenticated API calls', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

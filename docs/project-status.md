@@ -9,13 +9,13 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–56 已完成；fix-progress 轮次 1–22 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成）；最新验证基线 560/560（68 个测试文件，隔离 MySQL）
+- Debug rounds: 1–57 已完成；fix-progress 轮次 1–22 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成）；最新验证基线 561/561（68 个测试文件，隔离 MySQL）
 - Deployment: 本地部署继续（用户决定暂不上线）：API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 均为 2026-08-07 最新构建，`/health`、`/api/health`、首页均 200，开发模式认证可用；PWA shell/schedule 缓存升至 `v5`；阿里云 ECS 试用机与 CloudBase 上线验证暂停，等待用户后续决定
-- Next actions: fix-progress 轮次 23 目标为 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复：合并 feature 逻辑）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
+- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；之后 fix-progress 轮次 23 目标为 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复：合并 feature 逻辑）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
 
 ## Debug / Test Feedback Log
 
-- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–56 明细、待办/下一步）
+- 单一来源：`docs/debug/debug-feedback-log.md`（含记录规则模板、通用注意事项、轮次 1–57 明细、待办/下一步）
 - 本文件不再重复逐轮内容，避免每轮对话重复读取同一份日志
 
 ## Approved Sources
@@ -28,6 +28,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-07 调试轮次 57：修复本地开发登录“管理员/成员模式”无法进入页面——`requestWithOnline` 以 `options.fetchImplementation(...)` 调用原生 fetch 导致 `this` 为 options 对象，浏览器抛 `Illegal invocation` 并被包装为 NETWORK_ERROR；改为 `.call(globalThis, ...)` 后，`apps/web/src/api/client.test.ts` 新增接收者回归测试（143 → 144 条），`pnpm verify` 561/561 通过（68 个测试文件，隔离 MySQL），无头 Edge 实测管理员（林恩宇）与成员（徐漫彬）工作台均可进入；检查点提交 `fix(web): keep the native fetch receiver for API requests` 识别。
 - 2026-08-07 fix-progress 轮次 22：完成 #7.1 子步骤 3 批次 11（exports/platform + users/profile 收尾读模型）——`packages/contracts/src/exports.ts` 新增 4 个 schema（含 3 个枚举），`packages/contracts/src/users.ts` 新增 `userProfileSchema`，`ScheduleExportJob`/`UserProfile` 及枚举类型由 schema 派生；`apps/web/src/api/client.ts` 5 处调用点改用 `isResponseBodyFromSchema`，删除 2 个手写守卫；`client.test.ts` 先写 7 条锁定测试再替换，136 → 143 条；`pnpm verify` 560/560 通过。至此 #7.1 子步骤 3 的 11 个读模型批次全部完成，client.ts 仅剩 `isApiErrorResponse`/`isUndefined` 两个基础设施守卫。
 - 2026-08-07 fix-progress 轮次 21：完成 #7.1 子步骤 3 批次 10（statistics 读模型）——`packages/contracts/src/statistics.ts` 新增 7 个 schema，7 个读模型类型由 schema 派生（`actualVsPlanned` 用 `z.custom` 保持旧守卫“仅数组”检查，其余按 typeof number/string 校验）；`apps/web/src/api/client.ts` 4 处调用点改用 `isResponseBodyFromSchema`，删除 7 个手写守卫；`client.test.ts` 先写 12 条锁定测试再替换，124 → 136 条；`pnpm verify` 553/553 通过。
 - 2026-08-07 fix-progress 轮次 20：完成 #7.1 子步骤 3 批次 9（events/notifications 读模型）——`packages/contracts/src/events.ts` 新增 3 个 schema，`packages/contracts/src/notifications.ts` 新增 9 个 schema，3+5 个读模型类型由 schema 派生（JsonObject 可选字段用 `z.custom` 复刻原检查、提醒小时整数 ≥1、可空联合按接口）；`apps/web/src/api/client.ts` 13 处调用点改用 `isResponseBodyFromSchema`，删除 13 个手写守卫（含 `isJsonObjectValue`）；`client.test.ts` 先写 13 条锁定测试再替换，111 → 124 条；`pnpm verify` 541/541 通过。
@@ -104,7 +105,7 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：fix-progress 轮次 23 处理 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复合并）；项目暂不上线，本地部署持续维护；CloudBase 上线验证暂停，待用户决定后再继续（随后等待用户验收并启动微信小程序立项，设计 26.1）。
+- 下一活动批次：轮次 57（fetch 接收者修复）已完成、待用户强刷复核；随后 fix-progress 轮次 23 处理 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复合并）；项目暂不上线，本地部署持续维护；CloudBase 上线验证暂停，待用户决定后再继续（随后等待用户验收并启动微信小程序立项，设计 26.1）。
 - 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
 - 停止条件：本地部署可用且用户验收完成（上线暂停，待用户决定后再恢复“上线健康检查通过”停止条件）。
 
