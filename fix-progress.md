@@ -82,7 +82,7 @@
 | ⏸️ | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
 | ⏸️ | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
 | ⏸️ | #9.1 | cloudbaserc 未声明 env，环境不可复现 | 轻微 | 低 | 中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
-| P3 | #6.1/#6.2 | 迁移 0030/0031 复制 + 序列一致性无校验 | 轻微 | 低 | 低中 | 合并 SQL + 加校验迁移 |
+| ✅ | #6.1/#6.2 | 迁移 0030/0031 复制 + 序列一致性无校验 | 轻微 | 低 | 低中 | 已完成（轮次 36）：合并回填 + 校验迁移与测试，见第 7 节 |
 | ✅ | #5.1 | notification-retry 的 skipped 恒为 0 | 轻微 | 低 | 低 | 已完成（轮次 33）：返回三态并如实计数，见第 7 节 |
 | ✅ | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | 已完成（轮次 34）：外键元数据锁定测试 + scanned 语义修正，见第 7 节 |
 | ✅ | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 已完成（轮次 35）：失败上下文写入 summary 与运行日志，见第 7 节 |
@@ -270,12 +270,16 @@
 严重等级：轻微
 建议：合并为一次 `UPDATE ... JOIN` 双表更新（或生成脚本），并注明排序必须与分配器一致。
 
+> 完成情况（轮次 36，2026-08-07）：0030 改为“临时排名表计算一次 ROW_NUMBER → 分别 UPDATE swap/duty”的合并回填，头注释写明排序必须与 `allocateWorkflowSequence` 单调语义一致；0029 播种补 `ORDER BY created_at ASC, workflow_kind ASC, id ASC`，与回填排序显式一致。本条目中的行号为审查时快照，修改后已过期。
+
 **6.2 序列分配表与回填值无显式一致性校验**
 位置：[workflow-sequence-allocator.ts (line 5)](E:/AItools/Schedule/apps/api/src/modules/workflows/workflow-sequence-allocator.ts:5)；[0029_seed_workflow_sequence_allocations.sql (line 1)](E:/AItools/Schedule/migrations/0029_seed_workflow_sequence_allocations.sql:1)
 原则：①不打补丁
 问题：运行时序列来自自增 ID，历史回填却来自 `ROW_NUMBER()`，两者靠“恰好都按创建顺序”保持一致，迁移里没有断言（例如 `MAX(workflow_sequence) < LAST_INSERT_ID()`）。
 严重等级：轻微
 建议：在 0031 末尾加一条校验迁移或测试，确认新旧序列空间不重叠。
+
+> 完成情况（轮次 36，2026-08-07）：0031 保留文件名（兼容已发布 journal），内容改为一致性校验迁移——回填最大值超过播种分配区间上限或序列重复时，向临时校验表插入 0 触发 CHECK 约束失败，使迁移报错；`migrations.test.ts` 新增 2 条行为测试（排序/区间锁定 + 越界拒绝，旧 0031 无校验时红）。本条目中的行号为审查时快照，修改后已过期。
 
 ### 7. apps/web 基础层（API 客户端 / PWA / 路由）
 
@@ -1133,3 +1137,27 @@
 不确定点：1. `failures` 数组未设上限，极端情况下（大量月份同时失败）summary 会被 500 字符截断但计数仍在；完整列表在 run-job/cloudbase-runner 的控制台日志中可查。2. `statisticsRefresher` 注入仅测试使用，生产路径仍由 runner 构造默认 `StatisticsService`。3. 单条错误信息截断为 500 字符（与 summary 列上限一致），超长错误（如堆栈）不会进入任务结果。
 
 下次计划：按清单继续 #6.1/#6.2（迁移 0030/0031 复制合并 + 序列一致性校验）；CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–34 相关验收项。
+
+### 轮次 36 – 2026-08-07
+
+目标：#6.1 + #6.2 —— 合并 0030/0031 两份逐行复制的工作流序列回填 SQL，并为“历史回填序列空间 vs 未来分配序列空间”补一致性校验。
+
+引入点：0030/0031 自轮次 55（单调工作流序列）引入起即逐行复制排名字查询；0029 播种无 ORDER BY，0031 无任何校验（审计卡 #6.1/#6.2 登记）。
+
+为什么现有测试没拦住：迁移测试只验证“空库可迁移 + 表存在”，从未在已有工作流数据上执行回填 SQL，也未断言序列区间；新增 2 条数据库行为测试（合并回填排序/区间锁定 + 播种不足时 0031 必须拒绝，旧 0031 无校验时红）。
+
+修改文件：`migrations/0030_backfill_swap_workflow_sequence.sql`（改为临时排名表 `_workflow_sequence_ranked` 只计算一次 `ROW_NUMBER() OVER (ORDER BY created_at ASC, workflow_kind ASC, id ASC)`，再分别 UPDATE swap/duty；头注释注明排序与分配器语义一致）；`migrations/0029_seed_workflow_sequence_allocations.sql`（播种 SELECT 补显式 `ORDER BY created_at ASC, workflow_kind ASC, id ASC`）；`migrations/0031_backfill_duty_adjustment_workflow_sequence.sql`（原回填并入 0030，文件名保留以兼容 journal；内容改为校验迁移：`MAX(workflow_sequence) > MAX(workflow_sequence_allocations.id)` 或 `COUNT(DISTINCT workflow_sequence) <> COUNT(*)` 时向带 CHECK 约束的临时表插入 0，迁移报错）；`packages/database/tests/migrations.test.ts`（新增 `runMigrationFile` 辅助与 2 条测试）。
+
+语义等价审计与行为变化清单：回填排序与结果与旧 0030+0031 逐值等价（同一 ROW_NUMBER 排序，仅计算一次）；0029 从无排序改为显式排序，播种行集合与 allocated_at 不变，仅插入物理顺序确定性化；0031 从“回填 duty”改为“校验”（duty 回填已由 0030 完成），在正常数据上不产生任何数据变更，仅在回填区间越界或序列重复时让迁移失败。已应用 0029–0031 的存量库不受影响（drizzle 按 journal 跳过，不重跑）。
+
+测试结果：`pnpm verify` 590/590 ✅（73 个测试文件，隔离 MySQL；新增 2 条迁移行为测试）；定向 packages/database migrations 10/10（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#6.1 ✅、#6.2 ✅（已完成；纯迁移文件与测试，无用户界面变化，无需用户强刷）。
+
+提交：9ff2513（`refactor(migrations): merge workflow sequence backfill and add overlap validation`），推送结果见对话回复
+
+不确定点：1. 0031 文件名仍为 `0031_backfill_duty_adjustment_workflow_sequence`，内容已改为校验（头注释说明）；若未来允许改 journal，可重命名消除歧义。2. 校验迁移只对“尚未应用 0031 的库”生效；已应用存量库靠新增测试守护，不再补 0032 迁移以免在未知线上数据上失败。3. 临时表 JOIN 使用 utf8mb4_0900_ai_ci 以匹配业务表 collation；若未来业务表改 collation 需同步。
+
+下次计划：按清单继续 #2.2（数据库客户端 mysql2 内部属性 + 异步设时区）；#1.3/#9.3 为 P3 后续候选；CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–35 相关验收项。
