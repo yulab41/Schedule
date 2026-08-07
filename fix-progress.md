@@ -954,7 +954,7 @@
 
 状态：已完成（#4.3 子步骤 2a；#4.3 整体进行中）。
 
-提交：`refactor(workflows): consolidate shared workflow dependencies`（提交后回填短哈希），推送结果见对话回复
+提交：65bed71（`refactor(workflows): consolidate shared workflow dependencies`），推送结果见对话回复
 
 不确定点：1. leave 现在会构造未使用的 memberReader/selfHealing 实例（无副作用、开销可忽略）；若希望按需注入，可改为可选字段或构造参数。2. `runAuthorizedMutation` 仍为独立函数并接收 databaseClient/permissionService 参数；后续可移入容器方法进一步简化调用点。3. 三服务的 runXxx 领域逻辑仍各自保留（入口骨架已抽、依赖已收敛，状态机迁移留待后续子步骤）。
 

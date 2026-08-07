@@ -687,7 +687,7 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（#4.3 子步骤 1；#4.3 整体进行中）。
 
-### 轮次 28（fix-progress #4.3 子步骤 2a，提交：refactor(workflows): consolidate shared workflow dependencies）
+### 轮次 28（fix-progress #4.3 子步骤 2a，提交：65bed71 refactor(workflows): consolidate shared workflow dependencies）
 - 目标/需求：#4.3 拆多轮的第二步——把换班/加扣班/请假三个服务各自实例化的同一套依赖收敛为共享容器，消除“三件套”重复实例化。
 - 根因：三个 1000+ 行服务从功能开发起各自 `new` eventWriter/notificationWriter/permissionService 等依赖，新增依赖需改三处。
 - 修复/功能：新增 `apps/api/src/modules/workflows/workflow-services.ts` 的 `WorkflowServices` 容器（含成员读取、冲突查询、统计、自愈等全部共享依赖，构造无副作用）；三个服务删除各自依赖字段与构造逻辑，131 处 `this.<dep>` 引用改为 `this.services.<dep>`，类型导入保留。
