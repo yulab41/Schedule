@@ -61,3 +61,12 @@ After creating a commit, push the current branch to its configured GitHub upstre
 Never force-push, rewrite published history, delete remote branches, or bypass branch protection unless the user explicitly requests the exact operation. If a push fails, keep the local commit intact and report the failure.
 
 In the final response, state whether a commit was created, include its short hash and message, and state whether the GitHub push succeeded. This policy requires judgment; it does not mean every conversation must produce a commit.
+
+## 防回归与运行验证（所有修复/重构轮次必须遵守）
+
+1. 定位引入点：回归修复前，对被改动调用点执行 `git log -S '<关键表达式>' -- <文件>` 与 `git blame`，确认该行为从哪个提交/轮次开始，并把引入点写入轮次记录与调试日志。
+2. 语义等价审计：任何“重构”必须逐调用点证明行为等价——`this`/接收者绑定（成员调用 vs 裸调用、bind/call/apply）、异步与错误路径（promise 拒绝、catch 范围）、空值语义（`??`/`||`/`?.`）、类型收窄、副作用与调用次数。任一项不同即不是重构，必须拆成独立提交，并先写能在旧代码上失败、新代码上通过的回归测试。
+3. 测试先行：回归测试先失败后通过；禁止用“改测试来掩盖”代替。
+4. 浏览器冒烟强制：改动触及核心链路（`apps/web/src/api|auth|router|pwa|stores/session.ts|App.vue|main.ts|layouts`、`packages/contracts/src`、`apps/web/vite.config.ts`、`.env.example`）时，必须运行 `pnpm smoke:browser`，并在 `fix-progress.md` 轮次记录或 `docs/debug/debug-feedback-log.md` 写入“运行/浏览器验证：pnpm smoke:browser …”及结果；提交前必须运行 `pnpm smoke:check-core`，若核心链路有改动且未记录则校验失败、禁止提交。
+5. 完成状态三态：`已实现待浏览器复核` → `已完成`（含运行验证）→ `待用户复核`（需用户强刷/验收）。单测通过不等于已完成，`docs/project-status.md` 与调试日志沿用同一口径。
+6. 提交前自查：`git diff` 逐行过一遍并列出行为变化清单（哪怕“预期等价”也列出）；发现无关改动一律拆出或回退，不“顺手改”。

@@ -31,6 +31,9 @@ importers:
       globals:
         specifier: ^16.4.0
         version: 16.4.0
+      playwright-core:
+        specifier: ^1.62.1
+        version: 1.62.1
       prettier:
         specifier: ^3.6.2
         version: 3.9.6
@@ -3082,6 +3085,14 @@ packages:
         integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==,
       }
 
+  playwright-core@1.62.1:
+    resolution:
+      {
+        integrity: sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==,
+      }
+    engines: { node: '>=20' }
+    hasBin: true
+
   postcss-selector-parser@7.1.4:
     resolution:
       {
@@ -5507,6 +5518,8 @@ snapshots:
       confbox: 0.2.4
       exsolve: 1.1.1
       pathe: 2.0.3
+
+  playwright-core@1.62.1: {}
 
   postcss-selector-parser@7.1.4:
     dependencies:

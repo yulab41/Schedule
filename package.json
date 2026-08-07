@@ -21,6 +21,8 @@
     "load:build": "tsc -p tests/load/tsconfig.json",
     "load:test": "node --env-file=.env tests/load/dist/run-load-test.js",
     "restore:backup": "node --env-file=.env infra/scripts/dist/restore-backup.js",
+    "smoke:browser": "node scripts/smoke-browser.mjs",
+    "smoke:check-core": "node scripts/smoke-browser.mjs --check-core",
     "lint": "eslint \"{apps,packages}/**/*.{ts,vue}\" \"infra/scripts/**/*.ts\" --max-warnings=0",
     "test": "vitest run",
     "tokens:generate": "pnpm --filter @schedule/ui-tokens generate",
@@ -36,10 +38,11 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.4.0",
     "globals": "^16.4.0",
+    "playwright-core": "^1.62.1",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.44.1",
-    "vue-eslint-parser": "^10.4.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vue-eslint-parser": "^10.4.1"
   }
 }

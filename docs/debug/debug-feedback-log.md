@@ -648,6 +648,7 @@
 - 根因：`apps/web/src/api/client.ts` 的 `requestWithOnline` 以 `options.fetchImplementation(...)` 形式调用 fetch，`this` 被绑定到 `options` 普通对象；浏览器原生 `fetch` 要求接收者为 Window/globalThis，在 ES Module 严格模式下抛出 `TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation`，被统一捕获为 `NETWORK_ERROR`，请求根本没有发出（Playwright 路由与网络面板均无 `/api/users/me` 请求）。
 - 修复/功能：改为 `options.fetchImplementation.call(globalThis, url, init)`，显式传回全局接收者；自定义 fetch（测试 mock）行为不变。
 - 验证：新增回归测试“keeps the global receiver when calling the default fetch”，用接收者敏感 mock 断言 `mock.contexts[0] === globalThis`（修复前失败、修复后通过）；`pnpm verify` 561/561 通过（68 个测试文件，隔离 MySQL）；无头 Edge 实测“本地管理员”进入管理员工作台（林恩宇）、“本地成员”进入成员工作台（徐漫彬），无控制台错误。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误；脚本 2026-08-07 落地后补跑）。
 - 状态：已完成，待用户浏览器强刷复核。
 
 ## 待办 / 下一步
