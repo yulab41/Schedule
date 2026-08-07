@@ -1076,7 +1076,7 @@
 
 状态：#5.1 ✅；#3.6/#9.1/#9.2 暂缓（待 CloudBase 去留决策）。
 
-提交：`fix(jobs): count missing notifications and subscriptions as skipped`（提交后回填短哈希），推送结果见对话回复
+提交：de07489（`fix(jobs): count missing notifications and subscriptions as skipped`），推送结果见对话回复
 
 不确定点：1. “投递行已不存在/非 pending”归为 skipped 是语义选择（非发送失败）；若希望这类竞态行计 failed 可调整。2. CloudBase 暂缓项若最终保留 CloudBase，需按原卡片继续；若弃用则改为清理轮。3. 平台任务汇总（platformJobRuns.summary）对 skipped/failed 的展示依赖本结果字段，接口未改。
 

@@ -733,7 +733,7 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#3.5 ✅。
 
-### 轮次 33（fix-progress #5.1 + CloudBase 暂缓决策，提交：fix(jobs): count missing notifications and subscriptions as skipped）
+### 轮次 33（fix-progress #5.1 + CloudBase 暂缓决策，提交：de07489 fix(jobs): count missing notifications and subscriptions as skipped）
 - 用户决策（2026-08-07）：后续可能弃用 CloudBase 改用阿里云；CloudBase 专属项 #3.6/#9.1/#9.2 暂缓，待平台去留决策；若弃用则另开一轮清理 CloudBase 专用代码。
 - 目标/需求：通知重试的 skipped 指标在“已配置推送”路径恒为 0，“通知不存在/订阅失效”被误计 failed；让 `processDelivery` 返回三态并如实计数。
 - 根因：`processDelivery` 只返回 `failed | sent`，内部把“无法发送（缺失依赖）”与“发送失败”混为 failed。
