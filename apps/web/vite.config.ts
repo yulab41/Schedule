@@ -25,6 +25,17 @@ export default defineConfig(({ mode }) => {
   return {
     envDir: '../..',
     plugins: [vue(), webAppManifestPlugin()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-query': ['@tanstack/vue-query'],
+            'vendor-tdesign': ['tdesign-vue-next'],
+            'vendor-vue': ['pinia', 'vue', 'vue-router'],
+          },
+        },
+      },
+    },
     server: {
       proxy: {
         '/api': {

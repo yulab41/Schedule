@@ -1,17 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-import AppLayout from '../layouts/AppLayout.vue';
 import { pinia } from '../stores/pinia.js';
 import { useSessionStore } from '../stores/session.js';
-import HomeView from '../views/HomeView.vue';
-import LoginView from '../views/auth/LoginView.vue';
-import GuestScheduleView from '../views/guest/GuestScheduleView.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
-      component: LoginView,
+      component: () => import('../views/auth/LoginView.vue'),
       meta: { guestOnly: true },
       name: 'login',
       path: '/login',
@@ -21,17 +17,17 @@ export const router = createRouter({
       redirect: { name: 'login' },
     },
     {
-      component: GuestScheduleView,
+      component: () => import('../views/guest/GuestScheduleView.vue'),
       name: 'guest-schedule',
       path: '/guest',
     },
     {
-      component: AppLayout,
+      component: () => import('../layouts/AppLayout.vue'),
       meta: { requiresAuth: true },
       path: '/',
       children: [
         {
-          component: HomeView,
+          component: () => import('../views/HomeView.vue'),
           name: 'home',
           path: '',
         },
