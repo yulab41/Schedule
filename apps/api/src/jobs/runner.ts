@@ -43,6 +43,10 @@ export const jobRunners: Readonly<Record<JobName, JobRunner>> = {
 
 export const jobNames: readonly JobName[] = Object.keys(jobRunners) as readonly JobName[];
 
+export function isJobName(value: string): value is JobName {
+  return Object.hasOwn(jobRunners, value);
+}
+
 export async function runJob(
   jobName: JobName,
   client: ReturnType<typeof createDatabaseClient>,

@@ -2,13 +2,11 @@ import { createDatabaseClient } from '@schedule/database';
 
 import { loadEnvironment } from '../config/env.js';
 import { recordJobRun } from './job-runs.js';
-import { runJob, type JobName } from './runner.js';
+import { isJobName, jobNames, runJob, type JobName } from './runner.js';
 
 const jobName = getJobName(process.argv.slice(2));
 if (jobName === undefined) {
-  console.error(
-    'Usage: node dist/jobs/run-job.js --job=duty-reminders|notification-retry|holiday-alerts|export-jobs|database-backup|statistics-rebuild|group-recycle',
-  );
+  console.error(`Usage: node dist/jobs/run-job.js --job=${jobNames.join('|')}`);
   process.exit(1);
 }
 
@@ -33,13 +31,5 @@ try {
 
 function getJobName(args: readonly string[]): JobName | undefined {
   const value = args.find((argument) => argument.startsWith('--job='))?.slice('--job='.length);
-  return value === 'database-backup' ||
-    value === 'duty-reminders' ||
-    value === 'export-jobs' ||
-    value === 'group-recycle' ||
-    value === 'holiday-alerts' ||
-    value === 'notification-retry' ||
-    value === 'statistics-rebuild'
-    ? value
-    : undefined;
+  return value !== undefined && isJobName(value) ? value : undefined;
 }
