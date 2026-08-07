@@ -1,9 +1,10 @@
 INSERT INTO `workflow_sequence_allocations` (`allocated_at`)
 SELECT `created_at`
 FROM (
-  SELECT `created_at`
+  SELECT `id`, `created_at`, 0 AS `workflow_kind`
   FROM `swap_requests`
   UNION ALL
-  SELECT `created_at`
+  SELECT `id`, `created_at`, 1 AS `workflow_kind`
   FROM `duty_adjustments`
-) AS `existing_workflows`;
+) AS `existing_workflows`
+ORDER BY `created_at` ASC, `workflow_kind` ASC, `id` ASC;

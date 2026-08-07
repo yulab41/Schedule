@@ -1,5 +1,7 @@
 ﻿import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -158,7 +160,115 @@ describeWithDatabase('identity and group migrations', () => {
 
     expect(usersAfterRollback).toEqual([{ count: 0 }]);
   });
+
+  it('backfills workflow sequences from one ranking in allocator order', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+    try {
+      await insertSwap(client, 'swap-latest', new Date('2026-08-01T00:00:00.000Z'));
+      await insertDuty(client, 'duty-middle', new Date('2026-07-31T00:00:00.000Z'));
+      await insertSwap(client, 'swap-earliest', new Date('2026-07-30T00:00:00.000Z'));
+      // 模拟 0029 在已有数据上的播种：顺序必须与回填排序一致。
+      await client.database.execute(sql`
+        INSERT INTO workflow_sequence_allocations (allocated_at)
+        SELECT created_at
+        FROM (
+          SELECT id, created_at, 0 AS workflow_kind FROM swap_requests
+          UNION ALL
+          SELECT id, created_at, 1 AS workflow_kind FROM duty_adjustments
+        ) AS existing_workflows
+        ORDER BY created_at ASC, workflow_kind ASC, id ASC
+      `);
+      await runMigrationFile(client, '0030_backfill_swap_workflow_sequence');
+      await runMigrationFile(client, '0031_backfill_duty_adjustment_workflow_sequence');
+    } finally {
+      await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
+    }
+
+    const [rows] = (await client.database.execute(sql`
+      SELECT 'swap' AS kind, id, workflow_sequence FROM swap_requests
+      UNION ALL
+      SELECT 'duty', id, workflow_sequence FROM duty_adjustments
+      ORDER BY workflow_sequence
+    `)) as unknown as [{ id: string; kind: string; workflow_sequence: number }[], unknown];
+    expect(rows.map((row) => `${row.kind}:${row.id}`)).toEqual([
+      'swap:swap-earliest',
+      'duty:duty-middle',
+      'swap:swap-latest',
+    ]);
+    expect(rows.map((row) => row.workflow_sequence)).toEqual([1, 2, 3]);
+
+    const [allocations] = (await client.database.execute(
+      sql`SELECT MAX(id) AS max_id FROM workflow_sequence_allocations`,
+    )) as unknown as [{ max_id: number | null }[], unknown];
+    expect(allocations[0]?.max_id).toBe(3);
+  });
+
+  it('rejects workflow sequence backfills that overlap future allocations', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+    try {
+      await insertSwap(client, 'swap-a', new Date('2026-08-01T00:00:00.000Z'));
+      await insertSwap(client, 'swap-b', new Date('2026-07-31T00:00:00.000Z'));
+      await insertSwap(client, 'swap-c', new Date('2026-07-30T00:00:00.000Z'));
+      // 只播种两条分配，模拟 0029 之后、回填之前又产生了一条工作流。
+      await client.database.execute(sql`
+        INSERT INTO workflow_sequence_allocations (allocated_at)
+        VALUES
+          ('2026-07-30 00:00:00.000'),
+          ('2026-07-31 00:00:00.000')
+      `);
+      await runMigrationFile(client, '0030_backfill_swap_workflow_sequence');
+      await expect(
+        runMigrationFile(client, '0031_backfill_duty_adjustment_workflow_sequence'),
+      ).rejects.toThrow(/Failed query: INSERT INTO `_workflow_sequence_validation`/);
+    } finally {
+      await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
+    }
+  });
 });
+
+async function runMigrationFile(client: DatabaseClient, migrationName: string): Promise<void> {
+  const filePath = join(migrationsDirectory, `${migrationName}.sql`);
+  const sqlText = await readFile(filePath, 'utf8');
+  for (const statement of sqlText.split('--> statement-breakpoint')) {
+    const trimmed = statement.trim();
+    if (trimmed.length > 0) {
+      await client.database.execute(sql.raw(trimmed));
+    }
+  }
+}
+
+async function insertSwap(client: DatabaseClient, id: string, createdAt: Date): Promise<void> {
+  const foreignId = randomUUID();
+  await client.database.execute(sql`
+    INSERT INTO swap_requests (
+      id, group_id, initiator_membership_id, target_membership_id,
+      initiator_assignment_id, target_assignment_id,
+      initiator_assignment_version, target_assignment_version,
+      status, created_at
+    )
+    VALUES (
+      ${id}, ${foreignId}, ${foreignId}, ${foreignId},
+      ${foreignId}, ${foreignId}, 1, 1,
+      'completed', ${createdAt}
+    )
+  `);
+}
+
+async function insertDuty(client: DatabaseClient, id: string, createdAt: Date): Promise<void> {
+  const foreignId = randomUUID();
+  await client.database.execute(sql`
+    INSERT INTO duty_adjustments (
+      id, group_id, covered_assignment_id, overtime_membership_id,
+      deducted_membership_id, assignment_version, status, created_at
+    )
+    VALUES (
+      ${id}, ${foreignId}, ${foreignId}, ${foreignId},
+      ${foreignId}, 1, 'completed', ${createdAt}
+    )
+  `);
+}
 
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
   if (process.env.NODE_ENV !== 'test') {
