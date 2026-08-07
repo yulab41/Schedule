@@ -9,6 +9,12 @@ import type {
 import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
 
 import { getDutyMemberName, getDutyMembershipId } from '../calendar/calendar-logic.js';
+import {
+  buildFutureCandidateAssignments,
+  getWorkflowNextStatusDescription,
+  getWorkflowStatusLabel,
+  resolveNextWorkflowStatus,
+} from '../workflows/workflow-logic.js';
 
 export interface DutyAdjustmentCandidateOptions {
   readonly adminShiftOptions: readonly CalendarDutyAssignment[];
@@ -16,22 +22,13 @@ export interface DutyAdjustmentCandidateOptions {
   readonly overtimeOptions: readonly CalendarDutyMember[];
 }
 
-export const dutyAdjustmentStatusLabels: Readonly<Record<DutyAdjustmentStatus, string>> = {
-  cancelled: '已取消',
-  completed: '已生效',
-  pending_approval: '待管理员审批',
-  pending_target: '待加班成员接受',
-  rejected: '已驳回',
-  revoked: '已撤销',
-};
-
 export function buildDutyAdjustmentCandidates(
   calendar: CalendarReadModel,
   myMembershipId: string,
 ): DutyAdjustmentCandidateOptions {
-  const futureAssignments = calendar.assignments.filter(isFutureAssignment);
-  const myAssignments = futureAssignments.filter(
-    (assignment) => getDutyMembershipId(assignment) === myMembershipId,
+  const { futureAssignments, myAssignments } = buildFutureCandidateAssignments(
+    calendar,
+    myMembershipId,
   );
   const adminShiftOptions = futureAssignments.filter(
     (assignment) => getDutyMembershipId(assignment) !== undefined,
@@ -43,12 +40,8 @@ export function buildDutyAdjustmentCandidates(
   return { adminShiftOptions, myAssignments, overtimeOptions };
 }
 
-function isFutureAssignment(assignment: CalendarDutyAssignment): boolean {
-  return new Date(assignment.startsAt).valueOf() > Date.now();
-}
-
 export function getDutyAdjustmentStatusLabel(status: DutyAdjustmentStatus): string {
-  return dutyAdjustmentStatusLabels[status];
+  return getWorkflowStatusLabel(status, '加班成员');
 }
 
 export function getDutyAdjustmentConflictMessage(conflict: DutyAdjustmentConflict): string {
@@ -59,23 +52,11 @@ export function resolveNextDutyAdjustmentStatus(
   requiresApproval: boolean,
   overtimeAutoAccepts: boolean,
 ): DutyAdjustmentStatus {
-  if (!overtimeAutoAccepts) {
-    return 'pending_target';
-  }
-  return requiresApproval ? 'pending_approval' : 'completed';
+  return resolveNextWorkflowStatus(requiresApproval, overtimeAutoAccepts);
 }
 
 export function getDutyAdjustmentNextStatusDescription(status: DutyAdjustmentStatus): string {
-  switch (status) {
-    case 'pending_target':
-      return '提交后将等待加班成员接受。';
-    case 'pending_approval':
-      return '加班成员将自动接受，提交后进入管理员审批。';
-    case 'completed':
-      return '加班成员已开启自动接受且群组无需审批，提交后将立即生效。';
-    default:
-      return '';
-  }
+  return getWorkflowNextStatusDescription(status, '加班成员');
 }
 
 export function formatDutyAdjustmentAssignmentOption(assignment: CalendarDutyAssignment): string {

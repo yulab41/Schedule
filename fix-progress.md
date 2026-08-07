@@ -818,3 +818,23 @@
 3. 本批完成后 `#7.1 子步骤 3` 的读模型守卫替换全部结束，client.ts 仅剩 `isApiErrorResponse`（错误响应解析，由 `knownApiErrorCodes` 契约码表支撑）与 `isUndefined`（void 端点解析）两个基础设施守卫，不属于读模型校验器；若用户希望连它们也契约化，需另开一轮评估。
 
 下次计划：`#7.1 子步骤 3` 全部 11 个批次已完成。后续候选按清单继续：#7.4（前端 swap/duty 候选与 isFutureAssignment 重复）、#8.1（15 个页面重复错误文案模板）、#3.7（框架 4xx 归一化）、#4.2/#4.3 等；同时等待用户充值 CloudBase 后验证上线。
+
+### 轮次 23 – 2026-08-07
+
+目标：#7.4 —— 合并前端 swap/duty 的 `isFutureAssignment`、候选构建、状态标签表与“下一步状态说明” switch 到共享 feature 逻辑；纯重构，语义等价。
+
+引入点：swap 的 `isFutureAssignment` 由 `b7ec288`（轮次 14）引入，duty 的 `isFutureAssignment` 由 `3e96983`（轮次 48）引入；候选构建/状态标签/下一步说明 switch 分别源自 `b20ff9b`（feat(workflow): add member shift swaps）与 `5d8b205`（feat(workflow): add paired duty adjustments）。
+
+修改文件：`apps/web/src/features/workflows/workflow-logic.ts`（新增共享模块：`isFutureAssignment`（可选显式时钟；生产调用经 `filter((a) => isFutureAssignment(a))` 仍逐元素取 `Date.now()`，与旧行为一致）、`filterFutureAssignments`、`buildFutureCandidateAssignments`（未来班次 + 我的班次）、`groupAssignmentsByDutyMember`（按当前值班人分组、跳过未分配）、共享状态标签表 + 参数化 `getWorkflowStatusLabel`/`getWorkflowNextStatusDescription`/`resolveNextWorkflowStatus`）；`apps/web/src/features/swaps/swap-logic.ts` 与 `apps/web/src/features/duty-adjustments/duty-adjustment-logic.ts`（候选构建、状态标签、下一步说明、next-status 解析全部委托共享模块，删除各自 `isFutureAssignment` 与状态标签表；冲突消息与格式化助手保留）；`apps/web/src/features/workflows/workflow-logic.spec.ts`（新增 7 条共享逻辑锁定测试：显式时钟未来判定、原序过滤、候选构建、按当前值班人分组且跳过未分配/actual 覆盖 planned、双文案状态标签、双文案下一步说明、四组合 next-status 解析）；`swap-logic.spec.ts`/`duty-adjustment-logic.spec.ts`（各补 2 条差异化锁定断言：`pending_target` 标签与描述分别保持“待对方接受/待加班成员接受”“目标成员/加班成员”文案）。
+
+语义等价审计：逐调用点对比——`isFutureAssignment` 原实现 `new Date(startsAt).valueOf() > Date.now()` 逐元素取时，共享函数保持相同调用方式；候选过滤/我的班次过滤/按值班人分组的顺序与跳过逻辑逐行等价；swap 的目标成员选项与 duty 的管理班次/加班成员选项各自专属分支未改动；状态标签除 `pending_target` 外共享同一张表，`pending_target` 用参数化文案保持两模块原有差异；next-status 解析与描述字符串逐状态一致，default 均为空串；无 this/接收者、异步/错误路径、空值语义或副作用差异。
+
+测试结果：`pnpm verify` 568/568 ✅（69 个测试文件，隔离 MySQL；新增 7 条共享逻辑测试 + 4 条差异化锁定断言）
+
+运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（未涉及核心链路，无需强制记录，已实际补跑）。
+
+状态：已完成（feature 逻辑重构，单测 + 浏览器冒烟通过；待用户本地验收时强刷复核面板文案与候选行为不变）。
+
+不确定点：1. `filterFutureAssignments` 未暴露显式时钟参数，测试用 2000/2099 远年日期避免依赖当前时间；若未来需要可注入时钟，可加可选 `now` 并在共享 builder 透传。2. 共享 `WorkflowRequestStatus = SwapRequestStatus | DutyAdjustmentStatus` 依赖两个契约状态枚举当前完全同构；若未来二者分化，需把参数化文案/映射拆回各自模块。3. swap/duty 的 `formatXAssignmentOption`、`formatXShiftTime` 与 `formatChinaStandardTime` 仍各复制一份（审计卡未列入本项范围），如需一并收敛可另开一轮。
+
+下次计划：按清单继续 #8.1（15 个页面重复错误文案模板抽 `toUserMessage`）；同时等待用户强刷复核轮次 57 及既往排班/换班/加扣班相关验收项。

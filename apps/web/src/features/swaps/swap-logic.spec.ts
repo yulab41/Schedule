@@ -86,6 +86,7 @@ describe('swap flow logic', () => {
 
   it('labels statuses and conflicts and formats options', () => {
     expect(getSwapStatusLabel('pending_approval')).toBe('待管理员审批');
+    expect(getSwapStatusLabel('pending_target')).toBe('待对方接受');
     expect(
       getSwapConflictMessage({
         code: 'MEMBER_LEAVE_OVERLAP',
@@ -96,6 +97,7 @@ describe('swap flow logic', () => {
     expect(formatSwapAssignmentOption(calendar.assignments[1]!)).toBe(
       '2026-09-02 全天班（全）· 李医生',
     );
+    expect(getSwapNextStatusDescription('pending_target')).toBe('提交后将等待目标成员接受。');
     expect(getSwapNextStatusDescription('pending_approval')).toContain('管理员审批');
     expect(getSwapNextStatusDescription('completed')).toContain('立即生效');
   });

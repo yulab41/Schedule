@@ -87,6 +87,7 @@ describe('duty adjustment flow logic', () => {
 
   it('labels statuses and conflicts and formats options', () => {
     expect(getDutyAdjustmentStatusLabel('pending_approval')).toBe('待管理员审批');
+    expect(getDutyAdjustmentStatusLabel('pending_target')).toBe('待加班成员接受');
     expect(getDutyAdjustmentStatusLabel('revoked')).toBe('已撤销');
     expect(
       getDutyAdjustmentConflictMessage({
@@ -117,6 +118,9 @@ describe('duty adjustment flow logic', () => {
         version: 1,
       }),
     ).toBe('2026-09-02 全天班（全）· 李医生');
+    expect(getDutyAdjustmentNextStatusDescription('pending_target')).toBe(
+      '提交后将等待加班成员接受。',
+    );
     expect(getDutyAdjustmentNextStatusDescription('pending_approval')).toContain('管理员审批');
     expect(getDutyAdjustmentNextStatusDescription('completed')).toContain('立即生效');
   });
