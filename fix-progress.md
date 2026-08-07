@@ -55,7 +55,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| P2 | #7.1（子步骤 3 进行中：批次 10 statistics 读模型完成） | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 拆子步骤执行，拆分与进度见卡片下方 |
+| ✅ | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 已完成（轮次 12–22）：子步骤 1–3 全部完成，113 个读模型守卫替换为契约 schema，见第 7 节 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | P2 | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 合并 feature 逻辑 |
 | P2 | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 抽 toUserMessage |
@@ -780,3 +780,20 @@
 3. statistics 家族与 schedule generation 统计（`scheduleGenerationStatisticsSchema`）是两套独立 schema，字段语义相近但分属不同读模型；若未来想合并需先统一契约。
 
 下次计划：#7.1 子步骤 3 批次 11（exports/platform + users/profile 收尾读模型：`isScheduleExportJob`/`isUserProfile` 先写锁定测试再替换；随后 client.ts 仅剩基础设施守卫 `isApiErrorResponse`/`isUndefined`，按需另开清理轮）
+
+### 轮次 22 – 2026-08-07
+
+目标：#7.1 子步骤 3 批次 11 —— exports/platform + users/profile 收尾读模型 2 个手写守卫替换为 schema 解析；先写锁定测试再替换。至此 #7.1 子步骤 3 全部读模型批次完成。
+
+修改文件：`packages/contracts/src/exports.ts`（新增 `scheduleExportTypeSchema`/`scheduleExportPeriodTypeSchema`/`scheduleExportStatusSchema`/`scheduleExportJobSchema`，`ScheduleExportJob` 及 3 个枚举类型由 schema 派生，约束与旧守卫一致：枚举、字符串、可选字段、`passthrough()`、rowCount 仅校验 number）；`packages/contracts/src/users.ts`（新增 `userProfileSchema`，`UserProfile` 类型由 schema 派生：非空 id/realName、整数 ≥1 version）；`apps/web/src/api/client.ts`（5 处调用点改用 `isResponseBodyFromSchema`，删除 `isUserProfile`/`isScheduleExportJob` 2 个手写守卫，保留 `isApiErrorResponse`/`isUndefined` 基础设施守卫）；`apps/web/src/api/client.test.ts`（先新增 7 条锁定测试再替换：导出任务未知 exportType、未知 status、period 非字符串、缺 createdAt、用户资料空 id、空 realName、非整数 version；136 → 143 条）；同步更新 `docs/project-status.md` 与 `fix-progress.md`。
+
+测试结果：`pnpm verify` 560/560 ✅（68 个测试文件，隔离 MySQL；新增 7 条 client 锁定测试）
+
+提交：d606cfd，推送结果见对话回复
+
+不确定点：
+1. `scheduleExportJobSchema` 的 `id`/`groupId` 按旧守卫只校验字符串不校验非空，schema 保持 `z.string()`（无 min）；若未来想收紧需加 `.min(1)`——出错症状是空 id/groupId 仍能通过读模型（与旧行为一致）。
+2. `ScheduleExportJob.rowCount` 按旧守卫只校验 number 不校验整数/非负，schema 保持 `z.number()`；若未来想收紧需改 `.int().min(0)`。
+3. 本批完成后 `#7.1 子步骤 3` 的读模型守卫替换全部结束，client.ts 仅剩 `isApiErrorResponse`（错误响应解析，由 `knownApiErrorCodes` 契约码表支撑）与 `isUndefined`（void 端点解析）两个基础设施守卫，不属于读模型校验器；若用户希望连它们也契约化，需另开一轮评估。
+
+下次计划：`#7.1 子步骤 3` 全部 11 个批次已完成。后续候选按清单继续：#7.4（前端 swap/duty 候选与 isFutureAssignment 重复）、#8.1（15 个页面重复错误文案模板）、#3.7（框架 4xx 归一化）、#4.2/#4.3 等；同时等待用户充值 CloudBase 后验证上线。
