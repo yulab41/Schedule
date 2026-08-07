@@ -906,7 +906,7 @@
 
 状态：已完成（单测 + 集成测试通过；API 冲突响应文案/结构统一，用户界面无直接变化）。
 
-提交：`refactor(workflows): unify swap and duty conflict assertions`（提交后回填短哈希），推送结果见对话回复
+提交：b423807（`refactor(workflows): unify swap and duty conflict assertions`），推送结果见对话回复
 
 不确定点：1. swap accept/approve 的“只查资格冲突”依赖 `findSwapAssignmentConflicts` 无排除参数这一现状；若未来给 swap 查询加排除参数，可让 accept/approve 也重查活动工作流（与 duty 对齐）——出错症状是 accept/approve 误报“已有待处理换班/加扣班”409。2. swap 资格冲突文案从通用改为具体拼接，提交失败提示更长更具体；若希望保留简短通用文案，需把 message 生成改为参数化。3. leave 的 `workflowBlockers` 断言仍是独立实现（latestData 结构不同），未纳入本次范围，留待 #4.3 状态机骨架时评估。
 
