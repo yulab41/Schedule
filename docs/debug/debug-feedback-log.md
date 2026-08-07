@@ -851,6 +851,26 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；pnpm smoke:check-core 通过（未涉及 Web 核心链路）。
 - 状态：#N7 ✅（已完成；无用户界面文案变化，待用户强刷复核相关页面时间显示）。
 
+### 轮次 44（fix-progress #N3，提交：8cf121f + docs checkpoint）
+
+- 目标/需求：run-job CLI 手写 7 项任务名单与 runner 穷举映射重复维护，改为单一来源。
+- 根因/引入点：`getJobName` 名单随任务功能在 52e9e1f/a837586 等提交累积；轮次 6（8d54076）收敛 runner 映射后 CLI 未同步。
+- 修复/功能：`runner.ts` 导出 `isJobName`（`Object.hasOwn(jobRunners, value)`）；`run-job.ts` 的 Usage 由 `jobNames.join('|')` 生成，`getJobName` 委托 `isJobName`；新增 1 条锁定测试（全部 `jobNames` 识别、未知/空值拒绝）。
+- 行为变化清单：合法任务名集合与拒绝路径不变；Usage 文案顺序改为映射表插入顺序（7 个名字完整保留）。
+- 验证：N3 定向 runner.spec 3/3 ✅；与 N4 一起全量 `pnpm verify` 589/589 ✅（72 测试文件，隔离 MySQL）。CLI 实测：无参/未知任务 exit=1，Usage 由映射表生成。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客无浏览器错误）；pnpm smoke:check-core 通过（未涉及 Web 核心链路）。
+- 状态：#N3 ✅（已完成，CLI 无用户界面变化）。
+
+### 轮次 45（fix-progress #N4，提交：7dfe54a + docs checkpoint）
+
+- 目标/需求：删除从未被引用的 `NoopPushDispatcher` 死类。
+- 根因/引入点：52e9e1f 引入后从未被引用；`createPushDispatcher` 始终返回 `WebPushDispatcher`；轮次 8（#7.5）清理时遗漏。
+- 修复/功能：删除 `notification-dispatcher.ts` 中的 `NoopPushDispatcher`；rg 全库确认无引用。
+- 行为变化清单：纯删除未导出且无引用的类，行为无变化。
+- 验证：API typecheck 通过；全量 `pnpm verify` 589/589 ✅（72 测试文件，隔离 MySQL）。
+- 运行/浏览器验证：无 Web 核心链路；pnpm smoke:browser 通过；pnpm smoke:check-core 通过。
+- 状态：#N4 ✅（已完成，无用户界面变化）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：事件/日历/换班/加扣班/请假时间显示与草稿编号不变（轮次 43 相关，纯显示层收敛）。
@@ -877,7 +897,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-07）：fix-progress 轮次 43 已完成（#N7 时区转换收尾，待用户强刷复核时间显示）；下一目标为 N3（run-job 任务名单收敛）→ N4（NoopPushDispatcher 清理）等快速清理项；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
+- 下一活动批次（2026-08-08）：fix-progress 轮次 44/45 已完成（#N3 run-job 任务名单收敛 + #N4 NoopPushDispatcher 清理，均无用户界面变化）；下一目标为 N5（idempotency 并发重复键返回 409）→ N8/N9 等快速清理项；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。

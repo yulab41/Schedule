@@ -478,8 +478,8 @@
 
 - **N1 ✅（轮次 41 已修复）** `infra/docker/compose.prod.yml` 第 32/43 行重复 `NODE_ENV` 键，`docker compose config` 解析失败，阿里云部署路径不可复现（引入点 16aea99）。修复：删除旧 `NODE_ENV: production`，保留试用期 `NODE_ENV: development`；`verify.yml` 新增 `docker compose config --quiet` 校验。
 - **N2 ✅（轮次 42 已修复）** 公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）。用户决策（2026-08-07）：采用方案二“浏览器密码提示”（Nginx Basic Auth）作为临时门禁；`nginx.prod.conf` 改为官方镜像模板并用 `NGINX_BASIC_AUTH_REALM` 控制开关，`.htpasswd` 服务器本地生成、不入库。该门禁仅限非正式测试阶段，微信小程序/正式上线改用微信账号登录前必须关闭并移除。
-- **N3 ⏳ 轻微** `apps/api/src/jobs/run-job.ts` 的 `getJobName` 手写 7 项任务名单，与 runner 穷举映射重复维护（#3.3 同类残留）。
-- **N4 ⏳ 轻微** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。
+- **N3 ✅（轮次 44 已修复）** `apps/api/src/jobs/run-job.ts` 的 `getJobName` 手写 7 项任务名单，与 runner 穷举映射重复维护（#3.3 同类残留）。修复：`runner.ts` 导出 `isJobName`（基于 `jobRunners` 键判断），`run-job.ts` 改用 `jobNames`/`isJobName` 生成用法与解析，删除手写名单。
+- **N4 ✅（轮次 45 已修复）** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。修复：删除该类；`createPushDispatcher` 始终返回 `WebPushDispatcher`，全库无引用。
 - **N5 ⏳ 轻微** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。
 - **N6 ⏳ 轻微** `cloudbaseUid` 字段/列名在平台弃用后保留（已登记），重命名需数据库迁移。
 - **N7 ✅（轮次 43 已修复）** #7.3 只统一了时区常量，前端 7 个文件仍各自手写“偏移 + toISOString 截取”转换（event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic；N7 原文写 8 个，rg 全量核对实际命中 7 个），已由领域包 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数统一替换。
@@ -562,6 +562,54 @@
 不确定点：1. `formatChinaDateTime` 的 `includeYear`/`includeSeconds` 是显示层选项；若未来需要其他格式（如带星期、12 小时制），应在领域包继续扩展而不是在各页面重写。2. swap/duty `formatXShiftTime` 保留了旧实现中的双空格样式（`08-02  00:00– 08:00`），本轮只收敛不修样式；若属文案瑕疵需另开轮。3. 无效时间戳错误类型统一为自定义 Error，未来若有人给这些格式化函数传无效值，错误文案与旧 `RangeError` 不同。
 
 下次计划：N3（run-job 任务名单与 runner 映射收敛）→ N4（NoopPushDispatcher 死类清理）等快速清理项；同时按阿里云部署路径推进自建/微信认证。
+
+### 轮次 44 – 2026-08-08
+
+目标：#N3 —— run-job CLI 手写 7 项任务名单与 runner 穷举映射重复维护，改为单一来源。
+
+引入点：`getJobName` 名单随任务功能在 52e9e1f/a837586 等提交中逐项累积；轮次 6（#3.3，8d54076）把 runner 收敛为 `Record<JobName, JobRunner>` 穷举映射后，CLI 名单未同步。
+
+为什么现有测试没拦住：`runner.spec.ts` 只校验映射表内部一致性，不覆盖 CLI 解析；`getJobName` 与 `jobRunners` 之间没有编译期或运行时关联。
+
+修改文件：`runner.ts` 新增并导出 `isJobName`（用 `Object.hasOwn(jobRunners, value)` 判断，不新增第二份名单）；`run-job.ts` 导入 `isJobName`/`jobNames`，Usage 文案改为 `jobNames.join('|')` 生成，`getJobName` 委托 `isJobName`；`runner.spec.ts` 新增 1 条锁定测试（全部 `jobNames` 均识别、未知/空值拒绝）。
+
+语义等价审计与行为变化清单：合法任务名集合与拒绝路径不变；唯一行为变化是 Usage 文案顺序从旧手写顺序变为映射表插入顺序（7 个名字完整保留），不影响解析。
+
+测试结果：N3 定向 `runner.spec.ts` 3/3 ✅；与 N4 一起全量 `pnpm verify` 589/589 ✅（72 测试文件，隔离 MySQL；runner.spec 2→3）。
+
+运行/浏览器验证：`node apps/api/dist/jobs/run-job.js` 无参/未知任务均 exit=1，Usage 由映射表生成 7 个任务名；pnpm smoke:browser 通过（登录/管理员/成员/访客无浏览器错误）；pnpm smoke:check-core 通过（未涉及 Web 核心链路）。
+
+状态：#N3 ✅（已完成，CLI 无用户界面变化）。
+
+提交：8cf121f（`refactor(jobs): derive CLI job names from runner mapping`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. Usage 文案顺序随映射表顺序变化；若外部脚本按旧顺序解析文案（不会，因为只是人读帮助文本），会看到不同顺序。2. `isJobName` 依赖 `Object.hasOwn`，若未来映射表原型被污染需改 `Object.create(null)`，当前无影响。3. CLI 入口有 DB/进程副作用，未做自动单测；由 `isJobName` 单测 + 手动运行验证覆盖。
+
+下次计划：#N4（NoopPushDispatcher 死类清理）。
+
+### 轮次 45 – 2026-08-08
+
+目标：#N4 —— 删除从未被引用的 `NoopPushDispatcher` 死类。
+
+引入点：52e9e1f 引入 `NoopPushDispatcher` 后从未被引用；`createPushDispatcher` 始终返回 `WebPushDispatcher`；轮次 8（#7.5）清理死代码时遗漏该类。
+
+为什么现有测试没拦住：导出的死类不会触发 TypeScript/vitest 错误，也没有测试断言它存在。
+
+修改文件：`notification-dispatcher.ts` 删除 `NoopPushDispatcher` 类；rg 全库确认无任何引用。
+
+语义等价审计与行为变化清单：纯删除未导出且无引用的类，所有调用点不变，行为无变化。
+
+测试结果：API typecheck 通过；全量 `pnpm verify` 589/589 ✅（72 测试文件，隔离 MySQL）。
+
+运行/浏览器验证：无 Web 核心链路；pnpm smoke:browser 通过；pnpm smoke:check-core 通过。
+
+状态：#N4 ✅（已完成，无用户界面变化）。
+
+提交：7dfe54a（`refactor(notifications): remove unused NoopPushDispatcher`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. 若未来需要“未配置推送时静默跳过”语义，应显式在 `WebPushDispatcher.send` 或调用方处理，而不是重新引入死类。2. 本次为纯删除，未改变 `createPushDispatcher({})` 的返回对象（仍是 `WebPushDispatcher`，`isConfigured=false`）。
+
+下次计划：N5（idempotency 并发重复键返回 409）→ N8/N9 等快速清理项；同时按阿里云部署路径推进自建/微信认证。
 
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
