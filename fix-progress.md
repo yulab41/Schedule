@@ -68,6 +68,7 @@
 | ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
 | ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
 | ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
+| ✅ | #2.2 | 数据库客户端使用 mysql2 内部属性并异步设时区 | 轻微 | 低 | 中（防时区事故） | 已完成（轮次 37）：公开 connection 事件 + 顺序保证注释与锁定测试，见第 7 节 |
 | ✅ | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 已完成（轮次 12–22）：子步骤 1–3 全部完成，113 个读模型守卫替换为契约 schema，见第 7 节 |
 | ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
 | ✅ | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 已完成（轮次 23）：合并共享 workflow 逻辑，见第 7 节 |
@@ -135,6 +136,8 @@
 问题：`pool.pool.on(...)` 依赖 mysql2/promise 的私有底层对象；`SET time_zone='+00:00'` 在连接事件里异步执行，未等待完成，早发的查询可能落在服务器默认时区上，造成 NOW()/CURRENT_TIMESTAMP 不一致（本项目已经历过时区/时间戳类事故）。
 严重等级：轻微
 建议：在连接建立回调中同步完成时区设置（或用 drizzle 连接初始化选项），并加注释说明动机。
+
+> 完成情况（轮次 37，2026-08-07）：改用公开 API——`createPool` 取自回调版 `mysql2`，注册公开 `pool.on('connection', ...)`（不再触碰 `pool.pool` 私有对象），`SET time_zone='+00:00'` 在事件回调中同步入队，`pool.promise()` 交给 drizzle；注释说明 mysql2 连接建立事件先于出借触发、单连接命令 FIFO 串行，故首个业务查询必在 SET 完成后执行，SET 失败则销毁连接；新增 `client.test.ts` 2 条锁定测试（并发双连接 + 事务连接首次查询前会话已是 UTC）。本条目中的行号为审查时快照，修改后已过期。
 
 **2.3 领域层时区常量与 Web 端重复（见 8.1）**
 位置：[time.ts (line 1)](E:/AItools/Schedule/packages/scheduling-domain/src/time.ts:1)（第 1 行 `8 * 60 * 60 * 1000`）
@@ -1161,3 +1164,27 @@
 不确定点：1. 0031 文件名仍为 `0031_backfill_duty_adjustment_workflow_sequence`，内容已改为校验（头注释说明）；若未来允许改 journal，可重命名消除歧义。2. 校验迁移只对“尚未应用 0031 的库”生效；已应用存量库靠新增测试守护，不再补 0032 迁移以免在未知线上数据上失败。3. 临时表 JOIN 使用 utf8mb4_0900_ai_ci 以匹配业务表 collation；若未来业务表改 collation 需同步。
 
 下次计划：按清单继续 #2.2（数据库客户端 mysql2 内部属性 + 异步设时区）；#1.3/#9.3 为 P3 后续候选；CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–35 相关验收项。
+
+### 轮次 37 – 2026-08-07
+
+目标：#2.2 —— 移除对 mysql2/promise 私有 `pool.pool` 的依赖，并把会话时区初始化的顺序保证显式化。
+
+引入点：`pool.pool.on('connection', ...)` 自数据库客户端引入起存在（审计卡 #2.2 登记，无单一引入提交）。
+
+为什么现有测试没拦住：功能上 SET time_zone 一直生效（mysql2 连接建立事件先于连接出借触发，SET 命令同步入队、单连接 FIFO 串行执行），单测无法感知私有 API 依赖与顺序保证；新增 2 条客户端锁定测试（并发双连接 + 事务连接，断言首次查询前会话已是 UTC，旧代码同样通过）。
+
+修改文件：`packages/database/src/client.ts`（`createPool` 改为从回调版 `mysql2` 导入，注册公开 `pool.on('connection', ...)`，`pool.promise()` 交给 drizzle；注释说明为什么需要 UTC、事件先于出借触发、SET 先入队故首个业务查询必在其后、SET 失败销毁连接）；新增 `packages/database/tests/client.test.ts`（2 条锁定测试）。
+
+语义等价审计与行为变化清单：行为不变——同一底层连接、同一 SET 语句、同一失败销毁策略；仅不再触碰私有 `pool.pool`，drizzle 拿到 `pool.promise()` 返回的同一 PromisePool 形态，close 改调 promisePool.end()（内部转发 corePool.end）。顺序保证：mysql2 BasePool 在 `connection.connect` 回调中先 `emit('connection')` 再回调出借，事件处理器同步入队 SET，单连接命令 FIFO 串行，首个业务查询必在 SET 完成后执行——与旧实现顺序等价且显式化。
+
+测试结果：`pnpm verify` 592/592 ✅（74 个测试文件，隔离 MySQL；新增 2 条客户端锁定测试）；定向 database client 2/2、migrations 10/10（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#2.2 ✅（已完成；无用户界面变化，无需用户强刷）。
+
+提交：fd708c8（`refactor(database): initialize UTC session via public pool connection event`），推送结果见对话回复
+
+不确定点：1. 顺序保证依赖 mysql2 单连接命令 FIFO 语义（已注释）；若未来换驱动需重新评估。2. promise 池的 `connection` 事件类型标为 PromisePoolConnection 而运行时是底层连接，因此改用回调池的公开事件绕开类型失真；若 mysql2 修正类型后可简化。3. 未把 SET 改为 acquire 时 await（那样需重写 pool.query/execute 路径）；当前事件入队顺序已保证业务查询在 SET 之后。
+
+下次计划：P3 批次 #1.3（工作区残留清理，不入库）+ #9.3（加载/安全测试直写 DB 与 stub 认证）；CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–36 相关验收项。
