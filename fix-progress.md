@@ -474,12 +474,46 @@
 
 ## 6. TODO（新发现问题登记处）
 
-> 修复过程中发现的其他问题一律记在这里回报用户，不顺手改。初始为空。
+> 2026-08-07 第二轮全库复审（处女原则）新发现问题 N1–N14。除 N1 已在轮次 41 修复外，其余一律先登记、等用户安排轮次，不顺手改。
 
-- `past-schedule-service.ts`（259/387）与 `workflow-invalidation-service.ts`（143）对 `shift_assignments` 的更新未走统一助手、也未显式保留 `starts_at`。若线上 CynosDB 在迁移 0018 后仍存在隐式 `ON UPDATE`（可用 information_schema 复核），这 3 处是潜在时间漂移点；建议后续轮次评估并入 `updateShiftAssignments`。
-  > 完成情况（轮次 40）：评估结论——past-schedule 两处每次更新都显式写 `startsAt/endsAt`（补录改班次时间是有意为之），不是漂移点；统一助手当前刻意禁止在 changes 中传 startsAt（防误改），故保留直写。`workflow-invalidation-service.ts` 一处是真漂移点，已改走 `updateShiftAssignments`（version+1 与 actual 重置不变，显式 pin `starts_at`）；新增模拟隐式 ON UPDATE 的回归测试，旧代码以 `shift_assignments_slot_unique` 重复键失败、新代码通过。
-- `apps/web/src/features/manual-schedule/manual-schedule-logic.ts`（143 行）仍裸写 `8 * 60 * 60 * 1000`，不在审查清单的 9 个文件内；`apps/web/src/features/leaves/leave-logic.ts` 的 `parseLocalDateStart` 用 `T00:00:00+08:00` 字面量表达同一“业务日期→中国零时 UTC”换算。建议后续轮次统一并入领域包（可复用 `toChinaStandardTimeUtcTimestamp`），本轮未动。
-  > 完成情况（轮次 40）：`formatScheduleDraftCode` 改用 `chinaStandardTimeOffsetMilliseconds`，`parseLocalDateStart` 改用 `toChinaStandardTimeUtcTimestamp(date, '00:00')`（catch 保留原中文文案）；行为收紧：日历无效日期（如 2026-02-30）从“静默滚动到 3 月 2 日”变为抛“请假日期格式无效。”，新增锁定测试。
+- **N1 ✅（轮次 41 已修复）** `infra/docker/compose.prod.yml` 第 32/43 行重复 `NODE_ENV` 键，`docker compose config` 解析失败，阿里云部署路径不可复现（引入点 16aea99）。修复：删除旧 `NODE_ENV: production`，保留试用期 `NODE_ENV: development`；`verify.yml` 新增 `docker compose config --quiet` 校验。
+- **N2 ⏳ 严重（安全，需用户决策）** 公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）。自建认证落地前应加 Nginx 来源 IP 白名单或网关令牌。
+- **N3 ⏳ 轻微** `apps/api/src/jobs/run-job.ts` 的 `getJobName` 手写 7 项任务名单，与 runner 穷举映射重复维护（#3.3 同类残留）。
+- **N4 ⏳ 轻微** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。
+- **N5 ⏳ 轻微** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。
+- **N6 ⏳ 轻微** `cloudbaseUid` 字段/列名在平台弃用后保留（已登记），重命名需数据库迁移。
+- **N7 ⏳ 轻微** #7.3 只统一了时区常量，8 个前端文件仍各自手写“偏移 + toISOString 截取”转换（event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic），建议领域包补 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数后替换。
+- **N8 ⏳ 轻微** contracts zod schema 保留 `z.custom(() => true)`（leaves.ts 146–154、groups.ts 121）与大量 `.passthrough()`，校验强度低于类型声明，需逐步收紧。
+- **N9 ⏳ 轻微** `package.json` format:check/format 不覆盖 `scripts/*.mjs` 与 `packages/*/scripts/*.mjs`（smoke-browser、generate-tokens-css 无格式门禁）；`.prettierignore` 仍残留 CloudBase 条目。
+- **N10 ⏳ 轻微** `.env.example` 把 `VITE_API_PROXY_TARGET` 写进环境文件说明，但 vite.config 只读 `process.env`，写入 `.env` 不生效（需 `loadEnv` 或改文档为“shell 环境变量”）。
+- **N11 ⏳ 轻微** 文档滞后：project-status PWA 缓存 v5/v6 矛盾、CHANGELOG 仍以 CloudBase 为当前栈、fix-progress.md 已膨胀至 179KB（建议归档逐轮明细）。
+- **N12 ⏳ 轻微** 工作区残留：空 `cloudfunctions/` 目录、`logs/` 4 个日志文件（#1.3 收尾不彻底）。
+- **N13 ⏳ 轻微** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割（Vue Router 懒加载/手动分包）。
+- **N14 ⏳ 轻微（环境）** `infra/docker/compose.test.yml` 测试库数据目录为 512MB tmpfs，完整套件 + binlog 会顶满后 MySQL 以 `binlog_error_action=ABORT_SERVER` 崩溃（2026-08-07 验证时实测崩溃，清理 Docker Build Cache 56.9GB 并 `down --volumes` 重置后恢复）；建议提高 tmpfs 上限或关闭 binlog，并记录“全量 verify 前先重置测试库”。
+
+### 轮次 41 – 2026-08-07
+
+目标：#N1 —— 修复 compose.prod.yml 重复 `NODE_ENV` 导致的部署文件解析失败，并在 CI 增加 `docker compose config` 校验。
+
+引入点：`git blame` 确认第 43 行 `NODE_ENV: development` 由 16aea99（轮次 39，CloudBase 清理时“修复认证配置不一致”）新增，第 32 行旧 `NODE_ENV: production`（7de6d6e 引入）未删除，形成重复 mapping key。
+
+为什么现有测试没拦住：`pnpm verify` 与 `pnpm smoke:check-core` 均不覆盖 `infra/docker/**`，也没有任何 compose 解析校验；轮次 39 改完未执行 `docker compose config`。先失败证据：修复前 `docker compose -f infra/docker/compose.prod.yml config --quiet` 退出码 1，报 `mapping key "NODE_ENV" already defined at line 32`；修复后退出码 0。
+
+修改文件：`infra/docker/compose.prod.yml`（删除重复的 `NODE_ENV: production`，保留试用期 `NODE_ENV: development + AUTH_DEV_MODE=true` 及其注释）；`.github/workflows/verify.yml`（新增 “Validate Docker Compose production configuration” 步骤：`docker compose --env-file .env.production.example -f infra/docker/compose.prod.yml config --quiet`）。
+
+语义等价审计与行为变化清单：修复前文件无法被 compose 解析（无有效配置）；修复后生效值为 `NODE_ENV=development + AUTH_DEV_MODE=true`（与轮次 39 意图一致）。CI 步骤仅新增解析校验，不改变任何测试/构建行为。
+
+测试结果：基线 `pnpm verify` 584/584 ✅（72 测试文件）；修复后 `pnpm verify` 584/584 ✅（72 测试文件）；`docker compose config --quiet` 修复前 exit=1 → 修复后 exit=0；`prettier --check` 两个改动 yml 通过。
+
+运行/浏览器验证：未涉及 Web 核心链路（改动为 infra/compose 与 CI 工作流）；`pnpm smoke:check-core` 通过（无核心链路变更）。
+
+状态：N1 ✅（已完成；部署文件可解析，CI 防回归已加）。
+
+提交：c2b850d（`fix(deploy): remove duplicate NODE_ENV from prod compose and validate in CI`）；docs checkpoint 提交见 `docs(fix-progress): record round 41 checkpoint hash`，推送结果见对话回复。
+
+不确定点：1. `compose.prod.yml` 中 `api` 服务仍保留 `build:` 且无 `image:`，而部署文档称“服务器不做编译”——部署路径（镜像来源）仍未在仓库内闭环，建议部署前人工确认 ECS 上的镜像/挂载方式（登记入 N1 后续项）。2. 验证期间隔离测试库因 512MB tmpfs 顶满崩溃（N14），重置后全绿；全量 verify 需在重置后的测试库上执行。3. CI 的 compose 校验使用 `.env.production.example` 占位值，若未来该示例缺少 compose 引用的变量（非 `:-` 默认），校验会以 unset 变量告警但不会失败——正式环境变量完整性仍需部署脚本保证。
+
+下次计划：N2（公网开发认证防护，需用户确认方案）→ N7（#7.3 收尾）→ N3/N4 等快速清理项；同时按阿里云部署路径推进自建认证。
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
 - `tests/security` typecheck 因 `apps/api/src/modules/notifications/notification-dispatcher.ts` 引用的 `web-push` 缺类型声明而失败（apps/api 自身 typecheck 有 `src/types/web-push.d.ts` 覆盖；tests/security 的 tsconfig include 不含该声明；轮次 38 发现，登记于 project-status/debug 日志）。

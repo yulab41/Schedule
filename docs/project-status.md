@@ -11,7 +11,7 @@
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
 - Debug rounds: 1–57 已完成；fix-progress 轮次 1–40 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码；轮次 26 = #4.2：swap/duty 冲突断言统一为共享接口；轮次 27–30 = #4.3 入口骨架/依赖容器/入口迁移 + #4.4 软删除函数合并；轮次 31 = #4.5 仅未来日期守卫 + #7.6 移除“调”标记；轮次 32 = #3.5 idempotency 仅重复键走查重路径；轮次 33 = #5.1 retry skipped 如实计数；轮次 34 = #5.2 群组回收清单锁定 + scanned 语义；轮次 35 = #5.3 统计重建失败上下文；轮次 36 = #6.1/#6.2 迁移回填合并 + 序列校验；轮次 37 = #2.2 数据库客户端公开 connection 事件 + UTC 会话初始化；轮次 38 = #1.3 工作区清理 + #9.3 共享测试基建；轮次 39 = CloudBase 弃用清理 + 阿里云部署审计；轮次 40 = 第 6 节 TODO 三条 + web-push 声明缺失）；最新验证基线 584/584（72 个测试文件，隔离 MySQL）
 - Deployment: CloudBase 已于 2026-08-07 弃用并清理；部署目标固定为阿里云 ECS 试用机（`8.148.183.46`，Docker Compose：Nginx + Fastify + MySQL，试用期 `NODE_ENV=development + AUTH_DEV_MODE=true` 开发模式认证）；本地部署继续维护（API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 保持最新构建，开发模式认证可用）；PWA shell/schedule 缓存 `v6`；正式上线（域名/ICP/HTTPS/自建认证/定时任务）待推进
-- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 39–40 已完成（轮次 39 = CloudBase 弃用清理 + 阿里云部署审计，含 #3.6/#9.1/#9.2；轮次 40 = 第 6 节 TODO 三条 + web-push 声明缺失）；下一目标：按阿里云部署路径推进（自建账号密码认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号 → 重新生成 `runtime/api-flat` 后部署）；等待用户部署/验收
+- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 轮次 41 已完成（#N1：compose.prod.yml 重复 `NODE_ENV` 修复 + CI compose 校验）；下一目标：N2 公网开发认证防护（需用户确认方案，自建认证落地前加 IP 白名单或网关令牌）→ N7（#7.3 时区转换收尾）→ 按阿里云部署路径推进（自建账号密码认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号 → 重新生成 `runtime/api-flat` 后部署）；等待用户部署/验收
 
 ## Debug / Test Feedback Log
 
@@ -28,6 +28,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-07 fix-progress 轮次 41：完成复审新发现问题 N1——`infra/docker/compose.prod.yml` 第 32/43 行重复 `NODE_ENV` 键（引入点 16aea99）导致 `docker compose config` 解析失败、阿里云部署不可复现；删除旧 `NODE_ENV: production` 保留试用期 `development + AUTH_DEV_MODE=true`，`verify.yml` 新增 compose 配置解析校验；先失败证据（修复前 exit=1）→ 修复后 `docker compose config --quiet` exit=0，`pnpm verify` 584/584（72 测试文件）通过，prettier 检查通过；N2–N14 已登记 fix-progress 第 6 节待排轮次。验证期间发现隔离测试库 512MB tmpfs 顶满导致 MySQL 崩溃（N14），清理 Docker Build Cache（56.9GB）并 `down --volumes` 重置测试库后恢复。
 - 2026-08-07 fix-progress 轮次 40：清理第 6 节 TODO 三条 + web-push 声明缺失——workflow-invalidation 的 shift_assignments 更新改走 `updateShiftAssignments`（显式 pin starts_at，新增模拟隐式 ON UPDATE 回归测试，旧代码因唯一键重复失败）；评估并登记 past-schedule 两处直写为有意行为（非漂移点）；`formatScheduleDraftCode` 改用 `chinaStandardTimeOffsetMilliseconds`、`parseLocalDateStart` 改用 `toChinaStandardTimeUtcTimestamp`（无效日期由滚动改为拒绝并补测试）；`verify.yml` 改为 build 完成后再 test；`tests/security/tsconfig.json` include 增加 API web-push 声明；`pnpm verify` 584/584 通过（72 个测试文件，隔离 MySQL），定向 security-tests typecheck 与 prettier yml 检查通过，pnpm smoke:check-core 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 39：CloudBase 弃用清理 + 阿里云部署审计——删除 cloudbase-handler/cloudbase-auth/cloudbase-runner 及测试、`infra/cloudbase/`、`deploy-development.yml`、CloudBase 文档与三个 @cloudbase 依赖；前端认证替换为 `local-auth.ts`（dev identity 会话，密码登录返回“尚未实现”），API 不再静默回退 CloudBase SDK（未配置 authPort 且非开发模式时启动报错）；`compose.prod.yml` 试用期改为 `NODE_ENV=development + AUTH_DEV_MODE=true`（修复原认证配置不一致）；README/部署/设计文档改为阿里云方案；`pnpm verify` 582/582 通过（72 个测试文件，隔离 MySQL），运行/浏览器验证：pnpm smoke:browser 通过（管理员/成员/访客全流程无浏览器错误），pnpm smoke:check-core 通过（核心链路 auth/session/client 有改动，记录满足校验）；#3.6/#9.1/#9.2 随平台弃用关闭。
 - 2026-08-07 fix-progress 轮次 38：完成 #1.3 + #9.3——工作区清理（删除空目录、16 个 local-*.log、2 份 CloudBase 打包产物约 6.9MB，不入库）；`@schedule/test-fixtures` 新增共享 `createFakeAuthPort(resolveCloudbaseUid)` 与 `resetDatabase(client)`，load/security 测试删除本地副本并复用，`test-fixtures/tsconfig.build.json` 补 `paths: {}`，tests/load、tests/security 增补 workspace 依赖并更新锁文件；新增 1 条 auth 锁定测试；`pnpm verify` 593/593 通过（75 个测试文件，隔离 MySQL），定向 security 4/4、holidays 7/7、auth 1/1，`pnpm --filter @schedule/load-tests build` 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
@@ -140,6 +141,7 @@
 
 ## Known Environment State（关键信息；详细命令见 aliyun-ecs.md）
 
+- 隔离测试库：`infra/docker/compose.test.yml` 将数据目录挂为 512MB tmpfs，完整 `pnpm verify`（584 条 + binlog）可能顶满上限导致 MySQL `ABORT_SERVER` 崩溃（2026-08-07 实测）；全量验证前建议 `docker compose --env-file .env -f infra/docker/compose.test.yml down --volumes` 重置，Docker 空间不足时先 `docker builder prune -a -f`（Build Cache 曾占 56.9GB）。
 - 阿里云 ECS 试用机：`8.148.183.46`（Ubuntu 22.04，Docker 预装，1.6G 内存）；入口 `http://8.148.183.46`（未配置 HTTPS/域名）；部署方式见 `docs/deployment/aliyun-ecs.md`；试用期 API 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行（开发模式认证）。
 - 阿里云 MySQL：ECS 上 MySQL 8.4 容器（命名卷 `schedule_mysql_data`）；开发期单账号 `schedule_app` 全局授权；正式化需专用最小权限账号。原腾讯云 CynosDB `schedule_dev` 数据如需迁移，另行确认凭据后执行。
 - 线上/开发迁移记录：历史已应用至 0031（0021–0031）；迁移铁律见下。
