@@ -73,15 +73,6 @@ export class WebPushDispatcher implements PushDispatcher {
   }
 }
 
-export class NoopPushDispatcher implements PushDispatcher {
-  public readonly isConfigured = false;
-  public readonly vapidPublicKey: string | null = null;
-
-  public async send(): Promise<void> {
-    // Nothing to send when no push service is configured.
-  }
-}
-
 export function createPushDispatcher(values: NodeJS.ProcessEnv): PushDispatcher {
   return new WebPushDispatcher(values);
 }
