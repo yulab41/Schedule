@@ -28,7 +28,7 @@ export const scheduleEventSchema = z
     schedulePeriodId: z.string().optional(),
     statisticsDelta: jsonObjectSchema.optional(),
   })
-  .passthrough();
+  .strict();
 export type ScheduleEvent = z.infer<typeof scheduleEventSchema>;
 
 export const scheduleEventPageSchema = z
@@ -36,7 +36,7 @@ export const scheduleEventPageSchema = z
     events: z.readonly(z.array(scheduleEventSchema)),
     nextCursor: z.string().optional(),
   })
-  .passthrough();
+  .strict();
 export type ScheduleEventPage = z.infer<typeof scheduleEventPageSchema>;
 
 export const scheduleEventDetailSchema = z
@@ -44,7 +44,7 @@ export const scheduleEventDetailSchema = z
     event: scheduleEventSchema,
     relatedEvents: z.readonly(z.array(scheduleEventSchema)),
   })
-  .passthrough();
+  .strict();
 export type ScheduleEventDetail = z.infer<typeof scheduleEventDetailSchema>;
 
 export interface ScheduleEventWriteInput {

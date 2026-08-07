@@ -39,7 +39,7 @@ export const swapAssignmentSummarySchema = z
     startsAt: z.string(),
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type SwapAssignmentSummary = z.infer<typeof swapAssignmentSummarySchema>;
 
 export const swapConflictSchema = z
@@ -49,7 +49,7 @@ export const swapConflictSchema = z
     membershipId: z.string().min(1),
     message: z.string(),
   })
-  .passthrough();
+  .strict();
 export type SwapConflict = z.infer<typeof swapConflictSchema>;
 
 export const swapPreviewSchema = z
@@ -64,7 +64,7 @@ export const swapPreviewSchema = z
     targetAutoAccepts: z.boolean(),
     targetEligibleForInitiatorShift: z.boolean(),
   })
-  .passthrough();
+  .strict();
 export type SwapPreview = z.infer<typeof swapPreviewSchema>;
 
 export interface SwapPairInput {
@@ -108,7 +108,7 @@ export const swapRequestSchema = z
     targetMembershipId: z.string().min(1),
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type SwapRequest = z.infer<typeof swapRequestSchema>;
 export const swapRequestListSchema = z.array(swapRequestSchema);
 
@@ -125,7 +125,7 @@ export const groupSwapSettingsSchema = z
   .object({
     requiresApproval: z.boolean(),
   })
-  .passthrough();
+  .strict();
 export type GroupSwapSettings = z.infer<typeof groupSwapSettingsSchema>;
 
 export interface UpdateGroupSwapSettingsInput {
@@ -136,7 +136,7 @@ export const memberSwapSettingsSchema = z
   .object({
     autoAcceptSwaps: z.boolean(),
   })
-  .passthrough();
+  .strict();
 export type MemberSwapSettings = z.infer<typeof memberSwapSettingsSchema>;
 
 export interface UpdateMemberSwapSettingsInput {

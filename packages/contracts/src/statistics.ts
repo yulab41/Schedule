@@ -7,7 +7,7 @@ export const statisticsRoleCountSchema = z
     scheduleRoleId: z.string(),
     scheduleRoleName: z.string(),
   })
-  .passthrough();
+  .strict();
 export type StatisticsRoleCount = z.infer<typeof statisticsRoleCountSchema>;
 
 export const statisticsShiftTypeCountSchema = z
@@ -17,7 +17,7 @@ export const statisticsShiftTypeCountSchema = z
     shiftTypeId: z.string(),
     shiftTypeName: z.string(),
   })
-  .passthrough();
+  .strict();
 export type StatisticsShiftTypeCount = z.infer<typeof statisticsShiftTypeCountSchema>;
 
 export interface StatisticsActualVsPlannedEntry {
@@ -53,7 +53,7 @@ export const statisticsMemberRowSchema = z
     swapCount: z.number(),
     weekendCount: z.number(),
   })
-  .passthrough();
+  .strict();
 export type StatisticsMemberRow = z.infer<typeof statisticsMemberRowSchema>;
 
 export const statisticsSummarySchema = z
@@ -74,7 +74,7 @@ export const statisticsSummarySchema = z
     swapCount: z.number(),
     weekendCount: z.number(),
   })
-  .passthrough();
+  .strict();
 export type StatisticsSummary = z.infer<typeof statisticsSummarySchema>;
 
 export const monthStatisticsSnapshotSchema = z
@@ -85,7 +85,7 @@ export const monthStatisticsSnapshotSchema = z
     summary: statisticsSummarySchema,
     version: z.number(),
   })
-  .passthrough();
+  .strict();
 export type MonthStatisticsSnapshot = z.infer<typeof monthStatisticsSnapshotSchema>;
 
 export const yearStatisticsSchema = z
@@ -97,13 +97,13 @@ export const yearStatisticsSchema = z
             businessMonth: z.string(),
             summary: statisticsSummarySchema,
           })
-          .passthrough(),
+          .strict(),
       ),
     ),
     summary: statisticsSummarySchema,
     year: z.number(),
   })
-  .passthrough();
+  .strict();
 export type YearStatistics = z.infer<typeof yearStatisticsSchema>;
 
 export const statisticsRecalculateCheckResultSchema = z
@@ -115,7 +115,7 @@ export const statisticsRecalculateCheckResultSchema = z
     snapshot: statisticsSummarySchema,
     snapshotVersion: z.number(),
   })
-  .passthrough();
+  .strict();
 export type StatisticsRecalculateCheckResult = z.infer<
   typeof statisticsRecalculateCheckResultSchema
 >;

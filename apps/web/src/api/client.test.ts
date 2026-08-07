@@ -831,7 +831,7 @@ describe('Web API client', () => {
     );
   });
 
-  it('accepts a holidays response with unknown fields', async () => {
+  it('rejects a holidays response with unknown fields', async () => {
     const extendedHolidays = { ...holidays, extra: 'kept' };
     const fetchImplementation = vi
       .fn<typeof fetch>()
@@ -841,7 +841,10 @@ describe('Web API client', () => {
       fetch: fetchImplementation,
     });
 
-    await expect(client.getHolidays(2026)).resolves.toEqual(extendedHolidays);
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
   });
 
   it('rejects a holidays response with a non-integer year', async () => {

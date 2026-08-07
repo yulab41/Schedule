@@ -57,7 +57,7 @@ export const confirmedHolidayDateSchema = z
     isOffDay: z.boolean(),
     isWorkday: z.boolean(),
   })
-  .passthrough();
+  .strict();
 export type ConfirmedHolidayDate = z.infer<typeof confirmedHolidayDateSchema>;
 
 export const holidayReadModelSchema = z
@@ -66,7 +66,7 @@ export const holidayReadModelSchema = z
     dates: z.readonly(z.array(confirmedHolidayDateSchema)),
     year: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type HolidayReadModel = z.infer<typeof holidayReadModelSchema>;
 
 export interface HolidayCoverage {

@@ -28,7 +28,7 @@ export const manualScheduleTemplateMemberSchema = z
     memberScheduleRoleVersion: z.number().int().min(1),
     realName: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type ManualScheduleTemplateMember = z.infer<typeof manualScheduleTemplateMemberSchema>;
 
 export const manualScheduleTemplateCellSchema = z
@@ -45,7 +45,7 @@ export const manualScheduleTemplateCellSchema = z
     shiftTypeName: z.string().min(1),
     shiftTypeTextColor: z.string().regex(/^#[\dA-F]{6}$/iu),
   })
-  .passthrough();
+  .strict();
 export type ManualScheduleTemplateCell = z.infer<typeof manualScheduleTemplateCellSchema>;
 
 export const manualScheduleTemplateSchema = z
@@ -60,7 +60,7 @@ export const manualScheduleTemplateSchema = z
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type ManualScheduleTemplate = z.infer<typeof manualScheduleTemplateSchema>;
 export const manualScheduleTemplateListSchema = z.array(manualScheduleTemplateSchema);
 
@@ -83,7 +83,7 @@ export const manualApplyConflictSchema = z
     memberName: z.string().optional(),
     membershipId: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type ManualApplyConflict = z.infer<typeof manualApplyConflictSchema>;
 
 // 旧守卫只校验 businessDate/shiftTypeId 等字段；scheduleRoleName 按旧守卫要求非空。
@@ -102,7 +102,7 @@ export const manualApplyAssignmentSchema = z
     slotPosition: z.number().int().min(1),
     startsAt: z.string(),
   })
-  .passthrough();
+  .strict();
 
 export const manualApplyPreviewSchema = z
   .object({
@@ -120,7 +120,7 @@ export const manualApplyPreviewSchema = z
     templateVersion: z.number().int(),
     vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)),
   })
-  .passthrough();
+  .strict();
 // schema 推断类型比导出契约类型宽松（统计分项含未校验字段）；导出类型保留完整契约。
 export type ManualApplyPreview = {
   readonly applyEndDate: string;
@@ -166,7 +166,7 @@ export const appliedManualScheduleTemplateResultSchema = z
     templateId: z.string().min(1),
     templateVersion: z.number().int(),
   })
-  .passthrough();
+  .strict();
 // schema 推断类型比导出契约类型宽松；导出类型保留完整契约。
 export type AppliedManualScheduleTemplateResult = {
   readonly operationId: string;

@@ -52,7 +52,7 @@ export const scheduleGenerationConflictSchema = z
     membershipId: z.string().min(1),
     memberName: z.string().optional(),
   })
-  .passthrough();
+  .strict();
 
 export interface ScheduleGenerationWarning {
   readonly assignmentBusinessKeys: readonly string[];
@@ -72,7 +72,7 @@ export const scheduleGenerationWarningSchema = z
     memberName: z.string().optional(),
     startsAt: z.string(),
   })
-  .passthrough();
+  .strict();
 
 export interface ScheduleGenerationVacancy {
   readonly assignmentBusinessKey: string;
@@ -90,7 +90,7 @@ export const scheduleGenerationVacancySchema = z
     scheduleRoleId: z.string(),
     slotPosition: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 
 export interface ScheduleGenerationShiftTypeCount {
   readonly assignmentCount: number;
@@ -109,7 +109,7 @@ export const scheduleGenerationShiftTypeCountSchema = z
     shiftTypeId: z.string(),
     shiftTypeName: z.string().optional(),
   })
-  .passthrough();
+  .strict();
 
 export interface ScheduleGenerationRoleCount {
   readonly assignmentCount: number;
@@ -128,7 +128,7 @@ export const scheduleGenerationRoleCountSchema = z
     scheduleRoleName: z.string().optional(),
     vacancyCount: z.number(),
   })
-  .passthrough();
+  .strict();
 
 export interface ScheduleGenerationStatistics {
   readonly assignmentCount: number;
@@ -146,7 +146,7 @@ export const scheduleGenerationStatisticsSchema = z
     countedAssignmentCount: z.number().int(),
     vacancyCount: z.number().int(),
   })
-  .passthrough();
+  .strict();
 
 // 旧守卫只校验这两个字段；其余字段由完整契约类型补充。
 export const schedulePreviewAssignmentSchema = z
@@ -154,7 +154,7 @@ export const schedulePreviewAssignmentSchema = z
     businessDate: z.string(),
     shiftTypeId: z.string(),
   })
-  .passthrough();
+  .strict();
 
 export const schedulePeriodSummarySchema = z
   .object({
@@ -166,7 +166,7 @@ export const schedulePeriodSummarySchema = z
     status: z.string().min(1),
     version: z.number().int().optional(),
   })
-  .passthrough();
+  .strict();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
 export type SchedulePeriodSummary = {
   readonly businessMonth: string;
@@ -201,7 +201,7 @@ export const schedulePeriodHistoryItemSchema = z
     status: z.enum(['draft', 'pending_publication', 'published', 'replaced', 'withdrawn', 'past']),
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type SchedulePeriodHistoryItem = z.infer<typeof schedulePeriodHistoryItemSchema>;
 export const schedulePeriodHistoryItemListSchema = z.array(schedulePeriodHistoryItemSchema);
 
@@ -215,7 +215,7 @@ export const scheduleWorkflowImpactSchema = z
     memberNames: z.readonly(z.array(z.string())),
     status: z.string(),
   })
-  .passthrough();
+  .strict();
 export type ScheduleWorkflowImpact = z.infer<typeof scheduleWorkflowImpactSchema>;
 
 export const scheduleChangeImpactPreviewSchema = z
@@ -224,7 +224,7 @@ export const scheduleChangeImpactPreviewSchema = z
     affectedPeriodIds: z.readonly(z.array(z.string())),
     workflowImpacts: z.readonly(z.array(scheduleWorkflowImpactSchema)),
   })
-  .passthrough();
+  .strict();
 export type ScheduleChangeImpactPreview = z.infer<typeof scheduleChangeImpactPreviewSchema>;
 
 export const scheduleGenerationPreviewSchema = z
@@ -238,7 +238,7 @@ export const scheduleGenerationPreviewSchema = z
     statistics: scheduleGenerationStatisticsSchema,
     vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)).optional(),
   })
-  .passthrough();
+  .strict();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
 export type ScheduleGenerationPreview = {
   readonly assignments: readonly SchedulePreviewAssignment[];
@@ -262,7 +262,7 @@ export const schedulePeriodMutationResultSchema = z
     period: schedulePeriodSummarySchema,
     workflowImpacts: z.readonly(z.array(scheduleWorkflowImpactSchema)),
   })
-  .passthrough();
+  .strict();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
 export type SchedulePeriodMutationResult = {
   readonly period: SchedulePeriodSummary;
@@ -281,7 +281,7 @@ export const publishSchedulePeriodBatchResultSchema = z
   .object({
     periods: z.readonly(z.array(schedulePeriodSummarySchema)),
   })
-  .passthrough();
+  .strict();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
 export type PublishSchedulePeriodBatchResult = {
   readonly periods: readonly SchedulePeriodSummary[];
@@ -299,7 +299,7 @@ export const groupSchedulePublishModeSchema = z
   .object({
     publishMode: z.enum(['draft', 'published']),
   })
-  .passthrough();
+  .strict();
 export type GroupSchedulePublishMode = z.infer<typeof groupSchedulePublishModeSchema>;
 
 export interface UpdateGroupSchedulePublishModeRequest {
@@ -312,7 +312,7 @@ export const publishSchedulePeriodResultSchema = z
     preview: scheduleGenerationPreviewSchema,
     workflowImpacts: z.readonly(z.array(scheduleWorkflowImpactSchema)),
   })
-  .passthrough();
+  .strict();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
 export type PublishSchedulePeriodResult = {
   readonly period: SchedulePeriodSummary;

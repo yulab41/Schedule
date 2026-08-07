@@ -24,7 +24,7 @@ export const calendarDutyAssignmentSchema = z
     slotPosition: z.number().int().min(1),
     startsAt: z.string(),
   })
-  .passthrough();
+  .strict();
 export type CalendarDutyAssignment = z.infer<typeof calendarDutyAssignmentSchema>;
 
 export const calendarDutyMemberSchema = z
@@ -35,7 +35,7 @@ export const calendarDutyMemberSchema = z
     realName: z.string().min(1),
     shortPhone: z.string().optional(),
   })
-  .passthrough();
+  .strict();
 export type CalendarDutyMember = z.infer<typeof calendarDutyMemberSchema>;
 
 export const calendarRoleSummarySchema = z
@@ -43,7 +43,7 @@ export const calendarRoleSummarySchema = z
     id: z.string().min(1),
     name: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type CalendarRoleSummary = z.infer<typeof calendarRoleSummarySchema>;
 
 export const calendarShiftTypeSummarySchema = z
@@ -64,7 +64,7 @@ export const calendarShiftTypeSummarySchema = z
       .optional(),
     textColor: z.string().regex(/^#[\dA-F]{6}$/iu),
   })
-  .passthrough();
+  .strict();
 export type CalendarShiftTypeSummary = z.infer<typeof calendarShiftTypeSummarySchema>;
 
 export const calendarReadModelSchema = z
@@ -76,7 +76,7 @@ export const calendarReadModelSchema = z
     roles: z.readonly(z.array(calendarRoleSummarySchema)),
     shiftTypes: z.readonly(z.array(calendarShiftTypeSummarySchema)),
   })
-  .passthrough();
+  .strict();
 export type CalendarReadModel = z.infer<typeof calendarReadModelSchema>;
 
 export const guestCalendarReadModelSchema = z
@@ -84,7 +84,7 @@ export const guestCalendarReadModelSchema = z
     calendar: calendarReadModelSchema,
     groupName: z.string(),
   })
-  .passthrough();
+  .strict();
 export type GuestCalendarReadModel = z.infer<typeof guestCalendarReadModelSchema>;
 
 export const guestGroupSummarySchema = z
@@ -92,7 +92,7 @@ export const guestGroupSummarySchema = z
     id: z.string(),
     name: z.string(),
   })
-  .passthrough();
+  .strict();
 export type GuestGroupSummary = z.infer<typeof guestGroupSummarySchema>;
 
 export const guestGroupSummaryListSchema = z.readonly(z.array(guestGroupSummarySchema));

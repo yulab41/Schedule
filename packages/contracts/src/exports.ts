@@ -30,5 +30,5 @@ export const scheduleExportJobSchema = z
     rowCount: z.number().optional(),
     status: scheduleExportStatusSchema,
   })
-  .passthrough();
+  .strict();
 export type ScheduleExportJob = z.infer<typeof scheduleExportJobSchema>;

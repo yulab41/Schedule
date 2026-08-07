@@ -39,7 +39,7 @@ export const dutyAdjustmentAssignmentSummarySchema = z
     startsAt: z.string(),
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type DutyAdjustmentAssignmentSummary = z.infer<typeof dutyAdjustmentAssignmentSummarySchema>;
 
 export const dutyAdjustmentConflictSchema = z
@@ -49,7 +49,7 @@ export const dutyAdjustmentConflictSchema = z
     membershipId: z.string().min(1),
     message: z.string(),
   })
-  .passthrough();
+  .strict();
 export type DutyAdjustmentConflict = z.infer<typeof dutyAdjustmentConflictSchema>;
 
 export const dutyAdjustmentPreviewSchema = z
@@ -63,7 +63,7 @@ export const dutyAdjustmentPreviewSchema = z
     overtimeMemberName: z.string().optional(),
     requiresApproval: z.boolean(),
   })
-  .passthrough();
+  .strict();
 export type DutyAdjustmentPreview = z.infer<typeof dutyAdjustmentPreviewSchema>;
 
 export interface DutyAdjustmentPairInput {
@@ -103,7 +103,7 @@ export const dutyAdjustmentRequestSchema = z
     status: dutyAdjustmentStatusSchema,
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type DutyAdjustmentRequest = z.infer<typeof dutyAdjustmentRequestSchema>;
 export const dutyAdjustmentRequestListSchema = z.array(dutyAdjustmentRequestSchema);
 
@@ -120,7 +120,7 @@ export const groupDutyAdjustmentSettingsSchema = z
   .object({
     requiresApproval: z.boolean(),
   })
-  .passthrough();
+  .strict();
 export type GroupDutyAdjustmentSettings = z.infer<typeof groupDutyAdjustmentSettingsSchema>;
 
 export interface UpdateGroupDutyAdjustmentSettingsInput {

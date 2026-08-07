@@ -38,7 +38,7 @@ export const leaveAffectedShiftSchema = z
     shiftTypeAbbreviation: z.string(),
     shiftTypeName: z.string(),
   })
-  .passthrough();
+  .strict();
 export type LeaveAffectedShift = z.infer<typeof leaveAffectedShiftSchema>;
 export const leaveAffectedShiftListSchema = z.array(leaveAffectedShiftSchema);
 
@@ -56,7 +56,7 @@ const leavePreviewAffectedShiftSchema = z
     shiftTypeAbbreviation: z.string(),
     shiftTypeName: z.string(),
   })
-  .passthrough();
+  .strict();
 
 export interface LeaveAffectedShiftsInput {
   readonly endsAt: string;
@@ -85,7 +85,7 @@ export const leaveRequestSchema = z
     status: leaveRequestStatusSchema,
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type LeaveRequest = z.infer<typeof leaveRequestSchema>;
 export const leaveRequestListSchema = z.array(leaveRequestSchema);
 
@@ -106,7 +106,7 @@ export const leaveAffectedAssignmentSchema = z
     slotPosition: z.number().int().min(1),
     startsAt: z.string(),
   })
-  .passthrough();
+  .strict();
 export type LeaveAffectedAssignment = z.infer<typeof leaveAffectedAssignmentSchema>;
 
 export const leaveReflowConflictSchema = z
@@ -116,7 +116,7 @@ export const leaveReflowConflictSchema = z
     memberName: z.string().optional(),
     membershipId: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type LeaveReflowConflict = z.infer<typeof leaveReflowConflictSchema>;
 
 export const leaveWorkflowBlockerSchema = z
@@ -124,7 +124,7 @@ export const leaveWorkflowBlockerSchema = z
     assignmentId: z.string().min(1),
     message: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type LeaveWorkflowBlocker = z.infer<typeof leaveWorkflowBlockerSchema>;
 
 export const leaveMemberStatisticsDeltaSchema = z
@@ -135,7 +135,7 @@ export const leaveMemberStatisticsDeltaSchema = z
     realName: z.string(),
     weekendDelta: z.number(),
   })
-  .passthrough();
+  .strict();
 export type LeaveMemberStatisticsDelta = z.infer<typeof leaveMemberStatisticsDeltaSchema>;
 
 export const leaveStatisticsDeltaSchema = z
@@ -145,7 +145,7 @@ export const leaveStatisticsDeltaSchema = z
     totalCountedDelta: z.number(),
     totalWeekendDelta: z.number(),
   })
-  .passthrough();
+  .strict();
 export type LeaveStatisticsDelta = z.infer<typeof leaveStatisticsDeltaSchema>;
 
 export const leaveReflowPreviewSchema = z
@@ -166,7 +166,7 @@ export const leaveReflowPreviewSchema = z
     vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)),
     workflowBlockers: z.readonly(z.array(leaveWorkflowBlockerSchema)),
   })
-  .passthrough();
+  .strict();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
 export type LeaveReflowPreview = {
   readonly affectedAssignments: readonly LeaveAffectedAssignment[];
@@ -215,7 +215,7 @@ export const leaveRequestMutationResultSchema = z
     operationId: z.string().min(1),
     status: z.enum(['cancelled', 'revoked']),
   })
-  .passthrough();
+  .strict();
 export type LeaveRequestMutationResult = z.infer<typeof leaveRequestMutationResultSchema>;
 
 export const approvedLeaveRequestResultSchema = z
@@ -226,7 +226,7 @@ export const approvedLeaveRequestResultSchema = z
     status: z.literal('approved'),
     strategy: leaveReflowStrategySchema,
   })
-  .passthrough();
+  .strict();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
 export type ApprovedLeaveRequestResult = {
   readonly leaveRequest: LeaveRequest;
@@ -242,14 +242,14 @@ export const rejectedLeaveRequestResultSchema = z
     operationId: z.string().min(1),
     status: z.literal('rejected'),
   })
-  .passthrough();
+  .strict();
 export type RejectedLeaveRequestResult = z.infer<typeof rejectedLeaveRequestResultSchema>;
 
 export const groupLeaveReflowStrategySchema = z
   .object({
     strategy: leaveReflowStrategySchema,
   })
-  .passthrough();
+  .strict();
 export type GroupLeaveReflowStrategy = z.infer<typeof groupLeaveReflowStrategySchema>;
 
 export interface UpdateGroupLeaveReflowStrategyInput {

@@ -11,7 +11,7 @@ export const groupSummarySchema = z
     role: groupRoleSchema,
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type GroupSummary = z.infer<typeof groupSummarySchema>;
 
 export interface CreateGroupRequest {
@@ -27,7 +27,7 @@ export const addRosterEntriesResponseSchema = z
   .object({
     added: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type AddRosterEntriesResponse = z.infer<typeof addRosterEntriesResponseSchema>;
 
 export interface AddGroupMembersRequest {
@@ -47,7 +47,7 @@ export const convertPendingRosterResponseSchema = z
     converted: z.number().int().min(0),
     skipped: z.number().int().min(0),
   })
-  .passthrough();
+  .strict();
 export type ConvertPendingRosterResponse = z.infer<typeof convertPendingRosterResponseSchema>;
 
 export interface ClaimGroupRequest {
@@ -57,7 +57,7 @@ export interface ClaimGroupRequest {
 
 export const claimGroupResponseSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('request_created') }).strict(),
-  z.object({ status: z.literal('claimed'), group: groupSummarySchema }).passthrough(),
+  z.object({ status: z.literal('claimed'), group: groupSummarySchema }).strict(),
 ]);
 export type ClaimGroupResponse = z.infer<typeof claimGroupResponseSchema>;
 
@@ -77,7 +77,7 @@ export const groupMemberSchema = z
     realName: z.string().min(1),
     role: groupRoleSchema,
   })
-  .passthrough();
+  .strict();
 export type GroupMember = z.infer<typeof groupMemberSchema>;
 
 export const membershipClaimRequestStatusSchema = z.enum([
@@ -99,14 +99,14 @@ export const membershipClaimLookupEntrySchema = z
     realName: z.string().min(1),
     role: groupRoleSchema,
   })
-  .passthrough();
+  .strict();
 export type MembershipClaimLookupEntry = z.infer<typeof membershipClaimLookupEntrySchema>;
 
 export const membershipClaimLookupResponseSchema = z
   .object({
     matches: z.readonly(z.array(membershipClaimLookupEntrySchema)),
   })
-  .passthrough();
+  .strict();
 export type MembershipClaimLookupResponse = z.infer<typeof membershipClaimLookupResponseSchema>;
 
 export interface CreateMembershipClaimRequest {
@@ -128,14 +128,14 @@ export const membershipClaimRequestSchema = z
     targetMembershipId: z.string().min(1),
     version: z.number(),
   })
-  .passthrough();
+  .strict();
 export type MembershipClaimRequest = z.infer<typeof membershipClaimRequestSchema>;
 
 export const membershipClaimRequestListSchema = z.array(membershipClaimRequestSchema);
 
 export const createMembershipClaimResponseSchema = z.discriminatedUnion('direct', [
-  z.object({ direct: z.literal(true), request: z.undefined().optional() }).passthrough(),
-  z.object({ direct: z.literal(false), request: membershipClaimRequestSchema }).passthrough(),
+  z.object({ direct: z.literal(true), request: z.undefined().optional() }).strict(),
+  z.object({ direct: z.literal(false), request: membershipClaimRequestSchema }).strict(),
 ]);
 export type CreateMembershipClaimResponse = z.infer<typeof createMembershipClaimResponseSchema>;
 
@@ -148,7 +148,7 @@ export const groupMemberContactSchema = z
     updatedAt: z.string().optional(),
     version: z.number().int().min(0),
   })
-  .passthrough();
+  .strict();
 export type GroupMemberContact = z.infer<typeof groupMemberContactSchema>;
 
 export const groupMemberContactListSchema = z.array(groupMemberContactSchema);

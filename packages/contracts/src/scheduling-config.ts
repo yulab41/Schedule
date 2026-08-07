@@ -5,7 +5,7 @@ export const schedulingGroupMemberSchema = z
     membershipId: z.string().min(1),
     realName: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type SchedulingGroupMember = z.infer<typeof schedulingGroupMemberSchema>;
 
 export const scheduleRoleMemberSchema = z
@@ -16,7 +16,7 @@ export const scheduleRoleMemberSchema = z
     realName: z.string().min(1),
     version: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type ScheduleRoleMember = z.infer<typeof scheduleRoleMemberSchema>;
 
 export const rotationRuleSchema = z
@@ -28,7 +28,7 @@ export const rotationRuleSchema = z
     startingMemberScheduleRoleId: z.string().optional(),
     version: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type RotationRule = z.infer<typeof rotationRuleSchema>;
 
 export const scheduleRoleSchema = z
@@ -39,7 +39,7 @@ export const scheduleRoleSchema = z
     rotationRule: rotationRuleSchema,
     version: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type ScheduleRole = z.infer<typeof scheduleRoleSchema>;
 
 export const shiftTypeSchema = z
@@ -66,7 +66,7 @@ export const shiftTypeSchema = z
     textColor: z.string().regex(/^#[\dA-F]{6}$/iu),
     version: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type ShiftType = z.infer<typeof shiftTypeSchema>;
 
 export const schedulingConfigSchema = z
@@ -76,7 +76,7 @@ export const schedulingConfigSchema = z
     rulesVersion: z.number().int().optional(),
     shiftTypes: z.readonly(z.array(shiftTypeSchema)),
   })
-  .passthrough();
+  .strict();
 export type SchedulingConfig = z.infer<typeof schedulingConfigSchema> & {
   readonly rulesVersion: number;
 };

@@ -22,7 +22,7 @@ export const notificationRecordSchema = z
     shiftAssignmentId: z.string().optional(),
     title: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type NotificationRecord = z.infer<typeof notificationRecordSchema>;
 
 export interface NotificationQuery {
@@ -38,39 +38,39 @@ export const notificationPageSchema = z
     notifications: z.readonly(z.array(notificationRecordSchema)),
     unreadCount: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type NotificationPage = z.infer<typeof notificationPageSchema>;
 
 export const unreadCountResultSchema = z
   .object({
     unreadCount: z.number().int(),
   })
-  .passthrough();
+  .strict();
 
 export const readAllResultSchema = z
   .object({
     count: z.number().int(),
   })
-  .passthrough();
+  .strict();
 
 export const savedResultSchema = z
   .object({
     saved: z.boolean(),
   })
-  .passthrough();
+  .strict();
 
 export const deletedResultSchema = z
   .object({
     deleted: z.boolean(),
   })
-  .passthrough();
+  .strict();
 
 export const groupNotificationSettingsSchema = z
   .object({
     dutyReminderHours: z.readonly(z.array(z.number().int().min(1))),
     groupId: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type GroupNotificationSettings = z.infer<typeof groupNotificationSettingsSchema>;
 
 export interface UpdateGroupNotificationSettingsInput {
@@ -83,7 +83,7 @@ export const memberNotificationPreferencesSchema = z
     dutyReminderHours: z.union([z.null(), z.readonly(z.array(z.number().int().min(1)))]),
     membershipId: z.string().min(1),
   })
-  .passthrough();
+  .strict();
 export type MemberNotificationPreferences = z.infer<typeof memberNotificationPreferencesSchema>;
 
 export interface UpdateMemberNotificationPreferencesInput {
@@ -103,5 +103,5 @@ export const pushConfigurationSchema = z
   .object({
     vapidPublicKey: z.union([z.null(), z.string()]),
   })
-  .passthrough();
+  .strict();
 export type PushConfiguration = z.infer<typeof pushConfigurationSchema>;

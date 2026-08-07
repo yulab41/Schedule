@@ -10,7 +10,7 @@ export const pastSchedulePeriodSchema = z
     scheduleRoleName: z.string().min(1),
     version: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type PastSchedulePeriod = z.infer<typeof pastSchedulePeriodSchema>;
 export const pastSchedulePeriodListSchema = z.array(pastSchedulePeriodSchema);
 
@@ -29,7 +29,7 @@ export const pastScheduleAssignmentSchema = z
     shiftTypeName: z.string(),
     slotPosition: z.number().int(),
   })
-  .passthrough();
+  .strict();
 export type PastScheduleAssignment = z.infer<typeof pastScheduleAssignmentSchema>;
 export const pastScheduleAssignmentListSchema = z.array(pastScheduleAssignmentSchema);
 
@@ -52,7 +52,7 @@ export const updatePastScheduleAssignmentResultSchema = z
     assignment: pastScheduleAssignmentSchema,
     eventId: z.string().min(1).optional(),
   })
-  .passthrough();
+  .strict();
 export type UpdatePastScheduleAssignmentResult = z.infer<
   typeof updatePastScheduleAssignmentResultSchema
 >;
@@ -68,6 +68,6 @@ export const pastScheduleBackfillRecordSchema = z
     shiftTypeAbbreviation: z.string(),
     shiftTypeName: z.string(),
   })
-  .passthrough();
+  .strict();
 export type PastScheduleBackfillRecord = z.infer<typeof pastScheduleBackfillRecordSchema>;
 export const pastScheduleBackfillRecordListSchema = z.array(pastScheduleBackfillRecordSchema);

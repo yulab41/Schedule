@@ -6,7 +6,7 @@ export const userProfileSchema = z
     realName: z.string().min(1),
     version: z.number().int().min(1),
   })
-  .passthrough();
+  .strict();
 export type UserProfile = z.infer<typeof userProfileSchema>;
 
 export interface CreateUserProfileRequest {
