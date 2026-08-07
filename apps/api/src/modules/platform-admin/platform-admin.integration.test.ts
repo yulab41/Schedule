@@ -438,6 +438,46 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(fixedSnapshots[0]?.payload.plannedCount).toBe(1);
   });
 
+  it('records failure context when a statistics rebuild month fails', async () => {
+    const groupId = await createGroup('member-token', 'Stats Failure Group', '9753');
+    const roleId = randomUUID();
+    const periodId = randomUUID();
+    await client.database.execute(sql`
+      INSERT INTO schedule_roles (id, group_id, name)
+      VALUES (${roleId}, ${groupId}, '一线')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO schedule_periods (
+        id, group_id, schedule_role_id, business_month, revision, status,
+        rules_version, published_at, version
+      )
+      VALUES (
+        ${periodId}, ${groupId}, ${roleId}, '2026-08-01', 1, 'published',
+        1, ${new Date('2026-08-01T00:00:00.000Z')}, 1
+      )
+    `);
+
+    const failingRefresher = {
+      refreshInTransaction: async (): Promise<void> => {
+        throw new Error('stats rebuild boom');
+      },
+    };
+    const job = new StatisticsRebuildJob(client, { statisticsRefresher: failingRefresher });
+    const { result, runId } = await recordJobRun(client, 'statistics-rebuild', () => job.run());
+    expect(result).toEqual({
+      completed: 0,
+      failed: 1,
+      failures: [{ businessMonth: '2026-08-01', error: 'stats rebuild boom', groupId }],
+      months: 1,
+    });
+
+    const [runRows] = (await client.database.execute(
+      sql`SELECT summary FROM platform_job_runs WHERE id = ${runId}`,
+    )) as unknown as [{ summary: string | null }[], unknown];
+    expect(runRows[0]?.summary).toContain('2026-08-01');
+    expect(runRows[0]?.summary).toContain('stats rebuild boom');
+  });
+
   async function registerUser(token: string, realName: string): Promise<void> {
     const response = await app.inject({
       headers: { authorization: `Bearer ${token}` },
