@@ -651,7 +651,7 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误；脚本 2026-08-07 落地后补跑）。
 - 状态：已完成，待用户浏览器强刷复核。
 
-### 轮次 24（fix-progress #8.1，提交：refactor(web): extract shared toUserMessage for error copy）
+### 轮次 24（fix-progress #8.1，提交：2c60b59 refactor(web): extract shared toUserMessage for error copy）
 - 目标/需求：合规审查发现 15 个页面重复“`error instanceof ApiClientError ? error.message : '<兜底>'`”错误文案模板，且各有微调；抽取共享 `toUserMessage(error, fallback)` 并统一处理规则。
 - 根因：功能开发时逐页复制文案模板，组件侧出现 `ApiClientError` 与 `Error` 两种变体；`stores/session.ts` 已有的共享 `getErrorMessage`（Error 语义）未被组件复用。
 - 修复/功能：新增 `apps/web/src/utils/user-message.ts` 的 `toUserMessage(error, fallback)`（`error instanceof Error && error.message.length > 0 ? error.message : fallback`）；21 个调用方（19 个页面/组件 + LoginView + session store）删除本地 `getErrorMessage`/内联三元并改为传原兜底文案调用；`session.ts` 删除导出 `getErrorMessage`，登录链路统一到同一工具；16 个仅用 `ApiClientError` 做文案判断的文件移除该导入（DutyAdjustmentPanel/SwapPanel 保留冲突判断）。

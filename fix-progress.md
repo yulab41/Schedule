@@ -857,7 +857,7 @@
 
 状态：已完成（单测 + 浏览器冒烟通过；待用户本地验收时强刷复核各页面 API 错误提示不变）。
 
-提交：`refactor(web): extract shared toUserMessage for error copy`（提交后回填短哈希），推送结果见对话回复
+提交：2c60b59（`refactor(web): extract shared toUserMessage for error copy`），推送结果见对话回复
 
 不确定点：1. 统一为 Error 语义后，原先只显示 ApiClientError 的页面若捕获到非 ApiClientError 的 Error，会显示其原始 message 而非兜底文案——出错症状是用户看到技术性英文/异常文本；如不希望暴露，可改为只接受 ApiClientError 并把 session 登录错误单独保留。2. GuestScheduleView 的两处兜底（群组/排班）与其他页面的“数据/日历/记录”措辞不同，本次按参数保留原值；若后续要彻底统一字面，需产品确认。3. 非 Error 实例但带 message 的普通对象仍走兜底（与旧行为一致），本轮未扩展。
 
