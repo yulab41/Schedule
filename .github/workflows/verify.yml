@@ -87,11 +87,5 @@ jobs:
           TEST_MYSQL_USER: schedule_test_app
           TEST_MYSQL_PASSWORD: schedule_test_password
         run: |
-          pnpm build &
-          build_pid=$!
-          pnpm test &
-          test_pid=$!
-          fail=0
-          wait "$build_pid" || fail=1
-          wait "$test_pid" || fail=1
-          exit $fail
+          pnpm build
+          pnpm test
