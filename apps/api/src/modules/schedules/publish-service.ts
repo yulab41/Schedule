@@ -46,7 +46,7 @@ import {
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { ScheduleRepository } from './schedule-repository.js';
-import { toLatestData, toPeriodSummary } from './shared.js';
+import { assertBusinessMonthNotFullyPast, toLatestData, toPeriodSummary } from './shared.js';
 
 type LockedSchedulePeriod = typeof schedulePeriods.$inferSelect;
 
@@ -266,6 +266,7 @@ export class SchedulePublishService {
     },
   ): Promise<PublishSchedulePeriodResult> {
     const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
+    assertBusinessMonthNotFullyPast(period.businessMonth);
     if (input.expectedVersion !== undefined) {
       assertExpectedVersion({
         actualVersion: period.version,

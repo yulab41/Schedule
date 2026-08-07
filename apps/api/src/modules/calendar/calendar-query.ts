@@ -30,7 +30,6 @@ import { GroupPermissionService } from '../groups/permission-service.js';
 export const calendarMarkerEventTypes = [
   'swap_completed',
   'leave_cover_completed',
-  'assignment_manually_updated',
   'duty_adjustment_completed',
   'duty_adjustment_revoked',
   'swap_revoked',
@@ -42,8 +41,6 @@ export function toCalendarChangeMarker(eventType: string): CalendarChangeMarker 
       return 'swap';
     case 'leave_cover_completed':
       return 'leave-cover';
-    case 'assignment_manually_updated':
-      return 'manual-adjustment';
     case 'duty_adjustment_completed':
       return 'overtime';
     default:

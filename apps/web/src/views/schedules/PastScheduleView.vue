@@ -389,7 +389,6 @@ function formatEventTime(value: string): string {
           :holidays="holidays"
           :invert-past-colors="true"
           :members="calendar.members"
-          :hide-marker-types="['manual-adjustment']"
           :today="today"
           @click="onCalendarClick"
         />

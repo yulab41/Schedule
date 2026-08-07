@@ -714,8 +714,20 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#4.3 ✅、#4.4 ✅。
 
+### 轮次 31（fix-progress #4.5 + #7.6，提交：feat(schedules): reject fully past months and drop manual-adjustment marker）
+- 用户决策：#4.5 方案 1（整月早于当前业务月才拒绝，当月/今天允许，跨月按保留既往逻辑）；#7.6 方案 A（移除“调”映射与渲染，保留历史事件数据，不做数据迁移）。
+- 目标/需求：#4.5 发布/自动生成补上“仅未来日期”限制；#7.6 结束 manual-adjustment“调”标记的半移除状态。
+- 根因：#4.5 发布/生成入口无日期校验，可生成/发布整段已过月份；#7.6 契约/查询/Web 仍保留 manual-adjustment → “调”映射，旧事件继续显示“调”。
+- 修复/功能：#4.5 在 `schedules/shared.ts` 新增 `assertBusinessMonthNotFullyPast`（复用 domain `isPastBusinessMonth`），generate `loadGenerationContext` 与 publish `publishInTransaction` 接入，409 + 提示前往排班补录页；#7.6 从契约标记枚举移除 `manual-adjustment`，API 移除 `assignment_manually_updated` 标记映射，Web 移除“调/人工调整”标签与事件标记映射（事件叙述保留），补录页移除隐藏标记配置，PWA shell/schedule 缓存 v5 → v6。
+- 行为变化清单：#4.5 整段已过月份从“可生成/可发布”变为 409；当月/未来月份不变。#7.6 日历不再显示“调”，旧事件数据保留；客户端拒绝含 `manual-adjustment` 的日历载荷（缓存 v6 规避旧缓存）。
+- 验证：`pnpm verify` 581/581 通过（71 个测试文件，隔离 MySQL）；定向集成 schedule-generation 9/9（含新增 2 条守卫测试）、calendar 11/11（NODE_ENV=test + TEST_MYSQL_*，隔离库 3307）。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（涉及 contracts + PWA，记录已满足校验）。
+- 状态：#4.5 ✅、#7.6 ✅（待用户强刷复核：日历不再显示“调”、生成/发布过去月份提示补录）。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：日历不再显示“调”标记，排班补录页正常（轮次 31 相关，PWA 缓存已升 v6）。
+- 用户强刷后复核：生成/发布整段已过月份会提示前往“排班补录”（轮次 31 相关，正常操作不易触发）。
 - 用户强刷后复核：换班撤销（含成员/管理员权限）与既往排班软删除行为不变（轮次 30 相关，纯重构）。
 - 用户强刷后复核：请假提交/审批/拒绝/取消/撤销与冲突通知行为不变（轮次 29 相关，纯入口重构）。
 - 用户强刷后复核：换班/加扣班/请假全流程与事件/通知/权限行为不变（轮次 28 相关，纯依赖收敛）。

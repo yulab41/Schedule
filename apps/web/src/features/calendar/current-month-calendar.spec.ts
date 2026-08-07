@@ -136,20 +136,10 @@ describe('current month calendar logic', () => {
     expect(() => buildDialLink('')).toThrow();
   });
 
-  it('labels and describes the four change markers', () => {
-    const markers: readonly CalendarChangeMarker[] = [
-      'swap',
-      'leave-cover',
-      'manual-adjustment',
-      'overtime',
-    ];
-    expect(markers.map(getCalendarMarkerLabel)).toEqual(['换', '替', '调', '加']);
-    expect(markers.map(getCalendarMarkerDescription)).toEqual([
-      '换班',
-      '请假替班',
-      '人工调整',
-      '加班',
-    ]);
+  it('labels and describes the change markers', () => {
+    const markers: readonly CalendarChangeMarker[] = ['swap', 'leave-cover', 'overtime'];
+    expect(markers.map(getCalendarMarkerLabel)).toEqual(['换', '替', '加']);
+    expect(markers.map(getCalendarMarkerDescription)).toEqual(['换班', '请假替班', '加班']);
   });
 
   it('shortens long holiday names for compact calendar cells', () => {

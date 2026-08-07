@@ -139,6 +139,59 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
     expect(assignmentCount).toEqual([{ count: 0 }]);
   });
 
+  it('rejects generating a fully past month and points to backfill', async () => {
+    const initial = await getConfig('owner-token', groupId);
+    const role = initial.roles.find((candidate) => candidate.id === primaryRoleId) as {
+      readonly id: string;
+      readonly members: readonly { readonly id: string }[];
+    };
+    await updateRotationRule(groupId, primaryRoleId, {
+      currentPosition: 1,
+      defaultShiftTypeId: allDayShiftTypeId,
+      requiredMembersPerDay: 1,
+      startDate: '2020-01-01',
+      startingMemberScheduleRoleId: role.members[0]?.id as string,
+    });
+    const config = await getConfig('owner-token', groupId);
+    const body = {
+      businessMonth: '2020-01',
+      rulesVersion: config.rulesVersion,
+      scheduleRoleIds: [primaryRoleId],
+    };
+
+    const preview = await previewSchedule(groupId, body);
+    const save = await saveSchedule(groupId, { ...body, operationId: randomUUID() });
+
+    expect(preview.statusCode).toBe(409);
+    expect((preview.json() as ErrorResponse).error.message).toContain('排班补录');
+    expect(save.statusCode).toBe(409);
+    expect((save.json() as ErrorResponse).error.message).toContain('排班补录');
+  });
+
+  it('blocks publishing a draft whose month is fully past', async () => {
+    const config = await getConfig('owner-token', groupId);
+    const saved = (
+      await saveSchedule(groupId, {
+        businessMonth: '2026-08',
+        operationId: randomUUID(),
+        rulesVersion: config.rulesVersion,
+        scheduleRoleIds: [primaryRoleId],
+      })
+    ).json() as SavedScheduleGeneration;
+    const periodId = saved.periods[0]?.id as string;
+    await client.database.execute(
+      sql`UPDATE schedule_periods SET business_month = '2020-01-01' WHERE id = ${periodId}`,
+    );
+
+    const blocked = await publishSchedule(groupId, periodId, {
+      expectedVersion: 1,
+      operationId: randomUUID(),
+    });
+
+    expect(blocked.statusCode).toBe(409);
+    expect((blocked.json() as ErrorResponse).error.message).toContain('排班补录');
+  });
+
   it('rejects generation and publication from a non-administrator', async () => {
     const config = await getConfig('owner-token', groupId);
     const body = {

@@ -76,8 +76,8 @@
 | ✅ | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 已完成（轮次 25）：按状态码映射，见第 7 节 |
 | ✅ | #4.2 | 冲突断言双轨（swap/duty 各自“预检 + 断言”） | 轻微 | 高 | 高 | 已完成（轮次 26）：统一为共享 `assertNoWorkflowConflicts`，见第 7 节 |
 | ✅ | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 已完成（轮次 27–30）：入口骨架 + 依赖容器 + 全部入口迁移，见第 7 节 |
-| P3 | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | **需用户确认规则**（今天能否发布/跨月行为） |
-| P3 | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | **需用户确认**：保留旧数据兼容还是彻底移除 |
+| ✅ | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | 已完成（轮次 31，用户确认方案 1）：整段已过月份拒绝，见第 7 节 |
+| ✅ | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | 已完成（轮次 31，用户确认方案 A）：移除渲染、保留事件数据，见第 7 节 |
 | P3 | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 检查 1062 错误码 |
 | P3 | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 顶层创建或 Promise 单例 |
 | P3 | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | API 包暴露 cloudbase 入口 |
@@ -1007,3 +1007,27 @@
 不确定点：1. submit 未幂等化（契约无 operationId）；若用户希望防重复提交，需另开轮改契约与前端调用点。2. `beforeIdempotentOperation` 钩子目前仅 swap `revokeCompleted` 使用，未来其他前置检查可复用。3. 领域 runXxx 状态机主体仍在各服务内（事件/通知/实际人员更新差异大），#4.3 按“共享骨架 + 领域差异”口径完成；若后续要彻底抽状态机，需架构决策。
 
 下次计划：按清单继续 #3.5（idempotency 宽 catch 当重复键，检查 1062 错误码）；#4.5/#7.6 待用户确认后处理；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。
+
+### 轮次 31 – 2026-08-07
+
+目标：#4.5（用户确认方案 1：整月早于当前业务月才拒绝，当月/今天允许，已过日期由保留既往逻辑保护）+ #7.6（用户确认方案 A：移除“调”映射与渲染，保留历史事件数据，不做数据迁移）。
+
+引入点：#4.5 发布/生成缺“仅未来日期”校验（审计卡，功能缺口）；#7.6 `manual-adjustment` 半移除（审计卡，调试日志宣称已移除但映射仍在）。
+
+为什么现有测试没拦住：生成/发布测试只用当前/未来月份，未覆盖整段已过月份；日历测试锁定了旧“调”映射（断言其存在），未按“已移除”口径更新。
+
+修改文件：#4.5——`apps/api/src/modules/schedules/shared.ts` 新增 `assertBusinessMonthNotFullyPast`（复用 domain `isPastBusinessMonth`，整月早于当前业务月 → 409 并提示前往“排班补录”），`generate-service.ts` 的 `loadGenerationContext` 与 `publish-service.ts` 的 `publishInTransaction` 接入；`schedule-generation.integration.test.ts` 新增 2 条（生成预览/保存整段已过月份 409、发布整段已过月份草稿 409）。#7.6——`packages/contracts/src/calendar.ts` 从 `calendarChangeMarkerSchema` 移除 `manual-adjustment`；`apps/api/src/modules/calendar/calendar-query.ts` 移除 `assignment_manually_updated` 的标记映射与事件类型列表；Web `calendar-logic.ts` 移除“调/人工调整”标签；`event-timeline.ts` 移除 `assignment_manually_updated`/`schedule_backfill_completed` 的标记映射（事件叙述保留）；`PastScheduleView.vue` 移除 `hide-marker-types`；`apps/web/src/pwa/cache-logic.ts` shell/schedule 缓存 v5 → v6（旧缓存含 `manual-adjustment` 标记，避免新 schema 校验拒绝）；测试更新（calendar 映射返回 undefined、client 拒绝旧标记、current-month 标记清单）。
+
+语义等价审计与行为变化清单：#4.5 仅新增拒绝路径——整段已过月份（早于当前业务月）的生成/发布从“可执行”变为 409 并提示补录；当月/未来月份行为不变。 #7.6 行为变化——日历不再产生/显示“调”标记；旧 `assignment_manually_updated` 事件数据保留但不再渲染为“调”；事件中心的“人工调整班次/排班补录”叙述保留；客户端对含 `manual-adjustment` 的日历载荷会拒绝（配合缓存升级 v6 规避旧缓存）。
+
+测试结果：`pnpm verify` 581/581 ✅（71 个测试文件，隔离 MySQL；新增 2 条生成/发布守卫测试）；定向集成 schedule-generation 9/9、calendar 11/11（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（涉及 `packages/contracts/src` 与 `apps/web/src/pwa`，记录已满足校验）。
+
+状态：#4.5 ✅、#7.6 ✅（待用户强刷复核：PWA 缓存升级后日历不再显示“调”、生成/发布过去月份提示补录）。
+
+提交：`feat(schedules): reject fully past months and drop manual-adjustment marker`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. `isPastBusinessMonth` 按业务月判断：月初生成/发布当月仍允许（已过日期由保留既往逻辑保护）；若希望“新周期不得覆盖今天之前的任何日期”，需按日校验，另开轮。2. 旧 PWA 缓存若未被 v6 清理前可能短暂报错，需用户强刷/重新注册。3. 事件中心仍保留“人工调整班次/排班补录”叙述（无标记徽标）；若希望连叙述也移除需另行决策。
+
+下次计划：按清单继续 #3.5（idempotency 宽 catch 当重复键，检查 1062 错误码）；同时等待用户强刷复核本轮与轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。

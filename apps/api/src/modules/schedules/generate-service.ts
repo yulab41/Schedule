@@ -55,7 +55,7 @@ import {
 } from '../notifications/conflict-notifier.js';
 import { NotificationWriter } from '../notifications/notification-writer.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
-import { toLatestData, toPeriodSummary } from './shared.js';
+import { assertBusinessMonthNotFullyPast, toLatestData, toPeriodSummary } from './shared.js';
 import { ScheduleRepository, type CreateShiftAssignmentInput } from './schedule-repository.js';
 
 interface LoadedRole {
@@ -337,6 +337,7 @@ export class ScheduleGenerateService {
     }
 
     const businessMonth = assertValidBusinessMonth(input.businessMonth);
+    assertBusinessMonthNotFullyPast(businessMonth);
     const scheduleRoleIds = [...new Set(input.scheduleRoleIds)].sort();
     const loadedRoles = await this.loadRotationRoles(
       transaction,

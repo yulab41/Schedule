@@ -2893,10 +2893,10 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a calendar assignment with an unknown change marker', async () => {
+  it('rejects a calendar assignment with a removed change marker', async () => {
     const invalidCalendar = {
       ...calendar,
-      assignments: [{ ...calendar.assignments[0], changeMarkers: ['unknown'] }],
+      assignments: [{ ...calendar.assignments[0], changeMarkers: ['manual-adjustment'] }],
     };
     const fetchImplementation = vi
       .fn<typeof fetch>()

@@ -29,7 +29,7 @@ const describeWithDatabase = databaseOptions === undefined ? describe.skip : des
 it('maps workflow event types to calendar change markers', () => {
   expect(toCalendarChangeMarker('swap_completed')).toBe('swap');
   expect(toCalendarChangeMarker('leave_cover_completed')).toBe('leave-cover');
-  expect(toCalendarChangeMarker('assignment_manually_updated')).toBe('manual-adjustment');
+  expect(toCalendarChangeMarker('assignment_manually_updated')).toBeUndefined();
   expect(toCalendarChangeMarker('duty_adjustment_completed')).toBe('overtime');
   expect(toCalendarChangeMarker('schedule_period_published')).toBeUndefined();
 });

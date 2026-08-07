@@ -110,9 +110,6 @@ function getEventMarker(eventType: string): CalendarChangeMarker | undefined {
       return 'swap';
     case 'leave_cover_completed':
       return 'leave-cover';
-    case 'assignment_manually_updated':
-    case 'schedule_backfill_completed':
-      return 'manual-adjustment';
     case 'duty_adjustment_completed':
       return 'overtime';
     default:

@@ -1,11 +1,6 @@
 import { z } from 'zod';
 
-export const calendarChangeMarkerSchema = z.enum([
-  'swap',
-  'leave-cover',
-  'manual-adjustment',
-  'overtime',
-]);
+export const calendarChangeMarkerSchema = z.enum(['swap', 'leave-cover', 'overtime']);
 export type CalendarChangeMarker = z.infer<typeof calendarChangeMarkerSchema>;
 
 export const calendarDutyAssignmentSchema = z

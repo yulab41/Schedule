@@ -169,8 +169,6 @@ export function getCalendarMarkerLabel(marker: CalendarChangeMarker): string {
       return '换';
     case 'leave-cover':
       return '替';
-    case 'manual-adjustment':
-      return '调';
     case 'overtime':
       return '加';
   }
@@ -182,8 +180,6 @@ export function getCalendarMarkerDescription(marker: CalendarChangeMarker): stri
       return '换班';
     case 'leave-cover':
       return '请假替班';
-    case 'manual-adjustment':
-      return '人工调整';
     case 'overtime':
       return '加班';
   }
