@@ -55,7 +55,6 @@ import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
-import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import type { ActiveGroup, GroupAuthorization } from '../groups/permission-service.js';
 import {
@@ -65,6 +64,7 @@ import {
 import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
 import { toLatestData } from '../schedules/shared.js';
 import { getCurrentDutyMembershipId } from '../workflows/workflow-conflict-service.js';
+import { runAuthorizedMutation } from '../workflows/workflow-operation.js';
 import { WorkflowServices } from '../workflows/workflow-services.js';
 
 type LockedLeaveRequest = typeof leaveRequests.$inferSelect;
@@ -344,44 +344,36 @@ export class LeaveService {
     leaveRequestId: string,
     input: ApproveLeaveRequestInput,
   ): Promise<ApprovedLeaveRequestResult> {
-    try {
-      return await withTransaction(this.databaseClient, async (transaction) => {
-        const authorization = await this.services.permissionService.requirePermission(
-          transaction,
-          identity,
-          groupId,
-          'manageLeaves',
-        );
-        return withIdempotentOperation(
-          transaction,
-          {
-            actorUserId: authorization.user.id,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      onError: async (error) => {
+        if (error instanceof ApiError && isConflictBlockedError(error)) {
+          await writeConflictNotification(this.databaseClient, {
+            groupId,
+            identity,
             operationId: input.operationId,
-            requestFingerprint: createApproveFingerprint({
-              acknowledgeBlockers: input.acknowledgeBlockers === true,
-              expectedPeriodVersions: input.expectedPeriodVersions,
-              expectedRulesVersion: input.expectedRulesVersion,
-              expectedVersion: input.expectedVersion,
-              groupId,
-              leaveRequestId,
-              strategy: input.strategy ?? null,
-            }),
-            scope: 'leave_request_approve',
-          },
-          () => this.runApproval(transaction, authorization, leaveRequestId, input),
-        );
-      });
-    } catch (error) {
-      if (error instanceof ApiError && isConflictBlockedError(error)) {
-        await writeConflictNotification(this.databaseClient, {
-          groupId,
-          identity,
-          operationId: input.operationId,
-          preview: error.latestData?.preview,
-        });
-      }
-      throw error;
-    }
+            preview: error.latestData?.preview,
+          });
+        }
+      },
+      operationId: input.operationId,
+      permission: 'manageLeaves',
+      permissionService: this.services.permissionService,
+      requestFingerprint: createApproveFingerprint({
+        acknowledgeBlockers: input.acknowledgeBlockers === true,
+        expectedPeriodVersions: input.expectedPeriodVersions,
+        expectedRulesVersion: input.expectedRulesVersion,
+        expectedVersion: input.expectedVersion,
+        groupId,
+        leaveRequestId,
+        strategy: input.strategy ?? null,
+      }),
+      run: (transaction, authorization) =>
+        this.runApproval(transaction, authorization, leaveRequestId, input),
+      scope: 'leave_request_approve',
+    });
   }
 
   public async reject(
@@ -390,31 +382,25 @@ export class LeaveService {
     leaveRequestId: string,
     input: RejectLeaveRequestInput,
   ): Promise<RejectedLeaveRequestResult> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.services.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageLeaves',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createHash('sha256')
-            .update(
-              JSON.stringify({
-                expectedVersion: input.expectedVersion,
-                groupId,
-                leaveRequestId,
-              }),
-            )
-            .digest('hex'),
-          scope: 'leave_request_reject',
-        },
-        () => this.runRejection(transaction, authorization, leaveRequestId, input),
-      );
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'manageLeaves',
+      permissionService: this.services.permissionService,
+      requestFingerprint: createHash('sha256')
+        .update(
+          JSON.stringify({
+            expectedVersion: input.expectedVersion,
+            groupId,
+            leaveRequestId,
+          }),
+        )
+        .digest('hex'),
+      run: (transaction, authorization) =>
+        this.runRejection(transaction, authorization, leaveRequestId, input),
+      scope: 'leave_request_reject',
     });
   }
 
@@ -424,27 +410,21 @@ export class LeaveService {
     leaveRequestId: string,
     input: LeaveRequestMutationInput,
   ): Promise<LeaveRequestMutationResult> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.services.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.services.permissionService,
+      requestFingerprint: createLeaveMutationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createLeaveMutationFingerprint({
-            expectedVersion: input.expectedVersion,
-            groupId,
-            leaveRequestId,
-          }),
-          scope: 'leave_request_cancel',
-        },
-        () => this.runCancellation(transaction, identity, authorization, leaveRequestId, input),
-      );
+        leaveRequestId,
+      }),
+      run: (transaction, authorization) =>
+        this.runCancellation(transaction, identity, authorization, leaveRequestId, input),
+      scope: 'leave_request_cancel',
     });
   }
 
@@ -454,27 +434,21 @@ export class LeaveService {
     leaveRequestId: string,
     input: LeaveRequestMutationInput,
   ): Promise<LeaveRequestMutationResult> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.services.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.services.permissionService,
+      requestFingerprint: createLeaveMutationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createLeaveMutationFingerprint({
-            expectedVersion: input.expectedVersion,
-            groupId,
-            leaveRequestId,
-          }),
-          scope: 'leave_request_revoke',
-        },
-        () => this.runRevocation(transaction, identity, authorization, leaveRequestId, input),
-      );
+        leaveRequestId,
+      }),
+      run: (transaction, authorization) =>
+        this.runRevocation(transaction, identity, authorization, leaveRequestId, input),
+      scope: 'leave_request_revoke',
     });
   }
 

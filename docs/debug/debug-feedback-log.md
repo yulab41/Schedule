@@ -696,8 +696,18 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（#4.3 子步骤 2a；#4.3 整体进行中）。
 
+### 轮次 29（fix-progress #4.3 子步骤 2b，提交：refactor(workflows): migrate leave entries to shared mutation skeleton）
+- 目标/需求：#4.3 拆多轮的第三步——leave approve/reject/cancel/revoke 迁到共享入口骨架，approve 的“冲突拦截写通知”由骨架错误钩子承载。
+- 根因：三服务入口样板自功能开发起复制演进；leave approve 额外带 try/catch 写冲突通知，与其他入口形态不同。
+- 修复/功能：`runAuthorizedMutation` 改为 async + try/catch，新增可选 `onError`（事务回滚后、rethrow 前执行）；leave approve 用 `onError` 承载原 `isConflictBlockedError` + `writeConflictNotification` 逻辑，reject/cancel/revoke 迁移到骨架；删除 leave 的 `withIdempotentOperation` 导入。
+- 行为变化清单：无（approve 错误路径、冲突通知写入、rethrow 语义与迁移前逐一等价；reject/cancel/revoke 权限/scope/指纹/run 相同；submit 未改动）。
+- 验证：`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、duty 24/24、leave 19/19（NODE_ENV=test + TEST_MYSQL_*，隔离库 3307）。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：已完成（#4.3 子步骤 2b；#4.3 整体进行中，剩 swap revokeCompleted 与 submit 幂等化评估）。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：请假提交/审批/拒绝/取消/撤销与冲突通知行为不变（轮次 29 相关，纯入口重构）。
 - 用户强刷后复核：换班/加扣班/请假全流程与事件/通知/权限行为不变（轮次 28 相关，纯依赖收敛）。
 - 用户强刷后复核：换班/加扣班创建、接受、审批、拒绝、取消、撤销操作与幂等重放行为不变（轮次 27 相关）。
 - 用户强刷后复核：换班提交失败时提示具体冲突原因而非通用文案（轮次 26 相关）。

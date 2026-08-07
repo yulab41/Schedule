@@ -9,9 +9,9 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–57 已完成；fix-progress 轮次 1–28 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码；轮次 26 = #4.2：swap/duty 冲突断言统一为共享接口；轮次 27 = #4.3 子步骤 1：抽 runAuthorizedMutation 入口骨架并迁移 swap/duty 13 个入口；轮次 28 = #4.3 子步骤 2a：三服务依赖收敛为 WorkflowServices 容器）；最新验证基线 579/579（71 个测试文件，隔离 MySQL）
+- Debug rounds: 1–57 已完成；fix-progress 轮次 1–29 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码；轮次 26 = #4.2：swap/duty 冲突断言统一为共享接口；轮次 27 = #4.3 子步骤 1：抽 runAuthorizedMutation 入口骨架并迁移 swap/duty 13 个入口；轮次 28 = #4.3 子步骤 2a：三服务依赖收敛为 WorkflowServices 容器；轮次 29 = #4.3 子步骤 2b：leave 入口迁移 + 骨架 onError 钩子）；最新验证基线 579/579（71 个测试文件，隔离 MySQL）
 - Deployment: 本地部署继续（用户决定暂不上线）：API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 均为 2026-08-07 最新构建，`/health`、`/api/health`、首页均 200，开发模式认证可用；PWA shell/schedule 缓存升至 `v5`；阿里云 ECS 试用机与 CloudBase 上线验证暂停，等待用户后续决定
-- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 28（#4.3 子步骤 2a：依赖容器收敛）已完成，#4.3 继续进行（子步骤 2b：leave 入口迁移）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
+- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 29（#4.3 子步骤 2b：leave 入口迁移）已完成，#4.3 收尾（swap revokeCompleted 前置检查钩子迁移 + submit 幂等化决策）后转 #4.4（软删除函数合并）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
 
 ## Debug / Test Feedback Log
 
@@ -28,6 +28,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-07 fix-progress 轮次 29：完成 #4.3 子步骤 2b（leave 入口迁移）——`runAuthorizedMutation` 增加可选 `onError` 钩子（事务回滚后、rethrow 前执行），leave approve 用其承载原 catch 的冲突通知逻辑，reject/cancel/revoke 迁移到共享骨架并删除 `withIdempotentOperation` 导入；submit 保持原实现（无 operationId，幂等化需改契约，评估另开轮）；`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL），定向集成 swap 31/31、duty 24/24、leave 19/19 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 28：完成 #4.3 子步骤 2a（三服务依赖容器收敛）——新增共享 `apps/api/src/modules/workflows/workflow-services.ts`（eventWriter/notificationWriter/permissionService/memberReader/workflowConflictService/statisticsService/workflowSelfHealingService），swap/duty/leave 删除各自依赖字段与构造逻辑并全部改经容器引用（131 处机械替换，类型导入保留）；`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL），定向集成 swap 31/31、duty 24/24、leave 19/19 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 27：完成 #4.3 子步骤 1（工作流入口骨架）——新增共享 `apps/api/src/modules/workflows/workflow-operation.ts` 的 `runAuthorizedMutation`（开事务 → 鉴权 → 幂等执行），swap 6 个入口与 duty 7 个入口改调共享骨架，duty 删除 `withIdempotentOperation` 导入（swap `revokeCompleted` 因幂等前有锁定 + 角色预检暂保留原实现）；`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL），定向集成 swap 31/31、duty 24/24 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 26：完成 #4.2（冲突断言双轨）——`WorkflowConflictService` 新增 `assertNoWorkflowConflicts` 单一接口（资格冲突优先、message 拼接、latestData 由调用方上下文 + conflicts 组成）；swap 4 个入口与 duty 4 个入口改调共享接口并删除各自私有断言（swap accept/approve 因查询无排除参数沿用旧行为只重查资格冲突，注释说明）；先写 4 条共享断言单测（模块缺失时失败）再实现；`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL），定向集成 swap 31/31、duty 24/24 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
