@@ -733,8 +733,19 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#3.5 ✅。
 
+### 轮次 33（fix-progress #5.1 + CloudBase 暂缓决策，提交：fix(jobs): count missing notifications and subscriptions as skipped）
+- 用户决策（2026-08-07）：后续可能弃用 CloudBase 改用阿里云；CloudBase 专属项 #3.6/#9.1/#9.2 暂缓，待平台去留决策；若弃用则另开一轮清理 CloudBase 专用代码。
+- 目标/需求：通知重试的 skipped 指标在“已配置推送”路径恒为 0，“通知不存在/订阅失效”被误计 failed；让 `processDelivery` 返回三态并如实计数。
+- 根因：`processDelivery` 只返回 `failed | sent`，内部把“无法发送（缺失依赖）”与“发送失败”混为 failed。
+- 修复/功能：`processDelivery` 返回 `failed | sent | skipped`——投递行缺失/非 pending、通知记录不存在、推送订阅失效 → skipped；发送异常/重试耗尽 → failed；`run()` 配置路径累计 skipped。
+- 行为变化清单：仅计数器口径变化；投递行状态更新、重试节奏、未配置路径行为不变；运维可区分发送失败与跳过。
+- 验证：新增 1 条集成回归测试（孤儿投递 + 有通知无订阅 → skipped=2、failed=0，旧代码 failed=2 失败）；`pnpm verify` 586/586 通过（72 个测试文件，隔离 MySQL）；定向集成 notifications 8/8。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：#5.1 ✅；#3.6/#9.1/#9.2 暂缓（待 CloudBase 去留决策）。
+
 ## 待办 / 下一步
 
+- 用户决策待办：CloudBase 保留还是弃用转阿里云（决定后处理 #3.6/#9.1/#9.2 或 CloudBase 清理轮）。
 - 用户强刷后复核：换班/加扣班/请假等幂等操作重放行为不变（轮次 32 相关，正常操作不易触发）。
 - 用户强刷后复核：日历不再显示“调”标记，排班补录页正常（轮次 31 相关，PWA 缓存已升 v6）。
 - 用户强刷后复核：生成/发布整段已过月份会提示前往“排班补录”（轮次 31 相关，正常操作不易触发）。

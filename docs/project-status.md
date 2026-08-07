@@ -9,9 +9,9 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–57 已完成；fix-progress 轮次 1–32 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码；轮次 26 = #4.2：swap/duty 冲突断言统一为共享接口；轮次 27–30 = #4.3 入口骨架/依赖容器/入口迁移 + #4.4 软删除函数合并；轮次 31 = #4.5 仅未来日期守卫 + #7.6 移除“调”标记；轮次 32 = #3.5 idempotency 仅重复键走查重路径）；最新验证基线 585/585（72 个测试文件，隔离 MySQL）
+- Debug rounds: 1–57 已完成；fix-progress 轮次 1–33 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码；轮次 26 = #4.2：swap/duty 冲突断言统一为共享接口；轮次 27–30 = #4.3 入口骨架/依赖容器/入口迁移 + #4.4 软删除函数合并；轮次 31 = #4.5 仅未来日期守卫 + #7.6 移除“调”标记；轮次 32 = #3.5 idempotency 仅重复键走查重路径；轮次 33 = #5.1 retry skipped 如实计数）；最新验证基线 586/586（72 个测试文件，隔离 MySQL）
 - Deployment: 本地部署继续（用户决定暂不上线）：API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 均为 2026-08-07 最新构建，`/health`、`/api/health`、首页均 200，开发模式认证可用；PWA shell/schedule 缓存升至 `v5`；阿里云 ECS 试用机与 CloudBase 上线验证暂停，等待用户后续决定
-- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 32（#3.5 idempotency 仅重复键走查重路径）已完成，下一个 fix-progress 目标为 #3.6（CloudBase 处理器惰性单例竞态，顶层创建或 Promise 单例化）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
+- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 33（#5.1 retry skipped 如实计数）已完成，CloudBase 专属项 #3.6/#9.1/#9.2 暂缓（用户可能弃用 CloudBase 转阿里云，待平台去留决策），下一个 fix-progress 目标为 #5.2（group-recycle 裸 SQL 级联删除）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
 
 ## Debug / Test Feedback Log
 
@@ -28,6 +28,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-07 fix-progress 轮次 33：完成 #5.1 并登记 CloudBase 暂缓决策——`notification-retry.ts` 的 `processDelivery` 返回三态（投递行缺失/非 pending、通知不存在、订阅失效 → skipped；发送异常/重试耗尽 → failed），`run()` 配置路径如实累计 skipped；先写 1 条集成回归测试（旧代码 failed=2 失败）再实现；`pnpm verify` 586/586 通过（72 个测试文件，隔离 MySQL），定向集成 notifications 8/8 通过；CloudBase 专属项 #3.6/#9.1/#9.2 暂缓登记（待平台去留决策）。
 - 2026-08-07 fix-progress 轮次 32：完成 #3.5（idempotency 宽 catch 当重复键）——新增共享 `apps/api/src/database-error.ts`（`getDatabaseErrorCode` 沿 code/cause 链读取 + `isDuplicateKeyError`），`idempotency.ts` 首次 insert 的 catch 改为仅 `ER_DUP_ENTRY` 才走查重/重放路径，其他数据库错误立即抛出；先写 4 条助手锁定测试再实现；`pnpm verify` 585/585 通过（72 个测试文件，隔离 MySQL），定向集成 swap 31/31 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 31：完成 #4.5 + #7.6（按用户确认方案）——`schedules/shared.ts` 新增 `assertBusinessMonthNotFullyPast`（复用 domain `isPastBusinessMonth`，整段已过月份生成/发布返回 409 并提示排班补录），generate/publish 入口接入，新增 2 条集成测试；契约移除 `manual-adjustment` 标记、API/Web 移除“调”映射与渲染（保留历史事件数据）、PWA shell/schedule 缓存 v5 → v6；`pnpm verify` 581/581 通过（71 个测试文件，隔离 MySQL），定向集成 schedule-generation 9/9、calendar 11/11 通过，`pnpm smoke:browser` 与 `pnpm smoke:check-core` 通过。
 - 2026-08-07 fix-progress 轮次 30：完成 #4.3 收尾 + #4.4——`runAuthorizedMutation` 新增 `beforeIdempotentOperation` 钩子，swap `revokeCompleted` 的前置锁定 + 角色预检迁入钩子（swap 全部 7 个入口完成迁移，删除 `withIdempotentOperation` 导入）；`schedule-repository.ts` 的 `softDeleteAssignments` 增加可选 `beforeBusinessDate` 参数并删除 `softDeleteAssignmentsBefore`（3 处调用点更新）；submit 幂等化评估为保持现状（契约无 operationId，另开轮）；`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL），定向集成 swap 31/31、schedule-repository 5/5 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。

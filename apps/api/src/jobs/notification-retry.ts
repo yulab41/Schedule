@@ -57,17 +57,20 @@ export class NotificationRetryJob {
     let attempted = 0;
     let failed = 0;
     let sent = 0;
+    let skipped = 0;
     for (const delivery of dueDeliveries) {
       attempted += 1;
       const outcome = await this.processDelivery(delivery.id, now);
       if (outcome === 'sent') {
         sent += 1;
+      } else if (outcome === 'skipped') {
+        skipped += 1;
       } else {
         failed += 1;
       }
     }
 
-    return { attempted, failed, sent, skipped: 0 };
+    return { attempted, failed, sent, skipped };
   }
 
   private async markPendingSkipped(now: Date): Promise<number> {
@@ -89,7 +92,10 @@ export class NotificationRetryJob {
     });
   }
 
-  private async processDelivery(deliveryId: string, now: Date): Promise<'failed' | 'sent'> {
+  private async processDelivery(
+    deliveryId: string,
+    now: Date,
+  ): Promise<'failed' | 'sent' | 'skipped'> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const [delivery] = await transaction
         .select()
@@ -98,7 +104,7 @@ export class NotificationRetryJob {
         .limit(1)
         .for('update');
       if (delivery === undefined || delivery.status !== 'pending') {
-        return 'failed';
+        return 'skipped';
       }
 
       const [notification] = await transaction
@@ -111,7 +117,7 @@ export class NotificationRetryJob {
           .update(notificationDeliveries)
           .set({ status: 'skipped', lastError: '通知记录不存在' })
           .where(eq(notificationDeliveries.id, deliveryId));
-        return 'failed';
+        return 'skipped';
       }
       const [subscription] = await transaction
         .select({
@@ -127,7 +133,7 @@ export class NotificationRetryJob {
           .update(notificationDeliveries)
           .set({ status: 'skipped', lastError: '推送订阅已失效' })
           .where(eq(notificationDeliveries.id, deliveryId));
-        return 'failed';
+        return 'skipped';
       }
 
       try {

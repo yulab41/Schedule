@@ -79,11 +79,11 @@
 | ✅ | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | 已完成（轮次 31，用户确认方案 1）：整段已过月份拒绝，见第 7 节 |
 | ✅ | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | 已完成（轮次 31，用户确认方案 A）：移除渲染、保留事件数据，见第 7 节 |
 | ✅ | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 已完成（轮次 32）：仅重复键走查重路径，见第 7 节 |
-| P3 | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 顶层创建或 Promise 单例 |
-| P3 | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | API 包暴露 cloudbase 入口 |
-| P3 | #9.1 | cloudbaserc 未声明 env，环境不可复现 | 轻微 | 低 | 中 | 需与控制台协调 |
+| ⏸️ | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 暂缓（2026-08-07 用户可能弃用 CloudBase 转阿里云，待平台去留决策） |
+| ⏸️ | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | 暂缓（同 CloudBase 去留决策） |
+| ⏸️ | #9.1 | cloudbaserc 未声明 env，环境不可复现 | 轻微 | 低 | 中 | 暂缓（同 CloudBase 去留决策） |
 | P3 | #6.1/#6.2 | 迁移 0030/0031 复制 + 序列一致性无校验 | 轻微 | 低 | 低中 | 合并 SQL + 加校验迁移 |
-| P3 | #5.1 | notification-retry 的 skipped 恒为 0 | 轻微 | 低 | 低 | 返回三态并如实计数 |
+| ✅ | #5.1 | notification-retry 的 skipped 恒为 0 | 轻微 | 低 | 低 | 已完成（轮次 33）：返回三态并如实计数，见第 7 节 |
 | P3 | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | schema 元数据生成或外键级联 |
 | P3 | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 记录失败上下文 |
 | ✅ | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 已完成（轮次 30）：合并带可选截止日期，见第 7 节 |
@@ -1055,3 +1055,29 @@
 不确定点：1. mysql2 重复键错误码依赖驱动形态（`code='ER_DUP_ENTRY'`，可能包在 `cause` 里）；helper 已覆盖直接/包装两种形态，若未来换驱动需同步。2. group-service 私有 `getDatabaseErrorCode` 与 user-service 内联 `ER_DUP_ENTRY` 检查仍各自实现，可后续统一到本助手（未顺手改）。3. 并发双请求同时插入：一个成功、一个 ER_DUP_ENTRY 后进入 processing 冲突分支返回 409（行为不变）。
 
 下次计划：按清单继续 #3.6（CloudBase 处理器惰性单例竞态，顶层创建或 Promise 单例化）；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。
+
+### 轮次 33 – 2026-08-07
+
+目标：#5.1（notification-retry 的 skipped 如实计数）+ 决策登记（CloudBase 专属项 #3.6/#9.1/#9.2 暂缓）。
+
+用户决策（2026-08-07）：后续可能弃用 CloudBase 改用阿里云；CloudBase 专属修复暂不投入，登记为“待平台去留决策”。若最终保留 CloudBase，按原卡片继续 #3.6/#9.1/#9.2；若弃用，另开一轮清理 CloudBase 专用代码（cloudbase-handler、cloudbase 认证适配、cloudbaserc、deploy-development workflow 等）。
+
+引入点：#5.1 skipped 计数缺失自通知重试功能引入起存在（审计卡登记）；#3.6/#9.1/#9.2 为 CloudBase 专属项。
+
+为什么现有测试没拦住：现有集成测试只断言“未配置推送时 skipped ≥1”与失败重试路径，未覆盖“配置后通知缺失/订阅缺失应计 skipped”；新增 1 条集成测试（孤儿投递 + 有通知无订阅 → skipped=2、failed=0），旧代码上 failed=2 失败。
+
+修改文件：`apps/api/src/jobs/notification-retry.ts`（`processDelivery` 返回 `'failed' | 'sent' | 'skipped'`：投递行缺失/非 pending、通知记录不存在、推送订阅失效 → `'skipped'`；发送异常/重试耗尽仍 `'failed'`；`run()` 配置路径如实累计 skipped）；`apps/api/src/modules/notifications/notifications.integration.test.ts`（新增计数回归测试）。
+
+语义等价审计与行为变化清单：仅改变计数器口径与 `processDelivery` 返回值；投递行状态更新（skipped/failed/sent）、重试节奏、未配置路径 `markPendingSkipped` 不变；skipped 从“仅未配置路径有值”变为“配置路径中通知/订阅缺失也如实计数”，运维可区分发送失败与跳过。
+
+测试结果：`pnpm verify` 586/586 ✅（72 个测试文件，隔离 MySQL）；定向集成 notifications 8/8（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#5.1 ✅；#3.6/#9.1/#9.2 暂缓（待 CloudBase 去留决策）。
+
+提交：`fix(jobs): count missing notifications and subscriptions as skipped`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. “投递行已不存在/非 pending”归为 skipped 是语义选择（非发送失败）；若希望这类竞态行计 failed 可调整。2. CloudBase 暂缓项若最终保留 CloudBase，需按原卡片继续；若弃用则改为清理轮。3. 平台任务汇总（platformJobRuns.summary）对 skipped/failed 的展示依赖本结果字段，接口未改。
+
+下次计划：按清单继续 #5.2（group-recycle 27 条裸 SQL 手写级联删除 + `scanned` 语义修正）；CloudBase 专属项待用户平台决策；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。

@@ -5,10 +5,12 @@ import type { NotificationPage, NotificationRecord } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
+  notificationDeliveries,
+  users,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -292,6 +294,46 @@ describeWithDatabase('notification workflows', () => {
     const skippedJob = new NotificationRetryJob(client, createPushDispatcher({}));
     const skippedRun = await skippedJob.run(new Date());
     expect(skippedRun.skipped).toBeGreaterThanOrEqual(1);
+  });
+
+  it('counts missing notifications and subscriptions as skipped instead of failed', async () => {
+    const orphanDeliveryId = randomUUID();
+    await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+    await client.database.execute(
+      sql`INSERT INTO notification_deliveries
+          (id, notification_id, channel, status, attempts, max_attempts)
+          VALUES (${orphanDeliveryId}, ${randomUUID()}, 'browser', 'pending', 0, 3)`,
+    );
+    await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
+
+    const [userRow] = await client.database.select({ id: users.id }).from(users).limit(1);
+    const recipientUserId = userRow?.id as string;
+    const missingSubscriptionNotificationId = randomUUID();
+    await client.database.execute(
+      sql`INSERT INTO notifications
+          (id, recipient_user_id, notification_type, title, body, is_read)
+          VALUES (${missingSubscriptionNotificationId}, ${recipientUserId}, 'test', '标题', '内容', 0)`,
+    );
+    const missingSubscriptionDeliveryId = randomUUID();
+    await client.database.execute(
+      sql`INSERT INTO notification_deliveries
+          (id, notification_id, channel, status, attempts, max_attempts)
+          VALUES (${missingSubscriptionDeliveryId}, ${missingSubscriptionNotificationId}, 'browser', 'pending', 0, 3)`,
+    );
+
+    const retryJob = new NotificationRetryJob(client, new FailingPushDispatcher(1));
+    const result = await retryJob.run(new Date());
+
+    expect(result.attempted).toBe(2);
+    expect(result.skipped).toBe(2);
+    expect(result.failed).toBe(0);
+    expect(result.sent).toBe(0);
+    const [orphanStatus] = await client.database
+      .select({ status: notificationDeliveries.status })
+      .from(notificationDeliveries)
+      .where(eq(notificationDeliveries.id, orphanDeliveryId))
+      .limit(1);
+    expect(orphanStatus?.status).toBe('skipped');
   });
 
   it('writes a conflict notification when publication is blocked', async () => {
