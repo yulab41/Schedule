@@ -660,7 +660,7 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（涉及核心链路 `stores/session.ts`，记录已满足校验）。
 - 状态：已完成，待用户浏览器强刷复核。
 
-### 轮次 25（fix-progress #3.7，提交：fix(api): map framework 4xx errors to contract codes）
+### 轮次 25（fix-progress #3.7，提交：bcecee7 fix(api): map framework 4xx errors to contract codes）
 - 目标/需求：合规审查发现除 415 外任何框架 4xx（400/404/429 等）都被错误处理器归一化为 `VALIDATION_FAILED`，丢失语义；按状态码映射到契约错误码并补测试。
 - 根因：轮次 56 修复 415 时只做“statusCode === 415 ? UNSUPPORTED_MEDIA_TYPE : VALIDATION_FAILED”的特判，未覆盖其他框架 4xx。
 - 修复/功能：`apps/api/src/plugins/error-handler.ts` 新增 `frameworkErrorMappings` 映射表（400→VALIDATION_FAILED、404→NOT_FOUND、415→UNSUPPORTED_MEDIA_TYPE、429→RATE_LIMITED），未列入的 4xx 保持 VALIDATION_FAILED 兜底；`setNotFoundHandler` 复用 `notFoundErrorMessage` 常量。

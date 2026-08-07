@@ -881,7 +881,7 @@
 
 状态：已完成（单测通过；接口错误码语义化，用户界面无直接变化）。
 
-提交：`fix(api): map framework 4xx errors to contract codes`（提交后回填短哈希），推送结果见对话回复
+提交：bcecee7（`fix(api): map framework 4xx errors to contract codes`），推送结果见对话回复
 
 不确定点：1. 401/403/409 等框架级 4xx 仍映射为 VALIDATION_FAILED（业务层均通过 ApiError 显式抛出对应码）；若未来引入会产生裸 401/403/409 的框架插件，需再扩展映射表——出错症状是这类错误仍显示“请求数据不符合要求”。2. 测试用 `Object.assign(new Error(...), { statusCode })` 近似 Fastify 错误形态，真实框架错误字段更多但读取路径只依赖 statusCode，已覆盖。3. 404 通常由 `setNotFoundHandler` 提前处理，错误处理器内的 404 分支属防御性映射，实际触发场景少。
 
