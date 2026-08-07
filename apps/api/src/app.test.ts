@@ -105,6 +105,60 @@ describe('API runtime', () => {
     });
   });
 
+  it('maps framework 404 errors to NOT_FOUND', async () => {
+    const app = createTestApp();
+    app.get('/framework-404', () => {
+      throw Object.assign(new Error('route not found'), { statusCode: 404 });
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/framework-404' });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'NOT_FOUND',
+        message: '请求的资源不存在。',
+        requestId: response.headers['x-request-id'],
+      },
+    });
+  });
+
+  it('maps framework 429 errors to RATE_LIMITED', async () => {
+    const app = createTestApp();
+    app.get('/framework-429', () => {
+      throw Object.assign(new Error('rate limited'), { statusCode: 429 });
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/framework-429' });
+
+    expect(response.statusCode).toBe(429);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'RATE_LIMITED',
+        message: '请求过于频繁，请稍后重试。',
+        requestId: response.headers['x-request-id'],
+      },
+    });
+  });
+
+  it('keeps VALIDATION_FAILED for framework 4xx without a dedicated code', async () => {
+    const app = createTestApp();
+    app.get('/framework-405', () => {
+      throw Object.assign(new Error('method not allowed'), { statusCode: 405 });
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/framework-405' });
+
+    expect(response.statusCode).toBe(405);
+    expect(response.json()).toEqual({
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: '请求数据不符合要求。',
+        requestId: response.headers['x-request-id'],
+      },
+    });
+  });
+
   it('returns declared conflicts with the latest data summary', async () => {
     const app = createTestApp();
     app.get('/conflict', () => {

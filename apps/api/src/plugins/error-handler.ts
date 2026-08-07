@@ -2,8 +2,20 @@ import type { ApiErrorCode, ApiErrorResponse, JsonObject } from '@schedule/contr
 import type { FastifyInstance } from 'fastify';
 
 const internalErrorMessage = '服务器暂时无法处理请求，请稍后重试。';
+const notFoundErrorMessage = '请求的资源不存在。';
+const rateLimitedErrorMessage = '请求过于频繁，请稍后重试。';
 const unsupportedMediaTypeErrorMessage = '不支持的请求内容类型。';
 const validationErrorMessage = '请求数据不符合要求。';
+
+// 框架级 4xx 按状态码保留语义；未列入的状态码沿用 VALIDATION_FAILED 兜底。
+const frameworkErrorMappings: Readonly<
+  Record<number, { readonly code: ApiErrorCode; readonly message: string }>
+> = {
+  400: { code: 'VALIDATION_FAILED', message: validationErrorMessage },
+  404: { code: 'NOT_FOUND', message: notFoundErrorMessage },
+  415: { code: 'UNSUPPORTED_MEDIA_TYPE', message: unsupportedMediaTypeErrorMessage },
+  429: { code: 'RATE_LIMITED', message: rateLimitedErrorMessage },
+};
 
 export class ApiError extends Error {
   public readonly code: ApiErrorCode;
@@ -34,7 +46,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     reply.status(404).send(
       createErrorResponse({
         code: 'NOT_FOUND',
-        message: '请求的资源不存在。',
+        message: notFoundErrorMessage,
         requestId: request.id,
       }),
     );
@@ -87,11 +99,11 @@ function toApiError(error: unknown): ApiError {
 
   const clientErrorStatus = readFastifyClientErrorStatus(error);
   if (clientErrorStatus !== undefined) {
+    const mapping = frameworkErrorMappings[clientErrorStatus];
     return new ApiError({
-      code: clientErrorStatus === 415 ? 'UNSUPPORTED_MEDIA_TYPE' : 'VALIDATION_FAILED',
+      code: mapping?.code ?? 'VALIDATION_FAILED',
       statusCode: clientErrorStatus,
-      userMessage:
-        clientErrorStatus === 415 ? unsupportedMediaTypeErrorMessage : validationErrorMessage,
+      userMessage: mapping?.message ?? validationErrorMessage,
     });
   }
 

@@ -73,7 +73,7 @@
 | ✅ | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 已完成（轮次 23）：合并共享 workflow 逻辑，见第 7 节 |
 | ✅ | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 已完成（轮次 24）：抽共享 toUserMessage，见第 7 节 |
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
-| P2 | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 按状态码映射并补测试 |
+| ✅ | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 已完成（轮次 25）：按状态码映射，见第 7 节 |
 | P2 | #4.2/#4.3 | 冲突断言双轨 + 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 必须在 #4.1 之后做，拆多轮 |
 | P3 | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | **需用户确认规则**（今天能否发布/跨月行为） |
 | P3 | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | **需用户确认**：保留旧数据兼容还是彻底移除 |
@@ -862,3 +862,27 @@
 不确定点：1. 统一为 Error 语义后，原先只显示 ApiClientError 的页面若捕获到非 ApiClientError 的 Error，会显示其原始 message 而非兜底文案——出错症状是用户看到技术性英文/异常文本；如不希望暴露，可改为只接受 ApiClientError 并把 session 登录错误单独保留。2. GuestScheduleView 的两处兜底（群组/排班）与其他页面的“数据/日历/记录”措辞不同，本次按参数保留原值；若后续要彻底统一字面，需产品确认。3. 非 Error 实例但带 message 的普通对象仍走兜底（与旧行为一致），本轮未扩展。
 
 下次计划：按清单继续 #3.7（框架 4xx 全部归一化为 VALIDATION_FAILED，按状态码映射并补测试）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。
+
+### 轮次 25 – 2026-08-07
+
+目标：#3.7 —— 框架级 4xx 按状态码映射到契约错误码：400→VALIDATION_FAILED、404→NOT_FOUND、415→UNSUPPORTED_MEDIA_TYPE（既有）、429→RATE_LIMITED；未列入的状态码保留 VALIDATION_FAILED 兜底，并为每个映射补测试。
+
+引入点：轮次 56（`fix(api): map unsupported content types to 415 instead of 500`）只修了 415，留下“除 415 外框架 4xx 一律 VALIDATION_FAILED”的窄补丁；审计卡 #3.7 登记。
+
+为什么现有测试没拦住：`app.test.ts` 只有 415/400/500/ApiError 透传断言，没有 404/429/未列 4xx 的框架错误注入测试；本次先新增 3 条（404→NOT_FOUND、429→RATE_LIMITED、405 兜底 VALIDATION_FAILED），旧代码上 404/429 两条失败、兜底条通过，实现后全部通过。
+
+修改文件：`apps/api/src/plugins/error-handler.ts`（新增 `notFoundErrorMessage`/`rateLimitedErrorMessage` 常量与 `frameworkErrorMappings` 状态码→`{code, message}` 映射表；`setNotFoundHandler` 复用 `notFoundErrorMessage`；`toApiError` 从“415 特判”改为查表，未命中保持 VALIDATION_FAILED）；`apps/api/src/app.test.ts`（新增 3 条框架 4xx 注入测试，8 → 11 条）。
+
+语义等价审计：仅改变框架级 4xx 的 code/message 输出；ApiError 透传、500 兜底、Fastify schema 校验（400）行为不变；404 框架错误此前几乎不会到达错误处理器（路由未命中由 `setNotFoundHandler` 处理），映射后语义正确；客户端 `knownApiErrorCodes` 已含 NOT_FOUND/RATE_LIMITED，无需改动。
+
+测试结果：`pnpm verify` 575/575 ✅（70 个测试文件，隔离 MySQL；新增 3 条 app 框架 4xx 映射测试）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：已完成（单测通过；接口错误码语义化，用户界面无直接变化）。
+
+提交：`fix(api): map framework 4xx errors to contract codes`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. 401/403/409 等框架级 4xx 仍映射为 VALIDATION_FAILED（业务层均通过 ApiError 显式抛出对应码）；若未来引入会产生裸 401/403/409 的框架插件，需再扩展映射表——出错症状是这类错误仍显示“请求数据不符合要求”。2. 测试用 `Object.assign(new Error(...), { statusCode })` 近似 Fastify 错误形态，真实框架错误字段更多但读取路径只依赖 statusCode，已覆盖。3. 404 通常由 `setNotFoundHandler` 提前处理，错误处理器内的 404 分支属防御性映射，实际触发场景少。
+
+下次计划：按清单继续 #4.2/#4.3（冲突断言双轨 + 三服务“上帝对象”状态机，需拆多轮，先从 #4.2 统一冲突断言入口）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。

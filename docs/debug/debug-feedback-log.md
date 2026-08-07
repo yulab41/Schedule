@@ -660,8 +660,18 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程，无浏览器错误）；pnpm smoke:check-core 通过（涉及核心链路 `stores/session.ts`，记录已满足校验）。
 - 状态：已完成，待用户浏览器强刷复核。
 
+### 轮次 25（fix-progress #3.7，提交：fix(api): map framework 4xx errors to contract codes）
+- 目标/需求：合规审查发现除 415 外任何框架 4xx（400/404/429 等）都被错误处理器归一化为 `VALIDATION_FAILED`，丢失语义；按状态码映射到契约错误码并补测试。
+- 根因：轮次 56 修复 415 时只做“statusCode === 415 ? UNSUPPORTED_MEDIA_TYPE : VALIDATION_FAILED”的特判，未覆盖其他框架 4xx。
+- 修复/功能：`apps/api/src/plugins/error-handler.ts` 新增 `frameworkErrorMappings` 映射表（400→VALIDATION_FAILED、404→NOT_FOUND、415→UNSUPPORTED_MEDIA_TYPE、429→RATE_LIMITED），未列入的 4xx 保持 VALIDATION_FAILED 兜底；`setNotFoundHandler` 复用 `notFoundErrorMessage` 常量。
+- 行为变化清单：仅框架级 404/429 的响应 code/message 改变（NOT_FOUND/RATE_LIMITED）；ApiError 透传、500 兜底、Fastify schema 校验 400 均不变；客户端 `knownApiErrorCodes` 已含两个码，无需改动。
+- 验证：`app.test.ts` 先写 3 条注入测试（404/429 在旧代码失败、405 兜底通过），实现后 8 → 11 条全部通过；`pnpm verify` 575/575 通过（70 个测试文件，隔离 MySQL）。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：已完成（接口错误码语义化，用户界面无直接变化）。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：接口 404/429 返回语义化错误码而非 VALIDATION_FAILED（轮次 25 相关，正常操作不易触发，供接口调用方复核）。
 - 用户强刷后复核：各页面 API 错误仍显示服务端 message、非 API 错误显示兜底文案（轮次 24 相关）。
 - 用户强刷后复核：管理员/成员模式可正常进入工作台（轮次 57 相关）。
 - 用户强刷后复核：8/21、8/22 日历不再显示换班/加扣班标签（轮次 54 相关）。
