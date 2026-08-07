@@ -483,11 +483,13 @@
 - **N5 ✅（轮次 46 已修复）** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。修复：重试插入再次撞唯一键时捕获并返回 409“相同请求正在处理中，请稍后重试。”，新增确定性单测。
 - **N6 ✅（轮次 49 决策：不重命名）** `cloudbaseUid` 字段/列名在平台弃用后保留（已登记），重命名需数据库迁移。决策：该字段实际承担“外部稳定 UID”职责（认证端口、用户服务、平台管理员/节假日管理员均依赖），不是 CloudBase 专属残留；保留现名，等自建/微信认证落地时如需中性命名再随认证迁移一起改。
 - **N7 ✅（轮次 43 已修复）** #7.3 只统一了时区常量，前端 7 个文件仍各自手写“偏移 + toISOString 截取”转换（event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic；N7 原文写 8 个，rg 全量核对实际命中 7 个），已由领域包 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数统一替换。
-- **N8 ✅（轮次 47 第一批完成）** contracts zod schema 保留 `z.custom(() => true)`（leaves.ts 146–154、groups.ts 121）与大量 `.passthrough()`，校验强度低于类型声明，需逐步收紧。第一批：消除全部 `z.custom(() => true)`，groups status 收紧为枚举；`.passthrough()` 未知键放行仍保留，待下一批。
+- **N8 ✅（轮次 47/50 已完成）** contracts zod schema 保留 `z.custom(() => true)`（leaves.ts 146–154、groups.ts 121）与大量 `.passthrough()`，校验强度低于类型声明，需逐步收紧。第一批（轮次 47）：消除全部 `z.custom(() => true)`，groups status 收紧为枚举；第二批（轮次 50）：99 处 `.passthrough()` 全部改为 `.strict()`，未知键现在拒绝，客户端旧“接受未知字段”测试反转为拒绝。
 - **N9 ✅（轮次 48 已修复）** `package.json` format:check/format 不覆盖 `scripts/*.mjs` 与 `packages/*/scripts/*.mjs`（smoke-browser、generate-tokens-css 无格式门禁）；`.prettierignore` 仍残留 CloudBase 条目。修复：两个脚本追加 mjs glob，删除 `.prettierignore`，并格式化 `scripts/smoke-browser.mjs`。
 - **N10 ✅（轮次 49 已修复）** `.env.example` 把 `VITE_API_PROXY_TARGET` 写进环境文件说明，但 vite.config 只读 `process.env`，写入 `.env` 不生效（需 `loadEnv` 或改文档为“shell 环境变量”）。修复：`vite.config.ts` 改用 `loadEnv` 从根目录 `.env` 读取，`.env.example` 注释同步。
 - **N11 ✅（轮次 49 已修复）** 文档滞后：project-status PWA 缓存 v5/v6 矛盾、CHANGELOG 仍以 CloudBase 为当前栈、fix-progress.md 已膨胀至 179KB（建议归档逐轮明细）。修复：project-status 统一为 v6；CHANGELOG 新增 Unreleased 当前栈说明；fix-progress 归档评估后暂不执行（仍是唯一切入点，Git 历史为持久记录）。
-- **N12 ⏳ 部分完成（轮次 49）** 工作区残留：空 `cloudfunctions/` 目录已清理；`logs/` 4 个日志文件因本地 API/Web 进程正在使用无法移动/删除，待停止本地服务后清理。
+- **N12 ✅（轮次 49/50 已完成）** 工作区残留：空 `cloudfunctions/` 目录已清理（轮次 49）；`logs/` 4 个日志文件在轮次 50 停止本地服务后已移动到系统临时目录，服务已按原命令重启，日志目录不再存在。
+- **N13 ✅（轮次 50 已完成）** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割。已完成：路由组件全部改为懒加载 + vendor 手动分包（vue/vue-router/pinia、tdesign-vue-next、@tanstack/vue-query）；入口主包降至约 122KB，HomeView 约 212KB 独立路由块；剩余 `vendor-tdesign` 约 1.27MB 属 TDesign 整包引入，按需引入另排可选优化。
+- **N14 ✅（轮次 50 已完成）** `infra/docker/compose.test.yml` 测试库 512MB tmpfs 顶满崩溃；已把 tmpfs 提到 1g 并加 `command: ["--disable-log-bin"]`，重置后全量 `pnpm verify` 596/596 通过，未再崩溃；`docker compose config --quiet` 通过。
 - **N13 ⏳ 轻微** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割（Vue Router 懒加载/手动分包）。
 - **N14 ⏳ 轻微（环境）** `infra/docker/compose.test.yml` 测试库数据目录为 512MB tmpfs，完整套件 + binlog 会顶满后 MySQL 以 `binlog_error_action=ABORT_SERVER` 崩溃（2026-08-07 验证时实测崩溃，清理 Docker Build Cache 56.9GB 并 `down --volumes` 重置后恢复）；建议提高 tmpfs 上限或关闭 binlog，并记录“全量 verify 前先重置测试库”。
 
@@ -706,6 +708,32 @@ N12：空目录 `cloudfunctions/` 已移动到系统临时目录（可恢复）�
 不确定点：1. `loadEnv(..., '')` 会加载根目录 `.env` 全部变量到 Node 侧配置；Vite 仍按自身规则只暴露 `VITE_` 前缀给浏览器，不影响运行时。2. logs 文件被占用是本地开发环境状态，CI/新检出无此问题；停止本地服务后可执行 `Remove-Item logs/*.log`。3. N11 未做 fix-progress 物理归档，文件仍约 190KB；后续如需瘦身需另开一轮专门归档。
 
 下次计划：N12 收尾（停止本地 dev 后清理 logs）→ N13（vite 分包）/N14（测试库 tmpfs 上限）等；N8 第二批（`.passthrough()` 收紧）继续排队；部署路径继续推进。
+
+### 轮次 50 – 2026-08-08
+
+目标：N12 收尾 + N13/N14 + N8 第二批（`.passthrough()` 收紧）。
+
+N12：按用户授权停止本地 API/Web 服务（含 pnpm 父进程与 node 子进程），把 `logs/` 整个目录移动到系统临时目录（可恢复），再以原命令隐藏窗口重启服务；端口 3000/5173 恢复监听，`logs` 目录不再存在。
+
+N13：`apps/web/src/router/index.ts` 将 AppLayout/HomeView/LoginView/GuestScheduleView 全部改为动态导入；`apps/web/vite.config.ts` 增加 `manualChunks`（vendor-vue/vendor-tdesign/vendor-query）。构建结果：入口主包从约 1,916KB 降至约 122KB，HomeView 约 212KB、vendor-vue 约 239KB 独立；`vendor-tdesign` 约 1.27MB 仍超 500KB（TDesign 全量引入），属已知可选项，需按需引入再拆。
+
+N14：`infra/docker/compose.test.yml` 改为 `command: ["--disable-log-bin"]` 并把 tmpfs 从 512m 提到 1g；`docker compose --env-file .env -f infra/docker/compose.test.yml config --quiet` 通过；`down --volumes` 重置后 MySQL 健康，全量 verify 通过且未再出现 `ABORT_SERVER`。
+
+N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.passthrough()` 批量改为 `.strict()`；`apps/web/src/api/client.test.ts` 的“接受 holidays 未知字段”测试反转为“拒绝未知字段”（行为收紧的预期变化）；`rg` 确认 `.passthrough()` 与 `z.custom(() => true)` 均已清零。
+
+语义等价审计与行为变化清单：合法响应（API 实际输出）保持不变；任何未在 schema 声明的未知键现在会被客户端拒绝，与类型声明严格一致；唯一旧测试锁定“接受未知字段”被反转为“拒绝”。N13/N14 为构建/测试基础设施变化，不改变业务响应。
+
+测试结果：`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL；测试数不变，1 条行为锁定反转）；`docker compose config --quiet` ✅。
+
+运行/浏览器验证：contracts/vite.config 属核心链路，pnpm smoke:browser 通过（登录/管理员/成员/访客无浏览器错误）；pnpm smoke:check-core 通过（本轮记录满足校验）。
+
+状态：N12 ✅、N13 ✅、N14 ✅、N8 ✅（第二批完成，TODO 全部收口）。
+
+提交：1368e7a（`fix(docker): harden isolated test database limits`）/ 167c92f（`perf(web): lazy-load routes and split vendor chunks`）/ d779371（`refactor(contracts): enforce strict read model shapes`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. N13 后仍有 `vendor-tdesign` 1.27MB 警告；若需彻底消除需改为按需引入 TDesign（unplugin-vue-components），另开轮。2. `--disable-log-bin` 仅作用于隔离测试库；开发/线上 MySQL 仍按原配置运行，不影响备份/恢复。3. `.strict()` 后若未来 API 增加兼容字段而未同步 schema，客户端会拒绝旧版本缓存；PWA 缓存升级已配合，后续加字段需同步契约。
+
+下次计划：TODO N1–N14 已全部收口；按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号 → 重新生成 `runtime/api-flat` 后部署）；可选优化：TDesign 按需引入以消除 vendor 大块警告。
 
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。

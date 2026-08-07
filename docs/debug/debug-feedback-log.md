@@ -911,6 +911,16 @@
 - N12：`cloudfunctions/` 空目录已移动至系统临时目录；`logs/` 4 个日志文件被本地 API/Web 进程占用，无法移动/删除，待服务停止后清理。
 - 状态：N6 ✅（决策关闭）、N10 ✅、N11 ✅、N12 ⏳ 部分完成。
 
+### 轮次 50（fix-progress N12 收尾 + N13/N14 + N8 第二批，提交：1368e7a / 167c92f / d779371 + docs checkpoint）
+
+- 目标/需求：完成 N12 日志清理，处理 N13 Vite 分包、N14 测试库 tmpfs，以及 N8 第二批 `.passthrough()` 收紧。
+- N12：按用户授权停止本地 API/Web 服务（含父/子进程），`logs/` 整目录移动到系统临时目录，再以原命令隐藏窗口重启；3000/5173 恢复监听，`logs` 目录不存在。
+- N13：路由组件全部懒加载 + vendor 手动分包；入口主包 1,916KB → 122KB；`vendor-tdesign` 1.27MB 仍超限，按需引入另排。
+- N14：测试库 tmpfs 512m → 1g 并 `--disable-log-bin`；重置后全量 verify 596/596 通过，未再崩溃。
+- N8 第二批：15 个契约文件 99 处 `.passthrough()` → `.strict()`；1 条旧“接受未知字段”测试反转为拒绝；`z.custom(() => true)`/`.passthrough()` 清零。
+- 验证：`pnpm verify` 596/596 ✅；`docker compose config --quiet` ✅；pnpm smoke:browser 通过（contracts/vite.config 核心链路）；pnpm smoke:check-core 通过。
+- 状态：N12 ✅、N13 ✅、N14 ✅、N8 ✅（N1–N14 全部收口）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：事件/日历/换班/加扣班/请假时间显示与草稿编号不变（轮次 43 相关，纯显示层收敛）。
@@ -937,7 +947,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-08）：fix-progress 轮次 49 已完成（N6 决策关闭 + N10 ✅ + N11 ✅；N12 部分完成——cloudfunctions 已清理，logs 待本地服务停止后删除）；下一目标为 N12 收尾 → N13（vite 分包）/N14（测试库 tmpfs 上限）等；N8 第二批（`.passthrough()` 收紧）继续排队；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
+- 下一活动批次（2026-08-08）：fix-progress 轮次 50 已完成（N12 日志清理 + N13 Vite 分包 + N14 测试库加固 + N8 第二批严格校验）；N1–N14 已全部收口；下一阶段按阿里云部署路径推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署；可选优化：TDesign 按需引入以消除 vendor 大块警告。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。
