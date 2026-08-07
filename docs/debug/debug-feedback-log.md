@@ -753,6 +753,15 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#5.2 ✅；#3.6/#9.1/#9.2 暂缓至最后一批（保留 CloudBase 备用）。
 
+### 轮次 35（fix-progress #5.3，提交：7be3749 fix(jobs): record statistics rebuild failure context）
+- 目标/需求：统计重建对单个月份刷新失败只 `catch { failed += 1 }`，失败月份/群组/原因无法定位；要求把错误写入 `platformJobRuns.summary` 或结构化日志。
+- 根因：统计重建任务自引入起即静默累计失败计数，未记录失败上下文（审计卡 #5.3 登记）。
+- 修复/功能：`StatisticsRebuildJob` 结果新增 `failures`（businessMonth/groupId/error，单条错误截断 500 字符与 summary 列上限一致），经 `recordJobRun` 自动写入 `platform_job_runs.summary`（计数在前，500 截断不丢计数；run-job/cloudbase-runner 控制台日志保留全量）；新增 `StatisticsRefresher` 可注入接缝（与 NotificationRetryJob 注入 dispatcher 同模式），默认仍用 `StatisticsService`。
+- 行为变化清单：成功路径不变；仅失败月份新增 failures 上下文；构造函数选项类型扩展（现有调用兼容）。
+- 验证：新增 1 条集成回归测试（注入抛错 refresher，旧代码 completed=1 失败、无 failures）；`pnpm verify` 588/588 通过（73 个测试文件，隔离 MySQL）；定向集成 platform-admin 8/8。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：#5.3 ✅（纯后端任务结果字段扩展，无用户界面变化，无需用户强刷）。
+
 ## 待办 / 下一步
 
 - 用户决策待办：CloudBase 保留备用（2026-08-07 已确认）；#3.6/#9.1/#9.2 最后一批统一处理。
@@ -777,7 +786,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（用户决定暂不上线，2026-08-07）：本地部署持续维护，API 3000/3001 与 Web 5173/5174 保持最新构建；CloudBase/阿里云上线验证暂停，待用户决定后再继续。
+- 下一活动批次（用户决定暂不上线，2026-08-07）：fix-progress 轮次 35（#5.3 统计重建失败上下文）已完成，下一目标为 #6.1/#6.2（迁移 0030/0031 复制合并 + 序列一致性校验）；本地部署持续维护，API 3000/3001 与 Web 5173/5174 保持最新构建；CloudBase/阿里云上线验证暂停，待用户决定后再继续。
 - 上线状态（暂停）：线上库迁移已执行至 0031（含 0026–0031）；API/schedule-jobs 与静态托管已上传；CloudBase 环境余额不足（`InsufficientBalance`）导致 `/api/health` 无法响应——按用户决定暂不上线，不再作为当前动作。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要上线 CloudBase 时：在 GitHub Actions 手动运行 Deploy Development（会先构建最新代码并做健康检查）；部署前若含新迁移需先对线上库执行迁移。

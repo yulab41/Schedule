@@ -85,7 +85,7 @@
 | P3 | #6.1/#6.2 | 迁移 0030/0031 复制 + 序列一致性无校验 | 轻微 | 低 | 低中 | 合并 SQL + 加校验迁移 |
 | ✅ | #5.1 | notification-retry 的 skipped 恒为 0 | 轻微 | 低 | 低 | 已完成（轮次 33）：返回三态并如实计数，见第 7 节 |
 | ✅ | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | 已完成（轮次 34）：外键元数据锁定测试 + scanned 语义修正，见第 7 节 |
-| P3 | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 记录失败上下文 |
+| ✅ | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 已完成（轮次 35）：失败上下文写入 summary 与运行日志，见第 7 节 |
 | ✅ | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 已完成（轮次 30）：合并带可选截止日期，见第 7 节 |
 | ✅ | #1.2 | .env.example 缺开发模式开关 | 轻微 | 零 | 低 | 已完成（轮次 7）：随 #3.4 一并补两个开关项，见第 7 节 |
 | P3 | #1.3 | 工作区残留（空目录/日志/构建产物） | 轻微 | 零 | 低 | 清理命令，不入库 |
@@ -258,6 +258,8 @@
 问题：`catch { failed += 1 }` 不记录任何错误上下文，失败月份无法定位。
 严重等级：轻微
 建议：把错误写入 `platformJobRuns.summary` 或结构化日志。
+
+> 完成情况（轮次 35，2026-08-07）：`StatisticsRebuildJob` 的 catch 现记录 `{ businessMonth, groupId, error }` 到结果 `failures`，经 `recordJobRun` 自动写入 `platform_job_runs.summary`（计数在前、失败列表在后，500 字符截断不丢计数；`run-job`/`cloudbase-runner` 的完整结果日志保留全量上下文）；新增可注入 `statisticsRefresher` 测试接缝（与 NotificationRetryJob 注入 dispatcher 同模式）；先写 1 条集成回归测试（旧代码 completed=1 失败）再实现；`pnpm verify` 588/588 通过（73 个测试文件，隔离 MySQL），定向集成 platform-admin 8/8 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。本条目中的行号为审查时快照，修改后已过期。
 
 ### 6. migrations
 
@@ -1107,3 +1109,27 @@
 不确定点：1. 锁定测试基于 drizzle 外键元数据：无外键约束但按 group 清理的遗留表（如 notification_preferences）不会被“可达”断言覆盖，只能靠显式清单保留；若未来想彻底解决，可改为运行时从 information_schema 生成删除计划。2. `scanned` 改为受影响行数合计后，平台任务汇总数值会变大（不再等于群组数），属预期变化。3. 若未来新增外键引用 groups 的表而忘记加删除步骤，`group-recycle.spec.ts` 会直接失败（这正是本轮的防护目标）。
 
 下次计划：按清单继续 #5.3（统计重建静默吞错，失败写入 `platformJobRuns.summary` 或结构化日志）；CloudBase 专属项最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。
+
+### 轮次 35 – 2026-08-07
+
+目标：#5.3 —— 统计重建单个月份失败时记录失败上下文（月份/群组/错误信息），不再只累计 failed 计数。
+
+引入点：`catch { failed += 1 }` 自统计重建任务引入起存在（审计卡 #5.3 登记，无单一引入提交）。
+
+为什么现有测试没拦住：platform-admin 集成测试只覆盖“全部成功”路径（completed=1、无失败），没有失败月份断言；新增 1 条集成回归测试（注入抛错 refresher → 旧代码 completed=1 失败）。
+
+修改文件：`apps/api/src/jobs/statistics-rebuild.ts`（结果新增 `failures: { businessMonth, groupId, error }[]`；新增 `StatisticsRefresher` 接口与 `statisticsRefresher` 可选注入，默认仍用 `StatisticsService`；catch 记录错误并截断 500 字符，与 `platform_job_runs.summary` 上限一致）；`apps/api/src/modules/platform-admin/platform-admin.integration.test.ts`（新增失败上下文回归测试：断言 result.failures 与持久化 summary 含月份和错误信息）。
+
+语义等价审计与行为变化清单：成功路径行为不变（completed/months 计数不变）；仅当月份刷新抛错时，结果新增 failures 列表（summary 从 `{"completed":…,"failed":…,"months":…}` 变为带 failures 的 JSON，计数仍在最前，500 字符截断不影响计数；run-job/cloudbase-runner 控制台日志将包含全量 failures）。构造函数第二参数类型由 `{ fromMonth? }` 扩展为 `StatisticsRebuildJobOptions`，现有调用 `new StatisticsRebuildJob(client)` 与 `new StatisticsRebuildJob(client, { fromMonth })` 均兼容。
+
+测试结果：`pnpm verify` 588/588 ✅（73 个测试文件，隔离 MySQL；新增 1 条集成回归测试）；定向集成 platform-admin 8/8（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#5.3 ✅（已完成；纯后端任务结果字段扩展，无用户界面变化，无需用户强刷）。
+
+提交：7be3749（`fix(jobs): record statistics rebuild failure context`），推送结果见对话回复
+
+不确定点：1. `failures` 数组未设上限，极端情况下（大量月份同时失败）summary 会被 500 字符截断但计数仍在；完整列表在 run-job/cloudbase-runner 的控制台日志中可查。2. `statisticsRefresher` 注入仅测试使用，生产路径仍由 runner 构造默认 `StatisticsService`。3. 单条错误信息截断为 500 字符（与 summary 列上限一致），超长错误（如堆栈）不会进入任务结果。
+
+下次计划：按清单继续 #6.1/#6.2（迁移 0030/0031 复制合并 + 序列一致性校验）；CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–34 相关验收项。
