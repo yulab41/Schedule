@@ -89,3 +89,17 @@ pnpm --filter @schedule/api start
 ```
 
 The local server reads the repository `.env` file, validates it before listening, and serves `http://127.0.0.1:3000/health` and `http://127.0.0.1:3000/ready`. Until Task 5 adds the database connection, readiness confirms only that the API runtime is available.
+
+## Run a Second Local API and Web Pair for Acceptance
+
+The Vite dev proxy target is configurable so a separate acceptance pair can run alongside the user-facing `localhost:5173 → 127.0.0.1:3000` stack without editing committed files. The API port comes from `API_PORT`, and the Vite dev server uses `VITE_API_PROXY_TARGET` (default `http://127.0.0.1:3000`).
+
+```powershell
+# API on 3001 (Node --env-file does not override an already-set variable)
+$env:API_PORT = '3001'
+pnpm --filter @schedule/api start
+
+# Web on 5174 proxying /api to 127.0.0.1:3001
+$env:VITE_API_PROXY_TARGET = 'http://127.0.0.1:3001'
+pnpm --filter @schedule/web dev -- --port 5174
+```

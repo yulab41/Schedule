@@ -10,8 +10,8 @@
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
 - Debug rounds: 1–56 已完成；fix-progress 轮次 1–22 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成）；最新验证基线 560/560（68 个测试文件，隔离 MySQL）
-- Deployment: Web 1.0 已部署到阿里云 ECS 试用机（`8.148.183.46`，Ubuntu 22.04，Docker Compose：mysql 8.4 + api + nginx/web），迁移 0031 已执行，`/health`、`/api/health`、首页均 200，开发模式认证可用；待用户在阿里云安全组放行 80 端口后完成公网验收
-- Next actions: fix-progress 轮次 23 目标为 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复：合并 feature 逻辑）；上线执行中：线上库已迁移至 0031、云函数与静态托管已上传，但 CloudBase 环境余额不足导致 `/api/health` 不可用；待用户充值后重新触发 Deploy Development 并验证，随后等待用户验收并启动微信小程序立项
+- Deployment: 本地部署继续（用户决定暂不上线）：API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 均为 2026-08-07 最新构建，`/health`、`/api/health`、首页均 200，开发模式认证可用；PWA shell/schedule 缓存升至 `v5`；阿里云 ECS 试用机与 CloudBase 上线验证暂停，等待用户后续决定
+- Next actions: fix-progress 轮次 23 目标为 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复：合并 feature 逻辑）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
 
 ## Debug / Test Feedback Log
 
@@ -104,9 +104,9 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：fix-progress 轮次 23 处理 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复合并）；同时用户为 CloudBase 环境充值后重新触发 Deploy Development，验证 `/api/health` 与首页；随后等待用户验收并启动微信小程序立项（设计 26.1）。
+- 下一活动批次：fix-progress 轮次 23 处理 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复合并）；项目暂不上线，本地部署持续维护；CloudBase 上线验证暂停，待用户决定后再继续（随后等待用户验收并启动微信小程序立项，设计 26.1）。
 - 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
-- 停止条件：上线健康检查通过且用户验收完成。
+- 停止条件：本地部署可用且用户验收完成（上线暂停，待用户决定后再恢复“上线健康检查通过”停止条件）。
 
 ## Required Reading for the Next Conversation
 
@@ -126,7 +126,7 @@
 - CynosDB `explicit_defaults_for_timestamp=OFF`：TIMESTAMP 列必须显式写明默认值，否则隐式带 `ON UPDATE CURRENT_TIMESTAMP`（`0018`/`0020` 已修复；新增 TIMESTAMP 列需遵循）。
 - 部署铁律：含新迁移的发布必须先对线上库执行迁移（`pnpm --filter @schedule/api migrate`，带线上 `MYSQL_*` 环境），再部署代码；否则线上全站 500（轮次 12 事故）。
 - 2026 法定节假日已导入并确认（39 条，`confirmedYears: [2026]`）。
-- 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用（含 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE`/`HOLIDAY_ADMIN_UIDS=local-admin`）；本地库已导入并确认 2026 节假日（39 条，v1）；隔离测试库端口 3307 当前运行。用户原端口 API `127.0.0.1:3000` 与验收 API `127.0.0.1:3001` 均为最新构建（轮次 36 已重启 3000 修复陈旧进程）；Web 为用户原 `localhost:5173`（代理 3000）与验收 `127.0.0.1:5174`（代理 3001）；PWA shell/排班缓存当前为 `v4`。
+- 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用（含 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE`/`HOLIDAY_ADMIN_UIDS=local-admin`）；本地库已导入并确认 2026 节假日（39 条，v1）；隔离测试库端口 3307 当前运行。用户原端口 API `127.0.0.1:3000` 与验收 API `127.0.0.1:3001` 均为 2026-08-07 最新构建；Web 为用户原 `localhost:5173`（代理 3000）与验收 `localhost:5174`（代理 3001，`VITE_API_PROXY_TARGET` 可配置）；PWA shell/排班缓存当前为 `v5`。
 - pnpm v11 依赖状态检查在 node_modules 元数据陈旧时会尝试以 production 裁剪 devDependencies（报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`）；已重新 `pnpm install` 恢复完整依赖（`.modules.yaml` 现为 `devDependencies: true`）。如再遇到该错误，先 `pnpm install` 再跑 `pnpm verify`，不要依赖 `CI=true` 让 pnpm 自行裁剪。
 - 工具：`gh` 位于 `C:\Program Files\GitHub CLI\gh.exe`；CloudBase CLI 用 `pnpm exec tcb`；CAM 子账号 `schedule` 有 TCB/SCF/COS/CDN 权限（无 cynosdb）。
 - 安全 TODO：CAM SecretId/SecretKey 曾贴入对话，需轮换并更新 GitHub `development` secrets；生产化另需 VPC 内网与专用运行账号（妥协与升级路径见 `docs/deployment/production-readiness.md`）。
@@ -137,6 +137,7 @@
 - 隔离测试库：`docker compose --env-file .env -f infra/docker/compose.test.yml up --detach --wait`，以 `NODE_ENV=test` + `TEST_MYSQL_*` 运行 `pnpm verify`，结束后 `down --volumes`。
 - 修改 contracts/database 后需先 `pnpm --filter @schedule/contracts build` / `pnpm --filter @schedule/database build` 再跑 API 集成测试。
 - Web 改动上线后提醒用户强制刷新（PWA 缓存）；必要时升级 shell/schedule 缓存版本号。
+- 本地验收对启动方式：`API_PORT=3001` 启动第二个 API，`VITE_API_PROXY_TARGET=http://127.0.0.1:3001 pnpm --filter @schedule/web dev -- --port 5174` 启动第二个 Vite（详见 `docs/development/local-setup.md`）。
 - GitHub Actions 的 Verify 由 push/PR 触发；Deploy Development 仅允许手动触发，以上线状态以 `gh run list` 为准。
 - 每次 push 后确认 `git status --short --branch` 与远端一致再继续。
 
