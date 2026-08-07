@@ -8,6 +8,7 @@ import type {
 import {
   chinaStandardTimeOffsetMilliseconds,
   getChinaStandardTimeBusinessDate,
+  toChinaStandardTimeUtcTimestamp,
 } from '@schedule/scheduling-domain';
 
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
@@ -133,11 +134,11 @@ export function getTodayBusinessDate(): string {
 }
 
 function parseLocalDateStart(date: string): Date {
-  const value = new Date(`${date}T00:00:00+08:00`);
-  if (Number.isNaN(value.valueOf())) {
+  try {
+    return toChinaStandardTimeUtcTimestamp(date, '00:00');
+  } catch {
     throw new Error('请假日期格式无效。');
   }
-  return value;
 }
 
 function parseLocalDateTime(date: string, time: string): Date {

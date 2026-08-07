@@ -1,4 +1,5 @@
 import type { ManualScheduleTemplate, SchedulePeriodHistoryItem } from '@schedule/contracts';
+import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六'] as const;
 
@@ -140,7 +141,7 @@ export function formatScheduleDraftCode(createdAt: string): string {
     return 'D时间未知';
   }
 
-  const chinaTime = new Date(created.getTime() + 8 * 60 * 60 * 1000);
+  const chinaTime = new Date(created.getTime() + chinaStandardTimeOffsetMilliseconds);
   const date = [
     chinaTime.getUTCFullYear(),
     String(chinaTime.getUTCMonth() + 1).padStart(2, '0'),

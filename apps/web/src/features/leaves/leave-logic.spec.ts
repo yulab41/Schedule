@@ -23,6 +23,16 @@ describe('leave form logic', () => {
     expect(interval.endsAt).toBe('2026-08-02T16:00:00.000Z');
   });
 
+  it('rejects calendar-invalid all-day dates instead of rolling them over', () => {
+    expect(() =>
+      buildLeaveFormInterval({
+        allDay: true,
+        endDate: '2026-03-01',
+        startDate: '2026-02-30',
+      }),
+    ).toThrow('请假日期格式无效。');
+  });
+
   it('builds a typed interval from local date and time inputs', () => {
     const interval = buildLeaveFormInterval({
       allDay: false,
