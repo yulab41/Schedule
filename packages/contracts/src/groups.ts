@@ -80,7 +80,13 @@ export const groupMemberSchema = z
   .passthrough();
 export type GroupMember = z.infer<typeof groupMemberSchema>;
 
-export type MembershipClaimRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export const membershipClaimRequestStatusSchema = z.enum([
+  'pending',
+  'approved',
+  'rejected',
+  'cancelled',
+]);
+export type MembershipClaimRequestStatus = z.infer<typeof membershipClaimRequestStatusSchema>;
 
 export interface MembershipClaimLookupRequest {
   readonly realName: string;
@@ -117,8 +123,7 @@ export const membershipClaimRequestSchema = z
     id: z.string().min(1),
     requestingUserId: z.string().min(1),
     requestingUserRealName: z.string(),
-    // 旧守卫只校验 status 为字符串；类型保留枚举，供前端状态标签穷举。
-    status: z.custom<MembershipClaimRequestStatus>((value) => typeof value === 'string'),
+    status: membershipClaimRequestStatusSchema,
     targetMemberRealName: z.string(),
     targetMembershipId: z.string().min(1),
     version: z.number(),

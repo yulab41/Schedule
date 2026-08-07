@@ -73,8 +73,7 @@ export const schedulingConfigSchema = z
   .object({
     groupMembers: z.readonly(z.array(schedulingGroupMemberSchema)),
     roles: z.readonly(z.array(scheduleRoleSchema)),
-    // 旧守卫不校验 rulesVersion；schema 允许缺省或任意值，导出类型保持必填 number。
-    rulesVersion: z.custom<number>(() => true).optional(),
+    rulesVersion: z.number().int().optional(),
     shiftTypes: z.readonly(z.array(shiftTypeSchema)),
   })
   .passthrough();

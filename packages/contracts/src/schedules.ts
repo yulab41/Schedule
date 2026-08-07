@@ -45,6 +45,15 @@ export interface ScheduleGenerationConflict {
   readonly memberName?: string;
 }
 
+export const scheduleGenerationConflictSchema = z
+  .object({
+    assignmentBusinessKeys: z.tuple([z.string(), z.string()]),
+    code: z.literal('MEMBER_TIME_OVERLAP'),
+    membershipId: z.string().min(1),
+    memberName: z.string().optional(),
+  })
+  .passthrough();
+
 export interface ScheduleGenerationWarning {
   readonly assignmentBusinessKeys: readonly string[];
   readonly code: 'CONTINUOUS_DUTY_24_HOURS';
@@ -95,10 +104,10 @@ export interface ScheduleGenerationShiftTypeCount {
 export const scheduleGenerationShiftTypeCountSchema = z
   .object({
     assignmentCount: z.number(),
-    countedAssignmentCount: z.custom<number>(() => true).optional(),
-    shiftTypeAbbreviation: z.custom<string>(() => true).optional(),
+    countedAssignmentCount: z.number().int().min(0).optional(),
+    shiftTypeAbbreviation: z.string().optional(),
     shiftTypeId: z.string(),
-    shiftTypeName: z.custom<string>(() => true).optional(),
+    shiftTypeName: z.string().optional(),
   })
   .passthrough();
 
@@ -114,9 +123,9 @@ export interface ScheduleGenerationRoleCount {
 export const scheduleGenerationRoleCountSchema = z
   .object({
     assignmentCount: z.number(),
-    countedAssignmentCount: z.custom<number>(() => true).optional(),
+    countedAssignmentCount: z.number().int().min(0).optional(),
     scheduleRoleId: z.string(),
-    scheduleRoleName: z.custom<string>(() => true).optional(),
+    scheduleRoleName: z.string().optional(),
     vacancyCount: z.number(),
   })
   .passthrough();
@@ -152,11 +161,10 @@ export const schedulePeriodSummarySchema = z
     businessMonth: z.string().regex(/^\d{4}-\d{2}/u),
     id: z.string().min(1),
     revision: z.number().int(),
-    // 旧守卫不校验以下字段；schema 保持同样不约束，导出类型保留必填。
-    rulesVersion: z.custom<number>(() => true).optional(),
-    scheduleRoleId: z.custom<string>(() => true).optional(),
+    rulesVersion: z.number().int().optional(),
+    scheduleRoleId: z.string().optional(),
     status: z.string().min(1),
-    version: z.custom<number>(() => true).optional(),
+    version: z.number().int().optional(),
   })
   .passthrough();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。
@@ -223,15 +231,12 @@ export const scheduleGenerationPreviewSchema = z
   .object({
     assignments: z.readonly(z.array(schedulePreviewAssignmentSchema)),
     businessMonth: z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/u),
-    // 旧守卫不校验以下字段；schema 保持同样不约束，导出类型保留必填。
-    continuousDutyWarnings: z.custom<readonly ScheduleGenerationWarning[]>(() => true).optional(),
-    hardConflicts: z.custom<readonly ScheduleGenerationConflict[]>(() => true).optional(),
+    continuousDutyWarnings: z.readonly(z.array(scheduleGenerationWarningSchema)).optional(),
+    hardConflicts: z.readonly(z.array(scheduleGenerationConflictSchema)).optional(),
     rulesVersion: z.number().int(),
-    scheduleRoleIds: z.custom<readonly string[]>((value) => Array.isArray(value)),
-    statistics: z.custom<ScheduleGenerationStatistics>(
-      (value) => value !== null && typeof value === 'object',
-    ),
-    vacancies: z.custom<readonly ScheduleGenerationVacancy[]>(() => true).optional(),
+    scheduleRoleIds: z.readonly(z.array(z.string())),
+    statistics: scheduleGenerationStatisticsSchema,
+    vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)).optional(),
   })
   .passthrough();
 // schema 只校验旧守卫检查过的字段；导出类型保留完整契约。

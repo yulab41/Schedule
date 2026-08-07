@@ -49,6 +49,15 @@ export interface LeavePreviewAffectedShift {
   readonly shiftTypeName: string;
 }
 
+const leavePreviewAffectedShiftSchema = z
+  .object({
+    businessDate: z.string(),
+    memberName: z.string().optional(),
+    shiftTypeAbbreviation: z.string(),
+    shiftTypeName: z.string(),
+  })
+  .passthrough();
+
 export interface LeaveAffectedShiftsInput {
   readonly endsAt: string;
   readonly isAllDay?: boolean;
@@ -142,22 +151,15 @@ export type LeaveStatisticsDelta = z.infer<typeof leaveStatisticsDeltaSchema>;
 export const leaveReflowPreviewSchema = z
   .object({
     affectedAssignments: z.readonly(z.array(leaveAffectedAssignmentSchema)),
-    // 旧守卫不校验以下字段；schema 保持同样不约束，导出类型保留必填。
-    affectedShiftCount: z.custom<number>(() => true).optional(),
-    affectedShifts: z.custom<readonly LeavePreviewAffectedShift[]>(() => true).optional(),
+    affectedShiftCount: z.number().int().min(0).optional(),
+    affectedShifts: z.readonly(z.array(leavePreviewAffectedShiftSchema)).optional(),
     conflicts: z.readonly(z.array(leaveReflowConflictSchema)),
     continuousDutyWarnings: z.readonly(z.array(scheduleGenerationWarningSchema)),
     groupDefaultStrategy: leaveReflowStrategySchema,
     leaveRequestId: z.string().min(1),
     leaveRequestVersion: z.number().int(),
-    overlapsUnpublishedPeriod: z.custom<boolean>(() => true).optional(),
-    periodVersions: z.custom<Readonly<Record<string, number>>>(
-      (value) =>
-        value !== null &&
-        typeof value === 'object' &&
-        !Array.isArray(value) &&
-        Object.values(value).every((version) => typeof version === 'number'),
-    ),
+    overlapsUnpublishedPeriod: z.boolean().optional(),
+    periodVersions: z.record(z.string(), z.number()),
     rulesVersion: z.number().int(),
     statisticsDelta: leaveStatisticsDeltaSchema,
     strategy: leaveReflowStrategySchema,

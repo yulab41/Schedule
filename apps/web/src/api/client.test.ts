@@ -1030,7 +1030,7 @@ describe('Web API client', () => {
     });
   });
 
-  it('accepts a membership claim request with an unknown status', async () => {
+  it('rejects a membership claim request with an unknown status', async () => {
     const futureStatusClaim = { ...membershipClaimRequest, status: 'future-status' };
     const fetchImplementation = vi
       .fn<typeof fetch>()
@@ -1042,7 +1042,10 @@ describe('Web API client', () => {
 
     await expect(
       client.approveMembershipClaimRequest(group.id, membershipClaimRequest.id),
-    ).resolves.toEqual(futureStatusClaim);
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
   });
 
   it('rejects a membership claim request list with a non-number version', async () => {
@@ -1210,6 +1213,22 @@ describe('Web API client', () => {
     });
 
     await expect(client.getSchedulingConfig(group.id)).resolves.toEqual(configWithoutRulesVersion);
+  });
+
+  it('rejects a scheduling config with a non-numeric rules version', async () => {
+    const invalidConfig = { ...schedulingConfig, rulesVersion: '3' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidConfig), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getSchedulingConfig(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
   });
 
   it('rejects a scheduling config with a non-array roles field', async () => {
@@ -1384,6 +1403,22 @@ describe('Web API client', () => {
     await expect(client.listScheduleDrafts(group.id)).resolves.toEqual([minimalDraft]);
   });
 
+  it('rejects a schedule draft summary with a non-numeric rules version', async () => {
+    const invalidDraft = { ...scheduleDraft, rulesVersion: '3' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([invalidDraft]), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listScheduleDrafts(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
   it('rejects a schedule draft list entry with a non-integer revision', async () => {
     const invalidDraft = { ...scheduleDraft, revision: 1.5 };
     const fetchImplementation = vi
@@ -1418,6 +1453,24 @@ describe('Web API client', () => {
 
   it('rejects a schedule draft preview with a non-array schedule role ids field', async () => {
     const invalidPreview = { ...scheduleGenerationPreview, scheduleRoleIds: 'role-1' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.getScheduleDraftPreview(group.id, schedulePeriodHistoryItem.id),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a schedule generation preview with non-array continuous duty warnings', async () => {
+    const invalidPreview = { ...scheduleGenerationPreview, continuousDutyWarnings: {} };
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
@@ -1935,6 +1988,60 @@ describe('Web API client', () => {
     await expect(
       client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
     ).resolves.toEqual(minimalPreview);
+  });
+
+  it('rejects a leave reflow preview with a non-numeric affected shift count', async () => {
+    const invalidPreview = { ...leaveReflowPreview, affectedShiftCount: '1' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave reflow preview with non-array affected shifts', async () => {
+    const invalidPreview = { ...leaveReflowPreview, affectedShifts: {} };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
+  it('rejects a leave reflow preview with a non-boolean overlaps flag', async () => {
+    const invalidPreview = { ...leaveReflowPreview, overlapsUnpublishedPeriod: 'yes' };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreview), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.previewLeaveRequestApproval(group.id, leaveRequest.id, {}),
+    ).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
   });
 
   it('rejects a leave reflow preview with a non-array conflicts field', async () => {
