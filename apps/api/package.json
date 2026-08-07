@@ -24,12 +24,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@cloudbase/node-sdk": "3.18.5",
+    "@cloudbase/node-sdk": "4.0.3",
     "@schedule/contracts": "workspace:*",
     "@schedule/database": "workspace:*",
     "@schedule/scheduling-domain": "workspace:*",
     "drizzle-orm": "0.45.2",
-    "fastify": "5.11.0",
+    "fastify": "5.11.2",
     "web-push": "^3.6.7",
     "zod": "^4.1.12"
   },
