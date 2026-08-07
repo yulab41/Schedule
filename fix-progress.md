@@ -480,11 +480,11 @@
 - **N2 ✅（轮次 42 已修复）** 公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）。用户决策（2026-08-07）：采用方案二“浏览器密码提示”（Nginx Basic Auth）作为临时门禁；`nginx.prod.conf` 改为官方镜像模板并用 `NGINX_BASIC_AUTH_REALM` 控制开关，`.htpasswd` 服务器本地生成、不入库。该门禁仅限非正式测试阶段，微信小程序/正式上线改用微信账号登录前必须关闭并移除。
 - **N3 ✅（轮次 44 已修复）** `apps/api/src/jobs/run-job.ts` 的 `getJobName` 手写 7 项任务名单，与 runner 穷举映射重复维护（#3.3 同类残留）。修复：`runner.ts` 导出 `isJobName`（基于 `jobRunners` 键判断），`run-job.ts` 改用 `jobNames`/`isJobName` 生成用法与解析，删除手写名单。
 - **N4 ✅（轮次 45 已修复）** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。修复：删除该类；`createPushDispatcher` 始终返回 `WebPushDispatcher`，全库无引用。
-- **N5 ⏳ 轻微** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。
+- **N5 ✅（轮次 46 已修复）** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。修复：重试插入再次撞唯一键时捕获并返回 409“相同请求正在处理中，请稍后重试。”，新增确定性单测。
 - **N6 ⏳ 轻微** `cloudbaseUid` 字段/列名在平台弃用后保留（已登记），重命名需数据库迁移。
 - **N7 ✅（轮次 43 已修复）** #7.3 只统一了时区常量，前端 7 个文件仍各自手写“偏移 + toISOString 截取”转换（event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic；N7 原文写 8 个，rg 全量核对实际命中 7 个），已由领域包 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数统一替换。
-- **N8 ⏳ 轻微** contracts zod schema 保留 `z.custom(() => true)`（leaves.ts 146–154、groups.ts 121）与大量 `.passthrough()`，校验强度低于类型声明，需逐步收紧。
-- **N9 ⏳ 轻微** `package.json` format:check/format 不覆盖 `scripts/*.mjs` 与 `packages/*/scripts/*.mjs`（smoke-browser、generate-tokens-css 无格式门禁）；`.prettierignore` 仍残留 CloudBase 条目。
+- **N8 ✅（轮次 47 第一批完成）** contracts zod schema 保留 `z.custom(() => true)`（leaves.ts 146–154、groups.ts 121）与大量 `.passthrough()`，校验强度低于类型声明，需逐步收紧。第一批：消除全部 `z.custom(() => true)`，groups status 收紧为枚举；`.passthrough()` 未知键放行仍保留，待下一批。
+- **N9 ✅（轮次 48 已修复）** `package.json` format:check/format 不覆盖 `scripts/*.mjs` 与 `packages/*/scripts/*.mjs`（smoke-browser、generate-tokens-css 无格式门禁）；`.prettierignore` 仍残留 CloudBase 条目。修复：两个脚本追加 mjs glob，删除 `.prettierignore`，并格式化 `scripts/smoke-browser.mjs`。
 - **N10 ⏳ 轻微** `.env.example` 把 `VITE_API_PROXY_TARGET` 写进环境文件说明，但 vite.config 只读 `process.env`，写入 `.env` 不生效（需 `loadEnv` 或改文档为“shell 环境变量”）。
 - **N11 ⏳ 轻微** 文档滞后：project-status PWA 缓存 v5/v6 矛盾、CHANGELOG 仍以 CloudBase 为当前栈、fix-progress.md 已膨胀至 179KB（建议归档逐轮明细）。
 - **N12 ⏳ 轻微** 工作区残留：空 `cloudfunctions/` 目录、`logs/` 4 个日志文件（#1.3 收尾不彻底）。
@@ -610,6 +610,78 @@
 不确定点：1. 若未来需要“未配置推送时静默跳过”语义，应显式在 `WebPushDispatcher.send` 或调用方处理，而不是重新引入死类。2. 本次为纯删除，未改变 `createPushDispatcher({})` 的返回对象（仍是 `WebPushDispatcher`，`isConfigured=false`）。
 
 下次计划：N5（idempotency 并发重复键返回 409）→ N8/N9 等快速清理项；同时按阿里云部署路径推进自建/微信认证。
+
+### 轮次 46 – 2026-08-08
+
+目标：#N5 —— idempotency “读无→再插”窗口内并发重复键从 500 改为 409。
+
+引入点：`withIdempotentOperation` 的“读无→再插”重试路径自 3a082d8 引入；轮次 32（370bb87）只收紧首次 catch 为“仅重复键走查重/重放”，未处理重试插入再次撞唯一键的情况。
+
+为什么现有测试没拦住：集成并发测试使用不同 operationId 或乐观锁路径，未覆盖“读无→再插”第二次插入撞唯一键；插件本身没有单测。
+
+修改文件：`idempotency.ts` 抽取 `insertIdempotencyKey`/`resolveExistingOperation`；首次重复键仍查重/重放；若查无后重试插入再次重复键，捕获并抛 409“相同请求正在处理中，请稍后重试。”；新增 `idempotency.spec.ts` 确定性单测（两次插入均重复键、select 返回空 → 409，insert 调用 2 次）。
+
+语义等价审计与行为变化清单：正常首次插入、已存在 completed 重放、processing 409、指纹不一致 409 路径全部保持；新增仅覆盖“查无→重试插入仍重复键”的窗口，原 500 变为 409。
+
+测试结果：基线 `pnpm verify` 589/589 ✅；修改后 `pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL；新增 1 条 idempotency 单测，client.test 144→150）。
+
+运行/浏览器验证：N8 涉及 contracts 核心链路，pnpm smoke:browser 通过（登录/管理员/成员/访客无浏览器错误）；pnpm smoke:check-core 通过（本轮记录满足校验）。
+
+状态：#N5 ✅（API 语义：并发重复操作返回 409，无用户界面变化）。
+
+提交：3199991（`fix(api): return 409 when idempotency retry insert races`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. 二次重复键直接 409，不尝试再次查重放；若首个请求恰好在两次插入之间完成，第二个请求会收到“正在处理中”而不是已完成结果——属可接受的并发语义。2. 单测用假事务覆盖确定性窗口；真实数据库时序仍由现有并发集成测试兜底。
+
+下次计划：#N8（contracts zod 收紧第一批）。
+
+### 轮次 47 – 2026-08-08
+
+目标：#N8 第一批 —— 消除 contracts 全部 `z.custom(() => true)`，并把 groups status 从“任意字符串”收紧为枚举；大量 `.passthrough()` 保留，留待下一批。
+
+引入点：轮次 12–22 引入 zod schema 时，为保持旧守卫行为大量使用 `z.custom(() => true)`（leaves.ts 的 schema 自 cf6a61d 引入）；这些字段类型声明强但运行时零校验。
+
+为什么现有测试没拦住：旧测试明确锁定“未知 status 也接受”“缺省字段接受”，没有无效值拒绝测试；`z.custom(() => true)` 对任何值放行。
+
+修改文件：`groups.ts`（新增 `membershipClaimRequestStatusSchema` 枚举，status 由任意字符串收紧为 pending/approved/rejected/cancelled）；`leaves.ts`（新增 `leavePreviewAffectedShiftSchema`，`affectedShiftCount`/`affectedShifts`/`overlapsUnpublishedPeriod`/`periodVersions` 改真实校验）；`scheduling-config.ts`（`rulesVersion` 改 `z.number().int().optional()`）；`schedules.ts`（新增 `scheduleGenerationConflictSchema`，shift type/role count、period summary、generation preview 的 custom 全部改真实 schema）；`client.test.ts` 更新 1 条旧锁定（未知 status 由接受改拒绝）并新增 6 条拒绝测试。
+
+语义等价审计与行为变化清单：合法响应全部保持；缺省字段仍可选；行为收紧为非法类型/未知枚举拒绝；API 实际输出均为合法值，前端正常响应不受影响。
+
+测试结果：`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL；client.test 144→150）。
+
+运行/浏览器验证：contracts 核心链路有改动，pnpm smoke:browser 通过（登录/管理员/成员/访客无浏览器错误）；pnpm smoke:check-core 通过（本轮记录满足校验）。
+
+状态：#N8 ✅（第一批完成；剩余 `.passthrough()` 未知键放行登记下一批）。
+
+提交：5cf8aca（`refactor(contracts): replace permissive zod customs with real schemas`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. `.passthrough()` 仍允许未知键，下一批需逐模型评估 `.strict()`，避免误拒未来兼容字段。2. 未知 membership claim status 从接受改为拒绝，若线上曾有历史未知状态会触发前端校验失败；当前业务只产生四种状态。3. `periodVersions` 改用 `z.record(z.string(), z.number())`，键仍不校验 UUID 格式（与旧行为一致）。
+
+下次计划：#N9（mjs 格式门禁 + 清理 .prettierignore CloudBase 残留）。
+
+### 轮次 48 – 2026-08-08
+
+目标：#N9 —— format/format:check 覆盖 `scripts/*.mjs` 与 `packages/*/scripts/*.mjs`；删除 `.prettierignore` 的 CloudBase 残留。
+
+引入点：`package.json` 格式脚本自建仓起未覆盖 mjs；`.prettierignore` 是 CloudBase 部署时代遗留，CloudBase 已弃用清理。
+
+为什么现有测试没拦住：`format:check` 本身不检查 mjs，`pnpm verify` 全绿但不覆盖脚本格式。
+
+修改文件：`package.json` 的 format/format:check 追加 `"scripts/*.mjs"` 与 `"packages/*/scripts/*.mjs"`；删除 `.prettierignore`；按新门禁格式化 `scripts/smoke-browser.mjs`（`generate-tokens-css.mjs` 已合规）。
+
+语义等价审计与行为变化清单：纯工具链配置，无运行时行为变化；`format:check` 现在会拦截未格式化的 mjs 脚本。
+
+测试结果：`pnpm format:check` 通过（含两个 mjs）；`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL）。
+
+运行/浏览器验证：无新增 Web 核心链路（contracts 已在轮次 47 冒烟）；pnpm smoke:browser 通过；pnpm smoke:check-core 通过。
+
+状态：#N9 ✅（mjs 已有格式门禁，CloudBase 残留已清理）。
+
+提交：9c2c799（`chore(format): include mjs scripts in prettier checks`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. 工作区存在未跟踪 `scripts/ecs-auth-loop-evidence.mjs`（用户/外部生成）；为通过新门禁已做格式整理但未暂存、未提交，是否保留/删除由用户决定。2. 删除 `.prettierignore` 后若未来需要忽略特定脚本，应显式重建该文件。
+
+下次计划：N10/N11/N12 快速清理（VITE_API_PROXY_TARGET 文档、project-status/CHANGELOG 文档滞后、工作区残留）；N6（cloudbaseUid 重命名）需数据库迁移，另排。
 
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。

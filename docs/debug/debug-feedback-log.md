@@ -871,6 +871,37 @@
 - 运行/浏览器验证：无 Web 核心链路；pnpm smoke:browser 通过；pnpm smoke:check-core 通过。
 - 状态：#N4 ✅（已完成，无用户界面变化）。
 
+### 轮次 46（fix-progress #N5，提交：3199991 + docs checkpoint）
+
+- 目标/需求：idempotency “读无→再插”窗口内并发重复键从 500 改为 409。
+- 根因/引入点：“读无→再插”重试路径自 3a082d8 引入；轮次 32（370bb87）只收紧首次 catch，未处理重试插入再次撞唯一键。
+- 修复/功能：抽取 `insertIdempotencyKey`/`resolveExistingOperation`；重试插入再次重复键时捕获并抛 409；新增确定性单测（两次插入重复键、select 空 → 409）。
+- 行为变化清单：正常/查重/重放/指纹冲突/处理中 409 路径全部保持；仅“查无→重试插入仍重复键”由 500 变为 409。
+- 验证：基线 589/589；修改后 `pnpm verify` 596/596 ✅（73 测试文件；新增 1 条 idempotency 单测，client.test 144→150）。
+- 运行/浏览器验证：N8 涉及 contracts 核心链路，pnpm smoke:browser 通过；pnpm smoke:check-core 通过。
+- 状态：#N5 ✅（API 语义，无用户界面变化）。
+
+### 轮次 47（fix-progress #N8 第一批，提交：5cf8aca + docs checkpoint）
+
+- 目标/需求：消除 contracts 全部 `z.custom(() => true)`，把 groups status 收紧为枚举；`.passthrough()` 留待下一批。
+- 根因/引入点：轮次 12–22 引入 zod schema 时为保持旧守卫行为大量使用 `z.custom(() => true)`（leaves schema 自 cf6a61d 引入）。
+- 修复/功能：groups/leaves/scheduling-config/schedules 的 custom 全部改真实 schema；新增 1 条旧测试行为反转（未知 status 由接受改拒绝）并新增 6 条拒绝测试。
+- 行为变化清单：合法响应与缺省字段保持；非法类型/未知枚举现在被拒绝；API 实际输出均为合法值。
+- 验证：`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL；client.test 144→150）。
+- 运行/浏览器验证：contracts 核心链路有改动，pnpm smoke:browser 通过；pnpm smoke:check-core 通过。
+- 状态：#N8 ✅（第一批完成；`.passthrough()` 收紧登记下一批）。
+
+### 轮次 48（fix-progress #N9，提交：9c2c799 + docs checkpoint）
+
+- 目标/需求：format/format:check 覆盖 mjs 脚本，清理 `.prettierignore` CloudBase 残留。
+- 根因/引入点：格式脚本自建仓起未覆盖 mjs；`.prettierignore` 是 CloudBase 时代遗留。
+- 修复/功能：`package.json` 追加 `"scripts/*.mjs"` 与 `"packages/*/scripts/*.mjs"`；删除 `.prettierignore`；格式化 `scripts/smoke-browser.mjs`。
+- 行为变化清单：纯工具链配置，无运行时行为变化；format:check 现在拦截未格式化 mjs。
+- 验证：`pnpm format:check` 通过（含两个 mjs）；`pnpm verify` 596/596 ✅。
+- 运行/浏览器验证：无新增 Web 核心链路；pnpm smoke:browser 通过；pnpm smoke:check-core 通过。
+- 状态：#N9 ✅。
+- 备注：工作区存在未跟踪 `scripts/ecs-auth-loop-evidence.mjs`，为通过新门禁已做格式整理但未暂存/未提交，是否保留由用户决定。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：事件/日历/换班/加扣班/请假时间显示与草稿编号不变（轮次 43 相关，纯显示层收敛）。
@@ -897,7 +928,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-08）：fix-progress 轮次 44/45 已完成（#N3 run-job 任务名单收敛 + #N4 NoopPushDispatcher 清理，均无用户界面变化）；下一目标为 N5（idempotency 并发重复键返回 409）→ N8/N9 等快速清理项；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
+- 下一活动批次（2026-08-08）：fix-progress 轮次 46/47/48 已完成（#N5 idempotency 并发重复键 409 + #N8 contracts zod 收紧第一批 + #N9 mjs 格式门禁；无用户界面变化）；下一目标为 N10/N11/N12 快速清理（环境变量文档、文档滞后、工作区残留）；N6（cloudbaseUid 重命名）需数据库迁移，另排；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。
