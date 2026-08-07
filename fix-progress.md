@@ -89,8 +89,8 @@
 | ✅ | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 已完成（轮次 35）：失败上下文写入 summary 与运行日志，见第 7 节 |
 | ✅ | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 已完成（轮次 30）：合并带可选截止日期，见第 7 节 |
 | ✅ | #1.2 | .env.example 缺开发模式开关 | 轻微 | 零 | 低 | 已完成（轮次 7）：随 #3.4 一并补两个开关项，见第 7 节 |
-| P3 | #1.3 | 工作区残留（空目录/日志/构建产物） | 轻微 | 零 | 低 | 清理命令，不入库 |
-| P3 | #9.3 | 加载/安全测试直写 DB 与 stub 认证 | 轻微 | 低 | 低 | 复用 database schema 与 API 入口 |
+| ✅ | #1.3 | 工作区残留（空目录/日志/构建产物） | 轻微 | 零 | 低 | 已完成（轮次 38）：清理空目录/日志/CloudBase 打包产物，见第 7 节 |
+| ✅ | #9.3 | 加载/安全测试直写 DB 与 stub 认证 | 轻微 | 低 | 低 | 已完成（轮次 38）：共享认证桩与 resetDatabase 收敛到 test-fixtures，见第 7 节 |
 
 ## 3. 问题簇详情（执行时按此卡片理解目标）
 
@@ -119,6 +119,8 @@
 问题：这些均被 `.gitignore`/`infra/cloudbase/.gitignore` 忽略、未污染仓库，但工作区里残留着空目录、构建产物、日志和嵌套依赖，任何“全库扫描”都会先撞上它们。
 严重等级：轻微
 建议：清理空目录与日志（构建产物交给 CI 生成），或在根目录补一条清理脚本。
+
+> 完成情况（轮次 38，2026-08-07）：已删除空目录 `cloudfunctions/auth-identity-probe`、全部 `local-api*/local-web*` 日志（16 个文件）与两份 CloudBase 打包产物（`schedule-api/index.js`、`schedule-jobs/index.js`，约 6.9MB）；node_modules 与各包 dist 保留为本地工具链功能依赖（删除会使本地运行/测试需先重建，CI 场景仍由 `pnpm install`/`pnpm build` 生成）。本轮不做仓库改动，无需提交。
 
 ### 2. packages（契约 / 数据库 / 领域 / 设计令牌）
 
@@ -377,6 +379,8 @@
 问题：加载测试自带一套建表/直插逻辑（`AnyInsertTable`）和 `load-token-*` 认证桩，与生产 repository 逻辑各自演化，属于测试侧“第二套实现”。
 严重等级：轻微
 建议：复用 `@schedule/database` schema 与 API 入口构造测试数据，减少直写 SQL。
+
+> 完成情况（轮次 38，2026-08-07）：确认加载/安全测试已复用 `@schedule/database` schema 与 `createApp` API 入口（直写 SQL 仅剩 resetDatabase 的 DROP TABLE）；剩余重复收敛为 `@schedule/test-fixtures` 的 `createFakeAuthPort(resolveCloudbaseUid)` 与 `resetDatabase(client)`，加载测试的 `load-token-*` 解析器与安全测试的 token 表均改为传入解析函数，删除各自本地副本；`test-fixtures/tsconfig.build.json` 补 `paths: {}`（与其他包构建配置一致）；新增 `auth.test.ts` 1 条锁定测试；tests/load、tests/security 增加 `@schedule/test-fixtures` workspace 依赖并更新锁文件。本条目中的行号为审查时快照，修改后已过期。
 
 ### 10. debug 阶段已标记的已知问题（报告内注明）
 
@@ -1188,3 +1192,27 @@
 不确定点：1. 顺序保证依赖 mysql2 单连接命令 FIFO 语义（已注释）；若未来换驱动需重新评估。2. promise 池的 `connection` 事件类型标为 PromisePoolConnection 而运行时是底层连接，因此改用回调池的公开事件绕开类型失真；若 mysql2 修正类型后可简化。3. 未把 SET 改为 acquire 时 await（那样需重写 pool.query/execute 路径）；当前事件入队顺序已保证业务查询在 SET 之后。
 
 下次计划：P3 批次 #1.3（工作区残留清理，不入库）+ #9.3（加载/安全测试直写 DB 与 stub 认证）；CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–36 相关验收项。
+
+### 轮次 38 – 2026-08-07
+
+目标：#1.3 + #9.3 —— 清理工作区残留（不入库），并消除加载/安全测试中重复维护的 DB 重置与认证桩实现。
+
+引入点：#1.3 残留产物自开发期累积（无单一引入提交）；#9.3 的 `createFakeAuthPort`/`resetDatabase` 在各测试文件复制演进（审计卡 #9.3 登记）。
+
+为什么现有测试没拦住：残留产物不入库，单测不感知；认证桩/重置函数行为一致，复制不改变行为；新增 `packages/test-fixtures/src/auth.test.ts` 1 条锁定测试（token → uid 映射、未知/缺失 token 返回 undefined），安全集成 4 条作为 resetDatabase 回归网。
+
+修改文件：`packages/test-fixtures/src/auth.ts`（新增 `createFakeAuthPort(resolveCloudbaseUid)` 结构型认证桩）、`reset-database.ts`（新增通用 DROP 全部表助手，代码与旧副本一致）、`auth.test.ts`（锁定测试）；`tests/load/run-load-test.ts` 与 `tests/security/security.integration.test.ts` 删除本地副本并复用共享助手（load 的 `load-token-*` 解析器抽为 `resolveLoadToken`，security 的 token 表改为解析函数）；`test-fixtures/tsconfig.build.json` 补 `paths: {}`（构建时按 dist 解析 workspace 依赖，与其他包一致）；`tests/load/package.json`、`tests/security/package.json`、`packages/test-fixtures/package.json` 增补 workspace 依赖，`pnpm-lock.yaml` 更新。工作区清理（#1.3，不入库）：删除 `cloudfunctions/auth-identity-probe` 空目录、16 个 `local-api*/local-web*` 日志、2 份 CloudBase 打包产物（约 6.9MB）；node_modules/dist 保留为本地工具链功能依赖。
+
+语义等价审计与行为变化清单：`createFakeAuthPort` 与旧实现逐分支等价（Bearer 解析、未知 token/缺失 authorization → undefined、已知 token → `{ cloudbaseUid }`）；load 的 `resolveLoadToken` 与旧 `createFakeAuthPort()` 内部逻辑逐字等价；`resetDatabase` 与两处旧副本逐字等价（FK 开关、information_schema 枚举、反引号转义）；测试包依赖与锁文件更新，生产代码零改动。
+
+测试结果：`pnpm verify` 593/593 ✅（75 个测试文件，隔离 MySQL；新增 1 条 auth 锁定测试）；定向 security 4/4、holidays 7/7、auth 1/1（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）；`pnpm --filter @schedule/load-tests build` 通过（tsc 全量类型检查）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#1.3 ✅（已清理，不入库）、#9.3 ✅（已完成；测试基础设施，无用户界面变化，无需用户强刷）。
+
+提交：0046de1（`refactor(tests): share fake auth port and database reset fixtures`），推送结果见对话回复
+
+不确定点：1. #1.3 未删除 node_modules 与 dist（本地工具链功能依赖）；如需彻底清空可另行执行 `pnpm install` 后重建。2. `createFakeAuthPort` 目前只被 load/security 使用，其余集成测试仍各有本地副本；后续可逐步收敛（未顺手改）。3. 发现存量问题：`pnpm --filter @schedule/security-tests typecheck` 因 `apps/api/src/modules/notifications/notification-dispatcher.ts` 引用的 `web-push` 缺类型声明而失败（apps/api 自己的 typecheck 有 `src/types/web-push.d.ts` 覆盖，tests/security 的 tsconfig include 不含该声明；非本轮引入，未顺手改，记入 TODO）。
+
+下次计划：CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理（保留 CloudBase 备用决策）；非 CloudBase 合规项已全部完成；新发现 TODO（tests/security typecheck 的 web-push 声明缺失）待后续清理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–37 相关验收项。

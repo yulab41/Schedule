@@ -780,6 +780,15 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#2.2 ✅（无用户界面变化，无需用户强刷）。
 
+### 轮次 38（fix-progress #1.3 + #9.3，提交：0046de1 refactor(tests): share fake auth port and database reset fixtures）
+- 目标/需求：#1.3 清理工作区残留（空目录/日志/CloudBase 打包产物，不入库）；#9.3 消除加载/安全测试中重复维护的 DB 重置与认证桩。
+- 根因：残留产物自开发期累积；`createFakeAuthPort`/`resetDatabase` 在各测试文件复制演进。
+- 修复/功能：`@schedule/test-fixtures` 新增共享 `createFakeAuthPort(resolveCloudbaseUid)` 与 `resetDatabase(client)`；load 测试的 `load-token-*` 解析器与 security 测试的 token 表改为传入解析函数，删除两处本地副本；`test-fixtures/tsconfig.build.json` 补 `paths: {}`；tests/load、tests/security 增加 test-fixtures workspace 依赖并更新锁文件；新增 `auth.test.ts` 1 条锁定测试。工作区清理：删除 `cloudfunctions/auth-identity-probe` 空目录、16 个 local-*.log、2 份 CloudBase 打包产物（约 6.9MB）；node_modules/dist 保留为本地工具链功能依赖。
+- 行为变化清单：共享助手与旧实现逐分支等价；生产代码零改动；仅测试基础设施与依赖/锁文件变化。
+- 验证：新增 1 条 auth 锁定测试；`pnpm verify` 593/593 通过（75 个测试文件，隔离 MySQL）；定向 security 4/4、holidays 7/7、auth 1/1；`pnpm --filter @schedule/load-tests build` 通过。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：#1.3 ✅（已清理，不入库）、#9.3 ✅（测试基础设施，无用户界面变化）。
+
 ## 待办 / 下一步
 
 - 用户决策待办：CloudBase 保留备用（2026-08-07 已确认）；#3.6/#9.1/#9.2 最后一批统一处理。
@@ -804,7 +813,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（用户决定暂不上线，2026-08-07）：fix-progress 轮次 37（#2.2 数据库客户端公开 connection 事件 + UTC 会话初始化）已完成，下一目标为 P3 批次 #1.3（工作区残留清理，不入库）+ #9.3（加载/安全测试直写 DB 与 stub 认证）；本地部署持续维护，API 3000/3001 与 Web 5173/5174 保持最新构建；CloudBase/阿里云上线验证暂停，待用户决定后再继续。
+- 下一活动批次（用户决定暂不上线，2026-08-07）：fix-progress 轮次 38（#1.3 工作区清理 + #9.3 共享测试基建）已完成，非 CloudBase 合规项全部完成；下一目标为 CloudBase 专属项 #3.6/#9.1/#9.2 最后一批（待平台去留决策）；新发现 TODO：tests/security typecheck 因 web-push 缺类型声明失败（非本轮引入）。本地部署持续维护，API 3000/3001 与 Web 5173/5174 保持最新构建；CloudBase/阿里云上线验证暂停，待用户决定后再继续。
 - 上线状态（暂停）：线上库迁移已执行至 0031（含 0026–0031）；API/schedule-jobs 与静态托管已上传；CloudBase 环境余额不足（`InsufficientBalance`）导致 `/api/health` 无法响应——按用户决定暂不上线，不再作为当前动作。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要上线 CloudBase 时：在 GitHub Actions 手动运行 Deploy Development（会先构建最新代码并做健康检查）；部署前若含新迁移需先对线上库执行迁移。
