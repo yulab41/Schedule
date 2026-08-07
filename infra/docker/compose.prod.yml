@@ -29,7 +29,6 @@ services:
       dockerfile: infra/docker/Dockerfile.api
     restart: unless-stopped
     environment:
-      NODE_ENV: production
       API_HOST: 0.0.0.0
       API_PORT: 3000
       TZ: Asia/Shanghai

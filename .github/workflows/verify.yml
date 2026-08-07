@@ -64,6 +64,11 @@ jobs:
           pnpm exec prettier --check ".github/**/*.yml"
           "docs/deployment/**/*.md"
 
+      - name: Validate Docker Compose production configuration
+        run: >-
+          docker compose --env-file .env.production.example
+          -f infra/docker/compose.prod.yml config --quiet
+
       - name: Check formatting, lint, and types
         run: |
           pnpm format:check &
