@@ -705,7 +705,7 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（#4.3 子步骤 2b；#4.3 整体进行中，剩 swap revokeCompleted 与 submit 幂等化评估）。
 
-### 轮次 30（fix-progress #4.3 收尾 + #4.4，提交：refactor(api): complete workflow entry skeleton and merge soft delete helpers）
+### 轮次 30（fix-progress #4.3 收尾 + #4.4，提交：e5608cf refactor(api): complete workflow entry skeleton and merge soft delete helpers）
 - 目标/需求：#4.3 收尾（swap `revokeCompleted` 前置检查迁移、submit 幂等化评估）与 #4.4（两个软删除函数合并）。
 - 根因：#4.3 剩最后一个未迁移入口（幂等前有锁定 + 角色预检）；#4.4 两个软删除函数整段复制仅差一个日期条件。
 - 修复/功能：`runAuthorizedMutation` 新增 `beforeIdempotentOperation` 钩子（鉴权后、幂等键写入前执行），swap `revokeCompleted` 迁入钩子并删除 `withIdempotentOperation` 导入；`softDeleteAssignments` 增加可选 `beforeBusinessDate` 参数，删除 `softDeleteAssignmentsBefore`；submit 幂等化评估：契约无 operationId，保持现状、另开轮。

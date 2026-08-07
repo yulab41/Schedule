@@ -1002,7 +1002,7 @@
 
 状态：#4.3 ✅（轮次 27–30：入口骨架、依赖容器、leave/swap 全部入口迁移完成；领域 run 函数保留为服务内差异层）；#4.4 ✅。
 
-提交：`refactor(api): complete workflow entry skeleton and merge soft delete helpers`（提交后回填短哈希），推送结果见对话回复
+提交：e5608cf（`refactor(api): complete workflow entry skeleton and merge soft delete helpers`），推送结果见对话回复
 
 不确定点：1. submit 未幂等化（契约无 operationId）；若用户希望防重复提交，需另开轮改契约与前端调用点。2. `beforeIdempotentOperation` 钩子目前仅 swap `revokeCompleted` 使用，未来其他前置检查可复用。3. 领域 runXxx 状态机主体仍在各服务内（事件/通知/实际人员更新差异大），#4.3 按“共享骨架 + 领域差异”口径完成；若后续要彻底抽状态机，需架构决策。
 
