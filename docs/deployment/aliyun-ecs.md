@@ -40,6 +40,40 @@ curl -s http://127.0.0.1/health
 curl -s http://127.0.0.1/api/health
 ```
 
+> 启用下面的临时门禁后，健康检查需带用户名/密码：
+> `curl -u <试用用户名>:<密码> -s http://127.0.0.1/health`
+
+## 试用期临时门禁（浏览器密码提示）
+
+当前公网试用机以开发模式认证运行（`NODE_ENV=development` + `AUTH_DEV_MODE=true`），
+任何能构造 Bearer token 的请求都可以冒充任意用户（含管理员）。在自建/微信登录落地前，
+Nginx 增加浏览器密码提示（HTTP Basic Auth）作为临时门禁。
+
+> **这是非正式测试阶段的临时措施**：微信小程序上线、网页改用微信账号登录后，
+> 必须按下面的“关闭门禁”移除它，否则用户无法直接登录网页。
+
+### 启用门禁
+
+1. 在服务器上生成密码文件（任选一种）：
+   - OpenSSL：`printf 'trial:%s\n' "$(openssl passwd -apr1 '<换成强密码>')" > infra/docker/.htpasswd`
+   - Apache htpasswd 容器：`docker run --rm httpd:2.4-alpine htpasswd -nbB trial '<换成强密码>' > infra/docker/.htpasswd`
+2. 收紧文件权限：`chmod 600 infra/docker/.htpasswd`
+3. 在 `.env.production` 设置 `NGINX_BASIC_AUTH_REALM=Trial_access`
+   （任意非 `off` 值都表示开启；`off` 表示不拦截）。
+4. 重建并重启 web 容器：
+   `docker compose --env-file .env.production -f infra/docker/compose.prod.yml up -d --force-recreate web`
+5. 验证门禁：
+   - `curl -i http://127.0.0.1/` → `401 Unauthorized`
+   - `curl -u trial:'<密码>' http://127.0.0.1/` → `200 OK`
+   - 浏览器打开 `http://8.148.183.46` 会先弹出“用户名+密码”提示，输入正确后才能进入。
+
+### 关闭门禁（微信/正式上线前必须执行）
+
+1. 在 `.env.production` 把 `NGINX_BASIC_AUTH_REALM` 改为 `off`，重建 web 容器（同上面第 4 步）。
+2. 正式改用微信账号登录后，从 `infra/docker/compose.prod.yml` 删除
+   `.htpasswd` 挂载，从 `nginx.prod.conf.template` 删除 `auth_basic` 两行，
+   并删除服务器上的 `infra/docker/.htpasswd` 文件。
+
 ## 环境变量
 
 `MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`：
@@ -55,7 +89,8 @@ MySQL 数据库名和账号（`api` 容器通过 compose 网络连接 `mysql:330
 ## 当前限制与后续任务
 
 - 认证为开发模式（页面提供“本地管理员/本地成员”按钮），正式上线前必须完成
-  自建登录认证改造（当前无账号密码后端）。
+  自建登录认证改造（当前无账号密码后端）；试用期同时启用 Nginx 浏览器密码门禁
+  （临时措施，微信小程序上线、网页改用微信账号登录时必须移除）。
 - 暂未配置 HTTPS / 自定义域名 / ICP 备案；微信小程序上线前按
   `docs/deployment/dns-and-https.md` 与 `icp-checklist.md` 补齐。
 - 定时任务（duty reminders 等）暂未在 Docker 中配置 cron，需后续补充。

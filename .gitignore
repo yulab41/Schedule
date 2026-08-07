@@ -13,6 +13,7 @@ test-results/
 .env
 .env.*
 !.env.example
+infra/docker/.htpasswd
 *.pem
 *.key
 *.crt

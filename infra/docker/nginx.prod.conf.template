@@ -5,6 +5,15 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # Temporary trial-stage gate (browser password prompt). Keep enabled only
+    # while the public site runs dev-mode auth; the WeChat mini-program login
+    # that replaces this stage MUST switch this back to "off" and remove the
+    # gate. The official nginx image renders these values at container start:
+    #   NGINX_BASIC_AUTH_REALM=off          -> auth_basic off (open)
+    #   NGINX_BASIC_AUTH_REALM=<any realm>  -> prompt for .htpasswd credentials
+    auth_basic ${NGINX_BASIC_AUTH_REALM};
+    auth_basic_user_file ${NGINX_BASIC_AUTH_USER_FILE};
+
     # The web client calls the API under /api/* while Fastify routes are
     # registered without the /api prefix, so the prefix is stripped here.
     location /api/ {
