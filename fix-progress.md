@@ -482,7 +482,7 @@
 - **N4 ⏳ 轻微** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。
 - **N5 ⏳ 轻微** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。
 - **N6 ⏳ 轻微** `cloudbaseUid` 字段/列名在平台弃用后保留（已登记），重命名需数据库迁移。
-- **N7 ⏳ 轻微** #7.3 只统一了时区常量，8 个前端文件仍各自手写“偏移 + toISOString 截取”转换（event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic），建议领域包补 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数后替换。
+- **N7 ✅（轮次 43 已修复）** #7.3 只统一了时区常量，前端 7 个文件仍各自手写“偏移 + toISOString 截取”转换（event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic；N7 原文写 8 个，rg 全量核对实际命中 7 个），已由领域包 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数统一替换。
 - **N8 ⏳ 轻微** contracts zod schema 保留 `z.custom(() => true)`（leaves.ts 146–154、groups.ts 121）与大量 `.passthrough()`，校验强度低于类型声明，需逐步收紧。
 - **N9 ⏳ 轻微** `package.json` format:check/format 不覆盖 `scripts/*.mjs` 与 `packages/*/scripts/*.mjs`（smoke-browser、generate-tokens-css 无格式门禁）；`.prettierignore` 仍残留 CloudBase 条目。
 - **N10 ⏳ 轻微** `.env.example` 把 `VITE_API_PROXY_TARGET` 写进环境文件说明，但 vite.config 只读 `process.env`，写入 `.env` 不生效（需 `loadEnv` 或改文档为“shell 环境变量”）。
@@ -538,6 +538,30 @@
 不确定点：1. `infra/docker/.htpasswd` 必须先创建且权限必须让容器内 nginx 用户可读（`chmod 644`；`600` 会因 bind mount 保留宿主属主导致 nginx 读取时 `Permission denied`，带凭据请求 500）；compose 对不存在的挂载源会生成目录，忘记创建同样 5xx。2. nginx 在启动/重载时读取密码文件，修改 `.htpasswd` 后必须重建 web 容器才生效。3. Basic Auth 的用户名/密码是共用凭据，仅适合可信测试人员；微信登录落地后若未及时移除，用户会先被密码框拦住。
 
 下次计划：N7（#7.3 时区转换收尾：领域包补 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数并替换 8 个前端文件）→ N3/N4 等快速清理项；同时按阿里云部署路径推进自建/微信认证。
+
+### 轮次 43 – 2026-08-07
+
+目标：#N7 —— #7.3 时区转换收尾：领域包补 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数，替换前端 7 个文件手写“偏移 + toISOString 截取”转换（N7 原文写 8 个，rg 全量核对实际命中 7 个）。
+
+引入点：轮次 3（7a16c85）统一时区常量后，各功能文件仍保留各自“+8h → toISOString → slice”写法；这些写法分别随日历（ab25064）、请假（0d5ec55）、加扣班（5d8b205）、换班（b20ff9b）、事件中心（7ac2a07a）、响应式 PWA（db35a77）、请假全天化（0609cb5）、手动排班（b1ce5c7）引入，轮次 3/40 只统一了常量与部分字面量。
+
+为什么现有测试没拦住：现有单测只锁定部分输出（event/leave/manual），swap/duty 时间格式与 calendar 班次时间范围没有行为锁定测试；纯 Node 单测也无法覆盖浏览器运行路径。
+
+修改文件：`packages/scheduling-domain/src/time.ts` 新增 `formatChinaStandardTime`（HH:mm）与 `formatChinaDateTime`（可选 `includeSeconds`/`includeYear`），`getChinaStandardTimeBusinessDate` 改经新助手实现（行为等价）；`index.ts` 导出两个函数与选项类型。前端替换：`event-timeline.ts`（`formatEventTime`）、`calendar-logic.ts`（`formatShiftTimeRange`，删除本地 HH:mm 函数）、`calendar-views.ts`（`minutesInChinaStandardTime`，经格式化解析分钟数）、`swap-logic.ts`/`duty-adjustment-logic.ts`（`formatXShiftTime`，删除本地 MM-DD HH:mm 函数）、`leave-logic.ts`（`toChinaDate`/`formatCstDateTime`）、`manual-schedule-logic.ts`（`formatScheduleDraftCode`，用 `includeSeconds` 后压缩为草稿编号）；删除 7 个本地私有函数与全部前端 `chinaStandardTimeOffsetMilliseconds` 导入。新增锁定测试：领域 1 条（含 HH:mm/完整日期时间/含秒/不含年/无效拒绝断言），swap/duty 各 1 条时间范围，calendar 1 条班次时间范围。
+
+语义等价审计与行为变化清单：所有有效输入输出逐字符等价（event/leave/manual 原测试与新增 swap/duty/calendar 锁定测试验证）；无效时间戳行为由 `toISOString()` 的 RangeError 变为统一 `The timestamp must be valid.` Error（调用方均为有效 API 数据，无实际影响）；`getChinaStandardTimeBusinessDate` 错误文案与输出不变；`minutesInChinaStandardTime` 对有效输入等值。
+
+测试结果：基线 `pnpm verify` 584/584 ✅（72 测试文件，隔离 MySQL）；修改后 `pnpm verify` 588/588 ✅（72 测试文件，隔离 MySQL；新增 4 条：domain time 3→4、swap 4→5、duty 4→5、current-month-calendar 10→11）。
+
+运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；pnpm smoke:check-core 通过（未涉及 Web 核心链路，本次仍已执行浏览器冒烟）。
+
+状态：#N7 ✅（已完成；纯显示层收敛，无用户界面文案变化，待用户强刷复核相关页面时间显示）。
+
+提交：c356193（`refactor(domain): add China Standard Time formatting helpers`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. `formatChinaDateTime` 的 `includeYear`/`includeSeconds` 是显示层选项；若未来需要其他格式（如带星期、12 小时制），应在领域包继续扩展而不是在各页面重写。2. swap/duty `formatXShiftTime` 保留了旧实现中的双空格样式（`08-02  00:00– 08:00`），本轮只收敛不修样式；若属文案瑕疵需另开轮。3. 无效时间戳错误类型统一为自定义 Error，未来若有人给这些格式化函数传无效值，错误文案与旧 `RangeError` 不同。
+
+下次计划：N3（run-job 任务名单与 runner 映射收敛）→ N4（NoopPushDispatcher 死类清理）等快速清理项；同时按阿里云部署路径推进自建/微信认证。
 
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。

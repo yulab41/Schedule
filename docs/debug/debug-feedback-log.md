@@ -841,8 +841,19 @@
 - 验证：改动前后 `pnpm verify` 均为 584/584 ✅（72 测试文件，隔离 MySQL）；`docker compose --env-file .env.production.example -f infra/docker/compose.prod.yml config --quiet` ✅；prettier（github yml + deployment md）✅；`pnpm smoke:check-core` ✅（未涉及 Web 核心链路）。运行/浏览器验证：真实 nginx:1.27-alpine 容器——开启：无凭据 401 + `WWW-Authenticate: Basic realm="Trial_access"`，带凭据 200；关闭（无 .htpasswd 文件）：200 正常启动；无头 Edge——开启门禁无凭据被拒（`net::ERR_INVALID_AUTH_CREDENTIALS`），带凭据 200 显示页面，关闭门禁 200。
 - 状态：#N2 ✅（已完成并已部署启用：2026-08-07 直接操作 ECS 更新 compose/模板/密码文件并重建 web 容器；公网/浏览器实测无凭据 401、带凭据进入登录页；凭据仅存服务器 `.htpasswd`，待用户浏览器复核）。
 
+### 轮次 43（fix-progress #N7，提交：c356193 + docs checkpoint）
+
+- 目标/需求：#7.3 时区转换收尾——领域包补 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数，替换前端 7 个文件手写“偏移 + toISOString 截取”转换（N7 原文写 8 个，rg 全量核对实际命中 7 个）。
+- 根因/引入点：轮次 3（7a16c85）统一时区常量后，各功能文件仍保留各自“+8h → toISOString → slice”写法；分别随日历（ab25064）、请假（0d5ec55）、加扣班（5d8b205）、换班（b20ff9b）、事件中心（7ac2a07a）、响应式 PWA（db35a77）、请假全天化（0609cb5）、手动排班（b1ce5c7）引入。
+- 修复/功能：领域包新增 `formatChinaStandardTime`（HH:mm）与 `formatChinaDateTime`（可选 `includeSeconds`/`includeYear`），`getChinaStandardTimeBusinessDate` 改经新助手（行为等价）；前端 event-timeline/calendar-logic/calendar-views/swap-logic/duty-adjustment-logic/leave-logic/manual-schedule-logic 全部改调领域函数，删除 7 个本地私有函数与前端偏移常量导入。新增 4 条锁定测试（领域 1 条多断言 + swap/duty 各 1 条 + calendar 1 条）。
+- 行为变化清单：所有有效输入输出逐字符等价；无效时间戳错误从 `RangeError` 变为统一 `The timestamp must be valid.`；`minutesInChinaStandardTime` 对有效输入等值；`getChinaStandardTimeBusinessDate` 文案与输出不变。
+- 验证：基线 `pnpm verify` 584/584 ✅；修改后 `pnpm verify` 588/588 ✅（72 测试文件，隔离 MySQL；新增 4 条）。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；pnpm smoke:check-core 通过（未涉及 Web 核心链路）。
+- 状态：#N7 ✅（已完成；无用户界面文案变化，待用户强刷复核相关页面时间显示）。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：事件/日历/换班/加扣班/请假时间显示与草稿编号不变（轮次 43 相关，纯显示层收敛）。
 - 用户决策（2026-08-07）：N2 采用“浏览器密码提示”临时门禁；当前为非正式测试阶段，微信小程序上线、网页改用微信账号登录前必须关闭并移除门禁。
 - 用户决策（2026-08-07）：CloudBase 弃用并已清理；部署目标固定阿里云 ECS；#3.6/#9.1/#9.2 随平台清理关闭。
 - 用户强刷后复核：换班/加扣班/请假等幂等操作重放行为不变（轮次 32 相关，正常操作不易触发）。
@@ -866,7 +877,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-07）：fix-progress 轮次 42 已完成并已在 ECS 启用门禁（待用户浏览器复核）；下一目标为 N7（#7.3 时区转换收尾）→ N3/N4 等快速清理项；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
+- 下一活动批次（2026-08-07）：fix-progress 轮次 43 已完成（#N7 时区转换收尾，待用户强刷复核时间显示）；下一目标为 N3（run-job 任务名单收敛）→ N4（NoopPushDispatcher 清理）等快速清理项；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。
