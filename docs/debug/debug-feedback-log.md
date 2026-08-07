@@ -743,7 +743,7 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#5.1 ✅；#3.6/#9.1/#9.2 暂缓（待 CloudBase 去留决策）。
 
-### 轮次 34（fix-progress #5.2，提交：fix(jobs): lock group recycle coverage and fix scanned semantics）
+### 轮次 34（fix-progress #5.2，提交：9e4a676 fix(jobs): lock group recycle coverage and fix scanned semantics）
 - 用户决策（2026-08-07）：保留 CloudBase 备用；CloudBase 专属项（#3.6/#9.1/#9.2）不影响其他功能，统一放到最后一批一起做。
 - 目标/需求：群组回收的 27 条裸 SQL 手写级联清单容易漏加表，且 `scanned` 实际等于 `purged`；改为外键元数据锁定测试防漏加，并修正计数语义。
 - 根因：删除清单完全靠人工维护，无任何校验；`scanned` 只是“群组数”的别名。

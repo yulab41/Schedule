@@ -1102,7 +1102,7 @@
 
 状态：#5.2 ✅；#3.6/#9.1/#9.2 暂缓至最后一批（保留 CloudBase 备用）。
 
-提交：`fix(jobs): lock group recycle coverage and fix scanned semantics`（提交后回填短哈希），推送结果见对话回复
+提交：9e4a676（`fix(jobs): lock group recycle coverage and fix scanned semantics`），推送结果见对话回复
 
 不确定点：1. 锁定测试基于 drizzle 外键元数据：无外键约束但按 group 清理的遗留表（如 notification_preferences）不会被“可达”断言覆盖，只能靠显式清单保留；若未来想彻底解决，可改为运行时从 information_schema 生成删除计划。2. `scanned` 改为受影响行数合计后，平台任务汇总数值会变大（不再等于群组数），属预期变化。3. 若未来新增外键引用 groups 的表而忘记加删除步骤，`group-recycle.spec.ts` 会直接失败（这正是本轮的防护目标）。
 
