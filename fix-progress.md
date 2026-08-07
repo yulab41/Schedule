@@ -79,12 +79,12 @@
 | ✅ | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | 已完成（轮次 31，用户确认方案 1）：整段已过月份拒绝，见第 7 节 |
 | ✅ | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | 已完成（轮次 31，用户确认方案 A）：移除渲染、保留事件数据，见第 7 节 |
 | ✅ | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 已完成（轮次 32）：仅重复键走查重路径，见第 7 节 |
-| ⏸️ | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 暂缓（2026-08-07 用户可能弃用 CloudBase 转阿里云，待平台去留决策） |
-| ⏸️ | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | 暂缓（同 CloudBase 去留决策） |
-| ⏸️ | #9.1 | cloudbaserc 未声明 env，环境不可复现 | 轻微 | 低 | 中 | 暂缓（同 CloudBase 去留决策） |
+| ⏸️ | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
+| ⏸️ | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
+| ⏸️ | #9.1 | cloudbaserc 未声明 env，环境不可复现 | 轻微 | 低 | 中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
 | P3 | #6.1/#6.2 | 迁移 0030/0031 复制 + 序列一致性无校验 | 轻微 | 低 | 低中 | 合并 SQL + 加校验迁移 |
 | ✅ | #5.1 | notification-retry 的 skipped 恒为 0 | 轻微 | 低 | 低 | 已完成（轮次 33）：返回三态并如实计数，见第 7 节 |
-| P3 | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | schema 元数据生成或外键级联 |
+| ✅ | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | 已完成（轮次 34）：外键元数据锁定测试 + scanned 语义修正，见第 7 节 |
 | P3 | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 记录失败上下文 |
 | ✅ | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 已完成（轮次 30）：合并带可选截止日期，见第 7 节 |
 | ✅ | #1.2 | .env.example 缺开发模式开关 | 轻微 | 零 | 低 | 已完成（轮次 7）：随 #3.4 一并补两个开关项，见第 7 节 |
@@ -1081,3 +1081,29 @@
 不确定点：1. “投递行已不存在/非 pending”归为 skipped 是语义选择（非发送失败）；若希望这类竞态行计 failed 可调整。2. CloudBase 暂缓项若最终保留 CloudBase，需按原卡片继续；若弃用则改为清理轮。3. 平台任务汇总（platformJobRuns.summary）对 skipped/failed 的展示依赖本结果字段，接口未改。
 
 下次计划：按清单继续 #5.2（group-recycle 27 条裸 SQL 手写级联删除 + `scanned` 语义修正）；CloudBase 专属项待用户平台决策；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。
+
+### 轮次 34 – 2026-08-07
+
+目标：#5.2 —— 群组回收删除清单防漏加表 + 修正 `scanned` 语义。
+
+用户决策（2026-08-07）：保留 CloudBase 备用；CloudBase 专属项（#3.6/#9.1/#9.2）不影响其他功能，统一放到最后一批一起做。
+
+引入点：27 条裸 SQL 手写级联清单自群组回收功能引入起存在（审计卡登记）。
+
+为什么现有测试没拦住：之前没有任何“清单是否覆盖全部 group 关联表”的校验；平台集成测试只断言 `{purged:1, scanned:1}`（与命名缺陷一致）。
+
+修改文件：`apps/api/src/jobs/group-recycle.ts`（删除步骤改为导出的 `groupRecycleDeleteSteps`（`{ table, buildQuery }`），补充缺失的 `membership_claim_requests`——其外键引用 `group_memberships`，顺序须在它之前；`scanned` 从“等于 purged”改为“级联 DELETE 受影响行数合计”，`purged` 保持“回收群组数”）；新增 `apps/api/src/jobs/group-recycle.spec.ts`（从 drizzle schema 元数据构建外键图，断言：①所有从 groups 经外键可达的表都被清单覆盖；②子表先于父表删除（拓扑序）；③groups 最后删除；TDD 过程中该测试先后抓出缺失表与顺序错误）；`apps/api/src/modules/platform-admin/platform-admin.integration.test.ts`（断言从 `{purged:1, scanned:1}` 改为 `purged=1 且 scanned > purged`）。
+
+语义等价审计与行为变化清单：删除行为仅新增 `membership_claim_requests` 清理（此前会漏删并可能在删除群组时触发外键阻塞）；`scanned` 语义变化（平台任务结果字段数值变大，字段本身未增删）；删除顺序经外键拓扑校验。
+
+测试结果：`pnpm verify` 587/587 ✅（73 个测试文件，隔离 MySQL；新增 1 条删除计划锁定测试）；定向集成 platform-admin 7/7（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#5.2 ✅；#3.6/#9.1/#9.2 暂缓至最后一批（保留 CloudBase 备用）。
+
+提交：`fix(jobs): lock group recycle coverage and fix scanned semantics`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. 锁定测试基于 drizzle 外键元数据：无外键约束但按 group 清理的遗留表（如 notification_preferences）不会被“可达”断言覆盖，只能靠显式清单保留；若未来想彻底解决，可改为运行时从 information_schema 生成删除计划。2. `scanned` 改为受影响行数合计后，平台任务汇总数值会变大（不再等于群组数），属预期变化。3. 若未来新增外键引用 groups 的表而忘记加删除步骤，`group-recycle.spec.ts` 会直接失败（这正是本轮的防护目标）。
+
+下次计划：按清单继续 #5.3（统计重建静默吞错，失败写入 `platformJobRuns.summary` 或结构化日志）；CloudBase 专属项最后一批统一处理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。

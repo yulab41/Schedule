@@ -133,7 +133,8 @@ describeWithDatabase('platform administration and recovery', () => {
 
     const recycle = new GroupRecycleJob(client);
     const result = await recycle.run(new Date('2026-08-02T00:00:00.000Z'));
-    expect(result).toEqual({ purged: 1, scanned: 1 });
+    expect(result.purged).toBe(1);
+    expect(result.scanned).toBeGreaterThan(result.purged);
 
     const [remainingGroups] = (await client.database.execute(
       sql`SELECT COUNT(*) AS count FROM \`groups\` WHERE id = ${groupId}`,

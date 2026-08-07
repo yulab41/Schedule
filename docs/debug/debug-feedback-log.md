@@ -743,9 +743,19 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#5.1 ✅；#3.6/#9.1/#9.2 暂缓（待 CloudBase 去留决策）。
 
+### 轮次 34（fix-progress #5.2，提交：fix(jobs): lock group recycle coverage and fix scanned semantics）
+- 用户决策（2026-08-07）：保留 CloudBase 备用；CloudBase 专属项（#3.6/#9.1/#9.2）不影响其他功能，统一放到最后一批一起做。
+- 目标/需求：群组回收的 27 条裸 SQL 手写级联清单容易漏加表，且 `scanned` 实际等于 `purged`；改为外键元数据锁定测试防漏加，并修正计数语义。
+- 根因：删除清单完全靠人工维护，无任何校验；`scanned` 只是“群组数”的别名。
+- 修复/功能：删除步骤改为导出的 `groupRecycleDeleteSteps`（含表名），补充缺失的 `membership_claim_requests`（外键引用 group_memberships，顺序在它之前）；`scanned` 改为级联 DELETE 受影响行数合计；新增 `group-recycle.spec.ts` 从 drizzle schema 外键元数据断言覆盖、拓扑序与 groups 最后删除（TDD 中先后抓出缺失表与顺序错误）；平台集成断言改为 `scanned > purged`。
+- 行为变化清单：新增 membership_claim_requests 清理（此前会漏删）；`scanned` 数值语义变化（受影响行合计，不再等于群组数）；删除顺序经拓扑校验。
+- 验证：`pnpm verify` 587/587 通过（73 个测试文件，隔离 MySQL）；定向集成 platform-admin 7/7。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：#5.2 ✅；#3.6/#9.1/#9.2 暂缓至最后一批（保留 CloudBase 备用）。
+
 ## 待办 / 下一步
 
-- 用户决策待办：CloudBase 保留还是弃用转阿里云（决定后处理 #3.6/#9.1/#9.2 或 CloudBase 清理轮）。
+- 用户决策待办：CloudBase 保留备用（2026-08-07 已确认）；#3.6/#9.1/#9.2 最后一批统一处理。
 - 用户强刷后复核：换班/加扣班/请假等幂等操作重放行为不变（轮次 32 相关，正常操作不易触发）。
 - 用户强刷后复核：日历不再显示“调”标记，排班补录页正常（轮次 31 相关，PWA 缓存已升 v6）。
 - 用户强刷后复核：生成/发布整段已过月份会提示前往“排班补录”（轮次 31 相关，正常操作不易触发）。

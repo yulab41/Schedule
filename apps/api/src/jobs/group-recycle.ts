@@ -9,46 +9,133 @@ export interface GroupRecycleRunResult {
   readonly scanned: number;
 }
 
-const deleteQueries: readonly ((groupId: string) => SQL)[] = [
-  (groupId) => sql`DELETE FROM export_jobs WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM statistics_recalc_checks WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM statistics_snapshots WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM notification_deliveries
+export interface GroupRecycleDeleteStep {
+  readonly table: string;
+  readonly buildQuery: (groupId: string) => SQL;
+}
+
+export const groupRecycleDeleteSteps: readonly GroupRecycleDeleteStep[] = [
+  {
+    table: 'export_jobs',
+    buildQuery: (groupId) => sql`DELETE FROM export_jobs WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'statistics_recalc_checks',
+    buildQuery: (groupId) => sql`DELETE FROM statistics_recalc_checks WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'statistics_snapshots',
+    buildQuery: (groupId) => sql`DELETE FROM statistics_snapshots WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'notification_deliveries',
+    buildQuery: (groupId) => sql`DELETE FROM notification_deliveries
                    WHERE notification_id IN (SELECT id FROM notifications WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM notifications WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM notification_settings WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM shift_assignments
+  },
+  {
+    table: 'notifications',
+    buildQuery: (groupId) => sql`DELETE FROM notifications WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'notification_settings',
+    buildQuery: (groupId) => sql`DELETE FROM notification_settings WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'shift_assignments',
+    buildQuery: (groupId) => sql`DELETE FROM shift_assignments
                    WHERE schedule_period_id IN (SELECT id FROM schedule_periods WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM schedule_periods WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM manual_schedule_cells
+  },
+  {
+    table: 'schedule_periods',
+    buildQuery: (groupId) => sql`DELETE FROM schedule_periods WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'manual_schedule_cells',
+    buildQuery: (groupId) => sql`DELETE FROM manual_schedule_cells
                    WHERE template_id IN (SELECT id FROM manual_schedule_templates WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM manual_schedule_template_members
+  },
+  {
+    table: 'manual_schedule_template_members',
+    buildQuery: (groupId) => sql`DELETE FROM manual_schedule_template_members
                    WHERE template_id IN (SELECT id FROM manual_schedule_templates WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM manual_schedule_templates WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM duty_adjustments WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM swap_requests WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM leave_requests WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM schedule_events WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM audit_logs WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM rotation_members
+  },
+  {
+    table: 'manual_schedule_templates',
+    buildQuery: (groupId) => sql`DELETE FROM manual_schedule_templates WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'duty_adjustments',
+    buildQuery: (groupId) => sql`DELETE FROM duty_adjustments WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'swap_requests',
+    buildQuery: (groupId) => sql`DELETE FROM swap_requests WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'leave_requests',
+    buildQuery: (groupId) => sql`DELETE FROM leave_requests WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'schedule_events',
+    buildQuery: (groupId) => sql`DELETE FROM schedule_events WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'audit_logs',
+    buildQuery: (groupId) => sql`DELETE FROM audit_logs WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'rotation_members',
+    buildQuery: (groupId) => sql`DELETE FROM rotation_members
                    WHERE rotation_rule_id IN (
                      SELECT id FROM rotation_rules
                      WHERE schedule_role_id IN (SELECT id FROM schedule_roles WHERE group_id = ${groupId})
                    )`,
-  (groupId) => sql`DELETE FROM rotation_rules
+  },
+  {
+    table: 'rotation_rules',
+    buildQuery: (groupId) => sql`DELETE FROM rotation_rules
                    WHERE schedule_role_id IN (SELECT id FROM schedule_roles WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM member_schedule_roles
+  },
+  {
+    table: 'member_schedule_roles',
+    buildQuery: (groupId) => sql`DELETE FROM member_schedule_roles
                    WHERE schedule_role_id IN (SELECT id FROM schedule_roles WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM shift_types WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM schedule_roles WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM group_member_contacts
+  },
+  {
+    table: 'shift_types',
+    buildQuery: (groupId) => sql`DELETE FROM shift_types WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'schedule_roles',
+    buildQuery: (groupId) => sql`DELETE FROM schedule_roles WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'group_member_contacts',
+    buildQuery: (groupId) => sql`DELETE FROM group_member_contacts
                    WHERE membership_id IN (SELECT id FROM group_memberships WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM notification_preferences
+  },
+  {
+    table: 'notification_preferences',
+    buildQuery: (groupId) => sql`DELETE FROM notification_preferences
                    WHERE membership_id IN (SELECT id FROM group_memberships WHERE group_id = ${groupId})`,
-  (groupId) => sql`DELETE FROM group_memberships WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM group_join_requests WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM roster_entries WHERE group_id = ${groupId}`,
-  (groupId) => sql`DELETE FROM \`groups\` WHERE id = ${groupId}`,
+  },
+  {
+    table: 'membership_claim_requests',
+    buildQuery: (groupId) => sql`DELETE FROM membership_claim_requests WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'group_memberships',
+    buildQuery: (groupId) => sql`DELETE FROM group_memberships WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'group_join_requests',
+    buildQuery: (groupId) => sql`DELETE FROM group_join_requests WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'roster_entries',
+    buildQuery: (groupId) => sql`DELETE FROM roster_entries WHERE group_id = ${groupId}`,
+  },
+  { table: 'groups', buildQuery: (groupId) => sql`DELETE FROM \`groups\` WHERE id = ${groupId}` },
 ];
 
 export class GroupRecycleJob {
@@ -64,13 +151,18 @@ export class GroupRecycleJob {
             ORDER BY deleted_at`,
       )) as unknown as [{ id: string }[], unknown];
 
+      let scanned = 0;
       for (const row of rows) {
-        for (const buildQuery of deleteQueries) {
-          await transaction.execute(buildQuery(row.id));
+        for (const step of groupRecycleDeleteSteps) {
+          const [header] = (await transaction.execute(step.buildQuery(row.id))) as unknown as [
+            { readonly affectedRows?: number },
+            unknown,
+          ];
+          scanned += header.affectedRows ?? 0;
         }
       }
 
-      return { purged: rows.length, scanned: rows.length };
+      return { purged: rows.length, scanned };
     });
   }
 }
