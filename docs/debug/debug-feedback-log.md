@@ -573,6 +573,7 @@
 - 状态：已完成，等待用户复核。
 
 ### 轮次 48（提交：fix(duty-adjustments): exclude past shifts from candidate options）
+
 - 用户反馈：加扣班页“我的班次”和管理员“被代班班次”仍会显示已过（既往）排班的班次；选择后点击提交申请或直接代值无反应（后端拦截），但没有提示；希望不要出现既往班次供操作者选择。
 - 根因：`buildDutyAdjustmentCandidates` 未像换班候选那样过滤未来班次，日历中的全部已发布班次（含已过日期/已开始班次）都进入两个下拉选项；后端 `assertFutureShift` 会拒绝这些班次，因此出现“可选但提交无效”的情况。
 - 修复/功能：加扣班候选改为只保留 `startsAt > now` 的未来班次，“我的班次”与管理员“被代班班次”同时生效，与换班候选和后端校验保持一致。
@@ -580,6 +581,7 @@
 - 状态：已完成，等待用户强刷复核。
 
 ### 轮次 49（提交：fix(swaps): surface active workflow blockers in preview）
+
 - 用户反馈：申请换班点击提交没反应，具体为“我的班次 2026-08-06 全天班·林恩宇”换“目标班次 2026-08-28 全天班·徐漫彬”；预览显示目标成员自动接受且群组无需审批、提交后立即生效，但点击提交无提示。
 - 复现：用本地 API 按相同两个班次调用预览返回 200 且无冲突，调用创建返回 409“其中一个班次已有待处理或生效中的加扣班关系，请先撤销后再换班。”。
 - 根因：08-06 班次上存在一条已完成但未撤销的加扣班（林恩宇替洪晨善），后端在创建时正确拦截；但换班预览没有检查活跃工作流，前端收到 CONFLICT 后又统一替换成通用提示，导致用户看到“可提交但无反应”。
@@ -588,6 +590,7 @@
 - 状态：已完成，等待用户强刷复核（需先撤销该加扣班后才能继续换班，预览现在会明确提示）。
 
 ### 轮次 50（提交：fix(leaves): exclude exclusive end date from affected shifts）
+
 - 用户反馈：请假审批显示“08-24 至 08-27（共 4 天）”却提示“请假期间涉及 1 个已发布班次：2026-08-28”，但重排策略没有触发。
 - 根因：`loadReflowContext` 统计受影响班次时使用 `businessDate <= leaveEndDate`，而全天请假 `endsAt` 是排他边界（08-28 00:00 表示只到 08-27），把结束日当天误算进“受影响班次”；重排逻辑使用 `leaveOverlapsInterval`（排他）所以未触发，造成提示与重排不一致。
 - 修复/功能：受影响班次数量与列表的截止比较改为 `businessDate < leaveEndDate`，与全天请假排他语义及重排逻辑一致。
@@ -595,6 +598,7 @@
 - 状态：已完成，等待用户强刷复核。
 
 ### 轮次 51（提交：fix(duty-adjustments): surface leave conflicts after reload and keep specific message）
+
 - 用户反馈：管理员直接代值时，加班成员正处于请假期间，提交被拦截但没有任何提示。
 - 根因：前端 `catch` 先写入 `errorMessage`，随后调用 `loadData()`，而 `loadData()` 开头会清空 `errorMessage`，导致提示在渲染前被清除；加扣班后端对资格/请假冲突也只返回泛化提示。
 - 修复/功能：加扣班与换班页面的冲突提示改为“刷新数据后再设置提示”，避免被 `loadData()` 清空；加扣班后端把具体冲突信息（如“该成员在班次时间内有待处理或已批准请假。”）作为提示返回。
@@ -602,6 +606,7 @@
 - 状态：已完成，等待用户强刷复核。
 
 ### 轮次 52（提交：feat(scheduling-config): delete custom shift types and fix role delete success message）
+
 - 用户反馈：新增自定义班种没有删除按钮；删除岗位时同时出现“该排班岗位已用于排班，为保留历史数据不能删除。”和“排班岗位“护理”已删除。”两条提示，但岗位实际没有删除。
 - 根因：前端 `save()` 会吞掉接口错误并正常返回，`deleteRole` 随后无条件写入“已删除”成功提示；后端岗位删除会检查所有排班记录（含已下架/历史）以保留历史数据，本地库中“护理”仍有 published 与 past 记录，因此拒绝是符合保护的。
 - 修复/功能：新增自定义班种删除接口与前端“删除”按钮（仅自定义班种可见；内置班种禁止删除；仍被轮值规则或手动模板使用时拦截）；`save()` 改为返回是否成功，只有真正删除成功才显示“已删除”提示。
@@ -609,6 +614,7 @@
 - 状态：已完成，等待用户强刷复核。
 
 ### 轮次 53（提交：fix(scheduling-config): ignore soft-deleted schedule periods when deleting role）
+
 - 用户反馈：已发布排班和已归档排班中都看不到护理岗位，认为此前“已用于排班”的拦截是数据未对齐。
 - 确认：当前群组“头颈外科”的“护理”岗位只有一条 2026-10 排班期间，状态为 `withdrawn` 且 `deleted_at` 已有值（软删除），页面不显示是正确的；但岗位删除检查把已软删除的排班记录也计入，导致误拦截。
 - 修复/功能：删除岗位时只检查未删除的排班期间；已软删除的 withdrawn/past 记录不再阻止岗位删除。
@@ -616,6 +622,7 @@
 - 状态：已完成，等待用户强刷复核。
 
 ### 轮次 54（提交：fix(swaps): block revoking earlier swaps while later workflows exist）
+
 - 用户反馈：8/21、8/22 的换班/加扣班标签都已撤销“能撤销的”，但日历仍显示换班与加扣班标签；怀疑是事件先后顺序识别冲突导致无法撤销。
 - 根因：较早的一次换班被乱序撤销，导致后续仍为 completed 的换班/加扣班实际人员不再匹配；它们在界面中不可撤销，但状态仍为生效，日历标签因此保留。
 - 修复/功能：换班撤销增加“后续还有换班或加扣班时禁止撤销”的顺序保护；对本地已损坏的数据执行修复式归档（写入撤销事件、不改实际值班），8/21、8/22 标签已清除。
@@ -623,6 +630,7 @@
 - 状态：已完成，等待用户强刷复核。
 
 ### 轮次 55（提交：feat(workflows): auto-archive stale completed workflows with monotonic ordering）
+
 - 用户反馈/需求：实现“失效工作流自动归档/自愈”机制——检测 completed 但实际人员/资源已不匹配、且没有后续有效工作流的记录，自动写入撤销事件并归档（移出活跃数据区），不再阻塞后续操作或残留日历标签；完全自动化且幂等、可追溯；同毫秒创建的 createdAt 比较可能漏判，需要更可靠排序；用户确认可增加一次启动巡检扫描。
 - 根因：completed 但实际失配的记录只在读模型标记 `isRevocable=false`，数据库状态不变；撤销入口要求实际人员匹配，因此这类记录既无法界面撤销、也无自动归档，日历标签（依赖撤销事件）和审批列表一直残留；`findLaterAssignmentWorkflows` 用毫秒级 `createdAt >` 比较，同毫秒可能漏判。
 - 修复/功能：
@@ -636,6 +644,7 @@
 - 状态：已完成，待部署验证。
 
 ### 轮次 56（提交：fix(api): map unsupported content types to 415 instead of 500）
+
 - 用户反馈/需求：排查 Fastify 对不支持的 Content-Type 返回 500（应为 4xx）的问题，仅影响非标准客户端（如 PowerShell 无 body POST）。
 - 根因：Fastify 框架错误 `FST_ERR_CTP_INVALID_MEDIA_TYPE`（415）与 `FST_ERR_CTP_INVALID_JSON_BODY`（400）未被错误处理器识别，统一落入 500。
 - 修复/功能：错误处理器识别 Fastify 框架 4xx 错误并保留其状态码；415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`（契约与 Web 客户端已知码表同步），其余框架 4xx 映射 `VALIDATION_FAILED`。
@@ -644,6 +653,7 @@
 - 状态：代码与数据库已就绪，待用户为 CloudBase 环境充值/恢复可用后重新触发部署验证。
 
 ### 轮次 57（提交：fix(web): keep the native fetch receiver for API requests）
+
 - 用户反馈/需求：本地部署首页可显示，但点击“本地管理员/本地成员”（开发模式登录按钮，即管理员/成员模式）后都无法进入页面，停留登录页并提示“无法连接到服务，请检查网络后重试。”
 - 根因：`apps/web/src/api/client.ts` 的 `requestWithOnline` 以 `options.fetchImplementation(...)` 形式调用 fetch，`this` 被绑定到 `options` 普通对象；浏览器原生 `fetch` 要求接收者为 Window/globalThis，在 ES Module 严格模式下抛出 `TypeError: Failed to execute 'fetch' on 'Window': Illegal invocation`，被统一捕获为 `NETWORK_ERROR`，请求根本没有发出（Playwright 路由与网络面板均无 `/api/users/me` 请求）。
 - 修复/功能：改为 `options.fetchImplementation.call(globalThis, url, init)`，显式传回全局接收者；自定义 fetch（测试 mock）行为不变。
@@ -652,6 +662,7 @@
 - 状态：已完成，待用户浏览器强刷复核。
 
 ### 轮次 24（fix-progress #8.1，提交：2c60b59 refactor(web): extract shared toUserMessage for error copy）
+
 - 目标/需求：合规审查发现 15 个页面重复“`error instanceof ApiClientError ? error.message : '<兜底>'`”错误文案模板，且各有微调；抽取共享 `toUserMessage(error, fallback)` 并统一处理规则。
 - 根因：功能开发时逐页复制文案模板，组件侧出现 `ApiClientError` 与 `Error` 两种变体；`stores/session.ts` 已有的共享 `getErrorMessage`（Error 语义）未被组件复用。
 - 修复/功能：新增 `apps/web/src/utils/user-message.ts` 的 `toUserMessage(error, fallback)`（`error instanceof Error && error.message.length > 0 ? error.message : fallback`）；21 个调用方（19 个页面/组件 + LoginView + session store）删除本地 `getErrorMessage`/内联三元并改为传原兜底文案调用；`session.ts` 删除导出 `getErrorMessage`，登录链路统一到同一工具；16 个仅用 `ApiClientError` 做文案判断的文件移除该导入（DutyAdjustmentPanel/SwapPanel 保留冲突判断）。
@@ -661,6 +672,7 @@
 - 状态：已完成，待用户浏览器强刷复核。
 
 ### 轮次 25（fix-progress #3.7，提交：bcecee7 fix(api): map framework 4xx errors to contract codes）
+
 - 目标/需求：合规审查发现除 415 外任何框架 4xx（400/404/429 等）都被错误处理器归一化为 `VALIDATION_FAILED`，丢失语义；按状态码映射到契约错误码并补测试。
 - 根因：轮次 56 修复 415 时只做“statusCode === 415 ? UNSUPPORTED_MEDIA_TYPE : VALIDATION_FAILED”的特判，未覆盖其他框架 4xx。
 - 修复/功能：`apps/api/src/plugins/error-handler.ts` 新增 `frameworkErrorMappings` 映射表（400→VALIDATION_FAILED、404→NOT_FOUND、415→UNSUPPORTED_MEDIA_TYPE、429→RATE_LIMITED），未列入的 4xx 保持 VALIDATION_FAILED 兜底；`setNotFoundHandler` 复用 `notFoundErrorMessage` 常量。
@@ -670,6 +682,7 @@
 - 状态：已完成（接口错误码语义化，用户界面无直接变化）。
 
 ### 轮次 26（fix-progress #4.2，提交：b423807 refactor(workflows): unify swap and duty conflict assertions）
+
 - 目标/需求：合规审查发现 `WorkflowConflictService` 已统一冲突查询，但 swap/duty 仍各自保留“预检冲突 + 事务内断言”两套私有包装，消息文案与 latestData 结构互不相同；统一为一个共享接口。
 - 根因：统一冲突查询落地后（#4.1 相关轮次），服务侧未同步收敛私有断言，形成半重构残留。
 - 修复/功能：`WorkflowConflictService.assertNoWorkflowConflicts` 单一接口（资格冲突优先、userMessage 统一为冲突 message 拼接、latestData = 调用方上下文 + conflicts）；swap 4 个入口与 duty 4 个入口改调共享接口，删除各自 `assertNo*Conflicts`/`assertNoActiveWorkflow*` 私有方法；swap accept/approve 沿用旧行为只重查资格冲突（`findSwapAssignmentConflicts` 无排除参数，会把当前请求自身算作冲突，代码注释说明）。
@@ -679,6 +692,7 @@
 - 状态：已完成（API 冲突响应文案/结构统一，用户界面无直接变化）。
 
 ### 轮次 27（fix-progress #4.3 子步骤 1，提交：beae8e8 refactor(workflows): extract authorized mutation entry skeleton）
+
 - 目标/需求：#4.3 拆多轮的第一步——把 swap/duty 各 7 个事务入口重复的“开事务 → 鉴权 → 幂等执行”样板抽成共享骨架，服务只提供权限、指纹、作用域与领域 run 函数。
 - 根因：三个 1000+ 行服务从功能开发起各自复制 runXxx 入口样板，整体呈“上帝服务”形态。
 - 修复/功能：新增 `apps/api/src/modules/workflows/workflow-operation.ts` 的 `runAuthorizedMutation`；swap 6 个入口（create/createDirect/accept/approve/reject/cancel）与 duty 7 个入口（create/createDirect/accept/approve/reject/cancel/revoke）改调共享骨架；duty 删除 `withIdempotentOperation` 导入，swap 保留（`revokeCompleted` 在幂等操作前有锁定 + 成员/管理员角色预检，暂不迁移，避免改变错误优先级）。
@@ -688,6 +702,7 @@
 - 状态：已完成（#4.3 子步骤 1；#4.3 整体进行中）。
 
 ### 轮次 28（fix-progress #4.3 子步骤 2a，提交：65bed71 refactor(workflows): consolidate shared workflow dependencies）
+
 - 目标/需求：#4.3 拆多轮的第二步——把换班/加扣班/请假三个服务各自实例化的同一套依赖收敛为共享容器，消除“三件套”重复实例化。
 - 根因：三个 1000+ 行服务从功能开发起各自 `new` eventWriter/notificationWriter/permissionService 等依赖，新增依赖需改三处。
 - 修复/功能：新增 `apps/api/src/modules/workflows/workflow-services.ts` 的 `WorkflowServices` 容器（含成员读取、冲突查询、统计、自愈等全部共享依赖，构造无副作用）；三个服务删除各自依赖字段与构造逻辑，131 处 `this.<dep>` 引用改为 `this.services.<dep>`，类型导入保留。
@@ -697,6 +712,7 @@
 - 状态：已完成（#4.3 子步骤 2a；#4.3 整体进行中）。
 
 ### 轮次 29（fix-progress #4.3 子步骤 2b，提交：7fcd6ae refactor(workflows): migrate leave entries to shared mutation skeleton）
+
 - 目标/需求：#4.3 拆多轮的第三步——leave approve/reject/cancel/revoke 迁到共享入口骨架，approve 的“冲突拦截写通知”由骨架错误钩子承载。
 - 根因：三服务入口样板自功能开发起复制演进；leave approve 额外带 try/catch 写冲突通知，与其他入口形态不同。
 - 修复/功能：`runAuthorizedMutation` 改为 async + try/catch，新增可选 `onError`（事务回滚后、rethrow 前执行）；leave approve 用 `onError` 承载原 `isConflictBlockedError` + `writeConflictNotification` 逻辑，reject/cancel/revoke 迁移到骨架；删除 leave 的 `withIdempotentOperation` 导入。
@@ -706,6 +722,7 @@
 - 状态：已完成（#4.3 子步骤 2b；#4.3 整体进行中，剩 swap revokeCompleted 与 submit 幂等化评估）。
 
 ### 轮次 30（fix-progress #4.3 收尾 + #4.4，提交：e5608cf refactor(api): complete workflow entry skeleton and merge soft delete helpers）
+
 - 目标/需求：#4.3 收尾（swap `revokeCompleted` 前置检查迁移、submit 幂等化评估）与 #4.4（两个软删除函数合并）。
 - 根因：#4.3 剩最后一个未迁移入口（幂等前有锁定 + 角色预检）；#4.4 两个软删除函数整段复制仅差一个日期条件。
 - 修复/功能：`runAuthorizedMutation` 新增 `beforeIdempotentOperation` 钩子（鉴权后、幂等键写入前执行），swap `revokeCompleted` 迁入钩子并删除 `withIdempotentOperation` 导入；`softDeleteAssignments` 增加可选 `beforeBusinessDate` 参数，删除 `softDeleteAssignmentsBefore`；submit 幂等化评估：契约无 operationId，保持现状、另开轮。
@@ -715,6 +732,7 @@
 - 状态：#4.3 ✅、#4.4 ✅。
 
 ### 轮次 31（fix-progress #4.5 + #7.6，提交：60d918a feat(schedules): reject fully past months and drop manual-adjustment marker）
+
 - 用户决策：#4.5 方案 1（整月早于当前业务月才拒绝，当月/今天允许，跨月按保留既往逻辑）；#7.6 方案 A（移除“调”映射与渲染，保留历史事件数据，不做数据迁移）。
 - 目标/需求：#4.5 发布/自动生成补上“仅未来日期”限制；#7.6 结束 manual-adjustment“调”标记的半移除状态。
 - 根因：#4.5 发布/生成入口无日期校验，可生成/发布整段已过月份；#7.6 契约/查询/Web 仍保留 manual-adjustment → “调”映射，旧事件继续显示“调”。
@@ -725,6 +743,7 @@
 - 状态：#4.5 ✅、#7.6 ✅（待用户强刷复核：日历不再显示“调”、生成/发布过去月份提示补录）。
 
 ### 轮次 32（fix-progress #3.5，提交：370bb87 fix(api): treat only duplicate key errors as idempotency replays）
+
 - 目标/需求：幂等键首次 insert 的宽 catch 把“唯一键冲突”和“数据库故障”混为一谈，故障路径会做两次无谓插入尝试；改为仅 MySQL 重复键（`ER_DUP_ENTRY`）走查重路径。
 - 根因：`withIdempotentOperation` 的 catch 无异常类型判断，任何 insert 失败都会先读再插。
 - 修复/功能：新增 `apps/api/src/database-error.ts` 的 `getDatabaseErrorCode`（沿 code/cause 链读取驱动错误码）与 `isDuplicateKeyError`；`idempotency.ts` 的 catch 改为非重复键立即 rethrow，重复键路径（查重/指纹冲突/completed 重放/processing 冲突/过期重试）逐分支不变。
@@ -734,6 +753,7 @@
 - 状态：#3.5 ✅。
 
 ### 轮次 33（fix-progress #5.1 + CloudBase 暂缓决策，提交：de07489 fix(jobs): count missing notifications and subscriptions as skipped）
+
 - 用户决策（2026-08-07）：后续可能弃用 CloudBase 改用阿里云；CloudBase 专属项 #3.6/#9.1/#9.2 暂缓，待平台去留决策；若弃用则另开一轮清理 CloudBase 专用代码。
 - 目标/需求：通知重试的 skipped 指标在“已配置推送”路径恒为 0，“通知不存在/订阅失效”被误计 failed；让 `processDelivery` 返回三态并如实计数。
 - 根因：`processDelivery` 只返回 `failed | sent`，内部把“无法发送（缺失依赖）”与“发送失败”混为 failed。
@@ -744,6 +764,7 @@
 - 状态：#5.1 ✅；#3.6/#9.1/#9.2 暂缓（待 CloudBase 去留决策）。
 
 ### 轮次 34（fix-progress #5.2，提交：9e4a676 fix(jobs): lock group recycle coverage and fix scanned semantics）
+
 - 用户决策（2026-08-07）：保留 CloudBase 备用；CloudBase 专属项（#3.6/#9.1/#9.2）不影响其他功能，统一放到最后一批一起做。
 - 目标/需求：群组回收的 27 条裸 SQL 手写级联清单容易漏加表，且 `scanned` 实际等于 `purged`；改为外键元数据锁定测试防漏加，并修正计数语义。
 - 根因：删除清单完全靠人工维护，无任何校验；`scanned` 只是“群组数”的别名。
@@ -754,6 +775,7 @@
 - 状态：#5.2 ✅；#3.6/#9.1/#9.2 暂缓至最后一批（保留 CloudBase 备用）。
 
 ### 轮次 35（fix-progress #5.3，提交：7be3749 fix(jobs): record statistics rebuild failure context）
+
 - 目标/需求：统计重建对单个月份刷新失败只 `catch { failed += 1 }`，失败月份/群组/原因无法定位；要求把错误写入 `platformJobRuns.summary` 或结构化日志。
 - 根因：统计重建任务自引入起即静默累计失败计数，未记录失败上下文（审计卡 #5.3 登记）。
 - 修复/功能：`StatisticsRebuildJob` 结果新增 `failures`（businessMonth/groupId/error，单条错误截断 500 字符与 summary 列上限一致），经 `recordJobRun` 自动写入 `platform_job_runs.summary`（计数在前，500 截断不丢计数；run-job/cloudbase-runner 控制台日志保留全量）；新增 `StatisticsRefresher` 可注入接缝（与 NotificationRetryJob 注入 dispatcher 同模式），默认仍用 `StatisticsService`。
@@ -763,6 +785,7 @@
 - 状态：#5.3 ✅（纯后端任务结果字段扩展，无用户界面变化，无需用户强刷）。
 
 ### 轮次 36（fix-progress #6.1/#6.2，提交：9ff2513 refactor(migrations): merge workflow sequence backfill and add overlap validation）
+
 - 目标/需求：0030/0031 两份工作流序列回填 SQL 逐行复制（只差 UPDATE 目标表），且回填序列与 0029 播种的分配区间无一致性校验；要求合并回填并确认新旧序列空间不重叠。
 - 根因：轮次 55 引入单调序列时，swap/duty 各写一份排名字查询；0029 播种无 ORDER BY，0031 无校验。
 - 修复/功能：0030 改为临时排名表只计算一次 ROW_NUMBER，再分别 UPDATE swap/duty（排序注释与 `allocateWorkflowSequence` 语义一致）；0029 播种补显式 `ORDER BY created_at ASC, workflow_kind ASC, id ASC`；0031 保留文件名（兼容 journal）但改为校验迁移——回填最大值超过播种分配上限或序列重复时触发 CHECK 约束报错；`migrations.test.ts` 新增 2 条行为测试（排序/区间锁定 + 越界拒绝）。
@@ -772,6 +795,7 @@
 - 状态：#6.1 ✅、#6.2 ✅（纯迁移与测试，无用户界面变化，无需用户强刷）。
 
 ### 轮次 37（fix-progress #2.2，提交：fd708c8 refactor(database): initialize UTC session via public pool connection event）
+
 - 目标/需求：数据库客户端 `pool.pool.on(...)` 依赖 mysql2/promise 私有底层对象，且 SET time_zone 的异步回调没有显式的“先于业务查询完成”保证；要求改用公开 API 并加注释说明动机。
 - 根因：客户端初始化时即使用 `pool.pool` 私有对象挂连接事件（审计卡 #2.2 登记）。
 - 修复/功能：`createPool` 改为回调版 `mysql2`，注册公开 `pool.on('connection', ...)`，`pool.promise()` 交给 drizzle；注释说明 mysql2 连接建立事件先于连接出借触发、SET 命令同步入队且单连接 FIFO 串行，首个业务查询必在 SET 完成后执行；SET 失败仍销毁连接。新增 `client.test.ts` 2 条锁定测试（并发双连接 + 事务连接首次查询前会话已是 UTC）。
@@ -781,6 +805,7 @@
 - 状态：#2.2 ✅（无用户界面变化，无需用户强刷）。
 
 ### 轮次 38（fix-progress #1.3 + #9.3，提交：0046de1 refactor(tests): share fake auth port and database reset fixtures）
+
 - 目标/需求：#1.3 清理工作区残留（空目录/日志/CloudBase 打包产物，不入库）；#9.3 消除加载/安全测试中重复维护的 DB 重置与认证桩。
 - 根因：残留产物自开发期累积；`createFakeAuthPort`/`resetDatabase` 在各测试文件复制演进。
 - 修复/功能：`@schedule/test-fixtures` 新增共享 `createFakeAuthPort(resolveCloudbaseUid)` 与 `resetDatabase(client)`；load 测试的 `load-token-*` 解析器与 security 测试的 token 表改为传入解析函数，删除两处本地副本；`test-fixtures/tsconfig.build.json` 补 `paths: {}`；tests/load、tests/security 增加 test-fixtures workspace 依赖并更新锁文件；新增 `auth.test.ts` 1 条锁定测试。工作区清理：删除 `cloudfunctions/auth-identity-probe` 空目录、16 个 local-*.log、2 份 CloudBase 打包产物（约 6.9MB）；node_modules/dist 保留为本地工具链功能依赖。
@@ -789,9 +814,17 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：#1.3 ✅（已清理，不入库）、#9.3 ✅（测试基础设施，无用户界面变化）。
 
+### 轮次 39（CloudBase 弃用清理 + 阿里云部署审计，提交：16aea99 refactor!: remove CloudBase platform and switch web auth to local auth）
+
+- 用户决策：CloudBase 不保留，可清理；后续以阿里云服务器做部署；顺便检查阿里云部署是否有与 CloudBase 一样的问题。
+- 修复/功能：删除 CloudBase 专属代码（cloudbase-handler、cloudbase-auth 两适配器、cloudbase-runner、infra/cloudbase、deploy-development.yml、CloudBase 文档）与三个 @cloudbase 依赖；前端认证替换为 `local-auth.ts`（dev identity 会话；密码登录返回“尚未实现”）；API 生产环境不再静默回退 CloudBase SDK，未配置 authPort 且非开发模式时启动报错；`compose.prod.yml` 试用期改为 `NODE_ENV=development + AUTH_DEV_MODE=true`（修复原认证配置不一致，否则开发认证不生效并回退 CloudBase）；README/部署/设计文档改为阿里云方案；`cloudbaseUid` 业务字段与 `users.cloudbase_uid` 列保留（持久化，重命名需迁移）。
+- 阿里云审计结论：无惰性单例竞态（常驻进程）、无跨目录源码导入（运行 dist）、环境变量由 compose 显式声明；遗留问题——定时任务未配置 cron、api 容器未纳入健康检查依赖、`runtime/api-flat` 需在下次部署前重新生成、自建认证未实现。
+- 验证：`pnpm verify` 582/582 通过（72 个测试文件，隔离 MySQL；删除 12 条 CloudBase 专属测试）；运行/浏览器验证：pnpm smoke:browser 通过（管理员/成员/访客全流程无浏览器错误，临时 3002/5175 服务已关闭）；pnpm smoke:check-core 通过（核心链路 auth/session/client 有改动，记录满足校验）。
+- 状态：CloudBase 清理完成，#3.6/#9.1/#9.2 ✅；部署目标固定阿里云 ECS（待用户部署/验收）。
+
 ## 待办 / 下一步
 
-- 用户决策待办：CloudBase 保留备用（2026-08-07 已确认）；#3.6/#9.1/#9.2 最后一批统一处理。
+- 用户决策（2026-08-07）：CloudBase 弃用并已清理；部署目标固定阿里云 ECS；#3.6/#9.1/#9.2 随平台清理关闭。
 - 用户强刷后复核：换班/加扣班/请假等幂等操作重放行为不变（轮次 32 相关，正常操作不易触发）。
 - 用户强刷后复核：日历不再显示“调”标记，排班补录页正常（轮次 31 相关，PWA 缓存已升 v6）。
 - 用户强刷后复核：生成/发布整段已过月份会提示前往“排班补录”（轮次 31 相关，正常操作不易触发）。
@@ -813,10 +846,10 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（用户决定暂不上线，2026-08-07）：fix-progress 轮次 38（#1.3 工作区清理 + #9.3 共享测试基建）已完成，非 CloudBase 合规项全部完成；下一目标为 CloudBase 专属项 #3.6/#9.1/#9.2 最后一批（待平台去留决策）；新发现 TODO：tests/security typecheck 因 web-push 缺类型声明失败（非本轮引入）。本地部署持续维护，API 3000/3001 与 Web 5173/5174 保持最新构建；CloudBase/阿里云上线验证暂停，待用户决定后再继续。
-- 上线状态（暂停）：线上库迁移已执行至 0031（含 0026–0031）；API/schedule-jobs 与静态托管已上传；CloudBase 环境余额不足（`InsufficientBalance`）导致 `/api/health` 无法响应——按用户决定暂不上线，不再作为当前动作。
+- 下一活动批次（2026-08-07）：CloudBase 清理完成，按阿里云部署路径推进——自建账号密码认证、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署；新发现 TODO：tests/security typecheck 因 web-push 缺类型声明失败（非本轮引入）。
+- 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
-- 需要上线 CloudBase 时：在 GitHub Actions 手动运行 Deploy Development（会先构建最新代码并做健康检查）；部署前若含新迁移需先对线上库执行迁移。
+- 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。
 - 本地库重置后需重新导入并确认 2026 节假日（步骤见 `infra/holidays/README.md`）；必要时把本地节假日种子并入 `pnpm dev` 初始化。
 - 继续按本日志模板追加用户测试反馈与修复记录。
-- 微信小程序：等 Web 功能稳定后按设计 26.1 另建独立实施计划（账号绑定沿用 CloudBase UID 方案）。
+- 微信小程序：等 Web 功能稳定后按设计 26.1 另建独立实施计划（账号绑定沿用现有外部 UID 方案，自建认证落地后确定）。

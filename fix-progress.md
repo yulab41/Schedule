@@ -13,6 +13,7 @@
 ## 1. 修复任务约束协议（每轮必须遵守）
 
 ### 核心原则
+
 1. **分批修复**：每轮对话只解决一个问题簇（本文件编号，如 #3.1 或 #7.3）。不允许擅自扩大范围。
 2. **测试先行**：每轮开始前先跑基线测试确认通过；对严重问题（尤其 #3.1、#4.1）先写“锁定当前行为”的测试，确认它能通过后再重构。
 3. **小步提交**：每次修改后用 `git diff --stat` 展示变更清单；不要一次性提交大量改动。
@@ -20,12 +21,14 @@
 5. **Git checkpoint**：每个问题簇完成后按 AGENTS.md 规则 commit 并 push；改炸了就丢弃分支，零成本回滚，绝不强行修复。
 
 ### 四项铁律
+
 - ①不打补丁：禁止临时性、环境特判代码；修复必须永久、可解释。
 - ②代码自解释：命名清晰；注释只写“为什么”，不写“是什么”。
 - ③不留残渣：删除死代码、过期文档、无用导出、注释块、console.log、未使用变量。
 - ④部署一致：环境变量同步 `.env.example` 与文档；路径/构建产物可复现。
 
 ### 每轮执行流程
+
 1. 确认基线：`pnpm verify`（本项目无 `migrate:check` 脚本；涉及迁移时用现有 `pnpm --filter @schedule/api migrate` + `packages/database/tests/migrations.test.ts` 代替）。
 2. 理解目标：读本文件对应编号的问题描述，明确文件与预期行为；对“回归/修复”按上方“防回归约束”先定位引入点（`git log -S`/`git blame`）。
 3. 制定方案：不超过 5 句话说明修改计划；涉及重构必须声明“行为等价”，并给出逐调用点语义审计结论。
@@ -36,6 +39,7 @@
 8. 回复末尾：列出本次最不确定的 1–3 个点（如果出错会表现为什么症状）。
 
 ### 硬性约束
+
 - 禁止 `any` / `as any`；类型严格推导（现有 `as unknown as` 遗留按所属问题簇逐步清理）。
 - 涉及环境变量：必须同步 `.env.example` 和相关文档。
 - 涉及数据库迁移：修改前后跑迁移验证。
@@ -57,40 +61,40 @@
 
 优先级说明：P0 = 用户点名且防数据损坏/事故复发；P1 = 收益高、风险可控或零风险；P2 = 收益中等；P3 = 低收益或需先确认产品决策。每个编号先做“锁定行为测试”，再重构。
 
-| 优先级 | 编号 | 问题 | 原严重度 | 风险 | 收益 | 备注 |
-|---|---|---|---|---|---|---|
-| ✅ | #3.1 | starts_at 环境补丁散落 12 处 | 严重 | 中 | 极高（防线上数据损坏复发） | 已完成（轮次 1）：统一助手 + 锁定测试，见第 7 节 |
-| ✅ | #4.1 | swap/duty 服务复制（loadMembers/loadRoleNames） | 严重 | 中 | 极高 | 已完成（轮次 2）：共享 GroupMemberReader + 锁定测试，见第 7 节 |
-| ✅ | #7.3 | 中国时区算法在 9 个文件重复 | 严重 | 中低 | 高（时区事故反复出现） | 已完成（轮次 3）：统一到 scheduling-domain 并机械替换，见第 7 节 |
-| ✅ | #3.2 | 日志/审计脱敏清单双份且已漂移 | 严重 | 低 | 高（安全控制） | 已完成（轮次 4）：合并为共享脱敏模块，见第 7 节 |
-| ✅ | #1.1 | 文档过期/自相矛盾（待办、轮次、415） | 轻微 | 零 | 中 | 已完成（轮次 5）：重写待办/下一步与轮次表述，见第 7 节 |
-| ✅ | #3.3 | 任务分派默认分支静默落到导出任务 | 轻微 | 极低 | 中 | 已完成（轮次 6）：`Record<JobName, Factory>` 穷举映射 + 锁定测试，见第 7 节 |
-| ✅ | #3.4 | AUTH_DEV_MODE 无 NODE_ENV 防线 | 轻微 | 低 | 中（安全） | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节 |
-| ✅ | #7.5 | event-timeline 死代码（含 spec 续命） | 轻微 | 极低 | 中 | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节 |
-| ✅ | #2.1 | ui-tokens CSS/TS 双份维护 | 严重 | 低 | 中高 | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节 |
-| ✅ | #2.2 | 数据库客户端使用 mysql2 内部属性并异步设时区 | 轻微 | 低 | 中（防时区事故） | 已完成（轮次 37）：公开 connection 事件 + 顺序保证注释与锁定测试，见第 7 节 |
-| ✅ | #7.1 | client.ts 2200 行手写校验器 + 重复请求函数 | 严重 | 高 | 极高 | 已完成（轮次 12–22）：子步骤 1–3 全部完成，113 个读模型守卫替换为契约 schema，见第 7 节 |
-| ✅ | #7.2 | 客户端错误码表与契约联合类型双份维护 | 轻微 | 低 | 中 | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节 |
-| ✅ | #7.4 | 前端 swap/duty 候选与 isFutureAssignment 重复 | 轻微 | 低 | 中 | 已完成（轮次 23）：合并共享 workflow 逻辑，见第 7 节 |
-| ✅ | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 已完成（轮次 24）：抽共享 toUserMessage，见第 7 节 |
-| ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
-| ✅ | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 已完成（轮次 25）：按状态码映射，见第 7 节 |
-| ✅ | #4.2 | 冲突断言双轨（swap/duty 各自“预检 + 断言”） | 轻微 | 高 | 高 | 已完成（轮次 26）：统一为共享 `assertNoWorkflowConflicts`，见第 7 节 |
-| ✅ | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 已完成（轮次 27–30）：入口骨架 + 依赖容器 + 全部入口迁移，见第 7 节 |
-| ✅ | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | 已完成（轮次 31，用户确认方案 1）：整段已过月份拒绝，见第 7 节 |
-| ✅ | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | 已完成（轮次 31，用户确认方案 A）：移除渲染、保留事件数据，见第 7 节 |
-| ✅ | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 已完成（轮次 32）：仅重复键走查重路径，见第 7 节 |
-| ⏸️ | #3.6 | CloudBase 处理器惰性单例竞态 | 轻微 | 低 | 低中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
-| ⏸️ | #9.2 | 云函数入口跨目录相对导入 | 轻微 | 低中 | 中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
-| ⏸️ | #9.1 | cloudbaserc 未声明 env，环境不可复现 | 轻微 | 低 | 中 | 暂缓至最后一批（保留 CloudBase 备用，2026-08-07 用户决定） |
-| ✅ | #6.1/#6.2 | 迁移 0030/0031 复制 + 序列一致性无校验 | 轻微 | 低 | 低中 | 已完成（轮次 36）：合并回填 + 校验迁移与测试，见第 7 节 |
-| ✅ | #5.1 | notification-retry 的 skipped 恒为 0 | 轻微 | 低 | 低 | 已完成（轮次 33）：返回三态并如实计数，见第 7 节 |
-| ✅ | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | 已完成（轮次 34）：外键元数据锁定测试 + scanned 语义修正，见第 7 节 |
-| ✅ | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 已完成（轮次 35）：失败上下文写入 summary 与运行日志，见第 7 节 |
-| ✅ | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 已完成（轮次 30）：合并带可选截止日期，见第 7 节 |
-| ✅ | #1.2 | .env.example 缺开发模式开关 | 轻微 | 零 | 低 | 已完成（轮次 7）：随 #3.4 一并补两个开关项，见第 7 节 |
-| ✅ | #1.3 | 工作区残留（空目录/日志/构建产物） | 轻微 | 零 | 低 | 已完成（轮次 38）：清理空目录/日志/CloudBase 打包产物，见第 7 节 |
-| ✅ | #9.3 | 加载/安全测试直写 DB 与 stub 认证 | 轻微 | 低 | 低 | 已完成（轮次 38）：共享认证桩与 resetDatabase 收敛到 test-fixtures，见第 7 节 |
+| 优先级 | 编号      | 问题                                            | 原严重度     | 风险 | 收益                       | 备注                                                                                    |
+| ------ | --------- | ----------------------------------------------- | ------------ | ---- | -------------------------- | --------------------------------------------------------------------------------------- |
+| ✅     | #3.1      | starts_at 环境补丁散落 12 处                    | 严重         | 中   | 极高（防线上数据损坏复发） | 已完成（轮次 1）：统一助手 + 锁定测试，见第 7 节                                        |
+| ✅     | #4.1      | swap/duty 服务复制（loadMembers/loadRoleNames） | 严重         | 中   | 极高                       | 已完成（轮次 2）：共享 GroupMemberReader + 锁定测试，见第 7 节                          |
+| ✅     | #7.3      | 中国时区算法在 9 个文件重复                     | 严重         | 中低 | 高（时区事故反复出现）     | 已完成（轮次 3）：统一到 scheduling-domain 并机械替换，见第 7 节                        |
+| ✅     | #3.2      | 日志/审计脱敏清单双份且已漂移                   | 严重         | 低   | 高（安全控制）             | 已完成（轮次 4）：合并为共享脱敏模块，见第 7 节                                         |
+| ✅     | #1.1      | 文档过期/自相矛盾（待办、轮次、415）            | 轻微         | 零   | 中                         | 已完成（轮次 5）：重写待办/下一步与轮次表述，见第 7 节                                  |
+| ✅     | #3.3      | 任务分派默认分支静默落到导出任务                | 轻微         | 极低 | 中                         | 已完成（轮次 6）：`Record<JobName, Factory>` 穷举映射 + 锁定测试，见第 7 节             |
+| ✅     | #3.4      | AUTH_DEV_MODE 无 NODE_ENV 防线                  | 轻微         | 低   | 中（安全）                 | 已完成（轮次 7）：显式双条件 + env schema，见第 7 节                                    |
+| ✅     | #7.5      | event-timeline 死代码（含 spec 续命）           | 轻微         | 极低 | 中                         | 已完成（轮次 8）：删函数/字段/样式并同步 spec，见第 7 节                                |
+| ✅     | #2.1      | ui-tokens CSS/TS 双份维护                       | 严重         | 低   | 中高                       | 已完成（轮次 9）：TS 单一来源 + 生成器 + 锁定测试，见第 7 节                            |
+| ✅     | #2.2      | 数据库客户端使用 mysql2 内部属性并异步设时区    | 轻微         | 低   | 中（防时区事故）           | 已完成（轮次 37）：公开 connection 事件 + 顺序保证注释与锁定测试，见第 7 节             |
+| ✅     | #7.1      | client.ts 2200 行手写校验器 + 重复请求函数      | 严重         | 高   | 极高                       | 已完成（轮次 12–22）：子步骤 1–3 全部完成，113 个读模型守卫替换为契约 schema，见第 7 节 |
+| ✅     | #7.2      | 客户端错误码表与契约联合类型双份维护            | 轻微         | 低   | 中                         | 已完成（轮次 11）：契约运行时列表单一来源 + 客户端锁定测试，见第 7 节                   |
+| ✅     | #7.4      | 前端 swap/duty 候选与 isFutureAssignment 重复   | 轻微         | 低   | 中                         | 已完成（轮次 23）：合并共享 workflow 逻辑，见第 7 节                                    |
+| ✅     | #8.1      | 15 个页面重复错误文案模板                       | 轻微         | 低   | 中低                       | 已完成（轮次 24）：抽共享 toUserMessage，见第 7 节                                      |
+| ✅     | #8.2      | 视图层再次裸写时区/日期魔法数                   | 轻微         | 零   | 中                         | 已随 #7.3（轮次 3）一并替换为领域工具                                                   |
+| ✅     | #3.7      | 框架 4xx 全部归一化为 VALIDATION_FAILED         | 轻微         | 低   | 中                         | 已完成（轮次 25）：按状态码映射，见第 7 节                                              |
+| ✅     | #4.2      | 冲突断言双轨（swap/duty 各自“预检 + 断言”）     | 轻微         | 高   | 高                         | 已完成（轮次 26）：统一为共享 `assertNoWorkflowConflicts`，见第 7 节                    |
+| ✅     | #4.3      | 三服务“上帝对象”状态机                          | 轻微         | 高   | 高                         | 已完成（轮次 27–30）：入口骨架 + 依赖容器 + 全部入口迁移，见第 7 节                     |
+| ✅     | #4.5      | 发布/生成缺少“仅未来日期”限制                   | 严重（缺口） | 低   | 中                         | 已完成（轮次 31，用户确认方案 1）：整段已过月份拒绝，见第 7 节                          |
+| ✅     | #7.6      | manual-adjustment“调”标记半移除                 | 轻微         | 低   | 中低                       | 已完成（轮次 31，用户确认方案 A）：移除渲染、保留事件数据，见第 7 节                    |
+| ✅     | #3.5      | idempotency 宽 catch 当重复键                   | 轻微         | 低   | 低                         | 已完成（轮次 32）：仅重复键走查重路径，见第 7 节                                        |
+| ✅     | #3.6      | CloudBase 处理器惰性单例竞态                    | 轻微         | 低   | 低中                       | 随平台弃用清理（轮次 39）：cloudbase-handler 已删除，见第 7 节                          |
+| ✅     | #9.2      | 云函数入口跨目录相对导入                        | 轻微         | 低中 | 中                         | 随平台弃用清理（轮次 39）：infra/cloudbase 已删除，见第 7 节                            |
+| ✅     | #9.1      | cloudbaserc 未声明 env，环境不可复现            | 轻微         | 低   | 中                         | 随平台弃用清理（轮次 39）：cloudbaserc/部署工作流已删除，见第 7 节                      |
+| ✅     | #6.1/#6.2 | 迁移 0030/0031 复制 + 序列一致性无校验          | 轻微         | 低   | 低中                       | 已完成（轮次 36）：合并回填 + 校验迁移与测试，见第 7 节                                 |
+| ✅     | #5.1      | notification-retry 的 skipped 恒为 0            | 轻微         | 低   | 低                         | 已完成（轮次 33）：返回三态并如实计数，见第 7 节                                        |
+| ✅     | #5.2      | group-recycle 27 条裸 SQL 手写级联              | 轻微         | 低中 | 低中                       | 已完成（轮次 34）：外键元数据锁定测试 + scanned 语义修正，见第 7 节                     |
+| ✅     | #5.3      | 统计重建静默吞错                                | 轻微         | 低   | 低                         | 已完成（轮次 35）：失败上下文写入 summary 与运行日志，见第 7 节                         |
+| ✅     | #4.4      | 两个软删除函数几乎相同                          | 轻微         | 低   | 低                         | 已完成（轮次 30）：合并带可选截止日期，见第 7 节                                        |
+| ✅     | #1.2      | .env.example 缺开发模式开关                     | 轻微         | 零   | 低                         | 已完成（轮次 7）：随 #3.4 一并补两个开关项，见第 7 节                                   |
+| ✅     | #1.3      | 工作区残留（空目录/日志/构建产物）              | 轻微         | 零   | 低                         | 已完成（轮次 38）：清理空目录/日志/CloudBase 打包产物，见第 7 节                        |
+| ✅     | #9.3      | 加载/安全测试直写 DB 与 stub 认证               | 轻微         | 低   | 低                         | 已完成（轮次 38）：共享认证桩与 resetDatabase 收敛到 test-fixtures，见第 7 节           |
 
 ## 3. 问题簇详情（执行时按此卡片理解目标）
 
@@ -111,6 +115,7 @@
 问题：本地 `.env` 使用 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true`，但 `.env.example` 没有任何说明，新环境无法复现本地开发配置；而 `AUTH_DEV_MODE` 又没有进后端 `env.ts` 的 schema（见 3.4），属于“只存在于运行时魔法字符串”的配置。
 严重等级：轻微
 建议：在 `.env.example` 补两个开关项，并在 `env.ts` 中用 `z.literal`/`z.enum` 声明它。
+
 > 完成情况（轮次 7，2026-08-06）：已在 `.env.example` 补 `VITE_AUTH_DEV_MODE=false` / `AUTH_DEV_MODE=false` 两个开关项并注明本地专用、禁止上线；`docs/development/local-setup.md` 增加本地开发认证说明；后端 `AUTH_DEV_MODE` 已纳入 `env.ts` schema（见 3.4）。本条目中的行号为审查时快照，修改后已过期。
 
 **1.3 工作区残留产物（未入库）**
@@ -130,6 +135,7 @@
 问题：同一组颜色/间距/字号同时存在于 CSS 自定义属性和 TS 常量两份文件，靠人工保持一致；没有生成器或单一来源。
 严重等级：严重
 建议：从一份 token 定义（如 JSON/TS）生成 `.css` 与 TS 导出，或删除其一。
+
 > 完成情况（轮次 9，2026-08-06）：已将 8 组令牌收敛为 `packages/ui-tokens/src/tokens.ts` 单一来源（含 `tokenGroups` 前缀/格式元数据），`src/index.ts` 改为显式 re-export（公共 API 不变）；新增 `scripts/generate-tokens-css.mjs` 从该来源生成 `tokens.css`（`pnpm tokens:generate`），并新增 `tokens-css.test.ts` 锁定“已提交 CSS 必须与生成器输出逐字节一致”；`pnpm verify` 440/440 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **2.2 数据库客户端使用 mysql2 内部属性并异步设时区**
@@ -156,6 +162,7 @@
 问题：为绕开 CynosDB `explicit_defaults_for_timestamp=OFF` 导致的 `ON UPDATE CURRENT_TIMESTAMP` 漂移，每个 `shift_assignments` 更新都手写 `startsAt: sql`${shiftAssignments.startsAt}``。这是环境特判补丁，且在 5 个文件 12 处重复，代码中没有任何注释——迁移 0018/0020 已修库结构，这些补丁仍然留在代码里。任何“精简”该字段的后续重构都会静默重演轮次 10/13 的线上数据损坏。
 严重等级：严重
 建议：收敛为一个 `updateShiftAssignmentsPreservingTimestamps` 仓储助手（或统一在 schema 层处理），并加注释与回归测试说明为何必须保留该列。
+
 > 完成情况（轮次 1，2026-08-06）：已收敛为 `apps/api/src/modules/schedules/shift-assignment-writer.ts` 的 `updateShiftAssignments`，保留列值并统一递增 version，注释说明 CynosDB 原因；新增“批量更新不改变 starts_at（模拟 ON UPDATE）”锁定测试；`pnpm verify` 421/421 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **3.2 日志与审计脱敏清单双份维护**
@@ -164,6 +171,7 @@
 问题：`sensitiveLogFields` 与 `sensitiveFields` 是两套独立清单 + 两套几乎相同的 `normalizeFieldName`/递归脱敏实现，且清单已经不一致（审计含 `telephone`，日志不含）。任何新增敏感字段都需要同时改两处，漏改即可能造成日志泄露。
 严重等级：严重
 建议：把敏感字段清单与脱敏工具抽成单一共享模块（如 `packages/contracts` 或 api 内 `security/redact.ts`），日志与审计共用，并加一致性测试。
+
 > 完成情况（轮次 4，2026-08-06）：已抽为 `apps/api/src/security/redact.ts` 的 `redactSensitiveFields` 共享模块，敏感字段清单合并双份差异（日志补上 `telephone`），`logRedactionPaths` 由同一清单派生；`app.ts` 与 `audit-writer.ts` 删除各自清单与递归实现；新增 6 条共享模块单元测试，并扩展日志（`telephone`）与审计（全字段）一致性测试；`pnpm verify` 434/434 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **3.3 任务分派默认分支静默落到导出任务**
@@ -172,6 +180,7 @@
 问题：`JobName` 联合类型有 7 个值，if 链覆盖 6 个，最后一个 `return new ExportJobProcessor(client).run()` 作为“兜底”。未来新增任务类型时，忘记加分支会静默执行导出任务而不是报错。
 严重等级：轻微
 建议：改为 `switch` 穷举并在 `default` 抛错，或用映射表 `Record<JobName, Factory>`。
+
 > 完成情况（轮次 6，2026-08-06）：已把 if 链 + 导出兜底改为 `Record<JobName, JobRunner>` 穷举映射表，新增 `JobName` 时 TypeScript 会在映射表强制补充分支，运行时不再存在静默兜底路径；`jobNames` 改为从映射表派生（单一运行时来源）；新增 `runner.spec.ts` 2 条“映射覆盖全部任务名、每个名字都有工厂”的锁定测试；`pnpm verify` 436/436 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **3.4 开发认证开关无环境防线**
@@ -180,6 +189,7 @@
 问题：`process.env.AUTH_DEV_MODE === 'true'` 直接选择“任意 Bearer token 即身份”的认证端口，没有 `NODE_ENV !== 'production'` 防线，也没有 schema 校验。当前 CloudBase 网关路径恰好绕开了它，但这是一个“一旦重构路由就可能上线”的隐形后门。
 严重等级：轻微
 建议：显式加 `NODE_ENV === 'development'` 双条件，并把该变量纳入 `env.ts` 校验。
+
 > 完成情况（轮次 7，2026-08-06）：已在 `env.ts` 的正式/测试 schema 增加 `AUTH_DEV_MODE: z.enum(['true', 'false']).default('false')`；`runtime.ts` 新增 `isDevAuthEnabled` 显式双条件（`NODE_ENV === 'development' && AUTH_DEV_MODE === 'true'`），`createRuntimeApp` 只读校验后的环境值，不再直接碰 `process.env`；新增 1 条 schema 严格布尔字符串校验 + 3 条防线锁定测试（缺省/关闭不开、production/test 即使开启也不开）；`pnpm verify` 440/440 通过。本条目中的行号为审查时快照，修改后已过期。
 
 **3.5 幂等键插入用宽泛 catch 当重复键判断**
@@ -196,6 +206,8 @@
 严重等级：轻微
 建议：在模块顶层同步创建一次，或对创建过程做 Promise 单例化。
 
+> 完成情况（轮次 39，2026-08-07）：用户决定弃用 CloudBase，`cloudbase-handler.ts` 与其测试已删除；本地/ECS 部署使用常驻 `local-server.js`（进程启动时创建一次 Fastify 实例），不存在每请求惰性创建问题。本条目中的行号为审查时快照，文件已删除。
+
 **3.7 框架 4xx 全部归一化为 VALIDATION_FAILED**
 位置：[error-handler.ts (line 75)](E:/AItools/Schedule/apps/api/src/plugins/error-handler.ts:75)（75–103 行）
 原则：①不打补丁
@@ -211,6 +223,7 @@
 问题：两个文件里的 `loadMembers` 几乎逐行相同（唯一差异是 `autoAcceptSwaps` 默认值 1 vs 0），`loadRoleNames` 完全一致。该差异没有任何注释说明是刻意设计，看起来就是“复制后微调参数”；再加上两文件各 1600–1900 行的体量，任何一处修复都容易漏改另一处。
 严重等级：严重
 建议：把成员/角色读取提升到共享服务（`WorkflowConflictService` 旁或新 `GroupMemberReader`），差异字段用显式参数表达。
+
 > 完成情况（轮次 2，2026-08-06）：已抽为 `apps/api/src/modules/groups/group-member-reader.ts` 的 `GroupMemberReader`，`loadMembers` 通过 `autoAcceptSwapsDefault` 显式表达 swap=1/duty=0 的差异，`loadRoleNames` 完全共享；两个服务全部调用点改用 `memberReader`，删除私有复制与重复成员行类型；新增 2 条“从未设置偏好”默认行为锁定测试 + 4 条共享读取器集成测试；`pnpm verify` 427/427 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **4.2 冲突检查后仍保留各自“预检 + 断言”双轨**
@@ -294,13 +307,15 @@
 问题：`client.ts` 共 4221 行，其中约 51% 是手写类型守卫样板。契约层加字段、改字段时，这里必须人工同步，否则线上表现为“服务返回了无效资料”（本项目已多次出现该提示）；三个请求函数也只是复制后微调。这是整个代码库最大的“复制粘贴后微调参数”实例。
 严重等级：严重
 建议：从 `@schedule/contracts` 或共享 zod schema 生成类型守卫（或改为 zod `.parse` 统一校验），删除 `isUndefined` 等死代码。
+
 > 子步骤拆分（2026-08-06 轮次 10 补订；原“必须拆子步骤，见第 4 节”的引用在第 4 节无对应内容，以此处为准）：
+>
 > 1. ✅（轮次 10）把三个几乎相同的请求函数收敛为一个共享请求管道（`requestWithOnline` + `parseJsonResponse`/`parseTextResponse`），行为由 `client.test.ts` 26 条测试锁定。经复核，`isUndefined` 实际被 7 个响应守卫引用，并非死代码，审查快照已过期，不删除。
 > 2. ✅（轮次 11）`ApiErrorCode` 联合类型改为由契约运行时列表 `apiErrorCodes` 派生；`knownApiErrorCodes` 直接引用该列表，`isApiErrorResponse` 删除 `as ApiErrorCode` 强转；#7.2 一并完成，新增 3 条锁定测试。
 > 3. 从 `@schedule/contracts` 引入运行时 schema（zod），按读模型分批替换 113 个手写 `isX` 守卫；每批先写锁定测试再替换，禁止一次性大改；随守卫移除同步删除不再使用的 `isUndefined` 等死代码。
-> 完成情况（子步骤 1，2026-08-06）：已删 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline`，新增共享 `requestWithOnline`（统一离线检查、可选会话、网络错误与 fetch 发起）与 `parseJsonResponse`/`parseTextResponse`（JSON 校验/文本与错误解析），`createApiClient` 内新增 `requestPublicJson` 包装，4 个公开端点改用；新增 2 条锁定测试（公开请求不带 Authorization、文本下载 404 映射为类型化错误）；`pnpm verify` 442/442 通过。本条目中的行号为审查时快照，重构后已过期。
-> 完成情况（子步骤 2，2026-08-06）：`packages/contracts/src/errors.ts` 新增运行时 `apiErrorCodes` 列表作为错误码唯一来源，`ApiErrorCode` 联合类型改为由它派生；`apps/web/src/api/client.ts` 的 `knownApiErrorCodes` 改为 `new Set(apiErrorCodes)`，删除本地字面量表与 `as ApiErrorCode` 强转；新增 3 条锁定测试（契约列表完整且无重复、全部错误码映射为类型化客户端错误、未知码回退通用 HTTP 文案）；`pnpm verify` 445/445 通过。本条目中的行号为审查时快照，重构后已过期。
-> 完成情况（子步骤 3 · 批次 1，2026-08-07）：`packages/contracts` 新增 `zod` 依赖；`calendar.ts` 新增 `calendarChangeMarkerSchema`/`calendarDutyAssignmentSchema`/`calendarDutyMemberSchema`/`calendarRoleSummarySchema`/`calendarShiftTypeSummarySchema`/`calendarReadModelSchema`/`guestCalendarReadModelSchema`/`guestGroupSummarySchema`/`guestGroupSummaryListSchema` 9 个运行时 schema，8 个读模型类型改为由 schema 派生（约束与旧守卫一致：日期/月份/颜色/时间正则、非空字符串、整数 ≥1、枚举标记、可选字段、`passthrough()` 保留未知字段）；`apps/web/src/api/client.ts` 新增通用 `JsonSchema` + `isResponseBodyFromSchema` 桥接，`getCalendar`/`getSchedulePeriodCalendar`/`getGuestCalendar`/`getGuestGroupCalendar`/`listGuestGroups` 5 处调用点改用 schema，删除 `isCalendarReadModel`/`isGuestCalendarReadModel`/`isGuestGroupSummaryList`/`isCalendarDutyAssignment`/`isCalendarChangeMarker`/`isCalendarDutyMember`/`isCalendarRoleSummary`/`isCalendarShiftTypeSummary` 8 个手写守卫；`client.test.ts` 先新增 6 条锁定测试（未知变动标记、业务月份格式、空姓名、非法颜色、访客日历缺群名、访客群组列表缺名称）再替换，28 → 34 条；`pnpm verify` 451/451 通过。本条目中的行号为审查时快照，重构后已过期。
+>    完成情况（子步骤 1，2026-08-06）：已删 `requestPublicJsonWithOnline`/`requestJsonWithOnline`/`requestTextWithOnline`，新增共享 `requestWithOnline`（统一离线检查、可选会话、网络错误与 fetch 发起）与 `parseJsonResponse`/`parseTextResponse`（JSON 校验/文本与错误解析），`createApiClient` 内新增 `requestPublicJson` 包装，4 个公开端点改用；新增 2 条锁定测试（公开请求不带 Authorization、文本下载 404 映射为类型化错误）；`pnpm verify` 442/442 通过。本条目中的行号为审查时快照，重构后已过期。
+>    完成情况（子步骤 2，2026-08-06）：`packages/contracts/src/errors.ts` 新增运行时 `apiErrorCodes` 列表作为错误码唯一来源，`ApiErrorCode` 联合类型改为由它派生；`apps/web/src/api/client.ts` 的 `knownApiErrorCodes` 改为 `new Set(apiErrorCodes)`，删除本地字面量表与 `as ApiErrorCode` 强转；新增 3 条锁定测试（契约列表完整且无重复、全部错误码映射为类型化客户端错误、未知码回退通用 HTTP 文案）；`pnpm verify` 445/445 通过。本条目中的行号为审查时快照，重构后已过期。
+>    完成情况（子步骤 3 · 批次 1，2026-08-07）：`packages/contracts` 新增 `zod` 依赖；`calendar.ts` 新增 `calendarChangeMarkerSchema`/`calendarDutyAssignmentSchema`/`calendarDutyMemberSchema`/`calendarRoleSummarySchema`/`calendarShiftTypeSummarySchema`/`calendarReadModelSchema`/`guestCalendarReadModelSchema`/`guestGroupSummarySchema`/`guestGroupSummaryListSchema` 9 个运行时 schema，8 个读模型类型改为由 schema 派生（约束与旧守卫一致：日期/月份/颜色/时间正则、非空字符串、整数 ≥1、枚举标记、可选字段、`passthrough()` 保留未知字段）；`apps/web/src/api/client.ts` 新增通用 `JsonSchema` + `isResponseBodyFromSchema` 桥接，`getCalendar`/`getSchedulePeriodCalendar`/`getGuestCalendar`/`getGuestGroupCalendar`/`listGuestGroups` 5 处调用点改用 schema，删除 `isCalendarReadModel`/`isGuestCalendarReadModel`/`isGuestGroupSummaryList`/`isCalendarDutyAssignment`/`isCalendarChangeMarker`/`isCalendarDutyMember`/`isCalendarRoleSummary`/`isCalendarShiftTypeSummary` 8 个手写守卫；`client.test.ts` 先新增 6 条锁定测试（未知变动标记、业务月份格式、空姓名、非法颜色、访客日历缺群名、访客群组列表缺名称）再替换，28 → 34 条；`pnpm verify` 451/451 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.2 客户端错误码表与契约联合类型双份维护**
 位置：[client.ts (line 435)](E:/AItools/Schedule/apps/web/src/api/client.ts:435)（435–443 行）；[errors.ts (line 1)](E:/AItools/Schedule/packages/contracts/src/errors.ts:1)
@@ -308,6 +323,7 @@
 问题：`knownApiErrorCodes` 用字面量重建了 `ApiErrorCode` 联合类型；契约新增错误码时，漏改这里会让合法错误被当成未知响应。
 严重等级：轻微
 建议：用 `z.enum`/运行时 schema 从 contracts 直接派生，或加一个编译期一致性测试。
+
 > 完成情况（轮次 11，2026-08-06）：已改为从 `@schedule/contracts` 的 `apiErrorCodes` 运行时列表直接派生 `ApiErrorCode`，客户端 `knownApiErrorCodes` 不再重建字面量表，`isApiErrorResponse` 去掉强转；新增契约列表完整/无重复与客户端全码映射/未知码回退锁定测试共 3 条；`pnpm verify` 445/445 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.3 服务端时区常量复制到 8 个前端文件**
@@ -316,6 +332,7 @@
 问题：同一“中国业务日期”算法在 9 个文件里重复，且部分写成裸 `8 * 60 * 60 * 1000` 魔法数；后端领域包已有正确实现却不被复用。轮次 12/18 的时区误判事故正是这类重复逻辑产生的。
 严重等级：严重
 建议：抽一个 `packages/business-time`（或让 web 依赖 scheduling-domain 的纯函数），统一替换全部调用点。
+
 > 完成情况（轮次 3，2026-08-06）：`@schedule/scheduling-domain` 导出唯一 `chinaStandardTimeOffsetMilliseconds` 与 `toChinaStandardTimeUtcTimestamp`；web 新增领域包依赖并删除 9 个文件的重复常量/实现（calendar-logic/calendar-views 保留薄包装），三个视图的裸魔法数改为领域函数；`pnpm verify` 428/428 通过。本条目中的行号为审查时快照，重构后已过期。
 
 **7.4 换班/加扣班候选逻辑重复**
@@ -331,6 +348,7 @@
 问题：轮次 19/21 把“更正/撤销”标签从界面移除后，相关函数、`isCorrection` 计算、`.entry-relation` 样式全部保留，仅被 spec 引用“续命”；`getEventMarker` 也只在 spec 中被直接调用。这是典型的“留一手”。
 严重等级：轻微
 建议：删除未被生产代码引用的导出与样式，同步删除或改写对应 spec。
+
 > 完成情况（轮次 8，2026-08-06）：已删除 `getEventRelationLabel`/`buildSwapChainSummary`/`buildDutyAdjustmentChainSummary` 三个仅 spec 引用的导出与 `EventTimelineItem.isCorrection` 字段，`getEventMarker` 改为模块私有（`buildEventTimelineItems` 仍内部使用）；`EventTimeline.vue` 删除 `.entry-relation`/`.entry-relation.correction` 样式；`event-timeline.spec.ts` 删除对应导入与 2 条死代码测试，并用 `buildEventTimelineItems` 补 1 条日历标记映射测试保持行为覆盖；`pnpm verify` 439/439 通过。本条目中的行号为审查时快照，删除后已过期。
 
 **7.6 “调”标记映射与文档矛盾**
@@ -355,6 +373,7 @@
 问题：`Date.now() + 8 * 60 * 60 * 1000`、`Date.UTC(...) - 8 * 60 * 60 * 1000` 魔法数直接内联，无命名常量，与 7.3 同类问题叠加。
 严重等级：轻微
 建议：并入 7.3 的统一时间工具。
+
 > 完成情况（轮次 3，2026-08-06）：三处裸写已随 #7.3 一并替换为领域函数（`getCurrentBusinessMonth` / `toChinaStandardTimeUtcTimestamp`），本条视为完成。
 
 ### 9. infra / tests
@@ -366,12 +385,16 @@
 严重等级：轻微
 建议：把非密钥配置声明进 `cloudbaserc.json`（密钥走 GitHub Secrets/控制台），并在部署前加一次环境完整性检查。
 
+> 完成情况（轮次 39，2026-08-07）：用户决定弃用 CloudBase，`infra/cloudbase/` 与 `deploy-development.yml` 已删除；ECS 部署以 `infra/docker/compose.prod.yml` 显式声明全部环境变量（见阿里云部署审计结论）。本条目中的行号为审查时快照，文件已删除。
+
 **9.2 云函数入口通过相对路径跨目录引用应用源码**
 位置：[schedule-api/src/main.js (line 1)](E:/AItools/Schedule/infra/cloudbase/functions/schedule-api/src/main.js:1)、[schedule-jobs/src/main.js (line 1)](E:/AItools/Schedule/infra/cloudbase/functions/schedule-jobs/src/main.js:1)
 原则：④部署一致
 问题：`import ... from '../../../../../apps/api/src/...'` 让 infra 隐式依赖 apps 源码路径，esbuild 打包后才能运行；目录一旦调整，部署静默失败。这是跨模块隐式耦合。
 严重等级：轻微
 建议：给 `@schedule/api` 暴露明确的 cloudbase 入口导出，函数包只依赖包名。
+
+> 完成情况（轮次 39，2026-08-07）：用户决定弃用 CloudBase，`infra/cloudbase/functions/` 已删除；ECS 部署只运行已构建的 `apps/api/dist/local-server.js`，无跨目录源码导入。本条目中的行号为审查时快照，文件已删除。
 
 **9.3 加载/安全测试内的数据库直写与 stub 认证重复业务规则**
 位置：[run-load-test.ts (line 524)](E:/AItools/Schedule/tests/load/run-load-test.ts:524)（524 行起）；[security.integration.test.ts (line 273)](E:/AItools/Schedule/tests/security/security.integration.test.ts:273)
@@ -426,6 +449,7 @@
 - #5.2：group-recycle 是否允许改成外键级联（影响历史数据与线上库结构）。
 
 ## 5. 轮次记录模板
+
 轮次 N – YYYY-MM-DD
 
 目标：#编号 一句话
@@ -469,6 +493,7 @@
 提交：1f37298，推送成功（origin/main，5706c87..1f37298）
 
 不确定点：
+
 1. 本地/CI 的 MySQL 8.4 默认 `explicit_defaults_for_timestamp=ON`，锁定测试靠 ALTER 模拟线上 CynosDB 隐患；若线上库结构已完全无 ON UPDATE，该保留逻辑属于防御性收敛而非必须——出错症状是测试在模拟环境下失效，不会直接影响线上。
 2. `updateShiftAssignments` 现在强制递增 version，与全部 12 处原行为一致；若未来出现“不递增版本”的批量更新，需要另行设计参数，否则版本号会多跳 1。
 3. past-schedule 与 workflow-invalidation 的 3 处更新未纳入助手（见第 6 节 TODO），若线上 CynosDB 仍会隐式 ON UPDATE，这 3 处是残余漂移源；症状是补录/排班失效操作把 starts_at 改写为当前时间。
@@ -486,6 +511,7 @@
 提交：da042b5，推送成功（origin/main，b3cddb1..da042b5）
 
 不确定点：
+
 1. `autoAcceptSwapsDefault` 语义（换班默认接受 1、加扣班默认不自动接受 0）是现有产品行为，已用共享参数显式表达并注释；若产品后续希望两流程默认一致，只改调用点参数即可——出错症状是“从未设置偏好”的成员自动接受状态与预期不符，但已有锁定测试兜底。
 2. 共享读取器放在 `apps/api/src/modules/groups/` 下，与 `GroupPermissionService` 同模块；若后续 leave 服务也要读成员/角色，直接复用即可。
 3. 新集成测试以裸 SQL 造数（沿用各测试文件的 `resetDatabase` 模式）；若未来 schema 字段变更，测试种子 SQL 需要同步——症状是该测试文件建数据失败，不影响生产代码。
@@ -503,6 +529,7 @@
 提交：7a16c85，推送成功（origin/main，aaf955e..7a16c85）
 
 不确定点：
+
 1. `@schedule/scheduling-domain` 的 dist 是 Vite 运行时解析路径（web 依赖包 exports），TS 走 tsconfig paths 指向 src；若未来只跑 `pnpm dev:web` 而未先构建领域包，浏览器会拿到旧 dist——症状是新增导出缺失导致页面构建报错。当前 `pnpm dev`/`verify` 都会先构建领域包，已覆盖。
 2. `toChinaStandardTimeUtcTimestamp` 使用固定 +08:00 偏移（沿用领域包既有实现）；若未来引入历史夏令时等极端场景需重审，当前项目所有业务日期都按现代中国标准时间处理——出错症状是所有跨零点换算同时偏移 1 小时。
 3. `calendar-logic.ts`/`calendar-views.ts` 保留薄包装（re-export/委托）以维持十余个 Vue 文件与测试的既有导入面；若后续希望彻底删除包装、所有调用点直连领域包，需再开一轮机械替换。
@@ -520,6 +547,7 @@
 提交：207a4f9，推送结果见对话回复
 
 不确定点：
+
 1. 合并清单以审计侧为准补上 `telephone`，日志行为因此扩大脱敏范围（之前日志不会屏蔽 `telephone` 字段）；如果出错，症状是日志中 `telephone` 值不再出现，属于预期收紧。
 2. 共享脱敏只递归普通对象/数组，非普通对象（如 Date）原样保留；若未来日志参数里出现需要脱敏的类实例字段，需要先序列化——症状是类实例内的敏感字段出现在日志中。
 3. `logRedactionPaths` 仍限定 4 层以内的 Pino 静态路径，更深的嵌套由 `redactSensitiveFields` 兜底；若未来 Pino 输出链路绕过 logMethod 钩子，深层脱敏依赖不变。
@@ -537,6 +565,7 @@
 提交：205d08a，推送结果见对话回复
 
 不确定点：
+
 1. “只允许发布未来日期排班”并未断言为已实现：当前实现是模板应用/重排从今天起、已过日期移入既往并锁定；发布入口的“仅未来日期”精确规则仍留在 #4.5 等用户确认（今天能否发布、跨已过月份行为）——若用户误以为此规则已完成，症状是发布含既往日期的排班时仍会按既往锁定处理而非直接拒绝。
 2. 待办清单中的“用户强刷后复核”条目全部保留，未做任何判断；这些是等待用户验收项，若用户已验收，后续轮次按反馈收敛。
 
@@ -553,6 +582,7 @@
 提交：8d54076，推送结果见对话回复
 
 不确定点：
+
 1. 采用审计建议中的“映射表”方案而非 switch+default：编译期由 `Record<JobName, JobRunner>` 保证穷举，若未来绕过类型系统（如把字符串强转后传入），会以 `undefined is not a function` 快速失败而不是静默跑导出任务——症状是任务直接报错而非产生错误导出。
 2. `jobNames` 现在是 `Object.keys(jobRunners)` 派生数组，顺序与映射表插入顺序一致；若未来平台管理页依赖 `jobNames` 顺序，需以映射表顺序为准。
 3. 映射工厂在 `runJob` 调用时才构造处理器（与旧 if 链一致，惰性构造不变）；新增需要不同构造参数的任务时，只需扩展 `JobRunner` 签名与该任务的分支。
@@ -570,6 +600,7 @@
 提交：3ab05a6，推送结果见对话回复
 
 不确定点：
+
 1. 防线采用审计建议的严格 `NODE_ENV === 'development'`（而非 `!== 'production'`）：若未来需要在 `NODE_ENV=test` 的本地验收进程里使用开发认证，需要显式放开——出错症状是 test 模式下本地登录按钮仍出现但 API 返回 401（被 CloudBase 认证端口拒绝）。
 2. `AUTH_DEV_MODE` 已进入 `testEnvironmentSchema` 且默认 false：测试进程即使误设 true 也不会启用开发认证，符合防线语义；若未来测试需要它，需改防线本身。
 3. `.env.example` 仅作文档/模板，Vite 与 API 只读 `.env`；新环境从模板复制后不会自动获得 true 开关——出错症状是新本地环境没有“本地管理员/本地成员”按钮，属预期默认安全。
@@ -587,6 +618,7 @@
 提交：22f1434，推送结果见对话回复
 
 不确定点：
+
 1. `getEventMarker` 保留为模块私有函数，因为 `buildEventTimelineItems` 仍在生产路径使用；若未来需要独立于时间线的标记查询，需重新导出——出错症状是其他模块无法直接获取标记映射（编译期可见）。
 2. 删除 `buildSwapChainSummary`/`buildDutyAdjustmentChainSummary` 后，合并链 `buildChangeChainSummary` 保留（生产“人员变更链”折叠区在用），其内部复用的两个提取助手不受影响——出错症状是合并链行为不变，纯删除不改语义。
 3. 测试总数从 440 减到 439 是预期净减（删 2 条死代码测试 + 加 1 条替代测试）；若用户预期测试数只增不减，这是行为覆盖保持下的有意收缩。
@@ -604,6 +636,7 @@
 提交：28f6987，推送成功（origin/main，5488ab9..28f6987）
 
 不确定点：
+
 1. 生成器用 Node 24 原生 TS 类型剥离导入 `tokens.ts`（.mjs → .ts），CI 已固定 Node 24 且本地验证通过；若未来 Node 版本下调或类型剥离行为变化，生成器会直接报错——症状是 `tokens:generate` 与锁定测试失败。
 2. `tokens.css` 是入库生成物，修改令牌后必须重跑 `pnpm tokens:generate`；锁定测试会在忘记重跑时失败——症状是 verify 中 `tokens-css.test.ts` 失败。
 3. 令牌组顺序/前缀/格式元数据集中在 `tokens.ts` 的 `tokenGroups`；新增令牌组若漏登记到该表，CSS 不会自动包含它，而现有锁定测试只对比“已登记组”的输出——症状是新增令牌只在 TS 可用、对应 CSS 变量缺失。
@@ -621,6 +654,7 @@
 提交：dd9981f，推送结果见对话回复
 
 不确定点：
+
 1. `requestWithOnline` 合并了公开/认证两条请求路径，错误与校验顺序沿用原实现（先读 body、非 2xx 先抛错误、再校验）；若后续有人调整 `parseJsonResponse` 顺序（先校验后判错），公开端点 4xx 会变成“服务返回了无效资料”——症状是公开错误提示丢失原始错误码。
 2. 文本下载错误映射依赖错误体包含 `requestId`（`isApiErrorResponse` 既有契约），测试按真实错误体补 `requestId`；若未来错误响应缺 `requestId`，文本下载错误会回退通用 HTTP 文案——症状是 404 显示“服务暂时不可用”而非具体原因，属既有行为非本轮引入。
 3. `isUndefined` 在审查快照中标注为“从未使用”，但当前 7 处响应守卫引用它；本轮未删除以免破坏编译，待子步骤 3 引入 schema 后随守卫移除一并清理。
@@ -640,6 +674,7 @@
 备注：本轮开始时仓库存在用户本地提交 7de6d6e（阿里云 ECS Docker 部署配置与文档，含 project-status 的 Deployment 段），非本轮任务，保留并在本轮推送时一并上传。
 
 不确定点：
+
 1. `apiErrorCodes` 以 `as const` 数组导出，运行时仍是可变数组；若未来有代码误 push 进新值，契约与客户端会同时漂移，但 `errors.test.ts` 的完整列表断言会在 CI 失败——症状是新增错误码必须先过测试才能入库。
 2. 客户端 `knownApiErrorCodes` 改为 `Set<string>` 后行为与旧 `Set<ApiErrorCode>` 完全一致；契约新增错误码后客户端无需任何改动即自动识别——症状是新增合法错误码被正确映射为类型化错误，而非回退通用 HTTP 文案。
 3. `ApiErrorCode` 由显式联合改为数组派生，类型值完全一致，API 层 `error-handler.ts` 仅用类型不受影响；若未来需要给错误码附加元数据（如 HTTP 状态映射），可在此单一来源扩展。
@@ -657,6 +692,7 @@
 提交：32cc513，推送结果见对话回复
 
 不确定点：
+
 1. schema 使用 `passthrough()` 保留未知字段，与旧守卫“不拒绝额外字段”一致；若未来要捕获契约漂移（API 新增字段而 schema 未同步），需要改为默认 strip 或 strict 并显式断言——症状是未知字段继续透传而非报“服务返回了无效资料”。
 2. 日历读模型类型由 `z.infer` 派生（接口 → 类型别名），结构兼容且 API/Web 类型检查均通过；若未来有代码依赖“接口可声明合并”，需要改用 `z.interface()` 或保留显式接口——症状是扩展同名接口时报 TS 重复标识符错误。
 3. `isUndefined` 仍被 7 个非日历守卫引用，本轮未删除；后续批次替换完对应守卫后一并清理——症状是死代码留存但不破坏编译。
@@ -674,6 +710,7 @@
 提交：0c352f1，推送结果见对话回复
 
 不确定点：
+
 1. 旧守卫只校验字段类型不校验内容，schema 因此对 `date`/`holidayName` 仅用 `z.string()` 不加格式/非空约束——若未来想让非法日期格式在客户端直接暴露，需另加 regex，出错症状是格式异常的日期仍能通过读模型。
 2. `isConfirmedHolidayDate` 没有独立守卫（校验内嵌于 `isHolidayReadModel.dates.every`），本轮按实际代码以 `confirmedHolidayDateSchema` 收敛内嵌校验，未产生额外导出守卫。
 3. `passthrough()` 保留未知字段与旧守卫一致；若未来要捕获 API 契约漂移，需改为 strip/strict 并显式断言——症状是未知字段继续透传而非报“服务返回了无效资料”。
@@ -691,6 +728,7 @@
 提交：5b590a3，推送结果见对话回复
 
 不确定点：
+
 1. `membershipClaimRequestSchema.status` 用 `z.custom<MembershipClaimRequestStatus>` 保持旧守卫“仅校验字符串”的行为，导出类型仍为枚举；若未来想收紧为运行时枚举校验，需改成 `z.enum`——出错症状是未知状态仍能通过读模型（与旧行为一致）。
 2. `claimGroupResponseSchema` 的 `request_created` 分支用 `.strict()` 复刻旧守卫“仅 status 一个键”的精确检查，`claimed` 分支 `passthrough()` 允许额外字段；若 API 未来给 `request_created` 响应增加字段，客户端会开始拒绝——症状是认领返回“服务返回了无效资料”。
 3. 除 status 外的类型均由 `z.infer` 派生，`passthrough()` 使派生类型带 `[x: string]: unknown` 索引签名，构造侧更宽松；若未来要捕获契约漂移需改 strip/strict——症状是未知字段继续透传而非报“服务返回了无效资料”。
@@ -708,6 +746,7 @@
 提交：57c43b7，推送结果见对话回复
 
 不确定点：
+
 1. `rulesVersion` 用 `z.custom<number>(() => true).optional()` 保持旧守卫“完全不校验”的宽松行为，导出类型仍为必填 number；若未来想真正校验该字段，需改成 `z.number().int()`——出错症状是缺省或异常 rulesVersion 仍能通过读模型（与旧行为一致）。
 2. `getSchedulingConfig` 使用 `isSchedulingConfigResponse` 类型谓词包装 schema，因为 schema 推断类型允许缺省 rulesVersion 而导出类型要求必填；若未来 schema 改为必填，可删掉包装直接使用 `isResponseBodyFromSchema`。
 3. 派生类型带 `passthrough()` 索引签名，构造侧更宽松；若未来要捕获契约漂移需改 strip/strict——症状是未知字段继续透传而非报“服务返回了无效资料”。
@@ -725,6 +764,7 @@
 提交：1c7d1fb，推送结果见对话回复
 
 不确定点：
+
 1. `publishSchedulePeriodResultSchema` 的 preview 复用完整 `scheduleGenerationPreviewSchema`，而旧 publish 守卫只检查 preview 的 businessMonth 为字符串与 statistics 为对象——若未来 API 在 publish 结果里返回不完整 preview，客户端会比旧版更早拒绝。
 2. `SchedulePeriodSummary`/`ScheduleGenerationPreview` 等“旧守卫忽略必填字段”的类型使用显式契约别名而非 `z.infer`，schema 只校验旧检查过的字段；若未来想收紧（缺字段即拒绝），需把这些字段改为必填 zod 校验并改回派生类型。
 3. `isResponseBodyMatching<T>` 用显式类型参数表达契约类型，schema 推断类型更宽松；若调用点传错类型参数，编译期由方法返回类型兜底，但谓词本身不再由 schema 推断保证一致。
@@ -742,6 +782,7 @@
 提交：d8e0655，推送结果见对话回复
 
 不确定点：
+
 1. swap/duty 的 assignment summary 中 `scheduleRoleName` 旧守卫只校验字符串不校验非空，schema 保持 `z.string()`（无 min）；若未来想收紧需加 `.min(1)`——出错症状是空 scheduleRoleName 仍能通过读模型（与旧行为一致）。
 2. `swapRequestSchema`/`dutyAdjustmentRequestSchema` 补充了旧守卫未检查的可选字段（`decidedByMemberName`/`isRevocable`/`revocationBlockedReason`），按接口类型校验；若未来这些字段的服务器值类型变化，客户端会比旧版更早拒绝。
 3. 状态/冲突码用 `z.enum` 派生联合类型，与旧守卫枚举一致；若未来新增合法状态而未同步契约，客户端会拒绝——出错症状是新增状态被当作“服务返回了无效资料”。
@@ -759,6 +800,7 @@
 提交：cf6a61d，推送结果见对话回复
 
 不确定点：
+
 1. `leaveReflowPreviewSchema` 对 `affectedShiftCount`/`affectedShifts`/`overlapsUnpublishedPeriod` 保持旧守卫的宽松（`z.custom(...).optional()`），导出类型保留必填；若未来想收紧需改为必填校验——出错症状是缺字段仍能通过读模型（与旧行为一致）。
 2. `scheduleGenerationWarningSchema`/`scheduleGenerationVacancySchema` 新增在 schedules.ts 并先被 leave reflow preview 使用；client 里 `isContinuousDutyWarning`/`isScheduleGenerationVacancy` 仍被 manual-apply 预览使用，待 manual-schedules 批次替换后清理——出错症状是两处校验并存但不冲突。
 3. `approvedLeaveRequestResultSchema`/`leaveReflowPreviewSchema` 的推断类型比导出契约类型宽松，调用点用 `isResponseBodyMatching<T>` 桥接；若调用点传错类型参数，编译期由方法返回类型兜底。
@@ -776,6 +818,7 @@
 提交：570c814，推送结果见对话回复
 
 不确定点：
+
 1. `manualApplyAssignmentSchema` 按旧守卫把 `scheduleRoleName` 当作非空必填，而 `SchedulePreviewAssignment` 接口该字段是可选的；schema 推断类型比契约类型更严，导出类型未改动——出错症状是缺 scheduleRoleName 的预览赋值会被拒绝（与旧行为一致）。
 2. `scheduleGenerationRoleCountSchema`/`scheduleGenerationShiftTypeCountSchema` 对旧守卫未校验的字段保持宽松（`z.custom(...).optional()`），但导出接口仍要求这些字段；`ManualApplyPreview`/`AppliedManualScheduleTemplateResult` 用显式契约别名 + `isResponseBodyMatching<T>` 桥接——若调用点传错类型参数，编译期由方法返回类型兜底。
 3. `isContinuousDutyWarning`/`isScheduleGenerationVacancy` 等共享助手已随本批删除，契约侧 `scheduleGenerationWarningSchema`/`scheduleGenerationVacancySchema` 成为唯一校验来源；若未来手动排班预览与排班生成预览的字段约束分化，需分别在契约层扩展。
@@ -793,6 +836,7 @@
 提交：5e271f2，推送结果见对话回复
 
 不确定点：
+
 1. `scheduleEventSchema`/`notificationRecordSchema` 的 JsonObject 可选字段用 `z.custom` 复刻旧 `isJsonObjectValue`（对象且非数组），若未来要校验字段内容需换 `z.record`/自定义细化——出错症状是任意对象仍通过（与旧行为一致）。
 2. `memberNotificationPreferencesSchema` 的 `dutyReminderHours` 用 `z.union([z.null(), z.readonly(z.array(...))])`，缺失或 undefined 会拒绝（与旧守卫一致）；若未来接口允许省略该字段，需改 optional。
 3. 未读数/已读数/保存/删除四个小结果 schema 未派生导出类型（方法签名内联 `{ readonly count: number }` 等），schema 推断类型可赋值；若未来要统一导出，可在 notifications.ts 增加类型别名。
@@ -810,6 +854,7 @@
 提交：0ec535c，推送结果见对话回复
 
 不确定点：
+
 1. `statisticsMemberRowSchema.actualVsPlanned` 用 `z.custom` 只校验数组（旧守卫行为），导出类型保留 `StatisticsActualVsPlannedEntry[]`；若未来要校验条目内容需换子 schema——出错症状是任意条目仍通过（与旧行为一致）。
 2. `monthStatisticsSnapshotSchema.version`/`yearStatisticsSchema.year` 等按旧守卫只校验 number 不校验整数，schema 保持 `z.number()`；若未来想收紧需改 `.int()`。
 3. statistics 家族与 schedule generation 统计（`scheduleGenerationStatisticsSchema`）是两套独立 schema，字段语义相近但分属不同读模型；若未来想合并需先统一契约。
@@ -827,6 +872,7 @@
 提交：d606cfd，推送结果见对话回复
 
 不确定点：
+
 1. `scheduleExportJobSchema` 的 `id`/`groupId` 按旧守卫只校验字符串不校验非空，schema 保持 `z.string()`（无 min）；若未来想收紧需加 `.min(1)`——出错症状是空 id/groupId 仍能通过读模型（与旧行为一致）。
 2. `ScheduleExportJob.rowCount` 按旧守卫只校验 number 不校验整数/非负，schema 保持 `z.number()`；若未来想收紧需改 `.int().min(0)`。
 3. 本批完成后 `#7.1 子步骤 3` 的读模型守卫替换全部结束，client.ts 仅剩 `isApiErrorResponse`（错误响应解析，由 `knownApiErrorCodes` 契约码表支撑）与 `isUndefined`（void 端点解析）两个基础设施守卫，不属于读模型校验器；若用户希望连它们也契约化，需另开一轮评估。
@@ -1216,3 +1262,28 @@
 不确定点：1. #1.3 未删除 node_modules 与 dist（本地工具链功能依赖）；如需彻底清空可另行执行 `pnpm install` 后重建。2. `createFakeAuthPort` 目前只被 load/security 使用，其余集成测试仍各有本地副本；后续可逐步收敛（未顺手改）。3. 发现存量问题：`pnpm --filter @schedule/security-tests typecheck` 因 `apps/api/src/modules/notifications/notification-dispatcher.ts` 引用的 `web-push` 缺类型声明而失败（apps/api 自己的 typecheck 有 `src/types/web-push.d.ts` 覆盖，tests/security 的 tsconfig include 不含该声明；非本轮引入，未顺手改，记入 TODO）。
 
 下次计划：CloudBase 专属项 #3.6/#9.1/#9.2 最后一批统一处理（保留 CloudBase 备用决策）；非 CloudBase 合规项已全部完成；新发现 TODO（tests/security typecheck 的 web-push 声明缺失）待后续清理；同时等待用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–37 相关验收项。
+
+### 轮次 39 – 2026-08-07
+
+目标：按用户决策弃用并清理 CloudBase（代码/依赖/部署文件/文档），部署目标固定为阿里云 ECS；同时检查阿里云部署是否存在与 CloudBase 同类的问题（惰性单例竞态、跨目录相对导入、环境声明脱节）。
+
+引入点：CloudBase 足迹自上线起累积（#3.6/#9.1/#9.2 审计卡登记并暂缓）；2026-08-07 用户明确“CloudBase 不保留，可清理掉，后续以阿里云服务器做部署”。
+
+为什么现有测试没拦住：清理是删除性变更，原测试覆盖 CloudBase 行为（删除后测试数减少 12 条）；新增/保留的验证是本地认证客户端锁定测试（auth.test.ts 1 条）与全量回归；浏览器冒烟覆盖登录/管理员/成员/访客全流程。
+
+修改文件（删除）：`apps/api/src/cloudbase-handler.ts`(+test)、`adapters/auth/cloudbase-auth.ts`(+test)、`jobs/cloudbase-runner.ts`(+spec)、`apps/web/src/auth/cloudbase.ts`、`infra/cloudbase/`（含 gitignored cloudbaserc.local.json）、`.github/workflows/deploy-development.yml`、`docs/deployment/cloudbase-development.md`、`cloudbase-ops-notes.md`；依赖 `@cloudbase/cli`、`@cloudbase/node-sdk`、`@cloudbase/js-sdk`。
+修改文件（替换/更新）：`apps/api/src/runtime.ts`（无 CloudBase 适配器；未配置 authPort 且非开发模式时启动即报错）、`auth-port.ts`/`plugins/authenticate.ts`/`app.ts`（移除 trustedCloudbaseContext 链路）、`apps/web/src/auth/local-auth.ts`（本地认证客户端：dev identity 会话，密码登录返回“尚未实现”）、20 个视图/`stores/session.ts`/`api/client.ts` 改引 localAuth、三个 web 测试移除 SDK mock、`package.json`/`apps/*/package.json`（依赖与脚本）、`.env.example`/`Dockerfile.web`/`compose.prod.yml`/`verify.yml`、README 与部署/设计文档（阿里云方案）。
+
+语义等价审计与行为变化清单：认证链路——dev 模式下 `setDevIdentity`/`getSession`/`signOut` 与旧 cloudbaseAuth 的 dev 分支逐字等价；密码登录从“走 CloudBase SDK”变为返回“账号密码登录尚未实现”（自建认证落地前的明确占位）；API 生产环境不再静默回退 CloudBase SDK，未显式提供 authPort 且非开发模式时启动失败（显式化，避免隐藏依赖）。业务字段 `cloudbaseUid`/`users.cloudbase_uid` 与测试夹具中的 cloudbase-* 字符串保留（数据库列与无关夹具，不属平台代码）。阿里云部署审计：①发现并修复认证配置不一致——原 `AUTH_DEV_MODE=true + NODE_ENV=production` 使开发认证失效并回退 CloudBase 适配器，现 `compose.prod.yml` 试用期显式 `NODE_ENV=development + AUTH_DEV_MODE=true`；②无惰性单例竞态（常驻进程启动时创建一次 app）；③无跨目录源码导入（运行 dist）；④环境变量由 compose 显式声明（优于 cloudbaserc）；⑤遗留：定时任务未配置 cron、api 容器无 healthcheck 依赖、`runtime/api-flat` 需在移除 CloudBase 依赖后重新生成、自建认证未实现。
+
+测试结果：`pnpm verify` 582/582 ✅（72 个测试文件，隔离 MySQL；删除 12 条 CloudBase 专属测试）；定向 web client 144、session 7、conflict-handler 3、app 10、runtime 3、test-fixtures auth 1 全通过；`pnpm --filter @schedule/api typecheck`、`@schedule/web typecheck` 通过。
+
+运行/浏览器验证：pnpm smoke:browser 通过（本地认证替换后管理员/成员/访客全流程，无浏览器错误；临时 3002/5175 服务已关闭）；pnpm smoke:check-core 通过（核心链路 auth/session/client 有改动，记录已满足校验）。
+
+状态：#3.6/#9.1/#9.2 ✅（随 CloudBase 弃用清理）；CloudBase 平台清理完成，部署目标固定阿里云 ECS（已完成，待用户后续部署/验收）。
+
+提交：16aea99（`refactor!: remove CloudBase platform and switch web auth to local auth`），推送结果见对话回复
+
+不确定点：1. 密码登录在自建认证落地前不可用（登录页仍显示账号密码表单，提交会提示“尚未实现”）；若需要可先行隐藏表单。2. `cloudbaseUid` 字段名/列名保留（业务持久化），重命名需数据库迁移，另开轮。3. `runtime/api-flat`（阿里云依赖树挂载件）未在本次重建，下次部署前需重新生成（已移除 @cloudbase 依赖）。
+
+下次计划：按阿里云部署路径推进（自建认证 → 域名/备案/HTTPS → 定时任务 → 正式 MySQL）；等待用户部署/验收本轮清理；同时保留用户强刷复核轮次 31 及轮次 57、54、53、52、51、50、49、48、47、46 及 23–38 相关验收项。

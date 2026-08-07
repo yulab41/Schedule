@@ -10,8 +10,8 @@
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
 - Debug rounds: 1–57 已完成；fix-progress 轮次 1–38 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码；轮次 26 = #4.2：swap/duty 冲突断言统一为共享接口；轮次 27–30 = #4.3 入口骨架/依赖容器/入口迁移 + #4.4 软删除函数合并；轮次 31 = #4.5 仅未来日期守卫 + #7.6 移除“调”标记；轮次 32 = #3.5 idempotency 仅重复键走查重路径；轮次 33 = #5.1 retry skipped 如实计数；轮次 34 = #5.2 群组回收清单锁定 + scanned 语义；轮次 35 = #5.3 统计重建失败上下文；轮次 36 = #6.1/#6.2 迁移回填合并 + 序列校验；轮次 37 = #2.2 数据库客户端公开 connection 事件 + UTC 会话初始化；轮次 38 = #1.3 工作区清理 + #9.3 共享测试基建）；最新验证基线 593/593（75 个测试文件，隔离 MySQL）
-- Deployment: 本地部署继续（用户决定暂不上线）：API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 均为 2026-08-07 最新构建，`/health`、`/api/health`、首页均 200，开发模式认证可用；PWA shell/schedule 缓存升至 `v5`；阿里云 ECS 试用机与 CloudBase 上线验证暂停，等待用户后续决定
-- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 38（#1.3 工作区清理 + #9.3 共享测试基建）已完成，非 CloudBase 合规项全部完成；CloudBase 专属项 #3.6/#9.1/#9.2 暂缓至最后一批统一处理（保留 CloudBase 备用，2026-08-07 用户决定），下一目标为该最后一批；新发现 TODO：tests/security typecheck 的 web-push 声明缺失；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
+- Deployment: CloudBase 已于 2026-08-07 弃用并清理；部署目标固定为阿里云 ECS 试用机（`8.148.183.46`，Docker Compose：Nginx + Fastify + MySQL，试用期 `NODE_ENV=development + AUTH_DEV_MODE=true` 开发模式认证）；本地部署继续维护（API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 保持最新构建，开发模式认证可用）；PWA shell/schedule 缓存 `v6`；正式上线（域名/ICP/HTTPS/自建认证/定时任务）待推进
+- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 39（CloudBase 弃用清理 + 阿里云部署审计，含 #3.6/#9.1/#9.2）已完成；下一目标：按阿里云部署路径推进（自建账号密码认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号 → 重新生成 `runtime/api-flat` 后部署）；新发现 TODO：tests/security typecheck 的 web-push 声明缺失；等待用户部署/验收
 
 ## Debug / Test Feedback Log
 
@@ -23,11 +23,12 @@
 - 设计规格：`docs/superpowers/specs/2026-08-01-medical-staff-scheduling-system-design.md`
 - 实施计划：`docs/superpowers/plans/2026-08-01-medical-staff-scheduling-system-implementation-plan.md`
 - 调试反馈日志：`docs/debug/debug-feedback-log.md`
-- CloudBase 运维笔记：`docs/deployment/cloudbase-ops-notes.md`
+- 阿里云 ECS 部署手册：`docs/deployment/aliyun-ecs.md`
 - 仓库规则：`AGENTS.md`
 
 ## Completed Work（摘要）
 
+- 2026-08-07 fix-progress 轮次 39：CloudBase 弃用清理 + 阿里云部署审计——删除 cloudbase-handler/cloudbase-auth/cloudbase-runner 及测试、`infra/cloudbase/`、`deploy-development.yml`、CloudBase 文档与三个 @cloudbase 依赖；前端认证替换为 `local-auth.ts`（dev identity 会话，密码登录返回“尚未实现”），API 不再静默回退 CloudBase SDK（未配置 authPort 且非开发模式时启动报错）；`compose.prod.yml` 试用期改为 `NODE_ENV=development + AUTH_DEV_MODE=true`（修复原认证配置不一致）；README/部署/设计文档改为阿里云方案；`pnpm verify` 582/582 通过（72 个测试文件，隔离 MySQL），运行/浏览器验证：pnpm smoke:browser 通过（管理员/成员/访客全流程无浏览器错误），pnpm smoke:check-core 通过（核心链路 auth/session/client 有改动，记录满足校验）；#3.6/#9.1/#9.2 随平台弃用关闭。
 - 2026-08-07 fix-progress 轮次 38：完成 #1.3 + #9.3——工作区清理（删除空目录、16 个 local-*.log、2 份 CloudBase 打包产物约 6.9MB，不入库）；`@schedule/test-fixtures` 新增共享 `createFakeAuthPort(resolveCloudbaseUid)` 与 `resetDatabase(client)`，load/security 测试删除本地副本并复用，`test-fixtures/tsconfig.build.json` 补 `paths: {}`，tests/load、tests/security 增补 workspace 依赖并更新锁文件；新增 1 条 auth 锁定测试；`pnpm verify` 593/593 通过（75 个测试文件，隔离 MySQL），定向 security 4/4、holidays 7/7、auth 1/1，`pnpm --filter @schedule/load-tests build` 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 37：完成 #2.2（数据库客户端 mysql2 内部属性 + 异步设时区）——`createPool` 改用回调版 `mysql2` 的公开 `pool.on('connection', ...)`（不再触碰 `pool.pool` 私有对象），`pool.promise()` 交给 drizzle；注释说明连接事件先于出借触发、SET 同步入队、单连接 FIFO 串行，首个业务查询必在 SET 完成后执行，失败销毁连接；新增 `client.test.ts` 2 条锁定测试（并发双连接 + 事务连接）；`pnpm verify` 592/592 通过（74 个测试文件，隔离 MySQL），定向 client 2/2、migrations 10/10 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 36：完成 #6.1/#6.2（迁移回填合并 + 序列一致性校验）——`0030` 改为临时排名表一次计算 ROW_NUMBER 后分别 UPDATE swap/duty（排序与分配器语义一致），`0029` 播种补显式 ORDER BY，`0031` 保留文件名改为校验迁移（回填区间越界或序列重复时 CHECK 约束报错）；`migrations.test.ts` 新增 2 条行为测试（排序/区间锁定 + 越界拒绝，旧 0031 红）；`pnpm verify` 590/590 通过（73 个测试文件，隔离 MySQL），定向 migrations 10/10 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
@@ -123,9 +124,8 @@
 - 轮次 54 换班撤销增加后续工作流顺序保护，并修复本地 8/21、8/22 因乱序撤销残留的日历标签。
 - 轮次 55 实现失效工作流自动归档/自愈：新增单调工作流序列（迁移 0026–0031）替换毫秒级 createdAt 排序；`WorkflowSelfHealingService` 自动检测 completed 但实际人员不匹配且无后续有效工作流的记录，写入撤销事件并归档（不修改实际人员）；接入换班/加扣班全部事务入口与排班补录；启动巡检一次全库扫描（GET_LOCK 互斥、幂等）。检查点提交 `feat(workflows): auto-archive stale completed workflows with monotonic ordering` 识别。
 - 轮次 56 修复 Fastify 非标准 Content-Type 被错误归一化为 500 的问题：错误处理器识别框架 4xx 并保留状态码，415 映射新增错误码 `UNSUPPORTED_MEDIA_TYPE`。检查点提交 `fix(api): map unsupported content types to 415 instead of 500` 识别。
-- 下一活动批次：轮次 57（fetch 接收者修复）已完成、待用户强刷复核；随后 fix-progress 轮次 23 处理 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复合并）；项目暂不上线，本地部署持续维护；CloudBase 上线验证暂停，待用户决定后再继续（随后等待用户验收并启动微信小程序立项，设计 26.1）。
-- 上线状态：线上库迁移已执行至 0031（含 0021–0025）；API/schedule-jobs 与静态托管已上传；CloudBase 环境 `InsufficientBalance` 阻塞函数调用，健康检查未通过。
-- 停止条件：本地部署可用且用户验收完成（上线暂停，待用户决定后再恢复“上线健康检查通过”停止条件）。
+- 当前批次：fix-progress 合规项全部完成；CloudBase 已弃用清理，部署目标为阿里云 ECS；下一阶段按阿里云部署路径推进（自建认证、域名/HTTPS、定时任务、正式 MySQL）。
+- 停止条件：阿里云 ECS 部署可用且用户验收完成（正式化项完成前不视为生产上线）。
 
 ## Required Reading for the Next Conversation
 
@@ -133,21 +133,21 @@
 2. `fix-progress.md`（Web 1.0 合规修复的唯一切入点，含审查报告全文证据）。
 3. `AGENTS.md`。
 4. `docs/debug/debug-feedback-log.md`（每轮只需读一遍，后续轮次在其上追加）。
-5. `docs/deployment/cloudbase-ops-notes.md`（涉及 CloudBase 控制台/CLI 时必须读）。
+5. `docs/deployment/aliyun-ecs.md`（涉及阿里云部署时必须读）。
 6. 设计规格相关章节（按当轮任务定位；常用 22/23/24/27）。
 7. `git status --short --branch`、`git log -5 --oneline --decorate`、remotes，确认当前批次与代码一致。
 
-## Known Environment State（关键信息；详细命令见 cloudbase-ops-notes）
+## Known Environment State（关键信息；详细命令见 aliyun-ecs.md）
 
-- CloudBase 开发环境 `schedule-dev-d1geh4w1l4af7359d`（公网 + 单账号全局授权妥协）；`/api` 走 SCF + 网关鉴权，`/api/health` 匿名。
-- 线上 MySQL（CynosDB 公共端点）：`sh-cynosdbmysql-grp-3vcucsya.sql.tencentcdb.com:24819`，库 `schedule_dev`，用户 `schedule_app`；凭据在 CloudBase 函数环境与 `infra/cloudbase/cloudbaserc.local.json`（gitignored），不入库。线上迁移记录已到 31 条（0021–0031 已应用）。
-- CloudBase 环境当前状态：`InsufficientBalance`（余额不足），API 函数不可调用；需充值后重新触发部署验证。
+- 阿里云 ECS 试用机：`8.148.183.46`（Ubuntu 22.04，Docker 预装，1.6G 内存）；入口 `http://8.148.183.46`（未配置 HTTPS/域名）；部署方式见 `docs/deployment/aliyun-ecs.md`；试用期 API 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行（开发模式认证）。
+- 阿里云 MySQL：ECS 上 MySQL 8.4 容器（命名卷 `schedule_mysql_data`）；开发期单账号 `schedule_app` 全局授权；正式化需专用最小权限账号。原腾讯云 CynosDB `schedule_dev` 数据如需迁移，另行确认凭据后执行。
+- 线上/开发迁移记录：历史已应用至 0031（0021–0031）；迁移铁律见下。
 - CynosDB `explicit_defaults_for_timestamp=OFF`：TIMESTAMP 列必须显式写明默认值，否则隐式带 `ON UPDATE CURRENT_TIMESTAMP`（`0018`/`0020` 已修复；新增 TIMESTAMP 列需遵循）。
 - 部署铁律：含新迁移的发布必须先对线上库执行迁移（`pnpm --filter @schedule/api migrate`，带线上 `MYSQL_*` 环境），再部署代码；否则线上全站 500（轮次 12 事故）。
 - 2026 法定节假日已导入并确认（39 条，`confirmedYears: [2026]`）。
 - 本地：Docker dev MySQL（`medical-schedule-dev-mysql-1`，端口 3306）健康；`.env` 仅本地使用（含 `AUTH_DEV_MODE`/`VITE_AUTH_DEV_MODE`/`HOLIDAY_ADMIN_UIDS=local-admin`）；本地库已导入并确认 2026 节假日（39 条，v1）；隔离测试库端口 3307 当前运行。用户原端口 API `127.0.0.1:3000` 与验收 API `127.0.0.1:3001` 均为 2026-08-07 最新构建；Web 为用户原 `localhost:5173`（代理 3000）与验收 `localhost:5174`（代理 3001，`VITE_API_PROXY_TARGET` 可配置）；PWA shell/排班缓存当前为 `v5`。
 - pnpm v11 依赖状态检查在 node_modules 元数据陈旧时会尝试以 production 裁剪 devDependencies（报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`）；已重新 `pnpm install` 恢复完整依赖（`.modules.yaml` 现为 `devDependencies: true`）。如再遇到该错误，先 `pnpm install` 再跑 `pnpm verify`，不要依赖 `CI=true` 让 pnpm 自行裁剪。
-- 工具：`gh` 位于 `C:\Program Files\GitHub CLI\gh.exe`；CloudBase CLI 用 `pnpm exec tcb`；CAM 子账号 `schedule` 有 TCB/SCF/COS/CDN 权限（无 cynosdb）。
+- 工具：`gh` 位于 `C:\Program Files\GitHub CLI\gh.exe`；阿里云 ECS 通过 SSH/控制台运维；`runtime/api-flat/node_modules` 为开发机生成的依赖挂载件（下次部署前需重新生成，已移除 CloudBase 依赖）。
 - 安全 TODO：CAM SecretId/SecretKey 曾贴入对话，需轮换并更新 GitHub `development` secrets；生产化另需 VPC 内网与专用运行账号（妥协与升级路径见 `docs/deployment/production-readiness.md`）。
 
 ## Reusable Operational Notes
@@ -157,7 +157,7 @@
 - 修改 contracts/database 后需先 `pnpm --filter @schedule/contracts build` / `pnpm --filter @schedule/database build` 再跑 API 集成测试。
 - Web 改动上线后提醒用户强制刷新（PWA 缓存）；必要时升级 shell/schedule 缓存版本号。
 - 本地验收对启动方式：`API_PORT=3001` 启动第二个 API，`VITE_API_PROXY_TARGET=http://127.0.0.1:3001 pnpm --filter @schedule/web dev -- --port 5174` 启动第二个 Vite（详见 `docs/development/local-setup.md`）。
-- GitHub Actions 的 Verify 由 push/PR 触发；Deploy Development 仅允许手动触发，以上线状态以 `gh run list` 为准。
+- GitHub Actions 的 Verify 由 push/PR 触发；阿里云部署为手动流程（本机构建 → 上传 → compose up → 容器内跑迁移），无自动部署工作流。
 - 每次 push 后确认 `git status --short --branch` 与远端一致再继续。
 
 ## Decisions and Blockers（仅保留当前仍相关）
@@ -169,7 +169,8 @@
 - 已发布草稿自动离开活动草稿区，其编号与排班内容保留在当前/归档发布版本记录；访客无需登录，从公开群组名称列表选择群组后直接读取当天所在月份的月历，不返回群组码、电话、事件或管理能力；加入群组的群组码失败尝试仍按来源限流。
 - 草稿过期提醒（设计 16.2）未实现，留待后续轮次。
 - 生产化妥协（公网 + 单账号全局授权）：风险与升级路径见 `docs/deployment/production-readiness.md`；CAM key 轮换为安全 TODO。
-- 阿里云迁移（2026-08-06，用户决定弃用腾讯云）：Web 1.0 已用 `infra/docker/compose.prod.yml` 部署到阿里云 ECS 试用机；试用机仅 1.6G 内存，镜像构建/依赖安装均会卡死系统，因此 API 依赖树由开发机 `pnpm deploy` 后拍平上传挂载（`runtime/api-flat/node_modules`），Web 前端由开发机 `vite build` 后上传挂载，服务器不做任何编译；登录认证暂为开发模式（`AUTH_DEV_MODE=true`），自建认证改造为后续任务。
+- CloudBase 弃用（2026-08-07 用户决定）：CloudBase 不保留，已清理全部平台代码/依赖/部署文件/文档；部署目标固定为阿里云 ECS。
+- 阿里云迁移（2026-08-06）：Web 1.0 已用 `infra/docker/compose.prod.yml` 部署到阿里云 ECS 试用机；试用机仅 1.6G 内存，镜像构建/依赖安装均会卡死系统，因此 API 依赖树由开发机 `pnpm deploy` 后拍平上传挂载（`runtime/api-flat/node_modules`），Web 前端由开发机 `vite build` 后上传挂载，服务器不做任何编译；试用期认证为开发模式（`NODE_ENV=development + AUTH_DEV_MODE=true`），自建认证改造为后续任务。
 - 当前无阻塞；待用户验收项见 debug 日志“待办 / 下一步”。
 
 ## Handoff Requirements
