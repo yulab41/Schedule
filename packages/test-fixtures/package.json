@@ -14,5 +14,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@schedule/database": "workspace:*",
+    "drizzle-orm": "0.45.2"
   }
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { createApp } from '../../../apps/api/dist/app.js';
+import { createFakeAuthPort, resetDatabase } from '@schedule/test-fixtures';
 import {
   createDatabaseClient,
   groupMemberships,
@@ -20,6 +21,17 @@ const databaseOptions = getTestDatabaseOptions();
 const userIds: string[] = [];
 const groupIds: string[] = [];
 
+const resolveLoadToken = (token: string): string | undefined => {
+  if (!token.startsWith('load-token-')) {
+    return undefined;
+  }
+  const index = Number(token.slice('load-token-'.length));
+  if (!Number.isInteger(index) || index < 0 || index >= 2000) {
+    return undefined;
+  }
+  return `load-uid-${String(index).padStart(4, '0')}`;
+};
+
 if (databaseOptions === undefined) {
   console.error('TEST_MYSQL_* settings are required for the load test.');
   process.exit(1);
@@ -34,7 +46,7 @@ try {
 
   const coldStart = await measure(async () => {
     const app = createApp({
-      authPort: createFakeAuthPort(),
+      authPort: createFakeAuthPort(resolveLoadToken),
       databaseClient: client,
       logger: false,
       platformAdminUids: new Set(['load-uid-0000']),
@@ -45,7 +57,7 @@ try {
 
   const seed = await measure(() => seedDataset(client));
   const app = createApp({
-    authPort: createFakeAuthPort(),
+    authPort: createFakeAuthPort(resolveLoadToken),
     databaseClient: client,
     logger: false,
     platformAdminUids: new Set(['load-uid-0000']),
@@ -603,24 +615,6 @@ function assertAcceptance(summary: Record<string, unknown>): void {
   }
 }
 
-type AuthPortLike = NonNullable<NonNullable<Parameters<typeof createApp>[0]>['authPort']>;
-
-function createFakeAuthPort(): AuthPortLike {
-  return {
-    authenticate: async ({ authorization }: { authorization: string | undefined }) => {
-      const token = authorization?.replace(/^Bearer\s+/iu, '');
-      if (token === undefined || !token.startsWith('load-token-')) {
-        return undefined;
-      }
-      const index = Number(token.slice('load-token-'.length));
-      if (!Number.isInteger(index) || index < 0 || index >= 2000) {
-        return undefined;
-      }
-      return { cloudbaseUid: `load-uid-${String(index).padStart(4, '0')}` };
-    },
-  };
-}
-
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
   const {
     TEST_MYSQL_DATABASE,
@@ -647,17 +641,4 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
     port,
     user: TEST_MYSQL_USER,
   };
-}
-
-async function resetDatabase(databaseClient: DatabaseClient): Promise<void> {
-  await databaseClient.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
-  const [tables] = (await databaseClient.database.execute(
-    sql`SELECT TABLE_NAME AS t FROM information_schema.tables WHERE table_schema = DATABASE()`,
-  )) as unknown as [{ t: string }[], unknown];
-  for (const row of tables) {
-    await databaseClient.database.execute(
-      sql.raw(`DROP TABLE IF EXISTS \`${row.t.replaceAll('`', '``')}\``),
-    );
-  }
-  await databaseClient.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
 }

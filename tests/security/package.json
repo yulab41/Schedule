@@ -10,6 +10,7 @@
     "@schedule/api": "workspace:*",
     "@schedule/contracts": "workspace:*",
     "@schedule/database": "workspace:*",
+    "@schedule/test-fixtures": "workspace:*",
     "drizzle-orm": "0.45.2"
   }
 }

@@ -7,6 +7,7 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
+import { createFakeAuthPort, resetDatabase } from '@schedule/test-fixtures';
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -24,12 +25,13 @@ describeWithDatabase('security acceptance matrix', () => {
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
+    const tokens: Readonly<Record<string, string>> = {
+      'group-a-owner': 'uid-a-owner',
+      'group-a-member': 'uid-a-member',
+      'group-b-owner': 'uid-b-owner',
+    };
     app = createApp({
-      authPort: createFakeAuthPort({
-        'group-a-owner': 'uid-a-owner',
-        'group-a-member': 'uid-a-member',
-        'group-b-owner': 'uid-b-owner',
-      }),
+      authPort: createFakeAuthPort((token) => tokens[token]),
       databaseClient: client,
       logger: false,
       platformAdminUids: new Set(['uid-a-owner']),
@@ -270,16 +272,6 @@ describeWithDatabase('security acceptance matrix', () => {
   }
 });
 
-function createFakeAuthPort(tokens: Readonly<Record<string, string>>) {
-  return {
-    authenticate: async ({ authorization }: { authorization: string | undefined }) => {
-      const token = authorization?.replace(/^Bearer\s+/iu, '');
-      const cloudbaseUid = token === undefined ? undefined : tokens[token];
-      return cloudbaseUid === undefined ? undefined : { cloudbaseUid };
-    },
-  };
-}
-
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
   if (process.env.NODE_ENV !== 'test') {
     return undefined;
@@ -312,17 +304,4 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
     port,
     user: TEST_MYSQL_USER,
   };
-}
-
-async function resetDatabase(databaseClient: DatabaseClient): Promise<void> {
-  await databaseClient.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
-  const [tables] = (await databaseClient.database.execute(
-    sql`SELECT TABLE_NAME AS t FROM information_schema.tables WHERE table_schema = DATABASE()`,
-  )) as unknown as [{ t: string }[], unknown];
-  for (const row of tables) {
-    await databaseClient.database.execute(
-      sql.raw(`DROP TABLE IF EXISTS \`${row.t.replaceAll('`', '``')}\``),
-    );
-  }
-  await databaseClient.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
 }
