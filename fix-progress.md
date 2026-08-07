@@ -474,10 +474,10 @@
 
 ## 6. TODO（新发现问题登记处）
 
-> 2026-08-07 第二轮全库复审（处女原则）新发现问题 N1–N14。除 N1 已在轮次 41 修复外，其余一律先登记、等用户安排轮次，不顺手改。
+> 2026-08-07 第二轮全库复审（处女原则）新发现问题 N1–N14。除 N1 已在轮次 41、N2 已在轮次 42 修复外，其余一律先登记、等用户安排轮次，不顺手改。
 
 - **N1 ✅（轮次 41 已修复）** `infra/docker/compose.prod.yml` 第 32/43 行重复 `NODE_ENV` 键，`docker compose config` 解析失败，阿里云部署路径不可复现（引入点 16aea99）。修复：删除旧 `NODE_ENV: production`，保留试用期 `NODE_ENV: development`；`verify.yml` 新增 `docker compose config --quiet` 校验。
-- **N2 ⏳ 严重（安全，需用户决策）** 公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）。自建认证落地前应加 Nginx 来源 IP 白名单或网关令牌。
+- **N2 ✅（轮次 42 已修复）** 公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）。用户决策（2026-08-07）：采用方案二“浏览器密码提示”（Nginx Basic Auth）作为临时门禁；`nginx.prod.conf` 改为官方镜像模板并用 `NGINX_BASIC_AUTH_REALM` 控制开关，`.htpasswd` 服务器本地生成、不入库。该门禁仅限非正式测试阶段，微信小程序/正式上线改用微信账号登录前必须关闭并移除。
 - **N3 ⏳ 轻微** `apps/api/src/jobs/run-job.ts` 的 `getJobName` 手写 7 项任务名单，与 runner 穷举映射重复维护（#3.3 同类残留）。
 - **N4 ⏳ 轻微** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。
 - **N5 ⏳ 轻微** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。
@@ -514,6 +514,31 @@
 不确定点：1. `compose.prod.yml` 中 `api` 服务仍保留 `build:` 且无 `image:`，而部署文档称“服务器不做编译”——部署路径（镜像来源）仍未在仓库内闭环，建议部署前人工确认 ECS 上的镜像/挂载方式（登记入 N1 后续项）。2. 验证期间隔离测试库因 512MB tmpfs 顶满崩溃（N14），重置后全绿；全量 verify 需在重置后的测试库上执行。3. CI 的 compose 校验使用 `.env.production.example` 占位值，若未来该示例缺少 compose 引用的变量（非 `:-` 默认），校验会以 unset 变量告警但不会失败——正式环境变量完整性仍需部署脚本保证。
 
 下次计划：N2（公网开发认证防护，需用户确认方案）→ N7（#7.3 收尾）→ N3/N4 等快速清理项；同时按阿里云部署路径推进自建认证。
+
+### 轮次 42 – 2026-08-07
+
+目标：#N2 —— 公网试用期开发认证防护。用户决策（2026-08-07）：选择方案二“浏览器密码提示”（Nginx Basic Auth）；并明确该门禁仅限非正式测试阶段，微信小程序上线、网页改用微信账号登录后必须取消。
+
+引入点：N2 由 2026-08-07 第二轮全库复审（处女原则）登记；根因是轮次 39（16aea99）把试用期认证改为 `NODE_ENV=development + AUTH_DEV_MODE=true` 后，公网请求可构造任意 Bearer token 冒充任意 UID（含管理员）。
+
+为什么现有测试没拦住：`pnpm verify` 与 `pnpm smoke:check-core` 均不覆盖 Nginx 容器行为/部署文件，单测也无法验证浏览器端 Basic Auth 交互；因此用真实 `nginx:1.27-alpine` 容器 + 无头 Edge 浏览器补运行验证。
+
+修改文件：`infra/docker/nginx.prod.conf` → `nginx.prod.conf.template`（server 级新增 `auth_basic ${NGINX_BASIC_AUTH_REALM};` 与 `auth_basic_user_file ${NGINX_BASIC_AUTH_USER_FILE};`，由官方 nginx 镜像模板机制渲染，注释标明临时门禁与移除时机）；`infra/docker/compose.prod.yml`（web 服务新增两个环境变量，挂载改为 `/etc/nginx/templates/default.conf.template`，新增 `./.htpasswd:/etc/nginx/.htpasswd:ro`）；`.env.production.example`（新增 `NGINX_BASIC_AUTH_REALM=Trial_access` 及临时性说明）；`.gitignore`（忽略 `infra/docker/.htpasswd`）；`infra/docker/Dockerfile.web`（拷贝模板到 templates 目录，镜像默认 `NGINX_BASIC_AUTH_REALM=off`）；`docs/deployment/aliyun-ecs.md`（新增“试用期临时门禁”启用/关闭步骤，健康检查补带凭据示例）；`docs/deployment/production-readiness.md`（认证现状表与升级清单同步门禁及移除要求）。
+
+语义等价审计与行为变化清单：`NGINX_BASIC_AUTH_REALM=off` 时与旧配置行为等价（`auth_basic off`，站点全放行；实测无 `.htpasswd` 文件也能正常启动）；非 `off` 时新增 401 门禁（静态页、`/api/*`、`/health` 全部受保护，浏览器先弹用户名/密码提示）。模板机制只替换显式声明的两个环境变量，`$host/$uri/$remote_addr` 等 nginx 运行时变量不受影响（实测渲染结果正确）。Dockerfile 镜像默认 off，仅 compose 试用环境按 `.env` 开启。
+
+测试结果：改动前基线 `pnpm verify` 584/584 ✅（72 测试文件，隔离 MySQL）；改动后 `docker compose --env-file .env.production.example -f infra/docker/compose.prod.yml config --quiet` ✅；改动后 `pnpm verify` 584/584 ✅（72 测试文件）；`pnpm exec prettier --check ".github/**/*.yml" "docs/deployment/**/*.md"` ✅；`pnpm smoke:check-core` ✅（未涉及 Web 核心链路）。
+
+运行/浏览器验证：真实 nginx:1.27-alpine 容器实测——开启门禁：无凭据 `curl` → 401 + `WWW-Authenticate: Basic realm="Trial_access"`，带凭据 → 200；关闭门禁（容器内无 `.htpasswd` 文件）→ 200 正常启动。无头 Edge（playwright-core）实测——开启门禁无凭据访问被浏览器拒绝（`net::ERR_INVALID_AUTH_CREDENTIALS`，页面内容不可见），带凭据 → 200 显示页面；关闭门禁无凭据 → 200。
+
+状态：#N2 ✅（已完成：本地容器 + 浏览器运行验证通过；配置与文档就绪，待用户按部署手册在 ECS 启用后复核）。
+
+提交：7d78fe6（`feat(deploy): add temporary basic auth gate to trial nginx`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. 门禁开启后 `infra/docker/.htpasswd` 必须先由操作者在服务器创建（compose 对不存在的挂载源会生成目录，nginx 读取该路径会失败）；若忘记创建，启用后所有请求 5xx，症状明显。2. 部署文档推荐 `openssl passwd -apr1`/htpasswd 哈希；若图省事用 `{PLAIN}` 明文格式，必须保证文件权限 600。3. Basic Auth 的用户名/密码是共用凭据，仅适合可信测试人员；微信登录落地后若未及时移除，用户会先被密码框拦住。
+
+下次计划：N7（#7.3 时区转换收尾：领域包补 `formatChinaStandardTime`/`formatChinaDateTime` 纯函数并替换 8 个前端文件）→ N3/N4 等快速清理项；同时按阿里云部署路径推进自建/微信认证。
+
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
 - `tests/security` typecheck 因 `apps/api/src/modules/notifications/notification-dispatcher.ts` 引用的 `web-push` 缺类型声明而失败（apps/api 自身 typecheck 有 `src/types/web-push.d.ts` 覆盖；tests/security 的 tsconfig include 不含该声明；轮次 38 发现，登记于 project-status/debug 日志）。

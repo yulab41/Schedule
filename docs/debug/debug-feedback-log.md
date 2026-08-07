@@ -832,8 +832,18 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：第 6 节 TODO 三条 ✅；web-push 声明缺失 ✅（均无用户界面变化，无需用户强刷）。
 
+### 轮次 42（fix-progress #N2，提交：见下方代码提交 + docs checkpoint）
+
+- 用户决策（2026-08-07）：N2 公网开发认证防护选择方案二“浏览器密码提示”（Nginx Basic Auth）；明确当前为非正式测试阶段，门禁是临时措施，微信小程序上线、网页改用微信账号登录后必须取消。
+- 目标/需求：公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）；自建/微信认证落地前先加浏览器密码门禁。
+- 根因：轮次 39（16aea99）把试用期认证改为开发模式后，公网请求可直接伪造身份。
+- 修复/功能：`nginx.prod.conf` 改为官方镜像模板（`nginx.prod.conf.template`），server 级 `auth_basic ${NGINX_BASIC_AUTH_REALM}` / `auth_basic_user_file ${NGINX_BASIC_AUTH_USER_FILE}`；compose 以环境变量开关（`off`=放行，非 `off`=弹密码框）并挂载服务器本地 `.htpasswd`（不入库、gitignore）；Dockerfile.web 镜像默认 `off`；`.env.production.example`、`aliyun-ecs.md`、`production-readiness.md` 同步启用/关闭步骤与“上线前必须移除”说明。
+- 验证：改动前后 `pnpm verify` 均为 584/584 ✅（72 测试文件，隔离 MySQL）；`docker compose --env-file .env.production.example -f infra/docker/compose.prod.yml config --quiet` ✅；prettier（github yml + deployment md）✅；`pnpm smoke:check-core` ✅（未涉及 Web 核心链路）。运行/浏览器验证：真实 nginx:1.27-alpine 容器——开启：无凭据 401 + `WWW-Authenticate: Basic realm="Trial_access"`，带凭据 200；关闭（无 .htpasswd 文件）：200 正常启动；无头 Edge——开启门禁无凭据被拒（`net::ERR_INVALID_AUTH_CREDENTIALS`），带凭据 200 显示页面，关闭门禁 200。
+- 状态：#N2 ✅（已完成：本地容器 + 浏览器运行验证通过；配置与文档就绪，待用户在 ECS 启用后复核）。
+
 ## 待办 / 下一步
 
+- 用户决策（2026-08-07）：N2 采用“浏览器密码提示”临时门禁；当前为非正式测试阶段，微信小程序上线、网页改用微信账号登录前必须关闭并移除门禁。
 - 用户决策（2026-08-07）：CloudBase 弃用并已清理；部署目标固定阿里云 ECS；#3.6/#9.1/#9.2 随平台清理关闭。
 - 用户强刷后复核：换班/加扣班/请假等幂等操作重放行为不变（轮次 32 相关，正常操作不易触发）。
 - 用户强刷后复核：日历不再显示“调”标记，排班补录页正常（轮次 31 相关，PWA 缓存已升 v6）。
@@ -856,7 +866,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-07）：fix-progress 轮次 40 已完成（第 6 节 TODO 三条 + web-push 声明缺失）；按阿里云部署路径推进——自建账号密码认证、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
+- 下一活动批次（2026-08-07）：fix-progress 轮次 42 已完成（#N2 试用期 Nginx 浏览器密码门禁，待用户在 ECS 启用并复核）；下一目标为 N7（#7.3 时区转换收尾）→ N3/N4 等快速清理项；部署路径继续推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。
