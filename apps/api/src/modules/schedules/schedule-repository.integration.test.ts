@@ -12,6 +12,7 @@ import {
   scheduleRoles,
   shiftAssignments,
   shiftTypes,
+  swapRequests,
   userProfiles,
   users,
   withTransaction,
@@ -22,6 +23,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { ScheduleRepository } from './schedule-repository.js';
+import { ScheduleWorkflowInvalidationService } from './workflow-invalidation-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -309,6 +311,91 @@ describeWithDatabase('schedule period versions and shift assignment snapshots', 
       before.map((row) => row.startsAt.toISOString()),
     );
     expect(after.every((row) => row.deletedAt !== null)).toBe(true);
+  });
+
+  it('keeps starts_at pinned when workflow invalidation resets assignments', async () => {
+    const repository = new ScheduleRepository(client);
+    const period = await repository.createDraft({
+      ...createDraftInput('2026-10', '2026-10-01'),
+      assignments: [
+        {
+          actualMembershipId: memberId,
+          businessDate: '2026-10-01',
+          plannedMembershipId: memberId,
+          shiftTypeId,
+          slotPosition: 1,
+        },
+        {
+          actualMembershipId: memberId,
+          businessDate: '2026-10-02',
+          plannedMembershipId: memberId,
+          shiftTypeId,
+          slotPosition: 1,
+        },
+      ],
+    });
+    const assignments = await client.database
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, period.id))
+      .orderBy(shiftAssignments.businessDate);
+    const [first, second] = assignments;
+    if (first === undefined || second === undefined) {
+      throw new Error('Expected two shift assignments.');
+    }
+
+    await client.database.insert(swapRequests).values({
+      groupId,
+      id: randomUUID(),
+      initiatorAssignmentId: first.id,
+      initiatorAssignmentVersion: first.version,
+      initiatorMembershipId: memberId,
+      status: 'pending_target',
+      targetAssignmentId: second.id,
+      targetAssignmentVersion: second.version,
+      targetMembershipId: memberId,
+      workflowSequence: 1,
+    });
+
+    // Reproduce the CynosDB hazard (explicit_defaults_for_timestamp=OFF) where a
+    // TIMESTAMP column can carry an implicit ON UPDATE CURRENT_TIMESTAMP.
+    await client.database.execute(sql`
+      ALTER TABLE shift_assignments
+      MODIFY starts_at TIMESTAMP(3) NOT NULL DEFAULT '1970-01-01 00:00:01.000'
+        ON UPDATE CURRENT_TIMESTAMP(3)
+    `);
+
+    const before = await client.database
+      .select({ id: shiftAssignments.id, startsAt: shiftAssignments.startsAt })
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, period.id))
+      .orderBy(shiftAssignments.businessDate);
+
+    await withTransaction(client, (transaction) =>
+      new ScheduleWorkflowInvalidationService().invalidate(transaction, {
+        actorUserId: ownerUserId,
+        groupId,
+        operationId: randomUUID(),
+        periodIds: [period.id],
+      }),
+    );
+
+    const after = await client.database
+      .select({
+        actualMembershipId: shiftAssignments.actualMembershipId,
+        id: shiftAssignments.id,
+        startsAt: shiftAssignments.startsAt,
+        version: shiftAssignments.version,
+      })
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, period.id))
+      .orderBy(shiftAssignments.businessDate);
+
+    expect(after.map((row) => row.startsAt.toISOString())).toEqual(
+      before.map((row) => row.startsAt.toISOString()),
+    );
+    expect(after.map((row) => row.actualMembershipId)).toEqual([memberId, memberId]);
+    expect(after.map((row) => row.version)).toEqual([2, 2]);
   });
 
   function createDraftInput(businessMonth: string, businessDate: string) {

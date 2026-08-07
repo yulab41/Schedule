@@ -11,6 +11,8 @@ import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { EventWriter } from '../events/event-writer.js';
 
+import { updateShiftAssignments } from './shift-assignment-writer.js';
+
 export const scheduleChangeRevocationReason = '排班变更';
 
 interface WorkflowRows {
@@ -139,19 +141,17 @@ export class ScheduleWorkflowInvalidationService {
       ]),
     ];
     if (workflowAssignmentIds.length > 0) {
-      await transaction
-        .update(shiftAssignments)
-        .set({
+      await updateShiftAssignments(
+        transaction,
+        and(
+          inArray(shiftAssignments.id, workflowAssignmentIds),
+          isNull(shiftAssignments.deletedAt),
+        ),
+        {
           actualMemberName: sql`${shiftAssignments.plannedMemberName}`,
           actualMembershipId: sql`${shiftAssignments.plannedMembershipId}`,
-          version: sql`${shiftAssignments.version} + 1`,
-        })
-        .where(
-          and(
-            inArray(shiftAssignments.id, workflowAssignmentIds),
-            isNull(shiftAssignments.deletedAt),
-          ),
-        );
+        },
+      );
     }
 
     return impacts;
