@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  formatChinaDateTime,
+  formatChinaStandardTime,
   getChinaStandardTimeBusinessDate,
   toChinaStandardTimeShiftRange,
   toChinaStandardTimeUtcTimestamp,
@@ -51,5 +53,19 @@ describe('China Standard Time schedule helpers', () => {
     expect(toChinaStandardTimeUtcTimestamp('2026-08-06', '08:00')).toEqual(
       new Date('2026-08-06T00:00:00.000Z'),
     );
+  });
+
+  it('formats timestamps as China Standard Time wall-clock time and date-time', () => {
+    expect(formatChinaStandardTime('2026-08-01T16:30:00.000Z')).toBe('00:30');
+    expect(formatChinaStandardTime(new Date('2026-08-01T16:30:00.000Z'))).toBe('00:30');
+    expect(formatChinaDateTime('2026-08-01T16:30:00.000Z')).toBe('2026-08-02 00:30');
+    expect(formatChinaDateTime(Date.parse('2026-08-01T16:30:00.000Z'))).toBe('2026-08-02 00:30');
+    expect(formatChinaDateTime('2026-08-03T06:07:08.123Z', { includeSeconds: true })).toBe(
+      '2026-08-03 14:07:08',
+    );
+    expect(formatChinaDateTime('2026-08-01T16:30:00.000Z', { includeYear: false })).toBe(
+      '08-02 00:30',
+    );
+    expect(() => formatChinaDateTime('invalid')).toThrow('The timestamp must be valid.');
   });
 });

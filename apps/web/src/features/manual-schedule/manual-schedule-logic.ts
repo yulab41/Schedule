@@ -1,5 +1,5 @@
 import type { ManualScheduleTemplate, SchedulePeriodHistoryItem } from '@schedule/contracts';
-import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
+import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六'] as const;
 
@@ -141,19 +141,8 @@ export function formatScheduleDraftCode(createdAt: string): string {
     return 'D时间未知';
   }
 
-  const chinaTime = new Date(created.getTime() + chinaStandardTimeOffsetMilliseconds);
-  const date = [
-    chinaTime.getUTCFullYear(),
-    String(chinaTime.getUTCMonth() + 1).padStart(2, '0'),
-    String(chinaTime.getUTCDate()).padStart(2, '0'),
-  ].join('');
-  const time = [
-    String(chinaTime.getUTCHours()).padStart(2, '0'),
-    String(chinaTime.getUTCMinutes()).padStart(2, '0'),
-    String(chinaTime.getUTCSeconds()).padStart(2, '0'),
-  ].join('');
-
-  return `D${date}-${time}`;
+  const formatted = formatChinaDateTime(created, { includeSeconds: true });
+  return `D${formatted.slice(0, 10).replaceAll('-', '')}-${formatted.slice(11).replaceAll(':', '')}`;
 }
 
 export function findPublishedOverlapMonths(

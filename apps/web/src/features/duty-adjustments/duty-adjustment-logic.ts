@@ -6,7 +6,7 @@ import type {
   DutyAdjustmentAssignmentSummary,
   DutyAdjustmentStatus,
 } from '@schedule/contracts';
-import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
+import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
 import { getDutyMemberName, getDutyMembershipId } from '../calendar/calendar-logic.js';
 import {
@@ -72,14 +72,7 @@ export function formatDutyAdjustmentAssignmentSummaryOption(
 }
 
 export function formatDutyAdjustmentShiftTime(startsAt: string, endsAt: string): string {
-  const start = formatChinaStandardTime(startsAt);
-  const end = formatChinaStandardTime(endsAt);
+  const start = formatChinaDateTime(startsAt, { includeYear: false });
+  const end = formatChinaDateTime(endsAt, { includeYear: false });
   return `${start.slice(0, 5)} ${start.slice(5)}–${end.slice(5)}`;
-}
-
-function formatChinaStandardTime(value: string): string {
-  return new Date(new Date(value).valueOf() + chinaStandardTimeOffsetMilliseconds)
-    .toISOString()
-    .slice(5, 16)
-    .replace('T', ' ');
 }

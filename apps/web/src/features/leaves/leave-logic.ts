@@ -6,7 +6,7 @@ import type {
   LeaveStatisticsDelta,
 } from '@schedule/contracts';
 import {
-  chinaStandardTimeOffsetMilliseconds,
+  formatChinaDateTime,
   getChinaStandardTimeBusinessDate,
   toChinaStandardTimeUtcTimestamp,
 } from '@schedule/scheduling-domain';
@@ -150,9 +150,7 @@ function parseLocalDateTime(date: string, time: string): Date {
 }
 
 function toChinaDate(value: string): string {
-  return new Date(new Date(value).valueOf() + chinaStandardTimeOffsetMilliseconds)
-    .toISOString()
-    .slice(0, 10);
+  return formatChinaDateTime(value).slice(0, 10);
 }
 
 function addDays(value: string, days: number): string {
@@ -166,10 +164,7 @@ function formatMonthDay(value: string): string {
 }
 
 function formatCstDateTime(value: string): string {
-  return new Date(new Date(value).valueOf() + chinaStandardTimeOffsetMilliseconds)
-    .toISOString()
-    .slice(5, 16)
-    .replace('T', ' ');
+  return formatChinaDateTime(value, { includeYear: false });
 }
 
 function formatBusinessDate(value: string): string {

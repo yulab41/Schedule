@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSwapCandidates,
   formatSwapAssignmentOption,
+  formatSwapShiftTime,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
   getSwapStatusLabel,
@@ -52,6 +53,12 @@ const calendar: CalendarReadModel = {
 };
 
 describe('swap flow logic', () => {
+  it('formats shift time ranges in China Standard Time', () => {
+    expect(formatSwapShiftTime('2026-08-01T16:00:00.000Z', '2026-08-02T00:00:00.000Z')).toBe(
+      '08-02  00:00\u2013 08:00',
+    );
+  });
+
   it('builds my assignments, target options, and per-target assignment lists', () => {
     const candidates = buildSwapCandidates(calendar, 'me');
 

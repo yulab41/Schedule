@@ -31,12 +31,15 @@ export {
 export {
   assertBusinessMonthContainsDate,
   chinaStandardTimeOffsetMilliseconds,
+  formatChinaDateTime,
+  formatChinaStandardTime,
   getChinaStandardTimeBusinessDate,
   getCurrentBusinessMonth,
   isPastBusinessDate,
   isPastBusinessMonth,
   toChinaStandardTimeUtcTimestamp,
   toChinaStandardTimeShiftRange,
+  type ChinaDateTimeFormatOptions,
   type ChinaStandardTimeShiftRange,
   type ChinaStandardTimeShiftRangeInput,
 } from './time.js';

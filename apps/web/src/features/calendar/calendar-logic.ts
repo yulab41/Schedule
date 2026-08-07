@@ -3,7 +3,7 @@ import type {
   CalendarDutyAssignment,
   CalendarDutyMember,
 } from '@schedule/contracts';
-import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
+import { formatChinaStandardTime } from '@schedule/scheduling-domain';
 
 const businessMonthPattern = /^\d{4}-\d{2}$/u;
 
@@ -222,10 +222,4 @@ export function createLatestRequestTracker(): LatestRequestTracker {
       return version === latestVersion;
     },
   };
-}
-
-function formatChinaStandardTime(value: string): string {
-  return new Date(new Date(value).valueOf() + chinaStandardTimeOffsetMilliseconds)
-    .toISOString()
-    .slice(11, 16);
 }

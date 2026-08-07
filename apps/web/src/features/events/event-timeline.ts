@@ -4,7 +4,7 @@ import type {
   JsonObject,
   ScheduleEvent,
 } from '@schedule/contracts';
-import { chinaStandardTimeOffsetMilliseconds } from '@schedule/scheduling-domain';
+import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
 import { getDutyMemberName } from '../calendar/calendar-logic.js';
 
@@ -118,11 +118,7 @@ function getEventMarker(eventType: string): CalendarChangeMarker | undefined {
 }
 
 export function formatEventTime(occurredAt: string): string {
-  const shifted = new Date(new Date(occurredAt).valueOf() + chinaStandardTimeOffsetMilliseconds)
-    .toISOString()
-    .replace('T', ' ')
-    .slice(0, 16);
-  return `${shifted.slice(0, 10)} ${shifted.slice(11)}`;
+  return formatChinaDateTime(occurredAt);
 }
 
 export function extractEventChanges(event: ScheduleEvent): readonly EventChangeItem[] {

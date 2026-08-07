@@ -1,6 +1,29 @@
 // 中国标准时间固定偏移的唯一来源：数据库存 UTC，页面与领域统一按 +08:00 换算。
 export const chinaStandardTimeOffsetMilliseconds = 8 * 60 * 60 * 1000;
 
+export interface ChinaDateTimeFormatOptions {
+  readonly includeSeconds?: boolean;
+  readonly includeYear?: boolean;
+}
+
+export function formatChinaStandardTime(value: Date | string | number): string {
+  return new Date(toChinaTimestamp(value).valueOf() + chinaStandardTimeOffsetMilliseconds)
+    .toISOString()
+    .slice(11, 16);
+}
+
+export function formatChinaDateTime(
+  value: Date | string | number,
+  options: ChinaDateTimeFormatOptions = {},
+): string {
+  const shifted = new Date(
+    toChinaTimestamp(value).valueOf() + chinaStandardTimeOffsetMilliseconds,
+  ).toISOString();
+  const date = options.includeYear === false ? shifted.slice(5, 10) : shifted.slice(0, 10);
+  const time = options.includeSeconds === true ? shifted.slice(11, 19) : shifted.slice(11, 16);
+  return `${date} ${time}`;
+}
+
 export interface ChinaStandardTimeShiftRangeInput {
   readonly businessDate: string;
   readonly crossesMidnight: boolean;
@@ -15,13 +38,7 @@ export interface ChinaStandardTimeShiftRange {
 }
 
 export function getChinaStandardTimeBusinessDate(timestamp: Date): string {
-  if (Number.isNaN(timestamp.valueOf())) {
-    throw new Error('The timestamp must be valid.');
-  }
-
-  return new Date(timestamp.valueOf() + chinaStandardTimeOffsetMilliseconds)
-    .toISOString()
-    .slice(0, 10);
+  return formatChinaDateTime(timestamp).slice(0, 10);
 }
 
 export function getCurrentBusinessMonth(now = new Date()): string {
@@ -111,4 +128,12 @@ function parseTime(value: string): { readonly hour: number; readonly minute: num
   }
 
   return { hour, minute };
+}
+
+function toChinaTimestamp(value: Date | string | number): Date {
+  const timestamp = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(timestamp.valueOf())) {
+    throw new Error('The timestamp must be valid.');
+  }
+  return timestamp;
 }

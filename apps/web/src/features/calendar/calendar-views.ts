@@ -1,6 +1,6 @@
 import type { CalendarDutyAssignment } from '@schedule/contracts';
 import {
-  chinaStandardTimeOffsetMilliseconds,
+  formatChinaStandardTime,
   getChinaStandardTimeBusinessDate,
 } from '@schedule/scheduling-domain';
 import { breakpointTokens } from '@schedule/ui-tokens';
@@ -154,9 +154,8 @@ function getShiftStartOrder(assignment: CalendarDutyAssignment): number {
 }
 
 function minutesInChinaStandardTime(value: string): number {
-  const total = Date.parse(value) + chinaStandardTimeOffsetMilliseconds;
-  const dayStart = Math.floor(total / 86_400_000) * 86_400_000;
-  return Math.floor((total - dayStart) / 60_000);
+  const [hours = '0', minutes = '0'] = formatChinaStandardTime(value).split(':');
+  return Number(hours) * 60 + Number(minutes);
 }
 
 export function buildDayList(

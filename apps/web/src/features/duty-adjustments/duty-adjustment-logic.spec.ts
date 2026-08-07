@@ -5,6 +5,7 @@ import {
   buildDutyAdjustmentCandidates,
   formatDutyAdjustmentAssignmentOption,
   formatDutyAdjustmentAssignmentSummaryOption,
+  formatDutyAdjustmentShiftTime,
   getDutyAdjustmentConflictMessage,
   getDutyAdjustmentNextStatusDescription,
   getDutyAdjustmentStatusLabel,
@@ -52,6 +53,12 @@ const calendar: CalendarReadModel = {
 };
 
 describe('duty adjustment flow logic', () => {
+  it('formats shift time ranges in China Standard Time', () => {
+    expect(
+      formatDutyAdjustmentShiftTime('2026-08-01T16:00:00.000Z', '2026-08-02T00:00:00.000Z'),
+    ).toBe('08-02  00:00\u2013 08:00');
+  });
+
   it('builds my shifts, admin shift options, and overtime member options', () => {
     const candidates = buildDutyAdjustmentCandidates(calendar, 'me');
 

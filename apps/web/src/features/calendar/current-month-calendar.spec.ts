@@ -14,6 +14,7 @@ import {
   getCurrentBusinessMonth,
   getDutyMemberName,
   getHolidayShortLabel,
+  formatShiftTimeRange,
   isPastBusinessDate,
 } from './calendar-logic.js';
 
@@ -22,6 +23,10 @@ describe('current month calendar logic', () => {
     expect(getCurrentBusinessMonth(new Date('2026-08-01T02:00:00.000Z'))).toBe('2026-08');
     expect(getCurrentBusinessMonth(new Date('2026-07-31T16:30:00.000Z'))).toBe('2026-08');
     expect(getCurrentBusinessMonth(new Date('2026-07-31T15:59:59.000Z'))).toBe('2026-07');
+  });
+
+  it('formats shift time ranges as China Standard Time wall-clock times', () => {
+    expect(formatShiftTimeRange(assignment())).toBe('00:00–08:00');
   });
 
   it('marks dates strictly before today as past', () => {
