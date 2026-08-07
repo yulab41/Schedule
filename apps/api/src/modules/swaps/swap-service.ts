@@ -718,8 +718,7 @@ export class SwapService {
       input.targetAssignmentId,
       true,
     );
-    this.assertNoSwapConflicts(context);
-    this.assertNoActiveWorkflowConflicts(context);
+    this.assertNoWorkflowConflicts(context, true);
 
     const swapRequestId = randomUUID();
     const workflowSequence = await allocateWorkflowSequence(transaction);
@@ -826,8 +825,7 @@ export class SwapService {
       input.initiatorAssignmentId,
       input.targetAssignmentId,
     );
-    this.assertNoSwapConflicts(context);
-    this.assertNoActiveWorkflowConflicts(context);
+    this.assertNoWorkflowConflicts(context, true);
 
     const swapRequestId = randomUUID();
     const workflowSequence = await allocateWorkflowSequence(transaction);
@@ -928,7 +926,7 @@ export class SwapService {
       true,
     );
     this.assertStoredAssignmentVersions(context, request);
-    this.assertNoSwapConflicts(context);
+    this.assertNoWorkflowConflicts(context, false);
 
     const nextStatus = authorization.group.swapApprovalRequired ? 'pending_approval' : 'completed';
     const acceptedEventId = await this.eventWriter.append(transaction, {
@@ -1035,7 +1033,7 @@ export class SwapService {
       true,
     );
     this.assertStoredAssignmentVersions(context, request);
-    this.assertNoSwapConflicts(context);
+    this.assertNoWorkflowConflicts(context, false);
 
     const approvedEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.initiatorMember.id, context.targetMember.id],
@@ -1567,23 +1565,6 @@ export class SwapService {
     );
   }
 
-  private assertNoActiveWorkflowConflicts(context: SwapContext): void {
-    if (context.activeWorkflowConflicts.length === 0) {
-      return;
-    }
-
-    throw new ApiError({
-      code: 'CONFLICT',
-      latestData: toLatestData({
-        conflicts: context.activeWorkflowConflicts,
-        initiatorAssignment: context.preview.initiatorAssignment,
-        targetAssignment: context.preview.targetAssignment,
-      }),
-      statusCode: 409,
-      userMessage: context.activeWorkflowConflicts.map((conflict) => conflict.message).join('；'),
-    });
-  }
-
   private assertStoredAssignmentVersions(context: SwapContext, request: LockedSwapRequest): void {
     assertExpectedVersion({
       actualVersion: context.initiatorAssignment.version,
@@ -1609,19 +1590,22 @@ export class SwapService {
     });
   }
 
-  private assertNoSwapConflicts(context: SwapContext): void {
-    if (context.conflicts.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: toLatestData({
-          conflicts: context.conflicts,
-          initiatorAssignment: context.preview.initiatorAssignment,
-          targetAssignment: context.preview.targetAssignment,
-        }),
-        statusCode: 409,
-        userMessage: '换班预检发现资格、请假或时间冲突，无法继续。',
-      });
-    }
+  // accept/approve 复检时，findSwapAssignmentConflicts 会把当前请求自身算作活动工作流
+  // （查询无排除参数），因此这两个入口沿用旧行为只重查资格冲突。
+  private assertNoWorkflowConflicts(
+    context: SwapContext,
+    includeActiveWorkflowConflicts: boolean,
+  ): void {
+    this.workflowConflictService.assertNoWorkflowConflicts({
+      activeWorkflowConflicts: includeActiveWorkflowConflicts
+        ? context.activeWorkflowConflicts
+        : [],
+      conflicts: context.conflicts,
+      latestData: {
+        initiatorAssignment: context.preview.initiatorAssignment,
+        targetAssignment: context.preview.targetAssignment,
+      },
+    });
   }
 
   private async lockSwapRequest(

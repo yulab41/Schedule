@@ -9,9 +9,9 @@
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: Web 1.0 调试与测试阶段（完善后进入微信小程序阶段，设计规格 26.1 另建独立实施计划）
 - Implementation: 32 项任务全部完成（详见实施计划与 Git 历史）
-- Debug rounds: 1–57 已完成；fix-progress 轮次 1–25 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码）；最新验证基线 575/575（70 个测试文件，隔离 MySQL）
+- Debug rounds: 1–57 已完成；fix-progress 轮次 1–26 已完成（轮次 22 = #7.1 子步骤 3 批次 11：exports/platform + users/profile 收尾读模型 zod schema 替换 2 个手写守卫，子步骤 3 全部完成；轮次 23 = #7.4：前端 swap/duty 候选与 isFutureAssignment 重复合并为共享 workflow 逻辑；轮次 24 = #8.1：抽共享 toUserMessage 统一错误文案模板；轮次 25 = #3.7：框架 4xx 按状态码映射契约错误码；轮次 26 = #4.2：swap/duty 冲突断言统一为共享接口）；最新验证基线 579/579（71 个测试文件，隔离 MySQL）
 - Deployment: 本地部署继续（用户决定暂不上线）：API `127.0.0.1:3000/3001` 与 Web `localhost:5173/5174` 均为 2026-08-07 最新构建，`/health`、`/api/health`、首页均 200，开发模式认证可用；PWA shell/schedule 缓存升至 `v5`；阿里云 ECS 试用机与 CloudBase 上线验证暂停，等待用户后续决定
-- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 25（#3.7 框架 4xx 按状态码映射契约错误码）已完成，下一个 fix-progress 目标为 #4.2/#4.3（冲突断言双轨 + 三服务“上帝对象”状态机，需拆多轮，先做 #4.2 统一冲突断言入口）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
+- Next actions: 轮次 57（fetch 接收者修复，登录按钮无法进入页面）已完成并待用户强刷复核；fix-progress 规范已新增“防回归约束”（语义等价审计/浏览器冒烟/状态三态）并启用 `pnpm smoke:browser` / `pnpm smoke:check-core` 强制校验，后续轮次提交前必须执行；fix-progress 轮次 26（#4.2 冲突断言统一为共享接口）已完成，下一个 fix-progress 目标为 #4.3（三服务 eventWriter/notificationWriter/permissionService 三件套与 runXxx 状态机抽骨架，拆多轮）；上线暂停（用户决定，2026-08-07）：CloudBase 余额不足导致的 `/api/health` 不可用不再作为当前动作，待用户决定后再继续上线验证
 
 ## Debug / Test Feedback Log
 
@@ -28,6 +28,7 @@
 
 ## Completed Work（摘要）
 
+- 2026-08-07 fix-progress 轮次 26：完成 #4.2（冲突断言双轨）——`WorkflowConflictService` 新增 `assertNoWorkflowConflicts` 单一接口（资格冲突优先、message 拼接、latestData 由调用方上下文 + conflicts 组成）；swap 4 个入口与 duty 4 个入口改调共享接口并删除各自私有断言（swap accept/approve 因查询无排除参数沿用旧行为只重查资格冲突，注释说明）；先写 4 条共享断言单测（模块缺失时失败）再实现；`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL），定向集成 swap 31/31、duty 24/24 通过，`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 25：完成 #3.7（框架 4xx 全部归一化为 VALIDATION_FAILED）——`apps/api/src/plugins/error-handler.ts` 新增 `frameworkErrorMappings` 状态码映射表（400→VALIDATION_FAILED、404→NOT_FOUND、415→UNSUPPORTED_MEDIA_TYPE、429→RATE_LIMITED，未列入 4xx 保持 VALIDATION_FAILED 兜底），`setNotFoundHandler` 复用统一文案常量；`app.test.ts` 先写 3 条框架 4xx 注入测试（404/429 旧代码失败、405 兜底通过）再实现，8 → 11 条；`pnpm verify` 575/575 通过（70 个测试文件，隔离 MySQL），`pnpm smoke:check-core` 通过（未涉及 Web 核心链路）。
 - 2026-08-07 fix-progress 轮次 24：完成 #8.1（15 个页面重复错误文案模板）——新增共享 `apps/web/src/utils/user-message.ts` 的 `toUserMessage(error, fallback)`（任何非空 Error message 优先，否则兜底），21 个调用方（19 个页面/组件 + LoginView + session store）删除本地 `getErrorMessage`/内联三元并改为传原兜底文案调用；`stores/session.ts` 删除导出 `getErrorMessage`，登录链路统一到同一工具；先写 4 条锁定测试（ApiClientError/普通 Error/空 message/非 Error）再替换；`pnpm verify` 572/572 通过（70 个测试文件，隔离 MySQL），`pnpm smoke:browser` 与 `pnpm smoke:check-core` 通过。
 - 2026-08-07 fix-progress 轮次 23：完成 #7.4（前端 swap/duty 候选与 isFutureAssignment 重复）——新增共享 `apps/web/src/features/workflows/workflow-logic.ts`（`isFutureAssignment`/`filterFutureAssignments`/`buildFutureCandidateAssignments`/`groupAssignmentsByDutyMember`/参数化状态标签与下一步说明/`resolveNextWorkflowStatus`），`swap-logic.ts` 与 `duty-adjustment-logic.ts` 删除各自 `isFutureAssignment` 与状态标签表并委托共享实现；先写 7 条共享逻辑锁定测试（模块缺失时红色）+ 4 条差异化文案锁定断言（旧代码通过）再替换；`pnpm verify` 568/568 通过（69 个测试文件，隔离 MySQL），`pnpm smoke:browser` 与 `pnpm smoke:check-core` 通过。

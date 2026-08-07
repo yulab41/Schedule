@@ -12,6 +12,9 @@ import {
 import { and, eq, gt, inArray, isNull, ne, or } from 'drizzle-orm';
 import { intervalsOverlap, leaveOverlapsInterval } from '@schedule/scheduling-domain';
 
+import { ApiError } from '../../plugins/error-handler.js';
+import { toLatestData } from '../schedules/shared.js';
+
 export type WorkflowConflictCode =
   | 'MEMBER_NOT_ELIGIBLE'
   | 'MEMBER_LEAVE_OVERLAP'
@@ -27,6 +30,8 @@ export interface WorkflowConflict {
   readonly membershipId: string;
   readonly message: string;
 }
+
+export type WorkflowConflictMessage = Pick<WorkflowConflict, 'message'>;
 
 export interface LaterAssignmentWorkflow {
   readonly id: string;
@@ -46,6 +51,25 @@ export function getCurrentDutyMembershipId(assignment: LockedShiftAssignment): s
 }
 
 export class WorkflowConflictService {
+  public assertNoWorkflowConflicts(options: {
+    readonly activeWorkflowConflicts: readonly WorkflowConflictMessage[];
+    readonly conflicts: readonly WorkflowConflictMessage[];
+    readonly latestData: Record<string, unknown>;
+  }): void {
+    const blockingConflicts =
+      options.conflicts.length > 0 ? options.conflicts : options.activeWorkflowConflicts;
+    if (blockingConflicts.length === 0) {
+      return;
+    }
+
+    throw new ApiError({
+      code: 'CONFLICT',
+      latestData: toLatestData({ ...options.latestData, conflicts: blockingConflicts }),
+      statusCode: 409,
+      userMessage: blockingConflicts.map((conflict) => conflict.message).join('；'),
+    });
+  }
+
   public async findMemberEligibilityConflicts(
     transaction: DatabaseTransaction,
     groupId: string,

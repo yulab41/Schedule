@@ -669,8 +669,18 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（接口错误码语义化，用户界面无直接变化）。
 
+### 轮次 26（fix-progress #4.2，提交：refactor(workflows): unify swap and duty conflict assertions）
+- 目标/需求：合规审查发现 `WorkflowConflictService` 已统一冲突查询，但 swap/duty 仍各自保留“预检冲突 + 事务内断言”两套私有包装，消息文案与 latestData 结构互不相同；统一为一个共享接口。
+- 根因：统一冲突查询落地后（#4.1 相关轮次），服务侧未同步收敛私有断言，形成半重构残留。
+- 修复/功能：`WorkflowConflictService.assertNoWorkflowConflicts` 单一接口（资格冲突优先、userMessage 统一为冲突 message 拼接、latestData = 调用方上下文 + conflicts）；swap 4 个入口与 duty 4 个入口改调共享接口，删除各自 `assertNo*Conflicts`/`assertNoActiveWorkflow*` 私有方法；swap accept/approve 沿用旧行为只重查资格冲突（`findSwapAssignmentConflicts` 无排除参数，会把当前请求自身算作冲突，代码注释说明）。
+- 行为变化清单：①swap 资格冲突 userMessage 从通用文案改为具体冲突 message 拼接（与 duty 一致）；②duty 活动工作流冲突 latestData 增加 `coveredAssignment`（原只有 conflicts）；③swap accept/approve、duty 全部入口的检查范围与旧行为一致；④资格冲突优先于活动工作流冲突（与旧顺序一致）；⑤状态码 409、conflicts 内容、事务回滚路径不变。
+- 验证：新增 `workflow-conflict-service.spec.ts` 4 条锁定测试（空列表不抛、资格 message 拼接、活动工作流 message、资格优先；旧代码缺方法失败）；`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、duty 24/24（NODE_ENV=test + TEST_MYSQL_*，隔离库 3307）。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：已完成（API 冲突响应文案/结构统一，用户界面无直接变化）。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：换班提交失败时提示具体冲突原因而非通用文案（轮次 26 相关）。
 - 用户强刷后复核：接口 404/429 返回语义化错误码而非 VALIDATION_FAILED（轮次 25 相关，正常操作不易触发，供接口调用方复核）。
 - 用户强刷后复核：各页面 API 错误仍显示服务端 message、非 API 错误显示兜底文案（轮次 24 相关）。
 - 用户强刷后复核：管理员/成员模式可正常进入工作台（轮次 57 相关）。

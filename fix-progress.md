@@ -74,7 +74,8 @@
 | ✅ | #8.1 | 15 个页面重复错误文案模板 | 轻微 | 低 | 中低 | 已完成（轮次 24）：抽共享 toUserMessage，见第 7 节 |
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
 | ✅ | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 已完成（轮次 25）：按状态码映射，见第 7 节 |
-| P2 | #4.2/#4.3 | 冲突断言双轨 + 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 必须在 #4.1 之后做，拆多轮 |
+| ✅ | #4.2 | 冲突断言双轨（swap/duty 各自“预检 + 断言”） | 轻微 | 高 | 高 | 已完成（轮次 26）：统一为共享 `assertNoWorkflowConflicts`，见第 7 节 |
+| P2 | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 必须在 #4.1/#4.2 之后做，拆多轮 |
 | P3 | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | **需用户确认规则**（今天能否发布/跨月行为） |
 | P3 | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | **需用户确认**：保留旧数据兼容还是彻底移除 |
 | P3 | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 检查 1062 错误码 |
@@ -886,3 +887,27 @@
 不确定点：1. 401/403/409 等框架级 4xx 仍映射为 VALIDATION_FAILED（业务层均通过 ApiError 显式抛出对应码）；若未来引入会产生裸 401/403/409 的框架插件，需再扩展映射表——出错症状是这类错误仍显示“请求数据不符合要求”。2. 测试用 `Object.assign(new Error(...), { statusCode })` 近似 Fastify 错误形态，真实框架错误字段更多但读取路径只依赖 statusCode，已覆盖。3. 404 通常由 `setNotFoundHandler` 提前处理，错误处理器内的 404 分支属防御性映射，实际触发场景少。
 
 下次计划：按清单继续 #4.2/#4.3（冲突断言双轨 + 三服务“上帝对象”状态机，需拆多轮，先从 #4.2 统一冲突断言入口）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。
+
+### 轮次 26 – 2026-08-07
+
+目标：#4.2 —— 把 swap/duty 各自的“预检冲突 + 事务内断言”双轨收敛为 `WorkflowConflictService.assertNoWorkflowConflicts` 单一接口，冲突消息由共享服务生成。
+
+引入点：半重构残留源自统一冲突查询落地时（`WorkflowConflictService` 引入，对应 #4.1 相关轮次），各服务仍保留私有断言包装；审计卡 #4.2 登记。
+
+为什么现有测试没拦住：旧实现逻辑分散在两个服务内，无共享断言单测；集成测试只覆盖最终 409 响应与 `latestData.conflicts` 数组，未锁定 swap 资格冲突的通用文案。新增 `workflow-conflict-service.spec.ts` 4 条锁定测试（空列表不抛、资格冲突 message 拼接、活动工作流 message、资格优先）。
+
+修改文件：`apps/api/src/modules/workflows/workflow-conflict-service.ts`（新增 `assertNoWorkflowConflicts`：先查资格冲突再查活动工作流，`userMessage` 统一为冲突 message 拼接，`latestData` = 调用方上下文 + `conflicts`）；`apps/api/src/modules/swaps/swap-service.ts`（创建/直接换班传两类冲突，accept/approve 只传资格冲突——`findSwapAssignmentConflicts` 无排除参数会把当前请求自身算作冲突，注释说明并沿用旧行为；删除 `assertNoSwapConflicts`/`assertNoActiveWorkflowConflicts`）；`apps/api/src/modules/duty-adjustments/duty-adjustment-service.ts`（4 个入口全部传两类冲突，`findDutyAdjustmentAssignmentConflicts` 本就有排除参数；删除 `assertNoDutyAdjustmentConflicts`/`assertNoActiveWorkflows`）。
+
+语义等价审计与行为变化清单：①swap 资格冲突 userMessage 从通用文案“换班预检发现资格、请假或时间冲突，无法继续。”改为具体冲突 message 拼接（与 duty 一致，有意的统一）；②duty 活动工作流冲突 latestData 增加 `coveredAssignment`（原只有 `conflicts`，结构统一）；③swap accept/approve 仍只重查资格冲突（旧行为，否则当前请求自身会被算作冲突）；duty accept/approve 经排除参数重查两类（旧行为一致）；④资格冲突优先于活动工作流冲突，与两服务旧顺序一致；⑤状态码 409、`latestData.conflicts` 内容、事务内抛出回滚路径不变。
+
+测试结果：`pnpm verify` 579/579 ✅（71 个测试文件，隔离 MySQL；新增 4 条共享断言单测）；定向集成验证 swap 31/31、duty 24/24（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离测试库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：已完成（单测 + 集成测试通过；API 冲突响应文案/结构统一，用户界面无直接变化）。
+
+提交：`refactor(workflows): unify swap and duty conflict assertions`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. swap accept/approve 的“只查资格冲突”依赖 `findSwapAssignmentConflicts` 无排除参数这一现状；若未来给 swap 查询加排除参数，可让 accept/approve 也重查活动工作流（与 duty 对齐）——出错症状是 accept/approve 误报“已有待处理换班/加扣班”409。2. swap 资格冲突文案从通用改为具体拼接，提交失败提示更长更具体；若希望保留简短通用文案，需把 message 生成改为参数化。3. leave 的 `workflowBlockers` 断言仍是独立实现（latestData 结构不同），未纳入本次范围，留待 #4.3 状态机骨架时评估。
+
+下次计划：按清单继续 #4.3（三服务 `eventWriter`/`notificationWriter`/`permissionService` 三件套与 runXxx 状态机抽骨架，拆多轮）；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23/24 相关验收项。

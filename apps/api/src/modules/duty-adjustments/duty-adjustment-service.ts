@@ -451,8 +451,7 @@ export class DutyAdjustmentService {
       authorization.membership.id,
       true,
     );
-    this.assertNoDutyAdjustmentConflicts(context);
-    this.assertNoActiveWorkflows(context);
+    this.assertNoWorkflowConflicts(context);
 
     const dutyAdjustmentId = randomUUID();
     const workflowSequence = await allocateWorkflowSequence(transaction);
@@ -559,8 +558,7 @@ export class DutyAdjustmentService {
       null,
       true,
     );
-    this.assertNoDutyAdjustmentConflicts(context);
-    this.assertNoActiveWorkflows(context);
+    this.assertNoWorkflowConflicts(context);
 
     const dutyAdjustmentId = randomUUID();
     const workflowSequence = await allocateWorkflowSequence(transaction);
@@ -664,8 +662,7 @@ export class DutyAdjustmentService {
       request.id,
     );
     this.assertStoredAssignmentVersion(context, request);
-    this.assertNoDutyAdjustmentConflicts(context);
-    this.assertNoActiveWorkflows(context);
+    this.assertNoWorkflowConflicts(context);
 
     const nextStatus = authorization.group.dutyAdjustmentApprovalRequired
       ? 'pending_approval'
@@ -779,8 +776,7 @@ export class DutyAdjustmentService {
       request.id,
     );
     this.assertStoredAssignmentVersion(context, request);
-    this.assertNoDutyAdjustmentConflicts(context);
-    this.assertNoActiveWorkflows(context);
+    this.assertNoWorkflowConflicts(context);
 
     const approvedEventId = await this.eventWriter.append(transaction, {
       affectedMembershipIds: [context.deductedMember.id, context.overtimeMember.id],
@@ -1373,19 +1369,6 @@ export class DutyAdjustmentService {
     };
   }
 
-  private assertNoActiveWorkflows(context: DutyAdjustmentContext): void {
-    if (context.activeWorkflowConflicts.length === 0) {
-      return;
-    }
-
-    throw new ApiError({
-      code: 'CONFLICT',
-      latestData: toLatestData({ conflicts: context.activeWorkflowConflicts }),
-      statusCode: 409,
-      userMessage: context.activeWorkflowConflicts.map((conflict) => conflict.message).join('；'),
-    });
-  }
-
   private assertStoredAssignmentVersion(
     context: DutyAdjustmentContext,
     request: LockedDutyAdjustment,
@@ -1403,18 +1386,14 @@ export class DutyAdjustmentService {
     });
   }
 
-  private assertNoDutyAdjustmentConflicts(context: DutyAdjustmentContext): void {
-    if (context.conflicts.length > 0) {
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: toLatestData({
-          conflicts: context.conflicts,
-          coveredAssignment: context.preview.coveredAssignment,
-        }),
-        statusCode: 409,
-        userMessage: context.conflicts.map((conflict) => conflict.message).join('；'),
-      });
-    }
+  private assertNoWorkflowConflicts(context: DutyAdjustmentContext): void {
+    this.workflowConflictService.assertNoWorkflowConflicts({
+      activeWorkflowConflicts: context.activeWorkflowConflicts,
+      conflicts: context.conflicts,
+      latestData: {
+        coveredAssignment: context.preview.coveredAssignment,
+      },
+    });
   }
 
   private async lockDutyAdjustment(
