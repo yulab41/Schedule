@@ -459,10 +459,10 @@ export class ScheduleRepository {
         source.assignments,
       );
       if (currentPastAssignments.length > 0) {
-        await this.softDeleteAssignmentsBefore(transaction, currentPublished?.id ?? '', today);
+        await this.softDeleteAssignments(transaction, currentPublished?.id ?? '', today);
       }
       if (targetPastAssignments.length > 0) {
-        await this.softDeleteAssignmentsBefore(transaction, target.id, today);
+        await this.softDeleteAssignments(transaction, target.id, today);
       }
       void preservedPastPeriodId;
     }
@@ -572,7 +572,7 @@ export class ScheduleRepository {
         ? undefined
         : await this.preservePastAssignments(transaction, period, pastAssignments);
     if (pastAssignments.length > 0) {
-      await this.softDeleteAssignmentsBefore(transaction, period.id, today);
+      await this.softDeleteAssignments(transaction, period.id, today);
     }
     const workflowImpacts = await this.workflowInvalidationService.listImpacts(
       transaction,
@@ -750,6 +750,7 @@ export class ScheduleRepository {
   private async softDeleteAssignments(
     transaction: DatabaseTransaction,
     schedulePeriodId: string,
+    beforeBusinessDate?: string,
   ): Promise<void> {
     const assignments = await transaction
       .select({ id: shiftAssignments.id })
@@ -758,6 +759,9 @@ export class ScheduleRepository {
         and(
           eq(shiftAssignments.schedulePeriodId, schedulePeriodId),
           isNull(shiftAssignments.deletedAt),
+          ...(beforeBusinessDate === undefined
+            ? []
+            : [lt(shiftAssignments.businessDate, beforeBusinessDate)]),
         ),
       );
     if (assignments.length === 0) {
@@ -792,35 +796,6 @@ export class ScheduleRepository {
         asc(shiftAssignments.slotPosition),
         asc(shiftAssignments.id),
       );
-  }
-
-  private async softDeleteAssignmentsBefore(
-    transaction: DatabaseTransaction,
-    schedulePeriodId: string,
-    businessDate: string,
-  ): Promise<void> {
-    const assignments = await transaction
-      .select({ id: shiftAssignments.id })
-      .from(shiftAssignments)
-      .where(
-        and(
-          eq(shiftAssignments.schedulePeriodId, schedulePeriodId),
-          isNull(shiftAssignments.deletedAt),
-          lt(shiftAssignments.businessDate, businessDate),
-        ),
-      );
-    if (assignments.length === 0) {
-      return;
-    }
-
-    await updateShiftAssignments(
-      transaction,
-      inArray(
-        shiftAssignments.id,
-        assignments.map((assignment) => assignment.id),
-      ),
-      { deletedAt: sql`current_timestamp(3)` },
-    );
   }
 
   private async preservePastAssignments(

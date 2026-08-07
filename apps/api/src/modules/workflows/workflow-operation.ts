@@ -12,9 +12,14 @@ import {
 /**
  * 工作流变更入口的共享骨架：开事务 → 鉴权 → 幂等执行领域变更。
  * 各服务只提供权限、指纹、作用域与领域 run 函数，避免 7 个事务入口重复样板；
+ * beforeIdempotentOperation 在幂等键写入前执行（如换班撤销的成员/管理员预检），
  * onError 在事务回滚后、错误重新抛出前执行（如 leave 审批被冲突拦截时写通知）。
  */
 export async function runAuthorizedMutation<Result>(options: {
+  readonly beforeIdempotentOperation?: (
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+  ) => Promise<void>;
   readonly databaseClient: DatabaseClient;
   readonly groupId: string;
   readonly identity: AuthenticatedIdentity;
@@ -37,6 +42,10 @@ export async function runAuthorizedMutation<Result>(options: {
         options.groupId,
         options.permission,
       );
+
+      if (options.beforeIdempotentOperation !== undefined) {
+        await options.beforeIdempotentOperation(transaction, authorization);
+      }
 
       return withIdempotentOperation(
         transaction,

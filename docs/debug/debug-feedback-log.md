@@ -705,8 +705,18 @@
 - 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
 - 状态：已完成（#4.3 子步骤 2b；#4.3 整体进行中，剩 swap revokeCompleted 与 submit 幂等化评估）。
 
+### 轮次 30（fix-progress #4.3 收尾 + #4.4，提交：refactor(api): complete workflow entry skeleton and merge soft delete helpers）
+- 目标/需求：#4.3 收尾（swap `revokeCompleted` 前置检查迁移、submit 幂等化评估）与 #4.4（两个软删除函数合并）。
+- 根因：#4.3 剩最后一个未迁移入口（幂等前有锁定 + 角色预检）；#4.4 两个软删除函数整段复制仅差一个日期条件。
+- 修复/功能：`runAuthorizedMutation` 新增 `beforeIdempotentOperation` 钩子（鉴权后、幂等键写入前执行），swap `revokeCompleted` 迁入钩子并删除 `withIdempotentOperation` 导入；`softDeleteAssignments` 增加可选 `beforeBusinessDate` 参数，删除 `softDeleteAssignmentsBefore`；submit 幂等化评估：契约无 operationId，保持现状、另开轮。
+- 行为变化清单：无（revokeCompleted 预检位置/优先级不变；软删除 where 与旧函数逐字等价；submit 未改动）。
+- 验证：`pnpm verify` 579/579 通过（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、schedule-repository 5/5（NODE_ENV=test + TEST_MYSQL_*，隔离库 3307）。
+- 运行/浏览器验证：未涉及 Web 核心链路；pnpm smoke:check-core 通过（无核心链路变更）。
+- 状态：#4.3 ✅、#4.4 ✅。
+
 ## 待办 / 下一步
 
+- 用户强刷后复核：换班撤销（含成员/管理员权限）与既往排班软删除行为不变（轮次 30 相关，纯重构）。
 - 用户强刷后复核：请假提交/审批/拒绝/取消/撤销与冲突通知行为不变（轮次 29 相关，纯入口重构）。
 - 用户强刷后复核：换班/加扣班/请假全流程与事件/通知/权限行为不变（轮次 28 相关，纯依赖收敛）。
 - 用户强刷后复核：换班/加扣班创建、接受、审批、拒绝、取消、撤销操作与幂等重放行为不变（轮次 27 相关）。

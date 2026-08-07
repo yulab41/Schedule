@@ -31,7 +31,6 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
-import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import type { GroupMemberRow } from '../groups/group-member-reader.js';
 import type { ActiveGroup, GroupAuthorization } from '../groups/permission-service.js';
@@ -309,43 +308,38 @@ export class SwapService {
     swapRequestId: string,
     input: RevokeSwapRequestInput,
   ): Promise<SwapRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.services.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      beforeIdempotentOperation: async (transaction, authorization) => {
+        const request = await this.lockSwapRequest(
+          transaction,
+          authorization.group.id,
+          swapRequestId,
+        );
+        const isParty =
+          request.initiatorMembershipId === authorization.membership.id ||
+          request.targetMembershipId === authorization.membership.id;
+        if (authorization.membership.role === 'member' && !isParty) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '只有管理员或换班双方可以撤销该换班。',
+          });
+        }
+      },
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.services.permissionService,
+      requestFingerprint: createMutationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      const request = await this.lockSwapRequest(
-        transaction,
-        authorization.group.id,
         swapRequestId,
-      );
-      const isParty =
-        request.initiatorMembershipId === authorization.membership.id ||
-        request.targetMembershipId === authorization.membership.id;
-      if (authorization.membership.role === 'member' && !isParty) {
-        throw new ApiError({
-          code: 'FORBIDDEN',
-          statusCode: 403,
-          userMessage: '只有管理员或换班双方可以撤销该换班。',
-        });
-      }
-
-      return withIdempotentOperation(
-        transaction,
-        {
-          actorUserId: authorization.user.id,
-          operationId: input.operationId,
-          requestFingerprint: createMutationFingerprint({
-            expectedVersion: input.expectedVersion,
-            groupId,
-            swapRequestId,
-          }),
-          scope: 'swap_request_revoke',
-        },
-        () => this.runSwapRevocation(transaction, authorization, swapRequestId, input),
-      );
+      }),
+      run: (transaction, authorization) =>
+        this.runSwapRevocation(transaction, authorization, swapRequestId, input),
+      scope: 'swap_request_revoke',
     });
   }
 

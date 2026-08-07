@@ -75,7 +75,7 @@
 | ✅ | #8.2 | 视图层再次裸写时区/日期魔法数 | 轻微 | 零 | 中 | 已随 #7.3（轮次 3）一并替换为领域工具 |
 | ✅ | #3.7 | 框架 4xx 全部归一化为 VALIDATION_FAILED | 轻微 | 低 | 中 | 已完成（轮次 25）：按状态码映射，见第 7 节 |
 | ✅ | #4.2 | 冲突断言双轨（swap/duty 各自“预检 + 断言”） | 轻微 | 高 | 高 | 已完成（轮次 26）：统一为共享 `assertNoWorkflowConflicts`，见第 7 节 |
-| P2 | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 进行中（轮次 27 入口骨架 + 轮次 28 依赖容器 + 轮次 29 leave 入口迁移已完成；剩 swap revokeCompleted 与 submit 幂等化评估） |
+| ✅ | #4.3 | 三服务“上帝对象”状态机 | 轻微 | 高 | 高 | 已完成（轮次 27–30）：入口骨架 + 依赖容器 + 全部入口迁移，见第 7 节 |
 | P3 | #4.5 | 发布/生成缺少“仅未来日期”限制 | 严重（缺口） | 低 | 中 | **需用户确认规则**（今天能否发布/跨月行为） |
 | P3 | #7.6 | manual-adjustment“调”标记半移除 | 轻微 | 低 | 中低 | **需用户确认**：保留旧数据兼容还是彻底移除 |
 | P3 | #3.5 | idempotency 宽 catch 当重复键 | 轻微 | 低 | 低 | 检查 1062 错误码 |
@@ -86,7 +86,7 @@
 | P3 | #5.1 | notification-retry 的 skipped 恒为 0 | 轻微 | 低 | 低 | 返回三态并如实计数 |
 | P3 | #5.2 | group-recycle 27 条裸 SQL 手写级联 | 轻微 | 低中 | 低中 | schema 元数据生成或外键级联 |
 | P3 | #5.3 | 统计重建静默吞错 | 轻微 | 低 | 低 | 记录失败上下文 |
-| P3 | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 合并带可选截止日期 |
+| ✅ | #4.4 | 两个软删除函数几乎相同 | 轻微 | 低 | 低 | 已完成（轮次 30）：合并带可选截止日期，见第 7 节 |
 | ✅ | #1.2 | .env.example 缺开发模式开关 | 轻微 | 零 | 低 | 已完成（轮次 7）：随 #3.4 一并补两个开关项，见第 7 节 |
 | P3 | #1.3 | 工作区残留（空目录/日志/构建产物） | 轻微 | 零 | 低 | 清理命令，不入库 |
 | P3 | #9.3 | 加载/安全测试直写 DB 与 stub 认证 | 轻微 | 低 | 低 | 复用 database schema 与 API 入口 |
@@ -983,3 +983,27 @@
 不确定点：1. `onError` 钩子对 swap/duty 现有调用无影响（未传则不执行），骨架改为 async 后语义不变。2. submit 幂等化需要给 `CreateLeaveRequestInput` 加 operationId（契约/路由/Web 调用点），属 API 变更，待用户/后续轮次决定。3. swap `revokeCompleted` 的前置锁定 + 角色预检仍未迁移，待骨架支持 `beforeIdempotentOperation` 钩子。
 
 下次计划：#4.3 收尾（swap `revokeCompleted` 前置检查钩子迁移；submit 幂等化决策）；完成后再标记 #4.3 ✅，并按清单转 #4.4（两个软删除函数合并）；同时等待用户强刷复核既有轮次。
+
+### 轮次 30 – 2026-08-07
+
+目标：#4.3 收尾（swap `revokeCompleted` 前置检查迁移 + submit 幂等化评估）+ #4.4（两个软删除函数合并）。
+
+引入点：#4.3 三件套/入口样板复制（审计卡）；#4.4 `softDeleteAssignmentsBefore` 与 `softDeleteAssignments` 整段复制（审计卡）。
+
+为什么现有测试没拦住：样板与重复 SQL 不改变行为，单测无法感知；swap 31 + schedule-repository 5 集成测试作为本轮回归网。
+
+修改文件：`apps/api/src/modules/workflows/workflow-operation.ts`（新增 `beforeIdempotentOperation` 钩子：鉴权后、幂等键写入前执行）；`apps/api/src/modules/swaps/swap-service.ts`（`revokeCompleted` 迁移到骨架，锁定请求 + 成员/管理员预检放入钩子，删除 `withIdempotentOperation` 导入——swap 全部 7 个入口完成迁移）；`apps/api/src/modules/schedules/schedule-repository.ts`（`softDeleteAssignments` 增加可选 `beforeBusinessDate` 参数并追加 `lt(businessDate, beforeBusinessDate)` 条件，删除 `softDeleteAssignmentsBefore`，3 处调用点改传第三参）。
+
+语义等价审计：revokeCompleted 预检仍在同一事务内、幂等键写入之前执行（FORBIDDEN 先于幂等冲突的优先级不变），`runSwapRevocation` 不变；软删除合并函数在无/有 `beforeBusinessDate` 时生成的 where 分别与旧函数逐字等价，空列表提前返回与 `updateShiftAssignments` 调用不变；submit 幂等化评估——`CreateLeaveRequestInput` 无 operationId，幂等化需改契约/路由/Web 调用点（API 变更），评估结论保持现状、另开轮，本轮不改契约。
+
+测试结果：`pnpm verify` 579/579 ✅（71 个测试文件，隔离 MySQL）；定向集成 swap 31/31、schedule-repository 5/5（`NODE_ENV=test` + `TEST_MYSQL_*`，隔离库 3307）。
+
+运行/浏览器验证：未涉及 Web 核心链路（web api/auth/router/pwa/session/contracts/vite 配置/.env.example 均无改动）；pnpm smoke:check-core 通过（无核心链路变更）。
+
+状态：#4.3 ✅（轮次 27–30：入口骨架、依赖容器、leave/swap 全部入口迁移完成；领域 run 函数保留为服务内差异层）；#4.4 ✅。
+
+提交：`refactor(api): complete workflow entry skeleton and merge soft delete helpers`（提交后回填短哈希），推送结果见对话回复
+
+不确定点：1. submit 未幂等化（契约无 operationId）；若用户希望防重复提交，需另开轮改契约与前端调用点。2. `beforeIdempotentOperation` 钩子目前仅 swap `revokeCompleted` 使用，未来其他前置检查可复用。3. 领域 runXxx 状态机主体仍在各服务内（事件/通知/实际人员更新差异大），#4.3 按“共享骨架 + 领域差异”口径完成；若后续要彻底抽状态机，需架构决策。
+
+下次计划：按清单继续 #3.5（idempotency 宽 catch 当重复键，检查 1062 错误码）；#4.5/#7.6 待用户确认后处理；同时等待用户强刷复核轮次 57、54、53、52、51、50、49、48、47、46 及 23–30 相关验收项。
