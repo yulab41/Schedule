@@ -36,6 +36,8 @@
 - 会话令牌：Node `crypto` HMAC-SHA256 自签名令牌，不引入 JWT 依赖。
 - 上传：`miniprogram-ci`（仅本地脚本，读取本机上传密钥）。
 - 测试：Vitest、本地 Docker MySQL 集成测试（沿用）。
+- UI 决策（2026-08-08 用户确认）：组件库仅 `tdesign-miniprogram`，不引入 WeUI。
+- 官方能力参考：微信小程序框架文档（<https://developers.weixin.qq.com/miniprogram/dev/framework/>）、订阅消息、小程序码、分享、场景值等页面作为权威参考；WeUI（<https://github.com/wechat-miniprogram/weui-miniprogram>）不引入，其官方交互规范（订阅授权引导、分享说明等）仅作设计参考。
 
 ## 3. 目标目录结构
 
@@ -260,8 +262,9 @@ packages/contracts/src/wechat.ts
 
 1. 初始化原生小程序 TS 工程；安装 `tdesign-miniprogram`、`miniprogram-api-typings`；`project.config.json` 填 AppID（不提交 secret）。
 2. app.json 配置 tabBar（工作台/日历/通知/我的）与页面注册；tokens.wxss 定义主色、周末红、今天金、间距与圆角。
-3. 建立 `api/client.ts` 基础封装（baseURL、Bearer、401 处理、错误映射）与 `store/session.ts`。
-4. 根 package.json 增加 `miniprogram:typecheck`、`miniprogram:lint` 脚本；ESLint/Prettier 纳入。
+3. 仅引入 `tdesign-miniprogram`，不安装 WeUI；自定义日历网格等组件以 TDesign 样式令牌为基础。
+4. 建立 `api/client.ts` 基础封装（baseURL、Bearer、401 处理、错误映射）与 `store/session.ts`。
+5. 根 package.json 增加 `miniprogram:typecheck`、`miniprogram:lint` 脚本；ESLint/Prettier 纳入。
 
 验证：
 
@@ -443,7 +446,7 @@ packages/contracts/src/wechat.ts
 
 1. 服务器 `.env.production` 增加微信配置（AppSecret 不提交）；迁移先行部署纪律。
 2. 编写并本地验证 `upload-ci.mjs`（读本机上传密钥上传体验版）。
-3. 编写《微信小程序从 0 到上线》文档：注册/类目/合法域名/订阅模板/备案/发布核对清单。
+3. 编写《微信小程序从 0 到上线》文档：注册/类目/合法域名/订阅模板/备案/发布核对清单，并附官方框架文档、订阅消息、小程序码与 WeUI 规范参考链接。
 4. 端到端验收：登录、扫码访客、邀请（未认领绑定/已认领合并）、审批、提醒订阅、三视图、深色模式；用户真机复核后提交审核。
 
 验证：
