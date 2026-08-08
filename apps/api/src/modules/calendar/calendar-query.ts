@@ -6,11 +6,9 @@ import type {
   CalendarRoleSummary,
   CalendarShiftTypeSummary,
   GuestCalendarReadModel,
-  GuestGroupSummary,
 } from '@schedule/contracts';
 import {
   groups,
-  guestScheduleAccessAttempts,
   groupMemberContacts,
   scheduleEvents,
   schedulePeriods,
@@ -21,7 +19,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { assertBusinessMonthContainsDate } from '@schedule/scheduling-domain';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -173,36 +171,6 @@ export class CalendarQuery {
     return this.readGuestMonthForGroup(group, businessMonth);
   }
 
-  public async readGuestMonth(
-    accessKey: string,
-    groupCode: string,
-    businessMonth: string,
-  ): Promise<GuestCalendarReadModel> {
-    assertValidBusinessMonth(businessMonth);
-    const [group] = await this.databaseClient.database
-      .select({ id: groups.id, name: groups.name })
-      .from(groups)
-      .where(and(eq(groups.groupCode, groupCode), isNull(groups.deletedAt)))
-      .limit(1);
-    if (group === undefined) {
-      await this.consumeFailedGuestAccess(accessKey);
-      throw new ApiError({
-        code: 'NOT_FOUND',
-        statusCode: 404,
-        userMessage: '群组码无效或群组不可用。',
-      });
-    }
-    return this.readGuestMonthForGroup(group, businessMonth);
-  }
-
-  public async listGuestGroups(): Promise<readonly GuestGroupSummary[]> {
-    return this.databaseClient.database
-      .select({ id: groups.id, name: groups.name })
-      .from(groups)
-      .where(isNull(groups.deletedAt))
-      .orderBy(asc(groups.name), asc(groups.id));
-  }
-
   public async readGuestMonthByGroupId(
     groupId: string,
     businessMonth: string,
@@ -319,31 +287,6 @@ export class CalendarQuery {
       roles: buildRoleSummaries(roleNamesById),
       shiftTypes: buildShiftTypeSummaries(assignments),
     };
-  }
-
-  private async consumeFailedGuestAccess(accessKey: string): Promise<void> {
-    const windowExpired = sql`${guestScheduleAccessAttempts.windowStartedAt} < timestampadd(second, -60, current_timestamp(3))`;
-    await this.databaseClient.database
-      .insert(guestScheduleAccessAttempts)
-      .values({ accessKey })
-      .onDuplicateKeyUpdate({
-        set: {
-          attemptCount: sql`if(${windowExpired}, 1, ${guestScheduleAccessAttempts.attemptCount} + 1)`,
-          windowStartedAt: sql`if(${windowExpired}, current_timestamp(3), ${guestScheduleAccessAttempts.windowStartedAt})`,
-        },
-      });
-    const [attempt] = await this.databaseClient.database
-      .select({ count: guestScheduleAccessAttempts.attemptCount })
-      .from(guestScheduleAccessAttempts)
-      .where(eq(guestScheduleAccessAttempts.accessKey, accessKey))
-      .limit(1);
-    if (attempt !== undefined && attempt.count > 5) {
-      throw new ApiError({
-        code: 'RATE_LIMITED',
-        statusCode: 429,
-        userMessage: '群组码尝试过于频繁，请稍后重试。',
-      });
-    }
   }
 
   private async readContacts(

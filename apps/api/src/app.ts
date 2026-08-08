@@ -10,6 +10,7 @@ import { registerGroupRoutes } from './modules/groups/group-routes.js';
 import { GroupService } from './modules/groups/group-service.js';
 import { MembershipService } from './modules/groups/membership-service.js';
 import { ContactService } from './modules/groups/contact-service.js';
+import { VisitorKeyService } from './modules/groups/visitor-key-service.js';
 import { registerSchedulingConfigRoutes } from './modules/scheduling-config/scheduling-config-routes.js';
 import { SchedulingConfigService } from './modules/scheduling-config/scheduling-config-service.js';
 import { registerScheduleRoutes } from './modules/schedules/schedule-routes.js';
@@ -18,6 +19,7 @@ import { SchedulePublishService } from './modules/schedules/publish-service.js';
 import { ScheduleRepository } from './modules/schedules/schedule-repository.js';
 import { registerCalendarRoutes } from './modules/calendar/calendar-routes.js';
 import { CalendarQuery } from './modules/calendar/calendar-query.js';
+import { VisitorAccessLogService } from './modules/calendar/visitor-access-log.js';
 import { registerManualScheduleTemplateRoutes } from './modules/manual-schedules/template-routes.js';
 import { ManualScheduleTemplateService } from './modules/manual-schedules/template-service.js';
 import { registerManualScheduleApplyRoutes } from './modules/manual-schedules/apply-routes.js';
@@ -109,6 +111,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new GroupService(options.databaseClient),
       new MembershipService(options.databaseClient),
       new ContactService(options.databaseClient),
+      new VisitorKeyService(options.databaseClient),
+      new VisitorAccessLogService(options.databaseClient),
     );
     registerSchedulingConfigRoutes(app, new SchedulingConfigService(options.databaseClient));
     const scheduleRepository = new ScheduleRepository(options.databaseClient);
@@ -117,7 +121,11 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new ScheduleGenerateService(options.databaseClient, scheduleRepository),
       new SchedulePublishService(options.databaseClient, scheduleRepository),
     );
-    registerCalendarRoutes(app, new CalendarQuery(options.databaseClient));
+    registerCalendarRoutes(
+      app,
+      new CalendarQuery(options.databaseClient),
+      new VisitorAccessLogService(options.databaseClient),
+    );
     registerManualScheduleTemplateRoutes(
       app,
       new ManualScheduleTemplateService(options.databaseClient),

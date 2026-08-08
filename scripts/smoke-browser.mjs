@@ -16,6 +16,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -304,35 +305,91 @@ async function runSmoke() {
     await waitForUrl(page, (url) => new URL(url).pathname === '/login', 15000, '回到登录页');
     await waitForBodyText(page, '访客查看排班', 10000);
 
-    step('6/6 访客查看排班');
+    step('6/6 访客查看排班（仅扫码 vkey）');
     await page.locator('button', { hasText: '访客查看排班' }).first().click();
     await waitForUrl(page, (url) => new URL(url).pathname === '/guest', 15000, '访客路径 /guest');
     await waitForBodyText(page, '访客查看', 15000);
-    await page
-      .waitForFunction(
-        () => {
-          const list = document.querySelector('.guest-group-list');
-          if (list === null) return false;
-          return (
-            list.querySelectorAll('button').length > 0 ||
-            list.textContent?.includes('暂无可查看的群组') === true
-          );
-        },
-        null,
-        { timeout: 20000 },
-      )
-      .catch(() => fail('访客群组列表未加载'));
+    await waitForBodyText(page, '请扫描群主或管理员分享的群组小程序码查看排班。', 15000);
+    if ((await page.locator('.guest-group-list').count()) > 0) {
+      fail('访客公开群组目录不应再出现。');
+    }
     const guestBody = await page.locator('body').innerText();
     if (guestBody.includes('群组暂时无法加载') || guestBody.includes('排班暂时无法加载')) {
       fail('访客页面加载群组/排班失败。');
     }
-    assertNoErrors(errors, '访客模式');
+    assertNoErrors(errors, '访客提示模式');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '4-guest.png') });
+
+    const visitorKey = await readVisitorKeyFromDatabase();
+    if (visitorKey === undefined) {
+      fail('本地数据库未找到可用群组 visitor_key，无法验证访客 vkey 访问。');
+    }
+    await page.goto(`${BASE_URL}/guest?vkey=${visitorKey}`, {
+      waitUntil: 'networkidle',
+      timeout: 30000,
+    });
+    await waitForBodyText(page, '访客查看', 15000);
+    await page.locator('.month-grid').first().waitFor({ state: 'visible', timeout: 20000 });
+    assertNoErrors(errors, '访客 vkey 模式');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '5-guest-vkey.png') });
+
+    step('7/7 管理员查看访客访问记录');
+    await page.locator('button', { hasText: '返回登录' }).first().click();
+    await waitForUrl(page, (url) => new URL(url).pathname === '/login', 15000, '回到登录页');
+    await waitForBodyText(page, '本地管理员', 10000);
+    await page.locator('button', { hasText: '本地管理员' }).first().click();
+    await waitForUrl(page, (url) => new URL(url).pathname === '/', 20000, '工作台路径 /');
+    await waitForBodyText(page, '排班工作台', 20000);
+    await page.locator('.workbench-sidebar button', { hasText: '事件' }).first().click();
+    await waitForBodyText(page, '访客访问记录', 15000);
+    await page
+      .waitForFunction(
+        () => document.querySelectorAll('.visitor-logs-table tbody tr').length >= 1,
+        null,
+        { timeout: 20000 },
+      )
+      .catch(() => fail('访客访问记录未显示最近访问'));
+    assertNoErrors(errors, '访问记录');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '6-visitor-logs.png') });
   } finally {
     await browser.close();
   }
 
-  step('冒烟通过：登录 / 管理员 / 成员 / 访客全流程无浏览器错误');
+  step('冒烟通过：登录 / 管理员 / 成员 / 访客（目录下线 + vkey + 访问记录）全流程无浏览器错误');
+}
+
+async function readVisitorKeyFromDatabase() {
+  const require = createRequire(path.join(ROOT, 'packages/database/package.json'));
+  const mysql = require('mysql2/promise');
+  const host = readDotEnvValue('MYSQL_HOST') ?? '127.0.0.1';
+  const port = Number(readDotEnvValue('MYSQL_PORT') ?? '3306');
+  const database = readDotEnvValue('MYSQL_DATABASE');
+  const user = readDotEnvValue('MYSQL_USER');
+  const password = readDotEnvValue('MYSQL_PASSWORD');
+  if (database === undefined || user === undefined || password === undefined) {
+    fail('读取本地 .env 的 MYSQL_* 失败，无法验证访客 vkey 访问。', 3);
+  }
+
+  const connection = await mysql.createConnection({ database, host, password, port, user });
+  try {
+    const [rows] = await connection.query(
+      'SELECT visitor_key AS visitorKey FROM `groups` WHERE deleted_at IS NULL ORDER BY created_at LIMIT 1',
+    );
+    return rows[0]?.visitorKey;
+  } finally {
+    await connection.end();
+  }
+}
+
+function readDotEnvValue(key) {
+  const content = fs.readFileSync(path.join(ROOT, '.env'), 'utf8');
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith(`${key}=`)) {
+      return trimmed.slice(key.length + 1).replace(/^["']|["']$/g, '');
+    }
+  }
+  return undefined;
 }
 
 function checkCore() {

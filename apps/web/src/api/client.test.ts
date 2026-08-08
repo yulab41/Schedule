@@ -861,29 +861,32 @@ describe('Web API client', () => {
     );
   });
 
-  it('lists public guest groups and reads a selected month without a group code', async () => {
-    const guestGroups = [{ id: group.id, name: group.name }];
+  it('resolves a visitor key and reads a selected guest month', async () => {
+    const resolved = { groupId: group.id, groupName: group.name };
     const guestCalendar = { calendar, groupName: group.name };
+    const visitorKey = 'a'.repeat(32);
     const fetchImplementation = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(JSON.stringify(guestGroups), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(resolved), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(guestCalendar), { status: 200 }));
     const client = createApiClient({
       auth: createAuthClient(),
       fetch: fetchImplementation,
     });
 
-    await expect(client.listGuestGroups()).resolves.toEqual(guestGroups);
-    await expect(client.getGuestGroupCalendar(group.id, '2026-08')).resolves.toEqual(guestCalendar);
+    await expect(client.resolveGuestGroup(visitorKey)).resolves.toEqual(resolved);
+    await expect(
+      client.getGuestGroupCalendarByVisitorKey(group.id, visitorKey, '2026-08'),
+    ).resolves.toEqual(guestCalendar);
 
     expect(fetchImplementation).toHaveBeenNthCalledWith(
       1,
-      '/api/guest/groups',
-      expect.objectContaining({ method: 'GET' }),
+      '/api/guest/groups/resolve',
+      expect.objectContaining({ body: JSON.stringify({ visitorKey }), method: 'POST' }),
     );
     expect(fetchImplementation).toHaveBeenNthCalledWith(
       2,
-      '/api/guest/groups/group-1/calendar?businessMonth=2026-08',
+      `/api/guest/groups/group-1/calendar?businessMonth=2026-08&visitorKey=${visitorKey}`,
       expect.objectContaining({ method: 'GET' }),
     );
   });
@@ -3168,22 +3171,24 @@ describe('Web API client', () => {
       fetch: fetchImplementation,
     });
 
-    await expect(client.getGuestGroupCalendar(group.id, '2026-08')).rejects.toMatchObject({
+    await expect(
+      client.getGuestGroupCalendarByVisitorKey(group.id, 'a'.repeat(32), '2026-08'),
+    ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
   });
 
-  it('rejects a public guest group list entry missing its name', async () => {
+  it('rejects a visitor resolve response missing its group name', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(new Response(JSON.stringify([{ id: group.id }]), { status: 200 }));
+      .mockResolvedValue(new Response(JSON.stringify({ groupId: group.id }), { status: 200 }));
     const client = createApiClient({
       auth: createAuthClient(),
       fetch: fetchImplementation,
     });
 
-    await expect(client.listGuestGroups()).rejects.toMatchObject({
+    await expect(client.resolveGuestGroup('a'.repeat(32))).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
@@ -4220,7 +4225,7 @@ describe('Web API client', () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify([{ id: 'group-1', name: '门诊' }]), { status: 200 }),
+        new Response(JSON.stringify({ groupId: 'group-1', groupName: '门诊' }), { status: 200 }),
       )
       .mockResolvedValueOnce(new Response('日期,星期\r\n2026-10-01,周四\r\n', { status: 200 }));
     const client = createApiClient({
@@ -4228,13 +4233,13 @@ describe('Web API client', () => {
       fetch: fetchImplementation,
     });
 
-    await client.listGuestGroups();
+    await client.resolveGuestGroup('a'.repeat(32));
     await client.downloadExport('group-1', 'export-job-1');
 
     expect(fetchImplementation).toHaveBeenNthCalledWith(
       1,
-      '/api/guest/groups',
-      expect.objectContaining({ method: 'GET' }),
+      '/api/guest/groups/resolve',
+      expect.objectContaining({ method: 'POST' }),
     );
     expect(fetchImplementation.mock.calls[0]?.[1]).not.toHaveProperty('headers.Authorization');
     expect(fetchImplementation).toHaveBeenNthCalledWith(

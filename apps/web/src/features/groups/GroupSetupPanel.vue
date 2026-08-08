@@ -22,7 +22,6 @@ const customGroupCode = ref('');
 const rosterNames = ref('');
 const catalog = ref<GroupCatalogEntry[]>([]);
 const joinGroupId = ref('');
-const joinMode = ref<'guest' | 'member'>('guest');
 const claimCode = ref('');
 const claimRealName = ref('');
 const groupName = ref('');
@@ -47,7 +46,6 @@ const catalogOptions = computed(() =>
 const selectedCatalogEntry = computed(() =>
   catalog.value.find((entry) => entry.id === joinGroupId.value),
 );
-const canJoinAsGuest = computed(() => selectedCatalogEntry.value?.relation !== 'left-member');
 
 watch(
   () => props.group?.id,
@@ -154,34 +152,23 @@ async function joinSelectedGroup(): Promise<void> {
     errorMessage.value = '您已经加入该群组。';
     return;
   }
-  if (joinMode.value === 'guest' && !canJoinAsGuest.value) {
-    errorMessage.value = '该群有您的未认领成员身份，请以成员身份输入群组码重新加入。';
-    return;
-  }
-  if (joinMode.value === 'member' && claimCode.value.trim() === '') {
+  if (claimCode.value.trim() === '') {
     errorMessage.value = '请输入四位群组码。';
     return;
   }
 
   isJoining.value = true;
   try {
-    if (joinMode.value === 'guest') {
-      const joined = await api.joinGroupAsGuest(entry.id);
+    const result = await api.claimGroup({
+      groupCode: claimCode.value.trim(),
+      ...(claimRealName.value.trim() === '' ? {} : { realName: claimRealName.value.trim() }),
+    });
+    if (result.status === 'claimed') {
       resetJoinForm();
-      infoMessage.value = `已以访客身份加入“${joined.name}”。`;
-      emit('groups-changed', joined.id);
+      infoMessage.value = `已加入“${result.group.name}”。`;
+      emit('groups-changed', result.group.id);
     } else {
-      const result = await api.claimGroup({
-        groupCode: claimCode.value.trim(),
-        ...(claimRealName.value.trim() === '' ? {} : { realName: claimRealName.value.trim() }),
-      });
-      if (result.status === 'claimed') {
-        resetJoinForm();
-        infoMessage.value = `已加入“${result.group.name}”。`;
-        emit('groups-changed', result.group.id);
-      } else {
-        infoMessage.value = '已向管理员提交添加人员请求，群组排班暂不会开放。';
-      }
+      infoMessage.value = '已向管理员提交添加人员请求，群组排班暂不会开放。';
     }
     await loadCatalog();
   } catch (error) {
@@ -282,7 +269,6 @@ async function restoreGroup(groupId: string): Promise<void> {
 
 function resetJoinForm(): void {
   joinGroupId.value = '';
-  joinMode.value = 'guest';
   claimCode.value = '';
   claimRealName.value = '';
 }
@@ -336,25 +322,15 @@ function roleLabel(role: GroupSummary['role']): string {
       <t-form-item label="选择群组" name="joinGroup">
         <t-select v-model="joinGroupId" :options="catalogOptions" placeholder="请选择群组" />
       </t-form-item>
-      <t-form-item label="加入身份" name="joinMode">
-        <t-radio-group v-model="joinMode">
-          <t-radio-button value="guest" :disabled="!canJoinAsGuest">
-            访客（无需群组码）
-          </t-radio-button>
-          <t-radio-button value="member">成员（需要群组码）</t-radio-button>
-        </t-radio-group>
-      </t-form-item>
       <p v-if="selectedCatalogEntry?.relation === 'left-member'" class="join-hint">
-        该群有您的未认领成员身份，请选择“成员”并输入群组码重新加入。
+        该群有您的未认领成员身份，请输入群组码重新加入。
       </p>
-      <template v-if="joinMode === 'member'">
-        <t-form-item label="四位群组码" name="joinCode">
-          <t-input v-model="claimCode" inputmode="numeric" maxlength="4" pattern="\d{4}" />
-        </t-form-item>
-        <t-form-item label="真实姓名（可选）" name="joinRealName">
-          <t-input v-model="claimRealName" maxlength="100" placeholder="默认使用您的真实姓名" />
-        </t-form-item>
-      </template>
+      <t-form-item label="四位群组码" name="joinCode">
+        <t-input v-model="claimCode" inputmode="numeric" maxlength="4" pattern="\d{4}" />
+      </t-form-item>
+      <t-form-item label="真实姓名（可选）" name="joinRealName">
+        <t-input v-model="claimRealName" maxlength="100" placeholder="默认使用您的真实姓名" />
+      </t-form-item>
       <t-button theme="primary" :loading="isJoining" @click="joinSelectedGroup">加入群组</t-button>
     </t-card>
 

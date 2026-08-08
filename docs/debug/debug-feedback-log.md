@@ -1130,3 +1130,17 @@
 - 测试：`wechat-auth.integration.test.ts` 7 项（新用户/重复登录/资料补齐/过期/篡改/密钥缺失 401/dev 令牌兼容/微信错误码 401 映射）；用户路由回归 6/6；全量 `pnpm verify` 647 项（78 个测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
 - 运行/浏览器验证：本轮未触及核心链路（Web/contracts/.env.example），按 AGENTS.md 无需浏览器冒烟；提交前 `pnpm smoke:check-core` 已通过。
 - 状态：任务 3 ✅（已完成，含运行验证；任务 1–3 阶段检查点达成：mock 与真实配置均可登录；下一轮任务 4 访客扫码统一）。
+
+### 微信小程序任务 4（访客扫码统一：visitor key + 群码 + 访问记录 + 公开目录下线，2026-08-08）
+
+- 目标/需求：群组访客 key 与小程序码、`POST /guest/groups/resolve`、带 key 的访客日历、访问记录写入与查询、公开群组目录与群组码访客入口下线；Web 访客页改为 `?vkey=` 链接，事件中心展示访问记录，群组面板移除访客加入入口。
+- 修改文件：
+  - `apps/api/src/modules/calendar/visitor-access-log.ts`（resolveGroup 按 visitor_key 解析 + 失败限频、recordAccess 写日志、listLogs 复合游标分页）；`calendar-routes.ts`（删除 `/guest/groups`、`/guest/calendar`，新增 `/guest/groups/resolve` 与 `GET /guest/groups/:groupId/calendar?visitorKey=`）；`calendar-query.ts` 移除群组码访客方法；
+  - `apps/api/src/modules/groups/visitor-key-service.ts`（owner 重生成 key + 审计、owner/admin 群码生成 + 5 分钟内存缓存 + 微信错误映射）；`group-routes.ts`（`PUT /groups/:groupId/visitor-key`、`GET /groups/:groupId/group-qr`、`GET /groups/:groupId/visitor-access-logs`）；`permission-service.ts` 新增 `regenerateVisitorKey/viewGroupQr/viewVisitorAccessLogs`；
+  - `apps/api/src/modules/wechat/wechat-errors.ts`（抽取微信错误→ApiError 状态码/文案映射）；
+  - `packages/contracts/src/wechat.ts` 新增 `visitorKeyChangedResponseSchema`；
+  - Web：`api/client.ts`（resolveGuestGroup/getGuestGroupCalendarByVisitorKey/getVisitorAccessLogs，移除 listGuestGroups/getGuestCalendar/getGuestGroupCalendar）、`GuestScheduleView.vue`（仅 `?vkey=`）、`EventCenterView.vue`（访客访问记录表格 + 分页）、`GroupSetupPanel.vue`（移除访客加入入口）；
+  - `scripts/smoke-browser.mjs`（访客目录下线断言 + 从本地库取 visitor_key 验证 vkey 日历 + 管理员事件中心访问记录可见）。
+- 测试：`visitor-access.integration.test.ts` 5 项（目录/群组码 404、key 重生成旧码失效+审计、群码权限与缓存、微信错误映射、访问记录写入/权限/分页）；calendar 集成测试改 4 项访客用例；client 151/151；contracts wechat 8 项；全量 `pnpm verify` 653 项（79 个测试文件，隔离 MySQL）通过。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客目录下线提示 + `?vkey=` 日历加载 + 管理员事件中心访问记录可见）；本轮涉及 contracts 与 `apps/web/src/api` 核心链路，按 AGENTS.md 补录本记录；本地开发库已应用 0033/0034 迁移，API 已重启到最新构建。
+- 状态：任务 4 ✅（已完成，含运行验证；下一轮任务 5 邀请链接与身份绑定）。

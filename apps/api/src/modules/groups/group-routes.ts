@@ -14,9 +14,11 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import type { VisitorAccessLogService } from '../calendar/visitor-access-log.js';
 import { ContactService } from './contact-service.js';
 import { GroupService } from './group-service.js';
 import { MembershipService } from './membership-service.js';
+import type { VisitorKeyService } from './visitor-key-service.js';
 
 const groupCodeSchema = z.string().regex(/^\d{4}$/);
 const groupIdSchema = z.string().uuid();
@@ -107,12 +109,20 @@ const updateContactInputSchema = z
     (input) =>
       input.confirm === true || input.mobilePhone !== undefined || input.shortPhone !== undefined,
   );
+const visitorLogsQuerySchema = z
+  .object({
+    cursor: z.string().min(1).max(100).optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict();
 
 export function registerGroupRoutes(
   app: FastifyInstance,
   groupService: GroupService,
   membershipService: MembershipService,
   contactService: ContactService,
+  visitorKeyService: VisitorKeyService,
+  visitorAccessLogService: VisitorAccessLogService,
 ): void {
   app.post('/groups', { preHandler: app.authenticate }, async (request, reply) => {
     const group = await groupService.create(
@@ -267,6 +277,41 @@ export function registerGroupRoutes(
       parseGroupId(request),
       parseRegenerateGroupCodeInput(request.body),
     ),
+  );
+
+  app.put('/groups/:groupId/visitor-key', { preHandler: app.authenticate }, async (request) =>
+    visitorKeyService.regenerateKey(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
+  app.get('/groups/:groupId/group-qr', { preHandler: app.authenticate }, async (request) => {
+    const gateway = app.wechatGateway;
+    if (gateway === undefined) {
+      throw new ApiError({
+        code: 'SERVICE_UNAVAILABLE',
+        statusCode: 503,
+        userMessage: '群组小程序码暂不可用。',
+      });
+    }
+    return visitorKeyService.getGroupQr(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      gateway,
+      process.env.WECHAT_QR_ENV_VERSION ?? 'release',
+    );
+  });
+
+  app.get(
+    '/groups/:groupId/visitor-access-logs',
+    { preHandler: app.authenticate },
+    async (request) => {
+      const query = parseOrThrow(visitorLogsQuerySchema, request.query);
+      return visitorAccessLogService.listLogs(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        query.cursor,
+        query.pageSize,
+      );
+    },
   );
 
   app.put('/groups/:groupId/name', { preHandler: app.authenticate }, async (request) =>
@@ -491,4 +536,13 @@ function throwValidationError(): never {
     statusCode: 400,
     userMessage: '请求数据不符合要求。',
   });
+}
+
+function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+
+  return result.data;
 }

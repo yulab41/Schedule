@@ -4,6 +4,7 @@ import {
   acceptInviteResponseSchema,
   createInviteLinkRequestSchema,
   groupQrResponseSchema,
+  visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
   visitorResolveRequestSchema,
   wechatLoginResponseSchema,
@@ -56,6 +57,15 @@ describe('wechat mini program contracts', () => {
   it('requires a non-empty group QR image payload', () => {
     expect(groupQrResponseSchema.safeParse({ imageBase64: 'iVBORw0KGgo=' }).success).toBe(true);
     expect(groupQrResponseSchema.safeParse({ imageBase64: '' }).success).toBe(false);
+  });
+
+  it('accepts only a true visitor key changed response', () => {
+    expect(visitorKeyChangedResponseSchema.safeParse({ visitorKeyChanged: true }).success).toBe(
+      true,
+    );
+    expect(visitorKeyChangedResponseSchema.safeParse({ visitorKeyChanged: false }).success).toBe(
+      false,
+    );
   });
 
   it('requires exactly one invite target', () => {

@@ -36,7 +36,6 @@ import type {
   GroupSwapSettings,
   GroupSummary,
   GuestCalendarReadModel,
-  GuestGroupSummary,
   HolidayReadModel,
   JsonObject,
   LeaveReflowPreview,
@@ -110,6 +109,8 @@ import type {
   UpdateMemberSwapSettingsInput,
   UpdateShiftTypeRequest,
   UserProfile,
+  VisitorAccessLogPage,
+  VisitorResolveResponse,
 } from '@schedule/contracts';
 
 import {
@@ -127,7 +128,6 @@ import {
   dutyAdjustmentRequestSchema,
   dissolvedGroupListSchema,
   guestCalendarReadModelSchema,
-  guestGroupSummaryListSchema,
   groupCatalogListSchema,
   groupDutyAdjustmentSettingsSchema,
   groupMemberContactListSchema,
@@ -140,6 +140,8 @@ import {
   groupSummarySchema,
   groupLeaveReflowStrategySchema,
   groupNotificationSettingsSchema,
+  visitorAccessLogPageSchema,
+  visitorResolveResponseSchema,
   holidayReadModelSchema,
   leaveAffectedShiftListSchema,
   leaveReflowPreviewSchema,
@@ -211,7 +213,7 @@ export interface ApiClient {
     readonly pageSize?: number;
     readonly unreadOnly?: boolean;
   }): Promise<NotificationPage>;
-  listGuestGroups(): Promise<readonly GuestGroupSummary[]>;
+  resolveGuestGroup(visitorKey: string): Promise<VisitorResolveResponse>;
   markAllNotificationsRead(groupId?: string): Promise<{ readonly count: number }>;
   markNotificationRead(notificationId: string): Promise<NotificationRecord>;
   savePushSubscription(input: WebPushSubscriptionInput): Promise<{ readonly saved: boolean }>;
@@ -296,8 +298,12 @@ export interface ApiClient {
   deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
   deleteShiftType(groupId: string, shiftTypeId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
-  getGuestCalendar(groupCode: string, businessMonth: string): Promise<GuestCalendarReadModel>;
-  getGuestGroupCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
+  getGuestGroupCalendarByVisitorKey(
+    groupId: string,
+    visitorKey: string,
+    businessMonth: string,
+  ): Promise<GuestCalendarReadModel>;
+  getVisitorAccessLogs(groupId: string, cursor?: string): Promise<VisitorAccessLogPage>;
   getCurrentProfile(): Promise<UserProfile>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getGuestHolidays(year: number): Promise<HolidayReadModel>;
@@ -731,13 +737,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isResponseBodyFromSchema(notificationPageSchema),
       );
     },
-    listGuestGroups() {
+    resolveGuestGroup(visitorKey) {
       return requestPublicJson(
         fetchImplementation,
         baseUrl,
-        '/guest/groups',
-        { method: 'GET' },
-        isResponseBodyFromSchema(guestGroupSummaryListSchema),
+        '/guest/groups/resolve',
+        {
+          body: JSON.stringify({ visitorKey }),
+          method: 'POST',
+        },
+        isResponseBodyFromSchema(visitorResolveResponseSchema),
       );
     },
     markAllNotificationsRead(groupId) {
@@ -1150,25 +1159,24 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isResponseBodyFromSchema(calendarReadModelSchema),
       );
     },
-    getGuestCalendar(groupCode, businessMonth) {
+    getGuestGroupCalendarByVisitorKey(groupId, visitorKey, businessMonth) {
       return requestPublicJson(
         fetchImplementation,
         baseUrl,
-        '/guest/calendar',
-        {
-          body: JSON.stringify({ businessMonth, groupCode }),
-          method: 'POST',
-        },
+        `/guest/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}&visitorKey=${encodeURIComponent(visitorKey)}`,
+        { method: 'GET' },
         isResponseBodyFromSchema(guestCalendarReadModelSchema),
       );
     },
-    getGuestGroupCalendar(groupId, businessMonth) {
-      return requestPublicJson(
+    getVisitorAccessLogs(groupId, cursor) {
+      const query = cursor === undefined ? '' : `?cursor=${encodeURIComponent(cursor)}`;
+      return requestJson(
+        options.auth,
         fetchImplementation,
         baseUrl,
-        `/guest/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
+        `/groups/${encodeURIComponent(groupId)}/visitor-access-logs${query}`,
         { method: 'GET' },
-        isResponseBodyFromSchema(guestCalendarReadModelSchema),
+        isResponseBodyFromSchema(visitorAccessLogPageSchema),
       );
     },
     getCurrentProfile() {

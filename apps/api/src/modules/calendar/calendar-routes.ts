@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
-
+import { visitorResolveRequestSchema } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
 import { CalendarQuery } from './calendar-query.js';
+import type { VisitorAccessLogService } from './visitor-access-log.js';
 
 const groupIdSchema = z.string().uuid();
 const calendarQuerySchema = z
@@ -13,14 +13,18 @@ const calendarQuerySchema = z
   })
   .strict();
 const schedulePeriodIdSchema = z.string().uuid();
-const guestCalendarInputSchema = z
+const guestCalendarQuerySchema = z
   .object({
     businessMonth: z.string().regex(/^\d{4}-\d{2}$/),
-    groupCode: z.string().regex(/^\d{4}$/),
+    visitorKey: z.string().regex(/^[0-9a-f]{32}$/i),
   })
   .strict();
 
-export function registerCalendarRoutes(app: FastifyInstance, calendarQuery: CalendarQuery): void {
+export function registerCalendarRoutes(
+  app: FastifyInstance,
+  calendarQuery: CalendarQuery,
+  visitorAccessLogService: VisitorAccessLogService,
+): void {
   app.get('/groups/:groupId/calendar', { preHandler: app.authenticate }, (request) =>
     calendarQuery.readMonth(
       getAuthenticatedIdentity(request),
@@ -48,19 +52,26 @@ export function registerCalendarRoutes(app: FastifyInstance, calendarQuery: Cale
     ),
   );
 
-  app.get('/guest/groups', () => calendarQuery.listGuestGroups());
+  app.post('/guest/groups/resolve', async (request, reply) => {
+    const input = parseOrThrow(visitorResolveRequestSchema, request.body);
+    return reply.code(200).send(await visitorAccessLogService.resolveGroup(input.visitorKey));
+  });
 
-  app.get('/guest/groups/:groupId/calendar', (request) =>
-    calendarQuery.readGuestMonthByGroupId(parseGroupId(request), parseBusinessMonth(request.query)),
-  );
-
-  app.post('/guest/calendar', (request) => {
-    const input = parseOrThrow(guestCalendarInputSchema, request.body);
-    return calendarQuery.readGuestMonth(
-      createGuestAccessKey(request),
-      input.groupCode,
+  app.get('/guest/groups/:groupId/calendar', async (request) => {
+    const groupId = parseGroupId(request);
+    const input = parseGuestCalendarQuery(request.query);
+    const resolved = await visitorAccessLogService.resolveGroup(input.visitorKey, groupId);
+    const calendar = await calendarQuery.readGuestMonthByGroupId(
+      resolved.groupId,
       input.businessMonth,
     );
+    await visitorAccessLogService.recordAccess(
+      resolved.groupId,
+      input.businessMonth,
+      request.ip,
+      request.id,
+    );
+    return calendar;
   });
 }
 
@@ -91,10 +102,11 @@ function parseSchedulePeriodId(request: FastifyRequest): string {
   );
 }
 
-function createGuestAccessKey(request: FastifyRequest): string {
-  return createHash('sha256')
-    .update(`${request.ip}|${request.headers['user-agent'] ?? ''}`)
-    .digest('hex');
+function parseGuestCalendarQuery(query: unknown): {
+  readonly businessMonth: string;
+  readonly visitorKey: string;
+} {
+  return parseOrThrow(guestCalendarQuerySchema, query);
 }
 
 function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {

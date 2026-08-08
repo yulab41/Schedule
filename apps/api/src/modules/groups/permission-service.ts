@@ -18,12 +18,15 @@ export type GroupPermission =
   | 'manageScheduleConfiguration'
   | 'manageSwaps'
   | 'regenerateGroupCode'
+  | 'regenerateVisitorKey'
   | 'restoreGroup'
   | 'transferOwnership'
   | 'updateGroupName'
   | 'viewContacts'
   | 'viewGuestCalendar'
+  | 'viewGroupQr'
   | 'viewMembers'
+  | 'viewVisitorAccessLogs'
   | 'viewScheduleConfiguration';
 
 export interface ActiveGroupUser {
@@ -69,6 +72,8 @@ const permissionsByRole: Readonly<
     'manageRoster',
     'manageScheduleConfiguration',
     'manageSwaps',
+    'viewGroupQr',
+    'viewVisitorAccessLogs',
     'viewContacts',
     'viewMembers',
     'viewScheduleConfiguration',
@@ -87,12 +92,15 @@ const permissionsByRole: Readonly<
     'manageScheduleConfiguration',
     'manageSwaps',
     'regenerateGroupCode',
+    'regenerateVisitorKey',
     'restoreGroup',
     'transferOwnership',
     'updateGroupName',
     'viewContacts',
     'viewGuestCalendar',
+    'viewGroupQr',
     'viewMembers',
+    'viewVisitorAccessLogs',
     'viewScheduleConfiguration',
   ],
 };

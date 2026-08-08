@@ -1,11 +1,7 @@
 <script setup lang="ts">
-import type {
-  ConfirmedHolidayDate,
-  GuestCalendarReadModel,
-  GuestGroupSummary,
-} from '@schedule/contracts';
-import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import type { ConfirmedHolidayDate, GuestCalendarReadModel } from '@schedule/contracts';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -20,31 +16,48 @@ import { getBusinessDate } from '../../features/calendar/calendar-views.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 
 const api = createApiClient({ auth: localAuth });
+const route = useRoute();
 const router = useRouter();
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendarResult = ref<GuestCalendarReadModel>();
 const errorMessage = ref<string>();
-const guestGroups = ref<readonly GuestGroupSummary[]>([]);
-const isLoading = ref(false);
-const isLoadingGroups = ref(false);
-const selectedGroup = ref<GuestGroupSummary>();
 const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
+const isLoading = ref(false);
+const resolvedGroup = ref<{ readonly groupId: string; readonly groupName: string }>();
 const requestTracker = createLatestRequestTracker();
 
-async function loadGuestGroups(): Promise<void> {
+const visitorKey = computed(() =>
+  typeof route.query.vkey === 'string' && route.query.vkey.length > 0
+    ? route.query.vkey
+    : undefined,
+);
+
+watch(visitorKey, () => {
+  void load();
+});
+
+onMounted(() => void load());
+
+async function load(): Promise<void> {
+  calendarResult.value = undefined;
   errorMessage.value = undefined;
-  isLoadingGroups.value = true;
+  resolvedGroup.value = undefined;
+
+  if (visitorKey.value === undefined) {
+    return;
+  }
+
   try {
-    guestGroups.value = await api.listGuestGroups();
+    resolvedGroup.value = await api.resolveGuestGroup(visitorKey.value);
+    businessMonth.value = getCurrentBusinessMonth();
+    await loadCalendar();
   } catch (error) {
-    errorMessage.value = toUserMessage(error, '群组暂时无法加载，请稍后重试。');
-  } finally {
-    isLoadingGroups.value = false;
+    errorMessage.value = toUserMessage(error, '访客链接无效或群组不可用。');
   }
 }
 
 async function loadCalendar(): Promise<void> {
-  if (selectedGroup.value === undefined) {
+  if (resolvedGroup.value === undefined || visitorKey.value === undefined) {
     return;
   }
 
@@ -52,8 +65,9 @@ async function loadCalendar(): Promise<void> {
   errorMessage.value = undefined;
   isLoading.value = true;
   try {
-    const nextCalendar = await api.getGuestGroupCalendar(
-      selectedGroup.value.id,
+    const nextCalendar = await api.getGuestGroupCalendarByVisitorKey(
+      resolvedGroup.value.groupId,
+      visitorKey.value,
       businessMonth.value,
     );
     if (requestTracker.isCurrent(request)) {
@@ -86,24 +100,10 @@ async function loadHolidays(request: number): Promise<void> {
   }
 }
 
-async function selectGroup(group: GuestGroupSummary): Promise<void> {
-  selectedGroup.value = group;
-  businessMonth.value = getCurrentBusinessMonth();
-  await loadCalendar();
-}
-
 async function changeMonth(delta: number): Promise<void> {
   businessMonth.value = addBusinessMonths(businessMonth.value, delta);
   await loadCalendar();
 }
-
-function returnToGroupList(): void {
-  calendarResult.value = undefined;
-  errorMessage.value = undefined;
-  selectedGroup.value = undefined;
-}
-
-onMounted(() => void loadGuestGroups());
 </script>
 
 <template>
@@ -116,28 +116,10 @@ onMounted(() => void loadGuestGroups());
     <section v-if="calendarResult === undefined" class="guest-access-panel">
       <h1>访客查看</h1>
       <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
-      <t-loading v-if="isLoadingGroups" text="正在加载群组" />
-      <div v-else class="guest-group-list">
-        <t-button
-          v-for="group in guestGroups"
-          :key="group.id"
-          block
-          :loading="isLoading && selectedGroup?.id === group.id"
-          variant="outline"
-          @click="selectGroup(group)"
-        >
-          {{ group.name }}
-        </t-button>
-        <t-button
-          v-if="errorMessage !== undefined"
-          block
-          variant="outline"
-          @click="loadGuestGroups"
-        >
-          重新加载
-        </t-button>
-        <t-empty v-else-if="guestGroups.length === 0" description="暂无可查看的群组" />
-      </div>
+      <p v-else-if="visitorKey === undefined" class="guest-hint">
+        请扫描群主或管理员分享的群组小程序码查看排班。
+      </p>
+      <t-loading v-else text="正在验证访客链接" />
     </section>
 
     <section v-else class="guest-calendar" :aria-busy="isLoading">
@@ -146,7 +128,6 @@ onMounted(() => void loadGuestGroups());
           <span class="guest-label">访客查看</span>
           <h1>{{ calendarResult.groupName }}</h1>
         </div>
-        <t-button variant="outline" @click="returnToGroupList"> 更换群组 </t-button>
       </div>
 
       <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
@@ -202,9 +183,9 @@ onMounted(() => void loadGuestGroups());
   font-size: var(--ui-font-size-xl);
 }
 
-.guest-group-list {
-  display: grid;
-  gap: 8px;
+.guest-hint {
+  margin: 0;
+  color: var(--ui-color-text-muted);
 }
 
 .guest-calendar {

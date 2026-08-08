@@ -61,6 +61,13 @@ export const groupQrResponseSchema = z
   .strict();
 export type GroupQrResponse = z.infer<typeof groupQrResponseSchema>;
 
+export const visitorKeyChangedResponseSchema = z
+  .object({
+    visitorKeyChanged: z.literal(true),
+  })
+  .strict();
+export type VisitorKeyChangedResponse = z.infer<typeof visitorKeyChangedResponseSchema>;
+
 export const invitePermissionRoleSchema = z.enum(['member', 'administrator']);
 export type InvitePermissionRole = z.infer<typeof invitePermissionRoleSchema>;
 

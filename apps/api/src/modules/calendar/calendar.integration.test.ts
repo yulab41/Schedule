@@ -209,7 +209,7 @@ describeWithDatabase('current month calendar read model', () => {
     });
   });
 
-  it('lists guest groups and reads the selected calendar with contacts but without event markers', async () => {
+  it('resolves a visitor key and reads the selected calendar with contacts but without event markers', async () => {
     await savePublished('2026-08');
     const contact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -223,13 +223,18 @@ describeWithDatabase('current month calendar read model', () => {
     });
     expect(contact.statusCode).toBe(200);
 
-    const groupsResponse = await app.inject({ method: 'GET', url: '/guest/groups' });
-    expect(groupsResponse.statusCode, groupsResponse.body).toBe(200);
-    expect(groupsResponse.json()).toEqual([{ id: groupId, name: 'Calendar group' }]);
+    const visitorKey = await getVisitorKey(groupId);
+    const resolve = await app.inject({
+      method: 'POST',
+      payload: { visitorKey },
+      url: '/guest/groups/resolve',
+    });
+    expect(resolve.statusCode, resolve.body).toBe(200);
+    expect(resolve.json()).toEqual({ groupId, groupName: 'Calendar group' });
 
     const response = await app.inject({
       method: 'GET',
-      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08`,
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08&visitorKey=${visitorKey}`,
     });
 
     expect(response.statusCode, response.body).toBe(200);
@@ -287,10 +292,11 @@ describeWithDatabase('current month calendar read model', () => {
       authenticated.assignments.find((assignment) => assignment.id === assignmentId)?.changeMarkers,
     ).toEqual(['swap']);
 
+    const visitorKey = await getVisitorKey(groupId);
     const guest = (
       await app.inject({
         method: 'GET',
-        url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08`,
+        url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08&visitorKey=${visitorKey}`,
       })
     ).json() as { calendar: CalendarReadModel };
     expect(
@@ -299,51 +305,48 @@ describeWithDatabase('current month calendar read model', () => {
     ).toEqual([]);
   });
 
-  it('rate limits repeated invalid guest group codes', async () => {
+  it('rejects unknown visitor keys and rate limits repeated failures', async () => {
+    const visitorKey = 'b'.repeat(32);
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       const response = await app.inject({
-        headers: { 'user-agent': 'guest-rate-limit-test' },
         method: 'POST',
-        payload: { businessMonth: '2026-08', groupCode: '9999' },
-        url: '/guest/calendar',
+        payload: { visitorKey },
+        url: '/guest/groups/resolve',
       });
       expect(response.statusCode).toBe(404);
     }
 
     const limited = await app.inject({
-      headers: { 'user-agent': 'guest-rate-limit-test' },
       method: 'POST',
-      payload: { businessMonth: '2026-08', groupCode: '9999' },
-      url: '/guest/calendar',
+      payload: { visitorKey },
+      url: '/guest/groups/resolve',
     });
     expect(limited.statusCode).toBe(429);
   });
 
-  it('does not reset the guest failure budget after a valid group code', async () => {
-    const headers = { 'user-agent': 'guest-rate-limit-reset-test' };
+  it('does not reset the visitor failure budget after a valid key', async () => {
+    const badVisitorKey = 'c'.repeat(32);
+    await savePublished('2026-08');
+    const goodVisitorKey = await getVisitorKey(groupId);
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       const response = await app.inject({
-        headers,
         method: 'POST',
-        payload: { businessMonth: '2026-08', groupCode: '9999' },
-        url: '/guest/calendar',
+        payload: { visitorKey: badVisitorKey },
+        url: '/guest/groups/resolve',
       });
       expect(response.statusCode).toBe(404);
     }
 
     const valid = await app.inject({
-      headers,
-      method: 'POST',
-      payload: { businessMonth: '2026-08', groupCode: '1234' },
-      url: '/guest/calendar',
+      method: 'GET',
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08&visitorKey=${goodVisitorKey}`,
     });
     expect(valid.statusCode, valid.body).toBe(200);
 
     const limited = await app.inject({
-      headers,
       method: 'POST',
-      payload: { businessMonth: '2026-08', groupCode: '9999' },
-      url: '/guest/calendar',
+      payload: { visitorKey: badVisitorKey },
+      url: '/guest/groups/resolve',
     });
     expect(limited.statusCode).toBe(429);
   });
@@ -446,6 +449,13 @@ describeWithDatabase('current month calendar read model', () => {
 
     expect(response.statusCode).toBe(201);
     return (response.json() as { id: string }).id;
+  }
+
+  async function getVisitorKey(targetGroupId: string): Promise<string> {
+    const [rows] = (await client.database.execute(
+      sql`SELECT visitor_key AS visitorKey FROM \`groups\` WHERE id = ${targetGroupId}`,
+    )) as unknown as [{ visitorKey: string }[], unknown];
+    return rows[0]?.visitorKey as string;
   }
 
   async function addRosterEntry(targetGroupId: string, realName: string): Promise<void> {

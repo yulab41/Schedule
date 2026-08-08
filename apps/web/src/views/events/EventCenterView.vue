@@ -4,6 +4,7 @@ import type {
   GroupSummary,
   ScheduleEvent,
   ScheduleEventDetail,
+  VisitorAccessLog,
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
@@ -38,6 +39,10 @@ const errorMessage = ref<string>();
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const isLoadingDetail = ref(false);
+const visitorLogs = ref<VisitorAccessLog[]>([]);
+const visitorLogsError = ref<string>();
+const visitorLogsLoading = ref(false);
+const visitorLogsNextCursor = ref<string>();
 
 const memberOptions = computed(() =>
   (calendar.value?.members ?? []).map((member) => ({
@@ -68,6 +73,7 @@ watch(
     resetFilters();
     void loadCalendar();
     void loadEvents();
+    void loadVisitorLogs();
   },
   { immediate: true },
 );
@@ -137,6 +143,27 @@ async function loadMore(): Promise<void> {
     errorMessage.value = toUserMessage(error, '事件数据暂时无法加载，请稍后重试。');
   } finally {
     isLoadingMore.value = false;
+  }
+}
+
+async function loadVisitorLogs(reset = true): Promise<void> {
+  if (reset) {
+    visitorLogs.value = [];
+    visitorLogsNextCursor.value = undefined;
+  }
+  visitorLogsError.value = undefined;
+  visitorLogsLoading.value = true;
+  try {
+    const page = await api.getVisitorAccessLogs(
+      props.group.id,
+      reset ? undefined : visitorLogsNextCursor.value,
+    );
+    visitorLogs.value = reset ? [...page.logs] : [...visitorLogs.value, ...page.logs];
+    visitorLogsNextCursor.value = page.nextCursor;
+  } catch (error) {
+    visitorLogsError.value = toUserMessage(error, '访问记录暂时无法加载，请稍后重试。');
+  } finally {
+    visitorLogsLoading.value = false;
   }
 }
 
@@ -289,6 +316,39 @@ function affectedMemberNames(event: ScheduleEvent): string {
         <EventTimeline :events="[detail.event, ...detail.relatedEvents]" show-raw-data />
       </template>
     </t-dialog>
+
+    <section class="visitor-logs-section">
+      <h3>访客访问记录</h3>
+      <t-alert v-if="visitorLogsError !== undefined" theme="error" :message="visitorLogsError" />
+      <t-loading v-if="visitorLogsLoading && visitorLogs.length === 0" text="正在加载访问记录" />
+      <table v-else-if="visitorLogs.length > 0" class="visitor-logs-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>查看月份</th>
+            <th>来源 IP</th>
+            <th>请求 ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="log in visitorLogs" :key="log.id">
+            <td>{{ formatEventTime(log.createdAt) }}</td>
+            <td>{{ log.businessMonth }}</td>
+            <td>{{ log.clientIp ?? '—' }}</td>
+            <td>{{ log.requestId ?? '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="events-empty">暂无访客访问记录。</p>
+      <t-button
+        v-if="visitorLogsNextCursor !== undefined"
+        variant="outline"
+        :loading="visitorLogsLoading"
+        @click="loadVisitorLogs(false)"
+      >
+        加载更多
+      </t-button>
+    </section>
   </section>
 </template>
 
@@ -364,5 +424,36 @@ function affectedMemberNames(event: ScheduleEvent): string {
   margin: 0 0 12px;
   color: #374151;
   font-size: 13px;
+}
+
+.visitor-logs-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.visitor-logs-section h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.visitor-logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: #ffffff;
+}
+
+.visitor-logs-table th,
+.visitor-logs-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.visitor-logs-table th {
+  color: #374151;
+  background: #f8fafc;
 }
 </style>
