@@ -65,7 +65,7 @@ const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const selectedTemplateId = ref('');
 const scheduleRoleId = ref('');
 const membershipIds = ref<string[]>([]);
-const startDate = ref(getCurrentBusinessMonth() + '-01');
+const startDate = ref(getBusinessDate());
 const cycleDays = ref(7);
 const cells = ref<TemplateCellMap>(new Map());
 const selectedCell = ref<ManualGridSelection>();
@@ -361,7 +361,7 @@ function resetEditor(): void {
   selectedTemplateId.value = '';
   scheduleRoleId.value = '';
   membershipIds.value = [];
-  startDate.value = `${getCurrentBusinessMonth()}-01`;
+  startDate.value = getBusinessDate();
   cycleDays.value = 7;
   cells.value = new Map();
   selectedCell.value = undefined;

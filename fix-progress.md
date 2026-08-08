@@ -869,6 +869,22 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 
 状态：#N16 ✅（已完成，含运行验证；待用户强刷复核）。
 
+### 轮次 57 – 2026-08-08（N17 手动排班默认开始日期）
+
+目标：全新群组首次进入手动排班时，“开始日期”默认应为今天，而不是当月 1 号；已过日期不可手动排班，只能走“排班补录”。
+
+引入点：`ManualScheduleView.vue` 初始化与 `resetEditor()` 写死 `${getCurrentBusinessMonth()}-01`，与模板打开逻辑（`getBusinessDate()` 兜底）和后端 `apply-service.ts` 的“起始日期早于今天拒绝”不一致。
+
+为什么现有测试没拦住：`smoke-browser` 之前未进入手动排班页，也没有“开始日期默认今天”的断言。
+
+修改文件：`apps/web/src/views/schedules/ManualScheduleView.vue`（初始值与新建模板重置改为 `getBusinessDate()`）；`scripts/smoke-browser.mjs`（管理员进入手动排班后断言开始日期等于今天）。
+
+测试结果：先失败证据——新断言对旧线上包经 `http://localhost:8080`（备案维护期 SSH 隧道自测入口）执行失败：手动排班开始日期默认值应为今天 2026-08-08，实际为 2026-08-01；`pnpm verify` 596/596 ✅（73 个测试文件，隔离 MySQL）；本地开发冒烟通过。
+
+运行/浏览器验证：部署后 `SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（登录/管理员/成员/访客全流程 + 新日期断言）；备案维护页占位文件保留。
+
+状态：#N17 ✅（已完成，含运行验证；待用户强刷复核）。
+
 ## 7. 轮次记录
 
 ### 轮次 1 – 2026-08-06

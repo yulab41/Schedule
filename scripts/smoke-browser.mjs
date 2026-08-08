@@ -160,6 +160,27 @@ async function assertTDesignTheme(page) {
   }
 }
 
+async function assertManualScheduleDefaultStartDate(page) {
+  await page.locator('.workbench-sidebar button', { hasText: '手动排班' }).first().click();
+  await waitForBodyText(page, '手动排班模板', 15000, '手动排班模板');
+  const dateInput = page.locator('input[type="date"]').first();
+  await dateInput.waitFor({ state: 'visible', timeout: 15000 });
+  const actual = await dateInput.inputValue();
+  const expected = await page.evaluate(() => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      day: '2-digit',
+      month: '2-digit',
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+    }).formatToParts(new Date());
+    const part = (type) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  });
+  if (actual !== expected) {
+    fail(`手动排班开始日期默认值应为今天 ${expected}，实际为 ${actual}。`);
+  }
+}
+
 async function runSmoke() {
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
@@ -195,6 +216,7 @@ async function runSmoke() {
     await waitForBodyText(page, '手动排班', 15000);
     assertNoErrors(errors, '管理员模式');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '2-admin.png') });
+    await assertManualScheduleDefaultStartDate(page);
 
     step('3/6 退出管理员');
     await page.locator('button', { hasText: '退出登录' }).first().click();
