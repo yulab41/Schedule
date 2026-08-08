@@ -87,6 +87,27 @@ curl -s http://127.0.0.1/api/health
 5. 验证：`curl -s http://127.0.0.1/api/health` 返回 `{"component":"api","ready":true,...}`；
    容器内确认旧 CloudBase 依赖已移除：`docker exec medical-schedule-prod-api-1 ls /app/apps/api/node_modules/@cloudbase` 应报不存在。
 
+### 增量自动更新（推荐）
+
+仓库提供 `infra/scripts/ecs-update.sh`，自动按“迁移先行 → 替换依赖与代码 → 重建容器 → 验证”执行：
+
+```bash
+# 本机构建并打包（依赖未变化时也可直接打包现有 runtime/api-flat/node_modules）
+pnpm build
+tar -czf /tmp/schedule-dist.tar.gz -C <仓库根> \
+  apps/web/dist apps/api/dist packages/contracts/dist packages/database/dist \
+  packages/scheduling-domain/dist migrations
+tar -czf /tmp/api-flat-node_modules.tar.gz -C <仓库根>/runtime/api-flat node_modules
+
+# 上传并执行（脚本会先跑数据库迁移，再替换代码并重建 api/web 容器）
+scp /tmp/schedule-dist.tar.gz /tmp/api-flat-node_modules.tar.gz \
+  infra/scripts/ecs-update.sh root@120.77.220.79:/tmp/
+ssh root@120.77.220.79 \
+  'bash /tmp/ecs-update.sh /tmp/schedule-dist.tar.gz /tmp/api-flat-node_modules.tar.gz'
+```
+
+脚本保留旧依赖树为 `node_modules.old-<时间戳>`，验证通过并确认稳定后再清理。
+
 ## 环境变量
 
 `MYSQL_DATABASE`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_ROOT_PASSWORD`：
