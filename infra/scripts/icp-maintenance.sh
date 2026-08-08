@@ -3,6 +3,9 @@ set -euo pipefail
 
 # 备案维护模式（方案 A，2026-08-08 用户选定）：
 # 域名与公网 IP 一律显示“网站备案中”占位页，备案通过后一键恢复正式站点。
+# 维护期间内置仅本机回环可见的自测入口（127.0.0.1:8080）：
+#   ssh -i <key> -N -L 8080:127.0.0.1:8080 root@120.77.220.79
+#   然后浏览器打开 http://localhost:8080 即可测试真实系统（公网无法访问）。
 # 用法：bash infra/scripts/icp-maintenance.sh on|off
 # 前置：ICP 首次备案已提交或即将提交；备案审核通过后执行 off 恢复。
 # 注意：维护配置必须保留 /.well-known/acme-challenge/ 的 webroot 入口，
@@ -15,6 +18,9 @@ WEB_CONF="$DEPLOY_DIR/infra/docker/nginx.prod.conf"
 WEB_CONF_BAK="$WEB_CONF.before-icp-maintenance"
 PLACEHOLDER="$DEPLOY_DIR/apps/web/dist/icp-placeholder.html"
 CTN=medical-schedule-prod-web-1
+COMPOSE_FILE="$DEPLOY_DIR/infra/docker/compose.prod.yml"
+TEST_OVERRIDE="$DEPLOY_DIR/infra/docker/compose.prod.icp-test.yml"
+TEST_PORT=8080
 
 if [[ "${1:-}" != on && "${1:-}" != off ]]; then
   echo "用法: bash $0 on|off"
@@ -140,7 +146,60 @@ server {
         return 302 /icp-placeholder.html;
     }
 }
+
+# 备案维护期自测入口：宿主机侧由 compose override 仅绑定 127.0.0.1:$TEST_PORT（SSH 隧道用），
+# 公网不通；容器内必须监听所有网卡，因为 Docker 端口映射到达的是容器网卡地址而非容器回环。
+server {
+    listen $TEST_PORT;
+    server_name localhost;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://api:3000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location = /health {
+        proxy_pass http://api:3000/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+    }
+
+    location /assets/ {
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+        try_files \$uri =404;
+    }
+
+    location = /manifest.webmanifest {
+        expires 1h;
+        add_header Cache-Control "public";
+        try_files \$uri =404;
+    }
+
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files \$uri \$uri/ /index.html;
+    }
+}
 EOF
+}
+
+write_test_override() {
+  cat > "$TEST_OVERRIDE" <<YAML
+# 备案维护期自测入口（由 icp-maintenance.sh 生成，off 时删除）：
+# 仅绑定宿主机回环地址，公网无法访问。
+services:
+  web:
+    ports:
+      - '127.0.0.1:$TEST_PORT:$TEST_PORT'
+YAML
 }
 
 if [[ "$1" == on ]]; then
@@ -152,8 +211,11 @@ if [[ "$1" == on ]]; then
   write_placeholder
   cp -p "$WEB_CONF" "$WEB_CONF_BAK"
   write_maintenance_conf
+  write_test_override
+  docker compose --env-file "$DEPLOY_DIR/.env.production" -f "$COMPOSE_FILE" -f "$TEST_OVERRIDE" up -d web
   reload_nginx
   echo "[icp] 已开启备案维护页：域名与公网 IP 均只显示“网站备案中”"
+  echo "[icp] 自测入口：ssh -i <key> -N -L 8080:127.0.0.1:8080 root@120.77.220.79，然后浏览器打开 http://localhost:8080"
   echo "[icp] 备案通过后恢复：bash $0 off"
 else
   if [[ ! -f "$WEB_CONF_BAK" ]]; then
@@ -161,6 +223,8 @@ else
     exit 0
   fi
   cp -p "$WEB_CONF_BAK" "$WEB_CONF"
+  rm -f "$TEST_OVERRIDE"
+  docker compose --env-file "$DEPLOY_DIR/.env.production" -f "$COMPOSE_FILE" up -d web
   rm -f "$WEB_CONF_BAK" "$PLACEHOLDER"
   reload_nginx
   echo "[icp] 已恢复正式站点"
