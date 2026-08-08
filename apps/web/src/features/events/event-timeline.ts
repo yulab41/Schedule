@@ -413,10 +413,7 @@ export function buildEventTimelineItems(
     }));
 }
 
-export function buildEventTypeOptions(): readonly {
-  readonly label: string;
-  readonly value: string;
-}[] {
+export function buildEventTypeOptions(): { label: string; value: string }[] {
   return Object.entries(eventTypeLabels).map(([value, label]) => ({ label, value }));
 }
 

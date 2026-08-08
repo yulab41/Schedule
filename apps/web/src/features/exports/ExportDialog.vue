@@ -2,6 +2,7 @@
 import type { GroupSummary, ScheduleExportJob, ScheduleExportType } from '@schedule/contracts';
 import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { computed, onMounted, ref } from 'vue';
+import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -103,6 +104,14 @@ function downloadCsv(fileName: string, content: string): void {
   anchor.click();
   URL.revokeObjectURL(url);
 }
+
+function onRoleChange(value: SelectValue): void {
+  roleId.value = typeof value === 'string' ? value : undefined;
+}
+
+function onMembershipChange(value: SelectValue): void {
+  membershipId.value = typeof value === 'string' ? value : undefined;
+}
 </script>
 
 <template>
@@ -146,18 +155,20 @@ function downloadCsv(fileName: string, content: string): void {
       </t-form-item>
       <t-form-item label="排班岗位" name="roleId">
         <t-select
-          v-model="roleId"
+          :value="roleId ?? ''"
           :options="roles.map((role) => ({ label: role.name, value: role.id }))"
           clearable
           placeholder="全部岗位"
+          @change="onRoleChange"
         />
       </t-form-item>
       <t-form-item label="成员" name="membershipId">
         <t-select
-          v-model="membershipId"
+          :value="membershipId ?? ''"
           :options="members.map((member) => ({ label: member.realName, value: member.id }))"
           clearable
           placeholder="全部成员"
+          @change="onMembershipChange"
         />
       </t-form-item>
       <p class="export-hint">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
+import type { SwitchValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -88,7 +89,10 @@ async function saveMyPreferences(): Promise<void> {
   }
 }
 
-async function toggleBrowserNotifications(value: boolean): Promise<void> {
+async function toggleBrowserNotifications(value: SwitchValue): Promise<void> {
+  if (typeof value !== 'boolean') {
+    return;
+  }
   browserStatusMessage.value = undefined;
   if (!value) {
     browserNotificationsEnabled.value = false;

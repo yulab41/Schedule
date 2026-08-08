@@ -8,6 +8,7 @@ import type {
   LeaveRequestType,
 } from '@schedule/contracts';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -157,9 +158,7 @@ async function loadAffectedShifts(): Promise<void> {
   }
 }
 
-async function updateStrategy(
-  nextStrategy: string | number | boolean | object | null,
-): Promise<void> {
+async function updateStrategy(nextStrategy: SelectValue): Promise<void> {
   if (
     typeof nextStrategy !== 'string' ||
     (nextStrategy !== 'keep-original-order' && nextStrategy !== 'shift-forward')
@@ -311,7 +310,7 @@ function onWindowFocus(): void {
         <label>
           群组默认重排策略
           <t-select
-            :value="strategy?.strategy"
+            :value="strategy?.strategy ?? ''"
             :options="strategyOptions"
             @change="updateStrategy"
           />

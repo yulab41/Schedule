@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
 import { computed } from 'vue';
+import type { SelectValue } from 'tdesign-vue-next';
 
 const props = defineProps<{
   readonly groups: readonly GroupSummary[];
@@ -18,7 +19,7 @@ const groupOptions = computed(() =>
   })),
 );
 
-function selectGroup(value: string | number | boolean | object | null): void {
+function selectGroup(value: SelectValue): void {
   if (typeof value === 'string' && props.groups.some((group) => group.id === value)) {
     emit('update:modelValue', value);
   }
@@ -38,7 +39,7 @@ function roleLabel(role: GroupSummary['role']): string {
     <label for="group-switcher">当前群组</label>
     <t-select
       id="group-switcher"
-      :value="modelValue"
+      :value="modelValue ?? ''"
       :options="groupOptions"
       @change="selectGroup"
     />

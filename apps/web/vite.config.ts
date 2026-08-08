@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       Components({
-        dts: false,
+        dts: 'src/components.d.ts',
         resolvers: [TDesignResolver({ library: 'vue-next' })],
       }),
       webAppManifestPlugin(),

@@ -10,6 +10,7 @@ import type {
   SchedulingGroupMember,
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
+import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -180,7 +181,7 @@ function onMonthInput(value: string): void {
   }
 }
 
-function onRoleChange(value: string | number | boolean | object | null): void {
+function onRoleChange(value: SelectValue): void {
   roleId.value = String(value ?? '');
   void loadCalendar();
 }

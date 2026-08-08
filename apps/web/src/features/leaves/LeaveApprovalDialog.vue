@@ -6,6 +6,7 @@ import type {
   LeaveRequest,
 } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
+import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -95,7 +96,7 @@ async function refreshPreview(): Promise<void> {
   }
 }
 
-function onStrategyChange(value: string | number | boolean | object | null): void {
+function onStrategyChange(value: SelectValue): void {
   if (value === 'keep-original-order' || value === 'shift-forward') {
     strategy.value = value;
     void refreshPreview();

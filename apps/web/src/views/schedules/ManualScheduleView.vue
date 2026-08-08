@@ -14,6 +14,7 @@ import type {
 } from '@schedule/contracts';
 import { toChinaStandardTimeUtcTimestamp } from '@schedule/scheduling-domain';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -302,7 +303,7 @@ async function loadHolidays(): Promise<void> {
   }
 }
 
-function onTemplateChange(value: string | number | boolean | object | null): void {
+function onTemplateChange(value: SelectValue): void {
   if (typeof value !== 'string') {
     return;
   }
@@ -318,7 +319,7 @@ function onTemplateChange(value: string | number | boolean | object | null): voi
   }
 }
 
-function onRoleChange(value: string | number | boolean | object | null): void {
+function onRoleChange(value: SelectValue): void {
   if (typeof value !== 'string' || !roleOptions.value.some((option) => option.value === value)) {
     return;
   }

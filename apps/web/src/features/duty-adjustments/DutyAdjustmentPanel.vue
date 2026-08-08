@@ -14,6 +14,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
 import {
   buildDutyAdjustmentCandidates,
@@ -177,28 +178,28 @@ function resetForm(): void {
   adminReason.value = '';
 }
 
-function onMyAssignmentChange(value: string | number | boolean | object | null): void {
+function onMyAssignmentChange(value: SelectValue): void {
   if (typeof value === 'string') {
     selectedMyAssignmentId.value = value;
     preview.value = undefined;
   }
 }
 
-function onOvertimeChange(value: string | number | boolean | object | null): void {
+function onOvertimeChange(value: SelectValue): void {
   if (typeof value === 'string') {
     selectedOvertimeMembershipId.value = value;
     preview.value = undefined;
   }
 }
 
-function onAdminAssignmentChange(value: string | number | boolean | object | null): void {
+function onAdminAssignmentChange(value: SelectValue): void {
   if (typeof value === 'string') {
     selectedAdminAssignmentId.value = value;
     selectedAdminOvertimeMembershipId.value = '';
   }
 }
 
-function onAdminOvertimeChange(value: string | number | boolean | object | null): void {
+function onAdminOvertimeChange(value: SelectValue): void {
   if (typeof value === 'string') {
     selectedAdminOvertimeMembershipId.value = value;
   }

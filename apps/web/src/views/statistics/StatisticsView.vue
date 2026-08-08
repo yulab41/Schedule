@@ -8,6 +8,7 @@ import type {
 } from '@schedule/contracts';
 import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { computed, onMounted, ref } from 'vue';
+import type { PrimaryTableCellParams, TableRowData } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -38,6 +39,32 @@ const summary = computed<StatisticsSummary | undefined>(() =>
 const members = computed(() =>
   summary.value === undefined ? [] : sortMembersByActualCount(summary.value.members),
 );
+const roleRows = computed(() => [...(summary.value?.byRole ?? [])]);
+const shiftTypeRows = computed(() => [...(summary.value?.byShiftType ?? [])]);
+
+function readNumber(row: Record<string, unknown>, key: string): number {
+  const value = row[key];
+  return typeof value === 'number' ? value : 0;
+}
+
+function readArrayLength(row: Record<string, unknown>, key: string): number {
+  const value = row[key];
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function renderNetDutyAdjustment(
+  _h: unknown,
+  params: PrimaryTableCellParams<TableRowData>,
+): string {
+  return formatNetDutyAdjustment(readNumber(params.row, 'netDutyAdjustment'));
+}
+
+function renderActualVsPlannedCount(
+  _h: unknown,
+  params: PrimaryTableCellParams<TableRowData>,
+): string {
+  return String(readArrayLength(params.row, 'actualVsPlanned'));
+}
 
 onMounted(() => {
   void load();
@@ -160,15 +187,13 @@ async function runRecalculateCheck(): Promise<void> {
               {
                 colKey: 'netDutyAdjustment',
                 title: '净值',
-                cell: (_h: unknown, params: { row: { netDutyAdjustment: number } }) =>
-                  formatNetDutyAdjustment(params.row.netDutyAdjustment),
+                cell: renderNetDutyAdjustment,
               },
               { colKey: 'deltaCount', title: '增减' },
               {
                 colKey: 'actualVsPlannedCount',
                 title: '原实对照',
-                cell: (_h: unknown, params: { row: { actualVsPlanned: readonly unknown[] } }) =>
-                  params.row.actualVsPlanned.length,
+                cell: renderActualVsPlannedCount,
               },
             ]"
             :max-height="480"
@@ -179,7 +204,7 @@ async function runRecalculateCheck(): Promise<void> {
         <div class="statistics-breakdowns">
           <t-card title="按排班岗位">
             <t-table
-              :data="summary.byRole"
+              :data="roleRows"
               :columns="[
                 { colKey: 'scheduleRoleName', title: '岗位' },
                 { colKey: 'plannedCount', title: '计划' },
@@ -191,7 +216,7 @@ async function runRecalculateCheck(): Promise<void> {
           </t-card>
           <t-card title="按班种">
             <t-table
-              :data="summary.byShiftType"
+              :data="shiftTypeRows"
               :columns="[
                 { colKey: 'shiftTypeName', title: '班种' },
                 { colKey: 'plannedCount', title: '计划' },

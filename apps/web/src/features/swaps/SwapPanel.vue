@@ -13,6 +13,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
 import {
   buildSwapCandidates,
@@ -206,7 +207,7 @@ function resetAdminForm(): void {
   adminPreview.value = undefined;
 }
 
-function onTargetChange(value: string | number | boolean | object | null): void {
+function onTargetChange(value: SelectValue): void {
   if (typeof value !== 'string') {
     return;
   }
@@ -215,21 +216,21 @@ function onTargetChange(value: string | number | boolean | object | null): void 
   preview.value = undefined;
 }
 
-function onMyAssignmentChange(value: string | number | boolean | object | null): void {
+function onMyAssignmentChange(value: SelectValue): void {
   if (typeof value === 'string') {
     selectedMyAssignmentId.value = value;
     preview.value = undefined;
   }
 }
 
-function onTargetAssignmentChange(value: string | number | boolean | object | null): void {
+function onTargetAssignmentChange(value: SelectValue): void {
   if (typeof value === 'string') {
     selectedTargetAssignmentId.value = value;
     preview.value = undefined;
   }
 }
 
-function onAdminInitiatorChange(value: string | number | boolean | object | null): void {
+function onAdminInitiatorChange(value: SelectValue): void {
   if (typeof value !== 'string') {
     return;
   }
@@ -238,7 +239,7 @@ function onAdminInitiatorChange(value: string | number | boolean | object | null
   adminPreview.value = undefined;
 }
 
-function onAdminTargetChange(value: string | number | boolean | object | null): void {
+function onAdminTargetChange(value: SelectValue): void {
   if (typeof value !== 'string') {
     return;
   }
@@ -247,14 +248,14 @@ function onAdminTargetChange(value: string | number | boolean | object | null): 
   adminPreview.value = undefined;
 }
 
-function onAdminInitiatorAssignmentChange(value: string | number | boolean | object | null): void {
+function onAdminInitiatorAssignmentChange(value: SelectValue): void {
   if (typeof value === 'string') {
     adminInitiatorAssignmentId.value = value;
     adminPreview.value = undefined;
   }
 }
 
-function onAdminTargetAssignmentChange(value: string | number | boolean | object | null): void {
+function onAdminTargetAssignmentChange(value: SelectValue): void {
   if (typeof value === 'string') {
     adminTargetAssignmentId.value = value;
     adminPreview.value = undefined;
