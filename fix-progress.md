@@ -509,8 +509,6 @@
 11. `apps/web/src/views/statistics/StatisticsView.vue`（163/170/182/194）：TDesign Table 单元格渲染函数参数类型不匹配，且只读 `TableRowData[]` 传给 Table，TS2322/TS4104；当前页面正常，属类型声明与运行时实际值不一致。
 
 修复目标：所有 11 个文件在启用 `dts` 后 `pnpm --filter @schedule/web build` 通过；`pnpm verify` 596/596、`pnpm smoke:browser`、`pnpm smoke:check-core` 全部通过；浏览器语义检查（登录/工作台/访客 TDesign 组件渲染）通过。
-- **N13 ⏳ 轻微** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割（Vue Router 懒加载/手动分包）。
-- **N14 ⏳ 轻微（环境）** `infra/docker/compose.test.yml` 测试库数据目录为 512MB tmpfs，完整套件 + binlog 会顶满后 MySQL 以 `binlog_error_action=ABORT_SERVER` 崩溃（2026-08-07 验证时实测崩溃，清理 Docker Build Cache 56.9GB 并 `down --volumes` 重置后恢复）；建议提高 tmpfs 上限或关闭 binlog，并记录“全量 verify 前先重置测试库”。
 
 ### 轮次 41 – 2026-08-07
 
