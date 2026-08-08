@@ -1240,3 +1240,25 @@
   - `pages/approvals/*`（请假/换班/加扣班审批列表、请假影响预览弹层并按预览数据批准、驳回确认）；`pages/events/*`（事件/访问记录双 Tab、分页加载更多）；`pages/notifications/*`（通知列表、未读徽标、点击已读、全部已读、TabBar 徽标、提醒设置入口）；`pages/notification-settings/*`（微信订阅开关、提醒时间模式/自定义小时数、群组默认设置）；`pages/index/*` 增加审批中心/事件中心入口；`app.json` 注册 3 个新页面。
 - 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
 - 状态：任务 12 ✅（已完成自动化验证；模拟器订阅授权/未读徽标/审批全流程与 DevTools/真机复核留待用户；按用户指示本阶段停止，任务 13–15 留待下一阶段）。
+
+### 微信开发者工具接入核对点（2026-08-08）
+
+- 目标/需求：接入本机 Win11 微信开发者工具（Stable v2.01.2510290），把任务 7–12 遗留的“DevTools/模拟器复核留待用户”补齐到“编译与页面级运行验证”，为任务 13 提供可复用的本地 DevTools 工作流。
+- 外部控制台状态：
+  - 用户已在 设置 → 安全设置 开启全部选项：`enableServicePort=true, port=24165, allowGetTicket=true, trustWhenAuto=true, enableMiniAppPluginServicePort=true`（配置文件 `%LOCALAPPDATA%\微信开发者工具\User Data\80d774828fc67c7dafc59cd74ce70db0\WeappLocalData\localstorage_b72da75d79277d2f5f9c30c9177be57e.json`；改动前已备份 `.devtools-integration.bak`）。
+  - 曾尝试直接改配置文件开启服务端口，工具启动时按内存态覆写回 `false`；最终由用户在界面开启。脚本后续自动从配置读取端口，无需手填。
+- 修改文件：
+  - `scripts/miniprogram-devtools-lib.mjs`（新增：CLI 路径/服务端口探测、Windows cmd.exe 引号安全的 `runCli`）；
+  - `scripts/miniprogram-devtools.mjs`（新增：`open/build-npm/preview/auto-preview/auto/close/quit` 封装，自动带 `--port` 与默认输出目录）；
+  - `scripts/miniprogram-smoke.mjs`（新增：`miniprogram-automator` 直连模拟器，逐个打开 app.json 全部 19 个页面并截图，收集 console/exception，脚本级错误退出码 1）；
+  - 根 `package.json`（新增 `miniprogram:devtools:*` 与 `miniprogram:smoke`；devDependency `miniprogram-automator@^0.12.1`）；
+  - `eslint.config.js`（忽略 `apps/miniprogram/miniprogram_npm/**`，避免构建产物 d.ts 触发 720 个 lint 错误）；
+  - `.gitignore`（`apps/miniprogram/miniprogram_npm/`、`/.tmp-miniprogram-preview/`）；
+  - `apps/miniprogram/project.config.json`（DevTools 写入 `minifyWXML: true` 并规范化格式）。
+- 验证：
+  - `pnpm miniprogram:devtools:open` 打开工程成功；`build-npm` 成功（cost 15.6s、warnings 0，生成 `miniprogram_npm/tdesign-miniprogram`）；
+  - `pnpm miniprogram:devtools:preview` 编译预览成功（整包 1.4 MB，二维码 `.tmp-miniprogram-preview/preview.png`）；
+  - `pnpm miniprogram:smoke`：login/register/工作台/日历/通知/我的/访客/邀请/群码/周视图/列表/成员/申请中心/请假/换班/加扣班/审批/事件/提醒设置共 19 页全部打开成功、无脚本级错误；截图在 `.tmp-miniprogram-preview/screens/`；4 条控制台消息为未登录 + 公网 API 维护期占位页的预期网络/业务日志；
+  - `pnpm verify` 全绿（format/lint/build/typecheck）；`pnpm test` 隔离 MySQL 658/658（82 文件）通过。
+- 已知边界：数据驱动流程（真实登录、审批、订阅授权等）需本地 mock API + 会话注入或真机联调，留待任务 15 验收清单；本轮截图仅核对渲染/无红屏/无脚本错误。
+- 状态：DevTools 接入核对点 ✅（模拟器编译与页面级运行验证完成；任务 13 起每批页面完成后跑 `pnpm miniprogram:smoke` + DevTools 模拟器复核）。

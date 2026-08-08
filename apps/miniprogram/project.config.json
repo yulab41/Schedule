@@ -10,6 +10,7 @@
     "minified": true,
     "postcss": true,
     "urlCheck": false,
-    "useCompilerPlugins": ["typescript"]
+    "useCompilerPlugins": ["typescript"],
+    "minifyWXML": true
   }
 }
