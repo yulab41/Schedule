@@ -3,12 +3,10 @@ import type {
   CalendarDutyMember,
   CalendarReadModel,
   SwapConflict,
-  SwapAssignmentSummary,
   SwapRequestStatus,
 } from '@schedule/contracts';
 import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
-import { getDutyMemberName } from '../calendar/calendar-logic.js';
 import {
   buildOperableCandidateAssignments,
   getWorkflowNextStatusDescription,
@@ -57,16 +55,6 @@ export function resolveNextSwapStatus(
 
 export function getSwapNextStatusDescription(status: SwapRequestStatus): string {
   return getWorkflowNextStatusDescription(status, '目标成员');
-}
-
-export function formatSwapAssignmentOption(assignment: CalendarDutyAssignment): string {
-  const dutyName = getDutyMemberName(assignment) ?? '待定';
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${assignment.shiftTypeAbbreviation}）· ${dutyName}`;
-}
-
-export function formatSwapAssignmentSummaryOption(assignment: SwapAssignmentSummary): string {
-  const dutyName = assignment.actualMemberName ?? assignment.plannedMemberName ?? '待定';
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${assignment.shiftTypeAbbreviation}）· ${dutyName}`;
 }
 
 export function formatSwapShiftTime(startsAt: string, endsAt: string): string {

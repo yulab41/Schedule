@@ -3,12 +3,11 @@ import type {
   CalendarDutyMember,
   CalendarReadModel,
   DutyAdjustmentConflict,
-  DutyAdjustmentAssignmentSummary,
   DutyAdjustmentStatus,
 } from '@schedule/contracts';
 import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
-import { getDutyMemberName, getDutyMembershipId } from '../calendar/calendar-logic.js';
+import { getDutyMembershipId } from '../calendar/calendar-logic.js';
 import {
   buildOperableCandidateAssignments,
   getWorkflowNextStatusDescription,
@@ -57,18 +56,6 @@ export function resolveNextDutyAdjustmentStatus(
 
 export function getDutyAdjustmentNextStatusDescription(status: DutyAdjustmentStatus): string {
   return getWorkflowNextStatusDescription(status, '加班成员');
-}
-
-export function formatDutyAdjustmentAssignmentOption(assignment: CalendarDutyAssignment): string {
-  const dutyName = getDutyMemberName(assignment) ?? '待定';
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${assignment.shiftTypeAbbreviation}）· ${dutyName}`;
-}
-
-export function formatDutyAdjustmentAssignmentSummaryOption(
-  assignment: DutyAdjustmentAssignmentSummary,
-): string {
-  const dutyName = assignment.actualMemberName ?? assignment.plannedMemberName ?? '待定';
-  return `${assignment.businessDate} ${assignment.shiftTypeName}（${assignment.shiftTypeAbbreviation}）· ${dutyName}`;
 }
 
 export function formatDutyAdjustmentShiftTime(startsAt: string, endsAt: string): string {

@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildSwapCandidates,
-  formatSwapAssignmentOption,
   formatSwapShiftTime,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
   getSwapStatusLabel,
   resolveNextSwapStatus,
 } from './swap-logic.js';
+import {
+  formatAssignmentOption,
+  formatAssignmentSummaryOption,
+} from '../workflows/assignment-option.js';
 
 function assignment(
   id: string,
@@ -101,9 +104,17 @@ describe('swap flow logic', () => {
         message: '该成员在班次时间内有已批准请假。',
       }),
     ).toBe('该成员在班次时间内有已批准请假。');
-    expect(formatSwapAssignmentOption(calendar.assignments[1]!)).toBe(
-      '2026-09-02 全天班（全）· 李医生',
+    expect(formatAssignmentOption(calendar.assignments[1]!)).toBe(
+      '2026-09-02 全天班（周三）· 李医生',
     );
+    expect(
+      formatAssignmentSummaryOption({
+        actualMemberName: '李医生',
+        businessDate: '2026-09-02',
+        plannedMemberName: '李医生',
+        shiftTypeName: '全天班',
+      }),
+    ).toBe('2026-09-02 全天班（周三）· 李医生');
     expect(getSwapNextStatusDescription('pending_target')).toBe('提交后将等待目标成员接受。');
     expect(getSwapNextStatusDescription('pending_approval')).toContain('管理员审批');
     expect(getSwapNextStatusDescription('completed')).toContain('立即生效');

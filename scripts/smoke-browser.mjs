@@ -198,6 +198,29 @@ async function assertWeekendCalendarHighlight(page) {
   }
 }
 
+async function assertBackfillCalendarColors(page) {
+  await page.locator('.workbench-sidebar button', { hasText: '排班补录' }).first().click();
+  await waitForBodyText(page, '排班补录', 15000, '排班补录');
+  const weekendNumber = page
+    .locator('.month-grid.invert-past-colors .day-cell.is-weekend .day-number')
+    .first();
+  await weekendNumber.waitFor({ state: 'visible', timeout: 15000 });
+  const color = await weekendNumber.evaluate((element) => getComputedStyle(element).color);
+  if (color !== 'rgb(224, 49, 49)') {
+    fail(`补录日历周末日期未使用偏大红，当前颜色：${color}。`);
+  }
+  const todayNumber = page
+    .locator('.month-grid.invert-past-colors .day-cell.is-today .day-number')
+    .first();
+  await todayNumber.waitFor({ state: 'visible', timeout: 15000 });
+  const todayBackground = await todayNumber.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  if (todayBackground !== 'rgb(245, 197, 24)') {
+    fail(`补录日历今天圆形标记未使用金黄色，当前背景：${todayBackground}。`);
+  }
+}
+
 async function runSmoke() {
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
@@ -235,6 +258,7 @@ async function runSmoke() {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '2-admin.png') });
     await assertWeekendCalendarHighlight(page);
     await assertManualScheduleDefaultStartDate(page);
+    await assertBackfillCalendarColors(page);
 
     step('3/6 退出管理员');
     await page.locator('button', { hasText: '退出登录' }).first().click();

@@ -255,6 +255,15 @@ function isSoleDuty(date: string | undefined): boolean {
   border-radius: 50%;
 }
 
+.month-grid.invert-past-colors .day-cell.is-weekend .day-number {
+  color: var(--ui-color-weekend);
+}
+
+.month-grid.invert-past-colors .day-cell.is-today .day-number {
+  color: var(--ui-color-near-black);
+  background: var(--ui-color-today-marker);
+}
+
 .holiday-tag {
   display: inline-block;
   max-width: 100%;

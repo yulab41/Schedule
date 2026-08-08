@@ -32,6 +32,10 @@ textarea {
   outline-offset: 2px;
 }
 
+.assignment-option-weekday.is-weekend {
+  color: var(--ui-color-weekend);
+}
+
 #app {
   min-height: 100vh;
 }

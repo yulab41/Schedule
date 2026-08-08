@@ -3,14 +3,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildDutyAdjustmentCandidates,
-  formatDutyAdjustmentAssignmentOption,
-  formatDutyAdjustmentAssignmentSummaryOption,
   formatDutyAdjustmentShiftTime,
   getDutyAdjustmentConflictMessage,
   getDutyAdjustmentNextStatusDescription,
   getDutyAdjustmentStatusLabel,
   resolveNextDutyAdjustmentStatus,
 } from './duty-adjustment-logic.js';
+import {
+  formatAssignmentOption,
+  formatAssignmentSummaryOption,
+} from '../workflows/assignment-option.js';
 
 function assignment(
   id: string,
@@ -103,11 +105,11 @@ describe('duty adjustment flow logic', () => {
         message: '该成员在班次时间内有已批准请假。',
       }),
     ).toBe('该成员在班次时间内有已批准请假。');
-    expect(formatDutyAdjustmentAssignmentOption(calendar.assignments[1]!)).toBe(
-      '2026-09-02 全天班（全）· 李医生',
+    expect(formatAssignmentOption(calendar.assignments[1]!)).toBe(
+      '2026-09-02 全天班（周三）· 李医生',
     );
     expect(
-      formatDutyAdjustmentAssignmentSummaryOption({
+      formatAssignmentSummaryOption({
         assignmentId: 'assignment-2',
         businessDate: '2026-09-02',
         endsAt: '2026-09-02T16:00:00.000Z',
@@ -124,7 +126,7 @@ describe('duty adjustment flow logic', () => {
         startsAt: '2026-09-02T00:00:00.000Z',
         version: 1,
       }),
-    ).toBe('2026-09-02 全天班（全）· 李医生');
+    ).toBe('2026-09-02 全天班（周三）· 李医生');
     expect(getDutyAdjustmentNextStatusDescription('pending_target')).toBe(
       '提交后将等待加班成员接受。',
     );

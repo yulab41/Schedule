@@ -1041,3 +1041,12 @@
 - 修改文件：`packages/ui-tokens/src/tokens.ts`（`weekend` 改为 `#E03131`，新增 `todayMarker: '#F5C518'`，重新生成 `tokens.css`）；`MonthGrid.vue`/`WeekGrid.vue`/`ListGrid.vue` 的今天标记改为金黄色底 + 深色文字；`scripts/smoke-browser.mjs` 增加今天金黄背景断言并更新周末红预期。
 - 验证：`pnpm verify` 601 项总测试（73 个测试文件，隔离 MySQL）通过；本地冒烟通过；服务器已同步 web dist 并重建 web 容器，`http://localhost:8080` 冒烟通过（含周末红与今天黄断言）。
 - 状态：#N19 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。
+
+### fix-progress 轮次 60（N20 补录日历配色同步 + 换班/加扣班选项格式统一，2026-08-08）
+
+- 目标/需求：排班补录页未跟随首页日历的周末红/今天黄；换班/加扣班班次列表希望隐藏全天班简称、显示星期，并让周末“（周六）/（周日）”在下拉列表中显示红色。
+- 根因/优化：补录页与首页共用同一个 `MonthGrid`，但补录使用 `invert-past-colors`，其高优先级样式把周末/今天颜色盖掉；换班/加扣班选项格式化函数在两个模块重复，且没有星期信息。
+- 修改文件：`MonthGrid.vue`（补录反色模式下提高周末/今天样式优先级）；新增共享 `apps/web/src/features/workflows/assignment-option.ts`（`formatAssignmentOption`/`formatAssignmentSummaryOption`/`createAssignmentOption`，下拉用 VNode 给周末星期加红色类）；`SwapPanel.vue`/`DutyAdjustmentPanel.vue` 改用它并更新占位文案；`swap-logic.ts`/`duty-adjustment-logic.ts` 删除重复格式化函数；`base.css` 增加 `.assignment-option-weekday.is-weekend` 红色样式；`scripts/smoke-browser.mjs` 增加补录日历周末红/今天黄断言。
+- 测试：新增 `assignment-option.spec.ts`（格式含星期、无班次简称、周末内容类标记）；`swap-logic.spec.ts`/`duty-adjustment-logic.spec.ts` 更新预期；`pnpm verify` 603 项总测试（49 个测试文件，隔离 MySQL）通过。
+- 运行/浏览器验证：本地冒烟通过；服务器已同步 web dist 并重建 web 容器；`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（含首页/补录日历颜色断言）。
+- 状态：#N20 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。

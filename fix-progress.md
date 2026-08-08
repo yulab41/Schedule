@@ -911,6 +911,20 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 
 状态：#N19 ✅（已完成，含运行验证；待用户强刷复核）。
 
+### 轮次 60 – 2026-08-08（N20 补录日历配色同步 + 换班/加扣班选项格式统一）
+
+目标：排班补录页跟随首页日历的周末红/今天黄；换班/加扣班班次列表隐藏全天班简称、显示星期，周末“（周六）/（周日）”在下拉列表中显示红色。
+
+根因/优化：补录页与首页共用 `MonthGrid`，补录的反色模式样式优先级更高把颜色盖掉；换班/加扣班格式化函数在两个模块重复且无星期。
+
+修改文件：`MonthGrid.vue`（反色模式周末/今天样式优先级）；新增共享 `assignment-option.ts`；`SwapPanel.vue`/`DutyAdjustmentPanel.vue` 改用共享选项并更新占位文案；`swap-logic.ts`/`duty-adjustment-logic.ts` 删除重复函数；`base.css` 周末星期红色类；`scripts/smoke-browser.mjs` 补录日历颜色断言。
+
+测试结果：新增 `assignment-option.spec.ts`；更新 swap/duty 格式化预期；`pnpm verify` 603 项总测试通过（49 个测试文件，隔离 MySQL）。
+
+运行/浏览器验证：本地冒烟通过；服务器已同步 web dist 并重建 web 容器；`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（含首页/补录日历颜色断言）。
+
+状态：#N20 ✅（已完成，含运行验证；待用户强刷复核）。
+
 ## 7. 轮次记录
 
 ### 轮次 1 – 2026-08-06

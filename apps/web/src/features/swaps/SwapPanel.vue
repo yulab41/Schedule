@@ -16,9 +16,11 @@ import { localAuth } from '../../auth/local-auth.js';
 import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
 import {
+  createAssignmentOption,
+  formatAssignmentSummaryOption,
+} from '../workflows/assignment-option.js';
+import {
   buildSwapCandidates,
-  formatSwapAssignmentOption,
-  formatSwapAssignmentSummaryOption,
   formatSwapShiftTime,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
@@ -64,10 +66,7 @@ const candidates = computed(() =>
     : buildSwapCandidates(calendar.value, myMembershipId.value),
 );
 const myAssignmentOptions = computed(() =>
-  (candidates.value?.myAssignments ?? []).map((assignment) => ({
-    label: formatSwapAssignmentOption(assignment),
-    value: assignment.id,
-  })),
+  (candidates.value?.myAssignments ?? []).map((assignment) => createAssignmentOption(assignment)),
 );
 const targetOptions = computed(() =>
   (candidates.value?.targetOptions ?? []).map((member) => ({
@@ -80,11 +79,8 @@ const targetAssignmentOptions = computed(() => {
   if (targetMembershipId === '') {
     return [];
   }
-  return (candidates.value?.assignmentsByTarget.get(targetMembershipId) ?? []).map(
-    (assignment) => ({
-      label: formatSwapAssignmentOption(assignment),
-      value: assignment.id,
-    }),
+  return (candidates.value?.assignmentsByTarget.get(targetMembershipId) ?? []).map((assignment) =>
+    createAssignmentOption(assignment),
   );
 });
 const adminMemberOptions = computed(() =>
@@ -98,10 +94,7 @@ const adminInitiatorAssignmentOptions = computed(() => {
     return [];
   }
   return (candidates.value?.assignmentsByTarget.get(adminInitiatorMembershipId.value) ?? []).map(
-    (assignment) => ({
-      label: formatSwapAssignmentOption(assignment),
-      value: assignment.id,
-    }),
+    (assignment) => createAssignmentOption(assignment),
   );
 });
 const adminTargetAssignmentOptions = computed(() => {
@@ -109,10 +102,7 @@ const adminTargetAssignmentOptions = computed(() => {
     return [];
   }
   return (candidates.value?.assignmentsByTarget.get(adminTargetMembershipId.value) ?? []).map(
-    (assignment) => ({
-      label: formatSwapAssignmentOption(assignment),
-      value: assignment.id,
-    }),
+    (assignment) => createAssignmentOption(assignment),
   );
 });
 const incomingRequests = computed(() =>
@@ -531,7 +521,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="selectedMyAssignmentId"
               :options="myAssignmentOptions"
-              placeholder="选择我的未来班次"
+              placeholder="选择我的班次"
               @change="onMyAssignmentChange"
             />
           </label>
@@ -549,7 +539,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="selectedTargetAssignmentId"
               :options="targetAssignmentOptions"
-              placeholder="选择目标成员的未来班次"
+              placeholder="选择目标成员的班次"
               @change="onTargetAssignmentChange"
             />
           </label>
@@ -564,8 +554,8 @@ function getCounterpartName(request: SwapRequest): string {
 
       <template v-if="preview !== undefined">
         <div class="preview-summary">
-          <p>我的班次：{{ formatSwapAssignmentSummaryOption(preview.initiatorAssignment) }}</p>
-          <p>目标班次：{{ formatSwapAssignmentSummaryOption(preview.targetAssignment) }}</p>
+          <p>我的班次：{{ formatAssignmentSummaryOption(preview.initiatorAssignment) }}</p>
+          <p>目标班次：{{ formatAssignmentSummaryOption(preview.targetAssignment) }}</p>
           <p class="next-status">结果：{{ getSwapNextStatusDescription(preview.nextStatus) }}</p>
         </div>
         <t-alert
@@ -605,7 +595,7 @@ function getCounterpartName(request: SwapRequest): string {
               <t-select
                 :value="adminInitiatorAssignmentId"
                 :options="adminInitiatorAssignmentOptions"
-                placeholder="选择成员一的未来班次"
+                placeholder="选择成员一的班次"
                 @change="onAdminInitiatorAssignmentChange"
               />
             </label>
@@ -623,7 +613,7 @@ function getCounterpartName(request: SwapRequest): string {
               <t-select
                 :value="adminTargetAssignmentId"
                 :options="adminTargetAssignmentOptions"
-                placeholder="选择成员二的未来班次"
+                placeholder="选择成员二的班次"
                 @change="onAdminTargetAssignmentChange"
               />
             </label>
@@ -644,14 +634,14 @@ function getCounterpartName(request: SwapRequest): string {
                 adminPreview.initiatorAssignment.actualMemberName ??
                 adminPreview.initiatorAssignment.plannedMemberName
               }}
-              的班次：{{ formatSwapAssignmentSummaryOption(adminPreview.initiatorAssignment) }}
+              的班次：{{ formatAssignmentSummaryOption(adminPreview.initiatorAssignment) }}
             </p>
             <p>
               {{
                 adminPreview.targetAssignment.actualMemberName ??
                 adminPreview.targetAssignment.plannedMemberName
               }}
-              的班次：{{ formatSwapAssignmentSummaryOption(adminPreview.targetAssignment) }}
+              的班次：{{ formatAssignmentSummaryOption(adminPreview.targetAssignment) }}
             </p>
             <p class="next-status">执行后立即生效，无需审批和成员同意。</p>
           </div>

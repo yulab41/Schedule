@@ -17,9 +17,11 @@ import { localAuth } from '../../auth/local-auth.js';
 import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
 import {
+  createAssignmentOption,
+  formatAssignmentSummaryOption,
+} from '../workflows/assignment-option.js';
+import {
   buildDutyAdjustmentCandidates,
-  formatDutyAdjustmentAssignmentOption,
-  formatDutyAdjustmentAssignmentSummaryOption,
   formatDutyAdjustmentShiftTime,
   getDutyAdjustmentConflictMessage,
   getDutyAdjustmentNextStatusDescription,
@@ -60,10 +62,7 @@ const candidates = computed(() =>
     : buildDutyAdjustmentCandidates(calendar.value, myMembershipId.value),
 );
 const myAssignmentOptions = computed(() =>
-  (candidates.value?.myAssignments ?? []).map((assignment) => ({
-    label: formatDutyAdjustmentAssignmentOption(assignment),
-    value: assignment.id,
-  })),
+  (candidates.value?.myAssignments ?? []).map((assignment) => createAssignmentOption(assignment)),
 );
 const overtimeOptions = computed(() =>
   (candidates.value?.overtimeOptions ?? []).map((member) => ({
@@ -72,10 +71,9 @@ const overtimeOptions = computed(() =>
   })),
 );
 const adminShiftOptions = computed(() =>
-  (candidates.value?.adminShiftOptions ?? []).map((assignment) => ({
-    label: formatDutyAdjustmentAssignmentOption(assignment),
-    value: assignment.id,
-  })),
+  (candidates.value?.adminShiftOptions ?? []).map((assignment) =>
+    createAssignmentOption(assignment),
+  ),
 );
 const selectedAdminShift = computed<CalendarDutyAssignment | undefined>(() =>
   calendar.value?.assignments.find(
@@ -438,7 +436,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
             <t-select
               :value="selectedMyAssignmentId"
               :options="myAssignmentOptions"
-              placeholder="选择我的未来班次"
+              placeholder="选择我的班次"
               @change="onMyAssignmentChange"
             />
           </label>
@@ -466,9 +464,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
 
       <template v-if="preview !== undefined">
         <div class="preview-summary">
-          <p>
-            被代班班次：{{ formatDutyAdjustmentAssignmentSummaryOption(preview.coveredAssignment) }}
-          </p>
+          <p>被代班班次：{{ formatAssignmentSummaryOption(preview.coveredAssignment) }}</p>
           <p>
             扣班成员：{{ preview.deductedMemberName }}；加班成员：{{ preview.overtimeMemberName }}
           </p>
