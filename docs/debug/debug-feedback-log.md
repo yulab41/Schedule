@@ -1164,3 +1164,17 @@
   - 19 个使用 `/groups/claim` 的测试文件改为夹具直插/邀请流；`membership-claims.integration.test.ts` 重写为“认领接口 404”回归；`group-routes` 移除 claim 专项测试并保留 404 断言与邀请重加入。
 - 测试：全量 `pnpm verify` 649 项（80 个测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
 - 状态：任务 5 ✅（阶段 1 + 阶段 2 完成，含运行验证；下一轮任务 6 微信订阅消息投递）。
+
+### 微信小程序任务 6（微信订阅消息投递，2026-08-08）
+
+- 目标/需求：通知渠道扩展为 wechat；微信投递器按模板发送（值班提醒/审批结果/状态变更），43101 跳过、参数错误失败、系统错误重试；值班提醒与审批/状态变更通知自动创建微信投递行；成员提醒设置增加 `wechatNotificationsEnabled`；mock 模式记录发送并标记 sent。
+- 修改文件：
+  - `apps/api/src/modules/wechat/wechat-push-dispatcher.ts`（模板类型映射 `dutyReminder/approvalResult/statusChange`、env 模板读取、`WechatPushDispatcher.send` 支持事务内 openid 查询、无 openid/模板缺失 fail-closed）+ `wechat-push-dispatcher.spec.ts`（5 项）；
+  - `apps/api/src/modules/notifications/notification-writer.ts`（为有 openid、偏好开启、通知类型有模板的接收者创建 `channel='wechat'` 投递行；mock 模式不要求真实模板 ID）；
+  - `apps/api/src/jobs/notification-retry.ts`（按渠道分流：browser 走 Web Push，wechat 走微信投递器；43101/无 openid/模板缺失 → skipped，VALIDATION_FAILED → failed，系统错误 → 重试；成功写 external_message_id）；
+  - `apps/api/src/jobs/runner.ts`（notification-retry 注入微信投递器）；
+  - `apps/api/src/modules/notifications/notification-service.ts`/`notification-routes.ts`（偏好读写 `wechatNotificationsEnabled`）；`packages/contracts/src/notifications.ts`（schema/输入类型）；`wechat-gateway.ts` 增加 40003 映射；
+  - 集成测试 `wechat-notifications.integration.test.ts`（4 项：mock 发送成功写 external_message_id、偏好关闭/无 openid 不建行、43101 跳过与系统错误重试、偏好接口读写）。
+- 测试：全量 `pnpm verify` 658 项（82 个测试文件，隔离 MySQL）通过。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客 + 群组管理 + vkey + 访问记录断言）；本轮涉及 contracts 核心链路，按 AGENTS.md 补录本记录。
+- 状态：任务 6 ✅（已完成，含运行验证；下一轮任务 7 小程序工程脚手架）。

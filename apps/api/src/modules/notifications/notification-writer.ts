@@ -12,6 +12,8 @@ import {
 } from '@schedule/database';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 
+import { getWechatTemplateKind, readWechatTemplateIds } from '../wechat/wechat-push-dispatcher.js';
+
 export interface NotificationWriteInput {
   readonly administratorRecipients?: boolean;
   readonly body: string;
@@ -61,6 +63,23 @@ export class NotificationWriter {
       ) {
         await transaction.insert(notificationDeliveries).values({
           channel: 'browser',
+          id: randomUUID(),
+          maxAttempts: 3,
+          nextAttemptAt: new Date(),
+          notificationId,
+          status: 'pending',
+        });
+      }
+      if (
+        await this.shouldDispatchWechat(
+          transaction,
+          recipientUserId,
+          input.groupId,
+          input.notificationType,
+        )
+      ) {
+        await transaction.insert(notificationDeliveries).values({
+          channel: 'wechat',
           id: randomUUID(),
           maxAttempts: 3,
           nextAttemptAt: new Date(),
@@ -173,5 +192,60 @@ export class NotificationWriter {
       .limit(1);
 
     return subscription !== undefined;
+  }
+
+  private async shouldDispatchWechat(
+    transaction: DatabaseTransaction,
+    userId: string,
+    groupId: string | undefined,
+    notificationType: string,
+  ): Promise<boolean> {
+    const kind = getWechatTemplateKind(notificationType);
+    if (kind === undefined) {
+      return false;
+    }
+    const templateIds = readWechatTemplateIds();
+    if (templateIds[kind] === undefined && process.env.WECHAT_MOCK_MODE !== 'true') {
+      return false;
+    }
+
+    const [user] = await transaction
+      .select({ wechatOpenid: users.wechatOpenid })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (user?.wechatOpenid === null || user?.wechatOpenid === undefined) {
+      return false;
+    }
+
+    if (groupId !== undefined) {
+      const [membership] = await transaction
+        .select({ id: groupMemberships.id })
+        .from(groupMemberships)
+        .where(
+          and(
+            eq(groupMemberships.groupId, groupId),
+            eq(groupMemberships.userId, userId),
+            eq(groupMemberships.status, 'active'),
+            isNull(groupMemberships.deletedAt),
+          ),
+        )
+        .limit(1);
+      if (membership === undefined) {
+        return false;
+      }
+      const [preference] = await transaction
+        .select({
+          wechatNotificationsEnabled: notificationPreferences.wechatNotificationsEnabled,
+        })
+        .from(notificationPreferences)
+        .where(eq(notificationPreferences.membershipId, membership.id))
+        .limit(1);
+      if (preference !== undefined && preference.wechatNotificationsEnabled === 0) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

@@ -118,11 +118,13 @@ export class NotificationService {
             browserNotificationsEnabled: true,
             dutyReminderHours: null,
             membershipId: authorization.membership.id,
+            wechatNotificationsEnabled: true,
           }
         : {
             browserNotificationsEnabled: row.browserNotificationsEnabled === 1,
             dutyReminderHours: row.dutyReminderHours ?? null,
             membershipId: authorization.membership.id,
+            wechatNotificationsEnabled: row.wechatNotificationsEnabled === 1,
           };
     });
   }
@@ -146,10 +148,15 @@ export class NotificationService {
         .limit(1);
       const current =
         currentRow === undefined
-          ? { browserNotificationsEnabled: true, dutyReminderHours: null }
+          ? {
+              browserNotificationsEnabled: true,
+              dutyReminderHours: null,
+              wechatNotificationsEnabled: true,
+            }
           : {
               browserNotificationsEnabled: currentRow.browserNotificationsEnabled === 1,
               dutyReminderHours: currentRow.dutyReminderHours ?? null,
+              wechatNotificationsEnabled: currentRow.wechatNotificationsEnabled === 1,
             };
       const dutyReminderHours =
         input.dutyReminderHours === undefined
@@ -157,6 +164,8 @@ export class NotificationService {
           : parseReminderHoursOrDisable(input.dutyReminderHours);
       const browserNotificationsEnabled =
         input.browserNotificationsEnabled ?? current.browserNotificationsEnabled;
+      const wechatNotificationsEnabled =
+        input.wechatNotificationsEnabled ?? current.wechatNotificationsEnabled;
 
       await transaction
         .insert(notificationPreferences)
@@ -166,12 +175,14 @@ export class NotificationService {
           id: randomUUID(),
           membershipId: authorization.membership.id,
           version: 1,
+          wechatNotificationsEnabled: wechatNotificationsEnabled ? 1 : 0,
         })
         .onDuplicateKeyUpdate({
           set: {
             browserNotificationsEnabled: browserNotificationsEnabled ? 1 : 0,
             dutyReminderHours,
             version: sql`${notificationPreferences.version} + 1`,
+            wechatNotificationsEnabled: wechatNotificationsEnabled ? 1 : 0,
           },
         });
 
@@ -179,6 +190,7 @@ export class NotificationService {
         browserNotificationsEnabled,
         dutyReminderHours,
         membershipId: authorization.membership.id,
+        wechatNotificationsEnabled,
       };
     });
   }

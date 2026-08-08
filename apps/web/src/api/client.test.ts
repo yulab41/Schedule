@@ -467,6 +467,7 @@ const memberNotificationPreferences: MemberNotificationPreferences = {
   browserNotificationsEnabled: true,
   dutyReminderHours: [24],
   membershipId: 'membership-1',
+  wechatNotificationsEnabled: true,
 };
 
 const statisticsRoleCount = {

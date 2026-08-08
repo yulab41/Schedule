@@ -82,6 +82,7 @@ export const memberNotificationPreferencesSchema = z
     browserNotificationsEnabled: z.boolean(),
     dutyReminderHours: z.union([z.null(), z.readonly(z.array(z.number().int().min(1)))]),
     membershipId: z.string().min(1),
+    wechatNotificationsEnabled: z.boolean(),
   })
   .strict();
 export type MemberNotificationPreferences = z.infer<typeof memberNotificationPreferencesSchema>;
@@ -89,6 +90,7 @@ export type MemberNotificationPreferences = z.infer<typeof memberNotificationPre
 export interface UpdateMemberNotificationPreferencesInput {
   readonly browserNotificationsEnabled?: boolean;
   readonly dutyReminderHours?: readonly number[] | null;
+  readonly wechatNotificationsEnabled?: boolean;
 }
 
 export interface WebPushSubscriptionInput {

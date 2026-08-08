@@ -1,4 +1,4 @@
-import type { DatabaseClient } from '@schedule/database';
+import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   notificationDeliveries,
   notifications,
@@ -8,6 +8,8 @@ import {
 import { and, asc, eq, isNull, lt, lte, or } from 'drizzle-orm';
 
 import type { PushDispatcher } from '../modules/notifications/notification-dispatcher.js';
+import type { WechatPushDispatcher } from '../modules/wechat/wechat-push-dispatcher.js';
+import { WechatGatewayError } from '../modules/wechat/wechat-gateway.js';
 
 const retryDelayMinutes = [5, 30] as const;
 
@@ -22,17 +24,14 @@ export class NotificationRetryJob {
   public constructor(
     private readonly databaseClient: DatabaseClient,
     private readonly dispatcher: PushDispatcher,
+    private readonly wechatDispatcher: WechatPushDispatcher | undefined = undefined,
     private readonly options: { readonly batchSize?: number } = {},
   ) {}
 
   public async run(now = new Date()): Promise<NotificationRetryRunResult> {
+    let preSkipped = 0;
     if (!this.dispatcher.isConfigured) {
-      return {
-        attempted: 0,
-        failed: 0,
-        sent: 0,
-        skipped: await this.markPendingSkipped(now),
-      };
+      preSkipped = await this.markBrowserPendingSkipped(now);
     }
 
     const batchSize = this.options.batchSize ?? 100;
@@ -70,16 +69,17 @@ export class NotificationRetryJob {
       }
     }
 
-    return { attempted, failed, sent, skipped };
+    return { attempted, failed, sent, skipped: skipped + preSkipped };
   }
 
-  private async markPendingSkipped(now: Date): Promise<number> {
+  private async markBrowserPendingSkipped(now: Date): Promise<number> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const [result] = await transaction
         .update(notificationDeliveries)
         .set({ status: 'skipped', lastError: '推送服务未配置' })
         .where(
           and(
+            eq(notificationDeliveries.channel, 'browser'),
             eq(notificationDeliveries.status, 'pending'),
             or(
               isNull(notificationDeliveries.nextAttemptAt),
@@ -116,6 +116,16 @@ export class NotificationRetryJob {
         await transaction
           .update(notificationDeliveries)
           .set({ status: 'skipped', lastError: '通知记录不存在' })
+          .where(eq(notificationDeliveries.id, deliveryId));
+        return 'skipped';
+      }
+      if (delivery.channel === 'wechat') {
+        return this.processWechatDelivery(transaction, deliveryId, delivery, notification, now);
+      }
+      if (!this.dispatcher.isConfigured) {
+        await transaction
+          .update(notificationDeliveries)
+          .set({ status: 'skipped', lastError: '推送服务未配置' })
           .where(eq(notificationDeliveries.id, deliveryId));
         return 'skipped';
       }
@@ -170,6 +180,74 @@ export class NotificationRetryJob {
         return 'failed';
       }
     });
+  }
+
+  private async processWechatDelivery(
+    transaction: DatabaseTransaction,
+    deliveryId: string,
+    delivery: typeof notificationDeliveries.$inferSelect,
+    notification: typeof notifications.$inferSelect,
+    now: Date,
+  ): Promise<'failed' | 'sent' | 'skipped'> {
+    if (this.wechatDispatcher === undefined || !this.wechatDispatcher.isConfigured) {
+      await transaction
+        .update(notificationDeliveries)
+        .set({ status: 'skipped', lastError: '微信投递未配置' })
+        .where(eq(notificationDeliveries.id, deliveryId));
+      return 'skipped';
+    }
+
+    try {
+      const result = await this.wechatDispatcher.send(
+        {
+          body: notification.body,
+          id: notification.id,
+          notificationType: notification.notificationType,
+          recipientUserId: notification.recipientUserId,
+          title: notification.title,
+        },
+        transaction,
+      );
+      await transaction
+        .update(notificationDeliveries)
+        .set({
+          externalMessageId: result.messageId,
+          lastError: null,
+          sentAt: now,
+          status: 'sent',
+        })
+        .where(eq(notificationDeliveries.id, deliveryId));
+      return 'sent';
+    } catch (error) {
+      const nextAttempts = delivery.attempts + 1;
+      const exhausted = nextAttempts >= delivery.maxAttempts;
+      const wechatError =
+        error instanceof WechatGatewayError
+          ? error
+          : new WechatGatewayError(null, null, 'INTERNAL_ERROR', getErrorMessage(error));
+      const permanentlySkipped =
+        wechatError.errcode === 43101 ||
+        (wechatError.errcode === null && wechatError.mappedCode === 'WECHAT_MESSAGE_SEND_FAILED');
+      const permanentlyFailed = wechatError.mappedCode === 'VALIDATION_FAILED';
+
+      await transaction
+        .update(notificationDeliveries)
+        .set({
+          attempts: nextAttempts,
+          lastError: wechatError.message.slice(0, 500),
+          nextAttemptAt:
+            permanentlySkipped || permanentlyFailed || exhausted
+              ? null
+              : addMinutes(now, getRetryDelay(nextAttempts)),
+          status: permanentlySkipped
+            ? 'skipped'
+            : permanentlyFailed || exhausted
+              ? 'failed'
+              : 'pending',
+        })
+        .where(eq(notificationDeliveries.id, deliveryId));
+      return permanentlySkipped ? 'skipped' : 'failed';
+    }
   }
 }
 

@@ -29,6 +29,7 @@ const updateMyPreferencesSchema = z
   .object({
     browserNotificationsEnabled: z.boolean().optional(),
     dutyReminderHours: nullableReminderHoursSchema.optional(),
+    wechatNotificationsEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -194,6 +195,9 @@ function parseUpdateMyPreferences(value: unknown): UpdateMemberNotificationPrefe
     ...(parsed.dutyReminderHours === undefined
       ? {}
       : { dutyReminderHours: parsed.dutyReminderHours }),
+    ...(parsed.wechatNotificationsEnabled === undefined
+      ? {}
+      : { wechatNotificationsEnabled: parsed.wechatNotificationsEnabled }),
   };
 }
 

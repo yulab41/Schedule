@@ -11,6 +11,8 @@ import { GroupRecycleJob } from './group-recycle.js';
 import { HolidayAlertJob } from './holiday-alerts.js';
 import { NotificationRetryJob } from './notification-retry.js';
 import { StatisticsRebuildJob } from './statistics-rebuild.js';
+import { createWechatGateway } from '../modules/wechat/wechat-gateway.js';
+import { WechatPushDispatcher } from '../modules/wechat/wechat-push-dispatcher.js';
 
 export type JobName =
   | 'database-backup'
@@ -37,7 +39,18 @@ export const jobRunners: Readonly<Record<JobName, JobRunner>> = {
   'holiday-alerts': (client) =>
     new HolidayAlertJob(client, parseHolidayAdminUids(process.env)).run(),
   'notification-retry': (client) =>
-    new NotificationRetryJob(client, createPushDispatcher(process.env)).run(),
+    new NotificationRetryJob(
+      client,
+      createPushDispatcher(process.env),
+      new WechatPushDispatcher(
+        client,
+        createWechatGateway({
+          WECHAT_APPID: process.env.WECHAT_APPID,
+          WECHAT_APPSECRET: process.env.WECHAT_APPSECRET,
+          WECHAT_MOCK_MODE: process.env.WECHAT_MOCK_MODE === 'true' ? 'true' : 'false',
+        }),
+      ),
+    ).run(),
   'statistics-rebuild': (client) => new StatisticsRebuildJob(client).run(),
 };
 

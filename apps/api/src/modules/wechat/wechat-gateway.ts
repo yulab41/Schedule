@@ -46,6 +46,7 @@ export class WechatGatewayError extends Error {
 export const wechatApiErrorCodeMapping: Readonly<Record<number, ApiErrorCode>> = {
   40013: 'INTERNAL_ERROR', // appid 无效（配置错误）
   40029: 'WECHAT_LOGIN_FAILED', // code 无效
+  40003: 'VALIDATION_FAILED', // 参数不合法
   40125: 'INTERNAL_ERROR', // appsecret 无效（配置错误）
   40163: 'WECHAT_LOGIN_FAILED', // code 已被使用
   40226: 'RATE_LIMITED', // 高风险登录限制
