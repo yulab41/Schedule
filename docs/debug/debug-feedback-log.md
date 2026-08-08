@@ -1066,3 +1066,11 @@
 - 测试：迁移测试 11/11（含 guest 角色可写入）；契约测试 4/4；群组相关集成测试 30/30（访客加入/退出/重加入、成员退出变未认领后重加入恢复角色、群主退出拒绝、改名权限、解散/恢复、guest 摘要无群组码）；`pnpm --filter @schedule/api typecheck` 与 build 通过。
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；本轮为 contracts 核心链路改动补录本记录。
 - 状态：批次 A ✅（已实现并含运行验证；前端尚未改动，无需用户强刷；批次 B/C 待执行）。
+
+### 新需求批次 B（任务 4–6，2026-08-08）
+
+- 目标/需求：补齐登录访客日历接口、Web API client 自助方法、普通成员隐藏“事件”导航、登录后访客简化工作台。
+- 修改文件：`calendar-routes.ts`/`calendar-query.ts`（`GET /groups/:groupId/guest-calendar`，仅访客角色，返回与公开访客一致的无标记月历）；`apps/web/src/api/client.ts`（listGroupCatalog/joinGroupAsGuest/leaveGroup/updateGroupName/listDissolvedGroups/restoreGroup/getGroupGuestCalendar）；`workbench-nav.ts`（`events` 改 `requiresAdministrator`，访客只显示日历/群组管理）；`GroupSwitcher.vue`（访客标签）；新增 `GuestCalendarPanel.vue`；`HomeView.vue`（访客渲染简化日历、导出按钮仅群主/管理员）。
+- 测试：日历集成 12/12（含访客可读、成员 403）；client 151/151；workbench-nav 6/6；Web 全量 267 项；`pnpm verify` 616 项总测试（75 个测试文件，隔离 MySQL）通过。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；本地开发库已应用 0032 迁移，API 已重启到最新构建（/health 200）。
+- 状态：批次 B ✅（已实现并含运行验证；任务 7–8 待执行）。
