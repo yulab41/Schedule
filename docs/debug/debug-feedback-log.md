@@ -1289,7 +1289,7 @@
   - 同步最新 dist 时发现 `runtime/api-flat/node_modules/@schedule/*/dist` 是旧拷贝（8-08 13:50 部署产物），覆盖后容器才能解析 `inviteTokens` 等新导出，否则 API 启动即 SyntaxError 崩溃循环；
   - 新 compose 用 `${VAR:-}` 给未配置模板 ID 传**空字符串**，而 env 校验拒绝空串导致 API 启动失败（仅打“API server failed to start”无详情）→ `apps/api/src/config/env.ts` 增加 `optionalTextSchema`（空串/纯空白视为未配置）并补 1 条测试；
   - 重建后 `POST https://hosp.schedule.eylinhome.top/api/auth/wechat/login`（无效 code）返回 401 `WECHAT_LOGIN_FAILED`，真实网关已生效。
-- 遗留：本机 lmclient 代理 `respect-rules=false`（等于全局代理），DevTools/浏览器直连公网域名仍会被劫持（fake-IP 198.18.0.75 + TLS 中断）；建议开启“规则模式”或添加 `eylinhome.top` / `weixin.qq.com` 直连规则（GitHub 保持走代理）；上传密钥 `private.wx56a7a21f974fd9af.key` 未在常见目录找到，任务 15 再定位。
+- 遗留：本机 lmclient 代理 `respect-rules=false`（等于全局代理），DevTools/浏览器直连公网域名仍会被劫持（fake-IP 198.18.0.75 + TLS 中断）；建议开启“规则模式”或添加 `eylinhome.top` / `weixin.qq.com` 直连规则（GitHub 保持走代理）；上传密钥位于 `apps/miniprogram/private.wx56a7a21f974fd9af.key`（`*.key` 已忽略，不入库），任务 15 上传脚本读取该路径。
 - 状态：本地与公网真实微信登录链路均 ✅（模拟器点登录即真实建号；公网入口待本机代理放行后可直接联调）。
 
 ### 微信订阅消息收窄为仅值班提醒（2026-08-08 用户决定）
