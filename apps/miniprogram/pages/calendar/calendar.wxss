@@ -1,1 +1,59 @@
-/* 日历页面样式将在任务 9/10 中实现。 */
+.calendar-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-month-label {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.calendar-view-tabs {
+  display: flex;
+  padding: 6rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.calendar-view-tab {
+  flex: 1;
+  padding: 12rpx 0;
+  color: var(--color-text-muted);
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.calendar-view-tab.is-active {
+  color: var(--color-primary);
+  background: #e8f1fb;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.calendar-card {
+  padding: 48rpx 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.calendar-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  color: var(--color-text-muted);
+}
+
+.calendar-error {
+  color: var(--color-weekend);
+  text-align: center;
+}

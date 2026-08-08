@@ -8,7 +8,10 @@
     "pages/profile/profile",
     "pages/guest/guest",
     "pages/invite/invite",
-    "pages/group-qr/group-qr"
+    "pages/group-qr/group-qr",
+    "pages/calendar-week/calendar-week",
+    "pages/calendar-list/calendar-list",
+    "pages/members/members"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1F5AA6",

@@ -1,6 +1,53 @@
-<view class="page-container">
-  <view class="placeholder-card">
-    <text class="placeholder-title">日历</text>
-    <text class="placeholder-copy">月/周/列表视图将在后续版本接入。</text>
+<view class="page-container calendar-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view wx:if="{{groups.length === 0 && !loading && !errorMessage}}" class="calendar-card calendar-state">
+    <text>你还没有加入任何群组；创建群组功能将在群管理中开放。</text>
   </view>
+
+  <view wx:elif="{{errorMessage}}" class="calendar-card calendar-state">
+    <text class="calendar-error">{{errorMessage}}</text>
+    <t-button size="small" variant="outline" bind:tap="loadGroups">重新加载</t-button>
+  </view>
+
+  <block wx:elif="{{selectedGroupId}}">
+    <view class="calendar-toolbar">
+      <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="-1">
+        上一月
+      </t-button>
+      <text class="calendar-month-label">{{monthLabel}}</text>
+      <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="1">
+        下一月
+      </t-button>
+    </view>
+
+    <view class="calendar-view-tabs">
+      <view class="calendar-view-tab is-active">月</view>
+      <view class="calendar-view-tab" bind:tap="openWeek">周</view>
+      <view class="calendar-view-tab" bind:tap="openList">列表</view>
+    </view>
+
+    <calendar-grid
+      wx:if="{{!loading}}"
+      assignments="{{assignments}}"
+      month="{{month}}"
+      today="{{today}}"
+      year="{{year}}"
+      bind:dutytap="handleDutyTap"
+    />
+    <view wx:else class="calendar-card calendar-state">
+      <text>加载中…</text>
+    </view>
+  </block>
+
+  <duty-detail
+    detail="{{dutyDetail}}"
+    visible="{{showDetail}}"
+    bind:close="closeDetail"
+    bind:call="handleCall"
+  />
 </view>

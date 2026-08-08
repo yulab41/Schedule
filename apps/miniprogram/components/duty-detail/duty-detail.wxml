@@ -1,0 +1,26 @@
+<view class="duty-modal-mask" wx:if="{{visible}}" bind:tap="handleClose">
+  <view class="duty-modal" catch:tap="noop">
+    <text class="duty-modal-title">{{detail.shiftTypeName}}</text>
+    <text class="duty-modal-row">值班：{{detail.memberName}}</text>
+    <text class="duty-modal-row">岗位：{{detail.scheduleRoleName}}</text>
+    <text class="duty-modal-row">时间：{{detail.shiftTime}}</text>
+    <view class="duty-modal-markers" wx:if="{{detail.markers.length > 0}}">
+      <text class="duty-modal-marker" wx:for="{{detail.markers}}" wx:key="*this">{{item}}</text>
+    </view>
+    <t-button
+      wx:for="{{detail.phoneOptions}}"
+      wx:key="number"
+      theme="primary"
+      block
+      size="small"
+      data-number="{{item.number}}"
+      bind:tap="handleCall"
+    >
+      拨打{{item.label}} {{item.number}}
+    </t-button>
+    <text class="duty-modal-row" wx:if="{{detail.phoneOptions.length === 0}}">
+      联系方式未确认
+    </text>
+    <t-button theme="default" block size="small" bind:tap="handleClose">关闭</t-button>
+  </view>
+</view>

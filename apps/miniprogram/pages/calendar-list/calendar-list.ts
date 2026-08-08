@@ -1,82 +1,83 @@
-import type {
-  CalendarDutyAssignment,
-  CalendarDutyMember,
-  CalendarReadModel,
-  GroupSummary,
-} from '@schedule/contracts';
+import type { CalendarDutyMember, GroupSummary } from '@schedule/contracts';
 
 import { getCalendar, getLoggedInGuestCalendar, listGroups } from '../../api/endpoints.js';
-import { getSelectedGroupId, resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
+import { resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
 import {
+  buildDayList,
   buildDutyDetail,
   formatLocalDate,
   formatMonthLabel,
   getWeekStartDate,
   shiftBusinessMonth,
   splitBusinessMonth,
+  toMembersMap,
+  type DayListEntry,
   type DutyDetail,
 } from '../../utils/calendar.js';
 
-interface CalendarPageData {
-  readonly assignments: readonly CalendarDutyAssignment[];
+interface ListPageData {
   readonly businessMonth: string;
+  readonly days: readonly ListDayRow[];
   readonly dutyDetail: DutyDetail | undefined;
   readonly errorMessage: string;
   readonly groups: readonly GroupSummary[];
   readonly loading: boolean;
   readonly members: readonly CalendarDutyMember[];
-  readonly month: number;
+  readonly membersMap: Record<string, CalendarDutyMember>;
   readonly monthLabel: string;
   readonly selectedGroupId: string;
   readonly showDetail: boolean;
   readonly today: string;
-  readonly year: number;
+}
+
+interface ListDayRow extends DayListEntry {
+  readonly dateLabel: string;
 }
 
 Page({
   data: {
-    assignments: [],
     businessMonth: '',
+    days: [],
     dutyDetail: undefined,
     errorMessage: '',
     groups: [],
     loading: false,
     members: [],
-    month: 0,
+    membersMap: {},
     monthLabel: '',
     selectedGroupId: '',
     showDetail: false,
     today: '',
-    year: 0,
-  } as CalendarPageData,
+  } as ListPageData,
 
-  onShow() {
+  onLoad(options: Record<string, string | undefined>) {
     const today = formatLocalDate(new Date());
-    const { businessMonth, month, year } = splitBusinessMonth(today);
+    const businessMonth =
+      typeof options.businessMonth === 'string' && /^\d{4}-\d{2}$/u.test(options.businessMonth)
+        ? options.businessMonth
+        : today.slice(0, 7);
     this.setData({
       businessMonth,
-      month,
       monthLabel: formatMonthLabel(businessMonth),
       today,
-      year,
     });
-    void this.loadGroups();
+    void this.loadGroups(options.groupId);
   },
 
-  async loadGroups(): Promise<void> {
+  async loadGroups(preferredId: string | undefined): Promise<void> {
     this.setData({ errorMessage: '', loading: true });
     try {
       const groups = await listGroups();
-      const selected = resolveSelectedGroup(groups, getSelectedGroupId());
+      const selected = resolveSelectedGroup(groups, preferredId);
       this.setData({
         groups,
         selectedGroupId: selected?.id ?? '',
       });
       if (selected !== undefined) {
         setSelectedGroupId(selected.id);
-        await this.loadCalendar();
+        await this.loadMonth();
       } else {
-        this.setData({ assignments: [], members: [] });
+        this.setData({ days: [] });
       }
     } catch (error) {
       this.setData({
@@ -90,7 +91,7 @@ Page({
     }
   },
 
-  async loadCalendar(): Promise<void> {
+  async loadMonth(): Promise<void> {
     const groupId = this.data.selectedGroupId;
     const businessMonth = this.data.businessMonth;
     if (groupId.length === 0 || businessMonth.length === 0) {
@@ -104,7 +105,14 @@ Page({
           ? await getLoggedInGuestCalendar(groupId, businessMonth)
           : await getCalendar(groupId, businessMonth);
       const calendar = 'calendar' in result ? result.calendar : result;
-      this.applyCalendar(calendar);
+      this.setData({
+        days: buildDayList(calendar.assignments, this.data.today).map((day) => ({
+          ...day,
+          dateLabel: day.businessDate.slice(5),
+        })),
+        members: calendar.members,
+        membersMap: toMembersMap(calendar.members),
+      });
     } catch (error) {
       this.setData({
         errorMessage:
@@ -117,18 +125,6 @@ Page({
     }
   },
 
-  applyCalendar(calendar: CalendarReadModel): void {
-    const { businessMonth, month, year } = splitBusinessMonth(calendar.businessMonth);
-    this.setData({
-      assignments: calendar.assignments,
-      businessMonth,
-      members: calendar.members,
-      month,
-      monthLabel: formatMonthLabel(calendar.businessMonth),
-      year,
-    });
-  },
-
   changeMonth(event: WechatMiniprogram.TouchEvent): void {
     if (this.data.loading) {
       return;
@@ -138,14 +134,11 @@ Page({
       return;
     }
     const businessMonth = shiftBusinessMonth(this.data.businessMonth, delta);
-    const { month, year } = splitBusinessMonth(businessMonth);
     this.setData({
       businessMonth,
-      month,
       monthLabel: formatMonthLabel(businessMonth),
-      year,
     });
-    void this.loadCalendar();
+    void this.loadMonth();
   },
 
   handleGroupChange(event: WechatMiniprogram.CustomEvent) {
@@ -155,25 +148,25 @@ Page({
     }
     this.setData({ selectedGroupId: groupId });
     setSelectedGroupId(groupId);
-    void this.loadCalendar();
+    void this.loadMonth();
+  },
+
+  openMonth(): void {
+    wx.switchTab({ url: '/pages/calendar/calendar' });
   },
 
   openWeek(): void {
     if (this.data.selectedGroupId.length === 0) {
       return;
     }
-    const weekStart = getWeekStartDate(this.data.today);
-    wx.navigateTo({
+    const { businessMonth, month, year } = splitBusinessMonth(this.data.businessMonth);
+    const firstDay = `${year}-${String(month).padStart(2, '0')}-01`;
+    const weekStart =
+      this.data.today.slice(0, 7) === businessMonth
+        ? getWeekStartDate(this.data.today)
+        : getWeekStartDate(firstDay);
+    wx.redirectTo({
       url: `/pages/calendar-week/calendar-week?groupId=${this.data.selectedGroupId}&weekStart=${weekStart}`,
-    });
-  },
-
-  openList(): void {
-    if (this.data.selectedGroupId.length === 0) {
-      return;
-    }
-    wx.navigateTo({
-      url: `/pages/calendar-list/calendar-list?groupId=${this.data.selectedGroupId}&businessMonth=${this.data.businessMonth}`,
     });
   },
 
@@ -182,7 +175,9 @@ Page({
     if (typeof assignmentId !== 'string' || assignmentId.length === 0) {
       return;
     }
-    const assignment = this.data.assignments.find((item) => item.id === assignmentId);
+    const assignment = this.data.days
+      .flatMap((day) => day.assignments)
+      .find((item) => item.id === assignmentId);
     if (assignment === undefined) {
       return;
     }

@@ -1,0 +1,112 @@
+.list-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.list-month-label {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.list-view-tabs {
+  display: flex;
+  padding: 6rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.list-view-tab {
+  flex: 1;
+  padding: 12rpx 0;
+  color: var(--color-text-muted);
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.list-view-tab.is-active {
+  color: var(--color-primary);
+  background: #e8f1fb;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.list-day-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: 20rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.list-day-header {
+  display: flex;
+  gap: 12rpx;
+  align-items: center;
+}
+
+.list-day-date {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.list-day-date.is-today {
+  color: #8a6d00;
+}
+
+.list-day-weekday {
+  color: var(--color-text-muted);
+  font-size: 24rpx;
+}
+
+.list-day-weekday.is-weekend {
+  color: var(--color-weekend);
+}
+
+.list-today-badge {
+  padding: 2rpx 10rpx;
+  color: #8a6d00;
+  background: var(--color-today);
+  border-radius: 999rpx;
+  font-size: 20rpx;
+}
+
+.list-duty-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.list-empty {
+  color: var(--color-text-muted);
+  font-size: 24rpx;
+}
+
+.list-card {
+  padding: 48rpx 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.list-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  color: var(--color-text-muted);
+}
+
+.list-error {
+  color: var(--color-weekend);
+  text-align: center;
+}

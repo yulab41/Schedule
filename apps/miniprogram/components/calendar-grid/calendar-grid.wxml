@@ -31,6 +31,9 @@
         catch:tap="handleDutyTap"
       >
         {{duty.label}}
+        <text class="calendar-duty-marker" wx:if="{{duty.markerLabel}}">
+          {{duty.markerLabel}}
+        </text>
       </view>
     </view>
   </view>

@@ -1,0 +1,54 @@
+<view class="page-container members-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view wx:if="{{loading}}" class="members-card members-state">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="members-card members-state">
+    <text class="members-error">{{errorMessage}}</text>
+    <t-button size="small" variant="outline" bind:tap="loadGroups">重新加载</t-button>
+  </view>
+
+  <view wx:elif="{{groups.length === 0}}" class="members-card members-state">
+    <text>你还没有加入任何群组。</text>
+  </view>
+
+  <view wx:elif="{{members.length === 0}}" class="members-card members-state">
+    <text>该群暂无成员。</text>
+  </view>
+
+  <view class="member-card" wx:for="{{members}}" wx:key="id" wx:for-item="member">
+    <view class="member-main">
+      <view class="member-name-row">
+        <text class="member-name">{{member.realName}}</text>
+        <text class="member-badge" wx:if="{{member.isCurrentUser}}">我</text>
+        <text class="member-role">{{member.roleLabel}}</text>
+      </view>
+      <view class="member-meta">
+        <text class="member-status">{{member.statusLabel}}</text>
+        <text
+          class="member-contact {{member.contactConfirmed ? 'is-confirmed' : ''}}"
+          wx:if="{{member.phoneOptions.length > 0}}"
+        >
+          {{member.phoneOptions[0].label}} {{member.phoneOptions[0].number}}
+        </text>
+        <text class="member-contact" wx:else>联系方式未确认</text>
+      </view>
+    </view>
+    <view class="member-actions">
+      <view
+        class="member-call"
+        wx:if="{{member.phoneOptions.length > 0}}"
+        catch:tap="handleCall"
+        data-number="{{member.phoneOptions[0].number}}"
+      >
+        电话
+      </view>
+    </view>
+  </view>
+</view>

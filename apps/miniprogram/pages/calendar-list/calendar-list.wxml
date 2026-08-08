@@ -1,0 +1,69 @@
+<view class="page-container list-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view class="list-toolbar">
+    <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="-1">
+      上一月
+    </t-button>
+    <text class="list-month-label">{{monthLabel}}</text>
+    <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="1">
+      下一月
+    </t-button>
+  </view>
+
+  <view class="list-view-tabs">
+    <view class="list-view-tab" bind:tap="openMonth">月</view>
+    <view class="list-view-tab" bind:tap="openWeek">周</view>
+    <view class="list-view-tab is-active">列表</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="list-card list-state">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="list-card list-state">
+    <text class="list-error">{{errorMessage}}</text>
+    <t-button size="small" variant="outline" bind:tap="loadMonth">重新加载</t-button>
+  </view>
+
+  <view wx:elif="{{groups.length === 0}}" class="list-card list-state">
+    <text>你还没有加入任何群组。</text>
+  </view>
+
+  <block wx:else>
+    <view class="list-day-card" wx:for="{{days}}" wx:key="businessDate" wx:for-item="day">
+      <view class="list-day-header">
+        <text class="list-day-date {{day.isToday ? 'is-today' : ''}}">
+          {{day.dateLabel}}
+        </text>
+        <text class="list-day-weekday {{day.isWeekend ? 'is-weekend' : ''}}">
+          {{day.weekdayLabel}}
+        </text>
+        <text class="list-today-badge" wx:if="{{day.isToday}}">今天</text>
+      </view>
+      <view class="list-duty-list" wx:if="{{day.assignments.length > 0}}">
+        <shift-card
+          wx:for="{{day.assignments}}"
+          wx:key="id"
+          wx:for-item="assignment"
+          assignment="{{assignment}}"
+          member="{{membersMap[assignment.actualMembershipId || assignment.plannedMembershipId]}}"
+          bind:dutytap="handleDutyTap"
+          bind:call="handleCall"
+        />
+      </view>
+      <text wx:else class="list-empty">当日无排班</text>
+    </view>
+  </block>
+
+  <duty-detail
+    detail="{{dutyDetail}}"
+    visible="{{showDetail}}"
+    bind:close="closeDetail"
+    bind:call="handleCall"
+  />
+</view>

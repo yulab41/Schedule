@@ -1210,3 +1210,14 @@
   - `apps/api/src/modules/groups/visitor-key-service.ts`（修正任务 4 遗留：getUnlimited scene 原为 `v=`+32 位 visitor_key（34 字符），超过微信 32 可见字符上限；改为直接携带 32 位 visitor_key，小程序解码兼容 `v=` 前缀）。
 - 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
 - 状态：任务 9 ✅（已完成自动化验证；DevTools/真机 scene 扫码、邀请正/反向路径留待用户复核；下一轮任务 10 小程序日历三视图与成员/联系方式）。
+
+### 微信小程序任务 10（日历三视图、群组切换与成员/联系方式，2026-08-08）
+
+- 目标/需求：登录后月/周/列表日历三视图、群组切换器（工作台与日历页顶部）、班次详情（值班人/电话/事件标记，电话用 `wx.makePhoneCall`）、成员页（角色/认领状态/联系方式确认状态/拨号，权限按后端口径）。
+- 修改文件：
+  - `utils/calendar.ts`（业务日期/周/月列表/班次详情/确认电话工具）；`store/group.ts`（选中群组持久化 + resolveSelectedGroup）；
+  - `api/endpoints.ts`（listGroups/getCalendar/getLoggedInGuestCalendar/listGroupMembers/listGroupContacts）；
+  - `components/group-switcher/*`（picker 群组切换）；`components/shift-card/*`（班次卡片：色块/时间/姓名/变更标记/电话）；`components/duty-detail/*`（详情弹层：姓名/岗位/时间/换替加标记/拨打已确认号码）；`calendar-grid` 增加换/替/加角标；
+  - `pages/calendar/*`（月视图主 Tab：群组切换、上一月/下一月、月/周/列表入口、详情弹层）；`pages/calendar-week/*`（跨月周视图：上一周/下一周、跳月/列表）；`pages/calendar-list/*`（月列表视图）；`pages/members/*`（成员列表：角色/认领状态/联系方式确认状态/拨号，访客无权限展示错误）；`pages/index/*`（工作台：群组切换 + 日历/成员快捷入口）；`app.json` 注册 calendar-week/calendar-list/members 三个页面。
+- 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
+- 状态：任务 10 ✅（已完成自动化验证；375×667 布局/无横向滚动/深色模式与 DevTools/真机复核留待用户；下一轮任务 11 请假/换班/加扣班流程）。

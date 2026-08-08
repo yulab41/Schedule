@@ -4,6 +4,7 @@ interface CalendarGridDuty {
   readonly assignmentId: string;
   readonly color: string;
   readonly label: string;
+  readonly markerLabel: string;
   readonly textColor: string;
 }
 
@@ -97,6 +98,7 @@ function buildWeeks(
         assignmentId: assignment.id,
         color: assignment.shiftTypeColor,
         label: assignment.shiftTypeAbbreviation,
+        markerLabel: assignment.changeMarkers.map((marker) => markerLabel(marker)).join(''),
         textColor: assignment.shiftTypeTextColor,
       }));
     week.push(buildDay(date, String(day), week.length, today, duties, false));
@@ -133,4 +135,15 @@ function buildDay(
     key: isPlaceholder ? `placeholder-${position}` : date,
     label,
   };
+}
+
+function markerLabel(marker: 'swap' | 'leave-cover' | 'overtime'): string {
+  switch (marker) {
+    case 'swap':
+      return '换';
+    case 'leave-cover':
+      return '替';
+    case 'overtime':
+      return '加';
+  }
 }

@@ -1,7 +1,11 @@
 import type {
   AcceptInviteResponse,
+  CalendarReadModel,
   GroupQrResponse,
   GuestCalendarReadModel,
+  GroupMember,
+  GroupMemberContact,
+  GroupSummary,
   ResolveInviteResponse,
   UserProfile,
   VisitorResolveResponse,
@@ -67,4 +71,31 @@ export function acceptInvite(
 
 export function getGroupQr(groupId: string): Promise<GroupQrResponse> {
   return request<GroupQrResponse>(`/groups/${groupId}/group-qr`);
+}
+
+export function listGroups(): Promise<GroupSummary[]> {
+  return request<GroupSummary[]>('/groups');
+}
+
+export function getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel> {
+  return request<CalendarReadModel>(`/groups/${groupId}/calendar`, {
+    data: { businessMonth },
+  });
+}
+
+export function getLoggedInGuestCalendar(
+  groupId: string,
+  businessMonth: string,
+): Promise<GuestCalendarReadModel> {
+  return request<GuestCalendarReadModel>(`/groups/${groupId}/guest-calendar`, {
+    data: { businessMonth },
+  });
+}
+
+export function listGroupMembers(groupId: string): Promise<GroupMember[]> {
+  return request<GroupMember[]>(`/groups/${groupId}/members`);
+}
+
+export function listGroupContacts(groupId: string): Promise<GroupMemberContact[]> {
+  return request<GroupMemberContact[]>(`/groups/${groupId}/contacts`);
 }

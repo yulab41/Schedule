@@ -1,0 +1,12 @@
+<picker
+  mode="selector"
+  range="{{names}}"
+  value="{{selectedIndex}}"
+  disabled="{{names.length === 0}}"
+  bindchange="handleChange"
+>
+  <view class="group-switcher {{names.length === 0 ? 'is-empty' : ''}}">
+    <text class="group-switcher-label">{{selectedName || '暂无群组'}}</text>
+    <text class="group-switcher-arrow" wx:if="{{names.length > 0}}">▾</text>
+  </view>
+</picker>

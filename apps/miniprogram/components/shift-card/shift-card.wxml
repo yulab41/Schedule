@@ -1,0 +1,33 @@
+<view class="shift-card" bind:tap="handleTap">
+  <view
+    class="shift-card-badge"
+    style="background: {{assignment.shiftTypeColor}}; color: {{assignment.shiftTypeTextColor}};"
+  >
+    {{assignment.shiftTypeAbbreviation}}
+  </view>
+  <view class="shift-card-body">
+    <view class="shift-card-row">
+      <text class="shift-card-name">{{memberName}}</text>
+      <text class="shift-card-time">{{shiftTime}}</text>
+    </view>
+    <view class="shift-card-row">
+      <text class="shift-card-role">{{assignment.scheduleRoleName}}</text>
+      <text
+        class="shift-card-marker"
+        wx:for="{{markerLabels}}"
+        wx:for-item="marker"
+        wx:key="*this"
+      >
+        {{marker}}
+      </text>
+    </view>
+  </view>
+  <view
+    class="shift-card-call"
+    wx:if="{{canCall}}"
+    catch:tap="handleCall"
+    data-number="{{phoneOptions[0].number}}"
+  >
+    电话
+  </view>
+</view>

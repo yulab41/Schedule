@@ -1,7 +1,32 @@
-<view class="page-container">
-  <view class="placeholder-card">
-    <text class="placeholder-title">{{greeting}}</text>
-    <text class="placeholder-copy">直接打开只能创建群组；加入群组需群主或管理员分享的邀请链接。</text>
-    <t-button theme="primary" size="small">进入日历</t-button>
+<view class="page-container index-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view wx:if="{{errorMessage}}" class="index-card index-state">
+    <text class="index-error">{{errorMessage}}</text>
   </view>
+
+  <view wx:elif="{{groups.length === 0}}" class="index-card index-state">
+    <text class="index-title">科室排班</text>
+    <text class="index-copy">
+      直接打开只能创建自己的群组；加入群组需群主或管理员分享的邀请链接。
+    </text>
+  </view>
+
+  <block wx:else>
+    <view class="index-card">
+      <text class="index-title">科室排班</text>
+      <text class="index-copy">当前群组的排班日历与成员联系方式。</text>
+      <view class="index-actions">
+        <t-button theme="primary" block bind:tap="openCalendar">排班日历</t-button>
+        <t-button theme="default" block variant="outline" bind:tap="openMembers">
+          成员与联系方式
+        </t-button>
+      </view>
+    </view>
+    <text class="index-hint">加入群组需群主或管理员分享的邀请链接。</text>
+  </block>
 </view>

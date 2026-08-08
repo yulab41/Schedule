@@ -60,6 +60,7 @@
 }
 
 .calendar-duty {
+  position: relative;
   margin-top: 6rpx;
   padding: 6rpx 2rpx;
   overflow: hidden;
@@ -69,4 +70,16 @@
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.calendar-duty-marker {
+  position: absolute;
+  top: -6rpx;
+  right: -4rpx;
+  padding: 2rpx 4rpx;
+  color: #ffffff;
+  background: #b42318;
+  border-radius: 4rpx;
+  font-size: 16rpx;
+  line-height: 18rpx;
 }
