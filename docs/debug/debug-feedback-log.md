@@ -1312,4 +1312,4 @@
   - ECS 生产库迁移补齐：容器内 `@schedule/database` 解析迁移目录为 `/app/node_modules/migrations`（平铺依赖树），旧拷贝只到 0032；同步当前 `migrations/` 后执行 `node apps/api/dist/migrate.js`，`__drizzle_migrations` 34 条，`users.wechat_openid` 与 `invite_tokens` 已存在；
   - 模拟器 storage `apiBaseUrl` 已清除（回默认公网域名）；用 DevTools `wx.login` 真实 code 在 ECS 上 POST 公网登录接口 = 200（isNewUser，生产库建号成功）；
   - 预览二维码已重新生成：`.tmp-miniprogram-preview/preview.png`（整包 373.8 KB）。
-- 用户待办（无法代做）：小程序后台 request 合法域名添加 `https://hosp.schedule.eylinhome.top`；确认值班提醒订阅模板已在小程序后台添加；手机扫码真机验收。
+- 用户已确认（2026-08-08）：小程序后台 request 合法域名已添加 `https://hosp.schedule.eylinhome.top`；剩余待办：确认值班提醒订阅模板已添加、手机扫码真机验收。
