@@ -47,8 +47,24 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives')`,
     );
 
-    expect(migrations).toEqual([{ count: 31 }]);
+    expect(migrations).toEqual([{ count: 32 }]);
     expect(tables).toEqual([{ count: 40 }]);
+  });
+
+  it('accepts the guest membership role after migration 0032', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+    const ownerId = randomUUID();
+    const groupId = randomUUID();
+
+    await client.database.execute(sql`INSERT INTO users (id) VALUES (${ownerId})`);
+    await client.database.execute(sql`
+      INSERT INTO \`groups\` (id, name, group_code, owner_user_id)
+      VALUES (${groupId}, 'Guest Group', '1234', ${ownerId})
+    `);
+    await client.database.execute(sql`
+      INSERT INTO group_memberships (id, group_id, user_id, role)
+      VALUES (${randomUUID()}, ${groupId}, ${ownerId}, 'guest')
+    `);
   });
 
   it('allows identity detachment through a nullable cloudbase UID', async () => {

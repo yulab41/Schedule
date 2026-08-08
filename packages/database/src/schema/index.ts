@@ -127,7 +127,9 @@ export const groupMemberships = mysqlTable(
     userId: char('user_id', { length: 36 })
       .notNull()
       .references(() => users.id),
-    role: mysqlEnum('role', ['owner', 'administrator', 'member']).default('member').notNull(),
+    role: mysqlEnum('role', ['owner', 'administrator', 'member', 'guest'])
+      .default('member')
+      .notNull(),
     status: mysqlEnum('status', ['active', 'inactive']).default('active').notNull(),
     autoAcceptSwaps: tinyint('auto_accept_swaps', { unsigned: true }).default(1).notNull(),
     autoAcceptSwapsManuallySet: tinyint('auto_accept_swaps_manually_set', {

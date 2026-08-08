@@ -218,6 +218,13 @@
       "when": 1785542400030,
       "tag": "0031_backfill_duty_adjustment_workflow_sequence",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1785542400031,
+      "tag": "0032_add_guest_membership_role",
+      "breakpoints": true
     }
   ]
 }
