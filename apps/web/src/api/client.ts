@@ -259,7 +259,7 @@ export interface ApiClient {
   ): Promise<AppliedManualScheduleTemplateResult>;
   claimGroup(input: {
     readonly groupCode: string;
-    readonly realName: string;
+    readonly realName?: string;
   }): Promise<ClaimGroupResponse>;
   cancelSwapRequest(
     groupId: string,

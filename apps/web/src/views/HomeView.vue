@@ -150,7 +150,11 @@ function selectGroupTab(groupId: string | undefined): void {
               :group="currentGroup()!"
               @group-changed="refreshGroups"
             />
-            <GroupSetupPanel v-if="activeTab === 'groups'" @groups-changed="refreshGroups" />
+            <GroupSetupPanel
+              v-if="activeTab === 'groups'"
+              :group="currentGroup()"
+              @groups-changed="refreshGroups"
+            />
             <SchedulingConfigPanel
               v-if="activeTab === 'config' && currentGroup()?.role !== 'member'"
               :group="currentGroup()!"
@@ -158,7 +162,7 @@ function selectGroupTab(groupId: string | undefined): void {
           </section>
         </div>
       </section>
-      <GroupSetupPanel v-else @groups-changed="refreshGroups" />
+      <GroupSetupPanel v-else :group="undefined" @groups-changed="refreshGroups" />
     </template>
   </section>
 </template>
