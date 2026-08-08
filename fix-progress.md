@@ -735,6 +735,30 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 
 下次计划：TODO N1–N14 已全部收口；按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号 → 重新生成 `runtime/api-flat` 后部署）；可选优化：TDesign 按需引入以消除 vendor 大块警告。
 
+### 轮次 51 – 2026-08-08
+
+目标：TDesign 按需引入（用户选择方案 A）——只打包页面实际用到的 TDesign 组件，消除 1.27MB 整包 vendor。
+
+引入点：`main.ts` 一直通过 `use(TDesign)` 全量注册并引入全量 CSS；N13 手动分包把 `tdesign-vue-next` 整个打进 `vendor-tdesign`（1,270KB raw / 333KB gzip）。
+
+为什么现有测试没拦住：构建体积警告不是测试失败；若生成严格组件类型声明，会暴露模板中原本被宽松类型掩盖的 Select/Switch/Table 类型问题（属既有隐患，不在本轮范围）。
+
+修改文件：`apps/web/package.json`/`pnpm-lock.yaml`（新增 `unplugin-vue-components` devDependency）；`apps/web/vite.config.ts`（加入 `Components` 插件与 `TDesignResolver({ library: 'vue-next' })`，`dts: false`，移除 `vendor-tdesign` 强制分包）；`apps/web/src/main.ts`（删除 `import TDesign`、全量 CSS 与 `.use(TDesign)`）。
+
+语义等价审计与行为变化清单：项目只使用 `<t-*>` 模板组件，无 MessagePlugin/DialogPlugin 等编程式 API；自动扫描会按模板出现的组件逐个引入并附带组件样式，运行时 UI 行为不变。`dts: false` 不生成全局组件类型声明，保留原有 vue-tsc 行为，避免顺手修改 10 余个模板的类型问题（处女原则）。
+
+测试结果：`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL）；构建产物不再有 `vendor-tdesign` 1.27MB 大包；HomeView 路由块 603.82KB raw / 159.49KB gzip（仍超 500KB 警告，但远小于原整包，属页面内容本身，可后续再拆）。
+
+运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客无浏览器错误）；额外浏览器语义检查——登录/工作台/访客页面 `.t-card/.t-button/.t-input/.t-loading` 等 TDesign 组件均真实渲染、无 console/page 错误；pnpm smoke:check-core 通过（本轮记录满足校验）。
+
+状态：TDesign 按需引入 ✅（可选优化完成）。
+
+提交：367a584（`perf(web): import TDesign components on demand`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. `dts: false` 意味着编辑器不会自动补全 TDesign 组件类型，未来若需要严格类型，需另开轮修复模板类型并启用生成声明。2. HomeView 仍 >500KB，后续可继续按功能/面板拆路由子块。3. 自动扫描只识别模板里静态出现的 `<t-xxx>`；当前无动态字符串组件名，若有需显式导入。
+
+下次计划：按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号 → 重新生成 `runtime/api-flat` 后部署）；可选：HomeView 进一步拆包、模板类型严格化。
+
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
 - `tests/security` typecheck 因 `apps/api/src/modules/notifications/notification-dispatcher.ts` 引用的 `web-push` 缺类型声明而失败（apps/api 自身 typecheck 有 `src/types/web-push.d.ts` 覆盖；tests/security 的 tsconfig include 不含该声明；轮次 38 发现，登记于 project-status/debug 日志）。

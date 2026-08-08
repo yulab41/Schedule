@@ -921,6 +921,16 @@
 - 验证：`pnpm verify` 596/596 ✅；`docker compose config --quiet` ✅；pnpm smoke:browser 通过（contracts/vite.config 核心链路）；pnpm smoke:check-core 通过。
 - 状态：N12 ✅、N13 ✅、N14 ✅、N8 ✅（N1–N14 全部收口）。
 
+### 轮次 51（TDesign 按需引入，提交：367a584 + docs checkpoint）
+
+- 目标/需求：用户选择方案 A——只打包实际用到的 TDesign 组件，消除 `vendor-tdesign` 1.27MB 整包。
+- 根因/引入点：`main.ts` 全量 `use(TDesign)` + 全量 CSS；N13 手动分包把整个 `tdesign-vue-next` 打进 vendor。
+- 修复/功能：新增 `unplugin-vue-components`，Vite 配置 `Components({ dts: false, resolvers: [TDesignResolver({ library: 'vue-next' })] })`；`main.ts` 删除全量注册与 CSS；移除 `vendor-tdesign` 强制分包。
+- 行为变化清单：运行时仅按模板自动引入组件与样式；无编程式 TDesign API 使用，UI 行为不变；`dts: false` 保留原有类型检查行为，不顺手改模板类型。
+- 验证：`pnpm verify` 596/596 ✅；构建不再有 1.27MB vendor-tdesign；HomeView 603.82KB raw / 159.49KB gzip（仍 >500KB 警告）。
+- 运行/浏览器验证：pnpm smoke:browser 通过；额外浏览器语义检查确认登录/工作台/访客页 TDesign 组件真实渲染且无错误；pnpm smoke:check-core 通过。
+- 状态：TDesign 按需引入 ✅（可选优化完成）。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：事件/日历/换班/加扣班/请假时间显示与草稿编号不变（轮次 43 相关，纯显示层收敛）。
@@ -947,7 +957,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-08）：fix-progress 轮次 50 已完成（N12 日志清理 + N13 Vite 分包 + N14 测试库加固 + N8 第二批严格校验）；N1–N14 已全部收口；下一阶段按阿里云部署路径推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署；可选优化：TDesign 按需引入以消除 vendor 大块警告。
+- 下一活动批次（2026-08-08）：fix-progress 轮次 51 已完成（TDesign 按需引入，体积下降且浏览器冒烟/语义检查通过）；N1–N14 已全部收口；下一阶段按阿里云部署路径推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署；可选优化：HomeView 进一步拆包、模板类型严格化。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。
