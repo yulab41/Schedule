@@ -1323,8 +1323,9 @@
   - `https://120.77.220.79`（公网 IP 直连）= 正常返回系统页；
   - ECS 内部 `curl --http1.1 https://hosp.../api/health` = 200；
   - 公共 DNS 解析正常（`120.77.220.79`）。
-- 补充复核（check-host.net 20 个海外/香港节点）：`https://hosp.../api/health` 18 个节点返回 200（含香港、美国、欧洲、巴西等），仅伊朗连接重置、罗马尼亚超时；`open_page` 外部工具与本机直连仍 SSL_ERROR。
-- 结论修正：并非阿里云全局按 SNI 拦截——海外/香港路径可达，是国内网络路径（ISP/阿里云国内边缘）对未备案域名拦截；备案通过前大陆网络无法访问该域名，与服务器配置、合法域名、证书无关。本机 lmclient fake-IP（198.18.0.75）是另一层本地代理问题，两者独立；加 `DOMAIN-SUFFIX,eylinhome.top,DIRECT` 后 DNS 已恢复真实 IP，但大陆路径仍重置。
+- 补充复核（check-host.net 20 个海外/香港节点）：`https://hosp.../api/health` 18 个节点返回 200（含香港、美国、欧洲、巴西等），仅伊朗连接重置、罗马尼亚超时。
+- 客户端指纹复核（同一大陆网络）：用户无痕浏览器（Chrome/Edge）200、Node fetch 200、Git OpenSSL s_client 200；Windows curl（Schannel）/PowerShell/.NET（Schannel）/Python 3.12（OpenSSL 3.0.16）TLS 握手被重置；DevTools 模拟器清掉 `apiBaseUrl` 后 `wx.request` 公网域名仍 `request:fail`（用 `https://120.77.220.79` IP 则正常）。
+- 结论修正：并非阿里云全局按 SNI 拦截，也不是“大陆网络全部不可达”——是拦截设备按 TLS 客户端指纹选择性重置：浏览器类/OpenSSL 3.5/Node 放行，Schannel、Python 3.12、微信小程序网络栈被重置；备案通过前微信小程序（模拟器与真机）无法访问该域名，与服务器配置、合法域名、证书无关。本机 lmclient fake-IP（198.18.0.75）是另一层本地代理问题，两者独立；加 `DOMAIN-SUFFIX,eylinhome.top,DIRECT` 后 DNS 已恢复真实 IP。
 - 处理：模拟器已切回本地 API + 真实微信网关（登录 200，isNewUser=false）；真机联调等待 ICP 备案通过，通过后域名立即可用（全部前置已就绪）。
 
 ### 备案前手机联调：临时公网 IP 预览包（2026-08-08）
