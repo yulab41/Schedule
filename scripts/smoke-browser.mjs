@@ -132,6 +132,34 @@ function assertNoErrors(errors, phase) {
   fail(`${phase} 出现浏览器错误：\n${errors.join('\n')}`);
 }
 
+async function assertTDesignTheme(page) {
+  const theme = await page.evaluate(() => {
+    const brand = getComputedStyle(document.documentElement)
+      .getPropertyValue('--td-brand-color')
+      .trim();
+    const button = document.querySelector('.t-button--variant-base.t-button--theme-primary');
+    if (button === null) {
+      return { brand, background: null, height: null };
+    }
+    const style = getComputedStyle(button);
+    return { brand, background: style.backgroundColor, height: style.height };
+  });
+
+  if (theme.brand.length === 0) {
+    fail('TDesign 基础主题变量缺失（--td-brand-color 为空），页面外观会失效。');
+  }
+  if (
+    theme.background === null ||
+    theme.background === 'rgba(0, 0, 0, 0)' ||
+    theme.background === 'transparent'
+  ) {
+    fail('登录页 TDesign 主按钮未应用主题背景色，外观回归。');
+  }
+  if (theme.height === null || Number.parseFloat(theme.height) < 28) {
+    fail('登录页 TDesign 主按钮高度异常，外观回归。');
+  }
+}
+
 async function runSmoke() {
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
@@ -149,6 +177,7 @@ async function runSmoke() {
     step('1/6 打开登录页');
     await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
     await waitForBodyText(page, '登录', 15000, '登录卡片');
+    await assertTDesignTheme(page);
     const adminButton = page.locator('button', { hasText: '本地管理员' });
     const memberButton = page.locator('button', { hasText: '本地成员' });
     if ((await adminButton.count()) === 0 || (await memberButton.count()) === 0) {

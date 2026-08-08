@@ -1003,3 +1003,14 @@
 - 补充（用户已放行 80/443）：公网 `http://120.77.220.79/` 与 `/api/health` 均 200；公网入口 `pnpm smoke:browser` 通过；服务器残留已清理（/tmp 部署包与脚本、多余的 `@schedule/migrations` 副本、可回收构建缓存）；本轮踩坑已沉淀至 `docs/deployment/ecs-deployment-pitfalls.md` 第八节。
 - 补充（2026-08-08）：按用户决策移除 OSS 备份/静态资源上云要求，备份仅本地加密；新增 `infra/scripts/enable-https.sh`（Let's Encrypt 免费证书 + Nginx HTTPS/HTTP2 自动配置与续期 cron）并更新 `dns-and-https.md`/`icp-checklist.md`；等待用户提供域名与子域名后执行绑定。
 - 补充（2026-08-08 域名绑定）：`hosp.schedule.eylinhome.top` A 记录已指向 120.77.220.79；证书签发成功；曾漏映射 Docker 443 端口导致握手失败，已在 compose 补 `443:443` 并沉淀到踩坑手册；`https://hosp.schedule.eylinhome.top/`、`/api/health` 均 200，HTTP 301 跳 HTTPS，IP HTTP 保留；公网 HTTPS 浏览器冒烟通过。
+
+### fix-progress 轮次 56（N16 TDesign 生产构建公共样式缺失，2026-08-08）
+
+- 目标/需求：线上 `http://120.77.220.79/` 外观异常（TDesign 组件无底色/边框/尺寸），本地 `localhost:5173` 正常；用户选择方案 A——补回公共默认样式并保留按需引入，同时重新打包。
+- 根因/引入点：轮次 51（367a584）按需引入时删除 `main.ts` 的 `import 'tdesign-vue-next/es/style/index.css';`；`unplugin-vue-components` 只按组件引样式、不带主题变量，生产包所有 CSS 均无 `--td-brand-color` 等定义；N15（540856e）仅改类型声明，与本次无关。
+- 为什么现有测试没拦住：`smoke-browser` 只查文字/按钮/路由/浏览器报错，不检查计算样式；生产构建也不在原有冒烟断言覆盖内。
+- 修改文件：`apps/web/src/main.ts`（补回公共默认样式一行）；`scripts/smoke-browser.mjs`（登录页断言 `--td-brand-color` 非空、主按钮背景非透明且高度 ≥28px）。
+- 先失败证据：新断言对旧线上包 `SMOKE_BASE_URL=http://120.77.220.79 pnpm smoke:browser` 失败：TDesign 基础主题变量缺失（--td-brand-color 为空），页面外观会失效。
+- 验证：`pnpm verify` 596/596 ✅（73 个测试文件，隔离 MySQL）；生产预览实测 `--td-brand-color=#0052d9`、登录主按钮 `rgb(0,82,217)`/32px；本地开发冒烟通过；`pnpm smoke:check-core` 通过（本轮记录满足校验）。
+- 运行/浏览器验证：已同步服务器（web 容器重建，入口返回 `index-BuPg0y7S.css`）；`SMOKE_BASE_URL=http://120.77.220.79 pnpm smoke:browser` 与 `SMOKE_BASE_URL=https://hosp.schedule.eylinhome.top pnpm smoke:browser` 均通过（登录/管理员/成员/访客全流程 + 新外观断言）。
+- 状态：#N16 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核生产外观恢复）。

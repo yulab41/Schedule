@@ -853,6 +853,22 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 
 下次计划：按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号）；前端/接口再改动时按 `aliyun-ecs.md` + `ecs-deployment-pitfalls.md` 同步 ECS；可选优化：HomeView 进一步拆包。
 
+### 轮次 56 – 2026-08-08（N16 TDesign 生产构建公共样式缺失）
+
+目标：修复线上 `http://120.77.220.79/` 外观异常——TDesign 组件无底色/边框/尺寸；本地开发正常。用户选择方案 A：补回公共默认样式并保留按需引入。
+
+引入点：轮次 51（367a584）按需引入时删除 `main.ts` 的 `import 'tdesign-vue-next/es/style/index.css';`；生产包所有 CSS 均无 `--td-brand-color` 等主题变量；N15（540856e）仅改类型声明，与本次无关。
+
+为什么现有测试没拦住：`smoke-browser` 只检查文字/按钮/路由/浏览器报错，不检查计算样式，因此旧线上包仍“冒烟通过”。
+
+修改文件：`apps/web/src/main.ts`（补回公共默认样式一行）；`scripts/smoke-browser.mjs`（登录页断言 `--td-brand-color` 非空、主按钮背景非透明且高度 ≥28px）。
+
+测试结果：先失败证据——新断言对旧线上包 `SMOKE_BASE_URL=http://120.77.220.79 pnpm smoke:browser` 失败；`pnpm verify` 596/596 ✅（73 个测试文件，隔离 MySQL）；生产预览实测 `--td-brand-color=#0052d9`、登录主按钮 `rgb(0,82,217)`/32px；本地开发冒烟通过。
+
+运行/浏览器验证：`pnpm smoke:browser` 通过（新代码本地开发环境）；`pnpm smoke:check-core` 通过（本轮记录满足校验）；生产包已同步服务器，公网 IP 与 HTTPS 域名冒烟均通过，待用户强刷复核线上外观。
+
+状态：#N16 ✅（已完成，含运行验证；待用户强刷复核）。
+
 ## 7. 轮次记录
 
 ### 轮次 1 – 2026-08-06
