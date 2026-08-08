@@ -1,3 +1,11 @@
 {
-  "navigationBarTitleText": "手动排班"
+  "navigationBarTitleText": "手动排班",
+  "usingComponents": {
+    "group-switcher": "/components/group-switcher/group-switcher",
+    "manual-grid": "/components/manual-grid/manual-grid",
+    "shift-palette": "/components/shift-palette/shift-palette",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-input": "tdesign-miniprogram/input/input",
+    "t-switch": "tdesign-miniprogram/switch/switch"
+  }
 }

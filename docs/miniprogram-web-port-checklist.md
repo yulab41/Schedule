@@ -12,10 +12,10 @@
 | 6 | 成员/待认领/角色/转让/删除/邀请（微信扩展） | pages/group/members | 模拟器流程 | A | ☑ |
 | 7 | 联系方式编辑确认（GroupContactForm） | pages/group/contact-edit | 模拟器流程 | A/C | ☑ |
 | 8 | 排班配置（岗位成员+班种，无轮值；轮次 45） | pages/schedule/config | 模拟器流程 | A | ☑ |
-| 9 | 手动排班绘制式编辑器（ManualGrid/Palette/撤销/清除/失效标记） | pages/schedule/manual | utils 单测 + 模拟器 | B | ☐ |
-| 10 | 模板新建/编辑/删除/应用/预览/下一可用起始日 | pages/schedule/manual | utils 单测 + 模拟器 | B | ☐ |
-| 11 | 草稿批次发布/删除、发布记录（当前/既往/归档）、重新发布/撤销 + 影响确认 | pages/schedule/manual | 模拟器流程 | B | ☐ |
-| 12 | 版本冲突 409 弹窗与刷新（conflict-handler） | utils/conflict + 确认弹层 | 单测 + 模拟器 | B | ☐ |
+| 9 | 手动排班绘制式编辑器（ManualGrid/Palette/撤销/清除/失效标记） | pages/schedule/manual | utils 单测 + 模拟器 | B | ☑ |
+| 10 | 模板新建/编辑/删除/应用/预览/下一可用起始日 | pages/schedule/manual | utils 单测 + 模拟器 | B | ☑ |
+| 11 | 草稿批次发布/删除、发布记录（当前/既往/归档）、重新发布/撤销 + 影响确认 | pages/schedule/manual | 模拟器流程 | B | ☑ |
+| 12 | 版本冲突 409 弹窗与刷新（conflict-handler） | utils/conflict + 确认弹层 | 单测 + 模拟器 | B | ☑ |
 | 13 | 排班补录（PastScheduleView 绘制 + 待确认 + 记录） | pages/schedule/backfill | 模拟器流程 | C | ☐ |
 | 14 | 统计完整明细（汇总卡/成员/岗位/班种/计值班次/原实对照/重算） | pages/schedule/statistics | utils 单测 + 模拟器 | C | ☐ |
 | 15 | 导出（任务轮询 + CSV 保存/分享/打开） | pages/schedule/export | 模拟器流程 | C | ☐ |

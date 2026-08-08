@@ -1364,3 +1364,14 @@
 - 端点：新增 holidays/guest-holidays/contacts/update contact/past-schedules/exports/platform/holiday import；删除轮值排序/规则与自动生成接口（不暴露）。
 - 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram` 95/95 ✅、`pnpm typecheck` ✅、`pnpm test` 506 passed（248 skipped）✅、`pnpm --filter @schedule/web build` 单独重跑 ✅（首轮 `pnpm verify` 中 vite 构建完成但 Windows libuv `UV_HANDLE_CLOSING` 断言导致退出码异常，判定为环境性瞬态故障）；移植清单 1–8、16–18 打勾。
 - 状态：批次 A 已实现待模拟器复核；下一批：批次 B 手动排班。
+
+### 小程序 Web 移植批次 B 完成（2026-08-08）
+
+- `pages/schedule/manual` 替换占位页，实现 Web `ManualScheduleView` 全流程：
+  - 绘制编辑器：模板/岗位选择、成员勾选、开始日期与 1–31 周期、`manual-grid` 组件（行=成员、列=日期、班种色块、点选填/清、整行/整列清除、撤销栈、失效标记）；
+  - 模板：新建/编辑/删除；应用前 `previewManualTemplateApply`（冲突/连续值班/空缺、按岗位月份检查已有草稿）、覆盖草稿/已发布与工作流撤销确认勾选；起始日期用 `getNextAvailableStartDate`；
+  - 草稿批次：按 operationId 分组、月份 chips、`publishScheduleDraftBatch` 一次发布、删除草稿；409 冲突时展示覆盖发布面板（replacePublished + workflowImpacts 确认）；
+  - 发布记录：按月份+岗位分组，当前已发布/既往锁定/已归档；查看（draft 用 preview、非 draft 用 period calendar）、撤销发布/重新发布（`previewScheduleChange` 影响 + 已过日期确认）、删除、排班补录入口；
+  - 版本冲突：`utils/conflict` 409 弹层 + 刷新（等价 Web DataConflictDialog）。
+- 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram` 95/95 ✅；移植清单 9–12 打勾。
+- 状态：批次 B 已实现待模拟器复核；下一批：批次 C 排班补录/统计/导出。
