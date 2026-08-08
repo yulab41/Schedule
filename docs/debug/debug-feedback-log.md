@@ -1050,3 +1050,11 @@
 - 测试：新增 `assignment-option.spec.ts`（格式含星期、无班次简称、周末内容类标记）；`swap-logic.spec.ts`/`duty-adjustment-logic.spec.ts` 更新预期；`pnpm verify` 603 项总测试（49 个测试文件，隔离 MySQL）通过。
 - 运行/浏览器验证：本地冒烟通过；服务器已同步 web dist 并重建 web 容器；`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（含首页/补录日历颜色断言）。
 - 状态：#N20 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。
+
+### fix-progress 轮次 61（N21 月历顶部“六/日”列名红色修复，2026-08-08）
+
+- 目标/需求：月历顶部“六/日”列名仍未变成红色。
+- 根因：`MonthGrid.vue` 已给顶部“六/日”加了 `is-weekend` 类，但漏写了对应 CSS 规则，只给日期数字加了红色。
+- 修改文件：`MonthGrid.vue`（新增 `.weekday-row span.is-weekend` 红色规则）；`scripts/smoke-browser.mjs`（增加顶部“六/日”列名红色断言）。
+- 验证：`pnpm verify` 603 项总测试（49 个测试文件，隔离 MySQL）通过；本地冒烟通过；服务器已同步 web dist 并重建 web 容器；`http://localhost:8080` 冒烟通过（含顶部列名断言）。
+- 状态：#N21 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。

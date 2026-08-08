@@ -160,6 +160,10 @@ function isSoleDuty(date: string | undefined): boolean {
   text-align: center;
 }
 
+.weekday-row span.is-weekend {
+  color: var(--ui-color-weekend);
+}
+
 .day-cell {
   min-height: 96px;
   padding: 6px;

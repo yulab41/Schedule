@@ -925,6 +925,20 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 
 状态：#N20 ✅（已完成，含运行验证；待用户强刷复核）。
 
+### 轮次 61 – 2026-08-08（N21 月历顶部“六/日”列名红色修复）
+
+目标：月历顶部“六/日”列名显示为周末红色。
+
+根因：`MonthGrid.vue` 已给顶部“六/日”加 `is-weekend` 类，但漏写对应 CSS 规则。
+
+修改文件：`MonthGrid.vue`（`.weekday-row span.is-weekend` 红色规则）；`scripts/smoke-browser.mjs`（顶部列名红色断言）。
+
+测试结果：`pnpm verify` 603 项总测试通过（49 个测试文件，隔离 MySQL）；本地冒烟通过。
+
+运行/浏览器验证：服务器已同步 web dist 并重建 web 容器；`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（含顶部列名断言）。
+
+状态：#N21 ✅（已完成，含运行验证；待用户强刷复核）。
+
 ## 7. 轮次记录
 
 ### 轮次 1 – 2026-08-06

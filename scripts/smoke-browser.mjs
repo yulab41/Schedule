@@ -182,6 +182,12 @@ async function assertManualScheduleDefaultStartDate(page) {
 }
 
 async function assertWeekendCalendarHighlight(page) {
+  const weekdayHeader = page.locator('.weekday-row span.is-weekend').first();
+  await weekdayHeader.waitFor({ state: 'visible', timeout: 15000 });
+  const headerColor = await weekdayHeader.evaluate((element) => getComputedStyle(element).color);
+  if (headerColor !== 'rgb(224, 49, 49)') {
+    fail(`日历顶部“六/日”列名未使用偏大红，当前颜色：${headerColor}。`);
+  }
   const weekendNumber = page.locator('.day-cell.is-weekend .day-number').first();
   await weekendNumber.waitFor({ state: 'visible', timeout: 15000 });
   const color = await weekendNumber.evaluate((element) => getComputedStyle(element).color);
