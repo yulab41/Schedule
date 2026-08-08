@@ -17,14 +17,34 @@ const operationSettings = {
   BACKUP_DIR: requiredTextSchema.default('./backups'),
   BACKUP_ENCRYPTION_KEY: z.string().trim().min(1).optional(),
 };
+const wechatSettings = {
+  WECHAT_APPID: requiredTextSchema.optional(),
+  WECHAT_APPSECRET: requiredTextSchema.optional(),
+  WECHAT_SESSION_SECRET: requiredTextSchema.optional(),
+  WECHAT_MOCK_MODE: z.enum(['true', 'false']).default('false'),
+  WECHAT_QR_ENV_VERSION: z.enum(['develop', 'trial', 'release']).default('release'),
+  WECHAT_DUTY_REMINDER_TEMPLATE_ID: requiredTextSchema.optional(),
+  WECHAT_APPROVAL_RESULT_TEMPLATE_ID: requiredTextSchema.optional(),
+  WECHAT_STATUS_CHANGE_TEMPLATE_ID: requiredTextSchema.optional(),
+};
 
-export const environmentSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
-  ...applicationSettings,
-  ...databaseSettings,
-  ...operationSettings,
-});
+export const environmentSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
+    ...applicationSettings,
+    ...databaseSettings,
+    ...operationSettings,
+    ...wechatSettings,
+  })
+  .refine(
+    (environment) =>
+      environment.NODE_ENV !== 'production' || environment.WECHAT_MOCK_MODE !== 'true',
+    {
+      message: 'mock mode is forbidden in production',
+      path: ['WECHAT_MOCK_MODE'],
+    },
+  );
 const testEnvironmentSchema = z.object({
   NODE_ENV: z.literal('test'),
   AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
@@ -35,6 +55,7 @@ const testEnvironmentSchema = z.object({
   TEST_MYSQL_DATABASE: requiredTextSchema,
   TEST_MYSQL_USER: requiredTextSchema,
   TEST_MYSQL_PASSWORD: requiredTextSchema,
+  ...wechatSettings,
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
@@ -65,6 +86,14 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
       MYSQL_DATABASE: testResult.data.TEST_MYSQL_DATABASE,
       MYSQL_USER: testResult.data.TEST_MYSQL_USER,
       MYSQL_PASSWORD: testResult.data.TEST_MYSQL_PASSWORD,
+      WECHAT_APPID: testResult.data.WECHAT_APPID,
+      WECHAT_APPSECRET: testResult.data.WECHAT_APPSECRET,
+      WECHAT_SESSION_SECRET: testResult.data.WECHAT_SESSION_SECRET,
+      WECHAT_MOCK_MODE: testResult.data.WECHAT_MOCK_MODE,
+      WECHAT_QR_ENV_VERSION: testResult.data.WECHAT_QR_ENV_VERSION,
+      WECHAT_DUTY_REMINDER_TEMPLATE_ID: testResult.data.WECHAT_DUTY_REMINDER_TEMPLATE_ID,
+      WECHAT_APPROVAL_RESULT_TEMPLATE_ID: testResult.data.WECHAT_APPROVAL_RESULT_TEMPLATE_ID,
+      WECHAT_STATUS_CHANGE_TEMPLATE_ID: testResult.data.WECHAT_STATUS_CHANGE_TEMPLATE_ID,
     };
   }
 

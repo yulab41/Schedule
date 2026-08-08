@@ -49,11 +49,18 @@ import { ExportService } from './modules/exports/export-service.js';
 import { registerAuthentication } from './plugins/authenticate.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRequestContext } from './plugins/request-context.js';
+import type { WechatGateway } from './modules/wechat/wechat-gateway.js';
 import { logRedactionPaths, redactSensitiveFields } from './security/redact.js';
 import { getApiStatus } from './status.js';
 
 type ApiLoggerOptions = NonNullable<FastifyServerOptions['logger']>;
 type ApiLoggerConfiguration = Exclude<ApiLoggerOptions, boolean>;
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    wechatGateway?: WechatGateway;
+  }
+}
 
 export interface CreateAppOptions {
   readonly authPort?: AuthPort;
@@ -62,6 +69,7 @@ export interface CreateAppOptions {
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
   readonly platformAdminUids?: ReadonlySet<string>;
+  readonly wechatGateway?: WechatGateway;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
@@ -73,6 +81,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
   registerRequestContext(app);
   registerErrorHandler(app);
+  if (options.wechatGateway !== undefined) {
+    app.decorate('wechatGateway', options.wechatGateway);
+  }
 
   app.get('/health', () => getApiStatus());
   app.get('/ready', () => getApiStatus());

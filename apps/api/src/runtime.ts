@@ -5,6 +5,7 @@ import type { AuthPort } from './adapters/auth/auth-port.js';
 import { createDevAuthPort } from './adapters/auth/dev-auth.js';
 import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
+import { createWechatGateway } from './modules/wechat/wechat-gateway.js';
 import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
 
 interface RuntimeAppOptions {
@@ -41,6 +42,7 @@ export function createRuntimeApp(
   const app = createApp({
     authPort,
     databaseClient,
+    wechatGateway: createWechatGateway(environment),
   });
 
   const workflowSelfHealingService = new WorkflowSelfHealingService(databaseClient);

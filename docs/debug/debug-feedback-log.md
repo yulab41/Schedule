@@ -1106,3 +1106,14 @@
 - 测试：迁移测试 12/12（空库计数 34/42、已有数据回填、invite 二选一约束、openid 唯一、wechat 渠道/偏好默认值、访问日志可写）；contracts 测试 13/13（含新错误码清单与 wechat 契约 7 项）；redact 6/6；全量 `pnpm verify` 624 项（76 个测试文件，隔离 MySQL）通过。
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；本轮涉及 contracts 核心链路，按 AGENTS.md 补录本记录。
 - 状态：任务 1 ✅（已完成，含运行验证；待提交检查点后进入任务 2）。
+
+### 微信小程序任务 2（微信网关 mock/真实模式与环境配置，2026-08-08）
+
+- 目标/需求：封装 jscode2session、getUnlimited、subscribeMessage.send 与 access_token 缓存，支持 mock；env 增加微信配置并在生产拒绝 mock。
+- 修改文件：
+  - `apps/api/src/modules/wechat/wechat-gateway.ts`（`WechatGateway` 接口、`WechatApiGateway` 真实网关、`createMockWechatGateway`、错误码映射表、access_token 内存缓存 + 到期前 5 分钟刷新、fetch 超时、`createWechatGateway` 环境工厂）；
+  - `apps/api/src/config/env.ts`（`WECHAT_APPID/APPSECRET/SESSION_SECRET/MOCK_MODE/QR_ENV_VERSION/三个模板 ID`，生产 refine 拒绝 `WECHAT_MOCK_MODE=true`）、`.env.example`、`.env.production.example`；
+  - `apps/api/src/app.ts`（`CreateAppOptions.wechatGateway` + Fastify 装饰器）、`runtime.ts`（按环境创建并注入网关）。
+- 测试：`wechat-gateway.spec.ts` 12 项（mock 稳定 openid/占位二维码/发送记录日志；真实网关 jscode2session 成功与错误映射、access_token 缓存与 5 分钟余量、二维码二进制与 45009 限流、订阅发送成功与 43101 拒绝、未知错误码/非 JSON/HTTP 500/超时、错误信息不含 appsecret）；env.test 新增 4 项（生产拒绝 mock、QR 版本校验、凭据可选、test 模式默认）；全量 `pnpm verify` 640 项（77 个测试文件，隔离 MySQL）通过。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；本轮涉及 `.env.example` 核心链路，按 AGENTS.md 补录本记录。
+- 状态：任务 2 ✅（已完成，含运行验证；下一轮任务 3 微信认证与会话令牌）。

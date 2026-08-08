@@ -17,7 +17,10 @@ describe('loadEnvironment', () => {
       MYSQL_HOST: '127.0.0.1',
       MYSQL_PORT: 3306,
       NODE_ENV: 'development',
+      WECHAT_MOCK_MODE: 'false',
+      WECHAT_QR_ENV_VERSION: 'release',
     });
+    expect(loadEnvironment(validEnvironment).WECHAT_APPID).toBeUndefined();
   });
 
   it('validates the development auth switch as a strict boolean string', () => {
@@ -79,5 +82,60 @@ describe('loadEnvironment', () => {
         TEST_MYSQL_PASSWORD: undefined,
       }),
     ).toThrow(/TEST_MYSQL_PASSWORD/);
+  });
+
+  it('accepts WeChat mock mode in development but forbids it in production', () => {
+    expect(loadEnvironment({ ...validEnvironment, WECHAT_MOCK_MODE: 'true' })).toMatchObject({
+      WECHAT_MOCK_MODE: 'true',
+    });
+    expect(
+      loadEnvironment({
+        ...validEnvironment,
+        NODE_ENV: 'production',
+        WECHAT_MOCK_MODE: 'false',
+      }),
+    ).toMatchObject({ WECHAT_MOCK_MODE: 'false' });
+    expect(() =>
+      loadEnvironment({
+        ...validEnvironment,
+        NODE_ENV: 'production',
+        WECHAT_MOCK_MODE: 'true',
+      }),
+    ).toThrow(/WECHAT_MOCK_MODE/);
+  });
+
+  it('validates the WeChat QR environment version', () => {
+    expect(
+      loadEnvironment({ ...validEnvironment, WECHAT_QR_ENV_VERSION: 'develop' }),
+    ).toMatchObject({ WECHAT_QR_ENV_VERSION: 'develop' });
+    expect(() =>
+      loadEnvironment({ ...validEnvironment, WECHAT_QR_ENV_VERSION: 'staging' }),
+    ).toThrow(/WECHAT_QR_ENV_VERSION/);
+  });
+
+  it('keeps WeChat credentials and template ids optional outside production', () => {
+    expect(
+      loadEnvironment({
+        ...validEnvironment,
+        WECHAT_APPID: 'wx-test',
+        WECHAT_APPSECRET: 'secret-test',
+        WECHAT_DUTY_REMINDER_TEMPLATE_ID: 'template-1',
+      }),
+    ).toMatchObject({
+      WECHAT_APPID: 'wx-test',
+      WECHAT_APPSECRET: 'secret-test',
+      WECHAT_DUTY_REMINDER_TEMPLATE_ID: 'template-1',
+    });
+  });
+
+  it('applies WeChat defaults in test mode too', () => {
+    expect(
+      loadEnvironment({
+        NODE_ENV: 'test',
+        TEST_MYSQL_DATABASE: 'schedule_test',
+        TEST_MYSQL_USER: 'schedule_test_app',
+        TEST_MYSQL_PASSWORD: 'test-only-password',
+      }),
+    ).toMatchObject({ WECHAT_MOCK_MODE: 'false', WECHAT_QR_ENV_VERSION: 'release' });
   });
 });
