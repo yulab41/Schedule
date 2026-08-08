@@ -1,6 +1,46 @@
-<view class="page-container">
-  <view class="placeholder-card">
-    <text class="placeholder-title">通知</text>
-    <text class="placeholder-copy">站内通知与提醒设置将在后续版本接入。</text>
+<view class="page-container notifications-page">
+  <view class="notifications-toolbar">
+    <text class="notifications-count">未读 {{unreadCount}}</text>
+    <t-button size="small" variant="outline" bind:tap="handleMarkAllRead">全部已读</t-button>
+    <t-button size="small" variant="outline" bind:tap="openSettings">提醒设置</t-button>
   </view>
+
+  <view wx:if="{{loading && notifications.length === 0}}" class="notifications-card notifications-state">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="notifications-card notifications-state">
+    <text class="notifications-error">{{errorMessage}}</text>
+    <t-button size="small" variant="outline" bind:tap="loadMore">重新加载</t-button>
+  </view>
+
+  <view wx:elif="{{notifications.length === 0}}" class="notifications-card notifications-state">
+    <text>暂无通知</text>
+  </view>
+
+  <block wx:else>
+    <view
+      class="notification-card {{item.isRead ? '' : 'is-unread'}}"
+      wx:for="{{notifications}}"
+      wx:key="id"
+      wx:for-item="item"
+      data-id="{{item.id}}"
+      bind:tap="handleNotificationTap"
+    >
+      <view class="notification-header">
+        <text class="notification-title">{{item.title}}</text>
+        <text class="notification-time">{{item.timeLabel}}</text>
+      </view>
+      <text class="notification-body">{{item.body}}</text>
+    </view>
+    <t-button
+      wx:if="{{nextCursor}}"
+      block
+      variant="outline"
+      loading="{{loading}}"
+      bind:tap="loadMore"
+    >
+      加载更多
+    </t-button>
+  </block>
 </view>

@@ -67,4 +67,18 @@ Page({
     }
     wx.navigateTo({ url: '/pages/requests/requests' });
   },
+
+  openApprovals(): void {
+    if (this.data.selectedGroupId.length === 0) {
+      return;
+    }
+    wx.navigateTo({ url: '/pages/approvals/approvals' });
+  },
+
+  openEvents(): void {
+    if (this.data.selectedGroupId.length === 0) {
+      return;
+    }
+    wx.navigateTo({ url: '/pages/events/events' });
+  },
 });

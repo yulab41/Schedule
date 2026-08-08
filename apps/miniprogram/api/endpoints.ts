@@ -1,28 +1,40 @@
 import type {
   AcceptInviteResponse,
+  ApproveLeaveRequestInput,
   CalendarReadModel,
   CreateDutyAdjustmentRequestInput,
   CreateLeaveRequestInput,
   CreateSwapRequestInput,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
+  DutyAdjustmentMutationInput,
   GroupQrResponse,
   GuestCalendarReadModel,
   GroupMember,
   GroupMemberContact,
+  GroupNotificationSettings,
   GroupSummary,
   LeaveAffectedShift,
   LeaveAffectedShiftsInput,
+  LeaveReflowPreview,
   LeaveRequest,
   LeaveRequestMutationResult,
   LeaveRequestMutationInput,
+  MemberNotificationPreferences,
+  NotificationPage,
+  NotificationRecord,
   ResolveInviteResponse,
   RevokeDutyAdjustmentInput,
   RevokeSwapRequestInput,
+  ScheduleEventPage,
   SwapPairInput,
   SwapPreview,
   SwapRequest,
+  SwapRequestMutationInput,
+  UpdateGroupNotificationSettingsInput,
+  UpdateMemberNotificationPreferencesInput,
   UserProfile,
+  VisitorAccessLogPage,
   VisitorResolveResponse,
   WechatLoginResponse,
 } from '@schedule/contracts';
@@ -285,4 +297,186 @@ export function revokeDutyAdjustment(
       method: 'POST',
     },
   );
+}
+
+export function listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]> {
+  return request<LeaveRequest[]>(`/groups/${groupId}/leave-requests/approvals`);
+}
+
+export function previewLeaveRequestApproval(
+  groupId: string,
+  leaveRequestId: string,
+  strategy: 'keep-original-order' | 'shift-forward',
+): Promise<LeaveReflowPreview> {
+  return request<LeaveReflowPreview>(
+    `/groups/${groupId}/leave-requests/${leaveRequestId}/preview`,
+    {
+      data: { strategy },
+      method: 'POST',
+    },
+  );
+}
+
+export function approveLeaveRequest(
+  groupId: string,
+  leaveRequestId: string,
+  input: ApproveLeaveRequestInput,
+): Promise<LeaveRequest> {
+  return request<LeaveRequest>(`/groups/${groupId}/leave-requests/${leaveRequestId}/approve`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function rejectLeaveRequest(
+  groupId: string,
+  leaveRequestId: string,
+  input: LeaveRequestMutationInput,
+): Promise<LeaveRequest> {
+  return request<LeaveRequest>(`/groups/${groupId}/leave-requests/${leaveRequestId}/reject`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function listSwapApprovals(groupId: string): Promise<SwapRequest[]> {
+  return request<SwapRequest[]>(`/groups/${groupId}/swaps/approvals`);
+}
+
+export function approveSwapRequest(
+  groupId: string,
+  swapRequestId: string,
+  input: SwapRequestMutationInput,
+): Promise<SwapRequest> {
+  return request<SwapRequest>(`/groups/${groupId}/swaps/${swapRequestId}/approve`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function rejectSwapRequest(
+  groupId: string,
+  swapRequestId: string,
+  input: SwapRequestMutationInput,
+): Promise<SwapRequest> {
+  return request<SwapRequest>(`/groups/${groupId}/swaps/${swapRequestId}/reject`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function listDutyAdjustmentApprovals(groupId: string): Promise<DutyAdjustmentRequest[]> {
+  return request<DutyAdjustmentRequest[]>(`/groups/${groupId}/duty-adjustments/approvals`);
+}
+
+export function approveDutyAdjustment(
+  groupId: string,
+  dutyAdjustmentId: string,
+  input: DutyAdjustmentMutationInput,
+): Promise<DutyAdjustmentRequest> {
+  return request<DutyAdjustmentRequest>(
+    `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/approve`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
+}
+
+export function rejectDutyAdjustment(
+  groupId: string,
+  dutyAdjustmentId: string,
+  input: DutyAdjustmentMutationInput,
+): Promise<DutyAdjustmentRequest> {
+  return request<DutyAdjustmentRequest>(
+    `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/reject`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
+}
+
+export function listEvents(
+  groupId: string,
+  cursor?: string,
+  pageSize = 50,
+): Promise<ScheduleEventPage> {
+  return request<ScheduleEventPage>(`/groups/${groupId}/events`, {
+    data: {
+      ...(cursor === undefined ? {} : { cursor }),
+      pageSize,
+    },
+  });
+}
+
+export function listVisitorAccessLogs(
+  groupId: string,
+  cursor?: string,
+  pageSize = 50,
+): Promise<VisitorAccessLogPage> {
+  return request<VisitorAccessLogPage>(`/groups/${groupId}/visitor-access-logs`, {
+    data: {
+      ...(cursor === undefined ? {} : { cursor }),
+      pageSize,
+    },
+  });
+}
+
+export function listNotifications(cursor?: string, pageSize = 30): Promise<NotificationPage> {
+  return request<NotificationPage>('/notifications', {
+    data: {
+      ...(cursor === undefined ? {} : { cursor }),
+      pageSize,
+    },
+  });
+}
+
+export function getUnreadCount(): Promise<{ readonly unreadCount: number }> {
+  return request<{ readonly unreadCount: number }>('/notifications/unread-count');
+}
+
+export function markNotificationRead(notificationId: string): Promise<NotificationRecord> {
+  return request<NotificationRecord>(`/notifications/${notificationId}/read`, {
+    method: 'POST',
+  });
+}
+
+export function markAllNotificationsRead(): Promise<{ readonly count: number }> {
+  return request<{ readonly count: number }>('/notifications/read-all', {
+    method: 'POST',
+  });
+}
+
+export function getMyNotificationPreferences(
+  groupId: string,
+): Promise<MemberNotificationPreferences> {
+  return request<MemberNotificationPreferences>(`/groups/${groupId}/notification-preferences/mine`);
+}
+
+export function updateMyNotificationPreferences(
+  groupId: string,
+  input: UpdateMemberNotificationPreferencesInput,
+): Promise<MemberNotificationPreferences> {
+  return request<MemberNotificationPreferences>(
+    `/groups/${groupId}/notification-preferences/mine`,
+    {
+      data: input,
+      method: 'PUT',
+    },
+  );
+}
+
+export function getGroupNotificationSettings(groupId: string): Promise<GroupNotificationSettings> {
+  return request<GroupNotificationSettings>(`/groups/${groupId}/notification-settings`);
+}
+
+export function updateGroupNotificationSettings(
+  groupId: string,
+  input: UpdateGroupNotificationSettingsInput,
+): Promise<GroupNotificationSettings> {
+  return request<GroupNotificationSettings>(`/groups/${groupId}/notification-settings`, {
+    data: input,
+    method: 'PUT',
+  });
 }

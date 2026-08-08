@@ -1,0 +1,78 @@
+<view class="page-container events-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view class="events-tabs">
+    <view
+      class="events-tab {{activeTab === 'events' ? 'is-active' : ''}}"
+      data-tab="events"
+      bind:tap="switchTab"
+    >
+      事件
+    </view>
+    <view
+      wx:if="{{canViewLogs}}"
+      class="events-tab {{activeTab === 'logs' ? 'is-active' : ''}}"
+      data-tab="logs"
+      bind:tap="switchTab"
+    >
+      访问记录
+    </view>
+  </view>
+
+  <view wx:if="{{loading && events.length === 0 && logs.length === 0}}" class="events-card events-state">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="events-card events-state">
+    <text class="events-error">{{errorMessage}}</text>
+    <t-button size="small" variant="outline" bind:tap="loadMore">重新加载</t-button>
+  </view>
+
+  <block wx:elif="{{activeTab === 'events'}}">
+    <view wx:if="{{events.length === 0 && !loading}}" class="events-card events-state">
+      <text>暂无事件记录</text>
+    </view>
+    <view class="event-card" wx:for="{{events}}" wx:key="id" wx:for-item="event">
+      <view class="event-header">
+        <text class="event-type">{{event.typeLabel}}</text>
+        <text class="event-time">{{event.time}}</text>
+      </view>
+      <text class="event-narrative">{{event.narrative}}</text>
+    </view>
+    <t-button
+      wx:if="{{eventsCursor && events.length > 0}}"
+      block
+      variant="outline"
+      loading="{{loading}}"
+      bind:tap="loadMore"
+    >
+      加载更多
+    </t-button>
+  </block>
+
+  <block wx:else>
+    <view wx:if="{{logs.length === 0 && !loading}}" class="events-card events-state">
+      <text>暂无访客访问记录</text>
+    </view>
+    <view class="event-card" wx:for="{{logs}}" wx:key="id" wx:for-item="log">
+      <view class="event-header">
+        <text class="event-type">{{log.businessMonth}}</text>
+        <text class="event-time">{{log.createdAt}}</text>
+      </view>
+      <text class="event-narrative">来源 IP：{{log.clientIp}}</text>
+    </view>
+    <t-button
+      wx:if="{{logsCursor && logs.length > 0}}"
+      block
+      variant="outline"
+      loading="{{loading}}"
+      bind:tap="loadMore"
+    >
+      加载更多
+    </t-button>
+  </block>
+</view>

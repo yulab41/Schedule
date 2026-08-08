@@ -1,0 +1,147 @@
+<view class="page-container approvals-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view wx:if="{{loading}}" class="approvals-card approvals-state">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="approvals-card approvals-state">
+    <text class="approvals-error">{{errorMessage}}</text>
+    <t-button size="small" variant="outline" bind:tap="loadApprovals">重新加载</t-button>
+  </view>
+
+  <block wx:elif="{{groups.length > 0}}">
+    <view class="approvals-section">
+      <text class="approvals-section-title">请假审批</text>
+      <view wx:if="{{leaveApprovals.length === 0}}" class="approvals-empty">暂无待审批/历史记录</view>
+      <view class="approval-card" wx:for="{{leaveApprovals}}" wx:key="id" wx:for-item="approval">
+        <view class="approval-main">
+          <text class="approval-title">{{approval.title}}</text>
+          <text class="approval-detail">{{approval.detail}}</text>
+          <text class="approval-status">{{approval.statusLabel}}</text>
+        </view>
+        <view class="approval-actions" wx:if="{{approval.isPending}}">
+          <view
+            class="approval-button"
+            catch:tap="handlePreviewLeave"
+            data-id="{{approval.id}}"
+          >
+            查看影响
+          </view>
+          <view
+            class="approval-button is-danger"
+            catch:tap="handleReject"
+            data-id="{{approval.id}}"
+            data-kind="leave"
+            data-version="{{approval.version}}"
+          >
+            驳回
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="approvals-section">
+      <text class="approvals-section-title">换班审批</text>
+      <view wx:if="{{swapApprovals.length === 0}}" class="approvals-empty">暂无待审批/历史记录</view>
+      <view class="approval-card" wx:for="{{swapApprovals}}" wx:key="id" wx:for-item="approval">
+        <view class="approval-main">
+          <text class="approval-title">{{approval.title}}</text>
+          <text class="approval-detail">{{approval.detail}}</text>
+          <text class="approval-status">{{approval.statusLabel}}</text>
+        </view>
+        <view class="approval-actions" wx:if="{{approval.isPending}}">
+          <view
+            class="approval-button is-danger"
+            catch:tap="handleReject"
+            data-id="{{approval.id}}"
+            data-kind="swap"
+            data-version="{{approval.version}}"
+          >
+            驳回
+          </view>
+          <view
+            class="approval-button is-primary"
+            catch:tap="handleApprove"
+            data-id="{{approval.id}}"
+            data-kind="swap"
+            data-version="{{approval.version}}"
+          >
+            通过
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="approvals-section">
+      <text class="approvals-section-title">加扣班审批</text>
+      <view wx:if="{{dutyApprovals.length === 0}}" class="approvals-empty">暂无待审批/历史记录</view>
+      <view class="approval-card" wx:for="{{dutyApprovals}}" wx:key="id" wx:for-item="approval">
+        <view class="approval-main">
+          <text class="approval-title">{{approval.title}}</text>
+          <text class="approval-detail">{{approval.detail}}</text>
+          <text class="approval-status">{{approval.statusLabel}}</text>
+        </view>
+        <view class="approval-actions" wx:if="{{approval.isPending}}">
+          <view
+            class="approval-button is-danger"
+            catch:tap="handleReject"
+            data-id="{{approval.id}}"
+            data-kind="duty"
+            data-version="{{approval.version}}"
+          >
+            驳回
+          </view>
+          <view
+            class="approval-button is-primary"
+            catch:tap="handleApprove"
+            data-id="{{approval.id}}"
+            data-kind="duty"
+            data-version="{{approval.version}}"
+          >
+            通过
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:else class="approvals-card approvals-state">
+    <text>你还没有加入任何群组。</text>
+  </view>
+
+  <view class="approval-modal-mask" wx:if="{{leavePreview}}" bind:tap="closeLeavePreview">
+    <view class="approval-modal" catch:tap="noop">
+      <text class="approval-modal-title">请假影响预览</text>
+      <text class="approval-modal-row">
+        涉及 {{leavePreview.affectedShiftCount}} 个已发布班次
+      </text>
+      <text class="approval-modal-row" wx:if="{{leavePreview.conflictsCount > 0}}">
+        硬冲突 {{leavePreview.conflictsCount}} 处
+      </text>
+      <text class="approval-modal-row" wx:if="{{leavePreview.vacanciesCount > 0}}">
+        待处理空缺 {{leavePreview.vacanciesCount}} 个
+      </text>
+      <text class="approval-modal-row" wx:if="{{leavePreview.workflowBlockerCount > 0}}">
+        工作流阻塞 {{leavePreview.workflowBlockerCount}} 处
+      </text>
+      <text class="approval-modal-row" wx:if="{{leavePreview.overlapsUnpublishedPeriod}}">
+        请假范围包含未发布排班时间段
+      </text>
+      <t-button
+        theme="primary"
+        block
+        loading="{{submitting || leavePreviewLoading}}"
+        disabled="{{submitting || leavePreviewLoading}}"
+        bind:tap="handleApproveLeave"
+      >
+        批准并按预览重排
+      </t-button>
+      <t-button theme="default" block size="small" bind:tap="closeLeavePreview">关闭</t-button>
+    </view>
+  </view>
+</view>

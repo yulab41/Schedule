@@ -28,6 +28,12 @@
         <t-button theme="default" block variant="outline" bind:tap="openRequests">
           请假 / 换班 / 加扣班
         </t-button>
+        <t-button theme="default" block variant="outline" bind:tap="openApprovals">
+          审批中心
+        </t-button>
+        <t-button theme="default" block variant="outline" bind:tap="openEvents">
+          事件中心
+        </t-button>
       </view>
     </view>
     <text class="index-hint">加入群组需群主或管理员分享的邀请链接。</text>

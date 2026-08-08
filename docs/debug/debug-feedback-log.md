@@ -1231,3 +1231,12 @@
   - `pages/requests/*`（我的申请中心：分组列表、取消/接受/撤销按身份与状态显示、确认弹窗）；`pages/leave-create/*`（日期/类型/原因、影响班次与覆盖状态、顺延/手动二选一）；`pages/swap-create/*`（我的班次/换班对象/对方班次三级选择、预览冲突、下一状态文案）；`pages/duty-create/*`（被代值班次/加班成员/原因、预览冲突）；`pages/index/*` 增加“请假 / 换班 / 加扣班”入口；`app.json` 注册 4 个新页面。
 - 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
 - 状态：任务 11 ✅（已完成自动化验证；模拟器全流程与 DevTools/真机复核留待用户；下一轮任务 12 审批中心、事件与访问记录、通知/提醒设置）。
+
+### 微信小程序任务 12（审批中心、事件与访问记录、通知/提醒设置，2026-08-08）
+
+- 目标/需求：管理员审批（请假影响预览+通过/驳回、换班/加扣班通过/驳回，审批前请求“状态变更”订阅）；事件中心（排班事件时间线，群主/管理员切换访客访问记录）；通知中心（未读计数、列表、已读、全部已读、TabBar 徽标）；提醒设置（微信订阅开关、值班提醒时间模式、群组默认提醒时间，开启/进入时静默订阅值班提醒模板）。
+- 修改文件：
+  - `api/endpoints.ts`（审批列表/请假预览/通过/驳回、事件分页、访问记录分页、通知列表/未读/已读/全部已读、个人与群组提醒设置读写）；`utils/events.ts`（事件类型标签与人类可读叙述）；`utils/subscription.ts`（状态变更与值班提醒订阅）；
+  - `pages/approvals/*`（请假/换班/加扣班审批列表、请假影响预览弹层并按预览数据批准、驳回确认）；`pages/events/*`（事件/访问记录双 Tab、分页加载更多）；`pages/notifications/*`（通知列表、未读徽标、点击已读、全部已读、TabBar 徽标、提醒设置入口）；`pages/notification-settings/*`（微信订阅开关、提醒时间模式/自定义小时数、群组默认设置）；`pages/index/*` 增加审批中心/事件中心入口；`app.json` 注册 3 个新页面。
+- 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
+- 状态：任务 12 ✅（已完成自动化验证；模拟器订阅授权/未读徽标/审批全流程与 DevTools/真机复核留待用户；按用户指示本阶段停止，任务 13–15 留待下一阶段）。

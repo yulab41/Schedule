@@ -1,0 +1,66 @@
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.settings-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-label {
+  font-size: 26rpx;
+}
+
+.settings-hint {
+  color: var(--color-text-muted);
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.settings-option {
+  padding: 18rpx 24rpx;
+  border: 2rpx solid #dbe3ea;
+  border-radius: var(--radius-sm);
+  font-size: 26rpx;
+}
+
+.settings-option.is-selected {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #e8f1fb;
+}
+
+.settings-success {
+  color: #15803d;
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.settings-error {
+  color: var(--color-weekend);
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.settings-state {
+  align-items: center;
+  color: var(--color-text-muted);
+}
