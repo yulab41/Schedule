@@ -50,12 +50,22 @@
 - [ ] 网站开通后 **30 日内**到全国互联网安全管理服务平台（www.beian.gov.cn）办理**公安联网备案**，并按需在页面底部展示公安备案号。
 - [ ] 更新本清单与 `docs/project-status.md`，将 `docs/deployment/production-readiness.md` 第 4 节清单第 2 项标记完成。
 
+## 六、常见疑问（2026-08-08 确认）
+
+1. **网站名称填什么？域名那栏填什么？**
+   网站名称是给人看的中文名字，不是域名；域名那栏填主域名 `eylinhome.top`（不带 www、不带子域名）。官方禁止用域名、纯数字、纯英文、特殊符号作为网站名称，所以“个人排班助手”这样的中文名是正确的，和域名栏是两回事。
+2. **以后同一个域名下加子域名/新页面，需要重新备案吗？**
+   不需要。主域名备案成功后，覆盖其下所有子域名（如 `tools.eylinhome.top`），无需单独备案。但若新内容与备案申报的性质差异过大（例如从个人工具变成经营性、新闻、医疗问诊等），可能需要办理变更备案，届时按管局要求处理。
+3. **以后用了新域名（如 `anotherdomain.top`），需要重新备案吗？**
+   不需要从零重备。同一备案主体（同一个人）下新增域名走“新增网站/新增域名”备案，主体材料不用重新提交，比首次备案简单。只有主体性质变化（如个人变企业）才需要注销原备案后重新备案。
+
 ## 参考链接
 
 - 阿里云 ICP 备案系统：<https://beian.aliyun.com/>
 - 个人网站备案快速入门：<https://help.aliyun.com/zh/icp-filing/basic-icp-service/getting-started/quick-start-for-icp-filing-for-personal-websites>
 - 服务码检查 FAQ（ECS 条件）：<https://help.aliyun.com/zh/icp-filing/basic-icp-service/support/server-check-faq>
 - 备案过程中网站能否正常访问（官方答复）：<https://developer.aliyun.com/ask/642847>
+- 子域名是否需要备案（官方 FAQ）：<https://help.aliyun.com/zh/icp-filing/basic-icp-service/product-overview/faq-about-icp-filing-applications-in-different-scenarios>
 - 工信部备案查询/短信核验：<https://beian.miit.gov.cn/>
 
 ## 完成定义
