@@ -227,6 +227,15 @@ async function assertBackfillCalendarColors(page) {
   }
 }
 
+async function assertGroupManagementAndEventNav(page) {
+  await page.locator('.workbench-sidebar button', { hasText: '群组管理' }).first().click();
+  await waitForBodyText(page, '加入其他群组', 15000, '加入其他群组');
+  const adminEventEntry = page.locator('.workbench-sidebar button', { hasText: '事件' }).first();
+  await adminEventEntry.waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
+  await waitForBodyText(page, '排班日历', 10000);
+}
+
 async function runSmoke() {
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
@@ -265,6 +274,7 @@ async function runSmoke() {
     await assertWeekendCalendarHighlight(page);
     await assertManualScheduleDefaultStartDate(page);
     await assertBackfillCalendarColors(page);
+    await assertGroupManagementAndEventNav(page);
 
     step('3/6 退出管理员');
     await page.locator('button', { hasText: '退出登录' }).first().click();
@@ -279,6 +289,12 @@ async function runSmoke() {
     const memberBody = await page.locator('body').innerText();
     if (memberBody.includes('手动排班') || memberBody.includes('排班配置')) {
       fail('成员模式不应出现管理员专属入口（手动排班/排班配置）。');
+    }
+    const memberEventCount = await page
+      .locator('.workbench-sidebar button', { hasText: '事件' })
+      .count();
+    if (memberEventCount !== 0) {
+      fail('成员模式不应出现“事件”导航入口。');
     }
     assertNoErrors(errors, '成员模式');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '3-member.png') });
