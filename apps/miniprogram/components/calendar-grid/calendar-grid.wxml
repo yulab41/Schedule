@@ -7,6 +7,8 @@
       wx:for="{{item.cells}}"
       wx:key="businessDate"
       class="calendar-grid__cell {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}}"
+      hover-class="calendar-grid__cell--press"
+      hover-stay-time="60"
       data-date="{{item.businessDate}}"
       bind:tap="onCellTap"
     >

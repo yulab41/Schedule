@@ -1,10 +1,41 @@
-<view wx:if="{{visible}}" class="confirm-dialog__mask" bind:tap="onCancel">
-  <view class="confirm-dialog__panel" catch:tap="noop">
-    <view class="confirm-dialog__title">{{title}}</view>
-    <view class="confirm-dialog__content">{{content}}</view>
-    <view class="confirm-dialog__actions">
-      <t-button theme="default" variant="outline" bind:tap="onCancel">{{cancelText}}</t-button>
-      <t-button theme="primary" bind:tap="onConfirm">{{confirmText}}</t-button>
+<!--
+  统一底部 ActionSheet 弹窗：
+  - 入场：sheet-in 弹簧曲线（cubic-bezier(0.34,1.56,0.64,1)）；
+  - 遮罩：半透明底色 + backdrop-filter 毛玻璃（iOS），Android 自动降级为半透明；
+  - 关闭：下滑拖拽（仅内容滚动到顶部时生效）+ 阈值/速度判断 + 退场动画。
+-->
+<view wx:if="{{visible || leaving}}" class="confirm-sheet__mask {{leaving ? 'is-leaving' : ''}}" bind:tap="onCancel">
+  <view
+    class="confirm-sheet__panel {{leaving ? 'is-leaving' : ''}}"
+    style="transform: translateY({{dragY}}px);"
+    catch:tap="noop"
+    bind:touchstart="onTouchStart"
+    bind:touchmove="onTouchMove"
+    bind:touchend="onTouchEnd"
+    bind:touchcancel="onTouchEnd"
+  >
+    <view class="confirm-sheet__grabber"></view>
+    <view class="confirm-sheet__title">{{title}}</view>
+    <scroll-view scroll-y class="confirm-sheet__content" bindscroll="onContentScroll">
+      <view class="confirm-sheet__content-inner">{{content}}</view>
+    </scroll-view>
+    <view class="confirm-sheet__actions">
+      <button
+        class="confirm-sheet__button confirm-sheet__button--cancel"
+        hover-class="confirm-sheet__button--hover"
+        hover-stay-time="60"
+        bind:tap="onCancel"
+      >
+        {{cancelText}}
+      </button>
+      <button
+        class="confirm-sheet__button confirm-sheet__button--confirm"
+        hover-class="confirm-sheet__button--hover"
+        hover-stay-time="60"
+        bind:tap="onConfirm"
+      >
+        {{confirmText}}
+      </button>
     </view>
   </view>
 </view>

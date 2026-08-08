@@ -21,6 +21,8 @@
       wx:for="{{modules}}"
       wx:key="id"
       class="workbench__module"
+      hover-class="workbench__module--press"
+      hover-stay-time="60"
       data-url="{{item.url}}"
       bind:tap="openModule"
     >

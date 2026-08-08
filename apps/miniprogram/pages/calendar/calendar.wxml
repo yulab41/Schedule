@@ -20,8 +20,29 @@
 
   <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
 
-  <view wx:if="{{weeks.length > 0}}" class="card">
-    <calendar-grid weeks="{{weeks}}" bind:celltap="handleCellTap" />
+  <view wx:if="{{monthPages.length > 0}}" class="card calendar-swiper-card">
+    <!--
+      月份翻页：swiper 原生滑动手势 + 自定义缓动；
+      前后月先渲染无数据占位网格，仅当前月拉真实接口，
+      满足“只渲染当前月及前后各一个月”的性能要求。
+      纸张翻转/平滑擦除可用 easing-function 近似；低端机可移除该属性退回默认线性。
+    -->
+    <swiper
+      class="calendar-swiper"
+      current="{{swiperIndex}}"
+      duration="320"
+      easing-function="easeInOutCubic"
+      bindchange="onSwiperChange"
+    >
+      <swiper-item wx:for="{{monthPages}}" wx:key="month" class="calendar-swiper__item">
+        <calendar-grid
+          wx:if="{{item.weeks.length > 0}}"
+          weeks="{{item.weeks}}"
+          bind:celltap="handleCellTap"
+        />
+        <view wx:else class="calendar-swiper__placeholder">{{item.label}}</view>
+      </swiper-item>
+    </swiper>
   </view>
   <view wx:elif="{{!loading}}" class="card empty-state">暂无排班数据</view>
 

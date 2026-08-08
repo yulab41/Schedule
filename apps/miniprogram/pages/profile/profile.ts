@@ -8,6 +8,7 @@ import {
 } from '../../api/endpoints.js';
 import { getStoredToken } from '../../api/client.js';
 import { sessionStore } from '../../store/session.js';
+import { syncTabBar } from '../../utils/tab-bar.js';
 
 interface ProfilePageData {
   readonly editing: boolean;
@@ -29,6 +30,7 @@ Page({
   } as ProfilePageData,
 
   onShow() {
+    syncTabBar(this, 3);
     if (getStoredToken() === undefined) {
       wx.reLaunch({ url: '/pages/login/login' });
       return;

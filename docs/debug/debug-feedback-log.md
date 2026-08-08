@@ -1404,3 +1404,15 @@
 - 验证：`pnpm verify` 全绿（98 测试文件 / 755 项，`NODE_ENV=test` + 隔离 MySQL）；`pnpm miniprogram:typecheck` ✅；`pnpm vitest run apps/miniprogram` 16 文件 / 95 项 ✅；`pnpm format:check` ✅；DevTools 编译已越过 wxss 错误并到达 `webview loaded`。
 - 阻塞（第 26 行冒烟未打勾）：开发者工具 Stable v2.01.2510290 冷启动自动化对当前工程持续 `routeTo appLaunch timeout`；appservice 进程 5 秒采样 CPU≈0（非死循环）、无 thirdScriptError/脚本级错误；最小 2–3 页应用、全新 `--user-data-dir` profile、`miniprogram-automator.launch()` 均复现；`cli open` 等待 3 分钟无 simulator launch；`Default\Local Storage\leveldb` 与 compile/storage 缓存清理无效。判定为开发者工具自动化运行时环境问题（可能与微信服务网络受限、基础库 3.16.2 多页冷启动握手有关），非移植代码问题。
 - 状态：移植清单 1–25 打勾；26 未打勾；下一批：用户 GUI 手动打开工程并确认模拟器运行后重跑 `pnpm miniprogram:smoke`，或升级/重装开发者工具后重跑；完成后再提交批次 E 收尾。
+
+### 小程序 UI 动效优化（2026-08-09）
+
+- 目标/需求：按用户设计范式实现原生丝滑交互——Tab 图标动态化、横向滚动日期条、日历扁平化 + swiper 翻页、底部 ActionSheet 弹窗、通用微反馈。
+- 实现：
+  - 自定义 TabBar（`custom-tab-bar/index`）：CSS 绘制 4 个图标（网格/日历/铃铛/人像），线性态描边 → 激活态填充 + `tab-pop` 弹性缩放；`app.json` 开 `custom: true`，4 个 Tab 页 `onShow` 经 `utils/tab-bar.ts` 同步 selected，切换动画与路由同步；
+  - 日期条（`components/date-strip`）：`scroll-view` 横向滚动，`bindscroll` 按视口中心距离实时写 `scale/opacity`（50ms 节流 + 可视窗口更新），`scroll-with-animation` 吸附最近项，原生惯性；接入日历列表页并联动 `wx.pageScrollTo`；
+  - 日历（`pages/calendar`）：`swiper` 三页翻月（当前月居中，前后月占位网格，真实数据按需加载），`easing-function="easeInOutCubic"` 近似纸张翻转；`calendar-grid` 扁平化（细分割线、无厚重阴影、今天金色内描边）；
+  - 弹窗：`confirm-dialog`、`duty-detail`、手动排班 4 个 `.overlay`（apply/preview/mutation/conflict）统一为底部 ActionSheet——`cubic-bezier(0.34,1.56,0.64,1)` 弹簧入场、`backdrop-filter` 毛玻璃 + rgba 半透明降级、顶部 grabber、内容滚动到顶部时下滑关闭（阈值/速度判断 + 回弹/退场动画）；
+  - 通用动效：`app.wxss` 增加 `.card--press`/`.list-item--press`/`.workbench__module--press` 按压反馈、`.view-fade-in` 视图淡入、`.list-in/.list-leave` 列表过渡，页面转场沿用系统原生滑入。
+- 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram`（16 文件 / 95 项）✅、`pnpm format:check` ✅；全量 `pnpm verify` 98 测试文件 / 755 项全绿（`NODE_ENV=test` + 隔离 MySQL）。
+- 状态：UI 动效代码完成待开发者工具模拟器复核（批次 E 第 26 行冒烟仍受 DevTools 冷启动阻塞）。

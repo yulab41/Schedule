@@ -39,6 +39,11 @@
     "backgroundColor": "#F5F7FA"
   },
   "tabBar": {
+    "custom": true,
+    "color": "#9AA0A6",
+    "selectedColor": "#1F5AA6",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
     "list": [
       { "pagePath": "pages/workbench/workbench", "text": "工作台" },
       { "pagePath": "pages/calendar/calendar", "text": "日历" },

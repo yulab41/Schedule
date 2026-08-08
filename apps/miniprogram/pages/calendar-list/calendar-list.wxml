@@ -1,6 +1,19 @@
 <view class="page-container">
   <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
-  <view wx:for="{{days}}" wx:key="businessDate" class="card">
+  <date-strip
+    wx:if="{{dates.length > 0}}"
+    dates="{{dates}}"
+    selected="{{selectedDate}}"
+    bind:change="handleDateChange"
+  />
+  <view
+    wx:for="{{days}}"
+    wx:key="businessDate"
+    id="day-{{item.businessDate}}"
+    class="card"
+    hover-class="card--press"
+    hover-stay-time="60"
+  >
     <view class="row-between">
       <text class="list-day-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
       <text wx:if="{{item.isToday}}" class="list-day-today">今天</text>

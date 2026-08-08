@@ -156,8 +156,16 @@
   </view>
 
   <!-- 模板应用弹层 -->
-  <view wx:if="{{applyVisible}}" class="overlay">
-    <view class="overlay-panel">
+  <view wx:if="{{applyVisible || applyLeaving}}" class="overlay {{applyLeaving ? 'is-leaving' : ''}}">
+    <view
+      class="overlay-panel {{applyLeaving ? 'is-leaving' : ''}}"
+      style="transform: translateY({{overlayDragY}}px);"
+      bind:touchstart="onOverlayTouchStart"
+      bind:touchmove="onOverlayTouchMove"
+      bind:touchend="onOverlayTouchEnd"
+      bind:touchcancel="onOverlayTouchEnd"
+    >
+      <view class="overlay-grabber"></view>
       <view class="row-between">
         <view class="card-title">应用模板</view>
         <text class="overlay-close" bind:tap="closeApply">×</text>
@@ -210,8 +218,16 @@
   </view>
 
   <!-- 预览弹层 -->
-  <view wx:if="{{previewVisible}}" class="overlay">
-    <view class="overlay-panel">
+  <view wx:if="{{previewVisible || previewLeaving}}" class="overlay {{previewLeaving ? 'is-leaving' : ''}}">
+    <view
+      class="overlay-panel {{previewLeaving ? 'is-leaving' : ''}}"
+      style="transform: translateY({{overlayDragY}}px);"
+      bind:touchstart="onOverlayTouchStart"
+      bind:touchmove="onOverlayTouchMove"
+      bind:touchend="onOverlayTouchEnd"
+      bind:touchcancel="onOverlayTouchEnd"
+    >
+      <view class="overlay-grabber"></view>
       <view class="row-between">
         <view class="card-title">{{previewTargetLabel}}</view>
         <text class="overlay-close" bind:tap="closeDraftPreview">×</text>
@@ -234,8 +250,16 @@
   </view>
 
   <!-- 发布/撤销弹层 -->
-  <view wx:if="{{mutationVisible}}" class="overlay">
-    <view class="overlay-panel">
+  <view wx:if="{{mutationVisible || overlayLeaving}}" class="overlay {{overlayLeaving ? 'is-leaving' : ''}}">
+    <view
+      class="overlay-panel {{overlayLeaving ? 'is-leaving' : ''}}"
+      style="transform: translateY({{overlayDragY}}px);"
+      bind:touchstart="onOverlayTouchStart"
+      bind:touchmove="onOverlayTouchMove"
+      bind:touchend="onOverlayTouchEnd"
+      bind:touchcancel="onOverlayTouchEnd"
+    >
+      <view class="overlay-grabber"></view>
       <view class="row-between">
         <view class="card-title">{{mutationAction === 'withdraw' ? '撤销当前排班' : '重新发布归档排班'}}</view>
         <text class="overlay-close" bind:tap="closeMutation">×</text>
@@ -272,8 +296,16 @@
   </view>
 
   <!-- 版本冲突弹层 -->
-  <view wx:if="{{conflictVisible}}" class="overlay">
-    <view class="overlay-panel">
+  <view wx:if="{{conflictVisible || overlayLeaving}}" class="overlay {{overlayLeaving ? 'is-leaving' : ''}}">
+    <view
+      class="overlay-panel {{overlayLeaving ? 'is-leaving' : ''}}"
+      style="transform: translateY({{overlayDragY}}px);"
+      bind:touchstart="onOverlayTouchStart"
+      bind:touchmove="onOverlayTouchMove"
+      bind:touchend="onOverlayTouchEnd"
+      bind:touchcancel="onOverlayTouchEnd"
+    >
+      <view class="overlay-grabber"></view>
       <view class="card-title">资料已更新</view>
       <view wx:if="{{conflictSummary}}" class="muted">{{conflictSummary}}</view>
       <view class="card-copy">{{conflictMessage}}</view>

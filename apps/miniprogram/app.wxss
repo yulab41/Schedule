@@ -112,3 +112,76 @@ page {
   color: var(--color-text-muted);
   font-size: 24rpx;
 }
+
+/* ============ 通用动效工具（2026-08-09 UI 优化） ============ */
+
+/* 按压微反馈：给可点元素加 hover-class="card--press / list-item--press / cell--press"
+   即可获得轻微缩放 + 透明度反馈；低端机若掉帧可只保留 opacity。 */
+.card,
+.list-item,
+.cell,
+.workbench__module {
+  transition:
+    transform 0.12s ease,
+    opacity 0.12s ease,
+    background-color 0.15s ease;
+}
+
+.card--press {
+  transform: scale(0.985);
+  opacity: 0.9;
+}
+
+.list-item--press,
+.cell--press {
+  transform: scale(0.99);
+  opacity: 0.85;
+}
+
+.workbench__module--press {
+  transform: scale(0.94);
+  opacity: 0.85;
+}
+
+/* 页面内视图切换淡入：用于 wx:if 切换的视图容器 */
+.view-fade-in {
+  animation: view-fade-in 0.28s ease;
+}
+
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 列表增删过渡：新插入项播放 list-in；删除时配合 wx:if 先加 .list-leave 再移除 */
+.list-in {
+  animation: list-in 0.24s ease;
+}
+
+.list-leave {
+  opacity: 0;
+  transform: translateY(-10rpx);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+@keyframes list-in {
+  from {
+    opacity: 0;
+    transform: translateY(10rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 页面转场说明：wx.navigateTo/switchTab 使用系统原生滑入（iOS 右滑入），
+   无需自定义即可获得平滑转场；如需淡入淡出可在目标页根节点加 .view-fade-in。 */

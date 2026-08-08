@@ -13,21 +13,25 @@ interface DayView {
 }
 
 interface CalendarListPageData {
+  readonly dates: readonly string[];
   readonly days: readonly DayView[];
   readonly dutyDetail: ReturnType<typeof buildDutyDetail> | undefined;
   readonly errorMessage: string;
   readonly members: readonly CalendarDutyMember[];
   readonly rawByDay: readonly (readonly CalendarDutyAssignment[])[];
+  readonly selectedDate: string;
   readonly showDetail: boolean;
 }
 
 Page({
   data: {
+    dates: [],
     days: [],
     dutyDetail: undefined,
     errorMessage: '',
     members: [],
     rawByDay: [],
+    selectedDate: '',
     showDetail: false,
   } as CalendarListPageData,
 
@@ -35,6 +39,12 @@ Page({
     const groupId = options.groupId ?? '';
     const businessMonth = options.businessMonth ?? '';
     if (groupId.length > 0 && businessMonth.length > 0) {
+      const dates = buildMonthDates(businessMonth);
+      const today = getChinaStandardTimeBusinessDate(new Date());
+      this.setData({
+        dates,
+        selectedDate: dates.includes(today) ? today : (dates[0] ?? ''),
+      });
       void this.loadList(groupId, businessMonth);
     }
   },
@@ -91,8 +101,34 @@ Page({
   closeDetail() {
     this.setData({ showDetail: false });
   },
+
+  handleDateChange(event: WechatMiniprogram.CustomEvent) {
+    const date = event.detail.date;
+    if (typeof date !== 'string' || date.length === 0) {
+      return;
+    }
+    this.setData({ selectedDate: date });
+    // 平滑滚动到对应日期卡片；低版本基础库不支持 selector 时降级为不滚动
+    wx.pageScrollTo({
+      duration: 280,
+      selector: `#day-${date}`,
+    });
+  },
 });
 
 function toMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}
+
+function buildMonthDates(businessMonth: string): readonly string[] {
+  const year = Number(businessMonth.slice(0, 4));
+  const month = Number(businessMonth.slice(5, 7));
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return [];
+  }
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Array.from(
+    { length: daysInMonth },
+    (_, index) => `${businessMonth}-${String(index + 1).padStart(2, '0')}`,
+  );
 }

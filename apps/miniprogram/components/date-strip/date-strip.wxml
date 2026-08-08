@@ -1,0 +1,35 @@
+<!--
+  横向日期条：
+  - 原生 scroll-view 提供惯性；
+  - bindscroll 实时计算每个日期项到视口中心的距离，写入 scale/opacity；
+  - 松手/滚动结束 snapToNearest 吸附最近项，并触发 change 事件。
+-->
+<scroll-view
+  class="date-strip {{isSnapping ? 'is-snapping' : ''}}"
+  scroll-x
+  enhanced
+  show-scrollbar="{{false}}"
+  scroll-left="{{scrollLeft}}"
+  scroll-with-animation="{{isSnapping}}"
+  bindscroll="onScroll"
+  bindtouchend="onTouchEnd"
+  bindscrollend="onScrollEnd"
+>
+  <view class="date-strip__track">
+    <view
+      wx:for="{{dates}}"
+      wx:key="*this"
+      id="date-{{index}}"
+      class="date-strip__item {{item === selected ? 'is-selected' : ''}}"
+      style="{{styles[index]}}"
+      hover-class="date-strip__item--hover"
+      hover-stay-time="60"
+      data-index="{{index}}"
+      data-date="{{item}}"
+      bind:tap="onItemTap"
+    >
+      <text class="date-strip__weekday">{{weekdays[index]}}</text>
+      <text class="date-strip__day">{{days[index]}}</text>
+    </view>
+  </view>
+</scroll-view>

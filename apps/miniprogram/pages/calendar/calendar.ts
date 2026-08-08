@@ -29,6 +29,7 @@ import {
   type CalendarGridWeekView,
 } from '../../utils/calendar-grid-builder.js';
 import { getChinaStandardTimeBusinessDate } from '../../utils/china-time.js';
+import { syncTabBar } from '../../utils/tab-bar.js';
 
 interface CalendarPageData {
   readonly assignmentsByDate: ReadonlyMap<string, readonly CalendarDutyAssignment[]>;
@@ -38,6 +39,11 @@ interface CalendarPageData {
   readonly groups: readonly GroupSummary[];
   readonly holidays: HolidayReadModel | undefined;
   readonly loading: boolean;
+  readonly monthPages: readonly {
+    readonly label: string;
+    readonly month: string;
+    readonly weeks: readonly CalendarGridWeekView[];
+  }[];
   readonly members: readonly CalendarDutyAssignment[] extends never
     ? never
     : readonly {
@@ -50,8 +56,8 @@ interface CalendarPageData {
   readonly monthLabel: string;
   readonly selectedGroupId: string;
   readonly showDetail: boolean;
+  readonly swiperIndex: number;
   readonly today: string;
-  readonly weeks: readonly CalendarGridWeekView[];
 }
 
 Page({
@@ -64,14 +70,16 @@ Page({
     holidays: undefined,
     loading: false,
     members: [],
+    monthPages: [],
     monthLabel: '',
     selectedGroupId: '',
     showDetail: false,
+    swiperIndex: 1,
     today: '',
-    weeks: [],
   } as CalendarPageData,
 
   onShow() {
+    syncTabBar(this, 1);
     if (getStoredToken() === undefined) {
       wx.reLaunch({ url: '/pages/login/login' });
       return;
@@ -79,6 +87,7 @@ Page({
     const today = getChinaStandardTimeBusinessDate(new Date());
     const businessMonth = this.data.businessMonth || getCurrentBusinessMonth(new Date());
     this.setData({ businessMonth, monthLabel: getBusinessMonthLabel(businessMonth), today });
+    this.buildMonthWindow(businessMonth);
     void this.loadAll();
   },
 
@@ -93,7 +102,7 @@ Page({
       }
       this.setData({ groups, selectedGroupId });
       if (selected === undefined) {
-        this.setData({ weeks: [] });
+        this.setData({ monthPages: [] });
         return;
       }
       await this.loadCalendar(selected);
@@ -132,8 +141,11 @@ Page({
       holidays,
       members: calendar.members,
       monthLabel: getBusinessMonthLabel(calendar.businessMonth),
-      weeks: buildCalendarWeeks(monthGrid, assignmentsByDate, holidayMap, this.data.today),
     });
+    this.buildMonthWindow(
+      calendar.businessMonth,
+      buildCalendarWeeks(monthGrid, assignmentsByDate, holidayMap, this.data.today),
+    );
   },
 
   handleGroupChange(event: WechatMiniprogram.CustomEvent) {
@@ -157,10 +169,55 @@ Page({
     }
     const businessMonth = addBusinessMonths(this.data.businessMonth, delta);
     this.setData({ businessMonth, monthLabel: getBusinessMonthLabel(businessMonth) });
+    this.buildMonthWindow(businessMonth);
     const selected = this.data.groups.find((group) => group.id === this.data.selectedGroupId);
     if (selected !== undefined) {
       void this.loadCalendar(selected);
     }
+  },
+
+  // swiper 翻页：只渲染当前月及前后各一个月；中间页始终是当前月，
+  // 翻到相邻页后把该月设为中心并重新构建三页窗口，保证任意方向连续翻月。
+  onSwiperChange(event: WechatMiniprogram.SwiperChange) {
+    const current = Number(event.detail.current ?? 1);
+    if (current === 1 || this.data.loading) {
+      return;
+    }
+    const delta = current > 1 ? 1 : -1;
+    const nextMonth =
+      this.data.monthPages[current]?.month ?? addBusinessMonths(this.data.businessMonth, delta);
+    this.setData({ businessMonth: nextMonth, monthLabel: getBusinessMonthLabel(nextMonth) });
+    this.buildMonthWindow(nextMonth);
+    const selected = this.data.groups.find((group) => group.id === this.data.selectedGroupId);
+    if (selected !== undefined) {
+      void this.loadCalendar(selected);
+    }
+  },
+
+  buildMonthWindow(businessMonth: string, realWeeks?: readonly CalendarGridWeekView[]): void {
+    const prevMonth = addBusinessMonths(businessMonth, -1);
+    const nextMonth = addBusinessMonths(businessMonth, 1);
+    const monthPages = [prevMonth, businessMonth, nextMonth].map((month) => ({
+      // 相邻月先用“无排班占位网格”渲染（只渲染 3 页，性能可控），
+      // 滑到该月后再用真实数据覆盖当前页。
+      label: getBusinessMonthLabel(month),
+      month,
+      weeks: this.buildEmptyWeeks(month),
+    }));
+    if (realWeeks !== undefined) {
+      monthPages[1] = { ...monthPages[1]!, weeks: realWeeks };
+    }
+    this.setData({
+      monthPages,
+      swiperIndex: 1,
+    });
+  },
+
+  buildEmptyWeeks(businessMonth: string): readonly CalendarGridWeekView[] {
+    const year = Number(businessMonth.slice(0, 4));
+    const month = Number(businessMonth.slice(5, 7));
+    const grid = buildMonthGrid(year, month) as readonly CalendarGridWeek[];
+    return buildCalendarWeeks(grid, new Map(), {}, this.data.today);
   },
 
   handleCellTap(event: WechatMiniprogram.CustomEvent) {

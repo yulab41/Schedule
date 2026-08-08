@@ -144,6 +144,7 @@ interface ManualPageData {
   readonly applyAckBlockers: boolean;
   readonly applyAckWorkflows: boolean;
   readonly applyEndDate: string;
+  readonly applyLeaving: boolean;
   readonly applyOverlappingDrafts: boolean;
   readonly applyNeedsReplacePublished: boolean;
   readonly applyPreview: ManualApplyPreview | undefined;
@@ -181,9 +182,14 @@ interface ManualPageData {
   readonly mutationTarget: SchedulePeriodHistoryItem | undefined;
   readonly mutationTargetLabel: string;
   readonly mutationVisible: boolean;
+  readonly overlayDragStartTime: number;
+  readonly overlayDragStartY: number;
+  readonly overlayDragY: number;
+  readonly overlayLeaving: boolean;
   readonly periodCalendar: CalendarReadModel | undefined;
   readonly previewTarget: SchedulePeriodHistoryItem | undefined;
   readonly previewTargetLabel: string;
+  readonly previewLeaving: boolean;
   readonly previewVisible: boolean;
   readonly replacePublished: boolean;
   readonly repeatEnabled: boolean;
@@ -219,6 +225,7 @@ Page({
     applyAckBlockers: false,
     applyAckWorkflows: false,
     applyEndDate: '',
+    applyLeaving: false,
     applyOverlappingDrafts: false,
     applyNeedsReplacePublished: false,
     applyPreview: undefined,
@@ -256,9 +263,14 @@ Page({
     mutationTarget: undefined,
     mutationTargetLabel: '',
     mutationVisible: false,
+    overlayDragStartTime: 0,
+    overlayDragStartY: 0,
+    overlayDragY: 0,
+    overlayLeaving: false,
     periodCalendar: undefined,
     previewTarget: undefined,
     previewTargetLabel: '',
+    previewLeaving: false,
     previewVisible: false,
     replacePublished: false,
     repeatEnabled: false,
@@ -1170,26 +1182,92 @@ Page({
   },
 
   closeDraftPreview() {
-    this.setData({
-      draftPreview: undefined,
-      draftPreviewError: '',
-      periodCalendar: undefined,
-      previewTarget: undefined,
-      previewVisible: false,
-    });
+    if (this.data.previewLeaving) {
+      return;
+    }
+    this.setData({ previewLeaving: true });
+    setTimeout(() => {
+      this.setData({
+        draftPreview: undefined,
+        draftPreviewError: '',
+        periodCalendar: undefined,
+        previewLeaving: false,
+        previewTarget: undefined,
+        previewVisible: false,
+      });
+    }, 220);
   },
 
   closeApply() {
-    this.setData({ applyVisible: false });
-    this.applyTarget = undefined;
+    if (this.data.applyLeaving) {
+      return;
+    }
+    this.setData({ applyLeaving: true });
+    setTimeout(() => {
+      this.setData({
+        applyLeaving: false,
+        applyVisible: false,
+      });
+      this.applyTarget = undefined;
+    }, 220);
   },
 
   closeMutation() {
-    this.setData({ mutationVisible: false });
+    if (this.data.overlayLeaving) {
+      return;
+    }
+    this.setData({ overlayLeaving: true });
+    setTimeout(() => {
+      this.setData({
+        mutationVisible: false,
+        overlayDragY: 0,
+        overlayLeaving: false,
+      });
+    }, 220);
   },
 
   closeConflict() {
-    this.setData({ conflictVisible: false });
+    if (this.data.overlayLeaving) {
+      return;
+    }
+    this.setData({ overlayLeaving: true });
+    setTimeout(() => {
+      this.setData({
+        conflictVisible: false,
+        overlayDragY: 0,
+        overlayLeaving: false,
+      });
+    }, 220);
+  },
+
+  onOverlayTouchStart(event: WechatMiniprogram.TouchEvent) {
+    this.setData({
+      overlayDragStartTime: Date.now(),
+      overlayDragStartY: event.touches[0]?.clientY ?? 0,
+    });
+  },
+
+  onOverlayTouchMove(event: WechatMiniprogram.TouchEvent) {
+    const currentY = event.touches[0]?.clientY ?? this.data.overlayDragStartY;
+    this.setData({ overlayDragY: Math.max(0, currentY - this.data.overlayDragStartY) });
+  },
+
+  onOverlayTouchEnd() {
+    const elapsed = Date.now() - this.data.overlayDragStartTime;
+    const velocity = elapsed > 0 ? this.data.overlayDragY / elapsed : 0;
+    if (this.data.overlayDragY >= 120 || (elapsed < 250 && velocity >= 0.6)) {
+      if (this.data.applyVisible) {
+        this.closeApply();
+      } else if (this.data.previewVisible) {
+        this.closeDraftPreview();
+      } else if (this.data.mutationVisible) {
+        this.closeMutation();
+      } else if (this.data.conflictVisible) {
+        this.closeConflict();
+      }
+      return;
+    }
+    this.setData({ overlayDragY: 0 });
   },
 
   async preparePeriodMutation(event: WechatMiniprogram.TouchEvent): Promise<void> {

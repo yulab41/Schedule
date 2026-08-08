@@ -8,6 +8,7 @@ import {
 } from '../../api/endpoints.js';
 import { getStoredToken } from '../../api/client.js';
 import { formatNotificationTime, getNotificationLabel } from '../../utils/notification-logic.js';
+import { syncTabBar } from '../../utils/tab-bar.js';
 
 interface NotificationRow {
   readonly body: string;
@@ -36,6 +37,7 @@ Page({
   } as NotificationsPageData,
 
   onShow() {
+    syncTabBar(this, 2);
     if (getStoredToken() === undefined) {
       wx.reLaunch({ url: '/pages/login/login' });
       return;

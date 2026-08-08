@@ -8,6 +8,7 @@ import {
   type WorkbenchNavItem,
   type WorkbenchTabId,
 } from '../../utils/workbench-nav.js';
+import { syncTabBar } from '../../utils/tab-bar.js';
 
 interface WorkbenchModule {
   readonly icon: string;
@@ -53,6 +54,7 @@ Page({
   } as WorkbenchPageData,
 
   onShow() {
+    syncTabBar(this, 0);
     if (getStoredToken() === undefined) {
       wx.reLaunch({ url: '/pages/login/login' });
       return;

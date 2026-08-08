@@ -1,38 +1,49 @@
-<view wx:if="{{show}}" class="duty-detail__mask" bind:tap="onClose">
-  <view class="duty-detail__panel" catch:tap="noop">
-    <view class="duty-detail__header">
-      <text class="duty-detail__title">{{detail.memberName || '待定'}}</text>
-      <text class="duty-detail__close" bind:tap="onClose">×</text>
-    </view>
-    <view class="duty-detail__row">
-      <text class="muted">班种</text>
-      <text>{{detail.shiftTypeName}}</text>
-    </view>
-    <view class="duty-detail__row">
-      <text class="muted">时间</text>
-      <text>{{detail.shiftTime}}</text>
-    </view>
-    <view class="duty-detail__row">
-      <text class="muted">岗位</text>
-      <text>{{detail.scheduleRoleName}}</text>
-    </view>
-    <view class="duty-detail__row" wx:if="{{detail.markers.length > 0}}">
-      <text class="muted">标记</text>
-      <text>{{detail.markers}}</text>
-    </view>
-    <view wx:if="{{detail.phoneOptions.length > 0}}" class="duty-detail__phones">
-      <t-button
-        wx:for="{{detail.phoneOptions}}"
-        wx:key="number"
-        theme="primary"
-        size="small"
-        variant="outline"
-        data-number="{{item.number}}"
-        bind:tap="onCall"
-      >
-        {{item.label}} {{item.number}}
-      </t-button>
-    </view>
-    <view wx:else class="duty-detail__no-phone">未确认联系方式</view>
+<view wx:if="{{show || leaving}}" class="duty-detail__mask {{leaving ? 'is-leaving' : ''}}" bind:tap="onClose">
+  <view
+    class="duty-detail__panel {{leaving ? 'is-leaving' : ''}}"
+    style="transform: translateY({{dragY}}px);"
+    catch:tap="noop"
+    bind:touchstart="onTouchStart"
+    bind:touchmove="onTouchMove"
+    bind:touchend="onTouchEnd"
+    bind:touchcancel="onTouchEnd"
+  >
+    <view class="duty-detail__grabber"></view>
+    <scroll-view scroll-y class="duty-detail__body" bindscroll="onContentScroll">
+      <view class="duty-detail__header">
+        <text class="duty-detail__title">{{detail.memberName || '待定'}}</text>
+        <text class="duty-detail__close" bind:tap="onClose">×</text>
+      </view>
+      <view class="duty-detail__row">
+        <text class="muted">班种</text>
+        <text>{{detail.shiftTypeName}}</text>
+      </view>
+      <view class="duty-detail__row">
+        <text class="muted">时间</text>
+        <text>{{detail.shiftTime}}</text>
+      </view>
+      <view class="duty-detail__row">
+        <text class="muted">岗位</text>
+        <text>{{detail.scheduleRoleName}}</text>
+      </view>
+      <view class="duty-detail__row" wx:if="{{detail.markers.length > 0}}">
+        <text class="muted">标记</text>
+        <text>{{detail.markers}}</text>
+      </view>
+      <view wx:if="{{detail.phoneOptions.length > 0}}" class="duty-detail__phones">
+        <t-button
+          wx:for="{{detail.phoneOptions}}"
+          wx:key="number"
+          theme="primary"
+          size="small"
+          variant="outline"
+          data-number="{{item.number}}"
+          bind:tap="onCall"
+        >
+          {{item.label}} {{item.number}}
+        </t-button>
+      </view>
+      <view wx:else class="duty-detail__no-phone">未确认联系方式</view>
+    </scroll-view>
   </view>
 </view>

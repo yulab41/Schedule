@@ -6,3 +6,25 @@
 .calendar-toolbar__views {
   margin-top: 16rpx;
 }
+
+.calendar-swiper-card {
+  padding: 8rpx 0 0;
+}
+
+/* swiper 需要显式高度；不同屏幕可按实际布局调整 */
+.calendar-swiper {
+  height: 680rpx;
+}
+
+.calendar-swiper__item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.calendar-swiper__placeholder {
+  width: 100%;
+  padding: 120rpx 0;
+  color: var(--color-text-muted);
+  font-size: 26rpx;
+  text-align: center;
+}
