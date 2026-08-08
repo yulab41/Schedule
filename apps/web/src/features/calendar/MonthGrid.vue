@@ -250,8 +250,8 @@ function isSoleDuty(date: string | undefined): boolean {
   min-width: 22px;
   height: 22px;
   place-items: center;
-  color: #ffffff;
-  background: #1f5aa6;
+  color: var(--ui-color-near-black);
+  background: var(--ui-color-today-marker);
   border-radius: 50%;
 }
 

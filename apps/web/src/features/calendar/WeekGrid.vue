@@ -178,8 +178,8 @@ function isSoleDuty(date: string): boolean {
 }
 
 .is-today .day-number {
-  color: var(--ui-color-white);
-  background: var(--ui-color-primary);
+  color: var(--ui-color-near-black);
+  background: var(--ui-color-today-marker);
 }
 
 .weekday {

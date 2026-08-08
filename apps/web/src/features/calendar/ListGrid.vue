@@ -151,8 +151,8 @@ function isSoleDuty(assignments: readonly CalendarDutyAssignment[]): boolean {
 
 .today-badge {
   padding: 1px 6px;
-  color: var(--ui-color-white);
-  background: var(--ui-color-primary);
+  color: var(--ui-color-near-black);
+  background: var(--ui-color-today-marker);
   border-radius: 10px;
   font-size: var(--ui-font-size-xs);
   font-weight: 600;

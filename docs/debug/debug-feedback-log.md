@@ -1034,3 +1034,10 @@
 - 验证：`pnpm verify` 601 项总测试（372 passed / 229 skipped，73 个测试文件）通过；定向换班/加扣班集成测试 4/4 通过。
 - 运行/浏览器验证：本地 `pnpm smoke:browser` 通过；已同步 `apps/web/dist` 与 `apps/api/dist` 到服务器并重建容器，API 服务文件 MD5 与本地一致，`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（登录/管理员/成员/访客全流程 + 周末樱桃红断言）。
 - 状态：#N18 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。
+
+### fix-progress 轮次 59（N19 日历周末红/今天黄配色调整，2026-08-08）
+
+- 目标/需求：用户反馈樱桃红不好看，改为更偏大红的颜色；今天的蓝色圆形与红色字体搭配不佳，改为金黄色圆形并配深色数字；日历顶部“六/日”列名同样使用周末红。
+- 修改文件：`packages/ui-tokens/src/tokens.ts`（`weekend` 改为 `#E03131`，新增 `todayMarker: '#F5C518'`，重新生成 `tokens.css`）；`MonthGrid.vue`/`WeekGrid.vue`/`ListGrid.vue` 的今天标记改为金黄色底 + 深色文字；`scripts/smoke-browser.mjs` 增加今天金黄背景断言并更新周末红预期。
+- 验证：`pnpm verify` 601 项总测试（73 个测试文件，隔离 MySQL）通过；本地冒烟通过；服务器已同步 web dist 并重建 web 容器，`http://localhost:8080` 冒烟通过（含周末红与今天黄断言）。
+- 状态：#N19 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。

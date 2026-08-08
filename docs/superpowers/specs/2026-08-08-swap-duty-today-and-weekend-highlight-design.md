@@ -28,9 +28,9 @@
 
 ### 3.2 周末醒目样式
 
-- 周六、周日的日期数字和星期文字使用樱桃红 `#C2185B`。
+- 周六、周日的日期数字和星期文字使用偏大红 `#E03131`。
 - 不新增“六/日”文字标识，避免页面臃肿。
-- 今天的蓝色圆形标记保持优先，不被樱桃红覆盖。
+- 今天的圆形标记改为金黄色 `#F5C518` 配深色数字，保持优先，不被周末红覆盖。
 - 所有日历展示统一生效：月视图、周视图、列表视图、访客日历、排班补录日历、手动排班表头。
 
 ## 4. 改动范围
@@ -40,8 +40,8 @@
 - `apps/web/src/features/workflows/workflow-logic.ts`：将“未来班次”判定改为“可操作班次”（业务日期 >= 今天），并同步更新命名与调用点。
 - `apps/web/src/features/swaps/swap-logic.ts`、`duty-adjustments/duty-adjustment-logic.ts`：跟随共享逻辑命名变化。
 - `apps/web/src/features/calendar/calendar-views.ts`（或 `calendar-logic.ts`）：新增 `isWeekend(businessDate)` 纯函数。
-- `apps/web/src/features/calendar/MonthGrid.vue`、`WeekGrid.vue`、`ListGrid.vue`、`features/manual-schedule/ManualGrid.vue`：周末日期/星期应用樱桃红样式。
-- `packages/ui-tokens/src/tokens.ts`：新增 `weekend: '#C2185B'` 颜色令牌并重新生成 `tokens.css`。
+- `apps/web/src/features/calendar/MonthGrid.vue`、`WeekGrid.vue`、`ListGrid.vue`、`features/manual-schedule/ManualGrid.vue`：周末日期/星期应用偏大红样式。
+- `packages/ui-tokens/src/tokens.ts`：新增 `weekend: '#E03131'` 与 `todayMarker: '#F5C518'` 颜色令牌并重新生成 `tokens.css`。
 
 ### 后端
 

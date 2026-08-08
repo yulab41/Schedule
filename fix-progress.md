@@ -899,6 +899,18 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 
 状态：#N18 ✅（已完成，含运行验证；待用户强刷复核）。
 
+### 轮次 59 – 2026-08-08（N19 日历周末红/今天黄配色调整）
+
+目标：用户反馈樱桃红不好看，改为更偏大红的 `#E03131`；今天的蓝色圆形与红色字体搭配不佳，改为金黄色 `#F5C518` 圆形并配深色数字；日历顶部“六/日”列名同样使用周末红。
+
+修改文件：`packages/ui-tokens/src/tokens.ts`（`weekend: '#E03131'`、新增 `todayMarker: '#F5C518'`，重新生成 `tokens.css`）；`MonthGrid.vue`/`WeekGrid.vue`/`ListGrid.vue` 的今天标记；`scripts/smoke-browser.mjs`（更新周末红预期并新增今天金黄背景断言）；设计规格同步更新。
+
+测试结果：`pnpm verify` 601 项总测试通过（73 个测试文件，隔离 MySQL）；本地冒烟通过。
+
+运行/浏览器验证：服务器已同步 web dist 并重建 web 容器；`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（含周末红与今天黄断言）。
+
+状态：#N19 ✅（已完成，含运行验证；待用户强刷复核）。
+
 ## 7. 轮次记录
 
 ### 轮次 1 – 2026-08-06

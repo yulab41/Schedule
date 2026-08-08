@@ -15,9 +15,10 @@ export const colorTokens = {
   textMuted: '#6B7280',
   textPrimary: '#111827',
   textSecondary: '#4B5563',
+  todayMarker: '#F5C518',
   warning: '#B45309',
   warningLight: '#FEF3C7',
-  weekend: '#C2185B',
+  weekend: '#E03131',
   white: '#FFFFFF',
 } as const;
 

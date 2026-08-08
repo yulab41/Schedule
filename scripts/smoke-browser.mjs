@@ -185,8 +185,16 @@ async function assertWeekendCalendarHighlight(page) {
   const weekendNumber = page.locator('.day-cell.is-weekend .day-number').first();
   await weekendNumber.waitFor({ state: 'visible', timeout: 15000 });
   const color = await weekendNumber.evaluate((element) => getComputedStyle(element).color);
-  if (color !== 'rgb(194, 24, 91)') {
-    fail(`周末日期未使用樱桃红，当前颜色：${color}。`);
+  if (color !== 'rgb(224, 49, 49)') {
+    fail(`周末日期未使用偏大红，当前颜色：${color}。`);
+  }
+  const todayNumber = page.locator('.day-cell.is-today .day-number').first();
+  await todayNumber.waitFor({ state: 'visible', timeout: 15000 });
+  const todayBackground = await todayNumber.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  if (todayBackground !== 'rgb(245, 197, 24)') {
+    fail(`今天圆形标记未使用金黄色，当前背景：${todayBackground}。`);
   }
 }
 
