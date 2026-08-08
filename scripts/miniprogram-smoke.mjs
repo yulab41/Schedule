@@ -144,7 +144,8 @@ async function main() {
     }
     console.log(`[miniprogram-smoke] 控制台消息 ${consoleLogs.length} 条（含网络/业务日志）`);
   } finally {
-    await miniProgram.close().catch(() => {});
+    // 只断开自动化连接，不关闭开发者工具的项目窗口（close() 会发 Tool.close）。
+    miniProgram.disconnect();
   }
 }
 

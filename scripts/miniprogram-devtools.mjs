@@ -111,7 +111,7 @@ function main() {
 
   console.log(`[miniprogram-devtools] CLI：${cli}`);
   console.log(`[miniprogram-devtools] 项目：${PROJECT_DIR}`);
-  console.log(`[miniprogram-devtools] 执行：cli.bat ${args.join(' ')}`);
+  console.log(`[miniprogram-devtools] 执行：cli.bat ${[command, ...args].join(' ')}`);
 
   const result = runCli(command, args);
   if (result.error) {
