@@ -1,3 +1,13 @@
 <view class="page-container">
-  <view class="card empty-state">{{errorMessage}}</view>
+  <view class="card">
+    <view class="card-title">用户状态管理</view>
+    <view class="card-copy">当前内核无用户列表接口，请输入已知用户 ID 后停用/启用。</view>
+    <t-input value="{{userId}}" placeholder="用户 ID" bind:change="onUserIdInput" />
+    <view class="actions-row">
+      <t-button block theme="danger" variant="outline" loading="{{submitting}}" bind:tap="handleSuspend">停用</t-button>
+      <t-button block theme="success" variant="outline" loading="{{submitting}}" bind:tap="handleActivate">启用</t-button>
+    </view>
+    <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
 </view>

@@ -1,3 +1,8 @@
 {
-  "navigationBarTitleText": "节假日导入"
+  "navigationBarTitleText": "节假日导入",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-input": "tdesign-miniprogram/input/input",
+    "t-textarea": "tdesign-miniprogram/textarea/textarea"
+  }
 }

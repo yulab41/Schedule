@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "平台备份"
+  "navigationBarTitleText": "平台备份",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button"
+  }
 }

@@ -22,12 +22,12 @@
 | 16 | 请假/换班/加扣班（表单/预览/我的申请/审批） | pages/requests/*、approvals | 既有流程复核 | A | ☑ |
 | 17 | 事件时间线 + 访客访问记录 | pages/events | 既有流程复核 | A | ☑ |
 | 18 | 通知列表/未读/已读 + 提醒设置 + 订阅（微信扩展） | pages/notifications/* | 既有流程复核 | A | ☑ |
-| 19 | 平台运维：任务列表 | pages/platform/jobs | 模拟器流程 | D | ☐ |
-| 20 | 平台运维：备份列表（仅列表） | pages/platform/backups | 模拟器流程 | D | ☐ |
-| 21 | 平台运维：群组恢复 | pages/platform/backups | 模拟器流程 | D | ☐ |
-| 22 | 平台运维：用户状态 | pages/platform/users | 模拟器流程 | D | ☐ |
-| 23 | 平台运维：节假日导入/版本/覆盖（import-preview/import/versions/confirm/coverage） | pages/platform/holidays | 模拟器流程 | D | ☐ |
-| 24 | 平台管理员入口（GET /platform/me） | profile/workbench 条件入口 | 集成测试 + 模拟器 | D | ☐ |
+| 19 | 平台运维：任务列表 | pages/platform/jobs | 模拟器流程 | D | ☑ |
+| 20 | 平台运维：备份列表（仅列表） | pages/platform/backups | 模拟器流程 | D | ☑ |
+| 21 | 平台运维：群组恢复 | pages/platform/backups | 模拟器流程 | D | ☑ |
+| 22 | 平台运维：用户状态 | pages/platform/users | 模拟器流程 | D | ☑ |
+| 23 | 平台运维：节假日导入/版本/覆盖（import-preview/import/versions/confirm/coverage） | pages/platform/holidays | 模拟器流程 | D | ☑ |
+| 24 | 平台管理员入口（GET /platform/me） | profile/workbench 条件入口 | 集成测试 + 模拟器 | D | ☑ |
 | 25 | Web 逻辑单测等价移植（calendar/manual/statistics/workflow/swap/duty/leave/events/export/roster/notifications） | apps/miniprogram/utils/*.spec.ts | vitest | A–E | ☐ |
 | 26 | 模拟器逐页截图冒烟 | scripts/miniprogram-smoke.mjs 全页面 | 冒烟脚本 | E | ☐ |
 

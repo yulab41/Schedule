@@ -1,3 +1,41 @@
 <view class="page-container">
-  <view class="card empty-state">{{errorMessage}}</view>
+  <view class="card">
+    <view class="card-title">节假日导入</view>
+    <t-input type="number" value="{{year}}" placeholder="年份" bind:change="onYearInput" />
+    <t-textarea
+      value="{{inputJson}}"
+      placeholder='JSON 数组，如 [{"date":"2026-01-01","holidayName":"元旦","isOffDay":true,"isWorkday":false}]'
+      maxlength="20000"
+      bind:change="onInputJson"
+    />
+    <view class="actions-row">
+      <t-button block variant="outline" loading="{{submitting}}" bind:tap="handlePreview">导入预览</t-button>
+      <t-button block theme="primary" loading="{{submitting}}" bind:tap="handleImport">导入</t-button>
+    </view>
+    <view wx:if="{{preview}}" class="preview-block">
+      <view class="info-text">
+        新增 {{preview.addedCount}} · 变更 {{preview.changedCount}} · 删除 {{preview.removedCount}} · 不变 {{preview.unchangedCount}}
+      </view>
+      <view wx:for="{{preview.entries}}" wx:key="date" class="list-item">
+        <view class="flex-1">
+          <view class="list-title">{{item.date}} {{item.holidayName}}</view>
+          <view class="list-sub">{{item.change}} · {{item.isOffDay ? '休' : '班'}}/{{item.isWorkday ? '班' : '休'}}</view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">版本与覆盖</view>
+    <view wx:if="{{coverageText}}" class="list-sub">{{coverageText}}</view>
+    <view wx:for="{{versionRows}}" wx:key="id" class="row-between list-item">
+      <view class="flex-1">
+        <view class="list-title">{{item.year}} 年 · 版本 {{item.version}} · {{item.status}}</view>
+        <view class="list-sub">{{item.dateCount}} 条{{item.confirmedAt ? ' · ' + item.confirmedAt : ''}}</view>
+      </view>
+      <t-button wx:if="{{item.status === '草稿'}}" size="small" variant="outline" data-id="{{item.id}}" bind:tap="handleConfirm">确认</t-button>
+    </view>
+  </view>
 </view>

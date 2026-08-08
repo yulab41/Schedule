@@ -1384,3 +1384,15 @@
 - 联系方式编辑确认（清单 7）在批次 A 已实现，本轮核对接口 `updateGroupMemberContact`（confirm/mobile/short）与 Web `GroupContactForm` 一致。
 - 验证：typecheck/lint/vitest 95/95 ✅；移植清单 13–15 打勾。
 - 状态：批次 C 已实现待模拟器复核；下一批：批次 D 平台运维控制台。
+
+### 小程序 Web 移植批次 D 完成（2026-08-08）
+
+- 后端最小扩展：`packages/contracts/src/platform.ts` 新增 `PlatformMeResponse`；`PlatformAdminService.me()` 只读判断 `allowedCloudbaseUids`；`GET /platform/me` 注册到 `platform-admin-routes`；集成测试新增 2 条断言（admin true / member false），`platform-admin.integration.test.ts` 9/9 通过。
+- 小程序平台页：
+  - `platform/jobs`：`GET /platform/jobs` 任务运行列表（名称/状态/时间/摘要）；
+  - `platform/backups`：`GET /platform/backups` 仅列表（表数/行数/大小/SHA256 前缀），另含已解散群组恢复（`POST /platform/groups/:id/restore`）；
+  - `platform/users`：按用户 ID 停用/启用（`PUT /platform/users/:id/status`；无列表接口，按计划以 API 为准）；
+  - `platform/holidays`：JSON 节假日数组 → `import-preview` → `import` → `versions` → `confirm` → `coverage`；
+  - `profile`/`workbench` 平台入口以 `GET /platform/me` 为条件。
+- 验证：`pnpm verify` 全绿（隔离 MySQL，98 文件 / 755 项，含本轮 contracts/api 改动）；`pnpm miniprogram:typecheck`/`pnpm lint` ✅；移植清单 19–24 打勾。
+- 状态：批次 D 已实现待模拟器复核；下一批：批次 E 移植清单全量走查、模拟器冒烟、文档收尾。

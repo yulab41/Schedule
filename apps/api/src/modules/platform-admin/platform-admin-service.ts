@@ -5,6 +5,7 @@ import type {
   PlatformBackupList,
   PlatformJobRun,
   PlatformJobStatusPage,
+  PlatformMeResponse,
   UpdatePlatformUserStatusInput,
 } from '@schedule/contracts';
 import {
@@ -43,6 +44,10 @@ export class PlatformAdminService {
 
       return { runs: runs.map(toJobRun) };
     });
+  }
+
+  public async me(identity: AuthenticatedIdentity): Promise<PlatformMeResponse> {
+    return { isPlatformAdmin: this.allowedCloudbaseUids.has(identity.cloudbaseUid) };
   }
 
   public async listBackups(identity: AuthenticatedIdentity): Promise<PlatformBackupList> {

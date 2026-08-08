@@ -1,3 +1,31 @@
 <view class="page-container">
-  <view class="card empty-state">{{errorMessage}}</view>
+  <view class="card">
+    <view class="row-between">
+      <view class="card-title">备份列表（仅查看）</view>
+      <t-button size="small" variant="outline" loading="{{loading}}" bind:tap="loadAll">刷新</t-button>
+    </view>
+    <view wx:for="{{backups}}" wx:key="id" class="list-item">
+      <view class="flex-1">
+        <view class="list-title">{{item.kind}} · {{item.createdAt}}</view>
+        <view class="list-sub">{{item.tableCount}} 表 · {{item.rowCount}} 行 · {{item.fileSize}}</view>
+        <view class="list-sub">SHA256 {{item.sha256}}…</view>
+      </view>
+    </view>
+    <view wx:if="{{backups.length === 0}}" class="empty-state">暂无备份记录</view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">已解散群组恢复</view>
+    <view wx:for="{{dissolved}}" wx:key="id" class="row-between list-item">
+      <view class="flex-1">
+        <view class="list-title">{{item.name}}</view>
+        <view class="list-sub">{{item.deletedAt}}</view>
+      </view>
+      <t-button size="small" variant="outline" loading="{{restoringId === item.id}}" data-id="{{item.id}}" bind:tap="handleRestore">恢复</t-button>
+    </view>
+    <view wx:if="{{dissolved.length === 0}}" class="empty-state">暂无已解散群组</view>
+  </view>
+
+  <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+  <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
 </view>

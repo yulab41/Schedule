@@ -1,3 +1,17 @@
 <view class="page-container">
-  <view class="card empty-state">{{errorMessage}}</view>
+  <view class="card">
+    <view class="row-between">
+      <view class="card-title">任务运行列表</view>
+      <t-button size="small" variant="outline" loading="{{loading}}" bind:tap="loadJobs">刷新</t-button>
+    </view>
+    <view wx:for="{{rows}}" wx:key="id" class="list-item">
+      <view class="flex-1">
+        <view class="list-title">{{item.jobName}} · {{item.statusLabel}}</view>
+        <view class="list-sub">{{item.startedAt}}</view>
+        <view wx:if="{{item.summary}}" class="list-sub">{{item.summary}}</view>
+      </view>
+    </view>
+    <view wx:if="{{rows.length === 0}}" class="empty-state">暂无任务记录</view>
+  </view>
+  <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
 </view>

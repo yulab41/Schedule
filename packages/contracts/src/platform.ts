@@ -30,6 +30,10 @@ export interface PlatformBackupList {
   readonly archives: readonly PlatformBackup[];
 }
 
+export interface PlatformMeResponse {
+  readonly isPlatformAdmin: boolean;
+}
+
 export interface UpdatePlatformUserStatusInput {
   readonly status: 'active' | 'suspended';
 }

@@ -69,6 +69,24 @@ describeWithDatabase('platform administration and recovery', () => {
     }
   });
 
+  it('reports platform administrator status without leaking other data', async () => {
+    const admin = await app.inject({
+      headers: { authorization: 'Bearer admin-token' },
+      method: 'GET',
+      url: '/platform/me',
+    });
+    expect(admin.statusCode).toBe(200);
+    expect(admin.json()).toEqual({ isPlatformAdmin: true });
+
+    const member = await app.inject({
+      headers: { authorization: 'Bearer member-token' },
+      method: 'GET',
+      url: '/platform/me',
+    });
+    expect(member.statusCode).toBe(200);
+    expect(member.json()).toEqual({ isPlatformAdmin: false });
+  });
+
   it('restores a soft-deleted group inside the 30-day recycle window and audits it', async () => {
     const groupId = await createGroup('member-token', 'Recycle Group', '1234');
     const deleted = await app.inject({
