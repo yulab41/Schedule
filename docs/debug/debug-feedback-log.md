@@ -1276,5 +1276,6 @@
   - `apps/miniprogram/api/client.ts` 支持 `apiBaseUrl` storage 覆盖（默认仍为正式域名，仅在 DevTools 本地联调时设置）；typecheck 通过；
   - 模拟器内通过自动化写入 `apiBaseUrl=http://127.0.0.1:3000/api` 并重启小程序。
 - 验证：`POST http://127.0.0.1:3000/auth/wechat/login {"code":"dev-test-code"}` = 200 且返回签名令牌；模拟器 evaluate 实测 `wx.login` 返回 32 位 code、`wx.request` 调本地登录接口 = 200（isNewUser=true + token）。
+- 补充（同日）：首次写入模拟器的覆盖地址带 `/api` 后缀，本地 API 无该前缀导致点击登录 404；已把 storage `apiBaseUrl` 修正为 `http://127.0.0.1:3000` 并再次实测 `wx.login` + 登录接口 = 200；`client.ts` 增加注释说明覆盖地址格式（本地直连不带 `/api`，正式域名默认值经 nginx 需要 `/api`）。
 - 遗留：`page.callMethod('handleLogin')` 自动化点击在本版本 DevTools 超时（evaluate 同链路可用），需用户在模拟器手动点击确认 UI 跳转；真实微信登录还需在服务器 `.env.production` 配置 `WECHAT_APPID/APPSECRET/SESSION_SECRET`（AppSecret 由用户提供，不入库）并处理本机代理对公网域名的拦截；小程序后台需配置 request 合法域名 `https://hosp.schedule.eylinhome.top`（任务 15）。
 - 状态：模拟器 mock 登录链路 ✅（用户点击复核后即可进入注册/工作台）。

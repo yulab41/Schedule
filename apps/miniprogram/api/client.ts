@@ -46,6 +46,8 @@ function getApiBaseUrl(): string {
   try {
     const value = wx.getStorageSync<string>(apiBaseUrlStorageKey);
     if (typeof value === 'string' && value.length > 0) {
+      // 本地直连 API 时填 API 源地址（如 http://127.0.0.1:3000，不带 /api）；
+      // 默认值带 /api 是因为正式入口经 nginx 转发会剥离该前缀。
       return value;
     }
   } catch {
