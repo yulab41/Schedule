@@ -12,15 +12,15 @@
 
 1. 新对话先完整读取 `AGENTS.md` 和 `docs/project-status.md`。
 2. 只读取当前批次对应的实施计划章节和相关设计章节，不依赖上一轮聊天记忆。
-3. 任务 1–3（数据库/微信网关/认证）、任务 4–6（绑定码/访客/邀请）、任务 7（订阅消息）涉及安全与并发，原则上一轮一个。
-4. 任务 8–14 为小程序工程与页面，普通任务可一轮两个。
+3. 任务 1–3（数据库/微信网关/认证）、任务 4–5（访客/邀请与身份绑定）、任务 6（订阅消息）涉及安全与并发，原则上一轮一个。
+4. 任务 7–13 为小程序工程与页面，普通任务可一轮两个。
 5. 每个任务独立验证并形成版本节点；提交前更新 `docs/project-status.md`。
 6. 达到当前批次停止条件后即结束该轮，不提前开始下一批。
 
 ## 1. 执行原则
 
 1. 严格按任务顺序实施，后续任务不得绕过前置验收。
-2. 安全相关逻辑（令牌、绑定码、邀请、访客 key、订阅发送）先写失败测试再实现。
+2. 安全相关逻辑（令牌、邀请/身份绑定、访客 key、订阅发送）先写失败测试再实现。
 3. 一个任务只解决一个清晰目标，不混入无关重构；不触碰工作区中用户未提交的格式化改动。
 4. 修改 `packages/contracts`、数据库 schema 后先构建 contracts/database 再跑 API 集成测试。
 5. 每次提交前运行定向测试与 `pnpm verify`；涉及核心链路（contracts 等）运行 `pnpm smoke:check-core`，浏览器冒烟按 AGENTS.md 执行。
@@ -45,14 +45,13 @@ apps/api/src/
   modules/wechat/
     wechat-gateway.ts                 # access_token 缓存 + 微信 HTTP + mock
     wechat-gateway.spec.ts
-    wechat-auth-routes.ts             # /auth/wechat/login、/auth/wechat/bind
+    wechat-auth-routes.ts             # /auth/wechat/login
     wechat-auth-service.ts
-    bind-code-service.ts              # 绑定码生成/校验（哈希存储）
     wechat-push-dispatcher.ts         # subscribeMessage.send 投递器
     wechat-push-dispatcher.spec.ts
   modules/groups/
     visitor-key-service.ts            # visitor_key 生成/校验
-    invite-service.ts                 # 邀请链接创建/解析/接受
+    invite-service.ts                 # 邀请链接创建/解析/接受 + 身份合并
     invite-service.integration.test.ts
   modules/notifications/
     notification-writer.ts            # 增加 wechat 投递行
@@ -97,8 +96,8 @@ packages/contracts/src/wechat.ts
 
 1. 0033：`users.wechat_openid`（唯一、可空）、`groups.visitor_key`（存量回填随机 32 位十六进制后加唯一非空约束）、`invite_tokens` 新表（含 target_membership_id/target_roster_entry_id 二选一约束、token_hash、expires_at、used_by_user_id、status、版本与时间戳；TIMESTAMP 显式默认值）。
 2. 0034：`notification_deliveries.channel` ENUM 增加 `wechat`；增加 `external_message_id`；`notification_preferences.wechat_notifications_enabled` 默认 1。
-3. 同步 `packages/database/src/schema` 与 `packages/contracts/src/wechat.ts`（wechat 会话、绑定码、访客解析、群码、邀请契约 + 新错误码）。
-4. 扩展 `redact.ts` 日志脱敏路径（appsecret、bind_code、token、visitor_key、openid）。
+3. 同步 `packages/database/src/schema` 与 `packages/contracts/src/wechat.ts`（wechat 会话、访客解析、群码、邀请契约 + 新错误码）。
+4. 扩展 `redact.ts` 日志脱敏路径（appsecret、token、visitor_key、openid）。
 
 验证：
 
@@ -133,7 +132,7 @@ packages/contracts/src/wechat.ts
 
 ## 7. 任务 3：微信认证与会话令牌
 
-目标：`/auth/wechat/login`、`/auth/wechat/bind`、HMAC 会话令牌与 AuthPort 集成。
+目标：`/auth/wechat/login`、HMAC 会话令牌、AuthPort 集成与会话重签（供邀请接受合并场景复用）。
 
 主要文件：
 
@@ -147,44 +146,18 @@ packages/contracts/src/wechat.ts
 
 1. 签发/校验 HMAC 令牌：payload `{ openid, sub, exp }`；过期、篡改、密钥缺失一律 401。
 2. 登录：exchangeCode → 按 `wechat_openid` 查用户；不存在则创建 `cloudbase_uid='wx_'+openid` 与空资料（未填真实姓名前允许会话但资料接口 404）；返回 `{ token, isNewUser, profile? }`。
-3. 绑定：校验绑定码哈希与过期 → 把当前 openid 写入既有用户（不覆盖 cloudbase_uid）→ 返回新会话；并发绑定用行锁 + 唯一索引防双绑。
-4. AuthPort：优先按 openid 解析；mock/dev 令牌兼容保留；生产 AUTH_DEV_MODE=false。
-5. 审计：登录（新用户）、绑定成功/失败。
+3. 会话重签：提供 `issueSessionForUser(userId, openid)`，供任务 5 空账号合并后签发新令牌。
+4. AuthPort：按 openid 解析用户；mock/dev 令牌兼容保留；生产 AUTH_DEV_MODE=false。
+5. 审计：登录（新用户）。
 
 验证：
 
-- 集成测试：登录/新用户/重复登录/绑定/绑定码错误/过期/已绑定冲突/令牌过期。
+- 集成测试：登录/新用户/重复登录/令牌过期/篡改/签名密钥缺失。
 - `pnpm verify` 全绿；`pnpm smoke:check-core` 通过。
 
-版本节点：`feat(api): wechat login, bind and signed session tokens`
+版本节点：`feat(api): wechat login and signed session tokens`
 
-## 8. 任务 4：绑定码（Web 生成 + 小程序绑定）
-
-目标：网页端个人资料页生成绑定码，小程序端输入绑定码绑定账号。
-
-主要文件：
-
-- `apps/api/src/modules/wechat/bind-code-service.ts`（含限频/哈希/过期）
-- `apps/api/src/modules/users/user-routes.ts`（`POST /users/me/bind-code`）
-- `apps/web/src/features/profile/*`（绑定码弹层与倒计时）
-- `apps/web/src/api/client.ts`、`packages/contracts/src/wechat.ts`
-- 集成测试：`bind-code.integration.test.ts`
-
-实施步骤：
-
-1. 绑定码表（可并入 invite_tokens 风格的新表或独立 `bind_codes` 表）：user_id、code_hash、expires_at、attempts、created_at；10 分钟有效、5 分钟 3 次限频。
-2. Web 个人资料页“生成绑定码”：展示 6 位码 + 倒计时 + 复制；操作写审计。
-3. 小程序“绑定已有账号”页：输入码 → `/auth/wechat/bind` → 成功后进入工作台并提示绑定成功。
-4. 失败文案：码无效/过期/已使用/尝试过多。
-
-验证：
-
-- 集成测试：生成/使用/重复使用/过期/限频/跨用户绑定拒绝。
-- 浏览器冒烟：Web 生成码流程可操作。
-
-版本节点：`feat(api+web): one-time account bind codes`
-
-## 9. 任务 5：访客扫码统一（visitor key + 群码 + 公开目录下线）
+## 8. 任务 4：访客扫码统一（visitor key + 群码 + 公开目录下线）
 
 目标：群组访客 key、群组小程序码 API、访客接口改造、Web 公开目录下线。
 
@@ -211,9 +184,9 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(api+web): scan-only guest access with visitor keys and group QR codes`
 
-## 10. 任务 6：邀请链接
+## 9. 任务 5：邀请链接与身份绑定
 
-目标：邀请创建/解析/接受/撤销，一次性令牌 + 姓名确认 + 角色配置。
+目标：邀请创建/解析/接受/撤销，一次性令牌 + 姓名确认 + 角色配置；接受邀请同时承担微信身份与成员身份的绑定（替代独立绑定码）。
 
 主要文件：
 
@@ -226,18 +199,21 @@ packages/contracts/src/wechat.ts
 
 1. 创建：目标为待认领名单或未认领成员；可指定排班角色与权限角色；生成随机 token（只返回一次），存 SHA-256；每群待使用令牌限频。
 2. 解析：校验状态/过期；返回群组名、姓名、角色预览。
-3. 接受：确认姓名与邀请一致 → 事务内绑定成员/创建成员 → 可选加入排班角色（memberScheduleRoles）→ 标记 used、记录用户与审计。
+3. 接受：确认姓名与邀请一致 → 事务内：
+   - 目标为待认领名单/未认领成员：创建或绑定成员到当前用户 → 可选加入排班角色（memberScheduleRoles）；
+   - 目标已被其他账号认领：若当前微信账号为空（无任何成员关系），把 openid 写入已认领账号（不覆盖 cloudbase_uid）、删除空账号、调用 `issueSessionForUser` 返回新令牌；若当前账号已有其他群组关系，返回 409 提示先退出或联系管理员；
+   - 标记 used、记录用户与审计。
 4. 撤销：owner/admin 撤销待使用令牌。
 5. 并发防护：接受时行锁邀请令牌，双开只成功一次。
 
 验证：
 
-- 集成测试：创建/接受/重复接受 409/过期/撤销/姓名不一致 400/权限/排班角色写入/限频。
+- 集成测试：创建/接受/重复接受 409/过期/撤销/姓名不一致 400/权限/排班角色写入/未认领绑定/已认领空账号合并返回新令牌/非空账号 409/限频。
 - `pnpm verify` 全绿。
 
-版本节点：`feat(api): one-time role-configured invite links`
+版本节点：`feat(api): one-time role-configured invite links with identity binding`
 
-## 11. 任务 7：微信订阅消息投递
+## 10. 任务 6：微信订阅消息投递
 
 目标：通知渠道扩展、微信投递器、值班提醒与状态变更接入、重试与 mock。
 
@@ -264,7 +240,7 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(api): wechat subscription message delivery`
 
-## 12. 任务 8：小程序工程脚手架
+## 11. 任务 7：小程序工程脚手架
 
 目标：`apps/miniprogram` 可被微信开发者工具导入，类型检查与 lint 纳入工作区。
 
@@ -289,31 +265,31 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(miniprogram): scaffold native TypeScript app with TDesign`
 
-## 13. 任务 9：小程序登录/注册/绑定页
+## 12. 任务 8：小程序登录/注册页
 
-目标：微信一键登录、真实姓名资料、绑定已有账号、会话恢复。
+目标：微信一键登录、真实姓名资料、会话恢复；直接打开只能建群或输群组码加入。
 
 主要文件：
 
-- `apps/miniprogram/pages/login/*`、`pages/register/*`、`pages/bind/*`
+- `apps/miniprogram/pages/login/*`、`pages/register/*`
 - `apps/miniprogram/api/endpoints.ts`、`store/session.ts`
 - `apps/miniprogram/config/index.ts`（mock 开关）
 
 实施步骤：
 
 1. 登录页：`wx.login` → `/auth/wechat/login`；新用户跳资料页填真实姓名（调用现有 `/users` 注册）；老用户直接进工作台。
-2. 绑定页：输入 6 位绑定码 → `/auth/wechat/bind`；成功提示并刷新会话。
-3. 会话恢复：启动时读 storage token，401 统一回登录页；登录按钮防重复点击。
-4. 错误/空态/加载态组件化。
+2. 会话恢复：启动时读 storage token，401 统一回登录页；登录按钮防重复点击。
+3. 错误/空态/加载态组件化。
+4. 首页/工作台入口提示：建群或输群组码加入；绑定身份需群主/管理员邀请链接。
 
 验证：
 
-- mock 模式在开发者工具完整走通登录→资料→绑定。
+- mock 模式在开发者工具完整走通登录→资料→工作台。
 - 真机预览（调试模式）同流程通过。
 
-版本节点：`feat(miniprogram): login, profile and account binding`
+版本节点：`feat(miniprogram): login and profile`
 
-## 14. 任务 10：小程序访客日历与扫码落地
+## 13. 任务 9：小程序访客日历、群码与邀请落地页
 
 目标：群码 scene 解析、访客日历、群码/邀请分享落地页。
 
@@ -337,7 +313,7 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(miniprogram): guest calendar, group QR and invite landing`
 
-## 15. 任务 11：小程序日历与成员/联系方式
+## 14. 任务 10：小程序日历与成员/联系方式
 
 目标：登录后月/周/列表日历、群组切换、成员与电话。
 
@@ -360,7 +336,7 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(miniprogram): calendar views, members and contacts`
 
-## 16. 任务 12：小程序请假/换班/加扣班
+## 15. 任务 11：小程序请假/换班/加扣班
 
 目标：成员创建申请、影响预览、历史与撤销；与 Web 相同校验。
 
@@ -381,7 +357,7 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(miniprogram): leave, swap and duty adjustment flows`
 
-## 17. 任务 13：小程序审批中心与通知/提醒设置
+## 16. 任务 12：小程序审批中心与通知/提醒设置
 
 目标：管理员审批、站内通知、订阅授权与提醒设置。
 
@@ -401,7 +377,7 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(miniprogram): approvals, notifications and reminder subscriptions`
 
-## 18. 任务 14：小程序群管理、排班配置与统计
+## 17. 任务 13：小程序群管理、排班配置与统计
 
 目标：全功能管理页（成员/认领/角色/班种/排班/群码/邀请/转让解散）与统计。
 
@@ -423,31 +399,29 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(miniprogram): group administration and statistics`
 
-## 19. 任务 15：Web 端配套调整
+## 18. 任务 14：Web 端配套调整
 
-目标：公开群组目录下线、访客 vkey 链接、绑定码 UI、登录体验适配。
+目标：公开群组目录下线、访客 vkey 链接、登录体验适配。
 
 主要文件：
 
 - `apps/web/src/features/groups/GuestCalendarPanel.vue`
 - `apps/web/src/features/layout/workbench-nav.ts`、`views/HomeView.vue`
-- `apps/web/src/features/profile/*`
 - `apps/web/src/api/client.ts`
 
 实施步骤：
 
 1. 移除访客目录加载与入口；访客页读取 URL `vkey` 调访客日历。
-2. 个人资料页增加“生成绑定码”弹层（倒计时、复制、错误文案）。
-3. 登录页文案补充“网页账号可在小程序中通过绑定码关联”。
-4. 更新浏览器冒烟断言。
+2. 登录页与访客页文案补充“小程序身份绑定通过群主/管理员邀请链接完成；访客仅可扫描群组小程序码查看”。
+3. 更新浏览器冒烟断言。
 
 验证：
 
 - `pnpm smoke:browser` 与 `pnpm smoke:check-core` 通过。
 
-版本节点：`feat(web): scan-only guest access and bind code UI`
+版本节点：`feat(web): scan-only guest access and invite-based binding copy`
 
-## 20. 任务 16：部署与验收
+## 19. 任务 15：部署与验收
 
 目标：服务器配置、小程序后台配置、上传脚本、验收清单。
 
@@ -462,7 +436,7 @@ packages/contracts/src/wechat.ts
 1. 服务器 `.env.production` 增加微信配置（AppSecret 不提交）；迁移先行部署纪律。
 2. 编写并本地验证 `upload-ci.mjs`（读本机上传密钥上传体验版）。
 3. 编写《微信小程序从 0 到上线》文档：注册/类目/合法域名/订阅模板/备案/发布核对清单。
-4. 端到端验收：登录、绑定、扫码访客、邀请、审批、提醒订阅、三视图、深色模式；用户真机复核后提交审核。
+4. 端到端验收：登录、扫码访客、邀请（未认领绑定/已认领合并）、审批、提醒订阅、三视图、深色模式；用户真机复核后提交审核。
 
 验证：
 
@@ -472,10 +446,10 @@ packages/contracts/src/wechat.ts
 
 ## 21. 每阶段检查点
 
-- 任务 1–3 完成后：微信账号体系可用（mock 与真实配置均可登录/绑定），`pnpm verify` 全绿。
-- 任务 4–7 完成后：绑定码、扫码访客、邀请、订阅消息后端全部可用并有集成测试。
-- 任务 8–14 完成后：小程序全功能可在开发者工具与真机预览运行。
-- 任务 15–16 完成后：Web 与小程序统一访客口径，上线材料齐备，等待用户提交审核与发布。
+- 任务 1–3 完成后：微信账号体系可用（mock 与真实配置均可登录），`pnpm verify` 全绿。
+- 任务 4–6 完成后：扫码访客、邀请/身份绑定、订阅消息后端全部可用并有集成测试。
+- 任务 7–13 完成后：小程序全功能可在开发者工具与真机预览运行。
+- 任务 14–15 完成后：Web 与小程序统一访客口径，上线材料齐备，等待用户提交审核与发布。
 
 ## 22. 实施开始条件
 
