@@ -1313,3 +1313,15 @@
   - 模拟器 storage `apiBaseUrl` 已清除（回默认公网域名）；用 DevTools `wx.login` 真实 code 在 ECS 上 POST 公网登录接口 = 200（isNewUser，生产库建号成功）；
   - 预览二维码已重新生成：`.tmp-miniprogram-preview/preview.png`（整包 373.8 KB）。
 - 用户已确认（2026-08-08）：小程序后台 request 合法域名已添加 `https://hosp.schedule.eylinhome.top`；剩余待办：确认值班提醒订阅模板已添加、手机扫码真机验收。
+
+### 真机联调阻塞：阿里云未备案域名拦截（2026-08-08）
+
+- 现象：手机扫码真机登录失败（无法连接到服务）；DevTools 走公网域名也 `ERR_CONNECTION_CLOSED`。
+- 排查证据（外部网络探测，非本机代理）：
+  - `https://hosp.schedule.eylinhome.top` = SSL_ERROR；
+  - `http://hosp.schedule.eylinhome.top` = 403；
+  - `https://120.77.220.79`（公网 IP 直连）= 正常返回系统页；
+  - ECS 内部 `curl --http1.1 https://hosp.../api/health` = 200；
+  - 公共 DNS 解析正常（`120.77.220.79`）。
+- 结论：阿里云边缘按 SNI 拦截未备案域名的 HTTPS，备案通过前公网/手机无法访问该域名；与服务器配置、合法域名、证书无关。本机 lmclient fake-IP（198.18.0.75）是另一层本地代理问题，两者独立。
+- 处理：模拟器已切回本地 API + 真实微信网关（登录 200，isNewUser=false）；真机联调等待 ICP 备案通过，通过后域名立即可用（全部前置已就绪）。
