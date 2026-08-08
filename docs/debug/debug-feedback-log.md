@@ -948,9 +948,19 @@
 - 验证：纯文档；prettier（deployment md）✅；`pnpm smoke:check-core` ✅。
 - 状态：✅（规则已沉淀；下次部署按该文件执行）。
 
+### fix-progress 轮次 54（N15 TDesign 模板类型全修）
+
+- 目标/需求：用户方案 C——启用 TDesign 组件类型声明后 11 个文件 27 处 TS2322/TS2379/TS4104 全部修复，并保留严格类型检查。
+- 根因/引入点：轮次 51（367a584）按需引入 TDesign 时 `Components({ dts: false })` 让 `<t-*>` 在 vue-tsc 中退化为未知元素，模板类型错误被整体掩盖；各页面处理器参数自功能开发期起手写为窄类型，与 TDesign `SelectValue`/`SwitchValue` 不一致。
+- 修复/功能：11 个文件处理器参数改用 TDesign 公共类型；ExportDialog 由 `v-model` 改为 `:value` + 显式 `@change`（清空仍写回 `undefined`）；GroupSwitcher/LeavePanel 的 undefined 值经 `?? ''` 传给显示层；`buildEventTypeOptions` 返回类型去 readonly；StatisticsView 表格只读数组改为可变副本、单元格参数改 `PrimaryTableCellParams<TableRowData>` 并防御性读取；`vite.config.ts` 启用 `dts: 'src/components.d.ts'`，生成物入库并加入 `.prettierignore`。
+- 行为变化清单：处理器仅放宽参数类型，函数体收窄逐点保留；`toggleBrowserNotifications` 对非 boolean 新增提前 return（TDesign 实际只发 boolean）；显示层 undefined→'' 占位等价；统计“原实对照”由数字改字符串渲染（Vue 显示一致）；畸形表格行防御性显示 0/空；其余无运行变化。
+- 验证：先失败证据 `pnpm --filter @schedule/web build`（dts 开启）27 处报错 → 修复后通过；`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL）；prettier/lint 通过。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误；工作台 TDesign 组件真实渲染）；pnpm smoke:check-core 通过。
+- 状态：#N15 ✅（已完成，含运行验证；待用户强刷复核各页面外观与交互不变）。
+
 ## 待办 / 下一步
 
-- N15 待修（用户方案 C，2026-08-08 记录）：TDesign 严格类型暴露的模板类型问题，涉及 11 个文件；详细病症与复现方式见 `fix-progress.md` 的“N15 待修清单”。修复目标是启用组件类型声明后 `pnpm --filter @schedule/web build` 通过，并保持 `pnpm verify` / 浏览器冒烟 / 浏览器语义检查全绿。
+- N15 ✅（fix-progress 轮次 54 已完成）：TDesign 模板严格类型全修，`dts` 已开启并提交生成的组件声明；升级 TDesign/新增组件后需重新构建并提交 `apps/web/src/components.d.ts`。
 - 用户强刷后复核：事件/日历/换班/加扣班/请假时间显示与草稿编号不变（轮次 43 相关，纯显示层收敛）。
 - 用户决策（2026-08-07 方案二 → 2026-08-08 方案 4 撤除）：N2 试用期密码门禁与登录 Bearer 认证冲突（反复弹框），已撤除；正式账号/微信登录落地前不再启用，公网入口保持开发模式认证（风险已登记）。
 - 用户决策（2026-08-07）：CloudBase 弃用并已清理；部署目标固定阿里云 ECS；#3.6/#9.1/#9.2 随平台清理关闭。

@@ -490,7 +490,7 @@
 - **N12 ✅（轮次 49/50 已完成）** 工作区残留：空 `cloudfunctions/` 目录已清理（轮次 49）；`logs/` 4 个日志文件在轮次 50 停止本地服务后已移动到系统临时目录，服务已按原命令重启，日志目录不再存在。
 - **N13 ✅（轮次 50 已完成）** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割。已完成：路由组件全部改为懒加载 + vendor 手动分包（vue/vue-router/pinia、tdesign-vue-next、@tanstack/vue-query）；入口主包降至约 122KB，HomeView 约 212KB 独立路由块；剩余 `vendor-tdesign` 约 1.27MB 属 TDesign 整包引入，按需引入另排可选优化。
 - **N14 ✅（轮次 50 已完成）** `infra/docker/compose.test.yml` 测试库 512MB tmpfs 顶满崩溃；已把 tmpfs 提到 1g 并加 `command: ["--disable-log-bin"]`，重置后全量 `pnpm verify` 596/596 通过，未再崩溃；`docker compose config --quiet` 通过。
-- **N15 ⏳ 待新对话全修（用户方案 C，2026-08-08 记录）** TDesign 严格类型暴露的模板类型问题——11 个文件在启用组件类型声明后会产生 TS2322/TS2379/TS4104 报错；当前 `vite.config.ts` 的 `Components({ dts: false })` 保持构建通过，属于“被宽松类型掩盖”的存量问题。详细病症与复现方式见下方“N15 待修清单”。
+- **N15 ✅（轮次 54 已完成）** TDesign 严格类型暴露的模板类型问题——11 个文件在启用组件类型声明后会产生 TS2322/TS2379/TS4104 报错；当前 `vite.config.ts` 的 `Components({ dts: false })` 保持构建通过，属于“被宽松类型掩盖”的存量问题。修复：11 个文件全部改为符合 TDesign 公共类型（`SelectValue`/`SwitchValue`/表格参数）的写法，`undefined` 值在显示层归一为占位空串，`vite.config.ts` 启用 `dts: 'src/components.d.ts'` 并把生成的声明文件提交入库；详细记录见下方轮次 54。
 
 #### N15 待修清单（TDesign 严格类型模板问题）
 
@@ -828,6 +828,30 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
 - `tests/security` typecheck 因 `apps/api/src/modules/notifications/notification-dispatcher.ts` 引用的 `web-push` 缺类型声明而失败（apps/api 自身 typecheck 有 `src/types/web-push.d.ts` 覆盖；tests/security 的 tsconfig include 不含该声明；轮次 38 发现，登记于 project-status/debug 日志）。
   > 完成情况（轮次 40）：`tests/security/tsconfig.json` include 增加 `../../apps/api/src/types/**/*.d.ts`（指向唯一声明源），`pnpm --filter @schedule/security-tests typecheck` 通过。
+
+### 轮次 54 – 2026-08-08
+
+目标：#N15（用户方案 C）——TDesign 模板严格类型全修：启用组件类型声明后，11 个文件共 27 处 TS2322/TS2379/TS4104 清零，并保留严格类型检查（`dts` 开启）。
+
+引入点：轮次 51（367a584）按需引入 TDesign 时 `Components({ dts: false })` 让 `<t-*>` 在 vue-tsc 中退化为未知元素，模板类型错误被整体掩盖；各页面的 Select/Switch 处理器参数自功能开发期起就手写为 `string | number | boolean | object | null`，与 TDesign 的 `SelectValue`（含 `bigint`/数组/选项对象）不一致。
+
+为什么现有测试没拦住：`pnpm verify` 的 `vue-tsc` 在 `dts: false` 时不校验 TDesign 模板属性/事件类型，单测也不覆盖模板类型。先失败证据：把 `dts` 改为 `'src/components.d.ts'` 后 `pnpm --filter @schedule/web build` 报 27 处错误（11 个文件，类型与行号与“N15 待修清单”一致）；修复后同命令通过。
+
+修改文件：`vite.config.ts`（`dts: false` → `dts: 'src/components.d.ts'`）；`DutyAdjustmentPanel.vue`/`GroupSwitcher.vue`/`LeaveApprovalDialog.vue`/`LeavePanel.vue`/`SwapPanel.vue`/`ManualScheduleView.vue`/`PastScheduleView.vue`/`ExportDialog.vue`（Select 处理器参数改用 `SelectValue`；ExportDialog 由 `v-model` 改为 `:value` + 显式 `@change`，清空仍写回 `undefined`）；`NotificationSettingsPanel.vue`（Switch 处理器参数改用 `SwitchValue`，非 boolean 提前返回）；`event-timeline.ts`（`buildEventTypeOptions` 返回类型去掉外层 readonly）；`StatisticsView.vue`（单元格渲染参数改为 TDesign `PrimaryTableCellParams<TableRowData>` 并用 `Record<string, unknown>` 防御性读取；岗位/班种只读数组改为计算属性复制为可变数组）；新增 `.prettierignore`（忽略生成的 `components.d.ts`）；新增 `src/components.d.ts`（unplugin-vue-components 生成物，入库供 vue-tsc 严格校验）。
+
+语义等价审计与行为变化清单：①Select/Switch 处理器仅放宽参数类型，函数体原有 `typeof value === 'string'`/枚举收窄逐点保留，真实运行路径不变；`toggleBrowserNotifications` 对非 boolean 值新增提前 return（TDesign 未配 `customValue` 时只发 boolean，实际运行无变化）。②ExportDialog/GroupSwitcher/LeavePanel 的 `undefined` 值经 `?? ''` 传给 TDesign 显示层（占位符显示不变）；ExportDialog 清空后状态仍写回 `undefined`，请求组装逻辑（`=== undefined` 省略字段）不变。③`buildEventTypeOptions` 本就返回新建数组，只去掉 readonly 标注，运行无变化。④StatisticsView 岗位/班种数据改为 computed 复制（内容相同）；单元格渲染对真实行输出不变，原实对照列由数字改为字符串渲染（Vue 显示一致），畸形行（缺字段）防御性显示 0/空而非抛错。⑤`dts` 开启后构建生成并校验 `components.d.ts`，未知 `<t-*>` 不再放行；该文件为生成物，加入 `.prettierignore`，格式由 vite 维护。
+
+测试结果：基线 `pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL）；修改后 `pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL）；`pnpm --filter @schedule/web build`（dts 开启）通过。
+
+运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误；工作台 TDesign 组件真实渲染）；pnpm smoke:check-core 通过（本轮记录满足校验）。
+
+状态：#N15 ✅（已完成，含运行验证；纯类型/显示层收敛，待用户强刷复核各页面外观与交互不变）。
+
+提交：见下方代码提交 + docs checkpoint 提交（推送结果见对话回复）。
+
+不确定点：1. `?? ''` 使 TDesign 在“未选择”时收到空字符串而非 `undefined`，两个状态界面都显示占位符；若未来给选项新增 `value: ''`，此写法会显示该选项，需改回显式 undefined 处理。2. StatisticsView 防御性读取对缺少字段的畸形行显示 0/空，真实 API 数据始终有字段，无用户可见差异。3. `components.d.ts` 是生成物，升级 TDesign 或新增组件后需重新构建并把新声明提交入库，否则 CI 的 vue-tsc 校验可能与本地不一致。
+
+下次计划：按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号）；前端/接口再改动时按 `aliyun-ecs.md` + `ecs-deployment-pitfalls.md` 同步 ECS；可选优化：HomeView 进一步拆包。
 
 ## 7. 轮次记录
 
