@@ -30,7 +30,7 @@ export const workbenchNavItems: readonly WorkbenchNavItem[] = [
   { id: 'leave', label: '请假', requiresAdministrator: false },
   { id: 'swap', label: '换班', requiresAdministrator: false },
   { id: 'duty', label: '加扣班', requiresAdministrator: false },
-  { id: 'events', label: '事件', requiresAdministrator: false },
+  { id: 'events', label: '事件', requiresAdministrator: true },
   { id: 'notifications', label: '通知', requiresAdministrator: false },
   { id: 'statistics', label: '统计', requiresAdministrator: false },
   { id: 'members', label: '成员', requiresAdministrator: false },
@@ -40,7 +40,13 @@ export const workbenchNavItems: readonly WorkbenchNavItem[] = [
 const primaryMobileTabIds: readonly WorkbenchTabId[] = ['calendar', 'leave', 'swap', 'duty'];
 
 export function getVisibleNavItems(role: GroupRole): readonly WorkbenchNavItem[] {
-  return workbenchNavItems.filter((item) => !item.requiresAdministrator || role !== 'member');
+  const base = workbenchNavItems.filter(
+    (item) => !item.requiresAdministrator || role !== 'member',
+  );
+  if (role === 'guest') {
+    return base.filter((item) => item.id === 'calendar' || item.id === 'groups');
+  }
+  return base;
 }
 
 export function getDesktopNavItems(role: GroupRole): readonly WorkbenchNavItem[] {

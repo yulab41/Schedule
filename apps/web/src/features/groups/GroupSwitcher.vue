@@ -30,7 +30,11 @@ function roleLabel(role: GroupSummary['role']): string {
     return '群主';
   }
 
-  return role === 'administrator' ? '管理员' : '成员';
+  if (role === 'administrator') {
+    return '管理员';
+  }
+
+  return role === 'guest' ? '访客' : '成员';
 }
 </script>
 

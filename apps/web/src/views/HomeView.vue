@@ -7,6 +7,7 @@ import { toUserMessage } from '../utils/user-message.js';
 import { localAuth } from '../auth/local-auth.js';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
+import GuestCalendarPanel from '../features/groups/GuestCalendarPanel.vue';
 import WorkbenchNav from '../features/layout/WorkbenchNav.vue';
 import {
   getDesktopNavItems,
@@ -94,7 +95,12 @@ function selectGroupTab(groupId: string | undefined): void {
       />
       <section v-if="currentGroup() !== undefined" class="current-group-workbench">
         <h2>{{ currentGroup()?.name }}</h2>
-        <div v-if="currentGroup()?.role !== 'member'" class="workbench-actions">
+        <div
+          v-if="
+            currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator'
+          "
+          class="workbench-actions"
+        >
           <t-button variant="outline" size="small" @click="exportDialogVisible = true">
             导出
           </t-button>
@@ -114,7 +120,11 @@ function selectGroupTab(groupId: string | undefined): void {
             @select="activeTab = $event"
           />
           <section class="workbench-panels">
-            <CalendarView v-if="activeTab === 'calendar'" :group="currentGroup()!" />
+            <GuestCalendarPanel
+              v-if="activeTab === 'calendar' && currentGroup()?.role === 'guest'"
+              :group="currentGroup()!"
+            />
+            <CalendarView v-else-if="activeTab === 'calendar'" :group="currentGroup()!" />
             <ManualScheduleView
               v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
               :group="currentGroup()!"

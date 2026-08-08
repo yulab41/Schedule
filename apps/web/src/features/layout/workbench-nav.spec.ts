@@ -5,6 +5,7 @@ import {
   getFocusOrder,
   getPrimaryMobileNavItems,
   getSecondaryMobileNavItems,
+  getVisibleNavItems,
   workbenchNavItems,
 } from './workbench-nav.js';
 
@@ -48,5 +49,16 @@ describe('Workbench navigation', () => {
     expect(getFocusOrder(visible)).toEqual(visible.map((item) => item.id));
     const primary = getPrimaryMobileNavItems('administrator');
     expect(getFocusOrder(primary)).toEqual(primary.map((item) => item.id));
+  });
+
+  it('hides the event center from members and keeps it for administrators', () => {
+    const memberIds = getVisibleNavItems('member').map((item) => item.id);
+    const administratorIds = getVisibleNavItems('administrator').map((item) => item.id);
+    expect(memberIds).not.toContain('events');
+    expect(administratorIds).toContain('events');
+  });
+
+  it('limits guests to calendar and group management', () => {
+    expect(getVisibleNavItems('guest').map((item) => item.id)).toEqual(['calendar', 'groups']);
   });
 });
