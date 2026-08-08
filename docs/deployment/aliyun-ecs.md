@@ -104,6 +104,10 @@ scp /tmp/schedule-dist.tar.gz /tmp/api-flat-node_modules.tar.gz \
   infra/scripts/ecs-update.sh root@120.77.220.79:/tmp/
 ssh root@120.77.220.79 \
   'bash /tmp/ecs-update.sh /tmp/schedule-dist.tar.gz /tmp/api-flat-node_modules.tar.gz'
+
+# 部署后验证（健康检查、MD5、前端资源、依赖树、迁移计数）
+scp infra/scripts/ecs-verify.sh root@120.77.220.79:/tmp/
+ssh root@120.77.220.79 'bash /tmp/ecs-verify.sh'
 ```
 
 脚本保留旧依赖树为 `node_modules.old-<时间戳>`，验证通过并确认稳定后再清理。
