@@ -1117,3 +1117,16 @@
 - 测试：`wechat-gateway.spec.ts` 12 项（mock 稳定 openid/占位二维码/发送记录日志；真实网关 jscode2session 成功与错误映射、access_token 缓存与 5 分钟余量、二维码二进制与 45009 限流、订阅发送成功与 43101 拒绝、未知错误码/非 JSON/HTTP 500/超时、错误信息不含 appsecret）；env.test 新增 4 项（生产拒绝 mock、QR 版本校验、凭据可选、test 模式默认）；全量 `pnpm verify` 640 项（77 个测试文件，隔离 MySQL）通过。
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；本轮涉及 `.env.example` 核心链路，按 AGENTS.md 补录本记录。
 - 状态：任务 2 ✅（已完成，含运行验证；下一轮任务 3 微信认证与会话令牌）。
+
+### 微信小程序任务 3（微信认证与会话令牌，2026-08-08）
+
+- 目标/需求：`/auth/wechat/login`、HMAC-SHA256 会话令牌、按 openid 解析用户的 AuthPort、会话重签 `issueSessionForUser` 与新用户审计。
+- 修改文件：
+  - `apps/api/src/adapters/auth/wechat-auth.ts`（HS256 风格自签名令牌签发/校验：payload `{ openid, sub, exp }`，密钥缺失/过期/篡改一律 401；`createWechatAuthPort` 按 openid+sub 查用户，可开 dev 令牌兼容）；
+  - `apps/api/src/modules/wechat/wechat-auth-service.ts`（exchangeCode → 按 wechat_openid 查/建用户，新用户建 `cloudbase_uid='wx_'+openid` 空资料并写审计；`issueSessionForUser` 供合并场景重签；WechatGatewayError → ApiError 状态码映射）；
+  - `apps/api/src/modules/wechat/wechat-auth-routes.ts`（`POST /auth/wechat/login`，复用 contracts wechatLoginRequestSchema）；
+  - `apps/api/src/app.ts`（`wechatSessionSecret` 选项 + 注册路由）、`runtime.ts`（网关已配置时优先创建微信 AuthPort，未配置回退 dev auth）；
+  - `apps/api/src/modules/users/user-service.ts`（微信登录已建账号但无资料时允许通过 `/users` 补齐资料）。
+- 测试：`wechat-auth.integration.test.ts` 7 项（新用户/重复登录/资料补齐/过期/篡改/密钥缺失 401/dev 令牌兼容/微信错误码 401 映射）；用户路由回归 6/6；全量 `pnpm verify` 647 项（78 个测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
+- 运行/浏览器验证：本轮未触及核心链路（Web/contracts/.env.example），按 AGENTS.md 无需浏览器冒烟；提交前 `pnpm smoke:check-core` 已通过。
+- 状态：任务 3 ✅（已完成，含运行验证；任务 1–3 阶段检查点达成：mock 与真实配置均可登录；下一轮任务 4 访客扫码统一）。

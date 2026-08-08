@@ -35,7 +35,7 @@ export class WechatGatewayError extends Error {
     public readonly errcode: number | null,
     public readonly errmsg: string | null,
     public readonly mappedCode: ApiErrorCode,
-    message: string | undefined,
+    message: string | undefined = undefined,
   ) {
     super(message ?? `WeChat API error ${errcode ?? 'unknown'}: ${errmsg ?? 'unknown'}`);
     this.name = 'WechatGatewayError';

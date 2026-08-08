@@ -38,6 +38,20 @@ export class UserService {
 
         if (existingUser !== undefined) {
           if (existingUser.status === 'active') {
+            const [existingProfile] = await transaction
+              .select({ userId: userProfiles.userId })
+              .from(userProfiles)
+              .where(eq(userProfiles.userId, existingUser.id))
+              .limit(1);
+
+            // 微信登录会先创建账号但不建资料；此时允许补齐真实姓名资料。
+            if (existingProfile === undefined) {
+              await transaction
+                .insert(userProfiles)
+                .values({ realName: input.realName, userId: existingUser.id });
+              return { id: existingUser.id, realName: input.realName, version: 1 };
+            }
+
             throw new ApiError({
               code: 'CONFLICT',
               statusCode: 409,

@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 
 import type { AuthPort } from './adapters/auth/auth-port.js';
 import { createDevAuthPort } from './adapters/auth/dev-auth.js';
+import { createWechatAuthPort } from './adapters/auth/wechat-auth.js';
 import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
 import { createWechatGateway } from './modules/wechat/wechat-gateway.js';
@@ -24,14 +25,6 @@ export function createRuntimeApp(
   environment: Environment = loadEnvironment(),
   options: RuntimeAppOptions = {},
 ): FastifyInstance {
-  const authPort =
-    options.authPort ?? (isDevAuthEnabled(environment) ? createDevAuthPort() : undefined);
-  if (authPort === undefined) {
-    throw new Error(
-      'No authentication port configured. Enable AUTH_DEV_MODE in development or pass an authPort.',
-    );
-  }
-
   const databaseClient = createDatabaseClient({
     database: environment.MYSQL_DATABASE,
     host: environment.MYSQL_HOST,
@@ -39,10 +32,29 @@ export function createRuntimeApp(
     port: environment.MYSQL_PORT,
     user: environment.MYSQL_USER,
   });
+  const wechatGateway = createWechatGateway(environment);
+  const wechatAuthPort = wechatGateway.isConfigured
+    ? createWechatAuthPort({
+        allowDevTokens: isDevAuthEnabled(environment),
+        databaseClient,
+        sessionSecret: environment.WECHAT_SESSION_SECRET,
+      })
+    : undefined;
+  const authPort =
+    options.authPort ??
+    wechatAuthPort ??
+    (isDevAuthEnabled(environment) ? createDevAuthPort() : undefined);
+  if (authPort === undefined) {
+    throw new Error(
+      'No authentication port configured. Enable AUTH_DEV_MODE in development or pass an authPort.',
+    );
+  }
+
   const app = createApp({
     authPort,
     databaseClient,
-    wechatGateway: createWechatGateway(environment),
+    wechatGateway,
+    wechatSessionSecret: environment.WECHAT_SESSION_SECRET,
   });
 
   const workflowSelfHealingService = new WorkflowSelfHealingService(databaseClient);

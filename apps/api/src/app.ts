@@ -46,6 +46,8 @@ import { registerExportRoutes } from './modules/exports/export-routes.js';
 import { registerPastScheduleRoutes } from './modules/past-schedules/past-schedule-routes.js';
 import { PastScheduleService } from './modules/past-schedules/past-schedule-service.js';
 import { ExportService } from './modules/exports/export-service.js';
+import { WechatAuthService } from './modules/wechat/wechat-auth-service.js';
+import { registerWechatAuthRoutes } from './modules/wechat/wechat-auth-routes.js';
 import { registerAuthentication } from './plugins/authenticate.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRequestContext } from './plugins/request-context.js';
@@ -70,6 +72,7 @@ export interface CreateAppOptions {
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
   readonly platformAdminUids?: ReadonlySet<string>;
   readonly wechatGateway?: WechatGateway;
+  readonly wechatSessionSecret?: string | undefined;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
@@ -91,6 +94,16 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.authPort !== undefined && options.databaseClient !== undefined) {
     registerAuthentication(app, options.authPort);
     registerUserRoutes(app, new UserService(options.databaseClient));
+    if (options.wechatGateway !== undefined) {
+      registerWechatAuthRoutes(
+        app,
+        new WechatAuthService({
+          databaseClient: options.databaseClient,
+          gateway: options.wechatGateway,
+          sessionSecret: options.wechatSessionSecret,
+        }),
+      );
+    }
     registerGroupRoutes(
       app,
       new GroupService(options.databaseClient),
