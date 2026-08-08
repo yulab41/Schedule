@@ -7,6 +7,10 @@ DIST_TAR="${1:?缺少 dist 压缩包路径}"
 FLAT_TAR="${2:?缺少 api-flat 压缩包路径}"
 DEPLOY_DIR="/opt/schedule"
 BACKUP_SUFFIX=".old-$(date +%Y%m%d%H%M%S)"
+COMPOSE_FILES=(-f infra/docker/compose.prod.yml)
+if [ -f infra/docker/compose.prod.icp-test.yml ]; then
+  COMPOSE_FILES+=(-f infra/docker/compose.prod.icp-test.yml)
+fi
 
 cd "$DEPLOY_DIR"
 
@@ -37,7 +41,7 @@ tar -xzf "$DIST_TAR" -C "$DEPLOY_DIR" \
   packages/scheduling-domain/dist
 
 echo "[deploy] 5/6 重建 api/web 容器"
-docker compose --env-file .env.production -f infra/docker/compose.prod.yml \
+docker compose --env-file .env.production "${COMPOSE_FILES[@]}" \
   up -d --force-recreate api web
 
 echo "[deploy] 6/6 基本验证"

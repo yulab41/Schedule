@@ -106,3 +106,4 @@
 16. 未备案域名会被阿里云拦截：外部访问 `http://hosp.schedule.eylinhome.top` 返回 403 `Non-compliance ICP Filing`（iframe 指向 aliyun beian-block），HTTPS 直接断连（curl 000/35）——这是阿里云对未备案域名的拦截，不是服务器故障；验证服务本身只能直连 IP（HTTP 到 IP 正常，HTTPS 到 IP 因维护模式被主动断开）。
 17. 用 `curl http://127.0.0.1/` 验证 nginx 会命中 default_server 而不是域名 server block：必须加 `-H 'Host: hosp.schedule.eylinhome.top'`，否则看到的是 IP 默认规则（如 302 到占位页）而误判配置。
 18. 备案维护期自测入口的 nginx 不能 `listen 127.0.0.1:8080`：Docker 端口映射到达的是容器网卡地址，容器内回环监听收不到连接；应 `listen 8080`，把“仅本机可访问”放在宿主机端口绑定层（compose 写 `127.0.0.1:8080:8080`，见 `icp-maintenance.sh` 生成的 `compose.prod.icp-test.yml`）。
+19. 用基础 `compose.prod.yml` 重建 web 容器会丢掉维护模式的 `127.0.0.1:8080:8080` 自测入口：`docker compose up --force-recreate web` 只读基础文件，覆盖文件里的端口不生效；必须 `-f compose.prod.yml -f compose.prod.icp-test.yml` 一起用（`ecs-update.sh` 已自动检测并附带该覆盖文件）。

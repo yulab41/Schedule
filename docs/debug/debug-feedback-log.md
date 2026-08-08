@@ -1082,3 +1082,12 @@
 - 测试：Web 全量 267 项；`pnpm verify` 616 项总测试（75 个测试文件，隔离 MySQL）通过。
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程 + 群组管理面板 + 成员无事件导航断言）。
 - 状态：批次 C ✅（实施计划 8 个任务全部完成；功能已完成并含运行验证；本地可验收，服务器同步与用户强刷复核待安排）。
+
+### 新需求自动部署（2026-08-08）
+
+- 目标/需求：用户要求继续 API 集成测试并自动部署到阿里云 ECS。
+- API 集成测试：`pnpm --filter @schedule/api exec vitest run`（`NODE_ENV=test` + `TEST_MYSQL_*`）35 个文件 268 项全绿；全量 `pnpm verify` 616 项此前已通过。
+- 自动部署：新增 `infra/scripts/ecs-update.sh`（迁移先行 → 替换依赖/代码 → 重建容器 → 验证）与 `infra/scripts/ecs-verify.sh`（健康/前端资源/MD5/依赖树/迁移计数）；本机构建后打包上传 `120.77.220.79`，先执行迁移（0032 已应用，计数 32），再替换 dist 与平铺依赖树，重建 api/web。
+- 踩坑：用基础 `compose.prod.yml` 重建 web 会丢维护模式 `127.0.0.1:8080:8080` 自测入口；`ecs-update.sh` 已改为自动附带 `compose.prod.icp-test.yml`，并写入踩坑手册第 19 条。
+- 运行/浏览器验证：`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（登录/管理员/成员/访客 + 群组管理面板 + 成员无事件导航断言）；`/api/health` 200；`local-server.js` MD5 与本地一致；web 入口资源 `index-D_iPeI7A.js` 一致；依赖树无 `@cloudbase`。
+- 状态：已部署服务器，待用户强刷复核（公网为 ICP 备案维护占位页，自测走 127.0.0.1:8080 隧道）。
