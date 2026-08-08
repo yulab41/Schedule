@@ -4,10 +4,13 @@ import type {
   ApprovedLeaveRequestResult,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
+  DissolvedGroup,
+  GroupCatalogEntry,
   GroupNotificationSettings,
   GroupMember,
   GroupMemberContact,
   GroupSummary,
+  GuestCalendarReadModel,
   HolidayReadModel,
   LeaveAffectedAssignment,
   LeaveAffectedShift,
@@ -755,6 +758,89 @@ describe('Web API client', () => {
       3,
       '/api/groups/group-1/group-code',
       expect.objectContaining({ body: '{}', method: 'PUT' }),
+    );
+  });
+
+  it('sends group membership self-service calls through authenticated API calls', async () => {
+    const catalog: GroupCatalogEntry[] = [
+      { id: 'group-1', name: 'Emergency Department', relation: 'none' },
+    ];
+    const guestGroup: GroupSummary = {
+      id: 'group-1',
+      name: 'Emergency Department',
+      role: 'guest',
+      version: 1,
+    };
+    const dissolved: DissolvedGroup[] = [
+      { deletedAt: '2026-08-08T00:00:00.000Z', id: 'group-1', name: 'Emergency Department' },
+    ];
+    const guestCalendar: GuestCalendarReadModel = {
+      calendar,
+      groupName: 'Emergency Department',
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(catalog), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(guestGroup), { status: 201 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(group), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(dissolved), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(guestCalendar), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.listGroupCatalog()).resolves.toEqual(catalog);
+    await expect(client.joinGroupAsGuest('group-1')).resolves.toEqual(guestGroup);
+    await expect(client.leaveGroup('group-1')).resolves.toBeUndefined();
+    await expect(client.updateGroupName('group-1', { name: 'Renamed group' })).resolves.toEqual(
+      group,
+    );
+    await expect(client.listDissolvedGroups()).resolves.toEqual(dissolved);
+    await expect(client.restoreGroup('group-1')).resolves.toBeUndefined();
+    await expect(client.getGroupGuestCalendar('group-1', '2026-08')).resolves.toEqual(
+      guestCalendar,
+    );
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/catalog',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/join-guest',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/groups/group-1/leave',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      4,
+      '/api/groups/group-1/name',
+      expect.objectContaining({
+        body: JSON.stringify({ name: 'Renamed group' }),
+        method: 'PUT',
+      }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      5,
+      '/api/groups/dissolved',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      6,
+      '/api/groups/group-1/restore',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      7,
+      '/api/groups/group-1/guest-calendar?businessMonth=2026-08',
+      expect.objectContaining({ method: 'GET' }),
     );
   });
 

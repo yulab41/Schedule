@@ -26,6 +26,8 @@ import type {
   CreateShiftTypeRequest,
   CreateManualScheduleTemplateRequest,
   CreateGroupRequest,
+  DissolvedGroup,
+  GroupCatalogEntry,
   GroupMember,
   GroupMemberContact,
   GroupDutyAdjustmentSettings,
@@ -100,6 +102,7 @@ import type {
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberRoleRequest,
+  UpdateGroupNameRequest,
   UpdateGroupDutyAdjustmentSettingsInput,
   UpdateManualScheduleTemplateRequest,
   UpdateGroupLeaveReflowStrategyInput,
@@ -122,8 +125,10 @@ import {
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
   dutyAdjustmentRequestSchema,
+  dissolvedGroupListSchema,
   guestCalendarReadModelSchema,
   guestGroupSummaryListSchema,
+  groupCatalogListSchema,
   groupDutyAdjustmentSettingsSchema,
   groupMemberContactListSchema,
   groupMemberContactSchema,
@@ -341,6 +346,16 @@ export interface ApiClient {
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
+  listGroupCatalog(): Promise<GroupCatalogEntry[]>;
+  joinGroupAsGuest(groupId: string): Promise<GroupSummary>;
+  leaveGroup(groupId: string): Promise<void>;
+  updateGroupName(groupId: string, input: UpdateGroupNameRequest): Promise<GroupSummary>;
+  listDissolvedGroups(): Promise<DissolvedGroup[]>;
+  restoreGroup(groupId: string): Promise<void>;
+  getGroupGuestCalendar(
+    groupId: string,
+    businessMonth: string,
+  ): Promise<GuestCalendarReadModel>;
   lookupClaimMatches(groupId: string, realName: string): Promise<MembershipClaimLookupResponse>;
   createMembershipClaimRequest(
     groupId: string,
@@ -1569,6 +1584,79 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         '/groups',
         { method: 'GET' },
         isResponseBodyFromSchema(groupSummaryListSchema),
+      );
+    },
+    listGroupCatalog() {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/groups/catalog',
+        { method: 'GET' },
+        isResponseBodyFromSchema(groupCatalogListSchema),
+      );
+    },
+    joinGroupAsGuest(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/join-guest`,
+        { method: 'POST' },
+        isResponseBodyFromSchema(groupSummarySchema),
+      );
+    },
+    leaveGroup(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/leave`,
+        { method: 'POST' },
+        isUndefined,
+      );
+    },
+    updateGroupName(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/name`,
+        {
+          body: JSON.stringify(input),
+          method: 'PUT',
+        },
+        isResponseBodyFromSchema(groupSummarySchema),
+      );
+    },
+    listDissolvedGroups() {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/groups/dissolved',
+        { method: 'GET' },
+        isResponseBodyFromSchema(dissolvedGroupListSchema),
+      );
+    },
+    restoreGroup(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/restore`,
+        { method: 'POST' },
+        isUndefined,
+      );
+    },
+    getGroupGuestCalendar(groupId, businessMonth) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/guest-calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(guestCalendarReadModelSchema),
       );
     },
     listDutyAdjustmentApprovals(groupId) {
