@@ -16,9 +16,9 @@
 | 10 | 模板新建/编辑/删除/应用/预览/下一可用起始日 | pages/schedule/manual | utils 单测 + 模拟器 | B | ☑ |
 | 11 | 草稿批次发布/删除、发布记录（当前/既往/归档）、重新发布/撤销 + 影响确认 | pages/schedule/manual | 模拟器流程 | B | ☑ |
 | 12 | 版本冲突 409 弹窗与刷新（conflict-handler） | utils/conflict + 确认弹层 | 单测 + 模拟器 | B | ☑ |
-| 13 | 排班补录（PastScheduleView 绘制 + 待确认 + 记录） | pages/schedule/backfill | 模拟器流程 | C | ☐ |
-| 14 | 统计完整明细（汇总卡/成员/岗位/班种/计值班次/原实对照/重算） | pages/schedule/statistics | utils 单测 + 模拟器 | C | ☐ |
-| 15 | 导出（任务轮询 + CSV 保存/分享/打开） | pages/schedule/export | 模拟器流程 | C | ☐ |
+| 13 | 排班补录（PastScheduleView 绘制 + 待确认 + 记录） | pages/schedule/backfill | 模拟器流程 | C | ☑ |
+| 14 | 统计完整明细（汇总卡/成员/岗位/班种/计值班次/原实对照/重算） | pages/schedule/statistics | utils 单测 + 模拟器 | C | ☑ |
+| 15 | 导出（任务轮询 + CSV 保存/分享/打开） | pages/schedule/export | 模拟器流程 | C | ☑ |
 | 16 | 请假/换班/加扣班（表单/预览/我的申请/审批） | pages/requests/*、approvals | 既有流程复核 | A | ☑ |
 | 17 | 事件时间线 + 访客访问记录 | pages/events | 既有流程复核 | A | ☑ |
 | 18 | 通知列表/未读/已读 + 提醒设置 + 订阅（微信扩展） | pages/notifications/* | 既有流程复核 | A | ☑ |

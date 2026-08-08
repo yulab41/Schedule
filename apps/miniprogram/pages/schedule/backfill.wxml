@@ -1,3 +1,65 @@
 <view class="page-container">
-  <view class="card empty-state">{{errorMessage}}</view>
+  <group-switcher
+    wx:if="{{groups.length > 0}}"
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view class="card">
+    <view class="card-title">排班补录</view>
+    <picker mode="selector" range="{{periodLabels}}" value="{{periodIndex}}" bindchange="onPeriodChange">
+      <view class="form-row"><text class="muted">排班期间</text><text>{{periodLabels[periodIndex] || '请选择'}}</text></view>
+    </picker>
+    <view class="muted">点击既往日期加入待确认列表；未来日期不可补录。</view>
+  </view>
+
+  <view wx:if="{{gridWeeks.length > 0}}" class="card">
+    <view class="row-between">
+      <view class="card-title">{{monthLabel}}</view>
+      <t-button size="small" variant="outline" disabled="{{pendingDates.length === 0}}" bind:tap="clearPending">清空待确认</t-button>
+    </view>
+    <view wx:for="{{gridWeeks}}" wx:key="index" class="backfill-week">
+      <view
+        wx:for="{{item.cells}}"
+        wx:for-item="cell"
+        wx:key="businessDate"
+        class="backfill-cell {{cell.isFuture ? 'is-future' : ''}} {{cell.isPending ? 'is-pending' : ''}} {{cell.isWeekend ? 'is-weekend' : ''}}"
+        data-date="{{cell.businessDate}}"
+        bind:tap="toggleDate"
+      >
+        <text class="backfill-day">{{cell.dayNumber}}</text>
+        <text wx:if="{{cell.label}}" class="backfill-label">{{cell.label}}</text>
+        <text wx:if="{{cell.isPending}}" class="backfill-pending">✓</text>
+      </view>
+    </view>
+    <view wx:if="{{pendingDates.length > 0}}" class="info-text">已选 {{pendingDates.length}} 个日期</view>
+  </view>
+
+  <view class="card">
+    <picker mode="selector" range="{{memberNames}}" value="{{memberIndex}}" bindchange="onMemberChange">
+      <view class="form-row"><text class="muted">补录成员</text><text>{{memberNames[memberIndex] || '请选择'}}</text></view>
+    </picker>
+    <picker mode="selector" range="{{shiftOptions}}" range-key="name" value="{{shiftIndex}}" bindchange="onShiftChange">
+      <view class="form-row"><text class="muted">班种</text><text>{{shiftOptions[shiftIndex].name || '请选择'}}</text></view>
+    </picker>
+    <t-textarea value="{{reason}}" placeholder="补录说明（可选）" bind:change="onReasonInput" />
+    <view class="actions">
+      <t-button theme="primary" block loading="{{submitting}}" bind:tap="handleConfirmBackfill">
+        确认补录（{{pendingDates.length}}）
+      </t-button>
+    </view>
+    <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
+
+  <view wx:if="{{records.length > 0}}" class="card">
+    <view class="card-title">最近补录记录</view>
+    <view wx:for="{{records}}" wx:key="assignmentId" class="list-item">
+      <view class="flex-1">
+        <view class="list-title">{{item.businessDate}} {{item.shiftTypeName}} · {{item.actualMemberName}}</view>
+        <view class="list-sub">{{item.operatorName}} · {{item.reason || '无说明'}}</view>
+      </view>
+    </view>
+  </view>
 </view>

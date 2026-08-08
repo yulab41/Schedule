@@ -1375,3 +1375,12 @@
   - 版本冲突：`utils/conflict` 409 弹层 + 刷新（等价 Web DataConflictDialog）。
 - 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram` 95/95 ✅；移植清单 9–12 打勾。
 - 状态：批次 B 已实现待模拟器复核；下一批：批次 C 排班补录/统计/导出。
+
+### 小程序 Web 移植批次 C 完成（2026-08-08）
+
+- `pages/schedule/backfill`：`listPastSchedulePeriods` → 岗位/月份切换 → 既往日期点击加入待确认（再次点击移除/清空）、未来日期灰置；班种 + 成员调色板；补录说明；确认后逐条 `createPastScheduleAssignment`；`listPastScheduleBackfillRecords` 显示最近记录。
+- `pages/schedule/statistics`：月/年切换（`getMonthStatistics`/`getYearStatistics`）；汇总卡 10 项（计划/实际/计值/周末/节假日/换班/加班扣班/净值/请假补位/人工调整）；成员表按实际次数排序 + 计值班次/净值/原实对照条数；按岗位/按班种明细；`refreshMonthStatistics` 刷新快照；`recalculateStatistics` 重算校验（`summarizeRecalculateMismatches` 文案一致）。
+- `pages/schedule/export`：导出内容（排班/统计）+ 时间范围（月/年）+ 岗位/成员筛选 → `createExportJob` → 1s 轮询 `getExportJob`（`isExportJobFinished`）→ `wx.downloadFile` 带 Bearer（`appConfig.apiBaseUrl` + 下载路径）→ 保存到 `USER_DATA_PATH`，CSV 打开预览尽力而为（`wx.openDocument` 失败提示）。
+- 联系方式编辑确认（清单 7）在批次 A 已实现，本轮核对接口 `updateGroupMemberContact`（confirm/mobile/short）与 Web `GroupContactForm` 一致。
+- 验证：typecheck/lint/vitest 95/95 ✅；移植清单 13–15 打勾。
+- 状态：批次 C 已实现待模拟器复核；下一批：批次 D 平台运维控制台。
