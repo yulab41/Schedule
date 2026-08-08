@@ -490,6 +490,25 @@
 - **N12 ✅（轮次 49/50 已完成）** 工作区残留：空 `cloudfunctions/` 目录已清理（轮次 49）；`logs/` 4 个日志文件在轮次 50 停止本地服务后已移动到系统临时目录，服务已按原命令重启，日志目录不再存在。
 - **N13 ✅（轮次 50 已完成）** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割。已完成：路由组件全部改为懒加载 + vendor 手动分包（vue/vue-router/pinia、tdesign-vue-next、@tanstack/vue-query）；入口主包降至约 122KB，HomeView 约 212KB 独立路由块；剩余 `vendor-tdesign` 约 1.27MB 属 TDesign 整包引入，按需引入另排可选优化。
 - **N14 ✅（轮次 50 已完成）** `infra/docker/compose.test.yml` 测试库 512MB tmpfs 顶满崩溃；已把 tmpfs 提到 1g 并加 `command: ["--disable-log-bin"]`，重置后全量 `pnpm verify` 596/596 通过，未再崩溃；`docker compose config --quiet` 通过。
+- **N15 ⏳ 待新对话全修（用户方案 C，2026-08-08 记录）** TDesign 严格类型暴露的模板类型问题——11 个文件在启用组件类型声明后会产生 TS2322/TS2379/TS4104 报错；当前 `vite.config.ts` 的 `Components({ dts: false })` 保持构建通过，属于“被宽松类型掩盖”的存量问题。详细病症与复现方式见下方“N15 待修清单”。
+
+#### N15 待修清单（TDesign 严格类型模板问题）
+
+复现方式：把 `apps/web/vite.config.ts` 中 `Components({ dts: false, ... })` 改为 `Components({ dts: 'src/components.d.ts', ... })`，运行 `pnpm --filter @schedule/web build`，即可看到以下 11 个文件的类型错误；修完后可保留 `dts` 生成声明（若决定启用严格类型）。
+
+1. `apps/web/src/features/duty-adjustments/DutyAdjustmentPanel.vue`（441/450/500/509）：`<t-select>` 的 `@change` 处理函数参数类型比 TDesign `SelectValue` 窄（TDesign 允许 `bigint`），TS2322。
+2. `apps/web/src/features/exports/ExportDialog.vue`（148/156）：`modelValue` 可能是 `undefined`，TDesign Select 不接受，TS2379。
+3. `apps/web/src/features/groups/GroupSwitcher.vue`（39/43）：`value` 可能是 `undefined`，且 `@change` 处理函数类型不匹配，TS2379/TS2322。
+4. `apps/web/src/features/leaves/LeaveApprovalDialog.vue`（218）：`<t-select>` `@change` 处理函数类型不匹配，TS2322。
+5. `apps/web/src/features/leaves/LeavePanel.vue`（313/316）：`value` 可能是 `undefined`，`@change` 处理函数类型不匹配，TS2379/TS2322。
+6. `apps/web/src/features/notifications/NotificationSettingsPanel.vue`（203）：`<t-switch>` 的 `@change` 参数是 `SwitchValue`（可为字符串/数字），当前处理函数只接受 `boolean`，TS2322。
+7. `apps/web/src/features/swaps/SwapPanel.vue`（534/543/552/599/608/617/626）：共 7 处 `<t-select>` `@change` 处理函数类型不匹配，TS2322。
+8. `apps/web/src/views/events/EventCenterView.vue`（221）：只读 `SelectOption[]` 传给 TDesign Select（期望可变数组），TS4104；运行时数组实际可改，未产生用户可见问题。
+9. `apps/web/src/views/schedules/ManualScheduleView.vue`（875/880）：2 处 `<t-select>` `@change` 处理函数类型不匹配，TS2322。
+10. `apps/web/src/views/schedules/PastScheduleView.vue`（304）：1 处 `<t-select>` `@change` 处理函数类型不匹配，TS2322。
+11. `apps/web/src/views/statistics/StatisticsView.vue`（163/170/182/194）：TDesign Table 单元格渲染函数参数类型不匹配，且只读 `TableRowData[]` 传给 Table，TS2322/TS4104；当前页面正常，属类型声明与运行时实际值不一致。
+
+修复目标：所有 11 个文件在启用 `dts` 后 `pnpm --filter @schedule/web build` 通过；`pnpm verify` 596/596、`pnpm smoke:browser`、`pnpm smoke:check-core` 全部通过；浏览器语义检查（登录/工作台/访客 TDesign 组件渲染）通过。
 - **N13 ⏳ 轻微** `vite build` 主 chunk 1.89MB 超 500KB 警告，建议代码分割（Vue Router 懒加载/手动分包）。
 - **N14 ⏳ 轻微（环境）** `infra/docker/compose.test.yml` 测试库数据目录为 512MB tmpfs，完整套件 + binlog 会顶满后 MySQL 以 `binlog_error_action=ABORT_SERVER` 崩溃（2026-08-07 验证时实测崩溃，清理 Docker Build Cache 56.9GB 并 `down --volumes` 重置后恢复）；建议提高 tmpfs 上限或关闭 binlog，并记录“全量 verify 前先重置测试库”。
 
@@ -784,6 +803,28 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 不确定点：1. 部署的 web dist 为轮次 51（TDesign 按需引入）提交后的构建，与仓库 HEAD 一致；后续前端再改动时需按 aliyun-ecs.md 重新同步。2. api-flat 改用 `node-linker=hoisted` 全平铺模式生成（旧产物为含符号链接的隔离模式，Windows 下无法正确拍平跨平台传输）；依赖变更后必须按 aliyun-ecs.md 重新生成。3. 服务器保留旧产物备份（`node_modules.old-20260808`、`dist.old-20260808b` 等），确认稳定后可清理。
 
 下次计划：按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号）；前端/接口再改动时按 aliyun-ecs.md 同步 ECS。
+
+### 轮次 53 – 2026-08-08
+
+目标：把轮次 42/52 线上部署踩过的坑与最终解法沉淀为“下次部署必读”的规则文档，避免重复踩坑（纯文档）。
+
+引入点：轮次 42（门禁部署）与轮次 52（撤除门禁 + ECS 同步）实战中累计的命令引号、依赖树拍平、挂载目录、认证架构、并行会话协作等问题。
+
+修改文件：新增 `docs/deployment/ecs-deployment-pitfalls.md`（七节：命令执行铁律、api-flat 依赖树生成铁律、挂载与容器铁律、不再犯的架构坑、部署后验证清单、多会话/多轮次并行规则、环境速查）；`docs/deployment/aliyun-ecs.md` 顶部加“部署前必读”链接；`docs/project-status.md` 必读清单并入该文件并记录轮次 53；debug 日志同步。
+
+内容要点：PowerShell→SSH 的引号吞噬/`$(...)` 本机执行/BOM 陷阱及 `bash -s` 解法；`pnpm deploy --legacy --config.node-linker=hoisted` 是唯一可靠的跨平台依赖树拍平法（junction 树 tar/cp 均会丢嵌套依赖，症状为 `Cannot find package 'mysql2'`）；替换被容器挂载的目录后必须重建容器；本应用禁止再加 Basic Auth 门禁（与 Bearer 冲突）；部署后验证清单（curl/健康检查/资源名/容器内无 @cloudbase/MD5/真实浏览器登录）。
+
+测试结果：纯文档；`pnpm exec prettier --check "docs/deployment/**/*.md"` ✅；`pnpm smoke:check-core` ✅（未涉及核心链路）。
+
+运行/浏览器验证：无运行时变化；不涉及 Web 核心链路。
+
+状态：✅（规则已沉淀，下次部署必读）。
+
+提交：见下方代码提交 + docs checkpoint 提交（推送结果见对话回复）。
+
+不确定点：1. 规则基于 Windows 开发机 + Linux ECS 的实测；若未来换部署机（macOS/Linux 开发机），PowerShell 相关条目可归档，其余（hoisted 拍平、挂载重建、验证清单）仍然有效。2. 若未来决定重新加访问控制，必须按本文件第四节先解决 Bearer 冲突再上线。3. `runtime/api-flat` 依赖树每次生成后都要跑本地验证清单，避免把缺失包推到线上。
+
+下次计划：按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号）；前端/接口再改动时按 `aliyun-ecs.md` + `ecs-deployment-pitfalls.md` 同步 ECS。
 
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
