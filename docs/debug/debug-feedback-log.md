@@ -1198,3 +1198,15 @@
   - `pages/login/*`（微信一键登录、会话恢复、404→资料页、错误/加载态、防重复点击）；`pages/register/*`（真实姓名输入 + 保存进工作台）；`app.json` 注册 login/register 页面；首页加入“仅邀请链接可加入”提示。
 - 验证：`pnpm --filter @schedule/miniprogram typecheck` 与根 lint 通过；全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；DevTools/真机 mock 走通登录→资料→工作台留待用户复核。
 - 状态：任务 8 ✅（已完成自动化验证；下一轮任务 9 访客日历、群码与邀请落地页）。
+
+### 微信小程序任务 9（访客日历、群码与邀请落地页，2026-08-08）
+
+- 目标/需求：群码 scene 解析 → 访客月历（上一月/下一月、周末红/今天金/班次色块、点击查看值班姓名与已确认电话）；群码页 base64 展示与保存相册；邀请落地页 resolve/accept（未登录先登录、登录/注册后回流、姓名精确确认）；session 增加 pendingInviteToken 回流。
+- 修改文件：
+  - `apps/miniprogram/api/endpoints.ts`（resolveGuestGroup/getGuestCalendar/resolveInvite/acceptInvite/getGroupQr，type-only 引用 contracts）；`store/session.ts`（pendingInviteToken 存取）；
+  - `components/calendar-grid/*`（周一开头月网格组件：周末红、今天金、班次色块、dutytap 事件）；
+  - `pages/guest/*`（scene 解码 `v=`/裸 32 位 key → resolve → 月历；上一月/下一月；值班详情弹层）；`pages/invite/*`（未登录存 token 跳登录、登录/注册后回流；展示群组/姓名/角色/岗位；输入姓名与邀请一致后可接受；全量合并返回新令牌时替换会话）；`pages/group-qr/*`（base64 渲染、写临时文件保存相册、相册权限引导）；
+  - `pages/login|register`（认证成功后优先回流邀请页）；`app.json` 注册 guest/invite/group-qr 页面；
+  - `apps/api/src/modules/groups/visitor-key-service.ts`（修正任务 4 遗留：getUnlimited scene 原为 `v=`+32 位 visitor_key（34 字符），超过微信 32 可见字符上限；改为直接携带 32 位 visitor_key，小程序解码兼容 `v=` 前缀）。
+- 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
+- 状态：任务 9 ✅（已完成自动化验证；DevTools/真机 scene 扫码、邀请正/反向路径留待用户复核；下一轮任务 10 小程序日历三视图与成员/联系方式）。

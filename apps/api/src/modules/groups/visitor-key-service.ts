@@ -82,11 +82,9 @@ export class VisitorKeyService {
     if (cached === undefined || cached.visitorKey !== group.visitorKey || cached.expiresAt <= now) {
       let bytes: Uint8Array;
       try {
-        bytes = await gateway.getUnlimitedQr(
-          `v=${group.visitorKey}`,
-          'pages/guest/guest',
-          envVersion,
-        );
+        // scene is limited to 32 visible characters by WeChat; the visitor key
+        // itself is exactly 32 hex chars, so it is passed without a prefix.
+        bytes = await gateway.getUnlimitedQr(group.visitorKey, 'pages/guest/guest', envVersion);
       } catch (error) {
         if (error instanceof WechatGatewayError) {
           throw toWechatGatewayApiError(error);

@@ -1,0 +1,51 @@
+.invite-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.invite-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: 48rpx 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.invite-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.invite-group-name {
+  font-size: 40rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.invite-row {
+  color: var(--color-text);
+  font-size: 28rpx;
+}
+
+.invite-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 24rpx 0;
+  color: var(--color-text-muted);
+}
+
+.invite-error {
+  color: var(--color-weekend);
+  text-align: center;
+}
+
+.invite-warning {
+  color: var(--color-text-muted);
+  font-size: 24rpx;
+  text-align: center;
+}

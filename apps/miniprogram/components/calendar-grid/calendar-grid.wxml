@@ -1,0 +1,37 @@
+<view class="calendar-grid">
+  <view class="calendar-weekdays">
+    <text class="calendar-weekday">一</text>
+    <text class="calendar-weekday">二</text>
+    <text class="calendar-weekday">三</text>
+    <text class="calendar-weekday">四</text>
+    <text class="calendar-weekday">五</text>
+    <text class="calendar-weekday is-weekend">六</text>
+    <text class="calendar-weekday is-weekend">日</text>
+  </view>
+  <view
+    class="calendar-week"
+    wx:for="{{weeks}}"
+    wx:for-item="week"
+    wx:key="key"
+  >
+    <view
+      class="calendar-day {{day.isPlaceholder ? 'is-placeholder' : ''}} {{day.isToday ? 'is-today' : ''}}"
+      wx:for="{{week.days}}"
+      wx:for-item="day"
+      wx:key="key"
+    >
+      <text class="calendar-day-number {{day.isWeekend ? 'is-weekend' : ''}}">{{day.label}}</text>
+      <view
+        class="calendar-duty"
+        wx:for="{{day.duties}}"
+        wx:for-item="duty"
+        wx:key="assignmentId"
+        data-assignment-id="{{duty.assignmentId}}"
+        style="background: {{duty.color}}; color: {{duty.textColor}};"
+        catch:tap="handleDutyTap"
+      >
+        {{duty.label}}
+      </view>
+    </view>
+  </view>
+</view>

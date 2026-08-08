@@ -32,6 +32,11 @@ Page({
       const profile = await createUserProfile(realName);
       sessionStore.setNeedsProfile(false);
       sessionStore.setSession(sessionStore.state.token as string, profile.id);
+      const pendingToken = sessionStore.pendingInviteToken;
+      if (pendingToken !== undefined) {
+        wx.redirectTo({ url: `/pages/invite/invite?t=${encodeURIComponent(pendingToken)}` });
+        return;
+      }
       wx.switchTab({ url: '/pages/index/index' });
     } catch (error) {
       this.setData({

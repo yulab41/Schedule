@@ -1,0 +1,40 @@
+.qr-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.qr-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: 48rpx 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.qr-image {
+  width: 480rpx;
+  height: 480rpx;
+  margin: 0 auto;
+}
+
+.qr-copy {
+  color: var(--color-text-muted);
+  font-size: 24rpx;
+  text-align: center;
+}
+
+.qr-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 48rpx 0;
+  color: var(--color-text-muted);
+}
+
+.qr-error {
+  color: var(--color-weekend);
+  text-align: center;
+}

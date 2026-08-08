@@ -25,7 +25,7 @@ Page({
     try {
       const profile = await getCurrentProfile();
       sessionStore.setNeedsProfile(false);
-      wx.switchTab({ url: '/pages/index/index' });
+      redirectAfterAuth();
       void profile;
     } catch (error) {
       if (error instanceof ApiClientError && error.code === 'NOT_FOUND') {
@@ -53,7 +53,7 @@ Page({
         return;
       }
       sessionStore.setNeedsProfile(false);
-      wx.switchTab({ url: '/pages/index/index' });
+      redirectAfterAuth();
     } catch (error) {
       this.setData({ errorMessage: toErrorMessage(error, '微信登录失败，请重新尝试。') });
     } finally {
@@ -75,4 +75,13 @@ function wxLogin(): Promise<{ readonly code: string }> {
 
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}
+
+function redirectAfterAuth(): void {
+  const pendingToken = sessionStore.pendingInviteToken;
+  if (pendingToken !== undefined) {
+    wx.redirectTo({ url: `/pages/invite/invite?t=${encodeURIComponent(pendingToken)}` });
+    return;
+  }
+  wx.switchTab({ url: '/pages/index/index' });
 }

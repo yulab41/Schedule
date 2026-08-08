@@ -1,5 +1,7 @@
 import { getStoredToken, storeToken } from '../api/client.js';
 
+const pendingInviteStorageKey = 'schedule.pendingInviteToken';
+
 export interface SessionState {
   readonly needsProfile: boolean;
   readonly isAuthenticated: boolean;
@@ -19,6 +21,19 @@ class SessionStore {
       token: this.token,
       userId: this.userId,
     };
+  }
+
+  public get pendingInviteToken(): string | undefined {
+    const raw = wx.getStorageSync<string>(pendingInviteStorageKey);
+    return typeof raw === 'string' && raw.length > 0 ? raw : undefined;
+  }
+
+  public setPendingInviteToken(token: string | undefined): void {
+    if (token === undefined) {
+      wx.removeStorageSync(pendingInviteStorageKey);
+    } else {
+      wx.setStorageSync(pendingInviteStorageKey, token);
+    }
   }
 
   public setSession(token: string, userId?: string): void {
