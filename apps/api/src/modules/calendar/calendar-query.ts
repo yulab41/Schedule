@@ -143,6 +143,36 @@ export class CalendarQuery {
     });
   }
 
+  public async readLoggedInGuestMonth(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    businessMonth: string,
+  ): Promise<GuestCalendarReadModel> {
+    await withTransaction(this.databaseClient, async (transaction) => {
+      await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewGuestCalendar',
+      );
+    });
+
+    const [group] = await this.databaseClient.database
+      .select({ id: groups.id, name: groups.name })
+      .from(groups)
+      .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
+      .limit(1);
+    if (group === undefined) {
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '群组不存在或不可用。',
+      });
+    }
+
+    return this.readGuestMonthForGroup(group, businessMonth);
+  }
+
   public async readGuestMonth(
     accessKey: string,
     groupCode: string,

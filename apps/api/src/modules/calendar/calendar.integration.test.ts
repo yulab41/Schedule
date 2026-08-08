@@ -563,6 +563,33 @@ describeWithDatabase('current month calendar read model', () => {
     });
   }
 
+  it('serves a guest-shaped calendar only to logged-in guest members', async () => {
+    const guestJoin = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/join-guest`,
+    });
+    expect(guestJoin.statusCode).toBe(201);
+
+    const guestCalendar = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/guest-calendar?businessMonth=2026-08`,
+    });
+    expect(guestCalendar.statusCode).toBe(200);
+    expect(guestCalendar.json()).toMatchObject({
+      groupName: 'Calendar group',
+      calendar: { assignments: [], groupId },
+    });
+
+    const memberCalendar = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/guest-calendar?businessMonth=2026-08`,
+    });
+    expect(memberCalendar.statusCode).toBe(403);
+  });
+
   async function readCalendar(token: string, businessMonth: string | undefined) {
     const query =
       businessMonth === undefined ? '' : `?businessMonth=${encodeURIComponent(businessMonth)}`;
