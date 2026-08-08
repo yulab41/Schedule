@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "提交请假",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-input": "tdesign-miniprogram/input/input"
+  }
+}

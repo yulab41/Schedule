@@ -1221,3 +1221,13 @@
   - `pages/calendar/*`（月视图主 Tab：群组切换、上一月/下一月、月/周/列表入口、详情弹层）；`pages/calendar-week/*`（跨月周视图：上一周/下一周、跳月/列表）；`pages/calendar-list/*`（月列表视图）；`pages/members/*`（成员列表：角色/认领状态/联系方式确认状态/拨号，访客无权限展示错误）；`pages/index/*`（工作台：群组切换 + 日历/成员快捷入口）；`app.json` 注册 calendar-week/calendar-list/members 三个页面。
 - 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
 - 状态：任务 10 ✅（已完成自动化验证；375×667 布局/无横向滚动/深色模式与 DevTools/真机复核留待用户；下一轮任务 11 请假/换班/加扣班流程）。
+
+### 微信小程序任务 11（请假/换班/加扣班流程，2026-08-08）
+
+- 目标/需求：成员创建请假/换班/加扣班申请、影响预览、我的申请列表与状态、取消/接受/撤销；提交前请求“审批结果”订阅模板（配置时）；校验与后端一致。
+- 修改文件：
+  - `api/endpoints.ts`（请假创建/列表/影响班次/取消/撤销；换班预览/创建/列表/接受/取消/撤销；加扣班预览/创建/列表/接受/取消/撤销）；`api/client.ts`（RequestOptions.data 放宽为 object 以支持契约接口）；
+  - `utils/time.ts`（中国时区日期/全天请假区间/展示格式）；`utils/workflow.ts`（状态标签、可操作班次、目标成员分组、班次选项文案）；`utils/uuid.ts`（操作幂等 ID）；`utils/subscription.ts`（审批结果订阅）；
+  - `pages/requests/*`（我的申请中心：分组列表、取消/接受/撤销按身份与状态显示、确认弹窗）；`pages/leave-create/*`（日期/类型/原因、影响班次与覆盖状态、顺延/手动二选一）；`pages/swap-create/*`（我的班次/换班对象/对方班次三级选择、预览冲突、下一状态文案）；`pages/duty-create/*`（被代值班次/加班成员/原因、预览冲突）；`pages/index/*` 增加“请假 / 换班 / 加扣班”入口；`app.json` 注册 4 个新页面。
+- 验证：`pnpm --filter @schedule/miniprogram typecheck`、`pnpm lint`、`pnpm format:check` 与全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
+- 状态：任务 11 ✅（已完成自动化验证；模拟器全流程与 DevTools/真机复核留待用户；下一轮任务 12 审批中心、事件与访问记录、通知/提醒设置）。

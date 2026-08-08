@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "提交加扣班",
+  "usingComponents": {
+    "group-switcher": "/components/group-switcher/group-switcher",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-input": "tdesign-miniprogram/input/input"
+  }
+}

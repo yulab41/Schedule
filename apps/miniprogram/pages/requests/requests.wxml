@@ -1,0 +1,150 @@
+<view class="page-container requests-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view class="requests-actions">
+    <t-button size="small" variant="outline" bind:tap="openLeaveCreate">请假</t-button>
+    <t-button size="small" variant="outline" bind:tap="openSwapCreate">换班</t-button>
+    <t-button size="small" variant="outline" bind:tap="openDutyCreate">加扣班</t-button>
+  </view>
+
+  <view wx:if="{{loading}}" class="requests-card requests-state">
+    <text>加载中…</text>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="requests-card requests-state">
+    <text class="requests-error">{{errorMessage}}</text>
+    <t-button size="small" variant="outline" bind:tap="loadRequests">重新加载</t-button>
+  </view>
+
+  <block wx:elif="{{groups.length > 0}}">
+    <view class="requests-section">
+      <text class="requests-section-title">请假申请</text>
+      <view wx:if="{{leaveRequests.length === 0}}" class="requests-empty">暂无请假申请</view>
+      <view class="request-card" wx:for="{{leaveRequests}}" wx:key="id" wx:for-item="request">
+        <view class="request-main">
+          <text class="request-title">{{request.title}}</text>
+          <text class="request-detail">{{request.detail}}</text>
+          <text class="request-status">{{request.statusLabel}}</text>
+        </view>
+        <view class="request-actions">
+          <view
+            class="request-button"
+            wx:if="{{request.canCancel}}"
+            catch:tap="handleCancel"
+            data-id="{{request.id}}"
+            data-kind="leave"
+            data-version="{{request.version}}"
+          >
+            取消
+          </view>
+          <view
+            class="request-button"
+            wx:if="{{request.canRevoke}}"
+            catch:tap="handleRevoke"
+            data-id="{{request.id}}"
+            data-kind="leave"
+            data-version="{{request.version}}"
+          >
+            撤销
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="requests-section">
+      <text class="requests-section-title">换班申请</text>
+      <view wx:if="{{swapRequests.length === 0}}" class="requests-empty">暂无换班申请</view>
+      <view class="request-card" wx:for="{{swapRequests}}" wx:key="id" wx:for-item="request">
+        <view class="request-main">
+          <text class="request-title">{{request.title}}</text>
+          <text class="request-detail">{{request.detail}}</text>
+          <text class="request-status">{{request.statusLabel}}</text>
+        </view>
+        <view class="request-actions">
+          <view
+            class="request-button is-primary"
+            wx:if="{{request.canAccept}}"
+            catch:tap="handleAccept"
+            data-id="{{request.id}}"
+            data-kind="swap"
+            data-version="{{request.version}}"
+          >
+            接受
+          </view>
+          <view
+            class="request-button"
+            wx:if="{{request.canCancel}}"
+            catch:tap="handleCancel"
+            data-id="{{request.id}}"
+            data-kind="swap"
+            data-version="{{request.version}}"
+          >
+            取消
+          </view>
+          <view
+            class="request-button"
+            wx:if="{{request.canRevoke}}"
+            catch:tap="handleRevoke"
+            data-id="{{request.id}}"
+            data-kind="swap"
+            data-version="{{request.version}}"
+          >
+            撤销
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="requests-section">
+      <text class="requests-section-title">加扣班申请</text>
+      <view wx:if="{{dutyRequests.length === 0}}" class="requests-empty">暂无加扣班申请</view>
+      <view class="request-card" wx:for="{{dutyRequests}}" wx:key="id" wx:for-item="request">
+        <view class="request-main">
+          <text class="request-title">{{request.title}}</text>
+          <text class="request-detail">{{request.detail}}</text>
+          <text class="request-status">{{request.statusLabel}}</text>
+        </view>
+        <view class="request-actions">
+          <view
+            class="request-button is-primary"
+            wx:if="{{request.canAccept}}"
+            catch:tap="handleAccept"
+            data-id="{{request.id}}"
+            data-kind="duty"
+            data-version="{{request.version}}"
+          >
+            接受
+          </view>
+          <view
+            class="request-button"
+            wx:if="{{request.canCancel}}"
+            catch:tap="handleCancel"
+            data-id="{{request.id}}"
+            data-kind="duty"
+            data-version="{{request.version}}"
+          >
+            取消
+          </view>
+          <view
+            class="request-button"
+            wx:if="{{request.canRevoke}}"
+            catch:tap="handleRevoke"
+            data-id="{{request.id}}"
+            data-kind="duty"
+            data-version="{{request.version}}"
+          >
+            撤销
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:else class="requests-card requests-state">
+    <text>你还没有加入任何群组。</text>
+  </view>
+</view>

@@ -11,7 +11,11 @@
     "pages/group-qr/group-qr",
     "pages/calendar-week/calendar-week",
     "pages/calendar-list/calendar-list",
-    "pages/members/members"
+    "pages/members/members",
+    "pages/requests/requests",
+    "pages/leave-create/leave-create",
+    "pages/swap-create/swap-create",
+    "pages/duty-create/duty-create"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1F5AA6",

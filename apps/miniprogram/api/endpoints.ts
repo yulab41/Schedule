@@ -1,12 +1,27 @@
 import type {
   AcceptInviteResponse,
   CalendarReadModel,
+  CreateDutyAdjustmentRequestInput,
+  CreateLeaveRequestInput,
+  CreateSwapRequestInput,
+  DutyAdjustmentPreview,
+  DutyAdjustmentRequest,
   GroupQrResponse,
   GuestCalendarReadModel,
   GroupMember,
   GroupMemberContact,
   GroupSummary,
+  LeaveAffectedShift,
+  LeaveAffectedShiftsInput,
+  LeaveRequest,
+  LeaveRequestMutationResult,
+  LeaveRequestMutationInput,
   ResolveInviteResponse,
+  RevokeDutyAdjustmentInput,
+  RevokeSwapRequestInput,
+  SwapPairInput,
+  SwapPreview,
+  SwapRequest,
   UserProfile,
   VisitorResolveResponse,
   WechatLoginResponse,
@@ -98,4 +113,176 @@ export function listGroupMembers(groupId: string): Promise<GroupMember[]> {
 
 export function listGroupContacts(groupId: string): Promise<GroupMemberContact[]> {
   return request<GroupMemberContact[]>(`/groups/${groupId}/contacts`);
+}
+
+export function createLeaveRequest(
+  groupId: string,
+  input: CreateLeaveRequestInput,
+): Promise<LeaveRequest> {
+  return request<LeaveRequest>(`/groups/${groupId}/leave-requests`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function listLeaveRequests(groupId: string): Promise<LeaveRequest[]> {
+  return request<LeaveRequest[]>(`/groups/${groupId}/leave-requests`);
+}
+
+export function getLeaveAffectedShifts(
+  groupId: string,
+  input: LeaveAffectedShiftsInput,
+): Promise<LeaveAffectedShift[]> {
+  return request<LeaveAffectedShift[]>(`/groups/${groupId}/leave-requests/affected-shifts`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function cancelLeaveRequest(
+  groupId: string,
+  leaveRequestId: string,
+  input: LeaveRequestMutationInput,
+): Promise<LeaveRequestMutationResult> {
+  return request<LeaveRequestMutationResult>(
+    `/groups/${groupId}/leave-requests/${leaveRequestId}/cancel`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
+}
+
+export function revokeLeaveRequest(
+  groupId: string,
+  leaveRequestId: string,
+  input: LeaveRequestMutationInput,
+): Promise<LeaveRequestMutationResult> {
+  return request<LeaveRequestMutationResult>(
+    `/groups/${groupId}/leave-requests/${leaveRequestId}/revoke`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
+}
+
+export function previewSwap(groupId: string, input: SwapPairInput): Promise<SwapPreview> {
+  return request<SwapPreview>(`/groups/${groupId}/swaps/preview`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function createSwapRequest(
+  groupId: string,
+  input: CreateSwapRequestInput,
+): Promise<SwapRequest> {
+  return request<SwapRequest>(`/groups/${groupId}/swaps`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function listSwapRequests(groupId: string): Promise<SwapRequest[]> {
+  return request<SwapRequest[]>(`/groups/${groupId}/swaps`);
+}
+
+export function acceptSwapRequest(
+  groupId: string,
+  swapRequestId: string,
+  input: LeaveRequestMutationInput,
+): Promise<SwapRequest> {
+  return request<SwapRequest>(`/groups/${groupId}/swaps/${swapRequestId}/accept`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function cancelSwapRequest(
+  groupId: string,
+  swapRequestId: string,
+  input: LeaveRequestMutationInput,
+): Promise<SwapRequest> {
+  return request<SwapRequest>(`/groups/${groupId}/swaps/${swapRequestId}/cancel`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function revokeSwapRequest(
+  groupId: string,
+  swapRequestId: string,
+  input: RevokeSwapRequestInput,
+): Promise<SwapRequest> {
+  return request<SwapRequest>(`/groups/${groupId}/swaps/${swapRequestId}/revoke`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function previewDutyAdjustment(
+  groupId: string,
+  input: { coveredAssignmentId: string; overtimeMembershipId: string },
+): Promise<DutyAdjustmentPreview> {
+  return request<DutyAdjustmentPreview>(`/groups/${groupId}/duty-adjustments/preview`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function createDutyAdjustmentRequest(
+  groupId: string,
+  input: CreateDutyAdjustmentRequestInput,
+): Promise<DutyAdjustmentRequest> {
+  return request<DutyAdjustmentRequest>(`/groups/${groupId}/duty-adjustments`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function listDutyAdjustmentRequests(groupId: string): Promise<DutyAdjustmentRequest[]> {
+  return request<DutyAdjustmentRequest[]>(`/groups/${groupId}/duty-adjustments`);
+}
+
+export function acceptDutyAdjustment(
+  groupId: string,
+  dutyAdjustmentId: string,
+  input: LeaveRequestMutationInput,
+): Promise<DutyAdjustmentRequest> {
+  return request<DutyAdjustmentRequest>(
+    `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/accept`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
+}
+
+export function cancelDutyAdjustment(
+  groupId: string,
+  dutyAdjustmentId: string,
+  input: LeaveRequestMutationInput,
+): Promise<DutyAdjustmentRequest> {
+  return request<DutyAdjustmentRequest>(
+    `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/cancel`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
+}
+
+export function revokeDutyAdjustment(
+  groupId: string,
+  dutyAdjustmentId: string,
+  input: RevokeDutyAdjustmentInput,
+): Promise<DutyAdjustmentRequest> {
+  return request<DutyAdjustmentRequest>(
+    `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/revoke`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
 }

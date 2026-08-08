@@ -1,0 +1,69 @@
+<view class="page-container duty-create-page">
+  <group-switcher
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view class="duty-toolbar">
+    <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="-1">
+      上一月
+    </t-button>
+    <text class="duty-month-label">{{monthLabel}}</text>
+    <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="1">
+      下一月
+    </t-button>
+  </view>
+
+  <view class="duty-card">
+    <text class="duty-label">被代值的班次（我的）</text>
+    <picker
+      mode="selector"
+      range="{{myAssignmentLabels}}"
+      value="{{selectedMyIndex}}"
+      disabled="{{myAssignmentLabels.length === 0}}"
+      bindchange="handleMyAssignmentChange"
+    >
+      <view class="duty-picker">{{myAssignmentLabels[selectedMyIndex] || '本月暂无可选班次'}}</view>
+    </picker>
+
+    <text class="duty-label">代值成员（加班）</text>
+    <picker
+      mode="selector"
+      range="{{overtimeNames}}"
+      value="{{selectedOvertimeIndex}}"
+      disabled="{{overtimeNames.length === 0}}"
+      bindchange="handleOvertimeChange"
+    >
+      <view class="duty-picker">{{overtimeNames[selectedOvertimeIndex] || '暂无可选成员'}}</view>
+    </picker>
+
+    <text class="duty-label">原因（可选）</text>
+    <t-input
+      value="{{reason}}"
+      placeholder="请输入加扣班原因"
+      maxlength="1000"
+      bind:change="handleReasonInput"
+    />
+
+    <view wx:if="{{preview}}" class="duty-preview">
+      <text class="duty-preview-status">{{previewStatusDescription}}</text>
+      <view wx:if="{{preview.conflicts.length > 0}}">
+        <text class="duty-conflict" wx:for="{{preview.conflicts}}" wx:key="message">
+          {{item.message}}
+        </text>
+      </view>
+    </view>
+
+    <text wx:if="{{errorMessage}}" class="duty-error">{{errorMessage}}</text>
+    <t-button
+      theme="primary"
+      block
+      loading="{{submitting || previewLoading}}"
+      disabled="{{submitting || previewLoading || !preview || preview.conflicts.length > 0}}"
+      bind:tap="handleSubmit"
+    >
+      提交加扣班申请
+    </t-button>
+  </view>
+</view>

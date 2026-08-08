@@ -60,4 +60,11 @@ Page({
     }
     wx.navigateTo({ url: '/pages/members/members' });
   },
+
+  openRequests(): void {
+    if (this.data.selectedGroupId.length === 0) {
+      return;
+    }
+    wx.navigateTo({ url: '/pages/requests/requests' });
+  },
 });

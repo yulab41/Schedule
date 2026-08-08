@@ -1,0 +1,65 @@
+.duty-create-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.duty-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.duty-month-label {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.duty-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: 40rpx 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.duty-label {
+  margin-top: var(--spacing-xs);
+  color: var(--color-text-muted);
+  font-size: 24rpx;
+}
+
+.duty-picker {
+  padding: 20rpx 24rpx;
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  font-size: 26rpx;
+}
+
+.duty-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: 20rpx;
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+}
+
+.duty-preview-status {
+  color: var(--color-primary);
+  font-size: 24rpx;
+}
+
+.duty-conflict {
+  display: block;
+  color: var(--color-weekend);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.duty-error {
+  color: var(--color-weekend);
+  font-size: 24rpx;
+}

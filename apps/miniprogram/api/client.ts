@@ -19,7 +19,7 @@ export class ApiClientError extends Error {
 
 export interface RequestOptions {
   readonly auth?: boolean;
-  readonly data?: Record<string, unknown>;
+  readonly data?: object;
   readonly method?: 'DELETE' | 'GET' | 'POST' | 'PUT';
 }
 
@@ -44,7 +44,7 @@ export function storeToken(token: string | undefined): void {
 export function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     wx.request({
-      data: options.data,
+      data: options.data as unknown as WechatMiniprogram.IAnyObject,
       header: {
         'content-type': 'application/json',
         ...(options.auth === false ? {} : { Authorization: `Bearer ${getStoredToken() ?? ''}` }),

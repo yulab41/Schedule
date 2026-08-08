@@ -1,0 +1,74 @@
+.leave-create-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.leave-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  padding: 40rpx 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.leave-label {
+  margin-top: var(--spacing-xs);
+  color: var(--color-text-muted);
+  font-size: 24rpx;
+}
+
+.leave-picker {
+  padding: 20rpx 24rpx;
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  font-size: 28rpx;
+}
+
+.leave-affected {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.leave-shift-row {
+  display: flex;
+  gap: 12rpx;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 20rpx;
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+}
+
+.leave-shift-label {
+  font-size: 24rpx;
+}
+
+.leave-shift-covered {
+  color: var(--color-primary);
+  font-size: 22rpx;
+}
+
+.leave-shift-covered.is-uncovered {
+  color: var(--color-weekend);
+}
+
+.leave-option {
+  padding: 20rpx 24rpx;
+  border: 2rpx solid #dbe3ea;
+  border-radius: var(--radius-sm);
+  font-size: 26rpx;
+}
+
+.leave-option.is-selected {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #e8f1fb;
+}
+
+.leave-error {
+  color: var(--color-weekend);
+  font-size: 24rpx;
+}
