@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 const portSchema = z.coerce.number().int().min(1).max(65_535);
 const requiredTextSchema = z.string().trim().min(1);
+const optionalTextSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim().length === 0 ? undefined : value),
+  requiredTextSchema.optional(),
+);
 const applicationSettings = {
   API_HOST: requiredTextSchema.default('127.0.0.1'),
   API_PORT: portSchema.default(3000),
@@ -15,17 +19,17 @@ const databaseSettings = {
 };
 const operationSettings = {
   BACKUP_DIR: requiredTextSchema.default('./backups'),
-  BACKUP_ENCRYPTION_KEY: z.string().trim().min(1).optional(),
+  BACKUP_ENCRYPTION_KEY: optionalTextSchema,
 };
 const wechatSettings = {
-  WECHAT_APPID: requiredTextSchema.optional(),
-  WECHAT_APPSECRET: requiredTextSchema.optional(),
-  WECHAT_SESSION_SECRET: requiredTextSchema.optional(),
+  WECHAT_APPID: optionalTextSchema,
+  WECHAT_APPSECRET: optionalTextSchema,
+  WECHAT_SESSION_SECRET: optionalTextSchema,
   WECHAT_MOCK_MODE: z.enum(['true', 'false']).default('false'),
   WECHAT_QR_ENV_VERSION: z.enum(['develop', 'trial', 'release']).default('release'),
-  WECHAT_DUTY_REMINDER_TEMPLATE_ID: requiredTextSchema.optional(),
-  WECHAT_APPROVAL_RESULT_TEMPLATE_ID: requiredTextSchema.optional(),
-  WECHAT_STATUS_CHANGE_TEMPLATE_ID: requiredTextSchema.optional(),
+  WECHAT_DUTY_REMINDER_TEMPLATE_ID: optionalTextSchema,
+  WECHAT_APPROVAL_RESULT_TEMPLATE_ID: optionalTextSchema,
+  WECHAT_STATUS_CHANGE_TEMPLATE_ID: optionalTextSchema,
 };
 
 export const environmentSchema = z

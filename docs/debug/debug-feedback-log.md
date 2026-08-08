@@ -1279,3 +1279,15 @@
 - 补充（同日）：首次写入模拟器的覆盖地址带 `/api` 后缀，本地 API 无该前缀导致点击登录 404；已把 storage `apiBaseUrl` 修正为 `http://127.0.0.1:3000` 并再次实测 `wx.login` + 登录接口 = 200；`client.ts` 增加注释说明覆盖地址格式（本地直连不带 `/api`，正式域名默认值经 nginx 需要 `/api`）。
 - 遗留：`page.callMethod('handleLogin')` 自动化点击在本版本 DevTools 超时（evaluate 同链路可用），需用户在模拟器手动点击确认 UI 跳转；真实微信登录还需在服务器 `.env.production` 配置 `WECHAT_APPID/APPSECRET/SESSION_SECRET`（AppSecret 由用户提供，不入库）并处理本机代理对公网域名的拦截；小程序后台需配置 request 合法域名 `https://hosp.schedule.eylinhome.top`（任务 15）。
 - 状态：模拟器 mock 登录链路 ✅（用户点击复核后即可进入注册/工作台）。
+
+### 小程序真实微信登录与公网部署（2026-08-08）
+
+- 用户提供 AppID/AppSecret；AppSecret 仅写入本地 `.env` 与服务器 `.env.production`（均不入库），联调完成后建议在小程序后台重置一次。
+- 本地：`.env` 切 `WECHAT_MOCK_MODE=false` + 真实 AppSecret，重启本地 API；模拟器实测 `wx.login` → 本地登录接口 = 200，返回**真实 openid**（`oBoRM3Zh...`，非 mock 前缀）。
+- ECS：
+  - `infra/docker/compose.prod.yml` 的 api 服务补 `WECHAT_*` 环境透传（此前 `--env-file` 只用于 compose 插值，容器收不到微信变量，登录路由不注册）；
+  - 同步最新 dist 时发现 `runtime/api-flat/node_modules/@schedule/*/dist` 是旧拷贝（8-08 13:50 部署产物），覆盖后容器才能解析 `inviteTokens` 等新导出，否则 API 启动即 SyntaxError 崩溃循环；
+  - 新 compose 用 `${VAR:-}` 给未配置模板 ID 传**空字符串**，而 env 校验拒绝空串导致 API 启动失败（仅打“API server failed to start”无详情）→ `apps/api/src/config/env.ts` 增加 `optionalTextSchema`（空串/纯空白视为未配置）并补 1 条测试；
+  - 重建后 `POST https://hosp.schedule.eylinhome.top/api/auth/wechat/login`（无效 code）返回 401 `WECHAT_LOGIN_FAILED`，真实网关已生效。
+- 遗留：本机 lmclient 代理 `respect-rules=false`（等于全局代理），DevTools/浏览器直连公网域名仍会被劫持（fake-IP 198.18.0.75 + TLS 中断）；建议开启“规则模式”或添加 `eylinhome.top` / `weixin.qq.com` 直连规则（GitHub 保持走代理）；上传密钥 `private.wx56a7a21f974fd9af.key` 未在常见目录找到，任务 15 再定位。
+- 状态：本地与公网真实微信登录链路均 ✅（模拟器点登录即真实建号；公网入口待本机代理放行后可直接联调）。
