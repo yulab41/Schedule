@@ -38,6 +38,14 @@ scp runtime/schedule-deploy-YYYYMMDD.tar.gz root@120.77.220.79:/tmp/
 ssh root@120.77.220.79 'mkdir -p /opt/schedule && tar -xzf /tmp/schedule-deploy-YYYYMMDD.tar.gz -C /opt/schedule && bash /opt/schedule/infra/scripts/ecs-bootstrap.sh /tmp/schedule-deploy-YYYYMMDD.tar.gz'
 ```
 
+## 省带宽实践（2026-08-08，不上 OSS）
+
+- 静态资源已开 gzip（文本/JSON/CSS/JS/SVG/WOFF2）与浏览器缓存（带 hash 的资源 365 天 immutable，入口 HTML 不缓存）。
+- PWA 会缓存应用壳与排班数据，重复访问基本不再消耗公网带宽。
+- 后续接 HTTPS 后可升级 HTTP/2/3 与 brotli（Caddy 自带，或换带 brotli 模块的 Nginx），预计再省 15–20% 传输量。
+- 可选优化：HomeView 大包（约 160KB gzip）进一步按页面拆包，降低首次访问带宽。
+- 3 Mbps 出口带宽下，图片/文件等大资源若未来增多，再按需考虑 CDN，不强制上对象存储。
+
 ## 首次部署
 
 ```bash

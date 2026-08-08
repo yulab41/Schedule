@@ -105,6 +105,8 @@ services:
     volumes:
       - ../../apps/web/dist:/usr/share/nginx/html:ro
       - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # HTTPS 证书目录（enable-https.sh 签发后挂载，未配置时为空目录即可）
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - api
 
