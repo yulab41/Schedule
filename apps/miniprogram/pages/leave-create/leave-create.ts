@@ -1,6 +1,5 @@
 import { createLeaveRequest, getLeaveAffectedShifts } from '../../api/endpoints.js';
 import { getSelectedGroupId } from '../../store/group.js';
-import { requestApprovalSubscription } from '../../utils/subscription.js';
 import { allDayLeaveInterval, formatChinaDateShort } from '../../utils/time.js';
 import { leaveTypeLabels } from '../../utils/workflow.js';
 
@@ -122,7 +121,6 @@ Page({
     const hasAffectedShifts = this.data.affectedShifts.length > 0;
     this.setData({ errorMessage: '', submitting: true });
     try {
-      await requestApprovalSubscription();
       const interval = allDayLeaveInterval(startDate, endDate);
       await createLeaveRequest(getSelectedGroupId() ?? '', {
         endsAt: interval.endsAt,

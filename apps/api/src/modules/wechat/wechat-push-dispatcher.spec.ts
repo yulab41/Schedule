@@ -11,24 +11,20 @@ import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
 describe('WeChat push dispatcher', () => {
   it('maps notification types to template kinds', () => {
     expect(getWechatTemplateKind('duty_reminder')).toBe('dutyReminder');
-    expect(getWechatTemplateKind('leave_request_approved')).toBe('approvalResult');
-    expect(getWechatTemplateKind('swap_request_rejected')).toBe('approvalResult');
-    expect(getWechatTemplateKind('duty_adjustment_request_accepted')).toBe('approvalResult');
-    expect(getWechatTemplateKind('schedule_published')).toBe('statusChange');
-    expect(getWechatTemplateKind('unknown_type')).toBe('statusChange');
+    expect(getWechatTemplateKind('leave_request_approved')).toBeUndefined();
+    expect(getWechatTemplateKind('swap_request_rejected')).toBeUndefined();
+    expect(getWechatTemplateKind('duty_adjustment_request_accepted')).toBeUndefined();
+    expect(getWechatTemplateKind('schedule_published')).toBeUndefined();
+    expect(getWechatTemplateKind('unknown_type')).toBeUndefined();
   });
 
   it('reads template ids from the process environment', () => {
     expect(
       readWechatTemplateIds({
-        WECHAT_APPROVAL_RESULT_TEMPLATE_ID: 'tpl-approval',
         WECHAT_DUTY_REMINDER_TEMPLATE_ID: 'tpl-duty',
-        WECHAT_STATUS_CHANGE_TEMPLATE_ID: 'tpl-status',
       }),
     ).toEqual({
-      approvalResult: 'tpl-approval',
       dutyReminder: 'tpl-duty',
-      statusChange: 'tpl-status',
     });
   });
 
@@ -47,7 +43,7 @@ describe('WeChat push dispatcher', () => {
     const dispatcher = new WechatPushDispatcher(
       {} as never,
       gateway,
-      { approvalResult: 'tpl-approval', dutyReminder: 'tpl-duty', statusChange: 'tpl-status' },
+      { dutyReminder: 'tpl-duty' },
       async () => 'openid-1',
     );
 
@@ -68,9 +64,7 @@ describe('WeChat push dispatcher', () => {
 
   it('skips recipients without an openid or without a configured template', async () => {
     const templateIds: WechatTemplateIds = {
-      approvalResult: 'tpl-approval',
       dutyReminder: undefined,
-      statusChange: 'tpl-status',
     };
     const noOpenid = new WechatPushDispatcher(
       {} as never,
@@ -109,7 +103,7 @@ describe('WeChat push dispatcher', () => {
     const dispatcher = new WechatPushDispatcher(
       {} as never,
       { isConfigured: false } as WechatGateway,
-      { approvalResult: 'a', dutyReminder: 'd', statusChange: 's' },
+      { dutyReminder: 'd' },
       async () => 'openid-1',
     );
 

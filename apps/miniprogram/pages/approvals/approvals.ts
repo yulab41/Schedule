@@ -21,7 +21,6 @@ import {
 import { resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
 import { formatChinaDateShort, formatChinaTime, formatLeaveRange } from '../../utils/time.js';
 import { randomUuid } from '../../utils/uuid.js';
-import { requestStatusChangeSubscription } from '../../utils/subscription.js';
 import {
   getWorkflowStatusLabel,
   leaveStatusLabels,
@@ -196,7 +195,6 @@ Page({
     }
     this.setData({ errorMessage: '', submitting: true });
     try {
-      await requestStatusChangeSubscription();
       await approveLeaveRequest(this.data.selectedGroupId, request.id, {
         ...(preview.workflowBlockerCount > 0 || preview.conflictsCount > 0
           ? { acknowledgeBlockers: true }
@@ -230,7 +228,6 @@ Page({
     }
     this.setData({ errorMessage: '', submitting: true });
     try {
-      await requestStatusChangeSubscription();
       const mutation = { expectedVersion: version, operationId: randomUuid() };
       switch (kind) {
         case 'leave':
@@ -265,7 +262,6 @@ Page({
     }
     this.setData({ errorMessage: '', submitting: true });
     try {
-      await requestStatusChangeSubscription();
       const mutation = { expectedVersion: version, operationId: randomUuid() };
       if (kind === 'swap') {
         await approveSwapRequest(this.data.selectedGroupId, id, mutation);

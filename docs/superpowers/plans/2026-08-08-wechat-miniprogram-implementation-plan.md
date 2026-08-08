@@ -122,7 +122,7 @@ packages/contracts/src/wechat.ts
 1. 定义 `WechatGateway` 接口：`exchangeCode(code)`、`getUnlimitedQr(scene, page, envVersion)`、`sendSubscribeMessage(openid, templateId, data)`、`isConfigured`。
 2. 实现真实网关：access_token 用内存缓存 + 到期前 5 分钟刷新；错误码映射表；fetch 超时。
 3. 实现 mock 网关：`WECHAT_MOCK_MODE=true` 时返回稳定 mock openid、占位二维码字节、记录发送日志并标记成功；生产 env schema 拒绝 mock=true。
-4. env 增加：`WECHAT_APPID`、`WECHAT_APPSECRET`、`WECHAT_SESSION_SECRET`、`WECHAT_MOCK_MODE`、`WECHAT_QR_ENV_VERSION`、三个模板 ID；`local-server.ts` 注入网关。
+4. env 增加：`WECHAT_APPID`、`WECHAT_APPSECRET`、`WECHAT_SESSION_SECRET`、`WECHAT_MOCK_MODE`、`WECHAT_QR_ENV_VERSION`、值班提醒模板 ID；`local-server.ts` 注入网关。
 5. 日志脱敏确认：网关请求/响应不打印 appsecret 与 openid。
 
 验证：
@@ -222,7 +222,7 @@ packages/contracts/src/wechat.ts
 
 ## 10. 任务 6：微信订阅消息投递
 
-目标：通知渠道扩展、微信投递器、值班提醒与状态变更接入、重试与 mock。
+目标：通知渠道扩展、微信投递器、值班提醒接入（仅值班提醒发微信订阅消息；审批结果/状态变更仅站内通知，2026-08-08 用户决定）、重试与 mock。
 
 主要文件：
 
@@ -235,8 +235,8 @@ packages/contracts/src/wechat.ts
 实施步骤：
 
 1. NotificationWriter 为开启微信提醒且有 openid 的接收者创建 `channel='wechat'` 投递行。
-2. 微信投递器按模板映射发送（值班提醒/审批结果/状态变更）；成功写 external_message_id；43101 → skipped；系统错误进入重试。
-3. 值班提醒在现有 job 中触发微信投递；审批/状态变更在对应服务成功事务后写入。
+2. 微信投递器仅按“值班提醒”模板映射发送；成功写 external_message_id；43101 → skipped；参数错误失败；系统错误进入重试。
+3. 值班提醒在现有 job 中触发微信投递；审批/状态变更只走站内通知，不创建微信投递行。
 4. 成员提醒设置接口增加 `wechatNotificationsEnabled`。
 5. mock 模式发送记录日志并标记 sent。
 
@@ -356,7 +356,7 @@ packages/contracts/src/wechat.ts
 实施步骤：
 
 1. 表单与预览调用现有接口；日期/班次选项复用 Web 格式（日期 + 班次名 + 星期，周末红色）。
-2. 提交前请求订阅“审批结果”模板（开启时）。
+2. 提交前不请求订阅消息（审批结果不做微信提醒，2026-08-08 用户决定；站内通知保留）。
 3. 我的申请列表与状态；可撤销/取消按权限显示。
 
 验证：
@@ -375,7 +375,7 @@ packages/contracts/src/wechat.ts
 
 实施步骤：
 
-1. 审批中心：请假/换班/加扣班待办、影响预览、通过/拒绝；审批时请求“状态变更”模板。
+1. 审批中心：请假/换班/加扣班待办、影响预览、通过/拒绝；不请求订阅消息（状态变更不做微信提醒，2026-08-08 用户决定；站内通知保留）。
 2. 事件中心：排班事件时间线；群主/管理员可切换“访问记录”查看访客访问日志。
 3. 通知中心：未读计数、列表、已读/全部已读、跳转。
 4. 提醒设置：提醒时间（沿用群组/个人偏好接口）、微信订阅开关；开启与每次进入时静默 `wx.requestSubscribeMessage`。

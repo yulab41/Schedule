@@ -28,8 +28,6 @@ const wechatSettings = {
   WECHAT_MOCK_MODE: z.enum(['true', 'false']).default('false'),
   WECHAT_QR_ENV_VERSION: z.enum(['develop', 'trial', 'release']).default('release'),
   WECHAT_DUTY_REMINDER_TEMPLATE_ID: optionalTextSchema,
-  WECHAT_APPROVAL_RESULT_TEMPLATE_ID: optionalTextSchema,
-  WECHAT_STATUS_CHANGE_TEMPLATE_ID: optionalTextSchema,
 };
 
 export const environmentSchema = z
@@ -96,8 +94,6 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
       WECHAT_MOCK_MODE: testResult.data.WECHAT_MOCK_MODE,
       WECHAT_QR_ENV_VERSION: testResult.data.WECHAT_QR_ENV_VERSION,
       WECHAT_DUTY_REMINDER_TEMPLATE_ID: testResult.data.WECHAT_DUTY_REMINDER_TEMPLATE_ID,
-      WECHAT_APPROVAL_RESULT_TEMPLATE_ID: testResult.data.WECHAT_APPROVAL_RESULT_TEMPLATE_ID,
-      WECHAT_STATUS_CHANGE_TEMPLATE_ID: testResult.data.WECHAT_STATUS_CHANGE_TEMPLATE_ID,
     };
   }
 

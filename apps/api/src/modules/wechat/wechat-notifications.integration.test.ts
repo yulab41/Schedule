@@ -25,9 +25,7 @@ const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 
 const templateIds: WechatTemplateIds = {
-  approvalResult: 'tpl-approval',
   dutyReminder: 'tpl-duty',
-  statusChange: 'tpl-status',
 };
 
 describeWithDatabase('wechat notification deliveries', () => {
@@ -62,8 +60,6 @@ describeWithDatabase('wechat notification deliveries', () => {
     }
     process.env.WECHAT_MOCK_MODE = 'true';
     process.env.WECHAT_DUTY_REMINDER_TEMPLATE_ID = 'tpl-duty';
-    process.env.WECHAT_APPROVAL_RESULT_TEMPLATE_ID = 'tpl-approval';
-    process.env.WECHAT_STATUS_CHANGE_TEMPLATE_ID = 'tpl-status';
   });
 
   afterEach(async () => {
@@ -297,12 +293,7 @@ class FlakyGateway implements WechatGateway {
   }
 }
 
-const wechatEnvKeys = [
-  'WECHAT_APPROVAL_RESULT_TEMPLATE_ID',
-  'WECHAT_DUTY_REMINDER_TEMPLATE_ID',
-  'WECHAT_MOCK_MODE',
-  'WECHAT_STATUS_CHANGE_TEMPLATE_ID',
-] as const;
+const wechatEnvKeys = ['WECHAT_DUTY_REMINDER_TEMPLATE_ID', 'WECHAT_MOCK_MODE'] as const;
 
 function createFakeAuthPort(tokens: Readonly<Record<string, string>>): AuthPort {
   return {

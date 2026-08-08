@@ -14,7 +14,7 @@ Web 1.0 已上线阿里云 ECS（Fastify + MySQL + Nginx），ICP 备案即将�
 
 1. 成员只能通过群主/管理员定向邀请链接加入（身份预先设立、随链接认领）；网页与小程序统一取消群组码加入。
 2. 访客模式统一为“只有扫描群组专属小程序码才能查看固定群组”，关闭公开群组列表；群主/管理员无法阻止访客查看，只能在事件中查看访问记录。
-3. 小程序具备值班提醒和状态变更提醒（微信订阅消息 + 站内通知）。
+3. 小程序具备值班提醒（微信订阅消息 + 站内通知）；审批结果/状态变更仅站内通知，不发送微信订阅消息（2026-08-08 用户决定）。
 4. 小程序覆盖 Web 端全部用户与群组管理功能，界面美观、简约、无错位。
 
 ## 2. 用户决策
@@ -187,15 +187,12 @@ Fastify API（apps/api）
 - 客户端在以下时机调用 `wx.requestSubscribeMessage`（用户选“总是保持以上选择”后不再弹窗，仍累计额度）：
   - “提醒设置”开启值班提醒时；
   - 之后每次打开小程序（若开启）静默补一次值班提醒模板额度；
-  - 提交请假/换班/加扣班申请时，订阅“审批结果”模板；
-  - 收到审批操作（管理员处理）时订阅“状态变更”模板。
+  - 仅订阅“值班提醒”模板；审批结果/状态变更不订阅、不发送微信订阅消息（2026-08-08 用户决定）。
 - 服务器不持久化额度；发送时若返回 `43101`（用户拒绝/无额度）记为 `skipped` 并保留站内通知。
 
 ### 8.3 模板配置
 
 - `WECHAT_DUTY_REMINDER_TEMPLATE_ID`：排班提醒（已提供）。
-- `WECHAT_APPROVAL_RESULT_TEMPLATE_ID`：审批结果（待补充）。
-- `WECHAT_STATUS_CHANGE_TEMPLATE_ID`：状态变更（待补充）。
 - 模板 ID 只存服务器环境变量；`apps/web` 不感知。
 
 ### 8.4 发送与重试
@@ -300,7 +297,7 @@ apps/miniprogram/
 
 ## 13. 部署与配置
 
-- 新增环境变量：`WECHAT_APPID`、`WECHAT_APPSECRET`、`WECHAT_SESSION_SECRET`、`WECHAT_MOCK_MODE`、`WECHAT_QR_ENV_VERSION`、`WECHAT_DUTY_REMINDER_TEMPLATE_ID`、`WECHAT_APPROVAL_RESULT_TEMPLATE_ID`、`WECHAT_STATUS_CHANGE_TEMPLATE_ID`。
+- 新增环境变量：`WECHAT_APPID`、`WECHAT_APPSECRET`、`WECHAT_SESSION_SECRET`、`WECHAT_MOCK_MODE`、`WECHAT_QR_ENV_VERSION`、`WECHAT_DUTY_REMINDER_TEMPLATE_ID`。
 - 小程序后台：request 合法域名 `https://hosp.schedule.eylinhome.top`；上传密钥 `private.wx56a7a21f974fd9af.key` 仅本机使用，`scripts/upload-ci.mjs` 读取本地路径。
 - 上线前置：网站 ICP 通过后执行 `icp-maintenance.sh off`；小程序完成备案；体验版验收后提交审核发布。
 - AppSecret 已出现在对话中：联调完成后由管理员在小程序后台重置一次。

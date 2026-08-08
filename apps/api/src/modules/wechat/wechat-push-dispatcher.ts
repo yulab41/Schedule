@@ -8,38 +8,22 @@ import {
   type WechatSubscribeMessageData,
 } from './wechat-gateway.js';
 
-export type WechatTemplateKind = 'approvalResult' | 'dutyReminder' | 'statusChange';
+export type WechatTemplateKind = 'dutyReminder';
 
 export interface WechatTemplateIds {
-  readonly approvalResult: string | undefined;
   readonly dutyReminder: string | undefined;
-  readonly statusChange: string | undefined;
 }
-
-const approvalResultNotificationTypes = new Set([
-  'duty_adjustment_request_accepted',
-  'duty_adjustment_request_rejected',
-  'leave_request_approved',
-  'leave_request_rejected',
-  'swap_request_accepted',
-  'swap_request_rejected',
-]);
 
 export function getWechatTemplateKind(notificationType: string): WechatTemplateKind | undefined {
   if (notificationType === 'duty_reminder') {
     return 'dutyReminder';
   }
-  if (approvalResultNotificationTypes.has(notificationType)) {
-    return 'approvalResult';
-  }
-  return 'statusChange';
+  return undefined;
 }
 
 export function readWechatTemplateIds(values: NodeJS.ProcessEnv = process.env): WechatTemplateIds {
   return {
-    approvalResult: values.WECHAT_APPROVAL_RESULT_TEMPLATE_ID,
     dutyReminder: values.WECHAT_DUTY_REMINDER_TEMPLATE_ID,
-    statusChange: values.WECHAT_STATUS_CHANGE_TEMPLATE_ID,
   };
 }
 

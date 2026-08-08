@@ -14,7 +14,6 @@ import {
 } from '../../api/endpoints.js';
 import { resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
 import { formatLocalDate, formatMonthLabel, shiftBusinessMonth } from '../../utils/calendar.js';
-import { requestApprovalSubscription } from '../../utils/subscription.js';
 import { randomUuid } from '../../utils/uuid.js';
 import {
   buildMyOperableAssignments,
@@ -246,7 +245,6 @@ Page({
     }
     this.setData({ errorMessage: '', submitting: true });
     try {
-      await requestApprovalSubscription();
       await createSwapRequest(this.data.selectedGroupId, {
         initiatorAssignmentId: myAssignment.id,
         operationId: randomUuid(),

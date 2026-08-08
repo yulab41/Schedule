@@ -1291,3 +1291,15 @@
   - 重建后 `POST https://hosp.schedule.eylinhome.top/api/auth/wechat/login`（无效 code）返回 401 `WECHAT_LOGIN_FAILED`，真实网关已生效。
 - 遗留：本机 lmclient 代理 `respect-rules=false`（等于全局代理），DevTools/浏览器直连公网域名仍会被劫持（fake-IP 198.18.0.75 + TLS 中断）；建议开启“规则模式”或添加 `eylinhome.top` / `weixin.qq.com` 直连规则（GitHub 保持走代理）；上传密钥 `private.wx56a7a21f974fd9af.key` 未在常见目录找到，任务 15 再定位。
 - 状态：本地与公网真实微信登录链路均 ✅（模拟器点登录即真实建号；公网入口待本机代理放行后可直接联调）。
+
+### 微信订阅消息收窄为仅值班提醒（2026-08-08 用户决定）
+
+- 需求：审批结果/状态变更不需要微信提醒；微信订阅消息仅保留“值班提醒”（站内通知保留）。
+- 修改：
+  - 文档：设计规格（仅值班提醒订阅、模板环境变量列表）、实施计划（任务 6/11/12 相关描述）同步；
+  - `wechat-push-dispatcher.ts`：`WechatTemplateKind` 仅 `dutyReminder`，`getWechatTemplateKind` 仅 `duty_reminder` 返回模板，其余通知类型返回 undefined（不再创建微信投递行）；
+  - `env.ts`/`.env.example`/`.env.production.example`/`compose.prod.yml`：移除 `WECHAT_APPROVAL_RESULT_TEMPLATE_ID`、`WECHAT_STATUS_CHANGE_TEMPLATE_ID`（本地 `.env` 与服务器 `.env.production` 同步清理）；
+  - 小程序：`config/index.ts` 模板只剩 dutyReminder；`utils/subscription.ts` 删除审批/状态订阅函数；`leave-create`/`swap-create`/`duty-create` 提交前不再请求订阅；`approvals` 审批/驳回不再请求订阅；
+  - 测试：`wechat-push-dispatcher.spec.ts`（映射/模板读取/夹具）、`wechat-notifications.integration.test.ts`（模板与 env 夹具）、`env.test.ts` 同步。
+- 验证：`pnpm verify` 全绿（隔离 MySQL 658/658）+ 小程序 typecheck/lint；重新构建 API 并同步 ECS（compose + dist），重建后公网登录探测保持 401 WECHAT_LOGIN_FAILED。
+- 状态：微信订阅消息仅值班提醒 ✅；任务 13 可继续。

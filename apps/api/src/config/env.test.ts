@@ -135,15 +135,11 @@ describe('loadEnvironment', () => {
       WECHAT_APPSECRET: '   ',
       WECHAT_SESSION_SECRET: '',
       WECHAT_DUTY_REMINDER_TEMPLATE_ID: '',
-      WECHAT_APPROVAL_RESULT_TEMPLATE_ID: '',
-      WECHAT_STATUS_CHANGE_TEMPLATE_ID: '',
     });
     expect(environment.WECHAT_APPID).toBeUndefined();
     expect(environment.WECHAT_APPSECRET).toBeUndefined();
     expect(environment.WECHAT_SESSION_SECRET).toBeUndefined();
     expect(environment.WECHAT_DUTY_REMINDER_TEMPLATE_ID).toBeUndefined();
-    expect(environment.WECHAT_APPROVAL_RESULT_TEMPLATE_ID).toBeUndefined();
-    expect(environment.WECHAT_STATUS_CHANGE_TEMPLATE_ID).toBeUndefined();
   });
 
   it('applies WeChat defaults in test mode too', () => {
