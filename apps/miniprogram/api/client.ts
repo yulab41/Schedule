@@ -58,6 +58,9 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
         const payload = response.data as { error?: ApiErrorPayload } | undefined;
         if (response.statusCode === 401) {
           storeToken(undefined);
+          if (options.auth !== false) {
+            wx.reLaunch({ url: '/pages/login/login' });
+          }
         }
         reject(
           new ApiClientError(

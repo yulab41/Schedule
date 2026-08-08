@@ -1189,3 +1189,12 @@
   - 4 个占位页面（工作台含 TDesign `t-button` 引用验证组件路径）；根 `package.json` 增加 `miniprogram:typecheck`/`miniprogram:lint`；`eslint.config.js` 增加小程序全局（wx/Page/App 等）。
 - 验证：`pnpm --filter @schedule/miniprogram typecheck` 通过；根 lint 通过；全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；开发者工具导入留待用户在本地 DevTools 复核（自动化验证为 tsc/lint 全绿）。
 - 状态：任务 7 ✅（已完成自动化验证；下一轮任务 8 小程序登录/注册页）。
+
+### 微信小程序任务 8（小程序登录/注册页，2026-08-08）
+
+- 目标/需求：`wx.login` → `/auth/wechat/login`；新用户跳资料页填真实姓名（复用 `/users`）；老用户直接进工作台；会话恢复、401 统一回登录、登录按钮防重复点击；首页提示“只能创建群组，加入需邀请链接”。
+- 修改文件：
+  - `apps/miniprogram/api/endpoints.ts`（wechatLogin/getCurrentProfile/createUserProfile，type-only 引用 `@schedule/contracts`）；`api/client.ts`（401 清会话并 reLaunch 登录页）；`store/session.ts`（token/needsProfile/userId 状态）；
+  - `pages/login/*`（微信一键登录、会话恢复、404→资料页、错误/加载态、防重复点击）；`pages/register/*`（真实姓名输入 + 保存进工作台）；`app.json` 注册 login/register 页面；首页加入“仅邀请链接可加入”提示。
+- 验证：`pnpm --filter @schedule/miniprogram typecheck` 与根 lint 通过；全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；DevTools/真机 mock 走通登录→资料→工作台留待用户复核。
+- 状态：任务 8 ✅（已完成自动化验证；下一轮任务 9 访客日历、群码与邀请落地页）。

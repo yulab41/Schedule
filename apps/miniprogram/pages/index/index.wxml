@@ -1,7 +1,7 @@
 <view class="page-container">
   <view class="placeholder-card">
     <text class="placeholder-title">{{greeting}}</text>
-    <text class="placeholder-copy">工作台功能将在后续版本接入。</text>
+    <text class="placeholder-copy">直接打开只能创建群组；加入群组需群主或管理员分享的邀请链接。</text>
     <t-button theme="primary" size="small">进入日历</t-button>
   </view>
 </view>

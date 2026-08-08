@@ -1,0 +1,17 @@
+<view class="page-container login-page">
+  <view class="login-card">
+    <text class="login-title">科室排班</text>
+    <text class="login-copy">微信一键登录后即可使用排班日历。</text>
+    <t-button
+      theme="primary"
+      block
+      loading="{{loading}}"
+      disabled="{{loading}}"
+      bind:tap="handleLogin"
+    >
+      微信一键登录
+    </t-button>
+    <text wx:if="{{errorMessage}}" class="login-error">{{errorMessage}}</text>
+    <text class="login-hint">直接打开只能创建群组；加入群组需群主或管理员分享的邀请链接。</text>
+  </view>
+</view>
