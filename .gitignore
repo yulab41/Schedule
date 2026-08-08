@@ -31,3 +31,8 @@ npm-debug.log*
 pnpm-debug.log*
 .idea/
 .vscode/
+
+# Local deployment bundles, simulation dirs, and stale flat-tree backups
+runtime/*.tar.gz
+runtime/api-sim-*/
+runtime/api-flat.old-*/

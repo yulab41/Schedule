@@ -992,3 +992,11 @@
 - 本地库重置后需重新导入并确认 2026 节假日（步骤见 `infra/holidays/README.md`）；必要时把本地节假日种子并入 `pnpm dev` 初始化。
 - 继续按本日志模板追加用户测试反馈与修复记录。
 - 微信小程序：等 Web 功能稳定后按设计 26.1 另建独立实施计划（账号绑定沿用现有外部 UID 方案，自建认证落地后确定）。
+
+### fix-progress 轮次 55（新 ECS 全新部署 + 2G 资源铁律落地，部署轮）
+
+- 目标/需求：用户提供新 ECS `120.77.220.79`（2 vCPU/2 GiB/40G，Ubuntu 22.04，Docker 预装），要求部署最新版本并可公网访问；选择“全新开始”，不迁移旧机数据；要求将 2G 小机器资源铁律写入部署前必读并落地。
+- 决策：方案 A 公钥登录；全新空库；入口暂为 HTTP IP（域名/ICP/HTTPS 待后续）；旧试用机 `8.148.183.46` 保留为历史环境。
+- 修改文件：`infra/docker/compose.prod.yml`（容器内存上限、json-file 日志轮转、holiday 导入挂载）；`infra/docker/nginx.prod.conf`（gzip、静态资源浏览器缓存）；新增 `infra/scripts/ecs-bootstrap.sh`、`schedule-monitor.sh`、`schedule-backup.sh`；`docs/deployment/ecs-deployment-pitfalls.md` 新增“部署前必读：2G 小机器资源铁律”；`docs/deployment/aliyun-ecs.md` 新增一键全新部署说明与新机信息。
+- 验证：`pnpm build` 通过；`runtime/api-flat` 重新生成并本地模拟部署路径启动，`/health` 返回 200；服务器 bootstrap 后本机 `/` 与 `/api/health` 均 200；2026 节假日导入并确认成功；已建示例群组并通过 SSH 隧道完成 `pnpm smoke:browser`（管理员/成员/访客全流程无浏览器错误）；公网 80 待安全组放行后复核。
+- 状态：服务器侧部署完成，待公网放行后用户复核；OSS 备份推送待 ossutil 与凭据配置。

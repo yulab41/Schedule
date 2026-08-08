@@ -4,6 +4,7 @@
 
 ## Current Position
 
+- 2026-08-08（部署轮 55）：新 ECS `120.77.220.79` 全新部署完成（Docker Compose：Nginx + Fastify + MySQL；2G swap、容器内存上限、gzip/浏览器缓存、日志轮转、监控与定时加密备份 cron 已落地）；已建示例群组并通过 SSH 隧道完成浏览器冒烟；公网 80 待用户在阿里云安全组放行后复核；旧试用机 `8.148.183.46` 保留为历史环境
 - Last updated: 2026-08-08
 - Branch: `main` / Upstream: `origin/main`
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
@@ -151,6 +152,7 @@
 
 ## Known Environment State（关键信息；详细命令见 aliyun-ecs.md）
 
+- 新 ECS `120.77.220.79`（实例 i-wz98vjgval1ptp4e8hb0，2 vCPU/2 GiB/40G，Ubuntu 22.04，Docker 预装）：公钥登录 `root@120.77.220.79`；部署目录 `/opt/schedule`；入口 `http://120.77.220.79`（未配 HTTPS/域名；公网 80 当前返回 502/无响应，待安全组放行后复核）
 - 隔离测试库：`infra/docker/compose.test.yml` 将数据目录挂为 1GB tmpfs 并关闭 binlog（`--disable-log-bin`），已消除 512MB 顶满导致的 MySQL `ABORT_SERVER` 崩溃（2026-08-07 实测，轮次 50 加固）；全量验证前仍建议 `docker compose --env-file .env -f infra/docker/compose.test.yml down --volumes` 重置，Docker 空间不足时先 `docker builder prune -a -f`（Build Cache 曾占 56.9GB）。
 - 阿里云 ECS 试用机：`8.148.183.46`（Ubuntu 22.04，Docker 预装，1.6G 内存）；入口 `http://8.148.183.46`（未配置 HTTPS/域名）；部署方式见 `docs/deployment/aliyun-ecs.md`；试用期 API 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行（开发模式认证）。
 - 阿里云 MySQL：ECS 上 MySQL 8.4 容器（命名卷 `schedule_mysql_data`）；开发期单账号 `schedule_app` 全局授权；正式化需专用最小权限账号。原腾讯云 CynosDB `schedule_dev` 数据如需迁移，另行确认凭据后执行。
@@ -175,6 +177,7 @@
 
 ## Decisions and Blockers（仅保留当前仍相关）
 
+- 新 ECS 全新部署（2026-08-08 用户决策）：方案 A 公钥登录；全新空库，不迁移旧机数据；2G 小机器资源铁律已写入部署前必读并落地
 - N15 严格类型决策（2026-08-08，轮次 54，用户确认方案 A）：TDesign 组件类型声明 `dts` 保持开启并提交生成的 `apps/web/src/components.d.ts`，后续构建强制校验模板类型，防止“宽松类型掩盖”复发；方案 B（关闭 dts 并删除生成文件）已由用户明确排除，不再执行。
 - 试用期门禁（2026-08-07 用户决策方案二，2026-08-08 用户决策方案 4 撤除）：Nginx 浏览器密码门禁与网页登录携带的 Bearer 身份令牌在同一 `Authorization` 头冲突（登录反复弹框），已撤除；正式账号/微信登录落地前不再启用门禁，公网入口保持开发模式认证（风险已登记于 production-readiness.md）。
 - 迁移先行规则（轮次 12 事故教训，必须遵守）。

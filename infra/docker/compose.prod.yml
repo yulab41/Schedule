@@ -1,9 +1,19 @@
 name: medical-schedule-prod
 
+# 2G 小机器资源铁律（2026-08-08 用户要求，详见 docs/deployment/ecs-deployment-pitfalls.md）：
+# - 单机单入口：web（Nginx）一个容器承担静态托管与 /api 反向代理；未来接域名后在此入口按子域名路由并启用 HTTPS。
+# - 全机复用同一个 MySQL 实例：每个应用独立 database + 账号，不再为单个应用单独起 MySQL。
+# - 每个容器都设内存上限；容器日志统一 json-file 轮转；镜像清理见 infra/scripts/ecs-bootstrap.sh。
 services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    mem_limit: 1024m
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
@@ -26,8 +36,14 @@ services:
   api:
     build:
       context: ../..
-      dockerfile: infra/docker/Dockerfile.api
+      dockerfile: infra/docker/Dockerfile.api-runtime
     restart: unless-stopped
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 3000
@@ -58,9 +74,16 @@ services:
       # developer machine, so the old image only provides the Node runtime.
       # Remove these mounts once the ECS can build or pull fresh images.
       - ../../apps/api/dist:/app/apps/api/dist:ro
+      - ../../migrations:/app/migrations:ro
       - ../../packages/contracts/dist:/app/packages/contracts/dist:ro
       - ../../packages/database/dist:/app/packages/database/dist:ro
       - ../../packages/scheduling-domain/dist:/app/packages/scheduling-domain/dist:ro
+      # Infra scripts (holiday import etc.) live under /app/infra, so the flat
+      # dependency tree must also be resolvable from /app/node_modules.
+      - ../../runtime/api-flat/node_modules:/app/node_modules:ro
+      # Fresh-database bootstrap needs the holiday import script and source JSON.
+      - ../../infra/scripts/dist:/app/infra/scripts/dist:ro
+      - ../../infra/holidays:/app/infra/holidays:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -71,6 +94,12 @@ services:
     # build the web image themselves.
     image: nginx:1.27-alpine
     restart: unless-stopped
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
     ports:
       - '80:80'
     volumes:

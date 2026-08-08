@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1
+
+# 2G 小机器专用：只构建 Node 运行环境，不在服务器上安装项目依赖或编译。
+# 代码/依赖全部由开发机构建后挂载（见 compose.prod.yml 的 volumes）。
+FROM node:24-slim
+
+ENV NODE_ENV=production
+ENV TZ=Asia/Shanghai
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get install --no-install-recommends --yes tzdata ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+CMD ["node", "apps/api/dist/local-server.js"]

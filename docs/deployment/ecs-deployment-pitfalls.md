@@ -4,6 +4,15 @@
 > **部署前必须完整阅读本文件**，与 `docs/deployment/aliyun-ecs.md` 配合使用。
 > 来源：fix-progress 轮次 42/52 实战（门禁反复弹框、依赖树拍平失败、挂载目录不更新等）。
 
+## 0. 部署前必读：2G 小机器资源铁律（2026-08-08 用户要求）
+
+1. **单机单入口 + 自动 HTTPS**：一个 Nginx/Caddy 入口按子域名路由所有服务；接域名并完成 ICP 备案后启用自动 HTTPS（Caddy 自动签发，或 Nginx + ACME）。
+2. **复用同一个 MySQL**：每个应用建独立 database 与独立账号，禁止一个应用起一个 MySQL 容器（2G 机器上最浪费内存的写法）。
+3. **静态资源全部 OSS/COS + CDN**：图片、文件、前端包都别放服务器磁盘；本项目前端构建产物由开发机构建后挂载（已按此模式执行），继续维持。
+4. **容器资源与压缩**：容器必须设内存上限；开启 gzip/brotli 压缩与浏览器缓存；容器日志 json-file 轮转；定期清理 Docker 镜像与构建缓存。
+5. **swap/ZRAM 兜底 + 监控**：加 1–2G swap 或 ZRAM；监控只需 `free` + `docker stats`（已由 `infra/scripts/schedule-monitor.sh` + cron 落地）。
+6. **备份优先于扩容**：MySQL 定时 `mysqldump` 加密后推 OSS（当前已定时加密备份到命名卷；OSS 推送待 ossutil 与凭据配置后补充）。
+
 ## 一、命令执行铁律（PowerShell → SSH）
 
 1. **不要用 PowerShell 双引号字符串拼远程命令**。内嵌双引号会被吞掉，导致：

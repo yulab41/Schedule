@@ -8,6 +8,8 @@
 
 > **部署前必读**：`docs/deployment/ecs-deployment-pitfalls.md`（踩坑与铁律：远程命令引号、依赖树拍平、挂载目录重建、部署后验证清单）。
 
+> 2026-08-08：正式试用目标切换为新 ECS `120.77.220.79`（2 vCPU / 2 GiB / 40G，Ubuntu 22.04，Docker 预装），全新部署；旧试用机 `8.148.183.46` 保留为历史环境。
+
 ## 架构
 
 ```
@@ -23,6 +25,18 @@
 - `api`：Fastify 服务，数据卷 `schedule_backups`（`BACKUP_DIR=/data/backups`）
 - `web`：Nginx 提供 Vue SPA 静态文件并反向代理 `/api`；试用机上的 `web`
   服务直接挂载本机构建的 `apps/web/dist`（不在这台 1.6G 内存的 ECS 上编译）
+
+## 一键全新部署（推荐）
+
+```bash
+# 本机：构建并打包（含 apps/*/dist、packages/*/dist、runtime/api-flat/node_modules、infra/docker、migrations、infra/scripts/dist、infra/holidays）
+pnpm build
+tar -czf runtime/schedule-deploy-YYYYMMDD.tar.gz apps/web/dist apps/api/dist packages/contracts/dist packages/database/dist packages/scheduling-domain/dist infra/docker migrations .env.production.example runtime/api-flat/node_modules infra/scripts/dist infra/holidays
+
+# 上传并执行一键引导（自动生成随机密码、2G swap、监控/备份/清理 cron、pull + up + migrate + 导入确认 2026 节假日 + 验证）
+scp runtime/schedule-deploy-YYYYMMDD.tar.gz root@120.77.220.79:/tmp/
+ssh root@120.77.220.79 'mkdir -p /opt/schedule && tar -xzf /tmp/schedule-deploy-YYYYMMDD.tar.gz -C /opt/schedule && bash /opt/schedule/infra/scripts/ecs-bootstrap.sh /tmp/schedule-deploy-YYYYMMDD.tar.gz'
+```
 
 ## 首次部署
 
