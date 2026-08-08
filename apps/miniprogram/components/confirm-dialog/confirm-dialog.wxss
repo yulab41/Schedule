@@ -32,6 +32,6 @@
   gap: 16rpx;
 }
 
-.confirm-dialog__actions > * {
+.confirm-dialog__actions > t-button {
   flex: 1;
 }

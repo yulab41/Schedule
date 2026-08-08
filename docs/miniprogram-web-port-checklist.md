@@ -28,7 +28,9 @@
 | 22 | 平台运维：用户状态 | pages/platform/users | 模拟器流程 | D | ☑ |
 | 23 | 平台运维：节假日导入/版本/覆盖（import-preview/import/versions/confirm/coverage） | pages/platform/holidays | 模拟器流程 | D | ☑ |
 | 24 | 平台管理员入口（GET /platform/me） | profile/workbench 条件入口 | 集成测试 + 模拟器 | D | ☑ |
-| 25 | Web 逻辑单测等价移植（calendar/manual/statistics/workflow/swap/duty/leave/events/export/roster/notifications） | apps/miniprogram/utils/*.spec.ts | vitest | A–E | ☐ |
+| 25 | Web 逻辑单测等价移植（calendar/manual/statistics/workflow/swap/duty/leave/events/export/roster/notifications） | apps/miniprogram/utils/*.spec.ts | vitest | A–E | ☑ |
 | 26 | 模拟器逐页截图冒烟 | scripts/miniprogram-smoke.mjs 全页面 | 冒烟脚本 | E | ☐ |
 
 说明：微信扩展（登录/邀请/扫码/订阅）不在此清单中作为“Web 对照项”，但它们必须与既有后端集成测试一致。
+
+阻塞登记（2026-08-09）：第 26 行“模拟器逐页截图冒烟”暂未打勾——本机微信开发者工具 Stable v2.01.2510290 冷启动自动化对当前工程持续 `routeTo appLaunch timeout`（appservice 进程空闲、无脚本级错误；最小 2–3 页应用与全新用户目录同样复现；`cli open` 3 分钟未启动模拟器），疑似开发者工具自动化运行时的环境问题而非移植代码问题。批次 A–D 已修复的 WXSS 通配选择器编译错误已在本次冒烟排查中确认修复（编译通过至 webview loaded）。恢复路径：开发者工具 GUI 手动打开工程并确认模拟器运行后重跑 `pnpm miniprogram:smoke`，或升级/重装开发者工具后重跑。

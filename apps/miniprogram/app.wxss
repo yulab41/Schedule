@@ -87,7 +87,7 @@ page {
   margin-top: 24rpx;
 }
 
-.actions-row > * {
+.actions-row > t-button {
   flex: 1;
 }
 

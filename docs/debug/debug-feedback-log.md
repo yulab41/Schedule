@@ -1396,3 +1396,11 @@
   - `profile`/`workbench` 平台入口以 `GET /platform/me` 为条件。
 - 验证：`pnpm verify` 全绿（隔离 MySQL，98 文件 / 755 项，含本轮 contracts/api 改动）；`pnpm miniprogram:typecheck`/`pnpm lint` ✅；移植清单 19–24 打勾。
 - 状态：批次 D 已实现待模拟器复核；下一批：批次 E 移植清单全量走查、模拟器冒烟、文档收尾。
+
+### 小程序 Web 移植批次 E：WXSS 通配选择器修复与冒烟阻塞登记（2026-08-09）
+
+- 目标/需求：批次 E 全量走查 + 模拟器逐页截图冒烟 + 文档收尾。
+- 修复（冒烟首轮发现）：DevTools 编译报 `.wxss` 错误——`app.wxss(90:16)`、`pages/schedule/config.wxss(20:15)`、`components/confirm-dialog/confirm-dialog.wxss(35:15)` 出现 WXSS 不支持的 `*` 通配选择器；引入点经 `git log -S '*'` 与 `git blame` 定位为批次 A 提交 `2a88e48`（rebuild shell…）；改为显式组件选择器（`.actions-row > t-button`、`.config-row > t-input, .config-row > t-button`、`.confirm-dialog__actions > t-button`），子元素均为 TDesign 组件，行为等价；冒烟脚本同步加 tabBar 缺失兜底（`appJson.tabBar?.list ?? []`）。
+- 验证：`pnpm verify` 全绿（98 测试文件 / 755 项，`NODE_ENV=test` + 隔离 MySQL）；`pnpm miniprogram:typecheck` ✅；`pnpm vitest run apps/miniprogram` 16 文件 / 95 项 ✅；`pnpm format:check` ✅；DevTools 编译已越过 wxss 错误并到达 `webview loaded`。
+- 阻塞（第 26 行冒烟未打勾）：开发者工具 Stable v2.01.2510290 冷启动自动化对当前工程持续 `routeTo appLaunch timeout`；appservice 进程 5 秒采样 CPU≈0（非死循环）、无 thirdScriptError/脚本级错误；最小 2–3 页应用、全新 `--user-data-dir` profile、`miniprogram-automator.launch()` 均复现；`cli open` 等待 3 分钟无 simulator launch；`Default\Local Storage\leveldb` 与 compile/storage 缓存清理无效。判定为开发者工具自动化运行时环境问题（可能与微信服务网络受限、基础库 3.16.2 多页冷启动握手有关），非移植代码问题。
+- 状态：移植清单 1–25 打勾；26 未打勾；下一批：用户 GUI 手动打开工程并确认模拟器运行后重跑 `pnpm miniprogram:smoke`，或升级/重装开发者工具后重跑；完成后再提交批次 E 收尾。

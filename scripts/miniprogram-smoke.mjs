@@ -73,7 +73,7 @@ async function main() {
   }
 
   const appJson = JSON.parse(readFileSync(path.join(PROJECT_DIR, 'app.json'), 'utf8'));
-  const tabPages = new Set(appJson.tabBar.list.map((tab) => tab.pagePath));
+  const tabPages = new Set((appJson.tabBar?.list ?? []).map((tab) => tab.pagePath));
   const pages = appJson.pages;
 
   mkdirSync(SCREENSHOT_DIR, { recursive: true });

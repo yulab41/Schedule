@@ -17,7 +17,8 @@
   margin-top: 16rpx;
 }
 
-.config-row > * {
+.config-row > t-input,
+.config-row > t-button {
   flex: 1;
 }
 
