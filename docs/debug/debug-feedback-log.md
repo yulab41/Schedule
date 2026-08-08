@@ -941,6 +941,13 @@
 - 运行/浏览器验证：ECS 实测 `/` 与 `/api/health` 200、无 `WWW-Authenticate`；真实浏览器（无头 Edge，公网）打开无弹框，点“本地管理员”直接进入排班工作台（群组/2026-08 日历/菜单正常，接口全 200，无控制台错误）；API 容器内 `@cloudbase` 不存在，`local-server.js` MD5 与本地一致。
 - 状态：#N2 门禁 ✅ 已撤除；ECS 已同步本地最新构建（web dist 为轮次 51 提交后构建，与仓库 HEAD 一致）。待用户浏览器复核。
 
+### fix-progress 轮次 53（部署踩坑规则沉淀，纯文档）
+
+- 目标/需求：用户要求总结本次线上部署踩的坑与最终解法，放到下次部署前必读的位置。
+- 修复/功能：新增 `docs/deployment/ecs-deployment-pitfalls.md`——PowerShell→SSH 引号吞噬与 `$(...)` 本机执行陷阱（改用 `bash -s` + LF 脚本）、UTF-8 BOM 陷阱、`pnpm deploy --legacy --config.node-linker=hoisted` 依赖树拍平唯一可靠法（junction 树 tar/cp 均丢嵌套依赖）、替换被挂载目录后必须重建容器、本应用禁止 Basic Auth 门禁（与 Bearer 冲突）、部署后验证清单、多会话并行协作规则；`aliyun-ecs.md` 顶部加“部署前必读”链接，project-status 必读清单同步收录。
+- 验证：纯文档；prettier（deployment md）✅；`pnpm smoke:check-core` ✅。
+- 状态：✅（规则已沉淀；下次部署按该文件执行）。
+
 ## 待办 / 下一步
 
 - N15 待修（用户方案 C，2026-08-08 记录）：TDesign 严格类型暴露的模板类型问题，涉及 11 个文件；详细病症与复现方式见 `fix-progress.md` 的“N15 待修清单”。修复目标是启用组件类型声明后 `pnpm --filter @schedule/web build` 通过，并保持 `pnpm verify` / 浏览器冒烟 / 浏览器语义检查全绿。
@@ -971,7 +978,7 @@
 - 下一活动批次（2026-08-08）：fix-progress 轮次 51/52 已完成（TDesign 按需引入；#N2 门禁撤除 + ECS 已同步本地最新构建）；N1–N14 已全部收口；下一目标：N15（TDesign 模板类型全修，用户方案 C，清单见 fix-progress.md）→ 按阿里云部署路径推进——自建/微信账号认证、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号；前端/接口再改动时按 aliyun-ecs.md 同步 ECS；可选优化：HomeView 进一步拆包。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
-- 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。
+- 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；**部署前必读 `docs/deployment/ecs-deployment-pitfalls.md`**；部署前若含新迁移需先执行迁移。
 - 本地库重置后需重新导入并确认 2026 节假日（步骤见 `infra/holidays/README.md`）；必要时把本地节假日种子并入 `pnpm dev` 初始化。
 - 继续按本日志模板追加用户测试反馈与修复记录。
 - 微信小程序：等 Web 功能稳定后按设计 26.1 另建独立实施计划（账号绑定沿用现有外部 UID 方案，自建认证落地后确定）。

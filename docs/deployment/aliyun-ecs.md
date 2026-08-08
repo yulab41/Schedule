@@ -6,6 +6,8 @@
 > 试用期认证以开发模式运行（`NODE_ENV=development` + `AUTH_DEV_MODE=true`），
 > 自建认证改造见后续任务；正式上线前必须切回 `NODE_ENV=production`。
 
+> **部署前必读**：`docs/deployment/ecs-deployment-pitfalls.md`（踩坑与铁律：远程命令引号、依赖树拍平、挂载目录重建、部署后验证清单）。
+
 ## 架构
 
 ```
