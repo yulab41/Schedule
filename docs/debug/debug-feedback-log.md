@@ -931,10 +931,20 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过；额外浏览器语义检查确认登录/工作台/访客页 TDesign 组件真实渲染且无错误；pnpm smoke:check-core 通过。
 - 状态：TDesign 按需引入 ✅（可选优化完成）。
 
+### 轮次 52（#N2 门禁撤除 + ECS 同步本地最新构建，提交：见下方代码提交 + docs checkpoint）
+
+- 用户决策（2026-08-08，方案 4）：撤除试用期 Nginx 浏览器密码门禁；正式账号/微信登录落地前不再启用。
+- 目标/需求：修复“打开页面输入密码后，点管理员/用户又反复弹密码框、无法进入”与“服务器版本落后、与本地不一致”。
+- 根因/引入点：轮次 42 的门禁（HTTP Basic Auth）与前端 `client.ts` 的 `Authorization: Bearer` 在同一头部冲突——浏览器对显式携带 Authorization 的请求不会附带缓存的 Basic 凭据，nginx 对每个 `/api/*` 请求返回 401+Basic challenge，形成弹框循环（真实浏览器证据：`GET /api/users/me` 带 `Bearer local-admin` → 401 `WWW-Authenticate: Basic`）。版本落后：ECS 仍运行 8-06 构建的 API 镜像、旧 web dist、含 `@cloudbase` 的旧 api-flat，落后轮次 39–51。
+- 修复/功能：删除 `nginx.prod.conf.template` 的 `auth_basic`（恢复静态 `nginx.prod.conf`）；compose 删除门禁变量/挂载，新增 API/packages dist 宿主挂载；`runtime/api-flat` 用 `pnpm deploy --legacy --config.node-linker=hoisted` 重新生成（全平铺无符号链接、无 `@cloudbase`）；上传最新 web/api/packages dist 并重建 api/web 容器；服务器删除 `.htpasswd`/模板/备份，`.env.production` 移除门禁变量（旧产物保留为 `*.old-20260808*` 备份）。
+- 验证：`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL）；`docker compose config --quiet` ✅；prettier ✅；`pnpm smoke:browser` ✅；`pnpm smoke:check-core` ✅。
+- 运行/浏览器验证：ECS 实测 `/` 与 `/api/health` 200、无 `WWW-Authenticate`；真实浏览器（无头 Edge，公网）打开无弹框，点“本地管理员”直接进入排班工作台（群组/2026-08 日历/菜单正常，接口全 200，无控制台错误）；API 容器内 `@cloudbase` 不存在，`local-server.js` MD5 与本地一致。
+- 状态：#N2 门禁 ✅ 已撤除；ECS 已同步本地最新构建（web dist 为轮次 51 提交后构建，与仓库 HEAD 一致）。待用户浏览器复核。
+
 ## 待办 / 下一步
 
 - 用户强刷后复核：事件/日历/换班/加扣班/请假时间显示与草稿编号不变（轮次 43 相关，纯显示层收敛）。
-- 用户决策（2026-08-07）：N2 采用“浏览器密码提示”临时门禁；当前为非正式测试阶段，微信小程序上线、网页改用微信账号登录前必须关闭并移除门禁。
+- 用户决策（2026-08-07 方案二 → 2026-08-08 方案 4 撤除）：N2 试用期密码门禁与登录 Bearer 认证冲突（反复弹框），已撤除；正式账号/微信登录落地前不再启用，公网入口保持开发模式认证（风险已登记）。
 - 用户决策（2026-08-07）：CloudBase 弃用并已清理；部署目标固定阿里云 ECS；#3.6/#9.1/#9.2 随平台清理关闭。
 - 用户强刷后复核：换班/加扣班/请假等幂等操作重放行为不变（轮次 32 相关，正常操作不易触发）。
 - 用户强刷后复核：日历不再显示“调”标记，排班补录页正常（轮次 31 相关，PWA 缓存已升 v6）。
@@ -957,7 +967,7 @@
 - 用户强刷后复核：已过日期锁定、既往排班显示、排班补录页面与事件痕迹（轮次 47 相关）。
 - 用户强刷后复核：手动排班开始日期、班种单行布局、请假审批具体班次列表、请假阻断提示（轮次 46 相关）。
 - 用户强刷后复核：手动排班表格方向、日历事件弹窗、草稿预览（轮次 1/3/9/11 相关）。
-- 下一活动批次（2026-08-08）：fix-progress 轮次 51 已完成（TDesign 按需引入，体积下降且浏览器冒烟/语义检查通过）；N1–N14 已全部收口；下一阶段按阿里云部署路径推进——自建/微信账号认证（上线前移除门禁）、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号、`runtime/api-flat` 重新生成后部署；可选优化：HomeView 进一步拆包、模板类型严格化。
+- 下一活动批次（2026-08-08）：fix-progress 轮次 51/52 已完成（TDesign 按需引入；#N2 门禁撤除 + ECS 已同步本地最新构建）；N1–N14 已全部收口；下一阶段按阿里云部署路径推进——自建/微信账号认证、域名/ICP/HTTPS、定时任务 cron、正式 MySQL 与最小权限账号；前端/接口再改动时按 aliyun-ecs.md 同步 ECS；可选优化：HomeView 进一步拆包、模板类型严格化。
 - 上线状态（阿里云试用）：ECS `8.148.183.46` Docker Compose 部署；试用期开发模式认证（`NODE_ENV=development + AUTH_DEV_MODE=true`）；线上库迁移历史至 0031；CloudBase 已弃用，不再作为部署目标。
 - 原规划已落地：既往排班模块与已过日期锁定（轮次 47）已完成；“仅未来日期发布”的精确规则仍在 `fix-progress.md` #4.5 登记，需用户确认（今天能否发布、跨已过月份行为）后处理。
 - 需要部署阿里云时：按 `docs/deployment/aliyun-ecs.md` 手动执行（本机构建 → 上传 → compose up → 容器内跑迁移）；部署前若含新迁移需先执行迁移。

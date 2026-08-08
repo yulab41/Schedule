@@ -474,10 +474,10 @@
 
 ## 6. TODO（新发现问题登记处）
 
-> 2026-08-07 第二轮全库复审（处女原则）新发现问题 N1–N14。除 N1 已在轮次 41、N2 已在轮次 42 修复外，其余一律先登记、等用户安排轮次，不顺手改。
+> 2026-08-07 第二轮全库复审（处女原则）新发现问题 N1–N14。除 N1 已在轮次 41 修复、N2 已在轮次 42 部署但轮次 46 撤除外，其余一律先登记、等用户安排轮次，不顺手改。
 
 - **N1 ✅（轮次 41 已修复）** `infra/docker/compose.prod.yml` 第 32/43 行重复 `NODE_ENV` 键，`docker compose config` 解析失败，阿里云部署路径不可复现（引入点 16aea99）。修复：删除旧 `NODE_ENV: production`，保留试用期 `NODE_ENV: development`；`verify.yml` 新增 `docker compose config --quiet` 校验。
-- **N2 ✅（轮次 42 已修复）** 公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）。用户决策（2026-08-07）：采用方案二“浏览器密码提示”（Nginx Basic Auth）作为临时门禁；`nginx.prod.conf` 改为官方镜像模板并用 `NGINX_BASIC_AUTH_REALM` 控制开关，`.htpasswd` 服务器本地生成、不入库。该门禁仅限非正式测试阶段，微信小程序/正式上线改用微信账号登录前必须关闭并移除。
+- **N2 ➖（轮次 42 部署、轮次 46 撤除）** 公网试用机 `8.148.183.46` 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行，任意 Bearer token 可冒充任意 UID（含管理员）。轮次 42 按用户决策加 Nginx 浏览器密码门禁，但实测发现该门禁（HTTP Basic Auth）与网页登录携带的 Bearer 身份令牌在同一 `Authorization` 头冲突，登录请求反复弹密码框；用户决策（2026-08-08，方案 4）撤除门禁，正式账号/微信登录落地前不再启用。当前公网入口恢复为开发模式认证（风险已登记，见 production-readiness.md）。
 - **N3 ✅（轮次 44 已修复）** `apps/api/src/jobs/run-job.ts` 的 `getJobName` 手写 7 项任务名单，与 runner 穷举映射重复维护（#3.3 同类残留）。修复：`runner.ts` 导出 `isJobName`（基于 `jobRunners` 键判断），`run-job.ts` 改用 `jobNames`/`isJobName` 生成用法与解析，删除手写名单。
 - **N4 ✅（轮次 45 已修复）** `apps/api/src/modules/notifications/notification-dispatcher.ts` 的 `NoopPushDispatcher` 仍是死类（#7.5 残留）。修复：删除该类；`createPushDispatcher` 始终返回 `WebPushDispatcher`，全库无引用。
 - **N5 ✅（轮次 46 已修复）** `apps/api/src/plugins/idempotency.ts` “读无→再插”窗口内并发重复键仍会原样抛 500，而非 409。修复：重试插入再次撞唯一键时捕获并返回 409“相同请求正在处理中，请稍后重试。”，新增确定性单测。
@@ -758,6 +758,32 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 不确定点：1. `dts: false` 意味着编辑器不会自动补全 TDesign 组件类型，未来若需要严格类型，需另开轮修复模板类型并启用生成声明。2. HomeView 仍 >500KB，后续可继续按功能/面板拆路由子块。3. 自动扫描只识别模板里静态出现的 `<t-xxx>`；当前无动态字符串组件名，若有需显式导入。
 
 下次计划：按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号 → 重新生成 `runtime/api-flat` 后部署）；可选：HomeView 进一步拆包、模板类型严格化。
+
+### 轮次 52 – 2026-08-08
+
+目标：撤除试用期 Nginx 密码门禁（用户反馈登录反复弹密码框），并把阿里云 ECS 同步到本地最新构建（用户反馈服务器版本落后、与本地不一致）。
+
+引入点：门禁冲突引入点 = 轮次 42 部署（`nginx.prod.conf.template` 的 `auth_basic` 与前端 `client.ts` 的 `Authorization: Bearer` 冲突）；版本落后引入点 = 轮次 39–51 的代码/依赖从未部署到 ECS（服务器仍运行 8-06 构建的 API 镜像、旧 web dist、含 `@cloudbase` 依赖的旧 api-flat）。
+
+为什么现有测试没拦住：`pnpm verify`/`smoke:check-core` 不覆盖 nginx 与浏览器 HTTP auth 的交互；真实浏览器证据——点击“本地管理员”后 `GET /api/users/me` 携带 `Authorization: Bearer local-admin`，nginx 返回 401 + `WWW-Authenticate: Basic realm="Trial_access"`，浏览器对显式 Authorization 请求不会附带缓存的 Basic 凭据，形成弹框循环。
+
+修改文件：`infra/docker/nginx.prod.conf.template` → 恢复静态 `nginx.prod.conf`（删除 `auth_basic`）；`infra/docker/compose.prod.yml`（删除门禁环境变量/挂载，新增 API 与三个 packages dist 的宿主挂载，供试用机运行最新接口代码）；`infra/docker/Dockerfile.web`（回滚为静态配置）；`.env.production.example`/`.gitignore`（清理门禁残留）；`docs/deployment/aliyun-ecs.md`（删除门禁章节，新增“更新代码（试用机不编译）”步骤：`pnpm deploy --legacy --config.node-linker=hoisted` 生成全平铺无符号链接依赖树后上传）；`docs/deployment/production-readiness.md`（移除门禁说明，登记公网开发模式认证风险）。
+
+服务器操作（ECS）：上传最新 web dist/api dist/packages dist；重新生成 `runtime/api-flat/node_modules`（`pnpm deploy --legacy --config.node-linker=hoisted --filter @schedule/api --prod`，产物 77 个顶层包、无 `@cloudbase`、无符号链接）；删除 `.htpasswd`/模板/备份文件；`.env.production` 移除门禁变量；重建 api/web 容器（旧产物保留为 `*.old-20260808*` 备份）。
+
+语义等价审计与行为变化清单：移除门禁后站点恢复轮次 41/39 的无认证挑战状态（`/`、`/api/*`、`/health` 全部直接可达）；API 改为宿主挂载最新 dist + 最新平铺依赖树（与旧镜像相比：移除 CloudBase 依赖、包含轮次 39–51 全部修复）；web dist 更新为轮次 51（TDesign 按需引入）提交后的当前构建，与仓库 HEAD 一致。
+
+测试结果：`pnpm verify` 596/596 ✅（73 测试文件，隔离 MySQL）；`docker compose --env-file .env.production.example -f infra/docker/compose.prod.yml config --quiet` ✅；prettier（github yml + deployment md）✅；`pnpm smoke:browser` ✅（登录/管理员/成员/访客全流程无浏览器错误）；`pnpm smoke:check-core` ✅（记录满足校验）。
+
+运行/浏览器验证：ECS 实测——`/` 与 `/api/health` 200、响应无 `WWW-Authenticate`；真实浏览器（无头 Edge，公网 `http://8.148.183.46`）打开无弹框，点击“本地管理员”直接进入排班工作台（群组“头颈外科医生”、2026-08 日历、全部菜单加载正常；`/api/users/me`、通知、群组、日历、节假日请求全部 200，无认证挑战、无控制台错误）；API 容器内 `@cloudbase` 已不存在，`local-server.js` MD5 与本地构建一致（39B25A86…）。
+
+状态：#N2 门禁 ✅ 已撤除（已完成：公网浏览器实测通过，待用户浏览器复核）；ECS 已同步本地最新构建。
+
+提交：630289c（`revert(deploy): drop trial basic auth gate and mount current api dists`）；docs checkpoint 提交见下方（推送结果见对话回复）。
+
+不确定点：1. 部署的 web dist 为轮次 51（TDesign 按需引入）提交后的构建，与仓库 HEAD 一致；后续前端再改动时需按 aliyun-ecs.md 重新同步。2. api-flat 改用 `node-linker=hoisted` 全平铺模式生成（旧产物为含符号链接的隔离模式，Windows 下无法正确拍平跨平台传输）；依赖变更后必须按 aliyun-ecs.md 重新生成。3. 服务器保留旧产物备份（`node_modules.old-20260808`、`dist.old-20260808b` 等），确认稳定后可清理。
+
+下次计划：按阿里云部署路径推进（自建/微信账号认证 → 域名/ICP/HTTPS → 定时任务 cron → 正式 MySQL/最小权限账号）；前端/接口再改动时按 aliyun-ecs.md 同步 ECS。
 
 - `.github/workflows/verify.yml` 把 `pnpm build` 与 `pnpm test` 并行启动，而 CI 是全新检出（dist 不入库），测试可能先于构建完成解析 `@schedule/database`/`@schedule/scheduling-domain` 等包入口而失败——2026-08-06 轮次 8/9 前后多个 Verify 失败的根因（`gh run view <id> --log-failed` 可复现，报 `Failed to resolve entry for package`）。建议后续轮次改为 build 完成后再启动 test；本轮未动。
   > 完成情况（轮次 40）：`verify.yml` 的 Build and run tests 改为 `pnpm build` 完成后才启动 `pnpm test`（顺序执行，检查内容不变）。
