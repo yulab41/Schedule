@@ -1,6 +1,7 @@
 ﻿import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { readFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { sql } from 'drizzle-orm';
@@ -44,11 +45,11 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives')`,
+          AND table_name IN ('users', 'user_profiles', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs')`,
     );
 
-    expect(migrations).toEqual([{ count: 32 }]);
-    expect(tables).toEqual([{ count: 40 }]);
+    expect(migrations).toEqual([{ count: 34 }]);
+    expect(tables).toEqual([{ count: 42 }]);
   });
 
   it('accepts the guest membership role after migration 0032', async () => {
@@ -58,8 +59,8 @@ describeWithDatabase('identity and group migrations', () => {
 
     await client.database.execute(sql`INSERT INTO users (id) VALUES (${ownerId})`);
     await client.database.execute(sql`
-      INSERT INTO \`groups\` (id, name, group_code, owner_user_id)
-      VALUES (${groupId}, 'Guest Group', '1234', ${ownerId})
+      INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
+      VALUES (${groupId}, 'Guest Group', '1234', ${ownerId}, ${'c'.repeat(32)})
     `);
     await client.database.execute(sql`
       INSERT INTO group_memberships (id, group_id, user_id, role)
@@ -127,8 +128,8 @@ describeWithDatabase('identity and group migrations', () => {
       VALUES (${ownerUserId}, 'cloudbase-owner')
     `);
     await client.database.execute(sql`
-      INSERT INTO \`groups\` (id, name, group_code, owner_user_id)
-      VALUES (${firstGroupId}, 'First group', '1234', ${ownerUserId})
+      INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
+      VALUES (${firstGroupId}, 'First group', '1234', ${ownerUserId}, ${'d'.repeat(32)})
     `);
     await client.database.execute(sql`
       UPDATE \`groups\`
@@ -242,6 +243,102 @@ describeWithDatabase('identity and group migrations', () => {
       await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
     }
   });
+
+  it('backfills visitor keys and applies wechat identity, invite and notification changes on existing data', async () => {
+    const legacyMigrationsDirectory = await createLegacyMigrationsDirectory();
+    try {
+      await migrateDatabase(client, legacyMigrationsDirectory);
+
+      const ownerId = randomUUID();
+      const groupId = randomUUID();
+      await client.database.execute(
+        sql`INSERT INTO users (id, cloudbase_uid) VALUES (${ownerId}, 'cloudbase-legacy-owner')`,
+      );
+      await client.database.execute(sql`
+        INSERT INTO \`groups\` (id, name, group_code, owner_user_id)
+        VALUES (${groupId}, 'Legacy group', '1234', ${ownerId})
+      `);
+
+      await runMigrationFile(client, '0033_wechat_identity_and_invites');
+
+      const [groupsAfterBackfill] = (await client.database.execute(
+        sql`SELECT visitor_key AS visitorKey FROM \`groups\` WHERE id = ${groupId}`,
+      )) as unknown as [{ visitorKey: string }[], unknown];
+      expect(groupsAfterBackfill[0]?.visitorKey).toMatch(/^[0-9a-f]{32}$/u);
+
+      const membershipId = randomUUID();
+      await client.database.execute(sql`
+        INSERT INTO group_memberships (id, group_id, user_id, role)
+        VALUES (${membershipId}, ${groupId}, ${ownerId}, 'owner')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO invite_tokens (
+          id, group_id, target_membership_id, invitee_real_name,
+          created_by_user_id, token_hash, expires_at
+        )
+        VALUES (
+          ${randomUUID()}, ${groupId}, ${membershipId}, 'Zhang San',
+          ${ownerId}, ${'a'.repeat(64)}, '2026-08-15 00:00:00.000'
+        )
+      `);
+      await expect(
+        client.database.execute(sql`
+          INSERT INTO invite_tokens (
+            id, group_id, invitee_real_name, created_by_user_id, token_hash, expires_at
+          )
+          VALUES (
+            ${randomUUID()}, ${groupId}, 'No target',
+            ${ownerId}, ${'b'.repeat(64)}, '2026-08-15 00:00:00.000'
+          )
+        `),
+      ).rejects.toThrow();
+
+      const wechatUserId = randomUUID();
+      await client.database.execute(sql`
+        INSERT INTO users (id, cloudbase_uid, wechat_openid)
+        VALUES (${wechatUserId}, 'cloudbase-wechat', 'openid-legacy')
+      `);
+      await expect(
+        client.database.execute(sql`
+          INSERT INTO users (id, cloudbase_uid, wechat_openid)
+          VALUES (${randomUUID()}, 'cloudbase-wechat-2', 'openid-legacy')
+        `),
+      ).rejects.toThrow();
+
+      await runMigrationFile(client, '0034_wechat_notifications');
+
+      await client.database.execute(sql`
+        INSERT INTO notification_preferences (id, membership_id)
+        VALUES (${randomUUID()}, ${membershipId})
+      `);
+      const [preferences] = (await client.database.execute(
+        sql`SELECT wechat_notifications_enabled AS enabled
+            FROM notification_preferences
+            WHERE membership_id = ${membershipId}`,
+      )) as unknown as [{ enabled: number }[], unknown];
+      expect(preferences[0]?.enabled).toBe(1);
+
+      const notificationId = randomUUID();
+      await client.database.execute(sql`
+        INSERT INTO notifications (id, recipient_user_id, title, body, notification_type)
+        VALUES (${notificationId}, ${wechatUserId}, 'Reminder', 'Duty starts soon', 'duty_reminder')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO notification_deliveries (id, notification_id, channel, status)
+        VALUES (${randomUUID()}, ${notificationId}, 'wechat', 'pending')
+      `);
+
+      await client.database.execute(sql`
+        INSERT INTO visitor_access_logs (id, group_id, business_month, client_ip, request_id)
+        VALUES (
+          ${randomUUID()}, ${groupId}, '2026-08', '127.0.0.1',
+          '00000000-0000-0000-0000-000000000000'
+        )
+      `);
+    } finally {
+      await rm(legacyMigrationsDirectory, { force: true, recursive: true });
+    }
+  });
 });
 
 async function runMigrationFile(client: DatabaseClient, migrationName: string): Promise<void> {
@@ -253,6 +350,26 @@ async function runMigrationFile(client: DatabaseClient, migrationName: string): 
       await client.database.execute(sql.raw(trimmed));
     }
   }
+}
+
+async function createLegacyMigrationsDirectory(): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), 'schedule-migrations-'));
+  await mkdir(join(directory, 'meta'));
+  const journal = JSON.parse(
+    await readFile(join(migrationsDirectory, 'meta/_journal.json'), 'utf8'),
+  ) as { dialect: string; entries: readonly { tag: string }[]; version: string };
+  const legacyEntries = journal.entries.slice(0, 32);
+  await writeFile(
+    join(directory, 'meta/_journal.json'),
+    JSON.stringify({ dialect: journal.dialect, entries: legacyEntries, version: journal.version }),
+  );
+  for (const entry of legacyEntries) {
+    await copyFile(
+      join(migrationsDirectory, `${entry.tag}.sql`),
+      join(directory, `${entry.tag}.sql`),
+    );
+  }
+  return directory;
 }
 
 async function insertSwap(client: DatabaseClient, id: string, createdAt: Date): Promise<void> {
@@ -322,6 +439,8 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
   await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);

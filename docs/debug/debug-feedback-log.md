@@ -1091,3 +1091,18 @@
 - 踩坑：用基础 `compose.prod.yml` 重建 web 会丢维护模式 `127.0.0.1:8080:8080` 自测入口；`ecs-update.sh` 已改为自动附带 `compose.prod.icp-test.yml`，并写入踩坑手册第 19 条。
 - 运行/浏览器验证：`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（登录/管理员/成员/访客 + 群组管理面板 + 成员无事件导航断言）；`/api/health` 200；`local-server.js` MD5 与本地一致；web 入口资源 `index-D_iPeI7A.js` 一致；依赖树无 `@cloudbase`。
 - 状态：已部署服务器，待用户强刷复核（公网为 ICP 备案维护占位页，自测走 127.0.0.1:8080 隧道）。
+
+### 微信小程序任务 1（数据库迁移与 schema / contracts / 脱敏，2026-08-08）
+
+- 目标/需求：按已批准的小程序实施计划执行任务 1——新增迁移 0033/0034，同步 Drizzle schema 与 contracts 基础类型，扩展日志脱敏路径。
+- 修改文件：
+  - `migrations/0033_wechat_identity_and_invites.sql`（`users.wechat_openid` 唯一可空、`groups.visitor_key` 存量回填 32 位十六进制后非空唯一、`invite_tokens` 新表含目标二选一 CHECK、token_hash/expires_at/status/版本时间戳）；
+  - `migrations/0034_wechat_notifications.sql`（投递渠道 ENUM 增加 `wechat`、`external_message_id`、`wechat_notifications_enabled` 默认 1、`visitor_access_logs` 新表）；
+  - `migrations/meta/_journal.json`（登记 0033/0034）；
+  - `packages/database/src/schema/index.ts`（users/groups 扩展）、新增 `schema/wechat.ts`、`schema/notifications.ts`（channel/externalMessageId/wechatNotificationsEnabled）；
+  - `packages/contracts/src/wechat.ts`（登录/访客解析/访问记录/群码/邀请契约）与 `errors.ts`（6 个新错误码）；
+  - `apps/api/src/security/redact.ts`（appSecret/visitorKey/openid）与对应测试；
+  - 22 个 API 集成测试本地 resetDatabase 清单补两张新表，`group-member-reader` 裸 SQL 补 visitor_key，`membership-claims` 重置清单补新表。
+- 测试：迁移测试 12/12（空库计数 34/42、已有数据回填、invite 二选一约束、openid 唯一、wechat 渠道/偏好默认值、访问日志可写）；contracts 测试 13/13（含新错误码清单与 wechat 契约 7 项）；redact 6/6；全量 `pnpm verify` 624 项（76 个测试文件，隔离 MySQL）通过。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；本轮涉及 contracts 核心链路，按 AGENTS.md 补录本记录。
+- 状态：任务 1 ✅（已完成，含运行验证；待提交检查点后进入任务 2）。

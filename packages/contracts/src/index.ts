@@ -16,6 +16,7 @@ export * from './holidays.js';
 export * from './statistics.js';
 export * from './exports.js';
 export * from './platform.js';
+export * from './wechat.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';

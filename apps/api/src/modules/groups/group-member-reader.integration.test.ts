@@ -150,8 +150,8 @@ async function seedReaderFixture(client: DatabaseClient): Promise<ReaderFixture>
     sql`INSERT INTO user_profiles (user_id, real_name) VALUES (${ownerUserId}, 'Owner Doctor')`,
   );
   await client.database.execute(
-    sql`INSERT INTO \`groups\` (id, name, group_code, owner_user_id)
-        VALUES (${groupId}, 'Reader Group', '1111', ${ownerUserId})`,
+    sql`INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
+        VALUES (${groupId}, 'Reader Group', '1111', ${ownerUserId}, ${'e'.repeat(32)})`,
   );
 
   const createMember = async (realName: string) => {
@@ -231,6 +231,8 @@ async function seedReaderFixture(client: DatabaseClient): Promise<ReaderFixture>
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
   await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);

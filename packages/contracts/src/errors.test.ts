@@ -14,6 +14,12 @@ describe('API error codes', () => {
       'RATE_LIMITED',
       'SERVICE_UNAVAILABLE',
       'INTERNAL_ERROR',
+      'WECHAT_LOGIN_FAILED',
+      'WECHAT_MESSAGE_SEND_FAILED',
+      'INVITE_INVALID',
+      'INVITE_USED',
+      'INVITE_EXPIRED',
+      'VISITOR_KEY_INVALID',
     ]);
     expect(new Set(apiErrorCodes).size).toBe(apiErrorCodes.length);
   });

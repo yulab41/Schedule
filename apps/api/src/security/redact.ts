@@ -7,12 +7,15 @@ const sensitiveFieldNames = [
   'accessToken',
   'refreshToken',
   'authorization',
+  'appSecret',
   'phone',
   'phoneNumber',
   'mobilePhone',
   'shortPhone',
   'mobile',
   'telephone',
+  'openid',
+  'visitorKey',
 ] as const;
 
 // Pino redact 依赖静态路径列表；深于 3 层的嵌套由 redactSensitiveFields 兜底。

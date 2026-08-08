@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import { sql } from 'drizzle-orm';
 import {
   char,
@@ -24,6 +26,7 @@ export * from './statistics.js';
 export * from './exports.js';
 export * from './platform.js';
 export * from './workflow-sequences.js';
+export * from './wechat.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
@@ -39,10 +42,14 @@ export const users = mysqlTable(
   {
     id: identifier(),
     cloudbaseUid: varchar('cloudbase_uid', { length: 128 }),
+    wechatOpenid: varchar('wechat_openid', { length: 64 }),
     status: mysqlEnum('status', ['active', 'suspended', 'deleted']).default('active').notNull(),
     ...auditableColumns(),
   },
-  (table) => [uniqueIndex('users_cloudbase_uid_unique').on(table.cloudbaseUid)],
+  (table) => [
+    uniqueIndex('users_cloudbase_uid_unique').on(table.cloudbaseUid),
+    uniqueIndex('users_wechat_openid_unique').on(table.wechatOpenid),
+  ],
 );
 
 export const userProfiles = mysqlTable('user_profiles', {
@@ -59,6 +66,9 @@ export const groups = mysqlTable(
     id: identifier(),
     name: varchar('name', { length: 100 }).notNull(),
     groupCode: char('group_code', { length: 4 }).notNull(),
+    visitorKey: varchar('visitor_key', { length: 64 })
+      .notNull()
+      .$defaultFn(() => randomBytes(16).toString('hex')),
     ownerUserId: char('owner_user_id', { length: 36 })
       .notNull()
       .references(() => users.id),
@@ -89,6 +99,7 @@ export const groups = mysqlTable(
   },
   (table) => [
     uniqueIndex('groups_group_code_unique').on(table.groupCode),
+    uniqueIndex('groups_visitor_key_unique').on(table.visitorKey),
     index('groups_owner_user_id_idx').on(table.ownerUserId),
   ],
 );

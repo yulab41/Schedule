@@ -344,6 +344,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(`SET FOREIGN_KEY_CHECKS = 0`);
   const tables = [
     'membership_claim_requests',
+    'invite_tokens',
+    'visitor_access_logs',
     'platform_job_runs',
     'backup_archives',
     'manual_schedule_cells',

@@ -59,7 +59,7 @@ export const notificationDeliveries = mysqlTable(
     notificationId: char('notification_id', { length: 36 })
       .notNull()
       .references(() => notifications.id),
-    channel: mysqlEnum('channel', ['browser']).default('browser').notNull(),
+    channel: mysqlEnum('channel', ['browser', 'wechat']).default('browser').notNull(),
     status: mysqlEnum('status', ['pending', 'sent', 'failed', 'skipped'])
       .default('pending')
       .notNull(),
@@ -68,6 +68,7 @@ export const notificationDeliveries = mysqlTable(
     nextAttemptAt: timestamp('next_attempt_at', { fsp: 3 }),
     lastError: varchar('last_error', { length: 500 }),
     sentAt: timestamp('sent_at', { fsp: 3 }),
+    externalMessageId: varchar('external_message_id', { length: 64 }),
     ...auditableColumns(),
   },
   (table) => [
@@ -93,6 +94,11 @@ export const notificationPreferences = mysqlTable(
     membershipId: char('membership_id', { length: 36 }).notNull(),
     dutyReminderHours: json('duty_reminder_hours').$type<number[]>(),
     browserNotificationsEnabled: tinyint('browser_notifications_enabled', {
+      unsigned: true,
+    })
+      .default(1)
+      .notNull(),
+    wechatNotificationsEnabled: tinyint('wechat_notifications_enabled', {
       unsigned: true,
     })
       .default(1)

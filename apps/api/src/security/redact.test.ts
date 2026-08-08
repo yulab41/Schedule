@@ -4,9 +4,11 @@ import { logRedactionPaths, redactSensitiveFields } from './redact.js';
 
 const canonicalSensitiveFields = [
   'accessToken',
+  'appSecret',
   'authorization',
   'mobile',
   'mobilePhone',
+  'openid',
   'password',
   'phone',
   'phoneNumber',
@@ -14,6 +16,7 @@ const canonicalSensitiveFields = [
   'shortPhone',
   'telephone',
   'token',
+  'visitorKey',
 ] as const;
 
 describe('sensitive field redaction', () => {
