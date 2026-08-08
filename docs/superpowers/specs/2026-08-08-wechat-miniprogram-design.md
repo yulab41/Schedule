@@ -12,8 +12,8 @@ Web 1.0 已上线阿里云 ECS（Fastify + MySQL + Nginx），ICP 备案即将�
 
 目标：
 
-1. 微信用户登录后可通过群组码 + 真实姓名认领加入群组；群主/管理员可通过分享链接把已配置好角色的成员直接拉入群组。
-2. 访客模式统一为“只有扫描群组专属小程序码才能查看固定群组”，关闭公开群组列表。
+1. 成员只能通过群主/管理员定向邀请链接加入（身份预先设立、随链接认领）；网页与小程序统一取消群组码加入。
+2. 访客模式统一为“只有扫描群组专属小程序码才能查看固定群组”，关闭公开群组列表；群主/管理员无法阻止访客查看，只能在事件中查看访问记录。
 3. 小程序具备值班提醒和状态变更提醒（微信订阅消息 + 站内通知）。
 4. 小程序覆盖 Web 端全部用户与群组管理功能，界面美观、简约、无错位。
 
@@ -23,8 +23,9 @@ Web 1.0 已上线阿里云 ECS（Fastify + MySQL + Nginx），ICP 备案即将�
 | --- | --- |
 | 技术路线 | 方案 A：原生微信小程序 + TypeScript + TDesign 小程序组件 |
 | 功能范围 | 全功能版：成员功能 + 群组管理/审批全部搬入小程序 |
-| 邀请链接 | 一次性令牌 + 姓名确认；先到先得风险在确认页明示并记录审计 |
-| 访客模式 | 网页端公开群组列表一并关闭；只有扫码可访客查看 |
+| 邀请链接 | 一次性令牌 + 姓名确认；先到先得风险在确认页明示并记录审计；**这是加入群组的唯一方式** |
+| 群组码加入 | 网页与小程序统一取消；群组码仅作为群组标识展示，不再作为加入凭据 |
+| 访客模式 | 网页端公开群组列表一并关闭；只有扫码可匿名查看；群主/管理员无法阻止访客，只能在事件中查看访问记录 |
 | 已有账号 | 不做独立绑定码；通过管理员/群主定向邀请链接绑定成员身份（详见 5.4） |
 | 主体 | 个人主体，名称“科室排班日历”（简称“科室排班”） |
 | 订阅消息 | 个人主体只能使用一次性订阅；长期订阅不可用 |
@@ -34,9 +35,9 @@ Web 1.0 已上线阿里云 ECS（Fastify + MySQL + Nginx），ICP 备案即将�
 
 ### 3.1 本次范围
 
-- 后端：微信登录/会话令牌、邀请链接身份绑定、群组访客 key、群组小程序码、邀请链接、订阅消息投递渠道。
-- 小程序：登录注册、访客日历、群组日历（月/周/列表）、成员与联系方式、请假、换班、加扣班、审批中心、通知与提醒设置、群管理（成员/认领/角色/班种/排班配置/群码/邀请/转让解散）、统计、我的。
-- Web：关闭公开群组列表、访客页改为凭访客 key 访问、登录体验适配微信。
+- 后端：微信登录/会话令牌、邀请链接身份绑定（唯一加入方式）、群组访客 key 与访问记录、群组小程序码、订阅消息投递渠道；下线群组码加入与认领申请流程。
+- 小程序：登录注册、访客日历、群组日历（月/周/列表）、成员与联系方式、请假、换班、加扣班、审批中心、事件与访问记录、通知与提醒设置、群管理（成员与待认领名单/角色/班种/排班配置/群码/邀请/转让解散）、统计、我的。
+- Web：关闭公开群组列表、取消群组码加入与认领申请入口、访客页改为凭访客 key 访问、登录体验适配微信。
 
 ### 3.2 不在本次范围
 
@@ -88,13 +89,13 @@ Fastify API（apps/api）
 - 密钥 `WECHAT_SESSION_SECRET`（≥32 字节），仅存服务器环境变量。
 - 小程序端把令牌存 storage，请求带 `Authorization: Bearer <token>`；现有接口无需修改认证方式。
 
-### 5.4 身份绑定（由邀请链接承担）
+### 5.4 身份绑定（唯一入口：邀请链接）
 
-- 系统不提供独立绑定码。微信身份与成员身份的绑定只发生在两个入口：
-  1. 登录后输入群组码 + 真实姓名认领（目标成员未认领时，沿用现有认领流程）；
-  2. 接受管理员/群主定向分享的邀请链接（目标成员已由管理员配置好）。
+- 系统不提供独立绑定码，也不提供群组码加入/真实姓名认领。
+- 微信身份与成员身份的绑定唯一发生在：接受管理员/群主定向分享的邀请链接（目标成员与角色已由管理员预先配置好）。
+- 直接打开小程序只能登录并创建自己的群组；没有邀请链接无法加入任何群组。
 - 接受邀请时若目标成员尚未认领：直接绑定到当前微信账号。
-- 接受邀请时若目标成员已被其他账号认领（典型场景：网页老用户）：执行受控全量合并——把当前微信账号已有的全部有效群组关系（含群主身份、认领申请）转移到已认领账号，openid 写入该账号（只写入 `users.wechat_openid`，不改写既有 `cloudbase_uid`），删除当前微信空壳账号，并在接受响应中签发新会话；同一微信用户可同时属于多个群组，历史数据全部延续。
+- 接受邀请时若目标成员已被其他账号认领（典型场景：网页老用户）：执行受控全量合并——把当前微信账号已有的全部有效群组关系（含群主身份、认领申请）转移到已认领账号，openid 写入该账号（只写入 `users.wechat_openid`，不改写既有 `cloudbase_uid`），删除已转移完群组关系的当前微信账号，并在接受响应中签发新会话；同一微信用户可同时属于多个群组，历史数据全部延续。
 - 合并限制：若两个账号在同一个群组已各自存在有效成员身份，或当前微信账号是平台/节假日管理员，则拒绝合并并返回 409，提示先处理冲突，避免数据混并或管理员权限失效。
 - 合并/绑定均写审计日志。
 
@@ -121,8 +122,17 @@ Fastify API（apps/api）
 - 删除公开群组列表 `GET /guest/groups`；`GuestCalendarPanel` 不再加载目录。
 - 扫码落地页用 scene 中的 `v` 调 `POST /guest/groups/resolve { visitorKey }`（公开、限频）得到 `groupId/groupName`。
 - 访客日历改为 `GET /guest/groups/:groupId/calendar?visitorKey=...&businessMonth=...`，服务端校验 visitorKey 属于该群组。
+- 每次成功读取访客日历写入访问日志（见 6.4）。
 - 保留现有访客日历数据口径：群组名、排班角色、班种、值班姓名、已确认电话、节假日与调休；不返回群组码、事件、统计、管理能力。
-- Web 端访客页只接受 `?vkey=` 链接，不对外列出；同时保留“已登录 guest 成员”的工作台入口。
+- Web 端访客页只接受 `?vkey=` 链接，不对外列出。
+- 群主/管理员无法阻止或开关访客访问（不提供开关）；重新生成 visitor_key 仅用于更换旧二维码。
+
+### 6.4 访客访问记录
+
+- 新表 `visitor_access_logs`：id、group_id、business_month、created_at、client_ip（可空）、request_id（可空）。
+- 访客未登录，日志不记录访客微信身份；记录访问时间、查看月份与来源 IP，供群主/管理员在“事件 → 访问记录”查看。
+- 只读接口 `GET /groups/:groupId/visitor-access-logs`（owner/admin，按时间倒序，默认最近 100 条）。
+- 日志保留期默认 180 天，由平台任务定期清理；写入与查询均不限频以外的额外权限。
 
 ## 7. 邀请链接
 
@@ -146,7 +156,7 @@ Fastify API（apps/api）
 
 ### 7.2 流程
 
-1. 群主/管理员在小程序“成员管理 → 邀请加入”选择目标人员（待认领名单或未认领成员），可配置排班角色；服务端创建一次性令牌。
+1. 群主/管理员在小程序“成员管理 → 邀请加入”选择目标人员（待认领名单或未认领成员），可配置排班角色；服务端创建一次性令牌。这是成员加入群组的唯一途径。
 2. 小程序用 `open-type="share"` 分享落地页 `pages/invite/invite?t=<token>`；token 即邀请链接密钥，明示“请转发给指定的张三本人，先到先得”。
 3. 被邀请人打开 → 需登录（未登录先走登录/注册）→ `POST /invites/resolve { token }` 展示“邀请你以 XX 角色加入 XX 群组，姓名：张三”。
 4. 确认姓名一致后 `POST /invites/accept { token, confirmRealName }`：
@@ -218,15 +228,16 @@ apps/miniprogram/
 
 ### 9.2 页面清单
 
-- 登录/注册：微信一键登录、真实姓名；直接打开小程序只能建群或输群组码加入，绑定身份走群主/管理员邀请链接。
+- 登录/注册：微信一键登录、真实姓名；直接打开小程序只能创建自己的群组；加入群组必须通过群主/管理员邀请链接。
 - 工作台：当前群组、今日值班摘要、待办、快捷入口。
 - 访客日历：扫码落地（scene 解析，无需登录）。
 - 日历：月视图、周视图、列表视图；周末红、今天金黄、班次色块与网页一致；点击班次查看详情与电话。
 - 成员：群成员列表、联系方式、拨号。
 - 请假/换班/加扣班：创建、预览、我的申请、历史。
 - 审批中心：待审批列表、影响预览、通过/拒绝/撤销。
+- 事件：排班事件时间线；群主/管理员可切换“访问记录”查看访客访问日志。
 - 通知：站内通知列表、已读/未读；提醒设置（提醒时间、微信订阅开关、订阅授权）。
-- 群管理：成员与待认领名单、认领审批、权限角色、排班角色、班种、排班配置与发布、群组码与访客小程序码、邀请链接、转让群主/解散/恢复。
+- 群管理：成员与待认领名单、权限角色、排班角色、班种、排班配置与发布、群组标识与访客小程序码、邀请链接、转让群主/解散/恢复。
 - 统计：月度/年度/周末/节假日/加扣班。
 - 我的：个人资料、联系方式确认、群组设置、注销。
 
@@ -248,19 +259,20 @@ apps/miniprogram/
 ### 10.1 认证
 
 - `POST /auth/wechat/login` `{ code }` → `{ token, isNewUser, profile? }`
-- `POST /invites/accept` 在“空新账号合并到已认领账号”场景额外返回新会话 `token`（客户端用新令牌替换本地会话）。
+- `POST /invites/accept` 在全量合并场景额外返回新会话 `token`（客户端用新令牌替换本地会话）。
 
 ### 10.2 群组与访客
 
 - `GET /groups/:groupId/group-qr`（owner/admin）→ `{ imageBase64 }`
 - `PUT /groups/:groupId/visitor-key`（owner）→ `{ visitorKeyChanged: true }`
+- `GET /groups/:groupId/visitor-access-logs`（owner/admin）→ 分页访问记录
 - `POST /guest/groups/resolve`（公开，限频）`{ visitorKey }` → `{ groupId, groupName }`
 - `GET /guest/groups/:groupId/calendar?visitorKey=&businessMonth=`（公开，限频）
-- 下线：`GET /guest/groups`；Web `GET /groups/catalog` 前端入口下线（后端接口保留给已登录用户查询关系，不再作为访客目录）。
+- 下线：`GET /guest/groups`；`POST /groups/claim`、`POST /groups/:groupId/claim-lookups` 与成员认领申请接口从路由移除（历史数据保留）；Web `GET /groups/catalog` 前端入口下线（后端接口保留给已登录用户查询关系，不再作为访客目录）。
 
 ### 10.3 邀请
 
-- `POST /groups/:groupId/invite-links`（owner/admin）`{ targetMembershipId | targetRosterEntryId, scheduleRoleId?, permissionRole? }` → `{ token, sharePath, realName, groupName, scheduleRoleName?, expiresAt }`
+- `POST /groups/:groupId/invite-links`（owner/admin）`{ targetMembershipId | targetRosterEntryId, scheduleRoleId?, permissionRole? }` → `{ token, sharePath, realName, groupName, scheduleRoleName?, expiresAt }`（唯一加入方式）
 - `POST /invites/resolve`（auth）`{ token }` → `{ groupId, groupName, realName, scheduleRoleName?, permissionRole }`
 - `POST /invites/accept`（auth）`{ token, confirmRealName }` → `{ group }`
 - `POST /groups/:groupId/invite-links/:token/revoke`（owner/admin）
@@ -272,6 +284,7 @@ apps/miniprogram/
 3. `invite_tokens` 新表（字段见 7.1）。
 4. `notification_deliveries.channel` ENUM 增加 `wechat`；增加 `external_message_id`。
 5. `notification_preferences.wechat_notifications_enabled TINYINT UNSIGNED NOT NULL DEFAULT 1`。
+6. `visitor_access_logs` 新表（见 6.4）。
 
 所有新增 TIMESTAMP 列显式默认值（遵循既有部署纪律）。
 
@@ -292,7 +305,7 @@ apps/miniprogram/
 
 ## 14. 测试与验收
 
-- 后端：微信网关 mock 单测；认证/邀请（含未认领绑定、已认领全量合并、同群重复身份 409、管理员账号 409）/访客 key/群码/订阅投递集成测试；`pnpm verify` 全绿；涉及 contracts 改动运行 `pnpm smoke:check-core`。
+- 后端：微信网关 mock 单测；认证/邀请（含未认领绑定、已认领全量合并、同群重复身份 409、管理员账号 409）/访客 key/访问记录/群码/订阅投递集成测试；群组码加入与认领申请接口下线回归；`pnpm verify` 全绿；涉及 contracts 改动运行 `pnpm smoke:check-core`。
 - 小程序：`tsc` 类型检查、ESLint；DevTools 模拟器与真机预览清单（登录、绑定、扫码、邀请、审批、提醒订阅、日历三视图、深色模式）。
 - 回归：Web 端访客目录下线后浏览器冒烟更新断言；核心链路改动按 AGENTS.md 执行 `pnpm smoke:browser`。
 - 验收清单见实施计划任务 15。
@@ -307,6 +320,7 @@ apps/miniprogram/
 
 - 邀请链接先到先得：用户已确认接受此语义；确认页与审计降低纠纷风险。
 - 邀请链接同时是身份绑定通道：接受已认领成员邀请时执行受控全量合并（转移群组关系与群主身份）；同群重复身份或管理员账号冲突时拒绝。
+- 群组码加入已确认取消（网页+小程序），仅保留邀请链接加入；历史群组码继续作为群组标识展示，不再作为加入凭据。
 - 个人主体：无长期订阅、无医疗类目；排班提醒依赖用户“总是保持”授权。
 - `cloudbase_uid` 继续承担外部稳定 UID 职责（既有 N6 决策），新增 `wechat_openid` 作为微信身份主键；未来如需中性命名另行迁移。
 - AppSecret 泄露风险：联调后重置。

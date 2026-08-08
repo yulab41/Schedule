@@ -95,8 +95,8 @@ packages/contracts/src/wechat.ts
 实施步骤：
 
 1. 0033：`users.wechat_openid`（唯一、可空）、`groups.visitor_key`（存量回填随机 32 位十六进制后加唯一非空约束）、`invite_tokens` 新表（含 target_membership_id/target_roster_entry_id 二选一约束、token_hash、expires_at、used_by_user_id、status、版本与时间戳；TIMESTAMP 显式默认值）。
-2. 0034：`notification_deliveries.channel` ENUM 增加 `wechat`；增加 `external_message_id`；`notification_preferences.wechat_notifications_enabled` 默认 1。
-3. 同步 `packages/database/src/schema` 与 `packages/contracts/src/wechat.ts`（wechat 会话、访客解析、群码、邀请契约 + 新错误码）。
+2. 0034：`notification_deliveries.channel` ENUM 增加 `wechat`；增加 `external_message_id`；`notification_preferences.wechat_notifications_enabled` 默认 1；新增 `visitor_access_logs` 表（group_id、business_month、client_ip、request_id、created_at；TIMESTAMP 显式默认值）。
+3. 同步 `packages/database/src/schema` 与 `packages/contracts/src/wechat.ts`（wechat 会话、访客解析、访问记录、群码、邀请契约 + 新错误码）。
 4. 扩展 `redact.ts` 日志脱敏路径（appsecret、token、visitor_key、openid）。
 
 验证：
@@ -104,7 +104,7 @@ packages/contracts/src/wechat.ts
 - 迁移在空库与已有数据（含存量群组回填）上可执行。
 - contracts/database 构建通过；`pnpm verify` 全绿；`pnpm smoke:check-core` 通过。
 
-版本节点：`feat(db): wechat identity, visitor key, invites and wechat notification channel`
+版本节点：`feat(db): wechat identity, visitor key/logs, invites and wechat notification channel`
 
 ## 6. 任务 2：微信网关模块与环境配置
 
@@ -157,15 +157,16 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(api): wechat login and signed session tokens`
 
-## 8. 任务 4：访客扫码统一（visitor key + 群码 + 公开目录下线）
+## 8. 任务 4：访客扫码统一（visitor key + 群码 + 访问记录 + 公开目录下线）
 
-目标：群组访客 key、群组小程序码 API、访客接口改造、Web 公开目录下线。
+目标：群组访客 key、群组小程序码 API、访客接口改造、访客访问记录、Web 公开目录下线。
 
 主要文件：
 
 - `apps/api/src/modules/groups/visitor-key-service.ts`
 - `apps/api/src/modules/groups/group-routes.ts`（群码/visitor-key 重生成）
 - `apps/api/src/modules/calendar/calendar-routes.ts`、`calendar-query.ts`
+- `apps/api/src/modules/calendar/visitor-access-log.ts`（写入与查询）
 - `apps/web/src/features/groups/GuestCalendarPanel.vue`、`workbench-nav.ts`、`HomeView.vue`
 - 集成测试：`visitor-access.integration.test.ts`
 
@@ -174,12 +175,13 @@ packages/contracts/src/wechat.ts
 1. 群组创建时生成 visitor_key；群主可重生成（旧码失效，写审计）。
 2. `GET /groups/:groupId/group-qr`：owner/admin 权限，网关生成小程序码，返回 PNG base64（内存缓存，失败按错误码处理）。
 3. 删除 `GET /guest/groups`；新增 `POST /guest/groups/resolve`（限频）；`GET /guest/groups/:groupId/calendar` 增加 `visitorKey` 必填校验。
-4. Web：访客面板移除目录加载，改为 `?vkey=` 链接进入；已登录 guest 成员工作台保留。
-5. 更新浏览器冒烟断言（访客目录不再出现；vkey 访问正常）。
+4. 访客日历读取成功后写访问日志（business_month、client_ip、request_id）；新增 `GET /groups/:groupId/visitor-access-logs`（owner/admin，倒序分页）。
+5. Web：访客面板移除目录加载，改为 `?vkey=` 链接进入；已登录 guest 成员数据保留兼容，不再提供新加入入口。
+6. 更新浏览器冒烟断言（访客目录不再出现；vkey 访问正常；访问记录可见）。
 
 验证：
 
-- 集成测试：群码权限、visitor_key 校验/错误/重生成旧码失效、公开目录 404、限频。
+- 集成测试：群码权限、visitor_key 校验/错误/重生成旧码失效、公开目录 404、访问日志写入与权限、限频。
 - `pnpm smoke:browser` + `pnpm smoke:check-core`。
 
 版本节点：`feat(api+web): scan-only guest access with visitor keys and group QR codes`
@@ -191,9 +193,10 @@ packages/contracts/src/wechat.ts
 主要文件：
 
 - `apps/api/src/modules/groups/invite-service.ts`、`invite-routes.ts`
-- `apps/api/src/modules/groups/group-routes.ts`（创建入口）
+- `apps/api/src/modules/groups/group-routes.ts`（创建入口 + 群组码加入/认领接口下线）
+- `apps/api/src/modules/groups/membership-service.ts`（移除 claim/claim-lookups/认领申请方法）
 - `packages/contracts/src/wechat.ts`
-- 集成测试：`invite-service.integration.test.ts`
+- 集成测试：`invite-service.integration.test.ts`、`membership-claims.integration.test.ts`（更新）
 
 实施步骤：
 
@@ -205,10 +208,12 @@ packages/contracts/src/wechat.ts
    - 标记 used、记录用户与审计。
 4. 撤销：owner/admin 撤销待使用令牌。
 5. 并发防护：接受时行锁邀请令牌，双开只成功一次。
+6. 下线群组码加入与认领申请：移除 `POST /groups/claim`、`POST /groups/:groupId/claim-lookups` 及认领申请相关路由（历史数据保留），同步 contracts 与集成测试；Web/小程序不再提供群组码加入与认领 UI（页面收口在任务 8/14）。
 
 验证：
 
 - 集成测试：创建/接受/重复接受 409/过期/撤销/姓名不一致 400/权限/排班角色写入/未认领绑定/已认领全量合并返回新令牌（含多群与群主转移）/同群重复身份 409/管理员账号 409/限频。
+- 群组码加入、认领查询、认领申请接口移除后返回 404；既有未认领名单与历史认领数据不受影响。
 - `pnpm verify` 全绿。
 
 版本节点：`feat(api): one-time role-configured invite links with identity binding`
@@ -267,7 +272,7 @@ packages/contracts/src/wechat.ts
 
 ## 12. 任务 8：小程序登录/注册页
 
-目标：微信一键登录、真实姓名资料、会话恢复；直接打开只能建群或输群组码加入。
+目标：微信一键登录、真实姓名资料、会话恢复；直接打开只能创建群组，加入群组必须通过邀请链接。
 
 主要文件：
 
@@ -280,7 +285,7 @@ packages/contracts/src/wechat.ts
 1. 登录页：`wx.login` → `/auth/wechat/login`；新用户跳资料页填真实姓名（调用现有 `/users` 注册）；老用户直接进工作台。
 2. 会话恢复：启动时读 storage token，401 统一回登录页；登录按钮防重复点击。
 3. 错误/空态/加载态组件化。
-4. 首页/工作台入口提示：建群或输群组码加入；绑定身份需群主/管理员邀请链接。
+4. 首页/工作台入口提示：直接打开只能创建群组；加入群组需群主/管理员邀请链接。
 
 验证：
 
@@ -357,39 +362,40 @@ packages/contracts/src/wechat.ts
 
 版本节点：`feat(miniprogram): leave, swap and duty adjustment flows`
 
-## 16. 任务 12：小程序审批中心与通知/提醒设置
+## 16. 任务 12：小程序审批中心、事件与访问记录、通知/提醒设置
 
-目标：管理员审批、站内通知、订阅授权与提醒设置。
+目标：管理员审批、排班事件时间线、访客访问记录（群主/管理员）、站内通知、订阅授权与提醒设置。
 
 主要文件：
 
-- `apps/miniprogram/pages/approvals/*`、`pages/notifications/*`、`pages/notification-settings/*`
+- `apps/miniprogram/pages/approvals/*`、`pages/events/*`、`pages/notifications/*`、`pages/notification-settings/*`
 
 实施步骤：
 
 1. 审批中心：请假/换班/加扣班待办、影响预览、通过/拒绝；审批时请求“状态变更”模板。
-2. 通知中心：未读计数、列表、已读/全部已读、跳转。
-3. 提醒设置：提醒时间（沿用群组/个人偏好接口）、微信订阅开关；开启与每次进入时静默 `wx.requestSubscribeMessage`。
+2. 事件中心：排班事件时间线；群主/管理员可切换“访问记录”查看访客访问日志。
+3. 通知中心：未读计数、列表、已读/全部已读、跳转。
+4. 提醒设置：提醒时间（沿用群组/个人偏好接口）、微信订阅开关；开启与每次进入时静默 `wx.requestSubscribeMessage`。
 
 验证：
 
 - 订阅授权在模拟器弹窗/静默两种路径通过；通知未读计数正确。
 
-版本节点：`feat(miniprogram): approvals, notifications and reminder subscriptions`
+版本节点：`feat(miniprogram): approvals, events/visitor logs, notifications and reminder subscriptions`
 
 ## 17. 任务 13：小程序群管理、排班配置与统计
 
-目标：全功能管理页（成员/认领/角色/班种/排班/群码/邀请/转让解散）与统计。
+目标：全功能管理页（成员与待认领名单/角色/班种/排班/群码/邀请/转让解散）与统计。
 
 主要文件：
 
-- `apps/miniprogram/pages/group-manage/*`、`group-members/*`、`claim-requests/*`
+- `apps/miniprogram/pages/group-manage/*`、`group-members/*`
 - `apps/miniprogram/pages/schedule-roles/*`、`shift-types/*`、`scheduling/*`
 - `apps/miniprogram/pages/group-qr/*`、`invite-create/*`、`statistics/*`
 
 实施步骤：
 
-1. 按 Web 现有页面拆分移动端流程：成员/待认领、认领审批、权限角色、排班角色与轮值顺序、班种、排班期间生成/预览/发布/撤回、手动排班与模板（保持与 Web 同数据与校验）。
+1. 按 Web 现有页面拆分移动端流程：成员与待认领名单（用于发起邀请）、权限角色、排班角色与轮值顺序、班种、排班期间生成/预览/发布/撤回、手动排班与模板（保持与 Web 同数据与校验）。
 2. 群管理：改名/改码/访客 key 重生成/群码展示/邀请创建/转让/解散恢复。
 3. 统计：月度/年度/周末/节假日/加扣班，图表用轻量 canvas/简单列表。
 
@@ -401,25 +407,27 @@ packages/contracts/src/wechat.ts
 
 ## 18. 任务 14：Web 端配套调整
 
-目标：公开群组目录下线、访客 vkey 链接、登录体验适配。
+目标：公开群组目录下线、访客 vkey 链接、群组码加入/认领申请入口下线、登录体验适配。
 
 主要文件：
 
 - `apps/web/src/features/groups/GuestCalendarPanel.vue`
 - `apps/web/src/features/layout/workbench-nav.ts`、`views/HomeView.vue`
+- `apps/web/src/features/groups/*`（群组管理/成员面板：移除群组码加入与认领入口）
 - `apps/web/src/api/client.ts`
 
 实施步骤：
 
 1. 移除访客目录加载与入口；访客页读取 URL `vkey` 调访客日历。
-2. 登录页与访客页文案补充“小程序身份绑定通过群主/管理员邀请链接完成；访客仅可扫描群组小程序码查看”。
-3. 更新浏览器冒烟断言。
+2. 移除群组码加入、认领查询/申请入口；群组码仅作为群组标识展示。
+3. 登录页与访客页文案补充“加入群组必须通过群主/管理员邀请链接；访客仅可扫描群组小程序码查看”。
+4. 更新浏览器冒烟断言。
 
 验证：
 
 - `pnpm smoke:browser` 与 `pnpm smoke:check-core` 通过。
 
-版本节点：`feat(web): scan-only guest access and invite-based binding copy`
+版本节点：`feat(web): scan-only guest access, invite-only joining and copy`
 
 ## 19. 任务 15：部署与验收
 
@@ -447,7 +455,7 @@ packages/contracts/src/wechat.ts
 ## 21. 每阶段检查点
 
 - 任务 1–3 完成后：微信账号体系可用（mock 与真实配置均可登录），`pnpm verify` 全绿。
-- 任务 4–6 完成后：扫码访客、邀请/身份绑定、订阅消息后端全部可用并有集成测试。
+- 任务 4–6 完成后：扫码访客与访问记录、邀请/身份绑定（唯一加入方式）、群组码加入/认领下线、订阅消息后端全部可用并有集成测试。
 - 任务 7–13 完成后：小程序全功能可在开发者工具与真机预览运行。
 - 任务 14–15 完成后：Web 与小程序统一访客口径，上线材料齐备，等待用户提交审核与发布。
 
