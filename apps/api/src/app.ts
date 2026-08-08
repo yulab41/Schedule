@@ -11,6 +11,8 @@ import { GroupService } from './modules/groups/group-service.js';
 import { MembershipService } from './modules/groups/membership-service.js';
 import { ContactService } from './modules/groups/contact-service.js';
 import { VisitorKeyService } from './modules/groups/visitor-key-service.js';
+import { InviteService } from './modules/groups/invite-service.js';
+import { registerInviteRoutes } from './modules/groups/invite-routes.js';
 import { registerSchedulingConfigRoutes } from './modules/scheduling-config/scheduling-config-routes.js';
 import { SchedulingConfigService } from './modules/scheduling-config/scheduling-config-service.js';
 import { registerScheduleRoutes } from './modules/schedules/schedule-routes.js';
@@ -96,16 +98,29 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.authPort !== undefined && options.databaseClient !== undefined) {
     registerAuthentication(app, options.authPort);
     registerUserRoutes(app, new UserService(options.databaseClient));
+    const holidayAdminUids = options.holidayAdminUids ?? parseHolidayAdminUids(process.env);
+    const platformAdminUids = options.platformAdminUids ?? parsePlatformAdminUids(process.env);
+    let wechatAuthService: WechatAuthService | undefined;
     if (options.wechatGateway !== undefined) {
-      registerWechatAuthRoutes(
-        app,
-        new WechatAuthService({
-          databaseClient: options.databaseClient,
-          gateway: options.wechatGateway,
-          sessionSecret: options.wechatSessionSecret,
-        }),
-      );
+      wechatAuthService = new WechatAuthService({
+        databaseClient: options.databaseClient,
+        gateway: options.wechatGateway,
+        sessionSecret: options.wechatSessionSecret,
+      });
+      registerWechatAuthRoutes(app, wechatAuthService);
     }
+    registerInviteRoutes(
+      app,
+      new InviteService({
+        databaseClient: options.databaseClient,
+        holidayAdminUids,
+        issueSessionForUser:
+          wechatAuthService === undefined
+            ? undefined
+            : (userId, openid) => wechatAuthService.issueSessionForUser(userId, openid),
+        platformAdminUids,
+      }),
+    );
     registerGroupRoutes(
       app,
       new GroupService(options.databaseClient),
@@ -143,22 +158,13 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new NotificationQueryService(options.databaseClient),
       new NotificationService(options.databaseClient, createPushDispatcher(process.env)),
     );
-    registerHolidayRoutes(
-      app,
-      new HolidayService(
-        options.databaseClient,
-        options.holidayAdminUids ?? parseHolidayAdminUids(process.env),
-      ),
-    );
+    registerHolidayRoutes(app, new HolidayService(options.databaseClient, holidayAdminUids));
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
     registerExportRoutes(app, new ExportService(options.databaseClient));
     registerPastScheduleRoutes(app, new PastScheduleService(options.databaseClient));
     registerPlatformAdminRoutes(
       app,
-      new PlatformAdminService(
-        options.databaseClient,
-        options.platformAdminUids ?? parsePlatformAdminUids(process.env),
-      ),
+      new PlatformAdminService(options.databaseClient, platformAdminUids),
     );
   } else if (options.authPort !== undefined || options.databaseClient !== undefined) {
     throw new Error('Authentication and database dependencies must be configured together.');

@@ -1144,3 +1144,13 @@
 - 测试：`visitor-access.integration.test.ts` 5 项（目录/群组码 404、key 重生成旧码失效+审计、群码权限与缓存、微信错误映射、访问记录写入/权限/分页）；calendar 集成测试改 4 项访客用例；client 151/151；contracts wechat 8 项；全量 `pnpm verify` 653 项（79 个测试文件，隔离 MySQL）通过。
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客目录下线提示 + `?vkey=` 日历加载 + 管理员事件中心访问记录可见）；本轮涉及 contracts 与 `apps/web/src/api` 核心链路，按 AGENTS.md 补录本记录；本地开发库已应用 0033/0034 迁移，API 已重启到最新构建。
 - 状态：任务 4 ✅（已完成，含运行验证；下一轮任务 5 邀请链接与身份绑定）。
+
+### 微信小程序任务 5 阶段 1（邀请链接 API：创建/解析/接受/撤销 + 身份绑定与全量合并，2026-08-08）
+
+- 目标/需求：一次性邀请令牌 + 姓名确认 + 角色配置；接受邀请承担微信身份绑定；目标已被认领时执行受控全量合并（转移成员关系/群主/认领申请、openid 写入、重签会话、同群重复身份或平台/节假日管理员 409）。
+- 修改文件：
+  - `apps/api/src/modules/groups/invite-service.ts`（创建：目标待认领名单或成员、可选排班岗位、每群最多 10 个待使用令牌、token 仅返回一次且只存 SHA-256、7 天有效期；解析：状态/过期校验；接受：姓名一致校验、未认领绑定 + 排班岗位写入、已认领全量合并 + 会话重签；撤销：owner/admin；全部行锁 + 审计）；
+  - `apps/api/src/modules/groups/invite-routes.ts`（`POST /groups/:groupId/invite-links`、`POST /invites/resolve`、`POST /invites/accept`、`POST /groups/:groupId/invite-links/:token/revoke`）；
+  - `apps/api/src/modules/groups/permission-service.ts`（`manageInvites`：owner/administrator）；`apps/api/src/app.ts`（注入 InviteService 与合并会话重签回调）。
+- 测试：`invite-service.integration.test.ts` 7 项（未认领成员 + 排班岗位、待认领名单、每群限频、撤销/权限、过期、已认领全量合并返回新令牌 + 多群/群主转移、同群重复身份与管理员 409）；全量 `pnpm verify` 660 项（80 个测试文件，隔离 MySQL）通过。
+- 状态：任务 5 阶段 1 ✅（邀请 API 完成并含运行验证；阶段 2 待执行：下线群组码加入与认领申请路由/方法并同步全部集成测试）。
