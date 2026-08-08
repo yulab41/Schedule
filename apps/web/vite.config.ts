@@ -1,6 +1,8 @@
 import { fileURLToPath, URL } from 'node:url';
 
 import vue from '@vitejs/plugin-vue';
+import Components from 'unplugin-vue-components/vite';
+import { TDesignResolver } from 'unplugin-vue-components/resolvers';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 
 import { webAppManifest } from './src/manifest.js';
@@ -24,13 +26,19 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: '../..',
-    plugins: [vue(), webAppManifestPlugin()],
+    plugins: [
+      vue(),
+      Components({
+        dts: false,
+        resolvers: [TDesignResolver({ library: 'vue-next' })],
+      }),
+      webAppManifestPlugin(),
+    ],
     build: {
       rollupOptions: {
         output: {
           manualChunks: {
             'vendor-query': ['@tanstack/vue-query'],
-            'vendor-tdesign': ['tdesign-vue-next'],
             'vendor-vue': ['pinia', 'vue', 'vue-router'],
           },
         },
