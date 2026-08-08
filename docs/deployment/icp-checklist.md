@@ -40,7 +40,12 @@
 - **方案 B**：仅允许你指定的固定公网 IP 访问，其他访问者看到“备案中”页。适合备案期间还想自己使用的情况。
 - **方案 C（不推荐）**：保持现状公开访问，可能被管局/阿里云检测到导致驳回。
 
-选定方案后告知 Codex，由 Codex 在服务器上一键切换；备案通过后再一键恢复。
+已实施（2026-08-08）：用户选定**方案 A**，服务器已开启备案维护模式：
+
+- 开启：`bash infra/scripts/icp-maintenance.sh on`（服务器路径 `/opt/schedule/infra/scripts/icp-maintenance.sh`）
+- 恢复：`bash infra/scripts/icp-maintenance.sh off`（备案通过后执行）
+- 效果：域名与公网 IP 均只显示“网站备案中”占位页；公网 IP 的 HTTPS 直接断开；阿里云对未备案域名本身还会返回拦截页（HTTP 403 `Non-compliance ICP Filing`），外部访问已被双重关闭。
+- 验证：服务器本地 `curl` 域名 HTTPS 200 → `/icp-placeholder.html`（正文含“网站备案中”）；`/.well-known/acme-challenge/` 带正确 Host 返回 404（入口保留，证书续期不受影响）。
 
 ## 五、备案通过后
 

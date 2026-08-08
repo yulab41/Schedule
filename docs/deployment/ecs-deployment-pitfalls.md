@@ -102,3 +102,6 @@
 12. pnpm 依赖状态过期报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`：先 `pnpm install` 再跑 prettier/verify。
 13. 本机 tar 目标路径变量写错（值带 `TMPDIR=` 前缀）会在仓库根生成名为 `-C` 的大文件：打包脚本必须校验路径变量后再执行。
 14. HTTPS 配置后外部握手失败：Nginx 容器内部监听 443 但 Docker 没映射 `443:443`（compose 只写了 80）；`enable-https.sh` 已自动补映射，手工部署时别漏。
+15. 备案维护模式（方案 A）：用 `bash infra/scripts/icp-maintenance.sh on|off` 切换“网站备案中”占位页；`on` 会把当前 `nginx.prod.conf` 备份为 `.before-icp-maintenance`，`off` 自动还原并删除 `apps/web/dist/icp-placeholder.html`。维护配置必须保留 `/.well-known/acme-challenge/`（certbot 走 webroot `apps/web/dist`），否则自动续期会挂；公网 IP 的 443 用 `ssl_reject_handshake on` 直接断开，避免裸 IP 还开着 HTTPS。
+16. 未备案域名会被阿里云拦截：外部访问 `http://hosp.schedule.eylinhome.top` 返回 403 `Non-compliance ICP Filing`（iframe 指向 aliyun beian-block），HTTPS 直接断连（curl 000/35）——这是阿里云对未备案域名的拦截，不是服务器故障；验证服务本身只能直连 IP（HTTP 到 IP 正常，HTTPS 到 IP 因维护模式被主动断开）。
+17. 用 `curl http://127.0.0.1/` 验证 nginx 会命中 default_server 而不是域名 server block：必须加 `-H 'Host: hosp.schedule.eylinhome.top'`，否则看到的是 IP 默认规则（如 302 到占位页）而误判配置。
