@@ -10,6 +10,7 @@ import {
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { and, eq, isNull, sql } from 'drizzle-orm';
+import { insertDirectMembership } from '@schedule/test-fixtures';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -265,16 +266,10 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       payload: { realNames: ['Candidate Doctor'] },
       url: `/groups/${groupId}/roster-entries`,
     });
-    const claim = await app.inject({
-      headers: { authorization: 'Bearer candidate-token' },
-      method: 'POST',
-      payload: { groupCode: '1234', realName: 'Candidate Doctor' },
-      url: '/groups/claim',
-    });
 
     expect(group.statusCode).toBe(201);
     expect(roster.statusCode).toBe(200);
-    expect(claim.statusCode).toBe(201);
+    await insertDirectMembership(client, { groupCode: '1234', realName: 'Candidate Doctor' });
     return groupId;
   }
 

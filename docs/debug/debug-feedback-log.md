@@ -1154,3 +1154,13 @@
   - `apps/api/src/modules/groups/permission-service.ts`（`manageInvites`：owner/administrator）；`apps/api/src/app.ts`（注入 InviteService 与合并会话重签回调）。
 - 测试：`invite-service.integration.test.ts` 7 项（未认领成员 + 排班岗位、待认领名单、每群限频、撤销/权限、过期、已认领全量合并返回新令牌 + 多群/群主转移、同群重复身份与管理员 409）；全量 `pnpm verify` 660 项（80 个测试文件，隔离 MySQL）通过。
 - 状态：任务 5 阶段 1 ✅（邀请 API 完成并含运行验证；阶段 2 待执行：下线群组码加入与认领申请路由/方法并同步全部集成测试）。
+
+### 微信小程序任务 5 阶段 2（下线群组码加入与认领申请，2026-08-08）
+
+- 目标/需求：移除 `POST /groups/claim`、`/groups/:groupId/claim-lookups` 及认领申请相关路由/方法（历史数据保留），邀请链接成为唯一加入方式；同步 contracts 依赖与全部集成测试。
+- 修改文件：
+  - `apps/api/src/modules/groups/group-routes.ts`（删除 claim/claim-lookups/claim-requests/approve/reject/revoke-claim 路由与解析器）；`group-service.ts`（删除 claim 及占位用户/资料更新私有方法）；`membership-service.ts`（删除 lookupClaimMatches/createClaimRequest/listClaimRequests/approve/reject/revoke 及私有辅助）；
+  - `packages/test-fixtures/src/membership.ts`（新增 `insertDirectMembership`：绑定已有未认领成员身份或直插成员，支持按 cloudbaseUid 消歧）；
+  - 19 个使用 `/groups/claim` 的测试文件改为夹具直插/邀请流；`membership-claims.integration.test.ts` 重写为“认领接口 404”回归；`group-routes` 移除 claim 专项测试并保留 404 断言与邀请重加入。
+- 测试：全量 `pnpm verify` 649 项（80 个测试文件，隔离 MySQL）通过；`pnpm smoke:check-core` 通过（本轮未涉及核心链路文件）。
+- 状态：任务 5 ✅（阶段 1 + 阶段 2 完成，含运行验证；下一轮任务 6 微信订阅消息投递）。

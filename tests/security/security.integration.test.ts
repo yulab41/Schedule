@@ -7,7 +7,7 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { createFakeAuthPort, resetDatabase } from '@schedule/test-fixtures';
+import { createFakeAuthPort, insertDirectMembership, resetDatabase } from '@schedule/test-fixtures';
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -96,22 +96,6 @@ describeWithDatabase('security acceptance matrix', () => {
     expect(eventDetail.statusCode).toBe(403);
 
     void groupA;
-  });
-
-  it('rate-limits group-code guessing after five failed attempts', async () => {
-    const statuses: number[] = [];
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      const response = await app.inject({
-        headers: { authorization: 'Bearer group-a-member' },
-        method: 'POST',
-        payload: { groupCode: '9999' },
-        url: '/groups/claim',
-      });
-      statuses.push(response.statusCode);
-    }
-
-    expect(statuses.slice(0, 5)).toEqual([404, 404, 404, 404, 404]);
-    expect(statuses[5]).toBe(429);
   });
 
   it('replays an idempotent approval without duplicating events or assignments', async () => {
@@ -262,13 +246,7 @@ describeWithDatabase('security acceptance matrix', () => {
     });
     expect(roster.statusCode).toBe(200);
 
-    const claim = await app.inject({
-      headers: { authorization: `Bearer ${memberToken}` },
-      method: 'POST',
-      payload: { groupCode },
-      url: '/groups/claim',
-    });
-    expect(claim.statusCode).toBe(201);
+    await insertDirectMembership(client, { groupCode, realName });
   }
 });
 

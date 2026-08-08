@@ -13,6 +13,7 @@ import {
 import { eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import { DutyReminderJob } from '../../jobs/duty-reminders.js';
@@ -475,8 +476,8 @@ describeWithDatabase('notification workflows', () => {
     const groupId = await createGroup('Notifications group', '8899');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
-    await claimGroup('a-token', '8899');
-    await claimGroup('b-token', '8899');
+    await claimGroup('a-token', '8899', 'A Doctor');
+    await claimGroup('b-token', '8899', 'B Doctor');
     return { groupId };
   }
 
@@ -484,8 +485,8 @@ describeWithDatabase('notification workflows', () => {
     const groupId = await createGroup('Notifications schedule group', '7788');
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
-    await claimGroup('a-token', '7788');
-    await claimGroup('b-token', '7788');
+    await claimGroup('a-token', '7788', 'A Doctor');
+    await claimGroup('b-token', '7788', 'B Doctor');
 
     const config = await getConfig('owner-token', groupId);
     const allDayShift = config.shiftTypes.find((shiftType) => shiftType.isEnabled);
@@ -589,14 +590,9 @@ describeWithDatabase('notification workflows', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string): Promise<void> {
-    const response = await app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: { groupCode },
-      url: '/groups/claim',
-    });
-    expect(response.statusCode).toBe(201);
+  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+    void token;
+    await insertDirectMembership(client, { groupCode, realName });
   }
 
   async function listGroupMembers(groupId: string): Promise<MemberResponse[]> {

@@ -11,6 +11,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 
@@ -933,7 +934,7 @@ describeWithDatabase('leave requests and reflow', () => {
       ['b-token', 'B Doctor'],
       ['c-token', 'C Doctor'],
     ] as const) {
-      await claimGroup(token, '4321');
+      await claimGroup(token, '4321', realName);
       expect((await listGroupMembers(groupId)).some((member) => member.realName === realName)).toBe(
         true,
       );
@@ -1330,15 +1331,9 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string): Promise<void> {
-    const response = await app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: { groupCode },
-      url: '/groups/claim',
-    });
-
-    expect(response.statusCode).toBe(201);
+  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+    void token;
+    await insertDirectMembership(client, { groupCode, realName });
   }
 
   async function listGroupMembers(groupId: string): Promise<MemberResponse[]> {

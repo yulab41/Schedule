@@ -19,6 +19,7 @@ import {
 import { and, eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
 import {
@@ -1231,12 +1232,12 @@ describeWithDatabase('paired duty adjustments', () => {
     await addRosterEntry(groupId, 'A Doctor');
     await addRosterEntry(groupId, 'B Doctor');
     await addRosterEntry(groupId, 'C Doctor');
-    for (const [token] of [
+    for (const [token, realName] of [
       ['a-token', 'A Doctor'],
       ['b-token', 'B Doctor'],
       ['c-token', 'C Doctor'],
     ] as const) {
-      await claimGroup(token, '5678');
+      await claimGroup(token, '5678', realName);
     }
 
     const config = await getConfig('owner-token', groupId);
@@ -1628,15 +1629,9 @@ describeWithDatabase('paired duty adjustments', () => {
     expect(response.statusCode).toBe(200);
   }
 
-  async function claimGroup(token: string, groupCode: string): Promise<void> {
-    const response = await app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      payload: { groupCode },
-      url: '/groups/claim',
-    });
-
-    expect(response.statusCode).toBe(201);
+  async function claimGroup(token: string, groupCode: string, realName: string): Promise<void> {
+    void token;
+    await insertDirectMembership(client, { groupCode, realName });
   }
 
   async function listGroupMembers(groupId: string): Promise<MemberResponse[]> {

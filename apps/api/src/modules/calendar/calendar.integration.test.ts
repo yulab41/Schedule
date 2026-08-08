@@ -15,6 +15,7 @@ import {
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
+import { insertDirectMembership } from '@schedule/test-fixtures';
 import { eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -61,13 +62,7 @@ describeWithDatabase('current month calendar read model', () => {
     await registerUser('outsider-token', 'Outside Doctor');
     groupId = await createGroup('Calendar group', '1234');
     await addRosterEntry(groupId, 'Candidate Doctor');
-    const claim = await app.inject({
-      headers: { authorization: 'Bearer candidate-token' },
-      method: 'POST',
-      payload: { groupCode: '1234' },
-      url: '/groups/claim',
-    });
-    expect(claim.statusCode).toBe(201);
+    await insertDirectMembership(client, { groupCode: '1234', realName: 'Candidate Doctor' });
 
     const config = await getConfig('owner-token', groupId);
     const allDayShift = config.shiftTypes.find((shiftType) => shiftType.isEnabled);

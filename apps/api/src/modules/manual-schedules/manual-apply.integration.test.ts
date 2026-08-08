@@ -9,6 +9,7 @@ import {
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { sql } from 'drizzle-orm';
+import { insertDirectMembership } from '@schedule/test-fixtures';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -46,13 +47,7 @@ describeWithDatabase('manual schedule template apply', () => {
     await registerUser('outsider-token', 'Outside Doctor');
     groupId = await createGroup('Apply group', '1234');
     await addRosterEntry(groupId, 'Candidate Doctor');
-    const claim = await app.inject({
-      headers: { authorization: 'Bearer candidate-token' },
-      method: 'POST',
-      payload: { groupCode: '1234' },
-      url: '/groups/claim',
-    });
-    expect(claim.statusCode).toBe(201);
+    await insertDirectMembership(client, { groupCode: '1234', realName: 'Candidate Doctor' });
 
     const config = await getConfig('owner-token', groupId);
     const allDayShift = config.shiftTypes.find((shiftType) => shiftType.isEnabled);
