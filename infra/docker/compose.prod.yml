@@ -54,6 +54,13 @@ services:
       # node_modules tree built on a developer machine. The trial server never
       # installs dependencies or builds images.
       - ../../runtime/api-flat/node_modules:/app/apps/api/node_modules:ro
+      # The trial server also mounts the current API/package dist built on the
+      # developer machine, so the old image only provides the Node runtime.
+      # Remove these mounts once the ECS can build or pull fresh images.
+      - ../../apps/api/dist:/app/apps/api/dist:ro
+      - ../../packages/contracts/dist:/app/packages/contracts/dist:ro
+      - ../../packages/database/dist:/app/packages/database/dist:ro
+      - ../../packages/scheduling-domain/dist:/app/packages/scheduling-domain/dist:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -64,22 +71,11 @@ services:
     # build the web image themselves.
     image: nginx:1.27-alpine
     restart: unless-stopped
-    environment:
-      # 试用期临时门禁（浏览器密码提示）：值填任意提示名（如 Trial_access）即开启，
-      # 填 off 即关闭。仅限当前非正式测试阶段；微信小程序/正式上线改用微信账号登录前
-      # 必须改回 off 并按 docs/deployment/aliyun-ecs.md 移除门禁。
-      NGINX_BASIC_AUTH_REALM: ${NGINX_BASIC_AUTH_REALM:-off}
-      NGINX_BASIC_AUTH_USER_FILE: ${NGINX_BASIC_AUTH_USER_FILE:-/etc/nginx/.htpasswd}
     ports:
       - '80:80'
     volumes:
       - ../../apps/web/dist:/usr/share/nginx/html:ro
-      # Official nginx image renders *.template from /etc/nginx/templates into
-      # /etc/nginx/conf.d at container start (envsubst keeps $host/$uri intact).
-      - ./nginx.prod.conf.template:/etc/nginx/templates/default.conf.template:ro
-      # 门禁密码文件：服务器本地生成、不入库；启用门禁前必须先创建
-      #（生成命令见 docs/deployment/aliyun-ecs.md）。
-      - ./.htpasswd:/etc/nginx/.htpasswd:ro
+      - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - api
 
