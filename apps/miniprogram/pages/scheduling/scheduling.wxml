@@ -1,0 +1,160 @@
+<view class="page-container scheduling-page">
+  <view wx:if="{{loading}}" class="schedule-card schedule-state">
+    <text>加载中…</text>
+  </view>
+
+  <block wx:elif="{{groupId}}">
+    <view class="schedule-card">
+      <text class="schedule-title">发布模式</text>
+      <text class="schedule-copy">生成排班时默认保存为草稿或直接发布。</text>
+      <picker
+        mode="selector"
+        range="{{['草稿', '发布']}}"
+        value="{{publishModeIndex}}"
+        bindchange="handlePublishModeChange"
+      >
+        <view class="schedule-picker">
+          {{publishModeLabel}}
+          <text class="schedule-picker-arrow">▾</text>
+        </view>
+      </picker>
+      <t-button
+        theme="default"
+        block
+        variant="outline"
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:tap="handleSavePublishMode"
+      >
+        保存发布模式
+      </t-button>
+    </view>
+
+    <view class="schedule-card">
+      <view class="schedule-toolbar">
+        <t-button size="small" variant="outline" data-delta="-1" bind:tap="changeMonth">
+          上一月
+        </t-button>
+        <text class="schedule-month">{{monthLabel}}</text>
+        <t-button size="small" variant="outline" data-delta="1" bind:tap="changeMonth">
+          下一月
+        </t-button>
+      </view>
+      <text class="schedule-section-label">选择排班岗位</text>
+      <view class="schedule-role-row" wx:for="{{roleNames}}" wx:key="*this">
+        <text class="schedule-role-name">{{item}}</text>
+        <switch
+          checked="{{roleChecked[index]}}"
+          color="#1F5AA6"
+          data-index="{{index}}"
+          bindchange="handleRoleToggle"
+        />
+      </view>
+      <t-button
+        theme="primary"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting || roleNames.length === 0}}"
+        bind:tap="handleGeneratePreview"
+      >
+        生成预览
+      </t-button>
+
+      <view wx:if="{{preview}}" class="schedule-preview">
+        <text class="schedule-section-label">预览结果</text>
+        <text class="schedule-preview-row">排班记录：{{previewSummary.assignmentCount}} 条</text>
+        <text class="schedule-preview-row">计入统计：{{previewSummary.countedAssignmentCount}} 条</text>
+        <text class="schedule-preview-row" wx:if="{{previewSummary.vacancyCount > 0}}">
+          空缺：{{previewSummary.vacancyCount}} 个
+        </text>
+        <text class="schedule-preview-row" wx:if="{{previewSummary.warningCount > 0}}">
+          连续值班提醒：{{previewSummary.warningCount}} 处
+        </text>
+        <text class="schedule-preview-row is-warning" wx:if="{{previewSummary.conflictCount > 0}}">
+          硬冲突：{{previewSummary.conflictCount}} 处（保存时将确认覆盖）
+        </text>
+        <t-button
+          theme="primary"
+          block
+          loading="{{submitting}}"
+          disabled="{{submitting}}"
+          bind:tap="handleSaveGenerated"
+        >
+          保存排班
+        </t-button>
+      </view>
+    </view>
+
+    <view class="schedule-card" wx:if="{{draftRows.length > 0}}">
+      <text class="schedule-title">排班草稿</text>
+      <view class="schedule-row" wx:for="{{draftRows}}" wx:key="id">
+        <view class="schedule-row-main">
+          <text class="schedule-row-title">{{item.title}}</text>
+          <text class="schedule-row-meta">{{item.statusLabel}}</text>
+        </view>
+        <view class="schedule-row-actions">
+          <view
+            class="schedule-action is-primary"
+            data-id="{{item.id}}"
+            data-version="{{item.version}}"
+            bind:tap="handlePublishDraft"
+          >
+            发布
+          </view>
+          <view
+            class="schedule-action is-danger"
+            data-id="{{item.id}}"
+            bind:tap="handleDeleteDraft"
+          >
+            删除
+          </view>
+        </view>
+      </view>
+      <t-button
+        theme="default"
+        block
+        variant="outline"
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:tap="handleBatchPublish"
+      >
+        批量发布全部草稿
+      </t-button>
+    </view>
+
+    <view class="schedule-card" wx:if="{{historyRows.length > 0}}">
+      <text class="schedule-title">排班期间历史</text>
+      <view class="schedule-row" wx:for="{{historyRows}}" wx:key="id">
+        <view class="schedule-row-main">
+          <text class="schedule-row-title">{{item.title}}</text>
+          <text class="schedule-row-meta">{{item.statusLabel}}</text>
+        </view>
+        <view
+          wx:if="{{item.canWithdraw}}"
+          class="schedule-action is-warning"
+          data-id="{{item.id}}"
+          data-version="{{item.version}}"
+          bind:tap="handleWithdraw"
+        >
+          撤回
+        </view>
+      </view>
+    </view>
+
+    <t-button
+      theme="default"
+      block
+      variant="outline"
+      bind:tap="openManualTemplates"
+    >
+      手动排班模板
+    </t-button>
+
+    <text wx:if="{{errorMessage}}" class="schedule-error">{{errorMessage}}</text>
+    <text wx:if="{{infoMessage}}" class="schedule-success">{{infoMessage}}</text>
+  </block>
+
+  <view wx:else class="schedule-card schedule-state">
+    <text>请先选择一个群组。</text>
+  </view>
+</view>

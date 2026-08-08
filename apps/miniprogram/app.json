@@ -18,7 +18,15 @@
     "pages/duty-create/duty-create",
     "pages/approvals/approvals",
     "pages/events/events",
-    "pages/notification-settings/notification-settings"
+    "pages/notification-settings/notification-settings",
+    "pages/group-manage/group-manage",
+    "pages/group-members/group-members",
+    "pages/invite-create/invite-create",
+    "pages/schedule-roles/schedule-roles",
+    "pages/shift-types/shift-types",
+    "pages/scheduling/scheduling",
+    "pages/scheduling/manual-templates",
+    "pages/statistics/statistics"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1F5AA6",

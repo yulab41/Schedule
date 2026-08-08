@@ -1333,3 +1333,12 @@
 - 用户反馈手机扫码登录仍失败，复测确认同一根因：`https://hosp.schedule.eylinhome.top` 外部连接被重置（curl exit 35）、HTTP 403、`https://120.77.220.79/api/health` 200。
 - 为在备案通过前验证真机登录，临时把 `apps/miniprogram/config/index.ts` 默认地址改为 `https://120.77.220.79/api`，用 DevTools 重新生成预览二维码（`.tmp-miniprogram-preview/preview.png`，20:39），随后立即还原为正式域名（工作区无残留改动）。
 - 手机验证步骤：扫码打开该预览版 → 右上角 `...` → 打开调试 → 重新进入 → 点击微信一键登录；IP 直连依赖调试模式跳过域名/证书校验，正式验收仍需等 ICP 通过后使用域名包。
+
+### 小程序任务 13：群管理、排班配置与统计（2026-08-08）
+
+- 完成内容（仅小程序客户端，后端/契约未改动）：
+  - `api/endpoints.ts` 补齐群管理（创建/目录/访客加入/退出/改名/改码/访客 key/解散恢复/转让/成员名单）、邀请（创建/撤销）、排班配置（岗位/轮值/班种）、排班期间（发布模式/生成预览/保存/发布/撤回/批量/删除）、手动模板（列表/增改删/预览/应用）、统计（月度/年度/刷新/重算校验）接口；
+  - 新增 8 个页面并注册：`group-manage`（创建群组、加入其他群组、当前群操作、已解散恢复、管理入口）、`group-members`（成员/待认领名单、转正、角色、转让、删除、发起邀请）、`invite-create`（一次性邀请 + 转发 + 撤销）、`schedule-roles`（岗位/成员/轮值顺序/轮值规则）、`shift-types`（班种增改删）、`scheduling`（生成预览/保存/发布/撤回/批量/发布模式）、`scheduling/manual-templates`（模板矩阵编辑/应用）、`statistics`（月度/年度汇总与成员明细）；
+  - 工作台空态增加“创建群组”入口，有群组时增加“群管理”入口；`group-qr` 从群管理接入。
+- 验证：`pnpm miniprogram:typecheck` ✅、`pnpm miniprogram:lint` ✅、`pnpm verify` ✅（format/lint/build/typecheck + 411 项单测，隔离 MySQL 集成测试未跑——本轮无后端改动）、`pnpm smoke:check-core` ✅（未涉及核心链路，无需浏览器冒烟记录）。
+- 状态：**已实现待开发者工具/模拟器复核**（未运行 `miniprogram-smoke` 截图冒烟）；下一步为任务 14（Web 配套调整）与任务 15（部署与验收）。

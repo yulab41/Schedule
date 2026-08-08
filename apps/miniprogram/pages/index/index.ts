@@ -54,6 +54,10 @@ Page({
     wx.switchTab({ url: '/pages/calendar/calendar' });
   },
 
+  openGroupManage(): void {
+    wx.navigateTo({ url: '/pages/group-manage/group-manage' });
+  },
+
   openMembers(): void {
     if (this.data.selectedGroupId.length === 0) {
       return;

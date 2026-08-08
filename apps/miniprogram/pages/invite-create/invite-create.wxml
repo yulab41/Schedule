@@ -1,0 +1,78 @@
+<view class="page-container invite-create-page">
+  <view wx:if="{{loading}}" class="invite-card invite-state">
+    <text>加载中…</text>
+  </view>
+
+  <block wx:elif="{{result === undefined}}">
+    <view class="invite-card">
+      <text class="invite-title">创建一次性邀请</text>
+      <text class="invite-copy">
+        被邀请人：{{realName}}。邀请链接只能使用一次，请转发给本人，先到先得。
+      </text>
+      <view class="invite-field">
+        <text class="invite-label">排班岗位</text>
+        <picker
+          mode="selector"
+          range="{{roleNames}}"
+          value="{{roleIndex}}"
+          disabled="{{roleNames.length === 0}}"
+          bindchange="handleRoleChange"
+        >
+          <view class="invite-picker">
+            {{roleNames[roleIndex] || '（不指定排班岗位）'}}
+            <text class="invite-picker-arrow">▾</text>
+          </view>
+        </picker>
+      </view>
+      <view class="invite-field">
+        <text class="invite-label">权限角色</text>
+        <picker
+          mode="selector"
+          range="{{permissionNames}}"
+          value="{{permissionIndex}}"
+          bindchange="handlePermissionChange"
+        >
+          <view class="invite-picker">
+            {{permissionNames[permissionIndex]}}
+            <text class="invite-picker-arrow">▾</text>
+          </view>
+        </picker>
+      </view>
+      <t-button
+        theme="primary"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:tap="handleCreate"
+      >
+        生成邀请链接
+      </t-button>
+      <text wx:if="{{errorMessage}}" class="invite-error">{{errorMessage}}</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="invite-card">
+      <text class="invite-title">邀请已生成</text>
+      <text class="invite-copy">
+        {{result.realName}} · {{result.groupName}}
+      </text>
+      <text wx:if="{{result.scheduleRoleName}}" class="invite-copy">
+        排班岗位：{{result.scheduleRoleName}}
+      </text>
+      <text class="invite-copy">有效期至 {{result.expiresAt}}。请通过微信分享给本人。</text>
+      <button class="invite-share-button" open-type="share">转发给被邀请人</button>
+      <t-button
+        theme="danger"
+        block
+        variant="outline"
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:tap="handleRevoke"
+      >
+        撤销该邀请
+      </t-button>
+      <text wx:if="{{errorMessage}}" class="invite-error">{{errorMessage}}</text>
+    </view>
+  </block>
+</view>

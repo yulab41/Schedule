@@ -14,6 +14,7 @@
     <text class="index-copy">
       直接打开只能创建自己的群组；加入群组需群主或管理员分享的邀请链接。
     </text>
+    <t-button theme="primary" block bind:tap="openGroupManage">创建群组</t-button>
   </view>
 
   <block wx:else>
@@ -33,6 +34,9 @@
         </t-button>
         <t-button theme="default" block variant="outline" bind:tap="openEvents">
           事件中心
+        </t-button>
+        <t-button theme="default" block variant="outline" bind:tap="openGroupManage">
+          群管理
         </t-button>
       </view>
     </view>

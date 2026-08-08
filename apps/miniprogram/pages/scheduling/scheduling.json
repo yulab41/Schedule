@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "排班期间",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button"
+  }
+}
