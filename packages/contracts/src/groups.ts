@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-export const groupRoleSchema = z.enum(['administrator', 'member', 'owner']);
+export const groupRoleSchema = z.enum(['administrator', 'member', 'owner', 'guest']);
 export type GroupRole = z.infer<typeof groupRoleSchema>;
 
 export const groupSummarySchema = z
   .object({
-    groupCode: z.string().regex(/^\d{4}$/u),
+    groupCode: z.string().regex(/^\d{4}$/u).optional(),
     id: z.string().min(1),
     name: z.string().min(1),
     role: groupRoleSchema,
@@ -154,6 +154,43 @@ export type GroupMemberContact = z.infer<typeof groupMemberContactSchema>;
 export const groupMemberContactListSchema = z.array(groupMemberContactSchema);
 export const groupMemberListSchema = z.array(groupMemberSchema);
 export const groupSummaryListSchema = z.array(groupSummarySchema);
+
+export const groupCatalogRelationSchema = z.enum([
+  'none',
+  'active-member',
+  'active-guest',
+  'left-member',
+]);
+export type GroupCatalogRelation = z.infer<typeof groupCatalogRelationSchema>;
+
+export const groupCatalogEntrySchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    relation: groupCatalogRelationSchema,
+  })
+  .strict();
+export type GroupCatalogEntry = z.infer<typeof groupCatalogEntrySchema>;
+
+export const groupCatalogListSchema = z.array(groupCatalogEntrySchema);
+
+export const updateGroupNameRequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100),
+  })
+  .strict();
+export type UpdateGroupNameRequest = z.infer<typeof updateGroupNameRequestSchema>;
+
+export const dissolvedGroupSchema = z
+  .object({
+    deletedAt: z.string(),
+    id: z.string().min(1),
+    name: z.string().min(1),
+  })
+  .strict();
+export type DissolvedGroup = z.infer<typeof dissolvedGroupSchema>;
+
+export const dissolvedGroupListSchema = z.array(dissolvedGroupSchema);
 
 export interface UpdateGroupMemberRoleRequest {
   readonly role: Extract<GroupRole, 'administrator' | 'member'>;
