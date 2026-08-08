@@ -1,0 +1,7 @@
+<view class="page-container">
+  <view class="placeholder-card">
+    <text class="placeholder-title">{{greeting}}</text>
+    <text class="placeholder-copy">工作台功能将在后续版本接入。</text>
+    <t-button theme="primary" size="small">进入日历</t-button>
+  </view>
+</view>

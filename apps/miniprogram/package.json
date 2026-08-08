@@ -1,0 +1,14 @@
+{
+  "name": "@schedule/miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "tdesign-miniprogram": "^1.16.0"
+  },
+  "devDependencies": {
+    "miniprogram-api-typings": "^5.2.3"
+  }
+}

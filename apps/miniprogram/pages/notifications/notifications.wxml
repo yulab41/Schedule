@@ -1,0 +1,6 @@
+<view class="page-container">
+  <view class="placeholder-card">
+    <text class="placeholder-title">通知</text>
+    <text class="placeholder-copy">站内通知与提醒设置将在后续版本接入。</text>
+  </view>
+</view>

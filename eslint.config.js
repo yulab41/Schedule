@@ -30,5 +30,19 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ['apps/miniprogram/**/*.ts'],
+    languageOptions: {
+      globals: {
+        App: 'readonly',
+        Behavior: 'readonly',
+        Component: 'readonly',
+        Page: 'readonly',
+        getApp: 'readonly',
+        getCurrentPages: 'readonly',
+        wx: 'readonly',
+      },
+    },
+  },
   eslintConfigPrettier,
 );

@@ -1,0 +1,15 @@
+{
+  "appid": "wx56a7a21f974fd9af",
+  "compileType": "miniprogram",
+  "libVersion": "latest",
+  "miniprogramRoot": "./",
+  "projectname": "schedule-miniprogram",
+  "setting": {
+    "enhance": true,
+    "es6": true,
+    "minified": true,
+    "postcss": true,
+    "urlCheck": false,
+    "useCompilerPlugins": ["typescript"]
+  }
+}

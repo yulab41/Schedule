@@ -1,0 +1,6 @@
+<view class="page-container">
+  <view class="placeholder-card">
+    <text class="placeholder-title">我的</text>
+    <text class="placeholder-copy">个人资料与群组设置将在后续版本接入。</text>
+  </view>
+</view>

@@ -1178,3 +1178,14 @@
 - 测试：全量 `pnpm verify` 658 项（82 个测试文件，隔离 MySQL）通过。
 - 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客 + 群组管理 + vkey + 访问记录断言）；本轮涉及 contracts 核心链路，按 AGENTS.md 补录本记录。
 - 状态：任务 6 ✅（已完成，含运行验证；下一轮任务 7 小程序工程脚手架）。
+
+### 微信小程序任务 7（小程序工程脚手架，2026-08-08）
+
+- 目标/需求：`apps/miniprogram` 原生 TypeScript + TDesign 工程可被微信开发者工具导入；tabBar（工作台/日历/通知/我的）与页面注册；API client 与 session store 基础；typecheck/lint 纳入工作区。
+- 修改文件：
+  - `apps/miniprogram/package.json`（`@schedule/miniprogram`，依赖 `tdesign-miniprogram`、devDependencies `miniprogram-api-typings`）、`tsconfig.json`、`project.config.json`（AppID `wx56a7a21f974fd9af`、TS 编译插件）；
+  - `app.ts`/`app.json`/`app.wxss`/`sitemap.json`（tabBar 4 页、主题色、基础样式）；`styles/tokens.wxss`（主色/周末红/今天金/间距/圆角）；
+  - `config/index.ts`（API 地址/mock 开关/模板 ID）、`api/client.ts`（wx.request 封装：Bearer、401 清会话、错误映射）、`store/session.ts`（轻量会话单例）；
+  - 4 个占位页面（工作台含 TDesign `t-button` 引用验证组件路径）；根 `package.json` 增加 `miniprogram:typecheck`/`miniprogram:lint`；`eslint.config.js` 增加小程序全局（wx/Page/App 等）。
+- 验证：`pnpm --filter @schedule/miniprogram typecheck` 通过；根 lint 通过；全量 `pnpm verify` 658 项（82 测试文件，隔离 MySQL）通过；开发者工具导入留待用户在本地 DevTools 复核（自动化验证为 tsc/lint 全绿）。
+- 状态：任务 7 ✅（已完成自动化验证；下一轮任务 8 小程序登录/注册页）。

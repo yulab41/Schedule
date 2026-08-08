@@ -1,0 +1,29 @@
+@import './styles/tokens.wxss';
+
+page {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 28rpx;
+}
+
+.page-container {
+  padding: 24rpx;
+}
+
+.placeholder-card {
+  padding: 48rpx 32rpx;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+
+.placeholder-title {
+  margin: 0 0 12rpx;
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.placeholder-copy {
+  margin: 0;
+  color: var(--color-text-muted);
+}

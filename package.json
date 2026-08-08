@@ -19,6 +19,8 @@
     "holidays:import": "node --env-file=.env infra/scripts/dist/import-holidays.js",
     "load:build": "tsc -p tests/load/tsconfig.json",
     "load:test": "node --env-file=.env tests/load/dist/run-load-test.js",
+    "miniprogram:lint": "pnpm lint",
+    "miniprogram:typecheck": "pnpm --filter @schedule/miniprogram typecheck",
     "restore:backup": "node --env-file=.env infra/scripts/dist/restore-backup.js",
     "smoke:browser": "node scripts/smoke-browser.mjs",
     "smoke:check-core": "node scripts/smoke-browser.mjs --check-core",

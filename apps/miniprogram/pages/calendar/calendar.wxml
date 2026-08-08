@@ -1,0 +1,6 @@
+<view class="page-container">
+  <view class="placeholder-card">
+    <text class="placeholder-title">日历</text>
+    <text class="placeholder-copy">月/周/列表视图将在后续版本接入。</text>
+  </view>
+</view>
