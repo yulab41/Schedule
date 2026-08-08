@@ -604,6 +604,111 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(storedGroups).toEqual([]);
   });
 
+  it('supports guest join, leave, and member leave/rejoin', async () => {
+    const group = await createGroup('Membership group', '3456');
+    const groupId = (group.json() as { id: string }).id;
+    await addRosterEntry(groupId, 'Candidate Doctor');
+
+    const guestJoin = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/join-guest`,
+    });
+    expect(guestJoin.statusCode).toBe(201);
+
+    const guestLeave = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/leave`,
+    });
+    expect(guestLeave.statusCode).toBe(204);
+
+    const memberClaim = await claimGroup('candidate-token', '3456', 'Candidate Doctor');
+    expect(memberClaim.statusCode).toBe(201);
+
+    const memberLeave = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/leave`,
+    });
+    expect(memberLeave.statusCode).toBe(204);
+
+    const members = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    const memberRows = members.json() as Array<{ isUnclaimed?: boolean; realName: string }>;
+    expect(memberRows.find((row) => row.realName === 'Candidate Doctor')?.isUnclaimed).toBe(true);
+
+    const rejoin = await claimGroup('candidate-token', '3456', 'Candidate Doctor');
+    expect(rejoin.statusCode).toBe(201);
+    expect((rejoin.json() as { group: { role: string } }).group.role).toBe('member');
+  });
+
+  it('rejects owner leave and non-owner group name changes', async () => {
+    const group = await createGroup('Owner group', '4567');
+    const groupId = (group.json() as { id: string }).id;
+
+    const ownerLeave = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/leave`,
+    });
+    expect(ownerLeave.statusCode).toBe(409);
+
+    const outsiderRename = await app.inject({
+      headers: { authorization: 'Bearer other-owner-token' },
+      method: 'PUT',
+      payload: { name: 'Renamed by outsider' },
+      url: `/groups/${groupId}/name`,
+    });
+    expect(outsiderRename.statusCode).toBe(403);
+
+    const ownerRename = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { name: 'Renamed group' },
+      url: `/groups/${groupId}/name`,
+    });
+    expect(ownerRename.statusCode).toBe(200);
+    expect((ownerRename.json() as { name: string }).name).toBe('Renamed group');
+  });
+
+  it('supports dissolve and restore by the owner', async () => {
+    const group = await createGroup('Dissolve group', '5678');
+    const groupId = (group.json() as { id: string }).id;
+
+    const dissolve = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}`,
+    });
+    expect(dissolve.statusCode).toBe(204);
+
+    const dissolved = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: '/groups/dissolved',
+    });
+    expect(dissolved.statusCode).toBe(200);
+    expect(dissolved.json()).toHaveLength(1);
+
+    const restore = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/restore`,
+    });
+    expect(restore.statusCode).toBe(204);
+
+    const afterRestore = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    expect(afterRestore.statusCode).toBe(200);
+  });
+
   async function registerUser(token: string, realName: string) {
     const response = await app.inject({
       headers: { authorization: `Bearer ${token}` },

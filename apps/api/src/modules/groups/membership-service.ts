@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   CreateMembershipClaimRequest,
   CreateMembershipClaimResponse,
+  GroupCatalogEntry,
   GroupMember,
   GroupRole,
   GroupSummary,
@@ -31,7 +32,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -70,9 +71,305 @@ export class MembershipService {
       .orderBy(asc(groups.name), asc(groups.id));
 
     return memberships.map((membership) => ({
-      ...membership,
+      id: membership.id,
+      name: membership.name,
       role: membership.role as GroupRole,
+      version: membership.version,
+      ...(membership.role === 'guest' ? {} : { groupCode: membership.groupCode }),
     }));
+  }
+
+  public async listCatalog(identity: AuthenticatedIdentity): Promise<GroupCatalogEntry[]> {
+    const user = await this.getActiveUser(identity);
+    const allGroups = await this.databaseClient.database
+      .select({ id: groups.id, name: groups.name })
+      .from(groups)
+      .where(isNull(groups.deletedAt))
+      .orderBy(asc(groups.name), asc(groups.id));
+    const memberships = await this.databaseClient.database
+      .select({
+        groupId: groupMemberships.groupId,
+        isUnclaimed: users.cloudbaseUid,
+        realName: userProfiles.realName,
+        role: groupMemberships.role,
+        userId: groupMemberships.userId,
+      })
+      .from(groupMemberships)
+      .innerJoin(users, eq(users.id, groupMemberships.userId))
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(
+        and(
+          eq(groupMemberships.status, 'active'),
+          isNull(groupMemberships.deletedAt),
+          isNull(users.deletedAt),
+          isNull(userProfiles.deletedAt),
+        ),
+      );
+
+    return allGroups.map((group) => {
+      const groupMembershipsForGroup = memberships.filter(
+        (membership) => membership.groupId === group.id,
+      );
+      const active = groupMembershipsForGroup.find(
+        (membership) => membership.userId === user.id,
+      );
+      if (active !== undefined) {
+        return {
+          ...group,
+          relation: active.role === 'guest' ? 'active-guest' : 'active-member',
+        };
+      }
+
+      const left = groupMembershipsForGroup.some(
+        (membership) =>
+          membership.userId !== user.id &&
+          membership.role !== 'guest' &&
+          membership.isUnclaimed === null &&
+          membership.realName === user.realName,
+      );
+      return { ...group, relation: left ? 'left-member' : 'none' };
+    });
+  }
+
+  public async joinAsGuest(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+  ): Promise<GroupSummary> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const user = await this.getActiveUserInTransaction(transaction, identity);
+      const [group] = await transaction
+        .select({ id: groups.id, name: groups.name, version: groups.version })
+        .from(groups)
+        .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
+        .limit(1)
+        .for('update');
+      if (group === undefined) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '群组不存在或不可用。',
+        });
+      }
+
+      const memberships = await transaction
+        .select({
+          id: groupMemberships.id,
+          realName: userProfiles.realName,
+          role: groupMemberships.role,
+          status: groupMemberships.status,
+          userId: groupMemberships.userId,
+        })
+        .from(groupMemberships)
+        .innerJoin(users, eq(users.id, groupMemberships.userId))
+        .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+        .where(
+          and(
+            eq(groupMemberships.groupId, group.id),
+            or(eq(groupMemberships.userId, user.id), isNull(groupMemberships.deletedAt)),
+          ),
+        )
+        .for('update');
+
+      const activeMine = memberships.find(
+        (membership) => membership.userId === user.id && membership.status === 'active',
+      );
+      if (activeMine !== undefined) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '您已经加入该群组。',
+        });
+      }
+      const leftMemberPlaceholder = memberships.some(
+        (membership) =>
+          membership.role !== 'guest' &&
+          membership.userId !== user.id &&
+          membership.realName === user.realName,
+      );
+      if (leftMemberPlaceholder) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '该群有您的未认领成员身份，请以成员身份输入群组码重新加入。',
+        });
+      }
+
+      const existingGuest = memberships.find(
+        (membership) => membership.userId === user.id && membership.role === 'guest',
+      );
+      if (existingGuest !== undefined) {
+        await transaction
+          .update(groupMemberships)
+          .set({
+            deletedAt: null,
+            status: 'active',
+            version: sql`${groupMemberships.version} + 1`,
+          })
+          .where(eq(groupMemberships.id, existingGuest.id));
+      } else {
+        await transaction.insert(groupMemberships).values({
+          groupId: group.id,
+          id: randomUUID(),
+          role: 'guest',
+          userId: user.id,
+        });
+      }
+
+      return {
+        id: group.id,
+        name: group.name,
+        role: 'guest',
+        version: group.version,
+      };
+    });
+  }
+
+  public async leaveGroup(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
+    await withTransaction(this.databaseClient, async (transaction) => {
+      const user = await this.getActiveUserInTransaction(transaction, identity);
+      const [group] = await transaction
+        .select({ id: groups.id })
+        .from(groups)
+        .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
+        .limit(1)
+        .for('update');
+      if (group === undefined) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '群组不存在或不可用。',
+        });
+      }
+
+      const [membership] = await transaction
+        .select({ id: groupMemberships.id, role: groupMemberships.role })
+        .from(groupMemberships)
+        .where(
+          and(
+            eq(groupMemberships.groupId, group.id),
+            eq(groupMemberships.userId, user.id),
+            eq(groupMemberships.status, 'active'),
+            isNull(groupMemberships.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (membership === undefined) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '您当前没有加入该群组。',
+        });
+      }
+      if (membership.role === 'owner') {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '群主不能退出，请先转让群主或解散群组。',
+        });
+      }
+      if (membership.role === 'guest') {
+        await transaction
+          .update(groupMemberships)
+          .set({
+            deletedAt: sql`current_timestamp(3)`,
+            status: 'inactive',
+            version: sql`${groupMemberships.version} + 1`,
+          })
+          .where(eq(groupMemberships.id, membership.id));
+        return;
+      }
+
+      await this.detachMembershipToPlaceholder(transaction, membership.id);
+    });
+  }
+
+  private async detachMembershipToPlaceholder(
+    transaction: DatabaseTransaction,
+    membershipId: string,
+  ): Promise<void> {
+    const [membership] = await transaction
+      .select({ realName: userProfiles.realName })
+      .from(groupMemberships)
+      .innerJoin(users, eq(users.id, groupMemberships.userId))
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(eq(groupMemberships.id, membershipId))
+      .limit(1);
+    if (membership === undefined) {
+      return;
+    }
+
+    const placeholderUserId = randomUUID();
+    await transaction.insert(users).values({ id: placeholderUserId, status: 'active' });
+    await transaction.insert(userProfiles).values({
+      realName: membership.realName,
+      userId: placeholderUserId,
+    });
+    await transaction
+      .update(groupMemberships)
+      .set({ userId: placeholderUserId, version: sql`${groupMemberships.version} + 1` })
+      .where(eq(groupMemberships.id, membershipId));
+    await this.cancelPendingClaimsForTarget(transaction, membershipId);
+  }
+
+  private async getActiveUser(
+    identity: AuthenticatedIdentity,
+  ): Promise<{ readonly id: string; readonly realName: string }> {
+    const [user] = await this.databaseClient.database
+      .select({ id: users.id, realName: userProfiles.realName })
+      .from(users)
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(
+        and(
+          eq(users.cloudbaseUid, identity.cloudbaseUid),
+          eq(users.status, 'active'),
+          isNull(users.deletedAt),
+          isNull(userProfiles.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (user === undefined) {
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '当前账号尚未完成个人资料。',
+      });
+    }
+    return user;
+  }
+
+  private async getActiveUserInTransaction(
+    transaction: DatabaseTransaction,
+    identity: AuthenticatedIdentity,
+  ): Promise<{ readonly id: string; readonly realName: string }> {
+    const [user] = await transaction
+      .select({ id: users.id, realName: userProfiles.realName, status: users.status })
+      .from(users)
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(
+        and(
+          eq(users.cloudbaseUid, identity.cloudbaseUid),
+          isNull(users.deletedAt),
+          isNull(userProfiles.deletedAt),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (user === undefined) {
+      throw new ApiError({
+        code: 'NOT_FOUND',
+        statusCode: 404,
+        userMessage: '当前账号尚未完成个人资料。',
+      });
+    }
+    if (user.status !== 'active') {
+      throw new ApiError({
+        code: 'FORBIDDEN',
+        statusCode: 403,
+        userMessage: '当前账号无法执行群组操作。',
+      });
+    }
+    return { id: user.id, realName: user.realName };
   }
 
   public async listMembers(
@@ -102,6 +399,7 @@ export class MembershipService {
             eq(groupMemberships.groupId, authorization.group.id),
             eq(groupMemberships.status, 'active'),
             eq(users.status, 'active'),
+            ne(groupMemberships.role, 'guest'),
             isNull(groupMemberships.deletedAt),
             isNull(users.deletedAt),
             isNull(userProfiles.deletedAt),
@@ -200,6 +498,7 @@ export class MembershipService {
             eq(groupMemberships.groupId, authorization.group.id),
             eq(groupMemberships.status, 'active'),
             eq(users.status, 'active'),
+            ne(groupMemberships.role, 'guest'),
             isNull(groupMemberships.deletedAt),
             isNull(users.deletedAt),
             isNull(userProfiles.deletedAt),

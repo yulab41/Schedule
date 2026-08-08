@@ -10,8 +10,10 @@ import type {
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
   CreateGroupRequest,
+  DissolvedGroup,
   GroupSummary,
   RegenerateGroupCodeRequest,
+  UpdateGroupNameRequest,
 } from '@schedule/contracts';
 import {
   type DatabaseClient,
@@ -24,7 +26,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -469,7 +471,7 @@ export class GroupService {
   ): Promise<
     | {
         readonly id: string;
-        readonly role: 'administrator' | 'member' | 'owner';
+        readonly role: 'administrator' | 'guest' | 'member' | 'owner';
         readonly userId: string;
       }
     | undefined
@@ -626,6 +628,85 @@ export class GroupService {
       code: 'SERVICE_UNAVAILABLE',
       statusCode: 503,
       userMessage: '暂时无法分配新的群组码，请稍后重试。',
+    });
+  }
+
+  public async updateName(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: UpdateGroupNameRequest,
+  ): Promise<GroupSummary> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'updateGroupName',
+      );
+      await transaction
+        .update(groups)
+        .set({ name: input.name, version: sql`${groups.version} + 1` })
+        .where(eq(groups.id, authorization.group.id));
+
+      return {
+        groupCode: authorization.group.groupCode,
+        id: authorization.group.id,
+        name: input.name,
+        role: authorization.membership.role,
+        version: authorization.group.version + 1,
+      };
+    });
+  }
+
+  public async listDissolved(identity: AuthenticatedIdentity): Promise<DissolvedGroup[]> {
+    const user = await this.getActiveUser(identity);
+    const rows = await this.databaseClient.database
+      .select({ deletedAt: groups.deletedAt, id: groups.id, name: groups.name })
+      .from(groups)
+      .where(
+        and(
+          eq(groups.ownerUserId, user.id),
+          sql`${groups.deletedAt} is not null`,
+          sql`${groups.deletedAt} >= timestampadd(day, -30, current_timestamp(3))`,
+        ),
+      )
+      .orderBy(desc(groups.deletedAt), desc(groups.id));
+
+    return rows.map((row) => ({
+      deletedAt: row.deletedAt!.toISOString(),
+      id: row.id,
+      name: row.name,
+    }));
+  }
+
+  public async restoreGroup(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
+    await withTransaction(this.databaseClient, async (transaction) => {
+      const user = await this.getActiveUserInTransaction(transaction, identity);
+      const [group] = await transaction
+        .select({ id: groups.id })
+        .from(groups)
+        .where(
+          and(
+            eq(groups.id, groupId),
+            eq(groups.ownerUserId, user.id),
+            sql`${groups.deletedAt} is not null`,
+            sql`${groups.deletedAt} >= timestampadd(day, -30, current_timestamp(3))`,
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (group === undefined) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '群组不存在、不属于您或已超过恢复期限。',
+        });
+      }
+
+      await transaction
+        .update(groups)
+        .set({ deletedAt: null, version: sql`${groups.version} + 1` })
+        .where(eq(groups.id, group.id));
     });
   }
 

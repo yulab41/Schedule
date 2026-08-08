@@ -8,6 +8,7 @@ import type {
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
   UpdateGroupMemberRoleRequest,
+  UpdateGroupNameRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -57,6 +58,12 @@ const claimGroupInputSchema = z
 const regenerateGroupCodeInputSchema = z
   .object({
     groupCode: groupCodeSchema.optional(),
+  })
+  .strict();
+
+const updateGroupNameInputSchema = z
+  .object({
+    name: groupNameSchema,
   })
   .strict();
 
@@ -127,6 +134,31 @@ export function registerGroupRoutes(
 
   app.get('/groups', { preHandler: app.authenticate }, async (request) =>
     membershipService.listGroups(getAuthenticatedIdentity(request)),
+  );
+
+  app.get('/groups/catalog', { preHandler: app.authenticate }, async (request) =>
+    membershipService.listCatalog(getAuthenticatedIdentity(request)),
+  );
+
+  app.post(
+    '/groups/:groupId/join-guest',
+    { preHandler: app.authenticate },
+    async (request, reply) => {
+      const group = await membershipService.joinAsGuest(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+      );
+      return reply.code(201).send(group);
+    },
+  );
+
+  app.post(
+    '/groups/:groupId/leave',
+    { preHandler: app.authenticate },
+    async (request, reply) => {
+      await membershipService.leaveGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+      return reply.code(204).send();
+    },
   );
 
   app.get('/groups/:groupId/members', { preHandler: app.authenticate }, async (request) =>
@@ -242,6 +274,21 @@ export function registerGroupRoutes(
   );
 
   app.put(
+    '/groups/:groupId/name',
+    { preHandler: app.authenticate },
+    async (request) =>
+      groupService.updateName(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseUpdateGroupNameInput(request.body),
+      ),
+  );
+
+  app.get('/groups/dissolved', { preHandler: app.authenticate }, async (request) =>
+    groupService.listDissolved(getAuthenticatedIdentity(request)),
+  );
+
+  app.put(
     '/groups/:groupId/members/:membershipId/role',
     { preHandler: app.authenticate },
     async (request) =>
@@ -277,6 +324,15 @@ export function registerGroupRoutes(
     await membershipService.deleteGroup(getAuthenticatedIdentity(request), parseGroupId(request));
     return reply.code(204).send();
   });
+
+  app.post(
+    '/groups/:groupId/restore',
+    { preHandler: app.authenticate },
+    async (request, reply) => {
+      await groupService.restoreGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+      return reply.code(204).send();
+    },
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {
@@ -348,6 +404,14 @@ function parseRegenerateGroupCodeInput(value: unknown): RegenerateGroupCodeReque
   }
 
   return result.data.groupCode === undefined ? {} : { groupCode: result.data.groupCode };
+}
+
+function parseUpdateGroupNameInput(value: unknown): UpdateGroupNameRequest {
+  const result = updateGroupNameInputSchema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+  return result.data;
 }
 
 function parseGroupId(request: FastifyRequest): string {

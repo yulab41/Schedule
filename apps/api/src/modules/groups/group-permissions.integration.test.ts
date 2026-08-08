@@ -31,6 +31,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       authPort: createFakeAuthPort({
         'candidate-token': 'cloudbase-candidate',
         'other-owner-token': 'cloudbase-other-owner',
+        'outsider-token': 'cloudbase-outsider',
         'owner-token': 'cloudbase-owner',
       }),
       databaseClient: client,
@@ -39,6 +40,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
     await registerUser('other-owner-token', 'Other Owner Doctor');
+    await registerUser('outsider-token', 'Outsider Doctor');
   });
 
   afterEach(async () => {
@@ -231,6 +233,27 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       expect.arrayContaining([expect.objectContaining({ id: groupId })]),
     );
     expect(storedGroup?.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('hides group codes from guest group summaries', async () => {
+    const group = await createGroup('owner-token', 'Guest code group', '6789');
+    const groupId = (group.json() as { id: string }).id;
+
+    const joined = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/join-guest`,
+    });
+    expect(joined.statusCode).toBe(201);
+
+    const listed = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'GET',
+      url: '/groups',
+    });
+    const summary = (listed.json() as Array<{ groupCode?: string; role: string }>)[0];
+    expect(summary?.role).toBe('guest');
+    expect(summary?.groupCode).toBeUndefined();
   });
 
   async function createClaimedGroup(): Promise<string> {

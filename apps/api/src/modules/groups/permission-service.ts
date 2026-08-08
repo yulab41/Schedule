@@ -18,8 +18,11 @@ export type GroupPermission =
   | 'manageScheduleConfiguration'
   | 'manageSwaps'
   | 'regenerateGroupCode'
+  | 'restoreGroup'
   | 'transferOwnership'
+  | 'updateGroupName'
   | 'viewContacts'
+  | 'viewGuestCalendar'
   | 'viewMembers'
   | 'viewScheduleConfiguration';
 
@@ -44,7 +47,7 @@ export interface ActiveGroup {
 export interface ActiveGroupMembership {
   readonly autoAcceptSwaps: boolean;
   readonly id: string;
-  readonly role: 'administrator' | 'member' | 'owner';
+  readonly role: 'administrator' | 'guest' | 'member' | 'owner';
   readonly userId: string;
 }
 
@@ -70,6 +73,7 @@ const permissionsByRole: Readonly<
     'viewMembers',
     'viewScheduleConfiguration',
   ],
+  guest: ['viewGuestCalendar'],
   member: ['viewContacts', 'viewMembers', 'viewScheduleConfiguration'],
   owner: [
     'deleteGroup',
@@ -83,8 +87,11 @@ const permissionsByRole: Readonly<
     'manageScheduleConfiguration',
     'manageSwaps',
     'regenerateGroupCode',
+    'restoreGroup',
     'transferOwnership',
+    'updateGroupName',
     'viewContacts',
+    'viewGuestCalendar',
     'viewMembers',
     'viewScheduleConfiguration',
   ],
