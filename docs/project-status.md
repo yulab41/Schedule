@@ -9,7 +9,7 @@
 - Branch: `main` / Upstream: `origin/main`
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
 - Current phase: 微信小程序阶段（设计方向已批准，规格与实施计划已提交，待用户复核后从任务 1 开始）
-- 2026-08-08：微信小程序「科室排班日历」设计已确认并提交——方案 A（原生小程序 + TypeScript + TDesign）；个人主体；名称“科室排班日历”（简称“科室排班”）；AppID `wx56a7a21f974fd9af`；全功能版；邀请链接采用一次性令牌 + 姓名确认；访客模式统一为只有扫码可查看（网页公开群组列表一并关闭）；不做独立绑定码，身份绑定由群主/管理员定向邀请链接承担（接受已认领成员邀请时空账号合并 openid 并重签会话）；排班提醒模板 ID 已提供；设计文档 `docs/superpowers/specs/2026-08-08-wechat-miniprogram-design.md`、实施计划 `docs/superpowers/plans/2026-08-08-wechat-miniprogram-implementation-plan.md` 已提交；下一批任务 1–3（数据库迁移 + 微信网关 + 微信认证/会话令牌）
+- 2026-08-08：微信小程序「科室排班日历」设计已确认并提交——方案 A（原生小程序 + TypeScript + TDesign）；个人主体；名称“科室排班日历”（简称“科室排班”）；AppID `wx56a7a21f974fd9af`；全功能版；邀请链接采用一次性令牌 + 姓名确认；访客模式统一为只有扫码可查看（网页公开群组列表一并关闭）；不做独立绑定码，身份绑定由群主/管理员定向邀请链接承担（接受已认领成员邀请时全量合并：转移该微信已加入的群组关系与群主身份、绑定 openid 并重签会话，一个微信用户可加入多个群）；排班提醒模板 ID 已提供；设计文档 `docs/superpowers/specs/2026-08-08-wechat-miniprogram-design.md`、实施计划 `docs/superpowers/plans/2026-08-08-wechat-miniprogram-implementation-plan.md` 已提交；下一批任务 1–3（数据库迁移 + 微信网关 + 微信认证/会话令牌）
 - 2026-08-08：新需求设计已确认并提交——群组管理（群主改名/改码/解散恢复、访客加入/退出/重加入、普通成员隐藏事件导航），设计文档 `docs/superpowers/specs/2026-08-08-group-membership-and-event-visibility-design.md`、实施计划 `docs/superpowers/plans/2026-08-08-group-membership-and-event-visibility-implementation-plan.md` 已提交；代码实现从批次 A（任务 1–3）开始
 - 2026-08-08：新需求批次 A（任务 1–3）已完成——迁移 0032（guest 角色）、契约（catalog/改名/已解散/guest 摘要无码）、后端自助服务（访客加入/退出、成员退出变未认领后重加入恢复、群主改名/解散/恢复）；群组相关集成测试 30/30、浏览器冒烟通过；提交 11d0a86 / 9a1b46d / c692dbe；下一批任务 4–6（登录访客日历接口、Web client、前端导航与访客工作台）
 - 2026-08-08：新需求批次 B（任务 4–6）已完成——登录访客日历接口、Web client 自助方法、普通成员隐藏“事件”导航、登录访客简化工作台；`pnpm verify` 616 项（75 文件，隔离 MySQL）与浏览器冒烟通过；提交 1b1eebd / f07ffbe / 9dbf1e3；下一批任务 7–8（群组管理面板重构、冒烟脚本扩展与收尾）
