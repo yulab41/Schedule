@@ -197,6 +197,7 @@
 
 ## Known Environment State（关键信息；详细命令见 aliyun-ecs.md）
 
+- 公网入口复核（2026-08-08 用户反馈）：`http://hosp.schedule.eylinhome.top` 被阿里云按未备案拦截（80 端口拦截页），`https://hosp.schedule.eylinhome.top` 浏览器可正常打开部署网页；小程序网络栈 443 仍受 TLS 指纹选择性拦截影响，模拟器/真机联调继续以本地 API 为准。
 - 新 ECS `120.77.220.79`（实例 i-wz98vjgval1ptp4e8hb0，2 vCPU/2 GiB/40G，Ubuntu 22.04，Docker 预装）：公钥登录 `root@120.77.220.79`；部署目录 `/opt/schedule`；入口 `https://hosp.schedule.eylinhome.top`（HTTPS/HTTP2 已启用）；IP `http://120.77.220.79` 保留备用
 - 隔离测试库：`infra/docker/compose.test.yml` 将数据目录挂为 1GB tmpfs 并关闭 binlog（`--disable-log-bin`），已消除 512MB 顶满导致的 MySQL `ABORT_SERVER` 崩溃（2026-08-07 实测，轮次 50 加固）；全量验证前仍建议 `docker compose --env-file .env -f infra/docker/compose.test.yml down --volumes` 重置，Docker 空间不足时先 `docker builder prune -a -f`（Build Cache 曾占 56.9GB）。
 - 阿里云 ECS 试用机：`8.148.183.46`（Ubuntu 22.04，Docker 预装，1.6G 内存）；入口 `http://8.148.183.46`（未配置 HTTPS/域名）；部署方式见 `docs/deployment/aliyun-ecs.md`；试用期 API 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行（开发模式认证）。

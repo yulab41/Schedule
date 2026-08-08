@@ -1342,3 +1342,9 @@
   - 工作台空态增加“创建群组”入口，有群组时增加“群管理”入口；`group-qr` 从群管理接入。
 - 验证：`pnpm miniprogram:typecheck` ✅、`pnpm miniprogram:lint` ✅、`pnpm verify` ✅（format/lint/build/typecheck + 411 项单测，隔离 MySQL 集成测试未跑——本轮无后端改动）、`pnpm smoke:check-core` ✅（未涉及核心链路，无需浏览器冒烟记录）。
 - 状态：**已实现待开发者工具/模拟器复核**（未运行 `miniprogram-smoke` 截图冒烟）；下一步为任务 14（Web 配套调整）与任务 15（部署与验收）。
+
+### 公网入口 80/443 行为复核（2026-08-08 用户反馈）
+
+- 现象：`http://hosp.schedule.eylinhome.top/` 返回阿里云 ICP 备案拦截页；`https://hosp.schedule.eylinhome.top/` 浏览器可正常打开部署网页。
+- 判定：80 端口是阿里云对未备案域名的统一拦截（与本地 Nginx/维护模式无关，`icp-maintenance.sh` 当前为 off）；443 对浏览器类客户端当前可达。该现象与既有“TLS 指纹选择性拦截”记录互相独立——小程序网络栈走 443 仍可能被重置，模拟器/真机联调继续以本地 API 为准；备案通过后 80 拦截应自动解除。
+- 状态：已记录；不影响当前小程序联调路径。
