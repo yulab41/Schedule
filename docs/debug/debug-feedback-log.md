@@ -1262,3 +1262,19 @@
   - `pnpm verify` 全绿（format/lint/build/typecheck）；`pnpm test` 隔离 MySQL 658/658（82 文件）通过。
 - 已知边界：数据驱动流程（真实登录、审批、订阅授权等）需本地 mock API + 会话注入或真机联调，留待任务 15 验收清单；本轮截图仅核对渲染/无红屏/无脚本错误。
 - 状态：DevTools 接入核对点 ✅（模拟器编译与页面级运行验证完成；任务 13 起每批页面完成后跑 `pnpm miniprogram:smoke` + DevTools 模拟器复核）。
+
+### 小程序登录联调（2026-08-08，DevTools mock 链路）
+
+- 问题：模拟器点击“微信一键登录”提示“无法连接到服务，请检查网络后重试”。
+- 根因：
+  1. 公网域名处于 ICP 备案维护模式（方案 A），`https://hosp.schedule.eylinhome.top/api/*` 全部 302 到“网站备案中”占位页（服务器内部验证）；
+  2. 本机代理/安全客户端把域名 DNS 解析成 fake-IP `198.18.0.75` 并中断 HTTPS 握手（curl 000 / schannel 报错），开发者工具走系统代理，公网域名在本机不可用；
+  3. 服务器 `.env.production` 与本地 `.env` 均无 `WECHAT_*` 配置，微信网关未配置时登录路由不注册（`/auth/wechat/login` 404）。
+- 处理：
+  - 按用户指示在 ECS 执行 `bash /opt/schedule/infra/scripts/icp-maintenance.sh off`，恢复正式站点（容器内 `curl --http1.1 https://hosp.schedule.eylinhome.top/api/health` = 200）；备案期间公网可访问，风险与恢复命令已记录（`on` 可随时恢复）；
+  - 本地 `.env` 追加微信 mock 网关变量（`WECHAT_MOCK_MODE=true` 等 8 个，不提交），重启本地 API（127.0.0.1:3000）；
+  - `apps/miniprogram/api/client.ts` 支持 `apiBaseUrl` storage 覆盖（默认仍为正式域名，仅在 DevTools 本地联调时设置）；typecheck 通过；
+  - 模拟器内通过自动化写入 `apiBaseUrl=http://127.0.0.1:3000/api` 并重启小程序。
+- 验证：`POST http://127.0.0.1:3000/auth/wechat/login {"code":"dev-test-code"}` = 200 且返回签名令牌；模拟器 evaluate 实测 `wx.login` 返回 32 位 code、`wx.request` 调本地登录接口 = 200（isNewUser=true + token）。
+- 遗留：`page.callMethod('handleLogin')` 自动化点击在本版本 DevTools 超时（evaluate 同链路可用），需用户在模拟器手动点击确认 UI 跳转；真实微信登录还需在服务器 `.env.production` 配置 `WECHAT_APPID/APPSECRET/SESSION_SECRET`（AppSecret 由用户提供，不入库）并处理本机代理对公网域名的拦截；小程序后台需配置 request 合法域名 `https://hosp.schedule.eylinhome.top`（任务 15）。
+- 状态：模拟器 mock 登录链路 ✅（用户点击复核后即可进入注册/工作台）。

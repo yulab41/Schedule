@@ -24,6 +24,7 @@ export interface RequestOptions {
 }
 
 const sessionStorageKey = 'schedule.session';
+const apiBaseUrlStorageKey = 'apiBaseUrl';
 
 export function getStoredToken(): string | undefined {
   const raw = wx.getStorageSync<string>(sessionStorageKey);
@@ -41,9 +42,22 @@ export function storeToken(token: string | undefined): void {
   }
 }
 
+function getApiBaseUrl(): string {
+  try {
+    const value = wx.getStorageSync<string>(apiBaseUrlStorageKey);
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  } catch {
+    // storage 不可用时回退到默认地址
+  }
+  return appConfig.apiBaseUrl;
+}
+
 export function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     wx.request({
+      url: `${getApiBaseUrl()}${path}`,
       data: options.data as unknown as WechatMiniprogram.IAnyObject,
       header: {
         'content-type': 'application/json',
@@ -75,7 +89,6 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
           new ApiClientError('NETWORK_ERROR', '无法连接到服务，请检查网络后重试。', undefined),
         );
       },
-      url: `${appConfig.apiBaseUrl}${path}`,
     });
   });
 }
