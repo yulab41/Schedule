@@ -15,7 +15,7 @@ echo "[verify] local-server.js md5"
 md5sum /opt/schedule/apps/api/dist/local-server.js
 
 echo "[verify] web index asset"
-curl -s http://127.0.0.1:8080/ | grep -o 'assets/HomeView-[^"]*\.js' | head -1
+curl -s http://127.0.0.1:8080/ | grep -o 'assets/index-[^"]*\.js' | head -1
 
 echo "[verify] cloudbase dependency"
 if docker exec medical-schedule-prod-api-1 \
