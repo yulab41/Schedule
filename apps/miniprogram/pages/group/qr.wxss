@@ -1,0 +1,11 @@
+.qr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-image {
+  width: 480rpx;
+  height: 480rpx;
+  margin-bottom: 24rpx;
+}

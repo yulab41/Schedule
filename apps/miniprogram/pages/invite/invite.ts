@@ -1,116 +1,84 @@
 import type { ResolveInviteResponse } from '@schedule/contracts';
 
-import { ApiClientError } from '../../api/client.js';
-import { acceptInvite, resolveInvite } from '../../api/endpoints.js';
+import { acceptInvite, getCurrentProfile, resolveInvite } from '../../api/endpoints.js';
+import { getStoredToken } from '../../api/client.js';
 import { sessionStore } from '../../store/session.js';
 
 interface InvitePageData {
-  readonly canAccept: boolean;
   readonly confirmRealName: string;
   readonly errorMessage: string;
+  readonly infoMessage: string;
   readonly invite: ResolveInviteResponse | undefined;
-  readonly loading: boolean;
   readonly submitting: boolean;
+  readonly token: string;
 }
-
-let activeToken = '';
 
 Page({
   data: {
-    canAccept: false,
     confirmRealName: '',
     errorMessage: '',
+    infoMessage: '',
     invite: undefined,
-    loading: false,
     submitting: false,
+    token: '',
   } as InvitePageData,
 
   onLoad(options: Record<string, string | undefined>) {
-    const token = options.t;
-    if (typeof token !== 'string' || token.length === 0) {
-      this.setData({ errorMessage: '邀请链接无效，请联系群主重新获取。' });
+    const token = options.token ?? '';
+    if (token.length === 0) {
+      this.setData({ errorMessage: '邀请链接参数无效。' });
       return;
     }
-    activeToken = token;
-    if (!sessionStore.state.isAuthenticated) {
+    this.setData({ token });
+    if (getStoredToken() === undefined) {
       sessionStore.setPendingInviteToken(token);
-      wx.redirectTo({ url: '/pages/login/login' });
+      wx.reLaunch({ url: '/pages/login/login' });
       return;
     }
-    sessionStore.setPendingInviteToken(undefined);
-    void this.loadInvite();
+    void this.loadInvite(token);
   },
 
-  onUnload() {
-    activeToken = '';
-  },
-
-  async loadInvite(): Promise<void> {
-    this.setData({ errorMessage: '', loading: true });
+  async loadInvite(token: string): Promise<void> {
+    this.setData({ errorMessage: '' });
     try {
-      const invite = await resolveInvite(activeToken);
-      this.setData({ invite });
+      const invite = await resolveInvite(token);
+      const profile = await getCurrentProfile().catch(() => undefined);
+      this.setData({
+        confirmRealName: profile?.realName ?? invite.inviteeRealName,
+        invite,
+      });
     } catch (error) {
-      this.setData({ errorMessage: toInviteErrorMessage(error) });
-    } finally {
-      this.setData({ loading: false });
+      this.setData({ errorMessage: toMessage(error, '邀请解析失败，可能已失效。') });
     }
   },
 
-  handleConfirmNameInput(event: WechatMiniprogram.Input) {
-    const confirmRealName = event.detail.value;
-    this.setData({ confirmRealName, canAccept: matchesInvitee(confirmRealName, this.data.invite) });
+  onNameInput(event: WechatMiniprogram.Input) {
+    this.setData({ confirmRealName: event.detail.value });
   },
 
   async handleAccept(): Promise<void> {
-    if (this.data.submitting || !this.data.canAccept) {
+    const name = this.data.confirmRealName.trim();
+    if (name.length === 0) {
+      this.setData({ errorMessage: '请填写并确认你的真实姓名。' });
       return;
     }
-    this.setData({ errorMessage: '', submitting: true });
+    this.setData({ errorMessage: '', infoMessage: '', submitting: true });
     try {
-      const result = await acceptInvite(activeToken, this.data.confirmRealName.trim());
+      const result = await acceptInvite(this.data.token, name);
       if (result.token !== undefined) {
         sessionStore.setSession(result.token);
       }
       sessionStore.setPendingInviteToken(undefined);
-      activeToken = '';
       wx.showToast({ icon: 'success', title: '已加入群组' });
-      setTimeout(() => {
-        wx.switchTab({ url: '/pages/index/index' });
-      }, 600);
+      wx.reLaunch({ url: '/pages/workbench/workbench' });
     } catch (error) {
-      this.setData({ errorMessage: toInviteErrorMessage(error) });
+      this.setData({ errorMessage: toMessage(error, '接受邀请失败。') });
     } finally {
       this.setData({ submitting: false });
     }
   },
 });
 
-function matchesInvitee(
-  confirmRealName: string,
-  invite: ResolveInviteResponse | undefined,
-): boolean {
-  return (
-    invite !== undefined &&
-    confirmRealName.trim().length > 0 &&
-    confirmRealName.trim() === invite.inviteeRealName
-  );
-}
-
-function toInviteErrorMessage(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    switch (error.code) {
-      case 'INVITE_INVALID':
-        return '邀请链接无效，请联系群主重新生成。';
-      case 'INVITE_USED':
-        return '该邀请已被使用，请联系群主重新邀请。';
-      case 'INVITE_EXPIRED':
-        return '邀请已过期，请联系群主重新邀请。';
-      default:
-        return error.message;
-    }
-  }
-  return error instanceof Error && error.message.length > 0
-    ? error.message
-    : '操作失败，请稍后重试。';
+function toMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "工作台",
+  "usingComponents": {
+    "group-switcher": "/components/group-switcher/group-switcher",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-tag": "tdesign-miniprogram/tag/tag"
+  }
+}

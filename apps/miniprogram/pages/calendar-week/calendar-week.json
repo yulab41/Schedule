@@ -1,9 +1,7 @@
 {
-  "navigationBarTitleText": "周排班",
+  "navigationBarTitleText": "周视图",
   "usingComponents": {
-    "duty-detail": "/components/duty-detail/duty-detail",
-    "group-switcher": "/components/group-switcher/group-switcher",
     "shift-card": "/components/shift-card/shift-card",
-    "t-button": "tdesign-miniprogram/button/button"
+    "duty-detail": "/components/duty-detail/duty-detail"
   }
 }

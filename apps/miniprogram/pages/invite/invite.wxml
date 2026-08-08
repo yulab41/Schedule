@@ -1,40 +1,24 @@
-<view class="page-container invite-page">
-  <view class="invite-card">
-    <text class="invite-title" wx:if="{{invite}}">邀请加入群组</text>
-
-    <view wx:if="{{loading}}" class="invite-state">
-      <text>加载中…</text>
+<view class="page-container">
+  <view wx:if="{{invite}}" class="card">
+    <view class="card-title">{{invite.groupName}}</view>
+    <view class="card-copy">
+      邀请人：{{invite.inviteeRealName}} · 权限：{{invite.permissionRole === 'administrator' ? '管理员' : '成员'}}
+      <block wx:if="{{invite.scheduleRoleName}}"> · 岗位：{{invite.scheduleRoleName}}</block>
     </view>
-
-    <view wx:elif="{{errorMessage}}" class="invite-state">
-      <text class="invite-error">{{errorMessage}}</text>
-    </view>
-
-    <block wx:elif="{{invite}}">
-      <text class="invite-group-name">{{invite.groupName}}</text>
-      <text class="invite-row">姓名：{{invite.inviteeRealName}}</text>
-      <text class="invite-row">
-        角色：{{invite.permissionRole === 'administrator' ? '管理员' : '成员'}}
-      </text>
-      <text class="invite-row" wx:if="{{invite.scheduleRoleName}}">
-        排班岗位：{{invite.scheduleRoleName}}
-      </text>
+    <view class="invite-name">
       <t-input
         value="{{confirmRealName}}"
-        placeholder="请输入你的真实姓名以确认"
-        maxlength="100"
-        bind:change="handleConfirmNameInput"
+        placeholder="请输入你的真实姓名"
+        bind:change="onNameInput"
       />
-      <t-button
-        theme="primary"
-        block
-        loading="{{submitting}}"
-        disabled="{{submitting || !canAccept}}"
-        bind:tap="handleAccept"
-      >
-        确认接受邀请
+    </view>
+    <view class="actions">
+      <t-button theme="primary" block loading="{{submitting}}" bind:tap="handleAccept">
+        确认姓名并加入
       </t-button>
-      <text class="invite-warning">邀请链接仅限本人使用，先到先得；请勿转发给他人。</text>
-    </block>
+    </view>
+    <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
   </view>
+  <view wx:elif="{{errorMessage}}" class="card empty-state">{{errorMessage}}</view>
 </view>

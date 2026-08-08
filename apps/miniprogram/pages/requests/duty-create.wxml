@@ -1,0 +1,20 @@
+<view class="page-container">
+  <view class="card">
+    <picker mode="selector" range="{{adminShiftLabels}}" value="{{adminShiftIndex}}" bindchange="onAdminShiftChange">
+      <view class="form-row"><text class="muted">被代值班次</text><text>{{adminShiftLabels[adminShiftIndex] || '请选择'}}</text></view>
+    </picker>
+    <picker mode="selector" range="{{overtimeLabels}}" value="{{overtimeIndex}}" bindchange="onOvertimeChange">
+      <view class="form-row"><text class="muted">加班成员</text><text>{{overtimeLabels[overtimeIndex] || '请选择'}}</text></view>
+    </picker>
+    <t-textarea value="{{reason}}" placeholder="原因（可选）" bind:change="onReasonInput" />
+    <view class="actions">
+      <t-button block variant="outline" bind:tap="handlePreview">预览</t-button>
+      <t-button theme="primary" block loading="{{submitting}}" bind:tap="handleSubmit">提交加扣班</t-button>
+    </view>
+    <view wx:if="{{nextStatusDescription}}" class="info-text">{{nextStatusDescription}}</view>
+    <view wx:if="{{preview && preview.conflicts.length > 0}}" class="error-text">
+      <text wx:for="{{preview.conflicts}}" wx:key="message">{{item.message}}</text>
+    </view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
+</view>

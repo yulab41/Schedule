@@ -1,0 +1,34 @@
+.shift-palette {
+  white-space: nowrap;
+  margin-bottom: 16rpx;
+}
+
+.shift-palette__item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 120rpx;
+  height: 96rpx;
+  margin-right: 16rpx;
+  border-radius: var(--radius-md);
+  vertical-align: top;
+  opacity: 0.75;
+}
+
+.shift-palette__item.is-selected {
+  opacity: 1;
+  outline: 4rpx solid var(--color-primary);
+}
+
+.shift-palette__abbr {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.shift-palette__name {
+  font-size: 20rpx;
+  max-width: 112rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

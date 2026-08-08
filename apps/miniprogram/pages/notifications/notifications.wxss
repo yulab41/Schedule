@@ -1,74 +1,18 @@
-.notifications-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+.notify-read {
+  opacity: 0.65;
 }
 
-.notifications-toolbar {
-  display: flex;
-  gap: var(--spacing-sm);
-  align-items: center;
+.notify-dot {
+  display: inline-block;
+  width: 14rpx;
+  height: 14rpx;
+  margin-left: 8rpx;
+  border-radius: 50%;
+  background: var(--color-weekend);
 }
 
-.notifications-count {
-  flex: 1;
+.notify-body {
+  margin-top: 6rpx;
   color: var(--color-text-muted);
   font-size: 24rpx;
-}
-
-.notification-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-  padding: 20rpx 24rpx;
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
-}
-
-.notification-card.is-unread {
-  border-left: 6rpx solid var(--color-primary);
-}
-
-.notification-header {
-  display: flex;
-  gap: 12rpx;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.notification-title {
-  font-size: 26rpx;
-  font-weight: 600;
-}
-
-.notification-time {
-  color: var(--color-text-muted);
-  font-size: 22rpx;
-}
-
-.notification-body {
-  color: var(--color-text-muted);
-  font-size: 24rpx;
-  line-height: 1.5;
-}
-
-.notifications-card {
-  padding: 48rpx 32rpx;
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
-}
-
-.notifications-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-md);
-  color: var(--color-text-muted);
-}
-
-.notifications-error {
-  color: var(--color-weekend);
-  text-align: center;
 }

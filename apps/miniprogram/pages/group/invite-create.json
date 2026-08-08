@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "发起邀请",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-picker": "tdesign-miniprogram/picker/picker"
+  }
+}

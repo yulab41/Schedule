@@ -1,7 +1,10 @@
+import type { JsonObject } from '@schedule/contracts';
+
 import { appConfig } from '../config/index.js';
 
 export interface ApiErrorPayload {
   readonly code: string;
+  readonly latestData?: unknown;
   readonly message: string;
   readonly requestId: string;
 }
@@ -11,6 +14,8 @@ export class ApiClientError extends Error {
     public readonly code: string,
     message: string,
     public readonly requestId: string | undefined,
+    public readonly latestData?: JsonObject,
+    public readonly status?: number,
   ) {
     super(message);
     this.name = 'ApiClientError';
@@ -20,7 +25,7 @@ export class ApiClientError extends Error {
 export interface RequestOptions {
   readonly auth?: boolean;
   readonly data?: object;
-  readonly method?: 'DELETE' | 'GET' | 'POST' | 'PUT';
+  readonly method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
 }
 
 const sessionStorageKey = 'schedule.session';
@@ -65,7 +70,7 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
         'content-type': 'application/json',
         ...(options.auth === false ? {} : { Authorization: `Bearer ${getStoredToken() ?? ''}` }),
       },
-      method: options.method ?? 'GET',
+      method: (options.method ?? 'GET') as WechatMiniprogram.RequestOption['method'],
       success: (response) => {
         if (response.statusCode >= 200 && response.statusCode < 300) {
           resolve(response.data as T);
@@ -83,6 +88,8 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
             payload?.error?.code ?? 'UNKNOWN_ERROR',
             payload?.error?.message ?? '请求失败，请稍后重试。',
             payload?.error?.requestId,
+            payload?.error?.latestData as JsonObject | undefined,
+            response.statusCode,
           ),
         );
       },

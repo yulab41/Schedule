@@ -18,331 +18,233 @@ import {
   rejectLeaveRequest,
   rejectSwapRequest,
 } from '../../api/endpoints.js';
-import { resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
-import { formatChinaDateShort, formatChinaTime, formatLeaveRange } from '../../utils/time.js';
+import { getStoredToken } from '../../api/client.js';
+import { getSelectedGroupId, resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
 import { randomUuid } from '../../utils/uuid.js';
-import {
-  getWorkflowStatusLabel,
-  leaveStatusLabels,
-  leaveTypeLabels,
-} from '../../utils/workflow.js';
+import { getLeaveStatusLabel, getLeaveTypeLabel } from '../../utils/leave-logic.js';
+import { getSwapStatusLabel } from '../../utils/swap-logic.js';
+import { getDutyAdjustmentStatusLabel } from '../../utils/duty-adjustment-logic.js';
 
 type ApprovalKind = 'duty' | 'leave' | 'swap';
 
 interface ApprovalRow {
-  readonly detail: string;
   readonly id: string;
-  readonly isPending: boolean;
   readonly kind: ApprovalKind;
   readonly statusLabel: string;
+  readonly summary: string;
   readonly title: string;
   readonly version: number;
 }
 
-interface LeaveApprovalPreview {
-  readonly affectedShiftCount: number;
-  readonly conflictsCount: number;
-  readonly expectedPeriodVersions: Readonly<Record<string, number>>;
-  readonly expectedRulesVersion: number;
-  readonly expectedVersion: number;
-  readonly overlapsUnpublishedPeriod: boolean;
-  readonly requestId: string;
-  readonly strategy: 'keep-original-order' | 'shift-forward';
-  readonly vacanciesCount: number;
-  readonly workflowBlockerCount: number;
-}
-
 interface ApprovalsPageData {
-  readonly dutyApprovals: readonly ApprovalRow[];
   readonly errorMessage: string;
   readonly groups: readonly GroupSummary[];
-  readonly leaveApprovals: readonly ApprovalRow[];
-  readonly leavePreview: LeaveApprovalPreview | undefined;
-  readonly leavePreviewLoading: boolean;
+  readonly kind: ApprovalKind;
   readonly loading: boolean;
+  readonly rows: readonly ApprovalRow[];
   readonly selectedGroupId: string;
-  readonly submitting: boolean;
-  readonly swapApprovals: readonly ApprovalRow[];
+  readonly visibleRows: readonly ApprovalRow[];
 }
 
 Page({
   data: {
-    dutyApprovals: [],
     errorMessage: '',
     groups: [],
-    leaveApprovals: [],
-    leavePreview: undefined,
-    leavePreviewLoading: false,
+    kind: 'leave',
     loading: false,
+    rows: [],
     selectedGroupId: '',
-    submitting: false,
-    swapApprovals: [],
+    visibleRows: [],
   } as ApprovalsPageData,
 
   onShow() {
-    void this.loadGroups();
+    if (getStoredToken() === undefined) {
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
+    void this.loadAll();
   },
 
-  async loadGroups(): Promise<void> {
+  async loadAll(): Promise<void> {
     this.setData({ errorMessage: '', loading: true });
     try {
       const groups = await listGroups();
-      const selected = resolveSelectedGroup(groups);
+      const selected = resolveSelectedGroup(groups, getSelectedGroupId());
+      if (selected === undefined) {
+        this.setData({ groups, errorMessage: '请先加入一个群组。' });
+        return;
+      }
+      setSelectedGroupId(selected.id);
+      const [leaves, swaps, duties] = await Promise.all([
+        listLeaveRequestApprovals(selected.id),
+        listSwapApprovals(selected.id),
+        listDutyAdjustmentApprovals(selected.id),
+      ]);
       this.setData({
         groups,
-        selectedGroupId: selected?.id ?? '',
+        rows: [
+          ...leaves.map(buildLeaveRow),
+          ...swaps.map(buildSwapRow),
+          ...duties.map(buildDutyRow),
+        ],
+        selectedGroupId: selected.id,
+        visibleRows: [
+          ...leaves.map(buildLeaveRow),
+          ...swaps.map(buildSwapRow),
+          ...duties.map(buildDutyRow),
+        ].filter((row) => row.kind === this.data.kind),
       });
-      if (selected !== undefined) {
-        setSelectedGroupId(selected.id);
-        await this.loadApprovals();
-      } else {
-        this.setData({ leaveApprovals: [], swapApprovals: [], dutyApprovals: [] });
-      }
     } catch (error) {
-      this.setData({ errorMessage: toErrorMessage(error) });
+      this.setData({ errorMessage: toMessage(error, '审批列表加载失败。') });
     } finally {
       this.setData({ loading: false });
     }
   },
 
-  async loadApprovals(): Promise<void> {
-    const groupId = this.data.selectedGroupId;
-    if (groupId.length === 0) {
-      return;
-    }
-    this.setData({ errorMessage: '', loading: true });
-    try {
-      const [leaves, swaps, duties] = await Promise.all([
-        listLeaveRequestApprovals(groupId),
-        listSwapApprovals(groupId),
-        listDutyAdjustmentApprovals(groupId),
-      ]);
-      this.setData({
-        dutyApprovals: duties.map(buildDutyRow),
-        leaveApprovals: leaves.map(buildLeaveRow),
-        swapApprovals: swaps.map(buildSwapRow),
-      });
-    } catch (error) {
-      this.setData({ errorMessage: toErrorMessage(error) });
-    } finally {
-      this.setData({ loading: false });
-    }
+  onKindChange(event: WechatMiniprogram.CustomEvent) {
+    const index = Number(event.detail.value ?? 0);
+    const kind: ApprovalKind = index === 1 ? 'swap' : index === 2 ? 'duty' : 'leave';
+    this.setData({
+      kind,
+      visibleRows: this.data.rows.filter((row) => row.kind === kind),
+    });
   },
 
   handleGroupChange(event: WechatMiniprogram.CustomEvent) {
     const groupId = event.detail.groupId;
-    if (typeof groupId !== 'string' || groupId.length === 0) {
-      return;
+    if (typeof groupId === 'string' && groupId.length > 0) {
+      setSelectedGroupId(groupId);
+      this.setData({ selectedGroupId: groupId });
+      void this.loadAll();
     }
-    this.setData({ selectedGroupId: groupId });
-    setSelectedGroupId(groupId);
-    void this.loadApprovals();
   },
 
-  async handlePreviewLeave(event: WechatMiniprogram.TouchEvent) {
+  async handleDecide(event: WechatMiniprogram.TouchEvent): Promise<void> {
     const id = event.currentTarget.dataset.id;
-    if (typeof id !== 'string' || this.data.leavePreviewLoading) {
+    const decision = event.currentTarget.dataset.decision;
+    const row = this.data.rows.find((item) => item.id === id);
+    if (
+      row === undefined ||
+      (decision !== 'approve' && decision !== 'reject') ||
+      this.data.selectedGroupId.length === 0
+    ) {
       return;
     }
-    const request = this.data.leaveApprovals.find((item) => item.id === id);
-    if (request === undefined) {
-      return;
-    }
-    this.setData({ errorMessage: '', leavePreviewLoading: true });
-    try {
-      const preview = await previewLeaveRequestApproval(
-        this.data.selectedGroupId,
-        id,
-        'keep-original-order',
-      );
-      this.setData({
-        leavePreview: {
-          affectedShiftCount: preview.affectedShiftCount ?? 0,
-          conflictsCount: preview.conflicts.length,
-          expectedPeriodVersions: preview.periodVersions,
-          expectedRulesVersion: preview.rulesVersion,
-          expectedVersion: preview.leaveRequestVersion,
-          overlapsUnpublishedPeriod: preview.overlapsUnpublishedPeriod === true,
-          requestId: id,
-          strategy: preview.strategy,
-          vacanciesCount: preview.vacancies.length,
-          workflowBlockerCount: preview.workflowBlockers.length,
-        },
-      });
-    } catch (error) {
-      this.setData({ errorMessage: toErrorMessage(error) });
-    } finally {
-      this.setData({ leavePreviewLoading: false });
-    }
-  },
-
-  closeLeavePreview(): void {
-    this.setData({ leavePreview: undefined });
-  },
-
-  async handleApproveLeave(): Promise<void> {
-    const preview = this.data.leavePreview;
-    const request =
-      preview === undefined
-        ? undefined
-        : this.data.leaveApprovals.find((item) => item.id === preview.requestId);
-    if (preview === undefined || request === undefined || this.data.submitting) {
-      return;
-    }
-    const confirmed = await confirmAction('确认批准该请假并按预览重排吗？');
+    const confirmed = await confirmAction(
+      decision === 'approve' ? '批准申请' : '驳回申请',
+      decision === 'approve' ? '批准后变更将生效，请确认影响。' : '驳回后申请将关闭。',
+    );
     if (!confirmed) {
       return;
     }
-    this.setData({ errorMessage: '', submitting: true });
+    this.setData({ errorMessage: '', loading: true });
     try {
-      await approveLeaveRequest(this.data.selectedGroupId, request.id, {
-        ...(preview.workflowBlockerCount > 0 || preview.conflictsCount > 0
-          ? { acknowledgeBlockers: true }
-          : {}),
-        expectedPeriodVersions: preview.expectedPeriodVersions,
-        expectedRulesVersion: preview.expectedRulesVersion,
-        expectedVersion: preview.expectedVersion,
-        operationId: randomUuid(),
-        strategy: preview.strategy,
-      });
-      wx.showToast({ icon: 'success', title: '已批准' });
-      this.setData({ leavePreview: undefined });
-      await this.loadApprovals();
-    } catch (error) {
-      this.setData({ errorMessage: toErrorMessage(error) });
-    } finally {
-      this.setData({ submitting: false });
-    }
-  },
-
-  async handleReject(event: WechatMiniprogram.TouchEvent) {
-    const kind = event.currentTarget.dataset.kind as ApprovalKind | undefined;
-    const id = event.currentTarget.dataset.id;
-    const version = Number(event.currentTarget.dataset.version ?? 0);
-    if (kind === undefined || typeof id !== 'string' || !Number.isInteger(version)) {
-      return;
-    }
-    const confirmed = await confirmAction('确认驳回该申请吗？');
-    if (!confirmed || this.data.submitting) {
-      return;
-    }
-    this.setData({ errorMessage: '', submitting: true });
-    try {
-      const mutation = { expectedVersion: version, operationId: randomUuid() };
-      switch (kind) {
-        case 'leave':
-          await rejectLeaveRequest(this.data.selectedGroupId, id, mutation);
-          break;
-        case 'swap':
-          await rejectSwapRequest(this.data.selectedGroupId, id, mutation);
-          break;
-        case 'duty':
-          await rejectDutyAdjustment(this.data.selectedGroupId, id, mutation);
-          break;
-      }
-      wx.showToast({ icon: 'success', title: '已驳回' });
-      await this.loadApprovals();
-    } catch (error) {
-      this.setData({ errorMessage: toErrorMessage(error) });
-    } finally {
-      this.setData({ submitting: false });
-    }
-  },
-
-  async handleApprove(event: WechatMiniprogram.TouchEvent) {
-    const kind = event.currentTarget.dataset.kind as 'duty' | 'swap' | undefined;
-    const id = event.currentTarget.dataset.id;
-    const version = Number(event.currentTarget.dataset.version ?? 0);
-    if (kind === undefined || typeof id !== 'string' || !Number.isInteger(version)) {
-      return;
-    }
-    const confirmed = await confirmAction('确认批准该申请吗？');
-    if (!confirmed || this.data.submitting) {
-      return;
-    }
-    this.setData({ errorMessage: '', submitting: true });
-    try {
-      const mutation = { expectedVersion: version, operationId: randomUuid() };
-      if (kind === 'swap') {
-        await approveSwapRequest(this.data.selectedGroupId, id, mutation);
+      if (row.kind === 'leave') {
+        await this.decideLeave(row, decision as 'approve' | 'reject');
+      } else if (row.kind === 'swap') {
+        const operationId = randomUuid();
+        if (decision === 'approve') {
+          await approveSwapRequest(this.data.selectedGroupId, row.id, {
+            expectedVersion: row.version,
+            operationId,
+          });
+        } else {
+          await rejectSwapRequest(this.data.selectedGroupId, row.id, {
+            expectedVersion: row.version,
+            operationId,
+          });
+        }
       } else {
-        await approveDutyAdjustment(this.data.selectedGroupId, id, mutation);
+        const operationId = randomUuid();
+        if (decision === 'approve') {
+          await approveDutyAdjustment(this.data.selectedGroupId, row.id, {
+            expectedVersion: row.version,
+            operationId,
+          });
+        } else {
+          await rejectDutyAdjustment(this.data.selectedGroupId, row.id, {
+            expectedVersion: row.version,
+            operationId,
+          });
+        }
       }
-      wx.showToast({ icon: 'success', title: '已批准' });
-      await this.loadApprovals();
+      wx.showToast({ icon: 'success', title: decision === 'approve' ? '已批准' : '已驳回' });
+      await this.loadAll();
     } catch (error) {
-      this.setData({ errorMessage: toErrorMessage(error) });
+      this.setData({ errorMessage: toMessage(error, '审批操作失败。') });
     } finally {
-      this.setData({ submitting: false });
+      this.setData({ loading: false });
     }
   },
 
-  noop(): void {
-    // Intentionally empty: stops tap propagation from the modal body.
+  async decideLeave(row: ApprovalRow, decision: 'approve' | 'reject'): Promise<void> {
+    const groupId = this.data.selectedGroupId;
+    const operationId = randomUuid();
+    if (decision === 'reject') {
+      await rejectLeaveRequest(groupId, row.id, {
+        expectedVersion: row.version,
+        operationId,
+      });
+      return;
+    }
+    const preview = await previewLeaveRequestApproval(groupId, row.id, 'keep-original-order');
+    await approveLeaveRequest(groupId, row.id, {
+      acknowledgeBlockers: true,
+      expectedPeriodVersions: preview.periodVersions,
+      expectedRulesVersion: preview.rulesVersion,
+      expectedVersion: row.version,
+      operationId,
+      strategy: preview.strategy,
+    });
   },
 });
 
 function buildLeaveRow(request: LeaveRequest): ApprovalRow {
   return {
-    detail: `${request.memberName ?? ''} · ${formatLeaveRange(request.startsAt, request.endsAt)}`,
     id: request.id,
-    isPending: request.status === 'pending',
     kind: 'leave',
-    statusLabel: leaveStatusLabels[request.status],
-    title: `${leaveTypeLabels[request.leaveType]}请假`,
+    statusLabel: getLeaveStatusLabel(request.status),
+    summary: `${getLeaveTypeLabel(request.leaveType)} · ${request.startsAt.slice(0, 10)} 至 ${request.endsAt.slice(0, 10)}`,
+    title: `${request.memberName ?? ''} 的请假申请`,
     version: request.version,
   };
 }
 
 function buildSwapRow(request: SwapRequest): ApprovalRow {
-  const assignment = request.initiatorAssignment;
   return {
-    detail: `${formatChinaDateShort(assignment.businessDate)} ${formatChinaTime(
-      assignment.startsAt,
-    )}–${formatChinaTime(assignment.endsAt)} ${assignment.shiftTypeName}：${
-      request.initiatorMemberName ?? ''
-    } ↔ ${request.targetMemberName ?? ''}`,
     id: request.id,
-    isPending: request.status === 'pending_approval',
     kind: 'swap',
-    statusLabel: getWorkflowStatusLabel(request.status, '对方'),
-    title: '换班',
+    statusLabel: getSwapStatusLabel(request.status),
+    summary: `${request.initiatorMemberName ?? ''} ↔ ${request.targetMemberName ?? ''}`,
+    title: '换班申请',
     version: request.version,
   };
 }
 
 function buildDutyRow(request: DutyAdjustmentRequest): ApprovalRow {
-  const assignment = request.coveredAssignment;
   return {
-    detail: `${formatChinaDateShort(assignment.businessDate)} ${formatChinaTime(
-      assignment.startsAt,
-    )}–${formatChinaTime(assignment.endsAt)} ${assignment.shiftTypeName}：${
-      request.deductedMemberName ?? ''
-    } 的班次由 ${request.overtimeMemberName ?? ''} 代值`,
     id: request.id,
-    isPending: request.status === 'pending_approval',
     kind: 'duty',
-    statusLabel: getWorkflowStatusLabel(request.status, '加班成员'),
-    title: '加扣班',
+    statusLabel: getDutyAdjustmentStatusLabel(request.status),
+    summary: `${request.deductedMemberName ?? ''} 由 ${request.overtimeMemberName ?? ''} 代值`,
+    title: '加扣班申请',
     version: request.version,
   };
 }
 
-function confirmAction(content: string): Promise<boolean> {
+function confirmAction(title: string, content: string): Promise<boolean> {
   return new Promise((resolve) => {
     wx.showModal({
-      cancelText: '再想想',
+      cancelText: '取消',
       confirmText: '确认',
       content,
-      fail: () => resolve(false),
       success: (result) => resolve(result.confirm),
-      title: '确认操作',
+      fail: () => resolve(false),
+      title,
     });
   });
 }
 
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message.length > 0
-    ? error.message
-    : '操作失败，请稍后重试。';
+function toMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }

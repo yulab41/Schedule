@@ -6,6 +6,8 @@ import type {
   ApplyManualScheduleTemplateRequest,
   ApproveLeaveRequestInput,
   CalendarReadModel,
+  CreatePastScheduleAssignmentInput,
+  CreateScheduleExportInput,
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
   CreateGroupRequest,
@@ -21,15 +23,19 @@ import type {
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
   DutyAdjustmentMutationInput,
-  GenerateSchedulePreviewRequest,
   GroupCatalogEntry,
+  GroupMemberContact,
   GroupQrResponse,
   GuestCalendarReadModel,
   GroupSchedulePublishMode,
   GroupMember,
-  GroupMemberContact,
   GroupNotificationSettings,
   GroupSummary,
+  HolidayCalendarVersion,
+  HolidayCoverage,
+  HolidayImportPreview,
+  HolidayImportResult,
+  HolidayReadModel,
   LeaveAffectedShift,
   LeaveAffectedShiftsInput,
   LeaveReflowPreview,
@@ -42,22 +48,25 @@ import type {
   MonthStatisticsSnapshot,
   NotificationPage,
   NotificationRecord,
+  PastScheduleAssignment,
+  PastScheduleBackfillRecord,
+  PastSchedulePeriod,
+  PlatformBackupList,
+  PlatformJobStatusPage,
   PreviewManualTemplateApplyRequest,
   PublishSchedulePeriodBatchRequest,
   PublishSchedulePeriodBatchResult,
   PublishSchedulePeriodRequest,
   PublishSchedulePeriodResult,
   RegenerateGroupCodeRequest,
-  ReorderRotationMembersRequest,
   ReplaceScheduleRoleMembersRequest,
   ResolveInviteResponse,
   RevokeDutyAdjustmentInput,
   RevokeSwapRequestInput,
-  SaveGeneratedScheduleRequest,
-  SavedScheduleGeneration,
+  ScheduleExportJob,
+  ScheduleGenerationPreview,
   ScheduleChangeImpactPreview,
   ScheduleDraftSummary,
-  ScheduleGenerationPreview,
   SchedulePeriodHistoryItem,
   SchedulePeriodMutationRequest,
   SchedulePeriodMutationResult,
@@ -75,9 +84,12 @@ import type {
   UpdateGroupMemberRoleRequest,
   UpdateGroupNameRequest,
   UpdateGroupSchedulePublishModeRequest,
+  UpdateGroupMemberContactRequest,
   UpdateManualScheduleTemplateRequest,
   UpdateMemberNotificationPreferencesInput,
-  UpdateRotationRuleRequest,
+  UpdatePastScheduleAssignmentInput,
+  UpdatePastScheduleAssignmentResult,
+  UpdatePlatformUserStatusInput,
   UpdateShiftTypeRequest,
   UserProfile,
   VisitorKeyChangedResponse,
@@ -682,32 +694,6 @@ export function replaceScheduleRoleMembers(
   );
 }
 
-export function reorderRotationMembers(
-  groupId: string,
-  roleId: string,
-  input: ReorderRotationMembersRequest,
-): Promise<ScheduleRole> {
-  return request<ScheduleRole>(
-    `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(
-      roleId,
-    )}/rotation-members`,
-    { data: input, method: 'PUT' },
-  );
-}
-
-export function updateRotationRule(
-  groupId: string,
-  roleId: string,
-  input: UpdateRotationRuleRequest,
-): Promise<ScheduleRole> {
-  return request<ScheduleRole>(
-    `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(
-      roleId,
-    )}/rotation-rule`,
-    { data: input, method: 'PUT' },
-  );
-}
-
 export function createShiftType(
   groupId: string,
   input: CreateShiftTypeRequest,
@@ -759,26 +745,6 @@ export function listScheduleDrafts(groupId: string): Promise<ScheduleDraftSummar
 export function listSchedulePeriodHistory(groupId: string): Promise<SchedulePeriodHistoryItem[]> {
   return request<SchedulePeriodHistoryItem[]>(
     `/groups/${encodeURIComponent(groupId)}/schedule-periods/history`,
-  );
-}
-
-export function previewScheduleGeneration(
-  groupId: string,
-  input: GenerateSchedulePreviewRequest,
-): Promise<ScheduleGenerationPreview> {
-  return request<ScheduleGenerationPreview>(
-    `/groups/${encodeURIComponent(groupId)}/schedules/generate-preview`,
-    { data: input, method: 'POST' },
-  );
-}
-
-export function saveGeneratedSchedule(
-  groupId: string,
-  input: SaveGeneratedScheduleRequest,
-): Promise<SavedScheduleGeneration> {
-  return request<SavedScheduleGeneration>(
-    `/groups/${encodeURIComponent(groupId)}/schedules/generate`,
-    { data: input, method: 'POST' },
   );
 }
 
@@ -945,4 +911,186 @@ export function recalculateStatistics(
     `/groups/${encodeURIComponent(groupId)}/statistics/recalculate-check`,
     { data: { businessMonth }, method: 'POST' },
   );
+}
+
+export function updateProfile(realName: string): Promise<UserProfile> {
+  return request<UserProfile>('/users/me', {
+    data: { realName },
+    method: 'PATCH',
+  });
+}
+
+export function deregisterAccount(): Promise<{ readonly id: string; readonly status: 'deleted' }> {
+  return request<{ readonly id: string; readonly status: 'deleted' }>('/users/me/deregister', {
+    method: 'POST',
+  });
+}
+
+export function updateGroupMemberContact(
+  groupId: string,
+  membershipId: string,
+  input: UpdateGroupMemberContactRequest,
+): Promise<GroupMemberContact> {
+  return request<GroupMemberContact>(
+    `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
+    { data: input, method: 'PUT' },
+  );
+}
+
+export function getHolidays(year: number): Promise<HolidayReadModel> {
+  return request<HolidayReadModel>(`/holidays?year=${year}`);
+}
+
+export function getGuestHolidays(year: number): Promise<HolidayReadModel> {
+  return request<HolidayReadModel>(`/guest/holidays?year=${year}`);
+}
+
+export function getSchedulePeriodCalendar(
+  groupId: string,
+  schedulePeriodId: string,
+): Promise<CalendarReadModel> {
+  return request<CalendarReadModel>(
+    `/groups/${encodeURIComponent(groupId)}/calendar/periods/${encodeURIComponent(
+      schedulePeriodId,
+    )}`,
+  );
+}
+
+export function listPastSchedulePeriods(groupId: string): Promise<PastSchedulePeriod[]> {
+  return request<PastSchedulePeriod[]>(`/groups/${encodeURIComponent(groupId)}/past-schedules`);
+}
+
+export function listPastScheduleAssignments(
+  groupId: string,
+  schedulePeriodId: string,
+): Promise<PastScheduleAssignment[]> {
+  return request<PastScheduleAssignment[]>(
+    `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(
+      schedulePeriodId,
+    )}/assignments`,
+  );
+}
+
+export function listPastScheduleBackfillRecords(
+  groupId: string,
+): Promise<PastScheduleBackfillRecord[]> {
+  return request<PastScheduleBackfillRecord[]>(
+    `/groups/${encodeURIComponent(groupId)}/past-schedules/backfill-records`,
+  );
+}
+
+export function createPastScheduleAssignment(
+  groupId: string,
+  input: CreatePastScheduleAssignmentInput,
+): Promise<UpdatePastScheduleAssignmentResult> {
+  return request<UpdatePastScheduleAssignmentResult>(
+    `/groups/${encodeURIComponent(groupId)}/past-schedules/assignments`,
+    { data: input, method: 'POST' },
+  );
+}
+
+export function updatePastScheduleAssignment(
+  groupId: string,
+  schedulePeriodId: string,
+  assignmentId: string,
+  input: UpdatePastScheduleAssignmentInput,
+): Promise<UpdatePastScheduleAssignmentResult> {
+  return request<UpdatePastScheduleAssignmentResult>(
+    `/groups/${encodeURIComponent(groupId)}/past-schedules/${encodeURIComponent(
+      schedulePeriodId,
+    )}/assignments/${encodeURIComponent(assignmentId)}`,
+    { data: input, method: 'PUT' },
+  );
+}
+
+export function createExportJob(
+  groupId: string,
+  input: CreateScheduleExportInput,
+): Promise<ScheduleExportJob> {
+  return request<ScheduleExportJob>(`/groups/${encodeURIComponent(groupId)}/exports`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function getExportJob(groupId: string, exportJobId: string): Promise<ScheduleExportJob> {
+  return request<ScheduleExportJob>(
+    `/groups/${encodeURIComponent(groupId)}/exports/${encodeURIComponent(exportJobId)}`,
+  );
+}
+
+export function getPlatformMe(): Promise<{ readonly isPlatformAdmin: boolean }> {
+  return request<{ readonly isPlatformAdmin: boolean }>('/platform/me');
+}
+
+export function getPlatformJobs(): Promise<PlatformJobStatusPage> {
+  return request<PlatformJobStatusPage>('/platform/jobs');
+}
+
+export function getPlatformBackups(): Promise<PlatformBackupList> {
+  return request<PlatformBackupList>('/platform/backups');
+}
+
+export function restorePlatformGroup(groupId: string): Promise<{ readonly restored: boolean }> {
+  return request<{ readonly restored: boolean }>(
+    `/platform/groups/${encodeURIComponent(groupId)}/restore`,
+    { method: 'POST' },
+  );
+}
+
+export function setPlatformUserStatus(
+  userId: string,
+  input: UpdatePlatformUserStatusInput,
+): Promise<unknown> {
+  return request<unknown>(`/platform/users/${encodeURIComponent(userId)}/status`, {
+    data: input,
+    method: 'PUT',
+  });
+}
+
+export function previewHolidayImport(input: {
+  readonly dates: readonly {
+    readonly date: string;
+    readonly holidayName: string;
+    readonly isOffDay: boolean;
+    readonly isWorkday: boolean;
+  }[];
+  readonly year: number;
+}): Promise<HolidayImportPreview> {
+  return request<HolidayImportPreview>('/holidays/import-preview', {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function importHolidays(input: {
+  readonly dates: readonly {
+    readonly date: string;
+    readonly holidayName: string;
+    readonly isOffDay: boolean;
+    readonly isWorkday: boolean;
+  }[];
+  readonly year: number;
+}): Promise<HolidayImportResult> {
+  return request<HolidayImportResult>('/holidays/import', {
+    data: input,
+    method: 'POST',
+  });
+}
+
+export function listHolidayVersions(year: number): Promise<HolidayCalendarVersion[]> {
+  return request<HolidayCalendarVersion[]>(`/holidays/versions?year=${year}`);
+}
+
+export function confirmHolidayVersion(
+  calendarVersionId: string,
+): Promise<{ readonly confirmedAt: string; readonly status: 'confirmed' }> {
+  return request<{ readonly confirmedAt: string; readonly status: 'confirmed' }>(
+    `/holidays/versions/${encodeURIComponent(calendarVersionId)}/confirm`,
+    { method: 'POST' },
+  );
+}
+
+export function getHolidayCoverage(): Promise<HolidayCoverage> {
+  return request<HolidayCoverage>('/holidays/coverage');
 }

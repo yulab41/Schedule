@@ -1,0 +1,10 @@
+<view wx:if="{{visible}}" class="confirm-dialog__mask" bind:tap="onCancel">
+  <view class="confirm-dialog__panel" catch:tap="noop">
+    <view class="confirm-dialog__title">{{title}}</view>
+    <view class="confirm-dialog__content">{{content}}</view>
+    <view class="confirm-dialog__actions">
+      <t-button theme="default" variant="outline" bind:tap="onCancel">{{cancelText}}</t-button>
+      <t-button theme="primary" bind:tap="onConfirm">{{confirmText}}</t-button>
+    </view>
+  </view>
+</view>

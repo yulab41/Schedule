@@ -1,6 +1,0 @@
-{
-  "navigationBarTitleText": "群组小程序码",
-  "usingComponents": {
-    "t-button": "tdesign-miniprogram/button/button"
-  }
-}

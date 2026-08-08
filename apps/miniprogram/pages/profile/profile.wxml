@@ -1,6 +1,41 @@
 <view class="page-container">
-  <view class="placeholder-card">
-    <text class="placeholder-title">我的</text>
-    <text class="placeholder-copy">个人资料与群组设置将在后续版本接入。</text>
+  <view wx:if="{{profile}}" class="card">
+    <view class="card-title">{{profile.realName}}</view>
+    <view class="card-copy">微信账号已绑定，真实姓名用于排班展示。</view>
+    <view wx:if="{{!editing}}" class="actions">
+      <t-button theme="default" variant="outline" block bind:tap="startEdit">修改真实姓名</t-button>
+      <t-button theme="default" variant="outline" block bind:tap="openContactEdit">
+        联系方式编辑确认
+      </t-button>
+      <t-button
+        wx:if="{{isPlatformAdmin}}"
+        theme="primary"
+        variant="outline"
+        block
+        bind:tap="openPlatform"
+      >
+        平台运维控制台
+      </t-button>
+    </view>
+    <view wx:else>
+      <t-input
+        value="{{realNameInput}}"
+        placeholder="真实姓名"
+        bind:change="onNameInput"
+      />
+      <view class="actions-row">
+        <t-button theme="default" variant="outline" bind:tap="cancelEdit">取消</t-button>
+        <t-button theme="primary" bind:tap="saveName">保存</t-button>
+      </view>
+    </view>
+    <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
+
+  <view class="card">
+    <t-cell-group>
+      <t-cell title="退出登录" arrow bind:tap="handleLogout" />
+      <t-cell title="注销账号" arrow bind:tap="handleDeregister" />
+    </t-cell-group>
   </view>
 </view>

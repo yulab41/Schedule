@@ -1,0 +1,43 @@
+<view class="page-container">
+  <view class="card">
+    <picker mode="date" value="{{startDate}}" bindchange="onStartDate">
+      <view class="form-row"><text class="muted">开始日期</text><text>{{startDate || '请选择'}}</text></view>
+    </picker>
+    <picker mode="date" value="{{endDate}}" bindchange="onEndDate">
+      <view class="form-row"><text class="muted">结束日期</text><text>{{endDate || '请选择'}}</text></view>
+    </picker>
+    <view class="form-row">
+      <text class="muted">全天</text>
+      <t-switch value="{{allDay}}" bind:change="onAllDayChange" />
+    </view>
+    <block wx:if="{{!allDay}}">
+      <picker mode="time" value="{{startTime}}" bindchange="onStartTime">
+        <view class="form-row"><text class="muted">开始时间</text><text>{{startTime}}</text></view>
+      </picker>
+      <picker mode="time" value="{{endTime}}" bindchange="onEndTime">
+        <view class="form-row"><text class="muted">结束时间</text><text>{{endTime}}</text></view>
+      </picker>
+    </block>
+    <picker mode="selector" range="{{['病假','轮科','进修','产假','其他']}}" bindchange="onTypeChange">
+      <view class="form-row"><text class="muted">请假类型</text><text>{{leaveTypeLabels[leaveType]}}</text></view>
+    </picker>
+    <picker mode="selector" range="{{['手动处理','整体顺延']}}" bindchange="onResolutionChange">
+      <view class="form-row"><text class="muted">补位方式</text><text>{{resolutionMode === 'shift-forward' ? '整体顺延' : '手动处理'}}</text></view>
+    </picker>
+    <t-textarea value="{{reason}}" placeholder="请假原因（可选）" bind:change="onReasonInput" />
+    <view class="actions">
+      <t-button block variant="outline" bind:tap="previewAffected">预览影响班次</t-button>
+      <t-button theme="primary" block loading="{{submitting}}" bind:tap="handleSubmit">提交请假</t-button>
+    </view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
+  <view wx:if="{{affectedShifts.length > 0}}" class="card">
+    <view class="card-title">影响班次（{{affectedShifts.length}}）</view>
+    <view wx:for="{{affectedShifts}}" wx:key="assignmentId" class="list-item">
+      <view class="flex-1">
+        <view class="list-title">{{item.businessDate}} {{item.shiftTypeName}}</view>
+        <view class="list-sub">{{item.isCovered ? '已有覆盖' : '需要补位'}}</view>
+      </view>
+    </view>
+  </view>
+</view>

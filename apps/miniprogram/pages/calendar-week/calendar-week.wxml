@@ -1,68 +1,27 @@
-<view class="page-container week-page">
-  <group-switcher
-    groups="{{groups}}"
-    selected-id="{{selectedGroupId}}"
-    bind:change="handleGroupChange"
-  />
-
-  <view class="week-toolbar">
-    <t-button size="small" variant="outline" bind:tap="changeWeek" data-delta="-1">
-      上一周
-    </t-button>
-    <text class="week-label">{{weekLabel}}</text>
-    <t-button size="small" variant="outline" bind:tap="changeWeek" data-delta="1">
-      下一周
-    </t-button>
+<view class="page-container">
+  <view class="card">
+    <view class="card-title">{{weekLabel}}</view>
   </view>
-
-  <view class="week-view-tabs">
-    <view class="week-view-tab" bind:tap="openMonth">月</view>
-    <view class="week-view-tab is-active">周</view>
-    <view class="week-view-tab" bind:tap="openList">列表</view>
-  </view>
-
-  <view wx:if="{{loading}}" class="week-card week-state">
-    <text>加载中…</text>
-  </view>
-
-  <view wx:elif="{{errorMessage}}" class="week-card week-state">
-    <text class="week-error">{{errorMessage}}</text>
-    <t-button size="small" variant="outline" bind:tap="loadWeek">重新加载</t-button>
-  </view>
-
-  <view wx:elif="{{groups.length === 0}}" class="week-card week-state">
-    <text>你还没有加入任何群组。</text>
-  </view>
-
-  <block wx:else>
-    <view class="week-day-card" wx:for="{{days}}" wx:key="businessDate" wx:for-item="day">
-      <view class="week-day-header">
-        <text class="week-day-number {{day.isWeekend ? 'is-weekend' : ''}} {{day.isToday ? 'is-today' : ''}}">
-          {{day.dayLabel}}
-        </text>
-        <text class="week-day-weekday {{day.isWeekend ? 'is-weekend' : ''}}">
-          {{day.weekdayLabel}}
-        </text>
-        <text class="week-today-badge" wx:if="{{day.isToday}}">今天</text>
-      </view>
-      <view class="week-duty-list" wx:if="{{day.assignments.length > 0}}">
-        <shift-card
-          wx:for="{{day.assignments}}"
-          wx:key="id"
-          wx:for-item="assignment"
-          assignment="{{assignment}}"
-          member="{{membersMap[assignment.actualMembershipId || assignment.plannedMembershipId]}}"
-          bind:dutytap="handleDutyTap"
-          bind:call="handleCall"
-        />
-      </view>
-      <text wx:else class="week-empty">当日无排班</text>
+  <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  <view wx:for="{{days}}" wx:key="businessDate" class="card">
+    <view class="row-between week-day-header">
+      <text class="week-day-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
+      <text wx:if="{{item.isToday}}" class="week-day-today">今天</text>
     </view>
-  </block>
-
+    <shift-card
+      wx:for="{{item.assignments}}"
+      wx:for-item="assignment"
+      wx:key="id"
+      assignment="{{assignment}}"
+      data-day="{{index}}"
+      data-index="{{index}}"
+      bind:tap="handleAssignmentTap"
+    />
+    <view wx:if="{{item.assignments.length === 0}}" class="empty-state">无排班</view>
+  </view>
   <duty-detail
+    show="{{showDetail}}"
     detail="{{dutyDetail}}"
-    visible="{{showDetail}}"
     bind:close="closeDetail"
     bind:call="handleCall"
   />

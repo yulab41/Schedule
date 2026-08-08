@@ -1,5 +1,6 @@
 page {
   --color-primary: #1f5aa6;
+  --color-primary-light: #eff6ff;
   --color-background: #f5f7fa;
   --color-surface: #ffffff;
   --color-text: #1f2329;

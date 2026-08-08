@@ -1,0 +1,3 @@
+<view class="page-container">
+  <view class="card empty-state">{{errorMessage}}</view>
+</view>

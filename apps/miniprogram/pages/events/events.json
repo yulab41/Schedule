@@ -2,6 +2,8 @@
   "navigationBarTitleText": "事件中心",
   "usingComponents": {
     "group-switcher": "/components/group-switcher/group-switcher",
-    "t-button": "tdesign-miniprogram/button/button"
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-tabs": "tdesign-miniprogram/tabs/tabs",
+    "t-tab-panel": "tdesign-miniprogram/tab-panel/tab-panel"
   }
 }

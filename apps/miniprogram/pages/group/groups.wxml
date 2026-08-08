@@ -1,0 +1,103 @@
+<view class="page-container">
+  <group-switcher
+    wx:if="{{groups.length > 0}}"
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view class="card">
+    <view class="card-title">创建群组</view>
+    <t-input
+      value="{{createName}}"
+      placeholder="群组名称"
+      bind:change="onCreateNameInput"
+      maxlength="100"
+    />
+    <view class="actions">
+      <t-button theme="primary" block loading="{{submitting}}" bind:tap="handleCreate">
+        创建群组
+      </t-button>
+    </view>
+  </view>
+
+  <view wx:if="{{groups.length > 0}}" class="card">
+    <view class="card-title">{{selectedGroupName}}</view>
+    <t-input
+      wx:if="{{selectedRole === 'owner'}}"
+      value="{{groupNameInput}}"
+      placeholder="群组名称"
+      bind:change="onRenameInput"
+    />
+    <view class="actions">
+      <t-button wx:if="{{selectedRole === 'owner'}}" block variant="outline" bind:tap="handleRename">
+        保存名称
+      </t-button>
+      <t-button block variant="outline" bind:tap="openMembers">成员管理</t-button>
+      <t-button block variant="outline" bind:tap="openInvite">发起邀请</t-button>
+      <t-button block variant="outline" bind:tap="openQr">访客二维码</t-button>
+      <t-button
+        wx:if="{{selectedRole === 'owner'}}"
+        block
+        variant="outline"
+        bind:tap="handleRegenerateCode"
+      >
+        重新生成群组码
+      </t-button>
+      <t-button
+        wx:if="{{selectedRole === 'owner'}}"
+        block
+        variant="outline"
+        bind:tap="handleRegenerateVisitorKey"
+      >
+        重新生成访客码
+      </t-button>
+      <t-button
+        wx:if="{{selectedRole !== 'owner'}}"
+        block
+        theme="danger"
+        variant="outline"
+        bind:tap="handleLeave"
+      >
+        退出群组
+      </t-button>
+      <t-button
+        wx:if="{{selectedRole === 'owner'}}"
+        block
+        theme="danger"
+        variant="outline"
+        bind:tap="handleDissolve"
+      >
+        解散群组
+      </t-button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">加入群组</view>
+    <picker mode="selector" range="{{catalogNames}}" value="{{catalogIndex}}" bindchange="onCatalogChange">
+      <view class="groups-picker">{{catalogNames[catalogIndex] || '选择可加入的群组'}}</view>
+    </picker>
+    <view class="actions">
+      <t-button block variant="outline" loading="{{submitting}}" bind:tap="handleJoinGuest">
+        以访客身份加入
+      </t-button>
+    </view>
+  </view>
+
+  <view wx:if="{{dissolved.length > 0}}" class="card">
+    <view class="card-title">已解散群组</view>
+    <view wx:for="{{dissolved}}" wx:key="id" class="row-between groups-dissolved">
+      <view>
+        <view class="list-title">{{item.name}}</view>
+        <view class="list-sub">{{item.deletedAt}}</view>
+      </view>
+      <t-button size="small" variant="outline" data-id="{{item.id}}" bind:tap="handleRestore">
+        恢复
+      </t-button>
+    </view>
+  </view>
+
+  <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+</view>

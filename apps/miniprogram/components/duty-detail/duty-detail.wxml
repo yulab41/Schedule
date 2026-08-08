@@ -1,26 +1,38 @@
-<view class="duty-modal-mask" wx:if="{{visible}}" bind:tap="handleClose">
-  <view class="duty-modal" catch:tap="noop">
-    <text class="duty-modal-title">{{detail.shiftTypeName}}</text>
-    <text class="duty-modal-row">值班：{{detail.memberName}}</text>
-    <text class="duty-modal-row">岗位：{{detail.scheduleRoleName}}</text>
-    <text class="duty-modal-row">时间：{{detail.shiftTime}}</text>
-    <view class="duty-modal-markers" wx:if="{{detail.markers.length > 0}}">
-      <text class="duty-modal-marker" wx:for="{{detail.markers}}" wx:key="*this">{{item}}</text>
+<view wx:if="{{show}}" class="duty-detail__mask" bind:tap="onClose">
+  <view class="duty-detail__panel" catch:tap="noop">
+    <view class="duty-detail__header">
+      <text class="duty-detail__title">{{detail.memberName || '待定'}}</text>
+      <text class="duty-detail__close" bind:tap="onClose">×</text>
     </view>
-    <t-button
-      wx:for="{{detail.phoneOptions}}"
-      wx:key="number"
-      theme="primary"
-      block
-      size="small"
-      data-number="{{item.number}}"
-      bind:tap="handleCall"
-    >
-      拨打{{item.label}} {{item.number}}
-    </t-button>
-    <text class="duty-modal-row" wx:if="{{detail.phoneOptions.length === 0}}">
-      联系方式未确认
-    </text>
-    <t-button theme="default" block size="small" bind:tap="handleClose">关闭</t-button>
+    <view class="duty-detail__row">
+      <text class="muted">班种</text>
+      <text>{{detail.shiftTypeName}}</text>
+    </view>
+    <view class="duty-detail__row">
+      <text class="muted">时间</text>
+      <text>{{detail.shiftTime}}</text>
+    </view>
+    <view class="duty-detail__row">
+      <text class="muted">岗位</text>
+      <text>{{detail.scheduleRoleName}}</text>
+    </view>
+    <view class="duty-detail__row" wx:if="{{detail.markers.length > 0}}">
+      <text class="muted">标记</text>
+      <text>{{detail.markers}}</text>
+    </view>
+    <view wx:if="{{detail.phoneOptions.length > 0}}" class="duty-detail__phones">
+      <t-button
+        wx:for="{{detail.phoneOptions}}"
+        wx:key="number"
+        theme="primary"
+        size="small"
+        variant="outline"
+        data-number="{{item.number}}"
+        bind:tap="onCall"
+      >
+        {{item.label}} {{item.number}}
+      </t-button>
+    </view>
+    <view wx:else class="duty-detail__no-phone">未确认联系方式</view>
   </view>
 </view>

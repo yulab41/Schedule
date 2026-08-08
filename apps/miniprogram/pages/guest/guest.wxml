@@ -1,52 +1,23 @@
-<view class="page-container guest-page">
-  <view class="guest-header" wx:if="{{groupName}}">
-    <text class="guest-title">{{groupName}}</text>
-    <text class="guest-subtitle">访客日历 · 扫描小程序码进入</text>
+<view class="page-container">
+  <view class="card">
+    <view class="card-title">{{groupName || '访客排班'}}</view>
+    <view class="card-copy">扫码匿名查看，不展示电话与事件。</view>
   </view>
-
-  <view wx:if="{{loading}}" class="guest-card guest-state">
-    <text>加载中…</text>
-  </view>
-
-  <view wx:elif="{{errorMessage}}" class="guest-card guest-state">
-    <text class="guest-error">{{errorMessage}}</text>
-    <t-button
-      wx:if="{{visitorKey}}"
-      size="small"
-      variant="outline"
-      bind:tap="loadCalendar"
-    >
-      重新加载
-    </t-button>
-  </view>
-
-  <block wx:else>
-    <view class="guest-toolbar" wx:if="{{groupName}}">
-      <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="-1">
-        上一月
-      </t-button>
-      <text class="guest-month-label">{{monthLabel}}</text>
-      <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="1">
-        下一月
-      </t-button>
-    </view>
-    <calendar-grid
-      assignments="{{assignments}}"
-      month="{{month}}"
-      today="{{today}}"
-      year="{{year}}"
-      bind:dutytap="handleDutyTap"
-    />
-  </block>
-
-  <view class="duty-modal-mask" wx:if="{{showDetail}}" bind:tap="closeDetail">
-    <view class="duty-modal" catch:tap="noop">
-      <text class="duty-modal-title">{{dutyDetail.shiftTypeName}}</text>
-      <text class="duty-modal-row">值班：{{dutyDetail.memberName}}</text>
-      <text class="duty-modal-row">岗位：{{dutyDetail.scheduleRoleName}}</text>
-      <text class="duty-modal-row">时间：{{dutyDetail.shiftTime}}</text>
-      <text class="duty-modal-row">{{dutyDetail.phoneLabel}}</text>
-      <t-button theme="primary" block size="small" bind:tap="closeDetail">关闭</t-button>
+  <view class="card">
+    <view class="row-between">
+      <t-button size="small" variant="text" data-delta="-1" bind:tap="changeMonth">‹ 上月</t-button>
+      <text class="guest-month">{{monthLabel}}</text>
+      <t-button size="small" variant="text" data-delta="1" bind:tap="changeMonth">下月 ›</t-button>
     </view>
   </view>
+  <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  <view wx:if="{{weeks.length > 0}}" class="card">
+    <calendar-grid weeks="{{weeks}}" bind:celltap="handleCellTap" />
+  </view>
+  <duty-detail
+    show="{{showDetail}}"
+    detail="{{dutyDetail}}"
+    bind:close="closeDetail"
+    bind:call="handleCall"
+  />
 </view>

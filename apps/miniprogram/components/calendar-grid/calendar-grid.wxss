@@ -1,85 +1,72 @@
-.calendar-grid {
-  padding: 16rpx;
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+.calendar-grid__weekdays,
+.calendar-grid__week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
 }
 
-.calendar-weekdays {
-  display: flex;
-  margin-bottom: 8rpx;
-}
-
-.calendar-weekday {
-  flex: 1;
-  padding: 8rpx 0;
+.calendar-grid__weekday {
+  padding: 12rpx 0;
+  text-align: center;
   color: var(--color-text-muted);
   font-size: 24rpx;
-  text-align: center;
 }
 
-.calendar-weekday.is-weekend {
+.calendar-grid__weekday.is-weekend {
   color: var(--color-weekend);
 }
 
-.calendar-week {
-  display: flex;
-}
-
-.calendar-day {
-  flex: 1;
-  min-height: 104rpx;
-  padding: 6rpx;
-  box-sizing: border-box;
+.calendar-grid__cell {
+  min-height: 96rpx;
+  margin: 4rpx;
+  padding: 8rpx;
+  background: var(--color-surface);
   border-radius: var(--radius-sm);
-}
-
-.calendar-day.is-placeholder {
-  visibility: hidden;
-}
-
-.calendar-day.is-today {
-  background: rgba(245, 197, 24, 0.22);
-}
-
-.calendar-day-number {
-  display: block;
-  color: var(--color-text);
-  font-size: 24rpx;
-  line-height: 32rpx;
-  text-align: center;
-}
-
-.calendar-day-number.is-weekend {
-  color: var(--color-weekend);
-}
-
-.calendar-day.is-today .calendar-day-number {
-  color: #8a6d00;
-  font-weight: 600;
-}
-
-.calendar-duty {
-  position: relative;
-  margin-top: 6rpx;
-  padding: 6rpx 2rpx;
+  box-sizing: border-box;
   overflow: hidden;
-  border-radius: 6rpx;
+}
+
+.calendar-grid__cell.is-weekend {
+  background: #fff7f7;
+}
+
+.calendar-grid__cell.is-today {
+  outline: 4rpx solid var(--color-today);
+}
+
+.calendar-grid__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-grid__day {
+  font-size: 24rpx;
+}
+
+.calendar-grid__holiday {
+  color: var(--color-weekend);
   font-size: 20rpx;
-  line-height: 24rpx;
-  text-align: center;
+}
+
+.calendar-grid__shift {
+  margin-top: 4rpx;
+  padding: 2rpx 6rpx;
+  border-radius: 4rpx;
+  font-size: 20rpx;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+}
+
+.calendar-grid__shift-abbr {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.calendar-duty-marker {
-  position: absolute;
-  top: -6rpx;
-  right: -4rpx;
-  padding: 2rpx 4rpx;
-  color: #ffffff;
-  background: #b42318;
-  border-radius: 4rpx;
-  font-size: 16rpx;
-  line-height: 18rpx;
+.calendar-grid__marker {
+  margin-left: 4rpx;
+  font-size: 18rpx;
 }

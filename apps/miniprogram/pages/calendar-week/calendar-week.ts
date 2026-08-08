@@ -1,43 +1,30 @@
 import type { CalendarDutyAssignment, CalendarDutyMember, GroupSummary } from '@schedule/contracts';
 
 import { getCalendar, getLoggedInGuestCalendar, listGroups } from '../../api/endpoints.js';
-import { resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
+import { getWeekDays, getWeekLabel, groupAssignmentsByDate } from '../../utils/calendar-views.js';
 import {
-  addDays,
   buildDutyDetail,
-  formatLocalDate,
-  getWeekDays,
-  getWeekLabel,
-  getWeekStartDate,
-  getWeekdayLabel,
-  groupAssignmentsByDate,
-  isWeekend,
-  toMembersMap,
-  type DutyDetail,
-} from '../../utils/calendar.js';
+  buildShiftCardViews,
+  formatWeekdayLine,
+} from '../../utils/calendar-grid-builder.js';
+import { getChinaStandardTimeBusinessDate } from '../../utils/china-time.js';
 
-interface WeekDayEntry {
-  readonly assignments: readonly CalendarDutyAssignment[];
+interface WeekDayView {
+  readonly assignments: ReturnType<typeof buildShiftCardViews>;
   readonly businessDate: string;
-  readonly dayLabel: string;
   readonly isToday: boolean;
-  readonly isWeekend: boolean;
-  readonly weekdayLabel: string;
+  readonly label: string;
 }
 
-interface WeekPageData {
-  readonly days: readonly WeekDayEntry[];
-  readonly dutyDetail: DutyDetail | undefined;
+interface CalendarWeekPageData {
+  readonly days: readonly WeekDayView[];
+  readonly dutyDetail: ReturnType<typeof buildDutyDetail> | undefined;
   readonly errorMessage: string;
-  readonly groups: readonly GroupSummary[];
   readonly loading: boolean;
   readonly members: readonly CalendarDutyMember[];
-  readonly membersMap: Record<string, CalendarDutyMember>;
-  readonly selectedGroupId: string;
+  readonly rawByDay: readonly (readonly CalendarDutyAssignment[])[];
   readonly showDetail: boolean;
-  readonly today: string;
   readonly weekLabel: string;
-  readonly weekStart: string;
 }
 
 Page({
@@ -45,172 +32,83 @@ Page({
     days: [],
     dutyDetail: undefined,
     errorMessage: '',
-    groups: [],
     loading: false,
     members: [],
-    membersMap: {},
-    selectedGroupId: '',
+    rawByDay: [],
     showDetail: false,
-    today: '',
     weekLabel: '',
-    weekStart: '',
-  } as WeekPageData,
+  } as CalendarWeekPageData,
 
   onLoad(options: Record<string, string | undefined>) {
-    const today = formatLocalDate(new Date());
-    const weekStart =
-      typeof options.weekStart === 'string' && options.weekStart.length > 0
-        ? options.weekStart
-        : getWeekStartDate(today);
-    this.setData({
-      today,
-      weekLabel: getWeekLabel(weekStart),
-      weekStart,
-    });
-    void this.loadGroups(options.groupId);
+    const groupId = options.groupId ?? '';
+    const weekStart = options.weekStart ?? '';
+    if (groupId.length > 0 && weekStart.length > 0) {
+      this.setData({ weekLabel: getWeekLabel(weekStart) });
+      void this.loadWeek(groupId, weekStart);
+    }
   },
 
-  async loadGroups(preferredId: string | undefined): Promise<void> {
+  async loadWeek(groupId: string, weekStart: string): Promise<void> {
     this.setData({ errorMessage: '', loading: true });
     try {
       const groups = await listGroups();
-      const selected = resolveSelectedGroup(groups, preferredId);
-      this.setData({
-        groups,
-        selectedGroupId: selected?.id ?? '',
-      });
-      if (selected !== undefined) {
-        setSelectedGroupId(selected.id);
-        await this.loadWeek();
-      } else {
-        this.setData({ days: [] });
-      }
-    } catch (error) {
-      this.setData({
-        errorMessage:
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : '群组数据加载失败，请稍后重试。',
-      });
-    } finally {
-      this.setData({ loading: false });
-    }
-  },
-
-  async loadWeek(): Promise<void> {
-    const groupId = this.data.selectedGroupId;
-    const weekStart = this.data.weekStart;
-    if (groupId.length === 0 || weekStart.length === 0) {
-      return;
-    }
-    this.setData({ errorMessage: '', loading: true });
-    try {
-      const group = this.data.groups.find((item) => item.id === groupId);
-      const dates = getWeekDays(weekStart);
-      const months = [...new Set(dates.map((date) => date.slice(0, 7)))];
-      const results = await Promise.all(
-        months.map((businessMonth) =>
-          group?.role === 'guest'
-            ? getLoggedInGuestCalendar(groupId, businessMonth)
-            : getCalendar(groupId, businessMonth),
+      const selected = groups.find((group: GroupSummary) => group.id === groupId);
+      const days = getWeekDays(weekStart);
+      const months = [...new Set(days.map((day) => day.slice(0, 7)))];
+      const calendars = await Promise.all(
+        months.map((month) =>
+          selected?.role === 'guest'
+            ? getLoggedInGuestCalendar(groupId, month)
+            : getCalendar(groupId, month),
         ),
       );
-      const calendars = results.map((result) => ('calendar' in result ? result.calendar : result));
-      const assignments = calendars.flatMap((calendar) => [...calendar.assignments]);
-      const members = dedupeMembers(calendars.flatMap((calendar) => [...calendar.members]));
+      const assignments = calendars.flatMap(
+        (result) => ('calendar' in result ? result.calendar : result).assignments,
+      );
+      const members = calendars.flatMap(
+        (result) => ('calendar' in result ? result.calendar : result).members,
+      );
       const byDate = groupAssignmentsByDate(assignments);
-      const days: WeekDayEntry[] = dates.map((businessDate) => ({
-        assignments: byDate.get(businessDate) ?? [],
+      const todayDate = getChinaStandardTimeBusinessDate(new Date());
+      const rawByDay = days.map((businessDate) => byDate.get(businessDate) ?? []);
+      const dayViews = days.map((businessDate) => ({
+        assignments: buildShiftCardViews(byDate.get(businessDate) ?? []),
         businessDate,
-        dayLabel: `${businessDate.slice(5, 7)}/${businessDate.slice(8, 10)}`,
-        isToday: businessDate === this.data.today,
-        isWeekend: isWeekend(businessDate),
-        weekdayLabel: getWeekdayLabel(businessDate),
+        isToday: businessDate === todayDate,
+        label: formatWeekdayLine(businessDate),
       }));
-      this.setData({
-        days,
-        members,
-        membersMap: toMembersMap(members),
-        weekLabel: getWeekLabel(weekStart),
-      });
+      this.setData({ days: dayViews, members, rawByDay });
     } catch (error) {
-      this.setData({
-        errorMessage:
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : '日历加载失败，请稍后重试。',
-      });
+      this.setData({ errorMessage: toMessage(error, '周视图加载失败。') });
     } finally {
       this.setData({ loading: false });
     }
   },
 
-  changeWeek(event: WechatMiniprogram.TouchEvent): void {
-    if (this.data.loading) {
-      return;
+  handleAssignmentTap(event: WechatMiniprogram.CustomEvent) {
+    const index = Number(event.currentTarget.dataset.index ?? -1);
+    const dayIndex = Number(event.currentTarget.dataset.day ?? -1);
+    const raw = this.data.rawByDay[dayIndex]?.[index];
+    if (raw !== undefined) {
+      this.setData({
+        dutyDetail: buildDutyDetail(raw, this.data.members),
+        showDetail: true,
+      });
     }
-    const delta = Number(event.currentTarget.dataset.delta ?? 0);
-    if (!Number.isInteger(delta)) {
-      return;
-    }
-    const weekStart = addDays(this.data.weekStart, delta * 7);
-    this.setData({ weekStart, weekLabel: getWeekLabel(weekStart) });
-    void this.loadWeek();
-  },
-
-  handleGroupChange(event: WechatMiniprogram.CustomEvent) {
-    const groupId = event.detail.groupId;
-    if (typeof groupId !== 'string' || groupId.length === 0) {
-      return;
-    }
-    this.setData({ selectedGroupId: groupId });
-    setSelectedGroupId(groupId);
-    void this.loadWeek();
-  },
-
-  openMonth(): void {
-    wx.switchTab({ url: '/pages/calendar/calendar' });
-  },
-
-  openList(): void {
-    if (this.data.selectedGroupId.length === 0) {
-      return;
-    }
-    wx.redirectTo({
-      url: `/pages/calendar-list/calendar-list?groupId=${this.data.selectedGroupId}&businessMonth=${this.data.weekStart.slice(0, 7)}`,
-    });
-  },
-
-  handleDutyTap(event: WechatMiniprogram.CustomEvent) {
-    const assignmentId = event.detail.assignmentId;
-    if (typeof assignmentId !== 'string' || assignmentId.length === 0) {
-      return;
-    }
-    const assignment = this.data.days
-      .flatMap((day) => day.assignments)
-      .find((item) => item.id === assignmentId);
-    if (assignment === undefined) {
-      return;
-    }
-    this.setData({
-      dutyDetail: buildDutyDetail(assignment, this.data.members),
-      showDetail: true,
-    });
   },
 
   handleCall(event: WechatMiniprogram.CustomEvent) {
-    const phoneNumber = event.detail.number;
-    if (typeof phoneNumber === 'string' && phoneNumber.length > 0) {
-      wx.makePhoneCall({ phoneNumber });
+    const number = event.detail.number;
+    if (typeof number === 'string' && number.length > 0) {
+      wx.makePhoneCall({ phoneNumber: number });
     }
   },
 
-  closeDetail(): void {
+  closeDetail() {
     this.setData({ showDetail: false });
   },
 });
 
-function dedupeMembers(members: readonly CalendarDutyMember[]): readonly CalendarDutyMember[] {
-  const byId = new Map(members.map((member) => [member.membershipId, member]));
-  return [...byId.values()];
+function toMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }

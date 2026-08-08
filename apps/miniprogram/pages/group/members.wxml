@@ -1,0 +1,97 @@
+<view class="page-container">
+  <group-switcher
+    wx:if="{{groups.length > 0}}"
+    groups="{{groups}}"
+    selected-id="{{selectedGroupId}}"
+    bind:change="handleGroupChange"
+  />
+
+  <view class="card">
+    <view class="card-title">添加待认领成员</view>
+    <t-textarea
+      value="{{rosterNames}}"
+      placeholder="每行一个姓名"
+      maxlength="2000"
+      bind:change="onRosterInput"
+    />
+    <view class="actions-row">
+      <t-button block variant="outline" loading="{{submitting}}" bind:tap="handleAddRoster">
+        添加名单
+      </t-button>
+      <t-button wx:if="{{pendingCount > 0}}" block variant="outline" bind:tap="handleConvertPending">
+        转正（{{pendingCount}}）
+      </t-button>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">成员（{{members.length}}）</view>
+    <view wx:for="{{members}}" wx:key="id" class="list-item">
+      <view class="flex-1">
+        <view class="list-title">
+          {{item.realName}}
+          <text wx:if="{{item.isCurrentUser}}" class="members-me">我</text>
+        </view>
+        <view class="list-sub">{{item.roleLabel}} · {{item.claimLabel}}</view>
+      </view>
+      <view class="members-actions">
+        <t-button
+          size="small"
+          variant="outline"
+          data-id="{{item.id}}"
+          data-name="{{item.realName}}"
+          bind:tap="openContactEdit"
+        >
+          联系方式
+        </t-button>
+        <t-button
+          wx:if="{{!item.isCurrentUser && selectedRole !== 'member'}}"
+          size="small"
+          variant="outline"
+          data-id="{{item.id}}"
+          data-name="{{item.realName}}"
+          data-pending="{{item.isPendingRoster}}"
+          bind:tap="handleInvite"
+        >
+          邀请
+        </t-button>
+        <t-button
+          wx:if="{{selectedRole === 'owner' && !item.isCurrentUser && item.role !== 'owner'}}"
+          size="small"
+          variant="outline"
+          data-id="{{item.id}}"
+          data-name="{{item.realName}}"
+          data-role="{{item.role === 'administrator' ? 'member' : 'administrator'}}"
+          bind:tap="handleToggleRole"
+        >
+          {{item.role === 'administrator' ? '移除管理员' : '设为管理员'}}
+        </t-button>
+        <t-button
+          wx:if="{{selectedRole === 'owner' && !item.isCurrentUser && item.role !== 'owner'}}"
+          size="small"
+          variant="outline"
+          data-id="{{item.id}}"
+          data-name="{{item.realName}}"
+          bind:tap="handleTransfer"
+        >
+          转让群主
+        </t-button>
+        <t-button
+          wx:if="{{selectedRole === 'owner' && !item.isCurrentUser}}"
+          size="small"
+          theme="danger"
+          variant="outline"
+          data-id="{{item.id}}"
+          data-name="{{item.realName}}"
+          bind:tap="handleDeleteMember"
+        >
+          删除
+        </t-button>
+      </view>
+    </view>
+    <view wx:if="{{members.length === 0}}" class="empty-state">暂无成员</view>
+  </view>
+
+  <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+</view>

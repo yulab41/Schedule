@@ -1,39 +1,28 @@
 <view class="calendar-grid">
-  <view class="calendar-weekdays">
-    <text class="calendar-weekday">一</text>
-    <text class="calendar-weekday">二</text>
-    <text class="calendar-weekday">三</text>
-    <text class="calendar-weekday">四</text>
-    <text class="calendar-weekday">五</text>
-    <text class="calendar-weekday is-weekend">六</text>
-    <text class="calendar-weekday is-weekend">日</text>
+  <view class="calendar-grid__weekdays">
+    <text wx:for="{{['一','二','三','四','五','六','日']}}" wx:key="*this" class="calendar-grid__weekday {{index >= 5 ? 'is-weekend' : ''}}">{{item}}</text>
   </view>
-  <view
-    class="calendar-week"
-    wx:for="{{weeks}}"
-    wx:for-item="week"
-    wx:key="key"
-  >
+  <view wx:for="{{weeks}}" wx:key="index" class="calendar-grid__week">
     <view
-      class="calendar-day {{day.isPlaceholder ? 'is-placeholder' : ''}} {{day.isToday ? 'is-today' : ''}}"
-      wx:for="{{week.days}}"
-      wx:for-item="day"
-      wx:key="key"
+      wx:for="{{item.cells}}"
+      wx:key="businessDate"
+      class="calendar-grid__cell {{item.isWeekend ? 'is-weekend' : ''}} {{item.isToday ? 'is-today' : ''}}"
+      data-date="{{item.businessDate}}"
+      bind:tap="onCellTap"
     >
-      <text class="calendar-day-number {{day.isWeekend ? 'is-weekend' : ''}}">{{day.label}}</text>
+      <view class="calendar-grid__top">
+        <text class="calendar-grid__day">{{item.dayNumber}}</text>
+        <text wx:if="{{item.holidayLabel}}" class="calendar-grid__holiday">{{item.holidayLabel}}</text>
+      </view>
       <view
-        class="calendar-duty"
-        wx:for="{{day.duties}}"
-        wx:for-item="duty"
-        wx:key="assignmentId"
-        data-assignment-id="{{duty.assignmentId}}"
-        style="background: {{duty.color}}; color: {{duty.textColor}};"
-        catch:tap="handleDutyTap"
+        wx:for="{{item.assignments}}"
+        wx:for-item="assignment"
+        wx:key="id"
+        class="calendar-grid__shift"
+        style="background: {{assignment.color}}; color: {{assignment.textColor}};"
       >
-        {{duty.label}}
-        <text class="calendar-duty-marker" wx:if="{{duty.markerLabel}}">
-          {{duty.markerLabel}}
-        </text>
+        <text class="calendar-grid__shift-abbr">{{assignment.abbreviation}}</text>
+        <text wx:for="{{assignment.markers}}" wx:for-item="marker" wx:key="*this" class="calendar-grid__marker">{{marker}}</text>
       </view>
     </view>
   </view>

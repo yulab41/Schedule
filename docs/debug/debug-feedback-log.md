@@ -1355,3 +1355,12 @@
 - 文档：基准设计 `docs/superpowers/specs/2026-08-08-wechat-miniprogram-web-port-design.md`、实施计划 `docs/superpowers/plans/2026-08-08-wechat-miniprogram-web-port-implementation-plan.md`、移植清单 `docs/miniprogram-web-port-checklist.md`。
 - 决策：平台管理员入口 = 最小后端扩展 `GET /platform/me`（只读、不改权限判定）；备份只做列表不下载；旧实施计划任务 13 轮值/自动生成内容作废；测试方案改为分层（快层/内核层/集成层/冒烟层），小程序只新增搬运逻辑单测 + 模拟器冒烟，不新增 UI 单测框架。
 - 执行方式：新对话 Codex goal 模式，按计划批次 A→E 一次性完成，每批提交并更新清单。
+
+### 小程序 Web 移植批次 A 完成（2026-08-08）
+
+- 重置：旧 `pages/*`、`components/*` 与旧 `utils/calendar|workflow|time|events.ts`、`store/group.ts` 按计划删除；因策略禁止递归删除，先移入 `.tmp-miniprogram-legacy/`（后续清理）。
+- 新结构：app.json 注册 30 个页面（tabBar：工作台/日历/通知/我的）；新建工作台 Hub（按 `workbench-nav` 角色过滤，含平台入口条件）、登录/注册/我的、日历月/周/列表三视图 + 节假日标签 + 访客扫码页、群组/成员/联系方式/邀请/二维码/邀请落地、排班配置（岗位+班种，无轮值）、请假/换班/加扣班申请与审批、事件时间线 + 访客访问记录、通知/提醒设置；批次 B–D 页面先以占位页注册。
+- 逻辑移植：`utils/` 新增 china-time（等价 scheduling-domain 时区函数）与 17 个 Web 逻辑模块；`assignment-option` 的 VNode 渲染改为 weekend 标记（行为等价）；`conflict` 本地实现 `isVersionConflictLatestData`；API 客户端新增 PATCH、`latestData/status`，错误映射沿用 401/409 语义。
+- 端点：新增 holidays/guest-holidays/contacts/update contact/past-schedules/exports/platform/holiday import；删除轮值排序/规则与自动生成接口（不暴露）。
+- 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram` 95/95 ✅、`pnpm typecheck` ✅、`pnpm test` 506 passed（248 skipped）✅、`pnpm --filter @schedule/web build` 单独重跑 ✅（首轮 `pnpm verify` 中 vite 构建完成但 Windows libuv `UV_HANDLE_CLOSING` 断言导致退出码异常，判定为环境性瞬态故障）；移植清单 1–8、16–18 打勾。
+- 状态：批次 A 已实现待模拟器复核；下一批：批次 B 手动排班。

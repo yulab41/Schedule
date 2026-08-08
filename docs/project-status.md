@@ -4,6 +4,7 @@
 
 ## Current Position
 
+- 2026-08-08：小程序 Web 移植**批次 A 已完成**——旧 pages/components 整目录删除（移入 `.tmp-miniprogram-legacy/` 待清理）；新信息架构 30 个页面全部注册（工作台/我的/日历三视图/访客/群组/成员/联系方式/邀请/排班配置/申请审批/事件/通知/提醒设置 + 后续批次占位页）；Web 逻辑等价移植至 `apps/miniprogram/utils/`（workbench-nav、calendar、manual-schedule、statistics、workflow、swap、duty、leave、event-timeline、export、roster、notification、conflict、user-message，共 16 个 spec 95 项断言）；API 客户端补齐 PATCH、latestData/409 冲突载荷、节假日/补录/导出/平台/联系人端点并移除轮值与自动生成接口；`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram` 95/95 ✅、`pnpm typecheck` ✅、`pnpm test` 506 passed ✅、`pnpm --filter @schedule/web build` ✅（首轮 `pnpm verify` 中 vite build 因 Windows libuv 断言退出，单独重跑通过）；移植清单批次 A 行 1–8、16–18 已打勾；下一批：批次 B 手动排班（绘制/模板/草稿/发布）
 - 2026-08-08（部署轮 55）：新 ECS `120.77.220.79` 全新部署完成（Docker Compose：Nginx + Fastify + MySQL；2G swap、容器内存上限、gzip/浏览器缓存、日志轮转、监控与定时加密备份 cron 已落地）；已绑定 `https://hosp.schedule.eylinhome.top`（Let's Encrypt 免费证书 + HTTP/2，公网浏览器冒烟通过）；公网 IP `http://120.77.220.79` 保留备用；已建示例群组；服务器残留已清理；旧试用机 `8.148.183.46` 保留为历史环境；ICP 备案状态已确认（2026-08-08）：工信部网站类型查询与阿里云备案主体均无记录 → 走**首次备案（个人）**，操作手册见 `docs/deployment/icp-checklist.md`；备案维护模式（方案 A）已开启：域名与公网 IP 仅显示“网站备案中”占位页、公网 IP HTTPS 断开，阿里云对未备案域名也返回拦截页，恢复命令 `bash infra/scripts/icp-maintenance.sh off`；备案维护期内置仅回环可见的自测入口 `127.0.0.1:8080`（双击 `scripts/start-ecs-test-tunnel.bat` 后浏览器开 `http://localhost:8080` 即可测试真实系统）
 - Last updated: 2026-08-08
 - Branch: `main` / Upstream: `origin/main`

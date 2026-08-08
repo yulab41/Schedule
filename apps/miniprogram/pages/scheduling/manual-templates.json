@@ -1,6 +1,0 @@
-{
-  "navigationBarTitleText": "手动排班模板",
-  "usingComponents": {
-    "t-button": "tdesign-miniprogram/button/button"
-  }
-}

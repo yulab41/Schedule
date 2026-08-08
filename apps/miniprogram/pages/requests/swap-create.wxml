@@ -1,0 +1,22 @@
+<view class="page-container">
+  <view class="card">
+    <picker mode="selector" range="{{myAssignmentLabels}}" value="{{myAssignmentIndex}}" bindchange="onMyAssignmentChange">
+      <view class="form-row"><text class="muted">我的班次</text><text>{{myAssignmentLabels[myAssignmentIndex] || '请选择'}}</text></view>
+    </picker>
+    <picker mode="selector" range="{{targetLabels}}" value="{{targetIndex}}" bindchange="onTargetChange">
+      <view class="form-row"><text class="muted">换班对象</text><text>{{targetLabels[targetIndex] || '请选择'}}</text></view>
+    </picker>
+    <picker mode="selector" range="{{targetAssignmentLabels}}" value="{{targetAssignmentIndex}}" bindchange="onTargetAssignmentChange">
+      <view class="form-row"><text class="muted">对方班次</text><text>{{targetAssignmentLabels[targetAssignmentIndex] || '请选择'}}</text></view>
+    </picker>
+    <view class="actions">
+      <t-button block variant="outline" bind:tap="handlePreview">预览</t-button>
+      <t-button theme="primary" block loading="{{submitting}}" bind:tap="handleSubmit">提交换班</t-button>
+    </view>
+    <view wx:if="{{nextStatusDescription}}" class="info-text">{{nextStatusDescription}}</view>
+    <view wx:if="{{preview && preview.conflicts.length > 0}}" class="error-text">
+      <text wx:for="{{preview.conflicts}}" wx:key="message">{{item.message}}</text>
+    </view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
+</view>

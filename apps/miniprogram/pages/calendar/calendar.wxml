@@ -1,52 +1,33 @@
-<view class="page-container calendar-page">
+<view class="page-container">
   <group-switcher
+    wx:if="{{groups.length > 0}}"
     groups="{{groups}}"
     selected-id="{{selectedGroupId}}"
     bind:change="handleGroupChange"
   />
 
-  <view wx:if="{{groups.length === 0 && !loading && !errorMessage}}" class="calendar-card calendar-state">
-    <text>你还没有加入任何群组；创建群组功能将在群管理中开放。</text>
+  <view class="card calendar-toolbar">
+    <view class="row-between">
+      <t-button size="small" variant="text" data-delta="-1" bind:tap="changeMonth">‹ 上月</t-button>
+      <view class="calendar-toolbar__title">{{monthLabel}}</view>
+      <t-button size="small" variant="text" data-delta="1" bind:tap="changeMonth">下月 ›</t-button>
+    </view>
+    <view class="actions-row calendar-toolbar__views">
+      <t-button size="small" variant="outline" bind:tap="openWeek">周视图</t-button>
+      <t-button size="small" variant="outline" bind:tap="openList">列表视图</t-button>
+    </view>
   </view>
 
-  <view wx:elif="{{errorMessage}}" class="calendar-card calendar-state">
-    <text class="calendar-error">{{errorMessage}}</text>
-    <t-button size="small" variant="outline" bind:tap="loadGroups">重新加载</t-button>
+  <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+
+  <view wx:if="{{weeks.length > 0}}" class="card">
+    <calendar-grid weeks="{{weeks}}" bind:celltap="handleCellTap" />
   </view>
-
-  <block wx:elif="{{selectedGroupId}}">
-    <view class="calendar-toolbar">
-      <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="-1">
-        上一月
-      </t-button>
-      <text class="calendar-month-label">{{monthLabel}}</text>
-      <t-button size="small" variant="outline" bind:tap="changeMonth" data-delta="1">
-        下一月
-      </t-button>
-    </view>
-
-    <view class="calendar-view-tabs">
-      <view class="calendar-view-tab is-active">月</view>
-      <view class="calendar-view-tab" bind:tap="openWeek">周</view>
-      <view class="calendar-view-tab" bind:tap="openList">列表</view>
-    </view>
-
-    <calendar-grid
-      wx:if="{{!loading}}"
-      assignments="{{assignments}}"
-      month="{{month}}"
-      today="{{today}}"
-      year="{{year}}"
-      bind:dutytap="handleDutyTap"
-    />
-    <view wx:else class="calendar-card calendar-state">
-      <text>加载中…</text>
-    </view>
-  </block>
+  <view wx:elif="{{!loading}}" class="card empty-state">暂无排班数据</view>
 
   <duty-detail
+    show="{{showDetail}}"
     detail="{{dutyDetail}}"
-    visible="{{showDetail}}"
     bind:close="closeDetail"
     bind:call="handleCall"
   />

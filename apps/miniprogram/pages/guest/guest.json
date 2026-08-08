@@ -1,7 +1,8 @@
 {
-  "navigationBarTitleText": "访客日历",
+  "navigationBarTitleText": "访客排班",
   "usingComponents": {
     "calendar-grid": "/components/calendar-grid/calendar-grid",
+    "duty-detail": "/components/duty-detail/duty-detail",
     "t-button": "tdesign-miniprogram/button/button"
   }
 }

@@ -1,135 +1,153 @@
 import type {
   CalendarDutyAssignment,
-  CalendarDutyMember,
   CalendarReadModel,
   GroupSummary,
+  HolidayReadModel,
 } from '@schedule/contracts';
 
-import { getCalendar, getLoggedInGuestCalendar, listGroups } from '../../api/endpoints.js';
+import {
+  getCalendar,
+  getGuestHolidays,
+  getHolidays,
+  getLoggedInGuestCalendar,
+  listGroups,
+} from '../../api/endpoints.js';
+import { getStoredToken } from '../../api/client.js';
 import { getSelectedGroupId, resolveSelectedGroup, setSelectedGroupId } from '../../store/group.js';
 import {
+  addBusinessMonths,
+  buildMonthGrid,
+  getBusinessMonthLabel,
+  getCurrentBusinessMonth,
+  type CalendarGridWeek,
+} from '../../utils/calendar-logic.js';
+import { groupAssignmentsByDate as groupByDate } from '../../utils/calendar-views.js';
+import {
+  buildCalendarWeeks,
   buildDutyDetail,
-  formatLocalDate,
-  formatMonthLabel,
-  getWeekStartDate,
-  shiftBusinessMonth,
-  splitBusinessMonth,
-  type DutyDetail,
-} from '../../utils/calendar.js';
+  buildHolidayMap,
+  type CalendarGridWeekView,
+} from '../../utils/calendar-grid-builder.js';
+import { getChinaStandardTimeBusinessDate } from '../../utils/china-time.js';
 
 interface CalendarPageData {
-  readonly assignments: readonly CalendarDutyAssignment[];
+  readonly assignmentsByDate: ReadonlyMap<string, readonly CalendarDutyAssignment[]>;
   readonly businessMonth: string;
-  readonly dutyDetail: DutyDetail | undefined;
+  readonly dutyDetail: ReturnType<typeof buildDutyDetail> | undefined;
   readonly errorMessage: string;
   readonly groups: readonly GroupSummary[];
+  readonly holidays: HolidayReadModel | undefined;
   readonly loading: boolean;
-  readonly members: readonly CalendarDutyMember[];
-  readonly month: number;
+  readonly members: readonly CalendarDutyAssignment[] extends never
+    ? never
+    : readonly {
+        readonly isConfirmed: boolean;
+        readonly membershipId: string;
+        readonly mobilePhone?: string;
+        readonly realName: string;
+        readonly shortPhone?: string;
+      }[];
   readonly monthLabel: string;
   readonly selectedGroupId: string;
   readonly showDetail: boolean;
   readonly today: string;
-  readonly year: number;
+  readonly weeks: readonly CalendarGridWeekView[];
 }
 
 Page({
   data: {
-    assignments: [],
+    assignmentsByDate: new Map(),
     businessMonth: '',
     dutyDetail: undefined,
     errorMessage: '',
     groups: [],
+    holidays: undefined,
     loading: false,
     members: [],
-    month: 0,
     monthLabel: '',
     selectedGroupId: '',
     showDetail: false,
     today: '',
-    year: 0,
+    weeks: [],
   } as CalendarPageData,
 
   onShow() {
-    const today = formatLocalDate(new Date());
-    const { businessMonth, month, year } = splitBusinessMonth(today);
-    this.setData({
-      businessMonth,
-      month,
-      monthLabel: formatMonthLabel(businessMonth),
-      today,
-      year,
-    });
-    void this.loadGroups();
+    if (getStoredToken() === undefined) {
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    const businessMonth = this.data.businessMonth || getCurrentBusinessMonth(new Date());
+    this.setData({ businessMonth, monthLabel: getBusinessMonthLabel(businessMonth), today });
+    void this.loadAll();
   },
 
-  async loadGroups(): Promise<void> {
+  async loadAll(): Promise<void> {
     this.setData({ errorMessage: '', loading: true });
     try {
       const groups = await listGroups();
       const selected = resolveSelectedGroup(groups, getSelectedGroupId());
-      this.setData({
-        groups,
-        selectedGroupId: selected?.id ?? '',
-      });
+      const selectedGroupId = selected?.id ?? '';
       if (selected !== undefined) {
         setSelectedGroupId(selected.id);
-        await this.loadCalendar();
-      } else {
-        this.setData({ assignments: [], members: [] });
       }
+      this.setData({ groups, selectedGroupId });
+      if (selected === undefined) {
+        this.setData({ weeks: [] });
+        return;
+      }
+      await this.loadCalendar(selected);
     } catch (error) {
-      this.setData({
-        errorMessage:
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : '群组数据加载失败，请稍后重试。',
-      });
+      this.setData({ errorMessage: toMessage(error, '日历加载失败，请稍后重试。') });
     } finally {
       this.setData({ loading: false });
     }
   },
 
-  async loadCalendar(): Promise<void> {
-    const groupId = this.data.selectedGroupId;
+  async loadCalendar(selected: GroupSummary): Promise<void> {
     const businessMonth = this.data.businessMonth;
-    if (groupId.length === 0 || businessMonth.length === 0) {
-      return;
-    }
-    this.setData({ errorMessage: '', loading: true });
-    try {
-      const group = this.data.groups.find((item) => item.id === groupId);
-      const result =
-        group?.role === 'guest'
-          ? await getLoggedInGuestCalendar(groupId, businessMonth)
-          : await getCalendar(groupId, businessMonth);
-      const calendar = 'calendar' in result ? result.calendar : result;
-      this.applyCalendar(calendar);
-    } catch (error) {
-      this.setData({
-        errorMessage:
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : '日历加载失败，请稍后重试。',
-      });
-    } finally {
-      this.setData({ loading: false });
-    }
+    const isGuest = selected.role === 'guest';
+    const [calendarResult, holidayResult] = await Promise.all([
+      isGuest
+        ? getLoggedInGuestCalendar(selected.id, businessMonth)
+        : getCalendar(selected.id, businessMonth),
+      isGuest
+        ? getGuestHolidays(Number(businessMonth.slice(0, 4)))
+        : getHolidays(Number(businessMonth.slice(0, 4))),
+    ]);
+    const calendar: CalendarReadModel =
+      'calendar' in calendarResult ? calendarResult.calendar : calendarResult;
+    this.applyCalendar(calendar, holidayResult);
   },
 
-  applyCalendar(calendar: CalendarReadModel): void {
-    const { businessMonth, month, year } = splitBusinessMonth(calendar.businessMonth);
+  applyCalendar(calendar: CalendarReadModel, holidays: HolidayReadModel): void {
+    const year = Number(calendar.businessMonth.slice(0, 4));
+    const month = Number(calendar.businessMonth.slice(5, 7));
+    const monthGrid = buildMonthGrid(year, month) as readonly CalendarGridWeek[];
+    const assignmentsByDate = groupByDate(calendar.assignments);
+    const holidayMap = buildHolidayMap(holidays.dates);
     this.setData({
-      assignments: calendar.assignments,
-      businessMonth,
+      assignmentsByDate,
+      businessMonth: calendar.businessMonth,
+      holidays,
       members: calendar.members,
-      month,
-      monthLabel: formatMonthLabel(calendar.businessMonth),
-      year,
+      monthLabel: getBusinessMonthLabel(calendar.businessMonth),
+      weeks: buildCalendarWeeks(monthGrid, assignmentsByDate, holidayMap, this.data.today),
     });
   },
 
-  changeMonth(event: WechatMiniprogram.TouchEvent): void {
+  handleGroupChange(event: WechatMiniprogram.CustomEvent) {
+    const groupId = event.detail.groupId;
+    const selected = this.data.groups.find((group) => group.id === groupId);
+    if (selected === undefined) {
+      return;
+    }
+    setSelectedGroupId(groupId);
+    this.setData({ selectedGroupId: groupId });
+    void this.loadCalendar(selected);
+  },
+
+  changeMonth(event: WechatMiniprogram.TouchEvent) {
     if (this.data.loading) {
       return;
     }
@@ -137,55 +155,21 @@ Page({
     if (!Number.isInteger(delta)) {
       return;
     }
-    const businessMonth = shiftBusinessMonth(this.data.businessMonth, delta);
-    const { month, year } = splitBusinessMonth(businessMonth);
-    this.setData({
-      businessMonth,
-      month,
-      monthLabel: formatMonthLabel(businessMonth),
-      year,
-    });
-    void this.loadCalendar();
+    const businessMonth = addBusinessMonths(this.data.businessMonth, delta);
+    this.setData({ businessMonth, monthLabel: getBusinessMonthLabel(businessMonth) });
+    const selected = this.data.groups.find((group) => group.id === this.data.selectedGroupId);
+    if (selected !== undefined) {
+      void this.loadCalendar(selected);
+    }
   },
 
-  handleGroupChange(event: WechatMiniprogram.CustomEvent) {
-    const groupId = event.detail.groupId;
-    if (typeof groupId !== 'string' || groupId.length === 0) {
+  handleCellTap(event: WechatMiniprogram.CustomEvent) {
+    const businessDate = event.detail.businessDate;
+    const assignments = this.data.assignmentsByDate.get(businessDate) ?? [];
+    if (assignments.length === 0) {
       return;
     }
-    this.setData({ selectedGroupId: groupId });
-    setSelectedGroupId(groupId);
-    void this.loadCalendar();
-  },
-
-  openWeek(): void {
-    if (this.data.selectedGroupId.length === 0) {
-      return;
-    }
-    const weekStart = getWeekStartDate(this.data.today);
-    wx.navigateTo({
-      url: `/pages/calendar-week/calendar-week?groupId=${this.data.selectedGroupId}&weekStart=${weekStart}`,
-    });
-  },
-
-  openList(): void {
-    if (this.data.selectedGroupId.length === 0) {
-      return;
-    }
-    wx.navigateTo({
-      url: `/pages/calendar-list/calendar-list?groupId=${this.data.selectedGroupId}&businessMonth=${this.data.businessMonth}`,
-    });
-  },
-
-  handleDutyTap(event: WechatMiniprogram.CustomEvent) {
-    const assignmentId = event.detail.assignmentId;
-    if (typeof assignmentId !== 'string' || assignmentId.length === 0) {
-      return;
-    }
-    const assignment = this.data.assignments.find((item) => item.id === assignmentId);
-    if (assignment === undefined) {
-      return;
-    }
+    const assignment = assignments[0]!;
     this.setData({
       dutyDetail: buildDutyDetail(assignment, this.data.members),
       showDetail: true,
@@ -193,13 +177,39 @@ Page({
   },
 
   handleCall(event: WechatMiniprogram.CustomEvent) {
-    const phoneNumber = event.detail.number;
-    if (typeof phoneNumber === 'string' && phoneNumber.length > 0) {
-      wx.makePhoneCall({ phoneNumber });
+    const number = event.detail.number;
+    if (typeof number === 'string' && number.length > 0) {
+      wx.makePhoneCall({ phoneNumber: number });
     }
   },
 
-  closeDetail(): void {
+  closeDetail() {
     this.setData({ showDetail: false });
   },
+
+  openWeek() {
+    if (this.data.selectedGroupId.length === 0) {
+      return;
+    }
+    wx.navigateTo({
+      url: `/pages/calendar-week/calendar-week?groupId=${encodeURIComponent(
+        this.data.selectedGroupId,
+      )}&weekStart=${this.data.today}`,
+    });
+  },
+
+  openList() {
+    if (this.data.selectedGroupId.length === 0) {
+      return;
+    }
+    wx.navigateTo({
+      url: `/pages/calendar-list/calendar-list?groupId=${encodeURIComponent(
+        this.data.selectedGroupId,
+      )}&businessMonth=${this.data.businessMonth}`,
+    });
+  },
 });
+
+function toMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}

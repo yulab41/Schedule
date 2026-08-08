@@ -1,0 +1,16 @@
+.members-me {
+  margin-left: 8rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 20rpx;
+}
+
+.members-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8rpx;
+  max-width: 320rpx;
+}

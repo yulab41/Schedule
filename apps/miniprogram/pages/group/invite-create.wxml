@@ -1,0 +1,23 @@
+<view class="page-container">
+  <view class="card">
+    <view class="card-title">定向邀请</view>
+    <view class="card-copy">{{realName || '待邀请成员'}}</view>
+    <picker mode="selector" range="{{roleNames}}" value="{{roleIndex}}" bindchange="onRoleChange">
+      <view class="invite-picker">{{roleNames[roleIndex] || '不指定排班岗位'}}</view>
+    </picker>
+    <picker mode="selector" range="{{['成员','管理员']}}" value="{{permissionRole === 'administrator' ? 1 : 0}}" bindchange="onPermissionChange">
+      <view class="invite-picker">权限：{{permissionRole === 'administrator' ? '管理员' : '成员'}}</view>
+    </picker>
+    <view class="actions">
+      <t-button theme="primary" block loading="{{submitting}}" bind:tap="handleCreate">
+        生成邀请
+      </t-button>
+      <t-button wx:if="{{sharePath}}" block variant="outline" bind:tap="handleCopy">
+        复制邀请路径
+      </t-button>
+      <t-button wx:if="{{sharePath}}" block variant="outline" open-type="share">转发邀请</t-button>
+    </view>
+    <view wx:if="{{infoMessage}}" class="info-text">{{infoMessage}}</view>
+    <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
+  </view>
+</view>
