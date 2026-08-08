@@ -6,6 +6,7 @@ import type {
   DutyAdjustmentRequest,
   SwapRequest,
 } from '@schedule/contracts';
+import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
 import {
   createTestDatabaseClient,
   migrateDatabase,
@@ -164,6 +165,49 @@ describeWithDatabase('paired duty adjustments', () => {
       (assignment) => assignment.businessDate === '2026-09-01',
     );
     expect(sep1).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['overtime'] });
+  });
+
+  it('allows duty adjustment on a today shift even when it has already started', async () => {
+    const context = await seedPublishedRotation();
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        businessDate: today,
+        endsAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+        startsAt: new Date(Date.now() - 60_000),
+      })
+      .where(eq(shiftAssignments.id, context.assignments.aSep1.id));
+
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '当日加扣班测试',
+    });
+    expect(created.statusCode, created.body).toBe(201);
+  });
+
+  it('rejects duty adjustment on a past day', async () => {
+    const context = await seedPublishedRotation();
+    const yesterday = getChinaStandardTimeBusinessDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        businessDate: yesterday,
+        endsAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+        startsAt: new Date(Date.now() - 60_000),
+      })
+      .where(eq(shiftAssignments.id, context.assignments.aSep1.id));
+
+    const created = await createDirectDutyAdjustment('owner-token', context.groupId, {
+      coveredAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      overtimeMembershipId: context.membershipIds.b,
+      reason: '已过日期测试',
+    });
+    expect(created.statusCode, created.body).toBe(400);
+    expect(created.body).toContain('已过日期');
   });
 
   it('completes immediately when the overtime member auto-accepts and the group does not require approval', async () => {

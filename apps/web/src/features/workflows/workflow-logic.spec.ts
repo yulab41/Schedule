@@ -2,12 +2,12 @@ import type { CalendarDutyAssignment, CalendarReadModel } from '@schedule/contra
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildFutureCandidateAssignments,
-  filterFutureAssignments,
+  buildOperableCandidateAssignments,
+  filterOperableAssignments,
   getWorkflowNextStatusDescription,
   getWorkflowStatusLabel,
   groupAssignmentsByDutyMember,
-  isFutureAssignment,
+  isOperableAssignment,
   resolveNextWorkflowStatus,
 } from './workflow-logic.js';
 
@@ -54,27 +54,28 @@ const calendar: CalendarReadModel = {
 };
 
 describe('shared swap/duty adjustment workflow logic', () => {
-  it('judges future assignments against an explicit clock', () => {
-    const now = new Date('2026-08-07T00:00:00.000Z').valueOf();
+  it('judges operable assignments against an explicit clock', () => {
+    const now = new Date('2026-08-07T00:00:00.000Z');
 
-    expect(isFutureAssignment(assignment('later', '2026-09-01', 'me'), now)).toBe(true);
-    expect(isFutureAssignment(assignment('past', '2026-07-01', 'me'), now)).toBe(false);
-    expect(isFutureAssignment(assignment('now', '2026-08-07T00:00:00.000Z', 'me'), now)).toBe(
-      false,
-    );
+    expect(isOperableAssignment(assignment('today', '2026-08-07', 'me'), now)).toBe(true);
+    expect(isOperableAssignment(assignment('later', '2026-09-01', 'me'), now)).toBe(true);
+    expect(isOperableAssignment(assignment('past', '2026-07-01', 'me'), now)).toBe(false);
   });
 
-  it('keeps only future assignments in the original order', () => {
+  it('keeps only operable assignments in the original order', () => {
+    const now = new Date('2026-08-07T00:00:00.000Z');
+    const today = assignment('today', '2026-08-07', 'me');
     const past = assignment('past', '2000-01-01', 'me');
     const future = assignment('future', '2099-01-01', 'me');
 
-    expect(filterFutureAssignments([past, future])).toEqual([future]);
+    expect(filterOperableAssignments([past, today, future], now)).toEqual([today, future]);
   });
 
-  it('builds future assignments and my future assignments', () => {
-    const candidates = buildFutureCandidateAssignments(calendar, 'me');
+  it('builds operable assignments and my operable assignments', () => {
+    const now = new Date('2026-08-07T00:00:00.000Z');
+    const candidates = buildOperableCandidateAssignments(calendar, 'me', now);
 
-    expect(candidates.futureAssignments.map((item) => item.id)).toEqual([
+    expect(candidates.operableAssignments.map((item) => item.id)).toEqual([
       'future-me',
       'future-target',
     ]);

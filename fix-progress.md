@@ -885,6 +885,20 @@ N8 第二批：对 `packages/contracts/src` 全部 15 个文件的 99 处 `.pass
 
 状态：#N17 ✅（已完成，含运行验证；待用户强刷复核）。
 
+### 轮次 58 – 2026-08-08（N18 换班/加扣班开放当日 + 日历周末樱桃红）
+
+目标：换班/加扣班按“今天或之后”开放当日，昨天及更早已过日期仍禁止；日历周六/周日日期数字与星期文字使用樱桃红 `#C2185B`，不加“六/日”文字标识，所有日历视图统一生效。
+
+引入点：前端 `workflow-logic.ts` 的 `isFutureAssignment` 用 `startsAt > now` 判断；后端换班/加扣班 `assertFutureShift` 用 `startsAt <= now` 拒绝；日历组件未区分周末。
+
+修改文件：`workflow-logic.ts`（`isOperableAssignment`/`filterOperableAssignments`/`buildOperableCandidateAssignments`）；`swap-logic.ts`/`duty-adjustment-logic.ts`；`swap-service.ts`/`duty-adjustment-service.ts`（`assertOperableShift` 按 `isPastBusinessDate` 拒绝并提示排班补录）；`calendar-views.ts`（`isWeekend`）；`MonthGrid.vue`/`WeekGrid.vue`/`ListGrid.vue`/`ManualGrid.vue`；`packages/ui-tokens/src/tokens.ts`（`weekend: '#C2185B'` + 重新生成 `tokens.css`）；`scripts/smoke-browser.mjs`（周末樱桃红断言）。
+
+测试结果：`workflow-logic.spec.ts` 显式时钟锁定今天包含/过去排除/未来包含；`calendar-views.spec.ts` 新增 `isWeekend`；换班/加扣班集成测试新增“今天已开始可操作、已过日期拒绝”；`tokens-css.test.ts` 保持生成器一致；`pnpm verify` 601 项总测试通过（73 个测试文件，隔离 MySQL）；定向换班/加扣班集成测试 4/4 通过。
+
+运行/浏览器验证：本地 `pnpm smoke:browser` 通过；已同步 `apps/web/dist` 与 `apps/api/dist` 并重建容器，API 服务文件 MD5 与本地一致；`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（含周末樱桃红断言）。
+
+状态：#N18 ✅（已完成，含运行验证；待用户强刷复核）。
+
 ## 7. 轮次记录
 
 ### 轮次 1 – 2026-08-06

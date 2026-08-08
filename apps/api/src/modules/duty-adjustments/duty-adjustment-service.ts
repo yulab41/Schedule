@@ -1222,7 +1222,7 @@ export class DutyAdjustmentService {
       });
     }
 
-    assertFutureShift(coveredAssignment, '被代班班次');
+    assertOperableShift(coveredAssignment, '被代班班次');
     const currentDutyMembershipId = getCurrentDutyMembershipId(coveredAssignment);
     if (currentDutyMembershipId === null) {
       throw validationError('该班次没有当值成员，无法发起加扣班。');
@@ -1586,9 +1586,11 @@ function toDutyAdjustmentConflict(conflict: WorkflowConflict): DutyAdjustmentCon
   };
 }
 
-function assertFutureShift(assignment: LockedShiftAssignment, label: string): void {
-  if (assignment.startsAt.valueOf() <= Date.now()) {
-    throw validationError(`${label}不是未来班次，只能代值尚未开始的班次。`);
+function assertOperableShift(assignment: LockedShiftAssignment, label: string): void {
+  if (isPastBusinessDate(assignment.businessDate)) {
+    throw validationError(
+      `${label}已过日期（${assignment.businessDate}），已过日期不可修改，无法发起加扣班。如需修改既往排班，请前往“排班补录”页面操作。`,
+    );
   }
 }
 

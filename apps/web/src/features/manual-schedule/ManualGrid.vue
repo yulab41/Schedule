@@ -2,6 +2,7 @@
 import type { ConfirmedHolidayDate, ShiftType } from '@schedule/contracts';
 import { computed } from 'vue';
 
+import { isWeekend } from '../calendar/calendar-views.js';
 import {
   getTemplateCellShiftTypeId,
   type ManualGridRow,
@@ -67,7 +68,12 @@ function holidayFor(date: string): ConfirmedHolidayDate | undefined {
       <thead>
         <tr class="date-header-row">
           <th class="member-header" scope="col">值班人员 ↓</th>
-          <th v-for="column in columns" :key="column.cycleDay" class="date-header">
+          <th
+            v-for="column in columns"
+            :key="column.cycleDay"
+            class="date-header"
+            :class="{ 'is-weekend': isWeekend(column.date) }"
+          >
             <span class="date-value">{{ column.date.slice(5) }}</span>
             <span class="weekday-value">周{{ column.weekday }}</span>
           </th>
@@ -195,6 +201,11 @@ function holidayFor(date: string): ConfirmedHolidayDate | undefined {
 .weekday-value {
   color: #6b7280;
   font-size: 11px;
+}
+
+.date-header.is-weekend .date-value,
+.date-header.is-weekend .weekday-value {
+  color: var(--ui-color-weekend);
 }
 
 .holiday-header-row .holiday-summary {

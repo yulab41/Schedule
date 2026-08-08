@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import type { DutyAdjustmentRequest, SwapPreview, SwapRequest } from '@schedule/contracts';
+import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
 import {
   createTestDatabaseClient,
   migrateDatabase,
@@ -157,6 +158,63 @@ describeWithDatabase('member shift swaps', () => {
     );
     expect(sep1).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['swap'] });
     expect(sep2).toMatchObject({ actualMemberName: 'A Doctor', changeMarkers: ['swap'] });
+  });
+
+  it('allows swapping today shifts even when they have already started', async () => {
+    const context = await seedPublishedRotation();
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        businessDate: today,
+        endsAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+        startsAt: new Date(Date.now() - 60_000),
+      })
+      .where(eq(shiftAssignments.id, context.assignments.aSep1.id));
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        businessDate: today,
+        endsAt: new Date(Date.now() + 9 * 60 * 60 * 1000),
+        startsAt: new Date(Date.now() - 120_000),
+      })
+      .where(eq(shiftAssignments.id, context.assignments.bSep2.id));
+
+    const created = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(created.statusCode, created.body).toBe(201);
+  });
+
+  it('rejects swapping shifts on a past day', async () => {
+    const context = await seedPublishedRotation();
+    const yesterday = getChinaStandardTimeBusinessDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        businessDate: yesterday,
+        endsAt: new Date(Date.now() + 8 * 60 * 60 * 1000),
+        startsAt: new Date(Date.now() - 60_000),
+      })
+      .where(eq(shiftAssignments.id, context.assignments.aSep1.id));
+    await client.database
+      .update(shiftAssignments)
+      .set({
+        businessDate: yesterday,
+        endsAt: new Date(Date.now() + 9 * 60 * 60 * 1000),
+        startsAt: new Date(Date.now() - 120_000),
+      })
+      .where(eq(shiftAssignments.id, context.assignments.bSep2.id));
+
+    const created = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: context.assignments.bSep2.id,
+    });
+    expect(created.statusCode, created.body).toBe(400);
+    expect(created.body).toContain('已过日期');
   });
 
   it('completes immediately when the target auto-accepts and the group does not require approval', async () => {

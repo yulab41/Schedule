@@ -6,7 +6,12 @@ import type {
 } from '@schedule/contracts';
 import { computed } from 'vue';
 
-import { getWeekDays, getWeekdayLabel, groupAssignmentsByDate } from './calendar-views.js';
+import {
+  getWeekDays,
+  getWeekdayLabel,
+  groupAssignmentsByDate,
+  isWeekend,
+} from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
 import { getDutyMembershipId, getHolidayShortLabel, isPastBusinessDate } from './calendar-logic.js';
 
@@ -63,6 +68,7 @@ function isSoleDuty(date: string): boolean {
         :class="{
           'is-past': isPastBusinessDate(date, today),
           'is-today': date === today,
+          'is-weekend': isWeekend(date),
         }"
         :data-today="date === today ? 'true' : undefined"
         :aria-current="date === today ? 'date' : undefined"
@@ -154,6 +160,11 @@ function isSoleDuty(date: string): boolean {
 .day-cell.is-past .day-number,
 .day-cell.is-past .weekday {
   color: #4b5563;
+}
+
+.day-cell.is-weekend .day-number,
+.day-cell.is-weekend .weekday {
+  color: var(--ui-color-weekend);
 }
 
 .day-cell.is-past :deep(.duty-name),

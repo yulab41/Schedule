@@ -17,6 +17,7 @@ export const colorTokens = {
   textSecondary: '#4B5563',
   warning: '#B45309',
   warningLight: '#FEF3C7',
+  weekend: '#C2185B',
   white: '#FFFFFF',
 } as const;
 

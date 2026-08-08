@@ -4,13 +4,14 @@ import type {
   DutyAdjustmentStatus,
   SwapRequestStatus,
 } from '@schedule/contracts';
+import { isPastBusinessDate } from '@schedule/scheduling-domain';
 
 import { getDutyMembershipId } from '../calendar/calendar-logic.js';
 
 export type WorkflowRequestStatus = SwapRequestStatus | DutyAdjustmentStatus;
 
-export interface FutureCandidateAssignments {
-  readonly futureAssignments: readonly CalendarDutyAssignment[];
+export interface OperableCandidateAssignments {
+  readonly operableAssignments: readonly CalendarDutyAssignment[];
   readonly myAssignments: readonly CalendarDutyAssignment[];
 }
 
@@ -24,28 +25,30 @@ const workflowStatusLabels: Readonly<
   revoked: '已撤销',
 };
 
-export function isFutureAssignment(
+export function isOperableAssignment(
   assignment: CalendarDutyAssignment,
-  now: number = Date.now(),
+  now: Date = new Date(),
 ): boolean {
-  return new Date(assignment.startsAt).valueOf() > now;
+  return !isPastBusinessDate(assignment.businessDate, now);
 }
 
-export function filterFutureAssignments(
+export function filterOperableAssignments(
   assignments: readonly CalendarDutyAssignment[],
+  now: Date = new Date(),
 ): readonly CalendarDutyAssignment[] {
-  return assignments.filter((assignment) => isFutureAssignment(assignment));
+  return assignments.filter((assignment) => isOperableAssignment(assignment, now));
 }
 
-export function buildFutureCandidateAssignments(
+export function buildOperableCandidateAssignments(
   calendar: CalendarReadModel,
   myMembershipId: string,
-): FutureCandidateAssignments {
-  const futureAssignments = filterFutureAssignments(calendar.assignments);
-  const myAssignments = futureAssignments.filter(
+  now: Date = new Date(),
+): OperableCandidateAssignments {
+  const operableAssignments = filterOperableAssignments(calendar.assignments, now);
+  const myAssignments = operableAssignments.filter(
     (assignment) => getDutyMembershipId(assignment) === myMembershipId,
   );
-  return { futureAssignments, myAssignments };
+  return { operableAssignments, myAssignments };
 }
 
 export function groupAssignmentsByDutyMember(

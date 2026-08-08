@@ -13,6 +13,7 @@ import {
   getWeekLabel,
   getWeekStartDate,
   groupAssignmentsByDate,
+  isWeekend,
 } from './calendar-views.js';
 
 function assignment(businessDate: string, slotPosition = 1): CalendarDutyAssignment {
@@ -105,6 +106,13 @@ describe('Calendar view helpers', () => {
     expect(days[0]?.weekdayLabel).toBe('周一');
     expect(days[1]?.businessDate).toBe('2026-08-05');
     expect(days[1]?.isToday).toBe(false);
+  });
+
+  it('detects weekends and weekdays', () => {
+    expect(isWeekend('2026-08-08')).toBe(true);
+    expect(isWeekend('2026-08-09')).toBe(true);
+    expect(isWeekend('2026-08-10')).toBe(false);
+    expect(isWeekend('2026-08-03')).toBe(false);
   });
 
   it('orders multiple shift types on the same day by shift start time', () => {

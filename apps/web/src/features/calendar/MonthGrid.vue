@@ -14,7 +14,7 @@ import {
   isPastBusinessDate,
   type CalendarGridWeek,
 } from './calendar-logic.js';
-import { groupAssignmentsByDate } from './calendar-views.js';
+import { groupAssignmentsByDate, isWeekend } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
 
 const props = defineProps<{
@@ -79,7 +79,11 @@ function isSoleDuty(date: string | undefined): boolean {
     aria-label="排班日历"
   >
     <div class="weekday-row" aria-hidden="true">
-      <span v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']" :key="weekday">
+      <span
+        v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']"
+        :key="weekday"
+        :class="{ 'is-weekend': weekday === '六' || weekday === '日' }"
+      >
         {{ weekday }}
       </span>
     </div>
@@ -93,6 +97,7 @@ function isSoleDuty(date: string | undefined): boolean {
           'is-staged': cell !== null && highlightedDates?.has(cell.businessDate) === true,
           'is-past': cell !== null && isPastBusinessDate(cell.businessDate, today ?? ''),
           'is-today': cell?.businessDate === today,
+          'is-weekend': cell !== null && isWeekend(cell.businessDate),
         }"
         :data-today="cell?.businessDate === today ? 'true' : undefined"
         :aria-current="cell?.businessDate === today ? 'date' : undefined"
@@ -224,6 +229,10 @@ function isSoleDuty(date: string | undefined): boolean {
 
 .day-cell.is-past .day-number {
   color: #4b5563;
+}
+
+.day-cell.is-weekend .day-number {
+  color: var(--ui-color-weekend);
 }
 
 .day-cell.is-past :deep(.duty-name),

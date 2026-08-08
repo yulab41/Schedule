@@ -10,7 +10,7 @@ import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
 import { getDutyMemberName, getDutyMembershipId } from '../calendar/calendar-logic.js';
 import {
-  buildFutureCandidateAssignments,
+  buildOperableCandidateAssignments,
   getWorkflowNextStatusDescription,
   getWorkflowStatusLabel,
   resolveNextWorkflowStatus,
@@ -26,11 +26,11 @@ export function buildDutyAdjustmentCandidates(
   calendar: CalendarReadModel,
   myMembershipId: string,
 ): DutyAdjustmentCandidateOptions {
-  const { futureAssignments, myAssignments } = buildFutureCandidateAssignments(
+  const { operableAssignments, myAssignments } = buildOperableCandidateAssignments(
     calendar,
     myMembershipId,
   );
-  const adminShiftOptions = futureAssignments.filter(
+  const adminShiftOptions = operableAssignments.filter(
     (assignment) => getDutyMembershipId(assignment) !== undefined,
   );
   const overtimeOptions = calendar.members.filter(

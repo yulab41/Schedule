@@ -181,6 +181,15 @@ async function assertManualScheduleDefaultStartDate(page) {
   }
 }
 
+async function assertWeekendCalendarHighlight(page) {
+  const weekendNumber = page.locator('.day-cell.is-weekend .day-number').first();
+  await weekendNumber.waitFor({ state: 'visible', timeout: 15000 });
+  const color = await weekendNumber.evaluate((element) => getComputedStyle(element).color);
+  if (color !== 'rgb(194, 24, 91)') {
+    fail(`周末日期未使用樱桃红，当前颜色：${color}。`);
+  }
+}
+
 async function runSmoke() {
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
@@ -216,6 +225,7 @@ async function runSmoke() {
     await waitForBodyText(page, '手动排班', 15000);
     assertNoErrors(errors, '管理员模式');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '2-admin.png') });
+    await assertWeekendCalendarHighlight(page);
     await assertManualScheduleDefaultStartDate(page);
 
     step('3/6 退出管理员');

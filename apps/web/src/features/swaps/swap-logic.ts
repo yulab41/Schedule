@@ -10,7 +10,7 @@ import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
 import { getDutyMemberName } from '../calendar/calendar-logic.js';
 import {
-  buildFutureCandidateAssignments,
+  buildOperableCandidateAssignments,
   getWorkflowNextStatusDescription,
   getWorkflowStatusLabel,
   groupAssignmentsByDutyMember,
@@ -27,11 +27,11 @@ export function buildSwapCandidates(
   calendar: CalendarReadModel,
   myMembershipId: string,
 ): SwapCandidateOptions {
-  const { futureAssignments, myAssignments } = buildFutureCandidateAssignments(
+  const { operableAssignments, myAssignments } = buildOperableCandidateAssignments(
     calendar,
     myMembershipId,
   );
-  const assignmentsByTarget = groupAssignmentsByDutyMember(futureAssignments);
+  const assignmentsByTarget = groupAssignmentsByDutyMember(operableAssignments);
   const targetOptions = calendar.members.filter(
     (member) =>
       member.membershipId !== myMembershipId && assignmentsByTarget.has(member.membershipId),

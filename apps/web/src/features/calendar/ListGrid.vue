@@ -7,7 +7,7 @@ import type {
 import { computed } from 'vue';
 
 import { getDutyMembershipId, getHolidayShortLabel, isPastBusinessDate } from './calendar-logic.js';
-import { buildDayList } from './calendar-views.js';
+import { buildDayList, isWeekend } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
 
 const props = defineProps<{
@@ -56,6 +56,7 @@ function isSoleDuty(assignments: readonly CalendarDutyAssignment[]): boolean {
       :class="{
         'is-past': isPastBusinessDate(day.businessDate, props.today),
         'is-today': day.isToday,
+        'is-weekend': isWeekend(day.businessDate),
       }"
       :aria-current="day.isToday ? 'date' : undefined"
     >
@@ -126,6 +127,11 @@ function isSoleDuty(assignments: readonly CalendarDutyAssignment[]): boolean {
 .day-row.is-past .day-header,
 .day-row.is-past .day-header strong {
   color: #4b5563;
+}
+
+.day-row.is-weekend .day-header strong,
+.day-row.is-weekend .day-header span:not(.today-badge):not(.holiday-tag) {
+  color: var(--ui-color-weekend);
 }
 
 .day-row.is-past :deep(.duty-name),

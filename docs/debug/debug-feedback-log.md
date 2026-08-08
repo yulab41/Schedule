@@ -1024,3 +1024,13 @@
 - 先失败证据：新断言对旧线上包经 `http://localhost:8080`（备案维护期 SSH 隧道自测入口）执行失败：手动排班开始日期默认值应为今天 2026-08-08，实际为 2026-08-01。
 - 验证：`pnpm verify` 596/596 ✅（73 个测试文件，隔离 MySQL）；本地开发冒烟通过；部署后 `SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（登录/管理员/成员/访客全流程 + 新日期断言）。
 - 状态：#N17 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。
+
+### fix-progress 轮次 58（N18 换班/加扣班开放当日 + 日历周末樱桃红，2026-08-08）
+
+- 目标/需求：用户确认——换班/加扣班按“今天或之后”开放当日（昨天及更早已过日期仍禁止）；日历周六/周日日期数字与星期文字使用樱桃红 `#C2185B`，不加“六/日”文字标识，所有日历视图统一生效。
+- 根因/当前行为：前端 `workflow-logic.ts` 的 `isFutureAssignment` 用 `startsAt > now` 判断，今天已开始的班次不会进入候选；后端换班/加扣班 `assertFutureShift` 同样拒绝今天已开始的班次；日历组件未区分周末。
+- 修改文件：`workflow-logic.ts`（改为 `isOperableAssignment`/`filterOperableAssignments`/`buildOperableCandidateAssignments`，按业务日期“今天或之后”判断）；`swap-logic.ts`/`duty-adjustment-logic.ts` 跟随；`swap-service.ts`/`duty-adjustment-service.ts` 的 `assertFutureShift` 改为按 `isPastBusinessDate` 拒绝并提示“排班补录”；`calendar-views.ts` 新增 `isWeekend`；`MonthGrid.vue`/`WeekGrid.vue`/`ListGrid.vue`/`ManualGrid.vue` 增加周末樱桃红样式；`packages/ui-tokens/src/tokens.ts` 新增 `weekend: '#C2185B'` 并重新生成 `tokens.css`；`scripts/smoke-browser.mjs` 新增周末樱桃红断言。
+- 测试：`workflow-logic.spec.ts` 显式时钟锁定今天包含、过去排除、未来包含；`calendar-views.spec.ts` 新增 `isWeekend`；换班/加扣班集成测试新增“今天已开始班次可操作、已过日期拒绝”；`tokens-css.test.ts` 保持生成器一致。
+- 验证：`pnpm verify` 601 项总测试（372 passed / 229 skipped，73 个测试文件）通过；定向换班/加扣班集成测试 4/4 通过。
+- 运行/浏览器验证：本地 `pnpm smoke:browser` 通过；已同步 `apps/web/dist` 与 `apps/api/dist` 到服务器并重建容器，API 服务文件 MD5 与本地一致，`SMOKE_BASE_URL=http://localhost:8080 pnpm smoke:browser` 通过（登录/管理员/成员/访客全流程 + 周末樱桃红断言）。
+- 状态：#N18 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。

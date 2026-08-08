@@ -125,6 +125,12 @@ export function getWeekdayLabel(businessDate: string): string {
   return `周${['一', '二', '三', '四', '五', '六', '日'][weekday]}`;
 }
 
+export function isWeekend(businessDate: string): boolean {
+  const { day, month, year } = parseBusinessDate(businessDate);
+  const weekday = (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7;
+  return weekday === 5 || weekday === 6;
+}
+
 export function groupAssignmentsByDate(
   assignments: readonly CalendarDutyAssignment[],
 ): ReadonlyMap<string, readonly CalendarDutyAssignment[]> {
