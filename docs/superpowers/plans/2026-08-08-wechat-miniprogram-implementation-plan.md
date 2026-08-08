@@ -146,7 +146,7 @@ packages/contracts/src/wechat.ts
 
 1. 签发/校验 HMAC 令牌：payload `{ openid, sub, exp }`；过期、篡改、密钥缺失一律 401。
 2. 登录：exchangeCode → 按 `wechat_openid` 查用户；不存在则创建 `cloudbase_uid='wx_'+openid` 与空资料（未填真实姓名前允许会话但资料接口 404）；返回 `{ token, isNewUser, profile? }`。
-3. 会话重签：提供 `issueSessionForUser(userId, openid)`，供任务 5 空账号合并后签发新令牌。
+3. 会话重签：提供 `issueSessionForUser(userId, openid)`，供任务 5 全量合并后签发新令牌。
 4. AuthPort：按 openid 解析用户；mock/dev 令牌兼容保留；生产 AUTH_DEV_MODE=false。
 5. 审计：登录（新用户）。
 

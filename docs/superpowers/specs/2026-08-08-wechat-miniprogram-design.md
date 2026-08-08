@@ -292,7 +292,7 @@ apps/miniprogram/
 
 ## 14. 测试与验收
 
-- 后端：微信网关 mock 单测；认证/邀请（含未认领绑定、已认领空账号合并、非空账号 409）/访客 key/群码/订阅投递集成测试；`pnpm verify` 全绿；涉及 contracts 改动运行 `pnpm smoke:check-core`。
+- 后端：微信网关 mock 单测；认证/邀请（含未认领绑定、已认领全量合并、同群重复身份 409、管理员账号 409）/访客 key/群码/订阅投递集成测试；`pnpm verify` 全绿；涉及 contracts 改动运行 `pnpm smoke:check-core`。
 - 小程序：`tsc` 类型检查、ESLint；DevTools 模拟器与真机预览清单（登录、绑定、扫码、邀请、审批、提醒订阅、日历三视图、深色模式）。
 - 回归：Web 端访客目录下线后浏览器冒烟更新断言；核心链路改动按 AGENTS.md 执行 `pnpm smoke:browser`。
 - 验收清单见实施计划任务 15。
