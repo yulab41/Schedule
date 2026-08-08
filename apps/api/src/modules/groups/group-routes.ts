@@ -152,14 +152,10 @@ export function registerGroupRoutes(
     },
   );
 
-  app.post(
-    '/groups/:groupId/leave',
-    { preHandler: app.authenticate },
-    async (request, reply) => {
-      await membershipService.leaveGroup(getAuthenticatedIdentity(request), parseGroupId(request));
-      return reply.code(204).send();
-    },
-  );
+  app.post('/groups/:groupId/leave', { preHandler: app.authenticate }, async (request, reply) => {
+    await membershipService.leaveGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+    return reply.code(204).send();
+  });
 
   app.get('/groups/:groupId/members', { preHandler: app.authenticate }, async (request) =>
     membershipService.listMembers(getAuthenticatedIdentity(request), parseGroupId(request)),
@@ -273,15 +269,12 @@ export function registerGroupRoutes(
     ),
   );
 
-  app.put(
-    '/groups/:groupId/name',
-    { preHandler: app.authenticate },
-    async (request) =>
-      groupService.updateName(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseUpdateGroupNameInput(request.body),
-      ),
+  app.put('/groups/:groupId/name', { preHandler: app.authenticate }, async (request) =>
+    groupService.updateName(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseUpdateGroupNameInput(request.body),
+    ),
   );
 
   app.get('/groups/dissolved', { preHandler: app.authenticate }, async (request) =>
@@ -325,14 +318,10 @@ export function registerGroupRoutes(
     return reply.code(204).send();
   });
 
-  app.post(
-    '/groups/:groupId/restore',
-    { preHandler: app.authenticate },
-    async (request, reply) => {
-      await groupService.restoreGroup(getAuthenticatedIdentity(request), parseGroupId(request));
-      return reply.code(204).send();
-    },
-  );
+  app.post('/groups/:groupId/restore', { preHandler: app.authenticate }, async (request, reply) => {
+    await groupService.restoreGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+    return reply.code(204).send();
+  });
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

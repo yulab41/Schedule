@@ -96,9 +96,7 @@ function selectGroupTab(groupId: string | undefined): void {
       <section v-if="currentGroup() !== undefined" class="current-group-workbench">
         <h2>{{ currentGroup()?.name }}</h2>
         <div
-          v-if="
-            currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator'
-          "
+          v-if="currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator'"
           class="workbench-actions"
         >
           <t-button variant="outline" size="small" @click="exportDialogVisible = true">

@@ -40,9 +40,7 @@ export const workbenchNavItems: readonly WorkbenchNavItem[] = [
 const primaryMobileTabIds: readonly WorkbenchTabId[] = ['calendar', 'leave', 'swap', 'duty'];
 
 export function getVisibleNavItems(role: GroupRole): readonly WorkbenchNavItem[] {
-  const base = workbenchNavItems.filter(
-    (item) => !item.requiresAdministrator || role !== 'member',
-  );
+  const base = workbenchNavItems.filter((item) => !item.requiresAdministrator || role !== 'member');
   if (role === 'guest') {
     return base.filter((item) => item.id === 'calendar' || item.id === 'groups');
   }

@@ -110,9 +110,7 @@ export class MembershipService {
       const groupMembershipsForGroup = memberships.filter(
         (membership) => membership.groupId === group.id,
       );
-      const active = groupMembershipsForGroup.find(
-        (membership) => membership.userId === user.id,
-      );
+      const active = groupMembershipsForGroup.find((membership) => membership.userId === user.id);
       if (active !== undefined) {
         return {
           ...group,

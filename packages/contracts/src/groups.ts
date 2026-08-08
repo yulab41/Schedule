@@ -5,7 +5,10 @@ export type GroupRole = z.infer<typeof groupRoleSchema>;
 
 export const groupSummarySchema = z
   .object({
-    groupCode: z.string().regex(/^\d{4}$/u).optional(),
+    groupCode: z
+      .string()
+      .regex(/^\d{4}$/u)
+      .optional(),
     id: z.string().min(1),
     name: z.string().min(1),
     role: groupRoleSchema,

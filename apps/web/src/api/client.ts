@@ -352,10 +352,7 @@ export interface ApiClient {
   updateGroupName(groupId: string, input: UpdateGroupNameRequest): Promise<GroupSummary>;
   listDissolvedGroups(): Promise<DissolvedGroup[]>;
   restoreGroup(groupId: string): Promise<void>;
-  getGroupGuestCalendar(
-    groupId: string,
-    businessMonth: string,
-  ): Promise<GuestCalendarReadModel>;
+  getGroupGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   lookupClaimMatches(groupId: string, realName: string): Promise<MembershipClaimLookupResponse>;
   createMembershipClaimRequest(
     groupId: string,

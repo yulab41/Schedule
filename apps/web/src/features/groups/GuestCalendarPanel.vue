@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { ConfirmedHolidayDate, GroupSummary, GuestCalendarReadModel } from '@schedule/contracts';
+import type {
+  ConfirmedHolidayDate,
+  GroupSummary,
+  GuestCalendarReadModel,
+} from '@schedule/contracts';
 import { ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';

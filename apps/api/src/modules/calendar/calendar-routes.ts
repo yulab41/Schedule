@@ -40,15 +40,12 @@ export function registerCalendarRoutes(app: FastifyInstance, calendarQuery: Cale
       ),
   );
 
-  app.get(
-    '/groups/:groupId/guest-calendar',
-    { preHandler: app.authenticate },
-    (request) =>
-      calendarQuery.readLoggedInGuestMonth(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseBusinessMonth(request.query),
-      ),
+  app.get('/groups/:groupId/guest-calendar', { preHandler: app.authenticate }, (request) =>
+    calendarQuery.readLoggedInGuestMonth(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseBusinessMonth(request.query),
+    ),
   );
 
   app.get('/guest/groups', () => calendarQuery.listGuestGroups());
