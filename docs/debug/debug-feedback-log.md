@@ -1058,3 +1058,11 @@
 - 修改文件：`MonthGrid.vue`（新增 `.weekday-row span.is-weekend` 红色规则）；`scripts/smoke-browser.mjs`（增加顶部“六/日”列名红色断言）。
 - 验证：`pnpm verify` 603 项总测试（49 个测试文件，隔离 MySQL）通过；本地冒烟通过；服务器已同步 web dist 并重建 web 容器；`http://localhost:8080` 冒烟通过（含顶部列名断言）。
 - 状态：#N21 ✅（已完成，含运行验证；已同步服务器，待用户强刷复核）。
+
+### 新需求批次 A（群组管理 / 访客加入退出重加入 / 事件导航，2026-08-08）
+
+- 目标/需求：用户确认六项决策——访客加入与公开访客页共存；成员/管理员退出后历史与联系方式保留、名单变“未认领”、不再收通知、重加入恢复原身份；已离开成员的访客加入不可选；普通成员仅隐藏“事件”导航；解散后 30 天内原群主可恢复；改名/改码仅群主。
+- 修改文件（批次 A 任务 1–3）：`migrations/0032_add_guest_membership_role.sql` + `_journal.json`（role 增加 guest）；`packages/database/src/schema/index.ts`；`packages/contracts/src/groups.ts`（guest 枚举、catalog/改名/已解散 schema、groupSummary.groupCode 对 guest 可选）；`permission-service.ts`（新增 updateGroupName/restoreGroup/viewGuestCalendar 与 guest 映射）；`group-routes.ts`（catalog/join-guest/leave/name/dissolved/restore）；`membership-service.ts`（listCatalog/joinAsGuest/leaveGroup/占位绑定，成员列表排除 guest、guest 摘要不含群组码）；`group-service.ts`（updateName/listDissolved/restoreGroup）。
+- 测试：迁移测试 11/11（含 guest 角色可写入）；契约测试 4/4；群组相关集成测试 30/30（访客加入/退出/重加入、成员退出变未认领后重加入恢复角色、群主退出拒绝、改名权限、解散/恢复、guest 摘要无群组码）；`pnpm --filter @schedule/api typecheck` 与 build 通过。
+- 运行/浏览器验证：pnpm smoke:browser 通过（登录/管理员/成员/访客全流程无浏览器错误）；本轮为 contracts 核心链路改动补录本记录。
+- 状态：批次 A ✅（已实现并含运行验证；前端尚未改动，无需用户强刷；批次 B/C 待执行）。
