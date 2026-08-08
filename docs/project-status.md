@@ -4,7 +4,7 @@
 
 ## Current Position
 
-- 2026-08-08（部署轮 55）：新 ECS `120.77.220.79` 全新部署完成（Docker Compose：Nginx + Fastify + MySQL；2G swap、容器内存上限、gzip/浏览器缓存、日志轮转、监控与定时加密备份 cron 已落地）；已建示例群组并通过 SSH 隧道完成浏览器冒烟；公网 80 待用户在阿里云安全组放行后复核；旧试用机 `8.148.183.46` 保留为历史环境
+- 2026-08-08（部署轮 55）：新 ECS `120.77.220.79` 全新部署完成（Docker Compose：Nginx + Fastify + MySQL；2G swap、容器内存上限、gzip/浏览器缓存、日志轮转、监控与定时加密备份 cron 已落地）；公网 80 已放行并通过公网浏览器冒烟；已建示例群组；服务器残留已清理；旧试用机 `8.148.183.46` 保留为历史环境
 - Last updated: 2026-08-08
 - Branch: `main` / Upstream: `origin/main`
 - Target: Doctor Scheduling Web 1.0（`v1.0.0` 已发布）
@@ -152,7 +152,7 @@
 
 ## Known Environment State（关键信息；详细命令见 aliyun-ecs.md）
 
-- 新 ECS `120.77.220.79`（实例 i-wz98vjgval1ptp4e8hb0，2 vCPU/2 GiB/40G，Ubuntu 22.04，Docker 预装）：公钥登录 `root@120.77.220.79`；部署目录 `/opt/schedule`；入口 `http://120.77.220.79`（未配 HTTPS/域名；公网 80 当前返回 502/无响应，待安全组放行后复核）
+- 新 ECS `120.77.220.79`（实例 i-wz98vjgval1ptp4e8hb0，2 vCPU/2 GiB/40G，Ubuntu 22.04，Docker 预装）：公钥登录 `root@120.77.220.79`；部署目录 `/opt/schedule`；入口 `http://120.77.220.79`（未配 HTTPS/域名；公网 80 已放行并通过验证）
 - 隔离测试库：`infra/docker/compose.test.yml` 将数据目录挂为 1GB tmpfs 并关闭 binlog（`--disable-log-bin`），已消除 512MB 顶满导致的 MySQL `ABORT_SERVER` 崩溃（2026-08-07 实测，轮次 50 加固）；全量验证前仍建议 `docker compose --env-file .env -f infra/docker/compose.test.yml down --volumes` 重置，Docker 空间不足时先 `docker builder prune -a -f`（Build Cache 曾占 56.9GB）。
 - 阿里云 ECS 试用机：`8.148.183.46`（Ubuntu 22.04，Docker 预装，1.6G 内存）；入口 `http://8.148.183.46`（未配置 HTTPS/域名）；部署方式见 `docs/deployment/aliyun-ecs.md`；试用期 API 以 `NODE_ENV=development + AUTH_DEV_MODE=true` 运行（开发模式认证）。
 - 阿里云 MySQL：ECS 上 MySQL 8.4 容器（命名卷 `schedule_mysql_data`）；开发期单账号 `schedule_app` 全局授权；正式化需专用最小权限账号。原腾讯云 CynosDB `schedule_dev` 数据如需迁移，另行确认凭据后执行。

@@ -79,8 +79,25 @@
 
 ## 七、环境速查
 
-- SSH：`ssh -i "$env:USERPROFILE\.ssh\aliyun_schedule" root@8.148.183.46`
+- SSH（旧试用机）：`ssh -i "$env:USERPROFILE\.ssh\aliyun_schedule" root@8.148.183.46`
+- SSH（新 ECS）：`ssh -i "$env:USERPROFILE\.ssh\aliyun_schedule" root@120.77.220.79`
 - 部署目录：`/opt/schedule`（web 挂 `apps/web/dist`；api 挂 `apps/api/dist` + `packages/*/dist` + `runtime/api-flat/node_modules`，见 compose.prod.yml）
 - `.env.production`：服务器手工维护，含数据库密码；改动后检查是否残留已删除功能的变量
 - 数据库迁移：线上库已到 0031；含新迁移的发布必须先跑 `node apps/api/dist/migrate.js` 再重启 api
 - 回滚：旧产物保留为 `*.old-20260808*`，确认稳定后再清理
+
+## 八、2026-08-08 新机部署踩坑补充（全新部署实战）
+
+1. `docker compose pull mysql nginx` 报 `no such service: nginx`：compose 服务名是 `web`，应写 `pull mysql web`。
+2. 引导脚本自我覆盖：bootstrap 先解包再执行自身；直接从 `/opt/schedule` 运行可能继续执行旧缓冲内容，应先把脚本复制到 `/tmp` 再运行。
+3. 2G 服务器不能构建完整 API 镜像（Dockerfile.api 含 pnpm install + tsc + vite 会卡死）：改用 `Dockerfile.api-runtime`（node:24-slim + tzdata/ca-certificates），代码/依赖全部由宿主机挂载。
+4. 平铺依赖树里的 `@schedule/database` 默认迁移目录解析为 `node_modules/migrations`（不是 `/app/migrations`，也不是 `@schedule/migrations`）：bootstrap 必须把 `migrations/` 复制到 `runtime/api-flat/node_modules/migrations`，否则报 `Can't find meta/_journal.json`。
+5. 不要在只读 bind mount 内部再挂载子路径（Docker 无法创建挂载点，报 read-only file system）：自包含复制优于嵌套挂载。
+6. `migrate.js` 吞掉真实错误（只打印 `Database migration failed.`）：排查时用 `node --input-type=module -e` 直接调 `migrateDatabase` 并打印 error。
+7. 全新空库没有开发账号：平台管理接口会返回 404 `当前账号尚不可用`；bootstrap 先 `POST /api/users` 创建 `local-admin`/`local-member` 再确认节假日。
+8. 全新空库浏览器冒烟会在“排班日历”等待超时：没有群组时工作台只有创建/加入群组；需至少建一个群并让管理员/成员加入。
+9. PowerShell→SSH 仍会吞引号：一律用 LF 结尾的 here-string 管道给 `bash -s`；含中文的 JSON 经管道会变 `?`，群名等中文可用 SQL hex（UTF-8）修正。
+10. 外部 80 打不开但本机 200：先查阿里云安全组入方向是否放行 80；可用实例元数据 `http://100.100.100.200/latest/meta-data/eipv4` 确认公网 IP 绑定。
+11. 部署后清理残留：`/tmp/schedule-deploy-*.tar.gz`、`/tmp/ecs-bootstrap*.sh`、多余的 `node_modules/@schedule/migrations` 副本，以及 `docker builder prune -f`。
+12. pnpm 依赖状态过期报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`：先 `pnpm install` 再跑 prettier/verify。
+13. 本机 tar 目标路径变量写错（值带 `TMPDIR=` 前缀）会在仓库根生成名为 `-C` 的大文件：打包脚本必须校验路径变量后再执行。

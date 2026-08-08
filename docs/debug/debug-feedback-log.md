@@ -1000,3 +1000,4 @@
 - 修改文件：`infra/docker/compose.prod.yml`（容器内存上限、json-file 日志轮转、holiday 导入挂载）；`infra/docker/nginx.prod.conf`（gzip、静态资源浏览器缓存）；新增 `infra/scripts/ecs-bootstrap.sh`、`schedule-monitor.sh`、`schedule-backup.sh`；`docs/deployment/ecs-deployment-pitfalls.md` 新增“部署前必读：2G 小机器资源铁律”；`docs/deployment/aliyun-ecs.md` 新增一键全新部署说明与新机信息。
 - 验证：`pnpm build` 通过；`runtime/api-flat` 重新生成并本地模拟部署路径启动，`/health` 返回 200；服务器 bootstrap 后本机 `/` 与 `/api/health` 均 200；2026 节假日导入并确认成功；已建示例群组并通过 SSH 隧道完成 `pnpm smoke:browser`（管理员/成员/访客全流程无浏览器错误）；公网 80 待安全组放行后复核。
 - 状态：服务器侧部署完成，待公网放行后用户复核；OSS 备份推送待 ossutil 与凭据配置。
+- 补充（用户已放行 80/443）：公网 `http://120.77.220.79/` 与 `/api/health` 均 200；公网入口 `pnpm smoke:browser` 通过；服务器残留已清理（/tmp 部署包与脚本、多余的 `@schedule/migrations` 副本、可回收构建缓存）；本轮踩坑已沉淀至 `docs/deployment/ecs-deployment-pitfalls.md` 第八节。
