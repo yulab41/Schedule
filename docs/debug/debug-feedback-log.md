@@ -1348,3 +1348,10 @@
 - 现象：`http://hosp.schedule.eylinhome.top/` 返回阿里云 ICP 备案拦截页；`https://hosp.schedule.eylinhome.top/` 浏览器可正常打开部署网页。
 - 判定：80 端口是阿里云对未备案域名的统一拦截（与本地 Nginx/维护模式无关，`icp-maintenance.sh` 当前为 off）；443 对浏览器类客户端当前可达。该现象与既有“TLS 指纹选择性拦截”记录互相独立——小程序网络栈走 443 仍可能被重置，模拟器/真机联调继续以本地 API 为准；备案通过后 80 拦截应自动解除。
 - 状态：已记录；不影响当前小程序联调路径。
+
+### 小程序重制计划（Web 全量移植）已批准（2026-08-08）
+
+- 用户确认：小程序按当前 Web 最新版功能面重写（目标可弃用 Web），平台运维控制台搬入小程序；备份下载仅列表；UI 从零绘制，禁止在旧小程序页面/组件上打补丁；内核同一套（apps/api + contracts + database + scheduling-domain），Web 前端纯逻辑直接搬运并带等价单测。
+- 文档：基准设计 `docs/superpowers/specs/2026-08-08-wechat-miniprogram-web-port-design.md`、实施计划 `docs/superpowers/plans/2026-08-08-wechat-miniprogram-web-port-implementation-plan.md`、移植清单 `docs/miniprogram-web-port-checklist.md`。
+- 决策：平台管理员入口 = 最小后端扩展 `GET /platform/me`（只读、不改权限判定）；备份只做列表不下载；旧实施计划任务 13 轮值/自动生成内容作废；测试方案改为分层（快层/内核层/集成层/冒烟层），小程序只新增搬运逻辑单测 + 模拟器冒烟，不新增 UI 单测框架。
+- 执行方式：新对话 Codex goal 模式，按计划批次 A→E 一次性完成，每批提交并更新清单。
