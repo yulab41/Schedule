@@ -368,18 +368,10 @@ function roleLabel(role: GroupSummary['role']): string {
           <t-button variant="outline" :loading="isSavingName" @click="saveGroupName">
             保存名称
           </t-button>
-          <t-button
-            variant="outline"
-            :loading="isRegeneratingCode"
-            @click="regenerateCode"
-          >
+          <t-button variant="outline" :loading="isRegeneratingCode" @click="regenerateCode">
             重新生成群组码
           </t-button>
-          <t-button
-            theme="danger"
-            variant="outline"
-            @click="dissolveConfirmVisible = true"
-          >
+          <t-button theme="danger" variant="outline" @click="dissolveConfirmVisible = true">
             解散群组
           </t-button>
         </t-space>
