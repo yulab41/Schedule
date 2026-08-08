@@ -163,6 +163,11 @@ server {
 }
 EOF
 
+if ! grep -q "443:443" "$COMPOSE_FILE"; then
+  echo "[https] 在 compose 中补上 443 端口映射"
+  sed -i "/- '80:80'/a\      - '443:443'" "$COMPOSE_FILE"
+fi
+
 echo "[https] 重建 web 容器以加载证书挂载与 HTTPS 配置"
 docker compose --env-file .env.production -f "$COMPOSE_FILE" up -d --force-recreate web
 

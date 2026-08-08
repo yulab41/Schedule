@@ -2,9 +2,9 @@
 
 ## 当前状态（2026-08-08）
 
-- 入口：阿里云 ECS 公网 IP `http://120.77.220.79`（Nginx 容器 :80），公网已验证。
-- 域名：用户已有阿里云已使用域名；待提供具体域名与子域名后绑定本项目。
-- HTTPS：**未配置**；`infra/scripts/enable-https.sh` 已就绪，可自动申请 Let's Encrypt 免费证书。
+- 入口：`https://hosp.schedule.eylinhome.top`（HTTPS 已验证，HTTP 自动跳转 HTTPS）；公网 IP `http://120.77.220.79` 保留为备用 HTTP 入口。
+- 域名：`hosp.schedule.eylinhome.top` 已绑定本项目（A 记录 → `120.77.220.79`）。
+- HTTPS：已启用 Let's Encrypt 免费证书（2026-11-06 到期，certbot 自动续期），HTTP/2 已开启。
 - 同域路由：`/` → Nginx 静态托管，`/api/*` → Fastify，`/api/health` 健康检查。
 
 ## 目标架构
@@ -17,6 +17,8 @@
 ```
 
 ## 绑定自定义域名与 HTTPS 的步骤
+
+> 已按以下流程完成 `hosp.schedule.eylinhome.top` 的绑定（2026-08-08）；后续新增子域名可复用。
 
 1. 用户提供域名与想用的子域名（例如 `schedule.example.com`；已用于其它网站的域名请用新子域名避免冲突）。
 2. 确认域名已完成 ICP 备案且当前 ECS 已纳入备案（见 `docs/deployment/icp-checklist.md`；阿里云大陆服务器会对未备案域名拦截 80/443）。

@@ -101,3 +101,4 @@
 11. 部署后清理残留：`/tmp/schedule-deploy-*.tar.gz`、`/tmp/ecs-bootstrap*.sh`、多余的 `node_modules/@schedule/migrations` 副本，以及 `docker builder prune -f`。
 12. pnpm 依赖状态过期报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`：先 `pnpm install` 再跑 prettier/verify。
 13. 本机 tar 目标路径变量写错（值带 `TMPDIR=` 前缀）会在仓库根生成名为 `-C` 的大文件：打包脚本必须校验路径变量后再执行。
+14. HTTPS 配置后外部握手失败：Nginx 容器内部监听 443 但 Docker 没映射 `443:443`（compose 只写了 80）；`enable-https.sh` 已自动补映射，手工部署时别漏。

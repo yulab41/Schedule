@@ -36,3 +36,6 @@ pnpm-debug.log*
 runtime/*.tar.gz
 runtime/api-sim-*/
 runtime/api-flat.old-*/
+
+# Browser smoke screenshots
+/.tmp-smoke-*/

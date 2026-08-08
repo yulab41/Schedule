@@ -1002,3 +1002,4 @@
 - 状态：服务器侧部署完成，公网已验证；备份为本地加密备份（不上 OSS）。
 - 补充（用户已放行 80/443）：公网 `http://120.77.220.79/` 与 `/api/health` 均 200；公网入口 `pnpm smoke:browser` 通过；服务器残留已清理（/tmp 部署包与脚本、多余的 `@schedule/migrations` 副本、可回收构建缓存）；本轮踩坑已沉淀至 `docs/deployment/ecs-deployment-pitfalls.md` 第八节。
 - 补充（2026-08-08）：按用户决策移除 OSS 备份/静态资源上云要求，备份仅本地加密；新增 `infra/scripts/enable-https.sh`（Let's Encrypt 免费证书 + Nginx HTTPS/HTTP2 自动配置与续期 cron）并更新 `dns-and-https.md`/`icp-checklist.md`；等待用户提供域名与子域名后执行绑定。
+- 补充（2026-08-08 域名绑定）：`hosp.schedule.eylinhome.top` A 记录已指向 120.77.220.79；证书签发成功；曾漏映射 Docker 443 端口导致握手失败，已在 compose 补 `443:443` 并沉淀到踩坑手册；`https://hosp.schedule.eylinhome.top/`、`/api/health` 均 200，HTTP 301 跳 HTTPS，IP HTTP 保留；公网 HTTPS 浏览器冒烟通过。
