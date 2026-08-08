@@ -13,7 +13,9 @@
  *   - 收集控制台/异常输出，若出现脚本级错误则以退出码 1 结束。
  *
  * 环境变量：
- *   MINIPROGRAM_SMOKE_PORT 手动指定服务端口；缺省读取开发者工具配置
+ *   MINIPROGRAM_SMOKE_PORT 手动指定服务端口；缺省读取开发者工具配置；
+ *   MINIPROGRAM_SMOKE_AUTO_WS 复用已运行的自动化会话（例如用户已手动打开工程），
+ *     跳过 cli auto 冷启动，直接连接 ws://127.0.0.1:<auto-port>。
  */
 import automator from 'miniprogram-automator';
 import { mkdirSync, readFileSync } from 'node:fs';
@@ -66,8 +68,12 @@ async function connectWithRetry(wsEndpoint, attempts = 6, delayMs = 2000) {
 }
 
 async function main() {
+  const reuseWs = process.env.MINIPROGRAM_SMOKE_AUTO_WS;
+  if (reuseWs) {
+    console.log(`[miniprogram-smoke] 复用已有自动化会话：${reuseWs}`);
+  }
   const port = Number(process.env.MINIPROGRAM_SMOKE_PORT) || findServicePort() || 0;
-  if (!port) {
+  if (!reuseWs && !port) {
     console.error('[miniprogram-smoke] 未发现已开启的服务端口，请先在 设置 → 安全设置 开启');
     process.exit(2);
   }
@@ -78,23 +84,26 @@ async function main() {
 
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-  const autoPort = await getFreePort();
-  console.log(`[miniprogram-smoke] 启用自动化：服务端口 ${port} / 自动化端口 ${autoPort}`);
-  const autoResult = runCli('auto', [
-    '--project',
-    PROJECT_DIR,
-    '--port',
-    String(port),
-    '--auto-port',
-    String(autoPort),
-    '--trust-project',
-  ]);
-  if (autoResult.status !== 0) {
-    console.error('[miniprogram-smoke] 启用自动化失败');
-    process.exit(autoResult.status ?? 1);
+  let autoPort = 0;
+  if (!reuseWs) {
+    autoPort = await getFreePort();
+    console.log(`[miniprogram-smoke] 启用自动化：服务端口 ${port} / 自动化端口 ${autoPort}`);
+    const autoResult = runCli('auto', [
+      '--project',
+      PROJECT_DIR,
+      '--port',
+      String(port),
+      '--auto-port',
+      String(autoPort),
+      '--trust-project',
+    ]);
+    if (autoResult.status !== 0) {
+      console.error('[miniprogram-smoke] 启用自动化失败');
+      process.exit(autoResult.status ?? 1);
+    }
   }
 
-  const miniProgram = await connectWithRetry(`ws://127.0.0.1:${autoPort}`);
+  const miniProgram = await connectWithRetry(reuseWs ?? `ws://127.0.0.1:${autoPort}`);
   console.log('[miniprogram-smoke] 已连接模拟器');
 
   const consoleLogs = [];

@@ -15,7 +15,7 @@
       <view class="card-title">申请列表</view>
       <t-button size="small" theme="primary" bind:tap="openCreate">新建</t-button>
     </view>
-    <view wx:for="{{kind === 'leave' ? leaveRows : kind === 'swap' ? swapRows : dutyRows}}" wx:key="id" class="list-item">
+    <view wx:for="{{activeRows}}" wx:key="id" class="list-item">
       <view class="flex-1">
         <view class="list-title">{{item.title}} · {{item.statusLabel}}</view>
         <view class="list-sub">{{item.summary}}</view>
@@ -31,7 +31,7 @@
         {{item.actionLabel}}
       </t-button>
     </view>
-    <view wx:if="{{(kind === 'leave' ? leaveRows : kind === 'swap' ? swapRows : dutyRows).length === 0}}" class="empty-state">暂无申请</view>
+    <view wx:if="{{emptyRequests}}" class="empty-state">暂无申请</view>
   </view>
   <view wx:if="{{errorMessage}}" class="error-text">{{errorMessage}}</view>
 </view>

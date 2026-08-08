@@ -1416,3 +1416,12 @@
   - 通用动效：`app.wxss` 增加 `.card--press`/`.list-item--press`/`.workbench__module--press` 按压反馈、`.view-fade-in` 视图淡入、`.list-in/.list-leave` 列表过渡，页面转场沿用系统原生滑入。
 - 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram`（16 文件 / 95 项）✅、`pnpm format:check` ✅；全量 `pnpm verify` 98 测试文件 / 755 项全绿（`NODE_ENV=test` + 隔离 MySQL）。
 - 状态：UI 动效代码完成待开发者工具模拟器复核（批次 E 第 26 行冒烟仍受 DevTools 冷启动阻塞）。
+
+### 小程序 Web 移植批次 E 完成：requests WXML 修复 + 登录轮冒烟 31/31（2026-08-09）
+
+- 用户手动导入工程后报 WXML 编译错误：`pages/requests/requests.wxml` 使用 `(kind === 'leave' ? leaveRows : ...).length === 0`，WXML 解析器不支持“括号三元后再取成员”；修复为 JS 预计算 `activeRows`/`emptyRequests`（`syncActiveRows()`），模板只做简单属性访问。
+- 登录链路：模拟器默认 `apiBaseUrl` 指向公网域名（`https://hosp.schedule.eylinhome.top/api`），被网络栈拦截报 `ERR_CONNECTION_RESET`；按既定开发模式把模拟器 storage `apiBaseUrl` 覆盖为 `http://127.0.0.1:3000`，并用 automator 验证：`wx.login` 真码 → 本地登录 200（`isNewUser:false`，林恩宇，新令牌）。
+- 冒烟：`pnpm miniprogram:smoke` 未登录轮 31/31 页面打开无脚本错误；写入会话令牌后登录轮 31/31 页面均打开**真实页面**（工作台/日历/成员/手动排班/平台页等），无脚本级错误，截图 `.tmp-miniprogram-preview/screens/`；此前开发者工具冷启动 `routeTo appLaunch timeout` 随工程信任/编译缓存与 WXML 修复解除。
+- 冒烟脚本增强：新增 `MINIPROGRAM_SMOKE_AUTO_WS` 复用已有自动化会话（用户手动打开工程后可直接附加），`MINIPROGRAM_SMOKE_PORT` 保持兼容。
+- 验证：`pnpm miniprogram:typecheck`/`lint`/`vitest run apps/miniprogram`（16 文件 / 95 项）/`format:check` ✅；全量 `pnpm verify` 98 测试文件 / 755 项全绿（隔离 MySQL）。
+- 状态：移植清单 1–26 全部打勾；批次 A–E 与 UI 优化全部完成；下一阶段：部署验收/用户强刷复核。

@@ -43,3 +43,4 @@ runtime/api-flat.old-*/
 # WeChat DevTools generated output and local preview artifacts
 apps/miniprogram/miniprogram_npm/
 /.tmp-miniprogram-preview/
+/apps/miniprogram/project.private.config.json

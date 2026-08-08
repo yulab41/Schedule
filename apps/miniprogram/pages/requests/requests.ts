@@ -37,7 +37,9 @@ interface RequestRow {
 }
 
 interface RequestsPageData {
+  readonly activeRows: readonly RequestRow[];
   readonly dutyRows: readonly RequestRow[];
+  readonly emptyRequests: boolean;
   readonly errorMessage: string;
   readonly groups: readonly GroupSummary[];
   readonly kind: RequestKind;
@@ -49,7 +51,9 @@ interface RequestsPageData {
 
 Page({
   data: {
+    activeRows: [],
     dutyRows: [],
+    emptyRequests: true,
     errorMessage: '',
     groups: [],
     kind: 'leave',
@@ -62,6 +66,7 @@ Page({
   onLoad(options: Record<string, string | undefined>) {
     const kind = options.type === 'swap' || options.type === 'duty' ? options.type : 'leave';
     this.setData({ kind });
+    this.syncActiveRows();
   },
 
   onShow() {
@@ -94,6 +99,7 @@ Page({
         selectedGroupId: selected.id,
         swapRows: swaps.map(buildSwapRow),
       });
+      this.syncActiveRows();
     } catch (error) {
       this.setData({ errorMessage: toMessage(error, '申请列表加载失败。') });
     } finally {
@@ -105,6 +111,23 @@ Page({
     const index = Number(event.detail.value ?? 0);
     const kind: RequestKind = index === 1 ? 'swap' : index === 2 ? 'duty' : 'leave';
     this.setData({ kind });
+    this.syncActiveRows();
+  },
+
+  // WXML 不支持“(三元表达式).length”这种写法，统一在 JS 侧按当前 kind
+  // 预计算当前列表与空态，模板只做简单属性访问。
+  syncActiveRows() {
+    const kind = this.data.kind;
+    const activeRows =
+      kind === 'leave'
+        ? this.data.leaveRows
+        : kind === 'swap'
+          ? this.data.swapRows
+          : this.data.dutyRows;
+    this.setData({
+      activeRows,
+      emptyRequests: activeRows.length === 0,
+    });
   },
 
   handleGroupChange(event: WechatMiniprogram.CustomEvent) {
