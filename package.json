@@ -21,6 +21,7 @@
     "load:test": "node --env-file=.env tests/load/dist/run-load-test.js",
     "miniprogram:lint": "pnpm lint",
     "miniprogram:typecheck": "pnpm --filter @schedule/miniprogram typecheck",
+    "miniprogram:config:audit": "node scripts/miniprogram-config-audit.mjs",
     "miniprogram:devtools:open": "node scripts/miniprogram-devtools.mjs open",
     "miniprogram:devtools:build-npm": "node scripts/miniprogram-devtools.mjs build-npm",
     "miniprogram:devtools:preview": "node scripts/miniprogram-devtools.mjs preview",

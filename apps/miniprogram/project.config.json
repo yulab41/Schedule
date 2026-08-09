@@ -1,38 +1,18 @@
 {
   "appid": "wx56a7a21f974fd9af",
   "compileType": "miniprogram",
-  "libVersion": "latest",
+  "libVersion": "3.16.2",
   "miniprogramRoot": "./",
   "projectname": "schedule-miniprogram",
   "setting": {
-    "enhance": true,
+    "compileWorklet": true,
     "es6": true,
     "minified": true,
-    "postcss": true,
-    "urlCheck": false,
-    "useCompilerPlugins": ["typescript"],
     "minifyWXML": true,
-    "compileWorklet": false,
-    "uglifyFileName": false,
-    "uploadWithSourceMap": true,
-    "packNpmManually": false,
-    "packNpmRelationList": [],
     "minifyWXSS": true,
-    "localPlugins": false,
-    "disableUseStrict": false,
-    "condition": false,
-    "swc": false,
-    "disableSWC": true,
-    "babelSetting": {
-      "ignore": [],
-      "disablePlugins": [],
-      "outputPath": ""
-    }
-  },
-  "simulatorPluginLibVersion": {},
-  "packOptions": {
-    "ignore": [],
-    "include": []
-  },
-  "editorSetting": {}
+    "postcss": true,
+    "uploadWithSourceMap": true,
+    "urlCheck": true,
+    "useCompilerPlugins": ["typescript"]
+  }
 }

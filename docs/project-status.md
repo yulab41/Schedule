@@ -44,6 +44,13 @@
 - 后续 V3-1 至 V3-6 只保留范围与停止条件；每阶段必须在前一检查点后依据真实代码重新生成执行计划，避免为尚不存在的文件、行号和类型制造伪精确。
 - 本轮检查点提交信息：`docs(miniprogram): harden V3 planning handoff`。
 
+### V3-0.5：Task 1 可审计跟踪配置基线
+
+- 已完成：将跟踪 `project.config.json` 固定为基础库 `3.16.2`，默认开启域名校验和 Worklet 编译；移除继承的 SWC、Babel 与机器本地开关；新增仅审计跟踪配置的 Node 工具与 3 个测试；清理忽略的 `miniprogram_npm` 与旧空目录 `pages/test`。未修改私有配置或密钥。
+- 验证：`pnpm vitest run scripts/miniprogram-config-audit.test.mjs`（1 文件 / 3 测试）通过；`pnpm miniprogram:config:audit` 通过；`pnpm miniprogram:typecheck` 通过；`pnpm exec prettier --check package.json apps/miniprogram/project.config.json scripts/miniprogram-config-audit.mjs scripts/miniprogram-config-audit.test.mjs` 通过；`git diff --check` 通过；`git check-ignore -q apps/miniprogram/project.private.config.json` 通过，且 `git ls-files --error-unmatch apps/miniprogram/project.private.config.json` 预期未命中。
+- 运行边界：V3-0.5 尚未创建 `app.json` 或页面，运行时编译与 `pnpm miniprogram:smoke` 延后至 V3-1 创建 manifest 后；本任务不宣称 Skyline、Worklet 运行时或模拟器验证完成。
+- 检查点：待提交 `chore(miniprogram): establish V3 clean build baseline`；完成后仅继续 V3-0.5 Task 2。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -64,11 +71,16 @@
 - 本地缓存只用于只读快照，不能成为排班写入源或离线提交队列。
 - V3 日历必须完整保留成员、班次、节假日和换/替/加/扣标识；同日多排班不得只取第一条。
 
-## Active Batch
+## Previous Batch
 
 1. 用户书面复核 V3 设计、交付路线图和 V3-0.5 执行计划；停止条件：用户明确批准或提出修改。
 2. 用户明确批准开始实现后，严格按 V3-0.5 执行计划完成任务 1–2；停止条件：两项任务各自测试、验证、检查点和正常推送策略执行完毕。
 3. V3-0.5 完成后停止编码，使用 `writing-plans` 生成 V3-1 执行计划并等待用户批准；不得直接依据路线图开始任务 3–5。
+
+## Active Batch
+
+1. 严格按 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md` 完成 V3-0.5 Task 2；停止条件：Task 2 的失败测试、定向验证、`pnpm smoke:browser`、`pnpm smoke:check-core`、检查点提交和正常推送策略全部完成。
+2. Task 2 完成后停止编码，使用 `writing-plans` 基于 V3-0.5 检查点生成 V3-1 执行计划并等待用户批准；不得直接依据路线图开始任务 3–18。
 
 ## Handoff Requirements
 
