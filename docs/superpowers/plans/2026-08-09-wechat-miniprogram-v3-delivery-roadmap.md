@@ -105,17 +105,17 @@
 
 ### 4.1 阶段执行计划索引
 
-| 阶段   | 执行计划                                                                                        | 状态                                |
-| ------ | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
-| V3-0.5 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md` | 可执行，待用户批准                  |
-| V3-1   | 无                                                                                              | 禁止执行；V3-0.5 检查点通过后再展开 |
-| V3-2   | 无                                                                                              | 禁止执行；V3-1 检查点通过后再展开   |
-| V3-3   | 无                                                                                              | 禁止执行；V3-2 检查点通过后再展开   |
-| V3-4   | 无                                                                                              | 禁止执行；V3-3 检查点通过后再展开   |
-| V3-5   | 无                                                                                              | 禁止执行；V3-4 检查点通过后再展开   |
-| V3-6   | 无                                                                                              | 禁止执行；V3-5 检查点通过后再展开   |
+| 阶段   | 执行计划                                                                                                         | 状态                                |
+| ------ | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| V3-0.5 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`                  | 已完成；`6d2c5fe`、`2c93859` 已推送 |
+| V3-1   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md` | 已生成，待用户批准；批准前禁止执行  |
+| V3-2   | 无                                                                                                               | 禁止执行；V3-1 检查点通过后再展开   |
+| V3-3   | 无                                                                                                               | 禁止执行；V3-2 检查点通过后再展开   |
+| V3-4   | 无                                                                                                               | 禁止执行；V3-3 检查点通过后再展开   |
+| V3-5   | 无                                                                                                               | 禁止执行；V3-4 检查点通过后再展开   |
+| V3-6   | 无                                                                                                               | 禁止执行；V3-5 检查点通过后再展开   |
 
-“无”不是遗漏或待执行占位符，而是准确表示：前一阶段尚未形成稳定代码，当前无法为后续阶段给出可信的精确文件行号、类型签名和失败输出。只有索引中标记为“可执行”的计划才具有实施授权。
+V3-2 及以后阶段的“无”不是遗漏或待执行占位符，而是准确表示：前一阶段尚未形成稳定代码，当前无法为后续阶段给出可信的精确文件行号、类型签名和失败输出。V3-1 计划须经用户明确批准后才具有实施授权；本次计划编写不授权执行任务 3。
 
 ### 4.2 设计覆盖矩阵
 
@@ -143,9 +143,15 @@
 
 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`
 
-执行模型不得依据本路线图复述或改写 V3-0.5 步骤。该阶段计划完成并通过检查点后，回到本路线图更新状态，再生成 V3-1 执行计划。
+V3-0.5 Task 1 已提交为 `6d2c5fe`，Task 2 已提交为 `2c93859`；`main` 与 `origin/main` 一致。执行模型不得重复执行或依据本路线图复述 V3-0.5 步骤。
 
 ## 6. V3-1：app-shell 和纯逻辑基础
+
+本阶段的精确文件职责、失败/通过输出、完整代码、验证矩阵、独立检查点和停止条件见：
+
+`docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`
+
+该计划当前为**待用户批准**，本轮不得执行 Task 3。批准后 Task 3、Task 4、Task 5 仍分别在独立实施对话完成并各自停止；不得因为计划已展开就连续实施三项任务。
 
 ### 任务 3：建立 V3 manifest、局部滚动壳和原生 tabBar
 
@@ -186,10 +192,11 @@
 
 - `apps/miniprogram/store/session.ts`
 - `apps/miniprogram/pages/auth/login/*`
-- `apps/miniprogram/pages/auth/register/*`
+- `apps/miniprogram/pages/auth/profile-setup/*`
+- `apps/miniprogram/pages/invite/invite.*`
 - `apps/miniprogram/pages/profile/index/*`
 - `apps/miniprogram/features/navigation/*`
-- `apps/miniprogram/api/endpoints.ts`
+- `apps/miniprogram/api/endpoints.ts`（只读，复用现有端点）
 
 步骤：
 
@@ -217,7 +224,11 @@
 - `apps/miniprogram/features/calendar/calendar-logic.test.ts`
 - `apps/miniprogram/features/calendar/calendar-view-model.ts`
 - `apps/miniprogram/features/calendar/calendar-view-model.test.ts`
-- `packages/contracts/src/calendar.ts`（仅在共享契约已确认缺口时修改）
+- `apps/miniprogram/features/calendar/calendar-page-controller.ts`
+- `apps/miniprogram/features/calendar/calendar-page-controller.test.ts`
+- `apps/miniprogram/pages/calendar/index.{ts,wxml,wxss}`
+- `apps/miniprogram/api/endpoints.ts`（只读，成员/guest 分别复用现有日历与节假日端点）
+- `packages/contracts/src/calendar.ts`（V3-1 已确认只读；发现新缺口即停止并重新规划）
 
 步骤：
 
@@ -226,10 +237,11 @@
 3. 将 API `CalendarReadModel` 和节假日结果转换为完整 VM；WXML 只消费 VM 字段和动作 ID。
 4. VM 必须包含加载、局部加载、缓存、空日、错误、无权限和冲突刷新状态。
 5. 筛选只影响展示，不改变服务端数据、排序稳定性或权限。
+6. owner/administrator/member 只调用现有受保护日历/节假日端点；guest 只调用现有 logged-in guest 日历并解包 `.calendar`、配套 guest 节假日端点；控制器测试锁定互斥调用次数与过期响应。
 
 验证：
 
-- 多排班、全名、缺失实际成员、班种颜色、节假日/调休、换/替/加标识、权限和跨月网格测试。
+- 多排班、全名、缺失实际成员、班种颜色、节假日/调休、换/替/加标识、角色端点互斥、过期响应、稳定 UI key、电话动作和跨月网格测试。
 - `pnpm miniprogram:typecheck`、`pnpm vitest run apps/miniprogram`。
 
 停止条件：固定 Web 数据集生成的 VM 与 Web 语义一致，所有纯逻辑测试通过。

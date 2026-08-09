@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理，V3 设计规范等待用户审阅，尚未开始 UI 实现。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理；V3-0.5 Task 1–2 已完成并推送，V3-1 Task 3–5 执行计划待用户复核，尚未开始 V3 UI 实现。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1487,6 +1487,7 @@
 - 运行/浏览器验证：pnpm smoke:browser 通过。
 - 小程序运行边界：V3-0.5 无 `app.json`，未运行 `pnpm miniprogram:smoke`；manifest helper 单测通过，真实模拟器遍历留给 V3-1。
 - 状态：V3-0.5 已完成；V3-1 计划生成和用户批准前停止实现。
+- 检查点：Task 2 为 `2c93859 fix(miniprogram): inject auth expiry and cover subpackages`；普通快进推送成功，Task 1 的 `6d2c5fe` 一并同步，`HEAD == origin/main == 2c93859`。
 - 行为审计：
   1. 受保护 401 清除令牌、调用一次注入回调，并拒绝原始 API 错误。
   2. 公开 401 保留令牌、不调用回调，并拒绝 API 错误。
@@ -1498,3 +1499,19 @@
   8. response/payload 断言及 `ApiClientError` 构造参数类型收窄不变。
   9. 受保护 401 清除和回调各一次，公开 401 两者均不发生；每条 manifest 路由只访问一次。
   10. tab 判断、`switchTab`/`reLaunch`、截图、等待、控制台采集与脚本错误模式不变。
+
+### V3-1：app-shell、认证与日历基础执行计划（2026-08-09）
+
+- 用户要求：本轮只为 V3-1 Task 3–5 编写详细执行计划，使用 `writing-plans`，更新路线图/状态/调试日志并创建文档检查点；明确禁止执行 Task 3。
+- skill 影响：按 `writing-plans` 标准 header、精确 File Responsibility Map、checkbox 小步骤、测试先行红绿输出、完整代码/精确修改、验证命令、停止条件和独立提交拆分；Task 3、Task 4、Task 5 规定为三个独立实施对话/检查点。
+- Git/基线：计划前工作树干净，分支 `main`，`HEAD == origin/main == 2c93859`；最近两项 V3-0.5 提交为 Task 1 `6d2c5fe`、Task 2 `2c93859`，代码、9 项定向测试和 Git 历史一致。修正了状态文档中 Task 2“待提交”及 Task 1“未推送”的陈旧记录。
+- 真实代码边界：小程序当前只有 `api`、`config`、`store` 和工程配置，没有 `app.json`、页面、组件或 VM；`endpoints.ts` 已有登录、资料创建、邀请、群组、成员/联系方式、平台、日历和节假日调用，本计划不增加端点。
+- 契约边界：邀请分享路径已固定为 `pages/invite/invite?t=...`，计划注册全新 V3 bridge；邀请成功可返回会话 token override，计划锁定“先持久化/更新会话、再清 pending token”；资料编辑 helper 缺少现有 version 契约，V3-1 只创建缺失资料，不触碰编辑。
+- 认证并发边界：计划以 store generation 使 `clear`/受保护 401 失效所有旧 restore/login/profile/invite Promise；旧请求后续 resolve/reject/finally 不得恢复 token/profile、发布错误或清除新 Promise。资料 `POST /users` 成功但角色上下文失败时保留已创建 profile，重试只加载上下文；App 与 invite 页捕获同一 pending token 只写一次。
+- 日历边界：保留 `actual* ?? planned*`、CST 时间、00:00 当日末尾、角色/slot/period/source-index 稳定排序、完整姓名/同日多排班、已确认拨号/未确认复制/无号码无入口；共享契约只有 `swap`、`leave-cover`、`overtime`，没有 marker event ID、`deduction` 或 marker 权限，本计划不补字段。
+- 日历调用边界：owner/administrator/member 使用现有受保护 calendar/holiday 端点；guest 使用现有 `getLoggedInGuestCalendar` 并解包 `.calendar`、配套 `getGuestHolidays`，互斥调用次数、同 key single-flight、过期响应、局部筛选和电话副作用由新增 controller 测试锁定。
+- VM/类型边界：week、padding/day、assignment、marker 和 phone action 都由 VM 提供稳定 ID；picker 使用显式“全部”哨兵并从 typings 声明的 selector 字符串安全收窄；Page data 显式声明 `CalendarMonthViewModel` 联合，WXML 只在对应分支读字段。
+- 官方能力门禁：计划仅依据当前微信 Skyline、glass-easel、Worklet、原生 tabBar/scroll-view/login/button/picker/switch 文档及 TDesign 1.16.0 版本化说明写结论；日历页仅页面级 Skyline/glass-easel，V3-1 无 Worklet runtime、无 TDesign render，`t-calendar` 因当前官方 renderer 表为 WebView-only 而禁用。执行时必须验证 DevTools `>= 1.06.2308142`、基础库、renderer/组件框架、原生控件；强制 WebView 仅记录兼容性，自动降级须有真实不支持客户端证据或明确未验证，设备最终恢复 Switch Render Auto。
+- 计划文件：`docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`；交付路线图阶段索引已更新为“已生成，待用户批准；批准前禁止执行”。
+- 运行/浏览器验证：本轮仅修改计划、路线图、状态和调试文档，未修改 Web/API/认证/契约/路由/构建代码；`pnpm smoke:browser` 不适用；`pnpm smoke:check-core` 通过并确认变更文件均为文档。
+- 检查点提交信息：`docs(miniprogram): plan V3-1 shell and calendar foundation`；状态：**待用户复核**，本轮停止，不执行 Task 3。

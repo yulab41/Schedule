@@ -7,8 +7,8 @@
 - 日期：2026-08-09
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
-- 小程序：V1/V2 表现层正式作废；页面、组件、旧展示工具和旧 manifest 已清理；API、微信认证配置和会话基础保留，工程身份与工具脚本待 V3-0.5 审计重建。
-- V3：用户已确认“WebView 可用基线 + 页面级渐进 Skyline”及两份 UI/UX 建议的采纳取舍；V3 设计已补入事件路由、微标签密集数据集、标识 ID、涂抹排班 Spike 和执行模型交接规则；总控路线图与 V3-0.5 可执行计划已分离，尚未开始 UI 实现。
+- 小程序：V1/V2 表现层正式作废；V3-0.5 Task 1–2 已完成，跟踪配置、401 注入点和主包/分包路由发现可审计；真实 V3 `app.json`、页面、组件和 VM 仍不存在。
+- V3：`main`、`origin/main` 与 V3-0.5 代码/历史一致；V3-1 Task 3–5 详细执行计划已生成，状态为**待用户复核**，本轮未执行 Task 3。
 
 ## Completed Batch
 
@@ -49,7 +49,7 @@
 - 已完成：将跟踪 `project.config.json` 固定为基础库 `3.16.2`，默认开启域名校验和 Worklet 编译；移除继承的 SWC、Babel 与机器本地开关；新增仅审计跟踪配置的 Node 工具与 3 个测试；清理忽略的 `miniprogram_npm` 与旧空目录 `pages/test`。未修改私有配置或密钥。
 - 验证：`pnpm vitest run scripts/miniprogram-config-audit.test.mjs`（1 文件 / 3 测试）通过；`pnpm miniprogram:config:audit` 通过；`pnpm miniprogram:typecheck` 通过；`pnpm exec prettier --check package.json apps/miniprogram/project.config.json scripts/miniprogram-config-audit.mjs scripts/miniprogram-config-audit.test.mjs` 通过；`git diff --check` 通过；`git check-ignore -q apps/miniprogram/project.private.config.json` 通过，且 `git ls-files --error-unmatch apps/miniprogram/project.private.config.json` 预期未命中。
 - 运行边界：V3-0.5 尚未创建 `app.json` 或页面，运行时编译与 `pnpm miniprogram:smoke` 延后至 V3-1 创建 manifest 后；本任务不宣称 Skyline、Worklet 运行时或模拟器验证完成。
-- 检查点：Task 1 已提交为 `6d2c5fe chore(miniprogram): establish V3 clean build baseline`；普通 `git push` 因 GitHub 连接重置失败，本地提交保留且未 force-push。
+- 检查点：Task 1 已提交为 `6d2c5fe chore(miniprogram): establish V3 clean build baseline`；该提交最初普通推送连接重置，随后随 Task 2 的正常快进推送同步至 `origin/main`，未 force-push。
 
 ### V3-0.5：Task 2 认证过期注入与分包路由覆盖
 
@@ -57,7 +57,14 @@
 - 已完成：冒烟路由发现覆盖主包与 `subPackages[].pages`，规范化后重复路由立即失败；原有 tab 判断、`switchTab`/`reLaunch`、截图、等待和控制台错误收集保持不变。
 - 验证：`pnpm vitest run apps/miniprogram/api/client.test.ts scripts/miniprogram-manifest.test.mjs scripts/miniprogram-config-audit.test.mjs`（3 文件 / 9 测试）通过；`pnpm miniprogram:config:audit`、`pnpm miniprogram:typecheck`、相应 Prettier 检查、旧登录路由扫描和 `git diff --check` 通过；`pnpm smoke:browser` 通过。
 - 运行边界：V3-0.5 仍无 `app.json`，未运行 `pnpm miniprogram:smoke`；manifest helper 的单元测试通过，真实模拟器遍历延后至 V3-1。
-- 检查点：Task 1 为 `6d2c5fe`；Task 2 待提交 `fix(miniprogram): inject auth expiry and cover subpackages`，随后仅尝试普通推送。
+- 检查点：Task 2 已提交为 `2c93859 fix(miniprogram): inject auth expiry and cover subpackages`；Task 1–2 均已通过正常快进推送同步至 `origin/main`。
+
+### V3-1：Task 3–5 执行计划
+
+- 已创建 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`，范围严格限定为 Task 3 app-shell、Task 4 会话/登录/资料/角色入口、Task 5 日期/筛选/排序/`CalendarMonthViewModel`。
+- 计划按 `writing-plans` 标准 header、精确 File Responsibility Map、checkbox 小步骤、完整代码/精确修改、测试红绿输出、官方能力门禁、开发者工具/模拟器/浏览器/核心校验适用条件和三个独立提交展开。
+- 真实边界：不恢复/参考 V1/V2；不修改 API、共享契约、权限或后端规则；现有邀请分享路径要求新建 V3 `pages/invite/invite` bridge；现有日历契约没有 marker event ID、`deduction` 或 marker 权限，V3-1 不补字段。计划以 session generation 防止 401/clear 后旧 Promise 恢复认证态，并以测试控制器锁定成员/guest 现有日历端点互斥、过期响应、局部筛选和电话副作用。
+- 检查点提交信息：`docs(miniprogram): plan V3-1 shell and calendar foundation`；状态为**待用户复核**，批准前不得执行 Task 3。
 
 ## Validation
 
@@ -66,6 +73,8 @@
 - V3-0.1 文档验证：`git diff --check` 通过；`pnpm exec prettier --check docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md` 通过。
 - V3-0.2 文档验证：设计、计划、状态和调试记录的 Prettier 检查通过；关键术语/拒绝项检索通过；`git diff --check` 通过。
 - V3-0.3 文档验证：路线图/执行计划引用、25 个 checkbox 步骤、代码围栏、禁执行边界、占位符和过期引用扫描通过；5 份文档 Prettier 检查与 `git diff --check` 通过。
+- V3-0.5 检查点复核：`HEAD == origin/main == 2c93859`、工作树起始状态干净；`pnpm vitest run apps/miniprogram/api/client.test.ts scripts/miniprogram-manifest.test.mjs scripts/miniprogram-config-audit.test.mjs` 为 3 文件 / 9 测试通过；配置审计、mini-program typecheck 和 core-smoke guard 通过。
+- V3-1 计划验证：执行计划、路线图、状态和调试日志经 Prettier、51 个 checkbox / 194 个配对代码围栏、路径/术语/占位符/类型一致性扫描与 `git diff --check` 复核；`pnpm smoke:check-core` 通过并确认仅文档变更无需浏览器冒烟；本轮不运行开发者工具或小程序模拟器。
 - 小程序模拟器/真机冒烟暂不执行：V3-0 有意删除旧 app manifest 和页面，等待 V3 实施阶段重新建立入口后再测。
 
 ## Decisions and Deviations
@@ -73,32 +82,27 @@
 - 不使用宽范围 `git reset`，避免删除 API、认证、契约和后端基础设施；通过显式删除和单一检查点提交完成清理。
 - 不新增 WeUI、Vant、ColorUI 或通用日历库；若原生能力和已有 TDesign 被证明不足，必须先完成有包体积和截图证据的 spike。
 - 不原样继承 V2 `project.config.json`、本机私有设置或旧 `miniprogram_npm`；实施第一批先完成 V3-0.5 干净构建基线。
-- 默认保持 WebView 可用，日历页先开启 Skyline/`glass-easel`/Worklet；`compileWorklet` 明确开启，但 Skyline 不凭开发者工具平均帧率直接全局扩展。
+- 默认保持 WebView 可用，V3-1 仅日历页声明 Skyline/`glass-easel`；`compileWorklet` 是跟踪编译基线，V3-1 不实现 Worklet，Skyline 不凭静态配置或平均帧率直接全局扩展。
 - 手动排班同时支持先选单元格和先锁定班种；快速填班不用全局 200ms 防抖，不逐格确认覆盖，依靠单元格级去重、撤销栈和发布前确认。
 - 涂抹排班只作为单元格优先/班种锁定通过后的独立 Spike；失败时保留点击模式，不得把实验交互当作 V3 基线。
 - 本地缓存只用于只读快照，不能成为排班写入源或离线提交队列。
-- V3 日历必须完整保留成员、班次、节假日和换/替/加/扣标识；同日多排班不得只取第一条。
+- V3 日历必须完整保留成员、班次、节假日和当前契约的换/替/加标识；`deduction` 只有未来服务端/契约实际提供且上下文允许时才能出现；同日多排班不得只取第一条。
 
 ## Previous Batch
 
-1. 用户书面复核 V3 设计、交付路线图和 V3-0.5 执行计划；停止条件：用户明确批准或提出修改。
-2. 用户明确批准开始实现后，严格按 V3-0.5 执行计划完成任务 1–2；停止条件：两项任务各自测试、验证、检查点和正常推送策略执行完毕。
-3. V3-0.5 完成后停止编码，使用 `writing-plans` 生成 V3-1 执行计划并等待用户批准；不得直接依据路线图开始任务 3–5。
-
-## Previous Batch: V3-0.5 Task 2
-
-1. 严格按 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md` 完成 V3-0.5 Task 2；停止条件：Task 2 的失败测试、定向验证、`pnpm smoke:browser`、`pnpm smoke:check-core`、检查点提交和正常推送策略全部完成。
-2. Task 2 完成后停止编码，使用 `writing-plans` 基于 V3-0.5 检查点生成 V3-1 执行计划并等待用户批准；不得直接依据路线图开始任务 3–18。
+1. V3-0.5 Task 1–2 已分别在 `6d2c5fe`、`2c93859` 完成并推送；代码、测试、状态文档和 Git 历史已在本轮重新核对。
+2. 使用 `writing-plans` 从真实 V3-0.5 检查点生成 V3-1 Task 3–5 执行计划；停止条件：只提交计划文档和索引/状态/日志更新，不执行 Task 3。
 
 ## Active Batch
 
-1. 用户复核并批准 V3-1 阶段范围；停止条件：用户明确批准或提出修改。
-2. 使用 `writing-plans` 基于 V3-0.5 检查点生成 V3-1 可执行计划；停止条件：任务 3–5 具备精确文件职责、失败测试、最小实现和提交步骤。
-3. 计划批准前不创建 `app.json`、app-shell、登录页或日历 VM。
+1. 用户复核 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`；停止条件：明确批准或提出修改。
+2. 只有用户明确批准后，新的实施对话才执行 **Task 3 一项**；停止条件：Task 3 测试、开发者工具/模拟器证据、状态/日志、独立提交和普通推送完成。
+3. Task 3 检查点前不得开始 Task 4；Task 4 检查点前不得开始 Task 5；本轮不得创建 `app.json`、app-shell、登录页或日历 VM。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
+- V3-1 唯一实施依据是已索引的阶段计划；交付路线图摘要不授权编码。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。
