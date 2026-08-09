@@ -1553,7 +1553,7 @@
 
 ### V3-1 检查点状态对账（2026-08-09）
 
-- Git 事实：`HEAD == origin/main == ce21a51`；独立 Task 3/4/5 检查点依次为 `ebfbb31 feat(miniprogram): add V3 app shell and native navigation`、`bc534c0 feat(miniprogram): add V3 auth and role routing`、`ce21a51 feat(miniprogram): add typed calendar view model`，均已正常快进推送。
+- Git 事实：V3-1 代码检查点为 `ce21a51 feat(miniprogram): add typed calendar view model`；独立 Task 3/4/5 检查点依次为 `ebfbb31 feat(miniprogram): add V3 app shell and native navigation`、`bc534c0 feat(miniprogram): add V3 auth and role routing`、`ce21a51 feat(miniprogram): add typed calendar view model`，均已正常快进推送。随后状态对账提交 `d097393 docs(miniprogram): reconcile V3-1 checkpoint status` 也已推送；当前 HEAD 以 Git 为准，不把动态 HEAD 写为 V3-1 代码检查点。
 - 状态修正：此前“Task 5 尚待创建/推送”及 Task 3/4“未推送”均为提交前记录，现已由 Git 实际状态取代。V3-1 已完成、待用户复核；不得执行 Task 6，下一步仅可基于当前检查点规划 V3-2。
 - DevTools 产物：未跟踪 `apps/miniprogram/minitest/test.config.json` 是已记录的开发者工具本地产物，不代表未完成任务，保留且不纳入提交。
 - 验证/检查点：两份文档 Prettier 与 `git diff --check` 通过；检查点提交信息：`docs(miniprogram): reconcile V3-1 checkpoint status`。

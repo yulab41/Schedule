@@ -8,7 +8,7 @@
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待用户复核。
-- V3：`HEAD == origin/main == ce21a51`。V3-1 的三个独立检查点 `ebfbb31`（Task 3）、`bc534c0`（Task 4）和 `ce21a51`（Task 5）均已正常推送。不得执行 Task 6；下一批仅可基于真实 V3-1 代码规划 V3-2。
+- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。随后状态对账提交为 `d097393`，也已推送；当前仓库 HEAD 以 Git 命令为准，避免在状态对账提交中固化会立即过期的自指 hash。不得执行 Task 6；下一批仅可基于真实 V3-1 代码规划 V3-2。
 - 状态对账：本轮仅修正 V3-1 检查点/推送与 DevTools 产物的过期记录；验证为两份文档 Prettier 与 `git diff --check`。检查点提交信息：`docs(miniprogram): reconcile V3-1 checkpoint status`。
 
 ## Completed Batch
