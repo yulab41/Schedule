@@ -31,6 +31,14 @@ export interface RequestOptions {
 const sessionStorageKey = 'schedule.session';
 const apiBaseUrlStorageKey = 'apiBaseUrl';
 
+export type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | undefined;
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | undefined): void {
+  unauthorizedHandler = handler;
+}
+
 export function getStoredToken(): string | undefined {
   const raw = wx.getStorageSync<string>(sessionStorageKey);
   if (typeof raw !== 'string' || raw.length === 0) {
@@ -77,10 +85,12 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
           return;
         }
         const payload = response.data as { error?: ApiErrorPayload } | undefined;
-        if (response.statusCode === 401) {
+        if (response.statusCode === 401 && options.auth !== false) {
           storeToken(undefined);
-          if (options.auth !== false) {
-            wx.reLaunch({ url: '/pages/login/login' });
+          try {
+            unauthorizedHandler?.();
+          } catch {
+            // The request must still reject with the original API error if navigation fails.
           }
         }
         reject(

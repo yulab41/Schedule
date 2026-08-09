@@ -24,6 +24,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { PROJECT_DIR, findServicePort, runCli } from './miniprogram-devtools-lib.mjs';
+import { listRegisteredPages } from './miniprogram-manifest.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCREENSHOT_DIR = path.join(ROOT, '.tmp-miniprogram-preview', 'screens');
@@ -80,7 +81,7 @@ async function main() {
 
   const appJson = JSON.parse(readFileSync(path.join(PROJECT_DIR, 'app.json'), 'utf8'));
   const tabPages = new Set((appJson.tabBar?.list ?? []).map((tab) => tab.pagePath));
-  const pages = appJson.pages;
+  const pages = listRegisteredPages(appJson);
 
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
 

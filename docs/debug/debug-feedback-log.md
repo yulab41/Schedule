@@ -1478,3 +1478,23 @@
 - 生成物边界：仅删除被忽略的 `miniprogram_npm` 和旧空目录 `pages/test`；私有配置与上传私钥未修改、未跟踪。
 - 运行/浏览器验证：本任务未创建 `app.json` 或页面，按 V3-0.5 边界不运行小程序页面冒烟；配置审计、类型检查和格式检查通过。
 - 状态：Task 1 已完成；下一任务仅为 V3-0.5 Task 2。
+
+### V3-0.5：Task 2 认证过期注入与分包路由覆盖（2026-08-09）
+
+- 引入点：`git log -S` 与 `git blame` 确认旧 401 页面路由由 `5c07cec feat(miniprogram): login and profile` 引入；主包-only 冒烟路由由 `9e997b2 chore(miniprogram): integrate local WeChat DevTools CLI and simulator smoke` 引入。
+- 行为变化：受保护请求 401 清除令牌并调用可注入回调；公开请求 401 不清除现有会话；回调异常不替换原始 `ApiClientError`，API 层不再导航。
+- 冒烟变化：路由发现严格遍历 `pages` 和 `subPackages[].pages`，规范化后重复路由直接报错；页面导航、截图和错误收集语义不变。
+- 运行/浏览器验证：pnpm smoke:browser 通过。
+- 小程序运行边界：V3-0.5 无 `app.json`，未运行 `pnpm miniprogram:smoke`；manifest helper 单测通过，真实模拟器遍历留给 V3-1。
+- 状态：V3-0.5 已完成；V3-1 计划生成和用户批准前停止实现。
+- 行为审计：
+  1. 受保护 401 清除令牌、调用一次注入回调，并拒绝原始 API 错误。
+  2. 公开 401 保留令牌、不调用回调，并拒绝 API 错误。
+  3. 回调失败仅在导航边界被吞掉，原始 API 错误继续被拒绝。
+  4. 冒烟路由先按主包顺序，再按分包声明顺序；规范化后的重复路由快速失败。
+  5. `wx.request({...})` 仍为成员调用，没有把现有方法改为未绑定函数。
+  6. 同一 Promise 对 2xx resolve、对 HTTP/网络失败 reject 一次；仅隔离回调异常。
+  7. `options.auth !== false`、`getStoredToken() ?? ''`、payload 可选链和默认错误值语义不变。
+  8. response/payload 断言及 `ApiClientError` 构造参数类型收窄不变。
+  9. 受保护 401 清除和回调各一次，公开 401 两者均不发生；每条 manifest 路由只访问一次。
+  10. tab 判断、`switchTab`/`reLaunch`、截图、等待、控制台采集与脚本错误模式不变。

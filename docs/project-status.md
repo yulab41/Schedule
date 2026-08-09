@@ -49,7 +49,15 @@
 - 已完成：将跟踪 `project.config.json` 固定为基础库 `3.16.2`，默认开启域名校验和 Worklet 编译；移除继承的 SWC、Babel 与机器本地开关；新增仅审计跟踪配置的 Node 工具与 3 个测试；清理忽略的 `miniprogram_npm` 与旧空目录 `pages/test`。未修改私有配置或密钥。
 - 验证：`pnpm vitest run scripts/miniprogram-config-audit.test.mjs`（1 文件 / 3 测试）通过；`pnpm miniprogram:config:audit` 通过；`pnpm miniprogram:typecheck` 通过；`pnpm exec prettier --check package.json apps/miniprogram/project.config.json scripts/miniprogram-config-audit.mjs scripts/miniprogram-config-audit.test.mjs` 通过；`git diff --check` 通过；`git check-ignore -q apps/miniprogram/project.private.config.json` 通过，且 `git ls-files --error-unmatch apps/miniprogram/project.private.config.json` 预期未命中。
 - 运行边界：V3-0.5 尚未创建 `app.json` 或页面，运行时编译与 `pnpm miniprogram:smoke` 延后至 V3-1 创建 manifest 后；本任务不宣称 Skyline、Worklet 运行时或模拟器验证完成。
-- 检查点：待提交 `chore(miniprogram): establish V3 clean build baseline`；完成后仅继续 V3-0.5 Task 2。
+- 检查点：Task 1 已提交为 `6d2c5fe chore(miniprogram): establish V3 clean build baseline`；普通 `git push` 因 GitHub 连接重置失败，本地提交保留且未 force-push。
+
+### V3-0.5：Task 2 认证过期注入与分包路由覆盖
+
+- 已完成：受保护请求的 401 改为清除令牌并调用可注入回调；公开请求 401 保留会话；回调异常不替换原始 API 错误。API 层不再包含页面路由。
+- 已完成：冒烟路由发现覆盖主包与 `subPackages[].pages`，规范化后重复路由立即失败；原有 tab 判断、`switchTab`/`reLaunch`、截图、等待和控制台错误收集保持不变。
+- 验证：`pnpm vitest run apps/miniprogram/api/client.test.ts scripts/miniprogram-manifest.test.mjs scripts/miniprogram-config-audit.test.mjs`（3 文件 / 9 测试）通过；`pnpm miniprogram:config:audit`、`pnpm miniprogram:typecheck`、相应 Prettier 检查、旧登录路由扫描和 `git diff --check` 通过；`pnpm smoke:browser` 通过。
+- 运行边界：V3-0.5 仍无 `app.json`，未运行 `pnpm miniprogram:smoke`；manifest helper 的单元测试通过，真实模拟器遍历延后至 V3-1。
+- 检查点：Task 1 为 `6d2c5fe`；Task 2 待提交 `fix(miniprogram): inject auth expiry and cover subpackages`，随后仅尝试普通推送。
 
 ## Validation
 
@@ -77,10 +85,16 @@
 2. 用户明确批准开始实现后，严格按 V3-0.5 执行计划完成任务 1–2；停止条件：两项任务各自测试、验证、检查点和正常推送策略执行完毕。
 3. V3-0.5 完成后停止编码，使用 `writing-plans` 生成 V3-1 执行计划并等待用户批准；不得直接依据路线图开始任务 3–5。
 
-## Active Batch
+## Previous Batch: V3-0.5 Task 2
 
 1. 严格按 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md` 完成 V3-0.5 Task 2；停止条件：Task 2 的失败测试、定向验证、`pnpm smoke:browser`、`pnpm smoke:check-core`、检查点提交和正常推送策略全部完成。
 2. Task 2 完成后停止编码，使用 `writing-plans` 基于 V3-0.5 检查点生成 V3-1 执行计划并等待用户批准；不得直接依据路线图开始任务 3–18。
+
+## Active Batch
+
+1. 用户复核并批准 V3-1 阶段范围；停止条件：用户明确批准或提出修改。
+2. 使用 `writing-plans` 基于 V3-0.5 检查点生成 V3-1 可执行计划；停止条件：任务 3–5 具备精确文件职责、失败测试、最小实现和提交步骤。
+3. 计划批准前不创建 `app.json`、app-shell、登录页或日历 VM。
 
 ## Handoff Requirements
 
