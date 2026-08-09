@@ -1,8 +1,0 @@
-{
-  "navigationBarTitleText": "排班补录",
-  "usingComponents": {
-    "group-switcher": "/components/group-switcher/group-switcher",
-    "t-button": "tdesign-miniprogram/button/button",
-    "t-textarea": "tdesign-miniprogram/textarea/textarea"
-  }
-}

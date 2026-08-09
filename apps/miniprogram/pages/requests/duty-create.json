@@ -1,7 +1,0 @@
-{
-  "navigationBarTitleText": "提交加扣班",
-  "usingComponents": {
-    "t-button": "tdesign-miniprogram/button/button",
-    "t-textarea": "tdesign-miniprogram/textarea/textarea"
-  }
-}

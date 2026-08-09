@@ -1,9 +1,0 @@
-{
-  "navigationBarTitleText": "提醒设置",
-  "usingComponents": {
-    "group-switcher": "/components/group-switcher/group-switcher",
-    "t-button": "tdesign-miniprogram/button/button",
-    "t-switch": "tdesign-miniprogram/switch/switch",
-    "t-input": "tdesign-miniprogram/input/input"
-  }
-}

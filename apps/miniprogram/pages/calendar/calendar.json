@@ -1,9 +1,0 @@
-{
-  "navigationBarTitleText": "排班日历",
-  "usingComponents": {
-    "calendar-grid": "/components/calendar-grid/calendar-grid",
-    "duty-detail": "/components/duty-detail/duty-detail",
-    "group-switcher": "/components/group-switcher/group-switcher",
-    "t-button": "tdesign-miniprogram/button/button"
-  }
-}

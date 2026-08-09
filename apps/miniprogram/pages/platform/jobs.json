@@ -1,6 +1,0 @@
-{
-  "navigationBarTitleText": "平台任务",
-  "usingComponents": {
-    "t-button": "tdesign-miniprogram/button/button"
-  }
-}

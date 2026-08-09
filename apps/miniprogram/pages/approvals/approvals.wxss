@@ -1,4 +1,0 @@
-.approvals-actions {
-  display: flex;
-  gap: 8rpx;
-}

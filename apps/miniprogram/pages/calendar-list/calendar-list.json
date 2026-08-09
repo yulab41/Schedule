@@ -1,8 +1,0 @@
-{
-  "navigationBarTitleText": "列表视图",
-  "usingComponents": {
-    "date-strip": "/components/date-strip/date-strip",
-    "shift-card": "/components/shift-card/shift-card",
-    "duty-detail": "/components/duty-detail/duty-detail"
-  }
-}

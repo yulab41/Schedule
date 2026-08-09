@@ -1,9 +1,0 @@
-.groups-picker {
-  padding: 20rpx 8rpx;
-  border-bottom: 1rpx solid #eef1f5;
-}
-
-.groups-dissolved {
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #eef1f5;
-}

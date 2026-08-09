@@ -1,9 +1,10 @@
-# 调试反馈日志（Web 1.0 Debug / Test 阶段）
+# 调试反馈日志（Web 1.0 历史 + 小程序 V3）
 
-本文件是 Web 1.0 调试与测试阶段的用户反馈、修改意见、自查发现、修复与功能变更的持续记录。
-每一轮修复对应一次 Git 提交；`docs/project-status.md` 保留当前状态交接，本文件保留完整轮次历史。
+本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 线上调试与用户测试（功能已基本完整，按用户反馈持续修复/打磨），完善后进入微信小程序立项与实施（设计规格 26.1，另建独立实施计划）。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理，V3 设计规范等待用户审阅，尚未开始 UI 实现。
+
+重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
 ## 记录规则
 
@@ -1263,7 +1264,11 @@
 - 已知边界：数据驱动流程（真实登录、审批、订阅授权等）需本地 mock API + 会话注入或真机联调，留待任务 15 验收清单；本轮截图仅核对渲染/无红屏/无脚本错误。
 - 状态：DevTools 接入核对点 ✅（模拟器编译与页面级运行验证完成；任务 13 起每批页面完成后跑 `pnpm miniprogram:smoke` + DevTools 模拟器复核）。
 
-### 小程序登录联调（2026-08-08，DevTools mock 链路）
+## 历史记录：小程序 V1/V2（不可作为 V3 需求）
+
+以下条目仅用于追溯已作废的 V1/V2 工作，不代表当前实现要求。V3 只以 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md` 和其后经用户批准的实施计划为准。
+
+### [历史/V2 已作废] 小程序登录联调（2026-08-08，DevTools mock 链路）
 
 - 问题：模拟器点击“微信一键登录”提示“无法连接到服务，请检查网络后重试”。
 - 根因：
@@ -1280,7 +1285,7 @@
 - 遗留：`page.callMethod('handleLogin')` 自动化点击在本版本 DevTools 超时（evaluate 同链路可用），需用户在模拟器手动点击确认 UI 跳转；真实微信登录还需在服务器 `.env.production` 配置 `WECHAT_APPID/APPSECRET/SESSION_SECRET`（AppSecret 由用户提供，不入库）并处理本机代理对公网域名的拦截；小程序后台需配置 request 合法域名 `https://hosp.schedule.eylinhome.top`（任务 15）。
 - 状态：模拟器 mock 登录链路 ✅（用户点击复核后即可进入注册/工作台）。
 
-### 小程序真实微信登录与公网部署（2026-08-08）
+### [历史/V2 已作废] 小程序真实微信登录与公网部署（2026-08-08）
 
 - 用户提供 AppID/AppSecret；AppSecret 仅写入本地 `.env` 与服务器 `.env.production`（均不入库），联调完成后建议在小程序后台重置一次。
 - 本地：`.env` 切 `WECHAT_MOCK_MODE=false` + 真实 AppSecret，重启本地 API；模拟器实测 `wx.login` → 本地登录接口 = 200，返回**真实 openid**（`oBoRM3Zh...`，非 mock 前缀）。
@@ -1334,7 +1339,7 @@
 - 为在备案通过前验证真机登录，临时把 `apps/miniprogram/config/index.ts` 默认地址改为 `https://120.77.220.79/api`，用 DevTools 重新生成预览二维码（`.tmp-miniprogram-preview/preview.png`，20:39），随后立即还原为正式域名（工作区无残留改动）。
 - 手机验证步骤：扫码打开该预览版 → 右上角 `...` → 打开调试 → 重新进入 → 点击微信一键登录；IP 直连依赖调试模式跳过域名/证书校验，正式验收仍需等 ICP 通过后使用域名包。
 
-### 小程序任务 13：群管理、排班配置与统计（2026-08-08）
+### [历史/V2 已作废] 小程序任务 13：群管理、排班配置与统计（2026-08-08）
 
 - 完成内容（仅小程序客户端，后端/契约未改动）：
   - `api/endpoints.ts` 补齐群管理（创建/目录/访客加入/退出/改名/改码/访客 key/解散恢复/转让/成员名单）、邀请（创建/撤销）、排班配置（岗位/轮值/班种）、排班期间（发布模式/生成预览/保存/发布/撤回/批量/删除）、手动模板（列表/增改删/预览/应用）、统计（月度/年度/刷新/重算校验）接口；
@@ -1349,14 +1354,14 @@
 - 判定：80 端口是阿里云对未备案域名的统一拦截（与本地 Nginx/维护模式无关，`icp-maintenance.sh` 当前为 off）；443 对浏览器类客户端当前可达。该现象与既有“TLS 指纹选择性拦截”记录互相独立——小程序网络栈走 443 仍可能被重置，模拟器/真机联调继续以本地 API 为准；备案通过后 80 拦截应自动解除。
 - 状态：已记录；不影响当前小程序联调路径。
 
-### 小程序重制计划（Web 全量移植）已批准（2026-08-08）
+### [历史/V2 已作废] 小程序重制计划（Web 全量移植）已批准（2026-08-08）
 
 - 用户确认：小程序按当前 Web 最新版功能面重写（目标可弃用 Web），平台运维控制台搬入小程序；备份下载仅列表；UI 从零绘制，禁止在旧小程序页面/组件上打补丁；内核同一套（apps/api + contracts + database + scheduling-domain），Web 前端纯逻辑直接搬运并带等价单测。
-- 文档：基准设计 `docs/superpowers/specs/2026-08-08-wechat-miniprogram-web-port-design.md`、实施计划 `docs/superpowers/plans/2026-08-08-wechat-miniprogram-web-port-implementation-plan.md`、移植清单 `docs/miniprogram-web-port-checklist.md`。
+- 文档：基准设计、实施计划和移植清单均已在 V3-0 清理；对应 Git 历史仅供追溯，不再作为实现依据。
 - 决策：平台管理员入口 = 最小后端扩展 `GET /platform/me`（只读、不改权限判定）；备份只做列表不下载；旧实施计划任务 13 轮值/自动生成内容作废；测试方案改为分层（快层/内核层/集成层/冒烟层），小程序只新增搬运逻辑单测 + 模拟器冒烟，不新增 UI 单测框架。
 - 执行方式：新对话 Codex goal 模式，按计划批次 A→E 一次性完成，每批提交并更新清单。
 
-### 小程序 Web 移植批次 A 完成（2026-08-08）
+### [历史/V2 已作废] 小程序 Web 移植批次 A 完成（2026-08-08）
 
 - 重置：旧 `pages/*`、`components/*` 与旧 `utils/calendar|workflow|time|events.ts`、`store/group.ts` 按计划删除；因策略禁止递归删除，先移入 `.tmp-miniprogram-legacy/`（后续清理）。
 - 新结构：app.json 注册 30 个页面（tabBar：工作台/日历/通知/我的）；新建工作台 Hub（按 `workbench-nav` 角色过滤，含平台入口条件）、登录/注册/我的、日历月/周/列表三视图 + 节假日标签 + 访客扫码页、群组/成员/联系方式/邀请/二维码/邀请落地、排班配置（岗位+班种，无轮值）、请假/换班/加扣班申请与审批、事件时间线 + 访客访问记录、通知/提醒设置；批次 B–D 页面先以占位页注册。
@@ -1365,7 +1370,7 @@
 - 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram` 95/95 ✅、`pnpm typecheck` ✅、`pnpm test` 506 passed（248 skipped）✅、`pnpm --filter @schedule/web build` 单独重跑 ✅（首轮 `pnpm verify` 中 vite 构建完成但 Windows libuv `UV_HANDLE_CLOSING` 断言导致退出码异常，判定为环境性瞬态故障）；移植清单 1–8、16–18 打勾。
 - 状态：批次 A 已实现待模拟器复核；下一批：批次 B 手动排班。
 
-### 小程序 Web 移植批次 B 完成（2026-08-08）
+### [历史/V2 已作废] 小程序 Web 移植批次 B 完成（2026-08-08）
 
 - `pages/schedule/manual` 替换占位页，实现 Web `ManualScheduleView` 全流程：
   - 绘制编辑器：模板/岗位选择、成员勾选、开始日期与 1–31 周期、`manual-grid` 组件（行=成员、列=日期、班种色块、点选填/清、整行/整列清除、撤销栈、失效标记）；
@@ -1376,7 +1381,7 @@
 - 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram` 95/95 ✅；移植清单 9–12 打勾。
 - 状态：批次 B 已实现待模拟器复核；下一批：批次 C 排班补录/统计/导出。
 
-### 小程序 Web 移植批次 C 完成（2026-08-08）
+### [历史/V2 已作废] 小程序 Web 移植批次 C 完成（2026-08-08）
 
 - `pages/schedule/backfill`：`listPastSchedulePeriods` → 岗位/月份切换 → 既往日期点击加入待确认（再次点击移除/清空）、未来日期灰置；班种 + 成员调色板；补录说明；确认后逐条 `createPastScheduleAssignment`；`listPastScheduleBackfillRecords` 显示最近记录。
 - `pages/schedule/statistics`：月/年切换（`getMonthStatistics`/`getYearStatistics`）；汇总卡 10 项（计划/实际/计值/周末/节假日/换班/加班扣班/净值/请假补位/人工调整）；成员表按实际次数排序 + 计值班次/净值/原实对照条数；按岗位/按班种明细；`refreshMonthStatistics` 刷新快照；`recalculateStatistics` 重算校验（`summarizeRecalculateMismatches` 文案一致）。
@@ -1385,7 +1390,7 @@
 - 验证：typecheck/lint/vitest 95/95 ✅；移植清单 13–15 打勾。
 - 状态：批次 C 已实现待模拟器复核；下一批：批次 D 平台运维控制台。
 
-### 小程序 Web 移植批次 D 完成（2026-08-08）
+### [历史/V2 已作废] 小程序 Web 移植批次 D 完成（2026-08-08）
 
 - 后端最小扩展：`packages/contracts/src/platform.ts` 新增 `PlatformMeResponse`；`PlatformAdminService.me()` 只读判断 `allowedCloudbaseUids`；`GET /platform/me` 注册到 `platform-admin-routes`；集成测试新增 2 条断言（admin true / member false），`platform-admin.integration.test.ts` 9/9 通过。
 - 小程序平台页：
@@ -1397,7 +1402,7 @@
 - 验证：`pnpm verify` 全绿（隔离 MySQL，98 文件 / 755 项，含本轮 contracts/api 改动）；`pnpm miniprogram:typecheck`/`pnpm lint` ✅；移植清单 19–24 打勾。
 - 状态：批次 D 已实现待模拟器复核；下一批：批次 E 移植清单全量走查、模拟器冒烟、文档收尾。
 
-### 小程序 Web 移植批次 E：WXSS 通配选择器修复与冒烟阻塞登记（2026-08-09）
+### [历史/V2 已作废] 小程序 Web 移植批次 E：WXSS 通配选择器修复与冒烟阻塞登记（2026-08-09）
 
 - 目标/需求：批次 E 全量走查 + 模拟器逐页截图冒烟 + 文档收尾。
 - 修复（冒烟首轮发现）：DevTools 编译报 `.wxss` 错误——`app.wxss(90:16)`、`pages/schedule/config.wxss(20:15)`、`components/confirm-dialog/confirm-dialog.wxss(35:15)` 出现 WXSS 不支持的 `*` 通配选择器；引入点经 `git log -S '*'` 与 `git blame` 定位为批次 A 提交 `2a88e48`（rebuild shell…）；改为显式组件选择器（`.actions-row > t-button`、`.config-row > t-input, .config-row > t-button`、`.confirm-dialog__actions > t-button`），子元素均为 TDesign 组件，行为等价；冒烟脚本同步加 tabBar 缺失兜底（`appJson.tabBar?.list ?? []`）。
@@ -1405,7 +1410,7 @@
 - 阻塞（第 26 行冒烟未打勾）：开发者工具 Stable v2.01.2510290 冷启动自动化对当前工程持续 `routeTo appLaunch timeout`；appservice 进程 5 秒采样 CPU≈0（非死循环）、无 thirdScriptError/脚本级错误；最小 2–3 页应用、全新 `--user-data-dir` profile、`miniprogram-automator.launch()` 均复现；`cli open` 等待 3 分钟无 simulator launch；`Default\Local Storage\leveldb` 与 compile/storage 缓存清理无效。判定为开发者工具自动化运行时环境问题（可能与微信服务网络受限、基础库 3.16.2 多页冷启动握手有关），非移植代码问题。
 - 状态：移植清单 1–25 打勾；26 未打勾；下一批：用户 GUI 手动打开工程并确认模拟器运行后重跑 `pnpm miniprogram:smoke`，或升级/重装开发者工具后重跑；完成后再提交批次 E 收尾。
 
-### 小程序 UI 动效优化（2026-08-09）
+### [历史/V2 已作废] 小程序 UI 动效优化（2026-08-09）
 
 - 目标/需求：按用户设计范式实现原生丝滑交互——Tab 图标动态化、横向滚动日期条、日历扁平化 + swiper 翻页、底部 ActionSheet 弹窗、通用微反馈。
 - 实现：
@@ -1417,7 +1422,7 @@
 - 验证：`pnpm miniprogram:typecheck` ✅、`pnpm lint` ✅、`pnpm vitest run apps/miniprogram`（16 文件 / 95 项）✅、`pnpm format:check` ✅；全量 `pnpm verify` 98 测试文件 / 755 项全绿（`NODE_ENV=test` + 隔离 MySQL）。
 - 状态：UI 动效代码完成待开发者工具模拟器复核（批次 E 第 26 行冒烟仍受 DevTools 冷启动阻塞）。
 
-### 小程序 Web 移植批次 E 完成：requests WXML 修复 + 登录轮冒烟 31/31（2026-08-09）
+### [历史/V2 已作废] 小程序 Web 移植批次 E 完成：requests WXML 修复 + 登录轮冒烟 31/31（2026-08-09）
 
 - 用户手动导入工程后报 WXML 编译错误：`pages/requests/requests.wxml` 使用 `(kind === 'leave' ? leaveRows : ...).length === 0`，WXML 解析器不支持“括号三元后再取成员”；修复为 JS 预计算 `activeRows`/`emptyRequests`（`syncActiveRows()`），模板只做简单属性访问。
 - 登录链路：模拟器默认 `apiBaseUrl` 指向公网域名（`https://hosp.schedule.eylinhome.top/api`），被网络栈拦截报 `ERR_CONNECTION_RESET`；按既定开发模式把模拟器 storage `apiBaseUrl` 覆盖为 `http://127.0.0.1:3000`，并用 automator 验证：`wx.login` 真码 → 本地登录 200（`isNewUser:false`，林恩宇，新令牌）。
@@ -1425,3 +1430,12 @@
 - 冒烟脚本增强：新增 `MINIPROGRAM_SMOKE_AUTO_WS` 复用已有自动化会话（用户手动打开工程后可直接附加），`MINIPROGRAM_SMOKE_PORT` 保持兼容。
 - 验证：`pnpm miniprogram:typecheck`/`lint`/`vitest run apps/miniprogram`（16 文件 / 95 项）/`format:check` ✅；全量 `pnpm verify` 98 测试文件 / 755 项全绿（隔离 MySQL）。
 - 状态：移植清单 1–26 全部打勾；批次 A–E 与 UI 优化全部完成；下一阶段：部署验收/用户强刷复核。
+
+### V3-0：作废 V2 表现层并建立 V3 设计（2026-08-09）
+
+- 用户决策：V2 的小程序 UI、交互和相关文档全部作废；保留 API、微信认证、会话、共享契约、后端排班规则、数据库、部署和构建基础设施。
+- 归档：当前未提交的 `date-strip.ts`、`calendar.ts` 及两份 V2 回归 spec 已保存到 Git stash `archive: obsolete miniprogram V2 UI changes`，不合并、不复用。
+- 清理：删除旧 `apps/miniprogram/pages`、`components`、`custom-tab-bar`、`styles`、`utils`、旧 app manifest，以及 2026-08-08 小程序设计/计划/移植文档。
+- 设计：新增 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`，确定原生微信能力 + 已有 TDesign 基础控件 + 自绘日历和业务流程组件；明确 Web 视觉/语义 1:1 与触控/滑动适配边界。
+- 验证：`git diff --check` 通过；`pnpm miniprogram:typecheck` 通过；`pnpm verify` 通过（82 个测试文件，660 项通过，249 项按环境跳过）。旧小程序模拟器冒烟不再作为 V3 验收依据。
+- 状态：已完成（共享内核验证通过），待用户复核 V3 设计；批准后才编写实施计划。
