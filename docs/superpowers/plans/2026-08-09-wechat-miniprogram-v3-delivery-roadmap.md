@@ -1,15 +1,17 @@
-# 微信小程序 V3 实施计划
+# 微信小程序 V3 交付路线图
 
 - 文档日期：2026-08-09
-- 状态：待用户复核
+- 状态：设计决策已确认；路线图待用户复核
 - 依据设计：`docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`
 - 实施范围：原生微信小程序 V3 表现层、触控交互、日历、手动排班和业务流程
 - 共享内核：`apps/api/**`、`packages/contracts/**`、`packages/database/**`、`packages/scheduling-domain/**`
-- 本计划独立于 `2026-08-01-medical-staff-scheduling-system-implementation-plan.md`；后者是 Web 1.0 计划，不得用来推断 V3 页面任务。
+- 本路线图独立于 `2026-08-01-medical-staff-scheduling-system-implementation-plan.md`；后者是 Web 1.0 计划，不得用来推断 V3 页面任务。
+
+> **对执行模型的硬性限制：本文件不是可直接执行的 implementation plan。** 它只定义范围、顺序、依赖和阶段停止条件。执行模型只能运行“阶段执行计划索引”中状态为“可执行”的文档；路线图中的任务摘要不能替代测试、代码或命令。若当前阶段没有可执行计划，必须停止并请求使用 `writing-plans` 生成计划，禁止自行补全文件、类型、接口或页面行为。
 
 ## 0. 目标和停止条件
 
-目标是建立一个可长期维护、可由低阶模型按批次执行的 V3 小程序。V3 保留 Web 的业务语义、数据完整性、权限和错误路径；只适配输入方式、布局密度、滚动和面板交互。
+目标是建立一个可长期维护、可由执行模型按已展开阶段计划逐项实施的 V3 小程序。V3 保留 Web 的业务语义、数据完整性、权限和错误路径；只适配输入方式、布局密度、滚动和面板交互。
 
 整个 V3 完成的停止条件：
 
@@ -21,9 +23,9 @@
 6. 涂抹排班 Spike 有明确的通过或不通过结论；失败不得阻塞基础的单元格优先和班种锁定模式。
 7. 用户确认最终 Skyline 页面范围和 WebView fallback 结论。
 
-## 1. 低阶模型执行规则
+## 1. 执行模型规则
 
-每次新对话先完整读取 `AGENTS.md`、`docs/project-status.md`、本计划当前批次和 V3 设计对应章节。每轮只执行当前批次的 1–3 个任务；复杂日历、渲染器、并发和发布任务单独成轮。
+每次新对话先完整读取 `AGENTS.md`、`docs/project-status.md`、本路线图当前批次、当前阶段执行计划和 V3 设计对应章节。每轮只执行当前阶段执行计划中的 1–3 个任务；复杂日历、渲染器、并发和发布任务单独成轮。
 
 实施者必须遵守：
 
@@ -34,6 +36,9 @@
 - 先写会在旧行为上失败的新测试，再实现；不能修改测试来掩盖行为变化。
 - 每个任务提交前运行定向验证、`git diff`、`git diff --cached` 和行为变化清单；只显式暂存当前任务文件。
 - 没有开发者工具或真机证据时，渲染器、TDesign Skyline 适配、包体积和性能结论只能写为“待验证”。
+- 不得执行路线图中尚未展开为 checkbox 步骤的任务，不得使用“类似上一任务”“按需处理”或自行猜测来补齐缺失实现。
+- 执行计划中的预期失败必须先被观察到；失败原因不同于计划时停止，不得继续写实现。
+- 每个阶段完成后，下一阶段计划必须重新读取检查点后的真实代码和契约，再由 `writing-plans` 生成；禁止提前假定尚未创建文件的最终行号和签名。
 
 ## 2. 固定交互和数据契约
 
@@ -70,7 +75,7 @@
 - `pnpm miniprogram:typecheck`
 - `pnpm vitest run apps/miniprogram`
 - `pnpm miniprogram:lint`
-- `pnpm exec prettier --check docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-implementation-plan.md`
+- `pnpm exec prettier --check docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-delivery-roadmap.md`
 - `pnpm miniprogram:smoke`（开发者工具启动并有 V3 manifest 后）
 
 全量命令：
@@ -98,68 +103,47 @@
 | V3-5   | 14–15 | 群组、配置、补录、统计、导出和平台页       | 角色过滤、服务端权限和数据影响通过                             |
 | V3-6   | 16–18 | 涂抹 Spike、渲染器/包体/性能、最终验收     | Spike 有结论，主包目标和真机记录通过，用户确认范围             |
 
+### 4.1 阶段执行计划索引
+
+| 阶段   | 执行计划                                                                                        | 状态                                |
+| ------ | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
+| V3-0.5 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md` | 可执行，待用户批准                  |
+| V3-1   | 无                                                                                              | 禁止执行；V3-0.5 检查点通过后再展开 |
+| V3-2   | 无                                                                                              | 禁止执行；V3-1 检查点通过后再展开   |
+| V3-3   | 无                                                                                              | 禁止执行；V3-2 检查点通过后再展开   |
+| V3-4   | 无                                                                                              | 禁止执行；V3-3 检查点通过后再展开   |
+| V3-5   | 无                                                                                              | 禁止执行；V3-4 检查点通过后再展开   |
+| V3-6   | 无                                                                                              | 禁止执行；V3-5 检查点通过后再展开   |
+
+“无”不是遗漏或待执行占位符，而是准确表示：前一阶段尚未形成稳定代码，当前无法为后续阶段给出可信的精确文件行号、类型签名和失败输出。只有索引中标记为“可执行”的计划才具有实施授权。
+
+### 4.2 设计覆盖矩阵
+
+| 设计章节              | 交付阶段               | 覆盖结果                                           |
+| --------------------- | ---------------------- | -------------------------------------------------- |
+| 1. 权威顺序与设计目标 | 全阶段                 | 执行模型规则、停止条件和用户复核门禁               |
+| 2. 保留/清理边界      | V3-0.5                 | 配置、生成物、401 注入点、manifest 路由发现        |
+| 3. 1:1 保留与移动适配 | V3-1、V3-2、V3-3、V3-4 | app-shell、日历、流程和手动排班                    |
+| 4. 组件和插件         | V3-1、V3-2、V3-6       | 原生/TDesign 边界、Skyline 白名单和真机结论        |
+| 5. 客户端架构         | V3-0.5、V3-1、V3-2     | API 注入点、页面壳、feature/VM/component 边界      |
+| 6. 日历数据和视觉模型 | V3-1、V3-2             | `CalendarMonthViewModel`、标识、密集数据与事件路由 |
+| 7. 业务流程           | V3-3                   | 请假、换班、加扣班、预览、409 和状态刷新           |
+| 8. 手动排班           | V3-4、V3-6             | 双模式基线、模板/发布、可选涂抹 Spike              |
+| 9. 导航、权限和平台   | V3-1、V3-3、V3-5       | 角色入口、访客/群组、管理和平台隔离                |
+| 10. 缓存、错误和安全  | V3-0.5 至 V3-6         | 401、只读快照、写入阻断、服务端权限和错误恢复      |
+| 11. 性能与包体积      | V3-2、V3-6             | 日历性能基线、主包/分包和真机报告                  |
+| 12. 测试和验收        | 每阶段、V3-6 汇总      | TDD、浏览器/模拟器/真机、最终验收                  |
+| 13. 分阶段停止条件    | 本路线图               | 阶段顺序、依赖和停止点                             |
+| 14. 明确拒绝方案      | 全阶段                 | 执行计划必须继承的禁止项                           |
+| 15. 执行模型交接      | 全阶段                 | 唯一可执行计划、失败不符即停、检查点后再规划       |
+
 ## 5. V3-0.5：干净构建基线
 
-### 任务 1：清理生成物并重建跟踪配置
+本阶段的精确文件职责、失败测试、最小实现、验证命令和两次提交见：
 
-主要文件：
+`docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`
 
-- `apps/miniprogram/project.config.json`
-- `apps/miniprogram/package.json`
-- `apps/miniprogram/miniprogram_npm/**`（生成物，不提交）
-- `apps/miniprogram/pages/test/**`（空目录/生成物）
-- `apps/miniprogram/project.private.config.json`（只读审计，不提交）
-- `.gitignore`
-
-步骤：
-
-1. 记录当前 `project.config.json`、被忽略私有配置、生成物和私钥的状态；不得删除私钥或改写用户私有配置。
-2. 删除可重建的 `miniprogram_npm`、空测试目录和其他 V2 输出；保留 AppID 私钥和被忽略私有文件。
-3. 将跟踪配置缩减到 AppID、工程类型、工程根目录、项目名称和实施时开发者工具支持的必要字段。
-4. 固定实施时实际验证的稳定基础库版本，不使用 `latest`；默认开启域名校验、TypeScript 和 Worklet 编译。
-5. 删除未经验证的 SWC/Babel/实验开关；每个保留 setting 都在配置审计表中说明来源和验证结果。
-6. 保持 `tdesign-miniprogram` 版本由 package manifest/lockfile 决定，只有实际使用的组件在后续任务构建 npm。
-
-验证：
-
-- `git diff --check`
-- `pnpm miniprogram:typecheck`
-- `pnpm exec prettier --check apps/miniprogram/package.json apps/miniprogram/project.config.json`
-- 开发者工具打开工程并完成一次空工程编译；记录基础库、渲染模式和 Worklet 编译结果。
-
-停止条件：工作树不含旧生成物和旧页面，跟踪配置可复现，私钥/私有配置仍未被 Git 跟踪，定向类型检查和配置审计通过。
-
-版本节点：`chore(miniprogram): establish V3 clean build baseline`
-
-### 任务 2：解耦 401 认证过期和扩展分包冒烟
-
-主要文件：
-
-- `apps/miniprogram/api/client.ts`
-- `apps/miniprogram/api/client.test.ts`
-- `apps/miniprogram/store/session.ts`
-- `scripts/miniprogram-smoke.mjs`
-- `scripts/miniprogram-smoke.test.mjs`（若脚本测试框架已存在则放入对应测试目录）
-
-步骤：
-
-1. 删除 `api/client.ts` 对 `/pages/login/login` 的硬编码路由。
-2. 提供可注入且可清除的认证过期回调；401 只清除会话并调用回调一次，匿名请求 401 不触发登录跳转。
-3. app-shell 在启动时注册回调，回调只负责进入 V3 登录入口并保留待处理邀请回流。
-4. 保持错误载荷、requestId、latestData、网络错误和调用次数语义不变。
-5. 冒烟脚本读取 `pages`、`tabBar.list` 和 `subPackages[].pages`，对 tab 页使用 `switchTab`，其他页使用 `reLaunch`，输出每页截图和脚本错误。
-6. 对重复 manifest 路由去重；分包页面只打开一次，不因 tabBar 或 pages 重复计数。
-
-验证：
-
-- 先写并运行 401 回调、匿名 401、重复回调和请求错误路径失败测试，再实现。
-- `pnpm miniprogram:typecheck`
-- `pnpm vitest run apps/miniprogram`
-- `pnpm miniprogram:smoke`（需要开发者工具）；无工具时记录阻塞，不伪造通过。
-
-停止条件：API 层没有任何旧登录路径字面量，认证回调测试通过，冒烟脚本能遍历主包和分包。
-
-版本节点：`fix(miniprogram): inject auth expiry and cover subpackages`
+执行模型不得依据本路线图复述或改写 V3-0.5 步骤。该阶段计划完成并通过检查点后，回到本路线图更新状态，再生成 V3-1 执行计划。
 
 ## 6. V3-1：app-shell 和纯逻辑基础
 
@@ -182,7 +166,7 @@
 
 1. 新建仅包含 V3 页面和分包声明的 manifest；主包只放启动、认证和四个 tab 入口。
 2. 原生 tabBar 固定为工作台、日历、通知、我的；不恢复 V2 custom-tab-bar。
-3. 所有页面使用自定义导航和局部 `scroll-view`；页面配置使用 Skyline 的候选字段时必须引用任务 1 的审计结果。
+3. 所有页面使用自定义导航和局部 `scroll-view`；页面配置使用 Skyline 候选字段前，V3-1 执行计划必须记录锁定开发者工具/基础库下的官方字段来源和实际编译证据，不能把 V3-0.5 的工程配置审计当成页面兼容性结论。
 4. 建立颜色、字号、间距、圆角、动效和触控尺寸 token；日期格、按钮、面板和工具栏使用稳定尺寸。
 5. 首屏提供加载、未登录、无权限、错误和空状态，不在模板中直接拼服务端对象。
 
@@ -573,7 +557,7 @@
 步骤：
 
 1. 锁定开发者工具版本、基础库版本、TDesign 版本和测试数据集。
-2. 对日历页逐项验证 renderer、Glass Esel、Worklet、局部滚动、底部面板、swiper 和 fallback；不支持的配置字段删除。
+2. 对日历页逐项验证 renderer、`glass-easel`、Worklet、局部滚动、底部面板、swiper 和 fallback；不支持的配置字段删除。
 3. 对每个进入 Skyline 的 TDesign 组件记录官方适配状态、实际设备结果和替代方案。
 4. 测量主包、分包、首屏、切月、打开详情、打开 Bottom Sheet 和编辑操作；主包目标小于 2MB。
 5. 只依据低端 Android+iOS 的综合结果决定是否扩展 Skyline；不能只看开发者工具平均帧率。

@@ -1442,11 +1442,11 @@
 
 ### V3-0.1：干净构建与页面级渐进 Skyline 方案获批（2026-08-09）
 
-- 用户决策：采用方案 2——所有 V3 页面使用自定义导航和局部 `scroll-view` 保持可迁移，日历页先开启 Skyline/Glass Esel/Worklet，其他页面初期保持 WebView；只在真机性能、视觉/功能 fallback、TDesign 白名单和包体积同时通过后逐页扩展。
+- 用户决策：采用方案 2——所有 V3 页面使用自定义导航和局部 `scroll-view` 保持可迁移，日历页先开启 Skyline/`glass-easel`/Worklet，其他页面初期保持 WebView；只在真机性能、视觉/功能 fallback、TDesign 白名单和包体积同时通过后逐页扩展。
 - 配置审计：`project.config.json` 仍含 `libVersion: latest`、`compileWorklet: false`、`urlCheck: false` 和旧 SWC/Babel/实验字段；被忽略的 `project.private.config.json` 仍为旧项目名并关闭 Skyline；旧 `miniprogram_npm` 约 1.49MB、空 `pages/test` 仍在磁盘；`api/client.ts` 仍跳 `/pages/login/login`；`miniprogram-smoke.mjs` 只遍历主包 `pages`。
 - 设计修订：新增 V3-0.5 独立清理检查点；明确跟踪配置固定基础库、开启域名校验与 `compileWorklet`，本机宽松设置只进私有配置；Worklet 只处理帧同步手势/动画，不处理 API、排班和持久化；TDesign Skyline 页面使用组件白名单。
 - 手动排班：同时支持“单元格优先”和“班种锁定后连续点格”；不用全局 200ms 防抖，不逐格确认覆盖，统一使用本地草稿、单元格级重复保护、撤销栈和发布前确认。
-- 官方核验：微信 Skyline 迁移指引要求按页面配置 renderer/Glass Esel、调试时开启 Worklet 编译，Skyline 无全局滚动且不支持顶部原生导航栏；当前 TDesign 1.16.0 官方 Skyline 进度仍为 35/57，不能只凭帧率全量切换。
+- 官方核验：微信 Skyline 迁移指引要求按页面配置 renderer/`glass-easel`、调试时开启 Worklet 编译，Skyline 无全局滚动且不支持顶部原生导航栏；当前 TDesign 1.16.0 官方 Skyline 进度仍为 35/57，不能只凭帧率全量切换。
 - 验证：`git diff --check` 通过；`pnpm exec prettier --check docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md` 通过。本轮仅文档变更，未运行模拟器/真机，也未删除或改写本机配置。
 - 状态：等待用户复核更新后的 V3 书面设计；批准后调用 writing-plans，第一实施批为 V3-0.5。
 
@@ -1455,8 +1455,19 @@
 - 用户确认采纳两份建议中的微标签、Bottom Sheet、大触控热区、自绘日历、TDesign 基础控件、CSS 轻量动效和双模式手动排班方向。
 - 语义边界：整格热区不等于统一动作；日期空白、排班行、标识和电话入口保持独立事件路由；成员全名和同日多排班不得固定截断或丢失；长按只用于手动网格清空。
 - 延后项：涂抹排班改为基础点击模式通过后的独立 Spike；首批不引入 Lottie、通用日历库或第二套组件库。
-- 文档：修订 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`；新增 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-implementation-plan.md`，覆盖 V3-0.5 至最终验收的任务、测试、提交和停止条件。
-- 官方能力复核：参考微信小程序示例中的 Skyline/Glass Esel 配置和 TDesign 小程序仓库；具体配置字段、组件白名单和 fallback 仍需在锁定开发者工具/基础库及真机上逐项验证，不能仅凭文档或开发者工具平均帧率宣称完成。
+- 文档：修订 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`；建立覆盖 V3-0.5 至最终验收的初版计划；该文件随后在 V3-0.3 改名为交付路线图并明确禁止直接执行。
+- 官方能力复核：参考微信小程序示例中的 Skyline/`glass-easel` 配置和 TDesign 小程序仓库；具体配置字段、组件白名单和 fallback 仍需在锁定开发者工具/基础库及真机上逐项验证，不能仅凭文档或开发者工具平均帧率宣称完成。
 - 运行/浏览器验证：本轮仅修改设计、计划、状态和调试文档，未触及 API、认证、路由、契约或构建代码；未运行 `pnpm smoke:browser` / `pnpm smoke:check-core`，待 V3-0.5 实施批次按 `AGENTS.md` 执行。
 - 检查点：本地提交 `66a1900 docs(miniprogram): finalize V3 design and implementation plan` 已创建；`git push origin main` 因 GitHub 连接重置失败，提交保留本地，下一轮重试。
 - 状态：**待用户复核**；下一批为用户确认后的 V3-0.5 任务 1–2。
+
+### V3-0.3：writing-plans 复核与执行计划拆分（2026-08-09）
+
+- 用户要求：启用 `writing-plans` 后继续检查并完善 V3 设计与实施计划，目标是交给 Luna、Terra、DeepSeek 等执行模型时减少幻觉和误解。
+- skill 影响：原 18 项文档虽然覆盖范围完整，但缺少强制 header、checkbox、小步测试先行、完整代码和精确失败输出，且跨越多个尚未创建的子系统；按 skill 的 scope check 将其改为不可直接执行的交付路线图。
+- 文档：原计划改名为 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-delivery-roadmap.md`；新增 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`，只展开当前两项任务并给出文件职责、完整测试/实现、命令、预期输出、停止条件和独立提交。
+- 防幻觉边界：路线图未展开阶段一律标记禁止执行；每阶段在前一检查点后重新读取真实代码并生成执行计划；预期失败不一致、文件/类型不一致或缺少可执行计划时必须停止。
+- 文档验证：V3-0.5 计划包含 25 个 checkbox 步骤且代码围栏配对；占位词、旧计划路径和错误 `Glass Esel` 术语扫描无结果；设计覆盖矩阵、精确函数名和阶段引用一致；5 份文档 Prettier 检查与 `git diff --check` 通过。
+- 运行/浏览器验证：本轮仅修改设计、路线图、执行计划、状态和调试文档，未修改 API、认证、路由、契约或构建代码；不运行 `pnpm smoke:browser` / `pnpm smoke:check-core`。
+- 检查点提交信息：`docs(miniprogram): harden V3 planning handoff`；此前两个本地提交的 GitHub 推送仍待重试，不 force-push。
+- 状态：**待用户复核**；用户批准前不执行 V3-0.5，不创建 manifest 或页面。
