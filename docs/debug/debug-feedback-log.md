@@ -1439,3 +1439,13 @@
 - 设计：新增 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`，确定原生微信能力 + 已有 TDesign 基础控件 + 自绘日历和业务流程组件；明确 Web 视觉/语义 1:1 与触控/滑动适配边界。
 - 验证：`git diff --check` 通过；`pnpm miniprogram:typecheck` 通过；`pnpm verify` 通过（82 个测试文件，660 项通过，249 项按环境跳过）。旧小程序模拟器冒烟不再作为 V3 验收依据。
 - 状态：已完成（共享内核验证通过），待用户复核 V3 设计；批准后才编写实施计划。
+
+### V3-0.1：干净构建与页面级渐进 Skyline 方案获批（2026-08-09）
+
+- 用户决策：采用方案 2——所有 V3 页面使用自定义导航和局部 `scroll-view` 保持可迁移，日历页先开启 Skyline/Glass Esel/Worklet，其他页面初期保持 WebView；只在真机性能、视觉/功能 fallback、TDesign 白名单和包体积同时通过后逐页扩展。
+- 配置审计：`project.config.json` 仍含 `libVersion: latest`、`compileWorklet: false`、`urlCheck: false` 和旧 SWC/Babel/实验字段；被忽略的 `project.private.config.json` 仍为旧项目名并关闭 Skyline；旧 `miniprogram_npm` 约 1.49MB、空 `pages/test` 仍在磁盘；`api/client.ts` 仍跳 `/pages/login/login`；`miniprogram-smoke.mjs` 只遍历主包 `pages`。
+- 设计修订：新增 V3-0.5 独立清理检查点；明确跟踪配置固定基础库、开启域名校验与 `compileWorklet`，本机宽松设置只进私有配置；Worklet 只处理帧同步手势/动画，不处理 API、排班和持久化；TDesign Skyline 页面使用组件白名单。
+- 手动排班：同时支持“单元格优先”和“班种锁定后连续点格”；不用全局 200ms 防抖，不逐格确认覆盖，统一使用本地草稿、单元格级重复保护、撤销栈和发布前确认。
+- 官方核验：微信 Skyline 迁移指引要求按页面配置 renderer/Glass Esel、调试时开启 Worklet 编译，Skyline 无全局滚动且不支持顶部原生导航栏；当前 TDesign 1.16.0 官方 Skyline 进度仍为 35/57，不能只凭帧率全量切换。
+- 验证：`git diff --check` 通过；`pnpm exec prettier --check docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md` 通过。本轮仅文档变更，未运行模拟器/真机，也未删除或改写本机配置。
+- 状态：等待用户复核更新后的 V3 书面设计；批准后调用 writing-plans，第一实施批为 V3-0.5。

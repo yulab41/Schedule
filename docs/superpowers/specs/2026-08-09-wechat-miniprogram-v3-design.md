@@ -1,6 +1,6 @@
 # 设计：微信小程序 V3 全量重做
 
-- 状态：已获用户确认，等待用户审阅本文件后编写实施计划
+- 状态：用户已确认采用页面级渐进 Skyline 方案，等待书面复核后编写实施计划
 - 日期：2026-08-09
 - 范围：小程序表现层、触控交互、日历、手动排班和业务流程的全量重做
 - 保留：API、认证、共享契约、后端排班规则、数据库、部署和构建基础设施
@@ -26,7 +26,8 @@ V3 的目标不是把桌面布局缩小，而是保持 Web 的业务语义和视
 - `apps/miniprogram/api/client.ts` 和 `apps/miniprogram/api/endpoints.ts`：API 请求、错误载荷、认证头和现有端点封装。V3 app-shell 第一批必须把现有 401 的旧页面硬编码改为可注入的认证过期回调，不能恢复旧登录页来满足这个依赖。
 - `apps/miniprogram/config/index.ts`：环境入口和微信配置。
 - `apps/miniprogram/store/session.ts`：会话令牌、登录身份和邀请回流基础能力。
-- `apps/miniprogram/package.json`、`project.config.json`、`tsconfig.json`：包、开发者工具和 TypeScript 基础配置。
+- `apps/miniprogram/package.json`、`tsconfig.json`：包和 TypeScript 基础配置；依赖版本与类型能力在 V3-0.5 重新核对。
+- `apps/miniprogram/project.config.json`：只保留 AppID、工程类型、工程根目录和项目名称等身份字段；编译、基础库、Worklet、域名校验和压缩设置不能按 V2 原样继承，必须在 V3-0.5 重建。
 - `apps/api/**`、`packages/contracts/**`、`packages/database/**`、排班领域包、迁移、部署和根脚本。
 
 保留文件不能被 UI 组件反向依赖。V3 页面只能通过 API 和契约读取数据，不直接访问数据库或复制后端规则。
@@ -35,10 +36,26 @@ V3 的目标不是把桌面布局缩小，而是保持 Web 的业务语义和视
 
 - `apps/miniprogram/pages/**`、`components/**`、`custom-tab-bar/**`、`styles/**`、`utils/**` 中所有 V2 表现层和前端逻辑适配器。
 - 旧的 `app.json` 页面注册、旧全局样式和旧页面启动壳；V3 实施时重新建立 manifest 和页面入口。
+- 已忽略但仍留在磁盘的 `apps/miniprogram/miniprogram_npm/**`、空的 `pages/test/**` 和其他 V2 构建产物；V3 manifest 建立后重新构建 npm 输出。
+- 被 Git 忽略的 `project.private.config.json` 中旧项目名、旧基础库和 `skylineRenderEnable: false` 等本机状态；V3 跟踪配置确定后删除并由开发者工具重新生成，不提交到 Git。
 - 2026-08-08 的小程序设计/计划、Web 移植设计/计划和移植 checklist。
 - 仅为 V2 提供覆盖的页面测试、回归 spec 和展示模型。
 
 当前未提交的 V2 修改已进入 Git stash `archive: obsolete miniprogram V2 UI changes`，不合并、不复用。
+
+### 2.3 V3-0.5 干净构建基线
+
+V3 页面实现前先完成独立清理检查点：
+
+1. 删除旧 `miniprogram_npm`、空目录和其他可重建输出，但保留被忽略的 AppID 私钥；私钥是本机开发凭据，不是旧 UI 资产。
+2. 将 `project.config.json` 缩减为微信开发者工具当前支持、且可以在 Git 中复现的必要字段；`libVersion` 固定为实施时实际验证通过的稳定版本，不使用 `latest`。
+3. 跟踪配置默认开启域名校验；本地联调若需要关闭，只允许写入被忽略的私有配置，不能把宽松设置作为团队基线。
+4. 开启 TypeScript 和 Worklet 编译，移除未经验证的旧 SWC、Babel、插件和实验开关；是否重新启用必须有开发者工具编译证据。
+5. 删除 `api/client.ts` 对 V2 `/pages/login/login` 的硬编码，改为 V3 app-shell 注入认证过期处理。
+6. 更新开发者工具与冒烟脚本，使其读取 V3 manifest，并同时遍历主包 `pages` 和 `subPackages`；分包页面不能逃逸冒烟。
+7. 检查 `.gitignore`、ESLint、Prettier、TypeScript、pnpm workspace 和 npm 构建输出边界，确保生成物、私钥和本机配置不进入提交。
+
+V3-0.5 不恢复任何页面。停止条件是工作树只剩共享内核和已确认的 V3 构建基础，定向类型检查与配置审计通过，下一批可以从新的 manifest 和 app-shell 开始。
 
 ## 3. 1:1 保留与移动端适配
 
@@ -63,7 +80,7 @@ Web 中已知的节假日 class 绑定缺陷必须在 V3 日历实现前修正�
 - 滚轮、月份按钮改为横向滑动和年月选择器。
 - 桌面弹窗改为可下滑关闭的 Bottom Sheet。
 - 桌面宽表格改为可横向滚动的网格，并用轴向锁定避免误触。
-- 鼠标拖拽填班改为点击选中、底部班种面板、长按清除和显式行列操作。
+- 鼠标拖拽填班改为单元格优先或班种锁定两种触控方式、底部班种面板、长按清除和显式行列操作。
 - 桌面侧边栏改为原生 tabBar、页面内分组和抽屉，但角色过滤和入口权限不变。
 
 ## 4. 组件和插件决策
@@ -79,13 +96,31 @@ Web 中已知的节假日 class 绑定缺陷必须在 V3 日历实现前修正�
 
 动画基线：月份切换 240ms、Bottom Sheet 280ms、按压和选择反馈 200ms，统一 `ease-out`；不在密集日历区域使用不可预测的弹簧位移。
 
-### 4.2 TDesign 小程序
+### 4.2 渲染器与 Worklet 策略
+
+V3 采用“WebView 可用基线 + 页面级渐进 Skyline”，不在首批全局强制 Skyline：
+
+- 所有页面从第一天使用自定义导航栏和局部 `<scroll-view>`，不依赖页面全局滚动，以减少 WebView/Skyline 两套布局差异。
+- 新 `app.json` 全局开启 `lazyCodeLoading: "requiredComponents"`，并配置 Skyline 的 `defaultDisplayBlock`、`defaultContentBox`、`tagNameStyleIsolation: "legacy"`、`enableScrollViewAutoSize` 和 `keyframeStyleIsolation: "legacy"`；这些配置同时作为 WebView fallback 的兼容基线。
+- 跟踪的 `project.config.json` 明确开启 `compileWorklet: true`，固定已验证的调试基础库并默认开启域名校验；被忽略的私有配置不得把 Worklet 或 Skyline 调试关闭后仍声称验证通过。
+- 日历页第一批在页面 JSON 中设置 `renderer: "skyline"`、`componentFramework: "glass-easel"`、`navigationStyle: "custom"`；页面完全由局部滚动容器管理时同时设置 `disableScroll: true`，使 WebView fallback 行为一致。
+- 工作台、通知、表单和平台页初期保持 WebView；不支持 Skyline 的客户端、PC 端或基础库自动 fallback 到 WebView，业务功能不得缺失。
+- Worklet 只处理跟手拖拽、Bottom Sheet 位移、手势进度和与帧同步的动画值；API、业务状态机、权限、排班计算、缓存和持久化仍在 JS 线程与服务端完成。
+- Worklet 与 JS 线程通过有限共享值和明确的 `runOnJS` 边界通信，禁止在每帧执行 `setData`、网络请求或重建整月视图模型。
+
+Skyline 扩展到其他页面必须同时满足：该页使用的 TDesign 组件已在当前版本适配或已通过真机验证、WebView fallback 视觉和功能一致、主包目标未超限、低端 Android 与 iOS 均无阻断问题。只凭开发者工具帧率更高不能全量切换。
+
+权威参考：[微信 Skyline 迁移起步](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/migration/)、[Worklet 动画](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[Skyline 最佳实践](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/migration/best-practice.html)和 [TDesign 小程序 Skyline 适配进度](https://github.com/Tencent/tdesign-miniprogram/issues/3149)。实施计划编写时必须重新核对当前版本，不以本设计日期的进度永久锁定结论。
+
+### 4.3 TDesign 小程序
 
 继续使用仓库已有的 `tdesign-miniprogram`，仅用于按钮、输入、单元格、开关、基础弹窗、提示和表单反馈等通用控件。所有组件按需引入，不能用全量注册掩盖包体积问题。
 
 日历网格、排班单元格、标识徽章、节假日标签、事件时间线、Bottom Sheet 和手动排班面板均由 V3 组件自绘，以便控制 Web 所需的字体、填充、边框和事件区域。
 
-### 4.3 暂不新增的库
+进入 Skyline 页面的 TDesign 控件使用组件白名单：Button、Input、Cell、Switch、Popup、Toast 等只有在当前锁定版本的官方适配进度和本项目真机验证均通过后才可使用。尚未适配的 Dialog、ActionSheet、Swiper 等不能因为 WebView 可用就直接进入 Skyline 页；日历、swiper、Bottom Sheet 和确认流程继续按 V3 自绘。
+
+### 4.4 暂不新增的库
 
 - 不安装 WeUI、Vant Weapp 或 ColorUI。
 - 不直接安装 `wx_calendar` 或其他通用日历组件。
@@ -156,13 +191,17 @@ V3 以 Web 当前实际标识集合为准，明确区分：
 手动排班保留 Web 的人员行、日期列和班种选择语义，输入改为：
 
 1. 选择岗位、成员、开始日期和周期天数。
-2. 点击单元格进入 selected 状态。
-3. 底部班种面板点击填入；再次点击当前班种可清空该格。
-4. 长按单元格打开“清空此格/清空此行/清空此列”操作面板，行列清除必须二次确认。
-5. 保存模板、应用模板和发布前显示冲突、请假、连续值班、节假日和统计影响。
-6. 草稿、发布、撤回、重发和删除使用服务端版本保护；冲突时刷新而不是覆盖。
+2. 支持单元格优先：点击单元格进入 selected 状态，再从底部班种面板填入；再次点击当前班种可清空该格。
+3. 支持班种锁定：先选择班种并保持高亮，再连续点击任意“成员 × 日期”单元格快速填入；再次点击同一班种的单元格可清空，切换班种后后续点击使用新班种。
+4. 两种方式共享同一草稿、撤销栈和冲突校验，不能形成两套状态源；班种锁定状态必须有清晰退出入口。
+5. 已有班次在草稿阶段直接替换并进入撤销栈，不逐格弹覆盖确认；整行、整列清除和正式发布仍需确认。
+6. 长按单元格打开“清空此格/清空此行/清空此列”操作面板，不复用长按进入多选，避免手势语义冲突。
+7. 保存模板、应用模板和发布前显示冲突、请假、连续值班、节假日和统计影响。
+8. 草稿、发布、撤回、重发和删除使用服务端版本保护；冲突时刷新而不是覆盖。
 
 横向网格滚动和月份滑动分离处理：网格内先消费横向滚动，只有触摸起点在月份导航区域才触发月份切换。
+
+快速填班不使用全局 200ms 防抖，避免吞掉用户有意的连续点击；按 `memberId + date + shiftId` 做单元格级重复保护，并在本地草稿同步完成后再接受下一次相同操作。触感反馈只作增强：可以在进入班种锁定或完成批量动作时轻震，不强制每个单元格使用中等震动。
 
 ## 9. 导航、权限和平台能力
 
@@ -185,15 +224,20 @@ V3 以 Web 当前实际标识集合为准，明确区分：
 - 日历只保留当前月及前后月的视图模型，离开范围立即释放旧数据。
 - 高频 scroll/touch 更新使用节流，禁止在每个触摸帧重新请求 API 或重建全页面数据。
 - 验收记录首屏加载、切月、打开详情和打开 Bottom Sheet 的实际耗时。
+- 日历黄金基线完成后，用同一高密度月份分别运行 WebView 与页面级 Skyline：开发者工具 Performance 面板用于定位问题，最终决策以至少一台低端 Android 和一台 iOS 真机为准。
+- 对比指标包括平均/最低帧率、掉帧和长帧、触摸到视觉响应、内存、首屏时间、包体积和 WebView fallback；目标是核心跟手动画接近 60fps，但不能用单一平均帧率掩盖长帧或功能回归。
+- Skyline 只有在低端机收益明确、关键触控与视觉零阻断、所用 TDesign 组件通过白名单、WebView fallback 可用时才扩大到下一页面；否则仅保留日历页或退回 WebView。
 
 ## 12. 测试和验收
 
 ### 12.1 数据与逻辑
 
 - 日历 view-model：多排班、全名、班种颜色、节假日放假/调休、换/替/加/扣标识和权限矩阵。
-- 手动排班：单元格切换、重复点击清空、行列清除确认、撤销和冲突。
+- 手动排班：单元格优先、班种锁定、连续快速填入、重复点击清空、单元格级去重、行列清除确认、撤销和冲突。
 - 工作流：预览失效、策略变化、409 最新数据、重复提交、审批状态和撤回权限。
 - 触控：横向切月、轴向锁定、长按、面板下滑阈值、循环 swiper 回调保护。
+- 构建基线：固定基础库、Worklet 编译、域名校验、主包/分包 manifest、生成物忽略和私有配置隔离。
+- 渲染兼容：同一数据集在 WebView、Skyline 和低版本 fallback 下的布局、点击目标、滚动、导航、TDesign 白名单和错误路径。
 
 ### 12.2 视觉
 
@@ -205,24 +249,29 @@ V3 以 Web 当前实际标识集合为准，明确区分：
 - `pnpm vitest run apps/miniprogram`
 - 触及 API、认证、路由、契约或构建核心链路时运行 `pnpm smoke:browser` 和 `pnpm smoke:check-core`
 - 开发者工具编译、模拟器截图和真机触控走查
+- WebView/Skyline Performance 对比、低端 Android 与 iOS 真机记录
 - 主包体积和关键操作耗时记录
 
 ## 13. 分阶段实施和停止条件
 
 1. 清理 V2、保留基础设施、提交本设计文档；停止条件是旧文档/旧表现层不再出现在工作树，状态文件与 Git 一致。
-2. 建立 V3 manifest、app-shell、tokens、导航和认证入口；停止条件是空壳可启动、角色入口正确、API 认证没有 UI 硬编码耦合。
-3. 完成日历黄金基线和月/周/列表触控；停止条件是日历标识矩阵和 Web 对照截图通过。
-4. 完成详情、事件、电话、请假、换班、加扣班及审批；停止条件是每条流程都具备预览、确认、409 和状态刷新。
-5. 完成手动排班、补录、统计、导出、群组和平台页面；停止条件是权限、版本和发布流程通过。
-6. 完成性能、包体积、模拟器和真机验收；停止条件是主包小于 2MB、核心触控无阻塞且用户确认。
+2. 完成 V3-0.5 干净构建基线：清理旧生成物和私有状态、重建跟踪配置、修正旧登录路由与分包冒烟；停止条件是配置审计、类型检查和生成物边界通过。
+3. 建立 V3 manifest、app-shell、tokens、自定义导航、局部滚动和认证入口；停止条件是 WebView 空壳可启动、角色入口正确、API 认证没有 UI 硬编码耦合。
+4. 完成日历黄金基线、月/周/列表触控与页面级 Skyline/Worklet spike；停止条件是标识矩阵、Web 对照截图、WebView fallback 和真机性能记录通过。
+5. 完成详情、事件、电话、请假、换班、加扣班及审批；停止条件是每条流程都具备预览、确认、409 和状态刷新。
+6. 完成双模式手动排班、补录、统计、导出、群组和平台页面；停止条件是权限、版本、撤销和发布流程通过。
+7. 完成 Skyline 扩展决策、性能、包体积、模拟器和真机验收；停止条件是主包小于 2MB、核心触控无阻塞且用户确认最终渲染范围。
 
 每轮只实施 1–3 个任务；复杂日历、并发和发布任务独立成轮。任何阶段都不得提前恢复旧 V2 页面或旧移植清单。
 
 ## 14. 明确拒绝的方案
 
 - 在 V2 页面上继续补 CSS 或补字段。
+- 原样沿用 V2 `project.config.json`、本机私有设置或旧 `miniprogram_npm` 作为 V3 构建基线。
 - 通过通用日历组件替代包含自定义标识的日历网格。
 - 同时引入 WeUI、Vant 和 TDesign。
+- 只凭开发者工具平均帧率或单台高端机结果全局开启 Skyline。
+- 在 Worklet 中执行 API、排班计算、权限判断、缓存写入或高频 `setData`。
 - 用本地缓存作为排班写入源或离线提交队列。
 - 用一套通用确认弹窗覆盖请假、换班、加扣班、审批和发布状态。
 - 用宽范围 Git 回退丢失 API、认证、契约或后端历史。
