@@ -1557,3 +1557,12 @@
 - 状态修正：此前“Task 5 尚待创建/推送”及 Task 3/4“未推送”均为提交前记录，现已由 Git 实际状态取代。V3-1 已完成、待用户复核；不得执行 Task 6，下一步仅可基于当前检查点规划 V3-2。
 - DevTools 产物：未跟踪 `apps/miniprogram/minitest/test.config.json` 是已记录的开发者工具本地产物，不代表未完成任务，保留且不纳入提交。
 - 验证/检查点：两份文档 Prettier 与 `git diff --check` 通过；检查点提交信息：`docs(miniprogram): reconcile V3-1 checkpoint status`。
+
+### V3-2 计划检查点（2026-08-09）
+
+- 用户请求：仅编写并提交 V3-2 阶段执行计划文档，不修改任何生产代码；必须使用 `writing-plans` skill，但用户明确覆盖其“所有生产代码必须完整写入计划”要求，改为 contract-first/test-first/code-light 格式。
+- V3-1 门禁复核：`HEAD == origin/main`（当前 `5c1715a`）；Task 3/4/5 独立提交 `ebfbb31`/`bc534c0`/`ce21a51` 均在 `origin/main` 历史，`ce21a51..HEAD` 仅文档变更；聚焦套件 12 文件 / 74 项通过；`pnpm miniprogram:typecheck` 退出 0；`pnpm smoke:check-core` 通过（未涉及核心链路文件，变更文件仅未跟踪 `apps/miniprogram/minitest/`）；工作树无未完成任务，未跟踪 `minitest/test.config.json` 为已记录 DevTools 产物。
+- 计划产出：`docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md`（1101 行），覆盖 Task 6 自绘网格/微标签/事件路由、Task 7 三页切月/月周列表/只读缓存、Task 8 日期/值班/事件/电话 Bottom Sheet；含精确 File Responsibility Map、类型/接口/签名、事件路由表、月周列表状态机、三页 swiper 轮换规则、过期响应保护、缓存新鲜度规则、Bottom Sheet 状态机、黄金数据集、精确测试场景与断言、语义审计契约、渲染/真机/性能验证矩阵。Task 6/7/8 各一个独立本地提交，GitHub 仅在三个 Task 全部通过后做一次 push。
+- 计划自审：Prettier 通过；占位符扫描无命中（自审命令自身除外）；`routeActionId`/`resolveCalendarRouteAction`/`rotateMonthSlots`/`setViewMode`/`shouldCloseBottomSheet`/`buildEventNarrative`/`calendarCacheKeyPrefix`/`golden-a1…a5` 等标识符前后一致；`git diff --check` 通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划文档与路线图/状态/日志变更，未改 Web/API/契约/认证/构建核心链路）。
+- 检查点提交信息：`docs(miniprogram): plan V3-2 calendar golden baseline and details`；状态：**待用户复核**，批准前不得执行 Task 6。

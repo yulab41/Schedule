@@ -8,8 +8,8 @@
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待用户复核。
-- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。随后状态对账提交为 `d097393`，也已推送；当前仓库 HEAD 以 Git 命令为准，避免在状态对账提交中固化会立即过期的自指 hash。不得执行 Task 6；下一批仅可基于真实 V3-1 代码规划 V3-2。
-- 状态对账：本轮仅修正 V3-1 检查点/推送与 DevTools 产物的过期记录；验证为两份文档 Prettier 与 `git diff --check`。检查点提交信息：`docs(miniprogram): reconcile V3-1 checkpoint status`。
+- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。V3-2 Task 6–8 执行计划已生成（contract-first/test-first/code-light，1101 行），状态为**待用户复核**；批准前不得执行 Task 6。
+- 计划验证：V3-1 检查点复核通过——聚焦套件 12 文件 / 74 项通过，`pnpm miniprogram:typecheck` 退出 0，`pnpm smoke:check-core` 通过（仅未跟踪 `apps/miniprogram/minitest/`）；V3-2 计划文档 Prettier、占位符扫描、类型一致性扫描与 `git diff --check` 通过。
 
 ## Completed Batch
 
@@ -96,6 +96,14 @@
 - 行为审计：逻辑/VM 不依赖接收者；页面保留 `this.setData`、端点和 `wx` 成员调用；同一 in-flight context 返回同一 Promise，切换 context 的 generation/finally 不可覆盖新状态；`actual* ?? planned*`、空字符串姓名和显式 phone 空值语义保持；日期、selector、switch、action ID 与错误均收窄；筛选/排序不修改源数据，顺序为 businessDate → CST start（00:00 最后）→ 中文角色名 → slot → period → source index。
 - 检查点：`ce21a51 feat(miniprogram): add typed calendar view model` 已正常推送至 `origin/main`；Task 5/V3-1 已停止，不执行 Task 6，下一步仅可规划 V3-2。
 
+### V3-2：Task 6–8 执行计划（2026-08-09）
+
+- 已按用户要求完整读取 `AGENTS.md`、`docs/project-status.md`、V3 设计、交付路线图和 V3-1 执行计划，并复核 V3-1 真实代码、测试、manifest、`CalendarMonthViewModel`、页面壳与运行记录；V3-1 完成门禁满足：Task 3/4/5 独立提交 `ebfbb31`/`bc534c0`/`ce21a51` 均在 `origin/main` 历史，`ce21a51..HEAD` 仅文档变更，聚焦套件 12 文件 / 74 项通过，typecheck 与 `smoke:check-core` 通过。
+- 已创建 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md`（1101 行）：Task 6 自绘网格/微标签/事件路由、Task 7 三页切月/月周列表/只读缓存、Task 8 日期/值班/事件/电话 Bottom Sheet；采用 contract-first/test-first/code-light 格式，含精确 File Responsibility Map、类型/接口/签名、事件路由表、月周列表与 swiper 状态机、缓存新鲜度规则、Bottom Sheet 状态机、黄金数据集、精确测试断言、语义审计契约和渲染/真机/性能矩阵。
+- Git 策略：Task 6/7/8 各自形成独立本地提交；GitHub 仅在三个 Task 全部通过停止条件后做一次 push（不逐任务 push）。V3-2 不新增 API、契约字段、marker 类型、权限或离线写入；不使用 V1/V2 页面、通用日历库、TDesign Calendar 或未经验证的 Skyline 组件。
+- 验证：计划文档 Prettier、占位符扫描、类型一致性扫描与 `git diff --check` 通过；`pnpm smoke:browser` 不适用（仅文档变更）。
+- 检查点提交信息：`docs(miniprogram): plan V3-2 calendar golden baseline and details`；状态为**待用户复核**，批准前不得执行 Task 6。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -122,11 +130,12 @@
 
 1. V3-0.5 Task 1–2 已分别在 `6d2c5fe`、`2c93859` 完成并推送；代码、测试、状态文档和 Git 历史已在本轮重新核对。
 2. 使用 `writing-plans` 从真实 V3-0.5 检查点生成 V3-1 Task 3–5 执行计划；停止条件：只提交计划文档和索引/状态/日志更新，不执行 Task 3。
+3. 使用 `writing-plans`（用户覆盖“完整生产代码”要求，改为 contract-first/test-first/code-light）从真实 V3-1 检查点生成 V3-2 Task 6–8 执行计划；停止条件：只提交计划文档和路线图/状态/日志更新，不执行 Task 6。
 
 ## Active Batch
 
-1. V3-1 Task 3–5 已完成且三个独立检查点已推送；不执行 Task 6。
-2. 下一批仅为：复核已完成的 V3-1 检查点，并使用 `writing-plans` 基于真实代码生成 V3-2 执行计划；停止条件是在计划文档检查点后停止，不实施 V3-2。
+1. V3-1 Task 3–5 已完成且三个独立检查点已推送；V3-2 Task 6–8 执行计划已生成，状态**待用户复核**；批准前不执行 Task 6。
+2. 下一批仅为：用户复核 V3-2 计划后，按计划执行 Task 6（自绘网格/微标签/事件路由）；每个 Task 一个独立本地提交并在各自停止条件处停止，三个 Task 全部通过后做一次 GitHub push。
 
 ## Handoff Requirements
 

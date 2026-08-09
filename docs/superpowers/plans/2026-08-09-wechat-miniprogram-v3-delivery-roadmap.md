@@ -105,17 +105,17 @@
 
 ### 4.1 阶段执行计划索引
 
-| 阶段   | 执行计划                                                                                                         | 状态                                        |
-| ------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| V3-0.5 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`                  | 已完成；`6d2c5fe`、`2c93859` 已推送         |
-| V3-1   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md` | 已完成，待用户复核；Task 5 检查点提交后停止 |
-| V3-2   | 无                                                                                                               | 禁止执行；先基于 V3-1 检查点生成执行计划    |
-| V3-3   | 无                                                                                                               | 禁止执行；V3-2 检查点通过后再展开           |
-| V3-4   | 无                                                                                                               | 禁止执行；V3-3 检查点通过后再展开           |
-| V3-5   | 无                                                                                                               | 禁止执行；V3-4 检查点通过后再展开           |
-| V3-6   | 无                                                                                                               | 禁止执行；V3-5 检查点通过后再展开           |
+| 阶段   | 执行计划                                                                                                                | 状态                                        |
+| ------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| V3-0.5 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`                         | 已完成；`6d2c5fe`、`2c93859` 已推送         |
+| V3-1   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`        | 已完成，待用户复核；Task 5 检查点提交后停止 |
+| V3-2   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md` | 已生成，待用户复核；批准前禁止执行 Task 6   |
+| V3-3   | 无                                                                                                                      | 禁止执行；V3-2 检查点通过后再展开           |
+| V3-4   | 无                                                                                                                      | 禁止执行；V3-3 检查点通过后再展开           |
+| V3-5   | 无                                                                                                                      | 禁止执行；V3-4 检查点通过后再展开           |
+| V3-6   | 无                                                                                                                      | 禁止执行；V3-5 检查点通过后再展开           |
 
-V3-2 及以后阶段的“无”不是遗漏或待执行占位符，而是准确表示：前一阶段尚未形成稳定代码，当前无法为后续阶段给出可信的精确文件行号、类型签名和失败输出。V3-1 计划须经用户明确批准后才具有实施授权；本次计划编写不授权执行任务 3。
+V3-3 及以后阶段的“无”不是遗漏或待执行占位符，而是准确表示：前一阶段尚未形成稳定代码，当前无法为后续阶段给出可信的精确文件行号、类型签名和失败输出。V3-1 与 V3-2 计划均须经用户明确批准后才具有实施授权；V3-2 计划编写不授权执行任务 6。
 
 ### 4.2 设计覆盖矩阵
 
@@ -249,6 +249,8 @@ V3-0.5 Task 1 已提交为 `6d2c5fe`，Task 2 已提交为 `2c93859`；`main` �
 版本节点：`feat(miniprogram): add typed calendar view model`
 
 ## 7. V3-2：日历黄金基线和详情层
+
+本阶段的精确文件职责、接口/签名、路由表、状态机、黄金数据集、测试断言、验证矩阵和停止条件见 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md`。Task 6–8 采用 contract-first/test-first/code-light 格式；每个 Task 形成独立本地提交，GitHub 仅在三个 Task 全部通过停止条件后做一次 push。
 
 ### 任务 6：自绘日历网格、微标签和事件路由
 
