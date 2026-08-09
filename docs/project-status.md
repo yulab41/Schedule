@@ -77,6 +77,13 @@
 - 自动化复核：手动 `cli auto --auto-port 9420` 后以 `MINIPROGRAM_SMOKE_AUTO_WS=ws://127.0.0.1:9420` 运行 smoke；首次连接失败后成功连接，五个 V3 路由全部打开、截图生成且无脚本错误。配置审计在本次自动化后保持通过。
 - WXSS 回归修复：DevTools Console 报 `page-shell` 与 `shell-state` 组件 WXSS 导入全局 token 后含 `page` 选择器，不受组件 WXSS 支持。新增回归断言先失败，再移除两处组件导入；全局 `page` token 仍由 app 样式提供并由组件继承。自动验证为 2 文件 / 9 项、typecheck、lint、Prettier 与 diff 检查通过；用户已完整编译确认该两类警告消失。
 
+### V3-1：Task 4 会话、认证、邀请与角色入口
+
+- 已完成：可注入的单飞会话状态机、微信登录包装、一次性受保护 401 跳转、启动恢复、资料补全、邀请 bridge、角色入口与按 `membershipId` 匹配的本人联系方式；未修改 API、合同、权限、后端规则或 `updateProfile`。
+- 验证：8 个文件 / 46 项定向测试、配置审计、typecheck、lint、Prettier、`git diff --check`、`pnpm smoke:browser` 与 `pnpm smoke:check-core` 通过；DevTools build-npm 成功且无 warning；复用 `9420` 自动化会话打开全部 7 条路由，无脚本级错误。
+- 运行偏差：DevTools CLI preview 仍报已记录的 Stable `800059 iconPath` 错误；这与图标路径无关，且不影响 build 或模拟器路由 smoke。旧 API Node 进程导致 `/platform/me` 404；终止后当前源码 API 返回预期 401，确认端点注册正常。
+- 检查点提交信息：`feat(miniprogram): add V3 auth and role routing`（按用户要求不推送 GitHub）。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -106,8 +113,8 @@
 
 ## Active Batch
 
-1. V3-1 Task 3 已结束：本轮创建本地独立检查点后停止，按用户要求不推送 GitHub、不执行 Task 4。
-2. 后续仅在用户明确发起新对话/任务时执行 Task 4；停止条件由该任务的执行计划决定。
+1. V3-1 Task 4 已结束：本轮创建本地独立检查点后停止，按用户要求不推送 GitHub、不执行 Task 5。
+2. 后续仅在用户明确发起新对话/任务时执行 Task 5；停止条件由该任务的执行计划决定。
 
 ## Handoff Requirements
 

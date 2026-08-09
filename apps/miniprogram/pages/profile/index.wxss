@@ -1,1 +1,17 @@
-@import '../../tokens/index.wxss';
+.profile-header,
+.profile-group {
+  display: block;
+  margin-bottom: var(--v3-space-md);
+  padding: var(--v3-space-md);
+  background: var(--v3-color-surface);
+  border-radius: var(--v3-radius-lg);
+}
+.profile-error {
+  display: block;
+  color: var(--v3-color-danger);
+}
+.profile-logout {
+  min-height: 88rpx;
+  color: #fff;
+  background: var(--v3-color-danger);
+}

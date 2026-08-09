@@ -1532,3 +1532,11 @@
 - 9420 复核：手动执行 `cli.bat auto --project E:\AItools\Schedule\apps\miniprogram --auto-port 9420 --port 15360` 后，设置 `MINIPROGRAM_SMOKE_AUTO_WS=ws://127.0.0.1:9420` 直接连接；首次连接失败后第二次成功，login 和四个 tab 共 5/5 路由打开、截图生成、无脚本错误。说明 Stable `cli auto` 的会话需要显式复用现有 WebSocket；本次运行后严格配置审计仍通过。
 - 用户渲染器矩阵：DevTools 点击日历 tab 后左上角显示“当前渲染模式：skyline”。本地设置截图记录调试基础库 `3.16.2`，以及“将 JS 编译成 ES5”“编译 worklet 代码”“开启 Skyline 渲染调试”均开启。用户关闭 Skyline 渲染调试后，日历页明确显示“当前渲染模式：WebView”，证明页面级 fallback；工作台和其余 tab 不显示渲染模式标签，是 DevTools UI 限制，不补写不存在的观察结果。Console 提示 Skyline 自基础库 2.29.2 支持、未设置线上最低基础库时低版本客户端使用 WebView；这是页面级 Skyline 的正常 fallback 提示，不是要求把 renderer 全局移入 `app.json`。Android 微信 `8.0.76` 的手机 preview 已分别切换 `Skyline`、`WebView`、`Auto`：日历页均显示、底部四 tab 均可切换。日历 `glass-easel` 由页面配置和成功编译证明，DevTools 未提供独立运行标签；页面当前仅有 Task 3 壳状态文案，未产生可滚动溢出，局部滚动不记为人工通过；未在低版本客户端观察 automatic fallback，仍记 `automatic fallback: unverified`。
 - WXSS 引入点与修复：Console 显示 `components/page-shell/index.wxss` 与 `components/shell-state/index.wxss` 的“不允许 component wxss selector”警告；`git log -S`/`git blame` 无引入提交，因为这两个文件是本轮尚未提交的新文件。根因是两文件导入 `tokens/index.wxss`，后者的全局 `page` selector 在 component WXSS 中非法。回归测试先因真实带引号的 import 匹配失败；移除两处 import 后通过。全局变量由 `app.wxss` 的 `page` 保留，组件不再引入非法 selector。验证：shell/manifest 为 2 文件 / 9 项通过，typecheck、lint、Prettier、diff 检查通过；用户完整编译确认两类警告已消失。
+
+### V3-1：Task 4 会话与角色入口运行验证（2026-08-09）
+
+- 引入点：`setUnauthorizedHandler` 来自 `2c93859`；`pendingInviteStorageKey` 来自 `6ea5f45`；`getPlatformMe` 的现有小程序端点封装来自 `2a88e48`。Task 4 只组合这些既有合同入口。
+- 红绿：auth-flow 模块、session factory、role/contact 模块、auth runtime 与两条非 tab 路由均先以缺模块/未注册失败，再实现至 8 文件 / 46 项测试通过；session slot 清理改为双分支 `then`，避免丢弃 `finally` 派生拒绝造成未处理错误。
+- 语义审计：`wx.login`、导航、存储和 `setData` 保持接收者调用；重复 restore/login/profile/invite 返回同一 slot Promise，generation 使 401/clear 后旧响应无副作用；profile 以 `response.profile === undefined` 判断，邀请 token override 以 `!== undefined` 判断；成员联系人只以 `membershipId` 关联；无 `any`、合同/端点/权限或 profile PATCH。
+- 运行：当前 API 源码含 `/platform/me`，但旧 Node PID 25620 从 2026-08-08 持有 3000 并返回 404；停止后当前 API PID 72016 的 `/health` 为 200、无令牌 `/platform/me` 为预期 401。DevTools 实际服务端口为 25228；CLI build-npm 成功 warnings `[]`，preview 仍为已知 Stable `800059 iconPath`，不误归因到 Task 4。9420 smoke 最终连接后 login、profile-setup、invite、四个 tab 共 7/7 成功且无脚本级错误；invite 无 token 正常 landing 至 workbench。
+- 运行/浏览器验证：`pnpm smoke:browser` 通过（Web 登录/管理员/成员/访客全流程无浏览器错误）；`pnpm smoke:check-core` 通过。

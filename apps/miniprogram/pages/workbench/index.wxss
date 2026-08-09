@@ -1,1 +1,17 @@
-@import '../../tokens/index.wxss';
+.workbench-section {
+  margin-bottom: var(--v3-space-md);
+  padding: var(--v3-space-md);
+  background: var(--v3-color-surface);
+  border-radius: var(--v3-radius-lg);
+}
+.workbench-section__title {
+  display: block;
+  font-weight: 700;
+}
+.workbench-entry {
+  min-height: 88rpx;
+  padding-top: var(--v3-space-sm);
+}
+.workbench-entry--disabled {
+  color: var(--v3-color-text-muted);
+}

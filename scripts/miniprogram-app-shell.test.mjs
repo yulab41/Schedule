@@ -53,12 +53,18 @@ describe('V3 app shell', () => {
     const appJson = readJson('app.json');
     expect(listRegisteredPages(appJson)).toEqual([
       'pages/auth/login/index',
+      'pages/auth/profile-setup/index',
+      'pages/invite/invite',
       'pages/workbench/index',
       'pages/calendar/index',
       'pages/notifications/index',
       'pages/profile/index',
     ]);
     expect(appJson.tabBar?.custom).not.toBe(true);
+    expect(appJson.pages).toContain('pages/invite/invite');
+    expect(appJson.tabBar?.list.some(({ pagePath }) => pagePath === 'pages/invite/invite')).toBe(
+      false,
+    );
     expect(appJson.tabBar?.list).toEqual([
       {
         iconPath: 'assets/tab-bar/workbench.png',

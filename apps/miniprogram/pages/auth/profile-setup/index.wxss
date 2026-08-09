@@ -5,6 +5,7 @@
 }
 .auth-card__description {
   display: block;
+  margin-bottom: var(--v3-space-md);
   color: var(--v3-color-text-muted);
 }
 .auth-card__error {

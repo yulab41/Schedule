@@ -1,3 +1,1 @@
-<page-shell title="我的">
-  <shell-state kind="empty" title="尚未恢复资料" description="登录后显示账号和群组联系方式状态。" />
-</page-shell>
+<page-shell title="我的"><view class="profile-header"><text>{{profile.realName}}</text></view><text wx:if="{{errorMessage}}" class="profile-error">{{errorMessage}}</text><view wx:for="{{summaries}}" wx:key="groupId" class="profile-group"><text>{{item.groupName}} · {{item.role}}</text><text wx:if="{{item.state === 'available'}}">{{item.contact.isConfirmed ? '已确认' : '未确认'}}</text><text wx:elif="{{item.state === 'missing'}}">未填写联系方式</text><text wx:elif="{{item.state === 'not-applicable'}}">游客无需联系方式</text><text wx:else>暂时无法确认成员身份</text></view><button class="profile-logout" bindtap="handleLogout">退出登录</button></page-shell>

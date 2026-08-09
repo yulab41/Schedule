@@ -1,0 +1,79 @@
+import type { GroupRole, GroupSummary } from '@schedule/contracts';
+
+export type WorkbenchEntryId =
+  | 'backfill'
+  | 'calendar'
+  | 'config'
+  | 'duty'
+  | 'events'
+  | 'groups'
+  | 'leave'
+  | 'manual'
+  | 'members'
+  | 'notifications'
+  | 'statistics'
+  | 'swap';
+
+export interface WorkbenchEntry {
+  readonly id: WorkbenchEntryId;
+  readonly label: string;
+  readonly requiresAdministrator: boolean;
+  readonly tabRoute?: '/pages/calendar/index' | '/pages/notifications/index';
+}
+
+export interface WorkbenchSection {
+  readonly entries: readonly WorkbenchEntry[];
+  readonly groupId?: string;
+  readonly id: string;
+  readonly label: string;
+  readonly role?: GroupRole;
+}
+
+export const workbenchEntries: readonly WorkbenchEntry[] = [
+  {
+    id: 'calendar',
+    label: '排班日历',
+    requiresAdministrator: false,
+    tabRoute: '/pages/calendar/index',
+  },
+  { id: 'groups', label: '群组管理', requiresAdministrator: false },
+  { id: 'manual', label: '手动排班', requiresAdministrator: true },
+  { id: 'backfill', label: '排班补录', requiresAdministrator: true },
+  { id: 'leave', label: '请假', requiresAdministrator: false },
+  { id: 'swap', label: '换班', requiresAdministrator: false },
+  { id: 'duty', label: '加扣班', requiresAdministrator: false },
+  { id: 'events', label: '事件', requiresAdministrator: true },
+  {
+    id: 'notifications',
+    label: '通知',
+    requiresAdministrator: false,
+    tabRoute: '/pages/notifications/index',
+  },
+  { id: 'statistics', label: '统计', requiresAdministrator: false },
+  { id: 'members', label: '成员', requiresAdministrator: false },
+  { id: 'config', label: '排班配置', requiresAdministrator: true },
+];
+
+export function getVisibleWorkbenchEntries(role: GroupRole): readonly WorkbenchEntry[] {
+  if (role === 'guest')
+    return workbenchEntries.filter(({ id }) => id === 'calendar' || id === 'groups');
+  if (role === 'member')
+    return workbenchEntries.filter(({ requiresAdministrator }) => !requiresAdministrator);
+  return workbenchEntries;
+}
+
+export function buildWorkbenchSections(
+  groups: readonly GroupSummary[],
+  isPlatformAdmin: boolean,
+): readonly WorkbenchSection[] {
+  const sections = groups.map((group) => ({
+    entries: getVisibleWorkbenchEntries(group.role),
+    groupId: group.id,
+    id: `group:${group.id}`,
+    label: group.name,
+    role: group.role,
+  }));
+  return isPlatformAdmin
+    ? [...sections, { entries: [], id: 'platform', label: '平台管理' }]
+    : sections;
+}

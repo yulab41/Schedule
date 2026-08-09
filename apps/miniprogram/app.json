@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/auth/login/index",
+    "pages/auth/profile-setup/index",
+    "pages/invite/invite",
     "pages/workbench/index",
     "pages/calendar/index",
     "pages/notifications/index",
