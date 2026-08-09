@@ -1550,3 +1550,10 @@
 - 提交前审查回归：同步端点 wrapper 抛错后旧实现留下已完成的同 key single-flight Promise，令同一目标无法重试；失效的筛选 ID 在 UI 归一为“全部”前已参与过滤，造成 UI/结果不一致。两项均先红后绿；补充覆盖旧月迟到完成和加载新上下文时切回旧月的缓存边界。
 - DevTools：Stable `2.01.2510290`、debug base library `3.16.2`，服务端口 `25228`；build-npm 成功且 warnings `[]`。preview 复现既有 Stable `800059 iconPath=assets/tab-bar/workbench.png, file not found` 上传缺陷，未修改已验证的 PNG。旧 `9420`/`9421` 会话连接式 smoke 无输出后失活；以 CLI 另开 `9422` 后连接式 smoke 打开 7/7 路由且无脚本错误，日历截图已复核。日历截图发现 Skyline 原生 button 的默认宽度令月份标签换行；静态测试先红，再显式设定月按钮触控宽度/margin 与标签不换行，截图确认月份标签单行。Task 3 已有的 Android WeChat `8.0.76` Skyline/WebView/Auto 与 tab 切换证据继续有效；真实低版本自动 fallback 仍为 unverified。
 - 语义审计：页面保留 `this.setData`、端点 wrapper 与 `wx` 接收者调用；controller 共享同 key Promise，generation 与 finally 不可擦除新 context；使用 `actualMembershipId ?? plannedMembershipId`、`actualMemberName ?? plannedMemberName ?? '待定'`，空字符串不被替换；selector/switch/action ID/error 均显式收窄；映射/筛选不变异，排序为业务日→CST 起始（00:00 最后）→中文角色→slot→period→源序；没有新 API、契约、授权、缓存或后端字段。
+
+### V3-1 检查点状态对账（2026-08-09）
+
+- Git 事实：`HEAD == origin/main == ce21a51`；独立 Task 3/4/5 检查点依次为 `ebfbb31 feat(miniprogram): add V3 app shell and native navigation`、`bc534c0 feat(miniprogram): add V3 auth and role routing`、`ce21a51 feat(miniprogram): add typed calendar view model`，均已正常快进推送。
+- 状态修正：此前“Task 5 尚待创建/推送”及 Task 3/4“未推送”均为提交前记录，现已由 Git 实际状态取代。V3-1 已完成、待用户复核；不得执行 Task 6，下一步仅可基于当前检查点规划 V3-2。
+- DevTools 产物：未跟踪 `apps/miniprogram/minitest/test.config.json` 是已记录的开发者工具本地产物，不代表未完成任务，保留且不纳入提交。
+- 验证/检查点：两份文档 Prettier 与 `git diff --check` 通过；检查点提交信息：`docs(miniprogram): reconcile V3-1 checkpoint status`。
