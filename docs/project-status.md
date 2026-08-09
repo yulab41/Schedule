@@ -7,8 +7,8 @@
 - 日期：2026-08-09
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
-- 小程序：V3-0.5 Task 1–2 已完成；V3-1 Task 3 已建立真实 manifest、五页 shell、本地滚动壳、原生 tabBar 和页面级日历 Skyline 声明，并通过自动化、模拟器、preview 与真机复核。
-- V3：`main` 比 `origin/main` 超前计划检查点 `9dac419`；Task 3 状态为**已完成，待用户复核**。本轮只创建 Task 3 本地检查点，不执行 Task 4。
+- 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待本轮独立检查点和用户复核。
+- V3：`main` 比 `origin/main` 超前 `9dac419`、`ebfbb31` 与 `bc534c0` 三个本地检查点；本轮将创建 V3-1 Task 5 检查点并只尝试一次正常推送。之后不得执行 Task 6，下一步仅能规划 V3-2。
 
 ## Completed Batch
 
@@ -84,6 +84,17 @@
 - 运行偏差：DevTools CLI preview 仍报已记录的 Stable `800059 iconPath` 错误；这与图标路径无关，且不影响 build 或模拟器路由 smoke。旧 API Node 进程导致 `/platform/me` 404；终止后当前源码 API 返回预期 401，确认端点注册正常。
 - 检查点提交信息：`feat(miniprogram): add V3 auth and role routing`（按用户要求不推送 GitHub）。
 
+### V3-1：Task 5 日历逻辑、ViewModel 与页面消费边界
+
+- 已完成：新增与 Web 等价的纯日历逻辑（CST 日期/月、周一网格、稳定排序、筛选、节假日简称、变更标记和电话动作）；新增不依赖 `wx`、API 客户端或页面对象的 `CalendarMonthViewModel`，使用稳定的 week/cell/assignment/marker/phone action ID。
+- 已完成：控制器通过注入的现有端点按角色互斥加载（guest 只用 guest calendar + guest holidays，其他角色只用受保护 calendar + holidays），同 key 单飞、当前上下文失效、强制刷新、失败分类、纯本地筛选及受验证电话副作用均有测试。未新增 API、共享契约、持久化缓存、事件 ID、扣班字段、Worklet 或 TDesign 日历。
+- 已完成：`pages/calendar` 只消费 ViewModel 分支和 action ID；月切换、picker、仅变更开关与重试仅委托控制器。Skyline 原生 button 默认宽度曾令月份标签换行；先新增静态回归断言，再以显式触控宽度、margin 与不换行标签修复，模拟器截图确认 `2026年8月` 恢复单行。
+- 验证：定向 6 文件 / 37 项通过；完整 `pnpm vitest run apps/miniprogram` 为 9 文件 / 63 项通过；`pnpm miniprogram:config:audit`、`pnpm miniprogram:typecheck`、`pnpm miniprogram:lint`、Task 5 文件 Prettier、边界扫描、`git diff --check` 与 `pnpm smoke:check-core` 均通过。`pnpm smoke:browser` 不适用（仅小程序日历纯逻辑/VM/页面消费边界，未改 Web/API/共享契约/认证核心链路）。
+- DevTools：Stable `2.01.2510290`、服务端口 `25228` 下 build-npm 成功且 warnings `[]`。preview 仍复现已知 Stable `800059 iconPath=assets/tab-bar/workbench.png, file not found` 上传缺陷；本轮未改 PNG，因本地编译、图标审计和模拟器运行均正常。旧 `9420`/`9421` 自动化会话在 `automator.connect()` 超时后失活；CLI 新开 `9422` 后，连接式 smoke 7/7 路由通过、无脚本级错误，日历截图已复核。DevTools 自动 fallback 仍未在真实低版本客户端观察；沿用 Task 3 的 Skyline/WebView/Auto 真机证据，不夸大自动降级结论。
+- 提交前审查：同步端点抛错会遗留同 key 单飞槽位，失效筛选会造成 UI 显示“全部”但结果为空；均先以失败测试锁定后修复。旧月完成不会覆盖新月、加载新上下文时不错误复用旧月缓存的回归测试也已覆盖。检查点提交信息：`feat(miniprogram): add typed calendar view model`；本提交后停止，下一步仅可规划 V3-2。
+- 行为审计：逻辑/VM 不依赖接收者；页面保留 `this.setData`、端点和 `wx` 成员调用；同一 in-flight context 返回同一 Promise，切换 context 的 generation/finally 不可覆盖新状态；`actual* ?? planned*`、空字符串姓名和显式 phone 空值语义保持；日期、selector、switch、action ID 与错误均收窄；筛选/排序不修改源数据，顺序为 businessDate → CST start（00:00 最后）→ 中文角色名 → slot → period → source index。
+- 检查点：计划提交 `feat(miniprogram): add typed calendar view model`；提交后仅进行一次正常 GitHub 推送尝试，不执行 Task 6。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -113,8 +124,8 @@
 
 ## Active Batch
 
-1. V3-1 Task 4 已结束：本轮创建本地独立检查点后停止，按用户要求不推送 GitHub、不执行 Task 5。
-2. 后续仅在用户明确发起新对话/任务时执行 Task 5；停止条件由该任务的执行计划决定。
+1. V3-1 Task 3–5 已完成并等待本轮独立检查点与一次正常推送尝试；不执行 Task 6。
+2. 下一批仅为：复核已完成的 V3-1 检查点，并使用 `writing-plans` 基于真实代码生成 V3-2 执行计划；停止条件是在计划文档检查点后停止，不实施 V3-2。
 
 ## Handoff Requirements
 
