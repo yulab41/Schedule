@@ -4,12 +4,12 @@
 
 ## Current Position
 
-- 日期：2026-08-09
+- 日期：2026-08-10
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待用户复核。
-- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。V3-2 Task 6–8 执行计划已生成（contract-first/test-first/code-light，1101 行），状态为**待用户复核**；批准前不得执行 Task 6。
-- 计划验证：V3-1 检查点复核通过——聚焦套件 12 文件 / 74 项通过，`pnpm miniprogram:typecheck` 退出 0，`pnpm smoke:check-core` 通过（仅未跟踪 `apps/miniprogram/minitest/`）；V3-2 计划文档 Prettier、占位符扫描、类型一致性扫描与 `git diff --check` 通过。
+- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。V3-2 Task 6–8 计划已重新审校（contract-first/test-first/code-light，1188 行），状态为**待用户复核**；批准前不得执行 Task 6。
+- 计划验证：V3-1 复核的聚焦套件为 12 文件 / 74 项通过，`pnpm miniprogram:typecheck` 与 `pnpm smoke:check-core` 均通过；本轮只变更四份文档，保留唯一未跟踪 `apps/miniprogram/minitest/` DevTools 产物，计划自检、Prettier 与 `git diff --check` 通过后才创建本地文档检查点。
 
 ## Completed Batch
 
@@ -96,13 +96,13 @@
 - 行为审计：逻辑/VM 不依赖接收者；页面保留 `this.setData`、端点和 `wx` 成员调用；同一 in-flight context 返回同一 Promise，切换 context 的 generation/finally 不可覆盖新状态；`actual* ?? planned*`、空字符串姓名和显式 phone 空值语义保持；日期、selector、switch、action ID 与错误均收窄；筛选/排序不修改源数据，顺序为 businessDate → CST start（00:00 最后）→ 中文角色名 → slot → period → source index。
 - 检查点：`ce21a51 feat(miniprogram): add typed calendar view model` 已正常推送至 `origin/main`；Task 5/V3-1 已停止，不执行 Task 6，下一步仅可规划 V3-2。
 
-### V3-2：Task 6–8 执行计划（2026-08-09）
+### V3-2：Task 6–8 执行计划复审（2026-08-10）
 
-- 已按用户要求完整读取 `AGENTS.md`、`docs/project-status.md`、V3 设计、交付路线图和 V3-1 执行计划，并复核 V3-1 真实代码、测试、manifest、`CalendarMonthViewModel`、页面壳与运行记录；V3-1 完成门禁满足：Task 3/4/5 独立提交 `ebfbb31`/`bc534c0`/`ce21a51` 均在 `origin/main` 历史，`ce21a51..HEAD` 仅文档变更，聚焦套件 12 文件 / 74 项通过，typecheck 与 `smoke:check-core` 通过。
-- 已创建 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md`（1101 行）：Task 6 自绘网格/微标签/事件路由、Task 7 三页切月/月周列表/只读缓存、Task 8 日期/值班/事件/电话 Bottom Sheet；采用 contract-first/test-first/code-light 格式，含精确 File Responsibility Map、类型/接口/签名、事件路由表、月周列表与 swiper 状态机、缓存新鲜度规则、Bottom Sheet 状态机、黄金数据集、精确测试断言、语义审计契约和渲染/真机/性能矩阵。
-- Git 策略：Task 6/7/8 各自形成独立本地提交；GitHub 仅在三个 Task 全部通过停止条件后做一次 push（不逐任务 push）。V3-2 不新增 API、契约字段、marker 类型、权限或离线写入；不使用 V1/V2 页面、通用日历库、TDesign Calendar 或未经验证的 Skyline 组件。
-- 验证：计划文档 Prettier、占位符扫描、类型一致性扫描与 `git diff --check` 通过；`pnpm smoke:browser` 不适用（仅文档变更）。
-- 检查点提交信息：`docs(miniprogram): plan V3-2 calendar golden baseline and details`；状态为**待用户复核**，批准前不得执行 Task 6。
+- 门禁对账：已重新核对 `ebfbb31`/`bc534c0`/`ce21a51` 独立提交、真实 manifest/VM/页面壳/运行记录、`origin/main` 可达性和唯一未跟踪 DevTools 产物。调试日志顶端过期的“V3-1 未开始”摘要已修正；状态、Git 与日志现在都将 V3-1 标为已完成/待用户复核。
+- 计划修订：`docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md` 为 1188 行，补齐 Task 6 的无副作用路由 sink、Task 7 的跨月数据月槽/固定三页轮换/role+groupVersion 缓存隔离，以及 Task 8 的显示 VM、受限事件分页、键控两阶段 Bottom Sheet 和电话副作用语义。
+- Git 策略：既有 `e85481e` 是本地 V3-2 初稿检查点；本次修订仅创建 `docs(miniprogram): revise V3-2 calendar execution plan` 本地文档提交，不推送。Task 6/7/8 各一独立本地提交，三个停止条件均满足后只做一次正常快进 push。
+- 验证：聚焦套件 12 文件 / 74 项、`pnpm miniprogram:typecheck`、`pnpm smoke:check-core` 已通过；本轮运行计划占位符/标识符/契约源/行数检查、四份文档 Prettier 与 `git diff --check`。`pnpm smoke:browser` 不适用（仅文档变更）。
+- 状态：**待用户复核**；下一批仅在用户批准后执行 Task 6，禁止在本轮实施生产代码。
 
 ## Validation
 
@@ -130,7 +130,7 @@
 
 1. V3-0.5 Task 1–2 已分别在 `6d2c5fe`、`2c93859` 完成并推送；代码、测试、状态文档和 Git 历史已在本轮重新核对。
 2. 使用 `writing-plans` 从真实 V3-0.5 检查点生成 V3-1 Task 3–5 执行计划；停止条件：只提交计划文档和索引/状态/日志更新，不执行 Task 3。
-3. 使用 `writing-plans`（用户覆盖“完整生产代码”要求，改为 contract-first/test-first/code-light）从真实 V3-1 检查点生成 V3-2 Task 6–8 执行计划；停止条件：只提交计划文档和路线图/状态/日志更新，不执行 Task 6。
+3. 以 writing-plans 的 header/checkbox 标准（用户覆盖“完整生产代码”要求，改为 contract-first/test-first/code-light）从真实 V3-1 检查点复审 V3-2 Task 6–8 执行计划；停止条件：只提交计划文档和路线图/状态/日志更新，不执行 Task 6。
 
 ## Active Batch
 

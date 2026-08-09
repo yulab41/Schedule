@@ -15,12 +15,12 @@
 This plan is authorized only because the V3-1 completion gate is recorded and reproducible. Before any checkbox, the executor must confirm:
 
 - `git status --short --branch` shows `main` tracking `origin/main`; the only untracked path is `apps/miniprogram/minitest/` (recorded DevTools artifact, preserved, never staged).
-- `git log --oneline --decorate -10` contains `ce21a51 feat(miniprogram): add typed calendar view model`, `bc534c0 feat(miniprogram): add V3 auth and role routing`, and `ebfbb31 feat(miniprogram): add V3 app shell and native navigation` in `origin/main` history; `HEAD == origin/main`.
-- `git diff --stat ce21a51..HEAD` touches only `docs/project-status.md` and `docs/debug/debug-feedback-log.md` (no production code after the V3-1 code checkpoint).
-- `docs/project-status.md` records V3-1 as complete / 待用户复核, lists the three checkpoint hashes as pushed, and forbids Task 6 execution without this plan.
-- Focused validation passes: `pnpm vitest run apps/miniprogram scripts/miniprogram-calendar-boundary.test.mjs scripts/miniprogram-app-shell.test.mjs scripts/miniprogram-manifest.test.mjs`, `pnpm miniprogram:typecheck`, `pnpm smoke:check-core`.
+- `ebfbb31` → `bc534c0` → `ce21a51` are reachable from `origin/main` in that order, and `git merge-base --is-ancestor origin/main HEAD` succeeds. Local, approved V3-2 documentation/task commits are allowed to make `HEAD` ahead of upstream because this plan deliberately defers the only push until Task 8.
+- `git diff --name-only ce21a51..HEAD` contains only the V3-2 plan/checkpoint documents before Task 6; after Task 6 or Task 7 it may additionally contain only the already completed, local V3-2 task paths. Any unapproved production path, private DevTools state, generated npm output, or unrelated user change is a hard stop.
+- `docs/project-status.md` and the `当前阶段` summary in `docs/debug/debug-feedback-log.md` both record V3-1 as complete / 待用户复核, list the three pushed checkpoint hashes, and forbid Task 6 without user approval of this plan.
+- Focused validation passes: `pnpm vitest run apps/miniprogram scripts/miniprogram-calendar-boundary.test.mjs scripts/miniprogram-app-shell.test.mjs scripts/miniprogram-manifest.test.mjs`, `pnpm miniprogram:typecheck`, and `pnpm smoke:check-core`.
 
-Recorded at plan time (2026-08-09): `HEAD == origin/main == 5c1715a`; `ce21a51..HEAD` is docs-only; focused suite `12` files / `74` tests passed; `pnpm miniprogram:typecheck` exit `0`; `pnpm smoke:check-core` exit `0` with `变更文件：apps/miniprogram/minitest/` (untracked only). If any of these facts is false when a task starts, stop and regenerate the task from the actual checkpoint instead of adapting paths or signatures from memory.
+Recorded at plan revision time (2026-08-10): `ce21a51` is the V3-1 code checkpoint; the focused suite is `12` files / `74` tests; `pnpm miniprogram:typecheck` and `pnpm smoke:check-core` exit `0`; the only untracked path is `apps/miniprogram/minitest/`. The plan/checkpoint commits may be ahead of `origin/main`; they must remain docs-only until the user approves Task 6. If any prerequisite is false when a task starts, stop and regenerate the affected task from the actual checkpoint instead of adapting paths or signatures from memory.
 
 ## Scope And Prohibitions
 
@@ -41,7 +41,7 @@ Prohibited in all three tasks:
 - Task 6, Task 7, and Task 8 each form one independent **local** checkpoint commit with the roadmap version-node message.
 - GitHub receives exactly **one push** after all three tasks pass their stop conditions (`git push` once, containing the three checkpoint commits), per the user's instruction to reduce GitHub resource consumption. No per-task push. If the user later requires a single squash commit, that is a separate explicit request; this plan defaults to three local commits + one push.
 - Before each local commit: run the task's validation set, review `git diff` line by line, list behavior changes, stage only task files plus `docs/project-status.md` and `docs/debug/debug-feedback-log.md`, and run `git diff --cached --check`.
-- The plan document checkpoint itself (this round) is committed and pushed as a docs-only checkpoint with message `docs(miniprogram): plan V3-2 calendar golden baseline and details`.
+- This plan revision is one **local-only** docs checkpoint. Do not push it now; the sole normal fast-forward `git push` occurs after Task 8 and includes the approved plan revision plus the three task commits.
 
 ## File Responsibility Map
 
@@ -51,40 +51,44 @@ Every created/modified file has one primary responsibility. Read-only boundaries
 | ----------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/miniprogram/features/calendar/calendar-golden-data.ts`                                                | T6 create                      | Own the typed V3-2 golden calendar/holiday/events fixture consumed by VM, routing, mode, sheet, and timeline tests.                                               |
 | `apps/miniprogram/features/calendar/calendar-golden-data.test.ts`                                           | T6 create; T7/T8 modify        | Pin golden dataset semantics: multi-assignment day, full names, colors, holidays/调休, markers, phone permission, past/today/weekend/cross-month, event timeline. |
-| `apps/miniprogram/features/calendar/calendar-routing.ts`                                                    | T6 create; T8 modify           | Resolve stable action IDs to date/assignment/events/phone route targets with exact regexes and role-based marker routing.                                         |
-| `apps/miniprogram/features/calendar/calendar-routing.test.ts`                                               | T6 create; T8 modify           | Prove every row of the event routing table, invalid/empty/stale action IDs, and guest marker fallback.                                                            |
+| `apps/miniprogram/features/calendar/calendar-routing.ts`                                                    | T6 create; T7 modify           | Resolve stable action IDs across one or more data-month VMs with exact matches and role-based marker routing.                                                     |
+| `apps/miniprogram/features/calendar/calendar-routing.test.ts`                                               | T6 create; T7 modify           | Prove every routing-table row, invalid/empty/stale IDs, guest fallback, and cross-month slot lookup.                                                              |
 | `apps/miniprogram/components/calendar-grid/index.{json,ts,wxml,wxss}`                                       | T6 create                      | Render weekday header and flex 7-column month grid from `weeks`; emit `route` with `day.routeActionId`; never render raw contract fields.                         |
 | `apps/miniprogram/components/assignment-row/index.{json,ts,wxml,wxss}`                                      | T6 create                      | Render one duty row (full name, shift badge, time, markers, phone entry) from `CalendarAssignmentViewModel`; emit `route` and stop propagation.                   |
 | `apps/miniprogram/components/marker-badge/index.{json,ts,wxml,wxss}`                                        | T6 create                      | Render one marker badge with label/description/aria and VM token classes; emit `route` with `marker.actionId`.                                                    |
 | `apps/miniprogram/components/holiday-tag/index.{json,ts,wxml,wxss}`                                         | T6 create                      | Render off-day/workday/neutral holiday tag from `CalendarHolidayViewModel`; short label visible, full name in aria-label.                                         |
-| `apps/miniprogram/features/calendar/calendar-view-model.ts`                                                 | T6/T7 modify                   | Add `routeActionId` (T6), `mode`/`savedAt`/`isStale` and week/list builders (T7); remain renderer-neutral and contract-read-only.                                 |
-| `apps/miniprogram/features/calendar/calendar-view-model.test.ts`                                            | T6/T7 modify                   | Extend existing fixtures/tests for route IDs, mode builders, and cached fields; no `as any`.                                                                      |
+| `apps/miniprogram/features/calendar/calendar-view-model.ts`                                                 | T6/T7 modify                   | Add stable route IDs (T6), then cache metadata (T7); remain renderer-neutral and contract-read-only.                                                              |
+| `apps/miniprogram/features/calendar/calendar-view-model.test.ts`                                            | T6/T7 modify                   | Extend fixtures/tests for route IDs, golden data, and cache metadata; no `as any`.                                                                                |
 | `apps/miniprogram/pages/calendar/index.json`                                                                | T6/T7/T8 modify                | Register grid/row/badge/tag components (T6), week/list components (T7), and four sheets (T8); keep page-level Skyline.                                            |
 | `apps/miniprogram/pages/calendar/index.ts`                                                                  | T6/T7/T8 modify                | Own page state: controller injection, swiper slot routing, view mode, sheets, event controller; no network orchestration outside controllers.                     |
 | `apps/miniprogram/pages/calendar/index.wxml`                                                                | T6/T7/T8 modify                | Consume only VM fields/components; bind stable action IDs and sheet events.                                                                                       |
 | `apps/miniprogram/pages/calendar/index.wxss`                                                                | T6/T7/T8 modify                | Own page-level layout tokens (toolbar, swiper, mode bar, sheet host) with flex/block rules only.                                                                  |
 | `scripts/miniprogram-calendar-boundary.test.mjs`                                                            | T6/T7/T8 modify                | Keep proving WXML consumes VM/component fields only, page JSON keeps Skyline, no unsupported marker/event/TDesign/grid/CSS fields.                                |
-| `apps/miniprogram/features/calendar/calendar-views.ts`                                                      | T7 create                      | Port Web week/list helpers and `buildDayList` plus `formatChinaDateTime`; pure, no `wx`.                                                                          |
-| `apps/miniprogram/features/calendar/calendar-views.test.ts`                                                 | T7 create                      | Lock week start/days/label, visible-week, today index, day-list ordering, and CST date-time formatting.                                                           |
-| `apps/miniprogram/features/calendar/calendar-view-mode.ts`                                                  | T7 create                      | Own the month/week/list mode state machine and month/week stepping rules.                                                                                         |
-| `apps/miniprogram/features/calendar/calendar-view-mode.test.ts`                                             | T7 create                      | Pin the mode transition table and month/week sync semantics.                                                                                                      |
-| `apps/miniprogram/store/calendar-cache.ts`                                                                  | T7 create                      | Own read-only calendar snapshot cache: key, freshness, read/write/invalidate, parse-error isolation.                                                              |
-| `apps/miniprogram/store/calendar-cache.test.ts`                                                             | T7 create                      | Lock key format, freshness window, write/read/invalidate, corrupt-record and storage-throw handling, no offline write semantics.                                  |
+| `apps/miniprogram/features/calendar/calendar-views.ts`                                                      | T7 create                      | Port Web week/list helpers, `formatChinaDateTime`, and validated week-to-month helpers; pure, no `wx`.                                                            |
+| `apps/miniprogram/features/calendar/calendar-views.test.ts`                                                 | T7 create                      | Lock week start/days/label, visible-week, cross-month dates, day-list ordering, and CST date-time formatting.                                                     |
+| `apps/miniprogram/features/calendar/calendar-view-mode.ts`                                                  | T7 create                      | Own the month/week/list state machine, canonical three-slot recenter/rotation helpers, and touch-source guards.                                                   |
+| `apps/miniprogram/features/calendar/calendar-view-mode.test.ts`                                             | T7 create                      | Pin every mode transition, cross-year month/week step, tuple rotation, toolbar recenter, and ignored callback case.                                               |
+| `apps/miniprogram/features/calendar/calendar-surface.ts`                                                    | T7 create                      | Build month/week/list renderer-neutral surfaces from month-slot VMs; enumerate every visible phone action without raw contracts.                                  |
+| `apps/miniprogram/features/calendar/calendar-surface.test.ts`                                               | T7 create                      | Prove cross-month week composition, slot absence errors, list order, action lookup, and source immutability.                                                      |
+| `apps/miniprogram/store/calendar-cache.ts`                                                                  | T7 create                      | Own version/role/user-isolated read snapshots, five-minute freshness, schema validation, exact-key removal, and storage-failure isolation.                        |
+| `apps/miniprogram/store/calendar-cache.test.ts`                                                             | T7 create                      | Lock identity key, freshness boundary, malformed/invalid storage, exact write/remove calls, and no queue/mutation semantics.                                      |
 | `apps/miniprogram/components/calendar-week/index.{json,ts,wxml,wxss}`                                       | T7 create                      | Render one week (7 day cells) from a `CalendarWeekViewModel`; emit `route`.                                                                                       |
 | `apps/miniprogram/components/calendar-list/index.{json,ts,wxml,wxss}`                                       | T7 create                      | Render the list view from `days`; emit `route`.                                                                                                                   |
-| `apps/miniprogram/features/calendar/calendar-page-controller.ts`                                            | T7 modify                      | Add cache ports and view-mode state; keep generation/in-flight/slot semantics; cache-first publish on network failure only.                                       |
-| `apps/miniprogram/features/calendar/calendar-page-controller.test.ts`                                       | T7 modify                      | Extend harness with cache/user-id ports; pin cache-first sequences, stale-cache fallback, and view-mode rebuild call counts.                                      |
-| `apps/miniprogram/components/bottom-sheet/index.{json,ts,wxml,wxss}`                                        | T8 create                      | Generic sheet host with open/close/drag/bounce state machine and mask; emits `close`; no business data.                                                           |
+| `apps/miniprogram/features/calendar/calendar-page-controller.ts`                                            | T7 modify                      | Replace its one-slot internals with per-context month slots, holiday-year single-flight, cache-first reads, and stale-response guards.                            |
+| `apps/miniprogram/features/calendar/calendar-page-controller.test.ts`                                       | T7 modify                      | Extend harness with identity/cache/month-slot ports; pin three-slot calls, cross-month weeks, stale suppression, cache fallback, and phone lookup.                |
+| `apps/miniprogram/components/bottom-sheet/index.{json,ts,wxml,wxss}`                                        | T8 create                      | Generic sheet host with two-phase open/close/drag/bounce state and an internal content scroll-view; emits keyed close lifecycle events only.                      |
 | `apps/miniprogram/features/sheets/bottom-sheet-logic.ts`                                                    | T8 create                      | Pure phase machine, drag threshold/velocity decision, offset clamp; no `wx`.                                                                                      |
 | `apps/miniprogram/features/sheets/bottom-sheet-logic.test.ts`                                               | T8 create                      | Pin phase transitions, 80 px / 0.8 px·ms⁻¹ thresholds, and clamp bounds.                                                                                          |
-| `apps/miniprogram/components/date-detail-sheet/index.{json,ts,wxml,wxss}`                                   | T8 create                      | Show full date/weekday/holiday and all assignments from one `CalendarDayViewModel`; emit `close`/`route`.                                                         |
-| `apps/miniprogram/components/duty-detail-sheet/index.{json,ts,wxml,wxss}`                                   | T8 create                      | Show one assignment's member/role/shift/time/colors/markers/phones; emit `close`/`route`.                                                                         |
-| `apps/miniprogram/components/phone-sheet/index.{json,ts,wxml,wxss}`                                         | T8 create                      | Show member name and long/short numbers with dial (confirmed) or copy (unconfirmed) buttons; emit `close`/`dial`/`copy`.                                          |
-| `apps/miniprogram/components/event-timeline-sheet/index.{json,ts,wxml,wxss}`                                | T8 create                      | Present event timeline items/status/message/hasMore and change-chain summary; emit `close`.                                                                       |
-| `apps/miniprogram/features/events/event-description.ts`                                                     | T8 create                      | Port Web event-timeline.ts narrative/type-label/change/chain/format helpers; pure, no `wx`.                                                                       |
-| `apps/miniprogram/features/events/event-description.test.ts`                                                | T8 create                      | Lock narratives, labels, change extraction, chain summary, fallback for unknown types, and JSON formatting.                                                       |
-| `apps/miniprogram/features/events/event-timeline-controller.ts`                                             | T8 create                      | Load one `listEvents` page, filter by `affectedShiftIds`, build items, single-flight per assignment, generation guard, terminal publish.                          |
-| `apps/miniprogram/features/events/event-timeline-controller.test.ts`                                        | T8 create                      | Pin call counts, stale-response suppression, error message preservation, empty/ready states, and `hasMore`.                                                       |
+| `apps/miniprogram/features/calendar/calendar-sheet-host.ts`                                                 | T8 create                      | Own the keyed, two-phase page sheet host state; preserve content until a matching close completion.                                                               |
+| `apps/miniprogram/features/calendar/calendar-sheet-host.test.ts`                                            | T8 create                      | Pin open, request-close, matched completion, replacement, and stale completion behavior without page `this`.                                                      |
+| `apps/miniprogram/components/date-detail-sheet/index.{json,ts,wxml,wxss}`                                   | T8 create                      | Render the date-sheet body from one `CalendarDayViewModel`; emit `route` only inside the persistent page-level host.                                              |
+| `apps/miniprogram/components/duty-detail-sheet/index.{json,ts,wxml,wxss}`                                   | T8 create                      | Render one duty-sheet body with member/role/shift/time/colors/markers/phones; emit `route` only.                                                                  |
+| `apps/miniprogram/components/phone-sheet/index.{json,ts,wxml,wxss}`                                         | T8 create                      | Render the phone-sheet body with confirmed dial or unconfirmed copy actions; emit `dial`/`copy` only.                                                             |
+| `apps/miniprogram/components/event-timeline-sheet/index.{json,ts,wxml,wxss}`                                | T8 create                      | Render derived display items/status/message/hasMore/change chain inside the persistent host; no lifecycle event.                                                  |
+| `apps/miniprogram/features/events/event-description.ts`                                                     | T8 create                      | Port Web narrative/type-label/change/chain helpers and map raw events to WXML-safe display items; pure, no `wx`.                                                  |
+| `apps/miniprogram/features/events/event-description.test.ts`                                                | T8 create                      | Lock narratives, labels, initiator-time lookup, display mapping, chain summary, fallback, and JSON formatting.                                                    |
+| `apps/miniprogram/features/events/event-timeline-controller.ts`                                             | T8 create                      | Load one permitted `listEvents` page, client-filter by shift, build display items, single-flight, generation guard, and terminal publish.                         |
+| `apps/miniprogram/features/events/event-timeline-controller.test.ts`                                        | T8 create                      | Pin group+assignment calls, stale-response suppression, error preservation, WXML-safe display state, empty/ready states, and `hasMore`.                           |
 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-delivery-roadmap.md`                               | Plan round modify              | Update the V3-2 stage-index row and Task 6/7/8 dependency note to point at this plan.                                                                             |
 | `docs/project-status.md`                                                                                    | Plan round + every task modify | Record plan checkpoint, then each task outcome/validation/next batch before its local commit.                                                                     |
 | `docs/debug/debug-feedback-log.md`                                                                          | Plan round + every task modify | Append plan round record and each task's runtime/browser-smoke/core-guard record.                                                                                 |
@@ -111,7 +115,7 @@ Marker and phone action IDs are unchanged from V3-1:
 | marker 微标签                                   | `marker.actionId`          | regex `` `^.+:marker:(swap\|leave-cover\|overtime):\d+$` `` and exact match in VM | role `guest` → `{ kind: 'assignment', assignment }`; otherwise → `{ kind: 'events', assignment }` | Guest has no event panel (design 9); fallback opens the duty sheet.                      |
 | 电话入口                                        | `phoneAction.actionId`     | regex `` `^.+:phone:(长号\|短号)$` `` and exact match in VM                       | `{ kind: 'phone', phoneAction, assignment }`                                                      | Sheet decides dial/copy from `kind`; no dataset supplies `kind` or `number`.             |
 
-All route resolution requires the VM to be a data status (`cached`/`ready`/`refreshing`) after narrowing; state VMs return `undefined`. Empty, non-string, stale (from an old month slot), or unknown action IDs return `undefined` and produce no side effect.
+All route resolution requires one or more data VMs (`cached`/`ready`/`refreshing`) after narrowing; state VMs are omitted. Empty, non-string, stale (from an old month slot), or unknown action IDs return `undefined` and produce no side effect.
 
 ## Golden Dataset (2026-08, Golden Calendar)
 
@@ -158,8 +162,8 @@ goldenEvents = [
   {"affectedMembershipIds":["golden-member-2","golden-member-4"],"affectedShiftIds":["golden-a2"],"beforeData":{"initiatorAssignment":{"actualMemberName":"计划医生甲"},"initiatorAssignmentId":"golden-a2","targetAssignment":{"actualMemberName":"王芳"},"targetAssignmentId":"golden-a4"},"afterData":{"initiatorAssignment":{"actualMemberName":"李思远"},"initiatorAssignmentId":"golden-a2","initiatorMemberName":"李思远","targetAssignment":{"actualMemberName":"王芳"},"targetAssignmentId":"golden-a4"},"eventStatus":"completed","eventType":"swap_completed","groupId":"golden-group","id":"golden-event-1","objectId":"golden-swap-1","objectType":"swap_request","occurredAt":"2026-08-15T09:00:00+08:00","operationId":"golden-op-1","schedulePeriodId":"golden-period-2"},
   {"affectedMembershipIds":["golden-member-1"],"affectedShiftIds":["golden-a4"],"afterData":{"strategy":"shift-forward"},"eventStatus":"completed","eventType":"leave_cover_completed","groupId":"golden-group","id":"golden-event-2","objectType":"leave_request","occurredAt":"2026-08-15T10:00:00+08:00","operationId":"golden-op-2","reason":"临时家事","schedulePeriodId":"golden-period-1"},
   {"affectedMembershipIds":["golden-member-3"],"affectedShiftIds":["golden-a3"],"afterData":{"deductedMemberName":"欧阳修远","initiatorMemberName":"张伟","overtimeMemberName":"李思远"},"eventStatus":"completed","eventType":"duty_adjustment_completed","groupId":"golden-group","id":"golden-event-3","objectType":"duty_adjustment","occurredAt":"2026-08-15T11:00:00+08:00","operationId":"golden-op-3","schedulePeriodId":"golden-period-2"},
-  {"affectedMembershipIds":[],"affectedShiftIds":[],"eventStatus":"completed","eventType":"schedule_period_published","groupId":"golden-group","id":"golden-event-4","objectType":"schedule_period","occurredAt":"2026-08-14T18:00:00+08:00","operationId":"golden-op-4","schedulePeriodId":"golden-period-1"},
-  {"affectedMembershipIds":[],"affectedShiftIds":[],"beforeData":{"shiftTypeName":"旧班种","status":"pending"},"afterData":{"shiftTypeName":"新班种","status":"approved"},"eventStatus":"completed","eventType":"shift_type_changed","groupId":"golden-group","id":"golden-event-5","objectType":"shift_type","occurredAt":"2026-08-13T15:00:00+08:00","operationId":"golden-op-5"}
+  {"affectedMembershipIds":[],"affectedShiftIds":["golden-a2"],"eventStatus":"completed","eventType":"schedule_period_published","groupId":"golden-group","id":"golden-event-4","objectType":"schedule_period","occurredAt":"2026-08-14T18:00:00+08:00","operationId":"golden-op-4","schedulePeriodId":"golden-period-1"},
+  {"affectedMembershipIds":[],"affectedShiftIds":["golden-a2"],"beforeData":{"shiftTypeName":"旧班种","status":"pending"},"afterData":{"shiftTypeName":"新班种","status":"approved"},"eventStatus":"completed","eventType":"shift_type_changed","groupId":"golden-group","id":"golden-event-5","objectType":"shift_type","occurredAt":"2026-08-13T15:00:00+08:00","operationId":"golden-op-5"}
 ]
 ```
 
@@ -171,11 +175,11 @@ Every task's pre-commit audit must re-verify this exact checklist against the re
 
 ```text
 Receiver/this: pure logic/VM/cache/sheet modules use no receiver; components call this.triggerEvent and this.setData through their own receiver; page handlers call this.setData; injected wx wrappers keep member calls (wx.makePhoneCall, wx.setClipboardData, wx.getStorageSync, wx.setStorageSync, wx.nextTick if used).
-Promise/error: calendar controller and event controller share one exact Promise per in-flight context/assignment; changing context supersedes the slot; Promise.all rejects as one load; classified error keeps the original message; stale generation/finally cannot publish, clear a newer slot, or write cache; page-facing rejections terminate in `void` with no unhandled rejection.
+Promise/error: each calendar context and event-assignment controller shares one exact Promise per in-flight key; changing the key supersedes only its own slot; `loadMonths` aggregates only the first-seen per-month promises, while each current cache/endpoint branch handles its classified error before the public promise resolves; stale generation/finally cannot publish, clear a newer slot, or write cache; page-facing calls resolve their handled error state and `void` has no unhandled rejection.
 Nullish: actualMemberName ?? plannedMemberName ?? '待定'; empty string is not replaced; phoneActions use length > 0; optional cache/user-id/role use explicit undefined checks; no `||` that would swallow ''.
 Type narrowing: viewModel.status/kind and EventTimelineState.status are discriminated before field access; dataset values are narrowed to non-empty string; role comes from the typed session group; route regex groups are revalidated before use; no `as any` or non-null assertion.
-Side effects/calls: filters and mapping are pure and non-mutating; each verified dial/copy calls exactly one wx port; each calendar month load calls exactly one endpoint pair (guest or protected) plus at most one cache write; each assignment event load calls listEvents exactly once per in-flight request; setData happens only through page/component receivers; no endpoint call from components.
-Stale async: numeric requestGeneration in both controllers; cache writes and publishes require the current generation; swiper re-center uses a locked flag and the controller key; an old month's resolution cannot publish into the active slot.
+Side effects/calls: filters and mapping are pure and non-mutating; each verified dial/copy calls exactly one wx port; each missing calendar month calls exactly one allowed calendar endpoint, and each not-yet-loaded holiday year exactly one holiday endpoint, with at most one cache write per successful month; each assignment event load calls `listEvents(groupId, undefined, 100)` exactly once per in-flight request; `setData` happens only through page/component receivers; no endpoint call from components.
+Stale async: numeric generation is scoped to calendar context/slot and event assignment; cache writes and publishes require the current generation; swiper re-center uses a locked flag plus navigation epoch; an old month, holiday year, sheet key, or event assignment cannot publish into the current surface.
 Contract: no packages/contracts or endpoint diff; no eventId on markers, no deduction, no marker permission, no backend field, no offline write; listEvents is filtered client-side by affectedShiftIds.
 Rendering: WXML consumes VM fields and component properties only; stable keys are week.id/day.id/assignment.assignmentId/marker.actionId/phoneAction.actionId; full names and all assignments remain; Skyline stays page-level; Worklet and TDesign rendering are N/A.
 V1/V2: no old page, manifest, component, fixture, screenshot, or behavior is restored or referenced.
@@ -197,7 +201,7 @@ pnpm vitest run apps/miniprogram scripts/miniprogram-calendar-boundary.test.mjs 
 pnpm miniprogram:typecheck
 ```
 
-Expected: `main` tracks `origin/main` with zero divergence, HEAD is the docs-only plan checkpoint (or a later approved checkpoint), all 12 files / 74 tests pass, typecheck exits `0`, and only `apps/miniprogram/minitest/` is untracked. Any other state stops Task 6.
+Expected: `main` tracks `origin/main`; `origin/main` is an ancestor of HEAD and the allowed ahead commits are this approved docs checkpoint only; all 12 files / 74 tests pass, typecheck exits `0`, and only `apps/miniprogram/minitest/` is untracked. Any other state stops Task 6.
 
 ### 6.1 View-Model Route IDs (write tests first)
 
@@ -238,7 +242,7 @@ import type { GroupRole } from '@schedule/contracts';
 import type {
   CalendarAssignmentViewModel,
   CalendarDayViewModel,
-  CalendarMonthViewModel,
+  CalendarMonthDataViewModel,
   CalendarPhoneActionViewModel,
 } from './calendar-view-model.js';
 
@@ -255,20 +259,20 @@ export type CalendarRouteTarget =
 export function resolveCalendarRouteAction(
   actionId: string,
   role: GroupRole,
-  viewModel: CalendarMonthViewModel | undefined,
+  viewModels: readonly CalendarMonthDataViewModel[],
 ): CalendarRouteTarget | undefined;
 ```
 
 Implementation contract (normative):
 
-1. `actionId.length === 0` or `viewModel` is undefined or a state status (`loading`/`error`/`forbidden`/`conflict`) → `undefined`.
-2. Narrow the VM to a data status; for `mode: 'week'`/`'list'` search `week.days`/`days`; for `mode: 'month'` search `weeks[].days[]`. Only `kind: 'day'` cells participate.
+1. `actionId.length === 0` or `viewModels.length === 0` → `undefined`.
+2. Traverse each supplied VM in its input order, then only `weeks[].days[]`; only `kind: 'day'` cells participate. Task 6 does not mention or branch on Task 7's week/list surface types.
 3. First pass: exact equality against `day.routeActionId` → `{ kind: 'date', day }`; exact equality against `assignment.routeActionId` → `{ kind: 'assignment', assignment }`.
 4. Second pass: for each marker in each assignment, exact equality with `marker.actionId` → `role === 'guest' ? { kind: 'assignment', assignment } : { kind: 'events', assignment }`.
 5. Third pass: for each phone action in each assignment, exact equality with `phoneAction.actionId` → `{ kind: 'phone', phoneAction, assignment }`.
 6. No match → `undefined`. Never derive a target from `kind` or `number` supplied by WXML.
 
-Create `calendar-routing.test.ts` with a harness that builds the golden VM once (`buildCalendarMonthViewModel({ calendar: goldenCalendar, filters: {}, holidays: goldenHolidays, status: 'ready', today: goldenToday })`) and asserts the exact routing table rows:
+Create `calendar-routing.test.ts` with a harness that builds the golden VM once (`buildCalendarMonthViewModel({ calendar: goldenCalendar, filters: {}, holidays: goldenHolidays, status: 'ready', today: goldenToday })`), passes it as `[goldenVm]`, and asserts the exact routing table rows:
 
 | Input action ID                                                                                                        | role   | Expected target                                                                                         |
 | ---------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------- |
@@ -418,10 +422,11 @@ interface CalendarPageMethods {
   handleRouteAction(
     event: WechatMiniprogram.BaseEvent<Record<string, never>, { readonly actionId?: unknown }>,
   ): void;
+  lastResolvedRoute?: CalendarRouteTarget;
 }
 ```
 
-`handleRouteAction` narrows `dataset.actionId` to a non-empty string, reads the active group's role from the session snapshot, and calls `resolveCalendarRouteAction(actionId, role, this.data.viewModel)`; a defined target is `void this.controller?.openRoute(target)` — Task 6 stores the target in an instance field and renders a temporary `console`/toast-free placeholder? **No:** Task 6 must not open sheets. Normative Task 6 behavior: route resolution is exercised only by unit tests; the page handler asserts `target !== undefined` and keeps a `lastRoute` instance field (tested by the boundary guard via page source, not by runtime). Sheets arrive in Task 8 and replace `lastRoute`.
+`handleRouteAction` narrows the custom component event's `event.detail.actionId` to a non-empty string, reads the active group's typed role from the session snapshot, narrows the displayed month VM, and calls `resolveCalendarRouteAction(actionId, role, [dataViewModel])`. A defined target is assigned to the page instance field `this.lastResolvedRoute`; `undefined` is a no-op. Task 6 deliberately has no sheet, toast, controller method, endpoint call, or other UI side effect. In particular, `CalendarPageController` has no `openRoute` method and Task 6 must not invent one. Task 8 replaces this dormant typed sink with the sheet host state machine.
 
 Replace `apps/miniprogram/pages/calendar/index.wxml` with:
 
@@ -465,10 +470,11 @@ pnpm miniprogram:typecheck
 pnpm miniprogram:lint
 pnpm exec prettier --check apps/miniprogram/features/calendar/calendar-golden-data.ts apps/miniprogram/features/calendar/calendar-golden-data.test.ts apps/miniprogram/features/calendar/calendar-routing.ts apps/miniprogram/features/calendar/calendar-routing.test.ts apps/miniprogram/features/calendar/calendar-view-model.ts apps/miniprogram/features/calendar/calendar-view-model.test.ts apps/miniprogram/pages/calendar/index.ts apps/miniprogram/pages/calendar/index.wxml apps/miniprogram/pages/calendar/index.wxss apps/miniprogram/pages/calendar/index.json scripts/miniprogram-calendar-boundary.test.mjs
 pnpm smoke:check-core
+git diff --exit-code -- packages/contracts/src apps/miniprogram/api/endpoints.ts apps/miniprogram/api/client.ts
 git diff --check
 ```
 
-Expected: all pass; `git diff -- packages/contracts/src apps/miniprogram/api/endpoints.ts` is empty. Browser smoke: **not applicable** (Task 6 touches only mini-program components/features/pages/scripts guards; record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历组件/路由/VM，未改 Web/API/契约/认证/构建核心链路）` in the debug log).
+Expected: all commands exit `0`, including the empty contract/API diff assertion. Browser smoke: **not applicable** (Task 6 touches only mini-program components/features/pages/scripts guards; record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历组件/路由/VM，未改 Web/API/契约/认证/构建核心链路）` in the debug log).
 
 - [ ] **Step 8:** DevTools/simulator gate: `pnpm miniprogram:devtools:build-npm`, `pnpm miniprogram:devtools:preview`, `pnpm miniprogram:smoke`. In the simulator, feed golden data by one of two explicit methods: (a) a local API/dev-server payload that serves `goldenCalendar` for `GET /groups/:id/calendar?businessMonth=2026-08` (no repo change), or (b) a **temporary, non-committed** swap of the page's controller injection from endpoints to the golden fixture, restored to the endpoints before any commit; the debug log records which method and the restore state. Open `pages/calendar/index` and verify the golden month renders 7-column flex rows, full names, three same-day rows in order 06:00/08:00/20:00, night badge `N`, `换/替/加` badges, today/off-day/workday/past backgrounds, `08-31` cross-month row `20:00–04:00`, and phone entries only on rows with numbers. Record the literal DevTools version, base library, renderer indicator (`skyline`), and screenshots under the ignored `.tmp-miniprogram-preview` directory.
 - [ ] **Step 9:** Run the Task 6 semantic audit from the **Semantic Audit Contract** section, review `git diff` line by line, update `docs/project-status.md` and `docs/debug/debug-feedback-log.md`, stage only Task 6 files plus the two docs, run `git diff --cached --check`, and create the **local** commit `feat(miniprogram): build calendar golden baseline`.
@@ -501,6 +507,10 @@ export interface DayListEntry {
 export function getWeekStartDate(businessDate: string): string;
 export function getWeekDays(businessDate: string): readonly string[];
 export function addWeeks(businessDate: string, delta: number): string;
+export function getBusinessMonthOf(businessDate: string): string;
+export function getBusinessMonthsForWeek(
+  weekStart: string,
+): readonly [string] | readonly [string, string];
 export function getWeekLabel(businessDate: string): string;
 export function getVisibleWeekForMonth(businessMonth: string, today: string): string;
 export function getWeekIndexForToday(
@@ -516,7 +526,7 @@ export function buildDayList(
 export function formatChinaDateTime(value: string): string; // 'YYYY-MM-DD HH:mm' in CST
 ```
 
-Semantics are copied exactly from the Web implementation: Monday-first week start (`(getUTCDay() + 6) % 7`); `getWeekLabel('2026-08-05') === '2026年8月3日–8月9日'`; `getVisibleWeekForMonth` returns the week of `today` when `today` is inside the month, otherwise the week of the month's first day; `buildDayList` includes only dates that have assignments, sorted ascending, each day's assignments sorted by the Web `groupAssignmentsByDate` order (start time with 00:00 last, then role name zh-Hans-CN, slot, period). `formatChinaDateTime` is a new additive helper: parse the instant, shift by +8h, format UTC fields as `YYYY-MM-DD HH:mm` (e.g. `2026-08-15T09:00:00+08:00` → `2026-08-15 09:00`).
+Semantics are copied exactly from the Web implementation: Monday-first week start (`(getUTCDay() + 6) % 7`); `getWeekLabel('2026-08-05') === '2026年8月3日 – 8月9日'` (including both spaces around `–`); `getVisibleWeekForMonth` returns the week of `today` when `today` is inside the displayed month, otherwise the first calendar week for that month; `buildDayList` includes only dates with assignments, sorted ascending, and preserves the Web day ordering (start time with 00:00 last, then zh-Hans-CN role, slot, period, source index). `getBusinessMonthsForWeek('2026-08-31')` returns `['2026-08', '2026-09']`; `getBusinessMonthsForWeek('2026-12-28')` returns `['2026-12', '2027-01']`. `formatChinaDateTime` parses the instant, shifts +8h, and returns `YYYY-MM-DD HH:mm`.
 
 Create `calendar-views.test.ts` porting the Web spec cases (week start/days/label, visible week, today index, day list, weekend) plus `formatChinaDateTime`:
 
@@ -533,12 +543,14 @@ expect(getWeekDays('2026-08-05')).toEqual([
 ]);
 expect(addWeeks('2026-08-05', 1)).toBe('2026-08-12');
 expect(addWeeks('2026-08-03', -1)).toBe('2026-07-27');
-expect(getWeekLabel('2026-08-05')).toBe('2026年8月3日–8月9日');
+expect(getWeekLabel('2026-08-05')).toBe('2026年8月3日 – 8月9日');
 expect(getVisibleWeekForMonth('2026-08', '2026-08-12')).toBe('2026-08-10');
 expect(getVisibleWeekForMonth('2026-09', '2026-08-12')).toBe('2026-08-31');
 expect(getWeekdayLabel('2026-08-03')).toBe('周一');
 expect(isWeekend('2026-08-08')).toBe(true);
 expect(formatChinaDateTime('2026-08-15T09:00:00+08:00')).toBe('2026-08-15 09:00');
+expect(getBusinessMonthsForWeek('2026-08-31')).toEqual(['2026-08', '2026-09']);
+expect(getBusinessMonthsForWeek('2026-12-28')).toEqual(['2026-12', '2027-01']);
 expect(() => addWeeks('2026-08-05', 1.5)).toThrow();
 ```
 
@@ -552,10 +564,12 @@ Create `apps/miniprogram/features/calendar/calendar-view-mode.ts`:
 export type CalendarViewMode = 'list' | 'month' | 'week';
 
 export interface CalendarViewModeState {
+  readonly businessMonth: string;
   readonly mode: CalendarViewMode;
-  readonly month: string;
   readonly weekStart: string;
 }
+
+export type CalendarMonthSlots = readonly [string, string, string];
 
 export function createCalendarViewModeState(today: string): CalendarViewModeState;
 export function switchCalendarViewMode(
@@ -572,64 +586,71 @@ export function stepCalendarWeek(
   state: CalendarViewModeState,
   delta: number,
 ): CalendarViewModeState;
+export function recenterMonthSlots(businessMonth: string): CalendarMonthSlots;
+export function rotateMonthSlots(slots: CalendarMonthSlots, swiperIndex: 0 | 2): CalendarMonthSlots;
 ```
 
 Transition table (normative):
 
-| Method                                          | From state          | Next state                                                                                                                                       |
-| ----------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `createCalendarViewModeState(today)`            | —                   | `{ mode: 'month', month: getCurrentBusinessMonth(), weekStart: getWeekStartDate(today) }`                                                        |
-| `switchCalendarViewMode(state, 'month', today)` | any                 | `mode: 'month'`; `month`/`weekStart` unchanged                                                                                                   |
-| `switchCalendarViewMode(state, 'week', today)`  | any                 | `mode: 'week'`; `weekStart` unchanged if non-empty, else `getVisibleWeekForMonth(state.month, today)`                                            |
-| `switchCalendarViewMode(state, 'list', today)`  | any                 | `mode: 'list'`; `month`/`weekStart` unchanged                                                                                                    |
-| `stepCalendarMonth(state, delta, today)`        | any                 | `month: addBusinessMonths(state.month, delta)`; `mode: 'week'` → `weekStart: getVisibleWeekForMonth(month, today)`; other modes keep `weekStart` |
-| `stepCalendarWeek(state, delta)`                | `mode: 'week'` only | `weekStart: addWeeks(state.weekStart, delta)`; `month: getBusinessMonthOf(weekStart)` (Web `syncMonthToWeek`)                                    |
-| `stepCalendarWeek(state, delta)`                | `mode !== 'week'`   | throws `Error('Week stepping requires week mode.')`                                                                                              |
+| Method                                          | From state  | Next state                                                                                                                  |
+| ----------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `createCalendarViewModeState(today)`            | —           | `{ businessMonth: getBusinessMonthOf(today), mode: 'month', weekStart: getWeekStartDate(today) }`                           |
+| `switchCalendarViewMode(state, 'month', today)` | any         | `mode: 'month'`; `businessMonth` and `weekStart` unchanged                                                                  |
+| `switchCalendarViewMode(state, 'week', today)`  | any         | `mode: 'week'`; `weekStart` is preserved, or becomes `getVisibleWeekForMonth(state.businessMonth, today)` if it was invalid |
+| `switchCalendarViewMode(state, 'list', today)`  | any         | `mode: 'list'`; `businessMonth` and `weekStart` unchanged                                                                   |
+| `stepCalendarMonth(state, delta, today)`        | month/list  | `businessMonth: addBusinessMonths(state.businessMonth, delta)`; `weekStart: getVisibleWeekForMonth(nextMonth, today)`       |
+| `stepCalendarMonth(state, delta, today)`        | week        | throws `Error('Month stepping is not available in week mode.')`                                                             |
+| `stepCalendarWeek(state, delta)`                | week only   | `weekStart: addWeeks(state.weekStart, delta)` and `businessMonth: getBusinessMonthOf(nextWeekStart)`                        |
+| `stepCalendarWeek(state, delta)`                | month/list  | throws `Error('Week stepping requires week mode.')`                                                                         |
+| `recenterMonthSlots(month)`                     | valid month | `[month - 1, month, month + 1]`; tuple positions are the only business-month source for the swiper                          |
+| `rotateMonthSlots(slots, 0)` / `(slots, 2)`     | exact tuple | `[month - 2, month - 1, month]` / `[month, month + 1, month + 2]`; any other index is rejected before calling               |
 
-`getBusinessMonthOf` is an additive export of `calendar-views.ts` (returns `businessDate.slice(0, 7)` after validation). Tests pin every row plus immutability of the input state.
+`getBusinessMonthOf` validates a real business date before returning `slice(0, 7)`. Tests pin every row, including `createCalendarViewModeState('2026-08-15')` exactly equals `{ businessMonth: '2026-08', mode: 'month', weekStart: '2026-08-10' }`, reject `swiperIndex` `1`/`3`, and prove that all helpers leave their input object/tuple unchanged.
 
 ### 7.3 Read-Only Cache Module (test-first)
 
 Create `apps/miniprogram/store/calendar-cache.ts`:
 
 ```ts
-import type { CalendarReadModel, HolidayReadModel } from '@schedule/contracts';
+import type { CalendarReadModel, GroupRole, HolidayReadModel } from '@schedule/contracts';
 
 export const calendarCacheKeyPrefix = 'schedule.calendarCache.v1:';
 export const calendarCacheFreshnessMilliseconds = 5 * 60 * 1000;
 
-export interface CalendarCacheRecord {
+export interface CalendarCacheIdentity {
   readonly businessMonth: string;
-  readonly calendar: CalendarReadModel;
   readonly groupId: string;
+  readonly groupRole: GroupRole;
+  readonly groupVersion: number;
+  readonly userId: string;
+}
+
+export interface CalendarCacheRecord {
+  readonly calendar: CalendarReadModel;
   readonly holidays: HolidayReadModel;
+  readonly identity: CalendarCacheIdentity;
   readonly savedAt: string; // ISO 8601 UTC
+  readonly schemaVersion: 1;
 }
 
 export interface CalendarCachePort {
-  read(key: string): CalendarCacheRecord | undefined;
-  remove(key: string): void;
-  write(key: string, record: CalendarCacheRecord): void;
+  getStorageSync(key: string): unknown;
+  removeStorageSync(key: string): void;
+  setStorageSync(key: string, value: unknown): void;
 }
 
-export function buildCalendarCacheKey(
-  userId: string,
-  groupId: string,
-  businessMonth: string,
-): string;
+export function buildCalendarCacheKey(identity: CalendarCacheIdentity): string;
 export function isCalendarCacheFresh(record: CalendarCacheRecord, now?: Date): boolean;
 
 export interface CalendarCache {
-  read(userId: string, groupId: string, businessMonth: string): CalendarCacheRecord | undefined;
+  read(identity: CalendarCacheIdentity): CalendarCacheRecord | undefined;
   write(
-    userId: string,
-    groupId: string,
-    businessMonth: string,
+    identity: CalendarCacheIdentity,
     calendar: CalendarReadModel,
     holidays: HolidayReadModel,
     now?: Date,
   ): void;
-  invalidate(userId: string, groupId: string, businessMonth?: string): void;
+  remove(identity: CalendarCacheIdentity): void;
 }
 
 export function createCalendarCache(port: CalendarCachePort): CalendarCache;
@@ -637,148 +658,189 @@ export function createCalendarCache(port: CalendarCachePort): CalendarCache;
 
 Rules (normative):
 
-- Key format: `` `schedule.calendarCache.v1:${userId}:${groupId}:${businessMonth}` ``; no user id or empty segment ever produces a key (throw on empty `userId`/`groupId`/`businessMonth`).
-- `write` stamps `savedAt = now.toISOString()` (default `new Date()`), stores the literal `calendar`/`holidays` objects, and calls `port.write` exactly once.
-- `isCalendarCacheFresh` returns `true` only when `record.savedAt` parses and `now - savedAt <= 5 * 60 * 1000`; an unparsable `savedAt` is stale.
-- `read` returns `undefined` when the port returns undefined, when JSON parsing fails, when `groupId`/`businessMonth` mismatch the record, or when the calendar/holidays fail contract shape validation (`z.parse` from `@schedule/contracts`); it never throws to the caller.
-- `invalidate(userId, groupId, businessMonth?)` removes the exact key, or all keys with the prefix `schedule.calendarCache.v1:${userId}:${groupId}:` when month is omitted (the port must expose a `keys()` capability? **No**: the port has only read/remove/write; month-omitted invalidation is implemented by an injected `listKeys?: () => readonly string[]` optional port — if absent, `invalidate` with month omitted removes only the exact month key and returns a `removedCount` of 0/1; V3-2 tests use a memory port with `listKeys`).
-- This module is a read snapshot only; it never creates a write queue, never buffers a mutation, and is not used by any write flow in V3-2.
+- Key format is `` `${calendarCacheKeyPrefix}${encodeURIComponent(userId)}:${encodeURIComponent(groupId)}:${groupRole}:${groupVersion}:${businessMonth}` ``. `encodeURIComponent` applies separately to each arbitrary contract ID before the delimiter, so `user:a`/`group` cannot collide with `user`/`a:group`. Empty `userId`/`groupId`, invalid `GroupRole`, non-positive/non-integer `groupVersion`, or invalid `businessMonth` throws before storage access.
+- `groupVersion` is the existing `GroupSummary.version`, not a calendar contract field or cache-version guess. A group version change produces a different key, so old snapshots cannot be read; V3-2 does not add a write flow that tries to invalidate a broad prefix.
+- `write` stamps `schemaVersion: 1` and `savedAt = now.toISOString()` (default `new Date()`), stores the literal validated `calendar`/`holidays`, and calls `port.setStorageSync` exactly once. `remove` calls `port.removeStorageSync` once for that exact identity only.
+- `isCalendarCacheFresh` returns true only when `savedAt` parses, is not in the future, and `0 <= now - savedAt <= 300000`; `savedAt + 300000ms` is fresh and `+300001ms` is stale.
+- `read` catches storage errors, accepts only a non-array object with `schemaVersion === 1`, exact identity equality, and successful `calendarReadModelSchema.safeParse` / `holidayReadModelSchema.safeParse`; otherwise it returns `undefined` without throwing. A string, malformed object, invalid nested payload, or wrong identity is corrupt cache data, not a retryable API response.
+- This module is a read snapshot only. It never queues, replays, buffers, or fabricates a mutation; V3-2 has no write success from which to call `remove`.
 
-Create `calendar-cache.test.ts` with a memory port and these assertions: key format; fresh/stale boundary (`now = savedAt + 5min` → fresh; `+1ms` → stale); write-then-read round trip; corrupt JSON → undefined without throw; storage port throwing → `read` returns undefined; `invalidate` with month removes one key and `removedCount` is exact; `invalidate` without month and `listKeys` removes all group keys; empty `userId` throws.
+Create `calendar-cache.test.ts` with a `Map<string, unknown>` port and exact assertions: member and guest identities with otherwise equal group/month create different keys; group versions `7` and `8` create different keys; `user:a`/`group` and `user`/`a:group` create different keys; `savedAt + 5min` is fresh and `+5min+1ms` stale; write/read round trip calls `setStorageSync` once; string/malformed/invalid-contract/wrong-identity reads return undefined; a throwing `getStorageSync` returns undefined; `remove` calls the exact key once; empty user/group, invalid month, and `groupVersion: 0` throw before any port call.
 
-### 7.4 Controller Cache Integration (test-first)
+### 7.4 Per-Month Controller And Cache Integration (test-first)
 
-Extend `apps/miniprogram/features/calendar/calendar-page-controller.ts`:
+Task 7 does **not** overload V3-1's single `CalendarMonthViewModel` with week/list shapes. It keeps each loaded business month as a month VM, then builds a separate renderer-neutral surface from one or two such VMs. This is required because a week can span two calendar months (and two holiday years).
 
 ```ts
+export interface CalendarContext {
+  readonly groupId: string;
+  readonly groupRole: GroupRole;
+  readonly groupVersion: number;
+  readonly userId: string;
+}
+
+export interface CalendarLoadTarget extends CalendarContext {
+  readonly businessMonth: string;
+}
+
+export interface CalendarMonthSlotUpdate {
+  readonly businessMonth: string;
+  readonly context: CalendarContext;
+  readonly viewModel: CalendarMonthViewModel;
+}
+
 export interface CalendarPageControllerDependencies {
-  // V3-1 fields unchanged ...
+  // Existing endpoint and wx ports remain member-bound wrappers.
   readonly cache: CalendarCache;
-  readonly getCurrentUserId: () => string | undefined;
+  readonly publish: (update: CalendarMonthSlotUpdate) => void;
 }
 
 export interface CalendarPageController {
-  // V3-1 methods unchanged ...
-  setViewMode(mode: CalendarViewMode, weekStart?: string): void;
+  activate(context: CalendarContext): void;
+  getMonthViewModels(months: readonly string[]): readonly CalendarMonthDataViewModel[];
+  load(target: CalendarLoadTarget, force?: boolean): Promise<void>;
+  loadMonths(context: CalendarContext, months: readonly string[], force?: boolean): Promise<void>;
+  performPhoneAction(actionId: string): boolean;
+  setFilters(filters: CalendarAssignmentFilters): void;
 }
 ```
 
-Private state adds `viewMode: CalendarViewMode = 'month'`, `weekStart: string | undefined`, and reuses the existing generation/in-flight machinery. New load flow (replaces V3-1 flow; normative):
+`activate` compares all four context fields and clears only the active filter/visible-slot selection when any changes. Each slot is keyed by the full cache identity and owns `{ generation, inFlight?, calendar?, holidays?, lastSuccessful?, viewModel? }`; a promise is shared only for the exact key. A per-context/per-year holiday slot is also single-flight: loading July/August/September 2026 makes exactly three calendar calls and one holiday call for the active role, not three holiday calls. `loadMonths` validates/deduplicates its month array in first-seen order and returns `Promise.all` of the per-month loads.
 
-1. Same-context success-cache check first, exactly as V3-1 (`force !== true && key === lastSuccessfulKey && ... data VM`) → resolve without network.
-2. `const userId = dependencies.getCurrentUserId(); const cacheRecord = userId === undefined ? undefined : dependencies.cache.read(userId, target.groupId, target.businessMonth);`
-3. If `cacheRecord` exists: publish immediately `buildCalendarMonthViewModel({ calendar: cacheRecord.calendar, filters, holidays: cacheRecord.holidays, status: 'cached', today, mode: viewMode, weekStart, savedAt: cacheRecord.savedAt, isStale: !isCalendarCacheFresh(cacheRecord) })` **before** the network request, and do **not** publish a loading state. The published sequence becomes `[cached, ready]` on success or stays `[cached]` on failure.
-4. If no cache: publish `loading` (V3-1 behavior), then network.
-5. On success (current generation only): build/publish `ready` (same input plus `mode`/`weekStart`, no savedAt), write cache exactly once via `dependencies.cache.write(userId, groupId, month, calendar, holidays)` only when `userId !== undefined`, and set `lastSuccessfulKey`.
-6. On failure (current generation only): if a cache record exists, keep the published `cached` VM and optionally re-publish it with `isStale: true` (no error state, no cache write); otherwise publish the classified error state as V3-1.
-7. `force === true` bypasses step 1 only; cache-first steps 2–3 and failure fallback still apply.
-8. `setViewMode(mode, weekStart?)` stores both values and calls `rebuild()` (zero network). When `mode === 'week'` and `weekStart` is `undefined`, the controller computes `getVisibleWeekForMonth(currentMonth, dependencies.getToday())` before rebuilding; when `mode !== 'week'`, `weekStart` is stored as `undefined`. `rebuild()` publishes `ready` from `latestCalendar`/`latestHolidays` with the stored mode; it must not throw for an existing data source, because the week fallback guarantees a real week start.
+For one month: use a non-forced successful in-memory slot first; otherwise read the exact cache identity. A valid snapshot publishes `cached` immediately with `cacheSavedAt` and `isStale = !isCalendarCacheFresh(record)`, then starts the network refresh. No snapshot publishes `loading`. A current success publishes `ready`, stores one exact cache record, and clears cache metadata. A current failure keeps/re-publishes the cached VM as stale without an error state; without cache it publishes V3-1's classified state/error message. `force` bypasses only in-memory success, never cache-first visibility. A completion may publish/write only when its slot generation and context still match; `.finally()` clears only the exact same slot promise.
 
-`rebuild()` and the VM builder now pass `mode`/`weekStart`; `buildCalendarMonthViewModel` throws when `mode === 'week'` and `weekStart` is missing/invalid (test asserts the throw), and `mode` defaults to `'month'` for V3-1-compatible callers.
+`CalendarMonthDataViewModel` gains only optional `cacheSavedAt?: string` and `isStale?: boolean`; `BuildCalendarMonthViewModelInput` gains those same optional inputs. They are present only with `status: 'cached'`; existing V3-1 callers remain `ready` and unchanged. `setFilters` rebuilds every loaded VM for the active context, makes zero endpoint/cache calls, and keeps a filter when stepping month within the same group/version.
 
-Extend `calendar-page-controller.test.ts` harness with `cache = createCalendarCache(memoryPort)` and `getCurrentUserId: () => 'user-1'`, then add these red-then-green tests:
+Create/extend `calendar-page-controller.test.ts` red first with these assertions:
 
-| Scenario                                 | Sequence asserted                                                                                                                                             |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fresh cache, network success             | publish `cached` → publish `ready`; `getCalendar` called once; cache write called once; same-key second `load()` without force → no network, no extra publish |
-| Fresh cache, network failure             | publish `cached`; no error publish; `getCalendar` called once; cache write zero                                                                               |
-| Stale cache (`savedAt` > 5 min), failure | publish `cached` with `isStale: true`; no error publish                                                                                                       |
-| No cache, failure                        | publish `loading` → publish `error` with original message                                                                                                     |
-| Force with fresh cache                   | bypasses step 1; still publish `cached` then `ready`; one endpoint pair                                                                                       |
-| `setViewMode('week', '2026-08-10')`      | publishes `ready` with `mode: 'week'` and `weekLabel`; zero endpoint calls; same-context load still success-cached                                            |
-| Stale prior-month response               | old generation cannot publish into new slot or write cache (existing generation tests keep passing with cache ports present)                                  |
+| Scenario                       | Exact assertion                                                                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Three initial slots, same year | `loadMonths(context, ['2026-07','2026-08','2026-09'])` calls protected calendar three times and holidays once; guest calls guest calendar three times and guest holidays once; opposite endpoint counts stay zero. |
+| Cross-year week                | `loadMonths(context, ['2026-12','2027-01'])` makes two calendar calls and one holiday call for each year.                                                                                                          |
+| Fresh cache then success       | Updates are `cached` then `ready`; one calendar refresh and one cache write occur.                                                                                                                                 |
+| Cache then rejection           | Update remains cached with `isStale: true`; no error state and zero cache writes occur.                                                                                                                            |
+| No cache rejection             | Updates are loading then the original classified error message.                                                                                                                                                    |
+| Same key / force               | Same in-flight calls return `===`; success-cache load makes zero calls; forced load still shows cache then makes exactly one role-correct request pair.                                                            |
+| Stale slot completion          | A superseded slot cannot publish, clear a newer in-flight entry, or write its cache key.                                                                                                                           |
+| Filter / phone                 | Filter rebuilds loaded slots with zero requests; the same phone action resolves once from month, cross-month week, and list surfaces.                                                                              |
 
-### 7.5 View-Model Week/List Builders (test-first)
+### 7.5 Month/Week/List Surface Builders (test-first)
 
-Extend `calendar-view-model.ts`:
+Create `apps/miniprogram/features/calendar/calendar-surface.ts`:
 
 ```ts
-export interface CalendarWeekDataViewModel extends CalendarMonthBaseViewModel {
-  readonly assignmentCount: number;
-  readonly filters: CalendarFilterViewModel;
-  readonly isWeekEmpty: boolean;
-  readonly isStale?: boolean;
-  readonly mode: 'week';
-  readonly savedAt?: string;
-  readonly status: CalendarDataStatus;
-  readonly week: CalendarWeekViewModel; // exactly 7 day cells for weekStart..weekStart+6
-  readonly weekLabel: string;
-  readonly weekdayLabels: readonly ['一', '二', '三', '四', '五', '六', '日'];
+import type {
+  CalendarDayViewModel,
+  CalendarMonthDataViewModel,
+  CalendarMonthViewModel,
+  CalendarPhoneActionViewModel,
+  CalendarStateStatus,
+  CalendarWeekViewModel,
+} from './calendar-view-model.js';
+
+export interface CalendarMonthSlotViewModel {
+  readonly businessMonth: string;
+  readonly viewModel: CalendarMonthViewModel;
 }
 
-export interface CalendarListDataViewModel extends CalendarMonthBaseViewModel {
-  readonly assignmentCount: number;
-  readonly days: readonly CalendarDayViewModel[];
-  readonly filters: CalendarFilterViewModel;
-  readonly isListEmpty: boolean;
-  readonly isStale?: boolean;
-  readonly mode: 'list';
-  readonly savedAt?: string;
-  readonly status: CalendarDataStatus;
-}
+export type CalendarSurfaceViewModel =
+  | {
+      readonly kind: 'list';
+      readonly days: readonly CalendarDayViewModel[];
+      readonly monthLabel: string;
+    }
+  | { readonly kind: 'month'; readonly month: CalendarMonthDataViewModel }
+  | {
+      readonly kind: 'week';
+      readonly week: CalendarWeekViewModel;
+      readonly weekLabel: string;
+      readonly weekStart: string;
+    }
+  | {
+      readonly businessMonth: string;
+      readonly kind: 'state';
+      readonly message: string;
+      readonly status: CalendarStateStatus;
+    };
 
-export type CalendarMonthViewModel =
-  | CalendarMonthDataViewModel
-  | CalendarWeekDataViewModel
-  | CalendarListDataViewModel
-  | CalendarMonthStateViewModel;
-
-export interface BuildCalendarMonthViewModelInput {
-  // existing fields ...
-  readonly mode?: CalendarViewMode; // 'month' default
-  readonly weekStart?: string;
-  readonly savedAt?: string;
-  readonly isStale?: boolean;
-}
+export function buildCalendarSurfaceViewModel(input: {
+  readonly businessMonth: string;
+  readonly mode: CalendarViewMode;
+  readonly monthSlots: readonly CalendarMonthSlotViewModel[];
+  readonly weekStart: string;
+}): CalendarSurfaceViewModel;
+export function findCalendarPhoneAction(
+  slots: readonly CalendarMonthSlotViewModel[],
+  actionId: string,
+): CalendarPhoneActionViewModel | undefined;
 ```
 
-`CalendarMonthDataViewModel` gains `mode: 'month'` (exact literal) and optional `savedAt`/`isStale`. Builder behavior: `month` mode returns the V3-1 shape plus `mode`/route fields; `week` mode validates `weekStart` (real `YYYY-MM-DD`), builds one `CalendarWeekViewModel` from `getWeekDays(weekStart)` where each day cell maps through the same day mapper (holiday/past/today/weekend/assignments), sets `weekLabel: getWeekLabel(weekStart)`, and `isWeekEmpty = week days all empty`; `list` mode builds `buildDayList`-equivalent VM days (only dates with assignments, day cells with full mapping) and `isListEmpty = days.length === 0`. All modes share the same filter normalization, marker/phone mapping, and stable IDs. `savedAt`/`isStale` are copied verbatim and are meaningful only with `status: 'cached'`; other statuses ignore them (tests assert `savedAt` absent for `ready`).
+Month mode requires the center month data VM. List mode uses its real-day cells with assignments, sorts them by business date, and never creates a cross-month list. Week mode validates `weekStart`, calls `getBusinessMonthsForWeek`, requires every required month data VM, and selects each real day from the correct source month; `2026-08-31` therefore shows August 31 plus September 1–6 from the September slot, not padding or invented empty data. Missing slots produce `{ kind: 'state', businessMonth: missingMonth, status: 'loading', message: '正在加载排班' }`; an existing month state preserves its exact `status`/`message`. State surfaces bind no route event until every required VM is data. Every selected day/assignment keeps its Task 6 route IDs. `findCalendarPhoneAction` traverses deduplicated real-day assignments in all passed slots, so controller lookup does not assume `.weeks` exists on a future surface union.
 
-Golden tests add: week builder for `weekStart '2026-08-10'` → 7 days, `weekLabel '2026年8月10日–8月16日'`, `2026-08-15` day contains the same three assignments; list builder → 3 days in order, `2026-08-15` first; missing/invalid `weekStart` in week mode throws; cached VM carries `savedAt`/`isStale`; month VM mode literal is `'month'`.
+`calendar-surface.test.ts` first fails because the module is absent, then pins: month surface uses the central VM; golden list dates are `2026-08-15`, `2026-08-16`, `2026-08-31`; the August 31 week demands September and returns seven real dates when both fixtures are supplied; absent September returns exactly `{ kind: 'state', businessMonth: '2026-09', status: 'loading', message: '正在加载排班' }`; phone `golden-a1:phone:长号` is found exactly once; inputs and all source VMs are unchanged. Extend `calendar-routing.test.ts` with `[AugustVm, SeptemberVm]` and assert `date:2026-09-01` resolves only when the September data VM is supplied. The VM test adds cached metadata assertions (`cached` has both fields; `ready` has neither), not mode/weekday/list fields.
 
 ### 7.6 Three-Page Swiper Rotation Rules (page-level, test-first via pure module)
 
-The rotation decision is a pure helper in `calendar-view-mode.ts`:
+`calendar-view-mode.ts` owns the pure `recenterMonthSlots(center)` and `rotateMonthSlots(slots, 0 | 2)` functions declared in §7.2. The page never calls `rotateMonthSlots` for a toolbar action; toolbar and week-navigation actions call `recenterMonthSlots(nextBusinessMonth)`.
+
+Page data uses these exact fields:
 
 ```ts
-export interface SwiperSlotRotation {
-  readonly months: readonly [string, string, string]; // [target-1, target, target+1]
-  readonly targetMonth: string;
+interface CalendarPageData {
+  readonly cacheNotice?: { readonly savedAtText: string; readonly stale: boolean };
+  readonly monthSlots: readonly [
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+  ];
+  readonly surface: CalendarSurfaceViewModel;
+  readonly swiperIndex: 1;
+  readonly viewMode: CalendarViewMode;
+  readonly weekStart: string;
 }
-
-export function rotateMonthSlots(currentMonth: string, swiperIndex: number): SwiperSlotRotation; // swiperIndex 0 -> delta -1; 2 -> delta +1; else throw
 ```
 
-Page rules (normative):
+`monthSlots[1].businessMonth` is the sole selected-month source; no parallel `businessMonth` data field exists. On show, the page narrows a non-empty authenticated `profile.id`, active group ID/role, and positive integer `group.version` before constructing `CalendarContext`; otherwise it keeps the no-group state and makes zero calls. Initial slots are state VMs for `[previous, current, next]`, then `controller.loadMonths(context, months)` requests all three. The page holds a monotonic `navigationEpoch` and `swiperLocked` instance fields. Its `publish(update)` finds the business month in the current tuple; index `-1`, a non-current group/version, or an older navigation epoch is ignored without `setData`. A valid update writes only `monthSlots[index]`, then rebuilds `surface` from the tuple and current mode/week start. `cacheNotice` is undefined unless the center VM is `cached` with both cache fields; otherwise it is `{ savedAtText: cacheSavedAt, stale: isStale === true }`. `handleRouteAction` passes every currently narrowed data VM in `monthSlots` to `resolveCalendarRouteAction`; this keeps September day/row/marker/phone taps valid in an August 31–September 6 week without passing a surface union or raw data.
 
-- Page data: `monthSlots: readonly CalendarMonthViewModel[]` (always 3), `swiperIndex: number` (always 1 after re-center), `swiperEnabled: boolean` (`true` only when `viewMode === 'month'`), `businessMonth` alias of `monthSlots[1].businessMonth`.
-- Initial state: `monthSlots = [createCalendarMonthStateViewModel(prev, 'loading'), createCalendarMonthStateViewModel(current, 'loading'), createCalendarMonthStateViewModel(next, 'loading')]`; `onShow` loads the middle month (controller key `groupId:role:current`).
-- `handleSwiperChange(event)`: ignore when `swiperEnabled === false`, when `swiperLocked === true`, or when `event.detail.current === 1`. Otherwise `rotation = rotateMonthSlots(businessMonth, event.detail.current)`; set `swiperLocked = true`; build the new slot array by reusing existing VM slots: swipe left (`current === 0`) → `[stateVM(target-1), monthSlots[0], monthSlots[1]]`; swipe right (`current === 2`) → `[monthSlots[1], monthSlots[2], stateVM(target+1)]`. `setData({ businessMonth: targetMonth, monthSlots, swiperIndex: 1 })` and, in its completion callback, `this.swiperLocked = false`; then `this.loadMonth(targetMonth)`.
-- The page's controller `publish` wrapper routes by month: `const slot = monthSlots.findIndex((vm) => vm.businessMonth === viewModel.businessMonth); setData({ ['monthSlots[' + slot + ']']: viewModel, viewModel: slot === 1 ? viewModel : this.data.viewModel })` (computed-key `setData`; `viewModel` stays the active middle slot for WXML).
-- Month toolbar (上一月/下一月) uses `stepCalendarMonth` and, after `setData`, calls `loadMonth`; when `viewMode === 'month'`, it also re-centers the swiper slot array through the same rotation helper (target = addBusinessMonths ±1).
-- Week toolbar (上一周/下一周/本周) is visible only in week mode; `stepCalendarWeek` may change `businessMonth`; when it does, the swiper slot array re-centers on the new month without animation (`swiperIndex` set directly).
-- No request sequence number is needed beyond the controller's existing `requestGeneration` plus `swiperLocked`; the swiper's `bindchange` with `current === 1` is always a no-op.
+`handleSwiperChange(event)` first narrows `event.detail.current` to `0 | 1 | 2` and `event.detail.source` to the literal `'touch'`. It returns for non-touch, disabled (week/list), locked, `1`, or invalid source/index. Otherwise it captures/increments `navigationEpoch`, locks, constructs `const slotMonths: CalendarMonthSlots = [monthSlots[0].businessMonth, monthSlots[1].businessMonth, monthSlots[2].businessMonth]`, calls `rotateMonthSlots(slotMonths, current)`, preserves the two reusable VM slots, creates only the new edge state VM, and calls `setData({ monthSlots, surface, swiperIndex: 1 })`. Its callback unlocks only if the captured epoch remains current, then calls `loadMonths` for the tuple; existing slots create zero requests and the new edge causes exactly one calendar request plus a holiday request only for a not-yet-loaded year.
+
+Month/list toolbar calls `stepCalendarMonth`, then `recenterMonthSlots(next.businessMonth)` and `loadMonths` without an animated callback. Week toolbar (`上一周`/`下一周`/`本周`) calls `stepCalendarWeek`; it recenters on `next.businessMonth`, computes `getBusinessMonthsForWeek(next.weekStart)`, loads the three slots plus the required cross-month pair as their set union, and builds the week surface only after both source months are data. The native `<swiper>` is rendered only in month mode; week/list never receive or handle a swiper change.
 
 ### 7.7 Week/List Components And Page Wiring
 
-- `calendar-week` properties: `week: Object` (`CalendarWeekViewModel`), `role: String`; event `route`. Renders 7 day cells in one flex row (each `flex: 1`, `min-height: 208rpx`), day header (dayNumber + weekday + holiday-tag), assignments via `assignment-row` with `hideShiftBadge` when a day has exactly one assignment (Web sole-duty rule).
-- `calendar-list` properties: `days: Array` (`CalendarDayViewModel[]`), `role: String`; event `route`. Renders each day as a card row (header `MM-DD 周X 今天 节日`, then assignment rows).
-- Page WXML: mode bar with three buttons `月 / 周 / 列表` (`data-mode` dataset, `handleViewModeTap`), month toolbar for month/list, week toolbar for week, `<swiper wx:if="{{viewMode === 'month'}}" class="calendar-page__swiper" circular enhanced duration="{{240}}" current="{{swiperIndex}}" bindchange="handleSwiperChange">` with three `<swiper-item>`s binding `monthSlots[0]`/`viewModel`/`monthSlots[2]` through `<calendar-grid>`; `calendar-week`/`calendar-list` for the other modes. Cached state renders a `可能不是最新数据` badge when `viewModel.isStale === true` and `缓存于 {{savedAtTime}}` when `savedAt` exists (`savedAtTime` formatted via `formatChinaDateTime`).
-- `calendar-page__swiper` WXSS: `height: calc(100vh - <toolbar/filters/mode-bar fixed heights>)` with flex rows inside; no `display: grid`.
-- Boundary guard update: WXML contains `monthSlots`, `calendar-grid`, `calendar-week`, `calendar-list`, `bindchange="handleSwiperChange"`, and `viewModel.isStale`; still no raw contract fields; page source contains `rotateMonthSlots`, `swiperLocked`, and no `Promise.all`/`requestGeneration`/`lastSuccessfulKey`/`inFlight` (controller stays the only owner).
+- `calendar-week` properties: `week: Object` (`CalendarWeekViewModel`), `role: String`; event `route` detail `{ actionId: string }`. Its own `index.json` registers `assignment-row` and `holiday-tag`; it renders exactly seven flex cells, each `flex: 1`/`min-height: 208rpx`, with full day header and a sole-duty `hideShiftBadge` only when `day.assignments.length === 1`.
+- `calendar-list` properties: `days: Array` (`CalendarDayViewModel[]`), `role: String`; event `route` detail `{ actionId: string }`. Its own `index.json` registers `assignment-row` and `holiday-tag`; it renders a date card (`MM-DD 周X`, today and holiday labels) then every row without truncating names.
+- Page WXML has three typed mode buttons (`data-mode="month|week|list"`, `handleViewModeTap` rejects any other string), month/list toolbar, and week toolbar. The handler builds the ephemeral `CalendarViewModeState` from center-slot month plus `viewMode`/`weekStart`, calls `switchCalendarViewMode`, then recenters/loads the resulting month(s). Its month branch uses `<swiper circular enhanced duration="{{240}}" current="{{swiperIndex}}" bindchange="handleSwiperChange">` with exactly three `swiper-item` grid components. Its week/list branches consume `surface.week`/`surface.days`; `surface.kind === 'state'` uses the existing state renderer and binds no route. `cacheNotice` renders `可能不是最新数据` only when `stale` is true and never exposes raw storage data.
+- `calendar-page__swiper` uses a measured `height: calc(100vh - 312rpx)` and flex rows; no `display: grid`. It does not create another vertical `scroll-view` because `page-shell` remains the only page-level scroll owner.
+- Boundary guard first fails because the Task 6 page lacks the modes, then requires `monthSlots`, `calendar-grid`, `calendar-week`, `calendar-list`, `bindchange="handleSwiperChange"`, `cacheNotice`, `rotateMonthSlots`, `recenterMonthSlots`, `swiperLocked`, and `navigationEpoch`. It permits `enhanced` only on the `<swiper>` tag, rejects `<scroll-view ... enhanced>`, raw contract fields, `Promise.all`, `requestGeneration`, `lastSuccessfulKey`, and `inFlight` in the page source.
 
 ### 7.8 Task 7 Steps
 
-- [ ] **Step 1:** Run Task 7 prerequisites and record Git/test state.
-- [ ] **Step 2:** Write `calendar-views.test.ts`; observe red; implement `calendar-views.ts`; green.
-- [ ] **Step 3:** Write `calendar-view-mode.test.ts`; observe red; implement `calendar-view-mode.ts` (including `rotateMonthSlots` and `getBusinessMonthOf`); green.
-- [ ] **Step 4:** Write `calendar-cache.test.ts`; observe red; implement `store/calendar-cache.ts`; green.
-- [ ] **Step 5:** Extend `calendar-view-model.test.ts` (week/list/cached builders); observe red; implement the VM additions; green.
-- [ ] **Step 6:** Extend `calendar-page-controller.test.ts` (cache/user-id/view-mode cases); observe red; implement controller changes; green.
-- [ ] **Step 7:** Create `calendar-week`/`calendar-list`; rewire the page (slots, mode bar, swiper, cache badges); update the boundary guard first and watch it go red→green.
-- [ ] **Step 8:** Run the Task 7 validation set (same commands as Task 6 plus `apps/miniprogram/features/calendar/calendar-views.test.ts`, `calendar-view-mode.test.ts`, `store/calendar-cache.test.ts`, and the two new component Prettier checks; `pnpm smoke:check-core`; `git diff --check`). Record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历导航/模式/缓存模块与页面，未改 Web/API/契约/认证/构建核心链路）`.
-- [ ] **Step 9:** DevTools/simulator gate: build-npm/preview/smoke; verify swiper forward/backward across months (July/August/September), no duplicate loads on re-center, week mode prev/next/week-start sync, list mode ordering, cache badge after a forced offline failure (DevTools network off), and screenshots for all three modes. Record renderer indicator and any low-end-device note.
-- [ ] **Step 10:** Semantic audit, update the two docs, stage Task 7 files only, `git diff --cached --check`, create the **local** commit `feat(miniprogram): add calendar navigation and read cache`.
+- [ ] **Step 1:** Run Task 7 prerequisites: Task 6 local commit exists; `origin/main` is an ancestor; only its approved docs/Task 6 commits are ahead; the Task 6 validation set passes.
+- [ ] **Step 2:** Write `calendar-views.test.ts` including the spaces in the Web week label and two cross-month cases; observe module-missing red; implement only `calendar-views.ts`; run green.
+- [ ] **Step 3:** Write `calendar-view-mode.test.ts` for all transition-table rows, non-touch/center/locked swiper no-ops, tuple rotation, and toolbar recenter; observe red; implement only `calendar-view-mode.ts`; run green.
+- [ ] **Step 4:** Write `calendar-cache.test.ts` with the full identity matrix and throwing/corrupt storage; observe red; implement only `calendar-cache.ts`; run green.
+- [ ] **Step 5:** Extend month-VM/routing tests for cache metadata and cross-month route lookup, then write `calendar-surface.test.ts` including August 31–September 6 and mode-independent phone lookup; observe red; implement the VM metadata and `calendar-surface.ts`; run green.
+- [ ] **Step 6:** Extend controller tests for per-month slots, per-year holidays, cache-first, stale protection, and filter rebuild; observe red; implement controller changes; run green.
+- [ ] **Step 7:** Create `calendar-week`/`calendar-list`, then update the boundary guard before calendar page TS/JSON/WXML/WXSS; observe guard red and only then wire the components/page to green.
+- [ ] **Step 8:** Run this exact Task 7 validation set:
+
+```powershell
+pnpm vitest run apps/miniprogram/features/calendar/calendar-logic.test.ts apps/miniprogram/features/calendar/calendar-view-model.test.ts apps/miniprogram/features/calendar/calendar-routing.test.ts apps/miniprogram/features/calendar/calendar-views.test.ts apps/miniprogram/features/calendar/calendar-view-mode.test.ts apps/miniprogram/features/calendar/calendar-surface.test.ts apps/miniprogram/features/calendar/calendar-page-controller.test.ts apps/miniprogram/store/calendar-cache.test.ts apps/miniprogram/features/calendar/calendar-golden-data.test.ts scripts/miniprogram-calendar-boundary.test.mjs
+pnpm vitest run apps/miniprogram
+pnpm miniprogram:config:audit
+pnpm miniprogram:typecheck
+pnpm miniprogram:lint
+pnpm exec prettier --check apps/miniprogram/features/calendar/calendar-view-model.ts apps/miniprogram/features/calendar/calendar-view-model.test.ts apps/miniprogram/features/calendar/calendar-routing.ts apps/miniprogram/features/calendar/calendar-routing.test.ts apps/miniprogram/features/calendar/calendar-views.ts apps/miniprogram/features/calendar/calendar-views.test.ts apps/miniprogram/features/calendar/calendar-view-mode.ts apps/miniprogram/features/calendar/calendar-view-mode.test.ts apps/miniprogram/features/calendar/calendar-surface.ts apps/miniprogram/features/calendar/calendar-surface.test.ts apps/miniprogram/features/calendar/calendar-page-controller.ts apps/miniprogram/features/calendar/calendar-page-controller.test.ts apps/miniprogram/store/calendar-cache.ts apps/miniprogram/store/calendar-cache.test.ts apps/miniprogram/components/calendar-week/index.json apps/miniprogram/components/calendar-week/index.ts apps/miniprogram/components/calendar-week/index.wxml apps/miniprogram/components/calendar-week/index.wxss apps/miniprogram/components/calendar-list/index.json apps/miniprogram/components/calendar-list/index.ts apps/miniprogram/components/calendar-list/index.wxml apps/miniprogram/components/calendar-list/index.wxss apps/miniprogram/pages/calendar/index.json apps/miniprogram/pages/calendar/index.ts apps/miniprogram/pages/calendar/index.wxml apps/miniprogram/pages/calendar/index.wxss scripts/miniprogram-calendar-boundary.test.mjs
+pnpm smoke:check-core
+git diff --exit-code -- packages/contracts/src apps/miniprogram/api/endpoints.ts apps/miniprogram/api/client.ts
+git diff --check
+```
+
+Expected: every command exits `0`, the boundary diff is empty, and `pnpm smoke:browser` is recorded as not applicable because no Web/API/contract/auth/router/build-core file changed.
+
+- [ ] **Step 9:** DevTools/simulator gate: run `pnpm miniprogram:devtools:build-npm`, `pnpm miniprogram:devtools:preview`, and `pnpm miniprogram:smoke`; capture July/August/September forward/backward swipes, August 31–September 6 week, list order, a network-failure cache notice, and call-count evidence. Record renderer/base-library/device facts, not guessed fallback claims.
+- [ ] **Step 10:** Complete the semantic audit, update both checkpoint documents, stage only Task 7 paths, run `git diff --cached --check`/`git diff --cached`, list behavioral changes, and create the **local** commit `feat(miniprogram): add calendar navigation and read cache`.
 
 **Task 7 stop condition:** stop after the local checkpoint commit. Do not add detail sheets, event loading, or V3-3 work.
 
@@ -792,18 +854,24 @@ Page rules (normative):
 
 ### 8.1 Bottom-Sheet State Machine (test-first)
 
-Create `apps/miniprogram/features/sheets/bottom-sheet-logic.ts`:
+Create `apps/miniprogram/features/sheets/bottom-sheet-logic.ts` with this public boundary:
 
 ```ts
-export type BottomSheetPhase = 'closed' | 'closing' | 'open' | 'opening';
+export type BottomSheetPhase = 'closed' | 'closing' | 'dragging' | 'open' | 'opening' | 'settling';
 
 export type BottomSheetPhaseEvent =
-  'close-finished' | 'close-requested' | 'open-finished' | 'open-requested';
+  | 'close-finished'
+  | 'close-requested'
+  | 'drag-bounced'
+  | 'drag-started'
+  | 'open-finished'
+  | 'open-requested';
 
-export const bottomSheetOpenMilliseconds = 280;
-export const bottomSheetCloseMilliseconds = 280;
+export const bottomSheetAnimationMilliseconds = 280;
+export const bottomSheetBounceMilliseconds = 200;
 export const bottomSheetDragCloseThresholdPx = 80;
 export const bottomSheetDragCloseVelocityPxPerMillisecond = 0.8;
+export const bottomSheetMaximumDragOffsetPx = 640;
 
 export interface BottomSheetDragSample {
   readonly deltaX: number;
@@ -815,35 +883,35 @@ export function nextBottomSheetPhase(
   phase: BottomSheetPhase,
   event: BottomSheetPhaseEvent,
 ): BottomSheetPhase;
+export function shouldBeginBottomSheetDrag(
+  scrollTop: number,
+  sample: BottomSheetDragSample,
+): boolean;
 export function shouldCloseBottomSheet(sample: BottomSheetDragSample): boolean;
 export function clampBottomSheetDragOffset(offsetPx: number): number;
 ```
 
-Phase transition table (normative; every cell is asserted):
+The only non-identity transitions are normative: `closed + open-requested → opening`; `opening + open-finished → open`; `opening + close-requested → closing`; `open + drag-started → dragging`; `open + close-requested → closing`; `dragging + drag-bounced → settling`; `dragging + close-requested → closing`; `settling + open-finished → open`; `settling + close-requested → closing`; `closing + close-finished → closed`; `closing + open-requested → opening`. Every other phase/event pair keeps its current phase, including `open + open-requested` (a new `sheetKey` replaces content without replaying an animation).
 
-| Phase     | open-requested                         | open-finished               | close-requested    | close-finished      |
-| --------- | -------------------------------------- | --------------------------- | ------------------ | ------------------- |
-| `closed`  | `opening`                              | `closed` (invalid sequence) | `closed` (ignore)  | `closed`            |
-| `opening` | `opening` (ignore)                     | `open`                      | `closing`          | `opening` (invalid) |
-| `open`    | `opening` (re-animate on content swap) | `open`                      | `closing`          | `open` (invalid)    |
-| `closing` | `closing` (ignore)                     | `closing` (invalid)         | `closing` (ignore) | `closed`            |
+`shouldBeginBottomSheetDrag` is true only when `scrollTop <= 1`, `deltaY > 0`, and `Math.abs(deltaY) > Math.abs(deltaX)`. `shouldCloseBottomSheet` is true only after the same vertical-intent test and either `deltaY >= 80` or (`elapsedMilliseconds > 0` and `deltaY / elapsedMilliseconds > 0.8`); exactly `0.8` is false. `clampBottomSheetDragOffset` returns a finite offset clamped to `[0, 640]`; NaN/infinity become `0`. Touch deltas use `touch.clientY` CSS pixels, never rpx.
 
-`shouldCloseBottomSheet` returns `true` iff `deltaY >= 80` or (`elapsedMilliseconds > 0` and `deltaY / elapsedMilliseconds > 0.8`); `deltaX > deltaY` (horizontal intent) returns `false` before the vertical check; `deltaY <= 0` returns `false`. `clampBottomSheetDragOffset` returns `Math.max(0, offsetPx)`. The 80 px threshold is measured in CSS px via `touch.clientY` deltas; on standard 375 pt screens this equals 160rpx of sheet translation, but the decision uses raw px, not rpx.
-
-Create `bottom-sheet-logic.test.ts` pinning: every transition row; invalid sequences stay in the current phase; threshold boundary (`79.9` false, `80` true); velocity boundary (`0.8` false, `0.81` true); horizontal-drag override; negative/zero delta false; clamp negatives to 0.
+Create `bottom-sheet-logic.test.ts` before the module. Assert all 36 phase/event pairs, `79.9`/`80`, `0.8`/`0.81`, horizontal/negative/zero samples, `scrollTop` `1`/`1.01`, and `-1`/`0`/`641`/NaN clamp results. Expected initial failure: module missing; after implementation every assertion is green.
 
 ### 8.2 Bottom-Sheet Component
 
 `apps/miniprogram/components/bottom-sheet/index.*`:
 
-- properties: `title: String` (default `''`), `visible: Boolean` (default `false`), `sheetKey: String` (default `''`).
-- events: `close`.
-- Implementation contract: root mask (`catchtap` → emit `close`); sheet panel `transform: translateY({{offsetStyle}})`, transition `transform 280ms ease-out` only when not dragging; drag handlers on the sheet header (`catchtouchmove`) and on the panel (`bindtouchmove`); inner `<scroll-view scroll-y>` tracks `scrollTop` via `bindscroll`; drag starts only when `scrollTop <= 1` and vertical intent dominates; `shouldCloseBottomSheet` decides close vs bounce (`transform` back to `translateY(0)` with 200ms ease-out); when `visible` flips true or `sheetKey` changes while visible, run `open-requested`; after the 280ms transition, run `open-finished`; when closing completes, run `close-finished` and clear content slot. All timers use `setTimeout` with `clearTimeout` on unmount; the pure module owns phase decisions, the component owns `setData` and must call it at most once per touchmove event (start/move/end phases; record in the performance matrix).
-- WXML renders `<slot />` for sheet content and a close affordance (`aria-label="关闭"`).
+- properties: `title: String` (default `''`), `visible: Boolean` (default `false`), `sheetKey: Number` (default `0`).
+- events: `request-close` and `closed`, both with detail `{ sheetKey: number }`; no component emits an unkeyed close event.
+- Implementation contract: the parent keeps the component and its slot mounted while `visible` changes `true → false`. The mask and close button use `catchtap` to call `requestClose`, which transitions to `closing`, emits `request-close` once for the current key, and starts the 280 ms close timer. Only a timer whose captured `sheetKey` and phase still match may transition to `closed` and emit `closed`; `detached` and every key/visibility replacement call `clearTimeout` first. Thus the parent can preserve content during closing, and a late `closed` from an old key cannot clear reopened content.
+- WXML has a mask, a panel with `transform: translateY({{dragOffsetPx}}px)`, and an internal `<scroll-view scroll-y bindscroll="handleContentScroll">` containing the slot. The mask/panel use CSS `transform 280ms ease-out`; a rejected drag uses `transform 200ms ease-out`; `dragging` has no transition. The panel/header records `touchstart`; content move is owned only after `shouldBeginBottomSheetDrag(scrollTop, sample)` succeeds, otherwise its native scroll remains available. The component records `scrollTop` from the scroll event, calls `setData` at most once per accepted `touchmove`, and never rebuilds slot data during a move.
+- On a valid downward end, `shouldCloseBottomSheet` starts `closing`; otherwise `drag-bounced → settling`, resets offset to `0`, and the 200 ms timer sends `open-finished`. A new visible `sheetKey` clears any timer, resets offset/scroll position, and enters `opening` only from `closed`/`closing`; an open sheet merely swaps keyed content. WXML exposes a `<slot />` and a close affordance with `aria-label="关闭"`; panel taps use `catchtap` so they never close the mask.
+
+Component tests (or a minimal DevTools component harness if the Vitest adapter cannot mount mini-program components) must prove: opening emits no close; mask close emits `request-close` once and `closed` once after 280 ms; `visible=false` retains slot content until `closed`; `sheetKey` replacement cancels the old timer; the stale key is ignored by the host; a 79.9 px drag settles at zero; an 80 px drag requests close; scroll `> 1` blocks drag ownership. Record the adapter limitation rather than skipping a state assertion.
 
 ### 8.3 Event Description Port And Timeline Controller (test-first)
 
-Create `apps/miniprogram/features/events/event-description.ts` as a line-by-line port of Web `apps/web/src/features/events/event-timeline.ts` with this exact public boundary (all pure, no `wx`):
+Create `apps/miniprogram/features/events/event-description.ts` as a line-for-line semantic port of Web `apps/web/src/features/events/event-timeline.ts`. It is pure and has no `wx`; raw `ScheduleEvent` data never crosses into WXML:
 
 ```ts
 import type { CalendarChangeMarker, JsonObject, ScheduleEvent } from '@schedule/contracts';
@@ -854,17 +922,26 @@ export interface EventChangeItem {
   readonly before?: string;
   readonly label: string;
 }
-export interface EventTimelineItem {
-  readonly event: ScheduleEvent;
-  readonly marker?: CalendarChangeMarker;
-}
 export interface EventNarrativeContext {
   readonly initiatedAt?: string;
 }
+export interface EventTimelineDisplayItem {
+  readonly changes: readonly EventChangeItem[];
+  readonly id: string;
+  readonly marker?: CalendarChangeMarker;
+  readonly narrative?: string;
+  readonly occurredAtText: string;
+  readonly reason?: string;
+  readonly typeLabel: string;
+}
+export interface EventTimelineDisplay {
+  readonly changeChainSummary?: string;
+  readonly items: readonly EventTimelineDisplayItem[];
+}
 
-export const eventTypeLabels: Readonly<Record<string, string>>; // exact Web table
+export const eventTypeLabels: Readonly<Record<string, string>>;
 export function getEventTypeLabel(eventType: string): string;
-export function formatEventTime(occurredAt: string): string; // formatChinaDateTime
+export function formatEventTime(occurredAt: string): string;
 export function extractEventChanges(event: ScheduleEvent): readonly EventChangeItem[];
 export function buildEventNarrative(
   event: ScheduleEvent,
@@ -875,69 +952,33 @@ export function buildChangeChainSummary(
   events: readonly ScheduleEvent[],
   assignmentId: string,
 ): string | undefined;
-export function buildEventTimelineItems(
+export function buildEventTimelineDisplay(
   events: readonly ScheduleEvent[],
-): readonly EventTimelineItem[];
+  assignment: CalendarAssignmentViewModel,
+): EventTimelineDisplay;
 export function formatJsonValue(value: JsonObject | undefined): string;
 ```
 
-Port rules: copy `eventTypeLabels`, `changeLabels`, `skippedChangeKeys`, `statusLabels`, `getEventMarker`, `isPrimitive`/`formatPrimitive`, nested/top-level member-name readers, `swap_completed`/`leave_cover_completed`/`duty_adjustment_completed`/request-state narratives, `buildChangeFallbackNarrative`, and the change-chain summary exactly; `CalendarAssignmentViewModel` replaces `CalendarDutyAssignment` only at the call boundary — `assignmentId`, `plannedMemberName`, `actualMemberName` map 1:1, and `scheduleRoleName` reads `roleName` (identical content); `formatEventTime` delegates to `calendar-views.formatChinaDateTime`. Unknown event types fall back to `排班变更` plus a changes-based narrative.
+Copy the Web type-label/change-label/skipped-key/status-label tables, marker mapper, primitive and nested-member readers, all request/completed narratives, fallback, sorting, and chain summary exactly. `assignment.assignmentId`, `plannedMemberName`, `actualMemberName`, and `roleName` replace Web's `id`, names, and `scheduleRoleName`; `formatEventTime` delegates to Task 7 `formatChinaDateTime`. Unknown types remain `排班变更` plus the Web changes fallback. `buildEventTimelineDisplay` sorts by `occurredAt`, then `id`; makes a first-seen `objectId → occurredAt` map only from `objectType === 'swap_request' && eventType === 'swap_request_created'`; and maps each sorted event to the display fields above. A completed swap receives `initiatedAt` only from that map, never from its own completion timestamp.
 
-Create `event-description.test.ts` with the golden events and these exact assertions:
-
-```ts
-expect(getEventTypeLabel('swap_completed')).toBe('换班已生效');
-expect(getEventTypeLabel('unknown_type')).toBe('排班变更');
-expect(buildEventTimelineItems(goldenEvents).map(({ event }) => event.id)).toEqual([
-  'golden-event-5',
-  'golden-event-4',
-  'golden-event-1',
-  'golden-event-2',
-  'golden-event-3',
-]);
-expect(buildEventTimelineItems(goldenEvents).map(({ marker }) => marker)).toEqual([
-  undefined,
-  undefined,
-  'swap',
-  'leave-cover',
-  'overtime',
-]);
-expect(buildEventNarrative(goldenEvents[0]!, goldenAssignmentViewModel('golden-a2'))).toBe(
-  '计划医生甲 → 李思远（由李思远 发起，发起时间 2026-08-15 09:00）',
-);
-expect(buildEventNarrative(goldenEvents[1]!, goldenAssignmentViewModel('golden-a4'))).toContain(
-  '整体顺延',
-);
-expect(buildEventNarrative(goldenEvents[2]!, goldenAssignmentViewModel('golden-a3'))).toBe(
-  '欧阳修远 的班次由 李思远 代值（由 张伟 发起）。',
-);
-expect(buildChangeChainSummary(goldenEvents.slice(0, 3), 'golden-a2')).toMatch(
-  /人员变更链：计划医生甲 → 李思远（1 次变更/,
-);
-expect(extractEventChanges(goldenEvents[4]!)).toEqual([
-  { label: '班种', before: '旧班种', after: '新班种' },
-  { label: '状态', before: '待审批', after: '已批准' },
-]);
-expect(formatJsonValue(undefined)).toBe('');
-```
-
-`goldenAssignmentViewModel(assignmentId)` is a helper in the test that picks the mapped assignment from the golden VM (narrowed via `findDay`); no `as any`. The chain summary for `golden-a2` must include the `swap_completed` step (initiator side) and skip `golden-a4`'s leave-cover step (different assignment).
+Write `event-description.test.ts` against the golden VM helper (`findDay` narrowing, no `as any`) before implementation. Pin: labels `swap_completed → 换班已生效` and unknown → `排班变更`; display IDs `[golden-event-5, golden-event-4, golden-event-1, golden-event-2, golden-event-3]`; markers `[undefined, undefined, 'swap', 'leave-cover', 'overtime']`; `golden-event-1` narrative for `golden-a2` exactly `计划医生甲 → 李思远（由 李思远 发起）` and does **not** contain `发起时间` because the fixture deliberately has no matching request-created event; `golden-event-2` for `golden-a4` contains `整体顺延`; `golden-event-3` for `golden-a3` exactly `欧阳修远 的班次由 李思远 代值（由 张伟 发起）。`; event 5 changes exactly `{ 班种: 旧班种 → 新班种, 状态: 待审批 → 已批准 }`; chain for `golden-a2` exactly `人员变更链：计划医生甲 → 李思远（1 次变更；2026-08-15 09:00 换班 计划医生甲 → 李思远）`; and `formatJsonValue(undefined) === ''`.
 
 Create `apps/miniprogram/features/events/event-timeline-controller.ts`:
 
 ```ts
-import type { ScheduleEvent, ScheduleEventPage } from '@schedule/contracts';
-import type { EventTimelineItem } from './event-description.js';
+import type { ScheduleEventPage } from '@schedule/contracts';
+import type { CalendarAssignmentViewModel } from '../calendar/calendar-view-model.js';
+import type { EventTimelineDisplayItem } from './event-description.js';
 
 export interface EventTimelineState {
   readonly assignmentId?: string;
+  readonly changeChainSummary?: string;
   readonly errorMessage?: string;
-  readonly events: readonly ScheduleEvent[];
+  readonly groupId?: string;
   readonly hasMore: boolean;
-  readonly items: readonly EventTimelineItem[];
+  readonly items: readonly EventTimelineDisplayItem[];
   readonly status: 'error' | 'idle' | 'loading' | 'ready';
 }
-
 export interface EventTimelineDependencies {
   readonly listEvents: (
     groupId: string,
@@ -946,61 +987,55 @@ export interface EventTimelineDependencies {
   ) => Promise<ScheduleEventPage>;
   readonly publish: (state: EventTimelineState) => void;
 }
-
 export interface EventTimelineController {
-  load(groupId: string, assignmentId: string): Promise<void>;
+  load(groupId: string, assignment: CalendarAssignmentViewModel): Promise<void>;
   reset(): void;
 }
-
 export function createEventTimelineController(
   dependencies: EventTimelineDependencies,
 ): EventTimelineController;
 ```
 
-Semantics (normative): `load` is not async; a duplicate in-flight call for the same `assignmentId` returns the exact same Promise; a different assignment increments a numeric generation and supersedes the slot; on success, filter `page.events.filter((event) => event.affectedShiftIds.includes(assignmentId))`, build `items = buildEventTimelineItems(filtered)`, publish `{ status: 'ready', assignmentId, events: filtered, items, hasMore: page.nextCursor !== undefined }` only when the generation is current; on failure publish `{ status: 'error', assignmentId, errorMessage: error instanceof Error ? error.message : undefined, events: [], items: [], hasMore: false }` only when current, and the public Promise resolves (no floating rejection); `reset()` clears the slot and publishes `{ status: 'idle', events: [], items: [], hasMore: false }`; `.finally()` clears `inFlight` only when it still refers to the exact Promise. `listEvents` is called with `(groupId, undefined, 100)` exactly once per in-flight request (Web parity page size).
+`load` is non-`async`. The in-flight identity is the exact pair `{ groupId, assignmentId: assignment.assignmentId }`: only the same pair returns the identical Promise; changing either value increments one numeric generation. Every non-idle publish includes both identity fields. It publishes loading, calls `listEvents(groupId, undefined, 100)` exactly once, filters only `event.affectedShiftIds.includes(assignment.assignmentId)`, then publishes the derived display and `hasMore: page.nextCursor !== undefined` only for the current pair/generation. It fetches no second page in V3-2. A failure publishes the original `Error.message` when available, empty display, and `hasMore: false`, then resolves the public Promise. `reset` increments generation, clears the exact slot, and publishes idle; `.finally()` clears `inFlight` only when it is the same Promise. The page creates this controller only for a non-guest event route; guest code never reaches `listEvents`.
 
-Create `event-timeline-controller.test.ts` with a `vi.fn` port and assertions: one call per assignment; same-assignment single-flight (`first === second`); generation suppression (stale resolve cannot publish); failure keeps message and resolves; `nextCursor` present → `hasMore: true`; empty page → `items: []`, `status: 'ready'`; reset → `idle` and next load calls `listEvents` again.
+Write `event-timeline-controller.test.ts` with a `vi.fn` endpoint port. Assert `(groupId, undefined, 100)` once, same group/assignment `first === second`, same assignment ID in a different group returns a new Promise and stale first-group resolution cannot publish, different-assignment stale resolve cannot publish, handled failure resolves with message, cursor means `hasMore`, empty response is ready with no items, raw event objects never appear in published state, `golden-a2` receives only its three affected fixture events, and reset makes the next load call the port again.
 
 ### 8.4 Detail Sheets (presentational; properties/events normative)
 
-All four sheets are registered in the calendar page JSON and wrap `bottom-sheet`:
+The page registers exactly one persistent `bottom-sheet` and renders one of the following four **sheet-body** components in its slot. A body component does not import/register `bottom-sheet`, does not receive `visible`/`sheetKey`, and never emits a lifecycle close event; the single host owns scrolling, animation, mask close, and keyed completion.
 
 `date-detail-sheet`:
 
-- properties: `day: Object` (`CalendarDayViewModel`), `monthLabel: String`.
-- events: `close`, `route` (detail `{ actionId: string }`).
+- `index.json` registers `assignment-row`; properties: `day: Object` (`CalendarDayViewModel`), `monthLabel: String`.
+- event: `route` (detail `{ actionId: string }`).
 - Content spec: full date line (`day.dayNumber` + `day.weekdayLabel`), holiday line (full `holidayName` + `休息日`/`调休上班` when present), then all `day.assignments` rendered through `assignment-row` (full names, badges, markers, phones). Empty day shows `当日无排班`（valid empty copy）.
 
 `duty-detail-sheet`:
 
-- properties: `assignment: Object` (`CalendarAssignmentViewModel`), `role: String` (`GroupRole`).
-- events: `close`, `route`.
+- `index.json` registers `marker-badge`; properties: `assignment: Object` (`CalendarAssignmentViewModel`), `role: String` (`GroupRole`).
+- event: `route`.
 - Content spec: member full name (never truncated), role name, shift type full name + abbreviation, time range, shift color chips (`backgroundColor`/`foregroundColor` swatches), marker list with `marker-badge` + description, phone entries exactly as the grid row (same buttons, same action IDs). A `查看事件记录` button is present only when `role !== 'guest'` and emits `route` with the first marker's `actionId` (no marker → hidden; events without a marker are not reachable, matching Web marker-driven entry).
 
 `phone-sheet`:
 
-- properties: `memberName: String`, `phoneActions: Array` (`CalendarPhoneActionViewModel[]`).
-- events: `close`, `dial` (detail `{ actionId: string }`), `copy` (detail `{ actionId: string }`).
+- `index.json` has no nested component; properties: `memberName: String`, `phoneActions: Array` (`CalendarPhoneActionViewModel[]`).
+- events: `dial` (detail `{ actionId: string }`), `copy` (detail `{ actionId: string }`).
 - Content spec: one row per action: label (`长号`/`短号`), the number, and a button — `拨打` for `kind: 'dial'` (confirmed), `复制（未确认）` for `kind: 'copy'`; no number ever renders without its action; `phoneActions.length === 0` renders `该成员暂无电话号码` and no buttons (valid empty copy).
 
 `event-timeline-sheet`:
 
-- properties: `assignment: Object` (`CalendarAssignmentViewModel`), `status: String`, `items: Array`, `message: String`, `hasMore: Boolean`.
-- events: `close`.
-- Content spec: loading state (`正在加载事件`), error state (message + no retry button in V3-2; re-open re-fetches), empty state (`该班次暂无事件记录。`), ready list sorted by `buildEventTimelineItems`: each entry shows `formatEventTime(occurredAt)`, marker badge when present, `getEventTypeLabel`, narrative paragraph, reason line (`原因：...`), and a changes list when no narrative exists; `hasMore` shows `仅显示最近 100 条`; when `buildChangeChainSummary` is defined, render the collapsible `人员变更链` summary.
+- `index.json` registers `marker-badge`; properties: `assignment: Object` (`CalendarAssignmentViewModel`), `status: String`, `items: Array` (`EventTimelineDisplayItem[]`), `errorMessage: String`, `hasMore: Boolean`, `changeChainSummary: String`.
+- event: none. Its local data is `isChainExpanded: Boolean` (default `false`); its `changeChainSummary` observer resets it to false; `handleChainToggle()` calls its own `this.setData` once with the inverse only when a non-empty summary exists.
+- Content spec: loading state `正在加载事件`; error state uses `errorMessage` and has no retry button (re-open makes the one permitted page request); empty ready state is `该班次暂无事件记录。`; ready entries use only `item.occurredAtText`, `item.marker`, `item.typeLabel`, `item.narrative`, `item.reason`, and `item.changes`. A marker badge appears only for `item.marker`; a reason line uses `原因：…`; changes appear only when `narrative` is absent. `hasMore` shows `仅显示最近 100 条`; a native `<button bindtap="handleChainToggle">人员变更链</button>` and `wx:if` `<view>` show `changeChainSummary` when expanded. No unverified `<details>` tag, WXML formatter, `ScheduleEvent`, `beforeData`, or `afterData` is used.
 
-### 8.5 Page Routing And Dial/Copy Wiring (test-first at the unit boundary)
+The detail-body component harness asserts date/duty/phone emit only their declared custom events and no `request-close`/`closed`; the event body starts collapsed, expands once for a non-empty chain, ignores toggle for an empty chain, and resets collapsed on a new summary. The persistent host harness remains responsible for all open/close timing assertions in §8.2.
 
-Modify `calendar-routing.ts` only to expose the existing targets; no change to the pure resolver is required beyond Task 6. Page additions:
+### 8.5 Keyed Page Host, Routing, And Dial/Copy Wiring (test-first)
+
+Create `apps/miniprogram/features/calendar/calendar-sheet-host.ts` before changing page `this`:
 
 ```ts
-interface CalendarPageData {
-  // existing fields ...
-  readonly activeSheet: CalendarSheetState;
-}
-
-type CalendarSheetState =
-  | { readonly kind: 'none' }
+export type CalendarSheetContent =
   | { readonly day: CalendarDayViewModel; readonly kind: 'date' }
   | { readonly assignment: CalendarAssignmentViewModel; readonly kind: 'duty' }
   | { readonly assignment: CalendarAssignmentViewModel; readonly kind: 'events' }
@@ -1009,42 +1044,87 @@ type CalendarSheetState =
       readonly kind: 'phone';
       readonly phoneActions: readonly CalendarPhoneActionViewModel[];
     };
-
-interface CalendarPageMethods {
-  // existing methods ...
-  handleRouteAction(event: RouteActionEvent): void;
-  handleSheetClose(): void;
-  handleDial(event: BaseEventWithActionId): void;
-  handleCopy(event: BaseEventWithActionId): void;
+export type CalendarSheetKind = CalendarSheetContent['kind'] | 'none';
+export interface CalendarSheetHostState {
+  readonly content?: CalendarSheetContent;
+  readonly sheetKey: number;
+  readonly visible: boolean;
 }
+export function openCalendarSheet(
+  current: CalendarSheetHostState,
+  content: CalendarSheetContent,
+): CalendarSheetHostState;
+export function requestCalendarSheetClose(current: CalendarSheetHostState): CalendarSheetHostState;
+export function completeCalendarSheetClose(
+  current: CalendarSheetHostState,
+  sheetKey: number,
+): CalendarSheetHostState;
+export function getCalendarSheetKind(current: CalendarSheetHostState): CalendarSheetKind;
+export function getCalendarSheetTitle(current: CalendarSheetHostState): string;
+```
 
-type RouteActionEvent = WechatMiniprogram.BaseEvent<
+`openCalendarSheet` increments `sheetKey`, stores the new content, and sets `visible: true`; `requestCalendarSheetClose` keeps `content`/`sheetKey` and changes only `visible` to false; `completeCalendarSheetClose` removes content only when `current.visible === false` and its exact key matches, otherwise returns the same state. `getCalendarSheetKind` returns `none` for no content; `getCalendarSheetTitle` returns `日期详情`/`值班详情`/`事件记录`/`电话联系` by kind and `''` for none. The initial state is `{ sheetKey: 0, visible: false }`. Write `calendar-sheet-host.test.ts` first: date open yields key 1 and `日期详情`; request-close retains date; matching close yields no content/title; repeated request is referentially unchanged; an events-to-phone replacement gets a new key; its late old-key completion leaves the visible phone untouched.
+
+Page additions are exactly:
+
+```ts
+interface CalendarPageData {
+  // Task 7 fields ...
+  readonly eventTimeline: EventTimelineState;
+  readonly sheetHost: CalendarSheetHostState;
+  readonly sheetKind: CalendarSheetKind;
+  readonly sheetTitle: string;
+}
+interface CalendarPageMethods {
+  handleCopy(event: ActionIdEvent): void;
+  handleDial(event: ActionIdEvent): void;
+  handleRouteAction(event: ActionIdEvent): void;
+  handleSheetClosed(event: SheetLifecycleEvent): void;
+  handleSheetRequestClose(event: SheetLifecycleEvent): void;
+}
+type ActionIdEvent = WechatMiniprogram.BaseEvent<
   Record<string, never>,
   { readonly actionId?: unknown }
 >;
-type BaseEventWithActionId = RouteActionEvent;
+type SheetLifecycleEvent = WechatMiniprogram.BaseEvent<
+  Record<string, never>,
+  { readonly sheetKey?: unknown }
+>;
 ```
 
-Rules (normative):
+`handleRouteAction` narrows the custom-event `detail.actionId`, role, group, and all data VMs in the current three slots, then calls `resolveCalendarRouteAction(actionId, group.role, dataMonths)`. Undefined is a no-op. It maps `date`, `assignment`, `events`, and `phone` targets to the corresponding `CalendarSheetContent`, calls `openCalendarSheet`, derives kind/title, and sets `sheetHost`/`sheetKind`/`sheetTitle` in exactly one call. For `events` only, it also resets `eventTimeline` to idle and calls `void eventController.load(group.id, assignment)`; guest targets are already `assignment` and therefore cannot call the event endpoint. The event controller dependency injects `listEvents: (groupId, cursor, pageSize) => listEvents(groupId, cursor, pageSize)` and a publish callback that calls `setData({ eventTimeline: state })` only while the host content is the same visible events assignment **and** the current active group ID equals `state.groupId`. No component imports an endpoint.
 
-- `handleRouteAction`: resolve via `resolveCalendarRouteAction(actionId, role, this.data.viewModel)`; `undefined` → no-op; otherwise `setData({ activeSheet })` mapping: `date` → `{ kind: 'date', day }`; `assignment` → `{ kind: 'duty', assignment }`; `events` → `{ kind: 'events', assignment }` and `void this.eventController.load(groupId, assignment.assignmentId)`; `phone` → `{ kind: 'phone', assignment, phoneActions: assignment.phoneActions }`. Opening a sheet while one is open replaces content and re-animates (`bottom-sheet` handles `open-requested` from `open`).
-- `handleSheetClose`: `setData({ activeSheet: { kind: 'none' } })` and `this.eventController.reset()` when the closing sheet was events.
-- `handleDial`/`handleCopy`: narrow `event.detail.actionId` (the custom-event detail emitted by `phone-sheet`, never a dataset) to a non-empty string; `controller.performPhoneAction(actionId)` executes exactly one `wx.makePhoneCall` or `wx.setClipboardData`; on copy success show `wx.showToast({ title: '已复制', icon: 'none' })` (member call, exactly once); on dial, keep the sheet open until the system call returns (no extra side effect).
-- Guest never receives `events` (routing already falls back to `duty`); event sheets therefore never open for guests.
-- No new API call: events use the existing `listEvents` wrapper injected into the event controller with member-bound arrows; page imports it only to build the dependency object.
+`handleSheetRequestClose` narrows `detail.sheetKey`, ignores a non-current key, and sets only the result of `requestCalendarSheetClose`; it does not reset events or clear content. `handleSheetClosed` narrows the key, remembers whether the currently retained content is events, applies `completeCalendarSheetClose`, derives kind/title, and clears all three page fields in one call; it calls `eventController.reset()` exactly once only if that completion removed the events content. A stale, reopened, or mismatched close event has zero `setData`/reset side effects. Page WXML contains exactly one unconditional `<bottom-sheet title="{{sheetTitle}}" visible="{{sheetHost.visible}}" sheet-key="{{sheetHost.sheetKey}}">`, binds both lifecycle events on it, and conditionally renders one body by `sheetKind` in its slot. Because request-close leaves kind/content unchanged, the body remains mounted throughout closing; switching bodies retains the host and supplies its new key.
 
-The static boundary guard adds: WXML contains `bottom-sheet`, `date-detail-sheet`, `duty-detail-sheet`, `event-timeline-sheet`, `phone-sheet`, `bind:dial="handleDial"`, `bind:copy="handleCopy"`, and no raw contract fields; page source contains `createEventTimelineController` and no `listEvents(` call outside the injection wrapper.
+`handleDial` and `handleCopy` narrow `event.detail.actionId` to a non-empty string and call `controller.performPhoneAction(actionId)` once. The controller performs exactly one member-bound `wx.makePhoneCall` for a `dial` action or one member-bound `wx.setClipboardData` for a `copy` action; unknown/mismatched action IDs return false and make no platform call. V3-2 adds no toast, retry, event pagination, or phone permission; the sheet stays open after either attempt and errors remain platform-managed.
+
+The boundary guard requires exactly one `bottom-sheet`, all four detail-body tags, `bind:request-close="handleSheetRequestClose"`, `bind:closed="handleSheetClosed"`, `bind:dial="handleDial"`, and `bind:copy="handleCopy"`; it rejects raw contract fields and `wx.` in component files. Page-source checks require `createEventTimelineController`, `openCalendarSheet`, `completeCalendarSheetClose`, `getCalendarSheetKind`, `getCalendarSheetTitle`, and a single `listEvents(` occurrence in the injection wrapper; it rejects `activeSheet`, `openRoute`, direct endpoint calls from components, and `<details` in mini-program WXML.
 
 ### 8.6 Task 8 Steps
 
-- [ ] **Step 1:** Run Task 8 prerequisites and record Git/test state.
-- [ ] **Step 2:** Write `bottom-sheet-logic.test.ts`; observe red; implement `bottom-sheet-logic.ts`; green.
-- [ ] **Step 3:** Write `event-description.test.ts` (uses golden events); observe red; implement `event-description.ts`; green.
-- [ ] **Step 4:** Write `event-timeline-controller.test.ts`; observe red; implement `event-timeline-controller.ts`; green.
-- [ ] **Step 5:** Create `bottom-sheet` and the four detail sheets; register them in the page JSON; update the boundary guard first (red on the Task 7 page), then wire page WXML/TS per 8.5; guard green.
-- [ ] **Step 6:** Run the Task 8 validation set (Task 7 commands plus `features/sheets/bottom-sheet-logic.test.ts`, `features/events/event-description.test.ts`, `features/events/event-timeline-controller.test.ts`, and Prettier over all new component/feature files; `pnpm smoke:check-core`; `git diff --check`). Record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历详情组件/事件/电话/底部面板，未改 Web/API/契约/认证/构建核心链路）`.
-- [ ] **Step 7:** DevTools/simulator gate: golden month tap matrix — date blank opens date sheet; duty row opens duty sheet; marker opens duty sheet for guest and event sheet for member; phone entry opens phone sheet; confirmed dial button and unconfirmed copy button behave exactly once; sheet drag below 80 px bounces back, above closes; content scroll reaches top before drag engages; event sheet shows the five golden events in order with narratives/chain. Record screenshots for each sheet state.
-- [ ] **Step 8:** Semantic audit, update the two docs, stage Task 8 files only, `git diff --cached --check`, create the **local** commit `feat(miniprogram): add calendar detail sheets`.
+- [ ] **Step 1:** Confirm Task 7's local commit, `origin/main` ancestor, only approved plan/Task 6/Task 7 commits ahead, no untracked path except `apps/miniprogram/minitest/`, and its validation set is green; otherwise stop.
+- [ ] **Step 2:** Write `bottom-sheet-logic.test.ts` and `calendar-sheet-host.test.ts`; observe module-missing red states; implement their pure modules and green every phase/key assertion.
+- [ ] **Step 3:** Write `event-description.test.ts` from the fixed golden events; observe module-missing red; implement the pure display boundary and green the no-invented-initiation-time assertion.
+- [ ] **Step 4:** Write `event-timeline-controller.test.ts`; observe module-missing red; implement single-page, client-filtered controller semantics and green all call/generation/error assertions.
+- [ ] **Step 5:** Create `bottom-sheet` and four detail components with their own `index.json` dependencies. Update the boundary guard before page JSON/WXML/TS/WXSS; observe guard red, then wire the keyed host and component events to green.
+- [ ] **Step 6:** Run this exact Task 8 validation set:
+
+```powershell
+pnpm vitest run apps/miniprogram/features/calendar/calendar-logic.test.ts apps/miniprogram/features/calendar/calendar-view-model.test.ts apps/miniprogram/features/calendar/calendar-routing.test.ts apps/miniprogram/features/calendar/calendar-views.test.ts apps/miniprogram/features/calendar/calendar-view-mode.test.ts apps/miniprogram/features/calendar/calendar-surface.test.ts apps/miniprogram/features/calendar/calendar-sheet-host.test.ts apps/miniprogram/features/calendar/calendar-page-controller.test.ts apps/miniprogram/store/calendar-cache.test.ts apps/miniprogram/features/calendar/calendar-golden-data.test.ts apps/miniprogram/features/sheets/bottom-sheet-logic.test.ts apps/miniprogram/features/events/event-description.test.ts apps/miniprogram/features/events/event-timeline-controller.test.ts scripts/miniprogram-calendar-boundary.test.mjs
+pnpm vitest run apps/miniprogram
+pnpm miniprogram:config:audit
+pnpm miniprogram:typecheck
+pnpm miniprogram:lint
+pnpm exec prettier --check apps/miniprogram/features/calendar/calendar-routing.ts apps/miniprogram/features/calendar/calendar-routing.test.ts apps/miniprogram/features/calendar/calendar-sheet-host.ts apps/miniprogram/features/calendar/calendar-sheet-host.test.ts apps/miniprogram/features/calendar/calendar-page-controller.ts apps/miniprogram/features/calendar/calendar-page-controller.test.ts apps/miniprogram/features/events/event-description.ts apps/miniprogram/features/events/event-description.test.ts apps/miniprogram/features/events/event-timeline-controller.ts apps/miniprogram/features/events/event-timeline-controller.test.ts apps/miniprogram/features/sheets/bottom-sheet-logic.ts apps/miniprogram/features/sheets/bottom-sheet-logic.test.ts apps/miniprogram/components/bottom-sheet/index.json apps/miniprogram/components/bottom-sheet/index.ts apps/miniprogram/components/bottom-sheet/index.wxml apps/miniprogram/components/bottom-sheet/index.wxss apps/miniprogram/components/date-detail-sheet/index.json apps/miniprogram/components/date-detail-sheet/index.ts apps/miniprogram/components/date-detail-sheet/index.wxml apps/miniprogram/components/date-detail-sheet/index.wxss apps/miniprogram/components/duty-detail-sheet/index.json apps/miniprogram/components/duty-detail-sheet/index.ts apps/miniprogram/components/duty-detail-sheet/index.wxml apps/miniprogram/components/duty-detail-sheet/index.wxss apps/miniprogram/components/phone-sheet/index.json apps/miniprogram/components/phone-sheet/index.ts apps/miniprogram/components/phone-sheet/index.wxml apps/miniprogram/components/phone-sheet/index.wxss apps/miniprogram/components/event-timeline-sheet/index.json apps/miniprogram/components/event-timeline-sheet/index.ts apps/miniprogram/components/event-timeline-sheet/index.wxml apps/miniprogram/components/event-timeline-sheet/index.wxss apps/miniprogram/pages/calendar/index.json apps/miniprogram/pages/calendar/index.ts apps/miniprogram/pages/calendar/index.wxml apps/miniprogram/pages/calendar/index.wxss scripts/miniprogram-calendar-boundary.test.mjs
+pnpm smoke:check-core
+git diff --exit-code -- packages/contracts/src apps/miniprogram/api/endpoints.ts apps/miniprogram/api/client.ts
+git diff --check
+```
+
+Expected: every command exits `0`, the contract/API diff is empty, and record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历详情组件/事件/电话/底部面板，未改 Web/API/契约/认证/构建核心链路）。`
+
+- [ ] **Step 7:** DevTools/simulator gate: blank date → date sheet; row → duty; guest marker → duty and member marker → event; phone → phone sheet; confirmed dial/unconfirmed copy each call once; `<80px` returns to zero, `≥80px` closes, and content drag activates only after top. For `golden-a2`, event sheet shows its affected `golden-event-5/4/1` records in chronological order; route `golden-a4` and `golden-a3` separately to inspect leave-cover/overtime. Capture opening, scroll, bounce, closing, stale-key replacement, and each sheet state.
+- [ ] **Step 8:** Complete the semantic audit, update checkpoint docs, review `git diff`/`git diff --cached` and behavior changes, stage only Task 8 files plus docs, validate `git diff --cached --check`, then create the **local** commit `feat(miniprogram): add calendar detail sheets`.
 - [ ] **Step 9:** After all three local commits exist and all stop conditions are met, run the **full V3-2 checkpoint set** once:
 
 ```powershell
@@ -1082,20 +1162,27 @@ Every task records literal evidence; claims without evidence stay `待验证`.
 
 After this plan passes self-review, update in one docs-only commit:
 
-1. `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-delivery-roadmap.md`: set the V3-2 stage-index row to `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md` with status `已生成，待用户复核；批准前禁止执行 Task 6`; add a one-line note that Task 6–8 use contract-first/test-first/code-light format and one GitHub push after all three tasks.
-2. `docs/project-status.md`: add the V3-2 plan checkpoint entry (Git facts, 12/74 focused tests, typecheck and `smoke:check-core` results, only `apps/miniprogram/minitest/` untracked), set the next active batch to `execute Task 6 after user approval; stop after each task; single push after Task 8`, and keep the three-state status (`待用户复核`) for the plan.
-3. `docs/debug/debug-feedback-log.md`: append `### V3-2 计划检查点（2026-08-09）` with the Git/V3-1 gate evidence and the exact lines `运行/浏览器验证：pnpm smoke:browser 不适用（仅计划文档变更，未改 Web/API/契约/认证/构建核心链路）。` and `pnpm smoke:check-core 通过。`
-4. Commit and push: `git add docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-delivery-roadmap.md docs/project-status.md docs/debug/debug-feedback-log.md`, `git commit -m "docs(miniprogram): plan V3-2 calendar golden baseline and details"`, `git push`.
+1. `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-delivery-roadmap.md`: revise the V3-2 stage-index row to this plan, state `已重新审校，待用户复核；批准前禁止执行 Task 6`, and state contract-first/test-first/code-light plus three local task commits and one push after Task 8.
+2. `docs/project-status.md`: record the corrected V3-1/debug-log gate, Git facts, `12` files / `74` focused tests, typecheck/core-guard results, only `apps/miniprogram/minitest/` untracked, and next batch `user approval → Task 6 only; stop after every task; one push after Task 8`. The plan remains `待用户复核`.
+3. `docs/debug/debug-feedback-log.md`: append `### V3-2 计划复审与门禁修正（2026-08-10）`, including the corrected stale summary, V3-1 evidence, plan corrections, `运行/浏览器验证：pnpm smoke:browser 不适用（仅计划文档变更，未改 Web/API/契约/认证/构建核心链路）。`, and `pnpm smoke:check-core 通过。`.
+4. Stage only the four listed docs, review `git diff --cached --check` and `git diff --cached`, then create local commit `docs(miniprogram): revise V3-2 calendar execution plan`. Do **not** run `git push`; it is intentionally deferred to the Task 8 checkpoint.
 
 ## Plan Self-Review Checklist
 
 Run before the documentation commit and fix any failure inline:
 
 ```powershell
-rg -n "TBD|TODO|自行实现|按需处理|适当校验|类似上一任务|fill in details|implement later" docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md
-rg -n "routeActionId|resolveCalendarRouteAction|rotateMonthSlots|setViewMode|shouldCloseBottomSheet|buildEventNarrative|calendarCacheKeyPrefix|golden-a1|golden-a2|golden-a3|golden-a4|golden-a5" docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md
-pnpm exec prettier --check docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md
+$planPath = 'docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md'
+$forbiddenTerms = @('T' + 'ODO', 'T' + 'BD', '自行' + '实现', '按需' + '处理', '适当' + '校验', '类似上一' + '任务', 'fill in ' + 'details', 'implement ' + 'later')
+$placeholderMatches = foreach ($term in $forbiddenTerms) { $match = rg -n --fixed-strings -- $term $planPath; if ($LASTEXITCODE -eq 0) { $match } elseif ($LASTEXITCODE -ne 1) { throw "placeholder scan failed: $term" } }
+if ($null -ne $placeholderMatches) { throw "placeholder found: $placeholderMatches" }
+$required = @('routeActionId', 'resolveCalendarRouteAction', 'rotateMonthSlots', 'recenterMonthSlots', 'switchCalendarViewMode', 'shouldCloseBottomSheet', 'buildEventTimelineDisplay', 'CalendarCacheIdentity', 'CalendarSheetHostState', 'golden-a1', 'golden-a5')
+foreach ($identifier in $required) { rg -q --fixed-strings -- $identifier $planPath; if ($LASTEXITCODE -ne 0) { throw "missing plan identifier: $identifier" } }
+rg -q --fixed-strings 'CalendarChangeMarker' packages/contracts/src/calendar.ts; if ($LASTEXITCODE -ne 0) { throw 'contract marker check failed' }
+rg -q --fixed-strings 'export function listEvents' apps/miniprogram/api/endpoints.ts; if ($LASTEXITCODE -ne 0) { throw 'endpoint signature check failed' }
+$lineCount = (Get-Content -LiteralPath $planPath -Encoding utf8).Count; if ($lineCount -lt 800 -or $lineCount -gt 1200) { throw "plan line count out of range: $lineCount" }
+pnpm exec prettier --check $planPath docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-delivery-roadmap.md docs/project-status.md docs/debug/debug-feedback-log.md
 git diff --check
 ```
 
-Expected: no placeholder hits; every stable identifier in later tasks matches its definition in earlier sections; Prettier and `git diff --check` pass. Then verify the spec-coverage mapping: design sections 3 (1:1 calendar), 5 (calendar-shell/grid/rows/badges/tags/sheets), 6 (VM, markers, touch), 10 (read-only cache), 11 (performance/package), 12 (tests/screenshots), 13 (stop conditions), 14 (no generic calendar), 15 (execution model) are covered by Tasks 6–8; anything missing is a plan failure to fix before commit. After the commit, **stop**. Do not execute Task 6 in this conversation.
+Expected: no placeholder hits; every stable identifier in later tasks matches an earlier definition; contract/endpoint source still matches the plan; 800–1200 lines; Prettier and `git diff --check` pass. Then verify the spec-coverage mapping: design sections 3 (1:1 calendar), 5 (calendar-shell/grid/rows/badges/tags/sheets), 6 (VM, markers, touch), 10 (read-only cache), 11 (performance/package), 12 (tests/screenshots), 13 (stop conditions), 14 (no generic calendar), 15 (execution model) are covered by Tasks 6–8; anything missing is a plan failure to fix before commit. After the local docs commit, **stop**. Do not execute Task 6 in this conversation.

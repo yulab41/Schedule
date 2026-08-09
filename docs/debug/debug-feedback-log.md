@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理；V3-0.5 Task 1–2 已完成并推送，V3-1 Task 3–5 执行计划待用户复核，尚未开始 V3 UI 实现。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理；V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成并正常快进推送；V3-2 Task 6–8 执行计划待用户复核，批准前不得执行 Task 6。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1566,3 +1566,14 @@
 - 计划自审：Prettier 通过；占位符扫描无命中（自审命令自身除外）；`routeActionId`/`resolveCalendarRouteAction`/`rotateMonthSlots`/`setViewMode`/`shouldCloseBottomSheet`/`buildEventNarrative`/`calendarCacheKeyPrefix`/`golden-a1…a5` 等标识符前后一致；`git diff --check` 通过。
 - 运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划文档与路线图/状态/日志变更，未改 Web/API/契约/认证/构建核心链路）。
 - 检查点提交信息：`docs(miniprogram): plan V3-2 calendar golden baseline and details`；状态：**待用户复核**，批准前不得执行 Task 6。
+
+### V3-2 计划复审与门禁修正（2026-08-10）
+
+- 门禁修正：顶端 `当前阶段` 曾错误保留“V3-1 Task 3–5 待执行”的旧摘要；已改为 Task 3–5 完成并正常快进推送。该摘要现与 `docs/project-status.md`、`ebfbb31`/`bc534c0`/`ce21a51` 和本节的运行记录一致；不把已记录的 `apps/miniprogram/minitest/test.config.json` DevTools 产物误判为未完成任务。
+- Git 事实：`main` 跟踪 `origin/main`，`e85481e` 为既有本地 V3-2 初稿提交，故本轮开始为 `ahead 1`；`origin/main` 是 `HEAD` 祖先。本轮只修订计划、路线图、状态和调试文档，既不改生产代码，也不暂存 DevTools 产物。
+- 计划修正：删除不存在的 `CalendarPageController.openRoute` 假设；Task 6 仅保存无副作用的类型化 route sink。Task 7 固定三月 tuple、navigation epoch、跨月/跨年周的实际双月读取和 per-year holiday single-flight；缓存键隔离 `userId/groupId/groupRole/groupVersion/businessMonth/schemaVersion`。Task 8 将 raw `ScheduleEvent` 映射为 WXML-safe display VM，事件仅复用 `listEvents(groupId, cursor?, pageSize?)` 的首页并按 `affectedShiftIds` 过滤；guest 不请求事件。
+- 面板修正：Bottom Sheet 采用 `request-close → visible=false但保留content → matched closed → 清空` 两阶段 keyed host，覆盖内容滚动、80px/0.8px·ms⁻¹ 下滑、回弹、旧 close 事件失效和 `setData` 次数边界；电话仍只执行既有拨号/复制平台副作用。
+- 计划产出：同一 V3-2 文件现为 1188 行，仍为 contract-first/test-first/code-light，含精确文件职责、路由表、状态机、黄金数据、测试/失败原因/命令、语义审计和 WebView/Skyline/设备性能矩阵。Task 6/7/8 各自独立本地提交，全部完成后才单次 push。
+- 验证：V3-1 聚焦套件 12 文件 / 74 项、`pnpm miniprogram:typecheck` 与 `pnpm smoke:check-core` 已通过；本轮随后执行计划的占位符、标识符、契约源、行数、文档 Prettier 和 diff 检查。
+- 运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划文档变更，未改 Web/API/契约/认证/构建核心链路）。`pnpm smoke:check-core` 通过。
+- 检查点提交信息：`docs(miniprogram): revise V3-2 calendar execution plan`（本地；不推送）；状态：**待用户复核**，批准前不得执行 Task 6。
