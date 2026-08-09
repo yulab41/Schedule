@@ -1,0 +1,49 @@
+{
+  "pages": [
+    "pages/auth/login/index",
+    "pages/workbench/index",
+    "pages/calendar/index",
+    "pages/notifications/index",
+    "pages/profile/index"
+  ],
+  "window": {
+    "backgroundColor": "#F5F7FA",
+    "backgroundTextStyle": "light",
+    "navigationStyle": "custom"
+  },
+  "tabBar": {
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "color": "#6B7280",
+    "selectedColor": "#1F5AA6",
+    "list": [
+      {
+        "iconPath": "assets/tab-bar/workbench.png",
+        "pagePath": "pages/workbench/index",
+        "selectedIconPath": "assets/tab-bar/workbench-active.png",
+        "text": "工作台"
+      },
+      {
+        "iconPath": "assets/tab-bar/calendar.png",
+        "pagePath": "pages/calendar/index",
+        "selectedIconPath": "assets/tab-bar/calendar-active.png",
+        "text": "日历"
+      },
+      {
+        "iconPath": "assets/tab-bar/notifications.png",
+        "pagePath": "pages/notifications/index",
+        "selectedIconPath": "assets/tab-bar/notifications-active.png",
+        "text": "通知"
+      },
+      {
+        "iconPath": "assets/tab-bar/profile.png",
+        "pagePath": "pages/profile/index",
+        "selectedIconPath": "assets/tab-bar/profile-active.png",
+        "text": "我的"
+      }
+    ]
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json",
+  "style": "v2"
+}

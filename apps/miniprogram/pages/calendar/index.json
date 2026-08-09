@@ -1,0 +1,10 @@
+{
+  "componentFramework": "glass-easel",
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "page-shell": "/components/page-shell/index",
+    "shell-state": "/components/shell-state/index"
+  }
+}

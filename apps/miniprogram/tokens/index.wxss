@@ -1,0 +1,36 @@
+page {
+  --v3-color-background: #f5f7fa;
+  --v3-color-border: #e5e7eb;
+  --v3-color-border-strong: #dbe3ea;
+  --v3-color-danger: #dc2626;
+  --v3-color-danger-light: #fef2f2;
+  --v3-color-focus: #1f5aa6;
+  --v3-color-primary: #1f5aa6;
+  --v3-color-primary-border: #bfdbfe;
+  --v3-color-primary-light: #eff6ff;
+  --v3-color-surface: #ffffff;
+  --v3-color-text: #111827;
+  --v3-color-text-muted: #6b7280;
+  --v3-color-warning: #b45309;
+  --v3-color-warning-light: #fef3c7;
+  --v3-color-weekend: #e03131;
+  --v3-font-size-xs: 22rpx;
+  --v3-font-size-sm: 26rpx;
+  --v3-font-size-md: 28rpx;
+  --v3-font-size-lg: 32rpx;
+  --v3-font-size-xl: 36rpx;
+  --v3-radius-sm: 8rpx;
+  --v3-radius-md: 12rpx;
+  --v3-radius-lg: 20rpx;
+  --v3-space-xxs: 8rpx;
+  --v3-space-xs: 16rpx;
+  --v3-space-sm: 24rpx;
+  --v3-space-md: 32rpx;
+  --v3-space-lg: 48rpx;
+  --v3-touch-min: 88rpx;
+  --v3-navigation-height: 88rpx;
+  --v3-duration-press: 200ms;
+  --v3-duration-month: 240ms;
+  --v3-duration-sheet: 280ms;
+  --v3-easing-standard: ease-out;
+}

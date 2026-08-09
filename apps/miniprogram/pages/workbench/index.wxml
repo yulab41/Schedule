@@ -1,0 +1,3 @@
+<page-shell title="工作台">
+  <shell-state kind="empty" title="暂无可用入口" description="完成身份恢复后显示角色入口。" />
+</page-shell>

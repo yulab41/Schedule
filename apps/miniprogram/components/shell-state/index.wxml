@@ -1,0 +1,6 @@
+<view class="shell-state shell-state--{{kind}}" role="status">
+  <view class="shell-state__indicator" aria-hidden="true"></view>
+  <text class="shell-state__title">{{title}}</text>
+  <text wx:if="{{description}}" class="shell-state__description">{{description}}</text>
+  <slot />
+</view>

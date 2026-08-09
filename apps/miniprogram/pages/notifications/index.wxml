@@ -1,0 +1,3 @@
+<page-shell title="通知">
+  <shell-state kind="empty" title="暂无通知" description="通知数据将在后续业务流程阶段接入。" />
+</page-shell>

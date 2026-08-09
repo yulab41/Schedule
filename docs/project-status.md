@@ -7,8 +7,8 @@
 - 日期：2026-08-09
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
-- 小程序：V1/V2 表现层正式作废；V3-0.5 Task 1–2 已完成，跟踪配置、401 注入点和主包/分包路由发现可审计；真实 V3 `app.json`、页面、组件和 VM 仍不存在。
-- V3：`main`、`origin/main` 与 V3-0.5 代码/历史一致；V3-1 Task 3–5 详细执行计划已生成，状态为**待用户复核**，本轮未执行 Task 3。
+- 小程序：V3-0.5 Task 1–2 已完成；V3-1 Task 3 已建立真实 manifest、五页 shell、本地滚动壳、原生 tabBar 和页面级日历 Skyline 声明，并通过自动化、模拟器、preview 与真机复核。
+- V3：`main` 比 `origin/main` 超前计划检查点 `9dac419`；Task 3 状态为**已完成，待用户复核**。本轮只创建 Task 3 本地检查点，不执行 Task 4。
 
 ## Completed Batch
 
@@ -66,6 +66,17 @@
 - 真实边界：不恢复/参考 V1/V2；不修改 API、共享契约、权限或后端规则；现有邀请分享路径要求新建 V3 `pages/invite/invite` bridge；现有日历契约没有 marker event ID、`deduction` 或 marker 权限，V3-1 不补字段。计划以 session generation 防止 401/clear 后旧 Promise 恢复认证态，并以测试控制器锁定成员/guest 现有日历端点互斥、过期响应、局部筛选和电话副作用。
 - 检查点提交信息：`docs(miniprogram): plan V3-1 shell and calendar foundation`；状态为**待用户复核**，批准前不得执行 Task 3。
 
+### V3-1：Task 3 app-shell、局部滚动与原生导航
+
+- 已完成：新建 V3 `app.json`、`app.ts`、sitemap、token、八枚确定性 81px tab 图标、可复用 `page-shell`/`shell-state`，以及登录、工作台、日历、通知、我的五个 shell 页面。四个 tab 使用原生 tabBar；仅日历页声明 `skyline` 与 `glass-easel`，其余页面保持 WebView。
+- 测试先行：`scripts/miniprogram-app-shell.test.mjs` 首次因缺少图标生成器失败；生成器完成后图标测试通过且 manifest 缺失成为第二个预期失败；实现后与 `scripts/miniprogram-manifest.test.mjs` 共 2 文件 / 8 项测试通过。
+- 自动验证：`pnpm miniprogram:config:audit`、`pnpm miniprogram:typecheck`、`pnpm miniprogram:lint`、指定 Prettier 检查及 `git diff --check` 均通过；`pnpm smoke:browser` 和 `pnpm smoke:check-core` 均通过。
+- DevTools/模拟器：Stable `v2.01.2510290`（满足计划最低版本）下，`pnpm miniprogram:devtools:build-npm` 成功且无警告；`pnpm miniprogram:smoke` 曾打开全部 5 个页面、生成截图且无脚本错误。DevTools preview 最初三次稳定失败 `800059 iconPath=assets/tab-bar/workbench.png, file not found`；只清 compile 缓存无效。最小隔离实验确认生成器的 zlib level 9 PNG 流为根因：Pillow 重编码成功上传；将生成器改为 Node 默认 zlib 流、重新生成图标后 preview 成功并输出 10.5 KB 包体。随后单独与组合 smoke 都在自动化启动阶段无输出超时；官方 CLI close/open 后仍不恢复，已终止挂起命令，需由 DevTools UI 恢复自动化会话后再跑最终 smoke。
+- 运行状态：用户在 DevTools 日历 tab 观察到“当前渲染模式：skyline”；调试基础库为 `3.16.2`，本地设置中“将 JS 编译成 ES5”“编译 worklet 代码”“开启 Skyline 渲染调试”均开启。关闭 Skyline 渲染调试后，日历页明确显示“当前渲染模式：WebView”，证明页面级 fallback；工作台和其余 tab 不提供对应 UI 指示，故不虚构其运行标签。Android 微信 `8.0.76` 的 preview 已分别强制 `Skyline`、`WebView`、`Auto`，三种模式均可显示日历页且四项 tab 可切换。DevTools 提示未设置线上最低基础库、低版本使用 WebView 是预期 fallback 说明；自动 fallback 尚未在真实低版本客户端观察。`glass-easel` 由日历页配置和成功编译证明，当前 DevTools 未提供独立运行标签；壳页仅有短状态文案，无溢出内容，不能声称已人工证明局部滚动。
+- DevTools 配置恢复：用户在 UI 打开工程后，DevTools 将受跟踪 `project.config.json` 改写为默认值并导致“解析 project.config.json 失败”/缺失 `.js` 页面错误；已从 `2c93859` 恢复严格 V3-0.5 配置，`pnpm miniprogram:config:audit` 与 `pnpm miniprogram:typecheck` 通过。UI 必须以 `E:\AItools\Schedule\apps\miniprogram` 为项目根重新打开；新产生的未跟踪 `apps/miniprogram/minitest/test.config.json` 保留但不得提交。
+- 自动化复核：手动 `cli auto --auto-port 9420` 后以 `MINIPROGRAM_SMOKE_AUTO_WS=ws://127.0.0.1:9420` 运行 smoke；首次连接失败后成功连接，五个 V3 路由全部打开、截图生成且无脚本错误。配置审计在本次自动化后保持通过。
+- WXSS 回归修复：DevTools Console 报 `page-shell` 与 `shell-state` 组件 WXSS 导入全局 token 后含 `page` 选择器，不受组件 WXSS 支持。新增回归断言先失败，再移除两处组件导入；全局 `page` token 仍由 app 样式提供并由组件继承。自动验证为 2 文件 / 9 项、typecheck、lint、Prettier 与 diff 检查通过；用户已完整编译确认该两类警告消失。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -75,7 +86,7 @@
 - V3-0.3 文档验证：路线图/执行计划引用、25 个 checkbox 步骤、代码围栏、禁执行边界、占位符和过期引用扫描通过；5 份文档 Prettier 检查与 `git diff --check` 通过。
 - V3-0.5 检查点复核：`HEAD == origin/main == 2c93859`、工作树起始状态干净；`pnpm vitest run apps/miniprogram/api/client.test.ts scripts/miniprogram-manifest.test.mjs scripts/miniprogram-config-audit.test.mjs` 为 3 文件 / 9 测试通过；配置审计、mini-program typecheck 和 core-smoke guard 通过。
 - V3-1 计划验证：执行计划、路线图、状态和调试日志经 Prettier、51 个 checkbox / 194 个配对代码围栏、路径/术语/占位符/类型一致性扫描与 `git diff --check` 复核；`pnpm smoke:check-core` 通过并确认仅文档变更无需浏览器冒烟；本轮不运行开发者工具或小程序模拟器。
-- 小程序模拟器/真机冒烟暂不执行：V3-0 有意删除旧 app manifest 和页面，等待 V3 实施阶段重新建立入口后再测。
+- V3-1 Task 3：`pnpm vitest run scripts/miniprogram-app-shell.test.mjs scripts/miniprogram-manifest.test.mjs`（2 文件 / 9 项）通过；配置审计、typecheck、lint、Prettier、`git diff --check`、`pnpm smoke:browser`、`pnpm smoke:check-core` 通过；DevTools npm 构建无警告、preview 成功（10.5 KB）、模拟器冒烟 5/5 页面通过，真机 Skyline/WebView/Auto 及 tab 切换通过。检查点提交信息：`feat(miniprogram): add V3 app shell and native navigation`（本轮按用户要求不推送）。
 
 ## Decisions and Deviations
 
@@ -95,9 +106,8 @@
 
 ## Active Batch
 
-1. 用户复核 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`；停止条件：明确批准或提出修改。
-2. 只有用户明确批准后，新的实施对话才执行 **Task 3 一项**；停止条件：Task 3 测试、开发者工具/模拟器证据、状态/日志、独立提交和普通推送完成。
-3. Task 3 检查点前不得开始 Task 4；Task 4 检查点前不得开始 Task 5；本轮不得创建 `app.json`、app-shell、登录页或日历 VM。
+1. V3-1 Task 3 已结束：本轮创建本地独立检查点后停止，按用户要求不推送 GitHub、不执行 Task 4。
+2. 后续仅在用户明确发起新对话/任务时执行 Task 4；停止条件由该任务的执行计划决定。
 
 ## Handoff Requirements
 

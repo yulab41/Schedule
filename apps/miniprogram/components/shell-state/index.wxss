@@ -1,0 +1,43 @@
+.shell-state {
+  display: flex;
+  min-height: 360rpx;
+  padding: var(--v3-space-lg) var(--v3-space-md);
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid var(--v3-color-border);
+  border-radius: var(--v3-radius-lg);
+  background: var(--v3-color-surface);
+  text-align: center;
+  flex-direction: column;
+}
+
+.shell-state__indicator {
+  width: 20rpx;
+  height: 20rpx;
+  margin-bottom: var(--v3-space-sm);
+  background: var(--v3-color-primary);
+  border-radius: 50%;
+}
+
+.shell-state--error .shell-state__indicator,
+.shell-state--forbidden .shell-state__indicator {
+  background: var(--v3-color-danger);
+}
+
+.shell-state--conflict .shell-state__indicator {
+  background: var(--v3-color-warning);
+}
+
+.shell-state__title {
+  color: var(--v3-color-text);
+  font-size: var(--v3-font-size-lg);
+  font-weight: 700;
+}
+
+.shell-state__description {
+  max-width: 560rpx;
+  margin-top: var(--v3-space-xs);
+  color: var(--v3-color-text-muted);
+  font-size: var(--v3-font-size-md);
+  line-height: 1.6;
+}

@@ -1,0 +1,3 @@
+<page-shell title="排班日历">
+  <shell-state kind="empty" title="暂无排班数据" description="日历数据模型将在纯逻辑检查点接入。" />
+</page-shell>

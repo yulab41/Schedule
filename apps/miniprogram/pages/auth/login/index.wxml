@@ -1,0 +1,7 @@
+<page-shell title="微信登录">
+  <shell-state
+    kind="loading"
+    title="正在准备登录"
+    description="登录能力将在会话检查完成后启用。"
+  />
+</page-shell>
