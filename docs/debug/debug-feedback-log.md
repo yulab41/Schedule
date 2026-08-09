@@ -1449,3 +1449,13 @@
 - 官方核验：微信 Skyline 迁移指引要求按页面配置 renderer/Glass Esel、调试时开启 Worklet 编译，Skyline 无全局滚动且不支持顶部原生导航栏；当前 TDesign 1.16.0 官方 Skyline 进度仍为 35/57，不能只凭帧率全量切换。
 - 验证：`git diff --check` 通过；`pnpm exec prettier --check docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md` 通过。本轮仅文档变更，未运行模拟器/真机，也未删除或改写本机配置。
 - 状态：等待用户复核更新后的 V3 书面设计；批准后调用 writing-plans，第一实施批为 V3-0.5。
+
+### V3-0.2：UI/UX 建议复核、设计收紧与 V3 计划建立（2026-08-09）
+
+- 用户确认采纳两份建议中的微标签、Bottom Sheet、大触控热区、自绘日历、TDesign 基础控件、CSS 轻量动效和双模式手动排班方向。
+- 语义边界：整格热区不等于统一动作；日期空白、排班行、标识和电话入口保持独立事件路由；成员全名和同日多排班不得固定截断或丢失；长按只用于手动网格清空。
+- 延后项：涂抹排班改为基础点击模式通过后的独立 Spike；首批不引入 Lottie、通用日历库或第二套组件库。
+- 文档：修订 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`；新增 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-implementation-plan.md`，覆盖 V3-0.5 至最终验收的任务、测试、提交和停止条件。
+- 官方能力复核：参考微信小程序示例中的 Skyline/Glass Esel 配置和 TDesign 小程序仓库；具体配置字段、组件白名单和 fallback 仍需在锁定开发者工具/基础库及真机上逐项验证，不能仅凭文档或开发者工具平均帧率宣称完成。
+- 运行/浏览器验证：本轮仅修改设计、计划、状态和调试文档，未触及 API、认证、路由、契约或构建代码；未运行 `pnpm smoke:browser` / `pnpm smoke:check-core`，待 V3-0.5 实施批次按 `AGENTS.md` 执行。
+- 状态：**待用户复核**；下一批为用户确认后的 V3-0.5 任务 1–2。

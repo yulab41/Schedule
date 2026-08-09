@@ -8,7 +8,7 @@
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V1/V2 表现层正式作废；页面、组件、旧展示工具和旧 manifest 已清理；API、微信认证配置和会话基础保留，工程身份与工具脚本待 V3-0.5 审计重建。
-- V3：用户已选择“WebView 可用基线 + 页面级渐进 Skyline”；设计规范已补入 V3-0.5 干净构建、Worklet、TDesign 白名单和双模式手动排班，等待用户书面复核后创建实施计划，尚未开始 UI 实现。
+- V3：用户已确认“WebView 可用基线 + 页面级渐进 Skyline”及两份 UI/UX 建议的采纳取舍；V3 设计已补入事件路由、微标签密集数据集、标识 ID、涂抹排班 Spike 和低阶模型交接规则；独立 V3 实施计划已创建，尚未开始 UI 实现。
 
 ## Completed Batch
 
@@ -27,11 +27,20 @@
 - V3 设计已加入 V3-0.5 独立清理检查点、Worklet 线程边界、WebView/Skyline 对比验收，以及“单元格优先 + 班种锁定”双模式手动排班。
 - 本轮只更新设计和交接，不删除本机文件、不修改构建配置；检查点提交信息：`docs(miniprogram): adopt clean Skyline V3 baseline`。
 
+### V3-0.2：复核两份 UI/UX 建议并建立 V3 实施计划
+
+- 已采纳：微标签视觉、Bottom Sheet、大触控热区、原生能力 + 自绘日历、TDesign 基础控件白名单、CSS 轻量动效、单元格优先/班种锁定。
+- 已限定：姓名不得固定截断；整格热区保留日期/排班/标识/电话事件路由；长按仅用于手动网格清空；涂抹排班延后为独立 Spike。
+- 已拒绝：通用日历库、首批 Lottie、统一动作热区、把“LLM 手搓”当作工程标准、同时引入多套组件库。
+- 已修订 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`，并新建 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-implementation-plan.md`；计划明确任务文件、失败测试、验证命令、提交节点和每批停止条件。
+- 检查点提交信息：`docs(miniprogram): finalize V3 design and implementation plan`。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
 - 验证已完成：`git diff --check`、`pnpm miniprogram:typecheck` 通过；`pnpm verify` 通过（82 个测试文件，660 项通过，249 项按环境跳过）。
 - V3-0.1 文档验证：`git diff --check` 通过；`pnpm exec prettier --check docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md` 通过。
+- V3-0.2 文档验证：设计、计划、状态和调试记录的 Prettier 检查通过；关键术语/拒绝项检索通过；`git diff --check` 通过。
 - 小程序模拟器/真机冒烟暂不执行：V3-0 有意删除旧 app manifest 和页面，等待 V3 实施阶段重新建立入口后再测。
 
 ## Decisions and Deviations
@@ -41,14 +50,15 @@
 - 不原样继承 V2 `project.config.json`、本机私有设置或旧 `miniprogram_npm`；实施第一批先完成 V3-0.5 干净构建基线。
 - 默认保持 WebView 可用，日历页先开启 Skyline/Glass Esel/Worklet；`compileWorklet` 明确开启，但 Skyline 不凭开发者工具平均帧率直接全局扩展。
 - 手动排班同时支持先选单元格和先锁定班种；快速填班不用全局 200ms 防抖，不逐格确认覆盖，依靠单元格级去重、撤销栈和发布前确认。
+- 涂抹排班只作为单元格优先/班种锁定通过后的独立 Spike；失败时保留点击模式，不得把实验交互当作 V3 基线。
 - 本地缓存只用于只读快照，不能成为排班写入源或离线提交队列。
 - V3 日历必须完整保留成员、班次、节假日和换/替/加/扣标识；同日多排班不得只取第一条。
 
 ## Active Batch
 
-1. 用户书面复核更新后的 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`；停止条件：用户明确批准或提出修改。
-2. 书面设计批准后调用 writing-plans skill 编写 V3 实施计划；第一实施批必须是 V3-0.5 配置/生成物清理，计划需包含 1–3 任务批次、验证命令和每批停止条件。
-3. 实施计划批准后完成 V3-0.5，再建立 V3 app-shell、认证入口和日历黄金基线；停止条件：跟踪配置可复现、首批页面可启动且日历视觉对照通过。
+1. 用户书面复核 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md` 和 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-implementation-plan.md`；停止条件：用户明确批准或提出修改。
+2. 计划批准后执行 V3-0.5 任务 1–2；停止条件：跟踪配置可复现、生成物边界通过、401 无旧登录路径、冒烟脚本覆盖主包/分包。
+3. V3-0.5 批准后执行 V3-1 任务 3–5；停止条件：app-shell 可启动、认证/角色入口正确、`CalendarMonthViewModel` 纯逻辑测试通过。
 
 ## Handoff Requirements
 
