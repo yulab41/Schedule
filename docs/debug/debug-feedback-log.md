@@ -1458,4 +1458,5 @@
 - 文档：修订 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`；新增 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-implementation-plan.md`，覆盖 V3-0.5 至最终验收的任务、测试、提交和停止条件。
 - 官方能力复核：参考微信小程序示例中的 Skyline/Glass Esel 配置和 TDesign 小程序仓库；具体配置字段、组件白名单和 fallback 仍需在锁定开发者工具/基础库及真机上逐项验证，不能仅凭文档或开发者工具平均帧率宣称完成。
 - 运行/浏览器验证：本轮仅修改设计、计划、状态和调试文档，未触及 API、认证、路由、契约或构建代码；未运行 `pnpm smoke:browser` / `pnpm smoke:check-core`，待 V3-0.5 实施批次按 `AGENTS.md` 执行。
+- 检查点：本地提交 `66a1900 docs(miniprogram): finalize V3 design and implementation plan` 已创建；`git push origin main` 因 GitHub 连接重置失败，提交保留本地，下一轮重试。
 - 状态：**待用户复核**；下一批为用户确认后的 V3-0.5 任务 1–2。

@@ -33,7 +33,8 @@
 - 已限定：姓名不得固定截断；整格热区保留日期/排班/标识/电话事件路由；长按仅用于手动网格清空；涂抹排班延后为独立 Spike。
 - 已拒绝：通用日历库、首批 Lottie、统一动作热区、把“LLM 手搓”当作工程标准、同时引入多套组件库。
 - 已修订 `docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`，并新建 `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-implementation-plan.md`；计划明确任务文件、失败测试、验证命令、提交节点和每批停止条件。
-- 检查点提交信息：`docs(miniprogram): finalize V3 design and implementation plan`。
+- 检查点提交：`66a1900 docs(miniprogram): finalize V3 design and implementation plan`。
+- GitHub 推送：已尝试 `git push origin main`，因连接被重置失败；本地提交完整保留，下一轮重试，不 force-push。
 
 ## Validation
 
