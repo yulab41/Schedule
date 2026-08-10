@@ -134,6 +134,13 @@ describe('mini-program calendar VM boundary', () => {
     const dutySheet = readText('components/duty-detail-sheet/index.ts');
     const eventSheet = readText('components/event-timeline-sheet/index.ts');
     const phoneSheet = readText('components/phone-sheet/index.ts');
+    const routeForwarders = [
+      readText('components/calendar-grid/index.ts'),
+      readText('components/calendar-week/index.ts'),
+      readText('components/calendar-list/index.ts'),
+      dateSheet,
+      dutySheet,
+    ];
 
     expect(pageJson).toContain('bottom-sheet');
     expect(pageJson).toContain('date-detail-sheet');
@@ -167,6 +174,12 @@ describe('mini-program calendar VM boundary', () => {
       expect(source).not.toContain('request-close');
       expect(source).not.toContain("triggerEvent('closed'");
     }
+    for (const source of routeForwarders) {
+      expect(source).toContain('bubbles: true');
+      expect(source).toContain('composed: true');
+    }
+    expect(phoneSheet).toContain('bubbles: true');
+    expect(phoneSheet).toContain('composed: true');
     expect(page).toContain('createEventTimelineController');
     expect(page).toContain('openCalendarSheet');
     expect(page).toContain('completeCalendarSheetClose');

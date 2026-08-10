@@ -12,12 +12,12 @@ Component({
     handleCopy(event: PhoneActionEvent): void {
       const actionId = event.currentTarget.dataset.actionId;
       if (typeof actionId === 'string' && actionId.length > 0)
-        this.triggerEvent('copy', { actionId });
+        this.triggerEvent('copy', { actionId }, { bubbles: true, composed: true });
     },
     handleDial(event: PhoneActionEvent): void {
       const actionId = event.currentTarget.dataset.actionId;
       if (typeof actionId === 'string' && actionId.length > 0)
-        this.triggerEvent('dial', { actionId });
+        this.triggerEvent('dial', { actionId }, { bubbles: true, composed: true });
     },
   },
 });

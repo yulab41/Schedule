@@ -138,6 +138,7 @@
 - 人工复核结果：重新编译后，第 1–5 项（空白日期、排班行、member/guest marker、电话与事件详情）均无法复现，故人工门禁不通过；第 6–7 项通过。需要先定位详情入口未出现的运行态原因，再进行复核；在此之前不启动 Task 9/V3-3。
 - 根因与修复：`bottom-sheet` 原先位于 `page-shell` 默认 `scroll-view` 插槽内；在 DevTools/Skyline 运行时，`position: fixed` 的详情宿主无法作为页面级遮罩/面板显示，导致日期、值班、事件、电话四类入口统一无可见结果。已将唯一 keyed host 移到 page-level、`page-shell` 外部；页面状态机和四个详情 body 未改变。
 - 回归证据：新增 boundary 断言先在旧 WXML 上红灯（`bottom-sheet` 起始位置早于 `</page-shell>`），移动宿主后转绿。完整小程序 + boundary 为 21 文件 / 96 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3753、warnings `[]`，preview 188.2 KB 成功。
+- 点击链路修复：宿主移出后日期仍无响应，进一步定位为 `calendar-grid` 位于 `page-shell` slot、详情 body 位于 `bottom-sheet` slot，而页面级自定义事件默认不跨组件边界。所有页面级 route/dial/copy 转发器现在使用 `{ bubbles: true, composed: true }`；内部 `assignment-row`/`marker-badge` 仍不冒泡，避免重复路由。旧代码 boundary 先红后绿；最新全量 21 文件 / 96 项、build-npm cost 12111、warnings `[]`、preview 188.5 KB 均通过。
 - Git 检查点：`7d95a0a feat(miniprogram): add calendar detail sheets` 已于本轮通过 VPN 全局 + TUN 链路正常快进推送至 `origin/main`；未 force-push。
 
 ## Validation

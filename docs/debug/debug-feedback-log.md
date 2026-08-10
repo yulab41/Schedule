@@ -1663,3 +1663,12 @@
 - 修复：`pages/calendar/index.wxml` 现在先关闭 `page-shell`，再渲染唯一 `bottom-sheet` 及四个详情 body；宿主仍绑定原有 `request-close`/`closed`，页面仍保留原有 `sheetHost`/`sheetKind`/`sheetTitle` 状态。
 - 验证：完整小程序 + boundary 为 21 文件 / 96 项；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3753、warnings `[]`，preview 成功（188.2 KB）。`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
 - 状态：已修复，待用户重新编译后人工复核第 1–7 项；Task 9/V3-3 未开始。
+
+### V3-2 Task 8 页面级事件边界修复（2026-08-11）
+
+- 复现：`bottom-sheet` 移出 `page-shell` 后，人工点击日期单元格仍不能打开日期抽屉；纯 `resolveCalendarRouteAction('date:…')` 和 VM action ID 测试通过，说明数据和路由匹配本身不是原因。
+- 根因：`calendar-grid`/`calendar-week`/`calendar-list` 渲染在 `page-shell` 的 slot 内；日期/排班/marker 的 route 由这些组件转发到页面，但 `triggerEvent` 默认 `composed: false`，事件停在组件边界，页面 `handleRouteAction` 收不到。日期/值班详情和电话 body 同样渲染在 `bottom-sheet` slot 内，跨宿主的 route/dial/copy 也需要显式组合事件。
+- 调试依据：`git blame` 将 `calendar-grid` 点击转发归属 `1eef26a`；页面 route handler 归属 `42d6243`；Task 8 详情转发归属 `7d95a0a`。新增 boundary 断言要求所有页面级转发器包含 `bubbles: true` 与 `composed: true`，旧代码先失败。
+- 修复：`calendar-grid`、`calendar-week`、`calendar-list`、`date-detail-sheet`、`duty-detail-sheet` 的页面级 `route` 转发，以及 `phone-sheet` 的 `dial`/`copy` 转发均设置 `{ bubbles: true, composed: true }`。`assignment-row`/`marker-badge` 仍保持默认不冒泡，避免子事件与父转发重复触发。
+- 验证：boundary 4 项、完整小程序 21 文件 / 96 项、配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 12111、warnings `[]`，preview 成功（188.5 KB）。`pnpm smoke:browser` 不适用（仅小程序组件事件边界，未改 Web/API/契约/认证/构建核心链路）。
+- 状态：已修复，等待用户重新编译后复核日期单元格、排班行、member/guest marker、电话和事件入口；Task 9/V3-3 未开始。

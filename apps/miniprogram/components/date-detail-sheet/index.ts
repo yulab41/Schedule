@@ -9,7 +9,7 @@ Component({
     handleRoute(event: DateDetailRouteEvent): void {
       const actionId = event.detail.actionId;
       if (typeof actionId === 'string' && actionId.length > 0)
-        this.triggerEvent('route', { actionId });
+        this.triggerEvent('route', { actionId }, { bubbles: true, composed: true });
     },
   },
 });

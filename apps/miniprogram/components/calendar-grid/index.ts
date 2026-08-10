@@ -21,13 +21,13 @@ Component({
     handleDayRoute(event: CalendarGridTapEvent): void {
       const actionId = event.currentTarget.dataset.actionId;
       if (typeof actionId === 'string' && actionId.length > 0) {
-        this.triggerEvent('route', { actionId });
+        this.triggerEvent('route', { actionId }, { bubbles: true, composed: true });
       }
     },
     handleRoute(event: CalendarGridRouteEvent): void {
       const actionId = event.detail.actionId;
       if (typeof actionId === 'string' && actionId.length > 0) {
-        this.triggerEvent('route', { actionId });
+        this.triggerEvent('route', { actionId }, { bubbles: true, composed: true });
       }
     },
   },
