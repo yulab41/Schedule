@@ -125,6 +125,7 @@
 - 验证：定向套件 10 文件 / 43 项、完整 `pnpm vitest run apps/miniprogram` 16 文件 / 79 项、缓存/运行边界回归 2 文件 / 7 项、配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff 与 `git diff --check` 均通过；`pnpm miniprogram:devtools:build-npm` 无 warnings，`pnpm miniprogram:devtools:preview` 成功（154.8 KB），复用 `ws://127.0.0.1:9422` 的 `pnpm miniprogram:smoke` 通过 7/7 当前 manifest 页面、无脚本级错误。
 - DevTools 续验：固定 `cli auto --auto-port 9422` 成功并监听；连接/路由可用，但页面级 Skyline 只返回 `__webviewId__`，`Page.getData`/页面 handler/selector 报 `page node not found` 或不存在。`App.captureScreenshot` 生成的 `august-initial.png` 为全白帧，不能作为视觉证据；这是 Stable DevTools + `miniprogram-automator 0.12.1` 的 Skyline 页面观测边界，不归因于 Task 7 生产代码。已停止本轮一次性 probe，未改端点、会话或持久化数据。
 - 视觉门禁：自动化路由通过不等于月切换、跨月周、列表、网络失败 cache notice 的视觉/触控通过；调用次数仍由已通过的 controller 单测覆盖。用户明确将视觉审查交由人工，故在 DevTools 强制重新编译后仅需确认点击日历 tab 不再出现模块缺失，并复核上述视图切换/缓存提示。Task 7 本地检查点消息为 `feat(miniprogram): add calendar navigation and read cache`；不推送、不开始 Task 8。
+- 导航回归修复：人工 UI 审核发现上/下月和上/下周会把页面卡在 loading。根因是 `updateNavigation` 将三个槽位全部替换为 loading，但控制器会对已加载月份直接返回且不重复发布，页面遂失去其 ready VM。先新增纯 surface 红色测试，再让导航重心函数复用同月份既有槽位，仅为新进窗口月份建立 loading VM；这样中心月份始终保留已有内容。回归后定向 3 文件 / 25 项、完整小程序 16 文件 / 80 项、配置审计、typecheck、lint、Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；DevTools build-npm 成功（warnings `[]`）。等待人工再次点击四个前后按钮确认。
 
 ## Validation
 
@@ -156,8 +157,8 @@
 
 ## Active Batch
 
-1. V3-2 Task 6 已提交为本地 `1eef26a` 并通过用户视觉验收；Task 7 已完成自动化、DevTools 构建/preview/路由 smoke 和回归修复，状态为**待用户视觉复核**，本轮创建本地 `feat(miniprogram): add calendar navigation and read cache` 检查点。
-2. 用户在 DevTools 强制重新编译后确认日历 tab 无模块缺失，并人工复核 Task 7 月切换、跨月周、列表和缓存提示。停止在 Task 7 检查点，不能开始 Task 8；Task 6–8 全部完成后才一次性 GitHub push。
+1. V3-2 Task 6 已提交为本地 `1eef26a`；Task 7 主检查点为 `42d6243`，其后“导航替换 ready 槽为 loading”回归已修复并提交为本地 `fix(miniprogram): retain loaded calendar slots while navigating`，状态为**待用户视觉复核**。
+2. 用户在 DevTools 强制重新编译后确认日历 tab 无模块缺失，并点击上/下月和上/下周确认内容不再卡在 loading，再复核跨月周、列表和缓存提示。停止在 Task 7 回归检查点，不能开始 Task 8；Task 6–8 全部完成后才一次性 GitHub push。
 
 ## Handoff Requirements
 

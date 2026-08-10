@@ -5,12 +5,26 @@ import type {
   CalendarPhoneActionViewModel,
   CalendarWeekViewModel,
 } from './calendar-view-model.js';
+import { createCalendarMonthStateViewModel } from './calendar-view-model.js';
 import { getWeekDays, getWeekLabel, getBusinessMonthsForWeek } from './calendar-views.js';
 import type { CalendarViewMode } from './calendar-view-mode.js';
 
 export interface CalendarMonthSlotViewModel {
   readonly businessMonth: string;
   readonly viewModel: CalendarMonthViewModel;
+}
+
+export function recenterCalendarMonthSlots(
+  currentSlots: readonly CalendarMonthSlotViewModel[],
+  businessMonths: readonly [string, string, string],
+): readonly [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel] {
+  return businessMonths.map(
+    (businessMonth) =>
+      currentSlots.find((slot) => slot.businessMonth === businessMonth) ?? {
+        businessMonth,
+        viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
+      },
+  ) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
 }
 
 export type CalendarSurfaceViewModel =

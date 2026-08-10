@@ -16,6 +16,7 @@ import {
 } from '../../features/calendar/calendar-golden-data.js';
 import {
   buildCalendarSurfaceViewModel,
+  recenterCalendarMonthSlots,
   type CalendarMonthSlotViewModel,
   type CalendarSurfaceViewModel,
 } from '../../features/calendar/calendar-surface.js';
@@ -440,10 +441,7 @@ Page<CalendarPageData, CalendarPageMethods>({
     if (context === undefined) return;
     this.navigationEpoch += 1;
     const months = recenterMonthSlots(next.businessMonth);
-    const slots = months.map((businessMonth) => ({
-      businessMonth,
-      viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
-    })) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
+    const slots = recenterCalendarMonthSlots(this.data.monthSlots, months);
     this.setData(
       {
         monthSlots: slots,

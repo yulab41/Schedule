@@ -6,8 +6,15 @@ import {
   goldenCalendar,
   goldenToday,
 } from './calendar-golden-data.js';
-import { buildCalendarMonthViewModel } from './calendar-view-model.js';
-import { buildCalendarSurfaceViewModel, findCalendarPhoneAction } from './calendar-surface.js';
+import {
+  buildCalendarMonthViewModel,
+  createCalendarMonthStateViewModel,
+} from './calendar-view-model.js';
+import {
+  buildCalendarSurfaceViewModel,
+  findCalendarPhoneAction,
+  recenterCalendarMonthSlots,
+} from './calendar-surface.js';
 
 const august = buildCalendarMonthViewModel({
   calendar: getGoldenCalendar('2026-08'),
@@ -59,5 +66,29 @@ describe('calendar renderer surfaces', () => {
     expect(
       findCalendarPhoneAction([{ businessMonth: '2026-08', viewModel: august }], 'missing'),
     ).toBeUndefined();
+  });
+
+  it('retains already loaded slots when navigation re-centers the three-month window', () => {
+    const july = buildCalendarMonthViewModel({
+      calendar: getGoldenCalendar('2026-07'),
+      filters: {},
+      holidays: goldenHolidays,
+      status: 'ready',
+      today: goldenToday,
+    });
+    const slots = [
+      { businessMonth: '2026-07', viewModel: july },
+      { businessMonth: '2026-08', viewModel: august },
+      { businessMonth: '2026-09', viewModel: september },
+    ] as const;
+
+    const next = recenterCalendarMonthSlots(slots, ['2026-08', '2026-09', '2026-10']);
+
+    expect(next[0]).toBe(slots[1]);
+    expect(next[1]).toBe(slots[2]);
+    expect(next[2]).toEqual({
+      businessMonth: '2026-10',
+      viewModel: createCalendarMonthStateViewModel('2026-10', 'loading'),
+    });
   });
 });
