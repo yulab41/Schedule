@@ -1633,3 +1633,10 @@
 - 根因：`updateNavigation` 无条件用三个 loading VM 覆盖页面数据；它随后请求的两个相邻月已有 controller slot，`loadOne` 的 data fast-path 直接 resolve、不重复 `emit`，故页面永远保留 loading。该链路解释月和周按钮均失败的共同症状。
 - 测试先行与修复：在 `calendar-surface.test.ts` 增加“recenter 保留 8/9 月 ready 槽、仅 10 月 loading”的断言；旧代码因 `recenterCalendarMonthSlots` 不存在而红。新增纯函数后，`updateNavigation` 只调用该函数；swiper 的原有轮换实现未改。函数无 `this`、无异步/副作用，保留槽对象引用，只为不存在月份创建 loading VM，因此不改变控制器请求、错误、缓存、筛选或 action 语义。
 - 验证：定向 3 文件 / 25 项与完整小程序 16 文件 / 80 项通过；配置审计、typecheck、lint、Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。DevTools `build-npm` 成功（cost 4074，warnings `[]`）。运行/浏览器验证：`pnpm smoke:browser` 不适用。待人工重新编译后再次点击四个前后按钮确认，不开始 Task 8。
+
+### V3-2 Task 7 快速反向导航 loading 回归（2026-08-10）
+
+- 复现与引入点：用户在连续单方向导航后反向多点几次，重新出现 loading。`git log -S 'isCurrentData(slot.viewModel)' -- apps/miniprogram/features/calendar/calendar-page-controller.ts` 与 `git blame -L 214,236` 都归属 `42d6243`。
+- 根因：前一修复只保留页面当前三槽；某已完成月份在窗口外时，其 page update 会被有意丢弃。回到窗口后 controller 的 data fast-path 直接 `Promise.resolve()`、不 `emit`，页面便保留新建的 loading VM。该机制解释快速或反向操作才触发。
+- 测试先行与修复：新增“8 月离开可见窗口、只显示 9 月、再回到 8 月”的 controller 测试，旧代码得到空 update 红色失败；fast-path 现重新 `emit(target, businessMonth, slot.viewModel)`，不发新请求。它只发布现存只读 VM，无接收者变化、无异步链/错误处理变化、无缓存写入、筛选变异或平台副作用；in-flight 槽仍复用原 Promise。
+- 验证：控制器红后转绿，定向 3 文件 / 26 项、完整小程序 16 文件 / 81 项、配置审计、typecheck、lint、Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；DevTools build-npm 成功（cost 3962，warnings `[]`）。用户同时授权：每个验证通过的项目检查点均正常快进推送至 `origin/main`，覆盖 V3-2 原定 Task 8 后单次推送策略。

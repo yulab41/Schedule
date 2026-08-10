@@ -844,6 +844,8 @@ Expected: every command exits `0`, the boundary diff is empty, and `pnpm smoke:b
 
 **Task 7 stop condition:** stop after the local checkpoint commit. Do not add detail sheets, event loading, or V3-3 work.
 
+**Push-policy override (2026-08-10):** The user explicitly replaces this plan's deferred single-push policy. After every validated project checkpoint, create the normal local commit and normally fast-forward push it to `origin/main`; never force-push. This override applies to Task 7 regression fixes and the remaining V3-2 checkpoints.
+
 ---
 
 ## Task 8: Date, Duty, Event, And Phone Detail Bottom Sheets

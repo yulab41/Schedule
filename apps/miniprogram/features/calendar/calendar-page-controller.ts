@@ -230,6 +230,7 @@ export function createCalendarPageController(
       slot.calendar !== undefined &&
       slot.holidays !== undefined
     ) {
+      emit(target, target.businessMonth, slot.viewModel);
       return Promise.resolve();
     }
 

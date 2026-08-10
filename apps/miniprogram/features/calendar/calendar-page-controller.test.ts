@@ -453,6 +453,33 @@ describe('calendar page controller', () => {
     expect(memory.calls.writes).toBe(3);
   });
 
+  it('re-publishes a loaded slot when it re-enters a newly mounted page window', async () => {
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({ publishUpdate: (update) => updates.push(update) });
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+
+    await harness.controller.loadMonths(context, ['2026-08', '2026-09']);
+    updates.length = 0;
+    await harness.controller.loadMonths(context, ['2026-09']);
+    updates.length = 0;
+
+    await harness.controller.loadMonths(context, ['2026-08']);
+
+    expect(updates).toEqual([
+      expect.objectContaining({
+        businessMonth: '2026-08',
+        viewModel: expect.objectContaining({ status: 'ready' }),
+      }),
+    ]);
+    expect(harness.getCalendar).toHaveBeenCalledTimes(2);
+    expect(harness.getHolidays).toHaveBeenCalledTimes(1);
+  });
+
   it('publishes a cached snapshot before refresh and keeps it on failure', async () => {
     const memory = createMemoryCache();
     const context = {
