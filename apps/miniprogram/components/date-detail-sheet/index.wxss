@@ -1,0 +1,20 @@
+@import '../../tokens/index.wxss';
+
+.date-detail-sheet,
+.date-detail-sheet__date,
+.date-detail-sheet__holiday,
+.date-detail-sheet__empty {
+  display: block;
+}
+
+.date-detail-sheet__date {
+  margin-bottom: var(--v3-space-sm);
+  color: var(--v3-color-text);
+  font-weight: 700;
+}
+
+.date-detail-sheet__holiday,
+.date-detail-sheet__empty {
+  margin-bottom: var(--v3-space-sm);
+  color: var(--v3-color-text-muted);
+}

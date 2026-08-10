@@ -1,5 +1,6 @@
 .assignment-row__meta,
-.assignment-row__markers {
+.assignment-row__markers,
+.assignment-row__phones {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -43,4 +44,10 @@
 .assignment-row__markers {
   flex-wrap: wrap;
   gap: 4rpx;
+}
+
+.assignment-row__phones {
+  flex-wrap: wrap;
+  gap: var(--v3-space-xs);
+  margin-top: var(--v3-space-xs);
 }

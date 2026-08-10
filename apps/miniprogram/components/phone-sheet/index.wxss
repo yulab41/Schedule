@@ -1,0 +1,27 @@
+@import '../../tokens/index.wxss';
+
+.phone-sheet,
+.phone-sheet__member,
+.phone-sheet__empty,
+.phone-sheet__row {
+  display: block;
+}
+
+.phone-sheet__member {
+  color: var(--v3-color-text);
+  font-size: var(--v3-font-size-lg);
+  font-weight: 700;
+}
+
+.phone-sheet__empty,
+.phone-sheet__row {
+  margin-top: var(--v3-space-sm);
+}
+
+.phone-sheet__row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--v3-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}

@@ -9,6 +9,7 @@ import {
   calendarFixtureGroupName,
   getGoldenCalendar,
   goldenBusinessMonth,
+  goldenEvents,
   goldenHolidays,
 } from './calendar-golden-data.js';
 
@@ -45,6 +46,9 @@ describe('calendar development fixture', () => {
     ).resolves.toEqual({
       calendar: getGoldenCalendar(goldenBusinessMonth),
       groupName: calendarFixtureGroupName,
+    });
+    await expect(dependencies.listEvents(calendarFixtureGroupId, undefined, 1)).resolves.toEqual({
+      events: goldenEvents.slice(0, 1),
     });
   });
 });

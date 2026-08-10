@@ -1,0 +1,33 @@
+@import '../../tokens/index.wxss';
+
+.event-timeline-sheet,
+.event-timeline-sheet__state,
+.event-timeline-sheet__item,
+.event-timeline-sheet__chain {
+  display: block;
+}
+
+.event-timeline-sheet__state,
+.event-timeline-sheet__item,
+.event-timeline-sheet__chain {
+  margin-top: var(--v3-space-sm);
+}
+
+.event-timeline-sheet__item {
+  padding: var(--v3-space-sm) 0;
+  border-bottom: 1rpx solid var(--v3-color-border);
+}
+
+.event-timeline-sheet__marker {
+  display: inline-flex;
+  min-width: 28rpx;
+  min-height: 28rpx;
+  margin: 0 var(--v3-space-xs);
+  align-items: center;
+  justify-content: center;
+  color: var(--v3-color-warning);
+  background: var(--v3-color-warning-light);
+  border-radius: var(--v3-radius-sm);
+  font-size: var(--v3-font-size-xs);
+  font-weight: 700;
+}

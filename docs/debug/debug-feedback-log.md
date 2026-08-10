@@ -1640,3 +1640,11 @@
 - 根因：前一修复只保留页面当前三槽；某已完成月份在窗口外时，其 page update 会被有意丢弃。回到窗口后 controller 的 data fast-path 直接 `Promise.resolve()`、不 `emit`，页面便保留新建的 loading VM。该机制解释快速或反向操作才触发。
 - 测试先行与修复：新增“8 月离开可见窗口、只显示 9 月、再回到 8 月”的 controller 测试，旧代码得到空 update 红色失败；fast-path 现重新 `emit(target, businessMonth, slot.viewModel)`，不发新请求。它只发布现存只读 VM，无接收者变化、无异步链/错误处理变化、无缓存写入、筛选变异或平台副作用；in-flight 槽仍复用原 Promise。
 - 验证：控制器红后转绿，定向 3 文件 / 26 项、完整小程序 16 文件 / 81 项、配置审计、typecheck、lint、Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；DevTools build-npm 成功（cost 3962，warnings `[]`）。用户同时授权：每个验证通过的项目检查点均正常快进推送至 `origin/main`，覆盖 V3-2 原定 Task 8 后单次推送策略。
+
+### V3-2 Task 7 人工通过与 Task 8 详情 Sheet（2026-08-10）
+
+- Task 7 门禁：用户确认重新编译后，连续和快速反向操作上/下月、上/下周均不再卡在“正在加载排班”；Task 7 人工视觉/触控门禁已通过。
+- 样本决策：用户明确弃用 V3-2 计划内 `golden-*` 示例，之前从 Web 只读抓取并固化的真实 2026 fixture 为唯一运行黄金样本。事件纯测以测试局部、类型化的 `ScheduleEvent` 向量补足真实快照不含的 leave-cover 语义，不改 fixture/API/契约。
+- 测试先行：`bottom-sheet-logic`、`calendar-sheet-host`、`event-description`、`event-timeline-controller` 先因模块缺失红；详情 boundary guard 先因 `bottom-sheet/index.ts` 不存在红。实现后相位 36 对组合、80px/0.8px·ms⁻¹ 阈值、keyed close、事件排序/描述/变更链、同 key Promise、跨组/assignment stale 响应、失败和 reset 均转绿。
+- 实现与语义：页面维护一个持久 host；request-close 仅变 `visible`，匹配 closed 才清 content。事件 identity 为 `{ groupId, assignmentId }` + generation，旧完成不发布且 finally 不清新 Promise；一次仅拉取 100 条再按 `affectedShiftIds` 过滤。成员 marker 可加载事件，guest marker 仍为 duty；日期详情明确显示 phone action 而紧凑月格不显示号码。电话 action 仅转发既有 controller 的一次 member-bound `wx.makePhoneCall`/`wx.setClipboardData`。组件没有端点、`wx` 或关闭生命周期副作用；页面保留 `this.setData` 和注入端点调用的接收者。
+- 验证：完整小程序 + boundary 为 21 文件 / 96 项；配置审计、typecheck、lint、Prettier、契约/API 空 diff、`git diff --check`、`pnpm smoke:check-core` 均通过。DevTools `build-npm` 成功（cost 3868，warnings `[]`）、preview 成功（188.2 KB）。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。详情的视觉/手势/平台交互待人工重新编译复核。

@@ -153,5 +153,41 @@
         bind:route="handleRouteAction"
       />
     </view>
+    <bottom-sheet
+      title="{{sheetTitle}}"
+      visible="{{sheetHost.visible}}"
+      sheet-key="{{sheetHost.sheetKey}}"
+      bind:request-close="handleSheetRequestClose"
+      bind:closed="handleSheetClosed"
+    >
+      <date-detail-sheet
+        wx:if="{{sheetKind === 'date'}}"
+        day="{{sheetHost.content.day}}"
+        month-label="{{monthSlots[1].businessMonth}}"
+        bind:route="handleRouteAction"
+      />
+      <duty-detail-sheet
+        wx:elif="{{sheetKind === 'duty'}}"
+        assignment="{{sheetHost.content.assignment}}"
+        role="{{activeRole}}"
+        bind:route="handleRouteAction"
+      />
+      <event-timeline-sheet
+        wx:elif="{{sheetKind === 'events'}}"
+        assignment="{{sheetHost.content.assignment}}"
+        status="{{eventTimeline.status}}"
+        items="{{eventTimeline.items}}"
+        error-message="{{eventTimeline.errorMessage}}"
+        has-more="{{eventTimeline.hasMore}}"
+        change-chain-summary="{{eventTimeline.changeChainSummary}}"
+      />
+      <phone-sheet
+        wx:elif="{{sheetKind === 'phone'}}"
+        member-name="{{sheetHost.content.assignment.memberName}}"
+        phone-actions="{{sheetHost.content.phoneActions}}"
+        bind:dial="handleDial"
+        bind:copy="handleCopy"
+      />
+    </bottom-sheet>
   </view>
 </page-shell>

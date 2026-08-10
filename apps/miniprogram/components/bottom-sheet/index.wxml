@@ -1,0 +1,19 @@
+<view class="bottom-sheet {{visible ? 'bottom-sheet--visible' : ''}} bottom-sheet--{{phase}}">
+  <view class="bottom-sheet__mask" catchtap="handleMaskTap" />
+  <view
+    class="bottom-sheet__panel"
+    style="transform: {{panelTransform}};"
+    catchtap="noop"
+    bindtouchstart="handlePanelTouchStart"
+    bindtouchmove="handlePanelTouchMove"
+    bindtouchend="handlePanelTouchEnd"
+  >
+    <view class="bottom-sheet__header">
+      <text class="bottom-sheet__title">{{title}}</text>
+      <button class="bottom-sheet__close" aria-label="关闭" catchtap="handleMaskTap">关闭</button>
+    </view>
+    <scroll-view class="bottom-sheet__content" scroll-y bindscroll="handleContentScroll">
+      <slot />
+    </scroll-view>
+  </view>
+</view>

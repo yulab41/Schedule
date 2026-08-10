@@ -1,0 +1,39 @@
+@import '../../tokens/index.wxss';
+
+.duty-detail-sheet,
+.duty-detail-sheet__member,
+.duty-detail-sheet__line,
+.duty-detail-sheet__shift,
+.duty-detail-sheet__markers,
+.duty-detail-sheet__phones {
+  display: block;
+}
+
+.duty-detail-sheet__member {
+  color: var(--v3-color-text);
+  font-size: var(--v3-font-size-lg);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.duty-detail-sheet__line,
+.duty-detail-sheet__shift,
+.duty-detail-sheet__markers,
+.duty-detail-sheet__phones {
+  margin-top: var(--v3-space-sm);
+}
+
+.duty-detail-sheet__shift,
+.duty-detail-sheet__markers {
+  display: flex;
+  flex-direction: row;
+  gap: var(--v3-space-xs);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.duty-detail-sheet__shift-chip {
+  padding: 4rpx var(--v3-space-xs);
+  border-radius: var(--v3-radius-sm);
+  font-weight: 700;
+}

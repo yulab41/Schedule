@@ -1,0 +1,28 @@
+<view class="event-timeline-sheet">
+  <view wx:if="{{status === 'loading'}}" class="event-timeline-sheet__state">正在加载事件</view>
+  <view wx:elif="{{status === 'error'}}" class="event-timeline-sheet__state">{{errorMessage}}</view>
+  <view wx:elif="{{status === 'ready' && items.length === 0}}" class="event-timeline-sheet__state"
+    >该班次暂无事件记录。</view
+  >
+  <view wx:elif="{{status === 'ready'}}">
+    <view wx:for="{{items}}" wx:for-item="item" wx:key="id" class="event-timeline-sheet__item">
+      <text>{{item.occurredAtText}}</text>
+      <text wx:if="{{item.marker}}" class="event-timeline-sheet__marker"
+        >{{item.marker === 'swap' ? '换' : item.marker === 'leave-cover' ? '替' : '加'}}</text
+      >
+      <text>{{item.typeLabel}}</text>
+      <text wx:if="{{item.narrative}}">{{item.narrative}}</text>
+      <text wx:if="{{item.reason}}">原因：{{item.reason}}</text>
+      <view wx:if="{{!item.narrative && item.changes.length > 0}}">
+        <text wx:for="{{item.changes}}" wx:for-item="change" wx:key="label"
+          >{{change.label}}：{{change.before}} → {{change.after}}</text
+        >
+      </view>
+    </view>
+    <text wx:if="{{hasMore}}">仅显示最近 100 条</text>
+  </view>
+  <view wx:if="{{changeChainSummary}}" class="event-timeline-sheet__chain">
+    <button bindtap="handleChainToggle">人员变更链</button>
+    <view wx:if="{{isChainExpanded}}">{{changeChainSummary}}</view>
+  </view>
+</view>

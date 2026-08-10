@@ -117,9 +117,9 @@ Marker and phone action IDs are unchanged from V3-1:
 
 All route resolution requires one or more data VMs (`cached`/`ready`/`refreshing`) after narrowing; state VMs are omitted. Empty, non-string, stale (from an old month slot), or unknown action IDs return `undefined` and produce no side effect.
 
-## Golden Dataset (2026-08, Golden Calendar)
+## Deprecated Example Dataset (2026-08, Golden Calendar)
 
-`apps/miniprogram/features/calendar/calendar-golden-data.ts` exports exactly these normative values as typed constants (`CalendarReadModel`, `HolidayReadModel`, `readonly ScheduleEvent[]`); the JSON below maps 1:1 to contract field names and the executor writes them with the exact same values:
+**Deprecated by user direction (2026-08-10):** the canonical mini-program golden sample is the real 2026 Web snapshot previously collected and persisted in `apps/miniprogram/features/calendar/calendar-golden-data.ts`. The sample below is retained only as historical planning prose: it must not be exported, rendered, or used for runtime/DevTools assertions. Tests use the real snapshot for integration behavior and small controlled `ScheduleEvent` vectors only where the snapshot lacks a required event type.
 
 ```text
 goldenBusinessMonth = "2026-08"
@@ -167,7 +167,7 @@ goldenEvents = [
 ]
 ```
 
-The dataset is deliberately normative: `golden-a1` (confirmed member, 长号+短号, dial), `golden-a2` (unconfirmed member, copy; swap+leave-cover markers; planned-only fallback differs from actual), `golden-a3` (no phone number; overtime+swap; long full name `欧阳修远`; night shift 20:00–02:00 crossing midnight), `golden-a4` (empty actual name stays empty, member with no number), `golden-a5` (cross-month 08-31 20:00 → 09-01 04:00; overtime). Today is `2026-08-15` (Saturday, 调休上班 workday holiday); `2026-08-01` (past, Saturday, 建军节 off-day) and `2026-08-16` (Sunday, 休息日 off-day) cover past/today/weekend/holiday states; grid padding covers `2026-07-27…07-31` (week 0) and `2026-09-01…09-06` (last week).
+The preceding example is not normative. The real snapshot's assignment IDs, event IDs, members, holidays, and calendar coverage are the source of truth; no production behavior may depend on `golden-*` values.
 
 ## Semantic Audit Contract (All Tasks)
 
@@ -963,7 +963,7 @@ export function formatJsonValue(value: JsonObject | undefined): string;
 
 Copy the Web type-label/change-label/skipped-key/status-label tables, marker mapper, primitive and nested-member readers, all request/completed narratives, fallback, sorting, and chain summary exactly. `assignment.assignmentId`, `plannedMemberName`, `actualMemberName`, and `roleName` replace Web's `id`, names, and `scheduleRoleName`; `formatEventTime` delegates to Task 7 `formatChinaDateTime`. Unknown types remain `排班变更` plus the Web changes fallback. `buildEventTimelineDisplay` sorts by `occurredAt`, then `id`; makes a first-seen `objectId → occurredAt` map only from `objectType === 'swap_request' && eventType === 'swap_request_created'`; and maps each sorted event to the display fields above. A completed swap receives `initiatedAt` only from that map, never from its own completion timestamp.
 
-Write `event-description.test.ts` against the golden VM helper (`findDay` narrowing, no `as any`) before implementation. Pin: labels `swap_completed → 换班已生效` and unknown → `排班变更`; display IDs `[golden-event-5, golden-event-4, golden-event-1, golden-event-2, golden-event-3]`; markers `[undefined, undefined, 'swap', 'leave-cover', 'overtime']`; `golden-event-1` narrative for `golden-a2` exactly `计划医生甲 → 李思远（由 李思远 发起）` and does **not** contain `发起时间` because the fixture deliberately has no matching request-created event; `golden-event-2` for `golden-a4` contains `整体顺延`; `golden-event-3` for `golden-a3` exactly `欧阳修远 的班次由 李思远 代值（由 张伟 发起）。`; event 5 changes exactly `{ 班种: 旧班种 → 新班种, 状态: 待审批 → 已批准 }`; chain for `golden-a2` exactly `人员变更链：计划医生甲 → 李思远（1 次变更；2026-08-15 09:00 换班 计划医生甲 → 李思远）`; and `formatJsonValue(undefined) === ''`.
+Write `event-description.test.ts` before implementation. Use the real snapshot's VM helper with discriminated `findDay` narrowing (no `as any`) for supported integration cases; use a small test-local typed `ScheduleEvent` vector for missing `leave-cover` and deterministic display ordering. Pin: labels `swap_completed → 换班已生效` and unknown → `排班变更`; markers `[undefined, undefined, 'swap', 'leave-cover', 'overtime']`; a completed swap has no invented `发起时间` without a matching request-created event; leave-cover contains `整体顺延`; duty adjustment exactly `欧阳修远 的班次由 李思远 代值（由 张伟 发起）。`; the typed status/shift vector yields `{ 班种: 旧班种 → 新班种, 状态: 待审批 → 已批准 }`; and `formatJsonValue(undefined) === ''`.
 
 Create `apps/miniprogram/features/events/event-timeline-controller.ts`:
 
@@ -1104,12 +1104,12 @@ The boundary guard requires exactly one `bottom-sheet`, all four detail-body tag
 
 ### 8.6 Task 8 Steps
 
-- [ ] **Step 1:** Confirm Task 7's local commit, `origin/main` ancestor, only approved plan/Task 6/Task 7 commits ahead, no untracked path except `apps/miniprogram/minitest/`, and its validation set is green; otherwise stop.
-- [ ] **Step 2:** Write `bottom-sheet-logic.test.ts` and `calendar-sheet-host.test.ts`; observe module-missing red states; implement their pure modules and green every phase/key assertion.
-- [ ] **Step 3:** Write `event-description.test.ts` from the fixed golden events; observe module-missing red; implement the pure display boundary and green the no-invented-initiation-time assertion.
-- [ ] **Step 4:** Write `event-timeline-controller.test.ts`; observe module-missing red; implement single-page, client-filtered controller semantics and green all call/generation/error assertions.
-- [ ] **Step 5:** Create `bottom-sheet` and four detail components with their own `index.json` dependencies. Update the boundary guard before page JSON/WXML/TS/WXSS; observe guard red, then wire the keyed host and component events to green.
-- [ ] **Step 6:** Run this exact Task 8 validation set:
+- [x] **Step 1:** Confirm Task 7's local commit, `origin/main` ancestor, only approved plan/Task 6/Task 7 commits ahead, no untracked path except `apps/miniprogram/minitest/`, and its validation set is green.
+- [x] **Step 2:** Write `bottom-sheet-logic.test.ts` and `calendar-sheet-host.test.ts`; observe module-missing red states; implement their pure modules and green every phase/key assertion.
+- [x] **Step 3:** Write `event-description.test.ts` against the real fixture where possible and controlled local events where the deprecated plan sample is absent; observe module-missing red; implement the pure display boundary and green the no-invented-initiation-time assertion.
+- [x] **Step 4:** Write `event-timeline-controller.test.ts`; observe module-missing red; implement single-page, client-filtered controller semantics and green all call/generation/error assertions.
+- [x] **Step 5:** Create `bottom-sheet` and four detail components with their own `index.json` dependencies. Update the boundary guard before page JSON/WXML/TS/WXSS; observe guard red, then wire the keyed host and component events to green.
+- [x] **Step 6:** Run this exact Task 8 validation set:
 
 ```powershell
 pnpm vitest run apps/miniprogram/features/calendar/calendar-logic.test.ts apps/miniprogram/features/calendar/calendar-view-model.test.ts apps/miniprogram/features/calendar/calendar-routing.test.ts apps/miniprogram/features/calendar/calendar-views.test.ts apps/miniprogram/features/calendar/calendar-view-mode.test.ts apps/miniprogram/features/calendar/calendar-surface.test.ts apps/miniprogram/features/calendar/calendar-sheet-host.test.ts apps/miniprogram/features/calendar/calendar-page-controller.test.ts apps/miniprogram/store/calendar-cache.test.ts apps/miniprogram/features/calendar/calendar-golden-data.test.ts apps/miniprogram/features/sheets/bottom-sheet-logic.test.ts apps/miniprogram/features/events/event-description.test.ts apps/miniprogram/features/events/event-timeline-controller.test.ts scripts/miniprogram-calendar-boundary.test.mjs
@@ -1125,7 +1125,7 @@ git diff --check
 
 Expected: every command exits `0`, the contract/API diff is empty, and record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历详情组件/事件/电话/底部面板，未改 Web/API/契约/认证/构建核心链路）。`
 
-- [ ] **Step 7:** DevTools/simulator gate: blank date → date sheet; row → duty; guest marker → duty and member marker → event; phone → phone sheet; confirmed dial/unconfirmed copy each call once; `<80px` returns to zero, `≥80px` closes, and content drag activates only after top. For `golden-a2`, event sheet shows its affected `golden-event-5/4/1` records in chronological order; route `golden-a4` and `golden-a3` separately to inspect leave-cover/overtime. Capture opening, scroll, bounce, closing, stale-key replacement, and each sheet state.
+- [ ] **Step 7:** DevTools/simulator gate: blank date → date sheet; row → duty; guest marker → duty and member marker → event; phone → phone sheet; confirmed dial/unconfirmed copy each call once; `<80px` returns to zero, `≥80px` closes, and content drag activates only after top. Use the persisted real Web snapshot to inspect each event/marker type it contains; missing types remain covered by the pure controlled-vector tests. Capture opening, scroll, bounce, closing, stale-key replacement, and each sheet state.
 - [ ] **Step 8:** Complete the semantic audit, update checkpoint docs, review `git diff`/`git diff --cached` and behavior changes, stage only Task 8 files plus docs, validate `git diff --cached --check`, then create the **local** commit `feat(miniprogram): add calendar detail sheets`.
 - [ ] **Step 9:** After all three local commits exist and all stop conditions are met, run the **full V3-2 checkpoint set** once:
 

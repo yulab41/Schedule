@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "marker-badge": "/components/marker-badge/index"
+  }
+}

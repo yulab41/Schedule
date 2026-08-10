@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待用户复核。
 - V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。用户已批准 V3-2；Task 6 已通过用户视觉验收，完成本地检查点后仅执行 Task 7。
-- 当前批次：真实 Web 部署数据已通过阿里云 API 容器的只读既有端点完整取样为 2026 fixture（全年 12 个月，其中 8/9 月共 61 条班次、6 名成员、1 个岗位、1 个班种、39 条节假日、14 条换班/加扣班事件）。该样本已成为仓库内持久 fixture，`develop` 环境日历页不依赖登录或内存注入；`trial`/`release` 仍走真实接口。Task 7 已完成自动化与 DevTools 路由验证，等待人工视觉复核；在用户确认前不开始 Task 8 的详情交互。
+- 当前批次：真实 Web 部署数据已通过阿里云 API 容器的只读既有端点完整取样为 2026 fixture（全年 12 个月，其中 8/9 月共 61 条班次、6 名成员、1 个岗位、1 个班种、39 条节假日、14 条换班/加扣班事件）。该样本是唯一黄金样本，`develop` 环境日历页不依赖登录或内存注入；`trial`/`release` 仍走真实接口。Task 7 已通过人工 DevTools 复核；Task 8 已实现并等待人工详情交互复核。
 
 ## Completed Batch
 
@@ -116,7 +116,7 @@
 - DevTools 验收：用户已确认姓名、班种、节假日、换/加标识的最终视觉效果。Task 6 的点击按计划仅进行无副作用 route sink 解析；详情/电话/事件可见交互属于 Task 8。
 - 检查点：`1eef26a feat(miniprogram): add calendar grid routing` 已创建且保持本地、不推送。下一批仅为 Task 7，完成其独立验证和本地提交后停止，仍不得开始 Task 8。
 
-### V3-2：Task 7 三月导航、月/周/列表模式与只读缓存（待用户视觉复核，2026-08-10）
+### V3-2：Task 7 三月导航、月/周/列表模式与只读缓存（已完成，2026-08-10）
 
 - 实现：新增 `calendar-views`、`calendar-view-mode`、`calendar-surface` 与 `calendar-cache` 纯模块；控制器按 `userId/groupId/groupRole/groupVersion/businessMonth` 隔离槽位，三月加载按年度节假日单飞，缓存先显示再刷新，过期/失败保留 stale 快照，筛选和电话 action 跨槽位复用。
 - 页面：新增固定三页 `swiper` 轮换、月/周/列表模式、跨月周源数据、`cacheNotice`，以及 `calendar-week`/`calendar-list` 组件；页面仍只消费 ViewModel，未加入详情 sheet、事件加载或 API/契约变更。
@@ -127,6 +127,15 @@
 - 视觉门禁：自动化路由通过不等于月切换、跨月周、列表、网络失败 cache notice 的视觉/触控通过；调用次数仍由已通过的 controller 单测覆盖。用户明确将视觉审查交由人工，故在 DevTools 强制重新编译后仅需确认点击日历 tab 不再出现模块缺失，并复核上述视图切换/缓存提示。Task 7 主检查点为 `42d6243 feat(miniprogram): add calendar navigation and read cache`；不开始 Task 8。
 - 导航回归修复：人工 UI 审核发现上/下月和上/下周会把页面卡在 loading。根因是 `updateNavigation` 将三个槽位全部替换为 loading，但控制器会对已加载月份直接返回且不重复发布，页面遂失去其 ready VM。先新增纯 surface 红色测试，再让导航重心函数复用同月份既有槽位，仅为新进窗口月份建立 loading VM；这样中心月份始终保留已有内容。回归后定向 3 文件 / 25 项、完整小程序 16 文件 / 80 项、配置审计、typecheck、lint、Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；DevTools build-npm 成功（warnings `[]`）。等待人工再次点击四个前后按钮确认。
 - 快速反向导航回归：连续向一侧移动后反向操作仍可卡住，因为离开页面窗口的已完成 slot 在回到窗口时走 controller data fast-path 而不重新发布，页面保留 loading。新增失败测试覆盖“8 月离开再回到可见窗口”；fast-path 现会重新发布已有 ready/cached VM，但不新增端点请求或改变 Promise、缓存、筛选、错误及电话 action 语义。完整小程序 16 文件 / 81 项、配置审计、typecheck、lint、Prettier、`git diff --check`、`pnpm smoke:check-core` 与 DevTools build-npm（warnings `[]`）均通过。
+- 人工复核：用户于 2026-08-10 确认 DevTools 强制重新编译后，上/下月和上/下周连续、快速反向点击均不再卡在“正在加载排班”；Task 7 视觉门禁通过。
+
+### V3-2：Task 8 日期、值班、事件与电话详情 Sheet（已实现待浏览器复核，2026-08-10）
+
+- 实现：新增纯 Bottom Sheet 相位/拖拽状态机和带 `sheetKey` 的页面宿主；一个持久 `bottom-sheet` 承载日期、值班、事件、电话四个展示组件。关闭保留内容直至匹配 key 的 `closed`；旧 key、重开和错误 key 均无页面副作用。
+- 事件与电话：新增 WXML-safe 事件显示 VM 和单页事件控制器，只调用一次 `listEvents(groupId, undefined, 100)` 并按 `affectedShiftIds` 客户端过滤。guest 路由仍只开值班 Sheet；日期详情显式显示电话 action，紧凑月格保持不显示号码。电话 action 只转发给既有 `performPhoneAction`，confirmed dial/未确认 copy 各最多一次；组件不调用端点、`wx` 或管理生命周期。
+- 样本决策：用户明确弃用 V3-2 计划内的 `golden-*` 示例。之前从 Web 抓取并持久化的真实 2026 fixture 是唯一运行/验收样本；仅用测试局部的类型化事件向量覆盖该快照缺少的 leave-cover 情形，未修改运行数据、API 或共享契约。
+- 测试先行与验证：四个纯模块先因缺失红色失败；边界守卫先因详情组件不存在红色失败。实现后完整小程序与边界守卫为 21 文件 / 96 项通过，配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff 与 `git diff --check` 通过；DevTools `build-npm` 成功（cost 3868，warnings `[]`）、preview 成功（188.2 KB）。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
+- 人工复核待办：重新编译后依次验证空白日期、排班行、member marker、guest marker、长号/短号、事件时间线、`<80px` 回弹、`≥80px` 关闭、内容滚动到顶后才拖拽、关闭中替换内容不被旧 close 清空。Task 8 检查点消息为 `feat(miniprogram): add calendar detail sheets`；在此之前不启动 Task 9/V3-3。
 
 ## Validation
 
@@ -158,9 +167,9 @@
 
 ## Active Batch
 
-1. V3-2 Task 6 已提交为本地 `1eef26a`；Task 7 主检查点为 `42d6243`，其后两轮导航 loading 回归均已修复，当前修复检查点消息为 `fix(miniprogram): republish loaded calendar slots`，状态为**待用户视觉复核**。
-2. 用户在 DevTools 强制重新编译后确认日历 tab 无模块缺失，并连续、反向点击上/下月和上/下周确认内容不再卡在 loading，再复核跨月周、列表和缓存提示。停止在 Task 7 回归检查点，不能开始 Task 8。
-3. 用户于 2026-08-10 明确覆盖 V3-2 原“Task 8 后单次 push”策略：每个验证通过的项目检查点均允许并要求正常快进推送至 `origin/main`；本轮提交后推送当前 `main`，不 force-push。
+1. V3-2 Task 6 为 `1eef26a`；Task 7 主检查点为 `42d6243`，两轮 loading 回归为 `3171b2b` 与 `59707f7`，且已通过用户人工复核。
+2. Task 8 已通过自动验证、DevTools npm 构建，当前状态为**已实现待浏览器复核**。用户在 DevTools 重新编译后完成四种详情 Sheet、电话、拖拽与 stale-key 交互复核；在复核前不得开始 Task 9/V3-3。
+3. 用户于 2026-08-10 明确覆盖 V3-2 原“Task 8 后单次 push”策略：每个验证通过的项目检查点均允许并要求正常快进推送至 `origin/main`；本轮提交后重试推送当前 `main`，不 force-push。
 
 ## Handoff Requirements
 

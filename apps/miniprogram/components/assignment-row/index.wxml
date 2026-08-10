@@ -21,4 +21,15 @@
       />
     </view>
   </view>
+  <view wx:if="{{showPhones && assignment.phoneActions.length > 0}}" class="assignment-row__phones">
+    <button
+      wx:for="{{assignment.phoneActions}}"
+      wx:for-item="phoneAction"
+      wx:key="actionId"
+      data-action-id="{{phoneAction.actionId}}"
+      catchtap="handleRowRoute"
+    >
+      {{phoneAction.kind === 'dial' ? '拨打' : '复制（未确认）'}} {{phoneAction.number}}
+    </button>
+  </view>
 </view>

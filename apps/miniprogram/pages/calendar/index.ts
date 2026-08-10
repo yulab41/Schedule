@@ -3,6 +3,7 @@ import {
   getGuestHolidays,
   getHolidays,
   getLoggedInGuestCalendar,
+  listEvents,
 } from '../../api/endpoints.js';
 import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
 import { getCurrentBusinessDate } from '../../features/calendar/calendar-logic.js';
@@ -47,12 +48,27 @@ import {
   resolveCalendarRouteAction,
   type CalendarRouteTarget,
 } from '../../features/calendar/calendar-routing.js';
+import {
+  completeCalendarSheetClose,
+  getCalendarSheetKind,
+  getCalendarSheetTitle,
+  openCalendarSheet,
+  requestCalendarSheetClose,
+  type CalendarSheetHostState,
+  type CalendarSheetKind,
+} from '../../features/calendar/calendar-sheet-host.js';
+import {
+  createEventTimelineController,
+  type EventTimelineController,
+  type EventTimelineState,
+} from '../../features/events/event-timeline-controller.js';
 import { createCalendarCache } from '../../store/calendar-cache.js';
 import { sessionStore } from '../../store/session.js';
 
 interface CalendarPageData {
   readonly activeRole: string;
   readonly cacheNotice?: { readonly savedAtText: string; readonly stale: boolean };
+  readonly eventTimeline: EventTimelineState;
   readonly hasActiveGroup: boolean;
   readonly monthSlots: readonly [
     CalendarMonthSlotViewModel,
@@ -60,6 +76,9 @@ interface CalendarPageData {
     CalendarMonthSlotViewModel,
   ];
   readonly renderer: string;
+  readonly sheetHost: CalendarSheetHostState;
+  readonly sheetKind: CalendarSheetKind;
+  readonly sheetTitle: string;
   readonly surface: CalendarSurfaceViewModel;
   readonly swiperIndex: 1;
   readonly viewMode: CalendarViewMode;
@@ -68,6 +87,7 @@ interface CalendarPageData {
 
 type PickerEvent = WechatMiniprogram.PickerChange;
 type ActionIdEvent = WechatMiniprogram.CustomEvent<{ readonly actionId?: unknown }>;
+type SheetLifecycleEvent = WechatMiniprogram.CustomEvent<{ readonly sheetKey?: unknown }>;
 type ModeTapEvent = WechatMiniprogram.BaseEvent<Record<string, never>, { readonly mode?: unknown }>;
 type SwiperChangeEvent = WechatMiniprogram.CustomEvent<{
   readonly current?: unknown;
@@ -76,8 +96,11 @@ type SwiperChangeEvent = WechatMiniprogram.CustomEvent<{
 
 interface CalendarPageMethods {
   controller?: CalendarPageController;
+  eventController?: EventTimelineController;
   applyPicker(kind: 'member' | 'role' | 'shift', event: PickerEvent): void;
   applySlotUpdate(update: CalendarMonthSlotUpdate): void;
+  handleCopy(event: ActionIdEvent): void;
+  handleDial(event: ActionIdEvent): void;
   handleMemberFilter(event: PickerEvent): void;
   handleNextMonth(): void;
   handleNextWeek(): void;
@@ -86,6 +109,8 @@ interface CalendarPageMethods {
   handlePreviousWeek(): void;
   handleRetry(): void;
   handleRouteAction(event: ActionIdEvent): void;
+  handleSheetClosed(event: SheetLifecycleEvent): void;
+  handleSheetRequestClose(event: SheetLifecycleEvent): void;
   handleRoleFilter(event: PickerEvent): void;
   handleShiftFilter(event: PickerEvent): void;
   handleSwiperChange(event: SwiperChangeEvent): void;
@@ -198,13 +223,19 @@ function makeCache() {
 
 const initialViewState = getInitialState();
 const initialSlots = getInitialSlots();
+const initialEventTimeline: EventTimelineState = { hasMore: false, items: [], status: 'idle' };
+const initialSheetHost: CalendarSheetHostState = { sheetKey: 0, visible: false };
 
 Page<CalendarPageData, CalendarPageMethods>({
   data: {
     activeRole: '',
+    eventTimeline: initialEventTimeline,
     hasActiveGroup: false,
     monthSlots: initialSlots,
     renderer: 'unknown',
+    sheetHost: initialSheetHost,
+    sheetKind: 'none',
+    sheetTitle: '',
     surface: makeSurface(initialSlots, initialViewState.mode, initialViewState.weekStart),
     swiperIndex: 1,
     viewMode: initialViewState.mode,
@@ -233,6 +264,23 @@ Page<CalendarPageData, CalendarPageMethods>({
       publish: () => undefined,
       publishUpdate: (update) => this.applySlotUpdate(update),
       setClipboardData: (options) => wx.setClipboardData(options),
+    });
+    this.eventController = createEventTimelineController({
+      listEvents:
+        devFixtureDependencies?.listEvents ??
+        ((groupId, cursor, pageSize) => listEvents(groupId, cursor, pageSize)),
+      publish: (eventTimeline) => {
+        const content = this.data.sheetHost.content;
+        const group = getCalendarGroup();
+        if (
+          content?.kind === 'events' &&
+          this.data.sheetHost.visible &&
+          content.assignment.assignmentId === eventTimeline.assignmentId &&
+          group?.id === eventTimeline.groupId
+        ) {
+          this.setData({ eventTimeline });
+        }
+      },
     });
   },
   onShow(): void {
@@ -317,6 +365,16 @@ Page<CalendarPageData, CalendarPageMethods>({
   handleMemberFilter(event): void {
     this.applyPicker('member', event);
   },
+  handleCopy(event): void {
+    const actionId = event.detail.actionId;
+    if (typeof actionId === 'string' && actionId.length > 0)
+      this.controller?.performPhoneAction(actionId);
+  },
+  handleDial(event): void {
+    const actionId = event.detail.actionId;
+    if (typeof actionId === 'string' && actionId.length > 0)
+      this.controller?.performPhoneAction(actionId);
+  },
   handleNextMonth(): void {
     const state = {
       businessMonth: this.data.monthSlots[1].businessMonth,
@@ -376,10 +434,54 @@ Page<CalendarPageData, CalendarPageMethods>({
       .map(({ viewModel }) => viewModel)
       .filter(isDataViewModel);
     const target = resolveCalendarRouteAction(actionId, context.groupRole, viewModels);
-    if (target !== undefined) this.lastResolvedRoute = target;
+    if (target === undefined) return;
+    this.lastResolvedRoute = target;
+    const content =
+      target.kind === 'date'
+        ? { day: target.day, kind: 'date' as const }
+        : target.kind === 'assignment'
+          ? { assignment: target.assignment, kind: 'duty' as const }
+          : target.kind === 'events'
+            ? { assignment: target.assignment, kind: 'events' as const }
+            : {
+                assignment: target.assignment,
+                kind: 'phone' as const,
+                phoneActions: target.assignment.phoneActions,
+              };
+    const sheetHost = openCalendarSheet(this.data.sheetHost, content);
+    const sheetKind = getCalendarSheetKind(sheetHost);
+    const sheetTitle = getCalendarSheetTitle(sheetHost);
+    if (content.kind === 'events') this.eventController?.reset();
+    this.setData({
+      ...(content.kind === 'events' ? { eventTimeline: initialEventTimeline } : {}),
+      sheetHost,
+      sheetKind,
+      sheetTitle,
+    });
+    if (content.kind === 'events')
+      void this.eventController?.load(context.groupId, content.assignment);
   },
   handleShiftFilter(event): void {
     this.applyPicker('shift', event);
+  },
+  handleSheetClosed(event): void {
+    const sheetKey = event.detail.sheetKey;
+    if (typeof sheetKey !== 'number' || !Number.isInteger(sheetKey)) return;
+    const wasEvents = this.data.sheetHost.content?.kind === 'events';
+    const sheetHost = completeCalendarSheetClose(this.data.sheetHost, sheetKey);
+    if (sheetHost === this.data.sheetHost) return;
+    this.setData({
+      sheetHost,
+      sheetKind: getCalendarSheetKind(sheetHost),
+      sheetTitle: getCalendarSheetTitle(sheetHost),
+    });
+    if (wasEvents) this.eventController?.reset();
+  },
+  handleSheetRequestClose(event): void {
+    const sheetKey = event.detail.sheetKey;
+    if (typeof sheetKey !== 'number' || sheetKey !== this.data.sheetHost.sheetKey) return;
+    const sheetHost = requestCalendarSheetClose(this.data.sheetHost);
+    if (sheetHost !== this.data.sheetHost) this.setData({ sheetHost });
   },
   handleSwiperChange(event): void {
     const current = event.detail.current;

@@ -20,6 +20,10 @@ Component({
       type: String,
       value: '',
     },
+    showPhones: {
+      type: Boolean,
+      value: false,
+    },
   },
   methods: {
     handleRoute(event: AssignmentRowRouteEvent): void {

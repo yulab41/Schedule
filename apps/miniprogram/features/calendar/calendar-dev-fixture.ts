@@ -2,12 +2,14 @@ import type {
   CalendarReadModel,
   GuestCalendarReadModel,
   HolidayReadModel,
+  ScheduleEventPage,
 } from '@schedule/contracts';
 
 import { appConfig } from '../../config/index.js';
 import {
   calendarFixtureGroupName,
   getGoldenCalendar,
+  goldenEvents,
   goldenHolidays,
 } from './calendar-golden-data.js';
 
@@ -16,6 +18,7 @@ export interface CalendarDevFixtureDependencies {
   getGuestHolidays(year: number): Promise<HolidayReadModel>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getLoggedInGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
+  listEvents(groupId: string, cursor?: string, pageSize?: number): Promise<ScheduleEventPage>;
 }
 
 export function isCalendarDevFixtureEnabled(envVersion: string | undefined): boolean {
@@ -40,6 +43,9 @@ export function createCalendarDevFixtureDependencies(): CalendarDevFixtureDepend
     getLoggedInGuestCalendar: async (_groupId, businessMonth) => ({
       calendar: getGoldenCalendar(businessMonth),
       groupName: calendarFixtureGroupName,
+    }),
+    listEvents: async (_groupId, _cursor, pageSize = 100) => ({
+      events: goldenEvents.slice(0, pageSize),
     }),
   };
 }

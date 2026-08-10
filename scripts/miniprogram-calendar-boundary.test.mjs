@@ -37,6 +37,7 @@ describe('mini-program calendar VM boundary', () => {
     const markerBadgeWxml = readText('components/marker-badge/index.wxml');
     const holidayTagWxss = readText('components/holiday-tag/index.wxss');
     const assignmentRowWxml = readText('components/assignment-row/index.wxml');
+    const dateDetailSheetWxml = readText('components/date-detail-sheet/index.wxml');
     const pageJson = readText('pages/calendar/index.json');
     expect(wxml).toContain('viewModel.');
     expect(wxml).toContain('calendar-grid');
@@ -100,9 +101,10 @@ describe('mini-program calendar VM boundary', () => {
     expect(assignmentRowWxml).toContain('assignment.memberName');
     expect(markerBadgeWxml).toContain('catchtap="handleRoute"');
     expect(markerBadgeWxml).not.toContain('<button');
-    expect(assignmentRowWxml).not.toMatch(
-      /assignment\.roleName|assignment\.timeRange|assignment\.phoneActions/gu,
-    );
+    expect(assignmentRowWxml).not.toMatch(/assignment\.roleName|assignment\.timeRange/gu);
+    expect(assignmentRowWxml).toContain('showPhones');
+    expect(assignmentRowWxml).toContain('assignment.phoneActions');
+    expect(dateDetailSheetWxml).toContain('show-phones="{{true}}"');
     expect(declarationsFor(wxss, '.calendar-page__month-action--pressed')).toMatch(
       /opacity:\s*0\.72;/u,
     );
@@ -120,5 +122,55 @@ describe('mini-program calendar VM boundary', () => {
     const calendarCache = readText('store/calendar-cache.ts');
 
     expect(calendarCache).not.toContain('../../../packages/contracts/src/');
+  });
+
+  it('keeps one keyed detail host and presentation-only detail bodies', () => {
+    const page = readText('pages/calendar/index.ts');
+    const pageWxml = readText('pages/calendar/index.wxml');
+    const pageJson = readText('pages/calendar/index.json');
+    const bottomSheet = readText('components/bottom-sheet/index.ts');
+    const bottomSheetWxml = readText('components/bottom-sheet/index.wxml');
+    const dateSheet = readText('components/date-detail-sheet/index.ts');
+    const dutySheet = readText('components/duty-detail-sheet/index.ts');
+    const eventSheet = readText('components/event-timeline-sheet/index.ts');
+    const phoneSheet = readText('components/phone-sheet/index.ts');
+
+    expect(pageJson).toContain('bottom-sheet');
+    expect(pageJson).toContain('date-detail-sheet');
+    expect(pageJson).toContain('duty-detail-sheet');
+    expect(pageJson).toContain('event-timeline-sheet');
+    expect(pageJson).toContain('phone-sheet');
+    expect(pageWxml.match(/<bottom-sheet\b/gu) ?? []).toHaveLength(1);
+    expect(pageWxml).toContain('bind:request-close="handleSheetRequestClose"');
+    expect(pageWxml).toContain('bind:closed="handleSheetClosed"');
+    expect(pageWxml).toContain('bind:dial="handleDial"');
+    expect(pageWxml).toContain('bind:copy="handleCopy"');
+    for (const tag of [
+      'date-detail-sheet',
+      'duty-detail-sheet',
+      'event-timeline-sheet',
+      'phone-sheet',
+    ]) {
+      expect(pageWxml).toContain(`<${tag}`);
+    }
+    expect(bottomSheet).toContain('request-close');
+    expect(bottomSheet).toContain('closed');
+    expect(bottomSheetWxml).toContain('<slot');
+    expect(bottomSheetWxml).toContain('scroll-view');
+    for (const source of [dateSheet, dutySheet, eventSheet, phoneSheet]) {
+      expect(source).not.toContain('bottom-sheet');
+      expect(source).not.toContain('wx.');
+      expect(source).not.toContain('request-close');
+      expect(source).not.toContain("triggerEvent('closed'");
+    }
+    expect(page).toContain('createEventTimelineController');
+    expect(page).toContain('openCalendarSheet');
+    expect(page).toContain('completeCalendarSheetClose');
+    expect(page).toContain('getCalendarSheetKind');
+    expect(page).toContain('getCalendarSheetTitle');
+    expect(page.match(/listEvents\(/gu) ?? []).toHaveLength(1);
+    expect(page).not.toContain('activeSheet');
+    expect(page).not.toContain('openRoute');
+    expect(pageWxml).not.toContain('<details');
   });
 });
