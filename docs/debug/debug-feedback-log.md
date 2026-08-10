@@ -1648,3 +1648,9 @@
 - 测试先行：`bottom-sheet-logic`、`calendar-sheet-host`、`event-description`、`event-timeline-controller` 先因模块缺失红；详情 boundary guard 先因 `bottom-sheet/index.ts` 不存在红。实现后相位 36 对组合、80px/0.8px·ms⁻¹ 阈值、keyed close、事件排序/描述/变更链、同 key Promise、跨组/assignment stale 响应、失败和 reset 均转绿。
 - 实现与语义：页面维护一个持久 host；request-close 仅变 `visible`，匹配 closed 才清 content。事件 identity 为 `{ groupId, assignmentId }` + generation，旧完成不发布且 finally 不清新 Promise；一次仅拉取 100 条再按 `affectedShiftIds` 过滤。成员 marker 可加载事件，guest marker 仍为 duty；日期详情明确显示 phone action 而紧凑月格不显示号码。电话 action 仅转发既有 controller 的一次 member-bound `wx.makePhoneCall`/`wx.setClipboardData`。组件没有端点、`wx` 或关闭生命周期副作用；页面保留 `this.setData` 和注入端点调用的接收者。
 - 验证：完整小程序 + boundary 为 21 文件 / 96 项；配置审计、typecheck、lint、Prettier、契约/API 空 diff、`git diff --check`、`pnpm smoke:check-core` 均通过。DevTools `build-npm` 成功（cost 3868，warnings `[]`）、preview 成功（188.2 KB）。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。详情的视觉/手势/平台交互待人工重新编译复核。
+
+### V3-2 Task 8 人工详情复核结果与 GitHub 推送（2026-08-10）
+
+- 人工复核结果：用户重新编译后确认第 1–5 项（空白日期、排班行、member/guest marker、电话与事件详情）均无法复现，因此 Task 8 人工门禁不通过；第 6–7 项（快速打开/关闭与边界导航/恢复性检查）通过。不能把“未出现”记录为功能通过，下一步先定位运行态入口为何未显示。
+- GitHub 推送：用户重启 `lmclient.exe`，开启全局模式和 TUN 虚拟网卡后，`git push origin main` 成功，`main -> origin/main` 更新至 `7d95a0a`。此前失败发生在 Git CLI 直连 `github.com:443` 的 socket/连接阶段；VPN 的 TUN 路由恢复后正常快进推送，未 force-push。
+- 状态：Task 8 保持“待用户复核”；Task 9/V3-3 未开始。`apps/miniprogram/minitest/` 仍为未跟踪 DevTools 产物，未提交。
