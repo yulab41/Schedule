@@ -37,8 +37,18 @@ describe('mini-program calendar VM boundary', () => {
     const markerBadgeWxml = readText('components/marker-badge/index.wxml');
     const holidayTagWxss = readText('components/holiday-tag/index.wxss');
     const assignmentRowWxml = readText('components/assignment-row/index.wxml');
+    const pageJson = readText('pages/calendar/index.json');
     expect(wxml).toContain('viewModel.');
     expect(wxml).toContain('calendar-grid');
+    expect(wxml).toContain('calendar-week');
+    expect(wxml).toContain('calendar-list');
+    expect(wxml).toContain('bindchange="handleSwiperChange"');
+    expect(wxml).toContain('monthSlots');
+    expect(wxml).toContain('cacheNotice');
+    expect(page).toContain('rotateMonthSlots');
+    expect(page).toContain('recenterMonthSlots');
+    expect(page).toContain('swiperLocked');
+    expect(page).toContain('navigationEpoch');
     expect(wxml).toContain('bind:route="handleRouteAction"');
     expect(wxml).not.toMatch(
       /actualMemberName|plannedMemberName|changeMarkers|shiftTypeColor|shiftTypeTextColor|eventId|deduction/gu,
@@ -54,7 +64,10 @@ describe('mini-program calendar VM boundary', () => {
     expect(page).not.toMatch(/Promise\.all|requestGeneration|lastSuccessfulKey|inFlight/gu);
     expect(readText('pages/calendar/index.json')).toMatch(/"renderer"\s*:\s*"skyline"/u);
     expect(readText('pages/calendar/index.json')).not.toContain('t-calendar');
-    expect(wxml).not.toMatch(/enhanced=|show-scrollbar=/gu);
+    expect(wxml).not.toMatch(/<(?!swiper\b)[^>]*\benhanced\s*=/gu);
+    expect(wxml).not.toMatch(/show-scrollbar=/gu);
+    expect(pageJson).toContain('calendar-week');
+    expect(pageJson).toContain('calendar-list');
     expect(wxss).toContain('.calendar-page__toolbar');
     expect(wxss).toContain('flex: 0 0 auto');
     expect(wxss).toContain('margin: 0');
@@ -101,5 +114,11 @@ describe('mini-program calendar VM boundary', () => {
 
   it('does not synthesize unsupported marker contract fields', () => {
     expect(readText('features/calendar/calendar-view-model.ts')).not.toMatch(/eventId|deduction/gu);
+  });
+
+  it('keeps calendar-cache runtime dependencies within the mini-program bundle', () => {
+    const calendarCache = readText('store/calendar-cache.ts');
+
+    expect(calendarCache).not.toContain('../../../packages/contracts/src/');
   });
 });

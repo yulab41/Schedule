@@ -2,13 +2,16 @@
 
 .calendar-page,
 .calendar-page__body,
-.calendar-page__data {
+.calendar-page__data,
+.calendar-page__surface {
   display: block;
 }
 
 .calendar-page__toolbar,
 .calendar-page__filters,
-.calendar-page__switch-label {
+.calendar-page__switch-label,
+.calendar-page__mode-tabs,
+.calendar-page__week-toolbar {
   display: flex;
   flex-direction: row;
 }
@@ -21,9 +24,10 @@
   justify-content: space-between;
 }
 
-.calendar-page__month-action {
+.calendar-page__month-action,
+.calendar-page__mode-button,
+.calendar-page__retry {
   flex: 0 0 auto;
-  width: 128rpx;
   min-height: var(--v3-touch-min);
   margin: 0;
   padding: 0 var(--v3-space-sm);
@@ -31,6 +35,24 @@
   background: var(--v3-color-surface);
   border: 1rpx solid var(--v3-color-border);
   border-radius: var(--v3-radius-md);
+}
+
+.calendar-page__month-action {
+  width: 128rpx;
+}
+
+.calendar-page__mode-button {
+  flex: 1 1 0;
+  margin-right: var(--v3-space-xs);
+}
+
+.calendar-page__mode-button:last-child {
+  margin-right: 0;
+}
+
+.calendar-page__mode-button--selected {
+  color: var(--v3-color-surface);
+  background: var(--v3-color-primary);
 }
 
 .calendar-page__month-action--pressed,
@@ -65,9 +87,29 @@
   gap: var(--v3-space-xs);
 }
 
-.calendar-page__summary,
-.calendar-page__empty {
-  display: block;
+.calendar-page__mode-tabs,
+.calendar-page__week-toolbar {
+  align-items: center;
+  gap: var(--v3-space-xs);
   margin-bottom: var(--v3-space-sm);
-  color: var(--v3-color-text-muted);
+}
+
+.calendar-page__mode-tabs {
+  justify-content: stretch;
+}
+
+.calendar-page__week-toolbar {
+  justify-content: space-between;
+}
+
+.calendar-page__cache-notice {
+  display: block;
+  margin-bottom: var(--v3-space-xs);
+  color: var(--v3-color-warning);
+  font-size: var(--v3-font-size-sm);
+}
+
+.calendar-page__swiper {
+  display: block;
+  height: calc(100vh - 312rpx);
 }

@@ -6,6 +6,7 @@
   <text class="assignment-row__member">{{assignment.memberName}}</text>
   <view class="assignment-row__meta">
     <text
+      wx:if="{{!hideShiftBadge}}"
       class="assignment-row__shift"
       style="background-color: {{assignment.backgroundColor}}; color: {{assignment.foregroundColor}};"
       >{{assignment.compactShiftLabel}}</text

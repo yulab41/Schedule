@@ -6,19 +6,23 @@
       title="暂无可用群组"
       description="请先加入或选择一个群组。"
     />
-    <shell-state wx:elif="{{viewModel.status === 'loading'}}" kind="loading" title="正在加载排班" />
-    <view wx:else class="calendar-page__body">
+    <shell-state
+      wx:elif="{{surface.kind === 'state' && surface.status === 'loading'}}"
+      kind="loading"
+      title="正在加载排班"
+    />
+    <view wx:elif="{{surface.kind === 'state'}}" class="calendar-page__body">
       <shell-state
-        wx:if="{{viewModel.status === 'forbidden'}}"
+        wx:if="{{surface.status === 'forbidden'}}"
         kind="forbidden"
         title="无权查看该群组排班"
         description="请联系群组管理员确认权限。"
       />
       <shell-state
-        wx:elif="{{viewModel.status === 'error'}}"
+        wx:elif="{{surface.status === 'error'}}"
         kind="error"
         title="加载排班失败"
-        description="{{viewModel.message}}"
+        description="{{surface.message}}"
       >
         <button
           class="calendar-page__retry"
@@ -28,12 +32,7 @@
           重试
         </button>
       </shell-state>
-      <shell-state
-        wx:elif="{{viewModel.status === 'conflict'}}"
-        kind="conflict"
-        title="排班数据已变化"
-        description="{{viewModel.message}}"
-      >
+      <shell-state wx:else kind="conflict" title="排班数据已变化" description="{{surface.message}}">
         <button
           class="calendar-page__retry"
           bindtap="handleRetry"
@@ -42,62 +41,117 @@
           刷新
         </button>
       </shell-state>
-      <view wx:else class="calendar-page__data">
-        <view class="calendar-page__toolbar">
-          <button
-            class="calendar-page__month-action"
-            bindtap="handlePreviousMonth"
-            hover-class="calendar-page__month-action--pressed"
-          >
-            上月
-          </button>
-          <text class="calendar-page__month-label">{{viewModel.monthLabel}}</text>
-          <button
-            class="calendar-page__month-action"
-            bindtap="handleNextMonth"
-            hover-class="calendar-page__month-action--pressed"
-          >
-            下月
-          </button>
-        </view>
-        <view class="calendar-page__filters">
-          <picker
-            range="{{viewModel.filters.roles}}"
-            range-key="label"
-            value="{{viewModel.filters.selectedRoleIndex}}"
-            bindchange="handleRoleFilter"
-            ><view class="calendar-page__picker">岗位</view></picker
-          >
-          <picker
-            range="{{viewModel.filters.shiftTypes}}"
-            range-key="label"
-            value="{{viewModel.filters.selectedShiftTypeIndex}}"
-            bindchange="handleShiftFilter"
-            ><view class="calendar-page__picker">班种</view></picker
-          >
-          <picker
-            range="{{viewModel.filters.members}}"
-            range-key="label"
-            value="{{viewModel.filters.selectedMembershipIndex}}"
-            bindchange="handleMemberFilter"
-            ><view class="calendar-page__picker">成员</view></picker
-          >
-          <label class="calendar-page__switch-label"
-            ><text>仅变更</text
-            ><switch checked="{{viewModel.filters.onlyChanges}}" bindchange="handleOnlyChanges"
-          /></label>
-        </view>
-        <text class="calendar-page__summary">{{viewModel.assignmentCount}} 个班次</text>
-        <view wx:if="{{viewModel.isMonthEmpty}}" class="calendar-page__empty"
-          >本月暂无符合条件的班次。</view
+    </view>
+    <view wx:else class="calendar-page__body">
+      <view wx:if="{{viewMode !== 'week'}}" class="calendar-page__toolbar">
+        <button
+          class="calendar-page__month-action"
+          bindtap="handlePreviousMonth"
+          hover-class="calendar-page__month-action--pressed"
         >
-        <calendar-grid
-          wx:else
-          weeks="{{viewModel.weeks}}"
+          上月
+        </button>
+        <text class="calendar-page__month-label">{{monthSlots[1].businessMonth}}</text>
+        <button
+          class="calendar-page__month-action"
+          bindtap="handleNextMonth"
+          hover-class="calendar-page__month-action--pressed"
+        >
+          下月
+        </button>
+      </view>
+      <view class="calendar-page__filters">
+        <picker
+          range="{{monthSlots[1].viewModel.filters.roles}}"
+          range-key="label"
+          value="{{monthSlots[1].viewModel.filters.selectedRoleIndex}}"
+          bindchange="handleRoleFilter"
+          ><view class="calendar-page__picker">岗位</view></picker
+        >
+        <picker
+          range="{{monthSlots[1].viewModel.filters.shiftTypes}}"
+          range-key="label"
+          value="{{monthSlots[1].viewModel.filters.selectedShiftTypeIndex}}"
+          bindchange="handleShiftFilter"
+          ><view class="calendar-page__picker">班种</view></picker
+        >
+        <picker
+          range="{{monthSlots[1].viewModel.filters.members}}"
+          range-key="label"
+          value="{{monthSlots[1].viewModel.filters.selectedMembershipIndex}}"
+          bindchange="handleMemberFilter"
+          ><view class="calendar-page__picker">成员</view></picker
+        >
+        <label class="calendar-page__switch-label"
+          ><text>仅变更</text
+          ><switch
+            checked="{{monthSlots[1].viewModel.filters.onlyChanges}}"
+            bindchange="handleOnlyChanges"
+        /></label>
+      </view>
+      <view class="calendar-page__mode-tabs">
+        <button
+          class="calendar-page__mode-button {{viewMode === 'month' ? 'calendar-page__mode-button--selected' : ''}}"
+          data-mode="month"
+          bindtap="handleViewModeTap"
+        >
+          月
+        </button>
+        <button
+          class="calendar-page__mode-button {{viewMode === 'week' ? 'calendar-page__mode-button--selected' : ''}}"
+          data-mode="week"
+          bindtap="handleViewModeTap"
+        >
+          周
+        </button>
+        <button
+          class="calendar-page__mode-button {{viewMode === 'list' ? 'calendar-page__mode-button--selected' : ''}}"
+          data-mode="list"
+          bindtap="handleViewModeTap"
+        >
+          列表
+        </button>
+      </view>
+      <text wx:if="{{cacheNotice && cacheNotice.stale}}" class="calendar-page__cache-notice"
+        >可能不是最新数据</text
+      >
+      <view wx:if="{{surface.kind === 'month'}}" class="calendar-page__surface">
+        <swiper
+          class="calendar-page__swiper"
+          circular
+          enhanced
+          duration="{{240}}"
+          current="{{swiperIndex}}"
+          bindchange="handleSwiperChange"
+        >
+          <swiper-item wx:for="{{monthSlots}}" wx:for-item="slot" wx:key="businessMonth">
+            <calendar-grid
+              wx:if="{{slot.viewModel.status === 'cached' || slot.viewModel.status === 'ready' || slot.viewModel.status === 'refreshing'}}"
+              weeks="{{slot.viewModel.weeks}}"
+              role="{{activeRole}}"
+              bind:route="handleRouteAction"
+            />
+          </swiper-item>
+        </swiper>
+      </view>
+      <view wx:elif="{{surface.kind === 'week'}}" class="calendar-page__surface">
+        <view class="calendar-page__week-toolbar">
+          <button class="calendar-page__month-action" bindtap="handlePreviousWeek">上一周</button>
+          <text class="calendar-page__month-label">{{surface.weekLabel}}</text>
+          <button class="calendar-page__month-action" bindtap="handleNextWeek">下一周</button>
+        </view>
+        <calendar-week
+          week="{{surface.week}}"
           role="{{activeRole}}"
           bind:route="handleRouteAction"
         />
       </view>
+      <calendar-list
+        wx:elif="{{surface.kind === 'list'}}"
+        days="{{surface.days}}"
+        role="{{activeRole}}"
+        bind:route="handleRouteAction"
+      />
     </view>
   </view>
 </page-shell>

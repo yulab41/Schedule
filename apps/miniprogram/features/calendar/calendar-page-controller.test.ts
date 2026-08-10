@@ -1,4 +1,5 @@
 import { ApiClientError } from '../../api/client.js';
+import { createCalendarCache, type CalendarCachePort } from '../../store/calendar-cache.js';
 import type { CalendarReadModel, HolidayReadModel } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,6 +7,7 @@ import {
   createCalendarPageController,
   getCalendarFailureState,
   parseSelectorPickerIndex,
+  type CalendarMonthSlotUpdate,
   type CalendarPageControllerDependencies,
 } from './calendar-page-controller.js';
 import type { CalendarMonthDataViewModel, CalendarMonthViewModel } from './calendar-view-model.js';
@@ -176,6 +178,25 @@ function createHarness(overrides: Partial<CalendarPageControllerDependencies> = 
     published,
     setClipboardData,
   };
+}
+
+function createMemoryCache() {
+  const values = new Map<string, unknown>();
+  const calls = { reads: 0, writes: 0 };
+  const port: CalendarCachePort = {
+    getStorageSync(key) {
+      calls.reads += 1;
+      return values.get(key);
+    },
+    removeStorageSync(key) {
+      values.delete(key);
+    },
+    setStorageSync(key, value) {
+      calls.writes += 1;
+      values.set(key, value);
+    },
+  };
+  return { cache: createCalendarCache(port), calls, values };
 }
 
 describe('calendar page controller', () => {
@@ -410,6 +431,51 @@ describe('calendar page controller', () => {
     septemberCalendar.resolve(createSeptemberCalendar());
     septemberHolidays.resolve(holidays);
     await septemberLoad;
+  });
+
+  it('loads three month slots with one holiday request per year', async () => {
+    const memory = createMemoryCache();
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({
+      cache: memory.cache,
+      publishUpdate: (update) => updates.push(update),
+    });
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+    await harness.controller.loadMonths(context, ['2026-07', '2026-08', '2026-09']);
+    expect(harness.getCalendar).toHaveBeenCalledTimes(3);
+    expect(harness.getHolidays).toHaveBeenCalledTimes(1);
+    expect(updates.filter(({ viewModel }) => viewModel.status === 'ready')).toHaveLength(3);
+    expect(memory.calls.writes).toBe(3);
+  });
+
+  it('publishes a cached snapshot before refresh and keeps it on failure', async () => {
+    const memory = createMemoryCache();
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+    const first = createHarness({ cache: memory.cache });
+    await first.controller.loadMonths(context, ['2026-08']);
+    const writes = memory.calls.writes;
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const second = createHarness({
+      cache: memory.cache,
+      getCalendar: vi.fn(() => Promise.reject(new Error('offline'))),
+      getHolidays: vi.fn(() => Promise.reject(new Error('offline'))),
+      publishUpdate: (update) => updates.push(update),
+    });
+    await second.controller.loadMonths(context, ['2026-08']);
+    expect(updates[0]?.viewModel.status).toBe('cached');
+    expect(updates.at(-1)?.viewModel).toMatchObject({ isStale: true, status: 'cached' });
+    expect(updates.some(({ viewModel }) => viewModel.status === 'error')).toBe(false);
+    expect(memory.calls.writes).toBe(writes);
   });
 
   it.each([

@@ -816,14 +816,14 @@ Month/list toolbar calls `stepCalendarMonth`, then `recenterMonthSlots(next.busi
 
 ### 7.8 Task 7 Steps
 
-- [ ] **Step 1:** Run Task 7 prerequisites: Task 6 local commit exists; `origin/main` is an ancestor; only its approved docs/Task 6 commits are ahead; the Task 6 validation set passes.
-- [ ] **Step 2:** Write `calendar-views.test.ts` including the spaces in the Web week label and two cross-month cases; observe module-missing red; implement only `calendar-views.ts`; run green.
-- [ ] **Step 3:** Write `calendar-view-mode.test.ts` for all transition-table rows, non-touch/center/locked swiper no-ops, tuple rotation, and toolbar recenter; observe red; implement only `calendar-view-mode.ts`; run green.
-- [ ] **Step 4:** Write `calendar-cache.test.ts` with the full identity matrix and throwing/corrupt storage; observe red; implement only `calendar-cache.ts`; run green.
-- [ ] **Step 5:** Extend month-VM/routing tests for cache metadata and cross-month route lookup, then write `calendar-surface.test.ts` including August 31–September 6 and mode-independent phone lookup; observe red; implement the VM metadata and `calendar-surface.ts`; run green.
-- [ ] **Step 6:** Extend controller tests for per-month slots, per-year holidays, cache-first, stale protection, and filter rebuild; observe red; implement controller changes; run green.
-- [ ] **Step 7:** Create `calendar-week`/`calendar-list`, then update the boundary guard before calendar page TS/JSON/WXML/WXSS; observe guard red and only then wire the components/page to green.
-- [ ] **Step 8:** Run this exact Task 7 validation set:
+- [x] **Step 1:** Run Task 7 prerequisites: Task 6 local commit exists; `origin/main` is an ancestor; only its approved docs/Task 6 commits are ahead; the Task 6 validation set passes.
+- [x] **Step 2:** Write `calendar-views.test.ts` including the spaces in the Web week label and two cross-month cases; observe module-missing red; implement only `calendar-views.ts`; run green.
+- [x] **Step 3:** Write `calendar-view-mode.test.ts` for all transition-table rows, non-touch/center/locked swiper no-ops, tuple rotation, and toolbar recenter; observe red; implement only `calendar-view-mode.ts`; run green.
+- [x] **Step 4:** Write `calendar-cache.test.ts` with the full identity matrix and throwing/corrupt storage; observe red; implement only `calendar-cache.ts`; run green.
+- [x] **Step 5:** Extend month-VM/routing tests for cache metadata and cross-month route lookup, then write `calendar-surface.test.ts` including August 31–September 6 and mode-independent phone lookup; observe red; implement the VM metadata and `calendar-surface.ts`; run green.
+- [x] **Step 6:** Extend controller tests for per-month slots, per-year holidays, cache-first, stale protection, and filter rebuild; observe red; implement controller changes; run green.
+- [x] **Step 7:** Create `calendar-week`/`calendar-list`, then update the boundary guard before calendar page TS/JSON/WXML/WXSS; observe guard red and only then wire the components/page to green.
+- [x] **Step 8:** Run this exact Task 7 validation set:
 
 ```powershell
 pnpm vitest run apps/miniprogram/features/calendar/calendar-logic.test.ts apps/miniprogram/features/calendar/calendar-view-model.test.ts apps/miniprogram/features/calendar/calendar-routing.test.ts apps/miniprogram/features/calendar/calendar-views.test.ts apps/miniprogram/features/calendar/calendar-view-mode.test.ts apps/miniprogram/features/calendar/calendar-surface.test.ts apps/miniprogram/features/calendar/calendar-page-controller.test.ts apps/miniprogram/store/calendar-cache.test.ts apps/miniprogram/features/calendar/calendar-golden-data.test.ts scripts/miniprogram-calendar-boundary.test.mjs
@@ -839,8 +839,8 @@ git diff --check
 
 Expected: every command exits `0`, the boundary diff is empty, and `pnpm smoke:browser` is recorded as not applicable because no Web/API/contract/auth/router/build-core file changed.
 
-- [ ] **Step 9:** DevTools/simulator gate: run `pnpm miniprogram:devtools:build-npm`, `pnpm miniprogram:devtools:preview`, and `pnpm miniprogram:smoke`; capture July/August/September forward/backward swipes, August 31–September 6 week, list order, a network-failure cache notice, and call-count evidence. Record renderer/base-library/device facts, not guessed fallback claims.
-- [ ] **Step 10:** Complete the semantic audit, update both checkpoint documents, stage only Task 7 paths, run `git diff --cached --check`/`git diff --cached`, list behavioral changes, and create the **local** commit `feat(miniprogram): add calendar navigation and read cache`.
+- [x] **Step 9:** DevTools/simulator gate: `pnpm miniprogram:devtools:build-npm` (no warnings), `pnpm miniprogram:devtools:preview` (154.8 KB), and `pnpm miniprogram:smoke` (7/7 pages, no script error) passed on Stable DevTools / base library `3.16.2`. Skyline automation cannot inspect handlers or screenshots; the user explicitly delegates July/August/September swipes, August 31–September 6, list order and cache-notice visual checks to manual DevTools review. Controller tests retain call-count evidence; no fallback claim is inferred.
+- [x] **Step 10:** Complete the semantic audit, update both checkpoint documents, stage only Task 7 paths, run `git diff --cached --check`/`git diff --cached`, list behavioral changes, and create the **local** commit `feat(miniprogram): add calendar navigation and read cache`.
 
 **Task 7 stop condition:** stop after the local checkpoint commit. Do not add detail sheets, event loading, or V3-3 work.
 

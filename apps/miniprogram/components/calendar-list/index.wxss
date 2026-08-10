@@ -1,0 +1,31 @@
+.calendar-list {
+  display: block;
+}
+
+.calendar-list__day {
+  display: block;
+  margin-bottom: var(--v3-space-sm);
+  padding: var(--v3-space-sm);
+  border: 1rpx solid var(--v3-color-border);
+  border-radius: var(--v3-radius-md);
+  background: var(--v3-color-surface);
+}
+
+.calendar-list__date-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--v3-space-xs);
+}
+
+.calendar-list__date {
+  color: var(--v3-color-text);
+  font-size: var(--v3-font-size-md);
+  font-weight: 700;
+}
+
+.calendar-list__assignments {
+  display: block;
+  margin-top: var(--v3-space-xs);
+}

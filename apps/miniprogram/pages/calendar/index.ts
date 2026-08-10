@@ -5,66 +5,114 @@ import {
   getLoggedInGuestCalendar,
 } from '../../api/endpoints.js';
 import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
-import {
-  addBusinessMonths,
-  getCurrentBusinessDate,
-  getCurrentBusinessMonth,
-} from '../../features/calendar/calendar-logic.js';
+import { getCurrentBusinessDate } from '../../features/calendar/calendar-logic.js';
 import {
   createCalendarDevFixtureDependencies,
   isCalendarDevFixtureEnabled,
 } from '../../features/calendar/calendar-dev-fixture.js';
 import {
   calendarFixtureGroupId,
-  goldenBusinessMonth,
   goldenToday,
 } from '../../features/calendar/calendar-golden-data.js';
 import {
+  buildCalendarSurfaceViewModel,
+  type CalendarMonthSlotViewModel,
+  type CalendarSurfaceViewModel,
+} from '../../features/calendar/calendar-surface.js';
+import {
   createCalendarPageController,
   parseSelectorPickerIndex,
+  type CalendarContext,
   type CalendarPageController,
+  type CalendarMonthSlotUpdate,
 } from '../../features/calendar/calendar-page-controller.js';
+import {
+  createCalendarViewModeState,
+  recenterMonthSlots,
+  rotateMonthSlots,
+  stepCalendarMonth,
+  stepCalendarWeek,
+  switchCalendarViewMode,
+  type CalendarMonthSlots,
+  type CalendarViewMode,
+} from '../../features/calendar/calendar-view-mode.js';
+import {
+  createCalendarMonthStateViewModel,
+  type CalendarMonthDataViewModel,
+  type CalendarMonthViewModel,
+} from '../../features/calendar/calendar-view-model.js';
+import { getBusinessMonthsForWeek } from '../../features/calendar/calendar-views.js';
 import {
   resolveCalendarRouteAction,
   type CalendarRouteTarget,
 } from '../../features/calendar/calendar-routing.js';
-import {
-  createCalendarMonthStateViewModel,
-  type CalendarMonthViewModel,
-} from '../../features/calendar/calendar-view-model.js';
+import { createCalendarCache } from '../../store/calendar-cache.js';
 import { sessionStore } from '../../store/session.js';
 
 interface CalendarPageData {
   readonly activeRole: string;
-  readonly businessMonth: string;
+  readonly cacheNotice?: { readonly savedAtText: string; readonly stale: boolean };
   readonly hasActiveGroup: boolean;
+  readonly monthSlots: readonly [
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+  ];
   readonly renderer: string;
-  readonly viewModel: CalendarMonthViewModel;
+  readonly surface: CalendarSurfaceViewModel;
+  readonly swiperIndex: 1;
+  readonly viewMode: CalendarViewMode;
+  readonly weekStart: string;
 }
 
 type PickerEvent = WechatMiniprogram.PickerChange;
 type ActionIdEvent = WechatMiniprogram.CustomEvent<{ readonly actionId?: unknown }>;
+type ModeTapEvent = WechatMiniprogram.BaseEvent<Record<string, never>, { readonly mode?: unknown }>;
+type SwiperChangeEvent = WechatMiniprogram.CustomEvent<{
+  readonly current?: unknown;
+  readonly source?: unknown;
+}>;
 
 interface CalendarPageMethods {
   controller?: CalendarPageController;
   applyPicker(kind: 'member' | 'role' | 'shift', event: PickerEvent): void;
+  applySlotUpdate(update: CalendarMonthSlotUpdate): void;
   handleMemberFilter(event: PickerEvent): void;
   handleNextMonth(): void;
+  handleNextWeek(): void;
   handleOnlyChanges(event: WechatMiniprogram.SwitchChange): void;
   handlePreviousMonth(): void;
+  handlePreviousWeek(): void;
   handleRetry(): void;
   handleRouteAction(event: ActionIdEvent): void;
   handleRoleFilter(event: PickerEvent): void;
   handleShiftFilter(event: PickerEvent): void;
+  handleSwiperChange(event: SwiperChangeEvent): void;
+  handleViewModeTap(event: ModeTapEvent): void;
   lastResolvedRoute?: CalendarRouteTarget;
-  loadMonth(force?: boolean): void;
+  loadMonths(force?: boolean): void;
+  navigationEpoch: number;
+  swiperLocked: boolean;
+  updateNavigation(next: {
+    readonly businessMonth: string;
+    readonly mode: CalendarViewMode;
+    readonly weekStart: string;
+  }): void;
+}
+
+function isDataViewModel(
+  viewModel: CalendarMonthViewModel,
+): viewModel is CalendarMonthDataViewModel {
+  return (
+    viewModel.status === 'cached' ||
+    viewModel.status === 'ready' ||
+    viewModel.status === 'refreshing'
+  );
 }
 
 function getActiveGroup() {
   const state = sessionStore.state;
-  if (state.status !== 'authenticated' || state.activeGroupId === undefined) {
-    return undefined;
-  }
+  if (state.status !== 'authenticated' || state.activeGroupId === undefined) return undefined;
   return state.groups.find(({ id }) => id === state.activeGroupId);
 }
 
@@ -77,30 +125,99 @@ function isUsingCalendarDevFixture(): boolean {
 }
 
 function getCalendarGroup() {
-  if (isUsingCalendarDevFixture()) {
-    return { id: calendarFixtureGroupId, role: 'member' as const };
-  }
+  if (isUsingCalendarDevFixture())
+    return { id: calendarFixtureGroupId, role: 'member' as const, version: 1 };
   return getActiveGroup();
 }
 
-function getInitialBusinessMonth(): string {
-  return isUsingCalendarDevFixture() ? goldenBusinessMonth : getCurrentBusinessMonth();
+function getToday(): string {
+  return isUsingCalendarDevFixture() ? goldenToday : getCurrentBusinessDate();
 }
+
+function getInitialState() {
+  return createCalendarViewModeState(getToday());
+}
+
+function getInitialSlots(): readonly [
+  CalendarMonthSlotViewModel,
+  CalendarMonthSlotViewModel,
+  CalendarMonthSlotViewModel,
+] {
+  return recenterMonthSlots(getInitialState().businessMonth).map((businessMonth) => ({
+    businessMonth,
+    viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
+  })) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
+}
+
+function contextForCurrentGroup(): CalendarContext | undefined {
+  const group = getCalendarGroup();
+  if (group === undefined) return undefined;
+  const profile = sessionStore.state.profile;
+  if (isUsingCalendarDevFixture()) {
+    return {
+      groupId: group.id,
+      groupRole: group.role,
+      groupVersion: 1,
+      userId: 'calendar-fixture-user',
+    };
+  }
+  if (profile?.id === undefined || group.version < 1) return undefined;
+  return {
+    groupId: group.id,
+    groupRole: group.role,
+    groupVersion: group.version,
+    userId: profile.id,
+  };
+}
+
+function makeSurface(
+  slots: readonly [
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+  ],
+  viewMode: CalendarViewMode,
+  weekStart: string,
+): CalendarSurfaceViewModel {
+  return buildCalendarSurfaceViewModel({
+    businessMonth: slots[1].businessMonth,
+    mode: viewMode,
+    monthSlots: slots,
+    weekStart,
+  });
+}
+
+function makeCache() {
+  return createCalendarCache({
+    getStorageSync: (key) => wx.getStorageSync(key),
+    removeStorageSync: (key) => wx.removeStorageSync(key),
+    setStorageSync: (key, value) => wx.setStorageSync(key, value),
+  });
+}
+
+const initialViewState = getInitialState();
+const initialSlots = getInitialSlots();
 
 Page<CalendarPageData, CalendarPageMethods>({
   data: {
     activeRole: '',
-    businessMonth: getInitialBusinessMonth(),
     hasActiveGroup: false,
+    monthSlots: initialSlots,
     renderer: 'unknown',
-    viewModel: createCalendarMonthStateViewModel(getInitialBusinessMonth(), 'loading'),
+    surface: makeSurface(initialSlots, initialViewState.mode, initialViewState.weekStart),
+    swiperIndex: 1,
+    viewMode: initialViewState.mode,
+    weekStart: initialViewState.weekStart,
   },
+  navigationEpoch: 0,
+  swiperLocked: false,
   onLoad(): void {
-    this.setData({ renderer: this.renderer });
+    this.setData({ renderer: 'skyline' });
     const devFixtureDependencies = isUsingCalendarDevFixture()
       ? createCalendarDevFixtureDependencies()
       : undefined;
     this.controller = createCalendarPageController({
+      cache: makeCache(),
       getCalendar:
         devFixtureDependencies?.getCalendar ??
         ((groupId, businessMonth) => getCalendar(groupId, businessMonth)),
@@ -110,37 +227,60 @@ Page<CalendarPageData, CalendarPageMethods>({
       getLoggedInGuestCalendar: (groupId, businessMonth) =>
         devFixtureDependencies?.getLoggedInGuestCalendar(groupId, businessMonth) ??
         getLoggedInGuestCalendar(groupId, businessMonth),
-      getToday: () =>
-        devFixtureDependencies === undefined ? getCurrentBusinessDate() : goldenToday,
+      getToday,
       makePhoneCall: (options) => wx.makePhoneCall(options),
-      publish: (viewModel) => this.setData({ viewModel }),
+      publish: () => undefined,
+      publishUpdate: (update) => this.applySlotUpdate(update),
       setClipboardData: (options) => wx.setClipboardData(options),
     });
   },
   onShow(): void {
     const state = sessionStore.state;
-    const usingDevFixture = isUsingCalendarDevFixture();
-    if (!usingDevFixture && state.status !== 'authenticated') {
+    if (!isUsingCalendarDevFixture() && state.status !== 'authenticated') {
       navigateForCurrentSession();
       return;
     }
     const group = getCalendarGroup();
-    if (group === undefined) {
+    const context = contextForCurrentGroup();
+    if (group === undefined || context === undefined) {
       this.setData({ activeRole: '', hasActiveGroup: false });
       return;
     }
     this.setData({ activeRole: group.role, hasActiveGroup: true });
-    this.loadMonth();
+    this.controller?.activate(context);
+    this.loadMonths();
+  },
+  applySlotUpdate(update): void {
+    const context = contextForCurrentGroup();
+    if (
+      context === undefined ||
+      update.context.groupId !== context.groupId ||
+      update.context.groupRole !== context.groupRole ||
+      update.context.groupVersion !== context.groupVersion ||
+      update.context.userId !== context.userId
+    )
+      return;
+    const index = this.data.monthSlots.findIndex(
+      ({ businessMonth }) => businessMonth === update.businessMonth,
+    );
+    if (index < 0) return;
+    const nextSlots = [...this.data.monthSlots] as [
+      CalendarMonthSlotViewModel,
+      CalendarMonthSlotViewModel,
+      CalendarMonthSlotViewModel,
+    ];
+    nextSlots[index] = { businessMonth: update.businessMonth, viewModel: update.viewModel };
+    const surface = makeSurface(nextSlots, this.data.viewMode, this.data.weekStart);
+    const center = nextSlots[1].viewModel;
+    const cacheNotice =
+      center.status === 'cached' && center.cacheSavedAt !== undefined
+        ? { savedAtText: center.cacheSavedAt, stale: center.isStale === true }
+        : undefined;
+    this.setData({ cacheNotice, monthSlots: nextSlots, surface });
   },
   applyPicker(kind, event): void {
-    const viewModel = this.data.viewModel;
-    if (
-      viewModel.status !== 'cached' &&
-      viewModel.status !== 'ready' &&
-      viewModel.status !== 'refreshing'
-    ) {
-      return;
-    }
+    const viewModel = this.data.monthSlots[1].viewModel;
+    if (!isDataViewModel(viewModel)) return;
     const options =
       kind === 'role'
         ? viewModel.filters.roles
@@ -148,13 +288,9 @@ Page<CalendarPageData, CalendarPageMethods>({
           ? viewModel.filters.shiftTypes
           : viewModel.filters.members;
     const index = parseSelectorPickerIndex(event.detail.value, options.length);
-    if (index === undefined) {
-      return;
-    }
+    if (index === undefined) return;
     const selectedId = index === 0 ? undefined : options[index]?.id;
-    if (index > 0 && selectedId === undefined) {
-      return;
-    }
+    if (index > 0 && selectedId === undefined) return;
     this.controller?.setFilters({
       membershipIds:
         kind === 'member'
@@ -181,21 +317,26 @@ Page<CalendarPageData, CalendarPageMethods>({
     this.applyPicker('member', event);
   },
   handleNextMonth(): void {
-    const businessMonth = addBusinessMonths(this.data.businessMonth, 1);
-    this.setData({ businessMonth }, () => this.loadMonth());
+    const state = {
+      businessMonth: this.data.monthSlots[1].businessMonth,
+      mode: this.data.viewMode,
+      weekStart: this.data.weekStart,
+    };
+    if (state.mode === 'week') return;
+    this.updateNavigation(stepCalendarMonth(state, 1, getToday()));
+  },
+  handleNextWeek(): void {
+    const state = {
+      businessMonth: this.data.monthSlots[1].businessMonth,
+      mode: this.data.viewMode,
+      weekStart: this.data.weekStart,
+    };
+    this.updateNavigation(stepCalendarWeek(state, 1));
   },
   handleOnlyChanges(event): void {
-    if (typeof event.detail.value !== 'boolean') {
-      return;
-    }
-    const viewModel = this.data.viewModel;
-    if (
-      viewModel.status !== 'cached' &&
-      viewModel.status !== 'ready' &&
-      viewModel.status !== 'refreshing'
-    ) {
-      return;
-    }
+    if (typeof event.detail.value !== 'boolean') return;
+    const viewModel = this.data.monthSlots[1].viewModel;
+    if (!isDataViewModel(viewModel)) return;
     this.controller?.setFilters({
       membershipIds: viewModel.filters.selectedMembershipIds,
       onlyChanges: event.detail.value,
@@ -204,52 +345,122 @@ Page<CalendarPageData, CalendarPageMethods>({
     });
   },
   handlePreviousMonth(): void {
-    const businessMonth = addBusinessMonths(this.data.businessMonth, -1);
-    this.setData({ businessMonth }, () => this.loadMonth());
+    const state = {
+      businessMonth: this.data.monthSlots[1].businessMonth,
+      mode: this.data.viewMode,
+      weekStart: this.data.weekStart,
+    };
+    if (state.mode === 'week') return;
+    this.updateNavigation(stepCalendarMonth(state, -1, getToday()));
+  },
+  handlePreviousWeek(): void {
+    const state = {
+      businessMonth: this.data.monthSlots[1].businessMonth,
+      mode: this.data.viewMode,
+      weekStart: this.data.weekStart,
+    };
+    this.updateNavigation(stepCalendarWeek(state, -1));
   },
   handleRetry(): void {
-    this.loadMonth(true);
-  },
-  handleRouteAction(event): void {
-    const actionId = event.detail.actionId;
-    if (typeof actionId !== 'string' || actionId.length === 0) {
-      return;
-    }
-    const group = getCalendarGroup();
-    const viewModel = this.data.viewModel;
-    if (
-      group === undefined ||
-      (viewModel.status !== 'cached' &&
-        viewModel.status !== 'ready' &&
-        viewModel.status !== 'refreshing')
-    ) {
-      return;
-    }
-    const target = resolveCalendarRouteAction(actionId, group.role, [viewModel]);
-    if (target !== undefined) {
-      this.lastResolvedRoute = target;
-    }
+    this.loadMonths(true);
   },
   handleRoleFilter(event): void {
     this.applyPicker('role', event);
   },
+  handleRouteAction(event): void {
+    const actionId = event.detail.actionId;
+    const context = contextForCurrentGroup();
+    if (typeof actionId !== 'string' || actionId.length === 0 || context === undefined) return;
+    const viewModels = this.data.monthSlots
+      .map(({ viewModel }) => viewModel)
+      .filter(isDataViewModel);
+    const target = resolveCalendarRouteAction(actionId, context.groupRole, viewModels);
+    if (target !== undefined) this.lastResolvedRoute = target;
+  },
   handleShiftFilter(event): void {
     this.applyPicker('shift', event);
   },
-  loadMonth(force = false): void {
-    const group = getCalendarGroup();
-    if (group === undefined) {
-      this.setData({ activeRole: '', hasActiveGroup: false });
+  handleSwiperChange(event): void {
+    const current = event.detail.current;
+    if (
+      event.detail.source !== 'touch' ||
+      this.swiperLocked ||
+      current === 1 ||
+      (current !== 0 && current !== 2)
+    )
       return;
-    }
-    this.setData({ activeRole: group.role, hasActiveGroup: true });
-    void this.controller?.load(
+    const context = contextForCurrentGroup();
+    if (context === undefined) return;
+    this.swiperLocked = true;
+    this.navigationEpoch += 1;
+    const navigationEpoch = this.navigationEpoch;
+    const sourceSlots: CalendarMonthSlots = [
+      this.data.monthSlots[0].businessMonth,
+      this.data.monthSlots[1].businessMonth,
+      this.data.monthSlots[2].businessMonth,
+    ];
+    const rotatedMonths = rotateMonthSlots(sourceSlots, current);
+    const rotatedSlots = rotatedMonths.map(
+      (businessMonth) =>
+        this.data.monthSlots.find((slot) => slot.businessMonth === businessMonth) ?? {
+          businessMonth,
+          viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
+        },
+    ) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
+    const surface = makeSurface(rotatedSlots, this.data.viewMode, this.data.weekStart);
+    this.setData({ monthSlots: rotatedSlots, surface, swiperIndex: 1 }, () => {
+      if (this.navigationEpoch !== navigationEpoch) return;
+      this.swiperLocked = false;
+      void this.controller?.loadMonths(context, rotatedMonths);
+    });
+  },
+  handleViewModeTap(event): void {
+    const mode = event.currentTarget.dataset.mode;
+    if (mode !== 'month' && mode !== 'week' && mode !== 'list') return;
+    const state = switchCalendarViewMode(
       {
-        businessMonth: this.data.businessMonth,
-        groupId: group.id,
-        groupRole: group.role,
+        businessMonth: this.data.monthSlots[1].businessMonth,
+        mode: this.data.viewMode,
+        weekStart: this.data.weekStart,
       },
-      force,
+      mode,
+      getToday(),
     );
+    this.setData(
+      {
+        surface: makeSurface(this.data.monthSlots, state.mode, state.weekStart),
+        viewMode: state.mode,
+        weekStart: state.weekStart,
+      },
+      () => this.loadMonths(),
+    );
+  },
+  updateNavigation(next): void {
+    const context = contextForCurrentGroup();
+    if (context === undefined) return;
+    this.navigationEpoch += 1;
+    const months = recenterMonthSlots(next.businessMonth);
+    const slots = months.map((businessMonth) => ({
+      businessMonth,
+      viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
+    })) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
+    this.setData(
+      {
+        monthSlots: slots,
+        surface: makeSurface(slots, next.mode, next.weekStart),
+        swiperIndex: 1,
+        viewMode: next.mode,
+        weekStart: next.weekStart,
+      },
+      () => this.loadMonths(),
+    );
+  },
+  loadMonths(force = false): void {
+    const context = contextForCurrentGroup();
+    if (context === undefined) return;
+    const months = new Set<string>(this.data.monthSlots.map(({ businessMonth }) => businessMonth));
+    if (this.data.viewMode === 'week')
+      getBusinessMonthsForWeek(this.data.weekStart).forEach((month) => months.add(month));
+    void this.controller?.loadMonths(context, [...months], force);
   },
 });

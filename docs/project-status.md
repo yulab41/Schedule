@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待用户复核。
 - V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。用户已批准 V3-2；Task 6 已通过用户视觉验收，完成本地检查点后仅执行 Task 7。
-- 当前批次：真实 Web 部署数据已通过阿里云 API 容器的只读既有端点完整取样为 2026 fixture（全年 12 个月，其中 8/9 月共 61 条班次、6 名成员、1 个岗位、1 个班种、39 条节假日、14 条换班/加扣班事件）。该样本已成为仓库内持久 fixture，`develop` 环境日历页不依赖登录或内存注入；`trial`/`release` 仍走真实接口。下一任务为 Task 7 的三月槽、视图模式和只读缓存；Task 8 前不实现可见详情交互。
+- 当前批次：真实 Web 部署数据已通过阿里云 API 容器的只读既有端点完整取样为 2026 fixture（全年 12 个月，其中 8/9 月共 61 条班次、6 名成员、1 个岗位、1 个班种、39 条节假日、14 条换班/加扣班事件）。该样本已成为仓库内持久 fixture，`develop` 环境日历页不依赖登录或内存注入；`trial`/`release` 仍走真实接口。Task 7 已完成自动化与 DevTools 路由验证，等待人工视觉复核；在用户确认前不开始 Task 8 的详情交互。
 
 ## Completed Batch
 
@@ -114,7 +114,17 @@
 - 回归引入点与行为审计：`git log -S`/`git blame` 确认 mini `getHolidayShortLabel`、marker tokens 与原始 `shiftTypeAbbreviation` 由 `ce21a51` 引入；Web 对应节假日、姓名、班种与 marker 样式来自 `a3b14fb`/`DutyCell.vue`/`ChangeBadge.vue`/`MonthGrid.vue`。此次是有意显示变更而非语义等价重构：marker 统一为 Web 的浅黄棕字无描边，workday 统一为蓝色“班”，姓名恢复渲染；真实 marker 类型、action ID、路由、筛选、电话 action、源数据和权限均不变，组件仍不引入 API/`wx`/会话副作用。
 - DevTools：Stable CLI、项目 `apps/miniprogram`、端口 `25228` 下 `pnpm miniprogram:devtools:build-npm` 成功（`cost: 3560`，`warnings: []`）。`cli auto --auto-port 9430` 仍未监听自动化 WebSocket，桌面自动化也无法操作其窗口；但不再需要内存注入，重载项目即可由持久 `develop` fixture 显示 2026-08 网格。
 - DevTools 验收：用户已确认姓名、班种、节假日、换/加标识的最终视觉效果。Task 6 的点击按计划仅进行无副作用 route sink 解析；详情/电话/事件可见交互属于 Task 8。
-- 检查点：将创建本地提交 `feat(miniprogram): add calendar grid routing`；不推送。下一批仅为 Task 7，完成其独立验证和本地提交后停止，仍不得开始 Task 8。
+- 检查点：`1eef26a feat(miniprogram): add calendar grid routing` 已创建且保持本地、不推送。下一批仅为 Task 7，完成其独立验证和本地提交后停止，仍不得开始 Task 8。
+
+### V3-2：Task 7 三月导航、月/周/列表模式与只读缓存（待用户视觉复核，2026-08-10）
+
+- 实现：新增 `calendar-views`、`calendar-view-mode`、`calendar-surface` 与 `calendar-cache` 纯模块；控制器按 `userId/groupId/groupRole/groupVersion/businessMonth` 隔离槽位，三月加载按年度节假日单飞，缓存先显示再刷新，过期/失败保留 stale 快照，筛选和电话 action 跨槽位复用。
+- 页面：新增固定三页 `swiper` 轮换、月/周/列表模式、跨月周源数据、`cacheNotice`，以及 `calendar-week`/`calendar-list` 组件；页面仍只消费 ViewModel，未加入详情 sheet、事件加载或 API/契约变更。
+- 回归修复：DevTools 点击日历曾报 `can not find module`，实际失败于 `calendar-cache` 运行时加载仓库外的 `../../../packages/contracts/src/*.js` schema；`calendar-page-controller.ts:14` 只是导入触发点。该缓存文件是本 Task 未提交新增文件，`git log -S '../../../packages/contracts/src/calendar.js' -- apps/miniprogram/store/calendar-cache.ts` 无记录且 `git blame` 无法归属。先新增 bundle 边界断言并观察其失败，再以小程序内的等价严格结构校验替代 Zod 运行时导入；共享契约只保留编译期类型。严格字段、嵌套 marker、日期/颜色/时间格式与节假日缓存仍会在读取时拒绝。
+- 语义审计：本地校验函数不依赖接收者、无异步或副作用；缓存的 key、同步存储异常吞没、过期判断、缓存先发布后刷新、网络失败 stale 回退和身份隔离均未改变。页面仍保留 `this.setData`、端点与 `wx` 的成员调用，Promise/generation 仅发布当前 context，筛选复制数组后重建 VM；未修改 API、共享契约、认证、持久化格式或授权范围。
+- 验证：定向套件 10 文件 / 43 项、完整 `pnpm vitest run apps/miniprogram` 16 文件 / 79 项、缓存/运行边界回归 2 文件 / 7 项、配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff 与 `git diff --check` 均通过；`pnpm miniprogram:devtools:build-npm` 无 warnings，`pnpm miniprogram:devtools:preview` 成功（154.8 KB），复用 `ws://127.0.0.1:9422` 的 `pnpm miniprogram:smoke` 通过 7/7 当前 manifest 页面、无脚本级错误。
+- DevTools 续验：固定 `cli auto --auto-port 9422` 成功并监听；连接/路由可用，但页面级 Skyline 只返回 `__webviewId__`，`Page.getData`/页面 handler/selector 报 `page node not found` 或不存在。`App.captureScreenshot` 生成的 `august-initial.png` 为全白帧，不能作为视觉证据；这是 Stable DevTools + `miniprogram-automator 0.12.1` 的 Skyline 页面观测边界，不归因于 Task 7 生产代码。已停止本轮一次性 probe，未改端点、会话或持久化数据。
+- 视觉门禁：自动化路由通过不等于月切换、跨月周、列表、网络失败 cache notice 的视觉/触控通过；调用次数仍由已通过的 controller 单测覆盖。用户明确将视觉审查交由人工，故在 DevTools 强制重新编译后仅需确认点击日历 tab 不再出现模块缺失，并复核上述视图切换/缓存提示。Task 7 本地检查点消息为 `feat(miniprogram): add calendar navigation and read cache`；不推送、不开始 Task 8。
 
 ## Validation
 
@@ -146,8 +156,8 @@
 
 ## Active Batch
 
-1. V3-2 Task 6 已完成自动化实现、静态/单元验证及 DevTools npm 构建，状态**已实现待开发者工具/真机复核**；不将这些自动化结果写成视觉完成，且尚无本地 Task 6 提交。
-2. 下一批仅为：在 DevTools 中重载项目后完成 Task 6 Step 8 的人工真实 2026-08 数据视觉/触控复核；持久 fixture 不依赖自动化 WebSocket 或内存注入。通过后执行 Task 6 Step 9 的语义审计、状态更新和本地提交。停止在 Task 6 检查点，不能开始 Task 7；Task 6–8 全部完成后才一次性 GitHub push。
+1. V3-2 Task 6 已提交为本地 `1eef26a` 并通过用户视觉验收；Task 7 已完成自动化、DevTools 构建/preview/路由 smoke 和回归修复，状态为**待用户视觉复核**，本轮创建本地 `feat(miniprogram): add calendar navigation and read cache` 检查点。
+2. 用户在 DevTools 强制重新编译后确认日历 tab 无模块缺失，并人工复核 Task 7 月切换、跨月周、列表和缓存提示。停止在 Task 7 检查点，不能开始 Task 8；Task 6–8 全部完成后才一次性 GitHub push。
 
 ## Handoff Requirements
 

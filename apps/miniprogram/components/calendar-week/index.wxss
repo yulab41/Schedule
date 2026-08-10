@@ -1,0 +1,39 @@
+.calendar-week {
+  display: block;
+}
+
+.calendar-week__row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--v3-space-xs);
+}
+
+.calendar-week__cell {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 208rpx;
+  padding: var(--v3-space-xs);
+  border: 1rpx solid var(--v3-color-border);
+  border-radius: var(--v3-radius-md);
+  background: var(--v3-color-surface);
+}
+
+.calendar-week__day-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--v3-space-xs);
+}
+
+.calendar-week__day-number {
+  color: var(--v3-color-text);
+  font-size: var(--v3-font-size-md);
+  font-weight: 700;
+}
+
+.calendar-week__assignments {
+  display: block;
+  margin-top: var(--v3-space-xs);
+}

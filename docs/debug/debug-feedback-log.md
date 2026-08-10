@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理；V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成并正常快进推送；用户已批准 V3-2，Task 6 自动化实现完成但等待 DevTools/真机黄金数据复核，尚未提交。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理；V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成并正常快进推送；V3-2 Task 6 已提交为本地 `1eef26a`，Task 7 自动化/DevTools 路由验证已完成，创建本地 `feat(miniprogram): add calendar navigation and read cache` 检查点后等待人工视觉复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1614,3 +1614,15 @@
 - DevTools 续接：用户打开 DevTools 后，确认服务端口 `25228` 正在监听；显式执行 `cli auto --auto-port 9422` 后复用 `ws://127.0.0.1:9422`。`Tool.getInfo`、当前页读取和页面导航均正常，`auto-preview` 也成功。将由真实 `buildCalendarMonthViewModel(goldenCalendar, goldenHolidays, goldenToday)` 构造的 2026-08 VM 以 `Page.setData` 临时注入，页面数据确认 `ready`、5 个班次、非空月份；page route sink 对 `date:2026-08-15`、`assignment:golden-a2`、`golden-a2:marker:swap:0` 与从运行时数据读取的 `golden-a1:phone:长号` 分别返回 date、assignment、events、phone target。注入先恢复到真实空月并验证，再重新注入留给用户视觉复核；未改源码、端点、会话或持久化数据。
 - 视觉门禁根因：`miniprogram-automator` 可连接且路由可用，但其 `App.captureScreenshot` 在本 Stable DevTools 版本无响应，导致原 smoke 永久等待；`Page.captureScreenshot`/`Page.captureScreen` 返回 appservice 未实现，`Tool.captureScreenshot` 返回未实现。`PrintWindow` 截图为空白、窗口 DC 为黑帧，符合 NW.js 硬件渲染窗口在当前捕获环境不可读，不能替代人工视觉/触控证据。自动化选择器也不穿透未带选择器的 Skyline 自定义组件实例，因此不以零匹配误判组件未渲染。
 - 状态：已实现待开发者工具/真机复核；当前 DevTools 保留仅内存态黄金 fixture 供用户查看，重新加载日历可恢复真实数据。未暂存、未提交、未推送。下一步仅完成 Task 6 Step 8 人工复核，随后恢复真实运行态、审计并创建 `feat(miniprogram): build calendar golden baseline` 本地检查点。
+
+### V3-2 Task 7 三月导航与只读缓存（2026-08-10）
+
+- 实现与测试：新增三月槽、月/周/列表纯视图、固定 tuple 轮换、跨月周数据选择、完整身份缓存键和 per-year holiday single-flight；控制器保留旧单月入口兼容性。缓存先发布 `cached`，网络成功转 `ready`，网络失败保留 `isStale` 快照；过滤、电话 action 和 route ID 不读取原始契约字段。红绿测试覆盖 10 文件 / 41 项，完整小程序 16 文件 / 78 项通过。
+- 回归引入点：`git log -S 'lastSuccessfulKey' -- apps/miniprogram/features/calendar/calendar-page-controller.ts` 与 `git blame` 定位 V3-1 单月控制器行为到 `ce21a51`；`git log -S 'calendar-grid' -- apps/miniprogram/pages/calendar/index.wxml` 定位页面网格到 `1eef26a`。Task 7 是有意扩展，不改变既有端点角色互斥、接收者绑定、错误分类和空值语义；只读缓存新增 `groupVersion/userId` 隔离。
+- 运行验证：配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；`pnpm miniprogram:devtools:build-npm` 成功且 warnings `[]`，`pnpm miniprogram:devtools:preview` 成功（151.6 KB）。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
+- DevTools 阻塞：自动化端口 `9430`/`9431` 虽监听，`miniprogram-automator.connect` 无法建立会话，`pnpm miniprogram:smoke` 分别超时 184 秒/124 秒；未执行人工视觉/触控门禁，未创建 Task 7 提交。待用户恢复 DevTools automation 后再复验并提交。
+- Step 9 续验：重新执行 `pnpm miniprogram:devtools:build-npm`（无 warnings）、`pnpm miniprogram:devtools:preview`（151.6 KB）和 `pnpm miniprogram:smoke`（7/7 页面、无脚本级错误）；固定 `cli auto --auto-port 9422` 成功监听并可连接。自动化首次握手时曾因 Stable 时序失败，增加连接超时只用于本地 probe，未修改仓库生产脚本。
+- 根因定位：`miniprogram-automator 0.12.1` 在端口接受连接但 `Tool.getInfo` 无响应时会无限等待；恢复后 Skyline 日历页能返回路由栈和截图调用，但 `Page.getData`/selectors 报 `page node not found`，app-service 只暴露 `__webviewId__`、没有页面 handler。自动截图为全白帧，不能替代 DevTools UI/真机视觉证据；该行为与页面级 Skyline/当前 DevTools 自动化能力边界一致，不能归因于 Task 7 页面逻辑。
+- 未完成门禁：自动化路由通过不等于月切换、跨月周、列表、网络失败 cache notice 的视觉/触控通过；调用次数仍由已通过的 controller 单测覆盖。当前状态保持“已实现待开发者工具/模拟器复核”，本轮未创建 Task 7 checkpoint，也未开始 Task 8。
+- DevTools 模块加载回归：用户点击日历 tab 后，完整堆栈显示 `calendar-page-controller.ts:14` 触发 `store/calendar-cache.js` 加载 `../../../packages/contracts/src/calendar.js`，而小程序输出不包含仓库外 `packages/contracts/src`。该源文件为 Task 7 尚未提交的新文件，`git log -S '../../../packages/contracts/src/calendar.js' -- apps/miniprogram/store/calendar-cache.ts` 无结果，`git blame` 因 HEAD 中无此路径不能归属。先在 `miniprogram-calendar-boundary.test.mjs` 加入禁止该路径的断言并观察红色失败，再新增小程序内 `calendar-cache-validation.ts`，以与共享 schema 等价的严格结构校验（字段、未知键、marker、日期/颜色/时间、节假日）取代 Zod 的运行时导入；`@schedule/contracts` 只保留 type import。缓存读取、缓存命中/stale 与身份隔离语义不变。
+- 回归后验证：缓存/边界 2 文件 / 7 项、Task 7 定向 10 文件 / 43 项、完整小程序 16 文件 / 79 项、配置审计、typecheck、lint、Prettier、契约/API 空 diff、`git diff --check` 与 `pnpm smoke:check-core` 均通过。`pnpm miniprogram:devtools:build-npm` 无 warnings，preview 成功（154.8 KB）；复用 `ws://127.0.0.1:9422` 的 smoke 打开 7/7 页面、无脚本级错误。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。用户将 Skyline 视觉/触控复核交由人工；需要在 DevTools 强制重新编译后确认日历 tab 不再报模块缺失，再复核三月切换、跨月周、列表排序与缓存提示。

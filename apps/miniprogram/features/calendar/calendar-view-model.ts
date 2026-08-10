@@ -138,8 +138,10 @@ export interface CalendarMonthStateViewModel extends CalendarMonthBaseViewModel 
 
 export interface CalendarMonthDataViewModel extends CalendarMonthBaseViewModel {
   readonly assignmentCount: number;
+  readonly cacheSavedAt?: string;
   readonly filters: CalendarFilterViewModel;
   readonly isMonthEmpty: boolean;
+  readonly isStale?: boolean;
   readonly status: CalendarDataStatus;
   readonly weekdayLabels: readonly ['一', '二', '三', '四', '五', '六', '日'];
   readonly weeks: readonly CalendarWeekViewModel[];
@@ -149,8 +151,10 @@ export type CalendarMonthViewModel = CalendarMonthDataViewModel | CalendarMonthS
 
 export interface BuildCalendarMonthViewModelInput {
   readonly calendar: CalendarReadModel;
+  readonly cacheSavedAt?: string;
   readonly filters: CalendarAssignmentFilters;
   readonly holidays: HolidayReadModel;
+  readonly isStale?: boolean;
   readonly status: CalendarDataStatus;
   readonly today: string;
 }
@@ -419,9 +423,13 @@ export function buildCalendarMonthViewModel(
 
   return {
     assignmentCount: filteredAssignments.length,
+    ...(input.status === 'cached' && input.cacheSavedAt !== undefined
+      ? { cacheSavedAt: input.cacheSavedAt }
+      : {}),
     businessMonth: input.calendar.businessMonth,
     filters: getFilterViewModel(input.calendar, normalizedFilters),
     isMonthEmpty: filteredAssignments.length === 0,
+    ...(input.status === 'cached' && input.isStale !== undefined ? { isStale: input.isStale } : {}),
     monthLabel: getBusinessMonthLabel(input.calendar.businessMonth),
     status: input.status,
     weekdayLabels,

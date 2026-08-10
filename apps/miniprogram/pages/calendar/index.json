@@ -4,7 +4,9 @@
   "navigationStyle": "custom",
   "renderer": "skyline",
   "usingComponents": {
+    "calendar-list": "/components/calendar-list/index",
     "calendar-grid": "/components/calendar-grid/index",
+    "calendar-week": "/components/calendar-week/index",
     "page-shell": "/components/page-shell/index",
     "shell-state": "/components/shell-state/index"
   }
