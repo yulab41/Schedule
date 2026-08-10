@@ -11,10 +11,23 @@ import {
   getCurrentBusinessMonth,
 } from '../../features/calendar/calendar-logic.js';
 import {
+  createCalendarDevFixtureDependencies,
+  isCalendarDevFixtureEnabled,
+} from '../../features/calendar/calendar-dev-fixture.js';
+import {
+  calendarFixtureGroupId,
+  goldenBusinessMonth,
+  goldenToday,
+} from '../../features/calendar/calendar-golden-data.js';
+import {
   createCalendarPageController,
   parseSelectorPickerIndex,
   type CalendarPageController,
 } from '../../features/calendar/calendar-page-controller.js';
+import {
+  resolveCalendarRouteAction,
+  type CalendarRouteTarget,
+} from '../../features/calendar/calendar-routing.js';
 import {
   createCalendarMonthStateViewModel,
   type CalendarMonthViewModel,
@@ -22,6 +35,7 @@ import {
 import { sessionStore } from '../../store/session.js';
 
 interface CalendarPageData {
+  readonly activeRole: string;
   readonly businessMonth: string;
   readonly hasActiveGroup: boolean;
   readonly renderer: string;
@@ -29,10 +43,7 @@ interface CalendarPageData {
 }
 
 type PickerEvent = WechatMiniprogram.PickerChange;
-type PhoneActionEvent = WechatMiniprogram.BaseEvent<
-  Record<string, never>,
-  { readonly actionId?: unknown }
->;
+type ActionIdEvent = WechatMiniprogram.CustomEvent<{ readonly actionId?: unknown }>;
 
 interface CalendarPageMethods {
   controller?: CalendarPageController;
@@ -40,11 +51,12 @@ interface CalendarPageMethods {
   handleMemberFilter(event: PickerEvent): void;
   handleNextMonth(): void;
   handleOnlyChanges(event: WechatMiniprogram.SwitchChange): void;
-  handlePhoneAction(event: PhoneActionEvent): void;
   handlePreviousMonth(): void;
   handleRetry(): void;
+  handleRouteAction(event: ActionIdEvent): void;
   handleRoleFilter(event: PickerEvent): void;
   handleShiftFilter(event: PickerEvent): void;
+  lastResolvedRoute?: CalendarRouteTarget;
   loadMonth(force?: boolean): void;
 }
 
@@ -56,22 +68,50 @@ function getActiveGroup() {
   return state.groups.find(({ id }) => id === state.activeGroupId);
 }
 
+function isUsingCalendarDevFixture(): boolean {
+  try {
+    return isCalendarDevFixtureEnabled(wx.getAccountInfoSync().miniProgram.envVersion);
+  } catch {
+    return false;
+  }
+}
+
+function getCalendarGroup() {
+  if (isUsingCalendarDevFixture()) {
+    return { id: calendarFixtureGroupId, role: 'member' as const };
+  }
+  return getActiveGroup();
+}
+
+function getInitialBusinessMonth(): string {
+  return isUsingCalendarDevFixture() ? goldenBusinessMonth : getCurrentBusinessMonth();
+}
+
 Page<CalendarPageData, CalendarPageMethods>({
   data: {
-    businessMonth: getCurrentBusinessMonth(),
+    activeRole: '',
+    businessMonth: getInitialBusinessMonth(),
     hasActiveGroup: false,
     renderer: 'unknown',
-    viewModel: createCalendarMonthStateViewModel(getCurrentBusinessMonth(), 'loading'),
+    viewModel: createCalendarMonthStateViewModel(getInitialBusinessMonth(), 'loading'),
   },
   onLoad(): void {
     this.setData({ renderer: this.renderer });
+    const devFixtureDependencies = isUsingCalendarDevFixture()
+      ? createCalendarDevFixtureDependencies()
+      : undefined;
     this.controller = createCalendarPageController({
-      getCalendar: (groupId, businessMonth) => getCalendar(groupId, businessMonth),
-      getGuestHolidays: (year) => getGuestHolidays(year),
-      getHolidays: (year) => getHolidays(year),
+      getCalendar:
+        devFixtureDependencies?.getCalendar ??
+        ((groupId, businessMonth) => getCalendar(groupId, businessMonth)),
+      getGuestHolidays:
+        devFixtureDependencies?.getGuestHolidays ?? ((year) => getGuestHolidays(year)),
+      getHolidays: devFixtureDependencies?.getHolidays ?? ((year) => getHolidays(year)),
       getLoggedInGuestCalendar: (groupId, businessMonth) =>
+        devFixtureDependencies?.getLoggedInGuestCalendar(groupId, businessMonth) ??
         getLoggedInGuestCalendar(groupId, businessMonth),
-      getToday: () => getCurrentBusinessDate(),
+      getToday: () =>
+        devFixtureDependencies === undefined ? getCurrentBusinessDate() : goldenToday,
       makePhoneCall: (options) => wx.makePhoneCall(options),
       publish: (viewModel) => this.setData({ viewModel }),
       setClipboardData: (options) => wx.setClipboardData(options),
@@ -79,15 +119,17 @@ Page<CalendarPageData, CalendarPageMethods>({
   },
   onShow(): void {
     const state = sessionStore.state;
-    if (state.status !== 'authenticated') {
+    const usingDevFixture = isUsingCalendarDevFixture();
+    if (!usingDevFixture && state.status !== 'authenticated') {
       navigateForCurrentSession();
       return;
     }
-    if (getActiveGroup() === undefined) {
-      this.setData({ hasActiveGroup: false });
+    const group = getCalendarGroup();
+    if (group === undefined) {
+      this.setData({ activeRole: '', hasActiveGroup: false });
       return;
     }
-    this.setData({ hasActiveGroup: true });
+    this.setData({ activeRole: group.role, hasActiveGroup: true });
     this.loadMonth();
   },
   applyPicker(kind, event): void {
@@ -161,18 +203,32 @@ Page<CalendarPageData, CalendarPageMethods>({
       shiftTypeIds: viewModel.filters.selectedShiftTypeIds,
     });
   },
-  handlePhoneAction(event): void {
-    const actionId = event.currentTarget.dataset.actionId;
-    if (typeof actionId === 'string' && actionId.length > 0) {
-      this.controller?.performPhoneAction(actionId);
-    }
-  },
   handlePreviousMonth(): void {
     const businessMonth = addBusinessMonths(this.data.businessMonth, -1);
     this.setData({ businessMonth }, () => this.loadMonth());
   },
   handleRetry(): void {
     this.loadMonth(true);
+  },
+  handleRouteAction(event): void {
+    const actionId = event.detail.actionId;
+    if (typeof actionId !== 'string' || actionId.length === 0) {
+      return;
+    }
+    const group = getCalendarGroup();
+    const viewModel = this.data.viewModel;
+    if (
+      group === undefined ||
+      (viewModel.status !== 'cached' &&
+        viewModel.status !== 'ready' &&
+        viewModel.status !== 'refreshing')
+    ) {
+      return;
+    }
+    const target = resolveCalendarRouteAction(actionId, group.role, [viewModel]);
+    if (target !== undefined) {
+      this.lastResolvedRoute = target;
+    }
   },
   handleRoleFilter(event): void {
     this.applyPicker('role', event);
@@ -181,12 +237,12 @@ Page<CalendarPageData, CalendarPageMethods>({
     this.applyPicker('shift', event);
   },
   loadMonth(force = false): void {
-    const group = getActiveGroup();
+    const group = getCalendarGroup();
     if (group === undefined) {
-      this.setData({ hasActiveGroup: false });
+      this.setData({ activeRole: '', hasActiveGroup: false });
       return;
     }
-    this.setData({ hasActiveGroup: true });
+    this.setData({ activeRole: group.role, hasActiveGroup: true });
     void this.controller?.load(
       {
         businessMonth: this.data.businessMonth,

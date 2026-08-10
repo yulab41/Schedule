@@ -2,66 +2,54 @@
 
 .calendar-page,
 .calendar-page__body,
-.calendar-page__data,
-.calendar-page__weeks,
-.calendar-week,
-.calendar-day,
-.calendar-day__content,
-.calendar-assignment {
+.calendar-page__data {
   display: block;
 }
 
 .calendar-page__toolbar,
 .calendar-page__filters,
-.calendar-page__switch-label,
-.calendar-day__header,
-.calendar-assignment__markers,
-.calendar-assignment__phones {
+.calendar-page__switch-label {
   display: flex;
+  flex-direction: row;
 }
 
-.calendar-page__toolbar,
-.calendar-day__header {
+.calendar-page__toolbar {
+  flex-wrap: nowrap;
+  min-height: var(--v3-touch-min);
+  margin-bottom: var(--v3-space-md);
   align-items: center;
   justify-content: space-between;
 }
-.calendar-page__toolbar {
-  min-height: var(--v3-touch-min);
-  margin-bottom: var(--v3-space-md);
-}
+
 .calendar-page__month-action {
   flex: 0 0 auto;
   width: 128rpx;
-  margin: 0;
-}
-.calendar-page__month-action,
-.calendar-page__retry,
-.calendar-assignment__phone {
   min-height: var(--v3-touch-min);
+  margin: 0;
   padding: 0 var(--v3-space-sm);
   color: var(--v3-color-primary);
   background: var(--v3-color-surface);
   border: 1rpx solid var(--v3-color-border);
   border-radius: var(--v3-radius-md);
 }
-.calendar-page__month-action:active,
-.calendar-page__retry:active,
-.calendar-assignment__phone:active {
+
+.calendar-page__month-action--pressed,
+.calendar-page__retry--pressed {
   opacity: 0.72;
 }
-.calendar-page__month-label,
-.calendar-assignment__member {
+
+.calendar-page__month-label {
   color: var(--v3-color-text);
   font-weight: 700;
-}
-.calendar-page__month-label {
   white-space: nowrap;
 }
+
 .calendar-page__filters {
   flex-wrap: wrap;
   gap: var(--v3-space-sm);
   margin-bottom: var(--v3-space-sm);
 }
+
 .calendar-page__picker,
 .calendar-page__switch-label {
   min-height: var(--v3-touch-min);
@@ -72,57 +60,14 @@
   border: 1rpx solid var(--v3-color-border);
   border-radius: var(--v3-radius-md);
 }
+
 .calendar-page__switch-label {
   gap: var(--v3-space-xs);
 }
+
 .calendar-page__summary,
 .calendar-page__empty {
   display: block;
   margin-bottom: var(--v3-space-sm);
   color: var(--v3-color-text-muted);
-}
-.calendar-week {
-  margin-bottom: var(--v3-space-sm);
-  border: 1rpx solid var(--v3-color-border);
-  border-radius: var(--v3-radius-md);
-  background: var(--v3-color-surface);
-}
-.calendar-day {
-  min-height: 72rpx;
-  border-bottom: 1rpx solid var(--v3-color-border);
-}
-.calendar-day:last-child {
-  border-bottom: 0;
-}
-.calendar-day__padding {
-  display: block;
-  min-height: 72rpx;
-  background: var(--v3-color-background);
-}
-.calendar-day__content,
-.calendar-assignment {
-  padding: var(--v3-space-sm);
-}
-.calendar-day__holiday,
-.calendar-marker {
-  padding: 2rpx var(--v3-space-xs);
-  color: var(--v3-color-warning);
-  background: var(--v3-color-surface);
-  border: 1rpx solid var(--v3-color-border);
-  border-radius: var(--v3-radius-sm);
-}
-.calendar-assignment {
-  margin-top: var(--v3-space-xs);
-  border-left: 6rpx solid var(--v3-color-primary);
-}
-.calendar-assignment text {
-  display: block;
-  color: var(--v3-color-text);
-  white-space: normal;
-}
-.calendar-assignment__markers,
-.calendar-assignment__phones {
-  flex-wrap: wrap;
-  gap: var(--v3-space-xs);
-  margin-top: var(--v3-space-xs);
 }

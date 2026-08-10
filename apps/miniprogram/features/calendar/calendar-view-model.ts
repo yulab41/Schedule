@@ -46,14 +46,18 @@ export interface CalendarPhoneActionViewModel extends PhoneAction {
 }
 
 export interface CalendarAssignmentViewModel {
+  readonly actualMemberName?: string;
   readonly assignmentId: string;
   readonly backgroundColor: string;
   readonly borderToken: 'color-border-strong';
+  readonly compactShiftLabel: string;
   readonly foregroundColor: string;
   readonly markers: readonly CalendarMarkerViewModel[];
   readonly memberName: string;
   readonly membershipId?: string;
   readonly phoneActions: readonly CalendarPhoneActionViewModel[];
+  readonly plannedMemberName?: string;
+  readonly routeActionId: string;
   readonly roleId: string;
   readonly roleName: string;
   readonly schedulePeriodId: string;
@@ -65,10 +69,11 @@ export interface CalendarAssignmentViewModel {
 }
 
 export interface CalendarHolidayViewModel {
-  readonly borderToken: 'color-border' | 'color-danger' | 'color-warning';
+  readonly borderToken: 'color-border' | 'color-danger' | 'color-primary' | 'color-warning';
   readonly description: string;
-  readonly fillToken: 'color-danger-light' | 'color-surface' | 'color-warning-light';
-  readonly foregroundToken: 'color-danger' | 'color-text-muted' | 'color-warning';
+  readonly fillToken:
+    'color-danger-light' | 'color-primary-light' | 'color-surface' | 'color-warning-light';
+  readonly foregroundToken: 'color-danger' | 'color-primary' | 'color-text-muted' | 'color-warning';
   readonly holidayName: string;
   readonly isOffDay: boolean;
   readonly isWorkday: boolean;
@@ -87,6 +92,7 @@ export interface CalendarDayViewModel {
   readonly isToday: boolean;
   readonly isWeekend: boolean;
   readonly kind: 'day';
+  readonly routeActionId: string;
   readonly weekdayLabel: string;
 }
 
@@ -163,31 +169,15 @@ function getWeekdayIndex(businessDate: string): number {
   return (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7;
 }
 
-function getMarkerTokens(
-  marker: CalendarChangeMarker,
-): Pick<CalendarMarkerViewModel, 'borderToken' | 'fillToken' | 'foregroundToken'> {
-  switch (marker) {
-    case 'swap':
-      return {
-        borderToken: 'color-primary',
-        fillToken: 'color-primary-light',
-        foregroundToken: 'color-primary',
-      };
-    case 'leave-cover':
-      return {
-        borderToken: 'color-danger',
-        fillToken: 'color-danger-light',
-        foregroundToken: 'color-danger',
-      };
-    case 'overtime':
-      return {
-        borderToken: 'color-warning',
-        fillToken: 'color-warning-light',
-        foregroundToken: 'color-warning',
-      };
-  }
-  const exhaustive: never = marker;
-  return exhaustive;
+function getMarkerTokens(): Pick<
+  CalendarMarkerViewModel,
+  'borderToken' | 'fillToken' | 'foregroundToken'
+> {
+  return {
+    borderToken: 'color-warning',
+    fillToken: 'color-warning-light',
+    foregroundToken: 'color-warning',
+  };
 }
 
 function mapMarker(
@@ -199,7 +189,7 @@ function mapMarker(
     action: 'open-assignment-details',
     actionId: `${assignmentId}:marker:${marker}:${markerIndex}`,
     assignmentId,
-    ...getMarkerTokens(marker),
+    ...getMarkerTokens(),
     description: getCalendarMarkerDescription(marker),
     label: getCalendarMarkerLabel(marker),
     type: marker,
@@ -221,9 +211,9 @@ function mapHoliday(value: ConfirmedHolidayDate): CalendarHolidayViewModel {
         }
       : tone === 'workday'
         ? {
-            borderToken: 'color-warning' as const,
-            fillToken: 'color-warning-light' as const,
-            foregroundToken: 'color-warning' as const,
+            borderToken: 'color-primary' as const,
+            fillToken: 'color-primary-light' as const,
+            foregroundToken: 'color-primary' as const,
           }
         : {
             borderToken: 'color-border' as const,
@@ -236,7 +226,7 @@ function mapHoliday(value: ConfirmedHolidayDate): CalendarHolidayViewModel {
     holidayName: value.holidayName,
     isOffDay: value.isOffDay,
     isWorkday: value.isWorkday,
-    label: getHolidayShortLabel(value.holidayName),
+    label: value.isWorkday ? '班' : getHolidayShortLabel(value.holidayName),
     tone,
   };
 }
@@ -363,9 +353,11 @@ export function buildCalendarMonthViewModel(
     const membershipId = getDutyMembershipId(assignment);
     const member = membershipId === undefined ? undefined : membersById.get(membershipId);
     const mapped: CalendarAssignmentViewModel = {
+      actualMemberName: assignment.actualMemberName,
       assignmentId: assignment.id,
       backgroundColor: assignment.shiftTypeColor,
       borderToken: 'color-border-strong',
+      compactShiftLabel: Array.from(assignment.shiftTypeAbbreviation).at(0) ?? '',
       foregroundColor: assignment.shiftTypeTextColor,
       markers: assignment.changeMarkers.map((marker, index) =>
         mapMarker(assignment.id, marker, index),
@@ -377,6 +369,8 @@ export function buildCalendarMonthViewModel(
         actionId: `${assignment.id}:phone:${action.label}`,
         assignmentId: assignment.id,
       })),
+      plannedMemberName: assignment.plannedMemberName,
+      routeActionId: `assignment:${assignment.id}`,
       roleId: assignment.scheduleRoleId,
       roleName: assignment.scheduleRoleName,
       schedulePeriodId: assignment.schedulePeriodId,
@@ -416,6 +410,7 @@ export function buildCalendarMonthViewModel(
         isToday: cell.businessDate === input.today,
         isWeekend: weekdayIndex >= 5,
         kind: 'day',
+        routeActionId: `date:${cell.businessDate}`,
         weekdayLabel: `周${weekdayLabels[weekdayIndex]}`,
       };
     }),

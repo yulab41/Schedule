@@ -8,8 +8,8 @@
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待用户复核。
-- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。V3-2 Task 6–8 计划已重新审校（contract-first/test-first/code-light，1188 行），状态为**待用户复核**；批准前不得执行 Task 6。
-- 计划验证：V3-1 复核的聚焦套件为 12 文件 / 74 项通过，`pnpm miniprogram:typecheck` 与 `pnpm smoke:check-core` 均通过；本轮只变更四份文档，保留唯一未跟踪 `apps/miniprogram/minitest/` DevTools 产物，计划自检、Prettier 与 `git diff --check` 通过后才创建本地文档检查点。
+- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。用户已批准 V3-2；Task 6 已通过用户视觉验收，完成本地检查点后仅执行 Task 7。
+- 当前批次：真实 Web 部署数据已通过阿里云 API 容器的只读既有端点完整取样为 2026 fixture（全年 12 个月，其中 8/9 月共 61 条班次、6 名成员、1 个岗位、1 个班种、39 条节假日、14 条换班/加扣班事件）。该样本已成为仓库内持久 fixture，`develop` 环境日历页不依赖登录或内存注入；`trial`/`release` 仍走真实接口。下一任务为 Task 7 的三月槽、视图模式和只读缓存；Task 8 前不实现可见详情交互。
 
 ## Completed Batch
 
@@ -104,6 +104,18 @@
 - 验证：聚焦套件 12 文件 / 74 项、`pnpm miniprogram:typecheck`、`pnpm smoke:check-core` 已通过；本轮运行计划占位符/标识符/契约源/行数检查、四份文档 Prettier 与 `git diff --check`。`pnpm smoke:browser` 不适用（仅文档变更）。
 - 状态：**待用户复核**；下一批仅在用户批准后执行 Task 6，禁止在本轮实施生产代码。
 
+### V3-2：Task 6 自绘网格、微标签与无副作用路由（已完成，2026-08-10）
+
+- 已完成自动化步骤：重新核对门禁（`main` 比 `origin/main` 超前 2、仅 `apps/miniprogram/minitest/` 未跟踪），观察 `routeActionId`、黄金 fixture、路由模块和页面边界 guard 的预期红色失败后转绿；新增独立 action-ID 路由、四个自绘日历组件及页面无副作用 route sink。用户反馈月格严重换行后，先令节假日三字回退、缺失 `compactShiftLabel` 与月格旧完整字段断言红，再实现班种单字、节假日最多两字、状态单字和紧凑月格；视觉验收又发现 marker 拉伸、色彩不一致、补班标签错误和姓名缺失，三项失败测试锁定后修复。
+- 行为边界：真实 day/assignment 才带 `date:*`/`assignment:*` action ID；marker/phone 仅精确匹配既有 VM ID，guest marker 回退 duty、其他角色进入 events target；Task 6 不加 sheet、toast、事件请求、控制器 route 方法、API 或契约字段。组件不访问 `wx`/端点/会话单例。
+- 工具链决定：计划的 WXML Prettier 检查最初因无 parser 失败；`git blame` 确认该检查命令来自 `e85481e`，而项目格式脚本长期排除 WXML。已在 `.prettierrc.json` 为 `*.wxml` 显式配置内置 `html` parser，并以计划原命令复验通过。
+- 自动化验证：前置 12 文件 / 74 项通过；紧凑显示、完整 fixture 和开发数据适配聚焦为 7 文件 / 14 项通过；完整小程序为 12 文件 / 68 项通过；配置审计、typecheck、lint、`pnpm smoke:check-core` 与 `git diff --check` 均通过。`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
+- 真实样本、持久开发数据与显示边界：从线上 Web 的既有日历、节假日和事件端点只读取得完整 2026 样本；仓库内 fixture 覆盖全年月份、8/9 月 61 条班次、6 名成员、岗位、班种、39 条节假日及全部 14 条换班/加扣班事件。`calendarFixtureInDevtools` 与 `envVersion === 'develop'` 双重门禁使 DevTools 日历每次启动都使用该只读样本，并以固定 2026-08 月/日期显示；`trial`/`release` 不会进入该分支。线上当前没有可映射 `leave-cover` 的完成事件，故不伪造“替”标识。月格渲染姓名、单字班种及单字 marker；补班固定为“班”。成员全名与电话 action ID 均继续保留在 VM。
+- 回归引入点与行为审计：`git log -S`/`git blame` 确认 mini `getHolidayShortLabel`、marker tokens 与原始 `shiftTypeAbbreviation` 由 `ce21a51` 引入；Web 对应节假日、姓名、班种与 marker 样式来自 `a3b14fb`/`DutyCell.vue`/`ChangeBadge.vue`/`MonthGrid.vue`。此次是有意显示变更而非语义等价重构：marker 统一为 Web 的浅黄棕字无描边，workday 统一为蓝色“班”，姓名恢复渲染；真实 marker 类型、action ID、路由、筛选、电话 action、源数据和权限均不变，组件仍不引入 API/`wx`/会话副作用。
+- DevTools：Stable CLI、项目 `apps/miniprogram`、端口 `25228` 下 `pnpm miniprogram:devtools:build-npm` 成功（`cost: 3560`，`warnings: []`）。`cli auto --auto-port 9430` 仍未监听自动化 WebSocket，桌面自动化也无法操作其窗口；但不再需要内存注入，重载项目即可由持久 `develop` fixture 显示 2026-08 网格。
+- DevTools 验收：用户已确认姓名、班种、节假日、换/加标识的最终视觉效果。Task 6 的点击按计划仅进行无副作用 route sink 解析；详情/电话/事件可见交互属于 Task 8。
+- 检查点：将创建本地提交 `feat(miniprogram): add calendar grid routing`；不推送。下一批仅为 Task 7，完成其独立验证和本地提交后停止，仍不得开始 Task 8。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -134,8 +146,8 @@
 
 ## Active Batch
 
-1. V3-1 Task 3–5 已完成且三个独立检查点已推送；V3-2 Task 6–8 执行计划已生成，状态**待用户复核**；批准前不执行 Task 6。
-2. 下一批仅为：用户复核 V3-2 计划后，按计划执行 Task 6（自绘网格/微标签/事件路由）；每个 Task 一个独立本地提交并在各自停止条件处停止，三个 Task 全部通过后做一次 GitHub push。
+1. V3-2 Task 6 已完成自动化实现、静态/单元验证及 DevTools npm 构建，状态**已实现待开发者工具/真机复核**；不将这些自动化结果写成视觉完成，且尚无本地 Task 6 提交。
+2. 下一批仅为：在 DevTools 中重载项目后完成 Task 6 Step 8 的人工真实 2026-08 数据视觉/触控复核；持久 fixture 不依赖自动化 WebSocket 或内存注入。通过后执行 Task 6 Step 9 的语义审计、状态更新和本地提交。停止在 Task 6 检查点，不能开始 Task 7；Task 6–8 全部完成后才一次性 GitHub push。
 
 ## Handoff Requirements
 

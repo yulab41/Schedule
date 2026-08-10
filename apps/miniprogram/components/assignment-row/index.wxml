@@ -1,0 +1,23 @@
+<view
+  class="assignment-row"
+  catchtap="handleRowRoute"
+  data-action-id="{{assignment.routeActionId}}"
+>
+  <text class="assignment-row__member">{{assignment.memberName}}</text>
+  <view class="assignment-row__meta">
+    <text
+      class="assignment-row__shift"
+      style="background-color: {{assignment.backgroundColor}}; color: {{assignment.foregroundColor}};"
+      >{{assignment.compactShiftLabel}}</text
+    >
+    <view wx:if="{{assignment.markers.length > 0}}" class="assignment-row__markers">
+      <marker-badge
+        wx:for="{{assignment.markers}}"
+        wx:for-item="marker"
+        wx:key="actionId"
+        marker="{{marker}}"
+        bind:route="handleRoute"
+      />
+    </view>
+  </view>
+</view>

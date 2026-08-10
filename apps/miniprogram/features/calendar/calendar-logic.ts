@@ -221,7 +221,9 @@ const holidayShortLabels: Readonly<Record<string, string>> = {
 };
 
 export function getHolidayShortLabel(value: string): string {
-  return holidayShortLabels[value] ?? (value.length <= 4 ? value : value.slice(0, 4));
+  return Array.from(holidayShortLabels[value] ?? value)
+    .slice(0, 2)
+    .join('');
 }
 
 export function getAvailablePhoneActions(

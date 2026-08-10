@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "assignment-row": "/components/assignment-row/index",
+    "holiday-tag": "/components/holiday-tag/index"
+  }
+}

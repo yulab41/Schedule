@@ -1,5 +1,13 @@
 {
   "endOfLine": "lf",
+  "overrides": [
+    {
+      "files": "*.wxml",
+      "options": {
+        "parser": "html"
+      }
+    }
+  ],
   "printWidth": 100,
   "semi": true,
   "singleQuote": true,

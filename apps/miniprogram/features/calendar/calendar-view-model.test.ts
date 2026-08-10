@@ -20,7 +20,7 @@ const calendar: CalendarReadModel = {
       schedulePeriodId: 'period-2',
       scheduleRoleId: 'role-1',
       scheduleRoleName: '门诊',
-      shiftTypeAbbreviation: 'A',
+      shiftTypeAbbreviation: '全天',
       shiftTypeColor: '#123456',
       shiftTypeId: 'shift-1',
       shiftTypeName: '上午班',
@@ -157,6 +157,10 @@ describe('calendar month view model', () => {
 
     const denseDay = findDay(ready, '2026-08-15');
     if (denseDay === undefined) throw new Error('expected a real calendar day');
+    expect(denseDay.routeActionId).toBe('date:2026-08-15');
+    expect(denseDay.assignments[0]?.routeActionId).toBe('assignment:assignment-1');
+    expect(denseDay.assignments[1]?.routeActionId).toBe('assignment:assignment-2');
+    expect(denseDay.assignments[1]?.compactShiftLabel).toBe('全');
     expect(denseDay).toMatchObject({
       dayNumber: 15,
       id: '2026-08-15',
@@ -184,6 +188,14 @@ describe('calendar month view model', () => {
       ({ markers: assignmentMarkers }) => assignmentMarkers,
     );
     expect(markers.map(({ type }) => type)).toEqual(['swap', 'overtime', 'swap', 'leave-cover']);
+    expect(
+      new Set(
+        markers.map(
+          ({ fillToken, foregroundToken, borderToken }) =>
+            `${fillToken}:${foregroundToken}:${borderToken}`,
+        ),
+      ),
+    ).toEqual(new Set(['color-warning-light:color-warning:color-warning']));
     expect(new Set(markers.map(({ actionId }) => actionId))).toHaveProperty('size', 4);
     expect(markers[0]).not.toHaveProperty('eventId');
     expect(JSON.stringify(ready)).not.toContain('deduction');
@@ -214,6 +226,7 @@ describe('calendar month view model', () => {
     });
     expect(findDay(ready, '2026-08-17')?.holiday).toMatchObject({
       isWorkday: true,
+      label: '班',
       tone: 'workday',
     });
     expect(findDay(ready, '2026-08-01')?.isEmpty).toBe(true);

@@ -8,44 +8,95 @@
     />
     <shell-state wx:elif="{{viewModel.status === 'loading'}}" kind="loading" title="正在加载排班" />
     <view wx:else class="calendar-page__body">
-      <shell-state wx:if="{{viewModel.status === 'forbidden'}}" kind="forbidden" title="无权查看该群组排班" description="请联系群组管理员确认权限。" />
-      <shell-state wx:elif="{{viewModel.status === 'error'}}" kind="error" title="加载排班失败" description="{{viewModel.message}}">
-        <button class="calendar-page__retry" bindtap="handleRetry">重试</button>
+      <shell-state
+        wx:if="{{viewModel.status === 'forbidden'}}"
+        kind="forbidden"
+        title="无权查看该群组排班"
+        description="请联系群组管理员确认权限。"
+      />
+      <shell-state
+        wx:elif="{{viewModel.status === 'error'}}"
+        kind="error"
+        title="加载排班失败"
+        description="{{viewModel.message}}"
+      >
+        <button
+          class="calendar-page__retry"
+          bindtap="handleRetry"
+          hover-class="calendar-page__retry--pressed"
+        >
+          重试
+        </button>
       </shell-state>
-      <shell-state wx:elif="{{viewModel.status === 'conflict'}}" kind="conflict" title="排班数据已变化" description="{{viewModel.message}}">
-        <button class="calendar-page__retry" bindtap="handleRetry">刷新</button>
+      <shell-state
+        wx:elif="{{viewModel.status === 'conflict'}}"
+        kind="conflict"
+        title="排班数据已变化"
+        description="{{viewModel.message}}"
+      >
+        <button
+          class="calendar-page__retry"
+          bindtap="handleRetry"
+          hover-class="calendar-page__retry--pressed"
+        >
+          刷新
+        </button>
       </shell-state>
       <view wx:else class="calendar-page__data">
         <view class="calendar-page__toolbar">
-          <button class="calendar-page__month-action" bindtap="handlePreviousMonth">上月</button>
+          <button
+            class="calendar-page__month-action"
+            bindtap="handlePreviousMonth"
+            hover-class="calendar-page__month-action--pressed"
+          >
+            上月
+          </button>
           <text class="calendar-page__month-label">{{viewModel.monthLabel}}</text>
-          <button class="calendar-page__month-action" bindtap="handleNextMonth">下月</button>
+          <button
+            class="calendar-page__month-action"
+            bindtap="handleNextMonth"
+            hover-class="calendar-page__month-action--pressed"
+          >
+            下月
+          </button>
         </view>
         <view class="calendar-page__filters">
-          <picker range="{{viewModel.filters.roles}}" range-key="label" value="{{viewModel.filters.selectedRoleIndex}}" bindchange="handleRoleFilter"><view class="calendar-page__picker">岗位</view></picker>
-          <picker range="{{viewModel.filters.shiftTypes}}" range-key="label" value="{{viewModel.filters.selectedShiftTypeIndex}}" bindchange="handleShiftFilter"><view class="calendar-page__picker">班种</view></picker>
-          <picker range="{{viewModel.filters.members}}" range-key="label" value="{{viewModel.filters.selectedMembershipIndex}}" bindchange="handleMemberFilter"><view class="calendar-page__picker">成员</view></picker>
-          <label class="calendar-page__switch-label"><text>仅变更</text><switch checked="{{viewModel.filters.onlyChanges}}" bindchange="handleOnlyChanges" /></label>
+          <picker
+            range="{{viewModel.filters.roles}}"
+            range-key="label"
+            value="{{viewModel.filters.selectedRoleIndex}}"
+            bindchange="handleRoleFilter"
+            ><view class="calendar-page__picker">岗位</view></picker
+          >
+          <picker
+            range="{{viewModel.filters.shiftTypes}}"
+            range-key="label"
+            value="{{viewModel.filters.selectedShiftTypeIndex}}"
+            bindchange="handleShiftFilter"
+            ><view class="calendar-page__picker">班种</view></picker
+          >
+          <picker
+            range="{{viewModel.filters.members}}"
+            range-key="label"
+            value="{{viewModel.filters.selectedMembershipIndex}}"
+            bindchange="handleMemberFilter"
+            ><view class="calendar-page__picker">成员</view></picker
+          >
+          <label class="calendar-page__switch-label"
+            ><text>仅变更</text
+            ><switch checked="{{viewModel.filters.onlyChanges}}" bindchange="handleOnlyChanges"
+          /></label>
         </view>
         <text class="calendar-page__summary">{{viewModel.assignmentCount}} 个班次</text>
-        <view wx:if="{{viewModel.isMonthEmpty}}" class="calendar-page__empty">本月暂无符合条件的班次。</view>
-        <view wx:else class="calendar-page__weeks">
-          <view wx:for="{{viewModel.weeks}}" wx:for-item="week" wx:key="id" class="calendar-week">
-            <view wx:for="{{week.days}}" wx:for-item="day" wx:key="id" class="calendar-day">
-              <view wx:if="{{day.kind === 'padding'}}" class="calendar-day__padding"></view>
-              <view wx:else class="calendar-day__content">
-                <view class="calendar-day__header"><text>{{day.dayNumber}} {{day.weekdayLabel}}</text><text wx:if="{{day.holiday}}" class="calendar-day__holiday">{{day.holiday.label}}</text></view>
-                <view wx:for="{{day.assignments}}" wx:for-item="assignment" wx:key="assignmentId" class="calendar-assignment">
-                  <text class="calendar-assignment__member">{{assignment.memberName}}</text>
-                  <text>{{assignment.roleName}} · {{assignment.shiftTypeName}}（{{assignment.shiftTypeAbbreviation}}）</text>
-                  <text>{{assignment.timeRange}}</text>
-                  <view class="calendar-assignment__markers"><text wx:for="{{assignment.markers}}" wx:for-item="marker" wx:key="actionId" class="calendar-marker">{{marker.label}}</text></view>
-                  <view wx:if="{{assignment.phoneActions.length > 0}}" class="calendar-assignment__phones"><button wx:for="{{assignment.phoneActions}}" wx:for-item="phoneAction" wx:key="actionId" class="calendar-assignment__phone" data-action-id="{{phoneAction.actionId}}" bindtap="handlePhoneAction">{{phoneAction.label}}</button></view>
-                </view>
-              </view>
-            </view>
-          </view>
-        </view>
+        <view wx:if="{{viewModel.isMonthEmpty}}" class="calendar-page__empty"
+          >本月暂无符合条件的班次。</view
+        >
+        <calendar-grid
+          wx:else
+          weeks="{{viewModel.weeks}}"
+          role="{{activeRole}}"
+          bind:route="handleRouteAction"
+        />
       </view>
     </view>
   </view>

@@ -106,6 +106,8 @@ describe('calendar logic', () => {
   it('maps holiday and phone display actions without inventing contact state', () => {
     expect(getHolidayShortLabel('劳动节')).toBe('五一');
     expect(getHolidayShortLabel('国庆节')).toBe('国庆');
+    expect(getHolidayShortLabel('建军节')).toBe('建军');
+    expect(getHolidayShortLabel('任意三字')).toHaveLength(2);
     const markers = ['swap', 'leave-cover', 'overtime'] as const;
     expect(markers.map(getCalendarMarkerLabel)).toEqual(['换', '替', '加']);
     expect(markers.map(getCalendarMarkerDescription)).toEqual(['换班', '请假替班', '加班']);

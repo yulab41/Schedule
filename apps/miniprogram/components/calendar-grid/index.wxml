@@ -1,0 +1,37 @@
+<view class="calendar-grid">
+  <view class="calendar-grid__weekday-row">
+    <view class="calendar-grid__weekday"><text>一</text></view>
+    <view class="calendar-grid__weekday"><text>二</text></view>
+    <view class="calendar-grid__weekday"><text>三</text></view>
+    <view class="calendar-grid__weekday"><text>四</text></view>
+    <view class="calendar-grid__weekday"><text>五</text></view>
+    <view class="calendar-grid__weekday calendar-grid__weekday--weekend"><text>六</text></view>
+    <view class="calendar-grid__weekday calendar-grid__weekday--weekend"><text>日</text></view>
+  </view>
+  <view wx:for="{{weeks}}" wx:for-item="week" wx:key="id" class="calendar-grid__week">
+    <view wx:for="{{week.days}}" wx:for-item="day" wx:key="id" class="calendar-grid__cell">
+      <view wx:if="{{day.kind === 'padding'}}" class="calendar-grid__padding"></view>
+      <view
+        wx:else
+        class="calendar-grid__day {{day.isToday ? 'calendar-grid__day--today' : ''}} {{day.isPast ? 'calendar-grid__day--past' : ''}} {{day.holiday && day.holiday.tone === 'off-day' ? 'calendar-grid__day--off-day' : ''}}"
+        catchtap="handleDayRoute"
+        data-action-id="{{day.routeActionId}}"
+      >
+        <view class="calendar-grid__day-header">
+          <text class="calendar-grid__day-number">{{day.dayNumber}}</text>
+          <holiday-tag wx:if="{{day.holiday}}" holiday="{{day.holiday}}" />
+        </view>
+        <view class="calendar-grid__assignments">
+          <assignment-row
+            wx:for="{{day.assignments}}"
+            wx:for-item="assignment"
+            wx:key="assignmentId"
+            assignment="{{assignment}}"
+            role="{{role}}"
+            bind:route="handleRoute"
+          />
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

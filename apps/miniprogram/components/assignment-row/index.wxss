@@ -1,0 +1,46 @@
+.assignment-row__meta,
+.assignment-row__markers {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.assignment-row {
+  display: block;
+  min-height: 56rpx;
+}
+
+.assignment-row__member {
+  display: block;
+  overflow: hidden;
+  color: var(--v3-color-text);
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.assignment-row__meta {
+  gap: 4rpx;
+  margin-top: 2rpx;
+}
+
+.assignment-row__shift {
+  display: flex;
+  box-sizing: border-box;
+  min-width: 28rpx;
+  min-height: 28rpx;
+  padding: 0 4rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--v3-radius-sm);
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.assignment-row__markers {
+  flex-wrap: wrap;
+  gap: 4rpx;
+}
