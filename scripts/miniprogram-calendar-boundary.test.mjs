@@ -141,6 +141,10 @@ describe('mini-program calendar VM boundary', () => {
     expect(pageJson).toContain('event-timeline-sheet');
     expect(pageJson).toContain('phone-sheet');
     expect(pageWxml.match(/<bottom-sheet\b/gu) ?? []).toHaveLength(1);
+    const pageShellEnd = pageWxml.indexOf('</page-shell>');
+    const bottomSheetStart = pageWxml.indexOf('<bottom-sheet');
+    expect(pageShellEnd).toBeGreaterThanOrEqual(0);
+    expect(bottomSheetStart).toBeGreaterThan(pageShellEnd);
     expect(pageWxml).toContain('bind:request-close="handleSheetRequestClose"');
     expect(pageWxml).toContain('bind:closed="handleSheetClosed"');
     expect(pageWxml).toContain('bind:dial="handleDial"');

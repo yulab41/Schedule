@@ -1654,3 +1654,12 @@
 - 人工复核结果：用户重新编译后确认第 1–5 项（空白日期、排班行、member/guest marker、电话与事件详情）均无法复现，因此 Task 8 人工门禁不通过；第 6–7 项（快速打开/关闭与边界导航/恢复性检查）通过。不能把“未出现”记录为功能通过，下一步先定位运行态入口为何未显示。
 - GitHub 推送：用户重启 `lmclient.exe`，开启全局模式和 TUN 虚拟网卡后，`git push origin main` 成功，`main -> origin/main` 更新至 `7d95a0a`。此前失败发生在 Git CLI 直连 `github.com:443` 的 socket/连接阶段；VPN 的 TUN 路由恢复后正常快进推送，未 force-push。
 - 状态：Task 8 保持“待用户复核”；Task 9/V3-3 未开始。`apps/miniprogram/minitest/` 仍为未跟踪 DevTools 产物，未提交。
+
+### V3-2 Task 8 详情入口修复（2026-08-10）
+
+- 复现与引入点：人工复核确认第 1–5 项（日期、排班、member/guest marker、电话、事件）均无法出现，而第 6–7 项通过。`git blame` 与 `git log -S 'bottom-sheet' -- apps/miniprogram/pages/calendar/index.wxml` 定位到 `7d95a0a feat(miniprogram): add calendar detail sheets`；该提交把唯一 `bottom-sheet` 放进 `page-shell` 的默认 `scroll-view` 插槽。
+- 根因：在当前 DevTools/Skyline 运行时，放在 `scroll-view` 插槽内的 `position: fixed` 详情宿主不能可靠建立页面级遮罩/底部面板层；四种详情入口共享同一宿主，因此表现为全部点击后无可见详情，而导航/恢复性操作不受影响。
+- 测试先行：boundary guard 新增“`<bottom-sheet>` 必须位于 `</page-shell>` 之后”的断言；旧 WXML 先失败（`bottomSheetStart=5469`、`pageShellEnd=6769`），移动宿主到 page-level 后通过。只改变宿主布局边界，不改变 route action、keyed close、事件请求或电话副作用。
+- 修复：`pages/calendar/index.wxml` 现在先关闭 `page-shell`，再渲染唯一 `bottom-sheet` 及四个详情 body；宿主仍绑定原有 `request-close`/`closed`，页面仍保留原有 `sheetHost`/`sheetKind`/`sheetTitle` 状态。
+- 验证：完整小程序 + boundary 为 21 文件 / 96 项；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3753、warnings `[]`，preview 成功（188.2 KB）。`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
+- 状态：已修复，待用户重新编译后人工复核第 1–7 项；Task 9/V3-3 未开始。
