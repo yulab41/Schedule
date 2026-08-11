@@ -17,10 +17,14 @@ describe('workflows subpackage boundary', () => {
   it('registers the Task 9.2 leave page in the workflows subpackage without changing the four tab routes', () => {
     const appJson = JSON.parse(read('app.json'));
     expect(appJson.subPackages).toEqual([
-      { root: 'subpackages/workflows', pages: ['pages/requests/index', 'pages/leave/index'] },
+      {
+        root: 'subpackages/workflows',
+        pages: ['pages/requests/index', 'pages/leave/index', 'pages/operations/index'],
+      },
     ]);
     expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/requests/index');
     expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/leave/index');
+    expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/operations/index');
     expect(appJson.tabBar.list.map(({ pagePath }) => pagePath)).toEqual([
       'pages/workbench/index',
       'pages/calendar/index',
@@ -36,6 +40,7 @@ describe('workflows subpackage boundary', () => {
     expect(source).not.toMatch(/createLeaveRequest|createSwapRequest|createDutyAdjustmentRequest/u);
     expect(source).not.toMatch(/from\s+['"]@schedule\/contracts['"]/u);
     expect(source).toContain('navigateToLeave');
+    expect(source).toContain('navigateToOperations');
     expect(read('subpackages/workflows/pages/leave/index.wxml')).toContain('全天请假');
     expect(read('subpackages/workflows/pages/leave/index.ts')).toContain(
       'createLeaveWorkflowController',
@@ -45,5 +50,8 @@ describe('workflows subpackage boundary', () => {
     expect(leaveWxml).toContain('wx:elif="{{workflow}}"');
     expect(leaveWxml).toContain('disabled="{{!workflow.canApproveApproval}}"');
     expect(leaveWxml).toContain('workflow.approvalBlockReason');
+    expect(read('subpackages/workflows/pages/operations/index.ts')).toContain(
+      'createSwapDutyWorkflowController',
+    );
   });
 });

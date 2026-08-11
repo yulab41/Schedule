@@ -61,6 +61,7 @@ describe('V3 app shell', () => {
       'pages/profile/index',
       'subpackages/workflows/pages/requests/index',
       'subpackages/workflows/pages/leave/index',
+      'subpackages/workflows/pages/operations/index',
     ]);
     expect(appJson.tabBar?.custom).not.toBe(true);
     expect(appJson.pages).toContain('pages/invite/invite');

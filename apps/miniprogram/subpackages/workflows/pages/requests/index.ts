@@ -13,6 +13,7 @@ interface WorkflowRequestPageData {
 interface WorkflowRequestPageMethods {
   context?: WorkflowRouteContext;
   navigateToLeave(): void;
+  navigateToOperations(): void;
   selectedGroupId?: string;
   refresh(): void;
 }
@@ -29,6 +30,12 @@ Page<WorkflowRequestPageData, WorkflowRequestPageMethods>({
     if (this.context === undefined) return;
     wx.navigateTo({
       url: `/subpackages/workflows/pages/leave/index?groupId=${encodeURIComponent(this.context.groupId)}`,
+    });
+  },
+  navigateToOperations(): void {
+    if (this.context === undefined) return;
+    wx.navigateTo({
+      url: `/subpackages/workflows/pages/operations/index?groupId=${encodeURIComponent(this.context.groupId)}`,
     });
   },
   refresh(): void {
