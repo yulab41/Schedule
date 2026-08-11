@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-3 Task 9.1 已由 `5ccd04f fix(miniprogram): align workflow endpoints and runtime`、Task 9.2 已由 `ddf8295 feat(miniprogram): add leave workflows` 完成并正常快进推送至 `origin/main`。Task 9.3（换班、加扣班、审批与缓存失效）已完成并待创建 `feat(miniprogram): add swap and duty workflows` checkpoint；Task 10 仍冻结。
+- 当前批次：V3-3 Task 9.1–9.3 已由 `5ccd04f`、`ddf8295` 和 `d8387e7` 完成并正常快进推送至 `origin/main`。用户已批准后续的 API integration test runtime 修复：仅为 leave/swap/duty 三套真实数据库测试建立安全、可复现的本地运行入口并完成其验证；Task 10 仍冻结。
 
 ## Completed Batch
 
@@ -184,6 +184,12 @@
 - 运行：config audit、typecheck、lint、明确文件 Prettier、diff check、`pnpm smoke:browser` 后的 `pnpm smoke:check-core` 通过。DevTools build-npm `cost: 3274`、`warnings: []`；preview 成功（总计 265.3 KB，main 231.6 KB，workflows 33.8 KB）。标准复用连接 smoke 在连接关闭后失败；重启自动化会话后直接 route/console probe 打开 10/10 注册页面（operations 在内）且 `scriptErrors=0`。真机与真实数据库 integration 复核仍待用户/环境提供。
 - 状态：已完成（含自动化运行/浏览器/DevTools 验证），待用户复核。检查点提交信息：`feat(miniprogram): add swap and duty workflows`。Task 9 到此停止；Task 10 仍不获实施授权。
 
+### API integration test runtime follow-up（设计已批准，2026-08-12）
+
+- 根因：三套流程 integration 文件已有 `beforeEach` 真实数据库 reset/migrate/seed，但普通 `pnpm vitest` 不加载 `.env`，当前进程没有 `NODE_ENV=test` 和 `TEST_MYSQL_*`，因此 78 项整体 skip。`git log -S 'describeWithDatabase'` 与 `git blame` 将该显式 skip/隔离契约追溯到 leave `0d5ec55c`、swap `b20ff9b`、duty `5d8b205a`；`vitest.config.ts` 自 `0a794d9a` 关闭文件并发以保护共享测试 schema。
+- 设计：新增仅显式调用的安全 runner，使用 `.env` 中 TEST 专用配置，拒绝非 `schedule_test` 数据库，在真实 `medical-schedule-test` tmpfs 容器中运行三套文件。每例继续由现有测试工厂自行创建/销毁真实数据；不读取、复制或修改开发/生产数据。
+- 设计文档：`docs/superpowers/specs/2026-08-12-api-integration-test-runtime-design.md`。用户已批准实现范围；下一项为 runner 的红绿测试、实现和真实数据库验证。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -220,8 +226,8 @@
 
 ## Active Batch
 
-1. V3-3 Task 9.1–9.3 已完成；本轮只创建 Task 9.3 独立 checkpoint、正常快进推送后停止。
-2. Task 10 仍禁止进入，文件清单/实施需在 Task 9 真实数据库/真机与用户人工复核完成后另行计划和批准。
+1. 本轮只执行 API integration test runtime follow-up：为 leave/swap/duty 三套文件建立安全、可复现的真实测试数据库入口，完成红绿测试和真实数据库验证后创建独立 checkpoint。
+2. Task 10 仍禁止进入；本轮不改业务 API、契约、小程序 UI 或 Task 10 文件。
 
 ## Handoff Requirements
 
