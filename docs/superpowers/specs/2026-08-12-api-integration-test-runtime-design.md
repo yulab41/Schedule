@@ -1,6 +1,6 @@
 # API Integration Test Runtime Design
 
-**Date:** 2026-08-12  
+**Date:** 2026-08-12
 **Status:** Approved for implementation
 
 ## Problem
