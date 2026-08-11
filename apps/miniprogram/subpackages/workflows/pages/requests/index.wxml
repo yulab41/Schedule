@@ -1,4 +1,20 @@
 <page-shell title="请求中心">
-  <shell-state wx:if="{{hasWorkflowAccess}}" kind="empty" title="请求中心即将开放" description="请假、换班和加扣班表单将在后续检查点接入。" />
-  <shell-state wx:else kind="error" title="当前群组无工作流权限" description="请返回工作台选择成员、管理员或群主身份的群组。" />
+  <view wx:if="{{hasWorkflowAccess}}" class="workflow-center">
+    <view class="workflow-center__intro">
+      <text class="workflow-center__title">{{groupName}} · 工作流</text>
+      <text class="workflow-center__description"
+        >请假可按全天提交；提交后在此查看审批和处理结果。</text
+      >
+    </view>
+    <button class="workflow-center__primary" bindtap="navigateToLeave">请假与审批</button>
+    <view class="workflow-center__later">
+      <text>换班、加扣班将在 Task 9.3 单独接入。</text>
+    </view>
+  </view>
+  <shell-state
+    wx:else
+    kind="error"
+    title="当前群组无工作流权限"
+    description="请返回工作台选择成员、管理员或群主身份的群组。"
+  />
 </page-shell>

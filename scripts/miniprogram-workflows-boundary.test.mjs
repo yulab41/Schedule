@@ -14,12 +14,13 @@ function read(relativePath) {
 }
 
 describe('workflows subpackage boundary', () => {
-  it('adds one discoverable request-center subpackage without changing the four tab routes', () => {
+  it('registers the Task 9.2 leave page in the workflows subpackage without changing the four tab routes', () => {
     const appJson = JSON.parse(read('app.json'));
     expect(appJson.subPackages).toEqual([
-      { root: 'subpackages/workflows', pages: ['pages/requests/index'] },
+      { root: 'subpackages/workflows', pages: ['pages/requests/index', 'pages/leave/index'] },
     ]);
     expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/requests/index');
+    expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/leave/index');
     expect(appJson.tabBar.list.map(({ pagePath }) => pagePath)).toEqual([
       'pages/workbench/index',
       'pages/calendar/index',
@@ -28,11 +29,21 @@ describe('workflows subpackage boundary', () => {
     ]);
   });
 
-  it('keeps the request shell display-only until Task 9.2 and does not import workflow endpoints', () => {
+  it('keeps the request center free of endpoint calls and routes the leave workflow to its own page', () => {
     const source = read('subpackages/workflows/pages/requests/index.ts');
     expect(read('subpackages/workflows/pages/requests/index.wxml')).toContain('<page-shell');
     expect(source).not.toMatch(/api\/endpoints/u);
     expect(source).not.toMatch(/createLeaveRequest|createSwapRequest|createDutyAdjustmentRequest/u);
     expect(source).not.toMatch(/from\s+['"]@schedule\/contracts['"]/u);
+    expect(source).toContain('navigateToLeave');
+    expect(read('subpackages/workflows/pages/leave/index.wxml')).toContain('全天请假');
+    expect(read('subpackages/workflows/pages/leave/index.ts')).toContain(
+      'createLeaveWorkflowController',
+    );
+    const leaveWxml = read('subpackages/workflows/pages/leave/index.wxml');
+    expect(leaveWxml).not.toMatch(/wx:else\s+wx:if/gu);
+    expect(leaveWxml).toContain('wx:elif="{{workflow}}"');
+    expect(leaveWxml).toContain('disabled="{{!workflow.canApproveApproval}}"');
+    expect(leaveWxml).toContain('workflow.approvalBlockReason');
   });
 });

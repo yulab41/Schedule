@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-3 Task 9.1 已实现并完成运行验证，等待独立 checkpoint；只完成端点对齐、工作流纯内核、角色路由壳与日历精确失效。未实现任何请假、换班或加扣班提交 UI；Task 9.2、9.3 与 Task 10 未进入。
+- 当前批次：V3-3 Task 9.1 已由 `5ccd04f fix(miniprogram): align workflow endpoints and runtime` 完成并正常快进推送至 `origin/main`。Task 9.2（全天请假与审批）已完成并待创建 `feat(miniprogram): add leave workflows` checkpoint；下一项仅为 Task 9.3，Task 10 仍未进入。
 
 ## Completed Batch
 
@@ -165,6 +165,15 @@
 - 验证：定向 9 文件 / 56 项通过；完整小程序、app-shell 与 workflows boundary 为 27 文件 / 126 项通过；config audit、typecheck、lint、明确文件 Prettier 与 diff check 通过。`pnpm smoke:browser`、随后 `pnpm smoke:check-core` 通过。DevTools build-npm warnings `[]`，preview 成功（main 193.6 KB，workflows 1.3 KB）；标准连接态 `pnpm miniprogram:smoke` 经 reconnect 修复后 8/8 注册页面通过、无脚本级错误。
 - 状态：已完成（含运行/浏览器验证），待用户复核。检查点提交信息：`fix(miniprogram): align workflow endpoints and runtime`。
 
+### V3-3：Task 9.2 全天请假与审批（已完成，2026-08-11）
+
+- 创建：独立全天请假页使用 CST 半开区间、选填原因和本地单飞；影响班次查询失败与确认无已发布班次使用不同提示，但都不阻止提交。创建 payload 没有 `operationId`，409 保留原错误、清理辅助影响并刷新权威列表。
+- 审批：pending 请求打开完整 preview；策略变更废弃旧 preview 并重取。页面完整呈现影响班次、未发布期间、前后人员、统计、冲突、硬 blocker、连续值班警告和空缺。硬 blocker、无/过期 preview 与未确认冲突/空缺均显式禁用批准；approve/reject 使用真实响应类型与 preview 版本快照。
+- 列表与策略：支持 pending 取消、approved 撤销（明确不自动恢复排班），每次成功 mutation 刷新列表。管理员可读写群组默认重排策略且不携带 operationId；成员只读已保存策略。批准仅按实际改动的 `businessDate` 月份精确失效日历，撤销不清日历。
+- 回归与审查：`git log -S`/`git blame` 定位端点引入点 `d9c2d6e` 与 Task 9.1 调用方 `5ccd04f`。红绿测试和独立审查修正了 UUID v4 operationId、审批按钮派生阻断和切群后清理 local single-flight 三项边界。
+- 验证：定向 leave/boundary 2 文件 / 13 项、完整小程序/app-shell/workflows boundary 28 文件 / 137 项通过；config audit、typecheck、lint、明确文件 Prettier、diff check、`pnpm smoke:browser` 后的 `pnpm smoke:check-core` 均通过。DevTools build-npm warnings `[]`，preview 成功（总计 232.3 KB；main 215.4 KB；workflows 16.9 KB）。标准复用连接 smoke 在 `reLaunch` 后无输出挂起并安全终止；同连接直接 route/console probe 打开 9/9 注册页面（包括 leave）且 `scriptErrors=0`，invite 在当前会话按预期重定向至工作台。
+- 状态：已完成（含运行/浏览器/DevTools 验证），待用户复核。检查点提交信息：`feat(miniprogram): add leave workflows`；下一项仅为 Task 9.3，Task 10 仍冻结。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -178,6 +187,7 @@
 - V3-2 最终复核：23 文件 / 105 项通过；config audit、typecheck、lint、`pnpm smoke:check-core`、契约/API 空 diff 和 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（V3-2 最终加固未改 Web/API/契约/认证/构建核心链路）。
 - V3-3 计划验证：新计划自审通过（470 行、11 个强制术语、23 个历史提交均可达）；7 份文档 Prettier 与 `git diff --check` 通过；`pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划/设计/状态文档，未改 Web/API/契约/认证/构建核心链路）。
 - V3-3 Task 9.1：定向 9 文件 / 56 项、完整小程序/app-shell/workflows boundary 27 文件 / 126 项、config audit、typecheck、lint、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过；DevTools build-npm/preview 和重连后的标准 8/8 路由 smoke 无脚本级错误。
+- V3-3 Task 9.2：定向 2 文件 / 13 项、完整小程序/app-shell/workflows boundary 28 文件 / 137 项、config audit、typecheck、lint、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过；DevTools build-npm/preview 通过，标准复用连接 smoke 在 `reLaunch` 后挂起但同连接直接 9/9 路由 probe 无脚本错误。
 
 ## Decisions and Deviations
 
@@ -199,9 +209,8 @@
 
 ## Active Batch
 
-1. V3-3 Task 9.1 已完成并通过运行验证；本对话只创建独立 checkpoint、正常快进推送后停止。
-2. 下一批仅可由后续对话处理 Task 9.2（全天请假与审批）；其 stop condition 是创建、影响提示、审批 preview、策略、批准/驳回、取消/撤销全部通过，形成 `feat(miniprogram): add leave workflows` 后停止。
-3. Task 9.3 与 Task 10 仍禁止进入；Task 10 文件清单/实施需在 Task 9.3 与 Task 9 全部运行/人工复核完成后另行计划和批准。
+1. 本轮下一项只执行 V3-3 Task 9.3（换班、加扣班、审批与缓存失效）；其独立 checkpoint、正常快进推送和计划停止条件完成后停止。
+2. Task 10 仍禁止进入，文件清单/实施需在 Task 9.3 与 Task 9 全部运行/人工复核完成后另行计划和批准。
 
 ## Handoff Requirements
 

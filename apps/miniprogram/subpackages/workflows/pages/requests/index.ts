@@ -12,6 +12,7 @@ interface WorkflowRequestPageData {
 
 interface WorkflowRequestPageMethods {
   context?: WorkflowRouteContext;
+  navigateToLeave(): void;
   selectedGroupId?: string;
   refresh(): void;
 }
@@ -23,6 +24,12 @@ Page<WorkflowRequestPageData, WorkflowRequestPageMethods>({
   },
   onShow(): void {
     this.refresh();
+  },
+  navigateToLeave(): void {
+    if (this.context === undefined) return;
+    wx.navigateTo({
+      url: `/subpackages/workflows/pages/leave/index?groupId=${encodeURIComponent(this.context.groupId)}`,
+    });
   },
   refresh(): void {
     const state = sessionStore.state;

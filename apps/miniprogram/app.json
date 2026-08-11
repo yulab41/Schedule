@@ -11,7 +11,7 @@
   "subPackages": [
     {
       "root": "subpackages/workflows",
-      "pages": ["pages/requests/index"]
+      "pages": ["pages/requests/index", "pages/leave/index"]
     }
   ],
   "window": {
