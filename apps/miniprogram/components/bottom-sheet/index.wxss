@@ -80,5 +80,7 @@
 }
 
 .bottom-sheet__content {
+  /* Mini-program scroll-view requires an explicit viewport height. */
+  height: 62vh;
   max-height: 62vh;
 }

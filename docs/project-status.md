@@ -139,7 +139,9 @@
 - 根因与修复：`bottom-sheet` 原先位于 `page-shell` 默认 `scroll-view` 插槽内；在 DevTools/Skyline 运行时，`position: fixed` 的详情宿主无法作为页面级遮罩/面板显示，导致日期、值班、事件、电话四类入口统一无可见结果。已将唯一 keyed host 移到 page-level、`page-shell` 外部；页面状态机和四个详情 body 未改变。
 - 回归证据：新增 boundary 断言先在旧 WXML 上红灯（`bottom-sheet` 起始位置早于 `</page-shell>`），移动宿主后转绿。完整小程序 + boundary 为 21 文件 / 96 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3753、warnings `[]`，preview 188.2 KB 成功。
 - 点击链路修复：宿主移出后日期仍无响应，进一步定位为 `calendar-grid` 位于 `page-shell` slot、详情 body 位于 `bottom-sheet` slot，而页面级自定义事件默认不跨组件边界。所有页面级 route/dial/copy 转发器现在使用 `{ bubbles: true, composed: true }`；内部 `assignment-row`/`marker-badge` 仍不冒泡，避免重复路由。旧代码 boundary 先红后绿；最新全量 21 文件 / 96 项、build-npm cost 12111、warnings `[]`、preview 188.5 KB 均通过。
-- Git 检查点：`7d95a0a feat(miniprogram): add calendar detail sheets` 已于本轮通过 VPN 全局 + TUN 链路正常快进推送至 `origin/main`；未 force-push。
+- 内容区修复：人工复核确认点击已能打开抽屉，但日期、值班、事件三类都只显示标题和关闭按钮。`bottom-sheet__content` 原先只有 `max-height`，没有 `scroll-view` 所需的明确高度；新增 `height: 62vh`，并在 boundary guard 中锁定该约束。旧样式测试先红，新增高度后转绿；当前详情内容修复为**已实现待人工复核**。
+- 最新验证：完整小程序 + boundary 为 21 文件 / 96 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3128、warnings `[]`，preview 188.5 KB 成功。`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
+- Git 检查点：当前已推送 `2316a5f fix(miniprogram): compose calendar route events`；本轮拟提交 `fix(miniprogram): size bottom-sheet content viewport`，验证通过后继续正常快进提交/推送 `main`，不 force-push。
 
 ## Validation
 
@@ -172,8 +174,8 @@
 ## Active Batch
 
 1. V3-2 Task 6 为 `1eef26a`；Task 7 主检查点为 `42d6243`，两轮 loading 回归为 `3171b2b` 与 `59707f7`，且已通过用户人工复核。
-2. Task 8 初次人工复核因详情宿主位于 `page-shell` 滚动插槽而不通过；该问题已修复并完成自动/DevTools 构建验证，当前状态为**已实现待浏览器复核**。用户重新编译后需复核第 1–7 项，确认通过前不得开始 Task 9/V3-3。
-3. 用户于 2026-08-10 明确覆盖 V3-2 原“Task 8 后单次 push”策略；`7d95a0a` 已通过 VPN 全局 + TUN 链路正常快进推送至 `origin/main`，本次修复检查点完成后继续正常推送，不 force-push。
+2. Task 8 初次人工复核因详情宿主位于 `page-shell` 滚动插槽而不通过；随后修复页面级事件边界，以及详情 `scroll-view` 缺少明确高度导致内容折叠的问题，当前状态为**已实现待浏览器复核**。用户重新编译后需复核第 1–7 项，确认通过前不得开始 Task 9/V3-3。
+3. 用户于 2026-08-10 明确覆盖 V3-2 原“Task 8 后单次 push”策略；`7d95a0a` 与 `2316a5f` 已通过 VPN 全局 + TUN 链路正常快进推送至 `origin/main`，本次修复检查点完成后继续正常推送，不 force-push。
 
 ## Handoff Requirements
 

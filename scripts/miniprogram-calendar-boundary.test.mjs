@@ -130,6 +130,7 @@ describe('mini-program calendar VM boundary', () => {
     const pageJson = readText('pages/calendar/index.json');
     const bottomSheet = readText('components/bottom-sheet/index.ts');
     const bottomSheetWxml = readText('components/bottom-sheet/index.wxml');
+    const bottomSheetWxss = readText('components/bottom-sheet/index.wxss');
     const dateSheet = readText('components/date-detail-sheet/index.ts');
     const dutySheet = readText('components/duty-detail-sheet/index.ts');
     const eventSheet = readText('components/event-timeline-sheet/index.ts');
@@ -168,6 +169,9 @@ describe('mini-program calendar VM boundary', () => {
     expect(bottomSheet).toContain('closed');
     expect(bottomSheetWxml).toContain('<slot');
     expect(bottomSheetWxml).toContain('scroll-view');
+    expect(declarationsFor(bottomSheetWxss, '.bottom-sheet__content')).toMatch(
+      /(?:^|\s)height:\s*62vh;/u,
+    );
     for (const source of [dateSheet, dutySheet, eventSheet, phoneSheet]) {
       expect(source).not.toContain('bottom-sheet');
       expect(source).not.toContain('wx.');

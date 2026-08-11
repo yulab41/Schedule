@@ -1672,3 +1672,13 @@
 - 修复：`calendar-grid`、`calendar-week`、`calendar-list`、`date-detail-sheet`、`duty-detail-sheet` 的页面级 `route` 转发，以及 `phone-sheet` 的 `dial`/`copy` 转发均设置 `{ bubbles: true, composed: true }`。`assignment-row`/`marker-badge` 仍保持默认不冒泡，避免子事件与父转发重复触发。
 - 验证：boundary 4 项、完整小程序 21 文件 / 96 项、配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 12111、warnings `[]`，preview 成功（188.5 KB）。`pnpm smoke:browser` 不适用（仅小程序组件事件边界，未改 Web/API/契约/认证/构建核心链路）。
 - 状态：已修复，等待用户重新编译后复核日期单元格、排班行、member/guest marker、电话和事件入口；Task 9/V3-3 未开始。
+
+### V3-2 Task 8 详情内容高度修复（2026-08-11）
+
+- 复现：页面级事件修复后，人工点击空白日期、排班姓名或换班/加班标识均能打开抽屉，但日期详情、值班详情、事件详情只显示标题和“关闭”，slot 内的具体内容不可见。该结果不是预期的 Task 8 验收结果。
+- 回归引入点：`git log -S 'bottom-sheet__content' -- apps/miniprogram/components/bottom-sheet/index.wxss` 与 `git blame -L 78,88` 均定位到 `7d95a0a feat(miniprogram): add calendar detail sheets`；原规则只有 `max-height: 62vh`。`bottom-sheet` 的 WXML 使用原生 `scroll-view`，但没有显式高度。
+- 根因：小程序 `scroll-view` 需要明确的可滚动视口高度；父面板只有 `max-height`，导致内容滚动区可能折叠，标题栏仍可见而 slot 内容不可见。三类详情共享同一个宿主和内容滚动区，因此出现一致症状。
+- 测试先行：boundary guard 新增 `.bottom-sheet__content` 必须包含独立 `height: 62vh` 的断言；为避免 `max-height` 子串误匹配，先收紧正则后旧样式真实红灯，再加入样式后 4 项 boundary 测试转绿。
+- 修复：`apps/miniprogram/components/bottom-sheet/index.wxss` 为内容 `scroll-view` 增加 `height: 62vh`，保留 `max-height: 62vh`；不改变 sheet 状态机、路由、详情 VM 或电话/事件副作用。
+- 验证：完整小程序 + boundary 为 21 文件 / 96 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3128、warnings `[]`，preview 188.5 KB 成功。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
+- 状态：已修复，待用户强制重新编译后复核日期、值班和事件详情必须显示具体信息；Task 9/V3-3 未开始。
