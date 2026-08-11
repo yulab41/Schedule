@@ -168,7 +168,9 @@ describe('mini-program calendar VM boundary', () => {
     expect(bottomSheet).toContain('request-close');
     expect(bottomSheet).toContain('closed');
     expect(bottomSheetWxml).toContain('<slot');
-    expect(bottomSheetWxml).toContain('scroll-view');
+    expect(bottomSheetWxml).toMatch(
+      /<scroll-view\b(?=[^>]*\bclass="bottom-sheet__content")(?=[^>]*\bscroll-y\b)[^>]*>/u,
+    );
     expect(declarationsFor(bottomSheetWxss, '.bottom-sheet__content')).toMatch(
       /(?:^|\s)height:\s*62vh;/u,
     );

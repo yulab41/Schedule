@@ -1682,3 +1682,10 @@
 - 修复：`apps/miniprogram/components/bottom-sheet/index.wxss` 为内容 `scroll-view` 增加 `height: 62vh`，保留 `max-height: 62vh`；不改变 sheet 状态机、路由、详情 VM 或电话/事件副作用。
 - 验证：完整小程序 + boundary 为 21 文件 / 96 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3128、warnings `[]`，preview 188.5 KB 成功。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
 - 状态：已修复，待用户强制重新编译后复核日期、值班和事件详情必须显示具体信息；Task 9/V3-3 未开始。
+
+### V3-2 Task 8 人工 UI 复核通过与断言加固（2026-08-11）
+
+- 人工结果：用户强制重新编译后确认日期详情、值班详情、换班/加班事件详情均能显示具体内容；Task 8 人工 UI 门禁通过。
+- 审查加固：独立审查发现原断言分别检查 WXML 的 `scroll-view` 和 WXSS 的高度，理论上可能在 class 被移走时误通过。已改为同一 `<scroll-view>` 标签必须同时包含 `class="bottom-sheet__content"` 与 `scroll-y`，并保留独立 `height: 62vh` 断言。
+- 验证：断言加固后执行完整 V3-2 检查集，共 23 文件 / 105 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff 和 `git diff --check` 通过；Task 8 既有 DevTools build/preview 结果仍有效。`pnpm smoke:browser` 不适用。
+- Git：`5f4d6c7 fix(miniprogram): size bottom-sheet content viewport` 已推送至 `origin/main`；本轮断言加固与人工验收记录的检查点提交信息为 `test(miniprogram): couple bottom-sheet height guard`，随后正常快进推送。Task 9/V3-3 未开始。

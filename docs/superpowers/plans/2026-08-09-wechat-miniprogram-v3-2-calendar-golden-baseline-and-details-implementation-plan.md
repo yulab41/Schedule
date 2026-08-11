@@ -1125,9 +1125,9 @@ git diff --check
 
 Expected: every command exits `0`, the contract/API diff is empty, and record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历详情组件/事件/电话/底部面板，未改 Web/API/契约/认证/构建核心链路）。`
 
-- [ ] **Step 7:** DevTools/simulator gate: blank date → date sheet; row → duty; guest marker → duty and member marker → event; phone → phone sheet; confirmed dial/unconfirmed copy each call once; `<80px` returns to zero, `≥80px` closes, and content drag activates only after top. Use the persisted real Web snapshot to inspect each event/marker type it contains; missing types remain covered by the pure controlled-vector tests. Capture opening, scroll, bounce, closing, stale-key replacement, and each sheet state.
-- [ ] **Step 8:** Complete the semantic audit, update checkpoint docs, review `git diff`/`git diff --cached` and behavior changes, stage only Task 8 files plus docs, validate `git diff --cached --check`, then create the **local** commit `feat(miniprogram): add calendar detail sheets`.
-- [ ] **Step 9:** After all three local commits exist and all stop conditions are met, run the **full V3-2 checkpoint set** once:
+- [x] **Step 7:** DevTools/simulator gate: blank date → date sheet; row → duty; guest marker → duty and member marker → event; phone → phone sheet; confirmed dial/unconfirmed copy each call once; `<80px` returns to zero, `≥80px` closes, and content drag activates only after top. Use the persisted real Web snapshot to inspect each event/marker type it contains; missing types remain covered by the pure controlled-vector tests. Capture opening, scroll, bounce, closing, stale-key replacement, and each sheet state. 用户于 2026-08-11 强制重新编译后确认详情内容显示正常，人工 UI 门禁通过。
+- [x] **Step 8:** Complete the semantic audit, update checkpoint docs, review `git diff`/`git diff --cached` and behavior changes, stage only Task 8 files plus docs, validate `git diff --cached --check`, then create the **local** commit `feat(miniprogram): add calendar detail sheets`. Task 8 后续页面宿主、事件边界和 scroll-view 高度修复均已独立验证并正常推送。
+- [x] **Step 9:** After all three local commits exist and all stop conditions are met, run the **full V3-2 checkpoint set** once:
 
 ```powershell
 pnpm vitest run apps/miniprogram scripts/miniprogram-calendar-boundary.test.mjs scripts/miniprogram-app-shell.test.mjs scripts/miniprogram-manifest.test.mjs
@@ -1140,7 +1140,7 @@ git log --oneline -6
 git push
 ```
 
-Expected: all tests pass, `HEAD` contains the three V3-2 commits, and one normal fast-forward push publishes them to `origin/main`. Record the push result in `docs/project-status.md`; a failed push keeps all three local commits and records the failure without force-pushing.
+Result: the final checkpoint set passed with 23 files / 105 tests, configuration audit, typecheck, lint, core smoke guard, empty contract/API diff, and `git diff --check`. The user-authorized per-change normal fast-forward pushes published the V3-2 commits through `5f4d6c7` to `origin/main`; no force-push was used.
 
 **V3-2 stop condition:** stop after the single push attempt. Do not start Task 9 or any V3-3 work.
 
