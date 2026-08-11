@@ -78,6 +78,14 @@ export interface CalendarCache {
   remove(identity: CalendarCacheIdentity): void;
 }
 
+export function removeCalendarCacheMonths(
+  cache: Pick<CalendarCache, 'remove'>,
+  context: Omit<CalendarCacheIdentity, 'businessMonth'>,
+  businessMonths: readonly string[],
+): void {
+  for (const businessMonth of new Set(businessMonths)) cache.remove({ ...context, businessMonth });
+}
+
 export function createCalendarCache(port: CalendarCachePort): CalendarCache {
   return {
     read(identity) {

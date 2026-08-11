@@ -1701,3 +1701,13 @@
 - 文档同步：新增 `docs/superpowers/plans/2026-08-11-wechat-miniprogram-v3-3-workflows-implementation-plan.md`，并同步 V3 路线图、V3 设计、Web 总设计、V3-2 完成状态、项目状态和本日志，移除“所有动作都 preview/operationId”“直办原因必填”“客户端归档动作”等过时口径。
 - 验证：V3-3 计划自审通过（470 行、11 个强制术语、23 个历史提交均可达）；7 份文档 Prettier 与 `git diff --check` 通过；`pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划、设计和状态文档，未改 Web/API/契约/认证/构建核心链路）。
 - 状态：**待用户复核**；文档检查点信息为 `docs(miniprogram): plan V3-3 workflow delivery`。获批后下一批只能执行 Task 9.1 并在其 checkpoint 后停止；Task 10 不获授权。
+
+### V3-3 Task 9.1: workflow endpoints and runtime (2026-08-11)
+
+- Scope: only Task 9.1. No leave, swap, or duty submission UI was added; Task 9.2, Task 9.3, and Task 10 remain out of scope.
+- Regression provenance: `git log -S 'acceptSwapRequest' -- apps/miniprogram/api/endpoints.ts` and `git blame` identify `d9c2d6e`; calendar cache/controller provenance is `42d6243`; workbench navigation is `bc534c0`; app-shell's main-package-only assertion is `ebfbb31` (with invite lines from `bc534c0`).
+- TDD evidence: before implementation, the Task 9.1 endpoint/workflow/cache/navigation/boundary suite failed for the missing workflow modules, direct/settings wrappers, invalidation method, route context, and workflows subpackage. The app-shell test then failed on the new registered subpackage until its expected discoverable route was added.
+- Browser validation: `pnpm smoke:browser` passed on 2026-08-11. Login, administrator, member, guest, and administrator visitor-audit smoke flows completed with no browser errors. `pnpm smoke:check-core` then passed.
+- DevTools/connection validation: build-npm succeeded with `warnings: []`; preview succeeded with main 193.6 KB and `/subpackages/workflows/` 1.3 KB. The initial shared-connection `pnpm miniprogram:smoke` timed out because DevTools closes the automator transport after a `reLaunch`. A direct 8-route probe proved every registered page, including the requests subpackage, opened without script errors. The smoke runner was then changed to reconnect between routes; the standard `MINIPROGRAM_SMOKE_AUTO_WS=ws://127.0.0.1:9422 pnpm miniprogram:smoke` passed 8/8 routes with no script-level errors.
+- Final validation: targeted Task 9.1 suite 9 files / 56 tests; full miniprogram + app-shell + workflows boundary 27 files / 126 tests; config audit, typecheck, lint, explicit-file Prettier, and `git diff --check` all passed.
+- Status: completed with runtime/browser validation; pending user review. Checkpoint message: `fix(miniprogram): align workflow endpoints and runtime`.

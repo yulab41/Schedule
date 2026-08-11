@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-3 Task 9 详细计划已按当前 contracts/API/Web 回归历史拟写；Task 9 分为 9.1 端点/并发内核、9.2 请假、9.3 换班/加扣班三个 checkpoint，Task 10 只冻结范围。计划状态为**待用户复核**，批准前禁止实施 Task 9。
+- 当前批次：V3-3 Task 9.1 已实现并完成运行验证，等待独立 checkpoint；只完成端点对齐、工作流纯内核、角色路由壳与日历精确失效。未实现任何请假、换班或加扣班提交 UI；Task 9.2、9.3 与 Task 10 未进入。
 
 ## Completed Batch
 
@@ -155,6 +155,16 @@
 - 安全纠偏：anonymous QR 使用无 tabBar 单群页；authenticated guest 必须有登出但不能通过静态 tabBar/直接路由加载通知等越权数据；guest/anonymous API 只返回 confirmed 号码；`left-member` 只能由管理员邀请回流，不恢复 claim。
 - 计划文档检查点信息：`docs(miniprogram): plan V3-3 workflow delivery`。
 
+### V3-3：Task 9.1 端点、工作流内核与运行时（已完成，2026-08-11）
+
+- 端点：对齐 leave/swap/duty 的真实 input/output，补齐 direct、群组/成员 settings 与 leave reflow strategy wrappers；端点测试锁定 method、path、payload 和返回类型。
+- 纯内核：新增同 context/generation 的 mutation 单飞、稳定 preview 指纹、409 原错误保留/preview 废弃/权威刷新/安全 latestData 摘要、CST 全天半开区间、候选班次和 role/status/relation/isRevocable 动作矩阵；没有自动重放。
+- 路由与权限：注册 workflows 分包请求中心壳；仅真实非 guest 群组身份可从工作台进入，platform-admin-only 与 guest 不加载工作流端点。没有实现领域提交页面。
+- 日历：共享 cache runtime 精确删除 user/group/month 持久缓存并推进 invalidation epoch；日历 `onShow` 先丢弃受影响 ready slot 后重取。`minitest/` 保留为用户/DevTools 未跟踪产物，未读取、修改或暂存。
+- 测试先行与回归溯源：新增套件先因缺模块、错型 wrapper、失效方法、路由上下文和分包缺失而失败，实施后转绿；`git log -S`/`git blame` 记录端点 `d9c2d6e`、日历 `42d6243`、导航 `bc534c0`、app shell `ebfbb31` 的引入点。
+- 验证：定向 9 文件 / 56 项通过；完整小程序、app-shell 与 workflows boundary 为 27 文件 / 126 项通过；config audit、typecheck、lint、明确文件 Prettier 与 diff check 通过。`pnpm smoke:browser`、随后 `pnpm smoke:check-core` 通过。DevTools build-npm warnings `[]`，preview 成功（main 193.6 KB，workflows 1.3 KB）；标准连接态 `pnpm miniprogram:smoke` 经 reconnect 修复后 8/8 注册页面通过、无脚本级错误。
+- 状态：已完成（含运行/浏览器验证），待用户复核。检查点提交信息：`fix(miniprogram): align workflow endpoints and runtime`。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -167,6 +177,7 @@
 - V3-1 Task 3：`pnpm vitest run scripts/miniprogram-app-shell.test.mjs scripts/miniprogram-manifest.test.mjs`（2 文件 / 9 项）通过；配置审计、typecheck、lint、Prettier、`git diff --check`、`pnpm smoke:browser`、`pnpm smoke:check-core` 通过；DevTools npm 构建无警告、preview 成功（10.5 KB）、模拟器冒烟 5/5 页面通过，真机 Skyline/WebView/Auto 及 tab 切换通过。检查点：`ebfbb31 feat(miniprogram): add V3 app shell and native navigation`，已随 V3-1 最终正常快进推送同步至 `origin/main`。
 - V3-2 最终复核：23 文件 / 105 项通过；config audit、typecheck、lint、`pnpm smoke:check-core`、契约/API 空 diff 和 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（V3-2 最终加固未改 Web/API/契约/认证/构建核心链路）。
 - V3-3 计划验证：新计划自审通过（470 行、11 个强制术语、23 个历史提交均可达）；7 份文档 Prettier 与 `git diff --check` 通过；`pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划/设计/状态文档，未改 Web/API/契约/认证/构建核心链路）。
+- V3-3 Task 9.1：定向 9 文件 / 56 项、完整小程序/app-shell/workflows boundary 27 文件 / 126 项、config audit、typecheck、lint、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过；DevTools build-npm/preview 和重连后的标准 8/8 路由 smoke 无脚本级错误。
 
 ## Decisions and Deviations
 
@@ -188,9 +199,9 @@
 
 ## Active Batch
 
-1. 复核 V3-3 详细计划及同步修订后的路线图/设计/状态文档；当前只允许文档检查点。
-2. 用户批准计划后，唯一实施批次是 Task 9.1：端点对齐、工作流并发/日期/动作纯内核和角色路由壳；形成 checkpoint 后停止。
-3. Task 9.3 最终 checkpoint 与 Task 9 运行/人工复核完成前，不得生成 Task 10 文件清单；其独立计划还需用户另行批准，不进入 V3-4。
+1. V3-3 Task 9.1 已完成并通过运行验证；本对话只创建独立 checkpoint、正常快进推送后停止。
+2. 下一批仅可由后续对话处理 Task 9.2（全天请假与审批）；其 stop condition 是创建、影响提示、审批 preview、策略、批准/驳回、取消/撤销全部通过，形成 `feat(miniprogram): add leave workflows` 后停止。
+3. Task 9.3 与 Task 10 仍禁止进入；Task 10 文件清单/实施需在 Task 9.3 与 Task 9 全部运行/人工复核完成后另行计划和批准。
 
 ## Handoff Requirements
 

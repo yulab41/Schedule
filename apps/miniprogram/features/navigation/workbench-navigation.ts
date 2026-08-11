@@ -18,6 +18,7 @@ export interface WorkbenchEntry {
   readonly id: WorkbenchEntryId;
   readonly label: string;
   readonly requiresAdministrator: boolean;
+  readonly route?: string;
   readonly tabRoute?: '/pages/calendar/index' | '/pages/notifications/index';
 }
 
@@ -29,6 +30,14 @@ export interface WorkbenchSection {
   readonly role?: GroupRole;
 }
 
+export interface WorkflowRouteContext {
+  readonly groupId: string;
+  readonly groupRole: Exclude<GroupRole, 'guest'>;
+  readonly groupVersion: number;
+}
+
+export const workflowRequestsRoute = '/subpackages/workflows/pages/requests/index';
+
 export const workbenchEntries: readonly WorkbenchEntry[] = [
   {
     id: 'calendar',
@@ -39,9 +48,9 @@ export const workbenchEntries: readonly WorkbenchEntry[] = [
   { id: 'groups', label: '群组管理', requiresAdministrator: false },
   { id: 'manual', label: '手动排班', requiresAdministrator: true },
   { id: 'backfill', label: '排班补录', requiresAdministrator: true },
-  { id: 'leave', label: '请假', requiresAdministrator: false },
-  { id: 'swap', label: '换班', requiresAdministrator: false },
-  { id: 'duty', label: '加扣班', requiresAdministrator: false },
+  { id: 'leave', label: '请假', requiresAdministrator: false, route: workflowRequestsRoute },
+  { id: 'swap', label: '换班', requiresAdministrator: false, route: workflowRequestsRoute },
+  { id: 'duty', label: '加扣班', requiresAdministrator: false, route: workflowRequestsRoute },
   { id: 'events', label: '事件', requiresAdministrator: true },
   {
     id: 'notifications',
@@ -60,6 +69,19 @@ export function getVisibleWorkbenchEntries(role: GroupRole): readonly WorkbenchE
   if (role === 'member')
     return workbenchEntries.filter(({ requiresAdministrator }) => !requiresAdministrator);
   return workbenchEntries;
+}
+
+export function resolveWorkflowRouteContext(
+  groups: readonly GroupSummary[],
+  groupId: string,
+): WorkflowRouteContext | undefined {
+  const group = groups.find((candidate) => candidate.id === groupId);
+  if (group === undefined || group.role === 'guest') return undefined;
+  return { groupId: group.id, groupRole: group.role, groupVersion: group.version };
+}
+
+export function buildWorkflowRequestRoute(context: WorkflowRouteContext): string {
+  return `${workflowRequestsRoute}?groupId=${encodeURIComponent(context.groupId)}&groupRole=${context.groupRole}&groupVersion=${context.groupVersion}`;
 }
 
 export function buildWorkbenchSections(

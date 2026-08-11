@@ -1,0 +1,4 @@
+<page-shell title="请求中心">
+  <shell-state wx:if="{{hasWorkflowAccess}}" kind="empty" title="请求中心即将开放" description="请假、换班和加扣班表单将在后续检查点接入。" />
+  <shell-state wx:else kind="error" title="当前群组无工作流权限" description="请返回工作台选择成员、管理员或群主身份的群组。" />
+</page-shell>

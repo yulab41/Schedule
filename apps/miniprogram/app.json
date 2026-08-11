@@ -8,6 +8,12 @@
     "pages/notifications/index",
     "pages/profile/index"
   ],
+  "subPackages": [
+    {
+      "root": "subpackages/workflows",
+      "pages": ["pages/requests/index"]
+    }
+  ],
   "window": {
     "backgroundColor": "#F5F7FA",
     "backgroundTextStyle": "light",

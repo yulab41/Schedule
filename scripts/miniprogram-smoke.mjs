@@ -104,7 +104,7 @@ async function main() {
     }
   }
 
-  const miniProgram = await connectWithRetry(reuseWs ?? `ws://127.0.0.1:${autoPort}`);
+  let miniProgram = await connectWithRetry(reuseWs ?? `ws://127.0.0.1:${autoPort}`);
   console.log('[miniprogram-smoke] 已连接模拟器');
 
   const consoleLogs = [];
@@ -124,7 +124,7 @@ async function main() {
 
   try {
     const results = [];
-    for (const route of pages) {
+    for (const [index, route] of pages.entries()) {
       const url = `/${route}`;
       if (tabPages.has(route)) {
         await miniProgram.switchTab(url);
@@ -137,6 +137,23 @@ async function main() {
       await miniProgram.screenshot({ path: path.join(SCREENSHOT_DIR, fileName) });
       results.push({ route, pagePath: page.path, screenshot: fileName });
       console.log(`[miniprogram-smoke] OK ${route} -> ${page.path}`);
+      if (index < pages.length - 1) {
+        miniProgram.disconnect();
+        miniProgram = await connectWithRetry(reuseWs ?? `ws://127.0.0.1:${autoPort}`);
+        try {
+          miniProgram.on('console', (log) => {
+            consoleLogs.push({ type: log.type, text: log.text });
+          });
+          miniProgram.on('exception', (error) => {
+            consoleLogs.push({
+              type: 'exception',
+              text: error?.stack ?? error?.message ?? String(error),
+            });
+          });
+        } catch {
+          // Older automator versions may omit app-level events.
+        }
+      }
     }
 
     const scriptErrors = consoleLogs.filter((log) =>

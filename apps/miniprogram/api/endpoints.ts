@@ -5,6 +5,7 @@ import type {
   AppliedManualScheduleTemplateResult,
   ApplyManualScheduleTemplateRequest,
   ApproveLeaveRequestInput,
+  ApprovedLeaveRequestResult,
   CalendarReadModel,
   CreatePastScheduleAssignmentInput,
   CreateScheduleExportInput,
@@ -14,6 +15,8 @@ import type {
   CreateInviteLinkRequest,
   CreateInviteLinkResponse,
   CreateDutyAdjustmentRequestInput,
+  CreateDirectDutyAdjustmentInput,
+  CreateDirectSwapInput,
   CreateLeaveRequestInput,
   CreateManualScheduleTemplateRequest,
   CreateScheduleRoleRequest,
@@ -23,14 +26,18 @@ import type {
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
   DutyAdjustmentMutationInput,
+  DutyAdjustmentPairInput,
   GroupCatalogEntry,
   GroupMemberContact,
+  GroupDutyAdjustmentSettings,
+  GroupLeaveReflowStrategy,
   GroupQrResponse,
   GuestCalendarReadModel,
   GroupSchedulePublishMode,
   GroupMember,
   GroupNotificationSettings,
   GroupSummary,
+  GroupSwapSettings,
   HolidayCalendarVersion,
   HolidayCoverage,
   HolidayImportPreview,
@@ -42,6 +49,7 @@ import type {
   LeaveRequest,
   LeaveRequestMutationResult,
   LeaveRequestMutationInput,
+  MemberSwapSettings,
   ManualApplyPreview,
   ManualScheduleTemplate,
   MemberNotificationPreferences,
@@ -63,6 +71,9 @@ import type {
   ResolveInviteResponse,
   RevokeDutyAdjustmentInput,
   RevokeSwapRequestInput,
+  PreviewLeaveRequestInput,
+  RejectedLeaveRequestResult,
+  RejectLeaveRequestInput,
   ScheduleExportJob,
   ScheduleGenerationPreview,
   ScheduleChangeImpactPreview,
@@ -85,8 +96,12 @@ import type {
   UpdateGroupNameRequest,
   UpdateGroupSchedulePublishModeRequest,
   UpdateGroupMemberContactRequest,
+  UpdateGroupDutyAdjustmentSettingsInput,
+  UpdateGroupLeaveReflowStrategyInput,
+  UpdateGroupSwapSettingsInput,
   UpdateManualScheduleTemplateRequest,
   UpdateMemberNotificationPreferencesInput,
+  UpdateMemberSwapSettingsInput,
   UpdatePastScheduleAssignmentInput,
   UpdatePastScheduleAssignmentResult,
   UpdatePlatformUserStatusInput,
@@ -256,6 +271,16 @@ export function createSwapRequest(
   });
 }
 
+export function createDirectSwapRequest(
+  groupId: string,
+  input: CreateDirectSwapInput,
+): Promise<SwapRequest> {
+  return request<SwapRequest>(`/groups/${groupId}/swaps/direct`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
 export function listSwapRequests(groupId: string): Promise<SwapRequest[]> {
   return request<SwapRequest[]>(`/groups/${groupId}/swaps`);
 }
@@ -263,7 +288,7 @@ export function listSwapRequests(groupId: string): Promise<SwapRequest[]> {
 export function acceptSwapRequest(
   groupId: string,
   swapRequestId: string,
-  input: LeaveRequestMutationInput,
+  input: SwapRequestMutationInput,
 ): Promise<SwapRequest> {
   return request<SwapRequest>(`/groups/${groupId}/swaps/${swapRequestId}/accept`, {
     data: input,
@@ -274,7 +299,7 @@ export function acceptSwapRequest(
 export function cancelSwapRequest(
   groupId: string,
   swapRequestId: string,
-  input: LeaveRequestMutationInput,
+  input: SwapRequestMutationInput,
 ): Promise<SwapRequest> {
   return request<SwapRequest>(`/groups/${groupId}/swaps/${swapRequestId}/cancel`, {
     data: input,
@@ -295,7 +320,7 @@ export function revokeSwapRequest(
 
 export function previewDutyAdjustment(
   groupId: string,
-  input: { coveredAssignmentId: string; overtimeMembershipId: string },
+  input: DutyAdjustmentPairInput,
 ): Promise<DutyAdjustmentPreview> {
   return request<DutyAdjustmentPreview>(`/groups/${groupId}/duty-adjustments/preview`, {
     data: input,
@@ -313,6 +338,16 @@ export function createDutyAdjustmentRequest(
   });
 }
 
+export function createDirectDutyAdjustment(
+  groupId: string,
+  input: CreateDirectDutyAdjustmentInput,
+): Promise<DutyAdjustmentRequest> {
+  return request<DutyAdjustmentRequest>(`/groups/${groupId}/duty-adjustments/direct`, {
+    data: input,
+    method: 'POST',
+  });
+}
+
 export function listDutyAdjustmentRequests(groupId: string): Promise<DutyAdjustmentRequest[]> {
   return request<DutyAdjustmentRequest[]>(`/groups/${groupId}/duty-adjustments`);
 }
@@ -320,7 +355,7 @@ export function listDutyAdjustmentRequests(groupId: string): Promise<DutyAdjustm
 export function acceptDutyAdjustment(
   groupId: string,
   dutyAdjustmentId: string,
-  input: LeaveRequestMutationInput,
+  input: DutyAdjustmentMutationInput,
 ): Promise<DutyAdjustmentRequest> {
   return request<DutyAdjustmentRequest>(
     `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/accept`,
@@ -334,7 +369,7 @@ export function acceptDutyAdjustment(
 export function cancelDutyAdjustment(
   groupId: string,
   dutyAdjustmentId: string,
-  input: LeaveRequestMutationInput,
+  input: DutyAdjustmentMutationInput,
 ): Promise<DutyAdjustmentRequest> {
   return request<DutyAdjustmentRequest>(
     `/groups/${groupId}/duty-adjustments/${dutyAdjustmentId}/cancel`,
@@ -366,12 +401,12 @@ export function listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest
 export function previewLeaveRequestApproval(
   groupId: string,
   leaveRequestId: string,
-  strategy: 'keep-original-order' | 'shift-forward',
+  input: PreviewLeaveRequestInput,
 ): Promise<LeaveReflowPreview> {
   return request<LeaveReflowPreview>(
     `/groups/${groupId}/leave-requests/${leaveRequestId}/preview`,
     {
-      data: { strategy },
+      data: input,
       method: 'POST',
     },
   );
@@ -381,21 +416,89 @@ export function approveLeaveRequest(
   groupId: string,
   leaveRequestId: string,
   input: ApproveLeaveRequestInput,
-): Promise<LeaveRequest> {
-  return request<LeaveRequest>(`/groups/${groupId}/leave-requests/${leaveRequestId}/approve`, {
-    data: input,
-    method: 'POST',
-  });
+): Promise<ApprovedLeaveRequestResult> {
+  return request<ApprovedLeaveRequestResult>(
+    `/groups/${groupId}/leave-requests/${leaveRequestId}/approve`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
 }
 
 export function rejectLeaveRequest(
   groupId: string,
   leaveRequestId: string,
-  input: LeaveRequestMutationInput,
-): Promise<LeaveRequest> {
-  return request<LeaveRequest>(`/groups/${groupId}/leave-requests/${leaveRequestId}/reject`, {
+  input: RejectLeaveRequestInput,
+): Promise<RejectedLeaveRequestResult> {
+  return request<RejectedLeaveRequestResult>(
+    `/groups/${groupId}/leave-requests/${leaveRequestId}/reject`,
+    {
+      data: input,
+      method: 'POST',
+    },
+  );
+}
+
+export function getGroupSwapSettings(groupId: string): Promise<GroupSwapSettings> {
+  return request<GroupSwapSettings>(`/groups/${groupId}/swaps/settings`);
+}
+
+export function updateGroupSwapSettings(
+  groupId: string,
+  input: UpdateGroupSwapSettingsInput,
+): Promise<GroupSwapSettings> {
+  return request<GroupSwapSettings>(`/groups/${groupId}/swaps/settings`, {
     data: input,
-    method: 'POST',
+    method: 'PUT',
+  });
+}
+
+export function getGroupDutyAdjustmentSettings(
+  groupId: string,
+): Promise<GroupDutyAdjustmentSettings> {
+  return request<GroupDutyAdjustmentSettings>(`/groups/${groupId}/duty-adjustments/settings`);
+}
+
+export function updateGroupDutyAdjustmentSettings(
+  groupId: string,
+  input: UpdateGroupDutyAdjustmentSettingsInput,
+): Promise<GroupDutyAdjustmentSettings> {
+  return request<GroupDutyAdjustmentSettings>(`/groups/${groupId}/duty-adjustments/settings`, {
+    data: input,
+    method: 'PUT',
+  });
+}
+
+export function getMySwapSettings(groupId: string): Promise<MemberSwapSettings> {
+  return request<MemberSwapSettings>(`/groups/${groupId}/swaps/my-settings`);
+}
+
+export function getMyDutyAdjustmentSettings(groupId: string): Promise<MemberSwapSettings> {
+  return request<MemberSwapSettings>(`/groups/${groupId}/duty-adjustments/my-settings`);
+}
+
+export function updateMySwapSettings(
+  groupId: string,
+  input: UpdateMemberSwapSettingsInput,
+): Promise<MemberSwapSettings> {
+  return request<MemberSwapSettings>(`/groups/${groupId}/swaps/my-settings`, {
+    data: input,
+    method: 'PUT',
+  });
+}
+
+export function getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy> {
+  return request<GroupLeaveReflowStrategy>(`/groups/${groupId}/leave-reflow-strategy`);
+}
+
+export function updateLeaveReflowStrategy(
+  groupId: string,
+  input: UpdateGroupLeaveReflowStrategyInput,
+): Promise<GroupLeaveReflowStrategy> {
+  return request<GroupLeaveReflowStrategy>(`/groups/${groupId}/leave-reflow-strategy`, {
+    data: input,
+    method: 'PUT',
   });
 }
 

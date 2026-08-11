@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { goldenCalendar, goldenHolidays } from '../features/calendar/calendar-golden-data.js';
 import {
@@ -6,6 +6,7 @@ import {
   calendarCacheFreshnessMilliseconds,
   createCalendarCache,
   isCalendarCacheFresh,
+  removeCalendarCacheMonths,
   type CalendarCacheIdentity,
 } from './calendar-cache.js';
 
@@ -123,5 +124,22 @@ describe('calendar read cache', () => {
     });
     expect(cache.read(identity)).toBeUndefined();
     cache.remove(identity);
+  });
+
+  it('removes only explicitly named months for the current user and group context', () => {
+    const remove = vi.fn();
+    removeCalendarCacheMonths(
+      { remove },
+      {
+        groupId: identity.groupId,
+        groupRole: identity.groupRole,
+        groupVersion: identity.groupVersion,
+        userId: identity.userId,
+      },
+      ['2026-08', '2026-09', '2026-08'],
+    );
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(remove).toHaveBeenNthCalledWith(1, { ...identity, businessMonth: '2026-08' });
+    expect(remove).toHaveBeenNthCalledWith(2, { ...identity, businessMonth: '2026-09' });
   });
 });

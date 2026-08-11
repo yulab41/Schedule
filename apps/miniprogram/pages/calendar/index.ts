@@ -62,7 +62,12 @@ import {
   type EventTimelineController,
   type EventTimelineState,
 } from '../../features/events/event-timeline-controller.js';
-import { createCalendarCache } from '../../store/calendar-cache.js';
+import { getCalendarCacheRuntime } from '../../store/calendar-cache-runtime.js';
+import {
+  calendarInvalidationRegistry,
+  createCalendarInvalidationObserver,
+  type CalendarInvalidationObserver,
+} from '../../store/calendar-invalidation.js';
 import { sessionStore } from '../../store/session.js';
 
 interface CalendarPageData {
@@ -97,6 +102,7 @@ type SwiperChangeEvent = WechatMiniprogram.CustomEvent<{
 interface CalendarPageMethods {
   controller?: CalendarPageController;
   eventController?: EventTimelineController;
+  invalidationObserver?: CalendarInvalidationObserver;
   applyPicker(kind: 'member' | 'role' | 'shift', event: PickerEvent): void;
   applySlotUpdate(update: CalendarMonthSlotUpdate): void;
   handleCopy(event: ActionIdEvent): void;
@@ -213,14 +219,6 @@ function makeSurface(
   });
 }
 
-function makeCache() {
-  return createCalendarCache({
-    getStorageSync: (key) => wx.getStorageSync(key),
-    removeStorageSync: (key) => wx.removeStorageSync(key),
-    setStorageSync: (key, value) => wx.setStorageSync(key, value),
-  });
-}
-
 const initialViewState = getInitialState();
 const initialSlots = getInitialSlots();
 const initialEventTimeline: EventTimelineState = { hasMore: false, items: [], status: 'idle' };
@@ -249,7 +247,7 @@ Page<CalendarPageData, CalendarPageMethods>({
       ? createCalendarDevFixtureDependencies()
       : undefined;
     this.controller = createCalendarPageController({
-      cache: makeCache(),
+      cache: getCalendarCacheRuntime().cache,
       getCalendar:
         devFixtureDependencies?.getCalendar ??
         ((groupId, businessMonth) => getCalendar(groupId, businessMonth)),
@@ -282,6 +280,7 @@ Page<CalendarPageData, CalendarPageMethods>({
         }
       },
     });
+    this.invalidationObserver = createCalendarInvalidationObserver(calendarInvalidationRegistry);
   },
   onShow(): void {
     const state = sessionStore.state;
@@ -297,6 +296,10 @@ Page<CalendarPageData, CalendarPageMethods>({
     }
     this.setData({ activeRole: group.role, hasActiveGroup: true });
     this.controller?.activate(context);
+    const visibleMonths = this.data.monthSlots.map(({ businessMonth }) => businessMonth);
+    const invalidatedMonths = this.invalidationObserver?.consume(context, visibleMonths) ?? [];
+    if (invalidatedMonths.length > 0) this.controller?.invalidate(context, invalidatedMonths);
+    this.invalidationObserver?.observe(context, visibleMonths);
     this.loadMonths();
   },
   applySlotUpdate(update): void {

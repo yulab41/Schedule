@@ -49,7 +49,7 @@ describe('V3 app shell', () => {
     }
   });
 
-  it('registers only the V3 login shell and four native tab pages in order', () => {
+  it('keeps the V3 main-package order and registers the workflows subpackage', () => {
     const appJson = readJson('app.json');
     expect(listRegisteredPages(appJson)).toEqual([
       'pages/auth/login/index',
@@ -59,6 +59,7 @@ describe('V3 app shell', () => {
       'pages/calendar/index',
       'pages/notifications/index',
       'pages/profile/index',
+      'subpackages/workflows/pages/requests/index',
     ]);
     expect(appJson.tabBar?.custom).not.toBe(true);
     expect(appJson.pages).toContain('pages/invite/invite');

@@ -63,6 +63,7 @@ export interface CalendarPageControllerDependencies {
 export interface CalendarPageController {
   activate(context: CalendarContext): void;
   getMonthViewModels(months: readonly string[]): readonly CalendarMonthDataViewModel[];
+  invalidate(context: CalendarContext, businessMonths: readonly string[]): void;
   load(target: CalendarLoadTarget | CalendarLegacyLoadTarget, force?: boolean): Promise<void>;
   loadMonths(context: CalendarContext, months: readonly string[], force?: boolean): Promise<void>;
   performPhoneAction(actionId: string): boolean;
@@ -350,6 +351,18 @@ export function createCalendarPageController(
         if (slot !== undefined && isCurrentData(slot.viewModel)) result.push(slot.viewModel);
       }
       return result;
+    },
+    invalidate(context, businessMonths) {
+      for (const businessMonth of new Set(businessMonths)) {
+        const key = slotKey(identityFor(context, businessMonth));
+        const slot = slots.get(key);
+        if (slot === undefined) continue;
+        slot.generation += 1;
+        slot.cachedSnapshot = undefined;
+        slot.calendar = undefined;
+        slot.inFlight = undefined;
+        slot.viewModel = undefined;
+      }
     },
     load(target: CalendarLoadTarget | CalendarLegacyLoadTarget, force = false) {
       const wasDifferentMonth =

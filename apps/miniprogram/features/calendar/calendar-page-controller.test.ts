@@ -480,6 +480,34 @@ describe('calendar page controller', () => {
     expect(harness.getHolidays).toHaveBeenCalledTimes(1);
   });
 
+  it('drops one invalidated ready slot so the next onShow load must fetch it again', async () => {
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({ publishUpdate: (update) => updates.push(update) });
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+
+    await harness.controller.loadMonths(context, ['2026-08', '2026-09']);
+    harness.controller.invalidate(context, ['2026-08']);
+    updates.length = 0;
+    await harness.controller.loadMonths(context, ['2026-08', '2026-09']);
+
+    expect(harness.getCalendar).toHaveBeenCalledTimes(3);
+    expect(updates).toContainEqual(
+      expect.objectContaining({
+        businessMonth: '2026-08',
+        viewModel: expect.objectContaining({ status: 'ready' }),
+      }),
+    );
+
+    harness.controller.invalidate({ ...context, userId: 'other-user' }, ['2026-09']);
+    await harness.controller.loadMonths(context, ['2026-08', '2026-09']);
+    expect(harness.getCalendar).toHaveBeenCalledTimes(3);
+  });
+
   it('publishes a cached snapshot before refresh and keeps it on failure', async () => {
     const memory = createMemoryCache();
     const context = {
