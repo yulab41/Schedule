@@ -4,12 +4,12 @@
 
 ## Current Position
 
-- 日期：2026-08-10
+- 日期：2026-08-11
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
-- 小程序：V3-0.5 Task 1–2 与 V3-1 Task 3–5 已完成；V3-1 具备真实 manifest/原生 tabBar、会话与角色入口、纯日历逻辑、renderer-neutral VM 及 VM-only 日历页面，等待用户复核。
-- V3：V3-1 代码检查点为 `ce21a51`；独立 Task 3/4/5 提交为 `ebfbb31`、`bc534c0` 和 `ce21a51`，均已正常推送。用户已批准 V3-2；Task 6 已通过用户视觉验收，完成本地检查点后仅执行 Task 7。
-- 当前批次：真实 Web 部署数据已通过阿里云 API 容器的只读既有端点完整取样为 2026 fixture（全年 12 个月，其中 8/9 月共 61 条班次、6 名成员、1 个岗位、1 个班种、39 条节假日、14 条换班/加扣班事件）。该样本是唯一黄金样本，`develop` 环境日历页不依赖登录或内存注入；`trial`/`release` 仍走真实接口。Task 7 已通过人工 DevTools 复核；Task 8 已定位并修复详情宿主不可见问题，等待重新人工复核第 1–7 项。
+- 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
+- V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
+- 当前批次：V3-3 Task 9 详细计划已按当前 contracts/API/Web 回归历史拟写；Task 9 分为 9.1 端点/并发内核、9.2 请假、9.3 换班/加扣班三个 checkpoint，Task 10 只冻结范围。计划状态为**待用户复核**，批准前禁止实施 Task 9。
 
 ## Completed Batch
 
@@ -96,13 +96,13 @@
 - 行为审计：逻辑/VM 不依赖接收者；页面保留 `this.setData`、端点和 `wx` 成员调用；同一 in-flight context 返回同一 Promise，切换 context 的 generation/finally 不可覆盖新状态；`actual* ?? planned*`、空字符串姓名和显式 phone 空值语义保持；日期、selector、switch、action ID 与错误均收窄；筛选/排序不修改源数据，顺序为 businessDate → CST start（00:00 最后）→ 中文角色名 → slot → period → source index。
 - 检查点：`ce21a51 feat(miniprogram): add typed calendar view model` 已正常推送至 `origin/main`；Task 5/V3-1 已停止，不执行 Task 6，下一步仅可规划 V3-2。
 
-### V3-2：Task 6–8 执行计划复审（2026-08-10）
+### V3-2：Task 6–8 执行计划复审（历史门禁，已完成）
 
 - 门禁对账：已重新核对 `ebfbb31`/`bc534c0`/`ce21a51` 独立提交、真实 manifest/VM/页面壳/运行记录、`origin/main` 可达性和唯一未跟踪 DevTools 产物。调试日志顶端过期的“V3-1 未开始”摘要已修正；状态、Git 与日志现在都将 V3-1 标为已完成/待用户复核。
 - 计划修订：`docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md` 为 1188 行，补齐 Task 6 的无副作用路由 sink、Task 7 的跨月数据月槽/固定三页轮换/role+groupVersion 缓存隔离，以及 Task 8 的显示 VM、受限事件分页、键控两阶段 Bottom Sheet 和电话副作用语义。
-- Git 策略：既有 `e85481e` 是本地 V3-2 初稿检查点；本次修订仅创建 `docs(miniprogram): revise V3-2 calendar execution plan` 本地文档提交，不推送。Task 6/7/8 各一独立本地提交，三个停止条件均满足后只做一次正常快进 push。
+- Git 策略：原计划要求 Task 6/7/8 各一本地提交并在最后单次 push；用户随后明确覆盖为按变更正常快进推送，最终链已完整到达 `origin/main`，未 force-push。
 - 验证：聚焦套件 12 文件 / 74 项、`pnpm miniprogram:typecheck`、`pnpm smoke:check-core` 已通过；本轮运行计划占位符/标识符/契约源/行数检查、四份文档 Prettier 与 `git diff --check`。`pnpm smoke:browser` 不适用（仅文档变更）。
-- 状态：**待用户复核**；下一批仅在用户批准后执行 Task 6，禁止在本轮实施生产代码。
+- 状态：该门禁已由用户后续批准解除；Task 6–8 与 UI 回归现均完成。
 
 ### V3-2：Task 6 自绘网格、微标签与无副作用路由（已完成，2026-08-10）
 
@@ -114,7 +114,7 @@
 - 回归引入点与行为审计：`git log -S`/`git blame` 确认 mini `getHolidayShortLabel`、marker tokens 与原始 `shiftTypeAbbreviation` 由 `ce21a51` 引入；Web 对应节假日、姓名、班种与 marker 样式来自 `a3b14fb`/`DutyCell.vue`/`ChangeBadge.vue`/`MonthGrid.vue`。此次是有意显示变更而非语义等价重构：marker 统一为 Web 的浅黄棕字无描边，workday 统一为蓝色“班”，姓名恢复渲染；真实 marker 类型、action ID、路由、筛选、电话 action、源数据和权限均不变，组件仍不引入 API/`wx`/会话副作用。
 - DevTools：Stable CLI、项目 `apps/miniprogram`、端口 `25228` 下 `pnpm miniprogram:devtools:build-npm` 成功（`cost: 3560`，`warnings: []`）。`cli auto --auto-port 9430` 仍未监听自动化 WebSocket，桌面自动化也无法操作其窗口；但不再需要内存注入，重载项目即可由持久 `develop` fixture 显示 2026-08 网格。
 - DevTools 验收：用户已确认姓名、班种、节假日、换/加标识的最终视觉效果。Task 6 的点击按计划仅进行无副作用 route sink 解析；详情/电话/事件可见交互属于 Task 8。
-- 检查点：`1eef26a feat(miniprogram): add calendar grid routing` 已创建且保持本地、不推送。下一批仅为 Task 7，完成其独立验证和本地提交后停止，仍不得开始 Task 8。
+- 检查点：`1eef26a feat(miniprogram): add calendar grid routing` 已创建并随 V3-2 提交链正常推送。
 
 ### V3-2：Task 7 三月导航、月/周/列表模式与只读缓存（已完成，2026-08-10）
 
@@ -143,7 +143,17 @@
 - 最新验证：完整小程序 + boundary 为 21 文件 / 96 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff、`git diff --check` 通过；DevTools `build-npm` cost 3128、warnings `[]`，preview 188.5 KB 成功。`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
 - 人工复核：用户于 2026-08-11 强制重新编译后确认日期详情、值班详情、事件详情等内容均正常显示，Task 8 UI 门禁通过。
 - 最终检查集：在断言加固后执行 `apps/miniprogram` + calendar boundary + app-shell + manifest，共 23 文件 / 105 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff 与 `git diff --check` 均通过。
-- Git 检查点：`5f4d6c7 fix(miniprogram): size bottom-sheet content viewport` 已正常快进推送至 `origin/main`，未 force-push。
+- Git 检查点：最终断言加固 `9629454 test(miniprogram): couple bottom-sheet height guard` 已正常快进推送至 `origin/main`，未 force-push。
+
+### V3-3：Task 9 工作流计划与 Task 10 范围冻结（2026-08-11）
+
+- 新计划：`docs/superpowers/plans/2026-08-11-wechat-miniprogram-v3-3-workflows-implementation-plan.md`。Task 9 按 9.1/9.2/9.3 三个独立 checkpoint 展开；批准后的唯一下一批是 9.1，完成即停，不同轮进入 9.2。
+- Web 同步：管理员直换必须提供、先 preview、没有 reason 且绕过普通审批；管理员直代不新增 preview、reason 选填且绕过普通审批。请假创建仅有非阻塞受影响班次提示、没有 operationId；完整 preview 只在审批阶段。
+- 冲突/并发：409 固定“捕获原错误 → 废弃 preview → 刷新权威状态 → 发布原错误/安全摘要”，不自动重放。支持 operationId 的动作按当前 Web 每次明确提交生成新 ID，同一在途提交由客户端单飞；请假创建只做客户端单飞。
+- 动作/缓存：动作资格按群组角色 × 请求状态 × 当前 membership 业务关系 × `isRevocable` 三态；硬 `workflowBlockers` 不可 acknowledgement 绕过。实际排班变化同时删除精确持久缓存并标记跨页 invalidation epoch，日历下次 `onShow` 丢弃 ready slot 后强制重取。
+- Task 10：通知、个人、群组、匿名访客、会话和角色导航的范围/安全边界已冻结；只有 Task 9.3 最终 checkpoint 与 Task 9 运行/人工复核完成后，才能重审实际 endpoints、分包、路由和缓存、另写并另行批准文件级计划。本计划第 10 节永不授权实施 Task 10。
+- 安全纠偏：anonymous QR 使用无 tabBar 单群页；authenticated guest 必须有登出但不能通过静态 tabBar/直接路由加载通知等越权数据；guest/anonymous API 只返回 confirmed 号码；`left-member` 只能由管理员邀请回流，不恢复 claim。
+- 计划文档检查点信息：`docs(miniprogram): plan V3-3 workflow delivery`。
 
 ## Validation
 
@@ -155,6 +165,8 @@
 - V3-0.5 检查点复核：`HEAD == origin/main == 2c93859`、工作树起始状态干净；`pnpm vitest run apps/miniprogram/api/client.test.ts scripts/miniprogram-manifest.test.mjs scripts/miniprogram-config-audit.test.mjs` 为 3 文件 / 9 测试通过；配置审计、mini-program typecheck 和 core-smoke guard 通过。
 - V3-1 计划验证：执行计划、路线图、状态和调试日志经 Prettier、51 个 checkbox / 194 个配对代码围栏、路径/术语/占位符/类型一致性扫描与 `git diff --check` 复核；`pnpm smoke:check-core` 通过并确认仅文档变更无需浏览器冒烟；本轮不运行开发者工具或小程序模拟器。
 - V3-1 Task 3：`pnpm vitest run scripts/miniprogram-app-shell.test.mjs scripts/miniprogram-manifest.test.mjs`（2 文件 / 9 项）通过；配置审计、typecheck、lint、Prettier、`git diff --check`、`pnpm smoke:browser`、`pnpm smoke:check-core` 通过；DevTools npm 构建无警告、preview 成功（10.5 KB）、模拟器冒烟 5/5 页面通过，真机 Skyline/WebView/Auto 及 tab 切换通过。检查点：`ebfbb31 feat(miniprogram): add V3 app shell and native navigation`，已随 V3-1 最终正常快进推送同步至 `origin/main`。
+- V3-2 最终复核：23 文件 / 105 项通过；config audit、typecheck、lint、`pnpm smoke:check-core`、契约/API 空 diff 和 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（V3-2 最终加固未改 Web/API/契约/认证/构建核心链路）。
+- V3-3 计划验证：新计划自审通过（470 行、11 个强制术语、23 个历史提交均可达）；7 份文档 Prettier 与 `git diff --check` 通过；`pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划/设计/状态文档，未改 Web/API/契约/认证/构建核心链路）。
 
 ## Decisions and Deviations
 
@@ -166,23 +178,24 @@
 - 涂抹排班只作为单元格优先/班种锁定通过后的独立 Spike；失败时保留点击模式，不得把实验交互当作 V3 基线。
 - 本地缓存只用于只读快照，不能成为排班写入源或离线提交队列。
 - V3 日历必须完整保留成员、班次、节假日和当前契约的换/替/加标识；`deduction` 只有未来服务端/契约实际提供且上下文允许时才能出现；同日多排班不得只取第一条。
+- V3-3 工作流不使用统一 preview 模板：每个动作只发送当前合同提供的字段；管理员两类 direct 是独立特权路径，普通申请才遵守自动接受/群组审批设置。
 
 ## Previous Batch
 
-1. V3-0.5 Task 1–2 已分别在 `6d2c5fe`、`2c93859` 完成并推送；代码、测试、状态文档和 Git 历史已在本轮重新核对。
-2. 使用 `writing-plans` 从真实 V3-0.5 检查点生成 V3-1 Task 3–5 执行计划；停止条件：只提交计划文档和索引/状态/日志更新，不执行 Task 3。
-3. 以 writing-plans 的 header/checkbox 标准（用户覆盖“完整生产代码”要求，改为 contract-first/test-first/code-light）从真实 V3-1 检查点复审 V3-2 Task 6–8 执行计划；停止条件：只提交计划文档和路线图/状态/日志更新，不执行 Task 6。
+1. V3-0.5 Task 1–2 和 V3-1 Task 3–5 已完成并推送。
+2. V3-2 Task 6–8、导航/详情回归和人工 UI 复核已完成；最终检查点 `9629454` 已推送。
+3. V3-2 完整 Web/renderer/device/performance 证据已显式转入 V3-6，不阻塞 V3-3 计划审阅。
 
 ## Active Batch
 
-1. V3-2 Task 6 为 `1eef26a`；Task 7 主检查点为 `42d6243`，两轮 loading 回归为 `3171b2b` 与 `59707f7`，且已通过用户人工复核。
-2. Task 8 初次人工复核因详情宿主位于 `page-shell` 滚动插槽而不通过；随后修复页面级事件边界和详情 `scroll-view` 高度问题，用户于 2026-08-11 重新编译后确认详情内容正常显示，Task 8 状态为**已完成**。Task 9/V3-3 尚未开始。
-3. 用户于 2026-08-10 明确覆盖 V3-2 原“Task 8 后单次 push”策略；`7d95a0a`、`2316a5f` 与 `5f4d6c7` 已通过 VPN 全局 + TUN 链路正常快进推送至 `origin/main`，不 force-push。
+1. 复核 V3-3 详细计划及同步修订后的路线图/设计/状态文档；当前只允许文档检查点。
+2. 用户批准计划后，唯一实施批次是 Task 9.1：端点对齐、工作流并发/日期/动作纯内核和角色路由壳；形成 checkpoint 后停止。
+3. Task 9.3 最终 checkpoint 与 Task 9 运行/人工复核完成前，不得生成 Task 10 文件清单；其独立计划还需用户另行批准，不进入 V3-4。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
-- V3-1 唯一实施依据是已索引的阶段计划；交付路线图摘要不授权编码。
+- V3-3 计划获批后只授权其中 Task 9；第 10 节永不构成 Task 10 实施依据。Task 10 必须另写计划并由用户另行批准；交付路线图摘要不授权编码。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。

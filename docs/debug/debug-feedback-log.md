@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V1/V2 表现层已作废并清理；V3-2 Task 6 已提交为本地 `1eef26a`，Task 7 主检查点为 `42d6243`，导航 loading 回归已由本地 `fix(miniprogram): retain loaded calendar slots while navigating` 修复；等待人工视觉复核。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9 工作流计划已按当前 contracts/API/Web 回归历史拟写，Task 10 只冻结范围；计划待用户复核，批准前禁止实施 Task 9。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1689,3 +1689,15 @@
 - 审查加固：独立审查发现原断言分别检查 WXML 的 `scroll-view` 和 WXSS 的高度，理论上可能在 class 被移走时误通过。已改为同一 `<scroll-view>` 标签必须同时包含 `class="bottom-sheet__content"` 与 `scroll-y`，并保留独立 `height: 62vh` 断言。
 - 验证：断言加固后执行完整 V3-2 检查集，共 23 文件 / 105 项通过；配置审计、typecheck、lint、Prettier、`pnpm smoke:check-core`、契约/API 空 diff 和 `git diff --check` 通过；Task 8 既有 DevTools build/preview 结果仍有效。`pnpm smoke:browser` 不适用。
 - Git：`5f4d6c7 fix(miniprogram): size bottom-sheet content viewport` 已推送至 `origin/main`；本轮断言加固与人工验收记录的检查点提交信息为 `test(miniprogram): couple bottom-sheet height guard`，随后正常快进推送。Task 9/V3-3 未开始。
+
+### V3-3 Task 9 工作流计划与 Task 10 范围冻结（2026-08-11）
+
+- 用户需求：在 V3-2 完成后拟写 V3-3；必须回读 Web 开发/debug 日志和当前代码，尤其同步“管理员直办换班、加扣班不强制填写原因”的最终交互。
+- Git/前置门禁：计划编写前 `HEAD = origin/main = 9629454`，唯一未跟踪内容为用户/DevTools 产物 `apps/miniprogram/minitest/`，全程未修改或暂存。V3-2 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 的最终证据已复核；完整 Web/renderer/device/performance 证据按用户决定延后 V3-6。
+- Web 历史审计：复核 `6452fa9`、`5d8b205`、`cbe2e89`、`f28d983`、`d00f86b`、`0609cb5`、`49f492a`、`77c3490`、`e8ab017`、`772f40f`、`4540e13`、`d14a4ff`、`11094e3`、`de3acab`、`f65a57d`、`3b0b4a7`、`5689671`、`b423807`、`3199991`、`370bb87`、`b9ab3d3`、`1c5d2c5`、`c39b793` 及当前 Leave/Swap/Duty 页面。管理员直换确定为“先 preview、无 reason、直接 completed”；管理员直代确定为“无 direct 专用 preview、reason 选填、直接 completed”；两者都绕过普通成员接受和群组审批开关。
+- 请假/并发纠偏：新建请假仅有可失败且非阻塞的 affected-shifts 提示，完整 preview 只在审批，创建合同没有 operationId。409 固定“捕获原错误 → 废弃 preview → 刷新 → 发布原错误/安全摘要”；不自动重放。幂等回归按 actor + scope + operationId + fingerprint，记录 swap revoke reason 不进入 fingerprint 的现有例外。
+- 动作/缓存纠偏：动作矩阵加入 actorRelation 和 `isRevocable` false/true/undefined 三态；当前 membership 按 `isCurrentUser` ID 解析。`workflowBlockers` 是不可 acknowledgement 绕过的硬阻塞，conflicts/vacancies 才允许明确确认。排班变化同时删除精确持久缓存、标记跨页 invalidation epoch，并使已 loaded 的日历 ready slot 在下次 `onShow` 强制重取。
+- Task 10 安全边界：只有 Task 9.3 与 Task 9 运行/人工复核完成后才能另写并另行批准 Task 10 计划；本计划第 10 节永不授权实施。anonymous QR 使用无 tabBar 单群只读页；authenticated guest 必须有登出但静态 tabBar/直接链接不得加载越权数据；guest/anonymous API 只返回 confirmed 号码；`left-member` 只允许管理员邀请回流，`/groups/claim` 保持删除。
+- 文档同步：新增 `docs/superpowers/plans/2026-08-11-wechat-miniprogram-v3-3-workflows-implementation-plan.md`，并同步 V3 路线图、V3 设计、Web 总设计、V3-2 完成状态、项目状态和本日志，移除“所有动作都 preview/operationId”“直办原因必填”“客户端归档动作”等过时口径。
+- 验证：V3-3 计划自审通过（470 行、11 个强制术语、23 个历史提交均可达）；7 份文档 Prettier 与 `git diff --check` 通过；`pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划、设计和状态文档，未改 Web/API/契约/认证/构建核心链路）。
+- 状态：**待用户复核**；文档检查点信息为 `docs(miniprogram): plan V3-3 workflow delivery`。获批后下一批只能执行 Task 9.1 并在其 checkpoint 后停止；Task 10 不获授权。

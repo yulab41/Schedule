@@ -1,5 +1,7 @@
 # WeChat Mini Program V3-2 Calendar Golden Baseline And Details Implementation Plan
 
+> **Completion status (2026-08-11):** Task 6–8、后续 UI 回归修复和用户人工详情复核均已完成；最终代码检查点为 `9629454` 且已推送。下方未改写的前置/本地提交描述保留为历史计划语境，不再授权任何 V3-2 实施。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the V3-2 calendar golden baseline on the real V3-1 checkpoint: self-drawn calendar grid with micro badges and independent event routing (Task 6), three-page month swiping plus month/week/list modes and a read-only calendar cache (Task 7), and date/duty/event/phone detail bottom sheets (Task 8), without adding APIs, contract fields, marker types, permissions, or offline writes.
@@ -454,13 +456,13 @@ expect(wxss).not.toMatch(/constant\(|display:\s*grid|place-items|:focus/gu);
 
 ### 6.6 Task 6 Steps
 
-- [ ] **Step 1:** Run prerequisites; record literal Git/test results.
-- [ ] **Step 2:** Add `routeActionId` tests in `calendar-view-model.test.ts`; run and observe the two failures (`routeActionId` missing).
-- [ ] **Step 3:** Implement `routeActionId` in `calendar-view-model.ts`; run the VM suite until green.
-- [ ] **Step 4:** Create `calendar-golden-data.ts` and `calendar-golden-data.test.ts`; run and observe module-missing red, then green after the fixture exists.
-- [ ] **Step 5:** Create `calendar-routing.test.ts`; observe red (module missing), then implement `calendar-routing.ts` per section 6.2; run green.
-- [ ] **Step 6:** Create the four components and update page JSON/WXML/WXSS/TS per sections 6.4–6.5; update the boundary guard first, observe its red state on the placeholder page, then green after wiring.
-- [ ] **Step 7:** Run the full Task 6 validation set:
+- [x] **Step 1:** Run prerequisites; record literal Git/test results.
+- [x] **Step 2:** Add `routeActionId` tests in `calendar-view-model.test.ts`; run and observe the two failures (`routeActionId` missing).
+- [x] **Step 3:** Implement `routeActionId` in `calendar-view-model.ts`; run the VM suite until green.
+- [x] **Step 4:** Create `calendar-golden-data.ts` and `calendar-golden-data.test.ts`; run and observe module-missing red, then green after the fixture exists.
+- [x] **Step 5:** Create `calendar-routing.test.ts`; observe red (module missing), then implement `calendar-routing.ts` per section 6.2; run green.
+- [x] **Step 6:** Create the four components and update page JSON/WXML/WXSS/TS per sections 6.4–6.5; update the boundary guard first, observe its red state on the placeholder page, then green after wiring.
+- [x] **Step 7:** Run the full Task 6 validation set:
 
 ```powershell
 pnpm vitest run apps/miniprogram/features/calendar scripts/miniprogram-calendar-boundary.test.mjs
@@ -476,8 +478,8 @@ git diff --check
 
 Expected: all commands exit `0`, including the empty contract/API diff assertion. Browser smoke: **not applicable** (Task 6 touches only mini-program components/features/pages/scripts guards; record `运行/浏览器验证：pnpm smoke:browser 不适用（仅小程序日历组件/路由/VM，未改 Web/API/契约/认证/构建核心链路）` in the debug log).
 
-- [ ] **Step 8:** DevTools/simulator gate: `pnpm miniprogram:devtools:build-npm`, `pnpm miniprogram:devtools:preview`, `pnpm miniprogram:smoke`. In the simulator, feed golden data by one of two explicit methods: (a) a local API/dev-server payload that serves `goldenCalendar` for `GET /groups/:id/calendar?businessMonth=2026-08` (no repo change), or (b) a **temporary, non-committed** swap of the page's controller injection from endpoints to the golden fixture, restored to the endpoints before any commit; the debug log records which method and the restore state. Open `pages/calendar/index` and verify the golden month renders 7-column flex rows, full names, three same-day rows in order 06:00/08:00/20:00, night badge `N`, `换/替/加` badges, today/off-day/workday/past backgrounds, `08-31` cross-month row `20:00–04:00`, and phone entries only on rows with numbers. Record the literal DevTools version, base library, renderer indicator (`skyline`), and screenshots under the ignored `.tmp-miniprogram-preview` directory.
-- [ ] **Step 9:** Run the Task 6 semantic audit from the **Semantic Audit Contract** section, review `git diff` line by line, update `docs/project-status.md` and `docs/debug/debug-feedback-log.md`, stage only Task 6 files plus the two docs, run `git diff --cached --check`, and create the **local** commit `feat(miniprogram): build calendar golden baseline`.
+- [x] **Step 8:** DevTools/simulator gate completed with the persisted 2026 real Web snapshot; literal runtime evidence and user visual review are recorded in the status/debug documents.
+- [x] **Step 9:** Semantic audit, explicit staging and checkpoint completed as `1eef26a feat(miniprogram): add calendar grid routing`.
 
 **Task 6 stop condition:** stop after the local checkpoint commit. Do not add swiper, week/list modes, cache, sheets, or event fetching.
 
@@ -1140,15 +1142,17 @@ git log --oneline -6
 git push
 ```
 
-Result: the final checkpoint set passed with 23 files / 105 tests, configuration audit, typecheck, lint, core smoke guard, empty contract/API diff, and `git diff --check`. The user-authorized per-change normal fast-forward pushes published the V3-2 commits through `5f4d6c7` to `origin/main`; no force-push was used.
+Result: the final checkpoint set passed with 23 files / 105 tests, configuration audit, typecheck, lint, core smoke guard, empty contract/API diff, and `git diff --check`. The user-authorized per-change normal fast-forward pushes published the V3-2 chain through `9629454 test(miniprogram): couple bottom-sheet height guard` to `origin/main`; no force-push was used.
 
-**V3-2 stop condition:** stop after the single push attempt. Do not start Task 9 or any V3-3 work.
+**V3-2 completion:** implementation, automated gates and Task 8 user UI review are complete at `9629454`. Full Web screenshot comparison, automatic WebView fallback evidence, low-end Android/iOS metrics and renderer performance evidence are explicitly deferred to V3-6 by user decision; they are not silently marked complete. Do not start Task 9 without the separately approved V3-3 plan.
 
 ---
 
 ## Renderer, Device, And Performance Validation Matrix
 
 Every task records literal evidence; claims without evidence stay `待验证`.
+
+The matrix below remains the V3-6 acceptance backlog for Web comparison, WebView fallback, low-end Android/iOS and performance evidence. Its deferral does not change the completed V3-2 implementation checkpoint.
 
 | Dimension       | Required checks                                                                                                                                                                  | Record                                                                                          |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
