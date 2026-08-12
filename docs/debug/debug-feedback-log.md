@@ -1745,3 +1745,12 @@
 - Real database result: the `medical-schedule-test` MySQL tmpfs service ran all existing reset/migrate/seed factories. Leaves 19, swaps 33, and duty adjustments 26 passed: 3 files / 78 tests, zero skipped, in 100.15 seconds. No development or production database was read or modified.
 - Validation: runner unit suite 1 file / 5 tests passed; `pnpm lint`, `pnpm typecheck`, explicit-file Prettier, and `git diff --check` passed. Whole-tree `pnpm format:check` remained nonzero only because it scans the user-owned untracked `apps/miniprogram/minitest/test.config.json`; that directory was neither changed nor staged. Running/browser validation: `pnpm smoke:browser` passed the login/admin/member/guest route flow with no browser errors, followed by passing `pnpm smoke:check-core` (no listed core files changed).
 - Status: complete with real database and browser evidence; pending user review. Checkpoint message: `test(api): run workflow integrations locally`. Stop after normal fast-forward push; Task 10 remains unimplemented.
+
+### V3-3 Task 10 后续实施计划（2026-08-12）
+
+- 触发条件：用户确认 Task 9 检查点已形成，并要求继续生成 V3-3 后续计划；本轮只规划和同步状态，不实施 Task 10。
+- 前置复核：`main == origin/main == 189120e`；Task 9 三个小程序 checkpoint 已推送，守卫式 `pnpm test:api-integration` 已在本地 `schedule_test` 运行 3 文件 / 78 项、零 skip。唯一未跟踪路径仍是用户/DevTools 产物 `apps/miniprogram/minitest/`，未读取、修改、暂存或格式化。
+- 已回读的真实缺口：profile PATCH 缺 `version`；activeGroup 仅内存；calendar cache 无 user purge；guest 可经静态 tab/直接路由到通知壳；访客 QR 目标 `pages/guest/guest` 尚未注册；guest/anonymous 日历当前可能携带未确认联系方式；`/groups/claim` 已删除；通知类型是开放 string 且微信当前只实际支持 dutyReminder。
+- 计划决议：新增独立文件 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`，按 10.1 安全基座（API confirmed-only、user-scoped active group/cache、精确 logout、route guard 与受守卫的 API integration allowlist）→ 10.2 通知/个人 → 10.3 群组/匿名 visitor 三个 checkpoint 拆分。每个 checkpoint 都要求红测、自动验证、真实数据库门禁、DevTools/设备复核、独立提交和停止。
+- Web 同步边界：继续保留 Task 9 已确认的 direct workflow 语义，不重做 Web；通知首版不伪造通用对象深链；访客号码脱敏和 static tab route guard 是小程序/API 的安全增强，不能称为现有 Web parity。
+- 文档状态：路线图、V3 设计、Task 9 历史计划和项目状态已链接到新的 Task 10 计划。Task 10 仍为**待用户复核**，批准前不得改动其业务 API、契约或小程序页面。

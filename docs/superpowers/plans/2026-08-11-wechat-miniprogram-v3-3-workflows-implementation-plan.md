@@ -1,8 +1,8 @@
 # 微信小程序 V3-3 工作流实施计划
 
-> **执行限制：** 本文档使用 checkbox 记录实施步骤，但当前状态是“待用户复核”。用户明确批准本计划前，不得执行 Task 9 的任何代码步骤。Task 10 本轮只冻结范围，不是可执行计划。
+> **执行状态：** Task 9.1–9.3 已分别形成 `5ccd04f`、`ddf8295`、`d8387e7` 并推送；真实数据库 workflow integration runner 已由 `189120e` 验证，真机角色矩阵仍待用户/设备复核。本文保留为 Task 9 的历史实施依据，不再授权重复执行其 checkbox。Task 10 的独立文件级计划见 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`，仍须用户另行批准。
 
-**目标：** 在 V3-2 检查点上实现请假、换班、加扣班及审批工作流（Task 9），严格同步当前共享契约、API 事务语义和 Web 已完成的交互修复；同时冻结通知、个人、群组、访客、会话和导航范围（Task 10）。只有 Task 9.3 最终检查点和 Task 9 运行/人工复核全部完成后，才能另写并另行批准 Task 10 文件级计划。
+**目标：** 在 V3-2 检查点上实现请假、换班、加扣班及审批工作流（Task 9），严格同步当前共享契约、API 事务语义和 Web 已完成的交互修复；同时冻结通知、个人、群组、访客、会话和导航范围（Task 10）。Task 9 的代码与真实数据库检查点形成后已另写 Task 10 文件级计划；真机角色矩阵继续待用户/设备复核，Task 10 仍须用户另行批准。
 
 **架构：** V3-3 使用“领域纯逻辑 + 页面控制器 + 展示组件”分层。小程序端点只做真实 API 的类型化封装；纯逻辑负责全天日期、候选班次、动作矩阵、预览指纹、单飞和冲突摘要；控制器负责群组/角色上下文、generation、权威刷新和精确缓存失效；WXML 只消费可序列化 view model。请假、换班、加扣班保留各自真实流程，不用一个虚构的通用 preview/reason/operationId 模板抹平差异。
 
@@ -398,9 +398,9 @@ pnpm vitest run apps/web/src/features/leaves/leave-logic.spec.ts apps/web/src/fe
 
 三个任务形成三个独立 checkpoint。每次提交前更新 `docs/project-status.md` 与调试日志；正常 fast-forward 推送当前 `main` 上游，不 force-push。若有用户未提交改动与任务路径重叠，停止并请求处理；不丢弃或混入提交。
 
-## 10. Task 10 范围冻结（不可执行）
+## 10. Task 10 冻结边界与后续计划（本文不可执行）
 
-Task 10 的用户结果、权限和安全边界现在冻结；文件级计划、组件复用、测试清单及 checkpoint 拆分必须在 Task 9.3 最终 checkpoint 且 Task 9 运行/人工复核完成后按真实代码重新生成，并由用户另行批准。本节永不构成 Task 10 实施授权。
+Task 10 的用户结果、权限和安全边界保持冻结；在 Task 9 的最终代码和真实数据库 workflow integration 检查点上，已重新审计并形成 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`。该新计划定义组件复用、测试清单和三个 checkpoint，状态仍为待用户复核；本节永不构成 Task 10 实施授权。
 
 ### 10.1 固定范围
 
@@ -433,17 +433,17 @@ Task 10 的用户结果、权限和安全边界现在冻结；文件级计划、
 - 显示微信运行环境版本，不能与资料并发控制 version 混淆。
 - 除访客泄露或共享契约阻断外，不顺手清理 Web 的陈旧封装。
 
-### 10.3 Task 10 详细计划入口门禁
+### 10.3 Task 10 详细计划形成门禁（历史记录）
 
-只有以下条件全部满足，才编写 Task 10 文件级计划：
+以下代码/运行时条件已在形成 Task 10 文件级计划时复核；Task 9 真机角色矩阵仍如实保留为待用户/设备复核，后续实现仍须获得新计划的用户批准：
 
-- Task 9.3 最终 checkpoint 已完成，Task 9 达到字段、状态、preview、冲突、权限、运行和人工复核停止条件。
+- Task 9.3 最终代码 checkpoint 已完成；字段、状态、preview、冲突、权限和自动运行证据已复核，真机角色矩阵仍待人工复核。
 - 项目状态、代码和 Git checkpoint 一致。
 - Task 9 定向测试、typecheck、`smoke:browser`、`smoke:check-core` 均有有效记录。
 - 重新审计实际改过的 endpoints、manifest、requests 路由、navigation、session/cache 和通知类型。
 - 没有与 Task 10 重叠的用户未提交改动。
 
-详细计划必须重新决定：页面/controller/component/adapter 文件、通知可支持的 requests 深链、匿名月历复用方式、authenticated guest 的 tabBar/route-guard/登出机制、last-group/cache key registry、错误文案和 1–3 个 checkpoint 的实际拆分。当前文档不授权实现这些细节。
+详细计划已决定：页面/controller/component/adapter 文件、通知首版不做对象深链、匿名月历复用方式、authenticated guest 的 route guard/登出机制、last-group/cache key registry、错误文案和 10.1–10.3 三个 checkpoint。当前文档不授权实现这些细节。
 
 ### 10.4 Task 10 最终停止条件（供后续规划）
 
@@ -464,7 +464,7 @@ Task 10 的用户结果、权限和安全边界现在冻结；文件级计划、
 - [x] 用户确认严格 Web parity：新的明确重试生成新 operationId，本阶段不做持久化同 ID 重试 UI。
 - [x] 用户确认 409 的小程序增强仅限安全 `latestData` 摘要，核心仍是刷新后保留原 message。
 - [ ] 用户确认小程序专项增强：受影响班次查询失败与“确实没有已发布班次”使用不同提示，同时均不阻止请假提交。
-- [x] 文件职责、三个 checkpoint、验证命令和 Task 10 规划门可由下一对话从仓库独立恢复。
+- [x] Task 9 历史文件、Task 10 文件级计划、验证命令和规划门可由下一对话从仓库独立恢复。
 - [x] 路线图、V3 设计、Web 设计、V3-2 状态、项目状态和调试日志已同步，不再互相矛盾。
 
-计划批准后的唯一下一批：**Task 9.1**。停止条件是端点类型/封装、工作流纯内核、角色路由壳和 9.1 checkpoint 全部通过；不得同轮进入 9.2。
+本历史计划的 Task 9 已结束。用户批准 Task 10 新计划后的唯一下一批为 **Task 10.1**；停止条件是访客数据安全、会话/缓存隔离、route guard 和真实数据库 allowlist 全部通过；不得同轮进入 10.2。
