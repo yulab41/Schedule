@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9、Task 10 与 API integration runtime 已完成；V3-4 Task 11 `4a0d44c`、Task 12 `43eae1c` 已推送，Task 13 已实现待本轮 checkpoint。手动排班真机矩阵仍待用户复核。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9、Task 10 与 API integration runtime 已完成；V3-4 Task 11 `4a0d44c`、Task 12 `43eae1c`、Task 13 `f17cad4` 均已推送并完成 DevTools CLI 复核。手动排班 Android/iOS 真机矩阵仍待用户复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1815,4 +1815,11 @@
 - 测试先行：固定 manual integration allowlist 的两项断言先因 export 不存在失败；实现 runner 后转绿。controller 新增 apply 成功仅失效实际 `YYYY-MM`、409 保留原错误并废弃 preview 的断言；endpoint test 锁定既有 method/path/body，未扩 API。
 - 功能与回归防护：preview 携带 `expectedRulesVersion`，明确 apply/publish/withdraw 各生成新 operationId；批量发布按 history 关联的服务端 operationId 分组。页面完整显示 assignment 数、hard conflict、vacancy、连续值班 warning 和 withdraw workflow impact；hard conflict 禁用确认，无客户端 acknowledgement/replace 绕过。409 保留服务端信息、刷新权威列表且不自动重放；只有成功 apply/publish/withdraw 才精确失效 user/group/month cache，失败/取消/陈旧响应不清 cache。
 - 验证：定向 3 文件 / 17 项、完整 mini 40 文件 / 181 项、真实 `schedule_test` allowlist 2 文件 / 22 项零 skip、config audit、typecheck、lint、任务文件 Prettier、diff check、`pnpm smoke:browser` 和 `pnpm smoke:check-core` 均通过。`pnpm miniprogram:devtools:build-npm; preview; smoke` 在 64 秒内无输出而超时，判定为 CLI/transport 边界，非页面通过证据。
-- 状态：已实现待 DevTools/Android/iOS 复核。需从无遗留草稿的管理员群验证跨月重复、请假/409、分组发布、撤回 workflow 影响、成功日历刷新和失败不失效；checkpoint 信息为 `feat(miniprogram): add template publishing and conflict protection`，随后停止，不进入新任务。
+- 状态：已实现待 Android/iOS 复核。需从无遗留草稿的管理员群验证跨月重复、请假/409、分组发布、撤回 workflow 影响、成功日历刷新和失败不失效；checkpoint `f17cad4 feat(miniprogram): add template publishing and conflict protection` 已推送，随后停止，不进入新任务。
+
+### V3-4 Task 13 DevTools CLI 复核（2026-08-12）
+
+- 用户要求仅通过 CLI 处理 DevTools，不使用桌面自动化。起始工作树只有用户/DevTools 未跟踪 `apps/miniprogram/minitest/`，保持未读、未改、未暂存。
+- 诊断与恢复：先前串行 `build-npm → preview → smoke` 使标准 smoke 的自动化冷启动在无输出时滞留。改为分步执行：`pnpm miniprogram:devtools:build-npm` 在 4347ms 完成且 `warnings: []`；`pnpm miniprogram:devtools:preview` 成功，产物总计 351.2 KB、manual-schedule 13.9 KB。显式 `pnpm miniprogram:devtools:auto -- --auto-port 9423` 成功后，设置 `MINIPROGRAM_SMOKE_AUTO_WS=ws://127.0.0.1:9423` 执行 smoke。
+- 结果：连接模拟器成功，全部 13 个注册 route 均可打开且没有脚本级错误；未认证 manual editor route 按 shared guard 重定向工作台，符合权限边界。截图落在既有 `.tmp-miniprogram-preview/screens/` 生成目录，未纳入 Git。
+- 结论：DevTools CLI/模拟器运行门槛已通过；不能代替真实管理员身份、服务端排班数据及 Android/iOS 触控验证。状态收敛为**已实现待 Android/iOS 人工核验**，不进入下一阶段。

@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-4 Task 11 `4a0d44c`（单元格优先）与 Task 12 `43eae1c`（班种锁定）均已正常快进推送。Task 13 已完成实现和自动化验证，待本轮 checkpoint：模板预览/应用、按服务端 operationId 分组的草稿批量发布、撤回影响预览、409 恢复、精确日历失效，以及真实 `schedule_test` 手动排班 allowlist（2 文件 / 22 项、零 skip）。Web 浏览器烟测和核心校验通过；DevTools CLI 的 `build-npm → preview → smoke` 在启动时 64 秒无输出超时，因此 Task 13 状态为**已实现待 DevTools/Android/iOS 复核**，本 checkpoint 后停止，不进入新任务。
+- 当前批次：V3-4 Task 11 `4a0d44c`（单元格优先）、Task 12 `43eae1c`（班种锁定）与 Task 13 `f17cad4`（模板应用/发布/409）均已正常快进推送。Task 13 的真实 `schedule_test` 手动排班 allowlist 为 2 文件 / 22 项、零 skip，Web 浏览器烟测和核心校验通过。DevTools CLI 已完成 build、preview 和重连后的 13/13 route smoke，无脚本错误；剩余状态为**已实现待 Android/iOS 人工核验**。本轮只补运行证据，不进入下一阶段。
 
 ## Completed Batch
 
@@ -18,8 +18,8 @@
 - 授权与溯源：用户在 `43eae1c` 推送后要求继续。先用 `git log -S`/`git blame` 复核 `a68dd03` 引入的 template apply、draft/history、batch publish、withdraw/change-impact wrapper，以及 `4a0d44c` 的 controller 状态源；本轮不改 API、共享契约、权限或离线协议。用户/DevTools 的未跟踪 `apps/miniprogram/minitest/` 未读取、修改、格式化或暂存。
 - 实现与行为审计：controller 在同一 generation 状态源中加载 template/config/draft/history，预览带当前 `expectedRulesVersion`；每次明确 apply、发布或撤回才生成新的 UUID operationId，绝不持久化或自动重放。预览会在模板/草稿改变、成功写入或 409 时失效；409 保留服务端原 message/latestData、刷新权威 template/draft/history 并不清失败动作的日历 cache。apply、按 operationId（由 history 关联）分组的 batch publish、withdraw 三种成功写入才按实际 period 的 `YYYY-MM` 精确删除并广播 user/group/month cache；失败、取消、陈旧完成均不失效。撤回必须先消费服务端 `previewScheduleChange`，页面展示 workflow 影响；应用预览展示 assignment 数、硬冲突、空缺及连续值班提醒，硬冲突时确认按钮禁用，不提交任何未经服务端许可的 acknowledgement/replace 字段。
 - 测试先行与 runner：endpoint 边界与 controller 的成功/409 cache 行为先扩展为失败测试；固定 allowlist 的 runner spec 初始因 export 缺失失败，随后实现 `pnpm test:api-integration:manual-schedule`，只执行 `templates.integration.test.ts` 与含 batch publish/覆盖/请假/幂等测试的 `manual-apply.integration.test.ts`。
-- 验证：定向 3 文件 / 17 项、完整 `pnpm vitest run apps/miniprogram` 40 文件 / 181 项、`pnpm test:api-integration:manual-schedule` 2 文件 / 22 项（真实 `schedule_test`、零 skip）、config audit、typecheck、lint、任务文件 Prettier 与 `git diff --check` 均通过。运行/浏览器验证：`pnpm smoke:browser` 通过登录/管理员/成员/访客/审计全流程，随后 `pnpm smoke:check-core` 通过并确认未涉及列举的 Web 核心路径。最终 DevTools CLI 串行 build/preview/smoke 在启动阶段 64 秒无输出超时，记录为既有 transport 工具边界，不能替代页面验证。
-- 状态：**已实现待 DevTools/Android/iOS 复核**。复核需覆盖无遗留草稿的空态、跨月重复应用、请假/失效模板/409、草稿 operationId 分组发布、撤回 workflow 影响、成功后重返日历与失败不失效 cache；本 checkpoint 提交信息为 `feat(miniprogram): add template publishing and conflict protection`，随后停止，不开始新任务。
+- 验证：定向 3 文件 / 17 项、完整 `pnpm vitest run apps/miniprogram` 40 文件 / 181 项、`pnpm test:api-integration:manual-schedule` 2 文件 / 22 项（真实 `schedule_test`、零 skip）、config audit、typecheck、lint、任务文件 Prettier 与 `git diff --check` 均通过。运行/浏览器验证：`pnpm smoke:browser` 通过登录/管理员/成员/访客/审计全流程，随后 `pnpm smoke:check-core` 通过并确认未涉及列举的 Web 核心路径。DevTools CLI 复核：`build-npm` 成功（4347ms，warnings `[]`），preview 成功（总计 351.2 KB、manual-schedule 13.9 KB）；标准 smoke 冷启动仍会无输出停滞，但 `cli auto --auto-port 9423` 成功后复用会话完成 13/13 已注册路由，无脚本错误；未登录时 manual route 按 guard 回工作台。
+- 状态：**已实现待 Android/iOS 人工核验**。复核需覆盖无遗留草稿的空态、跨月重复应用、请假/失效模板/409、草稿 operationId 分组发布、撤回 workflow 影响、成功后重返日历与失败不失效 cache；本 checkpoint `f17cad4 feat(miniprogram): add template publishing and conflict protection` 已推送，随后停止，不开始新任务。
 
 ### V3-0：作废 V2、清理表现层并建立设计规范
 
