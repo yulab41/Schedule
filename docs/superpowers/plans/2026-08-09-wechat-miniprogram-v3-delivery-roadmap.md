@@ -1,7 +1,7 @@
 # 微信小程序 V3 交付路线图
 
 - 文档日期：2026-08-12
-- 状态：V3-0.5 至 V3-2 已完成；V3-3 Task 9 代码检查点已形成、真机角色矩阵待复核；Task 10 文件级计划待用户复核，批准前禁止执行 Task 10
+- 状态：V3-0.5 至 V3-3 Task 10 已完成并推送；Task 9/10 真机角色矩阵待用户复核。V3-4 已形成阶段计划，尚待用户批准执行 Task 11
 - 依据设计：`docs/superpowers/specs/2026-08-09-wechat-miniprogram-v3-design.md`
 - 实施范围：原生微信小程序 V3 表现层、触控交互、日历、手动排班和业务流程
 - 共享内核：`apps/api/**`、`packages/contracts/**`、`packages/database/**`、`packages/scheduling-domain/**`
@@ -105,17 +105,17 @@
 
 ### 4.1 阶段执行计划索引
 
-| 阶段   | 执行计划                                                                                                                                                                                                  | 状态                                                        |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| V3-0.5 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`                                                                                                           | 已完成；`6d2c5fe`、`2c93859` 已推送                         |
-| V3-1   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`                                                                                          | 已完成；Task 3–5 检查点已推送                               |
-| V3-2   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md`                                                                                   | 已完成；Task 6–8 与 UI 修复检查点已推送                     |
-| V3-3   | Task 9：`docs/superpowers/plans/2026-08-11-wechat-miniprogram-v3-3-workflows-implementation-plan.md`；Task 10：`docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md` | Task 9 代码检查点已推送、真机矩阵待复核；Task 10 待用户复核 |
-| V3-4   | 无                                                                                                                                                                                                        | 禁止执行；V3-3 检查点通过后再展开                           |
-| V3-5   | 无                                                                                                                                                                                                        | 禁止执行；V3-4 检查点通过后再展开                           |
-| V3-6   | 无                                                                                                                                                                                                        | 禁止执行；V3-5 检查点通过后再展开                           |
+| 阶段   | 执行计划                                                                                                                                                                                                  | 状态                                       |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| V3-0.5 | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-0-5-foundation-implementation-plan.md`                                                                                                           | 已完成；`6d2c5fe`、`2c93859` 已推送        |
+| V3-1   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-1-shell-and-calendar-foundation-implementation-plan.md`                                                                                          | 已完成；Task 3–5 检查点已推送              |
+| V3-2   | `docs/superpowers/plans/2026-08-09-wechat-miniprogram-v3-2-calendar-golden-baseline-and-details-implementation-plan.md`                                                                                   | 已完成；Task 6–8 与 UI 修复检查点已推送    |
+| V3-3   | Task 9：`docs/superpowers/plans/2026-08-11-wechat-miniprogram-v3-3-workflows-implementation-plan.md`；Task 10：`docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md` | 已完成并推送；Task 9/10 真机矩阵待用户复核 |
+| V3-4   | `docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-4-manual-scheduling-plan.md`                                                                                                                     | 已形成计划；待用户批准后仅执行 Task 11     |
+| V3-5   | 无                                                                                                                                                                                                        | 禁止执行；V3-4 检查点通过后再展开          |
+| V3-6   | 无                                                                                                                                                                                                        | 禁止执行；V3-5 检查点通过后再展开          |
 
-V3-4 及以后阶段的“无”不是遗漏或待执行占位符，而是准确表示：前一阶段尚未形成稳定代码，当前无法为后续阶段给出可信的精确文件、类型签名和失败输出。Task 9 的三个 checkpoint 与真实数据库 workflow integration 已形成稳定基线，故 Task 10 已另写文件级计划；该计划仍须用户批准，路线图摘要本身不授权提前实现。
+V3-5 及以后阶段的“无”不是遗漏或待执行占位符，而是准确表示：前一阶段尚未形成稳定代码，当前无法为后续阶段给出可信的精确文件、类型签名和失败输出。Task 9/10 的稳定代码、真实数据库验证和 DevTools 记录已形成 V3-4 的规划基线，但真机角色矩阵仍须如实保留为待用户复核。V3-4 计划仅展开 Task 11 的文件级步骤；Task 12/13 在 Task 11/12 checkpoint 后按真实代码重新展开，路线图摘要本身不授权提前实现。
 
 ### 4.2 设计覆盖矩阵
 
@@ -380,7 +380,7 @@ V3-0.5 Task 1 已提交为 `6d2c5fe`，Task 2 已提交为 `2c93859`；`main` �
 
 ### 任务 10：通知、个人页、访客和群组入口
 
-Task 9 的稳定代码和真实数据库检查点已经形成（真机角色矩阵仍待用户/设备复核），Task 10 的文件、组件、测试、真实数据库门禁与三个 checkpoint 见 `docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`。该计划状态仍为**待用户复核**；本节摘要不授权编码。
+Task 9/10 的代码检查点、真实数据库验证和 DevTools 复核已完成并推送；Task 9/10 真机角色矩阵仍待用户/设备复核。Task 10 的历史计划保留为审计记录，本节不再授权重复执行。
 
 冻结结果（不是实施步骤）：
 
@@ -391,14 +391,21 @@ Task 9 的稳定代码和真实数据库检查点已经形成（真机角色矩�
 
 ## 9. V3-4：双模式手动排班
 
+本阶段的文件职责、处女原则、Web 回归溯源、Task 11 红测、Task 12/13 冻结边界、验证矩阵与 Git 停止线见：
+
+`docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-4-manual-scheduling-plan.md`
+
+该计划状态为**待用户复核**。获批后唯一下一批是 Task 11；Task 11 完成并停止后，才可基于实际代码重新展开 Task 12。以下摘要不替代该计划。
+
 ### 任务 11：单元格优先编辑器和班种调色板
 
 主要文件：
 
-- `apps/miniprogram/pages/schedule/manual/*`
+- `apps/miniprogram/subpackages/manual-schedule/pages/editor/*`
 - `apps/miniprogram/components/manual-grid/*`
 - `apps/miniprogram/components/shift-palette/*`
 - `apps/miniprogram/features/manual-schedule/manual-grid-logic.ts`
+- `apps/miniprogram/features/manual-schedule/manual-schedule-controller.ts`
 - `apps/miniprogram/features/manual-schedule/manual-grid-logic.test.ts`
 
 步骤：

@@ -1783,3 +1783,12 @@
 - 实现与语义：新增 groups 子包和工作台入口。加入/恢复以 preferred group 刷新；离开先请求服务端、清该用户该群 cache、再刷新活跃群组；owner 不显示离开，member/guest 显示不同后果，历史成员只提示管理员邀请。匿名 QR 启动绕过认证恢复；visitor key 仅内存、仅 resolve + 对应 group calendar、无 cache/login/storage，公开 ViewModel 强制移除 markers，WXML 无电话/详情 route/事件/通知/写操作。
 - 验证：定向 7 文件 / 43 项、完整小程序与静态边界 45 文件 / 194 项通过；`pnpm test:api-integration:task10` 在真实 `schedule_test` 通过 9 文件 / 58 项、零 skip。config audit、typecheck、排除用户未跟踪 minitest 的 lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过。DevTools build-npm 成功且 warnings `[]`，preview 315.2 KB 含 groups 子包；首次 automation 受沙箱 `.cli` EPERM 阻塞，获准提升后重试，12/12 注册页面均打开、无脚本错误。
 - 状态：已完成（含运行/浏览器/DevTools 验证），待用户复核。检查点信息：`feat(miniprogram): add group and guest journeys`；完成正常快进推送后停止，Task 10 已全部完成，未经新授权不得进入 V3-4。
+
+### V3-4 双模式手动排班阶段计划（2026-08-12）
+
+- 授权与范围：用户要求依据 Web UI/交互、当前 V3 计划和 Web 调试/优化记录制定 V3-4；本轮只写计划，不创建页面、组件、API/契约或任何排班写入。起始 `main == origin/main == 638b95f`，唯一未跟踪项仍是用户/DevTools 的 `apps/miniprogram/minitest/`，未读取、修改、格式化或暂存。
+- 已核验事实：小程序模板 CRUD、apply preview/apply、draft/history、batch publish、publish/withdraw/change-impact wrapper 都由 `a68dd03` 引入；工作台 `manual` 入口来自 `bc534c0` 但尚无 route；V3 route guard 的 guest/subpackage 语义和 workflow context 已在 Task 10 后复核。V3-4 不新造端点、字段、权限、缓存写入或离线队列。
+- Web 经验转写：Web 的人员行/日期列、同班种 toggle-off、published-only 下一可用开始日、手动日期优先、请假/过期/活跃工作流阻断、草稿 operationId 分组和批量发布全部保留。历史 sticky/grid 移动错位、刷新吞掉具体冲突、全局防抖吞点、slot 内 fixed 面板、跨组件事件不 composed、scroll-view 无明确高度、single-flight fast-path 不 emit 等问题分别转为稳定横向网格、原错误保留、单元格级去重、原生 action sheet/页面宿主、事件边界断言、明确滚动视口和 generation/flight 红测。
+- 处女原则：所有关键验收从无本地草稿、无选中、无缓存依赖、无偶然登录态、无遗留服务端草稿的受控空态起步；全新进入、空模板、切群、快速点按、失败与 409 都必须作为显式状态转换测试，不能凭一次历史数据可用宣称通过。
+- 计划产出：新增 `docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-4-manual-scheduling-plan.md`。Task 11 展开为唯一可批准批次：管理员路由、WXML-safe 单一草稿/undo、单元格优先、停用引用、500ms/12px 长按清除、409 和 Android/iOS 走查；Task 12 锁定填入与 Task 13 应用/发布只冻结业务边界，必须在 Task 11/12 checkpoint 后依据真实代码重新展开。
+- 验证：新计划、路线图、设计、项目状态和本日志的 Prettier 检查通过；Task 11 9 个红测步骤与 9 项处女原则验收矩阵、wrapper/route provenance、禁止项和 Task 12/13 冻结线已人工复核。`pnpm smoke:check-core` 通过并确认只改文档，无需 `pnpm smoke:browser`；`git diff --check` 通过。状态：**待用户复核**；建议文档 checkpoint 为 `docs(miniprogram): plan V3-4 manual scheduling`，批准前不得实施 Task 11。
