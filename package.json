@@ -34,6 +34,7 @@
     "smoke:check-core": "node scripts/smoke-browser.mjs --check-core",
     "lint": "eslint \"{apps,packages}/**/*.{ts,vue}\" \"infra/scripts/**/*.ts\" --max-warnings=0",
     "test": "vitest run",
+    "test:api-integration": "node --env-file=.env scripts/run-api-integration.mjs",
     "tokens:generate": "pnpm --filter @schedule/ui-tokens generate",
     "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run typecheck",
     "verify": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"

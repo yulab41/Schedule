@@ -4,7 +4,7 @@
 
 ## Current Position
 
-- 日期：2026-08-11
+- 日期：2026-08-12
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
@@ -184,11 +184,13 @@
 - 运行：config audit、typecheck、lint、明确文件 Prettier、diff check、`pnpm smoke:browser` 后的 `pnpm smoke:check-core` 通过。DevTools build-npm `cost: 3274`、`warnings: []`；preview 成功（总计 265.3 KB，main 231.6 KB，workflows 33.8 KB）。标准复用连接 smoke 在连接关闭后失败；重启自动化会话后直接 route/console probe 打开 10/10 注册页面（operations 在内）且 `scriptErrors=0`。真机与真实数据库 integration 复核仍待用户/环境提供。
 - 状态：已完成（含自动化运行/浏览器/DevTools 验证），待用户复核。检查点提交信息：`feat(miniprogram): add swap and duty workflows`。Task 9 到此停止；Task 10 仍不获实施授权。
 
-### API integration test runtime follow-up（设计已批准，2026-08-12）
+### API integration test runtime follow-up（已完成，2026-08-12）
 
 - 根因：三套流程 integration 文件已有 `beforeEach` 真实数据库 reset/migrate/seed，但普通 `pnpm vitest` 不加载 `.env`，当前进程没有 `NODE_ENV=test` 和 `TEST_MYSQL_*`，因此 78 项整体 skip。`git log -S 'describeWithDatabase'` 与 `git blame` 将该显式 skip/隔离契约追溯到 leave `0d5ec55c`、swap `b20ff9b`、duty `5d8b205a`；`vitest.config.ts` 自 `0a794d9a` 关闭文件并发以保护共享测试 schema。
-- 设计：新增仅显式调用的安全 runner，使用 `.env` 中 TEST 专用配置，拒绝非 `schedule_test` 数据库，在真实 `medical-schedule-test` tmpfs 容器中运行三套文件。每例继续由现有测试工厂自行创建/销毁真实数据；不读取、复制或修改开发/生产数据。
-- 设计文档：`docs/superpowers/specs/2026-08-12-api-integration-test-runtime-design.md`。用户已批准实现范围；下一项为 runner 的红绿测试、实现和真实数据库验证。
+- 实现：新增 `scripts/run-api-integration.mjs` 与 `pnpm test:api-integration`。命令只在显式调用时加载 `.env`，拒绝非 `schedule_test`、缺失 TEST 用户/密码、远程 host 和非法端口；只为子 Vitest 进程设 `NODE_ENV=test`，不输出凭据。Windows 不调用无法被 Node `spawnSync` 启动的 pnpm `.cmd` shim，而是用当前 Node 执行仓库安装的 Vitest 入口。
+- 红绿与真实数据：初始 runner spec 因模块不存在失败；实现后纯 guard 转绿。首次真实执行暴露 Windows shim `EINVAL`，修复后再发现 Vitest 转换环境没有 `import.meta.resolve`，改为稳定的本地 node_modules URL。独立审查补充了 spawn-stub 回归：锁定当前 Node/本地 Vitest 入口、精确三文件、child-only `NODE_ENV=test`、退出码传递以及 guard 拒绝时不启动子进程。最终 `pnpm test:api-integration` 在 `medical-schedule-test` tmpfs 容器中运行 leave 19、swap 33、duty 26，共 3 文件 / 78 项通过、零 skip；每例沿用已有 reset/migrate/seed/close 工厂创建并销毁真实数据。
+- 验证：`pnpm lint`、`pnpm typecheck`、明确文件 Prettier 与 `git diff --check` 通过；`pnpm format:check` 仅因用户保留且未跟踪的 `apps/miniprogram/minitest/test.config.json` 非零，未修改或暂存该目录。`pnpm smoke:browser` 与随后 `pnpm smoke:check-core` 通过（guard 确认没有受列举的核心链路文件）。
+- 状态：已完成（含真实数据库/浏览器验证），待用户复核。检查点提交信息：`test(api): run workflow integrations locally`；完成推送后停止，Task 10 仍不获实施授权。
 
 ## Validation
 
@@ -205,6 +207,7 @@
 - V3-3 Task 9.1：定向 9 文件 / 56 项、完整小程序/app-shell/workflows boundary 27 文件 / 126 项、config audit、typecheck、lint、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过；DevTools build-npm/preview 和重连后的标准 8/8 路由 smoke 无脚本级错误。
 - V3-3 Task 9.2：定向 2 文件 / 13 项、完整小程序/app-shell/workflows boundary 28 文件 / 137 项、config audit、typecheck、lint、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过；DevTools build-npm/preview 通过，标准复用连接 smoke 在 `reLaunch` 后挂起但同连接直接 9/9 路由 probe 无脚本错误。
 - V3-3 Task 9.3：定向 3 文件 / 13 项、完整小程序/app-shell/workflows boundary 29 文件 / 142 项、config audit、typecheck、lint、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过；Web 只读基准 5 文件 / 26 项通过；API integration 3 文件 / 78 项因无测试数据库 skip，不记为通过。DevTools build-npm/preview 通过；标准复用连接 smoke 连接关闭，重启自动化后直接 10/10 路由 probe 无脚本错误。
+- API integration test runtime：runner guard 1 文件 / 5 项通过；`pnpm test:api-integration` 在本地隔离 MySQL 通过 3 文件 / 78 项、零 skip。`pnpm lint`、`pnpm typecheck`、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 通过。全量 `pnpm format:check` 只因未跟踪且用户保留的 `apps/miniprogram/minitest/test.config.json` 非零，未作为本轮代码失败或修改/暂存目标。
 
 ## Decisions and Deviations
 
@@ -226,8 +229,8 @@
 
 ## Active Batch
 
-1. 本轮只执行 API integration test runtime follow-up：为 leave/swap/duty 三套文件建立安全、可复现的真实测试数据库入口，完成红绿测试和真实数据库验证后创建独立 checkpoint。
-2. Task 10 仍禁止进入；本轮不改业务 API、契约、小程序 UI 或 Task 10 文件。
+1. API integration test runtime follow-up 已完成；本轮只创建独立 checkpoint、正常快进推送后停止。
+2. Task 10 仍禁止进入；本轮未改业务 API、契约、小程序 UI 或 Task 10 文件。
 
 ## Handoff Requirements
 
