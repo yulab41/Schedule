@@ -1,8 +1,8 @@
 # 微信小程序 V3-4：双模式手动排班阶段计划
 
 - 文档日期：2026-08-12
-- 状态：**Task 11/12 已实现待设备复核；Task 13 冻结**
-- 前置检查点：`main == origin/main == 638b95f`；V3-3 Task 9、Task 10 的代码、真实数据库测试与 DevTools 验证已完成，Task 9/10 真机角色矩阵仍待用户复核
+- 状态：**Task 11/12 已实现待设备复核；Task 13 已实现待 DevTools/设备复核**
+- 前置检查点：Task 11 `4a0d44c`、Task 12 `43eae1c` 已正常快进推送；V3-3 Task 9、Task 10 的代码、真实数据库测试与 DevTools 验证已完成，Task 9/10 真机角色矩阵仍待用户复核
 - 实施范围：V3-4 Task 11–13——双模式手动排班、模板应用、草稿/发布与并发保护
 - 权威顺序：共享契约/API/integration tests → 当前 Web 运行代码与用户确认交互 → V3 设计第 3、8、9–12、15 节 → 本计划
 
@@ -36,11 +36,11 @@ V3-4 的最终目标是让 owner/administrator 能安全完成“选择岗位和
 
 ## 2. 阶段拆分、权限和停止线
 
-| 批次    | 唯一目标                                  | 当前可执行性                  | 单独停止条件                                       | 预计 checkpoint                                                      |
-| ------- | ----------------------------------------- | ----------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
-| Task 11 | 单元格优先、本地草稿、模板 CRUD、长按清除 | 待用户批准后才可执行          | 可从全新空态编辑/撤销/保存模板；无编辑期写入       | `feat(miniprogram): add cell-first manual scheduling`                |
-| Task 12 | 班种锁定、连续填入、轴向隔离              | Task 11 checkpoint 后重新审阅 | 与 Task 11 同一草稿源；快点和横向滚动不误填/误切月 | `feat(miniprogram): add locked-shift editing mode`                   |
-| Task 13 | 应用、草稿、发布/撤回、409                | Task 12 checkpoint 后重新审阅 | 不多/少日期、不丢事件、不覆盖更新后的排班          | `feat(miniprogram): add template publishing and conflict protection` |
+| 批次    | 唯一目标                                  | 当前可执行性                 | 单独停止条件                                       | 预计 checkpoint                                                      |
+| ------- | ----------------------------------------- | ---------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| Task 11 | 单元格优先、本地草稿、模板 CRUD、长按清除 | 已实现，待设备复核           | 可从全新空态编辑/撤销/保存模板；无编辑期写入       | `4a0d44c feat(miniprogram): add cell-first manual scheduling`        |
+| Task 12 | 班种锁定、连续填入、轴向隔离              | 已实现，待设备复核           | 与 Task 11 同一草稿源；快点和横向滚动不误填/误切月 | `43eae1c feat(miniprogram): add locked-shift editing mode`           |
+| Task 13 | 应用、草稿、发布/撤回、409                | 已实现，待 DevTools/设备复核 | 不多/少日期、不丢事件、不覆盖更新后的排班          | `feat(miniprogram): add template publishing and conflict protection` |
 
 每个 checkpoint 都必须单独提交、正常 fast-forward 推送并停止。Task 12/13 只冻结本阶段的业务与验收边界；在 Task 11/12 的真实文件和测试落地前，不伪造它们的最终类型、行号或实现细节。
 
@@ -102,7 +102,7 @@ Task 12 必须在 Task 11 的实际 state 与页面结构稳定后重新读取�
 
 **Task 12 停止条件：** 锁定模式与单元格优先严格共享状态源；高频触控无重复/漏填、网格滚动无误触；Task 11 所有回归仍通过。
 
-## 5. Task 13：模板应用、草稿、发布与冲突保护（冻结，待 Task 12 后展开）
+## 5. Task 13：模板应用、草稿、发布与冲突保护（已按 Task 12 真实代码展开）
 
 Task 13 开始前重新审阅 Task 11–12 checkpoint 和当前 `packages/contracts/src/manual-schedules.ts`、schedule contracts/API integration tests。以下是不可变业务边界，不是提前授权实现：
 
@@ -114,6 +114,14 @@ Task 13 开始前重新审阅 Task 11–12 checkpoint 和当前 `packages/contra
 6. 增加/启用一个只允许固定手动排班 integration allowlist 的命令，覆盖既有 template 与 manual-apply integration tests 及实际受影响 publish tests；真实 `schedule_test`、零 skip 才能称通过。若当前 runner 或数据库不满足，停止并记录“待验证”，不将 skip 视作绿色。
 
 **Task 13 停止条件：** 周期不会少/多日期；模板失效、请假、冲突、覆盖、重复操作和 409 均有可恢复的具体反馈；成功写入的日历精确失效；发布不会静默覆盖新版本或丢失事件。
+
+### 5.1 实际实现与检查点（2026-08-12）
+
+- `manual-schedule-controller.ts` 以同一 generation state 加载 config/template/draft/history；apply preview 使用当前 rules version，明确确认时才生成 operationId。模板/规则/本地编辑变更、成功写入和 409 都废弃旧 preview；409 保留原 message/latestData、刷新权威列表，绝不自动重放。
+- 页面仅调用既有 wrapper：apply、`publishScheduleDraftBatch`、withdraw 前的 `previewScheduleChange`；草稿从 history 的服务端 operationId 映射分组后逐组发布。应用预览显示 assignment、hard conflict、vacancy、连续值班 warning；hard conflict 禁用确认。撤回显示服务端 workflow impact；页面不伪造 acknowledge/replace 字段。
+- apply、批量发布、撤回成功后才通过 `calendar-cache-runtime` 失效实际 period 对应的 user/group/month（将 `YYYY-MM-DD` 摘为 cache 所需 `YYYY-MM`）；取消、失败和陈旧响应不失效。当前页不持有日历月控制器，409 不删除失败 cache；重返日历仍由既有 invalidation observer/onShow 流程重新读取成功变更的月份。
+- 新增 `pnpm test:api-integration:manual-schedule`，固定仅跑 template 与 manual-apply 两个既有 integration 文件，后者覆盖跨月重复、batch publish、覆盖、请假、陈旧规则和 operationId 幂等。真实 `schedule_test` 运行 2 文件 / 22 项、零 skip。
+- 自动验证已通过：定向 17 项、小程序 181 项、config audit、typecheck、lint、Prettier、diff check、`pnpm smoke:browser`、`pnpm smoke:check-core`。DevTools 的最终串行 build/preview/smoke 在启动时 64 秒无输出超时，只记为工具边界；需 Android/iOS 复核后才可将状态改为已完成。
 
 ## 6. 统一验证、设备复核与 Git
 
@@ -139,4 +147,5 @@ git diff --check
 - [x] Web 的人员行/日期列、同班种 toggle-off、下一可用开始日、请假/过期/冲突提示、批量草稿/发布和版本保护语义已映射到 V3-4。
 - [x] 已将 Web 与 V3 的已知回归转化为 Task 11–13 的红测、架构边界和设备验收，不复制桌面 sticky/grid、统一错误吞没、全局防抖、旧预览自动重放或 scroll-slot fixed 层问题。
 - [x] V3-4 只复用当前 API/契约；没有虚构小程序专属后端能力。
-- [x] 用户已批准并完成 **Task 11** 的实现与自动化检查；checkpoint 后停止并以真实代码重新展开 Task 12。
+- [x] 用户已批准并完成 **Task 11** 与 **Task 12** 的实现及各自 checkpoint。
+- [x] Task 13 已依 Task 12 真实代码展开并完成实现、真实数据库 allowlist 和自动化检查；仅待 DevTools/Android/iOS 设备复核，然后在 checkpoint 后停止。

@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9 与 API integration runtime 已完成；Task 10.1 `20407fc`、Task 10.2 `64e57f0` 已推送，Task 10.3 已完成并待本轮 checkpoint。Task 10 到此结束，真机矩阵待用户复核。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9、Task 10 与 API integration runtime 已完成；V3-4 Task 11 `4a0d44c`、Task 12 `43eae1c` 已推送，Task 13 已实现待本轮 checkpoint。手动排班真机矩阵仍待用户复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1807,3 +1807,12 @@
 - 授权与溯源：用户在 `4a0d44c` 推送后明确要求继续。`applySelectedShift`、单一草稿/undo 和长按组件均由该检查点引入；本轮以 `git log -S`/`git blame` 复核后只在同一状态源上扩展，不进入 Task 13。
 - 测试先行与行为：新增失败测试先证明锁定函数缺失，随后转绿：锁定班种连续填入、同班种再次点清除、两次变更各写一次既有 undo、退出锁定不改 cells。页面在无选中 cell 时点班种进入锁定；有选中 cell 时仍执行 Task 11 的单元格优先；顶部与锁定提示均提供退出入口。无 200ms 全局防抖、无 network/storage/逐帧 setData，横向 `scroll-view` 仍优先消费网格横轴。
 - 状态：已实现待设备复核。完成完整回归、DevTools 复核、提交与推送后停止；Task 13 仍需依据此 checkpoint 重新展开。
+
+### V3-4 Task 13 模板应用、草稿发布、撤回与冲突保护（2026-08-12）
+
+- 用户需求：继续执行 V3-4；本轮只完成 Task 13，不新建后端契约或后续任务。用户/DevTools 未跟踪 `apps/miniprogram/minitest/` 保持未读、未改、未暂存。
+- 引入点：`git log -S 'previewScheduleChange'`/`git blame` 确认 endpoint 契约由 `a68dd03` 引入；`git log -S 'applySelectedShift'`/blame 确认当前单一草稿控制器来自 `4a0d44c`。本轮不是语义等价重构：新增 preview/apply/publish/withdraw 写路径、操作 ID 和成功写入缓存失效。
+- 测试先行：固定 manual integration allowlist 的两项断言先因 export 不存在失败；实现 runner 后转绿。controller 新增 apply 成功仅失效实际 `YYYY-MM`、409 保留原错误并废弃 preview 的断言；endpoint test 锁定既有 method/path/body，未扩 API。
+- 功能与回归防护：preview 携带 `expectedRulesVersion`，明确 apply/publish/withdraw 各生成新 operationId；批量发布按 history 关联的服务端 operationId 分组。页面完整显示 assignment 数、hard conflict、vacancy、连续值班 warning 和 withdraw workflow impact；hard conflict 禁用确认，无客户端 acknowledgement/replace 绕过。409 保留服务端信息、刷新权威列表且不自动重放；只有成功 apply/publish/withdraw 才精确失效 user/group/month cache，失败/取消/陈旧响应不清 cache。
+- 验证：定向 3 文件 / 17 项、完整 mini 40 文件 / 181 项、真实 `schedule_test` allowlist 2 文件 / 22 项零 skip、config audit、typecheck、lint、任务文件 Prettier、diff check、`pnpm smoke:browser` 和 `pnpm smoke:check-core` 均通过。`pnpm miniprogram:devtools:build-npm; preview; smoke` 在 64 秒内无输出而超时，判定为 CLI/transport 边界，非页面通过证据。
+- 状态：已实现待 DevTools/Android/iOS 复核。需从无遗留草稿的管理员群验证跨月重复、请假/409、分组发布、撤回 workflow 影响、成功日历刷新和失败不失效；checkpoint 信息为 `feat(miniprogram): add template publishing and conflict protection`，随后停止，不进入新任务。

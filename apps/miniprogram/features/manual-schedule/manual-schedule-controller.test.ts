@@ -5,6 +5,7 @@ import type {
 } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
+import { ApiClientError } from '../../api/client.js';
 import { createManualScheduleController } from './manual-schedule-controller.js';
 
 const config = {
@@ -51,16 +52,24 @@ describe('manual schedule controller', () => {
       .mockImplementationOnce(() => first.promise)
       .mockResolvedValue(config);
     const controller = createManualScheduleController({
+      applyManualScheduleTemplate: vi.fn(),
       createManualScheduleTemplate: vi.fn(),
+      createOperationId: vi.fn().mockReturnValue('operation-1'),
       deleteManualScheduleTemplate: vi.fn(),
       getHolidays: vi
         .fn()
         .mockResolvedValue({ confirmed: true, dates: [], year: 2026 } as HolidayReadModel),
       getSchedulingConfig,
+      invalidateCalendarMonth: vi.fn(),
       listManualScheduleTemplates: vi.fn().mockResolvedValue([]),
+      listScheduleDrafts: vi.fn().mockResolvedValue([]),
       listSchedulePeriodHistory: vi.fn().mockResolvedValue([] as SchedulePeriodHistoryItem[]),
+      previewManualTemplateApply: vi.fn(),
+      previewScheduleChange: vi.fn(),
+      publishScheduleDraftBatch: vi.fn(),
       publish: vi.fn(),
       updateManualScheduleTemplate: vi.fn(),
+      withdrawSchedulePeriod: vi.fn(),
     });
     controller.activate({
       groupId: 'group-a',
@@ -92,16 +101,24 @@ describe('manual schedule controller', () => {
       })
       .mockResolvedValue(config);
     const controller = createManualScheduleController({
+      applyManualScheduleTemplate: vi.fn(),
       createManualScheduleTemplate: vi.fn(),
+      createOperationId: vi.fn().mockReturnValue('operation-1'),
       deleteManualScheduleTemplate: vi.fn(),
       getHolidays: vi
         .fn()
         .mockResolvedValue({ confirmed: true, dates: [], year: 2026 } as HolidayReadModel),
       getSchedulingConfig,
+      invalidateCalendarMonth: vi.fn(),
       listManualScheduleTemplates: vi.fn().mockResolvedValue([]),
+      listScheduleDrafts: vi.fn().mockResolvedValue([]),
       listSchedulePeriodHistory: vi.fn().mockResolvedValue([] as SchedulePeriodHistoryItem[]),
+      previewManualTemplateApply: vi.fn(),
+      previewScheduleChange: vi.fn(),
+      publishScheduleDraftBatch: vi.fn(),
       publish: vi.fn(),
       updateManualScheduleTemplate: vi.fn(),
+      withdrawSchedulePeriod: vi.fn(),
     });
     controller.activate({
       groupId: 'group-a',
@@ -113,5 +130,93 @@ describe('manual schedule controller', () => {
     await controller.load();
     expect(getSchedulingConfig).toHaveBeenCalledTimes(2);
     expect(controller.state.draft).toBeDefined();
+  });
+
+  it('invalidates only successful applied months and discards a conflicted preview', async () => {
+    const template = {
+      cells: [],
+      cycleDays: 7,
+      groupId: 'group-a',
+      id: 'template-1',
+      members: [],
+      scheduleRoleId: 'role-1',
+      scheduleRoleName: '医生',
+      startDate: '2026-08-12',
+      version: 2,
+    } as const;
+    const invalidateCalendarMonth = vi.fn();
+    const applyManualScheduleTemplate = vi
+      .fn()
+      .mockResolvedValueOnce({
+        periods: [
+          {
+            businessMonth: '2026-08-01',
+            id: 'period-1',
+            revision: 1,
+            rulesVersion: 1,
+            scheduleRoleId: 'role-1',
+            status: 'draft',
+            version: 1,
+          },
+        ],
+      })
+      .mockRejectedValueOnce(
+        new ApiClientError('VERSION_CONFLICT', '模板已更新', 'request-1', {}, 409),
+      );
+    const controller = createManualScheduleController({
+      applyManualScheduleTemplate,
+      createManualScheduleTemplate: vi.fn(),
+      createOperationId: vi.fn().mockReturnValue('operation-1'),
+      deleteManualScheduleTemplate: vi.fn(),
+      getHolidays: vi
+        .fn()
+        .mockResolvedValue({ confirmed: true, dates: [], year: 2026 } as HolidayReadModel),
+      getSchedulingConfig: vi.fn().mockResolvedValue(config),
+      invalidateCalendarMonth,
+      listManualScheduleTemplates: vi.fn().mockResolvedValue([template]),
+      listScheduleDrafts: vi.fn().mockResolvedValue([]),
+      listSchedulePeriodHistory: vi.fn().mockResolvedValue([] as SchedulePeriodHistoryItem[]),
+      previewManualTemplateApply: vi.fn().mockResolvedValue({
+        assignments: [],
+        applyEndDate: '2026-08-18',
+        applyStartDate: '2026-08-12',
+        conflicts: [],
+        continuousDutyWarnings: [],
+        cycleDays: 7,
+        rulesVersion: 1,
+        scheduleRoleId: 'role-1',
+        scheduleRoleName: '医生',
+        statistics: {},
+        templateId: 'template-1',
+        templateVersion: 2,
+        vacancies: [],
+      }),
+      previewScheduleChange: vi.fn(),
+      publishScheduleDraftBatch: vi.fn(),
+      publish: vi.fn(),
+      updateManualScheduleTemplate: vi.fn(),
+      withdrawSchedulePeriod: vi.fn(),
+    });
+    controller.activate({
+      groupId: 'group-a',
+      groupRole: 'owner',
+      groupVersion: 3,
+      userId: 'user-1',
+    });
+    await controller.load();
+    controller.chooseTemplate('template-1');
+    await controller.previewApply('2026-08-12');
+    await controller.applyPreview();
+    expect(invalidateCalendarMonth).toHaveBeenCalledWith({
+      businessMonth: '2026-08',
+      groupId: 'group-a',
+      groupRole: 'owner',
+      groupVersion: 3,
+      userId: 'user-1',
+    });
+    await controller.previewApply('2026-08-12');
+    await controller.applyPreview();
+    expect(controller.state.preview).toBeUndefined();
+    expect(controller.state.conflict?.message).toBe('模板已更新');
   });
 });

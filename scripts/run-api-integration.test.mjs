@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   findApiIntegrationEnvironmentIssues,
+  manualScheduleIntegrationTestFiles,
+  runManualScheduleIntegrationTests,
   runTask10IntegrationTests,
   runWorkflowIntegrationTests,
   task10IntegrationTestFiles,
@@ -65,6 +67,13 @@ describe('API integration test runtime guard', () => {
     ]);
   });
 
+  it('keeps manual scheduling on its fixed template, apply, and publishing allowlist', () => {
+    expect(manualScheduleIntegrationTestFiles).toEqual([
+      'apps/api/src/modules/manual-schedules/templates.integration.test.ts',
+      'apps/api/src/modules/manual-schedules/manual-apply.integration.test.ts',
+    ]);
+  });
+
   it('starts the local Vitest entrypoint with a child-only test environment and propagates exit status', () => {
     const spawn = vi.fn(() => ({ status: 7 }));
 
@@ -94,6 +103,25 @@ describe('API integration test runtime guard', () => {
         fileURLToPath(new URL('../node_modules/vitest/vitest.mjs', import.meta.url)),
         'run',
         ...task10IntegrationTestFiles,
+      ],
+      {
+        cwd: fileURLToPath(new URL('../', import.meta.url)),
+        env: { ...safeEnvironment, NODE_ENV: 'test' },
+        stdio: 'inherit',
+      },
+    );
+  });
+
+  it('starts manual scheduling only with its fixed allowlist', () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+
+    expect(runManualScheduleIntegrationTests({ environment: safeEnvironment, spawn })).toBe(0);
+    expect(spawn).toHaveBeenCalledWith(
+      process.execPath,
+      [
+        fileURLToPath(new URL('../node_modules/vitest/vitest.mjs', import.meta.url)),
+        'run',
+        ...manualScheduleIntegrationTestFiles,
       ],
       {
         cwd: fileURLToPath(new URL('../', import.meta.url)),

@@ -11,6 +11,15 @@
   align-items: center;
   justify-content: space-between;
 }
+.manual-editor__preview,
+.manual-editor__publish,
+.manual-editor__history,
+.manual-editor__feedback {
+  display: flex;
+  padding: var(--v3-space-sm);
+  flex-direction: column;
+  gap: var(--v3-space-sm);
+}
 .manual-editor__picker {
   min-height: var(--v3-touch-min);
   background: var(--v3-color-surface);

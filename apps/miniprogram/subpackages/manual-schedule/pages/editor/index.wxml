@@ -29,7 +29,97 @@
           disabled="{{isSaving}}"
           bindtap="handleDelete"
         >
-          删除模板
+          删除模板</button
+        ><button
+          wx:if="{{state.selectedTemplateId}}"
+          loading="{{isApplying}}"
+          disabled="{{isApplying}}"
+          bindtap="handlePreviewApply"
+        >
+          预览应用
+        </button></view
+      ><view wx:if="{{state.preview}}" class="manual-editor__preview"
+        ><text
+          >预览：{{state.preview.preview.assignments.length}}
+          个班次，{{state.preview.preview.conflicts.length}}
+          个冲突，{{state.preview.preview.vacancies.length}}
+          个空缺，{{state.preview.preview.continuousDutyWarnings.length}} 个连续值班提醒。</text
+        ><view wx:if="{{state.preview.preview.conflicts.length}}" class="manual-editor__feedback"
+          ><text>以下硬冲突由服务端阻断，不能确认绕过：</text
+          ><text
+            wx:for="{{state.preview.preview.conflicts}}"
+            wx:for-item="conflict"
+            wx:key="membershipId"
+            >{{conflict.memberName || conflict.membershipId}} · {{conflict.code}}</text
+          ></view
+        ><view wx:if="{{state.preview.preview.vacancies.length}}" class="manual-editor__feedback"
+          ><text>空缺：</text
+          ><text
+            wx:for="{{state.preview.preview.vacancies}}"
+            wx:for-item="vacancy"
+            wx:key="assignmentBusinessKey"
+            >{{vacancy.businessDate}} · 第 {{vacancy.slotPosition}} 岗 · {{vacancy.code}}</text
+          ></view
+        ><view
+          wx:if="{{state.preview.preview.continuousDutyWarnings.length}}"
+          class="manual-editor__feedback"
+          ><text>连续值班提醒：</text
+          ><text
+            wx:for="{{state.preview.preview.continuousDutyWarnings}}"
+            wx:for-item="warning"
+            wx:key="membershipId"
+            >{{warning.memberName || warning.membershipId}} · {{warning.code}}</text
+          ></view
+        ><button
+          loading="{{isApplying}}"
+          disabled="{{isApplying || state.preview.preview.conflicts.length > 0}}"
+          bindtap="handleApplyPreview"
+        >
+          确认应用
+        </button></view
+      ><view wx:if="{{draftGroups.length}}" class="manual-editor__publish"
+        ><text>待发布草稿：{{state.drafts.length}} 个</text
+        ><view wx:for="{{draftGroups}}" wx:for-item="draftGroup" wx:key="operationId"
+          ><text>{{draftGroup.scheduleRoleNames}} · {{draftGroup.businessMonths}}</text
+          ><button
+            data-period-ids="{{draftGroup.periodIds}}"
+            loading="{{isApplying}}"
+            disabled="{{isApplying}}"
+            bindtap="handlePublishDrafts"
+          >
+            发布本次应用草稿
+          </button></view
+        ></view
+      ><view wx:if="{{state.history.length}}" class="manual-editor__history"
+        ><text>排班历史</text
+        ><view wx:for="{{state.history}}" wx:for-item="period" wx:key="id"
+          ><text>{{period.businessMonth}} · {{period.status}}</text
+          ><button
+            wx:if="{{period.status === 'published'}}"
+            data-period-id="{{period.id}}"
+            loading="{{isApplying}}"
+            disabled="{{isApplying}}"
+            bindtap="handleWithdraw"
+          >
+            撤回
+          </button></view
+        ></view
+      ><view wx:if="{{state.periodPreview}}" class="manual-editor__preview"
+        ><text
+          >撤回预览：将影响 {{state.periodPreview.impact.affectedPeriodIds.length}}
+          个期间、{{state.periodPreview.impact.workflowImpacts.length}} 个工作流。</text
+        ><view
+          wx:if="{{state.periodPreview.impact.workflowImpacts.length}}"
+          class="manual-editor__feedback"
+          ><text>受影响工作流：</text
+          ><text
+            wx:for="{{state.periodPreview.impact.workflowImpacts}}"
+            wx:for-item="workflow"
+            wx:key="id"
+            >{{workflow.kind}} · {{workflow.status}}</text
+          ></view
+        ><button loading="{{isApplying}}" disabled="{{isApplying}}" bindtap="handleWithdrawPreview">
+          确认撤回
         </button></view
       ></view
     ></view

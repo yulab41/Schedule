@@ -48,12 +48,18 @@ import {
   getGuestCalendar,
   resolveGuestGroup,
   createManualScheduleTemplate,
+  applyManualScheduleTemplate,
   deleteManualScheduleTemplate,
   getHolidays,
   getSchedulingConfig,
   listManualScheduleTemplates,
   listSchedulePeriodHistory,
+  listScheduleDrafts,
+  previewManualTemplateApply,
+  previewScheduleChange,
+  publishScheduleDraftBatch,
   updateManualScheduleTemplate,
+  withdrawSchedulePeriod,
 } from './endpoints.js';
 
 const groupId = 'group-1';
@@ -254,6 +260,39 @@ describe('manual template endpoint boundaries', () => {
         { data: { ...input, expectedVersion: 2 }, method: 'PUT' },
       ],
       [`/groups/${groupId}/manual-schedule-templates/template-1`, { method: 'DELETE' }],
+    ]);
+  });
+
+  it('keeps preview, apply, publish, and withdraw on their existing protected paths', () => {
+    previewManualTemplateApply(groupId, 'template-1', { expectedRulesVersion: 4 });
+    applyManualScheduleTemplate(groupId, 'template-1', {
+      expectedRulesVersion: 4,
+      operationId,
+    });
+    listScheduleDrafts(groupId);
+    previewScheduleChange(groupId, 'period-1', 'withdraw');
+    publishScheduleDraftBatch(groupId, { operationId, schedulePeriodIds: ['period-1'] });
+    withdrawSchedulePeriod(groupId, 'period-1', { expectedVersion: 2, operationId });
+
+    expect(requestMock.mock.calls).toEqual([
+      [
+        `/groups/${groupId}/manual-schedule-templates/template-1/apply-preview`,
+        { data: { expectedRulesVersion: 4 }, method: 'POST' },
+      ],
+      [
+        `/groups/${groupId}/manual-schedule-templates/template-1/apply`,
+        { data: { expectedRulesVersion: 4, operationId }, method: 'POST' },
+      ],
+      [`/groups/${groupId}/schedule-periods`],
+      [`/groups/${groupId}/schedules/period-1/change-impact?action=withdraw`],
+      [
+        `/groups/${groupId}/schedules/publish-batch`,
+        { data: { operationId, schedulePeriodIds: ['period-1'] }, method: 'POST' },
+      ],
+      [
+        `/groups/${groupId}/schedules/period-1/withdraw`,
+        { data: { expectedVersion: 2, operationId }, method: 'POST' },
+      ],
     ]);
   });
 });

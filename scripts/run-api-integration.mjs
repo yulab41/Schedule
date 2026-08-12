@@ -27,6 +27,11 @@ export const task10IntegrationTestFiles = [
   'apps/api/src/modules/users/user-routes.integration.test.ts',
 ];
 
+export const manualScheduleIntegrationTestFiles = [
+  'apps/api/src/modules/manual-schedules/templates.integration.test.ts',
+  'apps/api/src/modules/manual-schedules/manual-apply.integration.test.ts',
+];
+
 export function findApiIntegrationEnvironmentIssues(environment) {
   const issues = [];
   const database = environment.TEST_MYSQL_DATABASE;
@@ -79,6 +84,10 @@ export function runWorkflowIntegrationTests(options = {}) {
 
 export function runTask10IntegrationTests(options = {}) {
   return runApiIntegrationTests({ ...options, testFiles: task10IntegrationTestFiles });
+}
+
+export function runManualScheduleIntegrationTests(options = {}) {
+  return runApiIntegrationTests({ ...options, testFiles: manualScheduleIntegrationTestFiles });
 }
 
 const invokedUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : undefined;

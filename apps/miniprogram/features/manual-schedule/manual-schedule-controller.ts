@@ -1,13 +1,21 @@
 import type {
+  AppliedManualScheduleTemplateResult,
+  ApplyManualScheduleTemplateRequest,
   CreateManualScheduleTemplateRequest,
   HolidayReadModel,
   ManualScheduleTemplate,
+  ManualApplyPreview,
+  PublishSchedulePeriodBatchRequest,
+  ScheduleChangeImpactPreview,
+  ScheduleDraftSummary,
   SchedulePeriodHistoryItem,
+  SchedulePeriodMutationRequest,
   SchedulingConfig,
   UpdateManualScheduleTemplateRequest,
 } from '@schedule/contracts';
 
 import { ApiClientError } from '../../api/client.js';
+import type { CalendarCacheIdentity } from '../../store/calendar-cache.js';
 import {
   applySelectedShift,
   applyLockedShift,
@@ -33,6 +41,12 @@ export interface ManualScheduleContext {
 }
 
 export interface ManualScheduleDependencies {
+  applyManualScheduleTemplate(
+    groupId: string,
+    templateId: string,
+    input: ApplyManualScheduleTemplateRequest,
+  ): Promise<AppliedManualScheduleTemplateResult>;
+  createOperationId(): string;
   createManualScheduleTemplate(
     groupId: string,
     input: CreateManualScheduleTemplateRequest,
@@ -40,14 +54,39 @@ export interface ManualScheduleDependencies {
   deleteManualScheduleTemplate(groupId: string, templateId: string): Promise<void>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
+  invalidateCalendarMonth(identity: CalendarCacheIdentity): number;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
+  listScheduleDrafts(groupId: string): Promise<ScheduleDraftSummary[]>;
   listSchedulePeriodHistory(groupId: string): Promise<SchedulePeriodHistoryItem[]>;
   publish(state: ManualScheduleState): void;
+  previewManualTemplateApply(
+    groupId: string,
+    templateId: string,
+    input: {
+      readonly endDate?: string;
+      readonly expectedRulesVersion: number;
+      readonly startDate?: string;
+    },
+  ): Promise<ManualApplyPreview>;
+  previewScheduleChange(
+    groupId: string,
+    periodId: string,
+    action: 'publish' | 'withdraw',
+  ): Promise<ScheduleChangeImpactPreview>;
+  publishScheduleDraftBatch(
+    groupId: string,
+    input: PublishSchedulePeriodBatchRequest,
+  ): Promise<unknown>;
   updateManualScheduleTemplate(
     groupId: string,
     templateId: string,
     input: UpdateManualScheduleTemplateRequest,
   ): Promise<ManualScheduleTemplate>;
+  withdrawSchedulePeriod(
+    groupId: string,
+    periodId: string,
+    input: SchedulePeriodMutationRequest,
+  ): Promise<unknown>;
 }
 
 export interface ManualScheduleState {
@@ -60,6 +99,24 @@ export interface ManualScheduleState {
   readonly history: readonly SchedulePeriodHistoryItem[];
   readonly isLoading: boolean;
   readonly isSaving: boolean;
+  readonly isApplying: boolean;
+  readonly drafts: readonly ScheduleDraftSummary[];
+  readonly periodPreview:
+    | {
+        readonly action: 'withdraw';
+        readonly impact: ScheduleChangeImpactPreview;
+        readonly periodId: string;
+      }
+    | undefined;
+  readonly preview:
+    | {
+        readonly endDate?: string;
+        readonly preview: ManualApplyPreview;
+        readonly startDate?: string;
+        readonly templateId: string;
+        readonly templateVersion: number;
+      }
+    | undefined;
   readonly selectedTemplateId: string | undefined;
   readonly templates: readonly ManualScheduleTemplate[];
 }
@@ -73,6 +130,10 @@ const initialState: ManualScheduleState = {
   holidays: undefined,
   history: [],
   isLoading: false,
+  isApplying: false,
+  drafts: [],
+  periodPreview: undefined,
+  preview: undefined,
   isSaving: false,
   selectedTemplateId: undefined,
   templates: [],
@@ -121,6 +182,10 @@ function requestFrom(draft: ManualScheduleDraft): CreateManualScheduleTemplateRe
   };
 }
 
+function calendarBusinessMonth(value: string): string {
+  return value.slice(0, 7);
+}
+
 function draftFromTemplate(template: ManualScheduleTemplate): ManualScheduleDraft {
   const draft = createManualScheduleDraft({
     cycleDays: template.cycleDays,
@@ -162,10 +227,11 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
     const flight = Promise.all([
       call(() => dependencies.getSchedulingConfig(context.groupId)),
       call(() => dependencies.listManualScheduleTemplates(context.groupId)),
+      call(() => dependencies.listScheduleDrafts(context.groupId)),
       call(() => dependencies.listSchedulePeriodHistory(context.groupId)),
       call(() => dependencies.getHolidays(year)),
     ])
-      .then(([config, templates, history, holidays]) => {
+      .then(([config, templates, drafts, history, holidays]) => {
         if (!current(operationGeneration)) return;
         const existing = state.draft;
         const role = config.roles[0];
@@ -183,10 +249,13 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
           ...state,
           config,
           draft,
+          drafts,
           errorMessage: undefined,
           history,
           holidays,
           isLoading: false,
+          periodPreview: undefined,
+          preview: undefined,
           templates,
         });
       })
@@ -206,7 +275,7 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
   };
 
   const replaceDraft = (draft: ManualScheduleDraft | undefined) => {
-    if (draft !== undefined) publish({ ...state, draft });
+    if (draft !== undefined) publish({ ...state, draft, preview: undefined });
   };
   const refreshAfterMutation = async () => {
     await load();
@@ -273,6 +342,8 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
         ...state,
         conflict: undefined,
         draft: draftFromTemplate(template),
+        periodPreview: undefined,
+        preview: undefined,
         selectedTemplateId: template.id,
       });
     },
@@ -285,6 +356,235 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
       if (template !== undefined)
         publish({ ...state, conflict: undefined, draft: draftFromTemplate(template) });
       else publish({ ...state, conflict: undefined });
+    },
+    async previewApply(startDate?: string, endDate?: string): Promise<void> {
+      const { context, selectedTemplateId, config } = state;
+      const template = state.templates.find(({ id }) => id === selectedTemplateId);
+      if (
+        context === undefined ||
+        template === undefined ||
+        config === undefined ||
+        state.isApplying
+      )
+        return;
+      const operationGeneration = generation;
+      publish({ ...state, errorMessage: undefined, isApplying: true, preview: undefined });
+      try {
+        const preview = await dependencies.previewManualTemplateApply(
+          context.groupId,
+          template.id,
+          {
+            ...(endDate === undefined ? {} : { endDate }),
+            expectedRulesVersion: config.rulesVersion,
+            ...(startDate === undefined ? {} : { startDate }),
+          },
+        );
+        if (!current(operationGeneration)) return;
+        if (
+          preview.rulesVersion !== config.rulesVersion ||
+          preview.templateId !== template.id ||
+          preview.templateVersion !== template.version
+        ) {
+          publish({
+            ...state,
+            errorMessage: '预览数据已变化，请重新预览后确认。',
+            isApplying: false,
+            preview: undefined,
+          });
+          return;
+        }
+        publish({
+          ...state,
+          isApplying: false,
+          preview: {
+            endDate,
+            preview,
+            startDate,
+            templateId: template.id,
+            templateVersion: template.version,
+          },
+        });
+      } catch (error) {
+        if (!current(operationGeneration)) return;
+        const detail = errorDetails(error);
+        publish({
+          ...state,
+          conflict: detail.isConflict
+            ? { latestData: detail.latestData, message: detail.message }
+            : undefined,
+          errorMessage: detail.message,
+          isApplying: false,
+          preview: undefined,
+        });
+        if (detail.isConflict) void load();
+      }
+    },
+    async applyPreview(): Promise<void> {
+      const { context, config, preview } = state;
+      const template = state.templates.find(({ id }) => id === preview?.templateId);
+      if (
+        context === undefined ||
+        config === undefined ||
+        preview === undefined ||
+        template === undefined ||
+        template.version !== preview.templateVersion ||
+        preview.preview.rulesVersion !== config.rulesVersion ||
+        preview.preview.templateId !== template.id ||
+        preview.preview.templateVersion !== template.version ||
+        state.isApplying
+      )
+        return;
+      const operationGeneration = generation;
+      publish({ ...state, errorMessage: undefined, isApplying: true });
+      try {
+        const result = await dependencies.applyManualScheduleTemplate(
+          context.groupId,
+          template.id,
+          {
+            ...(preview.endDate === undefined ? {} : { endDate: preview.endDate }),
+            expectedRulesVersion: config.rulesVersion,
+            operationId: dependencies.createOperationId(),
+            ...(preview.startDate === undefined ? {} : { startDate: preview.startDate }),
+          },
+        );
+        if (!current(operationGeneration)) return;
+        for (const period of result.periods)
+          dependencies.invalidateCalendarMonth({
+            businessMonth: calendarBusinessMonth(period.businessMonth),
+            groupId: context.groupId,
+            groupRole: context.groupRole,
+            groupVersion: context.groupVersion,
+            userId: context.userId,
+          });
+        publish({ ...state, isApplying: false, preview: undefined });
+        await load();
+      } catch (error) {
+        if (!current(operationGeneration)) return;
+        const detail = errorDetails(error);
+        publish({
+          ...state,
+          conflict: detail.isConflict
+            ? { latestData: detail.latestData, message: detail.message }
+            : undefined,
+          errorMessage: detail.message,
+          isApplying: false,
+          preview: undefined,
+        });
+        if (detail.isConflict) void load();
+      }
+    },
+    async publishDrafts(periodIds: readonly string[]): Promise<void> {
+      const { context } = state;
+      const periods = state.drafts.filter(({ id }) => periodIds.includes(id));
+      if (context === undefined || periods.length === 0 || state.isApplying) return;
+      const operationGeneration = generation;
+      publish({ ...state, isApplying: true, periodPreview: undefined });
+      try {
+        await dependencies.publishScheduleDraftBatch(context.groupId, {
+          operationId: dependencies.createOperationId(),
+          schedulePeriodIds: periods.map(({ id }) => id),
+        });
+        if (!current(operationGeneration)) return;
+        for (const period of periods)
+          dependencies.invalidateCalendarMonth({
+            businessMonth: calendarBusinessMonth(period.businessMonth),
+            groupId: context.groupId,
+            groupRole: context.groupRole,
+            groupVersion: context.groupVersion,
+            userId: context.userId,
+          });
+        publish({ ...state, isApplying: false });
+        await load();
+      } catch (error) {
+        if (!current(operationGeneration)) return;
+        const detail = errorDetails(error);
+        publish({
+          ...state,
+          conflict: detail.isConflict
+            ? { latestData: detail.latestData, message: detail.message }
+            : undefined,
+          errorMessage: detail.message,
+          isApplying: false,
+          preview: detail.isConflict ? undefined : state.preview,
+        });
+        if (detail.isConflict) void load();
+      }
+    },
+    async previewWithdraw(periodId: string): Promise<void> {
+      const { context } = state;
+      const period = state.history.find(({ id }) => id === periodId);
+      if (context === undefined || period === undefined || state.isApplying) return;
+      const operationGeneration = generation;
+      publish({ ...state, isApplying: true, periodPreview: undefined });
+      try {
+        const impact = await dependencies.previewScheduleChange(
+          context.groupId,
+          period.id,
+          'withdraw',
+        );
+        if (!current(operationGeneration)) return;
+        publish({
+          ...state,
+          isApplying: false,
+          periodPreview: { action: 'withdraw', impact, periodId: period.id },
+        });
+      } catch (error) {
+        if (!current(operationGeneration)) return;
+        const detail = errorDetails(error);
+        publish({
+          ...state,
+          conflict: detail.isConflict
+            ? { latestData: detail.latestData, message: detail.message }
+            : undefined,
+          errorMessage: detail.message,
+          isApplying: false,
+          periodPreview: detail.isConflict ? undefined : state.periodPreview,
+        });
+        if (detail.isConflict) void load();
+      }
+    },
+    async withdrawPreview(): Promise<void> {
+      const { context, periodPreview } = state;
+      const period = state.history.find(({ id }) => id === periodPreview?.periodId);
+      if (
+        context === undefined ||
+        periodPreview?.action !== 'withdraw' ||
+        period === undefined ||
+        state.isApplying
+      )
+        return;
+      const operationGeneration = generation;
+      publish({ ...state, errorMessage: undefined, isApplying: true });
+      try {
+        await dependencies.withdrawSchedulePeriod(context.groupId, period.id, {
+          expectedVersion: period.version,
+          operationId: dependencies.createOperationId(),
+        });
+        if (!current(operationGeneration)) return;
+        dependencies.invalidateCalendarMonth({
+          businessMonth: calendarBusinessMonth(period.businessMonth),
+          groupId: context.groupId,
+          groupRole: context.groupRole,
+          groupVersion: context.groupVersion,
+          userId: context.userId,
+        });
+        publish({ ...state, isApplying: false, periodPreview: undefined });
+        await load();
+      } catch (error) {
+        if (!current(operationGeneration)) return;
+        const detail = errorDetails(error);
+        publish({
+          ...state,
+          conflict: detail.isConflict
+            ? { latestData: detail.latestData, message: detail.message }
+            : undefined,
+          errorMessage: detail.message,
+          isApplying: false,
+          periodPreview: undefined,
+          preview: detail.isConflict ? undefined : state.preview,
+        });
+        if (detail.isConflict) void load();
+      }
     },
     async save(): Promise<void> {
       const { context, draft, selectedTemplateId } = state;

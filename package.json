@@ -35,6 +35,7 @@
     "lint": "eslint \"{apps,packages}/**/*.{ts,vue}\" \"infra/scripts/**/*.ts\" --max-warnings=0",
     "test": "vitest run",
     "test:api-integration": "node --env-file=.env scripts/run-api-integration.mjs",
+    "test:api-integration:manual-schedule": "node --env-file=.env scripts/run-api-integration-manual-schedule.mjs",
     "test:api-integration:task10": "node --env-file=.env scripts/run-api-integration-task10.mjs",
     "tokens:generate": "pnpm --filter @schedule/ui-tokens generate",
     "typecheck": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run typecheck",
