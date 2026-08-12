@@ -14,6 +14,7 @@ export interface ManualScheduleDraft {
   readonly cells: Readonly<Record<string, ManualScheduleTemplateCellInput>>;
   readonly cycleDays: number;
   readonly membershipIds: readonly string[];
+  readonly lockedShiftTypeId?: string;
   readonly scheduleRoleId: string;
   readonly selectedCell?: ManualCellSelection;
   readonly startDate: string;
@@ -125,6 +126,30 @@ export function applySelectedShift(
       shiftTypeId: shift.id,
     };
   return withUndo(draft, cells);
+}
+
+export function lockManualShift(
+  draft: ManualScheduleDraft,
+  shift: ManualShiftChoice,
+): ManualScheduleDraft {
+  if (!shift.isEnabled || shift.id.length === 0) return draft;
+  return { ...draft, lockedShiftTypeId: shift.id, selectedCell: undefined };
+}
+
+export function unlockManualShift(draft: ManualScheduleDraft): ManualScheduleDraft {
+  return draft.lockedShiftTypeId === undefined ? draft : { ...draft, lockedShiftTypeId: undefined };
+}
+
+export function applyLockedShift(
+  draft: ManualScheduleDraft,
+  selection: ManualCellSelection,
+): ManualScheduleDraft {
+  const shiftTypeId = draft.lockedShiftTypeId;
+  if (shiftTypeId === undefined) return draft;
+  const selected = selectManualCell({ ...draft, selectedCell: undefined }, selection);
+  return selected.selectedCell === undefined
+    ? draft
+    : applySelectedShift(selected, { id: shiftTypeId, isEnabled: true });
 }
 
 export function clearManualCell(

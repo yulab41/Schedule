@@ -254,7 +254,7 @@
 
 1. Task 9 与 API integration test runtime follow-up 已完成并推送；Task 9 真机角色矩阵仍如实保留为待用户/设备复核。
 2. Task 10.1 `20407fc`、Task 10.2 `64e57f0`、Task 10.3 `638b95f` 已正常推送；Task 10 已结束，Task 9/10 真机矩阵均待用户/设备复核。
-3. V3-4 Task 11 已实现待设备复核：新增管理员专属 manual-schedule 分包、单元格优先本地草稿/撤销、模板 CRUD、500ms/12px 长按清除和 controller generation/single-flight；没有班种锁定、模板应用、草稿发布或任何编辑期排班写入。已完成单测、配置审计、typecheck、lint、Prettier、浏览器 smoke、DevTools build/preview；`pnpm miniprogram:smoke` 在开发者工具自动化会话中 50 秒无输出后已终止，不能视为页面走查通过。待提交检查点：`feat(miniprogram): add cell-first manual scheduling`；完成推送后停止，Task 12/13 仍冻结。
+3. V3-4 Task 11 `4a0d44c` 已推送并待设备复核。Task 12 已实现待复核：班种锁定/退出、连续填入和同班种清除与单元格优先共享同一草稿与 undo；没有全局防抖、API 写入、第二 cells map 或第二 undo。完成本 checkpoint 后停止；Task 13 仍冻结。
 
 ## Handoff Requirements
 

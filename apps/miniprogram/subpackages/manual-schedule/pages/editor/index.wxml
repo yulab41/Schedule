@@ -8,6 +8,9 @@
       ><button bindtap="handleContinueEditing">返回编辑</button
       ><button bindtap="handleReloadAuthority">重载权威模板</button></shell-state
     ><view wx:else
+      ><view wx:if="{{lockedShiftName}}" class="manual-editor__lock"
+        ><text>已锁定：{{lockedShiftName}}</text
+        ><button bindtap="handleUnlockShift">退出锁定</button></view
       ><picker mode="selector" range="{{templateNames}}" bindchange="handleTemplate"
         ><view class="manual-editor__picker">选择已有模板（可选）</view></picker
       ><manual-grid

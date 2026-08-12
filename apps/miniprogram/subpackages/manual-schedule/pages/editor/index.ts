@@ -22,6 +22,7 @@ interface EditorData {
   readonly gridColumns: readonly unknown[];
   readonly gridRows: readonly unknown[];
   readonly isSaving: boolean;
+  readonly lockedShiftName: string;
   readonly shifts: readonly unknown[];
   readonly state: ManualScheduleState;
   readonly templateNames: readonly string[];
@@ -58,6 +59,7 @@ function viewData(): EditorData {
     textColor: shift.textColor,
   }));
   const template = state.templates.find(({ id }) => id === state.selectedTemplateId);
+  const lockedShiftName = shifts.find(({ id }) => id === draft?.lockedShiftTypeId)?.name ?? '';
   const staleCells = new Set(
     template?.cells
       .filter(({ isStale }) => isStale)
@@ -97,6 +99,7 @@ function viewData(): EditorData {
     gridColumns: columns,
     gridRows,
     isSaving: state.isSaving,
+    lockedShiftName,
     shifts,
     state,
     templateIds: state.templates.map(({ id }) => id),
@@ -159,7 +162,9 @@ Page({
   ): void {
     const { cycleDay, membershipId } = event.detail;
     if (typeof cycleDay === 'number' && typeof membershipId === 'string') {
-      controller.selectCell({ cycleDay, membershipId });
+      if (controller.state.draft?.lockedShiftTypeId === undefined)
+        controller.selectCell({ cycleDay, membershipId });
+      else controller.applyLockedShift({ cycleDay, membershipId });
       this.sync();
     }
   },
@@ -167,7 +172,9 @@ Page({
     const shiftId = event.detail.shiftId;
     const shift = controller.state.config?.shiftTypes.find(({ id }) => id === shiftId);
     if (shift !== undefined) {
-      controller.applyShift({ id: shift.id, isEnabled: shift.isEnabled });
+      if (controller.state.draft?.selectedCell === undefined)
+        controller.lockShift({ id: shift.id, isEnabled: shift.isEnabled });
+      else controller.applyShift({ id: shift.id, isEnabled: shift.isEnabled });
       this.sync();
     }
   },
@@ -201,6 +208,10 @@ Page({
   },
   handleUndo(): void {
     controller.undo();
+    this.sync();
+  },
+  handleUnlockShift(): void {
+    controller.unlockShift();
     this.sync();
   },
   handleContinueEditing(): void {

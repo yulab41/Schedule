@@ -5,6 +5,12 @@
 .manual-editor__actions {
   padding: var(--v3-space-sm);
 }
+.manual-editor__lock {
+  display: flex;
+  padding: var(--v3-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
 .manual-editor__picker {
   min-height: var(--v3-touch-min);
   background: var(--v3-color-surface);

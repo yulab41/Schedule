@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   applySelectedShift,
+  applyLockedShift,
   createManualScheduleDraft,
   getCycleDateColumns,
   isManualGridLongPress,
   selectManualCell,
+  lockManualShift,
+  unlockManualShift,
   undoManualDraft,
 } from './manual-grid-logic.js';
 
@@ -50,5 +53,21 @@ describe('manual grid draft', () => {
     expect(isManualGridLongPress({ durationMs: 500, horizontalDistancePx: 11.9 })).toBe(true);
     expect(isManualGridLongPress({ durationMs: 499, horizontalDistancePx: 0 })).toBe(false);
     expect(isManualGridLongPress({ durationMs: 500, horizontalDistancePx: 12 })).toBe(false);
+  });
+
+  it('shares the draft and undo stack with an explicit locked shift mode', () => {
+    const draft = createManualScheduleDraft({
+      cycleDays: 7,
+      membershipIds: ['member-1'],
+      scheduleRoleId: 'role-1',
+      startDate: '2026-01-01',
+    });
+    const locked = lockManualShift(draft, { id: 'night', isEnabled: true });
+    const filled = applyLockedShift(locked, { cycleDay: 1, membershipId: 'member-1' });
+    const cleared = applyLockedShift(filled, { cycleDay: 1, membershipId: 'member-1' });
+    expect(filled.cells['1:member-1']?.shiftTypeId).toBe('night');
+    expect(cleared.cells['1:member-1']).toBeUndefined();
+    expect(cleared.undo).toHaveLength(2);
+    expect(unlockManualShift(cleared).lockedShiftTypeId).toBeUndefined();
   });
 });

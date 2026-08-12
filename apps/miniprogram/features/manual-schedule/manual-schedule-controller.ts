@@ -10,13 +10,16 @@ import type {
 import { ApiClientError } from '../../api/client.js';
 import {
   applySelectedShift,
+  applyLockedShift,
   clearManualCell,
   clearManualColumn,
   clearManualRow,
   createManualScheduleDraft,
   manualDraftCells,
+  lockManualShift,
   selectManualCell,
   undoManualDraft,
+  unlockManualShift,
   type ManualCellSelection,
   type ManualScheduleDraft,
   type ManualShiftChoice,
@@ -240,6 +243,15 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
     },
     applyShift(shift: ManualShiftChoice): void {
       if (state.draft !== undefined) replaceDraft(applySelectedShift(state.draft, shift));
+    },
+    lockShift(shift: ManualShiftChoice): void {
+      if (state.draft !== undefined) replaceDraft(lockManualShift(state.draft, shift));
+    },
+    unlockShift(): void {
+      if (state.draft !== undefined) replaceDraft(unlockManualShift(state.draft));
+    },
+    applyLockedShift(selection: ManualCellSelection): void {
+      if (state.draft !== undefined) replaceDraft(applyLockedShift(state.draft, selection));
     },
     clearCell(selection: ManualCellSelection): void {
       if (state.draft !== undefined) replaceDraft(clearManualCell(state.draft, selection));

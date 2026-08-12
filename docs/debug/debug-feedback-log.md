@@ -1801,3 +1801,9 @@
 - 实现与行为审计：新增单一内存草稿和有限 undo 快照；仅选中 cell 后的可用班种会修改它，同班种再次选择清空。组件不请求 API、无 storage/cache 写入；owner/administrator route 先经共享 guard 再解析管理员 context，拒绝时不创建 controller 或调用 endpoint。横向网格只用单一 `scroll-view`，长按使用 500ms timer 和 12px 横向位移取消，整行/列另经 `wx.showModal`。controller 使用 context generation/single-flight；同步/异步错误均释放 flight，409 保留原 message/latestData、刷新权威读取且不自动重发。接收者绑定保持为 `this.setData`/`wx` 成员调用；无全局防抖、无服务端排班写入、无 second cells/undo source。
 - 验证：完整 `pnpm vitest run apps/miniprogram` 40 文件 / 177 项通过，manifest 3 项通过；config audit、typecheck、排除未跟踪 minitest 的 lint、明确文件 Prettier 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 通过登录/管理员/成员/访客/审计流程，随后 `pnpm smoke:check-core` 通过；DevTools build-npm 无 warning，preview 成功（336.8 KB，manual-schedule 分包 7.2 KB）。`pnpm miniprogram:smoke` 在既有自动化会话 50 秒无输出后终止，记录为 transport 阻塞，不替代设备走查。
 - 状态：已实现待浏览器/设备复核。下一步仅可审阅并另行规划 Task 12；需要 Android/iOS 走查 7/30 天、横/纵滚动、长按、保存、409 和 direct-route 拒绝。
+
+### V3-4 Task 12 班种锁定与连续填入（2026-08-12）
+
+- 授权与溯源：用户在 `4a0d44c` 推送后明确要求继续。`applySelectedShift`、单一草稿/undo 和长按组件均由该检查点引入；本轮以 `git log -S`/`git blame` 复核后只在同一状态源上扩展，不进入 Task 13。
+- 测试先行与行为：新增失败测试先证明锁定函数缺失，随后转绿：锁定班种连续填入、同班种再次点清除、两次变更各写一次既有 undo、退出锁定不改 cells。页面在无选中 cell 时点班种进入锁定；有选中 cell 时仍执行 Task 11 的单元格优先；顶部与锁定提示均提供退出入口。无 200ms 全局防抖、无 network/storage/逐帧 setData，横向 `scroll-view` 仍优先消费网格横轴。
+- 状态：已实现待设备复核。完成完整回归、DevTools 复核、提交与推送后停止；Task 13 仍需依据此 checkpoint 重新展开。
