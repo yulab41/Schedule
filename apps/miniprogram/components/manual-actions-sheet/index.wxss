@@ -1,0 +1,3 @@
+.manual-actions {
+  padding: var(--v3-space-sm);
+}

@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildWorkbenchSections,
+  buildManualScheduleEditorRoute,
   getVisibleWorkbenchEntries,
+  resolveManualScheduleRouteContext,
   resolveWorkflowRouteContext,
 } from './workbench-navigation.js';
 
@@ -67,5 +69,16 @@ describe('workbench navigation', () => {
     expect(getVisibleWorkbenchEntries('member').find(({ id }) => id === 'leave')).toMatchObject({
       route: '/subpackages/workflows/pages/requests/index',
     });
+  });
+
+  it('only builds the manual editor route for an owner or administrator group', () => {
+    expect(resolveManualScheduleRouteContext(groups, 'owner')).toMatchObject({
+      groupRole: 'owner',
+    });
+    expect(resolveManualScheduleRouteContext(groups, 'member')).toBeUndefined();
+    expect(resolveManualScheduleRouteContext(groups, 'guest')).toBeUndefined();
+    expect(
+      buildManualScheduleEditorRoute(resolveManualScheduleRouteContext(groups, 'owner')!),
+    ).toContain('groupId=owner');
   });
 });

@@ -36,8 +36,15 @@ export interface WorkflowRouteContext {
   readonly groupVersion: number;
 }
 
+export interface ManualScheduleRouteContext {
+  readonly groupId: string;
+  readonly groupRole: 'administrator' | 'owner';
+  readonly groupVersion: number;
+}
+
 export const workflowRequestsRoute = '/subpackages/workflows/pages/requests/index';
 export const groupsRoute = '/subpackages/groups/pages/index';
+export const manualScheduleEditorRoute = '/subpackages/manual-schedule/pages/editor/index';
 
 export const workbenchEntries: readonly WorkbenchEntry[] = [
   {
@@ -47,7 +54,12 @@ export const workbenchEntries: readonly WorkbenchEntry[] = [
     tabRoute: '/pages/calendar/index',
   },
   { id: 'groups', label: '群组管理', requiresAdministrator: false, route: groupsRoute },
-  { id: 'manual', label: '手动排班', requiresAdministrator: true },
+  {
+    id: 'manual',
+    label: '手动排班',
+    requiresAdministrator: true,
+    route: manualScheduleEditorRoute,
+  },
   { id: 'backfill', label: '排班补录', requiresAdministrator: true },
   { id: 'leave', label: '请假', requiresAdministrator: false, route: workflowRequestsRoute },
   { id: 'swap', label: '换班', requiresAdministrator: false, route: workflowRequestsRoute },
@@ -83,6 +95,20 @@ export function resolveWorkflowRouteContext(
 
 export function buildWorkflowRequestRoute(context: WorkflowRouteContext): string {
   return `${workflowRequestsRoute}?groupId=${encodeURIComponent(context.groupId)}&groupRole=${context.groupRole}&groupVersion=${context.groupVersion}`;
+}
+
+export function resolveManualScheduleRouteContext(
+  groups: readonly GroupSummary[],
+  groupId: string,
+): ManualScheduleRouteContext | undefined {
+  const group = groups.find((candidate) => candidate.id === groupId);
+  if (group === undefined || (group.role !== 'administrator' && group.role !== 'owner'))
+    return undefined;
+  return { groupId: group.id, groupRole: group.role, groupVersion: group.version };
+}
+
+export function buildManualScheduleEditorRoute(context: ManualScheduleRouteContext): string {
+  return `${manualScheduleEditorRoute}?groupId=${encodeURIComponent(context.groupId)}&groupRole=${context.groupRole}&groupVersion=${context.groupVersion}`;
 }
 
 export function buildWorkbenchSections(

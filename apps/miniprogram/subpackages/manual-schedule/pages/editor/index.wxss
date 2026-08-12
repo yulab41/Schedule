@@ -1,0 +1,16 @@
+.manual-editor {
+  display: block;
+}
+.manual-editor__picker,
+.manual-editor__actions {
+  padding: var(--v3-space-sm);
+}
+.manual-editor__picker {
+  min-height: var(--v3-touch-min);
+  background: var(--v3-color-surface);
+  border-radius: var(--v3-radius-md);
+}
+.manual-editor__actions {
+  display: flex;
+  gap: var(--v3-space-sm);
+}

@@ -47,6 +47,13 @@ import {
   updateProfile,
   getGuestCalendar,
   resolveGuestGroup,
+  createManualScheduleTemplate,
+  deleteManualScheduleTemplate,
+  getHolidays,
+  getSchedulingConfig,
+  listManualScheduleTemplates,
+  listSchedulePeriodHistory,
+  updateManualScheduleTemplate,
 } from './endpoints.js';
 
 const groupId = 'group-1';
@@ -211,6 +218,42 @@ describe('Task 10 endpoint boundaries', () => {
           data: { businessMonth: '2026-08', visitorKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
         },
       ],
+    ]);
+  });
+});
+
+describe('manual template endpoint boundaries', () => {
+  beforeEach(() => {
+    requestMock.mockReset();
+  });
+
+  it('uses only the existing configuration, history, holiday, and template CRUD routes', () => {
+    const input = {
+      cells: [{ cycleDay: 1, membershipId: 'member-1', shiftTypeId: 'shift-1' }],
+      cycleDays: 7,
+      membershipIds: ['member-1'],
+      scheduleRoleId: 'role-1',
+      startDate: '2026-08-12',
+    };
+    getSchedulingConfig(groupId);
+    listManualScheduleTemplates(groupId);
+    listSchedulePeriodHistory(groupId);
+    getHolidays(2026);
+    createManualScheduleTemplate(groupId, input);
+    updateManualScheduleTemplate(groupId, 'template-1', { ...input, expectedVersion: 2 });
+    deleteManualScheduleTemplate(groupId, 'template-1');
+
+    expect(requestMock.mock.calls).toEqual([
+      [`/groups/${groupId}/scheduling-config`],
+      [`/groups/${groupId}/manual-schedule-templates`],
+      [`/groups/${groupId}/schedule-periods/history`],
+      ['/holidays?year=2026'],
+      [`/groups/${groupId}/manual-schedule-templates`, { data: input, method: 'POST' }],
+      [
+        `/groups/${groupId}/manual-schedule-templates/template-1`,
+        { data: { ...input, expectedVersion: 2 }, method: 'PUT' },
+      ],
+      [`/groups/${groupId}/manual-schedule-templates/template-1`, { method: 'DELETE' }],
     ]);
   });
 });

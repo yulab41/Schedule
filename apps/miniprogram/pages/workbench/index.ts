@@ -3,6 +3,9 @@ import {
   buildWorkflowRequestRoute,
   buildWorkbenchSections,
   groupsRoute,
+  buildManualScheduleEditorRoute,
+  manualScheduleEditorRoute,
+  resolveManualScheduleRouteContext,
   resolveWorkflowRouteContext,
 } from '../../features/navigation/workbench-navigation.js';
 import { guardMiniprogramRoute } from '../../features/navigation/route-guard.js';
@@ -52,6 +55,13 @@ Page({
       wx.switchTab({ url: route });
     else if (route === groupsRoute) wx.navigateTo({ url: groupsRoute });
     else if (
+      route === manualScheduleEditorRoute &&
+      typeof groupId === 'string' &&
+      sessionStore.state.status === 'authenticated'
+    ) {
+      const context = resolveManualScheduleRouteContext(sessionStore.state.groups, groupId);
+      if (context !== undefined) wx.navigateTo({ url: buildManualScheduleEditorRoute(context) });
+    } else if (
       (entry === 'leave' || entry === 'swap' || entry === 'duty') &&
       typeof groupId === 'string' &&
       sessionStore.state.status === 'authenticated'

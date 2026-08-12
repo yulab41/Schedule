@@ -1,0 +1,34 @@
+<page-shell title="手动排班"
+  ><view class="manual-editor"
+    ><shell-state wx:if="{{state.isLoading}}" kind="loading" title="正在加载手动排班" /><shell-state
+      wx:elif="{{errorMessage}}"
+      kind="error"
+      title="需要重新核对"
+      description="{{errorMessage}}"
+      ><button bindtap="handleContinueEditing">返回编辑</button
+      ><button bindtap="handleReloadAuthority">重载权威模板</button></shell-state
+    ><view wx:else
+      ><picker mode="selector" range="{{templateNames}}" bindchange="handleTemplate"
+        ><view class="manual-editor__picker">选择已有模板（可选）</view></picker
+      ><manual-grid
+        columns="{{gridColumns}}"
+        rows="{{gridRows}}"
+        bind:cell="handleCell"
+        bind:longpress="handleLongPress"
+      /><shift-palette shifts="{{shifts}}" bind:shift="handleShift" /><manual-actions-sheet
+        can-undo="{{state.draft.undo.length > 0}}"
+        bind:undo="handleUndo"
+      /><view class="manual-editor__actions"
+        ><button loading="{{isSaving}}" disabled="{{isSaving}}" bindtap="handleSave">
+          保存模板</button
+        ><button
+          wx:if="{{state.selectedTemplateId}}"
+          disabled="{{isSaving}}"
+          bindtap="handleDelete"
+        >
+          删除模板
+        </button></view
+      ></view
+    ></view
+  ></page-shell
+>

@@ -1,0 +1,12 @@
+.shift-palette {
+  display: flex;
+  padding: var(--v3-space-sm);
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--v3-space-sm);
+}
+.shift-palette__button {
+  min-width: 144rpx;
+  min-height: var(--v3-touch-min);
+  font-size: var(--v3-font-size-sm);
+}

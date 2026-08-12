@@ -1,0 +1,3 @@
+<view class="manual-actions"
+  ><button disabled="{{!canUndo}}" bindtap="handleUndo">撤销上一步</button></view
+>

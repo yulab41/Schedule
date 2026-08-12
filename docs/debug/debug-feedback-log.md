@@ -1792,3 +1792,12 @@
 - 处女原则：所有关键验收从无本地草稿、无选中、无缓存依赖、无偶然登录态、无遗留服务端草稿的受控空态起步；全新进入、空模板、切群、快速点按、失败与 409 都必须作为显式状态转换测试，不能凭一次历史数据可用宣称通过。
 - 计划产出：新增 `docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-4-manual-scheduling-plan.md`。Task 11 展开为唯一可批准批次：管理员路由、WXML-safe 单一草稿/undo、单元格优先、停用引用、500ms/12px 长按清除、409 和 Android/iOS 走查；Task 12 锁定填入与 Task 13 应用/发布只冻结业务边界，必须在 Task 11/12 checkpoint 后依据真实代码重新展开。
 - 验证：新计划、路线图、设计、项目状态和本日志的 Prettier 检查通过；Task 11 9 个红测步骤与 9 项处女原则验收矩阵、wrapper/route provenance、禁止项和 Task 12/13 冻结线已人工复核。`pnpm smoke:check-core` 通过并确认只改文档，无需 `pnpm smoke:browser`；`git diff --check` 通过。状态：**待用户复核**；建议文档 checkpoint 为 `docs(miniprogram): plan V3-4 manual scheduling`，批准前不得实施 Task 11。
+
+### V3-4 Task 11 单元格优先手动排班（2026-08-12）
+
+- 授权与范围：用户明确要求执行 V3-4；本轮只完成 Task 11。未读取、修改、格式化或暂存用户/DevTools 未跟踪的 `apps/miniprogram/minitest/`。Task 12 班种锁定与 Task 13 模板应用/发布仍冻结。
+- 回归溯源：`manual` 工作台入口由 `bc534c0` 引入；route guard 的 `requiresMembership` 与 guest 语义由 `20407fc` 引入；分包由 `5ccd04f` 建立；模板/配置/history/holiday wrapper 均由 `a68dd03` 引入。修改前以 `git log -S` 和 `git blame` 复核调用点；本轮新增管理员 route，不是语义等价重构。
+- 测试先行：纯草稿测试初次因 `manual-grid-logic` 不存在而失败；随后覆盖空草稿、跨月列、单元格优先填入/同班种清除、不可用班种和 500ms/12px 阈值。controller 测试覆盖同 context 单飞和 A→B 陈旧加载不回填；endpoint 测试锁定既有 config/history/holiday/template CRUD 路径。
+- 实现与行为审计：新增单一内存草稿和有限 undo 快照；仅选中 cell 后的可用班种会修改它，同班种再次选择清空。组件不请求 API、无 storage/cache 写入；owner/administrator route 先经共享 guard 再解析管理员 context，拒绝时不创建 controller 或调用 endpoint。横向网格只用单一 `scroll-view`，长按使用 500ms timer 和 12px 横向位移取消，整行/列另经 `wx.showModal`。controller 使用 context generation/single-flight；同步/异步错误均释放 flight，409 保留原 message/latestData、刷新权威读取且不自动重发。接收者绑定保持为 `this.setData`/`wx` 成员调用；无全局防抖、无服务端排班写入、无 second cells/undo source。
+- 验证：完整 `pnpm vitest run apps/miniprogram` 40 文件 / 177 项通过，manifest 3 项通过；config audit、typecheck、排除未跟踪 minitest 的 lint、明确文件 Prettier 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 通过登录/管理员/成员/访客/审计流程，随后 `pnpm smoke:check-core` 通过；DevTools build-npm 无 warning，preview 成功（336.8 KB，manual-schedule 分包 7.2 KB）。`pnpm miniprogram:smoke` 在既有自动化会话 50 秒无输出后终止，记录为 transport 阻塞，不替代设备走查。
+- 状态：已实现待浏览器/设备复核。下一步仅可审阅并另行规划 Task 12；需要 Android/iOS 走查 7/30 天、横/纵滚动、长按、保存、409 和 direct-route 拒绝。

@@ -17,6 +17,10 @@
     {
       "root": "subpackages/groups",
       "pages": ["pages/index"]
+    },
+    {
+      "root": "subpackages/manual-schedule",
+      "pages": ["pages/editor/index"]
     }
   ],
   "window": {

@@ -1,0 +1,11 @@
+{
+  "navigationStyle": "custom",
+  "disableScroll": true,
+  "usingComponents": {
+    "manual-actions-sheet": "/components/manual-actions-sheet/index",
+    "manual-grid": "/components/manual-grid/index",
+    "page-shell": "/components/page-shell/index",
+    "shell-state": "/components/shell-state/index",
+    "shift-palette": "/components/shift-palette/index"
+  }
+}
