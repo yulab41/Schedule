@@ -9,9 +9,17 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-4 Task 11 `4a0d44c`（单元格优先）、Task 12 `43eae1c`（班种锁定）与 Task 13 `f17cad4`（模板应用/发布/409）均已正常快进推送。Task 13 的真实 `schedule_test` 手动排班 allowlist 为 2 文件 / 22 项、零 skip，Web 浏览器烟测和核心校验通过。DevTools CLI 已完成 build、preview 和重连后的 13/13 route smoke，无脚本错误；剩余状态为**已实现待 Android/iOS 人工核验**。本轮只补运行证据，不进入下一阶段。
+- 当前批次：V3-4 Task 11–13 均已推送；设备复核随后暴露 `4a0d44c` 首版手动排班页面遗漏 Web 已有的岗位、成员、开始日期、周期和启用班种筛选。回归修复已按 Web 语义补齐页面与纯状态逻辑，真实 DevTools 页面可见返回键、四个配置字段且班种区仅显示启用的“全天班”；状态为**待用户 Android/iOS 复核**。本检查点提交信息：`fix(miniprogram): restore manual editor Web parity`，推送后停止。
 
 ## Completed Batch
+
+### V3-4 手动排班 Web 对齐回归修复（2026-08-12）
+
+- 用户反馈与溯源：进入小程序手动排班后只有一位成员，不能选开始日期/周期、没有返回键且停用班种仍显示。`git log -S`/`git blame` 将固定 `config.roles[0]`、全量班种 palette 和缺少配置控件追溯到 `4a0d44c`，Web 的成熟岗位/成员/日期/周期/启用班种实现追溯到 `6512274`；既有 `page-shell` 返回能力来自 `ebfbb31`。问题不是 WXML 平台限制，而是首版适配只迁移了网格、遗漏 Web 入口层状态和页面级 parity 测试。
+- 修复：页面新增模板新建/重置、岗位 picker、成员多选、原生日期、1–31 天周期和返回键；controller 不再静默固定首个岗位，用户修改在 refresh 后保留，模板采用 Web 的 published-only 下一可用日期规则，跨年周期加载全部涉及年份的节假日。班种 palette 只消费 `isEnabled`，网格继续保留全量班种与当前模板 cell 快照用于显示旧停用/删除引用；清空后不再由快照“复活”。成员取消和周期缩短同时裁剪当前 cells 与 undo，并移除空撤销；新建保存接管服务端返回模板，后续保存走 update 而非重复 create。
+- 复用边界：API、contracts 与后端排班规则继续跨端共享；Vue SFC、TDesign Vue、DOM/table/input 无法原样运行于 WXML，但日期、cell、undo、模板/岗位 selector 和保存请求等 JSON-safe 纯状态应抽为共享 editor core，让 Vue/WXML 只做薄 adapter。本轮为聚焦回归修复，未直接 runtime import Web 或新增 workspace runtime 包，避免重现小程序构建期模块解析风险；后续共享内核需独立计划和双端等价测试。
+- 测试与运行：失败测试先证明旧实现缺少四类控件/返回键/启用班种边界、固定首岗、无法配置 7/30 天及跨年日期，并复现旧模板清空后仍显示和首次保存后重复 create；修复后定向 4 文件 / 19 项通过。完整小程序与静态边界、typecheck、config audit、lint、Prettier、core smoke 与 diff check 见 Validation。DevTools `build-npm`/preview 无 warning；新自动化端口 `9434` 可连接并真实打开 manual route，截图确认返回和配置区/启用班种。标准全路由 smoke 及原生 picker RPC 在连接后无输出超时，未虚报触控验收。
+- 状态：**待用户复核**。Android/iOS 需实际切换目标岗位并勾选多名成员，修改日期与 7/30 天周期，确认返回、仅启用班种、清空/撤销及保存后转为更新；完成本检查点后不进入新功能批次。
 
 ### V3-4 Task 13 模板应用、草稿发布、撤回与冲突保护（2026-08-12）
 
@@ -237,6 +245,7 @@
 - V3-3 Task 10.2：完整小程序与静态页面边界 37 文件 / 166 项通过；config audit、mini-program typecheck、lint、明确任务文件 Prettier 和 `git diff --check` 通过。全局 `pnpm format:check` 仅因未跟踪、用户保留的 `apps/miniprogram/minitest/test.config.json` 非零，未修改或暂存该文件。`pnpm smoke:browser` → `pnpm smoke:check-core` 通过。最终 DevTools build-npm 成功（`cost: 4193`、`warnings: []`），preview 成功（299.6 KB）；连接式 smoke 自动重连后打开全部 10 个注册页面且无脚本级错误。
 - V3-3 Task 10.3：定向 groups/visitor/session/navigation/static 边界 7 文件 / 43 项、完整小程序与静态边界 45 文件 / 194 项通过；`pnpm test:api-integration:task10` 在真实 `schedule_test` 通过 9 文件 / 58 项、零 skip。config audit、mini-program typecheck、排除用户未跟踪 `apps/miniprogram/minitest/` 的 lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过；DevTools build-npm 无 warning、preview 315.2 KB，automation smoke 打开 12/12 注册页面且无脚本错误。
 - V3-4 阶段计划：新计划、路线图、设计状态、项目状态和调试日志的 Prettier 检查通过；Task 11 的 9 个红测步骤、9 项处女原则验收场景、Task 12/13 冻结边界、既有 wrapper/route provenance 与禁止项均经自审。`pnpm smoke:check-core` 通过并确认仅文档变更无需浏览器冒烟；`git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
+- V3-4 手动排班 Web 对齐修复：定向 4 文件 / 19 项、完整小程序与静态边界 43 文件 / 197 项通过；config audit、typecheck、任务文件 lint/Prettier、`pnpm smoke:check-core` 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（只改小程序手动排班逻辑/页面和静态测试，未改列举的 Web/API/认证/契约/构建核心链路）。DevTools build/preview 成功且无 warning，自动化端口 `9434` 实际打开手动排班页；标准全路由 smoke 与原生 picker RPC 连接后超时，保留 Android/iOS 触控复核。
 
 ## Decisions and Deviations
 
@@ -251,6 +260,7 @@
 - V3-3 工作流不使用统一 preview 模板：每个动作只发送当前合同提供的字段；管理员两类 direct 是独立特权路径，普通申请才遵守自动接受/群组审批设置。
 - Task 10.2 不扩展 API 或共享契约：通知读状态和未读数仍以服务端为准；提醒偏好仅提交微信开关与 duty 提醒小时，绝不写入浏览器提醒字段；通知首版不构造通用对象深链。profile 409 只刷新并呈现权威资料，绝不自动重放写入。
 - Task 10.3 匿名 visitor key 只存在控制器内存，不写入 session/cache/storage；公开页始终无 tabBar 且不复用认证 guest 控制器。群组页仅提供服务器允许的 join/leave/restore 请求，群主不能离开和历史成员仅管理员邀请均由服务端作最终裁决。
+- 手动排班的 Web 业务语义必须跨端保持一致，但 `.vue`/DOM/TDesign Vue 与 WXML/Page/setData 是不同运行时，只共享 JSON-safe editor core 和测试向量。当前契约没有岗位专属班种 allowlist，因此“适用班种”只能可靠按 `isEnabled` 过滤；若要按岗位限制班种，必须另行扩展契约/API，不能由客户端臆测。
 
 ## Previous Batch
 
@@ -260,14 +270,14 @@
 
 ## Active Batch
 
-1. Task 9 与 API integration test runtime follow-up 已完成并推送；Task 9 真机角色矩阵仍如实保留为待用户/设备复核。
-2. Task 10.1 `20407fc`、Task 10.2 `64e57f0`、Task 10.3 `638b95f` 已正常推送；Task 10 已结束，Task 9/10 真机矩阵均待用户/设备复核。
-3. V3-4 Task 11 `4a0d44c` 已推送并待设备复核。Task 12 已实现待复核：班种锁定/退出、连续填入和同班种清除与单元格优先共享同一草稿与 undo；没有全局防抖、API 写入、第二 cells map 或第二 undo。完成本 checkpoint 后停止；Task 13 仍冻结。
+1. V3-4 Task 11 `4a0d44c`、Task 12 `43eae1c`、Task 13 `f17cad4` 已完成并推送，不重复执行。
+2. 本批只完成设备反馈的手动排班 Web 对齐回归，检查点为 `fix(miniprogram): restore manual editor Web parity`；不改 API、contracts、权限或离线协议。
+3. 停止条件：验证、提交并快进推送后停止；等待用户 Android/iOS 复核岗位/成员/日期/周期/返回/班种与保存交互，未经新计划不开始后续架构抽取或 V3-5/V3-6。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
-- Task 9/10 历史计划不再授权重复执行；10.1–10.3 已完成，各 checkpoint 后均已停止。V3-4 只能依据 `2026-08-12-wechat-miniprogram-v3-4-manual-scheduling-plan.md`；Task 11 完成后必须停止，未经新计划不得进入 Task 12/13。
+- Task 9/10 与 V3-4 Task 11–13 均为已完成历史，不再授权重复执行。手动排班跨端 editor core 抽取或岗位专属班种契约属于新任务，必须先有独立计划。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。

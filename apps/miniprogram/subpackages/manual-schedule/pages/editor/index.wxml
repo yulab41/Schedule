@@ -1,100 +1,204 @@
-<page-shell title="手动排班"
-  ><view class="manual-editor"
-    ><shell-state wx:if="{{state.isLoading}}" kind="loading" title="正在加载手动排班" /><shell-state
+<page-shell title="手动排班" show-back="{{true}}">
+  <view class="manual-editor">
+    <shell-state wx:if="{{state.isLoading}}" kind="loading" title="正在加载手动排班" />
+    <shell-state
       wx:elif="{{errorMessage}}"
       kind="error"
       title="需要重新核对"
       description="{{errorMessage}}"
-      ><button bindtap="handleContinueEditing">返回编辑</button
-      ><button bindtap="handleReloadAuthority">重载权威模板</button></shell-state
-    ><view wx:else
-      ><view wx:if="{{lockedShiftName}}" class="manual-editor__lock"
-        ><text>已锁定：{{lockedShiftName}}</text
-        ><button bindtap="handleUnlockShift">退出锁定</button></view
-      ><picker mode="selector" range="{{templateNames}}" bindchange="handleTemplate"
-        ><view class="manual-editor__picker">选择已有模板（可选）</view></picker
-      ><manual-grid
+    >
+      <button bindtap="handleContinueEditing">返回编辑</button>
+      <button bindtap="handleReloadAuthority">重载权威模板</button>
+    </shell-state>
+
+    <view wx:else>
+      <view class="manual-editor__config">
+        <picker
+          mode="selector"
+          value="{{selectedTemplateIndex}}"
+          range="{{templateOptions}}"
+          range-key="label"
+          disabled="{{templateOptions.length === 1 && !state.selectedTemplateId}}"
+          bindchange="handleTemplate"
+        >
+          <view class="manual-editor__field">
+            <text class="manual-editor__label">模板</text>
+            <text class="manual-editor__value">{{selectedTemplateLabel}}</text>
+          </view>
+        </picker>
+
+        <picker
+          mode="selector"
+          value="{{roleIndex}}"
+          range="{{roleOptions}}"
+          range-key="label"
+          disabled="{{roleOptions.length === 1}}"
+          bindchange="handleRole"
+        >
+          <view class="manual-editor__field">
+            <text class="manual-editor__label">排班岗位</text>
+            <text class="manual-editor__value">{{selectedRoleName}}</text>
+          </view>
+        </picker>
+
+        <picker
+          mode="date"
+          value="{{selectedStartDate}}"
+          disabled="{{!selectedStartDate}}"
+          bindchange="handleStartDate"
+        >
+          <view class="manual-editor__field">
+            <text class="manual-editor__label">开始日期</text>
+            <text class="manual-editor__value">{{selectedStartDate || '请选择日期'}}</text>
+          </view>
+        </picker>
+
+        <picker
+          mode="selector"
+          value="{{cycleDayIndex}}"
+          range="{{cycleDayOptions}}"
+          range-key="label"
+          disabled="{{!selectedStartDate}}"
+          bindchange="handleCycleDays"
+        >
+          <view class="manual-editor__field">
+            <text class="manual-editor__label">周期天数</text>
+            <text class="manual-editor__value">{{selectedCycleDays}} 天</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="manual-editor__members">
+        <text class="manual-editor__section-title">值班人员</text>
+        <text wx:if="{{!hasSelectedRole}}" class="manual-editor__hint"> 请先选择排班岗位。 </text>
+        <text wx:elif="{{memberOptions.length === 0}}" class="manual-editor__hint">
+          该排班岗位还没有成员，请先在排班配置中添加。
+        </text>
+        <checkbox-group wx:else class="manual-editor__member-list" bindchange="handleMembers">
+          <label
+            wx:for="{{memberOptions}}"
+            wx:for-item="member"
+            wx:key="membershipId"
+            class="manual-editor__member {{member.isStale ? 'manual-editor__member--stale' : ''}}"
+          >
+            <checkbox value="{{member.membershipId}}" checked="{{member.checked}}" />
+            <text>{{member.realName}}</text>
+            <text wx:if="{{member.isStale}}" class="manual-editor__stale">已离岗</text>
+          </label>
+        </checkbox-group>
+      </view>
+
+      <view wx:if="{{lockedShiftName}}" class="manual-editor__lock">
+        <text>已锁定：{{lockedShiftName}}</text>
+        <button bindtap="handleUnlockShift">退出锁定</button>
+      </view>
+
+      <text wx:if="{{gridRows.length === 0}}" class="manual-editor__hint">
+        请勾选至少一位值班人员后开始编辑。
+      </text>
+      <manual-grid
+        wx:else
         columns="{{gridColumns}}"
         rows="{{gridRows}}"
         bind:cell="handleCell"
         bind:longpress="handleLongPress"
-      /><shift-palette shifts="{{shifts}}" bind:shift="handleShift" /><manual-actions-sheet
-        can-undo="{{state.draft.undo.length > 0}}"
-        bind:undo="handleUndo"
-      /><view class="manual-editor__actions"
-        ><button loading="{{isSaving}}" disabled="{{isSaving}}" bindtap="handleSave">
-          保存模板</button
-        ><button
-          wx:if="{{state.selectedTemplateId}}"
-          disabled="{{isSaving}}"
-          bindtap="handleDelete"
-        >
-          删除模板</button
-        ><button
+      />
+
+      <view class="manual-editor__palette">
+        <text class="manual-editor__section-title">选择可用班种</text>
+        <text wx:if="{{availableShifts.length === 0}}" class="manual-editor__hint">
+          当前没有已启用的班种，请先在排班配置中启用。
+        </text>
+        <shift-palette wx:else shifts="{{availableShifts}}" bind:shift="handleShift" />
+      </view>
+
+      <manual-actions-sheet can-undo="{{canUndo}}" bind:undo="handleUndo" />
+      <view class="manual-editor__actions">
+        <button loading="{{isSaving}}" disabled="{{isSaving || !canSave}}" bindtap="handleSave">
+          {{state.selectedTemplateId ? '保存模板' : '创建模板'}}
+        </button>
+        <button wx:if="{{state.selectedTemplateId}}" disabled="{{isSaving}}" bindtap="handleDelete">
+          删除模板
+        </button>
+        <button
           wx:if="{{state.selectedTemplateId}}"
           loading="{{isApplying}}"
           disabled="{{isApplying}}"
           bindtap="handlePreviewApply"
         >
           预览应用
-        </button></view
-      ><view wx:if="{{state.preview}}" class="manual-editor__preview"
-        ><text
-          >预览：{{state.preview.preview.assignments.length}}
-          个班次，{{state.preview.preview.conflicts.length}}
-          个冲突，{{state.preview.preview.vacancies.length}}
-          个空缺，{{state.preview.preview.continuousDutyWarnings.length}} 个连续值班提醒。</text
-        ><view wx:if="{{state.preview.preview.conflicts.length}}" class="manual-editor__feedback"
-          ><text>以下硬冲突由服务端阻断，不能确认绕过：</text
-          ><text
+        </button>
+      </view>
+
+      <view wx:if="{{state.preview}}" class="manual-editor__preview">
+        <text>
+          预览：{{state.preview.preview.assignments.length}} 个班次，
+          {{state.preview.preview.conflicts.length}} 个冲突，
+          {{state.preview.preview.vacancies.length}} 个空缺，
+          {{state.preview.preview.continuousDutyWarnings.length}} 个连续值班提醒。
+        </text>
+        <view wx:if="{{state.preview.preview.conflicts.length}}" class="manual-editor__feedback">
+          <text>以下硬冲突由服务端阻断，不能确认绕过：</text>
+          <text
             wx:for="{{state.preview.preview.conflicts}}"
             wx:for-item="conflict"
             wx:key="membershipId"
-            >{{conflict.memberName || conflict.membershipId}} · {{conflict.code}}</text
-          ></view
-        ><view wx:if="{{state.preview.preview.vacancies.length}}" class="manual-editor__feedback"
-          ><text>空缺：</text
-          ><text
+          >
+            {{conflict.memberName || conflict.membershipId}} · {{conflict.code}}
+          </text>
+        </view>
+        <view wx:if="{{state.preview.preview.vacancies.length}}" class="manual-editor__feedback">
+          <text>空缺：</text>
+          <text
             wx:for="{{state.preview.preview.vacancies}}"
             wx:for-item="vacancy"
             wx:key="assignmentBusinessKey"
-            >{{vacancy.businessDate}} · 第 {{vacancy.slotPosition}} 岗 · {{vacancy.code}}</text
-          ></view
-        ><view
+          >
+            {{vacancy.businessDate}} · 第 {{vacancy.slotPosition}} 岗 · {{vacancy.code}}
+          </text>
+        </view>
+        <view
           wx:if="{{state.preview.preview.continuousDutyWarnings.length}}"
           class="manual-editor__feedback"
-          ><text>连续值班提醒：</text
-          ><text
+        >
+          <text>连续值班提醒：</text>
+          <text
             wx:for="{{state.preview.preview.continuousDutyWarnings}}"
             wx:for-item="warning"
             wx:key="membershipId"
-            >{{warning.memberName || warning.membershipId}} · {{warning.code}}</text
-          ></view
-        ><button
+          >
+            {{warning.memberName || warning.membershipId}} · {{warning.code}}
+          </text>
+        </view>
+        <button
           loading="{{isApplying}}"
           disabled="{{isApplying || state.preview.preview.conflicts.length > 0}}"
           bindtap="handleApplyPreview"
         >
           确认应用
-        </button></view
-      ><view wx:if="{{draftGroups.length}}" class="manual-editor__publish"
-        ><text>待发布草稿：{{state.drafts.length}} 个</text
-        ><view wx:for="{{draftGroups}}" wx:for-item="draftGroup" wx:key="operationId"
-          ><text>{{draftGroup.scheduleRoleNames}} · {{draftGroup.businessMonths}}</text
-          ><button
+        </button>
+      </view>
+
+      <view wx:if="{{draftGroups.length}}" class="manual-editor__publish">
+        <text>待发布草稿：{{state.drafts.length}} 个</text>
+        <view wx:for="{{draftGroups}}" wx:for-item="draftGroup" wx:key="operationId">
+          <text>{{draftGroup.scheduleRoleNames}} · {{draftGroup.businessMonths}}</text>
+          <button
             data-period-ids="{{draftGroup.periodIds}}"
             loading="{{isApplying}}"
             disabled="{{isApplying}}"
             bindtap="handlePublishDrafts"
           >
             发布本次应用草稿
-          </button></view
-        ></view
-      ><view wx:if="{{state.history.length}}" class="manual-editor__history"
-        ><text>排班历史</text
-        ><view wx:for="{{state.history}}" wx:for-item="period" wx:key="id"
-          ><text>{{period.businessMonth}} · {{period.status}}</text
-          ><button
+          </button>
+        </view>
+      </view>
+
+      <view wx:if="{{state.history.length}}" class="manual-editor__history">
+        <text>排班历史</text>
+        <view wx:for="{{state.history}}" wx:for-item="period" wx:key="id">
+          <text>{{period.businessMonth}} · {{period.status}}</text>
+          <button
             wx:if="{{period.status === 'published'}}"
             data-period-id="{{period.id}}"
             loading="{{isApplying}}"
@@ -102,26 +206,32 @@
             bindtap="handleWithdraw"
           >
             撤回
-          </button></view
-        ></view
-      ><view wx:if="{{state.periodPreview}}" class="manual-editor__preview"
-        ><text
-          >撤回预览：将影响 {{state.periodPreview.impact.affectedPeriodIds.length}}
-          个期间、{{state.periodPreview.impact.workflowImpacts.length}} 个工作流。</text
-        ><view
+          </button>
+        </view>
+      </view>
+
+      <view wx:if="{{state.periodPreview}}" class="manual-editor__preview">
+        <text>
+          撤回预览：将影响 {{state.periodPreview.impact.affectedPeriodIds.length}} 个期间、
+          {{state.periodPreview.impact.workflowImpacts.length}} 个工作流。
+        </text>
+        <view
           wx:if="{{state.periodPreview.impact.workflowImpacts.length}}"
           class="manual-editor__feedback"
-          ><text>受影响工作流：</text
-          ><text
+        >
+          <text>受影响工作流：</text>
+          <text
             wx:for="{{state.periodPreview.impact.workflowImpacts}}"
             wx:for-item="workflow"
             wx:key="id"
-            >{{workflow.kind}} · {{workflow.status}}</text
-          ></view
-        ><button loading="{{isApplying}}" disabled="{{isApplying}}" bindtap="handleWithdrawPreview">
+          >
+            {{workflow.kind}} · {{workflow.status}}
+          </text>
+        </view>
+        <button loading="{{isApplying}}" disabled="{{isApplying}}" bindtap="handleWithdrawPreview">
           确认撤回
-        </button></view
-      ></view
-    ></view
-  ></page-shell
->
+        </button>
+      </view>
+    </view>
+  </view>
+</page-shell>

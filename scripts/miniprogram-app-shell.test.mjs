@@ -49,7 +49,7 @@ describe('V3 app shell', () => {
     }
   });
 
-  it('keeps the V3 main-package order and registers the workflows subpackage', () => {
+  it('keeps the V3 main-package order and registers every approved subpackage', () => {
     const appJson = readJson('app.json');
     expect(listRegisteredPages(appJson)).toEqual([
       'pages/auth/login/index',
@@ -64,6 +64,7 @@ describe('V3 app shell', () => {
       'subpackages/workflows/pages/leave/index',
       'subpackages/workflows/pages/operations/index',
       'subpackages/groups/pages/index',
+      'subpackages/manual-schedule/pages/editor/index',
     ]);
     expect(appJson.tabBar?.custom).not.toBe(true);
     expect(appJson.pages).toContain('pages/invite/invite');

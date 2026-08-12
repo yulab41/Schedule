@@ -19,13 +19,19 @@ import type { CalendarCacheIdentity } from '../../store/calendar-cache.js';
 import {
   applySelectedShift,
   applyLockedShift,
+  changeManualScheduleRole,
   clearManualCell,
   clearManualColumn,
   clearManualRow,
   createManualScheduleDraft,
+  getManualHolidayYears,
+  getNextAvailableManualStartDate,
   manualDraftCells,
   lockManualShift,
   selectManualCell,
+  setManualCycleDays,
+  setManualMembershipIds,
+  setManualStartDate,
   undoManualDraft,
   unlockManualShift,
   type ManualCellSelection,
@@ -95,7 +101,7 @@ export interface ManualScheduleState {
   readonly context: ManualScheduleContext | undefined;
   readonly draft: ManualScheduleDraft | undefined;
   readonly errorMessage: string | undefined;
-  readonly holidays: HolidayReadModel | undefined;
+  readonly holidays: readonly HolidayReadModel[];
   readonly history: readonly SchedulePeriodHistoryItem[];
   readonly isLoading: boolean;
   readonly isSaving: boolean;
@@ -127,7 +133,7 @@ const initialState: ManualScheduleState = {
   context: undefined,
   draft: undefined,
   errorMessage: undefined,
-  holidays: undefined,
+  holidays: [],
   history: [],
   isLoading: false,
   isApplying: false,
@@ -186,12 +192,15 @@ function calendarBusinessMonth(value: string): string {
   return value.slice(0, 7);
 }
 
-function draftFromTemplate(template: ManualScheduleTemplate): ManualScheduleDraft {
+function draftFromTemplate(
+  template: ManualScheduleTemplate,
+  startDate: string,
+): ManualScheduleDraft {
   const draft = createManualScheduleDraft({
     cycleDays: template.cycleDays,
     membershipIds: template.members.map(({ membershipId }) => membershipId),
     scheduleRoleId: template.scheduleRoleId,
-    startDate: template.startDate,
+    startDate,
   });
   return {
     ...draft,
@@ -207,6 +216,7 @@ function draftFromTemplate(template: ManualScheduleTemplate): ManualScheduleDraf
 export function createManualScheduleController(dependencies: ManualScheduleDependencies) {
   let state = initialState;
   let generation = 0;
+  let holidayRequestVersion = 0;
   let loadFlight: Promise<void> | undefined;
   let loadKey: string | undefined;
 
@@ -222,37 +232,30 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
     if (loadFlight !== undefined && loadKey === key) return loadFlight;
     const operationGeneration = generation;
     publish({ ...state, errorMessage: undefined, isLoading: true });
-    const year = Number((state.draft?.startDate ?? todayInChina()).slice(0, 4));
+    const holidayRequest = ++holidayRequestVersion;
+    const holidayYears = getManualHolidayYears(
+      state.draft?.startDate ?? todayInChina(),
+      state.draft?.cycleDays ?? 7,
+    );
     const call = <T>(action: () => Promise<T>): Promise<T> => Promise.resolve().then(action);
     const flight = Promise.all([
       call(() => dependencies.getSchedulingConfig(context.groupId)),
       call(() => dependencies.listManualScheduleTemplates(context.groupId)),
       call(() => dependencies.listScheduleDrafts(context.groupId)),
       call(() => dependencies.listSchedulePeriodHistory(context.groupId)),
-      call(() => dependencies.getHolidays(year)),
+      Promise.all(holidayYears.map((year) => call(() => dependencies.getHolidays(year)))),
     ])
       .then(([config, templates, drafts, history, holidays]) => {
         if (!current(operationGeneration)) return;
         const existing = state.draft;
-        const role = config.roles[0];
-        const draft =
-          existing ??
-          (role === undefined
-            ? undefined
-            : createManualScheduleDraft({
-                cycleDays: 7,
-                membershipIds: role.members.map(({ membershipId }) => membershipId),
-                scheduleRoleId: role.id,
-                startDate: todayInChina(),
-              }));
         publish({
           ...state,
           config,
-          draft,
+          draft: existing,
           drafts,
           errorMessage: undefined,
           history,
-          holidays,
+          holidays: holidayRequest === holidayRequestVersion ? holidays : state.holidays,
           isLoading: false,
           periodPreview: undefined,
           preview: undefined,
@@ -288,12 +291,14 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
     activate(context: ManualScheduleContext): void {
       if (state.context !== undefined && contextKey(state.context) === contextKey(context)) return;
       generation += 1;
+      holidayRequestVersion += 1;
       loadFlight = undefined;
       loadKey = undefined;
       publish({ ...initialState, context });
     },
     deactivate(): void {
       generation += 1;
+      holidayRequestVersion += 1;
       loadFlight = undefined;
       loadKey = undefined;
       publish(initialState);
@@ -309,6 +314,61 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
       readonly startDate: string;
     }): void {
       replaceDraft(createManualScheduleDraft(input));
+    },
+    selectScheduleRole(scheduleRoleId: string): void {
+      const role = state.config?.roles.find(({ id }) => id === scheduleRoleId);
+      if (role === undefined) return;
+      const draft =
+        state.draft ??
+        createManualScheduleDraft({
+          cycleDays: 7,
+          membershipIds: [],
+          scheduleRoleId: role.id,
+          startDate: todayInChina(),
+        });
+      replaceDraft(changeManualScheduleRole(draft, role.id));
+    },
+    setMembershipIds(membershipIds: readonly string[]): void {
+      const draft = state.draft;
+      const role = state.config?.roles.find(({ id }) => id === draft?.scheduleRoleId);
+      if (draft === undefined || role === undefined) return;
+      const allowedIds = new Set([
+        ...role.members.map(({ membershipId }) => membershipId),
+        ...draft.membershipIds,
+      ]);
+      if (membershipIds.some((membershipId) => !allowedIds.has(membershipId))) return;
+      replaceDraft(setManualMembershipIds(draft, membershipIds));
+    },
+    setStartDate(startDate: string): void {
+      if (state.draft !== undefined) replaceDraft(setManualStartDate(state.draft, startDate));
+    },
+    setCycleDays(cycleDays: number): void {
+      if (state.draft !== undefined) replaceDraft(setManualCycleDays(state.draft, cycleDays));
+    },
+    async refreshHolidays(): Promise<void> {
+      const draft = state.draft;
+      if (draft === undefined) return;
+      const operationGeneration = generation;
+      const requestVersion = ++holidayRequestVersion;
+      const years = getManualHolidayYears(draft.startDate, draft.cycleDays);
+      try {
+        const holidays = await Promise.all(years.map((year) => dependencies.getHolidays(year)));
+        if (current(operationGeneration) && requestVersion === holidayRequestVersion)
+          publish({ ...state, holidays });
+      } catch {
+        if (current(operationGeneration) && requestVersion === holidayRequestVersion)
+          publish({ ...state, holidays: [] });
+      }
+    },
+    startNewTemplate(): void {
+      publish({
+        ...state,
+        conflict: undefined,
+        draft: undefined,
+        periodPreview: undefined,
+        preview: undefined,
+        selectedTemplateId: undefined,
+      });
     },
     applyShift(shift: ManualShiftChoice): void {
       if (state.draft !== undefined) replaceDraft(applySelectedShift(state.draft, shift));
@@ -341,7 +401,10 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
       publish({
         ...state,
         conflict: undefined,
-        draft: draftFromTemplate(template),
+        draft: draftFromTemplate(
+          template,
+          getNextAvailableManualStartDate(state.history, template.scheduleRoleId, todayInChina()),
+        ),
         periodPreview: undefined,
         preview: undefined,
         selectedTemplateId: template.id,
@@ -354,7 +417,14 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
       await load();
       const template = state.templates.find(({ id }) => id === state.selectedTemplateId);
       if (template !== undefined)
-        publish({ ...state, conflict: undefined, draft: draftFromTemplate(template) });
+        publish({
+          ...state,
+          conflict: undefined,
+          draft: draftFromTemplate(
+            template,
+            getNextAvailableManualStartDate(state.history, template.scheduleRoleId, todayInChina()),
+          ),
+        });
       else publish({ ...state, conflict: undefined });
     },
     async previewApply(startDate?: string, endDate?: string): Promise<void> {
@@ -598,18 +668,32 @@ export function createManualScheduleController(dependencies: ManualScheduleDepen
       const operationGeneration = generation;
       publish({ ...state, errorMessage: undefined, isSaving: true });
       try {
+        let saved: ManualScheduleTemplate;
         if (selectedTemplateId === undefined)
-          await dependencies.createManualScheduleTemplate(context.groupId, requestFrom(draft));
+          saved = await dependencies.createManualScheduleTemplate(
+            context.groupId,
+            requestFrom(draft),
+          );
         else {
           const template = state.templates.find(({ id }) => id === selectedTemplateId);
           if (template === undefined) throw new Error('模板已不存在，请重新加载。');
-          await dependencies.updateManualScheduleTemplate(context.groupId, template.id, {
+          saved = await dependencies.updateManualScheduleTemplate(context.groupId, template.id, {
             ...requestFrom(draft),
             expectedVersion: template.version,
           });
         }
         if (current(operationGeneration)) {
-          publish({ ...state, isSaving: false });
+          const templates = state.templates.some(({ id }) => id === saved.id)
+            ? state.templates.map((template) => (template.id === saved.id ? saved : template))
+            : [...state.templates, saved];
+          publish({
+            ...state,
+            draft: draftFromTemplate(saved, saved.startDate),
+            isSaving: false,
+            preview: undefined,
+            selectedTemplateId: saved.id,
+            templates,
+          });
           await refreshAfterMutation();
         }
       } catch (error) {

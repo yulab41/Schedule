@@ -18,7 +18,10 @@ import {
   createManualScheduleController,
   type ManualScheduleState,
 } from '../../../../features/manual-schedule/manual-schedule-controller.js';
-import { getCycleDateColumns } from '../../../../features/manual-schedule/manual-grid-logic.js';
+import {
+  getCycleDateColumns,
+  isManualTemplateCellSnapshotCurrent,
+} from '../../../../features/manual-schedule/manual-grid-logic.js';
 import { resolveManualScheduleRouteContext } from '../../../../features/navigation/workbench-navigation.js';
 import { guardMiniprogramRoute } from '../../../../features/navigation/route-guard.js';
 import { getCalendarCacheRuntime } from '../../../../store/calendar-cache-runtime.js';
@@ -26,6 +29,11 @@ import { sessionStore } from '../../../../store/session.js';
 import { createLeaveWorkflowOperationId } from '../../../../features/workflows/leave-workflow.js';
 
 interface EditorData {
+  readonly availableShifts: readonly unknown[];
+  readonly canSave: boolean;
+  readonly canUndo: boolean;
+  readonly cycleDayIndex: number;
+  readonly cycleDayOptions: readonly { readonly label: string; readonly value: number }[];
   readonly draftGroups: readonly {
     readonly businessMonths: string;
     readonly operationId: string;
@@ -35,12 +43,26 @@ interface EditorData {
   readonly errorMessage: string;
   readonly gridColumns: readonly unknown[];
   readonly gridRows: readonly unknown[];
+  readonly hasSelectedRole: boolean;
   readonly isSaving: boolean;
   readonly isApplying: boolean;
   readonly lockedShiftName: string;
-  readonly shifts: readonly unknown[];
+  readonly memberOptions: readonly {
+    readonly checked: boolean;
+    readonly isStale: boolean;
+    readonly membershipId: string;
+    readonly realName: string;
+  }[];
+  readonly roleIds: readonly string[];
+  readonly roleIndex: number;
+  readonly roleOptions: readonly { readonly id: string; readonly label: string }[];
+  readonly selectedCycleDays: number;
+  readonly selectedRoleName: string;
+  readonly selectedStartDate: string;
+  readonly selectedTemplateIndex: number;
+  readonly selectedTemplateLabel: string;
   readonly state: ManualScheduleState;
-  readonly templateNames: readonly string[];
+  readonly templateOptions: readonly { readonly id: string; readonly label: string }[];
   readonly templateIds: readonly string[];
 }
 const controller = createManualScheduleController({
@@ -65,15 +87,19 @@ const controller = createManualScheduleController({
 function viewData(): EditorData {
   const state = controller.state;
   const draft = state.draft;
+  const holidayNames = new Map(
+    state.holidays.flatMap(({ dates }) =>
+      dates.map(({ date, holidayName }) => [date, holidayName] as const),
+    ),
+  );
   const columns =
     draft === undefined
       ? []
       : getCycleDateColumns(draft.startDate, draft.cycleDays).map((column) => ({
           ...column,
-          holidayName:
-            state.holidays?.dates.find(({ date }) => date === column.date)?.holidayName ?? '',
+          holidayName: holidayNames.get(column.date) ?? '',
         }));
-  const shifts = (state.config?.shiftTypes ?? []).map((shift) => ({
+  const allShifts = (state.config?.shiftTypes ?? []).map((shift) => ({
     abbreviation: shift.abbreviation,
     color: shift.color,
     id: shift.id,
@@ -82,13 +108,16 @@ function viewData(): EditorData {
     textColor: shift.textColor,
   }));
   const template = state.templates.find(({ id }) => id === state.selectedTemplateId);
-  const lockedShiftName = shifts.find(({ id }) => id === draft?.lockedShiftTypeId)?.name ?? '';
-  const staleCells = new Set(
-    template?.cells
-      .filter(({ isStale }) => isStale)
-      .map(({ cycleDay, membershipId }) => `${cycleDay}:${membershipId}`) ?? [],
-  );
+  const lockedShiftName = allShifts.find(({ id }) => id === draft?.lockedShiftTypeId)?.name ?? '';
   const role = state.config?.roles.find(({ id }) => id === draft?.scheduleRoleId);
+  const roleOptions = [
+    { id: '', label: '请选择排班岗位' },
+    ...(state.config?.roles ?? []).map(({ id, name }) => ({ id, label: name })),
+  ];
+  const roleIndex = Math.max(
+    0,
+    roleOptions.findIndex(({ id }) => id === draft?.scheduleRoleId),
+  );
   const operationIdsByPeriod = new Map(
     state.history.map(({ id, operationId }) => [id, operationId] as const),
   );
@@ -111,20 +140,44 @@ function viewData(): EditorData {
       ({ membershipId, realName }) => [membershipId, realName] as const,
     ),
   ]);
+  const currentMemberIds = new Set((role?.members ?? []).map(({ membershipId }) => membershipId));
+  const memberOptions = [
+    ...(role?.members ?? []).map(({ membershipId, realName }) => ({
+      checked: draft?.membershipIds.includes(membershipId) ?? false,
+      isStale: false,
+      membershipId,
+      realName,
+    })),
+    ...(draft?.membershipIds ?? [])
+      .filter((membershipId) => !currentMemberIds.has(membershipId))
+      .map((membershipId) => ({
+        checked: true,
+        isStale: true,
+        membershipId,
+        realName: names.get(membershipId) ?? '已离岗成员',
+      })),
+  ];
   const gridRows = (draft?.membershipIds ?? []).map((membershipId) => ({
     cells: columns.map((column) => {
       const cell = draft?.cells[`${column.cycleDay}:${membershipId}`];
-      const shift = shifts.find(({ id }) => id === cell?.shiftTypeId);
+      const shift = allShifts.find(({ id }) => id === cell?.shiftTypeId);
+      const savedCell = template?.cells.find(
+        (candidate) =>
+          candidate.cycleDay === column.cycleDay && candidate.membershipId === membershipId,
+      );
+      const currentSavedCell = isManualTemplateCellSnapshotCurrent(cell, savedCell)
+        ? savedCell
+        : undefined;
       return {
-        abbreviation: shift?.abbreviation ?? '',
-        color: shift?.color ?? '',
+        abbreviation: shift?.abbreviation ?? currentSavedCell?.shiftTypeAbbreviation ?? '',
+        color: shift?.color ?? currentSavedCell?.shiftTypeColor ?? '',
         cycleDay: column.cycleDay,
         isSelected:
           draft?.selectedCell?.cycleDay === column.cycleDay &&
           draft.selectedCell.membershipId === membershipId,
-        isStale: staleCells.has(`${column.cycleDay}:${membershipId}`),
+        isStale: currentSavedCell?.isStale ?? false,
         key: `${column.cycleDay}:${membershipId}`,
-        textColor: shift?.textColor ?? '',
+        textColor: shift?.textColor ?? currentSavedCell?.shiftTypeTextColor ?? '',
       };
     }),
     isStale:
@@ -133,19 +186,54 @@ function viewData(): EditorData {
     membershipId,
     realName: names.get(membershipId) ?? '已离岗成员',
   }));
+  const templateOptions = [
+    { id: '', label: '新建模板' },
+    ...state.templates.map((item) => ({
+      id: item.id,
+      label: `${item.scheduleRoleName} · ${item.startDate} · ${item.cycleDays}天`,
+    })),
+  ];
+  const selectedTemplateIndex = Math.max(
+    0,
+    templateOptions.findIndex(({ id }) => id === state.selectedTemplateId),
+  );
+  const cycleDayOptions = Array.from({ length: 31 }, (_, index) => ({
+    label: `${index + 1} 天`,
+    value: index + 1,
+  }));
   return {
+    availableShifts: allShifts.filter((shift) => shift.isEnabled),
+    canSave: draft !== undefined && draft.membershipIds.length > 0 && columns.length > 0,
+    canUndo: (draft?.undo.length ?? 0) > 0,
+    cycleDayIndex: Math.max(0, (draft?.cycleDays ?? 1) - 1),
+    cycleDayOptions,
     draftGroups,
     errorMessage: state.conflict?.message ?? state.errorMessage ?? '',
     gridColumns: columns,
     gridRows,
+    hasSelectedRole: role !== undefined,
     isSaving: state.isSaving,
     isApplying: state.isApplying,
     lockedShiftName,
-    shifts,
+    memberOptions,
+    roleIds: roleOptions.map(({ id }) => id),
+    roleIndex,
+    roleOptions,
+    selectedCycleDays: draft?.cycleDays ?? 7,
+    selectedRoleName: role?.name ?? roleOptions[0]?.label ?? '请选择排班岗位',
+    selectedStartDate: draft?.startDate ?? '',
+    selectedTemplateIndex,
+    selectedTemplateLabel: templateOptions[selectedTemplateIndex]?.label ?? '新建模板',
     state,
-    templateIds: state.templates.map(({ id }) => id),
-    templateNames: state.templates.map(({ scheduleRoleName }) => scheduleRoleName),
+    templateIds: templateOptions.map(({ id }) => id),
+    templateOptions,
   };
+}
+
+function pickerIndex(value: unknown, optionCount: number): number | undefined {
+  if (typeof value !== 'string' || !/^(0|[1-9]\d*)$/u.test(value)) return undefined;
+  const index = Number(value);
+  return index >= 0 && index < optionCount ? index : undefined;
 }
 
 Page({
@@ -263,12 +351,47 @@ Page({
     void controller.reloadAuthoritativeDraft().finally(() => this.sync());
   },
   handleTemplate(event: WechatMiniprogram.PickerChange): void {
-    const index = Number(event.detail.value);
-    const id = viewData().templateIds[index];
-    if (id !== undefined) {
-      controller.chooseTemplate(id);
+    const data = viewData();
+    const index = pickerIndex(event.detail.value, data.templateIds.length);
+    const id = index === undefined ? undefined : data.templateIds[index];
+    if (id === undefined) return;
+    if (id === '') controller.startNewTemplate();
+    else controller.chooseTemplate(id);
+    this.sync();
+    if (id !== '') void controller.refreshHolidays().finally(() => this.sync());
+  },
+  handleRole(event: WechatMiniprogram.PickerChange): void {
+    const data = viewData();
+    const index = pickerIndex(event.detail.value, data.roleIds.length);
+    const roleId = index === undefined ? undefined : data.roleIds[index];
+    if (roleId !== undefined) {
+      const previousDraft = controller.state.draft;
+      controller.selectScheduleRole(roleId);
       this.sync();
+      if (previousDraft === undefined) void controller.refreshHolidays().finally(() => this.sync());
     }
+  },
+  handleStartDate(event: WechatMiniprogram.PickerChange): void {
+    const value = event.detail.value;
+    if (typeof value !== 'string') return;
+    controller.setStartDate(value);
+    this.sync();
+    void controller.refreshHolidays().finally(() => this.sync());
+  },
+  handleCycleDays(event: WechatMiniprogram.PickerChange): void {
+    const data = viewData();
+    const index = pickerIndex(event.detail.value, data.cycleDayOptions.length);
+    const option = index === undefined ? undefined : data.cycleDayOptions[index];
+    if (option === undefined) return;
+    controller.setCycleDays(option.value);
+    this.sync();
+    void controller.refreshHolidays().finally(() => this.sync());
+  },
+  handleMembers(event: WechatMiniprogram.CustomEvent<{ readonly value?: unknown }>): void {
+    const value = event.detail.value;
+    if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) return;
+    controller.setMembershipIds(value);
+    this.sync();
   },
   handleSave(): void {
     void controller.save().finally(() => this.sync());
@@ -283,7 +406,7 @@ Page({
     });
   },
   handlePreviewApply(): void {
-    void controller.previewApply().finally(() => this.sync());
+    void controller.previewApply(controller.state.draft?.startDate).finally(() => this.sync());
   },
   handleApplyPreview(): void {
     wx.showModal({

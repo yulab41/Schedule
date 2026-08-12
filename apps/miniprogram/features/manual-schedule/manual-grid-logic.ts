@@ -55,10 +55,73 @@ function withUndo(
   return { ...draft, cells, undo };
 }
 
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function sameCells(
+  left: Readonly<Record<string, ManualScheduleTemplateCellInput>>,
+  right: Readonly<Record<string, ManualScheduleTemplateCellInput>>,
+): boolean {
+  const leftEntries = Object.entries(left);
+  if (leftEntries.length !== Object.keys(right).length) return false;
+  return leftEntries.every(([key, cell]) => {
+    const candidate = right[key];
+    return (
+      candidate?.cycleDay === cell.cycleDay &&
+      candidate.membershipId === cell.membershipId &&
+      candidate.shiftTypeId === cell.shiftTypeId
+    );
+  });
+}
+
+function addUtcDays(value: string, days: number): string {
+  const date = asUtcDate(value);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function filterCells(
+  cells: Readonly<Record<string, ManualScheduleTemplateCellInput>>,
+  predicate: (cell: ManualScheduleTemplateCellInput) => boolean,
+): Readonly<Record<string, ManualScheduleTemplateCellInput>> {
+  return Object.fromEntries(
+    Object.entries(cells).filter(([, cell]) => predicate(cell)),
+  ) as Readonly<Record<string, ManualScheduleTemplateCellInput>>;
+}
+
+function filterUndoSnapshots(
+  undo: ManualScheduleDraft['undo'],
+  currentCells: ManualScheduleDraft['cells'],
+  predicate: (cell: ManualScheduleTemplateCellInput) => boolean,
+): ManualScheduleDraft['undo'] {
+  const compact = undo
+    .map((snapshot) => filterCells(snapshot, predicate))
+    .reduce<ManualScheduleDraft['undo']>(
+      (snapshots, snapshot) =>
+        snapshots.at(-1) !== undefined && sameCells(snapshots.at(-1) ?? {}, snapshot)
+          ? snapshots
+          : [...snapshots, snapshot],
+      [],
+    );
+  let keep = compact.length;
+  while (keep > 0 && sameCells(compact[keep - 1] ?? {}, currentCells)) keep -= 1;
+  return compact.slice(0, keep);
+}
+
 export function createManualCellKey(cycleDay: number, membershipId: string): string {
   if (!Number.isInteger(cycleDay) || cycleDay < 1 || membershipId.length === 0)
     throw new Error('单元格无效。');
   return `${cycleDay}:${membershipId}`;
+}
+
+export function isManualTemplateCellSnapshotCurrent(
+  cell: Pick<ManualScheduleTemplateCellInput, 'shiftTypeId'> | undefined,
+  savedCell: Pick<ManualScheduleTemplateCellInput, 'shiftTypeId'> | undefined,
+): boolean {
+  return (
+    cell !== undefined && savedCell !== undefined && cell.shiftTypeId === savedCell.shiftTypeId
+  );
 }
 
 export function createManualScheduleDraft(input: {
@@ -89,6 +152,106 @@ export function getCycleDateColumns(
       weekday: weekdays[date.getUTCDay()],
     };
   });
+}
+
+export function getManualHolidayYears(startDate: string, cycleDays: number): readonly number[] {
+  return [
+    ...new Set(
+      getCycleDateColumns(startDate, cycleDays).map(({ date }) => Number(date.slice(0, 4))),
+    ),
+  ].sort((left, right) => left - right);
+}
+
+export function getNextAvailableManualStartDate(
+  history: readonly {
+    readonly applyEndDate?: string;
+    readonly businessMonth: string;
+    readonly scheduleRoleId: string;
+    readonly status: string;
+  }[],
+  scheduleRoleId: string,
+  fallbackDate: string,
+): string {
+  asUtcDate(fallbackDate);
+  const latestEndDate = history
+    .filter((item) => item.scheduleRoleId === scheduleRoleId && item.status === 'published')
+    .map((item) => item.applyEndDate ?? `${item.businessMonth.slice(0, 7)}-01`)
+    .filter((value) => {
+      try {
+        asUtcDate(value);
+        return true;
+      } catch {
+        return false;
+      }
+    })
+    .sort()
+    .at(-1);
+  return latestEndDate === undefined ? fallbackDate : addUtcDays(latestEndDate, 1);
+}
+
+export function changeManualScheduleRole(
+  draft: ManualScheduleDraft,
+  scheduleRoleId: string,
+): ManualScheduleDraft {
+  if (scheduleRoleId.length === 0) throw new Error('岗位无效。');
+  if (draft.scheduleRoleId === scheduleRoleId) return draft;
+  return createManualScheduleDraft({
+    cycleDays: draft.cycleDays,
+    membershipIds: [],
+    scheduleRoleId,
+    startDate: draft.startDate,
+  });
+}
+
+export function setManualMembershipIds(
+  draft: ManualScheduleDraft,
+  membershipIds: readonly string[],
+): ManualScheduleDraft {
+  if (
+    membershipIds.some((id) => id.length === 0) ||
+    new Set(membershipIds).size !== membershipIds.length
+  )
+    throw new Error('成员无效。');
+  if (sameStrings(draft.membershipIds, membershipIds)) return draft;
+  const selectedIds = new Set(membershipIds);
+  const cells = filterCells(draft.cells, (cell) => selectedIds.has(cell.membershipId));
+  return {
+    ...draft,
+    cells,
+    membershipIds: [...membershipIds],
+    selectedCell:
+      draft.selectedCell !== undefined && selectedIds.has(draft.selectedCell.membershipId)
+        ? draft.selectedCell
+        : undefined,
+    undo: filterUndoSnapshots(draft.undo, cells, (cell) => selectedIds.has(cell.membershipId)),
+  };
+}
+
+export function setManualStartDate(
+  draft: ManualScheduleDraft,
+  startDate: string,
+): ManualScheduleDraft {
+  asUtcDate(startDate);
+  return draft.startDate === startDate ? draft : { ...draft, startDate };
+}
+
+export function setManualCycleDays(
+  draft: ManualScheduleDraft,
+  cycleDays: number,
+): ManualScheduleDraft {
+  assertCycleDays(cycleDays);
+  if (draft.cycleDays === cycleDays) return draft;
+  const cells = filterCells(draft.cells, (cell) => cell.cycleDay <= cycleDays);
+  return {
+    ...draft,
+    cells,
+    cycleDays,
+    selectedCell:
+      draft.selectedCell !== undefined && draft.selectedCell.cycleDay <= cycleDays
+        ? draft.selectedCell
+        : undefined,
+    undo: filterUndoSnapshots(draft.undo, cells, (cell) => cell.cycleDay <= cycleDays),
+  };
 }
 
 export function selectManualCell(

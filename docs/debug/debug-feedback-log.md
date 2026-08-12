@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9、Task 10 与 API integration runtime 已完成；V3-4 Task 11 `4a0d44c`、Task 12 `43eae1c`、Task 13 `f17cad4` 均已推送并完成 DevTools CLI 复核。手动排班 Android/iOS 真机矩阵仍待用户复核。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。V3-4 设备复核暴露的手动排班入口层 Web parity 回归已修复，检查点提交信息为 `fix(miniprogram): restore manual editor Web parity`；DevTools 已真实打开修复页，岗位/成员/日期/周期等 Android/iOS 触控矩阵仍待用户复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -43,6 +43,17 @@
 - 根因与修复：完整读取 Web 的 `DutyCell.vue`、`ChangeBadge.vue`、`MonthGrid.vue` 后，对齐其浅黄棕字 marker、蓝色补班与姓名优先层次。先增加三项失败断言：所有 marker token 一致、workday label 为“班”、assignment WXML 必须消费 `memberName`；再改为非原生 button 的触控 `view`、无描边 marker、姓名 + 单字班种布局，以及补班 VM 标签。
 - 验证：聚焦 3 文件 / 5 项、`pnpm miniprogram:typecheck`、`pnpm miniprogram:devtools:build-npm`（cost 9832，warnings `[]`）通过；最终完整小程序为 12 文件 / 68 项通过，配置审计、lint、Task 6 Prettier、`pnpm smoke:check-core`、合同/API 空 diff 与 `git diff --check` 通过。`pnpm smoke:browser` 不适用。
 - 状态：用户已完成视觉验收；Task 6 可创建本地检查点。日格点击当前仅为 Task 6 的无副作用路由，详情/电话/事件可见交互严格留给 Task 8。
+
+### V3-4 手动排班 Web 对齐回归修复（提交：fix(miniprogram): restore manual editor Web parity，2026-08-12）
+
+- 用户反馈/需求：小程序手动排班进入后只有一名成员，无法选择周期天数和开始日期，没有返回键，不适用班种不应出现；质疑为何不能复用已经成熟、经过调试的 Web 代码与架构。
+- 根因/引入点：`git log -S`/`git blame` 将 `config.roles[0]` 固定首岗、全量 `shiftTypes` palette 和只含模板 picker 的 WXML 追溯至 `4a0d44c feat(miniprogram): add cell-first manual scheduling`；已有 `page-shell` 返回能力来自 `ebfbb31`，Web 岗位/成员/日期/1–31 天周期、enabled shift filter 与下一可用日期来自 `6512274`。Web 与 mini 已共用 scheduling-config endpoint/contracts，但首版 mini 只重写了网格和 controller，没有迁移入口层状态或建立页面 parity 测试；单岗位/单成员 fixture 又掩盖了问题。
+- 先失败证据：扩展多岗位 fixture（首岗 1 人、目标岗 6 人）、日期/周期/跨年 holidays、页面 WXML 边界和 enabled palette 后，旧实现 3 个测试文件共 5 项失败；独立审查随后以失败测试复现旧模板 cell 清空后仍被 saved snapshot 显示、成员/周期裁剪后的空 undo，以及首次 create 成功后仍未选中 saved template、第二次重复 create。
+- 修复/功能：页面启用返回键，补齐“新建模板/岗位/成员/开始日期/1–31 天周期”；controller 不再自动固定首岗，刷新不覆盖用户草稿，打开模板沿用 Web published-only 下一可用日期，跨年范围按 generation/requestVersion 加载并淘汰陈旧 holidays。成员取消/周期缩短同步裁剪 cells 和全部 undo，去掉相邻/当前同值快照；palette 仅展示启用班种，网格仍以全量班种和“当前 cell 仍引用同一 shift”条件使用模板快照，旧停用/删除引用可见但清空不复活。create/update 接管服务端返回模板，保存后切换为权威已编辑状态。
+- 语义等价审计：页面到 controller/`wx` 的成员调用保持接收者；日期/周期/成员/岗位编辑只改内存，只有显式保存/应用/发布/撤回写服务器；异步 load/holiday/save 延续 generation 淘汰且 holiday 增加 requestVersion；模板 `undefined` 表示新建、空 picker ID 只做显式 reset；旧 stale member 保留至用户明确取消或换岗位。当前 contracts 没有岗位允许班种 ID，因此“不适用”只能与 Web 一致解释为 `isEnabled=false`，岗位专属过滤需另开契约任务。
+- 复用结论：`.vue`、Vue ref/computed、TDesign Vue 和 DOM table/input 不能原样运行在 WXML/Page/setData；API、contracts、日期/cell/undo/selector/template request 等 JSON-safe 纯业务逻辑完全应共享。当前项目设计做了 1:1 语义要求，却没有把 manual editor core 抽成跨端包。本轮先做有红绿测试的等价适配，不直接 runtime import Web 或未验证 workspace 包；后续应独立抽共享 editor core，由 Vue/WXML 保留薄 UI adapter。
+- 验证/运行：定向 4 文件 / 19 项、完整小程序与静态边界 43 文件 / 197 项通过；config audit、typecheck、变更文件 lint/Prettier、`pnpm smoke:check-core`、`git diff --check` 通过。`pnpm smoke:browser` 不适用（未改 Web/API/auth/contracts/build 核心路径）。DevTools `build-npm`、preview 成功且无 warning；新端口 `9434` 可连接并实际打开 `/subpackages/manual-schedule/pages/editor/index`，截图确认返回键、四项配置与仅“全天班”。标准全路由 smoke、页面 data/原生 picker RPC 在连接后超时，故不虚报完整触控验收。
+- 状态：待用户 Android/iOS 复核。需验证目标岗位展示全部成员、成员多选、日期、7/30 天、返回、仅启用班种、清空/撤销，以及首次创建后按钮切换为保存/可预览应用。
 
 ## 通用注意事项（调试期）
 
