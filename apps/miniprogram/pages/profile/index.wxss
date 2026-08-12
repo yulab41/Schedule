@@ -6,12 +6,46 @@
   background: var(--v3-color-surface);
   border-radius: var(--v3-radius-lg);
 }
+
+.profile-section-title {
+  display: block;
+  margin-bottom: var(--v3-space-sm);
+  font-weight: 600;
+}
+
+.profile-version,
+.profile-runtime,
+.profile-contact-status {
+  display: block;
+  margin-top: var(--v3-space-xs);
+  color: var(--v3-color-text-secondary);
+  font-size: 26rpx;
+}
+
 .profile-error {
   display: block;
+  margin-bottom: var(--v3-space-md);
   color: var(--v3-color-danger);
 }
+
+.profile-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 80rpx;
+  margin-top: var(--v3-space-sm);
+  padding: 0 var(--v3-space-sm);
+  border: 1rpx solid var(--v3-color-border);
+  border-radius: var(--v3-radius-md);
+}
+
+.profile-save,
 .profile-logout {
-  min-height: 88rpx;
+  min-height: 80rpx;
+  margin-top: var(--v3-space-md);
   color: #fff;
+  background: var(--v3-color-primary);
+}
+
+.profile-logout {
   background: var(--v3-color-danger);
 }

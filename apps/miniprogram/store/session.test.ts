@@ -331,4 +331,16 @@ describe('session store', () => {
     expect(calls).toEqual(['token', 'last-group:user-1', 'cache:user-1']);
     expect(store.state.status).toBe('anonymous');
   });
+
+  it('accepts a profile replacement only for the currently authenticated user', async () => {
+    const dependencies = createDependencies({ readStoredToken: () => 'stored-token' });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+
+    expect(store.replaceProfile({ ...profile, realName: '新姓名', version: 2 })).toBe(true);
+    expect(store.state.profile).toEqual({ ...profile, realName: '新姓名', version: 2 });
+    expect(store.replaceProfile({ id: 'another-user', realName: '不应写入', version: 1 })).toBe(
+      false,
+    );
+  });
 });

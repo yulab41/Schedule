@@ -55,6 +55,7 @@ export interface SessionStore {
   consumePendingInvite(): Promise<void>;
   getPendingInviteToken(): string | undefined;
   markUnauthorized(): void;
+  replaceProfile(profile: UserProfile): boolean;
   refreshGroupContext(options?: { readonly preferredGroupId?: string }): Promise<void>;
   restore(): Promise<void>;
   setActiveGroupId(groupId: string): boolean;
@@ -248,6 +249,16 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     getPendingInviteToken: () => dependencies.readPendingInviteToken(),
     markUnauthorized: () => {
       store.clear();
+    },
+    replaceProfile: (profile) => {
+      if (
+        state.status !== 'authenticated' ||
+        state.profile === undefined ||
+        state.profile.id !== profile.id
+      )
+        return false;
+      state = { ...state, profile };
+      return true;
     },
     refreshGroupContext: (options = {}) => {
       if (groupContextPromise !== undefined) return groupContextPromise;

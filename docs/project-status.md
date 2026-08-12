@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-3 Task 9.1–9.3 已形成 `5ccd04f`、`ddf8295` 和 `d8387e7` 三个代码检查点并正常快进推送至 `origin/main`；`189120e` 已为 leave/swap/duty 三套真实数据库测试建立并验证安全本地入口（3 文件 / 78 项、零 skip）。Task 9 真机角色矩阵仍待用户/设备复核。Task 10.1 已完成 API confirmed-only 联系方式、用户作用域会话/缓存清理、路由守卫和 9 文件真实数据库 allowlist；本轮在检查点后停止，Task 10.2 尚未开始。
+- 当前批次：V3-3 Task 9.1–9.3 已形成 `5ccd04f`、`ddf8295` 和 `d8387e7` 三个代码检查点并正常快进推送至 `origin/main`；`189120e` 已为 leave/swap/duty 三套真实数据库测试建立并验证安全本地入口（3 文件 / 78 项、零 skip）。Task 9 真机角色矩阵仍待用户/设备复核。Task 10.1 已由 `20407fc` 完成并推送；Task 10.2 已实现通知、提醒偏好、微信订阅与个人资料控制器，待本轮检查点正常推送后停止。Task 10.3 尚未开始。
 
 ## Completed Batch
 
@@ -218,6 +218,7 @@
 - API integration test runtime：runner guard 1 文件 / 5 项通过；`pnpm test:api-integration` 在本地隔离 MySQL 通过 3 文件 / 78 项、零 skip。`pnpm lint`、`pnpm typecheck`、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 通过。全量 `pnpm format:check` 只因未跟踪且用户保留的 `apps/miniprogram/minitest/test.config.json` 非零，未作为本轮代码失败或修改/暂存目标。
 - V3-3 Task 10 计划验证：新 Task 10 文件以及项目状态、调试日志、V3 设计、路线图和 Task 9 历史计划的 Prettier 检查通过；`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划、设计、状态文档，未改 Web/API/契约/认证/构建核心链路）。
 - V3-3 Task 10.1：定向安全测试 7 文件 / 41 项、完整小程序 29 文件 / 145 项、5 个静态边界文件 / 16 项、Task 10 API integration 9 文件 / 58 项（真实 `schedule_test`、零 skip）通过；config audit、mini-program/API typecheck、lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过。
+- V3-3 Task 10.2：完整小程序与静态页面边界 37 文件 / 166 项通过；config audit、mini-program typecheck、lint、明确任务文件 Prettier 和 `git diff --check` 通过。全局 `pnpm format:check` 仅因未跟踪、用户保留的 `apps/miniprogram/minitest/test.config.json` 非零，未修改或暂存该文件。`pnpm smoke:browser` → `pnpm smoke:check-core` 通过。最终 DevTools build-npm 成功（`cost: 4193`、`warnings: []`），preview 成功（299.6 KB）；连接式 smoke 自动重连后打开全部 10 个注册页面且无脚本级错误。
 
 ## Decisions and Deviations
 
@@ -230,6 +231,7 @@
 - 本地缓存只用于只读快照，不能成为排班写入源或离线提交队列。
 - V3 日历必须完整保留成员、班次、节假日和当前契约的换/替/加标识；`deduction` 只有未来服务端/契约实际提供且上下文允许时才能出现；同日多排班不得只取第一条。
 - V3-3 工作流不使用统一 preview 模板：每个动作只发送当前合同提供的字段；管理员两类 direct 是独立特权路径，普通申请才遵守自动接受/群组审批设置。
+- Task 10.2 不扩展 API 或共享契约：通知读状态和未读数仍以服务端为准；提醒偏好仅提交微信开关与 duty 提醒小时，绝不写入浏览器提醒字段；通知首版不构造通用对象深链。profile 409 只刷新并呈现权威资料，绝不自动重放写入。
 
 ## Previous Batch
 
@@ -240,13 +242,13 @@
 ## Active Batch
 
 1. Task 9 与 API integration test runtime follow-up 已完成并推送；Task 9 真机角色矩阵仍如实保留为待用户/设备复核。
-2. Task 10.1 已完成并已形成待推送检查点：API confirmed-only 联系方式、用户作用域会话/缓存清理、集中路由守卫、profile version payload 和固定 9 文件 API integration allowlist；Task 10.2/10.3 未开始。
-3. 本轮检查点提交信息：`fix(miniprogram): secure Task 10 session and visitor boundaries`；验证通过后正常快进推送，并停止等待用户对 Task 10.2 的新授权。
+2. Task 10.1 已由 `20407fc` 正常推送；Task 10.2 已完成通知列表/未读状态、提醒偏好/显式微信订阅、profile optimistic-save/本人联系方式与精确 logout。Task 10.3 未开始。
+3. 本轮检查点提交信息：`feat(miniprogram): add notifications and profile controls`；验证通过后正常快进推送，并停止等待用户对 Task 10.3 的新授权。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
-- Task 9 历史计划不再授权重复执行。Task 10 只能依据 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`；10.1 已完成并在其 checkpoint 后停止。后续若获用户明确批准，先依据实际代码重读该计划与设计，再决定是否只启动 10.2。
+- Task 9 历史计划不再授权重复执行。Task 10 只能依据 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`；10.1/10.2 已完成并均在各自 checkpoint 后停止。后续若获用户明确批准，先依据实际代码重读该计划与设计，再决定是否只启动 10.3。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。

@@ -16,6 +16,17 @@ export interface ProfileLogicDependencies {
   readonly listGroupMembers: (groupId: string) => Promise<GroupMember[]>;
 }
 
+export function getOwnContactTarget(
+  summary: OwnGroupContactSummary,
+): { readonly groupId: string; readonly membershipId: string } | undefined {
+  if (
+    (summary.state !== 'available' && summary.state !== 'missing') ||
+    summary.membershipId === undefined
+  )
+    return undefined;
+  return { groupId: summary.groupId, membershipId: summary.membershipId };
+}
+
 export async function loadOwnGroupContacts(
   groups: readonly GroupSummary[],
   dependencies: ProfileLogicDependencies,

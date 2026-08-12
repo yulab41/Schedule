@@ -1,1 +1,91 @@
 @import '../../tokens/index.wxss';
+
+.notification-actions,
+.notification-card__header,
+.notification-wechat,
+.notification-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--v3-space-sm);
+}
+
+.notification-actions,
+.notification-card,
+.notification-settings {
+  margin-bottom: var(--v3-space-md);
+  padding: var(--v3-space-md);
+  background: var(--v3-color-surface);
+  border-radius: var(--v3-radius-lg);
+}
+
+.notification-unread,
+.notification-card__title,
+.notification-settings__title {
+  font-weight: 600;
+}
+
+.notification-action,
+.notification-mode,
+.notification-more,
+.notification-save,
+.notification-subscribe {
+  margin: 0;
+  min-height: 68rpx;
+  font-size: 26rpx;
+}
+
+.notification-card--unread {
+  border-left: 8rpx solid var(--v3-color-primary);
+}
+
+.notification-card__label,
+.notification-card__time,
+.notification-card__summary,
+.notification-subscription-message {
+  display: block;
+  color: var(--v3-color-text-secondary);
+  font-size: 26rpx;
+}
+
+.notification-card__title,
+.notification-card__summary {
+  display: block;
+  margin-top: var(--v3-space-xs);
+}
+
+.notification-error {
+  display: block;
+  margin-bottom: var(--v3-space-md);
+  color: var(--v3-color-danger);
+}
+
+.notification-mode {
+  flex: 1;
+  padding: 0 var(--v3-space-xs);
+}
+
+.notification-mode--selected,
+.notification-save {
+  color: #fff;
+  background: var(--v3-color-primary);
+}
+
+.notification-hours {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 80rpx;
+  margin: var(--v3-space-md) 0;
+  padding: 0 var(--v3-space-sm);
+  border: 1rpx solid var(--v3-color-border);
+  border-radius: var(--v3-radius-md);
+}
+
+.notification-wechat {
+  margin: var(--v3-space-md) 0;
+}
+
+.notification-subscribe,
+.notification-subscription-message {
+  margin-top: var(--v3-space-sm);
+}

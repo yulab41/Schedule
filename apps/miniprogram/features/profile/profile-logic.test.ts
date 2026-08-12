@@ -1,7 +1,7 @@
 import type { GroupMember, GroupMemberContact, GroupSummary } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
-import { loadOwnGroupContacts } from './profile-logic.js';
+import { getOwnContactTarget, loadOwnGroupContacts } from './profile-logic.js';
 
 const groups: readonly GroupSummary[] = [
   { id: 'owner', name: '业主组', role: 'owner', version: 1 },
@@ -44,5 +44,26 @@ describe('profile contact logic', () => {
     });
     expect(unavailable[0]?.state).toBe('unavailable');
     expect(missing[0]).toMatchObject({ membershipId: 'me', state: 'missing' });
+  });
+
+  it('derives an editable contact target only from the current membership, never a name or another member', () => {
+    expect(
+      getOwnContactTarget({
+        contact: { isConfirmed: false, membershipId: 'me', version: 1 },
+        groupId: 'owner',
+        groupName: '业主组',
+        membershipId: 'me',
+        role: 'owner',
+        state: 'available',
+      }),
+    ).toEqual({ groupId: 'owner', membershipId: 'me' });
+    expect(
+      getOwnContactTarget({
+        groupId: 'owner',
+        groupName: '业主组',
+        role: 'owner',
+        state: 'unavailable',
+      }),
+    ).toBeUndefined();
   });
 });

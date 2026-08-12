@@ -1,3 +1,30 @@
 <page-shell title="通知">
-  <shell-state kind="empty" title="暂无通知" description="通知数据将在后续业务流程阶段接入。" />
+  <view class="notification-actions">
+    <text class="notification-unread">未读 {{unreadCount}}</text>
+    <button class="notification-action" bindtap="handleRetry" loading="{{isLoading}}">刷新</button>
+    <button class="notification-action" bindtap="handleMarkAllRead" loading="{{isMarkingAllRead}}" disabled="{{unreadCount === 0}}">全部已读</button>
+  </view>
+
+  <text wx:if="{{errorMessage}}" class="notification-error">{{errorMessage}}</text>
+  <shell-state wx:if="{{!isLoading && hasLoaded && notifications.length === 0}}" kind="empty" title="暂无通知" description="新的排班提醒会显示在这里。" />
+  <view wx:for="{{notifications}}" wx:key="id" class="notification-card {{item.isRead ? '' : 'notification-card--unread'}}" data-id="{{item.id}}" bindtap="handleNotificationTap">
+    <view class="notification-card__header"><text class="notification-card__label">{{item.label}}</text><text class="notification-card__time">{{item.time}}</text></view>
+    <text class="notification-card__title">{{item.title}}</text>
+    <text class="notification-card__summary">{{item.summary}}</text>
+  </view>
+  <button wx:if="{{nextCursor}}" class="notification-more" bindtap="handleLoadMore" loading="{{isLoading}}">加载更多</button>
+
+  <view wx:if="{{preferencesAvailable}}" class="notification-settings">
+    <text class="notification-settings__title">我的值班提醒</text>
+    <view class="notification-mode-row">
+      <button class="notification-mode {{reminderMode === 'default' ? 'notification-mode--selected' : ''}}" data-mode="default" bindtap="handleReminderMode">使用群组默认</button>
+      <button class="notification-mode {{reminderMode === 'custom' ? 'notification-mode--selected' : ''}}" data-mode="custom" bindtap="handleReminderMode">自定义</button>
+      <button class="notification-mode {{reminderMode === 'disabled' ? 'notification-mode--selected' : ''}}" data-mode="disabled" bindtap="handleReminderMode">关闭</button>
+    </view>
+    <input wx:if="{{reminderMode === 'custom'}}" class="notification-hours" value="{{reminderHoursInput}}" placeholder="例如：24, 2（1–720 小时，最多 5 个）" bindinput="handleReminderHoursInput" />
+    <view class="notification-wechat"><text>接收微信值班提醒</text><switch checked="{{wechatNotificationsEnabled}}" bindchange="handleWechatEnabledChange" /></view>
+    <button class="notification-save" bindtap="handleSavePreferences" loading="{{isSavingPreferences}}">保存提醒设置</button>
+    <button class="notification-subscribe" bindtap="handleSubscribe">订阅值班提醒</button>
+    <text wx:if="{{subscriptionMessage}}" class="notification-subscription-message">{{subscriptionMessage}}</text>
+  </view>
 </page-shell>

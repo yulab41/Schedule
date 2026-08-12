@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9 工作流计划已按当前 contracts/API/Web 回归历史拟写，Task 10 只冻结范围；计划待用户复核，批准前禁止实施 Task 9。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9 与 API integration runtime 已完成；Task 10.1 已由 `20407fc` 推送，Task 10.2 已完成并待本轮 checkpoint，Task 10.3 尚未开始。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1764,3 +1764,13 @@
 - 实现：新增 user-scoped `schedule.lastGroup.v1:<userId>` 存储、user cache registry/purge 和纯 route guard。calendar API 对 guest/anonymous 保留成员姓名/确认状态但省略待确认电话号码；普通成员仍是完整视图。client 在 protected 401 委托 session cleanup，缺省 handler 时才回退清 token。Task 10 integration runner 固定执行日历、访客、群组、邀请、通知、微信通知和用户的 9 个 integration 文件。
 - 验证：定向安全测试 7 文件 / 41 项、完整 `apps/miniprogram` 29 文件 / 145 项、app-shell/manifest/calendar/workflows/Task 10 boundary 5 文件 / 16 项通过。`pnpm test:api-integration:task10` 在本地隔离 `schedule_test` 通过 9 文件 / 58 项、零 skip。config audit、mini-program/API typecheck、lint、明确文件 Prettier 和 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 通过登录、管理员、成员、访客和管理员访客审计流程，未见浏览器错误；随后 `pnpm smoke:check-core` 通过。Task 10.1 计划要求的 Task 10 最终 DevTools/真机复核不在本 checkpoint 执行，保留给后续最终验收。
 - 状态：已完成（含运行/浏览器验证），待用户复核。检查点信息：`fix(miniprogram): secure Task 10 session and visitor boundaries`；完成正常快进推送后停止，等待用户明确授权并基于实际代码重新审阅后再决定 Task 10.2。
+
+### V3-3 Task 10.2 通知与个人资料控制（2026-08-12）
+
+- 授权与范围：用户在 Task 10.1 已推送的基线上明确要求继续；本轮只实施 10.2，不进入 10.3 群组与匿名 visitor 页面，也不改 API、共享契约或 Web。
+- 回归溯源：`git log -S 'listNotifications'` 将通知 wrapper 定位至 `f8d6f52`；`updateProfile`/contacts wrapper 由 `2a88e48` 引入且 profile version 由 `20407fc` 收紧；profile 页面/逻辑来自 `bc534c0`，route guard 来自 `20407fc`，微信订阅配置的 duty reminder 由 `594eae5` 引入。修改前逐一以 `git blame` 复核调用点。
+- 测试先行：通知逻辑、分页控制器、偏好控制器、页面 guard runtime、微信订阅 adapter、profile controller/runtime 与静态页面边界测试先因模块/方法/成员可见性缺失而失败；profile 页面初版还暴露了 guest 的普通资料编辑区，新增失败边界断言后收紧为访客仅见身份/群组摘要与登出。
+- 实现与语义：通知使用稳定已知标签，开放未知类型落为“通知”与安全摘要，不创建通用对象深链。列表控制器以 context generation、cursor 单飞和已加载 cursor 集合防止重复/陈旧追加；读单条/全读后均重取服务端未读数，失败保留既有列表并允许重试。提醒偏好完整区分 `null` 默认、`[]` 关闭与 1–720（最多五项）自定义，只提交 `wechatNotificationsEnabled` 与 `dutyReminderHours`，不覆盖浏览器字段。微信订阅只由显式按钮请求当前 `dutyReminder` template，分别呈现接受、拒绝、禁用、不支持和异常，绝不自动更新服务端偏好。
+- Profile：资料保存携带版本；409 仅获取权威 profile、保留原错误并同步安全的 session profile，不自动重放。联系方式仅以当前用户的 `(groupId, membershipId)` 调用 `confirm: true`；runtime version 通过安全的 `wx.getAccountInfoSync()` 独立读取。logout 单飞、调用既有精确 session 清理，存储异常仍 reLaunch 登录页。
+- 验证：完整 `apps/miniprogram` 加 Task 10.2 静态边界共 37 文件 / 166 项通过；config audit、typecheck、lint、明确任务文件 Prettier 与 `git diff --check` 通过。全局 `pnpm format:check` 只因用户/DevTools 未跟踪 `apps/miniprogram/minitest/test.config.json` 非零，未改或暂存该产物。`pnpm smoke:browser` 通过登录/管理员/成员/访客/访问审计，随后 `pnpm smoke:check-core` 通过。首次 build 后 preview 曾因 TDesign WXSS 落盘时序报缺失；最终重建 build-npm 成功（cost 4193、warnings `[]`），preview 成功（299.6 KB）。连接式 `pnpm miniprogram:smoke` 自动重连后打开 10/10 注册页面，无脚本级错误；profile/notifications 截图已复核。
+- 状态：已完成（含运行/浏览器/DevTools 验证），待用户复核。检查点信息：`feat(miniprogram): add notifications and profile controls`；正常快进推送后停止，等待用户明确授权并基于实际代码重新审阅后再决定是否只启动 Task 10.3。
