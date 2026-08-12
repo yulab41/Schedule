@@ -1754,3 +1754,13 @@
 - 计划决议：新增独立文件 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`，按 10.1 安全基座（API confirmed-only、user-scoped active group/cache、精确 logout、route guard 与受守卫的 API integration allowlist）→ 10.2 通知/个人 → 10.3 群组/匿名 visitor 三个 checkpoint 拆分。每个 checkpoint 都要求红测、自动验证、真实数据库门禁、DevTools/设备复核、独立提交和停止。
 - Web 同步边界：继续保留 Task 9 已确认的 direct workflow 语义，不重做 Web；通知首版不伪造通用对象深链；访客号码脱敏和 static tab route guard 是小程序/API 的安全增强，不能称为现有 Web parity。
 - 文档状态：路线图、V3 设计、Task 9 历史计划和项目状态已链接到新的 Task 10 计划。Task 10 仍为**待用户复核**，批准前不得改动其业务 API、契约或小程序页面。
+
+### V3-3 Task 10.1 会话与访客安全边界（2026-08-12）
+
+- 授权与范围：用户明确要求开始执行 V3-3 Task 10；按冻结计划本轮只实施 10.1，并在单一检查点后停止。未实现 10.2 通知/个人资料控制器，也未实现 10.3 群组或 QR 访客页。
+- 回归溯源：`git log -S 'includeContacts'`/`git blame` 将访客联系人行为定位至 `7c783c7` 与认证 guest 扩展 `1b1eebdb`；会话 active-group/generation 为 `bc534c0`，日历缓存与其失效为 `42d6243`/`5ccd04f`，旧 profile wrapper 为 `2a88e48`。修改调用点前均已复核。
+- 测试先行：Task 10 存储、缓存、会话、route guard、endpoint、runner 和页面边界测试在实现前因缺少模块/方法、未恢复用户群组、未清除用户缓存、profile payload 嵌套错误、页面未守卫和 runner 未导出而失败。真实数据库首跑仅因 API schema 不接受 `confirm: false` 的测试构造而返回 400；改用管理员预置的待确认成员后，覆盖的产品语义不变并转绿。
+- 行为审计：这不是语义等价重构。匿名/guest 日历仅暴露 `isConfirmed === true` 联系方式；last-group/cache 清理变为精确用户作用域；401 由 session 按 token 替换、invite 保留、当前用户 last-group/cache 清理和匿名状态的顺序处理；guest direct/tab 路由被集中拦截；profile PATCH 增加必填 version。现有 `wx` 成员调用、generation 拒绝陈旧 promise、空值判断和业务请求的次数保持不变；不自动重放任何请求。
+- 实现：新增 user-scoped `schedule.lastGroup.v1:<userId>` 存储、user cache registry/purge 和纯 route guard。calendar API 对 guest/anonymous 保留成员姓名/确认状态但省略待确认电话号码；普通成员仍是完整视图。client 在 protected 401 委托 session cleanup，缺省 handler 时才回退清 token。Task 10 integration runner 固定执行日历、访客、群组、邀请、通知、微信通知和用户的 9 个 integration 文件。
+- 验证：定向安全测试 7 文件 / 41 项、完整 `apps/miniprogram` 29 文件 / 145 项、app-shell/manifest/calendar/workflows/Task 10 boundary 5 文件 / 16 项通过。`pnpm test:api-integration:task10` 在本地隔离 `schedule_test` 通过 9 文件 / 58 项、零 skip。config audit、mini-program/API typecheck、lint、明确文件 Prettier 和 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 通过登录、管理员、成员、访客和管理员访客审计流程，未见浏览器错误；随后 `pnpm smoke:check-core` 通过。Task 10.1 计划要求的 Task 10 最终 DevTools/真机复核不在本 checkpoint 执行，保留给后续最终验收。
+- 状态：已完成（含运行/浏览器验证），待用户复核。检查点信息：`fix(miniprogram): secure Task 10 session and visitor boundaries`；完成正常快进推送后停止，等待用户明确授权并基于实际代码重新审阅后再决定 Task 10.2。

@@ -49,6 +49,10 @@ import {
   type CalendarRouteTarget,
 } from '../../features/calendar/calendar-routing.js';
 import {
+  guardMiniprogramRoute,
+  isMembershipRouteRole,
+} from '../../features/navigation/route-guard.js';
+import {
   completeCalendarSheetClose,
   getCalendarSheetKind,
   getCalendarSheetTitle,
@@ -288,6 +292,16 @@ Page<CalendarPageData, CalendarPageMethods>({
       navigateForCurrentSession();
       return;
     }
+    if (
+      !isUsingCalendarDevFixture() &&
+      !guardMiniprogramRoute(state, '/pages/calendar/index', {
+        hideTabBar: () => wx.hideTabBar({}),
+        reLaunch: (options) => wx.reLaunch(options),
+        showTabBar: () => wx.showTabBar({}),
+        switchTab: (options) => wx.switchTab(options),
+      })
+    )
+      return;
     const group = getCalendarGroup();
     const context = contextForCurrentGroup();
     if (group === undefined || context === undefined) {
@@ -438,6 +452,7 @@ Page<CalendarPageData, CalendarPageMethods>({
       .filter(isDataViewModel);
     const target = resolveCalendarRouteAction(actionId, context.groupRole, viewModels);
     if (target === undefined) return;
+    if (target.kind === 'events' && !isMembershipRouteRole(context.groupRole)) return;
     this.lastResolvedRoute = target;
     const content =
       target.kind === 'date'

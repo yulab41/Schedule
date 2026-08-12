@@ -3,6 +3,7 @@ import {
   resolveWorkflowRouteContext,
   type WorkflowRouteContext,
 } from '../../../../features/navigation/workbench-navigation.js';
+import { guardMiniprogramRoute } from '../../../../features/navigation/route-guard.js';
 import { sessionStore } from '../../../../store/session.js';
 
 interface WorkflowRequestPageData {
@@ -45,6 +46,20 @@ Page<WorkflowRequestPageData, WorkflowRequestPageMethods>({
       return;
     }
     const groupId = this.selectedGroupId;
+    if (
+      !guardMiniprogramRoute(
+        state,
+        '/subpackages/workflows/pages/requests/index',
+        {
+          hideTabBar: () => wx.hideTabBar({}),
+          reLaunch: (options) => wx.reLaunch(options),
+          showTabBar: () => wx.showTabBar({}),
+          switchTab: (options) => wx.switchTab(options),
+        },
+        groupId,
+      )
+    )
+      return;
     const context =
       groupId === undefined ? undefined : resolveWorkflowRouteContext(state.groups, groupId);
     const group =

@@ -204,7 +204,7 @@ describeWithDatabase('current month calendar read model', () => {
     });
   });
 
-  it('resolves a visitor key and reads the selected calendar with contacts but without event markers', async () => {
+  it('resolves a visitor key and returns only confirmed contacts without event markers', async () => {
     await savePublished('2026-08');
     const contact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -217,6 +217,17 @@ describeWithDatabase('current month calendar read model', () => {
       url: `/groups/${groupId}/members/${ownerMembershipId}/contact`,
     });
     expect(contact.statusCode).toBe(200);
+
+    const unconfirmedContact = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: {
+        mobilePhone: '13900139000',
+        shortPhone: '67890',
+      },
+      url: `/groups/${groupId}/members/${candidateMembershipId}/contact`,
+    });
+    expect(unconfirmedContact.statusCode).toBe(200);
 
     const visitorKey = await getVisitorKey(groupId);
     const resolve = await app.inject({
@@ -250,6 +261,14 @@ describeWithDatabase('current month calendar read model', () => {
       mobilePhone: '13800138000',
       realName: 'Owner Doctor',
       shortPhone: '12345',
+    });
+    const candidateMember = body.calendar.members.find(
+      (member) => member.membershipId === candidateMembershipId,
+    );
+    expect(candidateMember).toEqual({
+      isConfirmed: false,
+      membershipId: candidateMembershipId,
+      realName: 'Candidate Doctor',
     });
     expect(
       body.calendar.assignments.every((assignment) => assignment.changeMarkers.length === 0),
@@ -569,6 +588,14 @@ describeWithDatabase('current month calendar read model', () => {
   }
 
   it('serves a guest-shaped calendar only to logged-in guest members', async () => {
+    await savePublished('2026-08');
+    const unconfirmedContact = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13900139000', shortPhone: '67890' },
+      url: `/groups/${groupId}/members/${candidateMembershipId}/contact`,
+    });
+    expect(unconfirmedContact.statusCode).toBe(200);
     const guestJoin = await app.inject({
       headers: { authorization: 'Bearer outsider-token' },
       method: 'POST',
@@ -584,7 +611,15 @@ describeWithDatabase('current month calendar read model', () => {
     expect(guestCalendar.statusCode).toBe(200);
     expect(guestCalendar.json()).toMatchObject({
       groupName: 'Calendar group',
-      calendar: { assignments: [], groupId },
+      calendar: { assignments: expect.any(Array), groupId },
+    });
+    const guestBody = guestCalendar.json() as { calendar: CalendarReadModel };
+    expect(
+      guestBody.calendar.members.find((member) => member.membershipId === candidateMembershipId),
+    ).toEqual({
+      isConfirmed: false,
+      membershipId: candidateMembershipId,
+      realName: 'Candidate Doctor',
     });
 
     const memberCalendar = await app.inject({

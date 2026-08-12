@@ -8,6 +8,8 @@ import {
 export interface CalendarCacheRuntime {
   readonly cache: CalendarCache;
   invalidate(identity: CalendarCacheIdentity): number;
+  removeForUser(userId: string): void;
+  removeForUserGroup(userId: string, groupId: string): void;
 }
 
 export interface CalendarCacheRuntimeOptions {
@@ -23,6 +25,12 @@ export function createCalendarCacheRuntime(
     invalidate(identity) {
       removeCalendarCacheMonths(options.cache, identity, [identity.businessMonth]);
       return options.registry.invalidate(identity);
+    },
+    removeForUser(userId) {
+      options.cache.removeForUser(userId);
+    },
+    removeForUserGroup(userId, groupId) {
+      options.cache.removeForUserGroup(userId, groupId);
     },
   };
 }

@@ -86,9 +86,9 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
         }
         const payload = response.data as { error?: ApiErrorPayload } | undefined;
         if (response.statusCode === 401 && options.auth !== false) {
-          storeToken(undefined);
           try {
-            unauthorizedHandler?.();
+            if (unauthorizedHandler !== undefined) unauthorizedHandler();
+            else storeToken(undefined);
           } catch {
             // The request must still reject with the original API error if navigation fails.
           }

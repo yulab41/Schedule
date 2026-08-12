@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe('API client authentication expiry', () => {
-  it('clears a protected session, invokes the injected handler once, and rejects the API error', async () => {
+  it('delegates protected-session purge to the injected handler and rejects the API error', async () => {
     const onUnauthorized = vi.fn();
     setUnauthorizedHandler(onUnauthorized);
     storeToken('token');
@@ -51,7 +51,7 @@ describe('API client authentication expiry', () => {
       requestId: 'req-1',
       status: 401,
     });
-    expect(storage.has('schedule.session')).toBe(false);
+    expect(storage.get('schedule.session')).toBe('token');
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
     expect(reLaunchMock).not.toHaveBeenCalled();
   });

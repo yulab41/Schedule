@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-3 Task 9.1–9.3 已形成 `5ccd04f`、`ddf8295` 和 `d8387e7` 三个代码检查点并正常快进推送至 `origin/main`；`189120e` 已为 leave/swap/duty 三套真实数据库测试建立并验证安全本地入口（3 文件 / 78 项、零 skip）。Task 9 真机角色矩阵仍待用户/设备复核。Task 10 已依据该检查点生成文件级计划，状态为待用户复核；本轮未实施其代码。
+- 当前批次：V3-3 Task 9.1–9.3 已形成 `5ccd04f`、`ddf8295` 和 `d8387e7` 三个代码检查点并正常快进推送至 `origin/main`；`189120e` 已为 leave/swap/duty 三套真实数据库测试建立并验证安全本地入口（3 文件 / 78 项、零 skip）。Task 9 真机角色矩阵仍待用户/设备复核。Task 10.1 已完成 API confirmed-only 联系方式、用户作用域会话/缓存清理、路由守卫和 9 文件真实数据库 allowlist；本轮在检查点后停止，Task 10.2 尚未开始。
 
 ## Completed Batch
 
@@ -192,6 +192,14 @@
 - 验证：`pnpm lint`、`pnpm typecheck`、明确文件 Prettier 与 `git diff --check` 通过；`pnpm format:check` 仅因用户保留且未跟踪的 `apps/miniprogram/minitest/test.config.json` 非零，未修改或暂存该目录。`pnpm smoke:browser` 与随后 `pnpm smoke:check-core` 通过（guard 确认没有受列举的核心链路文件）。
 - 状态：已完成（含真实数据库/浏览器验证），待用户复核。检查点提交信息：`test(api): run workflow integrations locally`；完成推送后停止，Task 10 仍不获实施授权。
 
+### V3-3：Task 10.1 会话与访客安全边界（已完成，2026-08-12）
+
+- API：匿名访客和已认证 guest 日历仅在 `isConfirmed === true` 时返回 `mobilePhone`/`shortPhone`；不再将待确认成员的联系方式暴露给访客。普通成员日历保持原有完整联系方式。
+- 会话与缓存：active group 按用户 ID 保存且恢复时由当前权威群组列表校验；日历缓存登记为用户作用域索引，logout/401 仅清除该用户的 last-group 和缓存记录，保留 pending invite。401 的 token 清理由 session 统一串行完成，避免 client 预先清理破坏顺序或使旧异步结果恢复已清除会话。
+- 导航与接口：共享 guard 使 anonymous 只能进入登录、资料设置、邀请和 QR 访客页；guest 不能经 tab 或直接路由读取通知/工作流。profile PATCH 传递 `{ realName, version }`；Task 10 真实数据库入口使用固定 9 文件 allowlist。
+- 验证：定向安全测试 7 文件 / 41 项、完整小程序测试 29 文件 / 145 项、shell/manifest/calendar/workflows/Task 10 boundary 5 文件 / 16 项，以及 `pnpm test:api-integration:task10` 9 文件 / 58 项（零 skip）均通过。config audit、两个 typecheck、lint、明确文件 Prettier、`pnpm smoke:browser`、随后 `pnpm smoke:check-core` 与 `git diff --check` 通过。
+- 状态：已完成（含运行/浏览器验证），待用户复核。检查点提交信息：`fix(miniprogram): secure Task 10 session and visitor boundaries`；完成正常快进推送后停止，Task 10.2 不在本轮范围。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -209,6 +217,7 @@
 - V3-3 Task 9.3：定向 3 文件 / 13 项、完整小程序/app-shell/workflows boundary 29 文件 / 142 项、config audit、typecheck、lint、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过；Web 只读基准 5 文件 / 26 项通过；API integration 3 文件 / 78 项因无测试数据库 skip，不记为通过。DevTools build-npm/preview 通过；标准复用连接 smoke 连接关闭，重启自动化后直接 10/10 路由 probe 无脚本错误。
 - API integration test runtime：runner guard 1 文件 / 5 项通过；`pnpm test:api-integration` 在本地隔离 MySQL 通过 3 文件 / 78 项、零 skip。`pnpm lint`、`pnpm typecheck`、明确文件 Prettier、`git diff --check`、`pnpm smoke:browser` → `pnpm smoke:check-core` 通过。全量 `pnpm format:check` 只因未跟踪且用户保留的 `apps/miniprogram/minitest/test.config.json` 非零，未作为本轮代码失败或修改/暂存目标。
 - V3-3 Task 10 计划验证：新 Task 10 文件以及项目状态、调试日志、V3 设计、路线图和 Task 9 历史计划的 Prettier 检查通过；`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划、设计、状态文档，未改 Web/API/契约/认证/构建核心链路）。
+- V3-3 Task 10.1：定向安全测试 7 文件 / 41 项、完整小程序 29 文件 / 145 项、5 个静态边界文件 / 16 项、Task 10 API integration 9 文件 / 58 项（真实 `schedule_test`、零 skip）通过；config audit、mini-program/API typecheck、lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过。
 
 ## Decisions and Deviations
 
@@ -231,13 +240,13 @@
 ## Active Batch
 
 1. Task 9 与 API integration test runtime follow-up 已完成并推送；Task 9 真机角色矩阵仍如实保留为待用户/设备复核。
-2. 已创建 `docs/superpowers/plans/2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`；当前只完成计划和文档同步，不实施 Task 10。
-3. 本轮文档检查点提交信息：`docs(miniprogram): plan V3-3 Task 10 delivery`；验证通过后正常快进推送，并停止等待用户批准 10.1。
+2. Task 10.1 已完成并已形成待推送检查点：API confirmed-only 联系方式、用户作用域会话/缓存清理、集中路由守卫、profile version payload 和固定 9 文件 API integration allowlist；Task 10.2/10.3 未开始。
+3. 本轮检查点提交信息：`fix(miniprogram): secure Task 10 session and visitor boundaries`；验证通过后正常快进推送，并停止等待用户对 Task 10.2 的新授权。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
-- Task 9 历史计划不再授权重复执行。Task 10 只能依据 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`，且仍须用户明确批准；批准后第一批只能是 10.1，完成 checkpoint 后停止。
+- Task 9 历史计划不再授权重复执行。Task 10 只能依据 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`；10.1 已完成并在其 checkpoint 后停止。后续若获用户明确批准，先依据实际代码重读该计划与设计，再决定是否只启动 10.2。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。

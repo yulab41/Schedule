@@ -83,6 +83,8 @@ interface Slot {
 const fallbackCache: CalendarCache = {
   read: () => undefined,
   remove: () => undefined,
+  removeForUser: () => undefined,
+  removeForUserGroup: () => undefined,
   write: () => undefined,
 };
 

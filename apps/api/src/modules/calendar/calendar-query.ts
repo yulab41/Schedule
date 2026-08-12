@@ -53,6 +53,8 @@ interface ContactRow {
   readonly shortPhone: string | null;
 }
 
+type CalendarContactVisibility = 'all' | 'confirmed-only' | 'none';
+
 export class CalendarQuery {
   private readonly permissionService = new GroupPermissionService();
 
@@ -89,7 +91,7 @@ export class CalendarQuery {
         authorization.group.id,
         businessMonth,
         periods,
-        true,
+        'all',
         true,
       );
     });
@@ -135,7 +137,7 @@ export class CalendarQuery {
         authorization.group.id,
         period.businessMonth.slice(0, 7),
         [period],
-        true,
+        'all',
         true,
       );
     });
@@ -209,7 +211,14 @@ export class CalendarQuery {
           ),
         )
         .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
-      return this.buildCalendar(transaction, group.id, businessMonth, periods, true, false);
+      return this.buildCalendar(
+        transaction,
+        group.id,
+        businessMonth,
+        periods,
+        'confirmed-only',
+        false,
+      );
     });
     return { calendar, groupName: group.name };
   }
@@ -219,7 +228,7 @@ export class CalendarQuery {
     groupId: string,
     businessMonth: string,
     periods: readonly { readonly id: string; readonly scheduleRoleId: string }[],
-    includeContacts: boolean,
+    contactVisibility: CalendarContactVisibility,
     includeChangeMarkers: boolean,
   ): Promise<CalendarReadModel> {
     if (periods.length === 0) {
@@ -273,9 +282,10 @@ export class CalendarQuery {
     const markersByShiftId = includeChangeMarkers ? collectMarkers(markerEvents) : new Map();
     const memberNamesById = collectMemberNames(assignments);
     const membershipIds = [...memberNamesById.keys()].sort();
-    const contactsByMembershipId = includeContacts
-      ? await this.readContacts(transaction, membershipIds)
-      : new Map<string, ContactRow>();
+    const contactsByMembershipId =
+      contactVisibility !== 'none'
+        ? await this.readContacts(transaction, membershipIds)
+        : new Map<string, ContactRow>();
 
     return {
       assignments: assignments.map((assignment) =>
@@ -283,7 +293,7 @@ export class CalendarQuery {
       ),
       businessMonth,
       groupId,
-      members: buildMembers(memberNamesById, contactsByMembershipId),
+      members: buildMembers(memberNamesById, contactsByMembershipId, contactVisibility),
       roles: buildRoleSummaries(roleNamesById),
       shiftTypes: buildShiftTypeSummaries(assignments),
     };
@@ -413,20 +423,23 @@ function toCalendarAssignment(
 function buildMembers(
   memberNamesById: ReadonlyMap<string, string>,
   contactsByMembershipId: ReadonlyMap<string, ContactRow>,
+  contactVisibility: CalendarContactVisibility,
 ): CalendarDutyMember[] {
   return [...memberNamesById.entries()]
     .map(([membershipId, realName]) => {
       const contact = contactsByMembershipId.get(membershipId);
+      const visibleContact =
+        contactVisibility === 'all' || contact?.isConfirmed === 1 ? contact : undefined;
       return {
         isConfirmed: contact?.isConfirmed === 1,
         membershipId,
         realName,
-        ...(contact?.mobilePhone === null || contact?.mobilePhone === undefined
+        ...(visibleContact?.mobilePhone === null || visibleContact?.mobilePhone === undefined
           ? {}
-          : { mobilePhone: contact.mobilePhone }),
-        ...(contact?.shortPhone === null || contact?.shortPhone === undefined
+          : { mobilePhone: visibleContact.mobilePhone }),
+        ...(visibleContact?.shortPhone === null || visibleContact?.shortPhone === undefined
           ? {}
-          : { shortPhone: contact.shortPhone }),
+          : { shortPhone: visibleContact.shortPhone }),
       };
     })
     .sort(

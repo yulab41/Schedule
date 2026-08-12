@@ -4,6 +4,7 @@ import { parseBusinessMonth } from '../features/calendar/calendar-logic.js';
 import { isCalendarReadModel, isHolidayReadModel } from './calendar-cache-validation.js';
 
 export const calendarCacheKeyPrefix = 'schedule.calendarCache.v1:';
+export const calendarCacheRegistryKeyPrefix = 'schedule.calendarCache.v1:index:';
 export const calendarCacheFreshnessMilliseconds = 5 * 60 * 1000;
 
 export interface CalendarCacheIdentity {
@@ -48,6 +49,12 @@ export function buildCalendarCacheKey(identity: CalendarCacheIdentity): string {
   return `${calendarCacheKeyPrefix}${encodeURIComponent(identity.userId)}:${encodeURIComponent(identity.groupId)}:${identity.groupRole}:${identity.groupVersion}:${identity.businessMonth}`;
 }
 
+export function buildCalendarCacheRegistryKey(userId: string): string {
+  if (typeof userId !== 'string' || userId.length === 0)
+    throw new Error('Calendar cache userId is invalid.');
+  return `${calendarCacheRegistryKeyPrefix}${encodeURIComponent(userId)}`;
+}
+
 export function isCalendarCacheFresh(record: CalendarCacheRecord, now = new Date()): boolean {
   const savedAt = new Date(record.savedAt);
   if (Number.isNaN(savedAt.getTime())) {
@@ -76,6 +83,8 @@ export interface CalendarCache {
     now?: Date,
   ): void;
   remove(identity: CalendarCacheIdentity): void;
+  removeForUser(userId: string): void;
+  removeForUserGroup(userId: string, groupId: string): void;
 }
 
 export function removeCalendarCacheMonths(
@@ -87,6 +96,48 @@ export function removeCalendarCacheMonths(
 }
 
 export function createCalendarCache(port: CalendarCachePort): CalendarCache {
+  const readRegistry = (userId: string): CalendarCacheIdentity[] => {
+    let value: unknown;
+    try {
+      value = port.getStorageSync(buildCalendarCacheRegistryKey(userId));
+    } catch {
+      return [];
+    }
+    if (!Array.isArray(value)) return [];
+    const identities: CalendarCacheIdentity[] = [];
+    for (const candidate of value) {
+      if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) continue;
+      try {
+        assertIdentity(candidate as CalendarCacheIdentity);
+      } catch {
+        continue;
+      }
+      const identity = candidate as CalendarCacheIdentity;
+      if (identity.userId === userId) identities.push(identity);
+    }
+    return identities;
+  };
+  const writeRegistry = (userId: string, identities: readonly CalendarCacheIdentity[]): void => {
+    try {
+      const key = buildCalendarCacheRegistryKey(userId);
+      if (identities.length === 0) port.removeStorageSync(key);
+      else port.setStorageSync(key, identities);
+    } catch {
+      return;
+    }
+  };
+  const removeStoredIdentity = (identity: CalendarCacheIdentity): void => {
+    try {
+      port.removeStorageSync(buildCalendarCacheKey(identity));
+    } catch {
+      return;
+    }
+  };
+  const withoutIdentity = (
+    identities: readonly CalendarCacheIdentity[],
+    target: CalendarCacheIdentity,
+  ): CalendarCacheIdentity[] => identities.filter((identity) => !matchesIdentity(identity, target));
+
   return {
     read(identity) {
       assertIdentity(identity);
@@ -121,11 +172,24 @@ export function createCalendarCache(port: CalendarCachePort): CalendarCache {
     },
     remove(identity) {
       assertIdentity(identity);
-      try {
-        port.removeStorageSync(buildCalendarCacheKey(identity));
-      } catch {
-        return;
-      }
+      removeStoredIdentity(identity);
+      writeRegistry(identity.userId, withoutIdentity(readRegistry(identity.userId), identity));
+    },
+    removeForUser(userId) {
+      const identities = readRegistry(userId);
+      for (const identity of identities) removeStoredIdentity(identity);
+      writeRegistry(userId, []);
+    },
+    removeForUserGroup(userId, groupId) {
+      if (typeof groupId !== 'string' || groupId.length === 0)
+        throw new Error('Calendar cache groupId is invalid.');
+      const identities = readRegistry(userId);
+      const toRemove = identities.filter((identity) => identity.groupId === groupId);
+      for (const identity of toRemove) removeStoredIdentity(identity);
+      writeRegistry(
+        userId,
+        identities.filter((identity) => identity.groupId !== groupId),
+      );
     },
     write(identity, calendar, holidays, now = new Date()) {
       assertIdentity(identity);
@@ -141,6 +205,8 @@ export function createCalendarCache(port: CalendarCachePort): CalendarCache {
       } catch {
         return;
       }
+      const registry = readRegistry(identity.userId);
+      writeRegistry(identity.userId, [...withoutIdentity(registry, identity), identity]);
     },
   };
 }

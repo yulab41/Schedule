@@ -102,6 +102,7 @@ import type {
   UpdateManualScheduleTemplateRequest,
   UpdateMemberNotificationPreferencesInput,
   UpdateMemberSwapSettingsInput,
+  UpdateUserProfileRequest,
   UpdatePastScheduleAssignmentInput,
   UpdatePastScheduleAssignmentResult,
   UpdatePlatformUserStatusInput,
@@ -1016,9 +1017,9 @@ export function recalculateStatistics(
   );
 }
 
-export function updateProfile(realName: string): Promise<UserProfile> {
+export function updateProfile(input: UpdateUserProfileRequest): Promise<UserProfile> {
   return request<UserProfile>('/users/me', {
-    data: { realName },
+    data: input,
     method: 'PATCH',
   });
 }

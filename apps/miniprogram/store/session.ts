@@ -15,6 +15,8 @@ import {
   wechatLogin,
 } from '../api/endpoints.js';
 import { requestWechatLoginCode } from '../features/auth/auth-flow.js';
+import { getCalendarCacheRuntime } from './calendar-cache-runtime.js';
+import { sessionStorage, type SessionStorage } from './session-storage.js';
 
 const pendingInviteStorageKey = 'schedule.pendingInviteToken';
 
@@ -39,6 +41,8 @@ export interface SessionDependencies {
   readonly readPendingInviteToken: () => string | undefined;
   readonly readStoredToken: () => string | undefined;
   readonly requestLoginCode: () => Promise<string>;
+  readonly removeCalendarCacheForUser: (userId: string) => void;
+  readonly sessionStorage: SessionStorage;
   readonly wechatLogin: (code: string) => Promise<WechatLoginResponse>;
   readonly writePendingInviteToken: (token: string | undefined) => void;
   readonly writeStoredToken: (token: string | undefined) => void;
@@ -51,6 +55,7 @@ export interface SessionStore {
   consumePendingInvite(): Promise<void>;
   getPendingInviteToken(): string | undefined;
   markUnauthorized(): void;
+  refreshGroupContext(options?: { readonly preferredGroupId?: string }): Promise<void>;
   restore(): Promise<void>;
   setActiveGroupId(groupId: string): boolean;
   setPendingInviteToken(token: string | undefined): void;
@@ -81,6 +86,7 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
   let signInPromise: Promise<void> | undefined;
   let profilePromise: Promise<void> | undefined;
   let invitePromise: Promise<void> | undefined;
+  let groupContextPromise: Promise<void> | undefined;
 
   const isCurrent = (operationGeneration: number): boolean => operationGeneration === generation;
   const invalidateInFlight = (): void => {
@@ -89,6 +95,7 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     signInPromise = undefined;
     profilePromise = undefined;
     invitePromise = undefined;
+    groupContextPromise = undefined;
   };
   const beginSupersedingOperation = (): number => {
     invalidateInFlight();
@@ -109,18 +116,48 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     ]);
     return { groups, isPlatformAdmin: platform.isPlatformAdmin };
   };
+  const chooseActiveGroupId = (
+    profile: UserProfile,
+    groups: readonly GroupSummary[],
+    preferredGroupId: string | undefined,
+  ): string | undefined => {
+    const savedGroupId = dependencies.sessionStorage.readLastGroupId(profile.id);
+    const activeGroupId = [preferredGroupId, savedGroupId, groups[0]?.id].find(
+      (candidate) => candidate !== undefined && groups.some((group) => group.id === candidate),
+    );
+    if (activeGroupId === undefined) dependencies.sessionStorage.removeLastGroupId(profile.id);
+    else dependencies.sessionStorage.writeLastGroupId(profile.id, activeGroupId);
+    return activeGroupId;
+  };
   const becomeAuthenticated = async (
     profile: UserProfile,
     token: string,
     operationGeneration: number,
+    preferredGroupId?: string,
   ): Promise<boolean> => {
     const context = await loadRoleContext();
     if (!isCurrent(operationGeneration)) return false;
-    const activeGroupId = context.groups.some((group) => group.id === state.activeGroupId)
-      ? state.activeGroupId
-      : context.groups[0]?.id;
+    const activeGroupId = chooseActiveGroupId(profile, context.groups, preferredGroupId);
     state = { activeGroupId, ...context, profile, status: 'authenticated', token };
     return true;
+  };
+  const purgeCurrentUser = (userId: string | undefined): void => {
+    try {
+      dependencies.writeStoredToken(undefined);
+    } catch {
+      // A storage failure must not leave the in-memory session authenticated.
+    }
+    if (userId === undefined) return;
+    try {
+      dependencies.sessionStorage.removeLastGroupId(userId);
+    } catch {
+      // Per-user metadata cleanup is best-effort and must not widen scope.
+    }
+    try {
+      dependencies.removeCalendarCacheForUser(userId);
+    } catch {
+      // Cache cleanup failures must not stop the anonymous transition.
+    }
   };
 
   const store: SessionStore = {
@@ -128,8 +165,9 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
       return state;
     },
     clear: () => {
+      const userId = state.profile?.id;
       invalidateInFlight();
-      dependencies.writeStoredToken(undefined);
+      purgeCurrentUser(userId);
       state = { ...emptyContext, status: 'anonymous' };
     },
     completeProfile: (realName) => {
@@ -189,7 +227,12 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
         dependencies.writePendingInviteToken(undefined);
         const refreshedProfile = await dependencies.getCurrentProfile();
         if (!isCurrent(operationGeneration)) return;
-        await becomeAuthenticated(refreshedProfile, nextToken, operationGeneration);
+        await becomeAuthenticated(
+          refreshedProfile,
+          nextToken,
+          operationGeneration,
+          result.group.id,
+        );
       })();
       invitePromise = operation;
       void operation.then(
@@ -204,8 +247,30 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     },
     getPendingInviteToken: () => dependencies.readPendingInviteToken(),
     markUnauthorized: () => {
-      invalidateInFlight();
-      state = { ...emptyContext, status: 'anonymous' };
+      store.clear();
+    },
+    refreshGroupContext: (options = {}) => {
+      if (groupContextPromise !== undefined) return groupContextPromise;
+      const { profile, token } = state;
+      if (state.status !== 'authenticated' || profile === undefined || token === undefined)
+        return Promise.reject(new Error('请先登录。'));
+      const operationGeneration = generation;
+      const operation = becomeAuthenticated(
+        profile,
+        token,
+        operationGeneration,
+        options.preferredGroupId,
+      ).then(() => undefined);
+      groupContextPromise = operation;
+      void operation.then(
+        () => {
+          if (groupContextPromise === operation) groupContextPromise = undefined;
+        },
+        () => {
+          if (groupContextPromise === operation) groupContextPromise = undefined;
+        },
+      );
+      return operation;
     },
     restore: () => {
       if (restorePromise !== undefined) return restorePromise;
@@ -254,6 +319,9 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     },
     setActiveGroupId: (groupId) => {
       if (!state.groups.some((group) => group.id === groupId)) return false;
+      const userId = state.profile?.id;
+      if (userId === undefined) return false;
+      dependencies.sessionStorage.writeLastGroupId(userId, groupId);
       state = { ...state, activeGroupId: groupId };
       return true;
     },
@@ -317,6 +385,8 @@ export const sessionStore = createSessionStore({
   },
   readStoredToken: getStoredToken,
   requestLoginCode: () => requestWechatLoginCode({ login: (options) => wx.login(options) }),
+  removeCalendarCacheForUser: (userId) => getCalendarCacheRuntime().removeForUser(userId),
+  sessionStorage,
   wechatLogin,
   writePendingInviteToken: (token) => {
     if (token === undefined || token.length === 0) wx.removeStorageSync(pendingInviteStorageKey);

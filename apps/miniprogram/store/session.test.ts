@@ -49,6 +49,12 @@ function createDependencies(overrides: Partial<SessionDependencies> = {}) {
     requestLoginCode: vi.fn<SessionDependencies['requestLoginCode']>(() =>
       Promise.resolve('wx-code'),
     ),
+    removeCalendarCacheForUser: vi.fn<SessionDependencies['removeCalendarCacheForUser']>(),
+    sessionStorage: {
+      readLastGroupId: vi.fn(),
+      removeLastGroupId: vi.fn(),
+      writeLastGroupId: vi.fn(),
+    },
     wechatLogin: vi.fn<SessionDependencies['wechatLogin']>(() =>
       Promise.resolve({ isNewUser: false, profile, token: 'login-token' }),
     ),
@@ -105,7 +111,7 @@ describe('session store', () => {
     const expiredStore = createSessionStore(expired);
     await expiredStore.restore();
     expect(expiredStore.state.status).toBe('anonymous');
-    expect(expired.writeStoredToken).not.toHaveBeenCalled();
+    expect(expired.writeStoredToken).toHaveBeenCalledWith(undefined);
   });
 
   it('uses profile presence rather than isNewUser and single-flights repeated sign-in', async () => {
@@ -165,13 +171,13 @@ describe('session store', () => {
     expect(dependencies.createUserProfile).toHaveBeenCalledTimes(1);
   });
 
-  it('marks protected unauthorized state in memory without deleting storage a second time', async () => {
+  it('marks protected unauthorized state after safely purging the current session', async () => {
     const dependencies = createDependencies({ readStoredToken: () => 'stored-token' });
     const store = createSessionStore(dependencies);
     await store.restore();
     store.markUnauthorized();
     expect(store.state.status).toBe('anonymous');
-    expect(dependencies.writeStoredToken).not.toHaveBeenCalled();
+    expect(dependencies.writeStoredToken).toHaveBeenCalledWith(undefined);
   });
 
   it('does not resurrect a late sign-in after an unauthorized transition', async () => {
@@ -276,5 +282,53 @@ describe('session store', () => {
     store.setPendingInviteToken('invite-token');
     store.setPendingInviteToken('invite-token');
     expect(dependencies.writePendingInviteToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores a saved group only for the authenticated user and removes a stale saved group', async () => {
+    const saved = new Map<string, string | undefined>([
+      ['user-1', 'group-2'],
+      ['user-2', 'other-group'],
+    ]);
+    const groupTwo: GroupSummary = { id: 'group-2', name: '外科', role: 'member', version: 3 };
+    const dependencies = createDependencies({
+      listGroups: vi.fn(() => Promise.resolve([group, groupTwo])),
+      readStoredToken: () => 'stored-token',
+      sessionStorage: {
+        readLastGroupId: (userId: string) => saved.get(userId),
+        removeLastGroupId: (userId: string) => saved.delete(userId),
+        writeLastGroupId: (userId: string, groupId: string) => saved.set(userId, groupId),
+      },
+    });
+    const store = createSessionStore(dependencies);
+
+    await store.restore();
+    expect(store.state.activeGroupId).toBe('group-2');
+
+    saved.set('user-1', 'stale-group');
+    await store.refreshGroupContext();
+    expect(store.state.activeGroupId).toBe('group-1');
+    expect(saved.get('user-1')).toBe('group-1');
+    expect(saved.get('user-2')).toBe('other-group');
+  });
+
+  it('purges only the current user cache and metadata before publishing anonymous state', async () => {
+    const calls: string[] = [];
+    const dependencies = createDependencies({
+      readStoredToken: () => 'stored-token',
+      removeCalendarCacheForUser: (userId: string) => calls.push(`cache:${userId}`),
+      sessionStorage: {
+        readLastGroupId: () => undefined,
+        removeLastGroupId: (userId: string) => calls.push(`last-group:${userId}`),
+        writeLastGroupId: () => undefined,
+      },
+      writeStoredToken: () => calls.push('token'),
+    });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+
+    store.clear();
+
+    expect(calls).toEqual(['token', 'last-group:user-1', 'cache:user-1']);
+    expect(store.state.status).toBe('anonymous');
   });
 });

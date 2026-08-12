@@ -1,5 +1,9 @@
 import { listGroupContacts, listGroupMembers } from '../../api/endpoints.js';
 import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
+import {
+  guardMiniprogramRoute,
+  isMembershipRouteRole,
+} from '../../features/navigation/route-guard.js';
 import { loadOwnGroupContacts } from '../../features/profile/profile-logic.js';
 import { sessionStore } from '../../store/session.js';
 
@@ -15,6 +19,20 @@ Page({
     const state = sessionStore.state;
     if (state.status !== 'authenticated' || state.profile === undefined) {
       navigateForCurrentSession();
+      return;
+    }
+    if (
+      !guardMiniprogramRoute(state, '/pages/profile/index', {
+        hideTabBar: () => wx.hideTabBar({}),
+        reLaunch: (options) => wx.reLaunch(options),
+        showTabBar: () => wx.showTabBar({}),
+        switchTab: (options) => wx.switchTab(options),
+      })
+    )
+      return;
+    const activeGroup = state.groups.find((group) => group.id === state.activeGroupId);
+    if (!isMembershipRouteRole(activeGroup?.role)) {
+      this.setData({ errorMessage: '', loading: false, profile: state.profile, summaries: [] });
       return;
     }
     const version = ++requestVersion;

@@ -4,6 +4,7 @@ import {
   buildWorkbenchSections,
   resolveWorkflowRouteContext,
 } from '../../features/navigation/workbench-navigation.js';
+import { guardMiniprogramRoute } from '../../features/navigation/route-guard.js';
 import { sessionStore } from '../../store/session.js';
 
 Page({
@@ -17,6 +18,15 @@ Page({
       navigateForCurrentSession();
       return;
     }
+    if (
+      !guardMiniprogramRoute(state, '/pages/workbench/index', {
+        hideTabBar: () => wx.hideTabBar({}),
+        reLaunch: (options) => wx.reLaunch(options),
+        showTabBar: () => wx.showTabBar({}),
+        switchTab: (options) => wx.switchTab(options),
+      })
+    )
+      return;
     this.setData({
       activeGroupId: state.activeGroupId ?? '',
       sections: buildWorkbenchSections(state.groups, state.isPlatformAdmin),

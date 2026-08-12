@@ -44,6 +44,9 @@ import {
   updateGroupSwapSettings,
   updateLeaveReflowStrategy,
   updateMySwapSettings,
+  updateProfile,
+  getGuestCalendar,
+  resolveGuestGroup,
 } from './endpoints.js';
 
 const groupId = 'group-1';
@@ -182,5 +185,32 @@ describe('workflow endpoint wrappers', () => {
     expectTypeOf(createDirectDutyAdjustment(groupId, directDuty)).toEqualTypeOf<
       Promise<DutyAdjustmentRequest>
     >();
+  });
+});
+
+describe('Task 10 endpoint boundaries', () => {
+  beforeEach(() => {
+    requestMock.mockReset();
+  });
+
+  it('sends profile concurrency version and keeps public visitor calls unauthenticated', () => {
+    updateProfile({ realName: '张医生', version: 7 });
+    resolveGuestGroup('a'.repeat(32));
+    getGuestCalendar('group-1', 'b'.repeat(32), '2026-08');
+
+    expect(requestMock.mock.calls).toEqual([
+      ['/users/me', { data: { realName: '张医生', version: 7 }, method: 'PATCH' }],
+      [
+        '/guest/groups/resolve',
+        { auth: false, data: { visitorKey: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }, method: 'POST' },
+      ],
+      [
+        '/guest/groups/group-1/calendar',
+        {
+          auth: false,
+          data: { businessMonth: '2026-08', visitorKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
+        },
+      ],
+    ]);
   });
 });

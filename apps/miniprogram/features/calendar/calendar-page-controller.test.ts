@@ -450,7 +450,7 @@ describe('calendar page controller', () => {
     expect(harness.getCalendar).toHaveBeenCalledTimes(3);
     expect(harness.getHolidays).toHaveBeenCalledTimes(1);
     expect(updates.filter(({ viewModel }) => viewModel.status === 'ready')).toHaveLength(3);
-    expect(memory.calls.writes).toBe(3);
+    expect(memory.calls.writes).toBe(6);
   });
 
   it('re-publishes a loaded slot when it re-enters a newly mounted page window', async () => {

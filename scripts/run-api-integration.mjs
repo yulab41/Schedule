@@ -15,6 +15,18 @@ export const workflowIntegrationTestFiles = [
   'apps/api/src/modules/duty-adjustments/duty-adjustments.integration.test.ts',
 ];
 
+export const task10IntegrationTestFiles = [
+  'apps/api/src/modules/calendar/calendar.integration.test.ts',
+  'apps/api/src/modules/calendar/visitor-access.integration.test.ts',
+  'apps/api/src/modules/groups/group-routes.integration.test.ts',
+  'apps/api/src/modules/groups/group-permissions.integration.test.ts',
+  'apps/api/src/modules/groups/membership-claims.integration.test.ts',
+  'apps/api/src/modules/groups/invite-service.integration.test.ts',
+  'apps/api/src/modules/notifications/notifications.integration.test.ts',
+  'apps/api/src/modules/wechat/wechat-notifications.integration.test.ts',
+  'apps/api/src/modules/users/user-routes.integration.test.ts',
+];
+
 export function findApiIntegrationEnvironmentIssues(environment) {
   const issues = [];
   const database = environment.TEST_MYSQL_DATABASE;
@@ -36,7 +48,11 @@ export function findApiIntegrationEnvironmentIssues(environment) {
   return issues;
 }
 
-export function runWorkflowIntegrationTests({ environment = process.env, spawn = spawnSync } = {}) {
+export function runApiIntegrationTests({
+  environment = process.env,
+  spawn = spawnSync,
+  testFiles = workflowIntegrationTestFiles,
+} = {}) {
   const issues = findApiIntegrationEnvironmentIssues(environment);
   if (issues.length > 0) {
     console.error('[api-integration] refused to run');
@@ -44,21 +60,25 @@ export function runWorkflowIntegrationTests({ environment = process.env, spawn =
     return 1;
   }
 
-  const result = spawn(
-    process.execPath,
-    [vitestEntrypoint, 'run', ...workflowIntegrationTestFiles],
-    {
-      cwd: repositoryRoot,
-      env: { ...environment, NODE_ENV: 'test' },
-      stdio: 'inherit',
-    },
-  );
+  const result = spawn(process.execPath, [vitestEntrypoint, 'run', ...testFiles], {
+    cwd: repositoryRoot,
+    env: { ...environment, NODE_ENV: 'test' },
+    stdio: 'inherit',
+  });
   if (result.error !== undefined) {
     console.error('[api-integration] could not start Vitest');
     return 1;
   }
 
   return typeof result.status === 'number' ? result.status : 1;
+}
+
+export function runWorkflowIntegrationTests(options = {}) {
+  return runApiIntegrationTests({ ...options, testFiles: workflowIntegrationTestFiles });
+}
+
+export function runTask10IntegrationTests(options = {}) {
+  return runApiIntegrationTests({ ...options, testFiles: task10IntegrationTestFiles });
 }
 
 const invokedUrl = process.argv[1] ? pathToFileURL(process.argv[1]).href : undefined;

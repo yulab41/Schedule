@@ -19,7 +19,13 @@ describe('calendar cache invalidation', () => {
     const remove = vi.fn();
     const registry = createCalendarInvalidationRegistry();
     const runtime = createCalendarCacheRuntime({
-      cache: { read: () => undefined, remove, write: () => undefined },
+      cache: {
+        read: () => undefined,
+        remove,
+        removeForUser: () => undefined,
+        removeForUserGroup: () => undefined,
+        write: () => undefined,
+      },
       registry,
     });
     const observer = createCalendarInvalidationObserver(registry);

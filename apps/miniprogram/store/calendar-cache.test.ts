@@ -142,4 +142,47 @@ describe('calendar read cache', () => {
     expect(remove).toHaveBeenNthCalledWith(1, { ...identity, businessMonth: '2026-08' });
     expect(remove).toHaveBeenNthCalledWith(2, { ...identity, businessMonth: '2026-09' });
   });
+
+  it('uses the written identity registry to purge only one user or one user-group cache set', () => {
+    const storage = new Map<string, unknown>();
+    const port = {
+      getStorageSync: (key: string) => storage.get(key),
+      removeStorageSync: (key: string) => storage.delete(key),
+      setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+    };
+    const cache = createCalendarCache(port);
+    const otherUser = { ...identity, userId: 'user:2' };
+    const otherGroup = { ...identity, businessMonth: '2026-09', groupId: 'group:2' };
+
+    cache.write(identity, goldenCalendar, goldenHolidays);
+    cache.write(otherUser, goldenCalendar, goldenHolidays);
+    cache.write(otherGroup, goldenCalendar, goldenHolidays);
+    cache.removeForUserGroup(identity.userId, identity.groupId);
+
+    expect(cache.read(identity)).toBeUndefined();
+    expect(cache.read(otherGroup)).toBeDefined();
+    expect(cache.read(otherUser)).toBeDefined();
+
+    cache.removeForUser(identity.userId);
+    expect(cache.read(otherGroup)).toBeUndefined();
+    expect(cache.read(otherUser)).toBeDefined();
+  });
+
+  it('contains corrupt registry and storage-removal failures without deleting another user cache', () => {
+    const storage = new Map<string, unknown>();
+    const otherUser = { ...identity, userId: 'user:2' };
+    const cache = createCalendarCache({
+      getStorageSync: (key) => storage.get(key),
+      removeStorageSync: (key) => {
+        if (key.includes('user%3A1')) throw new Error('storage unavailable');
+        storage.delete(key);
+      },
+      setStorageSync: (key, value) => storage.set(key, value),
+    });
+    cache.write(identity, goldenCalendar, goldenHolidays);
+    cache.write(otherUser, goldenCalendar, goldenHolidays);
+
+    expect(() => cache.removeForUser(identity.userId)).not.toThrow();
+    expect(cache.read(otherUser)).toBeDefined();
+  });
 });

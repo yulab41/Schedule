@@ -22,6 +22,7 @@ import {
   resolveWorkflowRouteContext,
   type WorkflowRouteContext,
 } from '../../../../features/navigation/workbench-navigation.js';
+import { guardMiniprogramRoute } from '../../../../features/navigation/route-guard.js';
 import { getCalendarCacheRuntime } from '../../../../store/calendar-cache-runtime.js';
 import { sessionStore } from '../../../../store/session.js';
 
@@ -134,6 +135,20 @@ Page<LeavePageData, LeavePageMethods>({
       return;
     }
     const selectedGroupId = this.selectedGroupId;
+    if (
+      !guardMiniprogramRoute(
+        session,
+        '/subpackages/workflows/pages/leave/index',
+        {
+          hideTabBar: () => wx.hideTabBar({}),
+          reLaunch: (options) => wx.reLaunch(options),
+          showTabBar: () => wx.showTabBar({}),
+          switchTab: (options) => wx.switchTab(options),
+        },
+        selectedGroupId,
+      )
+    )
+      return;
     const context =
       selectedGroupId === undefined
         ? undefined

@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   findApiIntegrationEnvironmentIssues,
+  runTask10IntegrationTests,
   runWorkflowIntegrationTests,
+  task10IntegrationTestFiles,
   workflowIntegrationTestFiles,
 } from './run-api-integration.mjs';
 
@@ -49,6 +51,20 @@ describe('API integration test runtime guard', () => {
     ]);
   });
 
+  it('keeps the Task 10 command on an explicit security integration allowlist', () => {
+    expect(task10IntegrationTestFiles).toEqual([
+      'apps/api/src/modules/calendar/calendar.integration.test.ts',
+      'apps/api/src/modules/calendar/visitor-access.integration.test.ts',
+      'apps/api/src/modules/groups/group-routes.integration.test.ts',
+      'apps/api/src/modules/groups/group-permissions.integration.test.ts',
+      'apps/api/src/modules/groups/membership-claims.integration.test.ts',
+      'apps/api/src/modules/groups/invite-service.integration.test.ts',
+      'apps/api/src/modules/notifications/notifications.integration.test.ts',
+      'apps/api/src/modules/wechat/wechat-notifications.integration.test.ts',
+      'apps/api/src/modules/users/user-routes.integration.test.ts',
+    ]);
+  });
+
   it('starts the local Vitest entrypoint with a child-only test environment and propagates exit status', () => {
     const spawn = vi.fn(() => ({ status: 7 }));
 
@@ -59,6 +75,25 @@ describe('API integration test runtime guard', () => {
         fileURLToPath(new URL('../node_modules/vitest/vitest.mjs', import.meta.url)),
         'run',
         ...workflowIntegrationTestFiles,
+      ],
+      {
+        cwd: fileURLToPath(new URL('../', import.meta.url)),
+        env: { ...safeEnvironment, NODE_ENV: 'test' },
+        stdio: 'inherit',
+      },
+    );
+  });
+
+  it('starts Task 10 only with its fixed allowlist', () => {
+    const spawn = vi.fn(() => ({ status: 0 }));
+
+    expect(runTask10IntegrationTests({ environment: safeEnvironment, spawn })).toBe(0);
+    expect(spawn).toHaveBeenCalledWith(
+      process.execPath,
+      [
+        fileURLToPath(new URL('../node_modules/vitest/vitest.mjs', import.meta.url)),
+        'run',
+        ...task10IntegrationTestFiles,
       ],
       {
         cwd: fileURLToPath(new URL('../', import.meta.url)),

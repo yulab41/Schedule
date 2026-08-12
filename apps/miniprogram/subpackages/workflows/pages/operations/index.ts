@@ -41,6 +41,7 @@ import {
   resolveWorkflowRouteContext,
   type WorkflowRouteContext,
 } from '../../../../features/navigation/workbench-navigation.js';
+import { guardMiniprogramRoute } from '../../../../features/navigation/route-guard.js';
 import { getCalendarCacheRuntime } from '../../../../store/calendar-cache-runtime.js';
 import { sessionStore } from '../../../../store/session.js';
 
@@ -184,6 +185,20 @@ Page<OperationsPageData, OperationsPageMethods>({
       navigateForCurrentSession();
       return;
     }
+    if (
+      !guardMiniprogramRoute(
+        session,
+        '/subpackages/workflows/pages/operations/index',
+        {
+          hideTabBar: () => wx.hideTabBar({}),
+          reLaunch: (options) => wx.reLaunch(options),
+          showTabBar: () => wx.showTabBar({}),
+          switchTab: (options) => wx.switchTab(options),
+        },
+        this.selectedGroupId,
+      )
+    )
+      return;
     const context =
       this.selectedGroupId === undefined
         ? undefined
