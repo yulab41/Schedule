@@ -50,6 +50,8 @@ function createDependencies(overrides: Partial<SessionDependencies> = {}) {
       Promise.resolve('wx-code'),
     ),
     removeCalendarCacheForUser: vi.fn<SessionDependencies['removeCalendarCacheForUser']>(),
+    removeCalendarCacheForUserGroup:
+      vi.fn<SessionDependencies['removeCalendarCacheForUserGroup']>(),
     sessionStorage: {
       readLastGroupId: vi.fn(),
       removeLastGroupId: vi.fn(),
@@ -268,6 +270,16 @@ describe('session store', () => {
     expect(store.setActiveGroupId('unknown')).toBe(false);
     store.clear();
     expect(dependencies.writePendingInviteToken).not.toHaveBeenCalled();
+  });
+
+  it('removes only the authenticated user cache for a group that remains in session context', async () => {
+    const dependencies = createDependencies({ readStoredToken: () => 'stored-token' });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+
+    expect(store.removeCalendarCacheForGroup(group.id)).toBe(true);
+    expect(dependencies.removeCalendarCacheForUserGroup).toHaveBeenCalledWith('user-1', group.id);
+    expect(store.removeCalendarCacheForGroup('missing-group')).toBe(false);
   });
 
   it('writes the same pending invite token only once across capture sites', () => {

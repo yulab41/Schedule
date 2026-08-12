@@ -57,6 +57,9 @@ describe('miniprogram route guard', () => {
       allowed: true,
       hideTabBar: true,
     });
+    expect(
+      resolveMiniprogramRouteAccess(guestState, '/subpackages/groups/pages/index'),
+    ).toMatchObject({ allowed: true, hideTabBar: true });
     expect(resolveMiniprogramRouteAccess(guestState, '/pages/notifications/index')).toMatchObject({
       allowed: false,
       redirect: '/pages/workbench/index',

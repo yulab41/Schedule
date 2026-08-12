@@ -3,6 +3,7 @@
     "pages/auth/login/index",
     "pages/auth/profile-setup/index",
     "pages/invite/invite",
+    "pages/guest/guest",
     "pages/workbench/index",
     "pages/calendar/index",
     "pages/notifications/index",
@@ -12,6 +13,10 @@
     {
       "root": "subpackages/workflows",
       "pages": ["pages/requests/index", "pages/leave/index", "pages/operations/index"]
+    },
+    {
+      "root": "subpackages/groups",
+      "pages": ["pages/index"]
     }
   ],
   "window": {

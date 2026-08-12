@@ -14,14 +14,12 @@ function read(relativePath) {
 }
 
 describe('workflows subpackage boundary', () => {
-  it('registers the Task 9.2 leave page in the workflows subpackage without changing the four tab routes', () => {
+  it('keeps the Task 9.2 leave page in the workflows subpackage without changing the four tab routes', () => {
     const appJson = JSON.parse(read('app.json'));
-    expect(appJson.subPackages).toEqual([
-      {
-        root: 'subpackages/workflows',
-        pages: ['pages/requests/index', 'pages/leave/index', 'pages/operations/index'],
-      },
-    ]);
+    expect(appJson.subPackages).toContainEqual({
+      root: 'subpackages/workflows',
+      pages: ['pages/requests/index', 'pages/leave/index', 'pages/operations/index'],
+    });
     expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/requests/index');
     expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/leave/index');
     expect(listRegisteredPages(appJson)).toContain('subpackages/workflows/pages/operations/index');

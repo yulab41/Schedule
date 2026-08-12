@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9 与 API integration runtime 已完成；Task 10.1 已由 `20407fc` 推送，Task 10.2 已完成并待本轮 checkpoint，Task 10.3 尚未开始。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-2 已完成，V3-2 最终代码检查点 `9629454` 已在 `origin/main`。V3-3 Task 9 与 API integration runtime 已完成；Task 10.1 `20407fc`、Task 10.2 `64e57f0` 已推送，Task 10.3 已完成并待本轮 checkpoint。Task 10 到此结束，真机矩阵待用户复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -1774,3 +1774,12 @@
 - Profile：资料保存携带版本；409 仅获取权威 profile、保留原错误并同步安全的 session profile，不自动重放。联系方式仅以当前用户的 `(groupId, membershipId)` 调用 `confirm: true`；runtime version 通过安全的 `wx.getAccountInfoSync()` 独立读取。logout 单飞、调用既有精确 session 清理，存储异常仍 reLaunch 登录页。
 - 验证：完整 `apps/miniprogram` 加 Task 10.2 静态边界共 37 文件 / 166 项通过；config audit、typecheck、lint、明确任务文件 Prettier 与 `git diff --check` 通过。全局 `pnpm format:check` 只因用户/DevTools 未跟踪 `apps/miniprogram/minitest/test.config.json` 非零，未改或暂存该产物。`pnpm smoke:browser` 通过登录/管理员/成员/访客/访问审计，随后 `pnpm smoke:check-core` 通过。首次 build 后 preview 曾因 TDesign WXSS 落盘时序报缺失；最终重建 build-npm 成功（cost 4193、warnings `[]`），preview 成功（299.6 KB）。连接式 `pnpm miniprogram:smoke` 自动重连后打开 10/10 注册页面，无脚本级错误；profile/notifications 截图已复核。
 - 状态：已完成（含运行/浏览器/DevTools 验证），待用户复核。检查点信息：`feat(miniprogram): add notifications and profile controls`；正常快进推送后停止，等待用户明确授权并基于实际代码重新审阅后再决定是否只启动 Task 10.3。
+
+### V3-3 Task 10.3 群组与匿名访客旅程（2026-08-12）
+
+- 授权与范围：用户在 Task 10.2 已推送基线上明确要求继续；本轮只实施 10.3，完成后停止，不进入 V3-4。用户保留的未跟踪 `apps/miniprogram/minitest/` 未读取、修改、格式化或暂存。
+- 回归溯源：`git log -S 'listGroupCatalog'` 将群组 catalog wrapper 定位至 `a68dd03`，`setActiveGroupId` 与 `restoreAndNavigate` 定位至 `bc534c0`，`getGuestCalendar` 的 Task 10 访客边界定位至 `20407fc`；`git blame` 复核后再修改调用点。全量测试首次暴露两处历史断言不适配：Task 10 static guard (`20407fc`) 仍要求通知页直接 import guard，实际 10.2 已改为 `activateNotificationsPage` 间接调用；workflows subpackage 全等断言来自 `5ccd04f`，不应阻断新 groups 子包。两处都改为验证真实安全语义，非掩盖测试。
+- 测试先行：groups/visitor 控制器、route、manifest 与静态边界测试先因模块、页面、manifest 路由和 guest allowlist 缺失而失败；实现后转绿。controller 测试覆盖 closed relation mapping、left-member 不发 claim/join、join/leave/restore 会话刷新、离群缓存清理和 generation 陈旧完成；visitor 测试覆盖一次 decode、404/429/network 安全消息、翻月不 resolve/持久化及陈旧 scene。
+- 实现与语义：新增 groups 子包和工作台入口。加入/恢复以 preferred group 刷新；离开先请求服务端、清该用户该群 cache、再刷新活跃群组；owner 不显示离开，member/guest 显示不同后果，历史成员只提示管理员邀请。匿名 QR 启动绕过认证恢复；visitor key 仅内存、仅 resolve + 对应 group calendar、无 cache/login/storage，公开 ViewModel 强制移除 markers，WXML 无电话/详情 route/事件/通知/写操作。
+- 验证：定向 7 文件 / 43 项、完整小程序与静态边界 45 文件 / 194 项通过；`pnpm test:api-integration:task10` 在真实 `schedule_test` 通过 9 文件 / 58 项、零 skip。config audit、typecheck、排除用户未跟踪 minitest 的 lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过。DevTools build-npm 成功且 warnings `[]`，preview 315.2 KB 含 groups 子包；首次 automation 受沙箱 `.cli` EPERM 阻塞，获准提升后重试，12/12 注册页面均打开、无脚本错误。
+- 状态：已完成（含运行/浏览器/DevTools 验证），待用户复核。检查点信息：`feat(miniprogram): add group and guest journeys`；完成正常快进推送后停止，Task 10 已全部完成，未经新授权不得进入 V3-4。

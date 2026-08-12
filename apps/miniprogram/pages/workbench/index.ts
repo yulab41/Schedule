@@ -2,6 +2,7 @@ import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
 import {
   buildWorkflowRequestRoute,
   buildWorkbenchSections,
+  groupsRoute,
   resolveWorkflowRouteContext,
 } from '../../features/navigation/workbench-navigation.js';
 import { guardMiniprogramRoute } from '../../features/navigation/route-guard.js';
@@ -49,6 +50,7 @@ Page({
     const route = event.currentTarget.dataset.route;
     if (route === '/pages/calendar/index' || route === '/pages/notifications/index')
       wx.switchTab({ url: route });
+    else if (route === groupsRoute) wx.navigateTo({ url: groupsRoute });
     else if (
       (entry === 'leave' || entry === 'swap' || entry === 'duty') &&
       typeof groupId === 'string' &&

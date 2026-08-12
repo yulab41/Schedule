@@ -37,6 +37,7 @@ export interface WorkflowRouteContext {
 }
 
 export const workflowRequestsRoute = '/subpackages/workflows/pages/requests/index';
+export const groupsRoute = '/subpackages/groups/pages/index';
 
 export const workbenchEntries: readonly WorkbenchEntry[] = [
   {
@@ -45,7 +46,7 @@ export const workbenchEntries: readonly WorkbenchEntry[] = [
     requiresAdministrator: false,
     tabRoute: '/pages/calendar/index',
   },
-  { id: 'groups', label: '群组管理', requiresAdministrator: false },
+  { id: 'groups', label: '群组管理', requiresAdministrator: false, route: groupsRoute },
   { id: 'manual', label: '手动排班', requiresAdministrator: true },
   { id: 'backfill', label: '排班补录', requiresAdministrator: true },
   { id: 'leave', label: '请假', requiresAdministrator: false, route: workflowRequestsRoute },

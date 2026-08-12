@@ -9,7 +9,7 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-3 Task 9.1–9.3 已形成 `5ccd04f`、`ddf8295` 和 `d8387e7` 三个代码检查点并正常快进推送至 `origin/main`；`189120e` 已为 leave/swap/duty 三套真实数据库测试建立并验证安全本地入口（3 文件 / 78 项、零 skip）。Task 9 真机角色矩阵仍待用户/设备复核。Task 10.1 已由 `20407fc` 完成并推送；Task 10.2 已实现通知、提醒偏好、微信订阅与个人资料控制器，待本轮检查点正常推送后停止。Task 10.3 尚未开始。
+- 当前批次：V3-3 Task 9.1–9.3 已形成 `5ccd04f`、`ddf8295` 和 `d8387e7` 三个代码检查点并正常快进推送至 `origin/main`；`189120e` 已为 leave/swap/duty 三套真实数据库测试建立并验证安全本地入口（3 文件 / 78 项、零 skip）。Task 9 真机角色矩阵仍待用户/设备复核。Task 10.1 `20407fc`、Task 10.2 `64e57f0` 均已完成并推送；本轮完成 Task 10.3 群组与匿名访客旅程，待本轮检查点正常快进推送后停止。Task 10 到此完成，真机矩阵仍待用户复核。
 
 ## Completed Batch
 
@@ -200,6 +200,14 @@
 - 验证：定向安全测试 7 文件 / 41 项、完整小程序测试 29 文件 / 145 项、shell/manifest/calendar/workflows/Task 10 boundary 5 文件 / 16 项，以及 `pnpm test:api-integration:task10` 9 文件 / 58 项（零 skip）均通过。config audit、两个 typecheck、lint、明确文件 Prettier、`pnpm smoke:browser`、随后 `pnpm smoke:check-core` 与 `git diff --check` 通过。
 - 状态：已完成（含运行/浏览器验证），待用户复核。检查点提交信息：`fix(miniprogram): secure Task 10 session and visitor boundaries`；完成正常快进推送后停止，Task 10.2 不在本轮范围。
 
+### V3-3：Task 10.3 群组与匿名访客旅程（已完成，2026-08-12）
+
+- 群组：新增受共享 route guard 保护的 groups 子包；工作台“群组”入口可进入当前群组、catalog、访客加入、成员/访客离开和群主可恢复列表。catalog 只接受 `none`、`active-member`、`active-guest`、`left-member` 四种关系，未知值安全降级为 `none`；历史成员只显示管理员邀请回流，不发起 claim/join。加入与恢复使用 preferred group 刷新会话；离开清理该用户该群日历缓存后刷新，会话负责选择仍有效的 active group。
+- 匿名访客：主包注册无 tabBar 的 `pages/guest/guest`；QR 启动绕过登录恢复，scene 只解码一次并仅接受 32 位十六进制 visitor key。控制器只调用 resolve 与对应群组公开 calendar，key 仅存于内存；翻月不重新 resolve、不登录、不缓存、不持久化。页面复用纯 calendar ViewModel/grid，但显式剥离变更标识且不绑定详情、电话、通知、事件、审批或写入动作。
+- 回归溯源与语义审计：`listGroupCatalog` 来自 `a68dd03`、`setActiveGroupId`/`restoreAndNavigate` 来自 `bc534c0`、公开访客 calendar 由 `20407fc` 收紧；旧 Task 10 static guard 断言由 `20407fc` 引入、workflows 子包全等断言由 `5ccd04f` 引入。本轮不是语义等价重构：新增公开 QR 启动绕过、群组会话刷新/缓存清理和新 route。已有 notification 通过 `activateNotificationsPage` 间接 guard 的链路保持不变；workflows 测试改为保留其自身子包断言而不禁止后续子包。
+- 测试先行与验证：实现前目标测试因 controller/page/manifest/route 缺失而失败；实现后定向 7 文件 / 43 项、完整小程序与静态边界 45 文件 / 194 项通过。`pnpm test:api-integration:task10` 在真实 `schedule_test` 通过 9 文件 / 58 项、零 skip；config audit、typecheck、排除用户 `apps/miniprogram/minitest/` 的小程序 lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 均通过。DevTools build-npm 成功（无 warning），preview 成功（315.2 KB，含 groups 子包）；提升权限后的标准 automation smoke 打开全部 12 个注册页面（含匿名访客页与 groups 子包）且无脚本级错误。
+- 状态：已完成（含运行/浏览器/DevTools 验证），待用户复核。检查点提交信息：`feat(miniprogram): add group and guest journeys`；完成正常快进推送后停止，不进入 V3-4。
+
 ## Validation
 
 - 清理前基线：`pnpm miniprogram:typecheck` 通过；`pnpm vitest run apps/miniprogram` 通过（18 个文件 / 101 项，包含随后归档的 V2 回归 spec）。
@@ -219,6 +227,7 @@
 - V3-3 Task 10 计划验证：新 Task 10 文件以及项目状态、调试日志、V3 设计、路线图和 Task 9 历史计划的 Prettier 检查通过；`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（仅计划、设计、状态文档，未改 Web/API/契约/认证/构建核心链路）。
 - V3-3 Task 10.1：定向安全测试 7 文件 / 41 项、完整小程序 29 文件 / 145 项、5 个静态边界文件 / 16 项、Task 10 API integration 9 文件 / 58 项（真实 `schedule_test`、零 skip）通过；config audit、mini-program/API typecheck、lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过。
 - V3-3 Task 10.2：完整小程序与静态页面边界 37 文件 / 166 项通过；config audit、mini-program typecheck、lint、明确任务文件 Prettier 和 `git diff --check` 通过。全局 `pnpm format:check` 仅因未跟踪、用户保留的 `apps/miniprogram/minitest/test.config.json` 非零，未修改或暂存该文件。`pnpm smoke:browser` → `pnpm smoke:check-core` 通过。最终 DevTools build-npm 成功（`cost: 4193`、`warnings: []`），preview 成功（299.6 KB）；连接式 smoke 自动重连后打开全部 10 个注册页面且无脚本级错误。
+- V3-3 Task 10.3：定向 groups/visitor/session/navigation/static 边界 7 文件 / 43 项、完整小程序与静态边界 45 文件 / 194 项通过；`pnpm test:api-integration:task10` 在真实 `schedule_test` 通过 9 文件 / 58 项、零 skip。config audit、mini-program typecheck、排除用户未跟踪 `apps/miniprogram/minitest/` 的 lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过；DevTools build-npm 无 warning、preview 315.2 KB，automation smoke 打开 12/12 注册页面且无脚本错误。
 
 ## Decisions and Deviations
 
@@ -232,6 +241,7 @@
 - V3 日历必须完整保留成员、班次、节假日和当前契约的换/替/加标识；`deduction` 只有未来服务端/契约实际提供且上下文允许时才能出现；同日多排班不得只取第一条。
 - V3-3 工作流不使用统一 preview 模板：每个动作只发送当前合同提供的字段；管理员两类 direct 是独立特权路径，普通申请才遵守自动接受/群组审批设置。
 - Task 10.2 不扩展 API 或共享契约：通知读状态和未读数仍以服务端为准；提醒偏好仅提交微信开关与 duty 提醒小时，绝不写入浏览器提醒字段；通知首版不构造通用对象深链。profile 409 只刷新并呈现权威资料，绝不自动重放写入。
+- Task 10.3 匿名 visitor key 只存在控制器内存，不写入 session/cache/storage；公开页始终无 tabBar 且不复用认证 guest 控制器。群组页仅提供服务器允许的 join/leave/restore 请求，群主不能离开和历史成员仅管理员邀请均由服务端作最终裁决。
 
 ## Previous Batch
 
@@ -242,13 +252,13 @@
 ## Active Batch
 
 1. Task 9 与 API integration test runtime follow-up 已完成并推送；Task 9 真机角色矩阵仍如实保留为待用户/设备复核。
-2. Task 10.1 已由 `20407fc` 正常推送；Task 10.2 已完成通知列表/未读状态、提醒偏好/显式微信订阅、profile optimistic-save/本人联系方式与精确 logout。Task 10.3 未开始。
-3. 本轮检查点提交信息：`feat(miniprogram): add notifications and profile controls`；验证通过后正常快进推送，并停止等待用户对 Task 10.3 的新授权。
+2. Task 10.1 `20407fc`、Task 10.2 `64e57f0` 已正常推送；Task 10.3 已完成群组子包与匿名 QR 访客页，Task 10 到此结束。
+3. 本轮检查点提交信息：`feat(miniprogram): add group and guest journeys`；验证通过后正常快进推送，并停止等待用户/设备对 Task 9 与 Task 10 真机矩阵复核。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
-- Task 9 历史计划不再授权重复执行。Task 10 只能依据 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`；10.1/10.2 已完成并均在各自 checkpoint 后停止。后续若获用户明确批准，先依据实际代码重读该计划与设计，再决定是否只启动 10.3。
+- Task 9 历史计划不再授权重复执行。Task 10 只能依据 `2026-08-12-wechat-miniprogram-v3-3-task-10-implementation-plan.md`；10.1–10.3 已完成，各 checkpoint 后均已停止。未经新的用户授权不得启动 V3-4。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。

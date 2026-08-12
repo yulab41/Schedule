@@ -43,6 +43,9 @@ describe('workbench navigation', () => {
       'members',
     ]);
     expect(getVisibleWorkbenchEntries('guest').map(({ id }) => id)).toEqual(['calendar', 'groups']);
+    expect(getVisibleWorkbenchEntries('guest').find(({ id }) => id === 'groups')).toMatchObject({
+      route: '/subpackages/groups/pages/index',
+    });
   });
 
   it('adds the platform signal only for platform administrators', () => {

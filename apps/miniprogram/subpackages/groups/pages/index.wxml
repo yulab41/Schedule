@@ -1,0 +1,45 @@
+<page-shell title="群组">
+  <view class="groups-page">
+    <shell-state wx:if="{{status === 'loading'}}" kind="loading" title="正在加载群组" />
+    <shell-state wx:elif="{{status === 'error'}}" kind="error" title="群组暂时不可用" description="{{errorMessage}}">
+      <button class="groups-page__button" bindtap="handleRetry">重试</button>
+    </shell-state>
+    <view wx:else>
+      <view class="groups-page__section">
+        <text class="groups-page__title">当前群组</text>
+        <shell-state wx:if="{{groups.length === 0}}" kind="empty" title="暂未加入群组" />
+        <view wx:for="{{groups}}" wx:for-item="group" wx:key="id" class="groups-page__card">
+          <view class="groups-page__row" data-group-id="{{group.id}}" bindtap="handleSelectGroup">
+            <text>{{group.name}}</text><text wx:if="{{activeGroupId === group.id}}">当前</text>
+          </view>
+          <text wx:if="{{group.role === 'owner'}}" class="groups-page__hint">群主不能离开群组。</text>
+          <view wx:elif="{{group.role === 'guest'}}">
+            <text class="groups-page__hint">离开后可重新以访客身份加入。</text>
+            <button class="groups-page__button" data-group-id="{{group.id}}" disabled="{{isMutating}}" bindtap="handleLeave">离开群组</button>
+          </view>
+          <view wx:else>
+            <text class="groups-page__hint">离开后将保留历史成员关系；如需重新加入，请联系管理员邀请。</text>
+            <button class="groups-page__button" data-group-id="{{group.id}}" disabled="{{isMutating}}" bindtap="handleLeave">离开群组</button>
+          </view>
+        </view>
+      </view>
+      <view class="groups-page__section">
+        <text class="groups-page__title">可加入群组</text>
+        <shell-state wx:if="{{catalog.length === 0}}" kind="empty" title="暂无可显示群组" />
+        <view wx:for="{{catalog}}" wx:for-item="item" wx:key="id" class="groups-page__card">
+          <text>{{item.name}}</text>
+          <button wx:if="{{item.action === 'join-guest'}}" class="groups-page__button" data-group-id="{{item.id}}" disabled="{{isMutating}}" bindtap="handleJoin">以访客身份加入</button>
+          <text wx:elif="{{item.action === 'invite-only'}}" class="groups-page__hint">历史成员仅可由管理员重新邀请。</text>
+          <text wx:else class="groups-page__hint">已在当前群组关系中。</text>
+        </view>
+      </view>
+      <view wx:if="{{dissolvedGroups.length > 0}}" class="groups-page__section">
+        <text class="groups-page__title">可恢复群组</text>
+        <view wx:for="{{dissolvedGroups}}" wx:for-item="group" wx:key="id" class="groups-page__card">
+          <text>{{group.name}}</text>
+          <button class="groups-page__button" data-group-id="{{group.id}}" disabled="{{isMutating}}" bindtap="handleRestore">恢复群组</button>
+        </view>
+      </view>
+    </view>
+  </view>
+</page-shell>

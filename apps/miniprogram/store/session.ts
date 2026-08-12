@@ -42,6 +42,7 @@ export interface SessionDependencies {
   readonly readStoredToken: () => string | undefined;
   readonly requestLoginCode: () => Promise<string>;
   readonly removeCalendarCacheForUser: (userId: string) => void;
+  readonly removeCalendarCacheForUserGroup: (userId: string, groupId: string) => void;
   readonly sessionStorage: SessionStorage;
   readonly wechatLogin: (code: string) => Promise<WechatLoginResponse>;
   readonly writePendingInviteToken: (token: string | undefined) => void;
@@ -57,6 +58,7 @@ export interface SessionStore {
   markUnauthorized(): void;
   replaceProfile(profile: UserProfile): boolean;
   refreshGroupContext(options?: { readonly preferredGroupId?: string }): Promise<void>;
+  removeCalendarCacheForGroup(groupId: string): boolean;
   restore(): Promise<void>;
   setActiveGroupId(groupId: string): boolean;
   setPendingInviteToken(token: string | undefined): void;
@@ -283,6 +285,21 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
       );
       return operation;
     },
+    removeCalendarCacheForGroup: (groupId) => {
+      if (
+        groupId.length === 0 ||
+        state.status !== 'authenticated' ||
+        state.profile === undefined ||
+        !state.groups.some((group) => group.id === groupId)
+      )
+        return false;
+      try {
+        dependencies.removeCalendarCacheForUserGroup(state.profile.id, groupId);
+      } catch {
+        // Cache removal is best-effort and never changes membership state.
+      }
+      return true;
+    },
     restore: () => {
       if (restorePromise !== undefined) return restorePromise;
       if (
@@ -397,6 +414,8 @@ export const sessionStore = createSessionStore({
   readStoredToken: getStoredToken,
   requestLoginCode: () => requestWechatLoginCode({ login: (options) => wx.login(options) }),
   removeCalendarCacheForUser: (userId) => getCalendarCacheRuntime().removeForUser(userId),
+  removeCalendarCacheForUserGroup: (userId, groupId) =>
+    getCalendarCacheRuntime().removeForUserGroup(userId, groupId),
   sessionStorage,
   wechatLogin,
   writePendingInviteToken: (token) => {

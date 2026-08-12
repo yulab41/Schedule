@@ -15,7 +15,6 @@ describe('Task 10 guest route boundary', () => {
   it('runs the shared route guard before protected tab or workflow pages load data', () => {
     for (const relativePath of [
       'pages/calendar/index.ts',
-      'pages/notifications/index.ts',
       'pages/profile/index.ts',
       'pages/workbench/index.ts',
       'subpackages/workflows/pages/requests/index.ts',
@@ -26,6 +25,14 @@ describe('Task 10 guest route boundary', () => {
       expect(source).toContain('guardMiniprogramRoute');
       expect(source).toContain('features/navigation/route-guard.js');
     }
+    const notificationPage = read('pages/notifications/index.ts');
+    const notificationRuntime = read('features/notifications/notification-page-runtime.ts');
+    expect(notificationPage).toContain('activateNotificationsPage');
+    expect(notificationRuntime).toContain('guardMiniprogramRoute');
+    expect(notificationRuntime).toContain('navigation/route-guard.js');
+    expect(notificationRuntime.indexOf('guardMiniprogramRoute')).toBeLessThan(
+      notificationRuntime.indexOf('onAllowed({'),
+    );
     const profile = read('pages/profile/index.ts');
     expect(profile.lastIndexOf('guardMiniprogramRoute')).toBeLessThan(
       profile.lastIndexOf('listGroupContacts'),

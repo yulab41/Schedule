@@ -56,7 +56,8 @@ function isGuestAllowed(path: MiniprogramRoute): boolean {
     path === '/pages/workbench/index' ||
     path === '/pages/calendar/index' ||
     path === '/pages/profile/index' ||
-    path === '/pages/guest/guest'
+    path === '/pages/guest/guest' ||
+    path === '/subpackages/groups/pages/index'
   );
 }
 

@@ -55,6 +55,7 @@ describe('V3 app shell', () => {
       'pages/auth/login/index',
       'pages/auth/profile-setup/index',
       'pages/invite/invite',
+      'pages/guest/guest',
       'pages/workbench/index',
       'pages/calendar/index',
       'pages/notifications/index',
@@ -62,6 +63,7 @@ describe('V3 app shell', () => {
       'subpackages/workflows/pages/requests/index',
       'subpackages/workflows/pages/leave/index',
       'subpackages/workflows/pages/operations/index',
+      'subpackages/groups/pages/index',
     ]);
     expect(appJson.tabBar?.custom).not.toBe(true);
     expect(appJson.pages).toContain('pages/invite/invite');
