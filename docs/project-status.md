@@ -1,42 +1,32 @@
 # Project Status
 
-本文件只记录 Web 1.0 当前阶段、检查点和下一步，不保留已移除的其他客户端实施文档。
+本文件是 Web 1.0 的唯一当前状态入口；逐轮历史以 Git 为准。
 
-## Current Position
+## 当前状态（2026-08-13）
 
-- 日期：2026-08-13
-- 分支：`main` / 上游：`origin/main`
-- Web 1.0：API、认证、契约、数据库、排班规则、部署和 PWA 继续作为唯一产品基线。
-- 当前状态：文档已收敛为 Web-only；本轮不修改其他源码。
+- 分支：`main`，上游：`origin/main`。
+- 产品：医生排班 Web 1.0；API、认证、契约、数据库、排班规则、PWA 和 ECS 部署是当前基线。
+- 文档：已删除其他客户端计划/设计和已完成专项计划；保留 23 个精简 Web Markdown，另保留 `AGENTS.md` 项目规则。
+- 本轮：仅压缩 Markdown 文档，不修改源码、配置、数据库或部署状态。
 
-## Completed Batch
+## 已完成基线
 
-### Web-only 文档基线（2026-08-13）
+- 账号、群组、成员、角色、班种和联系方式。
+- 自动排班、手动模板、草稿/发布/版本、请假、换班、加扣班和并发保护。
+- 月/周/列表日历、访客只读日历、事件追踪、通知、统计和 CSV 导出。
+- PWA 离线只读、节假日数据、备份恢复、监控和 ECS Docker 部署基础。
 
-- 删除不再作为产品依据的独立客户端计划与设计文档。
-- 从 Web 设计、实施计划、部署说明、项目状态和调试日志中移除其他客户端分支，保留 Web 语义、接口、数据、安全与运维内容。
-- 未修改 `apps/web/**`、API、Contracts、数据库和部署代码；未触碰用户保留的未跟踪测试配置文件。
+## 验证基线
 
-## Validation
+- `pnpm verify`
+- `pnpm smoke:browser`
+- `pnpm smoke:check-core`
+- `git diff --check`
 
-- 文档关键词审计：通过，`docs` 不再包含已移除客户端计划/设计关键词。
-- 文档格式：通过，保留文档均通过 Prettier 检查。
-- Web 构建与浏览器冒烟：`pnpm --filter @schedule/web build`、`pnpm smoke:browser`（7/7）和 `pnpm smoke:check-core` 通过。
-- Web 文档与代码边界：`apps/web/**` 未修改。
-- Web 验证：`pnpm --filter @schedule/web build`、`pnpm smoke:browser`（7/7）、`pnpm smoke:check-core` 和 `git diff --check` 通过。
+本轮文档检查：保留文档通过 Prettier；本地链接通过；Markdown 不含已删除客户端关键词；`apps/web/**` 和其他源码无改动。
 
-## Decisions and Deviations
+## 后续规则
 
-- Web 文档是唯一产品语义基线；其他源码不在本轮删除范围内。
-- 不读取、修改、格式化或暂存用户保留的未跟踪测试目录。
-- 不执行生产部署、数据库迁移或远程历史改写。
-
-## Active Batch
-
-1. 本轮 Web-only 文档清理与构建验证已完成。
-2. 停止条件已满足：文档不再包含已移除客户端计划/设计内容；Web 与客户端构建验证结果已记录；只提交本轮相关文档变更。
-
-## Handoff Requirements
-
-- 后续任务从 Web 代码和本文件恢复，不依赖已删除的客户端计划或设计文档。
-- 提交前检查 `git diff`、`git diff --cached`、`git diff --check`，并显式确认未跟踪文件未被纳入提交。
+- 新会话先读本文件，再读取主设计和主实施计划中与当前任务直接相关的短节。
+- 新增事实写入本文件的当前状态，不追加大段历史。
+- 任何生产部署、数据库迁移或正式发布都需单独明确授权。

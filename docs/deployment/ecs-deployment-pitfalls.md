@@ -1,109 +1,11 @@
-# 阿里云 ECS 部署踩坑与铁律（实战总结 2026-08-08）
+# ECS 部署要点
 
-> 适用范围：试用机 `8.148.183.46`（服务器不编译、代码/依赖全部由宿主机挂载）的每次代码更新与配置变更。
-> **部署前必须完整阅读本文件**，与 `docs/deployment/aliyun-ecs.md` 配合使用。
-> 来源：fix-progress 轮次 42/52 实战（门禁反复弹框、依赖树拍平失败、挂载目录不更新等）。
+- 2G 机器只运行一个入口和一个共享 MySQL，设置容器内存上限。
+- 服务器不编译；本机生成 Web/API 产物后挂载或上传。
+- API runtime 依赖必须从 lockfile 生成，避免服务器现场安装造成依赖树漂移。
+- 远程 PowerShell/SSH 命令使用明确的单层引号，失败立即停止。
+- 更新前确认挂载目录、当前提交和目标环境；更新后核对文件 hash。
+- 迁移前备份；迁移、容器重启、健康检查和前端资源检查按固定顺序执行。
+- 失败保留上一版本，不 force-push、不删除远程分支、不绕过保护。
 
-## 0. 部署前必读：2G 小机器资源铁律（2026-08-08 用户要求）
-
-1. **单机单入口 + 自动 HTTPS**：一个 Nginx/Caddy 入口按子域名路由所有服务；接域名并完成 ICP 备案后启用自动 HTTPS（Caddy 自动签发，或 Nginx + ACME）。
-2. **复用同一个 MySQL**：每个应用建独立 database 与独立账号，禁止一个应用起一个 MySQL 容器（2G 机器上最浪费内存的写法）。
-3. **静态资源不上 OSS/CDN**：40G 磁盘足够，前端构建产物由开发机构建后挂载到服务器（已按此模式执行），配合 gzip 与浏览器缓存省带宽。
-4. **容器资源与压缩**：容器必须设内存上限；开启 gzip/brotli 压缩与浏览器缓存；容器日志 json-file 轮转；定期清理 Docker 镜像与构建缓存。
-5. **swap/ZRAM 兜底 + 监控**：加 1–2G swap 或 ZRAM；监控只需 `free` + `docker stats`（已由 `infra/scripts/schedule-monitor.sh` + cron 落地）。
-6. **备份优先于扩容**：MySQL 每天 03:30 由 cron 触发加密备份到本地命名卷（`BACKUP_DIR=/data/backups`），不上云存储；数据恢复能力优先保障。
-
-## 一、命令执行铁律（PowerShell → SSH）
-
-1. **不要用 PowerShell 双引号字符串拼远程命令**。内嵌双引号会被吞掉，导致：
-   - `printf "admin:%s\n" ...` 的 `\n` 变成字面 `n`，密码文件被写坏（轮次 42 实测）；
-   - `.env` 追加变量时 `\n` 变成 `n`，门禁提示名变成 `Trial_accessn`；
-   - `docker ps --format "{{.Names}}..."` 的管道/花括号被 shell 拆坏。
-2. **不要用 `ssh "echo $(curl ...)"` 做验证**：PowerShell 会在**本机**执行 `$(...)`，返回的是本机结果，不是服务器结果（轮次 52 实测假阳性）。
-3. **正确做法**：
-   - 本地用 `[System.IO.File]::WriteAllText(路径, 内容, [System.Text.UTF8Encoding]::new($false))` 写 LF 结尾的 bash 脚本；
-   - 再 `Get-Content -Raw $脚本 | ssh -i <key> root@<ip> 'bash -s'` 执行（含部署与验证）；
-   - 或文件直接用 scp 上传，避免命令行引号。
-4. PowerShell 不支持 `<` 重定向到原生命令；用管道喂 stdin。
-5. 写文件禁止用 `Set-Content -Encoding UTF8`（会带 BOM，nginx 报 `unknown directive "﻿server"`）；用 .NET `UTF8Encoding($false)`。
-
-## 二、API 依赖树（runtime/api-flat）生成铁律
-
-1. Windows 上 `pnpm deploy --legacy --filter @schedule/api --prod <dir>` 默认生成含 junction 和 `.pnpm` 虚拟库的树，**不能直接上传 Linux 服务器**。
-2. Windows `tar --dereference` 与 Linux 容器 `cp -rL` 都**无法**正确拍平该 junction 树：嵌套 `node_modules` 会丢，典型症状是 API 启动即崩：
-   `ERR_MODULE_NOT_FOUND: Cannot find package 'mysql2' imported from .../drizzle-orm/mysql2/driver.js`。
-3. **唯一可靠方法**（已验证）：
-   ```bash
-   pnpm deploy --legacy --config.node-linker=hoisted --filter @schedule/api --prod <临时目录>
-   ```
-   产物为 npm 式全平铺、无符号链接的 `node_modules`（顶层直接有 `mysql2`/`fastify`/`zod` 等）。
-4. 生成后必须本地验证：
-   - 顶层存在 `mysql2`、`drizzle-orm`、`fastify`、`zod`、`web-push`；
-   - `node_modules/@schedule/{contracts,database,scheduling-domain}/dist` 存在；
-   - `node_modules/@cloudbase` **不存在**；
-   - 全树无 LinkType（符号链接/junction）。
-5. 上传方式：先 `tar -czf` 压缩（平铺树约 5MB），scp 压缩包，服务器 `tar -xzf` 解压；**不要直接 scp -r 几百 MB 的 node_modules**（会超时留半成品）。
-6. 服务器替换依赖树：`mv` 旧目录留备份 → `cp -r` 新目录 → `docker compose up -d --force-recreate api`。
-
-## 三、挂载与容器铁律
-
-1. **替换被容器挂载的目录后必须重建容器**。`mv 旧目录` + `cp 新目录` 不会更新运行中容器的 bind mount（挂的是旧目录 inode），nginx 会继续服务旧文件。必须 `docker compose up -d --force-recreate <svc>`。
-2. compose 挂载的**宿主文件必须先存在**；不存在时 Docker 会生成一个目录，容器内读取报错。先创建再 `up`。
-3. 通过 bind mount 进容器的文件权限要按**容器内用户**考虑（nginx 工作进程是 uid 101）：`.htpasswd` 用 600(root) 会导致带凭据请求 500，需 `chmod 644` 或 `chown 101:101`。
-4. nginx 在启动/重载时读取密码文件；修改后必须 reload 或重建容器。
-
-## 四、不要再犯的架构坑
-
-1. **不要给本应用加 nginx `auth_basic`（HTTP Basic Auth）门禁**。前端 API 请求自带 `Authorization: Bearer ...`，浏览器不会给带显式 Authorization 的请求附加缓存的 Basic 凭据，nginx 对每个接口返回 401 + `WWW-Authenticate: Basic`，形成“登录反复弹密码框”死循环（轮次 42 部署、轮次 52 撤除）。
-2. 若未来仍需访问控制，可选：IP 白名单（`allow/deny`）、或改造前端认证传输（把 Bearer 换到自定义头）后再加网关，二选一，且都要先写回归/浏览器验证。
-3. 服务器 `git` 停留在旧提交，`infra/docker/*` 是手动上传的**未跟踪文件**：不要依赖服务器上的 git 判断版本，一切以仓库 + 上传时间为准。
-
-## 五、部署后验证清单（每次必做）
-
-在服务器上（用 `bash -s` 脚本执行，不要用 PowerShell 内联 `$(...)`）：
-
-1. `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/` → 200
-2. `curl -s http://127.0.0.1/api/health` → `{"component":"api","ready":true,...}`
-3. `curl -s http://127.0.0.1/ | grep <新构建资源名>` → 命中（确认前端换了新版本）
-4. `docker exec medical-schedule-prod-api-1 ls /app/apps/api/node_modules/@cloudbase` → 报不存在
-5. `docker exec medical-schedule-prod-api-1 md5sum /app/apps/api/dist/local-server.js` → 与本地 `Get-FileHash -Algorithm MD5` 一致
-6. 真实浏览器（无头 Edge + playwright-core）：打开无弹框；点“本地管理员”能进入工作台；接口无 401/`WWW-Authenticate`；无 console 错误
-7. 通过后清理 `/tmp` 上传目录与 `*.broken-*`，保留 `*.old-*` 备份待用户确认
-
-## 六、多会话/多轮次并行时
-
-1. 每次动手前 `git status --short --branch` + `git log --oneline -5`，确认没有其他会话正在改同一批文件。
-2. 只提交自己改的文件；别人的 WIP 一律不暂存、不提交、不覆盖。
-3. 在 fix-progress.md 追加轮次记录前，先查现有 `### 轮次 N` 标题，取下一个可用编号（轮次 52 曾因并行会话撞号改过名）。
-4. 上传的构建产物若混入别人未提交的改动，要在记录里注明，并在对方提交后重新同步。
-
-## 七、环境速查
-
-- SSH（旧试用机）：`ssh -i "$env:USERPROFILE\.ssh\aliyun_schedule" root@8.148.183.46`
-- SSH（新 ECS）：`ssh -i "$env:USERPROFILE\.ssh\aliyun_schedule" root@120.77.220.79`
-- 部署目录：`/opt/schedule`（web 挂 `apps/web/dist`；api 挂 `apps/api/dist` + `packages/*/dist` + `runtime/api-flat/node_modules`，见 compose.prod.yml）
-- `.env.production`：服务器手工维护，含数据库密码；改动后检查是否残留已删除功能的变量
-- 数据库迁移：线上库已到 0031；含新迁移的发布必须先跑 `node apps/api/dist/migrate.js` 再重启 api
-- 回滚：旧产物保留为 `*.old-20260808*`，确认稳定后再清理
-
-## 八、2026-08-08 新机部署踩坑补充（全新部署实战）
-
-1. `docker compose pull mysql nginx` 报 `no such service: nginx`：compose 服务名是 `web`，应写 `pull mysql web`。
-2. 引导脚本自我覆盖：bootstrap 先解包再执行自身；直接从 `/opt/schedule` 运行可能继续执行旧缓冲内容，应先把脚本复制到 `/tmp` 再运行。
-3. 2G 服务器不能构建完整 API 镜像（Dockerfile.api 含 pnpm install + tsc + vite 会卡死）：改用 `Dockerfile.api-runtime`（node:24-slim + tzdata/ca-certificates），代码/依赖全部由宿主机挂载。
-4. 平铺依赖树里的 `@schedule/database` 默认迁移目录解析为 `node_modules/migrations`（不是 `/app/migrations`，也不是 `@schedule/migrations`）：bootstrap 必须把 `migrations/` 复制到 `runtime/api-flat/node_modules/migrations`，否则报 `Can't find meta/_journal.json`。
-5. 不要在只读 bind mount 内部再挂载子路径（Docker 无法创建挂载点，报 read-only file system）：自包含复制优于嵌套挂载。
-6. `migrate.js` 吞掉真实错误（只打印 `Database migration failed.`）：排查时用 `node --input-type=module -e` 直接调 `migrateDatabase` 并打印 error。
-7. 全新空库没有开发账号：平台管理接口会返回 404 `当前账号尚不可用`；bootstrap 先 `POST /api/users` 创建 `local-admin`/`local-member` 再确认节假日。
-8. 全新空库浏览器冒烟会在“排班日历”等待超时：没有群组时工作台只有创建/加入群组；需至少建一个群并让管理员/成员加入。
-9. PowerShell→SSH 仍会吞引号：一律用 LF 结尾的 here-string 管道给 `bash -s`；含中文的 JSON 经管道会变 `?`，群名等中文可用 SQL hex（UTF-8）修正。
-10. 外部 80 打不开但本机 200：先查阿里云安全组入方向是否放行 80；可用实例元数据 `http://100.100.100.200/latest/meta-data/eipv4` 确认公网 IP 绑定。
-11. 部署后清理残留：`/tmp/schedule-deploy-*.tar.gz`、`/tmp/ecs-bootstrap*.sh`、多余的 `node_modules/@schedule/migrations` 副本，以及 `docker builder prune -f`。
-12. pnpm 依赖状态过期报 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`：先 `pnpm install` 再跑 prettier/verify。
-13. 本机 tar 目标路径变量写错（值带 `TMPDIR=` 前缀）会在仓库根生成名为 `-C` 的大文件：打包脚本必须校验路径变量后再执行。
-14. HTTPS 配置后外部握手失败：Nginx 容器内部监听 443 但 Docker 没映射 `443:443`（compose 只写了 80）；`enable-https.sh` 已自动补映射，手工部署时别漏。
-15. 备案维护模式（方案 A）：用 `bash infra/scripts/icp-maintenance.sh on|off` 切换“网站备案中”占位页；`on` 会把当前 `nginx.prod.conf` 备份为 `.before-icp-maintenance`，`off` 自动还原并删除 `apps/web/dist/icp-placeholder.html`。维护配置必须保留 `/.well-known/acme-challenge/`（certbot 走 webroot `apps/web/dist`），否则自动续期会挂；公网 IP 的 443 用 `ssl_reject_handshake on` 直接断开，避免裸 IP 还开着 HTTPS。
-16. 未备案域名会被阿里云拦截：外部访问 `http://hosp.schedule.eylinhome.top` 返回 403 `Non-compliance ICP Filing`（iframe 指向 aliyun beian-block），HTTPS 直接断连（curl 000/35）——这是阿里云对未备案域名的拦截，不是服务器故障；验证服务本身只能直连 IP（HTTP 到 IP 正常，HTTPS 到 IP 因维护模式被主动断开）。
-17. 用 `curl http://127.0.0.1/` 验证 nginx 会命中 default_server 而不是域名 server block：必须加 `-H 'Host: hosp.schedule.eylinhome.top'`，否则看到的是 IP 默认规则（如 302 到占位页）而误判配置。
-18. 备案维护期自测入口的 nginx 不能 `listen 127.0.0.1:8080`：Docker 端口映射到达的是容器网卡地址，容器内回环监听收不到连接；应 `listen 8080`，把“仅本机可访问”放在宿主机端口绑定层（compose 写 `127.0.0.1:8080:8080`，见 `icp-maintenance.sh` 生成的 `compose.prod.icp-test.yml`）。
-19. 用基础 `compose.prod.yml` 重建 web 容器会丢掉维护模式的 `127.0.0.1:8080:8080` 自测入口：`docker compose up --force-recreate web` 只读基础文件，覆盖文件里的端口不生效；必须 `-f compose.prod.yml -f compose.prod.icp-test.yml` 一起用（`ecs-update.sh` 已自动检测并附带该覆盖文件）。
+完整操作入口：[`aliyun-ecs.md`](aliyun-ecs.md)。
