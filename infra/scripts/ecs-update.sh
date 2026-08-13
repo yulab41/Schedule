@@ -135,6 +135,19 @@ trap rollback_on_error ERR
 
 echo "[deploy] 1/7 校验并保留 release $RELEASE_ID"
 echo "[deploy] 2/7 解压迁移和应用产物"
+for relative_path in \
+  apps/web/dist \
+  apps/api/dist \
+  packages/contracts/dist \
+  packages/database/dist \
+  packages/scheduling-domain/dist \
+  migrations \
+  pnpm-lock.yaml \
+  infra/docker/compose.prod.yml \
+  infra/docker/nginx.prod.conf; do
+  assert_release_path "$DEPLOY_DIR/$relative_path"
+  rm -rf "$DEPLOY_DIR/$relative_path"
+done
 tar -xzf "$DIST_TAR" -C "$DEPLOY_DIR" \
   migrations \
   apps/web/dist \

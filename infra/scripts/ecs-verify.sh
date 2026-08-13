@@ -90,8 +90,10 @@ ACTUAL_NGINX_SHA="$(sha256sum "$DEPLOY_DIR/infra/docker/nginx.prod.conf" | awk '
   echo "[verify] 错误：pnpm-lock.yaml 哈希不一致。" >&2
   exit 1
 }
-[ "$(tree_sha256 "$DEPLOY_DIR/apps/web/dist")" = "$EXPECTED_WEB_SHA" ] || {
+ACTUAL_WEB_SHA="$(tree_sha256 "$DEPLOY_DIR/apps/web/dist")"
+[ "$ACTUAL_WEB_SHA" = "$EXPECTED_WEB_SHA" ] || {
   echo "[verify] 错误：Web dist 哈希不一致。" >&2
+  echo "[verify] expected=$EXPECTED_WEB_SHA actual=$ACTUAL_WEB_SHA" >&2
   exit 1
 }
 [ "$(tree_sha256 "$DEPLOY_DIR/apps/api/dist")" = "$EXPECTED_API_SHA" ] || {
