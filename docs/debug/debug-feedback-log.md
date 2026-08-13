@@ -20,6 +20,7 @@
 - 应用内浏览器本地复核：管理员成员页出现成员表，通知页出现“我的提醒”；本地成员模式正常，控制台仅有 Vite 正常连接日志。
 - `git diff --check`：通过。
 - ECS 发布验证：ECS 数据库备份成功；最终候选发布完成迁移、容器重建和 Nginx/API 健康等待；HTTP 入口 200、HTTPS SNI `/api/health` 200；发布目录、归档、lockfile、dist、迁移和 Compose/Nginx 哈希逐项一致；失败发布的上一版本文件备份仍保留。
+- 最终备份：archive `6f6216e4-bd94-4490-8cad-0d1fcf90a1c9`，storage key `backups/daily/2026-08-13T15-51-11.210Z.backup`；回滚文件归档位于最终 release 目录的 `previous/current-files.tar.gz`。
 - 公网应用内浏览器：管理员成员页成员表加载成功，通知页“我的提醒”加载成功，两类旧错误均不存在；公网成员账号无两类旧错误；控制台无异常。
 - 状态：已完成，待用户复核。
 

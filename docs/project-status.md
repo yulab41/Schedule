@@ -36,8 +36,9 @@ git diff --check
 - 部署脚本已统一通过 Nginx 80/443 入口检查，移除 ECS 更新/核验及测试隧道对远端 8080 的错误依赖；新增一次构建产物清单、压缩包哈希、发布目录和失败回滚流程。
 - 本地运行验证：`pnpm install --frozen-lockfile`、`pnpm build`、`pnpm typecheck`、`pnpm verify` 均通过；定向通知兼容测试 3/3、成员认领集成测试 4/4 通过。`pnpm verify` 汇总为 54 个测试文件通过、422 个测试通过，29 个测试文件/252 个测试因项目现有环境保护条件跳过。
 - 浏览器验证：`pnpm smoke:browser` 通过；应用内浏览器本地管理员成员页实际出现成员表、通知页实际出现“我的提醒”，本地成员模式正常，控制台仅有 Vite 正常连接日志。`pnpm smoke:check-core` 和 `git diff --check` 通过。
-- 线上发布：代码修复与部署保护已连续提交并推送到 `origin/main`；最终应用候选提交为 `a7d6da9`，其后的状态记录提交将作为最终 release SHA。ECS 已完成数据库备份、迁移、容器重建和失败回滚材料保留。
+- 线上发布：代码修复与部署保护已连续提交并推送到 `origin/main`；业务代码最终候选提交为 `a7d6da9`，本次状态提交的完整 SHA 将作为最终 release SHA。ECS 已完成数据库备份、迁移、容器重建和失败回滚材料保留。
 - ECS 核验：Nginx 80/443 入口健康通过；HTTPS SNI `/api/health` 返回 200；部署清单、lockfile、Web/API/shared dist、迁移、Compose/Nginx 配置及归档哈希逐项一致；容器运行、MySQL healthy、迁移记录 34 条、无 `@cloudbase`。
+- 最终备份/回滚材料：数据库备份 archive `6f6216e4-bd94-4490-8cad-0d1fcf90a1c9`，storage key `backups/daily/2026-08-13T15-51-11.210Z.backup`；上一版应用文件备份保留在 `/opt/schedule/releases/<最终 release SHA>/previous/current-files.tar.gz`。
 - 公网浏览器验证：`https://hosp.schedule.eylinhome.top` 管理员登录成功；成员页出现成员表且无“请求的资源不存在”，通知页出现“我的提醒”且无“服务返回了无效资料”；控制台无异常；公网成员账号无两类旧错误。
 - 当前状态：已完成，待用户复核。
 
