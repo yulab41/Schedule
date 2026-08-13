@@ -1,4 +1,5 @@
 import { createDatabaseClient } from '@schedule/database';
+import type { Environment } from '../config/env.js';
 
 import { parseHolidayAdminUids } from '../modules/holidays/holiday-admin.js';
 import { createPushDispatcher } from '../modules/notifications/notification-dispatcher.js';
@@ -23,7 +24,10 @@ export type JobName =
   | 'notification-retry'
   | 'statistics-rebuild';
 
-type JobRunner = (client: ReturnType<typeof createDatabaseClient>) => Promise<unknown>;
+type JobRunner = (
+  client: ReturnType<typeof createDatabaseClient>,
+  environment: Environment,
+) => Promise<unknown>;
 
 // 穷举映射表：新增 JobName 后 TypeScript 会强制在此补充分支，
 // 避免未知任务名被静默当作导出任务执行。
@@ -38,10 +42,10 @@ export const jobRunners: Readonly<Record<JobName, JobRunner>> = {
   'group-recycle': (client) => new GroupRecycleJob(client).run(),
   'holiday-alerts': (client) =>
     new HolidayAlertJob(client, parseHolidayAdminUids(process.env)).run(),
-  'notification-retry': (client) =>
+  'notification-retry': (client, environment) =>
     new NotificationRetryJob(
       client,
-      createPushDispatcher(process.env),
+      createPushDispatcher(environment),
       new WechatPushDispatcher(
         client,
         createWechatGateway({
@@ -63,6 +67,7 @@ export function isJobName(value: string): value is JobName {
 export async function runJob(
   jobName: JobName,
   client: ReturnType<typeof createDatabaseClient>,
+  environment: Environment,
 ): Promise<unknown> {
-  return jobRunners[jobName](client);
+  return jobRunners[jobName](client, environment);
 }

@@ -88,6 +88,8 @@ for relative_path in \
   pnpm-lock.yaml \
   infra/docker/compose.prod.yml \
   infra/docker/nginx.prod.conf \
+  infra/scripts/schedule-notifications.sh \
+  .env.production.example \
   runtime/api-flat/node_modules \
   deploy-manifest.json; do
   if [ -e "$DEPLOY_DIR/$relative_path" ]; then
@@ -113,6 +115,8 @@ restore_previous() {
     pnpm-lock.yaml \
     infra/docker/compose.prod.yml \
     infra/docker/nginx.prod.conf \
+    infra/scripts/schedule-notifications.sh \
+    .env.production.example \
     runtime/api-flat/node_modules \
     deploy-manifest.json; do
     assert_release_path "$DEPLOY_DIR/$relative_path"
@@ -144,7 +148,9 @@ for relative_path in \
   migrations \
   pnpm-lock.yaml \
   infra/docker/compose.prod.yml \
-  infra/docker/nginx.prod.conf; do
+  infra/docker/nginx.prod.conf \
+  infra/scripts/schedule-notifications.sh \
+  .env.production.example; do
   assert_release_path "$DEPLOY_DIR/$relative_path"
   rm -rf "$DEPLOY_DIR/$relative_path"
 done
@@ -157,7 +163,9 @@ tar -xzf "$DIST_TAR" -C "$DEPLOY_DIR" \
   packages/scheduling-domain/dist \
   pnpm-lock.yaml \
   infra/docker/compose.prod.yml \
-  infra/docker/nginx.prod.conf
+  infra/docker/nginx.prod.conf \
+  infra/scripts/schedule-notifications.sh \
+  .env.production.example
 cp "$MANIFEST" "$CURRENT_MANIFEST"
 
 echo "[deploy] 3/7 替换 API 平铺依赖树"
@@ -177,7 +185,20 @@ compose run --rm api node apps/api/dist/migrate.js
 echo "[deploy] 5/7 重建 api/web 容器"
 compose up -d --force-recreate api web
 
-echo "[deploy] 6/7 健康检查和依赖检查"
+echo "[deploy] 6/7 安装通知调度、健康检查和依赖检查"
+install -m 0755 infra/scripts/schedule-notifications.sh /usr/local/bin/schedule-notifications
+cat > /etc/cron.d/schedule-notifications <<'EOF'
+* * * * * root /usr/local/bin/schedule-notifications >> /var/log/schedule-notifications.log 2>&1
+EOF
+cat > /etc/logrotate.d/schedule <<'EOF'
+/var/log/schedule-monitor.log /var/log/schedule-backup.log /var/log/schedule-notifications.log {
+  weekly
+  rotate 4
+  compress
+  missingok
+  notifempty
+}
+EOF
 wait_for_health
 if docker exec medical-schedule-prod-api-1 \
   ls /app/apps/api/node_modules/@cloudbase >/dev/null 2>&1; then

@@ -27,6 +27,8 @@ const DIST_PATHS = [
   'pnpm-lock.yaml',
   'infra/docker/compose.prod.yml',
   'infra/docker/nginx.prod.conf',
+  'infra/scripts/schedule-notifications.sh',
+  '.env.production.example',
 ];
 const TREE_PATHS = {
   webDist: 'apps/web/dist',
@@ -171,6 +173,9 @@ const manifest = {
     migrationsTreeSha256: sha256Tree(TREE_PATHS.migrations),
     composeProdSha256: sha256File(path.join(ROOT, 'infra/docker/compose.prod.yml')),
     nginxConfigSha256: sha256File(path.join(ROOT, 'infra/docker/nginx.prod.conf')),
+    notificationSchedulerSha256: sha256File(
+      path.join(ROOT, 'infra/scripts/schedule-notifications.sh'),
+    ),
   },
 };
 

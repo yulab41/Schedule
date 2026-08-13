@@ -29,6 +29,24 @@ const wechatSettings = {
   WECHAT_QR_ENV_VERSION: z.enum(['develop', 'trial', 'release']).default('release'),
   WECHAT_DUTY_REMINDER_TEMPLATE_ID: optionalTextSchema,
 };
+const vapidSettings = {
+  VAPID_PRIVATE_KEY: optionalTextSchema,
+  VAPID_PUBLIC_KEY: optionalTextSchema,
+  VAPID_SUBJECT: optionalTextSchema,
+};
+
+function hasCompleteVapidConfiguration(environment: {
+  readonly VAPID_PRIVATE_KEY?: string | undefined;
+  readonly VAPID_PUBLIC_KEY?: string | undefined;
+  readonly VAPID_SUBJECT?: string | undefined;
+}): boolean {
+  const configuredValues = [
+    environment.VAPID_PRIVATE_KEY,
+    environment.VAPID_PUBLIC_KEY,
+    environment.VAPID_SUBJECT,
+  ].filter((value) => value !== undefined);
+  return configuredValues.length === 0 || configuredValues.length === 3;
+}
 
 export const environmentSchema = z
   .object({
@@ -37,6 +55,7 @@ export const environmentSchema = z
     ...applicationSettings,
     ...databaseSettings,
     ...operationSettings,
+    ...vapidSettings,
     ...wechatSettings,
   })
   .refine(
@@ -46,19 +65,29 @@ export const environmentSchema = z
       message: 'mock mode is forbidden in production',
       path: ['WECHAT_MOCK_MODE'],
     },
-  );
-const testEnvironmentSchema = z.object({
-  NODE_ENV: z.literal('test'),
-  AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
-  ...applicationSettings,
-  BACKUP_DIR: requiredTextSchema.default('./backups'),
-  TEST_MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
-  TEST_MYSQL_PORT: portSchema.default(3307),
-  TEST_MYSQL_DATABASE: requiredTextSchema,
-  TEST_MYSQL_USER: requiredTextSchema,
-  TEST_MYSQL_PASSWORD: requiredTextSchema,
-  ...wechatSettings,
-});
+  )
+  .refine(hasCompleteVapidConfiguration, {
+    message: 'VAPID_SUBJECT, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be configured together',
+    path: ['VAPID_SUBJECT'],
+  });
+const testEnvironmentSchema = z
+  .object({
+    NODE_ENV: z.literal('test'),
+    AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
+    ...applicationSettings,
+    BACKUP_DIR: requiredTextSchema.default('./backups'),
+    TEST_MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
+    TEST_MYSQL_PORT: portSchema.default(3307),
+    TEST_MYSQL_DATABASE: requiredTextSchema,
+    TEST_MYSQL_USER: requiredTextSchema,
+    TEST_MYSQL_PASSWORD: requiredTextSchema,
+    ...vapidSettings,
+    ...wechatSettings,
+  })
+  .refine(hasCompleteVapidConfiguration, {
+    message: 'VAPID_SUBJECT, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be configured together',
+    path: ['VAPID_SUBJECT'],
+  });
 
 export type Environment = z.infer<typeof environmentSchema>;
 
@@ -83,6 +112,9 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
       API_HOST: testResult.data.API_HOST,
       API_PORT: testResult.data.API_PORT,
       BACKUP_DIR: testResult.data.BACKUP_DIR,
+      VAPID_PRIVATE_KEY: testResult.data.VAPID_PRIVATE_KEY,
+      VAPID_PUBLIC_KEY: testResult.data.VAPID_PUBLIC_KEY,
+      VAPID_SUBJECT: testResult.data.VAPID_SUBJECT,
       MYSQL_HOST: testResult.data.TEST_MYSQL_HOST,
       MYSQL_PORT: testResult.data.TEST_MYSQL_PORT,
       MYSQL_DATABASE: testResult.data.TEST_MYSQL_DATABASE,

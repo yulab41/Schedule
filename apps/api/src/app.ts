@@ -35,6 +35,7 @@ import { DutyAdjustmentService } from './modules/duty-adjustments/duty-adjustmen
 import { registerEventRoutes } from './modules/events/event-routes.js';
 import { EventQuery } from './modules/events/event-query.js';
 import { createPushDispatcher } from './modules/notifications/notification-dispatcher.js';
+import type { PushDispatcher } from './modules/notifications/notification-dispatcher.js';
 import { NotificationQueryService } from './modules/notifications/notification-query.js';
 import { registerNotificationRoutes } from './modules/notifications/notification-routes.js';
 import { NotificationService } from './modules/notifications/notification-service.js';
@@ -75,6 +76,7 @@ export interface CreateAppOptions {
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
   readonly platformAdminUids?: ReadonlySet<string>;
+  readonly pushDispatcher?: PushDispatcher;
   readonly wechatGateway?: WechatGateway;
   readonly wechatSessionSecret?: string | undefined;
 }
@@ -156,7 +158,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerNotificationRoutes(
       app,
       new NotificationQueryService(options.databaseClient),
-      new NotificationService(options.databaseClient, createPushDispatcher(process.env)),
+      new NotificationService(
+        options.databaseClient,
+        options.pushDispatcher ?? createPushDispatcher(process.env),
+      ),
     );
     registerHolidayRoutes(app, new HolidayService(options.databaseClient, holidayAdminUids));
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));

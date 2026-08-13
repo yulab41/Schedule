@@ -25,6 +25,8 @@
 - API runtime 依赖从 lockfile 生成，禁止服务器现场安装造成依赖漂移。
 - 同一次本机构建的部署清单必须与 ECS 的 release 归档 hash 和当前 commit 完全一致。
 - 迁移前备份，迁移、重启、健康检查按固定顺序执行。
+- 浏览器推送必须在服务器 `.env.production` 中同时配置 `VAPID_SUBJECT`、`VAPID_PUBLIC_KEY` 和 `VAPID_PRIVATE_KEY`；三项缺一不可，私钥不得进入仓库或 Web 产物。
+- `/usr/local/bin/schedule-notifications` 每分钟串行执行 `duty-reminders` 和 `notification-retry`；任务使用 `flock` 防止重入，并写入平台任务记录。
 - 生产环境使用 `NODE_ENV=production`、独立数据库和最小权限账号；开发认证不得上线。
 - 备案前 IP 直连只用于开发验证；备案后验证 DNS、证书续期、HTTP→HTTPS、Web 和 API。
 
@@ -48,3 +50,21 @@ bash infra/scripts/ecs-verify.sh
 ```
 
 当前生产入口由 Nginx 暴露 80/443，API 健康检查使用 `/api/health`；8080 仅作为本地 SSH 隧道端口，不是 ECS 容器入口端口。
+
+## 浏览器推送配置
+
+首次启用或更换服务器时，在 `/opt/schedule/.env.production` 中写入同一对长期 VAPID 密钥：
+
+```dotenv
+VAPID_SUBJECT=mailto:实际联系邮箱
+VAPID_PUBLIC_KEY=生成的公钥
+VAPID_PRIVATE_KEY=生成的私钥
+```
+
+使用 `web-push` 生成密钥对：
+
+```bash
+node -e "const webpush=require('web-push');console.log(webpush.generateVAPIDKeys())"
+```
+
+写入后必须按正常 ECS 更新流程重建 API 容器；仅修改环境文件不会改变已经运行的 Node 进程。不要更换已经投入使用的 VAPID 密钥，否则已有浏览器订阅需要重新注册。

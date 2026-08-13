@@ -8,6 +8,7 @@ import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
 import { createWechatGateway } from './modules/wechat/wechat-gateway.js';
 import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
+import { createPushDispatcher } from './modules/notifications/notification-dispatcher.js';
 
 interface RuntimeAppOptions {
   readonly authPort?: AuthPort;
@@ -53,6 +54,7 @@ export function createRuntimeApp(
   const app = createApp({
     authPort,
     databaseClient,
+    pushDispatcher: createPushDispatcher(environment),
     wechatGateway,
     wechatSessionSecret: environment.WECHAT_SESSION_SECRET,
   });

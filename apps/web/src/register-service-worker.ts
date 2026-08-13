@@ -17,6 +17,38 @@ export async function subscribeToPush(
   vapidPublicKey: string,
 ): Promise<PushSubscription | undefined> {
   try {
+    const existingSubscription = await registration.pushManager.getSubscription();
+    if (existingSubscription !== null) {
+      return existingSubscription;
+    }
+    return await registration.pushManager.subscribe({
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      userVisibleOnly: true,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+export async function getPushSubscription(
+  registration: ServiceWorkerRegistration,
+): Promise<PushSubscription | undefined> {
+  try {
+    return (await registration.pushManager.getSubscription()) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function resubscribeToPush(
+  registration: ServiceWorkerRegistration,
+  vapidPublicKey: string,
+): Promise<PushSubscription | undefined> {
+  try {
+    const existingSubscription = await registration.pushManager.getSubscription();
+    if (existingSubscription !== null) {
+      await existingSubscription.unsubscribe();
+    }
     return await registration.pushManager.subscribe({
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       userVisibleOnly: true,

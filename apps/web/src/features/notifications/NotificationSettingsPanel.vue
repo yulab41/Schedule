@@ -6,7 +6,12 @@ import type { SwitchValue } from 'tdesign-vue-next';
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
-import { registerServiceWorker, subscribeToPush } from '../../register-service-worker.js';
+import {
+  getPushSubscription,
+  registerServiceWorker,
+  resubscribeToPush,
+  subscribeToPush,
+} from '../../register-service-worker.js';
 import { formatReminderHours, parseReminderHoursInput } from './notification-logic.js';
 
 const props = defineProps<{
@@ -21,6 +26,7 @@ const myHoursMode = ref<'custom' | 'default' | 'off'>('default');
 const myHoursInput = ref('');
 const browserNotificationsEnabled = ref(false);
 const pushAvailable = ref(false);
+const needsPushRegistration = ref(false);
 const isLoading = ref(true);
 const isSaving = ref(false);
 const errorMessage = ref<string>();
@@ -51,6 +57,10 @@ async function load(): Promise<void> {
           : 'custom';
     myHoursInput.value = formatReminderHours(preferences.dutyReminderHours);
     pushAvailable.value = pushConfig.vapidPublicKey !== null;
+    needsPushRegistration.value =
+      pushConfig.vapidPublicKey !== null &&
+      preferences.browserNotificationsEnabled &&
+      !(await hasBrowserPushSubscription());
     if (groupSettings !== undefined) {
       groupHoursInput.value = formatReminderHours(groupSettings.dutyReminderHours);
     }
@@ -96,6 +106,7 @@ async function toggleBrowserNotifications(value: SwitchValue): Promise<void> {
   browserStatusMessage.value = undefined;
   if (!value) {
     browserNotificationsEnabled.value = false;
+    needsPushRegistration.value = false;
     try {
       await api.deletePushSubscription();
     } catch {
@@ -121,9 +132,10 @@ async function toggleBrowserNotifications(value: SwitchValue): Promise<void> {
   const subscriptionSaved =
     pushConfig.vapidPublicKey === null
       ? true
-      : await saveBrowserSubscription(pushConfig.vapidPublicKey);
+      : await saveBrowserSubscription(pushConfig.vapidPublicKey, false);
   if (subscriptionSaved) {
     browserNotificationsEnabled.value = true;
+    needsPushRegistration.value = false;
     await saveMyPreferences();
     browserStatusMessage.value =
       pushConfig.vapidPublicKey === null
@@ -135,13 +147,59 @@ async function toggleBrowserNotifications(value: SwitchValue): Promise<void> {
   }
 }
 
-async function saveBrowserSubscription(vapidPublicKey: string): Promise<boolean> {
+async function registerBrowserNotificationsAgain(): Promise<void> {
+  browserStatusMessage.value = undefined;
+  if (!pushAvailable.value) {
+    browserStatusMessage.value = '推送服务尚未配置，暂时无法注册浏览器通知。';
+    return;
+  }
+  if (!('Notification' in window)) {
+    browserStatusMessage.value = '当前浏览器不支持通知。';
+    return;
+  }
+
+  const permission =
+    Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  if (permission !== 'granted') {
+    browserStatusMessage.value = '浏览器通知权限被拒绝，您仍可在应用内收到通知。';
+    return;
+  }
+
+  const pushConfig = await api.getPushConfiguration();
+  const subscriptionSaved =
+    pushConfig.vapidPublicKey !== null &&
+    (await saveBrowserSubscription(pushConfig.vapidPublicKey, true));
+  if (!subscriptionSaved) {
+    browserStatusMessage.value = '重新注册浏览器推送失败，请稍后重试。';
+    return;
+  }
+
+  needsPushRegistration.value = false;
+  browserNotificationsEnabled.value = true;
+  await saveMyPreferences();
+  browserStatusMessage.value = '浏览器通知已重新注册。';
+}
+
+async function hasBrowserPushSubscription(): Promise<boolean> {
+  const registration = await registerServiceWorker();
+  if (registration === undefined) {
+    return false;
+  }
+  return (await getPushSubscription(registration)) !== undefined;
+}
+
+async function saveBrowserSubscription(
+  vapidPublicKey: string,
+  forceResubscribe: boolean,
+): Promise<boolean> {
   try {
     const registration = await registerServiceWorker();
     if (registration === undefined) {
       return false;
     }
-    const subscription = await subscribeToPush(registration, vapidPublicKey);
+    const subscription = forceResubscribe
+      ? await resubscribeToPush(registration, vapidPublicKey)
+      : await subscribeToPush(registration, vapidPublicKey);
     if (subscription === undefined) {
       return false;
     }
@@ -219,6 +277,20 @@ function showSuccess(message: string): void {
           message="推送服务尚未配置，当前仅提供应用内提醒。"
           class="settings-hint"
         />
+        <t-alert
+          v-else-if="needsPushRegistration"
+          theme="warning"
+          message="浏览器通知偏好已开启，但当前设备尚未完成推送注册。"
+          class="settings-hint"
+        />
+        <t-button
+          v-if="pushAvailable && needsPushRegistration"
+          theme="default"
+          class="settings-hint"
+          @click="registerBrowserNotificationsAgain"
+        >
+          重新注册浏览器通知
+        </t-button>
       </t-card>
     </template>
   </section>

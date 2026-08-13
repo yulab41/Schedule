@@ -53,6 +53,7 @@ EXPECTED_DOMAIN_SHA="$(manifest_value schedulingDomainDistTreeSha256)"
 EXPECTED_MIGRATIONS_SHA="$(manifest_value migrationsTreeSha256)"
 EXPECTED_COMPOSE_SHA="$(manifest_value composeProdSha256)"
 EXPECTED_NGINX_SHA="$(manifest_value nginxConfigSha256)"
+EXPECTED_NOTIFICATION_SCHEDULER_SHA="$(manifest_value notificationSchedulerSha256)"
 CURRENT_RELEASE="$(cat "$DEPLOY_DIR/current-release" 2>/dev/null || true)"
 if [ "$CURRENT_RELEASE" != "$RELEASE_ID" ]; then
   echo "[verify] 错误：current-release 与部署清单不一致。" >&2
@@ -84,6 +85,11 @@ ACTUAL_NGINX_SHA="$(sha256sum "$DEPLOY_DIR/infra/docker/nginx.prod.conf" | awk '
 }
 [ "$ACTUAL_NGINX_SHA" = "$EXPECTED_NGINX_SHA" ] || {
   echo "[verify] 错误：Nginx 配置哈希不一致。" >&2
+  exit 1
+}
+ACTUAL_NOTIFICATION_SCHEDULER_SHA="$(sha256sum "$DEPLOY_DIR/infra/scripts/schedule-notifications.sh" | awk '{print $1}')"
+[ "$ACTUAL_NOTIFICATION_SCHEDULER_SHA" = "$EXPECTED_NOTIFICATION_SCHEDULER_SHA" ] || {
+  echo "[verify] 错误：通知调度脚本哈希不一致。" >&2
   exit 1
 }
 [ "$(sha256sum "$DEPLOY_DIR/pnpm-lock.yaml" | awk '{print $1}')" = "$EXPECTED_LOCKFILE_SHA" ] || {
@@ -139,6 +145,13 @@ curl -fsS http://127.0.0.1/ | grep -o 'assets/index-[^" ]*\.js' | head -1
 
 echo "[verify] containers"
 compose ps
+
+echo "[verify] notification scheduler"
+test -x /usr/local/bin/schedule-notifications
+test -f /etc/cron.d/schedule-notifications
+grep -Fq '/usr/local/bin/schedule-notifications' /etc/cron.d/schedule-notifications
+test "$(sha256sum /usr/local/bin/schedule-notifications | awk '{print $1}')" = "$EXPECTED_NOTIFICATION_SCHEDULER_SHA"
+echo "ok: notification scheduler installed"
 
 echo "[verify] cloudbase dependency"
 if docker exec medical-schedule-prod-api-1 \

@@ -58,17 +58,21 @@ sysctl -p /etc/sysctl.d/99-schedule-swap.conf >/dev/null
 
 echo "[bootstrap] installing monitoring, backup and cleanup cron"
 install -m 0755 infra/scripts/schedule-monitor.sh /usr/local/bin/schedule-monitor
+install -m 0755 infra/scripts/schedule-notifications.sh /usr/local/bin/schedule-notifications
 cat > /etc/cron.d/schedule-monitor <<'EOF'
 */5 * * * * root /usr/local/bin/schedule-monitor >> /var/log/schedule-monitor.log 2>&1
 EOF
 cat > /etc/cron.d/schedule-backup <<'EOF'
 30 3 * * * root /opt/schedule/infra/scripts/schedule-backup.sh >> /var/log/schedule-backup.log 2>&1
 EOF
+cat > /etc/cron.d/schedule-notifications <<'EOF'
+* * * * * root /usr/local/bin/schedule-notifications >> /var/log/schedule-notifications.log 2>&1
+EOF
 cat > /etc/cron.d/schedule-docker-prune <<'EOF'
 0 4 * * 0 root docker image prune -f --filter "until=168h" && docker builder prune -f --filter "until=168h"
 EOF
 cat > /etc/logrotate.d/schedule <<'EOF'
-/var/log/schedule-monitor.log /var/log/schedule-backup.log {
+/var/log/schedule-monitor.log /var/log/schedule-backup.log /var/log/schedule-notifications.log {
   weekly
   rotate 4
   compress

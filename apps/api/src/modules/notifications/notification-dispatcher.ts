@@ -19,6 +19,12 @@ export interface PushDispatcher {
   send(subscription: PushSubscriptionDetails, payload: PushPayload): Promise<void>;
 }
 
+export interface PushEnvironment {
+  readonly VAPID_PRIVATE_KEY?: string | undefined;
+  readonly VAPID_PUBLIC_KEY?: string | undefined;
+  readonly VAPID_SUBJECT?: string | undefined;
+}
+
 interface WebPushLibrary {
   sendNotification(subscription: PushSubscriptionDetails, payload: string): Promise<unknown>;
   setVapidDetails(subject: string, publicKey: string, privateKey: string): void;
@@ -32,7 +38,7 @@ export class WebPushDispatcher implements PushDispatcher {
   private readonly subject: string | undefined;
   private libraryPromise: Promise<WebPushLibrary> | undefined;
 
-  public constructor(values: NodeJS.ProcessEnv) {
+  public constructor(values: PushEnvironment) {
     const subject = values.VAPID_SUBJECT;
     const publicKey = values.VAPID_PUBLIC_KEY;
     const privateKey = values.VAPID_PRIVATE_KEY;
@@ -73,6 +79,6 @@ export class WebPushDispatcher implements PushDispatcher {
   }
 }
 
-export function createPushDispatcher(values: NodeJS.ProcessEnv): PushDispatcher {
+export function createPushDispatcher(values: PushEnvironment): PushDispatcher {
   return new WebPushDispatcher(values);
 }

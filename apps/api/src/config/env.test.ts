@@ -142,6 +142,45 @@ describe('loadEnvironment', () => {
     expect(environment.WECHAT_DUTY_REMINDER_TEMPLATE_ID).toBeUndefined();
   });
 
+  it('accepts a complete VAPID configuration', () => {
+    expect(
+      loadEnvironment({
+        ...validEnvironment,
+        VAPID_PRIVATE_KEY: 'private-key',
+        VAPID_PUBLIC_KEY: 'public-key',
+        VAPID_SUBJECT: 'mailto:admin@example.com',
+      }),
+    ).toMatchObject({
+      VAPID_PRIVATE_KEY: 'private-key',
+      VAPID_PUBLIC_KEY: 'public-key',
+      VAPID_SUBJECT: 'mailto:admin@example.com',
+    });
+  });
+
+  it('rejects a partial VAPID configuration', () => {
+    expect(() =>
+      loadEnvironment({
+        ...validEnvironment,
+        VAPID_SUBJECT: 'mailto:admin@example.com',
+      }),
+    ).toThrow(/VAPID_PUBLIC_KEY.*VAPID_PRIVATE_KEY|VAPID/);
+  });
+
+  it('allows browser push to remain unconfigured when all VAPID values are empty', () => {
+    expect(
+      loadEnvironment({
+        ...validEnvironment,
+        VAPID_PRIVATE_KEY: '',
+        VAPID_PUBLIC_KEY: '',
+        VAPID_SUBJECT: '',
+      }),
+    ).toMatchObject({
+      VAPID_PRIVATE_KEY: undefined,
+      VAPID_PUBLIC_KEY: undefined,
+      VAPID_SUBJECT: undefined,
+    });
+  });
+
   it('applies WeChat defaults in test mode too', () => {
     expect(
       loadEnvironment({

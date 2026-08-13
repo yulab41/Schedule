@@ -20,7 +20,9 @@ const client = createDatabaseClient({
 });
 
 try {
-  const { result, runId } = await recordJobRun(client, jobName, () => runJob(jobName, client));
+  const { result, runId } = await recordJobRun(client, jobName, () =>
+    runJob(jobName, client, environment),
+  );
   console.log(JSON.stringify({ job: jobName, result, runId }));
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
