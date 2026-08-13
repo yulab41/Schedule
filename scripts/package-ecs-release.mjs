@@ -140,6 +140,9 @@ run(pnpmCommand, [
 if (!fs.existsSync(path.join(apiFlatPath, 'node_modules'))) {
   fail('pnpm deploy 未生成 api-flat/node_modules。');
 }
+fs.cpSync(path.join(ROOT, 'migrations'), path.join(apiFlatPath, 'node_modules', 'migrations'), {
+  recursive: true,
+});
 
 run(tarPath(), ['-czf', distArchivePath, '-C', ROOT, ...DIST_PATHS]);
 run(tarPath(), ['--zstd', '-cf', apiFlatArchivePath, '-C', apiFlatPath, 'node_modules']);
