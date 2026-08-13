@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity 回归已修复；随后批准的全量 parity 计划首批 P0.1–P0.3 已实现并通过浏览器/DevTools preview，Android/iOS 多群、零群组与邀请恢复旅程仍待用户复核。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3 与日历可靠性 C1–C3 均已实现并通过各自自动化/DevTools preview；Android/iOS 多群、邀请恢复与日历前后台/跨月/隐私生命周期仍待用户复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -18,6 +18,16 @@
 - 验证：……
 - 状态：已完成 / 待用户验收 / 遗留
 ```
+
+### 日历可靠性 C1–C3（提交：fix(miniprogram): harden calendar foreground lifecycle，2026-08-13）
+
+- 用户反馈/需求：继续执行已批准的 Web / 小程序 parity 计划；本轮依项目状态只处理 C1 holiday 非阻断、C2 前台 stale-while-revalidate/跨月精确状态、C3 有界月份和敏感 Sheet 生命周期，不提前进入事件过滤或共享 runtime。
+- 根因/引入点：`git log -S`/`git blame` 将小程序 calendar+holiday `Promise.all`、跨月周缺源统一落为 loading 追溯到 `42d6243`，初始日历 ready fast-path 追溯到 `ce21a51`，电话/事件 Sheet 追溯到 `7d95a0a`；成熟 Web holiday 非阻断修复来自 `48c6fdd`，窗口 focus 重载语义来自 `3a082d8`。这些不是微信平台限制，而是客户端状态机复制时丢失的已验证失败/生命周期分支。
+- 红绿测试：旧实现先在“排班成功但 holiday reject”“强刷 holiday 失败保留上次有效标签”“invalidate/跨上下文 late holiday 不覆盖”“ready 前台刷新保留旧视图”“403/409 不暴露 stale”“pending holiday 不阻塞下一次 SWR”“月份槽淘汰/重入”“dispose 不发布旧数据”“跨月硬失败优先”“跨月后陈旧 weekStart 重居中”场景失败。修复后 controller/lifecycle/surface/view-mode/sheet 6 文件 / 56 项通过；完整小程序为 41 文件 / 228 项。
+- 修复/功能：calendar 成功立即以同年上次有效 holiday 或 unavailable 空模型发布/缓存，holiday 后到只做受 request identity、slot identity、generation 与完整 context 保护的可选 enrich；calendar single-flight 不再等待 holiday，pending callback 不再独立保留整月成员/电话对象，槽退休或权限失败后相关引用可释放。`onShow` 同上下文保留可见视图并强制 SWR，普通网络失败退为 stale cached，403/409 在 fallback 前清 raw/snapshot 和对应持久 cache。跨月周按 forbidden/conflict/error 优先于 loading/缺失传播原状态与 message；进入周视图先验证 week 与中心月相交。controller 只保留实际窗口月份；context/dispose 清槽和 flights。页面在身份/群组/version 变化或权限失效时同步清三月 VM，`onHide`/`onUnload` 丢弃 Sheet 内容、事件时间线和旧导航 callback。
+- 语义等价审计：真实 `getCalendar`/`getHolidays`/guest endpoint 与 `wx` 电话/剪贴板成员调用继续保持接收者；同一 batch 的同年 holiday 仍一次调用，重复 force 仍 single-flight，新增前台 force 与权限/冲突清理是明确行为修复。holiday `undefined` 没有被当成成功值，失败改为显式 unavailable；calendar catch 不再覆盖 optional holiday，403/409 不进入网络错误 fallback。所有异步发布同时检查接收槽、generation 和 context；evict/dispose 通过清引用与 generation 使 A→B→A、旧 swiper callback 和 late promise 无副作用。独立只读审查发现并关闭五项 P1/P2 边界，最终复核无剩余 P0–P2。
+- 验证：完整小程序 41 文件 / 228 项、7 个静态边界文件 / 25 项通过；`pnpm miniprogram:config:audit`、`pnpm miniprogram:typecheck`、目标 ESLint、任务文件 Prettier、`git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（本轮未修改其列举的 Web/API/认证/契约/构建核心路径）；`pnpm smoke:check-core` 通过。最终 DevTools `build-npm` 成功（cost 3607、warnings `[]`），preview 355738 bytes / 347.4 KB（main 285.7 KB、groups 5.6 KB、manual 21.4 KB、workflows 34.8 KB）。标准 smoke 与复用已成功开启的 `ws://127.0.0.1:9436` 会话均约 50 秒无输出后终止，延续已记录的自动化 transport 边界，不虚报页面旅程通过。
+- 状态：**已实现待 Android/iOS 人工核验**。需验证前后台切换先保留旧月再刷新、holiday 故障不遮住排班、跨月周硬失败/重试、切群/退出后旧姓名电话和 Sheet 不可见。检查点后停止；下一批只实施事件时间线 `shiftId` 服务端过滤。
 
 ### Web / 小程序 parity 首批安全修复（提交：fix(miniprogram): harden parity safety foundations，2026-08-13）
 

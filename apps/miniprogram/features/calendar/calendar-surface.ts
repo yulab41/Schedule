@@ -111,10 +111,36 @@ export function buildCalendarSurfaceViewModel(input: {
         weekStart: input.weekStart,
       };
     }
-    const missing =
+    const unavailableMonth =
+      requiredMonths.find((month) => {
+        const status = input.monthSlots.find(({ businessMonth }) => businessMonth === month)
+          ?.viewModel.status;
+        return status === 'forbidden' || status === 'conflict' || status === 'error';
+      }) ??
       requiredMonths.find((month) => findDataSlot(input.monthSlots, month) === undefined) ??
       input.businessMonth;
-    return { businessMonth: missing, kind: 'state', message: '正在加载排班', status: 'loading' };
+    const unavailable = input.monthSlots.find(
+      ({ businessMonth }) => businessMonth === unavailableMonth,
+    )?.viewModel;
+    if (
+      unavailable?.status === 'loading' ||
+      unavailable?.status === 'conflict' ||
+      unavailable?.status === 'error' ||
+      unavailable?.status === 'forbidden'
+    ) {
+      return {
+        businessMonth: unavailableMonth,
+        kind: 'state',
+        message: unavailable.message,
+        status: unavailable.status,
+      };
+    }
+    return {
+      businessMonth: unavailableMonth,
+      kind: 'state',
+      message: '正在加载排班',
+      status: 'loading',
+    };
   }
   if (
     center?.status === 'loading' ||

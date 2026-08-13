@@ -2,6 +2,7 @@ import { addBusinessMonths } from './calendar-logic.js';
 import {
   addWeeks,
   getBusinessMonthOf,
+  getBusinessMonthsForWeek,
   getVisibleWeekForMonth,
   getWeekStartDate,
 } from './calendar-views.js';
@@ -33,7 +34,8 @@ export function switchCalendarViewMode(
     let weekStart = state.weekStart;
     try {
       weekStart =
-        getWeekStartDate(state.weekStart) === state.weekStart
+        getWeekStartDate(state.weekStart) === state.weekStart &&
+        getBusinessMonthsForWeek(state.weekStart).includes(state.businessMonth)
           ? state.weekStart
           : getVisibleWeekForMonth(state.businessMonth, today);
     } catch {

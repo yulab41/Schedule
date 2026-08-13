@@ -91,4 +91,77 @@ describe('calendar renderer surfaces', () => {
       viewModel: createCalendarMonthStateViewModel('2026-10', 'loading'),
     });
   });
+
+  it.each([
+    ['forbidden', '当前群组禁止查看九月排班'],
+    ['conflict', '九月缓存与服务端版本冲突'],
+    ['error', '九月排班加载失败，请重试'],
+    ['loading', '正在同步九月排班'],
+  ] as const)(
+    'propagates the required cross-month week %s state without replacing its message',
+    (status, message) => {
+      expect(
+        buildCalendarSurfaceViewModel({
+          businessMonth: '2026-08',
+          mode: 'week',
+          monthSlots: [
+            { businessMonth: '2026-08', viewModel: august },
+            {
+              businessMonth: '2026-09',
+              viewModel: createCalendarMonthStateViewModel('2026-09', status, message),
+            },
+          ],
+          weekStart: '2026-08-31',
+        }),
+      ).toEqual({
+        businessMonth: '2026-09',
+        kind: 'state',
+        message,
+        status,
+      });
+    },
+  );
+
+  it('synthesizes loading only when a required cross-month week slot is absent', () => {
+    expect(
+      buildCalendarSurfaceViewModel({
+        businessMonth: '2026-08',
+        mode: 'week',
+        monthSlots: [{ businessMonth: '2026-08', viewModel: august }],
+        weekStart: '2026-08-31',
+      }),
+    ).toEqual({
+      businessMonth: '2026-09',
+      kind: 'state',
+      message: '正在加载排班',
+      status: 'loading',
+    });
+  });
+
+  it.each([
+    ['forbidden', '九月已无权访问'],
+    ['conflict', '九月版本已变化'],
+    ['error', '九月请求失败'],
+  ] as const)(
+    'prioritizes a known cross-month %s over another required month loading',
+    (status, message) => {
+      expect(
+        buildCalendarSurfaceViewModel({
+          businessMonth: '2026-08',
+          mode: 'week',
+          monthSlots: [
+            {
+              businessMonth: '2026-08',
+              viewModel: createCalendarMonthStateViewModel('2026-08', 'loading'),
+            },
+            {
+              businessMonth: '2026-09',
+              viewModel: createCalendarMonthStateViewModel('2026-09', status, message),
+            },
+          ],
+          weekStart: '2026-08-31',
+        }),
+      ).toEqual({ businessMonth: '2026-09', kind: 'state', message, status });
+    },
+  );
 });

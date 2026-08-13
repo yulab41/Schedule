@@ -13,7 +13,7 @@ import type {
 } from '../../store/calendar-cache.js';
 import { buildCalendarCacheKey, isCalendarCacheFresh } from '../../store/calendar-cache.js';
 import type { CalendarAssignmentFilters } from './calendar-logic.js';
-import { parseBusinessMonth } from './calendar-logic.js';
+import { parseBusinessDate, parseBusinessMonth } from './calendar-logic.js';
 import {
   buildCalendarMonthViewModel,
   createCalendarMonthStateViewModel,
@@ -62,6 +62,7 @@ export interface CalendarPageControllerDependencies {
 
 export interface CalendarPageController {
   activate(context: CalendarContext): void;
+  dispose(): void;
   getMonthViewModels(months: readonly string[]): readonly CalendarMonthDataViewModel[];
   invalidate(context: CalendarContext, businessMonths: readonly string[]): void;
   load(target: CalendarLoadTarget | CalendarLegacyLoadTarget, force?: boolean): Promise<void>;
@@ -76,6 +77,7 @@ interface Slot {
   holidays?: HolidayReadModel;
   generation: number;
   inFlight?: Promise<void>;
+  inFlightForce?: boolean;
   cachedSnapshot?: CalendarCacheRecord;
   viewModel?: CalendarMonthViewModel;
 }
@@ -130,6 +132,19 @@ function isCurrentData(
   return isDataViewModel(value);
 }
 
+function createUnavailableHolidays(year: number): HolidayReadModel {
+  return { confirmed: false, dates: [], year };
+}
+
+function isHolidayResultForYear(value: HolidayReadModel, year: number): boolean {
+  if (value.year !== year) return false;
+  try {
+    return value.dates.every(({ date }) => parseBusinessDate(date).year === year);
+  } catch {
+    return false;
+  }
+}
+
 export function getCalendarFailureState(error: unknown): CalendarFailureStatus {
   if (error instanceof ApiClientError) {
     if (error.code === 'FORBIDDEN' || error.status === 403) return 'forbidden';
@@ -154,9 +169,36 @@ export function createCalendarPageController(
     dependencies.cache !== undefined || dependencies.publishUpdate !== undefined;
   const slots = new Map<string, Slot>();
   const holidayFlights = new Map<string, Promise<HolidayReadModel>>();
+  let holidayRequestSequence = 0;
   let activeContext: CalendarContext | undefined;
   let visibleMonths: readonly string[] = [];
   let filters: CalendarAssignmentFilters = {};
+
+  const retireSlot = (slot: Slot): void => {
+    slot.generation += 1;
+    slot.cachedSnapshot = undefined;
+    slot.calendar = undefined;
+    slot.holidays = undefined;
+    slot.inFlight = undefined;
+    slot.inFlightForce = undefined;
+    slot.viewModel = undefined;
+  };
+
+  const clearSlots = (): void => {
+    for (const slot of slots.values()) retireSlot(slot);
+    slots.clear();
+  };
+
+  const retainMonths = (context: CalendarContext, businessMonths: readonly string[]): void => {
+    const retainedKeys = new Set(
+      businessMonths.map((businessMonth) => slotKey(identityFor(context, businessMonth))),
+    );
+    for (const [key, slot] of slots) {
+      if (retainedKeys.has(key)) continue;
+      retireSlot(slot);
+      slots.delete(key);
+    }
+  };
 
   const emit = (
     context: CalendarContext,
@@ -179,24 +221,25 @@ export function createCalendarPageController(
   const holidayFor = (
     context: CalendarContext,
     year: number,
-    deduplicate = true,
+    requestIdentity?: number,
   ): Promise<HolidayReadModel> => {
-    if (!deduplicate) {
+    if (requestIdentity === undefined) {
       return context.groupRole === 'guest'
         ? dependencies.getGuestHolidays(year)
         : dependencies.getHolidays(year);
     }
-    const key = `${contextKey(context)}:${year}`;
+    const key = `${contextKey(context)}:${year}:${requestIdentity}`;
     const existing = holidayFlights.get(key);
     if (existing !== undefined) return existing;
-    const promise = (
+    const promise =
       context.groupRole === 'guest'
         ? dependencies.getGuestHolidays(year)
-        : dependencies.getHolidays(year)
-    ).finally(() => {
+        : dependencies.getHolidays(year);
+    const clearFlight = (): void => {
       if (holidayFlights.get(key) === promise) holidayFlights.delete(key);
-    });
+    };
     holidayFlights.set(key, promise);
+    void promise.then(clearFlight, clearFlight);
     return promise;
   };
 
@@ -217,7 +260,7 @@ export function createCalendarPageController(
   const loadOne = (
     target: CalendarLoadTarget,
     force: boolean,
-    deduplicateHolidays = true,
+    holidayRequestIdentity?: number,
   ): Promise<void> => {
     const identity = identityFor(target, target.businessMonth);
     const key = slotKey(identity);
@@ -226,7 +269,9 @@ export function createCalendarPageController(
       slot = { generation: 0, identity };
       slots.set(key, slot);
     }
-    if (slot.inFlight !== undefined) return slot.inFlight;
+    if (slot.inFlight !== undefined && (!force || slot.inFlightForce === true)) {
+      return slot.inFlight;
+    }
     if (
       !force &&
       isCurrentData(slot.viewModel) &&
@@ -237,7 +282,33 @@ export function createCalendarPageController(
       return Promise.resolve();
     }
 
-    if (slot.calendar === undefined || slot.holidays === undefined || force) {
+    const refreshBaseline =
+      force &&
+      isCurrentData(slot.viewModel) &&
+      slot.calendar !== undefined &&
+      slot.holidays !== undefined
+        ? {
+            calendar: slot.calendar,
+            ...(slot.viewModel.cacheSavedAt === undefined
+              ? {}
+              : { cacheSavedAt: slot.viewModel.cacheSavedAt }),
+            holidays: slot.holidays,
+          }
+        : undefined;
+
+    if (refreshBaseline !== undefined) {
+      emit(
+        target,
+        target.businessMonth,
+        buildCalendarMonthViewModel({
+          calendar: refreshBaseline.calendar,
+          filters,
+          holidays: refreshBaseline.holidays,
+          status: 'refreshing',
+          today: dependencies.getToday(),
+        }),
+      );
+    } else if (slot.calendar === undefined || slot.holidays === undefined || force) {
       slot.cachedSnapshot = undefined;
       const record = cache.read(identity);
       if (record !== undefined) {
@@ -265,43 +336,95 @@ export function createCalendarPageController(
     slot.generation += 1;
     const generation = slot.generation;
     const year = parseBusinessMonth(target.businessMonth).year;
-    let response: Promise<{
-      readonly calendar: CalendarReadModel;
-      readonly holidays: HolidayReadModel;
-    }>;
+    let calendarResponse: Promise<CalendarReadModel>;
     try {
-      const calendarPromise =
+      calendarResponse =
         target.groupRole === 'guest'
           ? dependencies
               .getLoggedInGuestCalendar(target.groupId, target.businessMonth)
               .then(({ calendar }) => calendar)
           : dependencies.getCalendar(target.groupId, target.businessMonth);
-      response = Promise.all([calendarPromise, holidayFor(target, year, deduplicateHolidays)]).then(
-        ([calendar, holidays]) => ({ calendar, holidays }),
-      );
     } catch (error) {
-      response = Promise.reject(error);
+      calendarResponse = Promise.reject(error);
     }
-    const request = response
-      .then(({ calendar, holidays }) => {
-        const current = slots.get(key);
+    let holidayResponse: Promise<HolidayReadModel>;
+    try {
+      holidayResponse = holidayFor(target, year, holidayRequestIdentity);
+    } catch (error) {
+      holidayResponse = Promise.reject(error);
+    }
+
+    let nextHolidays: HolidayReadModel | undefined;
+    let publishedHolidays: HolidayReadModel | undefined;
+    let requestOpen = true;
+    const isCurrentRequest = (): boolean => {
+      const current = slots.get(key);
+      return (
+        requestOpen &&
+        current === slot &&
+        current.generation === generation &&
+        sameContext(activeContext, target)
+      );
+    };
+    const publishReady = (calendar: CalendarReadModel, holidays: HolidayReadModel): void => {
+      const viewModel = buildCalendarMonthViewModel({
+        calendar,
+        filters,
+        holidays,
+        status: 'ready',
+        today: dependencies.getToday(),
+      });
+      slot.calendar = calendar;
+      slot.holidays = holidays;
+      publishedHolidays = holidays;
+      emit(target, target.businessMonth, viewModel);
+    };
+
+    const holidayStage = holidayResponse.then(
+      (holidays) => {
+        if (!isHolidayResultForYear(holidays, year)) return;
+        nextHolidays = holidays;
+        const calendar = slot.calendar;
         if (
-          current !== slot ||
-          current.generation !== generation ||
-          !sameContext(activeContext, target)
+          !isCurrentRequest() ||
+          calendar === undefined ||
+          publishedHolidays === undefined ||
+          publishedHolidays === holidays
         )
           return;
-        slot.calendar = calendar;
-        slot.holidays = holidays;
-        const viewModel = buildCalendarMonthViewModel({
-          calendar,
-          filters,
-          holidays,
-          status: 'ready',
-          today: dependencies.getToday(),
-        });
-        emit(target, target.businessMonth, viewModel);
+        publishReady(calendar, holidays);
         cache.write(identity, calendar, holidays);
+      },
+      () => undefined,
+    );
+    let calendarRequestOpen = true;
+    const isCurrentCalendarRequest = (): boolean => {
+      const current = slots.get(key);
+      return (
+        calendarRequestOpen &&
+        current === slot &&
+        current.generation === generation &&
+        sameContext(activeContext, target)
+      );
+    };
+    const request: Promise<void> = calendarResponse
+      .then(async (calendar) => {
+        // Let an already-settled holiday response join this publication without delaying
+        // a successful schedule behind a slow optional holiday request.
+        await Promise.resolve();
+        if (!isCurrentCalendarRequest()) return;
+        const previousHolidays =
+          slot.holidays !== undefined && isHolidayResultForYear(slot.holidays, year)
+            ? slot.holidays
+            : createUnavailableHolidays(year);
+        publishReady(calendar, nextHolidays ?? previousHolidays);
+        cache.write(identity, calendar, publishedHolidays ?? previousHolidays);
+      })
+      .then(() => {
+        if (slot.inFlight === request) {
+          slot.inFlight = undefined;
+          slot.inFlightForce = undefined;
+        }
       })
       .catch((error: unknown) => {
         const current = slots.get(key);
@@ -311,16 +434,37 @@ export function createCalendarPageController(
           !sameContext(activeContext, target)
         )
           return;
-        if (slot.cachedSnapshot !== undefined && isCurrentData(slot.viewModel)) {
+        const failureStatus = getCalendarFailureState(error);
+        if (failureStatus === 'forbidden' || failureStatus === 'conflict') {
+          slot.cachedSnapshot = undefined;
+          slot.calendar = undefined;
+          slot.holidays = undefined;
+          slot.viewModel = undefined;
+          cache.remove(identity);
+          publishState(target, failureStatus, error instanceof Error ? error.message : undefined);
+          return;
+        }
+        const fallback =
+          refreshBaseline ??
+          (slot.cachedSnapshot === undefined
+            ? undefined
+            : {
+                cacheSavedAt: slot.cachedSnapshot.savedAt,
+                calendar: slot.cachedSnapshot.calendar,
+                holidays: slot.cachedSnapshot.holidays,
+              });
+        if (fallback !== undefined && isCurrentData(slot.viewModel)) {
           emit(
             target,
             target.businessMonth,
             buildCalendarMonthViewModel({
-              calendar: slot.cachedSnapshot.calendar,
+              calendar: fallback.calendar,
               filters,
-              holidays: slot.cachedSnapshot.holidays,
+              holidays: fallback.holidays,
               isStale: true,
-              cacheSavedAt: slot.cachedSnapshot.savedAt,
+              ...(fallback.cacheSavedAt === undefined
+                ? {}
+                : { cacheSavedAt: fallback.cacheSavedAt }),
               status: 'cached',
               today: dependencies.getToday(),
             }),
@@ -328,22 +472,42 @@ export function createCalendarPageController(
           return;
         }
         const message = error instanceof Error ? error.message : undefined;
-        publishState(target, getCalendarFailureState(error), message);
+        publishState(target, failureStatus, message);
       })
       .finally(() => {
-        if (slot?.inFlight === request) slot.inFlight = undefined;
+        calendarRequestOpen = false;
+        if (slot?.inFlight === request) {
+          slot.inFlight = undefined;
+          slot.inFlightForce = undefined;
+        }
       });
+    // Holiday enrichment is optional and deliberately outlives the calendar single-flight.
+    // Its request identity/generation guards prevent a late result from enriching a newer slot.
+    const closeHolidayRequest = (): void => {
+      requestOpen = false;
+    };
+    void holidayStage.then(closeHolidayRequest, closeHolidayRequest);
     slot.inFlight = request;
+    slot.inFlightForce = force;
     return request;
   };
 
   const controller: CalendarPageController = {
     activate(context) {
       if (!sameContext(activeContext, context)) {
+        clearSlots();
+        holidayFlights.clear();
         activeContext = { ...context };
         filters = {};
         visibleMonths = [];
       }
+    },
+    dispose() {
+      activeContext = undefined;
+      visibleMonths = [];
+      filters = {};
+      clearSlots();
+      holidayFlights.clear();
     },
     getMonthViewModels(months) {
       if (activeContext === undefined) return [];
@@ -363,6 +527,7 @@ export function createCalendarPageController(
         slot.cachedSnapshot = undefined;
         slot.calendar = undefined;
         slot.inFlight = undefined;
+        slot.inFlightForce = undefined;
         slot.viewModel = undefined;
       }
     },
@@ -384,15 +549,21 @@ export function createCalendarPageController(
       } as CalendarLoadTarget;
       controller.activate(normalizedTarget);
       visibleMonths = [normalizedTarget.businessMonth];
-      return loadOne(normalizedTarget, force || wasDifferentMonth, false);
+      retainMonths(normalizedTarget, visibleMonths);
+      return loadOne(normalizedTarget, force || wasDifferentMonth);
     },
     loadMonths(context, months, force = false) {
       controller.activate(context);
       const unique = [...new Set(months)];
       unique.forEach((month) => parseBusinessMonth(month));
       visibleMonths = unique;
+      retainMonths(context, unique);
+      holidayRequestSequence += 1;
+      const holidayRequestIdentity = holidayRequestSequence;
       return Promise.all(
-        unique.map((businessMonth) => loadOne({ ...context, businessMonth }, force)),
+        unique.map((businessMonth) =>
+          loadOne({ ...context, businessMonth }, force, holidayRequestIdentity),
+        ),
       ).then(() => undefined);
     },
     performPhoneAction(actionId) {

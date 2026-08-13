@@ -50,6 +50,7 @@ import {
   getCalendarSheetTitle,
   openCalendarSheet,
   requestCalendarSheetClose,
+  resetCalendarSheet,
   type CalendarSheetHostState,
   type CalendarSheetKind,
 } from '../../features/calendar/calendar-sheet-host.js';
@@ -96,6 +97,7 @@ type SwiperChangeEvent = WechatMiniprogram.CustomEvent<{
 }>;
 
 interface CalendarPageMethods {
+  activeContextKey?: string;
   controller?: CalendarPageController;
   eventController?: EventTimelineController;
   invalidationObserver?: CalendarInvalidationObserver;
@@ -120,6 +122,8 @@ interface CalendarPageMethods {
   lastResolvedRoute?: CalendarRouteTarget;
   loadMonths(force?: boolean): void;
   navigationEpoch: number;
+  resetSensitiveCalendarDetails(): void;
+  resetCalendarContextData(): void;
   swiperLocked: boolean;
   updateNavigation(next: {
     readonly businessMonth: string;
@@ -174,6 +178,10 @@ function contextForCurrentGroup(): CalendarContext | undefined {
     groupVersion: group.version,
     userId: profile.id,
   };
+}
+
+function getCalendarContextKey(context: CalendarContext): string {
+  return JSON.stringify([context.userId, context.groupId, context.groupRole, context.groupVersion]);
 }
 
 function makeSurface(
@@ -250,6 +258,10 @@ Page<CalendarPageData, CalendarPageMethods>({
   onShow(): void {
     const state = sessionStore.state;
     if (state.status !== 'authenticated') {
+      this.activeContextKey = undefined;
+      this.resetSensitiveCalendarDetails();
+      this.controller?.dispose();
+      this.resetCalendarContextData();
       navigateForCurrentSession();
       return;
     }
@@ -260,21 +272,49 @@ Page<CalendarPageData, CalendarPageMethods>({
         showTabBar: () => wx.showTabBar({}),
         switchTab: (options) => wx.switchTab(options),
       })
-    )
+    ) {
+      this.activeContextKey = undefined;
+      this.resetSensitiveCalendarDetails();
+      this.controller?.dispose();
+      this.resetCalendarContextData();
       return;
+    }
     const group = getActiveGroup();
     const context = contextForCurrentGroup();
     if (group === undefined || context === undefined) {
+      this.activeContextKey = undefined;
+      this.resetSensitiveCalendarDetails();
+      this.controller?.dispose();
+      this.resetCalendarContextData();
       this.setData({ activeRole: '', hasActiveGroup: false });
       return;
     }
+    const activeContextKey = getCalendarContextKey(context);
+    if (this.activeContextKey !== activeContextKey) {
+      this.resetSensitiveCalendarDetails();
+      this.resetCalendarContextData();
+    }
+    this.activeContextKey = activeContextKey;
     this.setData({ activeRole: group.role, hasActiveGroup: true });
     this.controller?.activate(context);
     const visibleMonths = this.data.monthSlots.map(({ businessMonth }) => businessMonth);
     const invalidatedMonths = this.invalidationObserver?.consume(context, visibleMonths) ?? [];
     if (invalidatedMonths.length > 0) this.controller?.invalidate(context, invalidatedMonths);
     this.invalidationObserver?.observe(context, visibleMonths);
-    this.loadMonths();
+    this.loadMonths(true);
+  },
+  onHide(): void {
+    this.resetSensitiveCalendarDetails();
+  },
+  onUnload(): void {
+    this.resetSensitiveCalendarDetails();
+    this.navigationEpoch += 1;
+    this.controller?.dispose();
+    this.controller = undefined;
+    this.eventController = undefined;
+    this.invalidationObserver = undefined;
+    this.activeContextKey = undefined;
+    this.swiperLocked = false;
   },
   applySlotUpdate(update): void {
     const context = contextForCurrentGroup();
@@ -299,8 +339,8 @@ Page<CalendarPageData, CalendarPageMethods>({
     const surface = makeSurface(nextSlots, this.data.viewMode, this.data.weekStart);
     const center = nextSlots[1].viewModel;
     const cacheNotice =
-      center.status === 'cached' && center.cacheSavedAt !== undefined
-        ? { savedAtText: center.cacheSavedAt, stale: center.isStale === true }
+      center.status === 'cached'
+        ? { savedAtText: center.cacheSavedAt ?? '', stale: center.isStale === true }
         : undefined;
     this.setData({ cacheNotice, monthSlots: nextSlots, surface });
   },
@@ -540,5 +580,29 @@ Page<CalendarPageData, CalendarPageMethods>({
     if (this.data.viewMode === 'week')
       getBusinessMonthsForWeek(this.data.weekStart).forEach((month) => months.add(month));
     void this.controller?.loadMonths(context, [...months], force);
+  },
+  resetSensitiveCalendarDetails(): void {
+    const sheetHost = resetCalendarSheet(this.data.sheetHost);
+    this.navigationEpoch += 1;
+    this.swiperLocked = false;
+    this.lastResolvedRoute = undefined;
+    this.eventController?.reset();
+    this.setData({
+      eventTimeline: initialEventTimeline,
+      sheetHost,
+      sheetKind: getCalendarSheetKind(sheetHost),
+      sheetTitle: getCalendarSheetTitle(sheetHost),
+    });
+  },
+  resetCalendarContextData(): void {
+    const monthSlots = this.data.monthSlots.map(({ businessMonth }) => ({
+      businessMonth,
+      viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
+    })) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
+    this.setData({
+      cacheNotice: undefined,
+      monthSlots,
+      surface: makeSurface(monthSlots, this.data.viewMode, this.data.weekStart),
+    });
   },
 });

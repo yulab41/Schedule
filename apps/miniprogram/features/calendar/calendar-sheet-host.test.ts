@@ -6,6 +6,7 @@ import {
   getCalendarSheetTitle,
   openCalendarSheet,
   requestCalendarSheetClose,
+  resetCalendarSheet,
   type CalendarSheetHostState,
 } from './calendar-sheet-host.js';
 import type { CalendarAssignmentViewModel, CalendarDayViewModel } from './calendar-view-model.js';
@@ -71,5 +72,15 @@ describe('calendar sheet host', () => {
     expect(phone).toMatchObject({ content: { kind: 'phone' }, sheetKey: 2, visible: true });
     expect(completeCalendarSheetClose(phone, events.sheetKey)).toBe(phone);
     expect(getCalendarSheetTitle(phone)).toBe('电话联系');
+  });
+
+  it('removes sensitive content and invalidates late close events when the page hides', () => {
+    const events = openCalendarSheet(initial, { assignment, kind: 'events' });
+
+    const reset = resetCalendarSheet(events);
+
+    expect(reset).toEqual({ sheetKey: 2, visible: false });
+    expect(getCalendarSheetKind(reset)).toBe('none');
+    expect(completeCalendarSheetClose(reset, events.sheetKey)).toBe(reset);
   });
 });

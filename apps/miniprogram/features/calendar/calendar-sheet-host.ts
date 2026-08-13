@@ -33,6 +33,10 @@ export function requestCalendarSheetClose(current: CalendarSheetHostState): Cale
   return current.visible ? { ...current, visible: false } : current;
 }
 
+export function resetCalendarSheet(current: CalendarSheetHostState): CalendarSheetHostState {
+  return { sheetKey: current.sheetKey + 1, visible: false };
+}
+
 export function completeCalendarSheetClose(
   current: CalendarSheetHostState,
   sheetKey: number,

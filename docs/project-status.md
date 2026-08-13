@@ -9,9 +9,18 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：用户已批准 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。首批 P0.1–P0.3 已实现并完成自动化、浏览器及 DevTools preview 验证，状态为**待用户复核**；本轮到检查点即停止，不继续实现日历可靠性、共享 runtime、岗位允许班种或完整功能面。
+- 当前批次：用户已批准 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。首批 P0.1–P0.3 与日历可靠性 C1–C3 均已实现并完成自动化及 DevTools preview 验证；当前检查点完成后停止，不继续实现事件过滤、共享 runtime、岗位允许班种或完整功能面。
 
 ## Completed Batch
+
+### 日历可靠性 C1–C3（2026-08-13）
+
+- C1 节假日非阻断：小程序将 calendar 与 holiday 放在同一 `Promise.all` 的行为追溯到 `42d6243`，Web 已验证的非阻断语义追溯到 `48c6fdd`。排班成功现在立即发布并缓存；holiday 失败使用同年上次有效值或空的 unavailable 模型，不再把整月降为 error。late holiday 仅在 request identity、slot identity、generation 与完整用户/群组上下文都仍一致时二次 enrich，跨年、跨月、invalidate、force、evict、dispose 与 A→B→A 均不能发布陈旧结果；永久 pending 的可选 holiday 不再占住 calendar single-flight，也不再由独立闭包保留整月成员/电话对象，槽退休或权限失败后相关引用可释放。
+- C2 前台刷新与跨月状态：日历 `onShow` 对同一上下文强制 stale-while-revalidate，保留 ready/cached 视图并发布 `refreshing`；普通网络失败保留旧数据并明确标 stale，403/409 则在 fallback 前分类、清除内存原始数据和对应持久 cache，再精确呈现 forbidden/conflict。跨月周优先传播任一 required month 的 forbidden/conflict/error，再处理 loading/缺失，不再永久显示假 loading；连续翻月至其他月份后进入周视图会重新居中有效 `weekStart`。
+- C3 有界与隐私生命周期：controller 只保留当前页面/跨月周实际请求的月份槽，窗口外槽立即退休，重入从隔离 cache/网络重载；上下文变化与 `dispose` 会清 slots、filters、holiday flights。页面在账号/群组/version 变化、未认证、route guard 拒绝或无 active group 时同步把三月 VM 重置为 loading，避免姓名/`phoneActions` 留在 page data；`onHide`/`onUnload` 关闭并丢弃电话、事件等 Sheet，重置事件时间线，并用 navigation epoch 使旧 swiper callback 失效。
+- 测试先行与审查：旧实现先在 holiday 非阻断、刷新失败保留视图、403/409 不暴露 stale、pending holiday 后续 SWR、跨月错误优先、陈旧 weekStart、月份淘汰及上下文/卸载隔离场景失败，修复后 controller/lifecycle/surface/view-mode/sheet 6 文件 / 56 项通过。独立只读复核发现并关闭“holiday pending 占住 SWR”“403/409 被缓存吞掉”“旧 swiper 重激活旧群”“双失败假 loading”“跨月后 weekStart 失配”五项问题，最终未发现剩余 P0–P2。
+- 验证：完整小程序 41 文件 / 228 项、7 个静态发布边界文件 / 25 项通过；config audit、typecheck、目标 ESLint、任务文件 Prettier、`pnpm smoke:check-core` 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（未修改其列举的 Web/API/认证/契约/构建核心路径）。最终 DevTools `build-npm` 成功（cost 3607、warnings `[]`），preview 成功（355738 bytes / 347.4 KB；主包 285.7 KB、groups 5.6 KB、manual 21.4 KB、workflows 34.8 KB）；自动化端口 `9436` 成功开启，但标准及复用会话 smoke 各约 50 秒无输出后终止，未虚报页面旅程通过。
+- 状态：**已实现待 Android/iOS 人工复核**。真机需验证前后台切换仍先显示旧月再刷新、holiday 故障不遮住排班、跨月周错误可重试、切群/退出后旧姓名电话和 Sheet 不可见；检查点提交信息为 `fix(miniprogram): harden calendar foreground lifecycle`。下一批只处理事件时间线 `shiftId` 服务端过滤，不提前开始共享 runtime。
 
 ### Web / 小程序 parity 安全基础 P0.1–P0.3（2026-08-13）
 
@@ -274,16 +283,15 @@
 
 ## Previous Batch
 
-1. V3-0.5 Task 1–2 和 V3-1 Task 3–5 已完成并推送。
-2. V3-2 Task 6–8、导航/详情回归和人工 UI 复核已完成；最终检查点 `9629454` 已推送。
-3. V3-2 完整 Web/renderer/device/performance 证据已显式转入 V3-6，不阻塞 V3-3 计划审阅。
+1. Web / 小程序 parity 安全基础 P0.1–P0.3 已由 `83444d8` 完成并推送。
+2. 日历可靠性 C1–C3 已完成实现、自动化、独立审查与 DevTools preview，待本检查点提交/推送。
+3. V3-2 完整 Web/renderer/device/performance 证据仍显式保留到 V3-6，不作为自动化通过项。
 
 ## Active Batch
 
-1. 下一轮 Task C1：节假日失败不得阻断已成功的排班；按请求 generation 隔离跨年/跨月 holiday 结果。
-2. 下一轮 Task C2：日历 onShow 使用保留旧视图的 stale-while-revalidate；跨月周精确传播 forbidden/conflict/error/loading，不得永久假 loading。
-3. 下一轮 Task C3：内存月份槽保持有界，并在群组/账号上下文变化或隐藏页面时清理电话、事件等敏感 Sheet。
-4. 停止条件：本轮 P0.1–P0.3 检查点完成并停止；下一次实现会话必须重新读取计划/设计、复核代码与 Git 后，才可从 C1–C3 开始。事件 `shiftId` 服务端过滤及共享 runtime 仍冻结到再下一批。
+1. 下一轮 Task D1：扩展小程序事件 endpoint wrapper 接受当前契约的 `ScheduleEventQuery`，日历事件时间线按 assignment `shiftId` 在服务端过滤并正确分页，不再先取全组最近 100 条后本地筛选。
+2. D1 必须先用“目标班次事件落在群组最近 100 条之外”的失败测试锁定漏数，并验证 query 编码、cursor/hasMore 语义、陈旧请求隔离与 Web/API 契约一致；现有后端路由已支持 `shiftId`，本轮不得无依据新增路由。
+3. 停止条件：当前 C1–C3 检查点完成并停止；下一次实现会话重新读取状态、计划、设计、代码与 Git 后才可开始 D1。共享 `calendar-core`/`client-core`、日历交互、岗位允许班种及完整功能面继续冻结到后续独立批次。
 
 ## Handoff Requirements
 

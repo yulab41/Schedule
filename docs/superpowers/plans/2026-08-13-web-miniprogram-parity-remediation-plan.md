@@ -3,7 +3,7 @@
 > 批准日期：2026-08-13
 > 权威顺序：当前 API integration / contracts / 安全决议 > 经测试验证的 Web 业务语义 > 小程序平台 UI 适配。
 
-进度：P0.1–P0.3 已于 2026-08-13 完成首个安全基础检查点并进入用户真机复核；后续批次仍冻结，须按 `docs/project-status.md` 的 Active Batch 每轮实施 1–3 项。
+进度：P0.1–P0.3 与日历可靠性 C1–C3 已于 2026-08-13 完成各自检查点并进入用户真机复核；下一批只解冻事件时间线 `shiftId` 服务端过滤，其余任务仍须按 `docs/project-status.md` 的 Active Batch 每轮实施 1–3 项。
 
 ## 1. 目标与边界
 
@@ -61,7 +61,7 @@
 
 ### 后续批次（冻结，须在上一检查点后重新读代码展开）
 
-1. 日历可靠性：holiday 非阻断、前台 stale-while-revalidate、跨月周精确错误、三月有界缓存、上下文切换清敏感 Sheet、事件 `shiftId` 服务端过滤。
+1. 日历可靠性：holiday 非阻断、前台 stale-while-revalidate、跨月周精确错误、三月有界内存、上下文切换清敏感 Sheet 已完成；事件 `shiftId` 服务端过滤为下一批 D1。
 2. 共享运行时：双目标 `calendar-core`、`client-core`、统一 endpoint descriptor/runtime decoder，并由 Web 与小程序共同消费 parity corpus。
 3. 日历交互：三类多选、今天/本周/年月直达、常驻导航、列表空态、完整详情和事件 display VM。
 4. 工作流可靠性：mutation commit/reconciliation 分离、稳定 operationId ledger、候选真值表、preview/confirm、409 摘要、请求分区去重。

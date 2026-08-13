@@ -139,6 +139,39 @@ function createSeptemberCalendar(): CalendarReadModel {
   };
 }
 
+function createCalendarForMonth(businessMonth: string, groupId = 'group-1'): CalendarReadModel {
+  const businessDate = `${businessMonth}-15`;
+  return {
+    ...calendar,
+    assignments: calendar.assignments.map((assignment) => ({
+      ...assignment,
+      businessDate,
+      endsAt: assignment.endsAt.replace('2026-08-15', businessDate),
+      startsAt: assignment.startsAt.replace('2026-08-15', businessDate),
+    })),
+    businessMonth,
+    groupId,
+  };
+}
+
+function createHoliday(year: number, date: string, holidayName: string): HolidayReadModel {
+  return {
+    confirmed: true,
+    dates: [{ date, holidayName, isOffDay: true, isWorkday: false }],
+    year,
+  };
+}
+
+function getHolidayName(
+  viewModel: CalendarMonthDataViewModel,
+  businessDate: string,
+): string | undefined {
+  const day = viewModel.weeks
+    .flatMap(({ days }) => days)
+    .find((candidate) => candidate.kind === 'day' && candidate.businessDate === businessDate);
+  return day?.kind === 'day' ? day.holiday?.holidayName : undefined;
+}
+
 function createHarness(overrides: Partial<CalendarPageControllerDependencies> = {}) {
   const getCalendar = vi.fn<(groupId: string, businessMonth: string) => Promise<CalendarReadModel>>(
     () => Promise.resolve(calendar),
@@ -453,7 +486,7 @@ describe('calendar page controller', () => {
     expect(memory.calls.writes).toBe(6);
   });
 
-  it('re-publishes a loaded slot when it re-enters a newly mounted page window', async () => {
+  it('reloads an evicted slot when it re-enters a newly mounted page window', async () => {
     const updates: CalendarMonthSlotUpdate[] = [];
     const harness = createHarness({ publishUpdate: (update) => updates.push(update) });
     const context = {
@@ -470,14 +503,16 @@ describe('calendar page controller', () => {
 
     await harness.controller.loadMonths(context, ['2026-08']);
 
-    expect(updates).toEqual([
-      expect.objectContaining({
-        businessMonth: '2026-08',
-        viewModel: expect.objectContaining({ status: 'ready' }),
-      }),
-    ]);
-    expect(harness.getCalendar).toHaveBeenCalledTimes(2);
-    expect(harness.getHolidays).toHaveBeenCalledTimes(1);
+    expect(updates[0]).toMatchObject({
+      businessMonth: '2026-08',
+      viewModel: { status: 'loading' },
+    });
+    expect(updates.at(-1)).toMatchObject({
+      businessMonth: '2026-08',
+      viewModel: { status: 'ready' },
+    });
+    expect(harness.getCalendar).toHaveBeenCalledTimes(3);
+    expect(harness.getHolidays).toHaveBeenCalledTimes(2);
   });
 
   it('drops one invalidated ready slot so the next onShow load must fetch it again', async () => {
@@ -531,6 +566,167 @@ describe('calendar page controller', () => {
     expect(updates.at(-1)?.viewModel).toMatchObject({ isStale: true, status: 'cached' });
     expect(updates.some(({ viewModel }) => viewModel.status === 'error')).toBe(false);
     expect(memory.calls.writes).toBe(writes);
+  });
+
+  it('publishes a successful schedule without waiting for holidays and remains ready when holidays fail', async () => {
+    const calendarResponse = createDeferred<CalendarReadModel>();
+    const holidayResponse = createDeferred<HolidayReadModel>();
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({
+      getCalendar: vi.fn(() => calendarResponse.promise),
+      getHolidays: vi.fn(() => holidayResponse.promise),
+      publishUpdate: (update) => updates.push(update),
+    });
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+
+    const loading = harness.controller.loadMonths(context, ['2026-08']);
+    calendarResponse.resolve(calendar);
+    await calendarResponse.promise;
+    await Promise.resolve();
+
+    const readyBeforeHolidays = updates.at(-1)?.viewModel;
+    expect(readyBeforeHolidays?.status).toBe('ready');
+    if (readyBeforeHolidays?.status !== 'ready') throw new Error('expected ready calendar');
+    expect(getHolidayName(readyBeforeHolidays, '2026-08-15')).toBeUndefined();
+
+    holidayResponse.reject(new Error('holiday service unavailable'));
+    await loading;
+
+    expect(updates.at(-1)?.viewModel.status).toBe('ready');
+    expect(updates.some(({ viewModel }) => viewModel.status === 'error')).toBe(false);
+  });
+
+  it('preserves the last valid holidays when a forced holiday refresh fails', async () => {
+    const previousHolidays = createHoliday(2026, '2026-08-15', '旧节日');
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({
+      getCalendar: vi.fn(() => Promise.resolve(calendar)),
+      getHolidays: vi
+        .fn<(year: number) => Promise<HolidayReadModel>>()
+        .mockResolvedValueOnce(previousHolidays)
+        .mockRejectedValueOnce(new Error('holiday refresh failed')),
+      publishUpdate: (update) => updates.push(update),
+    });
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+
+    await harness.controller.loadMonths(context, ['2026-08']);
+    await harness.controller.loadMonths(context, ['2026-08'], true);
+
+    const latest = updates.at(-1)?.viewModel;
+    expect(latest?.status).toBe('ready');
+    if (latest?.status !== 'ready') throw new Error('expected ready calendar');
+    expect(getHolidayName(latest, '2026-08-15')).toBe('旧节日');
+  });
+
+  it('starts a new holiday request after invalidation and drops the old generation when it finishes late', async () => {
+    const oldCalendar = createDeferred<CalendarReadModel>();
+    const oldHolidays = createDeferred<HolidayReadModel>();
+    const nextCalendar = createDeferred<CalendarReadModel>();
+    const nextHolidays = createDeferred<HolidayReadModel>();
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({
+      getCalendar: vi
+        .fn<(groupId: string, businessMonth: string) => Promise<CalendarReadModel>>()
+        .mockReturnValueOnce(oldCalendar.promise)
+        .mockReturnValueOnce(nextCalendar.promise),
+      getHolidays: vi
+        .fn<(year: number) => Promise<HolidayReadModel>>()
+        .mockReturnValueOnce(oldHolidays.promise)
+        .mockReturnValueOnce(nextHolidays.promise),
+      publishUpdate: (update) => updates.push(update),
+    });
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+
+    const staleLoad = harness.controller.loadMonths(context, ['2026-08']);
+    harness.controller.invalidate(context, ['2026-08']);
+    const currentLoad = harness.controller.loadMonths(context, ['2026-08'], true);
+
+    expect(harness.getHolidays).toHaveBeenCalledTimes(2);
+    nextCalendar.resolve(calendar);
+    nextHolidays.resolve(createHoliday(2026, '2026-08-15', '新节日'));
+    await currentLoad;
+
+    const current = updates.at(-1)?.viewModel;
+    expect(current?.status).toBe('ready');
+    if (current?.status !== 'ready') throw new Error('expected ready calendar');
+    expect(getHolidayName(current, '2026-08-15')).toBe('新节日');
+    const updateCount = updates.length;
+
+    oldCalendar.resolve(calendar);
+    oldHolidays.resolve(createHoliday(2026, '2026-08-15', '陈旧节日'));
+    await staleLoad;
+
+    expect(updates).toHaveLength(updateCount);
+    const afterStale = updates.at(-1)?.viewModel;
+    if (afterStale?.status !== 'ready') throw new Error('expected ready calendar');
+    expect(getHolidayName(afterStale, '2026-08-15')).toBe('新节日');
+  });
+
+  it('does not publish an old context and year after the next context is ready', async () => {
+    const oldCalendar = createDeferred<CalendarReadModel>();
+    const oldHolidays = createDeferred<HolidayReadModel>();
+    const nextCalendar = createDeferred<CalendarReadModel>();
+    const nextHolidays = createDeferred<HolidayReadModel>();
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({
+      getCalendar: vi.fn((_groupId: string, businessMonth: string) =>
+        businessMonth === '2026-12' ? oldCalendar.promise : nextCalendar.promise,
+      ),
+      getHolidays: vi.fn((year: number) =>
+        year === 2026 ? oldHolidays.promise : nextHolidays.promise,
+      ),
+      publishUpdate: (update) => updates.push(update),
+    });
+    const oldContext = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+    const nextContext = {
+      groupId: 'group-2',
+      groupRole: 'member' as const,
+      groupVersion: 3,
+      userId: 'user-1',
+    };
+
+    const staleLoad = harness.controller.loadMonths(oldContext, ['2026-12']);
+    const currentLoad = harness.controller.loadMonths(nextContext, ['2027-01']);
+    nextCalendar.resolve(createCalendarForMonth('2027-01', 'group-2'));
+    nextHolidays.resolve(createHoliday(2027, '2027-01-15', '新年节日'));
+    await currentLoad;
+
+    const current = updates.at(-1);
+    expect(current).toMatchObject({
+      businessMonth: '2027-01',
+      context: nextContext,
+      viewModel: { status: 'ready' },
+    });
+    if (current?.viewModel.status !== 'ready') throw new Error('expected ready calendar');
+    expect(getHolidayName(current.viewModel, '2027-01-15')).toBe('新年节日');
+    const updateCount = updates.length;
+
+    oldCalendar.resolve(createCalendarForMonth('2026-12'));
+    oldHolidays.resolve(createHoliday(2026, '2026-12-15', '陈旧节日'));
+    await staleLoad;
+
+    expect(updates).toHaveLength(updateCount);
+    expect(updates.at(-1)?.context).toMatchObject(nextContext);
   });
 
   it.each([

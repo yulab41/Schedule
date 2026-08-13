@@ -256,6 +256,20 @@ describe('mini-program calendar VM boundary', () => {
     expect(page).toContain('completeCalendarSheetClose');
     expect(page).toContain('getCalendarSheetKind');
     expect(page).toContain('getCalendarSheetTitle');
+    expect(page).toContain('resetSensitiveCalendarDetails');
+    expect(page).toContain('resetCalendarContextData');
+    expect(page).toMatch(/onHide\(\): void \{[\s\S]*?resetSensitiveCalendarDetails\(\)/u);
+    expect(page).toMatch(/onUnload\(\): void \{[\s\S]*?controller\?\.dispose\(\)/u);
+    expect(page).toMatch(/onShow\(\): void \{[\s\S]*?loadMonths\(true\)/u);
+    expect(page).not.toMatch(
+      /center\.status === 'cached'\s*&&\s*center\.cacheSavedAt !== undefined/u,
+    );
+    expect(page).toMatch(
+      /resetSensitiveCalendarDetails\(\): void \{[\s\S]*?navigationEpoch \+= 1;[\s\S]*?swiperLocked = false/u,
+    );
+    expect(page).toMatch(
+      /resetCalendarContextData\(\): void \{[\s\S]*?createCalendarMonthStateViewModel\(businessMonth, 'loading'\)/u,
+    );
     expect(page.match(/listEvents\(/gu) ?? []).toHaveLength(1);
     expect(page).not.toContain('activeSheet');
     expect(page).not.toContain('openRoute');

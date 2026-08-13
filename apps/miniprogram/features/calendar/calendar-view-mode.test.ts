@@ -46,4 +46,21 @@ describe('calendar view mode state', () => {
     ]);
     expect(() => rotateMonthSlots(['2026-07', '2026-08', '2026-09'], 1 as 0 | 2)).toThrow();
   });
+
+  it('re-centers a stale week when month swiping moved the visible calendar elsewhere', () => {
+    expect(
+      switchCalendarViewMode(
+        { businessMonth: '2026-10', mode: 'month', weekStart: '2026-08-10' },
+        'week',
+        '2026-08-15',
+      ),
+    ).toEqual({ businessMonth: '2026-10', mode: 'week', weekStart: '2026-09-28' });
+    expect(
+      switchCalendarViewMode(
+        { businessMonth: '2027-01', mode: 'month', weekStart: '2026-12-28' },
+        'week',
+        '2026-08-15',
+      ),
+    ).toEqual({ businessMonth: '2027-01', mode: 'week', weekStart: '2026-12-28' });
+  });
 });
