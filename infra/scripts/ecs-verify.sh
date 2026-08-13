@@ -16,7 +16,7 @@ manifest_value() {
 tree_sha256() {
   local root="$1"
   local root_prefix="${root#"$DEPLOY_DIR/"}"
-  find "$root" -type f -printf '%P\0' | sort -z | while IFS= read -r -d '' relative_path; do
+  LC_ALL=C find "$root" -type f -printf '%P\0' | LC_ALL=C sort -z | while IFS= read -r -d '' relative_path; do
     local file_hash
     file_hash="$(sha256sum "$root/$relative_path" | awk '{print $1}')"
     printf '%s\0%s\0' "$root_prefix/$relative_path" "$file_hash"
