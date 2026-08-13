@@ -24,6 +24,9 @@ const DIST_PATHS = [
   'packages/contracts/dist',
   'packages/database/dist',
   'packages/scheduling-domain/dist',
+  'pnpm-lock.yaml',
+  'infra/docker/compose.prod.yml',
+  'infra/docker/nginx.prod.conf',
 ];
 const TREE_PATHS = {
   webDist: 'apps/web/dist',

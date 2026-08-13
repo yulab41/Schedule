@@ -73,6 +73,9 @@ for relative_path in \
   packages/database/dist \
   packages/scheduling-domain/dist \
   migrations \
+  pnpm-lock.yaml \
+  infra/docker/compose.prod.yml \
+  infra/docker/nginx.prod.conf \
   runtime/api-flat/node_modules \
   deploy-manifest.json; do
   if [ -e "$DEPLOY_DIR/$relative_path" ]; then
@@ -95,6 +98,9 @@ restore_previous() {
     packages/database/dist \
     packages/scheduling-domain/dist \
     migrations \
+    pnpm-lock.yaml \
+    infra/docker/compose.prod.yml \
+    infra/docker/nginx.prod.conf \
     runtime/api-flat/node_modules \
     deploy-manifest.json; do
     assert_release_path "$DEPLOY_DIR/$relative_path"
@@ -123,7 +129,10 @@ tar -xzf "$DIST_TAR" -C "$DEPLOY_DIR" \
   apps/api/dist \
   packages/contracts/dist \
   packages/database/dist \
-  packages/scheduling-domain/dist
+  packages/scheduling-domain/dist \
+  pnpm-lock.yaml \
+  infra/docker/compose.prod.yml \
+  infra/docker/nginx.prod.conf
 cp "$MANIFEST" "$CURRENT_MANIFEST"
 
 echo "[deploy] 3/7 替换 API 平铺依赖树"
