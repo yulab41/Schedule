@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Immutable release update: verify artifacts → backup → migrate → recreate → verify.
-# Usage: bash ecs-update.sh <dist-tar> <api-flat-tar> <deploy-manifest>
+# Usage: bash ecs-update.sh <dist-tar> <api-flat-tar-zst> <deploy-manifest>
 set -Eeuo pipefail
 
 DIST_TAR="${1:?缺少 dist 压缩包路径}"
@@ -62,7 +62,7 @@ assert_release_path "$BACKUP_DIR"
 assert_release_path "$CURRENT_MANIFEST"
 mkdir -p "$BACKUP_DIR"
 cp "$DIST_TAR" "$RELEASE_DIR/schedule-dist.tar.gz"
-cp "$FLAT_TAR" "$RELEASE_DIR/api-flat.tar.gz"
+cp "$FLAT_TAR" "$RELEASE_DIR/api-flat.tar.zst"
 cp "$MANIFEST" "$RELEASE_DIR/deploy-manifest.json"
 
 BACKUP_ENTRIES=()
@@ -138,7 +138,7 @@ cp "$MANIFEST" "$CURRENT_MANIFEST"
 echo "[deploy] 3/7 替换 API 平铺依赖树"
 rm -rf "$DEPLOY_DIR/runtime/api-flat-new"
 mkdir -p "$DEPLOY_DIR/runtime/api-flat-new"
-tar -xzf "$FLAT_TAR" -C "$DEPLOY_DIR/runtime/api-flat-new"
+  tar --zstd -xf "$FLAT_TAR" -C "$DEPLOY_DIR/runtime/api-flat-new"
 if [ ! -d "$DEPLOY_DIR/runtime/api-flat-new/node_modules" ]; then
   fail "API runtime 压缩包缺少 node_modules。"
 fi

@@ -15,7 +15,7 @@
 
 1. 本地运行 `pnpm verify` 和 `pnpm --filter @schedule/web build`。
 2. 在本机生成一次 Web dist、API runtime、迁移、版本清单和 Docker 所需文件；服务器不重新编译或安装依赖。
-3. 上传 `schedule-dist.tar.gz`、`api-flat.tar.gz` 和 `deploy-manifest.json`，执行 `ecs-update.sh`。
+3. 上传 `schedule-dist.tar.gz`、`api-flat.tar.zst` 和 `deploy-manifest.json`，执行 `ecs-update.sh`。
 4. 核对 commit、版本清单、归档 hash、容器状态、迁移、日志、Web 首页和 `/api/health`。
 5. 运行生产浏览器 smoke；失败时保留上一可用版本。
 
@@ -42,7 +42,7 @@
 ```bash
 bash infra/scripts/ecs-update.sh \
   /tmp/schedule-dist.tar.gz \
-  /tmp/api-flat.tar.gz \
+  /tmp/api-flat.tar.zst \
   /tmp/deploy-manifest.json
 bash infra/scripts/ecs-verify.sh
 ```

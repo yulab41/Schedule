@@ -61,12 +61,12 @@ fi
 RELEASE_DIR="$DEPLOY_DIR/releases/$RELEASE_ID"
 
 echo "[verify] release=$RELEASE_ID"
-if [ ! -f "$RELEASE_DIR/schedule-dist.tar.gz" ] || [ ! -f "$RELEASE_DIR/api-flat.tar.gz" ]; then
+if [ ! -f "$RELEASE_DIR/schedule-dist.tar.gz" ] || [ ! -f "$RELEASE_DIR/api-flat.tar.zst" ]; then
   echo "[verify] 错误：release 归档不完整。" >&2
   exit 1
 fi
 ACTUAL_DIST_SHA="$(sha256sum "$RELEASE_DIR/schedule-dist.tar.gz" | awk '{print $1}')"
-ACTUAL_FLAT_SHA="$(sha256sum "$RELEASE_DIR/api-flat.tar.gz" | awk '{print $1}')"
+ACTUAL_FLAT_SHA="$(sha256sum "$RELEASE_DIR/api-flat.tar.zst" | awk '{print $1}')"
 [ "$ACTUAL_DIST_SHA" = "$EXPECTED_DIST_SHA" ] || {
   echo "[verify] 错误：dist 归档哈希不一致。" >&2
   exit 1

@@ -122,7 +122,7 @@ fs.rmSync(RELEASE_ROOT, { force: true, recursive: true });
 fs.mkdirSync(RELEASE_ROOT, { recursive: true });
 
 const distArchivePath = path.join(RELEASE_ROOT, 'schedule-dist.tar.gz');
-const apiFlatArchivePath = path.join(RELEASE_ROOT, 'api-flat.tar.gz');
+const apiFlatArchivePath = path.join(RELEASE_ROOT, 'api-flat.tar.zst');
 const apiFlatPath = fs.mkdtempSync(path.join(os.tmpdir(), 'schedule-api-flat-'));
 
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
@@ -133,7 +133,7 @@ if (!fs.existsSync(path.join(apiFlatPath, 'node_modules'))) {
 }
 
 run(tarPath(), ['-czf', distArchivePath, '-C', ROOT, ...DIST_PATHS]);
-run(tarPath(), ['-czf', apiFlatArchivePath, '-C', apiFlatPath, 'node_modules']);
+run(tarPath(), ['--zstd', '-cf', apiFlatArchivePath, '-C', apiFlatPath, 'node_modules']);
 fs.rmSync(apiFlatPath, { force: true, recursive: true });
 
 const commit = gitCommit();
