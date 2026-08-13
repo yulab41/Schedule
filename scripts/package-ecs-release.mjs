@@ -126,7 +126,16 @@ const apiFlatArchivePath = path.join(RELEASE_ROOT, 'api-flat.tar.zst');
 const apiFlatPath = fs.mkdtempSync(path.join(os.tmpdir(), 'schedule-api-flat-'));
 
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-run(pnpmCommand, ['deploy', '--legacy', '--filter', '@schedule/api', '--prod', apiFlatPath]);
+run(pnpmCommand, [
+  'deploy',
+  '--legacy',
+  '--config.node-linker=hoisted',
+  '--config.shamefully-hoist=true',
+  '--filter',
+  '@schedule/api',
+  '--prod',
+  apiFlatPath,
+]);
 
 if (!fs.existsSync(path.join(apiFlatPath, 'node_modules'))) {
   fail('pnpm deploy 未生成 api-flat/node_modules。');
