@@ -26,6 +26,18 @@ compose() {
   docker compose --env-file .env.production "${COMPOSE_FILES[@]}" "$@"
 }
 
+wait_for_health() {
+  for attempt in $(seq 1 30); do
+    if curl -fsS --max-time 5 http://127.0.0.1/api/health; then
+      echo
+      return 0
+    fi
+    echo "[deploy] 等待 Nginx/API 健康检查（$attempt/30）..." >&2
+    sleep 2
+  done
+  fail "Nginx/API 健康检查超时。"
+}
+
 assert_release_path() {
   local path="$1"
   case "$path" in
@@ -153,8 +165,7 @@ echo "[deploy] 5/7 重建 api/web 容器"
 compose up -d --force-recreate api web
 
 echo "[deploy] 6/7 健康检查和依赖检查"
-curl -fsS http://127.0.0.1/api/health
-echo
+wait_for_health
 if docker exec medical-schedule-prod-api-1 \
   ls /app/apps/api/node_modules/@cloudbase >/dev/null 2>&1; then
   fail "依赖树仍含 @cloudbase。"
