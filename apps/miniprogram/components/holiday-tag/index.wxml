@@ -1,3 +1,0 @@
-<view class="holiday-tag holiday-tag--{{holiday.tone}}" aria-label="{{holiday.holidayName}}"
-  >{{holiday.label}}</view
->

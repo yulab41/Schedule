@@ -1,7 +1,0 @@
-<page-shell title="微信登录" show-back="{{false}}">
-  <view class="auth-card">
-    <text class="auth-card__description">登录后查看所属群组的排班。</text>
-    <text wx:if="{{errorMessage}}" class="auth-card__error">{{errorMessage}}</text>
-    <button class="auth-card__button" bindtap="handleLogin" disabled="{{submitting}}" loading="{{submitting}}">微信一键登录</button>
-  </view>
-</page-shell>

@@ -1,4 +1,0 @@
-{
-  "desc": "Authenticated V3 shell routes are not indexed.",
-  "rules": [{ "action": "disallow", "page": "*" }]
-}

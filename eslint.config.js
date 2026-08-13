@@ -7,13 +7,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: [
-      '**/dist/**',
-      '**/coverage/**',
-      '**/node_modules/**',
-      'apps/miniprogram/minitest/**',
-      'apps/miniprogram/miniprogram_npm/**',
-    ],
+    ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**'],
   },
   js.configs.recommended,
   ...vue.configs['flat/recommended'],
@@ -33,20 +27,6 @@ export default tseslint.config(
       parser: vueParser,
       parserOptions: {
         parser: tseslint.parser,
-      },
-    },
-  },
-  {
-    files: ['apps/miniprogram/**/*.ts'],
-    languageOptions: {
-      globals: {
-        App: 'readonly',
-        Behavior: 'readonly',
-        Component: 'readonly',
-        Page: 'readonly',
-        getApp: 'readonly',
-        getCurrentPages: 'readonly',
-        wx: 'readonly',
       },
     },
   },

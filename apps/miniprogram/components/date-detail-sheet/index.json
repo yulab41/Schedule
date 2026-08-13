@@ -1,6 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "assignment-row": "/components/assignment-row/index"
-  }
-}

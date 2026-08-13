@@ -1,9 +1,0 @@
-{
-  "disableScroll": true,
-  "navigationStyle": "custom",
-  "usingComponents": {
-    "calendar-grid": "/components/calendar-grid/index",
-    "page-shell": "/components/page-shell/index",
-    "shell-state": "/components/shell-state/index"
-  }
-}

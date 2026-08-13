@@ -1,9 +1,0 @@
-<view
-  class="marker-badge marker-badge--fill-{{marker.fillToken}} marker-badge--border-{{marker.borderToken}} marker-badge--foreground-{{marker.foregroundToken}}"
-  aria-label="{{marker.description}}"
-  catchtap="handleRoute"
-  data-action-id="{{marker.actionId}}"
-  hover-class="marker-badge--pressed"
->
-  {{marker.label}}
-</view>
