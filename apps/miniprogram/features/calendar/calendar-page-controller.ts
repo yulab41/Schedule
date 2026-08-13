@@ -153,14 +153,6 @@ export function getCalendarFailureState(error: unknown): CalendarFailureStatus {
   return 'error';
 }
 
-export function parseSelectorPickerIndex(value: unknown, optionCount: number): number | undefined {
-  if (!Number.isInteger(optionCount) || optionCount <= 0 || typeof value !== 'string')
-    return undefined;
-  if (!/^(0|[1-9]\d*)$/u.test(value)) return undefined;
-  const index = Number(value);
-  return index >= 0 && index < optionCount ? index : undefined;
-}
-
 export function createCalendarPageController(
   dependencies: CalendarPageControllerDependencies,
 ): CalendarPageController {
@@ -257,6 +249,17 @@ export function createCalendarPageController(
     );
   };
 
+  const publishForbiddenContext = (context: CalendarContext, message?: string): void => {
+    const months = [...visibleMonths];
+    clearSlots();
+    holidayFlights.clear();
+    filters = {};
+    cache.removeForUserGroup(context.userId, context.groupId);
+    for (const businessMonth of months) {
+      publishState({ ...context, businessMonth }, 'forbidden', message);
+    }
+  };
+
   const loadOne = (
     target: CalendarLoadTarget,
     force: boolean,
@@ -293,6 +296,7 @@ export function createCalendarPageController(
               ? {}
               : { cacheSavedAt: slot.viewModel.cacheSavedAt }),
             holidays: slot.holidays,
+            ...(slot.viewModel.isStale === undefined ? {} : { isStale: slot.viewModel.isStale }),
           }
         : undefined;
 
@@ -302,8 +306,12 @@ export function createCalendarPageController(
         target.businessMonth,
         buildCalendarMonthViewModel({
           calendar: refreshBaseline.calendar,
+          ...(refreshBaseline.cacheSavedAt === undefined
+            ? {}
+            : { cacheSavedAt: refreshBaseline.cacheSavedAt }),
           filters,
           holidays: refreshBaseline.holidays,
+          ...(refreshBaseline.isStale === undefined ? {} : { isStale: refreshBaseline.isStale }),
           status: 'refreshing',
           today: dependencies.getToday(),
         }),
@@ -435,7 +443,11 @@ export function createCalendarPageController(
         )
           return;
         const failureStatus = getCalendarFailureState(error);
-        if (failureStatus === 'forbidden' || failureStatus === 'conflict') {
+        if (failureStatus === 'forbidden') {
+          publishForbiddenContext(target, error instanceof Error ? error.message : undefined);
+          return;
+        }
+        if (failureStatus === 'conflict') {
           slot.cachedSnapshot = undefined;
           slot.calendar = undefined;
           slot.holidays = undefined;

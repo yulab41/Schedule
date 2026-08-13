@@ -1,6 +1,7 @@
 .assignment-row__meta,
 .assignment-row__markers,
-.assignment-row__phones {
+.assignment-row__phones,
+.assignment-row__details {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -9,6 +10,12 @@
 .assignment-row {
   display: block;
   min-height: 56rpx;
+}
+
+.assignment-row--comfortable {
+  box-sizing: border-box;
+  min-height: var(--v3-touch-min);
+  padding: var(--v3-space-xs) 0;
 }
 
 .assignment-row__member {
@@ -20,6 +27,26 @@
   line-height: 1.25;
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.assignment-row__details {
+  flex-direction: column;
+  margin-top: var(--v3-space-xxs);
+  align-items: flex-start;
+  color: var(--v3-color-text-muted);
+  font-size: var(--v3-font-size-sm);
+}
+
+.assignment-row__role,
+.assignment-row__shift-detail,
+.assignment-row__change {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.assignment-row__change {
+  margin-top: var(--v3-space-xxs);
+  color: var(--v3-color-warning);
 }
 
 .assignment-row__meta {

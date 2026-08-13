@@ -9,6 +9,10 @@ import {
   inspectPackedClientCoreMiniProgramBundle,
   preparePackedClientCoreBuild,
 } from './miniprogram-client-core-bundle-gate.mjs';
+import {
+  inspectPackedCalendarCoreMiniProgramBundle,
+  preparePackedCalendarCoreBuild,
+} from './miniprogram-calendar-core-bundle-gate.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const devToolsScript = fileURLToPath(new URL('./miniprogram-devtools.mjs', import.meta.url));
@@ -44,6 +48,7 @@ export function findDevToolsBuildIssues({ error, output, status }) {
 
 export function runClientCoreDevToolsBuild({ spawn = spawnSync } = {}) {
   preparePackedClientCoreBuild();
+  preparePackedCalendarCoreBuild();
   const result = spawn(process.execPath, [devToolsScript, 'build-npm'], {
     cwd: repositoryRoot,
     encoding: 'utf8',
@@ -67,6 +72,13 @@ export function runClientCoreDevToolsBuild({ spawn = spawnSync } = {}) {
         inspection.byteLength <= CLIENT_CORE_TARGET_BYTES ? 'within target' : 'within hard limit';
       console.log(
         `[miniprogram-client-core] ${path.relative(repositoryRoot, inspection.bundlePath)}: ${inspection.byteLength} bytes (${targetStatus}), sha256 ${inspection.sha256}`,
+      );
+    }
+    const calendarInspection = inspectPackedCalendarCoreMiniProgramBundle();
+    issues.push(...calendarInspection.issues);
+    if (calendarInspection.issues.length === 0) {
+      console.log(
+        `[miniprogram-calendar-core] ${path.relative(repositoryRoot, calendarInspection.bundlePath)}: ${calendarInspection.byteLength} bytes, sha256 ${calendarInspection.sha256}`,
       );
     }
   }

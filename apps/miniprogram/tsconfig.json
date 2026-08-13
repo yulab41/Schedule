@@ -12,6 +12,7 @@
     "target": "ES2020",
     "types": ["miniprogram-api-typings"],
     "paths": {
+      "@schedule/calendar-core": ["../../packages/calendar-core/dist/index.d.ts"],
       "@schedule/client-core": ["../../packages/client-core/dist/index.d.ts"],
       "@schedule/contracts": ["../../packages/contracts/src/index.ts"]
     }

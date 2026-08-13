@@ -19,8 +19,13 @@
 .duty-detail-sheet__line,
 .duty-detail-sheet__shift,
 .duty-detail-sheet__markers,
-.duty-detail-sheet__phones {
+.duty-detail-sheet__phones,
+.duty-detail-sheet__change {
   margin-top: var(--v3-space-sm);
+}
+
+.duty-detail-sheet__change {
+  color: var(--v3-color-warning);
 }
 
 .duty-detail-sheet__shift,

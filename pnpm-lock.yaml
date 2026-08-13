@@ -81,6 +81,9 @@ importers:
 
   apps/miniprogram:
     dependencies:
+      '@schedule/calendar-core':
+        specifier: workspace:*
+        version: link:../../packages/calendar-core
       '@schedule/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
@@ -146,6 +149,8 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(mysql2@3.23.2(@types/node@24.13.3))
+
+  packages/calendar-core: {}
 
   packages/client-core: {}
 

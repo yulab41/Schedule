@@ -3,7 +3,6 @@ type DateDetailRouteEvent = WechatMiniprogram.CustomEvent<{ readonly actionId?: 
 Component({
   properties: {
     day: { type: Object, value: null },
-    monthLabel: { type: String, value: '' },
   },
   methods: {
     handleRoute(event: DateDetailRouteEvent): void {

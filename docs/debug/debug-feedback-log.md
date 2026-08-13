@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 保持只读稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1、client-core D2 与日历读取契约 D3 均已通过自动化/DevTools preview；下一批只实施 D4 日历共享逻辑与交互对齐。
+当前阶段：Web 1.0 保持只读稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1、client-core D2、日历读取契约 D3 与日历共享逻辑/交互对齐 D4 均已通过自动化/DevTools preview；下一批只实施 D5 工作流写入可靠性。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -18,6 +18,16 @@
 - 验证：……
 - 状态：已完成 / 待用户验收 / 遗留
 ```
+
+### 日历共享逻辑与交互对齐 D4（提交：feat(miniprogram): align calendar interactions with web semantics，2026-08-13）
+
+- 用户反馈/需求：继续把成熟 Web 日历语义适配到小程序，`apps/web/**` 全程只读；本轮关闭 D4.1–D4.3，暂停工作流、邀请和岗位班种映射。
+- 根因/引入点：Web 日期/筛选/导航/详情基准来自 `ab25064` 及后续调试；Mini 重复逻辑来自 `ce21a51`、`42d6243`、`3539a50`、`1eef26a`。这些是适配遗漏与状态漂移，不是 WXML 平台限制。
+- 修复/功能：新增零运行时依赖 `@schedule/calendar-core`，同源输出 ESM/Node CJS/Mini CJS，迁移日期/月周、排序、筛选、网格、列表、surface、缓存提示和导航；岗位/班种/成员改为可搜索多选底部 Sheet，支持全选/清空/显式应用，补齐今天/本周/年月直达。月格保留单字班种与两字 holiday，周/列表改为可读卡片，详情补全日期、岗位、班种、时间、变更和可用电话。
+- 红测与安全修复：跨月筛选保留全局 selection intent，邻月无 option 时仍严格返回 0 条；空态区分无发布数据和当前筛选无匹配；全日/跨夜显示完整时段；Sheet/底部拖拽状态按实例隔离；403/冲突、切群、旧 swiper 回调和刷新中的详情均清除陈旧姓名/电话/操作；缓存提示无值显式写入 `null`，避免 `setData` 残留。
+- 语义审计：旧逻辑失败测试先锁定后修复，calendar-core package boundary 改为串行生成 JS 与声明，Mini 仍只消费薄 re-export；`apps/web/**` diff 始终为空，Web 仅作 golden baseline。
+- 验证：tracked Mini 41 个测试文件全部通过；D4 核心/页面聚焦 12 文件 72 项、静态边界 6 文件 36 项通过；typecheck、config audit、lint、任务文件 Prettier、`git diff --check` 通过。Web 只读基准 4 文件 180 项、Web build、`pnpm smoke:browser` 7/7 与随后 `pnpm smoke:check-core` 通过。DevTools `build-npm` cost 4035、warnings `[]`，calendar-core 源/packed 17766B/19240B；preview 399385 bytes / 390.0 KB。
+- 状态：**已完成**。Android/iOS 按批准口径仅作可选复核；下一批只实施 D5 工作流写入可靠性。
 
 ### 日历读取契约 D3（提交：feat(miniprogram): validate calendar read boundaries，2026-08-13）
 

@@ -13,6 +13,7 @@ const assignment = {
   assignmentId: 'golden-a2',
   backgroundColor: '#0CA678',
   borderToken: 'color-border-strong',
+  businessDate: '2026-08-15',
   compactShiftLabel: '白',
   foregroundColor: '#FFFFFF',
   markers: [],

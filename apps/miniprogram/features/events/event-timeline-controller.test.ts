@@ -12,6 +12,7 @@ const assignment = {
   assignmentId: 'assignment-1',
   backgroundColor: '#123456',
   borderToken: 'color-border-strong',
+  businessDate: '2026-08-15',
   compactShiftLabel: '日',
   foregroundColor: '#FFFFFF',
   markers: [],

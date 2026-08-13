@@ -212,13 +212,16 @@ describe('calendar month view model', () => {
     expect(findDay(ready, '2026-08-16')?.assignments[0]?.memberName).toBe('');
     expect(findDay(ready, '2026-08-16')?.assignments[0]?.phoneActions).toEqual([]);
 
-    expect(ready.filters.roles[0]).toEqual({ id: '', label: '全部岗位' });
-    expect(ready.filters.shiftTypes[0]).toEqual({ id: '', label: '全部班种' });
-    expect(ready.filters.members[0]).toEqual({ id: '', label: '全部成员' });
+    expect(ready.filters.roles[0]).toEqual({ id: 'role-1', label: '门诊' });
+    expect(ready.filters.shiftTypes[0]).toEqual({
+      id: 'shift-1',
+      label: '上午班（A）',
+    });
+    expect(ready.filters.members[0]).toEqual({ id: 'member-confirmed', label: '已确认医生' });
     expect(ready.filters).toMatchObject({
-      selectedMembershipIndex: 0,
-      selectedRoleIndex: 0,
-      selectedShiftTypeIndex: 0,
+      selectedMembershipIds: [],
+      selectedRoleIds: [],
+      selectedShiftTypeIds: [],
     });
     expect(findDay(ready, '2026-08-16')?.holiday).toMatchObject({
       isOffDay: true,
@@ -239,8 +242,8 @@ describe('calendar month view model', () => {
       today: '2026-08-15',
     });
     expect(filtered.assignmentCount).toBe(1);
-    expect(filtered.filters.selectedMembershipIndex).toBe(2);
-    expect(filtered.filters.selectedRoleIndex).toBe(1);
+    expect(filtered.filters.selectedMembershipIds).toEqual(['member-unconfirmed']);
+    expect(filtered.filters.selectedRoleIds).toEqual(['role-1']);
     expect(JSON.stringify({ calendar, holidays })).toBe(sourceSnapshot);
     expect(JSON.stringify(filters)).toBe(filterSnapshot);
   });
@@ -302,14 +305,11 @@ describe('calendar month view model', () => {
       status: 'ready',
       today: '2026-08-15',
     });
-    expect(unavailableFilters.assignmentCount).toBe(calendar.assignments.length);
+    expect(unavailableFilters.assignmentCount).toBe(0);
     expect(unavailableFilters.filters).toMatchObject({
-      selectedMembershipIds: [],
-      selectedMembershipIndex: 0,
-      selectedRoleIds: [],
-      selectedRoleIndex: 0,
-      selectedShiftTypeIds: [],
-      selectedShiftTypeIndex: 0,
+      selectedMembershipIds: ['missing-member'],
+      selectedRoleIds: ['missing-role'],
+      selectedShiftTypeIds: ['missing-shift'],
     });
 
     const missingMember = buildCalendarMonthViewModel({

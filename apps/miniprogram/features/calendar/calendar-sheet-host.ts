@@ -37,6 +37,32 @@ export function resetCalendarSheet(current: CalendarSheetHostState): CalendarShe
   return { sheetKey: current.sheetKey + 1, visible: false };
 }
 
+export function reconcileCalendarSheet(
+  current: CalendarSheetHostState,
+  assignments: readonly CalendarAssignmentViewModel[],
+  days: readonly CalendarDayViewModel[],
+): CalendarSheetHostState {
+  const content = current.content;
+  if (!current.visible || content === undefined) return current;
+  if (content.kind === 'date') {
+    const day = days.find(({ businessDate }) => businessDate === content.day.businessDate);
+    return day === undefined
+      ? resetCalendarSheet(current)
+      : { ...current, content: { day, kind: 'date' } };
+  }
+  const assignment = assignments.find(
+    ({ assignmentId }) => assignmentId === content.assignment.assignmentId,
+  );
+  if (assignment === undefined) return resetCalendarSheet(current);
+  if (content.kind === 'phone') {
+    return {
+      ...current,
+      content: { assignment, kind: 'phone', phoneActions: assignment.phoneActions },
+    };
+  }
+  return { ...current, content: { assignment, kind: content.kind } };
+}
+
 export function completeCalendarSheetClose(
   current: CalendarSheetHostState,
   sheetKey: number,

@@ -1,12 +1,15 @@
 import { ApiClientError } from '../../api/client.js';
-import { createCalendarCache, type CalendarCachePort } from '../../store/calendar-cache.js';
+import {
+  createCalendarCache,
+  type CalendarCache,
+  type CalendarCachePort,
+} from '../../store/calendar-cache.js';
 import type { CalendarReadModel, HolidayReadModel } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   createCalendarPageController,
   getCalendarFailureState,
-  parseSelectorPickerIndex,
   type CalendarMonthSlotUpdate,
   type CalendarPageControllerDependencies,
 } from './calendar-page-controller.js';
@@ -232,6 +235,16 @@ function createMemoryCache() {
   return { cache: createCalendarCache(port), calls, values };
 }
 
+function createSpyCache(): CalendarCache {
+  return {
+    read: vi.fn(() => undefined),
+    remove: vi.fn(() => undefined),
+    removeForUser: vi.fn(() => undefined),
+    removeForUserGroup: vi.fn(() => undefined),
+    write: vi.fn(() => undefined),
+  };
+}
+
 describe('calendar page controller', () => {
   it('classifies forbidden before conflict using code or status', () => {
     expect(
@@ -321,7 +334,7 @@ describe('calendar page controller', () => {
     expect(harness.getCalendar).toHaveBeenCalledTimes(1);
     expect(harness.getHolidays).toHaveBeenCalledTimes(1);
     expect(calendar.assignments.map(({ id }) => id)).toEqual(sourceAssignments);
-    expect(getLastDataViewModel(harness.published).filters.selectedRoleIndex).toBe(1);
+    expect(getLastDataViewModel(harness.published).filters.selectedRoleIds).toEqual(['role-1']);
 
     harness.controller.setFilters({});
     const actions = getLastDataViewModel(harness.published)
@@ -574,6 +587,77 @@ describe('calendar page controller', () => {
     expect(memory.calls.writes).toBe(writes);
   });
 
+  it('keeps cached provenance visible while a foreground refresh is pending', async () => {
+    const memory = createMemoryCache();
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+    await createHarness({ cache: memory.cache }).controller.loadMonths(context, ['2026-08']);
+
+    const calendarResponse = createDeferred<CalendarReadModel>();
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const second = createHarness({
+      cache: memory.cache,
+      getCalendar: vi.fn(() => calendarResponse.promise),
+      getHolidays: vi.fn(() => Promise.resolve(holidays)),
+      publishUpdate: (update) => updates.push(update),
+    });
+    const firstLoad = second.controller.loadMonths(context, ['2026-08']);
+    const cached = updates.at(-1)?.viewModel;
+    expect(cached?.status).toBe('cached');
+    if (cached?.status !== 'cached') throw new Error('expected cached calendar');
+
+    const forcedLoad = second.controller.loadMonths(context, ['2026-08'], true);
+    expect(updates.at(-1)?.viewModel).toMatchObject({
+      cacheSavedAt: cached.cacheSavedAt,
+      isStale: cached.isStale,
+      status: 'refreshing',
+    });
+
+    calendarResponse.resolve(calendar);
+    await Promise.all([firstLoad, forcedLoad]);
+  });
+
+  it('retires every active month and group cache when any month loses authorization', async () => {
+    const augustResponse = createDeferred<CalendarReadModel>();
+    const cache = createSpyCache();
+    const updates: CalendarMonthSlotUpdate[] = [];
+    const harness = createHarness({
+      cache,
+      getCalendar: vi.fn((_groupId, businessMonth) => {
+        if (businessMonth === '2026-08') return augustResponse.promise;
+        return Promise.reject(
+          new ApiClientError('FORBIDDEN', 'permission revoked', 'request-1', undefined, 403),
+        );
+      }),
+      publishUpdate: (update) => updates.push(update),
+    });
+    const context = {
+      groupId: 'group-1',
+      groupRole: 'member' as const,
+      groupVersion: 7,
+      userId: 'user-1',
+    };
+
+    const loading = harness.controller.loadMonths(context, ['2026-08', '2026-09']);
+    await Promise.resolve();
+    await Promise.resolve();
+    augustResponse.resolve(calendar);
+    await loading;
+
+    expect(cache.removeForUserGroup).toHaveBeenCalledWith('user-1', 'group-1');
+    expect(updates.filter(({ viewModel }) => viewModel.status === 'forbidden')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ businessMonth: '2026-08' }),
+        expect.objectContaining({ businessMonth: '2026-09' }),
+      ]),
+    );
+    expect(harness.controller.getMonthViewModels(['2026-08', '2026-09'])).toHaveLength(0);
+  });
+
   it('publishes a successful schedule without waiting for holidays and remains ready when holidays fail', async () => {
     const calendarResponse = createDeferred<CalendarReadModel>();
     const holidayResponse = createDeferred<HolidayReadModel>();
@@ -733,20 +817,5 @@ describe('calendar page controller', () => {
 
     expect(updates).toHaveLength(updateCount);
     expect(updates.at(-1)?.context).toMatchObject(nextContext);
-  });
-
-  it.each([
-    ['0', 3, 0],
-    ['1', 3, 1],
-    ['', 3, undefined],
-    [1, 3, undefined],
-    ['-1', 3, undefined],
-    ['1.5', 3, undefined],
-    ['3', 3, undefined],
-    ['0', 0, undefined],
-    ['0', 1.5, undefined],
-    [[1], 3, undefined],
-  ] as const)('narrows selector picker value %j', (value, optionCount, expected) => {
-    expect(parseSelectorPickerIndex(value, optionCount)).toBe(expected);
   });
 });

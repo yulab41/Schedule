@@ -9,9 +9,17 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施继续作为语义基准；`apps/web/**` 自 D2 起严格只读，不接入新核心包。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 历史代码检查点为 `9629454` 且已在 `origin/main`；当前补全计划取代旧 V3-6 交接口径。自动化和 DevTools preview 全绿即可完成，Android/iOS 真机仅作后续可选复核。
-- 当前批次：用户已批准并扩充 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1、客户端核心运行时 D2 与日历读取契约 D3 已完成自动化、Web 只读回归和 DevTools preview；下一批只实施 D4 日历共享逻辑与交互对齐。
+- 当前批次：用户已批准并扩充 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1、客户端核心运行时 D2、日历读取契约 D3 与 D4 日历共享逻辑/交互对齐均已完成自动化、Web 只读回归和 DevTools preview；下一批只实施 D5 工作流写入可靠性。
 
 ## Completed Batch
+
+### 日历共享逻辑与交互对齐 D4（2026-08-13）
+
+- 根因与范围：Web 日历的日期、筛选、导航、详情和空态语义已在 `ab25064` 及后续调试提交中验证；小程序重复实现来自 `ce21a51`、`42d6243`、`3539a50` 和 `1eef26a`。本轮只改小程序与无平台运行时的 `calendar-core`，`apps/web/**` 保持零改动。
+- 红绿实现：新增零运行时依赖 `@schedule/calendar-core`，同源输出 ESM/Node CJS/Mini CJS，承载日期/月周运算、排序、筛选、网格、列表、surface 状态、缓存提示和导航跳转；Mini 四个旧逻辑模块改为薄 re-export。岗位/班种/成员改为可搜索多选底部 Sheet，支持全选、清空、显式应用；增加今天、本周、年月直达，loading/error 时保留导航与视图切换。
+- 语义与安全修复：跨月筛选保留全局 selection intent，邻月无对应 option 时仍严格过滤为 0 条且不显示“全部”；空态区分无发布数据与当前筛选无匹配；全日/跨夜详情显示完整时段；月格保留单字班种、两字 holiday，周/列表改为可读卡片并满足 88rpx 触控目标。详情、筛选 Sheet 和底部 Sheet 按实例隔离；403/冲突、上下文切换、旧 swiper 回调和刷新中的详情均清除陈旧姓名、电话与操作内容；无提示时以 `null` 清除缓存提示，避免微信 `setData` 残留。
+- 验证：tracked Mini 41 个测试文件全部通过；D4 核心/页面聚焦 12 文件 72 项、静态边界 6 文件 36 项通过；`pnpm miniprogram:typecheck`、`pnpm miniprogram:lint`、config audit、任务文件 Prettier、串行 calendar-core package boundary 与 `git diff --check` 通过。Web 只读基准 4 文件 180 项、`pnpm --filter @schedule/web build`、`pnpm smoke:browser` 7/7 与随后 `pnpm smoke:check-core` 通过。DevTools `build-npm` cost 4035、warnings `[]`，calendar-core 源/packed 17766B/19240B；preview 399385 bytes / 390.0 KB。
+- 状态：**已完成**。Web 全程只读；Android/iOS 真机按批准口径仅作可选复核。检查点提交信息为 `feat(miniprogram): align calendar interactions with web semantics`；下一批只实施 D5 工作流写入可靠性，岗位允许班种、邀请和其他功能域继续冻结。
 
 ### 日历读取契约 D3（2026-08-13）
 
@@ -316,9 +324,8 @@
 
 ## Active Batch
 
-1. 下一轮 Task D4.1：新建零平台运行时依赖的 `calendar-core`，先迁移日期/月周运算、筛选、排序、月格/周/列表和空态纯逻辑；Mini 成为当前唯一消费者，Web 只作现有 golden baseline 且 `apps/web/**` 零改动。
-2. Task D4.2：把岗位、班种、成员改为可搜索多选 Sheet（全选/清空/显式应用），增加今天、本周和年月直达；loading/error 时导航与视图切换仍可操作，并保持现有 SWR、403/409、generation 与三月上限。
-3. Task D4.3 与停止条件：补齐月/周/列表空态、完整日期/值班详情及跨月 cache 提示聚合；保留月格单字班种和两字 holiday 密度。完成自动化、Web 只读回归与 DevTools preview 后提交/推送并停止；D5 工作流及以后域继续冻结。
+1. 下一轮只实施 Task D5：请假、换班、加扣班写入拆分 commit/reconcile，并为未知网络结果保留稳定 operationId；先写失败测试，再做 Mini/API 向后兼容实现。
+2. D5 停止条件：2xx 后刷新失败只能显示“已提交/刷新失败”并支持仅刷新重试；重复点击、响应丢失、409、切群和 stale generation 均不能重复写入；`apps/web/**` 只读，邀请、岗位班种映射、群组管理和其他域不在下一轮启动。
 
 ## Handoff Requirements
 

@@ -11,6 +11,19 @@
   background: var(--v3-color-surface);
 }
 
+.calendar-list__day--today {
+  background: var(--v3-color-primary-light);
+  border-color: var(--v3-color-primary);
+}
+
+.calendar-list__day--weekend .calendar-list__date {
+  color: var(--v3-color-weekend);
+}
+
+.calendar-list__day--past {
+  opacity: 0.72;
+}
+
 .calendar-list__date-card {
   display: flex;
   flex-direction: row;
@@ -19,10 +32,25 @@
   gap: var(--v3-space-xs);
 }
 
+.calendar-list__date-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--v3-space-xs);
+}
+
 .calendar-list__date {
   color: var(--v3-color-text);
   font-size: var(--v3-font-size-md);
   font-weight: 700;
+}
+
+.calendar-list__today-badge {
+  padding: 2rpx var(--v3-space-xs);
+  color: var(--v3-color-primary);
+  font-size: var(--v3-font-size-xs);
+  background: var(--v3-color-surface);
+  border-radius: var(--v3-radius-sm);
 }
 
 .calendar-list__assignments {

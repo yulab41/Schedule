@@ -4,21 +4,26 @@
       wx:for="{{week.days}}"
       wx:for-item="day"
       wx:key="id"
-      class="calendar-week__cell"
+      class="calendar-week__cell {{day.isToday ? 'calendar-week__cell--today' : ''}} {{day.isWeekend ? 'calendar-week__cell--weekend' : ''}} {{day.isPast ? 'calendar-week__cell--past' : ''}}"
       catchtap="handleDayRoute"
       data-action-id="{{day.routeActionId}}"
     >
       <view class="calendar-week__day-header">
-        <text class="calendar-week__day-number">{{day.dayNumber}}</text>
+        <view class="calendar-week__date-line">
+          <text class="calendar-week__day-number">{{day.dayNumber}}日</text>
+          <text class="calendar-week__weekday">{{day.weekdayLabel}}</text>
+          <text wx:if="{{day.isToday}}" class="calendar-week__today-badge">今天</text>
+        </view>
         <holiday-tag wx:if="{{day.holiday}}" holiday="{{day.holiday}}" />
       </view>
+      <view wx:if="{{day.isEmpty}}" class="calendar-week__empty">暂无排班</view>
       <view class="calendar-week__assignments">
         <assignment-row
           wx:for="{{day.assignments}}"
           wx:for-item="assignment"
           wx:key="assignmentId"
           assignment="{{assignment}}"
-          hideShiftBadge="{{day.assignments.length === 1}}"
+          comfortable="{{true}}"
           role="{{role}}"
           bind:route="handleRoute"
         />

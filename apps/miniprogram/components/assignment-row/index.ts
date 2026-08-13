@@ -12,6 +12,10 @@ Component({
       type: Object,
       value: null,
     },
+    comfortable: {
+      type: Boolean,
+      value: false,
+    },
     hideShiftBadge: {
       type: Boolean,
       value: false,
@@ -21,6 +25,10 @@ Component({
       value: '',
     },
     showPhones: {
+      type: Boolean,
+      value: false,
+    },
+    showDetails: {
       type: Boolean,
       value: false,
     },

@@ -11,10 +11,22 @@ import {
 type BottomSheetTouchEvent = WechatMiniprogram.TouchEvent;
 type BottomSheetScrollEvent = WechatMiniprogram.CustomEvent<{ readonly scrollTop?: unknown }>;
 
-let transitionTimer: ReturnType<typeof setTimeout> | undefined;
-let touchStart: { readonly x: number; readonly y: number } | undefined;
-let touchStartedAt = 0;
-let ownsDrag = false;
+interface BottomSheetInstanceRuntime {
+  ownsDrag: boolean;
+  touchStart?: { readonly x: number; readonly y: number };
+  touchStartedAt: number;
+  transitionTimer?: ReturnType<typeof setTimeout>;
+}
+
+const bottomSheetRuntimeByInstance = new WeakMap<object, BottomSheetInstanceRuntime>();
+
+function getInstanceRuntime(instance: object): BottomSheetInstanceRuntime {
+  const existing = bottomSheetRuntimeByInstance.get(instance);
+  if (existing !== undefined) return existing;
+  const runtime: BottomSheetInstanceRuntime = { ownsDrag: false, touchStartedAt: 0 };
+  bottomSheetRuntimeByInstance.set(instance, runtime);
+  return runtime;
+}
 
 function getFirstTouch(event: BottomSheetTouchEvent) {
   return event.touches[0] ?? event.changedTouches[0];
@@ -49,11 +61,13 @@ Component({
   },
   detached(): void {
     this.clearTransitionTimer();
+    bottomSheetRuntimeByInstance.delete(this);
   },
   methods: {
     clearTransitionTimer(): void {
-      if (transitionTimer !== undefined) clearTimeout(transitionTimer);
-      transitionTimer = undefined;
+      const runtime = getInstanceRuntime(this);
+      if (runtime.transitionTimer !== undefined) clearTimeout(runtime.transitionTimer);
+      runtime.transitionTimer = undefined;
     },
     handleContentScroll(event: BottomSheetScrollEvent): void {
       const scrollTop = event.detail.scrollTop;
@@ -64,14 +78,15 @@ Component({
     },
     handlePanelTouchEnd(event: BottomSheetTouchEvent): void {
       const touch = getFirstTouch(event);
-      if (touch === undefined || touchStart === undefined || !ownsDrag) return;
+      const runtime = getInstanceRuntime(this);
+      if (touch === undefined || runtime.touchStart === undefined || !runtime.ownsDrag) return;
       const sample = {
-        deltaX: touch.clientX - touchStart.x,
-        deltaY: touch.clientY - touchStart.y,
-        elapsedMilliseconds: Math.max(0, Date.now() - touchStartedAt),
+        deltaX: touch.clientX - runtime.touchStart.x,
+        deltaY: touch.clientY - runtime.touchStart.y,
+        elapsedMilliseconds: Math.max(0, Date.now() - runtime.touchStartedAt),
       };
-      touchStart = undefined;
-      ownsDrag = false;
+      runtime.touchStart = undefined;
+      runtime.ownsDrag = false;
       if (shouldCloseBottomSheet(sample)) {
         this.requestClose();
         return;
@@ -89,15 +104,16 @@ Component({
     },
     handlePanelTouchMove(event: BottomSheetTouchEvent): void {
       const touch = getFirstTouch(event);
-      if (touch === undefined || touchStart === undefined) return;
+      const runtime = getInstanceRuntime(this);
+      if (touch === undefined || runtime.touchStart === undefined) return;
       const sample = {
-        deltaX: touch.clientX - touchStart.x,
-        deltaY: touch.clientY - touchStart.y,
-        elapsedMilliseconds: Math.max(0, Date.now() - touchStartedAt),
+        deltaX: touch.clientX - runtime.touchStart.x,
+        deltaY: touch.clientY - runtime.touchStart.y,
+        elapsedMilliseconds: Math.max(0, Date.now() - runtime.touchStartedAt),
       };
-      if (!ownsDrag) {
+      if (!runtime.ownsDrag) {
         if (!shouldBeginBottomSheetDrag(this.data.scrollTop, sample)) return;
-        ownsDrag = true;
+        runtime.ownsDrag = true;
         this.setData({ phase: nextBottomSheetPhase(this.data.phase, 'drag-started') });
       }
       const dragOffsetPx = clampBottomSheetDragOffset(sample.deltaY);
@@ -106,9 +122,10 @@ Component({
     handlePanelTouchStart(event: BottomSheetTouchEvent): void {
       const touch = getFirstTouch(event);
       if (touch === undefined) return;
-      touchStart = { x: touch.clientX, y: touch.clientY };
-      touchStartedAt = Date.now();
-      ownsDrag = false;
+      const runtime = getInstanceRuntime(this);
+      runtime.touchStart = { x: touch.clientX, y: touch.clientY };
+      runtime.touchStartedAt = Date.now();
+      runtime.ownsDrag = false;
     },
     requestClose(): void {
       if (this.data.phase === 'closed' || this.data.phase === 'closing') return;
@@ -130,8 +147,9 @@ Component({
     ): void {
       this.clearTransitionTimer();
       const phase = this.data.phase;
-      transitionTimer = setTimeout(() => {
-        transitionTimer = undefined;
+      const runtime = getInstanceRuntime(this);
+      runtime.transitionTimer = setTimeout(() => {
+        runtime.transitionTimer = undefined;
         if (this.properties.sheetKey !== sheetKey || this.data.phase !== phase) return;
         const next = nextBottomSheetPhase(this.data.phase, event);
         this.setData({ phase: next });
@@ -141,8 +159,21 @@ Component({
     },
     syncVisibility(): void {
       if (!this.properties.visible) {
-        if (this.data.phase !== 'closing') this.clearTransitionTimer();
-        this.setData({ panelTransform: 'translateY(100%)' });
+        if (this.data.phase === 'closing') {
+          this.setData({ panelTransform: 'translateY(100%)' });
+          return;
+        }
+        this.clearTransitionTimer();
+        const runtime = getInstanceRuntime(this);
+        runtime.touchStart = undefined;
+        runtime.touchStartedAt = 0;
+        runtime.ownsDrag = false;
+        this.setData({
+          dragOffsetPx: 0,
+          panelTransform: 'translateY(100%)',
+          phase: 'closed',
+          scrollTop: 0,
+        });
         return;
       }
       this.clearTransitionTimer();

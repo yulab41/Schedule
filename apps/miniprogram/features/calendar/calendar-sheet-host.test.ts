@@ -5,6 +5,7 @@ import {
   getCalendarSheetKind,
   getCalendarSheetTitle,
   openCalendarSheet,
+  reconcileCalendarSheet,
   requestCalendarSheetClose,
   resetCalendarSheet,
   type CalendarSheetHostState,
@@ -15,6 +16,7 @@ const assignment = {
   assignmentId: 'assignment-1',
   backgroundColor: '#123456',
   borderToken: 'color-border-strong',
+  businessDate: '2026-08-15',
   compactShiftLabel: '日',
   foregroundColor: '#FFFFFF',
   markers: [],
@@ -82,5 +84,20 @@ describe('calendar sheet host', () => {
     expect(reset).toEqual({ sheetKey: 2, visible: false });
     expect(getCalendarSheetKind(reset)).toBe('none');
     expect(completeCalendarSheetClose(reset, events.sheetKey)).toBe(reset);
+  });
+
+  it('rebinds visible content to an authoritative refresh and closes removed content', () => {
+    const duty = openCalendarSheet(initial, { assignment, kind: 'duty' });
+    const replacement = { ...assignment, memberName: '刷新后的医生' };
+
+    expect(reconcileCalendarSheet(duty, [replacement], [])).toEqual({
+      content: { assignment: replacement, kind: 'duty' },
+      sheetKey: duty.sheetKey,
+      visible: true,
+    });
+    expect(reconcileCalendarSheet(duty, [], [])).toEqual({
+      sheetKey: duty.sheetKey + 1,
+      visible: false,
+    });
   });
 });

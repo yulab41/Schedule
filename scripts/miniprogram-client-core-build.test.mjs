@@ -38,8 +38,8 @@ afterEach(() => {
   }
 });
 
-describe('miniprogram client-core build boundary', () => {
-  it('builds and audits client-core before both root and package-local build-npm commands', () => {
+describe('miniprogram shared core build boundary', () => {
+  it('builds and audits both shared cores before package-local build-npm commands', () => {
     expect(rootPackage.scripts['miniprogram:client-core:prepare']).toBe(
       'pnpm --filter @schedule/miniprogram client-core:prepare',
     );
@@ -49,16 +49,26 @@ describe('miniprogram client-core build boundary', () => {
     expect(miniprogramPackage.scripts['client-core:prepare']).toBe(
       'pnpm --filter @schedule/client-core build && node ../../scripts/miniprogram-client-core-bundle-gate.mjs',
     );
+    expect(miniprogramPackage.scripts['calendar-core:prepare']).toBe(
+      'pnpm --filter @schedule/calendar-core build && node ../../scripts/miniprogram-calendar-core-bundle-gate.mjs',
+    );
+    expect(miniprogramPackage.scripts['core:prepare']).toBe(
+      'pnpm run client-core:prepare && pnpm run calendar-core:prepare',
+    );
     expect(miniprogramPackage.scripts['build-npm']).toBe(
-      'pnpm run client-core:prepare && node ../../scripts/miniprogram-client-core-devtools-build.mjs',
+      'pnpm run core:prepare && node ../../scripts/miniprogram-client-core-devtools-build.mjs',
     );
     expect(miniprogramPackage.scripts.typecheck).toBe(
-      'pnpm run client-core:prepare && tsc --noEmit -p tsconfig.json',
+      'pnpm run core:prepare && tsc --noEmit -p tsconfig.json',
     );
   });
 
   it('resolves the workspace dependency through its built Mini Program declaration', () => {
+    expect(miniprogramPackage.dependencies['@schedule/calendar-core']).toBe('workspace:*');
     expect(miniprogramPackage.dependencies['@schedule/client-core']).toBe('workspace:*');
+    expect(miniprogramTsconfig.compilerOptions.paths['@schedule/calendar-core']).toEqual([
+      '../../packages/calendar-core/dist/index.d.ts',
+    ]);
     expect(miniprogramTsconfig.compilerOptions.paths['@schedule/client-core']).toEqual([
       '../../packages/client-core/dist/index.d.ts',
     ]);
@@ -66,6 +76,10 @@ describe('miniprogram client-core build boundary', () => {
   });
 
   it('runs tests from source without depending on ignored build output', () => {
+    expect(vitestConfig).toContain("'@schedule/calendar-core': fileURLToPath(");
+    expect(vitestConfig).toContain(
+      "new URL('./packages/calendar-core/src/index.ts', import.meta.url)",
+    );
     expect(vitestConfig).toContain("'@schedule/client-core': fileURLToPath(");
     expect(vitestConfig).toContain(
       "new URL('./packages/client-core/src/index.ts', import.meta.url)",

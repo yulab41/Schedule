@@ -3,12 +3,15 @@
     wx:for="{{days}}"
     wx:for-item="day"
     wx:key="id"
-    class="calendar-list__day"
+    class="calendar-list__day {{day.isToday ? 'calendar-list__day--today' : ''}} {{day.isWeekend ? 'calendar-list__day--weekend' : ''}} {{day.isPast ? 'calendar-list__day--past' : ''}}"
     catchtap="handleDayRoute"
     data-action-id="{{day.routeActionId}}"
   >
     <view class="calendar-list__date-card">
-      <text class="calendar-list__date">{{day.businessDate}} {{day.weekdayLabel}}</text>
+      <view class="calendar-list__date-line">
+        <text class="calendar-list__date">{{day.businessDate}} {{day.weekdayLabel}}</text>
+        <text wx:if="{{day.isToday}}" class="calendar-list__today-badge">今天</text>
+      </view>
       <holiday-tag wx:if="{{day.holiday}}" holiday="{{day.holiday}}" />
     </view>
     <view class="calendar-list__assignments">
@@ -17,6 +20,7 @@
         wx:for-item="assignment"
         wx:key="assignmentId"
         assignment="{{assignment}}"
+        comfortable="{{true}}"
         role="{{role}}"
         bind:route="handleRoute"
       />

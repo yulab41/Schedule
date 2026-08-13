@@ -1,9 +1,21 @@
 <view
-  class="assignment-row"
+  class="assignment-row {{comfortable ? 'assignment-row--comfortable' : ''}}"
   catchtap="handleRowRoute"
   data-action-id="{{assignment.routeActionId}}"
 >
   <text class="assignment-row__member">{{assignment.memberName}}</text>
+  <view wx:if="{{showDetails}}" class="assignment-row__details">
+    <text class="assignment-row__role">{{assignment.roleName}}</text>
+    <text class="assignment-row__shift-detail"
+      >{{assignment.shiftTypeName}}（{{assignment.shiftTypeAbbreviation}}） ·
+      {{assignment.timeRange}}</text
+    >
+    <text
+      wx:if="{{assignment.actualMemberName && assignment.plannedMemberName && assignment.actualMemberName !== assignment.plannedMemberName}}"
+      class="assignment-row__change"
+      >原计划 {{assignment.plannedMemberName}} → 实际 {{assignment.actualMemberName}}</text
+    >
+  </view>
   <view class="assignment-row__meta">
     <text
       wx:if="{{!hideShiftBadge}}"

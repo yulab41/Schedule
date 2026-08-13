@@ -1,6 +1,6 @@
 <view class="duty-detail-sheet">
   <text class="duty-detail-sheet__member">{{assignment.memberName}}</text>
-  <text class="duty-detail-sheet__line">{{assignment.roleName}}</text>
+  <text class="duty-detail-sheet__line">{{assignment.businessDate}} · {{assignment.roleName}}</text>
   <view class="duty-detail-sheet__shift">
     <text
       class="duty-detail-sheet__shift-chip"
@@ -9,6 +9,11 @@
     >
     <text>{{assignment.shiftTypeName}} · {{assignment.timeRange}}</text>
   </view>
+  <text
+    wx:if="{{assignment.actualMemberName && assignment.plannedMemberName && assignment.actualMemberName !== assignment.plannedMemberName}}"
+    class="duty-detail-sheet__change"
+    >原计划 {{assignment.plannedMemberName}} → 实际 {{assignment.actualMemberName}}</text
+  >
   <view wx:if="{{assignment.markers.length > 0}}" class="duty-detail-sheet__markers">
     <marker-badge
       wx:for="{{assignment.markers}}"

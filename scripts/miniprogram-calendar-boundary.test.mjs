@@ -137,7 +137,9 @@ describe('mini-program calendar VM boundary', () => {
     expect(assignmentRowWxml).toContain('assignment.memberName');
     expect(markerBadgeWxml).toContain('catchtap="handleRoute"');
     expect(markerBadgeWxml).not.toContain('<button');
-    expect(assignmentRowWxml).not.toMatch(/assignment\.roleName|assignment\.timeRange/gu);
+    expect(assignmentRowWxml).toContain('wx:if="{{showDetails}}"');
+    expect(assignmentRowWxml).toContain('assignment.roleName');
+    expect(assignmentRowWxml).toContain('assignment.timeRange');
     expect(assignmentRowWxml).toContain('showPhones');
     expect(assignmentRowWxml).toContain('assignment.phoneActions');
     expect(dateDetailSheetWxml).toContain('show-phones="{{true}}"');
@@ -232,6 +234,10 @@ describe('mini-program calendar VM boundary', () => {
     }
     expect(bottomSheet).toContain('request-close');
     expect(bottomSheet).toContain('closed');
+    expect(bottomSheet).toContain('new WeakMap<object, BottomSheetInstanceRuntime>()');
+    expect(bottomSheet).not.toMatch(
+      /^let (?:transitionTimer|touchStart|touchStartedAt|ownsDrag)\b/gmu,
+    );
     expect(bottomSheetWxml).toContain('<slot');
     expect(bottomSheetWxml).toMatch(
       /<scroll-view\b(?=[^>]*\bclass="bottom-sheet__content")(?=[^>]*\bscroll-y\b)[^>]*>/u,
@@ -274,5 +280,111 @@ describe('mini-program calendar VM boundary', () => {
     expect(page).not.toContain('activeSheet');
     expect(page).not.toContain('openRoute');
     expect(pageWxml).not.toContain('<details');
+  });
+
+  it('keeps D4 navigation available around data states and uses explicit mobile multi-select', () => {
+    const page = readText('pages/calendar/index.ts');
+    const pageWxml = readText('pages/calendar/index.wxml');
+    const pageJson = readText('pages/calendar/index.json');
+    const filterWxml = readText('components/calendar-filter-sheet/index.wxml');
+    const filterWxss = readText('components/calendar-filter-sheet/index.wxss');
+
+    expect(pageJson).toContain('calendar-filter-sheet');
+    expect(pageWxml).toContain('<calendar-filter-sheet');
+    expect(pageWxml).toContain('bind:apply="handleFilterApply"');
+    expect(pageWxml).toContain('options-ready="{{true}}"');
+    expect(pageWxml).toContain('mode="date"');
+    expect(pageWxml).toContain('fields="month"');
+    expect(pageWxml).toContain('bindchange="handleMonthChange"');
+    expect(pageWxml).toContain('bindtap="handleToday"');
+    expect(pageWxml).toContain('bindtap="handleThisWeek"');
+    expect(pageWxml).not.toMatch(
+      /<picker[\s\S]*?viewModel\.filters\.(?:roles|shiftTypes|members)/gu,
+    );
+    expect(page).toContain('handleOpenFilter');
+    expect(page).toContain('handleFilterApply');
+    expect(page).toContain('goCalendarToBusinessMonth');
+    expect(page).toContain('goCalendarToToday');
+    expect(page).toContain('goCalendarToThisWeek');
+    expect(page).not.toContain('parseSelectorPickerIndex');
+    expect(page).toMatch(
+      /updateNavigation\(next\): void \{[\s\S]*?navigationEpoch \+= 1;\s*this\.swiperLocked = false;\s*const months/u,
+    );
+    expect(page).toMatch(
+      /handleViewModeTap\(event\): void \{[\s\S]*?navigationEpoch \+= 1;\s*this\.swiperLocked = false;\s*const state/u,
+    );
+    expect(page).toMatch(
+      /applySlotUpdate\(update\): void \{[\s\S]*?const updateIsData = isDataViewModel\(update\.viewModel\)[\s\S]*?!updateIsData[\s\S]*?index === 1[\s\S]*?resetSensitiveCalendarDetails\(\)/u,
+    );
+    expect(page).toMatch(
+      /const surfaceFilters = buildCalendarSurfaceFilters\([\s\S]*?presentation\.hasCalendarData[\s\S]*?getFilterOptions\(surfaceFilters, filterSheetKind\)[\s\S]*?getSelectedFilterIds\(surfaceFilters, filterSheetKind\)/u,
+    );
+    expect(page).toMatch(
+      /handleFilterApply\(event\): void \{[\s\S]*?buildCalendarSurfaceFilters\([\s\S]*?getRequiredSurfaceMonths/u,
+    );
+
+    const navigation = pageWxml.indexOf('calendar-page__navigation');
+    const dataState = pageWxml.indexOf("surface.kind === 'state'");
+    expect(navigation).toBeGreaterThanOrEqual(0);
+    expect(dataState).toBeGreaterThan(navigation);
+
+    expect(filterWxml).toContain('bindinput="handleSearchInput"');
+    expect(filterWxml).toContain('bindtap="handleSelectAll"');
+    expect(filterWxml).toContain('bindtap="handleClearSelection"');
+    expect(filterWxml).toContain('bindtap="handleApply"');
+    expect(filterWxml).toContain('bindtap="handleCancel"');
+    expect(filterWxml).toContain('aria-pressed="{{item.isSelected}}"');
+    expect(filterWxss).toContain('min-height: var(--v3-touch-min)');
+    expect(filterWxss).not.toMatch(/display:\s*grid|:focus/gu);
+  });
+
+  it('renders D4 empty states, complete details, and aggregated cache provenance', () => {
+    const page = readText('pages/calendar/index.ts');
+    const pageWxml = readText('pages/calendar/index.wxml');
+    const assignmentRowWxml = readText('components/assignment-row/index.wxml');
+    const dateWxml = readText('components/date-detail-sheet/index.wxml');
+    const dutyWxml = readText('components/duty-detail-sheet/index.wxml');
+    const weekWxml = readText('components/calendar-week/index.wxml');
+    const weekWxss = readText('components/calendar-week/index.wxss');
+    const listWxml = readText('components/calendar-list/index.wxml');
+
+    expect(pageWxml).toContain('surface.emptyMessage');
+    expect(readText('features/calendar/calendar-surface.ts')).toContain('@schedule/calendar-core');
+    const coreSurface = readFileSync(
+      path.join(repositoryRoot, 'packages', 'calendar-core', 'src', 'calendar-surface.ts'),
+      'utf8',
+    );
+    expect(coreSurface).toContain('本月没有带变动标记的班次');
+    expect(coreSurface).toContain('本月暂无已发布排班');
+    expect(coreSurface).toContain('本周暂无已发布排班');
+    expect(pageWxml).toContain('cacheNotice.savedAtText');
+    expect(page).toContain('getCalendarCacheNoticeData');
+    expect(page).not.toMatch(
+      /const center = nextSlots\[1\]\.viewModel;[\s\S]*?center\.status === 'cached'/u,
+    );
+
+    expect(dateWxml).toContain('day.businessDate');
+    expect(dateWxml).toContain('day.weekdayLabel');
+    expect(dateWxml).not.toContain('星期{{day.weekdayLabel}}');
+    expect(dateWxml).toContain('show-details="{{true}}"');
+    expect(weekWxml).toContain('day.weekdayLabel');
+    expect(weekWxml).toContain("day.isToday ? 'calendar-week__cell--today'");
+    expect(weekWxml).toContain("day.isWeekend ? 'calendar-week__cell--weekend'");
+    expect(weekWxml).toContain("day.isPast ? 'calendar-week__cell--past'");
+    expect(weekWxml).not.toContain('hideShiftBadge="{{day.assignments.length === 1}}"');
+    expect(declarationsFor(weekWxss, '.calendar-week__row')).toMatch(/flex-direction:\s*column;/u);
+    expect(listWxml).toContain("day.isToday ? 'calendar-list__day--today'");
+    expect(listWxml).toContain("day.isWeekend ? 'calendar-list__day--weekend'");
+    expect(listWxml).toContain("day.isPast ? 'calendar-list__day--past'");
+    expect(listWxml).toContain('今天');
+    for (const field of [
+      'assignment.roleName',
+      'assignment.shiftTypeName',
+      'assignment.shiftTypeAbbreviation',
+      'assignment.timeRange',
+    ]) {
+      expect(assignmentRowWxml).toContain(field);
+      expect(dutyWxml).toContain(field);
+    }
   });
 });

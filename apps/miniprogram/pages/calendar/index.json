@@ -5,6 +5,7 @@
   "renderer": "skyline",
   "usingComponents": {
     "bottom-sheet": "/components/bottom-sheet/index",
+    "calendar-filter-sheet": "/components/calendar-filter-sheet/index",
     "calendar-list": "/components/calendar-list/index",
     "calendar-grid": "/components/calendar-grid/index",
     "calendar-week": "/components/calendar-week/index",

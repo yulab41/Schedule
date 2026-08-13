@@ -6,7 +6,10 @@ import {
   listEvents,
 } from '../../api/endpoints.js';
 import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
-import { getCurrentBusinessDate } from '../../features/calendar/calendar-logic.js';
+import {
+  addBusinessMonths,
+  getCurrentBusinessDate,
+} from '../../features/calendar/calendar-logic.js';
 import {
   buildCalendarSurfaceViewModel,
   recenterCalendarMonthSlots,
@@ -15,16 +18,17 @@ import {
 } from '../../features/calendar/calendar-surface.js';
 import {
   createCalendarPageController,
-  parseSelectorPickerIndex,
   type CalendarContext,
   type CalendarPageController,
   type CalendarMonthSlotUpdate,
 } from '../../features/calendar/calendar-page-controller.js';
 import {
   createCalendarViewModeState,
+  goCalendarToBusinessMonth,
+  goCalendarToThisWeek,
+  goCalendarToToday,
   recenterMonthSlots,
   rotateMonthSlots,
-  stepCalendarMonth,
   stepCalendarWeek,
   switchCalendarViewMode,
   type CalendarMonthSlots,
@@ -32,10 +36,19 @@ import {
 } from '../../features/calendar/calendar-view-mode.js';
 import {
   createCalendarMonthStateViewModel,
+  type CalendarFilterOption,
+  type CalendarFilterViewModel,
   type CalendarMonthDataViewModel,
   type CalendarMonthViewModel,
 } from '../../features/calendar/calendar-view-model.js';
-import { getBusinessMonthsForWeek } from '../../features/calendar/calendar-views.js';
+import { getBusinessMonthsForWeek, getWeekLabel } from '../../features/calendar/calendar-views.js';
+import {
+  buildCalendarSurfaceFilters,
+  getCalendarCacheNoticeData,
+  getCalendarFilterSummary,
+  parseCalendarMonthPickerValue,
+} from '../../features/calendar/calendar-page-ui.js';
+import type { CalendarCacheNotice } from '@schedule/calendar-core';
 import {
   resolveCalendarRouteAction,
   type CalendarRouteTarget,
@@ -49,6 +62,7 @@ import {
   getCalendarSheetKind,
   getCalendarSheetTitle,
   openCalendarSheet,
+  reconcileCalendarSheet,
   requestCalendarSheetClose,
   resetCalendarSheet,
   type CalendarSheetHostState,
@@ -69,28 +83,53 @@ import { sessionStore } from '../../store/session.js';
 
 interface CalendarPageData {
   readonly activeRole: string;
-  readonly cacheNotice?: { readonly savedAtText: string; readonly stale: boolean };
+  readonly cacheNotice: CalendarCacheNotice | null;
   readonly eventTimeline: EventTimelineState;
+  readonly filterSheetKey: number;
+  readonly filterSheetKind: CalendarFilterKind | '';
+  readonly filterSheetOptions: readonly CalendarFilterOption[];
+  readonly filterSheetSelectedIds: readonly string[];
+  readonly filterSheetTitle: string;
+  readonly filterSheetVisible: boolean;
   readonly hasActiveGroup: boolean;
+  readonly hasCalendarData: boolean;
+  readonly memberFilterSummary: string;
   readonly monthSlots: readonly [
     CalendarMonthSlotViewModel,
     CalendarMonthSlotViewModel,
     CalendarMonthSlotViewModel,
   ];
   readonly renderer: string;
+  readonly roleFilterSummary: string;
   readonly sheetHost: CalendarSheetHostState;
   readonly sheetKind: CalendarSheetKind;
   readonly sheetTitle: string;
   readonly surface: CalendarSurfaceViewModel;
+  readonly shiftFilterSummary: string;
   readonly swiperIndex: 1;
   readonly viewMode: CalendarViewMode;
+  readonly weekLabel: string;
   readonly weekStart: string;
 }
 
-type PickerEvent = WechatMiniprogram.PickerChange;
+type CalendarFilterKind = 'member' | 'role' | 'shift';
 type ActionIdEvent = WechatMiniprogram.CustomEvent<{ readonly actionId?: unknown }>;
 type SheetLifecycleEvent = WechatMiniprogram.CustomEvent<{ readonly sheetKey?: unknown }>;
 type ModeTapEvent = WechatMiniprogram.BaseEvent<Record<string, never>, { readonly mode?: unknown }>;
+type FilterTapEvent = WechatMiniprogram.BaseEvent<
+  Record<string, never>,
+  { readonly filterKind?: unknown }
+>;
+type FilterApplyEvent = WechatMiniprogram.CustomEvent<{
+  readonly filterKey?: unknown;
+  readonly selectedIds?: unknown;
+  readonly sheetKey?: unknown;
+}>;
+type FilterLifecycleEvent = WechatMiniprogram.CustomEvent<{
+  readonly filterKey?: unknown;
+  readonly sheetKey?: unknown;
+}>;
+type MonthPickerEvent = WechatMiniprogram.PickerChange;
 type SwiperChangeEvent = WechatMiniprogram.CustomEvent<{
   readonly current?: unknown;
   readonly source?: unknown;
@@ -101,23 +140,26 @@ interface CalendarPageMethods {
   controller?: CalendarPageController;
   eventController?: EventTimelineController;
   invalidationObserver?: CalendarInvalidationObserver;
-  applyPicker(kind: 'member' | 'role' | 'shift', event: PickerEvent): void;
   applySlotUpdate(update: CalendarMonthSlotUpdate): void;
   handleCopy(event: ActionIdEvent): void;
   handleDial(event: ActionIdEvent): void;
-  handleMemberFilter(event: PickerEvent): void;
+  handleFilterApply(event: FilterApplyEvent): void;
+  handleFilterClosed(event: FilterLifecycleEvent): void;
+  handleFilterRequestClose(event: FilterLifecycleEvent): void;
+  handleMonthChange(event: MonthPickerEvent): void;
   handleNextMonth(): void;
   handleNextWeek(): void;
   handleOnlyChanges(event: WechatMiniprogram.SwitchChange): void;
+  handleOpenFilter(event: FilterTapEvent): void;
   handlePreviousMonth(): void;
   handlePreviousWeek(): void;
   handleRetry(): void;
   handleRouteAction(event: ActionIdEvent): void;
   handleSheetClosed(event: SheetLifecycleEvent): void;
   handleSheetRequestClose(event: SheetLifecycleEvent): void;
-  handleRoleFilter(event: PickerEvent): void;
-  handleShiftFilter(event: PickerEvent): void;
   handleSwiperChange(event: SwiperChangeEvent): void;
+  handleThisWeek(): void;
+  handleToday(): void;
   handleViewModeTap(event: ModeTapEvent): void;
   lastResolvedRoute?: CalendarRouteTarget;
   loadMonths(force?: boolean): void;
@@ -201,24 +243,110 @@ function makeSurface(
   });
 }
 
+function getRequiredSurfaceMonths(
+  slots: readonly CalendarMonthSlotViewModel[],
+  viewMode: CalendarViewMode,
+  weekStart: string,
+): readonly string[] {
+  return viewMode === 'week'
+    ? getBusinessMonthsForWeek(weekStart)
+    : [slots[1]?.businessMonth ?? ''];
+}
+
+function getCalendarPresentation(
+  slots: readonly [
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+    CalendarMonthSlotViewModel,
+  ],
+  viewMode: CalendarViewMode,
+  weekStart: string,
+) {
+  const requiredMonths = getRequiredSurfaceMonths(slots, viewMode, weekStart);
+  const filters = buildCalendarSurfaceFilters(slots, requiredMonths);
+  const surface = makeSurface(slots, viewMode, weekStart);
+  return {
+    cacheNotice: getCalendarCacheNoticeData(slots, requiredMonths),
+    hasCalendarData: filters !== undefined && surface.kind !== 'state',
+    memberFilterSummary: getCalendarFilterSummary(
+      '成员',
+      filters?.members ?? [],
+      filters?.selectedMembershipIds ?? [],
+    ),
+    roleFilterSummary: getCalendarFilterSummary(
+      '岗位',
+      filters?.roles ?? [],
+      filters?.selectedRoleIds ?? [],
+    ),
+    shiftFilterSummary: getCalendarFilterSummary(
+      '班种',
+      filters?.shiftTypes ?? [],
+      filters?.selectedShiftTypeIds ?? [],
+    ),
+    surface,
+    weekLabel: getWeekLabel(weekStart),
+  };
+}
+
+function isCalendarFilterKind(value: unknown): value is CalendarFilterKind {
+  return value === 'member' || value === 'role' || value === 'shift';
+}
+
+function getFilterOptions(
+  filters: CalendarFilterViewModel,
+  kind: CalendarFilterKind,
+): readonly CalendarFilterOption[] {
+  const options =
+    kind === 'role' ? filters.roles : kind === 'shift' ? filters.shiftTypes : filters.members;
+  return options.filter(({ id }) => id.length > 0);
+}
+
+function getSelectedFilterIds(
+  filters: CalendarFilterViewModel,
+  kind: CalendarFilterKind,
+): readonly string[] {
+  return kind === 'role'
+    ? filters.selectedRoleIds
+    : kind === 'shift'
+      ? filters.selectedShiftTypeIds
+      : filters.selectedMembershipIds;
+}
+
 const initialViewState = getInitialState();
 const initialSlots = getInitialSlots();
+const initialPresentation = getCalendarPresentation(
+  initialSlots,
+  initialViewState.mode,
+  initialViewState.weekStart,
+);
 const initialEventTimeline: EventTimelineState = { hasMore: false, items: [], status: 'idle' };
 const initialSheetHost: CalendarSheetHostState = { sheetKey: 0, visible: false };
 
 Page<CalendarPageData, CalendarPageMethods>({
   data: {
     activeRole: '',
+    cacheNotice: initialPresentation.cacheNotice,
     eventTimeline: initialEventTimeline,
+    filterSheetKey: 0,
+    filterSheetKind: '',
+    filterSheetOptions: [],
+    filterSheetSelectedIds: [],
+    filterSheetTitle: '',
+    filterSheetVisible: false,
     hasActiveGroup: false,
+    hasCalendarData: initialPresentation.hasCalendarData,
+    memberFilterSummary: initialPresentation.memberFilterSummary,
     monthSlots: initialSlots,
     renderer: 'unknown',
+    roleFilterSummary: initialPresentation.roleFilterSummary,
     sheetHost: initialSheetHost,
     sheetKind: 'none',
     sheetTitle: '',
-    surface: makeSurface(initialSlots, initialViewState.mode, initialViewState.weekStart),
+    shiftFilterSummary: initialPresentation.shiftFilterSummary,
+    surface: initialPresentation.surface,
     swiperIndex: 1,
     viewMode: initialViewState.mode,
+    weekLabel: initialPresentation.weekLabel,
     weekStart: initialViewState.weekStart,
   },
   navigationEpoch: 0,
@@ -336,51 +464,62 @@ Page<CalendarPageData, CalendarPageMethods>({
       CalendarMonthSlotViewModel,
     ];
     nextSlots[index] = { businessMonth: update.businessMonth, viewModel: update.viewModel };
-    const surface = makeSurface(nextSlots, this.data.viewMode, this.data.weekStart);
-    const center = nextSlots[1].viewModel;
-    const cacheNotice =
-      center.status === 'cached'
-        ? { savedAtText: center.cacheSavedAt ?? '', stale: center.isStale === true }
-        : undefined;
-    this.setData({ cacheNotice, monthSlots: nextSlots, surface });
-  },
-  applyPicker(kind, event): void {
-    const viewModel = this.data.monthSlots[1].viewModel;
-    if (!isDataViewModel(viewModel)) return;
-    const options =
-      kind === 'role'
-        ? viewModel.filters.roles
-        : kind === 'shift'
-          ? viewModel.filters.shiftTypes
-          : viewModel.filters.members;
-    const index = parseSelectorPickerIndex(event.detail.value, options.length);
-    if (index === undefined) return;
-    const selectedId = index === 0 ? undefined : options[index]?.id;
-    if (index > 0 && selectedId === undefined) return;
-    this.controller?.setFilters({
-      membershipIds:
-        kind === 'member'
-          ? selectedId === undefined
-            ? []
-            : [selectedId]
-          : viewModel.filters.selectedMembershipIds,
-      onlyChanges: viewModel.filters.onlyChanges,
-      roleIds:
-        kind === 'role'
-          ? selectedId === undefined
-            ? []
-            : [selectedId]
-          : viewModel.filters.selectedRoleIds,
-      shiftTypeIds:
-        kind === 'shift'
-          ? selectedId === undefined
-            ? []
-            : [selectedId]
-          : viewModel.filters.selectedShiftTypeIds,
+    const updateIsData = isDataViewModel(update.viewModel);
+    if (
+      !updateIsData &&
+      (index === 1 ||
+        update.viewModel.status === 'forbidden' ||
+        update.viewModel.status === 'conflict')
+    ) {
+      this.resetSensitiveCalendarDetails();
+    }
+    const presentation = getCalendarPresentation(
+      nextSlots,
+      this.data.viewMode,
+      this.data.weekStart,
+    );
+    if (!presentation.hasCalendarData && this.data.filterSheetVisible) {
+      this.resetSensitiveCalendarDetails();
+    }
+    const filterSheetKind = this.data.filterSheetKind;
+    const surfaceFilters = buildCalendarSurfaceFilters(
+      nextSlots,
+      getRequiredSurfaceMonths(nextSlots, this.data.viewMode, this.data.weekStart),
+    );
+    const filterSheetPatch =
+      presentation.hasCalendarData &&
+      surfaceFilters !== undefined &&
+      this.data.filterSheetVisible &&
+      isCalendarFilterKind(filterSheetKind)
+        ? {
+            filterSheetOptions: getFilterOptions(surfaceFilters, filterSheetKind),
+            filterSheetSelectedIds: getSelectedFilterIds(surfaceFilters, filterSheetKind),
+          }
+        : {};
+    const refreshedViewModels = nextSlots.map(({ viewModel }) => viewModel).filter(isDataViewModel);
+    const refreshedDays = refreshedViewModels.flatMap(({ weeks }) =>
+      weeks.flatMap(({ days }) => days.filter((day) => day.kind === 'day')),
+    );
+    const refreshedAssignments = refreshedDays.flatMap(({ assignments }) => assignments);
+    const sheetHost = reconcileCalendarSheet(
+      this.data.sheetHost,
+      refreshedAssignments,
+      refreshedDays,
+    );
+    const sheetPatch =
+      sheetHost === this.data.sheetHost
+        ? {}
+        : {
+            sheetHost,
+            sheetKind: getCalendarSheetKind(sheetHost),
+            sheetTitle: getCalendarSheetTitle(sheetHost),
+          };
+    this.setData({
+      ...presentation,
+      ...filterSheetPatch,
+      ...sheetPatch,
+      monthSlots: nextSlots,
     });
-  },
-  handleMemberFilter(event): void {
-    this.applyPicker('member', event);
   },
   handleCopy(event): void {
     const actionId = event.detail.actionId;
@@ -392,14 +531,78 @@ Page<CalendarPageData, CalendarPageMethods>({
     if (typeof actionId === 'string' && actionId.length > 0)
       this.controller?.performPhoneAction(actionId);
   },
+  handleFilterApply(event): void {
+    const { filterKey, selectedIds, sheetKey } = event.detail;
+    if (
+      !isCalendarFilterKind(filterKey) ||
+      filterKey !== this.data.filterSheetKind ||
+      sheetKey !== this.data.filterSheetKey ||
+      !Array.isArray(selectedIds) ||
+      !selectedIds.every((id): id is string => typeof id === 'string')
+    )
+      return;
+    const filters = buildCalendarSurfaceFilters(
+      this.data.monthSlots,
+      getRequiredSurfaceMonths(this.data.monthSlots, this.data.viewMode, this.data.weekStart),
+    );
+    if (filters === undefined) return;
+    // Keep IDs that are outside the currently visible month as selection intent.
+    // The core still applies them strictly to assignments; clipping here would
+    // silently turn a cross-month filter back into “全部”.
+    const nextSelectedIds = [...new Set(selectedIds)];
+    this.controller?.setFilters({
+      membershipIds: filterKey === 'member' ? nextSelectedIds : filters.selectedMembershipIds,
+      onlyChanges: filters.onlyChanges,
+      roleIds: filterKey === 'role' ? nextSelectedIds : filters.selectedRoleIds,
+      shiftTypeIds: filterKey === 'shift' ? nextSelectedIds : filters.selectedShiftTypeIds,
+    });
+  },
+  handleFilterClosed(event): void {
+    if (
+      event.detail.sheetKey !== this.data.filterSheetKey ||
+      event.detail.filterKey !== this.data.filterSheetKind ||
+      this.data.filterSheetVisible
+    )
+      return;
+    this.setData({
+      filterSheetKind: '',
+      filterSheetOptions: [],
+      filterSheetSelectedIds: [],
+      filterSheetTitle: '',
+    });
+  },
+  handleFilterRequestClose(event): void {
+    if (
+      event.detail.sheetKey !== this.data.filterSheetKey ||
+      event.detail.filterKey !== this.data.filterSheetKind
+    )
+      return;
+    this.setData({ filterSheetVisible: false });
+  },
+  handleMonthChange(event): void {
+    const businessMonth = parseCalendarMonthPickerValue(event.detail.value);
+    if (businessMonth === undefined) return;
+    this.updateNavigation(
+      goCalendarToBusinessMonth(
+        {
+          businessMonth: this.data.monthSlots[1].businessMonth,
+          mode: this.data.viewMode,
+          weekStart: this.data.weekStart,
+        },
+        businessMonth,
+        getToday(),
+      ),
+    );
+  },
   handleNextMonth(): void {
     const state = {
       businessMonth: this.data.monthSlots[1].businessMonth,
       mode: this.data.viewMode,
       weekStart: this.data.weekStart,
     };
-    if (state.mode === 'week') return;
-    this.updateNavigation(stepCalendarMonth(state, 1, getToday()));
+    this.updateNavigation(
+      goCalendarToBusinessMonth(state, addBusinessMonths(state.businessMonth, 1), getToday()),
+    );
   },
   handleNextWeek(): void {
     const state = {
@@ -411,13 +614,34 @@ Page<CalendarPageData, CalendarPageMethods>({
   },
   handleOnlyChanges(event): void {
     if (typeof event.detail.value !== 'boolean') return;
-    const viewModel = this.data.monthSlots[1].viewModel;
-    if (!isDataViewModel(viewModel)) return;
+    const filters = buildCalendarSurfaceFilters(
+      this.data.monthSlots,
+      getRequiredSurfaceMonths(this.data.monthSlots, this.data.viewMode, this.data.weekStart),
+    );
+    if (filters === undefined) return;
     this.controller?.setFilters({
-      membershipIds: viewModel.filters.selectedMembershipIds,
+      membershipIds: filters.selectedMembershipIds,
       onlyChanges: event.detail.value,
-      roleIds: viewModel.filters.selectedRoleIds,
-      shiftTypeIds: viewModel.filters.selectedShiftTypeIds,
+      roleIds: filters.selectedRoleIds,
+      shiftTypeIds: filters.selectedShiftTypeIds,
+    });
+  },
+  handleOpenFilter(event): void {
+    const kind = event.currentTarget.dataset.filterKind;
+    const filters = buildCalendarSurfaceFilters(
+      this.data.monthSlots,
+      getRequiredSurfaceMonths(this.data.monthSlots, this.data.viewMode, this.data.weekStart),
+    );
+    if (!isCalendarFilterKind(kind) || filters === undefined) return;
+    const filterSheetKey = this.data.filterSheetKey + 1;
+    this.setData({
+      filterSheetKey,
+      filterSheetKind: kind,
+      filterSheetOptions: getFilterOptions(filters, kind),
+      filterSheetSelectedIds: getSelectedFilterIds(filters, kind),
+      filterSheetTitle:
+        kind === 'role' ? '筛选排班岗位' : kind === 'shift' ? '筛选班种' : '筛选成员',
+      filterSheetVisible: true,
     });
   },
   handlePreviousMonth(): void {
@@ -426,8 +650,9 @@ Page<CalendarPageData, CalendarPageMethods>({
       mode: this.data.viewMode,
       weekStart: this.data.weekStart,
     };
-    if (state.mode === 'week') return;
-    this.updateNavigation(stepCalendarMonth(state, -1, getToday()));
+    this.updateNavigation(
+      goCalendarToBusinessMonth(state, addBusinessMonths(state.businessMonth, -1), getToday()),
+    );
   },
   handlePreviousWeek(): void {
     const state = {
@@ -439,9 +664,6 @@ Page<CalendarPageData, CalendarPageMethods>({
   },
   handleRetry(): void {
     this.loadMonths(true);
-  },
-  handleRoleFilter(event): void {
-    this.applyPicker('role', event);
   },
   handleRouteAction(event): void {
     const actionId = event.detail.actionId;
@@ -478,9 +700,6 @@ Page<CalendarPageData, CalendarPageMethods>({
     });
     if (content.kind === 'events')
       void this.eventController?.load(context.groupId, content.assignment);
-  },
-  handleShiftFilter(event): void {
-    this.applyPicker('shift', event);
   },
   handleSheetClosed(event): void {
     const sheetKey = event.detail.sheetKey;
@@ -528,16 +747,48 @@ Page<CalendarPageData, CalendarPageMethods>({
           viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
         },
     ) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
-    const surface = makeSurface(rotatedSlots, this.data.viewMode, this.data.weekStart);
-    this.setData({ monthSlots: rotatedSlots, surface, swiperIndex: 1 }, () => {
-      if (this.navigationEpoch !== navigationEpoch) return;
-      this.swiperLocked = false;
-      void this.controller?.loadMonths(context, rotatedMonths);
-    });
+    this.setData(
+      {
+        ...getCalendarPresentation(rotatedSlots, this.data.viewMode, this.data.weekStart),
+        monthSlots: rotatedSlots,
+        swiperIndex: 1,
+      },
+      () => {
+        if (this.navigationEpoch !== navigationEpoch) return;
+        this.swiperLocked = false;
+        void this.controller?.loadMonths(context, rotatedMonths);
+      },
+    );
+  },
+  handleThisWeek(): void {
+    this.updateNavigation(
+      goCalendarToThisWeek(
+        {
+          businessMonth: this.data.monthSlots[1].businessMonth,
+          mode: this.data.viewMode,
+          weekStart: this.data.weekStart,
+        },
+        getToday(),
+      ),
+    );
+  },
+  handleToday(): void {
+    this.updateNavigation(
+      goCalendarToToday(
+        {
+          businessMonth: this.data.monthSlots[1].businessMonth,
+          mode: this.data.viewMode,
+          weekStart: this.data.weekStart,
+        },
+        getToday(),
+      ),
+    );
   },
   handleViewModeTap(event): void {
     const mode = event.currentTarget.dataset.mode;
     if (mode !== 'month' && mode !== 'week' && mode !== 'list') return;
+    this.navigationEpoch += 1;
+    this.swiperLocked = false;
     const state = switchCalendarViewMode(
       {
         businessMonth: this.data.monthSlots[1].businessMonth,
@@ -549,7 +800,7 @@ Page<CalendarPageData, CalendarPageMethods>({
     );
     this.setData(
       {
-        surface: makeSurface(this.data.monthSlots, state.mode, state.weekStart),
+        ...getCalendarPresentation(this.data.monthSlots, state.mode, state.weekStart),
         viewMode: state.mode,
         weekStart: state.weekStart,
       },
@@ -560,12 +811,13 @@ Page<CalendarPageData, CalendarPageMethods>({
     const context = contextForCurrentGroup();
     if (context === undefined) return;
     this.navigationEpoch += 1;
+    this.swiperLocked = false;
     const months = recenterMonthSlots(next.businessMonth);
     const slots = recenterCalendarMonthSlots(this.data.monthSlots, months);
     this.setData(
       {
+        ...getCalendarPresentation(slots, next.mode, next.weekStart),
         monthSlots: slots,
-        surface: makeSurface(slots, next.mode, next.weekStart),
         swiperIndex: 1,
         viewMode: next.mode,
         weekStart: next.weekStart,
@@ -589,6 +841,12 @@ Page<CalendarPageData, CalendarPageMethods>({
     this.eventController?.reset();
     this.setData({
       eventTimeline: initialEventTimeline,
+      filterSheetKey: this.data.filterSheetKey + 1,
+      filterSheetKind: '',
+      filterSheetOptions: [],
+      filterSheetSelectedIds: [],
+      filterSheetTitle: '',
+      filterSheetVisible: false,
       sheetHost,
       sheetKind: getCalendarSheetKind(sheetHost),
       sheetTitle: getCalendarSheetTitle(sheetHost),
@@ -600,9 +858,8 @@ Page<CalendarPageData, CalendarPageMethods>({
       viewModel: createCalendarMonthStateViewModel(businessMonth, 'loading'),
     })) as [CalendarMonthSlotViewModel, CalendarMonthSlotViewModel, CalendarMonthSlotViewModel];
     this.setData({
-      cacheNotice: undefined,
+      ...getCalendarPresentation(monthSlots, this.data.viewMode, this.data.weekStart),
       monthSlots,
-      surface: makeSurface(monthSlots, this.data.viewMode, this.data.weekStart),
     });
   },
 });

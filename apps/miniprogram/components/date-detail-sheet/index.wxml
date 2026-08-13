@@ -1,7 +1,5 @@
 <view class="date-detail-sheet">
-  <text class="date-detail-sheet__date"
-    >{{monthLabel}} {{day.dayNumber}}日 星期{{day.weekdayLabel}}</text
-  >
+  <text class="date-detail-sheet__date">{{day.businessDate}} · {{day.weekdayLabel}}</text>
   <view wx:if="{{day.holiday}}" class="date-detail-sheet__holiday">
     <text>{{day.holiday.holidayName}}</text>
     <text>{{day.holiday.isOffDay ? '休息日' : day.holiday.isWorkday ? '调休上班' : ''}}</text>
@@ -12,6 +10,8 @@
     wx:for-item="assignment"
     wx:key="assignmentId"
     assignment="{{assignment}}"
+    comfortable="{{true}}"
+    show-details="{{true}}"
     show-phones="{{true}}"
     bind:route="handleRoute"
   />
