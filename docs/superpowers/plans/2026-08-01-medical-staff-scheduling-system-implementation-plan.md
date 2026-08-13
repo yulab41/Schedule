@@ -1,6 +1,6 @@
 # 医护排班 Web 1.0 实施计划（精简版）
 
-- 范围：医生排班 Web 1.0；不包含其他客户端。
+- 范围：医生排班 Web 1.0。
 - 依据：[`../specs/2026-08-01-medical-staff-scheduling-system-design.md`](../specs/2026-08-01-medical-staff-scheduling-system-design.md)。
 - 状态：主体功能已实现；后续只按 `docs/project-status.md` 当前批次推进。
 
