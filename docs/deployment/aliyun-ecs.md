@@ -66,7 +66,7 @@ curl -s http://127.0.0.1/api/health
 
 > 试用期 Nginx 浏览器密码门禁已于 2026-08-08 撤除：该门禁（HTTP Basic Auth）
 > 与网页登录携带的 Bearer 身份令牌在同一个 `Authorization` 头上冲突，导致
-> 登录请求反复弹密码框。正式账号/微信登录落地前不再启用门禁，公网入口保持
+> 登录请求反复弹密码框。正式账号登录落地前不再启用门禁，公网入口保持
 > 开发模式认证（`NODE_ENV=development` + `AUTH_DEV_MODE=true`）。
 
 ## 更新代码（试用机不编译）
@@ -128,7 +128,7 @@ MySQL 数据库名和账号（`api` 容器通过 compose 网络连接 `mysql:330
 
 - 认证为开发模式（页面提供“本地管理员/本地成员”按钮），正式上线前必须完成
   自建登录认证改造（当前无账号密码后端）。
-- 暂未配置 HTTPS / 自定义域名 / ICP 备案；微信小程序上线前按
+- 暂未配置 HTTPS / 自定义域名 / ICP 备案；正式 Web 上线前按
   `docs/deployment/dns-and-https.md` 与 `icp-checklist.md` 补齐。
 - 定时任务（duty reminders 等）暂未在 Docker 中配置 cron，需后续补充。
 - 腾讯云 CynosDB 历史数据迁移需要数据库连接凭据，另行确认后执行。

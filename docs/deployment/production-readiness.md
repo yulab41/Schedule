@@ -14,7 +14,7 @@
 | 前端/API | 同域部署：`/` Nginx 静态托管（挂载本机构建 dist），`/api/*` 反代 Fastify，`/api/health` 健康检查                  |
 | 数据库   | 同机 MySQL 8.4 容器（命名卷 `schedule_mysql_data`）；开发期单账号 `schedule_app` 全局授权                         |
 | API      | Fastify（`apps/api/dist/local-server.js`），试用期以开发模式认证（`NODE_ENV=development` + `AUTH_DEV_MODE=true`） |
-| 认证     | 本地开发认证（页面“本地管理员/本地成员”按钮）；自建/微信账号认证尚未实现                                          |
+| 认证     | 本地开发认证（页面“本地管理员/本地成员”按钮）；正式账号认证尚未实现                                               |
 | 部署     | 手动：本机构建 dist/依赖树 → 上传 → `docker compose -f infra/docker/compose.prod.yml up -d` → 容器内跑迁移        |
 | 定时任务 | 未配置（duty reminders/notification retry/backup/recycle 等需 cron 或外部调度补充）                               |
 | 备份     | `database-backup` 任务可写 `BACKUP_DIR=/data/backups` 命名卷；定时触发未配置                                      |
@@ -34,13 +34,13 @@
 | HTTPS 证书               | 未配置         | 需要域名备案后签发并接入 Nginx                 |
 | VPC/安全组收紧           | 未配置         | 数据库/端口按 ECS 安全组开放，需按最小暴露收敛 |
 | 专用运行账号（最小权限） | 未创建         | 仍使用 `schedule_app` 单账号全局授权           |
-| 自建/微信账号认证        | 未实现         | 当前只能本地开发认证；正式上线前必须完成       |
+| 自建账号认证             | 未实现         | 当前只能本地开发认证；正式上线前必须完成       |
 | 定时任务（cron）         | 未配置         | 提醒/重试/备份/回收等后台任务未调度            |
 | 费用告警（70%/85%/100%） | 未配置         | 需要正式资源与告警配置                         |
 
 ## 4. 升级到正式环境的执行清单
 
-1. 完成自建/微信账号认证（后端用户表扩展 + 登录接口 + 前端表单），移除本地开发认证依赖。
+1. 完成自建账号认证（后端用户表扩展 + 登录接口 + 前端表单），移除本地开发认证依赖。
 2. 购买域名并完成 ICP 备案（见 `docs/deployment/icp-checklist.md`），按 `docs/deployment/dns-and-https.md` 接入 HTTPS。
 3. 迁移到正式 MySQL（独立实例或 RDS），创建最小权限运行账号（`schedule_runtime` 类）；`schedule_events`/`audit_logs` 仅 `SELECT`/`INSERT`。
 4. 收敛 ECS 安全组与网络暴露；生产密钥与开发密钥完全分离。
