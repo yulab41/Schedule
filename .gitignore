@@ -34,6 +34,7 @@ pnpm-debug.log*
 
 # Local deployment bundles, simulation dirs, and stale flat-tree backups
 runtime/*.tar.gz
+runtime/ecs-release/
 runtime/api-sim-*/
 runtime/api-flat.old-*/
 

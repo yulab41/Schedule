@@ -82,7 +82,7 @@ export const memberNotificationPreferencesSchema = z
     browserNotificationsEnabled: z.boolean(),
     dutyReminderHours: z.union([z.null(), z.readonly(z.array(z.number().int().min(1)))]),
     membershipId: z.string().min(1),
-    wechatNotificationsEnabled: z.boolean(),
+    wechatNotificationsEnabled: z.boolean().optional().default(true),
   })
   .strict();
 export type MemberNotificationPreferences = z.infer<typeof memberNotificationPreferencesSchema>;

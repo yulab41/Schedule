@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "pnpm -r --filter \"./packages/**\" --filter \"./apps/**\" --if-present run build && pnpm holidays:build",
+    "ecs:package": "node scripts/package-ecs-release.mjs",
     "dev": "pnpm --filter @schedule/api build && pnpm --parallel --filter @schedule/api --filter @schedule/web run dev",
     "dev:api": "pnpm --filter @schedule/api build && pnpm --filter @schedule/api start",
     "dev:web": "pnpm --filter @schedule/web dev",

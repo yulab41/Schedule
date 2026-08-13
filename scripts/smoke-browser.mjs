@@ -237,6 +237,32 @@ async function assertGroupManagementAndEventNav(page) {
   await waitForBodyText(page, '排班日历', 10000);
 }
 
+async function assertMemberAndNotificationPages(page) {
+  await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
+  await waitForBodyText(page, '我的真实姓名', 15000, '成员身份表单');
+  await page.locator('table').first().waitFor({ state: 'visible', timeout: 15000 });
+  const memberBody = await page.locator('body').innerText();
+  if (memberBody.includes('请求的资源不存在')) {
+    fail('成员页仍返回“请求的资源不存在”，认领相关 API 未恢复。');
+  }
+  if (memberBody.includes('成员数据暂时无法加载')) {
+    fail('成员页数据加载失败。');
+  }
+
+  await page.locator('.workbench-sidebar button', { hasText: '通知' }).first().click();
+  await waitForBodyText(page, '我的提醒', 15000, '通知设置');
+  const notificationBody = await page.locator('body').innerText();
+  if (notificationBody.includes('服务返回了无效资料')) {
+    fail('通知页仍返回“服务返回了无效资料”，通知偏好响应契约不兼容。');
+  }
+  if (notificationBody.includes('通知设置暂时无法保存')) {
+    fail('通知设置加载失败。');
+  }
+
+  await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
+  await waitForBodyText(page, '排班日历', 10000);
+}
+
 async function runSmoke() {
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
@@ -276,6 +302,8 @@ async function runSmoke() {
     await assertManualScheduleDefaultStartDate(page);
     await assertBackfillCalendarColors(page);
     await assertGroupManagementAndEventNav(page);
+    await assertMemberAndNotificationPages(page);
+    assertNoErrors(errors, '成员与通知页面');
 
     step('3/6 退出管理员');
     await page.locator('button', { hasText: '退出登录' }).first().click();

@@ -536,6 +536,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     path: string,
     init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT' },
     isResponseBody: (value: unknown) => value is ResponseBody,
+    parseResponseBody?: (value: unknown) => ResponseBody,
   ): Promise<ResponseBody> {
     return requestWithOnline({
       auth,
@@ -543,7 +544,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       fetchImplementation: fetchImplementationOverride,
       init,
       isOnline,
-      parseResponse: (response) => parseJsonResponse(response, isResponseBody),
+      parseResponse: (response) => parseJsonResponse(response, isResponseBody, parseResponseBody),
       path,
     });
   }
@@ -691,6 +692,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/notification-preferences/mine`,
         { method: 'GET' },
         isResponseBodyFromSchema(memberNotificationPreferencesSchema),
+        parseResponseBodyFromSchema(memberNotificationPreferencesSchema),
       );
     },
     getPushConfiguration() {
@@ -809,6 +811,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isResponseBodyFromSchema(memberNotificationPreferencesSchema),
+        parseResponseBodyFromSchema(memberNotificationPreferencesSchema),
       );
     },
     acceptDutyAdjustment(groupId, dutyAdjustmentId, input) {
@@ -2130,6 +2133,7 @@ async function requestWithOnline<ResponseBody>(options: {
 async function parseJsonResponse<ResponseBody>(
   response: Response,
   isResponseBody: (value: unknown) => value is ResponseBody,
+  parseResponseBody?: (value: unknown) => ResponseBody,
 ): Promise<ResponseBody> {
   const body = await readJson(response);
   if (!response.ok) {
@@ -2144,7 +2148,7 @@ async function parseJsonResponse<ResponseBody>(
     });
   }
 
-  return body;
+  return parseResponseBody === undefined ? body : parseResponseBody(body);
 }
 
 async function parseTextResponse(response: Response): Promise<string> {
@@ -2172,6 +2176,18 @@ function isResponseBodyFromSchema<ResponseBody>(
   schema: JsonSchema<ResponseBody>,
 ): (value: unknown) => value is ResponseBody {
   return (value: unknown): value is ResponseBody => schema.safeParse(value).success;
+}
+
+function parseResponseBodyFromSchema<ResponseBody>(
+  schema: JsonSchema<ResponseBody>,
+): (value: unknown) => ResponseBody {
+  return (value: unknown): ResponseBody => {
+    const parsed = schema.safeParse(value);
+    if (!parsed.success) {
+      throw new Error('Response body no longer matches its schema.');
+    }
+    return parsed.data;
+  };
 }
 
 function isSchedulingConfigResponse(value: unknown): value is SchedulingConfig {

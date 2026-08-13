@@ -5,6 +5,8 @@ import type {
   AddGroupMembersResponse,
   AddRosterEntriesRequest,
   AddRosterEntriesResponse,
+  ClaimGroupRequest,
+  ClaimGroupResponse,
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
   CreateGroupRequest,
@@ -16,6 +18,7 @@ import type {
 import {
   type DatabaseClient,
   type DatabaseTransaction,
+  groupJoinRequests,
   groupMemberships,
   groups,
   rosterEntries,
@@ -250,6 +253,255 @@ export class GroupService {
     });
   }
 
+  public async claim(
+    identity: AuthenticatedIdentity,
+    input: ClaimGroupRequest,
+  ): Promise<ClaimGroupResponse> {
+    const attemptingUser = await this.getActiveUser(identity);
+    await this.groupCodeService.consumeAttempt(attemptingUser.id);
+
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const user = await this.getActiveUserInTransaction(transaction, identity);
+      const claimRealName = input.realName?.trim() ?? user.realName;
+      const [group] = await transaction
+        .select({
+          groupCode: groups.groupCode,
+          id: groups.id,
+          name: groups.name,
+          ownerUserId: groups.ownerUserId,
+          version: groups.version,
+        })
+        .from(groups)
+        .where(and(eq(groups.groupCode, input.groupCode), isNull(groups.deletedAt)))
+        .limit(1)
+        .for('update');
+
+      if (group === undefined) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '群组码无效或群组不可用。',
+        });
+      }
+
+      const [existingMembership] = await transaction
+        .select({ id: groupMemberships.id })
+        .from(groupMemberships)
+        .where(
+          and(
+            eq(groupMemberships.groupId, group.id),
+            eq(groupMemberships.userId, user.id),
+            eq(groupMemberships.status, 'active'),
+            isNull(groupMemberships.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+
+      if (existingMembership !== undefined) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '您已经加入该群组。',
+        });
+      }
+
+      const [rosterEntry] = await transaction
+        .select({ id: rosterEntries.id })
+        .from(rosterEntries)
+        .where(
+          and(
+            eq(rosterEntries.groupId, group.id),
+            eq(rosterEntries.status, 'pending'),
+            isNull(rosterEntries.deletedAt),
+            sql`binary ${rosterEntries.realName} = binary ${claimRealName}`,
+          ),
+        )
+        .limit(1)
+        .for('update');
+
+      if (rosterEntry === undefined) {
+        const unboundMembership = await this.findUnboundMembership(
+          transaction,
+          group.id,
+          claimRealName,
+        );
+        if (unboundMembership !== undefined) {
+          const placeholderUserId = unboundMembership.userId;
+          await transaction
+            .update(groupMemberships)
+            .set({
+              userId: user.id,
+              version: sql`${groupMemberships.version} + 1`,
+            })
+            .where(eq(groupMemberships.id, unboundMembership.id));
+          await transaction
+            .update(groupJoinRequests)
+            .set({
+              status: 'resolved',
+              version: sql`${groupJoinRequests.version} + 1`,
+            })
+            .where(
+              and(
+                eq(groupJoinRequests.groupId, group.id),
+                eq(groupJoinRequests.requestingUserId, user.id),
+                eq(groupJoinRequests.status, 'pending'),
+                isNull(groupJoinRequests.deletedAt),
+              ),
+            );
+          await this.removePlaceholderUserIfUnused(transaction, placeholderUserId);
+          await this.updateClaimedProfile(transaction, user.id, claimRealName);
+
+          return {
+            group: toGroupSummary(group, unboundMembership.role),
+            status: 'claimed',
+          };
+        }
+
+        await transaction
+          .update(groupJoinRequests)
+          .set({
+            status: 'resolved',
+            version: sql`${groupJoinRequests.version} + 1`,
+          })
+          .where(
+            and(
+              eq(groupJoinRequests.groupId, group.id),
+              eq(groupJoinRequests.requestingUserId, user.id),
+              eq(groupJoinRequests.status, 'pending'),
+              isNull(groupJoinRequests.deletedAt),
+            ),
+          );
+        await transaction.insert(groupMemberships).values({
+          groupId: group.id,
+          id: randomUUID(),
+          role: 'member',
+          userId: user.id,
+        });
+        await this.updateClaimedProfile(transaction, user.id, claimRealName);
+
+        return {
+          group: toGroupSummary(group, 'member'),
+          status: 'claimed',
+        };
+      }
+
+      await transaction
+        .update(rosterEntries)
+        .set({
+          claimedByUserId: user.id,
+          status: 'claimed',
+          version: sql`${rosterEntries.version} + 1`,
+        })
+        .where(
+          and(
+            eq(rosterEntries.id, rosterEntry.id),
+            eq(rosterEntries.status, 'pending'),
+            isNull(rosterEntries.deletedAt),
+          ),
+        );
+      await transaction
+        .update(groupJoinRequests)
+        .set({
+          status: 'resolved',
+          version: sql`${groupJoinRequests.version} + 1`,
+        })
+        .where(
+          and(
+            eq(groupJoinRequests.groupId, group.id),
+            eq(groupJoinRequests.requestingUserId, user.id),
+            eq(groupJoinRequests.status, 'pending'),
+            isNull(groupJoinRequests.deletedAt),
+          ),
+        );
+      await this.updateClaimedProfile(transaction, user.id, claimRealName);
+      const unboundMembership = await this.findUnboundMembership(
+        transaction,
+        group.id,
+        claimRealName,
+      );
+      if (unboundMembership !== undefined) {
+        await transaction
+          .update(groupMemberships)
+          .set({
+            userId: user.id,
+            version: sql`${groupMemberships.version} + 1`,
+          })
+          .where(eq(groupMemberships.id, unboundMembership.id));
+        await this.removePlaceholderUserIfUnused(transaction, unboundMembership.userId);
+
+        return {
+          group: toGroupSummary(group, unboundMembership.role),
+          status: 'claimed',
+        };
+      }
+
+      await transaction.insert(groupMemberships).values({
+        groupId: group.id,
+        id: randomUUID(),
+        role: 'member',
+        userId: user.id,
+      });
+
+      return {
+        group: toGroupSummary(group, 'member'),
+        status: 'claimed',
+      };
+    });
+  }
+
+  private async updateClaimedProfile(
+    transaction: DatabaseTransaction,
+    userId: string,
+    realName: string,
+  ): Promise<void> {
+    await transaction
+      .update(userProfiles)
+      .set({
+        realName,
+        version: sql`${userProfiles.version} + 1`,
+      })
+      .where(eq(userProfiles.userId, userId));
+  }
+
+  private async findUnboundMembership(
+    transaction: DatabaseTransaction,
+    groupId: string,
+    realName: string,
+  ): Promise<
+    | {
+        readonly id: string;
+        readonly role: 'administrator' | 'guest' | 'member' | 'owner';
+        readonly userId: string;
+      }
+    | undefined
+  > {
+    const [membership] = await transaction
+      .select({
+        id: groupMemberships.id,
+        role: groupMemberships.role,
+        userId: groupMemberships.userId,
+      })
+      .from(groupMemberships)
+      .innerJoin(users, eq(users.id, groupMemberships.userId))
+      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+      .where(
+        and(
+          eq(groupMemberships.groupId, groupId),
+          eq(groupMemberships.status, 'active'),
+          isNull(groupMemberships.deletedAt),
+          isNull(users.deletedAt),
+          isNull(userProfiles.deletedAt),
+          isNull(users.cloudbaseUid),
+          sql`binary ${userProfiles.realName} = binary ${realName}`,
+        ),
+      )
+      .limit(1)
+      .for('update');
+
+    return membership;
+  }
+
   private async assertNoSameNameInGroup(
     transaction: DatabaseTransaction,
     groupId: string,
@@ -298,6 +550,47 @@ export class GroupService {
         userMessage: '群组内已存在同名的待认领人员，请先让该成员认领或移除待认领名单。',
       });
     }
+  }
+
+  private async removePlaceholderUserIfUnused(
+    transaction: DatabaseTransaction,
+    userId: string,
+  ): Promise<void> {
+    const [remainingMembership] = await transaction
+      .select({ id: groupMemberships.id })
+      .from(groupMemberships)
+      .where(and(eq(groupMemberships.userId, userId), isNull(groupMemberships.deletedAt)))
+      .limit(1);
+    const [pendingRequest] = await transaction
+      .select({ id: groupJoinRequests.id })
+      .from(groupJoinRequests)
+      .where(
+        and(
+          eq(groupJoinRequests.requestingUserId, userId),
+          eq(groupJoinRequests.status, 'pending'),
+          isNull(groupJoinRequests.deletedAt),
+        ),
+      )
+      .limit(1);
+    if (remainingMembership !== undefined || pendingRequest !== undefined) {
+      return;
+    }
+
+    await transaction
+      .update(userProfiles)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        version: sql`${userProfiles.version} + 1`,
+      })
+      .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)));
+    await transaction
+      .update(users)
+      .set({
+        deletedAt: sql`current_timestamp(3)`,
+        status: 'deleted',
+        version: sql`${users.version} + 1`,
+      })
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)));
   }
 
   public async regenerateCode(

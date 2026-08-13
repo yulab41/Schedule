@@ -2721,6 +2721,45 @@ describe('Web API client', () => {
     });
   });
 
+  it('accepts legacy member notification preferences without the WeChat flag', async () => {
+    const legacyPreferences = {
+      browserNotificationsEnabled: true,
+      dutyReminderHours: null,
+      membershipId: memberNotificationPreferences.membershipId,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(legacyPreferences), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMyNotificationPreferences(group.id)).resolves.toEqual({
+      ...legacyPreferences,
+      wechatNotificationsEnabled: true,
+    });
+  });
+
+  it('rejects member notification preferences with a non-boolean WeChat flag', async () => {
+    const invalidPreferences = {
+      ...memberNotificationPreferences,
+      wechatNotificationsEnabled: 'true',
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(invalidPreferences), { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(client.getMyNotificationPreferences(group.id)).rejects.toMatchObject({
+      code: 'SERVICE_UNAVAILABLE',
+      status: 200,
+    });
+  });
+
   it('rejects push configuration with a non-null non-string vapid key', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

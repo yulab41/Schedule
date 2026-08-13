@@ -7,7 +7,7 @@
 - 分支：`main`，上游：`origin/main`。
 - 产品基线：Web、API、认证、契约、数据库、排班规则、PWA 和阿里云 ECS 部署。
 - 文档基线：保留 10 个精简 Web 入口，另保留 `AGENTS.md` 项目规则。
-- 本轮：收敛为 Web-only，删除微信小程序产品线、仅供小程序使用的共享包与专属工具链，并清理本地依赖、构建、运行时和调试产物；不修改业务逻辑、数据库或生产部署配置。
+- 本轮：修复 Web 成员认领接口 404 和通知偏好响应兼容问题；恢复 API/集成覆盖并保留现有数据库与 Web 调用契约。
 
 ## 已完成能力
 
@@ -25,20 +25,23 @@ pnpm smoke:check-core
 git diff --check
 ```
 
-此前文档整理轮次额外通过 Markdown Prettier、Markdown 本地链接和 Web-only 关键词审计；本轮已完成 Web-only 源码清理与验证。
+此前文档整理轮次额外通过 Markdown Prettier、Markdown 本地链接和 Web-only 关键词审计。
 
 ## 本轮结果（2026-08-13）
 
-- 已删除 `apps/miniprogram/`、`packages/calendar-core/`、`packages/client-core/` 及 `scripts/miniprogram-*.mjs`；根脚本、锁文件、ESLint 和 Vitest 配置已同步收敛为 Web-only。
-- 已清理根及 workspace 的 `node_modules/`、`.pnpm-store/`、`dist/`、`runtime/`、smoke/preview 临时目录和 `debug.log`；`.env` 保留为本地运行配置。
-- 验证：`pnpm install --frozen-lockfile`、`pnpm verify`、`pnpm smoke:browser`、`pnpm smoke:check-core`、`git diff --check` 均通过。
-- `pnpm verify`：54 个测试文件通过，420 个测试通过；29 个数据库/集成测试文件共 249 个测试因本地 MySQL 安全门禁跳过。
-- 当前状态：已完成，待用户复核。Windows 微信开发者工具仍占用一个空的 `apps/miniprogram/` 目录；关闭相关工具后可删除该空目录，不影响 Git 内容或 Web 运行。
+- 根因：`d117bb0` 保留 Web 成员认领调用，`8ab9184` 删除了对应路由和服务；`ef3d20c` 新增通知字段后，严格契约无法解析旧 API 缺字段的 200 响应。
+- 已恢复 `/groups/claim`、成员匹配、认领申请审批/驳回/撤销接口及事务、权限、锁和版本保护；集成回归测试恢复为认领工作流覆盖。
+- `memberNotificationPreferencesSchema` 对缺失的 `wechatNotificationsEnabled` 默认 `true`，仍拒绝错误类型；新增 Web API 回归测试。
+- 静态审查：恢复的四个认领文件与 `8ab9184^` 完全一致；`git diff --check` 通过。
+- 部署脚本已统一通过 Nginx 80/443 入口检查，移除 ECS 更新/核验及测试隧道对远端 8080 的错误依赖；新增一次构建产物清单、压缩包哈希、发布目录和失败回滚流程。
+- 本地运行验证：`pnpm install --frozen-lockfile`、`pnpm build`、`pnpm typecheck`、`pnpm verify` 均通过；定向通知兼容测试 3/3、成员认领集成测试 4/4 通过。`pnpm verify` 汇总为 54 个测试文件通过、422 个测试通过，29 个测试文件/252 个测试因项目现有环境保护条件跳过。
+- 浏览器验证：`pnpm smoke:browser` 通过；应用内浏览器本地管理员成员页实际出现成员表、通知页实际出现“我的提醒”，本地成员模式正常，控制台仅有 Vite 正常连接日志。`pnpm smoke:check-core` 和 `git diff --check` 通过。
+- 当前状态：已完成本地验证，待提交、推送和 ECS 发布复核。
 
 ## 下一批次
 
-- 用户复核 Web-only 清理结果；如需重新开发，执行 `pnpm install --frozen-lockfile`。
-- 停止条件：确认目录内仅保留 Web/API/共享 Web 包、部署、迁移、测试和当前文档入口。
+- 提交并推送当前 `main`；按同一提交重新构建并生成部署清单，备份 ECS 数据库，上传并校验发布包，执行更新/核验脚本，再用公网应用内浏览器复核成员和通知页面。
+- 停止条件：公网健康检查、容器状态、部署清单/产物哈希、浏览器页面与控制台验证全部通过，并记录可用回滚版本与备份位置。
 
 ## 后续规则
 

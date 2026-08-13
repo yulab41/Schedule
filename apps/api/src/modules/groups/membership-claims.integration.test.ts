@@ -6,7 +6,6 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -16,29 +15,45 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 
-describeWithDatabase('membership claim endpoints are removed', () => {
+describeWithDatabase('membership identity claims', () => {
   let app: ReturnType<typeof createApp>;
   let client: DatabaseClient;
   let groupId: string;
+  let memberMembershipId: string;
 
   beforeEach(async () => {
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
     app = createApp({
-      authPort: createFakeAuthPort({ 'owner-token': 'cloudbase-owner' }),
+      authPort: createFakeAuthPort({
+        'candidate-token': 'cloudbase-candidate',
+        'other-candidate-token': 'cloudbase-other-candidate',
+        'owner-token': 'cloudbase-owner',
+      }),
       databaseClient: client,
       logger: false,
     });
     await registerUser('owner-token', 'Owner Doctor');
-    const created = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
-      payload: { groupCode: '4321', name: 'Claims removed group' },
-      url: '/groups',
-    });
-    expect(created.statusCode).toBe(201);
-    groupId = (created.json() as { id: string }).id;
+    await registerUser('candidate-token', 'Candidate Doctor');
+    await registerUser('other-candidate-token', 'Other Candidate');
+    const createdGroup = (await createGroup('Claims group', '4321')).json() as {
+      id: string;
+    };
+    groupId = createdGroup.id;
+    const candidateJoin = await claimGroup('candidate-token', '4321', 'Candidate Doctor');
+    expect(candidateJoin.statusCode).toBe(201);
+    const otherCandidateJoin = await claimGroup('other-candidate-token', '4321', 'Other Candidate');
+    expect(otherCandidateJoin.statusCode).toBe(201);
+    const added = await addFormalMember(groupId, 'Target Doctor');
+    expect(added.statusCode).toBe(200);
+    const members = (await listMembers('owner-token', groupId)).json() as {
+      readonly id: string;
+      readonly isUnclaimed?: boolean;
+      readonly realName: string;
+    }[];
+    memberMembershipId = members.find((member) => member.realName === 'Target Doctor')
+      ?.id as string;
   });
 
   afterEach(async () => {
@@ -50,44 +65,125 @@ describeWithDatabase('membership claim endpoints are removed', () => {
     }
   });
 
-  it('returns 404 for group-code joining and membership claim endpoints', async () => {
-    const claim = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
-      payload: { groupCode: '4321' },
-      url: '/groups/claim',
+  it('looks up same-name members and lets an administrator claim an unclaimed member directly', async () => {
+    const lookup = await claimLookup('candidate-token', groupId, 'Target Doctor');
+    expect(lookup.statusCode).toBe(200);
+    expect(lookup.json()).toMatchObject({
+      matches: [
+        {
+          isUnclaimed: true,
+          membershipId: memberMembershipId,
+          realName: 'Target Doctor',
+          role: 'member',
+        },
+      ],
     });
-    expect(claim.statusCode).toBe(404);
 
-    const lookups = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
-      payload: { realName: 'Owner Doctor' },
-      url: `/groups/${groupId}/claim-lookups`,
-    });
-    expect(lookups.statusCode).toBe(404);
+    const membersBefore = (await listMembers('owner-token', groupId)).json() as {
+      readonly id: string;
+      readonly realName: string;
+    }[];
+    const candidateMembershipId = membersBefore.find(
+      (member) => member.realName === 'Candidate Doctor',
+    )?.id as string;
+    const promoted = await updateRole(
+      'owner-token',
+      groupId,
+      candidateMembershipId,
+      'administrator',
+    );
+    expect(promoted.statusCode).toBe(200);
 
-    const listRequests = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'GET',
-      url: `/groups/${groupId}/claim-requests`,
-    });
-    expect(listRequests.statusCode).toBe(404);
+    const created = await createClaim('candidate-token', groupId, memberMembershipId);
+    expect(created.statusCode, created.body).toBe(201);
+    expect(created.json()).toEqual({ direct: true });
 
-    const approve = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
-      payload: {},
-      url: `/groups/${groupId}/claim-requests/00000000-0000-4000-8000-000000000001/approve`,
-    });
-    expect(approve.statusCode).toBe(404);
+    const members = (await listMembers('candidate-token', groupId)).json() as {
+      readonly id: string;
+      readonly isClaimedByCurrentUser?: boolean;
+      readonly isUnclaimed?: boolean;
+      readonly realName: string;
+    }[];
+    const target = members.find((member) => member.realName === 'Target Doctor');
+    expect(target?.isUnclaimed).toBe(false);
+    expect(target?.isClaimedByCurrentUser).toBe(true);
+    expect(members.some((member) => member.realName === 'Candidate Doctor')).toBe(false);
+  });
 
-    const revoke = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
-      url: `/groups/${groupId}/members/00000000-0000-4000-8000-000000000001/revoke-claim`,
+  it('prevents the group owner from claiming a member identity', async () => {
+    const created = await createClaim('owner-token', groupId, memberMembershipId);
+    expect(created.statusCode, created.body).toBe(409);
+  });
+
+  it('lets a normal member request a claim and an owner approve it', async () => {
+    const created = await createClaim('candidate-token', groupId, memberMembershipId);
+    expect(created.statusCode).toBe(202);
+    expect(created.json()).toMatchObject({
+      direct: false,
+      request: {
+        requestingUserRealName: 'Candidate Doctor',
+        status: 'pending',
+        targetMemberRealName: 'Target Doctor',
+      },
     });
-    expect(revoke.statusCode).toBe(404);
+
+    const duplicate = await createClaim('candidate-token', groupId, memberMembershipId);
+    expect(duplicate.statusCode).toBe(409);
+
+    const pending = (await listClaimRequests('owner-token', groupId)).json() as {
+      readonly id: string;
+      readonly status: string;
+    }[];
+    expect(pending).toHaveLength(1);
+    const requestId = pending[0]?.id as string;
+
+    const approved = await approveClaim('owner-token', groupId, requestId);
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect(approved.json()).toMatchObject({ status: 'approved' });
+
+    const members = (await listMembers('candidate-token', groupId)).json() as {
+      readonly id: string;
+      readonly isClaimedByCurrentUser?: boolean;
+      readonly isCurrentUser: boolean;
+      readonly isUnclaimed?: boolean;
+      readonly realName: string;
+    }[];
+    const target = members.find((member) => member.realName === 'Target Doctor');
+    expect(target?.isUnclaimed).toBe(false);
+    expect(target?.isClaimedByCurrentUser).toBe(true);
+    expect(target?.isCurrentUser).toBe(true);
+
+    const blocked = await createClaim('other-candidate-token', groupId, memberMembershipId);
+    expect(blocked.statusCode).toBe(409);
+  });
+
+  it('lets an owner reject a claim, an administrator claim directly, and the owner revoke it', async () => {
+    const created = await createClaim('candidate-token', groupId, memberMembershipId);
+    const requestId = (created.json() as { request: { id: string } }).request.id;
+
+    const rejected = await rejectClaim('owner-token', groupId, requestId);
+    expect(rejected.statusCode).toBe(200);
+    expect(rejected.json()).toMatchObject({ status: 'rejected' });
+
+    const membersBefore = (await listMembers('owner-token', groupId)).json() as {
+      readonly id: string;
+      readonly realName: string;
+    }[];
+    const candidateMembershipId = membersBefore.find(
+      (member) => member.realName === 'Candidate Doctor',
+    )?.id as string;
+    await updateRole('owner-token', groupId, candidateMembershipId, 'administrator');
+
+    const direct = await createClaim('candidate-token', groupId, memberMembershipId);
+    expect(direct.statusCode, direct.body).toBe(201);
+
+    const revoked = await revokeClaim('owner-token', groupId, memberMembershipId);
+    expect(revoked.statusCode).toBe(200);
+    const members = (await listMembers('owner-token', groupId)).json() as {
+      readonly isUnclaimed?: boolean;
+      readonly realName: string;
+    }[];
+    expect(members.find((member) => member.realName === 'Target Doctor')?.isUnclaimed).toBe(true);
   });
 
   async function registerUser(token: string, realName: string): Promise<void> {
@@ -99,11 +195,110 @@ describeWithDatabase('membership claim endpoints are removed', () => {
     });
     expect(response.statusCode).toBe(201);
   }
+
+  function createGroup(name: string, groupCode: string) {
+    return app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { groupCode, name },
+      url: '/groups',
+    });
+  }
+
+  function addFormalMember(targetGroupId: string, realName: string) {
+    return app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { realNames: [realName] },
+      url: `/groups/${targetGroupId}/members`,
+    });
+  }
+
+  function claimGroup(token: string, groupCode: string, realName: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: { groupCode, realName },
+      url: '/groups/claim',
+    });
+  }
+
+  function updateRole(
+    token: string,
+    targetGroupId: string,
+    membershipId: string,
+    role: 'administrator' | 'member',
+  ) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'PUT',
+      payload: { role },
+      url: `/groups/${targetGroupId}/members/${membershipId}/role`,
+    });
+  }
+
+  function listMembers(token: string, targetGroupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${targetGroupId}/members`,
+    });
+  }
+
+  function claimLookup(token: string, targetGroupId: string, realName: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: { realName },
+      url: `/groups/${targetGroupId}/claim-lookups`,
+    });
+  }
+
+  function createClaim(token: string, targetGroupId: string, membershipId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      payload: { membershipId },
+      url: `/groups/${targetGroupId}/claim-requests`,
+    });
+  }
+
+  function listClaimRequests(token: string, targetGroupId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${targetGroupId}/claim-requests`,
+    });
+  }
+
+  function approveClaim(token: string, targetGroupId: string, claimRequestId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      url: `/groups/${targetGroupId}/claim-requests/${claimRequestId}/approve`,
+    });
+  }
+
+  function rejectClaim(token: string, targetGroupId: string, claimRequestId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      url: `/groups/${targetGroupId}/claim-requests/${claimRequestId}/reject`,
+    });
+  }
+
+  function revokeClaim(token: string, targetGroupId: string, membershipId: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'POST',
+      url: `/groups/${targetGroupId}/members/${membershipId}/revoke-claim`,
+    });
+  }
 });
 
 function createFakeAuthPort(tokens: Readonly<Record<string, string>>): AuthPort {
   return {
-    async authenticate({ authorization }) {
+    authenticate: async ({ authorization }) => {
       const token = authorization?.replace(/^Bearer\s+/iu, '');
       const cloudbaseUid = token === undefined ? undefined : tokens[token];
       return cloudbaseUid === undefined ? undefined : { cloudbaseUid };
@@ -146,49 +341,54 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 }
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
-  await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_cells`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_template_members`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS manual_schedule_templates`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS duty_adjustments`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS workflow_sequence_allocations`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS notification_deliveries`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS notifications`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS notification_preferences`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS notification_settings`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS web_push_subscriptions`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS notification_batches`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS holiday_dates`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS holiday_calendar_versions`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS statistics_recalc_checks`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS statistics_snapshots`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS export_jobs`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS shift_assignments`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS schedule_periods`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS audit_logs`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS schedule_events`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS rotation_members`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS rotation_rules`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS shift_types`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS member_schedule_roles`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS schedule_roles`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS group_join_requests`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS guest_schedule_access_attempts`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS membership_claim_requests`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS group_code_attempts`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS group_member_contacts`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS leave_requests`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS swap_requests`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS group_memberships`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
-  await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS users`);
-  await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);
-  await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
+  await client.database.execute(`SET FOREIGN_KEY_CHECKS = 0`);
+  const tables = [
+    'membership_claim_requests',
+    'invite_tokens',
+    'visitor_access_logs',
+    'platform_job_runs',
+    'backup_archives',
+    'manual_schedule_cells',
+    'manual_schedule_template_members',
+    'manual_schedule_templates',
+    'duty_adjustments',
+    'notification_deliveries',
+    'notifications',
+    'notification_preferences',
+    'notification_settings',
+    'web_push_subscriptions',
+    'notification_batches',
+    'holiday_dates',
+    'holiday_calendar_versions',
+    'statistics_recalc_checks',
+    'statistics_snapshots',
+    'export_jobs',
+    'shift_assignments',
+    'schedule_periods',
+    'audit_logs',
+    'schedule_events',
+    'rotation_members',
+    'rotation_rules',
+    'shift_types',
+    'member_schedule_roles',
+    'schedule_roles',
+    'group_join_requests',
+    'guest_schedule_access_attempts',
+    'group_code_attempts',
+    'group_member_contacts',
+    'leave_requests',
+    'swap_requests',
+    'workflow_sequence_allocations',
+    'group_memberships',
+    'roster_entries',
+    'idempotency_keys',
+    '`groups`',
+    'user_profiles',
+    'users',
+    '__drizzle_migrations',
+  ];
+  for (const table of tables) {
+    await client.database.execute(`DROP TABLE IF EXISTS ${table}`);
+  }
+  await client.database.execute(`SET FOREIGN_KEY_CHECKS = 1`);
 }
