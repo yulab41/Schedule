@@ -4,14 +4,23 @@
 
 ## Current Position
 
-- 日期：2026-08-12
+- 日期：2026-08-13
 - 分支：`main` / 上游：`origin/main`
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：V3-4 Task 11–13 均已推送；设备复核随后暴露 `4a0d44c` 首版手动排班页面遗漏 Web 已有的岗位、成员、开始日期、周期和启用班种筛选。回归修复已按 Web 语义补齐页面与纯状态逻辑，真实 DevTools 页面可见返回键、四个配置字段且班种区仅显示启用的“全天班”；状态为**待用户 Android/iOS 复核**。本检查点提交信息：`fix(miniprogram): restore manual editor Web parity`，推送后停止。
+- 当前批次：用户已批准 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。首批 P0.1–P0.3 已实现并完成自动化、浏览器及 DevTools preview 验证，状态为**待用户复核**；本轮到检查点即停止，不继续实现日历可靠性、共享 runtime、岗位允许班种或完整功能面。
 
 ## Completed Batch
+
+### Web / 小程序 parity 安全基础 P0.1–P0.3（2026-08-13）
+
+- P0.1 生产 fixture/隐私：`git log -S`/`git blame` 将 develop 日历绕过真实会话、静态引入线上黄金样本追溯到 `1eef26a`，将无人消费但仍写成 `true` 的 `mockMode` 追溯到脚手架 `7fe5590`。普通 develop/trial/release 现统一使用真实 session/API；fixture 只保留为显式测试依赖，死开关已移除，样本已改成匿名合成成员、ID 和电话占位符。生产依赖图/PII 门禁拒绝 fixture/mock 开关、11 位手机号与生产样式 UUID。进一步复核 DevTools 打包器后启用 `ignoreUploadUnusedFiles`；首次 preview 因清理未识别 tabBar 图标而失败，随后用受审计的 `packOptions.include = assets` 保留 manifest 静态资源，最终 preview 通过且 fixture 不进入发布图。
+- P0.2 群组上下文/零群组：工作台所有 group-scoped 入口统一执行“解析并校验群组/角色/目标 → `setActiveGroupId` → 刷新选中态 → 导航/未开放提示”；目标消失或切换失败时不导航。当前群组显示角色与选中态；零群组用户获得真实可用的“群组中心/账号资料”入口。Profile 仅在明确 `guest` 角色时进入最小界面，group-less 已认证账号仍可编辑资料。直达导航引入点为 `bc534c0`，profile 错误门控为 `20407fc`。
+- P0.3 邀请/会话：邀请解析失败、过期、撤销、姓名不符或网络错误均保留服务端错误，并提供只清本地 pending token 的“暂不加入”。accept 2xx 与后续 profile/groups/platform reconciliation 分相位；提交后立即撤下旧 profile/groups/权限，刷新失败只重试上下文且不再 accept。replacement token 先持久化再清 pending；平台辅助接口非 401 降级为非平台管理员，401 仍执行精确 token/用户缓存清理。邀请、consume 和 `/platform/me` 行为均追溯到 `bc534c0`。
+- 语义审计：真实 endpoint 与 `wx` 成员调用仍保持接收者绑定和一次调用；`result.token ?? token` 空值语义不变；accept 的 catch 不再包住提交后的刷新；generation、记录身份及 single-flight 阻止陈旧结果发布和重复提交。独立审查另复现“accept 等待响应期间启动的群组刷新会以同一 generation 迟到覆盖新 token/恢复态”，新增红测后在 `invitePromise` 存续期间禁止旧上下文刷新。P0.2/P0.3 属独立行为修复而非等价重构，均由旧代码失败的新测试锁定。
+- 验证：完整小程序 40 文件 / 206 项、静态边界 5 文件 / 21 项通过；config audit、typecheck、目标 TypeScript ESLint、全任务 Prettier 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 7/7 流程通过，随后 `pnpm smoke:check-core` 通过。DevTools `build-npm` 成功（cost 12767、warnings `[]`），最终 preview 成功（351098 bytes / 342.9 KB；主包 281.1 KB，groups 5.6 KB，manual 21.4 KB，workflows 34.8 KB）。自动化端口 `9435` 可连接，但标准 `pnpm miniprogram:smoke` 约 55 秒无输出后终止，未虚报页面旅程通过。
+- 状态：**待用户复核**。需真机验证多群入口先切群、零群组 CTA、邀请错误逃生及“已加入但刷新失败”恢复；检查点提交信息为 `fix(miniprogram): harden parity safety foundations`，完成正常快进推送后停止。
 
 ### V3-4 手动排班 Web 对齐回归修复（2026-08-12）
 
@@ -246,6 +255,7 @@
 - V3-3 Task 10.3：定向 groups/visitor/session/navigation/static 边界 7 文件 / 43 项、完整小程序与静态边界 45 文件 / 194 项通过；`pnpm test:api-integration:task10` 在真实 `schedule_test` 通过 9 文件 / 58 项、零 skip。config audit、mini-program typecheck、排除用户未跟踪 `apps/miniprogram/minitest/` 的 lint、明确文件 Prettier、`pnpm smoke:browser` → `pnpm smoke:check-core` 与 `git diff --check` 通过；DevTools build-npm 无 warning、preview 315.2 KB，automation smoke 打开 12/12 注册页面且无脚本错误。
 - V3-4 阶段计划：新计划、路线图、设计状态、项目状态和调试日志的 Prettier 检查通过；Task 11 的 9 个红测步骤、9 项处女原则验收场景、Task 12/13 冻结边界、既有 wrapper/route provenance 与禁止项均经自审。`pnpm smoke:check-core` 通过并确认仅文档变更无需浏览器冒烟；`git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
 - V3-4 手动排班 Web 对齐修复：定向 4 文件 / 19 项、完整小程序与静态边界 43 文件 / 197 项通过；config audit、typecheck、任务文件 lint/Prettier、`pnpm smoke:check-core` 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（只改小程序手动排班逻辑/页面和静态测试，未改列举的 Web/API/认证/契约/构建核心链路）。DevTools build/preview 成功且无 warning，自动化端口 `9434` 实际打开手动排班页；标准全路由 smoke 与原生 picker RPC 连接后超时，保留 Android/iOS 触控复核。
+- Web / 小程序 parity 安全基础 P0.1–P0.3：完整小程序 40 文件 / 206 项、静态边界 5 文件 / 21 项通过；config audit、typecheck、目标 TypeScript ESLint、全任务 Prettier、`pnpm smoke:browser` 7/7 → `pnpm smoke:check-core` 与 `git diff --check` 通过。DevTools build-npm 无 warning，发布裁剪配置下 preview 为 342.9 KB；标准 automation smoke 在端口 `9435` 可连接后无输出超时，因此仅记录 preview 成功，不记页面旅程通过。
 
 ## Decisions and Deviations
 
@@ -270,14 +280,15 @@
 
 ## Active Batch
 
-1. V3-4 Task 11 `4a0d44c`、Task 12 `43eae1c`、Task 13 `f17cad4` 已完成并推送，不重复执行。
-2. 本批只完成设备反馈的手动排班 Web 对齐回归，检查点为 `fix(miniprogram): restore manual editor Web parity`；不改 API、contracts、权限或离线协议。
-3. 停止条件：验证、提交并快进推送后停止；等待用户 Android/iOS 复核岗位/成员/日期/周期/返回/班种与保存交互，未经新计划不开始后续架构抽取或 V3-5/V3-6。
+1. 下一轮 Task C1：节假日失败不得阻断已成功的排班；按请求 generation 隔离跨年/跨月 holiday 结果。
+2. 下一轮 Task C2：日历 onShow 使用保留旧视图的 stale-while-revalidate；跨月周精确传播 forbidden/conflict/error/loading，不得永久假 loading。
+3. 下一轮 Task C3：内存月份槽保持有界，并在群组/账号上下文变化或隐藏页面时清理电话、事件等敏感 Sheet。
+4. 停止条件：本轮 P0.1–P0.3 检查点完成并停止；下一次实现会话必须重新读取计划/设计、复核代码与 Git 后，才可从 C1–C3 开始。事件 `shiftId` 服务端过滤及共享 runtime 仍冻结到再下一批。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
-- Task 9/10 与 V3-4 Task 11–13 均为已完成历史，不再授权重复执行。手动排班跨端 editor core 抽取或岗位专属班种契约属于新任务，必须先有独立计划。
+- Task 9/10 与 V3-4 Task 11–13 均为已完成历史，不再重复执行。后续共享内核、岗位允许班种契约及缺失功能以 `2026-08-13-web-miniprogram-parity-remediation-plan.md` 为新权威，仍按每轮 1–3 个任务推进。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。

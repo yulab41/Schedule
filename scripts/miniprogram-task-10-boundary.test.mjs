@@ -40,4 +40,17 @@ describe('Task 10 guest route boundary', () => {
     const calendar = read('pages/calendar/index.ts');
     expect(calendar).toMatch(/onShow\(\): void \{[\s\S]*guardMiniprogramRoute/gu);
   });
+
+  it('renders selected group context and actionable group-less choices through the shared workbench runtime', () => {
+    const source = read('pages/workbench/index.ts');
+    const wxml = read('pages/workbench/index.wxml');
+    expect(source).toContain('activateWorkbenchEntry');
+    expect(source).toContain('activateGlobalWorkbenchAction');
+    expect(source).toContain('buildWorkbenchPageModel');
+    expect(wxml).toContain("section.isActive ? 'workbench-section--active' : ''");
+    expect(wxml).toContain('{{section.roleLabel}}');
+    expect(wxml).toContain('群组与账号');
+    expect(wxml).toContain('bindtap="handleGlobalAction"');
+    expect(wxml).not.toContain('data-route=');
+  });
 });

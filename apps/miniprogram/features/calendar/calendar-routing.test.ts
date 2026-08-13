@@ -14,7 +14,7 @@ const goldenViewModel = buildCalendarMonthViewModel({
 });
 
 describe('calendar route actions', () => {
-  it('resolves real server calendar targets by exact VM action ID', () => {
+  it('resolves synthetic calendar targets by exact VM action ID', () => {
     const resolve = (actionId: string, role: GroupRole) =>
       resolveCalendarRouteAction(actionId, role, [goldenViewModel]);
 
@@ -22,24 +22,22 @@ describe('calendar route actions', () => {
       day: { businessDate: '2026-09-16' },
       kind: 'date',
     });
-    expect(resolve('assignment:3da0f9ff-90ca-40db-8376-5dbdb0c7c708', 'member')).toMatchObject({
-      assignment: { assignmentId: '3da0f9ff-90ca-40db-8376-5dbdb0c7c708' },
+    expect(resolve('assignment:fixture-assignment-2026-09-16', 'member')).toMatchObject({
+      assignment: { assignmentId: 'fixture-assignment-2026-09-16' },
       kind: 'assignment',
     });
-    expect(resolve('3da0f9ff-90ca-40db-8376-5dbdb0c7c708:marker:swap:0', 'member')).toMatchObject({
-      assignment: { assignmentId: '3da0f9ff-90ca-40db-8376-5dbdb0c7c708' },
+    expect(resolve('fixture-assignment-2026-09-16:marker:swap:0', 'member')).toMatchObject({
+      assignment: { assignmentId: 'fixture-assignment-2026-09-16' },
       kind: 'events',
     });
-    expect(
-      resolve('512bb311-ca97-4a96-ac61-4dfd40405a16:marker:overtime:0', 'guest'),
-    ).toMatchObject({
-      assignment: { assignmentId: '512bb311-ca97-4a96-ac61-4dfd40405a16' },
+    expect(resolve('fixture-assignment-2026-09-18:marker:overtime:0', 'guest')).toMatchObject({
+      assignment: { assignmentId: 'fixture-assignment-2026-09-18' },
       kind: 'assignment',
     });
-    expect(resolve('2f2c325d-76c9-484c-a7a9-aa9b10fe8bd0:phone:长号', 'member')).toMatchObject({
-      assignment: { assignmentId: '2f2c325d-76c9-484c-a7a9-aa9b10fe8bd0' },
+    expect(resolve('fixture-assignment-2026-09-04:phone:长号', 'member')).toMatchObject({
+      assignment: { assignmentId: 'fixture-assignment-2026-09-04' },
       kind: 'phone',
-      phoneAction: { actionId: '2f2c325d-76c9-484c-a7a9-aa9b10fe8bd0:phone:长号' },
+      phoneAction: { actionId: 'fixture-assignment-2026-09-04:phone:长号' },
     });
   });
 
@@ -48,8 +46,8 @@ describe('calendar route actions', () => {
       '',
       'date:2026-10-05',
       'assignment:missing',
-      '3da0f9ff-90ca-40db-8376-5dbdb0c7c708:marker:swap:9',
-      '3da0f9ff-90ca-40db-8376-5dbdb0c7c708:phone:长号',
+      'fixture-assignment-2026-09-16:marker:swap:9',
+      'fixture-assignment-2026-09-16:phone:长号',
       'not-an-action',
     ]) {
       expect(resolveCalendarRouteAction(actionId, 'member', [goldenViewModel])).toBeUndefined();

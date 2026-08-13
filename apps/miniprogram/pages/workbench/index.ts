@@ -1,18 +1,17 @@
 import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
 import {
-  buildWorkflowRequestRoute,
-  buildWorkbenchSections,
-  groupsRoute,
-  buildManualScheduleEditorRoute,
-  manualScheduleEditorRoute,
-  resolveManualScheduleRouteContext,
-  resolveWorkflowRouteContext,
+  activateGlobalWorkbenchAction,
+  activateWorkbenchEntry,
+  buildWorkbenchPageModel,
 } from '../../features/navigation/workbench-navigation.js';
 import { guardMiniprogramRoute } from '../../features/navigation/route-guard.js';
 import { sessionStore } from '../../store/session.js';
 
 Page({
-  data: { activeGroupId: '', sections: [] as ReturnType<typeof buildWorkbenchSections> },
+  data: {
+    globalActions: [] as ReturnType<typeof buildWorkbenchPageModel>['globalActions'],
+    sections: [] as ReturnType<typeof buildWorkbenchPageModel>['sections'],
+  },
   onShow(): void {
     this.refresh();
   },
@@ -31,10 +30,7 @@ Page({
       })
     )
       return;
-    this.setData({
-      activeGroupId: state.activeGroupId ?? '',
-      sections: buildWorkbenchSections(state.groups, state.isPlatformAdmin),
-    });
+    this.setData(buildWorkbenchPageModel(state.groups, state.isPlatformAdmin, state.activeGroupId));
   },
   handleSelectGroup(
     event: WechatMiniprogram.BaseEvent<Record<string, never>, { readonly groupId?: unknown }>,
@@ -45,30 +41,52 @@ Page({
   handleEntry(
     event: WechatMiniprogram.BaseEvent<
       Record<string, never>,
-      { readonly entry?: unknown; readonly groupId?: unknown; readonly route?: unknown }
+      { readonly entry?: unknown; readonly groupId?: unknown }
     >,
   ): void {
     const entry = event.currentTarget.dataset.entry;
     const groupId = event.currentTarget.dataset.groupId;
-    const route = event.currentTarget.dataset.route;
-    if (route === '/pages/calendar/index' || route === '/pages/notifications/index')
-      wx.switchTab({ url: route });
-    else if (route === groupsRoute) wx.navigateTo({ url: groupsRoute });
-    else if (
-      route === manualScheduleEditorRoute &&
-      typeof groupId === 'string' &&
-      sessionStore.state.status === 'authenticated'
-    ) {
-      const context = resolveManualScheduleRouteContext(sessionStore.state.groups, groupId);
-      if (context !== undefined) wx.navigateTo({ url: buildManualScheduleEditorRoute(context) });
-    } else if (
-      (entry === 'leave' || entry === 'swap' || entry === 'duty') &&
-      typeof groupId === 'string' &&
-      sessionStore.state.status === 'authenticated'
-    ) {
-      const context = resolveWorkflowRouteContext(sessionStore.state.groups, groupId);
-      if (context === undefined) return;
-      wx.navigateTo({ url: buildWorkflowRequestRoute(context) });
-    } else wx.showToast({ icon: 'none', title: '当前版本尚未开放' });
+    const state = sessionStore.state;
+    if (
+      state.status !== 'authenticated' ||
+      typeof groupId !== 'string' ||
+      !(
+        entry === 'backfill' ||
+        entry === 'calendar' ||
+        entry === 'config' ||
+        entry === 'duty' ||
+        entry === 'events' ||
+        entry === 'groups' ||
+        entry === 'leave' ||
+        entry === 'manual' ||
+        entry === 'members' ||
+        entry === 'notifications' ||
+        entry === 'statistics' ||
+        entry === 'swap'
+      )
+    )
+      return;
+    activateWorkbenchEntry(
+      state.groups,
+      { entryId: entry, groupId },
+      {
+        navigateTo: (options) => wx.navigateTo(options),
+        setActiveGroupId: (targetGroupId) => {
+          const selected = sessionStore.setActiveGroupId(targetGroupId);
+          if (selected) this.refresh();
+          return selected;
+        },
+        showUnavailable: () => wx.showToast({ icon: 'none', title: '当前版本尚未开放' }),
+        switchTab: (options) => wx.switchTab(options),
+      },
+    );
+  },
+  handleGlobalAction(
+    event: WechatMiniprogram.BaseEvent<Record<string, never>, { readonly action?: unknown }>,
+  ): void {
+    activateGlobalWorkbenchAction(event.currentTarget.dataset.action, {
+      navigateTo: (options) => wx.navigateTo(options),
+      switchTab: (options) => wx.switchTab(options),
+    });
   },
 });

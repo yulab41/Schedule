@@ -7,6 +7,7 @@ const allowedRootKeys = new Set([
   'compileType',
   'libVersion',
   'miniprogramRoot',
+  'packOptions',
   'projectname',
   'setting',
 ]);
@@ -14,6 +15,7 @@ const allowedRootKeys = new Set([
 const allowedSettingKeys = new Set([
   'compileWorklet',
   'es6',
+  'ignoreUploadUnusedFiles',
   'minified',
   'minifyWXML',
   'minifyWXSS',
@@ -34,6 +36,7 @@ const requiredRootValues = {
 const requiredTrueSettings = [
   'compileWorklet',
   'es6',
+  'ignoreUploadUnusedFiles',
   'minified',
   'minifyWXML',
   'minifyWXSS',
@@ -61,6 +64,33 @@ export function findProjectConfigIssues(config) {
   for (const [key, expected] of Object.entries(requiredRootValues)) {
     if (config[key] !== expected) {
       issues.push(`${key} must equal ${expected}`);
+    }
+  }
+
+  if (!isRecord(config.packOptions)) {
+    issues.push('packOptions must be an object');
+  } else {
+    const packOptionKeys = Object.keys(config.packOptions);
+    if (
+      packOptionKeys.length !== 2 ||
+      !packOptionKeys.includes('ignore') ||
+      !packOptionKeys.includes('include')
+    ) {
+      issues.push('packOptions may contain only ignore and include');
+    }
+    if (!Array.isArray(config.packOptions.ignore) || config.packOptions.ignore.length !== 0) {
+      issues.push('packOptions.ignore must be empty');
+    }
+    const include = config.packOptions.include;
+    if (
+      !Array.isArray(include) ||
+      include.length !== 1 ||
+      !isRecord(include[0]) ||
+      include[0].type !== 'folder' ||
+      include[0].value !== 'assets' ||
+      Object.keys(include[0]).length !== 2
+    ) {
+      issues.push('packOptions.include must contain only the assets folder');
     }
   }
 

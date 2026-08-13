@@ -13,6 +13,10 @@ const cleanConfig = {
   compileType: 'miniprogram',
   libVersion: '3.16.2',
   miniprogramRoot: './',
+  packOptions: {
+    ignore: [],
+    include: [{ type: 'folder', value: 'assets' }],
+  },
   projectname: 'schedule-miniprogram',
   setting: {
     compileWorklet: true,
@@ -21,6 +25,7 @@ const cleanConfig = {
     minifyWXML: true,
     minifyWXSS: true,
     postcss: true,
+    ignoreUploadUnusedFiles: true,
     uploadWithSourceMap: true,
     urlCheck: true,
     useCompilerPlugins: ['typescript'],
@@ -56,6 +61,24 @@ describe('tracked miniprogram project configuration', () => {
 
   it('accepts the exact V3-0.5 team baseline', () => {
     expect(findProjectConfigIssues(cleanConfig)).toEqual([]);
+  });
+
+  it('requires release uploads to exclude files outside the production dependency graph', () => {
+    expect(
+      findProjectConfigIssues({
+        ...cleanConfig,
+        setting: { ...cleanConfig.setting, ignoreUploadUnusedFiles: false },
+      }),
+    ).toContain('setting.ignoreUploadUnusedFiles must be true');
+  });
+
+  it('keeps manifest-referenced tab assets in dependency-pruned release uploads', () => {
+    expect(
+      findProjectConfigIssues({
+        ...cleanConfig,
+        packOptions: { ignore: [], include: [] },
+      }),
+    ).toContain('packOptions.include must contain only the assets folder');
   });
 
   it('keeps the committed project configuration on the accepted baseline', () => {

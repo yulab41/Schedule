@@ -20,6 +20,13 @@ import { createSessionStore, type SessionDependencies } from './session.js';
 
 const profile: UserProfile = { id: 'user-1', realName: '张医生', version: 1 };
 const group: GroupSummary = { id: 'group-1', name: '内科', role: 'owner', version: 1 };
+const joinedProfile: UserProfile = { id: 'user-2', realName: '张医生', version: 2 };
+const joinedGroup: GroupSummary = {
+  id: 'group-2',
+  name: '外科',
+  role: 'member',
+  version: 1,
+};
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -90,6 +97,87 @@ describe('session store', () => {
     expect(dependencies.listGroups).toHaveBeenCalledTimes(1);
     expect(dependencies.getPlatformMe).toHaveBeenCalledTimes(1);
     expect(store.state).toMatchObject({ status: 'authenticated', token: 'stored-token' });
+  });
+
+  it('keeps a profile-and-groups session authenticated when the auxiliary platform lookup fails', async () => {
+    const dependencies = createDependencies({
+      getPlatformMe: vi.fn(() => Promise.reject(new Error('platform unavailable'))),
+      readStoredToken: () => 'stored-token',
+    });
+    const store = createSessionStore(dependencies);
+
+    await store.restore();
+
+    expect(store.state).toMatchObject({
+      groups: [group],
+      isPlatformAdmin: false,
+      profile,
+      status: 'authenticated',
+      token: 'stored-token',
+    });
+    expect(dependencies.getPlatformMe).toHaveBeenCalledOnce();
+  });
+
+  it('preserves protected-401 cleanup when the auxiliary platform lookup rejects authentication', async () => {
+    const dependencies = createDependencies({
+      getPlatformMe: vi.fn(() =>
+        Promise.reject(
+          new ApiClientError('AUTHENTICATION_REQUIRED', 'expired', undefined, undefined, 401),
+        ),
+      ),
+      readStoredToken: () => 'stored-token',
+    });
+    const store = createSessionStore(dependencies);
+
+    await store.restore();
+
+    expect(store.state.status).toBe('anonymous');
+    expect(dependencies.writeStoredToken).toHaveBeenCalledWith(undefined);
+  });
+
+  it('prioritizes auxiliary platform 401 cleanup even when groups also fail', async () => {
+    const dependencies = createDependencies({
+      getPlatformMe: vi.fn(() =>
+        Promise.reject(
+          new ApiClientError('AUTHENTICATION_REQUIRED', 'expired', undefined, undefined, 401),
+        ),
+      ),
+      listGroups: vi.fn(() => Promise.reject(new Error('groups unavailable'))),
+      readStoredToken: () => 'stored-token',
+    });
+    const store = createSessionStore(dependencies);
+
+    await store.restore();
+
+    expect(store.state.status).toBe('anonymous');
+    expect(dependencies.writeStoredToken).toHaveBeenCalledWith(undefined);
+  });
+
+  it('waits for a late platform result so an earlier groups failure cannot hide a protected 401', async () => {
+    const platform = createDeferred<{ readonly isPlatformAdmin: boolean }>();
+    const dependencies = createDependencies({
+      getPlatformMe: vi.fn(() => platform.promise),
+      listGroups: vi.fn(() => Promise.reject(new Error('groups unavailable'))),
+      readStoredToken: () => 'stored-token',
+    });
+    const store = createSessionStore(dependencies);
+
+    const restoring = store.restore();
+    let restoreSettled = false;
+    void restoring.then(() => {
+      restoreSettled = true;
+    });
+    await vi.waitFor(() => expect(dependencies.listGroups).toHaveBeenCalledOnce());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(restoreSettled).toBe(false);
+    platform.reject(
+      new ApiClientError('AUTHENTICATION_REQUIRED', 'expired', undefined, undefined, 401),
+    );
+    await restoring;
+
+    expect(store.state.status).toBe('anonymous');
+    expect(dependencies.writeStoredToken).toHaveBeenCalledWith(undefined);
   });
 
   it('treats profile NOT_FOUND as needs-profile and protected 401 as anonymous', async () => {
@@ -245,6 +333,200 @@ describe('session store', () => {
     await store.restore();
     await store.consumePendingInvite();
     expect(calls).toEqual(['accept', 'session:merged-token', 'pending:undefined']);
+  });
+
+  it('commits an accepted invite once, removes stale authority, and retries only context refresh', async () => {
+    const calls: string[] = [];
+    let pendingInviteToken: string | undefined = 'invite-token';
+    const listGroups = vi
+      .fn<SessionDependencies['listGroups']>()
+      .mockResolvedValueOnce([group])
+      .mockRejectedValueOnce(new Error('groups unavailable'))
+      .mockResolvedValueOnce([joinedGroup]);
+    const dependencies = createDependencies({
+      acceptInvite: vi.fn(async () => {
+        calls.push('accept');
+        return { group: joinedGroup, token: 'merged-token' };
+      }),
+      getCurrentProfile: vi
+        .fn<SessionDependencies['getCurrentProfile']>()
+        .mockResolvedValueOnce(profile)
+        .mockResolvedValue(joinedProfile),
+      listGroups,
+      readPendingInviteToken: () => pendingInviteToken,
+      readStoredToken: () => 'stored-token',
+      writePendingInviteToken: vi.fn((token) => {
+        calls.push(`pending:${String(token)}`);
+        pendingInviteToken = token;
+      }),
+      writeStoredToken: vi.fn((token) => calls.push(`session:${String(token)}`)),
+    });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+
+    await expect(store.consumePendingInvite()).resolves.toEqual({
+      errorMessage: 'groups unavailable',
+      status: 'committed-refresh-failed',
+    });
+
+    expect(calls).toEqual(['accept', 'session:merged-token', 'pending:undefined']);
+    expect(dependencies.acceptInvite).toHaveBeenCalledOnce();
+    expect(pendingInviteToken).toBeUndefined();
+    expect(store.state).toEqual({
+      groups: [],
+      isPlatformAdmin: false,
+      errorMessage: 'groups unavailable',
+      status: 'invite-refresh-required',
+      token: 'merged-token',
+    });
+    expect(store.setActiveGroupId(group.id)).toBe(false);
+    await expect(store.refreshGroupContext()).rejects.toThrow('请先刷新已加入群组的资料。');
+    store.setPendingInviteToken('replacement-invite');
+    expect(pendingInviteToken).toBeUndefined();
+
+    await expect(store.consumePendingInvite()).resolves.toMatchObject({
+      status: 'committed-refresh-failed',
+    });
+    await expect(store.retryInviteContextRefresh()).resolves.toEqual({ status: 'reconciled' });
+
+    expect(dependencies.acceptInvite).toHaveBeenCalledOnce();
+    expect(store.state).toMatchObject({
+      activeGroupId: joinedGroup.id,
+      groups: [joinedGroup],
+      profile: joinedProfile,
+      status: 'authenticated',
+      token: 'merged-token',
+    });
+  });
+
+  it('does not let a group refresh started during invite acceptance restore stale authority', async () => {
+    let pendingInviteToken: string | undefined = 'invite-token';
+    const accept = createDeferred<AcceptInviteResponse>();
+    const lateGroups = createDeferred<GroupSummary[]>();
+    const dependencies = createDependencies({
+      acceptInvite: vi.fn(() => accept.promise),
+      getCurrentProfile: vi
+        .fn<SessionDependencies['getCurrentProfile']>()
+        .mockResolvedValueOnce(profile)
+        .mockRejectedValueOnce(new Error('profile refresh failed')),
+      listGroups: vi
+        .fn<SessionDependencies['listGroups']>()
+        .mockResolvedValueOnce([group])
+        .mockImplementationOnce(() => lateGroups.promise),
+      readPendingInviteToken: () => pendingInviteToken,
+      readStoredToken: () => 'old-token',
+      writePendingInviteToken: (token) => {
+        pendingInviteToken = token;
+      },
+    });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+
+    const accepting = store.consumePendingInvite();
+    await vi.waitFor(() => expect(dependencies.acceptInvite).toHaveBeenCalledOnce());
+    const refreshOutcome = store.refreshGroupContext().then(
+      () => ({ status: 'fulfilled' }) as const,
+      (error: unknown) =>
+        ({ message: error instanceof Error ? error.message : '', status: 'rejected' }) as const,
+    );
+
+    accept.resolve({ group: joinedGroup, token: 'merged-token' });
+    await expect(accepting).resolves.toEqual({
+      errorMessage: 'profile refresh failed',
+      status: 'committed-refresh-failed',
+    });
+    lateGroups.resolve([group]);
+
+    await expect(refreshOutcome).resolves.toEqual({
+      message: '邀请正在处理中，请稍候。',
+      status: 'rejected',
+    });
+    expect(dependencies.listGroups).toHaveBeenCalledOnce();
+    expect(store.state).toMatchObject({
+      groups: [],
+      status: 'invite-refresh-required',
+      token: 'merged-token',
+    });
+  });
+
+  it('single-flights refresh retries after commit and never accepts the invite again', async () => {
+    let pendingInviteToken: string | undefined = 'invite-token';
+    const refreshedProfile = createDeferred<UserProfile>();
+    const dependencies = createDependencies({
+      acceptInvite: vi.fn(() => Promise.resolve({ group: joinedGroup })),
+      getCurrentProfile: vi
+        .fn<SessionDependencies['getCurrentProfile']>()
+        .mockResolvedValueOnce(profile)
+        .mockRejectedValueOnce(new Error('profile unavailable'))
+        .mockImplementationOnce(() => refreshedProfile.promise),
+      readPendingInviteToken: () => pendingInviteToken,
+      readStoredToken: () => 'stored-token',
+      writePendingInviteToken: (token) => {
+        pendingInviteToken = token;
+      },
+    });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+    await store.consumePendingInvite();
+
+    const first = store.retryInviteContextRefresh();
+    expect(store.retryInviteContextRefresh()).toBe(first);
+    refreshedProfile.resolve(joinedProfile);
+    await expect(first).resolves.toEqual({ status: 'reconciled' });
+
+    expect(dependencies.acceptInvite).toHaveBeenCalledOnce();
+    expect(dependencies.getCurrentProfile).toHaveBeenCalledTimes(3);
+  });
+
+  it('performs exact session cleanup when committed invite reconciliation receives a 401', async () => {
+    let pendingInviteToken: string | undefined = 'invite-token';
+    const dependencies = createDependencies({
+      acceptInvite: vi.fn(() => Promise.resolve({ group: joinedGroup, token: 'merged-token' })),
+      getCurrentProfile: vi
+        .fn<SessionDependencies['getCurrentProfile']>()
+        .mockResolvedValueOnce(profile)
+        .mockRejectedValueOnce(
+          new ApiClientError('AUTHENTICATION_REQUIRED', 'expired', undefined, undefined, 401),
+        ),
+      readPendingInviteToken: () => pendingInviteToken,
+      readStoredToken: () => 'stored-token',
+      writePendingInviteToken: (token) => {
+        pendingInviteToken = token;
+      },
+    });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+
+    await expect(store.consumePendingInvite()).resolves.toEqual({ status: 'session-expired' });
+
+    expect(dependencies.acceptInvite).toHaveBeenCalledOnce();
+    expect(pendingInviteToken).toBeUndefined();
+    expect(store.state.status).toBe('anonymous');
+    expect(dependencies.writeStoredToken).toHaveBeenNthCalledWith(1, 'merged-token');
+    expect(dependencies.writeStoredToken).toHaveBeenLastCalledWith(undefined);
+    expect(dependencies.sessionStorage.removeLastGroupId).toHaveBeenCalledWith(profile.id);
+    expect(dependencies.removeCalendarCacheForUser).toHaveBeenCalledWith(profile.id);
+  });
+
+  it('abandons only the pending invite without mutating authenticated authority', async () => {
+    let pendingInviteToken: string | undefined = 'invite-token';
+    const dependencies = createDependencies({
+      readPendingInviteToken: () => pendingInviteToken,
+      readStoredToken: () => 'stored-token',
+      writePendingInviteToken: vi.fn((token) => {
+        pendingInviteToken = token;
+      }),
+    });
+    const store = createSessionStore(dependencies);
+    await store.restore();
+    const authenticatedState = store.state;
+
+    store.setPendingInviteToken(undefined);
+
+    expect(pendingInviteToken).toBeUndefined();
+    expect(store.state).toBe(authenticatedState);
+    expect(dependencies.writeStoredToken).not.toHaveBeenCalled();
+    expect(dependencies.removeCalendarCacheForUser).not.toHaveBeenCalled();
   });
 
   it('single-flights duplicate pending-invite consumption', async () => {

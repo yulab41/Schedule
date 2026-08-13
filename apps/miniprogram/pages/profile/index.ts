@@ -6,12 +6,14 @@ import {
   updateProfile,
 } from '../../api/endpoints.js';
 import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
-import {
-  guardMiniprogramRoute,
-  isMembershipRouteRole,
-} from '../../features/navigation/route-guard.js';
+import { guardMiniprogramRoute } from '../../features/navigation/route-guard.js';
 import { createProfileController } from '../../features/profile/profile-controller.js';
-import { getOwnContactTarget, loadOwnGroupContacts } from '../../features/profile/profile-logic.js';
+import {
+  getOwnContactTarget,
+  getProfileSurfaceMode,
+  loadOwnGroupContacts,
+  type ProfileSurfaceMode,
+} from '../../features/profile/profile-logic.js';
 import { getMiniProgramRuntimeInfo } from '../../features/profile/profile-runtime.js';
 import { sessionStore } from '../../store/session.js';
 
@@ -42,11 +44,11 @@ interface ProfilePageData {
   readonly draftRealName: string;
   readonly errorMessage: string;
   readonly isLoggingOut: boolean;
-  readonly isMemberProfile: boolean;
   readonly isSavingContactIndex: number | undefined;
   readonly isSavingProfile: boolean;
   readonly loading: boolean;
   readonly profile: typeof sessionStore.state.profile;
+  readonly profileSurfaceMode: ProfileSurfaceMode;
   readonly runtimeEnvVersion: string;
   readonly runtimeVersion: string;
 }
@@ -94,11 +96,11 @@ Page<ProfilePageData, ProfilePageMethods>({
     draftRealName: '',
     errorMessage: '',
     isLoggingOut: false,
-    isMemberProfile: false,
     isSavingContactIndex: undefined,
     isSavingProfile: false,
     loading: false,
     profile: undefined,
+    profileSurfaceMode: 'full',
     runtimeEnvVersion: '未知环境',
     runtimeVersion: '未提供',
   },
@@ -120,22 +122,22 @@ Page<ProfilePageData, ProfilePageMethods>({
 
     profileController.activate(state.profile);
     const activeGroup = state.groups.find((group) => group.id === state.activeGroupId);
-    const isMemberProfile = isMembershipRouteRole(activeGroup?.role);
+    const profileSurfaceMode = getProfileSurfaceMode(activeGroup?.role);
     this.setData({
       activeGroupName: activeGroup?.name ?? '',
       activeGroupRole: activeGroup?.role ?? '',
       contacts: [],
       errorMessage: '',
       isSavingContactIndex: undefined,
-      isMemberProfile,
       loading: false,
+      profileSurfaceMode,
       runtimeEnvVersion: '未知环境',
       runtimeVersion: '未提供',
     });
     this.syncProfile();
 
     const version = ++requestVersion;
-    if (!isMemberProfile) return;
+    if (profileSurfaceMode === 'guest-minimal') return;
     const runtime = getMiniProgramRuntimeInfo(() => wx.getAccountInfoSync());
     this.setData({
       runtimeEnvVersion: runtime.envVersion,

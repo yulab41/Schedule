@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,6 +9,42 @@ const miniprogramRoot = path.join(repositoryRoot, 'apps', 'miniprogram');
 
 function readText(relativePath) {
   return readFileSync(path.join(miniprogramRoot, relativePath), 'utf8');
+}
+
+function resolveTypeScriptImport(sourcePath, specifier) {
+  if (!specifier.startsWith('.')) {
+    return undefined;
+  }
+  const unresolved = path.resolve(path.dirname(sourcePath), specifier);
+  const candidates = [
+    unresolved,
+    unresolved.replace(/\.js$/u, '.ts'),
+    `${unresolved}.ts`,
+    path.join(unresolved, 'index.ts'),
+  ];
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+function collectProductionDependencyGraph(entryRelativePaths) {
+  const pending = entryRelativePaths.map((entry) => path.join(miniprogramRoot, entry));
+  const visited = new Set();
+  const importPattern =
+    /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"](\.[^'"]+)['"]/gu;
+  while (pending.length > 0) {
+    const sourcePath = pending.pop();
+    if (sourcePath === undefined || visited.has(sourcePath)) {
+      continue;
+    }
+    visited.add(sourcePath);
+    const source = readFileSync(sourcePath, 'utf8');
+    for (const match of source.matchAll(importPattern)) {
+      const resolved = resolveTypeScriptImport(sourcePath, match[1]);
+      if (resolved !== undefined && resolved.startsWith(miniprogramRoot)) {
+        pending.push(resolved);
+      }
+    }
+  }
+  return [...visited];
 }
 
 function declarationsFor(source, selector) {
@@ -28,8 +64,8 @@ describe('mini-program calendar VM boundary', () => {
   it('renders only view-model fields and keeps Skyline page-level', () => {
     const wxml = readText('pages/calendar/index.wxml');
     const page = readText('pages/calendar/index.ts');
-    const calendarDevFixture = readText('features/calendar/calendar-dev-fixture.ts');
     const config = readText('config/index.ts');
+    const projectConfig = readText('project.config.json');
     const wxss = readText('pages/calendar/index.wxss');
     const gridWxss = readText('components/calendar-grid/index.wxss');
     const assignmentRowWxss = readText('components/assignment-row/index.wxss');
@@ -57,11 +93,11 @@ describe('mini-program calendar VM boundary', () => {
     expect(page).toContain('createCalendarPageController');
     expect(page).toContain('resolveCalendarRouteAction');
     expect(page).toContain('activeRole');
-    expect(page).toContain('createCalendarDevFixtureDependencies');
-    expect(page).toContain('isUsingCalendarDevFixture');
-    expect(calendarDevFixture).toContain("envVersion === 'develop'");
-    expect(calendarDevFixture).not.toContain('wx.');
-    expect(config).toContain('calendarFixtureInDevtools: true');
+    expect(page).not.toMatch(
+      /calendar-(?:dev-fixture|golden-data)|calendarFixture|goldenToday|isUsingCalendarDevFixture|createCalendarDevFixtureDependencies/gu,
+    );
+    expect(config).not.toMatch(/calendarFixtureInDevtools|mockMode\s*:\s*true/gu);
+    expect(projectConfig).toMatch(/"ignoreUploadUnusedFiles"\s*:\s*true/gu);
     expect(page).not.toMatch(/Promise\.all|requestGeneration|lastSuccessfulKey|inFlight/gu);
     expect(readText('pages/calendar/index.json')).toMatch(/"renderer"\s*:\s*"skyline"/u);
     expect(readText('pages/calendar/index.json')).not.toContain('t-calendar');
@@ -112,6 +148,35 @@ describe('mini-program calendar VM boundary', () => {
     for (const source of [wxss, gridWxss, assignmentRowWxss, markerBadgeWxss, holidayTagWxss]) {
       expect(source).not.toMatch(/:(?!first-child\b|last-child\b)[a-z-]+/gu);
     }
+  });
+
+  it('keeps test fixtures and identifying sample data out of the production dependency graph', () => {
+    const productionSources = collectProductionDependencyGraph(['pages/calendar/index.ts']);
+    const productionRelativePaths = productionSources.map((sourcePath) =>
+      path.relative(miniprogramRoot, sourcePath).replaceAll('\\', '/'),
+    );
+    const productionText = [
+      ...productionSources.map((sourcePath) => readFileSync(sourcePath, 'utf8')),
+      readText('config/index.ts'),
+    ].join('\n');
+    const testFixture = readText('features/calendar/calendar-golden-data.ts');
+
+    expect(productionRelativePaths).not.toContain('features/calendar/calendar-dev-fixture.ts');
+    expect(productionRelativePaths).not.toContain('features/calendar/calendar-golden-data.ts');
+    expect(productionText).not.toMatch(/calendarFixtureInDevtools|calendar-fixture-user/gu);
+    expect(productionText).not.toMatch(/(?<!\d)1[3-9]\d{9}(?!\d)/gu);
+    expect(productionText).not.toMatch(
+      /\b[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}\b/giu,
+    );
+    expect(testFixture).not.toMatch(/(?<!\d)1[3-9]\d{9}(?!\d)/gu);
+    expect(testFixture).not.toMatch(
+      /\b[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}\b/giu,
+    );
+    const fixtureNames = [...testFixture.matchAll(/realName:\s*'([^']+)'/gu)].map(
+      ([, realName]) => realName,
+    );
+    expect(fixtureNames.length).toBeGreaterThan(0);
+    expect(fixtureNames.every((realName) => realName?.startsWith('测试成员') === true)).toBe(true);
   });
 
   it('does not synthesize unsupported marker contract fields', () => {

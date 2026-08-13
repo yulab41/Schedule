@@ -87,6 +87,17 @@ describe('auth runtime', () => {
     expect(harness.switchTab).toHaveBeenCalledWith({ url: '/pages/workbench/index' });
   });
 
+  it('returns a committed invite with no pending token to its recovery page', () => {
+    const harness = createHarness();
+    harness.setStatus('invite-refresh-required');
+    harness.setPendingInviteToken(undefined);
+
+    harness.runtime.navigateForCurrentSession();
+
+    expect(harness.reLaunch).toHaveBeenCalledWith({ url: '/pages/invite/invite' });
+    expect(harness.switchTab).not.toHaveBeenCalled();
+  });
+
   it('terminates a launch restore rejection through the injected reporter', async () => {
     const harness = createHarness();
     const error = new Error('navigation unavailable');

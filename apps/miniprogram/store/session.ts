@@ -20,7 +20,14 @@ import { sessionStorage, type SessionStorage } from './session-storage.js';
 
 const pendingInviteStorageKey = 'schedule.pendingInviteToken';
 
-export type SessionStatus = 'anonymous' | 'authenticated' | 'error' | 'loading' | 'needs-profile';
+export type SessionStatus =
+  'anonymous' | 'authenticated' | 'error' | 'invite-refresh-required' | 'loading' | 'needs-profile';
+
+export type InviteAcceptanceResult =
+  | { readonly status: 'cancelled' }
+  | { readonly errorMessage: string; readonly status: 'committed-refresh-failed' }
+  | { readonly status: 'reconciled' }
+  | { readonly status: 'session-expired' };
 
 export interface SessionState {
   readonly activeGroupId?: string;
@@ -53,13 +60,14 @@ export interface SessionStore {
   readonly state: SessionState;
   clear(): void;
   completeProfile(realName: string): Promise<void>;
-  consumePendingInvite(): Promise<void>;
+  consumePendingInvite(): Promise<InviteAcceptanceResult>;
   getPendingInviteToken(): string | undefined;
   markUnauthorized(): void;
   replaceProfile(profile: UserProfile): boolean;
   refreshGroupContext(options?: { readonly preferredGroupId?: string }): Promise<void>;
   removeCalendarCacheForGroup(groupId: string): boolean;
   restore(): Promise<void>;
+  retryInviteContextRefresh(): Promise<InviteAcceptanceResult>;
   setActiveGroupId(groupId: string): boolean;
   setPendingInviteToken(token: string | undefined): void;
   signInWithWechat(): Promise<void>;
@@ -82,14 +90,25 @@ function isUnauthorized(error: unknown): boolean {
   );
 }
 
+interface AcceptedInviteReconciliation {
+  readonly groupId: string;
+  readonly nextToken: string;
+  readonly previousUserId: string;
+  readonly replacementToken?: string;
+  pendingCleared: boolean;
+  replacementTokenPersisted: boolean;
+}
+
 export function createSessionStore(dependencies: SessionDependencies): SessionStore {
   let state: SessionState = { ...emptyContext, status: 'anonymous' };
   let generation = 0;
   let restorePromise: Promise<void> | undefined;
   let signInPromise: Promise<void> | undefined;
   let profilePromise: Promise<void> | undefined;
-  let invitePromise: Promise<void> | undefined;
+  let invitePromise: Promise<InviteAcceptanceResult> | undefined;
+  let inviteContextPromise: Promise<InviteAcceptanceResult> | undefined;
   let groupContextPromise: Promise<void> | undefined;
+  let acceptedInvite: AcceptedInviteReconciliation | undefined;
 
   const isCurrent = (operationGeneration: number): boolean => operationGeneration === generation;
   const invalidateInFlight = (): void => {
@@ -98,6 +117,7 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     signInPromise = undefined;
     profilePromise = undefined;
     invitePromise = undefined;
+    inviteContextPromise = undefined;
     groupContextPromise = undefined;
   };
   const beginSupersedingOperation = (): number => {
@@ -109,15 +129,26 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     state = next;
     return true;
   };
+  const loadPlatformAdmin = async (): Promise<boolean> => {
+    try {
+      return (await dependencies.getPlatformMe()).isPlatformAdmin;
+    } catch (error) {
+      if (isUnauthorized(error)) throw error;
+      return false;
+    }
+  };
   const loadRoleContext = async (): Promise<{
     readonly groups: readonly GroupSummary[];
     readonly isPlatformAdmin: boolean;
   }> => {
-    const [groups, platform] = await Promise.all([
-      dependencies.listGroups(),
-      dependencies.getPlatformMe(),
-    ]);
-    return { groups, isPlatformAdmin: platform.isPlatformAdmin };
+    const groupsResultPromise = dependencies.listGroups().then(
+      (groups) => ({ groups, status: 'fulfilled' }) as const,
+      (error: unknown) => ({ error, status: 'rejected' }) as const,
+    );
+    const isPlatformAdmin = await loadPlatformAdmin();
+    const groupsResult = await groupsResultPromise;
+    if (groupsResult.status === 'rejected') throw groupsResult.error;
+    return { groups: groupsResult.groups, isPlatformAdmin };
   };
   const chooseActiveGroupId = (
     profile: UserProfile,
@@ -162,19 +193,75 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
       // Cache cleanup failures must not stop the anonymous transition.
     }
   };
+  const publishInviteRefreshRequired = (
+    record: AcceptedInviteReconciliation,
+    operationGeneration: number,
+    errorMessage?: string,
+  ): void => {
+    publish(operationGeneration, {
+      ...emptyContext,
+      ...(errorMessage === undefined ? {} : { errorMessage }),
+      status: 'invite-refresh-required',
+      token: record.nextToken,
+    });
+  };
+  const reconcileAcceptedInvite = async (
+    record: AcceptedInviteReconciliation,
+    operationGeneration: number,
+  ): Promise<InviteAcceptanceResult> => {
+    try {
+      if (record.replacementToken !== undefined && !record.replacementTokenPersisted) {
+        dependencies.writeStoredToken(record.replacementToken);
+        record.replacementTokenPersisted = true;
+      }
+      if (!isCurrent(operationGeneration) || acceptedInvite !== record)
+        return { status: 'cancelled' };
+      if (!record.pendingCleared) {
+        dependencies.writePendingInviteToken(undefined);
+        record.pendingCleared = true;
+      }
+      if (!isCurrent(operationGeneration) || acceptedInvite !== record)
+        return { status: 'cancelled' };
+      const refreshedProfile = await dependencies.getCurrentProfile();
+      if (!isCurrent(operationGeneration) || acceptedInvite !== record)
+        return { status: 'cancelled' };
+      const authenticated = await becomeAuthenticated(
+        refreshedProfile,
+        record.nextToken,
+        operationGeneration,
+        record.groupId,
+      );
+      if (!authenticated || acceptedInvite !== record) return { status: 'cancelled' };
+      acceptedInvite = undefined;
+      return { status: 'reconciled' };
+    } catch (error) {
+      if (!isCurrent(operationGeneration) || acceptedInvite !== record)
+        return { status: 'cancelled' };
+      if (isUnauthorized(error)) {
+        store.markUnauthorized();
+        return { status: 'session-expired' };
+      }
+      const errorMessage = messageFor(error);
+      publishInviteRefreshRequired(record, operationGeneration, errorMessage);
+      return { errorMessage, status: 'committed-refresh-failed' };
+    }
+  };
 
   const store: SessionStore = {
     get state() {
       return state;
     },
     clear: () => {
-      const userId = state.profile?.id;
+      const userId = state.profile?.id ?? acceptedInvite?.previousUserId;
       invalidateInFlight();
+      acceptedInvite = undefined;
       purgeCurrentUser(userId);
       state = { ...emptyContext, status: 'anonymous' };
     },
     completeProfile: (realName) => {
       if (profilePromise !== undefined) return profilePromise;
+      if (acceptedInvite !== undefined)
+        return Promise.reject(new Error('请先刷新已加入群组的资料。'));
       const token = state.token;
       const normalizedName = realName.trim();
       if (token === undefined) return Promise.reject(new Error('请先登录。'));
@@ -216,26 +303,31 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     },
     consumePendingInvite: () => {
       if (invitePromise !== undefined) return invitePromise;
+      if (acceptedInvite !== undefined)
+        return Promise.resolve({
+          errorMessage: state.errorMessage ?? '群组资料尚未刷新，请重试。',
+          status: 'committed-refresh-failed',
+        });
       const pending = dependencies.readPendingInviteToken();
       const { profile, token } = state;
       if (pending === undefined || profile === undefined || token === undefined)
         return Promise.reject(new Error('邀请状态无效。'));
       const operationGeneration = beginSupersedingOperation();
-      const operation = (async (): Promise<void> => {
+      const operation = (async (): Promise<InviteAcceptanceResult> => {
         const result = await dependencies.acceptInvite(pending, profile.realName);
-        if (!isCurrent(operationGeneration)) return;
+        if (!isCurrent(operationGeneration)) return { status: 'cancelled' };
         const nextToken = result.token ?? token;
-        if (result.token !== undefined) dependencies.writeStoredToken(result.token);
-        if (!isCurrent(operationGeneration)) return;
-        dependencies.writePendingInviteToken(undefined);
-        const refreshedProfile = await dependencies.getCurrentProfile();
-        if (!isCurrent(operationGeneration)) return;
-        await becomeAuthenticated(
-          refreshedProfile,
+        const record: AcceptedInviteReconciliation = {
+          groupId: result.group.id,
           nextToken,
-          operationGeneration,
-          result.group.id,
-        );
+          pendingCleared: false,
+          previousUserId: profile.id,
+          replacementToken: result.token,
+          replacementTokenPersisted: result.token === undefined,
+        };
+        acceptedInvite = record;
+        publishInviteRefreshRequired(record, operationGeneration);
+        return reconcileAcceptedInvite(record, operationGeneration);
       })();
       invitePromise = operation;
       void operation.then(
@@ -263,7 +355,10 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
       return true;
     },
     refreshGroupContext: (options = {}) => {
+      if (invitePromise !== undefined) return Promise.reject(new Error('邀请正在处理中，请稍候。'));
       if (groupContextPromise !== undefined) return groupContextPromise;
+      if (acceptedInvite !== undefined)
+        return Promise.reject(new Error('请先刷新已加入群组的资料。'));
       const { profile, token } = state;
       if (state.status !== 'authenticated' || profile === undefined || token === undefined)
         return Promise.reject(new Error('请先登录。'));
@@ -302,6 +397,8 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     },
     restore: () => {
       if (restorePromise !== undefined) return restorePromise;
+      if (acceptedInvite !== undefined)
+        return store.retryInviteContextRefresh().then(() => undefined);
       if (
         signInPromise !== undefined ||
         profilePromise !== undefined ||
@@ -345,6 +442,24 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
       );
       return operation;
     },
+    retryInviteContextRefresh: () => {
+      if (inviteContextPromise !== undefined) return inviteContextPromise;
+      const record = acceptedInvite;
+      if (record === undefined) return Promise.reject(new Error('没有需要刷新的邀请上下文。'));
+      const operationGeneration = beginSupersedingOperation();
+      publishInviteRefreshRequired(record, operationGeneration, state.errorMessage);
+      const operation = reconcileAcceptedInvite(record, operationGeneration);
+      inviteContextPromise = operation;
+      void operation.then(
+        () => {
+          if (inviteContextPromise === operation) inviteContextPromise = undefined;
+        },
+        () => {
+          if (inviteContextPromise === operation) inviteContextPromise = undefined;
+        },
+      );
+      return operation;
+    },
     setActiveGroupId: (groupId) => {
       if (!state.groups.some((group) => group.id === groupId)) return false;
       const userId = state.profile?.id;
@@ -355,11 +470,14 @@ export function createSessionStore(dependencies: SessionDependencies): SessionSt
     },
     setPendingInviteToken: (token) => {
       const next = token === undefined || token.length === 0 ? undefined : token;
+      if (acceptedInvite !== undefined && next !== undefined) return;
       if (dependencies.readPendingInviteToken() !== next)
         dependencies.writePendingInviteToken(next);
     },
     signInWithWechat: () => {
       if (signInPromise !== undefined) return signInPromise;
+      if (acceptedInvite !== undefined)
+        return Promise.reject(new Error('请先刷新已加入群组的资料。'));
       const operationGeneration = beginSupersedingOperation();
       const operation = (async (): Promise<void> => {
         try {

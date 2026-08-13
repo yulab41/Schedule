@@ -16,6 +16,14 @@ export interface ProfileLogicDependencies {
   readonly listGroupMembers: (groupId: string) => Promise<GroupMember[]>;
 }
 
+export type ProfileSurfaceMode = 'full' | 'guest-minimal';
+
+export function getProfileSurfaceMode(
+  activeGroupRole: GroupSummary['role'] | undefined,
+): ProfileSurfaceMode {
+  return activeGroupRole === 'guest' ? 'guest-minimal' : 'full';
+}
+
 export function getOwnContactTarget(
   summary: OwnGroupContactSummary,
 ): { readonly groupId: string; readonly membershipId: string } | undefined {

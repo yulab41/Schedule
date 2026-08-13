@@ -4,7 +4,7 @@ export const inviteRoute = '/pages/invite/invite';
 export const workbenchRoute = '/pages/workbench/index';
 
 export type AuthLandingStatus =
-  'anonymous' | 'authenticated' | 'error' | 'loading' | 'needs-profile';
+  'anonymous' | 'authenticated' | 'error' | 'invite-refresh-required' | 'loading' | 'needs-profile';
 
 export type SessionLandingTarget =
   | { readonly kind: 'none' }
@@ -56,6 +56,9 @@ export function getSessionLandingTarget(
   }
   if (status === 'needs-profile') {
     return { kind: 'reLaunch', url: profileSetupRoute };
+  }
+  if (status === 'invite-refresh-required') {
+    return { kind: 'reLaunch', url: inviteRoute };
   }
   if (status === 'authenticated') {
     return hasPendingInvite

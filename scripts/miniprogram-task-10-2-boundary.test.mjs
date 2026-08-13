@@ -31,11 +31,11 @@ describe('Task 10.2 notifications and profile boundaries', () => {
     expect(source).toContain('updateGroupMemberContact');
     expect(source).toContain('getMiniProgramRuntimeInfo');
     expect(source).toContain('profileController.logout');
-    expect(source).toContain('isMemberProfile');
+    expect(source).toContain('getProfileSurfaceMode');
     expect(source.indexOf('const version = ++requestVersion;')).toBeLessThan(
-      source.indexOf('if (!isMemberProfile) return;'),
+      source.indexOf("if (profileSurfaceMode === 'guest-minimal') return;"),
     );
-    expect(wxml).toContain('wx:if="{{isMemberProfile}}"');
+    expect(wxml).toContain('wx:if="{{profileSurfaceMode === \'full\'}}"');
     expect(wxml).toContain('bindtap="handleSaveProfile"');
     expect(wxml).toContain('bindtap="handleSaveContact"');
     expect(wxml).toContain('bindtap="handleLogout"');

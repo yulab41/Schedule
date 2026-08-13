@@ -154,4 +154,18 @@ describe('V3 app shell', () => {
     expect(appJsonText).not.toContain('pages/login/login');
     expect(appJsonText).not.toContain('pages/test');
   });
+
+  it('keeps an explicit invite escape and separates committed refresh recovery from acceptance', () => {
+    const source = readText('pages/invite/invite.ts');
+    const wxml = readText('pages/invite/invite.wxml');
+
+    expect(source).toContain('handleAbandon');
+    expect(source).toContain('sessionStore.setPendingInviteToken(undefined)');
+    expect(source).toContain('retryInviteContextRefresh');
+    expect(source).toContain("status === 'invite-refresh-required'");
+    expect(wxml).toMatch(/errorMessage[\s\S]*handleAbandon/u);
+    expect(wxml).toContain('已加入群组');
+    expect(wxml).toContain('handleRetryContext');
+    expect(wxml).toContain('handleLeaveAfterCommit');
+  });
 });

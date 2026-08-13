@@ -1,7 +1,11 @@
 import type { GroupMember, GroupMemberContact, GroupSummary } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
-import { getOwnContactTarget, loadOwnGroupContacts } from './profile-logic.js';
+import {
+  getOwnContactTarget,
+  getProfileSurfaceMode,
+  loadOwnGroupContacts,
+} from './profile-logic.js';
 
 const groups: readonly GroupSummary[] = [
   { id: 'owner', name: '业主组', role: 'owner', version: 1 },
@@ -17,6 +21,16 @@ const contacts: readonly GroupMemberContact[] = [
 ];
 
 describe('profile contact logic', () => {
+  it.each([
+    ['owner', 'full'],
+    ['administrator', 'full'],
+    ['member', 'full'],
+    ['guest', 'guest-minimal'],
+    [undefined, 'full'],
+  ] as const)('uses %s active-role context for the %s profile surface', (role, expected) => {
+    expect(getProfileSurfaceMode(role)).toBe(expected);
+  });
+
   it('loads non-guest contacts by membership ID, never by name', async () => {
     const dependencies = {
       listGroupContacts: vi.fn(() => Promise.resolve([...contacts])),

@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。V3-4 设备复核暴露的手动排班入口层 Web parity 回归已修复，检查点提交信息为 `fix(miniprogram): restore manual editor Web parity`；DevTools 已真实打开修复页，岗位/成员/日期/周期等 Android/iOS 触控矩阵仍待用户复核。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity 回归已修复；随后批准的全量 parity 计划首批 P0.1–P0.3 已实现并通过浏览器/DevTools preview，Android/iOS 多群、零群组与邀请恢复旅程仍待用户复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -18,6 +18,17 @@
 - 验证：……
 - 状态：已完成 / 待用户验收 / 遗留
 ```
+
+### Web / 小程序 parity 首批安全修复（提交：fix(miniprogram): harden parity safety foundations，2026-08-13）
+
+- 用户反馈/需求：不要把成熟 Web 业务与交互在小程序中简化重写；V3-1 至 V3-3 也要逐项审计，缺失 API/模块后续补齐。批准的权威顺序为“当前 API integration/contracts/安全决议 > 经验证 Web 语义 > 微信 UI adapter”，本轮按仓库上限只实施首批三个 P0。
+- 根因/引入点：`1eef26a` 将线上样本和 develop fixture 直接接入生产日历页；脚手架 `7fe5590` 留下无人消费的 `mockMode: true`；`bc534c0` 引入未切 active group 的工作台直达导航、无逃生邀请页以及 accept/refresh 混合事务；`20407fc` 用 membership 角色判断 profile，导致 group-less 账号被误作访客。以上均由 `git log -S` 与 `git blame` 复核。
+- 红绿测试：P0.1 旧边界 5 项有 2 项命中生产 fixture，后续死开关门禁再次按预期命中 `mockMode: true`；P0.2 初始 3 文件为 11 项失败/8 项通过；P0.3 先后锁定平台软失败、accept 2xx 后刷新失败、逃生入口、无 pending 的恢复路由，以及 accept 等待响应时旧群组刷新迟到覆盖恢复态。实现后完整小程序 40 文件 / 206 项、5 个静态边界文件 / 21 项全部通过。
+- 修复/功能：普通 develop/trial/release 日历只走真实 session/API，删除无调用者的 mock 死开关，fixture 改为显式测试 adapter 和匿名合成数据；发布裁剪排除未使用 fixture，并显式保留 assets。所有群组作用域入口先验证/切 active group 再导航，零群组提供可操作 CTA，只有明确 guest 使用 profile 最小面。邀请错误可放弃；accept 2xx 后撤下旧权限，replacement token 先保存，刷新失败只允许 reconciliation/退出，不重复 accept；`/platform/me` 非 401 软降级、401 精确清理。
+- 语义等价审计：真实 endpoint 调用与 `wx` 成员调用接收者不变；真实日历 endpoint 仍各调用一次。`result.token ?? token`、undefined/空 pending 的收窄不变。accept 与刷新 catch 已刻意拆分为行为修复；generation、record identity 和 single-flight 覆盖陈旧异步、双击和重复恢复。独立审查复现了 accept 等待响应时新启动的群组刷新会共享 generation、迟到发布旧 token/旧群组；红测固定后，`invitePromise` 期间的旧上下文刷新会被明确拒绝。frontend-design 指引只影响零群组/邀请错误态的信息层次与触控动作，没有改变业务权限。
+- 构建自查：启用 `ignoreUploadUnusedFiles` 后首次 preview 暴露 tabBar 图标未被依赖分析保留（800059）；先增加失败配置测试，再限定 `packOptions.include` 只包含 `assets`，最终 preview 成功。发布图/PII 测试拒绝 fixture import、11 位手机号和生产样式 UUID；没有删除 Git 历史或扩大到用户未跟踪 `apps/miniprogram/minitest/`。
+- 验证：config audit、miniprogram typecheck、目标 TypeScript ESLint、全任务 Prettier 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 7/7 流程通过，随后 `pnpm smoke:check-core` 通过。DevTools `build-npm` 成功（cost 12767、warnings `[]`）；最终 preview 351098 bytes / 342.9 KB（main 281.1 KB、groups 5.6 KB、manual 21.4 KB、workflows 34.8 KB）。自动化端口 `9435` 可连接，但标准 smoke 约 55 秒无输出后终止，不记为页面验收通过。
+- 状态：**待用户复核**。真机需覆盖多群点击顺序、零群组 CTA、邀请失效逃生、accept 已提交但刷新失败的恢复/退出。完成检查点和正常快进推送后停止；下一批仅处理批准计划中的日历可靠性 C1–C3。
 
 ### V3-2 Task 6 运行记录（未提交，2026-08-10）
 

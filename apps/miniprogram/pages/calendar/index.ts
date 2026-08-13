@@ -8,14 +8,6 @@ import {
 import { navigateForCurrentSession } from '../../features/auth/auth-runtime.js';
 import { getCurrentBusinessDate } from '../../features/calendar/calendar-logic.js';
 import {
-  createCalendarDevFixtureDependencies,
-  isCalendarDevFixtureEnabled,
-} from '../../features/calendar/calendar-dev-fixture.js';
-import {
-  calendarFixtureGroupId,
-  goldenToday,
-} from '../../features/calendar/calendar-golden-data.js';
-import {
   buildCalendarSurfaceViewModel,
   recenterCalendarMonthSlots,
   type CalendarMonthSlotViewModel,
@@ -152,22 +144,8 @@ function getActiveGroup() {
   return state.groups.find(({ id }) => id === state.activeGroupId);
 }
 
-function isUsingCalendarDevFixture(): boolean {
-  try {
-    return isCalendarDevFixtureEnabled(wx.getAccountInfoSync().miniProgram.envVersion);
-  } catch {
-    return false;
-  }
-}
-
-function getCalendarGroup() {
-  if (isUsingCalendarDevFixture())
-    return { id: calendarFixtureGroupId, role: 'member' as const, version: 1 };
-  return getActiveGroup();
-}
-
 function getToday(): string {
-  return isUsingCalendarDevFixture() ? goldenToday : getCurrentBusinessDate();
+  return getCurrentBusinessDate();
 }
 
 function getInitialState() {
@@ -186,17 +164,9 @@ function getInitialSlots(): readonly [
 }
 
 function contextForCurrentGroup(): CalendarContext | undefined {
-  const group = getCalendarGroup();
+  const group = getActiveGroup();
   if (group === undefined) return undefined;
   const profile = sessionStore.state.profile;
-  if (isUsingCalendarDevFixture()) {
-    return {
-      groupId: group.id,
-      groupRole: group.role,
-      groupVersion: 1,
-      userId: 'calendar-fixture-user',
-    };
-  }
   if (profile?.id === undefined || group.version < 1) return undefined;
   return {
     groupId: group.id,
@@ -247,19 +217,12 @@ Page<CalendarPageData, CalendarPageMethods>({
   swiperLocked: false,
   onLoad(): void {
     this.setData({ renderer: 'skyline' });
-    const devFixtureDependencies = isUsingCalendarDevFixture()
-      ? createCalendarDevFixtureDependencies()
-      : undefined;
     this.controller = createCalendarPageController({
       cache: getCalendarCacheRuntime().cache,
-      getCalendar:
-        devFixtureDependencies?.getCalendar ??
-        ((groupId, businessMonth) => getCalendar(groupId, businessMonth)),
-      getGuestHolidays:
-        devFixtureDependencies?.getGuestHolidays ?? ((year) => getGuestHolidays(year)),
-      getHolidays: devFixtureDependencies?.getHolidays ?? ((year) => getHolidays(year)),
+      getCalendar: (groupId, businessMonth) => getCalendar(groupId, businessMonth),
+      getGuestHolidays: (year) => getGuestHolidays(year),
+      getHolidays: (year) => getHolidays(year),
       getLoggedInGuestCalendar: (groupId, businessMonth) =>
-        devFixtureDependencies?.getLoggedInGuestCalendar(groupId, businessMonth) ??
         getLoggedInGuestCalendar(groupId, businessMonth),
       getToday,
       makePhoneCall: (options) => wx.makePhoneCall(options),
@@ -268,12 +231,10 @@ Page<CalendarPageData, CalendarPageMethods>({
       setClipboardData: (options) => wx.setClipboardData(options),
     });
     this.eventController = createEventTimelineController({
-      listEvents:
-        devFixtureDependencies?.listEvents ??
-        ((groupId, cursor, pageSize) => listEvents(groupId, cursor, pageSize)),
+      listEvents: (groupId, cursor, pageSize) => listEvents(groupId, cursor, pageSize),
       publish: (eventTimeline) => {
         const content = this.data.sheetHost.content;
-        const group = getCalendarGroup();
+        const group = getActiveGroup();
         if (
           content?.kind === 'events' &&
           this.data.sheetHost.visible &&
@@ -288,12 +249,11 @@ Page<CalendarPageData, CalendarPageMethods>({
   },
   onShow(): void {
     const state = sessionStore.state;
-    if (!isUsingCalendarDevFixture() && state.status !== 'authenticated') {
+    if (state.status !== 'authenticated') {
       navigateForCurrentSession();
       return;
     }
     if (
-      !isUsingCalendarDevFixture() &&
       !guardMiniprogramRoute(state, '/pages/calendar/index', {
         hideTabBar: () => wx.hideTabBar({}),
         reLaunch: (options) => wx.reLaunch(options),
@@ -302,7 +262,7 @@ Page<CalendarPageData, CalendarPageMethods>({
       })
     )
       return;
-    const group = getCalendarGroup();
+    const group = getActiveGroup();
     const context = contextForCurrentGroup();
     if (group === undefined || context === undefined) {
       this.setData({ activeRole: '', hasActiveGroup: false });

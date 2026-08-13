@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  createCalendarDevFixtureDependencies,
-  isCalendarDevFixtureEnabled,
-} from './calendar-dev-fixture.js';
+import { createCalendarTestFixtureDependencies } from './calendar-dev-fixture.js';
 import {
   calendarFixtureGroupId,
   calendarFixtureGroupName,
@@ -13,16 +10,9 @@ import {
   goldenHolidays,
 } from './calendar-golden-data.js';
 
-describe('calendar development fixture', () => {
-  it('is enabled only for explicitly configured DevTools builds', () => {
-    expect(isCalendarDevFixtureEnabled('develop')).toBe(true);
-    expect(isCalendarDevFixtureEnabled('trial')).toBe(false);
-    expect(isCalendarDevFixtureEnabled('release')).toBe(false);
-    expect(isCalendarDevFixtureEnabled(undefined)).toBe(false);
-  });
-
-  it('serves the permanent 2026 calendar sample through every calendar endpoint', async () => {
-    const dependencies = createCalendarDevFixtureDependencies();
+describe('calendar test fixture adapter', () => {
+  it('serves the synthetic calendar sample only through explicit dependency injection', async () => {
+    const dependencies = createCalendarTestFixtureDependencies();
 
     await expect(
       dependencies.getCalendar(calendarFixtureGroupId, goldenBusinessMonth),

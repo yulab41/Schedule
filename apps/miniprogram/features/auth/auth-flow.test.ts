@@ -47,6 +47,7 @@ describe('auth landing', () => {
     ['needs-profile', false, { kind: 'reLaunch', url: '/pages/auth/profile-setup/index' }],
     ['authenticated', true, { kind: 'reLaunch', url: '/pages/invite/invite' }],
     ['authenticated', false, { kind: 'switchTab', url: '/pages/workbench/index' }],
+    ['invite-refresh-required', false, { kind: 'reLaunch', url: '/pages/invite/invite' }],
     ['loading', false, { kind: 'none' }],
     ['error', false, { kind: 'none' }],
   ] as const)('maps %s and pending=%s', (status, hasPendingInvite, expected) => {

@@ -5,7 +5,6 @@ import type {
   ScheduleEventPage,
 } from '@schedule/contracts';
 
-import { appConfig } from '../../config/index.js';
 import {
   calendarFixtureGroupName,
   getGoldenCalendar,
@@ -13,16 +12,13 @@ import {
   goldenHolidays,
 } from './calendar-golden-data.js';
 
-export interface CalendarDevFixtureDependencies {
+// Test-only adapter. Production pages must use the real session and endpoint dependencies.
+export interface CalendarTestFixtureDependencies {
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getGuestHolidays(year: number): Promise<HolidayReadModel>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getLoggedInGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   listEvents(groupId: string, cursor?: string, pageSize?: number): Promise<ScheduleEventPage>;
-}
-
-export function isCalendarDevFixtureEnabled(envVersion: string | undefined): boolean {
-  return appConfig.calendarFixtureInDevtools && envVersion === 'develop';
 }
 
 function getFixtureHolidays(year: number): HolidayReadModel {
@@ -35,7 +31,7 @@ function getFixtureHolidays(year: number): HolidayReadModel {
       };
 }
 
-export function createCalendarDevFixtureDependencies(): CalendarDevFixtureDependencies {
+export function createCalendarTestFixtureDependencies(): CalendarTestFixtureDependencies {
   return {
     getCalendar: async (_groupId, businessMonth) => getGoldenCalendar(businessMonth),
     getGuestHolidays: async (year) => getFixtureHolidays(year),

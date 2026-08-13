@@ -3,10 +3,15 @@
   "compileType": "miniprogram",
   "libVersion": "3.16.2",
   "miniprogramRoot": "./",
+  "packOptions": {
+    "ignore": [],
+    "include": [{ "type": "folder", "value": "assets" }]
+  },
   "projectname": "schedule-miniprogram",
   "setting": {
     "compileWorklet": true,
     "es6": true,
+    "ignoreUploadUnusedFiles": true,
     "minified": true,
     "minifyWXML": true,
     "minifyWXSS": true,

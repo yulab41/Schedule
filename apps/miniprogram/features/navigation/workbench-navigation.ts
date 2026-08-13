@@ -26,8 +26,35 @@ export interface WorkbenchSection {
   readonly entries: readonly WorkbenchEntry[];
   readonly groupId?: string;
   readonly id: string;
+  readonly isActive?: boolean;
   readonly label: string;
   readonly role?: GroupRole;
+  readonly roleLabel?: string;
+}
+
+export type GlobalWorkbenchActionId = 'groups' | 'profile';
+
+export interface GlobalWorkbenchAction {
+  readonly description: string;
+  readonly id: GlobalWorkbenchActionId;
+  readonly label: string;
+}
+
+export interface WorkbenchPageModel {
+  readonly globalActions: readonly GlobalWorkbenchAction[];
+  readonly sections: readonly WorkbenchSection[];
+}
+
+export interface WorkbenchNavigationPort {
+  navigateTo(options: { readonly url: string }): void;
+  setActiveGroupId(groupId: string): boolean;
+  showUnavailable(): void;
+  switchTab(options: { readonly url: string }): void;
+}
+
+export interface WorkbenchEntrySelection {
+  readonly entryId: WorkbenchEntryId;
+  readonly groupId: string;
 }
 
 export interface WorkflowRouteContext {
@@ -45,6 +72,19 @@ export interface ManualScheduleRouteContext {
 export const workflowRequestsRoute = '/subpackages/workflows/pages/requests/index';
 export const groupsRoute = '/subpackages/groups/pages/index';
 export const manualScheduleEditorRoute = '/subpackages/manual-schedule/pages/editor/index';
+
+const globalWorkbenchActions: readonly GlobalWorkbenchAction[] = [
+  {
+    description: '查看可加入的群组和邀请说明',
+    id: 'groups',
+    label: '群组中心',
+  },
+  {
+    description: '查看并编辑你的账号资料',
+    id: 'profile',
+    label: '账号资料',
+  },
+];
 
 export const workbenchEntries: readonly WorkbenchEntry[] = [
   {
@@ -125,4 +165,87 @@ export function buildWorkbenchSections(
   return isPlatformAdmin
     ? [...sections, { entries: [], id: 'platform', label: '平台管理' }]
     : sections;
+}
+
+function getGroupRoleLabel(role: GroupRole): string {
+  if (role === 'owner') return '群主';
+  if (role === 'administrator') return '管理员';
+  return role === 'guest' ? '访客' : '成员';
+}
+
+export function buildWorkbenchPageModel(
+  groups: readonly GroupSummary[],
+  isPlatformAdmin: boolean,
+  activeGroupId: string | undefined,
+): WorkbenchPageModel {
+  return {
+    globalActions: groups.length === 0 ? globalWorkbenchActions : [],
+    sections: buildWorkbenchSections(groups, isPlatformAdmin).map((section) =>
+      section.groupId === undefined || section.role === undefined
+        ? section
+        : {
+            ...section,
+            isActive: section.groupId === activeGroupId,
+            roleLabel: getGroupRoleLabel(section.role),
+          },
+    ),
+  };
+}
+
+type WorkbenchDestination =
+  | { readonly kind: 'navigate'; readonly url: string }
+  | { readonly kind: 'switch-tab'; readonly url: string }
+  | { readonly kind: 'unavailable' };
+
+function resolveWorkbenchDestination(
+  groups: readonly GroupSummary[],
+  selection: WorkbenchEntrySelection,
+): WorkbenchDestination | undefined {
+  const group = groups.find(({ id }) => id === selection.groupId);
+  if (group === undefined) return undefined;
+  const entry = getVisibleWorkbenchEntries(group.role).find(({ id }) => id === selection.entryId);
+  if (entry === undefined) return undefined;
+  if (entry.tabRoute !== undefined) return { kind: 'switch-tab', url: entry.tabRoute };
+  if (entry.id === 'manual') {
+    const context = resolveManualScheduleRouteContext(groups, group.id);
+    return context === undefined
+      ? undefined
+      : { kind: 'navigate', url: buildManualScheduleEditorRoute(context) };
+  }
+  if (entry.id === 'leave' || entry.id === 'swap' || entry.id === 'duty') {
+    const context = resolveWorkflowRouteContext(groups, group.id);
+    return context === undefined
+      ? undefined
+      : { kind: 'navigate', url: buildWorkflowRequestRoute(context) };
+  }
+  if (entry.route !== undefined) return { kind: 'navigate', url: entry.route };
+  return { kind: 'unavailable' };
+}
+
+export function activateWorkbenchEntry(
+  groups: readonly GroupSummary[],
+  selection: WorkbenchEntrySelection,
+  navigation: WorkbenchNavigationPort,
+): boolean {
+  const destination = resolveWorkbenchDestination(groups, selection);
+  if (destination === undefined || !navigation.setActiveGroupId(selection.groupId)) return false;
+  if (destination.kind === 'switch-tab') navigation.switchTab({ url: destination.url });
+  else if (destination.kind === 'navigate') navigation.navigateTo({ url: destination.url });
+  else navigation.showUnavailable();
+  return true;
+}
+
+export function activateGlobalWorkbenchAction(
+  actionId: unknown,
+  navigation: Pick<WorkbenchNavigationPort, 'navigateTo' | 'switchTab'>,
+): boolean {
+  if (actionId === 'groups') {
+    navigation.navigateTo({ url: groupsRoute });
+    return true;
+  }
+  if (actionId === 'profile') {
+    navigation.switchTab({ url: '/pages/profile/index' });
+    return true;
+  }
+  return false;
 }

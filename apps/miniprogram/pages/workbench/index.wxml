@@ -1,1 +1,52 @@
-<page-shell title="工作台"><view wx:for="{{sections}}" wx:for-item="section" wx:key="id" class="workbench-section"><text class="workbench-section__title">{{section.label}}</text><view wx:if="{{section.id === 'platform'}}" class="workbench-entry workbench-entry--disabled">当前版本尚未开放</view><view wx:for="{{section.entries}}" wx:for-item="entry" wx:key="id" class="workbench-entry" data-entry="{{entry.id}}" data-group-id="{{section.groupId}}" data-route="{{entry.tabRoute || entry.route}}" bindtap="handleEntry">{{entry.label}}</view></view></page-shell>
+<page-shell title="工作台">
+  <view wx:if="{{globalActions.length > 0}}" class="workbench-zero">
+    <text class="workbench-zero__title">群组与账号</text>
+    <text class="workbench-zero__description"
+      >当前账号还没有可用群组。你可以查看可加入的群组和邀请说明，或先管理账号资料。</text
+    >
+    <button
+      wx:for="{{globalActions}}"
+      wx:key="id"
+      class="workbench-global-action"
+      data-action="{{item.id}}"
+      bindtap="handleGlobalAction"
+    >
+      <text class="workbench-global-action__label">{{item.label}}</text>
+      <text class="workbench-global-action__description">{{item.description}}</text>
+    </button>
+  </view>
+
+  <view
+    wx:for="{{sections}}"
+    wx:for-item="section"
+    wx:key="id"
+    class="workbench-section {{section.isActive ? 'workbench-section--active' : ''}}"
+  >
+    <view
+      class="workbench-section__header"
+      data-group-id="{{section.groupId}}"
+      bindtap="handleSelectGroup"
+    >
+      <view>
+        <text class="workbench-section__title">{{section.label}}</text>
+        <text wx:if="{{section.roleLabel}}" class="workbench-section__role"
+          >{{section.roleLabel}}</text
+        >
+      </view>
+      <text wx:if="{{section.isActive}}" class="workbench-section__current">当前群组</text>
+    </view>
+    <view wx:if="{{section.id === 'platform'}}" class="workbench-entry workbench-entry--disabled"
+      >当前版本尚未开放</view
+    >
+    <view
+      wx:for="{{section.entries}}"
+      wx:for-item="entry"
+      wx:key="id"
+      class="workbench-entry {{entry.tabRoute || entry.route ? '' : 'workbench-entry--disabled'}}"
+      data-entry="{{entry.id}}"
+      data-group-id="{{section.groupId}}"
+      bindtap="handleEntry"
+      >{{entry.label}}</view
+    >
+  </view>
+</page-shell>

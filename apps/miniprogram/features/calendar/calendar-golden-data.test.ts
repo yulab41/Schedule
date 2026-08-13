@@ -26,10 +26,10 @@ function findDay(
     );
 }
 
-describe('calendar golden data', () => {
-  it('pins all 2026 server calendar, holiday, swap, and duty-adjustment samples', () => {
+describe('synthetic calendar golden data', () => {
+  it('pins anonymous 2026 calendar, holiday, swap, and duty-adjustment samples', () => {
     const sourceSnapshot = JSON.stringify({ goldenCalendars, goldenEvents, goldenHolidays });
-    const filters = { membershipIds: ['eda3c420-b0e8-4d1a-b908-864eab403ae7'] };
+    const filters = { membershipIds: ['fixture-member-b'] };
     const filterSnapshot = JSON.stringify(filters);
     const august = buildCalendarMonthViewModel({
       calendar: goldenCalendar,
@@ -52,7 +52,7 @@ describe('calendar golden data', () => {
       throw new Error('expected ready calendar view models');
     }
     expect(august.businessMonth).toBe(goldenBusinessMonth);
-    expect(august.assignmentCount).toBe(31);
+    expect(august.assignmentCount).toBe(32);
     expect(september.assignmentCount).toBe(30);
     expect(Object.keys(goldenCalendars)).toHaveLength(12);
     expect(getGoldenCalendar('2026-01')).toMatchObject({
@@ -67,21 +67,45 @@ describe('calendar golden data', () => {
     );
 
     expect(findDay(august, '2026-08-08')?.assignments[0]).toMatchObject({
-      actualMemberName: '许少伟',
+      actualMemberName: '测试成员己',
       markers: [{ type: 'swap' }],
-      plannedMemberName: '林恩宇',
+      plannedMemberName: '测试成员丁',
     });
     expect(findDay(august, '2026-08-12')?.assignments[0]).toMatchObject({
-      actualMemberName: '黄耿杰',
+      actualMemberName: '测试成员丙',
       markers: [{ type: 'overtime' }],
-      plannedMemberName: '洪晨善',
+      plannedMemberName: '测试成员乙',
     });
+    expect(findDay(august, '2026-08-15')?.assignments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          backgroundColor: '#1F5AA6',
+          roleName: '测试一线',
+          shiftTypeName: '测试全天班',
+        }),
+        expect.objectContaining({
+          backgroundColor: '#C2410C',
+          markers: [expect.objectContaining({ type: 'leave-cover' })],
+          roleName: '测试二线',
+          shiftTypeName: '测试晚班',
+        }),
+      ]),
+    );
+    const phoneActions = findDay(august, '2026-08-15')?.assignments.flatMap(
+      ({ phoneActions: actions }) => actions,
+    );
+    expect(phoneActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'dial', number: 'FIXTURE-CONFIRMED-PHONE' }),
+        expect.objectContaining({ kind: 'copy', number: 'SYNTHETIC-LONG-NUMBER' }),
+      ]),
+    );
     expect(findDay(september, '2026-09-16')?.assignments[0]).toMatchObject({
-      actualMemberName: '洪晨善',
-      assignmentId: '3da0f9ff-90ca-40db-8376-5dbdb0c7c708',
+      actualMemberName: '测试成员乙',
+      assignmentId: 'fixture-assignment-2026-09-16',
       markers: [{ type: 'swap' }],
-      plannedMemberName: '黄耿杰',
-      routeActionId: 'assignment:3da0f9ff-90ca-40db-8376-5dbdb0c7c708',
+      plannedMemberName: '测试成员丙',
+      routeActionId: 'assignment:fixture-assignment-2026-09-16',
     });
     expect(findDay(september, '2026-09-20')?.holiday).toMatchObject({
       holidayName: '国庆节调休',
