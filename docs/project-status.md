@@ -47,7 +47,7 @@ git diff --check
 - 回归定位：VAPID 判定来自 `52e9e1f` 的 `WebPushDispatcher`；ECS cron 只安装监控和备份来自 `c97879d`，未覆盖 `duty-reminders`/`notification-retry`。
 - 已完成任务 1：环境契约支持 `VAPID_SUBJECT`、`VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY`；三项必须同时配置或同时为空；运行时和 job runner 显式传递推送配置；示例环境文件不再制造半配置状态。
 - 任务 1 验证：API `tsc --noEmit`、API 构建通过；VAPID 与订阅辅助测试 3 个文件、19 项通过；完整 Vitest 通过 56 个文件、430 项，另有 29 个数据库集成文件（252 项）因本机未启动测试 MySQL 按既有保护逻辑跳过；Prettier 检查和 `git diff --check` 通过。
-- 任务 1 checkpoint：已提交 `19abf31`（`fix(notifications): validate and propagate VAPID configuration`）。
+- 任务 1 checkpoint：已提交 `eab3ff2`（`fix(notifications): validate and propagate VAPID configuration`）。
 - 已实现待验证任务 2/3：ECS 每分钟通知调度、发布/回滚/核验接入，以及浏览器订阅重新注册 UI；生产 VAPID 密钥尚未写入服务器，尚未进行公网推送实测。
 - 决策：不新增常驻 scheduler 容器，使用带 `flock` 的主机 cron；不修改数据库结构；VAPID 私钥不进入仓库。
 - 运行/浏览器验证：`pnpm smoke:browser` 未能在本地依赖安装不完整且受限网络无法恢复的环境中完成；已用浏览器检查当前公网旧部署，管理员登录、通知页面和控制台均正常，但旧版本仍显示“推送服务尚未配置”。本轮代码尚未发布到公网。
