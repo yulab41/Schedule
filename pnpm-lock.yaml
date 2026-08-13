@@ -81,6 +81,9 @@ importers:
 
   apps/miniprogram:
     dependencies:
+      '@schedule/client-core':
+        specifier: workspace:*
+        version: link:../../packages/client-core
       tdesign-miniprogram:
         specifier: ^1.16.0
         version: 1.16.0
@@ -143,6 +146,8 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(mysql2@3.23.2(@types/node@24.13.3))
+
+  packages/client-core: {}
 
   packages/contracts:
     dependencies:

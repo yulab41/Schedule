@@ -1,4 +1,9 @@
 import type { JsonObject } from '@schedule/contracts';
+import {
+  INVALID_RESPONSE,
+  type DecodeResult,
+  type JsonEndpointDescriptor,
+} from '@schedule/client-core';
 
 import { appConfig } from '../config/index.js';
 
@@ -22,9 +27,10 @@ export class ApiClientError extends Error {
   }
 }
 
-export interface RequestOptions {
+export interface RequestOptions<T> {
   readonly auth?: boolean;
-  readonly data?: object;
+  readonly data?: unknown;
+  readonly decodeResponse?: (value: unknown) => DecodeResult<T>;
   readonly method?: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
 }
 
@@ -69,7 +75,13 @@ function getApiBaseUrl(): string {
   return appConfig.apiBaseUrl;
 }
 
-export function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+const invalidResponseMessage = '服务返回的数据格式异常，请稍后重试。';
+
+function createInvalidResponseError(status: number): ApiClientError {
+  return new ApiClientError(INVALID_RESPONSE, invalidResponseMessage, undefined, undefined, status);
+}
+
+export function request<T>(path: string, options: RequestOptions<T> = {}): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     wx.request({
       url: `${getApiBaseUrl()}${path}`,
@@ -81,7 +93,20 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
       method: (options.method ?? 'GET') as WechatMiniprogram.RequestOption['method'],
       success: (response) => {
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          resolve(response.data as T);
+          if (options.decodeResponse === undefined) {
+            resolve(response.data as T);
+            return;
+          }
+          try {
+            const decoded = options.decodeResponse(response.data);
+            if (!decoded.ok) {
+              reject(createInvalidResponseError(response.statusCode));
+              return;
+            }
+            resolve(decoded.value);
+          } catch {
+            reject(createInvalidResponseError(response.statusCode));
+          }
           return;
         }
         const payload = response.data as { error?: ApiErrorPayload } | undefined;
@@ -109,5 +134,28 @@ export function request<T>(path: string, options: RequestOptions = {}): Promise<
         );
       },
     });
+  });
+}
+
+export function requestEndpoint<T>(descriptor: JsonEndpointDescriptor<T>): Promise<T> {
+  if (descriptor.query !== undefined && descriptor.body !== undefined) {
+    return Promise.reject(
+      new Error('小程序请求描述同时包含 query 和 body，当前传输层无法安全发送。'),
+    );
+  }
+
+  const data = descriptor.method === 'GET' ? descriptor.query : descriptor.body;
+  if (
+    (descriptor.method === 'GET' && descriptor.body !== undefined) ||
+    (descriptor.method !== 'GET' && descriptor.query !== undefined)
+  ) {
+    return Promise.reject(new Error('小程序请求描述的 query/body 与 HTTP 方法不匹配。'));
+  }
+
+  return request<T>(descriptor.path, {
+    auth: descriptor.auth,
+    data,
+    decodeResponse: descriptor.decodeResponse,
+    method: descriptor.method,
   });
 }

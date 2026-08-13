@@ -22,9 +22,12 @@ import type {
 } from '@schedule/contracts';
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
-const requestMock = vi.hoisted(() => vi.fn());
+const { requestEndpointMock, requestMock } = vi.hoisted(() => ({
+  requestEndpointMock: vi.fn(),
+  requestMock: vi.fn(),
+}));
 
-vi.mock('./client.js', () => ({ request: requestMock }));
+vi.mock('./client.js', () => ({ request: requestMock, requestEndpoint: requestEndpointMock }));
 
 import {
   acceptDutyAdjustment,
@@ -233,6 +236,7 @@ describe('Task 10 endpoint boundaries', () => {
 
 describe('event endpoint boundaries', () => {
   beforeEach(() => {
+    requestEndpointMock.mockReset();
     requestMock.mockReset();
   });
 
@@ -253,11 +257,15 @@ describe('event endpoint boundaries', () => {
     const response = listEvents(eventGroupId, query);
     listEvents(eventGroupId, { eventTypes: [] });
 
-    expect(requestMock.mock.calls).toEqual([
+    expect(requestMock).not.toHaveBeenCalled();
+    expect(requestEndpointMock.mock.calls).toEqual([
       [
-        '/groups/group%2F1/events',
-        {
-          data: {
+        expect.objectContaining({
+          auth: true,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/groups/group%2F1/events',
+          query: {
             cursor: 'cursor/+=',
             eventTypes: 'swap_completed,duty_adjustment_completed',
             from: '2026-08-01T00:00:00+08:00',
@@ -268,9 +276,17 @@ describe('event endpoint boundaries', () => {
             shiftId: 'assignment-1',
             to: '2026-09-01T00:00:00+08:00',
           },
-        },
+        }),
       ],
-      ['/groups/group%2F1/events', { data: {} }],
+      [
+        expect.objectContaining({
+          auth: true,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/groups/group%2F1/events',
+          query: {},
+        }),
+      ],
     ]);
     expectTypeOf(response).toEqualTypeOf<Promise<ScheduleEventPage>>();
   });

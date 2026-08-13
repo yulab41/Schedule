@@ -115,8 +115,9 @@ import type {
   WechatLoginResponse,
   YearStatistics,
 } from '@schedule/contracts';
+import { buildScheduleEventListEndpoint } from '@schedule/client-core';
 
-import { request } from './client.js';
+import { request, requestEndpoint } from './client.js';
 
 export function wechatLogin(code: string): Promise<WechatLoginResponse> {
   return request<WechatLoginResponse>('/auth/wechat/login', {
@@ -566,21 +567,7 @@ export function listEvents(
   groupId: string,
   query: Omit<ScheduleEventQuery, 'groupId'>,
 ): Promise<ScheduleEventPage> {
-  return request<ScheduleEventPage>(`/groups/${encodeURIComponent(groupId)}/events`, {
-    data: {
-      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
-      ...(query.eventTypes === undefined || query.eventTypes.length === 0
-        ? {}
-        : { eventTypes: query.eventTypes.join(',') }),
-      ...(query.from === undefined ? {} : { from: query.from }),
-      ...(query.membershipId === undefined ? {} : { membershipId: query.membershipId }),
-      ...(query.operatorUserId === undefined ? {} : { operatorUserId: query.operatorUserId }),
-      ...(query.pageSize === undefined ? {} : { pageSize: query.pageSize }),
-      ...(query.scheduleRoleId === undefined ? {} : { scheduleRoleId: query.scheduleRoleId }),
-      ...(query.shiftId === undefined ? {} : { shiftId: query.shiftId }),
-      ...(query.to === undefined ? {} : { to: query.to }),
-    },
-  });
+  return requestEndpoint(buildScheduleEventListEndpoint(groupId, query));
 }
 
 export function listVisitorAccessLogs(

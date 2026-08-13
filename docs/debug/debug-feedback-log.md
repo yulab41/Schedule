@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3、日历可靠性 C1–C3 与事件时间线 D1 均已实现并通过各自自动化/DevTools preview；Android/iOS 多群、邀请恢复、日历前后台/跨月/隐私生命周期与真实事件数据仍待用户复核。
+当前阶段：Web 1.0 保持只读稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1 与首个 client-core 严格解码竖切 D2 均已通过自动化/DevTools preview；下一批只实施 D3 日历读取契约。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -18,6 +18,17 @@
 - 验证：……
 - 状态：已完成 / 待用户验收 / 遗留
 ```
+
+### 客户端核心运行时 D2（提交：feat(miniprogram): add strict client core runtime，2026-08-13）
+
+- 用户反馈/需求：继续完整实施已批准的小程序 Web 语义对齐计划，但 `apps/web/**` 必须全程只读；D2 只建立 future-ready 双产物核心包并让 Mini 消费事件列表竖切，不提前迁日历/工作流/岗位映射。
+- 根因/引入点：`git log -S`/`git blame` 将小程序 2xx 裸 `response.data as T` 追溯到 `7fe5590`，Mini 事件 query 复制追溯到 `ca6141b`；Web 完整 query 与 strict schema 基准分别来自 `7ac2a07`、`d779371`。旧 Mini 会把 malformed 2xx 直接交给 controller，且 clean checkout 无可供微信打包的 workspace runtime。
+- 红绿测试：先锁定 malformed 2xx、安全错误、query mapper、transport 接收者/调用次数和 clean checkout 构建边界；独立审查后又让旧 decoder 在 sparse page/affected arrays、覆写 `every`、继承 extra/index、重复 getter、欺骗 `in` 的 Proxy、返回原引用及 hostile `then` 等场景红灯。修复后 core 正常/畸形 corpus 与 Contracts schema 同判，并返回独立 canonical snapshot。
+- 修复/功能：新增无平台 runtime 的 `@schedule/client-core` descriptor/query/decoder；事件 Mini endpoint 改用它，decoder 只在 2xx 调用，失败统一为不含 raw body 的 `INVALID_RESPONSE`。ESM、Node CJS 与 Mini CJS 同源构建，Mini 专用 nested `.js` 使用 ES2017；Vitest 从 source alias 运行，Mini tsconfig/ESLint 明确排除用户未跟踪 `minitest/`。
+- 语义审计：`wx.request(...)` 仍是带接收者成员调用且一次；未迁移 endpoint 保留原 raw path，401/非 2xx/network/catch/latestData 语义不变。query 只省略 `undefined`/空数组，保留 `0`/空串，不预编码。decoder 固定索引单次读取、拒绝 sparse/未知 enumerable 字段，构造普通 page/event 与冻结数组；显式 `undefined` 和现有 JsonObject 顶层语义保持。Web 零改动，“双目标”仅指构建产物而非当前双端接入。
+- 构建自查：真实 DevTools 先暴露 `.cjs` 被补成 `.cjs.js`，再暴露旧 Acorn 不接受 `catch {}`；两项均先加回归边界再修复。最终构建前精确删除唯一 packed 目标，CLI 非零/缺失 summary/任一 warning 均失败；随后校验 packed 新鲜度、source hash、esbuild import graph、AST 级 Node/DOM/`wx` 全局、实际导出、fixture/PII 与包体，旧产物无法伪造成功。
+- 验证：完整 tracked Mini + core + gate 44 文件 / 323 项、发布边界 2 文件 / 15 项、Web 只读 API/事件/日历 4 文件 / 185 项通过；core/Mini typecheck、config audit、`pnpm miniprogram:lint`、任务文件 Prettier、Web build、frozen lockfile 与 diff check 通过。运行/浏览器验证：`pnpm smoke:browser` 7/7 通过，随后 `pnpm smoke:check-core` 通过。DevTools build-npm cost 3479、warnings `[]`，源/packed core 3702B/5176B；preview 360898 bytes / 352.4 KB。
+- 状态：**已完成**。自动化、浏览器及 DevTools 均绿；Android/iOS 仅作后续可选复核。下一批只实施 calendar/guest calendar/holiday descriptor 与 decode-before-cache。
 
 ### 事件时间线 D1（提交：fix(miniprogram): query assignment events on server，2026-08-13）
 

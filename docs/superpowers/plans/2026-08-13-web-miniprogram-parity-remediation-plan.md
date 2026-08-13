@@ -1,79 +1,132 @@
-# Web / 微信小程序业务与交互对齐修复计划
+# 小程序 Web 语义对齐与功能补全计划
 
 > 批准日期：2026-08-13
-> 权威顺序：当前 API integration / contracts / 安全决议 > 经测试验证的 Web 业务语义 > 小程序平台 UI 适配。
+> 权威顺序：现行 API / Contracts 与安全约束 → 已验证的 Web 业务语义 → 小程序 UI 适配。
 
-进度：P0.1–P0.3、日历可靠性 C1–C3 与事件时间线 D1 已于 2026-08-13 完成各自检查点并进入用户真机复核；下一批只解冻 shared client-core 的事件列表竖切，其余任务仍须按 `docs/project-status.md` 的 Active Batch 每轮实施 1–3 项。
+进度：P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1 已完成；D2 客户端核心运行时进入检查点验证。后续只按 `docs/project-status.md` 的 Active Batch 每轮实施 1–3 项。
 
-## 1. 目标与边界
+## 总体原则
 
-本计划纠正 V3-1 至 V3-4 中因复制实现、缩减页面或平台适配而产生的业务漂移。Vue SFC、DOM、TDesign Vue、浏览器生命周期和 `fetch` 不直接运行于微信小程序；日期、筛选、状态机、权限矩阵、候选规则、请求描述、事件叙述、运行时契约和保存请求构造应抽为无 Vue/DOM/wx 依赖的共享 TypeScript 内核，两端只保留渲染与平台副作用 adapter。
+- 从 `ca6141b` / D2 继续；已完成的手动排班、日历可靠性、跨群上下文和事件班次过滤作为回归基线，不重复重写。
+- `apps/web/**` 全程只读，包含源码、样式和测试；每个检查点要求 `git diff -- apps/web` 为空。Web 只用于交互、业务语义、现有测试向量和截图对照。
+- 已确认的 Web 漂移（旧 `/groups/claim`、错误操作者 ID、缺版本写入等）不复制。
+- 纯逻辑进入无 Vue、DOM、`wx`、`fetch` 的核心包；小程序只保留 WXML/WXSS、生命周期、导航、请求和移动端副作用适配。
+- 所有新增 API 字段保持旧客户端兼容：请求字段可选，响应字段可选或使用新增端点。Web 不接入新逻辑。
+- 每个复杂域独立检查点，遵守每轮 1–3 项任务：红测 → 实现 → 语义审计 → 文档更新 → 显式暂存 → commit → push。
+- 不读取、修改、格式化或暂存用户/DevTools 未跟踪目录 `apps/miniprogram/minitest/`。
 
-“对齐 Web”不等于复制已知陈旧 Web 行为。已确认的例外包括 Web Event Center 操作者 ID 类型漂移、Web profile PATCH 缺 version，以及已经删除的 `/groups/claim`；这些以当前 API、contracts 和安全决议为准，并在共享内核落地时同时修正两端。
+## 实施顺序
 
-不读取、修改、格式化或暂存用户/DevTools 未跟踪目录 `apps/miniprogram/minitest/`。每轮只完成 1–3 个任务，并形成独立检查点。
+### D2 客户端核心运行时
 
-## 2. 已批准的产品决策
+- 新建 `packages/client-core`，提供端点描述器、查询映射器和严格轻量解码器。
+- 同源输出浏览器 ESM 与小程序 CommonJS，但当前仅小程序消费；Web 保持只读。首个纵向切片为事件列表。
+- Mini 的 malformed 2xx 统一转为本地 `INVALID_RESPONSE`，不得进入 controller、session 或缓存。
+- Mini 产物上限 20KB、目标 10KB，禁止包含 Zod、Contracts runtime、Node/DOM/`wx`/`fetch` 全局。
 
-### 2.1 岗位允许班种映射
+### D3 日历读取契约
 
-- 新增显式 `scheduleRole ↔ shiftType` 多对多关系、契约、API、配置 UI 与保存校验。
-- 迁移时，现有每个未删除岗位关联现有每个未删除班种。
-- 新建岗位默认关联全部未删除班种；新建班种默认关联全部未删除岗位。
-- 停用班种可保留关联但不可新填；历史已发布班次继续使用快照。
-- 删除关联不改写历史发布记录；模板或草稿中的旧引用显示 stale 警告，并在修正前阻止保存/应用/发布。
-- 手动排班 palette 取“当前岗位允许且启用”的交集；网格解析继续保留全量班种和快照。
+- 迁移 calendar、guest calendar 与 holiday 的端点描述器和解码器，保证解码先于缓存。
+- 保留节假日失败非阻断、SWR、403/409 不回退敏感缓存、跨群清理和三月内存上限。
+- event detail 的 descriptor/decoder 在紧邻的事件读取切片完成，不与日历缓存状态机混改。
 
-### 2.2 移动端密度
+### D4 日历共享逻辑与交互对齐
 
-- 月格保留已批准的单字班种与最多两字节假日策略。
-- 日期/值班/事件详情必须无损显示完整岗位、班种全称/简称、时间、人员和事件语义。
-- 多选、清空、错误/空态、权限、并发和业务后果不得以移动端适配为由降级。
+- 新建零运行时依赖的 `calendar-core`，承载日期/月周运算、筛选、排序、网格、列表、事件展示和空态逻辑；Web 仅作 golden baseline。
+- 岗位、班种、成员改为可搜索多选 Sheet，支持全选、清空和显式应用。
+- 增加“今天”“本周”和年月直达；导航和视图切换在 loading/error 时仍可操作。
+- 补齐月/周/列表空态、完整日期和值班详情、缓存提示聚合。
+- 月格继续保留已批准的单字班种和两字节假日密度，完整名称、时间和岗位在可触达详情中无损展示。
 
-## 3. 分批实施
+### D5 工作流写入可靠性
 
-### Task P0.1：移除生产 fixture 与敏感样本
+- 请假、换班、加扣班统一拆为 `submitting → committed → reconciling → reconcile-error`。
+- 2xx 后立即认定提交成功；刷新失败只允许重试刷新，绝不重放 mutation。
+- 按用户、群组、动作、对象、版本和规范化表单指纹保存稳定 `operationId`；未知网络结果重试复用同一 ID，表单或上下文变化才换 ID。
+- 补候选真值表、请求去重分区、显式预览与确认、撤销原因、完整 409 摘要。
+- `CreateLeaveRequest` 增加可选 `operationId`，旧 Web 请求继续走兼容路径。
 
-1. 先用失败测试证明普通 `develop` 会启用 fixture、生产页面静态引用黄金样本，且样本含明文电话/生产样式标识。
-2. 普通 develop/release/trial 均默认走真实 session 与 API；fixture 只允许测试注入或明确的非生产测试入口。
-3. 从小程序生产页面依赖图移除 `calendar-golden-data.ts`；测试继续通过测试侧 fixture 注入。
-4. 将仓库样本改为完全合成、匿名数据，并增加发布依赖图/PII 扫描门禁。
+### D6 邀请可恢复性
 
-停止条件：生产页面与配置不再引用 fixture；默认 develop 走真实 API；fixture 测试仍可运行；扫描不再命中旧号码或生产样式标识。
+- `AcceptInviteRequest` 增加可选 `operationId`；Mini 持久保存 token、确认姓名和 operationId，直到成功或用户明确放弃。
+- 数据库记录最终接收用户和接受 operationId；同用户、同操作重放返回权威群组，不同操作或身份仍返回 `INVITE_USED`。
+- 账号合并后响应丢失时，通过重新微信登录并重放同一操作恢复，不在通用幂等表保存 JWT。
+- 邀请创建使用专用加密回执支持同 operationId 重放；密文在使用、撤销或过期后清理，绝不保存明文 token。
 
-### Task P0.2：群组上下文与无群组旅程
+### D7 岗位允许班种模型
 
-1. 先用页面行为测试证明点击群组 B 的日历/通知必须先成功设置 B，再导航；未知或不可用群组不导航。
-2. 所有 group-scoped 工作台入口使用同一上下文切换路径，并显示当前群组/角色选中态。
-3. 零群组用户看到全局“群组与账号”区，可进入现有群组中心发现/加入群组或处理邀请，并可进入账号资料，不再落入空白工作台；群组创建和完整邀请管理仍属于后续功能面批次。
-4. profile 只有 `activeGroup.role === 'guest'` 时进入访客最小模式；无群组的正常已认证账号仍可编辑账号资料。
+- 新增软删除的 `schedule_role_shift_types` 关联表及审计/version 字段。
+- 迁移时建立“所有启用岗位 × 所有启用班种”；新岗位默认关联全部现有班种，新班种默认关联全部现有岗位。
+- `ScheduleRole` 增加可选 `allowedShiftTypeIds`；新增 `PUT /groups/:groupId/schedule-roles/:roleId/shift-types`。
+- 停用班种保留关系但不可新填；删除关系不改历史排班。当前默认轮值班种若将被移除则返回 409。
 
-停止条件：owner/administrator/member/guest/group-less/platform-only 导航矩阵通过；跨群 tab 不再读取旧群组。
+### D8 岗位班种全链路防线与配置 UI
 
-### Task P0.3：邀请逃生与会话软依赖
+- 在模板保存/更新、模板应用预览/应用、草稿生成、补录和发布事务中统一校验“允许且启用”；发布是最终防线。
+- 已发布历史保持可读；旧模板或草稿中的禁用/不允许班种继续显示快照和 stale 警告，但阻止保存、应用和发布。
+- 手动排班 palette 固定为“所选岗位允许班种 ∩ 启用班种”，网格解析仍使用全量班种。
+- 补完整排班配置页面：岗位、成员、允许班种、轮值顺序、轮值规则、班种管理和版本冲突处理。
+- 继续锁定手排原始验收：返回键、岗位选择、成员多选、开始日期、1–31 天周期、新建/重置模板、下一可用开始日、跨年节假日和创建后转更新。
 
-1. 邀请解析失败、过期、撤销、姓名不符或网络错误时保留错误原因，并提供“暂不加入/放弃邀请”；该动作只清本地 pending token 并回工作台。
-2. 接受邀请的服务端提交与上下文 reconciliation 分相位：accept 2xx 后绝不再显示“接受失败”或重提 accept；profile/groups 刷新失败显示“已加入，资料刷新失败”，只重试刷新。
-3. replacement token 必须在清 pending token 前保存。
-4. `/platform/me` 为辅助能力；非 401 失败降级 `isPlatformAdmin=false`，不阻断 profile/groups 会话。401 仍执行既有精确清理。
+### D9 群组、成员和邀请管理
 
-停止条件：有效/过期/撤销/姓名不符/响应后刷新失败矩阵通过；同一次邀请最多提交一次 accept；平台辅助接口故障不阻断普通登录。
+- 补 `addGroupMembers`、轮值排序/规则 Mini wrapper，以及邀请分页列表、状态、按 inviteId + version 撤销。
+- 实现群组创建、改名、群组码、访客二维码/密钥轮换、解散/恢复、所有权转让、成员/名单/联系方式、岗位分配和邀请向导。
+- 一次性群组写入增加兼容的 operationId 与 commit/reconcile 状态；危险操作必须明确说明后果并二次确认。
+- 永久禁止恢复 `/groups/claim`；离组成员只能通过当前邀请/管理员流程恢复。
 
-### 后续批次（冻结，须在上一检查点后重新读代码展开）
+### D10 事件中心
 
-1. 日历可靠性：holiday 非阻断、前台 stale-while-revalidate、跨月周精确错误、三月有界内存、上下文切换清敏感 Sheet 与事件 `shiftId` 服务端过滤均已完成。
-2. 共享运行时：双目标 `calendar-core`、`client-core`、统一 endpoint descriptor/runtime decoder，并由 Web 与小程序共同消费 parity corpus。
-3. 日历交互：三类多选、今天/本周/年月直达、常驻导航、列表空态、完整详情和事件 display VM。
-4. 工作流可靠性：mutation commit/reconciliation 分离、稳定 operationId ledger、候选真值表、preview/confirm、409 摘要、请求分区去重。
-5. 群组/邀请 API：邀请接受幂等恢复、一次性写 operationId、event operator facets、缺失 `addGroupMembers` wrapper 和需要的邀请管理元数据。
-6. 岗位允许班种：数据库迁移、contracts/API/service/integration、Web 与小程序配置/编辑器接入、stale 迁移与阻断。
-7. 完成功能面：补录、事件中心、统计/导出、成员/邀请、排班配置、群组默认通知；平台运维作为独立管理面批次。
-8. 双端与设备验收：共享 corpus、Web 浏览器、DevTools、Skyline/WebView、低端 Android/iOS、包体/性能/隐私扫描。
+- 新增 `EventOperatorFacet { userId, displayName }` 与事件 facets 端点；历史、离组操作者仍可显示安全名称。
+- API 暂时兼容同群 membershipId 查询，但跨群 membershipId 不得映射。
+- Mini 增加独立事件中心、完整筛选、cursor 分页、事件详情、关联链和访客访问日志；班次内最近 100 条行为保持不回归。
 
-## 4. 通用测试与提交门禁
+### D11 补录
 
-- 每个回归先运行 `git log -S` 与 `git blame` 定位引入点，再写旧代码失败、新代码通过的测试。
-- 所有异步修改审计接收者绑定、catch 范围、空值语义、generation/single-flight、副作用与调用次数。
-- 触及认证、路由、API、contracts、Web 核心链路时运行 `pnpm smoke:browser`，随后运行 `pnpm smoke:check-core`。
-- 小程序至少运行定向测试、完整 `pnpm vitest run apps/miniprogram`、config audit、typecheck、lint、Prettier、`git diff --check` 和 DevTools 构建/路由 smoke（若运行环境可用）。
-- 每个 checkpoint 更新 `docs/project-status.md` 与 `docs/debug/debug-feedback-log.md`，显式暂存相关文件并正常快进推送。
+- 增加原子批量端点 `POST /groups/:groupId/past-schedules/assignments/batch`，请求为 operationId 加 create/update 判别联合，事务全成功或全回滚。
+- Mini 实现岗位/月选择、仅过去日期、成员/允许班种 palette、多日期暂存、原因、一次确认和最近记录。
+- 禁止未来日期；已有排班更新必须携带 period/assignment 版本并遵守岗位班种映射。
+
+### D12 统计与导出
+
+- 补月/年统计、成员/岗位/班种折叠视图，以及管理员刷新和重算。
+- 导出实现创建、轮询、后台恢复、认证下载、打开/分享降级；持久化 pending jobId，避免重复创建。
+- 导出数据继续禁止手机号，并验证 completed、failed、expired 全状态。
+
+### D13 通知与资料
+
+- 在现有个人偏好、订阅消息和通知中心基础上补管理员群组默认提醒设置、未读 badge 和前台刷新。
+- 保持 `null=继承、[]=关闭、自定义数组=覆盖` 的精确语义。
+- 资料页补账号注销入口、强确认、不可注销原因以及成功后的 token、群组、日历和隐私缓存清理。
+
+### D14 平台管理
+
+- 新增 cursor 分页的 `/platform/users` 与 `/platform/groups` 安全发现端点，取消手填 UUID。
+- 建立独立平台分包：任务、备份、回收站、用户、群组和节假日 preview/import/confirm/coverage。
+- 非平台用户无入口、直达受 guard、API 保持 403；破坏性写操作只在隔离开发数据验收。
+
+### D15 契约闭环与最终预览
+
+- 每个域实施时同步迁移对应 JSON decoder；最后静态审计不得再有裸 `request<T>` 处理 JSON。
+- 仅保留显式 `requestText`、`requestBlob`、`requestVoid` 通道。
+- 所有工作台占位 toast 替换为真实路由；所有 `navigateTo` 页面使用返回导航，并在切群、退出和后台恢复时清除旧敏感状态。
+- 完成全量自动化、DevTools 构建、包体/PII 扫描和最终 preview。
+
+## 移动端 UI 约束
+
+- 延续现有医疗排班的浅蓝、浅绿、白色和高可读性设计，不新增第二套设计语言或 UI 框架。
+- 桌面多选改为底部 Sheet；桌面表格改为卡片、折叠区或可横向滚动网格；预览/暂存流程使用安全区固定操作栏。
+- 可点击目标不小于 88rpx，处理键盘、安全区、长姓名、空数据和弱网。
+- 日历继续是唯一 Skyline-first 页面；其他新页面保持 WebView，并完成冷启动、返回和切群验证。
+
+## 验证与完成标准
+
+- 每个修复先用 `git log -S`/`git blame` 定位引入点，并写旧实现失败、新实现通过的测试。
+- 核心场景覆盖多群切换、0/1/100 成员、101+ 事件、跨月/跨年/闰年、停用/删除/stale 班种、重复点击、响应丢失、2xx 后刷新失败、401/403/409、前后台切换和陈旧请求隔离。
+- API/数据库批次运行真实测试 MySQL integration、迁移升级测试、Contracts 测试和浏览器 smoke；不执行生产数据库迁移。
+- Mini 每批只运行 Git 已跟踪测试，明确排除 `apps/miniprogram/minitest/`，并运行 config audit、typecheck、按已跟踪文件 lint、任务文件 Prettier、`smoke:check-core` 和 `git diff --check`。
+- Web 只运行现有测试、build 和 browser smoke，不修改任何 Web 文件。岗位映射收窄后，Web 可能仍展示不允许班种并被后端拒绝，这是已接受的兼容边界，Mini 为权威编辑端。
+- DevTools 完成全量编译、build-npm、preview、新路由冷启动/返回/切群、日历 Skyline/WebView/Auto 检查，以及 bundle 中 Zod、fixture、PII 和真实手机号扫描。
+- 自动化和 DevTools preview 全绿即视为计划完成；Android/iOS 真机验证作为后续可选复核，不阻塞完成状态。
+- 每个安全检查点更新 `docs/project-status.md` 和调试记录，显式暂存相关文件，提交并正常推送 `main`。
+- 最终仅提交与 preview，不部署 ECS、不迁移生产数据库；生产发布需另行明确授权。

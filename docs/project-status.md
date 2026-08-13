@@ -6,12 +6,21 @@
 
 - 日期：2026-08-13
 - 分支：`main` / 上游：`origin/main`
-- Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
+- Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施继续作为语义基准；`apps/web/**` 自 D2 起严格只读，不接入新核心包。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
-- V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：用户已批准 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。首批 P0.1–P0.3、日历可靠性 C1–C3 与事件时间线 D1 均已实现并完成自动化及 DevTools preview 验证；D1 检查点完成后停止，不提前实施共享 runtime、岗位允许班种或完整功能面。
+- V3：V3-2 历史代码检查点为 `9629454` 且已在 `origin/main`；当前补全计划取代旧 V3-6 交接口径。自动化和 DevTools preview 全绿即可完成，Android/iOS 真机仅作后续可选复核。
+- 当前批次：用户已批准并扩充 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1 与客户端核心运行时 D2 已完成自动化、Web 只读回归和 DevTools preview；下一批只实施 D3 日历读取契约。
 
 ## Completed Batch
+
+### 客户端核心运行时 D2：事件列表严格解码竖切（2026-08-13）
+
+- 根因与范围：`git log -S`/`git blame` 将小程序所有 2xx 直接 `response.data as T` 追溯到脚手架 `7fe5590`，事件 query 映射的最近复制追溯到 `ca6141b`；Web 的完整 query 与 strict schema 基准来自 `7ac2a07`/`d779371`。本轮新建无 Vue/DOM/`wx`/`fetch` runtime 的 `@schedule/client-core`，同时输出浏览器 ESM、Node CJS 与 Mini 专用 CJS，但遵照用户硬约束只有小程序消费，`apps/web/**` 零改动。
+- 红绿实现：旧 Mini 对带额外字段或错型的事件 2xx 会直接进入 controller；新 transport 仅在 2xx 调用 descriptor decoder，失败或 decoder 抛错统一产生不泄露原始 body 的本地 `INVALID_RESPONSE`，401、非 2xx、网络错误、接收者绑定与调用次数保持不变。事件 query 只省略 `undefined`/空 `eventTypes`，保留 `0`/空串，group path 编码一次，GET data 原值交给 `wx.request` 序列化。
+- 契约与安全审查：decoder corpus 与权威 `scheduleEventPageSchema` 同判；独立审查另复现稀疏数组、覆写 `every`、继承 enumerable extra/index、重复 getter、欺骗 `in` 的 Proxy、返回原对象及 hostile `then` 的绕过。修复后按固定索引逐项单读并生成普通 canonical page/event 与新冻结数组，保留显式 `undefined` 和现有 JsonObject 顶层语义，Promise assimilation 不再泄漏原始异常。所有成功/畸形 corpus、类型双向兼容和 hostile trap 均有红绿测试。
+- 构建门禁：干净检出测试通过 Vitest source alias，不依赖 ignored `dist`；Mini typecheck/lint 显式排除用户未跟踪 `minitest/`。真实 DevTools 先后暴露 `.cjs` 被补成 `.cjs.js` 与旧 Acorn 不支持 `catch {}`，因此 Mini entry 改为 nested CommonJS `.js`/ES2017；构建前精确清除旧 packed 包，随后校验 CLI `warnings`、mtime/source hash、esbuild metafile、实际 packed 导出、禁止 runtime、fixture/PII 与包体，旧产物不能掩盖失败。
+- 验证：完整 tracked Mini + core + gate 为 44 文件 / 323 项，发布边界 2 文件 / 15 项，Web 只读 API/事件/日历基准 4 文件 / 185 项均通过；core/Mini typecheck、config audit、`pnpm miniprogram:lint`、任务文件 Prettier、frozen lockfile 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 7/7 通过，随后 `pnpm smoke:check-core` 通过。DevTools `build-npm` cost 3479、warnings `[]`，源 Mini bundle 3702B、packed 5176B；preview 360898 bytes / 352.4 KB。
+- 状态：**已完成**。自动化、浏览器和 DevTools 门禁均通过；Android/iOS 仅作后续可选复核。检查点提交信息为 `feat(miniprogram): add strict client core runtime`；下一批只迁移 calendar/guest calendar/holiday 读取契约，不提前开始 calendar-core 或日历 UI。
 
 ### 事件时间线 D1：按班次服务端过滤（2026-08-13）
 
@@ -273,6 +282,7 @@
 - V3-4 阶段计划：新计划、路线图、设计状态、项目状态和调试日志的 Prettier 检查通过；Task 11 的 9 个红测步骤、9 项处女原则验收场景、Task 12/13 冻结边界、既有 wrapper/route provenance 与禁止项均经自审。`pnpm smoke:check-core` 通过并确认仅文档变更无需浏览器冒烟；`git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改 Web/API/契约/认证/构建核心链路）。
 - V3-4 手动排班 Web 对齐修复：定向 4 文件 / 19 项、完整小程序与静态边界 43 文件 / 197 项通过；config audit、typecheck、任务文件 lint/Prettier、`pnpm smoke:check-core` 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（只改小程序手动排班逻辑/页面和静态测试，未改列举的 Web/API/认证/契约/构建核心链路）。DevTools build/preview 成功且无 warning，自动化端口 `9434` 实际打开手动排班页；标准全路由 smoke 与原生 picker RPC 连接后超时，保留 Android/iOS 触控复核。
 - Web / 小程序 parity 安全基础 P0.1–P0.3：完整小程序 40 文件 / 206 项、静态边界 5 文件 / 21 项通过；config audit、typecheck、目标 TypeScript ESLint、全任务 Prettier、`pnpm smoke:browser` 7/7 → `pnpm smoke:check-core` 与 `git diff --check` 通过。DevTools build-npm 无 warning，发布裁剪配置下 preview 为 342.9 KB；标准 automation smoke 在端口 `9435` 可连接后无输出超时，因此仅记录 preview 成功，不记页面旅程通过。
+- 客户端核心运行时 D2：完整 tracked Mini + core + gate 44 文件 / 323 项、发布边界 2 文件 / 15 项、Web 只读基准 4 文件 / 185 项通过；core/Mini typecheck、config audit、Mini lint、任务文件 Prettier、Web build、frozen lockfile、`pnpm smoke:browser` 7/7 → `pnpm smoke:check-core` 与 diff check 通过。DevTools build-npm 无 warning，实际 packed core 5176B，preview 352.4 KB。
 
 ## Decisions and Deviations
 
@@ -287,24 +297,25 @@
 - V3-3 工作流不使用统一 preview 模板：每个动作只发送当前合同提供的字段；管理员两类 direct 是独立特权路径，普通申请才遵守自动接受/群组审批设置。
 - Task 10.2 不扩展 API 或共享契约：通知读状态和未读数仍以服务端为准；提醒偏好仅提交微信开关与 duty 提醒小时，绝不写入浏览器提醒字段；通知首版不构造通用对象深链。profile 409 只刷新并呈现权威资料，绝不自动重放写入。
 - Task 10.3 匿名 visitor key 只存在控制器内存，不写入 session/cache/storage；公开页始终无 tabBar 且不复用认证 guest 控制器。群组页仅提供服务器允许的 join/leave/restore 请求，群主不能离开和历史成员仅管理员邀请均由服务端作最终裁决。
-- 手动排班的 Web 业务语义必须跨端保持一致，但 `.vue`/DOM/TDesign Vue 与 WXML/Page/setData 是不同运行时，只共享 JSON-safe editor core 和测试向量。当前契约没有岗位专属班种 allowlist，因此“适用班种”只能可靠按 `isEnabled` 过滤；若要按岗位限制班种，必须另行扩展契约/API，不能由客户端臆测。
+- 手动排班的 Web 业务语义必须跨端保持一致，但 `.vue`/DOM/TDesign Vue 与 WXML/Page/setData 是不同运行时。用户已批准新增岗位专属班种多对多模型、契约/API 与 Mini 权威配置端；迁移默认建立启用岗位 × 启用班种全关联，不能按名称臆测业务映射。Web 保持只读，收窄后可能仍显示不允许班种并由后端拒绝，这是已接受兼容边界。
+- D2 起 `apps/web/**` 为硬只读边界；“双目标核心包”表示同源生成 ESM/CJS 并通过 Web 既有回归，不表示当前让 Web 消费。所有新字段保持旧客户端兼容，Mini 为新功能权威编辑端。
 
 ## Previous Batch
 
-1. Web / 小程序 parity 安全基础 P0.1–P0.3 已由 `83444d8` 完成并推送。
-2. 日历可靠性 C1–C3 已由 `3539a50` 完成并推送；事件时间线 D1 已完成实现、自动化、API integration、独立审查与 DevTools preview，待本检查点提交/推送。
-3. V3-2 完整 Web/renderer/device/performance 证据仍显式保留到 V3-6，不作为自动化通过项。
+1. Web / 小程序 parity 安全基础 P0.1–P0.3、日历可靠性 C1–C3 与事件班次过滤 D1 已分别由 `83444d8`、`3539a50`、`ca6141b` 完成并推送。
+2. 客户端核心运行时 D2 已完成严格事件 decoder、Mini transport 接入、三目标构建、独立审查、Web 只读回归及 DevTools preview，待本检查点提交/推送。
+3. Android/iOS 真机验证按用户批准为可选复核，不阻塞自动化与 DevTools 全绿的完成状态。
 
 ## Active Batch
 
-1. 下一轮 Task D2：建立首个双目标 shared client-core 切片，让 Web 与小程序共同消费事件列表 query adapter、轻量 runtime decoder 和同一正常/畸形响应 corpus；`fetch`/`URLSearchParams` 与 `wx.request` 继续只作为平台 transport。
-2. D2 必须先证明当前两端 query 映射仍会漂移且小程序对畸形 2xx 直接 `as T`；共享模块必须无 Vue/DOM/wx/fetch 依赖，提供 Web ESM 与小程序可构建产物，并在 decoder 失败时统一返回 `INVALID_RESPONSE`、不发布状态或写缓存。只迁移事件列表这一条竖切，不顺手迁移全部 endpoints。
-3. 停止条件：D1 检查点完成并停止；下一次实现会话重新审计 workspace package/微信构建边界后才可开始 D2。日历多选/跳转、工作流可靠性、岗位允许班种和完整功能面继续冻结到各自后续批次。
+1. 下一轮 Task D3：在 `client-core` 增加受保护 calendar、公开 guest calendar 与 holiday 的 endpoint descriptor/严格 decoder，并用 Contracts 正常/畸形 corpus 锁定同判；不修改 `apps/web/**`。
+2. Mini 对应 endpoint 在任何 controller/cache 前完成解码；三个 guest public 请求继续显式 `auth:false`，malformed 2xx 不能写 session、内存或持久 cache。保留 holiday 非阻断、SWR、403/409 清敏感缓存、generation 与三月上限。
+3. 停止条件：上述三类读取竖切通过自动化、Web 只读回归与 DevTools preview 后提交/推送并停止；`calendar-core`、多选/今天/本周 UI、event detail 与后续写入域继续冻结。
 
 ## Handoff Requirements
 
 - 每个检查点前更新本文件和 `docs/debug/debug-feedback-log.md`。
-- Task 9/10 与 V3-4 Task 11–13 均为已完成历史，不再重复执行。后续共享内核、岗位允许班种契约及缺失功能以 `2026-08-13-web-miniprogram-parity-remediation-plan.md` 为新权威，仍按每轮 1–3 个任务推进。
+- Task 9/10 与 V3-4 Task 11–13 均为已完成历史，不再重复执行。后续读取契约、共享内核、岗位允许班种及缺失功能以 `2026-08-13-web-miniprogram-parity-remediation-plan.md` 为新权威，仍按每轮 1–3 个任务推进；Web 全程只读。
 - 只显式暂存当前检查点相关路径；提交前检查 `git diff`、`git diff --cached` 和行为变化清单。
 - 涉及 Web/API/认证/契约/构建核心链路时，按 `AGENTS.md` 运行并记录 `pnpm smoke:browser` 和 `pnpm smoke:check-core`。
 - 完成状态沿用“已实现待浏览器复核 → 已完成 → 待用户复核”。
