@@ -25,7 +25,7 @@ pnpm smoke:check-core
 git diff --check
 ```
 
-本轮额外通过 Markdown Prettier、Markdown 本地链接和 Web-only 关键词审计；源码目录无差异。
+此前文档整理轮次额外通过 Markdown Prettier、Markdown 本地链接和 Web-only 关键词审计；本轮已完成 Web-only 源码清理与验证。
 
 ## 本轮结果（2026-08-13）
 
