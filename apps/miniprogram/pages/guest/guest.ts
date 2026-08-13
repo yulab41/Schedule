@@ -1,14 +1,13 @@
-import { getGuestCalendar, resolveGuestGroup } from '../../api/endpoints.js';
+import { getGuestCalendar, getGuestHolidays, resolveGuestGroup } from '../../api/endpoints.js';
 import {
   createVisitorCalendarController,
+  type VisitorCalendarController,
   type VisitorCalendarState,
 } from '../../features/visitor/visitor-calendar-controller.js';
 
-const controller = createVisitorCalendarController({
-  getGuestCalendar,
-  getToday: () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' }),
-  resolveGuestGroup,
-});
+function getToday(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' });
+}
 
 interface GuestPageData {
   readonly businessMonth: string;
@@ -18,41 +17,52 @@ interface GuestPageData {
   readonly viewModel?: VisitorCalendarState['viewModel'];
 }
 
-function pageData(): GuestPageData {
-  const state = controller.state;
+interface GuestPageMethods {
+  controller?: VisitorCalendarController;
+  handleNextMonth(): void;
+  handlePreviousMonth(): void;
+  sync(): void;
+}
+
+function pageData(controller?: VisitorCalendarController): GuestPageData {
+  const state = controller?.state;
   return {
-    businessMonth: state.businessMonth,
-    errorMessage: state.errorMessage ?? '',
-    groupName: state.groupName ?? '',
-    status: state.status,
-    viewModel: state.viewModel,
+    businessMonth: state?.businessMonth ?? getToday().slice(0, 7),
+    errorMessage: state?.errorMessage ?? '',
+    groupName: state?.groupName ?? '',
+    status: state?.status ?? 'loading',
+    viewModel: state?.viewModel,
   };
 }
 
-Page({
+Page<GuestPageData, GuestPageMethods>({
   data: pageData(),
   onLoad(options: { readonly scene?: unknown }): void {
     wx.hideTabBar({});
+    this.controller = createVisitorCalendarController({
+      getGuestCalendar,
+      getGuestHolidays,
+      getToday,
+      publish: () => this.sync(),
+      resolveGuestGroup,
+    });
     this.sync();
-    void controller.activate(options.scene).finally(() => this.sync());
+    void this.controller.activate(options.scene);
   },
   onShow(): void {
     wx.hideTabBar({});
   },
   onUnload(): void {
-    controller.dispose();
+    this.controller?.dispose();
+    this.controller = undefined;
   },
   handleNextMonth(): void {
-    const operation = controller.changeMonth(1);
-    this.sync();
-    void operation.finally(() => this.sync());
+    void this.controller?.changeMonth(1);
   },
   handlePreviousMonth(): void {
-    const operation = controller.changeMonth(-1);
-    this.sync();
-    void operation.finally(() => this.sync());
+    void this.controller?.changeMonth(-1);
   },
   sync(): void {
-    this.setData(pageData());
+    this.setData(pageData(this.controller));
   },
 });

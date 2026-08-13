@@ -1,4 +1,10 @@
-import { decodeScheduleEventPage } from '@schedule/client-core';
+import {
+  buildCalendarReadEndpoint,
+  buildGuestCalendarReadEndpoint,
+  buildGuestGroupResolveEndpoint,
+  buildGuestHolidayReadEndpoint,
+  decodeScheduleEventPage,
+} from '@schedule/client-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { request, requestEndpoint, setUnauthorizedHandler, storeToken } from './client.js';
@@ -73,6 +79,40 @@ describe('API client authentication expiry', () => {
     expect(reLaunchMock).not.toHaveBeenCalled();
   });
 
+  it('omits the stored bearer and preserves the session for every public visitor descriptor', async () => {
+    const onUnauthorized = vi.fn();
+    setUnauthorizedHandler(onUnauthorized);
+    storeToken('private-session-token');
+    const requests = [
+      () => requestEndpoint(buildGuestGroupResolveEndpoint('a'.repeat(32))),
+      () => requestEndpoint(buildGuestCalendarReadEndpoint('group-1', 'a'.repeat(32), '2026-08')),
+      () => requestEndpoint(buildGuestHolidayReadEndpoint(2026)),
+    ];
+
+    for (const [index, startRequest] of requests.entries()) {
+      const result = startRequest();
+      const options = requestMock.mock.calls[index]?.[0] as WechatMiniprogram.RequestOption;
+      expect(options.header).not.toHaveProperty('Authorization');
+      options.success?.({
+        cookies: [],
+        data: {
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Public request rejected',
+            requestId: `public-${index}`,
+          },
+        },
+        header: {},
+        statusCode: 401,
+      } as unknown as WechatMiniprogram.RequestSuccessCallbackResult);
+      await expect(result).rejects.toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
+    }
+
+    expect(storage.get('schedule.session')).toBe('private-session-token');
+    expect(onUnauthorized).not.toHaveBeenCalled();
+    expect(reLaunchMock).not.toHaveBeenCalled();
+  });
+
   it('preserves the API rejection when the injected handler throws', async () => {
     setUnauthorizedHandler(() => {
       throw new Error('navigation failed');
@@ -126,6 +166,21 @@ describe('API client response decoding', () => {
     await expect(result).resolves.toBe(decodedValue);
     expect(decodeResponse).toHaveBeenCalledTimes(1);
     expect(decodeResponse).toHaveBeenCalledWith(rawBody);
+    expect(requestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a structurally valid 2xx calendar for a different request identity', async () => {
+    const result = requestEndpoint(buildCalendarReadEndpoint('group-1', '2026-08'));
+    respond(200, {
+      assignments: [],
+      businessMonth: '2026-09',
+      groupId: 'group-1',
+      members: [],
+      roles: [],
+      shiftTypes: [],
+    });
+
+    await expect(result).rejects.toMatchObject({ code: 'INVALID_RESPONSE', status: 200 });
     expect(requestMock).toHaveBeenCalledTimes(1);
   });
 

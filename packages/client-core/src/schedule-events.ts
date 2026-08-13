@@ -1,5 +1,11 @@
 import {
-  INVALID_RESPONSE,
+  decodeReadonlyArray,
+  decodeResult,
+  hasOnlyEnumerableKeys,
+  isObjectRecord,
+  type Mutable,
+} from './decode-helpers.js';
+import {
   type DecodeResult,
   type EndpointQueryValue,
   type JsonEndpointDescriptor,
@@ -46,9 +52,6 @@ export interface ScheduleEventQueryInput {
   readonly to?: string;
 }
 
-type UnknownRecord = Record<string, unknown>;
-type Mutable<Value> = { -readonly [Key in keyof Value]: Value[Key] };
-
 const pageKeys = new Set(['events', 'nextCursor']);
 const eventKeys = new Set([
   'affectedMembershipIds',
@@ -72,17 +75,6 @@ const eventKeys = new Set([
   'statisticsDelta',
 ]);
 
-function isObjectRecord(value: unknown): value is UnknownRecord {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function hasOnlyEnumerableKeys(value: UnknownRecord, allowedKeys: ReadonlySet<string>): boolean {
-  for (const key in value) {
-    if (!allowedKeys.has(key)) return false;
-  }
-  return true;
-}
-
 function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === 'string';
 }
@@ -92,16 +84,11 @@ function isOptionalJsonObject(value: unknown): value is JsonObject | undefined {
 }
 
 function decodeStringArray(value: unknown): readonly string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
+  return decodeReadonlyArray(value, decodeString);
+}
 
-  const length = value.length;
-  const decoded = new Array<string>(length);
-  for (let index = 0; index < length; index += 1) {
-    const item: unknown = value[index];
-    if (typeof item !== 'string') return undefined;
-    decoded[index] = item;
-  }
-  return Object.freeze(decoded);
+function decodeString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }
 
 function decodeScheduleEvent(value: unknown): ScheduleEvent | undefined {
@@ -194,17 +181,7 @@ function decodeScheduleEvent(value: unknown): ScheduleEvent | undefined {
 }
 
 function decodeScheduleEvents(value: unknown): readonly ScheduleEvent[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-
-  const length = value.length;
-  const decoded = new Array<ScheduleEvent>(length);
-  for (let index = 0; index < length; index += 1) {
-    const item: unknown = value[index];
-    const event = decodeScheduleEvent(item);
-    if (event === undefined) return undefined;
-    decoded[index] = event;
-  }
-  return Object.freeze(decoded);
+  return decodeReadonlyArray(value, decodeScheduleEvent);
 }
 
 function decodeScheduleEventPageValue(value: unknown): ScheduleEventPage | undefined {
@@ -221,14 +198,7 @@ function decodeScheduleEventPageValue(value: unknown): ScheduleEventPage | undef
 }
 
 export function decodeScheduleEventPage(value: unknown): DecodeResult<ScheduleEventPage> {
-  try {
-    const decoded = decodeScheduleEventPageValue(value);
-    return decoded !== undefined
-      ? { ok: true, value: decoded }
-      : { error: { code: INVALID_RESPONSE }, ok: false };
-  } catch {
-    return { error: { code: INVALID_RESPONSE }, ok: false };
-  }
+  return decodeResult(() => decodeScheduleEventPageValue(value));
 }
 
 export function buildScheduleEventListEndpoint(

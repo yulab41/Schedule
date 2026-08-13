@@ -9,9 +9,17 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施继续作为语义基准；`apps/web/**` 自 D2 起严格只读，不接入新核心包。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 历史代码检查点为 `9629454` 且已在 `origin/main`；当前补全计划取代旧 V3-6 交接口径。自动化和 DevTools preview 全绿即可完成，Android/iOS 真机仅作后续可选复核。
-- 当前批次：用户已批准并扩充 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1 与客户端核心运行时 D2 已完成自动化、Web 只读回归和 DevTools preview；下一批只实施 D3 日历读取契约。
+- 当前批次：用户已批准并扩充 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1、客户端核心运行时 D2 与日历读取契约 D3 已完成自动化、Web 只读回归和 DevTools preview；下一批只实施 D4 日历共享逻辑与交互对齐。
 
 ## Completed Batch
+
+### 日历读取契约 D3（2026-08-13）
+
+- 根因与范围：小程序 2xx 裸 cast 追溯到 `7fe5590`，公开 visitor wrapper 追溯到 `6ea5f45`，calendar wrapper 追溯到 `7c12be4`，holiday/period calendar 及公开 holiday 默认携带认证的遗漏追溯到 `2a88e48`，持久 calendar cache 追溯到 `42d6243`，Contracts strict 收紧追溯到 `d779371`。本轮只迁移 calendar、登录/匿名 guest calendar、holiday、visitor resolve 与 period calendar 读取；`apps/web/**` 保持零改动。
+- 红绿实现：`client-core` 新增四类 strict decoder 和七个 endpoint descriptor；纯 decoder 与现行 Contracts 正常/畸形/hostile corpus 同判，request-bound decoder 进一步绑定 group/month/year，period calendar 逐 assignment 绑定请求 period。Mini 七条读取统一在 transport 2xx 后、controller/cache 前解码；合法但属于另一群/月/年/period 的响应也产生不泄露 body 的 `INVALID_RESPONSE`。三个公开请求均显式 `auth:false`，真实 `wx.request` 测试证明已登录设备不发送 Bearer，公开 401 不清会话。
+- 日历与缓存安全：匿名 visitor 现在与 Web 语义一致地加载公共 holiday，calendar 先 ready、holiday pending/reject 不阻断；late enrich 受 generation/context/month/year/date 保护，页面卸载后不发布。旧持久 cache 在读取时绑定内部 calendar group/month 与 holiday year/date，错身份记录会被移除；写入 mismatch 被跳过。既有 SWR、holiday 非阻断、403/409 清敏感缓存、三月窗口与跨群生命周期均保留。独立只读审查最终结论 P0/P1/P2 均为 0。
+- 验证：`client-core` 4 文件 / 159 项、完整 tracked Mini 41 文件 / 249 项、10 个 Mini 静态/构建边界文件 / 42 项、Web 只读 API/日历基准 3 文件 / 170 项均通过；core/Mini typecheck、config audit、lint、任务文件 Prettier、Web build 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 7/7、随后 `pnpm smoke:check-core` 通过。DevTools `build-npm` cost 3307、warnings `[]`，源/packed core 为 9936B/11410B；preview 361968 bytes / 353.5 KB（main 291.7 KB）。标准路由 smoke 约 60 秒无输出后安全终止，未虚报页面旅程通过。
+- 状态：**已完成**。自动化、浏览器和 DevTools preview 门禁均通过；Android/iOS 按批准口径仅作可选复核。检查点提交信息为 `feat(miniprogram): validate calendar read boundaries`；下一批只实施 D4 `calendar-core` 与日历交互，不提前进入工作流写入、邀请或岗位映射。
 
 ### 客户端核心运行时 D2：事件列表严格解码竖切（2026-08-13）
 
@@ -303,14 +311,14 @@
 ## Previous Batch
 
 1. Web / 小程序 parity 安全基础 P0.1–P0.3、日历可靠性 C1–C3 与事件班次过滤 D1 已分别由 `83444d8`、`3539a50`、`ca6141b` 完成并推送。
-2. 客户端核心运行时 D2 已完成严格事件 decoder、Mini transport 接入、三目标构建、独立审查、Web 只读回归及 DevTools preview，待本检查点提交/推送。
-3. Android/iOS 真机验证按用户批准为可选复核，不阻塞自动化与 DevTools 全绿的完成状态。
+2. 客户端核心运行时 D2 已由 `59fe910` 完成并推送；D3 已完成 calendar/guest/holiday/visitor/period 严格读取、请求身份绑定、匿名 holiday 与旧 cache 身份加固，待本检查点提交/推送。
+3. Android/iOS 真机验证按用户批准为可选复核，不阻塞自动化与 DevTools preview 全绿的完成状态。
 
 ## Active Batch
 
-1. 下一轮 Task D3：在 `client-core` 增加受保护 calendar、公开 guest calendar 与 holiday 的 endpoint descriptor/严格 decoder，并用 Contracts 正常/畸形 corpus 锁定同判；不修改 `apps/web/**`。
-2. Mini 对应 endpoint 在任何 controller/cache 前完成解码；三个 guest public 请求继续显式 `auth:false`，malformed 2xx 不能写 session、内存或持久 cache。保留 holiday 非阻断、SWR、403/409 清敏感缓存、generation 与三月上限。
-3. 停止条件：上述三类读取竖切通过自动化、Web 只读回归与 DevTools preview 后提交/推送并停止；`calendar-core`、多选/今天/本周 UI、event detail 与后续写入域继续冻结。
+1. 下一轮 Task D4.1：新建零平台运行时依赖的 `calendar-core`，先迁移日期/月周运算、筛选、排序、月格/周/列表和空态纯逻辑；Mini 成为当前唯一消费者，Web 只作现有 golden baseline 且 `apps/web/**` 零改动。
+2. Task D4.2：把岗位、班种、成员改为可搜索多选 Sheet（全选/清空/显式应用），增加今天、本周和年月直达；loading/error 时导航与视图切换仍可操作，并保持现有 SWR、403/409、generation 与三月上限。
+3. Task D4.3 与停止条件：补齐月/周/列表空态、完整日期/值班详情及跨月 cache 提示聚合；保留月格单字班种和两字 holiday 密度。完成自动化、Web 只读回归与 DevTools preview 后提交/推送并停止；D5 工作流及以后域继续冻结。
 
 ## Handoff Requirements
 

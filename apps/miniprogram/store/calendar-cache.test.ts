@@ -12,7 +12,7 @@ import {
 
 const identity: CalendarCacheIdentity = {
   businessMonth: '2026-08',
-  groupId: 'group:1',
+  groupId: goldenCalendar.groupId,
   groupRole: 'member',
   groupVersion: 7,
   userId: 'user:1',
@@ -33,7 +33,9 @@ describe('calendar read cache', () => {
     const record = cache.read(identity);
     expect(record).toMatchObject({ identity, savedAt: now.toISOString(), schemaVersion: 1 });
     expect(record?.calendar).toBe(goldenCalendar);
-    expect(buildCalendarCacheKey(identity)).toContain('user%3A1:group%3A1:member:7:2026-08');
+    expect(buildCalendarCacheKey({ ...identity, groupId: 'group:1' })).toContain(
+      'user%3A1:group%3A1:member:7:2026-08',
+    );
     expect(buildCalendarCacheKey({ ...identity, groupVersion: 8 })).not.toBe(
       buildCalendarCacheKey(identity),
     );
@@ -113,6 +115,65 @@ describe('calendar read cache', () => {
     expect(cache.read(identity)).toBeUndefined();
   });
 
+  it('rejects and removes shape-valid records whose nested data belongs to another identity', () => {
+    const storage = new Map<string, unknown>();
+    const removeStorageSync = vi.fn((key: string) => storage.delete(key));
+    const cache = createCalendarCache({
+      getStorageSync: (key) => storage.get(key),
+      removeStorageSync,
+      setStorageSync: (key, value) => storage.set(key, value),
+    });
+    const key = buildCalendarCacheKey(identity);
+    const cases = [
+      { calendar: { ...goldenCalendar, groupId: 'another-group' }, holidays: goldenHolidays },
+      { calendar: { ...goldenCalendar, businessMonth: '2026-09' }, holidays: goldenHolidays },
+      { calendar: goldenCalendar, holidays: { ...goldenHolidays, year: 2027 } },
+      {
+        calendar: goldenCalendar,
+        holidays: {
+          ...goldenHolidays,
+          dates: [
+            {
+              date: '2027-01-01',
+              holidayName: 'wrong-year',
+              isOffDay: true,
+              isWorkday: false,
+            },
+          ],
+        },
+      },
+    ];
+
+    for (const value of cases) {
+      storage.set(key, {
+        ...value,
+        identity,
+        savedAt: '2026-08-10T00:00:00.000Z',
+        schemaVersion: 1,
+      });
+      expect(cache.read(identity)).toBeUndefined();
+      expect(storage.has(key)).toBe(false);
+    }
+    expect(removeStorageSync).toHaveBeenCalledWith(key);
+  });
+
+  it('skips writes whose calendar or holiday data does not match the cache identity', () => {
+    const setStorageSync = vi.fn();
+    const cache = createCalendarCache({
+      getStorageSync: () => undefined,
+      removeStorageSync: () => undefined,
+      setStorageSync,
+    });
+
+    expect(() =>
+      cache.write(identity, { ...goldenCalendar, groupId: 'another-group' }, goldenHolidays),
+    ).not.toThrow();
+    expect(() =>
+      cache.write(identity, goldenCalendar, { ...goldenHolidays, year: 2027 }),
+    ).not.toThrow();
+    expect(setStorageSync).not.toHaveBeenCalled();
+  });
+
   it('treats storage exceptions as cache misses and removes one exact key', () => {
     const key = buildCalendarCacheKey(identity);
     const cache = createCalendarCache({
@@ -152,11 +213,16 @@ describe('calendar read cache', () => {
     };
     const cache = createCalendarCache(port);
     const otherUser = { ...identity, userId: 'user:2' };
-    const otherGroup = { ...identity, businessMonth: '2026-09', groupId: 'group:2' };
+    const otherGroup = { ...identity, businessMonth: '2026-09', groupId: 'other-group' };
+    const otherGroupCalendar = {
+      ...goldenCalendar,
+      businessMonth: otherGroup.businessMonth,
+      groupId: otherGroup.groupId,
+    };
 
     cache.write(identity, goldenCalendar, goldenHolidays);
     cache.write(otherUser, goldenCalendar, goldenHolidays);
-    cache.write(otherGroup, goldenCalendar, goldenHolidays);
+    cache.write(otherGroup, otherGroupCalendar, goldenHolidays);
     cache.removeForUserGroup(identity.userId, identity.groupId);
 
     expect(cache.read(identity)).toBeUndefined();

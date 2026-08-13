@@ -471,6 +471,12 @@ describe('calendar page controller', () => {
     const updates: CalendarMonthSlotUpdate[] = [];
     const harness = createHarness({
       cache: memory.cache,
+      getCalendar: vi.fn(async (groupId: string, businessMonth: string) => ({
+        ...calendar,
+        assignments: businessMonth === calendar.businessMonth ? calendar.assignments : [],
+        businessMonth,
+        groupId,
+      })),
       publishUpdate: (update) => updates.push(update),
     });
     const context = {

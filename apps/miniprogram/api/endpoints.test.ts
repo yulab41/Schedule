@@ -1,5 +1,6 @@
 import type {
   ApprovedLeaveRequestResult,
+  CalendarReadModel,
   CreateDirectDutyAdjustmentInput,
   CreateDirectSwapInput,
   DutyAdjustmentMutationInput,
@@ -7,6 +8,8 @@ import type {
   GroupDutyAdjustmentSettings,
   GroupLeaveReflowStrategy,
   GroupSwapSettings,
+  GuestCalendarReadModel,
+  HolidayReadModel,
   MemberSwapSettings,
   PreviewLeaveRequestInput,
   RejectedLeaveRequestResult,
@@ -19,6 +22,7 @@ import type {
   UpdateGroupLeaveReflowStrategyInput,
   UpdateGroupSwapSettingsInput,
   UpdateMemberSwapSettingsInput,
+  VisitorResolveResponse,
 } from '@schedule/contracts';
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
@@ -50,7 +54,11 @@ import {
   updateLeaveReflowStrategy,
   updateMySwapSettings,
   updateProfile,
+  getCalendar,
   getGuestCalendar,
+  getGuestHolidays,
+  getLoggedInGuestCalendar,
+  getSchedulePeriodCalendar,
   resolveGuestGroup,
   createManualScheduleTemplate,
   applyManualScheduleTemplate,
@@ -209,27 +217,135 @@ describe('workflow endpoint wrappers', () => {
 
 describe('Task 10 endpoint boundaries', () => {
   beforeEach(() => {
+    requestEndpointMock.mockReset();
     requestMock.mockReset();
   });
 
-  it('sends profile concurrency version and keeps public visitor calls unauthenticated', () => {
+  it('sends the profile concurrency version', () => {
     updateProfile({ realName: '张医生', version: 7 });
-    resolveGuestGroup('a'.repeat(32));
-    getGuestCalendar('group-1', 'b'.repeat(32), '2026-08');
 
-    expect(requestMock.mock.calls).toEqual([
-      ['/users/me', { data: { realName: '张医生', version: 7 }, method: 'PATCH' }],
+    expect(requestMock).toHaveBeenCalledWith('/users/me', {
+      data: { realName: '张医生', version: 7 },
+      method: 'PATCH',
+    });
+    expect(requestEndpointMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('calendar and holiday read endpoint boundaries', () => {
+  beforeEach(() => {
+    requestEndpointMock.mockReset();
+    requestMock.mockReset();
+  });
+
+  it('decodes protected and public reads through client-core descriptors', () => {
+    const protectedCalendar = getCalendar('group/1', '2026-08');
+    const archivedCalendar = getSchedulePeriodCalendar('group/1', 'period/1');
+    const loggedInGuestCalendar = getLoggedInGuestCalendar('group/1', '2026-08');
+    const guestResolve = resolveGuestGroup('a'.repeat(32));
+    const publicCalendar = getGuestCalendar('group/1', 'b'.repeat(32), '2026-08');
+    const protectedHolidays = getHolidays(2026);
+    const publicHolidays = getGuestHolidays(2026);
+
+    expect(requestMock).not.toHaveBeenCalled();
+    expect(requestEndpointMock.mock.calls).toEqual([
       [
-        '/guest/groups/resolve',
-        { auth: false, data: { visitorKey: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }, method: 'POST' },
+        expect.objectContaining({
+          auth: true,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/groups/group%2F1/calendar',
+          query: { businessMonth: '2026-08' },
+        }),
       ],
       [
-        '/guest/groups/group-1/calendar',
-        {
+        expect.objectContaining({
+          auth: true,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/groups/group%2F1/calendar/periods/period%2F1',
+        }),
+      ],
+      [
+        expect.objectContaining({
+          auth: true,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/groups/group%2F1/guest-calendar',
+          query: { businessMonth: '2026-08' },
+        }),
+      ],
+      [
+        expect.objectContaining({
           auth: false,
-          data: { businessMonth: '2026-08', visitorKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' },
-        },
+          body: { visitorKey: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+          decodeResponse: expect.any(Function),
+          method: 'POST',
+          path: '/guest/groups/resolve',
+        }),
       ],
+      [
+        expect.objectContaining({
+          auth: false,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/guest/groups/group%2F1/calendar',
+          query: {
+            businessMonth: '2026-08',
+            visitorKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          },
+        }),
+      ],
+      [
+        expect.objectContaining({
+          auth: true,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/holidays',
+          query: { year: 2026 },
+        }),
+      ],
+      [
+        expect.objectContaining({
+          auth: false,
+          decodeResponse: expect.any(Function),
+          method: 'GET',
+          path: '/guest/holidays',
+          query: { year: 2026 },
+        }),
+      ],
+    ]);
+
+    expectTypeOf(protectedCalendar).toEqualTypeOf<Promise<CalendarReadModel>>();
+    expectTypeOf(archivedCalendar).toEqualTypeOf<Promise<CalendarReadModel>>();
+    expectTypeOf(loggedInGuestCalendar).toEqualTypeOf<Promise<GuestCalendarReadModel>>();
+    expectTypeOf(guestResolve).toEqualTypeOf<Promise<VisitorResolveResponse>>();
+    expectTypeOf(publicCalendar).toEqualTypeOf<Promise<GuestCalendarReadModel>>();
+    expectTypeOf(protectedHolidays).toEqualTypeOf<Promise<HolidayReadModel>>();
+    expectTypeOf(publicHolidays).toEqualTypeOf<Promise<HolidayReadModel>>();
+  });
+
+  it('preserves present empty strings and zero at the transport boundary', () => {
+    getCalendar('', '');
+    getSchedulePeriodCalendar('', '');
+    getGuestCalendar('', '', '');
+    resolveGuestGroup('');
+    getHolidays(0);
+    getGuestHolidays(0);
+
+    expect(requestMock).not.toHaveBeenCalled();
+    expect(requestEndpointMock.mock.calls).toEqual([
+      [expect.objectContaining({ path: '/groups//calendar', query: { businessMonth: '' } })],
+      [expect.objectContaining({ path: '/groups//calendar/periods/' })],
+      [
+        expect.objectContaining({
+          path: '/guest/groups//calendar',
+          query: { businessMonth: '', visitorKey: '' },
+        }),
+      ],
+      [expect.objectContaining({ body: { visitorKey: '' }, path: '/guest/groups/resolve' })],
+      [expect.objectContaining({ path: '/holidays', query: { year: 0 } })],
+      [expect.objectContaining({ path: '/guest/holidays', query: { year: 0 } })],
     ]);
   });
 });
@@ -294,10 +410,11 @@ describe('event endpoint boundaries', () => {
 
 describe('manual template endpoint boundaries', () => {
   beforeEach(() => {
+    requestEndpointMock.mockReset();
     requestMock.mockReset();
   });
 
-  it('uses only the existing configuration, history, holiday, and template CRUD routes', () => {
+  it('uses only the existing configuration, history, and template CRUD routes', () => {
     const input = {
       cells: [{ cycleDay: 1, membershipId: 'member-1', shiftTypeId: 'shift-1' }],
       cycleDays: 7,
@@ -308,7 +425,6 @@ describe('manual template endpoint boundaries', () => {
     getSchedulingConfig(groupId);
     listManualScheduleTemplates(groupId);
     listSchedulePeriodHistory(groupId);
-    getHolidays(2026);
     createManualScheduleTemplate(groupId, input);
     updateManualScheduleTemplate(groupId, 'template-1', { ...input, expectedVersion: 2 });
     deleteManualScheduleTemplate(groupId, 'template-1');
@@ -317,7 +433,6 @@ describe('manual template endpoint boundaries', () => {
       [`/groups/${groupId}/scheduling-config`],
       [`/groups/${groupId}/manual-schedule-templates`],
       [`/groups/${groupId}/schedule-periods/history`],
-      ['/holidays?year=2026'],
       [`/groups/${groupId}/manual-schedule-templates`, { data: input, method: 'POST' }],
       [
         `/groups/${groupId}/manual-schedule-templates/template-1`,

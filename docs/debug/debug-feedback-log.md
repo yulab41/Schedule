@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 保持只读稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1 与首个 client-core 严格解码竖切 D2 均已通过自动化/DevTools preview；下一批只实施 D3 日历读取契约。
+当前阶段：Web 1.0 保持只读稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3、日历可靠性 C1–C3、事件班次过滤 D1、client-core D2 与日历读取契约 D3 均已通过自动化/DevTools preview；下一批只实施 D4 日历共享逻辑与交互对齐。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -18,6 +18,16 @@
 - 验证：……
 - 状态：已完成 / 待用户验收 / 遗留
 ```
+
+### 日历读取契约 D3（提交：feat(miniprogram): validate calendar read boundaries，2026-08-13）
+
+- 用户反馈/需求：继续完整实施已批准的小程序 Web 语义对齐计划，`apps/web/**` 全程只读；D3 只关闭 calendar/guest calendar/holiday 读取边界，不提前进入 `calendar-core` UI、工作流或岗位映射。
+- 根因/引入点：小程序裸 2xx cast 来自 `7fe5590`，公开 visitor wrapper 来自 `6ea5f45`，受保护 calendar 来自 `7c12be4`，holiday/period calendar 及公开 holiday 默认带认证来自 `2a88e48`，持久 cache 来自 `42d6243`，Contracts strict 来自 `d779371`。旧实现会让 malformed 或错群/月的 2xx 进入 controller/cache，匿名 visitor 不加载 holiday，且已登录设备访问 `/guest/holidays` 会携带 Bearer。
+- 红绿测试：core 缺失 decoder/export、strict/optional/hostile corpus、group/month/year/period identity、公开真实 header/401、匿名 holiday nonblocking/late cross-year、旧 cache 内外身份错配均先在旧实现失败。修复期间独立审查又发现 period assignment 绑定、公开传输整链、旧 cache 升级和 detached publish 异常，逐项补失败测试后转绿；最终审查无剩余 P0–P2。
+- 修复/功能：`client-core` 新增 calendar/guest/holiday/visitor decoder 与七个 descriptor，生成 canonical readonly snapshot并在 request-bound 层绑定身份。Mini 七个读取全走 `requestEndpoint`；公开 resolve/calendar/holiday 明确 `auth:false`。匿名 visitor 先发布 calendar，再异步 enrich holiday；failure 不阻断，generation/context/month/year/date 和 dispose 阻断迟到结果。持久 cache 读写绑定内部 group/month/year/date，旧错身份记录被删除且新 mismatch 不落盘。
+- 语义审计：`wx.request` 仍为成员调用且每 endpoint 一次；decoder 只在 2xx 执行，401/非 2xx/network 语义保持，唯一明确差异是 malformed/错身份 2xx 被拒和公开 holiday 不再发送 token。holiday 与 calendar 不重新合并为 `Promise.all`；SWR、403/409、三月窗口、跨群清理和 event D2 decoder hostile corpus保持。Web 零改动。
+- 验证：core 4 文件 / 159 项、完整 tracked Mini 41 文件 / 249 项、静态/构建边界 10 文件 / 42 项、Web 只读 API/日历 3 文件 / 170 项通过；core/Mini typecheck、config audit、lint、Prettier、Web build、diff check、`pnpm smoke:browser` 7/7 与随后 `pnpm smoke:check-core` 通过。DevTools build-npm cost 3307、warnings `[]`，源/packed core 9936B/11410B；preview 361968 bytes / 353.5 KB。标准路由 smoke 约 60 秒无输出后终止，未虚报通过。
+- 状态：**已完成**。自动化、浏览器与 DevTools preview 均通过；Android/iOS 按批准口径仅作可选复核。下一批只实施 D4 `calendar-core` 和日历交互。
 
 ### 客户端核心运行时 D2（提交：feat(miniprogram): add strict client core runtime，2026-08-13）
 

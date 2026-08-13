@@ -1,6 +1,6 @@
 import type { CalendarReadModel, GroupRole, HolidayReadModel } from '@schedule/contracts';
 
-import { parseBusinessMonth } from '../features/calendar/calendar-logic.js';
+import { parseBusinessDate, parseBusinessMonth } from '../features/calendar/calendar-logic.js';
 import { isCalendarReadModel, isHolidayReadModel } from './calendar-cache-validation.js';
 
 export const calendarCacheKeyPrefix = 'schedule.calendarCache.v1:';
@@ -72,6 +72,23 @@ function matchesIdentity(left: CalendarCacheIdentity, right: CalendarCacheIdenti
     left.groupVersion === right.groupVersion &&
     left.userId === right.userId
   );
+}
+
+function dataMatchesIdentity(
+  identity: CalendarCacheIdentity,
+  calendar: CalendarReadModel,
+  holidays: HolidayReadModel,
+): boolean {
+  if (calendar.groupId !== identity.groupId || calendar.businessMonth !== identity.businessMonth) {
+    return false;
+  }
+  const { year } = parseBusinessMonth(identity.businessMonth);
+  if (holidays.year !== year) return false;
+  try {
+    return holidays.dates.every(({ date }) => parseBusinessDate(date).year === year);
+  } catch {
+    return false;
+  }
 }
 
 export interface CalendarCache {
@@ -168,6 +185,17 @@ export function createCalendarCache(port: CalendarCachePort): CalendarCache {
       if (!isHolidayReadModel(candidate.holidays)) {
         return undefined;
       }
+      if (
+        !dataMatchesIdentity(
+          identity,
+          candidate.calendar as CalendarReadModel,
+          candidate.holidays as HolidayReadModel,
+        )
+      ) {
+        removeStoredIdentity(identity);
+        writeRegistry(identity.userId, withoutIdentity(readRegistry(identity.userId), identity));
+        return undefined;
+      }
       return candidate as unknown as CalendarCacheRecord;
     },
     remove(identity) {
@@ -193,6 +221,9 @@ export function createCalendarCache(port: CalendarCachePort): CalendarCache {
     },
     write(identity, calendar, holidays, now = new Date()) {
       assertIdentity(identity);
+      if (!dataMatchesIdentity(identity, calendar, holidays)) {
+        return;
+      }
       const record: CalendarCacheRecord = {
         calendar,
         holidays,

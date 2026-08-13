@@ -1,7 +1,11 @@
-import type { GuestCalendarReadModel, VisitorResolveResponse } from '@schedule/contracts';
+import type {
+  GuestCalendarReadModel,
+  HolidayReadModel,
+  VisitorResolveResponse,
+} from '@schedule/contracts';
 
 import { ApiClientError } from '../../api/client.js';
-import { addBusinessMonths } from '../calendar/calendar-logic.js';
+import { addBusinessMonths, parseBusinessDate } from '../calendar/calendar-logic.js';
 import {
   buildCalendarMonthViewModel,
   type CalendarMonthDataViewModel,
@@ -23,7 +27,9 @@ export interface VisitorCalendarControllerDependencies {
     visitorKey: string,
     businessMonth: string,
   ): Promise<GuestCalendarReadModel>;
+  getGuestHolidays(year: number): Promise<HolidayReadModel>;
   getToday(): string;
+  publish?(state: VisitorCalendarState): void;
   resolveGuestGroup(visitorKey: string): Promise<VisitorResolveResponse>;
 }
 
@@ -75,6 +81,19 @@ function toPublicCalendar(response: GuestCalendarReadModel): GuestCalendarReadMo
   };
 }
 
+function createUnavailableHolidays(year: number): HolidayReadModel {
+  return { confirmed: false, dates: [], year };
+}
+
+function isHolidayResultForYear(value: HolidayReadModel, year: number): boolean {
+  if (value.year !== year) return false;
+  try {
+    return value.dates.every(({ date }) => parseBusinessDate(date).year === year);
+  } catch {
+    return false;
+  }
+}
+
 export function createVisitorCalendarController(
   dependencies: VisitorCalendarControllerDependencies,
 ): VisitorCalendarController {
@@ -90,6 +109,7 @@ export function createVisitorCalendarController(
     (targetContext === undefined || targetContext === context);
   const publish = (next: VisitorCalendarState): void => {
     state = next;
+    dependencies.publish?.(next);
   };
   const loadMonth = async (
     operationGeneration: number,
@@ -114,18 +134,41 @@ export function createVisitorCalendarController(
         return;
       }
       const year = Number(businessMonth.slice(0, 4));
-      publish({
-        businessMonth,
-        groupName: response.groupName,
-        status: 'ready',
-        viewModel: buildCalendarMonthViewModel({
-          calendar,
-          filters: {},
-          holidays: { confirmed: false, dates: [], year },
+      const publishReady = (holidays: HolidayReadModel): void => {
+        publish({
+          businessMonth,
+          groupName: response.groupName,
           status: 'ready',
-          today: dependencies.getToday(),
-        }),
-      });
+          viewModel: buildCalendarMonthViewModel({
+            calendar,
+            filters: {},
+            holidays,
+            status: 'ready',
+            today: dependencies.getToday(),
+          }),
+        });
+      };
+      publishReady(createUnavailableHolidays(year));
+
+      let holidayResponse: Promise<HolidayReadModel>;
+      try {
+        holidayResponse = dependencies.getGuestHolidays(year);
+      } catch {
+        return;
+      }
+      void Promise.resolve(holidayResponse)
+        .then((holidays) => {
+          if (
+            !isCurrent(operationGeneration, targetContext) ||
+            state.businessMonth !== businessMonth ||
+            state.status !== 'ready' ||
+            !isHolidayResultForYear(holidays, year)
+          ) {
+            return;
+          }
+          publishReady(holidays);
+        })
+        .catch(() => undefined);
     } catch (error) {
       if (!isCurrent(operationGeneration, targetContext)) return;
       publish({ businessMonth, errorMessage: errorMessageFor(error), status: 'error' });

@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +17,7 @@ const packageJson = JSON.parse(
 };
 const buildSource = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
 const buildScriptPath = fileURLToPath(new URL('../scripts/build.mjs', import.meta.url));
+const require = createRequire(import.meta.url);
 
 beforeAll(() => {
   execFileSync(process.execPath, [buildScriptPath], { stdio: 'pipe' });
@@ -67,5 +69,29 @@ describe('client-core package boundary', () => {
     expect(inputPaths.length).toBeGreaterThan(0);
     expect(inputPaths.every((inputPath) => inputPath.startsWith('src/'))).toBe(true);
     expect(outputImports.every((entry) => entry.external !== true)).toBe(true);
+  });
+
+  it('exposes every D2/D3 runtime entry from the built CommonJS bundle', () => {
+    const commonJs = require(
+      fileURLToPath(new URL('../dist/index.cjs', import.meta.url)),
+    ) as Record<string, unknown>;
+    expect(Object.keys(commonJs).sort()).toEqual(
+      [
+        'INVALID_RESPONSE',
+        'buildCalendarReadEndpoint',
+        'buildGuestCalendarReadEndpoint',
+        'buildGuestGroupResolveEndpoint',
+        'buildGuestHolidayReadEndpoint',
+        'buildHolidayReadEndpoint',
+        'buildLoggedInGuestCalendarReadEndpoint',
+        'buildScheduleEventListEndpoint',
+        'buildSchedulePeriodCalendarReadEndpoint',
+        'decodeCalendarReadModel',
+        'decodeGuestCalendarReadModel',
+        'decodeHolidayReadModel',
+        'decodeScheduleEventPage',
+        'decodeVisitorResolveResponse',
+      ].sort(),
+    );
   });
 });

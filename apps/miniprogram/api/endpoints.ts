@@ -115,7 +115,16 @@ import type {
   WechatLoginResponse,
   YearStatistics,
 } from '@schedule/contracts';
-import { buildScheduleEventListEndpoint } from '@schedule/client-core';
+import {
+  buildCalendarReadEndpoint,
+  buildGuestCalendarReadEndpoint,
+  buildGuestGroupResolveEndpoint,
+  buildGuestHolidayReadEndpoint,
+  buildHolidayReadEndpoint,
+  buildLoggedInGuestCalendarReadEndpoint,
+  buildSchedulePeriodCalendarReadEndpoint,
+  buildScheduleEventListEndpoint,
+} from '@schedule/client-core';
 
 import { request, requestEndpoint } from './client.js';
 
@@ -139,11 +148,7 @@ export function createUserProfile(realName: string): Promise<UserProfile> {
 }
 
 export function resolveGuestGroup(visitorKey: string): Promise<VisitorResolveResponse> {
-  return request<VisitorResolveResponse>('/guest/groups/resolve', {
-    auth: false,
-    data: { visitorKey },
-    method: 'POST',
-  });
+  return requestEndpoint(buildGuestGroupResolveEndpoint(visitorKey));
 }
 
 export function getGuestCalendar(
@@ -151,10 +156,7 @@ export function getGuestCalendar(
   visitorKey: string,
   businessMonth: string,
 ): Promise<GuestCalendarReadModel> {
-  return request<GuestCalendarReadModel>(`/guest/groups/${groupId}/calendar`, {
-    auth: false,
-    data: { businessMonth, visitorKey },
-  });
+  return requestEndpoint(buildGuestCalendarReadEndpoint(groupId, visitorKey, businessMonth));
 }
 
 export function resolveInvite(token: string): Promise<ResolveInviteResponse> {
@@ -183,18 +185,14 @@ export function listGroups(): Promise<GroupSummary[]> {
 }
 
 export function getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel> {
-  return request<CalendarReadModel>(`/groups/${groupId}/calendar`, {
-    data: { businessMonth },
-  });
+  return requestEndpoint(buildCalendarReadEndpoint(groupId, businessMonth));
 }
 
 export function getLoggedInGuestCalendar(
   groupId: string,
   businessMonth: string,
 ): Promise<GuestCalendarReadModel> {
-  return request<GuestCalendarReadModel>(`/groups/${groupId}/guest-calendar`, {
-    data: { businessMonth },
-  });
+  return requestEndpoint(buildLoggedInGuestCalendarReadEndpoint(groupId, businessMonth));
 }
 
 export function listGroupMembers(groupId: string): Promise<GroupMember[]> {
@@ -1038,22 +1036,18 @@ export function updateGroupMemberContact(
 }
 
 export function getHolidays(year: number): Promise<HolidayReadModel> {
-  return request<HolidayReadModel>(`/holidays?year=${year}`);
+  return requestEndpoint(buildHolidayReadEndpoint(year));
 }
 
 export function getGuestHolidays(year: number): Promise<HolidayReadModel> {
-  return request<HolidayReadModel>(`/guest/holidays?year=${year}`);
+  return requestEndpoint(buildGuestHolidayReadEndpoint(year));
 }
 
 export function getSchedulePeriodCalendar(
   groupId: string,
   schedulePeriodId: string,
 ): Promise<CalendarReadModel> {
-  return request<CalendarReadModel>(
-    `/groups/${encodeURIComponent(groupId)}/calendar/periods/${encodeURIComponent(
-      schedulePeriodId,
-    )}`,
-  );
+  return requestEndpoint(buildSchedulePeriodCalendarReadEndpoint(groupId, schedulePeriodId));
 }
 
 export function listPastSchedulePeriods(groupId: string): Promise<PastSchedulePeriod[]> {

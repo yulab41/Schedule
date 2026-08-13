@@ -38,6 +38,8 @@ describe('Task 10.3 group and anonymous visitor boundaries', () => {
     );
     expect(controller).toContain('resolveGuestGroup');
     expect(controller).toContain('getGuestCalendar');
+    expect(visitor).toContain('getGuestHolidays');
+    expect(controller).toContain('getGuestHolidays');
   });
 
   it('renders anonymous visitor data as a calendar grid without phone actions, detail routes, notifications, or writes', () => {
