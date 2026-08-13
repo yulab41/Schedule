@@ -79,6 +79,7 @@ import type {
   ScheduleChangeImpactPreview,
   ScheduleDraftSummary,
   SchedulePeriodHistoryItem,
+  ScheduleEventQuery,
   SchedulePeriodMutationRequest,
   SchedulePeriodMutationResult,
   ScheduleRole,
@@ -563,13 +564,21 @@ export function rejectDutyAdjustment(
 
 export function listEvents(
   groupId: string,
-  cursor?: string,
-  pageSize = 50,
+  query: Omit<ScheduleEventQuery, 'groupId'>,
 ): Promise<ScheduleEventPage> {
-  return request<ScheduleEventPage>(`/groups/${groupId}/events`, {
+  return request<ScheduleEventPage>(`/groups/${encodeURIComponent(groupId)}/events`, {
     data: {
-      ...(cursor === undefined ? {} : { cursor }),
-      pageSize,
+      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+      ...(query.eventTypes === undefined || query.eventTypes.length === 0
+        ? {}
+        : { eventTypes: query.eventTypes.join(',') }),
+      ...(query.from === undefined ? {} : { from: query.from }),
+      ...(query.membershipId === undefined ? {} : { membershipId: query.membershipId }),
+      ...(query.operatorUserId === undefined ? {} : { operatorUserId: query.operatorUserId }),
+      ...(query.pageSize === undefined ? {} : { pageSize: query.pageSize }),
+      ...(query.scheduleRoleId === undefined ? {} : { scheduleRoleId: query.scheduleRoleId }),
+      ...(query.shiftId === undefined ? {} : { shiftId: query.shiftId }),
+      ...(query.to === undefined ? {} : { to: query.to }),
     },
   });
 }

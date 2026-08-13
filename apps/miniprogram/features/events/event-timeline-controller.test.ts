@@ -1,4 +1,4 @@
-import type { ScheduleEvent, ScheduleEventPage } from '@schedule/contracts';
+import type { ScheduleEvent, ScheduleEventPage, ScheduleEventQuery } from '@schedule/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -34,10 +34,10 @@ function makeEvent(id: string, affectedShiftIds = [assignment.assignmentId]): Sc
     affectedMembershipIds: [],
     affectedShiftIds,
     eventStatus: 'completed',
-    eventType: 'schedule_period_published',
+    eventType: 'swap_completed',
     groupId: 'group-1',
     id,
-    objectType: 'schedule_period',
+    objectType: 'swap_request',
     occurredAt: '2026-08-15T08:00:00+08:00',
     operationId: `operation-${id}`,
   };
@@ -62,7 +62,10 @@ function createDeferred<Value>() {
 }
 
 function createHarness(
-  listEvents: (groupId: string, cursor?: string, pageSize?: number) => Promise<ScheduleEventPage>,
+  listEvents: (
+    groupId: string,
+    query: Omit<ScheduleEventQuery, 'groupId'>,
+  ) => Promise<ScheduleEventPage>,
 ) {
   const states: EventTimelineState[] = [];
   const publish = vi.fn((state: EventTimelineState) => states.push(state));
@@ -74,12 +77,17 @@ function createHarness(
 }
 
 describe('event timeline controller', () => {
-  it('single-flights one exact identity, filters client-side, and publishes display-only data', async () => {
-    const listEvents = vi.fn(() =>
-      Promise.resolve({
-        events: [makeEvent('kept'), makeEvent('other', ['other-assignment'])],
-        nextCursor: 'next',
-      }),
+  it('queries the assignment on the server so an event beyond the group latest 100 remains visible', async () => {
+    const groupLatestEvents = Array.from({ length: 100 }, (_, index) =>
+      makeEvent(`group-latest-${index}`, [`other-assignment-${index}`]),
+    );
+    const targetEvent = makeEvent('target-outside-group-latest-page');
+    const listEvents = vi.fn((_groupId: string, query?: Omit<ScheduleEventQuery, 'groupId'>) =>
+      Promise.resolve(
+        query?.shiftId === assignment.assignmentId
+          ? { events: [targetEvent], nextCursor: undefined }
+          : { events: groupLatestEvents, nextCursor: 'group-next' },
+      ),
     );
     const harness = createHarness(listEvents);
 
@@ -89,34 +97,54 @@ describe('event timeline controller', () => {
     await first;
 
     expect(listEvents).toHaveBeenCalledTimes(1);
-    expect(listEvents).toHaveBeenCalledWith('group-1', undefined, 100);
+    expect(listEvents).toHaveBeenCalledWith('group-1', {
+      pageSize: 100,
+      shiftId: assignment.assignmentId,
+    });
     expect(harness.states.at(-1)).toMatchObject({
       assignmentId: assignment.assignmentId,
       groupId: 'group-1',
-      hasMore: true,
-      items: [{ id: 'kept' }],
+      hasMore: false,
+      items: [{ id: 'target-outside-group-latest-page' }],
       status: 'ready',
     });
     expect(JSON.stringify(harness.states.at(-1))).not.toContain('objectType');
   });
 
-  it('ignores stale completions across group and assignment identities', async () => {
+  it('derives the truncation notice from the selected assignment page', async () => {
+    const listEvents = vi.fn(() =>
+      Promise.resolve({ events: [makeEvent('recent')], nextCursor: 'assignment-next' }),
+    );
+    const harness = createHarness(listEvents);
+
+    await harness.controller.load('group-1', assignment);
+
+    expect(harness.states.at(-1)).toMatchObject({
+      hasMore: true,
+      items: [{ id: 'recent' }],
+      status: 'ready',
+    });
+  });
+
+  it('ignores stale completions between assignments in the same group', async () => {
     const firstResponse = createDeferred<ScheduleEventPage>();
     const secondResponse = createDeferred<ScheduleEventPage>();
     const listEvents = vi
-      .fn<(groupId: string, cursor?: string, pageSize?: number) => Promise<ScheduleEventPage>>()
+      .fn<
+        (groupId: string, query: Omit<ScheduleEventQuery, 'groupId'>) => Promise<ScheduleEventPage>
+      >()
       .mockReturnValueOnce(firstResponse.promise)
       .mockReturnValueOnce(secondResponse.promise);
     const harness = createHarness(listEvents);
     const nextAssignment = { ...assignment, assignmentId: 'assignment-2' };
 
     const first = harness.controller.load('group-1', assignment);
-    const second = harness.controller.load('group-2', nextAssignment);
+    const second = harness.controller.load('group-1', nextAssignment);
     firstResponse.resolve({ events: [makeEvent('stale')], nextCursor: undefined });
     await first;
     expect(harness.states.at(-1)).toMatchObject({
       assignmentId: nextAssignment.assignmentId,
-      groupId: 'group-2',
+      groupId: 'group-1',
       status: 'loading',
     });
 
@@ -127,15 +155,56 @@ describe('event timeline controller', () => {
     await second;
     expect(harness.states.at(-1)).toMatchObject({
       assignmentId: nextAssignment.assignmentId,
-      groupId: 'group-2',
+      groupId: 'group-1',
+      hasMore: false,
       items: [{ id: 'current' }],
+      status: 'ready',
+    });
+    expect(listEvents.mock.calls).toEqual([
+      ['group-1', { pageSize: 100, shiftId: assignment.assignmentId }],
+      ['group-1', { pageSize: 100, shiftId: nextAssignment.assignmentId }],
+    ]);
+  });
+
+  it('ignores stale completions for the same assignment after the active group changes', async () => {
+    const firstResponse = createDeferred<ScheduleEventPage>();
+    const secondResponse = createDeferred<ScheduleEventPage>();
+    const listEvents = vi
+      .fn<
+        (groupId: string, query: Omit<ScheduleEventQuery, 'groupId'>) => Promise<ScheduleEventPage>
+      >()
+      .mockReturnValueOnce(firstResponse.promise)
+      .mockReturnValueOnce(secondResponse.promise);
+    const harness = createHarness(listEvents);
+
+    const first = harness.controller.load('group-1', assignment);
+    const second = harness.controller.load('group-2', assignment);
+    firstResponse.resolve({ events: [makeEvent('stale-group')], nextCursor: undefined });
+    await first;
+    expect(harness.states.at(-1)).toMatchObject({
+      assignmentId: assignment.assignmentId,
+      groupId: 'group-2',
+      status: 'loading',
+    });
+
+    secondResponse.resolve({
+      events: [{ ...makeEvent('current-group'), groupId: 'group-2' }],
+      nextCursor: undefined,
+    });
+    await second;
+    expect(harness.states.at(-1)).toMatchObject({
+      assignmentId: assignment.assignmentId,
+      groupId: 'group-2',
+      items: [{ id: 'current-group' }],
       status: 'ready',
     });
   });
 
   it('handles failures without rejecting and resets the in-flight identity', async () => {
     const listEvents = vi
-      .fn<(groupId: string, cursor?: string, pageSize?: number) => Promise<ScheduleEventPage>>()
+      .fn<
+        (groupId: string, query: Omit<ScheduleEventQuery, 'groupId'>) => Promise<ScheduleEventPage>
+      >()
       .mockRejectedValueOnce(new Error('events unavailable'))
       .mockResolvedValueOnce({ events: [], nextCursor: undefined });
     const harness = createHarness(listEvents);

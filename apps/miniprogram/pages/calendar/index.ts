@@ -239,7 +239,7 @@ Page<CalendarPageData, CalendarPageMethods>({
       setClipboardData: (options) => wx.setClipboardData(options),
     });
     this.eventController = createEventTimelineController({
-      listEvents: (groupId, cursor, pageSize) => listEvents(groupId, cursor, pageSize),
+      listEvents: (groupId, query) => listEvents(groupId, query),
       publish: (eventTimeline) => {
         const content = this.data.sheetHost.content;
         const group = getActiveGroup();

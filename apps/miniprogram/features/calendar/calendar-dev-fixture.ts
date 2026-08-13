@@ -3,6 +3,7 @@ import type {
   GuestCalendarReadModel,
   HolidayReadModel,
   ScheduleEventPage,
+  ScheduleEventQuery,
 } from '@schedule/contracts';
 
 import {
@@ -18,7 +19,10 @@ export interface CalendarTestFixtureDependencies {
   getGuestHolidays(year: number): Promise<HolidayReadModel>;
   getHolidays(year: number): Promise<HolidayReadModel>;
   getLoggedInGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
-  listEvents(groupId: string, cursor?: string, pageSize?: number): Promise<ScheduleEventPage>;
+  listEvents(
+    groupId: string,
+    query: Omit<ScheduleEventQuery, 'groupId'>,
+  ): Promise<ScheduleEventPage>;
 }
 
 function getFixtureHolidays(year: number): HolidayReadModel {
@@ -40,8 +44,13 @@ export function createCalendarTestFixtureDependencies(): CalendarTestFixtureDepe
       calendar: getGoldenCalendar(businessMonth),
       groupName: calendarFixtureGroupName,
     }),
-    listEvents: async (_groupId, _cursor, pageSize = 100) => ({
-      events: goldenEvents.slice(0, pageSize),
-    }),
+    listEvents: async (_groupId, query) => {
+      const { shiftId } = query;
+      const matchingEvents =
+        shiftId === undefined
+          ? goldenEvents
+          : goldenEvents.filter((event) => event.affectedShiftIds.includes(shiftId));
+      return { events: matchingEvents.slice(0, query.pageSize ?? 50) };
+    },
   };
 }

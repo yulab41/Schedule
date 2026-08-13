@@ -11,6 +11,8 @@ import type {
   PreviewLeaveRequestInput,
   RejectedLeaveRequestResult,
   RejectLeaveRequestInput,
+  ScheduleEventPage,
+  ScheduleEventQuery,
   SwapRequestMutationInput,
   SwapRequest,
   UpdateGroupDutyAdjustmentSettingsInput,
@@ -53,6 +55,7 @@ import {
   getHolidays,
   getSchedulingConfig,
   listManualScheduleTemplates,
+  listEvents,
   listSchedulePeriodHistory,
   listScheduleDrafts,
   previewManualTemplateApply,
@@ -225,6 +228,51 @@ describe('Task 10 endpoint boundaries', () => {
         },
       ],
     ]);
+  });
+});
+
+describe('event endpoint boundaries', () => {
+  beforeEach(() => {
+    requestMock.mockReset();
+  });
+
+  it('adapts the complete event query contract and omits absent or empty filters', () => {
+    const eventGroupId = 'group/1';
+    const query = {
+      cursor: 'cursor/+=',
+      eventTypes: ['swap_completed', 'duty_adjustment_completed'],
+      from: '2026-08-01T00:00:00+08:00',
+      membershipId: 'membership-1',
+      operatorUserId: 'user-1',
+      pageSize: 100,
+      scheduleRoleId: 'role-1',
+      shiftId: 'assignment-1',
+      to: '2026-09-01T00:00:00+08:00',
+    } satisfies Omit<ScheduleEventQuery, 'groupId'>;
+
+    const response = listEvents(eventGroupId, query);
+    listEvents(eventGroupId, { eventTypes: [] });
+
+    expect(requestMock.mock.calls).toEqual([
+      [
+        '/groups/group%2F1/events',
+        {
+          data: {
+            cursor: 'cursor/+=',
+            eventTypes: 'swap_completed,duty_adjustment_completed',
+            from: '2026-08-01T00:00:00+08:00',
+            membershipId: 'membership-1',
+            operatorUserId: 'user-1',
+            pageSize: 100,
+            scheduleRoleId: 'role-1',
+            shiftId: 'assignment-1',
+            to: '2026-09-01T00:00:00+08:00',
+          },
+        },
+      ],
+      ['/groups/group%2F1/events', { data: {} }],
+    ]);
+    expectTypeOf(response).toEqualTypeOf<Promise<ScheduleEventPage>>();
   });
 });
 

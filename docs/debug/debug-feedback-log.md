@@ -2,7 +2,7 @@
 
 本文件保留 Web 1.0 的历史调试记录，并作为小程序 V3 的唯一调试日志入口。`docs/project-status.md` 只保留当前状态和下一批任务。
 
-当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3 与日历可靠性 C1–C3 均已实现并通过各自自动化/DevTools preview；Android/iOS 多群、邀请恢复与日历前后台/跨月/隐私生命周期仍待用户复核。
+当前阶段：Web 1.0 共享内核保持稳定；微信小程序 V3-0.5 至 V3-4 Task 13 已完成。手动排班入口层 Web parity、首批 P0.1–P0.3、日历可靠性 C1–C3 与事件时间线 D1 均已实现并通过各自自动化/DevTools preview；Android/iOS 多群、邀请恢复、日历前后台/跨月/隐私生命周期与真实事件数据仍待用户复核。
 
 重要决策（2026-08-09）：旧小程序设计、计划、移植清单、页面、组件、展示 utils 和自定义 tabBar 不得作为 V3 需求或实现依据。API、认证、共享契约、后端排班规则、数据库和部署基础设施保留。
 
@@ -18,6 +18,16 @@
 - 验证：……
 - 状态：已完成 / 待用户验收 / 遗留
 ```
+
+### 事件时间线 D1（提交：fix(miniprogram): query assignment events on server，2026-08-13）
+
+- 用户反馈/需求：继续执行已批准的 Web / 小程序 parity 计划；本轮只修复日历班次事件先取全组最近 100 条再本地筛选的漏数，不提前进入 shared runtime、岗位允许班种或完整功能面。
+- 根因/引入点：`git log -S`/`git blame` 将小程序简化位置参数 wrapper 定位至 `f8d6f52`，将全组查询与本地 `affectedShiftIds` 过滤定位至 `7d95a0a`；当前 contracts/API/Web 的 `shiftId` 服务端过滤来自 `7ac2a07`，API 排除周期/模板/配置级伪关联事件的调试修复来自 `7aa1f68`。API 会在 SQL limit/cursor 之前应用班次过滤，因此不需要新增路由或 service。
+- 红绿测试：先构造全组 100 条较新无关事件与其后的目标事件；旧 controller 传 `undefined, 100` 后得到空列表和全组 `hasMore`，新断言按预期失败。完整 `ScheduleEventQuery` adapter 与 test fixture 的新签名也在旧实现上失败。修复后定向 5 文件 / 19 项通过，并额外覆盖班次页 `nextCursor` 两态、同群换班次、同班次换群组、reset/错误和精确 single-flight。
+- 修复/功能：mini endpoint 接收 `Omit<ScheduleEventQuery, 'groupId'>`，完整转发 cursor/from/to/各 ID/pageSize，非空 `eventTypes` 使用逗号连接，空/未定义过滤省略；group path 百分号编码，GET data 不预编码以避免 `wx.request` 双编码。controller 复制 Web Calendar 的 `{ pageSize: 100, shiftId }` 语义，直接消费服务端过滤结果；Sheet 保留 Web 同等的一页 100 条行为，只有目标班次返回 `nextCursor` 才显示截断提示。page adapter 与显式 test-only fixture 同步新签名。
+- 语义等价审计：成员调用接收者、调用次数、`Promise.resolve` 同步错误收敛、catch/finally、空值判断、group+assignment generation/single-flight 与 reset 均保持；删除本地 filter、改变查询参数和 `hasMore` 数据源是有红测的明确行为修复。fixture 只模拟日历消费的 `shiftId/pageSize`；小程序响应 schema decoder 仍明确留给下一 shared-runtime 批次。三轮独立只读审查均未发现剩余 P0–P2。
+- 验证：完整 tracked 小程序 41 文件 / 231 项、9 个静态边界文件 / 32 项、Web 对照 2 文件 / 166 项通过。首次直接 event integration 因未设置 `NODE_ENV=test` 全部 skip，未计为通过；按真实测试环境重跑后事件 API 1 文件 / 6 项通过，既有 Task 10 integration 另为 9 文件 / 58 项。config audit、typecheck、目标 ESLint、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（未改列举的 Web/API/认证/契约/构建核心路径）。DevTools `build-npm` cost 3924、warnings `[]`；preview 356078 bytes / 347.7 KB。
+- 状态：**已实现待真实数据与 Android/iOS 人工核验**。需验证目标事件位于全组最近 100 条之外时仍可见，以及截断提示只代表该班次而非全组。检查点后停止；下一批只实施首个 shared client-core 事件竖切。
 
 ### 日历可靠性 C1–C3（提交：fix(miniprogram): harden calendar foreground lifecycle，2026-08-13）
 

@@ -1,4 +1,4 @@
-import type { ScheduleEventPage } from '@schedule/contracts';
+import type { ScheduleEventPage, ScheduleEventQuery } from '@schedule/contracts';
 
 import type { CalendarAssignmentViewModel } from '../calendar/calendar-view-model.js';
 import { buildEventTimelineDisplay, type EventTimelineDisplayItem } from './event-description.js';
@@ -16,8 +16,7 @@ export interface EventTimelineState {
 export interface EventTimelineDependencies {
   readonly listEvents: (
     groupId: string,
-    cursor?: string,
-    pageSize?: number,
+    query: Omit<ScheduleEventQuery, 'groupId'>,
   ) => Promise<ScheduleEventPage>;
   readonly publish: (state: EventTimelineState) => void;
 }
@@ -69,13 +68,15 @@ export function createEventTimelineController(
       publishFor(key, { hasMore: false, items: [], status: 'loading' });
 
       const promise = Promise.resolve()
-        .then(() => dependencies.listEvents(groupId, undefined, 100))
+        .then(() =>
+          dependencies.listEvents(groupId, {
+            pageSize: 100,
+            shiftId: assignment.assignmentId,
+          }),
+        )
         .then((page) => {
           if (!isCurrent(key, currentGeneration)) return;
-          const display = buildEventTimelineDisplay(
-            page.events.filter((event) => event.affectedShiftIds.includes(assignment.assignmentId)),
-            assignment,
-          );
+          const display = buildEventTimelineDisplay(page.events, assignment);
           publishFor(key, {
             ...(display.changeChainSummary === undefined
               ? {}

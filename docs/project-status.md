@@ -9,9 +9,17 @@
 - Web 1.0：API、认证、契约、数据库、排班规则和部署基础设施保留并作为小程序共享内核。
 - 小程序：V3-0.5 Task 1–2、V3-1 Task 3–5、V3-2 Task 6–8 及后续日历 UI 回归修复均已完成；Task 8 详情内容已通过用户 DevTools 人工复核。
 - V3：V3-2 最终代码检查点为 `9629454` 且已在 `origin/main`；最终门禁为 23 文件 / 105 测试、config audit、typecheck、lint、core smoke、契约/API 空 diff 与 diff check 全部通过。Web 对照、WebView fallback、低端 Android/iOS 和性能证据经用户确认延后到 V3-6。
-- 当前批次：用户已批准 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。首批 P0.1–P0.3 与日历可靠性 C1–C3 均已实现并完成自动化及 DevTools preview 验证；当前检查点完成后停止，不继续实现事件过滤、共享 runtime、岗位允许班种或完整功能面。
+- 当前批次：用户已批准 `2026-08-13-web-miniprogram-parity-remediation-plan.md`。首批 P0.1–P0.3、日历可靠性 C1–C3 与事件时间线 D1 均已实现并完成自动化及 DevTools preview 验证；D1 检查点完成后停止，不提前实施共享 runtime、岗位允许班种或完整功能面。
 
 ## Completed Batch
+
+### 事件时间线 D1：按班次服务端过滤（2026-08-13）
+
+- 根因与权威实现：`git log -S`/`git blame` 将小程序位置参数事件 wrapper 追溯到 `f8d6f52`，将“先取全组最近 100 条、再按 `affectedShiftIds` 本地过滤”追溯到 `7d95a0a`；Web/API 的 `shiftId` 查询来自 `7ac2a07`，服务端排除周期/模板/配置级伪关联事件的已调试修复来自 `7aa1f68`。现有 contracts、route、SQL 查询与 cursor 分页已完整支持本需求，未新增后端路由或字段。
+- 测试先行与修复：旧实现先在“全组最近 100 条均无关、目标班次事件位于其后”场景返回空列表和错误的全组 `hasMore`，完整 query adapter 与 test-only fixture 同时红灯。小程序 `listEvents` 现在接收 `Omit<ScheduleEventQuery, 'groupId'>`，映射全部契约字段、仅对非空 `eventTypes` 逗号连接、省略 `undefined`/空数组、编码 group path，并把 GET data 原值交给 `wx.request` 做一次序列化。日历控制器精确请求 `{ pageSize: 100, shiftId: assignment.assignmentId }`，直接消费服务端过滤页，不再本地过滤；`hasMore` 只由该班次页的 `nextCursor` 决定，继续与 Web 日历“一页最近 100 条 + 截断提示”一致。
+- 语义审计：`dependencies.listEvents(...)` 仍是带接收者的成员调用且每次 load 只调用一次；`Promise.resolve()` 对同步抛错的收敛、catch/finally 范围、group+assignment 精确 single-flight、generation 与 reset 均未改变。新增测试分别锁定同群换班次、同班次换群组的迟到响应隔离，以及 `nextCursor` 有/无两态；test-only fixture 只模拟当前日历实际消费的 `shiftId/pageSize`，不宣称是完整事件中心分页器。三轮独立只读复核均未发现剩余 P0–P2。
+- 验证：定向 5 文件 / 19 项、完整 tracked 小程序 41 文件 / 231 项、9 个小程序静态边界文件 / 32 项、Web API/事件基准 2 文件 / 166 项通过；事件 API integration 在真实 `schedule_test` 通过 1 文件 / 6 项，Task 10 既有 integration 另通过 9 文件 / 58 项。config audit、typecheck、目标 ESLint、任务文件 Prettier、`pnpm smoke:check-core` 与 `git diff --check` 通过。运行/浏览器验证：`pnpm smoke:browser` 不适用（未修改其列举的 Web/API/认证/契约/构建核心路径）。DevTools `build-npm` 成功（cost 3924、warnings `[]`），preview 成功（356078 bytes / 347.7 KB；main 286.0 KB、groups 5.6 KB、manual 21.4 KB、workflows 34.8 KB）。
+- 状态：**已实现待真实数据与 Android/iOS 人工复核**。需在同一群组制造超过 100 条较新无关事件后打开目标班次，确认目标时间线仍出现且仅在该班次确有后续页时显示“仅显示最近 100 条”。检查点提交信息为 `fix(miniprogram): query assignment events on server`；完成正常快进推送后停止。
 
 ### 日历可靠性 C1–C3（2026-08-13）
 
@@ -284,14 +292,14 @@
 ## Previous Batch
 
 1. Web / 小程序 parity 安全基础 P0.1–P0.3 已由 `83444d8` 完成并推送。
-2. 日历可靠性 C1–C3 已完成实现、自动化、独立审查与 DevTools preview，待本检查点提交/推送。
+2. 日历可靠性 C1–C3 已由 `3539a50` 完成并推送；事件时间线 D1 已完成实现、自动化、API integration、独立审查与 DevTools preview，待本检查点提交/推送。
 3. V3-2 完整 Web/renderer/device/performance 证据仍显式保留到 V3-6，不作为自动化通过项。
 
 ## Active Batch
 
-1. 下一轮 Task D1：扩展小程序事件 endpoint wrapper 接受当前契约的 `ScheduleEventQuery`，日历事件时间线按 assignment `shiftId` 在服务端过滤并正确分页，不再先取全组最近 100 条后本地筛选。
-2. D1 必须先用“目标班次事件落在群组最近 100 条之外”的失败测试锁定漏数，并验证 query 编码、cursor/hasMore 语义、陈旧请求隔离与 Web/API 契约一致；现有后端路由已支持 `shiftId`，本轮不得无依据新增路由。
-3. 停止条件：当前 C1–C3 检查点完成并停止；下一次实现会话重新读取状态、计划、设计、代码与 Git 后才可开始 D1。共享 `calendar-core`/`client-core`、日历交互、岗位允许班种及完整功能面继续冻结到后续独立批次。
+1. 下一轮 Task D2：建立首个双目标 shared client-core 切片，让 Web 与小程序共同消费事件列表 query adapter、轻量 runtime decoder 和同一正常/畸形响应 corpus；`fetch`/`URLSearchParams` 与 `wx.request` 继续只作为平台 transport。
+2. D2 必须先证明当前两端 query 映射仍会漂移且小程序对畸形 2xx 直接 `as T`；共享模块必须无 Vue/DOM/wx/fetch 依赖，提供 Web ESM 与小程序可构建产物，并在 decoder 失败时统一返回 `INVALID_RESPONSE`、不发布状态或写缓存。只迁移事件列表这一条竖切，不顺手迁移全部 endpoints。
+3. 停止条件：D1 检查点完成并停止；下一次实现会话重新审计 workspace package/微信构建边界后才可开始 D2。日历多选/跳转、工作流可靠性、岗位允许班种和完整功能面继续冻结到各自后续批次。
 
 ## Handoff Requirements
 

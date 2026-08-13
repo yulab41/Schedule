@@ -37,8 +37,10 @@ describe('calendar test fixture adapter', () => {
       calendar: getGoldenCalendar(goldenBusinessMonth),
       groupName: calendarFixtureGroupName,
     });
-    await expect(dependencies.listEvents(calendarFixtureGroupId, undefined, 1)).resolves.toEqual({
-      events: goldenEvents.slice(0, 1),
-    });
+    const shiftId = goldenEvents[1]?.affectedShiftIds[0];
+    expect(shiftId).toBeDefined();
+    await expect(
+      dependencies.listEvents(calendarFixtureGroupId, { pageSize: 1, shiftId }),
+    ).resolves.toEqual({ events: goldenEvents.slice(1, 2) });
   });
 });
