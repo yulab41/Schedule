@@ -7,7 +7,7 @@
 - 分支：`main`，上游：`origin/main`。
 - 产品基线：Web、API、认证、契约、数据库、排班规则、PWA 和阿里云 ECS 部署。
 - 文档基线：保留 10 个精简 Web 入口，另保留 `AGENTS.md` 项目规则。
-- 本轮：完整修复 Web Push 配置、订阅恢复和 ECS 通知调度；当前代码已实现，待本地完整验证、生产配置和公网浏览器复核。
+- 本轮：完整修复 Web Push 配置、订阅恢复和 ECS 通知调度；代码已构建并发布到 ECS，生产 VAPID 已注入，待当前浏览器授权并完成一次实际 Push 验收。
 
 ## 已完成能力
 
@@ -40,7 +40,7 @@ git diff --check
 - ECS 核验：Nginx 80/443 入口健康通过；HTTPS SNI `/api/health` 返回 200；部署清单、lockfile、Web/API/shared dist、迁移、Compose/Nginx 配置及归档哈希逐项一致；容器运行、MySQL healthy、迁移记录 34 条、无 `@cloudbase`。
 - 最终备份/回滚材料：数据库备份 archive `6f6216e4-bd94-4490-8cad-0d1fcf90a1c9`，storage key `backups/daily/2026-08-13T15-51-11.210Z.backup`；上一版应用文件备份保留在 `/opt/schedule/releases/<最终 release SHA>/previous/current-files.tar.gz`。
 - 公网浏览器验证：`https://hosp.schedule.eylinhome.top` 管理员登录成功；成员页出现成员表且无“请求的资源不存在”，通知页出现“我的提醒”且无“服务返回了无效资料”；控制台无异常；公网成员账号无两类旧错误。
-- 当前状态：已实现待浏览器复核。
+- 当前状态：待用户复核。
 
 ## 本轮增量
 
@@ -48,15 +48,16 @@ git diff --check
 - 已完成任务 1：环境契约支持 `VAPID_SUBJECT`、`VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY`；三项必须同时配置或同时为空；运行时和 job runner 显式传递推送配置；示例环境文件不再制造半配置状态。
 - 任务 1 验证：API `tsc --noEmit`、API 构建通过；VAPID 与订阅辅助测试 3 个文件、19 项通过；完整 Vitest 通过 56 个文件、430 项，另有 29 个数据库集成文件（252 项）因本机未启动测试 MySQL 按既有保护逻辑跳过；Prettier 检查和 `git diff --check` 通过。
 - 任务 1 checkpoint：已提交 `eab3ff2`（`fix(notifications): validate and propagate VAPID configuration`）。
-- 已实现待验证任务 2/3：ECS 每分钟通知调度、发布/回滚/核验接入，以及浏览器订阅重新注册 UI；生产 VAPID 密钥尚未写入服务器，尚未进行公网推送实测。
+- 任务 2/3 已完成并发布：ECS 每分钟通知调度、发布/回滚/核验接入，以及浏览器订阅重新注册 UI 均已上线；生产 VAPID 密钥在 ECS 上生成并写入，私钥未进入仓库或聊天。
+- 生产发布验证：release `6487fe49898f3b0b3f9b8f39e0ed60ed51788f92`；API 健康检查 200，迁移 34 条，scheduler/cron 已安装；最近 `duty-reminders` 与 `notification-retry` 均成功执行。
 - 决策：不新增常驻 scheduler 容器，使用带 `flock` 的主机 cron；不修改数据库结构；VAPID 私钥不进入仓库。
-- 运行/浏览器验证：`pnpm smoke:browser` 未能在本地依赖安装不完整且受限网络无法恢复的环境中完成；已用浏览器检查当前公网旧部署，管理员登录、通知页面和控制台均正常，但旧版本仍显示“推送服务尚未配置”。本轮代码尚未发布到公网。
-- 额外验证限制：完整 `pnpm verify` 受本地依赖树/网络安装失败影响；调度域构建仍受既有测试文件隐式 `any` 报错阻断，Web 构建和 ESLint 也遇到安装树缺少包，未发现本轮代码诊断。
+- 运行/浏览器验证：`pnpm smoke:browser` 的本地完整流程仍受测试数据库/登录环境限制；公网发布后已用浏览器登录管理员并打开通知页，页面不再显示“推送服务尚未配置”，当前设备显示“重新注册浏览器通知”，待用户授权浏览器通知并完成实际 Push。
+- 本轮完整验证：`pnpm install --frozen-lockfile`、`pnpm build`、`pnpm typecheck`、`pnpm test` 均通过；Vitest 为 56 个文件/430 项通过，29 个数据库集成文件/252 项按既有保护逻辑跳过。
 
 ## 下一批次
 
-- 当前活动批次：任务 2（通知调度与 ECS 发布链路）、任务 3（浏览器订阅恢复与端到端验证）。
-- 停止条件：两项代码测试通过；ECS 发布包、cron、配置和核验脚本检查通过；生产 VAPID 配置已注入并重建 API；公网通知页不再显示未配置提示，至少完成一次应用内和浏览器推送验收；提交、推送和状态记录完成。
+- 当前活动批次：用户复核当前浏览器 Push 订阅。
+- 停止条件：用户在通知设置页点击“重新注册浏览器通知”并允许浏览器通知权限，完成一次实际浏览器 Push 验收。
 
 ## 后续规则
 

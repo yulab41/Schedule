@@ -56,7 +56,7 @@ bash infra/scripts/ecs-verify.sh
 首次启用或更换服务器时，在 `/opt/schedule/.env.production` 中写入同一对长期 VAPID 密钥：
 
 ```dotenv
-VAPID_SUBJECT=mailto:实际联系邮箱
+VAPID_SUBJECT=https://hosp.schedule.eylinhome.top
 VAPID_PUBLIC_KEY=生成的公钥
 VAPID_PRIVATE_KEY=生成的私钥
 ```
@@ -67,4 +67,4 @@ VAPID_PRIVATE_KEY=生成的私钥
 node -e "const webpush=require('web-push');console.log(webpush.generateVAPIDKeys())"
 ```
 
-写入后必须按正常 ECS 更新流程重建 API 容器；仅修改环境文件不会改变已经运行的 Node 进程。不要更换已经投入使用的 VAPID 密钥，否则已有浏览器订阅需要重新注册。
+`VAPID_SUBJECT` 可以直接使用生产站点的 HTTPS 地址，不需要真实邮箱、SMTP 或邮件服务。写入后必须按正常 ECS 更新流程重建 API 容器；仅修改环境文件不会改变已经运行的 Node 进程。不要更换已经投入使用的 VAPID 密钥，否则已有浏览器订阅需要重新注册。
