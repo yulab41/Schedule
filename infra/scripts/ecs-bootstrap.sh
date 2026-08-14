@@ -48,6 +48,14 @@ if [[ ! -f .env.production ]]; then
   sed -i "s/^BACKUP_ENCRYPTION_KEY=.*/BACKUP_ENCRYPTION_KEY=$(random_hex64)/" .env.production
 fi
 
+if grep -Eq '^[[:space:]]*AUTH_PASSWORD_ENABLED[[:space:]]*=[[:space:]]*false([[:space:]]*|$)' .env.production; then
+  echo "[bootstrap] AUTH_PASSWORD_ENABLED must be true in production"
+  exit 1
+fi
+if ! grep -Eq '^[[:space:]]*AUTH_PASSWORD_ENABLED[[:space:]]*=[[:space:]]*true([[:space:]]*|$)' .env.production; then
+  printf '\nAUTH_PASSWORD_ENABLED=true\n' >> .env.production
+fi
+
 if ! swapon --show | grep -q .; then
   echo "[bootstrap] adding 2G swap"
   if ! fallocate -l 2G /swapfile; then

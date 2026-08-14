@@ -54,6 +54,12 @@ if [ -f infra/docker/compose.prod.icp-test.yml ]; then
   echo "[deploy] 清理已停用的 ICP 测试 Compose override" >&2
   rm -f infra/docker/compose.prod.icp-test.yml
 fi
+if grep -Eq '^[[:space:]]*AUTH_PASSWORD_ENABLED[[:space:]]*=[[:space:]]*false([[:space:]]*|$)' .env.production; then
+  fail "生产配置 AUTH_PASSWORD_ENABLED 必须为 true"
+fi
+if ! grep -Eq '^[[:space:]]*AUTH_PASSWORD_ENABLED[[:space:]]*=[[:space:]]*true([[:space:]]*|$)' .env.production; then
+  printf '\nAUTH_PASSWORD_ENABLED=true\n' >> .env.production
+fi
 RELEASE_ID="$(manifest_value releaseId)"
 EXPECTED_DIST_SHA="$(manifest_value distArchiveSha256)"
 EXPECTED_FLAT_SHA="$(manifest_value apiRuntimeArchiveSha256)"

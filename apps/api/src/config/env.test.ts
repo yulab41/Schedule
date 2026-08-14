@@ -14,6 +14,7 @@ describe('loadEnvironment', () => {
       API_HOST: '127.0.0.1',
       API_PORT: 3000,
       AUTH_DEV_MODE: 'false',
+      AUTH_PASSWORD_ENABLED: 'false',
       MYSQL_HOST: '127.0.0.1',
       MYSQL_PORT: 3306,
       NODE_ENV: 'development',
@@ -92,10 +93,8 @@ describe('loadEnvironment', () => {
       loadEnvironment({
         ...validEnvironment,
         NODE_ENV: 'production',
+        AUTH_PASSWORD_ENABLED: 'true',
         WECHAT_SESSION_SECRET: 's'.repeat(32),
-        WECHAT_WEB_APPID: 'wx-web-app-id',
-        WECHAT_WEB_APPSECRET: 'web-app-secret',
-        WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
         WECHAT_MOCK_MODE: 'false',
       }),
     ).toMatchObject({ WECHAT_MOCK_MODE: 'false' });
@@ -103,10 +102,8 @@ describe('loadEnvironment', () => {
       loadEnvironment({
         ...validEnvironment,
         NODE_ENV: 'production',
+        AUTH_PASSWORD_ENABLED: 'true',
         WECHAT_SESSION_SECRET: 's'.repeat(32),
-        WECHAT_WEB_APPID: 'wx-web-app-id',
-        WECHAT_WEB_APPSECRET: 'web-app-secret',
-        WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
         WECHAT_MOCK_MODE: 'true',
       }),
     ).toThrow(/WECHAT_MOCK_MODE/);
@@ -122,25 +119,41 @@ describe('loadEnvironment', () => {
     ).toThrow(/AUTH_DEV_MODE/);
   });
 
-  it('requires complete HTTPS web WeChat credentials in production', () => {
+  it('requires password authentication and a session secret in production', () => {
     const productionEnvironment = {
       ...validEnvironment,
       NODE_ENV: 'production' as const,
+      AUTH_PASSWORD_ENABLED: 'true' as const,
       WECHAT_SESSION_SECRET: 's'.repeat(32),
-      WECHAT_WEB_APPID: 'wx-web-app-id',
-      WECHAT_WEB_APPSECRET: 'web-app-secret',
-      WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
     };
     expect(loadEnvironment(productionEnvironment)).toMatchObject(productionEnvironment);
     expect(() =>
       loadEnvironment({
         ...productionEnvironment,
-        WECHAT_WEB_REDIRECT_URI: 'http://localhost/callback',
+        AUTH_PASSWORD_ENABLED: 'false',
       }),
-    ).toThrow(/WECHAT_WEB_REDIRECT_URI/);
+    ).toThrow(/AUTH_PASSWORD_ENABLED/);
     expect(() =>
-      loadEnvironment({ ...productionEnvironment, WECHAT_WEB_APPSECRET: undefined }),
-    ).toThrow(/WECHAT_WEB_APPID|WECHAT_WEB_APPSECRET/);
+      loadEnvironment({ ...productionEnvironment, WECHAT_SESSION_SECRET: 'short' }),
+    ).toThrow(/AUTH_PASSWORD_ENABLED/);
+  });
+
+  it('allows the future web WeChat configuration to remain absent', () => {
+    expect(
+      loadEnvironment({
+        ...validEnvironment,
+        NODE_ENV: 'production',
+        AUTH_PASSWORD_ENABLED: 'true',
+        WECHAT_SESSION_SECRET: 's'.repeat(32),
+      }),
+    ).toMatchObject({ AUTH_PASSWORD_ENABLED: 'true' });
+    expect(() =>
+      loadEnvironment({
+        ...validEnvironment,
+        WECHAT_WEB_APPID: 'wx-web-app-id',
+        WECHAT_WEB_APPSECRET: undefined,
+      }),
+    ).toThrow(/WECHAT_WEB_APPID/);
   });
 
   it('validates the WeChat QR environment version', () => {

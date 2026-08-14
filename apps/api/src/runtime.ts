@@ -10,6 +10,7 @@ import { createWechatGateway, createWechatWebGateway } from './modules/wechat/we
 import { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.js';
 import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
 import { createPushDispatcher } from './modules/notifications/notification-dispatcher.js';
+import { PasswordAuthService } from './modules/auth/password-auth-service.js';
 
 interface RuntimeAppOptions {
   readonly authPort?: AuthPort;
@@ -36,8 +37,17 @@ export function createRuntimeApp(
   });
   const wechatGateway = createWechatGateway(environment);
   const wechatWebGateway = createWechatWebGateway(environment);
+  const passwordAuthService =
+    environment.AUTH_PASSWORD_ENABLED === 'true'
+      ? new PasswordAuthService({
+          databaseClient,
+          sessionSecret: environment.WECHAT_SESSION_SECRET,
+        })
+      : undefined;
   const wechatAuthPort =
-    wechatGateway.isConfigured || wechatWebGateway?.isConfigured === true
+    wechatGateway.isConfigured ||
+    wechatWebGateway?.isConfigured === true ||
+    passwordAuthService !== undefined
       ? createWechatAuthPort({
           allowDevTokens: isDevAuthEnabled(environment),
           databaseClient,
@@ -50,7 +60,7 @@ export function createRuntimeApp(
     (isDevAuthEnabled(environment) ? createDevAuthPort() : undefined);
   if (authPort === undefined) {
     throw new Error(
-      'No authentication port configured. Enable AUTH_DEV_MODE in development or pass an authPort.',
+      'No authentication port configured. Enable AUTH_PASSWORD_ENABLED or AUTH_DEV_MODE in development, or pass an authPort.',
     );
   }
 
@@ -67,6 +77,7 @@ export function createRuntimeApp(
     authPort,
     databaseClient,
     pushDispatcher: createPushDispatcher(environment),
+    ...(passwordAuthService === undefined ? {} : { passwordAuthService }),
     wechatGateway,
     ...(wechatWebAuthService === undefined ? {} : { wechatWebAuthService }),
     wechatSessionSecret: environment.WECHAT_SESSION_SECRET,

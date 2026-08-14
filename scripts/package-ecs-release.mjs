@@ -114,7 +114,11 @@ function tarPath() {
 }
 
 ensureInsideRuntime();
-if (process.env.NODE_ENV !== 'production' || process.env.AUTH_DEV_MODE === 'true') {
+if (
+  process.env.NODE_ENV !== 'production' ||
+  process.env.AUTH_DEV_MODE === 'true' ||
+  process.env.AUTH_PASSWORD_ENABLED !== 'true'
+) {
   fail('正式 ECS release 必须使用 NODE_ENV=production 且 AUTH_DEV_MODE=false。');
 }
 for (const relativePath of DIST_PATHS) {

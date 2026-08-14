@@ -32,6 +32,9 @@ const wechatSettings = {
   WECHAT_QR_ENV_VERSION: z.enum(['develop', 'trial', 'release']).default('release'),
   WECHAT_DUTY_REMINDER_TEMPLATE_ID: optionalTextSchema,
 };
+const authSettings = {
+  AUTH_PASSWORD_ENABLED: z.enum(['true', 'false']).default('false'),
+};
 const vapidSettings = {
   VAPID_PRIVATE_KEY: optionalTextSchema,
   VAPID_PUBLIC_KEY: optionalTextSchema,
@@ -52,31 +55,27 @@ function hasCompleteVapidConfiguration(environment: {
 }
 
 function hasCompleteWebWechatConfiguration(environment: {
-  readonly WECHAT_SESSION_SECRET?: string | undefined;
   readonly WECHAT_WEB_APPID?: string | undefined;
   readonly WECHAT_WEB_APPSECRET?: string | undefined;
   readonly WECHAT_WEB_REDIRECT_URI?: string | undefined;
 }): boolean {
   const configuredValues = [
-    environment.WECHAT_SESSION_SECRET,
     environment.WECHAT_WEB_APPID,
     environment.WECHAT_WEB_APPSECRET,
     environment.WECHAT_WEB_REDIRECT_URI,
   ].filter((value) => value !== undefined);
-  return configuredValues.length === 0 || configuredValues.length === 4;
+  return configuredValues.length === 0 || configuredValues.length === 3;
 }
 
-function hasValidProductionWebWechatConfiguration(environment: {
+function hasValidProductionPasswordConfiguration(environment: {
   readonly NODE_ENV: 'development' | 'test' | 'production';
+  readonly AUTH_PASSWORD_ENABLED: 'true' | 'false';
   readonly WECHAT_SESSION_SECRET?: string | undefined;
-  readonly WECHAT_WEB_APPID?: string | undefined;
-  readonly WECHAT_WEB_APPSECRET?: string | undefined;
-  readonly WECHAT_WEB_REDIRECT_URI?: string | undefined;
 }): boolean {
   if (environment.NODE_ENV !== 'production') {
     return true;
   }
-  if (!hasCompleteWebWechatConfiguration(environment)) {
+  if (environment.AUTH_PASSWORD_ENABLED !== 'true') {
     return false;
   }
   if (
@@ -85,18 +84,14 @@ function hasValidProductionWebWechatConfiguration(environment: {
   ) {
     return false;
   }
-  try {
-    const redirectUri = new URL(environment.WECHAT_WEB_REDIRECT_URI as string);
-    return redirectUri.protocol === 'https:';
-  } catch {
-    return false;
-  }
+  return true;
 }
 
 export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
+    ...authSettings,
     ...applicationSettings,
     ...databaseSettings,
     ...operationSettings,
@@ -124,18 +119,19 @@ export const environmentSchema = z
   })
   .refine(hasCompleteWebWechatConfiguration, {
     message:
-      'WECHAT_SESSION_SECRET, WECHAT_WEB_APPID, WECHAT_WEB_APPSECRET and WECHAT_WEB_REDIRECT_URI must be configured together',
+      'WECHAT_WEB_APPID, WECHAT_WEB_APPSECRET and WECHAT_WEB_REDIRECT_URI must be configured together',
     path: ['WECHAT_WEB_APPID'],
   })
-  .refine(hasValidProductionWebWechatConfiguration, {
+  .refine(hasValidProductionPasswordConfiguration, {
     message:
-      'production web WeChat authentication requires an HTTPS callback and a 32-byte session secret',
-    path: ['WECHAT_WEB_REDIRECT_URI'],
+      'production password authentication requires AUTH_PASSWORD_ENABLED=true and a 32-byte session secret',
+    path: ['AUTH_PASSWORD_ENABLED'],
   });
 const testEnvironmentSchema = z
   .object({
     NODE_ENV: z.literal('test'),
     AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
+    ...authSettings,
     ...applicationSettings,
     BACKUP_DIR: requiredTextSchema.default('./backups'),
     TEST_MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
@@ -171,6 +167,7 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
     return {
       NODE_ENV: testResult.data.NODE_ENV,
       AUTH_DEV_MODE: testResult.data.AUTH_DEV_MODE,
+      AUTH_PASSWORD_ENABLED: testResult.data.AUTH_PASSWORD_ENABLED,
       API_HOST: testResult.data.API_HOST,
       API_PORT: testResult.data.API_PORT,
       BACKUP_DIR: testResult.data.BACKUP_DIR,

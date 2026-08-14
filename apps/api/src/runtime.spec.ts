@@ -44,10 +44,8 @@ describe('isDevAuthEnabled', () => {
           ...validEnvironment,
           NODE_ENV: 'production',
           AUTH_DEV_MODE: 'false',
+          AUTH_PASSWORD_ENABLED: 'true',
           WECHAT_SESSION_SECRET: 's'.repeat(32),
-          WECHAT_WEB_APPID: 'wx-web-app-id',
-          WECHAT_WEB_APPSECRET: 'web-app-secret',
-          WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
         }),
       ),
     ).toBe(false);

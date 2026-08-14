@@ -1,0 +1,244 @@
+import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+
+import type { PasswordAuthResponse } from '@schedule/contracts';
+import {
+  type DatabaseClient,
+  userPasswordCredentials,
+  userProfiles,
+  users,
+  withTransaction,
+} from '@schedule/database';
+import { and, eq, isNull } from 'drizzle-orm';
+
+import { createPasswordSessionToken } from '../../adapters/auth/wechat-auth.js';
+import { ApiError } from '../../plugins/error-handler.js';
+import { AuditWriter } from '../audit/audit-writer.js';
+
+const PASSWORD_HASH_ALGORITHM = 'scrypt';
+const SCRYPT_COST = 16_384;
+const SCRYPT_BLOCK_SIZE = 8;
+const SCRYPT_PARALLELIZATION = 1;
+const PASSWORD_HASH_KEY_LENGTH = 64;
+const PASSWORD_HASH_SALT_LENGTH = 16;
+const PASSWORD_HASH_MAX_MEMORY = 32 * 1024 * 1024;
+
+export interface PasswordAuthServiceOptions {
+  readonly databaseClient: DatabaseClient;
+  readonly sessionSecret: string | undefined;
+}
+
+export class PasswordAuthService {
+  private readonly auditWriter = new AuditWriter();
+  private readonly databaseClient: DatabaseClient;
+  private readonly sessionSecret: string | undefined;
+
+  public constructor(options: PasswordAuthServiceOptions) {
+    this.databaseClient = options.databaseClient;
+    this.sessionSecret = options.sessionSecret;
+  }
+
+  public async register(username: string, password: string): Promise<PasswordAuthResponse> {
+    const normalizedUsername = normalizeUsername(username);
+    const passwordHash = await hashPassword(password);
+    const userId = randomUUID();
+
+    try {
+      await withTransaction(this.databaseClient, async (transaction) => {
+        await transaction.insert(users).values({
+          cloudbaseUid: `password_${userId}`,
+          id: userId,
+        });
+        await transaction.insert(userPasswordCredentials).values({
+          passwordHash,
+          userId,
+          username: normalizedUsername,
+        });
+        await this.auditWriter.append(transaction, {
+          action: 'password_user_created',
+          actorUserId: userId,
+          metadata: { loginChannel: PASSWORD_HASH_ALGORITHM },
+          operationId: randomUUID(),
+          outcome: 'completed',
+          targetId: userId,
+          targetType: 'user',
+        });
+      });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw duplicateUsernameError();
+      }
+      throw error;
+    }
+
+    return {
+      isNewUser: true,
+      profile: undefined,
+      token: createPasswordSessionToken(
+        { sub: userId, username: normalizedUsername },
+        this.sessionSecret,
+      ),
+    };
+  }
+
+  public async login(username: string, password: string): Promise<PasswordAuthResponse> {
+    const normalizedUsername = normalizeUsername(username);
+    const [credential] = await this.databaseClient.database
+      .select({
+        cloudbaseUid: users.cloudbaseUid,
+        passwordHash: userPasswordCredentials.passwordHash,
+        status: users.status,
+        userId: users.id,
+      })
+      .from(userPasswordCredentials)
+      .innerJoin(users, eq(users.id, userPasswordCredentials.userId))
+      .where(eq(userPasswordCredentials.username, normalizedUsername))
+      .limit(1);
+
+    if (
+      credential === undefined ||
+      credential.cloudbaseUid === null ||
+      credential.status !== 'active' ||
+      !(await verifyPassword(password, credential.passwordHash))
+    ) {
+      throw invalidCredentialsError();
+    }
+
+    return {
+      isNewUser: false,
+      profile: await this.findProfile(credential.userId),
+      token: createPasswordSessionToken(
+        { sub: credential.userId, username: normalizedUsername },
+        this.sessionSecret,
+      ),
+    };
+  }
+
+  private async findProfile(userId: string): Promise<PasswordAuthResponse['profile']> {
+    const [profile] = await this.databaseClient.database
+      .select({
+        id: userProfiles.userId,
+        realName: userProfiles.realName,
+        version: userProfiles.version,
+      })
+      .from(userProfiles)
+      .where(and(eq(userProfiles.userId, userId), isNull(userProfiles.deletedAt)))
+      .limit(1);
+
+    return profile === undefined
+      ? undefined
+      : { id: profile.id, realName: profile.realName, version: profile.version };
+  }
+}
+
+export function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(PASSWORD_HASH_SALT_LENGTH);
+  const derivedKey = await derivePasswordKey(password, salt);
+  return [
+    PASSWORD_HASH_ALGORITHM,
+    SCRYPT_COST,
+    SCRYPT_BLOCK_SIZE,
+    SCRYPT_PARALLELIZATION,
+    salt.toString('base64url'),
+    derivedKey.toString('base64url'),
+  ].join('$');
+}
+
+export async function verifyPassword(password: string, encodedHash: string): Promise<boolean> {
+  const parts = encodedHash.split('$');
+  if (parts.length !== 6 || parts[0] !== PASSWORD_HASH_ALGORITHM) {
+    return false;
+  }
+
+  const [, cost, blockSize, parallelization, encodedSalt, encodedKey] = parts;
+  const salt = decodeBase64Url(encodedSalt);
+  const expectedKey = decodeBase64Url(encodedKey);
+  if (
+    salt === undefined ||
+    expectedKey === undefined ||
+    expectedKey.length !== PASSWORD_HASH_KEY_LENGTH ||
+    !isPositiveInteger(cost) ||
+    !isPositiveInteger(blockSize) ||
+    !isPositiveInteger(parallelization)
+  ) {
+    return false;
+  }
+
+  try {
+    const actualKey = await derivePasswordKey(password, salt, {
+      N: Number(cost),
+      p: Number(parallelization),
+      r: Number(blockSize),
+    });
+    return actualKey.length === expectedKey.length && timingSafeEqual(actualKey, expectedKey);
+  } catch {
+    return false;
+  }
+}
+
+async function derivePasswordKey(
+  password: string,
+  salt: Buffer,
+  options: { readonly N?: number; readonly p?: number; readonly r?: number } = {},
+): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    scryptCallback(
+      password,
+      salt,
+      PASSWORD_HASH_KEY_LENGTH,
+      {
+        N: options.N ?? SCRYPT_COST,
+        maxmem: PASSWORD_HASH_MAX_MEMORY,
+        p: options.p ?? SCRYPT_PARALLELIZATION,
+        r: options.r ?? SCRYPT_BLOCK_SIZE,
+      },
+      (error, derivedKey) => {
+        if (error !== null) {
+          reject(error);
+          return;
+        }
+        resolve(derivedKey);
+      },
+    );
+  });
+}
+
+function decodeBase64Url(value: string | undefined): Buffer | undefined {
+  if (value === undefined || value.length === 0 || !/^[A-Za-z0-9_-]+$/u.test(value)) {
+    return undefined;
+  }
+  try {
+    return Buffer.from(value, 'base64url');
+  } catch {
+    return undefined;
+  }
+}
+
+function isPositiveInteger(value: string | undefined): boolean {
+  return value !== undefined && /^[1-9]\d*$/u.test(value) && Number.isSafeInteger(Number(value));
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_DUP_ENTRY'
+  );
+}
+
+function duplicateUsernameError(): ApiError {
+  return new ApiError({
+    code: 'CONFLICT',
+    statusCode: 409,
+    userMessage: '该账号已存在，请换一个账号。',
+  });
+}
+
+function invalidCredentialsError(): ApiError {
+  return new ApiError({
+    code: 'AUTHENTICATION_REQUIRED',
+    statusCode: 401,
+    userMessage: '账号或密码不正确，请重试。',
+  });
+}

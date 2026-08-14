@@ -9,7 +9,7 @@ import type { AuthPort } from './auth-port.js';
 export interface WechatSessionClaims {
   readonly exp: number;
   readonly openid: string;
-  readonly provider?: 'wechat_mini_program' | 'wechat_web';
+  readonly provider?: 'password' | 'wechat_mini_program' | 'wechat_web';
   readonly sub: string;
 }
 
@@ -19,7 +19,7 @@ const MINIMUM_SESSION_SECRET_LENGTH = 32;
 export function createWechatSessionToken(
   claims: {
     readonly openid: string;
-    readonly provider?: 'wechat_mini_program' | 'wechat_web';
+    readonly provider?: 'password' | 'wechat_mini_program' | 'wechat_web';
     readonly sub: string;
   },
   sessionSecret: string | undefined,
@@ -41,6 +41,18 @@ export function createWechatSessionToken(
     .update(`${header}.${payload}`)
     .digest('base64url');
   return `${header}.${payload}.${signature}`;
+}
+
+export function createPasswordSessionToken(
+  claims: { readonly sub: string; readonly username: string },
+  sessionSecret: string | undefined,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): string {
+  return createWechatSessionToken(
+    { openid: claims.username, provider: 'password', sub: claims.sub },
+    sessionSecret,
+    nowSeconds,
+  );
 }
 
 export function verifyWechatSessionToken(
@@ -103,6 +115,18 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
 
       const claims = verifyWechatSessionToken(token, options.sessionSecret);
       if (claims !== undefined) {
+        if (claims.provider === 'password') {
+          const [user] = await options.databaseClient.database
+            .select({ cloudbaseUid: users.cloudbaseUid })
+            .from(users)
+            .where(
+              and(eq(users.id, claims.sub), eq(users.status, 'active'), isNull(users.deletedAt)),
+            )
+            .limit(1);
+          return user?.cloudbaseUid === null || user?.cloudbaseUid === undefined
+            ? undefined
+            : { cloudbaseUid: user.cloudbaseUid };
+        }
         if (claims.provider === 'wechat_web') {
           const [identity] = await options.databaseClient.database
             .select({ userId: userAuthIdentities.userId })
@@ -175,6 +199,7 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
     typeof candidate.sub === 'string' &&
     candidate.sub.length > 0 &&
     (candidate.provider === undefined ||
+      candidate.provider === 'password' ||
       candidate.provider === 'wechat_mini_program' ||
       candidate.provider === 'wechat_web')
   );

@@ -52,6 +52,20 @@ export const users = mysqlTable(
   ],
 );
 
+export const userPasswordCredentials = mysqlTable(
+  'user_password_credentials',
+  {
+    userId: char('user_id', { length: 36 })
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    username: varchar('username', { length: 64 }).notNull(),
+    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex('user_password_credentials_username_unique').on(table.username)],
+);
+
 export const userProfiles = mysqlTable('user_profiles', {
   userId: char('user_id', { length: 36 })
     .primaryKey()

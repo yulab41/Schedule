@@ -61,6 +61,8 @@ import { registerRequestContext } from './plugins/request-context.js';
 import type { WechatGateway } from './modules/wechat/wechat-gateway.js';
 import { logRedactionPaths, redactSensitiveFields } from './security/redact.js';
 import { getApiStatus } from './status.js';
+import type { PasswordAuthService } from './modules/auth/password-auth-service.js';
+import { registerPasswordAuthRoutes } from './modules/auth/password-auth-routes.js';
 
 type ApiLoggerOptions = NonNullable<FastifyServerOptions['logger']>;
 type ApiLoggerConfiguration = Exclude<ApiLoggerOptions, boolean>;
@@ -77,6 +79,7 @@ export interface CreateAppOptions {
   readonly holidayAdminUids?: ReadonlySet<string>;
   readonly logger?: false;
   readonly loggerStream?: ApiLoggerConfiguration['stream'];
+  readonly passwordAuthService?: PasswordAuthService;
   readonly platformAdminUids?: ReadonlySet<string>;
   readonly pushDispatcher?: PushDispatcher;
   readonly wechatGateway?: WechatGateway;
@@ -103,6 +106,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.authPort !== undefined && options.databaseClient !== undefined) {
     registerAuthentication(app, options.authPort);
     registerUserRoutes(app, new UserService(options.databaseClient));
+    if (options.passwordAuthService !== undefined) {
+      registerPasswordAuthRoutes(app, options.passwordAuthService);
+    }
     const holidayAdminUids = options.holidayAdminUids ?? parseHolidayAdminUids(process.env);
     const platformAdminUids = options.platformAdminUids ?? parsePlatformAdminUids(process.env);
     let wechatAuthService: WechatAuthService | undefined;

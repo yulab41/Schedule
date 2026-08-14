@@ -64,6 +64,11 @@ if grep -Eq '^[[:space:]]*AUTH_DEV_MODE[[:space:]]*=[[:space:]]*true([[:space:]]
   echo "[verify] 错误：生产配置启用了 AUTH_DEV_MODE。" >&2
   exit 1
 fi
+
+if ! grep -Eq '^[[:space:]]*AUTH_PASSWORD_ENABLED[[:space:]]*=[[:space:]]*true([[:space:]]*|$)' .env.production; then
+  echo "[verify] 错误：生产配置没有启用 AUTH_PASSWORD_ENABLED。" >&2
+  exit 1
+fi
 if grep -Eq '^[[:space:]]*WECHAT_MOCK_MODE[[:space:]]*=[[:space:]]*true([[:space:]]*|$)' .env.production; then
   echo "[verify] 错误：生产配置启用了 WECHAT_MOCK_MODE。" >&2
   exit 1
@@ -182,5 +187,5 @@ fi
 echo "[verify] migration count"
 docker exec medical-schedule-prod-mysql-1 sh -c \
   'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
-    -e "SELECT COUNT(*) FROM __drizzle_migrations"' | grep -qx '35'
+    -e "SELECT COUNT(*) FROM __drizzle_migrations"' | grep -qx '36'
 echo "[verify] complete"

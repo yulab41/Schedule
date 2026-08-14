@@ -246,6 +246,13 @@
       "when": 1785542400034,
       "tag": "0035_wechat_auth_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785542400035,
+      "tag": "0036_password_credentials",
+      "breakpoints": true
     }
   ]
 }

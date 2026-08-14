@@ -10,6 +10,7 @@ import {
 } from '../auth/local-auth.js';
 import { ApiClientError, createApiClient } from '../api/client.js';
 import { toUserMessage } from '../utils/user-message.js';
+import { passwordAuth, type PasswordAuthClient } from '../auth/password-auth.js';
 
 export type SessionStatus = 'anonymous' | 'authenticated' | 'error' | 'loading' | 'needs-profile';
 
@@ -21,6 +22,7 @@ export interface UserProfileApi {
 export interface SessionDependencies {
   readonly api: UserProfileApi;
   readonly auth: AuthClient;
+  readonly passwordAuth?: PasswordAuthClient;
 }
 
 export function createSessionManager(dependencies: SessionDependencies) {
@@ -58,15 +60,17 @@ export function createSessionManager(dependencies: SessionDependencies) {
     }
 
     try {
-      const result = await dependencies.auth.signInWithPassword({
+      const result = await (
+        dependencies.passwordAuth ?? createLegacyPasswordAuth(dependencies.auth)
+      ).login({
         password: input.password,
         username,
       });
-      const session = getAuthenticatedSession(result);
-      if (session === undefined) {
+      if (result.token.length === 0) {
         clearSession();
         throw new SessionError('登录状态未能建立，请重试。');
       }
+      dependencies.auth.setSession(result.token);
     } catch (error) {
       if (isMissingSessionError(error)) {
         throw new SessionError('账号或密码不正确，请重试。');
@@ -74,6 +78,30 @@ export function createSessionManager(dependencies: SessionDependencies) {
       throw error;
     }
 
+    await loadProfile();
+  }
+
+  async function register(input: {
+    readonly password: string;
+    readonly username: string;
+  }): Promise<void> {
+    clearError();
+    const username = normalizeLoginAccount(input.username);
+    if (username.length === 0) {
+      throw new SessionError('请输入注册账号。');
+    }
+    if (input.password.length === 0) {
+      throw new SessionError('请输入密码。');
+    }
+
+    const result = await (
+      dependencies.passwordAuth ?? createLegacyPasswordAuth(dependencies.auth)
+    ).register({ password: input.password, username });
+    if (result.token.length === 0) {
+      clearSession();
+      throw new SessionError('登录状态未能建立，请重试。');
+    }
+    dependencies.auth.setSession(result.token);
     await loadProfile();
   }
 
@@ -202,6 +230,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
     signInDev,
     signInToken,
     signIn,
+    register,
     signOut,
     status,
   };
@@ -215,6 +244,7 @@ export const useSessionStore = defineStore('session', () =>
   createSessionManager({
     api: createApiClient({ auth: localAuth }),
     auth: localAuth,
+    passwordAuth,
   }),
 );
 
@@ -230,4 +260,19 @@ function isMissingSessionError(error: unknown): boolean {
     error instanceof Error &&
     /credentials?\s+not\s+found|credential\s*not\s*found/iu.test(error.message)
   );
+}
+
+function createLegacyPasswordAuth(auth: AuthClient): PasswordAuthClient {
+  return {
+    login(input) {
+      return auth.signInWithPassword(input).then((result) => ({
+        isNewUser: false,
+        profile: undefined,
+        token: result.data?.session?.access_token ?? '',
+      }));
+    },
+    register() {
+      return Promise.reject(new SessionError('注册服务暂时不可用，请稍后重试。'));
+    },
+  };
 }

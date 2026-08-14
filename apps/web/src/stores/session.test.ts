@@ -78,6 +78,25 @@ describe('session manager', () => {
     expect(auth.signInWithPassword).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the production password auth client and stores its signed session', async () => {
+    const api = createApiClient();
+    const auth = createAuthClient();
+    const passwordAuth = {
+      login: vi.fn().mockResolvedValue({ isNewUser: false, token: 'password-token' }),
+      register: vi.fn(),
+    };
+    const manager = createSessionManager({ api, auth, passwordAuth });
+
+    await manager.signIn({ password: 'password-1', username: '  LinEnYu  ' });
+
+    expect(passwordAuth.login).toHaveBeenCalledWith({
+      password: 'password-1',
+      username: 'linenyu',
+    });
+    expect(auth.setSession).toHaveBeenCalledWith('password-token');
+    expect(auth.signInWithPassword).not.toHaveBeenCalled();
+  });
+
   it('clears protected state even when sign-out fails', async () => {
     const manager = createSessionManager({
       api: createApiClient(),

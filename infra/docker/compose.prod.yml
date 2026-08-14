@@ -53,10 +53,11 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      # Production authentication is WeChat website QR login only. Development
-      # auth is intentionally fixed off here; local/CI test Compose is separate.
+      # Production authentication is account/password login. Development auth
+      # is intentionally fixed off here; local/CI test Compose is separate.
       NODE_ENV: production
       AUTH_DEV_MODE: 'false'
+      AUTH_PASSWORD_ENABLED: 'true'
       BACKUP_DIR: /data/backups
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
