@@ -11,7 +11,7 @@
 - 小程序凭据仍只用于小程序登录和通知。用户在聊天中发送过的小程序 AppSecret 按“已暴露”处理：本轮没有把它写入仓库、新 release 或服务器；正式发布前必须重置。小程序代码上传 `.key` 文件不是网页登录凭据，不需要上传或提交。
 - 服务器只做过只读预检，尚未部署本轮 release；当前服务器仍需按新 release 执行迁移、重建和核验。现有服务器会话密钥已存在，网站 AppID/AppSecret 不再是阻塞项。
 
-## 本轮已完成（待 checkpoint commit）
+## 本轮已完成
 
 - 新增 `POST /auth/password/register` 和 `POST /auth/password/login`，账号格式为 3-64 位字母、数字或 `._-`，密码至少 8 位。
 - 新增 `user_password_credentials` 表和迁移 `0036_password_credentials`；不覆盖 `users.wechat_openid` 或现有小程序身份映射。
@@ -19,7 +19,7 @@
 - 生产配置要求 `AUTH_PASSWORD_ENABLED=true`、长度至少 32 的 `WECHAT_SESSION_SECRET`，并继续拒绝 `AUTH_DEV_MODE=true` 与 `WECHAT_MOCK_MODE=true`。
 - Web 生产登录页改为账号登录/注册；本地开发构建仍保留仅开发模式可见的 smoke 登录按钮。
 - Compose、ECS 核验脚本、迁移计数、部署文档和当前环境模板已同步。
-- checkpoint commit message：`feat(auth): add production password authentication`。
+- checkpoint commit：`de3ad5f feat(auth): add production password authentication`。
 
 ## 已运行验证
 
@@ -35,8 +35,8 @@
 
 下一批次为：
 
-1. 创建仅包含本轮文件的 checkpoint commit 并推送；
-2. 生成新 release，先备份服务器数据库和旧 release，再按 `docs/deployment/aliyun-ecs.md` 发布并执行 `ecs-verify.sh`；
+1. 将 `de3ad5f` 推送到 `origin/main`，并生成以该提交为 release ID 的生产包；
+2. 先备份服务器数据库和旧 release，再按 `docs/deployment/aliyun-ecs.md` 发布并执行 `ecs-verify.sh`；
 3. 在服务器上人工验收账号注册、登录、资料补全、权限和未知 Host 拒绝。
 
 停止条件：正式域名首页/API 可用；未知 Host 不返回项目内容；注册、登录、资料补全和 401 会话清理人工验收通过；旧 8080 测试通道及开发认证没有恢复；小程序 AppSecret 已重置后再恢复小程序通知配置。
