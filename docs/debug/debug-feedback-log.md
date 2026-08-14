@@ -105,3 +105,12 @@
 - 变更：手机提供“我的请假/待我审批”分段入口，列表在窄屏变为信息完整的状态卡片；新建表单与审批预览统一迁入 `ResponsiveSheet`，保留桌面对话框和手机底部页行为。所有关键操作至少 44px，状态色使用 UI 2.0 语义令牌，危险操作无滑动手势。
 - 运行/浏览器验证：pnpm smoke:browser 已通过；390×844/320×844 实际切换分段并打开新建请假底部页，无横向溢出，起止日期和表单内容完整，关键点触面不小于 44px，原管理员/成员/访客流程与控制台无错误。首次检查到 TDesign 内部 22px 文本节点，其真实外层为 44px，校验改测外层；跨视口分段测试状态重置后复跑通过，未修改产品行为规避测试。
 - 运行验证：Web typecheck、生产 build、Storybook build 和 `pnpm verify` 均通过；64 个测试文件、464 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过。并行 build/typecheck 曾在产物完成后触发 Windows Node 退出断言，串行复跑退出码均为 0；仅保留既有大 chunk warning。checkpoint 识别消息为 `feat(web): add mobile leave workflow cards`。
+
+## 2026-08-14 Web UI 2.0 换班与加扣班移动工作流
+
+- 回归来源：换班表单/列表由 `b20ff9b` 引入，管理员直接换班由 `6452fa9` 引入；加扣班表单/列表由 `5d8b205` 引入，管理员可选原因、已受理状态和可撤销归档分别由 `cbe2e89`、`de3acab`、`f65a57d` 补充。已对当前模板执行 `git log -S` 与 `git blame`。
+- 测试先行：新增 pending、completed、rejected、cancelled、revoked 六种共享工作流状态的语义色调断言，旧实现因缺少 `getWorkflowStatusTone` 失败；实现后共享工作流、换班与加扣班定向测试 18/18 通过。
+- 语义等价审计：两页初始加载仍分别维持原六项 `Promise.all`、群组/月变更重置和窗口聚焦刷新；预览、普通提交、管理员直办、接受、批准、驳回、取消、撤销及设置更新继续调用原 API 一次，参数、版本、`operationId`、可选原因、冲突重载、await/catch/finally 和空值语义未变。新增成功关闭对应 Sheet 只改变显示状态；危险操作继续使用原 confirm/prompt，未增加滑动删除。未修改权限、API、契约或数据结构。
+- 变更：换班和加扣班的普通/管理员表单迁入 `ResponsiveSheet`；五类表格在 760px 以下变为完整字段卡片，待操作记录使用医疗蓝侧边强调，状态使用可访问语义徽标；桌面继续保持高密度表格。共用样式以 UI 2.0 令牌实现 44px 点触、320px 堆叠与减少动态。
+- 运行/浏览器验证：`pnpm smoke:browser` 已通过；390×844/320×844 实际打开四个 Sheet，确认无横向溢出、移动记录为卡片、关键控件不小于 44px，动画结束后 Sheet 完整位于可视区，管理员/成员/访客原流程及控制台无错误。一次中间断言在入口动画首帧检测到预期的 24px 位移，改为动画完成后验收并复跑通过，产品代码未作测试特判。
+- 运行验证：Web typecheck、生产 build、Storybook build、`pnpm smoke:check-core` 和 `pnpm verify` 均通过；64 个测试文件、465 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过；仅保留既有大 chunk warning。checkpoint 识别消息为 `feat(web): add mobile shift workflow cards`。

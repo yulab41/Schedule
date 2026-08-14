@@ -12,6 +12,7 @@ import type {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
+import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import type { SelectValue } from 'tdesign-vue-next';
@@ -20,6 +21,7 @@ import {
   createAssignmentOption,
   formatAssignmentSummaryOption,
 } from '../workflows/assignment-option.js';
+import { getWorkflowStatusTone } from '../workflows/workflow-logic.js';
 import {
   buildDutyAdjustmentCandidates,
   formatDutyAdjustmentShiftTime,
@@ -54,6 +56,8 @@ const isLoading = ref(false);
 const isPreviewing = ref(false);
 const isSubmitting = ref(false);
 const isAdminSubmitting = ref(false);
+const requestFormVisible = ref(false);
+const adminFormVisible = ref(false);
 
 const canApprove = computed(() => props.group.role !== 'member');
 const candidates = computed(() =>
@@ -251,6 +255,7 @@ async function submit(): Promise<void> {
           : '加扣班申请已提交，等待加班成员接受。';
     resetForm();
     await loadData();
+    requestFormVisible.value = false;
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
       await loadData();
@@ -279,6 +284,7 @@ async function submitDirect(): Promise<void> {
     infoMessage.value = `管理员代值已生效：${created.deductedMemberName ?? ''} 扣班，${created.overtimeMemberName ?? ''} 加班。`;
     resetForm();
     await loadData();
+    adminFormVisible.value = false;
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {
       await loadData();
@@ -397,16 +403,40 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
 
 <template>
   <section
-    class="duty-adjustment-panel"
+    class="duty-adjustment-panel workflow-panel"
     :aria-busy="isLoading || isSubmitting || isAdminSubmitting"
   >
-    <h2>加扣班</h2>
+    <header class="workflow-panel-heading">
+      <div>
+        <h2>加扣班</h2>
+        <p>安排成员代值已发布班次，并跟踪接受与审批状态。</p>
+      </div>
+      <div class="workflow-heading-actions">
+        <t-button
+          v-if="canApprove"
+          id="duty-admin-create-button"
+          variant="outline"
+          :disabled="isLoading"
+          @click="adminFormVisible = true"
+        >
+          管理员代值
+        </t-button>
+        <t-button
+          id="duty-create-button"
+          theme="primary"
+          :disabled="isLoading"
+          @click="requestFormVisible = true"
+        >
+          发起加扣班
+        </t-button>
+      </div>
+    </header>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
     <t-loading v-if="isLoading" text="正在加载加扣班数据" />
     <template v-else>
-      <div class="settings-row">
-        <label v-if="canApprove" class="settings-field">
+      <div class="settings-row workflow-settings">
+        <label v-if="canApprove" class="settings-field workflow-settings-field">
           <input
             type="checkbox"
             :checked="groupSettings?.requiresApproval === true"
@@ -414,7 +444,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
           />
           加扣班需要管理员审批
         </label>
-        <label class="settings-field">
+        <label class="settings-field workflow-settings-field">
           <input
             type="checkbox"
             :checked="mySettings?.autoAcceptSwaps === true"
@@ -424,9 +454,240 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
         </label>
       </div>
 
-      <form class="duty-adjustment-form" @submit.prevent="submit">
+      <section v-if="incomingRequests.length > 0" class="list-section workflow-list-section">
+        <h3>待我接受（{{ incomingRequests.length }}）</h3>
+        <table class="duty-adjustment-table workflow-table">
+          <thead>
+            <tr>
+              <th>扣班成员</th>
+              <th>班次</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="request in incomingRequests"
+              :key="request.id"
+              class="workflow-card is-actionable"
+            >
+              <td class="workflow-person" data-label="扣班成员">
+                {{ request.deductedMemberName }}
+              </td>
+              <td data-label="班次">
+                {{
+                  formatDutyAdjustmentShiftTime(
+                    request.coveredAssignment.startsAt,
+                    request.coveredAssignment.endsAt,
+                  )
+                }}
+              </td>
+              <td class="workflow-actions-cell" data-label="操作">
+                <t-button variant="outline" @click="accept(request)">接受</t-button>
+                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section
+        v-if="canApprove && pendingApprovals.length > 0"
+        class="list-section workflow-list-section"
+      >
+        <h3>待管理员审批（{{ pendingApprovals.length }}）</h3>
+        <table class="duty-adjustment-table workflow-table">
+          <thead>
+            <tr>
+              <th>扣班成员</th>
+              <th>加班成员</th>
+              <th>班次</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="request in pendingApprovals"
+              :key="request.id"
+              class="workflow-card is-actionable"
+            >
+              <td class="workflow-person" data-label="扣班成员">
+                {{ request.deductedMemberName }}
+              </td>
+              <td data-label="加班成员">{{ request.overtimeMemberName }}</td>
+              <td data-label="班次">
+                {{
+                  formatDutyAdjustmentShiftTime(
+                    request.coveredAssignment.startsAt,
+                    request.coveredAssignment.endsAt,
+                  )
+                }}
+              </td>
+              <td class="workflow-actions-cell" data-label="操作">
+                <t-button variant="outline" @click="approve(request)">批准</t-button>
+                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section
+        v-if="canApprove && handledApprovals.length > 0"
+        class="list-section workflow-list-section"
+      >
+        <h3>已受理记录（{{ handledApprovals.length }}）</h3>
+        <table class="duty-adjustment-table workflow-table">
+          <thead>
+            <tr>
+              <th>扣班成员</th>
+              <th>加班成员</th>
+              <th>班次</th>
+              <th>状态</th>
+              <th>处理人</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in handledApprovals" :key="request.id" class="workflow-card">
+              <td class="workflow-person" data-label="扣班成员">
+                {{ request.deductedMemberName }}
+              </td>
+              <td data-label="加班成员">{{ request.overtimeMemberName }}</td>
+              <td data-label="班次">
+                {{
+                  formatDutyAdjustmentShiftTime(
+                    request.coveredAssignment.startsAt,
+                    request.coveredAssignment.endsAt,
+                  )
+                }}
+              </td>
+              <td data-label="状态">
+                <span class="workflow-status-badge" :class="getWorkflowStatusTone(request.status)">
+                  {{ getDutyAdjustmentStatusLabel(request.status) }}
+                </span>
+              </td>
+              <td data-label="处理人">{{ request.decidedByMemberName ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section
+        v-if="canApprove && (completedAdjustments.length > 0 || archivedDutyCount > 0)"
+        class="list-section workflow-list-section"
+      >
+        <h3>已生效待撤销（{{ completedAdjustments.length }}）</h3>
+        <table v-if="completedAdjustments.length > 0" class="duty-adjustment-table workflow-table">
+          <thead>
+            <tr>
+              <th>扣班成员</th>
+              <th>加班成员</th>
+              <th>班次</th>
+              <th>处理人</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="request in completedAdjustments" :key="request.id" class="workflow-card">
+              <td class="workflow-person" data-label="扣班成员">
+                {{ request.deductedMemberName }}
+              </td>
+              <td data-label="加班成员">{{ request.overtimeMemberName }}</td>
+              <td data-label="班次">
+                {{
+                  formatDutyAdjustmentShiftTime(
+                    request.coveredAssignment.startsAt,
+                    request.coveredAssignment.endsAt,
+                  )
+                }}
+              </td>
+              <td data-label="处理人">{{ request.decidedByMemberName ?? '—' }}</td>
+              <td class="workflow-actions-cell" data-label="操作">
+                <t-button theme="danger" variant="text" @click="revoke(request)">撤销</t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="archivedDutyCount > 0" class="table-empty workflow-empty">
+          另有 {{ archivedDutyCount }} 条因后续排班变动而失效的加扣班记录已自动归档。
+        </p>
+      </section>
+
+      <section class="list-section workflow-list-section">
+        <h3>我的加扣班记录（{{ myDutyAdjustments.length }}）</h3>
+        <table v-if="myDutyAdjustments.length > 0" class="duty-adjustment-table workflow-table">
+          <thead>
+            <tr>
+              <th>对方</th>
+              <th>班次</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="request in myDutyAdjustments"
+              :key="request.id"
+              class="workflow-card"
+              :class="{
+                'is-actionable': myPendingRequests.some((pending) => pending.id === request.id),
+              }"
+            >
+              <td class="workflow-person" data-label="对方">{{ getCounterpartName(request) }}</td>
+              <td data-label="班次">
+                {{
+                  formatDutyAdjustmentShiftTime(
+                    request.coveredAssignment.startsAt,
+                    request.coveredAssignment.endsAt,
+                  )
+                }}
+              </td>
+              <td data-label="状态">
+                <span class="workflow-status-badge" :class="getWorkflowStatusTone(request.status)">
+                  {{ getDutyAdjustmentStatusLabel(request.status) }}
+                </span>
+                <small
+                  v-if="request.revocationReason !== undefined"
+                  class="status-reason workflow-status-reason"
+                >
+                  {{ request.revocationReason }}
+                </small>
+                <small
+                  v-if="request.revocationBlockedReason !== undefined"
+                  class="status-reason workflow-status-reason"
+                >
+                  {{ request.revocationBlockedReason }}
+                </small>
+              </td>
+              <td class="workflow-actions-cell" data-label="操作">
+                <t-button
+                  v-if="myPendingRequests.some((pending) => pending.id === request.id)"
+                  theme="danger"
+                  variant="text"
+                  @click="cancel(request)"
+                >
+                  撤销
+                </t-button>
+                <t-button
+                  v-if="request.status === 'completed' && request.isRevocable !== false"
+                  theme="danger"
+                  variant="text"
+                  @click="revoke(request)"
+                >
+                  撤销
+                </t-button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="table-empty workflow-empty">暂无加扣班记录。</p>
+      </section>
+    </template>
+
+    <ResponsiveSheet v-model:visible="requestFormVisible" title="发起加扣班">
+      <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
+      <form class="duty-adjustment-form workflow-form" @submit.prevent="submit">
         <fieldset>
-          <legend>发起加扣班（代我的班次）</legend>
+          <legend>安排成员代值我的班次</legend>
           <label>
             月份
             <input v-model="businessMonth" type="month" />
@@ -453,7 +714,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
             原因（可选）
             <input v-model="reason" maxlength="1000" placeholder="填写代值原因" />
           </label>
-          <div class="form-actions">
+          <div class="form-actions workflow-form-actions">
             <t-button variant="outline" :loading="isPreviewing" @click="computePreview">
               生成预览
             </t-button>
@@ -463,7 +724,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
       </form>
 
       <template v-if="preview !== undefined">
-        <div class="preview-summary">
+        <div class="preview-summary workflow-preview">
           <p>被代班班次：{{ formatAssignmentSummaryOption(preview.coveredAssignment) }}</p>
           <p>
             扣班成员：{{ preview.deductedMemberName }}；加班成员：{{ preview.overtimeMemberName }}
@@ -479,11 +740,14 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
           :message="getDutyAdjustmentConflictMessage(conflict)"
         />
       </template>
+    </ResponsiveSheet>
 
-      <form v-if="canApprove" class="duty-adjustment-form" @submit.prevent="submitDirect">
+    <ResponsiveSheet v-model:visible="adminFormVisible" title="管理员直接代值">
+      <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
+      <form class="duty-adjustment-form workflow-form" @submit.prevent="submitDirect">
         <fieldset>
-          <legend>管理员直接代值</legend>
-          <p class="field-hint">直接生效，不需要双方确认或审批；原因选填。</p>
+          <legend>选择代值班次与成员</legend>
+          <p class="workflow-form-hint">直接生效，不需要双方确认或审批；原因选填。</p>
           <label>
             月份
             <input v-model="businessMonth" type="month" />
@@ -510,337 +774,15 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
             原因（选填）
             <input v-model="adminReason" maxlength="1000" placeholder="填写代值原因（选填）" />
           </label>
-          <div class="form-actions">
+          <div class="form-actions workflow-form-actions">
             <t-button theme="primary" type="submit" :loading="isAdminSubmitting">
               直接代值
             </t-button>
           </div>
         </fieldset>
       </form>
-
-      <section v-if="incomingRequests.length > 0" class="list-section">
-        <h3>待我接受（{{ incomingRequests.length }}）</h3>
-        <table class="duty-adjustment-table">
-          <thead>
-            <tr>
-              <th>扣班成员</th>
-              <th>班次</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in incomingRequests" :key="request.id">
-              <td>{{ request.deductedMemberName }}</td>
-              <td>
-                {{
-                  formatDutyAdjustmentShiftTime(
-                    request.coveredAssignment.startsAt,
-                    request.coveredAssignment.endsAt,
-                  )
-                }}
-              </td>
-              <td>
-                <t-button variant="outline" @click="accept(request)">接受</t-button>
-                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section v-if="canApprove && pendingApprovals.length > 0" class="list-section">
-        <h3>待管理员审批（{{ pendingApprovals.length }}）</h3>
-        <table class="duty-adjustment-table">
-          <thead>
-            <tr>
-              <th>扣班成员</th>
-              <th>加班成员</th>
-              <th>班次</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in pendingApprovals" :key="request.id">
-              <td>{{ request.deductedMemberName }}</td>
-              <td>{{ request.overtimeMemberName }}</td>
-              <td>
-                {{
-                  formatDutyAdjustmentShiftTime(
-                    request.coveredAssignment.startsAt,
-                    request.coveredAssignment.endsAt,
-                  )
-                }}
-              </td>
-              <td>
-                <t-button variant="outline" @click="approve(request)">批准</t-button>
-                <t-button theme="danger" variant="text" @click="reject(request)">驳回</t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section v-if="canApprove && handledApprovals.length > 0" class="list-section">
-        <h3>已受理记录（{{ handledApprovals.length }}）</h3>
-        <table class="duty-adjustment-table">
-          <thead>
-            <tr>
-              <th>扣班成员</th>
-              <th>加班成员</th>
-              <th>班次</th>
-              <th>状态</th>
-              <th>处理人</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in handledApprovals" :key="request.id">
-              <td>{{ request.deductedMemberName }}</td>
-              <td>{{ request.overtimeMemberName }}</td>
-              <td>
-                {{
-                  formatDutyAdjustmentShiftTime(
-                    request.coveredAssignment.startsAt,
-                    request.coveredAssignment.endsAt,
-                  )
-                }}
-              </td>
-              <td>{{ getDutyAdjustmentStatusLabel(request.status) }}</td>
-              <td>{{ request.decidedByMemberName ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section
-        v-if="canApprove && (completedAdjustments.length > 0 || archivedDutyCount > 0)"
-        class="list-section"
-      >
-        <h3>已生效待撤销（{{ completedAdjustments.length }}）</h3>
-        <table v-if="completedAdjustments.length > 0" class="duty-adjustment-table">
-          <thead>
-            <tr>
-              <th>扣班成员</th>
-              <th>加班成员</th>
-              <th>班次</th>
-              <th>处理人</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in completedAdjustments" :key="request.id">
-              <td>{{ request.deductedMemberName }}</td>
-              <td>{{ request.overtimeMemberName }}</td>
-              <td>
-                {{
-                  formatDutyAdjustmentShiftTime(
-                    request.coveredAssignment.startsAt,
-                    request.coveredAssignment.endsAt,
-                  )
-                }}
-              </td>
-              <td>{{ request.decidedByMemberName ?? '—' }}</td>
-              <td>
-                <t-button theme="danger" variant="text" @click="revoke(request)">撤销</t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="archivedDutyCount > 0" class="table-empty">
-          另有 {{ archivedDutyCount }} 条因后续排班变动而失效的加扣班记录已自动归档。
-        </p>
-      </section>
-
-      <section class="list-section">
-        <h3>我的加扣班记录（{{ myDutyAdjustments.length }}）</h3>
-        <table v-if="myDutyAdjustments.length > 0" class="duty-adjustment-table">
-          <thead>
-            <tr>
-              <th>对方</th>
-              <th>班次</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="request in myDutyAdjustments" :key="request.id">
-              <td>{{ getCounterpartName(request) }}</td>
-              <td>
-                {{
-                  formatDutyAdjustmentShiftTime(
-                    request.coveredAssignment.startsAt,
-                    request.coveredAssignment.endsAt,
-                  )
-                }}
-              </td>
-              <td>
-                {{ getDutyAdjustmentStatusLabel(request.status) }}
-                <small v-if="request.revocationReason !== undefined" class="status-reason">
-                  {{ request.revocationReason }}
-                </small>
-                <small v-if="request.revocationBlockedReason !== undefined" class="status-reason">
-                  {{ request.revocationBlockedReason }}
-                </small>
-              </td>
-              <td>
-                <t-button
-                  v-if="myPendingRequests.some((pending) => pending.id === request.id)"
-                  theme="danger"
-                  variant="text"
-                  @click="cancel(request)"
-                >
-                  撤销
-                </t-button>
-                <t-button
-                  v-if="request.status === 'completed' && request.isRevocable !== false"
-                  theme="danger"
-                  variant="text"
-                  @click="revoke(request)"
-                >
-                  撤销
-                </t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-else class="table-empty">暂无加扣班记录。</p>
-      </section>
-    </template>
+    </ResponsiveSheet>
   </section>
 </template>
 
-<style scoped>
-.duty-adjustment-panel {
-  display: grid;
-  gap: 16px;
-}
-
-.duty-adjustment-panel h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.duty-adjustment-panel h3 {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.settings-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #dbe3ea;
-  border-radius: 6px;
-}
-
-.settings-field {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  color: #374151;
-  font-size: 14px;
-}
-
-.duty-adjustment-form fieldset {
-  display: grid;
-  gap: 12px;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #dbe3ea;
-  border-radius: 6px;
-}
-
-.duty-adjustment-form legend {
-  color: #374151;
-  font-weight: 600;
-}
-
-.duty-adjustment-form label {
-  display: grid;
-  gap: 4px;
-  color: #374151;
-  font-size: 14px;
-}
-
-.duty-adjustment-form input[type='month'] {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
-}
-
-.duty-adjustment-form input:not([type='month']) {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
-}
-
-.field-hint {
-  margin: 0;
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.preview-summary {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  background: #eff6ff;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.preview-summary p {
-  margin: 0;
-  color: #1f2937;
-}
-
-.next-status {
-  font-weight: 600;
-}
-
-.duty-adjustment-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  background: #ffffff;
-}
-
-.duty-adjustment-table th,
-.duty-adjustment-table td {
-  padding: 8px;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.duty-adjustment-table th {
-  color: #374151;
-  background: #f8fafc;
-}
-
-.table-empty {
-  margin: 0;
-  padding: 16px;
-  color: #6b7280;
-  font-size: 13px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-}
-
-.status-reason {
-  display: block;
-  margin-top: 2px;
-  color: #92400e;
-}
-</style>
+<style scoped src="../workflows/workflow-panel.css"></style>

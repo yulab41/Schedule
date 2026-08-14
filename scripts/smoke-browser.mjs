@@ -354,6 +354,159 @@ async function assertLeaveWorkflowMobile(page) {
   await waitForBodyText(page, '排班日历', 10000);
 }
 
+async function assertWorkflowSheetTouchTargets(sheet, width, label) {
+  await sheet.page().waitForTimeout(350);
+  const metrics = await sheet.evaluate((element) => {
+    const sheetRect = element.getBoundingClientRect();
+    const controls = [
+      ...element.querySelectorAll('button, input:not(.t-input__inner), .t-input, .t-select'),
+    ].filter((control) => {
+      const rect = control.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+    return {
+      bottom: sheetRect.bottom,
+      smallControls: controls
+        .filter((control) => {
+          const rect = control.getBoundingClientRect();
+          return rect.width < 44 || rect.height < 44;
+        })
+        .map(
+          (control) =>
+            control.textContent?.trim() || control.getAttribute('aria-label') || control.tagName,
+        ),
+      top: sheetRect.top,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  if (metrics.top < -1 || metrics.bottom > metrics.viewportHeight + 1) {
+    fail(
+      `${width}px ${label}超出可视区：top=${metrics.top}，bottom=${metrics.bottom}，viewport=${metrics.viewportHeight}。`,
+    );
+  }
+  if (metrics.smallControls.length > 0) {
+    fail(`${width}px ${label}存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+  }
+}
+
+async function assertShiftWorkflowsMobile(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '换班' }).first().click();
+  await waitForBodyText(page, '交换双方已发布班次', 15000, '换班');
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    const pageMetrics = await page.evaluate(() => {
+      const buttons = [
+        document.querySelector('#swap-create-button'),
+        document.querySelector('#swap-admin-create-button'),
+      ].filter((element) => element !== null);
+      const card = document.querySelector('.workflow-table .workflow-card');
+      return {
+        cardDisplay: card === null ? undefined : getComputedStyle(card).display,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallButtons: buttons
+          .filter((button) => {
+            const rect = button.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((button) => button.textContent?.trim() ?? ''),
+      };
+    });
+    if (pageMetrics.overflow) fail(`${width}px 换班工作流出现页面横向溢出。`);
+    if (pageMetrics.cardDisplay !== undefined && pageMetrics.cardDisplay !== 'grid') {
+      fail(`${width}px 换班记录未切换为移动卡片。`);
+    }
+    if (pageMetrics.smallButtons.length > 0) {
+      fail(`${width}px 换班页存在小于 44px 的关键按钮：${pageMetrics.smallButtons.join('、')}`);
+    }
+
+    await page.locator('#swap-create-button').click();
+    const requestSheet = page.locator('dialog[open][aria-label="发起换班"]');
+    await requestSheet.waitFor({ state: 'visible', timeout: 5000 });
+    const requestText = await requestSheet.innerText();
+    if (!requestText.includes('我的班次') || !requestText.includes('提交换班')) {
+      fail(`${width}px 发起换班底部页缺少表单内容。`);
+    }
+    await assertWorkflowSheetTouchTargets(requestSheet, width, '发起换班底部页');
+    if (width === 390) {
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '4-admin-mobile-swap-sheet.png') });
+    }
+    await requestSheet.locator('button[aria-label="关闭"]').click();
+
+    await page.locator('#swap-admin-create-button').click();
+    const adminSheet = page.locator('dialog[open][aria-label="管理员直接换班"]');
+    await adminSheet.waitFor({ state: 'visible', timeout: 5000 });
+    const adminText = await adminSheet.innerText();
+    if (!adminText.includes('成员一') || !adminText.includes('直接执行换班')) {
+      fail(`${width}px 管理员直接换班底部页缺少表单内容。`);
+    }
+    await assertWorkflowSheetTouchTargets(adminSheet, width, '管理员直接换班底部页');
+    await adminSheet.locator('button[aria-label="关闭"]').click();
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '加扣班' }).first().click();
+  await waitForBodyText(page, '安排成员代值已发布班次', 15000, '加扣班');
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    const pageMetrics = await page.evaluate(() => {
+      const buttons = [
+        document.querySelector('#duty-create-button'),
+        document.querySelector('#duty-admin-create-button'),
+      ].filter((element) => element !== null);
+      const card = document.querySelector('.workflow-table .workflow-card');
+      return {
+        cardDisplay: card === null ? undefined : getComputedStyle(card).display,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallButtons: buttons
+          .filter((button) => {
+            const rect = button.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((button) => button.textContent?.trim() ?? ''),
+      };
+    });
+    if (pageMetrics.overflow) fail(`${width}px 加扣班工作流出现页面横向溢出。`);
+    if (pageMetrics.cardDisplay !== undefined && pageMetrics.cardDisplay !== 'grid') {
+      fail(`${width}px 加扣班记录未切换为移动卡片。`);
+    }
+    if (pageMetrics.smallButtons.length > 0) {
+      fail(`${width}px 加扣班页存在小于 44px 的关键按钮：${pageMetrics.smallButtons.join('、')}`);
+    }
+
+    await page.locator('#duty-create-button').click();
+    const requestSheet = page.locator('dialog[open][aria-label="发起加扣班"]');
+    await requestSheet.waitFor({ state: 'visible', timeout: 5000 });
+    const requestText = await requestSheet.innerText();
+    if (!requestText.includes('我的班次') || !requestText.includes('提交申请')) {
+      fail(`${width}px 发起加扣班底部页缺少表单内容。`);
+    }
+    await assertWorkflowSheetTouchTargets(requestSheet, width, '发起加扣班底部页');
+    if (width === 390) {
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '5-admin-mobile-duty-sheet.png') });
+    }
+    await requestSheet.locator('button[aria-label="关闭"]').click();
+
+    await page.locator('#duty-admin-create-button').click();
+    const adminSheet = page.locator('dialog[open][aria-label="管理员直接代值"]');
+    await adminSheet.waitFor({ state: 'visible', timeout: 5000 });
+    const adminText = await adminSheet.innerText();
+    if (!adminText.includes('被代班班次') || !adminText.includes('直接代值')) {
+      fail(`${width}px 管理员直接代值底部页缺少表单内容。`);
+    }
+    await assertWorkflowSheetTouchTargets(adminSheet, width, '管理员直接代值底部页');
+    await adminSheet.locator('button[aria-label="关闭"]').click();
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
+  await waitForBodyText(page, '排班日历', 10000);
+}
+
 async function assertWeekendCalendarHighlight(page) {
   const weekdayHeader = page.locator('.weekday-row span.is-weekend').first();
   await weekdayHeader.waitFor({ state: 'visible', timeout: 15000 });
@@ -633,6 +786,7 @@ async function runSmoke() {
     await assertWeekendCalendarHighlight(page);
     await assertMonthCalendarInteractions(page);
     await assertLeaveWorkflowMobile(page);
+    await assertShiftWorkflowsMobile(page);
     await assertManualScheduleDefaultStartDate(page);
     await assertBackfillCalendarColors(page);
     await assertGroupManagementAndEventNav(page);

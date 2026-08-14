@@ -6,6 +6,7 @@ import {
   filterOperableAssignments,
   getWorkflowNextStatusDescription,
   getWorkflowStatusLabel,
+  getWorkflowStatusTone,
   groupAssignmentsByDutyMember,
   isOperableAssignment,
   resolveNextWorkflowStatus,
@@ -137,5 +138,14 @@ describe('shared swap/duty adjustment workflow logic', () => {
     expect(resolveNextWorkflowStatus(false, false)).toBe('pending_target');
     expect(resolveNextWorkflowStatus(true, true)).toBe('pending_approval');
     expect(resolveNextWorkflowStatus(false, true)).toBe('completed');
+  });
+
+  it('maps every workflow state to a semantic card tone', () => {
+    expect(getWorkflowStatusTone('pending_target')).toBe('warning');
+    expect(getWorkflowStatusTone('pending_approval')).toBe('warning');
+    expect(getWorkflowStatusTone('completed')).toBe('success');
+    expect(getWorkflowStatusTone('rejected')).toBe('danger');
+    expect(getWorkflowStatusTone('cancelled')).toBe('neutral');
+    expect(getWorkflowStatusTone('revoked')).toBe('neutral');
   });
 });

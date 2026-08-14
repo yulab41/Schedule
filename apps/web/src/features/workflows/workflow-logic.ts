@@ -9,6 +9,7 @@ import { isPastBusinessDate } from '@schedule/scheduling-domain';
 import { getDutyMembershipId } from '../calendar/calendar-logic.js';
 
 export type WorkflowRequestStatus = SwapRequestStatus | DutyAdjustmentStatus;
+export type WorkflowStatusTone = 'danger' | 'neutral' | 'success' | 'warning';
 
 export interface OperableCandidateAssignments {
   readonly operableAssignments: readonly CalendarDutyAssignment[];
@@ -75,6 +76,21 @@ export function getWorkflowStatusLabel(
     return `待${pendingTargetLabel}接受`;
   }
   return workflowStatusLabels[status];
+}
+
+export function getWorkflowStatusTone(status: WorkflowRequestStatus): WorkflowStatusTone {
+  switch (status) {
+    case 'pending_target':
+    case 'pending_approval':
+      return 'warning';
+    case 'completed':
+      return 'success';
+    case 'rejected':
+      return 'danger';
+    case 'cancelled':
+    case 'revoked':
+      return 'neutral';
+  }
 }
 
 export function resolveNextWorkflowStatus(
