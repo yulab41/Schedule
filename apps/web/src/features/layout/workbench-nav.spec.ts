@@ -16,6 +16,23 @@ describe('Workbench navigation', () => {
     );
   });
 
+  it('assigns a strongly typed icon to every navigation entry', () => {
+    expect(workbenchNavItems.map(({ icon, id }) => [id, icon])).toEqual([
+      ['calendar', 'calendar'],
+      ['groups', 'groups'],
+      ['manual', 'manual'],
+      ['backfill', 'backfill'],
+      ['leave', 'leave'],
+      ['swap', 'swap'],
+      ['duty', 'duty'],
+      ['events', 'events'],
+      ['notifications', 'notifications'],
+      ['statistics', 'statistics'],
+      ['members', 'members'],
+      ['config', 'config'],
+    ]);
+  });
+
   it('hides administrator-only entries for ordinary members', () => {
     const memberIds = getDesktopNavItems('member').map((item) => item.id);
     expect(memberIds).not.toContain('manual');

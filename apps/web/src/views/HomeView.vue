@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
+import { ExportIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../api/client.js';
@@ -27,6 +28,10 @@ import ExportDialog from '../features/exports/ExportDialog.vue';
 import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
 import PastScheduleView from './schedules/PastScheduleView.vue';
+
+const emit = defineEmits<{
+  (event: 'sign-out'): void;
+}>();
 
 const lastGroupStorageKey = 'schedule.last-group-id';
 const api = createApiClient({ auth: localAuth });
@@ -84,7 +89,11 @@ function selectGroupTab(groupId: string | undefined): void {
 
 <template>
   <section class="home-view">
-    <h1>排班工作台</h1>
+    <header class="home-heading">
+      <p>群组排班</p>
+      <h1>排班工作台</h1>
+      <span>查看排班、处理申请并跟进班次变更。</span>
+    </header>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-loading v-else-if="isLoading" text="正在加载群组" />
     <template v-else>
@@ -94,15 +103,21 @@ function selectGroupTab(groupId: string | undefined): void {
         @update:model-value="selectGroupTab"
       />
       <section v-if="currentGroup() !== undefined" class="current-group-workbench">
-        <h2>{{ currentGroup()?.name }}</h2>
-        <div
-          v-if="currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator'"
-          class="workbench-actions"
-        >
-          <t-button variant="outline" size="small" @click="exportDialogVisible = true">
-            导出
-          </t-button>
-        </div>
+        <header class="workbench-context-heading">
+          <div>
+            <p>当前工作群组</p>
+            <h2>{{ currentGroup()?.name }}</h2>
+          </div>
+          <div
+            v-if="currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator'"
+            class="workbench-actions"
+          >
+            <t-button variant="outline" @click="exportDialogVisible = true">
+              <template #icon><ExportIcon /></template>
+              导出
+            </t-button>
+          </div>
+        </header>
         <ExportDialog
           v-if="exportDialogVisible"
           v-model="exportDialogVisible"
@@ -116,6 +131,7 @@ function selectGroupTab(groupId: string | undefined): void {
             :primary-items="primaryItems"
             :secondary-items="secondaryItems"
             @select="activeTab = $event"
+            @sign-out="emit('sign-out')"
           />
           <section class="workbench-panels">
             <GuestCalendarPanel
@@ -169,33 +185,65 @@ function selectGroupTab(groupId: string | undefined): void {
 
 <style scoped>
 .home-view {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
-.home-view h1 {
-  margin: 0 0 8px;
+.home-heading {
+  margin-bottom: var(--ui-spacing-lg);
+}
+
+.home-heading p,
+.workbench-context-heading p {
+  margin: 0;
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.home-heading h1 {
+  margin: 4px 0 6px;
   font-size: var(--ui-font-size-xxl);
-  font-weight: 600;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-title);
+  letter-spacing: -0.6px;
+}
+
+.home-heading span {
+  color: var(--ui-color-text-secondary);
 }
 
 .current-group-workbench {
-  margin: 24px 0;
+  margin: var(--ui-spacing-xl) 0 0;
 }
 
-.current-group-workbench h2 {
-  margin: 0 0 12px;
+.workbench-context-heading {
+  display: flex;
+  margin-bottom: var(--ui-spacing-md);
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+}
+
+.workbench-context-heading h2 {
+  margin: 3px 0 0;
   font-size: var(--ui-font-size-xl);
-  font-weight: 600;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-tight);
 }
 
 .workbench-actions {
-  margin-bottom: 12px;
+  flex: 0 0 auto;
+}
+
+.workbench-actions :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
+  border-radius: var(--ui-radius-small);
 }
 
 .workbench-layout {
   display: flex;
-  gap: 16px;
+  gap: var(--ui-spacing-lg);
   align-items: flex-start;
 }
 
@@ -205,12 +253,22 @@ function selectGroupTab(groupId: string | undefined): void {
 }
 
 @media (max-width: 640px) {
+  .home-heading {
+    margin-bottom: var(--ui-spacing-md);
+  }
+
+  .workbench-context-heading {
+    align-items: center;
+  }
+
   .workbench-layout {
     display: block;
   }
 
   .workbench-panels {
-    padding-bottom: calc(var(--ui-layout-bottom-nav-height) + 24px);
+    padding-bottom: calc(
+      var(--ui-layout-bottom-nav-height) + env(safe-area-inset-bottom) + var(--ui-spacing-xl)
+    );
   }
 }
 </style>

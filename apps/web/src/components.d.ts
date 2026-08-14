@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     DataConflictDialog: typeof import('./components/DataConflictDialog.vue')['default']
+    ResponsiveSheet: typeof import('./components/ResponsiveSheet.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TAlert: typeof import('tdesign-vue-next')['Alert']

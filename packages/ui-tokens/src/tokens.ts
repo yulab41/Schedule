@@ -16,7 +16,7 @@ export const colorTokens = {
   successLight: '#EAF8EF',
   surface: '#FFFFFF',
   surfaceMuted: '#F8FAFC',
-  textMuted: '#788492',
+  textMuted: '#6B7785',
   textPrimary: '#16202A',
   textSecondary: '#5E6A78',
   todayMarker: '#F5C518',

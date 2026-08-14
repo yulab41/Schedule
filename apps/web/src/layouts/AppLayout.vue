@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { LogoutIcon } from 'tdesign-icons-vue-next';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -33,13 +34,25 @@ async function saveProfile(): Promise<void> {
   <t-layout class="app-layout">
     <a class="skip-link" href="#app-content">跳到主要内容</a>
     <t-header class="app-header">
-      <RouterLink class="product-name" :to="{ name: 'home' }">医护排班系统</RouterLink>
+      <RouterLink class="product-name" :to="{ name: 'home' }">
+        <span class="product-mark" aria-hidden="true"><span /><span /></span>
+        <span class="product-copy">
+          <strong>医护排班</strong>
+          <small>Medical Schedule</small>
+        </span>
+      </RouterLink>
       <div class="account-actions">
         <NotificationBell />
-        <span v-if="session.profile !== undefined" class="account-name">{{
-          session.profile.realName
-        }}</span>
-        <t-button variant="text" @click="signOut">退出登录</t-button>
+        <span v-if="session.profile !== undefined" class="account-chip">
+          <span class="account-avatar" aria-hidden="true">{{
+            session.profile.realName.slice(0, 1)
+          }}</span>
+          <span class="account-name">{{ session.profile.realName }}</span>
+        </span>
+        <t-button class="desktop-sign-out" variant="text" @click="signOut">
+          <template #icon><LogoutIcon /></template>
+          退出登录
+        </t-button>
       </div>
     </t-header>
     <t-content id="app-content" class="app-content" tabindex="-1">
@@ -70,7 +83,9 @@ async function saveProfile(): Promise<void> {
           />
         </t-card>
       </section>
-      <RouterView v-else-if="session.isAuthenticated" />
+      <RouterView v-else-if="session.isAuthenticated" v-slot="{ Component }">
+        <component :is="Component" @sign-out="signOut" />
+      </RouterView>
       <section v-else class="state-panel" aria-live="polite">
         <t-loading text="正在返回登录页" />
       </section>

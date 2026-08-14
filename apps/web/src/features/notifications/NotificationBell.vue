@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NotificationIcon } from 'tdesign-icons-vue-next';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -58,8 +59,13 @@ function onUnreadChanged(count: number): void {
 <template>
   <div class="notification-bell">
     <t-badge :count="unreadCount" :hidden="unreadCount === 0">
-      <t-button aria-label="通知中心" variant="text" @click="isOpen = true">
-        <span aria-hidden="true">铃铛</span>
+      <t-button
+        class="notification-trigger"
+        aria-label="通知中心"
+        variant="text"
+        @click="isOpen = true"
+      >
+        <NotificationIcon aria-hidden="true" />
       </t-button>
     </t-badge>
     <t-drawer v-model:visible="isOpen" size="420px" header="通知中心">
@@ -67,3 +73,19 @@ function onUnreadChanged(count: number): void {
     </t-drawer>
   </div>
 </template>
+
+<style scoped>
+.notification-trigger {
+  width: var(--ui-touch-target-minimum);
+  height: var(--ui-touch-target-minimum);
+  padding: 0;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-background);
+  border-radius: var(--ui-radius-medium);
+}
+
+.notification-trigger :deep(svg) {
+  width: 21px;
+  height: 21px;
+}
+</style>

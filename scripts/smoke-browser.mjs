@@ -161,6 +161,86 @@ async function assertTDesignTheme(page) {
   }
 }
 
+async function assertResponsiveLoginShell(page) {
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(150);
+    const result = await page.evaluate(() => {
+      const controls = [
+        ...document.querySelectorAll('.auth-mode-switch button, .auth-submit, .guest-entry'),
+      ];
+      return {
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallControls: controls
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((element) => element.textContent?.trim() ?? element.tagName),
+      };
+    });
+
+    if (result.overflow) fail(`${width}px 登录页出现横向溢出。`);
+    if (result.smallControls.length > 0) {
+      fail(`${width}px 登录页存在小于 44px 的关键点触目标：${result.smallControls.join('、')}`);
+    }
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+}
+
+async function assertResponsiveWorkbenchShell(page) {
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    const result = await page.evaluate(() => {
+      const nav = document.querySelector('.workbench-bottom-nav');
+      const panels = document.querySelector('.workbench-panels');
+      const navButtons = [...document.querySelectorAll('.workbench-bottom-nav button')];
+      return {
+        bottomPadding: Number.parseFloat(
+          panels === null ? '0' : getComputedStyle(panels).paddingBottom,
+        ),
+        navBottom: nav?.getBoundingClientRect().bottom ?? 0,
+        navButtons: navButtons.length,
+        navHeight: nav?.getBoundingClientRect().height ?? 0,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallNavButtons: navButtons
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((element) => element.textContent?.trim() ?? ''),
+      };
+    });
+
+    if (result.overflow) fail(`${width}px 工作台出现横向溢出。`);
+    if (result.navButtons !== 5) fail(`${width}px 工作台未保留四个主入口与“更多”。`);
+    if (result.smallNavButtons.length > 0) {
+      fail(`${width}px 底栏存在小于 44px 的点触目标：${result.smallNavButtons.join('、')}`);
+    }
+    if (result.navHeight < 70 || Math.abs(result.navBottom - 844) > 1) {
+      fail(`${width}px 底栏未正确贴合手机底部安全区。`);
+    }
+    if (result.bottomPadding < result.navHeight) {
+      fail(`${width}px 工作台内容没有为固定底栏预留空间。`);
+    }
+
+    await page.locator('.workbench-bottom-nav button', { hasText: '更多' }).click();
+    const sheet = page.locator('dialog[open][aria-label="更多功能"]');
+    await sheet.waitFor({ state: 'visible', timeout: 5000 });
+    const sheetText = await sheet.innerText();
+    if (!sheetText.includes('群组与排班') || !sheetText.includes('账号')) {
+      fail(`${width}px “更多”底部页缺少功能或账号分组。`);
+    }
+    if (!sheetText.includes('退出登录')) fail(`${width}px 退出登录未放入账号分组。`);
+    await sheet.locator('button[aria-label="关闭"]').click();
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.waitForTimeout(150);
+}
+
 async function assertManualScheduleDefaultStartDate(page) {
   await page.locator('.workbench-sidebar button', { hasText: '手动排班' }).first().click();
   await waitForBodyText(page, '手动排班模板', 15000, '手动排班模板');
@@ -301,6 +381,7 @@ async function runSmoke() {
     await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
     await waitForBodyText(page, '登录', 15000, '登录卡片');
     await assertTDesignTheme(page);
+    await assertResponsiveLoginShell(page);
     const adminButton = page.locator('button', { hasText: '本地管理员' });
     const memberButton = page.locator('button', { hasText: '本地成员' });
     if ((await adminButton.count()) === 0 || (await memberButton.count()) === 0) {
@@ -318,6 +399,7 @@ async function runSmoke() {
     await waitForBodyText(page, '手动排班', 15000);
     assertNoErrors(errors, '管理员模式');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '2-admin.png') });
+    await assertResponsiveWorkbenchShell(page);
     await assertWeekendCalendarHighlight(page);
     await assertManualScheduleDefaultStartDate(page);
     await assertBackfillCalendarColors(page);

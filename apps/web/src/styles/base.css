@@ -8,6 +8,7 @@
   line-height: var(--ui-line-height-normal);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
 }
 
 * {
@@ -18,6 +19,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  overflow-x: hidden;
 }
 
 button,
@@ -25,6 +27,14 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
 }
 
 :focus-visible {
@@ -42,39 +52,119 @@ textarea {
 
 .app-layout {
   min-height: 100vh;
+  background: var(--ui-color-background);
 }
 
 .app-header {
+  position: sticky;
+  z-index: var(--ui-z-index-navigation);
+  top: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   min-height: var(--ui-layout-header-height);
-  padding: 0 24px;
-  background: var(--ui-color-surface);
+  padding: 0 var(--ui-spacing-xl);
+  background: rgb(255 255 255 / 92%);
   border-bottom: 1px solid var(--ui-color-border);
-  box-shadow: 0 1px 2px rgb(17 24 39 / 4%);
+  box-shadow: 0 1px 2px rgb(22 32 42 / 4%);
+  backdrop-filter: blur(20px);
 }
 
 .product-name {
+  display: inline-flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  gap: 10px;
   color: var(--ui-color-text-primary);
-  font-size: var(--ui-font-size-xl);
-  font-weight: 600;
   text-decoration: none;
+}
+
+.product-mark {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  background: var(--ui-color-primary);
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgb(10 102 213 / 20%);
+}
+
+.product-mark span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 5px;
+  background: var(--ui-color-white);
+  border-radius: var(--ui-radius-pill);
+  transform: translate(-50%, -50%);
+}
+
+.product-mark span:last-child {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.product-copy {
+  display: grid;
+  line-height: 1.1;
+}
+
+.product-copy strong {
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+  letter-spacing: -0.2px;
+}
+
+.product-copy small {
+  margin-top: 3px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 
 .account-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+}
+
+.account-chip {
+  display: inline-flex;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 4px 10px 4px 4px;
+  align-items: center;
+  gap: 8px;
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-pill);
+}
+
+.account-avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border-radius: 50%;
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .account-name {
   color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-md);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.desktop-sign-out {
+  min-height: var(--ui-touch-target-minimum);
+  border-radius: var(--ui-radius-small);
 }
 
 .app-content {
-  padding: var(--ui-spacing-lg);
+  padding: var(--ui-spacing-xl);
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
@@ -88,8 +178,8 @@ textarea {
   padding: 8px 12px;
   color: var(--ui-color-white);
   background: var(--ui-color-primary);
-  border-radius: 4px;
-  font-weight: 600;
+  border-radius: var(--ui-radius-small);
+  font-weight: var(--ui-font-weight-semibold);
   text-decoration: none;
   transform: translateY(-200%);
 }
@@ -103,22 +193,12 @@ textarea {
 .state-panel {
   display: grid;
   min-height: 100vh;
-  padding: 24px;
+  padding: var(--ui-spacing-xl);
   place-items: center;
 }
 
-.auth-card,
 .profile-panel .t-card {
   width: min(100%, 440px);
-}
-
-.auth-card .t-card__body {
-  padding-top: 24px;
-}
-
-.auth-mode-switch {
-  display: flex;
-  gap: 8px;
 }
 
 .password-auth-form {
@@ -133,70 +213,13 @@ textarea {
   font-size: var(--ui-font-size-sm);
 }
 
-.password-auth-form input {
-  width: 100%;
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: 6px;
-  background: var(--ui-color-surface);
-  color: var(--ui-color-text-primary);
-  font: inherit;
-}
-
-.password-auth-form input:focus {
-  border-color: var(--ui-color-primary);
-  outline: 2px solid color-mix(in srgb, var(--ui-color-primary) 25%, transparent);
-  outline-offset: 1px;
-}
-
 .state-panel {
   min-height: calc(100vh - 104px);
 }
 
-.home-view {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.home-view h1 {
-  margin: 0 0 8px;
-  font-size: var(--ui-font-size-xxl);
-  font-weight: 600;
-}
-
-.current-group-workbench h2 {
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--ui-color-border);
-}
-
-.home-view p,
 .profile-panel p {
   color: var(--ui-color-text-secondary);
   line-height: var(--ui-line-height-normal);
-}
-
-.group-switcher {
-  display: grid;
-  grid-template-columns: minmax(0, 280px) minmax(180px, 320px);
-  gap: 12px;
-  align-items: center;
-  margin: 20px 0;
-}
-
-.group-switcher label {
-  color: var(--ui-color-text-secondary);
-  font-weight: 600;
-}
-
-.current-group-workbench {
-  margin: 24px 0;
-}
-
-.current-group-workbench h2 {
-  margin: 0 0 12px;
-  font-size: var(--ui-font-size-xl);
-  font-weight: 600;
 }
 
 .member-list {
@@ -210,7 +233,7 @@ textarea {
   padding: 16px;
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border-strong);
-  border-radius: 6px;
+  border-radius: var(--ui-radius-small);
 }
 
 .member-summary {
@@ -254,8 +277,8 @@ textarea {
   gap: 12px;
   align-items: end;
   padding: 12px;
-  border: 1px solid #dbe3ea;
-  border-radius: 6px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
 }
 
 .shift-editor label,
@@ -263,8 +286,8 @@ textarea {
 .schedule-role-editor fieldset label {
   display: grid;
   gap: 4px;
-  color: #374151;
-  font-size: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
 }
 
 .shift-editor input:not([type='checkbox']),
@@ -273,8 +296,8 @@ textarea {
 .schedule-role-editor select {
   min-height: 32px;
   padding: 4px 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
 }
 
 .shift-color-preview {
@@ -282,15 +305,15 @@ textarea {
   width: 40px;
   height: 32px;
   place-items: center;
-  border-radius: 4px;
-  font-weight: 600;
+  border-radius: var(--ui-radius-small);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .schedule-role-editor {
   padding: 16px;
-  background: #ffffff;
-  border: 1px solid #dbe3ea;
-  border-radius: 6px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
 }
 
 .schedule-role-editor fieldset {
@@ -298,8 +321,8 @@ textarea {
 }
 
 .schedule-role-editor legend {
-  color: #374151;
-  font-weight: 600;
+  color: var(--ui-color-text-secondary);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .group-contact-form {
@@ -315,28 +338,34 @@ textarea {
 
 @media (max-width: 640px) {
   .app-header {
-    padding: 0 16px;
+    min-height: calc(var(--ui-layout-header-height) + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 12px 0 16px;
   }
 
   .app-content {
-    padding: 16px;
+    padding: var(--ui-spacing-md);
   }
 
   .auth-page,
   .profile-panel,
   .state-panel {
-    padding: 16px;
+    padding: var(--ui-spacing-md);
   }
 
-  .account-name {
+  .account-chip,
+  .desktop-sign-out {
     display: none;
   }
 
-  .product-name {
-    font-size: var(--ui-font-size-lg);
+  .product-mark {
+    width: 34px;
+    height: 34px;
   }
 
-  .group-switcher,
+  .product-copy small {
+    display: none;
+  }
+
   .group-contact-form {
     grid-template-columns: 1fr;
   }
@@ -346,5 +375,16 @@ textarea {
   .schedule-role-editor fieldset {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

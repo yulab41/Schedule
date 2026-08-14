@@ -16,25 +16,45 @@ export type WorkbenchTabId =
 
 export type GroupRole = GroupSummary['role'];
 
+export type WorkbenchNavIconId =
+  | 'backfill'
+  | 'calendar'
+  | 'config'
+  | 'duty'
+  | 'events'
+  | 'groups'
+  | 'leave'
+  | 'manual'
+  | 'members'
+  | 'notifications'
+  | 'statistics'
+  | 'swap';
+
 export interface WorkbenchNavItem {
+  readonly icon: WorkbenchNavIconId;
   readonly id: WorkbenchTabId;
   readonly label: string;
   readonly requiresAdministrator: boolean;
 }
 
 export const workbenchNavItems: readonly WorkbenchNavItem[] = [
-  { id: 'calendar', label: '排班日历', requiresAdministrator: false },
-  { id: 'groups', label: '群组管理', requiresAdministrator: false },
-  { id: 'manual', label: '手动排班', requiresAdministrator: true },
-  { id: 'backfill', label: '排班补录', requiresAdministrator: true },
-  { id: 'leave', label: '请假', requiresAdministrator: false },
-  { id: 'swap', label: '换班', requiresAdministrator: false },
-  { id: 'duty', label: '加扣班', requiresAdministrator: false },
-  { id: 'events', label: '事件', requiresAdministrator: true },
-  { id: 'notifications', label: '通知', requiresAdministrator: false },
-  { id: 'statistics', label: '统计', requiresAdministrator: false },
-  { id: 'members', label: '成员', requiresAdministrator: false },
-  { id: 'config', label: '排班配置', requiresAdministrator: true },
+  { icon: 'calendar', id: 'calendar', label: '排班日历', requiresAdministrator: false },
+  { icon: 'groups', id: 'groups', label: '群组管理', requiresAdministrator: false },
+  { icon: 'manual', id: 'manual', label: '手动排班', requiresAdministrator: true },
+  { icon: 'backfill', id: 'backfill', label: '排班补录', requiresAdministrator: true },
+  { icon: 'leave', id: 'leave', label: '请假', requiresAdministrator: false },
+  { icon: 'swap', id: 'swap', label: '换班', requiresAdministrator: false },
+  { icon: 'duty', id: 'duty', label: '加扣班', requiresAdministrator: false },
+  { icon: 'events', id: 'events', label: '事件', requiresAdministrator: true },
+  {
+    icon: 'notifications',
+    id: 'notifications',
+    label: '通知',
+    requiresAdministrator: false,
+  },
+  { icon: 'statistics', id: 'statistics', label: '统计', requiresAdministrator: false },
+  { icon: 'members', id: 'members', label: '成员', requiresAdministrator: false },
+  { icon: 'config', id: 'config', label: '排班配置', requiresAdministrator: true },
 ];
 
 const primaryMobileTabIds: readonly WorkbenchTabId[] = ['calendar', 'leave', 'swap', 'duty'];
