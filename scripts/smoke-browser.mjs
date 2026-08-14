@@ -338,6 +338,49 @@ async function assertMonthCalendarInteractions(page) {
   if (changedSelectedLabel !== anotherLabel) {
     fail('点触月格后选中日期未更新。');
   }
+
+  const dutyDetails = page.locator('.selected-date-details');
+  await dutyDetails.waitFor({ state: 'visible', timeout: 5000 });
+  const dutyDetailsText = await dutyDetails.innerText();
+  if (!dutyDetailsText.includes('选中日期') || !dutyDetailsText.includes('个班次')) {
+    fail('选中日期下方缺少完整值班详情轨道。');
+  }
+  if ((await dutyDetails.locator('.track-event').count()) === 0) {
+    fail('有排班的选中日期未显示班次轨道卡片。');
+  }
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(100);
+    const detailMetrics = await dutyDetails.evaluate((element) => {
+      const actions = [...element.querySelectorAll('.phone-action, .event-action')];
+      return {
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallActions: actions
+          .filter((action) => {
+            const rect = action.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((action) => action.textContent?.trim() ?? ''),
+      };
+    });
+    if (detailMetrics.overflow) fail(`${width}px 值班详情出现横向溢出。`);
+    if (detailMetrics.smallActions.length > 0) {
+      fail(`${width}px 值班详情存在小于 44px 的操作：${detailMetrics.smallActions.join('、')}`);
+    }
+  }
+
+  await page.setViewportSize({ height: 844, width: 390 });
+  const eventAction = dutyDetails.locator('.event-action').first();
+  await eventAction.click();
+  const eventSheet = page.locator('dialog[open][aria-label="班次事件记录"]');
+  await eventSheet.waitFor({ state: 'visible', timeout: 5000 });
+  await waitForBodyText(page, '班次事件记录', 10000);
+  if (!(await eventSheet.innerText()).includes('事件记录')) {
+    fail('班次事件响应式 Sheet 未显示事件记录内容。');
+  }
+  await eventSheet.locator('button[aria-label="关闭"]').click();
+
   await page.screenshot({
     fullPage: true,
     path: path.join(SCREENSHOT_DIR, '2-admin-mobile-calendar.png'),

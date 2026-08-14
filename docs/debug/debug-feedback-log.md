@@ -87,3 +87,12 @@
 - 变更：`MonthGrid` 新增受控 `selectedDate`/`select-date`，手机七列使用 9–12px 自适应总览字号且完整姓名自然换行；连续同名多日休假整段浅粉，单日节日不填充；手机筛选移入响应式 Sheet，桌面保留直接筛选；生产横滑与已确认 Storybook 共用 56px/1.2 倍水平意图函数。
 - 运行/浏览器验证：pnpm smoke:browser 已通过；390px 实际验证默认今天、点触换选中、筛选 Sheet、左滑换月、垂直移动取消，无横向溢出或控制台错误，管理员/成员/访客原流程通过。新增 smoke 首次因 Sheet 关闭后的月历位于视口外而手势超时，测试显式滚动到月历后通过，产品代码未为测试特判。
 - 运行验证：格式、lint、5 个定向测试文件、31 项测试、Web typecheck、Web build、Storybook build 和 `pnpm smoke:check-core` 均通过；仅有既有的大 chunk warning。checkpoint 识别消息为 `feat(web): add touch-first month calendar`。
+
+## 2026-08-14 Web UI 2.0 选中日期值班轨道
+
+- 回归来源：班次成员/电话展示沿用 `ab250646` 的 `DutyCell`，事件查询与弹窗链路由 `7ac2a07` 引入，实际人员优先与节假日/成员契约由 `48c6fdd` 完善；已复用上一任务的 `git log -S`/`git blame` 结果并逐调用点核对。
+- 测试先行：先新增多人班次原排序、实际人员全名优先、电话确认状态、已排班/有变更/待安排状态和中文日期 2 项断言；旧实现因 `selected-date-duty` 模块不存在而失败，实现后 2/2 通过，连同月历定向回归共 4 个文件、25 项通过。
+- 语义等价审计：详情模型只读取 `visibleAssignments` 和现有成员契约，不修改筛选或排班；确认号码使用 `tel:`，未确认号码只复制且不写后端。事件按钮仍只调用原 `openAssignmentEvents()` 一次，原 `getGroupEvents(groupId, { pageSize: 100, shiftId })` 的参数、await/catch/finally 和空事件语义不变；仅把展示容器从 TDesign Dialog 换为响应式 Sheet。
+- 变更：月历下方新增医疗蓝值班轨道，完整展示班种、岗位、姓名、开始刻度、完整时间范围、现有变更标识、推导状态、电话和事件入口；所有详情操作至少 44px。新增生产组件 Story，包含确认长/短号、未确认号码和换班状态，便于 Storybook 独立复核。
+- 运行/浏览器验证：pnpm smoke:browser 已通过；390×844/320×844 下轨道无横向溢出、姓名/时间无裁切、电话/事件操作不小于 44px，事件 Sheet 实际打开加载，底栏不遮挡最后操作；管理员、成员、访客和控制台原回归通过。
+- 运行验证：Storybook build、`pnpm smoke:check-core` 和 `pnpm verify` 通过；全仓库 64 个测试文件、463 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过。首次组合验证因外层 120 秒超时关闭管道产生 `EPIPE`，分开重跑后退出码 0，非产品或测试失败。checkpoint 识别消息为 `feat(web): add selected date duty track`。

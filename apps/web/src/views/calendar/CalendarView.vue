@@ -44,6 +44,7 @@ import {
 } from '../../features/calendar/calendar-views.js';
 import ListGrid from '../../features/calendar/ListGrid.vue';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
+import SelectedDateDutyDetails from '../../features/calendar/SelectedDateDutyDetails.vue';
 import WeekGrid from '../../features/calendar/WeekGrid.vue';
 import EventTimeline from '../../features/events/EventTimeline.vue';
 
@@ -443,6 +444,13 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
       <p v-else-if="viewMode === 'list'" class="calendar-empty">
         {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
       </p>
+      <SelectedDateDutyDetails
+        v-if="viewMode === 'month' && selectedDate !== undefined"
+        :assignments="visibleAssignments"
+        :members="calendar.members"
+        :selected-date="selectedDate"
+        @open-events="openAssignmentEvents"
+      />
     </template>
     <DataConflictDialog
       :message="conflictMessage"
@@ -451,11 +459,10 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
       @close="conflictVisible = false"
       @refresh="refreshAfterConflict"
     />
-    <t-dialog
+    <ResponsiveSheet
+      id="assignment-event-sheet"
       v-model:visible="eventDialogVisible"
-      header="班次事件记录"
-      :footer="false"
-      width="640px"
+      title="班次事件记录"
     >
       <template v-if="selectedAssignment !== undefined">
         <p class="assignment-events-meta">
@@ -470,7 +477,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         />
         <p v-else class="assignment-events-empty">该班次暂无事件记录。</p>
       </template>
-    </t-dialog>
+    </ResponsiveSheet>
   </section>
 </template>
 
