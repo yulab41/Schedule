@@ -92,6 +92,10 @@ describe('loadEnvironment', () => {
       loadEnvironment({
         ...validEnvironment,
         NODE_ENV: 'production',
+        WECHAT_SESSION_SECRET: 's'.repeat(32),
+        WECHAT_WEB_APPID: 'wx-web-app-id',
+        WECHAT_WEB_APPSECRET: 'web-app-secret',
+        WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
         WECHAT_MOCK_MODE: 'false',
       }),
     ).toMatchObject({ WECHAT_MOCK_MODE: 'false' });
@@ -99,9 +103,44 @@ describe('loadEnvironment', () => {
       loadEnvironment({
         ...validEnvironment,
         NODE_ENV: 'production',
+        WECHAT_SESSION_SECRET: 's'.repeat(32),
+        WECHAT_WEB_APPID: 'wx-web-app-id',
+        WECHAT_WEB_APPSECRET: 'web-app-secret',
+        WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
         WECHAT_MOCK_MODE: 'true',
       }),
     ).toThrow(/WECHAT_MOCK_MODE/);
+  });
+
+  it('forbids development authentication in production', () => {
+    expect(() =>
+      loadEnvironment({
+        ...validEnvironment,
+        AUTH_DEV_MODE: 'true',
+        NODE_ENV: 'production',
+      }),
+    ).toThrow(/AUTH_DEV_MODE/);
+  });
+
+  it('requires complete HTTPS web WeChat credentials in production', () => {
+    const productionEnvironment = {
+      ...validEnvironment,
+      NODE_ENV: 'production' as const,
+      WECHAT_SESSION_SECRET: 's'.repeat(32),
+      WECHAT_WEB_APPID: 'wx-web-app-id',
+      WECHAT_WEB_APPSECRET: 'web-app-secret',
+      WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
+    };
+    expect(loadEnvironment(productionEnvironment)).toMatchObject(productionEnvironment);
+    expect(() =>
+      loadEnvironment({
+        ...productionEnvironment,
+        WECHAT_WEB_REDIRECT_URI: 'http://localhost/callback',
+      }),
+    ).toThrow(/WECHAT_WEB_REDIRECT_URI/);
+    expect(() =>
+      loadEnvironment({ ...productionEnvironment, WECHAT_WEB_APPSECRET: undefined }),
+    ).toThrow(/WECHAT_WEB_APPID|WECHAT_WEB_APPSECRET/);
   });
 
   it('validates the WeChat QR environment version', () => {

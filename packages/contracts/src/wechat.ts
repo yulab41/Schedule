@@ -19,6 +19,32 @@ export const wechatLoginResponseSchema = z
   .strict();
 export type WechatLoginResponse = z.infer<typeof wechatLoginResponseSchema>;
 
+export const wechatWebLoginStartQuerySchema = z
+  .object({
+    state: z.string().min(16).max(256),
+  })
+  .strict();
+export type WechatWebLoginStartQuery = z.infer<typeof wechatWebLoginStartQuerySchema>;
+
+export const wechatWebLoginStartResponseSchema = z
+  .object({
+    authorizeUrl: z.string().url(),
+    state: z.string().min(1),
+  })
+  .strict();
+export type WechatWebLoginStartResponse = z.infer<typeof wechatWebLoginStartResponseSchema>;
+
+export const wechatWebLoginExchangeRequestSchema = z
+  .object({
+    code: z.string().min(1),
+    state: z.string().min(1),
+  })
+  .strict();
+export type WechatWebLoginExchangeRequest = z.infer<typeof wechatWebLoginExchangeRequestSchema>;
+
+export const wechatWebLoginResponseSchema = wechatLoginResponseSchema;
+export type WechatWebLoginResponse = WechatLoginResponse;
+
 export const visitorResolveRequestSchema = z
   .object({
     visitorKey: z.string().regex(/^[0-9a-f]{32}$/iu),

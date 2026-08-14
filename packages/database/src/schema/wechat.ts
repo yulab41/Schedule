@@ -13,6 +13,24 @@ import {
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 
+export const userAuthIdentities = mysqlTable(
+  'user_auth_identities',
+  {
+    id: identifier(),
+    userId: char('user_id', { length: 36 }).notNull(),
+    provider: mysqlEnum('provider', ['wechat_mini_program', 'wechat_web']).notNull(),
+    subject: varchar('subject', { length: 128 }).notNull(),
+    unionId: varchar('union_id', { length: 128 }),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('user_auth_identities_provider_subject_unique').on(table.provider, table.subject),
+    uniqueIndex('user_auth_identities_union_id_unique').on(table.unionId),
+    index('user_auth_identities_user_idx').on(table.userId),
+  ],
+);
+
 export const inviteTokens = mysqlTable(
   'invite_tokens',
   {

@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createMockWechatGateway,
   createWechatGateway,
+  createWechatWebGateway,
   mapWechatApiError,
   WechatApiGateway,
+  WechatWebApiGateway,
   WechatGatewayError,
 } from './wechat-gateway.js';
 
@@ -91,6 +93,63 @@ describe('mock WeChat gateway', () => {
     });
 
     expect(gateway.isConfigured).toBe(true);
+  });
+
+  it('selects a mock web gateway when mock mode is enabled', async () => {
+    const gateway = createWechatWebGateway({
+      WECHAT_WEB_APPID: undefined,
+      WECHAT_WEB_APPSECRET: undefined,
+      WECHAT_MOCK_MODE: 'true',
+    });
+
+    expect(gateway).toBeDefined();
+    expect(gateway?.appId).toBe('mock-web-app-id');
+    await expect(gateway?.exchangeCode('code')).resolves.toMatchObject({
+      openid: 'mock-web-openid-code',
+      unionid: 'mock-unionid-code',
+    });
+  });
+});
+
+describe('real WeChat web gateway', () => {
+  it('exchanges a website login code through oauth2 access_token', async () => {
+    const fetchFn = vi.fn(async (input: RequestInfo | URL) => {
+      void input;
+      return jsonResponse({ openid: 'web-openid-1', unionid: 'union-1' });
+    });
+    const gateway = new WechatWebApiGateway({
+      appId: 'web-app-id',
+      appSecret: 'web-app-secret',
+      fetchFn,
+    });
+
+    await expect(gateway.exchangeCode('code-1')).resolves.toEqual({
+      openid: 'web-openid-1',
+      sessionKey: undefined,
+      unionid: 'union-1',
+    });
+    const url = new URL(String(fetchFn.mock.calls[0]?.[0]));
+    expect(url.pathname).toBe('/sns/oauth2/access_token');
+    expect(url.searchParams.get('appid')).toBe('web-app-id');
+    expect(url.searchParams.get('secret')).toBe('web-app-secret');
+    expect(url.searchParams.get('code')).toBe('code-1');
+  });
+
+  it('fails closed when website credentials are absent and maps reused codes', async () => {
+    const unconfigured = new WechatWebApiGateway({ appId: undefined, appSecret: undefined });
+    expect(unconfigured.isConfigured).toBe(false);
+    await expect(unconfigured.exchangeCode('code')).rejects.toMatchObject({
+      mappedCode: 'INTERNAL_ERROR',
+    });
+
+    const reused = new WechatWebApiGateway({
+      appId: 'web-app-id',
+      appSecret: 'web-app-secret',
+      fetchFn: async () => jsonResponse({ errcode: 40163, errmsg: 'code been used' }),
+    });
+    await expect(reused.exchangeCode('code')).rejects.toMatchObject({
+      mappedCode: 'WECHAT_LOGIN_FAILED',
+    });
   });
 });
 

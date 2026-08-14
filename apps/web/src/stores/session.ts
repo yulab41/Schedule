@@ -83,6 +83,15 @@ export function createSessionManager(dependencies: SessionDependencies) {
     await loadProfile();
   }
 
+  async function signInToken(accessToken: string): Promise<void> {
+    clearError();
+    if (accessToken.trim().length === 0) {
+      throw new SessionError('登录状态无效，请重新扫码登录。');
+    }
+    dependencies.auth.setSession(accessToken);
+    await loadProfile();
+  }
+
   async function completeProfile(realName: string): Promise<void> {
     clearError();
     let session: AuthSession | undefined;
@@ -191,6 +200,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
     profile,
     restore,
     signInDev,
+    signInToken,
     signIn,
     signOut,
     status,

@@ -6,7 +6,8 @@ import { createDevAuthPort } from './adapters/auth/dev-auth.js';
 import { createWechatAuthPort } from './adapters/auth/wechat-auth.js';
 import { createApp } from './app.js';
 import { loadEnvironment, type Environment } from './config/env.js';
-import { createWechatGateway } from './modules/wechat/wechat-gateway.js';
+import { createWechatGateway, createWechatWebGateway } from './modules/wechat/wechat-gateway.js';
+import { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.js';
 import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
 import { createPushDispatcher } from './modules/notifications/notification-dispatcher.js';
 
@@ -34,13 +35,15 @@ export function createRuntimeApp(
     user: environment.MYSQL_USER,
   });
   const wechatGateway = createWechatGateway(environment);
-  const wechatAuthPort = wechatGateway.isConfigured
-    ? createWechatAuthPort({
-        allowDevTokens: isDevAuthEnabled(environment),
-        databaseClient,
-        sessionSecret: environment.WECHAT_SESSION_SECRET,
-      })
-    : undefined;
+  const wechatWebGateway = createWechatWebGateway(environment);
+  const wechatAuthPort =
+    wechatGateway.isConfigured || wechatWebGateway?.isConfigured === true
+      ? createWechatAuthPort({
+          allowDevTokens: isDevAuthEnabled(environment),
+          databaseClient,
+          sessionSecret: environment.WECHAT_SESSION_SECRET,
+        })
+      : undefined;
   const authPort =
     options.authPort ??
     wechatAuthPort ??
@@ -51,11 +54,21 @@ export function createRuntimeApp(
     );
   }
 
+  const wechatWebAuthService =
+    wechatWebGateway === undefined
+      ? undefined
+      : new WechatWebAuthService({
+          databaseClient,
+          gateway: wechatWebGateway,
+          redirectUri: environment.WECHAT_WEB_REDIRECT_URI,
+          sessionSecret: environment.WECHAT_SESSION_SECRET,
+        });
   const app = createApp({
     authPort,
     databaseClient,
     pushDispatcher: createPushDispatcher(environment),
     wechatGateway,
+    ...(wechatWebAuthService === undefined ? {} : { wechatWebAuthService }),
     wechatSessionSecret: environment.WECHAT_SESSION_SECRET,
   });
 

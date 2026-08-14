@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-import { type DatabaseClient, users } from '@schedule/database';
+import { type DatabaseClient, userAuthIdentities, users } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
@@ -9,6 +9,7 @@ import type { AuthPort } from './auth-port.js';
 export interface WechatSessionClaims {
   readonly exp: number;
   readonly openid: string;
+  readonly provider?: 'wechat_mini_program' | 'wechat_web';
   readonly sub: string;
 }
 
@@ -16,7 +17,11 @@ const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MINIMUM_SESSION_SECRET_LENGTH = 32;
 
 export function createWechatSessionToken(
-  claims: { readonly openid: string; readonly sub: string },
+  claims: {
+    readonly openid: string;
+    readonly provider?: 'wechat_mini_program' | 'wechat_web';
+    readonly sub: string;
+  },
   sessionSecret: string | undefined,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): string {
@@ -98,6 +103,35 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
 
       const claims = verifyWechatSessionToken(token, options.sessionSecret);
       if (claims !== undefined) {
+        if (claims.provider === 'wechat_web') {
+          const [identity] = await options.databaseClient.database
+            .select({ userId: userAuthIdentities.userId })
+            .from(userAuthIdentities)
+            .where(
+              and(
+                eq(userAuthIdentities.provider, 'wechat_web'),
+                eq(userAuthIdentities.subject, claims.openid),
+              ),
+            )
+            .limit(1);
+          if (identity === undefined) {
+            return undefined;
+          }
+          const [user] = await options.databaseClient.database
+            .select({ cloudbaseUid: users.cloudbaseUid })
+            .from(users)
+            .where(
+              and(
+                eq(users.id, identity.userId),
+                eq(users.status, 'active'),
+                isNull(users.deletedAt),
+              ),
+            )
+            .limit(1);
+          return user?.cloudbaseUid === null || user?.cloudbaseUid === undefined
+            ? undefined
+            : { cloudbaseUid: user.cloudbaseUid };
+        }
         const [user] = await options.databaseClient.database
           .select({ cloudbaseUid: users.cloudbaseUid })
           .from(users)
@@ -128,13 +162,21 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
   if (value === null || typeof value !== 'object') {
     return false;
   }
-  const candidate = value as { exp?: unknown; openid?: unknown; sub?: unknown };
+  const candidate = value as {
+    exp?: unknown;
+    openid?: unknown;
+    provider?: unknown;
+    sub?: unknown;
+  };
   return (
     typeof candidate.exp === 'number' &&
     typeof candidate.openid === 'string' &&
     candidate.openid.length > 0 &&
     typeof candidate.sub === 'string' &&
-    candidate.sub.length > 0
+    candidate.sub.length > 0 &&
+    (candidate.provider === undefined ||
+      candidate.provider === 'wechat_mini_program' ||
+      candidate.provider === 'wechat_web')
   );
 }
 

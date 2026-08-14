@@ -30,6 +30,12 @@ export interface WechatGateway {
   ): Promise<WechatSubscribeMessageResult>;
 }
 
+export interface WechatWebGateway {
+  readonly appId: string | undefined;
+  readonly isConfigured: boolean;
+  exchangeCode(code: string): Promise<WechatExchangeCodeResult>;
+}
+
 export class WechatGatewayError extends Error {
   public constructor(
     public readonly errcode: number | null,
@@ -283,6 +289,96 @@ export class WechatApiGateway implements WechatGateway {
   }
 }
 
+export interface WechatWebApiGatewayOptions {
+  readonly appId: string | undefined;
+  readonly appSecret: string | undefined;
+  readonly fetchFn?: typeof fetch;
+  readonly requestTimeoutMs?: number;
+}
+
+export class WechatWebApiGateway implements WechatWebGateway {
+  public readonly isConfigured: boolean;
+  public readonly appId: string | undefined;
+  private readonly appSecret: string | undefined;
+  private readonly fetchFn: typeof fetch;
+  private readonly requestTimeoutMs: number;
+
+  public constructor(
+    options: WechatWebApiGatewayOptions = { appId: undefined, appSecret: undefined },
+  ) {
+    this.appId = options.appId;
+    this.appSecret = options.appSecret;
+    this.fetchFn = options.fetchFn ?? fetch;
+    this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+    this.isConfigured = this.appId !== undefined && this.appSecret !== undefined;
+  }
+
+  public async exchangeCode(code: string): Promise<WechatExchangeCodeResult> {
+    this.assertConfigured();
+
+    const url = new URL(`${WECHAT_API_BASE_URL}/sns/oauth2/access_token`);
+    url.searchParams.set('appid', this.appId as string);
+    url.searchParams.set('secret', this.appSecret as string);
+    url.searchParams.set('code', code);
+    url.searchParams.set('grant_type', 'authorization_code');
+
+    const response = await this.fetchWithTimeout(url);
+    const payload = await readWechatJsonResponse(response);
+    if (typeof payload.errcode === 'number' && payload.errcode !== 0) {
+      throw new WechatGatewayError(
+        payload.errcode,
+        typeof payload.errmsg === 'string' ? payload.errmsg : null,
+        mapWechatApiError(payload.errcode),
+      );
+    }
+    if (typeof payload.openid !== 'string' || payload.openid.length === 0) {
+      throw new WechatGatewayError(
+        null,
+        null,
+        'WECHAT_LOGIN_FAILED',
+        'WeChat web login exchange did not return an openid.',
+      );
+    }
+
+    return {
+      openid: payload.openid,
+      sessionKey: undefined,
+      unionid: typeof payload.unionid === 'string' ? payload.unionid : undefined,
+    };
+  }
+
+  private assertConfigured(): void {
+    if (!this.isConfigured) {
+      throw new WechatGatewayError(
+        null,
+        null,
+        'INTERNAL_ERROR',
+        'WeChat web gateway is not configured.',
+      );
+    }
+  }
+
+  private async fetchWithTimeout(input: string | URL): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    try {
+      return await this.fetchFn(input, { signal: controller.signal });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new WechatGatewayError(
+          null,
+          null,
+          'SERVICE_UNAVAILABLE',
+          'WeChat web login request timed out.',
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 export interface MockWechatSentMessage {
   readonly data: WechatSubscribeMessageData;
   readonly openid: string;
@@ -325,9 +421,29 @@ export function createMockWechatGateway(options: MockWechatGatewayOptions = {}):
   };
 }
 
+export function createMockWechatWebGateway(): WechatWebGateway {
+  return {
+    appId: 'mock-web-app-id',
+    isConfigured: true,
+    async exchangeCode(code) {
+      return {
+        openid: `mock-web-openid-${code}`,
+        sessionKey: undefined,
+        unionid: `mock-unionid-${code}`,
+      };
+    },
+  };
+}
+
 export interface WechatGatewayEnvironment {
   readonly WECHAT_APPID?: string | undefined;
   readonly WECHAT_APPSECRET?: string | undefined;
+  readonly WECHAT_MOCK_MODE?: 'true' | 'false' | undefined;
+}
+
+export interface WechatWebGatewayEnvironment {
+  readonly WECHAT_WEB_APPID?: string | undefined;
+  readonly WECHAT_WEB_APPSECRET?: string | undefined;
   readonly WECHAT_MOCK_MODE?: 'true' | 'false' | undefined;
 }
 
@@ -339,4 +455,50 @@ export function createWechatGateway(environment: WechatGatewayEnvironment): Wech
     appId: environment.WECHAT_APPID,
     appSecret: environment.WECHAT_APPSECRET,
   });
+}
+
+export function createWechatWebGateway(
+  environment: WechatWebGatewayEnvironment,
+): WechatWebGateway | undefined {
+  if (environment.WECHAT_MOCK_MODE === 'true') {
+    return createMockWechatWebGateway();
+  }
+  if (
+    environment.WECHAT_WEB_APPID === undefined ||
+    environment.WECHAT_WEB_APPSECRET === undefined
+  ) {
+    return undefined;
+  }
+  return new WechatWebApiGateway({
+    appId: environment.WECHAT_WEB_APPID,
+    appSecret: environment.WECHAT_WEB_APPSECRET,
+  });
+}
+
+async function readWechatJsonResponse(response: Response): Promise<Record<string, unknown>> {
+  if (!response.ok) {
+    throw new WechatGatewayError(
+      null,
+      `HTTP ${response.status}`,
+      'SERVICE_UNAVAILABLE',
+      `WeChat API returned HTTP ${response.status}.`,
+    );
+  }
+  try {
+    const payload = (await response.json()) as unknown;
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new Error('WeChat API response is not a JSON object.');
+    }
+    return payload as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof WechatGatewayError) {
+      throw error;
+    }
+    throw new WechatGatewayError(
+      null,
+      null,
+      'SERVICE_UNAVAILABLE',
+      'WeChat API returned a non-JSON response.',
+    );
+  }
 }

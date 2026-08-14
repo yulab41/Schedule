@@ -17,6 +17,7 @@ export interface AuthResult<T> {
 export interface AuthClient {
   clearDevIdentity(): void;
   getSession(): Promise<AuthResult<{ readonly session?: AuthSession }>>;
+  setSession(accessToken: string): void;
   setDevIdentity(uid: string): void;
   signInWithPassword(input: {
     readonly password: string;
@@ -26,6 +27,13 @@ export interface AuthClient {
 }
 
 let devIdentityUid: string | undefined;
+let sessionToken: string | undefined;
+
+const SESSION_STORAGE_KEY = 'schedule.auth.token';
+
+function getSessionStorage(): Storage | undefined {
+  return typeof globalThis.localStorage === 'undefined' ? undefined : globalThis.localStorage;
+}
 
 /**
  * 自建登录认证落地前的本地认证客户端：开发模式下由“本地管理员/本地成员”
@@ -34,13 +42,27 @@ let devIdentityUid: string | undefined;
 export const localAuth: AuthClient = {
   clearDevIdentity() {
     devIdentityUid = undefined;
+    sessionToken = undefined;
+    getSessionStorage()?.removeItem(SESSION_STORAGE_KEY);
   },
   getSession() {
+    const token =
+      devIdentityUid ??
+      sessionToken ??
+      getSessionStorage()?.getItem(SESSION_STORAGE_KEY) ??
+      undefined;
     return Promise.resolve(
-      devIdentityUid === undefined ? {} : { data: { session: { access_token: devIdentityUid } } },
+      token === undefined ? {} : { data: { session: { access_token: token } } },
     );
   },
+  setSession(accessToken) {
+    devIdentityUid = undefined;
+    sessionToken = accessToken;
+    getSessionStorage()?.setItem(SESSION_STORAGE_KEY, accessToken);
+  },
   setDevIdentity(uid) {
+    sessionToken = undefined;
+    getSessionStorage()?.removeItem(SESSION_STORAGE_KEY);
     devIdentityUid = uid;
   },
   signInWithPassword() {
@@ -50,6 +72,8 @@ export const localAuth: AuthClient = {
   },
   signOut() {
     devIdentityUid = undefined;
+    sessionToken = undefined;
+    getSessionStorage()?.removeItem(SESSION_STORAGE_KEY);
     return Promise.resolve({});
   },
 };

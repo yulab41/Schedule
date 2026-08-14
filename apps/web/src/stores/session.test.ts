@@ -93,6 +93,16 @@ describe('session manager', () => {
     expect(manager.status.value).toBe('anonymous');
   });
 
+  it('accepts a verified web login token and loads the current profile', async () => {
+    const auth = createAuthClient();
+    const manager = createSessionManager({ api: createApiClient(), auth });
+
+    await manager.signInToken('web-session-token');
+
+    expect(auth.setSession).toHaveBeenCalledWith('web-session-token');
+    expect(manager.status.value).toBe('authenticated');
+  });
+
   it('treats a missing credential as anonymous instead of an error', async () => {
     const api = createApiClient();
     const auth = createAuthClient({
@@ -134,6 +144,7 @@ function createAuthClient(overrides: Partial<AuthClient> = {}): AuthClient {
   return {
     clearDevIdentity: vi.fn(),
     getSession: vi.fn().mockResolvedValue({ data: { session: authenticatedSession } }),
+    setSession: vi.fn(),
     setDevIdentity: vi.fn(),
     signInWithPassword: vi.fn().mockResolvedValue({ data: { session: authenticatedSession } }),
     signOut: vi.fn().mockResolvedValue({ data: {} }),

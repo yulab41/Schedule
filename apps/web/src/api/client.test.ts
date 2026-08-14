@@ -4327,6 +4327,7 @@ function createAuthClient(): AuthClient {
         },
       },
     }),
+    setSession: vi.fn(),
     setDevIdentity: vi.fn(),
     signInWithPassword: vi.fn(),
     signOut: vi.fn(),

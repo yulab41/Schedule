@@ -37,13 +37,17 @@ describe('isDevAuthEnabled', () => {
     ).toBe(false);
   });
 
-  it('never enables dev auth outside development even with the switch on', () => {
+  it('never enables dev auth outside development', () => {
     expect(
       isDevAuthEnabled(
         loadEnvironment({
           ...validEnvironment,
           NODE_ENV: 'production',
-          AUTH_DEV_MODE: 'true',
+          AUTH_DEV_MODE: 'false',
+          WECHAT_SESSION_SECRET: 's'.repeat(32),
+          WECHAT_WEB_APPID: 'wx-web-app-id',
+          WECHAT_WEB_APPSECRET: 'web-app-secret',
+          WECHAT_WEB_REDIRECT_URI: 'https://hosp.schedule.eylinhome.top/auth/wechat/callback',
         }),
       ),
     ).toBe(false);

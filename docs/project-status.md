@@ -1,66 +1,60 @@
 # Project Status
 
-本文件是 Web 1.0 的唯一当前状态和交接入口；历史细节以 Git 提交为准。
+本文件是当前 Web 1.0 的交接入口；历史过程以 Git 提交为准。
 
 ## 当前状态（2026-08-14）
 
 - 分支：`main`，上游：`origin/main`。
-- 产品基线：Web、API、认证、契约、数据库、排班规则、PWA 和阿里云 ECS 部署。
-- 文档基线：保留 10 个精简 Web 入口，另保留 `AGENTS.md` 项目规则。
-- 本轮：完整修复 Web Push 配置、订阅恢复和 ECS 通知调度；代码已构建并发布到 ECS，生产 VAPID 已注入，待当前浏览器授权并完成一次实际 Push 验收。
+- 本轮目标：正式域名专属入口、关闭生产测试通道、微信开放平台网站扫码登录。
+- 当前阶段：代码与本地验证已完成，生产发布待补齐微信网站应用凭据并执行服务器备份/发布核验。
+- 生产规范入口：`https://hosp.schedule.eylinhome.top`。仓库当前生效配置不包含服务器公网 IP URL。
+- 当前尚未修改生产服务器；没有写入或传输任何微信 AppSecret。
 
-## 已完成能力
+## 已完成检查点
 
-- 账号、群组、成员、角色、班种、联系方式和权限。
-- 自动排班、手动模板、草稿/发布/版本、请假、换班、加扣班和并发保护。
-- 月/周/列表日历、访客只读日历、事件、通知、统计和 CSV 导出。
-- PWA 离线只读、节假日、备份恢复、监控和 ECS Docker 部署基础。
+### Checkpoint 1：正式网页认证
 
-## 验证基线
+- 新增微信网站应用 OAuth 网关、`GET /auth/wechat/web/start` 和 `POST /auth/wechat/web/exchange`。
+- 使用 HMAC 签名、5 分钟有效期和前端同源消息校验保护 OAuth state；授权码重复使用由微信错误映射拒绝。
+- 新增 `user_auth_identities` 表和迁移 0035，区分小程序身份与网站身份；unionid 可关联同一业务用户，网站 openid 不覆盖小程序 openid。
+- 新增网页扫码登录页、回调页、会话保存/恢复、扫码窗口关闭/超时提示；生产构建严格按 `MODE=development` 才显示本地开发按钮。
+- 生产环境缺少完整网站 AppID、AppSecret、HTTPS 回调地址或会话密钥时启动失败；`AUTH_DEV_MODE=true` 和 `WECHAT_MOCK_MODE=true` 在生产拒绝。
+- Checkpoint 1 提交信息：`feat(auth): add WeChat website QR login`（提交前记录）。
 
-```powershell
-pnpm verify
-pnpm smoke:browser
-pnpm smoke:check-core
-git diff --check
+### Checkpoint 2：域名入口和测试通道收口
+
+- Nginx 正式 Web server block 只服务 `hosp.schedule.eylinhome.top`；80/443 默认 server 对未知 Host/IP 拒绝，不跳转到正式域名、不返回项目首页/API。
+- 生产 Compose 固定 `NODE_ENV=production`、`AUTH_DEV_MODE=false`、`WECHAT_MOCK_MODE=false`，API/数据库没有新增公网端口。
+- ECS 更新/核验脚本不复用 ICP 测试 override，残留 override 会被发布清理并在核验时报错；核验新增未知 Host、IP、监听端口、开发认证和旧初始化账号检查。
+- ICP 维护脚本不再生成 8080 自测入口；已删除 `scripts/start-ecs-test-tunnel.bat`；本地/CI 的 `compose.test.yml` 和 smoke 流程保留。
+- 生产 release 打包脚本强制 `NODE_ENV=production` 且 `AUTH_DEV_MODE=false`。
+
+## 运行验证
+
+- `pnpm install --frozen-lockfile`：通过；本地 pnpm 首次因无 TTY 的依赖清理保护中止，使用锁文件恢复后通过。
+- `pnpm build`：通过；Vite 仅报告既有的大 chunk 提示。
+- API/Web/Contracts/Database TypeScript 检查：通过（直接使用各 workspace 的 `tsc`/`vue-tsc`，避免 pnpm 递归清理提示）。
+- 定向 Vitest：44 项通过，覆盖环境拒绝、OAuth state、网站网关和前端会话。
+- Nginx 配置语法/路由结构检查：通过 Docker Nginx 1.27 Alpine 静态校验；正式证书仍需在服务器上验证。
+- 运行/浏览器验证：`pnpm smoke:browser` 通过，登录、管理员、成员、访客和访问记录流程无浏览器错误。
+- 运行/核心校验：待本文件更新后执行 `pnpm smoke:check-core`。
+- `git diff --check`：待 checkpoint 提交前执行。
+
+## 外部配置与发布阻塞
+
+正式扫码登录上线前，需要在服务器 `/opt/schedule/.env.production` 写入以下网站应用配置；不要把密钥发到聊天或提交 Git：
+
+```dotenv
+WECHAT_WEB_APPID=微信开放平台网站应用AppID
+WECHAT_WEB_APPSECRET=微信开放平台网站应用AppSecret
+WECHAT_WEB_REDIRECT_URI=https://hosp.schedule.eylinhome.top/auth/wechat/callback
 ```
 
-此前文档整理轮次额外通过 Markdown Prettier、Markdown 本地链接和 Web-only 关键词审计。
+微信开放平台“授权回调域名”只填写 `hosp.schedule.eylinhome.top`，不填协议、路径或服务器 IP。`WECHAT_SESSION_SECRET` 由部署脚本生成的随机值维护，不需要用户自行设计。小程序的 `WECHAT_APPID` / `WECHAT_APPSECRET` 与网站应用配置分开保留。
 
-## 本轮结果（2026-08-14）
+发布前还要：备份生产数据库和当前 release，上传正式 release，执行域名/HTTPS/未知 Host/API/扫码/权限核验，并确认没有 8080、3000、3001、3306、3307 公网监听。
 
-- 根因：`d117bb0` 保留 Web 成员认领调用，`8ab9184` 删除了对应路由和服务；`ef3d20c` 新增通知字段后，严格契约无法解析旧 API 缺字段的 200 响应。
-- 已恢复 `/groups/claim`、成员匹配、认领申请审批/驳回/撤销接口及事务、权限、锁和版本保护；集成回归测试恢复为认领工作流覆盖。
-- `memberNotificationPreferencesSchema` 对缺失的 `wechatNotificationsEnabled` 默认 `true`，仍拒绝错误类型；新增 Web API 回归测试。
-- 静态审查：恢复的四个认领文件与 `8ab9184^` 完全一致；`git diff --check` 通过。
-- 部署脚本已统一通过 Nginx 80/443 入口检查，移除 ECS 更新/核验及测试隧道对远端 8080 的错误依赖；新增一次构建产物清单、压缩包哈希、发布目录和失败回滚流程。
-- 本地运行验证：`pnpm install --frozen-lockfile`、`pnpm build`、`pnpm typecheck`、`pnpm verify` 均通过；定向通知兼容测试 3/3、成员认领集成测试 4/4 通过。`pnpm verify` 汇总为 54 个测试文件通过、422 个测试通过，29 个测试文件/252 个测试因项目现有环境保护条件跳过。
-- 浏览器验证：`pnpm smoke:browser` 通过；应用内浏览器本地管理员成员页实际出现成员表、通知页实际出现“我的提醒”，本地成员模式正常，控制台仅有 Vite 正常连接日志。`pnpm smoke:check-core` 和 `git diff --check` 通过。
-- 线上发布：代码修复与部署保护已连续提交并推送到 `origin/main`；业务代码最终候选提交为 `a7d6da9`，本次状态提交的完整 SHA 将作为最终 release SHA。ECS 已完成数据库备份、迁移、容器重建和失败回滚材料保留。
-- ECS 核验：Nginx 80/443 入口健康通过；HTTPS SNI `/api/health` 返回 200；部署清单、lockfile、Web/API/shared dist、迁移、Compose/Nginx 配置及归档哈希逐项一致；容器运行、MySQL healthy、迁移记录 34 条、无 `@cloudbase`。
-- 最终备份/回滚材料：数据库备份 archive `6f6216e4-bd94-4490-8cad-0d1fcf90a1c9`，storage key `backups/daily/2026-08-13T15-51-11.210Z.backup`；上一版应用文件备份保留在 `/opt/schedule/releases/<最终 release SHA>/previous/current-files.tar.gz`。
-- 公网浏览器验证：`https://hosp.schedule.eylinhome.top` 管理员登录成功；成员页出现成员表且无“请求的资源不存在”，通知页出现“我的提醒”且无“服务返回了无效资料”；控制台无异常；公网成员账号无两类旧错误。
-- 当前状态：待用户复核。
+## 下一批次与停止条件
 
-## 本轮增量
-
-- 回归定位：VAPID 判定来自 `52e9e1f` 的 `WebPushDispatcher`；ECS cron 只安装监控和备份来自 `c97879d`，未覆盖 `duty-reminders`/`notification-retry`。
-- 已完成任务 1：环境契约支持 `VAPID_SUBJECT`、`VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY`；三项必须同时配置或同时为空；运行时和 job runner 显式传递推送配置；示例环境文件不再制造半配置状态。
-- 任务 1 验证：API `tsc --noEmit`、API 构建通过；VAPID 与订阅辅助测试 3 个文件、19 项通过；完整 Vitest 通过 56 个文件、430 项，另有 29 个数据库集成文件（252 项）因本机未启动测试 MySQL 按既有保护逻辑跳过；Prettier 检查和 `git diff --check` 通过。
-- 任务 1 checkpoint：已提交 `eab3ff2`（`fix(notifications): validate and propagate VAPID configuration`）。
-- 任务 2/3 已完成并发布：ECS 每分钟通知调度、发布/回滚/核验接入，以及浏览器订阅重新注册 UI 均已上线；生产 VAPID 密钥在 ECS 上生成并写入，私钥未进入仓库或聊天。
-- 生产发布验证：release `6487fe49898f3b0b3f9b8f39e0ed60ed51788f92`；API 健康检查 200，迁移 34 条，scheduler/cron 已安装；最近 `duty-reminders` 与 `notification-retry` 均成功执行。
-- 决策：不新增常驻 scheduler 容器，使用带 `flock` 的主机 cron；不修改数据库结构；VAPID 私钥不进入仓库。
-- 运行/浏览器验证：`pnpm smoke:browser` 的本地完整流程仍受测试数据库/登录环境限制；公网发布后已用浏览器登录管理员并打开通知页，页面不再显示“推送服务尚未配置”，当前设备显示“重新注册浏览器通知”，待用户授权浏览器通知并完成实际 Push。
-- 本轮完整验证：`pnpm install --frozen-lockfile`、`pnpm build`、`pnpm typecheck`、`pnpm test` 均通过；Vitest 为 56 个文件/430 项通过，29 个数据库集成文件/252 项按既有保护逻辑跳过。
-
-## 下一批次
-
-- 当前活动批次：用户复核当前浏览器 Push 订阅。
-- 停止条件：用户在通知设置页点击“重新注册浏览器通知”并允许浏览器通知权限，完成一次实际浏览器 Push 验收。
-
-## 后续规则
-
-- 新会话先读本文件，再读取主实施计划和主设计中与当前任务相关的短节。
-- 新事实只更新当前状态，不追加逐轮历史或完整终端输出。
-- 生产部署、数据库迁移和正式发布需要单独明确授权。
+- 下一批次（Checkpoint 3）：生成生产 release，补齐服务器网站应用凭据，执行备份、迁移、容器重建、`ecs-verify.sh` 和人工扫码权限验收。
+- 停止条件：正式域名首页/API 正常；IP/未知 Host 不展示本项目；扫码登录、首次资料补全、管理员/普通成员权限和通知通过；测试通道关闭；回滚材料已记录。

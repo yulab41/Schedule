@@ -53,6 +53,8 @@ import { PastScheduleService } from './modules/past-schedules/past-schedule-serv
 import { ExportService } from './modules/exports/export-service.js';
 import { WechatAuthService } from './modules/wechat/wechat-auth-service.js';
 import { registerWechatAuthRoutes } from './modules/wechat/wechat-auth-routes.js';
+import { registerWechatWebAuthRoutes } from './modules/wechat/wechat-web-auth-routes.js';
+import type { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.js';
 import { registerAuthentication } from './plugins/authenticate.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerRequestContext } from './plugins/request-context.js';
@@ -78,6 +80,7 @@ export interface CreateAppOptions {
   readonly platformAdminUids?: ReadonlySet<string>;
   readonly pushDispatcher?: PushDispatcher;
   readonly wechatGateway?: WechatGateway;
+  readonly wechatWebAuthService?: WechatWebAuthService;
   readonly wechatSessionSecret?: string | undefined;
 }
 
@@ -110,6 +113,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         sessionSecret: options.wechatSessionSecret,
       });
       registerWechatAuthRoutes(app, wechatAuthService);
+    }
+    if (options.wechatWebAuthService !== undefined) {
+      registerWechatWebAuthRoutes(app, options.wechatWebAuthService);
     }
     registerInviteRoutes(
       app,
