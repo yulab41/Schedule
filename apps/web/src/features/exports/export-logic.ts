@@ -15,3 +15,7 @@ export function getExportPeriodLabel(period: string): string {
   }
   return `${period}年`;
 }
+
+export function getExportSelectionSummary(exportType: ScheduleExportType, period: string): string {
+  return `${exportType === 'schedule' ? '排班' : '统计'} · ${getExportPeriodLabel(period)}`;
+}

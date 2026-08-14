@@ -6,6 +6,7 @@ import {
   formatReminderHours,
   getGenericBrowserNotificationBody,
   getNotificationLabel,
+  getNotificationTone,
   getNotificationTargetUrl,
   parseReminderHoursInput,
 } from './notification-logic.js';
@@ -37,6 +38,14 @@ describe('notification logic', () => {
     expect(getNotificationLabel('approval_pending')).toBe('待审批');
     expect(getNotificationLabel('schedule_changed')).toBe('排班已调整');
     expect(getNotificationLabel('unknown_type')).toBe('通知');
+  });
+
+  it('uses workflow meaning rather than read state for notification tones', () => {
+    expect(getNotificationTone('duty_reminder')).toBe('primary');
+    expect(getNotificationTone('approval_pending')).toBe('warning');
+    expect(getNotificationTone('leave_request_rejected')).toBe('danger');
+    expect(getNotificationTone('schedule_published')).toBe('success');
+    expect(getNotificationTone('unknown_type')).toBe('default');
   });
 
   it('formats relative times and falls back to an absolute time after a week', () => {

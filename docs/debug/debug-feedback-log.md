@@ -132,3 +132,13 @@
 - 变更：手动排班矩阵使用内部横向滚动、固定双层表头与人员首列、方向/进度提示和真实 44px 单元格按钮；移动端保持完整姓名/班次，并优化班次面板、清空操作和保存/应用布局。补录页增加当前配班状态、图标化月份切换、44px 班次/成员/暂存操作和手机全宽七列月历；危险动作继续显式确认，无滑动删除。
 - 运行/浏览器验证：`pnpm smoke:browser` 已通过；1280×900、390×844、320×844 实际验证两页无横向溢出或底栏遮挡，矩阵可内部横滑、人员首列位置固定、表头固定、提示/进度随滚动更新、单元格 `aria-pressed` 切换，补录七列完整、空月格中性且关键控件不小于 44px。六张截图已逐屏复核。原 5173 开发进程缓存旧样式，最终使用独立当前源码 5174 服务验收并在完成后停止，未修改原外部进程。
 - 运行验证：Web typecheck、生产 build、Storybook build、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 均通过；全仓库 66 个测试文件、472 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅有既有大 chunk warning。checkpoint `1203dc7`（`feat(web): improve dense schedule interactions`）已推送。
+
+## 2026-08-15 Web UI 2.0 统计、通知与导出响应式界面
+
+- 回归来源：统计成员表与汇总界面由 `36127b0` 引入，当前单元格渲染还包含 `540856e4`/`5cd8860` 的后续调整；通知铃铛、中心和设置由 `52e9e1f` 引入，触发器视觉由 `5b00fa7` 调整，注册警告由 `eab3ff2` 补充；导出对话框由 `15729f8` 引入，后续选择器与角色命名由 `540856e4`/`5cd8860` 调整，首页导出触发器由 `5b00fa7` 调整。以上调用点均已执行 `git log -S` 与 `git blame`。
+- 测试先行：新增统计 10 项汇总与横向滚动方向、通知业务语义色调、导出内容/周期摘要断言；旧实现因缺少 `getStatisticsSummaryItems`、`getStatisticsTableScrollHint`、`getNotificationTone` 和 `getExportSelectionSummary` 而 3 个文件、4 项失败（其余 11 项通过），实现后 3 个文件、15/15 通过。
+- 语义等价审计：统计的 `getMonthStatistics`、`getYearStatistics`、`refreshMonthStatistics`、`recalculateStatistics`；通知设置的偏好/群组设置/推送订阅读写，通知列表的读取/单条已读/全部已读，铃铛的未读轮询与定时器；导出的配置、任务创建、轮询、下载和 CSV 保存调用次数逐项对比 `HEAD` 均相同。参数、`await`、catch/finally、空值归一、权限门禁和成功/错误路径未改；本批只替换显示容器并新增纯派生文案/滚动状态。
+- 变更：统计页改为“值班台账”汇总，原 3 项主指标与 7 项辅助指标全部保留；成员表使用内部横向滚动、固定表头/成员首列及方向/进度提示。通知中心与导出迁入 `ResponsiveSheet`，通知设置改为响应式卡片；导出显示实时选择摘要、安全说明和显式取消/导出操作。手机控件不小于 44px，未增加滑动删除或隐式危险操作。
+- 浏览器复核发现并修正两处真实问题：成员表滚动提示最初直接读取非响应式 DOM 值，滚动后文案不更新，改为保存响应式滚动状态；TDesign 通知输入外层最初仍为 32px，补齐真实 `.t-input` 根节点 44px。导出固定操作区会覆盖安全说明，已改为 Sheet 内正常滚动流并复核说明完整可见。
+- 运行/浏览器验证：`pnpm smoke:browser` 已通过；1280×900、390×844、320×844 下统计页无页面横向溢出，3+7 指标完整，成员表可内部横滑且表头/成员首列固定，提示与进度随滚动更新；通知设置卡片单列全宽，通知中心和导出均贴底占满手机宽度，关键点触目标不小于 44px。管理员、成员、访客、vkey 与访问记录原流程和控制台无错误。最终截图目录为 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-yZkNpJ`。
+- 运行验证：3 个定向测试文件 15/15、Web typecheck、Storybook build、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 均通过；全仓库 66 个测试文件、476 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。首轮组合验证因外层 123 秒上限在 Vitest 阶段被终止，延长时限后完整 `pnpm verify` 真实退出码为 0。checkpoint 识别消息为 `feat(web): polish statistics notifications and exports`。

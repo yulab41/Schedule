@@ -6,6 +6,8 @@ import {
   formatNetDutyAdjustment,
   formatStatisticsMonthLabel,
   getMemberActualVsPlannedCount,
+  getStatisticsSummaryItems,
+  getStatisticsTableScrollHint,
   sortMembersByActualCount,
   summarizeRecalculateMismatches,
 } from './statistics-logic.js';
@@ -64,5 +66,50 @@ describe('statistics logic', () => {
     expect(summarizeRecalculateMismatches(['plannedCount 1 != 2'])).toBe(
       '发现 1 处不一致：plannedCount 1 != 2',
     );
+  });
+
+  it('keeps every existing summary count in a mobile-readable ledger', () => {
+    const items = getStatisticsSummaryItems({
+      actualCount: 9,
+      byRole: [],
+      byShiftType: [],
+      countedActualCount: 8,
+      countedPlannedCount: 7,
+      deductionCount: 1,
+      holidayCount: 3,
+      leaveCoverCount: 2,
+      manualAdjustmentCount: 4,
+      members: [],
+      netDutyAdjustment: 2,
+      overtimeCount: 3,
+      plannedCount: 10,
+      swapCount: 5,
+      weekendCount: 6,
+    });
+
+    expect(items.map((item) => [item.label, item.value])).toEqual([
+      ['计划班次', '10'],
+      ['实际值班', '9'],
+      ['计值班次', '8'],
+      ['周末值班', '6'],
+      ['法定节假日', '3'],
+      ['换班', '5'],
+      ['加班 / 扣班', '3 / 1'],
+      ['加扣班净值', '+2'],
+      ['请假补位', '2'],
+      ['人工调整', '4'],
+    ]);
+  });
+
+  it('describes table scroll direction from its real boundaries', () => {
+    expect(
+      getStatisticsTableScrollHint({ clientWidth: 320, scrollLeft: 0, scrollWidth: 960 }),
+    ).toBe('向左滑动查看其余指标，成员列保持固定');
+    expect(
+      getStatisticsTableScrollHint({ clientWidth: 320, scrollLeft: 240, scrollWidth: 960 }),
+    ).toBe('左右滑动查看全部指标，成员列保持固定');
+    expect(
+      getStatisticsTableScrollHint({ clientWidth: 320, scrollLeft: 640, scrollWidth: 960 }),
+    ).toBe('向右滑动返回成员姓名，成员列保持固定');
   });
 });

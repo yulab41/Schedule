@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { ScheduleExportJob } from '@schedule/contracts';
 
-import { buildExportFileName, getExportPeriodLabel, isExportJobFinished } from './export-logic.js';
+import {
+  buildExportFileName,
+  getExportPeriodLabel,
+  getExportSelectionSummary,
+  isExportJobFinished,
+} from './export-logic.js';
 
 function job(status: ScheduleExportJob['status']): ScheduleExportJob {
   return {
@@ -29,5 +34,10 @@ describe('export logic', () => {
     expect(isExportJobFinished(job('failed'))).toBe(true);
     expect(isExportJobFinished(job('pending'))).toBe(false);
     expect(isExportJobFinished(job('running'))).toBe(false);
+  });
+
+  it('summarizes the exact export content and period before download', () => {
+    expect(getExportSelectionSummary('schedule', '2026-10')).toBe('排班 · 2026年10月');
+    expect(getExportSelectionSummary('statistics', '2026')).toBe('统计 · 2026年');
   });
 });

@@ -227,6 +227,13 @@ function showSuccess(message: string): void {
 
 <template>
   <section class="notification-settings">
+    <header class="notification-settings-heading">
+      <div>
+        <p>提醒节奏</p>
+        <h2>通知设置</h2>
+      </div>
+      <span>站内通知始终可用；浏览器权限只在主动开启时申请。</span>
+    </header>
     <t-loading v-if="isLoading" text="正在加载通知设置" />
     <template v-else>
       <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
@@ -235,6 +242,7 @@ function showSuccess(message: string): void {
         <t-form-item label="值班提醒提前小时数" name="groupHours">
           <t-input v-model="groupHoursInput" placeholder="例如：24, 2" :disabled="isSaving" />
         </t-form-item>
+        <p class="settings-hint">最多设置 5 个时间，使用逗号分隔。</p>
         <t-form-item>
           <t-button theme="primary" :loading="isSaving" @click="saveGroupSettings">
             保存群组设置
@@ -259,8 +267,9 @@ function showSuccess(message: string): void {
         </t-form-item>
       </t-card>
       <t-card title="浏览器通知" class="settings-card">
-        <t-form-item label="接收浏览器通知" name="browser">
+        <t-form-item label="接收浏览器通知" name="browser" class="browser-toggle-row">
           <t-switch
+            class="browser-notification-switch"
             :model-value="browserNotificationsEnabled"
             @change="toggleBrowserNotifications"
           />
@@ -295,3 +304,157 @@ function showSuccess(message: string): void {
     </template>
   </section>
 </template>
+
+<style scoped>
+.notification-settings {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-spacing-md);
+}
+
+.notification-settings-heading,
+.notification-settings > :deep(.t-loading),
+.notification-settings > :deep(.t-alert) {
+  grid-column: 1 / -1;
+}
+
+.notification-settings-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+}
+
+.notification-settings-heading p,
+.notification-settings-heading h2 {
+  margin: 0;
+}
+
+.notification-settings-heading p {
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.notification-settings-heading h2 {
+  margin-top: var(--ui-spacing-xxs);
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xl);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.notification-settings-heading > span {
+  max-width: 420px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  text-align: right;
+}
+
+.settings-card {
+  min-width: 0;
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.settings-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.settings-card :deep(.t-card__header) {
+  min-height: var(--ui-touch-target-comfortable);
+  padding: var(--ui-spacing-sm) var(--ui-spacing-md);
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.settings-card :deep(.t-card__title) {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.settings-card :deep(.t-card__body) {
+  padding: var(--ui-spacing-md);
+}
+
+.settings-card :deep(.t-input),
+.settings-card :deep(.t-input__wrap),
+.settings-card :deep(.t-button),
+.settings-card :deep(.t-radio-button) {
+  min-height: var(--ui-touch-target-minimum);
+}
+
+.settings-card :deep(.t-form__item) {
+  margin-bottom: var(--ui-spacing-sm);
+}
+
+.settings-card :deep(.t-form__item:last-child) {
+  margin-bottom: 0;
+}
+
+.settings-card :deep(.t-radio-group) {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.settings-hint {
+  margin: 0 0 var(--ui-spacing-sm);
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.browser-toggle-row :deep(.t-form__controls-content) {
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+}
+
+.browser-notification-switch {
+  min-width: 52px;
+  min-height: var(--ui-touch-target-minimum);
+}
+
+@media (max-width: 760px) {
+  .notification-settings {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ui-spacing-sm);
+  }
+
+  .notification-settings-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .notification-settings-heading > span {
+    text-align: left;
+  }
+
+  .notification-settings-heading,
+  .notification-settings > :deep(.t-loading),
+  .notification-settings > :deep(.t-alert),
+  .settings-card:last-child {
+    grid-column: auto;
+  }
+
+  .settings-card :deep(.t-card__body) {
+    padding: var(--ui-spacing-sm);
+  }
+
+  .settings-card :deep(.t-radio-group) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-card :deep(.t-radio-button) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .settings-card :deep(.t-button) {
+    width: 100%;
+  }
+}
+</style>

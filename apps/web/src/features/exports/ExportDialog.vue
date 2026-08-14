@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import type { GroupSummary, ScheduleExportJob, ScheduleExportType } from '@schedule/contracts';
 import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
+import { DownloadIcon, InfoCircleIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
-import { buildExportFileName, getExportPeriodLabel, isExportJobFinished } from './export-logic.js';
+import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import {
+  buildExportFileName,
+  getExportPeriodLabel,
+  getExportSelectionSummary,
+  isExportJobFinished,
+} from './export-logic.js';
 
 const props = defineProps<{
   group: GroupSummary;
@@ -35,6 +42,7 @@ const successMessage = ref<string>();
 const period = computed(() =>
   periodType.value === 'month' ? businessMonth.value : String(year.value),
 );
+const selectionSummary = computed(() => getExportSelectionSummary(exportType.value, period.value));
 
 onMounted(() => {
   void loadOptions();
@@ -112,70 +120,221 @@ function onRoleChange(value: SelectValue): void {
 function onMembershipChange(value: SelectValue): void {
   membershipId.value = typeof value === 'string' ? value : undefined;
 }
+
+function updateVisibility(nextVisible: boolean): void {
+  visible.value = nextVisible;
+  if (!nextVisible) emit('close');
+}
 </script>
 
 <template>
-  <t-dialog
-    v-model:visible="visible"
-    header="导出排班/统计"
-    :confirm-btn="{ content: '导出', loading: isWorking }"
-    :cancel-btn="{}"
-    width="560px"
-    @confirm="runExport"
-    @close="emit('close')"
+  <ResponsiveSheet
+    id="export-schedule-sheet"
+    :visible="visible"
+    title="导出排班与统计"
+    @update:visible="updateVisibility"
   >
-    <t-loading v-if="isLoading" text="正在加载导出选项" />
-    <template v-else>
-      <t-form-item label="导出内容" name="exportType">
-        <t-radio-group v-model="exportType">
-          <t-radio-button value="schedule">排班</t-radio-button>
-          <t-radio-button value="statistics">统计</t-radio-button>
-        </t-radio-group>
-      </t-form-item>
-      <t-form-item label="时间范围" name="periodType">
-        <t-radio-group v-model="periodType">
-          <t-radio-button value="month">按月</t-radio-button>
-          <t-radio-button value="year">按年</t-radio-button>
-        </t-radio-group>
-        <input
-          v-if="periodType === 'month'"
-          v-model="businessMonth"
-          class="export-period-input"
-          type="month"
-        />
-        <select v-else v-model.number="year" class="export-period-input">
-          <option
-            v-for="candidate in [year - 1, year, year + 1]"
-            :key="candidate"
-            :value="candidate"
-          >
-            {{ candidate }} 年
-          </option>
-        </select>
-      </t-form-item>
-      <t-form-item label="排班岗位" name="roleId">
-        <t-select
-          :value="roleId ?? ''"
-          :options="roles.map((role) => ({ label: role.name, value: role.id }))"
-          clearable
-          placeholder="全部岗位"
-          @change="onRoleChange"
-        />
-      </t-form-item>
-      <t-form-item label="成员" name="membershipId">
-        <t-select
-          :value="membershipId ?? ''"
-          :options="members.map((member) => ({ label: member.realName, value: member.id }))"
-          clearable
-          placeholder="全部成员"
-          @change="onMembershipChange"
-        />
-      </t-form-item>
-      <p class="export-hint">
-        导出文件默认不包含电话号码和内部审计内容，每次导出都会记录安全审计。
-      </p>
-      <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
-      <t-alert v-if="successMessage !== undefined" theme="success" :message="successMessage" />
-    </template>
-  </t-dialog>
+    <section class="export-sheet-content">
+      <div class="export-selection-summary" aria-live="polite">
+        <span>将要导出</span>
+        <strong>{{ selectionSummary }}</strong>
+      </div>
+      <t-loading v-if="isLoading" text="正在加载导出选项" />
+      <template v-else>
+        <div class="export-form-grid">
+          <t-form-item label="导出内容" name="exportType" class="export-choice-field">
+            <t-radio-group v-model="exportType">
+              <t-radio-button value="schedule">排班</t-radio-button>
+              <t-radio-button value="statistics">统计</t-radio-button>
+            </t-radio-group>
+          </t-form-item>
+          <t-form-item label="时间范围" name="periodType" class="export-period-field">
+            <t-radio-group v-model="periodType">
+              <t-radio-button value="month">按月</t-radio-button>
+              <t-radio-button value="year">按年</t-radio-button>
+            </t-radio-group>
+            <input
+              v-if="periodType === 'month'"
+              v-model="businessMonth"
+              class="export-period-input"
+              type="month"
+            />
+            <select v-else v-model.number="year" class="export-period-input">
+              <option
+                v-for="candidate in [year - 1, year, year + 1]"
+                :key="candidate"
+                :value="candidate"
+              >
+                {{ candidate }} 年
+              </option>
+            </select>
+          </t-form-item>
+          <t-form-item label="排班岗位" name="roleId">
+            <t-select
+              :value="roleId ?? ''"
+              :options="roles.map((role) => ({ label: role.name, value: role.id }))"
+              clearable
+              placeholder="全部岗位"
+              @change="onRoleChange"
+            />
+          </t-form-item>
+          <t-form-item label="成员" name="membershipId">
+            <t-select
+              :value="membershipId ?? ''"
+              :options="members.map((member) => ({ label: member.realName, value: member.id }))"
+              clearable
+              placeholder="全部成员"
+              @change="onMembershipChange"
+            />
+          </t-form-item>
+        </div>
+        <p class="export-hint">
+          <InfoCircleIcon aria-hidden="true" />
+          <span>文件默认不包含电话号码和内部审计内容；每次导出都会记录安全审计。</span>
+        </p>
+        <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
+        <t-alert v-if="successMessage !== undefined" theme="success" :message="successMessage" />
+        <footer class="export-actions">
+          <t-button variant="outline" :disabled="isWorking" @click="updateVisibility(false)">
+            取消
+          </t-button>
+          <t-button theme="primary" :loading="isWorking" @click="runExport">
+            <template #icon><DownloadIcon /></template>
+            导出 CSV
+          </t-button>
+        </footer>
+      </template>
+    </section>
+  </ResponsiveSheet>
 </template>
+
+<style scoped>
+.export-sheet-content {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-spacing-md);
+}
+
+.export-selection-summary {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-sm);
+  padding: var(--ui-spacing-xs) var(--ui-spacing-sm);
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+}
+
+.export-selection-summary strong {
+  color: var(--ui-color-primary-dark);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.export-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--ui-spacing-md);
+}
+
+.export-choice-field,
+.export-period-field {
+  grid-column: 1 / -1;
+}
+
+.export-sheet-content :deep(.t-form__item) {
+  margin-bottom: var(--ui-spacing-sm);
+}
+
+.export-sheet-content :deep(.t-input),
+.export-sheet-content :deep(.t-input__wrap),
+.export-sheet-content :deep(.t-select),
+.export-sheet-content :deep(.t-radio-button),
+.export-actions :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
+}
+
+.export-period-field :deep(.t-form__controls-content) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-spacing-xs);
+}
+
+.export-period-input {
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+  font: inherit;
+}
+
+.export-hint {
+  display: flex;
+  margin: 0;
+  align-items: flex-start;
+  gap: var(--ui-spacing-xs);
+  padding: var(--ui-spacing-sm);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.export-hint svg {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  color: var(--ui-color-primary);
+}
+
+.export-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-spacing-xs);
+  padding-top: var(--ui-spacing-xs);
+  background: var(--ui-color-surface);
+}
+
+.export-actions :deep(.t-button) {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .export-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .export-choice-field,
+  .export-period-field {
+    grid-column: auto;
+  }
+
+  .export-sheet-content :deep(.t-radio-group) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .export-sheet-content :deep(.t-radio-button) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .export-period-field :deep(.t-form__controls-content) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .export-period-input {
+    width: 100%;
+  }
+}
+</style>

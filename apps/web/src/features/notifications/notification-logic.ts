@@ -21,8 +21,45 @@ const labelByType: Readonly<Record<string, string>> = {
   vacancy_reminder: '值班空缺提醒',
 };
 
+export type NotificationTone = 'danger' | 'default' | 'primary' | 'success' | 'warning';
+
+const dangerNotificationTypes = new Set([
+  'conflict_detected',
+  'duty_adjustment_request_rejected',
+  'leave_request_rejected',
+  'swap_request_rejected',
+]);
+const warningNotificationTypes = new Set([
+  'approval_pending',
+  'duty_adjustment_request_created',
+  'swap_request_created',
+  'vacancy_reminder',
+]);
+const successNotificationTypes = new Set([
+  'duty_adjustment_request_accepted',
+  'leave_request_approved',
+  'schedule_generated',
+  'schedule_published',
+  'swap_request_accepted',
+]);
+const primaryNotificationTypes = new Set([
+  'duty_reminder',
+  'schedule_changed',
+  'duty_adjustment_request_cancelled',
+  'duty_adjustment_revoked',
+  'swap_request_cancelled',
+]);
+
 export function getNotificationLabel(notificationType: string): string {
   return labelByType[notificationType] ?? '通知';
+}
+
+export function getNotificationTone(notificationType: string): NotificationTone {
+  if (dangerNotificationTypes.has(notificationType)) return 'danger';
+  if (warningNotificationTypes.has(notificationType)) return 'warning';
+  if (successNotificationTypes.has(notificationType)) return 'success';
+  if (primaryNotificationTypes.has(notificationType)) return 'primary';
+  return 'default';
 }
 
 export function formatNotificationTime(createdAt: string, now: Date): string {

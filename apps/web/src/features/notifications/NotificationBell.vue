@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
+import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { getGenericBrowserNotificationBody } from './notification-logic.js';
 import NotificationCenterPanel from './NotificationCenterPanel.vue';
 
@@ -68,9 +69,9 @@ function onUnreadChanged(count: number): void {
         <NotificationIcon aria-hidden="true" />
       </t-button>
     </t-badge>
-    <t-drawer v-model:visible="isOpen" size="420px" header="通知中心">
+    <ResponsiveSheet id="notification-center-sheet" v-model:visible="isOpen" title="通知中心">
       <NotificationCenterPanel @unread-changed="onUnreadChanged" />
-    </t-drawer>
+    </ResponsiveSheet>
   </div>
 </template>
 

@@ -1076,6 +1076,228 @@ async function assertMemberAndNotificationPages(page) {
   await waitForBodyText(page, '排班日历', 10000);
 }
 
+async function assertStatisticsNotificationAndExportResponsive(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '统计' }).first().click();
+  await waitForBodyText(page, '排班统计', 15000, '排班统计');
+  await waitForBodyText(page, '成员统计', 15000, '成员统计');
+
+  for (const { height, width } of [
+    { height: 900, width: 1280 },
+    { height: 844, width: 390 },
+    { height: 844, width: 320 },
+  ]) {
+    await page.setViewportSize({ height, width });
+    await page.waitForTimeout(250);
+    const memberCard = page.locator('.member-statistics-card');
+    await memberCard.scrollIntoViewIfNeeded();
+    const metrics = await page.evaluate(() => {
+      const scroll = document.querySelector('.member-statistics-scroll');
+      const firstMemberCell = document.querySelector(
+        '.member-statistics-table tbody td:first-child',
+      );
+      const firstHeader = document.querySelector('.member-statistics-table thead th');
+      const guide = document.querySelector('.statistics-scroll-guide');
+      const controls = [
+        ...document.querySelectorAll(
+          '.statistics-toolbar .t-radio-button, .statistics-toolbar input, .statistics-toolbar select, .statistics-toolbar button',
+        ),
+      ].filter((control) => {
+        const rect = control.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      return {
+        clientWidth: scroll?.clientWidth ?? 0,
+        firstMemberLeft: firstMemberCell?.getBoundingClientRect().left,
+        firstMemberPosition:
+          firstMemberCell === null ? undefined : getComputedStyle(firstMemberCell).position,
+        guideHeight: guide?.getBoundingClientRect().height ?? 0,
+        headerPosition: firstHeader === null ? undefined : getComputedStyle(firstHeader).position,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        primaryCount: document.querySelectorAll('.primary-statistic').length,
+        scrollWidth: scroll?.scrollWidth ?? 0,
+        secondaryCount: document.querySelectorAll('.secondary-statistic').length,
+        smallControls: controls
+          .filter((control) => {
+            const rect = control.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((control) => control.textContent?.trim() || control.tagName),
+      };
+    });
+    if (metrics.overflow) fail(`${width}px 统计页出现页面横向溢出。`);
+    if (metrics.primaryCount !== 3 || metrics.secondaryCount !== 7) {
+      fail(`${width}px 统计汇总未完整保留 3 项主指标和 7 项辅助指标。`);
+    }
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 统计工具栏存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+    }
+    if (metrics.headerPosition !== 'sticky' || metrics.firstMemberPosition !== 'sticky') {
+      fail(`${width}px 成员统计未固定表头或成员首列。`);
+    }
+    if (width < 760) {
+      if (metrics.scrollWidth <= metrics.clientWidth || metrics.guideHeight < 44) {
+        fail(`${width}px 成员统计缺少内部横向滚动或 44px 滚动提示。`);
+      }
+      const scroll = page.locator('.member-statistics-scroll');
+      await scroll.evaluate((element) => {
+        element.scrollLeft = Math.min(320, element.scrollWidth - element.clientWidth);
+        element.dispatchEvent(new Event('scroll'));
+      });
+      await page.waitForTimeout(150);
+      const scrolled = await page.evaluate(() => {
+        const firstMemberCell = document.querySelector(
+          '.member-statistics-table tbody td:first-child',
+        );
+        const progress = document.querySelector('.statistics-scroll-progress');
+        return {
+          firstMemberLeft: firstMemberCell?.getBoundingClientRect().left,
+          guideText: document.querySelector('.statistics-scroll-guide')?.textContent ?? '',
+          progress: Number(progress?.getAttribute('aria-valuenow') ?? '0'),
+        };
+      });
+      if (
+        metrics.firstMemberLeft !== undefined &&
+        Math.abs((scrolled.firstMemberLeft ?? metrics.firstMemberLeft) - metrics.firstMemberLeft) >
+          1
+      ) {
+        fail(`${width}px 成员统计横滑后成员首列没有保持固定。`);
+      }
+      if (scrolled.progress <= 0 || !scrolled.guideText.includes('左右滑动')) {
+        fail(`${width}px 成员统计滚动进度或方向提示未更新。`);
+      }
+    }
+    await page.screenshot({
+      path: path.join(
+        SCREENSHOT_DIR,
+        width === 1280
+          ? '12-admin-desktop-statistics.png'
+          : `12-admin-mobile-statistics-${width}.png`,
+      ),
+    });
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '通知' }).first().click();
+  await waitForBodyText(page, '通知设置', 15000, '通知设置');
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(250);
+    const settingsMetrics = await page.evaluate(() => {
+      const controls = [
+        ...document.querySelectorAll(
+          '.settings-card .t-input, .settings-card .t-radio-button, .settings-card .t-button, .browser-notification-switch',
+        ),
+      ].filter((control) => {
+        const rect = control.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      const cards = [...document.querySelectorAll('.settings-card')];
+      return {
+        cardWidths: cards.map((card) => card.getBoundingClientRect().width),
+        containerWidth: document.querySelector('.notification-settings')?.getBoundingClientRect()
+          .width,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallControls: controls
+          .filter((control) => {
+            const rect = control.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((control) => control.textContent?.trim() || control.tagName),
+      };
+    });
+    if (settingsMetrics.overflow) fail(`${width}px 通知设置页出现横向溢出。`);
+    if (
+      settingsMetrics.containerWidth === undefined ||
+      settingsMetrics.cardWidths.some(
+        (cardWidth) => Math.abs(cardWidth - settingsMetrics.containerWidth) > 1,
+      )
+    ) {
+      fail(`${width}px 通知设置卡片未切换为单列全宽布局。`);
+    }
+    if (settingsMetrics.smallControls.length > 0) {
+      fail(`${width}px 通知设置存在小于 44px 的控件：${settingsMetrics.smallControls.join('、')}`);
+    }
+
+    await page.locator('.notification-trigger').click();
+    const notificationSheet = page.locator('dialog[open][aria-label="通知中心"]');
+    await notificationSheet.waitFor({ state: 'visible', timeout: 5000 });
+    await assertWorkflowSheetTouchTargets(notificationSheet, width, '通知中心底部页');
+    const sheetMetrics = await notificationSheet.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
+        width: rect.width,
+      };
+    });
+    if (
+      Math.abs(sheetMetrics.bottom - sheetMetrics.viewportHeight) > 1 ||
+      Math.abs(sheetMetrics.width - sheetMetrics.viewportWidth) > 1
+    ) {
+      fail(`${width}px 通知中心没有贴底并占满手机宽度。`);
+    }
+    if (width === 390) {
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, '13-admin-mobile-notifications.png'),
+      });
+    }
+    await notificationSheet.locator('button[aria-label="关闭"]').click();
+
+    await page.locator('.workbench-actions button', { hasText: '导出' }).click();
+    const exportSheet = page.locator('dialog[open][aria-label="导出排班与统计"]');
+    await exportSheet.waitFor({ state: 'visible', timeout: 5000 });
+    await waitForBodyText(page, '将要导出', 10000, '导出选项');
+    await assertWorkflowSheetTouchTargets(exportSheet, width, '导出底部页');
+    await exportSheet.locator('.t-radio-button', { hasText: '统计' }).click();
+    await exportSheet.locator('.t-radio-button', { hasText: '按年' }).click();
+    const exportSummary = await exportSheet.locator('.export-selection-summary').innerText();
+    if (!exportSummary.includes('统计') || !exportSummary.includes('年')) {
+      fail(`${width}px 导出底部页没有随内容和时间范围更新摘要。`);
+    }
+    const exportMetrics = await exportSheet.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const radioButtons = [...element.querySelectorAll('.t-radio-button')].filter((control) => {
+        const controlRect = control.getBoundingClientRect();
+        return controlRect.width > 0 && controlRect.height > 0;
+      });
+      return {
+        bottom: rect.bottom,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallRadioButtons: radioButtons
+          .filter((control) => {
+            const controlRect = control.getBoundingClientRect();
+            return controlRect.width < 44 || controlRect.height < 44;
+          })
+          .map((control) => control.textContent?.trim() ?? ''),
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
+        width: rect.width,
+      };
+    });
+    if (exportMetrics.overflow) fail(`${width}px 导出底部页导致页面横向溢出。`);
+    if (
+      Math.abs(exportMetrics.bottom - exportMetrics.viewportHeight) > 1 ||
+      Math.abs(exportMetrics.width - exportMetrics.viewportWidth) > 1
+    ) {
+      fail(`${width}px 导出界面没有使用贴底全宽 Sheet。`);
+    }
+    if (exportMetrics.smallRadioButtons.length > 0) {
+      fail(`${width}px 导出底部页存在小于 44px 的分段按钮。`);
+    }
+    if (width === 390) {
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '14-admin-mobile-export.png') });
+    }
+    await exportSheet.locator('button[aria-label="关闭"]').click();
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
+  await waitForBodyText(page, '排班日历', 10000);
+}
+
 async function runSmoke() {
   const browserPath = findBrowserExecutable();
   step(`浏览器：${browserPath}`);
@@ -1121,6 +1343,7 @@ async function runSmoke() {
     await assertBackfillCalendarColors(page);
     await assertGroupManagementAndEventNav(page);
     await assertMemberAndNotificationPages(page);
+    await assertStatisticsNotificationAndExportResponsive(page);
     assertNoErrors(errors, '成员与通知页面');
 
     step('3/6 退出管理员');
