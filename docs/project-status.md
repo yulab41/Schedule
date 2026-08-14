@@ -11,7 +11,7 @@
 - 小程序凭据仍只用于小程序登录和通知。用户在聊天中发送过的小程序 AppSecret 按“已暴露”处理：本轮没有把它写入仓库、新 release 或服务器；通知功能正式验收前必须重置。小程序代码上传 `.key` 文件不是网页登录凭据，不需要上传或提交。
 - 正式 release `72f10766812c74742664906e25dd49758f463d6a` 已部署；数据库备份 archive 为 `cee6bda8-ec2b-4dec-979b-52ab8aeacf97`。迁移 0035/0036 已成功执行，现网首页/API 健康。
 - 本轮变更已上线：密码不再有最小/最大位数限制，仅拒绝空密码；登录页已移除“首次使用请先注册账号”和微信 AppID/AppSecret 提示。
-- 旧 `local-admin` / `local-member` 账号已保留关联业务数据并退役为 suspended，不再是可用认证身份；生产 `PLATFORM_ADMIN_UIDS` / `HOLIDAY_ADMIN_UIDS` 当前为空，等待用户注册正式账号后按 UID 授予管理员权限。
+- 旧 `local-admin` / `local-member` 账号已保留关联业务数据并退役为 suspended，不再是可用认证身份；用户正式账号 `D0796` 已映射为稳定的密码认证 UID，并写入生产 `PLATFORM_ADMIN_UIDS` / `HOLIDAY_ADMIN_UIDS`。
 - 小程序 AppSecret 仍按“已暴露”处理，尚未通过聊天内容写入服务器；需要用户在微信平台重置后再更新服务器通知配置。现有服务器会话密钥已存在，网站 AppID/AppSecret 不再是阻塞项。
 
 ## 本轮已完成
@@ -22,6 +22,8 @@
 - 生产配置要求 `AUTH_PASSWORD_ENABLED=true`、长度至少 32 的 `WECHAT_SESSION_SECRET`，并继续拒绝 `AUTH_DEV_MODE=true` 与 `WECHAT_MOCK_MODE=true`。
 - Web 生产登录页改为账号登录/注册；本地开发构建仍保留仅开发模式可见的 smoke 登录按钮。
 - Compose、ECS 核验脚本、迁移计数、部署文档和当前环境模板已同步。
+- 用户账号 `D0796` 已确认处于 active 且资料已建立；服务端已授予平台管理员和节假日管理权限，并仅重建 API 容器使配置生效。
+- 本轮任务 checkpoint commit：`docs(status): record formal administrator configuration`。
 - 发布诊断发现生产既有 `users.id` 使用 `utf8mb4_0900_ai_ci`，新增迁移 0035/0036 原使用 `utf8mb4_unicode_ci`，MySQL 拒绝外键；已将两份新增迁移改为 `utf8mb4_0900_ai_ci`，不涉及删除表或改动既有业务数据。
 - checkpoint commit：`de3ad5f feat(auth): add production password authentication`。
 
@@ -35,6 +37,7 @@
 - `pnpm smoke:check-core`：通过；已在 `docs/debug/debug-feedback-log.md` 记录“运行/浏览器验证：pnpm smoke:browser …”。
 - `pnpm --config.production=false --filter @schedule/database test`：通过（本机无测试 MySQL，14 个数据库测试跳过）。
 - `bash /tmp/ecs-verify.sh`：通过；release `72f1076` 的正式域名/API、未知 Host 拒绝、共享入口端口、产物哈希、无开发认证依赖、无 `local-admin`/`local-member` 记录、迁移计数 36 均通过。
+- 生产管理员配置复核：`D0796` 对应账号为 active、资料已建立；API 容器中的平台管理员/节假日管理员配置均已生效，健康接口返回 200。
 - 生产负向验收：弱注册请求返回 400、未知账号登录返回 401、`local-admin` Bearer token 返回 401；未创建测试账号。
 - 发布过程：首次发布因数据库外键排序规则不兼容自动回滚；修正迁移后 release `c358109` 发布成功，本轮 release `72f1076` 又完成密码策略和登录页文案更新，现网使用 `NODE_ENV=production`、`AUTH_DEV_MODE=false`、`AUTH_PASSWORD_ENABLED=true`。
 - 已确认部署产物不再包含旧登录提示或“至少 8 位”文案；一位密码的未知账号请求返回 401 而非长度校验 400。
@@ -43,8 +46,8 @@
 
 下一批次为：
 
-1. 用户在正式网页注册账号并完成资料补全；不要把密码发给我；
-2. 用户确认管理员账号后，我根据该账号的正式 UID 配置 `PLATFORM_ADMIN_UIDS`，再重建 API 并复核权限；
-3. 用户在微信平台重置已暴露的小程序 AppSecret，再由服务器更新通知配置并复核通知功能。
+1. 用户退出后重新登录 `D0796`，人工复核排班管理、人员管理和节假日管理页面；不要把密码发给我；
+2. 用户在微信平台重置已暴露的小程序 AppSecret，再由服务器更新通知配置并复核通知功能；
+3. 如需增加其他管理员，先让对方注册正式账号，再按账号名逐一配置，不复用开发账号。
 
-停止条件：本轮 release 已满足正式域名首页/API、未知 Host 拒绝、测试端口收口、密码策略和登录页文案核验；剩余状态为“待用户复核”：账号注册、资料补全、管理员权限和小程序密钥轮换需要用户操作后确认。
+停止条件：本轮已完成正式账号 `D0796` 的管理员配置、API 重建和服务端核验；当前状态为“待用户复核”，需要用户登录确认管理员页面，并在微信平台完成小程序密钥轮换后才能完成通知功能验收。

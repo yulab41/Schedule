@@ -21,3 +21,10 @@
 - 运行验证：pnpm verify 已通过；60 个测试文件、447 个测试通过，29 个数据库集成文件因本机没有测试 MySQL 跳过。
 - 发布验证：release `72f1076` 已部署；`ecs-verify.sh` 通过，正式构建产物不包含旧登录提示或“至少 8 位”文案，一位密码未知账号请求返回 401。
 - 状态：本轮代码和正式部署已完成，当前为“待用户复核”；需要用户注册账号、确认管理员账号，并重置已暴露的小程序 AppSecret。
+
+## 2026-08-14 配置正式管理员并重建 API
+
+- 变更：确认正式密码账号 `D0796` 为 active 且资料已建立，将该账号对应的稳定认证 UID 写入生产 `PLATFORM_ADMIN_UIDS` 和 `HOLIDAY_ADMIN_UIDS`；未读取或修改账号密码。
+- 发布验证：仅重建 API 容器，Web、MySQL 和共享 Nginx 网关未停止；API 健康接口返回 200，生产认证开关仍为 `NODE_ENV=production`、`AUTH_DEV_MODE=false`、`AUTH_PASSWORD_ENABLED=true`、`WECHAT_MOCK_MODE=false`。
+- 运行验证：服务端管理员 UID 配置与账号身份映射一致；`ecs-verify.sh` 通过，正式 release、域名入口、未知 Host 拒绝、共享端口、产物哈希、无开发认证依赖和迁移计数 36 均通过。
+- 状态：配置和服务端重建已完成，当前为“待用户复核”；请用户退出后重新登录 `D0796`，人工确认管理员页面和节假日管理功能。小程序 AppSecret 仍需在微信平台重置后再更新通知配置。
