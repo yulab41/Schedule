@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AppStatePanel: typeof import('./components/AppStatePanel.vue')['default']
     DataConflictDialog: typeof import('./components/DataConflictDialog.vue')['default']
     ResponsiveSheet: typeof import('./components/ResponsiveSheet.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

@@ -142,3 +142,14 @@
 - 浏览器复核发现并修正两处真实问题：成员表滚动提示最初直接读取非响应式 DOM 值，滚动后文案不更新，改为保存响应式滚动状态；TDesign 通知输入外层最初仍为 32px，补齐真实 `.t-input` 根节点 44px。导出固定操作区会覆盖安全说明，已改为 Sheet 内正常滚动流并复核说明完整可见。
 - 运行/浏览器验证：`pnpm smoke:browser` 已通过；1280×900、390×844、320×844 下统计页无页面横向溢出，3+7 指标完整，成员表可内部横滑且表头/成员首列固定，提示与进度随滚动更新；通知设置卡片单列全宽，通知中心和导出均贴底占满手机宽度，关键点触目标不小于 44px。管理员、成员、访客、vkey 与访问记录原流程和控制台无错误。最终截图目录为 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-yZkNpJ`。
 - 运行验证：3 个定向测试文件 15/15、Web typecheck、Storybook build、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 均通过；全仓库 66 个测试文件、476 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。首轮组合验证因外层 123 秒上限在 Vitest 阶段被终止，延长时限后完整 `pnpm verify` 真实退出码为 0。checkpoint `6ec287d`（`feat(web): polish statistics notifications and exports`）已推送。
+
+## 2026-08-15 Web UI 2.0 群组、配置、访客与应用状态
+
+- 回归来源：群组创建界面由 `1b5a17a` 引入，重新生成群组码由 `caf0a8e` 完善；排班配置及读取链路由 `04c7da3` 引入；访客月历由 `7c783c7` 引入，vkey 访问由 `4b33749` 增加；离线横幅由 `db35a77` 引入。`ResponsiveSheet` 的模板引用守卫由 `5b00fa7` 引入。以上调用点均已执行 `git log -S` 和 `git blame`。
+- 测试先行：新增四位群组码保留前导零/角色文案、三步基础配置准备轨道、缺失/失效访客链接与离线只读文案断言；旧实现先因 `group-presentation.js`、`scheduling-config-presentation.js`、`app-state.js` 不存在而 3 个文件失败，实现后连同 PWA 响应式测试共 4 个文件、10/10 通过。
+- 语义等价审计：群组创建、加入、名单、改名、重新生成群组码、退出、解散和恢复继续调用原处理函数一次，参数、await/catch/finally 和成功刷新未改；危险确认仅从 TDesign Dialog 换为原生焦点锁定 `ResponsiveSheet`。排班配置加载、新增/保存/删除班种、新增/删除岗位和保存岗位成员的调用次数与参数未改，“准备轨道”只读取已有配置。访客仍只按原 query vkey 调用公开日历 API，月份切换、错误映射和访问记录语义未改；离线展示继续复用 `offlineSubmitMessage`，没有队列或写入。首页群组错误只增加手动重试入口，仍调用原 `refreshGroups()`。
+- 浏览器回归：新增 `ResponsiveSheet` 使用后，首次 smoke 先出现 `Cannot read properties of null (reading 'open')`；原因是异步 `nextTick` 返回时组件可能已卸载，模板引用为 `null` 而旧守卫只判断 `undefined`。修复仅将 ref 明确初始化为 `null` 并把空引用作为 no-op，打开/关闭分支、调用次数和事件语义不变。修复后复跑通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 通过；新增 1280×900、390×844、320×844 群组/配置/访客断言，以及 390×844、320×844 离线只读断言。无页面横向溢出，群组码四位完整，班种编辑分别为 6/2/1 列，访客月历保持完整七列，关键操作不小于 44px；解散确认 Sheet 实际打开。管理员、成员、访客 vkey、访问记录和控制台原流程无错误，最终截图目录为 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-yhFCbi`。
+- 本地浏览器验证：实际以 390×844 打开缺失访客链接、群组管理和排班配置；状态卡宽 358px、页面无横向溢出，群组码四位完整且控件均达 44px，准备轨道为三步、班种编辑为两列。最终复位临时视口并关闭验收标签页。
+- 运行验证：Web typecheck、Storybook build、`pnpm smoke:browser`、`pnpm verify` 和 `git diff --check` 通过；全仓库 69 个测试文件、482 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。smoke 曾因 5173 旧 Vite 进程提供旧访客组件而等待旧文案超时；确认进程属于本仓库后只重启前端预览，API 和数据未改，当前源码复跑通过。
+- 状态：UI2-13/14 已完成，checkpoint 识别消息为 `feat(web): polish group config and guest states`；下一批次只做最终全局焦点、减少动态、安全区和跨视口收尾审计。

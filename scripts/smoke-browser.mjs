@@ -898,33 +898,272 @@ async function assertBackfillCalendarColors(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
 }
 
-async function assertGroupManagementAndEventNav(page) {
+async function assertGroupManagementConfigAndEventNav(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '群组管理' }).first().click();
   await waitForBodyText(page, '加入其他群组', 15000, '加入其他群组');
-  await waitForBodyText(page, '当前群组码：', 15000, '当前群组码');
-  const groupCode = await page.locator('[data-testid="current-group-code"]').innerText();
-  if (!/^当前群组码：\s*\d{4}$/u.test(groupCode.trim())) {
-    fail(`当前群组码展示异常：${groupCode}`);
+  await waitForBodyText(page, '共享群组码', 15000, '共享群组码');
+  const groupCode = page.locator('.group-code-digits').first();
+  const groupCodeLabel = await groupCode.getAttribute('aria-label');
+  if (!/^群组码 (?:\d ){3}\d$/u.test(groupCodeLabel ?? '')) {
+    fail(`当前群组码展示异常：${groupCodeLabel ?? '缺少可访问标签'}`);
   }
-  const initialGroupCode = groupCode.trim();
+  if ((await groupCode.locator('strong').count()) !== 4) {
+    fail('当前群组码没有保持四位腕带式展示。');
+  }
+  const initialGroupCode = groupCodeLabel;
   const regenerateButton = page.locator('button', { hasText: '重新生成群组码' }).first();
   await regenerateButton.click();
   const updateDeadline = Date.now() + 15000;
   let updatedGroupCode = initialGroupCode;
   while (Date.now() < updateDeadline) {
-    updatedGroupCode = (
-      await page.locator('[data-testid="current-group-code"]').innerText()
-    ).trim();
+    updatedGroupCode = await groupCode.getAttribute('aria-label');
     if (updatedGroupCode !== initialGroupCode) break;
     await page.waitForTimeout(250);
   }
-  if (!/^当前群组码：\s*\d{4}$/u.test(updatedGroupCode.trim())) {
+  if (!/^群组码 (?:\d ){3}\d$/u.test(updatedGroupCode ?? '')) {
     fail(`重新生成后的群组码展示异常：${updatedGroupCode}`);
   }
+
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ height: width === 1280 ? 900 : 844, width });
+    await page.waitForTimeout(200);
+    await page.locator('.group-identity-band').scrollIntoViewIfNeeded();
+    const metrics = await page.evaluate(() => {
+      const panel = document.querySelector('.group-setup-panel');
+      const cardGrid = document.querySelector('.group-card-grid');
+      const digits = [...document.querySelectorAll('.group-code-digits:first-of-type strong')];
+      const controls = [
+        ...document.querySelectorAll(
+          '.group-setup-panel button, .group-setup-panel .t-input, .group-setup-panel .t-select, .group-setup-panel .t-textarea__inner',
+        ),
+      ].filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      const viewportWidth = window.innerWidth;
+      return {
+        cardColumns:
+          cardGrid === null ? 0 : getComputedStyle(cardGrid).gridTemplateColumns.split(' ').length,
+        digitCount: digits.length,
+        digitsFit: digits.every((digit) => {
+          const rect = digit.getBoundingClientRect();
+          return rect.left >= 0 && rect.right <= viewportWidth;
+        }),
+        overflow:
+          document.documentElement.scrollWidth > viewportWidth ||
+          (panel?.scrollWidth ?? 0) > (panel?.clientWidth ?? 0),
+        smallControls: controls
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map(
+            (element) => element.textContent?.trim() || element.getAttribute('aria-label') || '',
+          ),
+      };
+    });
+    if (metrics.overflow) fail(`${width}px 群组管理页面出现横向溢出。`);
+    if (metrics.digitCount !== 4 || !metrics.digitsFit) {
+      fail(`${width}px 群组码四位数字没有完整显示。`);
+    }
+    if (metrics.cardColumns !== (width === 1280 ? 2 : 1)) {
+      fail(`${width}px 群组管理卡片列数异常：${metrics.cardColumns}`);
+    }
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 群组管理存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+    }
+    await page.screenshot({
+      path: path.join(
+        SCREENSHOT_DIR,
+        width === 1280 ? '15-admin-desktop-groups.png' : `15-admin-mobile-groups-${width}.png`,
+      ),
+      fullPage: true,
+    });
+  }
+
+  const dissolveButton = page.locator('.group-management-actions button', {
+    hasText: '解散群组',
+  });
+  if ((await dissolveButton.count()) > 0) {
+    await page.setViewportSize({ height: 844, width: 390 });
+    await dissolveButton.first().click();
+    const dissolveSheet = page.locator('dialog[open][aria-label="解散群组"]');
+    await dissolveSheet.waitFor({ state: 'visible', timeout: 5000 });
+    await assertWorkflowSheetTouchTargets(dissolveSheet, 390, '解散群组确认底部页');
+    await dissolveSheet.locator('button[aria-label="关闭"]').click();
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '排班配置' }).first().click();
+  await waitForBodyText(page, '排班准备轨道', 15000, '排班准备轨道');
+  await waitForBodyText(page, '新增自定义班种', 15000, '新增自定义班种');
+
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ height: width === 1280 ? 900 : 844, width });
+    await page.waitForTimeout(200);
+    await page.locator('.configuration-readiness').scrollIntoViewIfNeeded();
+    const metrics = await page.evaluate(() => {
+      const shiftEditor = document.querySelector('.new-shift-editor');
+      const controls = [
+        ...document.querySelectorAll(
+          '.shift-editor input:not([type="checkbox"]), .shift-editor .field-crosses-midnight, .shift-editor .field-enabled, .shift-editor .field-counts, .shift-editor button, .new-role-form input, .new-role-form button, .schedule-role-editor fieldset label, .schedule-role-editor button',
+        ),
+      ].filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      return {
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        readinessSteps: document.querySelectorAll('.configuration-readiness li').length,
+        shiftColumns:
+          shiftEditor === null
+            ? 0
+            : getComputedStyle(shiftEditor).gridTemplateColumns.split(' ').length,
+        smallControls: controls
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map(
+            (element) => element.textContent?.trim() || element.getAttribute('aria-label') || '',
+          ),
+      };
+    });
+    const expectedColumns = width === 1280 ? 6 : width === 390 ? 2 : 1;
+    if (metrics.overflow) fail(`${width}px 排班配置页面出现横向溢出。`);
+    if (metrics.readinessSteps !== 3) fail(`${width}px 排班准备轨道不是三步结构。`);
+    if (metrics.shiftColumns !== expectedColumns) {
+      fail(`${width}px 班种编辑器列数异常：${metrics.shiftColumns}，预期 ${expectedColumns}。`);
+    }
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 排班配置存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+    }
+    await page.screenshot({
+      path: path.join(
+        SCREENSHOT_DIR,
+        width === 1280 ? '16-admin-desktop-config.png' : `16-admin-mobile-config-${width}.png`,
+      ),
+      fullPage: true,
+    });
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
   const adminEventEntry = page.locator('.workbench-sidebar button', { hasText: '事件' }).first();
   await adminEventEntry.waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
   await waitForBodyText(page, '排班日历', 10000);
+}
+
+async function assertOfflineReadOnlyState(page, context, errors) {
+  const errorCountBeforeOfflineCheck = errors.length;
+  try {
+    await page.waitForLoadState('networkidle');
+    await context.setOffline(true);
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+    await page.locator('.offline-banner').waitFor({ state: 'visible', timeout: 5000 });
+    await waitForBodyText(page, '当前使用缓存内容', 5000, '离线只读状态');
+    await waitForBodyText(page, '提交已暂停', 5000, '离线提交提示');
+
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ height: 844, width });
+      await page.waitForTimeout(150);
+      const metrics = await page.evaluate(() => {
+        const banner = document.querySelector('.offline-banner');
+        const rect = banner?.getBoundingClientRect();
+        return {
+          bannerHeight: rect?.height ?? 0,
+          bannerFits: rect === undefined || (rect.left >= 0 && rect.right <= window.innerWidth),
+          overflow: document.documentElement.scrollWidth > window.innerWidth,
+        };
+      });
+      if (metrics.overflow || !metrics.bannerFits) {
+        fail(`${width}px 离线只读提示出现横向溢出。`);
+      }
+      if (metrics.bannerHeight < 44) fail(`${width}px 离线只读提示高度小于 44px。`);
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, `18-admin-mobile-offline-${width}.png`),
+      });
+    }
+  } finally {
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.locator('.offline-banner').waitFor({ state: 'hidden', timeout: 5000 });
+    await page.setViewportSize({ height: 900, width: 1280 });
+    const offlineErrors = errors.splice(errorCountBeforeOfflineCheck);
+    errors.push(
+      ...offlineErrors.filter(
+        (entry) =>
+          !entry.includes('net::ERR_INTERNET_DISCONNECTED') &&
+          entry !== '[console.error] Failed to load resource: net::ERR_INTERNET_DISCONNECTED',
+      ),
+    );
+  }
+}
+
+async function assertGuestStateResponsive(page, mode) {
+  const widths = [1280, 390, 320];
+  for (const width of widths) {
+    await page.setViewportSize({ height: width === 1280 ? 900 : 844, width });
+    await page.waitForTimeout(150);
+    const metrics = await page.evaluate((currentMode) => {
+      const root = document.querySelector(
+        currentMode === 'calendar' ? '.guest-calendar' : '.guest-access-panel',
+      );
+      const calendarGrid = document.querySelector('.guest-calendar .month-grid');
+      const gridRect = calendarGrid?.getBoundingClientRect();
+      const controls = [
+        ...document.querySelectorAll(
+          currentMode === 'calendar'
+            ? '.guest-header button, .guest-calendar-toolbar button'
+            : '.guest-header button, .guest-access-panel button',
+        ),
+      ].filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      return {
+        gridFits:
+          currentMode !== 'calendar' ||
+          (gridRect !== undefined && gridRect.left >= 0 && gridRect.right <= window.innerWidth),
+        overflow:
+          document.documentElement.scrollWidth > window.innerWidth ||
+          (root?.scrollWidth ?? 0) > (root?.clientWidth ?? 0),
+        smallControls: controls
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map(
+            (element) => element.textContent?.trim() || element.getAttribute('aria-label') || '',
+          ),
+        weekdayCount: document.querySelectorAll('.guest-calendar .weekday-row > span').length,
+      };
+    }, mode);
+    if (metrics.overflow)
+      fail(`${width}px 访客${mode === 'calendar' ? '月历' : '状态'}页出现横向溢出。`);
+    if (!metrics.gridFits) fail(`${width}px 访客月历没有保持页面内完整七列。`);
+    if (mode === 'calendar' && metrics.weekdayCount !== 7) {
+      fail(`${width}px 访客月历没有保持七列星期标题。`);
+    }
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 访客页存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+    }
+    await page.screenshot({
+      path: path.join(
+        SCREENSHOT_DIR,
+        mode === 'calendar'
+          ? width === 1280
+            ? '17-guest-vkey-desktop.png'
+            : `17-guest-vkey-mobile-${width}.png`
+          : width === 1280
+            ? '4-guest.png'
+            : `4-guest-mobile-${width}.png`,
+      ),
+      fullPage: true,
+    });
+  }
+  await page.setViewportSize({ height: 900, width: 1280 });
 }
 
 async function assertMemberAndNotificationPages(page) {
@@ -1341,9 +1580,10 @@ async function runSmoke() {
     await assertShiftWorkflowsMobile(page);
     await assertManualScheduleDenseInteractions(page);
     await assertBackfillCalendarColors(page);
-    await assertGroupManagementAndEventNav(page);
+    await assertGroupManagementConfigAndEventNav(page);
     await assertMemberAndNotificationPages(page);
     await assertStatisticsNotificationAndExportResponsive(page);
+    await assertOfflineReadOnlyState(page, context, errors);
     assertNoErrors(errors, '成员与通知页面');
 
     step('3/6 退出管理员');
@@ -1377,8 +1617,8 @@ async function runSmoke() {
     step('6/6 访客查看排班（仅扫码 vkey）');
     await page.locator('button', { hasText: '访客查看排班' }).first().click();
     await waitForUrl(page, (url) => new URL(url).pathname === '/guest', 15000, '访客路径 /guest');
-    await waitForBodyText(page, '访客查看', 15000);
-    await waitForBodyText(page, '请扫描群主或管理员分享的群组小程序码查看排班。', 15000);
+    await waitForBodyText(page, '等待有效的访客链接', 15000);
+    await waitForBodyText(page, '请扫描群主或管理员分享的访客码，再从新链接进入。', 15000);
     if ((await page.locator('.guest-group-list').count()) > 0) {
       fail('访客公开群组目录不应再出现。');
     }
@@ -1387,7 +1627,7 @@ async function runSmoke() {
       fail('访客页面加载群组/排班失败。');
     }
     assertNoErrors(errors, '访客提示模式');
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '4-guest.png') });
+    await assertGuestStateResponsive(page, 'state');
 
     const visitorKey = await readVisitorKeyFromDatabase();
     if (visitorKey === undefined) {
@@ -1397,10 +1637,10 @@ async function runSmoke() {
       waitUntil: 'networkidle',
       timeout: 30000,
     });
-    await waitForBodyText(page, '访客查看', 15000);
+    await waitForBodyText(page, '访客排班 · 只读', 15000);
     await page.locator('.month-grid').first().waitFor({ state: 'visible', timeout: 20000 });
     assertNoErrors(errors, '访客 vkey 模式');
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '5-guest-vkey.png') });
+    await assertGuestStateResponsive(page, 'calendar');
 
     step('7/7 管理员查看访客访问记录');
     await page.locator('button', { hasText: '返回登录' }).first().click();

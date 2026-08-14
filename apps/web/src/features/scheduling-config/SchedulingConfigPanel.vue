@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { GroupSummary, ScheduleRole, ShiftType, ShiftTypeInput } from '@schedule/contracts';
 import { getBestContrastRatio, pickReadableTextColor } from '@schedule/ui-tokens';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import { getSchedulingConfigurationOverview } from './scheduling-config-presentation.js';
 
 interface ShiftTypeDraft {
   abbreviation: string;
@@ -37,6 +38,9 @@ const newShift = ref<ShiftTypeDraft>(createEmptyShiftDraft());
 const roleDrafts = ref<Record<string, RoleDraft>>({});
 const shiftDrafts = ref<Record<string, ShiftTypeDraft>>({});
 let requestVersion = 0;
+const configurationOverview = computed(() =>
+  config.value === undefined ? undefined : getSchedulingConfigurationOverview(config.value),
+);
 
 watch(
   () => props.group.id,
@@ -235,13 +239,46 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
 
 <template>
   <section class="scheduling-config-panel" :aria-busy="isLoading || isSaving">
-    <h2>排班配置</h2>
+    <header class="config-panel-heading">
+      <div>
+        <p>排班基础</p>
+        <h2>排班配置</h2>
+      </div>
+      <span>先建立班种、时段与岗位成员，再进入排班编制。</span>
+    </header>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
     <t-loading v-if="isLoading" text="正在加载排班配置" />
     <template v-else-if="config !== undefined">
+      <section
+        v-if="configurationOverview !== undefined"
+        class="configuration-readiness"
+        :class="`is-${configurationOverview.status}`"
+      >
+        <header>
+          <div>
+            <span>排班准备轨道</span>
+            <strong>{{ configurationOverview.statusLabel }}</strong>
+          </div>
+          <small>这里只汇总基础配置，不改变排班规则。</small>
+        </header>
+        <ol>
+          <li
+            v-for="step in configurationOverview.steps"
+            :key="step.key"
+            :class="{ 'is-complete': step.isComplete }"
+          >
+            <span class="readiness-dot" aria-hidden="true" />
+            <span>{{ step.label }}</span>
+            <strong>{{ step.value }}</strong>
+          </li>
+        </ol>
+      </section>
+
       <t-card title="班种" class="scheduling-config-card">
-        <p>全天班固定为 08:00 至次日 08:00。其他预建班种需先填写时间，才可启用。</p>
+        <p class="config-section-note">
+          全天班固定为 08:00 至次日 08:00。其他预建班种需先填写时间，才可启用。
+        </p>
         <form class="shift-editor new-shift-editor" @submit.prevent="createShift">
           <strong class="new-shift-title">新增自定义班种</strong>
           <label class="field-name"
@@ -350,11 +387,14 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
       </t-card>
 
       <t-card title="排班岗位" class="scheduling-config-card">
-        <p>排班岗位指值班班次岗位（如一线、二线），不是成员姓名。</p>
+        <p class="config-section-note">排班岗位指值班班次岗位（如一线、二线），不是成员姓名。</p>
         <form class="new-role-form" @submit.prevent="createRole">
           <label>岗位名称<input v-model="newRoleName" maxlength="100" required /></label>
           <t-button theme="primary" type="submit" :loading="isSaving">新增岗位</t-button>
         </form>
+        <p v-if="config.roles.length === 0" class="config-empty-note">
+          还没有排班岗位。新增首个岗位后，再选择参与成员。
+        </p>
         <article v-for="role in config.roles" :key="role.id" class="schedule-role-editor">
           <div class="role-editor-header">
             <h3>岗位：{{ role.name }}</h3>
@@ -364,6 +404,9 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
           </div>
           <fieldset>
             <legend>参与成员</legend>
+            <p v-if="config.groupMembers.length === 0" class="config-empty-note">
+              当前群组还没有可配置成员，请先在成员页面添加人员。
+            </p>
             <label v-for="member in config.groupMembers" :key="member.membershipId">
               <input
                 v-model="getRoleDraft(role.id).memberIds"
@@ -623,5 +666,548 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Web UI 2.0: the configuration surface keeps desktop density and progressively unfolds on touch. */
+.scheduling-config-panel {
+  min-width: 0;
+  gap: var(--ui-spacing-md);
+  margin-top: 0;
+}
+
+.config-panel-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+}
+
+.config-panel-heading p,
+.config-panel-heading h2 {
+  margin: 0;
+}
+
+.config-panel-heading p {
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.config-panel-heading h2 {
+  margin-top: var(--ui-spacing-xxs);
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xl);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-tight);
+}
+
+.config-panel-heading > span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  text-align: right;
+}
+
+.configuration-readiness {
+  overflow: hidden;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-large);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.configuration-readiness > header {
+  display: flex;
+  min-height: var(--ui-touch-target-comfortable);
+  padding: var(--ui-spacing-sm) var(--ui-spacing-md);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+  background: var(--ui-color-primary-light);
+  border-bottom: 1px solid var(--ui-color-primary-border);
+}
+
+.configuration-readiness > header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.configuration-readiness > header span,
+.configuration-readiness > header small {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+.configuration-readiness > header strong {
+  color: var(--ui-color-primary-dark);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.configuration-readiness ol {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: var(--ui-spacing-md);
+  list-style: none;
+}
+
+.configuration-readiness ol::before {
+  position: absolute;
+  top: 27px;
+  right: calc(16.666% + var(--ui-spacing-md));
+  left: calc(16.666% + var(--ui-spacing-md));
+  height: 2px;
+  background: var(--ui-color-border);
+  content: '';
+}
+
+.configuration-readiness li {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: var(--ui-spacing-xxs);
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  text-align: center;
+}
+
+.readiness-dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin-bottom: var(--ui-spacing-xxs);
+  background: var(--ui-color-surface);
+  border: 3px solid var(--ui-color-border-strong);
+  border-radius: 50%;
+}
+
+.configuration-readiness li.is-complete .readiness-dot {
+  background: var(--ui-color-primary);
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 0 0 4px var(--ui-color-primary-light);
+}
+
+.configuration-readiness li strong {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.scheduling-config-card {
+  min-width: 0;
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.scheduling-config-card :deep(.t-card__header) {
+  min-height: var(--ui-touch-target-comfortable);
+  padding: var(--ui-spacing-sm) var(--ui-spacing-md);
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.scheduling-config-card :deep(.t-card__body) {
+  gap: var(--ui-spacing-sm);
+  padding: var(--ui-spacing-md);
+}
+
+.config-section-note {
+  margin: 0;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.shift-type-list {
+  gap: var(--ui-spacing-sm);
+}
+
+.shift-editor {
+  grid-template-columns:
+    52px minmax(140px, 1.4fr) minmax(88px, 0.7fr) 64px minmax(110px, 1fr)
+    minmax(110px, 1fr);
+  grid-auto-flow: dense;
+  gap: var(--ui-spacing-xs) var(--ui-spacing-sm);
+  padding: var(--ui-spacing-sm);
+  align-items: end;
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.new-shift-editor {
+  grid-template-columns:
+    minmax(140px, 1.4fr) minmax(88px, 0.7fr) 64px minmax(110px, 1fr) minmax(110px, 1fr)
+    auto;
+  background: var(--ui-color-primary-light);
+  border-color: var(--ui-color-primary-border);
+}
+
+.shift-editor .shift-color-preview {
+  grid-column: 1;
+}
+
+.shift-editor .field-name {
+  grid-column: 2;
+}
+
+.shift-editor .field-abbreviation {
+  grid-column: 3;
+}
+
+.shift-editor .field-color {
+  grid-column: 4;
+}
+
+.shift-editor .field-start {
+  grid-column: 5;
+}
+
+.shift-editor .field-end {
+  grid-column: 6;
+}
+
+.shift-editor .contrast-warning {
+  grid-column: 1 / -1;
+}
+
+.shift-editor .field-crosses-midnight {
+  grid-column: 2;
+}
+
+.shift-editor .field-enabled {
+  grid-column: 3;
+}
+
+.shift-editor .field-counts {
+  grid-column: 4;
+}
+
+.shift-editor-actions {
+  grid-column: 5 / 7;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ui-spacing-xs);
+}
+
+.new-shift-editor .new-shift-title {
+  grid-column: 1 / -1;
+  color: var(--ui-color-primary-dark);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.new-shift-editor .field-name {
+  grid-column: 1;
+}
+
+.new-shift-editor .field-abbreviation {
+  grid-column: 2;
+}
+
+.new-shift-editor .field-color {
+  grid-column: 3;
+}
+
+.new-shift-editor .field-start {
+  grid-column: 4;
+}
+
+.new-shift-editor .field-end {
+  grid-column: 5;
+}
+
+.new-shift-editor .field-crosses-midnight {
+  grid-column: 1;
+}
+
+.new-shift-editor .field-enabled {
+  grid-column: 2;
+}
+
+.new-shift-editor .field-counts {
+  grid-column: 3;
+}
+
+.new-shift-editor > .t-button {
+  grid-column: 4 / 7;
+  justify-self: end;
+}
+
+.shift-editor label,
+.new-role-form label,
+.schedule-role-editor fieldset label {
+  min-width: 0;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.shift-editor input:not([type='checkbox']):not([type='color']),
+.new-role-form input {
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+}
+
+.shift-editor input[type='color'] {
+  width: 52px;
+  max-width: 52px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 3px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+}
+
+.shift-editor .field-crosses-midnight,
+.shift-editor .field-enabled,
+.shift-editor .field-counts,
+.schedule-role-editor fieldset label {
+  display: inline-flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  gap: var(--ui-spacing-xs);
+}
+
+.shift-editor input[type='checkbox'],
+.schedule-role-editor input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  accent-color: var(--ui-color-primary);
+}
+
+.shift-color-preview {
+  width: var(--ui-touch-target-minimum);
+  min-width: var(--ui-touch-target-minimum);
+  height: var(--ui-touch-target-minimum);
+  min-height: var(--ui-touch-target-minimum);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+}
+
+.shift-editor :deep(.t-button),
+.new-role-form :deep(.t-button),
+.schedule-role-editor :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
+}
+
+.new-role-form,
+.schedule-role-editor fieldset {
+  gap: var(--ui-spacing-xs) var(--ui-spacing-sm);
+  padding: var(--ui-spacing-sm);
+  align-items: center;
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+}
+
+.new-role-form label {
+  flex: 1 1 240px;
+}
+
+.new-role-form input {
+  width: 100%;
+}
+
+.schedule-role-editor {
+  gap: var(--ui-spacing-sm);
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.role-editor-header {
+  min-height: var(--ui-touch-target-minimum);
+}
+
+.role-editor-header h3 {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.schedule-role-editor fieldset {
+  margin: 0;
+}
+
+.schedule-role-editor fieldset legend {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.config-empty-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--ui-spacing-sm);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px dashed var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.contrast-warning {
+  overflow: visible;
+  color: var(--ui-color-warning);
+  font-weight: var(--ui-font-weight-semibold);
+  text-overflow: clip;
+  white-space: normal;
+}
+
+@media (max-width: 900px) {
+  .config-panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .config-panel-heading > span {
+    text-align: left;
+  }
+
+  .shift-editor,
+  .new-shift-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shift-editor .shift-color-preview,
+  .shift-editor .field-name,
+  .shift-editor .contrast-warning,
+  .new-shift-editor .new-shift-title,
+  .new-shift-editor .field-name,
+  .new-shift-editor .contrast-warning {
+    grid-column: 1 / -1;
+  }
+
+  .shift-editor .field-abbreviation,
+  .new-shift-editor .field-abbreviation,
+  .shift-editor .field-start,
+  .new-shift-editor .field-start,
+  .shift-editor .field-crosses-midnight,
+  .new-shift-editor .field-crosses-midnight {
+    grid-column: 1;
+  }
+
+  .shift-editor .field-color,
+  .new-shift-editor .field-color,
+  .shift-editor .field-end,
+  .new-shift-editor .field-end,
+  .shift-editor .field-enabled,
+  .new-shift-editor .field-enabled {
+    grid-column: 2;
+  }
+
+  .shift-editor .field-counts,
+  .new-shift-editor .field-counts,
+  .shift-editor-actions,
+  .new-shift-editor > .t-button {
+    grid-column: 1 / -1;
+  }
+
+  .shift-editor-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shift-editor-actions :deep(.t-button),
+  .new-shift-editor > :deep(.t-button) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .configuration-readiness > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .configuration-readiness ol {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .configuration-readiness ol::before {
+    top: calc(var(--ui-spacing-md) + 7px);
+    bottom: calc(var(--ui-spacing-md) + 7px);
+    left: calc(var(--ui-spacing-md) + 6px);
+    width: 2px;
+    height: auto;
+  }
+
+  .configuration-readiness li {
+    min-height: var(--ui-touch-target-comfortable);
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    justify-items: start;
+    align-items: center;
+    gap: var(--ui-spacing-xs);
+    text-align: left;
+  }
+
+  .readiness-dot {
+    margin: 0;
+  }
+
+  .scheduling-config-card :deep(.t-card__body) {
+    padding: var(--ui-spacing-sm);
+  }
+
+  .new-role-form,
+  .schedule-role-editor fieldset {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .new-role-form label {
+    flex-basis: auto;
+  }
+
+  .new-role-form :deep(.t-button),
+  .schedule-role-editor fieldset > :deep(.t-button) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .shift-editor,
+  .new-shift-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shift-editor .shift-color-preview,
+  .shift-editor .field-name,
+  .shift-editor .field-abbreviation,
+  .shift-editor .field-color,
+  .shift-editor .contrast-warning,
+  .shift-editor .field-start,
+  .shift-editor .field-end,
+  .shift-editor .field-crosses-midnight,
+  .shift-editor .field-enabled,
+  .shift-editor .field-counts,
+  .shift-editor-actions,
+  .new-shift-editor .new-shift-title,
+  .new-shift-editor .field-name,
+  .new-shift-editor .field-abbreviation,
+  .new-shift-editor .field-color,
+  .new-shift-editor .contrast-warning,
+  .new-shift-editor .field-start,
+  .new-shift-editor .field-end,
+  .new-shift-editor .field-crosses-midnight,
+  .new-shift-editor .field-enabled,
+  .new-shift-editor .field-counts,
+  .new-shift-editor > .t-button {
+    grid-column: 1;
+  }
+
+  .shift-editor-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

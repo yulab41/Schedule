@@ -50,6 +50,30 @@ textarea {
   min-height: 100vh;
 }
 
+.t-alert {
+  min-height: var(--ui-touch-target-minimum);
+  border-radius: var(--ui-radius-small);
+}
+
+.t-alert__description,
+.t-alert__message {
+  line-height: var(--ui-line-height-body);
+}
+
+.t-empty {
+  min-height: 180px;
+  padding: var(--ui-spacing-xl);
+  background: var(--ui-color-surface-muted);
+  border: 1px dashed var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-medium);
+}
+
+.t-empty__description {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+
 .app-layout {
   min-height: 100vh;
   background: var(--ui-color-background);

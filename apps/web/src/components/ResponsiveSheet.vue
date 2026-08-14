@@ -10,12 +10,12 @@ const emit = defineEmits<{
   'update:visible': [visible: boolean];
 }>();
 
-const dialog = ref<HTMLDialogElement>();
+const dialog = ref<HTMLDialogElement | null>(null);
 
 async function syncVisibility(visible: boolean): Promise<void> {
   await nextTick();
   const element = dialog.value;
-  if (element === undefined) return;
+  if (element === null) return;
 
   if (visible && !element.open) {
     element.showModal();

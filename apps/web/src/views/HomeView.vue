@@ -6,6 +6,7 @@ import { computed, onMounted, ref } from 'vue';
 import { createApiClient } from '../api/client.js';
 import { toUserMessage } from '../utils/user-message.js';
 import { localAuth } from '../auth/local-auth.js';
+import AppStatePanel from '../components/AppStatePanel.vue';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
 import GuestCalendarPanel from '../features/groups/GuestCalendarPanel.vue';
@@ -94,7 +95,17 @@ function selectGroupTab(groupId: string | undefined): void {
       <h1>排班工作台</h1>
       <span>查看排班、处理申请并跟进班次变更。</span>
     </header>
-    <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
+    <AppStatePanel
+      v-if="errorMessage !== undefined"
+      eyebrow="排班工作台"
+      title="群组数据没有加载完成"
+      :description="errorMessage"
+      tone="error"
+    >
+      <template #actions>
+        <t-button theme="primary" @click="refreshGroups()">重新加载</t-button>
+      </template>
+    </AppStatePanel>
     <t-loading v-else-if="isLoading" text="正在加载群组" />
     <template v-else>
       <GroupSwitcher
