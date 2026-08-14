@@ -6,13 +6,16 @@ import type {
   MembershipClaimLookupEntry,
   MembershipClaimRequest,
 } from '@schedule/contracts';
+import { MoreIcon } from 'tdesign-icons-vue-next';
 import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
+import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import { hasDuplicateRosterName, parseRosterNames } from '../groups/roster-input.js';
 import GroupContactForm from '../profile/GroupContactForm.vue';
+import { getClaimRequestTone, getMemberClaimTone } from './member-presentation.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -40,6 +43,7 @@ const claimTargets = ref<readonly MembershipClaimLookupEntry[]>([]);
 const selectedClaimTargetId = ref<string>();
 const identityDialogVisible = ref(false);
 const editingContactMemberId = ref<string>();
+const memberActionTarget = ref<GroupMember>();
 let requestVersion = 0;
 
 const contactsByMembershipId = computed(
@@ -63,6 +67,18 @@ const contactEditorMember = computed(() =>
     ? undefined
     : members.value.find((member) => member.id === editingContactMemberId.value),
 );
+const contactEditorVisible = computed({
+  get: () => editingContactMemberId.value !== undefined,
+  set: (visible: boolean) => {
+    if (!visible) editingContactMemberId.value = undefined;
+  },
+});
+const memberActionsVisible = computed({
+  get: () => memberActionTarget.value !== undefined,
+  set: (visible: boolean) => {
+    if (!visible) memberActionTarget.value = undefined;
+  },
+});
 
 watch(
   () => [props.group.id, props.group.version],
@@ -391,15 +407,66 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
       return '已取消';
   }
 }
+
+function openContactEditor(member: GroupMember): void {
+  memberActionTarget.value = undefined;
+  editingContactMemberId.value = member.id;
+}
+
+function hasMemberManagementActions(member: GroupMember): boolean {
+  const canRevoke =
+    member.isPendingRoster !== true &&
+    member.isCurrentUser !== true &&
+    member.isUnclaimed !== true &&
+    canHandleClaims.value;
+  const canChangeRole =
+    canManageAdministrators.value && member.role !== 'owner' && member.isPendingRoster !== true;
+  const canDelete = canAddMembers.value && member.isCurrentUser !== true && member.role !== 'owner';
+  return canRevoke || canChangeRole || canDelete;
+}
+
+function openMemberActions(member: GroupMember): void {
+  memberActionTarget.value = member;
+}
+
+async function runMemberAction(
+  action: 'delete' | 'revoke' | 'toggle-role' | 'transfer',
+): Promise<void> {
+  const member = memberActionTarget.value;
+  if (member === undefined) return;
+  memberActionTarget.value = undefined;
+
+  switch (action) {
+    case 'delete':
+      await deleteMember(member);
+      break;
+    case 'revoke':
+      await revokeClaim(member);
+      break;
+    case 'toggle-role':
+      await updateRole(member, member.role === 'member' ? 'administrator' : 'member');
+      break;
+    case 'transfer':
+      await transferOwnership(member);
+      break;
+  }
+}
 </script>
 
 <template>
   <section class="member-manager" :aria-busy="isLoading">
+    <header class="member-heading">
+      <div>
+        <h2>成员与身份</h2>
+        <p>维护成员、联系方式、角色与身份认领。</p>
+      </div>
+      <span class="member-count">{{ members.length }} 位</span>
+    </header>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="rosterMessage !== undefined" theme="success" :message="rosterMessage" />
     <t-alert v-if="identityMessage !== undefined" theme="success" :message="identityMessage" />
 
-    <form class="identity-form" @submit.prevent="submitIdentity">
+    <form class="identity-form member-form-card" @submit.prevent="submitIdentity">
       <label class="identity-field">
         我的真实姓名
         <input v-model="myRealName" maxlength="100" placeholder="填写真实姓名并检测群内同名成员" />
@@ -412,7 +479,11 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
       </small>
     </form>
 
-    <form v-if="canAddMembers" class="add-member-form" @submit.prevent="addMembers">
+    <form
+      v-if="canAddMembers"
+      class="add-member-form member-form-card"
+      @submit.prevent="addMembers"
+    >
       <label class="add-member-field">
         添加成员（每行一个真实姓名）
         <textarea
@@ -443,8 +514,14 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
       v-if="canHandleClaims && (pendingClaimRequests.length > 0 || handledClaimRequests.length > 0)"
       class="claim-requests-panel"
     >
-      <h3>身份认领申请</h3>
-      <table class="member-table">
+      <header class="section-heading">
+        <div>
+          <h3>身份认领申请</h3>
+          <p>核对申请人与目标成员后再处理。</p>
+        </div>
+        <span>{{ pendingClaimRequests.length }} 项待处理</span>
+      </header>
+      <table class="member-table claim-table">
         <thead>
           <tr>
             <th>申请人</th>
@@ -455,22 +532,26 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
           </tr>
         </thead>
         <tbody>
-          <tr v-for="request in claimRequests" :key="request.id">
-            <td>{{ request.requestingUserRealName }}</td>
-            <td>{{ request.targetMemberRealName }}</td>
-            <td>{{ claimRequestStatusLabel(request.status) }}</td>
-            <td>{{ request.decidedByRealName ?? '—' }}</td>
-            <td>
+          <tr
+            v-for="request in claimRequests"
+            :key="request.id"
+            class="member-card claim-card"
+            :class="{ 'is-actionable': request.status === 'pending' }"
+          >
+            <td class="member-primary" data-label="申请人">
+              {{ request.requestingUserRealName }}
+            </td>
+            <td data-label="目标成员">{{ request.targetMemberRealName }}</td>
+            <td data-label="状态">
+              <span class="status-badge" :class="getClaimRequestTone(request.status)">
+                {{ claimRequestStatusLabel(request.status) }}
+              </span>
+            </td>
+            <td data-label="处理人">{{ request.decidedByRealName ?? '—' }}</td>
+            <td class="action-cell claim-actions" data-label="操作">
               <template v-if="request.status === 'pending'">
-                <t-button variant="outline" size="small" @click="decideClaim(request, true)">
-                  同意
-                </t-button>
-                <t-button
-                  theme="danger"
-                  variant="text"
-                  size="small"
-                  @click="decideClaim(request, false)"
-                >
+                <t-button variant="outline" @click="decideClaim(request, true)"> 同意 </t-button>
+                <t-button theme="danger" variant="text" @click="decideClaim(request, false)">
                   驳回
                 </t-button>
               </template>
@@ -483,6 +564,13 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
       </table>
     </section>
 
+    <header class="section-heading member-list-heading">
+      <div>
+        <h3>成员名单</h3>
+        <p>联系方式和认领状态始终保留完整显示。</p>
+      </div>
+      <span>{{ members.length }} 位</span>
+    </header>
     <t-loading v-if="isLoading" text="正在加载成员" />
     <div v-else class="member-table-wrap">
       <table class="member-table">
@@ -496,13 +584,13 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
           </tr>
         </thead>
         <tbody>
-          <tr v-for="member in members" :key="member.id">
-            <td>
+          <tr v-for="member in members" :key="member.id" class="member-card">
+            <td class="member-primary" data-label="姓名">
               <strong>{{ member.realName }}</strong>
               <span v-if="member.isCurrentUser" class="current-badge">我</span>
             </td>
-            <td>{{ roleLabel(member.role) }}</td>
-            <td class="contact-cell">
+            <td data-label="角色">{{ roleLabel(member.role) }}</td>
+            <td class="contact-cell" data-label="联系方式">
               <template v-if="contactFor(member)?.mobilePhone !== undefined">
                 长号：{{ contactFor(member)?.mobilePhone }}
               </template>
@@ -513,29 +601,21 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
                 未确认
               </span>
               <span v-if="contactFor(member) === undefined">—</span>
-              <button
+              <t-button
                 v-if="canEditContact(member) && member.isPendingRoster !== true"
-                type="button"
-                class="link-button"
-                @click="
-                  editingContactMemberId =
-                    editingContactMemberId === member.id ? undefined : member.id
-                "
+                variant="text"
+                class="contact-edit-button"
+                @click="openContactEditor(member)"
               >
-                {{ editingContactMemberId === member.id ? '收起' : '编辑' }}
-              </button>
+                编辑联系方式
+              </t-button>
             </td>
-            <td>
-              <span
-                :class="{
-                  'unclaimed-label': member.isUnclaimed === true,
-                  'claimed-label': member.isUnclaimed !== true,
-                }"
-              >
+            <td data-label="认领状态">
+              <span class="status-badge" :class="getMemberClaimTone(member)">
                 {{ claimStatusLabel(member) }}
               </span>
             </td>
-            <td class="action-cell">
+            <td class="action-cell desktop-member-actions" data-label="操作">
               <template v-if="member.isPendingRoster === true && canAddMembers">
                 <t-button
                   variant="outline"
@@ -638,38 +718,79 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
                 </t-button>
               </template>
             </td>
+            <td
+              v-if="
+                member.isPendingRoster === true ||
+                member.isCurrentUser === true ||
+                member.isUnclaimed === true ||
+                hasMemberManagementActions(member)
+              "
+              class="action-cell mobile-member-actions"
+              data-label="操作"
+            >
+              <t-button
+                v-if="member.isPendingRoster === true && canAddMembers"
+                variant="outline"
+                :loading="isUpdating"
+                @click="convertPending([member.realName])"
+              >
+                转为正式成员
+              </t-button>
+              <span v-else-if="member.isCurrentUser" class="handled-label">当前账号</span>
+              <t-button
+                v-else-if="member.isUnclaimed === true"
+                variant="outline"
+                :loading="isUpdating"
+                @click="claimMember(member)"
+              >
+                认领身份
+              </t-button>
+              <t-button
+                v-if="hasMemberManagementActions(member)"
+                variant="outline"
+                class="member-manage-button"
+                @click="openMemberActions(member)"
+              >
+                <template #icon><MoreIcon /></template>
+                管理成员
+              </t-button>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <GroupContactForm
-      v-if="editingContactMemberId !== undefined"
-      class="contact-editor"
-      :can-confirm="contactEditorMember?.isCurrentUser === true"
-      :contact="contactEditorMember === undefined ? undefined : contactFor(contactEditorMember)"
-      :group-id="group.id"
-      :membership-id="editingContactMemberId"
-      @saved="loadMembers"
-    />
+    <section v-if="canManageAdministrators" class="member-danger-zone">
+      <div>
+        <strong>群组管理</strong>
+        <span>删除后 30 天内可恢复。</span>
+      </div>
+      <t-button theme="danger" variant="outline" :loading="isUpdating" @click="deleteGroup">
+        删除群组
+      </t-button>
+    </section>
 
-    <t-button
-      v-if="canManageAdministrators"
-      theme="danger"
-      variant="outline"
-      :loading="isUpdating"
-      @click="deleteGroup"
+    <ResponsiveSheet
+      v-model:visible="contactEditorVisible"
+      :title="
+        contactEditorMember === undefined
+          ? '编辑联系方式'
+          : `编辑 ${contactEditorMember.realName} 的联系方式`
+      "
     >
-      删除群组
-    </t-button>
+      <GroupContactForm
+        v-if="editingContactMemberId !== undefined"
+        class="contact-editor"
+        :can-confirm="contactEditorMember?.isCurrentUser === true"
+        :contact="contactEditorMember === undefined ? undefined : contactFor(contactEditorMember)"
+        :group-id="group.id"
+        :membership-id="editingContactMemberId"
+        @saved="loadMembers"
+      />
+    </ResponsiveSheet>
 
-    <t-dialog
-      v-model:visible="identityDialogVisible"
-      header="发现同名成员"
-      :confirm-btn="{ content: '确认认领', loading: isUpdating }"
-      :cancel-btn="{ content: '取消' }"
-      @confirm="confirmIdentityClaim"
-    >
+    <ResponsiveSheet v-model:visible="identityDialogVisible" title="发现同名成员">
+      <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
       <p class="dialog-hint">检测到以下同名成员，请选择要认领的身份：</p>
       <label v-for="entry in claimTargets" :key="entry.membershipId" class="claim-option">
         <input
@@ -684,70 +805,191 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
           {{ entry.isUnclaimed ? '未认领' : '已被认领' }}）
         </span>
       </label>
-    </t-dialog>
+      <t-button theme="primary" :loading="isUpdating" @click="confirmIdentityClaim">
+        确认认领
+      </t-button>
+    </ResponsiveSheet>
+
+    <ResponsiveSheet
+      v-model:visible="memberActionsVisible"
+      :title="
+        memberActionTarget === undefined ? '管理成员' : `管理成员 ${memberActionTarget.realName}`
+      "
+    >
+      <div v-if="memberActionTarget !== undefined" class="member-sheet-actions">
+        <p class="member-action-summary">
+          {{ roleLabel(memberActionTarget.role) }} · {{ claimStatusLabel(memberActionTarget) }}
+        </p>
+        <t-button
+          v-if="
+            canManageAdministrators &&
+            memberActionTarget.role !== 'owner' &&
+            memberActionTarget.isPendingRoster !== true
+          "
+          variant="outline"
+          :loading="isUpdating"
+          @click="runMemberAction('toggle-role')"
+        >
+          {{ memberActionTarget.role === 'member' ? '设为管理员' : '移除管理员' }}
+        </t-button>
+        <t-button
+          v-if="
+            canManageAdministrators &&
+            memberActionTarget.role !== 'owner' &&
+            memberActionTarget.isPendingRoster !== true
+          "
+          variant="outline"
+          :loading="isUpdating"
+          @click="runMemberAction('transfer')"
+        >
+          转让群主
+        </t-button>
+        <t-button
+          v-if="
+            memberActionTarget.isPendingRoster !== true &&
+            memberActionTarget.isCurrentUser !== true &&
+            memberActionTarget.isUnclaimed !== true &&
+            canHandleClaims
+          "
+          theme="danger"
+          variant="outline"
+          :loading="isUpdating"
+          @click="runMemberAction('revoke')"
+        >
+          撤销身份认领
+        </t-button>
+        <t-button
+          v-if="
+            canAddMembers &&
+            memberActionTarget.isCurrentUser !== true &&
+            memberActionTarget.role !== 'owner'
+          "
+          theme="danger"
+          variant="outline"
+          :loading="isDeletingMemberId === memberActionTarget.id"
+          @click="runMemberAction('delete')"
+        >
+          删除成员
+        </t-button>
+      </div>
+    </ResponsiveSheet>
   </section>
 </template>
 
 <style scoped>
 .member-manager {
   display: grid;
-  gap: 14px;
+  min-width: 0;
+  gap: var(--ui-spacing-lg);
+}
+
+.member-heading,
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+}
+
+.member-heading h2,
+.section-heading h3 {
+  margin: 0;
+  color: var(--ui-color-text-primary);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.member-heading h2 {
+  font-size: var(--ui-font-size-xl);
+  line-height: var(--ui-line-height-tight);
+}
+
+.section-heading h3 {
+  font-size: var(--ui-font-size-lg);
+}
+
+.member-heading p,
+.section-heading p {
+  margin: var(--ui-spacing-xxs) 0 0;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.member-count,
+.section-heading > span {
+  flex: none;
+  padding: 5px 9px;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .identity-form,
 .add-member-form {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--ui-spacing-sm);
   align-items: flex-end;
-  padding: 12px;
+  padding: var(--ui-spacing-md);
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
-  border-radius: 8px;
+  border-radius: var(--ui-radius-large);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .identity-field,
 .add-member-field {
   display: grid;
   flex: 1 1 260px;
-  gap: 4px;
-  color: var(--ui-color-text-secondary);
-  font-size: 14px;
+  gap: var(--ui-spacing-xs);
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
 }
 
-.identity-field input {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
+.identity-field input,
+.add-member-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 10px 12px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-medium);
+  font: inherit;
+  font-size: var(--ui-font-size-md);
 }
 
 .add-member-field textarea {
   min-height: 56px;
-  padding: 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
-  font-family: inherit;
   resize: vertical;
+}
+
+.identity-field input:focus-visible,
+.add-member-field textarea:focus-visible {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.member-manager :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
 }
 
 .identity-hint {
   width: 100%;
   color: var(--ui-color-text-muted);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-normal);
 }
 
 .pending-panel,
 .claim-requests-panel {
   display: grid;
-  gap: 10px;
-}
-
-.claim-requests-panel h3 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  min-width: 0;
+  gap: var(--ui-spacing-sm);
 }
 
 .member-table-wrap {
@@ -756,14 +998,19 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
 
 .member-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
+  color: var(--ui-color-text-primary);
   background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-collapse: separate;
+  border-radius: var(--ui-radius-large);
+  border-spacing: 0;
+  font-size: var(--ui-font-size-sm);
+  overflow: hidden;
 }
 
 .member-table th,
 .member-table td {
-  padding: 8px 10px;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--ui-color-border);
   vertical-align: middle;
@@ -771,105 +1018,337 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
 
 .member-table th {
   color: var(--ui-color-text-secondary);
-  background: #f8fafc;
-  font-weight: 600;
+  background: var(--ui-color-background);
+  font-weight: var(--ui-font-weight-semibold);
   white-space: nowrap;
 }
 
+.member-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
 .member-table tr:hover td {
-  background: #fafbfc;
+  background: var(--ui-color-surface-muted);
 }
 
 .contact-cell {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: var(--ui-spacing-xxs) var(--ui-spacing-xs);
   align-items: center;
 }
 
 .action-cell {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 6px;
+  gap: var(--ui-spacing-xs);
   align-items: center;
+}
+
+.mobile-member-actions {
+  display: none;
+}
+
+.member-primary {
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .current-badge,
 .unconfirmed-label,
-.unclaimed-label,
-.claimed-label,
 .handled-label {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
+  display: inline-flex;
+  min-height: 26px;
+  padding: 3px 8px;
+  align-items: center;
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .current-badge {
-  margin-left: 4px;
-  color: #1f5aa6;
-  background: #e8f1fb;
+  margin-left: var(--ui-spacing-xxs);
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
 }
 
 .unconfirmed-label {
-  color: #92400e;
-  background: #fef3c7;
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
 }
 
-.unclaimed-label {
-  color: #92400e;
-  background: #fef3c7;
+.status-badge {
+  display: inline-flex;
+  min-height: 28px;
+  padding: 4px 9px;
+  align-items: center;
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
-.claimed-label {
-  color: #1f5aa6;
-  background: #e8f1fb;
+.status-badge.warning {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+}
+
+.status-badge.success {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+}
+
+.status-badge.danger {
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+}
+
+.status-badge.neutral {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  box-shadow: inset 0 0 0 1px var(--ui-color-border);
 }
 
 .handled-label {
-  color: #6b7280;
-  background: #f3f4f6;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
 }
 
-.link-button {
-  padding: 0;
-  color: #1f5aa6;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  font-size: 12px;
+.contact-edit-button {
+  min-height: var(--ui-touch-target-minimum) !important;
+  margin-left: auto;
 }
 
 .contact-editor {
-  padding: 12px;
-  background: #f8fafc;
-  border: 1px solid var(--ui-color-border);
-  border-radius: 8px;
+  display: grid;
+  gap: var(--ui-spacing-md);
+  padding-top: var(--ui-spacing-sm);
+}
+
+.contact-editor :deep(.t-input) {
+  min-height: var(--ui-touch-target-minimum);
+}
+
+.contact-editor :deep(.t-button) {
+  width: 100%;
 }
 
 .dialog-hint {
-  margin: 0 0 10px;
+  margin: var(--ui-spacing-sm) 0;
   color: var(--ui-color-text-secondary);
-  font-size: 14px;
+  font-size: var(--ui-font-size-sm);
 }
 
 .claim-option {
   display: flex;
-  gap: 8px;
+  min-height: var(--ui-touch-target-minimum);
+  margin-bottom: var(--ui-spacing-xs);
+  padding: 10px 12px;
+  gap: var(--ui-spacing-xs);
   align-items: center;
-  padding: 6px 0;
-  font-size: 14px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
 }
 
 .claim-option input:disabled + span {
-  color: #9ca3af;
+  color: var(--ui-color-text-muted);
 }
 
-@media (max-width: 640px) {
-  .identity-form .t-button,
-  .add-member-form .t-button {
+.member-sheet-actions {
+  display: grid;
+  gap: var(--ui-spacing-sm);
+  padding-top: var(--ui-spacing-sm);
+}
+
+.member-sheet-actions :deep(.t-button) {
+  width: 100%;
+}
+
+.member-action-summary {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+}
+
+.member-danger-zone {
+  display: flex;
+  padding: var(--ui-spacing-md);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-danger-light);
+  border-radius: var(--ui-radius-large);
+}
+
+.member-danger-zone div {
+  display: grid;
+  gap: var(--ui-spacing-xxs);
+}
+
+.member-danger-zone strong {
+  color: var(--ui-color-text-primary);
+}
+
+.member-danger-zone span {
+  font-size: var(--ui-font-size-sm);
+}
+
+@media (max-width: 760px) {
+  .member-manager {
+    gap: var(--ui-spacing-md);
+  }
+
+  .member-heading,
+  .section-heading {
+    gap: var(--ui-spacing-sm);
+  }
+
+  .member-heading p,
+  .section-heading p {
+    max-width: 230px;
+  }
+
+  .identity-form,
+  .add-member-form {
+    display: grid;
+    padding: var(--ui-spacing-md);
+    box-shadow: none;
+  }
+
+  .identity-form :deep(.t-button),
+  .add-member-form :deep(.t-button),
+  .pending-panel :deep(.t-button) {
     width: 100%;
+  }
+
+  .member-table-wrap {
+    overflow: visible;
+  }
+
+  .member-table,
+  .member-table tbody {
+    display: grid;
+    gap: var(--ui-spacing-md);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .member-table thead {
+    display: none;
+  }
+
+  .member-table .member-card {
+    display: grid;
+    min-width: 0;
+    padding: var(--ui-spacing-lg);
+    gap: 10px;
+    background: var(--ui-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-large);
+    box-shadow: var(--ui-shadow-card);
+  }
+
+  .member-table .member-card.is-actionable {
+    border-color: var(--ui-color-primary-border);
+    box-shadow:
+      var(--ui-shadow-card),
+      inset 3px 0 var(--ui-color-primary);
+  }
+
+  .member-table .member-card td {
+    display: flex;
+    min-width: 0;
+    min-height: 28px;
+    padding: 0;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--ui-spacing-md);
+    border: 0;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .member-table .member-card td::before {
+    min-width: 64px;
+    flex: none;
+    color: var(--ui-color-text-secondary);
+    content: attr(data-label);
+    font-size: var(--ui-font-size-xs);
+    font-weight: var(--ui-font-weight-medium);
+  }
+
+  .member-table .member-card .member-primary {
+    align-items: center;
+    font-size: var(--ui-font-size-md);
+  }
+
+  .desktop-member-actions {
+    display: none !important;
+  }
+
+  .member-table .member-card .mobile-member-actions,
+  .member-table .member-card .claim-actions {
+    display: grid;
+    min-height: var(--ui-touch-target-minimum);
+    padding-top: var(--ui-spacing-xxs);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--ui-spacing-xs);
+  }
+
+  .member-table .member-card .mobile-member-actions::before,
+  .member-table .member-card .claim-actions::before {
+    display: none;
+  }
+
+  .mobile-member-actions :deep(.t-button),
+  .claim-actions :deep(.t-button) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .contact-cell {
+    align-items: center !important;
+  }
+
+  .member-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .member-danger-zone :deep(.t-button) {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .member-heading,
+  .section-heading {
+    display: grid;
+  }
+
+  .member-count,
+  .section-heading > span {
+    justify-self: start;
+  }
+
+  .member-table .member-card .mobile-member-actions,
+  .member-table .member-card .claim-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .member-manager *,
+  .member-manager *::before,
+  .member-manager *::after {
+    scroll-behavior: auto !important;
   }
 }
 </style>

@@ -119,7 +119,7 @@ const changeChain = computed(() =>
 <style scoped>
 .event-timeline {
   display: grid;
-  gap: 10px;
+  gap: var(--ui-spacing-sm);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -127,85 +127,89 @@ const changeChain = computed(() =>
 
 .chain-summary {
   margin: 0;
-  padding: 10px 12px;
-  color: #111827;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.5;
+  padding: var(--ui-spacing-sm);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-normal);
 }
 
 .chain-details {
-  margin-top: 12px;
-  color: #374151;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 13px;
+  margin-top: var(--ui-spacing-md);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
 }
 
 .chain-details summary {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
   padding: 8px 12px;
-  color: #1f5aa6;
+  align-items: center;
+  color: var(--ui-color-primary-dark);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .chain-content {
   display: grid;
-  gap: 8px;
-  padding: 0 12px 12px;
+  gap: var(--ui-spacing-xs);
+  padding: 0 var(--ui-spacing-sm) var(--ui-spacing-sm);
 }
 
 .timeline-entry {
   display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  min-width: 0;
+  gap: var(--ui-spacing-xs);
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
 }
 
 .entry-heading {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--ui-spacing-xs);
   align-items: center;
 }
 
 .entry-time {
-  color: #6b7280;
-  font-size: 12px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
 }
 
 .entry-type {
-  color: #111827;
-  font-size: 14px;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
 }
 
 .entry-narrative {
   margin: 0;
-  padding: 8px 10px;
-  color: #111827;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.5;
+  padding: 10px 12px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: var(--ui-line-height-normal);
 }
 
 .entry-reason {
   margin: 0;
-  color: #374151;
-  font-size: 13px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
 }
 
 .entry-changes {
   display: grid;
-  gap: 4px;
+  gap: var(--ui-spacing-xxs);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -214,34 +218,48 @@ const changeChain = computed(() =>
 .entry-changes li {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  font-size: 13px;
+  gap: var(--ui-spacing-xs);
+  font-size: var(--ui-font-size-sm);
 }
 
 .change-label {
-  color: #6b7280;
+  color: var(--ui-color-text-secondary);
 }
 
 .change-value {
-  color: #111827;
-  font-weight: 600;
+  color: var(--ui-color-text-primary);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .entry-raw summary {
-  color: #1f5aa6;
+  display: inline-flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  color: var(--ui-color-primary-dark);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .entry-raw pre {
-  margin: 6px 0 0;
-  padding: 8px;
+  max-width: 100%;
+  margin: var(--ui-spacing-xs) 0 0;
+  padding: var(--ui-spacing-sm);
   overflow: auto;
-  color: #374151;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  font-size: 12px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-timeline *,
+  .event-timeline *::before,
+  .event-timeline *::after {
+    scroll-behavior: auto !important;
+  }
 }
 </style>

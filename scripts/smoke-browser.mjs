@@ -359,7 +359,9 @@ async function assertWorkflowSheetTouchTargets(sheet, width, label) {
   const metrics = await sheet.evaluate((element) => {
     const sheetRect = element.getBoundingClientRect();
     const controls = [
-      ...element.querySelectorAll('button, input:not(.t-input__inner), .t-input, .t-select'),
+      ...element.querySelectorAll(
+        'button, input:not(.t-input__inner), textarea, summary, .t-input, .t-select',
+      ),
     ].filter((control) => {
       const rect = control.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
@@ -732,6 +734,129 @@ async function assertMemberAndNotificationPages(page) {
     fail('成员页数据加载失败。');
   }
 
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    await page.locator('.member-list-heading').scrollIntoViewIfNeeded();
+    const metrics = await page.evaluate(() => {
+      const card = document.querySelector('.member-table-wrap .member-card');
+      const controls = [
+        ...document.querySelectorAll(
+          '.identity-form input, .identity-form button, .add-member-form textarea, .add-member-form button, .contact-edit-button, .mobile-member-actions button',
+        ),
+      ].filter((control) => {
+        const rect = control.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      return {
+        cardDisplay: card === null ? undefined : getComputedStyle(card).display,
+        desktopActionsVisible: [...document.querySelectorAll('.desktop-member-actions')].some(
+          (element) => getComputedStyle(element).display !== 'none',
+        ),
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallControls: controls
+          .filter((control) => {
+            const rect = control.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((control) => control.textContent?.trim() || control.tagName),
+      };
+    });
+    if (metrics.overflow) fail(`${width}px 成员页出现横向溢出。`);
+    if (metrics.cardDisplay !== 'grid') fail(`${width}px 成员名单未切换为移动卡片。`);
+    if (metrics.desktopActionsVisible) fail(`${width}px 成员卡片仍显示桌面密集操作区。`);
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 成员页存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+    }
+
+    const manageButton = page.locator('.member-manage-button:visible').first();
+    if ((await manageButton.count()) === 0) fail(`${width}px 成员卡片缺少明确的管理入口。`);
+    await manageButton.click();
+    const manageSheet = page.locator('dialog[open][aria-label^="管理成员"]');
+    await manageSheet.waitFor({ state: 'visible', timeout: 5000 });
+    await assertWorkflowSheetTouchTargets(manageSheet, width, '成员管理底部页');
+    if (width === 390) {
+      await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, '6-admin-mobile-member-actions.png'),
+      });
+    }
+    await manageSheet.locator('button[aria-label="关闭"]').click();
+
+    const contactButton = page.locator('.contact-edit-button:visible').first();
+    await contactButton.click();
+    const contactSheet = page.locator('dialog[open][aria-label^="编辑"]');
+    await contactSheet.waitFor({ state: 'visible', timeout: 5000 });
+    const contactText = await contactSheet.innerText();
+    if (!contactText.includes('长号') || !contactText.includes('短号')) {
+      fail(`${width}px 联系方式底部页缺少长号或短号字段。`);
+    }
+    await assertWorkflowSheetTouchTargets(contactSheet, width, '联系方式底部页');
+    await contactSheet.locator('button[aria-label="关闭"]').click();
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '事件' }).first().click();
+  await waitForBodyText(page, '追踪排班变更', 15000, '事件中心');
+  await waitForBodyText(page, '访客访问记录', 15000, '访客访问记录');
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    const metrics = await page.evaluate(() => {
+      const eventCard = document.querySelector('.event-table .event-card');
+      const visitorCard = document.querySelector('.visitor-logs-table .visitor-log-card');
+      const filterButton = document.querySelector('#event-filter-button');
+      const filterRect = filterButton?.getBoundingClientRect();
+      return {
+        desktopFiltersVisible:
+          getComputedStyle(document.querySelector('.desktop-event-filters')).display !== 'none',
+        eventCardDisplay: eventCard === null ? undefined : getComputedStyle(eventCard).display,
+        filterIsSmall: filterRect === undefined || filterRect.width < 44 || filterRect.height < 44,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        visitorCardDisplay:
+          visitorCard === null ? undefined : getComputedStyle(visitorCard).display,
+      };
+    });
+    if (metrics.overflow) fail(`${width}px 事件中心出现横向溢出。`);
+    if (metrics.desktopFiltersVisible) fail(`${width}px 事件中心仍显示桌面筛选网格。`);
+    if (metrics.eventCardDisplay !== undefined && metrics.eventCardDisplay !== 'grid') {
+      fail(`${width}px 事件记录未切换为移动卡片。`);
+    }
+    if (metrics.visitorCardDisplay !== undefined && metrics.visitorCardDisplay !== 'grid') {
+      fail(`${width}px 访客记录未切换为移动卡片。`);
+    }
+    if (metrics.filterIsSmall) fail(`${width}px 事件筛选入口小于 44px。`);
+
+    await page.locator('#event-filter-button').click();
+    const filterSheet = page.locator('dialog[open][aria-label="筛选事件"]');
+    await filterSheet.waitFor({ state: 'visible', timeout: 5000 });
+    const filterText = await filterSheet.innerText();
+    if (!filterText.includes('开始时间') || !filterText.includes('事件类型')) {
+      fail(`${width}px 事件筛选底部页缺少筛选字段。`);
+    }
+    await assertWorkflowSheetTouchTargets(filterSheet, width, '事件筛选底部页');
+    if (width === 390) {
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '7-admin-mobile-event-filter.png') });
+    }
+    await filterSheet.locator('button[aria-label="关闭"]').click();
+
+    const detailButton = page.locator('.event-actions button:visible').first();
+    if ((await detailButton.count()) > 0) {
+      await detailButton.click();
+      const detailSheet = page.locator('dialog[open][aria-label="事件详情与关联链"]');
+      await detailSheet.waitFor({ state: 'visible', timeout: 10000 });
+      await assertWorkflowSheetTouchTargets(detailSheet, width, '事件详情底部页');
+      if (width === 390) {
+        await page.screenshot({
+          path: path.join(SCREENSHOT_DIR, '8-admin-mobile-event-detail.png'),
+        });
+      }
+      await detailSheet.locator('button[aria-label="关闭"]').click();
+    }
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+
   await page.locator('.workbench-sidebar button', { hasText: '通知' }).first().click();
   await waitForBodyText(page, '我的提醒', 15000, '通知设置');
   const notificationBody = await page.locator('body').innerText();
@@ -865,6 +990,20 @@ async function runSmoke() {
         { timeout: 20000 },
       )
       .catch(() => fail('访客访问记录未显示最近访问'));
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.waitForTimeout(200);
+    const visitorMetrics = await page.evaluate(() => {
+      const card = document.querySelector('.visitor-logs-table .visitor-log-card');
+      return {
+        cardDisplay: card === null ? undefined : getComputedStyle(card).display,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+      };
+    });
+    if (visitorMetrics.overflow) fail('390px 访客访问记录出现横向溢出。');
+    if (visitorMetrics.cardDisplay !== 'grid') fail('390px 访客访问记录未切换为移动卡片。');
+    await page.locator('.visitor-logs-section').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '9-admin-mobile-visitor-logs.png') });
+    await page.setViewportSize({ height: 900, width: 1280 });
     assertNoErrors(errors, '访问记录');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '6-visitor-logs.png') });
   } finally {
