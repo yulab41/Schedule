@@ -78,3 +78,12 @@
 - 无障碍回归：首次 `pnpm verify` 发现次文字色 `#788492` 的对比度为 3.81:1，低于 4.5:1；已将令牌调整为 `#6B7785`（4.56:1）、重新生成 CSS，并通过 5 个定向测试文件、23 项测试。
 - 运行验证：Storybook build、Web typecheck、Web 生产构建、`pnpm smoke:check-core` 和修正后的 `pnpm verify` 均通过；全仓库 62 个测试文件、457 项测试通过，29 个数据库集成文件、252 项测试因本机没有测试 MySQL 跳过，仅有既有的大 chunk warning。
 - 状态：UI2-03 checkpoint `11bb812` 已提交并推送；UI2-04 已完成实现、浏览器与全仓库验证，checkpoint 识别消息为 `feat(web): ship responsive application shell`，当前为“待用户复核”。
+
+## 2026-08-14 Web UI 2.0 触屏月历
+
+- 回归来源：生产月格由 `ab250646` 引入，移动端月历行为由 `db35a77` 引入，班次事件入口由 `7ac2a07` 引入，节假日由 `48c6fdd` 引入；Storybook 56px 横滑判定由 `b903c6d` 引入，已通过 `git log -S` 和 `git blame` 核对调用点。
+- 测试先行：新增当前月默认今天、其他月份首个有班日期/1 日、56px 水平主导手势、连续多日节假日浅粉范围 4 项断言；旧实现因 3 个函数均不存在而 4/4 失败，实现后连同现有日历及 Storybook 回归共 5 个文件、31 项通过。
+- 语义审计：月份按钮、年月输入和横滑均只写入原 `businessMonth`，继续由既有 watch/API 最新请求追踪器加载；选中日期仅在当前响应生效时赋值。筛选仍写入原 `membershipIds`/`roleIds`/`shiftTypeIds`/`onlyChanges`，过滤函数、空值和调用次数不变；月/周/列表及事件按钮链路未改。
+- 变更：`MonthGrid` 新增受控 `selectedDate`/`select-date`，手机七列使用 9–12px 自适应总览字号且完整姓名自然换行；连续同名多日休假整段浅粉，单日节日不填充；手机筛选移入响应式 Sheet，桌面保留直接筛选；生产横滑与已确认 Storybook 共用 56px/1.2 倍水平意图函数。
+- 运行/浏览器验证：pnpm smoke:browser 已通过；390px 实际验证默认今天、点触换选中、筛选 Sheet、左滑换月、垂直移动取消，无横向溢出或控制台错误，管理员/成员/访客原流程通过。新增 smoke 首次因 Sheet 关闭后的月历位于视口外而手势超时，测试显式滚动到月历后通过，产品代码未为测试特判。
+- 运行验证：格式、lint、5 个定向测试文件、31 项测试、Web typecheck、Web build、Storybook build 和 `pnpm smoke:check-core` 均通过；仅有既有的大 chunk warning。checkpoint 识别消息为 `feat(web): add touch-first month calendar`。

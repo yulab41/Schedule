@@ -1,4 +1,4 @@
-import type { CalendarDutyAssignment } from '@schedule/contracts';
+import type { CalendarDutyAssignment, ConfirmedHolidayDate } from '@schedule/contracts';
 import {
   formatChinaStandardTime,
   getChinaStandardTimeBusinessDate,
@@ -10,6 +10,19 @@ import type { CalendarGridWeek } from './calendar-logic.js';
 export type CalendarViewMode = 'list' | 'month' | 'week';
 
 export type PointerPreference = 'coarse' | 'fine';
+
+export interface DefaultSelectedDateInput {
+  readonly assignments: readonly CalendarDutyAssignment[];
+  readonly businessMonth: string;
+  readonly today: string;
+}
+
+export interface SwipeDelta {
+  readonly deltaX: number;
+  readonly deltaY: number;
+}
+
+export type SwipeMonthIntent = -1 | 0 | 1;
 
 const businessDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/u;
 
@@ -26,6 +39,24 @@ export function getBusinessDate(date: Date = new Date()): string {
 
 export function getBusinessMonthOf(businessDate: string): string {
   return parseBusinessDate(businessDate).yearMonth;
+}
+
+export function getDefaultSelectedDate({
+  assignments,
+  businessMonth,
+  today,
+}: DefaultSelectedDateInput): string {
+  parseBusinessDate(`${businessMonth}-01`);
+  if (getBusinessMonthOf(today) === businessMonth) {
+    return today;
+  }
+
+  const firstScheduledDate = assignments
+    .map((assignment) => assignment.businessDate)
+    .filter((businessDate) => businessDate.startsWith(`${businessMonth}-`))
+    .sort((first, second) => first.localeCompare(second))[0];
+
+  return firstScheduledDate ?? `${businessMonth}-01`;
 }
 
 export function parseBusinessDate(value: string): {
@@ -56,6 +87,56 @@ export function parseBusinessDate(value: string): {
 
 function formatUtcDate(date: Date): string {
   return `${String(date.getUTCFullYear()).padStart(4, '0')}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
+function addBusinessDays(businessDate: string, delta: number): string {
+  const { day, month, year } = parseBusinessDate(businessDate);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + delta);
+  return formatUtcDate(date);
+}
+
+export function getMultiDayHolidayDates(
+  holidays: ReadonlyMap<string, ConfirmedHolidayDate>,
+): ReadonlySet<string> {
+  const dates = [...holidays.entries()]
+    .filter(([, holiday]) => holiday.isOffDay)
+    .sort(([first], [second]) => first.localeCompare(second));
+  const multiDayDates = new Set<string>();
+  let run: [string, ConfirmedHolidayDate][] = [];
+
+  function commitRun(): void {
+    if (run.length > 1) {
+      for (const [businessDate] of run) multiDayDates.add(businessDate);
+    }
+  }
+
+  for (const entry of dates) {
+    const previous = run.at(-1);
+    if (
+      previous !== undefined &&
+      previous[1].holidayName === entry[1].holidayName &&
+      addBusinessDays(previous[0], 1) === entry[0]
+    ) {
+      run.push(entry);
+    } else {
+      commitRun();
+      run = [entry];
+    }
+  }
+  commitRun();
+
+  return multiDayDates;
+}
+
+export function getSwipeMonthIntent({ deltaX, deltaY }: SwipeDelta): SwipeMonthIntent {
+  const horizontalDistance = Math.abs(deltaX);
+  const verticalDistance = Math.abs(deltaY);
+  if (horizontalDistance < 56 || horizontalDistance < verticalDistance * 1.2) {
+    return 0;
+  }
+
+  return deltaX < 0 ? 1 : -1;
 }
 
 export function getWeekStartDate(businessDate: string): string {

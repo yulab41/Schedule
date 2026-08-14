@@ -285,6 +285,101 @@ async function assertWeekendCalendarHighlight(page) {
   }
 }
 
+async function assertMonthCalendarInteractions(page) {
+  await page.setViewportSize({ height: 844, width: 390 });
+  const swipeSurface = page.locator('.month-swipe-surface');
+  await swipeSurface.waitFor({ state: 'visible', timeout: 15000 });
+
+  const filterTrigger = page.locator('.mobile-filter-trigger');
+  await filterTrigger.click();
+  const filterSheet = page.locator('dialog[open][aria-label="筛选排班"]');
+  await filterSheet.waitFor({ state: 'visible', timeout: 5000 });
+  const filterSheetText = await filterSheet.innerText();
+  if (!filterSheetText.includes('只看有变更的班次') || !filterSheetText.includes('查看结果')) {
+    fail('手机筛选底部页缺少筛选项或结果操作。');
+  }
+  const smallFilterActions = await filterSheet.locator('button').evaluateAll((buttons) =>
+    buttons
+      .filter((button) => {
+        const rect = button.getBoundingClientRect();
+        return rect.width < 44 || rect.height < 44;
+      })
+      .map((button) => button.textContent?.trim() ?? button.getAttribute('aria-label') ?? ''),
+  );
+  if (smallFilterActions.length > 0) {
+    fail(`手机筛选底部页存在小于 44px 的按钮：${smallFilterActions.join('、')}`);
+  }
+  await filterSheet.locator('button[aria-label="关闭"]').click();
+
+  const selectedButtons = page.locator('.day-select-button[aria-pressed="true"]');
+  if ((await selectedButtons.count()) !== 1) {
+    fail('手机月历应始终只有一个选中日期。');
+  }
+
+  const expectedToday = await page.evaluate(() => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      day: '2-digit',
+      month: '2-digit',
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+    }).formatToParts(new Date());
+    const part = (type) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  });
+  const initialSelectedLabel = await selectedButtons.first().getAttribute('aria-label');
+  if (!initialSelectedLabel?.startsWith(expectedToday)) {
+    fail(`当前月份默认选中日期应为今天 ${expectedToday}，实际为 ${initialSelectedLabel ?? '无'}。`);
+  }
+
+  const anotherDate = page.locator('.day-select-button[aria-pressed="false"]').first();
+  const anotherLabel = await anotherDate.getAttribute('aria-label');
+  await anotherDate.click();
+  const changedSelectedLabel = await selectedButtons.first().getAttribute('aria-label');
+  if (changedSelectedLabel !== anotherLabel) {
+    fail('点触月格后选中日期未更新。');
+  }
+  await page.screenshot({
+    fullPage: true,
+    path: path.join(SCREENSHOT_DIR, '2-admin-mobile-calendar.png'),
+  });
+
+  const monthLabel = page.locator('.month-navigation strong').first();
+  const initialMonth = (await monthLabel.innerText()).trim();
+  await swipeSurface.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const bounds = await swipeSurface.boundingBox();
+  if (bounds === null) fail('无法取得月历横滑区域。');
+
+  const startX = bounds.x + bounds.width * 0.78;
+  const startY = bounds.y + Math.min(160, bounds.height * 0.4);
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX - 80, startY + 10, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForFunction(
+    ({ selector, value }) => document.querySelector(selector)?.textContent?.trim() !== value,
+    { selector: '.month-navigation strong', value: initialMonth },
+    { timeout: 15000 },
+  );
+  const nextMonth = (await monthLabel.innerText()).trim();
+  if (nextMonth === initialMonth) fail('清晰左滑后月份未切换。');
+
+  await swipeSurface.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const nextBounds = await swipeSurface.boundingBox();
+  if (nextBounds === null) fail('切换月份后无法取得月历横滑区域。');
+  const verticalStartX = nextBounds.x + nextBounds.width * 0.7;
+  const verticalStartY = nextBounds.y + Math.min(120, nextBounds.height * 0.3);
+  await page.mouse.move(verticalStartX, verticalStartY);
+  await page.mouse.down();
+  await page.mouse.move(verticalStartX - 64, verticalStartY + 80, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  if ((await monthLabel.innerText()).trim() !== nextMonth) {
+    fail('垂直位移占优时不应切换月份。');
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+}
+
 async function assertBackfillCalendarColors(page) {
   await page.locator('.workbench-sidebar button', { hasText: '排班补录' }).first().click();
   await waitForBodyText(page, '排班补录', 15000, '排班补录');
@@ -401,6 +496,7 @@ async function runSmoke() {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '2-admin.png') });
     await assertResponsiveWorkbenchShell(page);
     await assertWeekendCalendarHighlight(page);
+    await assertMonthCalendarInteractions(page);
     await assertManualScheduleDefaultStartDate(page);
     await assertBackfillCalendarColors(page);
     await assertGroupManagementAndEventNav(page);
