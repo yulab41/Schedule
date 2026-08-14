@@ -114,6 +114,9 @@ function tarPath() {
 }
 
 ensureInsideRuntime();
+if (process.env.NODE_ENV !== 'production' || process.env.AUTH_DEV_MODE === 'true') {
+  fail('正式 ECS release 必须使用 NODE_ENV=production 且 AUTH_DEV_MODE=false。');
+}
 for (const relativePath of DIST_PATHS) {
   if (!fs.existsSync(path.join(ROOT, relativePath))) {
     fail(`请先完成构建，缺少：${relativePath}`);
@@ -157,10 +160,7 @@ const manifest = {
   gitCommit: commit,
   generatedAt: new Date().toISOString(),
   nodeVersion: process.version,
-  authMode:
-    process.env.NODE_ENV === 'production' && process.env.AUTH_DEV_MODE !== 'true'
-      ? 'production'
-      : 'development',
+  authMode: 'production',
   lockfileSha256: sha256File(path.join(ROOT, 'pnpm-lock.yaml')),
   artifacts: {
     distArchiveSha256: sha256File(distArchivePath),

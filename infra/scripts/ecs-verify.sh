@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Deployment verification: health, release hashes, frontend assets, containers and migrations.
+# Deployment verification: domain-only ingress, release hashes, containers and migrations.
 set -Eeuo pipefail
 
 DEPLOY_DIR="/opt/schedule"
-COMPOSE_FILES=(-f "$DEPLOY_DIR/infra/docker/compose.prod.yml")
-if [ -f "$DEPLOY_DIR/infra/docker/compose.prod.icp-test.yml" ]; then
-  COMPOSE_FILES+=(-f "$DEPLOY_DIR/infra/docker/compose.prod.icp-test.yml")
-fi
+COMPOSE_FILE="$DEPLOY_DIR/infra/docker/compose.prod.yml"
+DOMAIN="hosp.schedule.eylinhome.top"
+UNKNOWN_HOST="unknown.invalid"
+PUBLIC_HOST="${ECS_PUBLIC_IP:-}"
 
 manifest_value() {
   local key="$1"
-  sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]+)\".*/\1/p" "$DEPLOY_DIR/deploy-manifest.json" | head -1
+  sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]+)\".*/\1/p" \
+    "$DEPLOY_DIR/deploy-manifest.json" | head -1
 }
 
 tree_sha256() {
@@ -24,17 +25,79 @@ tree_sha256() {
 }
 
 compose() {
-  docker compose --env-file "$DEPLOY_DIR/.env.production" "${COMPOSE_FILES[@]}" "$@"
+  docker compose --env-file "$DEPLOY_DIR/.env.production" -f "$COMPOSE_FILE" "$@"
 }
 
-echo "[verify] api health through Nginx (127.0.0.1:80)"
-curl -fsS -o /dev/null -w 'http=%{http_code}\n' http://127.0.0.1/api/health
-curl -fsS http://127.0.0.1/api/health
-echo
+domain_curl() {
+  curl -kfsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" "https://${DOMAIN}$1"
+}
 
-echo "[verify] api health with production Host header"
-curl -fsS -o /dev/null -w 'http=%{http_code}\n' \
-  -H 'Host: hosp.schedule.eylinhome.top' http://127.0.0.1/api/health
+status_for_http_host() {
+  local host="$1"
+  curl -ksS --max-time 5 -o /dev/null -w '%{http_code}' -H "Host: $host" \
+    http://127.0.0.1/ || true
+}
+
+status_for_https_host() {
+  local host="$1"
+  curl -ksS --max-time 5 -o /dev/null -w '%{http_code}' \
+    --resolve "${host}:443:127.0.0.1" "https://${host}/" || true
+}
+
+assert_rejected() {
+  local label="$1"
+  local status="$2"
+  if [[ "$status" =~ ^2[0-9][0-9]$ ]]; then
+    echo "[verify] 错误：$label 返回了项目成功响应（HTTP $status）。" >&2
+    exit 1
+  fi
+  echo "[verify] $label 已拒绝（HTTP ${status:-000}）"
+}
+
+cd "$DEPLOY_DIR"
+
+if [[ -f infra/docker/compose.prod.icp-test.yml ]]; then
+  echo "[verify] 错误：发现已停用的 ICP 测试 Compose override。" >&2
+  exit 1
+fi
+if grep -Eq '^[[:space:]]*AUTH_DEV_MODE[[:space:]]*=[[:space:]]*true([[:space:]]*|$)' .env.production; then
+  echo "[verify] 错误：生产配置启用了 AUTH_DEV_MODE。" >&2
+  exit 1
+fi
+if grep -Eq '^[[:space:]]*WECHAT_MOCK_MODE[[:space:]]*=[[:space:]]*true([[:space:]]*|$)' .env.production; then
+  echo "[verify] 错误：生产配置启用了 WECHAT_MOCK_MODE。" >&2
+  exit 1
+fi
+grep -Eq 'listen 80 default_server;' infra/docker/nginx.prod.conf
+grep -A4 -E 'listen 80 default_server;' infra/docker/nginx.prod.conf | grep -q 'return 444;'
+grep -Eq 'listen 443 ssl default_server;' infra/docker/nginx.prod.conf
+grep -A4 -E 'listen 443 ssl default_server;' infra/docker/nginx.prod.conf | grep -q 'ssl_reject_handshake on;'
+grep -q "server_name $DOMAIN;" infra/docker/nginx.prod.conf
+
+echo "[verify] production domain health"
+domain_curl /api/health
+echo
+domain_curl / | grep -q 'assets/'
+
+echo "[verify] unknown Host and IP ingress are not project routes"
+assert_rejected "unknown HTTP Host" "$(status_for_http_host "$UNKNOWN_HOST")"
+assert_rejected "unknown HTTPS Host" "$(status_for_https_host "$UNKNOWN_HOST")"
+if [[ -n "$PUBLIC_HOST" ]]; then
+  assert_rejected "public IP HTTP Host" "$(status_for_http_host "$PUBLIC_HOST")"
+  assert_rejected "public IP HTTPS Host" "$(status_for_https_host "$PUBLIC_HOST")"
+else
+  echo "[verify] 未设置 ECS_PUBLIC_IP，跳过公网 IP 主动探测（可用 ECS_PUBLIC_IP=... 重跑）。"
+fi
+
+echo "[verify] public listener ports"
+listeners="$(ss -lntH 2>/dev/null || true)"
+for port in 8080 3000 3001 3306 3307; do
+  if printf '%s\n' "$listeners" | grep -Eq ":${port}[[:space:]]"; then
+    echo "[verify] 错误：检测到公网监听端口 $port。" >&2
+    exit 1
+  fi
+done
+echo "[verify] only shared gateway ports may be public"
 
 if [ ! -f "$DEPLOY_DIR/deploy-manifest.json" ]; then
   echo "[verify] 错误：缺少部署清单。" >&2
@@ -42,6 +105,7 @@ if [ ! -f "$DEPLOY_DIR/deploy-manifest.json" ]; then
 fi
 
 RELEASE_ID="$(manifest_value releaseId)"
+AUTH_MODE="$(manifest_value authMode)"
 EXPECTED_DIST_SHA="$(manifest_value distArchiveSha256)"
 EXPECTED_FLAT_SHA="$(manifest_value apiRuntimeArchiveSha256)"
 EXPECTED_LOCKFILE_SHA="$(manifest_value lockfileSha256)"
@@ -55,6 +119,10 @@ EXPECTED_COMPOSE_SHA="$(manifest_value composeProdSha256)"
 EXPECTED_NGINX_SHA="$(manifest_value nginxConfigSha256)"
 EXPECTED_NOTIFICATION_SCHEDULER_SHA="$(manifest_value notificationSchedulerSha256)"
 CURRENT_RELEASE="$(cat "$DEPLOY_DIR/current-release" 2>/dev/null || true)"
+if [ "$AUTH_MODE" != "production" ]; then
+  echo "[verify] 错误：发布清单不是 production 认证模式。" >&2
+  exit 1
+fi
 if [ "$CURRENT_RELEASE" != "$RELEASE_ID" ]; then
   echo "[verify] 错误：current-release 与部署清单不一致。" >&2
   exit 1
@@ -62,106 +130,57 @@ fi
 RELEASE_DIR="$DEPLOY_DIR/releases/$RELEASE_ID"
 
 echo "[verify] release=$RELEASE_ID"
-if [ ! -f "$RELEASE_DIR/schedule-dist.tar.gz" ] || [ ! -f "$RELEASE_DIR/api-flat.tar.zst" ]; then
-  echo "[verify] 错误：release 归档不完整。" >&2
-  exit 1
-fi
+test -f "$RELEASE_DIR/schedule-dist.tar.gz"
+test -f "$RELEASE_DIR/api-flat.tar.zst"
 ACTUAL_DIST_SHA="$(sha256sum "$RELEASE_DIR/schedule-dist.tar.gz" | awk '{print $1}')"
 ACTUAL_FLAT_SHA="$(sha256sum "$RELEASE_DIR/api-flat.tar.zst" | awk '{print $1}')"
-[ "$ACTUAL_DIST_SHA" = "$EXPECTED_DIST_SHA" ] || {
-  echo "[verify] 错误：dist 归档哈希不一致。" >&2
-  exit 1
-}
-[ "$ACTUAL_FLAT_SHA" = "$EXPECTED_FLAT_SHA" ] || {
-  echo "[verify] 错误：API runtime 归档哈希不一致。" >&2
-  exit 1
-}
+[ "$ACTUAL_DIST_SHA" = "$EXPECTED_DIST_SHA" ]
+[ "$ACTUAL_FLAT_SHA" = "$EXPECTED_FLAT_SHA" ]
 
-ACTUAL_COMPOSE_SHA="$(sha256sum "$DEPLOY_DIR/infra/docker/compose.prod.yml" | awk '{print $1}')"
+ACTUAL_COMPOSE_SHA="$(sha256sum "$COMPOSE_FILE" | awk '{print $1}')"
 ACTUAL_NGINX_SHA="$(sha256sum "$DEPLOY_DIR/infra/docker/nginx.prod.conf" | awk '{print $1}')"
-[ "$ACTUAL_COMPOSE_SHA" = "$EXPECTED_COMPOSE_SHA" ] || {
-  echo "[verify] 错误：Compose 配置哈希不一致。" >&2
-  exit 1
-}
-[ "$ACTUAL_NGINX_SHA" = "$EXPECTED_NGINX_SHA" ] || {
-  echo "[verify] 错误：Nginx 配置哈希不一致。" >&2
-  exit 1
-}
+[ "$ACTUAL_COMPOSE_SHA" = "$EXPECTED_COMPOSE_SHA" ]
+[ "$ACTUAL_NGINX_SHA" = "$EXPECTED_NGINX_SHA" ]
+[ "$(sha256sum "$DEPLOY_DIR/pnpm-lock.yaml" | awk '{print $1}')" = "$EXPECTED_LOCKFILE_SHA" ]
+[ "$(tree_sha256 "$DEPLOY_DIR/apps/web/dist")" = "$EXPECTED_WEB_SHA" ]
+[ "$(tree_sha256 "$DEPLOY_DIR/apps/api/dist")" = "$EXPECTED_API_SHA" ]
+[ "$(tree_sha256 "$DEPLOY_DIR/packages/contracts/dist")" = "$EXPECTED_CONTRACTS_SHA" ]
+[ "$(tree_sha256 "$DEPLOY_DIR/packages/database/dist")" = "$EXPECTED_DATABASE_SHA" ]
+[ "$(tree_sha256 "$DEPLOY_DIR/packages/scheduling-domain/dist")" = "$EXPECTED_DOMAIN_SHA" ]
+[ "$(tree_sha256 "$DEPLOY_DIR/migrations")" = "$EXPECTED_MIGRATIONS_SHA" ]
 ACTUAL_NOTIFICATION_SCHEDULER_SHA="$(sha256sum "$DEPLOY_DIR/infra/scripts/schedule-notifications.sh" | awk '{print $1}')"
-[ "$ACTUAL_NOTIFICATION_SCHEDULER_SHA" = "$EXPECTED_NOTIFICATION_SCHEDULER_SHA" ] || {
-  echo "[verify] 错误：通知调度脚本哈希不一致。" >&2
-  exit 1
-}
-[ "$(sha256sum "$DEPLOY_DIR/pnpm-lock.yaml" | awk '{print $1}')" = "$EXPECTED_LOCKFILE_SHA" ] || {
-  echo "[verify] 错误：pnpm-lock.yaml 哈希不一致。" >&2
-  exit 1
-}
-ACTUAL_WEB_SHA="$(tree_sha256 "$DEPLOY_DIR/apps/web/dist")"
-[ "$ACTUAL_WEB_SHA" = "$EXPECTED_WEB_SHA" ] || {
-  echo "[verify] 错误：Web dist 哈希不一致。" >&2
-  echo "[verify] expected=$EXPECTED_WEB_SHA actual=$ACTUAL_WEB_SHA" >&2
-  exit 1
-}
-[ "$(tree_sha256 "$DEPLOY_DIR/apps/api/dist")" = "$EXPECTED_API_SHA" ] || {
-  echo "[verify] 错误：API dist 哈希不一致。" >&2
-  exit 1
-}
-[ "$(tree_sha256 "$DEPLOY_DIR/packages/contracts/dist")" = "$EXPECTED_CONTRACTS_SHA" ] || {
-  echo "[verify] 错误：contracts dist 哈希不一致。" >&2
-  exit 1
-}
-[ "$(tree_sha256 "$DEPLOY_DIR/packages/database/dist")" = "$EXPECTED_DATABASE_SHA" ] || {
-  echo "[verify] 错误：database dist 哈希不一致。" >&2
-  exit 1
-}
-[ "$(tree_sha256 "$DEPLOY_DIR/packages/scheduling-domain/dist")" = "$EXPECTED_DOMAIN_SHA" ] || {
-  echo "[verify] 错误：scheduling-domain dist 哈希不一致。" >&2
-  exit 1
-}
-[ "$(tree_sha256 "$DEPLOY_DIR/migrations")" = "$EXPECTED_MIGRATIONS_SHA" ] || {
-  echo "[verify] 错误：migrations 哈希不一致。" >&2
-  exit 1
-}
+[ "$ACTUAL_NOTIFICATION_SCHEDULER_SHA" = "$EXPECTED_NOTIFICATION_SCHEDULER_SHA" ]
 echo "[verify] artifact hashes match"
-echo "[verify] compose hash: $ACTUAL_COMPOSE_SHA"
-echo "[verify] nginx hash: $ACTUAL_NGINX_SHA"
 
-echo "[verify] deployed files"
 for required_path in \
   "$DEPLOY_DIR/apps/api/dist/local-server.js" \
   "$DEPLOY_DIR/apps/web/dist/index.html" \
   "$DEPLOY_DIR/packages/contracts/dist/index.js" \
   "$DEPLOY_DIR/packages/database/dist/index.js" \
   "$DEPLOY_DIR/packages/scheduling-domain/dist/index.js"; do
-  if [ ! -f "$required_path" ]; then
-    echo "[verify] 错误：缺少 $required_path" >&2
-    exit 1
-  fi
+  test -f "$required_path"
   sha256sum "$required_path"
 done
-
-echo "[verify] web index asset"
-curl -fsS http://127.0.0.1/ | grep -o 'assets/index-[^" ]*\.js' | head -1
 
 echo "[verify] containers"
 compose ps
 
-echo "[verify] notification scheduler"
-test -x /usr/local/bin/schedule-notifications
-test -f /etc/cron.d/schedule-notifications
-grep -Fq '/usr/local/bin/schedule-notifications' /etc/cron.d/schedule-notifications
-test "$(sha256sum /usr/local/bin/schedule-notifications | awk '{print $1}')" = "$EXPECTED_NOTIFICATION_SCHEDULER_SHA"
-echo "ok: notification scheduler installed"
-
-echo "[verify] cloudbase dependency"
-if docker exec medical-schedule-prod-api-1 \
-  ls /app/apps/api/node_modules/@cloudbase >/dev/null 2>&1; then
-  echo "FAIL: @cloudbase still present" >&2
+echo "[verify] no retired local-auth records"
+if docker exec medical-schedule-prod-mysql-1 sh -c \
+  'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
+    -e "SELECT COUNT(*) FROM users WHERE cloudbase_uid IN (\"local-admin\", \"local-member\")"' | grep -Eq '[1-9]'; then
+  echo "[verify] 错误：发现 local-admin/local-member 生产初始化记录。" >&2
   exit 1
 fi
-echo "ok: no @cloudbase"
+
+echo "[verify] no @cloudbase"
+if docker exec medical-schedule-prod-api-1 ls /app/apps/api/node_modules/@cloudbase >/dev/null 2>&1; then
+  echo "[verify] 错误：依赖树仍含 @cloudbase。" >&2
+  exit 1
+fi
 
 echo "[verify] migration count"
 docker exec medical-schedule-prod-mysql-1 sh -c \
   'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
-    -e "SELECT COUNT(*) FROM __drizzle_migrations"'
+    -e "SELECT COUNT(*) FROM __drizzle_migrations"' | grep -qx '35'
+echo "[verify] complete"

@@ -28,7 +28,8 @@
 - 浏览器推送必须在服务器 `.env.production` 中同时配置 `VAPID_SUBJECT`、`VAPID_PUBLIC_KEY` 和 `VAPID_PRIVATE_KEY`；三项缺一不可，私钥不得进入仓库或 Web 产物。
 - `/usr/local/bin/schedule-notifications` 每分钟串行执行 `duty-reminders` 和 `notification-retry`；任务使用 `flock` 防止重入，并写入平台任务记录。
 - 生产环境使用 `NODE_ENV=production`、独立数据库和最小权限账号；开发认证不得上线。
-- 备案前 IP 直连只用于开发验证；备案后验证 DNS、证书续期、HTTP→HTTPS、Web 和 API。
+- 生产入口只接受 `hosp.schedule.eylinhome.top`；IP 和未知 Host 由共享 Nginx 拒绝，不返回项目页面、不跳转到正式域名。
+- 不对外发布 API、数据库或测试端口；未来站点使用自己的域名和内部 upstream，不复制本项目的默认 Host 配置。
 
 ## 上线前清单
 
@@ -39,9 +40,10 @@
 
 ## 更新命令
 
-本地构建完成后，使用 `pnpm ecs:package` 生成 `runtime/ecs-release/`，然后将三个文件上传到 ECS：
+本地构建完成后，使用生产环境变量运行 `pnpm ecs:package` 生成 `runtime/ecs-release/`，然后将三个文件上传到 ECS：
 
 ```bash
+NODE_ENV=production AUTH_DEV_MODE=false pnpm ecs:package
 bash infra/scripts/ecs-update.sh \
   /tmp/schedule-dist.tar.gz \
   /tmp/api-flat.tar.zst \
@@ -49,7 +51,19 @@ bash infra/scripts/ecs-update.sh \
 bash infra/scripts/ecs-verify.sh
 ```
 
-当前生产入口由 Nginx 暴露 80/443，API 健康检查使用 `/api/health`；8080 仅作为本地 SSH 隧道端口，不是 ECS 容器入口端口。
+当前生产入口由共享 Nginx 暴露 80/443，并按域名分流；本项目只有 `hosp.schedule.eylinhome.top` 的 server block。API 健康检查使用该域名下的 `/api/health`，不保留 8080 测试隧道。
+
+## 微信网页登录配置
+
+浏览器扫码登录使用微信开放平台的“网站应用”，与小程序 `WECHAT_APPID` / `WECHAT_APPSECRET` 分开配置：
+
+```dotenv
+WECHAT_WEB_APPID=网站应用AppID
+WECHAT_WEB_APPSECRET=网站应用AppSecret
+WECHAT_WEB_REDIRECT_URI=https://hosp.schedule.eylinhome.top/auth/wechat/callback
+```
+
+在微信开放平台填写授权回调域名时只填 `hosp.schedule.eylinhome.top`，不要填协议、路径或服务器 IP。`WECHAT_WEB_APPSECRET` 只写服务器 `/opt/schedule/.env.production`，不发到聊天、不提交 Git；`WECHAT_SESSION_SECRET` 由部署流程生成并同样只留在服务器。
 
 ## 浏览器推送配置
 

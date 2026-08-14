@@ -6,7 +6,7 @@
 
 - 分支：`main`，上游：`origin/main`。
 - 本轮目标：正式域名专属入口、关闭生产测试通道、微信开放平台网站扫码登录。
-- 当前阶段：代码与本地验证已完成，生产发布待补齐微信网站应用凭据并执行服务器备份/发布核验。
+- 当前阶段：Checkpoint 1、2 的代码与本地验证已完成，生产发布待补齐微信网站应用凭据并执行服务器备份/发布核验。
 - 生产规范入口：`https://hosp.schedule.eylinhome.top`。仓库当前生效配置不包含服务器公网 IP URL。
 - 当前尚未修改生产服务器；没有写入或传输任何微信 AppSecret。
 
@@ -19,7 +19,7 @@
 - 新增 `user_auth_identities` 表和迁移 0035，区分小程序身份与网站身份；unionid 可关联同一业务用户，网站 openid 不覆盖小程序 openid。
 - 新增网页扫码登录页、回调页、会话保存/恢复、扫码窗口关闭/超时提示；生产构建严格按 `MODE=development` 才显示本地开发按钮。
 - 生产环境缺少完整网站 AppID、AppSecret、HTTPS 回调地址或会话密钥时启动失败；`AUTH_DEV_MODE=true` 和 `WECHAT_MOCK_MODE=true` 在生产拒绝。
-- Checkpoint 1 提交信息：`feat(auth): add WeChat website QR login`（提交前记录）。
+- Checkpoint 1 提交：`12e7f40 feat(auth): add WeChat website QR login`，已推送 `origin/main`。
 
 ### Checkpoint 2：域名入口和测试通道收口
 
@@ -28,6 +28,7 @@
 - ECS 更新/核验脚本不复用 ICP 测试 override，残留 override 会被发布清理并在核验时报错；核验新增未知 Host、IP、监听端口、开发认证和旧初始化账号检查。
 - ICP 维护脚本不再生成 8080 自测入口；已删除 `scripts/start-ecs-test-tunnel.bat`；本地/CI 的 `compose.test.yml` 和 smoke 流程保留。
 - 生产 release 打包脚本强制 `NODE_ENV=production` 且 `AUTH_DEV_MODE=false`。
+- Checkpoint 2 提交信息：`fix(deploy): enforce domain-only production ingress`（提交前记录）。
 
 ## 运行验证
 
@@ -35,10 +36,12 @@
 - `pnpm build`：通过；Vite 仅报告既有的大 chunk 提示。
 - API/Web/Contracts/Database TypeScript 检查：通过（直接使用各 workspace 的 `tsc`/`vue-tsc`，避免 pnpm 递归清理提示）。
 - 定向 Vitest：44 项通过，覆盖环境拒绝、OAuth state、网站网关和前端会话。
+- 全量 Vitest：57 个文件、438 项通过；29 个数据库集成文件、252 项按项目既有保护逻辑跳过（本机未提供测试 MySQL）。
 - Nginx 配置语法/路由结构检查：通过 Docker Nginx 1.27 Alpine 静态校验；正式证书仍需在服务器上验证。
 - 运行/浏览器验证：`pnpm smoke:browser` 通过，登录、管理员、成员、访客和访问记录流程无浏览器错误。
-- 运行/核心校验：待本文件更新后执行 `pnpm smoke:check-core`。
-- `git diff --check`：待 checkpoint 提交前执行。
+- 运行/核心校验：`pnpm smoke:check-core` 通过。
+- `pnpm verify`：通过；包含格式、Lint、构建、类型检查，以及 57 个测试文件/438 项通过、29 个数据库集成文件/252 项跳过。
+- `git diff --check`：通过。
 
 ## 外部配置与发布阻塞
 

@@ -27,6 +27,11 @@ mkdir -p "$DEPLOY_DIR"
 tar -xzf "$BUNDLE" -C "$DEPLOY_DIR"
 cd "$DEPLOY_DIR"
 
+if [[ -f infra/docker/compose.prod.icp-test.yml ]]; then
+  echo "[bootstrap] removing retired ICP test Compose override"
+  rm -f infra/docker/compose.prod.icp-test.yml
+fi
+
 # The flat tree copies @schedule/database, whose default migrations folder
 # resolves relative to that copy as node_modules/migrations. Keep a real copy
 # at the top level of the flat tree so `migrate.js` works.
@@ -114,26 +119,14 @@ if [[ -z "$calendar_version_id" ]]; then
   exit 1
 fi
 
-echo "[bootstrap] provisioning dev-mode users"
-curl -sS -o /dev/null -X POST \
-  -H "Authorization: Bearer local-admin" \
-  -H "Content-Type: application/json" \
-  -d '{"realName":"本地管理员"}' \
-  http://127.0.0.1/api/users || true
-curl -sS -o /dev/null -X POST \
-  -H "Authorization: Bearer local-member" \
-  -H "Content-Type: application/json" \
-  -d '{"realName":"本地成员"}' \
-  http://127.0.0.1/api/users || true
-
-curl -fsS -X POST \
-  -H "Authorization: Bearer local-admin" \
-  "http://127.0.0.1/api/holidays/versions/${calendar_version_id}/confirm" >/dev/null
-echo "[bootstrap] holidays confirmed"
+echo "[bootstrap] holiday calendar draft created: $calendar_version_id"
+echo "[bootstrap] confirm it later through the formal administrator account"
 
 echo "[bootstrap] verification"
-curl -fsS http://127.0.0.1/api/health
+curl -kfsS --resolve hosp.schedule.eylinhome.top:443:127.0.0.1 \
+  https://hosp.schedule.eylinhome.top/api/health
 echo
-curl -fsS http://127.0.0.1/ | grep -q 'assets/' && echo "web dist is being served"
+curl -kfsS --resolve hosp.schedule.eylinhome.top:443:127.0.0.1 \
+  https://hosp.schedule.eylinhome.top/ | grep -q 'assets/' && echo "web dist is being served"
 
 echo "[bootstrap] done"

@@ -53,10 +53,10 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      # 试用期自托管部署以开发模式运行（NODE_ENV=development + AUTH_DEV_MODE=true），
-      # 使本地开发认证端口生效；正式上线前必须完成自建认证并切回 NODE_ENV=production。
-      NODE_ENV: development
-      AUTH_DEV_MODE: 'true'
+      # Production authentication is WeChat website QR login only. Development
+      # auth is intentionally fixed off here; local/CI test Compose is separate.
+      NODE_ENV: production
+      AUTH_DEV_MODE: 'false'
       BACKUP_DIR: /data/backups
       BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
@@ -67,6 +67,9 @@ services:
       WECHAT_APPID: ${WECHAT_APPID:-}
       WECHAT_APPSECRET: ${WECHAT_APPSECRET:-}
       WECHAT_SESSION_SECRET: ${WECHAT_SESSION_SECRET:-}
+      WECHAT_WEB_APPID: ${WECHAT_WEB_APPID:-}
+      WECHAT_WEB_APPSECRET: ${WECHAT_WEB_APPSECRET:-}
+      WECHAT_WEB_REDIRECT_URI: ${WECHAT_WEB_REDIRECT_URI:-}
       WECHAT_MOCK_MODE: ${WECHAT_MOCK_MODE:-false}
       WECHAT_QR_ENV_VERSION: ${WECHAT_QR_ENV_VERSION:-release}
       WECHAT_DUTY_REMINDER_TEMPLATE_ID: ${WECHAT_DUTY_REMINDER_TEMPLATE_ID:-}

@@ -8,9 +8,7 @@ FLAT_TAR="${2:?缺少 api-flat 压缩包路径}"
 MANIFEST="${3:?缺少部署清单路径}"
 DEPLOY_DIR="/opt/schedule"
 COMPOSE_FILES=(-f infra/docker/compose.prod.yml)
-if [ -f infra/docker/compose.prod.icp-test.yml ]; then
-  COMPOSE_FILES+=(-f infra/docker/compose.prod.icp-test.yml)
-fi
+DOMAIN="hosp.schedule.eylinhome.top"
 
 fail() {
   echo "[deploy] 错误：$*" >&2
@@ -28,7 +26,8 @@ compose() {
 
 wait_for_health() {
   for attempt in $(seq 1 30); do
-    if curl -fsS --max-time 5 http://127.0.0.1/api/health; then
+    if curl -kfsS --max-time 5 --resolve "${DOMAIN}:443:127.0.0.1" \
+      "https://${DOMAIN}/api/health"; then
       echo
       return 0
     fi
@@ -51,6 +50,10 @@ if [ ! -f "$DIST_TAR" ] || [ ! -f "$FLAT_TAR" ] || [ ! -f "$MANIFEST" ]; then
 fi
 
 cd "$DEPLOY_DIR"
+if [ -f infra/docker/compose.prod.icp-test.yml ]; then
+  echo "[deploy] 清理已停用的 ICP 测试 Compose override" >&2
+  rm -f infra/docker/compose.prod.icp-test.yml
+fi
 RELEASE_ID="$(manifest_value releaseId)"
 EXPECTED_DIST_SHA="$(manifest_value distArchiveSha256)"
 EXPECTED_FLAT_SHA="$(manifest_value apiRuntimeArchiveSha256)"
@@ -131,7 +134,8 @@ rollback_on_error() {
   echo "[deploy] 发布失败，开始恢复上一版应用文件。" >&2
   if restore_previous; then
     compose up -d --force-recreate api web || true
-    curl -fsS http://127.0.0.1/api/health >/dev/null || true
+    curl -kfsS --resolve "${DOMAIN}:443:127.0.0.1" \
+      "https://${DOMAIN}/api/health" >/dev/null || true
   fi
   exit "$status"
 }
