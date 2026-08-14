@@ -46,3 +46,13 @@
 - 运行验证：`pnpm --filter @schedule/web typecheck` 通过；`pnpm verify` 通过，60 个测试文件、447 个测试通过，29 个数据库集成文件因本机没有测试 MySQL 跳过；生产构建仅有既有的大 chunk warning。
 - 发布验证：release `056fc59` 已部署；`ecs-verify.sh` 通过，正式 API 健康接口返回 200，`D0796` 的 `/api/groups` 返回原群组、`owner` 角色和四位群组码。
 - 状态：代码修复和正式 Web release 已完成，当前为“待用户复核”；请用户退出后重新登录 `D0796`，确认群组名称、群主权限和群组码刷新。
+
+## 2026-08-14 Web UI 2.0 Storybook 手机预览
+
+- 范围：用户选择 Storybook + 本地浏览器替代 Figma；本轮只完成 Storybook 基础和四个关键手机预览，不改生产 UI、业务/API 或数据结构。
+- 测试先行：横滑判定测试先因缺少 `preview-interactions.js` 失败；实现 56px 水平阈值和 1.2 倍水平意图判定后 4/4 通过，覆盖左右横滑、阈值不足和垂直滑动取消。
+- 浏览器修正：320px 验收发现图标化筛选按钮缺少无障碍名称，以及部分带事件标识姓名被压窄；补充 `aria-label` 并调整月格行宽后复核通过。
+- 运行/浏览器验证：Storybook 390×844 四屏及 320×844 月历无横向溢出、无姓名裁切、可见操作均至少 44px；底栏不遮挡最后一个电话按钮；筛选/更多底部页、登录/注册、请假/审批、月份左滑均实际操作通过，控制台无 warning/error。
+- 运行/浏览器验证：`pnpm smoke:browser` 已通过，覆盖登录、管理员、成员、访客和访客访问记录；`pnpm smoke:check-core` 已通过并确认本轮未涉及核心链路文件。
+- 运行验证：`pnpm --filter @schedule/web storybook:build`、Web typecheck、4 项横滑测试和 `pnpm verify` 均通过；全仓库为 61 个测试文件、451 个测试通过，29 个数据库集成文件因本机没有测试 MySQL 跳过。
+- 状态：Storybook 预览为“待用户复核”；用户确认视觉、月格密度、底栏和详情轨道后，才进入生产令牌与应用框架批次。

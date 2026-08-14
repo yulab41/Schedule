@@ -8,3 +8,12 @@ allowBuilds:
   core-js-pure: false
   esbuild: true
   vue-demi: false
+
+minimumReleaseAgeExclude:
+  - '@storybook/addon-docs@10.5.8'
+  - '@storybook/builder-vite@10.5.8'
+  - '@storybook/csf-plugin@10.5.8'
+  - '@storybook/react-dom-shim@10.5.8'
+  - '@storybook/vue3-vite@10.5.8'
+  - '@storybook/vue3@10.5.8'
+  - storybook@10.5.8

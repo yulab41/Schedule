@@ -15,6 +15,8 @@
 - 原有的 1 个正式群组已在生产数据库中转移到 `D0796` 名下；`D0796` 的群组成员角色为 `owner`，显示姓名为“林恩宇”。原群组及排班数据保留，旧退役账号的成员记录保留为历史管理员记录。
 - 群组页面展示修复已完成并上线：工作台和群组管理页会明确显示当前群组、角色和四位群组码，重新生成群组码后会刷新并显示新码。
 - 小程序 AppSecret 仍按“已暴露”处理，尚未通过聊天内容写入服务器；需要用户在微信平台重置后再更新服务器通知配置。现有服务器会话密钥已存在，网站 AppID/AppSecret 不再是阻塞项。
+- 用户已明确放弃 Figma 预览，改用 Storybook + 本地浏览器验收。Web UI 2.0 当前只新增独立预览和工具链，没有改动生产页面、业务逻辑、权限、API 或数据结构。
+- Web UI 2.0 当前状态为“待用户复核”：Storybook 已提供登录、工作台/月历、选中日期详情、请假与审批四个 390×844 关键屏，并完成 390px/320px 浏览器点验。
 
 ## 本轮已完成
 
@@ -31,6 +33,9 @@
 - 本轮任务 checkpoint commit：`docs(status): record original group ownership transfer`。
 - 发布诊断发现生产既有 `users.id` 使用 `utf8mb4_0900_ai_ci`，新增迁移 0035/0036 原使用 `utf8mb4_unicode_ci`，MySQL 拒绝外键；已将两份新增迁移改为 `utf8mb4_0900_ai_ci`，不涉及删除表或改动既有业务数据。
 - checkpoint commit：`de3ad5f feat(auth): add production password authentication`。
+- Web UI 2.0 Task UI2-01：安装并隔离 Storybook 10.5.8（Vue 3 + Vite），加入 Docs/A11y、390/320/1280 视口、构建脚本和本地产物忽略规则；预览构建不会再改写生产 `components.d.ts`。
+- Web UI 2.0 Task UI2-02：完成四个 Apple Health 式手机预览、密集七列月历、完整姓名与换/加标识、56px 横滑判定、44px 点触目标、底部导航、响应式底部页及蓝色“值班轨道”。测试先行的红灯为缺少 `preview-interactions.js`，实现后 4 项横滑判定通过。
+- 本轮 checkpoint 识别消息：`feat(web): add Storybook mobile UI previews`。
 
 ## 已运行验证
 
@@ -49,13 +54,18 @@
 - 生产负向验收：弱注册请求返回 400、未知账号登录返回 401、`local-admin` Bearer token 返回 401；未创建测试账号。
 - 发布过程：首次发布因数据库外键排序规则不兼容自动回滚；修正迁移后 release `c358109` 发布成功，本轮 release `72f1076` 又完成密码策略和登录页文案更新，现网使用 `NODE_ENV=production`、`AUTH_DEV_MODE=false`、`AUTH_PASSWORD_ENABLED=true`。
 - 已确认部署产物不再包含旧登录提示或“至少 8 位”文案；一位密码的未知账号请求返回 401 而非长度校验 400。
+- `pnpm --filter @schedule/web storybook:build`：通过；Storybook 10.5.8 预览静态构建成功，仅有工具自身的既有大 chunk 提示。
+- Storybook 本地浏览器：390×844 四屏、320×844 月历均无页面横向溢出；可见操作无小于 44px 的点触目标；完整姓名无裁切；底栏不遮挡最后一个电话操作；筛选/更多底部页、登录/注册、请假/审批和左滑 8 月→9 月均已实际操作；控制台无 warning/error。
+- `pnpm test apps/web/src/stories/ui2/preview-interactions.spec.ts`：通过，4/4；`pnpm --filter @schedule/web typecheck`：通过。
+- `pnpm smoke:browser`：通过，覆盖登录、管理员、成员、访客及访客访问记录；`pnpm smoke:check-core`：通过，本轮未涉及核心链路文件。
+- `pnpm verify`：通过；格式、lint、全仓库构建、类型检查及测试通过，61 个测试文件、451 个测试通过，29 个数据库集成文件因本机没有测试 MySQL 跳过。
 
 ## 下一批次与停止条件
 
 下一批次为：
 
-1. 用户退出并重新登录 `D0796`，人工复核群组是否显示为“林恩宇”、群主权限、群组码刷新、排班管理、人员管理和节假日管理页面；不要把密码发给我；
-2. 用户在微信平台重置已暴露的小程序 AppSecret，再由服务器更新通知配置并复核通知功能；
-3. 如需增加其他管理员，先让对方注册正式账号，再按账号名逐一配置，不复用开发账号。
+1. 用户运行 `pnpm --filter @schedule/web storybook`，复核四个手机屏的视觉方向、月格密度、底栏入口和“值班轨道”详情结构；
+2. 用户确认后，仅实施 UI2-03～UI2-04：扩充 `@schedule/ui-tokens` 语义令牌，以及生产应用框架/响应式导航；本批仍限制为 1–2 个任务；
+3. 原生产待办继续保留：人工复核 `D0796` 的群主/管理员页面，并在微信平台重置已暴露的小程序 AppSecret 后再验收通知功能。
 
-停止条件：本轮已完成正式账号 `D0796` 的管理员配置、API 重建和服务端核验；当前状态为“待用户复核”，需要用户登录确认管理员页面，并在微信平台完成小程序密钥轮换后才能完成通知功能验收。
+停止条件：当前 Storybook 样稿与本地浏览器验收已完成，生产 UI 尚未改动；必须等用户确认视觉、月格密度、底栏和详情轨道后，下一轮才能进入令牌与应用框架实现。

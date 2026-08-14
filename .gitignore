@@ -4,6 +4,7 @@ node_modules/
 
 # Build, test, and tool output
 dist/
+storybook-static/
 coverage/
 playwright-report/
 test-results/
