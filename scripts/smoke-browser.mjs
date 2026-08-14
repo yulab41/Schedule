@@ -231,6 +231,26 @@ async function assertBackfillCalendarColors(page) {
 async function assertGroupManagementAndEventNav(page) {
   await page.locator('.workbench-sidebar button', { hasText: '群组管理' }).first().click();
   await waitForBodyText(page, '加入其他群组', 15000, '加入其他群组');
+  await waitForBodyText(page, '当前群组码：', 15000, '当前群组码');
+  const groupCode = await page.locator('[data-testid="current-group-code"]').innerText();
+  if (!/^当前群组码：\s*\d{4}$/u.test(groupCode.trim())) {
+    fail(`当前群组码展示异常：${groupCode}`);
+  }
+  const initialGroupCode = groupCode.trim();
+  const regenerateButton = page.locator('button', { hasText: '重新生成群组码' }).first();
+  await regenerateButton.click();
+  const updateDeadline = Date.now() + 15000;
+  let updatedGroupCode = initialGroupCode;
+  while (Date.now() < updateDeadline) {
+    updatedGroupCode = (
+      await page.locator('[data-testid="current-group-code"]').innerText()
+    ).trim();
+    if (updatedGroupCode !== initialGroupCode) break;
+    await page.waitForTimeout(250);
+  }
+  if (!/^当前群组码：\s*\d{4}$/u.test(updatedGroupCode.trim())) {
+    fail(`重新生成后的群组码展示异常：${updatedGroupCode}`);
+  }
   const adminEventEntry = page.locator('.workbench-sidebar button', { hasText: '事件' }).first();
   await adminEventEntry.waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();

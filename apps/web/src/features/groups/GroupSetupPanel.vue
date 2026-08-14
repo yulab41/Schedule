@@ -221,8 +221,11 @@ async function regenerateCode(): Promise<void> {
   }
   isRegeneratingCode.value = true;
   try {
-    await api.regenerateGroupCode(props.group.id, {});
-    infoMessage.value = '群组码已更新，旧码立即失效。';
+    const result = await api.regenerateGroupCode(props.group.id, {});
+    infoMessage.value =
+      result.groupCode === undefined
+        ? '群组码已更新，旧码立即失效。'
+        : `群组码已更新：${result.groupCode}，旧码立即失效。`;
     emit('groups-changed', props.group.id);
   } catch (error) {
     errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
@@ -336,6 +339,9 @@ function roleLabel(role: GroupSummary['role']): string {
 
     <t-card v-if="props.group !== undefined" title="当前群组操作" class="group-card">
       <p>当前群组：{{ props.group.name }}（{{ roleLabel(props.group.role) }}）</p>
+      <p v-if="props.group.groupCode !== undefined" class="current-group-code">
+        当前群组码：<strong>{{ props.group.groupCode }}</strong>
+      </p>
       <template v-if="props.group.role === 'owner'">
         <t-form-item label="群组名称" name="groupName">
           <t-input v-model="groupName" maxlength="100" />
@@ -413,6 +419,11 @@ function roleLabel(role: GroupSummary['role']): string {
   margin: 0 0 12px;
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
+}
+
+.current-group-code {
+  margin: 0;
+  color: var(--ui-color-text-secondary);
 }
 
 .dissolved-row {
