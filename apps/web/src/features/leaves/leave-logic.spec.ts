@@ -6,6 +6,8 @@ import {
   formatAffectedAssignment,
   formatLeaveRange,
   getLeaveDayCount,
+  getLeaveRejectionConfirmation,
+  getLeaveStatusTone,
   getLeaveTypeLabel,
   getReflowStrategyLabel,
   summarizeStatisticsDelta,
@@ -141,5 +143,13 @@ describe('leave form logic', () => {
     expect(getLeaveTypeLabel('sick')).toBe('病假');
     expect(getLeaveTypeLabel('training')).toBe('进修');
     expect(getReflowStrategyLabel('shift-forward')).toBe('整体顺延');
+  });
+
+  it('maps leave workflow states to accessible card tones and explicit rejection copy', () => {
+    expect(getLeaveStatusTone('pending')).toBe('warning');
+    expect(getLeaveStatusTone('approved')).toBe('success');
+    expect(getLeaveStatusTone('rejected')).toBe('danger');
+    expect(getLeaveRejectionConfirmation('陈护士')).toBe('确定驳回陈护士的请假申请吗？');
+    expect(getLeaveRejectionConfirmation()).toBe('确定驳回该成员的请假申请吗？');
   });
 });

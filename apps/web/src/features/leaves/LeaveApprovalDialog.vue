@@ -12,9 +12,11 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { isDataConflictError } from '../../api/conflict-handler.js';
 import { localAuth } from '../../auth/local-auth.js';
+import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import {
   formatAffectedAssignment,
   formatLeaveRange,
+  getLeaveRejectionConfirmation,
   getLeaveTypeLabel,
   getReflowStrategyLabel,
   reflowStrategyLabels,
@@ -131,6 +133,9 @@ async function approve(): Promise<void> {
 }
 
 async function reject(): Promise<void> {
+  if (!window.confirm(getLeaveRejectionConfirmation(props.request.memberName))) {
+    return;
+  }
   errorMessage.value = undefined;
   isRejecting.value = true;
   try {
@@ -146,8 +151,11 @@ async function reject(): Promise<void> {
   }
 }
 
-function close(): void {
-  emit('close');
+function onVisibilityChange(nextVisible: boolean): void {
+  visible.value = nextVisible;
+  if (!nextVisible) {
+    emit('close');
+  }
 }
 
 function navigate(tab: 'duty' | 'manual' | 'swap'): void {
@@ -157,14 +165,10 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
 </script>
 
 <template>
-  <t-dialog
-    v-model:visible="visible"
-    :cancel-btn="{ content: '关闭' }"
-    :confirm-btn="null"
-    :header="`请假审批：${request.memberName ?? '成员'}`"
-    width="720px"
-    @cancel="close"
-    @close="close"
+  <ResponsiveSheet
+    :visible="visible"
+    :title="`请假审批 · ${request.memberName ?? '成员'}`"
+    @update:visible="onVisibilityChange"
   >
     <div
       class="approval-dialog"
@@ -288,136 +292,188 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
         </template>
       </template>
     </div>
-  </t-dialog>
+  </ResponsiveSheet>
 </template>
 
 <style scoped>
 .approval-dialog {
   display: grid;
-  gap: 14px;
+  gap: var(--ui-spacing-md);
+  padding-bottom: var(--ui-spacing-xxs);
 }
 
 .request-summary {
   display: grid;
-  gap: 8px;
+  gap: var(--ui-spacing-sm);
   margin: 0;
-  padding: 12px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
 }
 
 .request-summary div {
   display: grid;
-  grid-template-columns: 80px 1fr;
-  gap: 8px;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--ui-spacing-sm);
 }
 
 .request-summary dt {
-  color: #6b7280;
-  font-size: 13px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
 }
 
 .request-summary dd {
   margin: 0;
-  color: #1f2937;
-  font-size: 13px;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+  overflow-wrap: anywhere;
 }
 
 .strategy-field {
   display: grid;
-  gap: 4px;
-  color: #374151;
-  font-size: 14px;
+  gap: var(--ui-spacing-xxs);
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.strategy-field :deep(.t-input),
+.strategy-field :deep(.t-select) {
+  min-height: var(--ui-touch-target-minimum);
 }
 
 .strategy-hint {
   margin: 0;
-  color: #6b7280;
-  font-size: 13px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
 }
 
 .affected-count {
   margin: 0;
-  padding: 10px 12px;
-  color: #1f2937;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 12px 14px;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .affected-shift-list {
   display: grid;
-  gap: 4px;
+  gap: var(--ui-spacing-xs);
   margin: 0;
-  padding: 10px 12px 10px 28px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 12px 12px 12px 30px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
 }
 
 .unpublished-warning {
   margin: 0;
-  padding: 10px 12px;
-  color: #92400e;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 12px 14px;
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
 }
 
 .navigate-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--ui-spacing-xs);
+}
+
+.navigate-row :deep(.t-button),
+.approval-actions :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
 }
 
 .statistics-delta {
   margin: 0;
-  padding: 10px 12px;
-  color: #111827;
-  font-size: 14px;
-  font-weight: 600;
-  background: #eff6ff;
-  border-radius: 6px;
+  padding: 12px 14px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .affected-list {
   display: grid;
-  gap: 6px;
+  gap: var(--ui-spacing-xs);
   margin: 0;
-  padding: 12px 12px 12px 28px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 12px 12px 12px 30px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
 }
 
 .no-impact {
   margin: 0;
-  padding: 12px;
-  color: #6b7280;
-  font-size: 13px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  padding: var(--ui-spacing-md);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
 }
 
 .acknowledge-field {
-  display: inline-flex;
-  gap: 6px;
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 10px 12px;
   align-items: center;
-  color: #92400e;
-  font-size: 13px;
+  gap: var(--ui-spacing-xs);
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.45;
+}
+
+.acknowledge-field input {
+  width: 20px;
+  height: 20px;
+  flex: none;
 }
 
 .approval-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--ui-spacing-sm);
+  padding-top: var(--ui-spacing-xs);
+}
+
+.approval-actions :deep(.t-button) {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .request-summary {
+    padding: var(--ui-spacing-sm);
+  }
+
+  .request-summary div {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .navigate-row :deep(.t-button) {
+    min-width: calc(50% - 4px);
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 340px) {
+  .approval-actions {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

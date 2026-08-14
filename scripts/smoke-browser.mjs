@@ -262,6 +262,98 @@ async function assertManualScheduleDefaultStartDate(page) {
   }
 }
 
+async function assertLeaveWorkflowMobile(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '请假' }).first().click();
+  await waitForBodyText(page, '请假与审批', 15000, '请假与审批');
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    await page.locator('.mobile-workflow-tabs button', { hasText: '我的请假' }).click();
+    const metrics = await page.evaluate(() => {
+      const tabs = [...document.querySelectorAll('.mobile-workflow-tabs button')];
+      const createButton = document.querySelector('#leave-create-button');
+      const visibleSections = [...document.querySelectorAll('.workflow-section')].filter(
+        (element) => getComputedStyle(element).display !== 'none',
+      );
+      const controls = [...tabs, ...(createButton === null ? [] : [createButton])];
+      return {
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallControls: controls
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((element) => element.textContent?.trim() ?? ''),
+        tabCount: tabs.length,
+        visibleSectionCount: visibleSections.length,
+      };
+    });
+
+    if (metrics.overflow) fail(`${width}px 请假工作流出现页面横向溢出。`);
+    if (metrics.tabCount !== 2) fail(`${width}px 请假页未显示“我的请假 / 待我审批”分段入口。`);
+    if (metrics.visibleSectionCount !== 1) fail(`${width}px 请假页应只显示当前分段的卡片列表。`);
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 请假页存在小于 44px 的关键点触目标：${metrics.smallControls.join('、')}`);
+    }
+
+    await page.locator('.mobile-workflow-tabs button', { hasText: '待我审批' }).click();
+    const visibleReviewSections = await page
+      .locator('.mobile-review-content:not(.mobile-tab-hidden)')
+      .count();
+    if (visibleReviewSections < 2) fail(`${width}px 待审批分段未显示策略与审批卡片。`);
+
+    await page.locator('#leave-create-button').click();
+    const formSheet = page.locator('dialog[open][aria-label="新建请假"]');
+    await formSheet.waitFor({ state: 'visible', timeout: 5000 });
+    const sheetText = await formSheet.innerText();
+    if (!sheetText.includes('请假类型') || !sheetText.includes('提交请假')) {
+      fail(`${width}px 新建请假底部页缺少表单内容。`);
+    }
+    const sheetMetrics = await formSheet.evaluate((element) => {
+      const controls = [
+        ...element.querySelectorAll(
+          'button, input:not(.t-input__inner), textarea, .t-input, .t-select',
+        ),
+      ].filter((control) => {
+        const rect = control.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      return {
+        dateInputs: element.querySelectorAll('input[type="date"]').length,
+        smallControls: controls
+          .filter((control) => {
+            const rect = control.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map(
+            (control) =>
+              control.textContent?.trim() || control.getAttribute('aria-label') || control.tagName,
+          ),
+      };
+    });
+    if (sheetMetrics.dateInputs !== 2) fail(`${width}px 新建请假底部页缺少起止日期。`);
+    if (sheetMetrics.smallControls.length > 0) {
+      fail(
+        `${width}px 新建请假底部页存在小于 44px 的控件：${sheetMetrics.smallControls.join('、')}`,
+      );
+    }
+
+    if (width === 390) {
+      await page.screenshot({
+        fullPage: true,
+        path: path.join(SCREENSHOT_DIR, '3-admin-mobile-leave-sheet.png'),
+      });
+    }
+    await formSheet.locator('button[aria-label="关闭"]').click();
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
+  await waitForBodyText(page, '排班日历', 10000);
+}
+
 async function assertWeekendCalendarHighlight(page) {
   const weekdayHeader = page.locator('.weekday-row span.is-weekend').first();
   await weekdayHeader.waitFor({ state: 'visible', timeout: 15000 });
@@ -540,6 +632,7 @@ async function runSmoke() {
     await assertResponsiveWorkbenchShell(page);
     await assertWeekendCalendarHighlight(page);
     await assertMonthCalendarInteractions(page);
+    await assertLeaveWorkflowMobile(page);
     await assertManualScheduleDefaultStartDate(page);
     await assertBackfillCalendarColors(page);
     await assertGroupManagementAndEventNav(page);

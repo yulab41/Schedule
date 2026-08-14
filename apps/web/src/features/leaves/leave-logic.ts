@@ -38,6 +38,8 @@ export interface LeaveFormInterval {
   readonly startsAt: string;
 }
 
+export type LeaveStatusTone = 'danger' | 'success' | 'warning';
+
 export function buildLeaveFormInterval(input: {
   readonly allDay?: boolean;
   readonly endDate: string;
@@ -123,6 +125,21 @@ export function getLeaveTypeLabel(leaveType: LeaveRequestType): string {
 
 export function getLeaveStatusLabel(status: LeaveRequestStatus): string {
   return leaveStatusLabels[status];
+}
+
+export function getLeaveStatusTone(status: LeaveRequestStatus): LeaveStatusTone {
+  switch (status) {
+    case 'approved':
+      return 'success';
+    case 'rejected':
+      return 'danger';
+    case 'pending':
+      return 'warning';
+  }
+}
+
+export function getLeaveRejectionConfirmation(memberName?: string): string {
+  return `确定驳回${memberName ?? '该成员'}的请假申请吗？`;
 }
 
 export function getReflowStrategyLabel(strategy: LeaveReflowStrategy): string {
