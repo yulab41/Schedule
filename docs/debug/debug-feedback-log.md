@@ -153,3 +153,13 @@
 - 本地浏览器验证：实际以 390×844 打开缺失访客链接、群组管理和排班配置；状态卡宽 358px、页面无横向溢出，群组码四位完整且控件均达 44px，准备轨道为三步、班种编辑为两列。最终复位临时视口并关闭验收标签页。
 - 运行验证：Web typecheck、Storybook build、`pnpm smoke:browser`、`pnpm verify` 和 `git diff --check` 通过；全仓库 69 个测试文件、482 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。smoke 曾因 5173 旧 Vite 进程提供旧访客组件而等待旧文案超时；确认进程属于本仓库后只重启前端预览，API 和数据未改，当前源码复跑通过。
 - 状态：UI2-13/14 已完成，checkpoint 识别消息为 `feat(web): polish group config and guest states`；下一批次只做最终全局焦点、减少动态、安全区和跨视口收尾审计。
+
+## 2026-08-15 Web UI 2.0 最终全局收尾审计
+
+- 回归来源：全局 `body`、`#app` 和 `.app-layout` 的 `100vh` 由 `e38cdba` 引入，访客页全屏高度由 `7c783c7` 引入；`ResponsiveSheet` 的原生 dialog 打开/关闭与隐式焦点行为由 `5b00fa7` 引入。以上调用点已执行 `git log -S` 与 `git blame`。
+- 测试先行：`global-ui-shell.spec.ts` 的动态视口用例在旧实现上先失败，证明全屏容器缺少 `100dvh`；扩展后的 `pnpm smoke:browser` 首次在 390px “更多”Sheet 首尾 Tab 循环处失败，随后新增组件级焦点锁定/回焦断言并在旧实现上再次失败。修复后定向 4/4 与完整浏览器冒烟均通过。
+- 行为与语义审计：`100dvh` 仅在 `100vh` 后覆盖，不支持动态视口的浏览器继续使用回退；没有改变布局分支、数据加载或副作用。`ResponsiveSheet` 保持原 `visible` watch、`showModal`/`close`、`update:visible`、cancel/backdrop 和 slot 语义，新行为仅为记录触发器、聚焦首项、首尾 Tab 循环及关闭后回焦；打开/关闭事件与业务处理函数调用次数不变。未修改 API、契约、权限或数据库。
+- 运行/浏览器验证：`pnpm smoke:browser` 已通过；覆盖登录、管理员、成员、访客、vkey 和访问记录，并在 1280×900、390×844、320×844 验证无页面横向溢出、桌面/手机导航切换、底栏避让、44px 点触、2px 可见键盘焦点、Sheet 双向焦点锁定与回焦、`prefers-reduced-motion` 动画时长和关闭入场动画。最终截图目录为 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-aVpdbz`。
+- 本地可视化复核：Storybook 390/320px 节假日月历为完整七列，姓名无背景/无裁切，周末、节假日、加换、调休和多日节假日状态色均与确认规则一致；生产工作台在 1280/390/320px 无横向溢出，320px 内容底部预留 94px。实际键盘操作确认 Sheet 正向循环到“完成”、反向循环到“退出登录”，关闭后回到“更多”。Storybook 验收页继续由 `http://127.0.0.1:6006` 提供。
+- 运行验证：`pnpm exec vitest run apps/web/src/pwa/global-ui-shell.spec.ts` 4/4、Web typecheck、Storybook build、`pnpm smoke:browser`、`pnpm verify` 和 `git diff --check` 通过；全仓库 70 个测试文件、486 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。checkpoint 识别消息为 `feat(web): complete UI 2.0 global audit`。
+- 完成审计：UI2-01–14 与本轮已覆盖 Storybook 预览、设计令牌/应用框架、月历与手势、值班详情、工作流卡片/Sheet、矩阵/统计、群组/配置/访客/应用状态和全局无障碍/视口规则；所有原计划代码接口已落地，未发现剩余 Web UI 2.0 实现缺口。状态转为待用户整体验收。

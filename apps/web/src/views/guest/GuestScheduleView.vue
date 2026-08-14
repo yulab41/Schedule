@@ -193,6 +193,7 @@ async function changeMonth(delta: number): Promise<void> {
 <style scoped>
 .guest-schedule-page {
   min-height: 100vh;
+  min-height: 100dvh;
   color: var(--ui-color-text-primary);
   background: var(--ui-color-background);
 }

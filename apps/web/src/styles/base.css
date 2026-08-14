@@ -18,6 +18,7 @@
 body {
   min-width: 320px;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   overflow-x: hidden;
 }
@@ -48,6 +49,7 @@ textarea {
 
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .t-alert {
@@ -76,6 +78,7 @@ textarea {
 
 .app-layout {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--ui-color-background);
 }
 
@@ -217,6 +220,7 @@ textarea {
 .state-panel {
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: var(--ui-spacing-xl);
   place-items: center;
 }
@@ -239,6 +243,7 @@ textarea {
 
 .state-panel {
   min-height: calc(100vh - 104px);
+  min-height: calc(100dvh - 104px);
 }
 
 .profile-panel p {

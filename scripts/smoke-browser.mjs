@@ -161,6 +161,82 @@ async function assertTDesignTheme(page) {
   }
 }
 
+async function assertKeyboardFocusVisible(page, locator, label) {
+  const target = locator.first();
+  await target.waitFor({ state: 'visible', timeout: 5000 });
+  await target.scrollIntoViewIfNeeded();
+  await target.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  const result = await target.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      active: document.activeElement === element,
+      focusVisible: element.matches(':focus-visible'),
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+    };
+  });
+
+  if (!result.active || !result.focusVisible) {
+    fail(`${label} 无法通过键盘获得可见焦点。`);
+  }
+  if (result.outlineStyle === 'none' || result.outlineWidth < 2) {
+    fail(`${label} 的键盘焦点描边小于 2px 或不可见。`);
+  }
+}
+
+async function assertReducedMotion(page, label) {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(50);
+  const result = await page.evaluate(() => {
+    function maxDuration(value) {
+      return Math.max(
+        0,
+        ...value.split(',').map((part) => {
+          const duration = part.trim();
+          if (duration.endsWith('ms')) return Number.parseFloat(duration);
+          if (duration.endsWith('s')) return Number.parseFloat(duration) * 1000;
+          return 0;
+        }),
+      );
+    }
+
+    const motion = [...document.querySelectorAll('*')]
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      })
+      .map((element) => {
+        const style = getComputedStyle(element);
+        return {
+          animation: maxDuration(style.animationDuration),
+          label:
+            element.getAttribute('aria-label') ??
+            element.textContent?.trim().slice(0, 24) ??
+            element.tagName,
+          transition: maxDuration(style.transitionDuration),
+        };
+      })
+      .filter((item) => item.animation > 0.011 || item.transition > 0.011)
+      .slice(0, 5);
+
+    return {
+      mediaMatches: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      motion,
+      scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
+    };
+  });
+
+  if (!result.mediaMatches) fail(`${label} 未响应系统“减少动态效果”偏好。`);
+  if (result.scrollBehavior !== 'auto') {
+    fail(`${label} 在减少动态模式下仍保留平滑滚动。`);
+  }
+  if (result.motion.length > 0) {
+    fail(`${label} 在减少动态模式下仍存在长动画：${JSON.stringify(result.motion)}`);
+  }
+}
+
 async function assertResponsiveLoginShell(page) {
   for (const { height, width } of [
     { height: 900, width: 1280 },
@@ -191,9 +267,31 @@ async function assertResponsiveLoginShell(page) {
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });
+  await assertKeyboardFocusVisible(
+    page,
+    page.locator('.auth-mode-switch button').first(),
+    '登录方式切换',
+  );
+  await assertReducedMotion(page, '登录页');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
 }
 
 async function assertResponsiveWorkbenchShell(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.waitForTimeout(150);
+  const desktopResult = await page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth > window.innerWidth,
+    sidebarVisible:
+      (document.querySelector('.workbench-sidebar')?.getBoundingClientRect().width ?? 0) > 0,
+  }));
+  if (desktopResult.overflow) fail('1280px 工作台出现横向溢出。');
+  if (!desktopResult.sidebarVisible) fail('1280px 工作台未显示桌面侧栏。');
+  await assertKeyboardFocusVisible(
+    page,
+    page.locator('.workbench-sidebar button').first(),
+    '桌面工作台导航',
+  );
+
   for (const width of [390, 320]) {
     await page.setViewportSize({ height: 844, width });
     await page.waitForTimeout(200);
@@ -230,7 +328,10 @@ async function assertResponsiveWorkbenchShell(page) {
       fail(`${width}px 工作台内容没有为固定底栏预留空间。`);
     }
 
-    await page.locator('.workbench-bottom-nav button', { hasText: '更多' }).click();
+    const moreButton = page.locator('.workbench-bottom-nav button', { hasText: '更多' });
+    await assertKeyboardFocusVisible(page, moreButton, `${width}px 手机底栏“更多”`);
+    if (width === 390) await assertReducedMotion(page, '390px 工作台');
+    await moreButton.click();
     const sheet = page.locator('dialog[open][aria-label="更多功能"]');
     await sheet.waitFor({ state: 'visible', timeout: 5000 });
     const sheetText = await sheet.innerText();
@@ -238,7 +339,34 @@ async function assertResponsiveWorkbenchShell(page) {
       fail(`${width}px “更多”底部页缺少功能或账号分组。`);
     }
     if (!sheetText.includes('退出登录')) fail(`${width}px 退出登录未放入账号分组。`);
+
+    const focusableButtons = sheet.locator('button:not([disabled])');
+    const focusableCount = await focusableButtons.count();
+    if (focusableCount < 2) fail(`${width}px “更多”底部页缺少可验证的键盘操作项。`);
+    await focusableButtons.last().focus();
+    await page.keyboard.press('Tab');
+    const forwardFocusTrapped = await sheet.evaluate((dialog) =>
+      dialog.contains(document.activeElement),
+    );
+    await focusableButtons.first().focus();
+    await page.keyboard.press('Shift+Tab');
+    const backwardFocusTrapped = await sheet.evaluate((dialog) =>
+      dialog.contains(document.activeElement),
+    );
+    if (!forwardFocusTrapped || !backwardFocusTrapped) {
+      fail(`${width}px “更多”底部页未锁定键盘焦点。`);
+    }
+    if (width === 390) {
+      const animationName = await sheet.evaluate(
+        (dialog) => getComputedStyle(dialog).animationName,
+      );
+      if (animationName !== 'none') fail('390px “更多”底部页未在减少动态模式下关闭入场动画。');
+    }
     await sheet.locator('button[aria-label="关闭"]').click();
+    await sheet.waitFor({ state: 'hidden', timeout: 5000 });
+    const focusRestored = await moreButton.evaluate((button) => document.activeElement === button);
+    if (!focusRestored) fail(`${width}px “更多”底部页关闭后未把焦点还给触发按钮。`);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });

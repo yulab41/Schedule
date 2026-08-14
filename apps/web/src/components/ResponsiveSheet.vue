@@ -10,7 +10,52 @@ const emit = defineEmits<{
   'update:visible': [visible: boolean];
 }>();
 
+const focusableSelector = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
 const dialog = ref<HTMLDialogElement | null>(null);
+const previouslyFocused = ref<HTMLElement | null>(null);
+
+function getFocusableElements(element: HTMLDialogElement): readonly HTMLElement[] {
+  return [...element.querySelectorAll<HTMLElement>(focusableSelector)].filter(
+    (candidate) => candidate.getClientRects().length > 0,
+  );
+}
+
+function restoreFocus(): void {
+  const target = previouslyFocused.value;
+  previouslyFocused.value = null;
+  if (target?.isConnected === true) target.focus();
+}
+
+function trapFocus(event: KeyboardEvent): void {
+  if (event.key !== 'Tab') return;
+  const element = dialog.value;
+  if (element === null) return;
+
+  const focusableElements = getFocusableElements(element);
+  const first = focusableElements[0];
+  const last = focusableElements.at(-1);
+  if (first === undefined || last === undefined) {
+    event.preventDefault();
+    element.focus();
+    return;
+  }
+
+  const activeElement = document.activeElement;
+  if (event.shiftKey && (activeElement === first || !element.contains(activeElement))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (activeElement === last || !element.contains(activeElement))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
 
 async function syncVisibility(visible: boolean): Promise<void> {
   await nextTick();
@@ -18,7 +63,10 @@ async function syncVisibility(visible: boolean): Promise<void> {
   if (element === null) return;
 
   if (visible && !element.open) {
+    previouslyFocused.value =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     element.showModal();
+    getFocusableElements(element)[0]?.focus();
   } else if (!visible && element.open) {
     element.close();
   }
@@ -33,6 +81,7 @@ function closeFromBackdrop(event: MouseEvent): void {
 }
 
 function onDialogClose(): void {
+  restoreFocus();
   if (props.visible) emit('update:visible', false);
 }
 
@@ -45,6 +94,7 @@ onMounted(() => void syncVisibility(props.visible));
 
 onBeforeUnmount(() => {
   if (dialog.value?.open === true) dialog.value.close();
+  restoreFocus();
 });
 </script>
 
@@ -53,9 +103,11 @@ onBeforeUnmount(() => {
     ref="dialog"
     class="responsive-sheet"
     :aria-label="title"
+    tabindex="-1"
     @cancel.prevent="close"
     @click="closeFromBackdrop"
     @close="onDialogClose"
+    @keydown="trapFocus"
   >
     <section class="responsive-sheet-panel">
       <div class="sheet-handle" aria-hidden="true" />
