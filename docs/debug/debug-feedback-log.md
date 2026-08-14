@@ -8,4 +8,5 @@
 - 运行/浏览器验证：pnpm smoke:browser 已通过，覆盖开发管理员、开发成员、访客排班和访客访问记录流程；正式账号注册/登录需在新 release 部署后人工验收。
 - 运行/浏览器验证：pnpm smoke:check-core 在补充本记录前因缺少本轮记录失败，补充后需重新运行并通过。
 - 运行验证：pnpm verify 已通过；59 个测试文件通过，29 个数据库集成文件因本机没有测试 MySQL 跳过。
-- 状态：本地代码 checkpoint 已提交为 `de3ad5f`，待推送、release 部署和用户复核。
+- 发布诊断：服务器数据库的既有 `users.id` 为 `utf8mb4_0900_ai_ci`，新增认证表迁移使用 `utf8mb4_unicode_ci`，MySQL 报告外键列不兼容；已将迁移 0035/0036 统一为既有排序规则。首次发布已自动回滚，现网旧 release 健康，待修正 release 重试。
+- 状态：账号密码代码 checkpoint 已提交为 `de3ad5f`；迁移修正待提交、推送、release 部署和用户复核。

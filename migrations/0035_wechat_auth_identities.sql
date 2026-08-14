@@ -12,4 +12,4 @@ CREATE TABLE `user_auth_identities` (
   KEY `user_auth_identities_user_idx` (`user_id`),
   CONSTRAINT `user_auth_identities_user_id_fk`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
