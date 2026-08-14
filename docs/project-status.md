@@ -16,7 +16,7 @@
 - 群组页面展示修复已完成并上线：工作台和群组管理页会明确显示当前群组、角色和四位群组码，重新生成群组码后会刷新并显示新码。
 - 小程序 AppSecret 仍按“已暴露”处理，尚未通过聊天内容写入服务器；需要用户在微信平台重置后再更新服务器通知配置。现有服务器会话密钥已存在，网站 AppID/AppSecret 不再是阻塞项。
 - 用户已明确放弃 Figma 预览，改用 Storybook + 本地浏览器验收。Web UI 2.0 当前只新增独立预览和工具链，没有改动生产页面、业务逻辑、权限、API 或数据结构。
-- Web UI 2.0 当前状态为“待用户复核”：Storybook 已提供登录、工作台/月历、选中日期详情、请假与审批四个 390×844 关键屏，并完成 390px/320px 浏览器点验。
+- Web UI 2.0 当前状态为“待用户复核”：用户已确认整体视觉风格；Storybook 现提供四个关键屏及一个真实 2026 年国庆/调休状态 Story，月历标识精修已完成 390px/320px 浏览器点验。
 
 ## 本轮已完成
 
@@ -36,6 +36,8 @@
 - Web UI 2.0 Task UI2-01：安装并隔离 Storybook 10.5.8（Vue 3 + Vite），加入 Docs/A11y、390/320/1280 视口、构建脚本和本地产物忽略规则；预览构建不会再改写生产 `components.d.ts`。
 - Web UI 2.0 Task UI2-02：完成四个 Apple Health 式手机预览、密集七列月历、完整姓名与换/加标识、56px 横滑判定、44px 点触目标、底部导航、响应式底部页及蓝色“值班轨道”。测试先行的红灯为缺少 `preview-interactions.js`，实现后 4 项横滑判定通过。
 - 本轮 checkpoint 识别消息：`feat(web): add Storybook mobile UI previews`。
+- Web UI 2.0 Task UI2-02 反馈精修：姓名取消背景填充；节假日、调休“班”、加/换标识分别复用现有 Web 红/蓝/黄徽标配色；星期六/日表头改为周末红；连续多日节假日单元格使用浅粉背景。新增真实 2026 年 10 月 1–7 日国庆及 10 月 10 日调休 Story，不伪造 8 月节日数据。
+- 视觉行为来源已定位到 `b903c6d`，并通过 `git log -S`/`git blame` 确认原姓名背景、节假日文字和蓝色事件标识均由该 Storybook checkpoint 引入。本轮 checkpoint 识别消息：`fix(web): refine Storybook calendar states`。
 
 ## 已运行验证
 
@@ -59,13 +61,16 @@
 - `pnpm test apps/web/src/stories/ui2/preview-interactions.spec.ts`：通过，4/4；`pnpm --filter @schedule/web typecheck`：通过。
 - `pnpm smoke:browser`：通过，覆盖登录、管理员、成员、访客及访客访问记录；`pnpm smoke:check-core`：通过，本轮未涉及核心链路文件。
 - `pnpm verify`：通过；格式、lint、全仓库构建、类型检查及测试通过，61 个测试文件、451 个测试通过，29 个数据库集成文件因本机没有测试 MySQL 跳过。
+- 月历视觉反馈测试先因缺少 `preview-calendar.js` 失败；实现后周末列、多日节假日、单日标识和调休工作日 4 项判定通过，连同横滑测试共 8/8 通过。
+- Storybook 反馈复核：390×844/320×844 下姓名和标识均无裁切、无横向溢出、可见操作不小于 44px；计算样式确认姓名透明背景，红/蓝/黄徽标与现有 Web 一致，国庆连续 7 个单元格均为 `rgb(255, 245, 245)`，星期六/日为周末红；稳定页面控制台无 warning/error。
+- 反馈轮次 `pnpm --filter @schedule/web storybook:build`、Web typecheck、`pnpm smoke:browser`、`pnpm smoke:check-core` 和 `pnpm verify` 均通过；全仓库为 62 个测试文件、455 个测试通过，29 个数据库集成文件因本机没有测试 MySQL 跳过。
 
 ## 下一批次与停止条件
 
 下一批次为：
 
-1. 用户运行 `pnpm --filter @schedule/web storybook`，复核四个手机屏的视觉方向、月格密度、底栏入口和“值班轨道”详情结构；
+1. 用户在 Storybook 复核“工作台/月历”与“多日节假日状态”，确认本轮姓名、节假日/调休/加换标识、周末表头及连续节假日背景；同时确认月格密度、底栏入口和“值班轨道”详情结构；
 2. 用户确认后，仅实施 UI2-03～UI2-04：扩充 `@schedule/ui-tokens` 语义令牌，以及生产应用框架/响应式导航；本批仍限制为 1–2 个任务；
 3. 原生产待办继续保留：人工复核 `D0796` 的群主/管理员页面，并在微信平台重置已暴露的小程序 AppSecret 后再验收通知功能。
 
-停止条件：当前 Storybook 样稿与本地浏览器验收已完成，生产 UI 尚未改动；必须等用户确认视觉、月格密度、底栏和详情轨道后，下一轮才能进入令牌与应用框架实现。
+停止条件：当前 Storybook 月历反馈与本地浏览器验收已完成，生产 UI 尚未改动；必须等用户确认本轮月历状态、月格密度、底栏和详情轨道后，下一轮才能进入令牌与应用框架实现。

@@ -1,26 +1,33 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
+import {
+  isWeekendColumn,
+  shouldTintHolidayCell,
+  type PreviewCalendarHoliday,
+} from './preview-calendar.js';
 import { getSwipeMonthIntent } from './preview-interactions.js';
 import Ui2Icon from './Ui2Icon.vue';
+
+export type Ui2CalendarScenario = 'august' | 'october-holiday';
 
 interface CalendarCell {
   readonly day: number;
   readonly dimmed?: boolean;
-  readonly holiday?: string;
+  readonly holiday?: PreviewCalendarHoliday;
   readonly today?: boolean;
   readonly duties?: readonly {
     readonly event?: 'add' | 'swap';
     readonly name: string;
-    readonly tone?: 'blue' | 'green' | 'orange';
   }[];
 }
 
 const props = withDefaults(
   defineProps<{
+    readonly scenario?: Ui2CalendarScenario;
     readonly selectedDay?: number;
   }>(),
-  { selectedDay: 14 },
+  { scenario: 'august', selectedDay: 14 },
 );
 
 const emit = defineEmits<{
@@ -32,55 +39,68 @@ const monthOffset = ref(0);
 const pointerStart = ref<{ x: number; y: number } | null>(null);
 
 const monthLabel = computed(() => {
+  if (props.scenario === 'october-holiday') {
+    if (monthOffset.value < 0) return '2026 年 9 月';
+    if (monthOffset.value > 0) return '2026 年 11 月';
+    return '2026 年 10 月';
+  }
+
   if (monthOffset.value < 0) return '2026 年 7 月';
   if (monthOffset.value > 0) return '2026 年 9 月';
   return '2026 年 8 月';
 });
 
-const cells: readonly CalendarCell[] = [
+const baseMonth = computed(() => (props.scenario === 'october-holiday' ? '10 月' : '8 月'));
+
+const augustCells: readonly CalendarCell[] = [
   { day: 27, dimmed: true },
   { day: 28, dimmed: true },
   { day: 29, dimmed: true },
   { day: 30, dimmed: true },
   { day: 31, dimmed: true },
-  { day: 1, duties: [{ name: '林恩宇', tone: 'blue' }] },
-  { day: 2, duties: [{ name: '陈护士', tone: 'green' }] },
-  { day: 3, duties: [{ name: '王医生', tone: 'orange' }] },
+  { day: 1, duties: [{ name: '林恩宇' }] },
+  { day: 2, duties: [{ name: '陈护士' }] },
+  { day: 3, duties: [{ name: '王医生' }] },
   { day: 4 },
-  { day: 5, duties: [{ event: 'add', name: '周医生', tone: 'blue' }] },
-  { day: 6, duties: [{ name: '林恩宇', tone: 'green' }] },
-  { day: 7, holiday: '立秋', duties: [{ name: '陈护士', tone: 'orange' }] },
-  { day: 8, duties: [{ event: 'swap', name: '王医生', tone: 'blue' }] },
+  { day: 5, duties: [{ event: 'add', name: '周医生' }] },
+  { day: 6, duties: [{ name: '林恩宇' }] },
+  {
+    day: 7,
+    holiday: { kind: 'observance', label: '立秋', spanDays: 1 },
+    duties: [{ name: '陈护士' }],
+  },
+  { day: 8, duties: [{ event: 'swap', name: '王医生' }] },
   { day: 9 },
-  { day: 10, duties: [{ name: '周医生', tone: 'green' }] },
-  { day: 11, duties: [{ name: '林恩宇', tone: 'blue' }] },
+  { day: 10, duties: [{ name: '周医生' }] },
+  { day: 11, duties: [{ name: '林恩宇' }] },
   { day: 12 },
-  { day: 13, duties: [{ name: '陈护士', tone: 'orange' }] },
+  { day: 13, duties: [{ name: '陈护士' }] },
   {
     day: 14,
     today: true,
-    duties: [
-      { name: '林恩宇', tone: 'blue' },
-      { event: 'swap', name: '陈护士', tone: 'green' },
-    ],
+    duties: [{ name: '林恩宇' }, { event: 'swap', name: '陈护士' }],
   },
-  { day: 15, duties: [{ name: '王医生', tone: 'orange' }] },
+  { day: 15, duties: [{ name: '王医生' }] },
   { day: 16 },
-  { day: 17, duties: [{ event: 'add', name: '周医生', tone: 'blue' }] },
-  { day: 18, duties: [{ name: '林恩宇', tone: 'green' }] },
+  { day: 17, duties: [{ event: 'add', name: '周医生' }] },
+  { day: 18, duties: [{ name: '林恩宇' }] },
   { day: 19 },
-  { day: 20, duties: [{ name: '陈护士', tone: 'orange' }] },
-  { day: 21, duties: [{ name: '王医生', tone: 'blue' }] },
+  { day: 20, duties: [{ name: '陈护士' }] },
+  { day: 21, duties: [{ name: '王医生' }] },
   { day: 22 },
-  { day: 23, holiday: '处暑', duties: [{ name: '周医生', tone: 'green' }] },
-  { day: 24, duties: [{ name: '林恩宇', tone: 'blue' }] },
+  {
+    day: 23,
+    holiday: { kind: 'observance', label: '处暑', spanDays: 1 },
+    duties: [{ name: '周医生' }],
+  },
+  { day: 24, duties: [{ name: '林恩宇' }] },
   { day: 25 },
-  { day: 26, duties: [{ event: 'swap', name: '陈护士', tone: 'orange' }] },
-  { day: 27, duties: [{ name: '王医生', tone: 'green' }] },
+  { day: 26, duties: [{ event: 'swap', name: '陈护士' }] },
+  { day: 27, duties: [{ name: '王医生' }] },
   { day: 28 },
-  { day: 29, duties: [{ name: '周医生', tone: 'blue' }] },
+  { day: 29, duties: [{ name: '周医生' }] },
   { day: 30 },
-  { day: 31, duties: [{ name: '林恩宇', tone: 'green' }] },
+  { day: 31, duties: [{ name: '林恩宇' }] },
   { day: 1, dimmed: true },
   { day: 2, dimmed: true },
   { day: 3, dimmed: true },
@@ -88,6 +108,65 @@ const cells: readonly CalendarCell[] = [
   { day: 5, dimmed: true },
   { day: 6, dimmed: true },
 ];
+
+const nationalDayHoliday: PreviewCalendarHoliday = {
+  kind: 'off-day',
+  label: '国庆',
+  spanDays: 7,
+};
+
+const octoberHolidayCells: readonly CalendarCell[] = [
+  { day: 28, dimmed: true },
+  { day: 29, dimmed: true },
+  { day: 30, dimmed: true },
+  { day: 1, duties: [{ name: '林恩宇' }], holiday: nationalDayHoliday },
+  { day: 2, duties: [{ name: '陈护士' }], holiday: nationalDayHoliday },
+  { day: 3, duties: [{ name: '王医生' }], holiday: nationalDayHoliday },
+  { day: 4, holiday: nationalDayHoliday },
+  { day: 5, duties: [{ event: 'add', name: '周医生' }], holiday: nationalDayHoliday },
+  { day: 6, duties: [{ name: '林恩宇' }], holiday: nationalDayHoliday },
+  { day: 7, duties: [{ name: '陈护士' }], holiday: nationalDayHoliday },
+  { day: 8, duties: [{ event: 'swap', name: '王医生' }] },
+  { day: 9 },
+  {
+    day: 10,
+    duties: [{ name: '周医生' }],
+    holiday: { kind: 'workday', label: '班', spanDays: 1 },
+  },
+  { day: 11, duties: [{ name: '林恩宇' }] },
+  { day: 12 },
+  { day: 13, duties: [{ name: '陈护士' }] },
+  { day: 14, duties: [{ name: '林恩宇' }, { event: 'swap', name: '陈护士' }] },
+  { day: 15, duties: [{ name: '王医生' }] },
+  { day: 16 },
+  { day: 17, duties: [{ event: 'add', name: '周医生' }] },
+  { day: 18, duties: [{ name: '林恩宇' }] },
+  { day: 19 },
+  { day: 20, duties: [{ name: '陈护士' }] },
+  { day: 21, duties: [{ name: '王医生' }] },
+  { day: 22 },
+  { day: 23, duties: [{ name: '周医生' }] },
+  { day: 24, duties: [{ name: '林恩宇' }] },
+  { day: 25 },
+  { day: 26, duties: [{ event: 'swap', name: '陈护士' }] },
+  { day: 27, duties: [{ name: '王医生' }] },
+  { day: 28 },
+  { day: 29, duties: [{ name: '周医生' }] },
+  { day: 30 },
+  { day: 31, duties: [{ name: '林恩宇' }] },
+  { day: 1, dimmed: true },
+  { day: 2, dimmed: true },
+  { day: 3, dimmed: true },
+  { day: 4, dimmed: true },
+  { day: 5, dimmed: true },
+  { day: 6, dimmed: true },
+  { day: 7, dimmed: true },
+  { day: 8, dimmed: true },
+];
+
+const cells = computed(() =>
+  props.scenario === 'october-holiday' ? octoberHolidayCells : augustCells,
+);
 
 function changeMonth(offset: -1 | 1): void {
   monthOffset.value = Math.max(-1, Math.min(1, monthOffset.value + offset));
@@ -112,7 +191,7 @@ function onPointerUp(event: PointerEvent): void {
 </script>
 
 <template>
-  <section class="month-card" aria-label="2026 年 8 月排班月历">
+  <section class="month-card" :aria-label="`${monthLabel}排班月历`">
     <header class="month-toolbar">
       <button class="icon-button" type="button" aria-label="上个月" @click="changeMonth(-1)">
         <Ui2Icon name="chevron-left" />
@@ -127,7 +206,13 @@ function onPointerUp(event: PointerEvent): void {
     </header>
 
     <div class="weekday-row" aria-hidden="true">
-      <span v-for="day in ['一', '二', '三', '四', '五', '六', '日']" :key="day">{{ day }}</span>
+      <span
+        v-for="(day, index) in ['一', '二', '三', '四', '五', '六', '日']"
+        :key="day"
+        :class="{ 'is-weekend': isWeekendColumn(index) }"
+      >
+        {{ day }}
+      </span>
     </div>
 
     <div
@@ -142,26 +227,28 @@ function onPointerUp(event: PointerEvent): void {
         class="calendar-cell"
         :class="{
           'is-dimmed': cell.dimmed,
+          'is-multi-day-holiday': shouldTintHolidayCell(cell.holiday),
           'is-selected': !cell.dimmed && cell.day === props.selectedDay,
           'is-today': cell.today,
-          'is-weekend': index % 7 >= 5,
+          'is-weekend': isWeekendColumn(index),
         }"
         type="button"
         :disabled="cell.dimmed"
-        :aria-label="`${cell.dimmed ? '相邻月份' : '8 月'} ${cell.day} 日${cell.holiday ? `，${cell.holiday}` : ''}`"
+        :aria-label="`${cell.dimmed ? '相邻月份' : baseMonth} ${cell.day} 日${cell.holiday ? `，${cell.holiday.label}` : ''}`"
         :aria-pressed="!cell.dimmed && cell.day === props.selectedDay"
         @click="!cell.dimmed && emit('select', cell.day)"
       >
         <span class="date-line">
           <span class="date-number">{{ cell.day }}</span>
-          <span v-if="cell.holiday" class="holiday">{{ cell.holiday }}</span>
+          <span
+            v-if="cell.holiday"
+            class="holiday"
+            :class="{ 'is-workday': cell.holiday.kind === 'workday' }"
+          >
+            {{ cell.holiday.label }}
+          </span>
         </span>
-        <span
-          v-for="duty in cell.duties"
-          :key="`${cell.day}-${duty.name}`"
-          class="duty-line"
-          :class="`tone-${duty.tone ?? 'blue'}`"
-        >
+        <span v-for="duty in cell.duties" :key="`${cell.day}-${duty.name}`" class="duty-line">
           <span>{{ duty.name }}</span>
           <b v-if="duty.event" class="event-mark">{{ duty.event === 'swap' ? '换' : '加' }}</b>
         </span>
@@ -239,6 +326,10 @@ function onPointerUp(event: PointerEvent): void {
   text-align: center;
 }
 
+.weekday-row .is-weekend {
+  color: var(--ui2-danger);
+}
+
 .calendar-grid {
   touch-action: pan-y;
 }
@@ -268,10 +359,18 @@ function onPointerUp(event: PointerEvent): void {
   border-bottom: 0;
 }
 
+.calendar-cell.is-multi-day-holiday {
+  background: #fff5f5;
+}
+
 .calendar-cell.is-selected {
   z-index: 1;
   background: var(--ui2-primary-tint);
   box-shadow: inset 0 0 0 2px var(--ui2-primary);
+}
+
+.calendar-cell.is-selected.is-multi-day-holiday {
+  background: #fff5f5;
 }
 
 .calendar-cell.is-dimmed {
@@ -313,12 +412,24 @@ function onPointerUp(event: PointerEvent): void {
 }
 
 .holiday {
+  display: inline-grid;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 3px;
   overflow: hidden;
-  color: var(--ui2-danger);
-  font-size: clamp(8px, 2.2vw, 10px);
-  font-weight: 550;
+  place-items: center;
+  color: #b42318;
+  background: #fee4e2;
+  border-radius: 4px;
+  font-size: clamp(8px, 2.1vw, 9px);
+  font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.holiday.is-workday {
+  color: #1f5aa6;
+  background: #e8f1fb;
 }
 
 .duty-line {
@@ -329,7 +440,8 @@ function onPointerUp(event: PointerEvent): void {
   gap: 1px;
   padding: 1px 0;
   overflow: hidden;
-  border-radius: 4px;
+  color: var(--ui2-text-primary);
+  background: transparent;
   font-size: clamp(9px, 2.5vw, 11px);
   font-weight: 600;
   line-height: 1.18;
@@ -342,29 +454,14 @@ function onPointerUp(event: PointerEvent): void {
   text-overflow: clip;
 }
 
-.tone-blue {
-  color: #075bbd;
-  background: #eaf3ff;
-}
-
-.tone-green {
-  color: #1f7134;
-  background: #eaf8ef;
-}
-
-.tone-orange {
-  color: #985500;
-  background: #fff4d6;
-}
-
 .event-mark {
   display: inline-grid;
   width: 12px;
   height: 12px;
   flex: 0 0 12px;
   place-items: center;
-  color: #fff;
-  background: #0a66d5;
+  color: #92400e;
+  background: #fef3c7;
   border-radius: 4px;
   font-size: 8px;
   line-height: 1;

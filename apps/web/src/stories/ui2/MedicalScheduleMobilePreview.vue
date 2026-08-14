@@ -2,15 +2,16 @@
 import { computed, ref, watch } from 'vue';
 
 import Ui2Icon, { type Ui2IconName } from './Ui2Icon.vue';
-import Ui2MonthCalendar from './Ui2MonthCalendar.vue';
+import Ui2MonthCalendar, { type Ui2CalendarScenario } from './Ui2MonthCalendar.vue';
 
 export type Ui2PreviewScreen = 'calendar' | 'detail' | 'leave' | 'login';
 
 const props = withDefaults(
   defineProps<{
+    readonly calendarScenario?: Ui2CalendarScenario;
     readonly screen?: Ui2PreviewScreen;
   }>(),
-  { screen: 'calendar' },
+  { calendarScenario: 'august', screen: 'calendar' },
 );
 
 const selectedDay = ref(14);
@@ -30,6 +31,7 @@ watch(
 
 const isLogin = computed(() => props.screen === 'login');
 const pageTitle = computed(() => (props.screen === 'leave' ? '请假与审批' : '工作台'));
+const calendarMonth = computed(() => (props.calendarScenario === 'october-holiday' ? 10 : 8));
 
 const navItems: readonly { icon: Ui2IconName; id: string; label: string }[] = [
   { id: 'calendar', label: '日历', icon: 'calendar' },
@@ -137,12 +139,20 @@ function selectNav(id: string): void {
               </button>
             </div>
 
-            <Ui2MonthCalendar :selected-day="selectedDay" @select="selectedDay = $event" />
+            <Ui2MonthCalendar
+              :scenario="calendarScenario"
+              :selected-day="selectedDay"
+              @select="selectedDay = $event"
+            />
 
             <section v-if="screen === 'calendar'" class="selected-summary" aria-live="polite">
               <div class="summary-date">
-                <strong>8 月 {{ selectedDay }} 日</strong>
-                <span>{{ selectedDay === 14 ? '今天 · 星期五' : '已选择日期' }}</span>
+                <strong>{{ calendarMonth }} 月 {{ selectedDay }} 日</strong>
+                <span>{{
+                  calendarScenario === 'august' && selectedDay === 14
+                    ? '今天 · 星期五'
+                    : '已选择日期'
+                }}</span>
               </div>
               <div class="summary-person">
                 <span class="shift-dot blue" />

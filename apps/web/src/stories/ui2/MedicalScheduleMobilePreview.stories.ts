@@ -7,18 +7,21 @@ const meta = {
   component: MedicalScheduleMobilePreview,
   tags: ['autodocs'],
   args: {
+    calendarScenario: 'august',
     screen: 'calendar',
   },
   argTypes: {
+    calendarScenario: {
+      control: 'radio',
+      options: ['august', 'october-holiday'],
+    },
     screen: {
       control: 'radio',
       options: ['login', 'calendar', 'detail', 'leave'],
     },
   },
-  parameters: {
-    viewport: {
-      defaultViewport: 'mobile390',
-    },
+  globals: {
+    viewport: 'mobile390',
   },
 } satisfies Meta<typeof MedicalScheduleMobilePreview>;
 
@@ -34,6 +37,11 @@ export const Login: Story = {
 export const WorkbenchCalendar: Story = {
   name: '2 · 工作台 / 月历',
   args: { screen: 'calendar' },
+};
+
+export const HolidayCalendar: Story = {
+  name: '2.1 · 多日节假日状态',
+  args: { calendarScenario: 'october-holiday', screen: 'calendar' },
 };
 
 export const SelectedDateDetail: Story = {
