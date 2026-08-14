@@ -9,8 +9,8 @@
 - Checkpoint 1（网站微信扫码认证）和 Checkpoint 2（域名专属入口、测试通道收口）已完成并已推送：`12e7f40`、`dec9943`。
 - 用户确认无法取得微信开放平台网站应用，改用正式账号密码注册/登录。本轮已实现后端密码认证、前端注册/登录、scrypt 哈希、生产配置和迁移 0036；网站扫码代码暂保留为未来可选能力，但生产配置不依赖它，正式页面不显示扫码入口。
 - 小程序凭据仍只用于小程序登录和通知。用户在聊天中发送过的小程序 AppSecret 按“已暴露”处理：本轮没有把它写入仓库、新 release 或服务器；通知功能正式验收前必须重置。小程序代码上传 `.key` 文件不是网页登录凭据，不需要上传或提交。
-- 正式 release `c35810959914ff67149fd71b3fd891280b5502c6` 已部署；数据库备份 archive 为 `cee6bda8-ec2b-4dec-979b-52ab8aeacf97`。迁移 0035/0036 已成功执行，现网首页/API 健康。
-- 本轮待发布变更：密码不再有最小/最大位数限制，仅拒绝空密码；登录页移除“首次使用请先注册账号”和微信 AppID/AppSecret 提示。
+- 正式 release `72f10766812c74742664906e25dd49758f463d6a` 已部署；数据库备份 archive 为 `cee6bda8-ec2b-4dec-979b-52ab8aeacf97`。迁移 0035/0036 已成功执行，现网首页/API 健康。
+- 本轮变更已上线：密码不再有最小/最大位数限制，仅拒绝空密码；登录页已移除“首次使用请先注册账号”和微信 AppID/AppSecret 提示。
 - 旧 `local-admin` / `local-member` 账号已保留关联业务数据并退役为 suspended，不再是可用认证身份；生产 `PLATFORM_ADMIN_UIDS` / `HOLIDAY_ADMIN_UIDS` 当前为空，等待用户注册正式账号后按 UID 授予管理员权限。
 - 小程序 AppSecret 仍按“已暴露”处理，尚未通过聊天内容写入服务器；需要用户在微信平台重置后再更新服务器通知配置。现有服务器会话密钥已存在，网站 AppID/AppSecret 不再是阻塞项。
 
@@ -34,17 +34,17 @@
 - `pnpm smoke:browser`：通过；现有开发管理员、开发成员、访客排班和访客访问记录流程无浏览器错误，本轮登录页变更构建通过。
 - `pnpm smoke:check-core`：通过；已在 `docs/debug/debug-feedback-log.md` 记录“运行/浏览器验证：pnpm smoke:browser …”。
 - `pnpm --config.production=false --filter @schedule/database test`：通过（本机无测试 MySQL，14 个数据库测试跳过）。
-- `bash /tmp/ecs-verify.sh`：通过；正式域名/API、未知 Host 拒绝、共享入口端口、release 产物哈希、无开发认证依赖、无 `local-admin`/`local-member` 记录、迁移计数 36 均通过。
+- `bash /tmp/ecs-verify.sh`：通过；release `72f1076` 的正式域名/API、未知 Host 拒绝、共享入口端口、产物哈希、无开发认证依赖、无 `local-admin`/`local-member` 记录、迁移计数 36 均通过。
 - 生产负向验收：弱注册请求返回 400、未知账号登录返回 401、`local-admin` Bearer token 返回 401；未创建测试账号。
-- 发布过程：首次发布因数据库外键排序规则不兼容自动回滚；修正迁移后 release `c358109` 发布成功，现网旧开发容器已替换为 `NODE_ENV=production`、`AUTH_DEV_MODE=false`、`AUTH_PASSWORD_ENABLED=true`。
-- 旧的 `dec9943` release 仅对应域名入口收口；当前正式 release 为 `c358109`，包含账号密码认证和迁移排序规则修正。
+- 发布过程：首次发布因数据库外键排序规则不兼容自动回滚；修正迁移后 release `c358109` 发布成功，本轮 release `72f1076` 又完成密码策略和登录页文案更新，现网使用 `NODE_ENV=production`、`AUTH_DEV_MODE=false`、`AUTH_PASSWORD_ENABLED=true`。
+- 已确认部署产物不再包含旧登录提示或“至少 8 位”文案；一位密码的未知账号请求返回 401 而非长度校验 400。
 
 ## 下一批次与停止条件
 
 下一批次为：
 
-1. 从当前代码生成新的正式 release，部署并核验密码策略和登录页文案；
-2. 用户在正式网页注册账号并完成资料补全；不要把密码发给我；
-3. 用户确认管理员账号后，我根据该账号的正式 UID 配置 `PLATFORM_ADMIN_UIDS`，再重建 API 并复核权限。
+1. 用户在正式网页注册账号并完成资料补全；不要把密码发给我；
+2. 用户确认管理员账号后，我根据该账号的正式 UID 配置 `PLATFORM_ADMIN_UIDS`，再重建 API 并复核权限；
+3. 用户在微信平台重置已暴露的小程序 AppSecret，再由服务器更新通知配置并复核通知功能。
 
-停止条件：本轮 release 部署后正式域名首页/API、未知 Host 拒绝、测试端口收口、密码策略和登录页文案核验通过；剩余状态为“待用户复核”：账号注册、资料补全、管理员权限和小程序密钥轮换需要用户操作后确认。
+停止条件：本轮 release 已满足正式域名首页/API、未知 Host 拒绝、测试端口收口、密码策略和登录页文案核验；剩余状态为“待用户复核”：账号注册、资料补全、管理员权限和小程序密钥轮换需要用户操作后确认。
