@@ -9,6 +9,7 @@ import type {
   SchedulingConfig,
   SchedulingGroupMember,
 } from '@schedule/contracts';
+import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
@@ -78,6 +79,26 @@ const pendingStages = computed(() =>
     .sort((first, second) => first.date.localeCompare(second.date)),
 );
 const stagedDateSet = computed(() => new Set(staged.value.keys()));
+const activeShiftTypeName = computed(
+  () =>
+    shiftTypes.value.find((shiftType) => shiftType.id === activeShiftTypeId.value)?.name ??
+    '未选择班种',
+);
+const activeMemberName = computed(
+  () =>
+    members.value.find((member) => member.membershipId === activeMemberId.value)?.realName ??
+    '未选择成员',
+);
+const isPaintReady = computed(() => activeShiftTypeId.value !== '' && activeMemberId.value !== '');
+const paintStatusText = computed(() => {
+  if (isPaintReady.value) {
+    return '可以连续点选既往日期';
+  }
+  if (activeShiftTypeId.value === '' && activeMemberId.value === '') {
+    return '请选择班种和成员';
+  }
+  return activeShiftTypeId.value === '' ? '还需选择班种' : '还需选择成员';
+});
 
 onMounted(() => {
   void loadData();
@@ -308,14 +329,20 @@ function formatEventTime(value: string): string {
         <label>
           月份
           <span class="month-nav">
-            <t-button variant="outline" size="small" @click="changeMonth(-1)">上一月</t-button>
+            <t-button variant="outline" size="small" @click="changeMonth(-1)">
+              <template #icon><ChevronLeftIcon /></template>
+              上一月
+            </t-button>
             <input
               :value="businessMonth"
               class="month-input"
               type="month"
               @change="onMonthInput(($event.target as HTMLInputElement).value)"
             />
-            <t-button variant="outline" size="small" @click="changeMonth(1)">下一月</t-button>
+            <t-button variant="outline" size="small" @click="changeMonth(1)">
+              <template #icon><ChevronRightIcon /></template>
+              下一月
+            </t-button>
           </span>
         </label>
         <span class="month-label">{{ getBusinessMonthLabel(businessMonth) }}</span>
@@ -331,6 +358,7 @@ function formatEventTime(value: string): string {
               type="button"
               class="palette-button shift-type-button"
               :class="{ 'is-active': activeShiftTypeId === shiftType.id }"
+              :aria-pressed="activeShiftTypeId === shiftType.id"
               :style="{
                 backgroundColor: shiftType.color,
                 color: shiftType.textColor,
@@ -348,6 +376,7 @@ function formatEventTime(value: string): string {
               type="button"
               class="palette-button member-button"
               :class="{ 'is-active': activeMemberId === member.membershipId }"
+              :aria-pressed="activeMemberId === member.membershipId"
               @click="selectMember(member.membershipId)"
             >
               {{ member.realName }}
@@ -359,40 +388,55 @@ function formatEventTime(value: string): string {
           </label>
         </div>
 
+        <div class="paint-status" :class="{ 'is-ready': isPaintReady }" aria-live="polite">
+          <span class="paint-status-label">当前配班</span>
+          <strong>{{ activeMemberName }} · {{ activeShiftTypeName }}</strong>
+          <span class="paint-status-message">{{ paintStatusText }}</span>
+        </div>
+
         <div v-if="pendingStages.length > 0" class="staged-panel">
           <strong>待确认补录（{{ pendingStages.length }}）</strong>
-          <span
+          <button
             v-for="item in pendingStages"
             :key="item.date"
+            type="button"
             class="staged-item"
+            :aria-label="`移除 ${item.date} ${item.memberName} ${item.shiftTypeName} 的待确认补录`"
             @click="removeStage(item.date)"
           >
-            {{ item.date }}：{{ item.memberName }} · {{ item.shiftTypeName }}（点击移除）
-          </span>
-          <t-space size="small">
+            <span>{{ item.date }}：{{ item.memberName }} · {{ item.shiftTypeName }}</span>
+            <span class="staged-remove">移除</span>
+          </button>
+          <div class="staged-actions">
             <t-button theme="primary" :loading="isSaving" @click="confirmStaged">
               确认补录
             </t-button>
             <t-button variant="outline" :disabled="isSaving" @click="clearStaged">
               清空草稿
             </t-button>
-          </t-space>
+          </div>
         </div>
 
         <p class="paint-hint">
           提示：灰色为未来日期（不可补录），正常底色为既往日期；可连续点击多个日期加入待确认（蓝色描边），再统一点击“确认补录”一次性生效；再次点击已加入的日期可取消该项（不会生成记录）。
         </p>
 
-        <MonthGrid
-          :assignments="calendar.assignments"
-          :business-month="calendar.businessMonth"
-          :highlighted-dates="stagedDateSet"
-          :holidays="holidays"
-          :invert-past-colors="true"
-          :members="calendar.members"
-          :today="today"
-          @click="onCalendarClick"
-        />
+        <section class="backfill-calendar" aria-label="补录日期选择">
+          <div class="backfill-calendar-heading">
+            <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
+            <span>点击整格加入或取消待确认补录</span>
+          </div>
+          <MonthGrid
+            :assignments="calendar.assignments"
+            :business-month="calendar.businessMonth"
+            :highlighted-dates="stagedDateSet"
+            :holidays="holidays"
+            :invert-past-colors="true"
+            :members="calendar.members"
+            :today="today"
+            @click="onCalendarClick"
+          />
+        </section>
       </template>
 
       <section v-if="records.length > 0" class="events-section">
@@ -416,158 +460,279 @@ function formatEventTime(value: string): string {
 <style scoped>
 .past-schedule-view {
   display: grid;
-  gap: 14px;
+  gap: var(--ui-spacing-md);
 }
 
 .past-schedule-view h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xl);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--ui-spacing-sm) var(--ui-spacing-lg);
   align-items: end;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .controls label {
   display: grid;
   gap: 4px;
-  color: #374151;
-  font-size: 13px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
 }
 
 .month-nav {
   display: inline-flex;
-  gap: 8px;
+  gap: var(--ui-spacing-xs);
   align-items: center;
 }
 
+.month-nav :deep(.t-button),
+.controls :deep(.t-input__wrap) {
+  min-height: var(--ui-touch-target-minimum);
+}
+
 .month-input {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
+  min-width: 126px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
 }
 
 .month-label {
   align-self: center;
-  color: #1f2937;
-  font-size: 15px;
-  font-weight: 600;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .palette-section {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  gap: var(--ui-spacing-sm);
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .palette-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--ui-spacing-xs);
   align-items: center;
 }
 
 .palette-label {
   min-width: 40px;
-  color: #6b7280;
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .palette-button {
   display: inline-flex;
   gap: 4px;
   align-items: center;
-  min-height: 30px;
-  padding: 4px 10px;
-  border: 1px solid #9ca3af;
-  border-radius: 6px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-xs) var(--ui-spacing-sm);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
+  transition:
+    box-shadow var(--ui-duration-fast) ease,
+    transform var(--ui-duration-fast) ease;
+}
+
+.palette-button:active {
+  transform: scale(0.97);
+}
+
+.palette-button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
 }
 
 .palette-button.is-active {
-  outline: 2px solid #1f5aa6;
+  outline: 2px solid var(--ui-color-primary);
   outline-offset: 1px;
   box-shadow: 0 0 0 3px rgb(31 90 166 / 18%);
 }
 
 .member-button {
-  color: #1f2937;
-  background: #f8fafc;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface-muted);
 }
 
 .member-button.is-active {
-  color: #ffffff;
-  background: #1f5aa6;
-  border-color: #1f5aa6;
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border-color: var(--ui-color-primary);
 }
 
 .reason-field {
   display: grid;
   gap: 4px;
   max-width: 480px;
-  color: #374151;
-  font-size: 13px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.reason-field :deep(.t-textarea__inner) {
+  min-height: 88px;
+  border-radius: var(--ui-radius-small);
+}
+
+.paint-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  gap: var(--ui-spacing-sm);
+  padding: var(--ui-spacing-sm) var(--ui-spacing-md);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+}
+
+.paint-status.is-ready {
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-color: var(--ui-color-primary-border);
+}
+
+.paint-status-label {
+  color: var(--ui-color-text-muted);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.paint-status strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ui-color-text-primary);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.paint-status-message {
+  font-weight: var(--ui-font-weight-medium);
 }
 
 .staged-panel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--ui-spacing-xs);
   align-items: center;
-  padding: 12px;
-  color: #1f2937;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: var(--ui-spacing-md);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+}
+
+.staged-panel > strong,
+.staged-actions {
+  grid-column: 1 / -1;
 }
 
 .staged-item {
-  padding: 4px 8px;
-  color: #1f5aa6;
-  background: #ffffff;
-  border: 1px solid #bfdbfe;
-  border-radius: 12px;
+  display: flex;
+  width: 100%;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-xs);
+  padding: var(--ui-spacing-xs) var(--ui-spacing-sm);
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-small);
   cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .staged-item:hover {
   background: #dbeafe;
 }
 
+.staged-item:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
+}
+
+.staged-remove {
+  flex: none;
+  color: var(--ui-color-danger);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.staged-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-spacing-xs);
+}
+
+.staged-actions :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
+}
+
 .paint-hint {
   margin: 0;
-  color: #6b7280;
-  font-size: 13px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+.backfill-calendar {
+  display: grid;
+  gap: var(--ui-spacing-xs);
+}
+
+.backfill-calendar-heading {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-sm);
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+.backfill-calendar-heading strong {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .events-section {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  gap: var(--ui-spacing-xs);
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .events-section h3 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .events-section ul {
@@ -576,7 +741,7 @@ function formatEventTime(value: string): string {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
 }
 
 .events-section li {
@@ -584,11 +749,92 @@ function formatEventTime(value: string): string {
   flex-wrap: wrap;
   gap: 6px 10px;
   align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px dashed #e5e7eb;
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-xs) 0;
+  border-bottom: 1px dashed var(--ui-color-border);
 }
 
 .event-time {
-  color: #6b7280;
+  color: var(--ui-color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .controls {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--ui-spacing-sm);
+  }
+
+  .month-nav {
+    display: grid;
+    grid-template-columns: auto minmax(112px, 1fr) auto;
+  }
+
+  .month-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .month-label {
+    display: none;
+  }
+
+  .palette-section {
+    padding: var(--ui-spacing-sm);
+  }
+
+  .palette-row {
+    align-items: stretch;
+  }
+
+  .palette-label {
+    flex: 0 0 100%;
+  }
+
+  .palette-button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .reason-field {
+    max-width: none;
+  }
+
+  .paint-status {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .paint-status-label {
+    grid-column: 1 / -1;
+  }
+
+  .staged-panel {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--ui-spacing-sm);
+  }
+
+  .staged-actions > :deep(.t-button) {
+    flex: 1 1 120px;
+  }
+
+  .backfill-calendar-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .backfill-calendar {
+    width: calc(100% + var(--ui-spacing-xxl));
+    margin-inline: calc(-1 * var(--ui-spacing-md));
+  }
+
+  .backfill-calendar-heading {
+    padding-inline: var(--ui-spacing-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette-button {
+    transition: none;
+  }
 }
 </style>

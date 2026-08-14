@@ -1,6 +1,7 @@
 import type { CalendarDutyAssignment, ConfirmedHolidayDate } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 
+import { isCalendarGridCellSelected } from './calendar-logic.js';
 import {
   getDefaultSelectedDate,
   getMultiDayHolidayDates,
@@ -8,6 +9,12 @@ import {
 } from './calendar-views.js';
 
 describe('calendar mobile interactions', () => {
+  it('never selects leading or trailing empty cells when no selected date is supplied', () => {
+    expect(isCalendarGridCellSelected(null, undefined)).toBe(false);
+    expect(isCalendarGridCellSelected({ businessDate: '2026-08-01' }, undefined)).toBe(false);
+    expect(isCalendarGridCellSelected({ businessDate: '2026-08-01' }, '2026-08-01')).toBe(true);
+  });
+
   it('selects today for the current month', () => {
     expect(
       getDefaultSelectedDate({

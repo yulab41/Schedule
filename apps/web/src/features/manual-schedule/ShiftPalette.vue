@@ -23,6 +23,7 @@ const emit = defineEmits<{
         :key="shiftType.id"
         type="button"
         :class="{ 'is-active': activeShiftTypeId === shiftType.id }"
+        :aria-pressed="activeShiftTypeId === shiftType.id"
         :style="{ backgroundColor: shiftType.color, color: shiftType.textColor }"
         @click="emit('select', shiftType.id)"
       >
@@ -35,50 +36,64 @@ const emit = defineEmits<{
 <style scoped>
 .shift-palette {
   display: grid;
-  gap: 8px;
+  gap: var(--ui-spacing-xs);
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .shift-palette h3 {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .palette-empty {
   margin: 0;
-  color: #6b7280;
-  font-size: 13px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
 }
 
 .palette-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--ui-spacing-xs);
 }
 
 .palette-buttons button {
   display: inline-flex;
   gap: 6px;
   align-items: center;
-  min-height: 34px;
-  padding: 6px 12px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-xs) var(--ui-spacing-sm);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--ui-radius-small);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: var(--ui-font-weight-semibold);
+  transition:
+    filter var(--ui-duration-fast) ease,
+    transform var(--ui-duration-fast) ease;
 }
 
 .palette-buttons button:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.04);
+}
+
+.palette-buttons button:active {
+  transform: scale(0.97);
 }
 
 .palette-buttons button.is-active {
-  outline: 3px solid #1f5aa6;
+  outline: 3px solid var(--ui-color-primary);
   outline-offset: 2px;
+  box-shadow: var(--ui-shadow-focus);
 }
 
 .palette-buttons button:focus-visible {
-  outline: 2px solid #1f5aa6;
+  outline: 3px solid var(--ui-color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -86,5 +101,22 @@ const emit = defineEmits<{
   font-size: 12px;
   font-weight: 400;
   opacity: 0.9;
+}
+
+@media (max-width: 640px) {
+  .shift-palette {
+    padding: var(--ui-spacing-sm);
+  }
+
+  .palette-buttons button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palette-buttons button {
+    transition: none;
+  }
 }
 </style>

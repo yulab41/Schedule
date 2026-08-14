@@ -162,8 +162,12 @@ async function assertTDesignTheme(page) {
 }
 
 async function assertResponsiveLoginShell(page) {
-  for (const width of [390, 320]) {
-    await page.setViewportSize({ height: 844, width });
+  for (const { height, width } of [
+    { height: 900, width: 1280 },
+    { height: 844, width: 390 },
+    { height: 844, width: 320 },
+  ]) {
+    await page.setViewportSize({ height, width });
     await page.waitForTimeout(150);
     const result = await page.evaluate(() => {
       const controls = [
@@ -241,7 +245,7 @@ async function assertResponsiveWorkbenchShell(page) {
   await page.waitForTimeout(150);
 }
 
-async function assertManualScheduleDefaultStartDate(page) {
+async function assertManualScheduleDenseInteractions(page) {
   await page.locator('.workbench-sidebar button', { hasText: '手动排班' }).first().click();
   await waitForBodyText(page, '手动排班模板', 15000, '手动排班模板');
   const dateInput = page.locator('input[type="date"]').first();
@@ -260,6 +264,145 @@ async function assertManualScheduleDefaultStartDate(page) {
   if (actual !== expected) {
     fail(`手动排班开始日期默认值应为今天 ${expected}，实际为 ${actual}。`);
   }
+
+  const roleSelect = page.locator('.editor-config .t-select').nth(1);
+  await roleSelect.click();
+  const roleOption = page.locator('.t-select-option:visible').first();
+  await roleOption.waitFor({ state: 'visible', timeout: 5000 });
+  await roleOption.click();
+  const memberCheckboxes = page.locator('.member-selector input[type="checkbox"]');
+  const memberCount = await memberCheckboxes.count();
+  if (memberCount === 0) fail('手动排班岗位没有可用于矩阵验收的成员。');
+  for (let index = 0; index < memberCount; index += 1) {
+    await memberCheckboxes.nth(index).check();
+  }
+  await page.locator('.editor-config input[type="number"]').fill('31');
+  const gridFrame = page.locator('.manual-grid-frame');
+  await gridFrame.waitFor({ state: 'visible', timeout: 5000 });
+
+  for (const { height, width } of [
+    { height: 900, width: 1280 },
+    { height: 844, width: 390 },
+    { height: 844, width: 320 },
+  ]) {
+    await page.setViewportSize({ height, width });
+    await page.waitForTimeout(250);
+    await gridFrame.scrollIntoViewIfNeeded();
+    const scroll = gridFrame.locator('.manual-grid-scroll');
+    const firstCell = gridFrame.locator('.template-cell-button').first();
+    const metrics = await gridFrame.evaluate((element) => {
+      const scrollElement = element.querySelector('.manual-grid-scroll');
+      const guide = element.querySelector('.manual-grid-guide');
+      const firstButton = element.querySelector('.template-cell-button');
+      const firstMember = element.querySelector('.member-name');
+      const dateHeader = element.querySelector('.date-header');
+      const clearActions = element.parentElement?.querySelector('.clear-actions');
+      if (
+        scrollElement === null ||
+        guide === null ||
+        firstButton === null ||
+        firstMember === null ||
+        dateHeader === null
+      ) {
+        return undefined;
+      }
+      const buttonRect = firstButton.getBoundingClientRect();
+      const guideRect = guide.getBoundingClientRect();
+      const touchControls = [
+        ...document.querySelectorAll(
+          '.member-selector label, .shift-palette button, .clear-actions .t-button, .template-actions .t-button',
+        ),
+      ].filter((control) => {
+        const rect = control.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      return {
+        buttonHeight: buttonRect.height,
+        buttonWidth: buttonRect.width,
+        clientWidth: scrollElement.clientWidth,
+        clearActionsOverflow:
+          clearActions !== null && clearActions !== undefined
+            ? clearActions.scrollWidth > clearActions.clientWidth
+            : true,
+        dateHeaderPosition: getComputedStyle(dateHeader).position,
+        guideHeight: guideRect.height,
+        guideText: guide.textContent ?? '',
+        memberLeft: firstMember.getBoundingClientRect().left,
+        memberPosition: getComputedStyle(firstMember).position,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        scrollWidth: scrollElement.scrollWidth,
+        smallControls: touchControls
+          .filter((control) => {
+            const rect = control.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map((control) => control.textContent?.trim() || control.tagName),
+      };
+    });
+    if (metrics === undefined) fail(`${width}px 手动排班矩阵结构不完整。`);
+    if (metrics.overflow) fail(`${width}px 手动排班页面出现横向溢出。`);
+    if (metrics.clearActionsOverflow) fail(`${width}px 手动排班清空操作发生横向溢出。`);
+    if (metrics.scrollWidth <= metrics.clientWidth) fail(`${width}px 手动排班矩阵未保留横向滚动。`);
+    if (!metrics.guideText.includes('滑动') || !metrics.guideText.includes('人员列保持固定')) {
+      fail(`${width}px 手动排班矩阵缺少明确的横滑/固定列提示。`);
+    }
+    if (metrics.guideHeight < 44) fail(`${width}px 手动排班横滑提示高度小于 44px。`);
+    if (metrics.buttonHeight < 44 || metrics.buttonWidth < 44) {
+      fail(`${width}px 手动排班单元格点触目标小于 44px。`);
+    }
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 手动排班存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+    }
+    if (metrics.memberPosition !== 'sticky' || metrics.dateHeaderPosition !== 'sticky') {
+      fail(`${width}px 手动排班矩阵未固定人员列或日期表头。`);
+    }
+
+    await scroll.evaluate((element) => {
+      element.scrollLeft = Math.min(360, element.scrollWidth - element.clientWidth);
+      element.dispatchEvent(new Event('scroll'));
+    });
+    await page.waitForTimeout(150);
+    const scrolled = await gridFrame.evaluate((element) => {
+      const member = element.querySelector('.member-name');
+      const progress = element.querySelector('.scroll-progress');
+      return {
+        guideText: element.querySelector('.manual-grid-guide')?.textContent ?? '',
+        memberLeft: member?.getBoundingClientRect().left,
+        progress: Number(progress?.getAttribute('aria-valuenow') ?? '0'),
+      };
+    });
+    if (Math.abs((scrolled.memberLeft ?? metrics.memberLeft) - metrics.memberLeft) > 1) {
+      fail(`${width}px 手动排班人员首列在横滑后没有保持固定。`);
+    }
+    if (scrolled.progress <= 0 || !scrolled.guideText.includes('左右滑动')) {
+      fail(`${width}px 手动排班横滑进度或方向提示未随滚动更新。`);
+    }
+
+    await scroll.evaluate((element) => {
+      element.scrollLeft = 0;
+      element.dispatchEvent(new Event('scroll'));
+    });
+    await firstCell.click();
+    if ((await firstCell.getAttribute('aria-pressed')) !== 'true') {
+      fail(`${width}px 手动排班单元格点选后缺少选中反馈。`);
+    }
+    await firstCell.click();
+
+    await scroll.evaluate((element) => {
+      element.scrollLeft = Math.min(360, element.scrollWidth - element.clientWidth);
+      element.dispatchEvent(new Event('scroll'));
+    });
+    await page.screenshot({
+      path: path.join(
+        SCREENSHOT_DIR,
+        width === 1280
+          ? '10-admin-desktop-manual-grid.png'
+          : `10-admin-mobile-manual-grid-${width}.png`,
+      ),
+    });
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
 }
 
 async function assertLeaveWorkflowMobile(page) {
@@ -691,6 +834,68 @@ async function assertBackfillCalendarColors(page) {
   if (todayBackground !== 'rgb(245, 197, 24)') {
     fail(`补录日历今天圆形标记未使用金黄色，当前背景：${todayBackground}。`);
   }
+
+  for (const { height, width } of [
+    { height: 900, width: 1280 },
+    { height: 844, width: 390 },
+    { height: 844, width: 320 },
+  ]) {
+    await page.setViewportSize({ height, width });
+    await page.waitForTimeout(200);
+    const calendar = page.locator('.backfill-calendar');
+    await calendar.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(150);
+    const metrics = await page.evaluate(() => {
+      const controls = [
+        ...document.querySelectorAll(
+          '.month-nav button, .month-input, .palette-button, .staged-item, .staged-actions button, .backfill-calendar .day-select-button',
+        ),
+      ].filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      const paintStatus = document.querySelector('.paint-status');
+      return {
+        paintStatusHeight: paintStatus?.getBoundingClientRect().height ?? 0,
+        paintStatusText: paintStatus?.textContent ?? '',
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        smallControls: controls
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width < 44 || rect.height < 44;
+          })
+          .map(
+            (element) => element.textContent?.trim() || element.getAttribute('aria-label') || '',
+          ),
+      };
+    });
+    if (metrics.overflow) fail(`${width}px 排班补录页面出现横向溢出。`);
+    if (metrics.paintStatusHeight < 44 || !metrics.paintStatusText.includes('当前配班')) {
+      fail(`${width}px 排班补录缺少清晰的当前配班状态。`);
+    }
+    if (metrics.smallControls.length > 0) {
+      fail(`${width}px 排班补录存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
+    }
+
+    const memberButton = page.locator('.member-button').first();
+    if ((await memberButton.count()) > 0) {
+      await memberButton.click();
+      if ((await memberButton.getAttribute('aria-pressed')) !== 'true') {
+        fail(`${width}px 排班补录成员按钮缺少选中反馈。`);
+      }
+      await memberButton.click();
+    }
+    await calendar.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(150);
+    await page.screenshot({
+      path: path.join(
+        SCREENSHOT_DIR,
+        width === 1280 ? '11-admin-desktop-backfill.png' : `11-admin-mobile-backfill-${width}.png`,
+      ),
+    });
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
 }
 
 async function assertGroupManagementAndEventNav(page) {
@@ -912,7 +1117,7 @@ async function runSmoke() {
     await assertMonthCalendarInteractions(page);
     await assertLeaveWorkflowMobile(page);
     await assertShiftWorkflowsMobile(page);
-    await assertManualScheduleDefaultStartDate(page);
+    await assertManualScheduleDenseInteractions(page);
     await assertBackfillCalendarColors(page);
     await assertGroupManagementAndEventNav(page);
     await assertMemberAndNotificationPages(page);

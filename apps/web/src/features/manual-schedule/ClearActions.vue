@@ -28,12 +28,31 @@ const emit = defineEmits<{
 .clear-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--ui-spacing-xs);
   align-items: center;
 }
 
+.clear-actions :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
+}
+
 .clear-hint {
-  color: #6b7280;
-  font-size: 12px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+@media (max-width: 640px) {
+  .clear-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .clear-actions :deep(.t-button) {
+    width: 100%;
+  }
+
+  .clear-hint {
+    grid-column: 1 / -1;
+  }
 }
 </style>

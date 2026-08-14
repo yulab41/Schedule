@@ -11,6 +11,7 @@ import {
   buildMonthGrid,
   getDutyMembershipId,
   getHolidayShortLabel,
+  isCalendarGridCellSelected,
   isPastBusinessDate,
   type CalendarGridWeek,
 } from './calendar-logic.js';
@@ -107,11 +108,11 @@ function dateAriaLabel(date: string): string {
         :key="cellIndex"
         class="day-cell"
         :data-date="cell?.businessDate"
-        :data-selected="cell?.businessDate === selectedDate ? 'true' : undefined"
+        :data-selected="isCalendarGridCellSelected(cell, selectedDate) ? 'true' : undefined"
         :class="{
           'is-empty': cell === null,
           'is-multi-day-holiday': cell !== null && multiDayHolidayDates.has(cell.businessDate),
-          'is-selected': cell?.businessDate === selectedDate,
+          'is-selected': isCalendarGridCellSelected(cell, selectedDate),
           'is-staged': cell !== null && highlightedDates?.has(cell.businessDate) === true,
           'is-past': cell !== null && isPastBusinessDate(cell.businessDate, today ?? ''),
           'is-today': cell?.businessDate === today,

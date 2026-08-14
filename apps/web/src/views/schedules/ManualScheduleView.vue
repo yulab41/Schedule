@@ -938,21 +938,28 @@ function scheduleMidnightRefresh(): void {
           @clear-row="clearSelectedRow"
           @undo="undo"
         />
-        <t-button theme="primary" :loading="isSaving" @click="save">
-          {{ isEditing ? '保存模板' : '创建模板' }}
-        </t-button>
-        <t-button v-if="isEditing" variant="outline" :disabled="!canApply" @click="openApplyDialog">
-          应用模板
-        </t-button>
-        <t-button
-          v-if="isEditing"
-          theme="danger"
-          variant="outline"
-          :loading="isDeleting"
-          @click="deleteTemplate"
-        >
-          删除模板
-        </t-button>
+        <div class="template-actions">
+          <t-button theme="primary" :loading="isSaving" @click="save">
+            {{ isEditing ? '保存模板' : '创建模板' }}
+          </t-button>
+          <t-button
+            v-if="isEditing"
+            variant="outline"
+            :disabled="!canApply"
+            @click="openApplyDialog"
+          >
+            应用模板
+          </t-button>
+          <t-button
+            v-if="isEditing"
+            theme="danger"
+            variant="outline"
+            :loading="isDeleting"
+            @click="deleteTemplate"
+          >
+            删除模板
+          </t-button>
+        </div>
       </template>
       <p v-else class="editor-hint">请选择排班岗位并勾选至少一位值班人员。</p>
 
@@ -1345,79 +1352,117 @@ function scheduleMidnightRefresh(): void {
 
 .manual-schedule-view h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-xl);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .grid-hint {
   margin: 0;
-  color: #6b7280;
-  font-size: 13px;
+  padding: var(--ui-spacing-sm) var(--ui-spacing-md);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
 }
 
 .editor-config {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--ui-spacing-md);
   align-items: end;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #dbe3ea;
-  border-radius: 6px;
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .editor-config label {
   display: grid;
   gap: 4px;
-  color: #374151;
-  font-size: 14px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
 }
 
 .editor-config input {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+}
+
+.editor-config :deep(.t-input__wrap) {
+  min-height: var(--ui-touch-target-minimum);
 }
 
 .member-selector {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--ui-spacing-xs);
   align-items: center;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #dbe3ea;
-  border-radius: 6px;
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .member-selector legend {
-  color: #374151;
-  font-weight: 600;
+  padding: 0 var(--ui-spacing-xxs);
+  color: var(--ui-color-text-secondary);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .member-selector label {
   display: inline-flex;
-  gap: 6px;
+  min-height: var(--ui-touch-target-minimum);
+  gap: var(--ui-spacing-xs);
   align-items: center;
-  color: #1f2937;
-  font-size: 14px;
+  padding: var(--ui-spacing-xs) var(--ui-spacing-sm);
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  cursor: pointer;
+  font-size: var(--ui-font-size-sm);
+}
+
+.member-selector input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--ui-color-primary);
 }
 
 .member-empty,
 .editor-hint {
   margin: 0;
-  color: #6b7280;
-  font-size: 13px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+.template-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-spacing-xs);
+}
+
+.template-actions :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
 }
 
 .draft-section {
   display: grid;
   gap: 10px;
-  padding: 12px;
-  background: #ffffff;
-  border: 1px solid #dbe3ea;
-  border-radius: 6px;
+  padding: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .draft-section h3 {
@@ -1470,6 +1515,7 @@ function scheduleMidnightRefresh(): void {
 }
 
 .month-chip {
+  min-height: var(--ui-touch-target-minimum);
   padding: 2px 8px;
   color: #1f5aa6;
   background: #eff6ff;
@@ -1622,5 +1668,44 @@ function scheduleMidnightRefresh(): void {
 .draft-preview-table th {
   color: #374151;
   background: #f8fafc;
+}
+
+@media (max-width: 640px) {
+  .manual-schedule-view {
+    gap: var(--ui-spacing-sm);
+  }
+
+  .editor-config {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--ui-spacing-sm);
+  }
+
+  .member-selector {
+    align-items: stretch;
+    padding: var(--ui-spacing-sm);
+  }
+
+  .member-selector label {
+    flex: 1 1 calc(50% - var(--ui-spacing-xs));
+  }
+
+  .template-actions :deep(.t-button) {
+    flex: 1 1 120px;
+  }
+
+  .draft-section {
+    padding: var(--ui-spacing-sm);
+  }
+
+  .draft-row,
+  .version-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .draft-row :deep(.t-button),
+  .version-row :deep(.t-button) {
+    min-height: var(--ui-touch-target-minimum);
+  }
 }
 </style>

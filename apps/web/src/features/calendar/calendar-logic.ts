@@ -13,6 +13,13 @@ export interface CalendarGridCell {
 
 export type CalendarGridWeek = readonly (CalendarGridCell | null)[];
 
+export function isCalendarGridCellSelected(
+  cell: CalendarGridCell | null,
+  selectedDate: string | undefined,
+): boolean {
+  return cell !== null && selectedDate !== undefined && cell.businessDate === selectedDate;
+}
+
 export interface CalendarAssignmentFilters {
   readonly membershipIds?: readonly string[];
   readonly onlyChanges?: boolean;
