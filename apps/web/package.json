@@ -16,6 +16,7 @@
     "@schedule/ui-tokens": "workspace:*",
     "@tanstack/vue-query": "^5.101.4",
     "pinia": "^4.0.2",
+    "tdesign-icons-vue-next": "0.4.7",
     "tdesign-vue-next": "^1.20.5",
     "vue": "^3.5.21",
     "vue-router": "^5.2.0"

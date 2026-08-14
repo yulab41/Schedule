@@ -14,8 +14,8 @@ describe('Responsive experience', () => {
   });
 
   it('defines a fixed bottom navigation height for the mobile first screen', () => {
-    expect(layoutTokens.bottomNavHeight).toBe('64px');
-    expect(spacingTokens.lg).toBe('24px');
+    expect(layoutTokens.bottomNavHeight).toBe('70px');
+    expect(spacingTokens.lg).toBe('20px');
   });
 
   it('caches at most twelve recent schedule months for offline reading', () => {

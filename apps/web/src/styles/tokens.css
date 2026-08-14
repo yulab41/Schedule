@@ -2,6 +2,26 @@
 
 :root {
   --app-drawer-width: 280px;
-  --app-font-family: Inter, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --app-nav-item-height: 40px;
+  --app-font-family: var(--ui-font-family-system);
+  --app-nav-item-height: var(--ui-touch-target-minimum);
+
+  /* TDesign follows the same semantic system as application-owned UI. */
+  --td-bg-color-component: var(--ui-color-surface-muted);
+  --td-bg-color-component-hover: var(--ui-color-primary-light);
+  --td-bg-color-container: var(--ui-color-surface);
+  --td-bg-color-page: var(--ui-color-background);
+  --td-brand-color: var(--ui-color-primary);
+  --td-brand-color-active: var(--ui-color-primary-dark);
+  --td-brand-color-focus: var(--ui-color-primary-light);
+  --td-brand-color-hover: var(--ui-color-primary-dark);
+  --td-brand-color-light: var(--ui-color-primary-light);
+  --td-component-border: var(--ui-color-border);
+  --td-font-family: var(--ui-font-family-system);
+  --td-radius-default: var(--ui-radius-small);
+  --td-radius-large: var(--ui-radius-large);
+  --td-radius-medium: var(--ui-radius-medium);
+  --td-text-color-brand: var(--ui-color-primary);
+  --td-text-color-placeholder: var(--ui-color-text-muted);
+  --td-text-color-primary: var(--ui-color-text-primary);
+  --td-text-color-secondary: var(--ui-color-text-secondary);
 }

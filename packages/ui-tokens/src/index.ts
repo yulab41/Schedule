@@ -2,10 +2,15 @@ import {
   breakpointTokens,
   colorTokens,
   durationTokens,
+  fontFamilyTokens,
   fontSizeTokens,
+  fontWeightTokens,
   layoutTokens,
   lineHeightTokens,
+  radiusTokens,
+  shadowTokens,
   spacingTokens,
+  touchTargetTokens,
   zIndexTokens,
 } from './tokens.js';
 
@@ -13,10 +18,15 @@ export {
   breakpointTokens,
   colorTokens,
   durationTokens,
+  fontFamilyTokens,
   fontSizeTokens,
+  fontWeightTokens,
   layoutTokens,
   lineHeightTokens,
+  radiusTokens,
+  shadowTokens,
   spacingTokens,
+  touchTargetTokens,
   zIndexTokens,
 };
 
