@@ -35,7 +35,7 @@
 
 下一批次为：
 
-1. 将 `de3ad5f` 推送到 `origin/main`，并生成以该提交为 release ID 的生产包；
+1. 将当前 `main`（包含代码 checkpoint `de3ad5f`）推送到 `origin/main`，并从当前 HEAD 生成生产包；
 2. 先备份服务器数据库和旧 release，再按 `docs/deployment/aliyun-ecs.md` 发布并执行 `ecs-verify.sh`；
 3. 在服务器上人工验收账号注册、登录、资料补全、权限和未知 Host 拒绝。
 
