@@ -9,7 +9,7 @@ export const passwordUsernameSchema = z
   .max(64)
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/u);
 
-export const passwordSecretSchema = z.string().min(8).max(128);
+export const passwordSecretSchema = z.string().min(1);
 
 export const passwordRegisterRequestSchema = z
   .object({

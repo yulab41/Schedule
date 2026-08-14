@@ -39,6 +39,6 @@ function invalidRequestError(): ApiError {
   return new ApiError({
     code: 'VALIDATION_FAILED',
     statusCode: 400,
-    userMessage: '账号需为 3-64 位字母、数字或 ._-，密码至少 8 位。',
+    userMessage: '账号需为 3-64 位字母、数字或 ._-，密码不能为空。',
   });
 }

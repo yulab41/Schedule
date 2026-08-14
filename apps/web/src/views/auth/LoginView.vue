@@ -75,11 +75,6 @@ async function submitDev(uid: string): Promise<void> {
           theme="error"
           :message="submitError ?? session.errorMessage ?? ''"
         />
-        <t-alert
-          theme="info"
-          message="首次使用请先注册账号。密码只用于本网站登录，不需要填写微信 AppID 或 AppSecret。"
-        />
-
         <div class="auth-mode-switch" role="tablist" aria-label="登录方式">
           <t-button
             :theme="authMode === 'login' ? 'primary' : 'default'"
@@ -113,22 +108,15 @@ async function submitDev(uid: string): Promise<void> {
             <span>密码</span>
             <input
               v-model="password"
-              autocomplete="new-password"
-              minlength="8"
-              placeholder="至少 8 位"
+              :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'"
+              placeholder="请输入密码"
               required
               type="password"
             />
           </label>
           <label v-if="authMode === 'register'">
             <span>确认密码</span>
-            <input
-              v-model="confirmPassword"
-              autocomplete="new-password"
-              minlength="8"
-              required
-              type="password"
-            />
+            <input v-model="confirmPassword" autocomplete="new-password" required type="password" />
           </label>
           <t-button block :loading="submitting" theme="primary" type="submit">
             {{ authMode === 'login' ? '登录' : '注册并登录' }}
