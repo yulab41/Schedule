@@ -62,6 +62,14 @@ Never force-push, rewrite published history, delete remote branches, or bypass b
 
 In the final response, state whether a commit was created, include its short hash and message, and state whether the GitHub push succeeded. This policy requires judgment; it does not mean every conversation must produce a commit.
 
+## Production Deployment After Changes
+
+After every completed repository modification checkpoint, deploy the pushed checkpoint directly to the production server and run the production verification workflow. Do not stop after a local commit or GitHub push unless deployment is genuinely blocked.
+
+Production deployment synchronizes application code and committed migrations only. Never copy a local database, local credentials, local sessions, demo data, or generated local state to production. Preserve the server database as the authoritative business-data source, create a production backup before deployment, and report the backup identifier, deployed release, and verification result.
+
+Documentation-only checkpoint commits must also become the production release so that the deployed release identifier matches Git `HEAD`, even when application artifacts are otherwise unchanged.
+
 ## 防回归与运行验证（所有修复/重构轮次必须遵守）
 
 1. 定位引入点：回归修复前，对被改动调用点执行 `git log -S '<关键表达式>' -- <文件>` 与 `git blame`，确认该行为从哪个提交/轮次开始，并把引入点写入轮次记录与调试日志。

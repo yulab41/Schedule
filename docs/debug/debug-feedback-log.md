@@ -180,3 +180,5 @@
 - 行为与语义审计：只把上述 Select 的浮层容器改为其最近的已打开 Sheet；选择值、`v-model`/`change`、选项生成、清空、预览/提交、异步错误路径、API 调用和调用次数均未改变。非 Sheet 场景继续使用 TDesign 默认 `body` 挂载语义。
 - 运行/浏览器验证：`pnpm smoke:browser` 使用当前源码的隔离 5174 服务通过；390×844/320×844 实际点击首页筛选、换班和加扣班下拉框，选项层均位于已打开 Sheet 内且有可见尺寸，管理员、成员、访客和访问记录全流程无浏览器错误。首次运行命中 5173 上不含开发登录入口的外部进程而在登录门禁停止，未进入产品断言；未修改该进程。
 - 运行验证：定向测试 4/4、Web typecheck、`pnpm verify`（71 个测试文件、490 项通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过）和 `git diff --check` 通过，仅保留既有大 chunk warning。状态为“已完成”，checkpoint 识别消息为 `fix(web): keep sheet dropdowns visible`。
+- 正式发布：发布前 `ecs-verify.sh` 通过并创建加密数据库备份 `48b7e00f-19b3-4577-aefa-dad10a0ad0bd`（44 张表、3701 行）；release `af37f5e4ecf5abcc86ac7460361bbfb47ba4c8c4` 部署成功，产物哈希、API/Web 容器、域名隔离、无开发认证依赖和 36 个迁移检查通过。部署未复制或覆盖本地数据库。
+- 持续规则：用户要求今后每个完成并推送的仓库修改检查点都直接部署并线上核验；生产业务数据始终以服务器数据库为准，禁止用本地库、演示数据、凭据或会话覆盖生产。该规则写入根 `AGENTS.md`，最终状态 checkpoint 识别消息为 `docs(status): require production deployment after changes`，并作为最终 release 部署以保持服务器 release 与 Git `HEAD` 一致。
