@@ -6,9 +6,9 @@
 
 - 分支：`main`，上游：`origin/main`。
 - 正式入口：`https://hosp.schedule.eylinhome.top`。仓库当前生效配置不使用服务器公网 IP URL。
-- 当前活动批次：工作台紧凑抬头、完整圆角月历与登录页专属 ICP 精修已完成代码和本地浏览器复核，待全仓库门禁、checkpoint 推送、生产备份与精确 release 部署。
+- 工作台紧凑抬头、完整圆角月历与登录页专属 ICP 精修已完成并上线：代码 checkpoint `daff238` 已推送，生产 release 为 `daff238e241c0b6d9c04f0c8b21b5cca3b356ca4`。发布前加密数据库备份 archive 为 `43f639de-86a9-4090-9209-e46b443310b7`（44 张表、5245 行）。最终状态 checkpoint 识别消息为 `docs(status): record compact workbench production deployment`。
 - 微信网站管理员认证文件已加入 Web 公共根目录并上线；checkpoint `859f28d` 已推送，生产 release 为 `859f28d376e13f90dc4dced83c974aed12d84f5f`。发布前加密数据库备份 archive 为 `0c70b166-8d94-4a51-920c-5922ca046753`（44 张表、4856 行）。
-- 登录页、访客页和已认证应用壳已接入统一 ICP 合规页脚；checkpoint `fb192d3` 已推送并上线，生产 release 为 `fb192d3cbf83191b0e50fec4ffc6b68399d3245d`。发布前加密数据库备份 archive 为 `d6e8a335-c0cf-4a5f-8257-666d992a136b`（44 张表、4887 行）。最终状态 checkpoint 识别消息为 `docs(status): record ICP footer production deployment`。
+- ICP 合规页脚最初由 checkpoint `fb192d3` 接入登录、访客和已认证应用壳；本轮已按用户确认调整为仅登录页显示，并保留备案文案、链接、安全属性和 44px 点触目标。
 - Checkpoint 1（网站微信扫码认证）和 Checkpoint 2（域名专属入口、测试通道收口）已完成并已推送：`12e7f40`、`dec9943`。
 - 用户确认无法取得微信开放平台网站应用，改用正式账号密码注册/登录。本轮已实现后端密码认证、前端注册/登录、scrypt 哈希、生产配置和迁移 0036；网站扫码代码暂保留为未来可选能力，但生产配置不依赖它，正式页面不显示扫码入口。
 - 小程序凭据仍只用于小程序登录和通知。用户在聊天中发送过的小程序 AppSecret 按“已暴露”处理：本轮没有把它写入仓库、新 release 或服务器；通知功能正式验收前必须重置。小程序代码上传 `.key` 文件不是网页登录凭据，不需要上传或提交。
@@ -16,7 +16,7 @@
 - 本轮变更已上线：密码不再有最小/最大位数限制，仅拒绝空密码；登录页已移除“首次使用请先注册账号”和微信 AppID/AppSecret 提示。
 - 旧 `local-admin` / `local-member` 账号已保留关联业务数据并退役为 suspended，不再是可用认证身份；用户正式账号 `D0796` 已映射为稳定的密码认证 UID，并写入生产 `PLATFORM_ADMIN_UIDS` / `HOLIDAY_ADMIN_UIDS`。
 - 原有的 1 个正式群组已在生产数据库中转移到 `D0796` 名下；`D0796` 的群组成员角色为 `owner`，显示姓名为“林恩宇”。原群组及排班数据保留，旧退役账号的成员记录保留为历史管理员记录。
-- 群组页面展示修复已完成并上线：工作台和群组管理页会明确显示当前群组、角色和四位群组码，重新生成群组码后会刷新并显示新码。
+- 群组页面展示修复已完成并上线：群组管理页会明确显示当前群组、角色和四位群组码，重新生成群组码后会刷新并显示新码；工作台只保留紧凑群组名称/身份下拉。
 - 小程序 AppSecret 仍按“已暴露”处理，尚未通过聊天内容写入服务器；需要用户在微信平台重置后再更新服务器通知配置。现有服务器会话密钥已存在，网站 AppID/AppSecret 不再是阻塞项。
 - 用户已明确放弃 Figma 预览，改用 Storybook + 本地浏览器验收；用户已确认整体视觉、月格密度、底栏与详情结构，生产 UI 已进入分批实现。
 - Web UI 2.0 Task UI2-03/04/05/06/07/08/09/10/11-12 已分别以 `11bb812`、`5b00fa7`、`7c80488`、`1c84fd6`、`2d6f0a2`、`2bb9fce`、`23c1d9f`、`1203dc7`、`6ec287d` 推送；UI2-13/14 已完成实现与验证，checkpoint 识别消息为 `feat(web): polish group config and guest states`。业务逻辑、权限、API 和数据结构未修改。
@@ -143,8 +143,8 @@
 
 ## 下一批次与停止条件
 
-当前只完成本批精修的剩余发布闭环：全仓库验证通过后创建并推送 `feat(web): compact workbench shell and calendar` checkpoint；创建生产加密数据库备份，部署精确 Git release，再用正式域名核验登录页 ICP、静态产物与服务器 release 一致性。若需要记录实际备份与 release，则追加状态 checkpoint 并按文档提交也部署，使 `HEAD`、`origin/main` 与服务器 `current-release` 最终一致。
+工作台紧凑抬头、月历与 ICP 范围精修的代码、推送、生产备份、部署和正式域名复核均已完成；没有待实施的仓库任务。最终状态 checkpoint 提交并部署后，保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
 
 原生产待办仅保留：在微信平台重置已暴露的小程序 AppSecret 后再验收通知功能；这不属于 Web UI 2.0 代码实现缺口。
 
-停止条件：部署最终状态 checkpoint `docs(status): record ICP footer production deployment`，确认 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；仓库工作停止，等待用户完成微信管理员认证/临时恢复并反馈结果。
+停止条件：部署最终状态 checkpoint `docs(status): record compact workbench production deployment`，确认 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；仓库工作停止，等待用户做最终视觉复核。
