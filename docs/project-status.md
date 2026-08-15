@@ -9,7 +9,7 @@
 - Checkpoint 1（网站微信扫码认证）和 Checkpoint 2（域名专属入口、测试通道收口）已完成并已推送：`12e7f40`、`dec9943`。
 - 用户确认无法取得微信开放平台网站应用，改用正式账号密码注册/登录。本轮已实现后端密码认证、前端注册/登录、scrypt 哈希、生产配置和迁移 0036；网站扫码代码暂保留为未来可选能力，但生产配置不依赖它，正式页面不显示扫码入口。
 - 小程序凭据仍只用于小程序登录和通知。用户在聊天中发送过的小程序 AppSecret 按“已暴露”处理：本轮没有把它写入仓库、新 release 或服务器；通知功能正式验收前必须重置。小程序代码上传 `.key` 文件不是网页登录凭据，不需要上传或提交。
-- 手机 Sheet 下拉框修复 release `af37f5e4ecf5abcc86ac7460361bbfb47ba4c8c4` 已部署；发布前加密数据库备份 archive 为 `48b7e00f-19b3-4577-aefa-dad10a0ad0bd`。生产仍为 36 个迁移，现网首页/API、产物哈希和域名隔离核验通过；最终状态 checkpoint `docs(status): require production deployment after changes` 还需作为同产物 release 部署，使服务器 release 与 Git `HEAD` 一致。
+- 手机 Sheet 下拉框修复与自动部署规则已上线；当前正式 release 对应 `docs(status): confirm automatic deployment policy rollout` checkpoint，精确哈希与 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致。发布前加密数据库备份 archive 为 `48b7e00f-19b3-4577-aefa-dad10a0ad0bd`；生产仍为 36 个迁移，现网首页/API、产物哈希和域名隔离核验通过。
 - 本轮变更已上线：密码不再有最小/最大位数限制，仅拒绝空密码；登录页已移除“首次使用请先注册账号”和微信 AppID/AppSecret 提示。
 - 旧 `local-admin` / `local-member` 账号已保留关联业务数据并退役为 suspended，不再是可用认证身份；用户正式账号 `D0796` 已映射为稳定的密码认证 UID，并写入生产 `PLATFORM_ADMIN_UIDS` / `HOLIDAY_ADMIN_UIDS`。
 - 原有的 1 个正式群组已在生产数据库中转移到 `D0796` 名下；`D0796` 的群组成员角色为 `owner`，显示姓名为“林恩宇”。原群组及排班数据保留，旧退役账号的成员记录保留为历史管理员记录。
@@ -131,8 +131,8 @@
 
 ## 下一批次与停止条件
 
-当前下拉框回归已完成本地修复、浏览器验证、全仓库验证和生产部署；下一批次只完成自动部署规则状态 checkpoint 的同产物发布，使服务器 release 与 Git `HEAD` 完全一致，然后停止。
+当前下拉框回归与自动部署规则均已完成代码、浏览器、全仓库和生产验证；没有待实施批次。后续每个仓库修改检查点都必须提交、推送、创建生产备份、部署并线上核验。
 
 原生产待办仅保留：在微信平台重置已暴露的小程序 AppSecret 后再验收通知功能；这不属于 Web UI 2.0 代码实现缺口。
 
-停止条件：创建并推送 `docs(status): require production deployment after changes`，将该 checkpoint 部署为正式 release，确认 Git `HEAD`、`origin/main`、服务器 `current-release` 一致且工作树干净。
+停止条件：部署 `docs(status): confirm automatic deployment policy rollout` checkpoint，确认 Git `HEAD`、`origin/main`、服务器 `current-release` 一致且工作树干净，然后等待用户下一项反馈。
