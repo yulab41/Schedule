@@ -13,6 +13,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import type { SelectValue } from 'tdesign-vue-next';
@@ -697,6 +698,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
             <t-select
               :value="selectedMyAssignmentId"
               :options="myAssignmentOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择我的班次"
               @change="onMyAssignmentChange"
             />
@@ -706,6 +708,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
             <t-select
               :value="selectedOvertimeMembershipId"
               :options="overtimeOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择代值的加班成员"
               @change="onOvertimeChange"
             />
@@ -757,6 +760,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
             <t-select
               :value="selectedAdminAssignmentId"
               :options="adminShiftOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择需要代值的班次"
               @change="onAdminAssignmentChange"
             />
@@ -766,6 +770,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
             <t-select
               :value="selectedAdminOvertimeMembershipId"
               :options="adminOvertimeOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择代值的加班成员"
               @change="onAdminOvertimeChange"
             />

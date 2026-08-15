@@ -25,6 +25,7 @@ import {
 import { localAuth } from '../../auth/local-auth.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import {
   addBusinessMonths,
   createLatestRequestTracker,
@@ -387,15 +388,33 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         </label>
         <label v-if="roleOptions.length > 0" class="filter-field">
           排班岗位
-          <t-select v-model="roleIds" multiple :options="roleOptions" clearable />
+          <t-select
+            v-model="roleIds"
+            multiple
+            :options="roleOptions"
+            :popup-props="responsiveSheetPopupProps"
+            clearable
+          />
         </label>
         <label v-if="shiftTypeOptions.length > 0" class="filter-field">
           班种
-          <t-select v-model="shiftTypeIds" multiple :options="shiftTypeOptions" clearable />
+          <t-select
+            v-model="shiftTypeIds"
+            multiple
+            :options="shiftTypeOptions"
+            :popup-props="responsiveSheetPopupProps"
+            clearable
+          />
         </label>
         <label v-if="memberOptions.length > 0" class="filter-field">
           成员
-          <t-select v-model="membershipIds" multiple :options="memberOptions" clearable />
+          <t-select
+            v-model="membershipIds"
+            multiple
+            :options="memberOptions"
+            :popup-props="responsiveSheetPopupProps"
+            clearable
+          />
         </label>
         <div class="filter-sheet-actions">
           <t-button variant="outline" @click="clearFilters">清除筛选</t-button>

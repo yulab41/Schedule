@@ -662,6 +662,28 @@ async function assertWorkflowSheetTouchTargets(sheet, width, label) {
   }
 }
 
+async function assertSelectPopupInsideSheet(sheet, label) {
+  const select = sheet.locator('.t-select').first();
+  await select.waitFor({ state: 'visible', timeout: 5000 });
+  await select.click();
+
+  const dropdown = sheet.locator('.t-select__dropdown').last();
+  await dropdown.waitFor({ state: 'visible', timeout: 5000 });
+  const result = await dropdown.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      insideOpenSheet: element.closest('dialog.responsive-sheet[open]') !== null,
+      visible: rect.width > 0 && rect.height > 0,
+    };
+  });
+  if (!result.insideOpenSheet || !result.visible) {
+    fail(`${label}的下拉内容没有显示在模态底部页内。`);
+  }
+
+  await select.click();
+  await dropdown.waitFor({ state: 'hidden', timeout: 5000 });
+}
+
 async function assertShiftWorkflowsMobile(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '换班' }).first().click();
@@ -703,6 +725,7 @@ async function assertShiftWorkflowsMobile(page) {
       fail(`${width}px 发起换班底部页缺少表单内容。`);
     }
     await assertWorkflowSheetTouchTargets(requestSheet, width, '发起换班底部页');
+    await assertSelectPopupInsideSheet(requestSheet, `${width}px 发起换班`);
     if (width === 390) {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '4-admin-mobile-swap-sheet.png') });
     }
@@ -759,6 +782,7 @@ async function assertShiftWorkflowsMobile(page) {
       fail(`${width}px 发起加扣班底部页缺少表单内容。`);
     }
     await assertWorkflowSheetTouchTargets(requestSheet, width, '发起加扣班底部页');
+    await assertSelectPopupInsideSheet(requestSheet, `${width}px 发起加扣班`);
     if (width === 390) {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '5-admin-mobile-duty-sheet.png') });
     }
@@ -827,6 +851,7 @@ async function assertMonthCalendarInteractions(page) {
   if (smallFilterActions.length > 0) {
     fail(`手机筛选底部页存在小于 44px 的按钮：${smallFilterActions.join('、')}`);
   }
+  await assertSelectPopupInsideSheet(filterSheet, '手机月历筛选');
   await filterSheet.locator('button[aria-label="关闭"]').click();
 
   const selectedButtons = page.locator('.day-select-button[aria-pressed="true"]');

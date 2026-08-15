@@ -14,6 +14,7 @@ import { ApiClientError, createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
 import {
@@ -774,6 +775,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="selectedMyAssignmentId"
               :options="myAssignmentOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择我的班次"
               @change="onMyAssignmentChange"
             />
@@ -783,6 +785,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="selectedTargetMembershipId"
               :options="targetOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择目标成员"
               @change="onTargetChange"
             />
@@ -792,6 +795,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="selectedTargetAssignmentId"
               :options="targetAssignmentOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择目标成员的班次"
               @change="onTargetAssignmentChange"
             />
@@ -831,6 +835,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="adminInitiatorMembershipId"
               :options="adminMemberOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择成员一"
               @change="onAdminInitiatorChange"
             />
@@ -840,6 +845,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="adminInitiatorAssignmentId"
               :options="adminInitiatorAssignmentOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择成员一的班次"
               @change="onAdminInitiatorAssignmentChange"
             />
@@ -849,6 +855,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="adminTargetMembershipId"
               :options="adminMemberOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择成员二"
               @change="onAdminTargetChange"
             />
@@ -858,6 +865,7 @@ function getCounterpartName(request: SwapRequest): string {
             <t-select
               :value="adminTargetAssignmentId"
               :options="adminTargetAssignmentOptions"
+              :popup-props="responsiveSheetPopupProps"
               placeholder="选择成员二的班次"
               @change="onAdminTargetAssignmentChange"
             />
