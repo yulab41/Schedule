@@ -143,7 +143,7 @@
 
 ## 下一批次与停止条件
 
-本轮下一批次：完成“月历跨午夜业务日”修复的 checkpoint、生产备份、部署和正式域名复核；停止条件是 Git `HEAD`、`origin/main` 与服务器 `current-release` 均指向本轮 checkpoint。工作区中 `MonthGrid.vue`、`CalendarView.vue`、`NotificationBell.vue` 及两个未跟踪 UI 文件的并发改动属于用户工作，不纳入本轮提交，继续保留原样。
+本轮下一批次：完成“Mobile Screens 2 月历视觉一致性”checkpoint、生产备份、部署和正式域名复核；停止条件是 Git `HEAD`、`origin/main` 与服务器 `current-release` 均指向本轮 checkpoint，并在 320/390/1280 视口确认月历、工具栏和通知铃与 Storybook 2 一致。
 
 ## 2026-08-16 月历跨午夜业务日修复
 
@@ -157,3 +157,12 @@
 原生产待办仅保留：在微信平台重置已暴露的小程序 AppSecret 后再验收通知功能；这不属于 Web UI 2.0 代码实现缺口。
 
 停止条件：完成本轮 checkpoint 的 production backup、release 部署、`ecs-verify.sh` 和月历专项线上核验，确认 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后等待用户在正式站点跨 00:00 与 08:00 做最终复核。
+
+## 2026-08-16 Mobile Screens 2 月历视觉一致性
+
+- 回归来源：正式月历工具栏与移动月历样式由 `7c80488` 引入，通知入口由 `52e9e1f` 引入并在 `5b00fa7` 形成应用壳触发样式，月格基础结构由 `ab25064` 引入；已对当前模板和样式执行 `git log -S` 与 `git blame`。
+- 测试先行：新增独立回归测试后先因 `month-grid-presentation` 不存在而失败；实现后新增测试 4/4、工作台紧凑壳测试 5/5 通过。浏览器 smoke 首先暴露相邻月禁用格被旧选择器误选，收窄到可用当月日期后完整通过。
+- 变更：正式页原样采用 Storybook Mobile Screens 2 的 3px 浅灰分段容器、44px/13px 月周列表按钮、44px/13px 筛选按钮和三横线图标；通知入口改为相同 44px、15px 圆角的自绘铃铛及未读红点。手机月历固定 1:1 单元格比例和完整 42 格，补全相邻月份日期并置灰禁用，星期一至日行改为 28px 浅灰填充，周六、日继续红字。
+- 语义审计：月/周/列表仍只写入同一 `viewMode` 一次，原 watch、月份/周导航、筛选 Sheet、API、错误处理与日期选择调用不变；相邻月份格仅补充只读展示且不触发选择。通知轮询、未读计数、抽屉和定时器不变，仅把数字徽标视觉替换为与 Storybook 一致的红点，未读数量保留在可访问名称中。
+- 运行/浏览器验证：320×844、390×844 和 1280×900 实测无内容横向溢出；390px 月格为 49×49，320px 约 41×41，均为 42 格，前后相邻日期为 07-27 至 09-06。月/周/列表、筛选 Sheet、通知 Sheet 和禁用相邻日期均实际操作通过。Storybook build、Web typecheck、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify` 与 `git diff --check` 通过；全仓库 75 个测试文件、510 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。
+- 状态：已完成（含运行/浏览器验证）→ 待生产发布与用户复核。checkpoint 识别消息：`fix(web): match mobile calendar Storybook styling`。

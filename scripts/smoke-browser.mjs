@@ -937,9 +937,11 @@ async function assertMonthCalendarInteractions(page) {
     );
   }
 
-  const anotherDate = page.locator('.day-select-button[aria-pressed="false"]').first();
+  const anotherDate = page
+    .locator('.day-select-button[aria-pressed="false"]:not(:disabled)')
+    .first();
   const anotherLabel = await anotherDate.getAttribute('aria-label');
-  await anotherDate.click();
+  await anotherDate.click({ force: true });
   const changedSelectedLabel = await selectedButtons.first().getAttribute('aria-label');
   if (changedSelectedLabel !== anotherLabel) {
     fail('点触月格后选中日期未更新。');

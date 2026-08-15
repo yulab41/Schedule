@@ -6,12 +6,7 @@ import type {
   GroupSummary,
   ScheduleEvent,
 } from '@schedule/contracts';
-import {
-  CalendarIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  FilterIcon,
-} from 'tdesign-icons-vue-next';
+import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -73,6 +68,11 @@ const onlyChanges = ref(false);
 const roleIds = ref<string[]>([]);
 const shiftTypeIds = ref<string[]>([]);
 const viewMode = ref<CalendarViewMode>('month');
+const viewModeOptions: readonly { readonly label: string; readonly value: CalendarViewMode }[] = [
+  { label: '月', value: 'month' },
+  { label: '周', value: 'week' },
+  { label: '列表', value: 'list' },
+];
 const weekStart = ref('');
 const requestTracker = createLatestRequestTracker();
 const todayBusinessDate = getBusinessDate();
@@ -308,23 +308,34 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <div class="calendar-toolbar">
       <div class="calendar-view-switch">
-        <t-radio-group v-model="viewMode" class="view-mode-switch" aria-label="日历视图">
-          <t-radio-button value="month">月</t-radio-button>
-          <t-radio-button value="week">周</t-radio-button>
-          <t-radio-button value="list">列表</t-radio-button>
-        </t-radio-group>
-        <t-button
+        <div class="view-mode-switch" role="tablist" aria-label="日历视图">
+          <button
+            v-for="option in viewModeOptions"
+            :key="option.value"
+            type="button"
+            role="tab"
+            class="view-mode-button"
+            :class="{ active: viewMode === option.value }"
+            :aria-selected="viewMode === option.value"
+            @click="viewMode = option.value"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <button
+          type="button"
           class="mobile-filter-trigger"
-          variant="outline"
           :aria-label="
             activeFilterCount > 0 ? `筛选排班，已启用${activeFilterCount}项` : '筛选排班'
           "
           @click="filterSheetVisible = true"
         >
-          <template #icon><FilterIcon /></template>
-          筛选
+          <svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 6h16M7 12h10M10 18h4" />
+          </svg>
+          <span>筛选</span>
           <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
-        </t-button>
+        </button>
       </div>
       <div v-if="viewMode === 'week'" class="week-navigation">
         <t-button variant="outline" @click="goToPreviousWeek">上一周</t-button>
@@ -527,13 +538,45 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   gap: var(--ui-spacing-sm);
 }
 
-.view-mode-switch :deep(.t-radio-button) {
-  min-height: var(--ui-touch-target-minimum);
-  font-size: var(--ui-font-size-sm);
+.view-mode-switch {
+  display: grid;
+  padding: 3px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #e8edf3;
+  border-radius: var(--ui-radius-medium);
+}
+
+.view-mode-button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--ui-color-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: 11px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.view-mode-button.active {
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  box-shadow: 0 2px 8px rgb(22 32 42 / 9%);
 }
 
 .mobile-filter-trigger {
   display: none;
+}
+
+.filter-icon {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .month-navigation,
@@ -700,22 +743,22 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .view-mode-switch {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .view-mode-switch :deep(.t-radio-button) {
-    min-width: 0;
-    padding-inline: 10px;
-  }
-
   .mobile-filter-trigger {
     display: inline-flex;
     min-width: var(--ui-touch-target-minimum);
-    min-height: var(--ui-touch-target-minimum);
-    border-radius: var(--ui-radius-small);
-    font-size: var(--ui-font-size-sm);
+    min-height: 44px;
+    padding: 0 12px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    color: var(--ui-color-primary);
+    background: var(--ui-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-medium);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: var(--ui-font-weight-semibold);
   }
 
   .calendar-filters {

@@ -1,0 +1,65 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+import { describe, expect, it } from 'vitest';
+
+import { buildMonthDisplayGrid } from '../../features/calendar/month-grid-presentation.js';
+
+function readSource(relativePath: string): string {
+  return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
+}
+
+describe('mobile calendar Storybook 2 parity', () => {
+  it('builds six complete weeks with labelled adjacent-month dates', () => {
+    const weeks = buildMonthDisplayGrid('2026-08');
+    const cells = weeks.flat();
+
+    expect(weeks).toHaveLength(6);
+    expect(weeks.every((week) => week.length === 7)).toBe(true);
+    expect(cells[0]).toEqual({ businessDate: '2026-07-27', isOutsideMonth: true });
+    expect(cells[5]).toEqual({ businessDate: '2026-08-01', isOutsideMonth: false });
+    expect(cells.at(-1)).toEqual({ businessDate: '2026-09-06', isOutsideMonth: true });
+  });
+
+  it('uses the Storybook segmented toolbar and filter metrics', () => {
+    const calendarView = readSource('./CalendarView.vue');
+
+    expect(calendarView).toContain('class="view-mode-switch"');
+    expect(calendarView).toContain('role="tablist"');
+    expect(calendarView).toContain('class="view-mode-button"');
+    expect(calendarView).toContain('class="mobile-filter-trigger"');
+    expect(calendarView).toMatch(
+      /\.view-mode-switch\s*{[^}]*padding:\s*3px;[^}]*background:\s*#e8edf3;[^}]*border-radius:\s*var\(--ui-radius-medium\);/s,
+    );
+    expect(calendarView).toMatch(
+      /\.view-mode-button\s*{[^}]*min-height:\s*44px;[^}]*font-size:\s*13px;/s,
+    );
+    expect(calendarView).toMatch(
+      /\.mobile-filter-trigger\s*{[^}]*min-height:\s*44px;[^}]*border-radius:\s*var\(--ui-radius-medium\);[^}]*font-size:\s*13px;/s,
+    );
+  });
+
+  it('fixes mobile month cells to the Storybook square ratio and fills the weekday rail', () => {
+    const monthGrid = readSource('../../features/calendar/MonthGrid.vue');
+
+    expect(monthGrid).toContain("'is-outside-month': cell.isOutsideMonth");
+    expect(monthGrid).toContain(':disabled="cell.isOutsideMonth"');
+    expect(monthGrid).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.weekday-row\s*{[^}]*height:\s*28px;[^}]*background:\s*#f8fafc;[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/s,
+    );
+    expect(monthGrid).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.day-cell\s*{[^}]*aspect-ratio:\s*1\s*\/\s*1;[^}]*min-height:\s*0;/s,
+    );
+  });
+
+  it('uses the exact Storybook bell silhouette and notification dot treatment', () => {
+    const notificationBell = readSource('../../features/notifications/NotificationBell.vue');
+
+    expect(notificationBell).toContain('d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"');
+    expect(notificationBell).toContain('d="M10 21h4"');
+    expect(notificationBell).toContain('v-if="unreadCount > 0" class="notification-dot"');
+    expect(notificationBell).toMatch(
+      /\.notification-trigger\s*{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*background:\s*var\(--ui-color-background\);[^}]*border:\s*0;[^}]*border-radius:\s*15px;/s,
+    );
+  });
+});

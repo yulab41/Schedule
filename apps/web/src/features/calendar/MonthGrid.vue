@@ -8,14 +8,17 @@ import type {
 import { computed } from 'vue';
 
 import {
-  buildMonthGrid,
   getDutyMembershipId,
   getHolidayShortLabel,
   isCalendarGridCellSelected,
   isPastBusinessDate,
-  type CalendarGridWeek,
 } from './calendar-logic.js';
 import { getMultiDayHolidayDates, groupAssignmentsByDate, isWeekend } from './calendar-views.js';
+import {
+  buildMonthDisplayGrid,
+  type MonthDisplayCell,
+  type MonthDisplayWeek,
+} from './month-grid-presentation.js';
 import DutyCell from './DutyCell.vue';
 
 const props = defineProps<{
@@ -39,10 +42,9 @@ const membersById = computed(
 );
 const assignmentsByDate = computed(() => groupAssignmentsByDate(props.assignments));
 
-const weeks = computed<readonly CalendarGridWeek[]>(() => {
-  const [yearText = '', monthText = ''] = props.businessMonth.split('-');
-  return buildMonthGrid(Number(yearText), Number(monthText));
-});
+const weeks = computed<readonly MonthDisplayWeek[]>(() =>
+  buildMonthDisplayGrid(props.businessMonth),
+);
 const multiDayHolidayDates = computed(() => getMultiDayHolidayDates(props.holidays));
 
 function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | undefined {
@@ -75,15 +77,19 @@ function isSoleDuty(date: string | undefined): boolean {
   return assignmentsFor(date).length === 1;
 }
 
-function selectDate(date: string | undefined): void {
-  if (date !== undefined) emit('select-date', date);
+function selectDate(cell: MonthDisplayCell): void {
+  if (!cell.isOutsideMonth) emit('select-date', cell.businessDate);
 }
 
-function dateAriaLabel(date: string): string {
-  const holiday = holidayFor(date);
-  const assignments = assignmentsFor(date);
+function dateAriaLabel(cell: MonthDisplayCell): string {
+  if (cell.isOutsideMonth) {
+    return `相邻月份，${cell.businessDate}`;
+  }
+
+  const holiday = holidayFor(cell.businessDate);
+  const assignments = assignmentsFor(cell.businessDate);
   const suffix = assignments.length > 0 ? `，${assignments.length}个班次` : '，暂无排班';
-  return `${date}${holiday === undefined ? '' : `，${holidayTitle(date)}`}${suffix}`;
+  return `${cell.businessDate}${holiday === undefined ? '' : `，${holidayTitle(cell.businessDate)}`}${suffix}`;
 }
 </script>
 
@@ -107,61 +113,62 @@ function dateAriaLabel(date: string): string {
         v-for="(cell, cellIndex) in week"
         :key="cellIndex"
         class="day-cell"
-        :data-date="cell?.businessDate"
+        :data-date="cell.businessDate"
+        :data-outside-month="cell.isOutsideMonth ? 'true' : undefined"
         :data-selected="isCalendarGridCellSelected(cell, selectedDate) ? 'true' : undefined"
         :class="{
-          'is-empty': cell === null,
-          'is-multi-day-holiday': cell !== null && multiDayHolidayDates.has(cell.businessDate),
-          'is-selected': isCalendarGridCellSelected(cell, selectedDate),
-          'is-staged': cell !== null && highlightedDates?.has(cell.businessDate) === true,
-          'is-past': cell !== null && isPastBusinessDate(cell.businessDate, today ?? ''),
-          'is-today': cell?.businessDate === today,
-          'is-weekend': cell !== null && isWeekend(cell.businessDate),
+          'is-multi-day-holiday':
+            !cell.isOutsideMonth && multiDayHolidayDates.has(cell.businessDate),
+          'is-outside-month': cell.isOutsideMonth,
+          'is-selected': !cell.isOutsideMonth && isCalendarGridCellSelected(cell, selectedDate),
+          'is-staged': !cell.isOutsideMonth && highlightedDates?.has(cell.businessDate) === true,
+          'is-past': !cell.isOutsideMonth && isPastBusinessDate(cell.businessDate, today ?? ''),
+          'is-today': !cell.isOutsideMonth && cell.businessDate === today,
+          'is-weekend': isWeekend(cell.businessDate),
         }"
-        :data-today="cell?.businessDate === today ? 'true' : undefined"
-        :aria-current="cell?.businessDate === today ? 'date' : undefined"
-        @click="selectDate(cell?.businessDate)"
+        :data-today="!cell.isOutsideMonth && cell.businessDate === today ? 'true' : undefined"
+        :aria-current="!cell.isOutsideMonth && cell.businessDate === today ? 'date' : undefined"
+        @click="selectDate(cell)"
       >
-        <template v-if="cell !== null">
-          <button
-            type="button"
-            class="day-select-button"
-            :aria-label="dateAriaLabel(cell.businessDate)"
-            :aria-pressed="cell.businessDate === selectedDate"
-          />
-          <div class="day-header">
-            <span class="day-number">{{ cell.businessDate.slice(8) }}</span>
-            <span
-              v-if="holidayFor(cell.businessDate) !== undefined"
-              class="holiday-tag"
-              :class="{
-                'is-off-day': holidayFor(cell.businessDate)?.isOffDay === true,
-                'is-workday': holidayFor(cell.businessDate)?.isWorkday === true,
-              }"
-              :title="holidayTitle(cell.businessDate)"
-            >
-              {{
-                holidayFor(cell.businessDate)?.isOffDay === true
-                  ? getHolidayShortLabel(holidayFor(cell.businessDate)?.holidayName ?? '')
-                  : '班'
-              }}
-            </span>
-          </div>
-          <ul class="duty-list">
-            <li
-              v-for="assignment in assignmentsFor(cell.businessDate)"
-              :key="`${assignment.schedulePeriodId}:${assignment.businessDate}:${assignment.slotPosition}`"
-            >
-              <DutyCell
-                :assignment="assignment"
-                :hide-shift-badge="isSoleDuty(cell.businessDate)"
-                :markers="visibleMarkers(assignment)"
-                :member="memberFor(assignment)"
-                @open-events="emit('open-events', $event)"
-              />
-            </li>
-          </ul>
-        </template>
+        <button
+          type="button"
+          class="day-select-button"
+          :aria-label="dateAriaLabel(cell)"
+          :aria-pressed="!cell.isOutsideMonth && cell.businessDate === selectedDate"
+          :disabled="cell.isOutsideMonth"
+        />
+        <div class="day-header">
+          <span class="day-number">{{ cell.businessDate.slice(8) }}</span>
+          <span
+            v-if="!cell.isOutsideMonth && holidayFor(cell.businessDate) !== undefined"
+            class="holiday-tag"
+            :class="{
+              'is-off-day': holidayFor(cell.businessDate)?.isOffDay === true,
+              'is-workday': holidayFor(cell.businessDate)?.isWorkday === true,
+            }"
+            :title="holidayTitle(cell.businessDate)"
+          >
+            {{
+              holidayFor(cell.businessDate)?.isOffDay === true
+                ? getHolidayShortLabel(holidayFor(cell.businessDate)?.holidayName ?? '')
+                : '班'
+            }}
+          </span>
+        </div>
+        <ul v-if="!cell.isOutsideMonth" class="duty-list">
+          <li
+            v-for="assignment in assignmentsFor(cell.businessDate)"
+            :key="`${assignment.schedulePeriodId}:${assignment.businessDate}:${assignment.slotPosition}`"
+          >
+            <DutyCell
+              :assignment="assignment"
+              :hide-shift-badge="isSoleDuty(cell.businessDate)"
+              :markers="visibleMarkers(assignment)"
+              :member="memberFor(assignment)"
+              @open-events="emit('open-events', $event)"
+            />
+          </li>
+        </ul>
       </div>
     </div>
   </section>
@@ -206,6 +213,12 @@ function dateAriaLabel(date: string): string {
 
 .day-cell:not(.is-empty) {
   cursor: pointer;
+}
+
+.day-cell.is-outside-month {
+  color: #a7b0bb;
+  background: #fafbfd;
+  cursor: default;
 }
 
 .day-cell.is-selected {
@@ -301,6 +314,10 @@ function dateAriaLabel(date: string): string {
   outline-offset: -3px;
 }
 
+.day-select-button:disabled {
+  cursor: default;
+}
+
 .day-cell.is-past .day-number {
   color: #4b5563;
 }
@@ -388,17 +405,22 @@ function dateAriaLabel(date: string): string {
   }
 
   .weekday-row {
-    background: var(--ui-color-surface);
+    height: 28px;
+    align-items: center;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--ui-color-border);
   }
 
   .weekday-row span {
-    padding: 7px 0;
-    font-size: clamp(10px, 2.8vw, 12px);
+    padding: 0;
+    font-size: 11px;
   }
 
   .day-cell {
-    min-height: 68px;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
     padding: 3px;
+    overflow: hidden;
     border: 0;
     border-radius: 0;
   }
@@ -437,6 +459,21 @@ function dateAriaLabel(date: string): string {
 
   .duty-list li {
     min-width: 0;
+  }
+
+  .day-cell.is-outside-month,
+  .month-grid.invert-past-colors .day-cell.is-outside-month {
+    background: #fafbfd;
+  }
+
+  .day-cell.is-outside-month .day-number,
+  .month-grid.invert-past-colors .day-cell.is-outside-month .day-number {
+    color: #a7b0bb;
+  }
+
+  .day-cell.is-outside-month.is-weekend .day-number,
+  .month-grid.invert-past-colors .day-cell.is-outside-month.is-weekend .day-number {
+    color: var(--ui-color-weekend);
   }
 
   :deep(.duty-cell) {

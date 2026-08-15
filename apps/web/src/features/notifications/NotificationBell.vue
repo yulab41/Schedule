@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { NotificationIcon } from 'tdesign-icons-vue-next';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -59,16 +58,18 @@ function onUnreadChanged(count: number): void {
 
 <template>
   <div class="notification-bell">
-    <t-badge :count="unreadCount" :hidden="unreadCount === 0">
-      <t-button
-        class="notification-trigger"
-        aria-label="通知中心"
-        variant="text"
-        @click="isOpen = true"
-      >
-        <NotificationIcon aria-hidden="true" />
-      </t-button>
-    </t-badge>
+    <button
+      type="button"
+      class="notification-trigger"
+      :aria-label="unreadCount > 0 ? `通知中心，${unreadCount}条未读` : '通知中心'"
+      @click="isOpen = true"
+    >
+      <svg class="notification-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
+        <path d="M10 21h4" />
+      </svg>
+      <span v-if="unreadCount > 0" class="notification-dot" aria-hidden="true" />
+    </button>
     <ResponsiveSheet id="notification-center-sheet" v-model:visible="isOpen" title="通知中心">
       <NotificationCenterPanel @unread-changed="onUnreadChanged" />
     </ResponsiveSheet>
@@ -77,16 +78,37 @@ function onUnreadChanged(count: number): void {
 
 <style scoped>
 .notification-trigger {
-  width: var(--ui-touch-target-minimum);
-  height: var(--ui-touch-target-minimum);
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
   padding: 0;
+  place-items: center;
   color: var(--ui-color-text-primary);
   background: var(--ui-color-background);
-  border-radius: var(--ui-radius-medium);
+  border: 0;
+  border-radius: 15px;
+  cursor: pointer;
 }
 
-.notification-trigger :deep(svg) {
-  width: 21px;
-  height: 21px;
+.notification-icon {
+  display: block;
+  width: 21.6px;
+  height: 21.6px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  background: var(--ui-color-danger);
+  border: 2px solid var(--ui-color-surface);
+  border-radius: 50%;
 }
 </style>

@@ -52,7 +52,7 @@ describe('formal compact workbench shell', () => {
       /\.month-calendar-card\s*{[^}]*border-radius:\s*var\(--ui-radius-large\);[^}]*box-shadow:\s*var\(--ui-shadow-card\);/s,
     );
     expect(calendarView).toMatch(
-      /\.view-mode-switch :deep\(\.t-radio-button\)\s*{[^}]*min-height:[^;]+;[^}]*font-size:\s*var\(--ui-font-size-sm\);/s,
+      /\.view-mode-button\s*{[^}]*min-height:\s*44px;[^}]*font-size:\s*13px;/s,
     );
     expect(monthGrid).toContain("weekday === '六' || weekday === '日'");
     expect(monthGrid).toMatch(

@@ -18,7 +18,6 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SiteComplianceFooter: typeof import('./components/SiteComplianceFooter.vue')['default']
     TAlert: typeof import('tdesign-vue-next')['Alert']
-    TBadge: typeof import('tdesign-vue-next')['Badge']
     TButton: typeof import('tdesign-vue-next')['Button']
     TCard: typeof import('tdesign-vue-next')['Card']
     TContent: typeof import('tdesign-vue-next')['Content']
