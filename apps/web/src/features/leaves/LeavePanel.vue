@@ -260,7 +260,6 @@ function onWindowFocus(): void {
   <section class="leave-panel" :aria-busy="isLoading || isSubmitting">
     <header class="panel-heading">
       <div>
-        <h2>请假与审批</h2>
         <p>查看请假状态，或处理会影响排班的申请。</p>
       </div>
       <t-button

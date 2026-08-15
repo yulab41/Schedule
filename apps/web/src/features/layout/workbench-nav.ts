@@ -82,3 +82,15 @@ export function getSecondaryMobileNavItems(role: GroupRole): readonly WorkbenchN
 export function getFocusOrder(items: readonly WorkbenchNavItem[]): readonly WorkbenchTabId[] {
   return items.map((item) => item.id);
 }
+
+export function getWorkbenchPageTitle(tabId: WorkbenchTabId): string {
+  if (tabId === 'calendar') {
+    return '工作台';
+  }
+
+  if (tabId === 'leave') {
+    return '请假与审批';
+  }
+
+  return workbenchNavItems.find((item) => item.id === tabId)?.label ?? '工作台';
+}

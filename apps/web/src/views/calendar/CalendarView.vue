@@ -305,7 +305,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
 <template>
   <section class="calendar-view" :aria-busy="isLoading">
-    <h2>排班日历</h2>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <div class="calendar-toolbar">
       <div class="calendar-view-switch">
@@ -326,30 +325,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           筛选
           <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
         </t-button>
-      </div>
-      <div class="month-navigation">
-        <t-button
-          class="month-step"
-          aria-label="上一月"
-          variant="outline"
-          @click="goToPreviousMonth"
-        >
-          <template #icon><ChevronLeftIcon /></template>
-          <span>上一月</span>
-        </t-button>
-        <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
-        <t-button class="month-step" aria-label="下一月" variant="outline" @click="goToNextMonth">
-          <template #icon><ChevronRightIcon /></template>
-          <span>下一月</span>
-        </t-button>
-        <t-button class="today-button" variant="outline" @click="goToToday">
-          <template #icon><CalendarIcon /></template>
-          今天
-        </t-button>
-        <label class="month-picker">
-          年月
-          <input v-model="businessMonth" type="month" />
-        </label>
       </div>
       <div v-if="viewMode === 'week'" class="week-navigation">
         <t-button variant="outline" @click="goToPreviousWeek">上一周</t-button>
@@ -441,16 +416,45 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         @pointerdown="onMonthPointerDown"
         @pointerup="onMonthPointerUp"
       >
-        <MonthGrid
-          :assignments="visibleAssignments"
-          :business-month="calendar.businessMonth"
-          :holidays="holidays"
-          :members="calendar.members"
-          :selected-date="selectedDate"
-          :today="todayBusinessDate"
-          @open-events="openAssignmentEvents"
-          @select-date="selectedDate = $event"
-        />
+        <section class="month-calendar-card">
+          <header class="month-navigation">
+            <t-button
+              class="month-step"
+              aria-label="上一月"
+              variant="text"
+              @click="goToPreviousMonth"
+            >
+              <template #icon><ChevronLeftIcon /></template>
+              <span>上一月</span>
+            </t-button>
+            <div class="month-heading">
+              <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
+              <span class="month-swipe-hint">左右滑动切换月份</span>
+            </div>
+            <t-button class="month-step" aria-label="下一月" variant="text" @click="goToNextMonth">
+              <template #icon><ChevronRightIcon /></template>
+              <span>下一月</span>
+            </t-button>
+            <t-button class="today-button" variant="outline" @click="goToToday">
+              <template #icon><CalendarIcon /></template>
+              今天
+            </t-button>
+            <label class="month-picker">
+              年月
+              <input v-model="businessMonth" type="month" />
+            </label>
+          </header>
+          <MonthGrid
+            :assignments="visibleAssignments"
+            :business-month="calendar.businessMonth"
+            :holidays="holidays"
+            :members="calendar.members"
+            :selected-date="selectedDate"
+            :today="todayBusinessDate"
+            @open-events="openAssignmentEvents"
+            @select-date="selectedDate = $event"
+          />
+        </section>
       </div>
       <ListGrid
         v-else-if="viewMode === 'list' && visibleAssignments.length > 0"
@@ -506,12 +510,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   gap: 12px;
 }
 
-.calendar-view h2 {
-  margin: 0;
-  font-size: var(--ui-font-size-xl);
-  font-weight: 600;
-}
-
 .calendar-toolbar {
   display: grid;
   gap: 10px;
@@ -531,6 +529,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
 .view-mode-switch :deep(.t-radio-button) {
   min-height: var(--ui-touch-target-minimum);
+  font-size: var(--ui-font-size-sm);
 }
 
 .mobile-filter-trigger {
@@ -543,6 +542,40 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.month-calendar-card {
+  overflow: hidden;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.month-calendar-card .month-navigation {
+  min-height: 60px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.month-heading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.month-swipe-hint {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-regular);
+}
+
+.month-calendar-card :deep(.month-grid) {
+  border: 0;
+  border-radius: 0;
 }
 
 .month-navigation strong,
@@ -651,16 +684,14 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
 @media (max-width: 640px) {
   .calendar-view {
-    gap: 10px;
-  }
-
-  .calendar-view h2 {
-    font-size: var(--ui-font-size-lg);
+    gap: 14px;
   }
 
   .calendar-toolbar {
-    gap: 8px;
-    padding: 10px;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
     box-shadow: none;
   }
 
@@ -684,6 +715,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
     min-width: var(--ui-touch-target-minimum);
     min-height: var(--ui-touch-target-minimum);
     border-radius: var(--ui-radius-small);
+    font-size: var(--ui-font-size-sm);
   }
 
   .calendar-filters {
@@ -692,10 +724,8 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
   .month-navigation {
     display: grid;
-    grid-template-columns:
-      var(--ui-touch-target-minimum) minmax(0, 1fr) var(--ui-touch-target-minimum)
-      auto;
-    gap: 6px;
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
+    gap: 0;
   }
 
   .month-navigation strong {
@@ -705,6 +735,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   .month-step {
     min-width: var(--ui-touch-target-minimum);
     padding-inline: 0;
+    color: var(--ui-color-primary);
   }
 
   .month-step span {
@@ -712,16 +743,11 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   }
 
   .today-button {
-    padding-inline: 10px;
+    display: none;
   }
 
   .month-picker {
-    grid-column: 1 / -1;
-  }
-
-  .month-picker input {
-    min-width: 0;
-    flex: 1;
+    display: none;
   }
 }
 

@@ -191,10 +191,10 @@ textarea {
 }
 
 .app-content {
-  padding: var(--ui-spacing-xl);
   width: 100%;
-  max-width: 1440px;
+  max-width: none;
   margin: 0 auto;
+  padding: 0;
 }
 
 .skip-link {
@@ -369,10 +369,6 @@ textarea {
   .app-header {
     min-height: calc(var(--ui-layout-header-height) + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) 12px 0 16px;
-  }
-
-  .app-content {
-    padding: var(--ui-spacing-md);
   }
 
   .auth-page,

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
 import { computed } from 'vue';
-import type { SelectValue } from 'tdesign-vue-next';
 
 const props = defineProps<{
   readonly groups: readonly GroupSummary[];
@@ -18,18 +17,19 @@ const selectedGroup = computed(
 
 const groupOptions = computed(() =>
   props.groups.map((group) => ({
-    label: `${group.name} (${roleLabel(group.role)})`,
+    label: group.name,
     value: group.id,
   })),
 );
 
-function selectGroup(value: SelectValue): void {
-  if (typeof value === 'string' && props.groups.some((group) => group.id === value)) {
+function selectGroup(event: Event): void {
+  const value = (event.target as HTMLSelectElement).value;
+  if (props.groups.some((group) => group.id === value)) {
     emit('update:modelValue', value);
   }
 }
 
-function roleLabel(role: GroupSummary['role']): string {
+function roleLabel(role: GroupSummary['role'] | undefined): string {
   if (role === 'owner') {
     return '群主';
   }
@@ -43,74 +43,67 @@ function roleLabel(role: GroupSummary['role']): string {
 </script>
 
 <template>
-  <section v-if="groups.length > 0" class="group-switcher" aria-label="当前群组">
-    <div class="group-switcher-summary">
-      <span>当前群组：</span>
-      <strong>{{ selectedGroup?.name }}</strong>
-      <span v-if="selectedGroup !== undefined">（{{ roleLabel(selectedGroup.role) }}）</span>
-      <span
-        v-if="selectedGroup?.groupCode !== undefined"
-        data-testid="current-group-code"
-        class="group-code-summary"
-      >
-        当前群组码：{{ selectedGroup.groupCode }}
-      </span>
-    </div>
-    <t-select
+  <label v-if="groups.length > 0" class="group-switcher">
+    <span class="group-switcher-copy">
+      {{ selectedGroup?.name }} · {{ roleLabel(selectedGroup?.role) }}
+    </span>
+    <span class="group-switcher-arrow" aria-hidden="true">▾</span>
+    <select
       id="group-switcher"
       :value="modelValue ?? ''"
-      :options="groupOptions"
+      aria-label="切换排班群组"
       @change="selectGroup"
-    />
-  </section>
+    >
+      <option v-for="option in groupOptions" :key="option.value" :value="option.value">
+        {{ option.label }}
+      </option>
+    </select>
+  </label>
 </template>
 
 <style scoped>
 .group-switcher {
-  display: grid;
-  padding: 14px 16px;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-  align-items: center;
-  gap: 12px;
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-large);
-  box-shadow: var(--ui-shadow-card);
-}
-
-.group-switcher-summary {
+  position: relative;
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: baseline;
-}
-
-.group-switcher-summary > span:first-child {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 15px;
+  padding-right: 18px;
+  align-items: center;
   color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
+  border-radius: 6px;
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 15px;
 }
 
-.group-switcher-summary strong {
-  color: var(--ui-color-text-primary);
-  font-size: var(--ui-font-size-lg);
-  font-weight: var(--ui-font-weight-semibold);
+.group-switcher-copy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.group-code-summary {
-  flex-basis: 100%;
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
+.group-switcher-arrow {
+  position: absolute;
+  right: 3px;
+  pointer-events: none;
 }
 
-:deep(.t-input) {
+.group-switcher select {
+  position: absolute;
+  top: 50%;
+  right: -13px;
+  width: calc(100% + 13px);
+  min-width: var(--ui-touch-target-minimum);
   min-height: var(--ui-touch-target-minimum);
-  border-radius: var(--ui-radius-small);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%);
 }
 
-@media (max-width: 640px) {
-  .group-switcher {
-    padding: 12px;
-    grid-template-columns: 1fr;
-  }
+.group-switcher:focus-within {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
 }
 </style>

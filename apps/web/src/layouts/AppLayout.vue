@@ -1,12 +1,9 @@
 <script setup lang="ts">
-import { LogoutIcon } from 'tdesign-icons-vue-next';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-import NotificationBell from '../features/notifications/NotificationBell.vue';
 import OfflineBanner from '../pwa/OfflineBanner.vue';
 import { useSessionStore } from '../stores/session.js';
-import SiteComplianceFooter from '../components/SiteComplianceFooter.vue';
 
 const router = useRouter();
 const session = useSessionStore();
@@ -34,28 +31,6 @@ async function saveProfile(): Promise<void> {
 <template>
   <t-layout class="app-layout">
     <a class="skip-link" href="#app-content">跳到主要内容</a>
-    <t-header class="app-header">
-      <RouterLink class="product-name" :to="{ name: 'home' }">
-        <span class="product-mark" aria-hidden="true"><span /><span /></span>
-        <span class="product-copy">
-          <strong>医护排班</strong>
-          <small>Medical Schedule</small>
-        </span>
-      </RouterLink>
-      <div class="account-actions">
-        <NotificationBell />
-        <span v-if="session.profile !== undefined" class="account-chip">
-          <span class="account-avatar" aria-hidden="true">{{
-            session.profile.realName.slice(0, 1)
-          }}</span>
-          <span class="account-name">{{ session.profile.realName }}</span>
-        </span>
-        <t-button class="desktop-sign-out" variant="text" @click="signOut">
-          <template #icon><LogoutIcon /></template>
-          退出登录
-        </t-button>
-      </div>
-    </t-header>
     <t-content id="app-content" class="app-content" tabindex="-1">
       <OfflineBanner />
       <section v-if="session.status === 'loading'" class="state-panel" aria-live="polite">
@@ -91,6 +66,5 @@ async function saveProfile(): Promise<void> {
         <t-loading text="正在返回登录页" />
       </section>
     </t-content>
-    <SiteComplianceFooter with-mobile-navigation />
   </t-layout>
 </template>

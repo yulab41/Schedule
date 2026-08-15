@@ -823,8 +823,8 @@ function formatEventTime(value: string): string {
   }
 
   .backfill-calendar {
-    width: calc(100% + var(--ui-spacing-xxl));
-    margin-inline: calc(-1 * var(--ui-spacing-md));
+    width: calc(100% + 24px);
+    margin-inline: -12px;
   }
 
   .backfill-calendar-heading {

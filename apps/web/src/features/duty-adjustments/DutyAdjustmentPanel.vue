@@ -409,7 +409,6 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
   >
     <header class="workflow-panel-heading">
       <div>
-        <h2>加扣班</h2>
         <p>安排成员代值已发布班次，并跟踪接受与审批状态。</p>
       </div>
       <div class="workflow-heading-actions">

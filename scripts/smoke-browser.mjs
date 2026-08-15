@@ -249,7 +249,12 @@ async function assertResponsiveLoginShell(page) {
       const controls = [
         ...document.querySelectorAll('.auth-mode-switch button, .auth-submit, .guest-entry'),
       ];
+      const footer = document.querySelector('.site-compliance-footer');
+      const filingLink = footer?.querySelector('a');
       return {
+        filingBackground: footer === null ? undefined : getComputedStyle(footer).backgroundColor,
+        filingLinkHeight: filingLink?.getBoundingClientRect().height ?? 0,
+        filingVisible: document.body.innerText.includes('粤ICP备2026116116号-1'),
         overflow: document.documentElement.scrollWidth > window.innerWidth,
         smallControls: controls
           .filter((element) => {
@@ -261,6 +266,10 @@ async function assertResponsiveLoginShell(page) {
     });
 
     if (result.overflow) fail(`${width}px 登录页出现横向溢出。`);
+    if (!result.filingVisible || result.filingBackground !== 'rgba(0, 0, 0, 0)') {
+      fail(`${width}px 登录页 ICP 页脚缺失或没有融入页面画布。`);
+    }
+    if (result.filingLinkHeight < 44) fail(`${width}px ICP 链接点触高度小于 44px。`);
     if (result.smallControls.length > 0) {
       fail(`${width}px 登录页存在小于 44px 的关键点触目标：${result.smallControls.join('、')}`);
     }
@@ -278,14 +287,37 @@ async function assertResponsiveLoginShell(page) {
 
 async function assertResponsiveWorkbenchShell(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.month-calendar-card').waitFor({ state: 'visible', timeout: 15000 });
   await page.waitForTimeout(150);
-  const desktopResult = await page.evaluate(() => ({
-    overflow: document.documentElement.scrollWidth > window.innerWidth,
-    sidebarVisible:
-      (document.querySelector('.workbench-sidebar')?.getBoundingClientRect().width ?? 0) > 0,
-  }));
+  const desktopResult = await page.evaluate(() => {
+    const header = document.querySelector('.workbench-shell-header');
+    const groupSelect = document.querySelector('#group-switcher');
+    return {
+      globalCopyHidden:
+        !document.body.innerText.includes('排班工作台') &&
+        !document.body.innerText.includes('当前群组码') &&
+        !document.body.innerText.includes('粤ICP备'),
+      groupSelectHeight: groupSelect?.getBoundingClientRect().height ?? 0,
+      headerHeight: header?.getBoundingClientRect().height ?? 0,
+      overflow: document.documentElement.scrollWidth > window.innerWidth,
+      productBannerHidden: document.querySelector('.product-name') === null,
+      sidebarVisible:
+        (document.querySelector('.workbench-sidebar')?.getBoundingClientRect().width ?? 0) > 0,
+      title: document.querySelector('.workbench-shell-heading h1')?.textContent?.trim() ?? '',
+    };
+  });
   if (desktopResult.overflow) fail('1280px 工作台出现横向溢出。');
   if (!desktopResult.sidebarVisible) fail('1280px 工作台未显示桌面侧栏。');
+  if (desktopResult.headerHeight !== 68 || desktopResult.groupSelectHeight < 44) {
+    fail('1280px 工作台未使用 68px 紧凑抬头或 44px 群组选择目标。');
+  }
+  if (
+    !desktopResult.globalCopyHidden ||
+    !desktopResult.productBannerHidden ||
+    desktopResult.title !== '工作台'
+  ) {
+    fail('1280px 工作台仍显示产品招牌、重复抬头、群组码或 ICP 页脚。');
+  }
   await assertKeyboardFocusVisible(
     page,
     page.locator('.workbench-sidebar button').first(),
@@ -298,11 +330,33 @@ async function assertResponsiveWorkbenchShell(page) {
     const result = await page.evaluate(() => {
       const nav = document.querySelector('.workbench-bottom-nav');
       const panels = document.querySelector('.workbench-panels');
+      const header = document.querySelector('.workbench-shell-header');
+      const monthCard = document.querySelector('.month-calendar-card');
+      const groupSelect = document.querySelector('#group-switcher');
       const navButtons = [...document.querySelectorAll('.workbench-bottom-nav button')];
+      const compactControls = [
+        ...document.querySelectorAll(
+          '.view-mode-switch .t-radio-button, .mobile-filter-trigger, .shell-export-action',
+        ),
+      ].filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
       return {
         bottomPadding: Number.parseFloat(
           panels === null ? '0' : getComputedStyle(panels).paddingBottom,
         ),
+        compactControlFonts: compactControls.map(
+          (element) => Number.parseFloat(getComputedStyle(element).fontSize) || 0,
+        ),
+        globalCopyHidden:
+          !document.body.innerText.includes('排班工作台') &&
+          !document.body.innerText.includes('当前群组码') &&
+          !document.body.innerText.includes('粤ICP备'),
+        groupSelectHeight: groupSelect?.getBoundingClientRect().height ?? 0,
+        headerHeight: header?.getBoundingClientRect().height ?? 0,
+        monthRadius:
+          monthCard === null ? 0 : Number.parseFloat(getComputedStyle(monthCard).borderRadius),
         navBottom: nav?.getBoundingClientRect().bottom ?? 0,
         navButtons: navButtons.length,
         navHeight: nav?.getBoundingClientRect().height ?? 0,
@@ -317,6 +371,16 @@ async function assertResponsiveWorkbenchShell(page) {
     });
 
     if (result.overflow) fail(`${width}px 工作台出现横向溢出。`);
+    if (result.headerHeight !== 68 || result.groupSelectHeight < 44) {
+      fail(`${width}px 工作台未使用 68px 紧凑抬头或 44px 群组选择目标。`);
+    }
+    if (!result.globalCopyHidden) {
+      fail(`${width}px 工作台仍显示重复抬头、群组码或 ICP 页脚。`);
+    }
+    if (result.monthRadius !== 18) fail(`${width}px 月历没有保持 18px 圆角卡片。`);
+    if (result.compactControlFonts.some((fontSize) => fontSize > 13)) {
+      fail(`${width}px 月/周/列表或筛选/导出按钮字号大于 13px。`);
+    }
     if (result.navButtons !== 5) fail(`${width}px 工作台未保留四个主入口与“更多”。`);
     if (result.smallNavButtons.length > 0) {
       fail(`${width}px 底栏存在小于 44px 的点触目标：${result.smallNavButtons.join('、')}`);
@@ -1638,7 +1702,7 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
     }
     await notificationSheet.locator('button[aria-label="关闭"]').click();
 
-    await page.locator('.workbench-actions button', { hasText: '导出' }).click();
+    await page.locator('.shell-export-action').click();
     const exportSheet = page.locator('dialog[open][aria-label="导出排班与统计"]');
     await exportSheet.waitFor({ state: 'visible', timeout: 5000 });
     await waitForBodyText(page, '将要导出', 10000, '导出选项');
@@ -1721,7 +1785,9 @@ async function runSmoke() {
     step('2/6 管理员模式进入工作台');
     await adminButton.first().click();
     await waitForUrl(page, (url) => new URL(url).pathname === '/', 20000, '工作台路径 /');
-    await waitForBodyText(page, '排班工作台', 20000);
+    await page
+      .locator('.workbench-shell-heading h1', { hasText: '工作台' })
+      .waitFor({ state: 'visible', timeout: 20000 });
     await waitForBodyText(page, '排班日历', 15000);
     await waitForBodyText(page, '手动排班', 15000);
     assertNoErrors(errors, '管理员模式');
@@ -1747,7 +1813,9 @@ async function runSmoke() {
     step('4/6 成员模式进入工作台');
     await page.locator('button', { hasText: '本地成员' }).first().click();
     await waitForUrl(page, (url) => new URL(url).pathname === '/', 20000, '工作台路径 /');
-    await waitForBodyText(page, '排班工作台', 20000);
+    await page
+      .locator('.workbench-shell-heading h1', { hasText: '工作台' })
+      .waitFor({ state: 'visible', timeout: 20000 });
     await waitForBodyText(page, '排班日历', 15000);
     const memberBody = await page.locator('body').innerText();
     if (memberBody.includes('手动排班') || memberBody.includes('排班配置')) {
@@ -1776,6 +1844,7 @@ async function runSmoke() {
       fail('访客公开群组目录不应再出现。');
     }
     const guestBody = await page.locator('body').innerText();
+    if (guestBody.includes('粤ICP备')) fail('访客排班不应显示 ICP 页脚。');
     if (guestBody.includes('群组暂时无法加载') || guestBody.includes('排班暂时无法加载')) {
       fail('访客页面加载群组/排班失败。');
     }
@@ -1801,7 +1870,9 @@ async function runSmoke() {
     await waitForBodyText(page, '本地管理员', 10000);
     await page.locator('button', { hasText: '本地管理员' }).first().click();
     await waitForUrl(page, (url) => new URL(url).pathname === '/', 20000, '工作台路径 /');
-    await waitForBodyText(page, '排班工作台', 20000);
+    await page
+      .locator('.workbench-shell-heading h1', { hasText: '工作台' })
+      .waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('.workbench-sidebar button', { hasText: '事件' }).first().click();
     await waitForBodyText(page, '访客访问记录', 15000);
     await page

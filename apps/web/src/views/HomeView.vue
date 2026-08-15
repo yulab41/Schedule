@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
-import { ExportIcon } from 'tdesign-icons-vue-next';
+import { ExportIcon, LogoutIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../api/client.js';
 import { toUserMessage } from '../utils/user-message.js';
 import { localAuth } from '../auth/local-auth.js';
 import AppStatePanel from '../components/AppStatePanel.vue';
+import NotificationBell from '../features/notifications/NotificationBell.vue';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
 import GuestCalendarPanel from '../features/groups/GuestCalendarPanel.vue';
@@ -15,6 +16,7 @@ import {
   getDesktopNavItems,
   getPrimaryMobileNavItems,
   getSecondaryMobileNavItems,
+  getWorkbenchPageTitle,
   type WorkbenchTabId,
 } from '../features/layout/workbench-nav.js';
 import MemberManager from '../features/members/MemberManager.vue';
@@ -46,6 +48,10 @@ const exportDialogVisible = ref(false);
 const desktopItems = computed(() => getDesktopNavItems(currentGroup()?.role ?? 'member'));
 const primaryItems = computed(() => getPrimaryMobileNavItems(currentGroup()?.role ?? 'member'));
 const secondaryItems = computed(() => getSecondaryMobileNavItems(currentGroup()?.role ?? 'member'));
+const activePageTitle = computed(() => getWorkbenchPageTitle(activeTab.value));
+const canExport = computed(
+  () => currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator',
+);
 
 onMounted(() => {
   void refreshGroups();
@@ -90,166 +96,204 @@ function selectGroupTab(groupId: string | undefined): void {
 
 <template>
   <section class="home-view">
-    <header class="home-heading">
-      <p>群组排班</p>
-      <h1>排班工作台</h1>
-      <span>查看排班、处理申请并跟进班次变更。</span>
-    </header>
-    <AppStatePanel
-      v-if="errorMessage !== undefined"
-      eyebrow="排班工作台"
-      title="群组数据没有加载完成"
-      :description="errorMessage"
-      tone="error"
-    >
-      <template #actions>
-        <t-button theme="primary" @click="refreshGroups()">重新加载</t-button>
-      </template>
-    </AppStatePanel>
-    <t-loading v-else-if="isLoading" text="正在加载群组" />
-    <template v-else>
-      <GroupSwitcher
-        :groups="groups"
-        :model-value="currentGroupId"
-        @update:model-value="selectGroupTab"
-      />
-      <section v-if="currentGroup() !== undefined" class="current-group-workbench">
-        <header class="workbench-context-heading">
-          <div>
-            <p>当前工作群组</p>
-            <h2>{{ currentGroup()?.name }}</h2>
-          </div>
-          <div
-            v-if="currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator'"
-            class="workbench-actions"
-          >
-            <t-button variant="outline" @click="exportDialogVisible = true">
-              <template #icon><ExportIcon /></template>
-              导出
-            </t-button>
-          </div>
-        </header>
-        <ExportDialog
-          v-if="exportDialogVisible"
-          v-model="exportDialogVisible"
-          :group="currentGroup()!"
-          @close="exportDialogVisible = false"
+    <header class="workbench-shell-header">
+      <div class="workbench-shell-heading">
+        <GroupSwitcher
+          v-if="groups.length > 0"
+          :groups="groups"
+          :model-value="currentGroupId"
+          @update:model-value="selectGroupTab"
         />
-        <div class="workbench-layout">
-          <WorkbenchNav
-            :active-tab="activeTab"
-            :desktop-items="desktopItems"
-            :primary-items="primaryItems"
-            :secondary-items="secondaryItems"
-            @select="activeTab = $event"
-            @sign-out="emit('sign-out')"
-          />
-          <section class="workbench-panels">
-            <GuestCalendarPanel
-              v-if="activeTab === 'calendar' && currentGroup()?.role === 'guest'"
-              :group="currentGroup()!"
+        <span v-else class="shell-context">正在加载群组</span>
+        <h1>{{ activePageTitle }}</h1>
+      </div>
+      <div class="shell-actions">
+        <NotificationBell />
+        <button
+          v-if="canExport"
+          type="button"
+          class="shell-export-action"
+          aria-label="导出排班"
+          @click="exportDialogVisible = true"
+        >
+          <ExportIcon aria-hidden="true" />
+          <span>导出</span>
+        </button>
+        <button type="button" class="shell-sign-out" @click="emit('sign-out')">
+          <LogoutIcon aria-hidden="true" />
+          <span>退出登录</span>
+        </button>
+      </div>
+    </header>
+    <div class="home-body">
+      <ExportDialog
+        v-if="exportDialogVisible && currentGroup() !== undefined"
+        v-model="exportDialogVisible"
+        :group="currentGroup()!"
+        @close="exportDialogVisible = false"
+      />
+      <AppStatePanel
+        v-if="errorMessage !== undefined"
+        :eyebrow="activePageTitle"
+        title="群组数据没有加载完成"
+        :description="errorMessage"
+        tone="error"
+      >
+        <template #actions>
+          <t-button theme="primary" @click="refreshGroups()">重新加载</t-button>
+        </template>
+      </AppStatePanel>
+      <t-loading v-else-if="isLoading" text="正在加载群组" />
+      <template v-else>
+        <section v-if="currentGroup() !== undefined" class="current-group-workbench">
+          <div class="workbench-layout">
+            <WorkbenchNav
+              :active-tab="activeTab"
+              :desktop-items="desktopItems"
+              :primary-items="primaryItems"
+              :secondary-items="secondaryItems"
+              @select="activeTab = $event"
+              @sign-out="emit('sign-out')"
             />
-            <CalendarView v-else-if="activeTab === 'calendar'" :group="currentGroup()!" />
-            <ManualScheduleView
-              v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
-              :group="currentGroup()!"
-              @navigate="activeTab = $event"
-            />
-            <PastScheduleView
-              v-if="activeTab === 'backfill' && currentGroup()?.role !== 'member'"
-              :group="currentGroup()!"
-            />
-            <LeavePanel
-              v-if="activeTab === 'leave'"
-              :group="currentGroup()!"
-              @navigate="activeTab = $event"
-            />
-            <SwapPanel v-if="activeTab === 'swap'" :group="currentGroup()!" />
-            <DutyAdjustmentPanel v-if="activeTab === 'duty'" :group="currentGroup()!" />
-            <EventCenterView v-if="activeTab === 'events'" :group="currentGroup()!" />
-            <NotificationSettingsPanel
-              v-if="activeTab === 'notifications'"
-              :group="currentGroup()!"
-            />
-            <StatisticsView v-if="activeTab === 'statistics'" :group="currentGroup()!" />
-            <MemberManager
-              v-if="activeTab === 'members'"
-              :group="currentGroup()!"
-              @group-changed="refreshGroups"
-            />
-            <GroupSetupPanel
-              v-if="activeTab === 'groups'"
-              :group="currentGroup()"
-              @groups-changed="refreshGroups"
-            />
-            <SchedulingConfigPanel
-              v-if="activeTab === 'config' && currentGroup()?.role !== 'member'"
-              :group="currentGroup()!"
-            />
-          </section>
-        </div>
-      </section>
-      <GroupSetupPanel v-else :group="undefined" @groups-changed="refreshGroups" />
-    </template>
+            <section class="workbench-panels">
+              <GuestCalendarPanel
+                v-if="activeTab === 'calendar' && currentGroup()?.role === 'guest'"
+                :group="currentGroup()!"
+              />
+              <CalendarView v-else-if="activeTab === 'calendar'" :group="currentGroup()!" />
+              <ManualScheduleView
+                v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
+                :group="currentGroup()!"
+                @navigate="activeTab = $event"
+              />
+              <PastScheduleView
+                v-if="activeTab === 'backfill' && currentGroup()?.role !== 'member'"
+                :group="currentGroup()!"
+              />
+              <LeavePanel
+                v-if="activeTab === 'leave'"
+                :group="currentGroup()!"
+                @navigate="activeTab = $event"
+              />
+              <SwapPanel v-if="activeTab === 'swap'" :group="currentGroup()!" />
+              <DutyAdjustmentPanel v-if="activeTab === 'duty'" :group="currentGroup()!" />
+              <EventCenterView v-if="activeTab === 'events'" :group="currentGroup()!" />
+              <NotificationSettingsPanel
+                v-if="activeTab === 'notifications'"
+                :group="currentGroup()!"
+              />
+              <StatisticsView v-if="activeTab === 'statistics'" :group="currentGroup()!" />
+              <MemberManager
+                v-if="activeTab === 'members'"
+                :group="currentGroup()!"
+                @group-changed="refreshGroups"
+              />
+              <GroupSetupPanel
+                v-if="activeTab === 'groups'"
+                :group="currentGroup()"
+                @groups-changed="refreshGroups"
+              />
+              <SchedulingConfigPanel
+                v-if="activeTab === 'config' && currentGroup()?.role !== 'member'"
+                :group="currentGroup()!"
+              />
+            </section>
+          </div>
+        </section>
+        <GroupSetupPanel v-else :group="undefined" @groups-changed="refreshGroups" />
+      </template>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .home-view {
-  max-width: 1280px;
-  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-.home-heading {
-  margin-bottom: var(--ui-spacing-lg);
+.workbench-shell-header {
+  position: sticky;
+  z-index: var(--ui-z-index-navigation);
+  top: 0;
+  display: flex;
+  min-height: calc(var(--ui-layout-header-height) + env(safe-area-inset-top));
+  padding: calc(12px + env(safe-area-inset-top)) 16px 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgb(255 255 255 / 94%);
+  border-bottom: 1px solid var(--ui-color-border);
+  backdrop-filter: blur(20px);
 }
 
-.home-heading p,
-.workbench-context-heading p {
-  margin: 0;
+.workbench-shell-heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.workbench-shell-heading h1 {
+  margin: 2px 0 0;
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 1.25;
+  letter-spacing: -0.25px;
+}
+
+.shell-context {
+  display: block;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 15px;
+}
+
+.shell-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.shell-export-action,
+.shell-sign-out {
+  display: inline-flex;
+  min-width: var(--ui-touch-target-minimum);
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  cursor: pointer;
+  font: inherit;
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.home-heading h1 {
-  margin: 4px 0 6px;
-  font-size: var(--ui-font-size-xxl);
-  font-weight: var(--ui-font-weight-semibold);
-  line-height: var(--ui-line-height-title);
-  letter-spacing: -0.6px;
+.shell-export-action svg,
+.shell-sign-out svg {
+  width: 20px;
+  height: 20px;
 }
 
-.home-heading span {
-  color: var(--ui-color-text-secondary);
+.shell-sign-out {
+  color: var(--ui-color-text-primary);
+  background: transparent;
+  border-color: transparent;
+}
+
+.home-body {
+  width: min(100%, 1280px);
+  margin: 0 auto;
+  padding: 20px 24px 28px;
 }
 
 .current-group-workbench {
-  margin: var(--ui-spacing-xl) 0 0;
-}
-
-.workbench-context-heading {
-  display: flex;
-  margin-bottom: var(--ui-spacing-md);
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--ui-spacing-md);
-}
-
-.workbench-context-heading h2 {
-  margin: 3px 0 0;
-  font-size: var(--ui-font-size-xl);
-  font-weight: var(--ui-font-weight-semibold);
-  line-height: var(--ui-line-height-tight);
-}
-
-.workbench-actions {
-  flex: 0 0 auto;
-}
-
-.workbench-actions :deep(.t-button) {
-  min-height: var(--ui-touch-target-minimum);
-  border-radius: var(--ui-radius-small);
+  margin: 0;
 }
 
 .workbench-layout {
@@ -264,12 +308,29 @@ function selectGroupTab(groupId: string | undefined): void {
 }
 
 @media (max-width: 640px) {
-  .home-heading {
-    margin-bottom: var(--ui-spacing-md);
+  .workbench-shell-heading {
+    max-width: calc(100% - 54px);
   }
 
-  .workbench-context-heading {
-    align-items: center;
+  .shell-export-action {
+    padding: 0;
+  }
+
+  .shell-export-action span {
+    position: absolute;
+    overflow: hidden;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .shell-sign-out {
+    display: none;
+  }
+
+  .home-body {
+    padding: 14px 12px 0;
   }
 
   .workbench-layout {

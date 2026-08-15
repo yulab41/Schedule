@@ -378,7 +378,7 @@ function dateAriaLabel(date: string): string {
     overflow: hidden;
     background: var(--ui-color-border);
     border: 1px solid var(--ui-color-border);
-    border-radius: var(--ui-radius-medium);
+    border-radius: var(--ui-radius-large);
     touch-action: pan-y;
   }
 

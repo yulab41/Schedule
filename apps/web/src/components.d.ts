@@ -26,7 +26,6 @@ declare module 'vue' {
     TDivider: typeof import('tdesign-vue-next')['Divider']
     TEmpty: typeof import('tdesign-vue-next')['Empty']
     TFormItem: typeof import('tdesign-vue-next')['FormItem']
-    THeader: typeof import('tdesign-vue-next')['Header']
     TInput: typeof import('tdesign-vue-next')['Input']
     TLayout: typeof import('tdesign-vue-next')['Layout']
     TLoading: typeof import('tdesign-vue-next')['Loading']

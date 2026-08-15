@@ -19,10 +19,22 @@ describe('site compliance footer', () => {
     expect(footer).toContain('rel="noopener noreferrer"');
   });
 
-  it('is present on authenticated, login, and guest entry pages', () => {
-    for (const source of [appLayout, loginView, guestView]) {
-      expect(source).toContain('import SiteComplianceFooter from');
-      expect(source).toContain('<SiteComplianceFooter');
+  it('is present on the login page only', () => {
+    expect(loginView).toContain('import SiteComplianceFooter from');
+    expect(loginView).toContain('<SiteComplianceFooter');
+
+    for (const source of [appLayout, guestView]) {
+      expect(source).not.toContain('import SiteComplianceFooter from');
+      expect(source).not.toContain('<SiteComplianceFooter');
     }
+  });
+
+  it('blends into the login canvas while preserving an accessible feedback target', () => {
+    expect(footer).toMatch(/\.site-compliance-footer\s*{[^}]*background:\s*transparent;/s);
+    expect(footer).toMatch(/\.site-compliance-footer\s*{[^}]*border:\s*0;/s);
+    expect(footer).toMatch(/\.site-compliance-footer a\s*{[^}]*min-height:[^;]+;/s);
+    expect(footer).toMatch(
+      /\.site-compliance-footer a:(?:hover|active|focus-visible)[\s\S]*background:\s*var\(--ui-color-primary-light\)/,
+    );
   });
 });

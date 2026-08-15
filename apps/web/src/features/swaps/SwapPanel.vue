@@ -494,7 +494,6 @@ function getCounterpartName(request: SwapRequest): string {
   <section class="swap-panel workflow-panel" :aria-busy="isLoading || isSubmitting">
     <header class="workflow-panel-heading">
       <div>
-        <h2>换班</h2>
         <p>交换双方已发布班次，并跟踪接受与审批状态。</p>
       </div>
       <div class="workflow-heading-actions">

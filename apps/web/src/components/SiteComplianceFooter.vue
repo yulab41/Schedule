@@ -1,19 +1,5 @@
-<script setup lang="ts">
-withDefaults(
-  defineProps<{
-    readonly withMobileNavigation?: boolean;
-  }>(),
-  {
-    withMobileNavigation: false,
-  },
-);
-</script>
-
 <template>
-  <footer
-    class="site-compliance-footer"
-    :class="{ 'with-mobile-navigation': withMobileNavigation }"
-  >
+  <footer class="site-compliance-footer">
     <a href="https://beian.miit.gov.cn/" rel="noopener noreferrer" target="_blank"
       >粤ICP备2026116116号-1</a
     >
@@ -30,8 +16,8 @@ withDefaults(
   align-items: center;
   justify-content: center;
   color: var(--ui-color-text-muted);
-  background: var(--ui-color-surface);
-  border-top: 1px solid var(--ui-color-border);
+  background: transparent;
+  border: 0;
   font-size: 12px;
   text-align: center;
 }
@@ -39,21 +25,26 @@ withDefaults(
 .site-compliance-footer a {
   display: inline-flex;
   min-height: var(--ui-touch-target-minimum);
+  padding: 0 var(--ui-spacing-sm);
   align-items: center;
   color: inherit;
+  border-radius: var(--ui-radius-pill);
   text-decoration: none;
+  transition:
+    color var(--ui-duration-fast) ease,
+    background var(--ui-duration-fast) ease;
 }
 
-.site-compliance-footer a:hover {
+.site-compliance-footer a:hover,
+.site-compliance-footer a:active,
+.site-compliance-footer a:focus-visible {
   color: var(--ui-color-primary);
-  text-decoration: underline;
+  background: var(--ui-color-primary-light);
 }
 
-@media (max-width: 640px) {
-  .site-compliance-footer.with-mobile-navigation {
-    padding-bottom: calc(
-      var(--ui-layout-bottom-nav-height) + env(safe-area-inset-bottom) + var(--ui-spacing-xs)
-    );
+@media (prefers-reduced-motion: reduce) {
+  .site-compliance-footer a {
+    transition: none;
   }
 }
 </style>

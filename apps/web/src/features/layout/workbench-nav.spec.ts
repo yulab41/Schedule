@@ -6,6 +6,7 @@ import {
   getPrimaryMobileNavItems,
   getSecondaryMobileNavItems,
   getVisibleNavItems,
+  getWorkbenchPageTitle,
   workbenchNavItems,
 } from './workbench-nav.js';
 
@@ -77,5 +78,13 @@ describe('Workbench navigation', () => {
 
   it('limits guests to calendar and group management', () => {
     expect(getVisibleNavItems('guest').map((item) => item.id)).toEqual(['calendar', 'groups']);
+  });
+
+  it('uses the active workflow name in the compact application header', () => {
+    expect(getWorkbenchPageTitle('calendar')).toBe('工作台');
+    expect(getWorkbenchPageTitle('leave')).toBe('请假与审批');
+    expect(getWorkbenchPageTitle('swap')).toBe('换班');
+    expect(getWorkbenchPageTitle('duty')).toBe('加扣班');
+    expect(getWorkbenchPageTitle('groups')).toBe('群组管理');
   });
 });
