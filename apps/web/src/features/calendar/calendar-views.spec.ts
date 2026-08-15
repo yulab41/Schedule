@@ -39,7 +39,7 @@ function assignment(businessDate: string, slotPosition = 1): CalendarDutyAssignm
 
 describe('Calendar view helpers', () => {
   it('computes the China Standard Time business date', () => {
-    expect(getBusinessDate(new Date('2026-08-01T17:00:00.000Z'))).toBe('2026-08-02');
+    expect(getBusinessDate(new Date('2026-08-01T17:00:00.000Z'))).toBe('2026-08-01');
     expect(getBusinessMonthOf('2026-08-05')).toBe('2026-08');
   });
 

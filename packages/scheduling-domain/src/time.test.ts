@@ -23,7 +23,19 @@ describe('China Standard Time schedule helpers', () => {
       startsAt: new Date('2028-02-29T00:00:00.000Z'),
     });
     expect(getChinaStandardTimeBusinessDate(new Date('2028-02-29T16:00:00.000Z'))).toBe(
-      '2028-03-01',
+      '2028-02-29',
+    );
+  });
+
+  it('keeps the previous business date until the 08:00 duty handover', () => {
+    expect(getChinaStandardTimeBusinessDate(new Date('2026-07-31T16:00:00.000Z'))).toBe(
+      '2026-07-31',
+    );
+    expect(getChinaStandardTimeBusinessDate(new Date('2026-07-31T23:59:59.999Z'))).toBe(
+      '2026-07-31',
+    );
+    expect(getChinaStandardTimeBusinessDate(new Date('2026-08-01T00:00:00.000Z'))).toBe(
+      '2026-08-01',
     );
   });
 

@@ -207,3 +207,12 @@
 - 预览与构建：Storybook 提供 390/320/1280 工作台、换班、加扣班与登录页页脚预览；正式 390px 工作台截图逐屏复核通过。Web typecheck、Storybook build、`pnpm smoke:check-core`、`pnpm verify` 与 `git diff --check` 通过；全仓库 74 个测试文件、505 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。
 - 正式发布：代码 checkpoint `daff238` 已推送；发布前 `ecs-verify.sh` 通过并创建加密数据库备份 `43f639de-86a9-4090-9209-e46b443310b7`（44 张表、5245 行）。release `daff238e241c0b6d9c04f0c8b21b5cca3b356ca4` 部署成功，迁移器确认仍为 36 个迁移，API/Web 容器、产物哈希、正式域名、未知 Host 拒绝和无开发认证依赖检查通过。
 - 生产浏览器复核：使用正式 `D0796` 会话在 390×844 核对工作台抬头 68px、群组选择目标 44px、月历圆角 18px、无横向溢出、无产品招牌/全局群组码/ICP；星期六、日及对应日期计算色均为 `rgb(224, 49, 49)`。实际切换换班和加扣班后顶部标题分别正确，内容区不再重复标题；未触发任何业务写入。最终状态 checkpoint 识别消息为 `docs(status): record compact workbench production deployment`。
+
+## 2026-08-16 月历跨午夜业务日修复
+
+- 回归来源：`getChinaStandardTimeBusinessDate` 由 `7a16c85` 统一，`getCurrentBusinessMonth` 的当前月边界由 `927241c` 引入；`CalendarView` 的当前月、业务日和默认选中日期调用点已执行 `git log -S` 与 `git blame`。
+- 测试先行：先增加“00:00 后仍为上一业务日、08:00 才交接”和月初当前月边界断言；旧实现定向运行失败 3 项，实现后三个定向文件 24/24 通过。完整 `pnpm verify` 通过：74 passed、29 skipped，506 passed、252 skipped（本机无测试 MySQL）。
+- 语义审计：仅将业务日边界从 00:00 调整为中国标准时间 08:00；`formatChinaDateTime` 的自然时间展示、`toChinaStandardTimeShiftRange` 的跨午夜范围、日期选择/月份 API 参数、错误路径、权限、契约和数据库均保持原语义。00:00–07:59 的当前月、过去日期锁定及默认日期统一落在上一业务日，08:00 起切换。
+- 运行/浏览器验证：`pnpm smoke:check-core` 通过；专项月历浏览器断言通过，当前 00:xx 环境默认选中 `2026-08-15`。完整 `pnpm smoke:browser` 已通过月历交互与新日期断言，随后在未纳入本轮的并发 `MonthGrid`/手动排班横滑改动处失败（固定列或进度提示断言），因此不报告完整 smoke 通过。当前工作区复跑 `pnpm verify` 唯一失败为 `workbench-shell-refinement.spec.ts` 仍断言旧 `.t-radio-button`，与并发未提交的原生 `.view-mode-button` 改动冲突；不修改该用户变更。提交前还需复核 `git diff --check`。
+- 本轮变更文件仅为 `packages/scheduling-domain/src/time.ts`、对应测试、两个月历 helper 测试和 `scripts/smoke-browser.mjs`；工作区中其他 UI 文件保持用户改动，不纳入提交。
+- 状态：已完成（含月历专项浏览器验证）→ 待用户复核；checkpoint 识别消息为 `fix(web): keep calendar on previous duty date until handover`。

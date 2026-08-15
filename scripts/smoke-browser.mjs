@@ -116,6 +116,21 @@ async function waitForUrl(page, predicate, timeoutMs = 15000, label = '') {
   fail(`等待超时：URL 未满足“${label}”（当前: ${page.url()}）`);
 }
 
+async function getExpectedScheduleBusinessDate(page) {
+  return page.evaluate(() => {
+    // 排班业务日以全天班的 08:00 交接为边界，午夜后的未结束班次仍属于上一天。
+    const chinaNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    if (chinaNow.getUTCHours() < 8) {
+      chinaNow.setUTCDate(chinaNow.getUTCDate() - 1);
+    }
+    return [chinaNow.getUTCFullYear(), chinaNow.getUTCMonth() + 1, chinaNow.getUTCDate()]
+      .map((value, index) =>
+        index === 0 ? String(value).padStart(4, '0') : String(value).padStart(2, '0'),
+      )
+      .join('-');
+  });
+}
+
 function attachErrorCollector(page, errors) {
   page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(`[console.error] ${msg.text()}`);
@@ -443,18 +458,9 @@ async function assertManualScheduleDenseInteractions(page) {
   const dateInput = page.locator('input[type="date"]').first();
   await dateInput.waitFor({ state: 'visible', timeout: 15000 });
   const actual = await dateInput.inputValue();
-  const expected = await page.evaluate(() => {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      day: '2-digit',
-      month: '2-digit',
-      timeZone: 'Asia/Shanghai',
-      year: 'numeric',
-    }).formatToParts(new Date());
-    const part = (type) => parts.find((item) => item.type === type)?.value ?? '';
-    return `${part('year')}-${part('month')}-${part('day')}`;
-  });
+  const expected = await getExpectedScheduleBusinessDate(page);
   if (actual !== expected) {
-    fail(`手动排班开始日期默认值应为今天 ${expected}，实际为 ${actual}。`);
+    fail(`手动排班开始日期默认值应为排班业务日 ${expected}，实际为 ${actual}。`);
   }
 
   const roleSelect = page.locator('.editor-config .t-select').nth(1);
@@ -923,19 +929,12 @@ async function assertMonthCalendarInteractions(page) {
     fail('手机月历应始终只有一个选中日期。');
   }
 
-  const expectedToday = await page.evaluate(() => {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-      day: '2-digit',
-      month: '2-digit',
-      timeZone: 'Asia/Shanghai',
-      year: 'numeric',
-    }).formatToParts(new Date());
-    const part = (type) => parts.find((item) => item.type === type)?.value ?? '';
-    return `${part('year')}-${part('month')}-${part('day')}`;
-  });
+  const expectedToday = await getExpectedScheduleBusinessDate(page);
   const initialSelectedLabel = await selectedButtons.first().getAttribute('aria-label');
   if (!initialSelectedLabel?.startsWith(expectedToday)) {
-    fail(`当前月份默认选中日期应为今天 ${expectedToday}，实际为 ${initialSelectedLabel ?? '无'}。`);
+    fail(
+      `当前月份默认选中日期应为排班业务日 ${expectedToday}，实际为 ${initialSelectedLabel ?? '无'}。`,
+    );
   }
 
   const anotherDate = page.locator('.day-select-button[aria-pressed="false"]').first();

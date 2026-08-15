@@ -21,7 +21,7 @@ import {
 describe('current month calendar logic', () => {
   it('computes the China Standard Time business month from any timestamp', () => {
     expect(getCurrentBusinessMonth(new Date('2026-08-01T02:00:00.000Z'))).toBe('2026-08');
-    expect(getCurrentBusinessMonth(new Date('2026-07-31T16:30:00.000Z'))).toBe('2026-08');
+    expect(getCurrentBusinessMonth(new Date('2026-07-31T16:30:00.000Z'))).toBe('2026-07');
     expect(getCurrentBusinessMonth(new Date('2026-07-31T15:59:59.000Z'))).toBe('2026-07');
   });
 

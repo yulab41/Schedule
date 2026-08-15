@@ -143,8 +143,17 @@
 
 ## 下一批次与停止条件
 
-工作台紧凑抬头、月历与 ICP 范围精修的代码、推送、生产备份、部署和正式域名复核均已完成；没有待实施的仓库任务。最终状态 checkpoint 提交并部署后，保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+本轮下一批次：完成“月历跨午夜业务日”修复的 checkpoint、生产备份、部署和正式域名复核；停止条件是 Git `HEAD`、`origin/main` 与服务器 `current-release` 均指向本轮 checkpoint。工作区中 `MonthGrid.vue`、`CalendarView.vue`、`NotificationBell.vue` 及两个未跟踪 UI 文件的并发改动属于用户工作，不纳入本轮提交，继续保留原样。
+
+## 2026-08-16 月历跨午夜业务日修复
+
+- 回归来源：业务日期 helper 由 `7a16c85` 统一，当前月计算由 `927241c` 引入；`CalendarView` 的当前月、今日业务日和默认选中日期调用点已执行 `git log -S` 与 `git blame`。
+- 测试先行：先把 00:00 后仍属上一业务日、月初跨月和当前月默认值断言改为期望行为；旧实现定向测试 3 项失败，证明回归测试有效。实现后定向月历/领域三文件 24/24 通过，完整 `pnpm verify` 为 74 passed、29 skipped，506 passed、252 skipped（本机无测试 MySQL）。
+- 变更：业务日改以中国标准时间 08:00 全天班交接为边界；00:00–07:59 仍使用上一日/上一月，08:00 切换。自然时间格式化、跨午夜班次范围、API、契约、权限和数据库未改；手动排班及月历 smoke 的默认日期断言同步复用同一边界。
+- 浏览器验证：专项月历断言通过（当前环境在 00:xx 时默认选中 `2026-08-15`）；完整 `pnpm smoke:browser` 已通过月历断言，但随后被工作区并发的手动排班横滑固定列/进度提示改动卡住，未将该失败归因于本轮。`pnpm smoke:check-core` 通过，`git diff --check` 待提交前复核。
+- 当前工作区复跑 `pnpm verify` 的唯一失败为 `workbench-shell-refinement.spec.ts` 仍匹配旧 `.t-radio-button` 源码，而并发未提交的 `CalendarView.vue` 已改为原生 `.view-mode-button`；本轮日期代码的定向/完整验证已先通过，不修改该用户变更。
+- 状态：已完成（含月历专项浏览器验证）→ 待用户复核。checkpoint 识别消息：`fix(web): keep calendar on previous duty date until handover`。
 
 原生产待办仅保留：在微信平台重置已暴露的小程序 AppSecret 后再验收通知功能；这不属于 Web UI 2.0 代码实现缺口。
 
-停止条件：部署最终状态 checkpoint `docs(status): record compact workbench production deployment`，确认 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；仓库工作停止，等待用户做最终视觉复核。
+停止条件：完成本轮 checkpoint 的 production backup、release 部署、`ecs-verify.sh` 和月历专项线上核验，确认 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后等待用户在正式站点跨 00:00 与 08:00 做最终复核。

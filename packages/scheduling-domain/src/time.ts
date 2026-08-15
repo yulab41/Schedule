@@ -38,7 +38,14 @@ export interface ChinaStandardTimeShiftRange {
 }
 
 export function getChinaStandardTimeBusinessDate(timestamp: Date): string {
-  return formatChinaDateTime(timestamp).slice(0, 10);
+  // 全天班以中国标准时间 08:00 交接，因此午夜后的未结束班次仍属于上一业务日。
+  const shifted = new Date(
+    toChinaTimestamp(timestamp).valueOf() + chinaStandardTimeOffsetMilliseconds,
+  );
+  if (shifted.getUTCHours() < 8) {
+    shifted.setUTCDate(shifted.getUTCDate() - 1);
+  }
+  return shifted.toISOString().slice(0, 10);
 }
 
 export function getCurrentBusinessMonth(now = new Date()): string {
