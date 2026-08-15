@@ -224,3 +224,5 @@
 - 行为变化：月/周/列表与筛选控件、通知铃、星期栏和月格比例按 Storybook Mobile Screens 2 的量测值实现；月历固定六周 42 格并显示相邻月日期，相邻日期不可选。API、权限、业务日期、筛选值、月份切换、通知轮询和抽屉行为未改。
 - 运行/浏览器验证：390×844 实测分段容器 50px、按钮 44px/13px、筛选 44px/13px、通知 44px/15px 圆角、星期栏 28px，月格 49×49；320×844 月格约 41×41，两个视口均无内容横向溢出。1280×900、月/周/列表切换、筛选及通知 Sheet 均复核通过。
 - 运行验证：Storybook build、Web typecheck、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 通过；75 个测试文件、510 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过。checkpoint 识别消息为 `fix(web): match mobile calendar Storybook styling`。
+- 正式发布：发布前 `ecs-verify.sh` 通过并创建备份 `fa99e3d2-0dbf-472a-8837-3fbde4dfbe2e`（44 张表、5367 行）；release `abd20d2aa94ce3425bff446047db094542aa2466` 部署及复核通过。
+- 生产浏览器复核：390px 月格 49×49、320px 月格 41.14×41.14，均为完整 42 格且无内容横向溢出；星期栏填充、周末红字、相邻月日期、工具栏、通知铃、月/周/列表、筛选与通知 Sheet 均通过。未触发业务写入。最终状态 checkpoint 识别消息为 `docs(status): record mobile calendar parity deployment`。
