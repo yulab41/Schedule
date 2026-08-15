@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router';
 import NotificationBell from '../features/notifications/NotificationBell.vue';
 import OfflineBanner from '../pwa/OfflineBanner.vue';
 import { useSessionStore } from '../stores/session.js';
+import SiteComplianceFooter from '../components/SiteComplianceFooter.vue';
 
 const router = useRouter();
 const session = useSessionStore();
@@ -90,5 +91,6 @@ async function saveProfile(): Promise<void> {
         <t-loading text="正在返回登录页" />
       </section>
     </t-content>
+    <SiteComplianceFooter with-mobile-navigation />
   </t-layout>
 </template>

@@ -3,6 +3,7 @@ import { LockOnIcon, UserIcon } from 'tdesign-icons-vue-next';
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import SiteComplianceFooter from '../../components/SiteComplianceFooter.vue';
 import { useSessionStore } from '../../stores/session.js';
 import { toUserMessage } from '../../utils/user-message.js';
 
@@ -184,6 +185,7 @@ async function submitDev(uid: string): Promise<void> {
 
       <p class="auth-privacy-note">账号只用于排班身份识别。联系信息仅对有权限的群组成员可见。</p>
     </section>
+    <SiteComplianceFooter />
   </main>
 </template>
 
@@ -191,6 +193,8 @@ async function submitDev(uid: string): Promise<void> {
 .auth-page {
   min-height: 100dvh;
   padding: max(32px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  grid-template-rows: 1fr auto;
+  gap: var(--ui-spacing-md);
   background:
     radial-gradient(circle at 86% 10%, rgb(10 102 213 / 12%), transparent 28%),
     var(--ui-color-background);

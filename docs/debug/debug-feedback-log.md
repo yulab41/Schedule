@@ -183,3 +183,14 @@
 - 正式发布：发布前 `ecs-verify.sh` 通过并创建加密数据库备份 `48b7e00f-19b3-4577-aefa-dad10a0ad0bd`（44 张表、3701 行）；release `af37f5e4ecf5abcc86ac7460361bbfb47ba4c8c4` 部署成功，产物哈希、API/Web 容器、域名隔离、无开发认证依赖和 36 个迁移检查通过。部署未复制或覆盖本地数据库。
 - 持续规则：用户要求今后每个完成并推送的仓库修改检查点都直接部署并线上核验；生产业务数据始终以服务器数据库为准，禁止用本地库、演示数据、凭据或会话覆盖生产。该规则写入根 `AGENTS.md`，最终状态 checkpoint 识别消息为 `docs(status): require production deployment after changes`，并作为最终 release 部署以保持服务器 release 与 Git `HEAD` 一致。
 - 最终一致性：自动部署规则的收口 checkpoint 识别消息为 `docs(status): confirm automatic deployment policy rollout`；该 checkpoint 作为正式 release 部署后，以 Git `HEAD` 和服务器 `current-release` 相等为完成门禁，不再用发布后的追加文档提交制造新偏差。
+
+## 2026-08-15 微信网站认证与 ICP 备案展示
+
+- 来源定位：工作台应用壳与登录入口由 `e38cdba` 引入，访客入口由 `7c783c7` 引入；已对三个当前模板执行 `git log -S` 与 `git blame`。本轮不是回退既有功能，而是在ICP备案通过后补充统一合规页脚。
+- 测试先行：认证文件上线前，公网验证 URL 返回 1136 字节应用首页 HTML；加入公共根目录文件后生产产物为指定 41 字节正文。ICP 页脚测试先因 `SiteComplianceFooter.vue` 不存在失败；实现后 2/2 通过，并约束登录、访客和已认证应用壳均接入同一组件。
+- 行为与语义审计：认证文件只增加静态站点资源；ICP 页脚只渲染外部工信部链接。登录/注册、开发登录、访客解析、会话恢复、路由、API、错误路径、空值、权限和业务副作用均未修改，原调用次数不变。
+- 运行/浏览器验证：`pnpm smoke:browser` 在正确启用 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 的当前源码服务下通过，覆盖登录、管理员、成员、访客 vkey 和访问记录，全流程无浏览器错误。首轮因 5173 未启动而连接失败，第二轮因开发认证开关未启用而在登录门禁停止，均未进入产品断言；按既有验收配置启动后原样复跑通过。
+- 本地浏览器验证：1280×900 登录页及 390×844 登录、无 vkey 访客、已认证工作台均找到唯一的 `https://beian.miit.gov.cn/` 链接，文字为 `粤ICP备2026116116号-1`，链接实际点触高度均为 44px；390px 下底部导航避让后仍完整位于视口内。
+- 生产认证文件：checkpoint `859f28d` 发布前后 `ecs-verify.sh` 通过；加密数据库备份 archive `0c70b166-8d94-4a51-920c-5922ca046753`（44 张表、4856 行），release `859f28d376e13f90dc4dced83c974aed12d84f5f` 已上线。公网验证 URL 返回 200、`text/plain`、41 字节且正文精确匹配。
+- 运行验证：定向测试 2/2、Web typecheck、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 通过；全仓库 72 个测试文件、492 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过，仅保留既有大 chunk warning。
+- 状态：微信认证文件为“已完成”；ICP 页脚已完成本地运行与浏览器验证，待生产发布和公网 DOM 复核后转为“待用户复核”。

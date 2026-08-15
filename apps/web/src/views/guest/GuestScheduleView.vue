@@ -8,6 +8,7 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import AppStatePanel from '../../components/AppStatePanel.vue';
+import SiteComplianceFooter from '../../components/SiteComplianceFooter.vue';
 import {
   addBusinessMonths,
   createLatestRequestTracker,
@@ -187,13 +188,16 @@ async function changeMonth(delta: number): Promise<void> {
         />
       </template>
     </section>
+    <SiteComplianceFooter />
   </main>
 </template>
 
 <style scoped>
 .guest-schedule-page {
+  display: flex;
   min-height: 100vh;
   min-height: 100dvh;
+  flex-direction: column;
   color: var(--ui-color-text-primary);
   background: var(--ui-color-background);
 }
