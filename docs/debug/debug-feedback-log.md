@@ -235,3 +235,5 @@
 - 变更与语义审计：仅删除移动 `.weekday-row` 的重复 `border-bottom`；没有改变模板、日期选择、相邻月份禁用、选中态、API、权限、错误路径、调用次数或副作用。Storybook 参考组件不变。
 - 运行/浏览器验证：Storybook build、Web typecheck、`pnpm smoke:check-core`、`pnpm verify`、`git diff --check` 通过；本地源码 390×844 与 320×844 均测得 42 格、1:1 月格、`weekday-bottom-border=0px`、首行间距 1px、body 无横向溢出。完整 `pnpm smoke:browser` 因既有未提交的紧凑抬头/群组选择改动在早期断言停止，未归因于本轮。
 - 状态：已完成（含运行验证）→ 待用户复核；checkpoint 识别消息：`fix(web): avoid stacked mobile calendar separators`。
+- 正式发布：checkpoint `de69384` 已推送；备份 archive `c9785dbd-b267-4cfa-afc4-cb1f9556b57f`（44 张表、5406 行）；release `de69384164c6806e939ec6f9d67355e0d8710170` 已部署。
+- 正式域名复核：390×844 月格 49×49、320×844 月格 41.14×41.14，均为 42 格、星期栏底边 `0px`、首行间距 `1px`，无横向溢出；`ecs-verify.sh` 通过，未触发业务写入。
