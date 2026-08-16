@@ -65,6 +65,7 @@ describe('workbench shell refinement preview', () => {
     );
     expect(preview).toMatch(/\.group-heading-row\s*{[^}]*position:\s*relative;/s);
     expect(preview).toMatch(/\.group-menu-list\s*{[^}]*position:\s*absolute;/s);
+    expect(preview).toMatch(/\.group-menu-list\s*{[^}]*display:\s*grid;[^}]*gap:\s*4px;/s);
     expect(preview).toMatch(/\.segmented button\s*{[^}]*font-size:\s*13px;/s);
     expect(preview).toMatch(/\.filter-action\s*{[^}]*min-height:\s*44px;[^}]*font-size:\s*13px;/s);
     expect(preview).toMatch(

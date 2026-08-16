@@ -247,3 +247,13 @@
 - 预览与验证：Storybook `GroupMenuOpen390` 已在 390px 实际展开/关闭预览；Storybook build、Web typecheck、定向测试 11/11、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 均通过。全仓库 75 个测试文件、511 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过；Storybook 仅保留临时配置下的 addon 解析提示、CSF 解析提示和既有大 chunk warning。
 - 正式发布：网络恢复后生成 release `42c342529c8cf1e9b3f125b3ae6b3c2928b33043`；发布前加密数据库备份 archive `5dba4d9d-6a0a-4a2f-98ea-c16d8419859a`（44 张表、5410 行）。`ecs-update.sh` 成功完成迁移、API/Web 重建并写入 current-release。
 - 正式核验：服务器 `ecs-verify.sh` 退出码 0；正式 D0796 会话实际展开/关闭群组 `combobox`，listbox 显示 2 个选项，Escape 可关闭，抬头/通知/导出存在且浏览器控制台无 error/warning。状态：已完成（含生产发布与线上核验）→ 待用户复核。
+
+## 2026-08-16 群组下拉选项蓝色状态重叠
+
+- 反馈：群组下拉展开后上下选项的浅蓝选中/悬停背景相互贴合，视觉上像蓝色框重叠，选项之间没有间隔。
+- 引入点：自绘 `.group-switcher-menu` 与 Storybook `.group-menu-list` 来自 `3febef0`；已执行 `git log -S 'group-switcher-menu'` 和 `git blame`。
+- 测试先行：新增两个 CSS 结构回归断言；旧实现运行结果为 2 项失败、9 项通过。加入菜单容器 `display: grid` 和 `gap` 后，`apps/web/src/views/workbench-shell-refinement.spec.ts` 与 `apps/web/src/stories/ui2/workbench-shell-refinement-preview.spec.ts` 共 11/11 通过。
+- 修复：正式菜单使用 `gap: var(--ui-spacing-xxs)`，Storybook 预览使用 `gap: 4px`；仅分隔选项背景，不改变选项触达高度、选中逻辑、键盘导航、关闭行为或任何 API/权限链路。
+- 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 已通过（管理员、成员、访客、访问记录全流程无浏览器错误）；Web typecheck、`pnpm smoke:check-core`、任务文件 Prettier、`git diff --check` 通过。全仓 `pnpm format:check` 被既有未跟踪日历测试文件的格式问题阻塞，未改动该文件。
+- Storybook 实际复核：390×844 `GroupMenuOpen390` 的菜单计算 `gap = 4px`、`row-gap = 4px`，选项数量 2，截图确认上下状态背景之间有可见留白。
+- 状态：已完成（含运行验证）→ 待生产发布；checkpoint 识别消息：`fix(web): separate group dropdown option states`。

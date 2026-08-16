@@ -75,6 +75,9 @@ describe('formal compact workbench shell', () => {
     expect(groupSwitcher).toMatch(
       /\.group-switcher-menu\s*{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100% \+ var\(--ui-spacing-xs\)\);/s,
     );
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher-menu\s*{[^}]*display:\s*grid;[^}]*gap:\s*var\(--ui-spacing-xxs\);/s,
+    );
   });
 
   it('places export in the compact header and keeps its mobile accessible name', () => {

@@ -283,12 +283,14 @@ onBeforeUnmount(() => {
 
 .group-switcher-menu {
   position: absolute;
+  display: grid;
   z-index: var(--ui-z-index-dialog);
   top: calc(100% + var(--ui-spacing-xs));
   left: 0;
   width: max(100%, 216px);
   max-width: min(320px, calc(100vw - var(--ui-spacing-xl)));
   padding: var(--ui-spacing-xxs);
+  gap: var(--ui-spacing-xxs);
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-medium);

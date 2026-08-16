@@ -414,12 +414,14 @@ a:focus-visible {
 
 .group-menu-list {
   position: absolute;
+  display: grid;
   z-index: 10;
   top: calc(100% + 8px);
   left: 0;
   width: max(100%, 216px);
   max-width: min(320px, calc(100vw - 24px));
   padding: 4px;
+  gap: 4px;
   background: var(--ui2-surface);
   border: 1px solid var(--ui2-border);
   border-radius: 14px;
