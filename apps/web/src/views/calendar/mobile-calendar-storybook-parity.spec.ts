@@ -10,6 +10,7 @@ function readSource(relativePath: string): string {
 }
 
 const selectedDateDetails = readSource('../../features/calendar/SelectedDateDutyDetails.vue');
+const ui2MonthCalendar = readSource('../../stories/ui2/Ui2MonthCalendar.vue');
 
 describe('mobile calendar Storybook 2 parity', () => {
   it('builds six complete weeks with labelled adjacent-month dates', () => {
@@ -62,6 +63,27 @@ describe('mobile calendar Storybook 2 parity', () => {
     );
     expect(monthGrid).toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.day-cell\s*{[^}]*aspect-ratio:\s*1\s*\/\s*1;[^}]*min-height:\s*0;/s,
+    );
+  });
+
+  it('fades adjacent-month weekday and weekend dates together', () => {
+    const monthGrid = readSource('../../features/calendar/MonthGrid.vue');
+    const desktopStyles = monthGrid.slice(
+      monthGrid.indexOf('<style scoped>'),
+      monthGrid.indexOf('@media (max-width: 640px)'),
+    );
+
+    expect(desktopStyles).toMatch(
+      /\.day-cell\.is-outside-month \.day-number,\s*\.month-grid\.invert-past-colors \.day-cell\.is-outside-month \.day-number\s*{[^}]*color:\s*#c2c9d1;/s,
+    );
+    expect(desktopStyles).toMatch(
+      /\.day-cell\.is-outside-month\.is-weekend \.day-number,\s*\.month-grid\.invert-past-colors \.day-cell\.is-outside-month\.is-weekend \.day-number\s*{[^}]*color:\s*#ef9f9f;/s,
+    );
+    expect(ui2MonthCalendar).toMatch(
+      /\.calendar-cell\.is-dimmed \.date-number\s*{[^}]*color:\s*#c2c9d1;/s,
+    );
+    expect(ui2MonthCalendar).toMatch(
+      /\.calendar-cell\.is-dimmed\.is-weekend \.date-number\s*{[^}]*color:\s*#ef9f9f;/s,
     );
   });
 

@@ -411,6 +411,14 @@ function onPointerUp(event: PointerEvent): void {
   color: var(--ui2-danger);
 }
 
+.calendar-cell.is-dimmed .date-number {
+  color: #c2c9d1;
+}
+
+.calendar-cell.is-dimmed.is-weekend .date-number {
+  color: #ef9f9f;
+}
+
 .holiday {
   display: inline-grid;
   min-width: 16px;

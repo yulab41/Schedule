@@ -232,7 +232,17 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 正式核验：`ecs-verify.sh` 退出码 0。正式 D0796 桌面 1280×720 与移动 390×844 均测得抬头 68px、群组文字行 20.25px、箭头触达区 44px；移动 `scrollWidth = clientWidth = 375px`。下拉为 2 个选项，`gap/row-gap = 4px`，Esc 后关闭，原生 `select` 数量为 0；顶部没有退出登录按钮，通知/导出存在，浏览器日志为空。
 - 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint 识别消息：`fix(web): compact group header spacing`；最终状态 checkpoint 识别消息：`docs(status): record compact group header deployment`。
 
+## 2026-08-16 月视图相邻月份日期颜色精修
+
+- 回归来源：相邻月份日期的浅色由 `abd20d2` 引入，周末日期红色由 `4540e13`/`c9a12b8` 引入；已对 `MonthGrid.vue` 与 `Ui2MonthCalendar.vue` 执行 `git log -S` 和 `git blame`，确认周末选择器覆盖了相邻月份的浅色。
+- 测试先行：新增实际月历与 Storybook 参考组件的相邻月份颜色断言；旧实现 1 项失败，修复后日历 parity 8/8、定向日历相关 27/27 通过。
+- 变更：相邻月份普通日期改为更浅的 `#c2c9d1`，相邻月份周末日期改为同步变浅的 `#ef9f9f`；桌面、移动端和 `invert-past-colors` 分支保持一致。当月普通/周末日期、背景、详情、选择和业务数据均未改。
+- 运行/浏览器验证：Web typecheck、build、Storybook build、ESLint、Prettier、`pnpm smoke:check-core`、`pnpm verify`（76 个测试文件/521 项通过，29 个数据库集成文件/252 项按环境跳过）和 `git diff --check` 通过。390×844 与 1280×900 实测普通相邻日期 `rgb(194, 201, 209)`、相邻周末 `rgb(239, 159, 159)`，当月颜色保持原值且无横向溢出。
+- 状态：已完成（含运行与本地浏览器验证）→ 待生产发布；checkpoint 识别消息：`fix(web): lighten adjacent-month calendar dates`。
+- 下一批次：提交并推送本 checkpoint，创建 production backup，部署 release，运行 `ecs-verify.sh` 和正式域名月历颜色复核。
+- 停止条件：Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，正式域名确认相邻月份普通/周末日期均同步变浅；随后等待用户视觉复核。
+
 ## 下一批次与停止条件
 
-- 下一批次：无待实施仓库任务；提交并推送最终状态 checkpoint `docs(status): record compact group header deployment`，将同一 `HEAD` 作为最终 release 部署。
-- 停止条件：最终状态 checkpoint 已推送，生产备份、release、`ecs-verify.sh` 与正式浏览器复核全部通过；保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，随后等待用户视觉复核。
+- 下一批次：本 checkpoint 的提交、推送、production backup、release 部署、`ecs-verify.sh` 及正式域名月历颜色复核。
+- 停止条件：完成本 checkpoint 的生产备份、部署和线上核验，保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，随后等待用户视觉复核。

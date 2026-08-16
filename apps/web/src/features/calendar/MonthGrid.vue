@@ -350,6 +350,16 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
   color: var(--ui-color-weekend);
 }
 
+.day-cell.is-outside-month .day-number,
+.month-grid.invert-past-colors .day-cell.is-outside-month .day-number {
+  color: #c2c9d1;
+}
+
+.day-cell.is-outside-month.is-weekend .day-number,
+.month-grid.invert-past-colors .day-cell.is-outside-month.is-weekend .day-number {
+  color: #ef9f9f;
+}
+
 .month-grid.invert-past-colors .day-cell.is-today .day-number {
   color: var(--ui-color-near-black);
   background: var(--ui-color-today-marker);
@@ -467,12 +477,12 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
 
   .day-cell.is-outside-month .day-number,
   .month-grid.invert-past-colors .day-cell.is-outside-month .day-number {
-    color: #a7b0bb;
+    color: #c2c9d1;
   }
 
   .day-cell.is-outside-month.is-weekend .day-number,
   .month-grid.invert-past-colors .day-cell.is-outside-month.is-weekend .day-number {
-    color: var(--ui-color-weekend);
+    color: #ef9f9f;
   }
 
   :deep(.duty-cell) {
