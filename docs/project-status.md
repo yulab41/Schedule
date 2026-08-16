@@ -331,3 +331,15 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 状态：已完成（含生产发布与线上核验）→ 待最终状态 checkpoint。代码 checkpoint 识别消息：`fix(web): repair exports and calendar interactions`；最终状态 checkpoint 识别消息：`docs(status): record export and calendar deployment`。
 - 下一批次：第四批仅处理普通换班与管理员直接换班的双方独立月份、跨月班次加载和冲突/版本回归。
 - 停止条件：最终状态 checkpoint 显式提交并推送，第二次生产加密数据库备份、release 部署与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止，不提前实施跨月换班。
+
+## 2026-08-16 跨月换班（当前批次）
+
+- 批次范围：仅处理第四批 1 项——普通换班与管理员直接换班的双方独立月份、跨月班次加载，以及后端冲突/权限/版本语义核对；未修改换班生产 API、契约、数据库或事务服务。
+- 回归来源：`git log -S`/`git blame` 确认单一 `businessMonth` 与单月日历读取由 `b20ff9b` 引入，管理员表单后续由 `6452fa9`/`2bb9fce` 调整但仍复用同一月份。后端自 `b20ff9b` 起已分别按两个 assignment ID 读取不同 schedule period，并按两个 period 写事件、按两个 business month 刷新统计，原本支持跨月。
+- 前端实现：普通换班增加“我的班次月份/对方班次月份”，管理员直办增加“成员一月份/成员二月份”；相同月份只读取一次，不同月份并行读取。改变一方月份仅清空该方班次及预览，另一方有效选择保留。班次选项显示完整业务日期、班种、起止时间（含“次日”）、岗位和成员；月份缓存按群组隔离，并用最新请求 ID 防止切换群组后的异步旧结果覆盖。
+- 后端匹配：真实集成测试覆盖普通成员 2026-09 ↔ 2026-10 换班和管理员跨月直办；两个日历的实际成员与换班标识正确，`swap_completed` 事件分别落入两个 schedule period。原有同群权限、已发布状态、岗位资格、请假/时间/活动工作流冲突、assignment version、幂等、审批与事务回滚逻辑均由完整换班套件继续覆盖。
+- 测试先行：旧前端对新增独立月份/并行加载/完整标签回归为 4 项失败，实现后 8/8 通过；后端跨月测试在不改生产服务的前提下先通过，证明缺口仅在前端。完整换班 API 集成 34/34 通过。测试数据库清理遗漏认证表由 `12e7f40` 后显现，本轮补齐换班文件自身的 `user_auth_identities`/`user_password_credentials` 清理；注入数据库的全仓 verify 继续在未改动日历文件的同类历史清理缺口处失败，未扩展到无关模块。
+- 运行/浏览器验证：Web typecheck/build、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core`、常规 `pnpm verify`（85 个文件/562 项通过，29 个数据库集成文件按默认环境跳过）、Prettier、ESLint 和 `git diff --check` 通过；任务相关数据库集成已单独全部实跑。390/320 冒烟确认普通与管理员 Sheet 均有两个独立月份选择器、44px 关键触达区且无横向溢出；本地真实数据实测改变“我的班次月份”后，对方月份、成员与已选班次保持，控制台无 error/warning，未提交换班。
+- 行为审计：普通成员目标候选仍排除本人，管理员两侧仍可选择任何有可操作班次的成员；同月请求去重、跨月并行，不增加预览/提交 API 调用次数。月份变化只新增对应日历读取；提交、审批、撤销、错误转换和版本冲突处理调用保持原路径。checkpoint 识别消息：`feat(web): enable cross-month shift swaps`。
+- 下一批次：无待实施仓库任务；完成本 checkpoint 的提交推送、production backup、release 部署、`ecs-verify.sh` 与正式域名只读复核后，等待用户最终验收。
+- 停止条件：Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；正式站普通/管理员换班 Sheet 均显示两个独立月份且无布局或浏览器错误，不触发业务提交。

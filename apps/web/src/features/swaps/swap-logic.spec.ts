@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildSwapCandidates,
+  formatSwapAssignmentOption,
   formatSwapShiftTime,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
   getSwapStatusLabel,
+  loadSwapMonthCalendars,
   resolveNextSwapStatus,
 } from './swap-logic.js';
 import {
@@ -72,6 +74,20 @@ describe('swap flow logic', () => {
     ).toEqual(['assignment-2', 'assignment-3']);
   });
 
+  it('loads each selected month once while allowing two different months in parallel', async () => {
+    const requestedMonths: string[] = [];
+    const calendars = await loadSwapMonthCalendars(
+      ['2026-09', '2026-10', '2026-09', '2026-10'],
+      async (businessMonth) => {
+        requestedMonths.push(businessMonth);
+        return { ...calendar, businessMonth };
+      },
+    );
+
+    expect(requestedMonths).toEqual(['2026-09', '2026-10']);
+    expect([...calendars.keys()]).toEqual(['2026-09', '2026-10']);
+  });
+
   it('excludes past assignments from my assignments and target options', () => {
     const pastCalendar: CalendarReadModel = {
       ...calendar,
@@ -106,6 +122,9 @@ describe('swap flow logic', () => {
     ).toBe('该成员在班次时间内有已批准请假。');
     expect(formatAssignmentOption(calendar.assignments[1]!)).toBe(
       '2026-09-02 全天班（周三）· 李医生',
+    );
+    expect(formatSwapAssignmentOption(calendar.assignments[1]!)).toBe(
+      '2026-09-02 全天班 08:00–次日00:00 · 一线 · 李医生',
     );
     expect(
       formatAssignmentSummaryOption({

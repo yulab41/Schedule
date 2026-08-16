@@ -804,8 +804,15 @@ async function assertShiftWorkflowsMobile(page) {
     const requestSheet = page.locator('dialog[open][aria-label="发起换班"]');
     await requestSheet.waitFor({ state: 'visible', timeout: 5000 });
     const requestText = await requestSheet.innerText();
-    if (!requestText.includes('我的班次') || !requestText.includes('提交换班')) {
+    if (
+      !requestText.includes('我的班次月份') ||
+      !requestText.includes('对方班次月份') ||
+      !requestText.includes('提交换班')
+    ) {
       fail(`${width}px 发起换班底部页缺少表单内容。`);
+    }
+    if ((await requestSheet.locator('input[type="month"]').count()) !== 2) {
+      fail(`${width}px 发起换班底部页未提供两个独立月份选择器。`);
     }
     await assertWorkflowSheetTouchTargets(requestSheet, width, '发起换班底部页');
     await assertSelectPopupInsideSheet(requestSheet, `${width}px 发起换班`);
@@ -818,8 +825,15 @@ async function assertShiftWorkflowsMobile(page) {
     const adminSheet = page.locator('dialog[open][aria-label="管理员直接换班"]');
     await adminSheet.waitFor({ state: 'visible', timeout: 5000 });
     const adminText = await adminSheet.innerText();
-    if (!adminText.includes('成员一') || !adminText.includes('直接执行换班')) {
+    if (
+      !adminText.includes('成员一月份') ||
+      !adminText.includes('成员二月份') ||
+      !adminText.includes('直接执行换班')
+    ) {
       fail(`${width}px 管理员直接换班底部页缺少表单内容。`);
+    }
+    if ((await adminSheet.locator('input[type="month"]').count()) !== 2) {
+      fail(`${width}px 管理员直接换班底部页未提供两个独立月份选择器。`);
     }
     await assertWorkflowSheetTouchTargets(adminSheet, width, '管理员直接换班底部页');
     await adminSheet.locator('button[aria-label="关闭"]').click();

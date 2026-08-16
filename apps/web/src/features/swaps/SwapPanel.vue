@@ -17,17 +17,16 @@ import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
-import {
-  createAssignmentOption,
-  formatAssignmentSummaryOption,
-} from '../workflows/assignment-option.js';
+import { formatAssignmentSummaryOption } from '../workflows/assignment-option.js';
 import { getWorkflowStatusTone } from '../workflows/workflow-logic.js';
 import {
   buildSwapCandidates,
+  formatSwapAssignmentOption,
   formatSwapShiftTime,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
   getSwapStatusLabel,
+  loadSwapMonthCalendars,
 } from './swap-logic.js';
 
 const props = defineProps<{
@@ -35,8 +34,12 @@ const props = defineProps<{
 }>();
 
 const api = createApiClient({ auth: localAuth });
-const businessMonth = ref(getCurrentBusinessMonth());
-const calendar = ref<CalendarReadModel>();
+const myAssignmentMonth = ref(getCurrentBusinessMonth());
+const targetAssignmentMonth = ref(getCurrentBusinessMonth());
+const adminInitiatorMonth = ref(getCurrentBusinessMonth());
+const adminTargetMonth = ref(getCurrentBusinessMonth());
+const calendarsByMonth = ref<ReadonlyMap<string, CalendarReadModel>>(new Map());
+const loadingCalendarMonths = ref<ReadonlySet<string>>(new Set());
 const members = ref<GroupMember[]>([]);
 const myMembershipId = ref<string>();
 const groupSettings = ref<GroupSwapSettings>();
@@ -63,18 +66,34 @@ const adminIsPreviewing = ref(false);
 const adminIsSubmitting = ref(false);
 const requestFormVisible = ref(false);
 const adminFormVisible = ref(false);
+let loadDataRequestId = 0;
 
 const canApprove = computed(() => props.group.role !== 'member');
-const candidates = computed(() =>
-  calendar.value === undefined || myMembershipId.value === undefined
+const myCandidates = computed(() =>
+  calendarForMonth(myAssignmentMonth.value) === undefined || myMembershipId.value === undefined
     ? undefined
-    : buildSwapCandidates(calendar.value, myMembershipId.value),
+    : buildSwapCandidates(calendarForMonth(myAssignmentMonth.value)!, myMembershipId.value),
+);
+const targetCandidates = computed(() =>
+  calendarForMonth(targetAssignmentMonth.value) === undefined || myMembershipId.value === undefined
+    ? undefined
+    : buildSwapCandidates(calendarForMonth(targetAssignmentMonth.value)!, myMembershipId.value),
+);
+const adminInitiatorCandidates = computed(() =>
+  calendarForMonth(adminInitiatorMonth.value) === undefined || myMembershipId.value === undefined
+    ? undefined
+    : buildSwapCandidates(calendarForMonth(adminInitiatorMonth.value)!, myMembershipId.value),
+);
+const adminTargetCandidates = computed(() =>
+  calendarForMonth(adminTargetMonth.value) === undefined || myMembershipId.value === undefined
+    ? undefined
+    : buildSwapCandidates(calendarForMonth(adminTargetMonth.value)!, myMembershipId.value),
 );
 const myAssignmentOptions = computed(() =>
-  (candidates.value?.myAssignments ?? []).map((assignment) => createAssignmentOption(assignment)),
+  (myCandidates.value?.myAssignments ?? []).map(toAssignmentOption),
 );
 const targetOptions = computed(() =>
-  (candidates.value?.targetOptions ?? []).map((member) => ({
+  (targetCandidates.value?.targetOptions ?? []).map((member) => ({
     label: member.realName,
     value: member.membershipId,
   })),
@@ -84,31 +103,43 @@ const targetAssignmentOptions = computed(() => {
   if (targetMembershipId === '') {
     return [];
   }
-  return (candidates.value?.assignmentsByTarget.get(targetMembershipId) ?? []).map((assignment) =>
-    createAssignmentOption(assignment),
+  return (targetCandidates.value?.assignmentsByTarget.get(targetMembershipId) ?? []).map(
+    toAssignmentOption,
   );
 });
-const adminMemberOptions = computed(() =>
-  (calendar.value?.members ?? []).map((member) => ({
-    label: member.realName,
-    value: member.membershipId,
-  })),
+const adminInitiatorMemberOptions = computed(() =>
+  (calendarForMonth(adminInitiatorMonth.value)?.members ?? [])
+    .filter((member) =>
+      adminInitiatorCandidates.value?.assignmentsByTarget.has(member.membershipId),
+    )
+    .map((member) => ({
+      label: member.realName,
+      value: member.membershipId,
+    })),
+);
+const adminTargetMemberOptions = computed(() =>
+  (calendarForMonth(adminTargetMonth.value)?.members ?? [])
+    .filter((member) => adminTargetCandidates.value?.assignmentsByTarget.has(member.membershipId))
+    .map((member) => ({
+      label: member.realName,
+      value: member.membershipId,
+    })),
 );
 const adminInitiatorAssignmentOptions = computed(() => {
   if (adminInitiatorMembershipId.value === '') {
     return [];
   }
-  return (candidates.value?.assignmentsByTarget.get(adminInitiatorMembershipId.value) ?? []).map(
-    (assignment) => createAssignmentOption(assignment),
-  );
+  return (
+    adminInitiatorCandidates.value?.assignmentsByTarget.get(adminInitiatorMembershipId.value) ?? []
+  ).map(toAssignmentOption);
 });
 const adminTargetAssignmentOptions = computed(() => {
   if (adminTargetMembershipId.value === '') {
     return [];
   }
-  return (candidates.value?.assignmentsByTarget.get(adminTargetMembershipId.value) ?? []).map(
-    (assignment) => createAssignmentOption(assignment),
-  );
+  return (
+    adminTargetCandidates.value?.assignmentsByTarget.get(adminTargetMembershipId.value) ?? []
+  ).map(toAssignmentOption);
 });
 const incomingRequests = computed(() =>
   mySwapRequests.value.filter(
@@ -142,8 +173,15 @@ const myPendingRequests = computed(() =>
 );
 
 watch(
-  () => [props.group.id, businessMonth.value],
+  () => props.group.id,
   () => {
+    const currentMonth = getCurrentBusinessMonth();
+    myAssignmentMonth.value = currentMonth;
+    targetAssignmentMonth.value = currentMonth;
+    adminInitiatorMonth.value = currentMonth;
+    adminTargetMonth.value = currentMonth;
+    calendarsByMonth.value = new Map();
+    loadingCalendarMonths.value = new Set();
     resetForm();
     resetAdminForm();
     void loadData();
@@ -162,17 +200,22 @@ onBeforeUnmount(() => {
 async function loadData(): Promise<void> {
   errorMessage.value = undefined;
   isLoading.value = true;
+  const requestId = ++loadDataRequestId;
+  const requestedGroupId = props.group.id;
   try {
-    const [nextCalendar, nextMembers, nextGroupSettings, nextMySettings, nextMine, nextApprovals] =
+    const [nextCalendars, nextMembers, nextGroupSettings, nextMySettings, nextMine, nextApprovals] =
       await Promise.all([
-        api.getCalendar(props.group.id, businessMonth.value),
-        api.listGroupMembers(props.group.id),
-        api.getGroupSwapSettings(props.group.id),
-        api.getMySwapSettings(props.group.id),
-        api.listMySwapRequests(props.group.id),
-        canApprove.value ? api.listSwapApprovals(props.group.id) : Promise.resolve([]),
+        loadSwapMonthCalendars(getSelectedSwapMonths(), (businessMonth) =>
+          api.getCalendar(requestedGroupId, businessMonth),
+        ),
+        api.listGroupMembers(requestedGroupId),
+        api.getGroupSwapSettings(requestedGroupId),
+        api.getMySwapSettings(requestedGroupId),
+        api.listMySwapRequests(requestedGroupId),
+        canApprove.value ? api.listSwapApprovals(requestedGroupId) : Promise.resolve([]),
       ]);
-    calendar.value = nextCalendar;
+    if (requestId !== loadDataRequestId || requestedGroupId !== props.group.id) return;
+    calendarsByMonth.value = nextCalendars;
     members.value = nextMembers;
     groupSettings.value = nextGroupSettings;
     mySettings.value = nextMySettings;
@@ -181,10 +224,73 @@ async function loadData(): Promise<void> {
     const currentUser = nextMembers.find((member) => member.isCurrentUser);
     myMembershipId.value = currentUser?.id;
   } catch (error) {
-    errorMessage.value = toUserMessage(error, '换班数据暂时无法加载，请稍后重试。');
+    if (requestId === loadDataRequestId) {
+      errorMessage.value = toUserMessage(error, '换班数据暂时无法加载，请稍后重试。');
+    }
   } finally {
-    isLoading.value = false;
+    if (requestId === loadDataRequestId) {
+      isLoading.value = false;
+    }
   }
+}
+
+function calendarForMonth(businessMonth: string): CalendarReadModel | undefined {
+  return calendarsByMonth.value.get(businessMonth);
+}
+
+function getSelectedSwapMonths(): readonly string[] {
+  return [
+    myAssignmentMonth.value,
+    targetAssignmentMonth.value,
+    adminInitiatorMonth.value,
+    adminTargetMonth.value,
+  ].filter(isBusinessMonth);
+}
+
+async function ensureCalendarMonth(businessMonth: string): Promise<void> {
+  if (calendarsByMonth.value.has(businessMonth) || loadingCalendarMonths.value.has(businessMonth)) {
+    return;
+  }
+
+  const requestedGroupId = props.group.id;
+  loadingCalendarMonths.value = new Set([...loadingCalendarMonths.value, businessMonth]);
+  try {
+    const nextCalendars = await loadSwapMonthCalendars([businessMonth], (month) =>
+      api.getCalendar(requestedGroupId, month),
+    );
+    if (requestedGroupId !== props.group.id) return;
+    calendarsByMonth.value = new Map([...calendarsByMonth.value, ...nextCalendars]);
+  } finally {
+    if (requestedGroupId === props.group.id) {
+      const nextLoadingMonths = new Set(loadingCalendarMonths.value);
+      nextLoadingMonths.delete(businessMonth);
+      loadingCalendarMonths.value = nextLoadingMonths;
+    }
+  }
+}
+
+function loadChangedMonth(businessMonth: string, admin = false): void {
+  if (!isBusinessMonth(businessMonth)) return;
+  void ensureCalendarMonth(businessMonth).catch((error: unknown) => {
+    const message = toUserMessage(error, '换班月份暂时无法加载，请稍后重试。');
+    if (admin) {
+      adminErrorMessage.value = message;
+    } else {
+      errorMessage.value = message;
+    }
+  });
+}
+
+function isCalendarMonthLoading(businessMonth: string): boolean {
+  return loadingCalendarMonths.value.has(businessMonth);
+}
+
+function isBusinessMonth(value: string): boolean {
+  return /^\d{4}-\d{2}$/u.test(value);
+}
+
+function toAssignmentOption(assignment: CalendarReadModel['assignments'][number]) {
+  return { label: formatSwapAssignmentOption(assignment), value: assignment.id };
 }
 
 function resetForm(): void {
@@ -200,6 +306,30 @@ function resetAdminForm(): void {
   adminTargetMembershipId.value = '';
   adminTargetAssignmentId.value = '';
   adminPreview.value = undefined;
+}
+
+function onMyAssignmentMonthChange(): void {
+  selectedMyAssignmentId.value = '';
+  preview.value = undefined;
+  loadChangedMonth(myAssignmentMonth.value);
+}
+
+function onTargetAssignmentMonthChange(): void {
+  selectedTargetAssignmentId.value = '';
+  preview.value = undefined;
+  loadChangedMonth(targetAssignmentMonth.value);
+}
+
+function onAdminInitiatorMonthChange(): void {
+  adminInitiatorAssignmentId.value = '';
+  adminPreview.value = undefined;
+  loadChangedMonth(adminInitiatorMonth.value, true);
+}
+
+function onAdminTargetMonthChange(): void {
+  adminTargetAssignmentId.value = '';
+  adminPreview.value = undefined;
+  loadChangedMonth(adminTargetMonth.value, true);
 }
 
 function onTargetChange(value: SelectValue): void {
@@ -766,8 +896,8 @@ function getCounterpartName(request: SwapRequest): string {
         <fieldset>
           <legend>选择双方班次</legend>
           <label>
-            月份
-            <input v-model="businessMonth" type="month" />
+            我的班次月份
+            <input v-model="myAssignmentMonth" type="month" @change="onMyAssignmentMonthChange" />
           </label>
           <label>
             我的班次
@@ -775,8 +905,17 @@ function getCounterpartName(request: SwapRequest): string {
               :value="selectedMyAssignmentId"
               :options="myAssignmentOptions"
               :popup-props="responsiveSheetPopupProps"
+              :loading="isCalendarMonthLoading(myAssignmentMonth)"
               placeholder="选择我的班次"
               @change="onMyAssignmentChange"
+            />
+          </label>
+          <label>
+            对方班次月份
+            <input
+              v-model="targetAssignmentMonth"
+              type="month"
+              @change="onTargetAssignmentMonthChange"
             />
           </label>
           <label>
@@ -785,6 +924,7 @@ function getCounterpartName(request: SwapRequest): string {
               :value="selectedTargetMembershipId"
               :options="targetOptions"
               :popup-props="responsiveSheetPopupProps"
+              :loading="isCalendarMonthLoading(targetAssignmentMonth)"
               placeholder="选择目标成员"
               @change="onTargetChange"
             />
@@ -795,6 +935,7 @@ function getCounterpartName(request: SwapRequest): string {
               :value="selectedTargetAssignmentId"
               :options="targetAssignmentOptions"
               :popup-props="responsiveSheetPopupProps"
+              :loading="isCalendarMonthLoading(targetAssignmentMonth)"
               placeholder="选择目标成员的班次"
               @change="onTargetAssignmentChange"
             />
@@ -830,11 +971,20 @@ function getCounterpartName(request: SwapRequest): string {
           <legend>选择双方班次</legend>
           <p class="workflow-form-hint">直接生效，无需对方同意或审批。</p>
           <label>
+            成员一月份
+            <input
+              v-model="adminInitiatorMonth"
+              type="month"
+              @change="onAdminInitiatorMonthChange"
+            />
+          </label>
+          <label>
             成员一
             <t-select
               :value="adminInitiatorMembershipId"
-              :options="adminMemberOptions"
+              :options="adminInitiatorMemberOptions"
               :popup-props="responsiveSheetPopupProps"
+              :loading="isCalendarMonthLoading(adminInitiatorMonth)"
               placeholder="选择成员一"
               @change="onAdminInitiatorChange"
             />
@@ -845,16 +995,22 @@ function getCounterpartName(request: SwapRequest): string {
               :value="adminInitiatorAssignmentId"
               :options="adminInitiatorAssignmentOptions"
               :popup-props="responsiveSheetPopupProps"
+              :loading="isCalendarMonthLoading(adminInitiatorMonth)"
               placeholder="选择成员一的班次"
               @change="onAdminInitiatorAssignmentChange"
             />
           </label>
           <label>
+            成员二月份
+            <input v-model="adminTargetMonth" type="month" @change="onAdminTargetMonthChange" />
+          </label>
+          <label>
             成员二
             <t-select
               :value="adminTargetMembershipId"
-              :options="adminMemberOptions"
+              :options="adminTargetMemberOptions"
               :popup-props="responsiveSheetPopupProps"
+              :loading="isCalendarMonthLoading(adminTargetMonth)"
               placeholder="选择成员二"
               @change="onAdminTargetChange"
             />
@@ -865,6 +1021,7 @@ function getCounterpartName(request: SwapRequest): string {
               :value="adminTargetAssignmentId"
               :options="adminTargetAssignmentOptions"
               :popup-props="responsiveSheetPopupProps"
+              :loading="isCalendarMonthLoading(adminTargetMonth)"
               placeholder="选择成员二的班次"
               @change="onAdminTargetAssignmentChange"
             />

@@ -161,6 +161,93 @@ describeWithDatabase('member shift swaps', () => {
     expect(sep2).toMatchObject({ actualMemberName: 'A Doctor', changeMarkers: ['swap'] });
   });
 
+  it('previews and completes member and administrator swaps across published months', async () => {
+    const context = await seedPublishedRotation();
+    await updateGroupSettings('owner-token', context.groupId, false);
+    const rulesVersion = (await getConfig('owner-token', context.groupId)).rulesVersion;
+    expect(
+      (await generatePublished(context.groupId, context.roleId, rulesVersion, '2026-10'))
+        .statusCode,
+    ).toBe(200);
+
+    const octoberRows = (
+      await client.database.execute(
+        sql`SELECT id, business_date AS businessDate, planned_membership_id AS plannedMembershipId, version
+            FROM shift_assignments
+            WHERE business_date IN ('2026-10-02', '2026-10-05')
+            ORDER BY business_date`,
+      )
+    )[0] as unknown as readonly {
+      businessDate?: string;
+      id: string;
+      plannedMembershipId: string | null;
+      version: number;
+    }[];
+    const octoberByDate = new Map(octoberRows.map((row) => [row.businessDate, row]));
+    const bOct2 = toAssignment(octoberByDate.get('2026-10-02'));
+    const bOct5 = toAssignment(octoberByDate.get('2026-10-05'));
+    expect(octoberByDate.get('2026-10-02')?.plannedMembershipId).toBe(context.membershipIds.b);
+    expect(octoberByDate.get('2026-10-05')?.plannedMembershipId).toBe(context.membershipIds.b);
+
+    const previewResponse = await previewSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      targetAssignmentId: bOct2.id,
+      targetMembershipId: context.membershipIds.b,
+    });
+    expect(previewResponse.statusCode).toBe(200);
+    expect(previewResponse.json() as SwapPreview).toMatchObject({
+      conflicts: [],
+      initiatorAssignment: { businessDate: '2026-09-01' },
+      nextStatus: 'completed',
+      targetAssignment: { businessDate: '2026-10-02' },
+    });
+
+    const memberSwap = await createSwap('a-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep1.id,
+      operationId: randomUUID(),
+      targetAssignmentId: bOct2.id,
+      targetMembershipId: context.membershipIds.b,
+    });
+    expect(memberSwap.statusCode, memberSwap.body).toBe(201);
+    expect(memberSwap.json()).toMatchObject({ status: 'completed' });
+
+    const administratorSwap = await directSwap('owner-token', context.groupId, {
+      initiatorAssignmentId: context.assignments.aSep4.id,
+      operationId: randomUUID(),
+      targetAssignmentId: bOct5.id,
+    });
+    expect(administratorSwap.statusCode, administratorSwap.body).toBe(201);
+    expect(administratorSwap.json()).toMatchObject({ status: 'completed' });
+
+    const septemberCalendar = (
+      await getCalendar('owner-token', context.groupId, '2026-09')
+    ).json() as CalendarResponse;
+    const octoberCalendar = (
+      await getCalendar('owner-token', context.groupId, '2026-10')
+    ).json() as CalendarResponse;
+    expect(
+      septemberCalendar.assignments.find((item) => item.businessDate === '2026-09-01'),
+    ).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['swap'] });
+    expect(
+      octoberCalendar.assignments.find((item) => item.businessDate === '2026-10-02'),
+    ).toMatchObject({ actualMemberName: 'A Doctor', changeMarkers: ['swap'] });
+    expect(
+      septemberCalendar.assignments.find((item) => item.businessDate === '2026-09-04'),
+    ).toMatchObject({ actualMemberName: 'B Doctor', changeMarkers: ['swap'] });
+    expect(
+      octoberCalendar.assignments.find((item) => item.businessDate === '2026-10-05'),
+    ).toMatchObject({ actualMemberName: 'A Doctor', changeMarkers: ['swap'] });
+
+    const completedEventPeriods = (
+      await client.database.execute(
+        sql`SELECT DISTINCT schedule_period_id AS schedulePeriodId
+            FROM schedule_events
+            WHERE group_id = ${context.groupId} AND event_type = 'swap_completed'`,
+      )
+    )[0] as unknown as readonly { schedulePeriodId: string }[];
+    expect(completedEventPeriods).toHaveLength(2);
+  });
+
   it('allows swapping today shifts even when they have already started', async () => {
     const context = await seedPublishedRotation();
     const today = getChinaStandardTimeBusinessDate(new Date());
@@ -1940,12 +2027,17 @@ describeWithDatabase('member shift swaps', () => {
     };
   }
 
-  async function generatePublished(groupId: string, roleId: string, rulesVersion: number) {
+  async function generatePublished(
+    groupId: string,
+    roleId: string,
+    rulesVersion: number,
+    businessMonth = '2026-09',
+  ) {
     return app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
       payload: {
-        businessMonth: '2026-09',
+        businessMonth,
         operationId: randomUUID(),
         publishMode: 'published',
         rulesVersion,
@@ -2251,6 +2343,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);
