@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Generate due reminders and deliver pending browser/WeChat notifications.
+# Generate due reminders, complete pending exports, and deliver pending
+# browser/WeChat notifications.
 # The host cron invokes this script every minute; flock prevents overlapping
 # runs when a slow push provider or a busy database delays one invocation.
 DEPLOY_DIR=/opt/schedule
@@ -20,6 +21,10 @@ compose_run() {
 }
 
 status=0
+if ! compose_run export-jobs; then
+  echo "[notifications] export-jobs failed" >&2
+  status=1
+fi
 if ! compose_run duty-reminders; then
   echo "[notifications] duty-reminders failed" >&2
   status=1
