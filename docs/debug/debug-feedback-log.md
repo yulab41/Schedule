@@ -266,5 +266,7 @@
 - 引入点：当前群组切换器结构来自 `3febef0`；本轮执行 `git log -S` 与 `git blame`，确认问题只涉及 `.group-switcher`/`.group-switcher-trigger` 的最小高度与箭头定位。
 - 测试先行：正式壳和 Storybook 断言在旧实现上 2 项失败、9 项通过；改动后 11/11 通过。箭头仍为 44px 触达区，文字行恢复内容高度。
 - 修复与审计：移除视觉行的 44px 最小高度，箭头绝对定位居中，菜单锚点下移以保持 8px 间距；未改群组值/事件、键盘与关闭行为、权限、导出或抽屉退出登录。
-- 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser`、Web typecheck、Storybook build、`pnpm smoke:check-core`、定向测试 11/11、任务文件 Prettier 与 `git diff --check` 通过。Storybook 390px 抬头 94px → 70.25px，群组文字行 20.25px，箭头 44px，菜单间距 8.13px。
-- 状态：已完成（含运行验证）→ 待生产发布。checkpoint 识别消息：`fix(web): compact group header spacing`。
+- 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser`、Web typecheck、生产 `pnpm build`、Storybook build、`pnpm smoke:check-core`、定向测试 11/11、任务文件 Prettier 与 `git diff --check` 通过。Storybook 390px 抬头 94px → 70.25px，群组文字行 20.25px，箭头 44px，菜单间距 8.13px。
+- 发布修正：首次 `ecs:package` 复用了旧 `apps/web/dist`，首次线上核验仍为 44px 群组行；按当前源码重新 `pnpm build`、打包并部署同一 commit，未将首次结果视为最终发布。
+- 正式发布与核验：代码 checkpoint `e841c53` 已推送；最终部署前备份 `056ea6a5-2bf1-4df0-ac6e-a989206f224e`（44 张表、5531 行），release `e841c53f0462ddf5987cb02266abaaf50e12a501` 已部署，`ecs-verify.sh` 退出码 0。正式 1280×720/390×844 抬头均为 68px、群组文字行 20.25px、箭头 44px；移动无横向溢出，listbox 2 项且 `gap/row-gap = 4px`，Escape 可关闭、原生 `select` 为 0，日志无 error/warning。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。checkpoint 识别消息：`fix(web): compact group header spacing`；最终状态 checkpoint：`docs(status): record compact group header deployment`。

@@ -226,10 +226,13 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 测试先行：新增正式壳与 Storybook 的紧凑行高、箭头定位和菜单锚点断言；旧实现定向运行 2 项失败、9 项通过。实现后两个回归文件共 11/11 通过。
 - 变更：群组名称行不再被 44px 最小高度撑开，右侧自绘箭头改为绝对定位并继续保留 44px 触达区；菜单锚点随视觉行收紧，同时保留箭头触达区下方 8px 视觉间隔。Storybook 预览与正式组件保持同一布局语义。
 - 语义审计：仅调整 CSS 布局；`modelValue`/`update:modelValue`、群组持久化、键盘/Esc/Tab/外部关闭、选项间距、角色权限、导出按钮和 `WorkbenchNav` 抽屉退出入口均未改变。
-- 运行/浏览器验证：定向测试 11/11、Web typecheck、任务文件 Prettier、Storybook build、`pnpm smoke:check-core`、`运行/浏览器验证：pnpm smoke:browser` 和 `git diff --check` 通过。Storybook 390px 实测抬头由 94px 收紧为 70.25px，群组文字行 20.25px，箭头触达区 44px，菜单与箭头底部间距 8.13px；展开/关闭与 listbox 行为正常。
-- 状态：已完成（含运行验证）→ 待生产发布。代码 checkpoint 识别消息：`fix(web): compact group header spacing`。
+- 运行/浏览器验证：定向测试 11/11、Web typecheck、生产 `pnpm build`、任务文件 Prettier、Storybook build、`pnpm smoke:check-core`、`运行/浏览器验证：pnpm smoke:browser` 和 `git diff --check` 通过。Storybook 390px 实测抬头由 94px 收紧为 70.25px，群组文字行 20.25px，箭头触达区 44px，菜单与箭头底部间距 8.13px；展开/关闭与 listbox 行为正常。
+- 发布决策：首次 `ecs:package` 仅打包了已有静态产物，首次线上核验发现仍为旧 44px 群组行；未将其视为最终发布。随后按当前源码运行生产 `pnpm build`，重新生成同一代码 checkpoint 的 release 产物并再次部署。
+- 正式发布：代码 checkpoint `e841c53` 已推送；首次部署前备份 archive `7d093557-0f9d-4da5-b60c-4ea2a6bf3c90`，重建后最终部署前备份 archive `056ea6a5-2bf1-4df0-ac6e-a989206f224e`（44 张表、5531 行）；最终 release `e841c53f0462ddf5987cb02266abaaf50e12a501` 部署成功。
+- 正式核验：`ecs-verify.sh` 退出码 0。正式 D0796 桌面 1280×720 与移动 390×844 均测得抬头 68px、群组文字行 20.25px、箭头触达区 44px；移动 `scrollWidth = clientWidth = 375px`。下拉为 2 个选项，`gap/row-gap = 4px`，Esc 后关闭，原生 `select` 数量为 0；顶部没有退出登录按钮，通知/导出存在，浏览器日志为空。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint 识别消息：`fix(web): compact group header spacing`；最终状态 checkpoint 识别消息：`docs(status): record compact group header deployment`。
 
 ## 下一批次与停止条件
 
-- 下一批次：提交并推送 `fix(web): compact group header spacing`，创建生产数据库备份，部署 release，运行 `ecs-verify.sh`，并在正式 D0796 会话复核 390px/桌面抬头高度及群组下拉交互。
-- 停止条件：代码 checkpoint 已提交并推送，生产备份、release、`ecs-verify.sh` 与正式浏览器复核全部通过；随后将状态更新为“待用户复核”，保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+- 下一批次：无待实施仓库任务；提交并推送最终状态 checkpoint `docs(status): record compact group header deployment`，将同一 `HEAD` 作为最终 release 部署。
+- 停止条件：最终状态 checkpoint 已推送，生产备份、release、`ecs-verify.sh` 与正式浏览器复核全部通过；保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，随后等待用户视觉复核。
