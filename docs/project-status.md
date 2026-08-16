@@ -326,6 +326,8 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 运行/浏览器验证：Web typecheck/build、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify`、Prettier 与 `git diff --check` 通过；全仓 84 个文件/559 项通过，29 个数据库集成文件/252 项按默认环境跳过，任务相关数据库集成已另行实跑。完整注入测试库的全仓 verify 仍暴露既有重复认证表清理和群组并发建群胜者断言，不属于本批次；本批次相关用例均通过。
 - 浏览器专项：导出两个下拉均在 Sheet 内可点击；本地真实任务先达到 90 秒超时、再由现有 worker 完成，同一任务“继续检查”后出现下载兜底。月/周姓名与标识无按钮语义，列表电话和事件入口保留。列表定位前今天卡顶部约 2160px，定位后约 305px、固定工具栏底部约 86px；筛选隐藏今天时显示准确提示且不误定位。
 - 行为审计：导出只新增成员目录读取和显式状态机；同一任务继续轮询不会重复创建，Blob URL 生命周期与组件一致。月/周移除的仅是姓名/标识弹层入口；列表和下方详情的显式入口及调用次数保持。定位跨月只等待目标月现有请求完成后滚动，不更改筛选、日期选择、API 或业务数据。
-- 状态：已完成（含本地运行与浏览器验证）→ 待生产发布。代码 checkpoint 识别消息：`fix(web): repair exports and calendar interactions`。
+- 正式发布：代码 checkpoint `3861190` 已推送；发布前加密数据库备份 archive 为 `df900c60-09e7-4bda-a742-c83415996997`（44 张表、7159 行，SHA-256 `b97267164d726cd0a2c89e13292725d714486fb3c690dc26edbb3227ffab4826`）。release `3861190220c7ba9e4f0bf2a38e7926812e58d96c` 部署成功，`ecs-verify.sh` 退出码 0。
+- 正式域名专项：群组没有岗位配置时岗位下拉正确显示“暂无数据”，成员下拉仍独立列出有效成员；实际创建一次 2026-08 CSV，明确等待状态后约 30 秒完成，页面保留 Blob“下载 CSV”链接。列表视图在本月无已发布排班时点击定位显示“当前筛选下今天没有排班”，未误定位；控制台无 error/warning。该正式群组本月无排班，月/周姓名与标识的数据态由本地真实数据浏览器检查、生产同一构建和回归测试覆盖。
+- 状态：已完成（含生产发布与线上核验）→ 待最终状态 checkpoint。代码 checkpoint 识别消息：`fix(web): repair exports and calendar interactions`；最终状态 checkpoint 识别消息：`docs(status): record export and calendar deployment`。
 - 下一批次：第四批仅处理普通换班与管理员直接换班的双方独立月份、跨月班次加载和冲突/版本回归。
-- 停止条件：本代码 checkpoint 显式提交并推送，生产加密数据库备份、release 部署、`ecs-verify.sh` 和正式域名导出/日期格/列表定位专项复核通过；随后提交最终状态 checkpoint并再次发布，不提前实施跨月换班。
+- 停止条件：最终状态 checkpoint 显式提交并推送，第二次生产加密数据库备份、release 部署与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止，不提前实施跨月换班。
