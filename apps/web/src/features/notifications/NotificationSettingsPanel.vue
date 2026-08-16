@@ -267,14 +267,30 @@ function showSuccess(message: string): void {
         </t-form-item>
       </t-card>
       <t-card title="浏览器通知" class="settings-card">
-        <t-form-item label="接收浏览器通知" name="browser" class="browser-toggle-row">
-          <t-switch
-            class="browser-notification-switch"
-            :model-value="browserNotificationsEnabled"
-            @change="toggleBrowserNotifications"
-          />
-        </t-form-item>
-        <p class="settings-hint">浏览器权限只在您主动开启时申请。拒绝后站内通知仍可正常使用。</p>
+        <div class="browser-notification-row">
+          <div class="browser-notification-copy">
+            <div class="browser-notification-title">
+              <strong>接收浏览器通知</strong>
+              <span :class="{ 'is-enabled': browserNotificationsEnabled }">
+                {{ browserNotificationsEnabled ? '已开启' : '已关闭' }}
+              </span>
+            </div>
+            <p>即使没有打开排班系统，也能在当前设备及时收到提醒。</p>
+            <small>浏览器权限只在您主动开启时申请；拒绝后站内通知仍可正常使用。</small>
+          </div>
+          <span
+            class="browser-switch-hit-area"
+            @click="toggleBrowserNotifications(!browserNotificationsEnabled)"
+          >
+            <t-switch
+              class="browser-notification-switch"
+              :model-value="browserNotificationsEnabled"
+              :aria-label="browserNotificationsEnabled ? '关闭浏览器通知' : '开启浏览器通知'"
+              @click.stop
+              @change="toggleBrowserNotifications"
+            />
+          </span>
+        </div>
         <t-alert
           v-if="browserStatusMessage !== undefined"
           theme="info"
@@ -406,14 +422,87 @@ function showSuccess(message: string): void {
   line-height: var(--ui-line-height-body);
 }
 
-.browser-toggle-row :deep(.t-form__controls-content) {
-  min-height: var(--ui-touch-target-minimum);
+.browser-notification-row {
+  display: flex;
+  min-height: 88px;
+  margin-bottom: var(--ui-spacing-sm);
+  padding: var(--ui-spacing-md);
   align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-lg);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.browser-notification-copy,
+.browser-notification-title {
+  min-width: 0;
+}
+
+.browser-notification-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ui-spacing-xs);
+}
+
+.browser-notification-title strong {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.browser-notification-title span {
+  padding: 3px 8px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.browser-notification-title span.is-enabled {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+}
+
+.browser-notification-copy p,
+.browser-notification-copy small {
+  display: block;
+  margin: var(--ui-spacing-xxs) 0 0;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.browser-notification-copy small {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.browser-switch-hit-area {
+  display: grid;
+  box-sizing: border-box;
+  min-width: 60px;
+  min-height: 44px;
+  padding: 0;
+  flex: none;
+  place-items: center;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-pill);
+  cursor: pointer;
+}
+
+.browser-switch-hit-area:focus-within {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
 }
 
 .browser-notification-switch {
   min-width: 52px;
-  min-height: var(--ui-touch-target-minimum);
 }
 
 @media (max-width: 760px) {
@@ -451,6 +540,17 @@ function showSuccess(message: string): void {
   .settings-card :deep(.t-radio-button) {
     width: 100%;
     justify-content: center;
+  }
+
+  .browser-notification-row {
+    min-height: 124px;
+    padding: var(--ui-spacing-sm);
+    align-items: flex-start;
+    gap: var(--ui-spacing-sm);
+  }
+
+  .browser-switch-hit-area {
+    margin-top: -5px;
   }
 
   .settings-card :deep(.t-button) {

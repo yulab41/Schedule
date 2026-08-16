@@ -31,17 +31,25 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     app = createApp({
       authPort: createFakeAuthPort({
         'candidate-token': 'cloudbase-candidate',
+        'developer-token': 'cloudbase-developer',
         'other-owner-token': 'cloudbase-other-owner',
         'outsider-token': 'cloudbase-outsider',
         'owner-token': 'cloudbase-owner',
+        'suspended-token': 'cloudbase-suspended',
       }),
       databaseClient: client,
       logger: false,
     });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
+    await registerUser('developer-token', 'Developer Doctor');
     await registerUser('other-owner-token', 'Other Owner Doctor');
     await registerUser('outsider-token', 'Outsider Doctor');
+    await registerUser('suspended-token', 'Suspended Doctor');
+    await client.database
+      .update(users)
+      .set({ isDeveloperAdmin: 1 })
+      .where(eq(users.cloudbaseUid, 'cloudbase-developer'));
   });
 
   afterEach(async () => {
@@ -105,28 +113,40 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(contactUpdate.statusCode).toBe(403);
   });
 
-  it('limits contacts to active members of the same group and records member confirmation', async () => {
+  it('returns the full active member contact directory while excluding guest, hidden, and suspended users', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');
+    const owner = await getMember(groupId, 'Owner Doctor');
 
-    const prefill = await app.inject({
+    const ownerContact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13900000000', shortPhone: '9000' },
+      url: `/groups/${groupId}/members/${owner.id}/contact`,
+    });
+    const candidateContact = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
       payload: { mobilePhone: '13800000000', shortPhone: '8000' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
-    const unconfirmedUpdate = await app.inject({
-      headers: { authorization: 'Bearer candidate-token' },
-      method: 'PUT',
-      payload: { shortPhone: '8001' },
-      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    const guestJoin = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/join-guest`,
     });
-    const confirmed = await app.inject({
-      headers: { authorization: 'Bearer candidate-token' },
-      method: 'PUT',
-      payload: { confirm: true, shortPhone: '8002' },
-      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    const suspendedRoster = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { realNames: ['Suspended Doctor'] },
+      url: `/groups/${groupId}/roster-entries`,
     });
+    await insertDirectMembership(client, { groupCode: '1234', realName: 'Suspended Doctor' });
+    await client.database
+      .update(users)
+      .set({ status: 'suspended' })
+      .where(eq(users.cloudbaseUid, 'cloudbase-suspended'));
+
     const otherGroup = await createGroup('other-owner-token', 'Other group', '4567');
     const crossGroupRead = await app.inject({
       headers: { authorization: 'Bearer other-owner-token' },
@@ -139,41 +159,87 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       url: `/groups/${groupId}/contacts`,
     });
 
-    expect(prefill.statusCode).toBe(200);
-    expect(prefill.json()).toMatchObject({
-      isConfirmed: false,
-      membershipId: candidate.id,
-      mobilePhone: '13800000000',
-      shortPhone: '8000',
-    });
-    expect(unconfirmedUpdate.statusCode).toBe(200);
-    expect(unconfirmedUpdate.json()).toMatchObject({
-      isConfirmed: false,
-      membershipId: candidate.id,
-      mobilePhone: '13800000000',
-      shortPhone: '8001',
-    });
-    expect(confirmed.statusCode).toBe(200);
-    expect(confirmed.json()).toMatchObject({
-      isConfirmed: true,
-      membershipId: candidate.id,
-      mobilePhone: '13800000000',
-      shortPhone: '8002',
-    });
+    expect(ownerContact.statusCode).toBe(200);
+    expect(candidateContact.statusCode).toBe(200);
+    expect(guestJoin.statusCode).toBe(201);
+    expect(suspendedRoster.statusCode).toBe(200);
     expect(otherGroup.statusCode).toBe(201);
     expect(crossGroupRead.statusCode).toBe(403);
     expect(crossGroupRead.json()).not.toHaveProperty('contacts');
     expect(sameGroupRead.statusCode).toBe(200);
-    expect(sameGroupRead.json()).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          isConfirmed: true,
-          membershipId: candidate.id,
-          mobilePhone: '13800000000',
-          shortPhone: '8002',
-        }),
-      ]),
-    );
+    expect(sameGroupRead.json()).toEqual([
+      expect.objectContaining({
+        membershipId: candidate.id,
+        mobilePhone: '13800000000',
+        shortPhone: '8000',
+      }),
+      expect.objectContaining({
+        membershipId: owner.id,
+        mobilePhone: '13900000000',
+        shortPhone: '9000',
+      }),
+    ]);
+  });
+
+  it('lets members edit only themselves while owner, administrator, and developer confirm any active member', async () => {
+    const groupId = await createClaimedGroup();
+    const candidate = await getMember(groupId, 'Candidate Doctor');
+    const owner = await getMember(groupId, 'Owner Doctor');
+
+    const ownUpdate = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13800000000', shortPhone: '8000' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    const otherUpdate = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13700000000' },
+      url: `/groups/${groupId}/members/${owner.id}/contact`,
+    });
+    const memberConfirm = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { isConfirmed: true },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    const ownerConfirm = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { isConfirmed: true, shortPhone: '8001' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    const makeAdministrator = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { role: 'administrator' },
+      url: `/groups/${groupId}/members/${candidate.id}/role`,
+    });
+    const administratorConfirm = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { isConfirmed: true, shortPhone: '9001' },
+      url: `/groups/${groupId}/members/${owner.id}/contact`,
+    });
+    const developerConfirm = await app.inject({
+      headers: { authorization: 'Bearer developer-token' },
+      method: 'PUT',
+      payload: { isConfirmed: true, shortPhone: '8002' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+
+    expect(ownUpdate.statusCode).toBe(200);
+    expect(ownUpdate.json()).toMatchObject({ isConfirmed: false, shortPhone: '8000' });
+    expect(otherUpdate.statusCode).toBe(403);
+    expect(memberConfirm.statusCode).toBe(403);
+    expect(ownerConfirm.statusCode).toBe(200);
+    expect(ownerConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '8001' });
+    expect(makeAdministrator.statusCode).toBe(200);
+    expect(administratorConfirm.statusCode).toBe(200);
+    expect(administratorConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '9001' });
+    expect(developerConfirm.statusCode).toBe(200);
+    expect(developerConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '8002' });
   });
 
   it('keeps exactly one owner when transfer validation fails and when a transfer succeeds', async () => {
@@ -420,6 +486,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);

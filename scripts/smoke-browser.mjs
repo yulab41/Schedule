@@ -714,7 +714,7 @@ async function assertWorkflowSheetTouchTargets(sheet, width, label) {
     const sheetRect = element.getBoundingClientRect();
     const controls = [
       ...element.querySelectorAll(
-        'button, input:not(.t-input__inner), textarea, summary, .t-input, .t-select',
+        "button, input:not(.t-input__inner):not([type='checkbox']):not([type='radio']), textarea, summary, .t-checkbox, .t-input, .t-select",
       ),
     ].filter((control) => {
       const rect = control.getBoundingClientRect();
@@ -1393,38 +1393,40 @@ async function assertGuestStateResponsive(page, mode) {
 
 async function assertMemberAndNotificationPages(page) {
   await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
-  await waitForBodyText(page, '我的姓名', 15000, '个人资料');
-  await page.locator('.member-directory').waitFor({ state: 'visible', timeout: 15000 });
+  await waitForBodyText(page, '我的资料', 15000, '成员通讯录');
+  await page.locator('.member-directory-list').waitFor({ state: 'visible', timeout: 15000 });
   const memberBody = await page.locator('body').innerText();
   if (memberBody.includes('成员数据暂时无法加载')) {
     fail('成员页数据加载失败。');
   }
-  if (memberBody.includes('认领') || memberBody.includes('电话确认')) {
-    fail('普通群组界面仍显示认领或电话确认入口。');
+  if (!memberBody.includes('长号') || !memberBody.includes('短号')) {
+    fail('普通成员目录没有显示长号和短号字段。');
   }
-  if ((await page.locator('.member-directory li').count()) === 0) {
-    fail('成员目录没有显示成员姓名。');
+  if ((await page.locator('.member-directory-row').count()) === 0) {
+    fail('成员通讯录没有显示其他成员。');
   }
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ height: 844, width });
     await page.waitForTimeout(200);
-    await page.locator('.member-list-heading').scrollIntoViewIfNeeded();
+    await page.locator('.self-directory-section').scrollIntoViewIfNeeded();
     const metrics = await page.evaluate(() => {
       const controls = [
         ...document.querySelectorAll(
-          '.identity-form .t-input, .identity-form button, .add-member-form textarea, .add-member-form button',
+          '.self-contact-card button, .member-directory-list button, .add-member-form textarea, .add-member-form button',
         ),
       ].filter((control) => {
         const rect = control.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
       });
       return {
-        directoryItems: document.querySelectorAll('.member-directory li').length,
-        detailedTableVisible: [...document.querySelectorAll('.member-table-wrap table')].some(
-          (element) => getComputedStyle(element).display !== 'none',
-        ),
+        directoryItems: document.querySelectorAll('.member-directory-row').length,
+        otherEditButtons: document.querySelectorAll('.member-directory-row .contact-edit-button')
+          .length,
         overflow: document.documentElement.scrollWidth > window.innerWidth,
+        persistentInputs: document.querySelectorAll('.self-contact-card input').length,
+        selfEditButtons: document.querySelectorAll('.self-contact-card .contact-edit-button')
+          .length,
         smallControls: controls
           .filter((control) => {
             const rect = control.getBoundingClientRect();
@@ -1435,12 +1437,25 @@ async function assertMemberAndNotificationPages(page) {
     });
     if (metrics.overflow) fail(`${width}px 成员页出现横向溢出。`);
     if (metrics.directoryItems === 0) fail(`${width}px 成员目录没有显示姓名。`);
-    if (metrics.detailedTableVisible) fail(`${width}px 普通成员目录仍显示详细成员表。`);
+    if (metrics.persistentInputs !== 0 || metrics.selfEditButtons !== 1) {
+      fail(`${width}px 本人资料没有保持“按钮打开编辑、初始无输入框”。`);
+    }
+    if (metrics.otherEditButtons === 0) {
+      fail(`${width}px 后台管理员缺少修改他人联系方式的按钮。`);
+    }
     if (metrics.smallControls.length > 0) {
       fail(`${width}px 成员页存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
     }
     if (width === 390) {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '6-member-directory.png') });
+      await page.locator('.self-contact-card .contact-edit-button').click();
+      const contactSheet = page.locator('dialog[open][aria-label^="编辑"]');
+      await contactSheet.waitFor({ state: 'visible', timeout: 5000 });
+      if ((await contactSheet.locator('input').count()) < 2) {
+        fail('联系方式编辑底部页没有显示长号和短号输入框。');
+      }
+      await assertWorkflowSheetTouchTargets(contactSheet, width, '联系方式编辑底部页');
+      await contactSheet.locator('button[aria-label="关闭"]').click();
     }
   }
 
@@ -1519,6 +1534,37 @@ async function assertMemberAndNotificationPages(page) {
 
   await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
   await waitForBodyText(page, '排班日历', 10000);
+}
+
+async function assertRegularMemberDirectory(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
+  await waitForBodyText(page, '我的资料', 15000, '普通成员通讯录');
+  await page.locator('.member-directory-list').waitFor({ state: 'visible', timeout: 15000 });
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    await page.locator('.self-directory-section').scrollIntoViewIfNeeded();
+    const metrics = await page.evaluate(() => ({
+      directoryItems: document.querySelectorAll('.member-directory-row').length,
+      managementButtons: document.querySelectorAll('.member-directory-row .member-manage-button')
+        .length,
+      otherEditButtons: document.querySelectorAll('.member-directory-row .contact-edit-button')
+        .length,
+      overflow: document.documentElement.scrollWidth > window.innerWidth,
+      persistentInputs: document.querySelectorAll('.self-contact-card input').length,
+      selfEditButtons: document.querySelectorAll('.self-contact-card .contact-edit-button').length,
+    }));
+    if (metrics.overflow) fail(`${width}px 普通成员通讯录出现横向溢出。`);
+    if (metrics.directoryItems === 0) fail(`${width}px 普通成员看不到同群成员通讯录。`);
+    if (metrics.otherEditButtons !== 0 || metrics.managementButtons !== 0) {
+      fail(`${width}px 普通成员仍可修改或管理他人资料。`);
+    }
+    if (metrics.persistentInputs !== 0 || metrics.selfEditButtons !== 1) {
+      fail(`${width}px 普通成员本人资料没有保持“修改按钮、初始无输入框”。`);
+    }
+  }
 }
 
 async function assertStatisticsNotificationAndExportResponsive(page) {
@@ -1632,14 +1678,22 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
     const settingsMetrics = await page.evaluate(() => {
       const controls = [
         ...document.querySelectorAll(
-          '.settings-card .t-input, .settings-card .t-radio-button, .settings-card .t-button, .browser-notification-switch',
+          '.settings-card .t-input, .settings-card .t-radio-button, .settings-card .t-button, .browser-switch-hit-area',
         ),
       ].filter((control) => {
         const rect = control.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
       });
       const cards = [...document.querySelectorAll('.settings-card')];
+      const browserSwitch = document.querySelector('.browser-notification-switch');
+      const browserSwitchRect = browserSwitch?.getBoundingClientRect();
+      const browserSwitchHitArea = document.querySelector('.browser-switch-hit-area');
+      const browserSwitchHitAreaRect = browserSwitchHitArea?.getBoundingClientRect();
       return {
+        browserSwitchHeight: browserSwitchRect?.height,
+        browserSwitchHitAreaHeight: browserSwitchHitAreaRect?.height,
+        browserSwitchHitAreaWidth: browserSwitchHitAreaRect?.width,
+        browserSwitchWidth: browserSwitchRect?.width,
         cardWidths: cards.map((card) => card.getBoundingClientRect().width),
         containerWidth: document.querySelector('.notification-settings')?.getBoundingClientRect()
           .width,
@@ -1653,6 +1707,22 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
       };
     });
     if (settingsMetrics.overflow) fail(`${width}px 通知设置页出现横向溢出。`);
+    if (
+      settingsMetrics.browserSwitchHitAreaWidth === undefined ||
+      settingsMetrics.browserSwitchHitAreaWidth < 60 ||
+      settingsMetrics.browserSwitchHitAreaHeight === undefined ||
+      settingsMetrics.browserSwitchHitAreaHeight < 44
+    ) {
+      fail(`${width}px 浏览器通知开关外层点触面积不足 60×44px。`);
+    }
+    if (
+      settingsMetrics.browserSwitchWidth === undefined ||
+      settingsMetrics.browserSwitchWidth < 52 ||
+      settingsMetrics.browserSwitchHeight === undefined ||
+      settingsMetrics.browserSwitchHeight >= 44
+    ) {
+      fail(`${width}px 浏览器通知开关本体尺寸异常或仍被强制拉高。`);
+    }
     if (
       settingsMetrics.containerWidth === undefined ||
       settingsMetrics.cardWidths.some(
@@ -1820,6 +1890,7 @@ async function runSmoke() {
     if (memberEventCount !== 0) {
       fail('成员模式不应出现“事件”导航入口。');
     }
+    await assertRegularMemberDirectory(page);
     assertNoErrors(errors, '成员模式');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '3-member.png') });
 

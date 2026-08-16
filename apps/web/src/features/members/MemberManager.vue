@@ -14,7 +14,7 @@ import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import { hasDuplicateRosterName, parseRosterNames } from '../groups/roster-input.js';
 import GroupContactForm from '../profile/GroupContactForm.vue';
-import { getClaimRequestTone, getMemberClaimTone } from './member-presentation.js';
+import { getClaimRequestTone } from './member-presentation.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -45,11 +45,15 @@ const contactsByMembershipId = computed(
 );
 const isDeveloperAdmin = computed(() => props.group.isDeveloperAdmin === true);
 const currentMember = computed(() => members.value.find((member) => member.isCurrentUser));
+const otherMembers = computed(() => members.value.filter((member) => !member.isCurrentUser));
 const canManageAdministrators = computed(
   () => props.group.role === 'owner' || isDeveloperAdmin.value,
 );
 const canAddMembers = computed(() => props.group.role !== 'member');
-const canManageContacts = computed(() => isDeveloperAdmin.value);
+const canManageContacts = computed(
+  () =>
+    props.group.role === 'owner' || props.group.role === 'administrator' || isDeveloperAdmin.value,
+);
 const canHandleClaims = computed(() => isDeveloperAdmin.value);
 const pendingMembers = computed(() =>
   members.value.filter((member) => member.isPendingRoster === true),
@@ -313,6 +317,20 @@ function contactFor(member: GroupMember): GroupMemberContact | undefined {
   return contactsByMembershipId.value.get(member.id);
 }
 
+function mobilePhoneFor(member: GroupMember): string {
+  const contact = contactFor(member);
+  return contact?.mobilePhone ?? '未填写';
+}
+
+function shortPhoneFor(member: GroupMember): string {
+  const contact = contactFor(member);
+  return contact?.shortPhone ?? '未填写';
+}
+
+function initials(realName: string): string {
+  return realName.slice(-2);
+}
+
 function roleLabel(role: GroupMember['role']): string {
   if (role === 'owner') {
     return '群主';
@@ -351,8 +369,15 @@ function claimRequestStatusLabel(status: MembershipClaimRequest['status']): stri
 }
 
 function openContactEditor(member: GroupMember): void {
+  if (member.isPendingRoster === true || !canEditContact(member)) return;
   memberActionTarget.value = undefined;
   editingContactMemberId.value = member.id;
+}
+
+async function handleContactSaved(): Promise<void> {
+  editingContactMemberId.value = undefined;
+  identityMessage.value = '联系方式已保存，成员列表已刷新。';
+  await loadMembers();
 }
 
 function hasMemberManagementActions(member: GroupMember): boolean {
@@ -364,7 +389,8 @@ function hasMemberManagementActions(member: GroupMember): boolean {
   const canChangeRole =
     canManageAdministrators.value && member.role !== 'owner' && member.isPendingRoster !== true;
   const canDelete = canAddMembers.value && member.isCurrentUser !== true && member.role !== 'owner';
-  return canRevoke || canChangeRole || canDelete;
+  const canRename = isDeveloperAdmin.value && member.isPendingRoster !== true;
+  return canRevoke || canChangeRole || canDelete || canRename;
 }
 
 function openMemberActions(member: GroupMember): void {
@@ -372,15 +398,21 @@ function openMemberActions(member: GroupMember): void {
 }
 
 async function runMemberAction(
-  action: 'delete' | 'revoke' | 'toggle-role' | 'transfer',
+  action: 'convert' | 'delete' | 'rename' | 'revoke' | 'toggle-role' | 'transfer',
 ): Promise<void> {
   const member = memberActionTarget.value;
   if (member === undefined) return;
   memberActionTarget.value = undefined;
 
   switch (action) {
+    case 'convert':
+      await convertPending([member.realName]);
+      break;
     case 'delete':
       await deleteMember(member);
+      break;
+    case 'rename':
+      await updateMemberName(member);
       break;
     case 'revoke':
       await revokeClaim(member);
@@ -413,20 +445,6 @@ async function runMemberAction(
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="rosterMessage !== undefined" theme="success" :message="rosterMessage" />
     <t-alert v-if="identityMessage !== undefined" theme="success" :message="identityMessage" />
-
-    <section v-if="currentMember !== undefined" class="identity-form member-form-card">
-      <div class="identity-field">
-        <span>我的姓名</span>
-        <strong>{{ currentMember.realName }}</strong>
-      </div>
-      <GroupContactForm
-        :can-confirm="false"
-        :contact="contactFor(currentMember)"
-        :group-id="group.id"
-        :membership-id="currentMember.id"
-        @saved="loadMembers"
-      />
-    </section>
 
     <form
       v-if="canAddMembers"
@@ -513,200 +531,127 @@ async function runMemberAction(
       </table>
     </section>
 
-    <header class="section-heading member-list-heading">
-      <div>
-        <h3>成员名单</h3>
-        <p>
-          {{ isDeveloperAdmin ? '后台管理员可维护全部成员资料与历史记录。' : '仅展示成员姓名。' }}
-        </p>
-      </div>
-      <span>{{ members.length }} 位</span>
-    </header>
     <t-loading v-if="isLoading" text="正在加载成员" />
-    <div v-else-if="isDeveloperAdmin" class="member-table-wrap">
-      <table class="member-table">
-        <thead>
-          <tr>
-            <th>姓名</th>
-            <th>角色</th>
-            <th>联系方式</th>
-            <th>认领状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="member in members" :key="member.id" class="member-card">
-            <td class="member-primary" data-label="姓名">
-              <strong>{{ member.realName }}</strong>
-              <span v-if="member.isCurrentUser" class="current-badge">我</span>
-            </td>
-            <td data-label="角色">{{ roleLabel(member.role) }}</td>
-            <td class="contact-cell" data-label="联系方式">
-              <template v-if="contactFor(member)?.mobilePhone !== undefined">
-                长号：{{ contactFor(member)?.mobilePhone }}
-              </template>
-              <template v-if="contactFor(member)?.shortPhone !== undefined">
-                短号：{{ contactFor(member)?.shortPhone }}
-              </template>
-              <span v-if="contactFor(member)?.isConfirmed === false" class="unconfirmed-label">
-                未确认
-              </span>
-              <span v-if="contactFor(member) === undefined">—</span>
+    <template v-else>
+      <section
+        v-if="currentMember !== undefined"
+        class="member-directory-section self-directory-section"
+        aria-labelledby="self-contact-heading"
+      >
+        <header class="directory-heading">
+          <div>
+            <h3 id="self-contact-heading">我的资料</h3>
+            <p>初始状态不显示输入框，需要时再修改。</p>
+          </div>
+          <span>仅在需要时修改</span>
+        </header>
+        <article class="self-contact-card">
+          <div class="directory-identity">
+            <span class="directory-avatar self-avatar" aria-hidden="true">
+              {{ initials(currentMember.realName) }}
+            </span>
+            <div>
+              <div class="directory-name-line">
+                <strong>{{ currentMember.realName }}</strong>
+                <span class="current-badge">我</span>
+              </div>
+              <small>{{ roleLabel(currentMember.role) }}</small>
+            </div>
+          </div>
+          <dl class="directory-contact-values">
+            <div>
+              <dt>长号</dt>
+              <dd :class="{ 'is-missing': mobilePhoneFor(currentMember) === '未填写' }">
+                {{ mobilePhoneFor(currentMember) }}
+              </dd>
+            </div>
+            <div>
+              <dt>短号</dt>
+              <dd :class="{ 'is-missing': shortPhoneFor(currentMember) === '未填写' }">
+                {{ shortPhoneFor(currentMember) }}
+              </dd>
+            </div>
+          </dl>
+          <t-button
+            variant="outline"
+            class="contact-edit-button"
+            @click="openContactEditor(currentMember)"
+          >
+            修改
+          </t-button>
+        </article>
+      </section>
+
+      <section class="member-directory-section" aria-labelledby="member-directory-heading">
+        <header class="directory-heading">
+          <div>
+            <h3 id="member-directory-heading">科室通讯录</h3>
+            <p>同群组有效成员均可查看姓名、长号和短号。</p>
+          </div>
+          <span>{{ members.length }} 位成员</span>
+        </header>
+        <div class="member-directory-list" role="list">
+          <article
+            v-for="member in otherMembers"
+            :key="member.id"
+            class="member-directory-row"
+            role="listitem"
+          >
+            <div class="directory-identity">
+              <span class="directory-avatar" aria-hidden="true">{{
+                initials(member.realName)
+              }}</span>
+              <div>
+                <div class="directory-name-line">
+                  <strong>{{ member.realName }}</strong>
+                  <span v-if="member.isPendingRoster === true" class="status-badge neutral">
+                    待认领
+                  </span>
+                </div>
+                <small>{{ roleLabel(member.role) }}</small>
+              </div>
+            </div>
+            <dl class="directory-contact-values">
+              <div>
+                <dt>长号</dt>
+                <dd :class="{ 'is-missing': mobilePhoneFor(member) === '未填写' }">
+                  {{ mobilePhoneFor(member) }}
+                </dd>
+              </div>
+              <div>
+                <dt>短号</dt>
+                <dd :class="{ 'is-missing': shortPhoneFor(member) === '未填写' }">
+                  {{ shortPhoneFor(member) }}
+                </dd>
+              </div>
+            </dl>
+            <div class="directory-actions">
               <t-button
                 v-if="canEditContact(member) && member.isPendingRoster !== true"
-                variant="text"
+                variant="outline"
                 class="contact-edit-button"
                 @click="openContactEditor(member)"
               >
-                编辑联系方式
+                修改
               </t-button>
-            </td>
-            <td data-label="认领状态">
-              <span class="status-badge" :class="getMemberClaimTone(member)">
-                {{ claimStatusLabel(member) }}
-              </span>
-            </td>
-            <td class="action-cell desktop-member-actions" data-label="操作">
-              <template v-if="member.isPendingRoster === true && canAddMembers">
-                <t-button
-                  variant="outline"
-                  size="small"
-                  :loading="isUpdating"
-                  @click="convertPending([member.realName])"
-                >
-                  转正
-                </t-button>
-                <t-button
-                  theme="danger"
-                  variant="text"
-                  size="small"
-                  :loading="isDeletingMemberId === member.id"
-                  @click="deleteMember(member)"
-                >
-                  删除
-                </t-button>
-              </template>
-              <t-button
-                v-if="member.isPendingRoster !== true"
-                variant="text"
-                size="small"
-                :loading="isUpdating"
-                @click="updateMemberName(member)"
-              >
-                修改姓名
-              </t-button>
-              <template v-else-if="member.isCurrentUser">
-                <span class="handled-label">当前账号</span>
-              </template>
-              <template v-else-if="member.isClaimedByCurrentUser === true && canHandleClaims">
-                <t-button
-                  theme="danger"
-                  variant="text"
-                  size="small"
-                  :loading="isUpdating"
-                  @click="revokeClaim(member)"
-                >
-                  撤销认领
-                </t-button>
-              </template>
-              <template v-else-if="member.isClaimedByCurrentUser !== true && canHandleClaims">
-                <t-button
-                  theme="danger"
-                  variant="text"
-                  size="small"
-                  :loading="isUpdating"
-                  @click="revokeClaim(member)"
-                >
-                  撤销认领
-                </t-button>
-              </template>
-              <template
-                v-if="
-                  canManageAdministrators &&
-                  member.role !== 'owner' &&
-                  member.isPendingRoster !== true
-                "
-              >
-                <t-button
-                  v-if="member.role === 'member'"
-                  variant="outline"
-                  size="small"
-                  :loading="isUpdating"
-                  @click="updateRole(member, 'administrator')"
-                >
-                  设为管理员
-                </t-button>
-                <t-button
-                  v-else
-                  variant="outline"
-                  size="small"
-                  :loading="isUpdating"
-                  @click="updateRole(member, 'member')"
-                >
-                  移除管理员
-                </t-button>
-                <t-button
-                  variant="outline"
-                  size="small"
-                  :loading="isUpdating"
-                  @click="transferOwnership(member)"
-                >
-                  转让群主
-                </t-button>
-              </template>
-              <template
-                v-if="canAddMembers && member.isCurrentUser !== true && member.role !== 'owner'"
-              >
-                <t-button
-                  theme="danger"
-                  variant="text"
-                  size="small"
-                  :loading="isDeletingMemberId === member.id"
-                  @click="deleteMember(member)"
-                >
-                  删除
-                </t-button>
-              </template>
-            </td>
-            <td
-              v-if="
-                member.isPendingRoster === true ||
-                member.isCurrentUser === true ||
-                member.isUnclaimed === true ||
-                hasMemberManagementActions(member)
-              "
-              class="action-cell mobile-member-actions"
-              data-label="操作"
-            >
-              <t-button
-                v-if="member.isPendingRoster === true && canAddMembers"
-                variant="outline"
-                :loading="isUpdating"
-                @click="convertPending([member.realName])"
-              >
-                转为正式成员
-              </t-button>
-              <span v-else-if="member.isCurrentUser" class="handled-label">当前账号</span>
               <t-button
                 v-if="hasMemberManagementActions(member)"
-                variant="outline"
+                variant="text"
                 class="member-manage-button"
+                aria-label="管理成员"
                 @click="openMemberActions(member)"
               >
                 <template #icon><MoreIcon /></template>
-                管理成员
+                管理
               </t-button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div v-else class="member-table-wrap">
-      <ul class="member-directory" aria-label="成员名单">
-        <li v-for="member in members" :key="member.id">{{ member.realName }}</li>
-      </ul>
-    </div>
+            </div>
+          </article>
+        </div>
+        <p class="directory-privacy-note">
+          联系方式仅供群组内部协作使用，请勿转发或用于排班之外的用途。
+        </p>
+      </section>
+    </template>
 
     <section v-if="canManageAdministrators" class="member-danger-zone">
       <div>
@@ -729,11 +674,11 @@ async function runMemberAction(
       <GroupContactForm
         v-if="editingContactMemberId !== undefined"
         class="contact-editor"
-        :can-confirm="isDeveloperAdmin"
+        :can-confirm="canManageContacts"
         :contact="contactEditorMember === undefined ? undefined : contactFor(contactEditorMember)"
         :group-id="group.id"
         :membership-id="editingContactMemberId"
-        @saved="loadMembers"
+        @saved="handleContactSaved"
       />
     </ResponsiveSheet>
 
@@ -747,6 +692,22 @@ async function runMemberAction(
         <p class="member-action-summary">
           {{ roleLabel(memberActionTarget.role) }} · {{ claimStatusLabel(memberActionTarget) }}
         </p>
+        <t-button
+          v-if="memberActionTarget.isPendingRoster === true && canAddMembers"
+          variant="outline"
+          :loading="isUpdating"
+          @click="runMemberAction('convert')"
+        >
+          转为正式成员
+        </t-button>
+        <t-button
+          v-if="isDeveloperAdmin && memberActionTarget.isPendingRoster !== true"
+          variant="outline"
+          :loading="isUpdating"
+          @click="runMemberAction('rename')"
+        >
+          修改姓名
+        </t-button>
         <t-button
           v-if="
             canManageAdministrators &&
@@ -917,6 +878,171 @@ async function runMemberAction(
   display: grid;
   min-width: 0;
   gap: var(--ui-spacing-sm);
+}
+
+.member-directory-section {
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-spacing-sm);
+}
+
+.directory-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+}
+
+.directory-heading h3,
+.directory-heading p {
+  margin: 0;
+}
+
+.directory-heading h3 {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.directory-heading p {
+  margin-top: var(--ui-spacing-xxs);
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.directory-heading > span {
+  flex: none;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.self-contact-card,
+.member-directory-list {
+  min-width: 0;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+  box-shadow: var(--ui-shadow-card);
+  overflow: hidden;
+}
+
+.self-contact-card,
+.member-directory-row {
+  display: grid;
+  min-width: 0;
+  padding: 14px 16px;
+  align-items: center;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(260px, 1fr) auto;
+  gap: var(--ui-spacing-md);
+}
+
+.self-contact-card {
+  background: linear-gradient(110deg, var(--ui-color-primary-light), var(--ui-color-surface) 72%);
+  border-color: var(--ui-color-primary-border);
+}
+
+.member-directory-row + .member-directory-row {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.member-directory-row:hover {
+  background: var(--ui-color-surface-muted);
+}
+
+.directory-identity,
+.directory-name-line,
+.directory-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.directory-identity {
+  gap: var(--ui-spacing-sm);
+}
+
+.directory-name-line {
+  gap: var(--ui-spacing-xxs);
+}
+
+.directory-identity strong {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.directory-identity small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.directory-avatar {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 50%;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.self-avatar {
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-surface);
+  border-color: var(--ui-color-primary-border);
+}
+
+.directory-contact-values {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-spacing-md);
+}
+
+.directory-contact-values div {
+  min-width: 0;
+}
+
+.directory-contact-values dt {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.directory-contact-values dd {
+  margin: 3px 0 0;
+  color: var(--ui-color-text-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--ui-font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.directory-contact-values dd.is-missing {
+  color: var(--ui-color-text-muted);
+  font-weight: var(--ui-font-weight-regular);
+}
+
+.directory-actions {
+  justify-content: flex-end;
+  gap: var(--ui-spacing-xxs);
+}
+
+.directory-actions .contact-edit-button {
+  margin-left: 0;
+}
+
+.directory-privacy-note {
+  margin: 0;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: var(--ui-line-height-normal);
 }
 
 .member-table-wrap {
@@ -1148,6 +1274,34 @@ async function runMemberAction(
     justify-self: start;
   }
 
+  .directory-heading {
+    align-items: flex-start;
+  }
+
+  .self-contact-card,
+  .member-directory-row {
+    padding: 14px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--ui-spacing-sm);
+  }
+
+  .directory-contact-values {
+    padding-left: 56px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: var(--ui-spacing-sm);
+  }
+
+  .directory-actions,
+  .self-contact-card > .contact-edit-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .directory-actions {
+    align-self: center;
+  }
+
   .identity-form,
   .add-member-form {
     display: grid;
@@ -1262,6 +1416,20 @@ async function runMemberAction(
 }
 
 @media (max-width: 360px) {
+  .directory-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .directory-contact-values {
+    padding-left: 0;
+  }
+
+  .directory-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .member-table .member-card .mobile-member-actions,
   .member-table .member-card .claim-actions {
     grid-template-columns: 1fr;

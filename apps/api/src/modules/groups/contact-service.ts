@@ -53,10 +53,8 @@ export class ContactService {
         .where(
           and(
             eq(groupMemberships.groupId, authorization.group.id),
-            ...(authorization.user.isDeveloperAdmin
-              ? []
-              : [eq(groupMemberships.userId, authorization.user.id)]),
             eq(groupMemberships.status, 'active'),
+            ne(groupMemberships.role, 'guest'),
             eq(users.status, 'active'),
             ne(users.isDeveloperAdmin, 1),
             isNull(groupMemberships.deletedAt),
@@ -88,8 +86,19 @@ export class ContactService {
         authorization.group.id,
         membershipId,
       );
-      const canManageContacts = authorization.user.isDeveloperAdmin;
+      const canManageContacts =
+        authorization.user.isDeveloperAdmin ||
+        authorization.membership.role === 'owner' ||
+        authorization.membership.role === 'administrator';
       const isCurrentMember = target.userId === authorization.user.id;
+
+      if (target.role === 'guest' || target.isDeveloperAdmin) {
+        throw new ApiError({
+          code: 'NOT_FOUND',
+          statusCode: 404,
+          userMessage: '群组成员不存在或不可用。',
+        });
+      }
 
       if (!isCurrentMember && !canManageContacts) {
         throw new ApiError({
@@ -102,7 +111,7 @@ export class ContactService {
         throw new ApiError({
           code: 'FORBIDDEN',
           statusCode: 403,
-          userMessage: '只有后台管理员可以确认联系方式。',
+          userMessage: '只有群主、群管理员或后台管理员可以确认联系方式。',
         });
       }
 
