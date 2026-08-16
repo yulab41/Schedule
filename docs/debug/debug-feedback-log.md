@@ -301,4 +301,5 @@
 - 测试先行：新增圆角末格和唯一选中态断言，旧实现 3 项失败/21 项通过；实现后定向 24/24、全仓 Vitest 79 文件/537 项通过，29 个数据库集成文件/253 项按环境跳过。
 - 变更与语义：只让月历末行首尾、周历周一周日继承对应底部圆角，并移除周视图未选中今天的整格蓝框；黄色日期圆点、`aria-current`、选中事件、详情及全部业务/API 语义不变。
 - 运行/浏览器验证：`pnpm smoke:browser` 通过；Storybook build、Web typecheck/build、任务文件 Prettier/ESLint、任务文件 `git diff --check` 通过。390/320px 实测月视图 8 月 31 日左下圆角、周视图周日右下圆角描边完整；选中 14 日后今天 16 日只保留黄色圆点且无第二蓝框。完整 `pnpm verify` 仅被并发中的无关 API 格式问题拦截，`smoke:check-core` 仅被无关未提交 contracts 变更触发。
-- 状态：已实现并完成运行验证，待独立 checkpoint、生产备份、部署与正式域名复核；识别消息为 `fix(web): align rounded calendar selection states`。
+- 正式发布与核验：代码 checkpoint `c64f0d7` 已推送；发布前加密备份 `c2412550-9ae2-463f-8d1f-a488a7d9abb0`（44 张表、6218 行），release `c64f0d7f166adc61f0a6f9470f09519175c718e6` 从干净 worktree 构建并部署，`ecs-verify.sh` 退出码 0。正式 390/320px 月视图底角描边完整；周视图点击非今天后，今天仅保留黄色日期圆点、`aria-current=date` 且 `aria-pressed=false`，被选日期是唯一蓝框。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint：`fix(web): align rounded calendar selection states`；最终状态 checkpoint：`docs(status): record rounded calendar selection deployment`。
