@@ -9,6 +9,8 @@ function readSource(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
 }
 
+const selectedDateDetails = readSource('../../features/calendar/SelectedDateDutyDetails.vue');
+
 describe('mobile calendar Storybook 2 parity', () => {
   it('builds six complete weeks with labelled adjacent-month dates', () => {
     const weeks = buildMonthDisplayGrid('2026-08');
@@ -19,6 +21,17 @@ describe('mobile calendar Storybook 2 parity', () => {
     expect(cells[0]).toEqual({ businessDate: '2026-07-27', isOutsideMonth: true });
     expect(cells[5]).toEqual({ businessDate: '2026-08-01', isOutsideMonth: false });
     expect(cells.at(-1)).toEqual({ businessDate: '2026-09-06', isOutsideMonth: true });
+  });
+
+  it('uses only the weeks needed while keeping every displayed week complete', () => {
+    const weeks = buildMonthDisplayGrid('2026-09');
+    const cells = weeks.flat();
+
+    expect(weeks).toHaveLength(5);
+    expect(weeks.every((week) => week.length === 7)).toBe(true);
+    expect(cells[0]).toEqual({ businessDate: '2026-08-31', isOutsideMonth: true });
+    expect(cells[1]).toEqual({ businessDate: '2026-09-01', isOutsideMonth: false });
+    expect(cells.at(-1)).toEqual({ businessDate: '2026-10-04', isOutsideMonth: true });
   });
 
   it('uses the Storybook segmented toolbar and filter metrics', () => {
@@ -64,6 +77,20 @@ describe('mobile calendar Storybook 2 parity', () => {
     );
     expect(mobileStyles).not.toMatch(
       /\.weekday-row\s*{[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/s,
+    );
+  });
+
+  it('keeps the calendar/details stack start-aligned with the existing fixed spacing', () => {
+    const calendarView = readSource('./CalendarView.vue');
+
+    expect(calendarView).toMatch(
+      /\.calendar-view\s*{[^}]*display:\s*grid;[^}]*gap:\s*12px;[^}]*align-content:\s*start;/s,
+    );
+    expect(selectedDateDetails).toMatch(
+      /\.selected-date-details\s*{[^}]*margin-top:\s*var\(--ui-spacing-lg\);/s,
+    );
+    expect(selectedDateDetails).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.selected-date-details\s*{[^}]*margin-top:\s*12px;/s,
     );
   });
 

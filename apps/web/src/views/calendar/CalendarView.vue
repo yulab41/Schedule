@@ -519,6 +519,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 .calendar-view {
   display: grid;
   gap: 12px;
+  align-content: start;
 }
 
 .calendar-toolbar {

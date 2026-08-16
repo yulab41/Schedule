@@ -25,8 +25,10 @@ export function buildMonthDisplayGrid(businessMonth: string): readonly MonthDisp
 
   const firstDay = Date.UTC(year, month - 1, 1);
   const mondayFirstOffset = (new Date(firstDay).getUTCDay() + 6) % 7;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const weekCount = Math.ceil((mondayFirstOffset + daysInMonth) / 7);
   const gridStart = firstDay - mondayFirstOffset * 86_400_000;
-  const cells = Array.from({ length: 42 }, (_, index): MonthDisplayCell => {
+  const cells = Array.from({ length: weekCount * 7 }, (_, index): MonthDisplayCell => {
     const businessDate = formatUtcBusinessDate(gridStart + index * 86_400_000);
     return {
       businessDate,
@@ -34,5 +36,7 @@ export function buildMonthDisplayGrid(businessMonth: string): readonly MonthDisp
     };
   });
 
-  return Array.from({ length: 6 }, (_, weekIndex) => cells.slice(weekIndex * 7, weekIndex * 7 + 7));
+  return Array.from({ length: weekCount }, (_, weekIndex) =>
+    cells.slice(weekIndex * 7, weekIndex * 7 + 7),
+  );
 }
