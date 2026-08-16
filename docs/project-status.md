@@ -250,6 +250,7 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 测试与验证：测试先行回归文件已通过；日历/Storybook 定向测试 47/47、Web typecheck、生产 Web build、Storybook build、`pnpm --config.production=false verify`（77 个测试文件、527 项通过；29 个数据库集成文件、252 项按本机无测试 MySQL 跳过）、`pnpm smoke:browser`、`pnpm smoke:check-core`、Prettier 和 `git diff --check` 通过。当前源码隔离 5174 浏览器已核对周卡等高/无横向溢出/跨月切周/详情交互，以及列表 sticky 工具栏/月份切换/定位；Storybook 预览页面为 `web-ui-2-0-calendar-views-refinement--mobile-390`。
 - 代码 checkpoint：`8a49434`（`feat(web): refine calendar week and list views`）已提交并推送；正式发布前数据库备份 archive 为 `99d2352c-5908-4d8f-865a-372a7bb8d9b8`（44 张表、5732 行），release `8a49434b43741ca9a9a7562cfab7f8d628c93670` 已部署。
 - 正式核验：发布前/后的 `/tmp/ecs-verify.sh` 均通过；正式 D0796 会话核对 1280px 周/列表/月视图，周卡 7 列等高、列表 sticky 工具栏、独立电话按钮、月份切换与三视图定位均正常，浏览器日志为空；当前源码 390/320 smoke 通过。
-- 最终状态 checkpoint 发布前数据库备份 archive：`637a925d-9693-45f1-97f7-93d2f7824ffa`（44 张表、5741 行）。
-- 当前状态：代码已完成并上线，待提交最终状态 checkpoint `docs(status): record calendar views production deployment`，该 checkpoint 提交后还需按规则再次打包、部署和核验。
+- 最终状态 checkpoint `1570689` 已提交、推送并部署；其发布前数据库备份 archive 为 `637a925d-9693-45f1-97f7-93d2f7824ffa`（44 张表、5741 行），release 为 `1570689259fad25d278db7dbd1db1973d64b2f94`。
+- 状态记录收口前再次创建生产备份 archive：`323d1957-66df-4cb4-956b-5c9256bfacda`（44 张表、5748 行）；本次文档 checkpoint 提交信息为 `docs(status): finalize calendar views production status`，只更新部署记录并作为最终 release 部署。
+- 当前状态：代码和生产功能已完成，最终状态记录已准备收口；部署该文档 checkpoint 后保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，随后等待用户复核。
 - 停止条件：最终状态 checkpoint 推送，生产备份、release、`ecs-verify.sh` 和正式域名日历专项核验通过，且 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后等待用户复核。

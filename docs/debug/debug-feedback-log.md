@@ -12,8 +12,9 @@
 - 运行验证：Web typecheck、生产 Web build、Storybook build、`pnpm --config.production=false verify` 和 Prettier 均通过；全仓库 77 个测试文件、527 项测试通过，29 个数据库集成文件、252 项测试按本机无测试 MySQL 跳过；生产构建仅有既有大 chunk warning。
 - 正式发布：代码 checkpoint `8a49434` 已提交并推送；发布前加密数据库备份 archive 为 `99d2352c-5908-4d8f-865a-372a7bb8d9b8`（44 张表、5732 行）；release `8a49434b43741ca9a9a7562cfab7f8d628c93670` 已部署，业务数据保持服务器原位。
 - 正式核验：发布前/后的 `/tmp/ecs-verify.sh` 均通过，正式域名/API 健康、未知 Host 拒绝、产物哈希、容器、无开发认证依赖和 36 个迁移检查通过。正式 D0796 会话在 1280px 核对 7 列周卡均高 143px、无横向溢出、卡内电话按钮为 0、点击日期详情正常；跨月连续切周保持周序；列表工具栏滚动后 `top=0` 固定，31 个班次含 5 个独立电话按钮且页面无横向溢出；月/周/列表定位按钮均为透明、0 边框、无阴影，浏览器日志为空。当前源码隔离 5174 的 390/320 响应式 smoke 和 Storybook 390 预览已通过。
-- 最终状态 checkpoint 发布前加密数据库备份 archive 为 `637a925d-9693-45f1-97f7-93d2f7824ffa`（44 张表、5741 行）。
-- 状态：代码已完成（含生产发布与线上核验）→ 待提交最终状态 checkpoint；状态 checkpoint 部署后保持 Git、远端和服务器 release 一致，再等待用户复核。
+- 最终状态 checkpoint `1570689` 已提交、推送并部署；其发布前加密数据库备份 archive 为 `637a925d-9693-45f1-97f7-93d2f7824ffa`（44 张表、5741 行），最终 release 为 `1570689259fad25d278db7dbd1db1973d64b2f94`。
+- 状态记录收口前再次创建生产备份 archive `323d1957-66df-4cb4-956b-5c9256bfacda`（44 张表、5748 行）；本次只更新文档状态，提交信息为 `docs(status): finalize calendar views production status`，并将按规则作为最终 release 部署。
+- 状态：已完成（含生产发布与线上核验）→ 待最终状态文档 checkpoint 部署；部署后保持 Git、远端和服务器 release 一致，再等待用户复核。
 
 ## 2026-08-14 账号密码认证切换
 
