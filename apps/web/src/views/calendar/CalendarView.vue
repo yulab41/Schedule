@@ -6,7 +6,7 @@ import type {
   GroupSummary,
   ScheduleEvent,
 } from '@schedule/contracts';
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
+import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -36,6 +36,7 @@ import {
   getSwipeMonthIntent,
   getVisibleWeekForMonth,
   getWeekLabel,
+  getWeekOfMonthLabel,
   type CalendarViewMode,
 } from '../../features/calendar/calendar-views.js';
 import ListGrid from '../../features/calendar/ListGrid.vue';
@@ -116,9 +117,6 @@ const activeFilterCount = computed(
 watch(
   () => [props.group.id, businessMonth.value],
   () => {
-    if (viewMode.value === 'week') {
-      weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
-    }
     void loadCalendar();
   },
   { immediate: true },
@@ -127,6 +125,9 @@ watch(
 watch(viewMode, () => {
   if (viewMode.value === 'week' && weekStart.value === '') {
     weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
+  }
+  if (viewMode.value === 'week') {
+    selectedDate.value = todayBusinessDate;
   }
 });
 
@@ -154,11 +155,13 @@ async function loadCalendar(): Promise<void> {
     const nextCalendar = await api.getCalendar(props.group.id, businessMonth.value);
     if (requestTracker.isCurrent(request)) {
       calendar.value = nextCalendar;
-      selectedDate.value = getDefaultSelectedDate({
-        assignments: nextCalendar.assignments,
-        businessMonth: nextCalendar.businessMonth,
-        today: todayBusinessDate,
-      });
+      if (viewMode.value !== 'week' || selectedDate.value === undefined) {
+        selectedDate.value = getDefaultSelectedDate({
+          assignments: nextCalendar.assignments,
+          businessMonth: nextCalendar.businessMonth,
+          today: todayBusinessDate,
+        });
+      }
       await scrollToSelectedDateOnMobile();
     }
   } catch (error) {
@@ -256,6 +259,7 @@ function clearFilters(): void {
 function goToToday(): void {
   businessMonth.value = getCurrentBusinessMonth();
   weekStart.value = getWeekStartOfToday();
+  selectedDate.value = todayBusinessDate;
 }
 
 function getWeekStartOfToday(): string {
@@ -264,17 +268,14 @@ function getWeekStartOfToday(): string {
 
 function goToPreviousWeek(): void {
   weekStart.value = addWeeks(weekStart.value, -1);
+  selectedDate.value = weekStart.value;
   syncMonthToWeek();
 }
 
 function goToNextWeek(): void {
   weekStart.value = addWeeks(weekStart.value, 1);
+  selectedDate.value = weekStart.value;
   syncMonthToWeek();
-}
-
-function goToThisWeek(): void {
-  weekStart.value = getWeekStartOfToday();
-  businessMonth.value = getCurrentBusinessMonth();
 }
 
 function syncMonthToWeek(): void {
@@ -338,10 +339,23 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         </button>
       </div>
       <div v-if="viewMode === 'week'" class="week-navigation">
-        <t-button variant="outline" @click="goToPreviousWeek">上一周</t-button>
-        <strong>{{ getWeekLabel(weekStart) }}</strong>
-        <t-button variant="outline" @click="goToNextWeek">下一周</t-button>
-        <t-button variant="outline" @click="goToThisWeek">本周</t-button>
+        <t-button class="week-step" aria-label="上一周" variant="text" @click="goToPreviousWeek">
+          <template #icon><ChevronLeftIcon /></template>
+          <span>上一周</span>
+        </t-button>
+        <div class="week-heading">
+          <strong>{{ getWeekOfMonthLabel(weekStart) }}</strong>
+          <span>{{ getWeekLabel(weekStart) }}</span>
+        </div>
+        <button class="calendar-locator" type="button" aria-label="定位到今天" @click="goToToday">
+          <span class="locator-crosshair" aria-hidden="true">
+            <span class="locator-crosshair-center" />
+          </span>
+        </button>
+        <t-button class="week-step" aria-label="下一周" variant="text" @click="goToNextWeek">
+          <template #icon><ChevronRightIcon /></template>
+          <span>下一周</span>
+        </t-button>
       </div>
       <div class="calendar-filters">
         <label class="changes-filter">
@@ -415,9 +429,11 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         :assignments="visibleAssignments"
         :holidays="holidays"
         :members="calendar.members"
+        :selected-date="selectedDate"
         :today="todayBusinessDate"
         :week-start="weekStart"
         @open-events="openAssignmentEvents"
+        @select-date="selectedDate = $event"
       />
       <div
         v-else-if="viewMode === 'month'"
@@ -442,13 +458,19 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
               <span class="month-swipe-hint">左右滑动切换月份</span>
             </div>
+            <button
+              class="calendar-locator"
+              type="button"
+              aria-label="定位到今天"
+              @click="goToToday"
+            >
+              <span class="locator-crosshair" aria-hidden="true">
+                <span class="locator-crosshair-center" />
+              </span>
+            </button>
             <t-button class="month-step" aria-label="下一月" variant="text" @click="goToNextMonth">
               <template #icon><ChevronRightIcon /></template>
               <span>下一月</span>
-            </t-button>
-            <t-button class="today-button" variant="outline" @click="goToToday">
-              <template #icon><CalendarIcon /></template>
-              今天
             </t-button>
             <label class="month-picker">
               年月
@@ -467,19 +489,61 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           />
         </section>
       </div>
-      <ListGrid
-        v-else-if="viewMode === 'list' && visibleAssignments.length > 0"
-        :assignments="visibleAssignments"
-        :holidays="holidays"
-        :members="calendar.members"
-        :today="todayBusinessDate"
-        @open-events="openAssignmentEvents"
-      />
-      <p v-else-if="viewMode === 'list'" class="calendar-empty">
-        {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
-      </p>
+      <section v-else-if="viewMode === 'list'" class="list-view" aria-label="列表视图">
+        <header class="list-sticky-toolbar">
+          <div class="list-month-bar">
+            <button
+              class="list-month-step"
+              type="button"
+              aria-label="上一月"
+              @click="goToPreviousMonth"
+            >
+              <ChevronLeftIcon aria-hidden="true" />
+            </button>
+            <div class="list-month-heading">
+              <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
+              <span>固定月份 · {{ visibleAssignments.length }} 个班次</span>
+            </div>
+            <button
+              class="calendar-locator"
+              type="button"
+              aria-label="定位到今天"
+              @click="goToToday"
+            >
+              <span class="locator-crosshair" aria-hidden="true">
+                <span class="locator-crosshair-center" />
+              </span>
+            </button>
+            <button
+              class="list-month-step"
+              type="button"
+              aria-label="下一月"
+              @click="goToNextMonth"
+            >
+              <ChevronRightIcon aria-hidden="true" />
+            </button>
+          </div>
+          <div class="list-meta">
+            <span>按日期查看完整值班信息</span>
+            <strong>{{
+              activeFilterCount > 0 ? `已筛选 ${activeFilterCount} 项` : '全部排班'
+            }}</strong>
+          </div>
+        </header>
+        <ListGrid
+          v-if="visibleAssignments.length > 0"
+          :assignments="visibleAssignments"
+          :holidays="holidays"
+          :members="calendar.members"
+          :today="todayBusinessDate"
+          @open-events="openAssignmentEvents"
+        />
+        <p v-else class="calendar-empty">
+          {{ onlyChanges ? '本月没有带变动标记的班次。' : '本月暂无已发布排班。' }}
+        </p>
+      </section>
       <SelectedDateDutyDetails
-        v-if="viewMode === 'month' && selectedDate !== undefined"
+        v-if="(viewMode === 'month' || viewMode === 'week') && selectedDate !== undefined"
         :assignments="visibleAssignments"
         :members="calendar.members"
         :selected-date="selectedDate"
@@ -580,12 +644,96 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   stroke-linejoin: round;
 }
 
+.calendar-locator {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  color: var(--ui-color-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-medium);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.locator-crosshair {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+  background:
+    linear-gradient(currentColor, currentColor) center top / 2px 4px no-repeat,
+    linear-gradient(currentColor, currentColor) center bottom / 2px 4px no-repeat,
+    linear-gradient(currentColor, currentColor) left center / 4px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) right center / 4px 2px no-repeat;
+}
+
+.locator-crosshair::before {
+  position: absolute;
+  inset: 2px;
+  content: '';
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+.locator-crosshair-center {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
+}
+
 .month-navigation,
 .week-navigation {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.week-navigation {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+  padding: 4px 8px;
+  align-items: center;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.week-heading {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  text-align: center;
+}
+
+.week-heading strong {
+  min-width: 0;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-lg);
+  line-height: 1.2;
+}
+
+.week-heading span {
+  overflow: hidden;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-step {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--ui-color-primary);
 }
 
 .month-calendar-card {
@@ -721,6 +869,89 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   border-radius: 6px;
 }
 
+.list-view {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.list-sticky-toolbar {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding-bottom: 8px;
+  background: var(--ui-color-background);
+}
+
+.list-month-bar {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+  gap: 4px;
+  padding: 4px;
+  align-items: center;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.list-month-step {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  color: var(--ui-color-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-small);
+  cursor: pointer;
+}
+
+.list-month-step svg {
+  width: 20px;
+  height: 20px;
+}
+
+.list-month-heading {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  text-align: center;
+}
+
+.list-month-heading strong,
+.list-month-heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-month-heading strong {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+}
+
+.list-month-heading span,
+.list-meta {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+
+.list-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.list-meta strong {
+  color: var(--ui-color-primary);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
 .month-swipe-surface {
   min-width: 0;
   touch-action: pan-y;
@@ -768,7 +999,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
   .month-navigation {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) 48px;
+    grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
     gap: 0;
   }
 
@@ -782,11 +1013,25 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
     color: var(--ui-color-primary);
   }
 
-  .month-step span {
+  .week-navigation {
+    grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+    gap: 0;
+    padding: 4px;
+  }
+
+  .week-navigation .week-step span {
     display: none;
   }
 
-  .today-button {
+  .week-heading strong {
+    font-size: var(--ui-font-size-md);
+  }
+
+  .week-heading span {
+    font-size: 10px;
+  }
+
+  .month-step span {
     display: none;
   }
 

@@ -4,6 +4,7 @@ import type {
   CalendarDutyAssignment,
   CalendarDutyMember,
 } from '@schedule/contracts';
+import { CallIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import {
@@ -21,6 +22,7 @@ const props = defineProps<{
   readonly hideShiftBadge?: boolean;
   readonly markers?: readonly CalendarChangeMarker[];
   readonly member: CalendarDutyMember | undefined;
+  readonly contactMode?: 'button' | 'hidden' | 'name';
 }>();
 const emit = defineEmits<{
   (event: 'open-events', assignment: CalendarDutyAssignment): void;
@@ -32,6 +34,7 @@ const shiftTimeRange = computed(() => formatShiftTimeRange(props.assignment));
 const phoneOptions = computed<readonly PhoneOption[]>(() => getAvailablePhoneOptions(props.member));
 const visibleMarkers = computed(() => props.markers ?? props.assignment.changeMarkers);
 const canCall = computed(() => phoneOptions.value.length > 0);
+const contactMode = computed(() => props.contactMode ?? 'name');
 const nameTitle = computed(() => {
   const base = `${props.assignment.shiftTypeName}（${shiftTimeRange.value}）`;
   if (canCall.value) {
@@ -68,9 +71,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="duty-cell">
+  <div class="duty-cell" :class="`contact-${contactMode}`">
     <button
-      v-if="canCall"
+      v-if="canCall && contactMode === 'name'"
       type="button"
       class="duty-name is-callable"
       :aria-expanded="isMenuOpen"
@@ -81,6 +84,17 @@ onUnmounted(() => {
       {{ dutyName }}
     </button>
     <span v-else class="duty-name" :title="nameTitle">{{ dutyName }}</span>
+    <button
+      v-if="canCall && contactMode === 'button'"
+      type="button"
+      class="duty-phone-button"
+      :aria-expanded="isMenuOpen"
+      :aria-label="`拨打${dutyName}电话`"
+      :title="nameTitle"
+      @click.stop="toggleMenu"
+    >
+      <CallIcon aria-hidden="true" />
+    </button>
     <span
       v-if="!hideShiftBadge"
       class="shift-badge"
@@ -100,7 +114,7 @@ onUnmounted(() => {
     >
       <ChangeBadge :marker="marker" />
     </button>
-    <div v-if="isMenuOpen && canCall" class="phone-menu" @click.stop>
+    <div v-if="isMenuOpen && canCall && contactMode !== 'hidden'" class="phone-menu" @click.stop>
       <template v-if="isCoarsePointer">
         <a
           v-for="option in phoneOptions.filter((entry) => entry.isConfirmed)"
@@ -163,6 +177,47 @@ onUnmounted(() => {
 .duty-name.is-callable:hover {
   color: #1f5aa6;
   text-decoration: underline;
+}
+
+.duty-phone-button {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  padding: 0;
+  place-items: center;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border: 0;
+  border-radius: var(--ui-radius-medium);
+  cursor: pointer;
+}
+
+.duty-phone-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.duty-cell.contact-button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+}
+
+.duty-cell.contact-button .duty-name {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.duty-cell.contact-button .duty-phone-button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin-left: 0;
+}
+
+.duty-cell.contact-button .shift-badge,
+.duty-cell.contact-button .change-marker-button {
+  grid-row: 2;
 }
 
 .shift-badge {

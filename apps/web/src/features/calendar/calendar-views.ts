@@ -174,6 +174,16 @@ export function getWeekLabel(businessDate: string): string {
   return `${start.year}年${start.month}月${start.day}日 – ${end.month}月${end.day}日`;
 }
 
+export function getWeekOfMonthLabel(businessDate: string): string {
+  const weekStart = getWeekStartDate(businessDate);
+  const { month, year } = parseBusinessDate(weekStart);
+  const firstWeekStart = getWeekStartDate(`${year}-${String(month).padStart(2, '0')}-01`);
+  const startTime = Date.parse(`${weekStart}T00:00:00.000Z`);
+  const firstStartTime = Date.parse(`${firstWeekStart}T00:00:00.000Z`);
+  const weekIndex = Math.floor((startTime - firstStartTime) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return `${month}月第${weekIndex}周`;
+}
+
 export function getVisibleWeekForMonth(businessMonth: string, today: string): string {
   const todayMonth = getBusinessMonthOf(today);
   return todayMonth === businessMonth

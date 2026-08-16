@@ -41,10 +41,6 @@ function holidayTitle(date: string): string | undefined {
   }
   return holiday.isOffDay ? holiday.holidayName : `${holiday.holidayName}（调休上班）`;
 }
-
-function isSoleDuty(assignments: readonly CalendarDutyAssignment[]): boolean {
-  return assignments.length === 1;
-}
 </script>
 
 <template>
@@ -84,7 +80,7 @@ function isSoleDuty(assignments: readonly CalendarDutyAssignment[]): boolean {
         <li v-for="assignment in day.assignments" :key="assignment.id">
           <DutyCell
             :assignment="assignment"
-            :hide-shift-badge="isSoleDuty(day.assignments)"
+            contact-mode="button"
             :member="memberFor(assignment)"
             @open-events="emit('open-events', $event)"
           />

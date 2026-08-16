@@ -11,6 +11,7 @@ import {
   getWeekDays,
   getWeekIndexForToday,
   getWeekLabel,
+  getWeekOfMonthLabel,
   getWeekStartDate,
   groupAssignmentsByDate,
   isWeekend,
@@ -57,6 +58,11 @@ describe('Calendar view helpers', () => {
     expect(addWeeks('2026-08-05', 1)).toBe('2026-08-12');
     expect(addWeeks('2026-08-03', -1)).toBe('2026-07-27');
     expect(getWeekLabel('2026-08-05')).toBe('2026年8月3日 – 8月9日');
+  });
+
+  it('labels weeks by their calendar-month ordinal', () => {
+    expect(getWeekOfMonthLabel('2026-08-10')).toBe('8月第3周');
+    expect(getWeekOfMonthLabel('2026-08-31')).toBe('8月第6周');
   });
 
   it('chooses the week containing today when today is inside the displayed month', () => {
