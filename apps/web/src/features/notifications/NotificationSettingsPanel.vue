@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
 import { computed, onMounted, ref } from 'vue';
-import type { SwitchValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -99,10 +98,7 @@ async function saveMyPreferences(): Promise<void> {
   }
 }
 
-async function toggleBrowserNotifications(value: SwitchValue): Promise<void> {
-  if (typeof value !== 'boolean') {
-    return;
-  }
+async function toggleBrowserNotifications(value: boolean): Promise<void> {
   browserStatusMessage.value = undefined;
   if (!value) {
     browserNotificationsEnabled.value = false;
@@ -278,18 +274,22 @@ function showSuccess(message: string): void {
             <p>即使没有打开排班系统，也能在当前设备及时收到提醒。</p>
             <small>浏览器权限只在您主动开启时申请；拒绝后站内通知仍可正常使用。</small>
           </div>
-          <span
+          <button
+            type="button"
             class="browser-switch-hit-area"
+            role="switch"
+            :aria-checked="browserNotificationsEnabled"
+            :aria-label="browserNotificationsEnabled ? '关闭浏览器通知' : '开启浏览器通知'"
             @click="toggleBrowserNotifications(!browserNotificationsEnabled)"
           >
-            <t-switch
+            <span
               class="browser-notification-switch"
-              :model-value="browserNotificationsEnabled"
-              :aria-label="browserNotificationsEnabled ? '关闭浏览器通知' : '开启浏览器通知'"
-              @click.stop
-              @change="toggleBrowserNotifications"
-            />
-          </span>
+              :class="{ 'is-active': browserNotificationsEnabled }"
+              aria-hidden="true"
+            >
+              <span class="browser-switch-thumb" />
+            </span>
+          </button>
         </div>
         <t-alert
           v-if="browserStatusMessage !== undefined"
@@ -496,13 +496,47 @@ function showSuccess(message: string): void {
   cursor: pointer;
 }
 
-.browser-switch-hit-area:focus-within {
+.browser-switch-hit-area:focus-visible {
   outline: 3px solid var(--ui-color-focus-ring);
   outline-offset: 1px;
 }
 
 .browser-notification-switch {
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  width: 52px;
   min-width: 52px;
+  height: 30px;
+  min-height: 30px;
+  background: #c9ced6;
+  border-radius: var(--ui-radius-pill);
+  box-shadow: inset 0 0 0 1px rgb(22 32 42 / 5%);
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.browser-switch-thumb {
+  display: block;
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  top: 3px;
+  left: 3px;
+  background: var(--ui-color-surface);
+  border-radius: 50%;
+  box-shadow: 0 2px 7px rgb(22 32 42 / 22%);
+  transition: transform 160ms ease;
+}
+
+.browser-notification-switch.is-active {
+  background: var(--ui-color-primary);
+  box-shadow: inset 0 0 0 1px rgb(5 68 145 / 8%);
+}
+
+.browser-notification-switch.is-active .browser-switch-thumb {
+  transform: translateX(22px);
 }
 
 @media (max-width: 760px) {

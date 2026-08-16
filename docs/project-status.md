@@ -304,3 +304,11 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 正式发布与只读复核：主 checkpoint `6183e9d` 部署前备份 `0ebc4723-ac13-429b-ab62-56c003b99196`（44 张表、6916 行）；复核发现确认 checkbox 仍写旧文案“后台确认联系方式”，已测试先行改为中性“确认联系方式”，后续 checkpoint `f9d0889` 推送并以备份 `55cb9743-5f8f-4f1e-a70d-9028f0519d6f`（44 张表、6951 行）保护后部署。release `f9d0889d194a39265f3efb9f8591d44601e00c08` 的 `ecs-verify.sh` 通过；正式 D0796 群主页在 1280/390/320 下无横向溢出，本人卡无常驻输入框且只有“修改”入口，Sheet 显示“确认联系方式”且无旧文案。通知点触区三档均为 60×44px、开关本体 52×20px，浏览器 error/warning 为 0，未保存联系方式或切换通知权限。最终状态 checkpoint 识别消息：`docs(status): record member directory deployment`。
 - 下一批次：第三批共 3 项——导出 Sheet/任务下载修复、月周日期格姓名与加换标识改为只读、列表“定位今天”平滑定位与筛选缺失提示。
 - 停止条件：当前 checkpoint 显式提交并推送，生产加密数据库备份完成，release 部署、`ecs-verify.sh` 与正式域名成员/通知只读专项复核通过；随后停止，不提前进入跨月换班批次。
+
+### 用户截图后的视觉一致性修正
+
+- 人工复核确认生产通知开关实际为 52×20px，而确认稿为 52×30px；成员页还保留确认稿外的重复“成员”标题/人数、常驻添加预设成员表单和重复说明。`git log -S`/`git blame` 已定位：通知宽度来源 `6ec287d`、44px 外层来源 `6183e9d`；常驻名单表单与重复标题来源 `23c1d9f`/`394b1c8`，手机本人修改按钮被放回首行来源 `6183e9d`。
+- 按用户补充许可弃用局部 TDesign：浏览器通知使用原生 `role=switch` 按钮，自绘 52×30px 轨道和 24px 圆点，60×44px 点触面独立保留；权限申请、订阅、偏好保存和重新注册函数未改。成员目录的修改/管理/添加按钮及联系方式编辑表单改为确认稿同款原生控件；重复标题/人数/说明已移除，添加预设成员收进次级 `ResponsiveSheet`，保存成功才关闭；权限、API、危险确认和成员管理流程不变。
+- 测试先行：旧实现新增 2 项失败，实现后成员/通知定向 6/6 通过。`pnpm verify` 通过（83 个文件/549 项，29 个数据库集成文件/252 项按全仓环境跳过），Web typecheck/build、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core`、Prettier、ESLint 与 `git diff --check` 通过；任务相关 `group-permissions.integration.test.ts` 7/7 实跑通过。`group-routes.integration.test.ts` 的既有独立并发建群用例两次为 9/10（竞争胜者为 administrator 而断言固定 owner），其余 9 项通过，与本轮纯前端改动无调用关系，未顺手修改。
+- 本地浏览器 390×844 / 320×844 实测无横向溢出；成员页只有一个“成员”标题、无常驻名单表单，本人修改按钮分别为 321×44px / 267×44px，320px 管理次操作隐藏且联系方式左缩进归零。通知轨道为 52×30px、圆点 24×24px、点触面 60×44px，并具备键盘焦点和 `aria-checked`。本 checkpoint 识别消息：`fix(web): match approved member and notification previews`。
+- 下一批次仍为第三批：导出 Sheet/任务下载修复、月周日期格交互只读、列表“定位今天”平滑定位。停止条件：本视觉修正 checkpoint 推送，生产备份、release、`ecs-verify.sh` 与正式域名 1280/390/320 专项复核全部通过后停止，不提前进入第三批。

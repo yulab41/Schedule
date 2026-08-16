@@ -5,7 +5,6 @@ import type {
   GroupSummary,
   MembershipClaimRequest,
 } from '@schedule/contracts';
-import { MoreIcon } from 'tdesign-icons-vue-next';
 import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -36,6 +35,7 @@ const isAddingRoster = ref(false);
 const isUpdating = ref(false);
 const isDeletingMemberId = ref<string>();
 const rosterNames = ref('');
+const rosterEditorVisible = ref(false);
 const editingContactMemberId = ref<string>();
 const memberActionTarget = ref<GroupMember>();
 let requestVersion = 0;
@@ -169,6 +169,7 @@ async function addMembers(): Promise<void> {
   try {
     const result = await api.addGroupMembers(props.group.id, { realNames: names });
     rosterNames.value = '';
+    rosterEditorVisible.value = false;
     rosterMessage.value = `已添加 ${result.added} 位预设成员；成员使用已保存姓名和群组码加入后会自动关联账号。`;
     await loadMembers();
   } catch (error) {
@@ -429,39 +430,9 @@ async function runMemberAction(
 
 <template>
   <section class="member-manager" :aria-busy="isLoading">
-    <header class="member-heading">
-      <div>
-        <h2>成员</h2>
-        <p>
-          {{
-            isDeveloperAdmin
-              ? '后台管理员可维护成员资料与历史记录。'
-              : '查看成员目录并维护我的联系方式。'
-          }}
-        </p>
-      </div>
-      <span class="member-count">{{ members.length }} 位</span>
-    </header>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="rosterMessage !== undefined" theme="success" :message="rosterMessage" />
     <t-alert v-if="identityMessage !== undefined" theme="success" :message="identityMessage" />
-
-    <form
-      v-if="canAddMembers"
-      class="add-member-form member-form-card"
-      @submit.prevent="addMembers"
-    >
-      <label class="add-member-field">
-        添加预设成员（每行一个姓名）
-        <textarea
-          v-model="rosterNames"
-          maxlength="2000"
-          placeholder="例如：&#10;张三&#10;李四"
-          rows="2"
-        />
-      </label>
-      <t-button variant="outline" type="submit" :loading="isAddingRoster">添加预设成员</t-button>
-    </form>
 
     <div v-if="pendingMembers.length > 0 && canAddMembers" class="pending-panel">
       <t-alert
@@ -539,11 +510,8 @@ async function runMemberAction(
         aria-labelledby="self-contact-heading"
       >
         <header class="directory-heading">
-          <div>
-            <h3 id="self-contact-heading">我的资料</h3>
-            <p>初始状态不显示输入框，需要时再修改。</p>
-          </div>
-          <span>仅在需要时修改</span>
+          <h3 id="self-contact-heading">我的资料</h3>
+          <span>仅在需要时编辑</span>
         </header>
         <article class="self-contact-card">
           <div class="directory-identity">
@@ -572,23 +540,33 @@ async function runMemberAction(
               </dd>
             </div>
           </dl>
-          <t-button
-            variant="outline"
+          <button
+            type="button"
             class="contact-edit-button"
             @click="openContactEditor(currentMember)"
           >
             修改
-          </t-button>
+          </button>
         </article>
       </section>
 
       <section class="member-directory-section" aria-labelledby="member-directory-heading">
-        <header class="directory-heading">
+        <header class="directory-heading member-list-heading">
           <div>
             <h3 id="member-directory-heading">科室通讯录</h3>
             <p>同群组有效成员均可查看姓名、长号和短号。</p>
           </div>
-          <span>{{ members.length }} 位成员</span>
+          <div class="directory-heading-actions">
+            <span>{{ members.length }} 位成员</span>
+            <button
+              v-if="canAddMembers"
+              type="button"
+              class="roster-sheet-trigger"
+              @click="rosterEditorVisible = true"
+            >
+              添加成员
+            </button>
+          </div>
         </header>
         <div class="member-directory-list" role="list">
           <article
@@ -626,24 +604,23 @@ async function runMemberAction(
               </div>
             </dl>
             <div class="directory-actions">
-              <t-button
+              <button
                 v-if="canEditContact(member) && member.isPendingRoster !== true"
-                variant="outline"
+                type="button"
                 class="contact-edit-button"
                 @click="openContactEditor(member)"
               >
                 修改
-              </t-button>
-              <t-button
+              </button>
+              <button
                 v-if="hasMemberManagementActions(member)"
-                variant="text"
+                type="button"
                 class="member-manage-button"
                 aria-label="管理成员"
                 @click="openMemberActions(member)"
               >
-                <template #icon><MoreIcon /></template>
                 管理
-              </t-button>
+              </button>
             </div>
           </article>
         </div>
@@ -663,6 +640,26 @@ async function runMemberAction(
       </t-button>
     </section>
 
+    <ResponsiveSheet v-model:visible="rosterEditorVisible" title="添加预设成员">
+      <form v-if="canAddMembers" class="add-member-form" @submit.prevent="addMembers">
+        <p class="roster-editor-intro">
+          每行输入一个姓名。成员使用已保存姓名和群组码加入后，会自动关联账号。
+        </p>
+        <label class="add-member-field">
+          成员姓名
+          <textarea
+            v-model="rosterNames"
+            maxlength="2000"
+            placeholder="例如：&#10;张三&#10;李四"
+            rows="4"
+          />
+        </label>
+        <button class="roster-submit-button" type="submit" :disabled="isAddingRoster">
+          {{ isAddingRoster ? '添加中…' : '添加预设成员' }}
+        </button>
+      </form>
+    </ResponsiveSheet>
+
     <ResponsiveSheet
       v-model:visible="contactEditorVisible"
       :title="
@@ -678,6 +675,7 @@ async function runMemberAction(
         :contact="contactEditorMember === undefined ? undefined : contactFor(contactEditorMember)"
         :group-id="group.id"
         :membership-id="editingContactMemberId"
+        @cancelled="contactEditorVisible = false"
         @saved="handleContactSaved"
       />
     </ResponsiveSheet>
@@ -916,6 +914,28 @@ async function runMemberAction(
   font-size: var(--ui-font-size-xs);
 }
 
+.directory-heading-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ui-spacing-xs);
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.roster-sheet-trigger {
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 var(--ui-spacing-xs);
+  color: var(--ui-color-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
 .self-contact-card,
 .member-directory-list {
   min-width: 0;
@@ -994,9 +1014,10 @@ async function runMemberAction(
 }
 
 .self-avatar {
-  color: var(--ui-color-primary-dark);
-  background: var(--ui-color-surface);
-  border-color: var(--ui-color-primary-border);
+  color: var(--ui-color-surface);
+  background: linear-gradient(145deg, #2782e7, #0757b7);
+  border-color: transparent;
+  box-shadow: 0 5px 14px rgb(10 102 213 / 22%);
 }
 
 .directory-contact-values {
@@ -1166,8 +1187,50 @@ async function runMemberAction(
 }
 
 .contact-edit-button {
-  min-height: var(--ui-touch-target-minimum) !important;
+  min-width: 54px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 14px;
   margin-left: auto;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.member-manage-button {
+  min-width: 48px;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 7px;
+  color: var(--ui-color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.contact-edit-button:hover,
+.roster-sheet-trigger:hover {
+  background: var(--ui-color-primary-light);
+}
+
+.member-manage-button:hover {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+}
+
+.contact-edit-button:focus-visible,
+.member-manage-button:focus-visible,
+.roster-sheet-trigger:focus-visible,
+.roster-submit-button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
 }
 
 .contact-editor {
@@ -1176,12 +1239,29 @@ async function runMemberAction(
   padding-top: var(--ui-spacing-sm);
 }
 
-.contact-editor :deep(.t-input) {
-  min-height: var(--ui-touch-target-minimum);
+.roster-editor-intro {
+  margin: 0;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
 }
 
-.contact-editor :deep(.t-button) {
-  width: 100%;
+.roster-submit-button {
+  min-height: 46px;
+  padding: 0 16px;
+  color: var(--ui-color-surface);
+  background: var(--ui-color-primary);
+  border: 1px solid var(--ui-color-primary);
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.roster-submit-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .dialog-hint {
@@ -1292,10 +1372,16 @@ async function runMemberAction(
     gap: var(--ui-spacing-sm);
   }
 
-  .directory-actions,
-  .self-contact-card > .contact-edit-button {
+  .directory-actions {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  .self-contact-card > .contact-edit-button {
+    width: 100%;
+    margin-left: 0;
+    grid-column: 1 / -1;
+    grid-row: 3;
   }
 
   .directory-actions {
@@ -1415,8 +1501,8 @@ async function runMemberAction(
   }
 }
 
-@media (max-width: 360px) {
-  .directory-heading {
+@media (max-width: 340px) {
+  .member-list-heading {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1428,6 +1514,10 @@ async function runMemberAction(
   .directory-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .member-manage-button {
+    display: none;
   }
 
   .member-table .member-card .mobile-member-actions,
