@@ -292,4 +292,5 @@
 - 语义审计：跨月周只增加第二个月的只读日历 GET，并把 assignments 合并到原模型；请求追踪、Promise 拒绝范围、空值降级、节假日失败降级、筛选、电话、事件和日期选择处理不变。周切换仅改变 `weekStart`/选中日期，不再同步修改月视图月份，这是明确的产品行为变更。移动工作流和群组码只改 CSS，无 API、权限、数据或副作用变化。
 - 运行/浏览器验证：`pnpm smoke:browser` 包装器因本机 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` 未进入脚本；等价命令 `SMOKE_BASE_URL=http://127.0.0.1:5174 node scripts/smoke-browser.mjs` 首轮在 Sheet 动画瞬间误判 44px“完成”按钮，独立测量为 44×44px，原样第二轮通过管理员、成员、访客、vkey 与访问记录全流程且无浏览器错误。Web typecheck、生产 build、Storybook build、Prettier、ESLint、全仓 Vitest（78 passed/29 skipped；533 passed/252 skipped）和 `git diff --check` 通过。
 - 浏览器量测：Storybook 390px/320px 周视图七列 `scrollWidth = clientWidth`，七格高度一致，班种标签 `white-space: nowrap` 且最多两字符；Storybook 与正式页均实测“7月第5周-8月第1周”后右切为“8月第2周”，预览周六/日无额外“休息”标识。列表固定工具栏、今天卡、数量、元数据和电话入口与 Storybook 一致。390px 请假/换班/加扣班/成员使用 351px 单列满宽；320px 群组码按 40px 数字块、4px 间距向左聚合。
-- 状态：已实现待生产发布；checkpoint 识别消息为 `fix(web): unify continuous calendar and mobile layouts`。
+- 正式发布与核验：代码 checkpoint `a1a732a` 已推送；发布前加密数据库备份 `a238d4aa-4332-4f1a-83bf-74c18b8dc60c`（44 张表、6147 行），release `a1a732a8d675ba759b27b96a7986294b7498327f` 已部署，`ecs-verify.sh` 退出码 0。正式 390px 跨月周标题及下一周连续，周网格无横向滚动且七格等高；列表固定工具栏和今天卡正确。请假/换班/加扣班/成员满宽，320px 群组码左聚合，未触发业务写入。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint：`fix(web): unify continuous calendar and mobile layouts`；最终状态 checkpoint：`docs(status): record continuous calendar deployment`。
