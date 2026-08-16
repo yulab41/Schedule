@@ -245,4 +245,5 @@
 - 变更：恢复原有左侧上下排列和右侧铃铛/导出结构；群组控件继续不使用 `<select>`，改为透明背景的分体式箭头按钮，点击右侧线条箭头在控件下方展开自绘列表，支持键盘、Esc、Tab、点击外部关闭和 44px 触达区。导出仍仅 owner/administrator 显示；退出登录未移回顶部。
 - 运行/浏览器验证：`pnpm smoke:browser` 已通过；管理员、成员、访客、vkey 与访问记录全流程无浏览器错误，1280×900、390×844、320×844 无横向溢出，群组箭头为自绘 `combobox` 且打开后为下方 `listbox`，退出登录从“更多”抽屉完成。首次冒烟仅发现旧脚本仍查找 `#group-switcher` 和顶部退出按钮，已同步验证器到最新布局后复跑通过。
 - 预览与验证：Storybook `GroupMenuOpen390` 已在 390px 实际展开/关闭预览；Storybook build、Web typecheck、定向测试 11/11、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 均通过。全仓库 75 个测试文件、511 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过；Storybook 仅保留临时配置下的 addon 解析提示、CSF 解析提示和既有大 chunk warning。
-- 发布阻塞：代码 checkpoint `3febef0` 已推送；`pnpm ecs:package` 在生成 API 平铺生产依赖时因网络沙箱拒绝 `registry.npmmirror.com` 下载而失败，切换 `registry.npmjs.org` 的只读查询也被拒绝。未生成 release、未创建生产数据库备份、未修改服务器；状态：已完成（含运行验证）→ 待生产发布（阻塞）。
+- 正式发布：网络恢复后生成 release `42c342529c8cf1e9b3f125b3ae6b3c2928b33043`；发布前加密数据库备份 archive `5dba4d9d-6a0a-4a2f-98ea-c16d8419859a`（44 张表、5410 行）。`ecs-update.sh` 成功完成迁移、API/Web 重建并写入 current-release。
+- 正式核验：服务器 `ecs-verify.sh` 退出码 0；正式 D0796 会话实际展开/关闭群组 `combobox`，listbox 显示 2 个选项，Escape 可关闭，抬头/通知/导出存在且浏览器控制台无 error/warning。状态：已完成（含生产发布与线上核验）→ 待用户复核。
