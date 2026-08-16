@@ -185,6 +185,14 @@ function selectDate(date: string): void {
   transition: box-shadow var(--ui-duration-fast) ease;
 }
 
+.week-row .day-cell:first-child {
+  border-bottom-left-radius: calc(var(--ui-radius-large) - 1px);
+}
+
+.week-row .day-cell:last-child {
+  border-bottom-right-radius: calc(var(--ui-radius-large) - 1px);
+}
+
 .day-cell.is-selected {
   box-shadow: inset 0 0 0 2px var(--ui-color-primary);
 }
@@ -192,14 +200,6 @@ function selectDate(date: string): void {
 .day-cell:focus-visible {
   outline: 3px solid var(--ui-color-focus-ring);
   outline-offset: -3px;
-}
-
-.day-cell.is-today {
-  box-shadow: inset 0 0 0 1px var(--ui-color-primary);
-}
-
-.day-cell.is-today.is-selected {
-  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
 }
 
 .day-cell.is-past {

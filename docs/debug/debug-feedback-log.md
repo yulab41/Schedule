@@ -294,3 +294,11 @@
 - 浏览器量测：Storybook 390px/320px 周视图七列 `scrollWidth = clientWidth`，七格高度一致，班种标签 `white-space: nowrap` 且最多两字符；Storybook 与正式页均实测“7月第5周-8月第1周”后右切为“8月第2周”，预览周六/日无额外“休息”标识。列表固定工具栏、今天卡、数量、元数据和电话入口与 Storybook 一致。390px 请假/换班/加扣班/成员使用 351px 单列满宽；320px 群组码按 40px 数字块、4px 间距向左聚合。
 - 正式发布与核验：代码 checkpoint `a1a732a` 已推送；发布前加密数据库备份 `a238d4aa-4332-4f1a-83bf-74c18b8dc60c`（44 张表、6147 行），release `a1a732a8d675ba759b27b96a7986294b7498327f` 已部署，`ecs-verify.sh` 退出码 0。正式 390px 跨月周标题及下一周连续，周网格无横向滚动且七格等高；列表固定工具栏和今天卡正确。请假/换班/加扣班/成员满宽，320px 群组码左聚合，未触发业务写入。
 - 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint：`fix(web): unify continuous calendar and mobile layouts`；最终状态 checkpoint：`docs(status): record continuous calendar deployment`。
+
+## 2026-08-16 日历圆角选中框与周视图今天状态修复
+
+- 回归来源：移动月历直角格/圆角裁切来自 `7c80488`；周视图今天整格描边来自 `a1a732a`，Storybook 今天整格背景来自 `8a49434`、描边来自 `a1a732a`。已执行 `git log -S` 与 `git blame`。
+- 测试先行：新增圆角末格和唯一选中态断言，旧实现 3 项失败/21 项通过；实现后定向 24/24、全仓 Vitest 79 文件/537 项通过，29 个数据库集成文件/253 项按环境跳过。
+- 变更与语义：只让月历末行首尾、周历周一周日继承对应底部圆角，并移除周视图未选中今天的整格蓝框；黄色日期圆点、`aria-current`、选中事件、详情及全部业务/API 语义不变。
+- 运行/浏览器验证：`pnpm smoke:browser` 通过；Storybook build、Web typecheck/build、任务文件 Prettier/ESLint、任务文件 `git diff --check` 通过。390/320px 实测月视图 8 月 31 日左下圆角、周视图周日右下圆角描边完整；选中 14 日后今天 16 日只保留黄色圆点且无第二蓝框。完整 `pnpm verify` 仅被并发中的无关 API 格式问题拦截，`smoke:check-core` 仅被无关未提交 contracts 变更触发。
+- 状态：已实现并完成运行验证，待独立 checkpoint、生产备份、部署与正式域名复核；识别消息为 `fix(web): align rounded calendar selection states`。

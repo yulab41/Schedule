@@ -47,6 +47,19 @@ describe('formal calendar view refinement', () => {
     expect(calendarView).toContain('selectedDate.value = weekStart.value;');
   });
 
+  it('keeps week selection inside rounded corners and marks today only on its date number', () => {
+    const weekGrid = readSource('./WeekGrid.vue');
+
+    expect(weekGrid).toMatch(
+      /\.week-row \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+    expect(weekGrid).toMatch(
+      /\.week-row \.day-cell:last-child\s*{[^}]*border-bottom-right-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+    expect(weekGrid).not.toMatch(/\.day-cell\.is-today\s*{[^}]*box-shadow:/s);
+    expect(weekGrid).toMatch(/\.is-today \.day-number\s*{[^}]*background:/s);
+  });
+
   it('adds frozen month controls to the list view', () => {
     const calendarView = readSource('../../views/calendar/CalendarView.vue');
     const listGrid = readSource('./ListGrid.vue');

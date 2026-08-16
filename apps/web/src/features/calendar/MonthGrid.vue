@@ -434,6 +434,14 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
     border-radius: 0;
   }
 
+  .week-row:last-child .day-cell:first-child {
+    border-bottom-left-radius: calc(var(--ui-radius-large) - 1px);
+  }
+
+  .week-row:last-child .day-cell:last-child {
+    border-bottom-right-radius: calc(var(--ui-radius-large) - 1px);
+  }
+
   .day-cell.is-selected {
     box-shadow: inset 0 0 0 2px var(--ui-color-primary);
   }

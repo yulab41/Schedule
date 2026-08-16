@@ -983,6 +983,12 @@ button:focus-visible {
   cursor: pointer;
   text-align: left;
 }
+.month-cell:nth-last-child(7) {
+  border-bottom-left-radius: 17px;
+}
+.month-cell:last-child {
+  border-bottom-right-radius: 17px;
+}
 .month-cell.outside {
   color: #a7b0bb;
   background: #fafbfd;
@@ -1188,9 +1194,11 @@ button:focus-visible {
   cursor: pointer;
   transition: box-shadow 160ms ease;
 }
-.week-day-card.today {
-  background: var(--preview-primary-tint);
-  box-shadow: inset 0 0 0 1px var(--preview-primary);
+.week-day-card:first-child {
+  border-bottom-left-radius: 17px;
+}
+.week-day-card:last-child {
+  border-bottom-right-radius: 17px;
 }
 .week-day-card.selected {
   box-shadow: inset 0 0 0 2px var(--preview-primary);

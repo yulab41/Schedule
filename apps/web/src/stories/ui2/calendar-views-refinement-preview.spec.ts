@@ -108,6 +108,26 @@ describe('calendar views refinement Storybook preview', () => {
     expect(preview).toContain('v-for="assignment in selectedWeekDay.assignments"');
   });
 
+  it('keeps corner selections complete and does not retain a second frame on today', () => {
+    const preview = readSource('./CalendarViewsRefinementPreview.vue');
+
+    expect(preview).toMatch(
+      /\.month-cell:nth-last-child\(7\)\s*{[^}]*border-bottom-left-radius:\s*17px;/s,
+    );
+    expect(preview).toMatch(/\.month-cell:last-child\s*{[^}]*border-bottom-right-radius:\s*17px;/s);
+    expect(preview).toMatch(
+      /\.week-day-card:first-child\s*{[^}]*border-bottom-left-radius:\s*17px;/s,
+    );
+    expect(preview).toMatch(
+      /\.week-day-card:last-child\s*{[^}]*border-bottom-right-radius:\s*17px;/s,
+    );
+    expect(preview).not.toMatch(/\.week-day-card\.today\s*{[^}]*box-shadow:/s);
+    expect(preview).not.toMatch(/\.week-day-card\.today\s*{[^}]*background:/s);
+    expect(preview).toMatch(
+      /\.week-day-card\.today \.week-day-heading strong\s*{[^}]*background:/s,
+    );
+  });
+
   it('exposes mobile and desktop Storybook entries for the visual review', () => {
     const stories = readSource('./CalendarViewsRefinementPreview.stories.ts');
 

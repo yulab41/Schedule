@@ -102,6 +102,17 @@ describe('mobile calendar Storybook 2 parity', () => {
     );
   });
 
+  it('rounds the final month cells so a selected corner frame stays fully visible', () => {
+    const monthGrid = readSource('../../features/calendar/MonthGrid.vue');
+
+    expect(monthGrid).toMatch(
+      /\.week-row:last-child \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+    expect(monthGrid).toMatch(
+      /\.week-row:last-child \.day-cell:last-child\s*{[^}]*border-bottom-right-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+  });
+
   it('keeps the calendar/details stack start-aligned with the existing fixed spacing', () => {
     const calendarView = readSource('./CalendarView.vue');
 
