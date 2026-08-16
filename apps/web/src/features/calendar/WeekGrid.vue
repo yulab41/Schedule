@@ -19,7 +19,6 @@ const props = defineProps<{
   readonly selectedDate?: string | undefined;
 }>();
 const emit = defineEmits<{
-  (event: 'open-events', assignment: CalendarDutyAssignment): void;
   (event: 'select-date', businessDate: string): void;
 }>();
 
@@ -128,8 +127,8 @@ function selectDate(date: string): void {
               :assignment="assignment"
               compact-shift-badge
               contact-mode="hidden"
+              marker-mode="static"
               :member="memberFor(assignment)"
-              @open-events="emit('open-events', $event)"
             />
           </li>
         </ul>

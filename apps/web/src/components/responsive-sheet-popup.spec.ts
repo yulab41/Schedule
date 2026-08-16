@@ -27,6 +27,7 @@ describe('responsive sheet popup mounting', () => {
     ['../views/calendar/CalendarView.vue', 3],
     ['../features/swaps/SwapPanel.vue', 7],
     ['../features/duty-adjustments/DutyAdjustmentPanel.vue', 4],
+    ['../features/exports/ExportDialog.vue', 2],
   ])('mounts every reported sheet select through the shared popup props in %s', (path, count) => {
     const source = readSource(path);
     const sheetSource = source.slice(source.indexOf('<ResponsiveSheet'));

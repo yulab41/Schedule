@@ -292,3 +292,16 @@ export function buildDayList(
       weekdayLabel: getWeekdayLabel(businessDate),
     }));
 }
+
+export function getListDateScrollTop(input: {
+  readonly currentScrollY: number;
+  readonly elementTop: number;
+  readonly stickyOffset: number;
+  readonly viewportHeight: number;
+}): number {
+  const availableHeight = Math.max(0, input.viewportHeight - input.stickyOffset);
+  return Math.max(
+    0,
+    input.currentScrollY + input.elementTop - input.stickyOffset - availableHeight / 3,
+  );
+}

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isCalendarGridCellSelected } from './calendar-logic.js';
 import {
+  getListDateScrollTop,
   getDefaultSelectedDate,
   getMultiDayHolidayDates,
   getSwipeMonthIntent,
@@ -67,6 +68,25 @@ describe('calendar mobile interactions', () => {
       '2026-10-02',
       '2026-10-03',
     ]);
+  });
+
+  it('positions a located list date below sticky controls and near the upper third', () => {
+    expect(
+      getListDateScrollTop({
+        currentScrollY: 800,
+        elementTop: 500,
+        stickyOffset: 100,
+        viewportHeight: 900,
+      }),
+    ).toBeCloseTo(933.333, 2);
+    expect(
+      getListDateScrollTop({
+        currentScrollY: 0,
+        elementTop: 40,
+        stickyOffset: 100,
+        viewportHeight: 900,
+      }),
+    ).toBe(0);
   });
 });
 

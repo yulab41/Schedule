@@ -4,10 +4,10 @@ import type {
   CalendarDutyMember,
   ConfirmedHolidayDate,
 } from '@schedule/contracts';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 import { getDutyMembershipId, getHolidayShortLabel } from './calendar-logic.js';
-import { buildDayList, isWeekend } from './calendar-views.js';
+import { buildDayList, getListDateScrollTop, isWeekend } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
 
 const props = defineProps<{
@@ -24,6 +24,7 @@ const membersById = computed(
   () => new Map(props.members.map((member) => [member.membershipId, member])),
 );
 const days = computed(() => buildDayList(props.assignments, props.today));
+const listGridElement = ref<HTMLElement>();
 
 function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | undefined {
   const membershipId = getDutyMembershipId(assignment);
@@ -41,13 +42,36 @@ function holidayTitle(date: string): string | undefined {
   }
   return holiday.isOffDay ? holiday.holidayName : `${holiday.holidayName}（调休上班）`;
 }
+
+function scrollToDate(businessDate: string, stickyOffset = 0): boolean {
+  const target = listGridElement.value?.querySelector<HTMLElement>(
+    `[data-business-date="${businessDate}"]`,
+  );
+  if (target === undefined || target === null) {
+    return false;
+  }
+
+  window.scrollTo({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    top: getListDateScrollTop({
+      currentScrollY: window.scrollY,
+      elementTop: target.getBoundingClientRect().top,
+      stickyOffset,
+      viewportHeight: window.innerHeight,
+    }),
+  });
+  return true;
+}
+
+defineExpose({ scrollToDate });
 </script>
 
 <template>
-  <section class="list-grid" aria-label="列表排班">
+  <section ref="listGridElement" class="list-grid" aria-label="列表排班">
     <article
       v-for="day in days"
       :key="day.businessDate"
+      :data-business-date="day.businessDate"
       class="day-row"
       :class="{
         'is-today': day.isToday,
@@ -82,6 +106,7 @@ function holidayTitle(date: string): string | undefined {
             :assignment="assignment"
             contact-mode="button"
             hide-shift-badge
+            marker-mode="button"
             :member="memberFor(assignment)"
             show-details
             @open-events="emit('open-events', $event)"

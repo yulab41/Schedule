@@ -1,20 +1,23 @@
 <script setup lang="ts">
-import type { GroupSummary, ScheduleExportJob, ScheduleExportType } from '@schedule/contracts';
+import type { GroupSummary, ScheduleExportType } from '@schedule/contracts';
 import { getCurrentBusinessMonth } from '@schedule/scheduling-domain';
 import { DownloadIcon, InfoCircleIcon } from 'tdesign-icons-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import {
   buildExportFileName,
   getExportPeriodLabel,
   getExportSelectionSummary,
-  isExportJobFinished,
+  pollExportJob,
 } from './export-logic.js';
+
+type ExportPhase = 'creating' | 'failed' | 'idle' | 'ready' | 'timed_out' | 'waiting';
 
 const props = defineProps<{
   group: GroupSummary;
@@ -35,31 +38,41 @@ const membershipId = ref<string>();
 const roles = ref<readonly { readonly id: string; readonly name: string }[]>([]);
 const members = ref<readonly { readonly id: string; readonly realName: string }[]>([]);
 const isLoading = ref(false);
-const isWorking = ref(false);
+const exportPhase = ref<ExportPhase>('idle');
+const activeJobId = ref<string>();
+const downloadUrl = ref<string>();
+const downloadFileName = ref<string>();
 const errorMessage = ref<string>();
 const successMessage = ref<string>();
+let isUnmounted = false;
 
 const period = computed(() =>
   periodType.value === 'month' ? businessMonth.value : String(year.value),
 );
 const selectionSummary = computed(() => getExportSelectionSummary(exportType.value, period.value));
+const isWorking = computed(
+  () => exportPhase.value === 'creating' || exportPhase.value === 'waiting',
+);
 
 onMounted(() => {
   void loadOptions();
+});
+onBeforeUnmount(() => {
+  isUnmounted = true;
+  revokeDownloadUrl();
 });
 
 async function loadOptions(): Promise<void> {
   isLoading.value = true;
   try {
-    const config = await api.getSchedulingConfig(props.group.id);
+    const [config, groupMembers] = await Promise.all([
+      api.getSchedulingConfig(props.group.id),
+      api.listGroupMembers(props.group.id),
+    ]);
     roles.value = config.roles;
-    const memberMap = new Map<string, string>();
-    for (const role of config.roles) {
-      for (const member of role.members) {
-        memberMap.set(member.id, member.realName);
-      }
-    }
-    members.value = [...memberMap.entries()].map(([id, realName]) => ({ id, realName }));
+    members.value = groupMembers
+      .filter((member) => member.isPendingRoster !== true)
+      .map(({ id, realName }) => ({ id, realName }));
   } catch (error) {
     errorMessage.value = toUserMessage(error, '导出暂时无法完成，请稍后重试。');
   } finally {
@@ -68,9 +81,13 @@ async function loadOptions(): Promise<void> {
 }
 
 async function runExport(): Promise<void> {
+  if (isWorking.value) return;
+
+  revokeDownloadUrl();
+  activeJobId.value = undefined;
   errorMessage.value = undefined;
   successMessage.value = undefined;
-  isWorking.value = true;
+  exportPhase.value = 'creating';
   try {
     const job = await api.createExportJob(props.group.id, {
       exportType: exportType.value,
@@ -78,39 +95,79 @@ async function runExport(): Promise<void> {
       period: period.value,
       ...(roleId.value === undefined ? {} : { roleId: roleId.value }),
     });
-    const finishedJob = await waitForJob(job.id);
-    if (finishedJob.status !== 'completed') {
-      throw new Error(finishedJob.error ?? '导出失败，请稍后重试。');
-    }
-    const content = await api.downloadExport(props.group.id, job.id);
-    downloadCsv(buildExportFileName(finishedJob.exportType, finishedJob.period), content);
-    successMessage.value = `导出完成：${getExportPeriodLabel(finishedJob.period)}。`;
+    activeJobId.value = job.id;
+    await checkExistingJob(job.id);
   } catch (error) {
+    if (isUnmounted) return;
+    exportPhase.value = 'failed';
     errorMessage.value = toUserMessage(error, '导出暂时无法完成，请稍后重试。');
-  } finally {
-    isWorking.value = false;
   }
 }
 
-async function waitForJob(exportJobId: string): Promise<ScheduleExportJob> {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const job = await api.getExportJob(props.group.id, exportJobId);
-    if (isExportJobFinished(job)) {
-      return job;
+async function checkExistingJob(exportJobId: string): Promise<void> {
+  errorMessage.value = undefined;
+  exportPhase.value = 'waiting';
+  try {
+    const result = await pollExportJob(
+      exportJobId,
+      (jobId) => api.getExportJob(props.group.id, jobId),
+      { isCancelled: () => isUnmounted },
+    );
+    if (result.status === 'cancelled') return;
+    if (result.status === 'timed_out') {
+      exportPhase.value = 'timed_out';
+      return;
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 1000));
+    if (result.job.status !== 'completed') {
+      throw new Error(result.job.error ?? '导出失败，请稍后重试。');
+    }
+    await prepareDownload(result.job.exportType, result.job.period, exportJobId);
+  } catch (error) {
+    if (isUnmounted) return;
+    exportPhase.value = 'failed';
+    errorMessage.value = toUserMessage(error, '导出暂时无法完成，请稍后重试。');
   }
-  throw new Error('导出超时，请稍后重试。');
 }
 
-function downloadCsv(fileName: string, content: string): void {
+async function continueChecking(): Promise<void> {
+  if (activeJobId.value === undefined || isWorking.value) return;
+  await checkExistingJob(activeJobId.value);
+}
+
+async function prepareDownload(
+  finishedExportType: ScheduleExportType,
+  finishedPeriod: string,
+  exportJobId: string,
+): Promise<void> {
+  const content = await api.downloadExport(props.group.id, exportJobId);
+  if (isUnmounted) return;
+  const fileName = buildExportFileName(finishedExportType, finishedPeriod);
+  revokeDownloadUrl();
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
+  downloadUrl.value = url;
+  downloadFileName.value = fileName;
+  exportPhase.value = 'ready';
+  successMessage.value = `导出完成：${getExportPeriodLabel(finishedPeriod)}。`;
+  triggerDownload(url, fileName);
+}
+
+function triggerDownload(url: string, fileName: string): void {
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = fileName;
+  anchor.hidden = true;
+  document.body.append(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+}
+
+function revokeDownloadUrl(): void {
+  if (downloadUrl.value !== undefined) {
+    URL.revokeObjectURL(downloadUrl.value);
+    downloadUrl.value = undefined;
+    downloadFileName.value = undefined;
+  }
 }
 
 function onRoleChange(value: SelectValue): void {
@@ -174,6 +231,7 @@ function updateVisibility(nextVisible: boolean): void {
               :value="roleId ?? ''"
               :options="roles.map((role) => ({ label: role.name, value: role.id }))"
               clearable
+              :popup-props="responsiveSheetPopupProps"
               placeholder="全部岗位"
               @change="onRoleChange"
             />
@@ -183,6 +241,7 @@ function updateVisibility(nextVisible: boolean): void {
               :value="membershipId ?? ''"
               :options="members.map((member) => ({ label: member.realName, value: member.id }))"
               clearable
+              :popup-props="responsiveSheetPopupProps"
               placeholder="全部成员"
               @change="onMembershipChange"
             />
@@ -194,6 +253,29 @@ function updateVisibility(nextVisible: boolean): void {
         </p>
         <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
         <t-alert v-if="successMessage !== undefined" theme="success" :message="successMessage" />
+        <div
+          v-if="exportPhase === 'creating' || exportPhase === 'waiting'"
+          class="export-progress"
+          role="status"
+        >
+          <t-loading size="small" />
+          <div>
+            <strong>{{ exportPhase === 'creating' ? '正在创建导出任务' : '正在生成 CSV' }}</strong>
+            <span>通常 1 分钟内完成，请保持此页面打开。</span>
+          </div>
+        </div>
+        <div v-else-if="exportPhase === 'timed_out'" class="export-timeout" role="status">
+          <span>任务仍在服务器生成，可继续检查同一任务，不会重复创建。</span>
+          <t-button variant="outline" @click="continueChecking">继续检查</t-button>
+        </div>
+        <a
+          v-else-if="exportPhase === 'ready' && downloadUrl !== undefined"
+          class="export-download-link"
+          :href="downloadUrl"
+          :download="downloadFileName"
+        >
+          下载 CSV
+        </a>
         <footer class="export-actions">
           <t-button variant="outline" :disabled="isWorking" @click="updateVisibility(false)">
             取消
@@ -301,6 +383,44 @@ function updateVisibility(nextVisible: boolean): void {
   gap: var(--ui-spacing-xs);
   padding-top: var(--ui-spacing-xs);
   background: var(--ui-color-surface);
+}
+
+.export-progress,
+.export-timeout {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  padding: var(--ui-spacing-sm);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-sm);
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+}
+
+.export-progress > div {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+
+.export-progress strong {
+  color: var(--ui-color-text-primary);
+}
+
+.export-download-link {
+  display: inline-flex;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 var(--ui-spacing-md);
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border-radius: var(--ui-radius-small);
+  font-weight: var(--ui-font-weight-semibold);
+  text-decoration: none;
 }
 
 .export-actions :deep(.t-button) {

@@ -82,6 +82,12 @@ const monthPointerStart = ref<{
   readonly x: number;
   readonly y: number;
 }>();
+const listGridRef = ref<{
+  scrollToDate: (businessDate: string, stickyOffset?: number) => boolean;
+}>();
+const listStickyToolbar = ref<HTMLElement>();
+const pendingListTodayLocation = ref(false);
+const listLocationMessage = ref<string>();
 
 const visibleAssignments = computed(() =>
   filterCalendarAssignments(calendar.value?.assignments ?? [], {
@@ -133,6 +139,14 @@ watch(viewMode, () => {
     selectedDate.value = todayBusinessDate;
   }
 });
+
+watch(
+  [membershipIds, onlyChanges, roleIds, shiftTypeIds],
+  () => {
+    listLocationMessage.value = undefined;
+  },
+  { deep: true },
+);
 
 onMounted(() => {
   viewMode.value = 'month';
@@ -198,6 +212,9 @@ async function loadCalendar(): Promise<void> {
   }
 
   await loadHolidays(request, requestedMonths);
+  if (requestTracker.isCurrent(request)) {
+    await locateTodayInListWhenReady();
+  }
 }
 
 async function loadHolidays(request: number, requestedMonths: readonly string[]): Promise<void> {
@@ -235,10 +252,14 @@ function refreshAfterConflict(): void {
 }
 
 function goToPreviousMonth(): void {
+  pendingListTodayLocation.value = false;
+  listLocationMessage.value = undefined;
   businessMonth.value = addBusinessMonths(businessMonth.value, -1);
 }
 
 function goToNextMonth(): void {
+  pendingListTodayLocation.value = false;
+  listLocationMessage.value = undefined;
   businessMonth.value = addBusinessMonths(businessMonth.value, 1);
 }
 
@@ -276,9 +297,31 @@ function clearFilters(): void {
 }
 
 function goToToday(): void {
+  if (viewMode.value === 'list') {
+    pendingListTodayLocation.value = true;
+    listLocationMessage.value = undefined;
+  }
   businessMonth.value = getCurrentBusinessMonth();
   weekStart.value = getWeekStartOfToday();
   selectedDate.value = todayBusinessDate;
+  void locateTodayInListWhenReady();
+}
+
+async function locateTodayInListWhenReady(): Promise<void> {
+  if (
+    viewMode.value !== 'list' ||
+    !pendingListTodayLocation.value ||
+    isLoading.value ||
+    calendar.value?.businessMonth !== getCurrentBusinessMonth()
+  ) {
+    return;
+  }
+
+  await nextTick();
+  const stickyOffset = (listStickyToolbar.value?.offsetHeight ?? 0) + 12;
+  const located = listGridRef.value?.scrollToDate(todayBusinessDate, stickyOffset) ?? false;
+  pendingListTodayLocation.value = false;
+  listLocationMessage.value = located ? undefined : '当前筛选下今天没有排班';
 }
 
 function getWeekStartOfToday(): string {
@@ -442,7 +485,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           :selected-date="selectedDate"
           :today="todayBusinessDate"
           :week-start="weekStart"
-          @open-events="openAssignmentEvents"
           @select-date="selectedDate = $event"
         />
       </section>
@@ -495,13 +537,12 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             :members="calendar.members"
             :selected-date="selectedDate"
             :today="todayBusinessDate"
-            @open-events="openAssignmentEvents"
             @select-date="selectedDate = $event"
           />
         </section>
       </div>
       <section v-else-if="viewMode === 'list'" class="list-view" aria-label="列表视图">
-        <header class="list-sticky-toolbar">
+        <header ref="listStickyToolbar" class="list-sticky-toolbar">
           <div class="list-month-bar">
             <button
               class="list-month-step"
@@ -539,8 +580,12 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             <strong>今天 · {{ todayBusinessDate.slice(5).replace('-', '/') }}</strong>
           </div>
         </header>
+        <p v-if="listLocationMessage !== undefined" class="list-location-message" role="status">
+          {{ listLocationMessage }}
+        </p>
         <ListGrid
           v-if="visibleAssignments.length > 0"
+          ref="listGridRef"
           :assignments="visibleAssignments"
           :holidays="holidays"
           :members="calendar.members"
@@ -880,6 +925,16 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
   border-radius: 6px;
+}
+
+.list-location-message {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
 }
 
 .list-view {

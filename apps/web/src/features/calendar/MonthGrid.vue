@@ -33,7 +33,6 @@ const props = defineProps<{
   readonly today?: string;
 }>();
 const emit = defineEmits<{
-  (event: 'open-events', assignment: CalendarDutyAssignment): void;
   (event: 'select-date', businessDate: string): void;
 }>();
 
@@ -162,10 +161,11 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
           >
             <DutyCell
               :assignment="assignment"
+              contact-mode="hidden"
               :hide-shift-badge="isSoleDuty(cell.businessDate)"
+              marker-mode="static"
               :markers="visibleMarkers(assignment)"
               :member="memberFor(assignment)"
-              @open-events="emit('open-events', $event)"
             />
           </li>
         </ul>

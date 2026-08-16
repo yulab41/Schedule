@@ -25,6 +25,7 @@ const props = defineProps<{
   readonly markers?: readonly CalendarChangeMarker[];
   readonly member: CalendarDutyMember | undefined;
   readonly contactMode?: 'button' | 'hidden' | 'name';
+  readonly markerMode?: 'button' | 'static';
   readonly showDetails?: boolean;
 }>();
 const emit = defineEmits<{
@@ -38,6 +39,7 @@ const phoneOptions = computed<readonly PhoneOption[]>(() => getAvailablePhoneOpt
 const visibleMarkers = computed(() => props.markers ?? props.assignment.changeMarkers);
 const canCall = computed(() => phoneOptions.value.length > 0);
 const contactMode = computed(() => props.contactMode ?? 'name');
+const markerMode = computed(() => props.markerMode ?? 'button');
 const shiftBadgeLabel = computed(() =>
   props.compactShiftBadge === true
     ? truncateCalendarBadgeLabel(props.assignment.shiftTypeAbbreviation)
@@ -53,7 +55,7 @@ const dutyDetails = computed(
 );
 const nameTitle = computed(() => {
   const base = `${props.assignment.shiftTypeName}（${shiftTimeRange.value}）`;
-  if (canCall.value) {
+  if (canCall.value && contactMode.value !== 'hidden') {
     return `${base} · 点击查看联系电话`;
   }
   return base;
@@ -127,17 +129,21 @@ onUnmounted(() => {
       {{ shiftBadgeLabel }}
     </span>
     <div v-if="visibleMarkers.length > 0" class="change-marker-list">
-      <button
-        v-for="marker in visibleMarkers"
-        :key="marker"
-        type="button"
-        class="change-marker-button"
-        :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-        :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-        @click.stop="emit('open-events', assignment)"
-      >
-        <ChangeBadge :marker="marker" />
-      </button>
+      <template v-for="marker in visibleMarkers" :key="marker">
+        <button
+          v-if="markerMode === 'button'"
+          type="button"
+          class="change-marker-button"
+          :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+          :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+          @click.stop="emit('open-events', assignment)"
+        >
+          <ChangeBadge :marker="marker" />
+        </button>
+        <span v-else class="change-marker-static">
+          <ChangeBadge :marker="marker" />
+        </span>
+      </template>
     </div>
     <div v-if="isMenuOpen && canCall && contactMode !== 'hidden'" class="phone-menu" @click.stop>
       <template v-if="isCoarsePointer">
@@ -316,6 +322,10 @@ onUnmounted(() => {
   background: none;
   border: 0;
   cursor: pointer;
+}
+
+.change-marker-static {
+  display: inline-flex;
 }
 
 .change-marker-button:hover :deep(.change-marker) {

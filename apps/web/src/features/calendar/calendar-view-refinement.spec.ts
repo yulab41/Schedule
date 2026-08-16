@@ -70,6 +70,9 @@ describe('formal calendar view refinement', () => {
     expect(calendarView).toContain('aria-label="定位到今天"');
     expect(calendarView).toContain('aria-label="下一月"');
     expect(listGrid).toContain('contact-mode="button"');
+    expect(listGrid).toContain('marker-mode="button"');
+    expect(listGrid).toContain('defineExpose({ scrollToDate })');
+    expect(listGrid).toContain(':data-business-date="day.businessDate"');
     expect(listGrid).toContain('show-details');
     expect(listGrid).toContain('{{ day.assignments.length }} 班');
     expect(listGrid).toContain("'is-today': day.isToday");
@@ -81,6 +84,28 @@ describe('formal calendar view refinement', () => {
     );
     expect(calendarView).toContain('月份工具栏固定 · 已按日期排序');
     expect(calendarView).toContain("今天 · {{ todayBusinessDate.slice(5).replace('-', '/') }}");
+    expect(calendarView).toContain('当前筛选下今天没有排班');
+    expect(calendarView).toContain('listGridRef.value?.scrollToDate');
+  });
+
+  it('keeps month and week names and change markers read-only', () => {
+    const monthGrid = readSource('./MonthGrid.vue');
+    const weekGrid = readSource('./WeekGrid.vue');
+    const listGrid = readSource('./ListGrid.vue');
+    const dutyCell = readSource('./DutyCell.vue');
+
+    expect(monthGrid).toContain('contact-mode="hidden"');
+    expect(monthGrid).toContain('marker-mode="static"');
+    expect(weekGrid).toContain('contact-mode="hidden"');
+    expect(weekGrid).toContain('marker-mode="static"');
+    expect(monthGrid).not.toContain('@open-events="emit(\'open-events\', $event)"');
+    expect(weekGrid).not.toContain('@open-events="emit(\'open-events\', $event)"');
+    expect(listGrid).toContain('contact-mode="button"');
+    expect(listGrid).toContain('marker-mode="button"');
+    expect(dutyCell).toContain("readonly markerMode?: 'button' | 'static'");
+    expect(dutyCell).toContain('v-if="markerMode === \'button\'"');
+    expect(dutyCell).toContain('v-else class="change-marker-static"');
+    expect(dutyCell).toContain("canCall.value && contactMode.value !== 'hidden'");
   });
 
   it('keeps the locator transparent without a persistent click state', () => {
