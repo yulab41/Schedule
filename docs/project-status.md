@@ -341,5 +341,8 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 测试先行：旧前端对新增独立月份/并行加载/完整标签回归为 4 项失败，实现后 8/8 通过；后端跨月测试在不改生产服务的前提下先通过，证明缺口仅在前端。完整换班 API 集成 34/34 通过。测试数据库清理遗漏认证表由 `12e7f40` 后显现，本轮补齐换班文件自身的 `user_auth_identities`/`user_password_credentials` 清理；注入数据库的全仓 verify 继续在未改动日历文件的同类历史清理缺口处失败，未扩展到无关模块。
 - 运行/浏览器验证：Web typecheck/build、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core`、常规 `pnpm verify`（85 个文件/562 项通过，29 个数据库集成文件按默认环境跳过）、Prettier、ESLint 和 `git diff --check` 通过；任务相关数据库集成已单独全部实跑。390/320 冒烟确认普通与管理员 Sheet 均有两个独立月份选择器、44px 关键触达区且无横向溢出；本地真实数据实测改变“我的班次月份”后，对方月份、成员与已选班次保持，控制台无 error/warning，未提交换班。
 - 行为审计：普通成员目标候选仍排除本人，管理员两侧仍可选择任何有可操作班次的成员；同月请求去重、跨月并行，不增加预览/提交 API 调用次数。月份变化只新增对应日历读取；提交、审批、撤销、错误转换和版本冲突处理调用保持原路径。checkpoint 识别消息：`feat(web): enable cross-month shift swaps`。
-- 下一批次：无待实施仓库任务；完成本 checkpoint 的提交推送、production backup、release 部署、`ecs-verify.sh` 与正式域名只读复核后，等待用户最终验收。
-- 停止条件：Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；正式站普通/管理员换班 Sheet 均显示两个独立月份且无布局或浏览器错误，不触发业务提交。
+- 正式发布：代码 checkpoint `5a8380f` 已推送；发布前加密数据库备份 archive 为 `fd3480f8-ff34-4c82-92f8-f9187ba23336`（44 张表、7266 行，SHA-256 `abd75c70107729db32027a7788d48e6e55c2ce139621b98bf314892b43e03573`）。release `5a8380f614f4efdff702174b145da8beb1766f8c` 部署成功，`ecs-verify.sh` 退出码 0。
+- 正式域名只读复核：D0796 群主会话的普通换班 Sheet 显示“我的班次月份/对方班次月份”且有 2 个 month 输入；管理员 Sheet 显示“成员一月份/成员二月份”且同样有 2 个 month 输入。当前生产群组本月无已发布排班，因此未选择班次；两个 Sheet 均无页面横向溢出，未触发预览、提交或任何业务写入，正式域名没有 error/warning 日志。
+- 状态：已完成（含生产发布与线上核验）→ 待用户最终验收。最终状态 checkpoint 识别消息：`docs(status): record cross-month swap deployment`。
+- 下一批次：无待实施仓库任务；最终状态 checkpoint 推送并作为文档同步 release 部署后等待用户验收。
+- 停止条件：Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；不再开始新实现任务。
