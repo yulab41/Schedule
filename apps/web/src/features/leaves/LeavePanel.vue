@@ -863,15 +863,18 @@ function onWindowFocus(): void {
   }
 
   .panel-heading {
+    display: grid;
+    width: 100%;
     align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .panel-heading p {
-    max-width: 220px;
+    max-width: none;
   }
 
   .panel-heading :deep(.t-button) {
-    flex: none;
+    width: 100%;
   }
 
   .mobile-workflow-tabs {

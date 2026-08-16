@@ -16,8 +16,19 @@ describe('calendar views refinement Storybook preview', () => {
     expect(preview).toMatch(
       /\.week-grid\s*{[^}]*grid-template-columns:\s*repeat\(7,\s*minmax\(0,\s*1fr\)\)/s,
     );
-    expect(preview).toContain('第 {{ weekNumber }} 周');
+    expect(preview).toContain('{{ weekTitle }}');
     expect(preview).not.toContain('class="week-list"');
+  });
+
+  it('uses the month calendar frame and line-divided cells for the week preview', () => {
+    const preview = readSource('./CalendarViewsRefinementPreview.vue');
+
+    expect(preview).toContain('class="week-calendar-card"');
+    expect(preview).toContain('class="week-weekday-row"');
+    expect(preview).toMatch(/\.week-grid\s*{[^}]*gap:\s*1px/s);
+    expect(preview).toMatch(/\.week-day-card\s*{[^}]*border:\s*0;[^}]*border-radius:\s*0;/s);
+    expect(preview).toContain('assignment.shift.slice(0, 2)');
+    expect(preview).toMatch(/\.shift-pill\s*{[^}]*white-space:\s*nowrap;/s);
   });
 
   it('fits all seven week columns inside the mobile preview without horizontal scrolling', () => {
@@ -48,6 +59,10 @@ describe('calendar views refinement Storybook preview', () => {
     expect(preview).toContain('@click="shiftWeek(-1)"');
     expect(preview).toContain('@click="shiftWeek(1)"');
     expect(preview).toContain('const weekOffset = ref(0)');
+    expect(preview).toContain('getWeekOfMonthLabel(previewWeekStart.value)');
+    expect(preview).toContain('getWeekDays(previewWeekStart.value)');
+    expect(preview).toContain('weekOffset.value += delta');
+    expect(preview).not.toContain('Math.max(-1, Math.min(1, weekOffset.value + delta))');
   });
 
   it('keeps location controls clean after activation', () => {
@@ -86,7 +101,8 @@ describe('calendar views refinement Storybook preview', () => {
     expect(preview).toContain('@click="selectWeekDay(dayIndex)"');
     expect(preview).toContain('class="selected-summary week-selected-summary"');
     expect(weekTemplate).toContain('class="assignment-meta"');
-    expect(weekTemplate).toContain("day.holiday || day.date === '17'");
+    expect(weekTemplate).toContain('v-if="day.holiday"');
+    expect(weekTemplate).not.toContain("day.date === '17'");
     expect(weekTemplate).not.toContain('weekend-chip');
     expect(weekTemplate).not.toContain('class="call-button"');
     expect(preview).toContain('v-for="assignment in selectedWeekDay.assignments"');

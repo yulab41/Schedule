@@ -15,14 +15,17 @@ import {
   getDutyMemberName,
   type PhoneOption,
 } from './calendar-logic.js';
+import { truncateCalendarBadgeLabel } from './calendar-views.js';
 import ChangeBadge from './ChangeBadge.vue';
 
 const props = defineProps<{
   readonly assignment: CalendarDutyAssignment;
+  readonly compactShiftBadge?: boolean;
   readonly hideShiftBadge?: boolean;
   readonly markers?: readonly CalendarChangeMarker[];
   readonly member: CalendarDutyMember | undefined;
   readonly contactMode?: 'button' | 'hidden' | 'name';
+  readonly showDetails?: boolean;
 }>();
 const emit = defineEmits<{
   (event: 'open-events', assignment: CalendarDutyAssignment): void;
@@ -35,6 +38,19 @@ const phoneOptions = computed<readonly PhoneOption[]>(() => getAvailablePhoneOpt
 const visibleMarkers = computed(() => props.markers ?? props.assignment.changeMarkers);
 const canCall = computed(() => phoneOptions.value.length > 0);
 const contactMode = computed(() => props.contactMode ?? 'name');
+const shiftBadgeLabel = computed(() =>
+  props.compactShiftBadge === true
+    ? truncateCalendarBadgeLabel(props.assignment.shiftTypeAbbreviation)
+    : props.assignment.shiftTypeAbbreviation,
+);
+const shiftDetailLabel = computed(() => {
+  const abbreviation = props.assignment.shiftTypeAbbreviation.trim();
+  return abbreviation.endsWith('班') ? abbreviation : `${abbreviation}班`;
+});
+const dutyDetails = computed(
+  () =>
+    `${shiftDetailLabel.value} · ${shiftTimeRange.value} · ${props.assignment.scheduleRoleName}`,
+);
 const nameTitle = computed(() => {
   const base = `${props.assignment.shiftTypeName}（${shiftTimeRange.value}）`;
   if (canCall.value) {
@@ -71,7 +87,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="duty-cell" :class="`contact-${contactMode}`">
+  <div
+    class="duty-cell"
+    :class="[
+      `contact-${contactMode}`,
+      { 'can-call': canCall, 'has-details': showDetails === true },
+    ]"
+  >
     <button
       v-if="canCall && contactMode === 'name'"
       type="button"
@@ -84,6 +106,7 @@ onUnmounted(() => {
       {{ dutyName }}
     </button>
     <span v-else class="duty-name" :title="nameTitle">{{ dutyName }}</span>
+    <span v-if="showDetails" class="duty-details">{{ dutyDetails }}</span>
     <button
       v-if="canCall && contactMode === 'button'"
       type="button"
@@ -101,19 +124,21 @@ onUnmounted(() => {
       :style="{ backgroundColor: assignment.shiftTypeColor, color: assignment.shiftTypeTextColor }"
       :title="assignment.shiftTypeName"
     >
-      {{ assignment.shiftTypeAbbreviation }}
+      {{ shiftBadgeLabel }}
     </span>
-    <button
-      v-for="marker in visibleMarkers"
-      :key="marker"
-      type="button"
-      class="change-marker-button"
-      :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-      :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
-      @click.stop="emit('open-events', assignment)"
-    >
-      <ChangeBadge :marker="marker" />
-    </button>
+    <div v-if="visibleMarkers.length > 0" class="change-marker-list">
+      <button
+        v-for="marker in visibleMarkers"
+        :key="marker"
+        type="button"
+        class="change-marker-button"
+        :title="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+        :aria-label="`${getCalendarMarkerDescription(marker)}：查看事件记录`"
+        @click.stop="emit('open-events', assignment)"
+      >
+        <ChangeBadge :marker="marker" />
+      </button>
+    </div>
     <div v-if="isMenuOpen && canCall && contactMode !== 'hidden'" class="phone-menu" @click.stop>
       <template v-if="isCoarsePointer">
         <a
@@ -161,6 +186,16 @@ onUnmounted(() => {
 .duty-name {
   color: #111827;
   font-weight: 600;
+}
+
+.duty-details {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-color-text-secondary);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .duty-name.is-callable {
@@ -215,9 +250,49 @@ onUnmounted(() => {
   margin-left: 0;
 }
 
-.duty-cell.contact-button .shift-badge,
-.duty-cell.contact-button .change-marker-button {
+.duty-cell.contact-button .shift-badge {
   grid-row: 2;
+}
+
+.duty-cell.contact-button .change-marker-list {
+  display: inline-flex;
+  min-width: 0;
+  grid-row: 2;
+  align-items: center;
+  gap: 2px;
+}
+
+.duty-cell.contact-button.has-details {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 6px;
+}
+
+.duty-cell.contact-button.has-details.can-call {
+  grid-template-columns: minmax(0, 1fr) auto 44px;
+}
+
+.duty-cell.contact-button.has-details .duty-name {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.duty-cell.contact-button.has-details .duty-details {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.duty-cell.contact-button.has-details.can-call .duty-details {
+  grid-column: 1 / 3;
+}
+
+.duty-cell.contact-button.has-details .change-marker-list {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.duty-cell.contact-button.has-details .duty-phone-button {
+  grid-column: 3;
+  grid-row: 1 / span 2;
 }
 
 .shift-badge {
@@ -229,6 +304,11 @@ onUnmounted(() => {
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.change-marker-list {
+  display: contents;
 }
 
 .change-marker-button {

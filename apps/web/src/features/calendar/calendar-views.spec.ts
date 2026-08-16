@@ -8,6 +8,7 @@ import {
   getBusinessMonthOf,
   getPreferredViewMode,
   getVisibleWeekForMonth,
+  getWeekBusinessMonths,
   getWeekDays,
   getWeekIndexForToday,
   getWeekLabel,
@@ -15,6 +16,7 @@ import {
   getWeekStartDate,
   groupAssignmentsByDate,
   isWeekend,
+  truncateCalendarBadgeLabel,
 } from './calendar-views.js';
 
 function assignment(businessDate: string, slotPosition = 1): CalendarDutyAssignment {
@@ -62,7 +64,21 @@ describe('Calendar view helpers', () => {
 
   it('labels weeks by their calendar-month ordinal', () => {
     expect(getWeekOfMonthLabel('2026-08-10')).toBe('8月第3周');
-    expect(getWeekOfMonthLabel('2026-08-31')).toBe('8月第6周');
+    expect(getWeekOfMonthLabel('2026-07-30')).toBe('7月第5周-8月第1周');
+    expect(getWeekOfMonthLabel('2026-08-31')).toBe('8月第6周-9月第1周');
+    expect(getWeekOfMonthLabel('2026-09-07')).toBe('9月第2周');
+  });
+
+  it('loads every month touched by a continuous Monday-to-Sunday week', () => {
+    expect(getWeekBusinessMonths('2026-07-30')).toEqual(['2026-07', '2026-08']);
+    expect(getWeekBusinessMonths('2026-08-10')).toEqual(['2026-08']);
+  });
+
+  it('keeps compact calendar badges on one line with at most two characters', () => {
+    expect(truncateCalendarBadgeLabel('全天')).toBe('全天');
+    expect(truncateCalendarBadgeLabel('全天班')).toBe('全天');
+    expect(truncateCalendarBadgeLabel('AM')).toBe('AM');
+    expect(truncateCalendarBadgeLabel('DAY')).toBe('DA');
   });
 
   it('chooses the week containing today when today is inside the displayed month', () => {

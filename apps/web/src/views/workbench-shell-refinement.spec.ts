@@ -97,9 +97,10 @@ describe('formal compact workbench shell', () => {
   it('uses the confirmed full-month card and compact controls', () => {
     expect(calendarView).not.toContain('<h2>排班日历</h2>');
     expect(calendarView).toContain('class="month-calendar-card"');
+    expect(calendarView).toContain('class="week-calendar-card"');
     expect(calendarView).toContain('class="month-swipe-hint"');
     expect(calendarView).toMatch(
-      /\.month-calendar-card\s*{[^}]*border-radius:\s*var\(--ui-radius-large\);[^}]*box-shadow:\s*var\(--ui-shadow-card\);/s,
+      /\.month-calendar-card,\s*\.week-calendar-card\s*{[^}]*border-radius:\s*var\(--ui-radius-large\);[^}]*box-shadow:\s*var\(--ui-shadow-card\);/s,
     );
     expect(calendarView).toMatch(
       /\.view-mode-button\s*{[^}]*min-height:\s*44px;[^}]*font-size:\s*13px;/s,

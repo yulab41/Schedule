@@ -1206,12 +1206,19 @@ async function runMemberAction(
 
   .member-heading,
   .section-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--ui-spacing-sm);
   }
 
   .member-heading p,
   .section-heading p {
-    max-width: 230px;
+    max-width: none;
+  }
+
+  .member-count,
+  .section-heading > span {
+    justify-self: start;
   }
 
   .identity-form,
@@ -1328,16 +1335,6 @@ async function runMemberAction(
 }
 
 @media (max-width: 360px) {
-  .member-heading,
-  .section-heading {
-    display: grid;
-  }
-
-  .member-count,
-  .section-heading > span {
-    justify-self: start;
-  }
-
   .member-table .member-card .mobile-member-actions,
   .member-table .member-card .claim-actions {
     grid-template-columns: 1fr;

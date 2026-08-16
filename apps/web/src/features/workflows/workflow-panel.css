@@ -259,15 +259,21 @@
   }
 
   .workflow-panel-heading {
+    display: grid;
+    width: 100%;
     align-items: flex-start;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .workflow-panel-heading p {
-    max-width: 210px;
+    max-width: none;
   }
 
   .workflow-heading-actions {
-    max-width: 150px;
+    display: grid;
+    width: 100%;
+    max-width: none;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }
 
   .workflow-heading-actions :deep(.t-button) {
@@ -353,15 +359,6 @@
 }
 
 @media (max-width: 360px) {
-  .workflow-panel-heading {
-    display: grid;
-  }
-
-  .workflow-heading-actions {
-    width: 100%;
-    max-width: none;
-  }
-
   .workflow-form-actions {
     grid-template-columns: 1fr;
   }

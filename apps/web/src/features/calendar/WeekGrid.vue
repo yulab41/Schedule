@@ -6,12 +6,7 @@ import type {
 } from '@schedule/contracts';
 import { computed } from 'vue';
 
-import {
-  getWeekDays,
-  getWeekdayLabel,
-  groupAssignmentsByDate,
-  isWeekend,
-} from './calendar-views.js';
+import { getWeekDays, groupAssignmentsByDate, isWeekend } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
 import { getDutyMembershipId, getHolidayShortLabel, isPastBusinessDate } from './calendar-logic.js';
 
@@ -45,7 +40,7 @@ const weekCardHeight = computed(() => {
       return assignmentUnits + holidayUnits;
     }),
   );
-  return 88 + longestContent * 44;
+  return 48 + longestContent * 38;
 });
 
 function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | undefined {
@@ -76,6 +71,15 @@ function selectDate(date: string): void {
 
 <template>
   <section class="week-grid" aria-label="周排班">
+    <div class="weekday-row" aria-hidden="true">
+      <span
+        v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']"
+        :key="weekday"
+        :class="{ 'is-weekend': weekday === '六' || weekday === '日' }"
+      >
+        {{ weekday }}
+      </span>
+    </div>
     <div class="week-row">
       <article
         v-for="date in days"
@@ -98,7 +102,6 @@ function selectDate(date: string): void {
         @keydown.space.prevent="selectDate(date)"
       >
         <header class="day-header">
-          <span class="weekday">{{ getWeekdayLabel(date) }}</span>
           <span class="day-number">{{ date.slice(8) }}</span>
           <span
             v-if="holidayFor(date) !== undefined"
@@ -123,6 +126,7 @@ function selectDate(date: string): void {
           >
             <DutyCell
               :assignment="assignment"
+              compact-shift-badge
               contact-mode="hidden"
               :member="memberFor(assignment)"
               @open-events="emit('open-events', $event)"
@@ -137,13 +141,35 @@ function selectDate(date: string): void {
 <style scoped>
 .week-grid {
   display: grid;
-  gap: 4px;
+  overflow: hidden;
+  background: var(--ui-color-border);
 }
 
+.weekday-row,
 .week-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  gap: 1px;
+}
+
+.weekday-row {
+  min-height: 32px;
+  align-items: center;
+  background: #f8fafc;
+}
+
+.weekday-row span {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 600;
+  text-align: center;
+}
+
+.weekday-row span.is-weekend {
+  color: var(--ui-color-weekend);
+}
+
+.week-row {
   align-items: stretch;
 }
 
@@ -153,8 +179,8 @@ function selectDate(date: string): void {
   padding: 8px;
   flex-direction: column;
   background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: 6px;
+  border: 0;
+  border-radius: 0;
   cursor: pointer;
   transition: box-shadow var(--ui-duration-fast) ease;
 }
@@ -169,7 +195,11 @@ function selectDate(date: string): void {
 }
 
 .day-cell.is-today {
-  border: 2px solid var(--ui-color-primary);
+  box-shadow: inset 0 0 0 1px var(--ui-color-primary);
+}
+
+.day-cell.is-today.is-selected {
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
 }
 
 .day-cell.is-past {
@@ -178,34 +208,31 @@ function selectDate(date: string): void {
 
 .day-header {
   display: flex;
-  min-height: 64px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--ui-color-border);
+  min-width: 0;
+  min-height: 24px;
+  margin-bottom: 5px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2px;
 }
 
 .day-number {
   display: inline-grid;
-  min-width: 22px;
-  height: 22px;
+  min-width: 20px;
+  height: 20px;
   place-items: center;
   color: var(--ui-color-text-primary);
   background: transparent;
   border-radius: 50%;
-  font-size: var(--ui-font-size-lg);
+  font-size: var(--ui-font-size-sm);
   font-weight: 600;
 }
 
-.day-cell.is-past .day-number,
-.day-cell.is-past .weekday {
+.day-cell.is-past .day-number {
   color: #4b5563;
 }
 
-.day-cell.is-weekend .day-number,
-.day-cell.is-weekend .weekday {
+.day-cell.is-weekend .day-number {
   color: var(--ui-color-weekend);
 }
 
@@ -224,19 +251,15 @@ function selectDate(date: string): void {
   background: var(--ui-color-today-marker);
 }
 
-.weekday {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-sm);
-  font-weight: 600;
-}
-
 .holiday-tag {
-  max-width: 100%;
-  padding: 1px 5px;
+  max-width: calc(100% - 20px);
+  min-height: 16px;
+  padding: 0 3px;
   overflow: hidden;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
+  line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -253,7 +276,7 @@ function selectDate(date: string): void {
 
 .duty-list {
   display: grid;
-  gap: 4px;
+  gap: 5px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -266,9 +289,9 @@ function selectDate(date: string): void {
 :deep(.duty-cell) {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 2px;
-  align-items: center;
+  align-items: start;
   font-size: 11px;
   line-height: 1.2;
 }
@@ -283,54 +306,68 @@ function selectDate(date: string): void {
 }
 
 :deep(.shift-badge),
-:deep(.change-marker-button) {
+:deep(.change-marker-list) {
+  display: inline-flex;
   grid-row: 2;
+  align-items: center;
+  gap: 2px;
 }
 
 :deep(.shift-badge),
 :deep(.change-marker) {
   min-width: 14px;
   min-height: 14px;
-  padding: 0 3px;
+  padding: 0 2px;
+  overflow: hidden;
   font-size: 9px;
   line-height: 14px;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
+  .weekday-row,
   .week-row {
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 2px;
+    gap: 1px;
+  }
+
+  .weekday-row {
+    min-height: 28px;
+  }
+
+  .weekday-row span {
+    font-size: 11px;
   }
 
   .day-cell {
-    padding: 5px 3px;
-    border-radius: 8px;
+    padding: 4px 3px;
+    border: 0;
+    border-radius: 0;
   }
 
   .day-header {
-    min-height: 54px;
+    min-height: 20px;
+    margin-bottom: 4px;
     gap: 2px;
-  }
-
-  .weekday {
-    font-size: 9px;
   }
 
   .day-number {
     min-width: 18px;
     height: 18px;
-    font-size: 15px;
+    font-size: clamp(10px, 2.8vw, 12px);
     line-height: 1;
   }
 
   .holiday-tag {
+    max-width: calc(100% - 18px);
     min-height: 14px;
-    padding: 0 3px;
+    padding: 0 2px;
     font-size: 8px;
     line-height: 14px;
   }
 
-  :deep(.duty-list) {
+  .duty-list {
     gap: 2px;
   }
 
@@ -340,7 +377,22 @@ function selectDate(date: string): void {
   }
 
   :deep(.duty-name) {
-    font-size: 10px;
+    font-size: clamp(9px, 2.65vw, 10px);
+  }
+
+  :deep(.shift-badge),
+  :deep(.change-marker) {
+    min-width: 12px;
+    min-height: 14px;
+    padding-inline: 2px;
+    font-size: 8px;
+    line-height: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-cell {
+    transition: none;
   }
 }
 </style>

@@ -244,13 +244,14 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 下一批次：提交并推送最终状态 checkpoint `docs(status): record adjacent-month color deployment`，将同一 `HEAD` 作为最终 release 部署。
 - 停止条件：最终状态 checkpoint 已推送，生产备份、release、`ecs-verify.sh` 与正式域名颜色复核全部通过；随后等待用户视觉复核。
 
-## 2026-08-16 日历周视图与列表视图精修（当前批次）
+## 2026-08-16 连续周视图、列表一致性与微信移动满宽修复（当前批次）
 
-- 已完成：正式周视图改为七列横向布局，按最长当天内容统一动态高度；姓名、班次、加/换标识分层显示；点击日期复用下方详情轨道；周切换按周推进并显示“月第几周”。列表视图增加冻结月份工具栏、前后月份切换和定位今天，电话入口改为独立按钮；月/周/列表定位按钮默认透明无边框。API、权限、排班数据和写入路径未改。
-- 测试与验证：测试先行回归文件已通过；日历/Storybook 定向测试 47/47、Web typecheck、生产 Web build、Storybook build、`pnpm --config.production=false verify`（77 个测试文件、527 项通过；29 个数据库集成文件、252 项按本机无测试 MySQL 跳过）、`pnpm smoke:browser`、`pnpm smoke:check-core`、Prettier 和 `git diff --check` 通过。当前源码隔离 5174 浏览器已核对周卡等高/无横向溢出/跨月切周/详情交互，以及列表 sticky 工具栏/月份切换/定位；Storybook 预览页面为 `web-ui-2-0-calendar-views-refinement--mobile-390`。
-- 代码 checkpoint：`8a49434`（`feat(web): refine calendar week and list views`）已提交并推送；正式发布前数据库备份 archive 为 `99d2352c-5908-4d8f-865a-372a7bb8d9b8`（44 张表、5732 行），release `8a49434b43741ca9a9a7562cfab7f8d628c93670` 已部署。
-- 正式核验：发布前/后的 `/tmp/ecs-verify.sh` 均通过；正式 D0796 会话核对 1280px 周/列表/月视图，周卡 7 列等高、列表 sticky 工具栏、独立电话按钮、月份切换与三视图定位均正常，浏览器日志为空；当前源码 390/320 smoke 通过。
-- 最终状态 checkpoint `1570689` 已提交、推送并部署；其发布前数据库备份 archive 为 `637a925d-9693-45f1-97f7-93d2f7824ffa`（44 张表、5741 行），release 为 `1570689259fad25d278db7dbd1db1973d64b2f94`。
-- 状态记录收口前再次创建生产备份 archive：`323d1957-66df-4cb4-956b-5c9256bfacda`（44 张表、5748 行）；本次文档 checkpoint 提交信息为 `docs(status): finalize calendar views production status`，只更新部署记录并作为最终 release 部署。
-- 当前状态：代码和生产功能已完成，最终状态记录已准备收口；部署该文档 checkpoint 后保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，随后等待用户复核。
-- 停止条件：最终状态 checkpoint 推送，生产备份、release、`ecs-verify.sh` 和正式域名日历专项核验通过，且 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后等待用户复核。
+- 已实现：周视图以周一至周日连续推进，不再绑定单月；跨月标题显示如“7月第5周-8月第1周”，下一周连续为“8月第2周”。跨月周同时读取所涉及月份的排班数据，合并后仍使用原只读日历模型、筛选和事件入口。
+- 周视图与月视图共用圆角日历表面：导航、星期栏和七列日期格使用单线分隔；七格按最长当天的排班/节假日内容统一动态高度。姓名置于上层，班种与换/加标识置于下层；班种标签单行、固定紧凑内边距并截断为两个 Unicode 字符；电话继续放在点击日期后的详情轨道，避免七列内重叠。
+- 列表视图已对齐 Storybook 手机模板：固定月份工具栏、前后月份和定位今天、排序提示、圆角日卡、今天浅蓝选中态、班次数量、完整班种/时间/岗位、换加标识与薄荷色电话入口均进入正式组件。
+- 微信移动布局修复：请假、换班、加扣班与成员标题区域在 760px 以下使用明确的 `minmax(0, 1fr)` 单列轨道，说明与操作占满可用宽度；群组码在 360px 以下按固定数字块和 4px 间距向左聚合。未改表单提交、审批、权限、API、路由、数据库或共享契约。
+- 回归与浏览器验证：测试先行旧实现共出现 10 项日历/连续周失败，移动轨道追加断言后旧 CSS 再出现 2 项失败；实现后定向 4 文件 27/27、工作台壳 5/5、Web typecheck、生产 Web build、Storybook build、Prettier、ESLint、全仓 Vitest 78 文件/533 项通过（29 个数据库集成文件/252 项按本机无测试 MySQL 跳过）、`git diff --check` 通过。`pnpm smoke:browser` 的 pnpm 包装器因本机非 TTY 依赖目录状态检查停止，使用同一脚本入口 `node scripts/smoke-browser.mjs` 在独立 5174 当前源码服务复跑通过，覆盖管理员、成员、访客、vkey 与访问记录且无浏览器错误。
+- 390/320 实测：周视图七格等高、无横向滚动，`全天` 为 20px 宽单行标签；跨月标题及下一周编号连续。Storybook 周切换也已改用真实日期并取消前后各一周限制，实测从“7月第5周-8月第1周”进入“8月第2周”，周六/日不再伪造“休息”标识。请假/换班/加扣班说明与操作宽度均等于 351px 内容区，成员标题三处均为满宽单列；320px 群组码为 40px 数字块、4px 间距、左聚合。生产列表源码预览和 Storybook 模板均为 349–351px 全宽卡片及固定工具栏。
+- 行为审计：跨月周由一次单月 GET 扩展为对触及月份各一次 GET 并只合并 assignments；最新请求追踪、错误处理、节假日降级、筛选、选中日期、电话和事件调用次数保持原语义。周切换不再写入月视图的 `businessMonth`，月/列表月份状态因此独立保留；所有移动满宽修改均为 CSS。
+- 本轮 checkpoint 识别消息：`fix(web): unify continuous calendar and mobile layouts`。下一批次只包含显式暂存、提交、推送、生产备份、release 部署、`ecs-verify.sh` 和正式域名 390/320 日历及移动工作流专项复核。
+- 停止条件：Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，正式跨月周、列表卡片、请假/换班/加扣班/成员满宽和群组码左聚合全部通过；随后等待用户视觉复核。

@@ -725,8 +725,7 @@ function resetMessages(): void {
 
 @media (max-width: 360px) {
   .group-code-digits {
-    width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: var(--ui-spacing-xxs);
   }
 

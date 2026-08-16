@@ -6,7 +6,7 @@ import type {
 } from '@schedule/contracts';
 import { computed } from 'vue';
 
-import { getDutyMembershipId, getHolidayShortLabel, isPastBusinessDate } from './calendar-logic.js';
+import { getDutyMembershipId, getHolidayShortLabel } from './calendar-logic.js';
 import { buildDayList, isWeekend } from './calendar-views.js';
 import DutyCell from './DutyCell.vue';
 
@@ -50,7 +50,6 @@ function holidayTitle(date: string): string | undefined {
       :key="day.businessDate"
       class="day-row"
       :class="{
-        'is-past': isPastBusinessDate(day.businessDate, props.today),
         'is-today': day.isToday,
         'is-weekend': isWeekend(day.businessDate),
       }"
@@ -75,13 +74,16 @@ function holidayTitle(date: string): string | undefined {
           }}
         </span>
         <span v-if="day.isToday" class="today-badge">今天</span>
+        <b class="duty-count">{{ day.assignments.length }} 班</b>
       </header>
       <ul class="duty-list">
         <li v-for="assignment in day.assignments" :key="assignment.id">
           <DutyCell
             :assignment="assignment"
             contact-mode="button"
+            hide-shift-badge
             :member="memberFor(assignment)"
+            show-details
             @open-events="emit('open-events', $event)"
           />
         </li>
@@ -97,32 +99,25 @@ function holidayTitle(date: string): string | undefined {
 }
 
 .day-row {
-  padding: 10px 12px;
+  padding: 11px;
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
-  border-radius: 6px;
+  border-radius: var(--ui-radius-medium);
 }
 
 .day-row.is-today {
+  padding: 10px;
+  background: var(--ui-color-primary-light);
   border: 2px solid var(--ui-color-primary);
-}
-
-.day-row.is-past {
-  background: #f3f4f6;
 }
 
 .day-header {
   display: flex;
-  gap: 8px;
   align-items: center;
-  margin-bottom: 6px;
+  gap: 7px;
+  padding-bottom: 8px;
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
-}
-
-.day-row.is-past .day-header,
-.day-row.is-past .day-header strong {
-  color: #4b5563;
 }
 
 .day-row.is-weekend .day-header strong,
@@ -130,19 +125,10 @@ function holidayTitle(date: string): string | undefined {
   color: var(--ui-color-weekend);
 }
 
-.day-row.is-past :deep(.duty-name),
-.day-row.is-past :deep(.duty-name.is-callable) {
-  color: #4b5563;
-}
-
-.day-row.is-past :deep(.duty-name.is-callable:hover) {
-  color: #1f5aa6;
-  text-decoration: underline;
-}
-
 .day-header strong {
   color: var(--ui-color-text-primary);
   font-size: var(--ui-font-size-md);
+  font-variant-numeric: tabular-nums;
 }
 
 .today-badge {
@@ -152,6 +138,17 @@ function holidayTitle(date: string): string | undefined {
   border-radius: 10px;
   font-size: var(--ui-font-size-xs);
   font-weight: 600;
+}
+
+.duty-count {
+  margin-left: auto;
+  padding: 4px 7px;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .holiday-tag {
@@ -173,9 +170,37 @@ function holidayTitle(date: string): string | undefined {
 
 .duty-list {
   display: grid;
-  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.duty-list li {
+  min-width: 0;
+  padding: 8px 0;
+  border-top: 1px solid #edf1f5;
+}
+
+.duty-list :deep(.duty-cell.contact-button) {
+  min-width: 0;
+}
+
+.duty-list :deep(.duty-name) {
+  min-width: 0;
+  font-size: 12px;
+}
+
+.duty-list :deep(.duty-details) {
+  font-size: 9px;
+}
+
+.duty-list :deep(.duty-phone-button) {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+  border-radius: 10px;
+}
+
+.duty-list :deep(.change-marker-list) {
+  gap: 4px;
 }
 </style>

@@ -284,3 +284,12 @@
 - 发布修正：首次 `ecs:package` 复用了旧 `apps/web/dist`，首次线上核验仍为 44px 群组行；按当前源码重新 `pnpm build`、打包并部署同一 commit，未将首次结果视为最终发布。
 - 正式发布与核验：代码 checkpoint `e841c53` 已推送；最终部署前备份 `056ea6a5-2bf1-4df0-ac6e-a989206f224e`（44 张表、5531 行），release `e841c53f0462ddf5987cb02266abaaf50e12a501` 已部署，`ecs-verify.sh` 退出码 0。正式 1280×720/390×844 抬头均为 68px、群组文字行 20.25px、箭头 44px；移动无横向溢出，listbox 2 项且 `gap/row-gap = 4px`，Escape 可关闭、原生 `select` 为 0，日志无 error/warning。
 - 状态：已完成（含生产发布与线上核验）→ 待用户复核。checkpoint 识别消息：`fix(web): compact group header spacing`；最终状态 checkpoint：`docs(status): record compact group header deployment`。
+
+## 2026-08-16 连续周视图、列表一致性与微信移动满宽修复
+
+- 回归来源：周卡动态高度、月内周标签和列表卡片精修由 `8a49434` 引入；请假标题 `max-width: 220px` 来自 `2d6f0a2`，换班/加扣班标题与操作宽度来自 `2bb9fce`，成员标题 `max-width: 230px` 来自 `23c1d9f`，窄屏群组码 `space-between` 来自 `bfa0755`。本轮已对各关键表达式执行 `git log -S` 与 `git blame`。
+- 测试先行：连续周月份、双月周标题、班种两字符截断、月式周网格、Storybook 列表一致性和移动满宽源码断言先在旧实现失败；浏览器进一步发现未定义显式 Grid 单列轨道时按钮仍会收缩到 247px，新增 `minmax(0, 1fr)` 断言后旧 CSS 2 项失败，实现后定向 27/27 及工作台壳 5/5 通过。
+- 语义审计：跨月周只增加第二个月的只读日历 GET，并把 assignments 合并到原模型；请求追踪、Promise 拒绝范围、空值降级、节假日失败降级、筛选、电话、事件和日期选择处理不变。周切换仅改变 `weekStart`/选中日期，不再同步修改月视图月份，这是明确的产品行为变更。移动工作流和群组码只改 CSS，无 API、权限、数据或副作用变化。
+- 运行/浏览器验证：`pnpm smoke:browser` 包装器因本机 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` 未进入脚本；等价命令 `SMOKE_BASE_URL=http://127.0.0.1:5174 node scripts/smoke-browser.mjs` 首轮在 Sheet 动画瞬间误判 44px“完成”按钮，独立测量为 44×44px，原样第二轮通过管理员、成员、访客、vkey 与访问记录全流程且无浏览器错误。Web typecheck、生产 build、Storybook build、Prettier、ESLint、全仓 Vitest（78 passed/29 skipped；533 passed/252 skipped）和 `git diff --check` 通过。
+- 浏览器量测：Storybook 390px/320px 周视图七列 `scrollWidth = clientWidth`，七格高度一致，班种标签 `white-space: nowrap` 且最多两字符；Storybook 与正式页均实测“7月第5周-8月第1周”后右切为“8月第2周”，预览周六/日无额外“休息”标识。列表固定工具栏、今天卡、数量、元数据和电话入口与 Storybook 一致。390px 请假/换班/加扣班/成员使用 351px 单列满宽；320px 群组码按 40px 数字块、4px 间距向左聚合。
+- 状态：已实现待生产发布；checkpoint 识别消息为 `fix(web): unify continuous calendar and mobile layouts`。

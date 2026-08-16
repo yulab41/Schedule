@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
+import {
+  addWeeks,
+  getWeekDays,
+  getWeekLabel,
+  getWeekOfMonthLabel,
+} from '../../features/calendar/calendar-views.js';
 import Ui2Icon from './Ui2Icon.vue';
 
 export type CalendarPreviewLayout = 'desktop' | 'mobile';
@@ -17,6 +23,7 @@ interface PreviewAssignment {
 }
 
 interface PreviewWeekDay {
+  readonly businessDate?: string;
   readonly date: string;
   readonly holiday?: string;
   readonly holidayTone?: 'holiday' | 'workday';
@@ -62,11 +69,9 @@ const monthLabel = computed(() => {
 });
 
 const weekOffset = ref(0);
-const weekNumber = computed(() => 3 + weekOffset.value);
-const weekRange = computed(() => {
-  const start = 12 + weekOffset.value * 7;
-  return `10月${start}日 – 10月${start + 6}日`;
-});
+const previewWeekStart = computed(() => addWeeks('2026-10-12', weekOffset.value));
+const weekTitle = computed(() => getWeekOfMonthLabel(previewWeekStart.value));
+const weekRange = computed(() => getWeekLabel(previewWeekStart.value).replace('2026年', ''));
 
 const baseWeekDays: readonly PreviewWeekDay[] = [
   {
@@ -215,13 +220,18 @@ const baseWeekDays: readonly PreviewWeekDay[] = [
   },
 ];
 
-const weekDays = computed<readonly PreviewWeekDay[]>(() =>
-  baseWeekDays.map((day, index) => ({
-    ...day,
-    date: String(12 + weekOffset.value * 7 + index),
-    isToday: weekOffset.value === 0 && Boolean(day.isToday),
-  })),
-);
+const weekDays = computed<readonly PreviewWeekDay[]>(() => {
+  const businessDates = getWeekDays(previewWeekStart.value);
+  return baseWeekDays.map((day, index) => {
+    const businessDate = businessDates[index] ?? previewWeekStart.value;
+    return {
+      ...day,
+      businessDate,
+      date: businessDate.slice(8),
+      isToday: weekOffset.value === 0 && Boolean(day.isToday),
+    };
+  });
+});
 
 const selectedWeekdayIndex = ref(2);
 const selectedWeekDay = computed<PreviewWeekDay>(
@@ -235,12 +245,12 @@ const weekCardHeight = computed(() => {
         (total, assignment) => total + 1 + (assignment.marker ? 0.25 : 0),
         0,
       );
-      const holidayUnits = day.holiday || day.date === '17' ? 0.5 : 0;
+      const holidayUnits = day.holiday ? 0.5 : 0;
       return assignmentUnits + holidayUnits;
     }),
   );
-  const baseHeight = props.layout === 'desktop' ? 108 : 70;
-  const assignmentHeight = props.layout === 'desktop' ? 62 : 44;
+  const baseHeight = props.layout === 'desktop' ? 54 : 42;
+  const assignmentHeight = props.layout === 'desktop' ? 42 : 34;
   return baseHeight + longestContent * assignmentHeight;
 });
 
@@ -324,8 +334,13 @@ function shiftMonth(delta: -1 | 1): void {
 }
 
 function shiftWeek(delta: -1 | 1): void {
-  weekOffset.value = Math.max(-1, Math.min(1, weekOffset.value + delta));
+  weekOffset.value += delta;
   showToast(delta < 0 ? '已切换到上一周' : '已切换到下一周');
+}
+
+function formatPreviewMonthDay(businessDate: string | undefined): string {
+  if (businessDate === undefined) return '';
+  return `${Number(businessDate.slice(5, 7))}月${Number(businessDate.slice(8))}日`;
 }
 
 function locateToday(): void {
@@ -459,14 +474,14 @@ function showToast(message: string): void {
         </section>
 
         <section v-else-if="activeView === 'week'" class="week-view" aria-label="周视图预览">
-          <header class="week-toolbar">
-            <div class="month-toolbar week-month-toolbar">
+          <section class="week-calendar-card">
+            <header class="month-toolbar week-month-toolbar">
               <button class="month-step" type="button" aria-label="上一周" @click="shiftWeek(-1)">
                 <Ui2Icon name="chevron-left" />
               </button>
               <div class="month-heading">
-                <strong>{{ monthLabel }}</strong
-                ><span>周视图 · 按周切换</span>
+                <strong>{{ weekTitle }}</strong
+                ><span>{{ weekRange }}</span>
               </div>
               <button
                 class="locate-button"
@@ -481,90 +496,87 @@ function showToast(message: string): void {
               <button class="month-step" type="button" aria-label="下一周" @click="shiftWeek(1)">
                 <Ui2Icon name="chevron-right" />
               </button>
-            </div>
-            <div class="week-index">
-              <strong>{{ monthLabel.replace('2026年', '') }} · 第 {{ weekNumber }} 周</strong
-              ><span>{{ weekRange }} · 共 {{ weekDays.length }} 天</span>
-            </div>
-          </header>
-
-          <div class="week-rail" tabindex="0" aria-label="周一至周日七列排班轨道">
-            <div class="week-grid">
-              <article
-                v-for="(day, dayIndex) in weekDays"
-                :key="day.date"
-                class="week-day-card"
-                :style="{ minHeight: `${weekCardHeight}px` }"
-                :class="{
-                  today: day.isToday,
-                  weekend: day.isWeekend,
-                  selected: selectedWeekdayIndex === dayIndex,
-                }"
-                role="button"
-                tabindex="0"
-                :aria-pressed="selectedWeekdayIndex === dayIndex"
-                :aria-label="
-                  '选择' +
-                  monthLabel.replace('2026年', '') +
-                  day.date +
-                  '日 周' +
-                  day.weekday +
-                  '查看值班详情'
-                "
-                @click="selectWeekDay(dayIndex)"
-                @keydown.enter.prevent="selectWeekDay(dayIndex)"
-                @keydown.space.prevent="selectWeekDay(dayIndex)"
+            </header>
+            <div class="week-weekday-row" aria-hidden="true">
+              <span
+                v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']"
+                :key="weekday"
+                :class="{ weekend: weekday === '六' || weekday === '日' }"
+                >{{ weekday }}</span
               >
-                <header class="week-day-heading">
-                  <span class="week-weekday">周{{ day.weekday }}</span>
-                  <strong>{{ day.date }}</strong>
-                  <span v-if="day.isToday" class="today-chip">今天</span>
-                  <span
-                    v-if="day.holiday || day.date === '17'"
-                    class="holiday-chip"
-                    :class="day.holiday ? `is-${day.holidayTone}` : 'is-holiday'"
-                    >{{ day.holiday ?? '休息' }}</span
-                  >
-                </header>
-                <div class="week-assignments">
-                  <article
-                    v-for="assignment in day.assignments"
-                    :key="`${day.date}-${assignment.name}-${assignment.shift}`"
-                    class="week-assignment"
-                  >
-                    <div class="assignment-top">
-                      <strong class="assignment-name" :title="assignment.name">{{
-                        assignment.name
-                      }}</strong>
-                    </div>
-                    <div class="assignment-meta">
-                      <span class="shift-pill" :title="assignment.shift">{{
-                        assignment.shift
-                      }}</span>
-                      <span
-                        v-if="assignment.marker"
-                        class="change-pill"
-                        :aria-label="assignment.marker"
-                        :title="assignment.marker"
-                        >{{ assignment.marker === '换班' ? '换' : '加' }}</span
-                      >
-                    </div>
-                    <span class="assignment-role">{{ assignment.role }}</span>
-                    <span class="assignment-time">{{ assignment.time }}</span>
-                  </article>
-                </div>
-              </article>
             </div>
-          </div>
-          <p class="rail-hint">
-            <span>周一</span> 至 <span>周日</span> 七列展示 · 点击日期查看完整值班详情
-          </p>
+            <div class="week-rail" tabindex="0" aria-label="周一至周日七列排班轨道">
+              <div class="week-grid">
+                <article
+                  v-for="(day, dayIndex) in weekDays"
+                  :key="day.date"
+                  class="week-day-card"
+                  :style="{ minHeight: `${weekCardHeight}px` }"
+                  :class="{
+                    today: day.isToday,
+                    weekend: day.isWeekend,
+                    selected: selectedWeekdayIndex === dayIndex,
+                  }"
+                  role="button"
+                  tabindex="0"
+                  :aria-pressed="selectedWeekdayIndex === dayIndex"
+                  :aria-label="
+                    '选择' +
+                    formatPreviewMonthDay(day.businessDate) +
+                    ' 周' +
+                    day.weekday +
+                    '查看值班详情'
+                  "
+                  @click="selectWeekDay(dayIndex)"
+                  @keydown.enter.prevent="selectWeekDay(dayIndex)"
+                  @keydown.space.prevent="selectWeekDay(dayIndex)"
+                >
+                  <header class="week-day-heading">
+                    <strong>{{ day.date }}</strong>
+                    <span
+                      v-if="day.holiday"
+                      class="holiday-chip"
+                      :class="`is-${day.holidayTone}`"
+                      >{{ day.holiday }}</span
+                    >
+                  </header>
+                  <div class="week-assignments">
+                    <article
+                      v-for="assignment in day.assignments"
+                      :key="`${day.date}-${assignment.name}-${assignment.shift}`"
+                      class="week-assignment"
+                    >
+                      <div class="assignment-top">
+                        <strong class="assignment-name" :title="assignment.name">{{
+                          assignment.name
+                        }}</strong>
+                      </div>
+                      <div class="assignment-meta">
+                        <span class="shift-pill" :title="assignment.shift">{{
+                          assignment.shift.slice(0, 2)
+                        }}</span>
+                        <span
+                          v-if="assignment.marker"
+                          class="change-pill"
+                          :aria-label="assignment.marker"
+                          :title="assignment.marker"
+                          >{{ assignment.marker === '换班' ? '换' : '加' }}</span
+                        >
+                      </div>
+                      <span class="assignment-role">{{ assignment.role }}</span>
+                      <span class="assignment-time">{{ assignment.time }}</span>
+                    </article>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
           <section class="selected-summary week-selected-summary" aria-label="选中日期值班详情">
             <header>
               <div>
                 <span>选中日期</span>
                 <strong
-                  >{{ monthLabel.replace('2026年', '') }}{{ selectedWeekDay.date }}日 · 周{{
+                  >{{ formatPreviewMonthDay(selectedWeekDay.businessDate) }} · 周{{
                     selectedWeekDay.weekday
                   }}</strong
                 >
@@ -844,7 +856,7 @@ button:focus-visible {
 }
 
 .month-card,
-.week-toolbar,
+.week-calendar-card,
 .list-day {
   background: var(--preview-surface);
   border: 1px solid var(--preview-border);
@@ -1133,110 +1145,103 @@ button:focus-visible {
 .week-view {
   margin: 12px;
 }
-.week-toolbar {
+.week-calendar-card {
   overflow: hidden;
 }
 .week-month-toolbar {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--preview-border);
 }
-.week-index {
-  display: flex;
-  padding: 0 14px 13px;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.week-index strong {
-  color: var(--preview-primary);
-  font-size: 14px;
-  letter-spacing: -0.01em;
-}
-.week-index span {
+.week-weekday-row {
+  display: grid;
+  min-height: 28px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: center;
   color: var(--preview-muted);
-  font-size: 10px;
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+}
+.week-weekday-row span.weekend {
+  color: var(--preview-red);
 }
 .week-rail {
-  margin-top: 10px;
   overflow-x: hidden;
-  padding-bottom: 4px;
 }
 .week-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
+  gap: 1px;
   min-width: 0;
   align-items: stretch;
+  background: var(--preview-border);
 }
 .week-day-card {
   display: flex;
-  padding: 10px;
+  min-width: 0;
+  padding: 8px;
   flex-direction: column;
   align-items: stretch;
   background: var(--preview-surface);
-  border: 1px solid var(--preview-border);
-  border-radius: 15px;
+  border: 0;
+  border-radius: 0;
   cursor: pointer;
-  box-shadow: 0 3px 12px rgb(21 43 67 / 5%);
-  transition:
-    box-shadow 160ms ease,
-    transform 160ms ease;
+  transition: box-shadow 160ms ease;
 }
 .week-day-card.today {
   background: var(--preview-primary-tint);
-  border: 2px solid var(--preview-primary);
-  padding: 9px;
+  box-shadow: inset 0 0 0 1px var(--preview-primary);
 }
 .week-day-card.selected {
-  box-shadow:
-    inset 0 0 0 2px var(--preview-primary),
-    0 3px 12px rgb(21 43 67 / 5%);
+  box-shadow: inset 0 0 0 2px var(--preview-primary);
 }
 .week-day-card:focus-visible {
   outline: 3px solid rgb(10 102 213 / 28%);
   outline-offset: -3px;
 }
-.week-day-card.weekend .week-weekday,
 .week-day-card.weekend .week-day-heading strong {
   color: var(--preview-red);
 }
 .week-day-heading {
   display: flex;
-  min-height: 64px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  border-bottom: 1px solid #edf1f5;
-}
-.week-weekday {
-  color: var(--preview-muted);
-  font-size: 11px;
-  font-weight: 700;
+  min-width: 0;
+  min-height: 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2px;
 }
 .week-day-heading strong {
-  font-size: 22px;
-  line-height: 1;
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 20px;
+}
+.week-day-card.today .week-day-heading strong {
+  color: var(--preview-text);
+  background: #ffca28;
 }
 .today-chip {
   color: var(--preview-primary);
   background: var(--preview-primary-tint);
 }
 .week-day-heading .holiday-chip {
-  margin-top: 1px;
+  max-width: calc(100% - 20px);
+  padding-inline: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .week-assignments {
   display: grid;
-  margin-top: 6px;
+  margin-top: 4px;
+  gap: 5px;
 }
 .week-assignment {
-  position: relative;
   display: grid;
-  padding: 9px 0 10px;
-  gap: 4px;
-  border-bottom: 1px solid #edf1f5;
-}
-.week-assignment:last-child {
-  border-bottom: 0;
+  min-width: 0;
+  gap: 2px;
 }
 .assignment-top {
   display: flex;
@@ -1254,13 +1259,18 @@ button:focus-visible {
 .assignment-meta {
   display: flex;
   min-width: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 .shift-pill {
+  max-width: 100%;
+  padding-inline: 2px;
+  overflow: hidden;
   color: #1d5b97;
   background: #e7f1fc;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 .assignment-role,
 .assignment-time {
@@ -1293,25 +1303,9 @@ button:focus-visible {
   border-radius: 9px;
   cursor: pointer;
 }
-.week-assignment .call-button {
-  position: absolute;
-  top: 8px;
-  right: 0;
-}
 .call-button .ui2-icon {
   width: 14px;
   height: 14px;
-}
-.rail-hint {
-  margin: 8px 2px 0;
-  color: var(--preview-muted);
-  font-size: 10px;
-  text-align: center;
-}
-.rail-hint span {
-  color: var(--preview-primary);
-  font-size: 13px;
-  font-weight: 750;
 }
 .week-selected-summary {
   margin: 12px 0 0;
@@ -1490,43 +1484,36 @@ button:focus-visible {
   }
   .week-grid {
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 3px;
+    gap: 1px;
   }
   .week-rail {
     padding-bottom: 0;
   }
   .week-day-card {
     min-width: 0;
-    padding: 7px 3px;
-    border-radius: 10px;
-  }
-  .week-day-card.today {
-    padding: 6px 2px;
+    padding: 4px 3px;
+    border-radius: 0;
   }
   .week-day-heading {
-    min-height: 54px;
+    min-height: 20px;
     gap: 2px;
   }
-  .week-weekday {
-    font-size: 9px;
-  }
   .week-day-heading strong {
-    font-size: 15px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 11px;
+    line-height: 18px;
   }
-  .week-day-heading .today-chip,
   .week-day-heading .holiday-chip {
     min-height: 14px;
-    padding: 0 3px;
+    padding: 0 2px;
     font-size: 8px;
   }
   .week-assignments {
     margin-top: 3px;
   }
   .week-assignment {
-    padding: 7px 0 8px;
     gap: 2px;
-  }
-  .assignment-top {
   }
   .assignment-name {
     font-size: 10px;
@@ -1542,15 +1529,12 @@ button:focus-visible {
   .shift-pill,
   .change-pill {
     min-height: 14px;
-    padding: 0 3px;
+    padding: 0 2px;
     font-size: 8px;
   }
   .call-button .ui2-icon {
     width: 12px;
     height: 12px;
-  }
-  .rail-hint {
-    display: none;
   }
 }
 
@@ -1559,13 +1543,10 @@ button:focus-visible {
     margin-top: 4px;
   }
   .layout-desktop .week-grid {
-    gap: 10px;
+    gap: 1px;
   }
   .layout-desktop .week-rail {
     overflow-x: hidden;
-  }
-  .layout-desktop .rail-hint {
-    display: none;
   }
 }
 </style>

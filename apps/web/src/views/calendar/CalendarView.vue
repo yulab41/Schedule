@@ -31,10 +31,10 @@ import {
 import {
   addWeeks,
   getBusinessDate,
-  getBusinessMonthOf,
   getDefaultSelectedDate,
   getSwipeMonthIntent,
   getVisibleWeekForMonth,
+  getWeekBusinessMonths,
   getWeekLabel,
   getWeekOfMonthLabel,
   type CalendarViewMode,
@@ -113,9 +113,12 @@ const activeFilterCount = computed(
     Number(shiftTypeIds.value.length > 0) +
     Number(membershipIds.value.length > 0),
 );
+const calendarRequestKey = computed(() =>
+  viewMode.value === 'week' ? `week:${weekStart.value}` : `month:${businessMonth.value}`,
+);
 
 watch(
-  () => [props.group.id, businessMonth.value],
+  () => [props.group.id, calendarRequestKey.value],
   () => {
     void loadCalendar();
   },
@@ -150,9 +153,23 @@ async function loadCalendar(): Promise<void> {
   errorMessage.value = undefined;
   isLoading.value = true;
   calendar.value = undefined;
+  const requestedMonths =
+    viewMode.value === 'week' && weekStart.value !== ''
+      ? getWeekBusinessMonths(weekStart.value)
+      : [businessMonth.value];
 
   try {
-    const nextCalendar = await api.getCalendar(props.group.id, businessMonth.value);
+    const monthCalendars = await Promise.all(
+      requestedMonths.map((month) => api.getCalendar(props.group.id, month)),
+    );
+    const firstCalendar = monthCalendars[0];
+    if (firstCalendar === undefined) {
+      throw new Error('Calendar month data is unavailable.');
+    }
+    const nextCalendar: CalendarReadModel = {
+      ...firstCalendar,
+      assignments: monthCalendars.flatMap((monthCalendar) => monthCalendar.assignments),
+    };
     if (requestTracker.isCurrent(request)) {
       calendar.value = nextCalendar;
       if (viewMode.value !== 'week' || selectedDate.value === undefined) {
@@ -180,15 +197,17 @@ async function loadCalendar(): Promise<void> {
     }
   }
 
-  await loadHolidays(request);
+  await loadHolidays(request, requestedMonths);
 }
 
-async function loadHolidays(request: number): Promise<void> {
-  const year = Number(businessMonth.value.slice(0, 4));
+async function loadHolidays(request: number, requestedMonths: readonly string[]): Promise<void> {
+  const years = [...new Set(requestedMonths.map((month) => Number(month.slice(0, 4))))];
   try {
-    const nextHolidays = await api.getHolidays(year);
+    const holidayYears = await Promise.all(years.map((year) => api.getHolidays(year)));
     if (requestTracker.isCurrent(request)) {
-      holidays.value = new Map(nextHolidays.dates.map((date) => [date.date, date] as const));
+      holidays.value = new Map(
+        holidayYears.flatMap((year) => year.dates).map((date) => [date.date, date] as const),
+      );
     }
   } catch {
     // 节假日缺失不应阻断排班日历，保持空节假日状态。
@@ -269,20 +288,11 @@ function getWeekStartOfToday(): string {
 function goToPreviousWeek(): void {
   weekStart.value = addWeeks(weekStart.value, -1);
   selectedDate.value = weekStart.value;
-  syncMonthToWeek();
 }
 
 function goToNextWeek(): void {
   weekStart.value = addWeeks(weekStart.value, 1);
   selectedDate.value = weekStart.value;
-  syncMonthToWeek();
-}
-
-function syncMonthToWeek(): void {
-  const weekMonth = getBusinessMonthOf(weekStart.value);
-  if (weekMonth !== businessMonth.value) {
-    businessMonth.value = weekMonth;
-  }
 }
 
 async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise<void> {
@@ -337,25 +347,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           <span>筛选</span>
           <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
         </button>
-      </div>
-      <div v-if="viewMode === 'week'" class="week-navigation">
-        <t-button class="week-step" aria-label="上一周" variant="text" @click="goToPreviousWeek">
-          <template #icon><ChevronLeftIcon /></template>
-          <span>上一周</span>
-        </t-button>
-        <div class="week-heading">
-          <strong>{{ getWeekOfMonthLabel(weekStart) }}</strong>
-          <span>{{ getWeekLabel(weekStart) }}</span>
-        </div>
-        <button class="calendar-locator" type="button" aria-label="定位到今天" @click="goToToday">
-          <span class="locator-crosshair" aria-hidden="true">
-            <span class="locator-crosshair-center" />
-          </span>
-        </button>
-        <t-button class="week-step" aria-label="下一周" variant="text" @click="goToNextWeek">
-          <template #icon><ChevronRightIcon /></template>
-          <span>下一周</span>
-        </t-button>
       </div>
       <div class="calendar-filters">
         <label class="changes-filter">
@@ -424,17 +415,37 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
     </ResponsiveSheet>
     <t-loading v-if="isLoading" text="正在加载排班日历" />
     <template v-else-if="calendar !== undefined">
-      <WeekGrid
-        v-if="viewMode === 'week'"
-        :assignments="visibleAssignments"
-        :holidays="holidays"
-        :members="calendar.members"
-        :selected-date="selectedDate"
-        :today="todayBusinessDate"
-        :week-start="weekStart"
-        @open-events="openAssignmentEvents"
-        @select-date="selectedDate = $event"
-      />
+      <section v-if="viewMode === 'week'" class="week-calendar-card">
+        <header class="week-navigation">
+          <t-button class="week-step" aria-label="上一周" variant="text" @click="goToPreviousWeek">
+            <template #icon><ChevronLeftIcon /></template>
+            <span>上一周</span>
+          </t-button>
+          <div class="week-heading">
+            <strong>{{ getWeekOfMonthLabel(weekStart) }}</strong>
+            <span>{{ getWeekLabel(weekStart) }}</span>
+          </div>
+          <button class="calendar-locator" type="button" aria-label="定位到今天" @click="goToToday">
+            <span class="locator-crosshair" aria-hidden="true">
+              <span class="locator-crosshair-center" />
+            </span>
+          </button>
+          <t-button class="week-step" aria-label="下一周" variant="text" @click="goToNextWeek">
+            <template #icon><ChevronRightIcon /></template>
+            <span>下一周</span>
+          </t-button>
+        </header>
+        <WeekGrid
+          :assignments="visibleAssignments"
+          :holidays="holidays"
+          :members="calendar.members"
+          :selected-date="selectedDate"
+          :today="todayBusinessDate"
+          :week-start="weekStart"
+          @open-events="openAssignmentEvents"
+          @select-date="selectedDate = $event"
+        />
+      </section>
       <div
         v-else-if="viewMode === 'month'"
         class="month-swipe-surface"
@@ -505,6 +516,14 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               <span>固定月份 · {{ visibleAssignments.length }} 个班次</span>
             </div>
             <button
+              class="list-month-step"
+              type="button"
+              aria-label="下一月"
+              @click="goToNextMonth"
+            >
+              <ChevronRightIcon aria-hidden="true" />
+            </button>
+            <button
               class="calendar-locator"
               type="button"
               aria-label="定位到今天"
@@ -514,20 +533,10 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
                 <span class="locator-crosshair-center" />
               </span>
             </button>
-            <button
-              class="list-month-step"
-              type="button"
-              aria-label="下一月"
-              @click="goToNextMonth"
-            >
-              <ChevronRightIcon aria-hidden="true" />
-            </button>
           </div>
           <div class="list-meta">
-            <span>按日期查看完整值班信息</span>
-            <strong>{{
-              activeFilterCount > 0 ? `已筛选 ${activeFilterCount} 项` : '全部排班'
-            }}</strong>
+            <span>月份工具栏固定 · 已按日期排序</span>
+            <strong>今天 · {{ todayBusinessDate.slice(5).replace('-', '/') }}</strong>
           </div>
         </header>
         <ListGrid
@@ -699,12 +708,10 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 .week-navigation {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
-  padding: 4px 8px;
+  min-height: 60px;
+  padding: 8px 12px;
   align-items: center;
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-large);
-  box-shadow: var(--ui-shadow-card);
+  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .week-heading {
@@ -736,7 +743,8 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   color: var(--ui-color-primary);
 }
 
-.month-calendar-card {
+.month-calendar-card,
+.week-calendar-card {
   overflow: hidden;
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
@@ -766,6 +774,11 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 }
 
 .month-calendar-card :deep(.month-grid) {
+  border: 0;
+  border-radius: 0;
+}
+
+.week-calendar-card :deep(.week-grid) {
   border: 0;
   border-radius: 0;
 }
@@ -1016,7 +1029,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   .week-navigation {
     grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
     gap: 0;
-    padding: 4px;
+    padding: 8px 6px;
   }
 
   .week-navigation .week-step span {
