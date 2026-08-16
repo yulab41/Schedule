@@ -256,4 +256,6 @@
 - 修复：正式菜单使用 `gap: var(--ui-spacing-xxs)`，Storybook 预览使用 `gap: 4px`；仅分隔选项背景，不改变选项触达高度、选中逻辑、键盘导航、关闭行为或任何 API/权限链路。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 已通过（管理员、成员、访客、访问记录全流程无浏览器错误）；Web typecheck、`pnpm smoke:check-core`、任务文件 Prettier、`git diff --check` 通过。全仓 `pnpm format:check` 被既有未跟踪日历测试文件的格式问题阻塞，未改动该文件。
 - Storybook 实际复核：390×844 `GroupMenuOpen390` 的菜单计算 `gap = 4px`、`row-gap = 4px`，选项数量 2，截图确认上下状态背景之间有可见留白。
-- 状态：已完成（含运行验证）→ 待生产发布；checkpoint 识别消息：`fix(web): separate group dropdown option states`。
+- 正式发布：代码 checkpoint `4857e76` 已推送；发布前加密数据库备份 archive `ccdd8bf2-9a7f-4e8d-b1c1-198a95cd6d05`（44 张表、5442 行）；release `4857e76e976e0010d2f52520e23fc73babb88c1e` 已部署。
+- 正式核验：服务器 `ecs-verify.sh` 退出码 0；正式 D0796 会话测得 `gap/row-gap = 4px`，选项高 62px、上下顶部差 66px，Escape 后 `aria-expanded=false`、listbox 数量为 0、原生 `select` 数量为 0；工作台/通知/导出各 1 个，error/warning 日志为空。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核；代码 checkpoint 识别消息：`fix(web): separate group dropdown option states`。
