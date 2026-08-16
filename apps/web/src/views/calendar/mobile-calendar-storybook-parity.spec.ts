@@ -45,10 +45,25 @@ describe('mobile calendar Storybook 2 parity', () => {
     expect(monthGrid).toContain("'is-outside-month': cell.isOutsideMonth");
     expect(monthGrid).toContain(':disabled="cell.isOutsideMonth"');
     expect(monthGrid).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*?\.weekday-row\s*{[^}]*height:\s*28px;[^}]*background:\s*#f8fafc;[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/s,
+      /@media \(max-width: 640px\)[\s\S]*?\.weekday-row\s*{[^}]*height:\s*28px;[^}]*background:\s*#f8fafc;/s,
     );
     expect(monthGrid).toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.day-cell\s*{[^}]*aspect-ratio:\s*1\s*\/\s*1;[^}]*min-height:\s*0;/s,
+    );
+  });
+
+  it('uses one shared separator plane between the weekday rail and the month grid', () => {
+    const monthGrid = readSource('../../features/calendar/MonthGrid.vue');
+    const mobileStyles = monthGrid.match(
+      /@media \(max-width: 640px\)\s*{([\s\S]*?)\n}\n\n@media \(prefers-reduced-motion:/,
+    )?.[1];
+
+    expect(mobileStyles).toBeDefined();
+    expect(mobileStyles).toMatch(
+      /\.month-grid\s*{[^}]*gap:\s*1px;[^}]*background:\s*var\(--ui-color-border\);[^}]*border:\s*1px solid var\(--ui-color-border\);/s,
+    );
+    expect(mobileStyles).not.toMatch(
+      /\.weekday-row\s*{[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/s,
     );
   });
 

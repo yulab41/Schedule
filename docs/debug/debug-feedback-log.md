@@ -226,3 +226,12 @@
 - 运行验证：Storybook build、Web typecheck、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 通过；75 个测试文件、510 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过。checkpoint 识别消息为 `fix(web): match mobile calendar Storybook styling`。
 - 正式发布：发布前 `ecs-verify.sh` 通过并创建备份 `fa99e3d2-0dbf-472a-8837-3fbde4dfbe2e`（44 张表、5367 行）；release `abd20d2aa94ce3425bff446047db094542aa2466` 部署及复核通过。
 - 生产浏览器复核：390px 月格 49×49、320px 月格 41.14×41.14，均为完整 42 格且无内容横向溢出；星期栏填充、周末红字、相邻月日期、工具栏、通知铃、月/周/列表、筛选与通知 Sheet 均通过。未触发业务写入。最终状态 checkpoint 识别消息为 `docs(status): record mobile calendar parity deployment`。
+
+## 2026-08-16 Mobile Screens 2 星期栏单线回归
+
+- 引入点：移动 `MonthGrid` 的网格间隙/分隔色背景由 `7c80488` 引入，星期栏 `border-bottom` 由 `abd20d2` 引入；本轮对 `MonthGrid.vue` 执行了 `git log -S` 与 `git blame`，确认重复分隔线的来源。
+- 根因：`.month-grid` 已用 `gap: 1px` 和边框色背景绘制星期栏与首行之间的分隔线，`.weekday-row` 又追加 `border-bottom: 1px`，该边界实际占两层。
+- 测试先行：新增回归断言后旧实现 5 项中 1 项失败；移除重复底边后 `mobile-calendar-storybook-parity.spec.ts` 5/5、日历相关 31/31 通过。
+- 变更与语义审计：仅删除移动 `.weekday-row` 的重复 `border-bottom`；没有改变模板、日期选择、相邻月份禁用、选中态、API、权限、错误路径、调用次数或副作用。Storybook 参考组件不变。
+- 运行/浏览器验证：Storybook build、Web typecheck、`pnpm smoke:check-core`、`pnpm verify`、`git diff --check` 通过；本地源码 390×844 与 320×844 均测得 42 格、1:1 月格、`weekday-bottom-border=0px`、首行间距 1px、body 无横向溢出。完整 `pnpm smoke:browser` 因既有未提交的紧凑抬头/群组选择改动在早期断言停止，未归因于本轮。
+- 状态：已完成（含运行验证）→ 待用户复核；checkpoint 识别消息：`fix(web): avoid stacked mobile calendar separators`。

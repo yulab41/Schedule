@@ -408,7 +408,6 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
     height: 28px;
     align-items: center;
     background: #f8fafc;
-    border-bottom: 1px solid var(--ui-color-border);
   }
 
   .weekday-row span {
