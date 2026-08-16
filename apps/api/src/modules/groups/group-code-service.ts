@@ -1,5 +1,3 @@
-import { randomInt } from 'node:crypto';
-
 import { type DatabaseClient, groupCodeAttempts } from '@schedule/database';
 import { eq, sql } from 'drizzle-orm';
 
@@ -10,10 +8,6 @@ const groupCodeAttemptWindowSeconds = 60;
 
 export class GroupCodeService {
   public constructor(private readonly databaseClient: DatabaseClient) {}
-
-  public createRandomCode(): string {
-    return randomInt(0, 10_000).toString().padStart(4, '0');
-  }
 
   public async consumeAttempt(userId: string): Promise<void> {
     const windowExpired = sql`${groupCodeAttempts.windowStartedAt} < timestampadd(second, -${groupCodeAttemptWindowSeconds}, current_timestamp(3))`;

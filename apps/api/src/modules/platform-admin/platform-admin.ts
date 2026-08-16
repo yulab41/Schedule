@@ -10,16 +10,8 @@ export async function requirePlatformAdmin(
   identity: AuthenticatedIdentity,
   allowedCloudbaseUids: ReadonlySet<string>,
 ): Promise<string> {
-  if (!allowedCloudbaseUids.has(identity.cloudbaseUid)) {
-    throw new ApiError({
-      code: 'FORBIDDEN',
-      statusCode: 403,
-      userMessage: '仅平台管理员可执行该操作。',
-    });
-  }
-
   const [user] = await transaction
-    .select({ id: users.id })
+    .select({ id: users.id, isDeveloperAdmin: users.isDeveloperAdmin })
     .from(users)
     .where(
       and(
@@ -34,6 +26,14 @@ export async function requirePlatformAdmin(
       code: 'NOT_FOUND',
       statusCode: 404,
       userMessage: '当前账号尚不可用。',
+    });
+  }
+
+  if (!allowedCloudbaseUids.has(identity.cloudbaseUid) && user.isDeveloperAdmin !== 1) {
+    throw new ApiError({
+      code: 'FORBIDDEN',
+      statusCode: 403,
+      userMessage: '仅平台管理员可执行该操作。',
     });
   }
 

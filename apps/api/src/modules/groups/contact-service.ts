@@ -9,7 +9,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -53,8 +53,12 @@ export class ContactService {
         .where(
           and(
             eq(groupMemberships.groupId, authorization.group.id),
+            ...(authorization.user.isDeveloperAdmin
+              ? []
+              : [eq(groupMemberships.userId, authorization.user.id)]),
             eq(groupMemberships.status, 'active'),
             eq(users.status, 'active'),
+            ne(users.isDeveloperAdmin, 1),
             isNull(groupMemberships.deletedAt),
             isNull(users.deletedAt),
             isNull(userProfiles.deletedAt),
@@ -84,7 +88,7 @@ export class ContactService {
         authorization.group.id,
         membershipId,
       );
-      const canManageContacts = authorization.membership.role !== 'member';
+      const canManageContacts = authorization.user.isDeveloperAdmin;
       const isCurrentMember = target.userId === authorization.user.id;
 
       if (!isCurrentMember && !canManageContacts) {
@@ -92,6 +96,13 @@ export class ContactService {
           code: 'FORBIDDEN',
           statusCode: 403,
           userMessage: '只能修改自己的联系方式。',
+        });
+      }
+      if (input.isConfirmed !== undefined && !canManageContacts) {
+        throw new ApiError({
+          code: 'FORBIDDEN',
+          statusCode: 403,
+          userMessage: '只有后台管理员可以确认联系方式。',
         });
       }
 
@@ -117,11 +128,17 @@ export class ContactService {
       const mobilePhone =
         input.mobilePhone === undefined ? existing?.mobilePhone : input.mobilePhone;
       const shortPhone = input.shortPhone === undefined ? existing?.shortPhone : input.shortPhone;
-      const isConfirmed = isCurrentMember
-        ? input.confirm === true
-          ? 1
-          : (existing?.isConfirmed ?? 0)
-        : 0;
+      const phoneChanged =
+        mobilePhone !== (existing?.mobilePhone ?? null) ||
+        shortPhone !== (existing?.shortPhone ?? null);
+      const isConfirmed =
+        input.isConfirmed === undefined
+          ? phoneChanged
+            ? 0
+            : (existing?.isConfirmed ?? 0)
+          : input.isConfirmed
+            ? 1
+            : 0;
 
       if (existing === undefined) {
         const contactId = randomUUID();

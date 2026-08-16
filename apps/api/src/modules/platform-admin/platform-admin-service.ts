@@ -47,7 +47,21 @@ export class PlatformAdminService {
   }
 
   public async me(identity: AuthenticatedIdentity): Promise<PlatformMeResponse> {
-    return { isPlatformAdmin: this.allowedCloudbaseUids.has(identity.cloudbaseUid) };
+    if (this.allowedCloudbaseUids.has(identity.cloudbaseUid)) {
+      return { isPlatformAdmin: true };
+    }
+    const [user] = await this.databaseClient.database
+      .select({ isDeveloperAdmin: users.isDeveloperAdmin })
+      .from(users)
+      .where(
+        and(
+          eq(users.cloudbaseUid, identity.cloudbaseUid),
+          eq(users.status, 'active'),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+    return { isPlatformAdmin: user?.isDeveloperAdmin === 1 };
   }
 
   public async listBackups(identity: AuthenticatedIdentity): Promise<PlatformBackupList> {

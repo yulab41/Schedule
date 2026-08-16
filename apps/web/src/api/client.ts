@@ -79,7 +79,7 @@ import type {
   RejectedLeaveRequestResult,
   RejectLeaveRequestInput,
   ReorderRotationMembersRequest,
-  RegenerateGroupCodeRequest,
+  UpdateGroupCodeRequest,
   ReplaceScheduleRoleMembersRequest,
   RevokeDutyAdjustmentInput,
   ScheduleRole,
@@ -100,6 +100,7 @@ import type {
   UpdateRotationRuleRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
+  UpdateGroupMemberNameRequest,
   UpdateGroupMemberRoleRequest,
   UpdateGroupNameRequest,
   UpdateGroupDutyAdjustmentSettingsInput,
@@ -416,7 +417,7 @@ export interface ApiClient {
     templateId: string,
     input: PreviewManualTemplateApplyRequest,
   ): Promise<ManualApplyPreview>;
-  regenerateGroupCode(groupId: string, input: RegenerateGroupCodeRequest): Promise<GroupSummary>;
+  updateGroupCode(groupId: string, input: UpdateGroupCodeRequest): Promise<GroupSummary>;
   rejectLeaveRequest(
     groupId: string,
     leaveRequestId: string,
@@ -481,6 +482,11 @@ export interface ApiClient {
     membershipId: string,
     input: UpdateGroupMemberContactRequest,
   ): Promise<GroupMemberContact>;
+  updateGroupMemberName(
+    groupId: string,
+    membershipId: string,
+    input: UpdateGroupMemberNameRequest,
+  ): Promise<GroupMember>;
   updateGroupMemberRole(
     groupId: string,
     membershipId: string,
@@ -1792,7 +1798,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isResponseBodyMatching<LeaveReflowPreview>(leaveReflowPreviewSchema),
       );
     },
-    regenerateGroupCode(groupId, input) {
+    updateGroupCode(groupId, input) {
       return requestJson(
         options.auth,
         fetchImplementation,
@@ -1959,6 +1965,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isResponseBodyFromSchema(groupMemberContactSchema),
+      );
+    },
+    updateGroupMemberName(groupId, membershipId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/name`,
+        { body: JSON.stringify(input), method: 'PUT' },
+        isResponseBodyFromSchema(groupMemberSchema),
       );
     },
     updateGroupMemberRole(groupId, membershipId, input) {

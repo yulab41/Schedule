@@ -95,6 +95,34 @@ describeWithDatabase('groups and roster claiming', () => {
     expect(ownerMembership).toEqual({ role: 'owner' });
   });
 
+  it('requires a manually supplied group code and only binds a matching pre-set member', async () => {
+    const missingCode = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'POST',
+      payload: { name: 'No code group' },
+      url: '/groups',
+    });
+    const group = await createGroup('Manual code group', '7654');
+    const groupId = (group.json() as { id: string }).id;
+    const unknownClaim = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'POST',
+      payload: { groupCode: '7654' },
+      url: '/groups/claim',
+    });
+    await addRosterEntry(groupId, 'Candidate Doctor');
+    const matchingClaim = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'POST',
+      payload: { groupCode: '7654' },
+      url: '/groups/claim',
+    });
+
+    expect(missingCode.statusCode).toBe(400);
+    expect(unknownClaim.statusCode).toBe(403);
+    expect(matchingClaim.statusCode).toBe(201);
+  });
+
   it('rejects duplicate pending roster names and keeps roster changes owner-only', async () => {
     const group = await createGroup('Roster group', '2345');
     const groupId = (group.json() as { id: string }).id;
@@ -628,6 +656,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);

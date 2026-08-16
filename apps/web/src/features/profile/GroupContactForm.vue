@@ -20,6 +20,7 @@ const emit = defineEmits<{
 const api = createApiClient({ auth: localAuth });
 const mobilePhone = ref('');
 const shortPhone = ref('');
+const isConfirmed = ref(false);
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
 const isSaving = ref(false);
@@ -29,6 +30,7 @@ watch(
   (contact) => {
     mobilePhone.value = contact?.mobilePhone ?? '';
     shortPhone.value = contact?.shortPhone ?? '';
+    isConfirmed.value = contact?.isConfirmed ?? false;
   },
   { immediate: true },
 );
@@ -40,13 +42,11 @@ async function saveContact(): Promise<void> {
 
   try {
     await api.updateGroupMemberContact(props.groupId, props.membershipId, {
-      ...(props.canConfirm ? { confirm: true as const } : {}),
+      ...(props.canConfirm ? { isConfirmed: isConfirmed.value } : {}),
       mobilePhone: emptyToNull(mobilePhone.value),
       shortPhone: emptyToNull(shortPhone.value),
     });
-    infoMessage.value = props.canConfirm
-      ? '联系方式已保存并确认。'
-      : '联系方式已保存，等待成员确认。';
+    infoMessage.value = '联系方式已保存。';
     emit('saved');
   } catch (error) {
     errorMessage.value = toUserMessage(error, '联系方式暂时无法保存，请稍后重试。');
@@ -69,10 +69,29 @@ function emptyToNull(value: string): string | null {
     <t-form-item label="短号" name="shortPhone">
       <t-input v-model="shortPhone" maxlength="32" inputmode="tel" />
     </t-form-item>
+    <t-checkbox v-if="canConfirm" v-model="isConfirmed">后台确认联系方式</t-checkbox>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
-    <t-button theme="primary" type="submit" :loading="isSaving">
-      {{ canConfirm ? '保存并确认' : '预填联系方式' }}
-    </t-button>
+    <t-button theme="primary" type="submit" :loading="isSaving"> 保存联系方式 </t-button>
   </form>
 </template>
+
+<style scoped>
+.group-contact-form {
+  display: grid;
+  gap: var(--ui-spacing-sm);
+}
+
+.group-contact-form :deep(.t-input),
+.group-contact-form :deep(.t-button) {
+  min-height: 44px;
+}
+
+.group-contact-form :deep(.t-input__inner) {
+  min-height: 42px;
+}
+
+.group-contact-form :deep(.t-checkbox) {
+  min-height: 44px;
+}
+</style>

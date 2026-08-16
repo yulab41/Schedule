@@ -730,10 +730,10 @@ describe('Web API client', () => {
     await expect(
       client.createGroup({ groupCode: '1234', name: 'Emergency Department' }),
     ).resolves.toEqual(group);
-    await expect(client.claimGroup({ groupCode: '1234', realName: 'Lin Enyu' })).resolves.toEqual({
+    await expect(client.claimGroup({ groupCode: '1234' })).resolves.toEqual({
       status: 'request_created',
     });
-    await expect(client.regenerateGroupCode(group.id, {})).resolves.toEqual({
+    await expect(client.updateGroupCode(group.id, { groupCode: '5678' })).resolves.toEqual({
       ...group,
       groupCode: '9876',
       version: 2,
@@ -751,14 +751,14 @@ describe('Web API client', () => {
       2,
       '/api/groups/claim',
       expect.objectContaining({
-        body: JSON.stringify({ groupCode: '1234', realName: 'Lin Enyu' }),
+        body: JSON.stringify({ groupCode: '1234' }),
         method: 'POST',
       }),
     );
     expect(fetchImplementation).toHaveBeenNthCalledWith(
       3,
       '/api/groups/group-1/group-code',
-      expect.objectContaining({ body: '{}', method: 'PUT' }),
+      expect.objectContaining({ body: JSON.stringify({ groupCode: '5678' }), method: 'PUT' }),
     );
   });
 

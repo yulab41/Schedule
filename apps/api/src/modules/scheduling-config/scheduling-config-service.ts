@@ -31,7 +31,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { calculateReadableTextColor } from '@schedule/scheduling-domain';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -655,6 +655,7 @@ export class SchedulingConfigService {
             eq(groupMemberships.groupId, groupId),
             eq(groupMemberships.status, 'active'),
             eq(users.status, 'active'),
+            ne(users.isDeveloperAdmin, 1),
             isNull(groupMemberships.deletedAt),
             isNull(users.deletedAt),
             isNull(userProfiles.deletedAt),
@@ -734,6 +735,7 @@ export class SchedulingConfigService {
           eq(memberScheduleRoles.scheduleRoleId, role.id),
           eq(groupMemberships.status, 'active'),
           eq(users.status, 'active'),
+          ne(users.isDeveloperAdmin, 1),
           isNull(memberScheduleRoles.deletedAt),
           isNull(groupMemberships.deletedAt),
           isNull(users.deletedAt),
@@ -922,6 +924,7 @@ export class SchedulingConfigService {
           inArray(groupMemberships.id, [...membershipIds]),
           eq(groupMemberships.status, 'active'),
           eq(users.status, 'active'),
+          ne(users.isDeveloperAdmin, 1),
           isNull(groupMemberships.deletedAt),
           isNull(users.deletedAt),
           isNull(userProfiles.deletedAt),

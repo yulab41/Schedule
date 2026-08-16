@@ -253,6 +253,13 @@
       "when": 1785542400035,
       "tag": "0036_password_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785542400036,
+      "tag": "0037_developer_admin",
+      "breakpoints": true
     }
   ]
 }

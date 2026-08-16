@@ -41,9 +41,9 @@ describe('formal compact workbench shell', () => {
   });
 
   it('keeps the group selector compact without exposing the group code globally', () => {
-    expect(groupSwitcher).toContain(
-      '{{ selectedGroup?.name }} · {{ roleLabel(selectedGroup?.role) }}',
-    );
+    expect(groupSwitcher).toContain('{{ selectedGroup?.name }} · {{ roleLabel(selectedGroup) }}');
+    expect(groupSwitcher).toContain('if (group?.isDeveloperAdmin) {');
+    expect(groupSwitcher).toContain("return '后台管理员';");
     expect(groupSwitcher).toContain('aria-label="展开排班群组列表"');
     expect(groupSwitcher).toContain('label: group.name');
     expect(groupSwitcher).toContain('role="listbox"');

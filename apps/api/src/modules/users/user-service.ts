@@ -13,7 +13,7 @@ import {
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, eq, exists, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -93,49 +93,13 @@ export class UserService {
     identity: AuthenticatedIdentity,
     input: UpdateUserProfileRequest,
   ): Promise<UserProfile> {
-    const profile = await this.getActiveProfile(identity.cloudbaseUid);
-    const activeUser = this.databaseClient.database
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(eq(users.id, userProfiles.userId), eq(users.status, 'active'), isNull(users.deletedAt)),
-      );
-
-    const [result] = await this.databaseClient.database
-      .update(userProfiles)
-      .set({
-        realName: input.realName,
-        version: sql`${userProfiles.version} + 1`,
-      })
-      .where(
-        and(
-          eq(userProfiles.userId, profile.id),
-          eq(userProfiles.version, input.version),
-          isNull(userProfiles.deletedAt),
-          exists(activeUser),
-        ),
-      );
-
-    if (result.affectedRows !== 1) {
-      let latestVersion = profile.version;
-      try {
-        latestVersion = (await this.getActiveProfile(identity.cloudbaseUid)).version;
-      } catch {
-        // A suspended or deleted user cannot be re-read; keep the last known version.
-      }
-      throw new ApiError({
-        code: 'CONFLICT',
-        latestData: {
-          id: profile.id,
-          objectType: 'user_profile',
-          version: latestVersion,
-        },
-        statusCode: 409,
-        userMessage: '资料已被更新，请刷新后重试。',
-      });
-    }
-
-    return { ...profile, realName: input.realName, version: profile.version + 1 };
+    void identity;
+    void input;
+    throw new ApiError({
+      code: 'FORBIDDEN',
+      statusCode: 403,
+      userMessage: '姓名由后台管理员统一维护，当前账号不能自行修改。',
+    });
   }
 
   public async deregisterOwnAccount(
@@ -143,7 +107,7 @@ export class UserService {
   ): Promise<DeregisterAccountResult> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const [user] = await transaction
-        .select({ id: users.id, status: users.status })
+        .select({ id: users.id, isDeveloperAdmin: users.isDeveloperAdmin, status: users.status })
         .from(users)
         .where(and(eq(users.cloudbaseUid, identity.cloudbaseUid), isNull(users.deletedAt)))
         .limit(1)
@@ -154,6 +118,13 @@ export class UserService {
           code: 'NOT_FOUND',
           statusCode: 404,
           userMessage: '当前账号不可注销。',
+        });
+      }
+      if (user.isDeveloperAdmin === 1) {
+        throw new ApiError({
+          code: 'FORBIDDEN',
+          statusCode: 403,
+          userMessage: '后台管理员账号不可注销。',
         });
       }
 

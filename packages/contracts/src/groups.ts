@@ -10,6 +10,7 @@ export const groupSummarySchema = z
       .regex(/^\d{4}$/u)
       .optional(),
     id: z.string().min(1),
+    isDeveloperAdmin: z.boolean().optional(),
     name: z.string().min(1),
     role: groupRoleSchema,
     version: z.number().int().min(1),
@@ -18,7 +19,7 @@ export const groupSummarySchema = z
 export type GroupSummary = z.infer<typeof groupSummarySchema>;
 
 export interface CreateGroupRequest {
-  readonly groupCode?: string;
+  readonly groupCode: string;
   readonly name: string;
 }
 
@@ -55,7 +56,6 @@ export type ConvertPendingRosterResponse = z.infer<typeof convertPendingRosterRe
 
 export interface ClaimGroupRequest {
   readonly groupCode: string;
-  readonly realName?: string;
 }
 
 export const claimGroupResponseSchema = z.discriminatedUnion('status', [
@@ -64,8 +64,8 @@ export const claimGroupResponseSchema = z.discriminatedUnion('status', [
 ]);
 export type ClaimGroupResponse = z.infer<typeof claimGroupResponseSchema>;
 
-export interface RegenerateGroupCodeRequest {
-  readonly groupCode?: string;
+export interface UpdateGroupCodeRequest {
+  readonly groupCode: string;
 }
 
 export const groupMemberSchema = z
@@ -204,7 +204,11 @@ export interface TransferGroupOwnershipRequest {
 }
 
 export interface UpdateGroupMemberContactRequest {
-  readonly confirm?: true;
+  readonly isConfirmed?: boolean;
   readonly mobilePhone?: string | null;
   readonly shortPhone?: string | null;
+}
+
+export interface UpdateGroupMemberNameRequest {
+  readonly realName: string;
 }

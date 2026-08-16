@@ -3,7 +3,6 @@ import type {
   GroupMember,
   GroupMemberContact,
   GroupSummary,
-  MembershipClaimLookupEntry,
   MembershipClaimRequest,
 } from '@schedule/contracts';
 import { MoreIcon } from 'tdesign-icons-vue-next';
@@ -35,13 +34,8 @@ const identityMessage = ref<string>();
 const isLoading = ref(false);
 const isAddingRoster = ref(false);
 const isUpdating = ref(false);
-const isCheckingIdentity = ref(false);
 const isDeletingMemberId = ref<string>();
 const rosterNames = ref('');
-const myRealName = ref('');
-const claimTargets = ref<readonly MembershipClaimLookupEntry[]>([]);
-const selectedClaimTargetId = ref<string>();
-const identityDialogVisible = ref(false);
 const editingContactMemberId = ref<string>();
 const memberActionTarget = ref<GroupMember>();
 let requestVersion = 0;
@@ -49,10 +43,14 @@ let requestVersion = 0;
 const contactsByMembershipId = computed(
   () => new Map(contacts.value.map((contact) => [contact.membershipId, contact])),
 );
-const canManageAdministrators = computed(() => props.group.role === 'owner');
+const isDeveloperAdmin = computed(() => props.group.isDeveloperAdmin === true);
+const currentMember = computed(() => members.value.find((member) => member.isCurrentUser));
+const canManageAdministrators = computed(
+  () => props.group.role === 'owner' || isDeveloperAdmin.value,
+);
 const canAddMembers = computed(() => props.group.role !== 'member');
-const canManageContacts = computed(() => props.group.role !== 'member');
-const canHandleClaims = computed(() => props.group.role !== 'member');
+const canManageContacts = computed(() => isDeveloperAdmin.value);
+const canHandleClaims = computed(() => isDeveloperAdmin.value);
 const pendingMembers = computed(() =>
   members.value.filter((member) => member.isPendingRoster === true),
 );
@@ -105,8 +103,6 @@ async function loadMembers(): Promise<void> {
       members.value = nextMembers;
       contacts.value = nextContacts;
       claimRequests.value = nextClaims;
-      const currentMember = nextMembers.find((member) => member.isCurrentUser);
-      myRealName.value = currentMember?.realName ?? '';
     }
   } catch (error) {
     if (currentRequest === requestVersion) {
@@ -133,6 +129,25 @@ async function updateRole(member: GroupMember, role: 'administrator' | 'member')
   }
 }
 
+async function updateMemberName(member: GroupMember): Promise<void> {
+  const realName = window
+    .prompt('输入成员姓名（会同步到该账号的所有群组）', member.realName)
+    ?.trim();
+  if (realName === undefined || realName === '' || realName === member.realName) {
+    return;
+  }
+  errorMessage.value = undefined;
+  isUpdating.value = true;
+  try {
+    await api.updateGroupMemberName(props.group.id, member.id, { realName });
+    await loadMembers();
+  } catch (error) {
+    errorMessage.value = toUserMessage(error, '成员姓名暂时无法保存，请稍后重试。');
+  } finally {
+    isUpdating.value = false;
+  }
+}
+
 async function addMembers(): Promise<void> {
   errorMessage.value = undefined;
   rosterMessage.value = undefined;
@@ -142,7 +157,7 @@ async function addMembers(): Promise<void> {
     return;
   }
   if (hasDuplicateRosterName(names)) {
-    errorMessage.value = '待认领名单中不能有重复姓名。';
+    errorMessage.value = '预设成员中不能有重复姓名。';
     return;
   }
 
@@ -150,7 +165,7 @@ async function addMembers(): Promise<void> {
   try {
     const result = await api.addGroupMembers(props.group.id, { realNames: names });
     rosterNames.value = '';
-    rosterMessage.value = `已添加 ${result.added} 位成员，可直接填写手机号和参与排班；成员登录后用真实姓名和群组码认领即可绑定账号。`;
+    rosterMessage.value = `已添加 ${result.added} 位预设成员；成员使用已保存姓名和群组码加入后会自动关联账号。`;
     await loadMembers();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
@@ -165,7 +180,7 @@ async function convertPending(names: readonly string[]): Promise<void> {
   }
   if (
     !window.confirm(
-      `确定将 ${names.length} 位待认领成员转为正式成员吗？转正后可填写手机号并参与排班。`,
+      `确定将 ${names.length} 位预设成员转为正式成员吗？转正后可填写手机号并参与排班。`,
     )
   ) {
     return;
@@ -190,9 +205,9 @@ async function convertPending(names: readonly string[]): Promise<void> {
 
 async function deleteMember(member: GroupMember): Promise<void> {
   const isPending = member.isPendingRoster === true;
-  const label = isPending ? '未认领成员' : '成员';
+  const label = isPending ? '预设成员' : '成员';
   const message = isPending
-    ? `确定删除未认领成员“${member.realName}”吗？删除后如需加入请重新添加。`
+    ? `确定删除预设成员“${member.realName}”吗？删除后如需加入请重新添加。`
     : `确定删除成员“${member.realName}”吗？其未处理的请假/换班/加扣班申请将自动取消，历史排班保留姓名。`;
   if (!window.confirm(message)) {
     return;
@@ -239,79 +254,6 @@ async function deleteGroup(): Promise<void> {
   try {
     await api.deleteGroup(props.group.id);
     emit('group-changed');
-  } catch (error) {
-    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
-  } finally {
-    isUpdating.value = false;
-  }
-}
-
-async function submitIdentity(): Promise<void> {
-  errorMessage.value = undefined;
-  identityMessage.value = undefined;
-  const realName = myRealName.value.trim();
-  if (realName.length === 0) {
-    errorMessage.value = '请先填写你的真实姓名。';
-    return;
-  }
-
-  isCheckingIdentity.value = true;
-  try {
-    const lookup = await api.lookupClaimMatches(props.group.id, realName);
-    if (lookup.matches.length === 0) {
-      await api.updateProfile(realName);
-      identityMessage.value = '已更新真实姓名，未发现同名成员。';
-      await loadMembers();
-      return;
-    }
-    claimTargets.value = lookup.matches;
-    selectedClaimTargetId.value = lookup.matches[0]?.membershipId;
-    identityDialogVisible.value = true;
-  } catch (error) {
-    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
-  } finally {
-    isCheckingIdentity.value = false;
-  }
-}
-
-async function confirmIdentityClaim(): Promise<void> {
-  if (selectedClaimTargetId.value === undefined) {
-    errorMessage.value = '请选择要认领的成员身份。';
-    return;
-  }
-
-  isUpdating.value = true;
-  try {
-    const result = await api.createMembershipClaimRequest(props.group.id, {
-      membershipId: selectedClaimTargetId.value,
-    });
-    identityDialogVisible.value = false;
-    identityMessage.value = result.direct
-      ? '已认领该成员身份。'
-      : '已向管理员发送认领申请，等待批准后生效。';
-    await loadMembers();
-  } catch (error) {
-    errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
-  } finally {
-    isUpdating.value = false;
-  }
-}
-
-async function claimMember(member: GroupMember): Promise<void> {
-  if (!window.confirm(`确定认领成员“${member.realName}”的身份吗？`)) {
-    return;
-  }
-  errorMessage.value = undefined;
-  identityMessage.value = undefined;
-  isUpdating.value = true;
-  try {
-    const result = await api.createMembershipClaimRequest(props.group.id, {
-      membershipId: member.id,
-    });
-    identityMessage.value = result.direct
-      ? `已认领成员“${member.realName}”的身份。`
-      : `已向管理员发送认领“${member.realName}”的申请，等待批准后生效。`;
-    await loadMembers();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
   } finally {
@@ -457,8 +399,14 @@ async function runMemberAction(
   <section class="member-manager" :aria-busy="isLoading">
     <header class="member-heading">
       <div>
-        <h2>成员与身份</h2>
-        <p>维护成员、联系方式、角色与身份认领。</p>
+        <h2>成员</h2>
+        <p>
+          {{
+            isDeveloperAdmin
+              ? '后台管理员可维护成员资料与历史记录。'
+              : '查看成员目录并维护我的联系方式。'
+          }}
+        </p>
       </div>
       <span class="member-count">{{ members.length }} 位</span>
     </header>
@@ -466,18 +414,19 @@ async function runMemberAction(
     <t-alert v-if="rosterMessage !== undefined" theme="success" :message="rosterMessage" />
     <t-alert v-if="identityMessage !== undefined" theme="success" :message="identityMessage" />
 
-    <form class="identity-form member-form-card" @submit.prevent="submitIdentity">
-      <label class="identity-field">
-        我的真实姓名
-        <input v-model="myRealName" maxlength="100" placeholder="填写真实姓名并检测群内同名成员" />
-      </label>
-      <t-button theme="primary" type="submit" :loading="isCheckingIdentity || isUpdating">
-        确认并检测同名成员
-      </t-button>
-      <small class="identity-hint">
-        发现同名成员后可认领该身份；普通成员的认领申请需管理员批准，管理员可直接认领未认领成员。
-      </small>
-    </form>
+    <section v-if="currentMember !== undefined" class="identity-form member-form-card">
+      <div class="identity-field">
+        <span>我的姓名</span>
+        <strong>{{ currentMember.realName }}</strong>
+      </div>
+      <GroupContactForm
+        :can-confirm="false"
+        :contact="contactFor(currentMember)"
+        :group-id="group.id"
+        :membership-id="currentMember.id"
+        @saved="loadMembers"
+      />
+    </section>
 
     <form
       v-if="canAddMembers"
@@ -485,7 +434,7 @@ async function runMemberAction(
       @submit.prevent="addMembers"
     >
       <label class="add-member-field">
-        添加成员（每行一个真实姓名）
+        添加预设成员（每行一个姓名）
         <textarea
           v-model="rosterNames"
           maxlength="2000"
@@ -493,13 +442,13 @@ async function runMemberAction(
           rows="2"
         />
       </label>
-      <t-button variant="outline" type="submit" :loading="isAddingRoster">添加成员</t-button>
+      <t-button variant="outline" type="submit" :loading="isAddingRoster">添加预设成员</t-button>
     </form>
 
     <div v-if="pendingMembers.length > 0 && canAddMembers" class="pending-panel">
       <t-alert
         theme="warning"
-        :message="`有 ${pendingMembers.length} 位待认领成员尚未转为正式成员。`"
+        :message="`有 ${pendingMembers.length} 位预设成员尚未转为正式成员。`"
       />
       <t-button
         variant="outline"
@@ -567,12 +516,14 @@ async function runMemberAction(
     <header class="section-heading member-list-heading">
       <div>
         <h3>成员名单</h3>
-        <p>联系方式和认领状态始终保留完整显示。</p>
+        <p>
+          {{ isDeveloperAdmin ? '后台管理员可维护全部成员资料与历史记录。' : '仅展示成员姓名。' }}
+        </p>
       </div>
       <span>{{ members.length }} 位</span>
     </header>
     <t-loading v-if="isLoading" text="正在加载成员" />
-    <div v-else class="member-table-wrap">
+    <div v-else-if="isDeveloperAdmin" class="member-table-wrap">
       <table class="member-table">
         <thead>
           <tr>
@@ -635,18 +586,17 @@ async function runMemberAction(
                   删除
                 </t-button>
               </template>
+              <t-button
+                v-if="member.isPendingRoster !== true"
+                variant="text"
+                size="small"
+                :loading="isUpdating"
+                @click="updateMemberName(member)"
+              >
+                修改姓名
+              </t-button>
               <template v-else-if="member.isCurrentUser">
                 <span class="handled-label">当前账号</span>
-              </template>
-              <template v-else-if="member.isUnclaimed === true">
-                <t-button
-                  variant="outline"
-                  size="small"
-                  :loading="isUpdating"
-                  @click="claimMember(member)"
-                >
-                  认领
-                </t-button>
               </template>
               <template v-else-if="member.isClaimedByCurrentUser === true && canHandleClaims">
                 <t-button
@@ -738,14 +688,6 @@ async function runMemberAction(
               </t-button>
               <span v-else-if="member.isCurrentUser" class="handled-label">当前账号</span>
               <t-button
-                v-else-if="member.isUnclaimed === true"
-                variant="outline"
-                :loading="isUpdating"
-                @click="claimMember(member)"
-              >
-                认领身份
-              </t-button>
-              <t-button
                 v-if="hasMemberManagementActions(member)"
                 variant="outline"
                 class="member-manage-button"
@@ -758,6 +700,12 @@ async function runMemberAction(
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div v-else class="member-table-wrap">
+      <ul class="member-directory" aria-label="成员名单">
+        <li v-for="member in members" :key="member.id">{{ member.realName }}</li>
+      </ul>
     </div>
 
     <section v-if="canManageAdministrators" class="member-danger-zone">
@@ -781,33 +729,12 @@ async function runMemberAction(
       <GroupContactForm
         v-if="editingContactMemberId !== undefined"
         class="contact-editor"
-        :can-confirm="contactEditorMember?.isCurrentUser === true"
+        :can-confirm="isDeveloperAdmin"
         :contact="contactEditorMember === undefined ? undefined : contactFor(contactEditorMember)"
         :group-id="group.id"
         :membership-id="editingContactMemberId"
         @saved="loadMembers"
       />
-    </ResponsiveSheet>
-
-    <ResponsiveSheet v-model:visible="identityDialogVisible" title="发现同名成员">
-      <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
-      <p class="dialog-hint">检测到以下同名成员，请选择要认领的身份：</p>
-      <label v-for="entry in claimTargets" :key="entry.membershipId" class="claim-option">
-        <input
-          v-model="selectedClaimTargetId"
-          type="radio"
-          name="claim-target"
-          :value="entry.membershipId"
-          :disabled="!entry.isUnclaimed"
-        />
-        <span>
-          {{ entry.realName }}（{{ roleLabel(entry.role) }} ·
-          {{ entry.isUnclaimed ? '未认领' : '已被认领' }}）
-        </span>
-      </label>
-      <t-button theme="primary" :loading="isUpdating" @click="confirmIdentityClaim">
-        确认认领
-      </t-button>
     </ResponsiveSheet>
 
     <ResponsiveSheet

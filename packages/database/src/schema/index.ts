@@ -42,6 +42,7 @@ export const users = mysqlTable(
   {
     id: identifier(),
     cloudbaseUid: varchar('cloudbase_uid', { length: 128 }),
+    isDeveloperAdmin: tinyint('is_developer_admin', { unsigned: true }).default(0).notNull(),
     wechatOpenid: varchar('wechat_openid', { length: 64 }),
     status: mysqlEnum('status', ['active', 'suspended', 'deleted']).default('active').notNull(),
     ...auditableColumns(),

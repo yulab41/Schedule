@@ -660,6 +660,7 @@ async function assertLeaveWorkflowMobile(page) {
     await page.locator('#leave-create-button').click();
     const formSheet = page.locator('dialog[open][aria-label="新建请假"]');
     await formSheet.waitFor({ state: 'visible', timeout: 5000 });
+    await page.waitForTimeout(350);
     const sheetText = await formSheet.innerText();
     if (!sheetText.includes('请假类型') || !sheetText.includes('提交请假')) {
       fail(`${width}px 新建请假底部页缺少表单内容。`);
@@ -1141,18 +1142,12 @@ async function assertGroupManagementConfigAndEventNav(page) {
   if ((await groupCode.locator('strong').count()) !== 4) {
     fail('当前群组码没有保持四位腕带式展示。');
   }
-  const initialGroupCode = groupCodeLabel;
-  const regenerateButton = page.locator('button', { hasText: '重新生成群组码' }).first();
-  await regenerateButton.click();
-  const updateDeadline = Date.now() + 15000;
-  let updatedGroupCode = initialGroupCode;
-  while (Date.now() < updateDeadline) {
-    updatedGroupCode = await groupCode.getAttribute('aria-label');
-    if (updatedGroupCode !== initialGroupCode) break;
-    await page.waitForTimeout(250);
+  const codeInput = page.locator('.group-code-input input').first();
+  if ((await codeInput.count()) === 0) {
+    fail('群组码编辑输入框不存在。');
   }
-  if (!/^群组码 (?:\d ){3}\d$/u.test(updatedGroupCode ?? '')) {
-    fail(`重新生成后的群组码展示异常：${updatedGroupCode}`);
+  if ((await codeInput.inputValue()) !== (groupCodeLabel ?? '').replace(/\D/g, '')) {
+    fail('群组码编辑输入框未显示当前四位码。');
   }
 
   for (const width of [1280, 390, 320]) {
@@ -1398,14 +1393,17 @@ async function assertGuestStateResponsive(page, mode) {
 
 async function assertMemberAndNotificationPages(page) {
   await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
-  await waitForBodyText(page, '我的真实姓名', 15000, '成员身份表单');
-  await page.locator('table').first().waitFor({ state: 'visible', timeout: 15000 });
+  await waitForBodyText(page, '我的姓名', 15000, '个人资料');
+  await page.locator('.member-directory').waitFor({ state: 'visible', timeout: 15000 });
   const memberBody = await page.locator('body').innerText();
-  if (memberBody.includes('请求的资源不存在')) {
-    fail('成员页仍返回“请求的资源不存在”，认领相关 API 未恢复。');
-  }
   if (memberBody.includes('成员数据暂时无法加载')) {
     fail('成员页数据加载失败。');
+  }
+  if (memberBody.includes('认领') || memberBody.includes('电话确认')) {
+    fail('普通群组界面仍显示认领或电话确认入口。');
+  }
+  if ((await page.locator('.member-directory li').count()) === 0) {
+    fail('成员目录没有显示成员姓名。');
   }
 
   for (const width of [390, 320]) {
@@ -1413,18 +1411,17 @@ async function assertMemberAndNotificationPages(page) {
     await page.waitForTimeout(200);
     await page.locator('.member-list-heading').scrollIntoViewIfNeeded();
     const metrics = await page.evaluate(() => {
-      const card = document.querySelector('.member-table-wrap .member-card');
       const controls = [
         ...document.querySelectorAll(
-          '.identity-form input, .identity-form button, .add-member-form textarea, .add-member-form button, .contact-edit-button, .mobile-member-actions button',
+          '.identity-form .t-input, .identity-form button, .add-member-form textarea, .add-member-form button',
         ),
       ].filter((control) => {
         const rect = control.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
       });
       return {
-        cardDisplay: card === null ? undefined : getComputedStyle(card).display,
-        desktopActionsVisible: [...document.querySelectorAll('.desktop-member-actions')].some(
+        directoryItems: document.querySelectorAll('.member-directory li').length,
+        detailedTableVisible: [...document.querySelectorAll('.member-table-wrap table')].some(
           (element) => getComputedStyle(element).display !== 'none',
         ),
         overflow: document.documentElement.scrollWidth > window.innerWidth,
@@ -1437,35 +1434,14 @@ async function assertMemberAndNotificationPages(page) {
       };
     });
     if (metrics.overflow) fail(`${width}px 成员页出现横向溢出。`);
-    if (metrics.cardDisplay !== 'grid') fail(`${width}px 成员名单未切换为移动卡片。`);
-    if (metrics.desktopActionsVisible) fail(`${width}px 成员卡片仍显示桌面密集操作区。`);
+    if (metrics.directoryItems === 0) fail(`${width}px 成员目录没有显示姓名。`);
+    if (metrics.detailedTableVisible) fail(`${width}px 普通成员目录仍显示详细成员表。`);
     if (metrics.smallControls.length > 0) {
       fail(`${width}px 成员页存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
     }
-
-    const manageButton = page.locator('.member-manage-button:visible').first();
-    if ((await manageButton.count()) === 0) fail(`${width}px 成员卡片缺少明确的管理入口。`);
-    await manageButton.click();
-    const manageSheet = page.locator('dialog[open][aria-label^="管理成员"]');
-    await manageSheet.waitFor({ state: 'visible', timeout: 5000 });
-    await assertWorkflowSheetTouchTargets(manageSheet, width, '成员管理底部页');
     if (width === 390) {
-      await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, '6-admin-mobile-member-actions.png'),
-      });
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '6-member-directory.png') });
     }
-    await manageSheet.locator('button[aria-label="关闭"]').click();
-
-    const contactButton = page.locator('.contact-edit-button:visible').first();
-    await contactButton.click();
-    const contactSheet = page.locator('dialog[open][aria-label^="编辑"]');
-    await contactSheet.waitFor({ state: 'visible', timeout: 5000 });
-    const contactText = await contactSheet.innerText();
-    if (!contactText.includes('长号') || !contactText.includes('短号')) {
-      fail(`${width}px 联系方式底部页缺少长号或短号字段。`);
-    }
-    await assertWorkflowSheetTouchTargets(contactSheet, width, '联系方式底部页');
-    await contactSheet.locator('button[aria-label="关闭"]').click();
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });

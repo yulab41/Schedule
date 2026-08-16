@@ -44,6 +44,7 @@ describeWithDatabase('platform administration and recovery', () => {
     app = createApp({
       authPort: createFakeAuthPort({
         'admin-token': 'cloudbase-admin',
+        'developer-token': 'password_00000000-0000-4000-8000-000000000001',
         'member-token': 'cloudbase-member',
         'outsider-token': 'cloudbase-outsider',
       }),
@@ -85,6 +86,42 @@ describeWithDatabase('platform administration and recovery', () => {
     });
     expect(member.statusCode).toBe(200);
     expect(member.json()).toEqual({ isPlatformAdmin: false });
+  });
+
+  it('grants the seeded developer administrator access to every group without listing it as a member', async () => {
+    const groupId = await createGroup('member-token', 'Developer managed group', '8642');
+
+    const platformMe = await app.inject({
+      headers: { authorization: 'Bearer developer-token' },
+      method: 'GET',
+      url: '/platform/me',
+    });
+    const groups = await app.inject({
+      headers: { authorization: 'Bearer developer-token' },
+      method: 'GET',
+      url: '/groups',
+    });
+    const members = await app.inject({
+      headers: { authorization: 'Bearer developer-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/members`,
+    });
+    const deleted = await app.inject({
+      headers: { authorization: 'Bearer developer-token' },
+      method: 'DELETE',
+      url: `/groups/${groupId}`,
+    });
+
+    expect(platformMe.json()).toEqual({ isPlatformAdmin: true });
+    expect(groups.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: groupId, isDeveloperAdmin: true, role: 'administrator' }),
+      ]),
+    );
+    expect(members.json()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ realName: '后台管理员' })]),
+    );
+    expect(deleted.statusCode).toBe(204);
   });
 
   it('restores a soft-deleted group inside the 30-day recycle window and audits it', async () => {
@@ -604,6 +641,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);

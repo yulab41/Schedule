@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
   createTestDatabaseClient,
+  membershipClaimRequests,
   migrateDatabase,
   type DatabaseClient,
   type DatabaseConnectionOptions,
@@ -28,7 +30,7 @@ describeWithDatabase('membership identity claims', () => {
     app = createApp({
       authPort: createFakeAuthPort({
         'candidate-token': 'cloudbase-candidate',
-        'other-candidate-token': 'cloudbase-other-candidate',
+        'developer-token': 'password_00000000-0000-4000-8000-000000000001',
         'owner-token': 'cloudbase-owner',
       }),
       databaseClient: client,
@@ -36,15 +38,14 @@ describeWithDatabase('membership identity claims', () => {
     });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
-    await registerUser('other-candidate-token', 'Other Candidate');
     const createdGroup = (await createGroup('Claims group', '4321')).json() as {
       id: string;
     };
     groupId = createdGroup.id;
-    const candidateJoin = await claimGroup('candidate-token', '4321', 'Candidate Doctor');
+    const candidateRoster = await addFormalMember(groupId, 'Candidate Doctor');
+    expect(candidateRoster.statusCode).toBe(200);
+    const candidateJoin = await claimGroup('candidate-token', '4321');
     expect(candidateJoin.statusCode).toBe(201);
-    const otherCandidateJoin = await claimGroup('other-candidate-token', '4321', 'Other Candidate');
-    expect(otherCandidateJoin.statusCode).toBe(201);
     const added = await addFormalMember(groupId, 'Target Doctor');
     expect(added.statusCode).toBe(200);
     const members = (await listMembers('owner-token', groupId)).json() as {
@@ -65,125 +66,48 @@ describeWithDatabase('membership identity claims', () => {
     }
   });
 
-  it('looks up same-name members and lets an administrator claim an unclaimed member directly', async () => {
-    const lookup = await claimLookup('candidate-token', groupId, 'Target Doctor');
+  it('denies normal members and group owners access to historical claim actions', async () => {
+    for (const response of [
+      await claimLookup('candidate-token', groupId, 'Target Doctor'),
+      await createClaim('candidate-token', groupId, memberMembershipId),
+      await listClaimRequests('owner-token', groupId),
+    ]) {
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toMatchObject({ error: { code: 'FORBIDDEN' } });
+    }
+  });
+
+  it('lets only the developer administrator inspect and decide a historical claim', async () => {
+    const lookup = await claimLookup('developer-token', groupId, 'Target Doctor');
     expect(lookup.statusCode).toBe(200);
     expect(lookup.json()).toMatchObject({
-      matches: [
-        {
-          isUnclaimed: true,
-          membershipId: memberMembershipId,
-          realName: 'Target Doctor',
-          role: 'member',
-        },
-      ],
+      matches: [{ isUnclaimed: true, membershipId: memberMembershipId, realName: 'Target Doctor' }],
     });
 
-    const membersBefore = (await listMembers('owner-token', groupId)).json() as {
-      readonly id: string;
-      readonly realName: string;
-    }[];
-    const candidateMembershipId = membersBefore.find(
-      (member) => member.realName === 'Candidate Doctor',
-    )?.id as string;
-    const promoted = await updateRole(
-      'owner-token',
+    const candidate = (
+      await app.inject({
+        headers: { authorization: 'Bearer candidate-token' },
+        method: 'GET',
+        url: '/users/me',
+      })
+    ).json() as { id: string };
+    const requestId = randomUUID();
+    await client.database.insert(membershipClaimRequests).values({
       groupId,
-      candidateMembershipId,
-      'administrator',
-    );
-    expect(promoted.statusCode).toBe(200);
-
-    const created = await createClaim('candidate-token', groupId, memberMembershipId);
-    expect(created.statusCode, created.body).toBe(201);
-    expect(created.json()).toEqual({ direct: true });
-
-    const members = (await listMembers('candidate-token', groupId)).json() as {
-      readonly id: string;
-      readonly isClaimedByCurrentUser?: boolean;
-      readonly isUnclaimed?: boolean;
-      readonly realName: string;
-    }[];
-    const target = members.find((member) => member.realName === 'Target Doctor');
-    expect(target?.isUnclaimed).toBe(false);
-    expect(target?.isClaimedByCurrentUser).toBe(true);
-    expect(members.some((member) => member.realName === 'Candidate Doctor')).toBe(false);
-  });
-
-  it('prevents the group owner from claiming a member identity', async () => {
-    const created = await createClaim('owner-token', groupId, memberMembershipId);
-    expect(created.statusCode, created.body).toBe(409);
-  });
-
-  it('lets a normal member request a claim and an owner approve it', async () => {
-    const created = await createClaim('candidate-token', groupId, memberMembershipId);
-    expect(created.statusCode).toBe(202);
-    expect(created.json()).toMatchObject({
-      direct: false,
-      request: {
-        requestingUserRealName: 'Candidate Doctor',
-        status: 'pending',
-        targetMemberRealName: 'Target Doctor',
-      },
+      id: requestId,
+      requestingUserId: candidate.id,
+      targetMembershipId: memberMembershipId,
     });
 
-    const duplicate = await createClaim('candidate-token', groupId, memberMembershipId);
-    expect(duplicate.statusCode).toBe(409);
+    const ownerApproval = await approveClaim('owner-token', groupId, requestId);
+    expect(ownerApproval.statusCode).toBe(403);
 
-    const pending = (await listClaimRequests('owner-token', groupId)).json() as {
-      readonly id: string;
-      readonly status: string;
-    }[];
-    expect(pending).toHaveLength(1);
-    const requestId = pending[0]?.id as string;
-
-    const approved = await approveClaim('owner-token', groupId, requestId);
+    const approved = await approveClaim('developer-token', groupId, requestId);
     expect(approved.statusCode, approved.body).toBe(200);
-    expect(approved.json()).toMatchObject({ status: 'approved' });
+    expect(approved.json()).toMatchObject({ id: requestId, status: 'approved' });
 
-    const members = (await listMembers('candidate-token', groupId)).json() as {
-      readonly id: string;
-      readonly isClaimedByCurrentUser?: boolean;
-      readonly isCurrentUser: boolean;
-      readonly isUnclaimed?: boolean;
-      readonly realName: string;
-    }[];
-    const target = members.find((member) => member.realName === 'Target Doctor');
-    expect(target?.isUnclaimed).toBe(false);
-    expect(target?.isClaimedByCurrentUser).toBe(true);
-    expect(target?.isCurrentUser).toBe(true);
-
-    const blocked = await createClaim('other-candidate-token', groupId, memberMembershipId);
-    expect(blocked.statusCode).toBe(409);
-  });
-
-  it('lets an owner reject a claim, an administrator claim directly, and the owner revoke it', async () => {
-    const created = await createClaim('candidate-token', groupId, memberMembershipId);
-    const requestId = (created.json() as { request: { id: string } }).request.id;
-
-    const rejected = await rejectClaim('owner-token', groupId, requestId);
-    expect(rejected.statusCode).toBe(200);
-    expect(rejected.json()).toMatchObject({ status: 'rejected' });
-
-    const membersBefore = (await listMembers('owner-token', groupId)).json() as {
-      readonly id: string;
-      readonly realName: string;
-    }[];
-    const candidateMembershipId = membersBefore.find(
-      (member) => member.realName === 'Candidate Doctor',
-    )?.id as string;
-    await updateRole('owner-token', groupId, candidateMembershipId, 'administrator');
-
-    const direct = await createClaim('candidate-token', groupId, memberMembershipId);
-    expect(direct.statusCode, direct.body).toBe(201);
-
-    const revoked = await revokeClaim('owner-token', groupId, memberMembershipId);
-    expect(revoked.statusCode).toBe(200);
-    const members = (await listMembers('owner-token', groupId)).json() as {
-      readonly isUnclaimed?: boolean;
-      readonly realName: string;
-    }[];
-    expect(members.find((member) => member.realName === 'Target Doctor')?.isUnclaimed).toBe(true);
+    const revoked = await revokeClaim('developer-token', groupId, memberMembershipId);
+    expect(revoked.statusCode, revoked.body).toBe(200);
   });
 
   async function registerUser(token: string, realName: string): Promise<void> {
@@ -214,26 +138,12 @@ describeWithDatabase('membership identity claims', () => {
     });
   }
 
-  function claimGroup(token: string, groupCode: string, realName: string) {
+  function claimGroup(token: string, groupCode: string) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: { groupCode, realName },
+      payload: { groupCode },
       url: '/groups/claim',
-    });
-  }
-
-  function updateRole(
-    token: string,
-    targetGroupId: string,
-    membershipId: string,
-    role: 'administrator' | 'member',
-  ) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'PUT',
-      payload: { role },
-      url: `/groups/${targetGroupId}/members/${membershipId}/role`,
     });
   }
 
@@ -276,14 +186,6 @@ describeWithDatabase('membership identity claims', () => {
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
       url: `/groups/${targetGroupId}/claim-requests/${claimRequestId}/approve`,
-    });
-  }
-
-  function rejectClaim(token: string, targetGroupId: string, claimRequestId: string) {
-    return app.inject({
-      headers: { authorization: `Bearer ${token}` },
-      method: 'POST',
-      url: `/groups/${targetGroupId}/claim-requests/${claimRequestId}/reject`,
     });
   }
 
@@ -383,6 +285,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'roster_entries',
     'idempotency_keys',
     '`groups`',
+    'user_auth_identities',
+    'user_password_credentials',
     'user_profiles',
     'users',
     '__drizzle_migrations',

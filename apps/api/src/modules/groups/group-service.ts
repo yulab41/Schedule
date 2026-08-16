@@ -12,7 +12,7 @@ import type {
   CreateGroupRequest,
   DissolvedGroup,
   GroupSummary,
-  RegenerateGroupCodeRequest,
+  UpdateGroupCodeRequest,
   UpdateGroupNameRequest,
 } from '@schedule/contracts';
 import {
@@ -36,6 +36,7 @@ import { createDefaultShiftTypes } from '../scheduling-config/scheduling-config-
 
 interface ActiveGroupUser {
   readonly id: string;
+  readonly isDeveloperAdmin: boolean;
   readonly realName: string;
 }
 
@@ -62,37 +63,15 @@ export class GroupService {
     identity: AuthenticatedIdentity,
     input: CreateGroupRequest,
   ): Promise<GroupSummary> {
-    if (input.groupCode !== undefined) {
-      try {
-        return await this.createWithCode(identity, input.name, input.groupCode);
-      } catch (error) {
-        if (isDuplicateKeyError(error)) {
-          throw groupCodeConflict();
-        }
-
-        throw error;
+    try {
+      return await this.createWithCode(identity, input.name, input.groupCode);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw groupCodeConflict();
       }
-    }
 
-    for (let attempt = 0; attempt < 32; attempt += 1) {
-      try {
-        return await this.createWithCode(
-          identity,
-          input.name,
-          this.groupCodeService.createRandomCode(),
-        );
-      } catch (error) {
-        if (!isDuplicateKeyError(error)) {
-          throw error;
-        }
-      }
+      throw error;
     }
-
-    throw new ApiError({
-      code: 'SERVICE_UNAVAILABLE',
-      statusCode: 503,
-      userMessage: '暂时无法分配群组码，请稍后重试。',
-    });
   }
 
   public async addRosterEntries(
@@ -262,7 +241,7 @@ export class GroupService {
 
     return withTransaction(this.databaseClient, async (transaction) => {
       const user = await this.getActiveUserInTransaction(transaction, identity);
-      const claimRealName = input.realName?.trim() ?? user.realName;
+      const claimRealName = user.realName;
       const [group] = await transaction
         .select({
           groupCode: groups.groupCode,
@@ -320,148 +299,40 @@ export class GroupService {
         .limit(1)
         .for('update');
 
-      if (rosterEntry === undefined) {
-        const unboundMembership = await this.findUnboundMembership(
-          transaction,
-          group.id,
-          claimRealName,
-        );
-        if (unboundMembership !== undefined) {
-          const placeholderUserId = unboundMembership.userId;
-          await transaction
-            .update(groupMemberships)
-            .set({
-              userId: user.id,
-              version: sql`${groupMemberships.version} + 1`,
-            })
-            .where(eq(groupMemberships.id, unboundMembership.id));
-          await transaction
-            .update(groupJoinRequests)
-            .set({
-              status: 'resolved',
-              version: sql`${groupJoinRequests.version} + 1`,
-            })
-            .where(
-              and(
-                eq(groupJoinRequests.groupId, group.id),
-                eq(groupJoinRequests.requestingUserId, user.id),
-                eq(groupJoinRequests.status, 'pending'),
-                isNull(groupJoinRequests.deletedAt),
-              ),
-            );
-          await this.removePlaceholderUserIfUnused(transaction, placeholderUserId);
-          await this.updateClaimedProfile(transaction, user.id, claimRealName);
-
-          return {
-            group: toGroupSummary(group, unboundMembership.role),
-            status: 'claimed',
-          };
-        }
-
-        await transaction
-          .update(groupJoinRequests)
-          .set({
-            status: 'resolved',
-            version: sql`${groupJoinRequests.version} + 1`,
-          })
-          .where(
-            and(
-              eq(groupJoinRequests.groupId, group.id),
-              eq(groupJoinRequests.requestingUserId, user.id),
-              eq(groupJoinRequests.status, 'pending'),
-              isNull(groupJoinRequests.deletedAt),
-            ),
-          );
-        await transaction.insert(groupMemberships).values({
-          groupId: group.id,
-          id: randomUUID(),
-          role: 'member',
-          userId: user.id,
-        });
-        await this.updateClaimedProfile(transaction, user.id, claimRealName);
-
-        return {
-          group: toGroupSummary(group, 'member'),
-          status: 'claimed',
-        };
-      }
-
-      await transaction
-        .update(rosterEntries)
-        .set({
-          claimedByUserId: user.id,
-          status: 'claimed',
-          version: sql`${rosterEntries.version} + 1`,
-        })
-        .where(
-          and(
-            eq(rosterEntries.id, rosterEntry.id),
-            eq(rosterEntries.status, 'pending'),
-            isNull(rosterEntries.deletedAt),
-          ),
-        );
-      await transaction
-        .update(groupJoinRequests)
-        .set({
-          status: 'resolved',
-          version: sql`${groupJoinRequests.version} + 1`,
-        })
-        .where(
-          and(
-            eq(groupJoinRequests.groupId, group.id),
-            eq(groupJoinRequests.requestingUserId, user.id),
-            eq(groupJoinRequests.status, 'pending'),
-            isNull(groupJoinRequests.deletedAt),
-          ),
-        );
-      await this.updateClaimedProfile(transaction, user.id, claimRealName);
       const unboundMembership = await this.findUnboundMembership(
         transaction,
         group.id,
         claimRealName,
       );
-      if (unboundMembership !== undefined) {
-        await transaction
-          .update(groupMemberships)
-          .set({
-            userId: user.id,
-            version: sql`${groupMemberships.version} + 1`,
-          })
-          .where(eq(groupMemberships.id, unboundMembership.id));
-        await this.removePlaceholderUserIfUnused(transaction, unboundMembership.userId);
-
-        return {
-          group: toGroupSummary(group, unboundMembership.role),
-          status: 'claimed',
-        };
+      if (unboundMembership === undefined) {
+        throw new ApiError({
+          code: 'FORBIDDEN',
+          statusCode: 403,
+          userMessage: '该群没有与您姓名相同的预设成员，暂不能加入。',
+        });
       }
 
-      await transaction.insert(groupMemberships).values({
-        groupId: group.id,
-        id: randomUUID(),
-        role: 'member',
-        userId: user.id,
-      });
+      await transaction
+        .update(groupMemberships)
+        .set({ userId: user.id, version: sql`${groupMemberships.version} + 1` })
+        .where(eq(groupMemberships.id, unboundMembership.id));
+      if (rosterEntry !== undefined) {
+        await transaction
+          .update(rosterEntries)
+          .set({
+            claimedByUserId: user.id,
+            status: 'claimed',
+            version: sql`${rosterEntries.version} + 1`,
+          })
+          .where(eq(rosterEntries.id, rosterEntry.id));
+      }
+      await this.removePlaceholderUserIfUnused(transaction, unboundMembership.userId);
 
       return {
-        group: toGroupSummary(group, 'member'),
+        group: toGroupSummary(group, unboundMembership.role, user.isDeveloperAdmin),
         status: 'claimed',
       };
     });
-  }
-
-  private async updateClaimedProfile(
-    transaction: DatabaseTransaction,
-    userId: string,
-    realName: string,
-  ): Promise<void> {
-    await transaction
-      .update(userProfiles)
-      .set({
-        realName,
-        version: sql`${userProfiles.version} + 1`,
-      })
-      .where(eq(userProfiles.userId, userId));
   }
 
   private async findUnboundMembership(
@@ -593,42 +464,20 @@ export class GroupService {
       .where(and(eq(users.id, userId), isNull(users.deletedAt)));
   }
 
-  public async regenerateCode(
+  public async updateCode(
     identity: AuthenticatedIdentity,
     groupId: string,
-    input: RegenerateGroupCodeRequest,
+    input: UpdateGroupCodeRequest,
   ): Promise<GroupSummary> {
-    if (input.groupCode !== undefined) {
-      try {
-        return await this.updateGroupCode(groupId, identity, input.groupCode);
-      } catch (error) {
-        if (isDuplicateKeyError(error)) {
-          throw groupCodeConflict();
-        }
-
-        throw error;
+    try {
+      return await this.updateGroupCode(groupId, identity, input.groupCode);
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw groupCodeConflict();
       }
-    }
 
-    for (let attempt = 0; attempt < 32; attempt += 1) {
-      try {
-        return await this.updateGroupCode(
-          groupId,
-          identity,
-          this.groupCodeService.createRandomCode(),
-        );
-      } catch (error) {
-        if (!isDuplicateKeyError(error)) {
-          throw error;
-        }
-      }
+      throw error;
     }
-
-    throw new ApiError({
-      code: 'SERVICE_UNAVAILABLE',
-      statusCode: 503,
-      userMessage: '暂时无法分配新的群组码，请稍后重试。',
-    });
   }
 
   public async updateName(
@@ -651,6 +500,7 @@ export class GroupService {
       return {
         groupCode: authorization.group.groupCode,
         id: authorization.group.id,
+        ...(authorization.user.isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
         name: input.name,
         role: authorization.membership.role,
         version: authorization.group.version + 1,
@@ -665,7 +515,7 @@ export class GroupService {
       .from(groups)
       .where(
         and(
-          eq(groups.ownerUserId, user.id),
+          ...(user.isDeveloperAdmin ? [] : [eq(groups.ownerUserId, user.id)]),
           sql`${groups.deletedAt} is not null`,
           sql`${groups.deletedAt} >= timestampadd(day, -30, current_timestamp(3))`,
         ),
@@ -688,7 +538,7 @@ export class GroupService {
         .where(
           and(
             eq(groups.id, groupId),
-            eq(groups.ownerUserId, user.id),
+            ...(user.isDeveloperAdmin ? [] : [eq(groups.ownerUserId, user.id)]),
             sql`${groups.deletedAt} is not null`,
             sql`${groups.deletedAt} >= timestampadd(day, -30, current_timestamp(3))`,
           ),
@@ -731,21 +581,40 @@ export class GroupService {
         role: 'owner',
         userId: user.id,
       });
+      const developerAdmins = await transaction
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          and(eq(users.isDeveloperAdmin, 1), eq(users.status, 'active'), isNull(users.deletedAt)),
+        );
+      for (const developerAdmin of developerAdmins) {
+        if (developerAdmin.id === user.id) {
+          continue;
+        }
+        await transaction.insert(groupMemberships).values({
+          groupId,
+          id: randomUUID(),
+          role: 'administrator',
+          userId: developerAdmin.id,
+        });
+      }
       await createDefaultShiftTypes(transaction, groupId);
 
-      return {
-        groupCode,
-        id: groupId,
-        name,
-        role: 'owner',
-        version: 1,
-      };
+      return toGroupSummary(
+        { groupCode, id: groupId, name, ownerUserId: user.id, version: 1 },
+        'owner',
+        user.isDeveloperAdmin,
+      );
     });
   }
 
   private async getActiveUser(identity: AuthenticatedIdentity): Promise<ActiveGroupUser> {
     const [user] = await this.databaseClient.database
-      .select({ id: users.id, realName: userProfiles.realName })
+      .select({
+        id: users.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
+        realName: userProfiles.realName,
+      })
       .from(users)
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
       .where(
@@ -766,7 +635,11 @@ export class GroupService {
       });
     }
 
-    return user;
+    return {
+      id: user.id,
+      isDeveloperAdmin: user.isDeveloperAdmin === 1,
+      realName: user.realName,
+    };
   }
 
   private async getActiveUserInTransaction(
@@ -774,7 +647,12 @@ export class GroupService {
     identity: AuthenticatedIdentity,
   ): Promise<ActiveGroupUser> {
     const [user] = await transaction
-      .select({ id: users.id, realName: userProfiles.realName, status: users.status })
+      .select({
+        id: users.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
+        realName: userProfiles.realName,
+        status: users.status,
+      })
       .from(users)
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
       .where(
@@ -803,7 +681,11 @@ export class GroupService {
       });
     }
 
-    return { id: user.id, realName: user.realName };
+    return {
+      id: user.id,
+      isDeveloperAdmin: user.isDeveloperAdmin === 1,
+      realName: user.realName,
+    };
   }
 
   private async getOwnedGroup(
@@ -849,20 +731,28 @@ export class GroupService {
     groupCode: string,
   ): Promise<GroupSummary> {
     return withTransaction(this.databaseClient, async (transaction) => {
-      const user = await this.getActiveUserInTransaction(transaction, identity);
-      const group = await this.getOwnedGroup(transaction, groupId, user.id);
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'updateGroupCode',
+      );
       await transaction
         .update(groups)
         .set({
           groupCode,
           version: sql`${groups.version} + 1`,
         })
-        .where(eq(groups.id, group.id));
+        .where(eq(groups.id, authorization.group.id));
 
       return {
-        ...toGroupSummary(group, 'owner'),
+        ...toGroupSummary(
+          authorization.group,
+          authorization.membership.role,
+          authorization.user.isDeveloperAdmin,
+        ),
         groupCode,
-        version: group.version + 1,
+        version: authorization.group.version + 1,
       };
     });
   }
@@ -904,10 +794,15 @@ function getDatabaseErrorCode(error: unknown): unknown {
   return 'cause' in error ? getDatabaseErrorCode(error.cause) : undefined;
 }
 
-function toGroupSummary(group: ActiveGroup, role: GroupSummary['role']): GroupSummary {
+function toGroupSummary(
+  group: ActiveGroup,
+  role: GroupSummary['role'],
+  isDeveloperAdmin = false,
+): GroupSummary {
   return {
     groupCode: group.groupCode,
     id: group.id,
+    ...(isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
     name: group.name,
     role,
     version: group.version,

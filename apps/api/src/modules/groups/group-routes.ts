@@ -4,9 +4,10 @@ import type {
   ClaimGroupRequest,
   ConvertPendingRosterRequest,
   CreateGroupRequest,
-  RegenerateGroupCodeRequest,
+  UpdateGroupCodeRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
+  UpdateGroupMemberNameRequest,
   UpdateGroupMemberRoleRequest,
   UpdateGroupNameRequest,
 } from '@schedule/contracts';
@@ -27,7 +28,7 @@ const realNameSchema = z.string().trim().min(1).max(100);
 
 const createGroupInputSchema = z
   .object({
-    groupCode: groupCodeSchema.optional(),
+    groupCode: groupCodeSchema,
     name: groupNameSchema,
   })
   .strict();
@@ -53,13 +54,12 @@ const addGroupMembersInputSchema = z
 const claimGroupInputSchema = z
   .object({
     groupCode: groupCodeSchema,
-    realName: realNameSchema.optional(),
   })
   .strict();
 
-const regenerateGroupCodeInputSchema = z
+const updateGroupCodeInputSchema = z
   .object({
-    groupCode: groupCodeSchema.optional(),
+    groupCode: groupCodeSchema,
   })
   .strict();
 
@@ -100,14 +100,16 @@ const createMembershipClaimInputSchema = z
 
 const updateContactInputSchema = z
   .object({
-    confirm: z.literal(true).optional(),
+    isConfirmed: z.boolean().optional(),
     mobilePhone: phoneSchema.nullable().optional(),
     shortPhone: phoneSchema.nullable().optional(),
   })
   .strict()
   .refine(
     (input) =>
-      input.confirm === true || input.mobilePhone !== undefined || input.shortPhone !== undefined,
+      input.isConfirmed !== undefined ||
+      input.mobilePhone !== undefined ||
+      input.shortPhone !== undefined,
   );
 const visitorLogsQuerySchema = z
   .object({
@@ -272,10 +274,10 @@ export function registerGroupRoutes(
   );
 
   app.put('/groups/:groupId/group-code', { preHandler: app.authenticate }, async (request) =>
-    groupService.regenerateCode(
+    groupService.updateCode(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
-      parseRegenerateGroupCodeInput(request.body),
+      parseUpdateGroupCodeInput(request.body),
     ),
   );
 
@@ -338,6 +340,18 @@ export function registerGroupRoutes(
       ),
   );
 
+  app.put(
+    '/groups/:groupId/members/:membershipId/name',
+    { preHandler: app.authenticate },
+    async (request) =>
+      membershipService.updateMemberName(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseMembershipId(request),
+        parseUpdateMemberNameInput(request.body),
+      ),
+  );
+
   app.post('/groups/:groupId/owner-transfer', { preHandler: app.authenticate }, async (request) =>
     membershipService.transferOwnership(
       getAuthenticatedIdentity(request),
@@ -387,9 +401,7 @@ function parseCreateGroupInput(value: unknown): CreateGroupRequest {
     throwValidationError();
   }
 
-  return result.data.groupCode === undefined
-    ? { name: result.data.name }
-    : { groupCode: result.data.groupCode, name: result.data.name };
+  return result.data;
 }
 
 function parseRosterEntriesInput(value: unknown): AddRosterEntriesRequest {
@@ -425,19 +437,16 @@ function parseClaimGroupInput(value: unknown): ClaimGroupRequest {
     throwValidationError();
   }
 
-  return {
-    groupCode: result.data.groupCode,
-    ...(result.data.realName === undefined ? {} : { realName: result.data.realName }),
-  };
+  return result.data;
 }
 
-function parseRegenerateGroupCodeInput(value: unknown): RegenerateGroupCodeRequest {
-  const result = regenerateGroupCodeInputSchema.safeParse(value);
+function parseUpdateGroupCodeInput(value: unknown): UpdateGroupCodeRequest {
+  const result = updateGroupCodeInputSchema.safeParse(value);
   if (!result.success) {
     throwValidationError();
   }
 
-  return result.data.groupCode === undefined ? {} : { groupCode: result.data.groupCode };
+  return result.data;
 }
 
 function parseUpdateGroupNameInput(value: unknown): UpdateGroupNameRequest {
@@ -524,10 +533,18 @@ function parseUpdateContactInput(value: unknown): UpdateGroupMemberContactReques
   }
 
   return {
-    ...(result.data.confirm === undefined ? {} : { confirm: result.data.confirm }),
+    ...(result.data.isConfirmed === undefined ? {} : { isConfirmed: result.data.isConfirmed }),
     ...(result.data.mobilePhone === undefined ? {} : { mobilePhone: result.data.mobilePhone }),
     ...(result.data.shortPhone === undefined ? {} : { shortPhone: result.data.shortPhone }),
   };
+}
+
+function parseUpdateMemberNameInput(value: unknown): UpdateGroupMemberNameRequest {
+  const result = z.object({ realName: realNameSchema }).strict().safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+  return result.data;
 }
 
 function throwValidationError(): never {

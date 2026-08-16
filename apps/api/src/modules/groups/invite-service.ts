@@ -212,21 +212,9 @@ export class InviteService {
       let role: GroupRole;
       let tokenOverride: string | undefined;
       if (invite.targetRosterEntryId !== null) {
-        role = await this.acceptRosterTarget(
-          transaction,
-          group,
-          invite,
-          currentUser.id,
-          confirmedName,
-        );
+        role = await this.acceptRosterTarget(transaction, group, invite, currentUser.id);
       } else if (invite.targetMembershipId !== null) {
-        const result = await this.acceptMembershipTarget(
-          transaction,
-          group,
-          invite,
-          currentUser,
-          confirmedName,
-        );
+        const result = await this.acceptMembershipTarget(transaction, group, invite, currentUser);
         role = result.role;
         tokenOverride = result.token;
       } else {
@@ -405,7 +393,6 @@ export class InviteService {
     group: { readonly id: string },
     invite: typeof inviteTokens.$inferSelect,
     userId: string,
-    confirmedName: string,
   ): Promise<InvitePermissionRole> {
     const [roster] = await transaction
       .select()
@@ -440,7 +427,6 @@ export class InviteService {
         version: sql`${rosterEntries.version} + 1`,
       })
       .where(eq(rosterEntries.id, roster.id));
-    await this.updateProfileRealName(transaction, userId, confirmedName);
     if (invite.scheduleRoleId !== null) {
       await this.addScheduleRole(transaction, membershipId, invite.scheduleRoleId);
     }
@@ -457,7 +443,6 @@ export class InviteService {
     },
     invite: typeof inviteTokens.$inferSelect,
     currentUser: { readonly cloudbaseUid: string; readonly id: string; readonly realName: string },
-    confirmedName: string,
   ): Promise<{ readonly role: GroupRole; readonly token: string | undefined }> {
     const [membership] = await transaction
       .select({
@@ -503,7 +488,6 @@ export class InviteService {
         .update(groupMemberships)
         .set({ role: invite.permissionRole, version: sql`${groupMemberships.version} + 1` })
         .where(eq(groupMemberships.id, membership.id));
-      await this.updateProfileRealName(transaction, currentUser.id, confirmedName);
       if (invite.scheduleRoleId !== null) {
         await this.addScheduleRole(transaction, membership.id, invite.scheduleRoleId);
       }
@@ -787,17 +771,6 @@ export class InviteService {
         version: sql`${users.version} + 1`,
       })
       .where(and(eq(users.id, userId), isNull(users.deletedAt)));
-  }
-
-  private async updateProfileRealName(
-    transaction: DatabaseTransaction,
-    userId: string,
-    realName: string,
-  ): Promise<void> {
-    await transaction
-      .update(userProfiles)
-      .set({ realName, version: sql`${userProfiles.version} + 1` })
-      .where(eq(userProfiles.userId, userId));
   }
 
   private async getActiveUserInTransaction(

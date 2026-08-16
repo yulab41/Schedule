@@ -23,7 +23,7 @@ const selectedGroup = computed(
 const groupOptions = computed(() =>
   props.groups.map((group) => ({
     label: group.name,
-    role: roleLabel(group.role),
+    role: roleLabel(group),
     value: group.id,
   })),
 );
@@ -37,7 +37,11 @@ watch(selectedIndex, (index) => {
   highlightedIndex.value = index;
 });
 
-function roleLabel(role: GroupSummary['role'] | undefined): string {
+function roleLabel(group: GroupSummary | undefined): string {
+  if (group?.isDeveloperAdmin) {
+    return '后台管理员';
+  }
+  const role = group?.role;
   if (role === 'owner') {
     return '群主';
   }
@@ -152,7 +156,7 @@ onBeforeUnmount(() => {
   <div v-if="groups.length > 0" ref="rootRef" class="group-switcher">
     <div class="group-switcher-trigger" :class="{ 'is-open': isOpen }">
       <span class="group-switcher-copy">
-        {{ selectedGroup?.name }} · {{ roleLabel(selectedGroup?.role) }}
+        {{ selectedGroup?.name }} · {{ roleLabel(selectedGroup) }}
       </span>
       <button
         id="group-switcher-trigger"

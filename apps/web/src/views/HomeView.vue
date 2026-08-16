@@ -45,12 +45,18 @@ const isLoading = ref(false);
 const activeTab = ref<WorkbenchTabId>('calendar');
 const exportDialogVisible = ref(false);
 
-const desktopItems = computed(() => getDesktopNavItems(currentGroup()?.role ?? 'member'));
-const primaryItems = computed(() => getPrimaryMobileNavItems(currentGroup()?.role ?? 'member'));
-const secondaryItems = computed(() => getSecondaryMobileNavItems(currentGroup()?.role ?? 'member'));
+const effectiveGroupRole = computed(() =>
+  currentGroup()?.isDeveloperAdmin ? 'owner' : (currentGroup()?.role ?? 'member'),
+);
+const desktopItems = computed(() => getDesktopNavItems(effectiveGroupRole.value));
+const primaryItems = computed(() => getPrimaryMobileNavItems(effectiveGroupRole.value));
+const secondaryItems = computed(() => getSecondaryMobileNavItems(effectiveGroupRole.value));
 const activePageTitle = computed(() => getWorkbenchPageTitle(activeTab.value));
 const canExport = computed(
-  () => currentGroup()?.role === 'owner' || currentGroup()?.role === 'administrator',
+  () =>
+    currentGroup()?.isDeveloperAdmin === true ||
+    currentGroup()?.role === 'owner' ||
+    currentGroup()?.role === 'administrator',
 );
 
 onMounted(() => {

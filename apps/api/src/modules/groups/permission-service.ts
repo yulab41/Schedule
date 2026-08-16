@@ -18,7 +18,7 @@ export type GroupPermission =
   | 'manageRoster'
   | 'manageScheduleConfiguration'
   | 'manageSwaps'
-  | 'regenerateGroupCode'
+  | 'updateGroupCode'
   | 'regenerateVisitorKey'
   | 'restoreGroup'
   | 'transferOwnership'
@@ -32,6 +32,7 @@ export type GroupPermission =
 
 export interface ActiveGroupUser {
   readonly id: string;
+  readonly isDeveloperAdmin: boolean;
   readonly realName: string;
 }
 
@@ -51,6 +52,7 @@ export interface ActiveGroup {
 export interface ActiveGroupMembership {
   readonly autoAcceptSwaps: boolean;
   readonly id: string;
+  readonly isDeveloperAdmin: boolean;
   readonly role: 'administrator' | 'guest' | 'member' | 'owner';
   readonly userId: string;
 }
@@ -94,7 +96,7 @@ const permissionsByRole: Readonly<
     'manageRoster',
     'manageScheduleConfiguration',
     'manageSwaps',
-    'regenerateGroupCode',
+    'updateGroupCode',
     'regenerateVisitorKey',
     'restoreGroup',
     'transferOwnership',
@@ -120,8 +122,9 @@ export class GroupPermissionService {
     const membership = await this.getActiveMembershipForUpdate(transaction, group.id, user.id);
 
     if (
-      (membership.role === 'owner' && group.ownerUserId !== user.id) ||
-      (group.ownerUserId === user.id && membership.role !== 'owner')
+      !user.isDeveloperAdmin &&
+      ((membership.role === 'owner' && group.ownerUserId !== user.id) ||
+        (group.ownerUserId === user.id && membership.role !== 'owner'))
     ) {
       throw new ApiError({
         code: 'CONFLICT',
@@ -130,7 +133,7 @@ export class GroupPermissionService {
       });
     }
 
-    if (!permissionsByRole[membership.role].includes(permission)) {
+    if (!user.isDeveloperAdmin && !permissionsByRole[membership.role].includes(permission)) {
       throw new ApiError({
         code: 'FORBIDDEN',
         statusCode: 403,
@@ -180,6 +183,7 @@ export class GroupPermissionService {
           ? membership.autoAcceptSwapsValue === 1
           : true,
       id: membership.id,
+      isDeveloperAdmin: false,
       role: membership.role,
       userId: membership.userId,
     };
@@ -195,6 +199,7 @@ export class GroupPermissionService {
         autoAcceptSwapsManuallySetValue: groupMemberships.autoAcceptSwapsManuallySet,
         autoAcceptSwapsValue: groupMemberships.autoAcceptSwaps,
         id: groupMemberships.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
       })
@@ -229,6 +234,7 @@ export class GroupPermissionService {
           ? membership.autoAcceptSwapsValue === 1
           : true,
       id: membership.id,
+      isDeveloperAdmin: membership.isDeveloperAdmin === 1,
       role: membership.role,
       userId: membership.userId,
     };
@@ -239,7 +245,12 @@ export class GroupPermissionService {
     identity: AuthenticatedIdentity,
   ): Promise<ActiveGroupUser> {
     const [user] = await transaction
-      .select({ id: users.id, realName: userProfiles.realName, status: users.status })
+      .select({
+        id: users.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
+        realName: userProfiles.realName,
+        status: users.status,
+      })
       .from(users)
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
       .where(
@@ -268,7 +279,11 @@ export class GroupPermissionService {
       });
     }
 
-    return { id: user.id, realName: user.realName };
+    return {
+      id: user.id,
+      isDeveloperAdmin: user.isDeveloperAdmin === 1,
+      realName: user.realName,
+    };
   }
 
   private async getActiveGroupForUpdate(

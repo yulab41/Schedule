@@ -303,3 +303,9 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 通过；Storybook build、Web typecheck/build、任务文件 Prettier/ESLint、任务文件 `git diff --check` 通过。390/320px 实测月视图 8 月 31 日左下圆角、周视图周日右下圆角描边完整；选中 14 日后今天 16 日只保留黄色圆点且无第二蓝框。完整 `pnpm verify` 仅被并发中的无关 API 格式问题拦截，`smoke:check-core` 仅被无关未提交 contracts 变更触发。
 - 正式发布与核验：代码 checkpoint `c64f0d7` 已推送；发布前加密备份 `c2412550-9ae2-463f-8d1f-a488a7d9abb0`（44 张表、6218 行），release `c64f0d7f166adc61f0a6f9470f09519175c718e6` 从干净 worktree 构建并部署，`ecs-verify.sh` 退出码 0。正式 390/320px 月视图底角描边完整；周视图点击非今天后，今天仅保留黄色日期圆点、`aria-current=date` 且 `aria-pressed=false`，被选日期是唯一蓝框。
 - 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint：`fix(web): align rounded calendar selection states`；最终状态 checkpoint：`docs(status): record rounded calendar selection deployment`。
+
+## 2026-08-16 群组后台管理与导出修复
+
+- 回归来源：`export-jobs` 调度遗漏为 `eab3ff2`；随机群组码为 `1b5a17a`；成员认领界面为 `d117bb0`；电话确认权限为 `8e42afb`。均已通过 `git log -S` 与 `git blame` 核对。
+- 测试先行/集成验证：新增导出调度、手填群组码/同名预设绑定、developer admin 跨群隐藏权限、普通用户禁改名和 admin 专属历史认领覆盖。隔离 MySQL 实测空库迁移至第 37 版并重复运行成功；相关 API 集成断言均通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 通过（管理员、普通成员、访客/vkey 与访问记录全流程无浏览器错误）；390px 普通成员页仅显示本人姓名/联系方式和姓名目录，输入与保存触控区不小于 44px。`pnpm smoke:check-core`、`pnpm verify`（79 个文件/537 项通过，29 个数据库集成文件/251 项按环境跳过）和 `git diff --check` 通过。

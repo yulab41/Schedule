@@ -11,6 +11,7 @@ import type {
   MembershipClaimLookupResponse,
   MembershipClaimRequest,
   TransferGroupOwnershipRequest,
+  UpdateGroupMemberNameRequest,
   UpdateGroupMemberRoleRequest,
 } from '@schedule/contracts';
 import {
@@ -49,6 +50,7 @@ export class MembershipService {
       .select({
         groupCode: groups.groupCode,
         id: groups.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
         name: groups.name,
         role: groupMemberships.role,
         version: groups.version,
@@ -72,6 +74,7 @@ export class MembershipService {
 
     return memberships.map((membership) => ({
       id: membership.id,
+      ...(membership.isDeveloperAdmin === 1 ? { isDeveloperAdmin: true } : {}),
       name: membership.name,
       role: membership.role as GroupRole,
       version: membership.version,
@@ -225,6 +228,13 @@ export class MembershipService {
   public async leaveGroup(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
     await withTransaction(this.databaseClient, async (transaction) => {
       const user = await this.getActiveUserInTransaction(transaction, identity);
+      if (user.isDeveloperAdmin) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '后台管理员不能退出群组。',
+        });
+      }
       const [group] = await transaction
         .select({ id: groups.id })
         .from(groups)
@@ -339,9 +349,18 @@ export class MembershipService {
   private async getActiveUserInTransaction(
     transaction: DatabaseTransaction,
     identity: AuthenticatedIdentity,
-  ): Promise<{ readonly id: string; readonly realName: string }> {
+  ): Promise<{
+    readonly id: string;
+    readonly isDeveloperAdmin: boolean;
+    readonly realName: string;
+  }> {
     const [user] = await transaction
-      .select({ id: users.id, realName: userProfiles.realName, status: users.status })
+      .select({
+        id: users.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
+        realName: userProfiles.realName,
+        status: users.status,
+      })
       .from(users)
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
       .where(
@@ -367,7 +386,11 @@ export class MembershipService {
         userMessage: '当前账号无法执行群组操作。',
       });
     }
-    return { id: user.id, realName: user.realName };
+    return {
+      id: user.id,
+      isDeveloperAdmin: user.isDeveloperAdmin === 1,
+      realName: user.realName,
+    };
   }
 
   public async listMembers(
@@ -397,6 +420,7 @@ export class MembershipService {
             eq(groupMemberships.groupId, authorization.group.id),
             eq(groupMemberships.status, 'active'),
             eq(users.status, 'active'),
+            ne(users.isDeveloperAdmin, 1),
             ne(groupMemberships.role, 'guest'),
             isNull(groupMemberships.deletedAt),
             isNull(users.deletedAt),
@@ -481,6 +505,7 @@ export class MembershipService {
         groupId,
         'viewMembers',
       );
+      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
       const members = await transaction
         .select({
           cloudbaseUid: users.cloudbaseUid,
@@ -521,6 +546,7 @@ export class MembershipService {
     groupId: string,
     input: CreateMembershipClaimRequest,
   ): Promise<CreateMembershipClaimResponse> {
+    void input;
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
         transaction,
@@ -528,80 +554,12 @@ export class MembershipService {
         groupId,
         'viewMembers',
       );
-      const target = await this.findMembershipForUpdate(
-        transaction,
-        authorization.group.id,
-        input.membershipId,
-      );
-      if (target === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '成员不存在或不可用。',
-        });
-      }
-      if (target.userId === authorization.user.id) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '你已经是该成员身份，无需重复认领。',
-        });
-      }
-      if (target.cloudbaseUid !== null) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该成员已被其他账号认领，不能重复认领。',
-        });
-      }
-
-      if (authorization.membership.role !== 'member') {
-        await this.endMembershipForClaim(
-          transaction,
-          authorization.group.id,
-          authorization.user.id,
-        );
-        await this.bindMembershipToUser(transaction, target.id, authorization.user.id);
-        await this.updateProfileRealName(transaction, authorization.user.id, target.realName);
-        await this.cancelPendingClaimsForTarget(transaction, target.id);
-
-        return { direct: true };
-      }
-
-      const [existing] = await transaction
-        .select({ id: membershipClaimRequests.id })
-        .from(membershipClaimRequests)
-        .where(
-          and(
-            eq(membershipClaimRequests.groupId, authorization.group.id),
-            eq(membershipClaimRequests.requestingUserId, authorization.user.id),
-            eq(membershipClaimRequests.targetMembershipId, target.id),
-            eq(membershipClaimRequests.status, 'pending'),
-            isNull(membershipClaimRequests.deletedAt),
-          ),
-        )
-        .limit(1)
-        .for('update');
-      if (existing !== undefined) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '你已有该成员身份的待审批认领申请。',
-        });
-      }
-
-      const claimRequestId = randomUUID();
-      await transaction.insert(membershipClaimRequests).values({
-        groupId: authorization.group.id,
-        id: claimRequestId,
-        requestingUserId: authorization.user.id,
-        targetMembershipId: target.id,
+      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
+      throw new ApiError({
+        code: 'FORBIDDEN',
+        statusCode: 403,
+        userMessage: '认领申请已关闭；后台管理员仅可处理历史认领记录。',
       });
-
-      return {
-        direct: false,
-        request: await this.readClaimRequest(transaction, authorization.group.id, claimRequestId),
-      };
     });
   }
 
@@ -616,7 +574,8 @@ export class MembershipService {
         groupId,
         'viewMembers',
       );
-      const isAdministrator = authorization.membership.role !== 'member';
+      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
+      const isAdministrator = true;
       const rows = await transaction
         .select()
         .from(membershipClaimRequests)
@@ -707,6 +666,7 @@ export class MembershipService {
         groupId,
         'manageMembers',
       );
+      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
       const request = await this.lockClaimRequest(
         transaction,
         authorization.group.id,
@@ -745,7 +705,6 @@ export class MembershipService {
         request.requestingUserId,
       );
       await this.bindMembershipToUser(transaction, target.id, request.requestingUserId);
-      await this.updateProfileRealName(transaction, request.requestingUserId, target.realName);
       await this.cancelPendingClaimsForTarget(transaction, target.id);
       await transaction
         .update(membershipClaimRequests)
@@ -773,6 +732,7 @@ export class MembershipService {
         groupId,
         'manageMembers',
       );
+      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
       const request = await this.lockClaimRequest(
         transaction,
         authorization.group.id,
@@ -818,6 +778,7 @@ export class MembershipService {
         groupId,
         'manageMembers',
       );
+      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
       const target = await this.findMembershipForUpdate(
         transaction,
         authorization.group.id,
@@ -1055,17 +1016,6 @@ export class MembershipService {
       .where(eq(groupMemberships.id, membership.id));
   }
 
-  private async updateProfileRealName(
-    transaction: DatabaseTransaction,
-    userId: string,
-    realName: string,
-  ): Promise<void> {
-    await transaction
-      .update(userProfiles)
-      .set({ realName, version: sql`${userProfiles.version} + 1` })
-      .where(eq(userProfiles.userId, userId));
-  }
-
   private async releaseUnboundUserIfUnused(
     transaction: DatabaseTransaction,
     userId: string,
@@ -1168,6 +1118,13 @@ export class MembershipService {
       }
 
       if (membership !== undefined) {
+        if (membership.isDeveloperAdmin === 1) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '后台管理员成员关系不可删除。',
+          });
+        }
         if (membership.role === 'owner') {
           throw new ApiError({
             code: 'CONFLICT',
@@ -1175,7 +1132,11 @@ export class MembershipService {
             userMessage: '不能删除群主，请先转让群主身份。',
           });
         }
-        if (membership.role === 'administrator' && authorization.membership.role !== 'owner') {
+        if (
+          membership.role === 'administrator' &&
+          authorization.membership.role !== 'owner' &&
+          !authorization.user.isDeveloperAdmin
+        ) {
           throw new ApiError({
             code: 'FORBIDDEN',
             statusCode: 403,
@@ -1233,6 +1194,7 @@ export class MembershipService {
       .select({
         cloudbaseUid: users.cloudbaseUid,
         id: groupMemberships.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
         realName: userProfiles.realName,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
@@ -1265,6 +1227,7 @@ export class MembershipService {
       .select({
         cloudbaseUid: users.cloudbaseUid,
         id: groupMemberships.id,
+        isDeveloperAdmin: users.isDeveloperAdmin,
         realName: userProfiles.realName,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
@@ -1380,6 +1343,47 @@ export class MembershipService {
     }
   }
 
+  public async updateMemberName(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    membershipId: string,
+    input: UpdateGroupMemberNameRequest,
+  ): Promise<GroupMember> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageMembers',
+      );
+      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
+      const target = await this.permissionService.getActiveMemberForUpdate(
+        transaction,
+        authorization.group.id,
+        membershipId,
+      );
+      if (target.isDeveloperAdmin) {
+        throw new ApiError({
+          code: 'FORBIDDEN',
+          statusCode: 403,
+          userMessage: '后台管理员姓名不可在群组中修改。',
+        });
+      }
+
+      await transaction
+        .update(userProfiles)
+        .set({ realName: input.realName, version: sql`${userProfiles.version} + 1` })
+        .where(and(eq(userProfiles.userId, target.userId), isNull(userProfiles.deletedAt)));
+
+      return {
+        id: target.id,
+        isCurrentUser: target.userId === authorization.user.id,
+        realName: input.realName,
+        role: target.role,
+      };
+    });
+  }
+
   public async updateMemberRole(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -1404,6 +1408,13 @@ export class MembershipService {
           code: 'CONFLICT',
           statusCode: 409,
           userMessage: '请先转让群主身份，再调整原群主权限。',
+        });
+      }
+      if (target.isDeveloperAdmin) {
+        throw new ApiError({
+          code: 'FORBIDDEN',
+          statusCode: 403,
+          userMessage: '后台管理员成员关系不可调整。',
         });
       }
 
@@ -1453,6 +1464,14 @@ export class MembershipService {
         input.membershipId,
       );
 
+      if (target.isDeveloperAdmin) {
+        throw new ApiError({
+          code: 'VALIDATION_FAILED',
+          statusCode: 400,
+          userMessage: '不能将群主身份转让给后台管理员。',
+        });
+      }
+
       if (target.id === authorization.membership.id) {
         throw new ApiError({
           code: 'VALIDATION_FAILED',
@@ -1477,6 +1496,7 @@ export class MembershipService {
       return {
         groupCode: authorization.group.groupCode,
         id: authorization.group.id,
+        ...(authorization.user.isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
         name: authorization.group.name,
         role: 'administrator',
         version: authorization.group.version + 1,
@@ -1496,6 +1516,17 @@ export class MembershipService {
         .update(groups)
         .set({ deletedAt: sql`current_timestamp(3)`, version: sql`${groups.version} + 1` })
         .where(and(eq(groups.id, authorization.group.id), isNull(groups.deletedAt)));
+    });
+  }
+
+  private requireDeveloperAdmin(isDeveloperAdmin: boolean): void {
+    if (isDeveloperAdmin) {
+      return;
+    }
+    throw new ApiError({
+      code: 'FORBIDDEN',
+      statusCode: 403,
+      userMessage: '仅后台管理员可处理成员认领。',
     });
   }
 }

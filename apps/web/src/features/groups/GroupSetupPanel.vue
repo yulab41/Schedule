@@ -21,11 +21,11 @@ const api = createApiClient({ auth: localAuth });
 const createdGroup = ref<GroupSummary>();
 const createGroupName = ref('');
 const customGroupCode = ref('');
+const editedGroupCode = ref('');
 const rosterNames = ref('');
 const catalog = ref<GroupCatalogEntry[]>([]);
 const joinGroupId = ref('');
 const claimCode = ref('');
-const claimRealName = ref('');
 const groupName = ref('');
 const dissolvedGroups = ref<DissolvedGroup[]>([]);
 const errorMessage = ref<string>();
@@ -55,6 +55,7 @@ watch(
   () => props.group?.id,
   () => {
     groupName.value = props.group?.name ?? '';
+    editedGroupCode.value = props.group?.groupCode ?? '';
     void loadDissolved();
   },
   { immediate: true },
@@ -73,7 +74,7 @@ async function loadCatalog(): Promise<void> {
 }
 
 async function loadDissolved(): Promise<void> {
-  if (props.group?.role !== 'owner') {
+  if (props.group?.role !== 'owner' && !props.group?.isDeveloperAdmin) {
     dissolvedGroups.value = [];
     return;
   }
@@ -89,7 +90,7 @@ function catalogLabel(entry: GroupCatalogEntry): string {
     return `${entry.name}（已加入）`;
   }
   if (entry.relation === 'left-member') {
-    return `${entry.name}（未认领成员身份）`;
+    return `${entry.name}（可重新加入）`;
   }
   return entry.name;
 }
@@ -100,13 +101,13 @@ async function createGroup(): Promise<void> {
 
   try {
     createdGroup.value = await api.createGroup({
-      ...(customGroupCode.value.trim() === '' ? {} : { groupCode: customGroupCode.value.trim() }),
+      groupCode: customGroupCode.value.trim(),
       name: createGroupName.value,
     });
     createGroupName.value = '';
     customGroupCode.value = '';
     emit('groups-changed', createdGroup.value.id);
-    infoMessage.value = '群组已创建。请将待认领人员逐行粘贴到下方名单中。';
+    infoMessage.value = '群组已创建。请将预设成员逐行粘贴到下方名单中。';
   } catch (error) {
     errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
@@ -122,12 +123,12 @@ async function saveRoster(): Promise<void> {
   }
 
   if (parsedRosterNames.value.length === 0) {
-    errorMessage.value = '请至少输入一位待认领人员。';
+    errorMessage.value = '请至少输入一位预设成员。';
     return;
   }
 
   if (hasDuplicateRosterName(parsedRosterNames.value)) {
-    errorMessage.value = '待认领名单中不能有重复姓名。';
+    errorMessage.value = '预设成员名单中不能有重复姓名。';
     return;
   }
 
@@ -137,7 +138,7 @@ async function saveRoster(): Promise<void> {
       realNames: parsedRosterNames.value,
     });
     rosterNames.value = '';
-    infoMessage.value = `已添加 ${result.added} 位成员（未认领状态，已可转正排班；成员用真实姓名和群组码认领后自动绑定账号）。`;
+    infoMessage.value = `已添加 ${result.added} 位预设成员（可转为正式排班成员；成员使用已保存姓名和群组码加入后会自动关联账号）。`;
   } catch (error) {
     errorMessage.value = toUserMessage(error, '操作未完成，请稍后重试。');
   } finally {
@@ -163,10 +164,7 @@ async function joinSelectedGroup(): Promise<void> {
 
   isJoining.value = true;
   try {
-    const result = await api.claimGroup({
-      groupCode: claimCode.value.trim(),
-      ...(claimRealName.value.trim() === '' ? {} : { realName: claimRealName.value.trim() }),
-    });
+    const result = await api.claimGroup({ groupCode: claimCode.value.trim() });
     if (result.status === 'claimed') {
       resetJoinForm();
       infoMessage.value = `已加入“${result.group.name}”。`;
@@ -203,7 +201,10 @@ async function leaveCurrentGroup(): Promise<void> {
 
 async function saveGroupName(): Promise<void> {
   resetMessages();
-  if (props.group === undefined || props.group.role !== 'owner') {
+  if (
+    props.group === undefined ||
+    (props.group.role !== 'owner' && !props.group.isDeveloperAdmin)
+  ) {
     return;
   }
   isSavingName.value = true;
@@ -218,14 +219,19 @@ async function saveGroupName(): Promise<void> {
   }
 }
 
-async function regenerateCode(): Promise<void> {
+async function saveGroupCode(): Promise<void> {
   resetMessages();
-  if (props.group === undefined || props.group.role !== 'owner') {
+  if (
+    props.group === undefined ||
+    (props.group.role !== 'owner' && !props.group.isDeveloperAdmin)
+  ) {
     return;
   }
   isRegeneratingCode.value = true;
   try {
-    const result = await api.regenerateGroupCode(props.group.id, {});
+    const result = await api.updateGroupCode(props.group.id, {
+      groupCode: editedGroupCode.value.trim(),
+    });
     infoMessage.value =
       result.groupCode === undefined
         ? '群组码已更新，旧码立即失效。'
@@ -277,7 +283,6 @@ async function restoreGroup(groupId: string): Promise<void> {
 function resetJoinForm(): void {
   joinGroupId.value = '';
   claimCode.value = '';
-  claimRealName.value = '';
 }
 
 function resetMessages(): void {
@@ -300,7 +305,9 @@ function resetMessages(): void {
       <div class="group-identity-copy">
         <span>当前工作群组</span>
         <strong>{{ props.group.name }}</strong>
-        <small>{{ getGroupRoleLabel(props.group.role) }}</small>
+        <small>{{
+          props.group.isDeveloperAdmin ? '后台管理员' : getGroupRoleLabel(props.group.role)
+        }}</small>
       </div>
       <div v-if="currentGroupCodeDigits.length > 0" class="group-code-block">
         <span>共享群组码</span>
@@ -321,23 +328,37 @@ function resetMessages(): void {
         title="当前群组操作"
         class="group-card current-group-card"
       >
-        <template v-if="props.group.role === 'owner'">
+        <template v-if="props.group.role === 'owner' || props.group.isDeveloperAdmin">
           <t-form-item label="群组名称" name="groupName">
             <t-input v-model="groupName" maxlength="100" />
+          </t-form-item>
+          <t-form-item label="四位群组码" name="editedGroupCode">
+            <t-input
+              v-model="editedGroupCode"
+              class="group-code-input"
+              inputmode="numeric"
+              maxlength="4"
+              pattern="\d{4}"
+            />
           </t-form-item>
           <div class="group-management-actions">
             <t-button variant="outline" :loading="isSavingName" @click="saveGroupName">
               保存名称
             </t-button>
-            <t-button variant="outline" :loading="isRegeneratingCode" @click="regenerateCode">
-              重新生成群组码
+            <t-button variant="outline" :loading="isRegeneratingCode" @click="saveGroupCode">
+              保存群组码
             </t-button>
             <t-button theme="danger" variant="outline" @click="dissolveConfirmVisible = true">
               解散群组
             </t-button>
           </div>
         </template>
-        <t-button v-else variant="outline" @click="leaveConfirmVisible = true">退出群组</t-button>
+        <t-button
+          v-else-if="!props.group.isDeveloperAdmin"
+          variant="outline"
+          @click="leaveConfirmVisible = true"
+          >退出群组</t-button
+        >
       </t-card>
 
       <t-card title="创建群组" class="group-card">
@@ -346,8 +367,14 @@ function resetMessages(): void {
           <t-form-item label="群组名称" name="name">
             <t-input v-model="createGroupName" maxlength="100" required />
           </t-form-item>
-          <t-form-item label="自定义四位群组码（可选）" name="groupCode">
-            <t-input v-model="customGroupCode" inputmode="numeric" maxlength="4" pattern="\d{4}" />
+          <t-form-item label="四位群组码" name="groupCode">
+            <t-input
+              v-model="customGroupCode"
+              inputmode="numeric"
+              maxlength="4"
+              pattern="\d{4}"
+              required
+            />
           </t-form-item>
           <t-button theme="primary" type="submit" :loading="isCreating">创建群组</t-button>
         </form>
@@ -359,13 +386,10 @@ function resetMessages(): void {
           <t-select v-model="joinGroupId" :options="catalogOptions" placeholder="请选择群组" />
         </t-form-item>
         <p v-if="selectedCatalogEntry?.relation === 'left-member'" class="join-hint">
-          该群有您的未认领成员身份，请输入群组码重新加入。
+          该群有与您同名的预设成员，请输入群组码重新加入。
         </p>
         <t-form-item label="四位群组码" name="joinCode">
           <t-input v-model="claimCode" inputmode="numeric" maxlength="4" pattern="\d{4}" />
-        </t-form-item>
-        <t-form-item label="真实姓名（可选）" name="joinRealName">
-          <t-input v-model="claimRealName" maxlength="100" placeholder="默认使用您的真实姓名" />
         </t-form-item>
         <t-button theme="primary" :loading="isJoining" @click="joinSelectedGroup"
           >加入群组</t-button
@@ -374,7 +398,7 @@ function resetMessages(): void {
 
       <t-card
         v-if="createdGroup !== undefined"
-        title="待认领人员"
+        title="预设成员"
         class="group-card created-roster-card"
       >
         <div v-if="createdGroupCodeDigits.length > 0" class="created-group-code">
@@ -397,7 +421,10 @@ function resetMessages(): void {
       </t-card>
 
       <t-card
-        v-if="props.group?.role === 'owner' && dissolvedGroups.length > 0"
+        v-if="
+          (props.group?.role === 'owner' || props.group?.isDeveloperAdmin) &&
+          dissolvedGroups.length > 0
+        "
         title="已解散群组（30 天内可恢复）"
         class="group-card dissolved-groups-card"
       >
@@ -421,8 +448,7 @@ function resetMessages(): void {
     <ResponsiveSheet v-model:visible="leaveConfirmVisible" title="退出群组">
       <div class="group-confirmation">
         <p>
-          退出后：历史排班和联系方式仍保留，名单中您的身份变为“未认领”，不再收到该群通知；
-          重新加入时输入群组码可恢复原身份。
+          退出后：历史排班和联系方式仍保留，您不再收到该群通知；重新加入时输入群组码可恢复群组身份。
         </p>
         <div class="group-confirmation-actions">
           <t-button variant="outline" @click="leaveConfirmVisible = false">取消</t-button>
