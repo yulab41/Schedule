@@ -22,6 +22,7 @@ describe('production member contact directory', () => {
 
   it('matches contact edit buttons to member, owner, administrator, and developer backend permissions', () => {
     const source = readSource('./MemberManager.vue');
+    const contactFormSource = readSource('../profile/GroupContactForm.vue');
 
     expect(source).toContain("props.group.role === 'owner'");
     expect(source).toContain("props.group.role === 'administrator'");
@@ -29,6 +30,8 @@ describe('production member contact directory', () => {
     expect(source).toContain('return member.isCurrentUser || canManageContacts.value');
     expect(source).toContain(':can-confirm="canManageContacts"');
     expect(source).toContain('member.isPendingRoster !== true');
+    expect(contactFormSource).toContain('>确认联系方式</t-checkbox>');
+    expect(contactFormSource).not.toContain('后台确认联系方式');
   });
 
   it('closes the responsive editor only after a successful save and reloads the directory', () => {

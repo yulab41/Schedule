@@ -69,7 +69,7 @@ function emptyToNull(value: string): string | null {
     <t-form-item label="短号" name="shortPhone">
       <t-input v-model="shortPhone" maxlength="32" inputmode="tel" />
     </t-form-item>
-    <t-checkbox v-if="canConfirm" v-model="isConfirmed">后台确认联系方式</t-checkbox>
+    <t-checkbox v-if="canConfirm" v-model="isConfirmed">确认联系方式</t-checkbox>
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
     <t-button theme="primary" type="submit" :loading="isSaving"> 保存联系方式 </t-button>
