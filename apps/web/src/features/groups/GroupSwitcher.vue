@@ -211,16 +211,17 @@ onBeforeUnmount(() => {
   width: fit-content;
   max-width: 100%;
   min-width: 0;
-  min-height: var(--ui-touch-target-minimum);
+  min-height: 0;
   align-items: center;
   flex: 0 1 auto;
 }
 
 .group-switcher-trigger {
+  position: relative;
   display: flex;
   min-width: 0;
-  min-height: var(--ui-touch-target-minimum);
-  padding: 0;
+  min-height: 0;
+  padding: 0 36px 0 0;
   align-items: center;
   color: var(--ui-color-text-secondary);
   background: transparent;
@@ -241,6 +242,9 @@ onBeforeUnmount(() => {
 }
 
 .group-switcher-arrow-button {
+  position: absolute;
+  top: 50%;
+  right: 0;
   display: inline-flex;
   width: 36px;
   min-width: 36px;
@@ -253,6 +257,7 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: var(--ui-radius-small);
   cursor: pointer;
+  transform: translateY(-50%);
 }
 
 .group-switcher-arrow-button:hover,
@@ -285,7 +290,7 @@ onBeforeUnmount(() => {
   position: absolute;
   display: grid;
   z-index: var(--ui-z-index-dialog);
-  top: calc(100% + var(--ui-spacing-xs));
+  top: calc(100% + var(--ui-spacing-lg));
   left: 0;
   width: max(100%, 216px);
   max-width: min(320px, calc(100vw - var(--ui-spacing-xl)));

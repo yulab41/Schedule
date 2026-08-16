@@ -355,7 +355,8 @@ a:focus-visible {
   display: flex;
   min-width: 0;
   max-width: 100%;
-  min-height: 44px;
+  min-height: 0;
+  padding-right: 36px;
   align-items: center;
   gap: 0;
 }
@@ -373,6 +374,9 @@ a:focus-visible {
 }
 
 .group-menu-action {
+  position: absolute;
+  top: 50%;
+  right: 0;
   width: 36px;
   min-width: 36px;
   min-height: 44px;
@@ -384,6 +388,7 @@ a:focus-visible {
   border: 0;
   border-radius: 10px;
   cursor: pointer;
+  transform: translateY(-50%);
 }
 
 .group-menu-action:hover,
@@ -416,7 +421,7 @@ a:focus-visible {
   position: absolute;
   display: grid;
   z-index: 10;
-  top: calc(100% + 8px);
+  top: calc(100% + 20px);
   left: 0;
   width: max(100%, 216px);
   max-width: min(320px, calc(100vw - 24px));

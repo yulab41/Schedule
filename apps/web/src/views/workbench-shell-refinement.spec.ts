@@ -55,8 +55,9 @@ describe('formal compact workbench shell', () => {
     expect(groupSwitcher).not.toContain('group.groupCode');
     expect(groupSwitcher).not.toContain('当前群组码');
     expect(groupSwitcher).toContain("'update:modelValue': [groupId: string]");
+    expect(groupSwitcher).toMatch(/\.group-switcher-trigger\s*{[^}]*min-height:\s*0;/s);
     expect(groupSwitcher).toMatch(
-      /\.group-switcher-trigger\s*{[^}]*min-height:\s*var\(--ui-touch-target-minimum\);/s,
+      /\.group-switcher-trigger\s*{[^}]*position:\s*relative;[^}]*min-height:\s*0;[^}]*padding:\s*0 36px 0 0;/s,
     );
     expect(groupSwitcher).toContain('class="group-switcher-arrow-button"');
     expect(groupSwitcher).toContain('aria-label="展开排班群组列表"');
@@ -67,16 +68,22 @@ describe('formal compact workbench shell', () => {
       /\.group-switcher-arrow-button\s*{[^}]*min-height:\s*var\(--ui-touch-target-minimum\);[^}]*background:\s*transparent;/s,
     );
     expect(groupSwitcher).toMatch(
+      /\.group-switcher-arrow-button\s*{[^}]*position:\s*absolute;[^}]*top:\s*50%;[^}]*right:\s*0;[^}]*transform:\s*translateY\(-50%\);/s,
+    );
+    expect(groupSwitcher).toMatch(
       /\.group-switcher-arrow\s*{[^}]*border-right:\s*2px solid currentColor;[^}]*border-bottom:\s*2px solid currentColor;/s,
     );
     expect(groupSwitcher).toMatch(
       /\.group-switcher\s*{[^}]*width:\s*fit-content;[^}]*max-width:\s*100%;/s,
     );
     expect(groupSwitcher).toMatch(
-      /\.group-switcher-menu\s*{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100% \+ var\(--ui-spacing-xs\)\);/s,
+      /\.group-switcher-menu\s*{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100% \+ var\(--ui-spacing-lg\)\);/s,
     );
     expect(groupSwitcher).toMatch(
       /\.group-switcher-menu\s*{[^}]*display:\s*grid;[^}]*gap:\s*var\(--ui-spacing-xxs\);/s,
+    );
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher-menu\s*{[^}]*top:\s*calc\(100% \+ var\(--ui-spacing-lg\)\);/s,
     );
   });
 

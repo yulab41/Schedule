@@ -259,3 +259,12 @@
 - 正式发布：代码 checkpoint `4857e76` 已推送；发布前加密数据库备份 archive `ccdd8bf2-9a7f-4e8d-b1c1-198a95cd6d05`（44 张表、5442 行）；release `4857e76e976e0010d2f52520e23fc73babb88c1e` 已部署。
 - 正式核验：服务器 `ecs-verify.sh` 退出码 0；正式 D0796 会话测得 `gap/row-gap = 4px`，选项高 62px、上下顶部差 66px，Escape 后 `aria-expanded=false`、listbox 数量为 0、原生 `select` 数量为 0；工作台/通知/导出各 1 个，error/warning 日志为空。
 - 状态：已完成（含生产发布与线上核验）→ 待用户复核；代码 checkpoint 识别消息：`fix(web): separate group dropdown option states`。
+
+## 2026-08-16 工作台群组名垂直间距精修
+
+- 用户反馈：群组名上下留白过大，抬头整体高度被 44px 群组内容行撑开，需要在保持触达能力的同时收紧视觉行高。
+- 引入点：当前群组切换器结构来自 `3febef0`；本轮执行 `git log -S` 与 `git blame`，确认问题只涉及 `.group-switcher`/`.group-switcher-trigger` 的最小高度与箭头定位。
+- 测试先行：正式壳和 Storybook 断言在旧实现上 2 项失败、9 项通过；改动后 11/11 通过。箭头仍为 44px 触达区，文字行恢复内容高度。
+- 修复与审计：移除视觉行的 44px 最小高度，箭头绝对定位居中，菜单锚点下移以保持 8px 间距；未改群组值/事件、键盘与关闭行为、权限、导出或抽屉退出登录。
+- 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser`、Web typecheck、Storybook build、`pnpm smoke:check-core`、定向测试 11/11、任务文件 Prettier 与 `git diff --check` 通过。Storybook 390px 抬头 94px → 70.25px，群组文字行 20.25px，箭头 44px，菜单间距 8.13px。
+- 状态：已完成（含运行验证）→ 待生产发布。checkpoint 识别消息：`fix(web): compact group header spacing`。
