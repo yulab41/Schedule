@@ -238,11 +238,13 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 测试先行：新增实际月历与 Storybook 参考组件的相邻月份颜色断言；旧实现 1 项失败，修复后日历 parity 8/8、定向日历相关 27/27 通过。
 - 变更：相邻月份普通日期改为更浅的 `#c2c9d1`，相邻月份周末日期改为同步变浅的 `#ef9f9f`；桌面、移动端和 `invert-past-colors` 分支保持一致。当月普通/周末日期、背景、详情、选择和业务数据均未改。
 - 运行/浏览器验证：Web typecheck、build、Storybook build、ESLint、Prettier、`pnpm smoke:check-core`、`pnpm verify`（76 个测试文件/521 项通过，29 个数据库集成文件/252 项按环境跳过）和 `git diff --check` 通过。390×844 与 1280×900 实测普通相邻日期 `rgb(194, 201, 209)`、相邻周末 `rgb(239, 159, 159)`，当月颜色保持原值且无横向溢出。
-- 状态：已完成（含运行与本地浏览器验证）→ 待生产发布；checkpoint 识别消息：`fix(web): lighten adjacent-month calendar dates`。
-- 下一批次：提交并推送本 checkpoint，创建 production backup，部署 release，运行 `ecs-verify.sh` 和正式域名月历颜色复核。
-- 停止条件：Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，正式域名确认相邻月份普通/周末日期均同步变浅；随后等待用户视觉复核。
+- 正式发布：代码 checkpoint `7b230e4` 已推送；发布前加密数据库备份 archive 为 `70a03bdc-ca33-4f0e-a292-91de3b29d8e5`（44 张表、5605 行）；release `7b230e4c2eea20c6ccafb47cbc89f08f1e567c83` 部署成功。
+- 正式核验：`ecs-verify.sh` 退出码 0；正式 D0796 会话在 1280×900 与 390×844 测得普通相邻日期 `rgb(194, 201, 209)`、相邻周末 `rgb(239, 159, 159)`，当月颜色保持原值、无横向溢出，浏览器 error/warning 为空。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint 识别消息：`fix(web): lighten adjacent-month calendar dates`。
+- 下一批次：提交并推送最终状态 checkpoint `docs(status): record adjacent-month color deployment`，将同一 `HEAD` 作为最终 release 部署。
+- 停止条件：最终状态 checkpoint 已推送，生产备份、release、`ecs-verify.sh` 与正式域名颜色复核全部通过；随后等待用户视觉复核。
 
 ## 下一批次与停止条件
 
-- 下一批次：本 checkpoint 的提交、推送、production backup、release 部署、`ecs-verify.sh` 及正式域名月历颜色复核。
-- 停止条件：完成本 checkpoint 的生产备份、部署和线上核验，保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，随后等待用户视觉复核。
+- 下一批次：提交并推送最终状态 checkpoint `docs(status): record adjacent-month color deployment`，将同一 `HEAD` 作为最终 release 部署。
+- 停止条件：最终状态 checkpoint 已推送，生产备份、release、`ecs-verify.sh` 与正式域名颜色复核全部通过；保持 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，随后等待用户视觉复核。
