@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import Ui2Icon, { type Ui2IconName } from './Ui2Icon.vue';
 import Ui2MonthCalendar from './Ui2MonthCalendar.vue';
@@ -11,15 +11,46 @@ const props = withDefaults(
   defineProps<{
     readonly layout?: WorkbenchRefinementLayout;
     readonly longGroupName?: boolean;
+    readonly openGroupMenu?: boolean;
     readonly screen?: WorkbenchRefinementScreen;
   }>(),
-  { layout: 'mobile', longGroupName: false, screen: 'calendar' },
+  { layout: 'mobile', longGroupName: false, openGroupMenu: false, screen: 'calendar' },
 );
 
 const selectedDay = ref(14);
 const groupName = computed(() =>
   props.longGroupName ? '头颈外科与颅底肿瘤联合诊疗医生组' : '头颈外科医生',
 );
+const previewGroups = computed(() => [
+  { id: 'doctor', name: groupName.value, role: '群主' },
+  { id: 'nurse', name: '头颈外科护士', role: '成员' },
+]);
+const selectedGroupId = ref('doctor');
+const isGroupMenuOpen = ref(props.openGroupMenu);
+const selectedPreviewGroup = computed(
+  () =>
+    previewGroups.value.find((group) => group.id === selectedGroupId.value) ??
+    previewGroups.value[0],
+);
+const selectedGroupName = computed(() => selectedPreviewGroup.value?.name ?? groupName.value);
+const selectedGroupRole = computed(() => selectedPreviewGroup.value?.role ?? '成员');
+
+watch(
+  () => props.openGroupMenu,
+  (value) => {
+    isGroupMenuOpen.value = value;
+  },
+);
+
+function toggleGroupMenu(): void {
+  isGroupMenuOpen.value = !isGroupMenuOpen.value;
+}
+
+function selectPreviewGroup(groupId: string): void {
+  selectedGroupId.value = groupId;
+  isGroupMenuOpen.value = false;
+}
+
 const pageTitle = computed(() => {
   if (props.screen === 'swap') return '换班';
   if (props.screen === 'duty') return '加扣班';
@@ -85,16 +116,54 @@ const navItems: readonly { icon: Ui2IconName; id: string; label: string }[] = [
       <header class="workbench-header">
         <div class="workbench-title-block">
           <div class="group-heading-row">
-            <span class="group-identity">{{ groupName }} · 群主</span>
-            <button class="group-menu-action" type="button" aria-label="切换排班群组">
-              <span aria-hidden="true">▾</span>
+            <span class="group-identity">{{ selectedGroupName }} · {{ selectedGroupRole }}</span>
+            <button
+              class="group-menu-action"
+              type="button"
+              role="combobox"
+              aria-label="展开排班群组列表"
+              aria-haspopup="listbox"
+              :aria-expanded="isGroupMenuOpen"
+              aria-controls="preview-group-menu"
+              @click="toggleGroupMenu"
+            >
+              <span
+                class="group-menu-arrow"
+                :class="{ 'is-open': isGroupMenuOpen }"
+                aria-hidden="true"
+              />
             </button>
+            <div
+              v-if="isGroupMenuOpen"
+              id="preview-group-menu"
+              class="group-menu-list"
+              role="listbox"
+              aria-label="可用排班群组"
+            >
+              <button
+                v-for="group in previewGroups"
+                :key="group.id"
+                class="group-menu-option"
+                type="button"
+                role="option"
+                :aria-selected="group.id === selectedGroupId"
+                @click="selectPreviewGroup(group.id)"
+              >
+                <span class="group-menu-option-copy">
+                  <span>{{ group.name }}</span>
+                  <small>{{ group.role }}</small>
+                </span>
+                <span v-if="group.id === selectedGroupId" aria-hidden="true">✓</span>
+              </button>
+            </div>
           </div>
           <h1>{{ pageTitle }}</h1>
         </div>
         <div class="header-actions">
           <button type="button" aria-label="通知"><Ui2Icon name="bell" /><i /></button>
-          <button v-if="layout === 'desktop'" class="sign-out" type="button">退出登录</button>
+          <button class="export-action" type="button" aria-label="导出排班">
+            <span aria-hidden="true">↗</span><span>导出</span>
+          </button>
         </div>
       </header>
 
@@ -269,6 +338,7 @@ a:focus-visible {
 
 .workbench-title-block {
   min-width: 0;
+  flex: 1;
 }
 
 .group-heading-row,
@@ -282,10 +352,11 @@ a:focus-visible {
 .group-heading-row {
   position: relative;
   width: fit-content;
+  display: flex;
   min-width: 0;
   max-width: 100%;
-  min-height: 15px;
-  padding-right: 18px;
+  min-height: 44px;
+  align-items: center;
   gap: 0;
 }
 
@@ -294,29 +365,106 @@ a:focus-visible {
   min-width: 0;
   overflow: hidden;
   color: var(--ui2-text-secondary);
-  font-size: 11px;
-  font-weight: 550;
-  line-height: 15px;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .group-menu-action {
-  position: absolute;
-  top: 50%;
-  right: -13px;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  min-width: 36px;
   min-height: 44px;
   padding: 0;
   flex: 0 0 auto;
   justify-content: center;
-  color: var(--ui2-text-secondary);
+  color: inherit;
   background: transparent;
   border: 0;
   border-radius: 10px;
-  font-size: 14px;
-  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.group-menu-action:hover,
+.group-menu-action:focus-visible,
+.group-menu-action[aria-expanded='true'] {
+  color: var(--ui2-primary);
+  background: transparent;
+}
+
+.group-menu-action:focus-visible {
+  outline: 2px solid rgb(10 102 213 / 35%);
+  outline-offset: 1px;
+}
+
+.group-menu-arrow {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 120ms ease;
+}
+
+.group-menu-arrow.is-open {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.group-menu-list {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  left: 0;
+  width: max(100%, 216px);
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 4px;
+  background: var(--ui2-surface);
+  border: 1px solid var(--ui2-border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgb(22 32 42 / 14%);
+}
+
+.group-menu-option {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui2-text-primary);
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.group-menu-option:hover,
+.group-menu-option[aria-selected='true'] {
+  color: var(--ui2-primary);
+  background: var(--ui2-primary-tint);
+}
+
+.group-menu-option-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.group-menu-option-copy span {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-menu-option-copy small {
+  color: var(--ui2-text-secondary);
+  font-size: 11px;
 }
 
 .workbench-title-block h1 {
@@ -353,9 +501,14 @@ a:focus-visible {
   border-radius: 50%;
 }
 
-.header-actions .sign-out {
-  padding-inline: 14px;
-  background: transparent;
+.export-action {
+  padding-inline: 12px;
+  color: var(--ui2-primary) !important;
+  background: var(--ui2-surface) !important;
+  border: 1px solid var(--ui2-border) !important;
+  font-size: 13px;
+  font-weight: 650;
+  gap: 4px;
 }
 
 .workspace {
@@ -807,6 +960,19 @@ a:focus-visible {
 
 .is-mobile .workbench-title-block {
   max-width: calc(100% - 54px);
+}
+
+.is-mobile .export-action {
+  padding: 0;
+}
+
+.is-mobile .export-action span:last-child {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .is-mobile .panel-heading {

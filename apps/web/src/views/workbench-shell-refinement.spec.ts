@@ -21,27 +21,67 @@ describe('formal compact workbench shell', () => {
     expect(appLayout).not.toContain('class="app-header"');
     expect(appLayout).not.toContain('class="product-name"');
     expect(homeView).toContain('class="workbench-shell-header"');
+    expect(homeView).toContain('class="workbench-shell-heading"');
     expect(homeView).toContain('<h1>{{ activePageTitle }}</h1>');
     expect(homeView).toContain('<NotificationBell />');
-    expect(homeView).not.toContain('class="home-heading"');
-    expect(homeView).not.toContain('class="workbench-context-heading"');
+    expect(homeView).not.toContain('class="shell-sign-out"');
+    expect(homeView.indexOf('<div class="workbench-shell-heading">')).toBeLessThan(
+      homeView.indexOf('<GroupSwitcher'),
+    );
+    expect(homeView.indexOf('<GroupSwitcher')).toBeLessThan(
+      homeView.indexOf('<h1>{{ activePageTitle }}</h1>'),
+    );
+    expect(homeView).not.toContain('class="shell-group-context"');
+    expect(homeView).toMatch(
+      /\.workbench-shell-header\s*{[^}]*display:\s*flex;[^}]*align-items:\s*flex-end;/s,
+    );
+    expect(homeView.indexOf('<NotificationBell />')).toBeLessThan(
+      homeView.indexOf('class="shell-export-action"'),
+    );
   });
 
   it('keeps the group selector compact without exposing the group code globally', () => {
     expect(groupSwitcher).toContain(
       '{{ selectedGroup?.name }} · {{ roleLabel(selectedGroup?.role) }}',
     );
-    expect(groupSwitcher).toContain('aria-label="切换排班群组"');
+    expect(groupSwitcher).toContain('aria-label="展开排班群组列表"');
     expect(groupSwitcher).toContain('label: group.name');
+    expect(groupSwitcher).toContain('role="listbox"');
+    expect(groupSwitcher).toContain(':aria-expanded="isOpen"');
+    expect(groupSwitcher).toContain('class="group-switcher-menu"');
+    expect(groupSwitcher).toContain('@keydown="handleTriggerKeydown"');
+    expect(groupSwitcher).not.toContain('<select');
+    expect(groupSwitcher).not.toContain('HTMLSelectElement');
     expect(groupSwitcher).not.toContain('group.groupCode');
     expect(groupSwitcher).not.toContain('当前群组码');
     expect(groupSwitcher).toContain("'update:modelValue': [groupId: string]");
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher-trigger\s*{[^}]*min-height:\s*var\(--ui-touch-target-minimum\);/s,
+    );
+    expect(groupSwitcher).toContain('class="group-switcher-arrow-button"');
+    expect(groupSwitcher).toContain('aria-label="展开排班群组列表"');
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher-copy\s*{[^}]*font-size:\s*var\(--ui-font-size-md\);/s,
+    );
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher-arrow-button\s*{[^}]*min-height:\s*var\(--ui-touch-target-minimum\);[^}]*background:\s*transparent;/s,
+    );
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher-arrow\s*{[^}]*border-right:\s*2px solid currentColor;[^}]*border-bottom:\s*2px solid currentColor;/s,
+    );
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher\s*{[^}]*width:\s*fit-content;[^}]*max-width:\s*100%;/s,
+    );
+    expect(groupSwitcher).toMatch(
+      /\.group-switcher-menu\s*{[^}]*position:\s*absolute;[^}]*top:\s*calc\(100% \+ var\(--ui-spacing-xs\)\);/s,
+    );
   });
 
   it('places export in the compact header and keeps its mobile accessible name', () => {
     expect(homeView).toContain('class="shell-export-action"');
     expect(homeView).toContain('aria-label="导出排班"');
     expect(homeView).toContain('@click="exportDialogVisible = true"');
+    expect(homeView).not.toContain('grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);');
   });
 
   it('uses the confirmed full-month card and compact controls', () => {

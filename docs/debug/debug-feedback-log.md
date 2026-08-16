@@ -237,3 +237,11 @@
 - 状态：已完成（含运行验证）→ 待用户复核；checkpoint 识别消息：`fix(web): avoid stacked mobile calendar separators`。
 - 正式发布：checkpoint `de69384` 已推送；备份 archive `c9785dbd-b267-4cfa-afc4-cb1f9556b57f`（44 张表、5406 行）；release `de69384164c6806e939ec6f9d67355e0d8710170` 已部署。
 - 正式域名复核：390×844 月格 49×49、320×844 月格 41.14×41.14，均为 42 格、星期栏底边 `0px`、首行间距 `1px`，无横向溢出；`ecs-verify.sh` 通过，未触发业务写入。
+
+## 2026-08-16 工作台抬头回退与自绘群组箭头
+
+- 回归来源：工作台抬头和原生群组选择器由 `daff238` 引入，本轮已对 `HomeView.vue`、`GroupSwitcher.vue` 及冒烟断言执行 `git log -S` 与 `git blame`；退出入口确认仍由 `WorkbenchNav.vue` 的“更多”抽屉提供。
+- 测试先行：按最新参考图把抬头断言改回“群组行在上、工作台在下、两者左对齐”；当前三列实现先有 6 项失败，回退后正式壳/Storybook 11/11 通过。
+- 变更：恢复原有左侧上下排列和右侧铃铛/导出结构；群组控件继续不使用 `<select>`，改为透明背景的分体式箭头按钮，点击右侧线条箭头在控件下方展开自绘列表，支持键盘、Esc、Tab、点击外部关闭和 44px 触达区。导出仍仅 owner/administrator 显示；退出登录未移回顶部。
+- 运行/浏览器验证：`pnpm smoke:browser` 已通过；管理员、成员、访客、vkey 与访问记录全流程无浏览器错误，1280×900、390×844、320×844 无横向溢出，群组箭头为自绘 `combobox` 且打开后为下方 `listbox`，退出登录从“更多”抽屉完成。首次冒烟仅发现旧脚本仍查找 `#group-switcher` 和顶部退出按钮，已同步验证器到最新布局后复跑通过。
+- 预览与验证：Storybook `GroupMenuOpen390` 已在 390px 实际展开/关闭预览；Storybook build、Web typecheck、定向测试 11/11、`pnpm smoke:check-core`、`pnpm verify` 和 `git diff --check` 均通过。全仓库 75 个测试文件、511 项测试通过，29 个数据库集成文件、252 项因本机无测试 MySQL 跳过；Storybook 仅保留临时配置下的 addon 解析提示、CSF 解析提示和既有大 chunk warning。状态：已完成（含运行验证）→ 待生产发布。

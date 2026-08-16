@@ -306,13 +306,14 @@ async function assertResponsiveWorkbenchShell(page) {
   await page.waitForTimeout(150);
   const desktopResult = await page.evaluate(() => {
     const header = document.querySelector('.workbench-shell-header');
-    const groupSelect = document.querySelector('#group-switcher');
+    const groupTrigger = document.querySelector('.group-switcher-arrow-button');
     return {
       globalCopyHidden:
         !document.body.innerText.includes('排班工作台') &&
         !document.body.innerText.includes('当前群组码') &&
         !document.body.innerText.includes('粤ICP备'),
-      groupSelectHeight: groupSelect?.getBoundingClientRect().height ?? 0,
+      groupTriggerHeight: groupTrigger?.getBoundingClientRect().height ?? 0,
+      groupTriggerRole: groupTrigger?.getAttribute('role') ?? '',
       headerHeight: header?.getBoundingClientRect().height ?? 0,
       overflow: document.documentElement.scrollWidth > window.innerWidth,
       productBannerHidden: document.querySelector('.product-name') === null,
@@ -323,8 +324,11 @@ async function assertResponsiveWorkbenchShell(page) {
   });
   if (desktopResult.overflow) fail('1280px 工作台出现横向溢出。');
   if (!desktopResult.sidebarVisible) fail('1280px 工作台未显示桌面侧栏。');
-  if (desktopResult.headerHeight !== 68 || desktopResult.groupSelectHeight < 44) {
-    fail('1280px 工作台未使用 68px 紧凑抬头或 44px 群组选择目标。');
+  if (desktopResult.headerHeight < 68 || desktopResult.groupTriggerHeight < 44) {
+    fail('1280px 工作台抬头小于 68px 或群组箭头没有 44px 触达目标。');
+  }
+  if (desktopResult.groupTriggerRole !== 'combobox') {
+    fail('1280px 工作台群组控件未使用统一的自绘组合框。');
   }
   if (
     !desktopResult.globalCopyHidden ||
@@ -333,6 +337,14 @@ async function assertResponsiveWorkbenchShell(page) {
   ) {
     fail('1280px 工作台仍显示产品招牌、重复抬头、群组码或 ICP 页脚。');
   }
+  const groupTrigger = page.locator('.group-switcher-arrow-button');
+  await groupTrigger.click();
+  await page.locator('.group-switcher-menu').waitFor({ state: 'visible', timeout: 5000 });
+  if ((await groupTrigger.getAttribute('aria-expanded')) !== 'true') {
+    fail('1280px 工作台群组箭头点击后没有展开自绘列表。');
+  }
+  await groupTrigger.press('Escape');
+  await page.locator('.group-switcher-menu').waitFor({ state: 'hidden', timeout: 5000 });
   await assertKeyboardFocusVisible(
     page,
     page.locator('.workbench-sidebar button').first(),
@@ -347,7 +359,7 @@ async function assertResponsiveWorkbenchShell(page) {
       const panels = document.querySelector('.workbench-panels');
       const header = document.querySelector('.workbench-shell-header');
       const monthCard = document.querySelector('.month-calendar-card');
-      const groupSelect = document.querySelector('#group-switcher');
+      const groupTrigger = document.querySelector('.group-switcher-arrow-button');
       const navButtons = [...document.querySelectorAll('.workbench-bottom-nav button')];
       const compactControls = [
         ...document.querySelectorAll(
@@ -368,7 +380,7 @@ async function assertResponsiveWorkbenchShell(page) {
           !document.body.innerText.includes('排班工作台') &&
           !document.body.innerText.includes('当前群组码') &&
           !document.body.innerText.includes('粤ICP备'),
-        groupSelectHeight: groupSelect?.getBoundingClientRect().height ?? 0,
+        groupTriggerHeight: groupTrigger?.getBoundingClientRect().height ?? 0,
         headerHeight: header?.getBoundingClientRect().height ?? 0,
         monthRadius:
           monthCard === null ? 0 : Number.parseFloat(getComputedStyle(monthCard).borderRadius),
@@ -386,8 +398,8 @@ async function assertResponsiveWorkbenchShell(page) {
     });
 
     if (result.overflow) fail(`${width}px 工作台出现横向溢出。`);
-    if (result.headerHeight !== 68 || result.groupSelectHeight < 44) {
-      fail(`${width}px 工作台未使用 68px 紧凑抬头或 44px 群组选择目标。`);
+    if (result.headerHeight < 68 || result.groupTriggerHeight < 44) {
+      fail(`${width}px 工作台抬头小于 68px 或群组箭头没有 44px 触达目标。`);
     }
     if (!result.globalCopyHidden) {
       fail(`${width}px 工作台仍显示重复抬头、群组码或 ICP 页脚。`);
@@ -1807,7 +1819,11 @@ async function runSmoke() {
     assertNoErrors(errors, '成员与通知页面');
 
     step('3/6 退出管理员');
-    await page.locator('button', { hasText: '退出登录' }).first().click();
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.locator('.workbench-bottom-nav button', { hasText: '更多' }).click();
+    const adminMoreSheet = page.locator('dialog[open][aria-label="更多功能"]');
+    await adminMoreSheet.waitFor({ state: 'visible', timeout: 5000 });
+    await adminMoreSheet.locator('button', { hasText: '退出登录' }).click();
     await waitForUrl(page, (url) => new URL(url).pathname === '/login', 15000, '回到登录页');
     await waitForBodyText(page, '本地管理员', 10000);
 
@@ -1832,7 +1848,11 @@ async function runSmoke() {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '3-member.png') });
 
     step('5/6 退出成员');
-    await page.locator('button', { hasText: '退出登录' }).first().click();
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.locator('.workbench-bottom-nav button', { hasText: '更多' }).click();
+    const memberMoreSheet = page.locator('dialog[open][aria-label="更多功能"]');
+    await memberMoreSheet.waitFor({ state: 'visible', timeout: 5000 });
+    await memberMoreSheet.locator('button', { hasText: '退出登录' }).click();
     await waitForUrl(page, (url) => new URL(url).pathname === '/login', 15000, '回到登录页');
     await waitForBodyText(page, '访客查看排班', 10000);
 

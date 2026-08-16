@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
-import { ExportIcon, LogoutIcon } from 'tdesign-icons-vue-next';
+import { ExportIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../api/client.js';
@@ -118,10 +118,6 @@ function selectGroupTab(groupId: string | undefined): void {
         >
           <ExportIcon aria-hidden="true" />
           <span>导出</span>
-        </button>
-        <button type="button" class="shell-sign-out" @click="emit('sign-out')">
-          <LogoutIcon aria-hidden="true" />
-          <span>退出登录</span>
         </button>
       </div>
     </header>
@@ -255,8 +251,7 @@ function selectGroupTab(groupId: string | undefined): void {
   gap: 8px;
 }
 
-.shell-export-action,
-.shell-sign-out {
+.shell-export-action {
   display: inline-flex;
   min-width: var(--ui-touch-target-minimum);
   min-height: var(--ui-touch-target-minimum);
@@ -274,16 +269,9 @@ function selectGroupTab(groupId: string | undefined): void {
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.shell-export-action svg,
-.shell-sign-out svg {
+.shell-export-action svg {
   width: 20px;
   height: 20px;
-}
-
-.shell-sign-out {
-  color: var(--ui-color-text-primary);
-  background: transparent;
-  border-color: transparent;
 }
 
 .home-body {
@@ -308,8 +296,14 @@ function selectGroupTab(groupId: string | undefined): void {
 }
 
 @media (max-width: 640px) {
-  .workbench-shell-heading {
-    max-width: calc(100% - 54px);
+  .workbench-shell-header {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .shell-actions {
+    max-width: none;
+    gap: 4px;
   }
 
   .shell-export-action {
@@ -323,10 +317,6 @@ function selectGroupTab(groupId: string | undefined): void {
     height: 1px;
     clip-path: inset(50%);
     white-space: nowrap;
-  }
-
-  .shell-sign-out {
-    display: none;
   }
 
   .home-body {
