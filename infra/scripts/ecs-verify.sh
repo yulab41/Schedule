@@ -119,6 +119,7 @@ EXPECTED_API_SHA="$(manifest_value apiDistTreeSha256)"
 EXPECTED_CONTRACTS_SHA="$(manifest_value contractsDistTreeSha256)"
 EXPECTED_DATABASE_SHA="$(manifest_value databaseDistTreeSha256)"
 EXPECTED_DOMAIN_SHA="$(manifest_value schedulingDomainDistTreeSha256)"
+EXPECTED_INFRA_SCRIPTS_SHA="$(manifest_value infraScriptsDistTreeSha256)"
 EXPECTED_MIGRATIONS_SHA="$(manifest_value migrationsTreeSha256)"
 EXPECTED_COMPOSE_SHA="$(manifest_value composeProdSha256)"
 EXPECTED_NGINX_SHA="$(manifest_value nginxConfigSha256)"
@@ -152,6 +153,7 @@ ACTUAL_NGINX_SHA="$(sha256sum "$DEPLOY_DIR/infra/docker/nginx.prod.conf" | awk '
 [ "$(tree_sha256 "$DEPLOY_DIR/packages/contracts/dist")" = "$EXPECTED_CONTRACTS_SHA" ]
 [ "$(tree_sha256 "$DEPLOY_DIR/packages/database/dist")" = "$EXPECTED_DATABASE_SHA" ]
 [ "$(tree_sha256 "$DEPLOY_DIR/packages/scheduling-domain/dist")" = "$EXPECTED_DOMAIN_SHA" ]
+[ "$(tree_sha256 "$DEPLOY_DIR/infra/scripts/dist")" = "$EXPECTED_INFRA_SCRIPTS_SHA" ]
 [ "$(tree_sha256 "$DEPLOY_DIR/migrations")" = "$EXPECTED_MIGRATIONS_SHA" ]
 ACTUAL_NOTIFICATION_SCHEDULER_SHA="$(sha256sum "$DEPLOY_DIR/infra/scripts/schedule-notifications.sh" | awk '{print $1}')"
 [ "$ACTUAL_NOTIFICATION_SCHEDULER_SHA" = "$EXPECTED_NOTIFICATION_SCHEDULER_SHA" ]
@@ -187,5 +189,5 @@ fi
 echo "[verify] migration count"
 docker exec medical-schedule-prod-mysql-1 sh -c \
   'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
-  -e "SELECT COUNT(*) FROM __drizzle_migrations"' | grep -qx '37'
+  -e "SELECT COUNT(*) FROM __drizzle_migrations"' | grep -qx '38'
 echo "[verify] complete"

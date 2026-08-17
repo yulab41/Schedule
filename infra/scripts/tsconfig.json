@@ -11,5 +11,10 @@
     "rootDir": ".",
     "sourceMap": false
   },
-  "include": ["import-holidays.ts", "restore-backup.ts"]
+  "include": [
+    "directory-import-core.ts",
+    "import-directory.ts",
+    "import-holidays.ts",
+    "restore-backup.ts"
+  ]
 }

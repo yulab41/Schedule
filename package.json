@@ -14,6 +14,7 @@
     "dev": "pnpm --filter @schedule/api build && pnpm --parallel --filter @schedule/api --filter @schedule/web run dev",
     "dev:api": "pnpm --filter @schedule/api build && pnpm --filter @schedule/api start",
     "dev:web": "pnpm --filter @schedule/web dev",
+    "directory:import": "node --env-file=.env infra/scripts/dist/import-directory.js",
     "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\" \"infra/scripts/**/*.ts\" \"scripts/*.mjs\" \"packages/*/scripts/*.mjs\"",
     "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json eslint.config.js .prettierrc.json \"{apps,packages}/**/*.{ts,vue,json,html}\" \"infra/scripts/**/*.ts\" \"scripts/*.mjs\" \"packages/*/scripts/*.mjs\"",
     "holidays:build": "tsc -p infra/scripts/tsconfig.json",

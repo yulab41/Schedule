@@ -27,6 +27,7 @@ export * from './exports.js';
 export * from './platform.js';
 export * from './workflow-sequences.js';
 export * from './wechat.js';
+export * from './directory.js';
 
 const identifier = () => char('id', { length: 36 }).primaryKey();
 

@@ -494,6 +494,12 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS directory_search_aliases`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS directory_contact_methods`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS directory_entries`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS directory_source_documents`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS directory_import_batches`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS directory_campuses`);
   await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);

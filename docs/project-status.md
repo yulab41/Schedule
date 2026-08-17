@@ -24,6 +24,18 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
+## 2026-08-17 院内通讯录数据底座（当前批次 DIR-01）
+
+- 完成范围：新增 6 张独立通讯录表、迁移 `0038_directory_snapshots`、MySQL 8.4 `ngram` 中文全文索引、号码前缀索引、全拼/紧凑全拼/首字母别名、版本化 JSON 标准输入发布与回滚 CLI；发布包已包含 CLI 及 `pinyin-pro` 生产依赖，生产校验同步验证其产物哈希和 38 个迁移。本批不提交两份 PDF 的真实号码，不实现 API 或 Web 页面。
+- 数据与权限边界：院内通讯录与现有群组成员联系方式分表保存；原文、号码、短号和来源定位均保留，疑似矛盾只标记 `needs_review`，不自动更正。后续读取权限为正式群组的 active owner/administrator/member 与后台管理员，guest/vkey 不开放；权限将在后续 API 批次实现。
+- 版本策略：每次导入是不可变完整快照；稳定 `entry_key` 用于差异统计，发布事务原子切换唯一当前批次，保留旧批次供审计和回滚。CLI 只从 stdin 读取，审计和终端输出不写电话号码或原始清单内容。
+- 测试先行：导入核心、发布包与生产校验断言均先在旧代码上失败，再实现通过。隔离 MySQL 8.4 下迁移、中文/拼音/号码查询、发布/替换/回滚及失败事务回滚共 27/27 通过；全仓 Vitest 97 文件/609 项通过，30 个数据库集成文件/256 项按默认环境跳过。
+- 运行验证：任务文件 Prettier/ESLint、全工作区 build/typecheck、Git Bash 语法检查、发布包 2/2、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过；本批未触及 Web 核心链路，无需浏览器冒烟。完整 `pnpm verify` 的格式/lint 聚合器仅被并行用户改动 `apps/miniprogram/project.config.json` 与 `TemporalPicker.vue` 的既有告警阻断，未修改这些任务外文件；其余 build/typecheck/test 已单独全量通过。
+- 兼容审计：现有 API、权限、群组联系方式和 Web 均未接入新表；27 个 API 集成测试只补齐清库顺序，不改变测试业务断言。全数据库集成串行运行仍有项目状态已记录的 `user_auth_identities` 既有清理遗漏，本批不越界修复。
+- 当前状态：已完成（含本地与隔离 MySQL 验证）→ 待生产发布。代码 checkpoint 识别消息为 `feat(directory): add versioned contact database import`。
+- 下一批次：DIR-02 只做两份 PDF 的全页结构化提取、数据质量复核、生产快照导入与计数/哈希/差异核验；仍不实现 API/Web。
+- 停止条件：DIR-01 定向及全量验证通过，空结构 checkpoint 提交推送、生产加密备份、迁移部署与线上空表核验完成后停止，不提前导入真实号码。
+
 ## 2026-08-17 手机日历导航触态与滑动圆角分层修复
 
 - 回归来源：月/周导航的 TDesign `week-step`/`month-step` 来自 `8a49434`；移动端月/周底角直接加在日期格背景上的实现来自 `c64f0d7`；拖动时临时移除周格圆角的 `.is-swiping` 规则来自 `acd2507`。均已对关键表达式执行 `git log -S` 与 `git blame`。

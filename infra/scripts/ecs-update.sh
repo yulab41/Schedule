@@ -97,6 +97,7 @@ for relative_path in \
   pnpm-lock.yaml \
   infra/docker/compose.prod.yml \
   infra/docker/nginx.prod.conf \
+  infra/scripts/dist \
   infra/scripts/schedule-notifications.sh \
   .env.production.example \
   runtime/api-flat/node_modules \
@@ -124,6 +125,7 @@ restore_previous() {
     pnpm-lock.yaml \
     infra/docker/compose.prod.yml \
     infra/docker/nginx.prod.conf \
+    infra/scripts/dist \
     infra/scripts/schedule-notifications.sh \
     .env.production.example \
     runtime/api-flat/node_modules \
@@ -159,6 +161,7 @@ for relative_path in \
   pnpm-lock.yaml \
   infra/docker/compose.prod.yml \
   infra/docker/nginx.prod.conf \
+  infra/scripts/dist \
   infra/scripts/schedule-notifications.sh \
   .env.production.example; do
   assert_release_path "$DEPLOY_DIR/$relative_path"
@@ -174,6 +177,7 @@ tar -xzf "$DIST_TAR" -C "$DEPLOY_DIR" \
   pnpm-lock.yaml \
   infra/docker/compose.prod.yml \
   infra/docker/nginx.prod.conf \
+  infra/scripts/dist \
   infra/scripts/schedule-notifications.sh \
   .env.production.example
 cp "$MANIFEST" "$CURRENT_MANIFEST"

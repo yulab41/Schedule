@@ -245,6 +245,12 @@ function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(`SET FOREIGN_KEY_CHECKS = 0`);
   const tables = [
+    'directory_search_aliases',
+    'directory_contact_methods',
+    'directory_entries',
+    'directory_source_documents',
+    'directory_import_batches',
+    'directory_campuses',
     'membership_claim_requests',
     'invite_tokens',
     'visitor_access_logs',

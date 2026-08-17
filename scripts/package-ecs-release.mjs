@@ -27,6 +27,7 @@ const DIST_PATHS = [
   'pnpm-lock.yaml',
   'infra/docker/compose.prod.yml',
   'infra/docker/nginx.prod.conf',
+  'infra/scripts/dist',
   'infra/scripts/schedule-notifications.sh',
   '.env.production.example',
 ];
@@ -36,6 +37,7 @@ const TREE_PATHS = {
   contractsDist: 'packages/contracts/dist',
   databaseDist: 'packages/database/dist',
   schedulingDomainDist: 'packages/scheduling-domain/dist',
+  infraScriptsDist: 'infra/scripts/dist',
   migrations: 'migrations',
 };
 
@@ -141,7 +143,7 @@ run(pnpmCommand, [
   '--config.node-linker=hoisted',
   '--config.shamefully-hoist=true',
   '--filter',
-  '@schedule/api',
+  '@schedule/holiday-import-script',
   '--prod',
   apiFlatPath,
 ]);
@@ -174,6 +176,7 @@ const manifest = {
     contractsDistTreeSha256: sha256Tree(TREE_PATHS.contractsDist),
     databaseDistTreeSha256: sha256Tree(TREE_PATHS.databaseDist),
     schedulingDomainDistTreeSha256: sha256Tree(TREE_PATHS.schedulingDomainDist),
+    infraScriptsDistTreeSha256: sha256Tree(TREE_PATHS.infraScriptsDist),
     migrationsTreeSha256: sha256Tree(TREE_PATHS.migrations),
     composeProdSha256: sha256File(path.join(ROOT, 'infra/docker/compose.prod.yml')),
     nginxConfigSha256: sha256File(path.join(ROOT, 'infra/docker/nginx.prod.conf')),
