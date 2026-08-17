@@ -50,7 +50,9 @@
 - UI/Storybook：依 `frontend-design` 保留医疗蓝白令牌和院区导览识别结构，使用逐列层级收窄而非深层菜单。Storybook 合成数据实测 6 条原始记录显示为 5 张卡、1 组同号；390px 单号码卡约 103–104px，无横向溢出，Storybook 静态构建与 Web 生产构建通过。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 最终通过管理员、成员、访客/vkey、访问记录及院内通讯录全流程；真实本地数据的手术室护士站/护士值班房合并、七级联动、跳级选择、改上级自动清下级、顶部清除、固定电话短号只读、390px 44px 拨号目标与无溢出均通过。前两轮分别停在既有手动排班固定列抖动和通知页面瞬时空元素错误，原样第三轮完整通过。
 - 其他门禁：contracts/API/Web typecheck、任务文件 Prettier/ESLint、`git diff --check`、API/Web 构建和 Storybook build 通过；仅保留既有大 chunk warning。
-- 当前状态：已实现并完成本地运行验证，checkpoint 识别消息为 `fix(directory): link filters and merge duplicate contacts`；下一步仅提交、推送、创建生产备份、部署并线上只读复核。
+- 正式发布：代码 checkpoint `926136a`（`fix(directory): link filters and merge duplicate contacts`）已推送；发布前加密数据库备份 archive 为 `d35a8061-95ca-4e6b-b013-ea3bb58cec5f`（50 张表、18422 行、7296048 字节，SHA-256 `4a3cb90cca407914612bb9e1ea023be9c07a5443812b6018a9fb832e1c9d66f4`）。release `926136a8a4c380d812304708b1917d4b939b1eef` 从干净 worktree 离线构建并部署，容器预热首次健康检查一次 TLS 断开后自动恢复，`ecs-verify.sh` 通过；随后并行小程序 checkpoint `3884713` 继续包含本轮代码并已部署。
+- 正式域名只读复核：D0796 会话显示 341 条原始记录；搜索“手术室”显示 4 张卡、其中 2 组同号合并，护士站/护士值班房名称均保留。正式页无横向溢出，卡片高 119–120px，全部拨号目标不低于 44px；先跳级选择“放疗中心”再切换到不兼容的“饶平路院区”会自动回到片区“全部”并显示清除说明，筛选 Sheet 保持打开且清除全部位于网格上方。复核结束后清空搜索/筛选并恢复排班日历，未修改业务数据。
+- 当前状态：DIR-06 至 DIR-08 已完成（含生产发布与线上只读复核）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record linked directory deployment`。
 - 停止条件：代码 checkpoint 与最终状态 checkpoint 均完成推送和生产部署，Git `HEAD`、`origin/main`、服务器 `current-release` 一致后等待用户复核。
 
 ## 2026-08-17 至 2026-08-18 院内通讯录（DIR-01 至 DIR-05）

@@ -9,7 +9,9 @@
 - 行为：新增无号码的角色安全 facet paths；跳级筛选不强制补父级，改变上级仅清除不兼容后代。同号仅在类型、完整号码和短号的完整集合一致时合并，格式符/标签/顺序不影响；部分相同、类型不同、短号不同、无号码保持分开。CSV、数据库、来源和权限语义均不变。
 - UI：清除全部上移并在 Sheet 顶部 sticky；长短号同排、路径/位置去重、单号码卡约 103–104px；合并卡保留全部名称、场景和备注。Storybook 合成 6 条显示为 5 卡/1 组合并，390px 无横向溢出。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 第三轮通过完整管理员、成员、访客/vkey 和访问记录链路，通讯录真实同号条目合并及七级联动专项均通过；前两轮分别停在既有手动排班固定列抖动和通知页瞬时空元素错误。Web/API/contracts typecheck、生产 build、Storybook build、任务文件 Prettier/ESLint 与 `git diff --check` 通过。
-- 状态：已实现待生产发布；checkpoint 识别消息为 `fix(directory): link filters and merge duplicate contacts`。
+- 正式发布：checkpoint `926136a` 已推送；备份 `d35a8061-95ca-4e6b-b013-ea3bb58cec5f`（50 张表、18422 行、SHA-256 `4a3cb90cca407914612bb9e1ea023be9c07a5443812b6018a9fb832e1c9d66f4`）后部署 release `926136a8a4c380d812304708b1917d4b939b1eef`，`ecs-verify.sh` 通过；后续 release `3884713` 继续包含该代码。
+- 正式只读复核：341 条原始记录可见；“手术室”结果为 4 卡/2 组合并，护士站和护士值班房名称均保留，卡高 119–120px、拨号目标 ≥44px、无横向溢出。“放疗中心”后改“饶平路院区”自动清除片区并提示，Sheet 不关闭，顶部清除位置正确；结束后已恢复排班日历，未写入业务数据。
+- 状态：已完成（生产发布与只读核验）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record linked directory deployment`。
 
 ## 2026-08-17 日期正圆标识与触控数字滚轮精修
 
