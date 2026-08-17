@@ -24,7 +24,7 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
-## 2026-08-17 院内通讯录（当前批次 DIR-03 至 DIR-05）
+## 2026-08-17 至 2026-08-18 院内通讯录（DIR-01 至 DIR-05）
 
 - DIR-01 底座：6 张通讯录表、迁移 `0038_directory_snapshots`、MySQL 8.4 `ngram` 中文全文索引、号码前缀索引、拼音别名和版本化发布/回滚 CLI 已由 checkpoint `6f22319` 推送并部署；其后 release `b696d52` 继续包含该底座，生产 38 个迁移和 6 张空表已核验。
 - 本地快照：两份 PDF 共 5 页已逐页检查，生成 2 个院区、2 份来源文档、341 个条目、359 个联系方式和 4488 个搜索别名；本地 CSV 使用 UTF-8 BOM + CRLF，清单与来源 PDF SHA-256 一致，目录 `runtime/directory-data/2026-05-12/` 仅由 `.git/info/exclude` 本机排除，不提交真实号码。
@@ -44,9 +44,11 @@
 - DIR-04/05 实现：工作台新增“院内通讯录”Tab；手机底栏将其作为四个主入口之一，guest 不可见。生产组件支持 240ms 即时搜索、稳定游标加载、院区/片区/楼宇/楼层/科室/单元/类型七级独立筛选，任何一级均可跳选且面板保持打开；桌面为两列 mega-menu，手机为底部 Sheet。视觉采用现有蓝白令牌与“院区导览带”识别结构，Storybook 直接复用生产组件且只含合成 0 号码。
 - 数据与 CSV 复核：本地 9 个 CSV 仍全部为 UTF-8 BOM + CRLF 并以 CRLF 结尾；359 个联系方式的原始/规范短号最大均为 6 位、越界 0。唯一 `manually_verified` 疑似不一致条目有 2 个完整号码、0 个短号，清理说明保留；`needs_review` 为 0。为完整 smoke，本地开发库补执行已提交迁移并发布同一清单 341/359，未把本地数据库或演示状态带入生产。
 - 运行/浏览器验证：`pnpm smoke:browser` 包装器仍会要求交互式清理依赖，拒绝该破坏性动作；等价直接入口 `SMOKE_BASE_URL=http://127.0.0.1:5174 node scripts/smoke-browser.mjs` 在当前源码隔离服务通过管理员、成员、访客/vkey 与访问记录全流程，新增通讯录搜索、固定电话短号不可拨、楼层跳级、七级筛选、390px 无横向溢出和 44px 拨号点触均通过，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-aUblEm`。Storybook 390/1280 实测无页面横向溢出，楼层在院区“全部”时可独立选中，固定电话短号链接 0、手机短号链接 1；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 通过。全仓 Vitest 排除用户自有 runtime/小程序副本后为 101 个文件/626 项通过，31 个数据库集成文件/260 项按默认环境跳过，DIR-03 相关集成已单独实跑。
-- 当前状态：DIR-01/02/03 已生产完成；DIR-04/05 已实现待 checkpoint，识别消息为 `feat(web): launch internal directory workbench`。
-- 下一活动批次：只提交、推送并部署 DIR-04/05 checkpoint；生产备份后核验 release、正式 API、公开入口及未认证页面，并以只读方式确认正式 Web 产物含通讯录 Tab、搜索和拨号边界。
-- 停止条件：DIR-04/05 checkpoint 推送、生产备份部署、`ecs-verify.sh` 和正式页面只读核验通过，使 Git `HEAD`、`origin/main`、服务器 `current-release` 一致且 Web 通讯录正式可用。
+- DIR-04/05 正式发布：checkpoint `8309dce`（`feat(web): launch internal directory workbench`）已推送；发布前加密备份 archive 为 `414f2422-f01f-429d-8f18-d585d21fc038`（50 张表、17277 行、6930440 字节，SHA-256 `efcb6b76a8c30a4435194b233fe00850a616352caf6c595962d304a840b1f3a9`）。release `8309dce1bc59de06089e3f8bafcbcb9b223336aa` 部署成功，产物哈希、38 个迁移、容器、公开端口和未知 Host 拒绝均由 `ecs-verify.sh` 核验通过；容器预热第一次健康检查出现一次 502 后自动恢复。
+- 正式域名只读复核：正式 D0796 会话的 390px 工作台已出现“院内通讯录”主入口，页面显示 341 条、首屏 30 条和 7 级筛选，无横向溢出。首屏 `tel:` 链接 30，固定电话短号链接 0，短号越界 0；“病案”搜索返回 5/5，楼层可在院区仍为“全部”时独立选中且筛选 Sheet 保持打开。浏览器 error/warning 为 0；复核只读取聚合状态，未输出真实号码、未保存筛选、未修改业务数据，结束后已恢复排班日历。
+- 状态：DIR-01 至 DIR-05 全部完成（含 Web 正式上线与生产核验）→ 待用户复核。代码 checkpoint 为 `8309dce`；最终状态 checkpoint 识别消息为 `docs(status): record directory workbench deployment`。
+- 下一批次：无自动活动批次；等待用户在正式网页复核通讯录视觉与交互，或提出后续功能需求。
+- 停止条件：最终状态 checkpoint 推送并作为文档 release 部署，Git `HEAD`、`origin/main`、服务器 `current-release` 一致后结束本目标。
 
 ## 2026-08-17 手机日历导航触态与滑动圆角分层修复
 
