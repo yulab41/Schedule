@@ -355,5 +355,7 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 回归来源与测试：假滑动来自 `7c80488`；电话路径来自 `1c84fd6`/`7a47d69`/`ab25064`，成员目录来自 `6183e9d`；班种 UI 来自 `04c7da3`；事件表来自 `7ac2a07`，均已执行 `git log -S` 与 `git blame`。新增断言均先在旧实现失败，修复后定向 10 文件 72/72 通过。
 - 验证：`pnpm verify` 通过（88 个文件/579 项，29 个数据库集成文件/253 项按环境跳过）；Web/全仓 build 与 typecheck、Prettier、ESLint、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core` 和 `git diff --check` 均通过。完整 smoke 覆盖管理员、成员、访客 vkey 与访问记录且无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-7emAAK`。
 - Storybook 专项：390px 月视图真实左滑成功切换相邻月；成员拨号链接透明且 44px；紧凑开关 60×44px；自定义色调色板/HEX 和事件全部日期折叠均实际操作通过。checkpoint 识别消息：`feat(web): land approved interface refinements`。
-- 下一批次：无新增实现任务；提交推送后创建生产加密数据库备份，部署本 checkpoint，运行 `ecs-verify.sh` 并在正式域名只读复核月/周、成员拨号、班种、事件和开关。
-- 停止条件：生产备份、release、`ecs-verify.sh` 与正式域名复核完成，Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后待用户验收，不开始其他修改。
+- 正式发布：代码 checkpoint `41d284b` 已推送；发布前加密数据库备份 archive 为 `915fa54b-1054-4a81-b9a2-aefa9844d25d`（44 张表、9120 行，SHA-256 `4f1bec8ce81a40ef57758c151230e7a4cf471c73061b43eb6862d9733073ed41`）。release `41d284b312452df2762981e252251d5e871d9149` 部署成功，发布前后 `ecs-verify.sh` 均通过。
+- 正式域名只读复核：月视图真实拖动 8 月→9 月，周视图真实拖动第 4 周→第 5 周，均保持 3 个相邻面板；固定星期栏、无横向溢出、60×44px/52×30px 开关、6 行紧凑班种、42px 输入框、自定义调色板/HEX 和零浏览器日志错误均通过。当前生产群组没有已填写号码和事件，未为核验写入数据；对应有数据分支已由本地 smoke/Storybook 实际覆盖。浏览器减少动态偏好下正确即时切换，生产 CSS 同时包含正常偏好的苹果式缓动曲线。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。下一批次：无，最终状态 checkpoint `docs(status): record interface refinement deployment` 推送并同步为 production release 后停止。
+- 停止条件：最终状态 checkpoint 生产备份、部署与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后等待用户验收，不开始其他修改。

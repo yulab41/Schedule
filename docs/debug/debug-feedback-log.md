@@ -10,7 +10,9 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 在 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 的当前源码服务下通过，覆盖管理员、普通成员、访客 vkey 与访问记录，全流程无浏览器错误；截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-7emAAK`。首次未启动服务、只启动 Web、旧验证器查找内部星期栏/旧班种文案的运行均在对应门禁停止；修正当前结构的验证目标并解决真实点触/访客回归后原样复跑通过。
 - Storybook 浏览器专项：390px 月视图真实左滑由 10 月切至 11 月；成员页 6 个拨号链接均为透明背景、44px 点触；班种自定义颜色可展开调色板与 HEX；事件页可一键折叠全部日期；紧凑开关外层均为 60×44px。Storybook build 与 Web build 已通过，仅有既有大 chunk warning。
 - 完整验证：`pnpm verify` 通过（88 个文件/579 项通过，29 个数据库集成文件/253 项按默认环境跳过）；Web/全仓 build 与 typecheck、Prettier、ESLint、Storybook build、`pnpm smoke:check-core` 和 `git diff --check` 均通过，仅保留既有大 chunk warning。
-- 状态：已完成待提交、生产备份/部署与线上核验。checkpoint 识别消息：`feat(web): land approved interface refinements`。
+- 正式发布：checkpoint `41d284b` 已推送；发布前加密数据库备份 archive 为 `915fa54b-1054-4a81-b9a2-aefa9844d25d`（44 张表、9120 行，SHA-256 `4f1bec8ce81a40ef57758c151230e7a4cf471c73061b43eb6862d9733073ed41`）。release `41d284b312452df2762981e252251d5e871d9149` 部署成功，发布前后 `ecs-verify.sh` 均通过。
+- 正式域名只读核验：月/周均保留 3 个真实相邻面板，实际拖动分别由 8 月切至 9 月、8 月第 4 周切至第 5 周；固定星期栏、无横向溢出、紧凑开关 60×44px/52×30px、6 行班种、42px 输入框、五个预设色加一个自定义色及调色板/HEX 均符合确认稿，浏览器 error/warning 为 0。当前生产会话群组未填写号码且没有事件，不为验收制造业务数据；空状态正常，拨号有数据分支与事件折叠由本地浏览器 smoke/Storybook 覆盖。浏览器开启“减少动态”时线上正确即时切换，同时已确认生产 CSS 载入 `cubic-bezier(0.22, 1, 0.36, 1)` 的正常动态曲线。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。最终状态 checkpoint 识别消息：`docs(status): record interface refinement deployment`。
 
 ## 2026-08-16 周视图与列表视图正式实现与生产发布
 
