@@ -4,6 +4,8 @@ import type {
   ApprovedLeaveRequestResult,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
+  DirectoryFacetSnapshot,
+  DirectoryPage,
   DissolvedGroup,
   GroupCatalogEntry,
   GroupNotificationSettings,
@@ -665,6 +667,54 @@ const appliedManualTemplate: AppliedManualScheduleTemplateResult = {
 };
 
 describe('Web API client', () => {
+  it('loads directory facets and forwards independent search filters', async () => {
+    const facets: DirectoryFacetSnapshot = {
+      buildings: [],
+      campuses: [{ count: 2, label: '本部院区', value: 'main' }],
+      departments: [],
+      entryKinds: [{ count: 2, label: '科室', value: 'department' }],
+      floors: [{ count: 1, label: '5楼', value: '5楼' }],
+      publishedEffectiveOn: '2026-07-05',
+      publishedImportVersion: 'directory-2026-07-05',
+      sections: [],
+      subunits: [],
+      totalCount: 2,
+    };
+    const page: DirectoryPage = {
+      entries: [],
+      totalCount: 0,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(facets), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(page), { status: 200 }));
+    const client = createApiClient({ auth: createAuthClient(), fetch: fetchImplementation });
+
+    await expect(client.getDirectoryFacets(group.id)).resolves.toEqual(facets);
+    await expect(
+      client.searchDirectory(group.id, {
+        campusCode: 'main',
+        entryKind: 'department',
+        floor: '5楼',
+        pageSize: 24,
+        q: '病案',
+      }),
+    ).resolves.toEqual(page);
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/directory/facets',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/directory?campusCode=main&entryKind=department&floor=5%E6%A5%BC&pageSize=24&q=%E7%97%85%E6%A1%88',
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer signed-in-token' }),
+        method: 'GET',
+      }),
+    );
+  });
   it('sends the current access token to the profile endpoint', async () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()

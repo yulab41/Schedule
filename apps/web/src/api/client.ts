@@ -97,6 +97,9 @@ import type {
   DutyAdjustmentPairInput,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
+  DirectoryFacetSnapshot,
+  DirectoryPage,
+  DirectoryQuery,
   UpdateRotationRuleRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberContactRequest,
@@ -127,6 +130,8 @@ import {
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
   dutyAdjustmentRequestSchema,
+  directoryFacetSnapshotSchema,
+  directoryPageSchema,
   dissolvedGroupListSchema,
   guestCalendarReadModelSchema,
   groupCatalogListSchema,
@@ -205,6 +210,7 @@ export interface ApiClient {
   getGroupNotificationSettings(
     groupId: string,
   ): Promise<{ readonly dutyReminderHours: readonly number[]; readonly groupId: string }>;
+  getDirectoryFacets(groupId: string): Promise<DirectoryFacetSnapshot>;
   getMyNotificationPreferences(groupId: string): Promise<MemberNotificationPreferences>;
   getPushConfiguration(): Promise<PushConfiguration>;
   getUnreadNotificationCount(): Promise<{ readonly unreadCount: number }>;
@@ -351,6 +357,7 @@ export interface ApiClient {
   listScheduleDrafts(groupId: string): Promise<ScheduleDraftSummary[]>;
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
+  searchDirectory(groupId: string, query: DirectoryQuery): Promise<DirectoryPage>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
   listGroupCatalog(): Promise<GroupCatalogEntry[]>;
@@ -1512,6 +1519,44 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/contacts`,
         { method: 'GET' },
         isResponseBodyFromSchema(groupMemberContactListSchema),
+      );
+    },
+    getDirectoryFacets(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/directory/facets`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(directoryFacetSnapshotSchema),
+      );
+    },
+    searchDirectory(groupId, query) {
+      const params = new URLSearchParams();
+      const orderedKeys: readonly (keyof DirectoryQuery)[] = [
+        'building',
+        'campusCode',
+        'cursor',
+        'department',
+        'entryKind',
+        'floor',
+        'pageSize',
+        'q',
+        'section',
+        'subunit',
+      ];
+      for (const key of orderedKeys) {
+        const value = query[key];
+        if (value !== undefined) params.set(key, String(value));
+      }
+      const queryString = params.toString();
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/directory${queryString.length > 0 ? `?${queryString}` : ''}`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(directoryPageSchema),
       );
     },
     listGroupMembers(groupId) {

@@ -20,6 +20,7 @@ describe('Workbench navigation', () => {
   it('assigns a strongly typed icon to every navigation entry', () => {
     expect(workbenchNavItems.map(({ icon, id }) => [id, icon])).toEqual([
       ['calendar', 'calendar'],
+      ['directory', 'directory'],
       ['groups', 'groups'],
       ['manual', 'manual'],
       ['backfill', 'backfill'],
@@ -45,14 +46,15 @@ describe('Workbench navigation', () => {
   it('keeps the mobile bottom bar to four primary entries and a drawer', () => {
     expect(getPrimaryMobileNavItems('owner').map((item) => item.id)).toEqual([
       'calendar',
+      'directory',
       'leave',
       'swap',
-      'duty',
     ]);
     expect(getSecondaryMobileNavItems('owner').map((item) => item.id)).toEqual([
       'groups',
       'manual',
       'backfill',
+      'duty',
       'events',
       'notifications',
       'statistics',
@@ -78,6 +80,13 @@ describe('Workbench navigation', () => {
 
   it('limits guests to calendar and group management', () => {
     expect(getVisibleNavItems('guest').map((item) => item.id)).toEqual(['calendar', 'groups']);
+  });
+
+  it('exposes the hospital directory to signed-in members but never to guests', () => {
+    expect(getVisibleNavItems('member').map((item) => item.id)).toContain('directory');
+    expect(getVisibleNavItems('administrator').map((item) => item.id)).toContain('directory');
+    expect(getVisibleNavItems('guest').map((item) => item.id)).not.toContain('directory');
+    expect(getWorkbenchPageTitle('directory')).toBe('院内通讯录');
   });
 
   it('uses the active workflow name in the compact application header', () => {

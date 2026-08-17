@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 当前状态（2026-08-17）
+## 当前状态（2026-08-18）
 
 - 分支：`main`，上游：`origin/main`。
 - 正式入口：`https://hosp.schedule.eylinhome.top`。仓库当前生效配置不使用服务器公网 IP URL。
@@ -38,10 +38,15 @@
 - DIR-03 测试先行：共享契约旧实现因缺失模块失败；隔离 MySQL 路由测试在旧 API 上 4/4 返回 404。实现后契约 3/3、真实 MySQL 路由 4/4 通过，覆盖中文、拼音首字母、长短号精确/前缀、独立楼层/科室/类型跳级筛选、稳定游标、成员/管理员可见性以及 guest/跨群/匿名/vkey 拒绝。
 - DIR-03 实现：新增 `/groups/:groupId/directory` 与 `/groups/:groupId/directory/facets` 只读接口；只查询唯一 published 快照，号码精确 > 号码前缀 > 原文/别名精确 > 原文/拼音前缀 > 包含/ngram 相关度，按相关度、院区顺序、来源顺序和 UUID 稳定游标翻页。facets 返回院区、片区、楼宇、楼层、科室、下级单元与条目类型的全量计数，前端可从任意层级独立筛选。
 - DIR-03 权限与语义审计：当前群组 active owner/administrator/member 和 developer admin 可读；member 只能看到 `visibility=member`，owner/administrator/developer 可见 administrator 条目；guest、非本群成员、匿名和访客链接拒绝。接口无写入、无数据修正、无新迁移，不记录或回显查询号码到日志；短号契约继续硬限制 3–6 位。
-- 运行/浏览器验证：契约/API typecheck 与 build、任务文件 Prettier/ESLint、`git diff --check` 通过；隔离 MySQL 2 文件/7 项通过；主工作区全仓 Vitest 98 文件/614 项通过，31 个数据库集成文件/260 项按默认环境跳过，通讯录数据库集成已单独实跑。`pnpm smoke:browser` 因本机 pnpm 要求删除并重装全部 `node_modules` 已拒绝该破坏性动作；以当前 build 和现有依赖运行同一直接入口 `node scripts/smoke-browser.mjs` 通过管理员、成员、访客 vkey 与访问记录全流程，浏览器无错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-IfySMK`；`node scripts/smoke-browser.mjs --check-core` 通过。
-- 当前状态：DIR-01/02 已生产完成；DIR-03 已实现并验证，checkpoint 识别消息为 `feat(directory): add secure search API`，待显式提交、推送、生产备份、部署和只读核验。
-- 下一活动批次：按用户明确授权继续 DIR-04/05——用 `frontend-design` 和 Storybook 建立院区导览带、可跳级多层筛选、桌面/移动通讯录预览，再接入工作台“院内通讯录”页签与真实 API；手机号长短号和固定电话长号可拨，固定电话短号仅展示。
-- 停止条件：DIR-03 checkpoint 先完成推送与生产核验；随后 DIR-04/05 通过 Storybook、Web build/typecheck、浏览器 smoke 与 1280/390/320 专项验证，形成独立 checkpoint 并完成生产发布，使 Git `HEAD`、`origin/main`、服务器 `current-release` 一致且正式页面可用。
+- DIR-03 checkpoint：`e74e5f3`（`feat(directory): add secure search API`）已推送并部署；发布前加密备份 archive 为 `7f75f4de-e0cf-45a9-92f2-e001c095863f`（50 张表、17072 行、6864320 字节，SHA-256 `d32b9fdf206e00d1ed7c89a1c59b3c2bc10828ee3fe316d4f4e6bd48f999dd50`）。release `e74e5f35fb60903ae7add919f6f4638d56a9038c` 的产物哈希、38 个迁移、容器与域名隔离核验通过；容器预热首次健康检查一次 502 后自动恢复。
+- DIR-03 生产只读核验：正式 API facets 返回 2 个院区/341 条；“病案”模糊搜索 5/5 命中，未选父级的楼层筛选返回 3 条；匿名为 401、访客路径为 404。核验只输出聚合计数，不输出 token、号码或响应正文，临时脚本已删除。
+- DIR-04/05 测试先行：旧 Web 新增用例先出现 8 项失败并缺失组件/客户端方法；实现后 API 客户端、导航、展示规则、Storybook 与生产接入定向 5 个文件 18/18 通过。新增共享展示边界再次拒绝超过 6 位短号；固定电话长号可拨、固定电话短号只读，手机号长短号均可拨。
+- DIR-04/05 实现：工作台新增“院内通讯录”Tab；手机底栏将其作为四个主入口之一，guest 不可见。生产组件支持 240ms 即时搜索、稳定游标加载、院区/片区/楼宇/楼层/科室/单元/类型七级独立筛选，任何一级均可跳选且面板保持打开；桌面为两列 mega-menu，手机为底部 Sheet。视觉采用现有蓝白令牌与“院区导览带”识别结构，Storybook 直接复用生产组件且只含合成 0 号码。
+- 数据与 CSV 复核：本地 9 个 CSV 仍全部为 UTF-8 BOM + CRLF 并以 CRLF 结尾；359 个联系方式的原始/规范短号最大均为 6 位、越界 0。唯一 `manually_verified` 疑似不一致条目有 2 个完整号码、0 个短号，清理说明保留；`needs_review` 为 0。为完整 smoke，本地开发库补执行已提交迁移并发布同一清单 341/359，未把本地数据库或演示状态带入生产。
+- 运行/浏览器验证：`pnpm smoke:browser` 包装器仍会要求交互式清理依赖，拒绝该破坏性动作；等价直接入口 `SMOKE_BASE_URL=http://127.0.0.1:5174 node scripts/smoke-browser.mjs` 在当前源码隔离服务通过管理员、成员、访客/vkey 与访问记录全流程，新增通讯录搜索、固定电话短号不可拨、楼层跳级、七级筛选、390px 无横向溢出和 44px 拨号点触均通过，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-aUblEm`。Storybook 390/1280 实测无页面横向溢出，楼层在院区“全部”时可独立选中，固定电话短号链接 0、手机短号链接 1；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 通过。全仓 Vitest 排除用户自有 runtime/小程序副本后为 101 个文件/626 项通过，31 个数据库集成文件/260 项按默认环境跳过，DIR-03 相关集成已单独实跑。
+- 当前状态：DIR-01/02/03 已生产完成；DIR-04/05 已实现待 checkpoint，识别消息为 `feat(web): launch internal directory workbench`。
+- 下一活动批次：只提交、推送并部署 DIR-04/05 checkpoint；生产备份后核验 release、正式 API、公开入口及未认证页面，并以只读方式确认正式 Web 产物含通讯录 Tab、搜索和拨号边界。
+- 停止条件：DIR-04/05 checkpoint 推送、生产备份部署、`ecs-verify.sh` 和正式页面只读核验通过，使 Git `HEAD`、`origin/main`、服务器 `current-release` 一致且 Web 通讯录正式可用。
 
 ## 2026-08-17 手机日历导航触态与滑动圆角分层修复
 
