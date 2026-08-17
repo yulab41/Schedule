@@ -9,6 +9,7 @@ import TemporalPicker from '../../components/TemporalPicker.vue';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ShiftColorPicker from './ShiftColorPicker.vue';
+import { updateShiftDraftTime } from './shift-time-draft.js';
 import { getSchedulingConfigurationOverview } from './scheduling-config-presentation.js';
 
 interface ShiftTypeDraft {
@@ -380,21 +381,23 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
             <label
               ><span>开始</span
               ><TemporalPicker
-                v-model="newShift.startTime"
+                :model-value="newShift.startTime"
                 clearable
                 compact
                 kind="time"
                 label="开始时间"
+                @update:model-value="updateShiftDraftTime(newShift, 'startTime', $event)"
             /></label>
             <span class="range-arrow" aria-hidden="true">→</span>
             <label
               ><span>结束</span
               ><TemporalPicker
-                v-model="newShift.endTime"
+                :model-value="newShift.endTime"
                 clearable
                 compact
                 kind="time"
                 label="结束时间"
+                @update:model-value="updateShiftDraftTime(newShift, 'endTime', $event)"
             /></label>
           </fieldset>
           <ShiftColorPicker v-model="newShift.color" />
@@ -490,23 +493,29 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
                 <label
                   ><span>开始</span
                   ><TemporalPicker
-                    v-model="getShiftDraft(shiftType.id).startTime"
+                    :model-value="getShiftDraft(shiftType.id).startTime"
                     clearable
                     compact
                     :disabled="shiftType.isAllDay"
                     kind="time"
                     :label="`${shiftType.name}开始时间`"
+                    @update:model-value="
+                      updateShiftDraftTime(getShiftDraft(shiftType.id), 'startTime', $event)
+                    "
                 /></label>
                 <span class="range-arrow" aria-hidden="true">→</span>
                 <label
                   ><span>结束</span
                   ><TemporalPicker
-                    v-model="getShiftDraft(shiftType.id).endTime"
+                    :model-value="getShiftDraft(shiftType.id).endTime"
                     clearable
                     compact
                     :disabled="shiftType.isAllDay"
                     kind="time"
                     :label="`${shiftType.name}结束时间`"
+                    @update:model-value="
+                      updateShiftDraftTime(getShiftDraft(shiftType.id), 'endTime', $event)
+                    "
                 /></label>
               </fieldset>
               <ShiftColorPicker v-model="getShiftDraft(shiftType.id).color" />

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
+import { isPointOutsideRectangle } from './temporal-picker-interactions.js';
+
 defineOptions({ inheritAttrs: false });
 
 type TemporalPickerKind = 'month' | 'date' | 'time';
@@ -255,6 +257,7 @@ async function openPicker(): Promise<void> {
   if (element === null || element.open) return;
   element.showModal();
   positionDialog();
+  document.addEventListener('pointerdown', closeFromOutside, true);
   window.addEventListener('resize', positionDialog);
   getFocusableElements()[0]?.focus();
   await nextTick();
@@ -263,6 +266,7 @@ async function openPicker(): Promise<void> {
 
 function closePicker(): void {
   isOpen.value = false;
+  document.removeEventListener('pointerdown', closeFromOutside, true);
   window.removeEventListener('resize', positionDialog);
   if (dialog.value?.open === true) dialog.value.close();
 }
@@ -290,14 +294,22 @@ function clearPicker(): void {
 
 function onDialogClose(): void {
   isOpen.value = false;
+  document.removeEventListener('pointerdown', closeFromOutside, true);
   window.removeEventListener('resize', positionDialog);
   const focusTarget = previouslyFocused.value;
   previouslyFocused.value = null;
   if (focusTarget?.isConnected === true) focusTarget.focus();
 }
 
-function closeFromBackdrop(event: MouseEvent): void {
-  if (event.target === dialog.value) cancelPicker();
+function closeFromOutside(event: PointerEvent): void {
+  const element = dialog.value;
+  if (
+    element !== null &&
+    element.open &&
+    isPointOutsideRectangle(event, element.getBoundingClientRect())
+  ) {
+    cancelPicker();
+  }
 }
 
 function trapFocus(event: KeyboardEvent): void {
@@ -484,6 +496,7 @@ onBeforeUnmount(() => {
   Object.values(wheelProgrammaticTimers).forEach((timer) => {
     if (timer) clearTimeout(timer);
   });
+  document.removeEventListener('pointerdown', closeFromOutside, true);
   window.removeEventListener('resize', positionDialog);
   if (dialog.value?.open === true) dialog.value.close();
 });
@@ -527,7 +540,6 @@ onBeforeUnmount(() => {
       role="dialog"
       :aria-label="`选择${kindLabel}`"
       @cancel.prevent="cancelPicker"
-      @click="closeFromBackdrop"
       @close="onDialogClose"
       @keydown="trapFocus"
     >

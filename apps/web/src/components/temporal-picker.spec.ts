@@ -50,6 +50,17 @@ describe('production temporal picker', () => {
     );
   });
 
+  it('closes a modal picker from a pointer outside its visible bounds', () => {
+    const component = readFileSync(componentPath, 'utf8');
+
+    expect(component).toContain("document.addEventListener('pointerdown', closeFromOutside, true)");
+    expect(component).toContain(
+      "document.removeEventListener('pointerdown', closeFromOutside, true)",
+    );
+    expect(component).toContain('isPointOutsideRectangle(');
+    expect(component).not.toContain('@click="closeFromBackdrop"');
+  });
+
   it('replaces production native month, date, and time controls without touching datetime-local', () => {
     const productionSources = [
       ...vueSources(join(sourceRoot, 'features')),

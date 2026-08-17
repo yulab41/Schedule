@@ -400,3 +400,12 @@
 - `frontend-design`/Storybook：新增统一月份、日期、时间选择器预览，手机底部 Sheet、桌面邻近浮层，保留医疗蓝、浅蓝摘要和系统字体；390/320/1280 无溢出、键盘焦点、减少动态、44px 主操作与 Axe WCAG A/AA 0 违规。四张确认图位于 `C:\Users\eylin\.codex\visualizations\2026\08\17\schedule-temporal-picker-preview`。生产选择器未改，等待用户确认。
 - 正式发布与复核：checkpoint `628c79f` 已推送；备份 `494a53f0-db00-4c97-8469-71308de60e88`（44 张表、11348 行），release `628c79f27816302c781f429d4628be949b5b3f22` 已部署，发布前后 `ecs-verify.sh` 通过。正式 390px 减少动态会话中，月/周单击和定位均一次成功并按偏好即时完成；离开/返回 8 月时原 8月17日选择恢复。9 月“班”标识为 14px/8px/2px/3px，无溢出、日志为空，未写入业务数据。
 - 状态：生产日历/标识已完成发布与线上只读复核；选择器仍为待用户确认设计稿。
+
+## 2026-08-18 班种时间弹窗与跨日校验回归
+
+- 引入点：`git log -S`/`git blame` 确认弹窗仅用 `event.target === dialog` 判断遮罩点击由 `92038cd` 引入；班种时间与跨日校验及直接绑定草稿时间由 `04c7da3` 引入，统一时间选择器替换仍保留了该直接绑定。
+- 失败复现与测试先行：正式域名桌面端打开 A 班开始时间后点击弹窗外部，弹窗未关闭；新增坐标边界、监听器生命周期、时间顺序同步与 24 小时跨日集成断言后，旧代码因缺少 helper/监听器且后端拒绝 `08:00–次日08:00` 而失败。实现后 Web 定向 7/7、排班配置 API 集成 5/5 通过。
+- 修复与语义：`TemporalPicker` 在打开期间使用捕获阶段 `pointerdown` 和可见矩形坐标判定外部点触，关闭/原生 close/卸载均移除监听器；取消仍不发出值变更并恢复原触发器焦点。开始或结束时间完成选择后，仅在双方均非空时把“结束时间早于或等于开始时间”同步为跨日；API 允许 `相同时间 + 跨日` 表示 24 小时，仍拒绝相同时间非跨日及其他不一致组合。权限、事务、保存请求次数和错误恢复路径未改。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过管理员、成员、访客/vkey 与访问记录全流程且无浏览器错误；本地 Storybook 实际打开时间弹窗后点触面板外立即关闭。Web/API typecheck、Web build、定向 Vitest 与真实 MySQL 集成通过。首次 smoke 在服务未启动、开发登录未开启时按预期停止；一次 44px 瞬时量测失败原样复跑通过。
+- 完整 `pnpm --config.verifyDepsBeforeRun=false verify` 的格式与 ESLint 已通过，构建被并行中的无关未提交通讯录测试 `directory-entry-groups.spec.ts` 引用尚未创建的 `directory-entry-groups.js` 阻断；本任务文件级 Prettier/ESLint、Storybook build 与 `git diff --check` 均通过，未修改该无关批次。
+- 状态：已实现待生产发布与正式域名只读复核；checkpoint 识别消息：`fix(scheduling): close time picker and sync overnight shifts`。

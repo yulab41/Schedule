@@ -466,6 +466,17 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 下一批次：统一选择器生产发布完成后，恢复项目既定 DIR-02 数据提取批次；本轮不提前处理小程序迁移或通讯录数据导入。
 - 停止条件：最终状态 checkpoint 推送、生产备份、release 与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止并等待用户复核。
 
+## 2026-08-18 班种时间选择与跨日校验修复（当前批次）
+
+- 批次范围：只修复班种时间弹窗点击外部不关闭，以及选择跨日/24 小时时间后无法启用两项回归；不修改其他页面、API 权限、数据库结构或排班业务流程。
+- 回归来源：外部点击只依赖原生 dialog 事件目标由 `92038cd` 引入，在正式浏览器可稳定复现；时间与跨日校验、班种草稿直接绑定由 `04c7da3` 引入，统一时间选择器替换后未同步跨日状态。
+- 实现：时间弹窗改为捕获 `pointerdown` 并按可见面板矩形判断外部点触，所有关闭与卸载路径均清理监听器；开始/结束时间完成选择后自动按先后顺序同步跨日。`08:00–次日08:00` 作为 24 小时班种可启用，非跨日相同时间和其他矛盾组合仍拒绝。
+- 测试先行与验证：旧代码上新增坐标/监听器/跨日同步断言失败，实现后 Web 定向 7/7、排班配置 API 集成 5/5 通过；Web/API typecheck、Web build通过。本地 Storybook 实际验证弹窗外点触关闭且取消不改值；`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 全流程通过。
+- Storybook build、任务文件 Prettier/ESLint、`pnpm --config.verifyDepsBeforeRun=false smoke:check-core` 和任务文件 `git diff --check` 通过。完整 verify 的格式/ESLint 已通过，构建仅被并行中的无关未提交通讯录测试缺少其待创建模块阻断，本轮未修改该批次。
+- 语义审计：取消、完成、清除事件次数不变；监听器只在弹窗打开期存在。时间 helper 仅修改当前字段并在两个值齐全时更新跨日；启停仍只调用一次原更新 API，失败恢复、权限、事务、版本和空值处理保持。
+- 当前状态：已实现待生产发布与正式域名只读复核。checkpoint 识别消息：`fix(scheduling): close time picker and sync overnight shifts`。
+- 下一批次：完成本 checkpoint 的显式提交、推送、加密生产备份、部署、`ecs-verify.sh` 和正式域名只读专项后停止；不开始其他修改。
+
 ## 2026-08-17 日期正圆标识与触控数字滚轮精修（当前 UI 批次）
 
 - 批次范围：用户确认 Storybook 后，只把已确认的 36×36 正圆日期标识、无选择框数字滚轮和触控惯性样式同步到生产 `TemporalPicker`；不修改使用页面、API、权限、数据库、目录数据或业务请求。

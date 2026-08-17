@@ -90,6 +90,30 @@ describeWithDatabase('scheduling configuration', () => {
     });
 
     expect(invalidEnable.statusCode).toBe(400);
+
+    const validTwentyFourHourShift = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: {
+        abbreviation: aShift?.abbreviation,
+        color: aShift?.color,
+        countsTowardStatistics: aShift?.countsTowardStatistics,
+        crossesMidnight: true,
+        endTime: '08:00',
+        isEnabled: true,
+        name: aShift?.name,
+        startTime: '08:00',
+      },
+      url: `/groups/${groupId}/shift-types/${aShift?.id}`,
+    });
+
+    expect(validTwentyFourHourShift.statusCode).toBe(200);
+    expect(validTwentyFourHourShift.json()).toMatchObject({
+      crossesMidnight: true,
+      endTime: '08:00',
+      isEnabled: true,
+      startTime: '08:00',
+    });
   });
 
   it('allows a member in multiple roles and persists only contiguous rotation positions', async () => {
@@ -535,6 +559,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS roster_entries`);
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);

@@ -1110,8 +1110,7 @@ function validateShiftTypeInput(
   }
 
   if (
-    input.startTime === input.endTime ||
-    (input.crossesMidnight === 0 && input.endTime < input.startTime) ||
+    (input.crossesMidnight === 0 && input.endTime <= input.startTime) ||
     (input.crossesMidnight === 1 && input.endTime > input.startTime)
   ) {
     throw validationError('班种时间与跨日设置不一致。');
