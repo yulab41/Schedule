@@ -3,6 +3,7 @@
 - 范围：医生排班 Web 1.0。
 - 依据：[`../specs/2026-08-01-medical-staff-scheduling-system-design.md`](../specs/2026-08-01-medical-staff-scheduling-system-design.md)。
 - 状态：主体功能已实现；后续只按 `docs/project-status.md` 当前批次推进。
+- 微信小程序是保留 Web/API 的独立迁移轨道，详细计划见 [`../../../apps/miniprogram/docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md`](../../../apps/miniprogram/docs/plans/2026-08-17-wechat-miniprogram-migration-plan.md)。
 
 ## 实施顺序
 

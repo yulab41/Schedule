@@ -22,6 +22,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ['apps/miniprogram/scripts/**/*.mjs'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
     files: ['**/*.vue'],
     languageOptions: {
       parser: vueParser,

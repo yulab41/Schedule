@@ -24,6 +24,21 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
+## 2026-08-18 微信小程序迁移 P0/P1（当前批次，等待视觉确认）
+
+- 批次范围：完成 P0 安全迁入与文档归档、P1 确定性工具链和 Web 视觉黄金稿；按门禁暂停，用户确认前不实现原生业务 WXML/WXSS。
+- 安全迁入：外部 `E:\AItools\Schedule_miniprogram` 的 15 个文件、11295 字节经逐文件 SHA-256 校验迁入 `apps/miniprogram`，外部目录已移除。正式 AppID 保留；`project.private.config.json` 原样保留且由 Git 忽略，不输出或提交其内容。
+- 运行配置：`project.config.json.miniprogramRoot` 固定为 `dist/`；`src/app.json` 使用 Skyline、glass-easel、最低基础库 `3.0.2`、`disableABTest: true` 和 `sdkVersionEnd: 15.255.255`。微信默认 index/navigation-bar 业务样板已删除，当前只保留无业务外观的 P0 bootstrap。
+- 工具链：新增 app workspace、确定性 staging/production `src→dist`、TypeScript、WXML/WXSS/JSON、运行边界、密钥、Worklet 指令、包体和双构建一致性门禁；`miniprogram-ci@2.1.31` 与 `miniprogram-simulate@1.6.2` 精确锁定。CI wrapper 支持无凭证 dry-run，真实私钥必须在仓库外，且脚本不存在审核/正式发布动作。
+- 文档：专项计划、运行/构建、API 边界、分包、Web 同步、视觉标准、组件/页面清单、测试、MiniTest、CI、staging、发布回滚和 4 个 ADR 已放入 `apps/miniprogram/docs`；`apps/miniprogram/AGENTS.md` 明确禁止 LLM 操作本地微信开发者工具。
+- Web 同步：计划内已有能力在对应 Mini 阶段实时跟随 Web；当前动态月历、连续周、统一时间选择器和自绘控件进入 P1/P4/P5 基线。院内通讯录属于迁移计划后新增功能，登记在 P10 最后补齐。
+- Web 黄金稿：用 `frontend-design` 形成基础控件、42 格月历、7×7 与 20×30 矩阵的 390×844/320×844 Storybook 状态；矩阵 fixture 证明 49/600 个逻辑格，浏览器实测最大矩阵 20 行、30 列、600 格，单格写入/撤销通过且无页面横向溢出。截图只在已忽略的 `.artifacts`。
+- 验证：`pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test --exclude "runtime/**"`（108 files/646 tests pass，31 files/260 integration tests skipped）、`pnpm smoke:check-core`、Storybook build、Mini staging/production verify、9 项工具链测试和 `git diff --check` 通过。根 `runtime/` 与 `src/components.d.ts` 是既存/并发未跟踪产物，未修改或纳入验证提交。全程未启动、唤醒或控制微信开发者工具。
+- 外部门禁：当前未注入仓库外微信上传私钥，因此没有生成预览码或改变微信平台状态；原生 UI 尚未获批/实现，MiniTest 与实体机门禁未开始，不能声称原生通过。
+- checkpoint 识别消息：`chore(miniprogram): establish native migration workspace`。
+- 下一批次：先等待用户逐项确认或退回 P1 的基础控件、42 格月历、7×7/20×30 矩阵黄金稿。批准后才做 1–3 项原生 PoC：同源 WXSS tokens/基础控件、42 格 Skyline 月历、双轴矩阵/Worklet/局部更新；未批准则只修改 Storybook 黄金稿。
+- 停止条件：本轮 checkpoint 显式提交、推送、生产备份、ECS release 与 `ecs-verify.sh` 通过后，保持 Storybook 预览，暂停等待用户视觉确认。
+
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 
 - 批次范围：完成层级筛选互斥、顶部清除入口、约半高的紧凑号码卡和“完整联系方式集合相同”展示合并；不改原始 CSV、生产通讯录记录、来源追踪、权限或发布快照。

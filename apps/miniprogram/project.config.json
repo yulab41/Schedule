@@ -1,0 +1,21 @@
+{
+  "setting": {
+    "compileWorklet": true,
+    "es6": true,
+    "ignoreUploadUnusedFiles": true,
+    "postcss": true,
+    "minified": true,
+    "minifyWXML": true,
+    "minifyWXSS": true,
+    "uploadWithSourceMap": false,
+    "urlCheck": true
+  },
+  "compileType": "miniprogram",
+  "miniprogramRoot": "dist/",
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "appid": "wx56a7a21f974fd9af",
+  "editorSetting": {}
+}

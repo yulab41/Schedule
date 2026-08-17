@@ -1,0 +1,27 @@
+{
+  "name": "@schedule/miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs --profile=staging",
+    "build:production": "node scripts/build.mjs --profile=production",
+    "build:staging": "node scripts/build.mjs --profile=staging",
+    "check:determinism": "node scripts/determinism.mjs --profile=staging",
+    "check:package": "node scripts/package-audit.mjs",
+    "check:source": "node scripts/source-audit.mjs",
+    "ci:dry-run": "node scripts/miniprogram-ci.mjs preview --profile=staging --dry-run",
+    "preview": "node scripts/miniprogram-ci.mjs preview --profile=staging",
+    "test": "vitest run scripts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "upload:experience": "node scripts/miniprogram-ci.mjs upload-experience --profile=staging",
+    "verify": "tsc --noEmit -p tsconfig.json && node scripts/verify.mjs --profile=staging"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "miniprogram-ci": "2.1.31",
+    "miniprogram-simulate": "1.6.2",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}
