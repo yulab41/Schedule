@@ -474,8 +474,10 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 测试先行与验证：旧代码上新增坐标/监听器/跨日同步断言失败，实现后 Web 定向 7/7、排班配置 API 集成 5/5 通过；Web/API typecheck、Web build通过。本地 Storybook 实际验证弹窗外点触关闭且取消不改值；`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 全流程通过。
 - Storybook build、任务文件 Prettier/ESLint、`pnpm --config.verifyDepsBeforeRun=false smoke:check-core` 和任务文件 `git diff --check` 通过。完整 verify 的格式/ESLint 已通过，构建仅被并行中的无关未提交通讯录测试缺少其待创建模块阻断，本轮未修改该批次。
 - 语义审计：取消、完成、清除事件次数不变；监听器只在弹窗打开期存在。时间 helper 仅修改当前字段并在两个值齐全时更新跨日；启停仍只调用一次原更新 API，失败恢复、权限、事务、版本和空值处理保持。
-- 当前状态：已实现待生产发布与正式域名只读复核。checkpoint 识别消息：`fix(scheduling): close time picker and sync overnight shifts`。
-- 下一批次：完成本 checkpoint 的显式提交、推送、加密生产备份、部署、`ecs-verify.sh` 和正式域名只读专项后停止；不开始其他修改。
+- 正式发布：代码 checkpoint `b24a5b6` 已推送；发布前加密数据库备份 archive 为 `5b4bbb06-a9b6-4db7-afeb-1b134069a350`（50 张表、18408 行、SHA-256 `a956b55aee98776927b942a6861273b3caacc088ab5ea7df05a0d21f4a071a5a`）。release `b24a5b6e3e1bbf9be2dc10661dd8d14ef7a9ea23` 从干净 worktree 构建并部署，`ecs-verify.sh` 通过。
+- 正式域名只读复核：A 班时间弹窗外点触后 dialog 立即关闭；未保存草稿选择 20:00→08:00 后跨日自动为 true，刷新页面已丢弃草稿，未触发保存、启用或其他业务写入，浏览器日志为空。
+- 当前状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint 为 `b24a5b6`；最终状态 checkpoint 识别消息：`docs(status): record shift time fix deployment`。
+- 下一批次：只提交、推送并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后停止，不开始其他修改。
 
 ## 2026-08-17 日期正圆标识与触控数字滚轮精修（当前 UI 批次）
 

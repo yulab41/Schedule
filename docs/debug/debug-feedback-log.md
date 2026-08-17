@@ -408,4 +408,5 @@
 - 修复与语义：`TemporalPicker` 在打开期间使用捕获阶段 `pointerdown` 和可见矩形坐标判定外部点触，关闭/原生 close/卸载均移除监听器；取消仍不发出值变更并恢复原触发器焦点。开始或结束时间完成选择后，仅在双方均非空时把“结束时间早于或等于开始时间”同步为跨日；API 允许 `相同时间 + 跨日` 表示 24 小时，仍拒绝相同时间非跨日及其他不一致组合。权限、事务、保存请求次数和错误恢复路径未改。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过管理员、成员、访客/vkey 与访问记录全流程且无浏览器错误；本地 Storybook 实际打开时间弹窗后点触面板外立即关闭。Web/API typecheck、Web build、定向 Vitest 与真实 MySQL 集成通过。首次 smoke 在服务未启动、开发登录未开启时按预期停止；一次 44px 瞬时量测失败原样复跑通过。
 - 完整 `pnpm --config.verifyDepsBeforeRun=false verify` 的格式与 ESLint 已通过，构建被并行中的无关未提交通讯录测试 `directory-entry-groups.spec.ts` 引用尚未创建的 `directory-entry-groups.js` 阻断；本任务文件级 Prettier/ESLint、Storybook build 与 `git diff --check` 均通过，未修改该无关批次。
-- 状态：已实现待生产发布与正式域名只读复核；checkpoint 识别消息：`fix(scheduling): close time picker and sync overnight shifts`。
+- 正式发布与只读复核：代码 checkpoint `b24a5b6` 已推送；发布前加密数据库备份 archive 为 `5b4bbb06-a9b6-4db7-afeb-1b134069a350`（50 张表、18408 行、7290860 字节，SHA-256 `a956b55aee98776927b942a6861273b3caacc088ab5ea7df05a0d21f4a071a5a`）。release `b24a5b6e3e1bbf9be2dc10661dd8d14ef7a9ea23` 从干净 worktree 构建并部署，`ecs-verify.sh` 通过；容器预热首次健康检查 502 后自动恢复。
+- 正式域名无写入复核：A 班时间弹窗打开后点击外部，dialog 数量从 1 变为 0、触发器 `aria-expanded` 从 true 变为 false；未保存草稿选择 20:00→08:00 后“跨日”自动变为 true。随后刷新页面丢弃草稿，未点击班种保存/启用，浏览器日志为空。状态：已完成（含生产发布与线上核验）→ 待用户复核。
