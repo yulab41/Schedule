@@ -21,6 +21,7 @@ import { localAuth } from '../../auth/local-auth.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import CompactSwitch from '../../components/CompactSwitch.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import {
   addBusinessMonths,
@@ -849,7 +850,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             </button>
             <label class="month-picker">
               年月
-              <input v-model="businessMonth" type="month" />
+              <TemporalPicker v-model="businessMonth" kind="month" label="日历年月" />
             </label>
           </header>
           <div class="calendar-weekday-row" aria-hidden="true">
@@ -1310,15 +1311,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   align-items: center;
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-md);
-}
-
-.month-picker input {
-  min-height: var(--ui-touch-target-minimum);
-  padding: 4px 8px;
-  color: var(--ui-color-text-primary);
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-small);
 }
 
 .calendar-filters {

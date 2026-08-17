@@ -14,6 +14,7 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import LeaveApprovalDialog from './LeaveApprovalDialog.vue';
 import {
   buildLeaveFormInterval,
@@ -500,11 +501,11 @@ function onWindowFocus(): void {
           <div class="date-fields">
             <label>
               开始日期
-              <input v-model="startDate" type="date" required />
+              <TemporalPicker v-model="startDate" kind="date" label="开始日期" required />
             </label>
             <label>
               结束日期
-              <input v-model="endDate" type="date" required />
+              <TemporalPicker v-model="endDate" kind="date" label="结束日期" required />
             </label>
           </div>
           <p v-if="leaveDayCount > 0" class="day-count-hint">

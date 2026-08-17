@@ -42,6 +42,6 @@ export const MobileTime390: Story = {
 
 export const Desktop1280: Story = {
   name: '4 · 统一选择器 · 1280px',
-  args: { initialKind: 'date', layout: 'desktop' },
+  args: { initialKind: 'month', layout: 'desktop' },
   globals: { viewport: 'desktop1280' },
 };

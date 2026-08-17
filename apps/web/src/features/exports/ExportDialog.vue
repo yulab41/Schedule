@@ -9,6 +9,7 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import {
   buildExportFileName,
@@ -210,11 +211,12 @@ function updateVisibility(nextVisible: boolean): void {
               <t-radio-button value="month">按月</t-radio-button>
               <t-radio-button value="year">按年</t-radio-button>
             </t-radio-group>
-            <input
+            <TemporalPicker
               v-if="periodType === 'month'"
               v-model="businessMonth"
               class="export-period-input"
-              type="month"
+              kind="month"
+              label="导出月份"
             />
             <select v-else v-model.number="year" class="export-period-input">
               <option
@@ -348,12 +350,6 @@ function updateVisibility(nextVisible: boolean): void {
 
 .export-period-input {
   min-height: var(--ui-touch-target-minimum);
-  padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
-  color: var(--ui-color-text-primary);
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-small);
-  font: inherit;
 }
 
 .export-hint {

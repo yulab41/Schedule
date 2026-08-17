@@ -16,6 +16,7 @@ import type { SelectValue } from 'tdesign-vue-next';
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import {
   addBusinessMonths,
@@ -333,11 +334,12 @@ function formatEventTime(value: string): string {
               <template #icon><ChevronLeftIcon /></template>
               上一月
             </t-button>
-            <input
-              :value="businessMonth"
+            <TemporalPicker
+              :model-value="businessMonth"
               class="month-input"
-              type="month"
-              @change="onMonthInput(($event.target as HTMLInputElement).value)"
+              kind="month"
+              label="历史排班年月"
+              @update:model-value="onMonthInput"
             />
             <t-button variant="outline" size="small" @click="changeMonth(1)">
               <template #icon><ChevronRightIcon /></template>
@@ -503,12 +505,6 @@ function formatEventTime(value: string): string {
 
 .month-input {
   min-width: 126px;
-  min-height: var(--ui-touch-target-minimum);
-  padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
-  color: var(--ui-color-text-primary);
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-small);
 }
 
 .month-label {

@@ -15,6 +15,7 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { getConflictLatestData, isDataConflictError } from '../../api/conflict-handler.js';
 import { localAuth } from '../../auth/local-auth.js';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import { getTemplateDateColumns } from './manual-schedule-logic.js';
 
 const props = defineProps<{
@@ -256,12 +257,13 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
         <label class="repeat-field">
           <input v-model="repeatEnabled" type="checkbox" />
           重复应用到结束日期
-          <input
+          <TemporalPicker
             v-if="repeatEnabled"
             v-model="endDate"
             class="end-date-input"
             min="2020-01-01"
-            type="date"
+            kind="date"
+            label="重复结束日期"
           />
         </label>
 
@@ -398,10 +400,8 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
 }
 
 .end-date-input {
-  min-height: 32px;
-  padding: 4px 8px;
-  border: 1px solid #9ca3af;
-  border-radius: 4px;
+  flex: 1 1 180px;
+  min-width: 160px;
 }
 
 .preview-stats {

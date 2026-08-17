@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 type PickerKind = 'month' | 'date' | 'time';
+type PickerScrollBehavior = 'auto' | 'smooth';
 
 const props = withDefaults(
   defineProps<{
@@ -30,6 +31,7 @@ const monthLabels = [
   '11月',
   '12月',
 ];
+const yearOptions = Array.from({ length: 9 }, (_, index) => 2022 + index);
 const dateCells = [
   { day: 27, muted: true },
   { day: 28, muted: true },
@@ -54,7 +56,10 @@ const selectedMonth = ref(8);
 const selectedDay = ref(17);
 const selectedHour = ref('08');
 const selectedMinuteIndex = ref(2);
+const yearWheel = ref<HTMLElement | null>(null);
+const monthWheel = ref<HTMLElement | null>(null);
 const selectedMinute = computed(() => minutes[selectedMinuteIndex.value] ?? '00');
+const wheelSettleTimers: Partial<Record<'year' | 'month', ReturnType<typeof setTimeout>>> = {};
 
 watch(
   () => props.initialKind,
@@ -74,7 +79,7 @@ const selectedValue = computed(() => {
   return `${selectedHour.value}:${selectedMinute.value}`;
 });
 const selectedHint = computed(() => {
-  if (activeKind.value === 'month') return '用于排班周期与统计范围';
+  if (activeKind.value === 'month') return '上下滑动年份与月份';
   if (activeKind.value === 'date') return '周一 · 业务日按 08:00 交接';
   return '24 小时制 · 15 分钟间隔';
 });
@@ -83,6 +88,72 @@ function openPicker(kind: PickerKind): void {
   activeKind.value = kind;
   isOpen.value = true;
 }
+
+function wheelElement(kind: 'year' | 'month'): HTMLElement | null {
+  return kind === 'year' ? yearWheel.value : monthWheel.value;
+}
+
+function selectedWheelValue(kind: 'year' | 'month'): number {
+  return kind === 'year' ? selectedYear.value : selectedMonth.value;
+}
+
+function centerWheel(kind: 'year' | 'month', behavior: PickerScrollBehavior = 'smooth'): void {
+  const wheel = wheelElement(kind);
+  const target = wheel?.querySelector<HTMLElement>(
+    `[data-wheel-value="${selectedWheelValue(kind)}"]`,
+  );
+  if (!wheel || !target) return;
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  wheel.scrollTo({
+    top: target.offsetTop - (wheel.clientHeight - target.offsetHeight) / 2,
+    behavior: reducedMotion ? 'auto' : behavior,
+  });
+}
+
+function selectWheelValue(kind: 'year' | 'month', value: number): void {
+  if (kind === 'year') selectedYear.value = value;
+  else selectedMonth.value = value;
+  void nextTick(() => centerWheel(kind));
+}
+
+function settleWheel(kind: 'year' | 'month', event: Event): void {
+  const wheel = event.currentTarget as HTMLElement;
+  const existingTimer = wheelSettleTimers[kind];
+  if (existingTimer) clearTimeout(existingTimer);
+
+  wheelSettleTimers[kind] = setTimeout(() => {
+    const center = wheel.scrollTop + wheel.clientHeight / 2;
+    const options = Array.from(wheel.querySelectorAll<HTMLButtonElement>('[data-wheel-value]'));
+    const nearest = options.reduce<HTMLButtonElement | null>((closest, option) => {
+      if (!closest) return option;
+      const optionCenter = option.offsetTop + option.offsetHeight / 2;
+      const closestCenter = closest.offsetTop + closest.offsetHeight / 2;
+      return Math.abs(optionCenter - center) < Math.abs(closestCenter - center) ? option : closest;
+    }, null);
+    const value = Number(nearest?.dataset.wheelValue);
+    if (Number.isFinite(value)) selectWheelValue(kind, value);
+  }, 90);
+}
+
+function centerMonthWheels(behavior: PickerScrollBehavior = 'smooth'): void {
+  centerWheel('year', behavior);
+  centerWheel('month', behavior);
+}
+
+watch([activeKind, isOpen], ([kind, open]) => {
+  if (kind === 'month' && open) void nextTick(() => centerMonthWheels('auto'));
+});
+
+onMounted(() => {
+  if (activeKind.value === 'month') void nextTick(() => centerMonthWheels('auto'));
+});
+
+onBeforeUnmount(() => {
+  Object.values(wheelSettleTimers).forEach((timer) => {
+    if (timer) clearTimeout(timer);
+  });
+});
 </script>
 
 <template>
@@ -114,7 +185,7 @@ function openPicker(kind: PickerKind): void {
         </span>
         <span class="trigger-copy">
           <span>{{ kind.label }}</span>
-          <strong v-if="kind.value === 'month'">2026年8月</strong>
+          <strong v-if="kind.value === 'month'">{{ selectedYear }}年{{ selectedMonth }}月</strong>
           <strong v-else-if="kind.value === 'date'">8月17日 周一</strong>
           <strong v-else>08:00</strong>
         </span>
@@ -141,22 +212,47 @@ function openPicker(kind: PickerKind): void {
       </div>
 
       <div v-if="activeKind === 'month'" class="picker-content month-picker-panel">
-        <div class="period-navigation">
-          <button type="button" aria-label="上一年" @click="selectedYear--">‹</button>
-          <strong>{{ selectedYear }}年</strong>
-          <button type="button" aria-label="下一年" @click="selectedYear++">›</button>
-        </div>
-        <div class="month-grid" role="group" aria-label="月份">
-          <button
-            v-for="(month, index) in monthLabels"
-            :key="month"
-            type="button"
-            :class="{ 'is-selected': selectedMonth === index + 1 }"
-            :aria-pressed="selectedMonth === index + 1"
-            @click="selectedMonth = index + 1"
+        <div class="month-wheel" aria-label="年月">
+          <div
+            ref="yearWheel"
+            class="wheel-column"
+            role="listbox"
+            aria-label="年份"
+            @scroll.passive="settleWheel('year', $event)"
           >
-            {{ month }}
-          </button>
+            <button
+              v-for="year in yearOptions"
+              :key="year"
+              type="button"
+              :data-wheel-value="year"
+              :class="{ 'is-selected': selectedYear === year }"
+              :aria-selected="selectedYear === year"
+              role="option"
+              @click="selectWheelValue('year', year)"
+            >
+              {{ year }} <small>年</small>
+            </button>
+          </div>
+          <div
+            ref="monthWheel"
+            class="wheel-column"
+            role="listbox"
+            aria-label="月份"
+            @scroll.passive="settleWheel('month', $event)"
+          >
+            <button
+              v-for="(month, index) in monthLabels"
+              :key="month"
+              type="button"
+              :data-wheel-value="index + 1"
+              :class="{ 'is-selected': selectedMonth === index + 1 }"
+              :aria-selected="selectedMonth === index + 1"
+              role="option"
+              @click="selectWheelValue('month', index + 1)"
+            >
+              {{ index + 1 }} <small>月</small>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -476,14 +572,6 @@ function openPicker(kind: PickerKind): void {
   font-size: 15px;
 }
 
-.month-grid {
-  display: grid;
-  padding: 4px 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-}
-
-.month-grid button,
 .date-grid button {
   display: grid;
   min-width: 0;
@@ -500,7 +588,6 @@ function openPicker(kind: PickerKind): void {
   font-variant-numeric: tabular-nums;
 }
 
-.month-grid button.is-selected,
 .date-grid button.is-selected {
   color: #fff;
   background: var(--picker-blue);
@@ -541,10 +628,12 @@ function openPicker(kind: PickerKind): void {
   color: #bec6cf;
 }
 
+.month-picker-panel,
 .time-picker-panel {
   padding-top: 4px;
 }
 
+.month-wheel,
 .time-wheel {
   position: relative;
   display: grid;
@@ -555,6 +644,33 @@ function openPicker(kind: PickerKind): void {
   align-items: center;
   overflow: hidden;
   background: linear-gradient(#fff, rgb(255 255 255 / 20%) 25%, rgb(255 255 255 / 20%) 75%, #fff);
+}
+
+.month-wheel {
+  max-width: 280px;
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: 8px;
+}
+
+.month-wheel .wheel-column {
+  box-sizing: border-box;
+  height: 174px;
+  padding-block: 70px;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  scroll-snap-type: y mandatory;
+}
+
+.month-wheel .wheel-column::-webkit-scrollbar {
+  display: none;
+}
+
+.month-wheel .wheel-column button {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
 }
 
 .wheel-column {

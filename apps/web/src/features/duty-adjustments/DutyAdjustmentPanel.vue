@@ -14,6 +14,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ApiClientError, createApiClient } from '../../api/client.js';
 import CompactSwitch from '../../components/CompactSwitch.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
@@ -691,7 +692,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
           <legend>安排成员代值我的班次</legend>
           <label>
             月份
-            <input v-model="businessMonth" type="month" />
+            <TemporalPicker v-model="businessMonth" kind="month" label="月份" />
           </label>
           <label>
             我的班次
@@ -753,7 +754,7 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
           <p class="workflow-form-hint">直接生效，不需要双方确认或审批；原因选填。</p>
           <label>
             月份
-            <input v-model="businessMonth" type="month" />
+            <TemporalPicker v-model="businessMonth" kind="month" label="月份" />
           </label>
           <label>
             被代班班次

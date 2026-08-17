@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import CompactSwitch from '../../components/CompactSwitch.vue';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ShiftColorPicker from './ShiftColorPicker.vue';
@@ -376,9 +377,25 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
           </div>
           <fieldset class="time-range-control">
             <legend>时段</legend>
-            <label><span>开始</span><input v-model="newShift.startTime" type="time" /></label>
+            <label
+              ><span>开始</span
+              ><TemporalPicker
+                v-model="newShift.startTime"
+                clearable
+                compact
+                kind="time"
+                label="开始时间"
+            /></label>
             <span class="range-arrow" aria-hidden="true">→</span>
-            <label><span>结束</span><input v-model="newShift.endTime" type="time" /></label>
+            <label
+              ><span>结束</span
+              ><TemporalPicker
+                v-model="newShift.endTime"
+                clearable
+                compact
+                kind="time"
+                label="结束时间"
+            /></label>
           </fieldset>
           <ShiftColorPicker v-model="newShift.color" />
           <span v-if="hasInsufficientContrast(newShift)" class="contrast-warning" role="status">
@@ -472,18 +489,24 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
                 <legend>时段</legend>
                 <label
                   ><span>开始</span
-                  ><input
+                  ><TemporalPicker
                     v-model="getShiftDraft(shiftType.id).startTime"
+                    clearable
+                    compact
                     :disabled="shiftType.isAllDay"
-                    type="time"
+                    kind="time"
+                    :label="`${shiftType.name}开始时间`"
                 /></label>
                 <span class="range-arrow" aria-hidden="true">→</span>
                 <label
                   ><span>结束</span
-                  ><input
+                  ><TemporalPicker
                     v-model="getShiftDraft(shiftType.id).endTime"
+                    clearable
+                    compact
                     :disabled="shiftType.isAllDay"
-                    type="time"
+                    kind="time"
+                    :label="`${shiftType.name}结束时间`"
                 /></label>
               </fieldset>
               <ShiftColorPicker v-model="getShiftDraft(shiftType.id).color" />

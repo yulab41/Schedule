@@ -13,6 +13,7 @@ import type { PrimaryTableCellParams, PrimaryTableCol, TableRowData } from 'tdes
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import {
   formatNetDutyAdjustment,
   formatStatisticsMonthLabel,
@@ -223,11 +224,12 @@ async function runRecalculateCheck(): Promise<void> {
           <t-radio-button value="month">按月</t-radio-button>
           <t-radio-button value="year">按年</t-radio-button>
         </t-radio-group>
-        <input
+        <TemporalPicker
           v-if="viewMode === 'month'"
           v-model="businessMonth"
           class="statistics-month-input"
-          type="month"
+          kind="month"
+          label="统计月份"
           @change="load"
         />
         <select v-else v-model.number="year" class="statistics-year-input" @change="load">
@@ -403,7 +405,6 @@ async function runRecalculateCheck(): Promise<void> {
   min-height: var(--ui-touch-target-minimum);
 }
 
-.statistics-month-input,
 .statistics-year-input {
   padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
   color: var(--ui-color-text-primary);

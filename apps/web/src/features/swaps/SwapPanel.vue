@@ -15,6 +15,7 @@ import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import CompactSwitch from '../../components/CompactSwitch.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
@@ -900,7 +901,12 @@ function getCounterpartName(request: SwapRequest): string {
           <legend>选择双方班次</legend>
           <label>
             我的班次月份
-            <input v-model="myAssignmentMonth" type="month" @change="onMyAssignmentMonthChange" />
+            <TemporalPicker
+              v-model="myAssignmentMonth"
+              kind="month"
+              label="我的班次月份"
+              @change="onMyAssignmentMonthChange"
+            />
           </label>
           <label>
             我的班次
@@ -915,9 +921,10 @@ function getCounterpartName(request: SwapRequest): string {
           </label>
           <label>
             对方班次月份
-            <input
+            <TemporalPicker
               v-model="targetAssignmentMonth"
-              type="month"
+              kind="month"
+              label="对方班次月份"
               @change="onTargetAssignmentMonthChange"
             />
           </label>
@@ -975,9 +982,10 @@ function getCounterpartName(request: SwapRequest): string {
           <p class="workflow-form-hint">直接生效，无需对方同意或审批。</p>
           <label>
             成员一月份
-            <input
+            <TemporalPicker
               v-model="adminInitiatorMonth"
-              type="month"
+              kind="month"
+              label="成员一月份"
               @change="onAdminInitiatorMonthChange"
             />
           </label>
@@ -1005,7 +1013,12 @@ function getCounterpartName(request: SwapRequest): string {
           </label>
           <label>
             成员二月份
-            <input v-model="adminTargetMonth" type="month" @change="onAdminTargetMonthChange" />
+            <TemporalPicker
+              v-model="adminTargetMonth"
+              kind="month"
+              label="成员二月份"
+              @change="onAdminTargetMonthChange"
+            />
           </label>
           <label>
             成员二

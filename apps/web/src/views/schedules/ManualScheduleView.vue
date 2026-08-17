@@ -26,6 +26,7 @@ import {
 } from '../../api/conflict-handler.js';
 import { localAuth } from '../../auth/local-auth.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
+import TemporalPicker from '../../components/TemporalPicker.vue';
 import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.js';
 import { getBusinessDate } from '../../features/calendar/calendar-views.js';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
@@ -882,7 +883,7 @@ function scheduleMidnightRefresh(): void {
         </label>
         <label>
           开始日期
-          <input v-model="startDate" type="date" />
+          <TemporalPicker v-model="startDate" kind="date" label="开始日期" />
         </label>
         <label>
           周期天数

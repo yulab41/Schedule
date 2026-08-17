@@ -14,7 +14,11 @@ describe('unified temporal picker preview', () => {
     expect(preview).toContain("type PickerKind = 'month' | 'date' | 'time'");
     expect(preview).toContain('class="picker-trigger"');
     expect(preview).toContain('class="selection-summary"');
-    expect(preview).toContain('class="month-grid"');
+    expect(preview).toContain('class="month-wheel"');
+    expect(preview).toContain('aria-label="年份"');
+    expect(preview).toContain('aria-label="月份"');
+    expect(preview).toMatch(/\.month-wheel \.wheel-column\s*{[^}]*overflow-y:\s*auto;/s);
+    expect(preview).toContain('scroll-snap-type: y mandatory');
     expect(preview).toContain('class="date-grid"');
     expect(preview).toContain('class="time-wheel"');
     expect(preview).toContain('role="dialog"');
@@ -30,5 +34,6 @@ describe('unified temporal picker preview', () => {
     expect(stories).toContain('MobileDate320');
     expect(stories).toContain('MobileTime390');
     expect(stories).toContain('Desktop1280');
+    expect(stories).toContain("args: { initialKind: 'month', layout: 'desktop' }");
   });
 });

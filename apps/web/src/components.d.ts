@@ -24,6 +24,7 @@ declare module 'vue' {
     TContent: typeof import('tdesign-vue-next')['Content']
     TDialog: typeof import('tdesign-vue-next')['Dialog']
     TDivider: typeof import('tdesign-vue-next')['Divider']
+    TemporalPicker: typeof import('./components/TemporalPicker.vue')['default']
     TEmpty: typeof import('tdesign-vue-next')['Empty']
     TFormItem: typeof import('tdesign-vue-next')['FormItem']
     TInput: typeof import('tdesign-vue-next')['Input']

@@ -467,11 +467,13 @@ async function assertResponsiveWorkbenchShell(page) {
 async function assertManualScheduleDenseInteractions(page) {
   await page.locator('.workbench-sidebar button', { hasText: '手动排班' }).first().click();
   await waitForBodyText(page, '手动排班模板', 15000, '手动排班模板');
-  const dateInput = page.locator('input[type="date"]').first();
-  await dateInput.waitFor({ state: 'visible', timeout: 15000 });
-  const actual = await dateInput.inputValue();
+  const dateTrigger = page.locator('button[aria-label^="开始日期："]').first();
+  await dateTrigger.waitFor({ state: 'visible', timeout: 15000 });
+  const actual = (await dateTrigger.getAttribute('aria-label')) ?? '';
   const expected = await getExpectedScheduleBusinessDate(page);
-  if (actual !== expected) {
+  const [expectedYear, expectedMonth, expectedDay] = expected.split('-');
+  const expectedDisplay = `${expectedYear}年${Number(expectedMonth)}月${Number(expectedDay)}日`;
+  if (!actual.includes(expectedDisplay)) {
     fail(`手动排班开始日期默认值应为排班业务日 ${expected}，实际为 ${actual}。`);
   }
 
@@ -675,7 +677,8 @@ async function assertLeaveWorkflowMobile(page) {
         return rect.width > 0 && rect.height > 0;
       });
       return {
-        dateInputs: element.querySelectorAll('input[type="date"]').length,
+        datePickers: element.querySelectorAll('.temporal-picker-trigger[aria-haspopup="dialog"]')
+          .length,
         smallControls: controls
           .filter((control) => {
             const rect = control.getBoundingClientRect();
@@ -687,7 +690,7 @@ async function assertLeaveWorkflowMobile(page) {
           ),
       };
     });
-    if (sheetMetrics.dateInputs !== 2) fail(`${width}px 新建请假底部页缺少起止日期。`);
+    if (sheetMetrics.datePickers !== 2) fail(`${width}px 新建请假底部页缺少起止日期。`);
     if (sheetMetrics.smallControls.length > 0) {
       fail(
         `${width}px 新建请假底部页存在小于 44px 的控件：${sheetMetrics.smallControls.join('、')}`,
@@ -700,7 +703,7 @@ async function assertLeaveWorkflowMobile(page) {
         path: path.join(SCREENSHOT_DIR, '3-admin-mobile-leave-sheet.png'),
       });
     }
-    await formSheet.locator('button[aria-label="关闭"]').click();
+    await formSheet.locator('button[aria-label="关闭"]:visible').click();
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });
@@ -811,7 +814,9 @@ async function assertShiftWorkflowsMobile(page) {
     ) {
       fail(`${width}px 发起换班底部页缺少表单内容。`);
     }
-    if ((await requestSheet.locator('input[type="month"]').count()) !== 2) {
+    if (
+      (await requestSheet.locator('.temporal-picker-trigger[aria-haspopup="dialog"]').count()) !== 2
+    ) {
       fail(`${width}px 发起换班底部页未提供两个独立月份选择器。`);
     }
     await assertWorkflowSheetTouchTargets(requestSheet, width, '发起换班底部页');
@@ -819,7 +824,7 @@ async function assertShiftWorkflowsMobile(page) {
     if (width === 390) {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '4-admin-mobile-swap-sheet.png') });
     }
-    await requestSheet.locator('button[aria-label="关闭"]').click();
+    await requestSheet.locator('button[aria-label="关闭"]:visible').click();
 
     await page.locator('#swap-admin-create-button').click();
     const adminSheet = page.locator('dialog[open][aria-label="管理员直接换班"]');
@@ -832,11 +837,13 @@ async function assertShiftWorkflowsMobile(page) {
     ) {
       fail(`${width}px 管理员直接换班底部页缺少表单内容。`);
     }
-    if ((await adminSheet.locator('input[type="month"]').count()) !== 2) {
+    if (
+      (await adminSheet.locator('.temporal-picker-trigger[aria-haspopup="dialog"]').count()) !== 2
+    ) {
       fail(`${width}px 管理员直接换班底部页未提供两个独立月份选择器。`);
     }
     await assertWorkflowSheetTouchTargets(adminSheet, width, '管理员直接换班底部页');
-    await adminSheet.locator('button[aria-label="关闭"]').click();
+    await adminSheet.locator('button[aria-label="关闭"]:visible').click();
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });
@@ -883,7 +890,7 @@ async function assertShiftWorkflowsMobile(page) {
     if (width === 390) {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '5-admin-mobile-duty-sheet.png') });
     }
-    await requestSheet.locator('button[aria-label="关闭"]').click();
+    await requestSheet.locator('button[aria-label="关闭"]:visible').click();
 
     await page.locator('#duty-admin-create-button').click();
     const adminSheet = page.locator('dialog[open][aria-label="管理员直接代值"]');
@@ -893,7 +900,7 @@ async function assertShiftWorkflowsMobile(page) {
       fail(`${width}px 管理员直接代值底部页缺少表单内容。`);
     }
     await assertWorkflowSheetTouchTargets(adminSheet, width, '管理员直接代值底部页');
-    await adminSheet.locator('button[aria-label="关闭"]').click();
+    await adminSheet.locator('button[aria-label="关闭"]:visible').click();
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });
@@ -1158,11 +1165,18 @@ async function assertMonthCalendarInteractions(page) {
   }
   await eventSheet.locator('button[aria-label="关闭"]').click();
 
-  await page.locator('.month-picker input[type="month"]').evaluate((element) => {
-    element.value = '2026-08';
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.waitForTimeout(150);
+  await page.locator('.month-picker .temporal-picker-trigger').click();
+  const monthPickerDialog = page.locator(
+    'dialog.temporal-picker-dialog[open][aria-label="选择月份"]',
+  );
+  await monthPickerDialog.waitFor({ state: 'visible', timeout: 5000 });
+  await monthPickerDialog.locator('[data-wheel-value="2026"]').first().click();
+  await monthPickerDialog.locator('[data-wheel-value="8"]').last().click();
+  await page.waitForTimeout(250);
+  await monthPickerDialog.getByRole('button', { name: '完成' }).click();
+  await page.setViewportSize({ height: 844, width: 390 });
   await page.waitForFunction(
     () => document.querySelector('.month-navigation strong')?.textContent?.trim() === '2026年8月',
     undefined,
@@ -2154,7 +2168,7 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
     if (width === 390) {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '14-admin-mobile-export.png') });
     }
-    await exportSheet.locator('button[aria-label="关闭"]').click();
+    await exportSheet.locator('button[aria-label="关闭"]:visible').click();
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });
