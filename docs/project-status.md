@@ -31,10 +31,12 @@
 - 用户确认规则：短号只允许 3–6 位。原短号栏 4 个 8 位值已从短号字段删除；其中 1 个长短号疑似不一致条目改为 `manually_verified`，`needs_review` 降为 0，完整号码、来源定位和本地 `source_text` 保留。
 - 回归定位与测试先行：`git log -S 'normalizePhoneValue'` 和 `git blame` 确认 `6f22319` 让完整号码与短号共用 3–20 位规则；7 位短号拒绝测试先在旧实现失败，再把完整号码保持 3–20 位、短号收紧为 3–6 位。导入核心 13/13、隔离 MySQL 发布/回滚 2/2 通过。
 - 数据质量：独立复核确认 341/359/4488 计数不变，短号越界 0、孤儿外键 0、重复 ID 0、缺失号码 0、11/11 校验和通过，9 个 CSV 均为 UTF-8 BOM + CRLF；更新后 manifest SHA-256 为 `8df470f6e8e379f61d5d97e04d865885b011153b07678af24c9641ad71495e75`。
-- 生产门禁：真实快照尚未发布。旧规则清单仅执行 dry-run，生产仍为 0 批次/0 条目/0 联系方式；其后预防性加密备份 archive 为 `da42cfae-3574-4ef3-853e-52e6ee5475a6`（50 张表、11652 行、4438300 字节，SHA-256 `814eb830e0039aa9134d4c759b6bd9d412374a4c7135570cb41f123d3ab798ba`）。
-- 当前状态：短号约束与修正后本地快照已实现待生产发布。代码 checkpoint 识别消息为 `fix(directory): enforce six-digit extension limit`。
-- 下一活动批次：只提交、推送并部署短号校验 checkpoint，重新创建生产加密备份；用更新后 manifest 通过 SSH stdin 执行 dry-run 和原子发布，再核对批次、来源、条目、联系方式、别名、哈希、告警和索引查询，不实现 API/Web。
-- 停止条件：更新后清单发布为唯一 `published` 快照，生产计数/哈希/差异/短号上限核验通过；最终状态 checkpoint 推送并部署，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止。
+- 正式发布：短号校验 checkpoint `2744d76` 已推送并部署；发布前加密备份 archive 为 `a8e21d39-4e2d-4c4f-9eaa-38fde8382d2e`（50 张表、11713 行、4458216 字节，SHA-256 `84c7dbcff2a4b2b5735be3a797d51793310a05dc2a509b090509097776e5ff97`）。release `2744d76c91d9588623e093b047cfeee87b14b896` 的产物哈希、38 个迁移、容器与域名隔离核验通过；容器预热首次健康检查出现一次 502，自动重试恢复。
+- 快照发布：数据发布点加密备份 archive 为 `0c74fdc0-92e0-46ca-9a9e-bfb91b374645`（50 张表、11720 行、4460800 字节，SHA-256 `33faa065f0053534db27257c28a0bbf8a4ea3268fd79fad98ffca4328d99dd07`）。更新后 manifest 经 SSH stdin dry-run 后原子发布为批次 `87ee90fa-464d-45bf-86a4-cd17c2cbf23f`，差异为 added 341、changed/removed/unchanged 0，warnings 0。
+- 生产核验：唯一 `published` 批次的清单哈希、2 个来源 SHA-256、341 个条目、359 个联系方式、4488 个别名和 314 个唯一完整号码均与本地一致；短号越界、缺失号码和 `needs_review` 均为 0，`manually_verified` 为 1，发布审计为 1。4 个必需索引齐全；utf8mb4 客户端下中文 ngram“病案”命中 5、全拼与首字母前缀各命中 5，号码/短号前缀探针均命中。
+- 当前状态：DIR-02 已完成（含本地 CSV、生产发布与线上核验）。并行 UI checkpoint `d29bb49` 已由其所属批次完成备份、生产部署与只读复核，本状态记录可以安全形成最终 checkpoint。
+- 下一活动批次：DIR-03 只实现只读通讯录 API、正式成员/后台管理员权限、中文/拼音/号码模糊检索、结构化筛选和游标分页；guest/vkey/匿名继续拒绝，不提前实现 Web 页面。
+- 停止条件：提交并部署包含 DIR-02 与本轮 UI 发布结果的最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；本轮不开始 DIR-03。
 
 ## 2026-08-17 手机日历导航触态与滑动圆角分层修复
 
@@ -460,6 +462,8 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 语义审计：取消不写值，完成才发出 `update:modelValue`/`change`；快速确认仍从可见滚轮同步一次。月份/日期最小最大值、清除/必填、非 15 分钟旧值、焦点回归、减少动态、调用次数和错误路径均未改变。
 - 验证：Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`git diff --check`、主工作区全仓 Vitest 97 文件/611 项通过（30 文件/256 项数据库集成按默认环境跳过），Web 58 文件/422 项通过。`pnpm verify`/`pnpm smoke:browser` 包装器仍被本机非 TTY 依赖预检阻断；等价直接入口在独立 5174 当前源码服务完成完整 smoke，管理员、成员、访客/vkey 和访问记录全流程无浏览器错误，`node scripts/smoke-browser.mjs --check-core` 通过。
 - Storybook 专项：320px 日期标识实测 36×36、`border-radius: 50%`、按钮背景透明且无横向溢出；390px 月份 8→9、分钟 00→15 均按 44px 单步结算，取消保持 `08:00`、完成更新为 `08:15`；1280px 浮层 380px、滚轮 292px，无溢出，Axe WCAG A/AA 为 0 项违规。
-- 当前状态：已实现待生产发布。checkpoint 识别消息为 `fix(web): refine temporal picker wheels`。
-- 下一活动批次：本 UI checkpoint 发布后恢复既定 DIR-02 生产快照发布收尾；本轮不触碰或提交 `.gitignore`、`apps/miniprogram/`、`runtime/` 和通讯录计划文件。
-- 停止条件：只提交本批组件、测试、确认稿和状态记录，推送后创建生产加密备份，部署 release、运行 `ecs-verify.sh` 并在正式域名只读核验日期/月份/时间选择器；Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止。
+- 正式发布：代码 checkpoint `d29bb49` 已推送；部署前加密数据库备份 archive 为 `31f078ab-ee9b-4b6b-b6ca-66885f3b33af`（50 张表、16933 行、6819040 字节，SHA-256 `048cefa2729fae44673ac40f0c8fa3e595511e3523bc9579c845e46ac33099a8`）。release `d29bb4981bd94a4f3ede4299c7d1be7ef718b33a` 部署成功；容器预热首次健康检查出现一次 502，自动重试恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
+- 正式域名只读复核：1280px 月份滚轮选中态透明、中心轨道 44px，按一行切换 2026 年 8 月至 9 月后取消，触发值仍为 2026 年 8 月。请假日期标识为 36×36、`border-radius: 50%`，按钮背景透明且页面无横向溢出；取消后起始日期仍为 2026 年 8 月 17 日。未提交的新班种时间滚轮为 188px、44px 行、`touch-action: pan-y`，00 分单步结算为 15 分后取消，草稿仍为空；所有外层 Sheet 均关闭，未触发业务写入。
+- 当前状态：已完成（含生产发布与线上只读复核）→ 待用户复核。代码 checkpoint 为 `d29bb49`；最终状态 checkpoint 识别消息：`docs(status): record temporal wheel deployment`。
+- 下一活动批次：DIR-03 只实现只读通讯录 API、正式成员/后台管理员权限、中文/拼音/号码模糊检索、结构化筛选和游标分页；guest/vkey/匿名继续拒绝，不提前实现 Web 页面。
+- 停止条件：最终状态 checkpoint 推送、生产备份、release 与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止并等待用户复核。

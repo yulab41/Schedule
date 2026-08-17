@@ -8,7 +8,8 @@
 - 测试先行：新增生产组件断言后旧实现 1 项失败/2 项通过；实现后生产组件与确认稿 5/5、Web 422/422、主工作区全仓 611/611 通过，数据库集成按默认环境跳过 256 项。
 - 修复与语义：日期可见选中层独立为 36×36 圆；滚轮改为 44px 无框数字行、中心双分隔线、上下淡出、`touch-action: pan-y` 和移动惯性。分钟按合法集合循环且保留非步进旧值；取消、清除、完成、事件次数、日期边界、错误与焦点路径不变。
 - 运行/浏览器验证：`pnpm smoke:browser` 包装器受 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` 阻断，等价入口 `SMOKE_BASE_URL=http://127.0.0.1:5174 node scripts/smoke-browser.mjs` 在当前源码服务通过管理员、成员、访客/vkey 和访问记录全流程，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-ZIMJQO`；`node scripts/smoke-browser.mjs --check-core` 通过。320/390/1280 Storybook 几何、滚动结算、提交语义、无溢出和 Axe 0 违规均通过。
-- 当前状态：已实现待生产发布；checkpoint 识别消息为 `fix(web): refine temporal picker wheels`。
+- 正式发布与核验：checkpoint `d29bb49` 已推送；部署前加密备份 `31f078ab-ee9b-4b6b-b6ca-66885f3b33af`（50 张表、16933 行，SHA-256 `048cefa2729fae44673ac40f0c8fa3e595511e3523bc9579c845e46ac33099a8`），release `d29bb4981bd94a4f3ede4299c7d1be7ef718b33a` 已部署，`ecs-verify.sh` 通过。正式域名只读复核确认日期标识 36×36 正圆、滚轮 188px/44px 行、透明选中态、月份和分钟单步结算、取消不写值、页面无横向溢出；所有草稿均取消，未触发业务写入。
+- 当前状态：已完成（含生产发布与线上只读复核）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record temporal wheel deployment`。
 
 ## 2026-08-17 通讯录短号六位上限与来源疑点处理
 
@@ -16,7 +17,8 @@
 - 测试先行：新增 7 位短号必须拒绝且错误不得回显号码的断言；旧实现 1 项失败、12 项通过，修复后导入核心 13/13、隔离 MySQL 发布/回滚 2/2 通过。
 - 修复与语义：完整号码仍允许 3–20 位，短号独立限制为 3–6 位；字符校验、NFKC 归一化、错误路径、事务和审计输出不变。修正后本地清单删除 4 个超过 6 位的短号值，疑似不一致的 1 个条目改为 `manually_verified`，完整号码、来源定位和本地 `source_text` 不变。
 - 数据验证：修正后仍为 341 个条目、359 个联系方式、4488 个搜索别名；短号越界、孤儿外键、重复 ID、缺失号码和 `needs_review` 均为 0，11/11 校验和与两份来源 PDF 哈希一致；manifest SHA-256 为 `8df470f6e8e379f61d5d97e04d865885b011153b07678af24c9641ad71495e75`。
-- 当前状态：已实现待生产发布。checkpoint 识别消息为 `fix(directory): enforce six-digit extension limit`。
+- 正式发布与核验：checkpoint `2744d76` 已推送并部署；发布前备份 `a8e21d39-4e2d-4c4f-9eaa-38fde8382d2e`，数据发布点备份 `0c74fdc0-92e0-46ca-9a9e-bfb91b374645`。批次 `87ee90fa-464d-45bf-86a4-cd17c2cbf23f` 原子发布后，生产 341/359/4488 与清单哈希一致，短号越界、缺失号码、告警均为 0；中文 ngram、拼音/首字母和号码/短号前缀探针通过，发布后 `ecs-verify.sh` 通过。
+- 当前状态：DIR-02 已完成；并行 `d29bb49` 已由 UI 批次完成生产部署和只读核验，可与本轮最终状态记录一并形成 checkpoint，下一活动批次为 DIR-03。
 
 ## 2026-08-17 手机日历导航触态与滑动圆角分层修复
 
