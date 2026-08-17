@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 type PickerKind = 'month' | 'date' | 'time';
 type PickerScrollBehavior = 'auto' | 'smooth';
+type WheelKind = 'year' | 'month' | 'hour' | 'minute';
 
 const props = withDefaults(
   defineProps<{
@@ -17,21 +18,8 @@ const kinds: readonly { readonly label: string; readonly value: PickerKind }[] =
   { label: '日期', value: 'date' },
   { label: '时间', value: 'time' },
 ];
-const monthLabels = [
-  '1月',
-  '2月',
-  '3月',
-  '4月',
-  '5月',
-  '6月',
-  '7月',
-  '8月',
-  '9月',
-  '10月',
-  '11月',
-  '12月',
-];
 const yearOptions = Array.from({ length: 9 }, (_, index) => 2022 + index);
+const monthOptions = Array.from({ length: 12 }, (_, index) => index + 1);
 const dateCells = [
   { day: 27, muted: true },
   { day: 28, muted: true },
@@ -46,20 +34,25 @@ const dateCells = [
   { day: 5, muted: true },
   { day: 6, muted: true },
 ];
-const hours = ['06', '07', '08', '09', '10'];
-const minutes = ['30', '45', '00', '15', '30'];
+const hourOptions = Array.from({ length: 24 }, (_, index) => index);
+const minuteWheelOptions = Array.from({ length: 9 }, (_, index) => {
+  const position = index - 4;
+  return { minute: (((position * 15) % 60) + 60) % 60, position };
+});
 
 const activeKind = ref<PickerKind>(props.initialKind);
 const isOpen = ref(true);
 const selectedYear = ref(2026);
 const selectedMonth = ref(8);
 const selectedDay = ref(17);
-const selectedHour = ref('08');
-const selectedMinuteIndex = ref(2);
+const selectedHour = ref(8);
+const selectedMinutePosition = ref(0);
 const yearWheel = ref<HTMLElement | null>(null);
 const monthWheel = ref<HTMLElement | null>(null);
-const selectedMinute = computed(() => minutes[selectedMinuteIndex.value] ?? '00');
-const wheelSettleTimers: Partial<Record<'year' | 'month', ReturnType<typeof setTimeout>>> = {};
+const hourWheel = ref<HTMLElement | null>(null);
+const minuteWheel = ref<HTMLElement | null>(null);
+const selectedMinute = computed(() => (((selectedMinutePosition.value * 15) % 60) + 60) % 60);
+const wheelSettleTimers: Partial<Record<WheelKind, ReturnType<typeof setTimeout>>> = {};
 
 watch(
   () => props.initialKind,
@@ -76,7 +69,7 @@ const selectedValue = computed(() => {
   if (activeKind.value === 'month') return `${selectedYear.value}年${selectedMonth.value}月`;
   if (activeKind.value === 'date')
     return `${selectedYear.value}年${selectedMonth.value}月${selectedDay.value}日`;
-  return `${selectedHour.value}:${selectedMinute.value}`;
+  return `${pad(selectedHour.value)}:${pad(selectedMinute.value)}`;
 });
 const selectedHint = computed(() => {
   if (activeKind.value === 'month') return '上下滑动年份与月份';
@@ -89,15 +82,25 @@ function openPicker(kind: PickerKind): void {
   isOpen.value = true;
 }
 
-function wheelElement(kind: 'year' | 'month'): HTMLElement | null {
-  return kind === 'year' ? yearWheel.value : monthWheel.value;
+function pad(value: number): string {
+  return String(value).padStart(2, '0');
 }
 
-function selectedWheelValue(kind: 'year' | 'month'): number {
-  return kind === 'year' ? selectedYear.value : selectedMonth.value;
+function wheelElement(kind: WheelKind): HTMLElement | null {
+  if (kind === 'year') return yearWheel.value;
+  if (kind === 'month') return monthWheel.value;
+  if (kind === 'hour') return hourWheel.value;
+  return minuteWheel.value;
 }
 
-function centerWheel(kind: 'year' | 'month', behavior: PickerScrollBehavior = 'smooth'): void {
+function selectedWheelValue(kind: WheelKind): number {
+  if (kind === 'year') return selectedYear.value;
+  if (kind === 'month') return selectedMonth.value;
+  if (kind === 'hour') return selectedHour.value;
+  return selectedMinutePosition.value;
+}
+
+function centerWheel(kind: WheelKind, behavior: PickerScrollBehavior = 'smooth'): void {
   const wheel = wheelElement(kind);
   const target = wheel?.querySelector<HTMLElement>(
     `[data-wheel-value="${selectedWheelValue(kind)}"]`,
@@ -111,13 +114,15 @@ function centerWheel(kind: 'year' | 'month', behavior: PickerScrollBehavior = 's
   });
 }
 
-function selectWheelValue(kind: 'year' | 'month', value: number): void {
+function selectWheelValue(kind: WheelKind, value: number): void {
   if (kind === 'year') selectedYear.value = value;
-  else selectedMonth.value = value;
+  else if (kind === 'month') selectedMonth.value = value;
+  else if (kind === 'hour') selectedHour.value = value;
+  else selectedMinutePosition.value = value;
   void nextTick(() => centerWheel(kind));
 }
 
-function settleWheel(kind: 'year' | 'month', event: Event): void {
+function settleWheel(kind: WheelKind, event: Event): void {
   const wheel = event.currentTarget as HTMLElement;
   const existingTimer = wheelSettleTimers[kind];
   if (existingTimer) clearTimeout(existingTimer);
@@ -141,12 +146,19 @@ function centerMonthWheels(behavior: PickerScrollBehavior = 'smooth'): void {
   centerWheel('month', behavior);
 }
 
+function centerTimeWheels(behavior: PickerScrollBehavior = 'smooth'): void {
+  centerWheel('hour', behavior);
+  centerWheel('minute', behavior);
+}
+
 watch([activeKind, isOpen], ([kind, open]) => {
   if (kind === 'month' && open) void nextTick(() => centerMonthWheels('auto'));
+  if (kind === 'time' && open) void nextTick(() => centerTimeWheels('auto'));
 });
 
 onMounted(() => {
   if (activeKind.value === 'month') void nextTick(() => centerMonthWheels('auto'));
+  if (activeKind.value === 'time') void nextTick(() => centerTimeWheels('auto'));
 });
 
 onBeforeUnmount(() => {
@@ -186,8 +198,10 @@ onBeforeUnmount(() => {
         <span class="trigger-copy">
           <span>{{ kind.label }}</span>
           <strong v-if="kind.value === 'month'">{{ selectedYear }}年{{ selectedMonth }}月</strong>
-          <strong v-else-if="kind.value === 'date'">8月17日 周一</strong>
-          <strong v-else>08:00</strong>
+          <strong v-else-if="kind.value === 'date'">
+            {{ selectedMonth }}月{{ selectedDay }}日 周一
+          </strong>
+          <strong v-else>{{ pad(selectedHour) }}:{{ pad(selectedMinute) }}</strong>
         </span>
         <span class="trigger-chevron" aria-hidden="true">›</span>
       </button>
@@ -241,18 +255,19 @@ onBeforeUnmount(() => {
             @scroll.passive="settleWheel('month', $event)"
           >
             <button
-              v-for="(month, index) in monthLabels"
+              v-for="month in monthOptions"
               :key="month"
               type="button"
-              :data-wheel-value="index + 1"
-              :class="{ 'is-selected': selectedMonth === index + 1 }"
-              :aria-selected="selectedMonth === index + 1"
+              :data-wheel-value="month"
+              :class="{ 'is-selected': selectedMonth === month }"
+              :aria-selected="selectedMonth === month"
               role="option"
-              @click="selectWheelValue('month', index + 1)"
+              @click="selectWheelValue('month', month)"
             >
-              {{ index + 1 }} <small>月</small>
+              {{ month }} <small>月</small>
             </button>
           </div>
+          <div class="wheel-rails" aria-hidden="true" />
         </div>
       </div>
 
@@ -280,40 +295,55 @@ onBeforeUnmount(() => {
             :disabled="cell.muted"
             @click="selectedDay = cell.day"
           >
-            {{ cell.day }}
+            <span>{{ cell.day }}</span>
           </button>
         </div>
       </div>
 
       <div v-else class="picker-content time-picker-panel">
         <div class="time-wheel" aria-label="时间">
-          <div class="wheel-column" role="listbox" aria-label="小时">
+          <div
+            ref="hourWheel"
+            class="wheel-column"
+            role="listbox"
+            aria-label="小时"
+            @scroll.passive="settleWheel('hour', $event)"
+          >
             <button
-              v-for="hour in hours"
+              v-for="hour in hourOptions"
               :key="hour"
               type="button"
+              :data-wheel-value="hour"
               :class="{ 'is-selected': selectedHour === hour }"
               :aria-selected="selectedHour === hour"
               role="option"
-              @click="selectedHour = hour"
+              @click="selectWheelValue('hour', hour)"
             >
-              {{ hour }} <small>时</small>
+              {{ pad(hour) }} <small>时</small>
             </button>
           </div>
           <span class="time-separator" aria-hidden="true">:</span>
-          <div class="wheel-column" role="listbox" aria-label="分钟">
+          <div
+            ref="minuteWheel"
+            class="wheel-column"
+            role="listbox"
+            aria-label="分钟"
+            @scroll.passive="settleWheel('minute', $event)"
+          >
             <button
-              v-for="(minute, index) in minutes"
-              :key="`${minute}-${index}`"
+              v-for="option in minuteWheelOptions"
+              :key="option.position"
               type="button"
-              :class="{ 'is-selected': selectedMinuteIndex === index }"
-              :aria-selected="selectedMinuteIndex === index"
+              :data-wheel-value="option.position"
+              :class="{ 'is-selected': selectedMinutePosition === option.position }"
+              :aria-selected="selectedMinutePosition === option.position"
               role="option"
-              @click="selectedMinuteIndex = index"
+              @click="selectWheelValue('minute', option.position)"
             >
-              {{ minute }} <small>分</small>
+              {{ pad(option.minute) }} <small>分</small>
             </button>
           </div>
+          <div class="wheel-rails" aria-hidden="true" />
         </div>
       </div>
 
@@ -573,6 +603,7 @@ onBeforeUnmount(() => {
 }
 
 .date-grid button {
+  position: relative;
   display: grid;
   min-width: 0;
   height: 40px;
@@ -581,18 +612,39 @@ onBeforeUnmount(() => {
   color: var(--picker-ink);
   background: transparent;
   border: 0;
-  border-radius: 11px;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
+  isolation: isolate;
+}
+
+.date-grid button::before {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  z-index: -1;
+  background: transparent;
+  border-radius: 50%;
+  content: '';
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+}
+
+.date-grid button > span {
+  position: relative;
+  z-index: 1;
 }
 
 .date-grid button.is-selected {
   color: #fff;
+  background: transparent;
+  font-weight: 700;
+}
+
+.date-grid button.is-selected::before {
   background: var(--picker-blue);
   box-shadow: 0 5px 12px rgb(10 102 213 / 24%);
-  font-weight: 700;
 }
 
 .weekday-grid,
@@ -618,12 +670,6 @@ onBeforeUnmount(() => {
   gap: 2px;
 }
 
-.date-grid button {
-  height: 36px;
-  border-radius: 50%;
-  font-size: 12px;
-}
-
 .date-grid button.is-muted {
   color: #bec6cf;
 }
@@ -637,74 +683,106 @@ onBeforeUnmount(() => {
 .time-wheel {
   position: relative;
   display: grid;
-  max-width: 250px;
-  height: 174px;
+  max-width: 258px;
+  height: 188px;
   margin: 0 auto;
-  grid-template-columns: 1fr 22px 1fr;
+  grid-template-columns: 1fr 28px 1fr;
   align-items: center;
   overflow: hidden;
-  background: linear-gradient(#fff, rgb(255 255 255 / 20%) 25%, rgb(255 255 255 / 20%) 75%, #fff);
+  background: #fff;
+  isolation: isolate;
 }
 
 .month-wheel {
-  max-width: 280px;
+  max-width: 292px;
   grid-template-columns: 1.12fr 0.88fr;
-  gap: 8px;
-}
-
-.month-wheel .wheel-column {
-  box-sizing: border-box;
-  height: 174px;
-  padding-block: 70px;
-  align-content: start;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-  scroll-snap-type: y mandatory;
-}
-
-.month-wheel .wheel-column::-webkit-scrollbar {
-  display: none;
-}
-
-.month-wheel .wheel-column button {
-  flex: 0 0 auto;
-  scroll-snap-align: center;
-  scroll-snap-stop: always;
+  gap: 10px;
 }
 
 .wheel-column {
+  position: relative;
   display: grid;
-  align-content: center;
+  box-sizing: border-box;
+  height: 188px;
+  padding-block: 72px;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  scroll-snap-type: y mandatory;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 22%,
+    #000 78%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
+}
+
+.wheel-column::-webkit-scrollbar {
+  display: none;
 }
 
 .wheel-column button {
-  height: 34px;
+  height: 44px;
   padding: 0 12px;
   color: #9aa4ae;
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   font: inherit;
-  font-size: 18px;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.58;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  transform: scale(0.94);
+  transition:
+    color 140ms ease,
+    font-size 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
 .wheel-column button.is-selected {
   color: var(--picker-ink);
-  background: var(--picker-blue-soft);
-  box-shadow: inset 0 0 0 1px #cfe3ff;
-  font-size: 22px;
-  font-weight: 700;
+  background: transparent;
+  box-shadow: none;
+  font-size: 24px;
+  font-weight: 650;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .wheel-column small {
-  color: #728090;
+  color: currentColor;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 550;
+  opacity: 0.72;
+}
+
+.wheel-rails {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 44px;
+  z-index: 3;
+  box-sizing: border-box;
+  background: transparent;
+  border-top: 1px solid #dce3eb;
+  border-bottom: 1px solid #dce3eb;
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
 .time-separator {
+  position: relative;
+  z-index: 4;
   color: var(--picker-blue);
   font-size: 24px;
   font-weight: 700;

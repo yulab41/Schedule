@@ -30,6 +30,26 @@ describe('production temporal picker', () => {
     expect(component).toContain("emit('change', value)");
   });
 
+  it('keeps the mobile date marker circular and uses touch-first frameless numeric wheels', () => {
+    const component = readFileSync(componentPath, 'utf8');
+
+    expect(component).toContain('ref="hourWheel"');
+    expect(component).toContain('ref="minuteWheel"');
+    expect(component).toContain('class="wheel-rails"');
+    expect(component).toMatch(/\.wheel-column\s*{[^}]*overflow-y:\s*auto;/s);
+    expect(component).toMatch(/\.wheel-column\s*{[^}]*touch-action:\s*pan-y;/s);
+    expect(component).toMatch(/\.wheel-column\s*{[^}]*-webkit-overflow-scrolling:\s*touch;/s);
+    expect(component).toMatch(
+      /\.wheel-column button\.is-selected\s*{[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s,
+    );
+    expect(component).toMatch(
+      /\.date-grid button::before\s*{[^}]*width:\s*36px;[^}]*height:\s*36px;[^}]*border-radius:\s*50%;/s,
+    );
+    expect(component).toMatch(
+      /\.date-grid button\.is-selected\s*{[^}]*background:\s*transparent;/s,
+    );
+  });
+
   it('replaces production native month, date, and time controls without touching datetime-local', () => {
     const productionSources = [
       ...vueSources(join(sourceRoot, 'features')),

@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-17 日期正圆标识与触控数字滚轮精修
+
+- 回归定位：`git log -S '.date-grid button'`、`git log -S '.wheel-column button.is-selected'` 与 `git blame` 确认生产日期整格着色、34px 滚轮行和浅蓝选择框由 `92038cd` 引入。
+- 测试先行：新增生产组件断言后旧实现 1 项失败/2 项通过；实现后生产组件与确认稿 5/5、Web 422/422、主工作区全仓 611/611 通过，数据库集成按默认环境跳过 256 项。
+- 修复与语义：日期可见选中层独立为 36×36 圆；滚轮改为 44px 无框数字行、中心双分隔线、上下淡出、`touch-action: pan-y` 和移动惯性。分钟按合法集合循环且保留非步进旧值；取消、清除、完成、事件次数、日期边界、错误与焦点路径不变。
+- 运行/浏览器验证：`pnpm smoke:browser` 包装器受 `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` 阻断，等价入口 `SMOKE_BASE_URL=http://127.0.0.1:5174 node scripts/smoke-browser.mjs` 在当前源码服务通过管理员、成员、访客/vkey 和访问记录全流程，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-ZIMJQO`；`node scripts/smoke-browser.mjs --check-core` 通过。320/390/1280 Storybook 几何、滚动结算、提交语义、无溢出和 Axe 0 违规均通过。
+- 当前状态：已实现待生产发布；checkpoint 识别消息为 `fix(web): refine temporal picker wheels`。
+
 ## 2026-08-17 通讯录短号六位上限与来源疑点处理
 
 - 回归定位：`git log -S 'normalizePhoneValue' -- infra/scripts/directory-import-core.ts` 与 `git blame` 确认 `6f22319` 将完整号码和短号共同限制为 3–20 位，使来源短号栏的 8 位值能通过校验。

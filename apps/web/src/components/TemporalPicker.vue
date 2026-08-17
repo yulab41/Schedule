@@ -15,6 +15,11 @@ interface DateCell {
   readonly value: string;
 }
 
+interface MinuteWheelOption {
+  readonly minute: number;
+  readonly position: number;
+}
+
 const props = withDefaults(
   defineProps<{
     readonly clearable?: boolean;
@@ -55,6 +60,8 @@ const draftMonth = ref(8);
 const draftDay = ref(17);
 const draftHour = ref(8);
 const draftMinute = ref(0);
+const minuteWheelAnchor = ref(0);
+const draftMinutePosition = ref(0);
 const yearWheel = ref<HTMLElement | null>(null);
 const monthWheel = ref<HTMLElement | null>(null);
 const hourWheel = ref<HTMLElement | null>(null);
@@ -91,8 +98,20 @@ const minuteOptions = computed(() => {
     { length: 60 / safeMinuteStep.value },
     (_, index) => index * safeMinuteStep.value,
   );
-  if (!options.includes(draftMinute.value)) options.push(draftMinute.value);
+  if (!options.includes(minuteWheelAnchor.value)) options.push(minuteWheelAnchor.value);
   return options.sort((left, right) => left - right);
+});
+
+const minuteWheelOptions = computed<readonly MinuteWheelOption[]>(() => {
+  const options = minuteOptions.value;
+  const anchorIndex = Math.max(0, options.indexOf(minuteWheelAnchor.value));
+  const radius = Math.max(4, options.length);
+  return Array.from({ length: radius * 2 + 1 }, (_, index) => {
+    const position = index - radius;
+    const optionIndex =
+      (((anchorIndex + position) % options.length) + options.length) % options.length;
+    return { minute: options[optionIndex] ?? 0, position };
+  });
 });
 
 const yearOptions = computed(() => {
@@ -212,6 +231,8 @@ function syncDraft(): void {
     const parsed = parseTimeValue(props.modelValue);
     draftHour.value = parsed?.hour ?? 8;
     draftMinute.value = parsed?.minute ?? 0;
+    minuteWheelAnchor.value = draftMinute.value;
+    draftMinutePosition.value = 0;
   }
 }
 
@@ -327,7 +348,7 @@ function selectedWheelValue(kind: WheelKind): number {
   if (kind === 'year') return draftYear.value;
   if (kind === 'month') return draftMonth.value;
   if (kind === 'hour') return draftHour.value;
-  return draftMinute.value;
+  return draftMinutePosition.value;
 }
 
 function centerWheel(kind: WheelKind, behavior: PickerScrollBehavior = 'smooth'): void {
@@ -353,7 +374,12 @@ function setWheelValue(kind: WheelKind, value: number, center = true): void {
   if (kind === 'year') draftYear.value = value;
   else if (kind === 'month') draftMonth.value = value;
   else if (kind === 'hour') draftHour.value = value;
-  else draftMinute.value = value;
+  else {
+    const option = minuteWheelOptions.value.find((candidate) => candidate.position === value);
+    if (option === undefined) return;
+    draftMinutePosition.value = value;
+    draftMinute.value = option.minute;
+  }
 
   if (props.kind === 'date') {
     draftDay.value = Math.min(draftDay.value, daysInMonth(draftYear.value, draftMonth.value));
@@ -572,6 +598,7 @@ onBeforeUnmount(() => {
                 {{ month }} <small>月</small>
               </button>
             </div>
+            <div class="wheel-rails" aria-hidden="true" />
           </div>
         </div>
 
@@ -597,7 +624,7 @@ onBeforeUnmount(() => {
               :disabled="cell.disabled"
               @click="selectDate(cell)"
             >
-              {{ cell.day }}
+              <span>{{ cell.day }}</span>
             </button>
           </div>
         </div>
@@ -633,18 +660,20 @@ onBeforeUnmount(() => {
               @scroll.passive="settleWheel('minute', $event)"
             >
               <button
-                v-for="minute in minuteOptions"
-                :key="minute"
+                v-for="option in minuteWheelOptions"
+                :key="option.position"
                 type="button"
-                :data-wheel-value="minute"
-                :class="{ 'is-selected': draftMinute === minute }"
-                :aria-selected="draftMinute === minute"
+                :data-minute-value="option.minute"
+                :data-wheel-value="option.position"
+                :class="{ 'is-selected': draftMinutePosition === option.position }"
+                :aria-selected="draftMinutePosition === option.position"
                 role="option"
-                @click="setWheelValue('minute', minute)"
+                @click="setWheelValue('minute', option.position)"
               >
-                {{ pad(minute) }} <small>分</small>
+                {{ pad(option.minute) }} <small>分</small>
               </button>
             </div>
+            <div class="wheel-rails" aria-hidden="true" />
           </div>
         </div>
 
@@ -880,34 +909,46 @@ onBeforeUnmount(() => {
 .time-wheel {
   position: relative;
   display: grid;
-  max-width: 280px;
-  height: 174px;
+  max-width: 292px;
+  height: 188px;
   margin: 0 auto;
   align-items: center;
   overflow: hidden;
-  background: linear-gradient(#fff, rgb(255 255 255 / 20%) 25%, rgb(255 255 255 / 20%) 75%, #fff);
+  background: #fff;
+  isolation: isolate;
 }
 
 .month-wheel {
   grid-template-columns: 1.12fr 0.88fr;
-  gap: 8px;
+  gap: 10px;
 }
 
 .time-wheel {
-  max-width: 250px;
-  grid-template-columns: 1fr 22px 1fr;
+  max-width: 258px;
+  grid-template-columns: 1fr 28px 1fr;
 }
 
 .wheel-column {
+  position: relative;
   display: grid;
   box-sizing: border-box;
-  height: 174px;
-  padding-block: 70px;
+  height: 188px;
+  padding-block: 72px;
   align-content: start;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   scrollbar-width: none;
   scroll-snap-type: y mandatory;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 22%,
+    #000 78%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 78%, transparent 100%);
 }
 
 .wheel-column::-webkit-scrollbar {
@@ -915,35 +956,62 @@ onBeforeUnmount(() => {
 }
 
 .wheel-column button {
-  height: 34px;
+  height: 44px;
   padding: 0 12px;
   color: #9aa4ae;
   background: transparent;
   border: 0;
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   font: inherit;
-  font-size: 18px;
+  font-size: 19px;
   font-variant-numeric: tabular-nums;
+  opacity: 0.58;
   scroll-snap-align: center;
   scroll-snap-stop: always;
+  transform: scale(0.94);
+  transition:
+    color 140ms ease,
+    font-size 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
 .wheel-column button.is-selected {
   color: var(--temporal-ink);
-  background: var(--temporal-blue-soft);
-  box-shadow: inset 0 0 0 1px var(--ui-color-primary-border, #cfe3ff);
-  font-size: 22px;
-  font-weight: 700;
+  background: transparent;
+  box-shadow: none;
+  font-size: 24px;
+  font-weight: 650;
+  opacity: 1;
+  transform: scale(1);
 }
 
 .wheel-column small {
-  color: var(--ui-color-text-muted, #728090);
+  color: currentColor;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 550;
+  opacity: 0.72;
+}
+
+.wheel-rails {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 44px;
+  z-index: 3;
+  box-sizing: border-box;
+  background: transparent;
+  border-top: 1px solid var(--temporal-divider);
+  border-bottom: 1px solid var(--temporal-divider);
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
 .time-separator {
+  position: relative;
+  z-index: 4;
   color: var(--temporal-blue);
   font-size: 24px;
   font-weight: 700;
@@ -987,6 +1055,7 @@ onBeforeUnmount(() => {
 }
 
 .date-grid button {
+  position: relative;
   display: grid;
   min-width: 0;
   height: 36px;
@@ -995,11 +1064,28 @@ onBeforeUnmount(() => {
   color: var(--temporal-ink);
   background: transparent;
   border: 0;
-  border-radius: 50%;
   cursor: pointer;
   font: inherit;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  isolation: isolate;
+}
+
+.date-grid button::before {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  z-index: -1;
+  background: transparent;
+  border-radius: 50%;
+  content: '';
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+}
+
+.date-grid button > span {
+  position: relative;
+  z-index: 1;
 }
 
 .date-grid button.is-muted {
@@ -1008,9 +1094,13 @@ onBeforeUnmount(() => {
 
 .date-grid button.is-selected {
   color: #fff;
+  background: transparent;
+  font-weight: 700;
+}
+
+.date-grid button.is-selected::before {
   background: var(--temporal-blue);
   box-shadow: 0 5px 12px rgb(10 102 213 / 24%);
-  font-weight: 700;
 }
 
 .date-grid button:disabled {

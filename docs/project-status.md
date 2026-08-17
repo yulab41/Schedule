@@ -451,3 +451,15 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 当前状态：已完成（含生产发布与线上只读复核）→ 待用户复核。代码 checkpoint 为 `92038cd`；最终状态 checkpoint 识别消息：`docs(status): record temporal picker deployment`。
 - 下一批次：统一选择器生产发布完成后，恢复项目既定 DIR-02 数据提取批次；本轮不提前处理小程序迁移或通讯录数据导入。
 - 停止条件：最终状态 checkpoint 推送、生产备份、release 与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止并等待用户复核。
+
+## 2026-08-17 日期正圆标识与触控数字滚轮精修（当前 UI 批次）
+
+- 批次范围：用户确认 Storybook 后，只把已确认的 36×36 正圆日期标识、无选择框数字滚轮和触控惯性样式同步到生产 `TemporalPicker`；不修改使用页面、API、权限、数据库、目录数据或业务请求。
+- 回归来源：`git log -S`/`git blame` 确认日期整格圆角背景与滚轮浅蓝选择框均由 `92038cd` 首次引入；本轮旧实现回归为 1 项失败/2 项通过，准确暴露缺少独立圆形标识、滚轮轨道和触控滚动样式，修复后组件/预览 5/5 通过。
+- 生产实现：日期按钮仍占满网格点触列，但可见选中层独立为 36×36 圆；年月、小时和分钟使用 44px 数字行、上下淡出、中心双分隔线、透明选中态与 `touch-action: pan-y`/移动惯性。分钟围绕打开值循环展示完整步进集合，既有非步进分钟值仍保留并可确认。
+- 语义审计：取消不写值，完成才发出 `update:modelValue`/`change`；快速确认仍从可见滚轮同步一次。月份/日期最小最大值、清除/必填、非 15 分钟旧值、焦点回归、减少动态、调用次数和错误路径均未改变。
+- 验证：Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`git diff --check`、主工作区全仓 Vitest 97 文件/611 项通过（30 文件/256 项数据库集成按默认环境跳过），Web 58 文件/422 项通过。`pnpm verify`/`pnpm smoke:browser` 包装器仍被本机非 TTY 依赖预检阻断；等价直接入口在独立 5174 当前源码服务完成完整 smoke，管理员、成员、访客/vkey 和访问记录全流程无浏览器错误，`node scripts/smoke-browser.mjs --check-core` 通过。
+- Storybook 专项：320px 日期标识实测 36×36、`border-radius: 50%`、按钮背景透明且无横向溢出；390px 月份 8→9、分钟 00→15 均按 44px 单步结算，取消保持 `08:00`、完成更新为 `08:15`；1280px 浮层 380px、滚轮 292px，无溢出，Axe WCAG A/AA 为 0 项违规。
+- 当前状态：已实现待生产发布。checkpoint 识别消息为 `fix(web): refine temporal picker wheels`。
+- 下一活动批次：本 UI checkpoint 发布后恢复既定 DIR-02 生产快照发布收尾；本轮不触碰或提交 `.gitignore`、`apps/miniprogram/`、`runtime/` 和通讯录计划文件。
+- 停止条件：只提交本批组件、测试、确认稿和状态记录，推送后创建生产加密备份，部署 release、运行 `ecs-verify.sh` 并在正式域名只读核验日期/月份/时间选择器；Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止。
