@@ -126,6 +126,10 @@ describe('directory import manifest', () => {
         }),
     ],
     ['an invalid phone value', (manifest) => (firstContact(manifest).fullNumber = 'not-a-number')],
+    [
+      'an internal extension longer than six digits',
+      (manifest) => (firstContact(manifest).internalExtension = '1234567'),
+    ],
   ];
 
   it.each(invalidManifestMutations)(

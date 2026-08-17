@@ -4,19 +4,19 @@
 
 - 本通讯录保存院区、科室、服务点、人员/岗位、位置和多种联系方式，独立于群组成员的 `group_member_contacts`。
 - 每次导入形成不可变完整快照。旧快照保留供差异审计和回滚；数据库通过生成列唯一索引保证任一时刻最多一个 `published` 快照。
-- 原始号码、短号和来源定位必须原样保存；归一化字段只用于检索。来源疑点使用 `needs_review`，禁止导入器自动改写。
+- 原始完整号码和来源定位必须原样保存；短号只允许 3–6 位。来源表中超过 6 位或经人工确认不采用的“短号”不写入短号字段，处理决定记录在条目备注和本地质量报告中。其余来源疑点使用 `needs_review`，禁止导入器自动改写。
 - 后续 API 只向 active `owner`、`administrator`、`member` 和 developer admin 开放；`guest`、访客链接和匿名请求不得读取。DIR-01 只建立数据底座，不实现读取接口。
 
 ## 表结构
 
-| 表 | 作用 | 关键约束/索引 |
-| --- | --- | --- |
-| `directory_campuses` | 稳定院区字典 | 院区 `code` 唯一、显示顺序索引 |
-| `directory_import_batches` | 快照版本、来源清单摘要、差异与告警 | `import_version`/manifest SHA-256 唯一；生成列 `published_slot` 唯一 |
-| `directory_source_documents` | 每批来源文档元数据，不保存 PDF 文件或本地路径 | 批次内文档 key、SHA-256 唯一；关联院区 |
-| `directory_entries` | 可筛选的科室/服务点/人员条目和来源定位 | 批次内 `entry_key`、来源定位唯一；院区/科室/类型/顺序 B-tree；`search_text` ngram FULLTEXT |
-| `directory_contact_methods` | 一个条目的长号、短号、传真、热线等多值联系方式 | 保留原值；数字归一化长号/短号前缀索引；同条目内容哈希唯一 |
-| `directory_search_aliases` | 原文、人工别名、全拼、紧凑全拼和拼音首字母 | `normalized_value` 前缀索引；同条目别名哈希唯一 |
+| 表                           | 作用                                           | 关键约束/索引                                                                              |
+| ---------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `directory_campuses`         | 稳定院区字典                                   | 院区 `code` 唯一、显示顺序索引                                                             |
+| `directory_import_batches`   | 快照版本、来源清单摘要、差异与告警             | `import_version`/manifest SHA-256 唯一；生成列 `published_slot` 唯一                       |
+| `directory_source_documents` | 每批来源文档元数据，不保存 PDF 文件或本地路径  | 批次内文档 key、SHA-256 唯一；关联院区                                                     |
+| `directory_entries`          | 可筛选的科室/服务点/人员条目和来源定位         | 批次内 `entry_key`、来源定位唯一；院区/科室/类型/顺序 B-tree；`search_text` ngram FULLTEXT |
+| `directory_contact_methods`  | 一个条目的长号、短号、传真、热线等多值联系方式 | 完整号码 3–20 位、短号 3–6 位；数字归一化前缀索引；同条目内容哈希唯一                      |
+| `directory_search_aliases`   | 原文、人工别名、全拼、紧凑全拼和拼音首字母     | `normalized_value` 前缀索引；同条目别名哈希唯一                                            |
 
 `entry_key` 是跨快照稳定的业务标识，不包含号码；因此号码变化会被判定为 `changed`，而不是删除后新增。`content_sha256` 覆盖分类、位置、联系方式、别名、可见性和复核状态。
 
@@ -77,7 +77,7 @@ CLI 只从 stdin 接收 JSON，避免真实号码出现在命令行、进程列�
 }
 ```
 
-导入器校验版本、日期、SHA-256、引用、唯一键、页码范围、号码字符/位数和规模上限。错误只返回字段路径，不回显号码；stdout 只输出批次 ID、manifest 哈希、计数、差异和告警类别。
+导入器校验版本、日期、SHA-256、引用、唯一键、页码范围、完整号码 3–20 位、短号 3–6 位和规模上限。错误只返回字段路径，不回显号码；stdout 只输出批次 ID、manifest 哈希、计数、差异和告警类别。
 
 ```text
 Get-Content manifest.json -Raw | pnpm directory:import -- --stdin --dry-run

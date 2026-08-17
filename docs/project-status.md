@@ -24,17 +24,17 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
-## 2026-08-17 院内通讯录数据底座（当前批次 DIR-01）
+## 2026-08-17 院内通讯录数据快照与短号约束（当前批次 DIR-02）
 
-- 完成范围：新增 6 张独立通讯录表、迁移 `0038_directory_snapshots`、MySQL 8.4 `ngram` 中文全文索引、号码前缀索引、全拼/紧凑全拼/首字母别名、版本化 JSON 标准输入发布与回滚 CLI；发布包已包含 CLI 及 `pinyin-pro` 生产依赖，生产校验同步验证其产物哈希和 38 个迁移。本批不提交两份 PDF 的真实号码，不实现 API 或 Web 页面。
-- 数据与权限边界：院内通讯录与现有群组成员联系方式分表保存；原文、号码、短号和来源定位均保留，疑似矛盾只标记 `needs_review`，不自动更正。后续读取权限为正式群组的 active owner/administrator/member 与后台管理员，guest/vkey 不开放；权限将在后续 API 批次实现。
-- 版本策略：每次导入是不可变完整快照；稳定 `entry_key` 用于差异统计，发布事务原子切换唯一当前批次，保留旧批次供审计和回滚。CLI 只从 stdin 读取，审计和终端输出不写电话号码或原始清单内容。
-- 测试先行：导入核心、发布包与生产校验断言均先在旧代码上失败，再实现通过。隔离 MySQL 8.4 下迁移、中文/拼音/号码查询、发布/替换/回滚及失败事务回滚共 27/27 通过；全仓 Vitest 97 文件/609 项通过，30 个数据库集成文件/256 项按默认环境跳过。
-- 运行验证：任务文件 Prettier/ESLint、全工作区 build/typecheck、Git Bash 语法检查、发布包 2/2、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过；本批未触及 Web 核心链路，无需浏览器冒烟。完整 `pnpm verify` 的格式/lint 聚合器仅被并行用户改动 `apps/miniprogram/project.config.json` 与 `TemporalPicker.vue` 的既有告警阻断，未修改这些任务外文件；其余 build/typecheck/test 已单独全量通过。
-- 兼容审计：现有 API、权限、群组联系方式和 Web 均未接入新表；27 个 API 集成测试只补齐清库顺序，不改变测试业务断言。全数据库集成串行运行仍有项目状态已记录的 `user_auth_identities` 既有清理遗漏，本批不越界修复。
-- 当前状态：已完成（含本地与隔离 MySQL 验证）→ 待生产发布。代码 checkpoint 识别消息为 `feat(directory): add versioned contact database import`。
-- 下一批次：DIR-02 只做两份 PDF 的全页结构化提取、数据质量复核、生产快照导入与计数/哈希/差异核验；仍不实现 API/Web。
-- 停止条件：DIR-01 定向及全量验证通过，空结构 checkpoint 提交推送、生产加密备份、迁移部署与线上空表核验完成后停止，不提前导入真实号码。
+- DIR-01 底座：6 张通讯录表、迁移 `0038_directory_snapshots`、MySQL 8.4 `ngram` 中文全文索引、号码前缀索引、拼音别名和版本化发布/回滚 CLI 已由 checkpoint `6f22319` 推送并部署；其后 release `b696d52` 继续包含该底座，生产 38 个迁移和 6 张空表已核验。
+- 本地快照：两份 PDF 共 5 页已逐页检查，生成 2 个院区、2 份来源文档、341 个条目、359 个联系方式和 4488 个搜索别名；本地 CSV 使用 UTF-8 BOM + CRLF，清单与来源 PDF SHA-256 一致，目录 `runtime/directory-data/2026-05-12/` 仅由 `.git/info/exclude` 本机排除，不提交真实号码。
+- 用户确认规则：短号只允许 3–6 位。原短号栏 4 个 8 位值已从短号字段删除；其中 1 个长短号疑似不一致条目改为 `manually_verified`，`needs_review` 降为 0，完整号码、来源定位和本地 `source_text` 保留。
+- 回归定位与测试先行：`git log -S 'normalizePhoneValue'` 和 `git blame` 确认 `6f22319` 让完整号码与短号共用 3–20 位规则；7 位短号拒绝测试先在旧实现失败，再把完整号码保持 3–20 位、短号收紧为 3–6 位。导入核心 13/13、隔离 MySQL 发布/回滚 2/2 通过。
+- 数据质量：独立复核确认 341/359/4488 计数不变，短号越界 0、孤儿外键 0、重复 ID 0、缺失号码 0、11/11 校验和通过，9 个 CSV 均为 UTF-8 BOM + CRLF；更新后 manifest SHA-256 为 `8df470f6e8e379f61d5d97e04d865885b011153b07678af24c9641ad71495e75`。
+- 生产门禁：真实快照尚未发布。旧规则清单仅执行 dry-run，生产仍为 0 批次/0 条目/0 联系方式；其后预防性加密备份 archive 为 `da42cfae-3574-4ef3-853e-52e6ee5475a6`（50 张表、11652 行、4438300 字节，SHA-256 `814eb830e0039aa9134d4c759b6bd9d412374a4c7135570cb41f123d3ab798ba`）。
+- 当前状态：短号约束与修正后本地快照已实现待生产发布。代码 checkpoint 识别消息为 `fix(directory): enforce six-digit extension limit`。
+- 下一活动批次：只提交、推送并部署短号校验 checkpoint，重新创建生产加密备份；用更新后 manifest 通过 SSH stdin 执行 dry-run 和原子发布，再核对批次、来源、条目、联系方式、别名、哈希、告警和索引查询，不实现 API/Web。
+- 停止条件：更新后清单发布为唯一 `published` 快照，生产计数/哈希/差异/短号上限核验通过；最终状态 checkpoint 推送并部署，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止。
 
 ## 2026-08-17 手机日历导航触态与滑动圆角分层修复
 

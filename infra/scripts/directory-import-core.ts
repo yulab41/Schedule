@@ -21,6 +21,8 @@ const maximumDocuments = 50;
 const maximumEntries = 5_000;
 const maximumContactsPerEntry = 20;
 const maximumAliasesPerEntry = 30;
+const maximumFullNumberDigits = 20;
+const maximumInternalExtensionDigits = 6;
 const sha256Pattern = /^[a-f0-9]{64}$/u;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const stableKeyPattern = /^[a-z0-9][a-z0-9:._-]*$/u;
@@ -279,10 +281,15 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
       const contact = readObject(contactValue, contactPath);
       const fullNumber = readOptionalString(contact, 'fullNumber', 64, contactPath);
       const internalExtension = readOptionalString(contact, 'internalExtension', 32, contactPath);
-      const normalizedFullNumber = normalizePhoneValue(fullNumber, `${contactPath}.fullNumber`);
+      const normalizedFullNumber = normalizePhoneValue(
+        fullNumber,
+        `${contactPath}.fullNumber`,
+        maximumFullNumberDigits,
+      );
       const normalizedInternalExtension = normalizePhoneValue(
         internalExtension,
         `${contactPath}.internalExtension`,
+        maximumInternalExtensionDigits,
       );
       if (normalizedFullNumber === undefined && normalizedInternalExtension === undefined) {
         throw new DirectoryImportError(`${contactPath} must provide a phone value.`);
@@ -776,7 +783,11 @@ async function appendDirectoryAudit(
   });
 }
 
-function normalizePhoneValue(value: string | undefined, path: string): string | undefined {
+function normalizePhoneValue(
+  value: string | undefined,
+  path: string,
+  maximumDigits: number,
+): string | undefined {
   if (value === undefined) {
     return undefined;
   }
@@ -785,8 +796,8 @@ function normalizePhoneValue(value: string | undefined, path: string): string | 
     throw new DirectoryImportError(`${path} contains unsupported characters.`);
   }
   const digits = canonical.replaceAll(/\D/gu, '');
-  if (digits.length < 3 || digits.length > 20) {
-    throw new DirectoryImportError(`${path} must contain 3 to 20 digits.`);
+  if (digits.length < 3 || digits.length > maximumDigits) {
+    throw new DirectoryImportError(`${path} must contain 3 to ${maximumDigits} digits.`);
   }
   return digits;
 }
