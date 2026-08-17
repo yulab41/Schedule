@@ -9,7 +9,7 @@
 - 修复与语义：固定卡片继续承担圆角裁切，月/周格背景不再带底角；蓝框使用 `pointer-events: none` 的 `::after` 一次绘制，拖动时不再切换圆角类。月/周切换改为无组件内部状态的 44px 原生按钮，月/周/列表定位按钮共用短生命周期 `is-touch-pressed`，松手/取消清理；移除 hover 背景，键盘 `:focus-visible` 保留。原生 scroll snap、月份/周次、面板高度、详情、筛选和 API 均未改变。
 - 运行/浏览器验证：`node scripts/smoke-browser.mjs` 在当前源码 5174 服务以真实 CDP touch 通过；检查按钮按住可见、松手后透明且无阴影/缩放/焦点残留，2026-08→09 半拖动无灰色反圆角，月历 8 月 31 日和周历左边界蓝框圆角同步完整。管理员、成员、访客 vkey 与访问记录全流程无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-ORNaq6`。
 - 验证：日历定向 18/18、全仓 Vitest 90 文件/584 项通过（29 个数据库集成文件/253 项按默认环境跳过），Web typecheck/build、Storybook build、全仓 Prettier/ESLint、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过。`pnpm --config.production=false verify` 在进入实际脚本前要求删除并重装全部依赖目录，已拒绝该破坏性环境动作并用当前本地二进制逐项执行同范围门禁。checkpoint 识别消息为 `fix(web): stabilize mobile calendar controls and corners`。
-- 正式发布：代码 checkpoint `0aaa562` 已推送；发布前加密备份 `1e04e2cc-4d73-4f85-9033-9227aa6776767`（44 张表、111142 行，SHA-256 `1bd1d9e97244c3646f7ff1066ed2bb70aa098f1a66e596dcda10807562278c38`），release `0aaa5620616cda90dbd863656adb4ac0ae5c8c82` 已部署，发布前后 `ecs-verify.sh` 通过。
+- 正式发布：代码 checkpoint `0aaa562` 已推送；发布前加密备份 `1e04e2cc-4d73-4f85-9033-9227aa676767`（44 张表、11142 行，SHA-256 `1bd1d9e97244c3646f7ff1066ed2bb70aa098f1a66e596dcda10807562278c38`），release `0aaa5620616cda90dbd863656adb4ac0ae5c8c82` 已部署，发布前后 `ecs-verify.sh` 通过。
 - 正式域名只读复核：390×844 月历外卡为 18px 圆角并统一裁切，2026-08-31 左下选中伪元素为 17px 圆角；周历 2026-08-17 左下选中伪元素同为 17px 圆角。左右按钮和定位按钮静止态均为透明背景、无阴影，截图无灰色反圆角或分步出现的蓝框；未触发业务写入。
 - 状态：已完成（含生产发布与线上核验）→ 待用户复核。最终状态 checkpoint 识别消息为 `docs(status): record calendar touch and corner deployment`。
 
