@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 
+import ShiftColorPicker from '../../features/scheduling-config/ShiftColorPicker.vue';
+
 interface ShiftTypeDraft {
   abbreviation: string;
   color: string;
@@ -68,11 +70,6 @@ const shifts = reactive<ShiftTypeDraft[]>([
 ]);
 
 const editingId = ref('night');
-const palette = ['#0A66D5', '#287D70', '#4C5BD4', '#9A6A13', '#C33D56'] as const;
-const customColorShiftId = ref('');
-const customColorDraft = ref('#7A4FD6');
-const customColorHex = ref('#7A4FD6');
-const customColorError = ref(false);
 
 function toggleEdit(id: string): void {
   editingId.value = editingId.value === id ? '' : id;
@@ -86,50 +83,6 @@ function durationLabel(shift: ShiftTypeDraft): string {
   if (shift.id === 'all-day') return '24 小时';
   if (shift.crossesMidnight) return '14 小时 · 次日结束';
   return '10 小时';
-}
-
-function isPresetColor(color: string): boolean {
-  return palette.some((preset) => preset.toLowerCase() === color.toLowerCase());
-}
-
-function selectPresetColor(shift: ShiftTypeDraft, color: string): void {
-  shift.color = color;
-  customColorShiftId.value = '';
-}
-
-function normalizeHex(value: string): string | undefined {
-  const match = /^#?([0-9a-f]{6})$/i.exec(value.trim());
-  return match?.[1] === undefined ? undefined : `#${match[1].toUpperCase()}`;
-}
-
-function toggleCustomColor(shift: ShiftTypeDraft): void {
-  if (customColorShiftId.value === shift.id) {
-    customColorShiftId.value = '';
-    return;
-  }
-  const startingColor = isPresetColor(shift.color) ? customColorDraft.value : shift.color;
-  customColorDraft.value = startingColor;
-  customColorHex.value = startingColor.toUpperCase();
-  customColorError.value = false;
-  customColorShiftId.value = shift.id;
-}
-
-function applyCustomColor(shift: ShiftTypeDraft, value = customColorHex.value): void {
-  const color = normalizeHex(value);
-  customColorError.value = color === undefined;
-  if (color === undefined) return;
-  customColorDraft.value = color;
-  customColorHex.value = color;
-  shift.color = color;
-}
-
-function applyPaletteInput(shift: ShiftTypeDraft, event: Event): void {
-  applyCustomColor(shift, (event.target as HTMLInputElement).value);
-}
-
-function confirmCustomColor(shift: ShiftTypeDraft): void {
-  applyCustomColor(shift);
-  if (!customColorError.value) customColorShiftId.value = '';
 }
 </script>
 
@@ -228,66 +181,7 @@ function confirmCustomColor(shift: ShiftTypeDraft): void {
                 <label><span>结束</span><input v-model="shift.end" type="time" /></label>
               </fieldset>
 
-              <fieldset class="color-control">
-                <legend>颜色</legend>
-                <button
-                  v-for="color in palette"
-                  :key="color"
-                  type="button"
-                  :class="{ selected: shift.color === color }"
-                  :style="{ '--swatch': color }"
-                  :aria-label="`选择颜色 ${color}`"
-                  :aria-pressed="shift.color === color"
-                  @click="selectPresetColor(shift, color)"
-                />
-                <button
-                  class="custom-color-trigger"
-                  type="button"
-                  :class="{ selected: !isPresetColor(shift.color) }"
-                  :style="{ '--swatch': customColorDraft }"
-                  aria-label="自定义颜色"
-                  :aria-expanded="customColorShiftId === shift.id"
-                  :aria-pressed="!isPresetColor(shift.color)"
-                  @click="toggleCustomColor(shift)"
-                />
-                <Transition name="color-popover">
-                  <div
-                    v-if="customColorShiftId === shift.id"
-                    class="custom-color-panel"
-                    aria-label="自定义颜色调色板"
-                  >
-                    <label class="color-picker-field">
-                      <span>调色板</span>
-                      <input
-                        :value="customColorDraft"
-                        type="color"
-                        aria-label="选择自定义颜色"
-                        @input="applyPaletteInput(shift, $event)"
-                      />
-                    </label>
-                    <label class="hex-color-field">
-                      <span>HEX</span>
-                      <input
-                        v-model="customColorHex"
-                        maxlength="7"
-                        spellcheck="false"
-                        aria-label="自定义颜色 HEX"
-                        :aria-invalid="customColorError"
-                        @blur="applyCustomColor(shift)"
-                        @keyup.enter.prevent="applyCustomColor(shift)"
-                      />
-                    </label>
-                    <button
-                      class="apply-custom-color"
-                      type="button"
-                      @click="confirmCustomColor(shift)"
-                    >
-                      应用
-                    </button>
-                    <small v-if="customColorError">请输入 #RRGGBB</small>
-                  </div>
-                </Transition>
-              </fieldset>
+              <ShiftColorPicker v-model="shift.color" />
 
               <div class="editor-options">
                 <article>
@@ -733,160 +627,6 @@ function confirmCustomColor(shift: ShiftTypeDraft): void {
   color: var(--blue);
 }
 
-.color-control {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.color-control legend {
-  width: 100%;
-}
-
-.color-control > button {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.color-control > button::before {
-  position: absolute;
-  inset: 5px;
-  background: var(--swatch);
-  border: 3px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px #aab7c6;
-  content: '';
-}
-
-.color-control > button.selected::before {
-  box-shadow: 0 0 0 3px var(--blue);
-}
-
-.custom-color-trigger::after {
-  position: absolute;
-  right: 1px;
-  bottom: 1px;
-  display: grid;
-  width: 16px;
-  height: 16px;
-  place-items: center;
-  color: var(--blue);
-  background: #fff;
-  border: 1px solid #b6c8dc;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgb(22 32 42 / 18%);
-  content: '+';
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.custom-color-trigger.selected::after {
-  color: #fff;
-  background: var(--blue);
-  border-color: var(--blue);
-  content: '✓';
-  font-size: 9px;
-}
-
-.custom-color-panel {
-  display: grid;
-  width: 100%;
-  padding: 9px;
-  grid-template-columns: minmax(120px, 1fr) minmax(128px, 1fr) auto;
-  align-items: end;
-  gap: 8px;
-  background: rgb(255 255 255 / 86%);
-  border: 1px solid #bfd4eb;
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgb(38 73 109 / 9%);
-  box-sizing: border-box;
-}
-
-.custom-color-panel label {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-}
-
-.custom-color-panel label > span {
-  margin: 0;
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 700;
-}
-
-.color-picker-field input,
-.hex-color-field input {
-  width: 100%;
-  height: 42px;
-  min-width: 0;
-  padding: 4px 8px;
-  color: var(--text);
-  background: #fff;
-  border: 1px solid #b8c7d8;
-  border-radius: 10px;
-  box-sizing: border-box;
-  font: inherit;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-transform: uppercase;
-}
-
-.color-picker-field input {
-  padding: 3px;
-  cursor: pointer;
-}
-
-.color-picker-field input::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-
-.color-picker-field input::-webkit-color-swatch {
-  border: 0;
-  border-radius: 7px;
-}
-
-.apply-custom-color {
-  min-width: 62px;
-  min-height: 42px;
-  padding: 0 12px;
-  color: #fff;
-  background: var(--blue);
-  border: 0;
-  border-radius: 10px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.custom-color-panel > small {
-  grid-column: 1 / -1;
-  color: #b52d3f;
-  font-size: 9px;
-}
-
-.color-popover-enter-active,
-.color-popover-leave-active {
-  transition:
-    opacity 160ms ease,
-    translate 160ms ease;
-}
-
-.color-popover-enter-from,
-.color-popover-leave-to {
-  opacity: 0;
-  translate: 0 -4px;
-}
-
 .editor-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1006,15 +746,6 @@ input:focus-visible {
 
   .time-range-control {
     grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
-  }
-
-  .custom-color-panel {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .apply-custom-color {
-    min-height: 44px;
-    grid-column: 1 / -1;
   }
 
   .editor-options {

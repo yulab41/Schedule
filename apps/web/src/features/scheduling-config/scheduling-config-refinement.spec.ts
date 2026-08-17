@@ -38,8 +38,16 @@ describe('compact scheduling configuration', () => {
     expect(source).toContain("'#9A6A13'");
     expect(source).toContain("'#C33D56'");
     expect(source).toContain('custom-color-trigger');
-    expect(source).toContain('type="color"');
+    expect(source).not.toContain('type="color"');
+    expect(source).toContain('class="color-spectrum"');
+    expect(source).toContain('type="range"');
+    expect(source).toContain('--picker-hue');
+    expect(source).toContain('class="spectrum-cursor"');
     expect(source).toContain('HEX');
     expect(source).toContain('请输入 #RRGGBB');
+    expect(source).not.toContain("content: '+'");
+    expect(source).toMatch(
+      /\.custom-color-trigger::after\s*{[^}]*background:[^}]*linear-gradient/s,
+    );
   });
 });

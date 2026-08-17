@@ -52,6 +52,7 @@
   min-height: var(--ui-touch-target-minimum);
   padding: 8px 10px;
   align-items: center;
+  justify-content: space-between;
   gap: var(--ui-spacing-xs);
   color: var(--ui-color-text-primary);
   background: var(--ui-color-surface-muted);
@@ -60,11 +61,8 @@
   line-height: 1.4;
 }
 
-.workflow-settings-field input {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  accent-color: var(--ui-color-primary);
+.workflow-settings-field > span {
+  min-width: 0;
 }
 
 .workflow-form fieldset {

@@ -56,6 +56,11 @@ describe('formal calendar view refinement', () => {
     expect(calendarView).toMatch(
       /function onCalendarPointerMove[\s\S]*start\.axis !== 'horizontal'[\s\S]*setPointerCapture/,
     );
+    expect(calendarView).toMatch(
+      /function onCalendarPointerUp[\s\S]*swipePointer\.value = undefined;[\s\S]*releasePointerCapture/,
+    );
+    expect(calendarView).toContain('function cancelCalendarPointer(event: PointerEvent): void');
+    expect(calendarView).toContain('start.pointerId !== event.pointerId');
     expect(calendarView).toContain('cubic-bezier(0.22, 1, 0.36, 1)');
     expect(calendarView).toMatch(
       /\.calendar-swipe-track\s*{[^}]*grid-template-columns:\s*repeat\(3, 100%\);/s,
@@ -81,6 +86,7 @@ describe('formal calendar view refinement', () => {
 
   it('keeps week selection inside rounded corners and marks today only on its date number', () => {
     const weekGrid = readSource('./WeekGrid.vue');
+    const calendarView = readSource('../../views/calendar/CalendarView.vue');
 
     expect(weekGrid).toMatch(
       /\.week-row \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
@@ -90,6 +96,16 @@ describe('formal calendar view refinement', () => {
     );
     expect(weekGrid).not.toMatch(/\.day-cell\.is-today\s*{[^}]*box-shadow:/s);
     expect(weekGrid).toMatch(/\.is-today \.day-number\s*{[^}]*background:/s);
+    expect(calendarView).toContain("'is-swiping': swipeTrackMoving");
+    expect(calendarView).toMatch(
+      /\.week-calendar-card \.calendar-swipe-panel\s*{[^}]*display:\s*flex;/s,
+    );
+    expect(calendarView).toMatch(
+      /\.week-calendar-card :deep\(\.week-grid\)\s*{[^}]*height:\s*100%;/s,
+    );
+    expect(calendarView).toMatch(
+      /\.week-calendar-card \.calendar-swipe-viewport\.is-swiping[\s\S]*border-bottom-left-radius:\s*0;/s,
+    );
   });
 
   it('adds frozen month controls to the list view', () => {

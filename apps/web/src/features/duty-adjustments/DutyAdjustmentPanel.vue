@@ -12,6 +12,7 @@ import type {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
+import CompactSwitch from '../../components/CompactSwitch.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -436,22 +437,22 @@ function getCounterpartName(request: DutyAdjustmentRequest): string {
     <t-loading v-if="isLoading" text="正在加载加扣班数据" />
     <template v-else>
       <div class="settings-row workflow-settings">
-        <label v-if="canApprove" class="settings-field workflow-settings-field">
-          <input
-            type="checkbox"
-            :checked="groupSettings?.requiresApproval === true"
-            @change="updateGroupRequiresApproval(($event.target as HTMLInputElement).checked)"
+        <div v-if="canApprove" class="settings-field workflow-settings-field">
+          <span>加扣班需要管理员审批</span>
+          <CompactSwitch
+            label="加扣班需要管理员审批"
+            :model-value="groupSettings?.requiresApproval === true"
+            @update:model-value="updateGroupRequiresApproval"
           />
-          加扣班需要管理员审批
-        </label>
-        <label class="settings-field workflow-settings-field">
-          <input
-            type="checkbox"
-            :checked="mySettings?.autoAcceptSwaps === true"
-            @change="updateAutoAccept(($event.target as HTMLInputElement).checked)"
+        </div>
+        <div class="settings-field workflow-settings-field">
+          <span>自动接受换班/加扣班</span>
+          <CompactSwitch
+            label="自动接受换班/加扣班"
+            :model-value="mySettings?.autoAcceptSwaps === true"
+            @update:model-value="updateAutoAccept"
           />
-          自动接受换班/加扣班
-        </label>
+        </div>
       </div>
 
       <section v-if="incomingRequests.length > 0" class="list-section workflow-list-section">

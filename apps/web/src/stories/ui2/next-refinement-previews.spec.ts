@@ -26,17 +26,22 @@ describe('next visual refinement Storybook previews', () => {
 
   it('presents shift types as compact rows with inline time ranges and switches', () => {
     const preview = readSource('./ShiftTypeSettingsPreview.vue');
+    const colorPicker = readSource('../../features/scheduling-config/ShiftColorPicker.vue');
     const stories = readSource('./ShiftTypeSettingsPreview.stories.ts');
 
     expect(preview).toContain('class="shift-type-row"');
     expect(preview).toContain('class="time-range-control"');
     expect(preview).toContain('class="shift-summary"');
     expect(preview).toContain('class="compact-switch"');
-    expect(preview).toContain('class="custom-color-trigger"');
-    expect(preview).toContain('class="custom-color-panel"');
-    expect(preview).toContain('type="color"');
-    expect(preview).toContain('HEX');
-    expect(preview).toContain('function applyCustomColor');
+    expect(preview).toContain('import ShiftColorPicker');
+    expect(preview).toContain('<ShiftColorPicker v-model="shift.color" />');
+    expect(colorPicker).toContain('class="custom-color-trigger color-swatch"');
+    expect(colorPicker).toContain('class="custom-color-panel"');
+    expect(colorPicker).not.toContain('type="color"');
+    expect(colorPicker).toContain('class="color-spectrum"');
+    expect(colorPicker).toContain('type="range"');
+    expect(colorPicker).toContain('HEX');
+    expect(colorPicker).toContain('function applyCustomColor');
     expect(preview).not.toContain('type="checkbox"');
     expect(stories).toContain('Mobile390');
     expect(stories).toContain('Mobile320');

@@ -139,6 +139,9 @@ const swipeTrackStyle = computed(() => ({
   transform: `translate3d(calc(-100% + ${swipeOffsetPx.value}px), 0, 0)`,
   transitionDuration: `${swipeTransitionMs.value}ms`,
 }));
+const swipeTrackMoving = computed(
+  () => swipeAnimating.value || swipePointer.value?.axis === 'horizontal',
+);
 const calendarRequestKey = computed(() =>
   viewMode.value === 'week' ? `week:${weekStart.value}` : `month:${businessMonth.value}`,
 );
@@ -349,13 +352,13 @@ function onCalendarPointerUp(event: PointerEvent): void {
   if (start === undefined || start.pointerId !== event.pointerId) return;
 
   const viewport = event.currentTarget as HTMLElement;
-  if (viewport.hasPointerCapture(event.pointerId)) {
-    viewport.releasePointerCapture(event.pointerId);
-  }
   const deltaX = event.clientX - start.startX;
   const deltaY = event.clientY - start.startY;
   const elapsedMs = Math.max(16, event.timeStamp - start.startedAt);
   swipePointer.value = undefined;
+  if (viewport.hasPointerCapture(event.pointerId)) {
+    viewport.releasePointerCapture(event.pointerId);
+  }
   if (start.axis !== 'horizontal') {
     swipeOffsetPx.value = 0;
     return;
@@ -370,9 +373,9 @@ function onCalendarPointerUp(event: PointerEvent): void {
   settleSwipe(direction, deltaX, elapsedMs);
 }
 
-function cancelCalendarPointer(): void {
+function cancelCalendarPointer(event: PointerEvent): void {
   const start = swipePointer.value;
-  if (start === undefined) return;
+  if (start === undefined || start.pointerId !== event.pointerId) return;
   swipePointer.value = undefined;
   if (start.axis === 'horizontal') {
     settleSwipe(0, swipeOffsetPx.value, Math.max(16, performance.now() - start.startedAt));
@@ -647,6 +650,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         <div
           ref="calendarSwipeViewport"
           class="calendar-swipe-viewport"
+          :class="{ 'is-swiping': swipeTrackMoving }"
           aria-label="周历，可左右滑动切换周"
           @click.capture="onSwipeClickCapture"
           @lostpointercapture="cancelCalendarPointer"
@@ -720,6 +724,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           <div
             ref="calendarSwipeViewport"
             class="calendar-swipe-viewport"
+            :class="{ 'is-swiping': swipeTrackMoving }"
             aria-label="月历，可左右滑动切换月份"
             @click.capture="onSwipeClickCapture"
             @lostpointercapture="cancelCalendarPointer"
@@ -1034,8 +1039,22 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 }
 
 .week-calendar-card :deep(.week-grid) {
+  height: 100%;
+  flex: 1;
   border: 0;
   border-radius: 0;
+}
+
+.week-calendar-card .calendar-swipe-panel {
+  display: flex;
+}
+
+.week-calendar-card .calendar-swipe-viewport.is-swiping :deep(.week-row .day-cell:first-child) {
+  border-bottom-left-radius: 0;
+}
+
+.week-calendar-card .calendar-swipe-viewport.is-swiping :deep(.week-row .day-cell:last-child) {
+  border-bottom-right-radius: 0;
 }
 
 .calendar-weekday-row {

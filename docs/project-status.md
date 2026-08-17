@@ -24,6 +24,16 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
+## 2026-08-17 手机日历拖动、工作流开关与自定义配色修复
+
+- 回归来源：指针捕获/三面板滑动和原生颜色输入来自 `41d284b`，周历底角来自 `c64f0d7`，换班/加扣班 checkbox 来自 `b20ff9b`、`5d8b205`；均已执行 `git log -S` 与 `git blame`。
+- 测试先行：旧实现 4 个定向文件 6 项失败、10 项通过；修复后 16/16 通过。完整 `pnpm verify` 为 89 个文件、582 项通过，29 个数据库集成文件、253 项因本机无隔离测试库跳过。
+- 变更与语义审计：延迟的 `lostpointercapture` 只能清理同一 pointer，旧手势释放前先清空状态；周历三面板等高填满，拖动中移除面板自身底角，静止选择框保持原圆角。换班/加扣班四个布尔设置复用 CompactSwitch，原 API、payload、异常路径不变。自定义颜色统一为内嵌 HSV 色域、色相滑杆与 HEX，Storybook 直接复用生产组件；移除原生颜色弹窗，“+”使用 CSS 线段居中。
+- 运行/浏览器验证：Web typecheck/build、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify` 与 `git diff --check` 通过。Storybook 390px 无横向溢出或原生颜色输入，色域 298×92px，点击可更新 HEX；完整 smoke 覆盖管理员、成员、访客/vkey 与访问记录且无浏览器错误。
+- 状态：已实现并完成本地运行验证，checkpoint 识别消息为 `fix(web): stabilize mobile calendar and compact controls`；待提交、推送、生产备份、部署与正式域名只读复核。
+- 下一批次：仅完成该 checkpoint 的 Git/生产发布闭环，不再增加产品改动。
+- 停止条件：代码 checkpoint 的生产备份、release 部署、`ecs-verify.sh` 和正式页只读复核通过后，提交并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+
 ## 2026-08-17 换班班次下拉恢复周几显示
 
 - 回归来源：跨月换班 checkpoint `5a8380f` 新增 `formatSwapAssignmentOption`，把班次下拉从原有“日期 + 班种 + 周X + 成员”改成包含起止时间与岗位的专用文案；已对该函数和原公共 `createAssignmentOption` 执行 `git log -S` 与 `git blame`。
