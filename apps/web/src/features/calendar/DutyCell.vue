@@ -273,13 +273,15 @@ onUnmounted(() => {
 
 .shift-badge {
   display: inline-grid;
-  min-width: 18px;
-  min-height: 18px;
-  padding: 0 4px;
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
   place-items: center;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
+  line-height: 1;
   white-space: nowrap;
 }
 

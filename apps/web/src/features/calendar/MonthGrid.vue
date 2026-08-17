@@ -376,14 +376,18 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
 }
 
 .holiday-tag {
-  display: inline-block;
+  display: inline-flex;
+  box-sizing: border-box;
+  height: 16px;
   max-width: 100%;
   margin: 0 0 4px 4px;
-  padding: 1px 5px;
+  padding: 0 3px;
+  align-items: center;
   overflow: hidden;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
+  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: middle;
@@ -482,11 +486,13 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
   }
 
   .holiday-tag {
+    height: 14px;
     max-width: calc(100% - 18px);
     margin: 0;
-    padding: 1px 3px;
-    font-size: clamp(8px, 2.25vw, 10px);
-    line-height: 16px;
+    padding: 0 2px;
+    border-radius: 3px;
+    font-size: 8px;
+    line-height: 1;
   }
 
   .duty-list {
@@ -528,10 +534,11 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
   :deep(.shift-badge),
   :deep(.change-marker) {
     min-width: 14px;
-    min-height: 14px;
+    height: 14px;
     padding: 0 2px;
-    font-size: 9px;
-    line-height: 14px;
+    border-radius: 3px;
+    font-size: 8px;
+    line-height: 1;
   }
 }
 

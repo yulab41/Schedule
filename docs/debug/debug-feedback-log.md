@@ -371,3 +371,13 @@
 - 运行/浏览器验证：`运行/浏览器验证：node scripts/smoke-browser.mjs` 通过。CDP 原生 touch 左滑月/周均切换，竖向主导手势不换月；2026-09 视口/五行面板差值 ≤1px；周七格均不低于 86px、互差 ≤1px、面板/视口底边差值 ≤1px；班种开关保存前后控件屏幕位置差值 ≤8px并恢复原状态。管理员、成员、访客/vkey、访问记录全流程无浏览器错误。
 - 其他验证：Web typecheck/build、Storybook build、Prettier、ESLint、smoke core check、`git diff --check` 通过。全仓 `pnpm verify` 被本机 pnpm 无 TTY 生产依赖预检与既有数据库测试清理顺序阻塞；全新测试库仍可复现，与本轮 Web 改动无关。
 - 正式发布与只读核验：代码 checkpoint `ee63532` 已推送；发布前加密备份 `f3b9a899-3c1a-41c1-bd26-075198dce913`（44 张表、10765 行），release `ee6353263d87fba18fe1d018e5347e44d1d6e2e2` 已部署且发布前后 `ecs-verify.sh` 通过。正式 390px 的 2026-09 为 35 格，视口/面板高度差小于 1px；周历七格与视口均为 86px；配置页开关点触区 60×44px、无横向溢出、浏览器日志为空，未触发业务写入。最终状态 checkpoint 识别消息为 `docs(status): record native touch calendar deployment`，发布前备份为 `d94afa5f-0192-4cb1-966a-10660d546143`。
+
+## 2026-08-17 日历翻页性能、定位动画、标识密度与统一选择器预览
+
+- 引入点：固定 180ms 程序滚动结算来自 `ee63532`；翻页选择重置来自 `41d284b`/`8a49434`；标识尺寸差异来自 `48c6fdd`/`a1a732a`。均已对修改调用点执行 `git log -S` 与 `git blame`。
+- 失败复现与测试先行：旧实现缺少异步资源缓存，性能/选择/定位/标识预期共 7 项失败；追加的程序滚动排队和不得被短 idle timer 覆盖断言也先红后绿。实现后定向 86/86、全仓 Vitest 593/593 通过（253 项数据库集成按默认环境跳过）。
+- 修复：程序翻页等待 `scrollend`，旧 WebView 700ms 回退；程序滚动期间不使用 180ms idle settle，连续点击排队。相邻月和节假日按群组缓存，聚焦/冲突强刷；`CalendarReadModel` 和节假日 Map 改为整体替换的 `shallowRef`。选择只在首载初始化，翻页不再重置。定位今天通过现有月/周三面板动画；列表定位不变。日历四类标识统一 16px/14px 高的紧凑几何。
+- 语义等价审计：API 接收者与调用方式不变；缓存拒绝时删除条目并沿原 catch 处理，聚焦和冲突路径显式 `forceRefresh`；筛选、空值、最新请求判断、日期点击、详情和副作用次数不变。唯一行为变化是减少重复只读 GET、保持用户选择和为定位增加已认可动画。
+- 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 的包装器受本机非 TTY 依赖检查影响，等价入口 `node scripts/smoke-browser.mjs` 通过管理员、成员、访客/vkey 和访问记录全链路，无浏览器错误。390px 单击翻月、40ms 双击排队、月定位、单击翻周和周定位均观察到中间滚动位移并一次结算；Web typecheck/build、Storybook build、Prettier、ESLint、直接全仓 Vitest 与 `git diff --check` 通过。
+- `frontend-design`/Storybook：新增统一月份、日期、时间选择器预览，手机底部 Sheet、桌面邻近浮层，保留医疗蓝、浅蓝摘要和系统字体；390/320/1280 无溢出、键盘焦点、减少动态、44px 主操作与 Axe WCAG A/AA 0 违规。四张确认图位于 `C:\Users\eylin\.codex\visualizations\2026\08\17\schedule-temporal-picker-preview`。生产选择器未改，等待用户确认。
+- 状态：生产日历/标识已完成本地运行验证，待 checkpoint、生产备份、部署和线上只读复核；选择器为待用户确认设计稿。

@@ -7,7 +7,7 @@ import type {
   ScheduleEvent,
 } from '@schedule/contracts';
 import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
@@ -41,6 +41,7 @@ import {
   getWeekOfMonthLabel,
   type CalendarViewMode,
 } from '../../features/calendar/calendar-views.js';
+import { createAsyncResourceCache } from '../../features/calendar/calendar-resource-cache.js';
 import ListGrid from '../../features/calendar/ListGrid.vue';
 import MonthGrid from '../../features/calendar/MonthGrid.vue';
 import SelectedDateDutyDetails from '../../features/calendar/SelectedDateDutyDetails.vue';
@@ -53,8 +54,8 @@ const props = defineProps<{
 
 const api = createApiClient({ auth: localAuth });
 const businessMonth = ref(getCurrentBusinessMonth());
-const calendar = ref<CalendarReadModel>();
-const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
+const calendar = shallowRef<CalendarReadModel>();
+const holidays = shallowRef<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const errorMessage = ref<string>();
 const conflictMessage = ref('');
 const conflictSummary = ref<string>();
@@ -87,6 +88,19 @@ let swipeScrollTimer: number | undefined;
 let swipeRecentering = false;
 let swipeSettling = false;
 let swipeTouchActive = false;
+const PROGRAMMATIC_SWIPE_FALLBACK_MS = 700;
+const SCROLL_IDLE_SETTLE_MS = 180;
+interface SwipeNavigationRequest {
+  readonly direction: -1 | 1;
+  readonly targetBusinessMonth?: string;
+  readonly targetWeekStart?: string;
+}
+let activeSwipeNavigation: SwipeNavigationRequest | undefined;
+let queuedSwipeNavigation: SwipeNavigationRequest | undefined;
+const calendarResourceCache = createAsyncResourceCache<CalendarReadModel>();
+const holidayResourceCache =
+  createAsyncResourceCache<Awaited<ReturnType<typeof api.getHolidays>>>();
+let resourceCacheGroupId = '';
 const listGridRef = ref<{
   scrollToDate: (businessDate: string, stickyOffset?: number) => boolean;
 }>();
@@ -147,9 +161,6 @@ watch(viewMode, () => {
   if (viewMode.value === 'week' && weekStart.value === '') {
     weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   }
-  if (viewMode.value === 'week') {
-    selectedDate.value = todayBusinessDate;
-  }
   void recenterSwipeViewport();
 });
 
@@ -191,17 +202,18 @@ onBeforeUnmount(() => {
 });
 
 function onWindowFocus(): void {
-  void loadCalendar();
+  void loadCalendar({ forceRefresh: true });
 }
 
 function onWindowResize(): void {
   void recenterSwipeViewport();
 }
 
-async function loadCalendar(): Promise<void> {
+async function loadCalendar(options: { readonly forceRefresh?: boolean } = {}): Promise<void> {
   const request = requestTracker.begin();
   errorMessage.value = undefined;
   isLoading.value = true;
+  ensureResourceCacheGroup();
   if (calendarGroupId.value !== props.group.id) {
     calendar.value = undefined;
   }
@@ -209,7 +221,9 @@ async function loadCalendar(): Promise<void> {
 
   try {
     const monthCalendars = await Promise.all(
-      requestedMonths.map((month) => api.getCalendar(props.group.id, month)),
+      requestedMonths.map((month) =>
+        calendarResourceCache.get(month, () => api.getCalendar(props.group.id, month), options),
+      ),
     );
     const activeMonth =
       viewMode.value === 'week' ? weekStart.value.slice(0, 7) : businessMonth.value;
@@ -226,14 +240,15 @@ async function loadCalendar(): Promise<void> {
     if (requestTracker.isCurrent(request)) {
       calendar.value = nextCalendar;
       calendarGroupId.value = props.group.id;
-      if (viewMode.value !== 'week' || selectedDate.value === undefined) {
+      const shouldInitializeSelection = selectedDate.value === undefined;
+      if (shouldInitializeSelection) {
         selectedDate.value = getDefaultSelectedDate({
           assignments: nextCalendar.assignments,
           businessMonth: businessMonth.value,
           today: todayBusinessDate,
         });
       }
-      await scrollToSelectedDateOnMobile();
+      if (shouldInitializeSelection) await scrollToSelectedDateOnMobile();
     }
   } catch (error) {
     if (requestTracker.isCurrent(request)) {
@@ -251,10 +266,17 @@ async function loadCalendar(): Promise<void> {
     }
   }
 
-  await loadHolidays(request, requestedMonths);
+  await loadHolidays(request, requestedMonths, options);
   if (requestTracker.isCurrent(request)) {
     await locateTodayInListWhenReady();
   }
+}
+
+function ensureResourceCacheGroup(): void {
+  if (resourceCacheGroupId === props.group.id) return;
+  calendarResourceCache.clear();
+  holidayResourceCache.clear();
+  resourceCacheGroupId = props.group.id;
 }
 
 function getRequestedCalendarMonths(): readonly string[] {
@@ -267,10 +289,18 @@ function getRequestedCalendarMonths(): readonly string[] {
   return [businessMonth.value];
 }
 
-async function loadHolidays(request: number, requestedMonths: readonly string[]): Promise<void> {
+async function loadHolidays(
+  request: number,
+  requestedMonths: readonly string[],
+  options: { readonly forceRefresh?: boolean } = {},
+): Promise<void> {
   const years = [...new Set(requestedMonths.map((month) => Number(month.slice(0, 4))))];
   try {
-    const holidayYears = await Promise.all(years.map((year) => api.getHolidays(year)));
+    const holidayYears = await Promise.all(
+      years.map((year) =>
+        holidayResourceCache.get(String(year), () => api.getHolidays(year), options),
+      ),
+    );
     if (requestTracker.isCurrent(request)) {
       holidays.value = new Map(
         holidayYears.flatMap((year) => year.dates).map((date) => [date.date, date] as const),
@@ -298,7 +328,7 @@ async function scrollToSelectedDateOnMobile(): Promise<void> {
 
 function refreshAfterConflict(): void {
   conflictVisible.value = false;
-  void loadCalendar();
+  void loadCalendar({ forceRefresh: true });
 }
 
 function goToPreviousMonth(): void {
@@ -318,34 +348,47 @@ function goToNextMonth(): void {
 }
 
 function shiftMonth(direction: -1 | 1): void {
-  pendingListTodayLocation.value = false;
-  listLocationMessage.value = undefined;
-  businessMonth.value = addBusinessMonths(businessMonth.value, direction);
+  setBusinessMonth(addBusinessMonths(businessMonth.value, direction));
 }
 
-function startSwipeNavigation(direction: -1 | 1): void {
-  if (swipeSettling) return;
+function setBusinessMonth(targetBusinessMonth: string): void {
+  pendingListTodayLocation.value = false;
+  listLocationMessage.value = undefined;
+  businessMonth.value = targetBusinessMonth;
+}
+
+function startSwipeNavigation(
+  direction: -1 | 1,
+  targets: Omit<SwipeNavigationRequest, 'direction'> = {},
+): void {
+  const request: SwipeNavigationRequest = { direction, ...targets };
+  if (swipeSettling || swipeRecentering || activeSwipeNavigation !== undefined) {
+    queuedSwipeNavigation = request;
+    return;
+  }
   const viewport = calendarSwipeViewport.value;
   if (viewport === undefined || viewport.clientWidth === 0) {
-    if (viewMode.value === 'month') shiftMonth(direction);
-    else if (viewMode.value === 'week') shiftWeek(direction);
+    applySwipeNavigation(request);
     return;
   }
 
+  activeSwipeNavigation = request;
   const width = viewport.clientWidth;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   viewport.scrollTo({
     behavior: reducedMotion ? 'auto' : 'smooth',
     left: direction === -1 ? 0 : width * 2,
   });
-  scheduleSwipeSettle(reducedMotion ? 0 : 180);
+  scheduleSwipeSettle(reducedMotion ? 0 : PROGRAMMATIC_SWIPE_FALLBACK_MS);
 }
 
 function onCalendarScroll(event: Event): void {
   if (swipeRecentering) return;
   const viewport = event.currentTarget as HTMLElement;
   syncSwipeViewportHeight(viewport);
-  if (!swipeTouchActive) scheduleSwipeSettle(120);
+  if (!swipeTouchActive && activeSwipeNavigation === undefined) {
+    scheduleSwipeSettle(SCROLL_IDLE_SETTLE_MS);
+  }
 }
 
 function onCalendarScrollEnd(): void {
@@ -354,12 +397,13 @@ function onCalendarScrollEnd(): void {
 
 function onCalendarTouchStart(): void {
   swipeTouchActive = true;
+  activeSwipeNavigation = undefined;
   clearSwipeScrollTimer();
 }
 
 function onCalendarTouchEnd(): void {
   swipeTouchActive = false;
-  scheduleSwipeSettle(160);
+  scheduleSwipeSettle(SCROLL_IDLE_SETTLE_MS);
 }
 
 function pressCalendarControl(event: TouchEvent): void {
@@ -385,13 +429,14 @@ async function finishCalendarScroll(): Promise<void> {
     0,
     Math.min(2, Math.round(viewport.scrollLeft / viewport.clientWidth)),
   );
-  const direction: -1 | 0 | 1 = pageIndex === 0 ? -1 : pageIndex === 2 ? 1 : 0;
+  const snappedDirection: -1 | 0 | 1 = pageIndex === 0 ? -1 : pageIndex === 2 ? 1 : 0;
+  const navigationRequest = activeSwipeNavigation;
+  const direction = navigationRequest?.direction ?? snappedDirection;
+  activeSwipeNavigation = undefined;
   swipeSettling = true;
 
-  if (viewMode.value === 'month') {
-    if (direction !== 0) shiftMonth(direction);
-  } else if (viewMode.value === 'week' && direction !== 0) {
-    shiftWeek(direction);
+  if (direction !== 0) {
+    applySwipeNavigation(navigationRequest ?? { direction });
   }
 
   await nextTick();
@@ -406,11 +451,12 @@ async function finishCalendarScroll(): Promise<void> {
     swipeRecentering = false;
     swipeSettling = false;
     swipeLayoutFrame = undefined;
+    flushQueuedSwipeNavigation();
   });
 }
 
 async function recenterSwipeViewport(): Promise<void> {
-  if (viewMode.value === 'list' || swipeSettling) return;
+  if (viewMode.value === 'list' || swipeSettling || swipeRecentering) return;
   await nextTick();
   const viewport = calendarSwipeViewport.value;
   if (viewport === undefined || viewport.clientWidth === 0) return;
@@ -423,7 +469,38 @@ async function recenterSwipeViewport(): Promise<void> {
   swipeLayoutFrame = window.requestAnimationFrame(() => {
     swipeRecentering = false;
     swipeLayoutFrame = undefined;
+    flushQueuedSwipeNavigation();
   });
+}
+
+function applySwipeNavigation(request: SwipeNavigationRequest): void {
+  if (viewMode.value === 'month') {
+    if (request.targetBusinessMonth !== undefined) {
+      setBusinessMonth(request.targetBusinessMonth);
+    } else {
+      shiftMonth(request.direction);
+    }
+    if (request.targetWeekStart !== undefined) weekStart.value = request.targetWeekStart;
+    return;
+  }
+
+  if (viewMode.value === 'week') {
+    if (request.targetWeekStart !== undefined) {
+      weekStart.value = request.targetWeekStart;
+    } else {
+      shiftWeek(request.direction);
+    }
+    if (request.targetBusinessMonth !== undefined) {
+      setBusinessMonth(request.targetBusinessMonth);
+    }
+  }
+}
+
+function flushQueuedSwipeNavigation(): void {
+  const request = queuedSwipeNavigation;
+  if (request === undefined || swipeSettling || swipeRecentering) return;
+  queuedSwipeNavigation = undefined;
+  startSwipeNavigation(request.direction, request);
 }
 
 function syncSwipeViewportHeight(viewport: HTMLElement): void {
@@ -461,11 +538,34 @@ function goToToday(): void {
   if (viewMode.value === 'list') {
     pendingListTodayLocation.value = true;
     listLocationMessage.value = undefined;
+    businessMonth.value = getCurrentBusinessMonth();
+    weekStart.value = getWeekStartOfToday();
+    selectedDate.value = todayBusinessDate;
+    void locateTodayInListWhenReady();
+    return;
   }
-  businessMonth.value = getCurrentBusinessMonth();
-  weekStart.value = getWeekStartOfToday();
+
+  const targetBusinessMonth = getCurrentBusinessMonth();
+  const targetWeekStart = getWeekStartOfToday();
   selectedDate.value = todayBusinessDate;
-  void locateTodayInListWhenReady();
+  if (viewMode.value === 'month' && businessMonth.value !== targetBusinessMonth) {
+    startSwipeNavigation(targetBusinessMonth < businessMonth.value ? -1 : 1, {
+      targetBusinessMonth,
+      targetWeekStart,
+    });
+    return;
+  }
+  if (viewMode.value === 'week' && weekStart.value !== targetWeekStart) {
+    startSwipeNavigation(targetWeekStart < weekStart.value ? -1 : 1, {
+      targetBusinessMonth,
+      targetWeekStart,
+    });
+    return;
+  }
+
+  businessMonth.value = targetBusinessMonth;
+  weekStart.value = targetWeekStart;
+  void recenterSwipeViewport();
 }
 
 async function locateTodayInListWhenReady(): Promise<void> {
@@ -499,7 +599,6 @@ function goToNextWeek(): void {
 
 function shiftWeek(direction: -1 | 1): void {
   weekStart.value = addWeeks(weekStart.value, direction);
-  selectedDate.value = weekStart.value;
 }
 
 async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise<void> {

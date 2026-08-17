@@ -78,8 +78,13 @@ describe('formal calendar view refinement', () => {
     expect(calendarView).toContain('@select-date="selectedDate = $event"');
     expect(calendarView).toContain("viewMode === 'month' || viewMode === 'week'");
     expect(calendarView).toContain('selectedDate !== undefined');
-    expect(calendarView).toContain("viewMode.value !== 'week' || selectedDate.value === undefined");
-    expect(calendarView).toContain('selectedDate.value = weekStart.value;');
+    expect(calendarView).toContain(
+      'const shouldInitializeSelection = selectedDate.value === undefined',
+    );
+    expect(calendarView).not.toContain(
+      "viewMode.value !== 'week' || selectedDate.value === undefined",
+    );
+    expect(calendarView).not.toContain('selectedDate.value = weekStart.value;');
   });
 
   it('clips square sliding cells with the fixed card and draws rounded selection independently', () => {

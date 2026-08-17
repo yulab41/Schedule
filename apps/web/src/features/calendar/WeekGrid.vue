@@ -251,14 +251,17 @@ function selectDate(date: string): void {
 }
 
 .holiday-tag {
+  display: inline-flex;
+  box-sizing: border-box;
+  height: 16px;
   max-width: calc(100% - 20px);
-  min-height: 16px;
   padding: 0 3px;
+  align-items: center;
   overflow: hidden;
   border-radius: 4px;
   font-size: 9px;
   font-weight: 600;
-  line-height: 16px;
+  line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -359,11 +362,12 @@ function selectDate(date: string): void {
   }
 
   .holiday-tag {
+    height: 14px;
     max-width: calc(100% - 18px);
-    min-height: 14px;
     padding: 0 2px;
+    border-radius: 3px;
     font-size: 8px;
-    line-height: 14px;
+    line-height: 1;
   }
 
   .duty-list {
@@ -382,10 +386,11 @@ function selectDate(date: string): void {
   :deep(.shift-badge),
   :deep(.change-marker) {
     min-width: 12px;
-    min-height: 14px;
-    padding-inline: 2px;
+    height: 14px;
+    padding: 0 2px;
+    border-radius: 3px;
     font-size: 8px;
-    line-height: 14px;
+    line-height: 1;
   }
 }
 
