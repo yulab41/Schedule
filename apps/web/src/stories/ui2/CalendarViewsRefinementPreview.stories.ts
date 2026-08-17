@@ -31,6 +31,19 @@ export const MobileMonthLocator: Story = {
   globals: { viewport: 'mobile390' },
 };
 
+export const SwipeMotion390: Story = {
+  name: '2A · 月 / 周左右滑动动效 · 390px',
+  args: { view: 'month' },
+  globals: { viewport: 'mobile390' },
+  parameters: {
+    docs: {
+      description: {
+        story: '在日历主体左右拖动超过 56px，观察内容跟手并以方向性位移动画切换。',
+      },
+    },
+  },
+};
+
 export const MobileListSticky: Story = {
   name: '3 · 手机列表 / 固定月份与今天',
   args: { view: 'list' },

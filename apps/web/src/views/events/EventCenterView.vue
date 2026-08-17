@@ -17,6 +17,8 @@ import { getCurrentBusinessMonth } from '../../features/calendar/calendar-logic.
 import EventFilters from '../../features/events/EventFilters.vue';
 import EventTimeline from '../../features/events/EventTimeline.vue';
 import {
+  buildEventDateGroups,
+  buildEventNarrative,
   buildEventTypeOptions,
   formatEventTime,
   getEventTypeLabel,
@@ -47,6 +49,8 @@ const visitorLogsError = ref<string>();
 const visitorLogsLoading = ref(false);
 const visitorLogsNextCursor = ref<string>();
 const filterVisible = ref(false);
+const collapsedDates = ref<string[]>([]);
+const expandedEventIds = ref<string[]>([]);
 
 const memberOptions = computed(() =>
   (calendar.value?.members ?? []).map((member) => ({
@@ -64,6 +68,12 @@ const operatorOptions = computed(() =>
   })),
 );
 const eventTypeOptions = computed(() => buildEventTypeOptions());
+const eventDateGroups = computed(() => buildEventDateGroups(events.value));
+const allDatesCollapsed = computed(
+  () =>
+    eventDateGroups.value.length > 0 &&
+    eventDateGroups.value.every((group) => collapsedDates.value.includes(group.businessDate)),
+);
 const memberNameById = computed(
   () =>
     new Map(
@@ -128,6 +138,8 @@ async function loadEvents(): Promise<void> {
   errorMessage.value = undefined;
   isLoading.value = true;
   events.value = [];
+  collapsedDates.value = [];
+  expandedEventIds.value = [];
   nextCursor.value = undefined;
   try {
     const page = await api.getGroupEvents(props.group.id, buildQuery());
@@ -214,9 +226,58 @@ function buildQuery(): {
 }
 
 function affectedMemberNames(event: ScheduleEvent): string {
-  return event.affectedMembershipIds
+  const names = event.affectedMembershipIds
     .map((membershipId) => memberNameById.value.get(membershipId) ?? '未知成员')
     .join('、');
+  return names === '' ? '未指定成员' : names;
+}
+
+function isDateCollapsed(businessDate: string): boolean {
+  return collapsedDates.value.includes(businessDate);
+}
+
+function toggleDateGroup(businessDate: string): void {
+  collapsedDates.value = isDateCollapsed(businessDate)
+    ? collapsedDates.value.filter((date) => date !== businessDate)
+    : [...collapsedDates.value, businessDate];
+}
+
+function toggleAllDates(): void {
+  collapsedDates.value = allDatesCollapsed.value
+    ? []
+    : eventDateGroups.value.map((group) => group.businessDate);
+}
+
+function isEventExpanded(eventId: string): boolean {
+  return expandedEventIds.value.includes(eventId);
+}
+
+function toggleEventDetails(eventId: string): void {
+  expandedEventIds.value = isEventExpanded(eventId)
+    ? expandedEventIds.value.filter((id) => id !== eventId)
+    : [...expandedEventIds.value, eventId];
+}
+
+function eventTimeLabel(event: ScheduleEvent): string {
+  return formatEventTime(event.occurredAt).slice(11);
+}
+
+function eventTone(event: ScheduleEvent): string {
+  if (event.eventType.includes('swap')) return 'swap';
+  if (event.eventType.includes('leave')) return 'leave';
+  if (event.eventType.includes('adjustment')) return 'adjustment';
+  if (event.eventType.includes('schedule')) return 'schedule';
+  return 'neutral';
+}
+
+function eventStatusLabel(status: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    cancelled: '已取消',
+    completed: '已完成',
+    pending: '处理中',
+    rejected: '已拒绝',
+  };
+  return labels[status] ?? status;
 }
 </script>
 
@@ -255,34 +316,89 @@ function affectedMemberNames(event: ScheduleEvent): string {
     <t-loading v-if="isLoading" text="正在加载事件" />
     <template v-else>
       <section v-if="events.length > 0" class="event-list-section">
-        <table class="event-table">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>类型</th>
-              <th>涉及成员</th>
-              <th>原因</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="event in events" :key="event.id" class="event-card">
-              <td class="event-time-cell" data-label="时间">
-                {{ formatEventTime(event.occurredAt) }}
-              </td>
-              <td data-label="类型">
-                <span class="event-type-badge">{{ getEventTypeLabel(event.eventType) }}</span>
-              </td>
-              <td data-label="涉及成员">{{ affectedMemberNames(event) }}</td>
-              <td data-label="原因">{{ event.reason ?? '—' }}</td>
-              <td class="event-actions" data-label="操作">
-                <t-button variant="outline" :loading="isLoadingDetail" @click="openDetail(event)">
-                  查看详情
-                </t-button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <header class="timeline-toolbar">
+          <div>
+            <strong>事件时间轴</strong>
+            <span>{{ events.length }} 条事件 · {{ eventDateGroups.length }} 个日期</span>
+          </div>
+          <button type="button" class="fold-all-button" @click="toggleAllDates">
+            {{ allDatesCollapsed ? '展开全部日期' : '折叠全部日期' }}
+          </button>
+        </header>
+        <div class="event-timeline-page">
+          <section
+            v-for="dateGroup in eventDateGroups"
+            :key="dateGroup.businessDate"
+            class="event-date-group"
+          >
+            <header class="date-group-heading">
+              <div>
+                <strong>{{ dateGroup.label }}</strong>
+                <span>{{ dateGroup.events.length }} 条</span>
+              </div>
+              <button
+                type="button"
+                class="date-fold-button"
+                :aria-expanded="!isDateCollapsed(dateGroup.businessDate)"
+                @click="toggleDateGroup(dateGroup.businessDate)"
+              >
+                {{ isDateCollapsed(dateGroup.businessDate) ? '展开' : '折叠' }}
+              </button>
+            </header>
+            <ol v-if="!isDateCollapsed(dateGroup.businessDate)" class="event-timeline-list">
+              <li v-for="event in dateGroup.events" :key="event.id" class="timeline-event">
+                <time>{{ eventTimeLabel(event) }}</time>
+                <span class="timeline-line" aria-hidden="true">
+                  <span class="timeline-node" :class="`is-${eventTone(event)}`" />
+                </span>
+                <article class="timeline-event-card">
+                  <header>
+                    <span class="event-type-badge" :class="`is-${eventTone(event)}`">
+                      {{ getEventTypeLabel(event.eventType) }}
+                    </span>
+                    <span class="event-status">{{ eventStatusLabel(event.eventStatus) }}</span>
+                  </header>
+                  <p class="event-narrative">
+                    {{ buildEventNarrative(event) ?? getEventTypeLabel(event.eventType) }}
+                  </p>
+                  <p class="event-members">涉及：{{ affectedMemberNames(event) }}</p>
+                  <div class="timeline-card-actions">
+                    <button
+                      type="button"
+                      class="inline-detail-button"
+                      :aria-expanded="isEventExpanded(event.id)"
+                      @click="toggleEventDetails(event.id)"
+                    >
+                      {{ isEventExpanded(event.id) ? '收起详情' : '展开详情' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="open-detail-button"
+                      :disabled="isLoadingDetail"
+                      @click="openDetail(event)"
+                    >
+                      {{ isLoadingDetail ? '加载中…' : '关联链' }}
+                    </button>
+                  </div>
+                  <dl v-if="isEventExpanded(event.id)" class="inline-event-details">
+                    <div>
+                      <dt>原因</dt>
+                      <dd>{{ event.reason ?? '未填写' }}</dd>
+                    </div>
+                    <div>
+                      <dt>对象</dt>
+                      <dd>{{ event.objectType }}</dd>
+                    </div>
+                    <div>
+                      <dt>操作编号</dt>
+                      <dd>{{ event.operationId }}</dd>
+                    </div>
+                  </dl>
+                </article>
+              </li>
+            </ol>
+          </section>
+        </div>
         <t-button
           v-if="nextCursor !== undefined"
           variant="outline"
@@ -440,6 +556,286 @@ function affectedMemberNames(event: ScheduleEvent): string {
   display: grid;
   min-width: 0;
   gap: var(--ui-spacing-sm);
+}
+
+.timeline-toolbar {
+  display: flex;
+  min-height: 56px;
+  padding: 8px 10px 8px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+  background: linear-gradient(110deg, var(--ui-color-primary-light), #f8fbff 74%);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-large);
+}
+
+.timeline-toolbar > div {
+  display: grid;
+  gap: 2px;
+}
+
+.timeline-toolbar strong {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+}
+
+.timeline-toolbar span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.fold-all-button,
+.date-fold-button,
+.inline-detail-button,
+.open-detail-button {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.fold-all-button,
+.date-fold-button,
+.inline-detail-button {
+  color: var(--ui-color-primary);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.fold-all-button:hover,
+.date-fold-button:hover,
+.inline-detail-button:hover {
+  background: var(--ui-color-primary-light);
+}
+
+.event-timeline-page {
+  display: grid;
+  gap: 12px;
+}
+
+.event-date-group {
+  overflow: hidden;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 18px;
+  box-shadow: var(--ui-shadow-card);
+}
+
+.date-group-heading {
+  display: flex;
+  min-height: 54px;
+  padding: 5px 8px 5px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fbfcfe;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.date-group-heading > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.date-group-heading strong {
+  color: var(--ui-color-text-primary);
+  font-size: 15px;
+}
+
+.date-group-heading span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.event-timeline-list {
+  margin: 0;
+  padding: 12px 14px 14px;
+  list-style: none;
+}
+
+.timeline-event {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 48px 24px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.timeline-event > time {
+  padding-top: 15px;
+  color: var(--ui-color-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-line {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.timeline-line::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: #d5dfeb;
+  content: '';
+  transform: translateX(-50%);
+}
+
+.timeline-event:first-child .timeline-line::before {
+  top: 20px;
+}
+
+.timeline-event:last-child .timeline-line::before {
+  bottom: calc(100% - 20px);
+}
+
+.timeline-node {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  margin-top: 16px;
+  background: var(--ui-color-primary);
+  border: 3px solid var(--ui-color-surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--ui-color-primary);
+}
+
+.timeline-node.is-leave {
+  background: #9a6a13;
+  box-shadow: 0 0 0 2px #9a6a13;
+}
+
+.timeline-node.is-adjustment {
+  background: #c33d56;
+  box-shadow: 0 0 0 2px #c33d56;
+}
+
+.timeline-node.is-schedule {
+  background: #287d70;
+  box-shadow: 0 0 0 2px #287d70;
+}
+
+.timeline-node.is-neutral {
+  background: #697788;
+  box-shadow: 0 0 0 2px #697788;
+}
+
+.timeline-event-card {
+  display: grid;
+  min-width: 0;
+  margin-bottom: 10px;
+  padding: 12px 13px;
+  gap: 7px;
+  background: #fbfdff;
+  border: 1px solid #d5e3f2;
+  border-radius: 14px;
+}
+
+.timeline-event-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.event-type-badge.is-leave {
+  color: #7a5310;
+  background: #fff5d9;
+}
+
+.event-type-badge.is-adjustment {
+  color: #a12f45;
+  background: #fff0f3;
+}
+
+.event-type-badge.is-schedule {
+  color: #1f6a5e;
+  background: #eaf8f5;
+}
+
+.event-type-badge.is-neutral {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+}
+
+.event-status {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.event-narrative,
+.event-members {
+  margin: 0;
+}
+
+.event-narrative {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1.55;
+}
+
+.event-members {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+
+.timeline-card-actions {
+  display: flex;
+  margin: 0 -4px -4px;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.open-detail-button {
+  color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-primary-border);
+}
+
+.open-detail-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.inline-event-details {
+  display: grid;
+  margin: 2px 0 0;
+  padding: 9px 10px;
+  gap: 6px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 10px;
+}
+
+.inline-event-details div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.inline-event-details dt,
+.inline-event-details dd {
+  margin: 0;
+  font-size: var(--ui-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.inline-event-details dt {
+  color: var(--ui-color-text-muted);
+}
+
+.inline-event-details dd {
+  color: var(--ui-color-text-secondary);
 }
 
 .event-table,
@@ -618,6 +1014,36 @@ function affectedMemberNames(event: ScheduleEvent): string {
   .event-actions :deep(.t-button),
   .event-list-section > :deep(.t-button),
   .visitor-logs-section > :deep(.t-button) {
+    width: 100%;
+  }
+
+  .timeline-toolbar {
+    align-items: flex-start;
+  }
+
+  .fold-all-button {
+    flex: none;
+  }
+
+  .event-timeline-list {
+    padding: 10px 8px 12px;
+  }
+
+  .timeline-event {
+    grid-template-columns: 42px 20px minmax(0, 1fr);
+  }
+
+  .timeline-event-card {
+    padding: 11px;
+  }
+
+  .timeline-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .inline-detail-button,
+  .open-detail-button {
     width: 100%;
   }
 }

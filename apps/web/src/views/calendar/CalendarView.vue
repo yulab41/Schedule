@@ -19,6 +19,7 @@ import {
 } from '../../api/conflict-handler.js';
 import { localAuth } from '../../auth/local-auth.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
+import CompactSwitch from '../../components/CompactSwitch.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import {
@@ -31,8 +32,11 @@ import {
 import {
   addWeeks,
   getBusinessDate,
+  getCalendarPanelMonths,
+  getCalendarPanelWeeks,
   getDefaultSelectedDate,
-  getSwipeMonthIntent,
+  getSwipeNavigationIntent,
+  getSwipeSettleDuration,
   getVisibleWeekForMonth,
   getWeekBusinessMonths,
   getWeekLabel,
@@ -77,11 +81,21 @@ const viewModeOptions: readonly { readonly label: string; readonly value: Calend
 const weekStart = ref('');
 const requestTracker = createLatestRequestTracker();
 const todayBusinessDate = getBusinessDate();
-const monthPointerStart = ref<{
+const calendarGroupId = ref<string>();
+const swipePointer = ref<{
+  axis?: 'horizontal' | 'vertical';
   readonly pointerId: number;
-  readonly x: number;
-  readonly y: number;
+  readonly startedAt: number;
+  readonly startX: number;
+  readonly startY: number;
 }>();
+const swipeOffsetPx = ref(0);
+const swipeTransitionMs = ref(0);
+const swipeAnimating = ref(false);
+const swipeViewportWidth = ref(0);
+const suppressSwipeClick = ref(false);
+const calendarSwipeViewport = ref<HTMLElement>();
+let swipeTimer: number | undefined;
 const listGridRef = ref<{
   scrollToDate: (businessDate: string, stickyOffset?: number) => boolean;
 }>();
@@ -119,6 +133,12 @@ const activeFilterCount = computed(
     Number(shiftTypeIds.value.length > 0) +
     Number(membershipIds.value.length > 0),
 );
+const monthPanels = computed(() => getCalendarPanelMonths(businessMonth.value));
+const weekPanels = computed(() => getCalendarPanelWeeks(weekStart.value));
+const swipeTrackStyle = computed(() => ({
+  transform: `translate3d(calc(-100% + ${swipeOffsetPx.value}px), 0, 0)`,
+  transitionDuration: `${swipeTransitionMs.value}ms`,
+}));
 const calendarRequestKey = computed(() =>
   viewMode.value === 'week' ? `week:${weekStart.value}` : `month:${businessMonth.value}`,
 );
@@ -132,6 +152,7 @@ watch(
 );
 
 watch(viewMode, () => {
+  resetSwipeTrack();
   if (viewMode.value === 'week' && weekStart.value === '') {
     weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   }
@@ -156,6 +177,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('focus', onWindowFocus);
+  clearSwipeTimer();
 });
 
 function onWindowFocus(): void {
@@ -166,30 +188,34 @@ async function loadCalendar(): Promise<void> {
   const request = requestTracker.begin();
   errorMessage.value = undefined;
   isLoading.value = true;
-  calendar.value = undefined;
-  const requestedMonths =
-    viewMode.value === 'week' && weekStart.value !== ''
-      ? getWeekBusinessMonths(weekStart.value)
-      : [businessMonth.value];
+  if (calendarGroupId.value !== props.group.id) {
+    calendar.value = undefined;
+  }
+  const requestedMonths = getRequestedCalendarMonths();
 
   try {
     const monthCalendars = await Promise.all(
       requestedMonths.map((month) => api.getCalendar(props.group.id, month)),
     );
-    const firstCalendar = monthCalendars[0];
-    if (firstCalendar === undefined) {
+    const activeMonth =
+      viewMode.value === 'week' ? weekStart.value.slice(0, 7) : businessMonth.value;
+    const activeCalendar =
+      monthCalendars.find((monthCalendar) => monthCalendar.businessMonth === activeMonth) ??
+      monthCalendars[0];
+    if (activeCalendar === undefined) {
       throw new Error('Calendar month data is unavailable.');
     }
     const nextCalendar: CalendarReadModel = {
-      ...firstCalendar,
+      ...activeCalendar,
       assignments: monthCalendars.flatMap((monthCalendar) => monthCalendar.assignments),
     };
     if (requestTracker.isCurrent(request)) {
       calendar.value = nextCalendar;
+      calendarGroupId.value = props.group.id;
       if (viewMode.value !== 'week' || selectedDate.value === undefined) {
         selectedDate.value = getDefaultSelectedDate({
           assignments: nextCalendar.assignments,
-          businessMonth: nextCalendar.businessMonth,
+          businessMonth: businessMonth.value,
           today: todayBusinessDate,
         });
       }
@@ -215,6 +241,16 @@ async function loadCalendar(): Promise<void> {
   if (requestTracker.isCurrent(request)) {
     await locateTodayInListWhenReady();
   }
+}
+
+function getRequestedCalendarMonths(): readonly string[] {
+  if (viewMode.value === 'month') {
+    return monthPanels.value;
+  }
+  if (viewMode.value === 'week' && weekStart.value !== '') {
+    return [...new Set(weekPanels.value.flatMap((panelWeek) => getWeekBusinessMonths(panelWeek)))];
+  }
+  return [businessMonth.value];
 }
 
 async function loadHolidays(request: number, requestedMonths: readonly string[]): Promise<void> {
@@ -252,41 +288,163 @@ function refreshAfterConflict(): void {
 }
 
 function goToPreviousMonth(): void {
-  pendingListTodayLocation.value = false;
-  listLocationMessage.value = undefined;
-  businessMonth.value = addBusinessMonths(businessMonth.value, -1);
+  if (viewMode.value === 'month') {
+    startSwipeNavigation(-1);
+    return;
+  }
+  shiftMonth(-1);
 }
 
 function goToNextMonth(): void {
-  pendingListTodayLocation.value = false;
-  listLocationMessage.value = undefined;
-  businessMonth.value = addBusinessMonths(businessMonth.value, 1);
+  if (viewMode.value === 'month') {
+    startSwipeNavigation(1);
+    return;
+  }
+  shiftMonth(1);
 }
 
-function onMonthPointerDown(event: PointerEvent): void {
-  if (!event.isPrimary || event.button !== 0) return;
-  monthPointerStart.value = {
+function shiftMonth(direction: -1 | 1): void {
+  pendingListTodayLocation.value = false;
+  listLocationMessage.value = undefined;
+  businessMonth.value = addBusinessMonths(businessMonth.value, direction);
+}
+
+function onCalendarPointerDown(event: PointerEvent): void {
+  if (!event.isPrimary || event.button !== 0 || swipeAnimating.value) return;
+  const viewport = event.currentTarget as HTMLElement;
+  swipeViewportWidth.value = viewport.getBoundingClientRect().width;
+  suppressSwipeClick.value = false;
+  swipeTransitionMs.value = 0;
+  swipePointer.value = {
     pointerId: event.pointerId,
-    x: event.clientX,
-    y: event.clientY,
+    startedAt: event.timeStamp,
+    startX: event.clientX,
+    startY: event.clientY,
   };
 }
 
-function onMonthPointerUp(event: PointerEvent): void {
-  const start = monthPointerStart.value;
-  monthPointerStart.value = undefined;
+function onCalendarPointerMove(event: PointerEvent): void {
+  const start = swipePointer.value;
   if (start === undefined || start.pointerId !== event.pointerId) return;
 
-  const intent = getSwipeMonthIntent({
-    deltaX: event.clientX - start.x,
-    deltaY: event.clientY - start.y,
-  });
-  if (intent === -1) goToPreviousMonth();
-  if (intent === 1) goToNextMonth();
+  const deltaX = event.clientX - start.startX;
+  const deltaY = event.clientY - start.startY;
+  if (start.axis === undefined && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 6) {
+    start.axis = Math.abs(deltaX) > Math.abs(deltaY) * 1.1 ? 'horizontal' : 'vertical';
+  }
+  if (start.axis !== 'horizontal') return;
+
+  const viewport = event.currentTarget as HTMLElement;
+  if (!viewport.hasPointerCapture(event.pointerId)) {
+    viewport.setPointerCapture(event.pointerId);
+  }
+  event.preventDefault();
+  const width = Math.max(1, swipeViewportWidth.value);
+  swipeOffsetPx.value = Math.max(-width, Math.min(width, deltaX));
+  if (Math.abs(deltaX) > 8) suppressSwipeClick.value = true;
 }
 
-function cancelMonthPointer(): void {
-  monthPointerStart.value = undefined;
+function onCalendarPointerUp(event: PointerEvent): void {
+  const start = swipePointer.value;
+  if (start === undefined || start.pointerId !== event.pointerId) return;
+
+  const viewport = event.currentTarget as HTMLElement;
+  if (viewport.hasPointerCapture(event.pointerId)) {
+    viewport.releasePointerCapture(event.pointerId);
+  }
+  const deltaX = event.clientX - start.startX;
+  const deltaY = event.clientY - start.startY;
+  const elapsedMs = Math.max(16, event.timeStamp - start.startedAt);
+  swipePointer.value = undefined;
+  if (start.axis !== 'horizontal') {
+    swipeOffsetPx.value = 0;
+    return;
+  }
+
+  const direction = getSwipeNavigationIntent({
+    deltaX,
+    deltaY,
+    elapsedMs,
+    viewportWidth: Math.max(1, swipeViewportWidth.value),
+  });
+  settleSwipe(direction, deltaX, elapsedMs);
+}
+
+function cancelCalendarPointer(): void {
+  const start = swipePointer.value;
+  if (start === undefined) return;
+  swipePointer.value = undefined;
+  if (start.axis === 'horizontal') {
+    settleSwipe(0, swipeOffsetPx.value, Math.max(16, performance.now() - start.startedAt));
+  } else {
+    swipeOffsetPx.value = 0;
+  }
+}
+
+function onSwipeClickCapture(event: MouseEvent): void {
+  if (!suppressSwipeClick.value) return;
+  event.preventDefault();
+  event.stopPropagation();
+  suppressSwipeClick.value = false;
+}
+
+function startSwipeNavigation(direction: -1 | 1): void {
+  if (swipeAnimating.value) return;
+  swipeViewportWidth.value =
+    calendarSwipeViewport.value?.getBoundingClientRect().width ?? swipeViewportWidth.value;
+  settleSwipe(direction, 0, 240);
+}
+
+function settleSwipe(direction: -1 | 0 | 1, deltaX: number, elapsedMs: number): void {
+  const width = Math.max(1, swipeViewportWidth.value);
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const duration = getSwipeSettleDuration({
+    deltaX,
+    direction,
+    elapsedMs,
+    reducedMotion,
+    viewportWidth: width,
+  });
+  swipeAnimating.value = true;
+  swipeTransitionMs.value = duration;
+  swipeOffsetPx.value = direction === 0 ? 0 : -direction * width;
+  clearSwipeTimer();
+  if (duration === 0) {
+    finishSwipe(direction);
+    return;
+  }
+  swipeTimer = window.setTimeout(() => finishSwipe(direction), duration + 34);
+}
+
+function finishSwipe(direction: -1 | 0 | 1): void {
+  clearSwipeTimer();
+  swipeTransitionMs.value = 0;
+  swipeOffsetPx.value = 0;
+  swipeAnimating.value = false;
+  suppressSwipeClick.value = false;
+  if (direction === 0) return;
+
+  if (viewMode.value === 'month') {
+    shiftMonth(direction);
+  } else if (viewMode.value === 'week') {
+    shiftWeek(direction);
+  }
+}
+
+function resetSwipeTrack(): void {
+  clearSwipeTimer();
+  swipePointer.value = undefined;
+  swipeTransitionMs.value = 0;
+  swipeOffsetPx.value = 0;
+  swipeAnimating.value = false;
+  suppressSwipeClick.value = false;
+}
+
+function clearSwipeTimer(): void {
+  if (swipeTimer !== undefined) {
+    window.clearTimeout(swipeTimer);
+    swipeTimer = undefined;
+  }
 }
 
 function clearFilters(): void {
@@ -329,12 +487,15 @@ function getWeekStartOfToday(): string {
 }
 
 function goToPreviousWeek(): void {
-  weekStart.value = addWeeks(weekStart.value, -1);
-  selectedDate.value = weekStart.value;
+  startSwipeNavigation(-1);
 }
 
 function goToNextWeek(): void {
-  weekStart.value = addWeeks(weekStart.value, 1);
+  startSwipeNavigation(1);
+}
+
+function shiftWeek(direction: -1 | 1): void {
+  weekStart.value = addWeeks(weekStart.value, direction);
   selectedDate.value = weekStart.value;
 }
 
@@ -392,10 +553,10 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         </button>
       </div>
       <div class="calendar-filters">
-        <label class="changes-filter">
-          <input v-model="onlyChanges" type="checkbox" />
-          只看变动
-        </label>
+        <div class="changes-filter">
+          <span>只看变动</span>
+          <CompactSwitch v-model="onlyChanges" label="只看变动" />
+        </div>
         <label v-if="roleOptions.length > 0" class="filter-field">
           排班岗位
           <t-select v-model="roleIds" multiple :options="roleOptions" clearable />
@@ -416,10 +577,10 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
       title="筛选排班"
     >
       <div class="mobile-calendar-filters">
-        <label class="changes-filter">
-          <input v-model="onlyChanges" type="checkbox" />
-          只看有变更的班次
-        </label>
+        <div class="changes-filter">
+          <span>只看有变更的班次</span>
+          <CompactSwitch v-model="onlyChanges" label="只看有变更的班次" />
+        </div>
         <label v-if="roleOptions.length > 0" class="filter-field">
           排班岗位
           <t-select
@@ -456,7 +617,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         </div>
       </div>
     </ResponsiveSheet>
-    <t-loading v-if="isLoading" text="正在加载排班日历" />
+    <t-loading v-if="isLoading && calendar === undefined" text="正在加载排班日历" />
     <template v-else-if="calendar !== undefined">
       <section v-if="viewMode === 'week'" class="week-calendar-card">
         <header class="week-navigation">
@@ -478,24 +639,45 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             <span>下一周</span>
           </t-button>
         </header>
-        <WeekGrid
-          :assignments="visibleAssignments"
-          :holidays="holidays"
-          :members="calendar.members"
-          :selected-date="selectedDate"
-          :today="todayBusinessDate"
-          :week-start="weekStart"
-          @select-date="selectedDate = $event"
-        />
+        <div class="calendar-weekday-row" aria-hidden="true">
+          <span v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']" :key="weekday">
+            {{ weekday }}
+          </span>
+        </div>
+        <div
+          ref="calendarSwipeViewport"
+          class="calendar-swipe-viewport"
+          aria-label="周历，可左右滑动切换周"
+          @click.capture="onSwipeClickCapture"
+          @lostpointercapture="cancelCalendarPointer"
+          @pointercancel="cancelCalendarPointer"
+          @pointerdown="onCalendarPointerDown"
+          @pointermove="onCalendarPointerMove"
+          @pointerup="onCalendarPointerUp"
+        >
+          <div class="calendar-swipe-track" :style="swipeTrackStyle">
+            <div
+              v-for="(panelWeek, panelIndex) in weekPanels"
+              :key="panelWeek"
+              class="calendar-swipe-panel"
+              :aria-hidden="panelIndex !== 1"
+              :inert="panelIndex !== 1"
+            >
+              <WeekGrid
+                :assignments="visibleAssignments"
+                :holidays="holidays"
+                :members="calendar.members"
+                :selected-date="panelIndex === 1 ? selectedDate : undefined"
+                :show-weekday-header="false"
+                :today="todayBusinessDate"
+                :week-start="panelWeek"
+                @select-date="selectedDate = $event"
+              />
+            </div>
+          </div>
+        </div>
       </section>
-      <div
-        v-else-if="viewMode === 'month'"
-        class="month-swipe-surface"
-        aria-label="月历，可左右滑动切换月份"
-        @pointercancel="cancelMonthPointer"
-        @pointerdown="onMonthPointerDown"
-        @pointerup="onMonthPointerUp"
-      >
+      <div v-else-if="viewMode === 'month'" class="month-swipe-surface">
         <section class="month-calendar-card">
           <header class="month-navigation">
             <t-button
@@ -530,15 +712,43 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               <input v-model="businessMonth" type="month" />
             </label>
           </header>
-          <MonthGrid
-            :assignments="visibleAssignments"
-            :business-month="calendar.businessMonth"
-            :holidays="holidays"
-            :members="calendar.members"
-            :selected-date="selectedDate"
-            :today="todayBusinessDate"
-            @select-date="selectedDate = $event"
-          />
+          <div class="calendar-weekday-row" aria-hidden="true">
+            <span v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']" :key="weekday">
+              {{ weekday }}
+            </span>
+          </div>
+          <div
+            ref="calendarSwipeViewport"
+            class="calendar-swipe-viewport"
+            aria-label="月历，可左右滑动切换月份"
+            @click.capture="onSwipeClickCapture"
+            @lostpointercapture="cancelCalendarPointer"
+            @pointercancel="cancelCalendarPointer"
+            @pointerdown="onCalendarPointerDown"
+            @pointermove="onCalendarPointerMove"
+            @pointerup="onCalendarPointerUp"
+          >
+            <div class="calendar-swipe-track" :style="swipeTrackStyle">
+              <div
+                v-for="(panelMonth, panelIndex) in monthPanels"
+                :key="panelMonth"
+                class="calendar-swipe-panel"
+                :aria-hidden="panelIndex !== 1"
+                :inert="panelIndex !== 1"
+              >
+                <MonthGrid
+                  :assignments="visibleAssignments"
+                  :business-month="panelMonth"
+                  :holidays="holidays"
+                  :members="calendar.members"
+                  :selected-date="panelIndex === 1 ? selectedDate : undefined"
+                  :show-weekday-header="false"
+                  :today="todayBusinessDate"
+                  @select-date="selectedDate = $event"
+                />
+              </div>
+            </div>
+          </div>
         </section>
       </div>
       <section v-else-if="viewMode === 'list'" class="list-view" aria-label="列表视图">
@@ -828,6 +1038,47 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   border-radius: 0;
 }
 
+.calendar-weekday-row {
+  display: grid;
+  min-height: 32px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: center;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.calendar-weekday-row span {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 600;
+  text-align: center;
+}
+
+.calendar-weekday-row span:nth-last-child(-n + 2) {
+  color: var(--ui-color-weekend);
+}
+
+.calendar-swipe-viewport {
+  min-width: 0;
+  overflow: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-y;
+}
+
+.calendar-swipe-track {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(3, 100%);
+  align-items: stretch;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.calendar-swipe-panel {
+  min-width: 0;
+}
+
 .month-navigation strong,
 .week-navigation strong {
   min-width: 96px;
@@ -1022,7 +1273,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
 .month-swipe-surface {
   min-width: 0;
-  touch-action: pan-y;
 }
 
 @media (max-width: 640px) {
@@ -1105,6 +1355,20 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
   .month-picker {
     display: none;
+  }
+
+  .calendar-weekday-row {
+    min-height: 28px;
+  }
+
+  .calendar-weekday-row span {
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-swipe-track {
+    transition: none;
   }
 }
 

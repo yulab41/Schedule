@@ -902,7 +902,9 @@ async function assertShiftWorkflowsMobile(page) {
 }
 
 async function assertWeekendCalendarHighlight(page) {
-  const weekdayHeader = page.locator('.weekday-row span.is-weekend').first();
+  const weekdayHeader = page
+    .locator('.calendar-weekday-row span:nth-last-child(-n + 2), .weekday-row span.is-weekend')
+    .first();
   await weekdayHeader.waitFor({ state: 'visible', timeout: 15000 });
   const headerColor = await weekdayHeader.evaluate((element) => getComputedStyle(element).color);
   if (headerColor !== 'rgb(224, 49, 49)') {
@@ -928,6 +930,8 @@ async function assertMonthCalendarInteractions(page) {
   await page.setViewportSize({ height: 844, width: 390 });
   const swipeSurface = page.locator('.month-swipe-surface');
   await swipeSurface.waitFor({ state: 'visible', timeout: 15000 });
+  const swipeViewport = swipeSurface.locator('.calendar-swipe-viewport');
+  const activeMonthPanel = swipeViewport.locator('.calendar-swipe-panel[aria-hidden="false"]');
 
   const filterTrigger = page.locator('.mobile-filter-trigger');
   await filterTrigger.click();
@@ -950,8 +954,9 @@ async function assertMonthCalendarInteractions(page) {
   }
   await assertSelectPopupInsideSheet(filterSheet, '手机月历筛选');
   await filterSheet.locator('button[aria-label="关闭"]').click();
+  await filterSheet.waitFor({ state: 'hidden', timeout: 5000 });
 
-  const selectedButtons = page.locator('.day-select-button[aria-pressed="true"]');
+  const selectedButtons = activeMonthPanel.locator('.day-select-button[aria-pressed="true"]');
   if ((await selectedButtons.count()) !== 1) {
     fail('手机月历应始终只有一个选中日期。');
   }
@@ -964,14 +969,32 @@ async function assertMonthCalendarInteractions(page) {
     );
   }
 
-  const anotherDate = page
+  const anotherDate = activeMonthPanel
     .locator('.day-select-button[aria-pressed="false"]:not(:disabled)')
     .first();
   const anotherLabel = await anotherDate.getAttribute('aria-label');
-  await anotherDate.click({ force: true });
+  const anotherBusinessDate = anotherLabel?.slice(0, 10);
+  if (anotherBusinessDate === undefined) fail('无法读取待点触月格的业务日期。');
+  await activeMonthPanel
+    .locator(`.day-cell[data-date="${anotherBusinessDate}"]`)
+    .locator('.day-header')
+    .click();
+  await page.waitForFunction(
+    (businessDate) =>
+      document
+        .querySelector(
+          '.calendar-swipe-panel[aria-hidden="false"] .day-select-button[aria-pressed="true"]',
+        )
+        ?.getAttribute('aria-label')
+        ?.startsWith(businessDate) === true,
+    anotherBusinessDate,
+    { timeout: 5000 },
+  );
   const changedSelectedLabel = await selectedButtons.first().getAttribute('aria-label');
   if (changedSelectedLabel !== anotherLabel) {
-    fail('点触月格后选中日期未更新。');
+    fail(
+      `点触月格后选中日期未更新（目标：${anotherLabel ?? '无'}；实际：${changedSelectedLabel ?? '无'}）。`,
+    );
   }
 
   const dutyDetails = page.locator('.selected-date-details');
@@ -1023,8 +1046,8 @@ async function assertMonthCalendarInteractions(page) {
 
   const monthLabel = page.locator('.month-navigation strong').first();
   const initialMonth = (await monthLabel.innerText()).trim();
-  await swipeSurface.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-  const bounds = await swipeSurface.boundingBox();
+  await swipeViewport.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const bounds = await swipeViewport.boundingBox();
   if (bounds === null) fail('无法取得月历横滑区域。');
 
   const startX = bounds.x + bounds.width * 0.78;
@@ -1041,8 +1064,8 @@ async function assertMonthCalendarInteractions(page) {
   const nextMonth = (await monthLabel.innerText()).trim();
   if (nextMonth === initialMonth) fail('清晰左滑后月份未切换。');
 
-  await swipeSurface.evaluate((element) => element.scrollIntoView({ block: 'center' }));
-  const nextBounds = await swipeSurface.boundingBox();
+  await swipeViewport.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const nextBounds = await swipeViewport.boundingBox();
   if (nextBounds === null) fail('切换月份后无法取得月历横滑区域。');
   const verticalStartX = nextBounds.x + nextBounds.width * 0.7;
   const verticalStartY = nextBounds.y + Math.min(120, nextBounds.height * 0.3);
@@ -1236,6 +1259,8 @@ async function assertGroupManagementConfigAndEventNav(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '排班配置' }).first().click();
   await waitForBodyText(page, '排班准备轨道', 15000, '排班准备轨道');
+  await waitForBodyText(page, '＋ 新增班种', 15000, '班种设置');
+  await page.locator('.add-shift-button').click();
   await waitForBodyText(page, '新增自定义班种', 15000, '新增自定义班种');
 
   for (const width of [1280, 390, 320]) {
@@ -1246,7 +1271,7 @@ async function assertGroupManagementConfigAndEventNav(page) {
       const shiftEditor = document.querySelector('.new-shift-editor');
       const controls = [
         ...document.querySelectorAll(
-          '.shift-editor input:not([type="checkbox"]), .shift-editor .field-crosses-midnight, .shift-editor .field-enabled, .shift-editor .field-counts, .shift-editor button, .new-role-form input, .new-role-form button, .schedule-role-editor fieldset label, .schedule-role-editor button',
+          '.compact-shift-editor button, .compact-shift-editor [role="switch"], .shift-type-row .edit-row-button, .shift-type-row [role="switch"], .new-role-form button, .schedule-role-editor fieldset label, .schedule-role-editor button',
         ),
       ].filter((element) => {
         const rect = element.getBoundingClientRect();
@@ -1259,6 +1284,12 @@ async function assertGroupManagementConfigAndEventNav(page) {
           shiftEditor === null
             ? 0
             : getComputedStyle(shiftEditor).gridTemplateColumns.split(' ').length,
+        compactFields: [...document.querySelectorAll('.new-shift-editor input:not([type="color"])')]
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          })
+          .map((element) => element.getBoundingClientRect().height),
         smallControls: controls
           .filter((element) => {
             const rect = element.getBoundingClientRect();
@@ -1269,11 +1300,17 @@ async function assertGroupManagementConfigAndEventNav(page) {
           ),
       };
     });
-    const expectedColumns = width === 1280 ? 6 : width === 390 ? 2 : 1;
+    const expectedColumns = width === 1280 ? 3 : 1;
     if (metrics.overflow) fail(`${width}px 排班配置页面出现横向溢出。`);
     if (metrics.readinessSteps !== 3) fail(`${width}px 排班准备轨道不是三步结构。`);
     if (metrics.shiftColumns !== expectedColumns) {
       fail(`${width}px 班种编辑器列数异常：${metrics.shiftColumns}，预期 ${expectedColumns}。`);
+    }
+    if (
+      metrics.compactFields.length === 0 ||
+      metrics.compactFields.some((height) => height < 40 || height > 44)
+    ) {
+      fail(`${width}px 班种输入框未保持 40–44px 紧凑高度。`);
     }
     if (metrics.smallControls.length > 0) {
       fail(`${width}px 排班配置存在小于 44px 的控件：${metrics.smallControls.join('、')}`);
@@ -1383,7 +1420,7 @@ async function assertGuestStateResponsive(page, mode) {
       fail(`${width}px 访客${mode === 'calendar' ? '月历' : '状态'}页出现横向溢出。`);
     if (!metrics.gridFits) fail(`${width}px 访客月历没有保持页面内完整七列。`);
     if (mode === 'calendar' && metrics.weekdayCount !== 7) {
-      fail(`${width}px 访客月历没有保持七列星期标题。`);
+      fail(`${width}px 访客月历没有保持七列星期标题（实际 ${metrics.weekdayCount} 列）。`);
     }
     if (metrics.smallControls.length > 0) {
       fail(`${width}px 访客页存在小于 44px 的控件：${metrics.smallControls.join('、')}`);

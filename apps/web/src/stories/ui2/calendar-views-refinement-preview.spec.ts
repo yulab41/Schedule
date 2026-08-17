@@ -60,9 +60,41 @@ describe('calendar views refinement Storybook preview', () => {
     expect(preview).toContain('@click="shiftWeek(1)"');
     expect(preview).toContain('const weekOffset = ref(0)');
     expect(preview).toContain('getWeekOfMonthLabel(previewWeekStart.value)');
-    expect(preview).toContain('getWeekDays(previewWeekStart.value)');
+    expect(preview).toContain('getWeekDays(weekStart)');
+    expect(preview).toContain('createWeekDays(weekOffset.value)');
     expect(preview).toContain('weekOffset.value += delta');
     expect(preview).not.toContain('Math.max(-1, Math.min(1, weekOffset.value + delta))');
+  });
+
+  it('slides a real three-panel month and week track while keeping the frame fixed', () => {
+    const preview = readSource('./CalendarViewsRefinementPreview.vue');
+
+    expect(preview).toContain('const monthPanels = computed');
+    expect(preview).toContain('const weekPanels = computed');
+    expect(preview).toContain('function onSwipePointerDown');
+    expect(preview).toContain('function onSwipePointerUp');
+    expect(preview).toContain('class="calendar-motion-viewport"');
+    expect(preview).toContain('class="calendar-slider-track"');
+    expect(preview).toContain('v-for="panel in monthPanels"');
+    expect(preview).toContain('v-for="panel in weekPanels"');
+    expect(preview).toContain(':aria-hidden="panel.relative !== 0"');
+    expect(preview).toContain(':inert="panel.relative !== 0"');
+    expect(preview).toContain('function finishTrackSlide');
+    expect(preview).toContain('const calendarTrackTransform = computed');
+    expect(preview).toContain('const swipeTransitionMs = ref(0)');
+    expect(preview).toContain('startedAt: event.timeStamp');
+    expect(preview).toContain('getSwipeNavigationIntent({');
+    expect(preview).toContain('getSwipeSettleDuration({');
+    expect(preview).toContain('cubic-bezier(0.22, 1, 0.36, 1)');
+    expect(preview).not.toContain('<Transition :name="slideTransitionName"');
+    expect(preview).toMatch(
+      /\.calendar-slider-track\s*{[^}]*grid-template-columns:\s*repeat\(3,\s*100%\)/s,
+    );
+    expect(preview).toMatch(/\.calendar-slider-track\.is-animating\s*{[^}]*transition:/s);
+    expect(preview).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(preview).toMatch(
+      /\.summary-call-action\s*{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*background:\s*transparent;/s,
+    );
   });
 
   it('keeps location controls clean after activation', () => {

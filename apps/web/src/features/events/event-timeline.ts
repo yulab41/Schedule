@@ -19,6 +19,12 @@ export interface EventTimelineItem {
   readonly marker?: CalendarChangeMarker;
 }
 
+export interface EventDateGroup {
+  readonly businessDate: string;
+  readonly events: readonly ScheduleEvent[];
+  readonly label: string;
+}
+
 export interface EventNarrativeContext {
   readonly initiatedAt?: string;
 }
@@ -119,6 +125,33 @@ function getEventMarker(eventType: string): CalendarChangeMarker | undefined {
 
 export function formatEventTime(occurredAt: string): string {
   return formatChinaDateTime(occurredAt);
+}
+
+export function buildEventDateGroups(events: readonly ScheduleEvent[]): readonly EventDateGroup[] {
+  const groups = new Map<string, ScheduleEvent[]>();
+  const sorted = [...events].sort(
+    (first, second) =>
+      second.occurredAt.localeCompare(first.occurredAt) || second.id.localeCompare(first.id),
+  );
+
+  for (const event of sorted) {
+    const businessDate = formatEventTime(event.occurredAt).slice(0, 10);
+    const group = groups.get(businessDate) ?? [];
+    group.push(event);
+    groups.set(businessDate, group);
+  }
+
+  return [...groups.entries()].map(([businessDate, groupEvents]) => ({
+    businessDate,
+    events: groupEvents,
+    label: formatEventDateLabel(businessDate),
+  }));
+}
+
+function formatEventDateLabel(businessDate: string): string {
+  const [year = '0', month = '0', day = '0'] = businessDate.split('-');
+  const weekday = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))).getUTCDay();
+  return `${Number(month)}月${Number(day)}日 周${['日', '一', '二', '三', '四', '五', '六'][weekday]}`;
 }
 
 export function extractEventChanges(event: ScheduleEvent): readonly EventChangeItem[] {

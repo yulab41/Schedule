@@ -3,9 +3,13 @@ import { describe, expect, it } from 'vitest';
 
 import { isCalendarGridCellSelected } from './calendar-logic.js';
 import {
+  getCalendarPanelMonths,
+  getCalendarPanelWeeks,
   getListDateScrollTop,
   getDefaultSelectedDate,
   getMultiDayHolidayDates,
+  getSwipeNavigationIntent,
+  getSwipeSettleDuration,
   getSwipeMonthIntent,
 } from './calendar-views.js';
 
@@ -52,6 +56,68 @@ describe('calendar mobile interactions', () => {
     expect(getSwipeMonthIntent({ deltaX: 72, deltaY: 12 })).toBe(-1);
     expect(getSwipeMonthIntent({ deltaX: -55, deltaY: 0 })).toBe(0);
     expect(getSwipeMonthIntent({ deltaX: -72, deltaY: 64 })).toBe(0);
+  });
+
+  it('keeps the previous, current, and next calendar periods mounted for a real swipe track', () => {
+    expect(getCalendarPanelMonths('2026-08')).toEqual(['2026-07', '2026-08', '2026-09']);
+    expect(getCalendarPanelWeeks('2026-08-10')).toEqual(['2026-08-03', '2026-08-10', '2026-08-17']);
+  });
+
+  it('uses drag distance and release velocity to decide a page turn', () => {
+    expect(
+      getSwipeNavigationIntent({
+        deltaX: -92,
+        deltaY: 8,
+        elapsedMs: 420,
+        viewportWidth: 390,
+      }),
+    ).toBe(1);
+    expect(
+      getSwipeNavigationIntent({
+        deltaX: 28,
+        deltaY: 4,
+        elapsedMs: 40,
+        viewportWidth: 390,
+      }),
+    ).toBe(-1);
+    expect(
+      getSwipeNavigationIntent({
+        deltaX: -28,
+        deltaY: 36,
+        elapsedMs: 40,
+        viewportWidth: 390,
+      }),
+    ).toBe(0);
+  });
+
+  it('settles quickly after a flick and softly returns after a short drag', () => {
+    expect(
+      getSwipeSettleDuration({
+        deltaX: -40,
+        direction: 1,
+        elapsedMs: 40,
+        reducedMotion: false,
+        viewportWidth: 390,
+      }),
+    ).toBeLessThan(300);
+    expect(
+      getSwipeSettleDuration({
+        deltaX: -40,
+        direction: 0,
+        elapsedMs: 240,
+        reducedMotion: false,
+        viewportWidth: 390,
+      }),
+    ).toBeGreaterThanOrEqual(280);
+    expect(
+      getSwipeSettleDuration({
+        deltaX: -40,
+        direction: 0,
+        elapsedMs: 240,
+        reducedMotion: true,
+        viewportWidth: 390,
+      }),
+    ).toBe(0);
   });
 
   it('tints every day in a consecutive multi-day off-day holiday, but not single days', () => {

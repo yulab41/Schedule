@@ -5,7 +5,7 @@ import {
 } from '@schedule/scheduling-domain';
 import { breakpointTokens } from '@schedule/ui-tokens';
 
-import type { CalendarGridWeek } from './calendar-logic.js';
+import { addBusinessMonths, type CalendarGridWeek } from './calendar-logic.js';
 
 export type CalendarViewMode = 'list' | 'month' | 'week';
 
@@ -20,6 +20,19 @@ export interface DefaultSelectedDateInput {
 export interface SwipeDelta {
   readonly deltaX: number;
   readonly deltaY: number;
+}
+
+export interface SwipeRelease extends SwipeDelta {
+  readonly elapsedMs: number;
+  readonly viewportWidth: number;
+}
+
+export interface SwipeSettleInput {
+  readonly deltaX: number;
+  readonly direction: SwipeMonthIntent;
+  readonly elapsedMs: number;
+  readonly reducedMotion: boolean;
+  readonly viewportWidth: number;
 }
 
 export type SwipeMonthIntent = -1 | 0 | 1;
@@ -137,6 +150,60 @@ export function getSwipeMonthIntent({ deltaX, deltaY }: SwipeDelta): SwipeMonthI
   }
 
   return deltaX < 0 ? 1 : -1;
+}
+
+export function getCalendarPanelMonths(businessMonth: string): readonly string[] {
+  return [addBusinessMonths(businessMonth, -1), businessMonth, addBusinessMonths(businessMonth, 1)];
+}
+
+export function getCalendarPanelWeeks(weekStart: string): readonly string[] {
+  const currentWeek = getWeekStartDate(weekStart);
+  return [addWeeks(currentWeek, -1), currentWeek, addWeeks(currentWeek, 1)];
+}
+
+export function getSwipeNavigationIntent({
+  deltaX,
+  deltaY,
+  elapsedMs,
+  viewportWidth,
+}: SwipeRelease): SwipeMonthIntent {
+  const horizontalDistance = Math.abs(deltaX);
+  const verticalDistance = Math.abs(deltaY);
+  if (horizontalDistance < 18 || horizontalDistance < verticalDistance * 1.15) {
+    return 0;
+  }
+
+  const distanceThreshold = Math.min(88, Math.max(56, viewportWidth * 0.2));
+  const velocity = horizontalDistance / Math.max(elapsedMs, 16);
+  const isFlick = horizontalDistance >= 20 && velocity >= 0.55;
+  if (horizontalDistance < distanceThreshold && !isFlick) {
+    return 0;
+  }
+
+  return deltaX < 0 ? 1 : -1;
+}
+
+export function getSwipeSettleDuration({
+  deltaX,
+  direction,
+  elapsedMs,
+  reducedMotion,
+  viewportWidth,
+}: SwipeSettleInput): number {
+  if (reducedMotion) {
+    return 0;
+  }
+
+  const distance = Math.min(Math.abs(deltaX), viewportWidth);
+  const velocity = distance / Math.max(elapsedMs, 16);
+  if (direction === 0) {
+    return Math.round(Math.min(380, Math.max(280, 300 + distance * 0.25 - velocity * 60)));
+  }
+
+  const remainingDistance = Math.max(0, viewportWidth - distance);
+  return Math.round(
+    Math.min(380, Math.max(180, remainingDistance / Math.max(1.2, velocity * 1.5))),
+  );
 }
 
 export function getWeekStartDate(businessDate: string): string {

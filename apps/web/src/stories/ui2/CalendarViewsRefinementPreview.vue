@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 
 import {
   addWeeks,
   getWeekDays,
   getWeekLabel,
   getWeekOfMonthLabel,
+  getSwipeNavigationIntent,
+  getSwipeSettleDuration,
 } from '../../features/calendar/calendar-views.js';
 import Ui2Icon from './Ui2Icon.vue';
 
@@ -43,6 +45,32 @@ interface PreviewListDay {
   readonly assignments: readonly PreviewAssignment[];
 }
 
+type AdjacentOffset = -1 | 0 | 1;
+
+interface PreviewMonthCell {
+  readonly businessDate: string;
+  readonly day: string;
+  readonly holiday: string | undefined;
+  readonly isCurrentMonth: boolean;
+  readonly isToday: boolean;
+  readonly isWeekend: boolean;
+  readonly marker: '加' | '换' | undefined;
+  readonly person: string | undefined;
+  readonly selected: boolean;
+}
+
+interface PreviewMonthPanel {
+  readonly cells: readonly PreviewMonthCell[];
+  readonly key: string;
+  readonly relative: AdjacentOffset;
+}
+
+interface PreviewWeekPanel {
+  readonly days: readonly PreviewWeekDay[];
+  readonly key: string;
+  readonly relative: AdjacentOffset;
+}
+
 const props = withDefaults(
   defineProps<{
     readonly layout?: CalendarPreviewLayout;
@@ -54,7 +82,29 @@ const props = withDefaults(
 const activeView = ref<CalendarPreviewView>(props.view);
 const monthOffset = ref(0);
 const toastMessage = ref('');
+const swipePointerStart = ref<{
+  pointerId: number;
+  startedAt: number;
+  x: number;
+  y: number;
+}>();
+const swipeDragX = ref(0);
+const swipeTransitionMs = ref(0);
+const swipeViewportWidth = ref(390);
+const pendingSlideDelta = ref<AdjacentOffset>(0);
+const slideAnimating = ref(false);
 let toastTimer: number | undefined;
+let slideCommitTimer: number | undefined;
+
+const adjacentOffsets: readonly AdjacentOffset[] = [-1, 0, 1];
+const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'] as const;
+const monthPeople = ['林恩宇', '陈护士', '王护士', '周医生'] as const;
+
+const calendarTrackTransform = computed(() => {
+  if (pendingSlideDelta.value === 1) return 'translate3d(-200%, 0, 0)';
+  if (pendingSlideDelta.value === -1) return 'translate3d(0%, 0, 0)';
+  return `translate3d(calc(-100% + ${swipeDragX.value}px), 0, 0)`;
+});
 
 watch(
   () => props.view,
@@ -63,10 +113,70 @@ watch(
   },
 );
 
+function getMonthStart(offset: number): Date {
+  return new Date(Date.UTC(2026, 9 + offset, 1));
+}
+
+function formatDateKey(date: Date): string {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    date.getUTCDate(),
+  ).padStart(2, '0')}`;
+}
+
+function createMonthCells(offset: number): readonly PreviewMonthCell[] {
+  const monthStart = getMonthStart(offset);
+  const firstMondayOffset = (monthStart.getUTCDay() + 6) % 7;
+  const gridStart = new Date(monthStart);
+  gridStart.setUTCDate(1 - firstMondayOffset);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setUTCDate(gridStart.getUTCDate() + index);
+    const businessDate = formatDateKey(date);
+    const isCurrentMonth = date.getUTCMonth() === monthStart.getUTCMonth();
+    const day = date.getUTCDate();
+    const personSeed = day + date.getUTCMonth() * 3;
+    const showPerson = isCurrentMonth && personSeed % 3 !== 0;
+    const markerSeed = day + date.getUTCMonth();
+
+    return {
+      businessDate,
+      day: String(day),
+      holiday:
+        date.getUTCFullYear() === 2026 && date.getUTCMonth() === 9 && day <= 7 ? '国庆' : undefined,
+      isCurrentMonth,
+      isToday: businessDate === '2026-10-14',
+      isWeekend: index % 7 >= 5,
+      marker:
+        isCurrentMonth && markerSeed % 11 === 0
+          ? '换'
+          : isCurrentMonth && markerSeed % 8 === 0
+            ? '加'
+            : undefined,
+      person: showPerson ? monthPeople[personSeed % monthPeople.length] : undefined,
+      selected: isCurrentMonth && day === 14,
+    } satisfies PreviewMonthCell;
+  });
+}
+
 const monthLabel = computed(() => {
-  const month = 10 + monthOffset.value;
-  return `2026年${month}月`;
+  const month = getMonthStart(monthOffset.value);
+  return `${month.getUTCFullYear()}年${month.getUTCMonth() + 1}月`;
 });
+
+const selectedMonthLabel = computed(() => {
+  const date = new Date(getMonthStart(monthOffset.value));
+  date.setUTCDate(14);
+  return `${date.getUTCMonth() + 1}月14日 · 周${weekdayLabels[(date.getUTCDay() + 6) % 7]}`;
+});
+
+const monthPanels = computed<readonly PreviewMonthPanel[]>(() =>
+  adjacentOffsets.map((relative) => ({
+    key: formatDateKey(getMonthStart(monthOffset.value + relative)),
+    relative,
+    cells: createMonthCells(monthOffset.value + relative),
+  })),
+);
 
 const weekOffset = ref(0);
 const previewWeekStart = computed(() => addWeeks('2026-10-12', weekOffset.value));
@@ -220,18 +330,34 @@ const baseWeekDays: readonly PreviewWeekDay[] = [
   },
 ];
 
-const weekDays = computed<readonly PreviewWeekDay[]>(() => {
-  const businessDates = getWeekDays(previewWeekStart.value);
+function createWeekDays(offset: number): readonly PreviewWeekDay[] {
+  const weekStart = addWeeks('2026-10-12', offset);
+  const businessDates = getWeekDays(weekStart);
   return baseWeekDays.map((day, index) => {
-    const businessDate = businessDates[index] ?? previewWeekStart.value;
+    const businessDate = businessDates[index] ?? weekStart;
+    const assignmentSource = baseWeekDays[(index + Math.abs(offset)) % baseWeekDays.length] ?? day;
     return {
       ...day,
+      assignments: offset === 0 ? day.assignments : assignmentSource.assignments,
       businessDate,
       date: businessDate.slice(8),
-      isToday: weekOffset.value === 0 && Boolean(day.isToday),
+      isToday: offset === 0 && Boolean(day.isToday),
+      isWeekend: index >= 5,
     };
   });
-});
+}
+
+const weekDays = computed<readonly PreviewWeekDay[]>(() => createWeekDays(weekOffset.value));
+const weekPanels = computed<readonly PreviewWeekPanel[]>(() =>
+  adjacentOffsets.map((relative) => {
+    const offset = weekOffset.value + relative;
+    return {
+      key: addWeeks('2026-10-12', offset),
+      relative,
+      days: createWeekDays(offset),
+    };
+  }),
+);
 
 const selectedWeekdayIndex = ref(2);
 const selectedWeekDay = computed<PreviewWeekDay>(
@@ -275,51 +401,6 @@ const listDays: readonly PreviewListDay[] = [
   },
 ];
 
-const monthCells = [
-  '28',
-  '29',
-  '30',
-  '1',
-  '2',
-  '3',
-  '4',
-  '5',
-  '6',
-  '7',
-  '8',
-  '9',
-  '10',
-  '11',
-  '12',
-  '13',
-  '14',
-  '15',
-  '16',
-  '17',
-  '18',
-  '19',
-  '20',
-  '21',
-  '22',
-  '23',
-  '24',
-  '25',
-  '26',
-  '27',
-  '28',
-  '29',
-  '30',
-  '31',
-  '1',
-  '2',
-  '3',
-  '4',
-  '5',
-  '6',
-  '7',
-  '8',
-] as const;
-
 function selectView(view: CalendarPreviewView): void {
   activeView.value = view;
 }
@@ -328,14 +409,140 @@ function selectWeekDay(dayIndex: number): void {
   selectedWeekdayIndex.value = dayIndex;
 }
 
+function clearSlideCommitTimer(): void {
+  if (slideCommitTimer !== undefined) {
+    window.clearTimeout(slideCommitTimer);
+    slideCommitTimer = undefined;
+  }
+}
+
+function scheduleTrackFinish(durationMs: number): void {
+  clearSlideCommitTimer();
+  slideCommitTimer = window.setTimeout(finishTrackSlide, durationMs + 34);
+}
+
+function startTrackSlide(delta: -1 | 1, deltaX = 0, elapsedMs = 240): void {
+  if (slideAnimating.value) return;
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const durationMs = reducedMotion
+    ? 0
+    : getSwipeSettleDuration({
+        deltaX,
+        direction: delta,
+        elapsedMs,
+        reducedMotion,
+        viewportWidth: swipeViewportWidth.value,
+      });
+  pendingSlideDelta.value = delta;
+  swipeTransitionMs.value = durationMs;
+  slideAnimating.value = true;
+  scheduleTrackFinish(durationMs);
+}
+
 function shiftMonth(delta: -1 | 1): void {
-  monthOffset.value = Math.max(-1, Math.min(1, monthOffset.value + delta));
-  showToast(delta < 0 ? '已切换到上一个月' : '已切换到下一个月');
+  if (activeView.value === 'list') {
+    monthOffset.value += delta;
+    showToast(delta < 0 ? '已切换到上一个月' : '已切换到下一个月');
+    return;
+  }
+  startTrackSlide(delta);
 }
 
 function shiftWeek(delta: -1 | 1): void {
-  weekOffset.value += delta;
-  showToast(delta < 0 ? '已切换到上一周' : '已切换到下一周');
+  startTrackSlide(delta);
+}
+
+function finishTrackSlide(event?: TransitionEvent): void {
+  if (event !== undefined && event.propertyName !== 'transform') return;
+  clearSlideCommitTimer();
+  const delta = pendingSlideDelta.value;
+  pendingSlideDelta.value = 0;
+  swipeDragX.value = 0;
+  swipeTransitionMs.value = 0;
+  slideAnimating.value = false;
+  if (delta === 0) return;
+
+  if (activeView.value === 'month') {
+    monthOffset.value += delta;
+    showToast(delta < 0 ? '已切换到上一个月' : '已切换到下一个月');
+  } else if (activeView.value === 'week') {
+    weekOffset.value += delta;
+    showToast(delta < 0 ? '已切换到上一周' : '已切换到下一周');
+  }
+}
+
+function returnTrackToCenter(elapsedMs = 240): void {
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const durationMs = reducedMotion
+    ? 0
+    : getSwipeSettleDuration({
+        deltaX: swipeDragX.value,
+        direction: 0,
+        elapsedMs,
+        reducedMotion,
+        viewportWidth: swipeViewportWidth.value,
+      });
+  pendingSlideDelta.value = 0;
+  swipeTransitionMs.value = durationMs;
+  slideAnimating.value = true;
+  swipeDragX.value = 0;
+  scheduleTrackFinish(durationMs);
+}
+
+function onSwipePointerDown(event: PointerEvent): void {
+  if (slideAnimating.value) return;
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  swipePointerStart.value = {
+    pointerId: event.pointerId,
+    startedAt: event.timeStamp,
+    x: event.clientX,
+    y: event.clientY,
+  };
+  swipeTransitionMs.value = 0;
+  swipeViewportWidth.value = Math.max(
+    1,
+    (event.currentTarget as HTMLElement).getBoundingClientRect().width,
+  );
+  swipeDragX.value = 0;
+  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+}
+
+function onSwipePointerMove(event: PointerEvent): void {
+  const start = swipePointerStart.value;
+  if (start === undefined || start.pointerId !== event.pointerId) return;
+  const deltaX = event.clientX - start.x;
+  const deltaY = event.clientY - start.y;
+  if (Math.abs(deltaY) > Math.abs(deltaX)) {
+    swipeDragX.value = 0;
+    return;
+  }
+  const dragLimit = swipeViewportWidth.value * 0.96;
+  swipeDragX.value = Math.max(-dragLimit, Math.min(dragLimit, deltaX));
+}
+
+function onSwipePointerUp(event: PointerEvent): void {
+  const start = swipePointerStart.value;
+  if (start === undefined || start.pointerId !== event.pointerId) return;
+  const deltaX = event.clientX - start.x;
+  const deltaY = event.clientY - start.y;
+  const elapsedMs = Math.max(1, event.timeStamp - start.startedAt);
+  swipePointerStart.value = undefined;
+  const delta = getSwipeNavigationIntent({
+    deltaX,
+    deltaY,
+    elapsedMs,
+    viewportWidth: swipeViewportWidth.value,
+  });
+  if (delta === 0) {
+    returnTrackToCenter(elapsedMs);
+    return;
+  }
+  startTrackSlide(delta, deltaX, elapsedMs);
+}
+
+function cancelSwipePointer(): void {
+  swipePointerStart.value = undefined;
+  returnTrackToCenter();
 }
 
 function formatPreviewMonthDay(businessDate: string | undefined): string {
@@ -360,6 +567,11 @@ function showToast(message: string): void {
     toastMessage.value = '';
   }, 1500);
 }
+
+onUnmounted(() => {
+  clearSlideCommitTimer();
+  if (toastTimer !== undefined) window.clearTimeout(toastTimer);
+});
 </script>
 
 <template>
@@ -424,51 +636,69 @@ function showToast(message: string): void {
             </button>
           </header>
           <div class="weekday-row" aria-hidden="true">
-            <span v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']" :key="weekday">{{
-              weekday
-            }}</span>
+            <span v-for="weekday in weekdayLabels" :key="weekday">{{ weekday }}</span>
           </div>
-          <div class="month-grid">
-            <button
-              v-for="(day, index) in monthCells"
-              :key="`${day}-${index}`"
-              class="month-cell"
-              :class="{
-                outside: index < 3 || index > 34,
-                weekend: index % 7 >= 5,
-                holiday: index >= 3 && index <= 9,
-                selected: day === '14',
-                today: day === '14',
+          <div
+            class="calendar-motion-viewport"
+            :class="{ 'is-dragging': swipePointerStart !== undefined }"
+            @pointercancel="cancelSwipePointer"
+            @pointerdown="onSwipePointerDown"
+            @pointermove="onSwipePointerMove"
+            @pointerup="onSwipePointerUp"
+          >
+            <div
+              class="calendar-slider-track"
+              :class="{ 'is-animating': slideAnimating }"
+              :style="{
+                transform: calendarTrackTransform,
+                transitionDuration: `${swipeTransitionMs}ms`,
               }"
-              type="button"
-              :disabled="index < 3 || index > 34"
+              @transitionend.self="finishTrackSlide"
             >
-              <span class="date-number">{{ day }}</span>
-              <span v-if="index >= 3 && index <= 9" class="holiday-chip">国庆</span>
-              <span
-                v-if="
-                  [3, 4, 5, 7, 8, 9, 10, 11, 14, 15, 17, 18, 21, 22, 24, 27, 29, 30, 32].includes(
-                    index,
-                  )
-                "
-                class="month-person"
+              <div
+                v-for="panel in monthPanels"
+                :key="panel.key"
+                class="calendar-slide-panel"
+                :aria-hidden="panel.relative !== 0"
+                :inert="panel.relative !== 0"
               >
-                {{ ['林恩宇', '陈护士', '王护士', '周医生'][index % 4] }}
-              </span>
-              <span v-if="[7, 14, 27].includes(index)" class="change-mark">{{
-                index === 14 ? '换' : '加'
-              }}</span>
-            </button>
+                <div class="month-grid">
+                  <button
+                    v-for="cell in panel.cells"
+                    :key="cell.businessDate"
+                    class="month-cell"
+                    :class="{
+                      outside: !cell.isCurrentMonth,
+                      weekend: cell.isWeekend,
+                      holiday: cell.holiday,
+                      selected: cell.selected,
+                      today: cell.isToday,
+                    }"
+                    type="button"
+                    :disabled="!cell.isCurrentMonth"
+                  >
+                    <span class="date-number">{{ cell.day }}</span>
+                    <span v-if="cell.holiday" class="holiday-chip">{{ cell.holiday }}</span>
+                    <span v-if="cell.person" class="month-person">{{ cell.person }}</span>
+                    <span v-if="cell.marker" class="change-mark">{{ cell.marker }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <section class="selected-summary">
             <header>
-              <div><span>选中日期</span><strong>10月14日 · 周三</strong></div>
+              <div>
+                <span>选中日期</span><strong>{{ selectedMonthLabel }}</strong>
+              </div>
               <b>2 个班次</b>
             </header>
             <div class="summary-row">
               <span class="summary-dot" />
               <div><strong>王护士</strong><small>夜班 · 18:00–次日08:00 · 换班</small></div>
-              <button type="button" aria-label="拨打王护士"><Ui2Icon name="phone" /></button>
+              <a class="summary-call-action" href="tel:13692041765" aria-label="拨打王护士">
+                <Ui2Icon name="phone" />
+              </a>
             </div>
           </section>
         </section>
@@ -499,75 +729,102 @@ function showToast(message: string): void {
             </header>
             <div class="week-weekday-row" aria-hidden="true">
               <span
-                v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']"
+                v-for="weekday in weekdayLabels"
                 :key="weekday"
                 :class="{ weekend: weekday === '六' || weekday === '日' }"
                 >{{ weekday }}</span
               >
             </div>
-            <div class="week-rail" tabindex="0" aria-label="周一至周日七列排班轨道">
-              <div class="week-grid">
-                <article
-                  v-for="(day, dayIndex) in weekDays"
-                  :key="day.date"
-                  class="week-day-card"
-                  :style="{ minHeight: `${weekCardHeight}px` }"
-                  :class="{
-                    today: day.isToday,
-                    weekend: day.isWeekend,
-                    selected: selectedWeekdayIndex === dayIndex,
-                  }"
-                  role="button"
-                  tabindex="0"
-                  :aria-pressed="selectedWeekdayIndex === dayIndex"
-                  :aria-label="
-                    '选择' +
-                    formatPreviewMonthDay(day.businessDate) +
-                    ' 周' +
-                    day.weekday +
-                    '查看值班详情'
-                  "
-                  @click="selectWeekDay(dayIndex)"
-                  @keydown.enter.prevent="selectWeekDay(dayIndex)"
-                  @keydown.space.prevent="selectWeekDay(dayIndex)"
+            <div
+              class="calendar-motion-viewport"
+              :class="{ 'is-dragging': swipePointerStart !== undefined }"
+              @pointercancel="cancelSwipePointer"
+              @pointerdown="onSwipePointerDown"
+              @pointermove="onSwipePointerMove"
+              @pointerup="onSwipePointerUp"
+            >
+              <div
+                class="calendar-slider-track"
+                :class="{ 'is-animating': slideAnimating }"
+                :style="{
+                  transform: calendarTrackTransform,
+                  transitionDuration: `${swipeTransitionMs}ms`,
+                }"
+                @transitionend.self="finishTrackSlide"
+              >
+                <div
+                  v-for="panel in weekPanels"
+                  :key="panel.key"
+                  class="calendar-slide-panel"
+                  :aria-hidden="panel.relative !== 0"
+                  :inert="panel.relative !== 0"
                 >
-                  <header class="week-day-heading">
-                    <strong>{{ day.date }}</strong>
-                    <span
-                      v-if="day.holiday"
-                      class="holiday-chip"
-                      :class="`is-${day.holidayTone}`"
-                      >{{ day.holiday }}</span
-                    >
-                  </header>
-                  <div class="week-assignments">
-                    <article
-                      v-for="assignment in day.assignments"
-                      :key="`${day.date}-${assignment.name}-${assignment.shift}`"
-                      class="week-assignment"
-                    >
-                      <div class="assignment-top">
-                        <strong class="assignment-name" :title="assignment.name">{{
-                          assignment.name
-                        }}</strong>
-                      </div>
-                      <div class="assignment-meta">
-                        <span class="shift-pill" :title="assignment.shift">{{
-                          assignment.shift.slice(0, 2)
-                        }}</span>
-                        <span
-                          v-if="assignment.marker"
-                          class="change-pill"
-                          :aria-label="assignment.marker"
-                          :title="assignment.marker"
-                          >{{ assignment.marker === '换班' ? '换' : '加' }}</span
-                        >
-                      </div>
-                      <span class="assignment-role">{{ assignment.role }}</span>
-                      <span class="assignment-time">{{ assignment.time }}</span>
-                    </article>
+                  <div class="week-rail" tabindex="0" aria-label="周一至周日七列排班轨道">
+                    <div class="week-grid">
+                      <article
+                        v-for="(day, dayIndex) in panel.days"
+                        :key="day.businessDate"
+                        class="week-day-card"
+                        :style="{ minHeight: `${weekCardHeight}px` }"
+                        :class="{
+                          today: day.isToday,
+                          weekend: day.isWeekend,
+                          selected: panel.relative === 0 && selectedWeekdayIndex === dayIndex,
+                        }"
+                        role="button"
+                        tabindex="0"
+                        :aria-pressed="panel.relative === 0 && selectedWeekdayIndex === dayIndex"
+                        :aria-label="
+                          '选择' +
+                          formatPreviewMonthDay(day.businessDate) +
+                          ' 周' +
+                          day.weekday +
+                          '查看值班详情'
+                        "
+                        @click="selectWeekDay(dayIndex)"
+                        @keydown.enter.prevent="selectWeekDay(dayIndex)"
+                        @keydown.space.prevent="selectWeekDay(dayIndex)"
+                      >
+                        <header class="week-day-heading">
+                          <strong>{{ day.date }}</strong>
+                          <span
+                            v-if="day.holiday"
+                            class="holiday-chip"
+                            :class="`is-${day.holidayTone}`"
+                            >{{ day.holiday }}</span
+                          >
+                        </header>
+                        <div class="week-assignments">
+                          <article
+                            v-for="assignment in day.assignments"
+                            :key="`${day.date}-${assignment.name}-${assignment.shift}`"
+                            class="week-assignment"
+                          >
+                            <div class="assignment-top">
+                              <strong class="assignment-name" :title="assignment.name">{{
+                                assignment.name
+                              }}</strong>
+                            </div>
+                            <div class="assignment-meta">
+                              <span class="shift-pill" :title="assignment.shift">{{
+                                assignment.shift.slice(0, 2)
+                              }}</span>
+                              <span
+                                v-if="assignment.marker"
+                                class="change-pill"
+                                :aria-label="assignment.marker"
+                                :title="assignment.marker"
+                                >{{ assignment.marker === '换班' ? '换' : '加' }}</span
+                              >
+                            </div>
+                            <span class="assignment-role">{{ assignment.role }}</span>
+                            <span class="assignment-time">{{ assignment.time }}</span>
+                          </article>
+                        </div>
+                      </article>
+                    </div>
                   </div>
-                </article>
+                </div>
               </div>
             </div>
           </section>
@@ -598,13 +855,14 @@ function showToast(message: string): void {
                   }}<template v-if="assignment.marker"> · {{ assignment.marker }}</template></small
                 >
               </div>
-              <button
+              <a
                 v-if="assignment.name !== '待定'"
-                type="button"
+                class="summary-call-action"
+                href="tel:13692041765"
                 :aria-label="'拨打' + assignment.name"
               >
                 <Ui2Icon name="phone" />
-              </button>
+              </a>
             </div>
           </section>
         </section>
@@ -663,9 +921,13 @@ function showToast(message: string): void {
                 </div>
                 <div class="list-actions">
                   <span v-if="assignment.marker" class="change-pill">{{ assignment.marker }}</span
-                  ><button class="call-button" type="button" :aria-label="`拨打${assignment.name}`">
+                  ><a
+                    class="call-button"
+                    href="tel:13692041765"
+                    :aria-label="`拨打${assignment.name}`"
+                  >
                     <Ui2Icon name="phone" />
-                  </button>
+                  </a>
                 </div>
               </div>
             </article>
@@ -866,6 +1128,28 @@ button:focus-visible {
 .month-card {
   margin: 12px;
   overflow: hidden;
+}
+.calendar-motion-viewport {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  isolation: isolate;
+  touch-action: pan-y;
+}
+.calendar-slider-track {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(3, 100%);
+  will-change: transform;
+}
+.calendar-slider-track.is-animating {
+  transition: transform 0ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.calendar-motion-viewport.is-dragging .calendar-slider-track {
+  transition: none;
+}
+.calendar-slide-panel {
+  min-width: 0;
 }
 .month-toolbar {
   display: grid;
@@ -1133,15 +1417,17 @@ button:focus-visible {
   color: var(--preview-muted);
   font-size: 10px;
 }
-.summary-row button {
+.summary-call-action {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
+  flex: none;
   place-items: center;
-  color: var(--preview-green);
-  background: var(--preview-green-tint);
+  color: var(--preview-primary);
+  background: transparent;
   border: 0;
   border-radius: 10px;
+  text-decoration: none;
 }
 .summary-row .ui2-icon {
   width: 15px;
@@ -1301,15 +1587,16 @@ button:focus-visible {
 }
 .call-button {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   place-items: center;
-  color: var(--preview-green);
-  background: var(--preview-green-tint);
+  color: var(--preview-primary);
+  background: transparent;
   border: 0;
   border-radius: 9px;
   cursor: pointer;
+  text-decoration: none;
 }
 .call-button .ui2-icon {
   width: 14px;
@@ -1555,6 +1842,12 @@ button:focus-visible {
   }
   .layout-desktop .week-rail {
     overflow-x: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-slider-track {
+    transition: none !important;
   }
 }
 </style>

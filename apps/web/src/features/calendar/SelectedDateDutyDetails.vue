@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contracts';
 import { CallIcon, HistoryIcon } from 'tdesign-icons-vue-next';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 import {
   buildDialLink,
@@ -21,19 +21,9 @@ const emit = defineEmits<{
   (event: 'open-events', assignment: CalendarDutyAssignment): void;
 }>();
 
-const copiedNumber = ref<string>();
 const rows = computed(() =>
   buildSelectedDateDutyRows(props.selectedDate, props.assignments, props.members),
 );
-
-async function copyNumber(number: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(number);
-    copiedNumber.value = number;
-  } catch {
-    copiedNumber.value = undefined;
-  }
-}
 
 function getShiftStartTime(assignment: CalendarDutyAssignment): string {
   return formatShiftTimeRange(assignment).split('–')[0] ?? '';
@@ -92,25 +82,14 @@ function getShiftStartTime(assignment: CalendarDutyAssignment): string {
 
           <div class="duty-actions">
             <a
-              v-for="option in row.phoneOptions.filter((entry) => entry.isConfirmed)"
+              v-for="option in row.phoneOptions"
               :key="`${option.label}:${option.number}`"
               class="phone-action"
               :href="buildDialLink(option.number)"
             >
               <CallIcon aria-hidden="true" />
-              拨打{{ option.label }} {{ option.number }}
+              拨打{{ option.label }}{{ option.isConfirmed ? '' : '（未确认）' }} {{ option.number }}
             </a>
-            <button
-              v-for="option in row.phoneOptions.filter((entry) => !entry.isConfirmed)"
-              :key="`${option.label}:${option.number}`"
-              type="button"
-              class="phone-action"
-              @click="copyNumber(option.number)"
-            >
-              <CallIcon aria-hidden="true" />
-              {{ copiedNumber === option.number ? '已复制' : `复制${option.label}（未确认）` }}
-              {{ option.number }}
-            </button>
             <button type="button" class="event-action" @click="emit('open-events', row.assignment)">
               <HistoryIcon aria-hidden="true" />
               事件记录

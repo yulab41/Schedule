@@ -21,17 +21,27 @@ import {
 } from './month-grid-presentation.js';
 import DutyCell from './DutyCell.vue';
 
-const props = defineProps<{
-  readonly assignments: readonly CalendarDutyAssignment[];
-  readonly businessMonth: string;
-  readonly hideMarkerTypes?: readonly CalendarChangeMarker[];
-  readonly highlightedDates?: ReadonlySet<string>;
-  readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
-  readonly invertPastColors?: boolean;
-  readonly members: readonly CalendarDutyMember[];
-  readonly selectedDate?: string | undefined;
-  readonly today?: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    readonly assignments: readonly CalendarDutyAssignment[];
+    readonly businessMonth: string;
+    readonly hideMarkerTypes?: readonly CalendarChangeMarker[];
+    readonly highlightedDates?: ReadonlySet<string>;
+    readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
+    readonly invertPastColors?: boolean;
+    readonly members: readonly CalendarDutyMember[];
+    readonly selectedDate?: string | undefined;
+    readonly showWeekdayHeader?: boolean;
+    readonly today?: string;
+  }>(),
+  {
+    hideMarkerTypes: () => [],
+    highlightedDates: () => new Set<string>(),
+    selectedDate: undefined,
+    showWeekdayHeader: true,
+    today: '',
+  },
+);
 const emit = defineEmits<{
   (event: 'select-date', businessDate: string): void;
 }>();
@@ -98,7 +108,7 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
     :class="{ 'invert-past-colors': invertPastColors === true }"
     aria-label="排班日历"
   >
-    <div class="weekday-row" aria-hidden="true">
+    <div v-if="showWeekdayHeader !== false" class="weekday-row" aria-hidden="true">
       <span
         v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']"
         :key="weekday"

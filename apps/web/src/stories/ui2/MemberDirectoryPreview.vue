@@ -130,6 +130,10 @@ function initials(name: string): string {
   return name.slice(-2);
 }
 
+function dialHref(number: string): string {
+  return `tel:${number.replaceAll(' ', '')}`;
+}
+
 watch(() => props.initialState, resetPreview);
 onMounted(resetPreview);
 </script>
@@ -173,13 +177,29 @@ onMounted(resetPreview);
             <div>
               <dt>长号</dt>
               <dd :class="{ missing: selfMember.longNumber === '未填写' }">
-                {{ selfMember.longNumber }}
+                <a
+                  v-if="selfMember.longNumber !== '未填写'"
+                  class="contact-dial-action"
+                  :href="dialHref(selfMember.longNumber)"
+                  aria-label="拨打我的长号"
+                >
+                  <span>{{ selfMember.longNumber }}</span>
+                </a>
+                <template v-else>{{ selfMember.longNumber }}</template>
               </dd>
             </div>
             <div>
               <dt>短号</dt>
               <dd :class="{ missing: selfMember.shortNumber === '未填写' }">
-                {{ selfMember.shortNumber }}
+                <a
+                  v-if="selfMember.shortNumber !== '未填写'"
+                  class="contact-dial-action"
+                  :href="dialHref(selfMember.shortNumber)"
+                  aria-label="拨打我的短号"
+                >
+                  <span>{{ selfMember.shortNumber }}</span>
+                </a>
+                <template v-else>{{ selfMember.shortNumber }}</template>
               </dd>
             </div>
           </dl>
@@ -210,13 +230,29 @@ onMounted(resetPreview);
               <div>
                 <dt>长号</dt>
                 <dd :class="{ missing: member.longNumber === '未填写' }">
-                  {{ member.longNumber }}
+                  <a
+                    v-if="member.longNumber !== '未填写'"
+                    class="contact-dial-action"
+                    :href="dialHref(member.longNumber)"
+                    :aria-label="`拨打${member.name}的长号`"
+                  >
+                    <span>{{ member.longNumber }}</span>
+                  </a>
+                  <template v-else>{{ member.longNumber }}</template>
                 </dd>
               </div>
               <div>
                 <dt>短号</dt>
                 <dd :class="{ missing: member.shortNumber === '未填写' }">
-                  {{ member.shortNumber }}
+                  <a
+                    v-if="member.shortNumber !== '未填写'"
+                    class="contact-dial-action"
+                    :href="dialHref(member.shortNumber)"
+                    :aria-label="`拨打${member.name}的短号`"
+                  >
+                    <span>{{ member.shortNumber }}</span>
+                  </a>
+                  <template v-else>{{ member.shortNumber }}</template>
                 </dd>
               </div>
             </dl>
@@ -254,13 +290,24 @@ onMounted(resetPreview);
             placeholder="选填"
           />
         </label>
-        <label v-if="canEditAll" class="confirmation-row">
-          <input v-model="confirmedDraft" type="checkbox" />
+        <div v-if="canEditAll" class="confirmation-row">
           <span>
             <strong>标记为已确认</strong>
             <small>我已与该成员核对以上号码</small>
           </span>
-        </label>
+          <button
+            type="button"
+            class="switch-hit-area"
+            role="switch"
+            :aria-checked="confirmedDraft"
+            aria-label="标记为已确认"
+            @click="confirmedDraft = !confirmedDraft"
+          >
+            <span class="compact-switch" :class="{ active: confirmedDraft }" aria-hidden="true">
+              <span />
+            </span>
+          </button>
+        </div>
         <div class="editor-actions">
           <button type="button" class="cancel-action" @click="sheetVisible = false">取消</button>
           <button type="submit" class="save-action">保存</button>
@@ -532,6 +579,29 @@ onMounted(resetPreview);
   font-weight: 500;
 }
 
+.contact-dial-action {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  align-items: center;
+  color: inherit;
+  background: transparent;
+  border-radius: 0;
+  text-decoration: none;
+}
+
+.contact-dial-action:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.contact-dial-action span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .edit-action,
 .member-secondary-action,
 .cancel-action,
@@ -646,13 +716,6 @@ onMounted(resetPreview);
   gap: 10px;
   background: var(--preview-blue-soft);
   border-radius: 12px;
-  cursor: pointer;
-}
-
-.confirmation-row input {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--preview-blue);
 }
 
 .confirmation-row span {
@@ -667,6 +730,50 @@ onMounted(resetPreview);
 .confirmation-row small {
   color: var(--preview-muted);
   font-size: 12px;
+}
+
+.switch-hit-area {
+  display: grid;
+  min-width: 60px;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 4px;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.compact-switch {
+  position: relative;
+  display: block;
+  width: 52px;
+  height: 30px;
+  background: #c8ced6;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgb(22 32 42 / 4%);
+  transition: background 180ms ease;
+}
+
+.compact-switch > span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgb(22 32 42 / 24%);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.compact-switch.active {
+  background: var(--preview-blue);
+}
+
+.compact-switch.active > span {
+  transform: translateX(22px);
 }
 
 .editor-actions {
@@ -689,6 +796,7 @@ onMounted(resetPreview);
 }
 
 button:focus-visible,
+a:focus-visible,
 input:focus-visible {
   outline: 3px solid rgb(10 102 213 / 32%);
   outline-offset: 2px;

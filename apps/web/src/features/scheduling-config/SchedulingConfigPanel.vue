@@ -4,8 +4,10 @@ import { getBestContrastRatio, pickReadableTextColor } from '@schedule/ui-tokens
 import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
+import CompactSwitch from '../../components/CompactSwitch.vue';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
+import ShiftColorPicker from './ShiftColorPicker.vue';
 import { getSchedulingConfigurationOverview } from './scheduling-config-presentation.js';
 
 interface ShiftTypeDraft {
@@ -35,6 +37,8 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const newRoleName = ref('');
 const newShift = ref<ShiftTypeDraft>(createEmptyShiftDraft());
+const newShiftEditorOpen = ref(false);
+const editingShiftId = ref<string>();
 const roleDrafts = ref<Record<string, RoleDraft>>({});
 const shiftDrafts = ref<Record<string, ShiftTypeDraft>>({});
 let requestVersion = 0;
@@ -45,6 +49,8 @@ const configurationOverview = computed(() =>
 watch(
   () => props.group.id,
   () => {
+    newShiftEditorOpen.value = false;
+    editingShiftId.value = undefined;
     void loadConfig();
   },
   { immediate: true },
@@ -101,15 +107,16 @@ async function saveRoleMembers(role: ScheduleRole): Promise<void> {
 }
 
 async function createShift(): Promise<void> {
-  await save(async () => {
+  const created = await save(async () => {
     await api.createShiftType(props.group.id, toShiftTypeInput(newShift.value));
     newShift.value = createEmptyShiftDraft();
     infoMessage.value = '自定义班种已创建。';
   });
+  if (created) newShiftEditorOpen.value = false;
 }
 
-async function saveShift(shiftType: ShiftType): Promise<void> {
-  await save(async () => {
+async function saveShift(shiftType: ShiftType, closeAfterSave = true): Promise<void> {
+  const saved = await save(async () => {
     await api.updateShiftType(
       props.group.id,
       shiftType.id,
@@ -117,6 +124,12 @@ async function saveShift(shiftType: ShiftType): Promise<void> {
     );
     infoMessage.value = `${shiftType.name}已保存。`;
   });
+  if (saved && closeAfterSave) editingShiftId.value = undefined;
+}
+
+async function updateShiftEnabled(shiftType: ShiftType, enabled: boolean): Promise<void> {
+  getShiftDraft(shiftType.id).isEnabled = enabled;
+  await saveShift(shiftType, false);
 }
 
 async function deleteRole(role: ScheduleRole): Promise<void> {
@@ -235,6 +248,26 @@ function previewStyle(draft: ShiftTypeDraft): { backgroundColor: string; color: 
 function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
   return getBestContrastRatio(draft.color) < 4.5;
 }
+
+function toggleShiftEditor(shiftTypeId: string): void {
+  editingShiftId.value = editingShiftId.value === shiftTypeId ? undefined : shiftTypeId;
+}
+
+function formatShiftTime(draft: ShiftTypeDraft): string {
+  if (draft.startTime === '' || draft.endTime === '') return '未设置时段';
+  return `${draft.startTime}–${draft.crossesMidnight ? '次日 ' : ''}${draft.endTime}`;
+}
+
+function roleIncludesMember(roleId: string, membershipId: string): boolean {
+  return getRoleDraft(roleId).memberIds.includes(membershipId);
+}
+
+function setRoleMember(roleId: string, membershipId: string, selected: boolean): void {
+  const draft = getRoleDraft(roleId);
+  draft.memberIds = selected
+    ? [...new Set([...draft.memberIds, membershipId])]
+    : draft.memberIds.filter((id) => id !== membershipId);
+}
 </script>
 
 <template>
@@ -276,114 +309,190 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
       </section>
 
       <t-card title="班种" class="scheduling-config-card">
-        <p class="config-section-note">
-          全天班固定为 08:00 至次日 08:00。其他预建班种需先填写时间，才可启用。
-        </p>
-        <form class="shift-editor new-shift-editor" @submit.prevent="createShift">
-          <strong class="new-shift-title">新增自定义班种</strong>
-          <label class="field-name"
-            >名称<input v-model="newShift.name" maxlength="100" required
-          /></label>
-          <label class="field-abbreviation"
-            >简称<input v-model="newShift.abbreviation" maxlength="16" required
-          /></label>
-          <label class="field-color">颜色<input v-model="newShift.color" type="color" /></label>
+        <div class="shift-section-heading">
+          <p class="config-section-note">
+            全天班固定为 08:00 至次日 08:00。点击“编辑”再展开详细设置。
+          </p>
+          <button
+            type="button"
+            class="add-shift-button"
+            :aria-expanded="newShiftEditorOpen"
+            @click="newShiftEditorOpen = !newShiftEditorOpen"
+          >
+            {{ newShiftEditorOpen ? '收起新增' : '＋ 新增班种' }}
+          </button>
+        </div>
+
+        <form
+          v-if="newShiftEditorOpen"
+          class="compact-shift-editor new-shift-editor"
+          @submit.prevent="createShift"
+        >
+          <header class="editor-heading">
+            <strong>新增自定义班种</strong>
+            <span>填写名称、时段和颜色后保存</span>
+          </header>
+          <div class="identity-fields">
+            <label
+              ><span>名称</span><input v-model="newShift.name" maxlength="100" required
+            /></label>
+            <label class="abbreviation-field"
+              ><span>简称</span><input v-model="newShift.abbreviation" maxlength="16" required
+            /></label>
+          </div>
+          <fieldset class="time-range-control">
+            <legend>时段</legend>
+            <label><span>开始</span><input v-model="newShift.startTime" type="time" /></label>
+            <span class="range-arrow" aria-hidden="true">→</span>
+            <label><span>结束</span><input v-model="newShift.endTime" type="time" /></label>
+          </fieldset>
+          <ShiftColorPicker v-model="newShift.color" />
           <span v-if="hasInsufficientContrast(newShift)" class="contrast-warning" role="status">
-            对比度不足 4.5:1
+            当前颜色对比度不足 4.5:1
           </span>
-          <label class="field-start">开始<input v-model="newShift.startTime" type="time" /></label>
-          <label class="field-end">结束<input v-model="newShift.endTime" type="time" /></label>
-          <label class="field-crosses-midnight"
-            ><input v-model="newShift.crossesMidnight" type="checkbox" /> 跨日</label
-          >
-          <label class="field-enabled"
-            ><input v-model="newShift.isEnabled" type="checkbox" /> 启用</label
-          >
-          <label class="field-counts"
-            ><input v-model="newShift.countsTowardStatistics" type="checkbox" /> 计入统计</label
-          >
-          <t-button theme="primary" type="submit" :loading="isSaving">新增班种</t-button>
+          <div class="editor-options three-options">
+            <article>
+              <span><strong>跨日</strong><small>结束时间属于次日</small></span>
+              <CompactSwitch v-model="newShift.crossesMidnight" label="新班种跨日" />
+            </article>
+            <article>
+              <span><strong>启用</strong><small>创建后可用于排班</small></span>
+              <CompactSwitch v-model="newShift.isEnabled" label="启用新班种" />
+            </article>
+            <article>
+              <span><strong>计入统计</strong><small>纳入值班次数与时长</small></span>
+              <CompactSwitch v-model="newShift.countsTowardStatistics" label="新班种计入统计" />
+            </article>
+          </div>
+          <div class="editor-actions">
+            <button type="button" class="secondary-action" @click="newShiftEditorOpen = false">
+              取消
+            </button>
+            <button type="submit" class="primary-action" :disabled="isSaving">
+              {{ isSaving ? '保存中…' : '新增班种' }}
+            </button>
+          </div>
         </form>
-        <div class="shift-type-list">
-          <form
+
+        <ul class="shift-type-list">
+          <li
             v-for="shiftType in config.shiftTypes"
             :key="shiftType.id"
-            class="shift-editor"
-            @submit.prevent="saveShift(shiftType)"
+            class="shift-type-row"
+            :class="{
+              'is-editing': editingShiftId === shiftType.id,
+              'is-disabled': !getShiftDraft(shiftType.id).isEnabled,
+            }"
           >
-            <span class="shift-color-preview" :style="previewStyle(getShiftDraft(shiftType.id))">
+            <span class="shift-glyph" :style="previewStyle(getShiftDraft(shiftType.id))">
               {{ getShiftDraft(shiftType.id).abbreviation || '班' }}
             </span>
-            <label class="field-name"
-              >名称<input v-model="getShiftDraft(shiftType.id).name" maxlength="100" required
-            /></label>
-            <label class="field-abbreviation"
-              >简称<input
-                v-model="getShiftDraft(shiftType.id).abbreviation"
-                maxlength="16"
-                required
-            /></label>
-            <label class="field-color"
-              >颜色<input v-model="getShiftDraft(shiftType.id).color" type="color"
-            /></label>
-            <span
-              v-if="hasInsufficientContrast(getShiftDraft(shiftType.id))"
-              class="contrast-warning"
-              role="status"
-              title="建议选择更深或更浅的颜色。"
-            >
-              对比度不足 4.5:1
-            </span>
-            <label class="field-start"
-              >开始<input
-                v-model="getShiftDraft(shiftType.id).startTime"
-                :disabled="shiftType.isAllDay"
-                type="time"
-            /></label>
-            <label class="field-end"
-              >结束<input
-                v-model="getShiftDraft(shiftType.id).endTime"
-                :disabled="shiftType.isAllDay"
-                type="time"
-            /></label>
-            <label class="field-crosses-midnight"
-              ><input
-                v-model="getShiftDraft(shiftType.id).crossesMidnight"
-                :disabled="shiftType.isAllDay"
-                type="checkbox"
-              />
-              跨日</label
-            >
-            <label class="field-enabled"
-              ><input
-                v-model="getShiftDraft(shiftType.id).isEnabled"
-                :disabled="shiftType.isAllDay"
-                type="checkbox"
-              />
-              启用</label
-            >
-            <label class="field-counts"
-              ><input
-                v-model="getShiftDraft(shiftType.id).countsTowardStatistics"
-                type="checkbox"
-              />
-              计入统计</label
-            >
-            <div class="shift-editor-actions">
-              <t-button type="submit" variant="outline" :loading="isSaving">保存</t-button>
-              <t-button
-                v-if="!shiftType.isBuiltIn"
-                type="button"
-                theme="danger"
-                variant="text"
-                :loading="isSaving"
-                @click="deleteShift(shiftType)"
-              >
-                删除
-              </t-button>
+            <div class="shift-summary">
+              <div>
+                <strong>{{ getShiftDraft(shiftType.id).name }}</strong>
+                <span v-if="shiftType.isBuiltIn" class="built-in-badge">固定</span>
+              </div>
+              <p>
+                <span
+                  class="time-band"
+                  :style="{ backgroundColor: getShiftDraft(shiftType.id).color }"
+                />
+                {{ formatShiftTime(getShiftDraft(shiftType.id)) }}
+              </p>
             </div>
-          </form>
-        </div>
+            <button
+              type="button"
+              class="edit-row-button"
+              :aria-expanded="editingShiftId === shiftType.id"
+              @click="toggleShiftEditor(shiftType.id)"
+            >
+              {{ editingShiftId === shiftType.id ? '收起' : '编辑' }}
+            </button>
+            <CompactSwitch
+              :model-value="getShiftDraft(shiftType.id).isEnabled"
+              :disabled="shiftType.isAllDay || isSaving"
+              :label="`${shiftType.name}${getShiftDraft(shiftType.id).isEnabled ? '已启用' : '已停用'}`"
+              @update:model-value="updateShiftEnabled(shiftType, $event)"
+            />
+
+            <form
+              v-if="editingShiftId === shiftType.id"
+              class="compact-shift-editor"
+              @submit.prevent="saveShift(shiftType)"
+            >
+              <div class="identity-fields">
+                <label
+                  ><span>名称</span
+                  ><input v-model="getShiftDraft(shiftType.id).name" maxlength="100" required
+                /></label>
+                <label class="abbreviation-field"
+                  ><span>简称</span
+                  ><input
+                    v-model="getShiftDraft(shiftType.id).abbreviation"
+                    maxlength="16"
+                    required
+                /></label>
+              </div>
+              <fieldset class="time-range-control">
+                <legend>时段</legend>
+                <label
+                  ><span>开始</span
+                  ><input
+                    v-model="getShiftDraft(shiftType.id).startTime"
+                    :disabled="shiftType.isAllDay"
+                    type="time"
+                /></label>
+                <span class="range-arrow" aria-hidden="true">→</span>
+                <label
+                  ><span>结束</span
+                  ><input
+                    v-model="getShiftDraft(shiftType.id).endTime"
+                    :disabled="shiftType.isAllDay"
+                    type="time"
+                /></label>
+              </fieldset>
+              <ShiftColorPicker v-model="getShiftDraft(shiftType.id).color" />
+              <span
+                v-if="hasInsufficientContrast(getShiftDraft(shiftType.id))"
+                class="contrast-warning"
+                role="status"
+              >
+                当前颜色对比度不足 4.5:1
+              </span>
+              <div class="editor-options">
+                <article>
+                  <span><strong>跨日</strong><small>结束时间属于次日</small></span>
+                  <CompactSwitch
+                    v-model="getShiftDraft(shiftType.id).crossesMidnight"
+                    :disabled="shiftType.isAllDay"
+                    :label="`${shiftType.name}跨日`"
+                  />
+                </article>
+                <article>
+                  <span><strong>计入统计</strong><small>纳入值班次数与时长</small></span>
+                  <CompactSwitch
+                    v-model="getShiftDraft(shiftType.id).countsTowardStatistics"
+                    :label="`${shiftType.name}计入统计`"
+                  />
+                </article>
+              </div>
+              <div class="editor-actions">
+                <button
+                  v-if="!shiftType.isBuiltIn"
+                  type="button"
+                  class="delete-action"
+                  :disabled="isSaving"
+                  @click="deleteShift(shiftType)"
+                >
+                  删除班种
+                </button>
+                <button type="submit" class="primary-action" :disabled="isSaving">
+                  {{ isSaving ? '保存中…' : '完成' }}
+                </button>
+              </div>
+            </form>
+          </li>
+        </ul>
       </t-card>
 
       <t-card title="排班岗位" class="scheduling-config-card">
@@ -407,14 +516,18 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
             <p v-if="config.groupMembers.length === 0" class="config-empty-note">
               当前群组还没有可配置成员，请先在成员页面添加人员。
             </p>
-            <label v-for="member in config.groupMembers" :key="member.membershipId">
-              <input
-                v-model="getRoleDraft(role.id).memberIds"
-                :value="member.membershipId"
-                type="checkbox"
+            <div
+              v-for="member in config.groupMembers"
+              :key="member.membershipId"
+              class="role-member-option"
+            >
+              <span>{{ member.realName }}</span>
+              <CompactSwitch
+                :model-value="roleIncludesMember(role.id, member.membershipId)"
+                :label="`${role.name}包含${member.realName}`"
+                @update:model-value="setRoleMember(role.id, member.membershipId, $event)"
               />
-              {{ member.realName }}
-            </label>
+            </div>
             <t-button variant="outline" :loading="isSaving" @click="saveRoleMembers(role)">
               保存成员
             </t-button>
@@ -1063,6 +1176,329 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
   white-space: normal;
 }
 
+.shift-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+}
+
+.add-shift-button,
+.edit-row-button,
+.secondary-action,
+.primary-action,
+.delete-action {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.add-shift-button,
+.primary-action {
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border: 0;
+}
+
+.shift-type-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+}
+
+.shift-type-row {
+  display: grid;
+  min-height: 74px;
+  padding: 10px 12px;
+  grid-template-columns: 44px minmax(0, 1fr) auto 60px;
+  align-items: center;
+  gap: 10px;
+}
+
+.shift-type-row + .shift-type-row {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.shift-type-row.is-editing {
+  background: #fbfdff;
+  box-shadow: inset 3px 0 var(--ui-color-primary);
+}
+
+.shift-type-row.is-disabled .shift-glyph {
+  filter: grayscale(0.6);
+  opacity: 0.7;
+}
+
+.shift-glyph {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgb(22 32 42 / 14%);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.shift-summary {
+  min-width: 0;
+}
+
+.shift-summary > div,
+.shift-summary p {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.shift-summary strong {
+  overflow: hidden;
+  color: var(--ui-color-text-primary);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.built-in-badge {
+  padding: 2px 6px;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.shift-summary p {
+  margin: 5px 0 0;
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-band {
+  width: 18px;
+  height: 4px;
+  flex: none;
+  border-radius: var(--ui-radius-pill);
+}
+
+.edit-row-button {
+  min-width: 54px;
+  padding: 0 9px;
+  color: var(--ui-color-primary);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.edit-row-button:hover {
+  background: var(--ui-color-primary-light);
+}
+
+.compact-shift-editor {
+  display: grid;
+  min-width: 0;
+  margin: 6px 0 2px;
+  padding: 13px;
+  grid-column: 1 / -1;
+  grid-template-columns: 245px 288px minmax(210px, 1fr);
+  align-items: end;
+  gap: 12px;
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: 14px;
+}
+
+.new-shift-editor {
+  margin: 0;
+}
+
+.editor-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-heading strong {
+  color: var(--ui-color-primary-dark);
+  font-size: var(--ui-font-size-md);
+}
+
+.editor-heading span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.identity-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  gap: 9px;
+}
+
+.identity-fields label,
+.time-range-control label {
+  display: grid;
+  min-width: 0;
+}
+
+.compact-shift-editor fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.compact-shift-editor legend,
+.compact-shift-editor label > span {
+  margin-bottom: 5px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.identity-fields input,
+.time-range-control input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 10px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-white);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.time-range-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr);
+  align-items: end;
+  gap: 6px;
+}
+
+.time-range-control legend {
+  grid-column: 1 / -1;
+}
+
+.range-arrow {
+  display: grid;
+  height: 42px;
+  place-items: center;
+  color: var(--ui-color-primary);
+}
+
+.compact-shift-editor > .contrast-warning {
+  grid-column: 1 / -1;
+  margin: -4px 0;
+  font-size: var(--ui-font-size-xs);
+}
+
+.editor-options {
+  display: grid;
+  grid-column: 1 / 3;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  background: rgb(255 255 255 / 72%);
+  border: 1px solid #cbd9e9;
+  border-radius: 12px;
+}
+
+.editor-options.three-options {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.editor-options article {
+  display: grid;
+  min-height: 58px;
+  padding: 7px 7px 7px 11px;
+  grid-template-columns: minmax(0, 1fr) 60px;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-options article + article {
+  border-left: 1px solid #d6e2ef;
+}
+
+.editor-options article > span,
+.editor-options strong,
+.editor-options small {
+  display: block;
+}
+
+.editor-options strong {
+  color: var(--ui-color-text-primary);
+  font-size: 12px;
+}
+
+.editor-options small {
+  margin-top: 2px;
+  color: var(--ui-color-text-muted);
+  font-size: 9px;
+}
+
+.editor-actions {
+  display: flex;
+  grid-column: 3;
+  align-self: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.three-options + .editor-actions {
+  grid-column: 1 / -1;
+}
+
+.secondary-action {
+  color: var(--ui-color-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.delete-action {
+  color: var(--ui-color-danger);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.primary-action {
+  min-width: 84px;
+}
+
+.primary-action:disabled,
+.delete-action:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.role-member-option {
+  display: grid;
+  min-width: 180px;
+  min-height: 52px;
+  padding: 4px 4px 4px 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 12px;
+  font-size: var(--ui-font-size-sm);
+}
+
 @media (max-width: 900px) {
   .config-panel-heading {
     align-items: flex-start;
@@ -1171,6 +1607,71 @@ function hasInsufficientContrast(draft: ShiftTypeDraft): boolean {
 
   .new-role-form :deep(.t-button),
   .schedule-role-editor fieldset > :deep(.t-button) {
+    width: 100%;
+  }
+
+  .shift-section-heading {
+    align-items: flex-start;
+  }
+
+  .shift-section-heading .config-section-note {
+    flex: 1;
+  }
+
+  .add-shift-button {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .shift-type-row {
+    padding-inline: 9px;
+    grid-template-columns: 40px minmax(0, 1fr) 48px 56px;
+    gap: 6px;
+  }
+
+  .shift-glyph {
+    width: 36px;
+    height: 36px;
+  }
+
+  .edit-row-button {
+    min-width: 48px;
+    padding-inline: 5px;
+  }
+
+  .compact-shift-editor {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 11px;
+  }
+
+  .editor-heading,
+  .identity-fields,
+  .time-range-control,
+  .compact-shift-editor > :deep(.color-control),
+  .compact-shift-editor > .contrast-warning,
+  .editor-options,
+  .editor-options.three-options,
+  .editor-actions,
+  .three-options + .editor-actions {
+    grid-column: 1;
+  }
+
+  .editor-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .editor-options,
+  .editor-options.three-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-options article + article {
+    border-top: 1px solid #d6e2ef;
+    border-left: 0;
+  }
+
+  .role-member-option {
     width: 100%;
   }
 }

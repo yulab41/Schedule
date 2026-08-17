@@ -60,23 +60,12 @@ const nameTitle = computed(() => {
   }
   return base;
 });
-const isCoarsePointer =
-  typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches ?? false);
-
 function toggleMenu(): void {
   isMenuOpen.value = !isMenuOpen.value;
 }
 
 function closeMenu(): void {
   isMenuOpen.value = false;
-}
-
-async function copyNumber(number: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(number);
-  } finally {
-    closeMenu();
-  }
 }
 
 onMounted(() => {
@@ -146,33 +135,14 @@ onUnmounted(() => {
       </template>
     </div>
     <div v-if="isMenuOpen && canCall && contactMode !== 'hidden'" class="phone-menu" @click.stop>
-      <template v-if="isCoarsePointer">
-        <a
-          v-for="option in phoneOptions.filter((entry) => entry.isConfirmed)"
-          :key="option.number"
-          :href="buildDialLink(option.number)"
-        >
-          拨打{{ option.label }} {{ option.number }}
-        </a>
-        <button
-          v-for="option in phoneOptions.filter((entry) => !entry.isConfirmed)"
-          :key="option.number"
-          type="button"
-          @click="copyNumber(option.number)"
-        >
-          复制{{ option.label }}（未确认） {{ option.number }}
-        </button>
-      </template>
-      <template v-else>
-        <button
-          v-for="option in phoneOptions"
-          :key="option.number"
-          type="button"
-          @click="copyNumber(option.number)"
-        >
-          复制{{ option.label }}{{ option.isConfirmed ? '' : '（未确认）' }} {{ option.number }}
-        </button>
-      </template>
+      <a
+        v-for="option in phoneOptions"
+        :key="option.number"
+        :href="buildDialLink(option.number)"
+        @click="closeMenu"
+      >
+        拨打{{ option.label }}{{ option.isConfirmed ? '' : '（未确认）' }} {{ option.number }}
+      </a>
     </div>
   </div>
 </template>

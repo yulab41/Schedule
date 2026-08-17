@@ -10,14 +10,18 @@ import { getWeekDays, groupAssignmentsByDate, isWeekend } from './calendar-views
 import DutyCell from './DutyCell.vue';
 import { getDutyMembershipId, getHolidayShortLabel, isPastBusinessDate } from './calendar-logic.js';
 
-const props = defineProps<{
-  readonly assignments: readonly CalendarDutyAssignment[];
-  readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
-  readonly members: readonly CalendarDutyMember[];
-  readonly today: string;
-  readonly weekStart: string;
-  readonly selectedDate?: string | undefined;
-}>();
+const props = withDefaults(
+  defineProps<{
+    readonly assignments: readonly CalendarDutyAssignment[];
+    readonly holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
+    readonly members: readonly CalendarDutyMember[];
+    readonly showWeekdayHeader?: boolean;
+    readonly today: string;
+    readonly weekStart: string;
+    readonly selectedDate?: string | undefined;
+  }>(),
+  { selectedDate: undefined, showWeekdayHeader: true },
+);
 const emit = defineEmits<{
   (event: 'select-date', businessDate: string): void;
 }>();
@@ -70,7 +74,7 @@ function selectDate(date: string): void {
 
 <template>
   <section class="week-grid" aria-label="周排班">
-    <div class="weekday-row" aria-hidden="true">
+    <div v-if="showWeekdayHeader !== false" class="weekday-row" aria-hidden="true">
       <span
         v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']"
         :key="weekday"

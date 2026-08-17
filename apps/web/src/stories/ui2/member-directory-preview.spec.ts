@@ -45,4 +45,19 @@ describe('member directory Storybook preview', () => {
     expect(preview).toMatch(/:focus-visible\s*{[^}]*outline:/s);
     expect(preview).toContain('@media (prefers-reduced-motion: reduce)');
   });
+
+  it('previews direct dial actions and the unified compact switch treatment', () => {
+    const preview = readSource('./MemberDirectoryPreview.vue');
+
+    expect(preview).toContain(':href="dialHref(selfMember.longNumber)"');
+    expect(preview).toContain(':href="dialHref(member.longNumber)"');
+    expect(preview).toContain('class="contact-dial-action"');
+    expect(preview).toMatch(
+      /\.contact-dial-action\s*{[^}]*min-height:\s*44px;[^}]*color:\s*inherit;[^}]*background:\s*transparent;/s,
+    );
+    expect(preview).not.toContain('<Ui2Icon name="phone"');
+    expect(preview).toContain('role="switch"');
+    expect(preview).toContain('class="compact-switch"');
+    expect(preview).not.toContain('<input v-model="confirmedDraft" type="checkbox" />');
+  });
 });

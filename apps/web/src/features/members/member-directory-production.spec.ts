@@ -77,4 +77,14 @@ describe('production member contact directory', () => {
     expect(contactFormSource).toContain('class="confirmation-row"');
     expect(contactFormSource).toContain('class="contact-save-button"');
   });
+
+  it('makes every available directory number directly dialable without changing its plain text style', () => {
+    const source = readSource('./MemberManager.vue');
+
+    expect(source).toContain('class="directory-phone-link"');
+    expect(source).toContain(':href="buildMemberDialLink(');
+    expect(source).toMatch(
+      /\.directory-phone-link\s*{[^}]*color:\s*inherit;[^}]*background:\s*transparent;[^}]*text-decoration:\s*none;/s,
+    );
+  });
 });

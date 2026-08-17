@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildChangeChainSummary,
   buildEventNarrative,
+  buildEventDateGroups,
   buildEventTimelineItems,
   extractEventChanges,
   formatEventTime,
@@ -88,6 +89,20 @@ describe('event timeline logic', () => {
     expect(items.map((item) => item.event.id)).toEqual(['event-1', 'event-2']);
     expect(items[0]).toMatchObject({ marker: 'swap' });
     expect(items[1]?.marker).toBeUndefined();
+  });
+
+  it('groups the event center timeline by China Standard Time date, newest first', () => {
+    const groups = buildEventDateGroups([
+      event({ id: 'event-morning', occurredAt: '2026-08-17T01:00:00.000Z' }),
+      event({ id: 'event-night', occurredAt: '2026-08-16T18:00:00.000Z' }),
+      event({ id: 'event-previous', occurredAt: '2026-08-16T15:00:00.000Z' }),
+    ]);
+
+    expect(groups.map((group) => [group.businessDate, group.label])).toEqual([
+      ['2026-08-17', '8月17日 周一'],
+      ['2026-08-16', '8月16日 周日'],
+    ]);
+    expect(groups[0]?.events.map((item) => item.id)).toEqual(['event-morning', 'event-night']);
   });
 
   it('maps completed workflow events to calendar markers', () => {

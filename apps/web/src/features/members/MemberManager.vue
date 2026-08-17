@@ -328,6 +328,10 @@ function shortPhoneFor(member: GroupMember): string {
   return contact?.shortPhone ?? '未填写';
 }
 
+function buildMemberDialLink(number: string): string | undefined {
+  return number === '未填写' ? undefined : `tel:${number}`;
+}
+
 function initials(realName: string): string {
   return realName.slice(-2);
 }
@@ -530,13 +534,27 @@ async function runMemberAction(
             <div>
               <dt>长号</dt>
               <dd :class="{ 'is-missing': mobilePhoneFor(currentMember) === '未填写' }">
-                {{ mobilePhoneFor(currentMember) }}
+                <a
+                  v-if="mobilePhoneFor(currentMember) !== '未填写'"
+                  class="directory-phone-link"
+                  :href="buildMemberDialLink(mobilePhoneFor(currentMember))"
+                >
+                  {{ mobilePhoneFor(currentMember) }}
+                </a>
+                <span v-else>未填写</span>
               </dd>
             </div>
             <div>
               <dt>短号</dt>
               <dd :class="{ 'is-missing': shortPhoneFor(currentMember) === '未填写' }">
-                {{ shortPhoneFor(currentMember) }}
+                <a
+                  v-if="shortPhoneFor(currentMember) !== '未填写'"
+                  class="directory-phone-link"
+                  :href="buildMemberDialLink(shortPhoneFor(currentMember))"
+                >
+                  {{ shortPhoneFor(currentMember) }}
+                </a>
+                <span v-else>未填写</span>
               </dd>
             </div>
           </dl>
@@ -593,13 +611,27 @@ async function runMemberAction(
               <div>
                 <dt>长号</dt>
                 <dd :class="{ 'is-missing': mobilePhoneFor(member) === '未填写' }">
-                  {{ mobilePhoneFor(member) }}
+                  <a
+                    v-if="mobilePhoneFor(member) !== '未填写'"
+                    class="directory-phone-link"
+                    :href="buildMemberDialLink(mobilePhoneFor(member))"
+                  >
+                    {{ mobilePhoneFor(member) }}
+                  </a>
+                  <span v-else>未填写</span>
                 </dd>
               </div>
               <div>
                 <dt>短号</dt>
                 <dd :class="{ 'is-missing': shortPhoneFor(member) === '未填写' }">
-                  {{ shortPhoneFor(member) }}
+                  <a
+                    v-if="shortPhoneFor(member) !== '未填写'"
+                    class="directory-phone-link"
+                    :href="buildMemberDialLink(shortPhoneFor(member))"
+                  >
+                    {{ shortPhoneFor(member) }}
+                  </a>
+                  <span v-else>未填写</span>
                 </dd>
               </div>
             </dl>
@@ -1048,6 +1080,20 @@ async function runMemberAction(
 .directory-contact-values dd.is-missing {
   color: var(--ui-color-text-muted);
   font-weight: var(--ui-font-weight-regular);
+}
+
+.directory-phone-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: inherit;
+  background: transparent;
+  text-decoration: none;
+}
+
+.directory-phone-link:hover {
+  color: var(--ui-color-primary);
+  text-decoration: underline;
 }
 
 .directory-actions {

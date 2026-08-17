@@ -21,10 +21,12 @@ describe('formal calendar view refinement', () => {
     expect(weekGrid).toMatch(/\.week-row\s*{[^}]*gap:\s*1px/s);
     expect(weekGrid).toMatch(/\.day-cell\s*{[^}]*border:\s*0;[^}]*border-radius:\s*0;/s);
     expect(calendarView).toContain('class="week-calendar-card"');
-    expect(calendarView).toContain('getWeekBusinessMonths(weekStart.value)');
+    expect(calendarView).toContain(
+      'weekPanels.value.flatMap((panelWeek) => getWeekBusinessMonths(panelWeek))',
+    );
     expect(calendarView).not.toContain('syncMonthToWeek');
     expect(calendarView).toMatch(
-      /<section v-if="viewMode === 'week'" class="week-calendar-card">[\s\S]*class="week-navigation"[\s\S]*<WeekGrid/s,
+      /<section v-if="viewMode === 'week'" class="week-calendar-card">[\s\S]*class="week-navigation"[\s\S]*class="calendar-weekday-row"[\s\S]*class="calendar-swipe-track"[\s\S]*<WeekGrid/s,
     );
     expect(weekGrid).toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.week-row\s*{[^}]*grid-template-columns:\s*repeat\(7,\s*minmax\(0,\s*1fr\)\)/s,
@@ -32,6 +34,36 @@ describe('formal calendar view refinement', () => {
     expect(weekGrid).not.toMatch(
       /@media \(max-width: 640px\)[\s\S]*?\.week-row\s*{[^}]*grid-template-columns:\s*1fr/s,
     );
+  });
+
+  it('slides real adjacent month and week cells with a velocity-aware soft settle', () => {
+    const calendarView = readSource('../../views/calendar/CalendarView.vue');
+    const monthGrid = readSource('./MonthGrid.vue');
+    const weekGrid = readSource('./WeekGrid.vue');
+
+    expect(calendarView).toContain('v-for="(panelMonth, panelIndex) in monthPanels"');
+    expect(calendarView).toContain('v-for="(panelWeek, panelIndex) in weekPanels"');
+    expect(calendarView).toContain(':business-month="panelMonth"');
+    expect(calendarView).toContain(':week-start="panelWeek"');
+    expect(calendarView).toContain('getSwipeNavigationIntent({');
+    expect(calendarView).toContain('getSwipeSettleDuration({');
+    expect(calendarView).toMatch(
+      /function onCalendarPointerDown[\s\S]*suppressSwipeClick\.value = false;[\s\S]*function onCalendarPointerMove/,
+    );
+    expect(calendarView).not.toMatch(
+      /function onCalendarPointerDown[\s\S]*setPointerCapture[\s\S]*function onCalendarPointerMove/,
+    );
+    expect(calendarView).toMatch(
+      /function onCalendarPointerMove[\s\S]*start\.axis !== 'horizontal'[\s\S]*setPointerCapture/,
+    );
+    expect(calendarView).toContain('cubic-bezier(0.22, 1, 0.36, 1)');
+    expect(calendarView).toMatch(
+      /\.calendar-swipe-track\s*{[^}]*grid-template-columns:\s*repeat\(3, 100%\);/s,
+    );
+    expect(monthGrid).toContain('v-if="showWeekdayHeader !== false"');
+    expect(weekGrid).toContain('v-if="showWeekdayHeader !== false"');
+    expect(monthGrid).toMatch(/withDefaults\([\s\S]*showWeekdayHeader:\s*true/);
+    expect(weekGrid).toMatch(/withDefaults\([\s\S]*showWeekdayHeader:\s*true/);
   });
 
   it('selects a week day and renders the existing detail track below it', () => {
@@ -118,5 +150,17 @@ describe('formal calendar view refinement', () => {
     );
     expect(calendarView).not.toMatch(/\.calendar-locator:active/);
     expect(calendarView).not.toContain('is-pulsing');
+  });
+
+  it('uses direct dial links in list and selected-date details on every pointer type', () => {
+    const dutyCell = readSource('./DutyCell.vue');
+    const selectedDateDetails = readSource('./SelectedDateDutyDetails.vue');
+
+    expect(dutyCell).toContain('v-for="option in phoneOptions"');
+    expect(dutyCell).toContain(':href="buildDialLink(option.number)"');
+    expect(dutyCell).not.toContain('isCoarsePointer');
+    expect(dutyCell).not.toContain('@click="copyNumber(option.number)"');
+    expect(selectedDateDetails).toContain('v-for="option in row.phoneOptions"');
+    expect(selectedDateDetails).not.toContain('@click="copyNumber(option.number)"');
   });
 });

@@ -3,6 +3,7 @@ import type { GroupMemberContact } from '@schedule/contracts';
 import { ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
+import CompactSwitch from '../../components/CompactSwitch.vue';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 
@@ -88,13 +89,13 @@ function emptyToNull(value: string): string | null {
         placeholder="选填"
       />
     </label>
-    <label v-if="canConfirm" class="confirmation-row">
-      <input v-model="isConfirmed" type="checkbox" />
+    <div v-if="canConfirm" class="confirmation-row">
       <span>
         <strong>确认联系方式</strong>
         <small>我已与该成员核对以上号码</small>
       </span>
-    </label>
+      <CompactSwitch v-model="isConfirmed" label="确认联系方式" />
+    </div>
     <p v-if="errorMessage !== undefined" class="contact-feedback is-error" role="alert">
       {{ errorMessage }}
     </p>
@@ -146,21 +147,14 @@ function emptyToNull(value: string): string | null {
 }
 
 .confirmation-row {
-  display: flex;
+  display: grid;
   min-height: 56px;
   padding: 10px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   background: var(--ui-color-primary-light);
   border-radius: 12px;
-  cursor: pointer;
-}
-
-.confirmation-row > input {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  accent-color: var(--ui-color-primary);
 }
 
 .confirmation-row > span {
@@ -228,7 +222,6 @@ function emptyToNull(value: string): string | null {
 }
 
 .contact-field input:focus-visible,
-.confirmation-row > input:focus-visible,
 .contact-cancel-button:focus-visible,
 .contact-save-button:focus-visible {
   outline: 3px solid var(--ui-color-focus-ring);

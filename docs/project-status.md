@@ -346,3 +346,14 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 状态：已完成（含生产发布与线上核验）→ 待用户最终验收。最终状态 checkpoint 识别消息：`docs(status): record cross-month swap deployment`。
 - 下一批次：无待实施仓库任务；最终状态 checkpoint 推送并作为文档同步 release 部署后等待用户验收。
 - 停止条件：Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；不再开始新实现任务。
+
+## 2026-08-17 已确认界面精修落地（当前批次）
+
+- 批次范围：仅落地用户确认的 3 组任务——月/周真实相邻内容滑动及苹果式柔和吸附；成员/日历详情直接拨号、统一紧凑开关、紧凑班种与自定义颜色；事件页日期时间轴及折叠。不修改 API、权限、数据库、通知订阅链路、换班或其他页面。
+- 日历：月/周采用前中后三个真实面板，工具栏和星期栏固定在圆角滚动区外；拖动跟手，按距离/速度判定翻页，松手使用 `cubic-bezier(0.22, 1, 0.36, 1)` 动态时长吸附，减少动态时即时完成。只在确认横向拖动后捕获指针，普通月格点触仍一次生效；独立月/周组件默认保留星期栏。
+- 设计落地：成员、列表与选中日期电话均为透明原样式 `tel:` 入口；相关 checkbox 改为 60×44px 点触、52×30px 轨道的紧凑开关。班种列表按需展开，输入框 42px，保留五个预设色并新增同尺寸自定义色圆点、调色板与 HEX。事件页按日期分组为时间轴，支持全部日期、单日期和单事件详情展开/折叠，访客访问记录保持原表格。
+- 回归来源与测试：假滑动来自 `7c80488`；电话路径来自 `1c84fd6`/`7a47d69`/`ab25064`，成员目录来自 `6183e9d`；班种 UI 来自 `04c7da3`；事件表来自 `7ac2a07`，均已执行 `git log -S` 与 `git blame`。新增断言均先在旧实现失败，修复后定向 10 文件 72/72 通过。
+- 验证：`pnpm verify` 通过（88 个文件/579 项，29 个数据库集成文件/253 项按环境跳过）；Web/全仓 build 与 typecheck、Prettier、ESLint、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core` 和 `git diff --check` 均通过。完整 smoke 覆盖管理员、成员、访客 vkey 与访问记录且无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-7emAAK`。
+- Storybook 专项：390px 月视图真实左滑成功切换相邻月；成员拨号链接透明且 44px；紧凑开关 60×44px；自定义色调色板/HEX 和事件全部日期折叠均实际操作通过。checkpoint 识别消息：`feat(web): land approved interface refinements`。
+- 下一批次：无新增实现任务；提交推送后创建生产加密数据库备份，部署本 checkpoint，运行 `ecs-verify.sh` 并在正式域名只读复核月/周、成员拨号、班种、事件和开关。
+- 停止条件：生产备份、release、`ecs-verify.sh` 与正式域名复核完成，Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后待用户验收，不开始其他修改。
