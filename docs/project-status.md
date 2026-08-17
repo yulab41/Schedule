@@ -35,9 +35,10 @@
 - Web 黄金稿：用 `frontend-design` 形成基础控件、42 格月历、7×7 与 20×30 矩阵的 390×844/320×844 Storybook 状态；矩阵 fixture 证明 49/600 个逻辑格，浏览器实测最大矩阵 20 行、30 列、600 格，单格写入/撤销通过且无页面横向溢出。截图只在已忽略的 `.artifacts`。
 - 验证：`pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test --exclude "runtime/**"`（108 files/646 tests pass，31 files/260 integration tests skipped）、`pnpm smoke:check-core`、Storybook build、Mini staging/production verify、9 项工具链测试和 `git diff --check` 通过。根 `runtime/` 与 `src/components.d.ts` 是既存/并发未跟踪产物，未修改或纳入验证提交。全程未启动、唤醒或控制微信开发者工具。
 - 外部门禁：当前未注入仓库外微信上传私钥，因此没有生成预览码或改变微信平台状态；原生 UI 尚未获批/实现，MiniTest 与实体机门禁未开始，不能声称原生通过。
-- checkpoint 识别消息：`chore(miniprogram): establish native migration workspace`。
+- checkpoint：`3884713`（`chore(miniprogram): establish native migration workspace`）已推送；发布前加密数据库备份 archive 为 `365295b2-9a16-4d0f-91d2-bcf4ce24470b`（50 张表、18,423 行、7,296,708 字节，SHA-256 `aa0b605778b44edb7651bdf00f2c06e020f109e6937d2e872bf096598ef115cd`）。release `3884713b35f417c88210046efb522bacdb5e08d4` 已部署，容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
+- 当前状态：P0 与 P1 非视觉工具链完成，Web 黄金稿已实现待用户视觉确认；最终状态 checkpoint 识别消息为 `docs(status): record miniprogram migration foundation`。
 - 下一批次：先等待用户逐项确认或退回 P1 的基础控件、42 格月历、7×7/20×30 矩阵黄金稿。批准后才做 1–3 项原生 PoC：同源 WXSS tokens/基础控件、42 格 Skyline 月历、双轴矩阵/Worklet/局部更新；未批准则只修改 Storybook 黄金稿。
-- 停止条件：本轮 checkpoint 显式提交、推送、生产备份、ECS release 与 `ecs-verify.sh` 通过后，保持 Storybook 预览，暂停等待用户视觉确认。
+- 停止条件：最终状态 checkpoint 推送、生产备份、release 与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；保持 Storybook 预览并暂停等待用户视觉确认。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 
