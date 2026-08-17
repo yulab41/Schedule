@@ -60,4 +60,10 @@ describe('cross-month swap forms', () => {
     expect(adminTargetMonthChange).toContain('adminPreview.value = undefined');
     expect(adminTargetMonthChange).not.toContain('adminInitiatorAssignmentId.value');
   });
+
+  it('keeps the original weekday option renderer without adding shift times', () => {
+    expect(panelSource).toContain('createAssignmentOption,');
+    expect(panelSource).toContain('return createAssignmentOption(assignment);');
+    expect(panelSource).not.toContain('formatSwapAssignmentOption');
+  });
 });

@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-17 换班下拉班次文案回归修复
+
+- 回归定位：`git log -S 'formatSwapAssignmentOption' -- apps/web/src/features/swaps` 与对应 `git blame` 确认含时间/岗位的专用文案由跨月换班提交 `5a8380f` 引入；原公共 `createAssignmentOption` 来自 `11094e3`，仍完整提供“日期 + 班种 + 周X + 成员”以及周末周几红字 VNode。
+- 测试先行：新增 `swap-cross-month-regression.spec.ts` 断言换班表单必须调用 `createAssignmentOption` 且源码不含 `formatSwapAssignmentOption`；旧实现 1 项失败、2 项通过，修复后换班逻辑、跨月回归与公共选项 11/11 通过。
+- 修复：四组普通/管理员班次下拉统一复用公共选项；删除不再使用的专用格式函数及对应时间文案测试。现有换班记录表仍使用 `formatSwapShiftTime`，跨月月份加载、双方选择清空边界、候选人、预览、提交、审批与冲突处理均未改变。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 的当前源码服务下通过管理员、成员、访客 vkey 与访问记录全流程；首次未启动服务和首次未开启 Web 开发认证的运行分别被环境门禁正常拦截。`pnpm smoke:check-core` 通过并确认未涉及核心链路文件。
+- 完整验证：Web typecheck/build、`pnpm verify`、定向 3 文件 11 项及 `git diff --check` 通过；全仓为 88 个测试文件、580 项通过，29 个数据库集成文件、253 项按默认环境跳过，仅有既有大 chunk warning。
+- 状态：已完成本地实现与运行验证，待 checkpoint `fix(web): restore swap weekday option labels` 提交、推送和生产发布。
+
 ## 2026-08-17 日历滑动、紧凑控件、拨号与事件时间轴落地
 
 - 回归来源：月视图假滑动来自 `7c80488`；电话复制/菜单路径分别来自 `1c84fd6`、`7a47d69`、`ab25064`，成员目录来自 `6183e9d`；班种原始编辑器来自 `04c7da3`；事件表格来自 `7ac2a07`。本轮均已对关键表达式执行 `git log -S` 与 `git blame`。

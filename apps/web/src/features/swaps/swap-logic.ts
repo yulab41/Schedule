@@ -7,7 +7,6 @@ import type {
 } from '@schedule/contracts';
 import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
-import { getDutyMemberName } from '../calendar/calendar-logic.js';
 import {
   buildOperableCandidateAssignments,
   getWorkflowNextStatusDescription,
@@ -62,23 +61,6 @@ export function formatSwapShiftTime(startsAt: string, endsAt: string): string {
   const start = formatChinaDateTime(startsAt, { includeYear: false });
   const end = formatChinaDateTime(endsAt, { includeYear: false });
   return `${start.slice(0, 5)} ${start.slice(5)}–${end.slice(5)}`;
-}
-
-export function formatSwapAssignmentOption(assignment: CalendarDutyAssignment): string {
-  const startsAt = formatChinaDateTime(assignment.startsAt);
-  const endsAt = formatChinaDateTime(assignment.endsAt);
-  const endDate = endsAt.slice(0, 10);
-  const endTime = endsAt.slice(11);
-  const nextDate = new Date(`${assignment.businessDate}T00:00:00.000Z`);
-  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
-  const nextBusinessDate = nextDate.toISOString().slice(0, 10);
-  const endLabel =
-    endDate === assignment.businessDate
-      ? endTime
-      : endDate === nextBusinessDate
-        ? `次日${endTime}`
-        : `${endDate} ${endTime}`;
-  return `${assignment.businessDate} ${assignment.shiftTypeName} ${startsAt.slice(11)}–${endLabel} · ${assignment.scheduleRoleName} · ${getDutyMemberName(assignment) ?? '待定'}`;
 }
 
 export async function loadSwapMonthCalendars(

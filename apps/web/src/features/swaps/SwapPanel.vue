@@ -17,11 +17,13 @@ import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
 import type { SelectValue } from 'tdesign-vue-next';
 import { getCurrentBusinessMonth } from '../calendar/calendar-logic.js';
-import { formatAssignmentSummaryOption } from '../workflows/assignment-option.js';
+import {
+  createAssignmentOption,
+  formatAssignmentSummaryOption,
+} from '../workflows/assignment-option.js';
 import { getWorkflowStatusTone } from '../workflows/workflow-logic.js';
 import {
   buildSwapCandidates,
-  formatSwapAssignmentOption,
   formatSwapShiftTime,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
@@ -290,7 +292,7 @@ function isBusinessMonth(value: string): boolean {
 }
 
 function toAssignmentOption(assignment: CalendarReadModel['assignments'][number]) {
-  return { label: formatSwapAssignmentOption(assignment), value: assignment.id };
+  return createAssignmentOption(assignment);
 }
 
 function resetForm(): void {

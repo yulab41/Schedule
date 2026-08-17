@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildSwapCandidates,
-  formatSwapAssignmentOption,
   formatSwapShiftTime,
   getSwapConflictMessage,
   getSwapNextStatusDescription,
@@ -122,9 +121,6 @@ describe('swap flow logic', () => {
     ).toBe('该成员在班次时间内有已批准请假。');
     expect(formatAssignmentOption(calendar.assignments[1]!)).toBe(
       '2026-09-02 全天班（周三）· 李医生',
-    );
-    expect(formatSwapAssignmentOption(calendar.assignments[1]!)).toBe(
-      '2026-09-02 全天班 08:00–次日00:00 · 一线 · 李医生',
     );
     expect(
       formatAssignmentSummaryOption({
