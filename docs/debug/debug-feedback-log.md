@@ -9,7 +9,9 @@
 - 修复：四组普通/管理员班次下拉统一复用公共选项；删除不再使用的专用格式函数及对应时间文案测试。现有换班记录表仍使用 `formatSwapShiftTime`，跨月月份加载、双方选择清空边界、候选人、预览、提交、审批与冲突处理均未改变。
 - 运行/浏览器验证：`pnpm smoke:browser` 在 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 的当前源码服务下通过管理员、成员、访客 vkey 与访问记录全流程；首次未启动服务和首次未开启 Web 开发认证的运行分别被环境门禁正常拦截。`pnpm smoke:check-core` 通过并确认未涉及核心链路文件。
 - 完整验证：Web typecheck/build、`pnpm verify`、定向 3 文件 11 项及 `git diff --check` 通过；全仓为 88 个测试文件、580 项通过，29 个数据库集成文件、253 项按默认环境跳过，仅有既有大 chunk warning。
-- 状态：已完成本地实现与运行验证，待 checkpoint `fix(web): restore swap weekday option labels` 提交、推送和生产发布。
+- 正式发布：checkpoint `afe6a2d` 已推送；发布前加密数据库备份 archive 为 `5a1e925d-a75d-4b68-ad0b-3c246b787d90`（44 张表、9884 行，SHA-256 `56b9232458d5078da0cca8c552a287a301b94a7b41ab145997fbf3f30c1a0bd8`）。release `afe6a2d7531d26553e7cf7ebf1d48cd3af37a447` 部署成功，发布前后 `ecs-verify.sh` 均通过。
+- 正式域名只读复核：正式 D0796 会话可正常打开换班页、发起换班 Sheet 和“我的班次”选项层；当前 2026-08 无可选已发布班次，显示“暂无数据”，未制造业务数据或触发写入，浏览器 error/warning 为 0。选项有数据分支由公共选项 VNode 测试、换班回归测试和本地浏览器验证覆盖。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record swap option deployment`。
 
 ## 2026-08-17 日历滑动、紧凑控件、拨号与事件时间轴落地
 

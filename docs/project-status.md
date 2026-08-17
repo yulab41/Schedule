@@ -24,15 +24,17 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
-## 2026-08-17 换班班次下拉恢复周几显示（当前批次）
+## 2026-08-17 换班班次下拉恢复周几显示
 
 - 回归来源：跨月换班 checkpoint `5a8380f` 新增 `formatSwapAssignmentOption`，把班次下拉从原有“日期 + 班种 + 周X + 成员”改成包含起止时间与岗位的专用文案；已对该函数和原公共 `createAssignmentOption` 执行 `git log -S` 与 `git blame`。
 - 测试先行：新增换班表单必须复用公共班次选项且不得保留专用时间文案的回归断言；旧代码 1 项失败、2 项通过，修复后换班/公共选项定向 3 个文件 11/11 通过。
 - 变更与语义审计：普通与管理员跨月换班的四组班次选项统一恢复使用 `createAssignmentOption`，显示完整日期、班种、`周X` 与成员；周六、周日继续仅对周几文字应用既有红色样式。移除专用时间文案函数，不修改月份独立状态、候选筛选、预览/提交、API、权限、错误路径或现有换班记录的时间展示。
 - 运行/浏览器验证：Web typecheck/build、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify` 与 `git diff --check` 通过；完整验证为 88 个测试文件、580 项通过，29 个数据库集成文件、253 项按默认环境跳过，仅保留既有大 chunk warning。浏览器冒烟覆盖管理员、成员、访客 vkey 与访问记录，全流程无浏览器错误。
-- 状态：已实现并完成本地运行验证；checkpoint 识别消息为 `fix(web): restore swap weekday option labels`。
-- 下一批次：只提交并推送本 checkpoint，创建生产加密数据库备份、部署对应 release，运行 `ecs-verify.sh` 并在正式域名只读复核换班入口；当前生产群组若没有可选已发布班次，则不制造业务数据，以本地定向测试和浏览器验证覆盖选项内容分支。
-- 停止条件：Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，生产核验通过后等待用户复核。
+- 正式发布：代码 checkpoint `afe6a2d` 已推送；发布前加密数据库备份 archive 为 `5a1e925d-a75d-4b68-ad0b-3c246b787d90`（44 张表、9884 行，SHA-256 `56b9232458d5078da0cca8c552a287a301b94a7b41ab145997fbf3f30c1a0bd8`）。release `afe6a2d7531d26553e7cf7ebf1d48cd3af37a447` 部署成功，发布前后 `ecs-verify.sh` 均通过。
+- 正式域名只读复核：正式 D0796 会话正常打开换班页、“发起换班”Sheet 及“我的班次”选项层；当前 2026-08 没有可选已发布班次，选项层正确显示“暂无数据”，未制造排班或触发任何业务写入。浏览器 error/warning 为 0，选项有数据分支由定向测试和本地浏览器验证覆盖。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint 为 `afe6a2d`；最终状态 checkpoint 识别消息为 `docs(status): record swap option deployment`。
+- 下一批次：只提交、推送并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+- 停止条件：最终状态 checkpoint 的生产备份、release 部署和 `ecs-verify.sh` 通过后等待用户复核。
 
 ## 本轮已完成
 
