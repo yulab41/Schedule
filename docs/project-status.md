@@ -420,5 +420,7 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - Storybook 预览：采用“医护排班时间轨”方向，手机为底部 Sheet、桌面为邻近浮层，月份 4×3 网格、日期 7 列月历、时间 24 小时双滚轮，共享浅蓝当前选择摘要。390×844、320×844、1280×900 无横向溢出，主要操作均不小于 44px，键盘焦点/减少动态通过，Axe WCAG A/AA 为 0 项违规。预览地址为 `http://127.0.0.1:6007/?path=/story/web-ui-2-0-next-refinements-unified-temporal-pickers--mobile-month-390`；生产替换等待用户视觉确认。
 - 运行/浏览器验证：Web typecheck/build、Storybook build、Prettier、ESLint、`node scripts/smoke-browser.mjs`、直接全仓 Vitest 和 `git diff --check` 通过；完整 smoke 覆盖管理员、成员、访客/vkey 与访问记录且无浏览器错误。真实 390px 浏览器确认单击 7月→8月有滚动动画、定位 7月→8月有同款动画、40ms 连续两击到 9月不丢失；周视图单击第4周→第5周及定位返回均有动画。`pnpm verify` 包装器因本机非 TTY 依赖目录检查停止，等价的直接格式、ESLint、Web build/typecheck 与全仓 Vitest 已分别通过。
 - 行为审计：缓存仅复用同群只读 GET，拒绝请求会从缓存移除；强制刷新、最新请求追踪、错误/冲突路径和筛选不变。`shallowRef` 只取消未使用的深层代理，日历模型仍整体替换；API、权限、数据库、日期点击、详情和业务写入均未改。checkpoint 识别消息：`fix(web): smooth calendar navigation and compact badges`。
-- 下一批次：当前生产 checkpoint 提交、推送、加密数据库备份、release 部署、`ecs-verify.sh` 与正式域名只读复核；选择器生产落地必须等待用户确认 Storybook。
-- 停止条件：Git `HEAD`、`origin/main` 与服务器 `current-release` 一致，正式月/周单击翻页、定位动画与紧凑标识通过；随后等待用户确认选择器预览，不提前替换生产控件。
+- 正式发布：代码 checkpoint `628c79f` 已推送；发布前加密数据库备份 archive 为 `494a53f0-db00-4c97-8469-71308de60e88`（44 张表、11348 行，SHA-256 `8c6db38ee0705a29d08aa83854eee7f7bc9c2eaf81cbd5debb54911d328504c1`）。release `628c79f27816302c781f429d4628be949b5b3f22` 部署成功，发布前后 `ecs-verify.sh` 通过；容器预热时一次 502 由发布脚本自动重试后恢复。
+- 正式域名只读复核：390×844 下单击 8月→7月、7月→8月均一次成功；离开 8月时蓝色选择为 0，返回后原 8月17日选择恢复为 1；定位从 7月返回 8月，周视图第4周→第5周及定位返回第4周均一次成功。浏览器启用减少动态，因此正式复核按设计即时切换；正常动态的滚动过程已由同构建本地浏览器验证。9 月“班”标识为 14px 高、8px 字、2px 水平内边距和 3px 圆角，无横向溢出、3 个真实周面板，控制台无 error/warning，未触发业务写入。
+- 下一批次：无已授权生产修改；等待用户确认 Storybook 的月份/日期/时间选择器。确认后才替换生产原生控件。
+- 停止条件：最终状态 checkpoint 推送并作为文档同步 release 部署，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后等待用户视觉确认。

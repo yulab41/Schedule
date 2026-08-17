@@ -380,4 +380,5 @@
 - 语义等价审计：API 接收者与调用方式不变；缓存拒绝时删除条目并沿原 catch 处理，聚焦和冲突路径显式 `forceRefresh`；筛选、空值、最新请求判断、日期点击、详情和副作用次数不变。唯一行为变化是减少重复只读 GET、保持用户选择和为定位增加已认可动画。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 的包装器受本机非 TTY 依赖检查影响，等价入口 `node scripts/smoke-browser.mjs` 通过管理员、成员、访客/vkey 和访问记录全链路，无浏览器错误。390px 单击翻月、40ms 双击排队、月定位、单击翻周和周定位均观察到中间滚动位移并一次结算；Web typecheck/build、Storybook build、Prettier、ESLint、直接全仓 Vitest 与 `git diff --check` 通过。
 - `frontend-design`/Storybook：新增统一月份、日期、时间选择器预览，手机底部 Sheet、桌面邻近浮层，保留医疗蓝、浅蓝摘要和系统字体；390/320/1280 无溢出、键盘焦点、减少动态、44px 主操作与 Axe WCAG A/AA 0 违规。四张确认图位于 `C:\Users\eylin\.codex\visualizations\2026\08\17\schedule-temporal-picker-preview`。生产选择器未改，等待用户确认。
-- 状态：生产日历/标识已完成本地运行验证，待 checkpoint、生产备份、部署和线上只读复核；选择器为待用户确认设计稿。
+- 正式发布与复核：checkpoint `628c79f` 已推送；备份 `494a53f0-db00-4c97-8469-71308de60e88`（44 张表、11348 行），release `628c79f27816302c781f429d4628be949b5b3f22` 已部署，发布前后 `ecs-verify.sh` 通过。正式 390px 减少动态会话中，月/周单击和定位均一次成功并按偏好即时完成；离开/返回 8 月时原 8月17日选择恢复。9 月“班”标识为 14px/8px/2px/3px，无溢出、日志为空，未写入业务数据。
+- 状态：生产日历/标识已完成发布与线上只读复核；选择器仍为待用户确认设计稿。
