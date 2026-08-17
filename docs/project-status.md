@@ -30,9 +30,11 @@
 - 测试先行：旧实现 4 个定向文件 6 项失败、10 项通过；修复后 16/16 通过。完整 `pnpm verify` 为 89 个文件、582 项通过，29 个数据库集成文件、253 项因本机无隔离测试库跳过。
 - 变更与语义审计：延迟的 `lostpointercapture` 只能清理同一 pointer，旧手势释放前先清空状态；周历三面板等高填满，拖动中移除面板自身底角，静止选择框保持原圆角。换班/加扣班四个布尔设置复用 CompactSwitch，原 API、payload、异常路径不变。自定义颜色统一为内嵌 HSV 色域、色相滑杆与 HEX，Storybook 直接复用生产组件；移除原生颜色弹窗，“+”使用 CSS 线段居中。
 - 运行/浏览器验证：Web typecheck/build、Storybook build、`pnpm smoke:browser`、`pnpm smoke:check-core`、`pnpm verify` 与 `git diff --check` 通过。Storybook 390px 无横向溢出或原生颜色输入，色域 298×92px，点击可更新 HEX；完整 smoke 覆盖管理员、成员、访客/vkey 与访问记录且无浏览器错误。
-- 状态：已实现并完成本地运行验证，checkpoint 识别消息为 `fix(web): stabilize mobile calendar and compact controls`；待提交、推送、生产备份、部署与正式域名只读复核。
-- 下一批次：仅完成该 checkpoint 的 Git/生产发布闭环，不再增加产品改动。
-- 停止条件：代码 checkpoint 的生产备份、release 部署、`ecs-verify.sh` 和正式页只读复核通过后，提交并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+- 正式发布：代码 checkpoint `acd2507` 已推送；发布前加密数据库备份 archive 为 `b38a4aea-a518-43c9-ba90-b18cc9d31f58`（44 张表、9970 行，SHA-256 `1bbe706b8667768d279c82753d2ab6576f17f264e4b1521602aa25fa01aef133`）。release `acd25070b084768beede2fe40bf8c5e51d4fa7de` 部署成功，发布前后 `ecs-verify.sh` 均通过。
+- 正式域名只读复核：周历三面板均高 48px，当前网格底边与滑动视口底边精确一致，滑动后周次连续且无横向溢出；换班/加扣班各 2 个设置均为 60×44px 点触区、52×30px 开关且无原生 checkbox；配色面板无 `input[type=color]`，内嵌色域 308×92px、页面无横向溢出。浏览器 error/warning 为 0，未切换设置、保存配置或触发业务写入。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。代码 checkpoint 为 `acd2507`；最终状态 checkpoint 识别消息为 `docs(status): record mobile interaction deployment`。
+- 下一批次：只提交、推送并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+- 停止条件：最终状态 checkpoint 的生产备份、release 部署和 `ecs-verify.sh` 通过后等待用户复核。
 
 ## 2026-08-17 换班班次下拉恢复周几显示
 
