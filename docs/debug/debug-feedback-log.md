@@ -359,3 +359,4 @@
 - 修复与语义：采用 W3C 官方规范对应的原生横向滚动和惯性；保留真实前/中/后三页，触摸期间不启动 JS settle 定时器，松手后兼容 `scrollend` 与旧 WebView 回退。高度按滚动进度在三面板间插值，静止时等于当前面板。班种启停使用原 API 一次，成功局部合并返回值、失败恢复开关；通用保存逻辑未改。
 - 运行/浏览器验证：`运行/浏览器验证：node scripts/smoke-browser.mjs` 通过。CDP 原生 touch 左滑月/周均切换，竖向主导手势不换月；2026-09 视口/五行面板差值 ≤1px；周七格均不低于 86px、互差 ≤1px、面板/视口底边差值 ≤1px；班种开关保存前后控件屏幕位置差值 ≤8px并恢复原状态。管理员、成员、访客/vkey、访问记录全流程无浏览器错误。
 - 其他验证：Web typecheck/build、Storybook build、Prettier、ESLint、smoke core check、`git diff --check` 通过。全仓 `pnpm verify` 被本机 pnpm 无 TTY 生产依赖预检与既有数据库测试清理顺序阻塞；全新测试库仍可复现，与本轮 Web 改动无关。
+- 正式发布与只读核验：代码 checkpoint `ee63532` 已推送；发布前加密备份 `f3b9a899-3c1a-41c1-bd26-075198dce913`（44 张表、10765 行），release `ee6353263d87fba18fe1d018e5347e44d1d6e2e2` 已部署且发布前后 `ecs-verify.sh` 通过。正式 390px 的 2026-09 为 35 格，视口/面板高度差小于 1px；周历七格与视口均为 86px；配置页开关点触区 60×44px、无横向溢出、浏览器日志为空，未触发业务写入。最终状态 checkpoint 识别消息为 `docs(status): record native touch calendar deployment`，发布前备份为 `d94afa5f-0192-4cb1-966a-10660d546143`。

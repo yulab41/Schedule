@@ -43,9 +43,11 @@
 - 变更与语义审计：月/周三页改为 `overflow-x: auto` + `scroll-snap`，移除 pointer capture、`preventDefault` 和 JS transform；月格允许原生横向手势，视口按相邻面板高度实时插值，5/6 行月份在静止时精确贴合当前面板；周格稳定 86px 基线并按内容自然增高。班种启停仍只调用一次原 `PUT shift-type`，成功后用返回值局部更新配置，失败恢复原开关；不再调用 `loadConfig()`，其他新增/编辑/删除保存链不变。
 - 运行/浏览器验证：Web typecheck/build、Storybook build、Prettier、ESLint、`node scripts/smoke-browser.mjs --check-core`、`git diff --check` 通过；`node scripts/smoke-browser.mjs` 以真实 CDP touch 事件完成月/周滑动、2026-09 五行高度、周格/底边等高、班种开关不跳位，并通过管理员、成员、访客/vkey/访问记录全流程。最终截图目录：`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-Ob63zl`。
 - 全仓验证说明：桌面环境的 `pnpm` 11.9.0 在执行脚本前错误尝试无 TTY 的 `install --production`，故使用等价的本地二进制逐项执行。全仓 Vitest 在全新隔离 MySQL 上暴露既有测试清理顺序问题：`swaps.integration` 通过后，后续测试未清理 `user_auth_identities` 而重复建表；另有既有群组并发断言抖动。本轮未修改 API、迁移或这些测试，未扩大范围修复；本轮相关 Web 410 项全部通过。
-- 状态：已完成本地实现与运行验证；checkpoint 识别消息为 `fix(web): use native touch calendar scrolling`。
-- 下一批次：仅提交、推送、生产备份、部署和正式域名只读复核本 checkpoint；随后记录最终 release 状态。
-- 停止条件：正式 release 的 `ecs-verify.sh`、月/周触控结构、当前面板高度和班种开关页面稳定性只读核验通过后等待用户复核。
+- 正式发布：代码 checkpoint `ee63532` 已推送；发布前加密数据库备份 archive 为 `f3b9a899-3c1a-41c1-bd26-075198dce913`（44 张表、10765 行，SHA-256 `baf70c29994b28a7325630f345f5575423936b497a63391c98a56fd5f09179ac`）。release `ee6353263d87fba18fe1d018e5347e44d1d6e2e2` 部署成功，发布前后 `ecs-verify.sh` 均通过。
+- 正式域名只读复核：390px 的 2026-09 为 35 格，视口/当前面板高分别为 260/259.7px；原生 `overflow-x: auto`、`scroll-snap: x mandatory` 和 `touch-action: pan-x pan-y` 生效。周历 7 格均为 86px，当前面板/视口均为 86px；排班配置页无横向溢出，6 个班种开关点触区均为 60×44px，浏览器 error/warning 为 0。未切换开关或触发业务写入。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核。最终状态 checkpoint 识别消息为 `docs(status): record native touch calendar deployment`，其发布前加密备份 archive 为 `d94afa5f-0192-4cb1-966a-10660d546143`（44 张表、10775 行，SHA-256 `7660de945feb2c4f3a58d5377b2b06f859a900a8dc85bf0a6b7a13d30bccd55e`）。
+- 下一批次：只提交、推送并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+- 停止条件：最终状态 checkpoint 的 release 部署和 `ecs-verify.sh` 通过后等待用户复核。
 
 ## 2026-08-17 换班班次下拉恢复周几显示
 
