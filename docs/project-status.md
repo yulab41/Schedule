@@ -446,6 +446,8 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 测试先行：生产替换断言在旧代码上 2/2 失败，实现后组件/预览 4/4、受影响定向 49/49、Web 58 文件/421 项通过。全主工作区 Vitest（排除另一批次的 `runtime/ecs-directory-release-src` 打包副本）97 文件/609 项通过，30 文件/256 项按环境跳过。
 - 运行/浏览器验证：全仓 Prettier、ESLint、build/typecheck、Web build、Storybook build、`node scripts/smoke-browser.mjs`、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过；完整 smoke 覆盖管理员、成员、访客 vkey 与访问记录且无浏览器错误。`pnpm verify` 的格式/lint/build/typecheck 全部通过，最后测试步骤仅因另一批次留下的 `runtime/ecs-directory-release-src` 旧打包副本被重复扫描而失败，主工作区同范围测试已独立全量通过。
 - Storybook 专项：真实生产组件在 390px 完成 2026-08→2026-09 和 08:00→08:15 滚轮提交；320px 日期面板无横向溢出；1280px 浮层与触发器间距 12px；打开态 Axe WCAG A/AA 为 0 项违规。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-components-temporal-picker--mobile-month-390`。
-- 当前状态：已完成（含本地运行验证）→ 待提交、生产备份、部署与线上只读复核。代码 checkpoint 识别消息：`feat(web): unify temporal picker controls`。
+- 正式发布：代码 checkpoint `92038cd` 已推送；发布前加密数据库备份 archive 为 `e72d6743-0c90-472d-ac50-53d6598dc157`（50 张表、11579 行、4,414,204 字节，SHA-256 `db04563e72190483248a6b644aae07e7e5aaa4a5927492ce0a1f984de34b480f`）。release `92038cdd6037da4ebe712bcf7b58e3b4a285dbb9` 部署成功；容器预热首次健康检查出现一次 502，自动重试恢复，更新后的 `ecs-verify.sh` 通过 38 个迁移、产物哈希、域名隔离和容器检查。
+- 正式域名只读复核：页面原生 `month`/`date`/`time` 输入均为 0；日历年月弹层打开后正确选中 2026 年 8 月，取消后仍为 2026 年 8 月。请假 Sheet 显示 2 个日期选择器并正确选中 17 日；换班 Sheet 显示 2 个独立月份选择器；班种时间触达区 44px、无原生 time input。所有弹层均取消或关闭，未提交、保存或写入业务数据，浏览器 error/warning 为 0。
+- 当前状态：已完成（含生产发布与线上只读复核）→ 待用户复核。代码 checkpoint 为 `92038cd`；最终状态 checkpoint 识别消息：`docs(status): record temporal picker deployment`。
 - 下一批次：统一选择器生产发布完成后，恢复项目既定 DIR-02 数据提取批次；本轮不提前处理小程序迁移或通讯录数据导入。
-- 停止条件：本 checkpoint 推送，生产加密数据库备份、release、`ecs-verify.sh` 与正式域名年月/日期/时间专项复核通过后停止。
+- 停止条件：最终状态 checkpoint 推送、生产备份、release 与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止并等待用户复核。
