@@ -416,7 +416,7 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
     background: var(--ui-color-border);
     border: 1px solid var(--ui-color-border);
     border-radius: var(--ui-radius-large);
-    touch-action: pan-y;
+    touch-action: pan-x pan-y;
   }
 
   .weekday-row,

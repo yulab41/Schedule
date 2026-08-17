@@ -8,12 +8,13 @@ function readSource(relativePath: string): string {
 }
 
 describe('formal calendar view refinement', () => {
-  it('keeps the week view as a seven-column calendar surface with content-driven height', () => {
+  it('keeps the week view as a seven-column calendar surface with a stable cell baseline', () => {
     const weekGrid = readSource('./WeekGrid.vue');
     const calendarView = readSource('../../views/calendar/CalendarView.vue');
 
-    expect(weekGrid).toContain('const weekCardHeight = computed(() =>');
-    expect(weekGrid).toContain('weekCardHeight}px');
+    expect(weekGrid).not.toContain('const weekCardHeight = computed(() =>');
+    expect(weekGrid).not.toContain('weekCardHeight}px');
+    expect(weekGrid).toMatch(/\.day-cell\s*{[^}]*min-height:\s*86px;/s);
     expect(weekGrid).toContain('class="weekday-row"');
     expect(weekGrid).toContain('class="day-cell"');
     expect(weekGrid).toContain('contact-mode="hidden"');
@@ -36,7 +37,7 @@ describe('formal calendar view refinement', () => {
     );
   });
 
-  it('slides real adjacent month and week cells with a velocity-aware soft settle', () => {
+  it('uses native touch scrolling and scroll snap for real adjacent month and week cells', () => {
     const calendarView = readSource('../../views/calendar/CalendarView.vue');
     const monthGrid = readSource('./MonthGrid.vue');
     const weekGrid = readSource('./WeekGrid.vue');
@@ -45,26 +46,23 @@ describe('formal calendar view refinement', () => {
     expect(calendarView).toContain('v-for="(panelWeek, panelIndex) in weekPanels"');
     expect(calendarView).toContain(':business-month="panelMonth"');
     expect(calendarView).toContain(':week-start="panelWeek"');
-    expect(calendarView).toContain('getSwipeNavigationIntent({');
-    expect(calendarView).toContain('getSwipeSettleDuration({');
+    expect(calendarView).not.toContain('function onCalendarPointerDown');
+    expect(calendarView).not.toContain('setPointerCapture');
+    expect(calendarView).not.toContain('event.preventDefault()');
+    expect(calendarView).toContain('@scroll.passive="onCalendarScroll"');
+    expect(calendarView).toContain('@scrollend="onCalendarScrollEnd"');
+    expect(calendarView).toContain('syncSwipeViewportHeight');
     expect(calendarView).toMatch(
-      /function onCalendarPointerDown[\s\S]*suppressSwipeClick\.value = false;[\s\S]*function onCalendarPointerMove/,
-    );
-    expect(calendarView).not.toMatch(
-      /function onCalendarPointerDown[\s\S]*setPointerCapture[\s\S]*function onCalendarPointerMove/,
-    );
-    expect(calendarView).toMatch(
-      /function onCalendarPointerMove[\s\S]*start\.axis !== 'horizontal'[\s\S]*setPointerCapture/,
+      /\.calendar-swipe-viewport\s*{[^}]*overflow-x:\s*auto;[^}]*scroll-snap-type:\s*x mandatory;[^}]*touch-action:\s*pan-x pan-y;/s,
     );
     expect(calendarView).toMatch(
-      /function onCalendarPointerUp[\s\S]*swipePointer\.value = undefined;[\s\S]*releasePointerCapture/,
+      /\.calendar-swipe-track\s*{[^}]*width:\s*300%;[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);[^}]*align-items:\s*start;/s,
     );
-    expect(calendarView).toContain('function cancelCalendarPointer(event: PointerEvent): void');
-    expect(calendarView).toContain('start.pointerId !== event.pointerId');
-    expect(calendarView).toContain('cubic-bezier(0.22, 1, 0.36, 1)');
     expect(calendarView).toMatch(
-      /\.calendar-swipe-track\s*{[^}]*grid-template-columns:\s*repeat\(3, 100%\);/s,
+      /\.calendar-swipe-panel\s*{[^}]*scroll-snap-align:\s*start;[^}]*scroll-snap-stop:\s*always;/s,
     );
+    expect(monthGrid).toMatch(/touch-action:\s*pan-x pan-y;/);
+    expect(monthGrid).not.toMatch(/touch-action:\s*pan-y;/);
     expect(monthGrid).toContain('v-if="showWeekdayHeader !== false"');
     expect(weekGrid).toContain('v-if="showWeekdayHeader !== false"');
     expect(monthGrid).toMatch(/withDefaults\([\s\S]*showWeekdayHeader:\s*true/);
@@ -97,15 +95,25 @@ describe('formal calendar view refinement', () => {
     expect(weekGrid).not.toMatch(/\.day-cell\.is-today\s*{[^}]*box-shadow:/s);
     expect(weekGrid).toMatch(/\.is-today \.day-number\s*{[^}]*background:/s);
     expect(calendarView).toContain("'is-swiping': swipeTrackMoving");
-    expect(calendarView).toMatch(
+    expect(calendarView).not.toMatch(
       /\.week-calendar-card \.calendar-swipe-panel\s*{[^}]*display:\s*flex;/s,
     );
-    expect(calendarView).toMatch(
+    expect(calendarView).not.toMatch(
       /\.week-calendar-card :deep\(\.week-grid\)\s*{[^}]*height:\s*100%;/s,
     );
     expect(calendarView).toMatch(
       /\.week-calendar-card \.calendar-swipe-viewport\.is-swiping[\s\S]*border-bottom-left-radius:\s*0;/s,
     );
+  });
+
+  it('sizes the swipe viewport from the active panel instead of the tallest adjacent month', () => {
+    const calendarView = readSource('../../views/calendar/CalendarView.vue');
+
+    expect(calendarView).toContain(':style="swipeViewportStyle"');
+    expect(calendarView).toContain('const swipeViewportHeightPx = ref<number>();');
+    expect(calendarView).toContain('panelHeights');
+    expect(calendarView).toContain('interpolatedHeight');
+    expect(calendarView).toMatch(/\.calendar-swipe-track\s*{[^}]*align-items:\s*start;/s);
   });
 
   it('adds frozen month controls to the list view', () => {

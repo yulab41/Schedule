@@ -128,8 +128,42 @@ async function saveShift(shiftType: ShiftType, closeAfterSave = true): Promise<v
 }
 
 async function updateShiftEnabled(shiftType: ShiftType, enabled: boolean): Promise<void> {
-  getShiftDraft(shiftType.id).isEnabled = enabled;
-  await saveShift(shiftType, false);
+  const draft = getShiftDraft(shiftType.id);
+  const previousEnabled = draft.isEnabled;
+  draft.isEnabled = enabled;
+  errorMessage.value = undefined;
+  infoMessage.value = undefined;
+  isSaving.value = true;
+
+  try {
+    const savedShiftType = await api.updateShiftType(
+      props.group.id,
+      shiftType.id,
+      toShiftTypeInput(draft),
+    );
+    applySavedShiftType(savedShiftType);
+    infoMessage.value = `${savedShiftType.name}已${savedShiftType.isEnabled ? '启用' : '停用'}。`;
+  } catch (error) {
+    draft.isEnabled = previousEnabled;
+    errorMessage.value = toUserMessage(error, '班种状态暂时无法保存，请稍后重试。');
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+function applySavedShiftType(savedShiftType: ShiftType): void {
+  if (config.value !== undefined) {
+    config.value = {
+      ...config.value,
+      shiftTypes: config.value.shiftTypes.map((item) =>
+        item.id === savedShiftType.id ? savedShiftType : item,
+      ),
+    };
+  }
+  shiftDrafts.value = {
+    ...shiftDrafts.value,
+    [savedShiftType.id]: toShiftTypeDraft(savedShiftType),
+  };
 }
 
 async function deleteRole(role: ScheduleRole): Promise<void> {
@@ -411,6 +445,7 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
             <CompactSwitch
               :model-value="getShiftDraft(shiftType.id).isEnabled"
               :disabled="shiftType.isAllDay || isSaving"
+              :data-shift-type-id="shiftType.id"
               :label="`${shiftType.name}${getShiftDraft(shiftType.id).isEnabled ? '已启用' : '已停用'}`"
               @update:model-value="updateShiftEnabled(shiftType, $event)"
             />

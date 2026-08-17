@@ -350,3 +350,12 @@
 - 变更与语义审计：旧手势清理先清空当前 pointer，再释放捕获，并按 pointerId 忽略延迟的 lost capture；周历三面板等高，拖动中仅移除面板自身底角。换班/加扣班 4 个布尔设置复用 CompactSwitch，原 API 调用次数、boolean payload、异常范围不变。自定义颜色改为页面内 HSV 色域、色相滑杆与 HEX，移除浏览器原生调色器；预设颜色、v-model 更新和应用关闭行为保留。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 通过（管理员、成员、访客/vkey 与访问记录全流程无浏览器错误）；首次因 5173 未启动、第二次因临时进程未启用开发认证停止，按当前源码与临时开发认证覆盖启动后完成。Storybook 390px 实测无横向溢出、无 `input[type=color]`，色域 298×92px，点击可更新 HEX，“+”徽标视觉居中。
 - 正式发布与核验：代码 checkpoint `acd2507` 已推送；发布前加密备份 `b38a4aea-a518-43c9-ba90-b18cc9d31f58`（44 张表、9970 行），release `acd25070b084768beede2fe40bf8c5e51d4fa7de` 已部署，`ecs-verify.sh` 退出码 0。正式周历三面板/当前网格底边精确对齐；换班/加扣班开关为 60×44px 点触区、52×30px 轨道；调色板无原生 color input、色域 308×92px且无横向溢出，浏览器日志为空。全程未保存配置或触发业务写入。
+
+## 2026-08-17 原生触控日历与班种开关滚动位置修复
+
+- 反馈：手机月/周历触屏拖动粘滞或无法通过；2026-09/10/12 月卡被相邻六行月份撑出空白；相同周内容高度随周次变化；班种启停保存会整页刷新并滚回顶部。
+- 引入点：`41d284b` 引入 pointer capture + transform 三面板；`8a49434` 引入逐周内容高度；`acd2507` 强制三面板填满；`04c7da3` 在通用保存后调用整页 `loadConfig()`。已完成关键表达式的 `git log -S`/`git blame`。
+- 测试先行：旧实现定向 5 失败/5 通过；实现后定向 19/19、Web 全量 410/410。回归断言要求无 pointer capture/`preventDefault`、原生 `scroll-snap`、子月格允许横向 pan、当前面板高度插值、周格 86px 基线，以及启停路径不得调用 `saveShift`/`loadConfig`。
+- 修复与语义：采用 W3C 官方规范对应的原生横向滚动和惯性；保留真实前/中/后三页，触摸期间不启动 JS settle 定时器，松手后兼容 `scrollend` 与旧 WebView 回退。高度按滚动进度在三面板间插值，静止时等于当前面板。班种启停使用原 API 一次，成功局部合并返回值、失败恢复开关；通用保存逻辑未改。
+- 运行/浏览器验证：`运行/浏览器验证：node scripts/smoke-browser.mjs` 通过。CDP 原生 touch 左滑月/周均切换，竖向主导手势不换月；2026-09 视口/五行面板差值 ≤1px；周七格均不低于 86px、互差 ≤1px、面板/视口底边差值 ≤1px；班种开关保存前后控件屏幕位置差值 ≤8px并恢复原状态。管理员、成员、访客/vkey、访问记录全流程无浏览器错误。
+- 其他验证：Web typecheck/build、Storybook build、Prettier、ESLint、smoke core check、`git diff --check` 通过。全仓 `pnpm verify` 被本机 pnpm 无 TTY 生产依赖预检与既有数据库测试清理顺序阻塞；全新测试库仍可复现，与本轮 Web 改动无关。

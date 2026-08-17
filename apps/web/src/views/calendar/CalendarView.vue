@@ -35,8 +35,6 @@ import {
   getCalendarPanelMonths,
   getCalendarPanelWeeks,
   getDefaultSelectedDate,
-  getSwipeNavigationIntent,
-  getSwipeSettleDuration,
   getVisibleWeekForMonth,
   getWeekBusinessMonths,
   getWeekLabel,
@@ -82,20 +80,14 @@ const weekStart = ref('');
 const requestTracker = createLatestRequestTracker();
 const todayBusinessDate = getBusinessDate();
 const calendarGroupId = ref<string>();
-const swipePointer = ref<{
-  axis?: 'horizontal' | 'vertical';
-  readonly pointerId: number;
-  readonly startedAt: number;
-  readonly startX: number;
-  readonly startY: number;
-}>();
-const swipeOffsetPx = ref(0);
-const swipeTransitionMs = ref(0);
-const swipeAnimating = ref(false);
-const swipeViewportWidth = ref(0);
-const suppressSwipeClick = ref(false);
+const swipeViewportHeightPx = ref<number>();
+const swipeTrackMoving = ref(false);
 const calendarSwipeViewport = ref<HTMLElement>();
-let swipeTimer: number | undefined;
+let swipeLayoutFrame: number | undefined;
+let swipeScrollTimer: number | undefined;
+let swipeRecentering = false;
+let swipeSettling = false;
+let swipeTouchActive = false;
 const listGridRef = ref<{
   scrollToDate: (businessDate: string, stickyOffset?: number) => boolean;
 }>();
@@ -135,12 +127,10 @@ const activeFilterCount = computed(
 );
 const monthPanels = computed(() => getCalendarPanelMonths(businessMonth.value));
 const weekPanels = computed(() => getCalendarPanelWeeks(weekStart.value));
-const swipeTrackStyle = computed(() => ({
-  transform: `translate3d(calc(-100% + ${swipeOffsetPx.value}px), 0, 0)`,
-  transitionDuration: `${swipeTransitionMs.value}ms`,
-}));
-const swipeTrackMoving = computed(
-  () => swipeAnimating.value || swipePointer.value?.axis === 'horizontal',
+const swipeViewportStyle = computed(() =>
+  swipeViewportHeightPx.value === undefined
+    ? undefined
+    : { height: `${swipeViewportHeightPx.value}px` },
 );
 const calendarRequestKey = computed(() =>
   viewMode.value === 'week' ? `week:${weekStart.value}` : `month:${businessMonth.value}`,
@@ -155,14 +145,28 @@ watch(
 );
 
 watch(viewMode, () => {
-  resetSwipeTrack();
   if (viewMode.value === 'week' && weekStart.value === '') {
     weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   }
   if (viewMode.value === 'week') {
     selectedDate.value = todayBusinessDate;
   }
+  void recenterSwipeViewport();
 });
+
+watch(
+  () => [
+    businessMonth.value,
+    calendar.value,
+    holidays.value,
+    visibleAssignments.value,
+    weekStart.value,
+  ],
+  () => {
+    if (viewMode.value !== 'list') void recenterSwipeViewport();
+  },
+  { flush: 'post' },
+);
 
 watch(
   [membershipIds, onlyChanges, roleIds, shiftTypeIds],
@@ -176,15 +180,23 @@ onMounted(() => {
   viewMode.value = 'month';
   weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   window.addEventListener('focus', onWindowFocus);
+  window.addEventListener('resize', onWindowResize);
+  void recenterSwipeViewport();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('focus', onWindowFocus);
-  clearSwipeTimer();
+  window.removeEventListener('resize', onWindowResize);
+  clearSwipeScrollTimer();
+  if (swipeLayoutFrame !== undefined) window.cancelAnimationFrame(swipeLayoutFrame);
 });
 
 function onWindowFocus(): void {
   void loadCalendar();
+}
+
+function onWindowResize(): void {
+  void recenterSwipeViewport();
 }
 
 async function loadCalendar(): Promise<void> {
@@ -312,141 +324,127 @@ function shiftMonth(direction: -1 | 1): void {
   businessMonth.value = addBusinessMonths(businessMonth.value, direction);
 }
 
-function onCalendarPointerDown(event: PointerEvent): void {
-  if (!event.isPrimary || event.button !== 0 || swipeAnimating.value) return;
-  const viewport = event.currentTarget as HTMLElement;
-  swipeViewportWidth.value = viewport.getBoundingClientRect().width;
-  suppressSwipeClick.value = false;
-  swipeTransitionMs.value = 0;
-  swipePointer.value = {
-    pointerId: event.pointerId,
-    startedAt: event.timeStamp,
-    startX: event.clientX,
-    startY: event.clientY,
-  };
-}
-
-function onCalendarPointerMove(event: PointerEvent): void {
-  const start = swipePointer.value;
-  if (start === undefined || start.pointerId !== event.pointerId) return;
-
-  const deltaX = event.clientX - start.startX;
-  const deltaY = event.clientY - start.startY;
-  if (start.axis === undefined && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 6) {
-    start.axis = Math.abs(deltaX) > Math.abs(deltaY) * 1.1 ? 'horizontal' : 'vertical';
-  }
-  if (start.axis !== 'horizontal') return;
-
-  const viewport = event.currentTarget as HTMLElement;
-  if (!viewport.hasPointerCapture(event.pointerId)) {
-    viewport.setPointerCapture(event.pointerId);
-  }
-  event.preventDefault();
-  const width = Math.max(1, swipeViewportWidth.value);
-  swipeOffsetPx.value = Math.max(-width, Math.min(width, deltaX));
-  if (Math.abs(deltaX) > 8) suppressSwipeClick.value = true;
-}
-
-function onCalendarPointerUp(event: PointerEvent): void {
-  const start = swipePointer.value;
-  if (start === undefined || start.pointerId !== event.pointerId) return;
-
-  const viewport = event.currentTarget as HTMLElement;
-  const deltaX = event.clientX - start.startX;
-  const deltaY = event.clientY - start.startY;
-  const elapsedMs = Math.max(16, event.timeStamp - start.startedAt);
-  swipePointer.value = undefined;
-  if (viewport.hasPointerCapture(event.pointerId)) {
-    viewport.releasePointerCapture(event.pointerId);
-  }
-  if (start.axis !== 'horizontal') {
-    swipeOffsetPx.value = 0;
-    return;
-  }
-
-  const direction = getSwipeNavigationIntent({
-    deltaX,
-    deltaY,
-    elapsedMs,
-    viewportWidth: Math.max(1, swipeViewportWidth.value),
-  });
-  settleSwipe(direction, deltaX, elapsedMs);
-}
-
-function cancelCalendarPointer(event: PointerEvent): void {
-  const start = swipePointer.value;
-  if (start === undefined || start.pointerId !== event.pointerId) return;
-  swipePointer.value = undefined;
-  if (start.axis === 'horizontal') {
-    settleSwipe(0, swipeOffsetPx.value, Math.max(16, performance.now() - start.startedAt));
-  } else {
-    swipeOffsetPx.value = 0;
-  }
-}
-
-function onSwipeClickCapture(event: MouseEvent): void {
-  if (!suppressSwipeClick.value) return;
-  event.preventDefault();
-  event.stopPropagation();
-  suppressSwipeClick.value = false;
-}
-
 function startSwipeNavigation(direction: -1 | 1): void {
-  if (swipeAnimating.value) return;
-  swipeViewportWidth.value =
-    calendarSwipeViewport.value?.getBoundingClientRect().width ?? swipeViewportWidth.value;
-  settleSwipe(direction, 0, 240);
-}
-
-function settleSwipe(direction: -1 | 0 | 1, deltaX: number, elapsedMs: number): void {
-  const width = Math.max(1, swipeViewportWidth.value);
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const duration = getSwipeSettleDuration({
-    deltaX,
-    direction,
-    elapsedMs,
-    reducedMotion,
-    viewportWidth: width,
-  });
-  swipeAnimating.value = true;
-  swipeTransitionMs.value = duration;
-  swipeOffsetPx.value = direction === 0 ? 0 : -direction * width;
-  clearSwipeTimer();
-  if (duration === 0) {
-    finishSwipe(direction);
+  if (swipeSettling) return;
+  const viewport = calendarSwipeViewport.value;
+  if (viewport === undefined || viewport.clientWidth === 0) {
+    if (viewMode.value === 'month') shiftMonth(direction);
+    else if (viewMode.value === 'week') shiftWeek(direction);
     return;
   }
-  swipeTimer = window.setTimeout(() => finishSwipe(direction), duration + 34);
+
+  const width = viewport.clientWidth;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  swipeTrackMoving.value = true;
+  viewport.scrollTo({
+    behavior: reducedMotion ? 'auto' : 'smooth',
+    left: direction === -1 ? 0 : width * 2,
+  });
+  scheduleSwipeSettle(reducedMotion ? 0 : 180);
 }
 
-function finishSwipe(direction: -1 | 0 | 1): void {
-  clearSwipeTimer();
-  swipeTransitionMs.value = 0;
-  swipeOffsetPx.value = 0;
-  swipeAnimating.value = false;
-  suppressSwipeClick.value = false;
-  if (direction === 0) return;
+function onCalendarScroll(event: Event): void {
+  if (swipeRecentering) return;
+  const viewport = event.currentTarget as HTMLElement;
+  swipeTrackMoving.value = true;
+  syncSwipeViewportHeight(viewport);
+  if (!swipeTouchActive) scheduleSwipeSettle(120);
+}
+
+function onCalendarScrollEnd(): void {
+  if (!swipeRecentering && !swipeTouchActive) void finishCalendarScroll();
+}
+
+function onCalendarTouchStart(): void {
+  swipeTouchActive = true;
+  swipeTrackMoving.value = true;
+  clearSwipeScrollTimer();
+}
+
+function onCalendarTouchEnd(): void {
+  swipeTouchActive = false;
+  scheduleSwipeSettle(160);
+}
+
+function scheduleSwipeSettle(delayMs: number): void {
+  clearSwipeScrollTimer();
+  swipeScrollTimer = window.setTimeout(() => void finishCalendarScroll(), delayMs);
+}
+
+async function finishCalendarScroll(): Promise<void> {
+  if (swipeRecentering || swipeSettling) return;
+  const viewport = calendarSwipeViewport.value;
+  if (viewport === undefined || viewport.clientWidth === 0) return;
+
+  clearSwipeScrollTimer();
+  const pageIndex = Math.max(
+    0,
+    Math.min(2, Math.round(viewport.scrollLeft / viewport.clientWidth)),
+  );
+  const direction: -1 | 0 | 1 = pageIndex === 0 ? -1 : pageIndex === 2 ? 1 : 0;
+  swipeSettling = true;
 
   if (viewMode.value === 'month') {
-    shiftMonth(direction);
-  } else if (viewMode.value === 'week') {
+    if (direction !== 0) shiftMonth(direction);
+  } else if (viewMode.value === 'week' && direction !== 0) {
     shiftWeek(direction);
   }
+
+  await nextTick();
+  const currentViewport = calendarSwipeViewport.value;
+  if (currentViewport !== undefined && currentViewport.clientWidth > 0) {
+    swipeRecentering = true;
+    currentViewport.scrollLeft = currentViewport.clientWidth;
+    syncSwipeViewportHeight(currentViewport);
+  }
+  swipeTrackMoving.value = false;
+  if (swipeLayoutFrame !== undefined) window.cancelAnimationFrame(swipeLayoutFrame);
+  swipeLayoutFrame = window.requestAnimationFrame(() => {
+    swipeRecentering = false;
+    swipeSettling = false;
+    swipeLayoutFrame = undefined;
+  });
 }
 
-function resetSwipeTrack(): void {
-  clearSwipeTimer();
-  swipePointer.value = undefined;
-  swipeTransitionMs.value = 0;
-  swipeOffsetPx.value = 0;
-  swipeAnimating.value = false;
-  suppressSwipeClick.value = false;
+async function recenterSwipeViewport(): Promise<void> {
+  if (viewMode.value === 'list' || swipeSettling) return;
+  await nextTick();
+  const viewport = calendarSwipeViewport.value;
+  if (viewport === undefined || viewport.clientWidth === 0) return;
+
+  clearSwipeScrollTimer();
+  swipeRecentering = true;
+  viewport.scrollLeft = viewport.clientWidth;
+  syncSwipeViewportHeight(viewport);
+  swipeTrackMoving.value = false;
+  if (swipeLayoutFrame !== undefined) window.cancelAnimationFrame(swipeLayoutFrame);
+  swipeLayoutFrame = window.requestAnimationFrame(() => {
+    swipeRecentering = false;
+    swipeLayoutFrame = undefined;
+  });
 }
 
-function clearSwipeTimer(): void {
-  if (swipeTimer !== undefined) {
-    window.clearTimeout(swipeTimer);
-    swipeTimer = undefined;
+function syncSwipeViewportHeight(viewport: HTMLElement): void {
+  const panelHeights = [...viewport.querySelectorAll<HTMLElement>('.calendar-swipe-panel')].map(
+    (panel) => panel.getBoundingClientRect().height,
+  );
+  if (panelHeights.length !== 3 || viewport.clientWidth === 0) return;
+
+  const progress = Math.max(0, Math.min(2, viewport.scrollLeft / viewport.clientWidth));
+  const lowerIndex = Math.floor(progress);
+  const upperIndex = Math.ceil(progress);
+  const fallbackHeight = panelHeights[1];
+  if (fallbackHeight === undefined) return;
+  const lowerHeight = panelHeights[lowerIndex] ?? fallbackHeight;
+  const upperHeight = panelHeights[upperIndex] ?? lowerHeight;
+  const interpolatedHeight = lowerHeight + (upperHeight - lowerHeight) * (progress - lowerIndex);
+  if (interpolatedHeight > 0) swipeViewportHeightPx.value = Math.round(interpolatedHeight);
+}
+
+function clearSwipeScrollTimer(): void {
+  if (swipeScrollTimer !== undefined) {
+    window.clearTimeout(swipeScrollTimer);
+    swipeScrollTimer = undefined;
   }
 }
 
@@ -651,15 +649,15 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           ref="calendarSwipeViewport"
           class="calendar-swipe-viewport"
           :class="{ 'is-swiping': swipeTrackMoving }"
+          :style="swipeViewportStyle"
           aria-label="周历，可左右滑动切换周"
-          @click.capture="onSwipeClickCapture"
-          @lostpointercapture="cancelCalendarPointer"
-          @pointercancel="cancelCalendarPointer"
-          @pointerdown="onCalendarPointerDown"
-          @pointermove="onCalendarPointerMove"
-          @pointerup="onCalendarPointerUp"
+          @scroll.passive="onCalendarScroll"
+          @scrollend="onCalendarScrollEnd"
+          @touchcancel.passive="onCalendarTouchEnd"
+          @touchend.passive="onCalendarTouchEnd"
+          @touchstart.passive="onCalendarTouchStart"
         >
-          <div class="calendar-swipe-track" :style="swipeTrackStyle">
+          <div class="calendar-swipe-track">
             <div
               v-for="(panelWeek, panelIndex) in weekPanels"
               :key="panelWeek"
@@ -725,15 +723,15 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             ref="calendarSwipeViewport"
             class="calendar-swipe-viewport"
             :class="{ 'is-swiping': swipeTrackMoving }"
+            :style="swipeViewportStyle"
             aria-label="月历，可左右滑动切换月份"
-            @click.capture="onSwipeClickCapture"
-            @lostpointercapture="cancelCalendarPointer"
-            @pointercancel="cancelCalendarPointer"
-            @pointerdown="onCalendarPointerDown"
-            @pointermove="onCalendarPointerMove"
-            @pointerup="onCalendarPointerUp"
+            @scroll.passive="onCalendarScroll"
+            @scrollend="onCalendarScrollEnd"
+            @touchcancel.passive="onCalendarTouchEnd"
+            @touchend.passive="onCalendarTouchEnd"
+            @touchstart.passive="onCalendarTouchStart"
           >
-            <div class="calendar-swipe-track" :style="swipeTrackStyle">
+            <div class="calendar-swipe-track">
               <div
                 v-for="(panelMonth, panelIndex) in monthPanels"
                 :key="panelMonth"
@@ -1039,14 +1037,8 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 }
 
 .week-calendar-card :deep(.week-grid) {
-  height: 100%;
-  flex: 1;
   border: 0;
   border-radius: 0;
-}
-
-.week-calendar-card .calendar-swipe-panel {
-  display: flex;
 }
 
 .week-calendar-card .calendar-swipe-viewport.is-swiping :deep(.week-row .day-cell:first-child) {
@@ -1079,23 +1071,31 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
 .calendar-swipe-viewport {
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior-x: contain;
-  touch-action: pan-y;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+  overflow-anchor: none;
+}
+
+.calendar-swipe-viewport::-webkit-scrollbar {
+  display: none;
 }
 
 .calendar-swipe-track {
   display: grid;
-  width: 100%;
-  grid-template-columns: repeat(3, 100%);
-  align-items: stretch;
-  transition-property: transform;
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  width: 300%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
 }
 
 .calendar-swipe-panel {
   min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .month-navigation strong,
@@ -1382,12 +1382,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 
   .calendar-weekday-row span {
     font-size: 11px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .calendar-swipe-track {
-    transition: none;
   }
 }
 

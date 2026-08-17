@@ -36,6 +36,17 @@
 - 下一批次：只提交、推送并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
 - 停止条件：最终状态 checkpoint 的生产备份、release 部署和 `ecs-verify.sh` 通过后等待用户复核。
 
+## 2026-08-17 原生触控日历、自适应高度与班种开关局部保存
+
+- 回归来源：JS Pointer Events 滑动、三面板等高轨道来自 `41d284b`；周格内容公式来自 `8a49434`，三面板强制填满来自 `acd2507`；班种保存后整页 `loadConfig()` 来自 `04c7da3`。均已执行 `git log -S` 与 `git blame`。
+- 测试先行：新交互断言在旧代码上 5 项失败、5 项通过；实现后日历/班种定向 19/19、Web 全量 53 文件/410 项通过。选择方案遵循 W3C Pointer Events 与 CSS Scroll Snap：手指位移、惯性、方向锁定交给浏览器原生滚动，页面只处理落页与高度插值。
+- 变更与语义审计：月/周三页改为 `overflow-x: auto` + `scroll-snap`，移除 pointer capture、`preventDefault` 和 JS transform；月格允许原生横向手势，视口按相邻面板高度实时插值，5/6 行月份在静止时精确贴合当前面板；周格稳定 86px 基线并按内容自然增高。班种启停仍只调用一次原 `PUT shift-type`，成功后用返回值局部更新配置，失败恢复原开关；不再调用 `loadConfig()`，其他新增/编辑/删除保存链不变。
+- 运行/浏览器验证：Web typecheck/build、Storybook build、Prettier、ESLint、`node scripts/smoke-browser.mjs --check-core`、`git diff --check` 通过；`node scripts/smoke-browser.mjs` 以真实 CDP touch 事件完成月/周滑动、2026-09 五行高度、周格/底边等高、班种开关不跳位，并通过管理员、成员、访客/vkey/访问记录全流程。最终截图目录：`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-Ob63zl`。
+- 全仓验证说明：桌面环境的 `pnpm` 11.9.0 在执行脚本前错误尝试无 TTY 的 `install --production`，故使用等价的本地二进制逐项执行。全仓 Vitest 在全新隔离 MySQL 上暴露既有测试清理顺序问题：`swaps.integration` 通过后，后续测试未清理 `user_auth_identities` 而重复建表；另有既有群组并发断言抖动。本轮未修改 API、迁移或这些测试，未扩大范围修复；本轮相关 Web 410 项全部通过。
+- 状态：已完成本地实现与运行验证；checkpoint 识别消息为 `fix(web): use native touch calendar scrolling`。
+- 下一批次：仅提交、推送、生产备份、部署和正式域名只读复核本 checkpoint；随后记录最终 release 状态。
+- 停止条件：正式 release 的 `ecs-verify.sh`、月/周触控结构、当前面板高度和班种开关页面稳定性只读核验通过后等待用户复核。
+
 ## 2026-08-17 换班班次下拉恢复周几显示
 
 - 回归来源：跨月换班 checkpoint `5a8380f` 新增 `formatSwapAssignmentOption`，把班次下拉从原有“日期 + 班种 + 周X + 成员”改成包含起止时间与岗位的专用文案；已对该函数和原公共 `createAssignmentOption` 执行 `git log -S` 与 `git blame`。

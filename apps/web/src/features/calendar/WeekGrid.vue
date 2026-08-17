@@ -31,20 +31,6 @@ const membersById = computed(
 );
 const days = computed(() => getWeekDays(props.weekStart));
 const assignmentsByDate = computed(() => groupAssignmentsByDate(props.assignments));
-const weekCardHeight = computed(() => {
-  const longestContent = Math.max(
-    0,
-    ...days.value.map((date) => {
-      const assignmentUnits = assignmentsFor(date).reduce(
-        (total, assignment) => total + 1 + assignment.changeMarkers.length * 0.25,
-        0,
-      );
-      const holidayUnits = holidayFor(date) === undefined ? 0 : 0.5;
-      return assignmentUnits + holidayUnits;
-    }),
-  );
-  return 48 + longestContent * 38;
-});
 
 function memberFor(assignment: CalendarDutyAssignment): CalendarDutyMember | undefined {
   const membershipId = getDutyMembershipId(assignment);
@@ -88,7 +74,6 @@ function selectDate(date: string): void {
         v-for="date in days"
         :key="date"
         class="day-cell"
-        :style="{ minHeight: `${weekCardHeight}px` }"
         :class="{
           'is-past': isPastBusinessDate(date, today),
           'is-today': date === today,
@@ -179,6 +164,7 @@ function selectDate(date: string): void {
 .day-cell {
   display: flex;
   min-width: 0;
+  min-height: 86px;
   padding: 8px;
   flex-direction: column;
   background: var(--ui-color-surface);

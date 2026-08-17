@@ -926,6 +926,36 @@ async function assertWeekendCalendarHighlight(page) {
   }
 }
 
+async function performTouchSwipe(page, bounds, deltaX, deltaY) {
+  const session = await page.context().newCDPSession(page);
+  const startX = Math.round(bounds.x + bounds.width * 0.78);
+  const startY = Math.round(bounds.y + Math.min(160, bounds.height * 0.4));
+  try {
+    await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y: startY }],
+    });
+    for (let step = 1; step <= 8; step += 1) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          {
+            x: Math.round(startX + (deltaX * step) / 8),
+            y: Math.round(startY + (deltaY * step) / 8),
+          },
+        ],
+      });
+      await page.waitForTimeout(16);
+    }
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(300);
+  } finally {
+    await session.send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
+    await session.detach();
+  }
+}
+
 async function assertMonthCalendarInteractions(page) {
   await page.setViewportSize({ height: 844, width: 390 });
   const swipeSurface = page.locator('.month-swipe-surface');
@@ -1050,12 +1080,7 @@ async function assertMonthCalendarInteractions(page) {
   const bounds = await swipeViewport.boundingBox();
   if (bounds === null) fail('无法取得月历横滑区域。');
 
-  const startX = bounds.x + bounds.width * 0.78;
-  const startY = bounds.y + Math.min(160, bounds.height * 0.4);
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(startX - 80, startY + 10, { steps: 4 });
-  await page.mouse.up();
+  await performTouchSwipe(page, bounds, -Math.max(180, bounds.width * 0.62), 8);
   await page.waitForFunction(
     ({ selector, value }) => document.querySelector(selector)?.textContent?.trim() !== value,
     { selector: '.month-navigation strong', value: initialMonth },
@@ -1063,20 +1088,60 @@ async function assertMonthCalendarInteractions(page) {
   );
   const nextMonth = (await monthLabel.innerText()).trim();
   if (nextMonth === initialMonth) fail('清晰左滑后月份未切换。');
+  await page.waitForFunction(() => {
+    const viewport = document.querySelector('.month-swipe-surface .calendar-swipe-viewport');
+    const activePanel = viewport?.querySelector('.calendar-swipe-panel[aria-hidden="false"]');
+    if (!(viewport instanceof HTMLElement) || !(activePanel instanceof HTMLElement)) return false;
+    return (
+      Math.abs(
+        viewport.getBoundingClientRect().height - activePanel.getBoundingClientRect().height,
+      ) <= 1
+    );
+  });
 
   await swipeViewport.evaluate((element) => element.scrollIntoView({ block: 'center' }));
   const nextBounds = await swipeViewport.boundingBox();
   if (nextBounds === null) fail('切换月份后无法取得月历横滑区域。');
-  const verticalStartX = nextBounds.x + nextBounds.width * 0.7;
-  const verticalStartY = nextBounds.y + Math.min(120, nextBounds.height * 0.3);
-  await page.mouse.move(verticalStartX, verticalStartY);
-  await page.mouse.down();
-  await page.mouse.move(verticalStartX - 64, verticalStartY + 80, { steps: 4 });
-  await page.mouse.up();
+  await performTouchSwipe(page, nextBounds, -48, 120);
   await page.waitForTimeout(250);
   if ((await monthLabel.innerText()).trim() !== nextMonth) {
     fail('垂直位移占优时不应切换月份。');
   }
+
+  await page.locator('.view-mode-button', { hasText: '周' }).click();
+  const weekViewport = page.locator('.week-calendar-card .calendar-swipe-viewport');
+  await weekViewport.waitFor({ state: 'visible', timeout: 5000 });
+  await weekViewport.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const weekBounds = await weekViewport.boundingBox();
+  if (weekBounds === null) fail('无法取得周历横滑区域。');
+  const weekLabel = page.locator('.week-navigation strong').first();
+  const initialWeek = (await weekLabel.innerText()).trim();
+  await performTouchSwipe(page, weekBounds, -Math.max(180, weekBounds.width * 0.62), 8);
+  await page.waitForFunction(
+    ({ selector, value }) => document.querySelector(selector)?.textContent?.trim() !== value,
+    { selector: '.week-navigation strong', value: initialWeek },
+    { timeout: 15000 },
+  );
+  const weekMetrics = await weekViewport.evaluate((viewport) => {
+    const activePanel = viewport.querySelector('.calendar-swipe-panel[aria-hidden="false"]');
+    const cellHeights = [...(activePanel?.querySelectorAll('.day-cell') ?? [])].map(
+      (cell) => cell.getBoundingClientRect().height,
+    );
+    return {
+      cellHeights,
+      panelHeight: activePanel?.getBoundingClientRect().height ?? 0,
+      viewportHeight: viewport.getBoundingClientRect().height,
+    };
+  });
+  if (
+    weekMetrics.cellHeights.length !== 7 ||
+    Math.min(...weekMetrics.cellHeights) < 85.5 ||
+    Math.max(...weekMetrics.cellHeights) - Math.min(...weekMetrics.cellHeights) > 1 ||
+    Math.abs(weekMetrics.viewportHeight - weekMetrics.panelHeight) > 1
+  ) {
+    fail('触控切周后周历单元格高度或底部边界不一致。');
+  }
+  await page.locator('.view-mode-button', { hasText: '月' }).click();
 
   await page.setViewportSize({ height: 900, width: 1280 });
 }
@@ -1323,6 +1388,72 @@ async function assertGroupManagementConfigAndEventNav(page) {
       fullPage: true,
     });
   }
+
+  await page.setViewportSize({ height: 844, width: 390 });
+  const closeNewShiftEditor = page.locator('.add-shift-button', { hasText: '收起新增' });
+  if ((await closeNewShiftEditor.count()) > 0) await closeNewShiftEditor.click();
+  const shiftEnabledSwitch = page
+    .locator('.shift-type-row')
+    .filter({ hasNotText: '未设置时段' })
+    .locator('[role="switch"]:not(:disabled)')
+    .last();
+  await shiftEnabledSwitch.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 120));
+  const shiftTypeId = await shiftEnabledSwitch.getAttribute('data-shift-type-id');
+  if (shiftTypeId === null) fail('无法识别待切换的班种。');
+  const switchStateBefore = await shiftEnabledSwitch.getAttribute('aria-checked');
+  const switchPositionBefore = await shiftEnabledSwitch.evaluate((element) => ({
+    scrollY: window.scrollY,
+    top: element.getBoundingClientRect().top,
+  }));
+  const switchSaveResponse = page.waitForResponse(
+    (response) => response.request().method() === 'PUT' && response.url().includes('/shift-types/'),
+  );
+  await shiftEnabledSwitch.click();
+  const savedSwitchResponse = await switchSaveResponse;
+  if (!savedSwitchResponse.ok()) {
+    fail(
+      `切换班种启用状态失败：HTTP ${savedSwitchResponse.status()} ${await savedSwitchResponse.text()}`,
+    );
+  }
+  await page.waitForFunction(
+    ({ previousState, targetShiftTypeId }) => {
+      const control = document.querySelector(
+        `.shift-type-row [role="switch"][data-shift-type-id="${targetShiftTypeId}"]`,
+      );
+      return (
+        control?.getAttribute('aria-checked') !== previousState &&
+        document.querySelector('.scheduling-config-panel')?.getAttribute('aria-busy') !== 'true'
+      );
+    },
+    { previousState: switchStateBefore, targetShiftTypeId: shiftTypeId },
+    { timeout: 15000 },
+  );
+  const switchPositionAfter = await shiftEnabledSwitch.evaluate((element) => ({
+    scrollY: window.scrollY,
+    top: element.getBoundingClientRect().top,
+  }));
+  if (
+    switchPositionBefore.scrollY > 100 &&
+    (switchPositionAfter.scrollY < switchPositionBefore.scrollY / 2 ||
+      Math.abs(switchPositionAfter.top - switchPositionBefore.top) > 8)
+  ) {
+    fail('切换班种启用状态后页面滚动位置发生跳变。');
+  }
+  await shiftEnabledSwitch.click();
+  await page.waitForFunction(
+    ({ initialState, targetShiftTypeId }) => {
+      const control = document.querySelector(
+        `.shift-type-row [role="switch"][data-shift-type-id="${targetShiftTypeId}"]`,
+      );
+      return (
+        control?.getAttribute('aria-checked') === initialState &&
+        document.querySelector('.scheduling-config-panel')?.getAttribute('aria-busy') !== 'true'
+      );
+    },
+    { initialState: switchStateBefore, targetShiftTypeId: shiftTypeId },
+    { timeout: 15000 },
+  );
 
   await page.setViewportSize({ height: 900, width: 1280 });
   const adminEventEntry = page.locator('.workbench-sidebar button', { hasText: '事件' }).first();
@@ -1722,6 +1853,7 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '通知' }).first().click();
   await waitForBodyText(page, '通知设置', 15000, '通知设置');
+  await page.locator('.browser-switch-hit-area').waitFor({ state: 'visible', timeout: 15000 });
 
   for (const width of [390, 320]) {
     await page.setViewportSize({ height: 844, width });
@@ -1764,7 +1896,9 @@ async function assertStatisticsNotificationAndExportResponsive(page) {
       settingsMetrics.browserSwitchHitAreaHeight === undefined ||
       settingsMetrics.browserSwitchHitAreaHeight < 44
     ) {
-      fail(`${width}px 浏览器通知开关外层点触面积不足 60×44px。`);
+      fail(
+        `${width}px 浏览器通知开关外层点触面积不足 60×44px（实际 ${settingsMetrics.browserSwitchHitAreaWidth ?? 0}×${settingsMetrics.browserSwitchHitAreaHeight ?? 0}px）。`,
+      );
     }
     if (
       settingsMetrics.browserSwitchWidth === undefined ||
