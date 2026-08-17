@@ -102,14 +102,17 @@ describe('mobile calendar Storybook 2 parity', () => {
     );
   });
 
-  it('rounds the final month cells so a selected corner frame stays fully visible', () => {
+  it('rounds only the selected corner frame while the moving month cells stay square', () => {
     const monthGrid = readSource('../../features/calendar/MonthGrid.vue');
 
-    expect(monthGrid).toMatch(
-      /\.week-row:last-child \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    expect(monthGrid).not.toMatch(
+      /\.week-row:last-child \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:/s,
     );
     expect(monthGrid).toMatch(
-      /\.week-row:last-child \.day-cell:last-child\s*{[^}]*border-bottom-right-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+      /\.week-row:last-child \.day-cell:first-child\.is-selected::after\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+    expect(monthGrid).toMatch(
+      /\.week-row:last-child \.day-cell:last-child\.is-selected::after\s*{[^}]*border-bottom-right-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
     );
   });
 

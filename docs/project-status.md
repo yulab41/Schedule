@@ -24,6 +24,17 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
+## 2026-08-17 手机日历导航触态与滑动圆角分层修复
+
+- 回归来源：月/周导航的 TDesign `week-step`/`month-step` 来自 `8a49434`；移动端月/周底角直接加在日期格背景上的实现来自 `c64f0d7`；拖动时临时移除周格圆角的 `.is-swiping` 规则来自 `acd2507`。均已对关键表达式执行 `git log -S` 与 `git blame`。
+- 成熟方案与语义审计：依照 CSS Backgrounds/Overflow 的圆角裁切模型，让固定外层卡片唯一拥有 `overflow: hidden` 圆角，三个滑动面板及格子背景保持方形；蓝色选中框改由独立 `::after` 描边绘制，只有位于卡片底角的描边带圆角。移除拖动中异步切换格子圆角的规则，不修改原生 `overflow-x`/`scroll-snap`、高度插值、月份/周次加载、选择日期、API 或错误路径。
+- 按钮触态：月/周四个切换按钮改为自绘 44px 原生按钮；月/周/列表定位按钮共用显式触摸按下态，`touchend`/`touchcancel` 立即清除。取消可能在混合输入/WebView 上形成粘滞状态的 hover 背景，仅保留按住反馈和 `:focus-visible` 键盘焦点，减少动态时不缩放。
+- 测试先行：旧代码先出现圆角分层 1 项、导航按钮 1 项失败；CDP 真实触摸又先暴露 `:active` 不稳定和触摸结束后 hover 恢复两项问题，分别补失败断言后修复。最终日历定向 18/18、全仓 Vitest 90 文件/584 项通过，29 个数据库集成文件/253 项按本机默认环境跳过。
+- 运行/浏览器验证：Web typecheck/build、Storybook build、全仓 Prettier/ESLint、全仓 Vitest、`node scripts/smoke-browser.mjs`、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过；390px 真实 CDP touch 覆盖月/周按钮按下/松开、定位按钮、2026-08 六行至 2026-09 五行半拖动、月/周边角选中描边。无灰色反圆角、无松手残留背景/阴影/缩放/焦点框，管理员、成员、访客 vkey 与访问记录全流程无浏览器错误；最终截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-ORNaq6`。`pnpm --config.production=false verify` 在进入脚本前要求删除并重装全部 `node_modules`，已拒绝该破坏性环境动作并以现有本地二进制逐项执行同范围门禁。
+- 状态：已实现待正式发布；代码 checkpoint 识别消息为 `fix(web): stabilize mobile calendar controls and corners`。
+- 下一批次：只提交并推送本轮文件，创建生产加密数据库备份，部署该 checkpoint，运行 `ecs-verify.sh` 并在正式域名只读复核按钮触态与月/周圆角。
+- 停止条件：代码 checkpoint 生产发布及线上核验通过后，提交最终状态 checkpoint 并使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+
 ## 2026-08-17 手机日历拖动、工作流开关与自定义配色修复
 
 - 回归来源：指针捕获/三面板滑动和原生颜色输入来自 `41d284b`，周历底角来自 `c64f0d7`，换班/加扣班 checkbox 来自 `b20ff9b`、`5d8b205`；均已执行 `git log -S` 与 `git blame`。

@@ -444,16 +444,25 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
     border-radius: 0;
   }
 
-  .week-row:last-child .day-cell:first-child {
+  .day-cell.is-selected {
+    box-shadow: none;
+  }
+
+  .day-cell.is-selected::after {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    content: '';
+    pointer-events: none;
+    box-shadow: inset 0 0 0 2px var(--ui-color-primary);
+  }
+
+  .week-row:last-child .day-cell:first-child.is-selected::after {
     border-bottom-left-radius: calc(var(--ui-radius-large) - 1px);
   }
 
-  .week-row:last-child .day-cell:last-child {
+  .week-row:last-child .day-cell:last-child.is-selected::after {
     border-bottom-right-radius: calc(var(--ui-radius-large) - 1px);
-  }
-
-  .day-cell.is-selected {
-    box-shadow: inset 0 0 0 2px var(--ui-color-primary);
   }
 
   .day-header {

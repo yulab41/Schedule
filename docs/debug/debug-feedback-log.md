@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-17 手机日历导航触态与滑动圆角分层修复
+
+- 回归定位：`git log -S 'class="week-step"'` / `git blame` 确认月周导航来自 `8a49434`；移动格子底角来自 `c64f0d7`；拖动中 `.is-swiping` 圆角切换来自 `acd2507`。旧实现把移动背景和选中描边耦合，六行/月与五行/月交接时会让格子自身的透明圆角露出底层灰色，周格选中圆角则在拖动结束后重新出现。
+- 测试先行：新增固定卡片裁切、移动格背景必须方形、选中伪元素独立圆角、原生导航按钮、触摸按压/取消清理及无 hover 残留断言；旧代码先失败。浏览器首次真实 touch 又证明单独 `:active` 不可靠，随后证明混合输入恢复 mouse 能力会让最后触点命中 hover；两项均先补失败断言再修复。
+- 修复与语义：固定卡片继续承担圆角裁切，月/周格背景不再带底角；蓝框使用 `pointer-events: none` 的 `::after` 一次绘制，拖动时不再切换圆角类。月/周切换改为无组件内部状态的 44px 原生按钮，月/周/列表定位按钮共用短生命周期 `is-touch-pressed`，松手/取消清理；移除 hover 背景，键盘 `:focus-visible` 保留。原生 scroll snap、月份/周次、面板高度、详情、筛选和 API 均未改变。
+- 运行/浏览器验证：`node scripts/smoke-browser.mjs` 在当前源码 5174 服务以真实 CDP touch 通过；检查按钮按住可见、松手后透明且无阴影/缩放/焦点残留，2026-08→09 半拖动无灰色反圆角，月历 8 月 31 日和周历左边界蓝框圆角同步完整。管理员、成员、访客 vkey 与访问记录全流程无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-ORNaq6`。
+- 验证：日历定向 18/18、全仓 Vitest 90 文件/584 项通过（29 个数据库集成文件/253 项按默认环境跳过），Web typecheck/build、Storybook build、全仓 Prettier/ESLint、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过。`pnpm --config.production=false verify` 在进入实际脚本前要求删除并重装全部依赖目录，已拒绝该破坏性环境动作并用当前本地二进制逐项执行同范围门禁。checkpoint 识别消息为 `fix(web): stabilize mobile calendar controls and corners`。
+- 状态：已实现待正式发布。
+
 ## 2026-08-17 换班下拉班次文案回归修复
 
 - 回归定位：`git log -S 'formatSwapAssignmentOption' -- apps/web/src/features/swaps` 与对应 `git blame` 确认含时间/岗位的专用文案由跨月换班提交 `5a8380f` 引入；原公共 `createAssignmentOption` 来自 `11094e3`，仍完整提供“日期 + 班种 + 周X + 成员”以及周末周几红字 VNode。

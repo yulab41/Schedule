@@ -162,6 +162,7 @@ function selectDate(date: string): void {
 }
 
 .day-cell {
+  position: relative;
   display: flex;
   min-width: 0;
   min-height: 86px;
@@ -174,16 +175,25 @@ function selectDate(date: string): void {
   transition: box-shadow var(--ui-duration-fast) ease;
 }
 
-.week-row .day-cell:first-child {
+.day-cell.is-selected {
+  box-shadow: none;
+}
+
+.day-cell.is-selected::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  content: '';
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
+}
+
+.week-row .day-cell:first-child.is-selected::after {
   border-bottom-left-radius: calc(var(--ui-radius-large) - 1px);
 }
 
-.week-row .day-cell:last-child {
+.week-row .day-cell:last-child.is-selected::after {
   border-bottom-right-radius: calc(var(--ui-radius-large) - 1px);
-}
-
-.day-cell.is-selected {
-  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
 }
 
 .day-cell:focus-visible {

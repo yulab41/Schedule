@@ -81,7 +81,6 @@ const requestTracker = createLatestRequestTracker();
 const todayBusinessDate = getBusinessDate();
 const calendarGroupId = ref<string>();
 const swipeViewportHeightPx = ref<number>();
-const swipeTrackMoving = ref(false);
 const calendarSwipeViewport = ref<HTMLElement>();
 let swipeLayoutFrame: number | undefined;
 let swipeScrollTimer: number | undefined;
@@ -335,7 +334,6 @@ function startSwipeNavigation(direction: -1 | 1): void {
 
   const width = viewport.clientWidth;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  swipeTrackMoving.value = true;
   viewport.scrollTo({
     behavior: reducedMotion ? 'auto' : 'smooth',
     left: direction === -1 ? 0 : width * 2,
@@ -346,7 +344,6 @@ function startSwipeNavigation(direction: -1 | 1): void {
 function onCalendarScroll(event: Event): void {
   if (swipeRecentering) return;
   const viewport = event.currentTarget as HTMLElement;
-  swipeTrackMoving.value = true;
   syncSwipeViewportHeight(viewport);
   if (!swipeTouchActive) scheduleSwipeSettle(120);
 }
@@ -357,13 +354,20 @@ function onCalendarScrollEnd(): void {
 
 function onCalendarTouchStart(): void {
   swipeTouchActive = true;
-  swipeTrackMoving.value = true;
   clearSwipeScrollTimer();
 }
 
 function onCalendarTouchEnd(): void {
   swipeTouchActive = false;
   scheduleSwipeSettle(160);
+}
+
+function pressCalendarControl(event: TouchEvent): void {
+  (event.currentTarget as HTMLElement | null)?.classList.add('is-touch-pressed');
+}
+
+function releaseCalendarControl(event: TouchEvent): void {
+  (event.currentTarget as HTMLElement | null)?.classList.remove('is-touch-pressed');
 }
 
 function scheduleSwipeSettle(delayMs: number): void {
@@ -397,7 +401,6 @@ async function finishCalendarScroll(): Promise<void> {
     currentViewport.scrollLeft = currentViewport.clientWidth;
     syncSwipeViewportHeight(currentViewport);
   }
-  swipeTrackMoving.value = false;
   if (swipeLayoutFrame !== undefined) window.cancelAnimationFrame(swipeLayoutFrame);
   swipeLayoutFrame = window.requestAnimationFrame(() => {
     swipeRecentering = false;
@@ -416,7 +419,6 @@ async function recenterSwipeViewport(): Promise<void> {
   swipeRecentering = true;
   viewport.scrollLeft = viewport.clientWidth;
   syncSwipeViewportHeight(viewport);
-  swipeTrackMoving.value = false;
   if (swipeLayoutFrame !== undefined) window.cancelAnimationFrame(swipeLayoutFrame);
   swipeLayoutFrame = window.requestAnimationFrame(() => {
     swipeRecentering = false;
@@ -622,23 +624,47 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
     <template v-else-if="calendar !== undefined">
       <section v-if="viewMode === 'week'" class="week-calendar-card">
         <header class="week-navigation">
-          <t-button class="week-step" aria-label="上一周" variant="text" @click="goToPreviousWeek">
-            <template #icon><ChevronLeftIcon /></template>
+          <button
+            class="calendar-step week-step"
+            type="button"
+            aria-label="上一周"
+            @click="goToPreviousWeek"
+            @touchcancel.passive="releaseCalendarControl"
+            @touchend.passive="releaseCalendarControl"
+            @touchstart.passive="pressCalendarControl"
+          >
+            <ChevronLeftIcon aria-hidden="true" />
             <span>上一周</span>
-          </t-button>
+          </button>
           <div class="week-heading">
             <strong>{{ getWeekOfMonthLabel(weekStart) }}</strong>
             <span>{{ getWeekLabel(weekStart) }}</span>
           </div>
-          <button class="calendar-locator" type="button" aria-label="定位到今天" @click="goToToday">
+          <button
+            class="calendar-locator"
+            type="button"
+            aria-label="定位到今天"
+            @click="goToToday"
+            @touchcancel.passive="releaseCalendarControl"
+            @touchend.passive="releaseCalendarControl"
+            @touchstart.passive="pressCalendarControl"
+          >
             <span class="locator-crosshair" aria-hidden="true">
               <span class="locator-crosshair-center" />
             </span>
           </button>
-          <t-button class="week-step" aria-label="下一周" variant="text" @click="goToNextWeek">
-            <template #icon><ChevronRightIcon /></template>
+          <button
+            class="calendar-step week-step"
+            type="button"
+            aria-label="下一周"
+            @click="goToNextWeek"
+            @touchcancel.passive="releaseCalendarControl"
+            @touchend.passive="releaseCalendarControl"
+            @touchstart.passive="pressCalendarControl"
+          >
+            <ChevronRightIcon aria-hidden="true" />
             <span>下一周</span>
-          </t-button>
+          </button>
         </header>
         <div class="calendar-weekday-row" aria-hidden="true">
           <span v-for="weekday in ['一', '二', '三', '四', '五', '六', '日']" :key="weekday">
@@ -648,7 +674,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         <div
           ref="calendarSwipeViewport"
           class="calendar-swipe-viewport"
-          :class="{ 'is-swiping': swipeTrackMoving }"
           :style="swipeViewportStyle"
           aria-label="周历，可左右滑动切换周"
           @scroll.passive="onCalendarScroll"
@@ -682,15 +707,18 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
       <div v-else-if="viewMode === 'month'" class="month-swipe-surface">
         <section class="month-calendar-card">
           <header class="month-navigation">
-            <t-button
-              class="month-step"
+            <button
+              class="calendar-step month-step"
+              type="button"
               aria-label="上一月"
-              variant="text"
               @click="goToPreviousMonth"
+              @touchcancel.passive="releaseCalendarControl"
+              @touchend.passive="releaseCalendarControl"
+              @touchstart.passive="pressCalendarControl"
             >
-              <template #icon><ChevronLeftIcon /></template>
+              <ChevronLeftIcon aria-hidden="true" />
               <span>上一月</span>
-            </t-button>
+            </button>
             <div class="month-heading">
               <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
               <span class="month-swipe-hint">左右滑动切换月份</span>
@@ -700,15 +728,26 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               type="button"
               aria-label="定位到今天"
               @click="goToToday"
+              @touchcancel.passive="releaseCalendarControl"
+              @touchend.passive="releaseCalendarControl"
+              @touchstart.passive="pressCalendarControl"
             >
               <span class="locator-crosshair" aria-hidden="true">
                 <span class="locator-crosshair-center" />
               </span>
             </button>
-            <t-button class="month-step" aria-label="下一月" variant="text" @click="goToNextMonth">
-              <template #icon><ChevronRightIcon /></template>
+            <button
+              class="calendar-step month-step"
+              type="button"
+              aria-label="下一月"
+              @click="goToNextMonth"
+              @touchcancel.passive="releaseCalendarControl"
+              @touchend.passive="releaseCalendarControl"
+              @touchstart.passive="pressCalendarControl"
+            >
+              <ChevronRightIcon aria-hidden="true" />
               <span>下一月</span>
-            </t-button>
+            </button>
             <label class="month-picker">
               年月
               <input v-model="businessMonth" type="month" />
@@ -722,7 +761,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           <div
             ref="calendarSwipeViewport"
             class="calendar-swipe-viewport"
-            :class="{ 'is-swiping': swipeTrackMoving }"
             :style="swipeViewportStyle"
             aria-label="月历，可左右滑动切换月份"
             @scroll.passive="onCalendarScroll"
@@ -782,6 +820,9 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               type="button"
               aria-label="定位到今天"
               @click="goToToday"
+              @touchcancel.passive="releaseCalendarControl"
+              @touchend.passive="releaseCalendarControl"
+              @touchstart.passive="pressCalendarControl"
             >
               <span class="locator-crosshair" aria-hidden="true">
                 <span class="locator-crosshair-center" />
@@ -923,6 +964,80 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   border-radius: var(--ui-radius-medium);
   box-shadow: none;
   cursor: pointer;
+  font: inherit;
+  touch-action: manipulation;
+  transition:
+    color var(--ui-duration-fast) ease,
+    background-color var(--ui-duration-fast) ease,
+    transform var(--ui-duration-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.calendar-step {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  appearance: none;
+  color: var(--ui-color-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-medium);
+  box-shadow: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  touch-action: manipulation;
+  transition:
+    color var(--ui-duration-fast) ease,
+    background-color var(--ui-duration-fast) ease,
+    transform var(--ui-duration-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.calendar-step svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.calendar-step:active,
+.calendar-locator:active {
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  transform: scale(0.9);
+}
+
+.calendar-step.is-touch-pressed,
+.calendar-locator.is-touch-pressed {
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  transform: scale(0.9);
+}
+
+.calendar-step:focus-visible,
+.calendar-locator:focus-visible {
+  outline: 2px solid var(--ui-color-focus-ring);
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calendar-step,
+  .calendar-locator {
+    transition: none;
+  }
+
+  .calendar-step:active,
+  .calendar-locator:active,
+  .calendar-step.is-touch-pressed,
+  .calendar-locator.is-touch-pressed {
+    transform: none;
+  }
 }
 
 .locator-crosshair {
@@ -994,13 +1109,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   white-space: nowrap;
 }
 
-.week-step {
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  color: var(--ui-color-primary);
-}
-
 .month-calendar-card,
 .week-calendar-card {
   overflow: hidden;
@@ -1039,14 +1147,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 .week-calendar-card :deep(.week-grid) {
   border: 0;
   border-radius: 0;
-}
-
-.week-calendar-card .calendar-swipe-viewport.is-swiping :deep(.week-row .day-cell:first-child) {
-  border-bottom-left-radius: 0;
-}
-
-.week-calendar-card .calendar-swipe-viewport.is-swiping :deep(.week-row .day-cell:last-child) {
-  border-bottom-right-radius: 0;
 }
 
 .calendar-weekday-row {
@@ -1103,12 +1203,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   min-width: 96px;
   font-size: var(--ui-font-size-lg);
   text-align: center;
-}
-
-.month-navigation :deep(.t-button),
-.week-navigation :deep(.t-button) {
-  min-height: var(--ui-touch-target-minimum);
-  border-radius: var(--ui-radius-small);
 }
 
 .month-picker {
@@ -1347,7 +1441,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   .month-step {
     min-width: var(--ui-touch-target-minimum);
     padding-inline: 0;
-    color: var(--ui-color-primary);
   }
 
   .week-navigation {

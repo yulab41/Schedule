@@ -956,6 +956,90 @@ async function performTouchSwipe(page, bounds, deltaX, deltaY) {
   }
 }
 
+async function assertTouchPressFeedback(page, locator, label) {
+  const bounds = await locator.boundingBox();
+  if (bounds === null) fail(`无法取得${label}的点触区域。`);
+  const session = await page.context().newCDPSession(page);
+  const x = Math.round(bounds.x + bounds.width / 2);
+  const y = Math.round(bounds.y + bounds.height / 2);
+  try {
+    await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x, y }],
+    });
+    await page.waitForTimeout(80);
+    const pressed = await locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        transform: style.transform,
+      };
+    });
+    if (
+      pressed.background === 'rgba(0, 0, 0, 0)' ||
+      pressed.background === 'transparent' ||
+      pressed.transform === 'none'
+    ) {
+      fail(`${label}按下时没有可见的点触反馈。`);
+    }
+
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await page.waitForTimeout(300);
+    const released = await locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        boxShadow: style.boxShadow,
+        focusVisible: element.matches(':focus-visible'),
+        transform: style.transform,
+      };
+    });
+    if (
+      (released.background !== 'rgba(0, 0, 0, 0)' && released.background !== 'transparent') ||
+      released.boxShadow !== 'none' ||
+      released.focusVisible ||
+      released.transform !== 'none'
+    ) {
+      fail(`${label}松开后仍残留背景、阴影、缩放或手机焦点框。`);
+    }
+  } finally {
+    await session.send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
+    await session.detach();
+  }
+}
+
+async function captureHeldTouchDrag(page, bounds, deltaX, filename) {
+  const session = await page.context().newCDPSession(page);
+  const startX = Math.round(bounds.x + bounds.width * 0.78);
+  const startY = Math.round(bounds.y + Math.min(160, bounds.height * 0.4));
+  try {
+    await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: startX, y: startY }],
+    });
+    for (let step = 1; step <= 6; step += 1) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [
+          {
+            x: Math.round(startX + (deltaX * step) / 6),
+            y: startY,
+          },
+        ],
+      });
+      await page.waitForTimeout(16);
+    }
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, filename) });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await page.waitForTimeout(350);
+  } finally {
+    await session.send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
+    await session.detach();
+  }
+}
+
 async function assertMonthCalendarInteractions(page) {
   await page.setViewportSize({ height: 844, width: 390 });
   const swipeSurface = page.locator('.month-swipe-surface');
@@ -985,6 +1069,11 @@ async function assertMonthCalendarInteractions(page) {
   await assertSelectPopupInsideSheet(filterSheet, '手机月历筛选');
   await filterSheet.locator('button[aria-label="关闭"]').click();
   await filterSheet.waitFor({ state: 'hidden', timeout: 5000 });
+
+  const previousMonthButton = page.locator('.month-navigation .month-step').first();
+  const locateMonthButton = page.locator('.month-navigation .calendar-locator');
+  await assertTouchPressFeedback(page, previousMonthButton, '月视图左切换按钮');
+  await assertTouchPressFeedback(page, locateMonthButton, '月视图定位按钮');
 
   const selectedButtons = activeMonthPanel.locator('.day-select-button[aria-pressed="true"]');
   if ((await selectedButtons.count()) !== 1) {
@@ -1069,6 +1158,41 @@ async function assertMonthCalendarInteractions(page) {
   }
   await eventSheet.locator('button[aria-label="关闭"]').click();
 
+  await page.locator('.month-picker input[type="month"]').evaluate((element) => {
+    element.value = '2026-08';
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.waitForFunction(
+    () => document.querySelector('.month-navigation strong')?.textContent?.trim() === '2026年8月',
+    undefined,
+    { timeout: 15000 },
+  );
+  const augustLastMonday = swipeViewport.locator(
+    '.calendar-swipe-panel[aria-hidden="false"] .day-cell[data-date="2026-08-31"]',
+  );
+  await augustLastMonday.locator('.day-header').click();
+  const cornerMetrics = await augustLastMonday.evaluate((element) => {
+    const cellStyle = getComputedStyle(element);
+    const selectionStyle = getComputedStyle(element, '::after');
+    const card = element.closest('.month-calendar-card');
+    const cardStyle = card === null ? undefined : getComputedStyle(card);
+    return {
+      cardOverflow: cardStyle?.overflow,
+      cardRadius: Number.parseFloat(cardStyle?.borderBottomLeftRadius ?? '0'),
+      cellRadius: Number.parseFloat(cellStyle.borderBottomLeftRadius),
+      selectionRadius: Number.parseFloat(selectionStyle.borderBottomLeftRadius),
+    };
+  });
+  if (
+    cornerMetrics.cardOverflow !== 'hidden' ||
+    cornerMetrics.cardRadius <= 0 ||
+    cornerMetrics.cellRadius !== 0 ||
+    cornerMetrics.selectionRadius <= 0
+  ) {
+    fail('月历应由固定卡片裁切方形格子，并只在蓝色选中描边上保留边角圆角。');
+  }
+
   await page.screenshot({
     fullPage: true,
     path: path.join(SCREENSHOT_DIR, '2-admin-mobile-calendar.png'),
@@ -1079,6 +1203,13 @@ async function assertMonthCalendarInteractions(page) {
   await swipeViewport.evaluate((element) => element.scrollIntoView({ block: 'center' }));
   const bounds = await swipeViewport.boundingBox();
   if (bounds === null) fail('无法取得月历横滑区域。');
+
+  await captureHeldTouchDrag(
+    page,
+    bounds,
+    -Math.max(110, bounds.width * 0.32),
+    '2-admin-mobile-calendar-held-drag.png',
+  );
 
   await performTouchSwipe(page, bounds, -Math.max(180, bounds.width * 0.62), 8);
   await page.waitForFunction(
@@ -1116,6 +1247,39 @@ async function assertMonthCalendarInteractions(page) {
   if (weekBounds === null) fail('无法取得周历横滑区域。');
   const weekLabel = page.locator('.week-navigation strong').first();
   const initialWeek = (await weekLabel.innerText()).trim();
+  await assertTouchPressFeedback(
+    page,
+    page.locator('.week-navigation .week-step').first(),
+    '周视图左切换按钮',
+  );
+  await assertTouchPressFeedback(
+    page,
+    page.locator('.week-navigation .calendar-locator'),
+    '周视图定位按钮',
+  );
+  const activeWeekPanel = weekViewport.locator('.calendar-swipe-panel[aria-hidden="false"]');
+  const firstWeekCell = activeWeekPanel.locator('.week-row .day-cell').first();
+  await firstWeekCell.click();
+  const weekCornerMetrics = await firstWeekCell.evaluate((element) => {
+    const cellStyle = getComputedStyle(element);
+    const selectionStyle = getComputedStyle(element, '::after');
+    return {
+      cellRadius: Number.parseFloat(cellStyle.borderBottomLeftRadius),
+      selectionRadius: Number.parseFloat(selectionStyle.borderBottomLeftRadius),
+    };
+  });
+  if (weekCornerMetrics.cellRadius !== 0 || weekCornerMetrics.selectionRadius <= 0) {
+    fail('周历边缘格应保持方形背景，并一次性绘制带圆角的蓝色选中描边。');
+  }
+  await page.screenshot({
+    path: path.join(SCREENSHOT_DIR, '2-admin-mobile-week-calendar-selected-corner.png'),
+  });
+  await captureHeldTouchDrag(
+    page,
+    weekBounds,
+    -Math.max(110, weekBounds.width * 0.32),
+    '2-admin-mobile-week-calendar-held-drag.png',
+  );
   await performTouchSwipe(page, weekBounds, -Math.max(180, weekBounds.width * 0.62), 8);
   await page.waitForFunction(
     ({ selector, value }) => document.querySelector(selector)?.textContent?.trim() !== value,

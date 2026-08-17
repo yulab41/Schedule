@@ -82,27 +82,42 @@ describe('formal calendar view refinement', () => {
     expect(calendarView).toContain('selectedDate.value = weekStart.value;');
   });
 
-  it('keeps week selection inside rounded corners and marks today only on its date number', () => {
+  it('clips square sliding cells with the fixed card and draws rounded selection independently', () => {
     const weekGrid = readSource('./WeekGrid.vue');
+    const monthGrid = readSource('./MonthGrid.vue');
     const calendarView = readSource('../../views/calendar/CalendarView.vue');
 
-    expect(weekGrid).toMatch(
-      /\.week-row \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    expect(monthGrid).not.toMatch(
+      /\.week-row:last-child \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:/s,
+    );
+    expect(monthGrid).toMatch(
+      /\.week-row:last-child \.day-cell:first-child\.is-selected::after\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+    expect(monthGrid).toMatch(
+      /\.week-row:last-child \.day-cell:last-child\.is-selected::after\s*{[^}]*border-bottom-right-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+    expect(weekGrid).not.toMatch(
+      /\.week-row \.day-cell:first-child\s*{[^}]*border-bottom-left-radius:/s,
     );
     expect(weekGrid).toMatch(
-      /\.week-row \.day-cell:last-child\s*{[^}]*border-bottom-right-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+      /\.week-row \.day-cell:first-child\.is-selected::after\s*{[^}]*border-bottom-left-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
+    );
+    expect(weekGrid).toMatch(
+      /\.week-row \.day-cell:last-child\.is-selected::after\s*{[^}]*border-bottom-right-radius:\s*calc\(var\(--ui-radius-large\) - 1px\);/s,
     );
     expect(weekGrid).not.toMatch(/\.day-cell\.is-today\s*{[^}]*box-shadow:/s);
     expect(weekGrid).toMatch(/\.is-today \.day-number\s*{[^}]*background:/s);
-    expect(calendarView).toContain("'is-swiping': swipeTrackMoving");
+    expect(calendarView).not.toContain("'is-swiping': swipeTrackMoving");
+    expect(calendarView).not.toContain('swipeTrackMoving');
     expect(calendarView).not.toMatch(
       /\.week-calendar-card \.calendar-swipe-panel\s*{[^}]*display:\s*flex;/s,
     );
     expect(calendarView).not.toMatch(
       /\.week-calendar-card :deep\(\.week-grid\)\s*{[^}]*height:\s*100%;/s,
     );
+    expect(calendarView).not.toContain('.calendar-swipe-viewport.is-swiping');
     expect(calendarView).toMatch(
-      /\.week-calendar-card \.calendar-swipe-viewport\.is-swiping[\s\S]*border-bottom-left-radius:\s*0;/s,
+      /\.month-calendar-card,\s*\.week-calendar-card\s*{[^}]*overflow:\s*hidden;[^}]*border-radius:\s*var\(--ui-radius-large\);/s,
     );
   });
 
@@ -164,15 +179,32 @@ describe('formal calendar view refinement', () => {
     expect(dutyCell).toContain("canCall.value && contactMode.value !== 'hidden'");
   });
 
-  it('keeps the locator transparent without a persistent click state', () => {
+  it('uses touch-safe navigation feedback without a persistent mobile hover state', () => {
     const calendarView = readSource('../../views/calendar/CalendarView.vue');
 
+    expect(calendarView).not.toContain('<t-button class="week-step"');
+    expect(calendarView).not.toContain('<t-button class="month-step"');
+    expect(calendarView).toContain('class="calendar-step week-step"');
+    expect(calendarView).toContain('class="calendar-step month-step"');
+    expect(calendarView).toMatch(
+      /\.calendar-step:active,\s*\.calendar-locator:active\s*{[^}]*transform:\s*scale\(0\.9\);/s,
+    );
+    expect(calendarView).toContain('@touchstart.passive="pressCalendarControl"');
+    expect(calendarView).toContain('@touchend.passive="releaseCalendarControl"');
+    expect(calendarView).toContain('@touchcancel.passive="releaseCalendarControl"');
+    expect(calendarView).toMatch(
+      /\.calendar-step\.is-touch-pressed,\s*\.calendar-locator\.is-touch-pressed\s*{[^}]*transform:\s*scale\(0\.9\);/s,
+    );
+    expect(calendarView).not.toContain('.calendar-step:hover');
+    expect(calendarView).not.toContain('.calendar-locator:hover');
+    expect(calendarView).toMatch(
+      /\.calendar-step:focus-visible,\s*\.calendar-locator:focus-visible\s*{[^}]*outline:/s,
+    );
     expect(calendarView).toContain('class="calendar-locator"');
     expect(calendarView).toContain('class="locator-crosshair-center"');
     expect(calendarView).toMatch(
       /\.calendar-locator\s*{[^}]*background:\s*transparent;[^}]*border:\s*0;[^}]*box-shadow:\s*none;/s,
     );
-    expect(calendarView).not.toMatch(/\.calendar-locator:active/);
     expect(calendarView).not.toContain('is-pulsing');
   });
 
