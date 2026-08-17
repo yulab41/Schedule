@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type {
+  DirectoryContactMethod,
   DirectoryEntry,
   DirectoryFacetOption,
   DirectoryFacetSnapshot,
@@ -7,20 +8,27 @@ import type {
   DirectoryQuery,
   GroupSummary,
 } from '@schedule/contracts';
-import { directoryEntryKindLabels } from '@schedule/contracts';
-import { CallIcon, CloseIcon, FilterIcon, LocationIcon, SearchIcon } from 'tdesign-icons-vue-next';
+import { CallIcon, CloseIcon, FilterIcon, SearchIcon } from 'tdesign-icons-vue-next';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import {
+  getCompatibleDirectoryFacetOptions,
+  updateDirectoryFilterSelection,
+} from '../../features/directory/directory-filter-hierarchy.js';
+import {
+  getDirectoryGroupContexts,
+  getDirectoryGroupKindLabel,
+  getDirectoryGroupNotes,
+  getDirectoryGroupTitle,
+  groupDirectoryEntriesByContact,
+} from '../../features/directory/directory-entry-groups.js';
+import {
   canDialDirectoryNumber,
   type DirectoryFilterKey,
   type DirectoryFilters,
-  getDirectoryEntryLocation,
-  getDirectoryEntryPath,
-  getDirectoryEntryTitle,
   getDirectoryNumberLabel,
   getSafeInternalExtension,
   toDirectoryDialHref,
@@ -56,6 +64,7 @@ const filterSheetVisible = ref(false);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const errorMessage = ref<string>();
+const filterAdjustmentMessage = ref<string>();
 let searchTimer: number | undefined;
 let requestSequence = 0;
 let contextSequence = 0;
@@ -64,23 +73,67 @@ const filterSections = computed<readonly FilterSection[]>(() => {
   const snapshot = facets.value;
   if (snapshot === undefined) return [];
   return [
-    { key: 'campusCode', label: '院区', options: snapshot.campuses },
-    { key: 'section', label: '片区', options: snapshot.sections },
-    { key: 'building', label: '楼宇', options: snapshot.buildings },
-    { key: 'floor', label: '楼层', options: snapshot.floors },
-    { key: 'department', label: '科室', options: snapshot.departments },
-    { key: 'subunit', label: '单元', options: snapshot.subunits },
-    { key: 'entryKind', label: '类型', options: snapshot.entryKinds },
+    {
+      key: 'campusCode',
+      label: '院区',
+      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'campusCode'),
+    },
+    {
+      key: 'section',
+      label: '片区',
+      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'section'),
+    },
+    {
+      key: 'building',
+      label: '楼宇',
+      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'building'),
+    },
+    {
+      key: 'floor',
+      label: '楼层',
+      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'floor'),
+    },
+    {
+      key: 'department',
+      label: '科室',
+      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'department'),
+    },
+    {
+      key: 'subunit',
+      label: '单元',
+      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'subunit'),
+    },
+    {
+      key: 'entryKind',
+      label: '类型',
+      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'entryKind'),
+    },
   ];
 });
+
+const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
+  building: '楼宇',
+  campusCode: '院区',
+  department: '科室',
+  entryKind: '类型',
+  floor: '楼层',
+  section: '片区',
+  subunit: '单元',
+};
 
 const activeFilterCount = computed(
   () => Object.values(filters.value).filter((value) => value !== undefined).length,
 );
+const displayGroups = computed(() => groupDirectoryEntriesByContact(entries.value));
+const mergedGroupCount = computed(
+  () => displayGroups.value.filter((group) => group.entries.length > 1).length,
+);
 const resultSummary = computed(() => {
   if (isLoading.value && entries.value.length === 0) return '正在查找院内号码';
   if (totalCount.value === 0) return '没有匹配的通讯录条目';
-  return `找到 ${totalCount.value} 条通讯录记录`;
+  const mergedSummary =
+    mergedGroupCount.value > 0 ? ` · 已合并 ${mergedGroupCount.value} 组同号条目` : '';
+  return `找到 ${totalCount.value} 条通讯录记录${mergedSummary}`;
 });
 
 watch(
@@ -104,6 +157,7 @@ async function initializeDirectory(): Promise<void> {
   nextCursor.value = undefined;
   totalCount.value = 0;
   errorMessage.value = undefined;
+  filterAdjustmentMessage.value = undefined;
   isLoading.value = true;
   isLoadingMore.value = false;
   const context = ++contextSequence;
@@ -181,16 +235,21 @@ function clearSearch(): void {
 
 function selectFilter(key: DirectoryFilterKey, value: string | undefined): void {
   if (filters.value[key] === value) return;
-  const nextFilters = { ...filters.value };
-  if (value === undefined) delete nextFilters[key];
-  else Object.assign(nextFilters, { [key]: value });
-  filters.value = nextFilters;
+  const snapshot = facets.value;
+  if (snapshot === undefined) return;
+  const result = updateDirectoryFilterSelection(snapshot, filters.value, key, value);
+  filters.value = result.filters;
+  filterAdjustmentMessage.value =
+    result.clearedKeys.length === 0
+      ? undefined
+      : `已自动清除不匹配的${result.clearedKeys.map((clearedKey) => filterLabels[clearedKey]).join('、')}筛选。`;
   void loadEntries(false);
 }
 
 function clearAllFilters(): void {
   if (activeFilterCount.value === 0) return;
   filters.value = {};
+  filterAdjustmentMessage.value = undefined;
   void loadEntries(false);
 }
 
@@ -198,7 +257,12 @@ function resetDirectorySearch(): void {
   if (searchTimer !== undefined) window.clearTimeout(searchTimer);
   searchDraft.value = '';
   filters.value = {};
+  filterAdjustmentMessage.value = undefined;
   void loadEntries(false);
+}
+
+function getContactHeading(contact: DirectoryContactMethod, isMerged: boolean): string {
+  return (isMerged ? undefined : contact.label) ?? getDirectoryNumberLabel(contact.type, 'full');
 }
 
 function selectedFilterLabel(section: FilterSection): string {
@@ -219,7 +283,7 @@ function formatEffectiveDate(value: string): string {
       <div>
         <p class="directory-eyebrow">院内协作</p>
         <h2 id="directory-title">院内通讯录</h2>
-        <p>按科室、地点或号码快速定位，筛选层级可独立选择。</p>
+        <p>按科室、地点或号码快速定位，层级筛选会自动保持路径一致。</p>
       </div>
       <div v-if="facets !== undefined" class="directory-snapshot" aria-label="通讯录数据版本">
         <strong>{{ facets.totalCount }}</strong>
@@ -257,18 +321,29 @@ function formatEffectiveDate(value: string): string {
       <div class="wayfinding-header">
         <div>
           <p id="wayfinding-title">院区导览</p>
-          <span>可直接选择任意一级，无需从院区开始</span>
+          <span>可从任意一级开始，选定上级后只显示匹配下级</span>
         </div>
-        <button
-          type="button"
-          class="filter-open-action"
-          :aria-label="`打开筛选，已选 ${activeFilterCount} 项`"
-          @click="filterSheetVisible = true"
-        >
-          <FilterIcon aria-hidden="true" />
-          <span>全部筛选</span>
-          <strong v-if="activeFilterCount > 0">{{ activeFilterCount }}</strong>
-        </button>
+        <div class="wayfinding-actions">
+          <button
+            v-if="activeFilterCount > 0"
+            type="button"
+            class="clear-filter-action"
+            aria-label="清除全部筛选"
+            @click="clearAllFilters"
+          >
+            清除全部
+          </button>
+          <button
+            type="button"
+            class="filter-open-action"
+            :aria-label="`打开筛选，已选 ${activeFilterCount} 项`"
+            @click="filterSheetVisible = true"
+          >
+            <FilterIcon aria-hidden="true" />
+            <span>全部筛选</span>
+            <strong v-if="activeFilterCount > 0">{{ activeFilterCount }}</strong>
+          </button>
+        </div>
       </div>
       <div class="wayfinding-ribbon" aria-label="通讯录筛选层级">
         <button
@@ -287,14 +362,6 @@ function formatEffectiveDate(value: string): string {
           </span>
         </button>
       </div>
-      <button
-        v-if="activeFilterCount > 0"
-        type="button"
-        class="clear-filter-action"
-        @click="clearAllFilters"
-      >
-        清除全部筛选
-      </button>
     </section>
 
     <p class="result-status" role="status" aria-live="polite">
@@ -319,66 +386,86 @@ function formatEffectiveDate(value: string): string {
       <span v-for="index in 4" :key="index" />
     </div>
 
-    <div v-else-if="entries.length > 0" class="directory-results" :aria-busy="isLoading">
-      <article v-for="entry in entries" :key="entry.id" class="directory-entry">
+    <div v-else-if="displayGroups.length > 0" class="directory-results" :aria-busy="isLoading">
+      <article
+        v-for="entryGroup in displayGroups"
+        :key="entryGroup.id"
+        class="directory-entry"
+        :class="{ 'is-merged': entryGroup.entries.length > 1 }"
+      >
         <div class="entry-accent" aria-hidden="true" />
         <div class="entry-content">
           <header class="entry-heading">
-            <div>
-              <div class="entry-title-line">
-                <h3>{{ getDirectoryEntryTitle(entry) }}</h3>
-                <span class="entry-kind">{{ directoryEntryKindLabels[entry.entryKind] }}</span>
-              </div>
-              <p v-if="getDirectoryEntryPath(entry).length > 0" class="entry-path">
-                <template v-for="(part, index) in getDirectoryEntryPath(entry)" :key="part">
-                  <span v-if="index > 0" aria-hidden="true">›</span>
-                  <span>{{ part }}</span>
-                </template>
+            <div class="entry-title-line">
+              <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
+              <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
+              <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
+                {{ entryGroup.entries.length }} 项同号
+              </span>
+            </div>
+            <div v-if="getDirectoryGroupContexts(entryGroup).length > 0" class="entry-contexts">
+              <p
+                v-for="context in getDirectoryGroupContexts(entryGroup)"
+                :key="context"
+                class="entry-meta"
+              >
+                {{ context }}
               </p>
             </div>
-            <p v-if="getDirectoryEntryLocation(entry) !== undefined" class="entry-location">
-              <LocationIcon aria-hidden="true" />
-              <span>{{ getDirectoryEntryLocation(entry) }}</span>
-            </p>
           </header>
 
           <div class="contact-methods">
-            <div v-for="contact in entry.contacts" :key="contact.id" class="contact-method">
-              <span v-if="contact.label !== undefined" class="contact-label">{{
-                contact.label
-              }}</span>
-              <div v-if="contact.fullNumber !== undefined" class="number-row">
-                <span>{{ getDirectoryNumberLabel(contact.type, 'full') }}</span>
+            <div v-for="contact in entryGroup.contacts" :key="contact.id" class="contact-method">
+              <span class="contact-label">
+                {{ getContactHeading(contact, entryGroup.entries.length > 1) }}
+              </span>
+              <div class="contact-number-group">
                 <a
-                  v-if="canDialDirectoryNumber(contact.type, 'full')"
+                  v-if="
+                    contact.fullNumber !== undefined && canDialDirectoryNumber(contact.type, 'full')
+                  "
                   class="directory-dial-action"
                   :href="toDirectoryDialHref(contact.fullNumber)"
-                  :aria-label="`拨打${getDirectoryEntryTitle(entry)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
+                  :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
                 >
+                  <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
                   <strong>{{ contact.fullNumber }}</strong>
                   <CallIcon aria-hidden="true" />
                 </a>
-                <strong v-else class="directory-static-number">{{ contact.fullNumber }}</strong>
-              </div>
-              <div v-if="getSafeInternalExtension(contact) !== undefined" class="number-row">
-                <span>{{ getDirectoryNumberLabel(contact.type, 'extension') }}</span>
+                <strong
+                  v-else-if="contact.fullNumber !== undefined"
+                  class="directory-static-number"
+                >
+                  <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
+                  <span>{{ contact.fullNumber }}</span>
+                </strong>
                 <a
-                  v-if="canDialDirectoryNumber(contact.type, 'extension')"
+                  v-if="
+                    getSafeInternalExtension(contact) !== undefined &&
+                    canDialDirectoryNumber(contact.type, 'extension')
+                  "
                   class="directory-dial-action"
                   :href="toDirectoryDialHref(getSafeInternalExtension(contact)!)"
-                  :aria-label="`拨打${getDirectoryEntryTitle(entry)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
+                  :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
                 >
+                  <small>短号</small>
                   <strong>{{ getSafeInternalExtension(contact) }}</strong>
                   <CallIcon aria-hidden="true" />
                 </a>
-                <strong v-else class="directory-static-number is-extension">
-                  {{ getSafeInternalExtension(contact) }}
+                <strong
+                  v-else-if="getSafeInternalExtension(contact) !== undefined"
+                  class="directory-static-number is-extension"
+                >
+                  <small>短号</small>
+                  <span>{{ getSafeInternalExtension(contact) }}</span>
                 </strong>
               </div>
             </div>
           </div>
 
-          <p v-if="entry.notes !== undefined" class="entry-notes">{{ entry.notes }}</p>
+          <p v-if="getDirectoryGroupNotes(entryGroup) !== undefined" class="entry-notes">
+            {{ getDirectoryGroupNotes(entryGroup) }}
+          </p>
         </div>
       </article>
     </div>
@@ -386,7 +473,7 @@ function formatEffectiveDate(value: string): string {
     <div v-else-if="!isLoading && errorMessage === undefined" class="directory-empty">
       <SearchIcon aria-hidden="true" />
       <strong>没有找到匹配号码</strong>
-      <p>可缩短搜索词，或清除部分独立筛选后重试。</p>
+      <p>可缩短搜索词，或清除部分层级筛选后重试。</p>
       <button type="button" @click="resetDirectorySearch">查看全部通讯录</button>
     </div>
 
@@ -403,9 +490,26 @@ function formatEffectiveDate(value: string): string {
     <p class="directory-privacy-note">院内联系方式仅供工作使用，请勿向院外转发。</p>
 
     <ResponsiveSheet v-model:visible="filterSheetVisible" title="筛选院内通讯录">
-      <div class="filter-sheet-intro">
-        <strong>任意层级都可单独选择</strong>
-        <span>例如只选“楼层”或“科室”，无需先选择院区。</span>
+      <div class="filter-sheet-toolbar">
+        <div class="filter-sheet-intro">
+          <strong>层级联动，避免无效组合</strong>
+          <span>可跳级开始；选定上级后只显示匹配下级。</span>
+          <span
+            v-if="filterAdjustmentMessage !== undefined"
+            class="filter-adjustment"
+            role="status"
+          >
+            {{ filterAdjustmentMessage }}
+          </span>
+        </div>
+        <button
+          type="button"
+          class="sheet-reset-action"
+          :disabled="activeFilterCount === 0"
+          @click="clearAllFilters"
+        >
+          清除全部
+        </button>
       </div>
       <div class="directory-filter-grid">
         <section
@@ -438,17 +542,12 @@ function formatEffectiveDate(value: string): string {
               <span>{{ option.label }}</span>
               <small>{{ option.count }}</small>
             </button>
+            <p v-if="section.options.length === 0" class="filter-options-empty">
+              当前上级下无可选项
+            </p>
           </div>
         </section>
       </div>
-      <button
-        v-if="activeFilterCount > 0"
-        type="button"
-        class="sheet-reset-action"
-        @click="clearAllFilters"
-      >
-        清除全部筛选
-      </button>
     </ResponsiveSheet>
   </section>
 </template>
@@ -633,6 +732,13 @@ function formatEffectiveDate(value: string): string {
   font-size: var(--ui-font-size-sm);
 }
 
+.wayfinding-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
 .filter-open-action {
   display: inline-flex;
   padding: 0 12px;
@@ -751,8 +857,7 @@ function formatEffectiveDate(value: string): string {
 }
 
 .clear-filter-action {
-  margin-top: 8px;
-  padding: 0 8px;
+  padding: 0 10px;
   color: var(--ui-color-primary);
   background: transparent;
   border: 0;
@@ -785,7 +890,7 @@ function formatEffectiveDate(value: string): string {
 }
 
 .entry-accent {
-  margin: 14px 0;
+  margin: 9px 0;
   background: var(--ui-color-primary);
   border-radius: 0 4px 4px 0;
   opacity: 0.76;
@@ -793,30 +898,29 @@ function formatEffectiveDate(value: string): string {
 
 .entry-content {
   min-width: 0;
-  padding: 18px 20px 16px;
+  padding: 10px 14px 9px;
 }
 
 .entry-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  gap: 2px;
 }
 
 .entry-title-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .entry-title-line h3 {
   margin: 0;
-  font-size: var(--ui-font-size-lg);
-  line-height: 1.3;
+  font-size: var(--ui-font-size-md);
+  line-height: 1.25;
 }
 
 .entry-kind {
-  padding: 3px 7px;
+  padding: 2px 6px;
   color: var(--ui-color-primary);
   background: var(--ui-color-primary-light);
   border-radius: var(--ui-radius-pill);
@@ -824,69 +928,72 @@ function formatEffectiveDate(value: string): string {
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.entry-path,
-.entry-location {
-  display: flex;
-  margin: 5px 0 0;
-  align-items: center;
-  gap: 5px;
+.entry-merge-count {
+  color: #39745d;
+  font-size: 11px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.directory-entry.is-merged .entry-accent {
+  background: #3a9e7a;
+}
+
+.entry-contexts {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.entry-meta {
+  overflow: hidden;
+  margin: 0;
   color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
-}
-
-.entry-location {
-  max-width: 36%;
-  justify-content: flex-end;
-  text-align: right;
-}
-
-.entry-location svg {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 auto;
+  font-size: var(--ui-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .contact-methods {
   display: grid;
-  margin-top: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 20px;
+  margin-top: 5px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2px 14px;
 }
 
 .contact-method {
+  display: grid;
   min-width: 0;
-  padding-top: 8px;
+  min-height: 44px;
+  grid-template-columns: minmax(62px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
   border-top: 1px solid var(--ui-color-border);
 }
 
 .contact-label {
-  display: block;
-  margin-bottom: 2px;
+  overflow: hidden;
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.number-row {
-  display: grid;
-  min-height: 44px;
-  grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+.contact-number-group {
+  display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 10px;
-}
-
-.number-row > span {
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 .directory-dial-action {
   display: inline-flex;
   min-width: 0;
   min-height: 44px;
-  padding: 0 4px;
+  padding: 0 5px;
   align-items: center;
   justify-content: flex-end;
-  gap: 7px;
+  gap: 4px;
   color: var(--ui-color-primary);
   border-radius: var(--ui-radius-small);
   font-variant-numeric: tabular-nums;
@@ -899,8 +1006,8 @@ function formatEffectiveDate(value: string): string {
 }
 
 .directory-dial-action svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
   flex: 0 0 auto;
 }
 
@@ -909,8 +1016,20 @@ function formatEffectiveDate(value: string): string {
   overflow-wrap: anywhere;
 }
 
+.directory-dial-action small,
+.directory-static-number small {
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-regular);
+}
+
 .directory-static-number {
-  justify-self: end;
+  display: inline-flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   color: var(--ui-color-text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -920,12 +1039,11 @@ function formatEffectiveDate(value: string): string {
 }
 
 .entry-notes {
-  margin: 8px 0 0;
-  padding: 8px 10px;
+  margin: 2px 0 0;
+  padding: 3px 0 0;
   color: var(--ui-color-text-secondary);
-  background: var(--ui-color-surface-muted);
-  border-radius: var(--ui-radius-small);
-  font-size: var(--ui-font-size-sm);
+  border-top: 1px dashed var(--ui-color-border);
+  font-size: var(--ui-font-size-xs);
 }
 
 .directory-skeleton {
@@ -938,7 +1056,7 @@ function formatEffectiveDate(value: string): string {
 }
 
 .directory-skeleton span {
-  height: 132px;
+  height: 76px;
   background: var(--ui-color-surface-muted);
   animation: directory-loading 1.4s ease infinite;
 }
@@ -1010,6 +1128,18 @@ function formatEffectiveDate(value: string): string {
   text-align: center;
 }
 
+.filter-sheet-toolbar {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-bottom: 10px;
+  align-items: center;
+  gap: 10px;
+  background: var(--ui-color-surface);
+}
+
 .filter-sheet-intro {
   display: grid;
   padding: 12px;
@@ -1022,6 +1152,12 @@ function formatEffectiveDate(value: string): string {
 .filter-sheet-intro span {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
+}
+
+.filter-sheet-intro .filter-adjustment {
+  margin-top: 3px;
+  color: var(--ui-color-primary);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .directory-filter-grid {
@@ -1088,8 +1224,21 @@ function formatEffectiveDate(value: string): string {
 }
 
 .sheet-reset-action {
-  width: 100%;
-  margin-top: 18px;
+  min-width: 96px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.sheet-reset-action:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.filter-options-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
 }
 
 .visually-hidden {
@@ -1157,6 +1306,15 @@ function formatEffectiveDate(value: string): string {
     max-width: 190px;
   }
 
+  .wayfinding-actions {
+    gap: 0;
+  }
+
+  .clear-filter-action {
+    padding: 0 7px;
+    font-size: var(--ui-font-size-sm);
+  }
+
   .filter-open-action > span {
     display: none;
   }
@@ -1167,27 +1325,22 @@ function formatEffectiveDate(value: string): string {
   }
 
   .entry-content {
-    padding: 15px 14px 13px;
-  }
-
-  .entry-heading {
-    display: block;
-  }
-
-  .entry-location {
-    max-width: none;
-    justify-content: flex-start;
-    text-align: left;
+    padding: 9px 11px 8px;
   }
 
   .contact-methods {
     grid-template-columns: 1fr;
-    gap: 3px;
+    gap: 1px;
   }
 
   .directory-filter-grid {
     grid-template-columns: 1fr;
     gap: 20px;
+  }
+
+  .filter-sheet-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
   }
 
   .filter-options {
@@ -1204,8 +1357,18 @@ function formatEffectiveDate(value: string): string {
     display: none;
   }
 
-  .number-row {
-    grid-template-columns: 76px minmax(0, 1fr);
+  .contact-method {
+    grid-template-columns: minmax(58px, auto) minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .contact-number-group {
+    gap: 1px;
+  }
+
+  .directory-dial-action {
+    padding-right: 3px;
+    padding-left: 3px;
   }
 }
 

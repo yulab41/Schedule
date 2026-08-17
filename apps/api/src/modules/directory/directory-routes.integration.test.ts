@@ -124,6 +124,29 @@ describeWithDatabase('internal directory routes', () => {
         expect.objectContaining({ count: 2, value: '3楼' }),
       ]),
     );
+    expect(memberFacets.paths).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          building: '门诊楼',
+          campusCode: 'central',
+          count: 1,
+          department: '急诊科',
+          entryKind: 'service',
+          floor: '3楼',
+          section: '临床服务',
+        }),
+        expect.objectContaining({
+          building: '医技楼',
+          campusCode: 'north',
+          count: 1,
+          department: '检验科',
+          floor: '2楼',
+          section: '医技服务',
+        }),
+      ]),
+    );
+    expect(memberFacets.paths.some((path) => path.department === '保卫处')).toBe(false);
+    expect(administratorFacets.paths.some((path) => path.department === '保卫处')).toBe(true);
 
     const invalidCursor = await app.inject({
       headers: { authorization: 'Bearer member-token' },
@@ -153,6 +176,14 @@ describeWithDatabase('internal directory routes', () => {
   async function getFacets(token: string): Promise<{
     campuses: { value: string }[];
     floors: { count: number; value: string }[];
+    paths: {
+      building?: string;
+      campusCode: string;
+      count: number;
+      department?: string;
+      floor?: string;
+      section?: string;
+    }[];
     totalCount: number;
   }> {
     const response = await app.inject({

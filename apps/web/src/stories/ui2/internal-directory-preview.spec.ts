@@ -17,19 +17,30 @@ describe('hospital directory Storybook preview', () => {
     expect(stories).toContain('Desktop1280');
     expect(stories).toContain('mobile390');
     expect(stories).toContain('desktop1280');
+    expect(stories).toContain("subunit: '手术室护士站'");
+    expect(stories).toContain("subunit: '护士值班房'");
     expect(stories).not.toContain('138027');
   });
 
-  it('preserves search, independent filter, accessibility, and dial behavior in the production view', () => {
+  it('preserves search, linked hierarchy, accessibility, and dial behavior in the production view', () => {
     const view = source('../../views/directory/InternalDirectoryView.vue');
 
     expect(view).toContain('搜索科室、姓名、拼音或号码');
     expect(view).toContain('院区导览');
     expect(view).toContain('ResponsiveSheet');
+    expect(view).toContain('getCompatibleDirectoryFacetOptions');
+    expect(view).toContain('updateDirectoryFilterSelection');
+    expect(view).toContain('groupDirectoryEntriesByContact');
+    expect(view).toContain("'is-merged': entryGroup.entries.length > 1");
+    expect(view.indexOf('class="filter-sheet-toolbar"')).toBeLessThan(
+      view.indexOf('class="directory-filter-grid"'),
+    );
     expect(view).toContain('aria-pressed');
     expect(view).toContain("canDialDirectoryNumber(contact.type, 'extension')");
     expect(view).toContain('getSafeInternalExtension(contact)');
     expect(view).toMatch(/\.directory-dial-action\s*{[^}]*min-height:\s*44px/s);
+    expect(view).toMatch(/\.contact-method\s*{[^}]*min-height:\s*44px/s);
+    expect(view).not.toContain('class="number-row"');
     expect(view).toContain('@media (prefers-reduced-motion: reduce)');
   });
 });

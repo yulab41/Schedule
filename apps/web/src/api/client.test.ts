@@ -674,6 +674,14 @@ describe('Web API client', () => {
       departments: [],
       entryKinds: [{ count: 2, label: '科室', value: 'department' }],
       floors: [{ count: 1, label: '5楼', value: '5楼' }],
+      paths: [
+        {
+          campusCode: 'main',
+          count: 2,
+          entryKind: 'department',
+          floor: '5楼',
+        },
+      ],
       publishedEffectiveOn: '2026-07-05',
       publishedImportVersion: 'directory-2026-07-05',
       sections: [],

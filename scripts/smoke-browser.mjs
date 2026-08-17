@@ -473,20 +473,26 @@ async function assertHospitalDirectory(page) {
   await page.locator('.directory-entry').first().waitFor({ state: 'visible', timeout: 15000 });
 
   const initial = await page.evaluate(() => {
-    const landlineExtensionRows = [...document.querySelectorAll('.number-row')].filter((row) =>
-      row.textContent?.includes('院内短号'),
-    );
+    const entryHeights = [...document.querySelectorAll('.directory-entry')]
+      .slice(0, 10)
+      .map((entry) => entry.getBoundingClientRect().height);
     return {
       entries: document.querySelectorAll('.directory-entry').length,
+      entryHeights,
       filterStops: document.querySelectorAll('.wayfinding-stop').length,
-      landlineExtensionLinks: landlineExtensionRows.filter((row) => row.querySelector('a')).length,
+      landlineExtensionLinks: [...document.querySelectorAll('a.directory-dial-action')].filter(
+        (link) => link.getAttribute('aria-label')?.includes('院内短号'),
+      ).length,
       overflow: document.documentElement.scrollWidth > window.innerWidth,
     };
   });
   if (initial.entries === 0) fail('院内通讯录没有显示已发布记录。');
-  if (initial.filterStops !== 7) fail('院内通讯录没有完整显示七级独立筛选。');
+  if (initial.filterStops !== 7) fail('院内通讯录没有完整显示七级联动筛选。');
   if (initial.overflow) fail('1280px 院内通讯录出现横向溢出。');
   if (initial.landlineExtensionLinks > 0) fail('固定电话短号被错误渲染为拨号链接。');
+  if (initial.entryHeights.length === 0 || initial.entryHeights.every((height) => height > 120)) {
+    fail('院内通讯录号码卡片未压缩为紧凑布局。');
+  }
 
   const search = page.getByRole('searchbox', { name: '搜索院内通讯录' });
   await search.fill('病案');
@@ -503,20 +509,65 @@ async function assertHospitalDirectory(page) {
   await page.locator('button[aria-label="清空搜索"]').click();
   await page.locator('.directory-entry').first().waitFor({ state: 'visible', timeout: 15000 });
 
+  await search.fill('手术室');
+  await search.press('Enter');
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('.directory-entry').length > 0 &&
+      !document.querySelector('.result-status')?.textContent?.includes('正在更新'),
+    null,
+    { timeout: 15000 },
+  );
+  const mergedOperatingRoom = page.locator('.directory-entry.is-merged', {
+    hasText: '护士值班房',
+  });
+  if ((await mergedOperatingRoom.count()) === 0) {
+    fail('联系方式完全相同的条目未合并显示。');
+  }
+  if (!(await mergedOperatingRoom.first().innerText()).includes('护士站')) {
+    fail('同号合并卡片没有保留护士站条目名称。');
+  }
+  await page.locator('button[aria-label="清空搜索"]').click();
+  await page.locator('.directory-entry').first().waitFor({ state: 'visible', timeout: 15000 });
+
   await page.locator('.filter-open-action').click();
   const filterSheet = page.locator('dialog[open][aria-label="筛选院内通讯录"]');
   await filterSheet.waitFor({ state: 'visible', timeout: 5000 });
   const campusSection = filterSheet.locator('[aria-labelledby="directory-filter-campusCode"]');
-  const floorSection = filterSheet.locator('[aria-labelledby="directory-filter-floor"]');
-  const floorOption = floorSection.locator('button').nth(1);
-  if ((await floorOption.count()) === 0) fail('院内通讯录楼层筛选没有可选择项。');
-  await floorOption.click();
-  await page.waitForTimeout(350);
+  const departmentSection = filterSheet.locator('[aria-labelledby="directory-filter-department"]');
+  const departmentOption = departmentSection.locator('button').nth(1);
+  if ((await departmentOption.count()) === 0) fail('院内通讯录科室筛选没有可选择项。');
+  await departmentOption.click();
+  await page.waitForTimeout(250);
   if ((await campusSection.locator('button').first().getAttribute('aria-pressed')) !== 'true') {
-    fail('选择楼层时错误地强制选择了院区父级。');
+    fail('跳级选择科室时错误地强制选择了院区父级。');
   }
-  if ((await floorOption.getAttribute('aria-pressed')) !== 'true') {
-    fail('院内通讯录楼层跳级筛选没有保持选中状态。');
+  if ((await departmentOption.getAttribute('aria-pressed')) !== 'true') {
+    fail('院内通讯录科室跳级筛选没有保持选中状态。');
+  }
+
+  let clearedIncompatibleDepartment = false;
+  const campusOptionCount = await campusSection.locator('button').count();
+  for (let index = 1; index < campusOptionCount; index += 1) {
+    await campusSection.locator('button').nth(index).click();
+    await page.waitForTimeout(250);
+    if (
+      (await departmentSection.locator('button').first().getAttribute('aria-pressed')) === 'true'
+    ) {
+      clearedIncompatibleDepartment = true;
+      break;
+    }
+  }
+  if (!clearedIncompatibleDepartment) {
+    fail('更改上级后未自动清除不匹配的下级筛选。');
+  }
+  if (!(await filterSheet.locator('.filter-adjustment').innerText()).includes('已自动清除')) {
+    fail('自动清除不匹配下级后未向用户说明。');
+  }
+  const resetTop = await filterSheet.locator('.sheet-reset-action').boundingBox();
+  const filterGrid = await filterSheet.locator('.directory-filter-grid').boundingBox();
+  if (resetTop === null || filterGrid === null || resetTop.y >= filterGrid.y) {
+    fail('清除全部筛选操作未放在筛选区顶部。');
   }
   if ((await filterSheet.count()) !== 1) fail('选择单个筛选项后筛选面板意外关闭。');
   await filterSheet.locator('button[aria-label="关闭"]').click();

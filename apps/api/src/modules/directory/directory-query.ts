@@ -3,6 +3,7 @@ import type {
   DirectoryEntry,
   DirectoryEntryKind,
   DirectoryFacetOption,
+  DirectoryFacetPath,
   DirectoryFacetSnapshot,
   DirectoryPage,
   DirectoryQuery as DirectoryQueryInput,
@@ -445,12 +446,41 @@ function buildFacetSnapshot(
       }))
       .filter((facet) => facet.count > 0),
     floors: countTextFacets(rows.map((row) => row.floor)),
+    paths: buildFacetPaths(rows),
     publishedEffectiveOn: batch.effectiveOn,
     publishedImportVersion: batch.importVersion,
     sections: countTextFacets(rows.map((row) => row.section)),
     subunits: countTextFacets(rows.map((row) => row.subunit)),
     totalCount: rows.length,
   };
+}
+
+function buildFacetPaths(rows: readonly DirectoryFacetRow[]): readonly DirectoryFacetPath[] {
+  const paths = new Map<string, DirectoryFacetPath>();
+  for (const row of rows) {
+    const path: DirectoryFacetPath = {
+      ...(row.building === null ? {} : { building: row.building }),
+      campusCode: row.campusCode,
+      count: 1,
+      ...(row.department === null ? {} : { department: row.department }),
+      entryKind: row.entryKind,
+      ...(row.floor === null ? {} : { floor: row.floor }),
+      ...(row.section === null ? {} : { section: row.section }),
+      ...(row.subunit === null ? {} : { subunit: row.subunit }),
+    };
+    const key = JSON.stringify([
+      path.campusCode,
+      path.section,
+      path.building,
+      path.floor,
+      path.department,
+      path.subunit,
+      path.entryKind,
+    ]);
+    const current = paths.get(key);
+    paths.set(key, current === undefined ? path : { ...current, count: current.count + 1 });
+  }
+  return [...paths.values()];
 }
 
 function countTextFacets(values: readonly (string | null)[]): readonly DirectoryFacetOption[] {

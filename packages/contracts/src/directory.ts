@@ -127,6 +127,20 @@ export const directoryFacetOptionSchema = z
   .strict();
 export type DirectoryFacetOption = z.infer<typeof directoryFacetOptionSchema>;
 
+export const directoryFacetPathSchema = z
+  .object({
+    building: z.string().min(1).max(100).optional(),
+    campusCode: z.string().min(1).max(64),
+    count: z.number().int().positive(),
+    department: z.string().min(1).max(150).optional(),
+    entryKind: directoryEntryKindSchema,
+    floor: z.string().min(1).max(64).optional(),
+    section: z.string().min(1).max(100).optional(),
+    subunit: z.string().min(1).max(150).optional(),
+  })
+  .strict();
+export type DirectoryFacetPath = z.infer<typeof directoryFacetPathSchema>;
+
 export const directoryFacetSnapshotSchema = z
   .object({
     buildings: z.readonly(z.array(directoryFacetOptionSchema)),
@@ -140,6 +154,7 @@ export const directoryFacetSnapshotSchema = z
       ),
     ),
     floors: z.readonly(z.array(directoryFacetOptionSchema)),
+    paths: z.readonly(z.array(directoryFacetPathSchema).max(5000)),
     publishedEffectiveOn: z.iso.date(),
     publishedImportVersion: z.string().min(1).max(64),
     sections: z.readonly(z.array(directoryFacetOptionSchema)),

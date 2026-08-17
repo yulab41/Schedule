@@ -26,6 +26,8 @@ describe('production hospital directory integration', () => {
     expect(view).toContain('createApiClient({ auth: localAuth })');
     expect(view).toContain('getDirectoryFacets');
     expect(view).toContain('searchDirectory');
+    expect(view).toContain('updateDirectoryFilterSelection');
+    expect(view).toContain('groupDirectoryEntriesByContact');
   });
 
   it('keeps the directory in the full browser smoke journey', () => {
@@ -33,7 +35,9 @@ describe('production hospital directory integration', () => {
 
     expect(smoke).toContain('async function assertHospitalDirectory');
     expect(smoke).toContain("hasText: '院内通讯录'");
-    expect(smoke).toContain('aria-labelledby="directory-filter-floor"');
+    expect(smoke).toContain('aria-labelledby="directory-filter-department"');
+    expect(smoke).toContain('更改上级后未自动清除不匹配的下级筛选');
     expect(smoke).toContain('固定电话短号被错误渲染为拨号链接');
+    expect(smoke).toContain('联系方式完全相同的条目未合并显示');
   });
 });

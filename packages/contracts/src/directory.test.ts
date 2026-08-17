@@ -62,19 +62,36 @@ describe('directory contracts', () => {
 
   it('validates stable facet snapshots and entry kinds', () => {
     expect(directoryEntryKindSchema.parse('department')).toBe('department');
-    expect(
-      directoryFacetSnapshotSchema.parse({
-        campuses: [{ count: 2, label: '中心院区', value: 'central' }],
-        departments: [{ count: 1, label: '急诊科', value: '急诊科' }],
-        entryKinds: [{ count: 2, label: '科室', value: 'department' }],
-        publishedEffectiveOn: '2026-05-12',
-        publishedImportVersion: 'synthetic-1',
-        sections: [],
-        buildings: [],
-        floors: [],
-        subunits: [],
-        totalCount: 2,
-      }).totalCount,
-    ).toBe(2);
+    const snapshot = directoryFacetSnapshotSchema.parse({
+      campuses: [{ count: 2, label: '中心院区', value: 'central' }],
+      departments: [{ count: 1, label: '急诊科', value: '急诊科' }],
+      entryKinds: [{ count: 2, label: '科室', value: 'department' }],
+      paths: [
+        {
+          campusCode: 'central',
+          count: 1,
+          department: '急诊科',
+          entryKind: 'department',
+          section: '临床服务',
+        },
+        {
+          campusCode: 'central',
+          count: 1,
+          entryKind: 'department',
+          section: '行政服务',
+        },
+      ],
+      publishedEffectiveOn: '2026-05-12',
+      publishedImportVersion: 'synthetic-1',
+      sections: [],
+      buildings: [],
+      floors: [],
+      subunits: [],
+      totalCount: 2,
+    });
+
+    expect(snapshot.totalCount).toBe(2);
+    expect(snapshot.paths).toHaveLength(2);
+    expect(snapshot.paths[0]).toMatchObject({ campusCode: 'central', department: '急诊科' });
   });
 });
