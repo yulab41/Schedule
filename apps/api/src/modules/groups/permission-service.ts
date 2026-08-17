@@ -24,6 +24,7 @@ export type GroupPermission =
   | 'transferOwnership'
   | 'updateGroupName'
   | 'viewContacts'
+  | 'viewDirectory'
   | 'viewGuestCalendar'
   | 'viewGroupQr'
   | 'viewMembers'
@@ -79,11 +80,12 @@ const permissionsByRole: Readonly<
     'viewGroupQr',
     'viewVisitorAccessLogs',
     'viewContacts',
+    'viewDirectory',
     'viewMembers',
     'viewScheduleConfiguration',
   ],
   guest: ['viewGuestCalendar'],
-  member: ['viewContacts', 'viewMembers', 'viewScheduleConfiguration'],
+  member: ['viewContacts', 'viewDirectory', 'viewMembers', 'viewScheduleConfiguration'],
   owner: [
     'deleteGroup',
     'manageAdministrators',
@@ -102,6 +104,7 @@ const permissionsByRole: Readonly<
     'transferOwnership',
     'updateGroupName',
     'viewContacts',
+    'viewDirectory',
     'viewGuestCalendar',
     'viewGroupQr',
     'viewMembers',

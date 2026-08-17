@@ -63,6 +63,8 @@ import { logRedactionPaths, redactSensitiveFields } from './security/redact.js';
 import { getApiStatus } from './status.js';
 import type { PasswordAuthService } from './modules/auth/password-auth-service.js';
 import { registerPasswordAuthRoutes } from './modules/auth/password-auth-routes.js';
+import { registerDirectoryRoutes } from './modules/directory/directory-routes.js';
+import { DirectoryQuery } from './modules/directory/directory-query.js';
 
 type ApiLoggerOptions = NonNullable<FastifyServerOptions['logger']>;
 type ApiLoggerConfiguration = Exclude<ApiLoggerOptions, boolean>;
@@ -179,6 +181,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
     registerExportRoutes(app, new ExportService(options.databaseClient));
     registerPastScheduleRoutes(app, new PastScheduleService(options.databaseClient));
+    registerDirectoryRoutes(app, new DirectoryQuery(options.databaseClient));
     registerPlatformAdminRoutes(
       app,
       new PlatformAdminService(options.databaseClient, platformAdminUids),

@@ -24,7 +24,7 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
-## 2026-08-17 院内通讯录数据快照与短号约束（当前批次 DIR-02）
+## 2026-08-17 院内通讯录（当前批次 DIR-03 至 DIR-05）
 
 - DIR-01 底座：6 张通讯录表、迁移 `0038_directory_snapshots`、MySQL 8.4 `ngram` 中文全文索引、号码前缀索引、拼音别名和版本化发布/回滚 CLI 已由 checkpoint `6f22319` 推送并部署；其后 release `b696d52` 继续包含该底座，生产 38 个迁移和 6 张空表已核验。
 - 本地快照：两份 PDF 共 5 页已逐页检查，生成 2 个院区、2 份来源文档、341 个条目、359 个联系方式和 4488 个搜索别名；本地 CSV 使用 UTF-8 BOM + CRLF，清单与来源 PDF SHA-256 一致，目录 `runtime/directory-data/2026-05-12/` 仅由 `.git/info/exclude` 本机排除，不提交真实号码。
@@ -34,9 +34,14 @@
 - 正式发布：短号校验 checkpoint `2744d76` 已推送并部署；发布前加密备份 archive 为 `a8e21d39-4e2d-4c4f-9eaa-38fde8382d2e`（50 张表、11713 行、4458216 字节，SHA-256 `84c7dbcff2a4b2b5735be3a797d51793310a05dc2a509b090509097776e5ff97`）。release `2744d76c91d9588623e093b047cfeee87b14b896` 的产物哈希、38 个迁移、容器与域名隔离核验通过；容器预热首次健康检查出现一次 502，自动重试恢复。
 - 快照发布：数据发布点加密备份 archive 为 `0c74fdc0-92e0-46ca-9a9e-bfb91b374645`（50 张表、11720 行、4460800 字节，SHA-256 `33faa065f0053534db27257c28a0bbf8a4ea3268fd79fad98ffca4328d99dd07`）。更新后 manifest 经 SSH stdin dry-run 后原子发布为批次 `87ee90fa-464d-45bf-86a4-cd17c2cbf23f`，差异为 added 341、changed/removed/unchanged 0，warnings 0。
 - 生产核验：唯一 `published` 批次的清单哈希、2 个来源 SHA-256、341 个条目、359 个联系方式、4488 个别名和 314 个唯一完整号码均与本地一致；短号越界、缺失号码和 `needs_review` 均为 0，`manually_verified` 为 1，发布审计为 1。4 个必需索引齐全；utf8mb4 客户端下中文 ngram“病案”命中 5、全拼与首字母前缀各命中 5，号码/短号前缀探针均命中。
-- 当前状态：DIR-02 已完成（含本地 CSV、生产发布与线上核验）。并行 UI checkpoint `d29bb49` 已由其所属批次完成备份、生产部署与只读复核，本状态记录可以安全形成最终 checkpoint。
-- 下一活动批次：DIR-03 只实现只读通讯录 API、正式成员/后台管理员权限、中文/拼音/号码模糊检索、结构化筛选和游标分页；guest/vkey/匿名继续拒绝，不提前实现 Web 页面。
-- 停止条件：提交并部署包含 DIR-02 与本轮 UI 发布结果的最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；本轮不开始 DIR-03。
+- DIR-03 回归定位：`git log -S`/`git blame` 确认 API 注册序列来自 `8e42afb` 至 `a837586`、群组读取权限矩阵来自 `8e42afb`/`04c7da3`，共享契约出口来自 `5fa3fd` 至 `de3ad5f`；本轮只新增 `viewDirectory`，不改变既有联系方式、成员、日历或访客权限。
+- DIR-03 测试先行：共享契约旧实现因缺失模块失败；隔离 MySQL 路由测试在旧 API 上 4/4 返回 404。实现后契约 3/3、真实 MySQL 路由 4/4 通过，覆盖中文、拼音首字母、长短号精确/前缀、独立楼层/科室/类型跳级筛选、稳定游标、成员/管理员可见性以及 guest/跨群/匿名/vkey 拒绝。
+- DIR-03 实现：新增 `/groups/:groupId/directory` 与 `/groups/:groupId/directory/facets` 只读接口；只查询唯一 published 快照，号码精确 > 号码前缀 > 原文/别名精确 > 原文/拼音前缀 > 包含/ngram 相关度，按相关度、院区顺序、来源顺序和 UUID 稳定游标翻页。facets 返回院区、片区、楼宇、楼层、科室、下级单元与条目类型的全量计数，前端可从任意层级独立筛选。
+- DIR-03 权限与语义审计：当前群组 active owner/administrator/member 和 developer admin 可读；member 只能看到 `visibility=member`，owner/administrator/developer 可见 administrator 条目；guest、非本群成员、匿名和访客链接拒绝。接口无写入、无数据修正、无新迁移，不记录或回显查询号码到日志；短号契约继续硬限制 3–6 位。
+- 运行/浏览器验证：契约/API typecheck 与 build、任务文件 Prettier/ESLint、`git diff --check` 通过；隔离 MySQL 2 文件/7 项通过；主工作区全仓 Vitest 98 文件/614 项通过，31 个数据库集成文件/260 项按默认环境跳过，通讯录数据库集成已单独实跑。`pnpm smoke:browser` 因本机 pnpm 要求删除并重装全部 `node_modules` 已拒绝该破坏性动作；以当前 build 和现有依赖运行同一直接入口 `node scripts/smoke-browser.mjs` 通过管理员、成员、访客 vkey 与访问记录全流程，浏览器无错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-IfySMK`；`node scripts/smoke-browser.mjs --check-core` 通过。
+- 当前状态：DIR-01/02 已生产完成；DIR-03 已实现并验证，checkpoint 识别消息为 `feat(directory): add secure search API`，待显式提交、推送、生产备份、部署和只读核验。
+- 下一活动批次：按用户明确授权继续 DIR-04/05——用 `frontend-design` 和 Storybook 建立院区导览带、可跳级多层筛选、桌面/移动通讯录预览，再接入工作台“院内通讯录”页签与真实 API；手机号长短号和固定电话长号可拨，固定电话短号仅展示。
+- 停止条件：DIR-03 checkpoint 先完成推送与生产核验；随后 DIR-04/05 通过 Storybook、Web build/typecheck、浏览器 smoke 与 1280/390/320 专项验证，形成独立 checkpoint 并完成生产发布，使 Git `HEAD`、`origin/main`、服务器 `current-release` 一致且正式页面可用。
 
 ## 2026-08-17 手机日历导航触态与滑动圆角分层修复
 

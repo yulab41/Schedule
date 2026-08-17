@@ -18,6 +18,7 @@ export * from './exports.js';
 export * from './platform.js';
 export * from './wechat.js';
 export * from './auth.js';
+export * from './directory.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';

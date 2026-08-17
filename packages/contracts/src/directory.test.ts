@@ -1,0 +1,80 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  directoryEntryKindSchema,
+  directoryFacetSnapshotSchema,
+  directoryPageSchema,
+  directoryQuerySchema,
+} from './directory.js';
+
+describe('directory contracts', () => {
+  it('accepts independent skip-level filters and bounded cursor pagination', () => {
+    expect(
+      directoryQuerySchema.parse({
+        department: '急诊科',
+        floor: '3楼',
+        pageSize: 30,
+        q: 'jzk',
+      }),
+    ).toEqual({ department: '急诊科', floor: '3楼', pageSize: 30, q: 'jzk' });
+
+    expect(() => directoryQuerySchema.parse({ pageSize: 101 })).toThrow();
+    expect(() => directoryQuerySchema.parse({ cursor: 'x'.repeat(2049) })).toThrow();
+  });
+
+  it('rejects malformed directory contacts and preserves six-digit extensions', () => {
+    const page = directoryPageSchema.parse({
+      entries: [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          campus: { code: 'central', name: '中心院区' },
+          contactName: '测试总机',
+          contacts: [
+            {
+              id: '00000000-0000-4000-8000-000000000002',
+              displayOrder: 10,
+              fullNumber: '0000-00000000',
+              internalExtension: '123456',
+              isPrimary: true,
+              type: 'voice',
+            },
+          ],
+          displayOrder: 10,
+          entryKind: 'switchboard',
+        },
+      ],
+      totalCount: 1,
+    });
+
+    expect(page.entries[0]?.contacts[0]?.internalExtension).toBe('123456');
+    expect(() =>
+      directoryPageSchema.parse({
+        entries: [
+          {
+            ...page.entries[0],
+            contacts: [{ ...page.entries[0]?.contacts[0], internalExtension: '1234567' }],
+          },
+        ],
+        totalCount: 1,
+      }),
+    ).toThrow();
+  });
+
+  it('validates stable facet snapshots and entry kinds', () => {
+    expect(directoryEntryKindSchema.parse('department')).toBe('department');
+    expect(
+      directoryFacetSnapshotSchema.parse({
+        campuses: [{ count: 2, label: '中心院区', value: 'central' }],
+        departments: [{ count: 1, label: '急诊科', value: '急诊科' }],
+        entryKinds: [{ count: 2, label: '科室', value: 'department' }],
+        publishedEffectiveOn: '2026-05-12',
+        publishedImportVersion: 'synthetic-1',
+        sections: [],
+        buildings: [],
+        floors: [],
+        subunits: [],
+        totalCount: 2,
+      }).totalCount,
+    ).toBe(2);
+  });
+});
