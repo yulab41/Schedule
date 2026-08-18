@@ -100,6 +100,7 @@
 - 人工轨道验证：Mini 10 文件/35 项通过；staging/production verify 均保留 11 个 Worklet，产物 101,250/101,243 bytes，manifest 分别为 `31185775e55f0d6db94182627b8fb85a84b7690a9ee4496014803ecc3384239b` / `48946ae37d7a3cece71b44a78fe66f22ec9fa1b5dda306564f625eb373fe8230`；确定性、源码/包体、无凭据 CI dry-run、根 lint/build/typecheck、排除用户自有 `runtime/**`/`src/**` 后主工作区 118 文件/693 项（31 文件/261 项按环境跳过）、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。未触及 Web 核心链路，无需 `pnpm smoke:browser`；根 `format:check` 仍只被用户自有 `apps/miniprogram/project.config.json` 拦截。
 - 既有工作树阻断：原始 `pnpm format:check` 仅因本轮开始前已变更的 `apps/miniprogram/project.config.json` 格式失败；原始 `pnpm test` 仅因未跟踪 `runtime/**` 发布副本被 Vitest 重复扫描而失败。两者均为用户自有、未修改且不会暂存；任务文件格式检查和排除副本后的主仓测试均通过。
 - 外部状态：不再需要或接受 MiniTest token、计划 ID、云测账号或 Minium ZIP。未生成预览、上传开发/体验版或改变微信平台状态；全程未启动、唤醒或控制微信开发者工具。用户下一步只需人工打开 GUI、编译四条路由并在实体 Android 测试。
+- 人工轨道发布：checkpoint `e53f361`（`test(miniprogram): switch p1 to manual acceptance`）已推送；发布前加密数据库备份 archive 为 `6d16b012-6d69-4728-a335-59ad00396999`（50 张表、18,497 行、7,370,892 字节，SHA-256 `e6de3f9c748aa3db8b2789f1214bb48fdf61aa42f5293af3ba9f9e629e063eff`）。release `e53f3611350fa60c846f2f649f68b4fea9616f41` 从干净隔离 worktree 构建并部署；容器预热首个健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离、公开端口与容器检查，正式首页/API 均为 200。云测检查点 `a9c71d6` 从未单独部署。
 - checkpoint：`3884713`（`chore(miniprogram): establish native migration workspace`）已推送；发布前加密数据库备份 archive 为 `365295b2-9a16-4d0f-91d2-bcf4ce24470b`（50 张表、18,423 行、7,296,708 字节，SHA-256 `aa0b605778b44edb7651bdf00f2c06e020f109e6937d2e872bf096598ef115cd`）。release `3884713b35f417c88210046efb522bacdb5e08d4` 已部署，容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
 - 本轮发布：代码 checkpoint `24bc2c4`（`feat(miniprogram): add native foundation controls`）已推送；发布前加密数据库备份 archive 为 `55c53e31-0021-4d38-b5f9-6d9bc96e74e2`（50 张表、18,484 行、7,362,760 字节，SHA-256 `8c555ba7660bb186c529877d6f7db9bc7f0fc5bd552739a2ade1f4549a6e2fe7`）。release `24bc2c4bb12280c95722715ab0d09b1f563eb44a` 从该提交的干净临时 worktree 构建并部署；容器预热首个健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
 - 月历发布：代码 checkpoint `1f715c9`（`feat(miniprogram): add native calendar poc`）已推送；发布前加密数据库备份 archive 为 `212fcfcd-1596-4336-9226-b0a3baa7298c`（50 张表、18,489 行、7,365,620 字节，SHA-256 `e0554e1597bd0b77a79c8594ce9ef6ffc965ff56a9ebb423607053c9617e8a0c`）。release `1f715c960180b1372947fe9249671fc6b5a5e2d9` 从该提交的隔离 worktree 离线构建并部署；首次执行在业务变更前因临时脚本 CRLF 停止，规范化 `/tmp` 脚本后重试成功，容器预热首个健康检查一次 502 后自动恢复。`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名与公网 IP 隔离、容器检查；外部正式首页和 API 均返回 200。
@@ -108,7 +109,8 @@
 - 当前状态：42 格月历和 7×7/20×30 手排矩阵 PoC、静态/simulate/构建门禁与人工验收清单均已实现；原生视觉、双轴滚动手感和性能等待用户实体 Android 人工复核，不能提前标为 P1 完成。
 - 下一批次：用户按 `apps/miniprogram/docs/runbooks/manual-native-testing.md` 测试基础控件、月历、7×7 与 20×30；明确反馈“通过”后才进入 P2 共享核心。若失败，只修复用户指出的页面/状态并重新交付同一清单。
 - 本 checkpoint 识别消息：`test(miniprogram): switch p1 to manual acceptance`。
-- 停止条件：本 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后，向用户交付四页人工测试步骤并等待反馈；不进入 P2，不以 Storybook/simulate 代替用户人工原生验收。
+- 最终状态 checkpoint 识别消息：`docs(status): record manual acceptance deployment`。
+- 停止条件：最终状态 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后，向用户交付四页人工测试步骤并等待反馈；不进入 P2，不以 Storybook/simulate 代替用户人工原生验收。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 
