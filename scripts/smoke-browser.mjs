@@ -559,6 +559,42 @@ async function assertHospitalDirectory(page) {
     fail('再次点击通讯录五角星未取消收藏。');
   }
 
+  await page.locator('.filter-open-action').click();
+  const iconOpenedFilterSheet = page.locator('dialog[open][aria-label="筛选院内通讯录"]');
+  await iconOpenedFilterSheet.waitFor({ state: 'visible', timeout: 5000 });
+  const filterSheetLayout = await iconOpenedFilterSheet.evaluate((dialog) => {
+    const reset = dialog.querySelector('.sheet-reset-action');
+    const toolbar = dialog.querySelector('.filter-sheet-toolbar');
+    const firstToggle = dialog.querySelector('.filter-section-toggle');
+    const dialogRect = dialog.getBoundingClientRect();
+    const resetRect = reset?.getBoundingClientRect();
+    const toolbarRect = toolbar?.getBoundingClientRect();
+    return {
+      dialogHeight: dialogRect.height,
+      hasIntroCopy: dialog.textContent?.includes('层级联动，避免无效组合') ?? false,
+      resetWidth: resetRect?.width ?? 0,
+      toolbarWidth: toolbarRect?.width ?? 0,
+      toggleExpanded: firstToggle?.getAttribute('aria-expanded'),
+    };
+  });
+  if (filterSheetLayout.dialogHeight < 800) fail('点击筛选图标后的弹窗高度没有调高。');
+  if (filterSheetLayout.hasIntroCopy) fail('筛选弹窗仍显示冗余的层级联动说明。');
+  if (Math.abs(filterSheetLayout.resetWidth - filterSheetLayout.toolbarWidth) > 1) {
+    fail('筛选弹窗顶部清除按钮没有铺满可用宽度。');
+  }
+  if (filterSheetLayout.toggleExpanded !== 'true') fail('筛选级别默认未展开。');
+  const firstSectionToggle = iconOpenedFilterSheet.locator('.filter-section-toggle').first();
+  await firstSectionToggle.click();
+  if ((await firstSectionToggle.getAttribute('aria-expanded')) !== 'false') {
+    fail('筛选级别无法折叠。');
+  }
+  await firstSectionToggle.click();
+  if ((await firstSectionToggle.getAttribute('aria-expanded')) !== 'true') {
+    fail('筛选级别无法重新展开。');
+  }
+  await iconOpenedFilterSheet.locator('button[aria-label="关闭"]').click();
+  await iconOpenedFilterSheet.waitFor({ state: 'hidden', timeout: 5000 });
+
   const targetStop = page.locator('.wayfinding-stop[data-filter-key="department"]');
   const filterStop =
     (await targetStop.count()) > 0 ? targetStop : page.locator('.wayfinding-stop').last();
@@ -582,11 +618,14 @@ async function assertHospitalDirectory(page) {
   }
   const campusSection = filterSheet.locator('[aria-labelledby="directory-filter-campusCode"]');
   const departmentSection = filterSheet.locator('[aria-labelledby="directory-filter-department"]');
-  const departmentOption = departmentSection.locator('button').nth(1);
+  const departmentOption = departmentSection.locator('.filter-options button').nth(1);
   if ((await departmentOption.count()) === 0) fail('院内通讯录科室筛选没有可选择项。');
   await departmentOption.click();
   await page.waitForTimeout(250);
-  if ((await campusSection.locator('button').first().getAttribute('aria-pressed')) !== 'true') {
+  if (
+    (await campusSection.locator('.filter-options button').first().getAttribute('aria-pressed')) !==
+    'true'
+  ) {
     fail('跳级选择科室时错误地强制选择了院区父级。');
   }
   if ((await departmentOption.getAttribute('aria-pressed')) !== 'true') {
@@ -594,9 +633,9 @@ async function assertHospitalDirectory(page) {
   }
 
   let clearedIncompatibleDepartment = false;
-  const campusOptionCount = await campusSection.locator('button').count();
+  const campusOptionCount = await campusSection.locator('.filter-options button').count();
   for (let index = 1; index < campusOptionCount; index += 1) {
-    await campusSection.locator('button').nth(index).click();
+    await campusSection.locator('.filter-options button').nth(index).click();
     await page.waitForTimeout(250);
     if ((await filterSheet.locator('.filter-adjustment').count()) > 0) {
       clearedIncompatibleDepartment = true;

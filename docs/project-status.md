@@ -2,15 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-18 通讯录动态导览、收藏与常用优先区（当前批次）
+## 2026-08-18 通讯录动态导览、收藏与高密度筛选 Sheet（当前批次）
 
-- 批次范围：DIR-09 至 DIR-11，仅处理无效层级剔除、无横滚导览与筛选定位、收藏/常用优先展示；不修改原始 CSV、正式通讯录快照、号码、来源追踪或既有角色权限。
-- 回归定位：`git log -S` / `git blame` 确认七级导览、横向滚动和无定位打开来自 `8309dce`，联动筛选/同号合并来自 `926136a`。
-- 测试先行：空/单选层级、冗余下级、批量恢复、收藏/常用、安全持久化、无横滚定位和优先区均先红；实现后定向 6 文件/173 项、隔离 MySQL 路由 5/5、全仓非集成 110 文件/660 项通过（31 文件/261 项按环境跳过）。Prettier、ESLint、全仓 build、Web/API/contracts typecheck、Storybook build、`pnpm smoke:check-core` 与 `git diff --check` 通过。
+- 批次范围：DIR-09 至 DIR-12，仅处理无效层级剔除、无横滚导览与筛选定位、收藏/常用优先展示及筛选 Sheet 高密度交互；不修改原始 CSV、正式通讯录快照、号码、来源追踪或既有角色权限。
+- 回归定位：`git log -S` / `git blame` 确认七级导览、横向滚动和无定位打开来自 `8309dce`，通用 Sheet 的 78dvh 上限来自 `5b00fa7`，通讯录说明块与并排清除按钮来自 `926136a`。
+- 测试先行：空/单选层级、冗余下级、批量恢复、收藏/常用、安全持久化、无横滚定位和优先区均先红；追加的高 Sheet、全宽固定清除与折叠级别断言在旧实现上 1 项失败。实现后全仓非集成 112 文件/669 项通过（31 文件/261 项按环境跳过），隔离 MySQL 通讯录路由 5/5 通过。
 - 实现：导览/筛选 Sheet 动态省略无数据或当前只有 1 个兼容选项的层级；上级变化时清除不兼容或已冗余的下级。导览改为桌面自适应、手机两列的完整页面网格，点击站点后打开 Sheet、平滑定位并聚焦相应区段，减少动态偏好下即时定位。
 - 收藏与常用：卡片右上角 44px 五角星支持收藏/取消；拨号记录形成常用排序，收藏与常用快捷卡位于导览正下方。浏览器本地仅保存条目 UUID、次数和时间，不保存名称/号码；只读 lookup 继续执行 `viewDirectory` 与 member/administrator 可见性边界，成员无法借偏好恢复管理员条目。
-- 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 在当前源码 5173 服务通过管理员、成员、访客/vkey、访问记录及通讯录专项；首轮服务未启动连接失败，启动后原样通过。Storybook 390×844 实测 6 个有效层级、楼宇层级 0、两列无横向溢出，收藏优先区和“科室”定点聚焦通过。
-- checkpoint 识别消息：`feat(directory): add adaptive guide and favorites`。
+- 筛选 Sheet：通讯录专用 Sheet 提高到移动端 92dvh/桌面最高 840px，移除“层级联动”等说明块；清除全部改为顶部 sticky、内容区全宽的扁平按钮。各有效级别使用 48px 整行 disclosure 控件，方向符号、`aria-expanded/controls` 与减少动态齐全；折叠选择在会话内保留，从导览进入时目标级别自动展开并定位。
+- 运行/浏览器验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在当前源码 5173 服务通过管理员、成员、访客/vkey、访问记录及通讯录专项。Storybook 独立 390×844 画布实测 Sheet 高 776.47px、清除按钮与工具栏同宽、折叠后选项不可见、无横向溢出且 console error 为 0；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`pnpm smoke:check-core` 与 `git diff --check` 通过。
+- checkpoint：`5437995`（`feat(directory): add adaptive guide and favorites`）已推送；筛选 Sheet 追加 checkpoint 识别消息为 `feat(directory): make filter sheet collapsible`。
 - 下一批次与停止条件：完成全仓/核心门禁、提交推送、生产加密备份、部署与正式域名只读复核；Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止并等待用户复核。
 
 ## 2026-08-18 月份切换选中日期与值班详情一致性修复（已完成，待用户复核）

@@ -42,6 +42,20 @@ describe('production hospital directory integration', () => {
     expect(view).not.toMatch(/\.wayfinding-ribbon\s*{[^}]*overflow-x:\s*auto/s);
   });
 
+  it('uses a taller filter sheet with a sticky flat reset and collapsible levels', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).toContain('class="directory-filter-sheet"');
+    expect(view).not.toContain('层级联动，避免无效组合');
+    expect(view).not.toContain('可跳级开始；选定上级后只显示匹配下级。');
+    expect(view).toContain('FilterClearIcon');
+    expect(view).toContain(':aria-expanded="isFilterSectionExpanded(section.key)"');
+    expect(view).toContain('ChevronRightIcon');
+    expect(view).toContain('v-show="isFilterSectionExpanded(section.key)"');
+    expect(view).toMatch(/\.sheet-reset-action\s*{[^}]*width:\s*100%/s);
+    expect(view).toMatch(/:deep\(\.directory-filter-sheet\)\s*{[^}]*max-height:/s);
+  });
+
   it('offers reversible favorites and places favorite and frequently used contacts before results', () => {
     const view = source('./InternalDirectoryView.vue');
 

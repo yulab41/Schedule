@@ -18,7 +18,10 @@
 - 实现与安全：导览和筛选 Sheet 只渲染当前兼容选项大于 1 的层级，改变上级时同时清除不兼容或已无筛选意义的下级。收藏按群组保存在浏览器本地，仅含条目 UUID、使用次数和最后使用时间，不保存名称或号码；刷新后通过 `/groups/:groupId/directory/lookup` 按当前成员权限读取，管理员可见条目不会被成员偏好恢复绕过。
 - UI 与交互：`frontend-design` 延续医疗蓝白“院区站点”语言；390px 导览为两列紧凑网格、桌面自动适配，无水平滚动。点击任一层级会打开筛选 Sheet、滚动并把焦点放到相应区段；卡片右上角 44px 五角星可收藏/取消，导览下方按“收藏通讯录”“常用通讯录”显示快捷卡。
 - 运行/浏览器验证：`pnpm smoke:browser` 在当前源码 5173 服务通过管理员、成员、访客/vkey 与访问记录全流程；首轮仅因服务未启动连接失败，启动当前源码后原样通过，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-GHywhh`。Storybook 390×844 实测 6 个有效层级、楼宇层级为 0、两列无溢出；收藏优先区可逆，点击“科室”后活动焦点为 `directory-filter-department` 且楼宇区段为 0。全仓 Prettier/ESLint/build 通过，非集成 Vitest 110 文件/660 项通过（31 文件/261 项按环境跳过），Web/API/contracts typecheck、Storybook build、`pnpm smoke:check-core` 与 `git diff --check` 通过；全仓 typecheck 曾短暂命中并行日历文件已引用但尚未导出的 helper，该并行改动收口后 Web typecheck 原样复跑通过，本轮未修改其文件。
-- 状态：已完成本地实现与运行验证；待 checkpoint、生产备份/部署和正式域名只读复核。
+- 追加反馈与引入点：筛选 Sheet 偏矮、说明块占位、清除按钮不够易达且级别无法收起。通用移动 Sheet 的 78dvh 上限由 `5b00fa7` 引入，通讯录说明块/并排清除布局由 `926136a` 引入；追加源码回归断言在旧实现准确失败 1 项。
+- 追加实现：仅对通讯录 Sheet 提高到移动端 92dvh/桌面最高 840px；删除“层级联动”等说明，自动清理状态保留为无障碍 live region。清除全部是顶部 sticky、内容区全宽的无阴影扁平按钮；每级标题整行 48px 可折叠，右侧方向符号旋转并提供 `aria-expanded/controls`，用户折叠选择在会话中保留，导览定点进入会先展开目标。
+- 追加验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过完整管理员、成员、访客/vkey 和访问记录链路。Storybook 独立 390×844 画布测得 Sheet 776.47px、清除按钮/工具栏同宽 328px、折叠后选项 client rect 为 0、无横向溢出且 console error 为 0；全仓非集成 112 文件/669 项通过（31 文件/261 项跳过），Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`pnpm smoke:check-core` 与差异检查通过。
+- 状态：动态导览/收藏 checkpoint `5437995` 已推送；追加筛选 Sheet 已完成本地实现与运行验证，待独立 checkpoint、生产备份/部署和正式域名只读复核。
 
 ## 2026-08-18 统计页年度入口未使用统一时间选择器
 

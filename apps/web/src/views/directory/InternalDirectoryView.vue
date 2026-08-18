@@ -10,8 +10,10 @@ import type {
 } from '@schedule/contracts';
 import {
   CallIcon,
+  ChevronRightIcon,
   CloseIcon,
   FilterIcon,
+  FilterClearIcon,
   SearchIcon,
   StarFilledIcon,
   StarIcon,
@@ -88,6 +90,7 @@ const preferences = ref<DirectoryPreferences>(parseDirectoryPreferences(undefine
 const nextCursor = ref<string>();
 const totalCount = ref(0);
 const filterSheetVisible = ref(false);
+const collapsedFilterKeys = ref<ReadonlySet<DirectoryFilterKey>>(new Set());
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const errorMessage = ref<string>();
@@ -335,8 +338,27 @@ function resetDirectorySearch(): void {
 }
 
 function openFilterAt(key: DirectoryFilterKey): void {
+  expandFilterSection(key);
   pendingFilterKey = key;
   filterSheetVisible.value = true;
+}
+
+function isFilterSectionExpanded(key: DirectoryFilterKey): boolean {
+  return !collapsedFilterKeys.value.has(key);
+}
+
+function expandFilterSection(key: DirectoryFilterKey): void {
+  if (!collapsedFilterKeys.value.has(key)) return;
+  const nextKeys = new Set(collapsedFilterKeys.value);
+  nextKeys.delete(key);
+  collapsedFilterKeys.value = nextKeys;
+}
+
+function toggleFilterSection(key: DirectoryFilterKey): void {
+  const nextKeys = new Set(collapsedFilterKeys.value);
+  if (nextKeys.has(key)) nextKeys.delete(key);
+  else nextKeys.add(key);
+  collapsedFilterKeys.value = nextKeys;
 }
 
 function setFilterSectionElement(key: DirectoryFilterKey, value: unknown): void {
@@ -723,27 +745,29 @@ async function lookupPreferredEntries(
 
     <p class="directory-privacy-note">院内联系方式仅供工作使用，请勿向院外转发。</p>
 
-    <ResponsiveSheet v-model:visible="filterSheetVisible" title="筛选院内通讯录">
+    <ResponsiveSheet
+      v-model:visible="filterSheetVisible"
+      class="directory-filter-sheet"
+      title="筛选院内通讯录"
+    >
       <div class="filter-sheet-toolbar">
-        <div class="filter-sheet-intro">
-          <strong>层级联动，避免无效组合</strong>
-          <span>可跳级开始；选定上级后只显示匹配下级。</span>
-          <span
-            v-if="filterAdjustmentMessage !== undefined"
-            class="filter-adjustment"
-            role="status"
-          >
-            {{ filterAdjustmentMessage }}
-          </span>
-        </div>
         <button
           type="button"
           class="sheet-reset-action"
           :disabled="activeFilterCount === 0"
           @click="clearAllFilters"
         >
-          清除全部
+          <FilterClearIcon aria-hidden="true" />
+          <span>清除全部筛选</span>
+          <small v-if="activeFilterCount > 0">已选 {{ activeFilterCount }} 项</small>
         </button>
+        <span
+          v-if="filterAdjustmentMessage !== undefined"
+          class="filter-adjustment visually-hidden"
+          role="status"
+        >
+          {{ filterAdjustmentMessage }}
+        </span>
       </div>
       <div class="directory-filter-grid">
         <section
@@ -756,10 +780,32 @@ async function lookupPreferredEntries(
           tabindex="-1"
         >
           <header>
-            <h3 :id="`directory-filter-${section.key}`">{{ section.label }}</h3>
-            <span>{{ section.options.length }} 项</span>
+            <h3 :id="`directory-filter-${section.key}`">
+              <button
+                type="button"
+                class="filter-section-toggle"
+                :aria-controls="`directory-filter-options-${section.key}`"
+                :aria-expanded="isFilterSectionExpanded(section.key)"
+                @click="toggleFilterSection(section.key)"
+              >
+                <span class="filter-section-copy">
+                  <strong>{{ section.label }}</strong>
+                  <small
+                    >{{ selectedFilterLabel(section) }} · {{ section.options.length }} 项</small
+                  >
+                </span>
+                <ChevronRightIcon
+                  aria-hidden="true"
+                  :class="{ 'is-expanded': isFilterSectionExpanded(section.key) }"
+                />
+              </button>
+            </h3>
           </header>
-          <div class="filter-options">
+          <div
+            v-show="isFilterSectionExpanded(section.key)"
+            :id="`directory-filter-options-${section.key}`"
+            class="filter-options"
+          >
             <button
               type="button"
               :class="{ 'is-selected': filters[section.key] === undefined }"
@@ -1496,51 +1542,38 @@ async function lookupPreferredEntries(
   position: sticky;
   z-index: 2;
   top: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding-bottom: 10px;
-  align-items: center;
-  gap: 10px;
+  padding: 4px 0 8px;
   background: var(--ui-color-surface);
 }
 
-.filter-sheet-intro {
-  display: grid;
-  padding: 12px;
-  gap: 3px;
-  color: var(--ui-color-primary);
-  background: var(--ui-color-primary-light);
-  border-radius: var(--ui-radius-small);
+:deep(.directory-filter-sheet) {
+  height: min(840px, calc(100dvh - 24px));
+  max-height: min(840px, calc(100dvh - 24px));
 }
 
-.filter-sheet-intro span {
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
+:deep(.directory-filter-sheet .responsive-sheet-panel) {
+  height: 100%;
 }
 
-.filter-sheet-intro .filter-adjustment {
-  margin-top: 3px;
-  color: var(--ui-color-primary);
-  font-weight: var(--ui-font-weight-semibold);
+:deep(.directory-filter-sheet .responsive-sheet-content) {
+  min-height: 0;
+  flex: 1;
 }
 
 .directory-filter-grid {
   display: grid;
-  margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 14px;
-}
-
-.filter-section header {
-  display: flex;
-  margin-bottom: 7px;
-  align-items: baseline;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 
+.filter-section header {
+  display: block;
+}
+
 .filter-section {
-  scroll-margin-top: 116px;
+  padding-bottom: 8px;
+  scroll-margin-top: 58px;
+  border-bottom: 1px solid var(--ui-color-border);
   outline: 0;
 }
 
@@ -1551,17 +1584,64 @@ async function lookupPreferredEntries(
 
 .filter-section h3 {
   margin: 0;
+}
+
+.filter-section-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  padding: 4px 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ui-color-text-primary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-small);
+  cursor: pointer;
+  text-align: left;
+}
+
+.filter-section-toggle:hover,
+.filter-section-toggle:active {
+  background: var(--ui-color-surface-muted);
+}
+
+.filter-section-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.filter-section-copy strong {
   font-size: var(--ui-font-size-md);
 }
 
-.filter-section header span {
+.filter-section-copy small {
+  overflow: hidden;
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-section-toggle svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--ui-color-text-muted);
+  transition: transform var(--ui-duration-fast) ease;
+}
+
+.filter-section-toggle svg.is-expanded {
+  transform: rotate(90deg);
 }
 
 .filter-options {
   display: grid;
-  max-height: 210px;
+  max-height: 280px;
+  padding: 0 4px 4px;
   overflow-y: auto;
   gap: 3px;
 }
@@ -1598,9 +1678,32 @@ async function lookupPreferredEntries(
 }
 
 .sheet-reset-action {
-  min-width: 96px;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   padding: 0 12px;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border: 0;
   white-space: nowrap;
+}
+
+.sheet-reset-action svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sheet-reset-action span {
+  text-align: left;
+}
+
+.sheet-reset-action small {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-regular);
 }
 
 .sheet-reset-action:disabled {
@@ -1715,14 +1818,9 @@ async function lookupPreferredEntries(
     gap: 1px;
   }
 
-  .directory-filter-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .filter-sheet-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: stretch;
+  :deep(.directory-filter-sheet) {
+    height: min(92dvh, 840px);
+    max-height: min(92dvh, 840px);
   }
 
   .filter-options {
@@ -1755,8 +1853,10 @@ async function lookupPreferredEntries(
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .directory-skeleton span {
+  .directory-skeleton span,
+  .filter-section-toggle svg {
     animation: none;
+    transition: none;
   }
 }
 </style>
