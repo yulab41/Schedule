@@ -2,15 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-18 D/NP 固定班种分段提醒（已实现待生产发布）
+## 2026-08-18 D/NP 固定班种分段提醒（已完成，待用户复核）
 
 - 批次范围：只在 Web 选中日期详情为固定 D/NP 班追加分段说明和当前阶段标签；不修改数据库、班种配置、排班记录、统计、生成、API、权限或其他工作流。
 - 回归定位与测试先行：`git log -S` / `git blame` 确认连续时间详情由 `1c84fd6` 引入且没有分段语义；新增 helper 用例在旧实现因模块不存在失败，实现后 D/NP 的工作、午休、听班、次日恢复与不匹配保护 3/3 通过。
 - 实现：仅当简称、实际中国标准时间起止和持续分钟同时精确匹配 D（08:00–17:30）或 NP（17:30–次日11:00）时显示固定说明；进行中的班次每分钟更新“在岗中 / 午间间休 / 值班房听班中”。人员姓名、岗位、电话、事件按钮和原排班状态始终保留。
 - 验证：主工作区 Vitest 排除用户自有 `runtime/**` / `src/**` 后 119 文件/698 项通过（31 文件/261 项按环境跳过）；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint 通过。Storybook 390×844 无横向溢出，说明完整换行，5 个电话/事件操作均为 44px，当前 NP 正确显示“值班房听班中”。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过管理员、成员、访客/vkey 与访问记录全流程，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-2eLV2J`。
 - 行为审计：新增一分钟只读时钟仅替换本地 `Date` ref，卸载时清理；不发请求、不写业务数据。未知简称、无效时间或被编辑为其他持续时间的班种返回无说明；既有计算、异步、错误和空值路径不变。
-- 当前状态：已实现待生产发布；checkpoint 识别消息为 `feat(web): show split shift duty status`。
-- 下一批次与停止条件：只提交、推送、创建生产备份、部署该 checkpoint 并完成正式域名只读核验；随后更新最终状态 checkpoint、再次同步为 production release 后停止，等待用户复核，不开始其他任务。
+- 正式发布：代码 checkpoint `81e44f7`（`feat(web): show split shift duty status`）已推送；发布前加密数据库备份 archive 为 `8865ad86-a90c-4cc0-898c-a7b007be9b2a`（50 表、18,505 行、7,376,160 字节，SHA-256 `d6e48163573fd7f01dcf65b0c0382c235ded67bbab386c66440c93d113306929`）。从独立干净 worktree 构建并部署 release `81e44f74d0c052a4f667d534390768e7097d0168`；容器预热首个健康检查短暂 502 后自动恢复，`ecs-verify.sh` 通过。
+- 正式域名只读复核：D0796 群主会话正常加载现有 2026 年 8 月空排班月历，未写业务数据；正式 Web bundle 中“值班房听班中”实现唯一命中，公开 API 返回 200。Git 本地、`origin/main` 与服务器 `current-release` 精确一致。
+- 当前状态：已完成（含生产发布与线上只读核验）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record split shift status deployment`。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止，等待用户复核，不开始其他任务。
 
 ## 2026-08-18 通讯录空闲态、收藏卡片与触控反馈（已完成，待用户复核）
 
@@ -98,7 +100,7 @@
 - Web 黄金稿：基础控件、月历、7×7 与 20×30 矩阵首轮均由用户确认；实体 Android 复测后确认 P1 Storybook 月历仍错误写死 42 格，而当前生产 Web `buildMonthDisplayGrid` 已按月份跨度动态生成 5/6 周，并为最后一行选中框适配左右底角。黄金稿与 Mini fixture 已同步纠正，12px 详情间距继续保持。
 - 原生实现：`@schedule/ui-tokens/tokens.ts` 同时生成 CSS/WXSS，构建把 WXSS 确定性复制到 `dist/styles` 并审计导入。新增自绘 `UiButton`、`UiSwitch`、`UiCheckbox`、`UiRadio`、`UiInputShell`、`UiPicker`、`UiAlert`、`UiChip`、`UiLoading`；开关保持 52×30px 本体、60×44px 触控层，禁用/加载态阻断事件。未引入 TDesign 或第三方 UI。
 - 月历实现：`pages/calendar-poc/index`、自绘 `CalendarMonth`/`CalendarCell` 和确定性 2026-10 fixture 现按 Web 同一周数公式生成 35/42 格面板；跨月/今天/选择/周末/节假日/人员/加换状态独立，最后一行显式标记左右底角。Android 触控、PC 鼠标和程序按钮统一改走 Skyline 原生三面板 `swiper`；箭头/定位图标使用真实 WXML 子节点，详情保持独立表面和 12px 间距。
-- 矩阵实现：`pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture 继续使用一个 `scroll-view type=list` 承载横纵滚动；20 个成员行按视口绘制。日期表头以 `-scrollLeft`、人员列以 `-scrollTop` 由 WXS 在视图层同步，滚动中不调用 `setData`；点击与撤销仍仅做增量更新，未使用 Canvas、整月 `setData` 或业务 API。
+- 矩阵实现：`pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture 继续使用一个 `scroll-view type=list` 承载横纵滚动；20 个成员行按视口绘制。日期表头以 `-scrollLeft`、人员列以 `-scrollTop` 由 `worklet:onscrollupdate` 在 UI 线程同帧同步，滚动中不经过 WXS/普通 `bindscroll`、不调用 `setData`；点击与撤销仍仅做增量更新，未使用 Canvas、整月 `setData` 或业务 API。
 - 人工验收工具：`testing/p1-manual-test-plan.json` 锁定基础控件、月历、7×7、20×30 四条原生路由、实际交互状态和既定视觉/性能目标；`docs/runbooks/manual-native-testing.md` 给出用户手工编译模式、实体 Android 操作和反馈格式。云测 runner、Minium Python/ZIP、云测凭据和专用 selector 已移除；`scripts/visual-compare.mjs` 仅在用户提供截图或失败需要量化时使用。
 - 回归来源与语义：`git log -S`/`git blame` 确认旧 Storybook 详情同卡来自 `8a49434`、Web 三面板来自 `41d284b`、生产外框裁切来自 `0aaa562`；本实现复用视觉和交互语义但未复制 Vue/DOM。相邻月份格只读，当前月日期只发出一次选择事件；月份切换只重建 PoC ViewModel，不接入 API 或业务 store。
 - 矩阵回归来源与语义：P1 黄金 story 由 `3884713` 引入；生产手排基础来自 `6512274`，冻结日期/人员列及密集移动交互来自 `1203dc7`。本实现保留同一人员×日期、班种、失效、选择和滚动语义，但用 WXML/WXSS/Skyline 重写；`type=list` 是最低基础库 3.0.2 可用的按视口绘制路径，不冒用 3.3.0 才提供且仅纵向的 `list-builder`。
@@ -124,11 +126,13 @@
 - 入口发布：代码 checkpoint `e2852ef`（`fix(miniprogram): add native p1 test navigation`）已推送；发布前加密数据库备份 archive 为 `07fb20ed-651b-43e1-b09d-82d9ef2415ca`（50 表、18,501 行、7,373,524 字节，SHA-256 `87751e7f8800d6691082b3e922317d6e39c3d4906b2e438a9beb76f11e1872b4`）。release `e2852ef603a0f8dee5dc5e991243b63d0a0182be` 从干净 worktree 构建并部署；容器预热首个健康检查一次 502 后自动恢复，`ecs-verify.sh`、外部正式首页与 API 均通过。最终状态 checkpoint 识别消息：`docs(status): record native p1 navigation deployment`。
 - 本轮真机回归与引入点：用户在 PC/Android 发现月历控件显示与触控行为相反、Android Pan 无法切月、月历周数/底角不符生产 Web，以及 7×7/20×30 表头不随对应轴同步。`git log -S`/`git blame` 定位固定 42 格与 Pan 来自 `1f715c9`，矩阵仅 Worklet 冻结同步来自 `6cc7463`；生产 Web 的动态周数与底角规则以 `apps/web/src/features/calendar/{month-grid-presentation.ts,MonthGrid.vue}` 为语义基准。回归测试先出现 5 项 Mini 失败和 1 项 Storybook 失败；修复后定向 Mini 12/12、Storybook 12/12，Mini 全套 10 文件/37 项、排除用户自有 `runtime/**`/`src/**` 的主工作区 119 文件/698 项通过（31 文件/261 项按环境跳过）。Mini typecheck、staging/production verify、确定性、源码/包体、无凭据 CI dry-run、根 lint/build/typecheck、Storybook build、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；staging/production 包体分别为 104,352/104,345 bytes，manifest 分别为 `71fcf061c68189375ccfb5598937948f9bcc582883520d110455b1072374a1b3` / `dcc21c572b4b55cb654336e4b120954a38276dbe92bd3c2ede92f3fa2c6d54ab`，源码与产物均只保留 3 个矩阵滚动进度 Worklet。根 `format:check` 仍只被用户自有 `apps/miniprogram/project.config.json` 拦截；原始根测试会误扫未跟踪 `runtime/**` 发布副本，主工作区排除副本后完整通过。未触及 Web 核心链路，无需 `pnpm smoke:browser`。
 - 本轮修复发布：代码 checkpoint `4b33274`（`fix(miniprogram): align calendar and matrix gestures`）已推送；发布前加密数据库备份 archive 为 `97f38cf1-119e-4cc7-a28e-7c626692b131`（50 表、18,503 行、7,374,844 字节，SHA-256 `dca9672981d721d283bf307c8633ba7b7294de2288679cea0a4a17fa888b791c`）。release `4b33274e5b458ef8f236119892ef08ea6f5a9b9b` 从隔离干净 worktree 离线构建并部署；容器预热首个 TLS 探测短暂断开后自动恢复，`ecs-verify.sh` 通过正式域名健康、38 个迁移、产物哈希、域名隔离、公开端口和容器检查。该 ECS 发布不上传、审核或发布微信小程序。
+- 矩阵滚动延迟回归：用户于 2026-08-19 在 7×7 和 20×30 实体运行中确认表头虽能跟随，但存在延迟和黏滞感。`git log -S`/`git blame` 定位到 `4b33274` 引入的 WXS 普通 `bindscroll` 路径；官方 Skyline Worklet 说明明确指出跨线程响应会产生延迟，`worklet:onscrollupdate` 与 SharedValue/`applyAnimatedStyle` 用于 UI 线程直接反馈。回归测试先以 2 项失败证明旧实现仍使用 WXS 且滚动回调没有更新冻结轨道 SharedValue；修复后冻结轨道与进度条在 `onLoad` 绑定，横纵偏移由同一个 UI 线程滚动回调直接写入，不增加 timing/spring 补间，也不改变点击、撤销、数据或滚动结束提示的调用次数。当前实现待用户重新人工复核 C/D。
+- 矩阵延迟修复验证：定向回归 6/6、Mini 全套 10 文件/37 项通过；staging/production 源码与产物均保留 5 个 Worklet，包体分别为 104,143/104,136 bytes，manifest 分别为 `79aeb4f5b60416906686e5df5b0d46df8820177cb78f86dbb48b34ab2be74a9a` / `062ce07925cc4ab801180fc1eb167beb7ede8b1e1747884a534ec87945f942e1`。Mini typecheck、确定性、包体审计、无凭据 CI dry-run、根 lint/build/typecheck、排除用户自有 `runtime/**`/`src/**` 后主工作区 119 文件/698 项（31 文件/261 项按环境跳过）、`pnpm smoke:check-core`、任务文件 Prettier/ESLint 与 `git diff --check` 通过；根 `format:check` 仍只被用户自有 `project.config.json` 格式问题拦截，该文件及 `runtime/`、`src/` 均未修改且不会暂存。
 - 当前状态：动态月历与矩阵轴同步已实现待用户人工原生复核；基础控件按钮排布也仍待用户明确确认。P1 尚未完成，不能提前进入 P2。
-- 下一批次：用户人工重新编译，完成 A；在 B 验证 2026-10 五周、2026-11 六周、三个控件、Android 左右滑动和底角；在 C/D 验证日期表头随横轴、人员列随纵轴并持续对齐。用户明确反馈“通过”后才进入 P2；若失败，只修复对应失败项。
-- 本 checkpoint 识别消息：`fix(miniprogram): align calendar and matrix gestures`。
+- 下一批次：用户人工重新编译并复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动；7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。通过后再按仍未确认的 P1 项继续；若失败，只修复对应失败项。
+- 本 checkpoint 识别消息：`fix(miniprogram): remove matrix scroll lag`。
 - 最终状态 checkpoint 识别消息：`docs(status): record manual acceptance deployment`。
-- 停止条件：本轮修复 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后，向用户交付 A/B/C/D 人工复测步骤并等待反馈；不进入 P2，不以 Storybook/simulate 代替用户人工原生验收。
+- 停止条件：本轮修复 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后，向用户交付 C/D 人工复测步骤并等待反馈；不进入 P2，不以静态测试代替用户人工原生验收。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 

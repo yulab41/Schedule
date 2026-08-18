@@ -9,7 +9,8 @@
 - 实现与语义：日历详情始终保留排班人员、岗位、电话、事件和“已排班/有变更”状态，仅追加分段说明；班次进行中每分钟更新“在岗中 / 午间间休 / 值班房听班中”标签。排班 API、数据库、班种配置、统计、生成、换班/请假/加扣班、事件、错误路径和调用次数均未修改。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 当前源码服务通过管理员、成员、访客/vkey 与访问记录全流程，无浏览器错误；首次仅因 5173 服务未启动而连接失败，启动后原样复跑通过，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-2eLV2J`。
 - 专项视觉与验证：Storybook 390×844 实测 D/NP 两条说明完整换行、页面 `scrollWidth = clientWidth = 390`、电话/事件按钮均为 44px；当前 23 点 NP 显示“值班房听班中”，人员姓名与联系方式保留。主工作区排除用户自有 `runtime/**` / `src/**` 后 Vitest 119 文件/698 项通过（31 文件/261 项按环境跳过）；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint 通过。原始 Vitest 会重复扫描 `runtime/` 历史 release 副本并暴露其 6 项旧断言失败，本轮未修改这些副本。
-- 当前状态：已实现待生产发布；checkpoint 识别消息为 `feat(web): show split shift duty status`。
+- 正式发布与只读复核：代码 checkpoint `81e44f7` 已推送；发布前加密数据库备份 archive 为 `8865ad86-a90c-4cc0-898c-a7b007be9b2a`（50 表、18,505 行、7,376,160 字节，SHA-256 `d6e48163573fd7f01dcf65b0c0382c235ded67bbab386c66440c93d113306929`）。从独立干净 worktree 构建并部署 release `81e44f74d0c052a4f667d534390768e7097d0168`；容器预热首个健康检查短暂 502 后自动恢复，`ecs-verify.sh` 通过。正式 D0796 群主会话正常加载现有空排班月历，未写业务数据；正式 Web bundle 精确包含分段状态实现，公开 API 200，Git 本地、`origin/main` 与服务器 `current-release` 一致。
+- 当前状态：已完成（含生产发布与线上只读核验）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record split shift status deployment`。
 
 ## 2026-08-18 通讯录空闲态、收藏卡片与拨号触控蓝框
 
