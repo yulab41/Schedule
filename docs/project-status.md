@@ -2,16 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-18 统计年度选择器修复（当前批次）
+## 2026-08-18 统计年度选择器修复（已完成，待用户复核）
 
 - 批次范围：仅把统计页“按年”的原生年份下拉替换为已确认的统一时间选择器；不修改统计口径、API、权限、数据结构或其他页面。
 - 回归定位：`git log -S`/`git blame` 确认原生年度 `<select>` 由 `36127b0` 引入；统一选择器在 `92038cd` 落地时只覆盖月/日/时间，遗漏了统计年度入口。
 - 测试先行：新增“统计年度使用单列年份滚轮且不再存在原生 select”断言，旧实现 1 项失败、5 项通过；连同空值防护实现后定向 7/7、排除用户自有 `runtime/` 与 `src/` 的全仓 Vitest 109 个文件/651 项通过（31 个数据库集成文件/260 项按默认环境跳过）。
 - 实现与语义：`TemporalPicker` 新增 `year` 类型，复用既有触控滚轮、滚动结算、焦点和取消/确认逻辑；统计页以 computed 在字符串界面值和数字 API 年份间桥接。取消不触发加载，确认后仍只执行原有一次年度统计 GET。
 - 浏览器复核同时发现 `6ec287d` 的统计表 ResizeObserver 仅排除 `undefined`、未排除重渲染时的 `null`；新增断言在旧实现失败后改为 Element 类型保护。390×844 下年度触发区 44px、单列滚轮 168px、无原生 select/横向溢出，取消后保持原年份，最终 error/warning 为 0。
-- 已通过：`运行/浏览器验证：pnpm smoke:browser`（管理员、成员、访客/vkey、访问记录全流程）、`pnpm smoke:check-core`、任务文件 Prettier/ESLint、Web typecheck/build、Storybook build 与 `git diff --check`。生产发布待本批次完成。
+- 已通过：`运行/浏览器验证：pnpm smoke:browser`（管理员、成员、访客/vkey、访问记录全流程）、`pnpm smoke:check-core`、任务文件 Prettier/ESLint、Web typecheck/build、Storybook build 与 `git diff --check`。
 - checkpoint 识别消息：`fix(web): use temporal picker for annual statistics`。
-- 下一批次与停止条件：完成本地浏览器/核心冒烟、提交推送、生产加密备份、部署及正式域名只读复核；Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止并等待用户复核。
+- 正式发布：代码 checkpoint `ea5ad1c` 已推送；发布前加密数据库备份 archive 为 `5b8c8c5a-087c-4f4a-b796-206cd7e72f6b`（50 张表、18,479 行，7,359,464 字节，SHA-256 `34d51127d70134b82a5db00ae53d3c4078738a9961df3fdfec5c818cdb07ac8a`）。release `ea5ad1c6b80f30d2bddde64cff6be0db95973f34` 已部署，容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 完整通过。
+- 正式域名只读复核：D0796 群主会话的 390×844 统计页“按年”显示 `统计年份：2026年`；弹窗 341×416px、单列滚轮 168×188px、触发区 325×44px，无原生 select/横向溢出。取消后弹窗为 0、`aria-expanded=false`，error/warning 为 0，未触发刷新快照、重算或任何业务写入。
+- 下一批次与停止条件：提交并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止并等待用户复核。
 
 ## 当前状态（2026-08-18）
 

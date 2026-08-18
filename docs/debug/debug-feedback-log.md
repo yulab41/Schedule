@@ -10,6 +10,7 @@
 - 修复与语义审计：新增单列 `year` 滚轮并复用既有触控滚动；统计页保留数字 `year` 作为 API 参数，只用 computed 做字符串 v-model 转换。`update:modelValue` 先更新数值，随后 `change` 执行原有 `load`；取消不 emit，错误路径、空值降级、统计接口及调用次数不变。
 - 伴随修复：浏览器切换月/年后触发 `ResizeObserver.observe(null)`；`git blame` 指向 `6ec287d` 的 `undefined` 单值判断。新增回归断言先失败，再以 `instanceof HTMLElement` 同时保护滚动状态读取和 observe，不改变 observer 的创建/断开或滚动提示逻辑。
 - 运行/浏览器验证：`pnpm smoke:browser` 通过管理员、成员、访客/vkey 与访问记录全流程。390×844 年度弹窗为 341×416px、单列滚轮 168×188px、触发区 44px，无原生 select/横向溢出；取消动画结束后弹窗为 0、`aria-expanded=false`、年份仍为 2026，浏览器 error/warning 为 0。Web typecheck/build、Storybook build、任务文件 Prettier/ESLint 和排除用户自有副本的全仓 Vitest 已通过。
+- 正式发布与只读复核：checkpoint `ea5ad1c` 已推送；发布前备份 `5b8c8c5a-087c-4f4a-b796-206cd7e72f6b`（50 表、18,479 行），release `ea5ad1c6b80f30d2bddde64cff6be0db95973f34` 已部署且 `ecs-verify.sh` 通过。正式 390×844 量测与本地一致，取消关闭正常且日志为空，未触发业务写入。
 
 ## 2026-08-18 通讯录层级互斥、紧凑卡与同号合并
 
