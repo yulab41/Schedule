@@ -81,9 +81,10 @@
 - 外部门禁：当前未注入仓库外微信上传私钥，没有预览上传或微信平台状态变更；Storybook/simulate 不能证明原生视觉，基础控件和月历状态均为“已实现待 MiniTest/实体机复核”。全程未启动、唤醒或控制微信开发者工具。
 - checkpoint：`3884713`（`chore(miniprogram): establish native migration workspace`）已推送；发布前加密数据库备份 archive 为 `365295b2-9a16-4d0f-91d2-bcf4ce24470b`（50 张表、18,423 行、7,296,708 字节，SHA-256 `aa0b605778b44edb7651bdf00f2c06e020f109e6937d2e872bf096598ef115cd`）。release `3884713b35f417c88210046efb522bacdb5e08d4` 已部署，容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
 - 本轮发布：代码 checkpoint `24bc2c4`（`feat(miniprogram): add native foundation controls`）已推送；发布前加密数据库备份 archive 为 `55c53e31-0021-4d38-b5f9-6d9bc96e74e2`（50 张表、18,484 行、7,362,760 字节，SHA-256 `8c555ba7660bb186c529877d6f7db9bc7f0fc5bd552739a2ade1f4549a6e2fe7`）。release `24bc2c4bb12280c95722715ab0d09b1f563eb44a` 从该提交的干净临时 worktree 构建并部署；容器预热首个健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
-- 当前状态：42 格 Skyline 月历 PoC 已实现并通过本地静态/simulate/构建门禁，等待本 checkpoint 推送与生产同步；MiniTest 原生视觉/手感尚未执行，不能标为原生完成。代码 checkpoint 识别消息为 `feat(miniprogram): add native calendar poc`。
+- 月历发布：代码 checkpoint `1f715c9`（`feat(miniprogram): add native calendar poc`）已推送；发布前加密数据库备份 archive 为 `212fcfcd-1596-4336-9226-b0a3baa7298c`（50 张表、18,489 行、7,365,620 字节，SHA-256 `e0554e1597bd0b77a79c8594ce9ef6ffc965ff56a9ebb423607053c9617e8a0c`）。release `1f715c960180b1372947fe9249671fc6b5a5e2d9` 从该提交的隔离 worktree 离线构建并部署；首次执行在业务变更前因临时脚本 CRLF 停止，规范化 `/tmp` 脚本后重试成功，容器预热首个健康检查一次 502 后自动恢复。`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名与公网 IP 隔离、容器检查；外部正式首页和 API 均返回 200。
+- 当前状态：42 格 Skyline 月历 PoC 已实现、推送并完成 ECS 同仓 release 同步；MiniTest 原生视觉/手感尚未执行，不能标为原生完成。最终状态 checkpoint 识别消息为 `docs(status): record native calendar poc deployment`。
 - 下一批次：只实现已确认的 7×7/20×30 Skyline 手工排班矩阵 PoC，包括双轴滚动、冻结层、单格更新和增量撤销；不接入业务 API。月历与矩阵均完成后统一执行 MiniTest Android/iOS。
-- 停止条件：本轮月历 checkpoint 显式暂存、推送、生产备份/部署/验证，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止；不提前开始矩阵。
+- 停止条件：最终状态 checkpoint 显式暂存、推送并作为同仓 release 部署，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止；不提前开始矩阵。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 
