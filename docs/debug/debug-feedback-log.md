@@ -10,7 +10,9 @@
 - UI/可访问性：移除可见标题胶囊，保留隐藏 `h2`；导览在搜索上方。拨号关闭 WebKit tap highlight，`:active` 透明，hover 限于 `(hover: hover) and (pointer: fine)`，键盘 `focus-visible` 保留 2px 描边。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 最终通过全部管理员、成员、访客/vkey 和访问记录，无浏览器错误。初次失败来自验证器把已存在的收藏卡误当作新搜索结果；改为等待 `.directory-search-results .directory-entry` 与“找到”状态后复跑通过。实际页面初始结果 0；“病案”5 条；收藏卡长短号与原结果一致且在其下方；清空后只保留收藏。390×844 无横向溢出，拨号目标 44px、透明背景。
 - 验证：Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、定向 Vitest 与任务差异检查通过。完整 `pnpm verify` 仅被既有用户所有的 `apps/miniprogram/project.config.json` 格式问题拦截，本轮未修改该文件或并行小程序、`runtime/`、`src/`。
-- 状态：已实现待 checkpoint/生产发布；checkpoint 识别消息为 `feat(directory): refine idle and saved contact layout`。
+- 正式发布：代码 checkpoint `b09da6e` 已推送；正式 ECS 发布前备份 `6245db84-5500-4ee7-8acf-340587de7b03`（50 表、18,491 行、7,366,940 字节，SHA-256 `e4a7a0bf5f22fdadba11e98957cd2eaec6e7ff834f909140b908f9a8188e70ca`）后，从干净 worktree 构建并部署 release `b09da6e24d2f5bbe5818b61cc5e8ad2a0d794608`。首个健康检查短暂 502 后自动恢复，`ecs-verify.sh` 通过。首次主机探测只在遗留 ECS 生成一份可恢复备份、未部署任何产物；随后以线上上一 release 精确确认正式 ECS，未对遗留环境做其他变更。
+- 正式域名只读复核：D0796 群主会话初始结果区/全量卡片均为 0，导览在搜索上方且无旧胶囊；“病案”返回 5 条，首卡显示长号与短号。390×844 无横向溢出，拨号目标 44px、背景透明；清空后重新为 0 结果，浏览器 error/warning 为 0，未改收藏、筛选或业务数据。
+- 状态：已完成（含生产发布与线上只读复核）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record directory idle deployment`。
 
 ## 2026-08-18 月份切换后选中日期与值班详情错配
 

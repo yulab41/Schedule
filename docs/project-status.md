@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-18 通讯录空闲态、收藏卡片与触控反馈（当前批次）
+## 2026-08-18 通讯录空闲态、收藏卡片与触控反馈（已完成，待用户复核）
 
 - 批次范围：DIR-13，仅调整通讯录页面的信息顺序、空闲/检索状态、收藏与常用卡片一致性，以及拨号触控反馈；不修改 CSV、正式通讯录快照、号码、筛选层级、API、权限或本地偏好数据结构。
 - 回归定位：`git log -S` / `git blame` 确认顶部“院内协作”胶囊、搜索在导览前及拨号 `:hover/:active` 蓝底来自 `8309dce`，收藏/常用紧凑快捷卡与结果前置来自 `5437995`，号码卡高密度布局后续由 `926136a` 调整。
@@ -11,8 +11,10 @@
 - UI 与触控：移除顶部胶囊但保留隐藏页标题，院区导览成为首个可见区块，搜索框紧随其后。拨号链接关闭 WebKit tap highlight，触摸按下/释放后保持透明；仅支持 hover 的精细指针显示浅蓝悬停，键盘继续提供 2px `focus-visible` 描边。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 第二轮通过管理员、成员、访客/vkey、访问记录和通讯录专项；首轮准确暴露旧等待条件被收藏卡提前满足，验证器改为等待搜索结果区与“找到”状态后原样重跑。1280px 初始为 0 条结果；搜索“病案”返回 5 条，收藏卡长短号文本与结果一致且位于结果下方；清空后仅保留 1 条收藏。390×844 无横向溢出，导览无横滚，拨号目标 44px、背景透明；截图目视确认导览→搜索→收藏顺序。
 - 其他验证：Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、定向 Vitest 与 `git diff --check` 通过。完整 `pnpm verify` 只在第一步被本轮开始前已有、用户所有的 `apps/miniprogram/project.config.json` 格式问题拦截；并行小程序与 `runtime/`、`src/` 均未修改、暂存或纳入本批次。
-- 当前状态：DIR-13 已实现并完成本地运行验证，待创建并推送 checkpoint，随后按规则备份生产数据库、部署并做正式域名只读复核。checkpoint 识别消息：`feat(directory): refine idle and saved contact layout`。
-- 下一批次与停止条件：只提交本批次代码、测试、浏览器验证脚本和两份状态记录，推送并部署；确认 Git `HEAD`、`origin/main`、服务器 `current-release` 一致并完成正式只读复核后停止，不开始小程序或其他 Web 修改。
+- 正式发布：代码 checkpoint `b09da6e`（`feat(directory): refine idle and saved contact layout`）已推送。通过服务器上一 release `3d617b4` 精确确认正式 ECS 后，创建加密数据库备份 `6245db84-5500-4ee7-8acf-340587de7b03`（50 表、18,491 行、7,366,940 字节，SHA-256 `e4a7a0bf5f22fdadba11e98957cd2eaec6e7ff834f909140b908f9a8188e70ca`）；从独立干净 worktree 构建并部署 release `b09da6e24d2f5bbe5818b61cc5e8ad2a0d794608`。容器预热首个健康检查短暂 502 后自动恢复，`ecs-verify.sh` 完整通过。
+- 正式域名只读复核：D0796 群主会话初始为 0 个结果区/0 个全量卡片，顶部胶囊为 0，导览 y=88、搜索 y=258；搜索“病案”返回 5 条，首卡显示 `长号 8859 9514 / 短号 8514`。390×844 无页面或导览横向溢出，拨号目标 44px、背景透明、首卡 117px；清空后结果区和卡片均回到 0，浏览器 error/warning 为 0，未改收藏、筛选或业务数据。
+- 当前状态：DIR-13 已完成（含生产发布与正式域名只读复核）→ 待用户复核。最终状态 checkpoint 识别消息：`docs(status): record directory idle deployment`。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止，不开始小程序或其他 Web 修改。
 
 ## 2026-08-18 通讯录动态导览、收藏与高密度筛选 Sheet（已完成，待用户复核）
 
