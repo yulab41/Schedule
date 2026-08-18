@@ -73,9 +73,10 @@
 - 测试先行：令牌 WXSS、组件注册、开关几何/ARIA、禁用/加载事件和 simulate 组件树先红；实现后 token 2/2、Mini scripts 14/14、Mini typecheck/源码/产物/包体/双构建确定性和无凭证 CI dry-run通过。staging verify 产物 38,190 bytes、manifest `a65a195e8042b1ec25d944c3ba551ded0d3dbdd2d0d7c1d17e8878f499a0ac2a`；production verify 38,183 bytes、manifest `bd73d94f934bdab802a9a2476f57ebf10faa4ae1823c264944d9077357198c1d`。根 format/lint/build/typecheck、排除既有 `runtime/**` 副本后的全仓 112 文件/669 项（31 文件/261 项按环境跳过）、定向 Prettier/ESLint、ui-tokens build、`pnpm smoke:check-core` 与任务文件 `git diff --check` 通过。
 - 外部门禁：当前未注入仓库外微信上传私钥，没有预览上传或微信平台状态变更；Storybook/simulate 不能证明原生视觉，基础控件状态为“已实现待 MiniTest/实体机复核”。全程未启动、唤醒或控制微信开发者工具。
 - checkpoint：`3884713`（`chore(miniprogram): establish native migration workspace`）已推送；发布前加密数据库备份 archive 为 `365295b2-9a16-4d0f-91d2-bcf4ce24470b`（50 张表、18,423 行、7,296,708 字节，SHA-256 `aa0b605778b44edb7651bdf00f2c06e020f109e6937d2e872bf096598ef115cd`）。release `3884713b35f417c88210046efb522bacdb5e08d4` 已部署，容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
-- 当前状态：P1 同源令牌与原生基础控件已实现，等待原生风险 PoC 合并执行 MiniTest；本轮 checkpoint 识别消息为 `feat(miniprogram): add native foundation controls`。
+- 本轮发布：代码 checkpoint `24bc2c4`（`feat(miniprogram): add native foundation controls`）已推送；发布前加密数据库备份 archive 为 `55c53e31-0021-4d38-b5f9-6d9bc96e74e2`（50 张表、18,484 行、7,362,760 字节，SHA-256 `8c555ba7660bb186c529877d6f7db9bc7f0fc5bd552739a2ade1f4549a6e2fe7`）。release `24bc2c4bb12280c95722715ab0d09b1f563eb44a` 从该提交的干净临时 worktree 构建并部署；容器预热首个健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
+- 当前状态：P1 同源令牌与原生基础控件已实现并完成仓库 checkpoint/生产同步，等待原生风险 PoC 合并执行 MiniTest；最终状态 checkpoint 识别消息为 `docs(status): record native foundation deployment`。
 - 下一批次：只实现已确认的 42 格 Skyline 月历 PoC，包括日期格状态、月历/详情 12px 间距、18px 外框裁切与三面板 Worklet；不同时开始矩阵或业务 API。
-- 停止条件：本轮 checkpoint 显式暂存、推送、生产备份/部署/验证，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止；MiniTest 留到月历与矩阵风险 PoC 完整后统一执行。
+- 停止条件：最终状态 checkpoint 显式暂存、推送、生产备份/部署/验证，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止；MiniTest 留到月历与矩阵风险 PoC 完整后统一执行。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 
