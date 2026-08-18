@@ -1,5 +1,7 @@
 import {
+  directoryEntryLookupRequestSchema,
   directoryQuerySchema,
+  type DirectoryEntryLookupRequest,
   type DirectoryQuery as DirectoryQueryInput,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -24,6 +26,13 @@ export function registerDirectoryRoutes(
       parseDirectoryQuery(request.query),
     ),
   );
+  app.post('/groups/:groupId/directory/lookup', { preHandler: app.authenticate }, (request) =>
+    directoryQuery.lookup(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseDirectoryLookupRequest(request.body).entryIds,
+    ),
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {
@@ -45,6 +54,12 @@ function parseGroupId(request: FastifyRequest): string {
 
 function parseDirectoryQuery(value: unknown): DirectoryQueryInput {
   const result = directoryQuerySchema.safeParse(value);
+  if (!result.success) throwValidationError();
+  return result.data;
+}
+
+function parseDirectoryLookupRequest(value: unknown): DirectoryEntryLookupRequest {
+  const result = directoryEntryLookupRequestSchema.safeParse(value);
   if (!result.success) throwValidationError();
   return result.data;
 }

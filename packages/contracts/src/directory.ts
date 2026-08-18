@@ -109,6 +109,21 @@ export const directoryEntrySchema = z
   .strict();
 export type DirectoryEntry = z.infer<typeof directoryEntrySchema>;
 
+export const directoryEntryLookupRequestSchema = z
+  .object({
+    entryIds: z.readonly(z.array(z.string().uuid()).min(1).max(100)),
+  })
+  .strict()
+  .refine((value) => new Set(value.entryIds).size === value.entryIds.length, {
+    message: 'Directory entry ids must be unique.',
+  });
+export type DirectoryEntryLookupRequest = z.infer<typeof directoryEntryLookupRequestSchema>;
+
+export const directoryEntryLookupResponseSchema = z
+  .object({ entries: z.readonly(z.array(directoryEntrySchema).max(100)) })
+  .strict();
+export type DirectoryEntryLookupResponse = z.infer<typeof directoryEntryLookupResponseSchema>;
+
 export const directoryPageSchema = z
   .object({
     entries: z.readonly(z.array(directoryEntrySchema)),

@@ -8,23 +8,41 @@ import type {
   DirectoryQuery,
   GroupSummary,
 } from '@schedule/contracts';
-import { CallIcon, CloseIcon, FilterIcon, SearchIcon } from 'tdesign-icons-vue-next';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import {
+  CallIcon,
+  CloseIcon,
+  FilterIcon,
+  SearchIcon,
+  StarFilledIcon,
+  StarIcon,
+} from 'tdesign-icons-vue-next';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import {
   getCompatibleDirectoryFacetOptions,
+  getMeaningfulDirectoryFilterKeys,
   updateDirectoryFilterSelection,
 } from '../../features/directory/directory-filter-hierarchy.js';
 import {
+  type DirectoryEntryDisplayGroup,
   getDirectoryGroupContexts,
   getDirectoryGroupKindLabel,
   getDirectoryGroupNotes,
   getDirectoryGroupTitle,
   groupDirectoryEntriesByContact,
 } from '../../features/directory/directory-entry-groups.js';
+import {
+  getDirectoryPreferenceEntryIds,
+  getDirectoryPriorityGroups,
+  isDirectoryGroupFavorite,
+  parseDirectoryPreferences,
+  recordDirectoryUse as recordDirectoryUsePreference,
+  toggleDirectoryFavorite,
+  type DirectoryPreferences,
+} from '../../features/directory/directory-preferences.js';
 import {
   canDialDirectoryNumber,
   type DirectoryFilterKey,
@@ -38,6 +56,7 @@ import { toUserMessage } from '../../utils/user-message.js';
 
 export interface DirectoryDataSource {
   getDirectoryFacets(groupId: string): Promise<DirectoryFacetSnapshot>;
+  lookupDirectoryEntries(groupId: string, entryIds: readonly string[]): Promise<DirectoryEntry[]>;
   searchDirectory(groupId: string, query: DirectoryQuery): Promise<DirectoryPage>;
 }
 
@@ -45,6 +64,12 @@ interface FilterSection {
   readonly key: DirectoryFilterKey;
   readonly label: string;
   readonly options: readonly DirectoryFacetOption[];
+}
+
+interface PriorityContact {
+  readonly href: string;
+  readonly label: string;
+  readonly number: string;
 }
 
 const props = defineProps<{
@@ -58,6 +83,8 @@ const searchDraft = ref('');
 const filters = ref<DirectoryFilters>({});
 const facets = ref<DirectoryFacetSnapshot>();
 const entries = ref<readonly DirectoryEntry[]>([]);
+const priorityEntries = ref<readonly DirectoryEntry[]>([]);
+const preferences = ref<DirectoryPreferences>(parseDirectoryPreferences(undefined));
 const nextCursor = ref<string>();
 const totalCount = ref(0);
 const filterSheetVisible = ref(false);
@@ -68,11 +95,14 @@ const filterAdjustmentMessage = ref<string>();
 let searchTimer: number | undefined;
 let requestSequence = 0;
 let contextSequence = 0;
+let filterFocusFrame: number | undefined;
+let pendingFilterKey: DirectoryFilterKey | undefined;
+const filterSectionElements = new Map<DirectoryFilterKey, HTMLElement>();
 
 const filterSections = computed<readonly FilterSection[]>(() => {
   const snapshot = facets.value;
   if (snapshot === undefined) return [];
-  return [
+  const sections: readonly FilterSection[] = [
     {
       key: 'campusCode',
       label: '院区',
@@ -109,6 +139,8 @@ const filterSections = computed<readonly FilterSection[]>(() => {
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'entryKind'),
     },
   ];
+  const meaningfulKeys = new Set(getMeaningfulDirectoryFilterKeys(snapshot, filters.value));
+  return sections.filter((section) => meaningfulKeys.has(section.key));
 });
 
 const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
@@ -125,6 +157,21 @@ const activeFilterCount = computed(
   () => Object.values(filters.value).filter((value) => value !== undefined).length,
 );
 const displayGroups = computed(() => groupDirectoryEntriesByContact(entries.value));
+const knownEntryGroups = computed(() => {
+  const entriesById = new Map<string, DirectoryEntry>();
+  for (const entry of [...priorityEntries.value, ...entries.value])
+    entriesById.set(entry.id, entry);
+  return groupDirectoryEntriesByContact([...entriesById.values()]);
+});
+const priorityGroups = computed(() =>
+  getDirectoryPriorityGroups(preferences.value, knownEntryGroups.value),
+);
+const prioritySections = computed(() =>
+  [
+    { groups: priorityGroups.value.favorites, key: 'favorites', title: '收藏通讯录' },
+    { groups: priorityGroups.value.frequent, key: 'frequent', title: '常用通讯录' },
+  ].filter((section) => section.groups.length > 0),
+);
 const mergedGroupCount = computed(
   () => displayGroups.value.filter((group) => group.entries.length > 1).length,
 );
@@ -144,8 +191,27 @@ watch(
 
 onBeforeUnmount(() => {
   if (searchTimer !== undefined) window.clearTimeout(searchTimer);
+  if (filterFocusFrame !== undefined) window.cancelAnimationFrame(filterFocusFrame);
   contextSequence += 1;
   requestSequence += 1;
+});
+
+watch(filterSheetVisible, async (visible) => {
+  if (!visible || pendingFilterKey === undefined) return;
+  const key = pendingFilterKey;
+  await nextTick();
+  if (filterFocusFrame !== undefined) window.cancelAnimationFrame(filterFocusFrame);
+  filterFocusFrame = window.requestAnimationFrame(() => {
+    const section = filterSectionElements.get(key);
+    if (section === undefined) return;
+    section.scrollIntoView({
+      behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+    section.focus({ preventScroll: true });
+    pendingFilterKey = undefined;
+    filterFocusFrame = undefined;
+  });
 });
 
 async function initializeDirectory(): Promise<void> {
@@ -154,6 +220,7 @@ async function initializeDirectory(): Promise<void> {
   filters.value = {};
   facets.value = undefined;
   entries.value = [];
+  priorityEntries.value = [];
   nextCursor.value = undefined;
   totalCount.value = 0;
   errorMessage.value = undefined;
@@ -162,9 +229,13 @@ async function initializeDirectory(): Promise<void> {
   isLoadingMore.value = false;
   const context = ++contextSequence;
   const entrySequence = ++requestSequence;
-  const [facetResult, pageResult] = await Promise.allSettled([
-    source.value.getDirectoryFacets(props.group.id),
-    source.value.searchDirectory(props.group.id, toDirectoryQuery('', {})),
+  const groupId = props.group.id;
+  const dataSource = source.value;
+  preferences.value = readDirectoryPreferences(groupId);
+  const [facetResult, pageResult, priorityResult] = await Promise.allSettled([
+    dataSource.getDirectoryFacets(groupId),
+    dataSource.searchDirectory(groupId, toDirectoryQuery('', {})),
+    lookupPreferredEntries(dataSource, groupId, getDirectoryPreferenceEntryIds(preferences.value)),
   ]);
   if (context !== contextSequence) return;
 
@@ -175,6 +246,8 @@ async function initializeDirectory(): Promise<void> {
       '院内通讯录筛选项暂时无法加载，请稍后重试。',
     );
   }
+
+  if (priorityResult.status === 'fulfilled') priorityEntries.value = priorityResult.value;
 
   if (entrySequence === requestSequence) {
     if (pageResult.status === 'fulfilled') applyPage(pageResult.value, false);
@@ -242,7 +315,7 @@ function selectFilter(key: DirectoryFilterKey, value: string | undefined): void 
   filterAdjustmentMessage.value =
     result.clearedKeys.length === 0
       ? undefined
-      : `已自动清除不匹配的${result.clearedKeys.map((clearedKey) => filterLabels[clearedKey]).join('、')}筛选。`;
+      : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabels[clearedKey]).join('、')}筛选。`;
   void loadEntries(false);
 }
 
@@ -261,6 +334,55 @@ function resetDirectorySearch(): void {
   void loadEntries(false);
 }
 
+function openFilterAt(key: DirectoryFilterKey): void {
+  pendingFilterKey = key;
+  filterSheetVisible.value = true;
+}
+
+function setFilterSectionElement(key: DirectoryFilterKey, value: unknown): void {
+  if (value instanceof HTMLElement) filterSectionElements.set(key, value);
+  else filterSectionElements.delete(key);
+}
+
+function toggleFavorite(group: DirectoryEntryDisplayGroup): void {
+  rememberPriorityEntries(group);
+  preferences.value = toggleDirectoryFavorite(preferences.value, group);
+  persistDirectoryPreferences(props.group.id, preferences.value);
+}
+
+function recordDirectoryUse(group: DirectoryEntryDisplayGroup): void {
+  rememberPriorityEntries(group);
+  preferences.value = recordDirectoryUsePreference(preferences.value, group);
+  persistDirectoryPreferences(props.group.id, preferences.value);
+}
+
+function rememberPriorityEntries(group: DirectoryEntryDisplayGroup): void {
+  const entriesById = new Map(priorityEntries.value.map((entry) => [entry.id, entry]));
+  for (const entry of group.entries) entriesById.set(entry.id, entry);
+  priorityEntries.value = [...entriesById.values()];
+}
+
+function getPriorityContact(group: DirectoryEntryDisplayGroup): PriorityContact | undefined {
+  for (const contact of group.contacts) {
+    if (contact.fullNumber !== undefined && canDialDirectoryNumber(contact.type, 'full')) {
+      return {
+        href: toDirectoryDialHref(contact.fullNumber),
+        label: getDirectoryNumberLabel(contact.type, 'full'),
+        number: contact.fullNumber,
+      };
+    }
+    const extension = getSafeInternalExtension(contact);
+    if (extension !== undefined && canDialDirectoryNumber(contact.type, 'extension')) {
+      return {
+        href: toDirectoryDialHref(extension),
+        label: getDirectoryNumberLabel(contact.type, 'extension'),
+        number: extension,
+      };
+    }
+  }
+  return undefined;
+}
+
 function getContactHeading(contact: DirectoryContactMethod, isMerged: boolean): string {
   return (isMerged ? undefined : contact.label) ?? getDirectoryNumberLabel(contact.type, 'full');
 }
@@ -274,6 +396,44 @@ function selectedFilterLabel(section: FilterSection): string {
 function formatEffectiveDate(value: string): string {
   const [year, month, day] = value.split('-');
   return `${year}年${Number(month)}月${Number(day)}日`;
+}
+
+function directoryPreferenceStorageKey(groupId: string): string {
+  return `schedule.directory.preferences.v1:${groupId}`;
+}
+
+function readDirectoryPreferences(groupId: string): DirectoryPreferences {
+  if (typeof globalThis.localStorage === 'undefined') return parseDirectoryPreferences(undefined);
+  try {
+    return parseDirectoryPreferences(
+      globalThis.localStorage.getItem(directoryPreferenceStorageKey(groupId)) ?? undefined,
+    );
+  } catch {
+    return parseDirectoryPreferences(undefined);
+  }
+}
+
+function persistDirectoryPreferences(groupId: string, value: DirectoryPreferences): void {
+  if (typeof globalThis.localStorage === 'undefined') return;
+  try {
+    globalThis.localStorage.setItem(directoryPreferenceStorageKey(groupId), JSON.stringify(value));
+  } catch {
+    // 收藏仍在当前页面有效；浏览器拒绝存储时不阻断拨号和检索。
+  }
+}
+
+async function lookupPreferredEntries(
+  dataSource: DirectoryDataSource,
+  groupId: string,
+  entryIds: readonly string[],
+): Promise<readonly DirectoryEntry[]> {
+  const chunks = Array.from({ length: Math.ceil(entryIds.length / 100) }, (_, index) =>
+    entryIds.slice(index * 100, index * 100 + 100),
+  );
+  const pages = await Promise.all(
+    chunks.map((chunk) => dataSource.lookupDirectoryEntries(groupId, chunk)),
+  );
+  return pages.flat();
 }
 </script>
 
@@ -351,9 +511,10 @@ function formatEffectiveDate(value: string): string {
           :key="section.key"
           type="button"
           class="wayfinding-stop"
+          :data-filter-key="section.key"
           :class="{ 'is-selected': filters[section.key] !== undefined }"
           :aria-pressed="filters[section.key] !== undefined"
-          @click="filterSheetVisible = true"
+          @click="openFilterAt(section.key)"
         >
           <span class="stop-index" aria-hidden="true">{{ index + 1 }}</span>
           <span class="stop-copy">
@@ -361,6 +522,57 @@ function formatEffectiveDate(value: string): string {
             <strong>{{ selectedFilterLabel(section) }}</strong>
           </span>
         </button>
+      </div>
+    </section>
+
+    <section
+      v-if="prioritySections.length > 0"
+      class="directory-priority"
+      aria-label="收藏和常用通讯录"
+    >
+      <div v-for="section in prioritySections" :key="section.key" class="priority-section">
+        <header class="priority-heading">
+          <h3>{{ section.title }}</h3>
+          <span>{{ section.groups.length }} 项</span>
+        </header>
+        <div class="priority-grid">
+          <article v-for="entryGroup in section.groups" :key="entryGroup.id" class="priority-card">
+            <div class="priority-copy">
+              <strong>{{ getDirectoryGroupTitle(entryGroup) }}</strong>
+              <small v-if="getDirectoryGroupContexts(entryGroup)[0] !== undefined">
+                {{ getDirectoryGroupContexts(entryGroup)[0] }}
+              </small>
+            </div>
+            <button
+              type="button"
+              class="favorite-action"
+              :class="{ 'is-favorite': isDirectoryGroupFavorite(preferences, entryGroup) }"
+              :aria-label="
+                isDirectoryGroupFavorite(preferences, entryGroup)
+                  ? `取消收藏${getDirectoryGroupTitle(entryGroup)}`
+                  : `收藏${getDirectoryGroupTitle(entryGroup)}`
+              "
+              :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
+              @click="toggleFavorite(entryGroup)"
+            >
+              <StarFilledIcon
+                v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
+                aria-hidden="true"
+              />
+              <StarIcon v-else aria-hidden="true" />
+            </button>
+            <a
+              v-if="getPriorityContact(entryGroup) !== undefined"
+              class="priority-dial-action"
+              :href="getPriorityContact(entryGroup)!.href"
+              :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getPriorityContact(entryGroup)!.label} ${getPriorityContact(entryGroup)!.number}`"
+              @click="recordDirectoryUse(entryGroup)"
+            >
+              <strong>{{ getPriorityContact(entryGroup)!.number }}</strong>
+              <CallIcon aria-hidden="true" />
+            </a>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -396,22 +608,42 @@ function formatEffectiveDate(value: string): string {
         <div class="entry-accent" aria-hidden="true" />
         <div class="entry-content">
           <header class="entry-heading">
-            <div class="entry-title-line">
-              <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
-              <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
-              <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
-                {{ entryGroup.entries.length }} 项同号
-              </span>
+            <div class="entry-heading-copy">
+              <div class="entry-title-line">
+                <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
+                <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
+                <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
+                  {{ entryGroup.entries.length }} 项同号
+                </span>
+              </div>
+              <div v-if="getDirectoryGroupContexts(entryGroup).length > 0" class="entry-contexts">
+                <p
+                  v-for="context in getDirectoryGroupContexts(entryGroup)"
+                  :key="context"
+                  class="entry-meta"
+                >
+                  {{ context }}
+                </p>
+              </div>
             </div>
-            <div v-if="getDirectoryGroupContexts(entryGroup).length > 0" class="entry-contexts">
-              <p
-                v-for="context in getDirectoryGroupContexts(entryGroup)"
-                :key="context"
-                class="entry-meta"
-              >
-                {{ context }}
-              </p>
-            </div>
+            <button
+              type="button"
+              class="favorite-action"
+              :class="{ 'is-favorite': isDirectoryGroupFavorite(preferences, entryGroup) }"
+              :aria-label="
+                isDirectoryGroupFavorite(preferences, entryGroup)
+                  ? `取消收藏${getDirectoryGroupTitle(entryGroup)}`
+                  : `收藏${getDirectoryGroupTitle(entryGroup)}`
+              "
+              :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
+              @click="toggleFavorite(entryGroup)"
+            >
+              <StarFilledIcon
+                v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
+                aria-hidden="true"
+              />
+              <StarIcon v-else aria-hidden="true" />
+            </button>
           </header>
 
           <div class="contact-methods">
@@ -427,6 +659,7 @@ function formatEffectiveDate(value: string): string {
                   class="directory-dial-action"
                   :href="toDirectoryDialHref(contact.fullNumber)"
                   :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
+                  @click="recordDirectoryUse(entryGroup)"
                 >
                   <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
                   <strong>{{ contact.fullNumber }}</strong>
@@ -447,6 +680,7 @@ function formatEffectiveDate(value: string): string {
                   class="directory-dial-action"
                   :href="toDirectoryDialHref(getSafeInternalExtension(contact)!)"
                   :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
+                  @click="recordDirectoryUse(entryGroup)"
                 >
                   <small>短号</small>
                   <strong>{{ getSafeInternalExtension(contact) }}</strong>
@@ -515,8 +749,11 @@ function formatEffectiveDate(value: string): string {
         <section
           v-for="section in filterSections"
           :key="section.key"
+          :ref="(value) => setFilterSectionElement(section.key, value)"
           class="filter-section"
+          data-filter-section
           :aria-labelledby="`directory-filter-${section.key}`"
+          tabindex="-1"
         >
           <header>
             <h3 :id="`directory-filter-${section.key}`">{{ section.label }}</h3>
@@ -770,15 +1007,13 @@ function formatEffectiveDate(value: string): string {
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: repeat(7, minmax(92px, 1fr));
-  overflow-x: auto;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   gap: 6px;
-  scrollbar-width: thin;
 }
 
 .wayfinding-stop {
   display: grid;
-  min-height: 64px;
+  min-height: 52px;
   grid-template-columns: 24px minmax(0, 1fr);
   padding: 8px;
   align-items: center;
@@ -869,6 +1104,100 @@ function formatEffectiveDate(value: string): string {
   font-size: var(--ui-font-size-sm);
 }
 
+.directory-priority {
+  display: grid;
+  padding: 12px;
+  gap: 12px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.priority-section {
+  display: grid;
+  gap: 6px;
+}
+
+.priority-heading {
+  display: flex;
+  padding: 0 2px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.priority-heading h3 {
+  margin: 0;
+  font-size: var(--ui-font-size-sm);
+}
+
+.priority-heading span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.priority-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 6px;
+}
+
+.priority-card {
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  padding: 5px 4px 5px 10px;
+  align-items: center;
+  gap: 2px 5px;
+  background: #f7faff;
+  border: 1px solid #d9e8f8;
+  border-radius: var(--ui-radius-medium);
+}
+
+.priority-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.priority-copy strong,
+.priority-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priority-copy strong {
+  font-size: var(--ui-font-size-sm);
+}
+
+.priority-copy small {
+  color: var(--ui-color-text-secondary);
+  font-size: 11px;
+}
+
+.priority-dial-action {
+  display: inline-flex;
+  min-height: 44px;
+  grid-column: 1 / -1;
+  padding: 0 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  border-radius: var(--ui-radius-small);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.priority-dial-action svg {
+  width: 17px;
+  height: 17px;
+}
+
 .directory-results {
   display: grid;
   min-width: 0;
@@ -903,7 +1232,42 @@ function formatEffectiveDate(value: string): string {
 
 .entry-heading {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: start;
   gap: 2px;
+}
+
+.entry-heading-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.favorite-action {
+  display: grid;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  place-items: center;
+  color: var(--ui-color-text-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-small);
+  cursor: pointer;
+}
+
+.favorite-action:hover,
+.favorite-action:active {
+  background: #fff6d8;
+}
+
+.favorite-action.is-favorite {
+  color: #d49300;
+}
+
+.favorite-action svg {
+  width: 21px;
+  height: 21px;
 }
 
 .entry-title-line {
@@ -1175,6 +1539,16 @@ function formatEffectiveDate(value: string): string {
   gap: 8px;
 }
 
+.filter-section {
+  scroll-margin-top: 116px;
+  outline: 0;
+}
+
+.filter-section:focus-visible {
+  box-shadow: 0 0 0 3px var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-small);
+}
+
 .filter-section h3 {
   margin: 0;
   font-size: var(--ui-font-size-md);
@@ -1320,8 +1694,16 @@ function formatEffectiveDate(value: string): string {
   }
 
   .wayfinding-ribbon {
-    grid-template-columns: repeat(7, 118px);
-    padding-bottom: 4px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wayfinding-stop {
+    min-height: 48px;
+    padding: 5px 7px;
+  }
+
+  .priority-grid {
+    grid-template-columns: 1fr;
   }
 
   .entry-content {

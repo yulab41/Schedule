@@ -156,6 +156,32 @@ describeWithDatabase('internal directory routes', () => {
     expect(invalidCursor.statusCode).toBe(400);
   });
 
+  it('restores preferred entries by id without bypassing directory visibility', async () => {
+    const administratorPage = await getDirectory('administrator-token', 'pageSize=20');
+    const entryIds = administratorPage.entries.map((entry) => entry.id);
+    const memberResponse = await app.inject({
+      headers: { authorization: 'Bearer member-token' },
+      method: 'POST',
+      payload: { entryIds },
+      url: `/groups/${groupId}/directory/lookup`,
+    });
+    expect(memberResponse.statusCode, memberResponse.payload).toBe(200);
+    expect(memberResponse.json().entries).toHaveLength(3);
+    expect(
+      memberResponse
+        .json()
+        .entries.some((entry: { department?: string }) => entry.department === '保卫处'),
+    ).toBe(false);
+
+    const malformed = await app.inject({
+      headers: { authorization: 'Bearer member-token' },
+      method: 'POST',
+      payload: { entryIds: [entryIds[0], entryIds[0]] },
+      url: `/groups/${groupId}/directory/lookup`,
+    });
+    expect(malformed.statusCode).toBe(400);
+  });
+
   async function getDirectory(
     token: string,
     query: string,

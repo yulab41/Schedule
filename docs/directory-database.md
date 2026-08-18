@@ -96,6 +96,8 @@ pnpm directory:import -- --activate-batch=<uuid>
 
 建议的后续 API 排序权重为：号码精确 > 号码前缀 > 原文/别名精确 > 原文/拼音前缀 > ngram 相关度 > 来源顺序。数据量当前很小，无需引入外部搜索集群。
 
+收藏与常用展示只在浏览器本地保存条目 UUID、使用次数和最后使用时间，不复制名称或号码。页面恢复时将 UUID 以每批最多 100 项发送到受认证的 `POST /groups/:groupId/directory/lookup`；接口仍按当前登录人的 `viewDirectory` 权限和条目可见性查询唯一 published 快照，未授权或已移除条目直接不返回。
+
 ## 依据
 
 - MySQL 8.4 ngram 全文解析器：<https://dev.mysql.com/doc/refman/8.4/en/fulltext-search-ngram.html>

@@ -1,6 +1,7 @@
 import type {
   DirectoryContactMethod,
   DirectoryEntry,
+  DirectoryEntryLookupResponse,
   DirectoryEntryKind,
   DirectoryFacetOption,
   DirectoryFacetPath,
@@ -126,6 +127,82 @@ export class DirectoryQuery {
       return buildFacetSnapshot(batch, rows);
     });
   }
+
+  public async lookup(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    entryIds: readonly string[],
+  ): Promise<DirectoryEntryLookupResponse> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'viewDirectory',
+      );
+      const batch = await getPublishedBatch(transaction);
+      const canViewAdministratorEntries =
+        authorization.user.isDeveloperAdmin ||
+        authorization.membership.role === 'owner' ||
+        authorization.membership.role === 'administrator';
+      return {
+        entries: await lookupDirectoryEntries(
+          transaction,
+          batch.id,
+          entryIds,
+          canViewAdministratorEntries,
+        ),
+      };
+    });
+  }
+}
+
+async function lookupDirectoryEntries(
+  transaction: DatabaseTransaction,
+  batchId: string,
+  entryIds: readonly string[],
+  canViewAdministratorEntries: boolean,
+): Promise<readonly DirectoryEntry[]> {
+  const visibilityConditions = canViewAdministratorEntries
+    ? []
+    : [eq(directoryEntries.visibility, 'member')];
+  const rows = await transaction
+    .select({
+      building: directoryEntries.buildingName,
+      campusCode: directoryCampuses.code,
+      campusDialingNote: directoryCampuses.dialingNote,
+      campusDisplayOrder: directoryCampuses.displayOrder,
+      campusName: directoryCampuses.name,
+      contactName: directoryEntries.contactName,
+      department: directoryEntries.departmentName,
+      displayOrder: directoryEntries.displayOrder,
+      entryKind: directoryEntries.entryKind,
+      floor: directoryEntries.floorName,
+      id: directoryEntries.id,
+      notes: directoryEntries.notes,
+      room: directoryEntries.roomName,
+      section: directoryEntries.sectionName,
+      subunit: directoryEntries.subunitName,
+    })
+    .from(directoryEntries)
+    .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
+    .where(
+      and(
+        eq(directoryEntries.batchId, batchId),
+        inArray(directoryEntries.id, [...entryIds]),
+        ...visibilityConditions,
+      ),
+    )
+    .orderBy(
+      asc(directoryCampuses.displayOrder),
+      asc(directoryEntries.displayOrder),
+      asc(directoryEntries.id),
+    );
+  const contactMethods = await loadContactMethods(
+    transaction,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => toDirectoryEntry(row, contactMethods.get(row.id) ?? []));
 }
 
 async function listDirectoryEntries(

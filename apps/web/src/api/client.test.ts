@@ -667,7 +667,7 @@ const appliedManualTemplate: AppliedManualScheduleTemplateResult = {
 };
 
 describe('Web API client', () => {
-  it('loads directory facets and forwards independent search filters', async () => {
+  it('loads directory facets, restores preferred entries, and forwards independent search filters', async () => {
     const facets: DirectoryFacetSnapshot = {
       buildings: [],
       campuses: [{ count: 2, label: '本部院区', value: 'main' }],
@@ -695,10 +695,14 @@ describe('Web API client', () => {
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify(facets), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entries: [] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(page), { status: 200 }));
     const client = createApiClient({ auth: createAuthClient(), fetch: fetchImplementation });
 
     await expect(client.getDirectoryFacets(group.id)).resolves.toEqual(facets);
+    await expect(
+      client.lookupDirectoryEntries(group.id, ['00000000-0000-4000-8000-000000000001']),
+    ).resolves.toEqual([]);
     await expect(
       client.searchDirectory(group.id, {
         campusCode: 'main',
@@ -716,6 +720,14 @@ describe('Web API client', () => {
     );
     expect(fetchImplementation).toHaveBeenNthCalledWith(
       2,
+      '/api/groups/group-1/directory/lookup',
+      expect.objectContaining({
+        body: JSON.stringify({ entryIds: ['00000000-0000-4000-8000-000000000001'] }),
+        method: 'POST',
+      }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
       '/api/groups/group-1/directory?campusCode=main&entryKind=department&floor=5%E6%A5%BC&pageSize=24&q=%E7%97%85%E6%A1%88',
       expect.objectContaining({
         headers: expect.objectContaining({ Authorization: 'Bearer signed-in-token' }),

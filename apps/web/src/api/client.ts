@@ -97,6 +97,7 @@ import type {
   DutyAdjustmentPairInput,
   DutyAdjustmentPreview,
   DutyAdjustmentRequest,
+  DirectoryEntry,
   DirectoryFacetSnapshot,
   DirectoryPage,
   DirectoryQuery,
@@ -131,6 +132,7 @@ import {
   dutyAdjustmentRequestListSchema,
   dutyAdjustmentRequestSchema,
   directoryFacetSnapshotSchema,
+  directoryEntryLookupResponseSchema,
   directoryPageSchema,
   dissolvedGroupListSchema,
   guestCalendarReadModelSchema,
@@ -211,6 +213,7 @@ export interface ApiClient {
     groupId: string,
   ): Promise<{ readonly dutyReminderHours: readonly number[]; readonly groupId: string }>;
   getDirectoryFacets(groupId: string): Promise<DirectoryFacetSnapshot>;
+  lookupDirectoryEntries(groupId: string, entryIds: readonly string[]): Promise<DirectoryEntry[]>;
   getMyNotificationPreferences(groupId: string): Promise<MemberNotificationPreferences>;
   getPushConfiguration(): Promise<PushConfiguration>;
   getUnreadNotificationCount(): Promise<{ readonly unreadCount: number }>;
@@ -1530,6 +1533,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         { method: 'GET' },
         isResponseBodyFromSchema(directoryFacetSnapshotSchema),
       );
+    },
+    lookupDirectoryEntries(groupId, entryIds) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/directory/lookup`,
+        {
+          body: JSON.stringify({ entryIds }),
+          method: 'POST',
+        },
+        isResponseBodyFromSchema(directoryEntryLookupResponseSchema),
+      ).then((response) => [...response.entries]);
     },
     searchDirectory(groupId, query) {
       const params = new URLSearchParams();

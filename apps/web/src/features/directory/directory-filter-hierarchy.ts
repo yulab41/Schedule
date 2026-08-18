@@ -43,6 +43,15 @@ export function getCompatibleDirectoryFacetOptions(
   });
 }
 
+export function getMeaningfulDirectoryFilterKeys(
+  snapshot: DirectoryFacetSnapshot,
+  filters: DirectoryFilters,
+): readonly DirectoryFilterKey[] {
+  return directoryFilterHierarchy.filter(
+    (key) => getCompatibleDirectoryFacetOptions(snapshot, filters, key).length > 1,
+  );
+}
+
 export function updateDirectoryFilterSelection(
   snapshot: DirectoryFacetSnapshot,
   currentFilters: DirectoryFilters,
@@ -58,12 +67,10 @@ export function updateDirectoryFilterSelection(
   for (const descendant of directoryFilterHierarchy.slice(changedIndex + 1)) {
     const selected = filters[descendant];
     if (selected === undefined) continue;
-    const remainsCompatible = getCompatibleDirectoryFacetOptions(
-      snapshot,
-      filters,
-      descendant,
-    ).some((option) => option.value === selected);
-    if (!remainsCompatible) {
+    const compatibleOptions = getCompatibleDirectoryFacetOptions(snapshot, filters, descendant);
+    const remainsMeaningful =
+      compatibleOptions.length > 1 && compatibleOptions.some((option) => option.value === selected);
+    if (!remainsMeaningful) {
       delete filters[descendant];
       clearedKeys.push(descendant);
     }

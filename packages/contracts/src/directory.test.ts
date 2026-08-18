@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   directoryEntryKindSchema,
+  directoryEntryLookupRequestSchema,
   directoryFacetSnapshotSchema,
   directoryPageSchema,
   directoryQuerySchema,
@@ -20,6 +21,24 @@ describe('directory contracts', () => {
 
     expect(() => directoryQuerySchema.parse({ pageSize: 101 })).toThrow();
     expect(() => directoryQuerySchema.parse({ cursor: 'x'.repeat(2049) })).toThrow();
+  });
+
+  it('accepts a bounded unique list of entry ids for preference restoration', () => {
+    const entryId = '00000000-0000-4000-8000-000000000001';
+    expect(directoryEntryLookupRequestSchema.parse({ entryIds: [entryId] })).toEqual({
+      entryIds: [entryId],
+    });
+    expect(() =>
+      directoryEntryLookupRequestSchema.parse({ entryIds: [entryId, entryId] }),
+    ).toThrow();
+    expect(() =>
+      directoryEntryLookupRequestSchema.parse({
+        entryIds: Array.from(
+          { length: 101 },
+          (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        ),
+      }),
+    ).toThrow();
   });
 
   it('rejects malformed directory contacts and preserves six-digit extensions', () => {

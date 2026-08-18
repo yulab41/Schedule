@@ -171,7 +171,7 @@ function options(values: readonly (string | undefined)[]) {
 }
 
 const syntheticFacets: DirectoryFacetSnapshot = {
-  buildings: options(syntheticEntries.map((entry) => entry.building)),
+  buildings: [],
   campuses: [
     { count: 5, label: '本部院区', value: 'main' },
     { count: 1, label: '东院区', value: 'east' },
@@ -203,6 +203,10 @@ const syntheticFacets: DirectoryFacetSnapshot = {
 const SyntheticDirectoryDataSource: DirectoryDataSource = {
   async getDirectoryFacets() {
     return syntheticFacets;
+  },
+  async lookupDirectoryEntries(_groupId: string, entryIds: readonly string[]) {
+    const selectedIds = new Set(entryIds);
+    return syntheticEntries.filter((entry) => selectedIds.has(entry.id));
   },
   async searchDirectory(_groupId: string, query: DirectoryQuery): Promise<DirectoryPage> {
     const normalizedSearch = query.q?.toLocaleLowerCase('zh-CN');

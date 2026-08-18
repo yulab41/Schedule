@@ -28,6 +28,32 @@ describe('production hospital directory integration', () => {
     expect(view).toContain('searchDirectory');
     expect(view).toContain('updateDirectoryFilterSelection');
     expect(view).toContain('groupDirectoryEntriesByContact');
+    expect(view).toContain('lookupDirectoryEntries');
+  });
+
+  it('keeps the wayfinding compact, removes empty levels, and locates the requested filter section', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).toContain('getMeaningfulDirectoryFilterKeys');
+    expect(view).toContain('@click="openFilterAt(section.key)"');
+    expect(view).toContain('scrollIntoView');
+    expect(view).toContain('data-filter-section');
+    expect(view).toMatch(/\.wayfinding-ribbon\s*{[^}]*grid-template-columns:\s*repeat\(auto-fit,/s);
+    expect(view).not.toMatch(/\.wayfinding-ribbon\s*{[^}]*overflow-x:\s*auto/s);
+  });
+
+  it('offers reversible favorites and places favorite and frequently used contacts before results', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).toContain('StarFilledIcon');
+    expect(view).toContain('toggleFavorite');
+    expect(view).toContain('recordDirectoryUse');
+    expect(view).toContain('收藏通讯录');
+    expect(view).toContain('常用通讯录');
+    expect(view.indexOf('class="directory-priority"')).toBeLessThan(
+      view.indexOf('class="result-status"'),
+    );
+    expect(view).toMatch(/\.favorite-action\s*{[^}]*min-width:\s*44px/s);
   });
 
   it('keeps the directory in the full browser smoke journey', () => {

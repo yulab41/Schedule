@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getCompatibleDirectoryFacetOptions,
+  getMeaningfulDirectoryFilterKeys,
   updateDirectoryFilterSelection,
 } from './directory-filter-hierarchy.js';
 
@@ -63,6 +64,27 @@ const snapshot: DirectoryFacetSnapshot = {
 };
 
 describe('directory filter hierarchy', () => {
+  it('omits hierarchy levels with no data or only one compatible choice', () => {
+    const withoutBuildings: DirectoryFacetSnapshot = {
+      ...snapshot,
+      buildings: [],
+      paths: snapshot.paths.map((path) => ({
+        campusCode: path.campusCode,
+        count: path.count,
+        ...(path.department === undefined ? {} : { department: path.department }),
+        entryKind: path.entryKind,
+        ...(path.floor === undefined ? {} : { floor: path.floor }),
+        ...(path.section === undefined ? {} : { section: path.section }),
+        ...(path.subunit === undefined ? {} : { subunit: path.subunit }),
+      })),
+    };
+
+    expect(getMeaningfulDirectoryFilterKeys(withoutBuildings, {})).not.toContain('building');
+    expect(getMeaningfulDirectoryFilterKeys(withoutBuildings, { campusCode: 'main' })).toEqual([
+      'campusCode',
+    ]);
+  });
+
   it('keeps skip-level selection but only exposes descendants compatible with selected parents', () => {
     expect(
       getCompatibleDirectoryFacetOptions(snapshot, {}, 'floor').map((option) => option.value),
@@ -90,9 +112,56 @@ describe('directory filter hierarchy', () => {
     expect(result.clearedKeys).toEqual(['department', 'subunit']);
   });
 
-  it('preserves descendants that remain valid under the new ancestor', () => {
+  it('clears compatible descendants that become redundant as the only available choice', () => {
     const result = updateDirectoryFilterSelection(
       snapshot,
+      {
+        department: '医疗服务部',
+        subunit: '病案服务台',
+      },
+      'campusCode',
+      'main',
+    );
+
+    expect(result.filters).toEqual({ campusCode: 'main' });
+    expect(result.clearedKeys).toEqual(['department', 'subunit']);
+  });
+
+  it('preserves descendants that remain valid under the new ancestor', () => {
+    const snapshotWithChoices: DirectoryFacetSnapshot = {
+      ...snapshot,
+      paths: [
+        ...snapshot.paths,
+        {
+          building: '门诊楼',
+          campusCode: 'main',
+          count: 1,
+          department: '医疗服务部',
+          entryKind: 'service',
+          floor: '5楼',
+          section: '行政服务区',
+          subunit: '门诊服务台',
+        },
+        {
+          building: '急诊楼',
+          campusCode: 'main',
+          count: 1,
+          department: '急诊科',
+          entryKind: 'service',
+          floor: '1楼',
+          section: '急诊服务区',
+          subunit: '急诊分诊台',
+        },
+      ],
+      departments: [...snapshot.departments, { count: 1, label: '急诊科', value: '急诊科' }],
+      subunits: [
+        ...snapshot.subunits,
+        { count: 1, label: '门诊服务台', value: '门诊服务台' },
+        { count: 1, label: '急诊分诊台', value: '急诊分诊台' },
+      ],
+    };
+    const result = updateDirectoryFilterSelection(
+      snapshotWithChoices,
       {
         department: '医疗服务部',
         subunit: '病案服务台',

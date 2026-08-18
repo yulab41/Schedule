@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-18 通讯录动态导览、收藏与常用优先区
+
+- 反馈与引入点：无数据“楼宇”仍显示、七级导览依赖横滚且按钮只打开 Sheet 不定位，均由 `8309dce` 引入；层级联动和同号合并来自 `926136a`。已对 `wayfinding-ribbon`、`filterSections`、`updateDirectoryFilterSelection` 和卡片调用点执行 `git log -S` / `git blame`。
+- 测试先行：空/单选层级、冗余下级清理、受权限 ID 批量恢复、收藏/常用最小化持久化、无横滚定位与优先区断言在旧实现上 6 项失败且 1 个模块缺失；实现后定向 6 文件/173 项、真实 MySQL 通讯录路由 5/5 通过。
+- 实现与安全：导览和筛选 Sheet 只渲染当前兼容选项大于 1 的层级，改变上级时同时清除不兼容或已无筛选意义的下级。收藏按群组保存在浏览器本地，仅含条目 UUID、使用次数和最后使用时间，不保存名称或号码；刷新后通过 `/groups/:groupId/directory/lookup` 按当前成员权限读取，管理员可见条目不会被成员偏好恢复绕过。
+- UI 与交互：`frontend-design` 延续医疗蓝白“院区站点”语言；390px 导览为两列紧凑网格、桌面自动适配，无水平滚动。点击任一层级会打开筛选 Sheet、滚动并把焦点放到相应区段；卡片右上角 44px 五角星可收藏/取消，导览下方按“收藏通讯录”“常用通讯录”显示快捷卡。
+- 运行/浏览器验证：`pnpm smoke:browser` 在当前源码 5173 服务通过管理员、成员、访客/vkey 与访问记录全流程；首轮仅因服务未启动连接失败，启动当前源码后原样通过，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-GHywhh`。Storybook 390×844 实测 6 个有效层级、楼宇层级为 0、两列无溢出；收藏优先区可逆，点击“科室”后活动焦点为 `directory-filter-department` 且楼宇区段为 0。全仓 Prettier/ESLint/build 通过，非集成 Vitest 110 文件/660 项通过（31 文件/261 项按环境跳过），Web/API/contracts typecheck、Storybook build、`pnpm smoke:check-core` 与 `git diff --check` 通过；全仓 typecheck 曾短暂命中并行日历文件已引用但尚未导出的 helper，该并行改动收口后 Web typecheck 原样复跑通过，本轮未修改其文件。
+- 状态：已完成本地实现与运行验证；待 checkpoint、生产备份/部署和正式域名只读复核。
+
 ## 2026-08-18 统计页年度入口未使用统一时间选择器
 
 - 反馈：统计页面切换“按年”后仍弹出浏览器原生年份列表，没有应用新版滚轮选择器。

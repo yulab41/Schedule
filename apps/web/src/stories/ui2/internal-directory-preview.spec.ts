@@ -19,6 +19,8 @@ describe('hospital directory Storybook preview', () => {
     expect(stories).toContain('desktop1280');
     expect(stories).toContain("subunit: '手术室护士站'");
     expect(stories).toContain("subunit: '护士值班房'");
+    expect(stories).toContain('buildings: []');
+    expect(stories).toContain('lookupDirectoryEntries');
     expect(stories).not.toContain('138027');
   });
 
