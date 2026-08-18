@@ -44,6 +44,47 @@ const assignments: readonly CalendarDutyAssignment[] = [
   },
 ];
 
+const fixedShiftAssignments: readonly CalendarDutyAssignment[] = [
+  {
+    businessDate: '2026-08-18',
+    changeMarkers: [],
+    endsAt: '2026-08-18T09:30:00.000Z',
+    id: 'd-duty',
+    plannedMemberName: '林恩宇医生',
+    plannedMembershipId: 'membership-1',
+    schedulePeriodId: 'period-2',
+    scheduleRoleId: 'role-1',
+    scheduleRoleName: '一线',
+    shiftTypeAbbreviation: 'D',
+    shiftTypeColor: '#287D70',
+    shiftTypeId: 'shift-d',
+    shiftTypeName: 'D 班',
+    shiftTypeTextColor: '#FFFFFF',
+    slotPosition: 1,
+    startsAt: '2026-08-18T00:00:00.000Z',
+  },
+  {
+    actualMemberName: '陈护士',
+    actualMembershipId: 'membership-2',
+    businessDate: '2026-08-18',
+    changeMarkers: [],
+    endsAt: '2026-08-19T03:00:00.000Z',
+    id: 'np-duty',
+    plannedMemberName: '陈护士',
+    plannedMembershipId: 'membership-2',
+    schedulePeriodId: 'period-2',
+    scheduleRoleId: 'role-2',
+    scheduleRoleName: '留观区',
+    shiftTypeAbbreviation: 'NP',
+    shiftTypeColor: '#C33D56',
+    shiftTypeId: 'shift-np',
+    shiftTypeName: 'NP 班',
+    shiftTypeTextColor: '#FFFFFF',
+    slotPosition: 1,
+    startsAt: '2026-08-18T09:30:00.000Z',
+  },
+];
+
 const members: readonly CalendarDutyMember[] = [
   {
     isConfirmed: true,
@@ -92,4 +133,12 @@ type Story = StoryObj<typeof meta>;
 
 export const MobileTrack: Story = {
   name: '手机值班轨道',
+};
+
+export const FixedShiftSegments: Story = {
+  name: '固定班种分段状态',
+  args: {
+    assignments: fixedShiftAssignments,
+    selectedDate: '2026-08-18',
+  },
 };

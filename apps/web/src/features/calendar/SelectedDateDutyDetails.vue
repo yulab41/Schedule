@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contracts';
 import { CallIcon, HistoryIcon } from 'tdesign-icons-vue-next';
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import {
   buildDialLink,
@@ -9,6 +9,7 @@ import {
   getCalendarMarkerDescription,
 } from './calendar-logic.js';
 import ChangeBadge from './ChangeBadge.vue';
+import { getFixedShiftDutyDisplay } from './fixed-shift-duty-display.js';
 import { buildSelectedDateDutyRows, formatSelectedDateLabel } from './selected-date-duty.js';
 
 const props = defineProps<{
@@ -24,6 +25,26 @@ const emit = defineEmits<{
 const rows = computed(() =>
   buildSelectedDateDutyRows(props.selectedDate, props.assignments, props.members),
 );
+const currentTime = ref(new Date());
+const displayRows = computed(() =>
+  rows.value.map((row) => ({
+    ...row,
+    fixedShiftDisplay: getFixedShiftDutyDisplay(row.assignment, currentTime.value),
+  })),
+);
+let clockTimer: ReturnType<typeof globalThis.setInterval> | undefined;
+
+onMounted(() => {
+  clockTimer = globalThis.setInterval(() => {
+    currentTime.value = new Date();
+  }, 60_000);
+});
+
+onUnmounted(() => {
+  if (clockTimer !== undefined) {
+    globalThis.clearInterval(clockTimer);
+  }
+});
 
 function getShiftStartTime(assignment: CalendarDutyAssignment): string {
   return formatShiftTimeRange(assignment).split('–')[0] ?? '';
@@ -37,12 +58,12 @@ function getShiftStartTime(assignment: CalendarDutyAssignment): string {
         <p>选中日期</p>
         <h3 id="selected-date-heading">{{ formatSelectedDateLabel(selectedDate) }}</h3>
       </div>
-      <span class="duty-count">{{ rows.length }} 个班次</span>
+      <span class="duty-count">{{ displayRows.length }} 个班次</span>
     </header>
 
-    <div v-if="rows.length > 0" class="duty-track">
+    <div v-if="displayRows.length > 0" class="duty-track">
       <article
-        v-for="row in rows"
+        v-for="row in displayRows"
         :key="row.assignment.id"
         class="track-event"
         :data-assignment-id="row.assignment.id"
@@ -63,11 +84,25 @@ function getShiftStartTime(assignment: CalendarDutyAssignment): string {
           </header>
 
           <div class="duty-person">
-            <strong>{{ row.dutyName }}</strong>
+            <div class="duty-person-heading">
+              <strong>{{ row.dutyName }}</strong>
+              <span
+                v-if="row.fixedShiftDisplay?.currentPhase !== undefined"
+                class="duty-phase"
+                :class="`is-${row.fixedShiftDisplay.currentPhase.tone}`"
+                aria-live="polite"
+              >
+                {{ row.fixedShiftDisplay.currentPhase.label }}
+              </span>
+            </div>
             <span>
               {{ row.assignment.scheduleRoleName }} · {{ formatShiftTimeRange(row.assignment) }}
             </span>
           </div>
+
+          <p v-if="row.fixedShiftDisplay !== undefined" class="fixed-shift-description">
+            {{ row.fixedShiftDisplay.description }}
+          </p>
 
           <div v-if="row.assignment.changeMarkers.length > 0" class="change-summary">
             <span
@@ -245,8 +280,18 @@ function getShiftStartTime(assignment: CalendarDutyAssignment): string {
 }
 
 .duty-person {
+  display: grid;
+  align-items: start;
   flex-wrap: wrap;
   gap: 4px 10px;
+}
+
+.duty-person-heading {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
 }
 
 .duty-person strong {
@@ -257,6 +302,38 @@ function getShiftStartTime(assignment: CalendarDutyAssignment): string {
 .duty-person span {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
+}
+
+.duty-person .duty-phase {
+  display: inline-flex;
+  min-height: 22px;
+  padding: 2px 8px;
+  align-items: center;
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 1.25;
+}
+
+.duty-phase.is-active {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+}
+
+.duty-phase.is-break,
+.duty-phase.is-on-call {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+}
+
+.fixed-shift-description {
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-normal);
 }
 
 .change-summary {
