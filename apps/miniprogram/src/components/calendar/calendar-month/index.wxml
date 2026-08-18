@@ -1,0 +1,81 @@
+<view class="month-card">
+  <view class="month-toolbar">
+    <view
+      class="month-step"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="上一月"
+      bindtap="handlePrevious"
+    >
+      <view class="chevron is-left" aria-hidden="true"></view>
+    </view>
+    <view class="month-heading">
+      <text class="month-label">{{monthLabel}}</text>
+      <text class="month-hint">左右滑动切换月份</text>
+    </view>
+    <view
+      class="locate-button"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="定位到今天"
+      bindtap="handleLocateToday"
+    >
+      <view class="locate-crosshair" aria-hidden="true">
+        <view class="locate-crosshair-center"></view>
+      </view>
+    </view>
+    <view
+      class="month-step"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="下一月"
+      bindtap="handleNext"
+    >
+      <view class="chevron is-right" aria-hidden="true"></view>
+    </view>
+  </view>
+
+  <view class="weekday-row" aria-hidden="true">
+    <text>一</text><text>二</text><text>三</text><text>四</text><text>五</text>
+    <text class="is-weekend">六</text><text class="is-weekend">日</text>
+  </view>
+
+  <pan-gesture-handler
+    worklet:ongesture="handleMonthPan"
+    worklet:should-response-on-move="shouldRespondToMonthPan"
+  >
+    <view class="calendar-motion-viewport">
+      <view id="calendar-slider-track" class="calendar-slider-track">
+        <view
+          wx:for="{{panels}}"
+          wx:key="key"
+          class="calendar-slide-panel"
+          aria-hidden="{{item.relative !== 0}}"
+        >
+          <view class="month-grid">
+            <view
+              wx:for="{{item.cells}}"
+              wx:key="businessDate"
+              class="calendar-cell-slot"
+            >
+              <calendar-cell
+                aria-label="{{item.ariaLabel}}"
+                business-date="{{item.businessDate}}"
+                day="{{item.day}}"
+                holiday="{{item.holiday}}"
+                is-current-month="{{item.isCurrentMonth}}"
+                is-holiday="{{item.isHoliday}}"
+                is-selected="{{item.isSelected}}"
+                is-today="{{item.isToday}}"
+                is-weekend="{{item.isWeekend}}"
+                marker="{{item.marker}}"
+                person="{{item.person}}"
+                bind:select="handleCellSelect"
+              ></calendar-cell>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </pan-gesture-handler>
+</view>

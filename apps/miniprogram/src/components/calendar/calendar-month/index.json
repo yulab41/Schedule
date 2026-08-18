@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "calendar-cell": "/components/calendar/calendar-cell/index"
+  }
+}

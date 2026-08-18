@@ -1,0 +1,39 @@
+<view class="calendar-poc-page">
+  <view class="poc-heading">
+    <view class="poc-heading-copy">
+      <text class="context-label">P1 · 原生复刻基线</text>
+      <text class="page-title">42 格月历</text>
+    </view>
+    <text class="baseline-chip">Web 已确认</text>
+  </view>
+
+  <view class="month-view">
+    <calendar-month
+      month-label="{{monthLabel}}"
+      panels="{{panels}}"
+      bind:locatetoday="handleLocateToday"
+      bind:monthchange="handleMonthChange"
+      bind:select="handleDateSelect"
+    ></calendar-month>
+
+    <view class="selected-summary month-selected-summary" aria-label="选中日期值班详情">
+      <view class="summary-header">
+        <view class="summary-heading">
+          <text>选中日期</text>
+          <text class="summary-date">{{selectedLabel}}</text>
+        </view>
+        <text class="summary-count">{{summary.countLabel}}</text>
+      </view>
+      <view class="summary-row">
+        <view class="summary-dot" aria-hidden="true"></view>
+        <view class="summary-copy">
+          <text class="summary-person">{{summary.person}}</text>
+          <text class="summary-meta">{{summary.meta}}</text>
+        </view>
+        <view class="summary-call-action" aria-role="button" aria-label="拨打{{summary.person}}">
+          <view class="phone-icon" aria-hidden="true"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

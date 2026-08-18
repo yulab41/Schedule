@@ -1,0 +1,105 @@
+.calendar-cell {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 53px;
+  padding: 4px 3px;
+  overflow: hidden;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: flex-start;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-cell.is-pressed {
+  background: var(--ui-color-primary-light);
+}
+
+.calendar-cell.is-outside {
+  color: #a7b0bb;
+  background: #fafbfd;
+}
+
+.calendar-cell.is-holiday {
+  background: #fff0f1;
+}
+
+.calendar-cell.is-selected {
+  z-index: 1;
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
+}
+
+.date-number {
+  display: flex;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-pill);
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-strong);
+  line-height: 18px;
+}
+
+.calendar-cell.is-weekend .date-number {
+  color: var(--ui-color-weekend);
+}
+
+.calendar-cell.is-today .date-number {
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+}
+
+.holiday-chip {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  display: flex;
+  max-width: 28px;
+  min-height: 16px;
+  padding: 0 5px;
+  overflow: hidden;
+  box-sizing: border-box;
+  align-items: center;
+  color: #ad2d36;
+  background: #fee1e4;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: var(--ui-font-weight-strong);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.month-person {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 14px;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.change-mark {
+  position: absolute;
+  right: 3px;
+  bottom: 4px;
+  display: flex;
+  width: 13px;
+  height: 13px;
+  align-items: center;
+  justify-content: center;
+  color: #a66700;
+  background: var(--ui-color-warning-light);
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: var(--ui-font-weight-strong);
+  line-height: 13px;
+}
