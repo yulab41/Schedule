@@ -40,4 +40,6 @@
 - 默认模板首页和 navigation-bar 已移除，以无业务外观的技术 bootstrap 取代。
 - `src → dist` 编译、源码/产物边界、包体、Worklet 指令、双构建确定性和无凭证 CI dry-run 门禁已完成。
 - P1 基础控件批次新增从 `@schedule/ui-tokens` 单源生成并复制到 `dist/styles/tokens.wxss` 的路径；`app.wxss` 必须显式导入该文件，缺失或漂移由测试/产物审计阻断。
-- P1 42 格月历三面板已使用 Skyline Worklet 实现方向锁、拖动、阈值/速度结算、回弹和程序翻页；staging/production 构建均保留 6 个函数首语句 `'worklet'` 指令。双轴矩阵仍须在其批次独立增加冻结层滚动 Worklet，不能复用月历计数作为豁免。
+- P1 42 格月历三面板已使用 6 个 Skyline Worklet 实现方向锁、拖动、阈值/速度结算、回弹和程序翻页。
+- P1 手排矩阵使用单一双轴 `scroll-view type=list`；20 个成员行作为直接子节点按视口绘制，日期表头、人员列和进度条由新增 5 个 Worklet 同步。由于最低基础库固定为 3.0.2，本 PoC 不依赖 3.3.0 才提供且仅支持纵向的 `list-builder`；20×30 上限内不需要二维节点回收。
+- staging/production 构建均须保留总计 11 个函数首语句 `'worklet'` 指令；月历与矩阵计数分别受源码和产物测试约束，不能相互抵消。

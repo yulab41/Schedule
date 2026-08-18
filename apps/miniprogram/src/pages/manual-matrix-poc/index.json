@@ -1,0 +1,6 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "manual-schedule-cell": "/components/manual-schedule/manual-schedule-cell/index"
+  }
+}

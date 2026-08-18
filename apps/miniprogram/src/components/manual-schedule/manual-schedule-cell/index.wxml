@@ -1,0 +1,20 @@
+<view
+  class="manual-schedule-cell {{isSelected ? 'is-selected' : ''}} {{isStale ? 'is-stale' : ''}} {{disabled ? 'is-disabled' : ''}}"
+  hover-class="{{disabled ? 'none' : 'is-pressed'}}"
+  hover-start-time="0"
+  hover-stay-time="70"
+  aria-role="button"
+  aria-label="{{ariaLabel}}"
+  aria-pressed="{{isSelected}}"
+  aria-disabled="{{disabled}}"
+  bindtap="handleSelect"
+>
+  <text
+    wx:if="{{abbreviation}}"
+    class="cell-shift"
+    style="background-color:{{color}};color:{{textColor}}"
+    >{{abbreviation}}</text
+  >
+  <text wx:else class="cell-empty">—</text>
+  <text wx:if="{{isStale}}" class="stale-badge">失效</text>
+</view>

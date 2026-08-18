@@ -1,0 +1,138 @@
+<view class="matrix-preview">
+  <view class="matrix-heading">
+    <view class="matrix-heading-copy">
+      <text class="context-label">P1 · 原生矩阵风险基线</text>
+      <text class="page-title">{{title}}</text>
+      <text class="page-description">{{dimensionLabel}}</text>
+    </view>
+    <text class="mode-chip">{{modeLabel}}</text>
+  </view>
+
+  <view class="shift-palette" aria-label="班种按钮">
+    <text class="palette-title">选择班种</text>
+    <view class="palette-buttons">
+      <view
+        wx:for="{{shiftTypes}}"
+        wx:key="id"
+        class="palette-button {{activeShiftTypeId === item.id ? 'is-active' : ''}}"
+        style="background-color:{{item.color}};color:{{item.textColor}}"
+        hover-class="is-pressed"
+        aria-role="button"
+        aria-label="{{item.name}}"
+        aria-pressed="{{activeShiftTypeId === item.id}}"
+        data-shift-type-id="{{item.id}}"
+        bindtap="handleShiftSelect"
+        >{{item.name}}</view
+      >
+    </view>
+  </view>
+
+  <view class="matrix-toolbar">
+    <view class="matrix-toolbar-copy">
+      <text class="matrix-toolbar-title">选择格子即可排入当前班种</text>
+      <text class="matrix-toolbar-note">表头与人员列冻结；主体横纵滚动。</text>
+    </view>
+    <view
+      class="undo-button {{canUndo ? '' : 'is-disabled'}}"
+      hover-class="{{canUndo ? 'is-pressed' : 'none'}}"
+      aria-role="button"
+      aria-label="撤销上一次排班修改"
+      aria-disabled="{{!canUndo}}"
+      bindtap="handleUndo"
+      >撤销</view
+    >
+  </view>
+
+  <view class="manual-grid-guide">
+    <text>{{scrollHint}}</text>
+    <view
+      class="scroll-progress"
+      aria-role="progressbar"
+      aria-label="日期横向浏览进度"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="{{scrollProgressPercent}}"
+    >
+      <view id="matrix-scroll-thumb" class="scroll-progress-thumb"></view>
+    </view>
+  </view>
+
+  <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
+    <scroll-view
+      class="matrix-scroll"
+      type="list"
+      scroll-x
+      scroll-y
+      enhanced
+      show-scrollbar
+      bounces="{{false}}"
+      worklet:onscrollupdate="handleGridScroll"
+      worklet:onscrollend="handleGridScrollEnd"
+      aria-label="手动排班矩阵"
+    >
+      <view class="matrix-top-spacer" style="width:{{contentWidth}}px"></view>
+      <view
+        wx:for="{{rows}}"
+        wx:key="membershipId"
+        wx:for-item="row"
+        class="matrix-row"
+        style="width:{{contentWidth}}px"
+      >
+        <view class="member-spacer"></view>
+        <view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="matrix-cell-slot">
+          <manual-schedule-cell
+            abbreviation="{{cell.abbreviation}}"
+            aria-label="{{cell.ariaLabel}}"
+            color="{{cell.color}}"
+            column-index="{{cell.columnIndex}}"
+            is-selected="{{cell.isSelected}}"
+            is-stale="{{cell.isStale}}"
+            key-value="{{cell.key}}"
+            row-index="{{cell.rowIndex}}"
+            text-color="{{cell.textColor}}"
+            bind:select="handleCellSelect"
+          ></manual-schedule-cell>
+        </view>
+      </view>
+    </scroll-view>
+
+    <view class="matrix-date-overlay">
+      <view id="matrix-date-track" class="matrix-date-track" style="width:{{dateTrackWidth}}px">
+        <view class="date-header-row">
+          <view
+            wx:for="{{columns}}"
+            wx:key="cycleDay"
+            class="date-header {{item.isWeekend ? 'is-weekend' : ''}}"
+          >
+            <text class="date-value">{{item.dateLabel}}</text>
+            <text class="weekday-value">{{item.weekdayLabel}}</text>
+          </view>
+        </view>
+        <view class="holiday-header-row" aria-label="节假日摘要">
+          <view wx:for="{{columns}}" wx:key="cycleDay" class="holiday-summary">
+            <text wx:if="{{item.holidayLabel}}" class="holiday-name">{{item.holidayLabel}}</text>
+            <text wx:elif="{{item.isWorkday}}" class="workday-badge">班</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="matrix-member-overlay">
+      <view id="matrix-member-track" class="matrix-member-track">
+        <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
+          <text>{{item.realName}}</text>
+          <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="matrix-corner">
+      <view class="corner-member">值班人员 ↓</view>
+      <view class="corner-holiday">节假日</view>
+    </view>
+  </view>
+
+  <text class="matrix-note">
+    原生版本保持这套视觉状态，但用 Skyline 双轴滚动、Worklet 冻结同步与成员行按需绘制重写。
+  </text>
+</view>

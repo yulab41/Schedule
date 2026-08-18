@@ -75,9 +75,9 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
-## 2026-08-18 微信小程序迁移 P0/P1（当前批次，42 格 Skyline 月历 PoC）
+## 2026-08-18 微信小程序迁移 P0/P1（当前批次，Skyline 手排矩阵 PoC）
 
-- 批次范围：在用户确认月历 Web 黄金基线后，只实现 42 格 Skyline 月历 PoC；不同时实现矩阵、弹层、导航、业务 API 或微信发布动作。
+- 批次范围：在用户确认四项 Web 黄金基线及 42 格月历后，只实现 7×7/20×30 Skyline 手排矩阵 PoC；不接入业务 API，不实现弹层、导航或微信正式发布动作。
 - 安全迁入：外部 `E:\AItools\Schedule_miniprogram` 的 15 个文件、11295 字节经逐文件 SHA-256 校验迁入 `apps/miniprogram`，外部目录已移除。正式 AppID 保留；`project.private.config.json` 原样保留且由 Git 忽略，不输出或提交其内容。
 - 运行配置：`project.config.json.miniprogramRoot` 固定为 `dist/`；`src/app.json` 使用 Skyline、glass-easel、最低基础库 `3.0.2`、`disableABTest: true` 和 `sdkVersionEnd: 15.255.255`。P0 空 bootstrap 已替换为原生基础控件 PoC 画廊。
 - 工具链：确定性 staging/production `src→dist`、TypeScript、WXML/WXSS/JSON、运行边界、密钥、Worklet 指令、包体和双构建一致性门禁继续生效；`miniprogram-ci@2.1.31`、`miniprogram-simulate@1.6.2` 精确锁定，本批次增加 `jsdom@26.1.0` 作为 simulate DOM 环境。CI wrapper 仅执行无凭证 dry-run，真实私钥仍必须在仓库外。
@@ -86,17 +86,20 @@
 - Web 黄金稿：基础控件、42 格月历、7×7 与 20×30 矩阵均已由用户确认。月历首轮问题来自 `8a49434` 的详情同卡片结构和 `c64f0d7` 的底格圆角；黄金稿按生产 Web 自 `daff238` 起的独立卡片结构修为 12px 间距、方形日期格和 18px 外框裁切后通过。
 - 原生实现：`@schedule/ui-tokens/tokens.ts` 同时生成 CSS/WXSS，构建把 WXSS 确定性复制到 `dist/styles` 并审计导入。新增自绘 `UiButton`、`UiSwitch`、`UiCheckbox`、`UiRadio`、`UiInputShell`、`UiPicker`、`UiAlert`、`UiChip`、`UiLoading`；开关保持 52×30px 本体、60×44px 触控层，禁用/加载态阻断事件。未引入 TDesign 或第三方 UI。
 - 月历实现：新增 `pages/calendar-poc/index`、自绘 `CalendarMonth`/`CalendarCell` 和确定性 2026-10 fixture。三个面板各 42 格，跨月/今天/选择/周末/节假日/人员/加换状态独立；方形日期格由 18px 外框统一裁切，详情保持独立表面和 12px 间距。Skyline Worklet 在 UI 线程完成方向锁、56px/600px/s 结算、180ms 回弹和 240ms 翻页，结束后仅发送一次月份变化事件，拖动期间不调用 `setData`。
+- 矩阵实现：新增 `pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture。一个 `scroll-view type=list` 同时承载横纵滚动；20 个成员行按视口绘制，日期表头、人员列和滚动进度由新增 5 个 Worklet 同步。点击只更新目标格及必要的前一选中格路径，撤销仅保存 `{key,before,after}`；未使用 Canvas、`bindscroll`、整月 `setData` 或业务 API。
 - 回归来源与语义：`git log -S`/`git blame` 确认旧 Storybook 详情同卡来自 `8a49434`、Web 三面板来自 `41d284b`、生产外框裁切来自 `0aaa562`；本实现复用视觉和交互语义但未复制 Vue/DOM。相邻月份格只读，当前月日期只发出一次选择事件；月份切换只重建 PoC ViewModel，不接入 API 或业务 store。
+- 矩阵回归来源与语义：P1 黄金 story 由 `3884713` 引入；生产手排基础来自 `6512274`，冻结日期/人员列及密集移动交互来自 `1203dc7`。本实现保留同一人员×日期、班种、失效、选择和滚动语义，但用 WXML/WXSS/Skyline 重写；`type=list` 是最低基础库 3.0.2 可用的按视口绘制路径，不冒用 3.3.0 才提供且仅纵向的 `list-builder`。
 - 测试先行：令牌 WXSS、组件注册、开关几何/ARIA、禁用/加载事件和 simulate 组件树先红；实现后 token 2/2、Mini scripts 14/14、Mini typecheck/源码/产物/包体/双构建确定性和无凭证 CI dry-run通过。staging verify 产物 38,190 bytes、manifest `a65a195e8042b1ec25d944c3ba551ded0d3dbdd2d0d7c1d17e8878f499a0ac2a`；production verify 38,183 bytes、manifest `bd73d94f934bdab802a9a2476f57ebf10faa4ae1823c264944d9077357198c1d`。根 format/lint/build/typecheck、排除既有 `runtime/**` 副本后的全仓 112 文件/669 项（31 文件/261 项按环境跳过）、定向 Prettier/ESLint、ui-tokens build、`pnpm smoke:check-core` 与任务文件 `git diff --check` 通过。
 - 月历验证：测试先行时 5 项因页面/fixture/组件未实现而失败；实现后 P1 月历定向 7/7、Mini 全套 21/21、typecheck、源码审计、staging/production 构建与产物审计、双构建确定性和无凭证 CI dry-run 通过。staging verify 为 66,647 bytes、manifest `67b53ee7452ea91d55eb6e09ecc34711e8dad707eb574d4e07ce6f3bae08389c`；production 为 66,640 bytes、manifest `c56080588028ecfa088f2474de20e0152664196a3aab818db3fd06e394a62cd3`；源码/产物均保留 6 个 Worklet 指令。根 lint/build/typecheck、任务文件 Prettier/ESLint、排除用户自有 `runtime/**`/`src/**` 发布副本后的主仓 114 文件/676 项（31 文件/261 项按环境跳过）、`pnpm smoke:check-core` 和 `git diff --check` 通过；未触及核心 Web 链路，无需浏览器 smoke。
+- 矩阵验证：6 项结构/状态与 2 项 simulate 测试先因 fixture、页面和组件不存在而失败；实现后定向 8/8、Mini 全套 29/29、typecheck、staging/production 构建与审计、双构建确定性及无凭证 CI dry-run 通过。staging verify 为 101,250 bytes、manifest `31185775e55f0d6db94182627b8fb85a84b7690a9ee4496014803ecc3384239b`；production 为 101,243 bytes、manifest `48946ae37d7a3cece71b44a78fe66f22ec9fa1b5dda306564f625eb373fe8230`；源码/产物均保留 11 个 Worklet 指令。根 lint/build/typecheck、任务文件 Prettier/ESLint、排除用户自有 `runtime/**`/`src/**` 发布副本后的主仓 116 文件/687 项（31 文件/261 项按环境跳过）、`pnpm smoke:check-core` 通过；未触及核心 Web 链路，无需浏览器 smoke。
 - 既有工作树阻断：原始 `pnpm format:check` 仅因本轮开始前已变更的 `apps/miniprogram/project.config.json` 格式失败；原始 `pnpm test` 仅因未跟踪 `runtime/**` 发布副本被 Vitest 重复扫描而失败。两者均为用户自有、未修改且不会暂存；任务文件格式检查和排除副本后的主仓测试均通过。
-- 外部门禁：当前未注入仓库外微信上传私钥，没有预览上传或微信平台状态变更；Storybook/simulate 不能证明原生视觉，基础控件和月历状态均为“已实现待 MiniTest/实体机复核”。全程未启动、唤醒或控制微信开发者工具。
+- 外部门禁：当前未注入仓库外微信上传私钥，没有预览上传或微信平台状态变更；Storybook/simulate 不能证明原生视觉，基础控件、月历和矩阵状态均为“已实现待 MiniTest/实体机复核”。全程未启动、唤醒或控制微信开发者工具。
 - checkpoint：`3884713`（`chore(miniprogram): establish native migration workspace`）已推送；发布前加密数据库备份 archive 为 `365295b2-9a16-4d0f-91d2-bcf4ce24470b`（50 张表、18,423 行、7,296,708 字节，SHA-256 `aa0b605778b44edb7651bdf00f2c06e020f109e6937d2e872bf096598ef115cd`）。release `3884713b35f417c88210046efb522bacdb5e08d4` 已部署，容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
 - 本轮发布：代码 checkpoint `24bc2c4`（`feat(miniprogram): add native foundation controls`）已推送；发布前加密数据库备份 archive 为 `55c53e31-0021-4d38-b5f9-6d9bc96e74e2`（50 张表、18,484 行、7,362,760 字节，SHA-256 `8c555ba7660bb186c529877d6f7db9bc7f0fc5bd552739a2ade1f4549a6e2fe7`）。release `24bc2c4bb12280c95722715ab0d09b1f563eb44a` 从该提交的干净临时 worktree 构建并部署；容器预热首个健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
 - 月历发布：代码 checkpoint `1f715c9`（`feat(miniprogram): add native calendar poc`）已推送；发布前加密数据库备份 archive 为 `212fcfcd-1596-4336-9226-b0a3baa7298c`（50 张表、18,489 行、7,365,620 字节，SHA-256 `e0554e1597bd0b77a79c8594ce9ef6ffc965ff56a9ebb423607053c9617e8a0c`）。release `1f715c960180b1372947fe9249671fc6b5a5e2d9` 从该提交的隔离 worktree 离线构建并部署；首次执行在业务变更前因临时脚本 CRLF 停止，规范化 `/tmp` 脚本后重试成功，容器预热首个健康检查一次 502 后自动恢复。`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名与公网 IP 隔离、容器检查；外部正式首页和 API 均返回 200。
-- 当前状态：42 格 Skyline 月历 PoC 已实现、推送并完成 ECS 同仓 release 同步；MiniTest 原生视觉/手感尚未执行，不能标为原生完成。最终状态 checkpoint 识别消息为 `docs(status): record native calendar poc deployment`。
-- 下一批次：只实现已确认的 7×7/20×30 Skyline 手工排班矩阵 PoC，包括双轴滚动、冻结层、单格更新和增量撤销；不接入业务 API。月历与矩阵均完成后统一执行 MiniTest Android/iOS。
-- 停止条件：最终状态 checkpoint 显式暂存、推送并作为同仓 release 部署，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止；不提前开始矩阵。
+- 当前状态：42 格月历和 7×7/20×30 手排矩阵 PoC 均已实现并通过本地非原生门禁；矩阵 checkpoint 识别消息为 `feat(miniprogram): add native manual matrix poc`。MiniTest 原生视觉、双轴滚动手感和性能尚未执行，不能标为 P1 原生完成。
+- 下一批次：只为基础控件、42 格月历和两种矩阵执行 MiniTest Android/iOS，产出带 commit、fixture hash、设备、基础库和遮罩版本的原生证据；随后等待用户实体 Android 视觉/手感确认。
+- 停止条件：本矩阵 checkpoint 显式暂存、推送并作为同仓 release 部署，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；若仓库外上传私钥或 MiniTest 权限缺失，记录外部门禁并停止询问用户配置，不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 

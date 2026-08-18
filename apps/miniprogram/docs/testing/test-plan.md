@@ -55,7 +55,15 @@ MiniTest 只在 P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重�
 - 相邻月份格不可选择；当前月日期只发出一次语义事件。
 - 横向方向锁、56px 距离结算、600px/s 速度结算、取消回弹和构建后 Worklet 指令保留。
 - 18px 外框裁切、方形内部格与独立详情 12px 间距的源码结构门禁。
-- 本地静态/simulate 只能证明结构和事件；视觉与手感仍等待矩阵完成后的 MiniTest Android/iOS 及用户实体机复核。
+- 本地静态/simulate 只能证明结构和事件；视觉与手感仍等待 MiniTest Android/iOS 及用户实体机复核。
+
+## P1 手排矩阵 PoC 当前覆盖
+
+- `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
+- 页面只有一个同时启用横纵滚动的 Skyline `scroll-view type=list`；成员行是直接子节点，日期表头、人员列和左上角为独立冻结覆盖层，禁止 `bindscroll` 与 Canvas。
+- 5 个矩阵 Worklet 的首条语句及构建产物均受扫描；滚动更新只写 shared value，滚动结束才向 JS 提交一次进度提示。
+- 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
+- `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间仍由 MiniTest/实体机判定。
 
 ## 失败处理
 
