@@ -504,8 +504,10 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 实现：刷新定时器改为严格位于未来的中国标准时间 08:00 交接点。触发框移除左图标，日期视觉值使用紧凑且完整的 `YYYY-MM-DD 周X`，完整中文值保留给无障碍名称。滚轮取消 `scroll-snap-stop: always`，以浏览器原生惯性滚动、逐帧高亮和 `scrollend` 最终校准取代停止后防抖。
 - 测试先行与验证：旧实现新增用例失败，实现后定向 8/8；主工作区 Vitest（排除用户自有 `runtime/**`、`src/**` 副本）109 files / 649 tests、Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、完整 `node scripts/smoke-browser.mjs`、核心门禁与 `git diff --check` 通过。320px 日期无截断且按钮 44px；390px 滚轮 40ms 内更新、550ms 后无二次跳变；Axe 0 项违规。
 - 语义审计：初载/聚焦刷新、请求接收者、Promise 错误路径、完成/取消/清除事件、空值和减少动态保持；仅刷新时刻、触发框视觉密度与滚轮内部草稿更新时机改变，无 API 或业务写入副作用。
-- 当前状态：已实现待生产发布。代码 checkpoint 识别消息：`fix(web): stop manual refresh loop and tune temporal wheels`。
-- 下一批次：提交并推送本批代码，创建生产加密备份，部署正式 release，执行 `ecs-verify.sh` 和手动排班/选择器线上只读复核；随后形成最终状态 checkpoint。
+- 正式发布：代码 checkpoint `140b3fc` 已推送；发布前加密数据库备份 archive 为 `e409adc5-d2ae-4ab0-8b5a-c039a729ca7d`（50 张表、18447 行、7305428 字节，SHA-256 `77d143990c6ecc14ce7e86052db8ca797964f6c3876bf32673a82b781f7979f5`）。干净 worktree 生成并部署 release `140b3fc44f432e18f0f390e9d37003128cb09ae8`，`ecs-verify.sh` 通过；容器预热首个健康检查 502 后自动恢复。
+- 正式域名只读复核：刷新到新 Service Worker bundle 后，手动排班页连续 5 秒无加载态；日期框为 `2026-08-18 周二`、无左图标、44px 高且 `scrollWidth = clientWidth = 181px`。未保存时间草稿 08:00→10:00 在 40ms 内同步，550ms 后无二次跳变；取消后仍为空值，未保存班种，浏览器日志为空。
+- 当前状态：已完成（含生产发布与线上核验）→ 待用户复核。
+- 下一批次：只提交、推送并部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后停止，不开始其他修改。
 - 停止条件：最终状态 checkpoint 已推送并部署，Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止，等待用户复核。
 
 ## 2026-08-18 班种时间选择与跨日校验修复（当前批次）
