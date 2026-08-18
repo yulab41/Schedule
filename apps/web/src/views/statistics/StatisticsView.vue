@@ -33,6 +33,13 @@ const api = createApiClient({ auth: localAuth });
 const viewMode = ref<'month' | 'year'>('month');
 const businessMonth = ref(getCurrentBusinessMonth());
 const year = ref(Number(getCurrentBusinessMonth().slice(0, 4)));
+const statisticsYear = computed({
+  get: () => String(year.value),
+  set: (value: string) => {
+    const parsed = Number(value);
+    if (Number.isInteger(parsed)) year.value = parsed;
+  },
+});
 const isLoading = ref(false);
 const errorMessage = ref<string>();
 const monthData = ref<MonthStatisticsSnapshot>();
@@ -134,7 +141,7 @@ const shiftTypeColumns: PrimaryTableCol<TableRowData>[] = [
 
 function updateMemberScrollState(): void {
   const element = memberTableScroll.value;
-  if (element === undefined) return;
+  if (!(element instanceof HTMLElement)) return;
   memberScrollState.value = getStatisticsTableScrollState({
     clientWidth: element.clientWidth,
     scrollLeft: element.scrollLeft,
@@ -149,7 +156,7 @@ function scheduleMemberScrollUpdate(): void {
 watch(memberTableScroll, (element) => {
   memberTableResizeObserver?.disconnect();
   memberTableResizeObserver = undefined;
-  if (element !== undefined && typeof ResizeObserver !== 'undefined') {
+  if (element instanceof HTMLElement && typeof ResizeObserver !== 'undefined') {
     memberTableResizeObserver = new ResizeObserver(updateMemberScrollState);
     memberTableResizeObserver.observe(element);
   }
@@ -232,15 +239,14 @@ async function runRecalculateCheck(): Promise<void> {
           label="统计月份"
           @change="load"
         />
-        <select v-else v-model.number="year" class="statistics-year-input" @change="load">
-          <option
-            v-for="candidate in [year - 1, year, year + 1]"
-            :key="candidate"
-            :value="candidate"
-          >
-            {{ candidate }} 年
-          </option>
-        </select>
+        <TemporalPicker
+          v-else
+          v-model="statisticsYear"
+          class="statistics-year-input"
+          kind="year"
+          label="统计年份"
+          @change="load"
+        />
         <div v-if="group.role !== 'member'" class="statistics-admin-actions">
           <t-button variant="outline" size="small" @click="refreshSnapshot">刷新快照</t-button>
           <t-button variant="outline" size="small" @click="runRecalculateCheck">
@@ -403,15 +409,6 @@ async function runRecalculateCheck(): Promise<void> {
 .statistics-month-input,
 .statistics-year-input {
   min-height: var(--ui-touch-target-minimum);
-}
-
-.statistics-year-input {
-  padding: var(--ui-spacing-xxs) var(--ui-spacing-xs);
-  color: var(--ui-color-text-primary);
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-small);
-  font: inherit;
 }
 
 .statistics-admin-actions {

@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-18 统计年度选择器修复（当前批次）
+
+- 批次范围：仅把统计页“按年”的原生年份下拉替换为已确认的统一时间选择器；不修改统计口径、API、权限、数据结构或其他页面。
+- 回归定位：`git log -S`/`git blame` 确认原生年度 `<select>` 由 `36127b0` 引入；统一选择器在 `92038cd` 落地时只覆盖月/日/时间，遗漏了统计年度入口。
+- 测试先行：新增“统计年度使用单列年份滚轮且不再存在原生 select”断言，旧实现 1 项失败、5 项通过；连同空值防护实现后定向 7/7、排除用户自有 `runtime/` 与 `src/` 的全仓 Vitest 109 个文件/651 项通过（31 个数据库集成文件/260 项按默认环境跳过）。
+- 实现与语义：`TemporalPicker` 新增 `year` 类型，复用既有触控滚轮、滚动结算、焦点和取消/确认逻辑；统计页以 computed 在字符串界面值和数字 API 年份间桥接。取消不触发加载，确认后仍只执行原有一次年度统计 GET。
+- 浏览器复核同时发现 `6ec287d` 的统计表 ResizeObserver 仅排除 `undefined`、未排除重渲染时的 `null`；新增断言在旧实现失败后改为 Element 类型保护。390×844 下年度触发区 44px、单列滚轮 168px、无原生 select/横向溢出，取消后保持原年份，最终 error/warning 为 0。
+- 已通过：`运行/浏览器验证：pnpm smoke:browser`（管理员、成员、访客/vkey、访问记录全流程）、`pnpm smoke:check-core`、任务文件 Prettier/ESLint、Web typecheck/build、Storybook build 与 `git diff --check`。生产发布待本批次完成。
+- checkpoint 识别消息：`fix(web): use temporal picker for annual statistics`。
+- 下一批次与停止条件：完成本地浏览器/核心冒烟、提交推送、生产加密备份、部署及正式域名只读复核；Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止并等待用户复核。
+
 ## 当前状态（2026-08-18）
 
 - 分支：`main`，上游：`origin/main`。

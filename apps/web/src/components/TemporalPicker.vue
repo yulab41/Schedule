@@ -5,7 +5,7 @@ import { isPointOutsideRectangle } from './temporal-picker-interactions.js';
 
 defineOptions({ inheritAttrs: false });
 
-type TemporalPickerKind = 'month' | 'date' | 'time';
+type TemporalPickerKind = 'year' | 'month' | 'date' | 'time';
 type PickerScrollBehavior = 'auto' | 'smooth';
 type WheelKind = 'year' | 'month' | 'hour' | 'minute';
 
@@ -83,6 +83,7 @@ const focusableSelector = [
 ].join(',');
 
 const kindLabel = computed(() => {
+  if (props.kind === 'year') return '年份';
   if (props.kind === 'month') return '月份';
   if (props.kind === 'date') return '日期';
   return '时间';
@@ -121,6 +122,7 @@ const yearOptions = computed(() => {
 });
 
 const draftValue = computed(() => {
+  if (props.kind === 'year') return String(draftYear.value);
   if (props.kind === 'month') return `${draftYear.value}-${pad(draftMonth.value)}`;
   if (props.kind === 'date') {
     return `${draftYear.value}-${pad(draftMonth.value)}-${pad(draftDay.value)}`;
@@ -140,6 +142,7 @@ const displayValue = computed(() =>
     : formatTriggerValue(props.kind, props.modelValue),
 );
 const selectedHint = computed(() => {
+  if (props.kind === 'year') return '上下滑动选择年份';
   if (props.kind === 'month') return '上下滑动年份与月份';
   if (props.kind === 'date') return '按自然日选择';
   return `24 小时制 · ${safeMinuteStep.value} 分钟间隔`;
@@ -206,6 +209,10 @@ function parseTimeValue(value: string): { hour: number; minute: number } | undef
 }
 
 function formatDisplayValue(kind: TemporalPickerKind, value: string): string {
+  if (kind === 'year') {
+    const parsed = parseYear(value);
+    return parsed === undefined ? value : `${parsed}年`;
+  }
   if (kind === 'month') {
     const parsed = parseMonthValue(value);
     return parsed === undefined ? value : `${parsed.year}年${parsed.month}月`;
@@ -231,7 +238,9 @@ function formatTriggerValue(kind: TemporalPickerKind, value: string): string {
 
 function syncDraft(): void {
   const fallback = todayParts();
-  if (props.kind === 'month') {
+  if (props.kind === 'year') {
+    draftYear.value = parseYear(props.modelValue) ?? fallback.year;
+  } else if (props.kind === 'month') {
     const parsed = parseMonthValue(props.modelValue);
     draftYear.value = parsed?.year ?? fallback.year;
     draftMonth.value = parsed?.month ?? fallback.month;
@@ -440,7 +449,13 @@ function nearestWheelValue(wheel: HTMLElement): number {
 
 function syncDraftFromVisibleWheels(): void {
   const wheelKinds: readonly WheelKind[] =
-    props.kind === 'month' ? ['year', 'month'] : props.kind === 'time' ? ['hour', 'minute'] : [];
+    props.kind === 'year'
+      ? ['year']
+      : props.kind === 'month'
+        ? ['year', 'month']
+        : props.kind === 'time'
+          ? ['hour', 'minute']
+          : [];
   wheelKinds.forEach((kind) => {
     const wheel = wheelElement(kind);
     if (wheel === null) return;
@@ -450,7 +465,9 @@ function syncDraftFromVisibleWheels(): void {
 }
 
 function centerVisibleWheels(behavior: PickerScrollBehavior): void {
-  if (props.kind === 'month') {
+  if (props.kind === 'year') {
+    centerWheel('year', behavior);
+  } else if (props.kind === 'month') {
     centerWheel('year', behavior);
     centerWheel('month', behavior);
   } else if (props.kind === 'time') {
@@ -571,7 +588,34 @@ onBeforeUnmount(() => {
           </span>
         </div>
 
-        <div v-if="kind === 'month'" class="temporal-picker-content month-picker-panel">
+        <div v-if="kind === 'year'" class="temporal-picker-content year-picker-panel">
+          <div class="year-wheel" aria-label="年份">
+            <div
+              ref="yearWheel"
+              class="wheel-column"
+              role="listbox"
+              aria-label="年份"
+              @scroll.passive="trackWheelScroll('year', $event)"
+              @scrollend="finishWheelScroll('year', $event)"
+            >
+              <button
+                v-for="year in yearOptions"
+                :key="year"
+                type="button"
+                :data-wheel-value="year"
+                :class="{ 'is-selected': draftYear === year }"
+                :aria-selected="draftYear === year"
+                role="option"
+                @click="setWheelValue('year', year)"
+              >
+                {{ year }} <small>年</small>
+              </button>
+            </div>
+            <div class="wheel-rails" aria-hidden="true" />
+          </div>
+        </div>
+
+        <div v-else-if="kind === 'month'" class="temporal-picker-content month-picker-panel">
           <div class="month-wheel" aria-label="年月">
             <div
               ref="yearWheel"
@@ -905,6 +949,7 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
+.year-wheel,
 .month-wheel,
 .time-wheel {
   position: relative;
@@ -916,6 +961,11 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background: #fff;
   isolation: isolate;
+}
+
+.year-wheel {
+  max-width: 168px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .month-wheel {

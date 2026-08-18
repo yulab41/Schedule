@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const sourceRoot = fileURLToPath(new URL('../', import.meta.url));
 const componentPath = join(sourceRoot, 'components', 'TemporalPicker.vue');
+const statisticsViewPath = join(sourceRoot, 'views', 'statistics', 'StatisticsView.vue');
 
 function vueSources(directory: string): readonly string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -16,11 +17,11 @@ function vueSources(directory: string): readonly string[] {
 }
 
 describe('production temporal picker', () => {
-  it('uses the approved accessible month, date, and time interaction language', () => {
+  it('uses the approved accessible year, month, date, and time interaction language', () => {
     expect(existsSync(componentPath)).toBe(true);
     const component = readFileSync(componentPath, 'utf8');
 
-    expect(component).toContain("type TemporalPickerKind = 'month' | 'date' | 'time'");
+    expect(component).toContain("type TemporalPickerKind = 'year' | 'month' | 'date' | 'time'");
     expect(component).toContain('role="dialog"');
     expect(component).toContain('role="listbox"');
     expect(component).toContain('class="month-wheel"');
@@ -64,6 +65,26 @@ describe('production temporal picker', () => {
     expect(component).toContain('@scrollend="finishWheelScroll');
     expect(component).not.toContain('wheelSettleTimers');
     expect(component).not.toContain('scroll-snap-stop: always');
+  });
+
+  it('uses the unified single-wheel year picker for annual statistics', () => {
+    const component = readFileSync(componentPath, 'utf8');
+    const statisticsView = readFileSync(statisticsViewPath, 'utf8');
+
+    expect(component).toContain("type TemporalPickerKind = 'year' | 'month' | 'date' | 'time'");
+    expect(component).toContain('class="year-wheel"');
+    expect(component).toMatch(/props\.kind === 'year'\s*\?\s*\['year'\]/);
+    expect(statisticsView).toContain('v-model="statisticsYear"');
+    expect(statisticsView).toContain('kind="year"');
+    expect(statisticsView).toContain('label="统计年份"');
+    expect(statisticsView).not.toContain('<select v-else');
+  });
+
+  it('does not pass a transient null table ref to ResizeObserver when statistics rerenders', () => {
+    const statisticsView = readFileSync(statisticsViewPath, 'utf8');
+
+    expect(statisticsView).toContain('if (!(element instanceof HTMLElement)) return;');
+    expect(statisticsView).not.toContain('if (element !== undefined && typeof ResizeObserver');
   });
 
   it('closes a modal picker from a pointer outside its visible bounds', () => {
