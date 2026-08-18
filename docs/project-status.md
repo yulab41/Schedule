@@ -129,12 +129,15 @@
 - 矩阵滚动延迟回归：用户于 2026-08-19 在 7×7 和 20×30 实体运行中确认表头虽能跟随，但存在延迟和黏滞感。`git log -S`/`git blame` 定位到 `4b33274` 引入的 WXS 普通 `bindscroll` 路径；官方 Skyline Worklet 说明明确指出跨线程响应会产生延迟，`worklet:onscrollupdate` 与 SharedValue/`applyAnimatedStyle` 用于 UI 线程直接反馈。回归测试先以 2 项失败证明旧实现仍使用 WXS 且滚动回调没有更新冻结轨道 SharedValue；修复后冻结轨道与进度条在 `onLoad` 绑定，横纵偏移由同一个 UI 线程滚动回调直接写入，不增加 timing/spring 补间，也不改变点击、撤销、数据或滚动结束提示的调用次数。当前实现待用户重新人工复核 C/D。
 - 矩阵延迟修复验证：定向回归 6/6、Mini 全套 10 文件/37 项通过；staging/production 源码与产物均保留 5 个 Worklet，包体分别为 104,143/104,136 bytes，manifest 分别为 `79aeb4f5b60416906686e5df5b0d46df8820177cb78f86dbb48b34ab2be74a9a` / `062ce07925cc4ab801180fc1eb167beb7ede8b1e1747884a534ec87945f942e1`。Mini typecheck、确定性、包体审计、无凭据 CI dry-run、根 lint/build/typecheck、排除用户自有 `runtime/**`/`src/**` 后主工作区 119 文件/698 项（31 文件/261 项按环境跳过）、`pnpm smoke:check-core`、任务文件 Prettier/ESLint 与 `git diff --check` 通过；根 `format:check` 仍只被用户自有 `project.config.json` 格式问题拦截，该文件及 `runtime/`、`src/` 均未修改且不会暂存。
 - 矩阵延迟修复发布：代码 checkpoint `3b9a677`（`fix(miniprogram): remove matrix scroll lag`）已推送；发布前加密数据库备份 archive 为 `dce9ac35-6c36-4d02-a488-8f40fb94b2ec`（50 表、18,510 行、7,379,296 字节，SHA-256 `dcfe627e52750d9333da206e470f649c170bebe4621c92b90d250de169e0fa51`）。release `3b9a6777c1e75c8cfe91e49429955b0d37357e7f` 从隔离干净 worktree 构建并部署；首次健康探测一次 502 后自动恢复，`ecs-verify.sh` 通过正式域名健康、38 个迁移、产物哈希、域名隔离、公开端口和容器检查。
-- 微信上传规则：用户于 2026-08-19 要求每次完成的小程序修改 checkpoint 均提交微信开发平台。今后在 Git 推送后使用 Node 版 `miniprogram-ci` 上传开发/体验轨道；dry-run 不算上传，提交审核与正式发布仍须用户明确批准。当前环境未配置 `WECHAT_CI_PRIVATE_KEY_PATH`，常用用户目录和 `E:\AItools` 未找到可用 `.key`/`.pem`，因此本 checkpoint 的真实微信上传待用户提供仓库外私钥绝对路径后补传；不得唤醒或改用本地开发者工具 CLI。
-- 当前状态：动态月历与矩阵轴同步已实现待用户人工原生复核；基础控件按钮排布也仍待用户明确确认。P1 尚未完成，不能提前进入 P2。
-- 下一批次：用户人工重新编译并复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动；7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。通过后再按仍未确认的 P1 项继续；若失败，只修复对应失败项。
-- 本 checkpoint 识别消息：`fix(miniprogram): remove matrix scroll lag`。
-- 最终状态 checkpoint 识别消息：`docs(status): record matrix sync deployment`。
-- 停止条件：本轮修复 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后真实上传同一小程序 checkpoint 到微信开发/体验轨道。若仅因仓库外上传私钥缺失而阻塞，则明确向用户索取绝对路径并停止，不进入 P2；上传完成后再交付 C/D 人工复测步骤并等待反馈，不以静态测试代替用户人工原生验收。
+- 微信上传规则：用户于 2026-08-19 要求每次完成的小程序修改 checkpoint 均提交微信开发平台。今后在 Git 推送后使用 Node 版 `miniprogram-ci` 上传开发/体验轨道；dry-run 不算上传，提交审核与正式发布仍须用户明确批准。用户已提供仓库外上传私钥文件，路径仅在运行时注入且不写入仓库或日志；不得唤醒或改用本地开发者工具 CLI。
+- 第二次人工回归：用户确认 `3b9a677` 在真实运行中日期/人员表头变为固定，未随对应轴滚动，因此上一轮“同帧修复”判定撤销，不能以静态 37/37 代替真机结果。官方复核确认 `worklet:onscrollupdate` 的 `scrollLeft/scrollTop` 字段和 SharedValue 路径正确，但 `applyAnimatedStyle` 默认 `flush: 'async'`，样式到下一渲染时间片才应用；官方为强同步场景提供 `flush: 'sync'`。新回归先在旧实现上失败，随后要求 updater 按官方典型示例直接捕获局部 `scrollX/scrollY`，且日期/人员冻结轨道显式同步刷新；页面实例保存同一 SharedValue 供滚动 Worklet 写入，不改变事件字段、偏移方向、数据、点击、撤销或调用次数。
+- 微信上传首次实跑：用户提供仓库外上传私钥后，`2fcc991` 的真实体验上传进入官方 Summer 编译器，但在平台状态改变前因 pnpm 严格布局下无法从项目根解析 `@babel/plugin-transform-shorthand-properties` 停止。`miniprogram-ci@2.1.31` 自身已声明该依赖，上传封装现把其自带依赖根加入子进程 `NODE_PATH`；回归先失败后通过，不复制依赖、不读取私钥内容、不启动开发者工具。
+- 本轮验证：冻结轨道与上传设置的回归断言均先失败后通过，定向 12/12、Mini 全套 10 文件/39 项、主仓排除用户自有 `runtime/**`/`src/**` 后 119 文件/700 项通过（31 文件/261 项按环境跳过）。Mini typecheck、staging/production verify、确定性、源码/包体、CI dry-run、根 lint/build/typecheck、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；staging/production 包体为 104,325/104,318 bytes，manifest 为 `b1adaf818211cebeb95adb3d56b6fb61ace12aeb940705f3d95e3434ee9a0891` / `35f45e933c40b1215cc0c67fab1d78c16d5fc23af4fcb8c85452c2606da4830f`，源码与产物均保留 5 个 Worklet。根格式全检仍只会被用户自有 `project.config.json` 拦截，该文件及 `runtime/`、`src/` 不暂存。
+- 当前状态：动态月历已待用户人工复核；矩阵第二次 Worklet 修复与 CI 上传兼容修复已通过本地门禁，待建立 checkpoint、部署并真实上传。基础控件按钮排布也仍待用户明确确认。P1 尚未完成，不能提前进入 P2。
+- 下一批次：完成本轮静态/构建门禁并真实上传新的微信体验版，随后由用户人工复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动；7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。通过后再按仍未确认的 P1 项继续；若失败，只修复对应失败项。
+- 本 checkpoint 识别消息：`fix(miniprogram): synchronize matrix worklet headers`。
+- 最终状态 checkpoint 识别消息：`docs(status): record matrix worklet upload`。
+- 停止条件：本轮修复 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后真实上传同一 checkpoint 到微信体验轨道并交付 C/D 人工复测步骤。用户反馈前不进入 P2，不以静态测试代替人工原生验收。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 

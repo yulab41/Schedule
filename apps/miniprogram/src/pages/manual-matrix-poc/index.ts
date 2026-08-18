@@ -46,7 +46,11 @@ interface ManualMatrixPageInstance {
   _undoStack: ManualMatrixUndoEntry[];
   _viewportWidth: MiniProgramSharedValue<number>;
   readonly data: ManualMatrixPocViewModel;
-  applyAnimatedStyle(selector: string, updater: () => Record<string, string>): void;
+  applyAnimatedStyle(
+    selector: string,
+    updater: () => Record<string, string>,
+    userConfig?: { readonly flush?: 'async' | 'sync'; readonly immediate?: boolean },
+  ): void;
   commitScrollProgress(progress: number): void;
   createSelectorQuery(): {
     select(selector: string): {
@@ -65,24 +69,35 @@ Page({
   onLoad(this: ManualMatrixPageInstance, options: { readonly mode?: string } = {}): void {
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
+    const scrollProgress = shared(0);
+    const scrollX = shared(0);
+    const scrollY = shared(0);
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
-    this._scrollProgress = shared(0);
-    this._scrollX = shared(0);
-    this._scrollY = shared(0);
+    this._scrollProgress = scrollProgress;
+    this._scrollX = scrollX;
+    this._scrollY = scrollY;
     this._viewportWidth = shared(1);
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
-    this.applyAnimatedStyle('#matrix-date-track', () => {
-      'worklet';
-      return { transform: `translateX(${-this._scrollX.value}px)` };
-    });
-    this.applyAnimatedStyle('#matrix-member-track', () => {
-      'worklet';
-      return { transform: `translateY(${-this._scrollY.value}px)` };
-    });
+    this.applyAnimatedStyle(
+      '#matrix-date-track',
+      () => {
+        'worklet';
+        return { transform: `translateX(${-scrollX.value}px)` };
+      },
+      { flush: 'sync' },
+    );
+    this.applyAnimatedStyle(
+      '#matrix-member-track',
+      () => {
+        'worklet';
+        return { transform: `translateY(${-scrollY.value}px)` };
+      },
+      { flush: 'sync' },
+    );
     this.applyAnimatedStyle('#matrix-scroll-thumb', () => {
       'worklet';
-      return { transform: `translateX(${this._scrollProgress.value * 36}px)` };
+      return { transform: `translateX(${scrollProgress.value * 36}px)` };
     });
     if (mode !== defaultViewModel.mode) this.setData({ ...viewModel });
   },

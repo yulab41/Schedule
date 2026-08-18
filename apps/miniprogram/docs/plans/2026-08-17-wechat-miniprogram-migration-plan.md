@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用一个横纵滚动主体、成员行纵向虚拟化和独立冻结覆盖层。每个可见成员行最多 30 格；`worklet:onscrollupdate` 在 UI 线程同帧写入横纵 SharedValue，分别驱动日期表头和人员列，不经过 WXS/普通 `bindscroll`，滚动中不调用 `setData`；点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。
+手排采用一个横纵滚动主体、成员行纵向虚拟化和独立冻结覆盖层。每个可见成员行最多 30 格；`worklet:onscrollupdate` 在 UI 线程写入横纵 SharedValue，动画 updater 按官方示例直接捕获这些局部 SharedValue，分别驱动日期表头和人员列。冻结轨道的 `applyAnimatedStyle` 必须配置 `{ flush: 'sync' }`，使新样式在当前渲染时间片生效，而不是使用默认的下一时间片异步刷新；这是本项目最低基础库 3.0.2 已支持的能力。不经过 WXS/普通 `bindscroll`，滚动中不调用 `setData`；点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet 与动画样式](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
 
 ## 6. 网络、会话和缓存
 

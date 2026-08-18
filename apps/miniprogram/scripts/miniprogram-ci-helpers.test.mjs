@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import { APP_ROOT } from './build-tools.mjs';
 import {
+  MINIPROGRAM_CI_SETTINGS,
+  configureMiniprogramCiModulePath,
   parseCiArguments,
   redactText,
   resolveCiCredentials,
@@ -14,6 +16,10 @@ import {
 } from './miniprogram-ci-helpers.mjs';
 
 describe('miniprogram-ci helpers', () => {
+  it('always compiles Worklet functions in official preview and upload builds', () => {
+    expect(MINIPROGRAM_CI_SETTINGS).toMatchObject({ compileWorklet: true });
+  });
+
   it('supports only preview and experience upload actions', () => {
     expect(parseCiArguments(['preview', '--profile=staging', '--dry-run'])).toEqual({
       action: 'preview',
@@ -75,5 +81,27 @@ describe('miniprogram-ci helpers', () => {
     expect(redactText('appid=CREDENTIAL path=C:\\key', ['CREDENTIAL', 'C:\\key'])).toBe(
       'appid=[REDACTED] path=[REDACTED]',
     );
+  });
+
+  it('exposes miniprogram-ci bundled compiler dependencies to worker processes', () => {
+    const existingRoot = path.resolve('fixture-existing');
+    const sharedRoot = path.resolve('fixture-shared');
+    const environment = { NODE_PATH: `${existingRoot}${path.delimiter}${sharedRoot}` };
+    const dependencyRoot = path.resolve('fixture-ci', 'node_modules');
+    const resolvedRoot = configureMiniprogramCiModulePath(environment, () =>
+      path.join(dependencyRoot, 'miniprogram-ci', 'package.json'),
+    );
+
+    expect(resolvedRoot).toBe(dependencyRoot);
+    expect(environment.NODE_PATH.split(path.delimiter)).toEqual([
+      dependencyRoot,
+      existingRoot,
+      sharedRoot,
+    ]);
+
+    configureMiniprogramCiModulePath(environment, () =>
+      path.join(dependencyRoot, 'miniprogram-ci', 'package.json'),
+    );
+    expect(environment.NODE_PATH.split(path.delimiter)).toHaveLength(3);
   });
 });

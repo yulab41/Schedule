@@ -1,4 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 import {
@@ -12,6 +13,15 @@ import {
 const ALLOWED_ACTIONS = new Set(['preview', 'upload-experience']);
 const DEFAULT_ROBOT = 1;
 const REPOSITORY_ROOT = path.resolve(APP_ROOT, '..', '..');
+const require = createRequire(import.meta.url);
+
+export const MINIPROGRAM_CI_SETTINGS = Object.freeze({
+  compileWorklet: true,
+  es6: true,
+  minify: true,
+  minifyWXML: true,
+  minifyWXSS: true,
+});
 
 function isInsidePath(parentPath, candidatePath) {
   const relativePath = path.relative(parentPath, candidatePath);
@@ -93,6 +103,19 @@ export function redactText(value, secrets) {
   return output;
 }
 
+export function configureMiniprogramCiModulePath(
+  environment = process.env,
+  resolvePackage = (specifier) => require.resolve(specifier),
+) {
+  const packagePath = resolvePackage('miniprogram-ci/package.json');
+  const dependencyRoot = path.dirname(path.dirname(packagePath));
+  const existingEntries = (environment.NODE_PATH ?? '')
+    .split(path.delimiter)
+    .filter((entry) => entry.length > 0 && entry !== dependencyRoot);
+  environment.NODE_PATH = [dependencyRoot, ...existingEntries].join(path.delimiter);
+  return dependencyRoot;
+}
+
 export async function withRedactedConsole(secrets, operation) {
   const originalMethods = new Map();
   for (const method of ['debug', 'error', 'info', 'log', 'warn']) {
@@ -135,6 +158,7 @@ export async function runCiCommand({ action, dryRun, profile }, environment = pr
   const credentials = resolveCiCredentials(environment);
   const { appid } = await loadProjectIdentity();
   const secrets = [appid, credentials.privateKeyPath];
+  configureMiniprogramCiModulePath(environment);
   const ciModule = await import('miniprogram-ci');
   const ci = ciModule.default ?? ciModule;
   const project = new ci.Project({
@@ -143,12 +167,7 @@ export async function runCiCommand({ action, dryRun, profile }, environment = pr
     projectPath: APP_ROOT,
     type: 'miniProgram',
   });
-  const settings = {
-    es6: true,
-    minify: true,
-    minifyWXML: true,
-    minifyWXSS: true,
-  };
+  const settings = { ...MINIPROGRAM_CI_SETTINGS };
 
   if (action === 'preview') {
     const previewDirectory = path.join(ARTIFACT_ROOT, 'preview');
