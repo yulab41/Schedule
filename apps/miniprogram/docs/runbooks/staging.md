@@ -18,4 +18,4 @@ staging 与 production 使用独立编译 profile、合法域名、证书、服�
 
 ## 数据规则
 
-MiniTest 和体验版只能使用批准的 staging fixtures 或专用测试身份。不得复制生产数据库、真实电话、长期 visitorKey 或真实会话到 staging。任何需要真实平台资格的订阅模板验证单独记录，不能静默更改正式用户偏好。
+人工原生测试和体验版只能使用批准的 staging fixtures 或专用测试身份。不得复制生产数据库、真实电话、长期 visitorKey 或真实会话到 staging。任何需要真实平台资格的订阅模板验证单独记录，不能静默更改正式用户偏好。

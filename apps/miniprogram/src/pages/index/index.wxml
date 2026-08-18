@@ -1,4 +1,4 @@
-<view id="p1-foundation" class="foundation-preview">
+<view class="foundation-preview">
   <view class="preview-heading">
     <view class="preview-heading__copy">
       <text class="context-label">P1 · 原生复刻基线</text>
@@ -41,7 +41,6 @@
           <text class="setting-description">收起没有换班、请假或加扣班记录的日期。</text>
         </view>
         <ui-switch
-          id="p1-switch-changes-only"
           checked="{{changesOnly}}"
           label="仅显示有变更的班次"
           bind:change="handleChangesOnlyChange"
@@ -53,7 +52,6 @@
           <text class="setting-description">关闭状态保留中性灰，不使用 TDesign 默认绿色。</text>
         </view>
         <ui-switch
-          id="p1-switch-notifications"
           checked="{{notifications}}"
           label="微信值班提醒"
           bind:change="handleNotificationsChange"
@@ -76,7 +74,6 @@
     </view>
     <view class="choice-section">
       <ui-checkbox
-        id="p1-checkbox-contact"
         checked="{{contactChecked}}"
         label="已核对联系方式"
         bind:change="handleContactCheckedChange"
@@ -84,7 +81,6 @@
       <view class="radio-group" aria-role="radiogroup" aria-label="默认日历视图">
         <view class="radio-option">
           <ui-radio
-            id="p1-radio-month"
             checked="{{calendarView === 'month'}}"
             label="月视图"
             value="month"
@@ -93,7 +89,6 @@
         </view>
         <view class="radio-option">
           <ui-radio
-            id="p1-radio-week"
             checked="{{calendarView === 'week'}}"
             label="周视图"
             value="week"

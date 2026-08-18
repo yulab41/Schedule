@@ -20,9 +20,7 @@
 
 P1 在 app `package.json` 中建立稳定脚本，根 `package.json` 只做 workspace 委托：build、typecheck、simulate、package-audit、preview、upload-experience。脚本必须支持 dry-run、结构化脱敏日志和非零失败码。
 
-当前锁定 Node 包 `miniprogram-ci@2.1.31`（2026-08-18 npm `latest`），不跟随 alpha/beta/gamma 标签。升级只能作为独立的 Skyline/构建批次，并重新执行 MiniTest。
-
-用于 MiniTest 开发中预览版时，`WECHAT_CI_ROBOT` 必须为 1–10，并与 `MINITEST_DEV_ACCOUNT_NO` 完全相同。普通 `miniprogram-ci` 虽支持更大的 robot 范围，本项目 P1 云真机轨道不得使用 11–30。
+当前锁定 Node 包 `miniprogram-ci@2.1.31`（2026-08-18 npm `latest`），不跟随 alpha/beta/gamma 标签。升级只能作为独立的 Skyline/构建批次，并重新执行用户人工原生验收。
 
 凭证和上传元数据使用环境变量：
 

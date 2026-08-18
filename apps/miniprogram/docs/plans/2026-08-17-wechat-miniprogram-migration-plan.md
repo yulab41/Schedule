@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；四项 Web 黄金基线均已由用户确认；P1 原生基础控件、同源 WXSS 令牌、42 格 Skyline 月历及 7×7/20×30 手排矩阵 PoC 均已通过静态、simulate 和确定性构建门禁；P1 MiniTest 四页证据清单、可上传的确定性 Minium Python ZIP、安全 dry-run/提交/状态 runner 与 98%/2%/2px 自有比较器已落地；下一项仅执行平台用例注册、MiniTest Android/iOS 原生复核与用户实体机确认，当前等待仓库外上传私钥及可用 MiniTest 项目/权限
+- 状态：P0 与 P1 非视觉工具链已完成；四项 Web 黄金基线均已由用户确认；P1 原生基础控件、同源 WXSS 令牌、42 格 Skyline 月历及 7×7/20×30 手排矩阵 PoC 均已通过静态、simulate 和确定性构建门禁；用户于 2026-08-18 决定不使用 MiniTest/Minium 云测，P1 下一项仅为用户人工打开微信开发者工具并在实体 Android 按固定四页清单验收，反馈通过后进入 P2
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界
@@ -12,8 +12,8 @@
 2. 原生栈固定为 WXML、WXSS、TypeScript、JSON、Skyline 和 glass-easel；最低基础库 3.0.2，不提供 WebView 回退。
 3. `rendererOptions.skyline.disableABTest=true`，正式范围为 `3.0.2` 至 `15.255.255`。正式发布前记录实际 Stable 编译基础库。
 4. 禁止 TDesign MiniProgram 和第三方 UI 库；基础控件、月历、排班格、弹层、导航和状态全部自绘。
-5. Web Storybook 是视觉黄金源；原生运行真值由 MiniTest 和用户实体 Android 提供。本地微信开发者工具只允许用户人工诊断，LLM 永不启动或控制它。
-6. 源码采用确定性 `src → dist`；`dist`、私有配置、二维码、截图、MiniTest 结果和上传私钥不进入 Git。
+5. Web Storybook 是视觉黄金源；原生运行真值由用户人工操作微信开发者工具 GUI 和实体 Android 提供。LLM 永不启动、控制或自动化本地微信开发者工具。
+6. 源码采用确定性 `src → dist`；`dist`、私有配置、二维码、人工测试截图和上传私钥不进入 Git。
 7. 账号不提供注销。解绑只移除当前正式小程序 AppID 的身份，不影响业务用户、用户名、群组、排班、审计或其他微信渠道。
 8. 匿名访客继续存在；完整电话只有在成员针对该群组给出可审计的单独同意后才公开。
 9. 手工排班的单次模板、编辑、预览、应用、生成和草稿覆盖均限制 20 人、30 天、600 格；首尾日期总区间不得超过 30 天。
@@ -161,31 +161,31 @@ MAX_MANUAL_CELLS = 600;
 
 ## 8. 预览和视觉流程
 
-`frontend-design` + Web Storybook 负责意图、390×844 黄金和 320 边界；`miniprogram-simulate` 只验证属性/事件/状态/组件树；`miniprogram-ci` 只编译和上传；MiniTest/实体机才验证原生渲染、交互和性能。
+`frontend-design` + Web Storybook 负责意图、390×844 黄金和 320 边界；`miniprogram-simulate` 只验证属性/事件/状态/组件树；`miniprogram-ci` 只编译和上传；用户人工操作微信开发者工具 GUI 与实体设备验证原生渲染、交互和性能。
 
-每页顺序：设计意图与状态矩阵 → Storybook 390 黄金 → 320/大字号 → 用户确认 → 原生 WXML/WXSS → simulate → MiniTest Android/iOS → 官方差异与自有比较器 → 截图批评修正 → 用户最终确认。
+每页顺序：设计意图与状态矩阵 → Storybook 390 黄金 → 320/大字号 → 用户确认 → 原生 WXML/WXSS → simulate/静态门禁 → 用户人工 GUI/实体机测试 → 必要时用截图与自有比较器诊断 → 修正 → 用户最终确认。
 
 ## 9. 阶段和停止条件
 
 | 阶段                | 范围                                                                     | 停止条件                                                                                 |
 | ------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
 | P0 安全迁入         | 协调脏树；迁入 Skyline 模板；建立 docs/AGENTS/ignore/计划                | 外部目录迁空；AppID 保留；私有配置未跟踪；无无关文件进入 checkpoint；根状态仅留链接/批次 |
-| P1 工具链与风险 PoC | src→dist、静态门禁；基础控件/月历/矩阵视觉确认；42 格与 7×7/20×30 PoC    | 无 DevTools 编译/预览上传；MiniTest Android/iOS 达标，否则不进业务迁移                   |
+| P1 工具链与风险 PoC | src→dist、静态门禁；基础控件/月历/矩阵视觉确认；42 格与 7×7/20×30 PoC    | 静态门禁通过；用户人工编译并在实体 Android 完成四页清单，明确反馈通过后进入 P2           |
 | P2 共享核心         | presentation-core、client-core、transport、tokens、fixtures、解码器      | Web 先用且回归；Mini bundle 边界/黄金解码一致性通过                                      |
 | P3 身份安全         | 数据预检、关闭公开注册、账号后台、登录/建档/两种绑定/密码/解绑           | 身份并发、UnionID、旧 token、无注销等安全测试通过                                        |
 | P4 壳层与日历       | 自绘导航、登录/邀请/访客、工作台、月周列表、详情、认领、成员、缓存、设置 | 未迁功能隐藏；核心只读链路和 24h 缓存通过                                                |
 | P5 排班闭环         | 手排、限制、撤销、预览/应用、风险、草稿/发布版本、补录、电话同意         | 20/30/600、30 天区间、原子补录、版本和隐私通过                                           |
 | P6 核心 v1          | 弱网、后台、权限、缓存、性能、隐私、回滚硬化                             | 体验版与回滚演练通过，用户批准后 100% 正式发布                                           |
-| P7 工作流           | 请假、换班、加扣班、审批/撤销/冲突和消息                                 | 阶段 RC、MiniTest、实体机、用户批准                                                      |
-| P8 组织管理         | 群组/成员/预设、班种/岗位/规则、邀请/访客码、平台账号后台                | 阶段 RC、权限/身份、MiniTest、实体机、用户批准                                           |
-| P9 数据与消息       | 事件、访客日志、统计、通知、订阅、CSV/XLSX                               | 阶段 RC、隐私/导出/消息、MiniTest、实体机、用户批准                                      |
+| P7 工作流           | 请假、换班、加扣班、审批/撤销/冲突和消息                                 | 阶段 RC、用户人工实体机测试和批准                                                        |
+| P8 组织管理         | 群组/成员/预设、班种/岗位/规则、邀请/访客码、平台账号后台                | 阶段 RC、权限/身份、用户人工实体机测试和批准                                             |
+| P9 数据与消息       | 事件、访客日志、统计、通知、订阅、CSV/XLSX                               | 阶段 RC、隐私/导出/消息、用户人工实体机测试和批准                                        |
 | P10 对等审计        | 逐 Web 路由、角色、状态、错误分支核对；补齐院内通讯录等迁移后新增功能    | 除批准的平台差异与 Web/PWA 专属能力外无缺失                                              |
 
 ## 10. 验证和发布硬门槛
 
-普通 checkpoint：根 format/lint/build/typecheck/test；Mini WXML/WXSS/TS/JSON；包边界、密钥、Zod、Node/DOM；Worklet 指令；构建确定性；包体；simulate；涉及 Web 核心时 browser smoke；`pnpm smoke:check-core`。MiniTest 只在风险 PoC、核心 v1 RC、后续正式阶段 RC 和重大 Skyline/构建升级执行。
+普通 checkpoint：根 format/lint/build/typecheck/test；Mini WXML/WXSS/TS/JSON；包边界、密钥、Zod、Node/DOM；Worklet 指令；构建确定性；包体；simulate；涉及 Web 核心时 browser smoke；`pnpm smoke:check-core`。P1、核心 v1 RC、后续正式阶段 RC 和重大 Skyline/构建升级均由用户执行对应人工原生测试清单；用户未反馈通过时不得越过阶段门槛。
 
-正式发布前必须同时满足：暴露过的 AppSecret 已轮换；私钥/Secret 在仓库外；staging/production request/download 合法域名完成；隐私指引和手机号单独同意可审计；生产无未处理超限模板；MiniTest/实体机/视觉/性能通过；能力开关和回滚演练通过；用户明确批准审核和发布。
+正式发布前必须同时满足：暴露过的 AppSecret 已轮换；私钥/Secret 在仓库外；staging/production request/download 合法域名完成；隐私指引和手机号单独同意可审计；生产无未处理超限模板；用户人工实体机视觉/交互/性能验收通过；能力开关和回滚演练通过；用户明确批准审核和发布。
 
 ## 11. 执行规约
 
@@ -208,6 +208,5 @@ MAX_MANUAL_CELLS = 600;
 - [Skyline 发布上线](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/migration/release.html)
 - [分包加载](https://developers.weixin.qq.com/miniprogram/dev/framework/subpackages.html)
 - [miniprogram-ci](https://developers.weixin.qq.com/miniprogram/dev/devtools/ci.html)
-- [MiniTest](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/)
 - [订阅消息](https://developers.weixin.qq.com/miniprogram/dev/framework/open-ability/subscribe-message-overview.html)
 - [隐私保护指引](https://developers.weixin.qq.com/miniprogram/dev/framework/user-privacy/miniprogram-intro.html)

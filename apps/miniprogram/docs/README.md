@@ -15,7 +15,7 @@
 - 页面黄金清单：[`design/page-golden-manifest.md`](design/page-golden-manifest.md)
 - 测试总则：[`testing/test-plan.md`](testing/test-plan.md)
 - 设备矩阵：[`testing/device-matrix.md`](testing/device-matrix.md)
-- CI、MiniTest、环境与发布：[`runbooks/`](runbooks/)
+- CI、用户人工原生验收、环境与发布：[`runbooks/`](runbooks/)
 - 已冻结决策：[`decisions/`](decisions/)
 
 ## 文档维护规则

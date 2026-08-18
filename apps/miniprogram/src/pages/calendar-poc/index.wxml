@@ -1,4 +1,4 @@
-<view id="p1-calendar" class="calendar-poc-page">
+<view class="calendar-poc-page">
   <view class="poc-heading">
     <view class="poc-heading-copy">
       <text class="context-label">P1 · 原生复刻基线</text>
@@ -9,7 +9,6 @@
 
   <view class="month-view">
     <calendar-month
-      id="p1-calendar-month"
       month-label="{{monthLabel}}"
       panels="{{panels}}"
       bind:locatetoday="handleLocateToday"

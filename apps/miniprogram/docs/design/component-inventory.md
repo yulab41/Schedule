@@ -30,5 +30,5 @@
 - 月历横向手势在 UI 线程执行方向锁、56px 距离或 600px/s 速度结算、180ms 回弹与 240ms 翻页；结算后只向逻辑层发送一次月份变化事件，滚动过程中不调用 `setData`。
 - 已实现 `ManualScheduleCell` 与矩阵 PoC：`pages/manual-matrix-poc/index?mode=daily|maximum` 分别生成 7×7 和 20×30 确定性数据；单一 Skyline 双轴 `scroll-view` 承载主体，日期与人员覆盖层由 5 个 Worklet 在 UI 线程同步，滚动期间不调用 `setData`。
 - 班种选择只更新前一选中格和目标格的数据路径；撤销栈只保存 `{key,before,after}` 增量。20 行使用 `type=list` 按视口绘制直接子行，不依赖最低基础库 3.0.2 尚不可用的 `list-builder` 节点回收。
-- 已通过属性/事件单测、`miniprogram-simulate` 组件树与事件烟测、源码边界、包体和确定性构建。Storybook/simulate 仍不等价于微信运行时，基础控件、月历和矩阵的原生视觉状态均保持“已实现待 MiniTest/实体机复核”。
+- 已通过属性/事件单测、`miniprogram-simulate` 组件树与事件烟测、源码边界、包体和确定性构建。Storybook/simulate 仍不等价于微信运行时，基础控件、月历和矩阵的原生视觉状态均保持“已实现待用户实体 Android 人工复核”。
 - `UiSheet`、`UiDialog`、`UiConfirm`、导航与业务组件尚未实现；必须等待其对应黄金状态确认，不从本批次外推样式。

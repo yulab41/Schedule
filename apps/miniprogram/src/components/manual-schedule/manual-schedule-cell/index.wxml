@@ -1,5 +1,4 @@
 <view
-  id="{{testId}}"
   class="manual-schedule-cell {{isSelected ? 'is-selected' : ''}} {{isStale ? 'is-stale' : ''}} {{disabled ? 'is-disabled' : ''}}"
   hover-class="{{disabled ? 'none' : 'is-pressed'}}"
   hover-start-time="0"

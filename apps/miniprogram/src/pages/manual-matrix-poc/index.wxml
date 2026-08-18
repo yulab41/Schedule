@@ -1,4 +1,4 @@
-<view id="p1-manual-matrix" class="matrix-preview">
+<view class="matrix-preview">
   <view class="matrix-heading">
     <view class="matrix-heading-copy">
       <text class="context-label">P1 · 原生矩阵风险基线</text>
@@ -14,7 +14,6 @@
       <view
         wx:for="{{shiftTypes}}"
         wx:key="id"
-        id="matrix-shift-{{item.id}}"
         class="palette-button {{activeShiftTypeId === item.id ? 'is-active' : ''}}"
         style="background-color:{{item.color}};color:{{item.textColor}}"
         hover-class="is-pressed"
@@ -34,7 +33,6 @@
       <text class="matrix-toolbar-note">表头与人员列冻结；主体横纵滚动。</text>
     </view>
     <view
-      id="matrix-undo"
       class="undo-button {{canUndo ? '' : 'is-disabled'}}"
       hover-class="{{canUndo ? 'is-pressed' : 'none'}}"
       aria-role="button"
@@ -61,7 +59,6 @@
 
   <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
     <scroll-view
-      id="matrix-scroll"
       class="matrix-scroll"
       type="list"
       scroll-x
@@ -92,7 +89,6 @@
             is-stale="{{cell.isStale}}"
             key-value="{{cell.key}}"
             row-index="{{cell.rowIndex}}"
-            test-id="matrix-cell-r{{row.rowIndex}}-c{{cell.columnIndex}}"
             text-color="{{cell.textColor}}"
             bind:select="handleCellSelect"
           ></manual-schedule-cell>

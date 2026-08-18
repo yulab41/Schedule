@@ -1,8 +1,9 @@
 {
   "schemaVersion": 1,
-  "description": "Schedule P1 native visual and performance gate",
+  "description": "Schedule P1 user-operated native visual and interaction acceptance",
+  "channel": "user-manual",
+  "requiredDevice": "user-android-physical",
   "entryRoute": "pages/index/index",
-  "platforms": ["android", "ios"],
   "maskVersion": "p1-v1",
   "thresholds": {
     "stableRegionSimilarity": 0.98,
@@ -14,33 +15,34 @@
     "maximumMatrixRenderMs": 1000,
     "tapFeedbackMs": 100
   },
+  "completion": {
+    "acceptedFeedback": ["P1人工测试通过", "P1 人工测试通过", "通过"],
+    "screenshotsRequiredOnPass": false,
+    "failureReportFields": ["caseId", "state", "symptom"]
+  },
   "cases": [
     {
       "id": "foundation-controls",
       "route": "pages/index/index",
       "storybookStoryId": "miniprogram-parity-p1-foundation--controls-390",
-      "screenshotName": "p1-foundation-controls-v1",
       "states": ["initial", "notification-on", "contact-unchecked", "week-selected"]
     },
     {
       "id": "calendar-month",
       "route": "pages/calendar-poc/index",
       "storybookStoryId": "miniprogram-parity-p1-calendar--month-390",
-      "screenshotName": "p1-calendar-month-v1",
       "states": ["initial", "selected-date", "previous-month", "next-month", "rebound"]
     },
     {
       "id": "manual-matrix-daily",
       "route": "pages/manual-matrix-poc/index?mode=daily",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--daily-390",
-      "screenshotName": "p1-manual-matrix-daily-v1",
       "states": ["initial", "horizontal-scroll", "cell-selected", "undo"]
     },
     {
       "id": "manual-matrix-maximum",
       "route": "pages/manual-matrix-poc/index?mode=maximum",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--maximum-390",
-      "screenshotName": "p1-manual-matrix-maximum-v1",
       "states": ["initial", "scroll-end", "stale-cell", "cell-selected", "undo"]
     }
   ]

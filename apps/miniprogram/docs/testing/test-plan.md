@@ -11,7 +11,7 @@
 7. `miniprogram-simulate` 的 props/events/state/component-tree 测试。
 8. 涉及 Web 核心链路时运行 `pnpm smoke:browser`；所有 checkpoint 运行 `pnpm smoke:check-core`。
 
-MiniTest 只在 P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构建升级执行。Storybook、simulate 和 `miniprogram-ci` 编译均不能替代原生运行测试。
+P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构建升级均执行用户人工原生测试。Storybook、simulate 和 `miniprogram-ci` 编译均不能替代用户在微信运行时的人工确认。
 
 ## 关键套件
 
@@ -55,7 +55,7 @@ MiniTest 只在 P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重�
 - 相邻月份格不可选择；当前月日期只发出一次语义事件。
 - 横向方向锁、56px 距离结算、600px/s 速度结算、取消回弹和构建后 Worklet 指令保留。
 - 18px 外框裁切、方形内部格与独立详情 12px 间距的源码结构门禁。
-- 本地静态/simulate 只能证明结构和事件；视觉与手感仍等待 MiniTest Android/iOS 及用户实体机复核。
+- 本地静态/simulate 只能证明结构和事件；视觉与手感仍等待用户人工打开微信开发者工具并在实体 Android 复核。
 
 ## P1 手排矩阵 PoC 当前覆盖
 
@@ -63,17 +63,16 @@ MiniTest 只在 P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重�
 - 页面只有一个同时启用横纵滚动的 Skyline `scroll-view type=list`；成员行是直接子节点，日期表头、人员列和左上角为独立冻结覆盖层，禁止 `bindscroll` 与 Canvas。
 - 5 个矩阵 Worklet 的首条语句及构建产物均受扫描；滚动更新只写 shared value，滚动结束才向 JS 提交一次进度提示。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
-- `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间仍由 MiniTest/实体机判定。
+- `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 
-## P1 原生证据工具当前覆盖
+## P1 用户人工原生验收
 
-- `testing/p1-minitest-plan.json` 固定基础控件、42 格月历、7×7 和 20×30 四条原生路由，Android/iOS、截图名、交互状态及性能门槛不能在运行时漂移。
-- `testing/minium/p1/test_p1_native.py` 是可上传 MiniTest 的官方 Minium Python 用例源；4 个 `test_*` 方法覆盖 18 个唯一截图状态，使用稳定原生选择器验证开关/选择、月历点选/翻月/回弹、矩阵双轴滚动/失效格/单格更新/撤销。
-- `pnpm miniprogram:minitest:case:build` 生成只有根目录 Python 用例的确定性 ZIP；静态门禁拒绝测试方法、路由、截图名、选择器、凭据边界或 ZIP 结构漂移。7×7 高度刚好容纳 7 行，因此只验证横向滚动；纵向滚动由 20×30 用例验证。
-- MiniTest runner 的 dry-run 不读取凭据、不改变外部状态；真实提交只调用官方 `POST /plan`，状态只调用 `GET /plan`，robot/dev account 限制 1–10 且必须一致。
+- `testing/p1-manual-test-plan.json` 固定基础控件、42 格月历、7×7 和 20×30 四条原生路由、交互状态与性能目标；静态测试防止人工清单与已实现页面漂移。
+- 用户按 `docs/runbooks/manual-native-testing.md` 人工配置四个编译模式，在 GUI 模拟器和实体 Android 操作。7×7 高度刚好容纳 7 行，因此只验证横向滚动；纵向滚动由 20×30 用例验证。
+- 通过时用户只需明确回复“P1 人工测试通过”或“通过”，不强制上传截图；失败时提供页面、状态和现象，截图只作为可选诊断证据。
 - 自有比较器对稳定区相似度、显著差异像素和关键几何分别判定；图片/遮罩尺寸不一致、缺失几何、越界或非批准遮罩均失败关闭。
-- 测试覆盖相同图通过、遮罩忽略、超过 2% 像素失败、超过 2px 几何失败、平台/网络错误脱敏及 Minium ZIP 确定性；实际截图和性能证据仍等待外部凭据、平台用例上传和 MiniTest 权限。
+- 比较器测试覆盖相同图通过、遮罩忽略、超过 2% 像素失败和超过 2px 几何失败；仅在用户提供截图或失败需要量化时使用，不是人工通过的前置条件。
 
 ## 失败处理
 
-相关门禁失败不得提交。外部平台/MiniTest 暂不可用时，只能把状态记为“已实现待原生复核”，不能声称完成或发布。
+相关门禁失败不得提交。用户尚未反馈人工原生测试通过时，只能把状态记为“已实现待人工原生复核”，不能声称阶段完成或发布。

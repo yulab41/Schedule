@@ -483,3 +483,10 @@
 - 修复与实现：清单改为实际交互状态；基础控件使用通知开启、联系方式取消核对和周视图选择，7×7 只测横向滚动，20×30 继续覆盖横纵滚动、失效格、单格更新和撤销。新增官方 `minium.MiniTest` Python 套件、确定性 ZIP 构建器和平台运行手册；生产 WXML 只增加无样式 selector，不改事件、状态、调用次数或业务数据。
 - 运行/浏览器验证：Mini 45/45，staging/production verify、11 个 Worklet、确定性、源码/包体、CI/MiniTest dry-run、根 lint/build/typecheck、主工作区 119 文件/703 项、`pnpm smoke:check-core` 与任务文件 Prettier 通过；未触及核心 Web 链路，无需 `pnpm smoke:browser`。根格式检查仅被本轮前用户自有 `apps/miniprogram/project.config.json` 拦截。
 - 外部状态：未启动本地微信开发者工具，未生成预览、上传开发/体验版或提交 MiniTest。平台仍需用户上传 ignored ZIP、建立计划并注入仓库外凭据后才能取得 Android/iOS 原生证据。
+
+## 2026-08-18 P1 改为用户人工原生验收
+
+- 决策覆盖：用户明确不使用 MiniTest/Minium 云测，改为用户人工打开微信开发者工具并在实体 Android 测试；用户反馈“通过”后继续 P2。上一节记录的是已推送但尚未部署的 `a9c71d6` 历史实现，现已被本节取代。
+- 变更边界：移除云测 API runner、Minium Python/ZIP 构建器、云测命令/凭据说明及为自动化添加的产品 selector；保留 P1 基础控件、42 格月历、7×7/20×30 矩阵、确定性构建、simulate 与可选截图比较器。页面视觉、交互事件、Worklet、业务数据和 API 均未改变。
+- 人工门禁：`testing/p1-manual-test-plan.json` 与 `docs/runbooks/manual-native-testing.md` 固定四条路由、实际交互状态、视觉/性能目标及反馈格式。通过不强制截图；失败需给出页面、状态和现象，之后只修失败项。
+- 运行/浏览器验证：Mini 10 文件/35 项；staging/production verify、11 个 Worklet、确定性、源码/包体、无凭据 CI dry-run、根 lint/build/typecheck、排除用户自有 `runtime/**`/`src/**` 后主工作区 118 文件/693 项（31 文件/261 项按环境跳过）、任务文件 Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。未触及 Web 核心链路，不需要 `pnpm smoke:browser`；根格式检查仅被用户自有 `apps/miniprogram/project.config.json` 拦截。LLM 未启动、唤醒或控制本地微信开发者工具。

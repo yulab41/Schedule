@@ -28,7 +28,7 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 ## Visual work
 
 - Every visual batch must use the `frontend-design` skill and state its design intent before implementation.
-- Web Storybook remains the golden design source. Map each Mini Program page/state to a story, fixture, viewport, and MiniTest screenshot in `docs/design/page-golden-manifest.md`.
+- Web Storybook remains the golden design source. Map each Mini Program page/state to a story, fixture, viewport, and user-operated native test state in `docs/design/page-golden-manifest.md`.
 - Obtain user confirmation for each page after the 390×844 golden and 320px boundary are ready, before native WXML/WXSS implementation.
 - Validate stable regions with the project comparator: similarity ≥98%, significant differing pixels ≤2%, and key geometry deviation ≤2px. Mask only recorded dynamic native regions.
 
@@ -44,4 +44,4 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 - Run the root gates plus the Mini Program static, simulate, boundary, Worklet, determinism, secret, and package-size gates required by the active phase.
 - Update the root status before a checkpoint, review both unstaged and staged diffs, stage explicit task paths, commit, push, and follow the repository ECS backup/deploy/verify rule.
-- Never claim native visual or interaction acceptance from Storybook, `miniprogram-simulate`, or `miniprogram-ci`; only MiniTest and agreed physical devices provide native-runtime evidence.
+- Never claim native visual or interaction acceptance from Storybook, `miniprogram-simulate`, or `miniprogram-ci`; only the user's explicit feedback after operating the agreed physical device provides native-runtime acceptance.

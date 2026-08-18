@@ -1,7 +1,6 @@
 <view class="month-card">
   <view class="month-toolbar">
     <view
-      id="calendar-previous"
       class="month-step"
       hover-class="is-pressed"
       aria-role="button"
@@ -15,7 +14,6 @@
       <text class="month-hint">左右滑动切换月份</text>
     </view>
     <view
-      id="calendar-today"
       class="locate-button"
       hover-class="is-pressed"
       aria-role="button"
@@ -27,7 +25,6 @@
       </view>
     </view>
     <view
-      id="calendar-next"
       class="month-step"
       hover-class="is-pressed"
       aria-role="button"
@@ -44,7 +41,6 @@
   </view>
 
   <pan-gesture-handler
-    id="calendar-gesture"
     worklet:ongesture="handleMonthPan"
     worklet:should-response-on-move="shouldRespondToMonthPan"
   >
@@ -53,7 +49,6 @@
         <view
           wx:for="{{panels}}"
           wx:key="key"
-          wx:for-index="panelIndex"
           class="calendar-slide-panel"
           aria-hidden="{{item.relative !== 0}}"
         >
@@ -61,22 +56,20 @@
             <view
               wx:for="{{item.cells}}"
               wx:key="businessDate"
-              wx:for-item="cell"
               class="calendar-cell-slot"
             >
               <calendar-cell
-                id="calendar-cell-{{panelIndex}}-{{cell.businessDate}}"
-                aria-label="{{cell.ariaLabel}}"
-                business-date="{{cell.businessDate}}"
-                day="{{cell.day}}"
-                holiday="{{cell.holiday}}"
-                is-current-month="{{cell.isCurrentMonth}}"
-                is-holiday="{{cell.isHoliday}}"
-                is-selected="{{cell.isSelected}}"
-                is-today="{{cell.isToday}}"
-                is-weekend="{{cell.isWeekend}}"
-                marker="{{cell.marker}}"
-                person="{{cell.person}}"
+                aria-label="{{item.ariaLabel}}"
+                business-date="{{item.businessDate}}"
+                day="{{item.day}}"
+                holiday="{{item.holiday}}"
+                is-current-month="{{item.isCurrentMonth}}"
+                is-holiday="{{item.isHoliday}}"
+                is-selected="{{item.isSelected}}"
+                is-today="{{item.isToday}}"
+                is-weekend="{{item.isWeekend}}"
+                marker="{{item.marker}}"
+                person="{{item.person}}"
                 bind:select="handleCellSelect"
               ></calendar-cell>
             </view>
