@@ -470,62 +470,115 @@ async function assertHospitalDirectory(page) {
   if ((await directoryNav.count()) === 0) fail('管理员工作台缺少“院内通讯录”入口。');
   await directoryNav.click();
   await page.locator('.internal-directory').waitFor({ state: 'visible', timeout: 15000 });
-  await page.locator('.directory-entry').first().waitFor({ state: 'visible', timeout: 15000 });
+  await page.locator('.wayfinding-stop').first().waitFor({ state: 'visible', timeout: 15000 });
 
   const initial = await page.evaluate(() => {
-    const entryHeights = [...document.querySelectorAll('.directory-entry')]
-      .slice(0, 10)
-      .map((entry) => entry.getBoundingClientRect().height);
+    const wayfinding = document.querySelector('.directory-wayfinding');
+    const search = document.querySelector('.directory-search');
     return {
       entries: document.querySelectorAll('.directory-entry').length,
-      entryHeights,
       filterStops: document.querySelectorAll('.wayfinding-stop').length,
       hasBuildingStop: [...document.querySelectorAll('.wayfinding-stop')].some(
         (stop) => stop.getAttribute('data-filter-key') === 'building',
       ),
-      landlineExtensionLinks: [...document.querySelectorAll('a.directory-dial-action')].filter(
-        (link) => link.getAttribute('aria-label')?.includes('院内短号'),
-      ).length,
+      hasHeadingCapsule: document.querySelector('.directory-heading') !== null,
+      hasResults: document.querySelector('.directory-search-results') !== null,
       overflow: document.documentElement.scrollWidth > window.innerWidth,
+      wayfindingBeforeSearch:
+        wayfinding !== null &&
+        search !== null &&
+        wayfinding.getBoundingClientRect().top < search.getBoundingClientRect().top,
       wayfindingOverflow: (() => {
         const ribbon = document.querySelector('.wayfinding-ribbon');
         return ribbon === null || ribbon.scrollWidth > ribbon.clientWidth + 1;
       })(),
     };
   });
-  if (initial.entries === 0) fail('院内通讯录没有显示已发布记录。');
+  if (initial.entries !== 0 || initial.hasResults) {
+    fail('未搜索和未筛选时仍显示了全部通讯录。');
+  }
+  if (initial.hasHeadingCapsule) fail('通讯录顶部仍显示“院内协作”胶囊。');
+  if (!initial.wayfindingBeforeSearch) fail('院区导览未放在搜索框上方。');
   if (initial.filterStops < 1 || initial.filterStops > 6) {
     fail('院内通讯录未按可用选项动态显示筛选层级。');
   }
   if (initial.hasBuildingStop) fail('没有对应数据的楼宇层级仍在院区导览中显示。');
   if (initial.wayfindingOverflow) fail('1280px 院区导览仍依赖横向滚动。');
   if (initial.overflow) fail('1280px 院内通讯录出现横向溢出。');
-  if (initial.landlineExtensionLinks > 0) fail('固定电话短号被错误渲染为拨号链接。');
-  if (initial.entryHeights.length === 0 || initial.entryHeights.every((height) => height > 120)) {
-    fail('院内通讯录号码卡片未压缩为紧凑布局。');
-  }
 
   const search = page.getByRole('searchbox', { name: '搜索院内通讯录' });
   await search.fill('病案');
   await search.press('Enter');
   await page.waitForFunction(
-    () =>
-      document.querySelectorAll('.directory-entry').length > 0 &&
-      !document.querySelector('.result-status')?.textContent?.includes('正在更新'),
+    () => {
+      const status = document.querySelector('.result-status')?.textContent ?? '';
+      return (
+        document.querySelectorAll('.directory-search-results .directory-entry').length > 0 &&
+        status.includes('找到') &&
+        !status.includes('正在更新')
+      );
+    },
     null,
     { timeout: 15000 },
   );
   const searchStatus = await page.locator('.result-status').innerText();
   if (!searchStatus.includes('找到')) fail('院内通讯录模糊搜索没有返回结果。');
+  const activeResults = await page.evaluate(() => {
+    const entries = [...document.querySelectorAll('.directory-search-results .directory-entry')];
+    return {
+      entryHeights: entries.slice(0, 10).map((entry) => entry.getBoundingClientRect().height),
+      landlineExtensionLinks: [
+        ...document.querySelectorAll('.directory-search-results a.directory-dial-action'),
+      ].filter((link) => link.getAttribute('aria-label')?.includes('院内短号')).length,
+    };
+  });
+  if (activeResults.landlineExtensionLinks > 0) {
+    fail('固定电话短号被错误渲染为拨号链接。');
+  }
+  if (
+    activeResults.entryHeights.length === 0 ||
+    activeResults.entryHeights.every((height) => height > 120)
+  ) {
+    fail('院内通讯录号码卡片未压缩为紧凑布局。');
+  }
+
+  const firstResult = page.locator('.directory-search-results .directory-entry').first();
+  const firstFavorite = firstResult.locator('.favorite-action');
+  if ((await firstFavorite.getAttribute('aria-pressed')) === 'true') await firstFavorite.click();
+  const resultContactLayout = await firstResult.locator('.contact-methods').innerText();
+  await firstFavorite.click();
+  const favoritePriority = page.locator('.directory-priority', { hasText: '收藏通讯录' });
+  await favoritePriority.waitFor({ state: 'visible', timeout: 5000 });
+  const favoriteEntry = favoritePriority.locator('.directory-entry').first();
+  if ((await favoriteEntry.locator('.contact-methods').innerText()) !== resultContactLayout) {
+    fail('收藏通讯录未使用与搜索结果一致的长短号分隔卡片。');
+  }
+  const priorityOrder = await page.evaluate(() => {
+    const results = document.querySelector('.directory-search-results');
+    const priority = document.querySelector('.directory-priority');
+    return (
+      results !== null &&
+      priority !== null &&
+      (results.compareDocumentPosition(priority) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    );
+  });
+  if (!priorityOrder) fail('搜索或筛选时收藏、常用通讯录未放在结果下方。');
+
   await page.locator('button[aria-label="清空搜索"]').click();
-  await page.locator('.directory-entry').first().waitFor({ state: 'visible', timeout: 15000 });
+  await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);
+  if ((await favoriteEntry.count()) === 0) fail('清空搜索后未保留收藏通讯录。');
 
   await search.fill('手术室');
   await search.press('Enter');
   await page.waitForFunction(
-    () =>
-      document.querySelectorAll('.directory-entry').length > 0 &&
-      !document.querySelector('.result-status')?.textContent?.includes('正在更新'),
+    () => {
+      const status = document.querySelector('.result-status')?.textContent ?? '';
+      return (
+        document.querySelectorAll('.directory-search-results .directory-entry').length > 0 &&
+        status.includes('找到') &&
+        !status.includes('正在更新')
+      );
+    },
     null,
     { timeout: 15000 },
   );
@@ -539,25 +592,15 @@ async function assertHospitalDirectory(page) {
     fail('同号合并卡片没有保留护士站条目名称。');
   }
   await page.locator('button[aria-label="清空搜索"]').click();
-  await page.locator('.directory-entry').first().waitFor({ state: 'visible', timeout: 15000 });
-
-  const firstFavorite = page.locator('.directory-entry .favorite-action').first();
-  if ((await firstFavorite.getAttribute('aria-pressed')) === 'true') {
-    await firstFavorite.click();
+  await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);
+  const idleFavorite = page.locator('.directory-priority .favorite-action').first();
+  if ((await idleFavorite.getAttribute('aria-pressed')) !== 'true') {
+    fail('通讯录五角星未保持收藏状态。');
   }
-  await firstFavorite.click();
-  const favoritePriority = page.locator('.directory-priority', { hasText: '收藏通讯录' });
-  await favoritePriority.waitFor({ state: 'visible', timeout: 5000 });
-  if ((await firstFavorite.getAttribute('aria-pressed')) !== 'true') {
-    fail('通讯录五角星未切换为收藏状态。');
-  }
-  await firstFavorite.click();
+  await idleFavorite.click();
   await page.waitForFunction(
     () => !document.querySelector('.directory-priority')?.textContent?.includes('收藏通讯录'),
   );
-  if ((await firstFavorite.getAttribute('aria-pressed')) !== 'false') {
-    fail('再次点击通讯录五角星未取消收藏。');
-  }
 
   await page.locator('.filter-open-action').click();
   const iconOpenedFilterSheet = page.locator('dialog[open][aria-label="筛选院内通讯录"]');
@@ -658,10 +701,21 @@ async function assertHospitalDirectory(page) {
 
   await page.setViewportSize({ height: 844, width: 390 });
   await page.waitForTimeout(200);
+  const mobileDial = page.locator('.directory-dial-action').first();
+  await mobileDial.dispatchEvent('pointerdown', { pointerType: 'touch' });
+  await mobileDial.dispatchEvent('pointerup', { pointerType: 'touch' });
+  await mobileDial.evaluate((element) => element.blur());
+  await page.waitForTimeout(50);
   const mobile = await page.evaluate(() => ({
+    dialBackgrounds: [...document.querySelectorAll('.directory-dial-action')]
+      .filter((element) => element.getBoundingClientRect().width > 0)
+      .map((element) => getComputedStyle(element).backgroundColor),
     dialTargets: [...document.querySelectorAll('.directory-dial-action')]
       .filter((element) => element.getBoundingClientRect().width > 0)
       .map((element) => element.getBoundingClientRect().height),
+    dialTapHighlights: [...document.querySelectorAll('.directory-dial-action')]
+      .filter((element) => element.getBoundingClientRect().width > 0)
+      .map((element) => getComputedStyle(element).webkitTapHighlightColor),
     overflow: document.documentElement.scrollWidth > window.innerWidth,
     wayfindingOverflow: (() => {
       const ribbon = document.querySelector('.wayfinding-ribbon');
@@ -672,6 +726,20 @@ async function assertHospitalDirectory(page) {
   if (mobile.wayfindingOverflow) fail('390px 院区导览仍依赖横向滚动。');
   if (mobile.dialTargets.some((height) => height < 44)) {
     fail('390px 院内通讯录存在小于 44px 的拨号点触目标。');
+  }
+  if (
+    mobile.dialBackgrounds.some(
+      (background) => background !== 'rgba(0, 0, 0, 0)' && background !== 'transparent',
+    )
+  ) {
+    fail('拨打电话触控结束后仍遗留背景色方框。');
+  }
+  if (
+    mobile.dialTapHighlights.some(
+      (highlight) => highlight !== '' && highlight !== 'rgba(0, 0, 0, 0)',
+    )
+  ) {
+    fail('拨打电话链接仍保留浏览器默认蓝色触控高亮。');
   }
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, '15-admin-directory-mobile.png') });
 

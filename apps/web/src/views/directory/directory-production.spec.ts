@@ -56,18 +56,43 @@ describe('production hospital directory integration', () => {
     expect(view).toMatch(/:deep\(\.directory-filter-sheet\)\s*{[^}]*max-height:/s);
   });
 
-  it('offers reversible favorites and places favorite and frequently used contacts before results', () => {
+  it('shows full favorite and frequent cards below active results, while idle mode does not load all entries', () => {
     const view = source('./InternalDirectoryView.vue');
 
     expect(view).toContain('StarFilledIcon');
     expect(view).toContain('toggleFavorite');
     expect(view).toContain('recordDirectoryUse');
+    expect(view).toContain('hasActiveDirectoryCriteria');
     expect(view).toContain('收藏通讯录');
     expect(view).toContain('常用通讯录');
-    expect(view.indexOf('class="directory-priority"')).toBeLessThan(
-      view.indexOf('class="result-status"'),
+    expect(view).not.toContain("dataSource.searchDirectory(groupId, toDirectoryQuery('', {}))");
+    expect(view).not.toContain('class="priority-card"');
+    expect(view).not.toContain('getPriorityContact');
+    expect(view.indexOf('class="directory-search-results"')).toBeLessThan(
+      view.indexOf('class="directory-priority"'),
     );
+    expect(view.match(/class="directory-entry"/gu)).toHaveLength(2);
+    expect(view.match(/class="contact-methods"/gu)).toHaveLength(2);
     expect(view).toMatch(/\.favorite-action\s*{[^}]*min-width:\s*44px/s);
+  });
+
+  it('places wayfinding above search without the old collaboration capsule', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).not.toContain('class="directory-heading"');
+    expect(view).not.toContain('院内协作');
+    expect(view.indexOf('class="directory-wayfinding"')).toBeLessThan(
+      view.indexOf('class="directory-search"'),
+    );
+  });
+
+  it('keeps touch dialing transparent without losing keyboard focus feedback', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).toContain('-webkit-tap-highlight-color: transparent');
+    expect(view).toMatch(/\.directory-dial-action:active\s*{[^}]*background:\s*transparent/s);
+    expect(view).toContain('@media (hover: hover) and (pointer: fine)');
+    expect(view).toMatch(/\.directory-dial-action:focus-visible\s*{[^}]*outline:/s);
   });
 
   it('keeps the directory in the full browser smoke journey', () => {
@@ -79,5 +104,8 @@ describe('production hospital directory integration', () => {
     expect(smoke).toContain('更改上级后未自动清除不匹配的下级筛选');
     expect(smoke).toContain('固定电话短号被错误渲染为拨号链接');
     expect(smoke).toContain('联系方式完全相同的条目未合并显示');
+    expect(smoke).toContain('未搜索和未筛选时仍显示了全部通讯录');
+    expect(smoke).toContain('收藏通讯录未使用与搜索结果一致的长短号分隔卡片');
+    expect(smoke).toContain('拨打电话触控结束后仍遗留背景色方框');
   });
 });

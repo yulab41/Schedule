@@ -77,6 +77,13 @@ export function getDirectoryEntryLocation(entry: DirectoryEntry): string | undef
   return location.length > 0 ? location.join(' · ') : undefined;
 }
 
+export function hasActiveDirectoryCriteria(search: string, filters: DirectoryFilters): boolean {
+  return (
+    search.trim().length > 0 ||
+    Object.values(filters).some((value) => value !== undefined && value.length > 0)
+  );
+}
+
 export function toDirectoryQuery(
   search: string,
   filters: DirectoryFilters,

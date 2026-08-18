@@ -51,6 +51,7 @@ import {
   type DirectoryFilters,
   getDirectoryNumberLabel,
   getSafeInternalExtension,
+  hasActiveDirectoryCriteria,
   toDirectoryDialHref,
   toDirectoryQuery,
 } from '../../features/directory/directory-presentation.js';
@@ -66,12 +67,6 @@ interface FilterSection {
   readonly key: DirectoryFilterKey;
   readonly label: string;
   readonly options: readonly DirectoryFacetOption[];
-}
-
-interface PriorityContact {
-  readonly href: string;
-  readonly label: string;
-  readonly number: string;
 }
 
 const props = defineProps<{
@@ -159,6 +154,9 @@ const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
 const activeFilterCount = computed(
   () => Object.values(filters.value).filter((value) => value !== undefined).length,
 );
+const hasDirectoryCriteria = computed(() =>
+  hasActiveDirectoryCriteria(searchDraft.value, filters.value),
+);
 const displayGroups = computed(() => groupDirectoryEntriesByContact(entries.value));
 const knownEntryGroups = computed(() => {
   const entriesById = new Map<string, DirectoryEntry>();
@@ -228,16 +226,15 @@ async function initializeDirectory(): Promise<void> {
   totalCount.value = 0;
   errorMessage.value = undefined;
   filterAdjustmentMessage.value = undefined;
-  isLoading.value = true;
+  isLoading.value = false;
   isLoadingMore.value = false;
   const context = ++contextSequence;
-  const entrySequence = ++requestSequence;
+  requestSequence += 1;
   const groupId = props.group.id;
   const dataSource = source.value;
   preferences.value = readDirectoryPreferences(groupId);
-  const [facetResult, pageResult, priorityResult] = await Promise.allSettled([
+  const [facetResult, priorityResult] = await Promise.allSettled([
     dataSource.getDirectoryFacets(groupId),
-    dataSource.searchDirectory(groupId, toDirectoryQuery('', {})),
     lookupPreferredEntries(dataSource, groupId, getDirectoryPreferenceEntryIds(preferences.value)),
   ]);
   if (context !== contextSequence) return;
@@ -251,17 +248,13 @@ async function initializeDirectory(): Promise<void> {
   }
 
   if (priorityResult.status === 'fulfilled') priorityEntries.value = priorityResult.value;
-
-  if (entrySequence === requestSequence) {
-    if (pageResult.status === 'fulfilled') applyPage(pageResult.value, false);
-    else {
-      errorMessage.value = toUserMessage(pageResult.reason, '院内通讯录暂时无法加载，请稍后重试。');
-    }
-    isLoading.value = false;
-  }
 }
 
 async function loadEntries(append: boolean): Promise<void> {
+  if (!hasDirectoryCriteria.value) {
+    resetSearchResults();
+    return;
+  }
   if (append && nextCursor.value === undefined) return;
   const context = contextSequence;
   const sequence = ++requestSequence;
@@ -295,6 +288,11 @@ function applyPage(page: DirectoryPage, append: boolean): void {
 
 function scheduleSearch(): void {
   if (searchTimer !== undefined) window.clearTimeout(searchTimer);
+  if (!hasDirectoryCriteria.value) {
+    resetSearchResults();
+    return;
+  }
+  isLoading.value = true;
   searchTimer = window.setTimeout(() => void loadEntries(false), 240);
 }
 
@@ -334,7 +332,17 @@ function resetDirectorySearch(): void {
   searchDraft.value = '';
   filters.value = {};
   filterAdjustmentMessage.value = undefined;
-  void loadEntries(false);
+  resetSearchResults();
+}
+
+function resetSearchResults(): void {
+  requestSequence += 1;
+  entries.value = [];
+  nextCursor.value = undefined;
+  totalCount.value = 0;
+  isLoading.value = false;
+  isLoadingMore.value = false;
+  errorMessage.value = undefined;
 }
 
 function openFilterAt(key: DirectoryFilterKey): void {
@@ -384,27 +392,6 @@ function rememberPriorityEntries(group: DirectoryEntryDisplayGroup): void {
   priorityEntries.value = [...entriesById.values()];
 }
 
-function getPriorityContact(group: DirectoryEntryDisplayGroup): PriorityContact | undefined {
-  for (const contact of group.contacts) {
-    if (contact.fullNumber !== undefined && canDialDirectoryNumber(contact.type, 'full')) {
-      return {
-        href: toDirectoryDialHref(contact.fullNumber),
-        label: getDirectoryNumberLabel(contact.type, 'full'),
-        number: contact.fullNumber,
-      };
-    }
-    const extension = getSafeInternalExtension(contact);
-    if (extension !== undefined && canDialDirectoryNumber(contact.type, 'extension')) {
-      return {
-        href: toDirectoryDialHref(extension),
-        label: getDirectoryNumberLabel(contact.type, 'extension'),
-        number: extension,
-      };
-    }
-  }
-  return undefined;
-}
-
 function getContactHeading(contact: DirectoryContactMethod, isMerged: boolean): string {
   return (isMerged ? undefined : contact.label) ?? getDirectoryNumberLabel(contact.type, 'full');
 }
@@ -413,11 +400,6 @@ function selectedFilterLabel(section: FilterSection): string {
   const value = filters.value[section.key];
   if (value === undefined) return '全部';
   return section.options.find((option) => option.value === value)?.label ?? value;
-}
-
-function formatEffectiveDate(value: string): string {
-  const [year, month, day] = value.split('-');
-  return `${year}年${Number(month)}月${Number(day)}日`;
 }
 
 function directoryPreferenceStorageKey(groupId: string): string {
@@ -461,43 +443,7 @@ async function lookupPreferredEntries(
 
 <template>
   <section class="internal-directory" aria-labelledby="directory-title">
-    <header class="directory-heading">
-      <div>
-        <p class="directory-eyebrow">院内协作</p>
-        <h2 id="directory-title">院内通讯录</h2>
-        <p>按科室、地点或号码快速定位，层级筛选会自动保持路径一致。</p>
-      </div>
-      <div v-if="facets !== undefined" class="directory-snapshot" aria-label="通讯录数据版本">
-        <strong>{{ facets.totalCount }}</strong>
-        <span>条记录</span>
-        <small>{{ formatEffectiveDate(facets.publishedEffectiveOn) }}版</small>
-      </div>
-    </header>
-
-    <form class="directory-search" role="search" @submit.prevent="runSearchImmediately">
-      <SearchIcon aria-hidden="true" />
-      <label for="hospital-directory-search" class="visually-hidden">搜索院内通讯录</label>
-      <input
-        id="hospital-directory-search"
-        v-model="searchDraft"
-        type="search"
-        inputmode="search"
-        autocomplete="off"
-        enterkeyhint="search"
-        placeholder="搜索科室、姓名、拼音或号码"
-        @input="scheduleSearch"
-      />
-      <button
-        v-if="searchDraft.length > 0"
-        type="button"
-        class="search-clear"
-        aria-label="清空搜索"
-        @click="clearSearch"
-      >
-        <CloseIcon aria-hidden="true" />
-      </button>
-      <button type="submit" class="search-submit">搜索</button>
-    </form>
+    <h2 id="directory-title" class="visually-hidden">院内通讯录</h2>
 
     <section class="directory-wayfinding" aria-labelledby="wayfinding-title">
       <div class="wayfinding-header">
@@ -547,61 +493,30 @@ async function lookupPreferredEntries(
       </div>
     </section>
 
-    <section
-      v-if="prioritySections.length > 0"
-      class="directory-priority"
-      aria-label="收藏和常用通讯录"
-    >
-      <div v-for="section in prioritySections" :key="section.key" class="priority-section">
-        <header class="priority-heading">
-          <h3>{{ section.title }}</h3>
-          <span>{{ section.groups.length }} 项</span>
-        </header>
-        <div class="priority-grid">
-          <article v-for="entryGroup in section.groups" :key="entryGroup.id" class="priority-card">
-            <div class="priority-copy">
-              <strong>{{ getDirectoryGroupTitle(entryGroup) }}</strong>
-              <small v-if="getDirectoryGroupContexts(entryGroup)[0] !== undefined">
-                {{ getDirectoryGroupContexts(entryGroup)[0] }}
-              </small>
-            </div>
-            <button
-              type="button"
-              class="favorite-action"
-              :class="{ 'is-favorite': isDirectoryGroupFavorite(preferences, entryGroup) }"
-              :aria-label="
-                isDirectoryGroupFavorite(preferences, entryGroup)
-                  ? `取消收藏${getDirectoryGroupTitle(entryGroup)}`
-                  : `收藏${getDirectoryGroupTitle(entryGroup)}`
-              "
-              :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
-              @click="toggleFavorite(entryGroup)"
-            >
-              <StarFilledIcon
-                v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
-                aria-hidden="true"
-              />
-              <StarIcon v-else aria-hidden="true" />
-            </button>
-            <a
-              v-if="getPriorityContact(entryGroup) !== undefined"
-              class="priority-dial-action"
-              :href="getPriorityContact(entryGroup)!.href"
-              :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getPriorityContact(entryGroup)!.label} ${getPriorityContact(entryGroup)!.number}`"
-              @click="recordDirectoryUse(entryGroup)"
-            >
-              <strong>{{ getPriorityContact(entryGroup)!.number }}</strong>
-              <CallIcon aria-hidden="true" />
-            </a>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <p class="result-status" role="status" aria-live="polite">
-      {{ resultSummary }}
-      <span v-if="isLoading && entries.length > 0"> · 正在更新</span>
-    </p>
+    <form class="directory-search" role="search" @submit.prevent="runSearchImmediately">
+      <SearchIcon aria-hidden="true" />
+      <label for="hospital-directory-search" class="visually-hidden">搜索院内通讯录</label>
+      <input
+        id="hospital-directory-search"
+        v-model="searchDraft"
+        type="search"
+        inputmode="search"
+        autocomplete="off"
+        enterkeyhint="search"
+        placeholder="搜索科室、姓名、拼音或号码"
+        @input="scheduleSearch"
+      />
+      <button
+        v-if="searchDraft.length > 0"
+        type="button"
+        class="search-clear"
+        aria-label="清空搜索"
+        @click="clearSearch"
+      >
+        <CloseIcon aria-hidden="true" />
+      </button>
+      <button type="submit" class="search-submit">搜索</button>
+    </form>
 
     <div v-if="errorMessage !== undefined" class="directory-error" role="alert">
       <div>
@@ -616,132 +531,270 @@ async function lookupPreferredEntries(
       </button>
     </div>
 
-    <div v-if="isLoading && entries.length === 0" class="directory-skeleton" aria-hidden="true">
-      <span v-for="index in 4" :key="index" />
-    </div>
-
-    <div v-else-if="displayGroups.length > 0" class="directory-results" :aria-busy="isLoading">
-      <article
-        v-for="entryGroup in displayGroups"
-        :key="entryGroup.id"
-        class="directory-entry"
-        :class="{ 'is-merged': entryGroup.entries.length > 1 }"
-      >
-        <div class="entry-accent" aria-hidden="true" />
-        <div class="entry-content">
-          <header class="entry-heading">
-            <div class="entry-heading-copy">
-              <div class="entry-title-line">
-                <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
-                <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
-                <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
-                  {{ entryGroup.entries.length }} 项同号
-                </span>
-              </div>
-              <div v-if="getDirectoryGroupContexts(entryGroup).length > 0" class="entry-contexts">
-                <p
-                  v-for="context in getDirectoryGroupContexts(entryGroup)"
-                  :key="context"
-                  class="entry-meta"
-                >
-                  {{ context }}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              class="favorite-action"
-              :class="{ 'is-favorite': isDirectoryGroupFavorite(preferences, entryGroup) }"
-              :aria-label="
-                isDirectoryGroupFavorite(preferences, entryGroup)
-                  ? `取消收藏${getDirectoryGroupTitle(entryGroup)}`
-                  : `收藏${getDirectoryGroupTitle(entryGroup)}`
-              "
-              :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
-              @click="toggleFavorite(entryGroup)"
-            >
-              <StarFilledIcon
-                v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
-                aria-hidden="true"
-              />
-              <StarIcon v-else aria-hidden="true" />
-            </button>
-          </header>
-
-          <div class="contact-methods">
-            <div v-for="contact in entryGroup.contacts" :key="contact.id" class="contact-method">
-              <span class="contact-label">
-                {{ getContactHeading(contact, entryGroup.entries.length > 1) }}
-              </span>
-              <div class="contact-number-group">
-                <a
-                  v-if="
-                    contact.fullNumber !== undefined && canDialDirectoryNumber(contact.type, 'full')
-                  "
-                  class="directory-dial-action"
-                  :href="toDirectoryDialHref(contact.fullNumber)"
-                  :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
-                  @click="recordDirectoryUse(entryGroup)"
-                >
-                  <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
-                  <strong>{{ contact.fullNumber }}</strong>
-                  <CallIcon aria-hidden="true" />
-                </a>
-                <strong
-                  v-else-if="contact.fullNumber !== undefined"
-                  class="directory-static-number"
-                >
-                  <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
-                  <span>{{ contact.fullNumber }}</span>
-                </strong>
-                <a
-                  v-if="
-                    getSafeInternalExtension(contact) !== undefined &&
-                    canDialDirectoryNumber(contact.type, 'extension')
-                  "
-                  class="directory-dial-action"
-                  :href="toDirectoryDialHref(getSafeInternalExtension(contact)!)"
-                  :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
-                  @click="recordDirectoryUse(entryGroup)"
-                >
-                  <small>短号</small>
-                  <strong>{{ getSafeInternalExtension(contact) }}</strong>
-                  <CallIcon aria-hidden="true" />
-                </a>
-                <strong
-                  v-else-if="getSafeInternalExtension(contact) !== undefined"
-                  class="directory-static-number is-extension"
-                >
-                  <small>短号</small>
-                  <span>{{ getSafeInternalExtension(contact) }}</span>
-                </strong>
-              </div>
-            </div>
-          </div>
-
-          <p v-if="getDirectoryGroupNotes(entryGroup) !== undefined" class="entry-notes">
-            {{ getDirectoryGroupNotes(entryGroup) }}
-          </p>
-        </div>
-      </article>
-    </div>
-
-    <div v-else-if="!isLoading && errorMessage === undefined" class="directory-empty">
-      <SearchIcon aria-hidden="true" />
-      <strong>没有找到匹配号码</strong>
-      <p>可缩短搜索词，或清除部分层级筛选后重试。</p>
-      <button type="button" @click="resetDirectorySearch">查看全部通讯录</button>
-    </div>
-
-    <button
-      v-if="nextCursor !== undefined"
-      type="button"
-      class="load-more-action"
-      :disabled="isLoadingMore"
-      @click="loadEntries(true)"
+    <section
+      v-if="hasDirectoryCriteria"
+      class="directory-search-results"
+      aria-label="通讯录搜索结果"
     >
-      {{ isLoadingMore ? '正在加载' : '加载更多' }}
-    </button>
+      <p class="result-status" role="status" aria-live="polite">
+        {{ resultSummary }}
+        <span v-if="isLoading && entries.length > 0"> · 正在更新</span>
+      </p>
+
+      <div v-if="isLoading && entries.length === 0" class="directory-skeleton" aria-hidden="true">
+        <span v-for="index in 4" :key="index" />
+      </div>
+
+      <div v-else-if="displayGroups.length > 0" class="directory-results" :aria-busy="isLoading">
+        <article
+          v-for="entryGroup in displayGroups"
+          :key="entryGroup.id"
+          class="directory-entry"
+          :class="{ 'is-merged': entryGroup.entries.length > 1 }"
+        >
+          <div class="entry-accent" aria-hidden="true" />
+          <div class="entry-content">
+            <header class="entry-heading">
+              <div class="entry-heading-copy">
+                <div class="entry-title-line">
+                  <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
+                  <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
+                  <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
+                    {{ entryGroup.entries.length }} 项同号
+                  </span>
+                </div>
+                <div v-if="getDirectoryGroupContexts(entryGroup).length > 0" class="entry-contexts">
+                  <p
+                    v-for="context in getDirectoryGroupContexts(entryGroup)"
+                    :key="context"
+                    class="entry-meta"
+                  >
+                    {{ context }}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="favorite-action"
+                :class="{ 'is-favorite': isDirectoryGroupFavorite(preferences, entryGroup) }"
+                :aria-label="
+                  isDirectoryGroupFavorite(preferences, entryGroup)
+                    ? `取消收藏${getDirectoryGroupTitle(entryGroup)}`
+                    : `收藏${getDirectoryGroupTitle(entryGroup)}`
+                "
+                :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
+                @click="toggleFavorite(entryGroup)"
+              >
+                <StarFilledIcon
+                  v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
+                  aria-hidden="true"
+                />
+                <StarIcon v-else aria-hidden="true" />
+              </button>
+            </header>
+
+            <div class="contact-methods">
+              <div v-for="contact in entryGroup.contacts" :key="contact.id" class="contact-method">
+                <span class="contact-label">
+                  {{ getContactHeading(contact, entryGroup.entries.length > 1) }}
+                </span>
+                <div class="contact-number-group">
+                  <a
+                    v-if="
+                      contact.fullNumber !== undefined &&
+                      canDialDirectoryNumber(contact.type, 'full')
+                    "
+                    class="directory-dial-action"
+                    :href="toDirectoryDialHref(contact.fullNumber)"
+                    :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
+                    @click="recordDirectoryUse(entryGroup)"
+                  >
+                    <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
+                    <strong>{{ contact.fullNumber }}</strong>
+                    <CallIcon aria-hidden="true" />
+                  </a>
+                  <strong
+                    v-else-if="contact.fullNumber !== undefined"
+                    class="directory-static-number"
+                  >
+                    <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
+                    <span>{{ contact.fullNumber }}</span>
+                  </strong>
+                  <a
+                    v-if="
+                      getSafeInternalExtension(contact) !== undefined &&
+                      canDialDirectoryNumber(contact.type, 'extension')
+                    "
+                    class="directory-dial-action"
+                    :href="toDirectoryDialHref(getSafeInternalExtension(contact)!)"
+                    :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
+                    @click="recordDirectoryUse(entryGroup)"
+                  >
+                    <small>短号</small>
+                    <strong>{{ getSafeInternalExtension(contact) }}</strong>
+                    <CallIcon aria-hidden="true" />
+                  </a>
+                  <strong
+                    v-else-if="getSafeInternalExtension(contact) !== undefined"
+                    class="directory-static-number is-extension"
+                  >
+                    <small>短号</small>
+                    <span>{{ getSafeInternalExtension(contact) }}</span>
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <p v-if="getDirectoryGroupNotes(entryGroup) !== undefined" class="entry-notes">
+              {{ getDirectoryGroupNotes(entryGroup) }}
+            </p>
+          </div>
+        </article>
+      </div>
+
+      <div v-else-if="!isLoading && errorMessage === undefined" class="directory-empty">
+        <SearchIcon aria-hidden="true" />
+        <strong>没有找到匹配号码</strong>
+        <p>可缩短搜索词，或清除部分层级筛选后重试。</p>
+        <button type="button" @click="resetDirectorySearch">清空搜索和筛选</button>
+      </div>
+
+      <button
+        v-if="nextCursor !== undefined"
+        type="button"
+        class="load-more-action"
+        :disabled="isLoadingMore"
+        @click="loadEntries(true)"
+      >
+        {{ isLoadingMore ? '正在加载' : '加载更多' }}
+      </button>
+    </section>
+
+    <section
+      v-if="prioritySections.length > 0"
+      class="directory-priority"
+      aria-label="收藏和常用通讯录"
+    >
+      <div v-for="section in prioritySections" :key="section.key" class="priority-section">
+        <header class="priority-heading">
+          <h3>{{ section.title }}</h3>
+          <span>{{ section.groups.length }} 项</span>
+        </header>
+        <div class="priority-grid directory-results">
+          <article
+            v-for="entryGroup in section.groups"
+            :key="entryGroup.id"
+            class="directory-entry"
+            :class="{ 'is-merged': entryGroup.entries.length > 1 }"
+          >
+            <div class="entry-accent" aria-hidden="true" />
+            <div class="entry-content">
+              <header class="entry-heading">
+                <div class="entry-heading-copy">
+                  <div class="entry-title-line">
+                    <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
+                    <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
+                    <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
+                      {{ entryGroup.entries.length }} 项同号
+                    </span>
+                  </div>
+                  <div
+                    v-if="getDirectoryGroupContexts(entryGroup).length > 0"
+                    class="entry-contexts"
+                  >
+                    <p
+                      v-for="context in getDirectoryGroupContexts(entryGroup)"
+                      :key="context"
+                      class="entry-meta"
+                    >
+                      {{ context }}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="favorite-action"
+                  :class="{ 'is-favorite': isDirectoryGroupFavorite(preferences, entryGroup) }"
+                  :aria-label="
+                    isDirectoryGroupFavorite(preferences, entryGroup)
+                      ? `取消收藏${getDirectoryGroupTitle(entryGroup)}`
+                      : `收藏${getDirectoryGroupTitle(entryGroup)}`
+                  "
+                  :aria-pressed="isDirectoryGroupFavorite(preferences, entryGroup)"
+                  @click="toggleFavorite(entryGroup)"
+                >
+                  <StarFilledIcon
+                    v-if="isDirectoryGroupFavorite(preferences, entryGroup)"
+                    aria-hidden="true"
+                  />
+                  <StarIcon v-else aria-hidden="true" />
+                </button>
+              </header>
+
+              <div class="contact-methods">
+                <div
+                  v-for="contact in entryGroup.contacts"
+                  :key="contact.id"
+                  class="contact-method"
+                >
+                  <span class="contact-label">
+                    {{ getContactHeading(contact, entryGroup.entries.length > 1) }}
+                  </span>
+                  <div class="contact-number-group">
+                    <a
+                      v-if="
+                        contact.fullNumber !== undefined &&
+                        canDialDirectoryNumber(contact.type, 'full')
+                      "
+                      class="directory-dial-action"
+                      :href="toDirectoryDialHref(contact.fullNumber)"
+                      :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
+                      @click="recordDirectoryUse(entryGroup)"
+                    >
+                      <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
+                      <strong>{{ contact.fullNumber }}</strong>
+                      <CallIcon aria-hidden="true" />
+                    </a>
+                    <strong
+                      v-else-if="contact.fullNumber !== undefined"
+                      class="directory-static-number"
+                    >
+                      <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
+                      <span>{{ contact.fullNumber }}</span>
+                    </strong>
+                    <a
+                      v-if="
+                        getSafeInternalExtension(contact) !== undefined &&
+                        canDialDirectoryNumber(contact.type, 'extension')
+                      "
+                      class="directory-dial-action"
+                      :href="toDirectoryDialHref(getSafeInternalExtension(contact)!)"
+                      :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
+                      @click="recordDirectoryUse(entryGroup)"
+                    >
+                      <small>短号</small>
+                      <strong>{{ getSafeInternalExtension(contact) }}</strong>
+                      <CallIcon aria-hidden="true" />
+                    </a>
+                    <strong
+                      v-else-if="getSafeInternalExtension(contact) !== undefined"
+                      class="directory-static-number is-extension"
+                    >
+                      <small>短号</small>
+                      <span>{{ getSafeInternalExtension(contact) }}</span>
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <p v-if="getDirectoryGroupNotes(entryGroup) !== undefined" class="entry-notes">
+                {{ getDirectoryGroupNotes(entryGroup) }}
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
 
     <p class="directory-privacy-note">院内联系方式仅供工作使用，请勿向院外转发。</p>
 
@@ -843,60 +896,6 @@ async function lookupPreferredEntries(
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   color: var(--ui-color-text-primary);
-}
-
-.directory-heading {
-  display: flex;
-  min-height: 112px;
-  padding: 20px 22px;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-large);
-  box-shadow: var(--ui-shadow-card);
-}
-
-.directory-eyebrow {
-  margin: 0 0 4px;
-  color: var(--ui-color-primary);
-  font-size: var(--ui-font-size-xs);
-  font-weight: var(--ui-font-weight-semibold);
-  letter-spacing: 0.08em;
-}
-
-.directory-heading h2 {
-  margin: 0;
-  font-size: clamp(24px, 3vw, 32px);
-  line-height: 1.15;
-  letter-spacing: -0.5px;
-}
-
-.directory-heading p:last-child {
-  margin: 8px 0 0;
-  color: var(--ui-color-text-secondary);
-}
-
-.directory-snapshot {
-  display: grid;
-  min-width: 108px;
-  padding-left: 18px;
-  border-left: 1px solid var(--ui-color-border);
-  text-align: right;
-}
-
-.directory-snapshot strong {
-  color: var(--ui-color-primary);
-  font-size: 30px;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.directory-snapshot span,
-.directory-snapshot small {
-  margin-top: 4px;
-  color: var(--ui-color-text-secondary);
 }
 
 .directory-search {
@@ -1150,14 +1149,15 @@ async function lookupPreferredEntries(
   font-size: var(--ui-font-size-sm);
 }
 
+.directory-search-results {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
 .directory-priority {
   display: grid;
-  padding: 12px;
   gap: 12px;
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-large);
-  box-shadow: var(--ui-shadow-card);
 }
 
 .priority-section {
@@ -1184,64 +1184,7 @@ async function lookupPreferredEntries(
 }
 
 .priority-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 6px;
-}
-
-.priority-card {
-  display: grid;
-  min-width: 0;
-  min-height: 58px;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  padding: 5px 4px 5px 10px;
-  align-items: center;
-  gap: 2px 5px;
-  background: #f7faff;
-  border: 1px solid #d9e8f8;
-  border-radius: var(--ui-radius-medium);
-}
-
-.priority-copy {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.priority-copy strong,
-.priority-copy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.priority-copy strong {
-  font-size: var(--ui-font-size-sm);
-}
-
-.priority-copy small {
-  color: var(--ui-color-text-secondary);
-  font-size: 11px;
-}
-
-.priority-dial-action {
-  display: inline-flex;
-  min-height: 44px;
-  grid-column: 1 / -1;
-  padding: 0 8px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--ui-color-primary);
-  background: var(--ui-color-surface);
-  border-radius: var(--ui-radius-small);
-  font-variant-numeric: tabular-nums;
-  text-decoration: none;
-}
-
-.priority-dial-action svg {
-  width: 17px;
-  height: 17px;
+  width: 100%;
 }
 
 .directory-results {
@@ -1408,11 +1351,17 @@ async function lookupPreferredEntries(
   border-radius: var(--ui-radius-small);
   font-variant-numeric: tabular-nums;
   text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.directory-dial-action:hover,
 .directory-dial-action:active {
-  background: var(--ui-color-primary-light);
+  background: transparent;
+}
+
+.directory-dial-action:focus-visible {
+  outline: 2px solid var(--ui-color-primary);
+  outline-offset: 2px;
 }
 
 .directory-dial-action svg {
@@ -1734,32 +1683,6 @@ async function lookupPreferredEntries(
 }
 
 @media (max-width: 760px) {
-  .directory-heading {
-    min-height: 0;
-    padding: 17px 16px;
-  }
-
-  .directory-heading h2 {
-    font-size: 25px;
-  }
-
-  .directory-heading p:last-child {
-    font-size: var(--ui-font-size-sm);
-  }
-
-  .directory-snapshot {
-    min-width: 76px;
-    padding-left: 12px;
-  }
-
-  .directory-snapshot strong {
-    font-size: 24px;
-  }
-
-  .directory-snapshot small {
-    display: none;
-  }
-
   .directory-search {
     grid-template-columns: 22px minmax(0, 1fr) auto;
     padding-right: 7px;
@@ -1805,10 +1728,6 @@ async function lookupPreferredEntries(
     padding: 5px 7px;
   }
 
-  .priority-grid {
-    grid-template-columns: 1fr;
-  }
-
   .entry-content {
     padding: 9px 11px 8px;
   }
@@ -1833,10 +1752,6 @@ async function lookupPreferredEntries(
 }
 
 @media (max-width: 380px) {
-  .directory-snapshot {
-    display: none;
-  }
-
   .contact-method {
     grid-template-columns: minmax(58px, auto) minmax(0, 1fr);
     gap: 5px;
@@ -1849,6 +1764,12 @@ async function lookupPreferredEntries(
   .directory-dial-action {
     padding-right: 3px;
     padding-left: 3px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .directory-dial-action:hover {
+    background: var(--ui-color-primary-light);
   }
 }
 

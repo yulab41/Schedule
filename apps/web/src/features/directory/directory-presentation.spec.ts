@@ -8,6 +8,7 @@ import {
   getDirectoryEntryTitle,
   getDirectoryNumberLabel,
   getSafeInternalExtension,
+  hasActiveDirectoryCriteria,
   toDirectoryDialHref,
   toDirectoryQuery,
 } from './directory-presentation.js';
@@ -41,6 +42,13 @@ function contact(
 }
 
 describe('directory presentation rules', () => {
+  it('treats only a nonblank search or a selected filter as an active directory query', () => {
+    expect(hasActiveDirectoryCriteria('', {})).toBe(false);
+    expect(hasActiveDirectoryCriteria('   ', {})).toBe(false);
+    expect(hasActiveDirectoryCriteria('病案', {})).toBe(true);
+    expect(hasActiveDirectoryCriteria('', { department: '病案科' })).toBe(true);
+  });
+
   it('makes mobile long and short numbers dialable, but never a landline short number', () => {
     expect(canDialDirectoryNumber('mobile', 'full')).toBe(true);
     expect(canDialDirectoryNumber('mobile', 'extension')).toBe(true);

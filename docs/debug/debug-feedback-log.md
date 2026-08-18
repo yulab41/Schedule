@@ -2,6 +2,16 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-18 通讯录空闲态、收藏卡片与拨号触控蓝框
+
+- 反馈与引入点：用户要求未搜索/筛选时只显示收藏、常用，检索时结果在前；优先卡须与普通卡一致；导览置顶并移除“院内协作”胶囊；拨号触控后不得残留蓝框。`git log -S` / `git blame` 指向 `8309dce` 的标题/顺序及拨号 hover/active 规则、`5437995` 的紧凑优先卡与结果前置，号码高密度结构由 `926136a` 延续调整。
+- 测试先行：有效查询 helper、无初始空查询、结果/优先区顺序、完整卡片复用、顶部顺序和触控 CSS 断言在旧实现 4 项失败；实现后通讯录/Storybook 定向 9 文件、41 项通过。
+- 修复与语义审计：空闲初始化只加载 facet 与受权限约束的偏好 UUID lookup；搜索或筛选有效才调用 `searchDirectory`，清空会递增请求序列、清除游标/结果/加载状态，迟到 Promise 不再落盘。接收者绑定、查询参数、错误 catch、分页、同号合并、收藏 UUID/次数/时间及拨号使用记录次数不变。优先区直接复用完整结果卡 DOM/CSS；结果区先渲染，优先区随后渲染。
+- UI/可访问性：移除可见标题胶囊，保留隐藏 `h2`；导览在搜索上方。拨号关闭 WebKit tap highlight，`:active` 透明，hover 限于 `(hover: hover) and (pointer: fine)`，键盘 `focus-visible` 保留 2px 描边。
+- 运行/浏览器验证：`运行/浏览器验证：pnpm smoke:browser` 最终通过全部管理员、成员、访客/vkey 和访问记录，无浏览器错误。初次失败来自验证器把已存在的收藏卡误当作新搜索结果；改为等待 `.directory-search-results .directory-entry` 与“找到”状态后复跑通过。实际页面初始结果 0；“病案”5 条；收藏卡长短号与原结果一致且在其下方；清空后只保留收藏。390×844 无横向溢出，拨号目标 44px、透明背景。
+- 验证：Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、定向 Vitest 与任务差异检查通过。完整 `pnpm verify` 仅被既有用户所有的 `apps/miniprogram/project.config.json` 格式问题拦截，本轮未修改该文件或并行小程序、`runtime/`、`src/`。
+- 状态：已实现待 checkpoint/生产发布；checkpoint 识别消息为 `feat(directory): refine idle and saved contact layout`。
+
 ## 2026-08-18 月份切换后选中日期与值班详情错配
 
 - 反馈与引入点：翻月后蓝框视觉位置保留，但详情日期与班次/时间不再对应。`git log -S` / `git blame` 指向 `628c79f`：该轮取消翻页重置选择，却没有把旧选中日号重定向为目标月份的完整日期。
