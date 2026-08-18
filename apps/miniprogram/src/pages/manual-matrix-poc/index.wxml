@@ -66,7 +66,6 @@
       enhanced
       show-scrollbar
       bounces="{{false}}"
-      bindscroll="{{matrixSync.handleScroll}}"
       worklet:onscrollupdate="handleGridScroll"
       worklet:onscrollend="handleGridScrollEnd"
       aria-label="手动排班矩阵"
@@ -134,24 +133,6 @@
   </view>
 
   <text class="matrix-note">
-    原生版本保持这套视觉状态，并用 Skyline 双轴滚动、视图层冻结同步与成员行按需绘制重写。
+    原生版本保持这套视觉状态，并用 Skyline 双轴滚动、UI 线程冻结同步与成员行按需绘制重写。
   </text>
 </view>
-
-<wxs module="matrixSync">
-function handleScroll(event, owner) {
-  var detail = event.detail || {}
-  var scrollLeft = detail.scrollLeft > 0 ? detail.scrollLeft : 0
-  var scrollTop = detail.scrollTop > 0 ? detail.scrollTop : 0
-  var dateTrack = owner.selectComponent('#matrix-date-track')
-  var memberTrack = owner.selectComponent('#matrix-member-track')
-  if (dateTrack) {
-    dateTrack.setStyle({ transform: 'translateX(' + -scrollLeft + 'px)' })
-  }
-  if (memberTrack) {
-    memberTrack.setStyle({ transform: 'translateY(' + -scrollTop + 'px)' })
-  }
-}
-
-module.exports = { handleScroll: handleScroll }
-</wxs>

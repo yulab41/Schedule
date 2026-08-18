@@ -64,7 +64,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses one dual-axis viewport with view-layer synchronized frozen tracks', () => {
+  it('uses one dual-axis viewport with same-frame Worklet synchronized frozen tracks', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
@@ -74,12 +74,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?scroll-y[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
-    expect(template).toContain('bindscroll="{{matrixSync.handleScroll}}"');
-    expect(template).toContain('<wxs module="matrixSync">');
-    expect(template).toContain("owner.selectComponent('#matrix-date-track')");
-    expect(template).toContain("owner.selectComponent('#matrix-member-track')");
-    expect(template).toContain("transform: 'translateX(' + -scrollLeft + 'px)'");
-    expect(template).toContain("transform: 'translateY(' + -scrollTop + 'px)'");
+    expect(template).not.toContain('bindscroll=');
+    expect(template).not.toContain('<wxs');
     expect(template).toContain('wx:for="{{rows}}"');
     expect(template).toContain('id="matrix-date-track"');
     expect(template).toContain('id="matrix-member-track"');
@@ -88,10 +84,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(styles).toMatch(/\.matrix-corner\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-date-overlay\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
-    expect(source).not.toContain("applyAnimatedStyle('#matrix-date-track'");
-    expect(source).not.toContain("applyAnimatedStyle('#matrix-member-track'");
+    expect(source).toContain("applyAnimatedStyle('#matrix-date-track'");
+    expect(source).toContain("applyAnimatedStyle('#matrix-member-track'");
+    expect(source).toContain('this._scrollX.value = Math.max(0, event.detail.scrollLeft)');
+    expect(source).toContain('this._scrollY.value = Math.max(0, event.detail.scrollTop)');
     expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBeGreaterThanOrEqual(3);
+    expect(worklets.count).toBeGreaterThanOrEqual(5);
   });
 
   it('synchronizes frozen tracks on the UI thread without setData during scrolling', async () => {
@@ -107,17 +105,30 @@ describe('P1 native manual scheduling matrix PoC', () => {
     vi.stubGlobal('Component', vi.fn());
     await import('../src/pages/manual-matrix-poc/index.ts');
     const setData = vi.fn();
+    const animatedStyles = [];
     const instance = {
-      _scrollProgress: { value: 0 },
-      _viewportWidth: { value: 320 },
+      commitScrollProgress: definition.commitScrollProgress,
+      data: structuredClone(definition.data),
+      applyAnimatedStyle(selector, updater) {
+        animatedStyles.push({ selector, updater });
+      },
       setData,
     };
+    definition.onLoad.call(instance, { mode: 'daily' });
+    instance._viewportWidth.value = 320;
 
     definition.handleGridScroll.call(instance, {
       detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
     });
 
+    const styleBySelector = Object.fromEntries(
+      animatedStyles.map(({ selector, updater }) => [selector, updater()]),
+    );
+    expect(instance._scrollX.value).toBe(216);
+    expect(instance._scrollY.value).toBe(132);
     expect(instance._scrollProgress.value).toBeGreaterThan(0);
+    expect(styleBySelector['#matrix-date-track']).toEqual({ transform: 'translateX(-216px)' });
+    expect(styleBySelector['#matrix-member-track']).toEqual({ transform: 'translateY(-132px)' });
     expect(setData).not.toHaveBeenCalled();
   });
 
@@ -136,6 +147,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     await import('../src/pages/manual-matrix-poc/index.ts');
     const data = structuredClone(definition.data);
     const instance = {
+      applyAnimatedStyle: vi.fn(),
       data,
       commitScrollProgress: definition.commitScrollProgress,
       setData(patch) {

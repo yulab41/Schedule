@@ -61,7 +61,7 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 
 - `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
 - 页面只有一个同时启用横纵滚动的 Skyline `scroll-view type=list`；成员行是直接子节点，日期表头、人员列和左上角为独立冻结覆盖层，禁止 Canvas。
-- WXS `bindscroll` 在视图层把日期表头按 `-scrollLeft`、人员列按 `-scrollTop` 同步，不调用 JS `setData`；3 个矩阵 Worklet 只维护滚动进度提示。
+- `worklet:onscrollupdate` 在 UI 线程把 `scrollLeft`、`scrollTop` 写入 SharedValue；日期表头按 `-scrollLeft`、人员列按 `-scrollTop` 同帧更新，不使用 WXS/普通 `bindscroll`，也不调用 JS `setData`。矩阵产物保留 5 个 Worklet。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
 - `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 
