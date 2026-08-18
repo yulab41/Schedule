@@ -129,5 +129,50 @@
       ></ui-alert>
     </view>
   </view>
+
+  <view class="preview-card">
+    <view class="card-heading">
+      <text class="card-title">人工测试入口</text>
+      <text class="card-note">独立页面</text>
+    </view>
+    <view class="test-route-list">
+      <navigator
+        class="test-route"
+        url="/pages/calendar-poc/index"
+        hover-class="is-pressed"
+        aria-label="进入42格月历测试页"
+      >
+        <view class="test-route-copy">
+          <text class="test-route-title">42 格月历</text>
+          <text class="test-route-note">已通过 · 可再次查看</text>
+        </view>
+        <text class="test-route-arrow" aria-hidden="true">›</text>
+      </navigator>
+      <navigator
+        class="test-route"
+        url="/pages/manual-matrix-poc/index?mode=daily"
+        hover-class="is-pressed"
+        aria-label="进入7乘7日常排班矩阵测试页"
+      >
+        <view class="test-route-copy">
+          <text class="test-route-title">7×7 日常矩阵</text>
+          <text class="test-route-note">49 格 · 横向滚动</text>
+        </view>
+        <text class="test-route-arrow" aria-hidden="true">›</text>
+      </navigator>
+      <navigator
+        class="test-route"
+        url="/pages/manual-matrix-poc/index?mode=maximum"
+        hover-class="is-pressed"
+        aria-label="进入20乘30最大排班矩阵测试页"
+      >
+        <view class="test-route-copy">
+          <text class="test-route-title">20×30 最大矩阵</text>
+          <text class="test-route-note">600 格 · 双轴滚动</text>
+        </view>
+        <text class="test-route-arrow" aria-hidden="true">›</text>
+      </navigator>
+    </view>
+  </view>
 </view>
 </scroll-view>

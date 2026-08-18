@@ -94,6 +94,18 @@ describe('P1 native foundation component boundary', () => {
     );
   });
 
+  it('offers on-device routes to every remaining P1 manual test page', () => {
+    const template = readSource('pages/index/index.wxml');
+    const stylesheet = readSource('pages/index/index.wxss');
+
+    expect(template.match(/<navigator/gu)).toHaveLength(3);
+    expect(template).toContain('url="/pages/calendar-poc/index"');
+    expect(template).toContain('url="/pages/manual-matrix-poc/index?mode=daily"');
+    expect(template).toContain('url="/pages/manual-matrix-poc/index?mode=maximum"');
+    expect(template).toContain('人工测试入口');
+    expect(stylesheet).toMatch(/\.test-route\s*\{[^}]*min-height:\s*52px;/su);
+  });
+
   it('emits one controlled switch change and blocks disabled or loading interaction', async () => {
     const definition = await captureDefinition('ui-switch');
     expect(definition).toBeDefined();
