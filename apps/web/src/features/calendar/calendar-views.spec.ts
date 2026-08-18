@@ -7,6 +7,7 @@ import {
   getBusinessDate,
   getBusinessMonthOf,
   getPreferredViewMode,
+  retargetSelectedDateToMonth,
   getVisibleWeekForMonth,
   getWeekBusinessMonths,
   getWeekDays,
@@ -44,6 +45,12 @@ describe('Calendar view helpers', () => {
   it('computes the China Standard Time business date', () => {
     expect(getBusinessDate(new Date('2026-08-01T17:00:00.000Z'))).toBe('2026-08-01');
     expect(getBusinessMonthOf('2026-08-05')).toBe('2026-08');
+  });
+
+  it('retargets the selected day to the displayed month as one complete date key', () => {
+    expect(retargetSelectedDateToMonth('2026-08-14', '2026-09')).toBe('2026-09-14');
+    expect(retargetSelectedDateToMonth('2026-01-31', '2026-02')).toBe('2026-02-28');
+    expect(retargetSelectedDateToMonth('2028-01-31', '2028-02')).toBe('2028-02-29');
   });
 
   it('builds Monday-first weeks and moves between weeks', () => {

@@ -72,6 +72,16 @@ export function getDefaultSelectedDate({
   return firstScheduledDate ?? `${businessMonth}-01`;
 }
 
+export function retargetSelectedDateToMonth(
+  selectedDate: string,
+  targetBusinessMonth: string,
+): string {
+  const { day } = parseBusinessDate(selectedDate);
+  const { month, year } = parseBusinessDate(`${targetBusinessMonth}-01`);
+  const targetDay = Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate());
+  return `${targetBusinessMonth}-${String(targetDay).padStart(2, '0')}`;
+}
+
 export function parseBusinessDate(value: string): {
   readonly day: number;
   readonly month: number;

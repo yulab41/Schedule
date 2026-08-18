@@ -87,6 +87,23 @@ describe('formal calendar view refinement', () => {
     expect(calendarView).not.toContain('selectedDate.value = weekStart.value;');
   });
 
+  it('binds month selection and selected-date details to the same complete date key', () => {
+    const calendarView = readSource('../../views/calendar/CalendarView.vue');
+    const selectedDateDetails = readSource('./selected-date-duty.ts');
+
+    expect(calendarView).toContain(
+      'selectedDate.value = retargetSelectedDateToMonth(selectedDate.value, targetBusinessMonth)',
+    );
+    expect(calendarView.indexOf('selectedDate.value = retargetSelectedDateToMonth')).toBeLessThan(
+      calendarView.indexOf('businessMonth.value = targetBusinessMonth'),
+    );
+    expect(calendarView).toContain(':model-value="businessMonth"');
+    expect(calendarView).toContain('@update:model-value="setBusinessMonth"');
+    expect(selectedDateDetails).toContain(
+      'groupAssignmentsByDate(assignments).get(selectedDate) ?? []',
+    );
+  });
+
   it('clips square sliding cells with the fixed card and draws rounded selection independently', () => {
     const weekGrid = readSource('./WeekGrid.vue');
     const monthGrid = readSource('./MonthGrid.vue');

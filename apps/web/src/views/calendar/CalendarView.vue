@@ -36,6 +36,7 @@ import {
   getCalendarPanelMonths,
   getCalendarPanelWeeks,
   getDefaultSelectedDate,
+  retargetSelectedDateToMonth,
   getVisibleWeekForMonth,
   getWeekBusinessMonths,
   getWeekLabel,
@@ -355,6 +356,9 @@ function shiftMonth(direction: -1 | 1): void {
 function setBusinessMonth(targetBusinessMonth: string): void {
   pendingListTodayLocation.value = false;
   listLocationMessage.value = undefined;
+  if (selectedDate.value !== undefined) {
+    selectedDate.value = retargetSelectedDateToMonth(selectedDate.value, targetBusinessMonth);
+  }
   businessMonth.value = targetBusinessMonth;
 }
 
@@ -850,7 +854,12 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             </button>
             <label class="month-picker">
               年月
-              <TemporalPicker v-model="businessMonth" kind="month" label="日历年月" />
+              <TemporalPicker
+                :model-value="businessMonth"
+                kind="month"
+                label="日历年月"
+                @update:model-value="setBusinessMonth"
+              />
             </label>
           </header>
           <div class="calendar-weekday-row" aria-hidden="true">
