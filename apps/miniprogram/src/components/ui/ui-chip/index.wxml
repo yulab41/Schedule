@@ -1,0 +1,3 @@
+<view class="ui-chip ui-chip--{{tone}}" aria-label="{{label}}">
+  <text>{{label}}</text>
+</view>

@@ -1,0 +1,15 @@
+<view
+  class="ui-choice {{disabled ? 'is-disabled' : ''}} {{error ? 'has-error' : ''}}"
+  hover-class="{{disabled ? 'none' : 'is-pressed'}}"
+  aria-role="checkbox"
+  aria-label="{{label}}"
+  aria-checked="{{indeterminate ? 'mixed' : checked}}"
+  aria-disabled="{{disabled}}"
+  bindtap="handleToggle"
+>
+  <view class="ui-checkbox__mark {{checked || indeterminate ? 'is-checked' : ''}}" aria-hidden="true">
+    <text wx:if="{{indeterminate}}">−</text>
+    <text wx:elif="{{checked}}">✓</text>
+  </view>
+  <text class="ui-choice__label">{{label}}</text>
+</view>

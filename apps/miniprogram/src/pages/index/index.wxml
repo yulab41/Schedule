@@ -1,2 +1,131 @@
-<!-- P0 technical bootstrap. Replaced only after the first visual batch is approved. -->
-<view aria-hidden="true"></view>
+<view class="foundation-preview">
+  <view class="preview-heading">
+    <view class="preview-heading__copy">
+      <text class="context-label">P1 · 原生复刻基线</text>
+      <text class="page-title">基础控件</text>
+      <text class="page-description">沿用 Web 已确认的排班密度与状态语义，不使用小程序默认组件外观。</text>
+    </view>
+    <view class="baseline-chip">待确认</view>
+  </view>
+
+  <view class="preview-card">
+    <view class="card-heading">
+      <text class="card-title">操作层级</text>
+      <text class="card-note">44px 触控区</text>
+    </view>
+    <view class="button-grid">
+      <view class="button-cell">
+        <ui-button label="发布排班" variant="primary"></ui-button>
+      </view>
+      <view class="button-cell">
+        <ui-button label="保存草稿" variant="secondary"></ui-button>
+      </view>
+      <view class="button-cell">
+        <ui-button label="撤回发布" variant="danger"></ui-button>
+      </view>
+      <view class="button-cell">
+        <ui-button label="正在保存…" variant="secondary" loading></ui-button>
+      </view>
+    </view>
+  </view>
+
+  <view class="preview-card">
+    <view class="card-heading">
+      <text class="card-title">紧凑开关</text>
+      <text class="card-note">本体 52×30</text>
+    </view>
+    <view class="setting-list">
+      <view class="setting-row">
+        <view class="setting-copy" aria-role="button" bindtap="handleChangesOnlyCopyPress">
+          <text class="setting-title">仅显示有变更的班次</text>
+          <text class="setting-description">收起没有换班、请假或加扣班记录的日期。</text>
+        </view>
+        <ui-switch
+          checked="{{changesOnly}}"
+          label="仅显示有变更的班次"
+          bind:change="handleChangesOnlyChange"
+        ></ui-switch>
+      </view>
+      <view class="setting-row">
+        <view class="setting-copy" aria-role="button" bindtap="handleNotificationsCopyPress">
+          <text class="setting-title">微信值班提醒</text>
+          <text class="setting-description">关闭状态保留中性灰，不使用 TDesign 默认绿色。</text>
+        </view>
+        <ui-switch
+          checked="{{notifications}}"
+          label="微信值班提醒"
+          bind:change="handleNotificationsChange"
+        ></ui-switch>
+      </view>
+      <view class="setting-row is-disabled">
+        <view class="setting-copy" aria-hidden="true">
+          <text class="setting-title">长期订阅消息</text>
+          <text class="setting-description">模板资格尚未开放时不可操作。</text>
+        </view>
+        <ui-switch disabled label="长期订阅消息"></ui-switch>
+      </view>
+    </view>
+  </view>
+
+  <view class="preview-card">
+    <view class="card-heading">
+      <text class="card-title">选择与字段</text>
+      <text class="card-note">清晰焦点</text>
+    </view>
+    <view class="choice-section">
+      <ui-checkbox
+        checked="{{contactChecked}}"
+        label="已核对联系方式"
+        bind:change="handleContactCheckedChange"
+      ></ui-checkbox>
+      <view class="radio-group" aria-role="radiogroup" aria-label="默认日历视图">
+        <view class="radio-option">
+          <ui-radio
+            checked="{{calendarView === 'month'}}"
+            label="月视图"
+            value="month"
+            bind:change="handleCalendarViewChange"
+          ></ui-radio>
+        </view>
+        <view class="radio-option">
+          <ui-radio
+            checked="{{calendarView === 'week'}}"
+            label="周视图"
+            value="week"
+            bind:change="handleCalendarViewChange"
+          ></ui-radio>
+        </view>
+      </view>
+    </view>
+    <view class="field-wrap">
+      <ui-input-shell
+        label="模板名称"
+        value="{{templateName}}"
+        bind:change="handleTemplateNameChange"
+      ></ui-input-shell>
+    </view>
+    <view class="field-wrap field-wrap--following">
+      <ui-picker label="应用日期" value="2026-10-01 至 2026-10-30"></ui-picker>
+    </view>
+  </view>
+
+  <view class="preview-card">
+    <view class="card-heading">
+      <text class="card-title">状态反馈</text>
+      <text class="card-note">只表达业务</text>
+    </view>
+    <view class="chip-row">
+      <view class="chip-cell"><ui-chip label="草稿"></ui-chip></view>
+      <view class="chip-cell"><ui-chip label="已发布" tone="success"></ui-chip></view>
+      <view class="chip-cell"><ui-chip label="待确认" tone="warning"></ui-chip></view>
+      <view class="chip-cell"><ui-chip label="有冲突" tone="danger"></ui-chip></view>
+    </view>
+    <view class="alert-wrap">
+      <ui-alert
+        title="发现 2 个排班冲突"
+        message="查看冲突成员后再发布，本次编辑仍保留。"
+        tone="danger"
+      ></ui-alert>
+    </view>
+  </view>
+</view>

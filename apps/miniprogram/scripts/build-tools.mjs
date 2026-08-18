@@ -21,6 +21,15 @@ export const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const SOURCE_ROOT = path.join(APP_ROOT, 'src');
 export const DIST_ROOT = path.join(APP_ROOT, 'dist');
 export const ARTIFACT_ROOT = path.join(APP_ROOT, '.artifacts');
+const UI_TOKENS_WXSS = path.resolve(
+  APP_ROOT,
+  '..',
+  '..',
+  'packages',
+  'ui-tokens',
+  'src',
+  'tokens.wxss',
+);
 
 export const BUILD_PROFILES = Object.freeze({
   production: Object.freeze({
@@ -206,6 +215,15 @@ function copyStaticFiles(sourceDirectory, outputDirectory) {
   }
 }
 
+function copyGeneratedUiTokens(outputDirectory) {
+  if (!existsSync(UI_TOKENS_WXSS)) {
+    throw new Error('generated @schedule/ui-tokens tokens.wxss is missing');
+  }
+  const destinationPath = path.join(outputDirectory, 'styles', 'tokens.wxss');
+  mkdirSync(path.dirname(destinationPath), { recursive: true });
+  copyFileSync(UI_TOKENS_WXSS, destinationPath);
+}
+
 function collectTypeScriptEntryPoints(sourceDirectory) {
   return Object.fromEntries(
     listFiles(sourceDirectory)
@@ -247,6 +265,7 @@ export async function buildMiniProgram({ outdir = DIST_ROOT, profile, sourceRoot
   });
 
   copyStaticFiles(sourceDirectory, outputDirectory);
+  copyGeneratedUiTokens(outputDirectory);
   writeFileSync(
     path.join(outputDirectory, 'build-profile.json'),
     `${JSON.stringify(
@@ -580,6 +599,17 @@ export function auditBuiltTree(outputDirectory = DIST_ROOT) {
 
   if (existsSync(path.join(resolvedOutput, 'project.private.config.json'))) {
     issues.push('private project configuration leaked into dist');
+  }
+  if (!existsSync(path.join(resolvedOutput, 'styles', 'tokens.wxss'))) {
+    issues.push('generated UI token stylesheet is missing from dist');
+  }
+  try {
+    const appStylesheet = readFileSync(path.join(resolvedOutput, 'app.wxss'), 'utf8');
+    if (!appStylesheet.includes('@import "./styles/tokens.wxss";')) {
+      issues.push('app.wxss must import the generated UI token stylesheet');
+    }
+  } catch (error) {
+    issues.push(`app.wxss is unreadable: ${error.message}`);
   }
   return { issues, workletCount: treeAudit.workletCount };
 }

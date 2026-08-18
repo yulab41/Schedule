@@ -60,21 +60,22 @@
 - 用户反馈的手机 Sheet 下拉框不可见回归已完成修复、运行验证和生产部署：首页月历筛选、换班和加扣班的 TDesign 选项层现在挂载到原生模态 Sheet 内，不再落在 top layer 之外；checkpoint 为 `af37f5e`。
 - 用户要求今后每个完成并推送的仓库修改检查点都直接部署到正式服务器并做线上核验；规则已写入根 `AGENTS.md`。部署只同步代码和提交内迁移，生产业务数据始终以服务器数据库为准，禁止用本地数据库、演示数据、凭据或会话覆盖生产。
 
-## 2026-08-18 微信小程序迁移 P0/P1（当前批次，等待视觉确认）
+## 2026-08-18 微信小程序迁移 P0/P1（当前批次，原生基础控件）
 
-- 批次范围：完成 P0 安全迁入与文档归档、P1 确定性工具链和 Web 视觉黄金稿；按门禁暂停，用户确认前不实现原生业务 WXML/WXSS。
+- 批次范围：在用户确认 P1 四项 Web 黄金基线后，只实现同源 WXSS 令牌和基础控件画廊；不提前实现月历、矩阵、弹层、导航、业务 API 或发布动作。
 - 安全迁入：外部 `E:\AItools\Schedule_miniprogram` 的 15 个文件、11295 字节经逐文件 SHA-256 校验迁入 `apps/miniprogram`，外部目录已移除。正式 AppID 保留；`project.private.config.json` 原样保留且由 Git 忽略，不输出或提交其内容。
-- 运行配置：`project.config.json.miniprogramRoot` 固定为 `dist/`；`src/app.json` 使用 Skyline、glass-easel、最低基础库 `3.0.2`、`disableABTest: true` 和 `sdkVersionEnd: 15.255.255`。微信默认 index/navigation-bar 业务样板已删除，当前只保留无业务外观的 P0 bootstrap。
-- 工具链：新增 app workspace、确定性 staging/production `src→dist`、TypeScript、WXML/WXSS/JSON、运行边界、密钥、Worklet 指令、包体和双构建一致性门禁；`miniprogram-ci@2.1.31` 与 `miniprogram-simulate@1.6.2` 精确锁定。CI wrapper 支持无凭证 dry-run，真实私钥必须在仓库外，且脚本不存在审核/正式发布动作。
+- 运行配置：`project.config.json.miniprogramRoot` 固定为 `dist/`；`src/app.json` 使用 Skyline、glass-easel、最低基础库 `3.0.2`、`disableABTest: true` 和 `sdkVersionEnd: 15.255.255`。P0 空 bootstrap 已替换为原生基础控件 PoC 画廊。
+- 工具链：确定性 staging/production `src→dist`、TypeScript、WXML/WXSS/JSON、运行边界、密钥、Worklet 指令、包体和双构建一致性门禁继续生效；`miniprogram-ci@2.1.31`、`miniprogram-simulate@1.6.2` 精确锁定，本批次增加 `jsdom@26.1.0` 作为 simulate DOM 环境。CI wrapper 仅执行无凭证 dry-run，真实私钥仍必须在仓库外。
 - 文档：专项计划、运行/构建、API 边界、分包、Web 同步、视觉标准、组件/页面清单、测试、MiniTest、CI、staging、发布回滚和 4 个 ADR 已放入 `apps/miniprogram/docs`；`apps/miniprogram/AGENTS.md` 明确禁止 LLM 操作本地微信开发者工具。
 - Web 同步：计划内已有能力在对应 Mini 阶段实时跟随 Web；当前动态月历、连续周、统一时间选择器和自绘控件进入 P1/P4/P5 基线。院内通讯录属于迁移计划后新增功能，登记在 P10 最后补齐。
-- Web 黄金稿：用 `frontend-design` 形成基础控件、42 格月历、7×7 与 20×30 矩阵的 390×844/320×844 Storybook 状态；矩阵 fixture 证明 49/600 个逻辑格，浏览器实测最大矩阵 20 行、30 列、600 格，单格写入/撤销通过且无页面横向溢出。截图只在已忽略的 `.artifacts`。
-- 验证：`pnpm format:check`、`pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test --exclude "runtime/**"`（108 files/646 tests pass，31 files/260 integration tests skipped）、`pnpm smoke:check-core`、Storybook build、Mini staging/production verify、9 项工具链测试和 `git diff --check` 通过。根 `runtime/` 与 `src/components.d.ts` 是既存/并发未跟踪产物，未修改或纳入验证提交。全程未启动、唤醒或控制微信开发者工具。
-- 外部门禁：当前未注入仓库外微信上传私钥，因此没有生成预览码或改变微信平台状态；原生 UI 尚未获批/实现，MiniTest 与实体机门禁未开始，不能声称原生通过。
+- Web 黄金稿：基础控件、42 格月历、7×7 与 20×30 矩阵均已由用户确认。月历首轮问题来自 `8a49434` 的详情同卡片结构和 `c64f0d7` 的底格圆角；黄金稿按生产 Web 自 `daff238` 起的独立卡片结构修为 12px 间距、方形日期格和 18px 外框裁切后通过。
+- 原生实现：`@schedule/ui-tokens/tokens.ts` 同时生成 CSS/WXSS，构建把 WXSS 确定性复制到 `dist/styles` 并审计导入。新增自绘 `UiButton`、`UiSwitch`、`UiCheckbox`、`UiRadio`、`UiInputShell`、`UiPicker`、`UiAlert`、`UiChip`、`UiLoading`；开关保持 52×30px 本体、60×44px 触控层，禁用/加载态阻断事件。未引入 TDesign 或第三方 UI。
+- 测试先行：令牌 WXSS、组件注册、开关几何/ARIA、禁用/加载事件和 simulate 组件树先红；实现后 token 2/2、Mini scripts 14/14、Mini typecheck/源码/产物/包体/双构建确定性和无凭证 CI dry-run通过。staging verify 产物 38,190 bytes、manifest `a65a195e8042b1ec25d944c3ba551ded0d3dbdd2d0d7c1d17e8878f499a0ac2a`；production verify 38,183 bytes、manifest `bd73d94f934bdab802a9a2476f57ebf10faa4ae1823c264944d9077357198c1d`。根 format/lint/build/typecheck、排除既有 `runtime/**` 副本后的全仓 112 文件/669 项（31 文件/261 项按环境跳过）、定向 Prettier/ESLint、ui-tokens build、`pnpm smoke:check-core` 与任务文件 `git diff --check` 通过。
+- 外部门禁：当前未注入仓库外微信上传私钥，没有预览上传或微信平台状态变更；Storybook/simulate 不能证明原生视觉，基础控件状态为“已实现待 MiniTest/实体机复核”。全程未启动、唤醒或控制微信开发者工具。
 - checkpoint：`3884713`（`chore(miniprogram): establish native migration workspace`）已推送；发布前加密数据库备份 archive 为 `365295b2-9a16-4d0f-91d2-bcf4ce24470b`（50 张表、18,423 行、7,296,708 字节，SHA-256 `aa0b605778b44edb7651bdf00f2c06e020f109e6937d2e872bf096598ef115cd`）。release `3884713b35f417c88210046efb522bacdb5e08d4` 已部署，容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
-- 当前状态：P0 与 P1 非视觉工具链完成，Web 黄金稿已实现待用户视觉确认；最终状态 checkpoint 识别消息为 `docs(status): record miniprogram migration foundation`。
-- 下一批次：先等待用户逐项确认或退回 P1 的基础控件、42 格月历、7×7/20×30 矩阵黄金稿。批准后才做 1–3 项原生 PoC：同源 WXSS tokens/基础控件、42 格 Skyline 月历、双轴矩阵/Worklet/局部更新；未批准则只修改 Storybook 黄金稿。
-- 停止条件：最终状态 checkpoint 推送、生产备份、release 与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；保持 Storybook 预览并暂停等待用户视觉确认。
+- 当前状态：P1 同源令牌与原生基础控件已实现，等待原生风险 PoC 合并执行 MiniTest；本轮 checkpoint 识别消息为 `feat(miniprogram): add native foundation controls`。
+- 下一批次：只实现已确认的 42 格 Skyline 月历 PoC，包括日期格状态、月历/详情 12px 间距、18px 外框裁切与三面板 Worklet；不同时开始矩阵或业务 API。
+- 停止条件：本轮 checkpoint 显式暂存、推送、生产备份/部署/验证，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止；MiniTest 留到月历与矩阵风险 PoC 完整后统一执行。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 

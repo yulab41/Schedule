@@ -1,0 +1,20 @@
+<view class="ui-input-shell {{focused ? 'is-focused' : ''}} {{error ? 'has-error' : ''}} {{disabled ? 'is-disabled' : ''}}">
+  <view class="ui-input-shell__label-row">
+    <text class="ui-input-shell__label">{{label}}</text>
+    <text wx:if="{{required}}" class="ui-input-shell__required" aria-hidden="true">*</text>
+  </view>
+  <input
+    class="ui-input-shell__control"
+    value="{{value}}"
+    placeholder="{{placeholder}}"
+    disabled="{{disabled}}"
+    aria-label="{{label}}"
+    aria-required="{{required}}"
+    aria-invalid="{{error ? true : false}}"
+    bindinput="handleInput"
+    bindfocus="handleFocus"
+    bindblur="handleBlur"
+  />
+  <text wx:if="{{error}}" class="ui-input-shell__message is-error">{{error}}</text>
+  <text wx:elif="{{help}}" class="ui-input-shell__message">{{help}}</text>
+</view>

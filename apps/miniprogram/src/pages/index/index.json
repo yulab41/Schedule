@@ -1,3 +1,13 @@
 {
-  "navigationStyle": "custom"
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "ui-alert": "/components/ui/ui-alert/index",
+    "ui-button": "/components/ui/ui-button/index",
+    "ui-checkbox": "/components/ui/ui-checkbox/index",
+    "ui-chip": "/components/ui/ui-chip/index",
+    "ui-input-shell": "/components/ui/ui-input-shell/index",
+    "ui-picker": "/components/ui/ui-picker/index",
+    "ui-radio": "/components/ui/ui-radio/index",
+    "ui-switch": "/components/ui/ui-switch/index"
+  }
 }

@@ -1,0 +1,44 @@
+.ui-loading {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.ui-loading.is-compact {
+  min-height: 0;
+}
+
+.ui-loading.is-inherit {
+  color: inherit;
+}
+
+.ui-loading__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--ui-radius-pill);
+  animation: ui-loading-spin 700ms linear infinite;
+}
+
+.ui-loading.is-compact .ui-loading__spinner {
+  width: 14px;
+  height: 14px;
+}
+
+.ui-loading__label {
+  margin-left: 8px;
+}
+
+@keyframes ui-loading-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

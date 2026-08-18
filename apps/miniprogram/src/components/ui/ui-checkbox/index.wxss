@@ -1,0 +1,43 @@
+.ui-choice {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.ui-choice.is-disabled {
+  opacity: 0.55;
+}
+
+.ui-choice.is-pressed {
+  opacity: 0.72;
+}
+
+.ui-checkbox__mark {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  margin-right: 9px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-white);
+  background: var(--ui-color-surface);
+  border: 2px solid var(--ui-color-border-strong);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: var(--ui-font-weight-strong);
+}
+
+.ui-checkbox__mark.is-checked {
+  background: var(--ui-color-primary);
+  border-color: var(--ui-color-primary);
+}
+
+.ui-choice.has-error .ui-checkbox__mark {
+  border-color: var(--ui-color-danger);
+}
+
+.ui-choice__label {
+  flex: 1;
+}

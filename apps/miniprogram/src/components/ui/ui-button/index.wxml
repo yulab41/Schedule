@@ -1,0 +1,16 @@
+<view
+  class="ui-button ui-button--{{variant}} {{disabled || loading ? 'is-inactive' : ''}}"
+  hover-class="{{disabled || loading ? 'none' : 'is-pressed'}}"
+  hover-start-time="0"
+  hover-stay-time="80"
+  aria-role="button"
+  aria-label="{{ariaLabel || label}}"
+  aria-disabled="{{disabled || loading}}"
+  aria-busy="{{loading}}"
+  bindtap="handlePress"
+>
+  <view wx:if="{{loading}}" class="ui-button__loading">
+    <ui-loading compact inherit-color></ui-loading>
+  </view>
+  <text class="ui-button__label">{{label}}</text>
+</view>

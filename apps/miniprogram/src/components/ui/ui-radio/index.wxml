@@ -1,0 +1,12 @@
+<view
+  class="ui-choice {{disabled ? 'is-disabled' : ''}} {{error ? 'has-error' : ''}}"
+  hover-class="{{disabled ? 'none' : 'is-pressed'}}"
+  aria-role="radio"
+  aria-label="{{label}}"
+  aria-checked="{{checked}}"
+  aria-disabled="{{disabled}}"
+  bindtap="handleSelect"
+>
+  <view class="ui-radio__mark {{checked ? 'is-checked' : ''}}" aria-hidden="true"></view>
+  <text class="ui-choice__label">{{label}}</text>
+</view>

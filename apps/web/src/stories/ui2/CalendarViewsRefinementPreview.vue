@@ -612,81 +612,83 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <section v-if="activeView === 'month'" class="month-card" aria-label="月视图预览">
-          <header class="month-toolbar">
-            <button class="month-step" type="button" aria-label="上一月" @click="shiftMonth(-1)">
-              <Ui2Icon name="chevron-left" />
-            </button>
-            <div class="month-heading">
-              <strong>{{ monthLabel }}</strong
-              ><span>左右滑动切换月份</span>
+        <section v-if="activeView === 'month'" class="month-view" aria-label="月视图预览">
+          <section class="month-card">
+            <header class="month-toolbar">
+              <button class="month-step" type="button" aria-label="上一月" @click="shiftMonth(-1)">
+                <Ui2Icon name="chevron-left" />
+              </button>
+              <div class="month-heading">
+                <strong>{{ monthLabel }}</strong
+                ><span>左右滑动切换月份</span>
+              </div>
+              <button
+                class="locate-button"
+                type="button"
+                aria-label="定位到今天"
+                @click="locateToday"
+              >
+                <span class="locate-crosshair" aria-hidden="true">
+                  <span class="locate-crosshair-center" />
+                </span>
+              </button>
+              <button class="month-step" type="button" aria-label="下一月" @click="shiftMonth(1)">
+                <Ui2Icon name="chevron-right" />
+              </button>
+            </header>
+            <div class="weekday-row" aria-hidden="true">
+              <span v-for="weekday in weekdayLabels" :key="weekday">{{ weekday }}</span>
             </div>
-            <button
-              class="locate-button"
-              type="button"
-              aria-label="定位到今天"
-              @click="locateToday"
-            >
-              <span class="locate-crosshair" aria-hidden="true">
-                <span class="locate-crosshair-center" />
-              </span>
-            </button>
-            <button class="month-step" type="button" aria-label="下一月" @click="shiftMonth(1)">
-              <Ui2Icon name="chevron-right" />
-            </button>
-          </header>
-          <div class="weekday-row" aria-hidden="true">
-            <span v-for="weekday in weekdayLabels" :key="weekday">{{ weekday }}</span>
-          </div>
-          <div
-            class="calendar-motion-viewport"
-            :class="{ 'is-dragging': swipePointerStart !== undefined }"
-            @pointercancel="cancelSwipePointer"
-            @pointerdown="onSwipePointerDown"
-            @pointermove="onSwipePointerMove"
-            @pointerup="onSwipePointerUp"
-          >
             <div
-              class="calendar-slider-track"
-              :class="{ 'is-animating': slideAnimating }"
-              :style="{
-                transform: calendarTrackTransform,
-                transitionDuration: `${swipeTransitionMs}ms`,
-              }"
-              @transitionend.self="finishTrackSlide"
+              class="calendar-motion-viewport"
+              :class="{ 'is-dragging': swipePointerStart !== undefined }"
+              @pointercancel="cancelSwipePointer"
+              @pointerdown="onSwipePointerDown"
+              @pointermove="onSwipePointerMove"
+              @pointerup="onSwipePointerUp"
             >
               <div
-                v-for="panel in monthPanels"
-                :key="panel.key"
-                class="calendar-slide-panel"
-                :aria-hidden="panel.relative !== 0"
-                :inert="panel.relative !== 0"
+                class="calendar-slider-track"
+                :class="{ 'is-animating': slideAnimating }"
+                :style="{
+                  transform: calendarTrackTransform,
+                  transitionDuration: `${swipeTransitionMs}ms`,
+                }"
+                @transitionend.self="finishTrackSlide"
               >
-                <div class="month-grid">
-                  <button
-                    v-for="cell in panel.cells"
-                    :key="cell.businessDate"
-                    class="month-cell"
-                    :class="{
-                      outside: !cell.isCurrentMonth,
-                      weekend: cell.isWeekend,
-                      holiday: cell.holiday,
-                      selected: cell.selected,
-                      today: cell.isToday,
-                    }"
-                    type="button"
-                    :disabled="!cell.isCurrentMonth"
-                  >
-                    <span class="date-number">{{ cell.day }}</span>
-                    <span v-if="cell.holiday" class="holiday-chip">{{ cell.holiday }}</span>
-                    <span v-if="cell.person" class="month-person">{{ cell.person }}</span>
-                    <span v-if="cell.marker" class="change-mark">{{ cell.marker }}</span>
-                  </button>
+                <div
+                  v-for="panel in monthPanels"
+                  :key="panel.key"
+                  class="calendar-slide-panel"
+                  :aria-hidden="panel.relative !== 0"
+                  :inert="panel.relative !== 0"
+                >
+                  <div class="month-grid">
+                    <button
+                      v-for="cell in panel.cells"
+                      :key="cell.businessDate"
+                      class="month-cell"
+                      :class="{
+                        outside: !cell.isCurrentMonth,
+                        weekend: cell.isWeekend,
+                        holiday: cell.holiday,
+                        selected: cell.selected,
+                        today: cell.isToday,
+                      }"
+                      type="button"
+                      :disabled="!cell.isCurrentMonth"
+                    >
+                      <span class="date-number">{{ cell.day }}</span>
+                      <span v-if="cell.holiday" class="holiday-chip">{{ cell.holiday }}</span>
+                      <span v-if="cell.person" class="month-person">{{ cell.person }}</span>
+                      <span v-if="cell.marker" class="change-mark">{{ cell.marker }}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <section class="selected-summary">
+          </section>
+          <section class="selected-summary month-selected-summary" aria-label="选中日期值班详情">
             <header>
               <div>
                 <span>选中日期</span><strong>{{ selectedMonthLabel }}</strong>
@@ -1125,8 +1127,10 @@ button:focus-visible {
   border-radius: 18px;
   box-shadow: 0 5px 16px rgb(21 43 67 / 7%);
 }
-.month-card {
+.month-view {
   margin: 12px;
+}
+.month-card {
   overflow: hidden;
 }
 .calendar-motion-viewport {
@@ -1266,12 +1270,6 @@ button:focus-visible {
   border: 0;
   cursor: pointer;
   text-align: left;
-}
-.month-cell:nth-last-child(7) {
-  border-bottom-left-radius: 17px;
-}
-.month-cell:last-child {
-  border-bottom-right-radius: 17px;
 }
 .month-cell.outside {
   color: #a7b0bb;
@@ -1432,6 +1430,10 @@ button:focus-visible {
 .summary-row .ui2-icon {
   width: 15px;
   height: 15px;
+}
+
+.month-selected-summary {
+  margin: 12px 0 0;
 }
 
 .week-view {

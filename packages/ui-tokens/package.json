@@ -10,7 +10,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./tokens.css": "./src/tokens.css"
+    "./tokens.css": "./src/tokens.css",
+    "./tokens.wxss": "./src/tokens.wxss"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

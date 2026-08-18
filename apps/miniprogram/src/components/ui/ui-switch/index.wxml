@@ -1,0 +1,16 @@
+<view
+  class="ui-switch__hit-area {{disabled || loading ? 'is-inactive' : ''}}"
+  hover-class="{{disabled || loading ? 'none' : 'is-pressed'}}"
+  hover-start-time="0"
+  hover-stay-time="80"
+  aria-role="switch"
+  aria-checked="{{checked}}"
+  aria-label="{{label}}"
+  aria-disabled="{{disabled || loading}}"
+  aria-busy="{{loading}}"
+  bindtap="handleToggle"
+>
+  <view class="ui-switch__track {{checked ? 'is-checked' : ''}}" aria-hidden="true">
+    <view class="ui-switch__thumb"></view>
+  </view>
+</view>

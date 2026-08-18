@@ -1,0 +1,86 @@
+page {
+  --ui-color-background: #f4f7fb;
+  --ui-color-border: #dce3eb;
+  --ui-color-border-strong: #c5cdd6;
+  --ui-color-danger: #d92d20;
+  --ui-color-danger-light: #fdecea;
+  --ui-color-focus-ring: #0a66d5;
+  --ui-color-holiday-background: #fff5f5;
+  --ui-color-near-black: #16202a;
+  --ui-color-overlay: #16202a;
+  --ui-color-primary: #0a66d5;
+  --ui-color-primary-border: #b9d8ff;
+  --ui-color-primary-dark: #084fa6;
+  --ui-color-primary-light: #eaf3ff;
+  --ui-color-success: #248a3d;
+  --ui-color-success-light: #eaf8ef;
+  --ui-color-surface: #ffffff;
+  --ui-color-surface-muted: #f8fafc;
+  --ui-color-text-muted: #6b7785;
+  --ui-color-text-primary: #16202a;
+  --ui-color-text-secondary: #5e6a78;
+  --ui-color-today-marker: #f5c518;
+  --ui-color-warning: #b86a00;
+  --ui-color-warning-light: #fff4d6;
+  --ui-color-weekend: #e03131;
+  --ui-color-white: #ffffff;
+
+  --ui-spacing-none: 0;
+  --ui-spacing-xxs: 4px;
+  --ui-spacing-xs: 8px;
+  --ui-spacing-sm: 12px;
+  --ui-spacing-md: 16px;
+  --ui-spacing-lg: 20px;
+  --ui-spacing-xl: 24px;
+  --ui-spacing-xxl: 32px;
+
+  --ui-font-family-system: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+
+  --ui-font-size-xs: 11px;
+  --ui-font-size-sm: 13px;
+  --ui-font-size-md: 15px;
+  --ui-font-size-lg: 17px;
+  --ui-font-size-xl: 20px;
+  --ui-font-size-xxl: 28px;
+
+  --ui-font-weight-medium: 550;
+  --ui-font-weight-regular: 400;
+  --ui-font-weight-semibold: 650;
+  --ui-font-weight-strong: 750;
+
+  --ui-line-height-tight: 1.3;
+  --ui-line-height-normal: 1.55;
+  --ui-line-height-title: 1.18;
+
+  --ui-radius-large: 18px;
+  --ui-radius-medium: 14px;
+  --ui-radius-pill: 999px;
+  --ui-radius-small: 10px;
+
+  --ui-shadow-card: 0 8px 24px rgb(22 32 42 / 7%);
+  --ui-shadow-elevated: 0 16px 40px rgb(22 32 42 / 14%);
+  --ui-shadow-focus: 0 0 0 3px rgb(10 102 213 / 12%);
+  --ui-shadow-primary: 0 8px 20px rgb(10 102 213 / 22%);
+
+  --ui-touch-target-comfortable: 50px;
+  --ui-touch-target-minimum: 44px;
+  --ui-touch-target-navigation: 56px;
+
+  --ui-breakpoint-mobile: 640px;
+  --ui-breakpoint-tablet: 768px;
+  --ui-breakpoint-desktop: 1024px;
+
+  --ui-layout-bottom-nav-height: 70px;
+  --ui-layout-header-height: 68px;
+  --ui-layout-sidebar-width: 224px;
+
+  --ui-z-index-drawer: 100;
+  --ui-z-index-navigation: 50;
+  --ui-z-index-overlay: 90;
+  --ui-z-index-sticky: 10;
+  --ui-z-index-dialog: 1000;
+
+  --ui-duration-fast: 120ms;
+  --ui-duration-normal: 200ms;
+  --ui-duration-slow: 320ms;
+}

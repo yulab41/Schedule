@@ -1,0 +1,48 @@
+.ui-button {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  transition: opacity var(--ui-duration-fast) ease;
+}
+
+.ui-button--primary {
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border-color: var(--ui-color-primary);
+  box-shadow: var(--ui-shadow-primary);
+}
+
+.ui-button--danger {
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+  border-color: rgba(217, 45, 32, 0.18);
+}
+
+.ui-button.is-inactive {
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-muted);
+  border-color: var(--ui-color-border);
+  box-shadow: none;
+  opacity: 0.72;
+}
+
+.ui-button.is-pressed {
+  opacity: 0.72;
+}
+
+.ui-button__loading {
+  display: flex;
+  margin-right: 7px;
+}
+
+.ui-button__label {
+  font: inherit;
+}

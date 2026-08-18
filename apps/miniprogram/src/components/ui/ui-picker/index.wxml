@@ -1,0 +1,14 @@
+<view
+  class="ui-picker {{disabled ? 'is-disabled' : ''}}"
+  hover-class="{{disabled ? 'none' : 'is-pressed'}}"
+  aria-role="button"
+  aria-label="{{label}}，{{value}}"
+  aria-disabled="{{disabled}}"
+  bindtap="handlePress"
+>
+  <text class="ui-picker__label">{{label}}</text>
+  <view class="ui-picker__value-row">
+    <text class="ui-picker__value">{{value}}</text>
+    <text class="ui-picker__chevron" aria-hidden="true">›</text>
+  </view>
+</view>

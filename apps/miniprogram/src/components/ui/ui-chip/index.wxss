@@ -1,0 +1,25 @@
+.ui-chip {
+  display: flex;
+  padding: 4px 8px;
+  align-items: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.ui-chip--success {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+}
+
+.ui-chip--warning {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+}
+
+.ui-chip--danger {
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+}

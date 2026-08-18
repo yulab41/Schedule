@@ -1,0 +1,4 @@
+<view class="ui-alert ui-alert--{{tone}}" aria-role="alert" aria-label="{{title}}。{{message}}">
+  <text class="ui-alert__title">{{title}}</text>
+  <text class="ui-alert__message">{{message}}</text>
+</view>

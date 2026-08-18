@@ -1,0 +1,56 @@
+.ui-input-shell {
+  display: flex;
+  min-height: 58px;
+  padding: 7px 11px;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+}
+
+.ui-input-shell.is-focused {
+  border-color: var(--ui-color-primary);
+  box-shadow: var(--ui-shadow-focus);
+}
+
+.ui-input-shell.has-error {
+  border-color: var(--ui-color-danger);
+}
+
+.ui-input-shell.is-disabled {
+  background: var(--ui-color-surface-muted);
+  opacity: 0.62;
+}
+
+.ui-input-shell__label-row {
+  display: flex;
+  align-items: center;
+}
+
+.ui-input-shell__label,
+.ui-input-shell__message {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.4;
+}
+
+.ui-input-shell__required,
+.ui-input-shell__message.is-error {
+  color: var(--ui-color-danger);
+}
+
+.ui-input-shell__required {
+  margin-left: 3px;
+  font-size: var(--ui-font-size-xs);
+}
+
+.ui-input-shell__control {
+  width: 100%;
+  min-height: 24px;
+  padding: 0;
+  color: var(--ui-color-text-primary);
+  background: transparent;
+  font-family: var(--ui-font-family-system);
+  font-size: var(--ui-font-size-sm);
+}

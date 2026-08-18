@@ -33,9 +33,11 @@
 - CI 可以运行 build、simulate、包体和静态门禁；`miniprogram-ci` 可以生成预览/上传开发或体验版本。
 - LLM 不得调用本地微信开发者工具 GUI 或 CLI。用户人工打开 GUI 只用于诊断，不构成自动验证链路。
 
-## 当前 P0 状态
+## 当前 P0/P1 状态
 
 - 外部 Skyline 模板已经过逐文件 SHA‑256 校验迁入。
 - 正式 AppID 保留在 `project.config.json`；私有配置保留但被 Git 忽略。
 - 默认模板首页和 navigation-bar 已移除，以无业务外观的技术 bootstrap 取代。
-- `src → dist` 编译、包体和 Worklet 门禁属于 P1，P0 不伪造已完成状态。
+- `src → dist` 编译、源码/产物边界、包体、Worklet 指令、双构建确定性和无凭证 CI dry-run 门禁已完成。
+- P1 基础控件批次新增从 `@schedule/ui-tokens` 单源生成并复制到 `dist/styles/tokens.wxss` 的路径；`app.wxss` 必须显式导入该文件，缺失或漂移由测试/产物审计阻断。
+- 当前基础控件不含 Worklet；Worklet 计数为 0 属于预期。42 格月历三面板和双轴矩阵实现后必须出现并验证相应指令，不能以当前计数作为后续豁免。
