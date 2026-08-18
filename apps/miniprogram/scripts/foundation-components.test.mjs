@@ -79,6 +79,21 @@ describe('P1 native foundation component boundary', () => {
     expect(stylesheet).toMatch(/translateX\(22px\)/u);
   });
 
+  it('keeps the foundation gallery scrollable and its two-column buttons inside their tracks', () => {
+    const template = readSource('pages/index/index.wxml');
+    const stylesheet = readSource('pages/index/index.wxss');
+
+    expect(template).toMatch(
+      /^<scroll-view\s+class="foundation-scroll"\s+scroll-y\s+show-scrollbar="\{\{false\}\}">/u,
+    );
+    expect(template.trimEnd()).toMatch(/<\/scroll-view>$/u);
+    expect(stylesheet).toMatch(/page\s*\{[^}]*height:\s*100%;/su);
+    expect(stylesheet).toMatch(/\.foundation-scroll\s*\{[^}]*height:\s*100%;/su);
+    expect(stylesheet).toMatch(
+      /\.button-cell\s*\{[^}]*width:\s*50%;[^}]*box-sizing:\s*border-box;/su,
+    );
+  });
+
   it('emits one controlled switch change and blocks disabled or loading interaction', async () => {
     const definition = await captureDefinition('ui-switch');
     expect(definition).toBeDefined();

@@ -491,3 +491,10 @@
 - 人工门禁：`testing/p1-manual-test-plan.json` 与 `docs/runbooks/manual-native-testing.md` 固定四条路由、实际交互状态、视觉/性能目标及反馈格式。通过不强制截图；失败需给出页面、状态和现象，之后只修失败项。
 - 运行/浏览器验证：Mini 10 文件/35 项；staging/production verify、11 个 Worklet、确定性、源码/包体、无凭据 CI dry-run、根 lint/build/typecheck、排除用户自有 `runtime/**`/`src/**` 后主工作区 118 文件/693 项（31 文件/261 项按环境跳过）、任务文件 Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。未触及 Web 核心链路，不需要 `pnpm smoke:browser`；根格式检查仅被用户自有 `apps/miniprogram/project.config.json` 拦截。LLM 未启动、唤醒或控制本地微信开发者工具。
 - 正式发布：checkpoint `e53f361` 已推送；备份 `6d16b012-6d69-4728-a335-59ad00396999`（50 表、18,497 行、7,370,892 字节，SHA-256 `e6de3f9c748aa3db8b2789f1214bb48fdf61aa42f5293af3ba9f9e629e063eff`）成功。release `e53f3611350fa60c846f2f649f68b4fea9616f41` 从隔离干净 worktree 部署，容器预热首个健康检查一次 502 后恢复，`ecs-verify.sh`、正式首页和 API 通过；此前云测 checkpoint `a9c71d6` 未单独部署。
+
+## 2026-08-18 P1 基础控件安卓按钮轨道与页面滚动修复
+
+- 反馈与引入点：用户人工确认月历 B 通过；实体 Android 的基础控件页四个按钮各保持约半宽却逐行换行，Android 与 PC 开发者工具均无法向下滚动，阻断 A 后续及 C/D。`git log -S`/`git blame` 确认 `.button-cell { width: 50%; padding: 4.5px; }` 和仅依赖普通根节点的基础页均由 `24bc2c4` 引入。
+- 测试先行：新增基础页必须使用全高纵向 `scroll-view`、按钮格必须显式 `border-box` 的结构回归；旧代码先因没有滚动容器失败，修复后定向 5/5、Mini 全套 36/36 通过。
+- 修复与语义审计：保留 Web 黄金的 390px 两列和 320px 单列，不改按钮尺寸、文案、variant、禁用/加载态或事件；只让 50% 轨道把 padding 计入自身宽度。基础页增加全高原生纵向滚动容器，内容与状态组件结构不变；没有修改已通过月历、矩阵、API、store 或业务数据。
+- 运行/浏览器验证：Mini 10 文件/36 项、排除用户自有 `runtime/**`/`src/**` 的主工作区 118 文件/694 项通过（31 文件/261 项按环境跳过）；staging/production verify、11 个 Worklet、确定性、源码/包体、无凭据 CI dry-run、根 lint/build/typecheck、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。staging/production 包体为 101,403/101,396 bytes，manifest 为 `b9589e46d2b871df8272fc7662ede7cee6f986f5b59b48344e964944deb6aff6` / `abd93dab69da4b65e6df0cb35f9e95facc0cc6f86a1dd22964b0e331196ec084`。根 `format:check` 仍只被用户自有 `apps/miniprogram/project.config.json` 拦截；未触及 Web 核心链路，无需 `pnpm smoke:browser`。全程未启动或控制微信开发者工具。当前状态为已实现待用户复测基础控件 A，随后继续 C/D。
