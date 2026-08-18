@@ -128,11 +128,12 @@
 - 本轮修复发布：代码 checkpoint `4b33274`（`fix(miniprogram): align calendar and matrix gestures`）已推送；发布前加密数据库备份 archive 为 `97f38cf1-119e-4cc7-a28e-7c626692b131`（50 表、18,503 行、7,374,844 字节，SHA-256 `dca9672981d721d283bf307c8633ba7b7294de2288679cea0a4a17fa888b791c`）。release `4b33274e5b458ef8f236119892ef08ea6f5a9b9b` 从隔离干净 worktree 离线构建并部署；容器预热首个 TLS 探测短暂断开后自动恢复，`ecs-verify.sh` 通过正式域名健康、38 个迁移、产物哈希、域名隔离、公开端口和容器检查。该 ECS 发布不上传、审核或发布微信小程序。
 - 矩阵滚动延迟回归：用户于 2026-08-19 在 7×7 和 20×30 实体运行中确认表头虽能跟随，但存在延迟和黏滞感。`git log -S`/`git blame` 定位到 `4b33274` 引入的 WXS 普通 `bindscroll` 路径；官方 Skyline Worklet 说明明确指出跨线程响应会产生延迟，`worklet:onscrollupdate` 与 SharedValue/`applyAnimatedStyle` 用于 UI 线程直接反馈。回归测试先以 2 项失败证明旧实现仍使用 WXS 且滚动回调没有更新冻结轨道 SharedValue；修复后冻结轨道与进度条在 `onLoad` 绑定，横纵偏移由同一个 UI 线程滚动回调直接写入，不增加 timing/spring 补间，也不改变点击、撤销、数据或滚动结束提示的调用次数。当前实现待用户重新人工复核 C/D。
 - 矩阵延迟修复验证：定向回归 6/6、Mini 全套 10 文件/37 项通过；staging/production 源码与产物均保留 5 个 Worklet，包体分别为 104,143/104,136 bytes，manifest 分别为 `79aeb4f5b60416906686e5df5b0d46df8820177cb78f86dbb48b34ab2be74a9a` / `062ce07925cc4ab801180fc1eb167beb7ede8b1e1747884a534ec87945f942e1`。Mini typecheck、确定性、包体审计、无凭据 CI dry-run、根 lint/build/typecheck、排除用户自有 `runtime/**`/`src/**` 后主工作区 119 文件/698 项（31 文件/261 项按环境跳过）、`pnpm smoke:check-core`、任务文件 Prettier/ESLint 与 `git diff --check` 通过；根 `format:check` 仍只被用户自有 `project.config.json` 格式问题拦截，该文件及 `runtime/`、`src/` 均未修改且不会暂存。
+- 矩阵延迟修复发布：代码 checkpoint `3b9a677`（`fix(miniprogram): remove matrix scroll lag`）已推送；发布前加密数据库备份 archive 为 `dce9ac35-6c36-4d02-a488-8f40fb94b2ec`（50 表、18,510 行、7,379,296 字节，SHA-256 `dcfe627e52750d9333da206e470f649c170bebe4621c92b90d250de169e0fa51`）。release `3b9a6777c1e75c8cfe91e49429955b0d37357e7f` 从隔离干净 worktree 构建并部署；首次健康探测一次 502 后自动恢复，`ecs-verify.sh` 通过正式域名健康、38 个迁移、产物哈希、域名隔离、公开端口和容器检查。
 - 微信上传规则：用户于 2026-08-19 要求每次完成的小程序修改 checkpoint 均提交微信开发平台。今后在 Git 推送后使用 Node 版 `miniprogram-ci` 上传开发/体验轨道；dry-run 不算上传，提交审核与正式发布仍须用户明确批准。当前环境未配置 `WECHAT_CI_PRIVATE_KEY_PATH`，常用用户目录和 `E:\AItools` 未找到可用 `.key`/`.pem`，因此本 checkpoint 的真实微信上传待用户提供仓库外私钥绝对路径后补传；不得唤醒或改用本地开发者工具 CLI。
 - 当前状态：动态月历与矩阵轴同步已实现待用户人工原生复核；基础控件按钮排布也仍待用户明确确认。P1 尚未完成，不能提前进入 P2。
 - 下一批次：用户人工重新编译并复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动；7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。通过后再按仍未确认的 P1 项继续；若失败，只修复对应失败项。
 - 本 checkpoint 识别消息：`fix(miniprogram): remove matrix scroll lag`。
-- 最终状态 checkpoint 识别消息：`docs(status): record manual acceptance deployment`。
+- 最终状态 checkpoint 识别消息：`docs(status): record matrix sync deployment`。
 - 停止条件：本轮修复 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后真实上传同一小程序 checkpoint 到微信开发/体验轨道。若仅因仓库外上传私钥缺失而阻塞，则明确向用户索取绝对路径并停止，不进入 P2；上传完成后再交付 C/D 人工复测步骤并等待反馈，不以静态测试代替用户人工原生验收。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
