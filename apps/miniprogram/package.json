@@ -11,10 +11,14 @@
     "check:package": "node scripts/package-audit.mjs",
     "check:source": "node scripts/source-audit.mjs",
     "ci:dry-run": "node scripts/miniprogram-ci.mjs preview --profile=staging --dry-run",
+    "minitest:dry-run": "node scripts/minitest.mjs submit --dry-run",
+    "minitest:status": "node scripts/minitest.mjs status",
+    "minitest:submit": "node scripts/minitest.mjs submit",
     "preview": "node scripts/miniprogram-ci.mjs preview --profile=staging",
     "test": "vitest run scripts --fileParallelism=false",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "upload:experience": "node scripts/miniprogram-ci.mjs upload-experience --profile=staging",
+    "visual:compare": "node scripts/visual-compare.mjs",
     "verify": "tsc --noEmit -p tsconfig.json && node scripts/verify.mjs --profile=staging"
   },
   "devDependencies": {
@@ -22,6 +26,7 @@
     "jsdom": "26.1.0",
     "miniprogram-ci": "2.1.31",
     "miniprogram-simulate": "1.6.2",
+    "pngjs": "7.0.0",
     "typescript": "5.9.3",
     "vitest": "3.2.7"
   }

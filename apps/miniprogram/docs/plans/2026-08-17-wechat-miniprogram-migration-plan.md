@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；四项 Web 黄金基线均已由用户确认；P1 原生基础控件、同源 WXSS 令牌、42 格 Skyline 月历及 7×7/20×30 手排矩阵 PoC 均已通过静态、simulate 和确定性构建门禁；下一项仅执行 MiniTest Android/iOS 原生复核与用户实体机确认，当前等待仓库外上传私钥及可用 MiniTest 项目/权限
+- 状态：P0 与 P1 非视觉工具链已完成；四项 Web 黄金基线均已由用户确认；P1 原生基础控件、同源 WXSS 令牌、42 格 Skyline 月历及 7×7/20×30 手排矩阵 PoC 均已通过静态、simulate 和确定性构建门禁；P1 MiniTest 四页证据清单、安全 dry-run/提交/状态 runner 与 98%/2%/2px 自有比较器已落地；下一项仅执行 MiniTest Android/iOS 原生复核与用户实体机确认，当前等待仓库外上传私钥及可用 MiniTest 项目/权限
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界
