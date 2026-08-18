@@ -24,7 +24,7 @@ P1 在 app `package.json` 中建立稳定脚本，根 `package.json` 只做 work
 
 当前锁定 Node 包 `miniprogram-ci@2.1.31`（2026-08-18 npm `latest`），不跟随 alpha/beta/gamma 标签。升级只能作为独立的 Skyline/构建批次，并重新执行用户人工原生验收。
 
-仓库使用 pnpm 严格依赖布局；上传封装会在启动官方 Summer 编译子进程前，把 `miniprogram-ci` 自带的依赖根加入子进程 `NODE_PATH`。这是为了让官方编译器按其 npm 扁平布局假设解析自带 Babel 插件，不允许改成复制依赖、修改 `node_modules` 或依赖本机全局包。
+仓库使用 pnpm 严格依赖布局，而 `miniprogram-ci@2.1.31` 的 Summer Worklet 编译器按 npm 扁平布局解析 Babel 插件，且其 Worklet 插件使用但未声明 `@babel/preset-typescript`。上传封装会先校验并暴露 `miniprogram-ci` 自带的依赖根，项目显式固定同代 `@babel/preset-typescript@7.21.4`；同时仅在 CI 编译进程设置该版本内部支持的 `__MINIPROGRAM_CI_TEST__=true`，让官方 worker task 在 Summer 子进程内执行并保留正确的模块解析路径。该开关不进入小程序产物、不改变业务运行时，也不允许改成复制依赖、修改 `node_modules` 或依赖本机全局包。
 
 预览与上传都显式传入 `compileWorklet: true`，不只依赖开发者工具的本地私有设置，保证 `worklet:onscrollupdate` 和动画 updater 进入官方 Worklet 编译路径。
 

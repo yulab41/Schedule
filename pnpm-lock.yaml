@@ -78,6 +78,9 @@ importers:
 
   apps/miniprogram:
     devDependencies:
+      '@babel/preset-typescript':
+        specifier: 7.21.4
+        version: 7.21.4(@babel/core@7.21.4)
       esbuild:
         specifier: 0.28.1
         version: 0.28.1
@@ -801,6 +804,12 @@ packages:
     peerDependencies:
       '@babel/core': ^7.0.0-0
 
+  '@babel/plugin-syntax-jsx@7.29.7':
+    resolution: {integrity: sha512-TSu8+mHCoEaaCDEZ0I3+6mvTBYR4PCxQwf2z9/r5Tbztv6NaLR3B9thGTTxX2WGuGHJqRiAbKPeGTJ5XWXVg6A==}
+    engines: {node: '>=6.9.0'}
+    peerDependencies:
+      '@babel/core': ^7.0.0-0
+
   '@babel/plugin-syntax-logical-assignment-operators@7.10.4':
     resolution: {integrity: sha512-d8waShlpFDinQ5MtvGU9xDAOzKH47+FFoney2baFIoMr952hKOLp1HR7VszoZvOsV/4+RRszNY7D17ba0te0ig==}
     peerDependencies:
@@ -1289,6 +1298,12 @@ packages:
 
   '@babel/preset-env@7.21.4':
     resolution: {integrity: sha512-2W57zHs2yDLm6GD5ZpvNn71lZ0B/iypSdIeq25OurDKji6AdzV07qp4s3n1/x5BqtiGaTrPN3nerlSCaC5qNTw==}
+    engines: {node: '>=6.9.0'}
+    peerDependencies:
+      '@babel/core': ^7.0.0-0
+
+  '@babel/preset-typescript@7.21.4':
+    resolution: {integrity: sha512-sMLNWY37TCdRH/bJ6ZeeOH1nPuanED7Ai9Y/vH31IPqalioJ6ZNFUWONsakhv4r4n+I6gm5lmoE0olkgib/j/A==}
     engines: {node: '>=6.9.0'}
     peerDependencies:
       '@babel/core': ^7.0.0-0
@@ -7686,6 +7701,11 @@ snapshots:
       '@babel/core': 7.21.4
       '@babel/helper-plugin-utils': 7.29.7
 
+  '@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.21.4)':
+    dependencies:
+      '@babel/core': 7.21.4
+      '@babel/helper-plugin-utils': 7.29.7
+
   '@babel/plugin-syntax-logical-assignment-operators@7.10.4(@babel/core@7.21.4)':
     dependencies:
       '@babel/core': 7.21.4
@@ -8281,6 +8301,17 @@ snapshots:
       babel-plugin-polyfill-regenerator: 0.4.1(@babel/core@7.21.4)
       core-js-compat: 3.50.0
       semver: 6.3.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@babel/preset-typescript@7.21.4(@babel/core@7.21.4)':
+    dependencies:
+      '@babel/core': 7.21.4
+      '@babel/helper-plugin-utils': 7.29.7
+      '@babel/helper-validator-option': 7.29.7
+      '@babel/plugin-syntax-jsx': 7.29.7(@babel/core@7.21.4)
+      '@babel/plugin-transform-modules-commonjs': 7.29.7(@babel/core@7.21.4)
+      '@babel/plugin-transform-typescript': 7.21.3(@babel/core@7.21.4)
     transitivePeerDependencies:
       - supports-color
 

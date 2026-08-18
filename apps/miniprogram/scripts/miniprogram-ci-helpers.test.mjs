@@ -88,20 +88,28 @@ describe('miniprogram-ci helpers', () => {
     const sharedRoot = path.resolve('fixture-shared');
     const environment = { NODE_PATH: `${existingRoot}${path.delimiter}${sharedRoot}` };
     const dependencyRoot = path.resolve('fixture-ci', 'node_modules');
-    const resolvedRoot = configureMiniprogramCiModulePath(environment, () =>
-      path.join(dependencyRoot, 'miniprogram-ci', 'package.json'),
-    );
+    const resolvedSpecifiers = [];
+    const resolvePackage = (specifier) => {
+      resolvedSpecifiers.push(specifier);
+      return specifier === 'miniprogram-ci/package.json'
+        ? path.join(dependencyRoot, 'miniprogram-ci', 'package.json')
+        : path.join(existingRoot, '@babel', 'preset-typescript', 'package.json');
+    };
+    const resolvedRoot = configureMiniprogramCiModulePath(environment, resolvePackage);
 
     expect(resolvedRoot).toBe(dependencyRoot);
+    expect(resolvedSpecifiers).toEqual([
+      'miniprogram-ci/package.json',
+      '@babel/preset-typescript/package.json',
+    ]);
+    expect(environment.__MINIPROGRAM_CI_TEST__).toBe('true');
     expect(environment.NODE_PATH.split(path.delimiter)).toEqual([
       dependencyRoot,
       existingRoot,
       sharedRoot,
     ]);
 
-    configureMiniprogramCiModulePath(environment, () =>
-      path.join(dependencyRoot, 'miniprogram-ci', 'package.json'),
-    );
+    configureMiniprogramCiModulePath(environment, resolvePackage);
     expect(environment.NODE_PATH.split(path.delimiter)).toHaveLength(3);
   });
 });

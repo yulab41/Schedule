@@ -108,11 +108,15 @@ export function configureMiniprogramCiModulePath(
   resolvePackage = (specifier) => require.resolve(specifier),
 ) {
   const packagePath = resolvePackage('miniprogram-ci/package.json');
+  resolvePackage('@babel/preset-typescript/package.json');
   const dependencyRoot = path.dirname(path.dirname(packagePath));
   const existingEntries = (environment.NODE_PATH ?? '')
     .split(path.delimiter)
     .filter((entry) => entry.length > 0 && entry !== dependencyRoot);
   environment.NODE_PATH = [dependencyRoot, ...existingEntries].join(path.delimiter);
+  // miniprogram-ci's worker thread replaces NODE_PATH with an npm-flat-layout path.
+  // Running the official task inline keeps the validated dependency path in the Summer process.
+  environment.__MINIPROGRAM_CI_TEST__ = 'true';
   return dependencyRoot;
 }
 
