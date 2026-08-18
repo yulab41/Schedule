@@ -10,14 +10,22 @@
 NODE_ENV=production AUTH_DEV_MODE=false AUTH_PASSWORD_ENABLED=true pnpm ecs:package
 ```
 
-将 `runtime/ecs-release/` 中的以下文件上传到服务器临时目录，再执行：
+将 `runtime/ecs-release/` 中的三个产物，以及同一 commit 的 `infra/scripts/ecs-update.sh`、`infra/scripts/ecs-verify.sh`，上传到服务器独立临时目录。部署脚本不会持久化在 `/opt/schedule/infra/scripts/`，不得调用该路径或复用来源不明的旧 `/tmp/ecs-*.sh`。
+
+从 Windows 上传时先把两份 shell 脚本规范化为 LF，并在服务器执行 `bash -n`。示例：
 
 ```bash
-bash infra/scripts/ecs-update.sh \
+RELEASE_ID="$(sed -nE 's/.*"releaseId"[[:space:]]*:[[:space:]]*"([0-9a-f]{40})".*/\1/p' /tmp/deploy-manifest.json | head -1)"
+[[ "$RELEASE_ID" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid release id" >&2; exit 1; }
+SCRIPT_DIR="/tmp/schedule-release-${RELEASE_ID}"
+sed -i 's/\r$//' "$SCRIPT_DIR/ecs-update.sh" "$SCRIPT_DIR/ecs-verify.sh"
+bash -n "$SCRIPT_DIR/ecs-update.sh"
+bash -n "$SCRIPT_DIR/ecs-verify.sh"
+bash "$SCRIPT_DIR/ecs-update.sh" \
   /tmp/schedule-dist.tar.gz \
   /tmp/api-flat.tar.zst \
   /tmp/deploy-manifest.json
-bash infra/scripts/ecs-verify.sh
+bash "$SCRIPT_DIR/ecs-verify.sh"
 ```
 
 发布前必须先备份生产数据库和当前 release。发布失败时保留上一份可用 release，按项目既有回滚流程恢复，不要删除其他站点的容器或配置。
