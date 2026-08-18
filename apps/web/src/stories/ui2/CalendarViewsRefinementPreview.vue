@@ -126,10 +126,14 @@ function formatDateKey(date: Date): string {
 function createMonthCells(offset: number): readonly PreviewMonthCell[] {
   const monthStart = getMonthStart(offset);
   const firstMondayOffset = (monthStart.getUTCDay() + 6) % 7;
+  const daysInMonth = new Date(
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const weekCount = Math.ceil((firstMondayOffset + daysInMonth) / 7);
   const gridStart = new Date(monthStart);
   gridStart.setUTCDate(1 - firstMondayOffset);
 
-  return Array.from({ length: 42 }, (_, index) => {
+  return Array.from({ length: weekCount * 7 }, (_, index) => {
     const date = new Date(gridStart);
     date.setUTCDate(gridStart.getUTCDate() + index);
     const businessDate = formatDateKey(date);
@@ -176,6 +180,9 @@ const monthPanels = computed<readonly PreviewMonthPanel[]>(() =>
     relative,
     cells: createMonthCells(monthOffset.value + relative),
   })),
+);
+const currentMonthGridHeight = computed(
+  () => ((monthPanels.value[1]?.cells.length ?? 35) / 7) * 54,
 );
 
 const weekOffset = ref(0);
@@ -642,6 +649,7 @@ onUnmounted(() => {
             <div
               class="calendar-motion-viewport"
               :class="{ 'is-dragging': swipePointerStart !== undefined }"
+              :style="{ height: `${currentMonthGridHeight}px` }"
               @pointercancel="cancelSwipePointer"
               @pointerdown="onSwipePointerDown"
               @pointermove="onSwipePointerMove"
@@ -1139,11 +1147,13 @@ button:focus-visible {
   overflow: hidden;
   isolation: isolate;
   touch-action: pan-y;
+  transition: height 180ms ease-out;
 }
 .calendar-slider-track {
   display: grid;
   width: 100%;
   grid-template-columns: repeat(3, 100%);
+  align-items: start;
   will-change: transform;
 }
 .calendar-slider-track.is-animating {
@@ -1285,6 +1295,12 @@ button:focus-visible {
 .month-cell.selected {
   z-index: 1;
   box-shadow: inset 0 0 0 2px var(--preview-primary);
+}
+.month-cell:nth-last-child(7) {
+  border-bottom-left-radius: 17px;
+}
+.month-cell:last-child {
+  border-bottom-right-radius: 17px;
 }
 .month-cell.today .date-number {
   color: #fff;

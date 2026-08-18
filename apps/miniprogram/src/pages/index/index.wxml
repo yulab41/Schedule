@@ -140,10 +140,10 @@
         class="test-route"
         url="/pages/calendar-poc/index"
         hover-class="is-pressed"
-        aria-label="进入42格月历测试页"
+        aria-label="进入动态月历测试页"
       >
         <view class="test-route-copy">
-          <text class="test-route-title">42 格月历</text>
+          <text class="test-route-title">动态月历</text>
           <text class="test-route-note">已通过 · 可再次查看</text>
         </view>
         <text class="test-route-arrow" aria-hidden="true">›</text>

@@ -64,7 +64,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses one dual-axis list viewport with independent frozen overlay tracks', () => {
+  it('uses one dual-axis viewport with view-layer synchronized frozen tracks', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
@@ -74,7 +74,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?scroll-y[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
-    expect(template).not.toContain('bindscroll=');
+    expect(template).toContain('bindscroll="{{matrixSync.handleScroll}}"');
+    expect(template).toContain('<wxs module="matrixSync">');
+    expect(template).toContain("owner.selectComponent('#matrix-date-track')");
+    expect(template).toContain("owner.selectComponent('#matrix-member-track')");
+    expect(template).toContain("transform: 'translateX(' + -scrollLeft + 'px)'");
+    expect(template).toContain("transform: 'translateY(' + -scrollTop + 'px)'");
     expect(template).toContain('wx:for="{{rows}}"');
     expect(template).toContain('id="matrix-date-track"');
     expect(template).toContain('id="matrix-member-track"');
@@ -83,8 +88,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(styles).toMatch(/\.matrix-corner\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-date-overlay\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
-    expect(source).toContain("applyAnimatedStyle('#matrix-date-track'");
-    expect(source).toContain("applyAnimatedStyle('#matrix-member-track'");
+    expect(source).not.toContain("applyAnimatedStyle('#matrix-date-track'");
+    expect(source).not.toContain("applyAnimatedStyle('#matrix-member-track'");
     expect(worklets.issues).toEqual([]);
     expect(worklets.count).toBeGreaterThanOrEqual(3);
   });
@@ -104,8 +109,6 @@ describe('P1 native manual scheduling matrix PoC', () => {
     const setData = vi.fn();
     const instance = {
       _scrollProgress: { value: 0 },
-      _scrollX: { value: 0 },
-      _scrollY: { value: 0 },
       _viewportWidth: { value: 320 },
       setData,
     };
@@ -114,8 +117,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
       detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
     });
 
-    expect(instance._scrollX.value).toBe(216);
-    expect(instance._scrollY.value).toBe(132);
+    expect(instance._scrollProgress.value).toBeGreaterThan(0);
     expect(setData).not.toHaveBeenCalled();
   });
 

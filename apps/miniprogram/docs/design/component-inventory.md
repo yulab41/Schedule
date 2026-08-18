@@ -16,7 +16,7 @@
 | `UiSheet`                      | 安全区、键盘、拖动/关闭、长内容滚动                                | P1/P3  |
 | `UiNavigationBar` / `UiTabBar` | safe area、当前项、badge、禁用入口                                 | P4     |
 | `CalendarCell`                 | 跨月/今天/选中/历史/节假日/班次/变更/补录                          | P1 PoC |
-| `CalendarMonth`                | 42 格/三面板/方向锁/阈值/速度/回弹/定位今天                        | P1 PoC |
+| `CalendarMonth`                | 动态 5/6 周/原生三面板滑动/程序翻页/底角适配/定位今天              | P1 PoC |
 | `ManualScheduleCell`           | 空/班种/冲突/禁用/选中/撤销目标                                    | P1 PoC |
 
 组件不得直接依赖业务 API。业务状态由 presentation-core 或 feature controller 映射为组件 props/events。
@@ -26,9 +26,9 @@
 - 已实现 Web 黄金稿直接覆盖的 `UiButton`、`UiSwitch`、`UiCheckbox`、`UiRadio`、`UiInputShell`、`UiPicker`、`UiAlert`、`UiChip`，以及按钮复用的 `UiLoading`。
 - `UiSwitch` 固定为 52×30px 可见本体和 60×44px 触控层；开、关、禁用、加载由受控属性驱动，禁用/加载态不会发出变更事件。
 - 颜色、字号、间距、圆角、阴影和触控尺寸由 `@schedule/ui-tokens/tokens.ts` 同时生成 `tokens.css` 与 `tokens.wxss`；小程序构建只复制生成物，不维护第二套令牌值。
-- 已实现 `CalendarCell` 与 `CalendarMonth`：固定三面板各 42 格，跨月/今天/选中/周末/节假日/人员/加换状态独立；方形日期格由 18px 外框统一裁切，下方详情为独立表面并保持 12px 间距。
-- 月历横向手势在 UI 线程执行方向锁、56px 距离或 600px/s 速度结算、180ms 回弹与 240ms 翻页；结算后只向逻辑层发送一次月份变化事件，滚动过程中不调用 `setData`。
-- 已实现 `ManualScheduleCell` 与矩阵 PoC：`pages/manual-matrix-poc/index?mode=daily|maximum` 分别生成 7×7 和 20×30 确定性数据；单一 Skyline 双轴 `scroll-view` 承载主体，日期与人员覆盖层由 5 个 Worklet 在 UI 线程同步，滚动期间不调用 `setData`。
+- 已实现 `CalendarCell` 与 `CalendarMonth`：按当前 Web `buildMonthDisplayGrid` 公式为各面板生成实际 5 周或 6 周，跨月/今天/选中/周末/节假日/人员/加换状态独立；最后一行左右角显式携带圆角状态，18px 外框不再暴露反圆角，下方详情保持 12px 间距。
+- 月历使用 Skyline 原生三面板 `swiper`，Android 触控、PC 鼠标拖动和程序按钮共用同一翻页路径；关键箭头/定位图标使用真实 WXML 子节点，不依赖不同运行时表现不一致的伪元素。
+- 已实现 `ManualScheduleCell` 与矩阵 PoC：`pages/manual-matrix-poc/index?mode=daily|maximum` 分别生成 7×7 和 20×30 确定性数据；单一 Skyline 双轴 `scroll-view` 承载主体，日期与人员覆盖层由 WXS 在视图层按对应轴同步，滚动期间不调用 `setData`。
 - 班种选择只更新前一选中格和目标格的数据路径；撤销栈只保存 `{key,before,after}` 增量。20 行使用 `type=list` 按视口绘制直接子行，不依赖最低基础库 3.0.2 尚不可用的 `list-builder` 节点回收。
 - 已通过属性/事件单测、`miniprogram-simulate` 组件树与事件烟测、源码边界、包体和确定性构建。Storybook/simulate 仍不等价于微信运行时，基础控件、月历和矩阵的原生视觉状态均保持“已实现待用户实体 Android 人工复核”。
 - `UiSheet`、`UiDialog`、`UiConfirm`、导航与业务组件尚未实现；必须等待其对应黄金状态确认，不从本批次外推样式。

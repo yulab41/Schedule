@@ -2,13 +2,11 @@ import { readFileSync } from 'node:fs';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { findWorkletIssues } from './build-tools.mjs';
-
 function readSource(relativePath) {
   return readFileSync(new URL(`../src/${relativePath}`, import.meta.url), 'utf8');
 }
 
-describe('P1 native 42-cell calendar PoC', () => {
+describe('P1 native dynamic month calendar PoC', () => {
   beforeEach(() => {
     vi.resetModules();
   });
@@ -17,7 +15,7 @@ describe('P1 native 42-cell calendar PoC', () => {
     vi.unstubAllGlobals();
   });
 
-  it('builds three deterministic 42-cell panels with independent visual states', async () => {
+  it('matches the Web month grid by rendering only the required five or six weeks', async () => {
     const { createCalendarPocViewModel } = await import('../src/testing/fixtures/calendar-poc.ts');
     const viewModel = createCalendarPocViewModel(0);
     const currentPanel = viewModel.panels.find((panel) => panel.relative === 0);
@@ -25,9 +23,12 @@ describe('P1 native 42-cell calendar PoC', () => {
     expect(viewModel.monthLabel).toBe('2026年10月');
     expect(viewModel.selectedLabel).toBe('10月14日 · 周三');
     expect(viewModel.panels).toHaveLength(3);
-    expect(viewModel.panels.map((panel) => panel.cells.length)).toEqual([42, 42, 42]);
+    expect(viewModel.panels.map((panel) => panel.cells.length)).toEqual([35, 35, 42]);
+    expect(viewModel.gridHeight).toBe(270);
     expect(currentPanel?.cells.at(0)?.businessDate).toBe('2026-09-28');
-    expect(currentPanel?.cells.at(-1)?.businessDate).toBe('2026-11-08');
+    expect(currentPanel?.cells.at(-1)?.businessDate).toBe('2026-11-01');
+    expect(currentPanel?.cells[28]).toMatchObject({ isBottomLeft: true });
+    expect(currentPanel?.cells.at(-1)).toMatchObject({ isBottomRight: true });
     expect(currentPanel?.cells.find((cell) => cell.businessDate === '2026-10-14')).toMatchObject({
       isCurrentMonth: true,
       isSelected: true,
@@ -61,7 +62,7 @@ describe('P1 native 42-cell calendar PoC', () => {
     expect(cellConfig.component).toBe(true);
   });
 
-  it('keeps square cells inside one 18px clipping frame and a separate 12px detail surface', () => {
+  it('keeps the Web bottom-corner selection treatment inside one 18px clipping frame', () => {
     const monthTemplate = readSource('components/calendar/calendar-month/index.wxml');
     const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
     const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
@@ -75,75 +76,55 @@ describe('P1 native 42-cell calendar PoC', () => {
       /\.month-card\s*\{[^}]*overflow:\s*hidden;[^}]*border-radius:\s*18px;/su,
     );
     expect(cellStyles).not.toMatch(/\.calendar-cell\s*\{[^}]*border-radius:/su);
+    expect(cellStyles).toMatch(
+      /\.calendar-cell\.is-bottom-left\s*\{[^}]*border-bottom-left-radius:\s*17px;/su,
+    );
+    expect(cellStyles).toMatch(
+      /\.calendar-cell\.is-bottom-right\s*\{[^}]*border-bottom-right-radius:\s*17px;/su,
+    );
     expect(pageTemplate).toContain('class="selected-summary month-selected-summary"');
     expect(pageStyles).toMatch(/\.month-selected-summary\s*\{[^}]*margin-top:\s*12px;/su);
   });
 
-  it('wires the three-panel track to UI-thread gesture worklets', () => {
+  it('uses the native three-panel swiper and explicit icon nodes on every runtime', () => {
     const template = readSource('components/calendar/calendar-month/index.wxml');
-    const source = readSource('components/calendar/calendar-month/index.ts');
-    const worklets = findWorkletIssues(source, 'calendar-month/index.ts');
 
-    expect(template).toContain('<pan-gesture-handler');
-    expect(template).toContain('worklet:ongesture="handleMonthPan"');
-    expect(template).toContain('worklet:should-response-on-move="shouldRespondToMonthPan"');
-    expect(source).toContain('applyAnimatedStyle');
-    expect(source).toContain('runOnJS');
-    expect(source).toContain('timing');
-    expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBeGreaterThanOrEqual(3);
+    expect(template).toContain('<swiper');
+    expect(template).toContain('current="{{swiperCurrent}}"');
+    expect(template).toContain('bindanimationfinish="handleMonthSwipe"');
+    expect(template).toContain('<swiper-item');
+    expect(template).not.toContain('<pan-gesture-handler');
+    expect(template).toContain('class="chevron-line is-upper"');
+    expect(template).toContain('class="locate-tick is-top"');
+    const styles = readSource('components/calendar/calendar-month/index.wxss');
+    expect(styles).not.toContain('locate-crosshair::before');
   });
 
-  it('locks vertical movement out and settles horizontal distance or velocity once', async () => {
+  it('commits one native swipe and recenters when the panel data changes', async () => {
     let definition;
-    vi.stubGlobal('wx', {
-      worklet: {
-        Easing: { bezier: vi.fn(() => 'easing') },
-        runOnJS: (callback) => callback,
-        shared: (value) => ({ value }),
-        timing: (target, _config, callback) => {
-          callback?.(true);
-          return target;
-        },
-      },
-    });
     vi.stubGlobal('Component', (value) => {
       definition = value;
     });
     await import('../src/components/calendar/calendar-month/index.ts');
-    const settleMonthPan = vi.fn();
+    const triggerEvent = vi.fn();
     const instance = {
-      _gestureX: { value: 0 },
-      _translateX: { value: 0 },
-      _viewportWidth: { value: 360 },
-      settleMonthPan,
+      _monthShiftPending: false,
+      data: { swiperCurrent: 1, swiperDuration: 240 },
+      setData: vi.fn(),
+      triggerEvent,
     };
 
-    expect(definition.methods.shouldRespondToMonthPan({ deltaX: 12, deltaY: 3 })).toBe(true);
-    expect(definition.methods.shouldRespondToMonthPan({ deltaX: 3, deltaY: 12 })).toBe(false);
+    definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
+    definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
+    expect(triggerEvent).toHaveBeenCalledOnce();
+    expect(triggerEvent).toHaveBeenCalledWith('monthchange', { delta: 1 });
 
-    definition.methods.handleMonthPan.call(instance, {
-      deltaX: 0,
-      deltaY: 0,
-      state: 1,
-      velocityX: 0,
+    definition.observers.panels.call(instance);
+    expect(instance.setData.mock.calls[0]?.[0]).toEqual({
+      swiperCurrent: 1,
+      swiperDuration: 0,
     });
-    definition.methods.handleMonthPan.call(instance, {
-      deltaX: -64,
-      deltaY: 2,
-      state: 2,
-      velocityX: 0,
-    });
-    definition.methods.handleMonthPan.call(instance, {
-      deltaX: 0,
-      deltaY: 0,
-      state: 3,
-      velocityX: 0,
-    });
-
-    expect(instance._translateX.value).toBe(-64);
-    expect(settleMonthPan).toHaveBeenCalledOnce();
-    expect(settleMonthPan).toHaveBeenCalledWith(1);
+    expect(instance._monthShiftPending).toBe(false);
   });
 
   it('keeps adjacent cells inert and emits one semantic current-date selection', async () => {

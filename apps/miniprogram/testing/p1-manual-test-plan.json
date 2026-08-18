@@ -31,19 +31,26 @@
       "id": "calendar-month",
       "route": "pages/calendar-poc/index",
       "storybookStoryId": "miniprogram-parity-p1-calendar--month-390",
-      "states": ["initial", "selected-date", "previous-month", "next-month", "rebound"]
+      "states": [
+        "five-week-month",
+        "six-week-month",
+        "selected-bottom-corner",
+        "previous-month",
+        "next-month",
+        "locate-today"
+      ]
     },
     {
       "id": "manual-matrix-daily",
       "route": "pages/manual-matrix-poc/index?mode=daily",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--daily-390",
-      "states": ["initial", "horizontal-scroll", "cell-selected", "undo"]
+      "states": ["initial", "horizontal-header-sync", "cell-selected", "undo"]
     },
     {
       "id": "manual-matrix-maximum",
       "route": "pages/manual-matrix-poc/index?mode=maximum",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--maximum-390",
-      "states": ["initial", "scroll-end", "stale-cell", "cell-selected", "undo"]
+      "states": ["initial", "dual-axis-header-sync", "stale-cell", "cell-selected", "undo"]
     }
   ]
 }

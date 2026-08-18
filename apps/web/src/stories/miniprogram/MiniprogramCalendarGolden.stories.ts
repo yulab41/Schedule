@@ -20,11 +20,11 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Month390: Story = {
-  name: '1 · 42 格月历 · 390×844',
+  name: '1 · 动态月历 · 390×844',
   globals: { viewport: 'mobile390' },
 };
 
 export const Month320: Story = {
-  name: '2 · 42 格月历边界 · 320×844',
+  name: '2 · 动态月历边界 · 320×844',
   globals: { viewport: 'mobile320' },
 };

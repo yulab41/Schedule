@@ -79,16 +79,16 @@
 
 ## 2026-08-18 微信小程序迁移 P0/P1（当前批次，用户人工原生验收）
 
-- 批次范围：在用户确认四项 Web 黄金基线，且基础控件、42 格月历与 7×7/20×30 Skyline 手排矩阵 PoC 完成后，只完成 P1 用户人工原生验收交付；不接入业务 API，不实现 P2，不由 LLM 启动本地微信开发者工具，也不执行微信正式发布动作。用户于 2026-08-18 明确取消 MiniTest/Minium 云测，反馈人工测试通过后再进入 P2。
+- 批次范围：在基础控件、动态 5/6 周月历与 7×7/20×30 Skyline 手排矩阵 PoC 完成后，只完成 P1 用户人工原生验收交付；不接入业务 API，不实现 P2，不由 LLM 启动本地微信开发者工具，也不执行微信正式发布动作。用户于 2026-08-18 明确取消 MiniTest/Minium 云测，反馈人工测试通过后再进入 P2。
 - 安全迁入：外部 `E:\AItools\Schedule_miniprogram` 的 15 个文件、11295 字节经逐文件 SHA-256 校验迁入 `apps/miniprogram`，外部目录已移除。正式 AppID 保留；`project.private.config.json` 原样保留且由 Git 忽略，不输出或提交其内容。
 - 运行配置：`project.config.json.miniprogramRoot` 固定为 `dist/`；`src/app.json` 使用 Skyline、glass-easel、最低基础库 `3.0.2`、`disableABTest: true` 和 `sdkVersionEnd: 15.255.255`。P0 空 bootstrap 已替换为原生基础控件 PoC 画廊。
 - 工具链：确定性 staging/production `src→dist`、TypeScript、WXML/WXSS/JSON、运行边界、密钥、Worklet 指令、包体和双构建一致性门禁继续生效；`miniprogram-ci@2.1.31`、`miniprogram-simulate@1.6.2`、`jsdom@26.1.0` 和仅供可选截图比较器使用的 `pngjs@7.0.0` 精确锁定。CI dry-run 不读取凭据，真实上传私钥仍必须在仓库外。
 - 文档：专项计划、运行/构建、API 边界、分包、Web 同步、视觉标准、组件/页面清单、测试、用户人工原生验收、CI、staging、发布回滚和 4 个 ADR 已放入 `apps/miniprogram/docs`；`apps/miniprogram/AGENTS.md` 明确禁止 LLM 操作本地微信开发者工具。
 - Web 同步：计划内已有能力在对应 Mini 阶段实时跟随 Web；当前动态月历、连续周、统一时间选择器和自绘控件进入 P1/P4/P5 基线。院内通讯录属于迁移计划后新增功能，登记在 P10 最后补齐。
-- Web 黄金稿：基础控件、42 格月历、7×7 与 20×30 矩阵均已由用户确认。月历首轮问题来自 `8a49434` 的详情同卡片结构和 `c64f0d7` 的底格圆角；黄金稿按生产 Web 自 `daff238` 起的独立卡片结构修为 12px 间距、方形日期格和 18px 外框裁切后通过。
+- Web 黄金稿：基础控件、月历、7×7 与 20×30 矩阵首轮均由用户确认；实体 Android 复测后确认 P1 Storybook 月历仍错误写死 42 格，而当前生产 Web `buildMonthDisplayGrid` 已按月份跨度动态生成 5/6 周，并为最后一行选中框适配左右底角。黄金稿与 Mini fixture 已同步纠正，12px 详情间距继续保持。
 - 原生实现：`@schedule/ui-tokens/tokens.ts` 同时生成 CSS/WXSS，构建把 WXSS 确定性复制到 `dist/styles` 并审计导入。新增自绘 `UiButton`、`UiSwitch`、`UiCheckbox`、`UiRadio`、`UiInputShell`、`UiPicker`、`UiAlert`、`UiChip`、`UiLoading`；开关保持 52×30px 本体、60×44px 触控层，禁用/加载态阻断事件。未引入 TDesign 或第三方 UI。
-- 月历实现：新增 `pages/calendar-poc/index`、自绘 `CalendarMonth`/`CalendarCell` 和确定性 2026-10 fixture。三个面板各 42 格，跨月/今天/选择/周末/节假日/人员/加换状态独立；方形日期格由 18px 外框统一裁切，详情保持独立表面和 12px 间距。Skyline Worklet 在 UI 线程完成方向锁、56px/600px/s 结算、180ms 回弹和 240ms 翻页，结束后仅发送一次月份变化事件，拖动期间不调用 `setData`。
-- 矩阵实现：新增 `pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture。一个 `scroll-view type=list` 同时承载横纵滚动；20 个成员行按视口绘制，日期表头、人员列和滚动进度由新增 5 个 Worklet 同步。点击只更新目标格及必要的前一选中格路径，撤销仅保存 `{key,before,after}`；未使用 Canvas、`bindscroll`、整月 `setData` 或业务 API。
+- 月历实现：`pages/calendar-poc/index`、自绘 `CalendarMonth`/`CalendarCell` 和确定性 2026-10 fixture 现按 Web 同一周数公式生成 35/42 格面板；跨月/今天/选择/周末/节假日/人员/加换状态独立，最后一行显式标记左右底角。Android 触控、PC 鼠标和程序按钮统一改走 Skyline 原生三面板 `swiper`；箭头/定位图标使用真实 WXML 子节点，详情保持独立表面和 12px 间距。
+- 矩阵实现：`pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture 继续使用一个 `scroll-view type=list` 承载横纵滚动；20 个成员行按视口绘制。日期表头以 `-scrollLeft`、人员列以 `-scrollTop` 由 WXS 在视图层同步，滚动中不调用 `setData`；点击与撤销仍仅做增量更新，未使用 Canvas、整月 `setData` 或业务 API。
 - 人工验收工具：`testing/p1-manual-test-plan.json` 锁定基础控件、月历、7×7、20×30 四条原生路由、实际交互状态和既定视觉/性能目标；`docs/runbooks/manual-native-testing.md` 给出用户手工编译模式、实体 Android 操作和反馈格式。云测 runner、Minium Python/ZIP、云测凭据和专用 selector 已移除；`scripts/visual-compare.mjs` 仅在用户提供截图或失败需要量化时使用。
 - 回归来源与语义：`git log -S`/`git blame` 确认旧 Storybook 详情同卡来自 `8a49434`、Web 三面板来自 `41d284b`、生产外框裁切来自 `0aaa562`；本实现复用视觉和交互语义但未复制 Vue/DOM。相邻月份格只读，当前月日期只发出一次选择事件；月份切换只重建 PoC ViewModel，不接入 API 或业务 store。
 - 矩阵回归来源与语义：P1 黄金 story 由 `3884713` 引入；生产手排基础来自 `6512274`，冻结日期/人员列及密集移动交互来自 `1203dc7`。本实现保留同一人员×日期、班种、失效、选择和滚动语义，但用 WXML/WXSS/Skyline 重写；`type=list` 是最低基础库 3.0.2 可用的按视口绘制路径，不冒用 3.3.0 才提供且仅纵向的 `list-builder`。
@@ -112,11 +112,12 @@
 - 原生测试入口：用户复测确认基础页已可上下滚动，但当前页不会自动包含另外三个独立路由，因此看不到月历与矩阵。`git log -S`/`git blame` 确认月历/矩阵分别由 `1f715c9`/`6cc7463` 作为独立页面引入，入口缺失不是页面渲染失败。基础页“状态反馈”后新增三行原生 `navigator`，分别进入月历、7×7 和 20×30；不嵌套页面、不修改三个 PoC 的布局、数据、Worklet 或性能环境。
 - 入口验证：新增导航契约在旧代码上先失败；实现后 Mini 10 文件/37 项、排除用户自有 `runtime/**`/`src/**` 的主工作区 118 文件/695 项通过（31 文件/261 项按环境跳过），staging/production verify、11 个 Worklet、确定性、源码/包体、无凭据 CI dry-run、根 lint/build/typecheck、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。根 `format:check` 仍只被用户自有 `apps/miniprogram/project.config.json` 拦截；未触及 Web 核心链路，无需 `pnpm smoke:browser`。
 - 入口发布：代码 checkpoint `e2852ef`（`fix(miniprogram): add native p1 test navigation`）已推送；发布前加密数据库备份 archive 为 `07fb20ed-651b-43e1-b09d-82d9ef2415ca`（50 表、18,501 行、7,373,524 字节，SHA-256 `87751e7f8800d6691082b3e922317d6e39c3d4906b2e438a9beb76f11e1872b4`）。release `e2852ef603a0f8dee5dc5e991243b63d0a0182be` 从干净 worktree 构建并部署；容器预热首个健康检查一次 502 后自动恢复，`ecs-verify.sh`、外部正式首页与 API 均通过。最终状态 checkpoint 识别消息：`docs(status): record native p1 navigation deployment`。
-- 当前状态：42 格月历已由用户人工确认通过；基础控件已确认可纵向滚动，按钮排布仍待用户明确确认；新增原生入口待用户验证可进入 7×7/20×30，两个矩阵尚未完成实体 Android 验收。P1 不能提前标为完成。
-- 下一批次：用户重新编译基础页，滚到最下方从“人工测试入口”进入 7×7 与 20×30，并完成 A/C/D；明确反馈“通过”后才进入 P2 共享核心。若失败，只修复用户指出的页面/状态并重新交付同一清单。
-- 本 checkpoint 识别消息：`test(miniprogram): switch p1 to manual acceptance`。
+- 本轮真机回归与引入点：用户在 PC/Android 发现月历控件显示与触控行为相反、Android Pan 无法切月、月历周数/底角不符生产 Web，以及 7×7/20×30 表头不随对应轴同步。`git log -S`/`git blame` 定位固定 42 格与 Pan 来自 `1f715c9`，矩阵仅 Worklet 冻结同步来自 `6cc7463`；生产 Web 的动态周数与底角规则以 `apps/web/src/features/calendar/{month-grid-presentation.ts,MonthGrid.vue}` 为语义基准。回归测试先出现 5 项 Mini 失败和 1 项 Storybook 失败；修复后定向 Mini 12/12、Storybook 12/12，Mini 全套 10 文件/37 项、排除用户自有 `runtime/**`/`src/**` 的主工作区 119 文件/698 项通过（31 文件/261 项按环境跳过）。Mini typecheck、staging/production verify、确定性、源码/包体、无凭据 CI dry-run、根 lint/build/typecheck、Storybook build、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；staging/production 包体分别为 104,352/104,345 bytes，manifest 分别为 `71fcf061c68189375ccfb5598937948f9bcc582883520d110455b1072374a1b3` / `dcc21c572b4b55cb654336e4b120954a38276dbe92bd3c2ede92f3fa2c6d54ab`，源码与产物均只保留 3 个矩阵滚动进度 Worklet。根 `format:check` 仍只被用户自有 `apps/miniprogram/project.config.json` 拦截；原始根测试会误扫未跟踪 `runtime/**` 发布副本，主工作区排除副本后完整通过。未触及 Web 核心链路，无需 `pnpm smoke:browser`。
+- 当前状态：动态月历与矩阵轴同步已实现待用户人工原生复核；基础控件按钮排布也仍待用户明确确认。P1 尚未完成，不能提前进入 P2。
+- 下一批次：用户人工重新编译，完成 A；在 B 验证 2026-10 五周、2026-11 六周、三个控件、Android 左右滑动和底角；在 C/D 验证日期表头随横轴、人员列随纵轴并持续对齐。用户明确反馈“通过”后才进入 P2；若失败，只修复对应失败项。
+- 本 checkpoint 识别消息：`fix(miniprogram): align calendar and matrix gestures`。
 - 最终状态 checkpoint 识别消息：`docs(status): record manual acceptance deployment`。
-- 停止条件：最终状态 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后，向用户交付基础控件 A 与矩阵 C/D 人工复测步骤并等待反馈；不重复已通过的月历 B，不进入 P2，不以 Storybook/simulate 代替用户人工原生验收。
+- 停止条件：本轮修复 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后，向用户交付 A/B/C/D 人工复测步骤并等待反馈；不进入 P2，不以 Storybook/simulate 代替用户人工原生验收。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 

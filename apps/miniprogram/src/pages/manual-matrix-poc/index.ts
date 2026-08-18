@@ -40,8 +40,6 @@ interface SelectorRect {
 interface ManualMatrixPageInstance {
   _commitScrollProgress: (progress: number) => void;
   _scrollProgress: MiniProgramSharedValue<number>;
-  _scrollX: MiniProgramSharedValue<number>;
-  _scrollY: MiniProgramSharedValue<number>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
   _viewportWidth: MiniProgramSharedValue<number>;
@@ -67,22 +65,12 @@ Page({
     const viewModel = createManualMatrixPocViewModel(mode);
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
     this._scrollProgress = shared(0);
-    this._scrollX = shared(0);
-    this._scrollY = shared(0);
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
     if (mode !== defaultViewModel.mode) this.setData({ ...viewModel });
   },
   onReady(this: ManualMatrixPageInstance): void {
     this._viewportWidth = shared(1);
-    this.applyAnimatedStyle('#matrix-date-track', () => {
-      'worklet';
-      return { transform: `translateX(${-this._scrollX.value}px)` };
-    });
-    this.applyAnimatedStyle('#matrix-member-track', () => {
-      'worklet';
-      return { transform: `translateY(${-this._scrollY.value}px)` };
-    });
     this.applyAnimatedStyle('#matrix-scroll-thumb', () => {
       'worklet';
       return { transform: `translateX(${this._scrollProgress.value * 36}px)` };
@@ -95,11 +83,10 @@ Page({
   },
   handleGridScroll(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';
-    this._scrollX.value = Math.max(0, event.detail.scrollLeft);
-    this._scrollY.value = Math.max(0, event.detail.scrollTop);
+    const scrollX = Math.max(0, event.detail.scrollLeft);
     const scrollWidth = event.detail.scrollWidth ?? this._viewportWidth.value;
     const maximumScroll = Math.max(1, scrollWidth - this._viewportWidth.value);
-    this._scrollProgress.value = Math.max(0, Math.min(1, this._scrollX.value / maximumScroll));
+    this._scrollProgress.value = Math.max(0, Math.min(1, scrollX / maximumScroll));
   },
   handleGridScrollEnd(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';

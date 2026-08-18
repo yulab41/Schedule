@@ -12,6 +12,8 @@ Component({
     businessDate: { type: String, value: '' },
     day: { type: String, value: '' },
     holiday: { type: String, value: '' },
+    isBottomLeft: { type: Boolean, value: false },
+    isBottomRight: { type: Boolean, value: false },
     isCurrentMonth: { type: Boolean, value: true },
     isHoliday: { type: Boolean, value: false },
     isSelected: { type: Boolean, value: false },

@@ -7,6 +7,8 @@ export interface CalendarPocCell {
   readonly day: string;
   readonly holiday: string;
   readonly isCurrentMonth: boolean;
+  readonly isBottomLeft: boolean;
+  readonly isBottomRight: boolean;
   readonly isHoliday: boolean;
   readonly isSelected: boolean;
   readonly isToday: boolean;
@@ -22,6 +24,7 @@ export interface CalendarPocPanel {
 }
 
 export interface CalendarPocViewModel {
+  readonly gridHeight: number;
   readonly monthLabel: string;
   readonly monthOffset: number;
   readonly panels: readonly CalendarPocPanel[];
@@ -75,10 +78,14 @@ function createMonthCells(
 ): readonly CalendarPocCell[] {
   const monthStart = getMonthStart(offset);
   const firstMondayOffset = (monthStart.getUTCDay() + 6) % 7;
+  const daysInMonth = new Date(
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const cellCount = Math.ceil((firstMondayOffset + daysInMonth) / 7) * 7;
   const gridStart = new Date(monthStart);
   gridStart.setUTCDate(1 - firstMondayOffset);
 
-  return Array.from({ length: 42 }, (_, index) => {
+  return Array.from({ length: cellCount }, (_, index) => {
     const date = new Date(gridStart);
     date.setUTCDate(gridStart.getUTCDate() + index);
     const businessDate = formatDateKey(date);
@@ -104,6 +111,8 @@ function createMonthCells(
       businessDate,
       day: String(day),
       holiday,
+      isBottomLeft: index === cellCount - 7,
+      isBottomRight: index === cellCount - 1,
       isCurrentMonth,
       isHoliday: holiday.length > 0,
       isSelected: isCurrentMonth && businessDate === selectedBusinessDate,
@@ -126,18 +135,21 @@ export function createCalendarPocViewModel(
       ? requestedSelectedDate
       : getDefaultSelectedDate(monthOffset);
   const selectedDate = new Date(`${selectedBusinessDate}T00:00:00.000Z`);
+  const panels = panelOffsets.map((relative) => {
+    const panelMonth = getMonthStart(monthOffset + relative);
+    return {
+      cells: createMonthCells(monthOffset + relative, selectedBusinessDate),
+      key: `${panelMonth.getUTCFullYear()}-${String(panelMonth.getUTCMonth() + 1).padStart(2, '0')}`,
+      relative,
+    } satisfies CalendarPocPanel;
+  });
+  const currentPanel = panels.find((panel) => panel.relative === 0);
 
   return {
+    gridHeight: Math.ceil((currentPanel?.cells.length ?? 35) / 7) * 54,
     monthLabel: `${monthStart.getUTCFullYear()}年${monthStart.getUTCMonth() + 1}月`,
     monthOffset,
-    panels: panelOffsets.map((relative) => {
-      const panelMonth = getMonthStart(monthOffset + relative);
-      return {
-        cells: createMonthCells(monthOffset + relative, selectedBusinessDate),
-        key: `${panelMonth.getUTCFullYear()}-${String(panelMonth.getUTCMonth() + 1).padStart(2, '0')}`,
-        relative,
-      } satisfies CalendarPocPanel;
-    }),
+    panels,
     selectedBusinessDate,
     selectedLabel: `${selectedDate.getUTCMonth() + 1}月${selectedDate.getUTCDate()}日 · 周${
       weekdayLabels[selectedDate.getUTCDay()]

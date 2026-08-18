@@ -67,17 +67,35 @@
 }
 
 .chevron {
-  width: 9px;
-  height: 9px;
-  border-top: 1.5px solid currentColor;
-  border-right: 1.5px solid currentColor;
+  position: relative;
+  width: 14px;
+  height: 18px;
 }
 
-.chevron.is-left {
-  transform: rotate(-135deg);
+.chevron-line {
+  position: absolute;
+  left: 2px;
+  width: 10px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
 }
 
-.chevron.is-right {
+.chevron-line.is-upper {
+  top: 5px;
+}
+
+.chevron-line.is-lower {
+  top: 11px;
+}
+
+.chevron.is-left .chevron-line.is-upper,
+.chevron.is-right .chevron-line.is-lower {
+  transform: rotate(-45deg);
+}
+
+.chevron.is-left .chevron-line.is-lower,
+.chevron.is-right .chevron-line.is-upper {
   transform: rotate(45deg);
 }
 
@@ -90,25 +108,39 @@
   border-radius: 50%;
 }
 
-.locate-crosshair::before,
-.locate-crosshair::after {
+.locate-tick {
   position: absolute;
-  content: '';
   background: currentColor;
 }
 
-.locate-crosshair::before {
-  top: -4px;
+.locate-tick.is-top,
+.locate-tick.is-bottom {
   left: 5px;
   width: 2px;
-  height: 20px;
+  height: 4px;
 }
 
-.locate-crosshair::after {
+.locate-tick.is-top {
+  top: -4px;
+}
+
+.locate-tick.is-bottom {
+  bottom: -4px;
+}
+
+.locate-tick.is-left,
+.locate-tick.is-right {
   top: 5px;
-  left: -4px;
-  width: 20px;
+  width: 4px;
   height: 2px;
+}
+
+.locate-tick.is-left {
+  left: -4px;
+}
+
+.locate-tick.is-right {
+  right: -4px;
 }
 
 .locate-crosshair-center {
@@ -143,31 +175,23 @@
 }
 
 .calendar-motion-viewport {
-  position: relative;
   width: 100%;
-  min-width: 0;
   overflow: hidden;
-}
-
-.calendar-slider-track {
-  position: relative;
-  left: -100%;
-  display: flex;
-  width: 300%;
-  will-change: transform;
+  transition: height 180ms ease-out;
 }
 
 .calendar-slide-panel {
-  width: 33.333333%;
-  min-width: 0;
-  flex: none;
+  width: 100%;
 }
 
 .month-grid {
   display: flex;
   width: 100%;
   flex-wrap: wrap;
+  overflow: hidden;
   background: var(--ui-color-border);
+  border-bottom-right-radius: 17px;
+  border-bottom-left-radius: 17px;
 }
 
 .calendar-cell-slot {
@@ -176,4 +200,14 @@
   padding-right: 1px;
   padding-bottom: 1px;
   box-sizing: border-box;
+}
+
+.calendar-cell-slot.is-bottom-left {
+  overflow: hidden;
+  border-bottom-left-radius: 17px;
+}
+
+.calendar-cell-slot.is-bottom-right {
+  overflow: hidden;
+  border-bottom-right-radius: 17px;
 }

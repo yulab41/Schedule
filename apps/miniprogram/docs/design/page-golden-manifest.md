@@ -5,7 +5,7 @@
 | 阶段 | 小程序页面/组件        | Storybook story ID                                                   | Fixture/状态                                                            | 390 黄金 | 320 边界 | 用户 Android 原生 | 用户确认        |
 | ---- | ---------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------- | -------- | -------- | ----------------- | --------------- |
 | P1   | 基础控件画廊           | `miniprogram-parity-p1-foundation--controls-390` / `--controls-320`  | 按钮/开关/选择/字段/反馈                                                | 已截图   | 已截图   | 待人工测试        | 已通过 Web 黄金 |
-| P1   | 42 格月历 PoC          | `miniprogram-parity-p1-calendar--month-390` / `--month-320`          | `pages/calendar-poc/index`；普通/今天/选择/节假日/跨月/变更             | 已更新   | 已更新   | 待人工测试        | 已通过 Web 黄金 |
+| P1   | 动态月历 PoC           | `miniprogram-parity-p1-calendar--month-390` / `--month-320`          | `pages/calendar-poc/index`；5/6 周/今天/选择/底角/跨月/变更             | 已更新   | 已更新   | 待人工复测        | 已对齐当前 Web  |
 | P1   | 7×7 矩阵 PoC           | `miniprogram-parity-p1-manual-matrix--daily-390` / `--daily-320`     | `pages/manual-matrix-poc/index?mode=daily`；日常数据/冻结/滚动/单格更新 | 已截图   | 已截图   | 待人工测试        | 已通过 Web 黄金 |
 | P1   | 20×30 矩阵 PoC         | `miniprogram-parity-p1-manual-matrix--maximum-390` / `--maximum-320` | `pages/manual-matrix-poc/index?mode=maximum`；最大数据/失效/撤销/滚动   | 已截图   | 已截图   | 待人工测试        | 已通过 Web 黄金 |
 | P3   | 登录/绑定/解绑         | 待盘点                                                               | 全部联合状态与错误                                                      | 待生成   | 待生成   | 待人工测试        | 待确认          |

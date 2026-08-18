@@ -23,9 +23,16 @@ describe('P1 user-operated native test plan', () => {
     ]);
     expect(plan.cases.map((entry) => entry.states)).toEqual([
       ['initial', 'notification-on', 'contact-unchecked', 'week-selected'],
-      ['initial', 'selected-date', 'previous-month', 'next-month', 'rebound'],
-      ['initial', 'horizontal-scroll', 'cell-selected', 'undo'],
-      ['initial', 'scroll-end', 'stale-cell', 'cell-selected', 'undo'],
+      [
+        'five-week-month',
+        'six-week-month',
+        'selected-bottom-corner',
+        'previous-month',
+        'next-month',
+        'locate-today',
+      ],
+      ['initial', 'horizontal-header-sync', 'cell-selected', 'undo'],
+      ['initial', 'dual-axis-header-sync', 'stale-cell', 'cell-selected', 'undo'],
     ]);
     expect(plan.completion).toMatchObject({ screenshotsRequiredOnPass: false });
     expect(source).not.toMatch(/MINITEST_|minium|cloud|token|privateKey/i);

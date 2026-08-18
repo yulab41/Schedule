@@ -156,8 +156,14 @@ describe('calendar views refinement Storybook preview', () => {
   it('lets the fixed month frame clip square cells without exposing reverse corners', () => {
     const preview = readSource('./CalendarViewsRefinementPreview.vue');
 
-    expect(preview).not.toMatch(/\.month-cell:nth-last-child\(7\)\s*{/s);
-    expect(preview).not.toMatch(/\.month-cell:last-child\s*{/s);
+    expect(preview).toContain('const weekCount = Math.ceil((firstMondayOffset + daysInMonth) / 7)');
+    expect(preview).toContain('Array.from({ length: weekCount * 7 }');
+    expect(preview).toContain('const currentMonthGridHeight = computed');
+    expect(preview).toContain(':style="{ height: `${currentMonthGridHeight}px` }"');
+    expect(preview).toMatch(
+      /\.month-cell:nth-last-child\(7\)\s*{[^}]*border-bottom-left-radius:\s*17px;/s,
+    );
+    expect(preview).toMatch(/\.month-cell:last-child\s*{[^}]*border-bottom-right-radius:\s*17px;/s);
     expect(preview).toMatch(
       /\.week-day-card:first-child\s*{[^}]*border-bottom-left-radius:\s*17px;/s,
     );

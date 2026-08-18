@@ -7,7 +7,10 @@
       aria-label="上一月"
       bindtap="handlePrevious"
     >
-      <view class="chevron is-left" aria-hidden="true"></view>
+      <view class="chevron is-left" aria-hidden="true">
+        <view class="chevron-line is-upper"></view>
+        <view class="chevron-line is-lower"></view>
+      </view>
     </view>
     <view class="month-heading">
       <text class="month-label">{{monthLabel}}</text>
@@ -21,6 +24,10 @@
       bindtap="handleLocateToday"
     >
       <view class="locate-crosshair" aria-hidden="true">
+        <view class="locate-tick is-top"></view>
+        <view class="locate-tick is-right"></view>
+        <view class="locate-tick is-bottom"></view>
+        <view class="locate-tick is-left"></view>
         <view class="locate-crosshair-center"></view>
       </view>
     </view>
@@ -31,7 +38,10 @@
       aria-label="下一月"
       bindtap="handleNext"
     >
-      <view class="chevron is-right" aria-hidden="true"></view>
+      <view class="chevron is-right" aria-hidden="true">
+        <view class="chevron-line is-upper"></view>
+        <view class="chevron-line is-lower"></view>
+      </view>
     </view>
   </view>
 
@@ -40,42 +50,47 @@
     <text class="is-weekend">六</text><text class="is-weekend">日</text>
   </view>
 
-  <pan-gesture-handler
-    worklet:ongesture="handleMonthPan"
-    worklet:should-response-on-move="shouldRespondToMonthPan"
+  <swiper
+    class="calendar-motion-viewport"
+    style="height:{{gridHeight}}px"
+    current="{{swiperCurrent}}"
+    duration="{{swiperDuration}}"
+    easing-function="easeOutCubic"
+    circular="{{false}}"
+    skip-hidden-item-layout="{{false}}"
+    bindanimationfinish="handleMonthSwipe"
+    aria-label="月历，可左右滑动切换月份"
   >
-    <view class="calendar-motion-viewport">
-      <view id="calendar-slider-track" class="calendar-slider-track">
+    <swiper-item
+      wx:for="{{panels}}"
+      wx:key="key"
+      class="calendar-slide-panel"
+      aria-hidden="{{item.relative !== 0}}"
+    >
+      <view class="month-grid">
         <view
-          wx:for="{{panels}}"
-          wx:key="key"
-          class="calendar-slide-panel"
-          aria-hidden="{{item.relative !== 0}}"
+          wx:for="{{item.cells}}"
+          wx:key="businessDate"
+          class="calendar-cell-slot {{item.isBottomLeft ? 'is-bottom-left' : ''}} {{item.isBottomRight ? 'is-bottom-right' : ''}}"
         >
-          <view class="month-grid">
-            <view
-              wx:for="{{item.cells}}"
-              wx:key="businessDate"
-              class="calendar-cell-slot"
-            >
-              <calendar-cell
-                aria-label="{{item.ariaLabel}}"
-                business-date="{{item.businessDate}}"
-                day="{{item.day}}"
-                holiday="{{item.holiday}}"
-                is-current-month="{{item.isCurrentMonth}}"
-                is-holiday="{{item.isHoliday}}"
-                is-selected="{{item.isSelected}}"
-                is-today="{{item.isToday}}"
-                is-weekend="{{item.isWeekend}}"
-                marker="{{item.marker}}"
-                person="{{item.person}}"
-                bind:select="handleCellSelect"
-              ></calendar-cell>
-            </view>
-          </view>
+          <calendar-cell
+            aria-label="{{item.ariaLabel}}"
+            business-date="{{item.businessDate}}"
+            day="{{item.day}}"
+            holiday="{{item.holiday}}"
+            is-bottom-left="{{item.isBottomLeft}}"
+            is-bottom-right="{{item.isBottomRight}}"
+            is-current-month="{{item.isCurrentMonth}}"
+            is-holiday="{{item.isHoliday}}"
+            is-selected="{{item.isSelected}}"
+            is-today="{{item.isToday}}"
+            is-weekend="{{item.isWeekend}}"
+            marker="{{item.marker}}"
+            person="{{item.person}}"
+            bind:select="handleCellSelect"
+          ></calendar-cell>
         </view>
       </view>
-    </view>
-  </pan-gesture-handler>
+    </swiper-item>
+  </swiper>
 </view>

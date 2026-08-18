@@ -2,13 +2,14 @@
   <view class="poc-heading">
     <view class="poc-heading-copy">
       <text class="context-label">P1 · 原生复刻基线</text>
-      <text class="page-title">42 格月历</text>
+      <text class="page-title">动态月历</text>
     </view>
     <text class="baseline-chip">Web 已确认</text>
   </view>
 
   <view class="month-view">
     <calendar-month
+      grid-height="{{gridHeight}}"
       month-label="{{monthLabel}}"
       panels="{{panels}}"
       bind:locatetoday="handleLocateToday"

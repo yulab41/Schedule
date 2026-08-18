@@ -1,5 +1,5 @@
 <view
-  class="calendar-cell {{isCurrentMonth ? '' : 'is-outside'}} {{isWeekend ? 'is-weekend' : ''}} {{isHoliday ? 'is-holiday' : ''}} {{isSelected ? 'is-selected' : ''}} {{isToday ? 'is-today' : ''}}"
+  class="calendar-cell {{isCurrentMonth ? '' : 'is-outside'}} {{isWeekend ? 'is-weekend' : ''}} {{isHoliday ? 'is-holiday' : ''}} {{isSelected ? 'is-selected' : ''}} {{isToday ? 'is-today' : ''}} {{isBottomLeft ? 'is-bottom-left' : ''}} {{isBottomRight ? 'is-bottom-right' : ''}}"
   hover-class="{{isCurrentMonth ? 'is-pressed' : 'none'}}"
   hover-start-time="0"
   hover-stay-time="70"
