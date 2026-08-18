@@ -11,8 +11,10 @@
 - 收藏与常用：卡片右上角 44px 五角星支持收藏/取消；拨号记录形成常用排序，收藏与常用快捷卡位于导览正下方。浏览器本地仅保存条目 UUID、次数和时间，不保存名称/号码；只读 lookup 继续执行 `viewDirectory` 与 member/administrator 可见性边界，成员无法借偏好恢复管理员条目。
 - 筛选 Sheet：通讯录专用 Sheet 提高到移动端 92dvh/桌面最高 840px，移除“层级联动”等说明块；清除全部改为顶部 sticky、内容区全宽的扁平按钮。各有效级别使用 48px 整行 disclosure 控件，方向符号、`aria-expanded/controls` 与减少动态齐全；折叠选择在会话内保留，从导览进入时目标级别自动展开并定位。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在当前源码 5173 服务通过管理员、成员、访客/vkey、访问记录及通讯录专项。Storybook 独立 390×844 画布实测 Sheet 高 776.47px、清除按钮与工具栏同宽、折叠后选项不可见、无横向溢出且 console error 为 0；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`pnpm smoke:check-core` 与 `git diff --check` 通过。
-- checkpoint：`5437995`（`feat(directory): add adaptive guide and favorites`）已推送；筛选 Sheet 追加 checkpoint 识别消息为 `feat(directory): make filter sheet collapsible`。
-- 下一批次与停止条件：完成全仓/核心门禁、提交推送、生产加密备份、部署与正式域名只读复核；Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止并等待用户复核。
+- checkpoint：`5437995`（`feat(directory): add adaptive guide and favorites`）与 `ee1296e`（`feat(directory): make filter sheet collapsible`）均已推送。发布前加密数据库备份 archive 为 `2ab960ac-9286-4aba-9a2b-db5393697d00`（50 张表、18,486 行、7,364,076 字节，SHA-256 `dabd9e4219cd66cba9ad3e75149d1c5d71c386b266c8541fc19982d9bf11b5e5`）。release `ee1296ebff0dd4d6bdd49d511be97180f7ef8a05` 从干净 worktree 构建并部署；容器预热首次 HTTPS 健康检查短暂失败后自动重试恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离和容器检查。
+- 正式域名只读复核：D0796 群主会话在 390×844 下打开通讯录筛选，Sheet 为 375×776.47px（92dvh），清除按钮/顶部工具栏同宽 328px且 sticky；无“层级联动”等旧说明。6 个有效级别均有 `aria-expanded/controls`，折叠院区后选项 `display:none`、高度为 0，再次展开正常；点击导览“片区”后 Sheet 自动打开并滚动 210px，目标标题位于可视区顶部且保持展开。页面无横向溢出，浏览器 error/warning 为 0，未修改收藏、筛选或业务数据。
+- 当前状态：DIR-09 至 DIR-12 已完成（含生产发布与线上只读复核）→ 待用户复核。最终状态 checkpoint 识别消息为 `docs(status): record directory filter deployment`。
+- 下一批次与停止条件：只提交、推送并部署本状态 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止，不开始其他修改。
 
 ## 2026-08-18 月份切换选中日期与值班详情一致性修复（已完成，待用户复核）
 

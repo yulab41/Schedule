@@ -21,7 +21,9 @@
 - 追加反馈与引入点：筛选 Sheet 偏矮、说明块占位、清除按钮不够易达且级别无法收起。通用移动 Sheet 的 78dvh 上限由 `5b00fa7` 引入，通讯录说明块/并排清除布局由 `926136a` 引入；追加源码回归断言在旧实现准确失败 1 项。
 - 追加实现：仅对通讯录 Sheet 提高到移动端 92dvh/桌面最高 840px；删除“层级联动”等说明，自动清理状态保留为无障碍 live region。清除全部是顶部 sticky、内容区全宽的无阴影扁平按钮；每级标题整行 48px 可折叠，右侧方向符号旋转并提供 `aria-expanded/controls`，用户折叠选择在会话中保留，导览定点进入会先展开目标。
 - 追加验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过完整管理员、成员、访客/vkey 和访问记录链路。Storybook 独立 390×844 画布测得 Sheet 776.47px、清除按钮/工具栏同宽 328px、折叠后选项 client rect 为 0、无横向溢出且 console error 为 0；全仓非集成 112 文件/669 项通过（31 文件/261 项跳过），Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`pnpm smoke:check-core` 与差异检查通过。
-- 状态：动态导览/收藏 checkpoint `5437995` 已推送；追加筛选 Sheet 已完成本地实现与运行验证，待独立 checkpoint、生产备份/部署和正式域名只读复核。
+- 正式发布：动态导览/收藏 checkpoint `5437995` 与追加筛选 Sheet checkpoint `ee1296e` 均已推送。发布前加密备份 `2ab960ac-9286-4aba-9a2b-db5393697d00`（50 表、18,486 行、7,364,076 字节，SHA-256 `dabd9e4219cd66cba9ad3e75149d1c5d71c386b266c8541fc19982d9bf11b5e5`）后部署 release `ee1296ebff0dd4d6bdd49d511be97180f7ef8a05`；容器预热首个 HTTPS 探测短暂失败后自动恢复，`ecs-verify.sh` 通过。
+- 正式域名只读复核：D0796 群主会话在 390×844 下实测 Sheet 375×776.47px，清除按钮与 sticky 工具栏同宽 328px；6 个级别均有 disclosure 语义，院区折叠后选项高度为 0，再展开正常。点击导览“片区”后 Sheet 打开、滚动 210px并把目标级别放入可视区，目标保持展开；无旧说明、无横向溢出，浏览器 error/warning 为 0，未触发业务写入。
+- 状态：已完成（含生产发布与线上只读核验）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record directory filter deployment`。
 
 ## 2026-08-18 统计页年度入口未使用统一时间选择器
 
