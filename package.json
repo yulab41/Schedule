@@ -28,6 +28,7 @@
     "miniprogram:build": "pnpm --filter @schedule/miniprogram build",
     "miniprogram:ci:dry-run": "pnpm --filter @schedule/miniprogram ci:dry-run",
     "miniprogram:minitest:dry-run": "pnpm --filter @schedule/miniprogram minitest:dry-run",
+    "miniprogram:minitest:case:build": "pnpm --filter @schedule/miniprogram minitest:case:build",
     "miniprogram:minitest:status": "pnpm --filter @schedule/miniprogram minitest:status",
     "miniprogram:minitest:submit": "pnpm --filter @schedule/miniprogram minitest:submit",
     "miniprogram:package-audit": "pnpm --filter @schedule/miniprogram check:package",

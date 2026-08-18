@@ -22,6 +22,7 @@ Component({
     isStale: { type: Boolean, value: false },
     keyValue: { type: String, value: '' },
     rowIndex: { type: Number, value: 0 },
+    testId: { type: String, value: '' },
     textColor: { type: String, value: '' },
   },
   methods: {

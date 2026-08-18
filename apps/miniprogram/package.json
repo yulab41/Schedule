@@ -12,6 +12,7 @@
     "check:source": "node scripts/source-audit.mjs",
     "ci:dry-run": "node scripts/miniprogram-ci.mjs preview --profile=staging --dry-run",
     "minitest:dry-run": "node scripts/minitest.mjs submit --dry-run",
+    "minitest:case:build": "node scripts/minium-case.mjs",
     "minitest:status": "node scripts/minitest.mjs status",
     "minitest:submit": "node scripts/minitest.mjs submit",
     "preview": "node scripts/miniprogram-ci.mjs preview --profile=staging",

@@ -38,6 +38,12 @@ describe('MiniTest helpers', () => {
       'pages/manual-matrix-poc/index?mode=maximum',
     ]);
     expect(new Set(manifest.cases.map((entry) => entry.screenshotName)).size).toBe(4);
+    expect(manifest.cases.map((entry) => entry.states)).toEqual([
+      ['initial', 'notification-on', 'contact-unchecked', 'week-selected'],
+      ['initial', 'selected-date', 'previous-month', 'next-month', 'rebound'],
+      ['initial', 'horizontal-scroll', 'cell-selected', 'undo'],
+      ['initial', 'scroll-end', 'stale-cell', 'cell-selected', 'undo'],
+    ]);
     expect(manifest.thresholds).toEqual({
       maxKeyGeometryDeltaPx: 2,
       significantPixelRatio: 0.02,

@@ -475,3 +475,11 @@
 - 运行/浏览器验证：`运行/浏览器验证：node scripts/smoke-browser.mjs` 最终通过管理员、成员、访客/vkey 与访问记录全流程，无浏览器错误；前两次分别因本地 5173 未启动和未开启开发认证按门禁停止。主工作区 Vitest（显式排除用户自有 `runtime/**`、`src/**` 副本）109 files / 649 tests 通过；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过。完整 `pnpm verify` 的格式、Lint、构建和类型检查已通过，其测试发现并扫描用户自有 `runtime/` 副本后人工停止，未改动这些目录。320px 日期文本 `scrollWidth = clientWidth = 192px`、按钮 44px；390px 时间滚轮 40ms 内由 08:00 更新为 10:00，550ms 后无二次跳变；Storybook Axe 为 0 项违规。
 - 正式发布与只读复核：代码 checkpoint `140b3fc` 已推送；发布前加密数据库备份 archive 为 `e409adc5-d2ae-4ab0-8b5a-c039a729ca7d`（50 张表、18447 行、7305428 字节，SHA-256 `77d143990c6ecc14ce7e86052db8ca797964f6c3876bf32673a82b781f7979f5`）。release `140b3fc44f432e18f0f390e9d37003128cb09ae8` 从干净 worktree 构建并部署，`ecs-verify.sh` 通过；容器预热首次健康检查 502 后自动恢复。
 - 正式域名刷新到新 Service Worker bundle 后，手动排班页连续 5 秒无加载态或循环刷新；日期触发框显示 `2026-08-18 周二`，无左图标、44px 高且 `scrollWidth = clientWidth = 181px`，完整中文日期仍在无障碍名称。未保存时间草稿 08:00→10:00 在 40ms 内同步标题，550ms 后无二次跳变；点击取消后触发框仍为空值，未保存班种，浏览器日志为空。状态：已完成（含生产发布与线上核验）→ 待用户复核。
+
+## 2026-08-18 P1 MiniTest 清单与 Minium 套件
+
+- 回归来源：`git log -S`/`git blame` 确认基础控件 `dialog-open` 和 7×7 `vertical-scroll` 状态均由 `c8d50f5` 引入；已确认用户通过的 Storybook/原生基础页无对话框，7×7 的 82px 表头加 7×44px 数据行恰好占满 390px，不存在纵向滚动。
+- 测试先行：新增 Minium 套件契约测试先因 helper 不存在失败；实现后 4/4 通过，锁定 4 个 `test_*` 方法、18 个截图名、稳定 WXML selector、无凭据边界和单文件根目录确定性 ZIP。Python 3.12 AST 校验通过。
+- 修复与实现：清单改为实际交互状态；基础控件使用通知开启、联系方式取消核对和周视图选择，7×7 只测横向滚动，20×30 继续覆盖横纵滚动、失效格、单格更新和撤销。新增官方 `minium.MiniTest` Python 套件、确定性 ZIP 构建器和平台运行手册；生产 WXML 只增加无样式 selector，不改事件、状态、调用次数或业务数据。
+- 运行/浏览器验证：Mini 45/45，staging/production verify、11 个 Worklet、确定性、源码/包体、CI/MiniTest dry-run、根 lint/build/typecheck、主工作区 119 文件/703 项、`pnpm smoke:check-core` 与任务文件 Prettier 通过；未触及核心 Web 链路，无需 `pnpm smoke:browser`。根格式检查仅被本轮前用户自有 `apps/miniprogram/project.config.json` 拦截。
+- 外部状态：未启动本地微信开发者工具，未生成预览、上传开发/体验版或提交 MiniTest。平台仍需用户上传 ignored ZIP、建立计划并注入仓库外凭据后才能取得 Android/iOS 原生证据。

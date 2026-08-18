@@ -29,6 +29,12 @@ const P1_SCREENSHOTS = [
   'p1-manual-matrix-daily-v1',
   'p1-manual-matrix-maximum-v1',
 ];
+const P1_STATES = [
+  ['initial', 'notification-on', 'contact-unchecked', 'week-selected'],
+  ['initial', 'selected-date', 'previous-month', 'next-month', 'rebound'],
+  ['initial', 'horizontal-scroll', 'cell-selected', 'undo'],
+  ['initial', 'scroll-end', 'stale-cell', 'cell-selected', 'undo'],
+];
 const P1_PERFORMANCE = {
   androidInteractiveMs: 2500,
   maximumMatrixRenderMs: 1000,
@@ -121,6 +127,9 @@ function validateManifest(manifest) {
   }
   if (JSON.stringify(manifest.cases.map((entry) => entry.route)) !== JSON.stringify(P1_ROUTES)) {
     throw new Error('P1 MiniTest routes do not match the approved native evidence pages.');
+  }
+  if (JSON.stringify(manifest.cases.map((entry) => entry.states)) !== JSON.stringify(P1_STATES)) {
+    throw new Error('P1 MiniTest states do not match the implemented native evidence flows.');
   }
   if (
     !Object.entries(P1_THRESHOLDS).every(

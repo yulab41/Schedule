@@ -20,7 +20,7 @@
       "route": "pages/index/index",
       "storybookStoryId": "miniprogram-parity-p1-foundation--controls-390",
       "screenshotName": "p1-foundation-controls-v1",
-      "states": ["initial", "switch-on", "checkbox-on", "radio-selected", "dialog-open"]
+      "states": ["initial", "notification-on", "contact-unchecked", "week-selected"]
     },
     {
       "id": "calendar-month",
@@ -34,7 +34,7 @@
       "route": "pages/manual-matrix-poc/index?mode=daily",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--daily-390",
       "screenshotName": "p1-manual-matrix-daily-v1",
-      "states": ["initial", "horizontal-scroll", "vertical-scroll", "cell-selected", "undo"]
+      "states": ["initial", "horizontal-scroll", "cell-selected", "undo"]
     },
     {
       "id": "manual-matrix-maximum",

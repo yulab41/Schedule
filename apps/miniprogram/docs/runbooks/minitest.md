@@ -21,6 +21,32 @@
 
 仓库只封装微信官方非破坏性 HTTPS 接口：提交测试计划 `POST /thirdapi/plan` 和读取状态 `GET /thirdapi/plan`。不提供删除候选基线、批量设基线或覆盖历史证据的命令。
 
+P1 Minium Python 用例源码位于 `testing/minium/p1/test_p1_native.py`。它只读取确定性 PoC fixture，不登录、不访问业务 API、不包含 AppID、token、私钥、本地项目路径或 DevTools 路径。四个 `test_*` 方法与平台清单一一对应：
+
+```text
+test_foundation_controls
+test_calendar_month
+test_manual_matrix_daily
+test_manual_matrix_maximum
+```
+
+生成平台上传包：
+
+```powershell
+pnpm miniprogram:minitest:case:build
+```
+
+输出固定为 ignored 的 `apps/miniprogram/.artifacts/minitest/p1-minium-cases.zip`。构建器规范化换行、固定 ZIP 时间戳并只放置根目录 `test_p1_native.py`；相同 commit 的 SHA-256 必须一致。上传前必须运行 Mini 单测和 Python AST 校验，不能把 `config.json`、本地依赖或任何凭据加入 ZIP。
+
+首次平台配置只能由已登录用户在 MiniTest 控制台完成：
+
+1. 在“Minium 用例管理”上传上述 ZIP，确认平台成功解析四个 `test_*` 方法。
+2. 新建类型为 Minium 的 P1 测试计划，按基础控件、月历、7×7、20×30 顺序勾选四个用例。
+3. 记录平台生成的正整数测试计划 ID，作为仓库外 `MINITEST_TEST_PLAN_ID`。
+4. 锁定 Android/iOS 机型、微信版本和开发账号序号；开发账号必须与 `miniprogram-ci` robot 相同。
+
+仓库不会自动上传/覆盖 Minium ZIP 或创建测试计划，因为官方 HTTPS runner 只负责提交既有计划与读取结果；平台用例更新须人工核对解析结果，避免无意替换已留存的原生证据。
+
 外部环境变量：
 
 ```text
@@ -50,9 +76,9 @@ pnpm miniprogram:minitest:submit
 pnpm miniprogram:minitest:status -- --plan-id=<plan-id>
 ```
 
-MiniTest 自定义用例仍在官方平台以 Minium Python zip 维护；仓库 runner 不猜测平台用例 ID，也不启动本地 DevTools、ADB 或本地 Minium。首次可用运行需在平台把四个清单 case 映射到对应截图和交互，并锁定 Android/iOS 机型。
+MiniTest 自定义用例由仓库生成 Minium Python ZIP，平台仍保存上传后的用例版本和测试计划 ID；runner 不猜测平台 ID，也不启动本地 DevTools、ADB 或本地 Minium。首次可用运行需在平台完成上述一次性映射并锁定 Android/iOS 机型。
 
-官方依据：[MiniTest](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/)、[开发中预览版测试](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/preview_test.html)、[Minium](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/minium.html)、[HTTPS API](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/api_exe.html)、[图片对比](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/image_diff.html)。
+官方依据：[MiniTest](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/)、[开发中预览版测试](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/preview_test.html)、[自定义测试](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/minium.html)、[上传用例格式](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/upload_case)、[Minium Python](https://minitest.weixin.qq.com/#/minium/Python/readme)、[HTTPS API](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/api_exe.html)、[图片对比](https://developers.weixin.qq.com/miniprogram/dev/devtools/minitest/image_diff.html)。
 
 ## 判定
 
