@@ -50,6 +50,22 @@ describe('production temporal picker', () => {
     );
   });
 
+  it('keeps the trigger text-first and updates wheel selection without delayed settling', () => {
+    const component = readFileSync(componentPath, 'utf8');
+
+    expect(component).not.toContain('class="temporal-picker-icon"');
+    expect(component).toContain(
+      '`${parsed.year}-${pad(parsed.month)}-${pad(parsed.day)} 周${weekday}`',
+    );
+    expect(component).toMatch(
+      /\.temporal-picker-trigger\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) 14px;/s,
+    );
+    expect(component).toContain('requestAnimationFrame');
+    expect(component).toContain('@scrollend="finishWheelScroll');
+    expect(component).not.toContain('wheelSettleTimers');
+    expect(component).not.toContain('scroll-snap-stop: always');
+  });
+
   it('closes a modal picker from a pointer outside its visible bounds', () => {
     const component = readFileSync(componentPath, 'utf8');
 

@@ -68,9 +68,7 @@ const yearWheel = ref<HTMLElement | null>(null);
 const monthWheel = ref<HTMLElement | null>(null);
 const hourWheel = ref<HTMLElement | null>(null);
 const minuteWheel = ref<HTMLElement | null>(null);
-const wheelSettleTimers: Partial<Record<WheelKind, ReturnType<typeof setTimeout>>> = {};
-const wheelProgrammaticTimers: Partial<Record<WheelKind, ReturnType<typeof setTimeout>>> = {};
-const programmaticWheels = new Set<WheelKind>();
+const wheelSelectionFrames: Partial<Record<WheelKind, number>> = {};
 
 const weekdays = ['一', '二', '三', '四', '五', '六', '日'] as const;
 const hourOptions = Array.from({ length: 24 }, (_, hour) => hour);
@@ -131,10 +129,15 @@ const draftValue = computed(() => {
 });
 
 const draftDisplayValue = computed(() => formatDisplayValue(props.kind, draftValue.value));
-const displayValue = computed(() =>
+const accessibleValue = computed(() =>
   props.modelValue === ''
     ? (props.placeholder ?? `选择${props.label}`)
     : formatDisplayValue(props.kind, props.modelValue),
+);
+const displayValue = computed(() =>
+  props.modelValue === ''
+    ? (props.placeholder ?? `选择${props.label}`)
+    : formatTriggerValue(props.kind, props.modelValue),
 );
 const selectedHint = computed(() => {
   if (props.kind === 'month') return '上下滑动年份与月份';
@@ -216,6 +219,14 @@ function formatDisplayValue(kind: TemporalPickerKind, value: string): string {
   }
   const parsed = parseTimeValue(value);
   return parsed === undefined ? value : `${pad(parsed.hour)}:${pad(parsed.minute)}`;
+}
+
+function formatTriggerValue(kind: TemporalPickerKind, value: string): string {
+  if (kind !== 'date') return formatDisplayValue(kind, value);
+  const parsed = parseDateValue(value);
+  if (parsed === undefined) return value;
+  const weekday = weekdays[(new Date(parsed.year, parsed.month - 1, parsed.day).getDay() + 6) % 7];
+  return `${parsed.year}-${pad(parsed.month)}-${pad(parsed.day)} 周${weekday}`;
 }
 
 function syncDraft(): void {
@@ -369,17 +380,11 @@ function centerWheel(kind: WheelKind, behavior: PickerScrollBehavior = 'smooth')
     `[data-wheel-value="${selectedWheelValue(kind)}"]`,
   );
   if (wheel === null || wheel === undefined || target === null || target === undefined) return;
-  const settleTimer = wheelSettleTimers[kind];
-  if (settleTimer) clearTimeout(settleTimer);
-  const programmaticTimer = wheelProgrammaticTimers[kind];
-  if (programmaticTimer) clearTimeout(programmaticTimer);
-  programmaticWheels.add(kind);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   wheel.scrollTo({
     top: target.offsetTop - (wheel.clientHeight - target.offsetHeight) / 2,
     behavior: reducedMotion ? 'auto' : behavior,
   });
-  wheelProgrammaticTimers[kind] = setTimeout(() => programmaticWheels.delete(kind), 180);
 }
 
 function setWheelValue(kind: WheelKind, value: number, center = true): void {
@@ -399,15 +404,26 @@ function setWheelValue(kind: WheelKind, value: number, center = true): void {
   if (center) void nextTick(() => centerWheel(kind));
 }
 
-function settleWheel(kind: WheelKind, event: Event): void {
-  if (programmaticWheels.has(kind)) return;
+function updateWheelFromPosition(kind: WheelKind, wheel: HTMLElement): void {
+  const value = nearestWheelValue(wheel);
+  if (Number.isFinite(value)) setWheelValue(kind, value, false);
+}
+
+function trackWheelScroll(kind: WheelKind, event: Event): void {
   const wheel = event.currentTarget as HTMLElement;
-  const existingTimer = wheelSettleTimers[kind];
-  if (existingTimer) clearTimeout(existingTimer);
-  wheelSettleTimers[kind] = setTimeout(() => {
-    const value = nearestWheelValue(wheel);
-    if (Number.isFinite(value)) setWheelValue(kind, value, false);
-  }, 90);
+  const existingFrame = wheelSelectionFrames[kind];
+  if (existingFrame !== undefined) cancelAnimationFrame(existingFrame);
+  wheelSelectionFrames[kind] = requestAnimationFrame(() => {
+    delete wheelSelectionFrames[kind];
+    updateWheelFromPosition(kind, wheel);
+  });
+}
+
+function finishWheelScroll(kind: WheelKind, event: Event): void {
+  const existingFrame = wheelSelectionFrames[kind];
+  if (existingFrame !== undefined) cancelAnimationFrame(existingFrame);
+  delete wheelSelectionFrames[kind];
+  updateWheelFromPosition(kind, event.currentTarget as HTMLElement);
 }
 
 function nearestWheelValue(wheel: HTMLElement): number {
@@ -426,7 +442,6 @@ function syncDraftFromVisibleWheels(): void {
   const wheelKinds: readonly WheelKind[] =
     props.kind === 'month' ? ['year', 'month'] : props.kind === 'time' ? ['hour', 'minute'] : [];
   wheelKinds.forEach((kind) => {
-    if (programmaticWheels.has(kind)) return;
     const wheel = wheelElement(kind);
     if (wheel === null) return;
     const value = nearestWheelValue(wheel);
@@ -490,11 +505,8 @@ function selectDate(cell: DateCell): void {
 }
 
 onBeforeUnmount(() => {
-  Object.values(wheelSettleTimers).forEach((timer) => {
-    if (timer) clearTimeout(timer);
-  });
-  Object.values(wheelProgrammaticTimers).forEach((timer) => {
-    if (timer) clearTimeout(timer);
+  Object.values(wheelSelectionFrames).forEach((frame) => {
+    if (frame !== undefined) cancelAnimationFrame(frame);
   });
   document.removeEventListener('pointerdown', closeFromOutside, true);
   window.removeEventListener('resize', positionDialog);
@@ -513,21 +525,12 @@ onBeforeUnmount(() => {
       type="button"
       class="temporal-picker-trigger"
       :aria-expanded="isOpen"
-      :aria-label="`${label}：${displayValue}`"
+      :aria-label="`${label}：${accessibleValue}`"
       :aria-required="required"
       :disabled="disabled"
       aria-haspopup="dialog"
       @click="openPicker"
     >
-      <span class="temporal-picker-icon" aria-hidden="true">
-        <svg v-if="kind !== 'time'" viewBox="0 0 24 24" fill="none">
-          <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1Z" />
-        </svg>
-        <svg v-else viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="8" />
-          <path d="M12 7v5l3 2" />
-        </svg>
-      </span>
       <span class="temporal-picker-value" :class="{ 'is-placeholder': modelValue === '' }">
         {{ displayValue }}
       </span>
@@ -575,7 +578,8 @@ onBeforeUnmount(() => {
               class="wheel-column"
               role="listbox"
               aria-label="年份"
-              @scroll.passive="settleWheel('year', $event)"
+              @scroll.passive="trackWheelScroll('year', $event)"
+              @scrollend="finishWheelScroll('year', $event)"
             >
               <button
                 v-for="year in yearOptions"
@@ -595,7 +599,8 @@ onBeforeUnmount(() => {
               class="wheel-column"
               role="listbox"
               aria-label="月份"
-              @scroll.passive="settleWheel('month', $event)"
+              @scroll.passive="trackWheelScroll('month', $event)"
+              @scrollend="finishWheelScroll('month', $event)"
             >
               <button
                 v-for="month in monthOptions"
@@ -648,7 +653,8 @@ onBeforeUnmount(() => {
               class="wheel-column"
               role="listbox"
               aria-label="小时"
-              @scroll.passive="settleWheel('hour', $event)"
+              @scroll.passive="trackWheelScroll('hour', $event)"
+              @scrollend="finishWheelScroll('hour', $event)"
             >
               <button
                 v-for="hour in hourOptions"
@@ -669,7 +675,8 @@ onBeforeUnmount(() => {
               class="wheel-column"
               role="listbox"
               aria-label="分钟"
-              @scroll.passive="settleWheel('minute', $event)"
+              @scroll.passive="trackWheelScroll('minute', $event)"
+              @scrollend="finishWheelScroll('minute', $event)"
             >
               <button
                 v-for="option in minuteWheelOptions"
@@ -724,10 +731,10 @@ onBeforeUnmount(() => {
   width: 100%;
   min-width: 0;
   min-height: 44px;
-  padding: 5px 9px;
-  grid-template-columns: 28px minmax(0, 1fr) 16px;
+  padding: 5px 10px;
+  grid-template-columns: minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   color: var(--temporal-ink);
   background: var(--ui-color-surface, #fff);
   border: 1px solid var(--ui-color-border-strong, #c7d0db);
@@ -751,34 +758,14 @@ onBeforeUnmount(() => {
   background: var(--temporal-blue-soft);
 }
 
-.temporal-picker-icon {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  color: var(--temporal-blue);
-  background: var(--temporal-blue-soft);
-  border-radius: 9px;
-}
-
-.temporal-picker-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
 .temporal-picker-value {
   min-width: 0;
-  overflow: hidden;
-  font-size: 14px;
+  font-size: clamp(12px, 3.6vw, 14px);
   font-variant-numeric: tabular-nums;
   font-weight: 650;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .temporal-picker-value.is-placeholder {
@@ -787,6 +774,7 @@ onBeforeUnmount(() => {
 }
 
 .temporal-picker-chevron {
+  justify-self: end;
   color: var(--ui-color-text-muted, #8b96a3);
   font-size: 22px;
   font-weight: 300;
@@ -980,7 +968,6 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   opacity: 0.58;
   scroll-snap-align: center;
-  scroll-snap-stop: always;
   transform: scale(0.94);
   transition:
     color 140ms ease,

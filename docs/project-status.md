@@ -497,6 +497,17 @@ Mobile Screens 2 月历视觉一致性代码、推送、生产备份、部署和
 - 下一批次：统一选择器生产发布完成后，恢复项目既定 DIR-02 数据提取批次；本轮不提前处理小程序迁移或通讯录数据导入。
 - 停止条件：最终状态 checkpoint 推送、生产备份、release 与 `ecs-verify.sh` 通过，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后停止并等待用户复核。
 
+## 2026-08-18 手动排班刷新与时间选择器响应修复（当前批次）
+
+- 批次范围：只修复手动排班进入后循环加载、日期/时间触发框信息截断、年月/时间滚轮粘滞与停止后延迟选中；不修改 API、权限、数据库、排班数据或其他页面交互。
+- 回归来源：定时刷新由 `eaadbdd` 引入，`b0f5dc6` 改为 08:00 业务交接后使旧午夜算法在凌晨退化为每秒刷新；选择器左图标、90ms 防抖与逐项强制吸附由 `92038cd` 引入。均已执行 `git log -S` 与 `git blame`。
+- 实现：刷新定时器改为严格位于未来的中国标准时间 08:00 交接点。触发框移除左图标，日期视觉值使用紧凑且完整的 `YYYY-MM-DD 周X`，完整中文值保留给无障碍名称。滚轮取消 `scroll-snap-stop: always`，以浏览器原生惯性滚动、逐帧高亮和 `scrollend` 最终校准取代停止后防抖。
+- 测试先行与验证：旧实现新增用例失败，实现后定向 8/8；主工作区 Vitest（排除用户自有 `runtime/**`、`src/**` 副本）109 files / 649 tests、Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、完整 `node scripts/smoke-browser.mjs`、核心门禁与 `git diff --check` 通过。320px 日期无截断且按钮 44px；390px 滚轮 40ms 内更新、550ms 后无二次跳变；Axe 0 项违规。
+- 语义审计：初载/聚焦刷新、请求接收者、Promise 错误路径、完成/取消/清除事件、空值和减少动态保持；仅刷新时刻、触发框视觉密度与滚轮内部草稿更新时机改变，无 API 或业务写入副作用。
+- 当前状态：已实现待生产发布。代码 checkpoint 识别消息：`fix(web): stop manual refresh loop and tune temporal wheels`。
+- 下一批次：提交并推送本批代码，创建生产加密备份，部署正式 release，执行 `ecs-verify.sh` 和手动排班/选择器线上只读复核；随后形成最终状态 checkpoint。
+- 停止条件：最终状态 checkpoint 已推送并部署，Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止，等待用户复核。
+
 ## 2026-08-18 班种时间选择与跨日校验修复（当前批次）
 
 - 批次范围：只修复班种时间弹窗点击外部不关闭，以及选择跨日/24 小时时间后无法启用两项回归；不修改其他页面、API 权限、数据库结构或排班业务流程。

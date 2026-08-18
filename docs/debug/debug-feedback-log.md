@@ -421,3 +421,11 @@
 - 完整 `pnpm --config.verifyDepsBeforeRun=false verify` 的格式与 ESLint 已通过，构建被并行中的无关未提交通讯录测试 `directory-entry-groups.spec.ts` 引用尚未创建的 `directory-entry-groups.js` 阻断；本任务文件级 Prettier/ESLint、Storybook build 与 `git diff --check` 均通过，未修改该无关批次。
 - 正式发布与只读复核：代码 checkpoint `b24a5b6` 已推送；发布前加密数据库备份 archive 为 `5b4bbb06-a9b6-4db7-afeb-1b134069a350`（50 张表、18408 行、7290860 字节，SHA-256 `a956b55aee98776927b942a6861273b3caacc088ab5ea7df05a0d21f4a071a5a`）。release `b24a5b6e3e1bbf9be2dc10661dd8d14ef7a9ea23` 从干净 worktree 构建并部署，`ecs-verify.sh` 通过；容器预热首次健康检查 502 后自动恢复。
 - 正式域名无写入复核：A 班时间弹窗打开后点击外部，dialog 数量从 1 变为 0、触发器 `aria-expanded` 从 true 变为 false；未保存草稿选择 20:00→08:00 后“跨日”自动变为 true。随后刷新页面丢弃草稿，未点击班种保存/启用，浏览器日志为空。状态：已完成（含生产发布与线上核验）→ 待用户复核。
+
+## 2026-08-18 手动排班刷新与时间选择器响应修复
+
+- 回归来源：`git log -S`/`git blame` 确认手动排班定时刷新由 `eaadbdd` 引入；`b0f5dc6` 将业务日边界调整为中国标准时间 08:00 后，原“业务日 + 次日午夜”算法在 00:00–08:00 会得到过去时刻，并由 1 秒下限退化成循环刷新。选择器左侧图标、90ms 停止防抖和逐项 `scroll-snap-stop: always` 均由 `92038cd` 引入。
+- 测试先行：业务交接延迟 helper 缺失、触发框仍有左图标且滚轮仍依赖定时器，旧代码新增用例失败；实现后定向 8/8 通过。用例覆盖 07:45 等待至 08:00+5 秒、09:30 等待次日交接、文字优先触发框、逐帧选中与无强制逐格停顿。
+- 实现与语义审计：刷新时间严格按下一个未来的中国标准时间 08:00 交接点计算，初载、窗口聚焦、请求接收者、Promise 错误范围和卸载清理不变。触发框去掉装饰图标，视觉日期压缩为 `YYYY-MM-DD 周X`，完整中文日期保留在 `aria-label`；44px 点触面积、完成才 emit、取消不写值不变。滚轮保留浏览器原生惯性和中心吸附，移除逐项强制停止，滚动中每动画帧更新内部草稿，`scrollend` 只做最终校准；API 与业务副作用次数不变。
+- 运行/浏览器验证：`运行/浏览器验证：node scripts/smoke-browser.mjs` 最终通过管理员、成员、访客/vkey 与访问记录全流程，无浏览器错误；前两次分别因本地 5173 未启动和未开启开发认证按门禁停止。主工作区 Vitest（显式排除用户自有 `runtime/**`、`src/**` 副本）109 files / 649 tests 通过；Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`node scripts/smoke-browser.mjs --check-core` 与 `git diff --check` 通过。完整 `pnpm verify` 的格式、Lint、构建和类型检查已通过，其测试发现并扫描用户自有 `runtime/` 副本后人工停止，未改动这些目录。320px 日期文本 `scrollWidth = clientWidth = 192px`、按钮 44px；390px 时间滚轮 40ms 内由 08:00 更新为 10:00，550ms 后无二次跳变；Storybook Axe 为 0 项违规。
+- 状态：已实现待生产发布。代码 checkpoint 识别消息：`fix(web): stop manual refresh loop and tune temporal wheels`；发布后补充备份、release、`ecs-verify.sh` 与正式域名只读复核结果。

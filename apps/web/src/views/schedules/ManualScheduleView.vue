@@ -12,7 +12,6 @@ import type {
   ScheduleWorkflowImpact,
   SchedulingConfig,
 } from '@schedule/contracts';
-import { toChinaStandardTimeUtcTimestamp } from '@schedule/scheduling-domain';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
@@ -50,6 +49,7 @@ import {
   type ManualGridSelection,
   type TemplateCellMap,
 } from '../../features/manual-schedule/manual-schedule-logic.js';
+import { getBusinessHandoverRefreshDelay } from './manual-schedule-refresh.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -105,7 +105,7 @@ const acknowledgePastDates = ref(false);
 const isLoadingPeriodMutation = ref(false);
 const isMutatingPeriod = ref(false);
 let requestVersion = 0;
-let midnightRefreshTimer: number | undefined;
+let businessHandoverRefreshTimer: number | undefined;
 
 interface DraftBatch {
   readonly items: readonly SchedulePeriodHistoryItem[];
@@ -829,14 +829,14 @@ void loadData();
 void loadHolidays();
 onMounted(() => {
   window.addEventListener('focus', onWindowFocus);
-  scheduleMidnightRefresh();
+  scheduleBusinessHandoverRefresh();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('focus', onWindowFocus);
-  if (midnightRefreshTimer !== undefined) {
-    window.clearTimeout(midnightRefreshTimer);
-    midnightRefreshTimer = undefined;
+  if (businessHandoverRefreshTimer !== undefined) {
+    window.clearTimeout(businessHandoverRefreshTimer);
+    businessHandoverRefreshTimer = undefined;
   }
 });
 
@@ -844,20 +844,15 @@ function onWindowFocus(): void {
   void loadData();
 }
 
-function scheduleMidnightRefresh(): void {
-  if (midnightRefreshTimer !== undefined) {
-    window.clearTimeout(midnightRefreshTimer);
+function scheduleBusinessHandoverRefresh(): void {
+  if (businessHandoverRefreshTimer !== undefined) {
+    window.clearTimeout(businessHandoverRefreshTimer);
   }
-  const now = Date.now();
-  const today = getBusinessDate();
-  const nextMidnightUtc =
-    toChinaStandardTimeUtcTimestamp(today, '00:00').valueOf() + 24 * 60 * 60 * 1000;
-  const delay = Math.max(1000, nextMidnightUtc - now + 5000);
-  midnightRefreshTimer = window.setTimeout(() => {
+  businessHandoverRefreshTimer = window.setTimeout(() => {
     void loadData();
     void loadHolidays();
-    scheduleMidnightRefresh();
-  }, delay);
+    scheduleBusinessHandoverRefresh();
+  }, getBusinessHandoverRefreshDelay(new Date()));
 }
 </script>
 
