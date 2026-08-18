@@ -8,7 +8,8 @@
 - 测试先行：新增日期重定向和生产接线用例，旧实现 2 项失败；实现后定向 52/52。覆盖普通月份、31 日进入 2 月、闰年 2 月和桌面年月选择器入口。
 - 修复与语义：`setBusinessMonth` 在写入月份前同步完整 `selectedDate`，详情仍以完整日期精确分组，不按日号模糊匹配。短月份只夹到月底；API、缓存、筛选、事件、Promise/catch 范围、空值和调用次数不变。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在当前源码 5174 服务通过管理员、成员、访客/vkey 与访问记录。390×844 选中 8 月 14 日后切到 9 月，蓝框和标题均为 9 月 14 日且 0 班；返回 8 月恢复对应全天班、姓名与 08:00–08:00 时间。Web typecheck/build、任务文件 Prettier/ESLint 与 diff check 通过；全仓仅并行小程序基础组件 5 项缺文件失败。
-- 状态：已实现并完成本地浏览器复核，待 checkpoint、生产备份/部署和正式域名只读复核。
+- 正式发布与只读复核：checkpoint `daf7ede` 已推送；发布前加密备份 `22fa6662-a451-43de-ba7d-ca0b16177e04`（50 表、18,482 行，SHA-256 `33eb553c4321aa7364f4d0d3cc2ff3a1c7a4ab358f30697b436a766de9615ce9`）后部署 release `daf7ede9cd7a47e92f4c1bb8a989fb54d9aab0b0`，`ecs-verify.sh` 通过。正式 390×844 下 8 月 14 日切到 9 月再返回，蓝框、标题和 0 班详情始终使用同一完整日期；现网无排班分支与本地有班次/时间分支共同覆盖，未触发业务写入。
+- 状态：已完成（含生产发布与线上核验）→ 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record calendar detail binding deployment`。
 
 ## 2026-08-18 通讯录动态导览、收藏与常用优先区
 

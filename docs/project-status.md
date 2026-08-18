@@ -13,15 +13,17 @@
 - checkpoint 识别消息：`feat(directory): add adaptive guide and favorites`。
 - 下一批次与停止条件：完成全仓/核心门禁、提交推送、生产加密备份、部署与正式域名只读复核；Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止并等待用户复核。
 
-## 2026-08-18 月份切换选中日期与值班详情一致性修复（当前批次）
+## 2026-08-18 月份切换选中日期与值班详情一致性修复（已完成，待用户复核）
 
 - 批次范围：只修复月视图切换月份后蓝框日期、详情标题与班次/时间错配；不修改周视图、排班数据、API、权限或其他页面。
 - 回归来源：`git log -S` / `git blame` 确认 `628c79f` 为保持翻页选择稳定而取消了切月时的日期同步，只保留旧完整日期。
 - 测试先行：完整日期重定向与生产接线断言在旧实现上 2 项失败；实现后日历定向 52/52、Web typecheck/build、任务文件 Prettier/ESLint、`git diff --check` 与完整浏览器 smoke 通过。主工作区全仓测试为 110 文件/663 项通过、31 文件/261 项按环境跳过，另有并行中的小程序基础组件 5 项因文件尚未落地失败，与本轮 Web 文件无关。
 - 实现与语义：切月先把选中日期按原日号重定向到目标月份，再更新 `businessMonth`；短月份夹到月底。蓝框、详情标题和 `buildSelectedDateDutyRows` 继续共享同一个 `YYYY-MM-DD` 键，年月选择器也统一经过该入口。API 请求、缓存、错误路径、筛选与事件调用次数不变。
 - 390×844 实测：`2026-08-14` 蓝框、标题和全天班详情一致；切到 9 月后同时变为 `2026-09-14` 且正确显示 0 班；返回 8 月后原班次完整恢复。完整 smoke 覆盖管理员、成员、访客/vkey 与访问记录且无浏览器错误。
-- checkpoint 识别消息：`fix(web): bind calendar selection to month details`。
-- 下一批次与停止条件：提交推送、生产加密备份、从干净 worktree 部署并只读复核正式月历；Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，保留并行中的小程序文件不纳入本 checkpoint。
+- 正式发布：代码 checkpoint `daf7ede` 已推送；发布前加密数据库备份 archive 为 `22fa6662-a451-43de-ba7d-ca0b16177e04`（50 张表、18,482 行、7,361,444 字节，SHA-256 `33eb553c4321aa7364f4d0d3cc2ff3a1c7a4ab358f30697b436a766de9615ce9`）。release `daf7ede9cd7a47e92f4c1bb8a989fb54d9aab0b0` 已部署，迁移、容器重建、健康检查、产物哈希、域名隔离与 `ecs-verify.sh` 全部通过。
+- 正式域名只读复核：D0796 群主会话在 390×844 选中 `2026-08-14` 后切到 9 月，蓝框、标题与空详情同时变为 `2026-09-14`；返回 8 月后蓝框、标题与 0 班详情同时恢复为 8 月 14 日。现网该群组对应日期无排班，含全天班和 08:00–08:00 的有数据分支已由本地真实页面验证覆盖；未触发业务写入。
+- checkpoint：代码 `daf7ede`（`fix(web): bind calendar selection to month details`）；最终状态识别消息为 `docs(status): record calendar detail binding deployment`。
+- 下一批次与停止条件：部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止；并行中的小程序、通讯录与 Storybook 文件继续保留为用户所有，不纳入本 checkpoint。
 
 ## 2026-08-18 统计年度选择器修复（已完成，待用户复核）
 
