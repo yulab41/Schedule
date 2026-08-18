@@ -134,12 +134,14 @@
 - 微信上传实跑兼容：用户提供仓库外上传私钥后，真实体验上传已进入官方 Summer 编译器，但在平台状态改变前依次暴露两个 pnpm 兼容缺口：worker thread 覆盖 `NODE_PATH` 后无法解析已由 `miniprogram-ci` 声明的 Worklet Babel 插件；改为官方 task 同进程执行后，又发现其 Worklet 插件使用但未声明 `@babel/preset-typescript`。上传封装现校验依赖根、只在编译进程启用内联官方 task，并显式固定同代 preset；回归先失败后通过，不复制依赖、不修改 `node_modules`、不读取私钥内容、不启动开发者工具。平台尚未产生新体验版本，须从最终干净 checkpoint 重试。
 - 本轮验证：冻结轨道与上传设置的回归断言均先失败后通过，定向 12/12、Mini 全套 10 文件/39 项、主仓排除用户自有 `runtime/**`/`src/**` 后 119 文件/700 项通过（31 文件/261 项按环境跳过）。新增 preset 的最小 lockfile 可由 `pnpm install --frozen-lockfile --offline --filter @schedule/miniprogram` 重现；Mini typecheck、staging/production verify、确定性、源码/包体、CI dry-run、根 lint/build/typecheck、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；staging/production 包体为 104,325/104,318 bytes，manifest 为 `b1adaf818211cebeb95adb3d56b6fb61ace12aeb940705f3d95e3434ee9a0891` / `35f45e933c40b1215cc0c67fab1d78c16d5fc23af4fcb8c85452c2606da4830f`，源码与产物均保留 5 个 Worklet。根格式全检仍只会被用户自有 `project.config.json` 拦截，该文件及 `runtime/`、`src/` 不暂存。
 - 本轮代码发布：checkpoint `f8c743a`（`fix(miniprogram): synchronize matrix worklet headers`）已推送；发布前加密数据库备份 archive 为 `4e884107-d809-4bdd-b571-3e0052dccb90`（50 表、18,513 行、7,381,344 字节，SHA-256 `ba86782259103afdf09fd6c537e258a1ccd2228dae0b759db45737b403497ed7`）。release `f8c743adc24091bec3978e2d410d180584a5522c` 从隔离干净 worktree 构建并部署，预热首次 TLS 探测短暂失败后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离、公开端口和容器检查。
-- 当前状态：动态月历已待用户人工复核；矩阵第二次 Worklet 修复 checkpoint `f8c743a` 已推送并部署，CI 上传的第二层兼容修复待独立 checkpoint 后从干净 worktree 真实上传。基础控件按钮排布也仍待用户明确确认。P1 尚未完成，不能提前进入 P2。
-- 下一批次：完成本轮静态/构建门禁并真实上传新的微信体验版，随后由用户人工复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动；7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。通过后再按仍未确认的 P1 项继续；若失败，只修复对应失败项。
+- CI 兼容发布：checkpoint `76ce450`（`fix(miniprogram): stabilize official worklet upload`）已推送；发布前加密数据库备份 archive 为 `9adaa134-4a02-4d20-afaa-682908c9df81`（50 表、18,514 行、7,382,000 字节，SHA-256 `406263a21862c17fcffa97e7ee95221c89f136088eee5812647837b51ecbe219`）。release `76ce450d3a53a724cd2132887168be19ae277d50` 从干净 worktree 构建并部署，预热首次 502 后自动恢复，`ecs-verify.sh` 完整通过。
+- 微信上传结果：同一干净 `76ce450` 的官方 Summer 编译已成功处理 48 个代码文件并生成 31,968 字节上传包，证明 Worklet/Babel/pnpm 兼容问题已消除；微信接收阶段返回 `-10008 invalid ip`，当前出口 IP `120.229.255.97` 尚未加入代码上传密钥白名单，因此版本 `0.1.0-p1.20260819.3` 未生成、平台外部状态未改变。用户须在公众平台为现有上传密钥加入该 IP 后再重试，不需要改代码。
+- 当前状态：动态月历已待用户人工复核；矩阵修复与 CI 兼容代码均已推送、部署并通过官方编译，仅被微信上传 IP 白名单阻塞。基础控件按钮排布也仍待用户明确确认。P1 尚未完成，不能提前进入 P2。
+- 下一批次：用户确认已把 `120.229.255.97` 加入代码上传 IP 白名单后，从干净 HEAD 原样重试体验上传；成功后由用户人工复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动。7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。通过后再按仍未确认的 P1 项继续；若失败，只修复对应失败项。
 - 本 checkpoint 识别消息：`fix(miniprogram): synchronize matrix worklet headers`。
 - CI 兼容 checkpoint 识别消息：`fix(miniprogram): stabilize official worklet upload`。
-- 最终状态 checkpoint 识别消息：`docs(status): record matrix worklet upload`。
-- 停止条件：本轮修复 checkpoint 显式提交、推送、生产备份/部署/核验并使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后真实上传同一 checkpoint 到微信体验轨道并交付 C/D 人工复测步骤。用户反馈前不进入 P2，不以静态测试代替人工原生验收。
+- 最终状态 checkpoint 识别消息：`docs(status): record matrix upload blocker`。
+- 停止条件：当前状态 checkpoint 显式提交、推送、生产备份/部署/核验，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户完成微信 IP 白名单；未成功生成体验版前不交付 C/D 通过判定、不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 
