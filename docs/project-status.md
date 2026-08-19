@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-19 员工通讯录数据清洗与双快照模块（已实现待生产发布）
+## 2026-08-19 员工通讯录数据清洗与双快照模块（已完成，待用户复核）
 
 - 批次范围：从 iOffice M2 已授权导出中排除外部人员、离岗、退休、测试分类，新增员工通讯录独立快照、清洗器、层级筛选、T9/拼音/首字母/中文/号码搜索与现有通讯录同款 UI；不提交原始号码或本地数据库。
 - 数据清洗：输入 1317 条，输出 1070 条；剔除无有效号码 241 条、无效号码字段 23 个、记录内完全重复号码 3 个、完全重复记录 6 条。仅保留严格 11 位手机长号或 6 位手机短号；有效号码字段 1077 个长号、512 个短号。清洗结果和 manifest 只存于本机被 `.git/info/exclude` 排除的 `runtime/directory-data/employee/2026-08-19/`。
@@ -10,8 +10,10 @@
 - 本地发布核验：employee 批次 `published` 1 个，1070 条目、1073 个联系方式、28671 个搜索别名；internal 快照保持 341 条目、359 个联系方式。未输出姓名或号码明细。
 - 运行/浏览器验证：定向 Vitest（清洗器、导入、契约、数据库迁移、Web API、员工视图与导航）通过；contracts/database/API/Web typecheck、生产构建、Storybook build、ESLint、Prettier、`git diff --check` 通过；`VITE_AUTH_DEV_MODE=true pnpm smoke:browser` 通过管理员、成员、访客/vkey、访问记录、员工中文搜索、级别筛选和 390px 无横向溢出；初次未设置认证开关的 smoke 失败为环境前置条件，不计为功能回归。
 - 安全与权限：员工查询复用现有群组成员/owner/administrator/developer 可见性边界；manifest 通过 stdin 导入，原始数据不进 Git、不写入日志、不上传第三方。
-- 当前状态：已实现待生产发布；生产尚未导入员工快照。
-- 下一批次与停止条件：提交并推送本批次代码 checkpoint；生产端先创建加密数据库备份，再部署迁移/代码、通过 `ecs-verify.sh`，以 SSH stdin dry-run 后原子发布员工 manifest，完成正式域名只读核验；核验通过后停止并等待用户复核。
+- 正式发布：代码 checkpoint `9bc4922`（员工模块）先行部署，发布前加密数据库备份 archive `4d7355a5-7ef4-4623-aff7-e56c62faef76`；随后修正验证脚本迁移计数并提交 `dfc8471`，再次备份 archive `3d64d038-b03d-465b-be9b-07bf04b25fa5` 后部署 release `dfc8471cc3b3658364f87e7948d9506b64d294b5`。预热期间出现一次 502/SSL 短暂失败后自动恢复，`ecs-verify.sh` 完整通过，迁移数 39、Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。
+- 正式数据发布：employee manifest SHA-256 `a1a7c7b6358baeab2c3afc8b8ab67a780e8163094ed63ca59086d29bdba14b26`；SSH stdin dry-run 为 added 1070、warnings 0，随后原子发布批次 `7718cad0-afdc-4770-abf5-e250325d562f`。生产只读聚合核验：internal published 341/359/4488，employee published 1070/1073/28671；未输出姓名或号码明细，未复制本地数据库或凭据。
+- 当前状态：已完成（含生产发布、数据发布与线上只读核验）→待用户复核。
+- 下一批次与停止条件：无自动活动批次；等待用户在正式网页复核“员工通讯录”的入口、筛选和搜索体验，不开始其他实现任务。
 
 ## 2026-08-18 D/NP 固定班种分段提醒（已完成，待用户复核）
 
