@@ -48,7 +48,7 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_auth_identities', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 38 }]);
+    expect(migrations).toEqual([{ count: 39 }]);
     expect(tables).toEqual([{ count: 50 }]);
   });
 
@@ -99,6 +99,18 @@ describeWithDatabase('identity and group migrations', () => {
            0, 0, 0, 0, JSON_OBJECT(), JSON_OBJECT())
       `),
     ).rejects.toThrow();
+
+    await expect(
+      client.database.execute(sql`
+        INSERT INTO directory_import_batches
+          (id, import_version, schema_version, directory_kind, status, effective_on, manifest_sha256,
+           source_document_count, entry_count, contact_method_count, warning_count,
+           diff_summary, warning_summary)
+        VALUES
+          (${randomUUID()}, 'synthetic-employee', 1, 'employee', 'published', '2026-05-14', ${'c'.repeat(64)},
+           0, 0, 0, 0, JSON_OBJECT(), JSON_OBJECT())
+      `),
+    ).resolves.toBeDefined();
   });
 
   it('accepts the guest membership role after migration 0032', async () => {

@@ -13,6 +13,8 @@
   },
   "include": [
     "directory-import-core.ts",
+    "employee-directory-cleaner.ts",
+    "build-employee-directory-manifest.ts",
     "import-directory.ts",
     "import-holidays.ts",
     "restore-backup.ts"

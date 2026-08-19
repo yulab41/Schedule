@@ -4,6 +4,7 @@ import type {
   DirectoryEntry,
   DirectoryFacetOption,
   DirectoryFacetSnapshot,
+  DirectoryKind,
   DirectoryPage,
   DirectoryQuery,
   GroupSummary,
@@ -71,11 +72,36 @@ interface FilterSection {
 
 const props = defineProps<{
   readonly dataSource?: DirectoryDataSource;
+  readonly directoryKind?: DirectoryKind;
   readonly group: GroupSummary;
+  readonly title?: string;
 }>();
 
 const api = createApiClient({ auth: localAuth });
 const source = computed<DirectoryDataSource>(() => props.dataSource ?? api);
+const directoryKind = computed(() => props.directoryKind ?? 'internal');
+const directoryTitle = computed(() => props.title ?? '院内通讯录');
+const filterLabels = computed<Readonly<Record<DirectoryFilterKey, string>>>(() =>
+  directoryKind.value === 'employee'
+    ? {
+        building: '二级组织',
+        campusCode: '组织根',
+        department: '四级组织',
+        entryKind: '类型',
+        floor: '三级组织',
+        section: '一级组织',
+        subunit: '五级组织',
+      }
+    : {
+        building: '楼宇',
+        campusCode: '院区',
+        department: '科室',
+        entryKind: '类型',
+        floor: '楼层',
+        section: '片区',
+        subunit: '单元',
+      },
+);
 const searchDraft = ref('');
 const filters = ref<DirectoryFilters>({});
 const facets = ref<DirectoryFacetSnapshot>();
@@ -103,53 +129,43 @@ const filterSections = computed<readonly FilterSection[]>(() => {
   const sections: readonly FilterSection[] = [
     {
       key: 'campusCode',
-      label: '院区',
+      label: filterLabels.value.campusCode,
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'campusCode'),
     },
     {
       key: 'section',
-      label: '片区',
+      label: filterLabels.value.section,
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'section'),
     },
     {
       key: 'building',
-      label: '楼宇',
+      label: filterLabels.value.building,
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'building'),
     },
     {
       key: 'floor',
-      label: '楼层',
+      label: filterLabels.value.floor,
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'floor'),
     },
     {
       key: 'department',
-      label: '科室',
+      label: filterLabels.value.department,
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'department'),
     },
     {
       key: 'subunit',
-      label: '单元',
+      label: filterLabels.value.subunit,
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'subunit'),
     },
     {
       key: 'entryKind',
-      label: '类型',
+      label: filterLabels.value.entryKind,
       options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'entryKind'),
     },
   ];
   const meaningfulKeys = new Set(getMeaningfulDirectoryFilterKeys(snapshot, filters.value));
   return sections.filter((section) => meaningfulKeys.has(section.key));
 });
-
-const filterLabels: Readonly<Record<DirectoryFilterKey, string>> = {
-  building: '楼宇',
-  campusCode: '院区',
-  department: '科室',
-  entryKind: '类型',
-  floor: '楼层',
-  section: '片区',
-  subunit: '单元',
-};
 
 const activeFilterCount = computed(
   () => Object.values(filters.value).filter((value) => value !== undefined).length,
@@ -177,7 +193,7 @@ const mergedGroupCount = computed(
   () => displayGroups.value.filter((group) => group.entries.length > 1).length,
 );
 const resultSummary = computed(() => {
-  if (isLoading.value && entries.value.length === 0) return '正在查找院内号码';
+  if (isLoading.value && entries.value.length === 0) return `正在查找${directoryTitle.value}号码`;
   if (totalCount.value === 0) return '没有匹配的通讯录条目';
   const mergedSummary =
     mergedGroupCount.value > 0 ? ` · 已合并 ${mergedGroupCount.value} 组同号条目` : '';
@@ -243,7 +259,7 @@ async function initializeDirectory(): Promise<void> {
   else {
     errorMessage.value = toUserMessage(
       facetResult.reason,
-      '院内通讯录筛选项暂时无法加载，请稍后重试。',
+      `${directoryTitle.value}筛选项暂时无法加载，请稍后重试。`,
     );
   }
 
@@ -316,7 +332,7 @@ function selectFilter(key: DirectoryFilterKey, value: string | undefined): void 
   filterAdjustmentMessage.value =
     result.clearedKeys.length === 0
       ? undefined
-      : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabels[clearedKey]).join('、')}筛选。`;
+      : `已自动清除不再适用的${result.clearedKeys.map((clearedKey) => filterLabels.value[clearedKey]).join('、')}筛选。`;
   void loadEntries(false);
 }
 
@@ -443,7 +459,7 @@ async function lookupPreferredEntries(
 
 <template>
   <section class="internal-directory" aria-labelledby="directory-title">
-    <h2 id="directory-title" class="visually-hidden">院内通讯录</h2>
+    <h2 id="directory-title" class="visually-hidden">{{ directoryTitle }}</h2>
 
     <section class="directory-wayfinding" aria-labelledby="wayfinding-title">
       <div class="wayfinding-header">
@@ -473,7 +489,7 @@ async function lookupPreferredEntries(
           </button>
         </div>
       </div>
-      <div class="wayfinding-ribbon" aria-label="通讯录筛选层级">
+      <div class="wayfinding-ribbon" :aria-label="`${directoryTitle}筛选层级`">
         <button
           v-for="(section, index) in filterSections"
           :key="section.key"
@@ -495,7 +511,9 @@ async function lookupPreferredEntries(
 
     <form class="directory-search" role="search" @submit.prevent="runSearchImmediately">
       <SearchIcon aria-hidden="true" />
-      <label for="hospital-directory-search" class="visually-hidden">搜索院内通讯录</label>
+      <label for="hospital-directory-search" class="visually-hidden"
+        >搜索{{ directoryTitle }}</label
+      >
       <input
         id="hospital-directory-search"
         v-model="searchDraft"
@@ -503,7 +521,11 @@ async function lookupPreferredEntries(
         inputmode="search"
         autocomplete="off"
         enterkeyhint="search"
-        placeholder="搜索科室、姓名、拼音或号码"
+        :placeholder="
+          directoryKind === 'employee'
+            ? '搜索姓名、级别、拼音、首字母、T9 或号码'
+            : '搜索科室、姓名、拼音或号码'
+        "
         @input="scheduleSearch"
       />
       <button
@@ -520,7 +542,7 @@ async function lookupPreferredEntries(
 
     <div v-if="errorMessage !== undefined" class="directory-error" role="alert">
       <div>
-        <strong>通讯录未能更新</strong>
+        <strong>{{ directoryTitle }}未能更新</strong>
         <p>{{ errorMessage }}</p>
       </div>
       <button
@@ -534,7 +556,7 @@ async function lookupPreferredEntries(
     <section
       v-if="hasDirectoryCriteria"
       class="directory-search-results"
-      aria-label="通讯录搜索结果"
+      :aria-label="`${directoryTitle}搜索结果`"
     >
       <p class="result-status" role="status" aria-live="polite">
         {{ resultSummary }}
@@ -796,12 +818,16 @@ async function lookupPreferredEntries(
       </div>
     </section>
 
-    <p class="directory-privacy-note">院内联系方式仅供工作使用，请勿向院外转发。</p>
+    <p class="directory-privacy-note">
+      {{
+        directoryKind === 'employee' ? '员工联系方式' : '院内联系方式'
+      }}仅供工作使用，请勿向院外转发。
+    </p>
 
     <ResponsiveSheet
       v-model:visible="filterSheetVisible"
       class="directory-filter-sheet"
-      title="筛选院内通讯录"
+      :title="`筛选${directoryTitle}`"
     >
       <div class="filter-sheet-toolbar">
         <button

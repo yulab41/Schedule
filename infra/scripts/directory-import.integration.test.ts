@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   activateDirectorySnapshot,
   publishDirectorySnapshot,
+  toT9Digits,
   validateDirectoryManifest,
 } from './directory-import-core.js';
 
@@ -49,13 +50,18 @@ describeWithDatabase('directory snapshot import', () => {
       FROM directory_search_aliases
       WHERE normalized_value LIKE 'cszx%'
       UNION ALL
+      SELECT 't9-prefix' AS matchKind
+      FROM directory_search_aliases
+      WHERE type = 't9' AND normalized_value LIKE '279%'
+      UNION ALL
       SELECT 'chinese-ngram' AS matchKind
       FROM directory_entries
       WHERE MATCH(search_text) AGAINST ('测试' IN BOOLEAN MODE)
     `);
     expect(preparedSearchRows.map((row) => row.matchKind)).toEqual(
-      expect.arrayContaining(['number-prefix', 'pinyin-prefix', 'chinese-ngram']),
+      expect.arrayContaining(['number-prefix', 'pinyin-prefix', 't9-prefix', 'chinese-ngram']),
     );
+    expect(toT9Digits('ce shi zhong xin')).toBe('2374494664946');
 
     const secondManifest = validateDirectoryManifest(createManifest('snapshot-2', '1001'));
     const second = await publishDirectorySnapshot(client, secondManifest, 'b'.repeat(64));
@@ -95,6 +101,27 @@ describeWithDatabase('directory snapshot import', () => {
         { id: second.batchId, status: 'superseded' },
       ]),
     );
+  });
+
+  it('keeps employee and hospital snapshots published independently', async () => {
+    const hospital = await publishDirectorySnapshot(
+      client,
+      validateDirectoryManifest(createManifest('hospital-1', '1000')),
+      'd'.repeat(64),
+    );
+    const employeeManifest = validateDirectoryManifest({
+      ...createManifest('employee-1', '2000'),
+      directoryKind: 'employee',
+    });
+    const employee = await publishDirectorySnapshot(client, employeeManifest, 'e'.repeat(64));
+
+    expect(employee.replacedBatchId).toBeNull();
+    const published = await client.database
+      .select({ directoryKind: directoryImportBatches.directoryKind })
+      .from(directoryImportBatches)
+      .where(eq(directoryImportBatches.status, 'published'));
+    expect(published.map((row) => row.directoryKind).sort()).toEqual(['employee', 'internal']);
+    expect(hospital.batchId).not.toBe(employee.batchId);
   });
 
   it('rolls back every snapshot row when publication fails', async () => {

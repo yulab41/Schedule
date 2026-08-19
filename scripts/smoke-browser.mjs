@@ -750,6 +750,70 @@ async function assertHospitalDirectory(page) {
   await waitForBodyText(page, '排班日历', 10000);
 }
 
+async function assertEmployeeDirectory(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  const directoryNav = page.locator('.workbench-sidebar button', { hasText: '员工通讯录' }).first();
+  if ((await directoryNav.count()) === 0) fail('管理员工作台缺少“员工通讯录”入口。');
+  await directoryNav.click();
+  await page.locator('.internal-directory').waitFor({ state: 'visible', timeout: 15000 });
+  await page.locator('.wayfinding-stop').first().waitFor({ state: 'visible', timeout: 15000 });
+
+  const heading = await page.locator('#directory-title').innerText();
+  if (heading !== '员工通讯录') fail('员工通讯录页面标题不正确。');
+  const search = page.getByRole('searchbox', { name: '搜索员工通讯录' });
+  const placeholder = await search.getAttribute('placeholder');
+  if (placeholder === null || !placeholder.includes('T9')) {
+    fail('员工通讯录搜索框未提示 T9 搜索。');
+  }
+  const initial = await page.evaluate(() => ({
+    entries: document.querySelectorAll('.directory-entry').length,
+    overflow: document.documentElement.scrollWidth > window.innerWidth,
+  }));
+  if (initial.entries !== 0) fail('员工通讯录未搜索和未筛选时仍显示全部条目。');
+  if (initial.overflow) fail('1280px 员工通讯录出现横向溢出。');
+
+  await search.fill('李');
+  await search.press('Enter');
+  await page.waitForFunction(
+    () => {
+      const status = document.querySelector('.result-status')?.textContent ?? '';
+      return (
+        document.querySelectorAll('.directory-search-results .directory-entry').length > 0 &&
+        status.includes('找到') &&
+        !status.includes('正在更新')
+      );
+    },
+    null,
+    { timeout: 15000 },
+  );
+  const status = await page.locator('.result-status').innerText();
+  if (!status.includes('找到')) fail('员工通讯录中文搜索没有返回结果。');
+  await page.locator('button[aria-label="清空搜索"]').click();
+  await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);
+
+  await page.locator('.filter-open-action').click();
+  const filterSheet = page.locator('dialog[open][aria-label="筛选员工通讯录"]');
+  await filterSheet.waitFor({ state: 'visible', timeout: 5000 });
+  if ((await filterSheet.locator('[aria-labelledby="directory-filter-section"]').count()) === 0) {
+    fail('员工通讯录筛选面板缺少组织层级筛选。');
+  }
+  if (!(await filterSheet.innerText()).includes('一级组织')) {
+    fail('员工通讯录筛选面板未显示员工级别标签。');
+  }
+  await filterSheet.locator('button[aria-label="关闭"]').click();
+  await filterSheet.waitFor({ state: 'hidden', timeout: 5000 });
+
+  await page.setViewportSize({ height: 844, width: 390 });
+  await page.waitForTimeout(200);
+  const mobileOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  if (mobileOverflow) fail('390px 员工通讯录出现横向溢出。');
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '排班日历' }).first().click();
+  await waitForBodyText(page, '排班日历', 10000);
+}
+
 async function assertManualScheduleDenseInteractions(page) {
   await page.locator('.workbench-sidebar button', { hasText: '手动排班' }).first().click();
   await waitForBodyText(page, '手动排班模板', 15000, '手动排班模板');
@@ -2502,6 +2566,7 @@ async function runSmoke() {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '2-admin.png') });
     await assertResponsiveWorkbenchShell(page);
     await assertHospitalDirectory(page);
+    await assertEmployeeDirectory(page);
     await assertWeekendCalendarHighlight(page);
     await assertMonthCalendarInteractions(page);
     await assertLeaveWorkflowMobile(page);

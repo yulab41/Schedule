@@ -761,6 +761,51 @@ describe('Web API client', () => {
     );
   });
 
+  it('uses the employee directory endpoints without changing the shared query shape', async () => {
+    const employeeFacets: DirectoryFacetSnapshot = {
+      buildings: [],
+      campuses: [],
+      departments: [],
+      entryKinds: [],
+      floors: [],
+      paths: [],
+      publishedEffectiveOn: '2026-08-19',
+      publishedImportVersion: 'employee-test',
+      sections: [],
+      subunits: [],
+      totalCount: 0,
+    };
+    const page: DirectoryPage = { entries: [], totalCount: 0 };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(employeeFacets), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entries: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(page), { status: 200 }));
+    const client = createApiClient({ auth: createAuthClient(), fetch: fetchImplementation });
+
+    await expect(client.getEmployeeDirectoryFacets(group.id)).resolves.toEqual(employeeFacets);
+    await expect(
+      client.lookupEmployeeDirectoryEntries(group.id, ['00000000-0000-4000-8000-000000000001']),
+    ).resolves.toEqual([]);
+    await expect(client.searchEmployeeDirectory(group.id, { q: '54543' })).resolves.toEqual(page);
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/employee-directory/facets',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/employee-directory/lookup',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      3,
+      '/api/groups/group-1/employee-directory?q=54543',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   it('keeps the global receiver when calling the default fetch', async () => {
     const receiverSensitiveFetch = vi.fn<typeof fetch>().mockImplementation(function (
       this: unknown,

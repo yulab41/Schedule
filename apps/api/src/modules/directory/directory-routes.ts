@@ -33,6 +33,32 @@ export function registerDirectoryRoutes(
       parseDirectoryLookupRequest(request.body).entryIds,
     ),
   );
+
+  app.get(
+    '/groups/:groupId/employee-directory/facets',
+    { preHandler: app.authenticate },
+    (request) =>
+      directoryQuery.facets(getAuthenticatedIdentity(request), parseGroupId(request), 'employee'),
+  );
+  app.get('/groups/:groupId/employee-directory', { preHandler: app.authenticate }, (request) =>
+    directoryQuery.list(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseDirectoryQuery(request.query),
+      'employee',
+    ),
+  );
+  app.post(
+    '/groups/:groupId/employee-directory/lookup',
+    { preHandler: app.authenticate },
+    (request) =>
+      directoryQuery.lookup(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        parseDirectoryLookupRequest(request.body).entryIds,
+        'employee',
+      ),
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

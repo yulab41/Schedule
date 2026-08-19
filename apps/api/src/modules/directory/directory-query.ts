@@ -6,6 +6,7 @@ import type {
   DirectoryFacetOption,
   DirectoryFacetPath,
   DirectoryFacetSnapshot,
+  DirectoryKind,
   DirectoryPage,
   DirectoryQuery as DirectoryQueryInput,
 } from '@schedule/contracts';
@@ -71,6 +72,7 @@ export class DirectoryQuery {
     identity: AuthenticatedIdentity,
     groupId: string,
     query: DirectoryQueryInput,
+    directoryKind: DirectoryKind = 'internal',
   ): Promise<DirectoryPage> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
@@ -79,7 +81,7 @@ export class DirectoryQuery {
         groupId,
         'viewDirectory',
       );
-      const batch = await getPublishedBatch(transaction);
+      const batch = await getPublishedBatch(transaction, directoryKind);
       const canViewAdministratorEntries =
         authorization.user.isDeveloperAdmin ||
         authorization.membership.role === 'owner' ||
@@ -91,6 +93,7 @@ export class DirectoryQuery {
   public async facets(
     identity: AuthenticatedIdentity,
     groupId: string,
+    directoryKind: DirectoryKind = 'internal',
   ): Promise<DirectoryFacetSnapshot> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
@@ -99,7 +102,7 @@ export class DirectoryQuery {
         groupId,
         'viewDirectory',
       );
-      const batch = await getPublishedBatch(transaction);
+      const batch = await getPublishedBatch(transaction, directoryKind);
       const canViewAdministratorEntries =
         authorization.user.isDeveloperAdmin ||
         authorization.membership.role === 'owner' ||
@@ -132,6 +135,7 @@ export class DirectoryQuery {
     identity: AuthenticatedIdentity,
     groupId: string,
     entryIds: readonly string[],
+    directoryKind: DirectoryKind = 'internal',
   ): Promise<DirectoryEntryLookupResponse> {
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
@@ -140,7 +144,7 @@ export class DirectoryQuery {
         groupId,
         'viewDirectory',
       );
-      const batch = await getPublishedBatch(transaction);
+      const batch = await getPublishedBatch(transaction, directoryKind);
       const canViewAdministratorEntries =
         authorization.user.isDeveloperAdmin ||
         authorization.membership.role === 'owner' ||
@@ -327,6 +331,18 @@ function buildSearchRank(value: string | undefined): SQL<number> {
             OR directory_phone_prefix.normalized_internal_extension LIKE CONCAT(${digits}, '%')
           )
       ) THEN 650
+      WHEN EXISTS (
+        SELECT 1 FROM directory_search_aliases AS directory_t9_exact
+        WHERE directory_t9_exact.entry_id = ${directoryEntries.id}
+          AND directory_t9_exact.type = 't9'
+          AND directory_t9_exact.normalized_value = ${digits}
+      ) THEN 600
+      WHEN EXISTS (
+        SELECT 1 FROM directory_search_aliases AS directory_t9_prefix
+        WHERE directory_t9_prefix.entry_id = ${directoryEntries.id}
+          AND directory_t9_prefix.type = 't9'
+          AND directory_t9_prefix.normalized_value LIKE CONCAT(${digits}, '%')
+      ) THEN 550
       ELSE 0
     END`;
   }
@@ -468,6 +484,7 @@ function toDirectoryEntry(
 
 async function getPublishedBatch(
   transaction: DatabaseTransaction,
+  directoryKind: DirectoryKind,
 ): Promise<PublishedDirectoryBatch> {
   const [batch] = await transaction
     .select({
@@ -476,13 +493,18 @@ async function getPublishedBatch(
       importVersion: directoryImportBatches.importVersion,
     })
     .from(directoryImportBatches)
-    .where(eq(directoryImportBatches.status, 'published'))
+    .where(
+      and(
+        eq(directoryImportBatches.directoryKind, directoryKind),
+        eq(directoryImportBatches.status, 'published'),
+      ),
+    )
     .limit(1);
   if (batch === undefined) {
     throw new ApiError({
       code: 'NOT_FOUND',
       statusCode: 404,
-      userMessage: '院内通讯录尚未发布。',
+      userMessage: directoryKind === 'employee' ? '员工通讯录尚未发布。' : '院内通讯录尚未发布。',
     });
   }
   return batch;

@@ -43,13 +43,15 @@ const entryKinds = [
 const visibilityValues = ['member', 'administrator'] as const;
 const verificationStatuses = ['source_exact', 'needs_review', 'manually_verified'] as const;
 const contactTypes = ['voice', 'mobile', 'fax', 'emergency', 'hotline', 'other'] as const;
+const directoryKinds = ['internal', 'employee'] as const;
 
 type DirectoryEntryKind = (typeof entryKinds)[number];
+type DirectoryKind = (typeof directoryKinds)[number];
 type DirectoryVisibility = (typeof visibilityValues)[number];
 type DirectoryVerificationStatus = (typeof verificationStatuses)[number];
 type DirectoryContactType = (typeof contactTypes)[number];
 type DirectoryAliasType =
-  'source' | 'manual' | 'pinyin_full' | 'pinyin_compact' | 'pinyin_initials';
+  'source' | 'manual' | 'pinyin_full' | 'pinyin_compact' | 'pinyin_initials' | 't9';
 
 export class DirectoryImportError extends Error {}
 
@@ -115,6 +117,7 @@ export interface NormalizedDirectoryEntry {
 
 export interface NormalizedDirectoryManifest {
   readonly schemaVersion: 1;
+  readonly directoryKind: DirectoryKind;
   readonly importVersion: string;
   readonly effectiveOn: string;
   readonly campuses: readonly NormalizedDirectoryCampus[];
@@ -171,6 +174,10 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
     throw new DirectoryImportError('manifest.importVersion has an invalid format.');
   }
   const effectiveOn = readDate(root, 'effectiveOn');
+  const directoryKind =
+    root.directoryKind === undefined
+      ? 'internal'
+      : readEnum(root, 'directoryKind', directoryKinds, 'manifest');
 
   const campusInputs = readArray(root, 'campuses', 1, maximumCampuses);
   const campuses = campusInputs.map((value, index) => {
@@ -355,6 +362,7 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
 
   return {
     schemaVersion: 1,
+    directoryKind,
     importVersion,
     effectiveOn,
     campuses,
@@ -445,7 +453,7 @@ export async function previewDirectorySnapshot(
   client: DatabaseClient,
   manifest: NormalizedDirectoryManifest,
 ): Promise<DirectoryImportPlan> {
-  const currentEntries = await selectCurrentEntries(client.database);
+  const currentEntries = await selectCurrentEntries(client.database, manifest.directoryKind);
   return buildDirectoryImportPlan(manifest, currentEntries);
 }
 
@@ -460,8 +468,8 @@ export async function publishDirectorySnapshot(
   }
 
   return withTransaction(client, async (transaction) => {
-    const currentBatch = await selectCurrentBatch(transaction);
-    const currentEntries = await selectCurrentEntries(transaction);
+    const currentBatch = await selectCurrentBatch(transaction, manifest.directoryKind);
+    const currentEntries = await selectCurrentEntries(transaction, manifest.directoryKind);
     const plan = buildDirectoryImportPlan(manifest, currentEntries);
     const batchId = randomUUID();
     const publishedAt = new Date();
@@ -470,6 +478,7 @@ export async function publishDirectorySnapshot(
       id: batchId,
       importVersion: manifest.importVersion,
       schemaVersion: manifest.schemaVersion,
+      directoryKind: manifest.directoryKind,
       status: 'draft',
       effectiveOn: manifest.effectiveOn,
       manifestSha256,
@@ -508,53 +517,55 @@ export async function publishDirectorySnapshot(
     );
 
     const entryIds = new Map<string, string>();
-    await transaction.insert(directoryEntries).values(
-      manifest.entries.map((entry) => {
-        const id = randomUUID();
-        entryIds.set(entry.entryKey, id);
-        return {
-          id,
-          batchId,
-          sourceDocumentId: requireMapValue(documentIds, entry.sourceDocumentKey, 'document'),
-          campusId: requireMapValue(campusIds, entry.campusCode, 'campus'),
-          entryKey: entry.entryKey,
-          sourcePage: entry.sourcePage,
-          sourceLocator: entry.sourceLocator,
-          sectionName: entry.section ?? null,
-          departmentName: entry.department ?? null,
-          subunitName: entry.subunit ?? null,
-          contactName: entry.contactName ?? null,
-          buildingName: entry.building ?? null,
-          floorName: entry.floor ?? null,
-          roomName: entry.room ?? null,
-          entryKind: entry.entryKind,
-          notes: entry.notes ?? null,
-          visibility: entry.visibility,
-          verificationStatus: entry.verificationStatus,
-          displayOrder: entry.displayOrder,
-          searchText: entry.searchText,
-          contentSha256: entry.contentSha256,
-        };
-      }),
-    );
+    const entryRows = manifest.entries.map((entry) => {
+      const id = randomUUID();
+      entryIds.set(entry.entryKey, id);
+      return {
+        id,
+        batchId,
+        sourceDocumentId: requireMapValue(documentIds, entry.sourceDocumentKey, 'document'),
+        campusId: requireMapValue(campusIds, entry.campusCode, 'campus'),
+        entryKey: entry.entryKey,
+        sourcePage: entry.sourcePage,
+        sourceLocator: entry.sourceLocator,
+        sectionName: entry.section ?? null,
+        departmentName: entry.department ?? null,
+        subunitName: entry.subunit ?? null,
+        contactName: entry.contactName ?? null,
+        buildingName: entry.building ?? null,
+        floorName: entry.floor ?? null,
+        roomName: entry.room ?? null,
+        entryKind: entry.entryKind,
+        notes: entry.notes ?? null,
+        visibility: entry.visibility,
+        verificationStatus: entry.verificationStatus,
+        displayOrder: entry.displayOrder,
+        searchText: entry.searchText,
+        contentSha256: entry.contentSha256,
+      };
+    });
+    for (const chunk of chunkArray(entryRows)) {
+      await transaction.insert(directoryEntries).values(chunk);
+    }
 
-    await transaction.insert(directoryContactMethods).values(
-      manifest.entries.flatMap((entry) =>
-        entry.contacts.map((contact) => ({
-          id: randomUUID(),
-          entryId: requireMapValue(entryIds, entry.entryKey, 'entry'),
-          type: contact.type,
-          label: contact.label ?? null,
-          fullNumber: contact.fullNumber ?? null,
-          internalExtension: contact.internalExtension ?? null,
-          normalizedFullNumber: contact.normalizedFullNumber ?? null,
-          normalizedInternalExtension: contact.normalizedInternalExtension ?? null,
-          contactSha256: contact.contactSha256,
-          isPrimary: contact.isPrimary ? 1 : 0,
-          displayOrder: contact.displayOrder,
-        })),
-      ),
+    const contactRows = manifest.entries.flatMap((entry) =>
+      entry.contacts.map((contact) => ({
+        id: randomUUID(),
+        entryId: requireMapValue(entryIds, entry.entryKey, 'entry'),
+        type: contact.type,
+        label: contact.label ?? null,
+        fullNumber: contact.fullNumber ?? null,
+        internalExtension: contact.internalExtension ?? null,
+        normalizedFullNumber: contact.normalizedFullNumber ?? null,
+        normalizedInternalExtension: contact.normalizedInternalExtension ?? null,
+        contactSha256: contact.contactSha256,
+        isPrimary: contact.isPrimary ? 1 : 0,
+        displayOrder: contact.displayOrder,
+      })),
     );
+    for (const chunk of chunkArray(contactRows)) {
+      await transaction.insert(directoryContactMethods).values(chunk);
+    }
 
     const aliasRows = manifest.entries.flatMap((entry) =>
       entry.aliases.map((alias) => ({
@@ -567,7 +578,9 @@ export async function publishDirectorySnapshot(
       })),
     );
     if (aliasRows.length > 0) {
-      await transaction.insert(directorySearchAliases).values(aliasRows);
+      for (const chunk of chunkArray(aliasRows)) {
+        await transaction.insert(directorySearchAliases).values(chunk);
+      }
     }
 
     if (currentBatch !== undefined) {
@@ -615,14 +628,18 @@ export async function activateDirectorySnapshot(
   }
   return withTransaction(client, async (transaction) => {
     const [target] = await transaction
-      .select({ id: directoryImportBatches.id, status: directoryImportBatches.status })
+      .select({
+        directoryKind: directoryImportBatches.directoryKind,
+        id: directoryImportBatches.id,
+        status: directoryImportBatches.status,
+      })
       .from(directoryImportBatches)
       .where(eq(directoryImportBatches.id, batchId))
       .limit(1);
     if (target === undefined || target.status === 'draft' || target.status === 'failed') {
       throw new DirectoryImportError('The activation target is not a completed snapshot.');
     }
-    const currentBatch = await selectCurrentBatch(transaction);
+    const currentBatch = await selectCurrentBatch(transaction, target.directoryKind);
     if (currentBatch?.id === target.id) {
       throw new DirectoryImportError('The requested snapshot is already published.');
     }
@@ -701,8 +718,48 @@ function buildSearchAliases(
     addAlias('pinyin_full', full, full);
     addAlias('pinyin_compact', full.replaceAll(' ', ''), full.replaceAll(' ', ''));
     addAlias('pinyin_initials', initials.replaceAll(' ', ''), initials.replaceAll(' ', ''));
+    addAlias('t9', full, toT9Digits(full));
+    addAlias('t9', initials, toT9Digits(initials));
   }
   return [...aliases.values()];
+}
+
+const t9DigitByLetter: Readonly<Record<string, string>> = {
+  a: '2',
+  b: '2',
+  c: '2',
+  d: '3',
+  e: '3',
+  f: '3',
+  g: '4',
+  h: '4',
+  i: '4',
+  j: '5',
+  k: '5',
+  l: '5',
+  m: '6',
+  n: '6',
+  o: '6',
+  p: '7',
+  q: '7',
+  r: '7',
+  s: '7',
+  t: '8',
+  u: '8',
+  v: '8',
+  w: '9',
+  x: '9',
+  y: '9',
+  z: '9',
+};
+
+export function toT9Digits(value: string): string {
+  return [...value.toLowerCase()]
+    .flatMap((character) => {
+      const digit = t9DigitByLetter[character];
+      return digit === undefined ? [] : [digit];
+    })
+    .join('');
 }
 
 async function upsertCampuses(
@@ -742,23 +799,43 @@ async function selectCampusIds(
 
 async function selectCurrentBatch(
   database: DatabaseTransaction,
+  directoryKind: DirectoryKind,
 ): Promise<{ readonly id: string } | undefined> {
   const [batch] = await database
     .select({ id: directoryImportBatches.id })
     .from(directoryImportBatches)
-    .where(eq(directoryImportBatches.status, 'published'))
+    .where(
+      and(
+        eq(directoryImportBatches.directoryKind, directoryKind),
+        eq(directoryImportBatches.status, 'published'),
+      ),
+    )
     .limit(1);
   return batch;
 }
 
 async function selectCurrentEntries(
   database: DatabaseTransaction | DatabaseClient['database'],
+  directoryKind: DirectoryKind,
 ): Promise<readonly ExistingDirectoryEntry[]> {
   return database
     .select({ entryKey: directoryEntries.entryKey, contentSha256: directoryEntries.contentSha256 })
     .from(directoryEntries)
     .innerJoin(directoryImportBatches, eq(directoryEntries.batchId, directoryImportBatches.id))
-    .where(eq(directoryImportBatches.status, 'published'));
+    .where(
+      and(
+        eq(directoryImportBatches.directoryKind, directoryKind),
+        eq(directoryImportBatches.status, 'published'),
+      ),
+    );
+}
+
+function chunkArray<T>(values: readonly T[], chunkSize = 500): readonly T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push([...values.slice(index, index + chunkSize)]);
+  }
+  return chunks;
 }
 
 async function appendDirectoryAudit(

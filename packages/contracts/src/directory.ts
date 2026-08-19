@@ -12,6 +12,9 @@ export const directoryEntryKindSchema = z.enum([
 ]);
 export type DirectoryEntryKind = z.infer<typeof directoryEntryKindSchema>;
 
+export const directoryKindSchema = z.enum(['internal', 'employee']);
+export type DirectoryKind = z.infer<typeof directoryKindSchema>;
+
 export const directoryEntryKindLabels: Readonly<Record<DirectoryEntryKind, string>> = {
   department: '科室',
   emergency: '急救',

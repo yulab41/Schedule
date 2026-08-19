@@ -213,7 +213,12 @@ export interface ApiClient {
     groupId: string,
   ): Promise<{ readonly dutyReminderHours: readonly number[]; readonly groupId: string }>;
   getDirectoryFacets(groupId: string): Promise<DirectoryFacetSnapshot>;
+  getEmployeeDirectoryFacets(groupId: string): Promise<DirectoryFacetSnapshot>;
   lookupDirectoryEntries(groupId: string, entryIds: readonly string[]): Promise<DirectoryEntry[]>;
+  lookupEmployeeDirectoryEntries(
+    groupId: string,
+    entryIds: readonly string[],
+  ): Promise<DirectoryEntry[]>;
   getMyNotificationPreferences(groupId: string): Promise<MemberNotificationPreferences>;
   getPushConfiguration(): Promise<PushConfiguration>;
   getUnreadNotificationCount(): Promise<{ readonly unreadCount: number }>;
@@ -361,6 +366,7 @@ export interface ApiClient {
   listManualScheduleTemplates(groupId: string): Promise<ManualScheduleTemplate[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
   searchDirectory(groupId: string, query: DirectoryQuery): Promise<DirectoryPage>;
+  searchEmployeeDirectory(groupId: string, query: DirectoryQuery): Promise<DirectoryPage>;
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
   listGroupCatalog(): Promise<GroupCatalogEntry[]>;
@@ -1534,12 +1540,35 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isResponseBodyFromSchema(directoryFacetSnapshotSchema),
       );
     },
+    getEmployeeDirectoryFacets(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/employee-directory/facets`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(directoryFacetSnapshotSchema),
+      );
+    },
     lookupDirectoryEntries(groupId, entryIds) {
       return requestJson(
         options.auth,
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/directory/lookup`,
+        {
+          body: JSON.stringify({ entryIds }),
+          method: 'POST',
+        },
+        isResponseBodyFromSchema(directoryEntryLookupResponseSchema),
+      ).then((response) => [...response.entries]);
+    },
+    lookupEmployeeDirectoryEntries(groupId, entryIds) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/employee-directory/lookup`,
         {
           body: JSON.stringify({ entryIds }),
           method: 'POST',
@@ -1571,6 +1600,34 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/directory${queryString.length > 0 ? `?${queryString}` : ''}`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(directoryPageSchema),
+      );
+    },
+    searchEmployeeDirectory(groupId, query) {
+      const params = new URLSearchParams();
+      const orderedKeys: readonly (keyof DirectoryQuery)[] = [
+        'building',
+        'campusCode',
+        'cursor',
+        'department',
+        'entryKind',
+        'floor',
+        'pageSize',
+        'q',
+        'section',
+        'subunit',
+      ];
+      for (const key of orderedKeys) {
+        const value = query[key];
+        if (value !== undefined) params.set(key, String(value));
+      }
+      const queryString = params.toString();
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/employee-directory${queryString.length > 0 ? `?${queryString}` : ''}`,
         { method: 'GET' },
         isResponseBodyFromSchema(directoryPageSchema),
       );

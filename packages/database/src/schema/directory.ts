@@ -39,6 +39,9 @@ export const directoryImportBatches = mysqlTable(
     id: identifier(),
     importVersion: varchar('import_version', { length: 64 }).notNull(),
     schemaVersion: int('schema_version', { unsigned: true }).notNull(),
+    directoryKind: mysqlEnum('directory_kind', ['internal', 'employee'])
+      .default('internal')
+      .notNull(),
     status: mysqlEnum('status', ['draft', 'published', 'superseded', 'failed'])
       .default('draft')
       .notNull(),
@@ -62,7 +65,10 @@ export const directoryImportBatches = mysqlTable(
   (table) => [
     uniqueIndex('directory_import_batches_version_unique').on(table.importVersion),
     uniqueIndex('directory_import_batches_manifest_unique').on(table.manifestSha256),
-    uniqueIndex('directory_import_batches_published_slot_unique').on(table.publishedSlot),
+    uniqueIndex('directory_import_batches_published_slot_unique').on(
+      table.directoryKind,
+      table.publishedSlot,
+    ),
     index('directory_import_batches_effective_status_idx').on(table.effectiveOn, table.status),
   ],
 );
@@ -216,6 +222,7 @@ export const directorySearchAliases = mysqlTable(
       'pinyin_full',
       'pinyin_compact',
       'pinyin_initials',
+      't9',
     ]).notNull(),
     aliasValue: varchar('alias_value', { length: 255 }).notNull(),
     normalizedValue: varchar('normalized_value', { length: 255 }).notNull(),

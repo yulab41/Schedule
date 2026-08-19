@@ -32,6 +32,7 @@ import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
 import PastScheduleView from './schedules/PastScheduleView.vue';
 import InternalDirectoryView from './directory/InternalDirectoryView.vue';
+import EmployeeDirectoryView from './directory/EmployeeDirectoryView.vue';
 
 const emit = defineEmits<{
   (event: 'sign-out'): void;
@@ -165,6 +166,10 @@ function selectGroupTab(groupId: string | undefined): void {
               />
               <CalendarView v-else-if="activeTab === 'calendar'" :group="currentGroup()!" />
               <InternalDirectoryView v-if="activeTab === 'directory'" :group="currentGroup()!" />
+              <EmployeeDirectoryView
+                v-if="activeTab === 'employee-directory'"
+                :group="currentGroup()!"
+              />
               <ManualScheduleView
                 v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
                 :group="currentGroup()!"

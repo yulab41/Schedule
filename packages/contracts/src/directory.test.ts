@@ -4,11 +4,18 @@ import {
   directoryEntryKindSchema,
   directoryEntryLookupRequestSchema,
   directoryFacetSnapshotSchema,
+  directoryKindSchema,
   directoryPageSchema,
   directoryQuerySchema,
 } from './directory.js';
 
 describe('directory contracts', () => {
+  it('supports the hospital and employee directory kinds', () => {
+    expect(directoryKindSchema.parse('internal')).toBe('internal');
+    expect(directoryKindSchema.parse('employee')).toBe('employee');
+    expect(() => directoryKindSchema.parse('unknown')).toThrow();
+  });
+
   it('accepts independent skip-level filters and bounded cursor pagination', () => {
     expect(
       directoryQuerySchema.parse({

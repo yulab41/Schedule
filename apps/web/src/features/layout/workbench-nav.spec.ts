@@ -21,6 +21,7 @@ describe('Workbench navigation', () => {
     expect(workbenchNavItems.map(({ icon, id }) => [id, icon])).toEqual([
       ['calendar', 'calendar'],
       ['directory', 'directory'],
+      ['employee-directory', 'directory'],
       ['groups', 'groups'],
       ['manual', 'manual'],
       ['backfill', 'backfill'],
@@ -51,6 +52,7 @@ describe('Workbench navigation', () => {
       'swap',
     ]);
     expect(getSecondaryMobileNavItems('owner').map((item) => item.id)).toEqual([
+      'employee-directory',
       'groups',
       'manual',
       'backfill',

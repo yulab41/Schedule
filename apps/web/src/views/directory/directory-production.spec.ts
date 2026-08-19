@@ -20,6 +20,23 @@ describe('production hospital directory integration', () => {
     expect(home).toContain("activeTab === 'directory'");
   });
 
+  it('mounts the employee directory as a separate authenticated dataset with the same view', () => {
+    const home = source('../HomeView.vue');
+    const employee = source('./EmployeeDirectoryView.vue');
+    const navigation = source('../../features/layout/workbench-nav.ts');
+
+    expect(navigation).toContain("id: 'employee-directory'");
+    expect(navigation).toContain("label: '员工通讯录'");
+    expect(home).toContain(
+      "import EmployeeDirectoryView from './directory/EmployeeDirectoryView.vue'",
+    );
+    expect(home).toContain("activeTab === 'employee-directory'");
+    expect(employee).toContain('getEmployeeDirectoryFacets');
+    expect(employee).toContain('searchEmployeeDirectory');
+    expect(employee).toContain('directory-kind="employee"');
+    expect(employee).toContain('title="员工通讯录"');
+  });
+
   it('uses the authenticated API as the production data source', () => {
     const view = source('./InternalDirectoryView.vue');
 
