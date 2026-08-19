@@ -32,6 +32,7 @@ import {
 import {
   type DirectoryEntryDisplayGroup,
   getDirectoryGroupContexts,
+  getDirectoryGroupEmployeeCodes,
   getDirectoryGroupKindLabel,
   getDirectoryGroupNotes,
   getDirectoryGroupTitle,
@@ -581,6 +582,12 @@ async function lookupPreferredEntries(
                 <div class="entry-title-line">
                   <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
                   <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
+                  <span
+                    v-if="getDirectoryGroupEmployeeCodes(entryGroup).length > 0"
+                    class="entry-employee-code"
+                  >
+                    工号 {{ getDirectoryGroupEmployeeCodes(entryGroup).join(' / ') }}
+                  </span>
                   <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
                     {{ entryGroup.entries.length }} 项同号
                   </span>
@@ -716,6 +723,12 @@ async function lookupPreferredEntries(
                   <div class="entry-title-line">
                     <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
                     <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
+                    <span
+                      v-if="getDirectoryGroupEmployeeCodes(entryGroup).length > 0"
+                      class="entry-employee-code"
+                    >
+                      工号 {{ getDirectoryGroupEmployeeCodes(entryGroup).join(' / ') }}
+                    </span>
                     <span v-if="entryGroup.entries.length > 1" class="entry-merge-count">
                       {{ entryGroup.entries.length }} 项同号
                     </span>
@@ -1305,6 +1318,12 @@ async function lookupPreferredEntries(
   border-radius: var(--ui-radius-pill);
   font-size: 11px;
   font-weight: var(--ui-font-weight-semibold);
+}
+
+.entry-employee-code {
+  color: var(--ui-color-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .entry-merge-count {

@@ -19,6 +19,7 @@ export interface CleanEmployeePhone {
 }
 
 export interface CleanEmployeeDirectoryRecord {
+  readonly employeeCode?: string;
   readonly name: string;
   readonly level: string;
   readonly levelPath: readonly string[];

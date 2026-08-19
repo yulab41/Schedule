@@ -92,3 +92,13 @@ export function getDirectoryGroupKindLabel(group: DirectoryEntryDisplayGroup): s
   const kinds = unique(group.entries.map((entry) => entry.entryKind));
   return kinds.length === 1 ? directoryEntryKindLabels[kinds[0]!] : '多类型';
 }
+
+export function getDirectoryGroupEmployeeCodes(
+  group: DirectoryEntryDisplayGroup,
+): readonly string[] {
+  return unique(
+    group.entries
+      .map((entry) => entry.employeeCode)
+      .filter((value): value is string => value !== undefined && value.length > 0),
+  );
+}

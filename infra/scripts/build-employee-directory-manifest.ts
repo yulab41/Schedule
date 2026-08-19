@@ -6,12 +6,22 @@ import {
   type EmployeeDirectoryRawRecord,
   type CleanEmployeeDirectoryRecord,
 } from './employee-directory-cleaner.js';
+import {
+  matchEmployeeDirectoryRecords,
+  parseEmployeeIdentityText,
+  type EmployeeIdentityMatchReport,
+} from './employee-directory-identity-matcher.js';
 
-const [inputPath, outputPath, effectiveOn = new Date().toISOString().slice(0, 10)] =
-  process.argv.slice(2);
+const [
+  inputPath,
+  outputPath,
+  effectiveOn = new Date().toISOString().slice(0, 10),
+  identityPath,
+  identityReportPath,
+] = process.argv.slice(2);
 if (inputPath === undefined || outputPath === undefined) {
   throw new Error(
-    'Usage: build-employee-directory-manifest.js <input.jsonl> <output.json> [effectiveOn]',
+    'Usage: build-employee-directory-manifest.js <input.jsonl> <output.json> [effectiveOn] [identity.txt] [identity-report.json]',
   );
 }
 
@@ -24,15 +34,29 @@ const sourceRecords = sourceText
 const cleaned = cleanEmployeeDirectoryRecords(sourceRecords);
 if (cleaned.records.length === 0)
   throw new Error('Employee directory cleaning produced no records.');
+let identityReport: EmployeeIdentityMatchReport | undefined;
+let records: readonly CleanEmployeeDirectoryRecord[] = cleaned.records;
+if (identityPath !== undefined) {
+  const identityText = await readFile(identityPath, 'utf8');
+  const parsedIdentities = parseEmployeeIdentityText(identityText);
+  const matched = matchEmployeeDirectoryRecords(
+    cleaned.records,
+    parsedIdentities.records,
+    parsedIdentities.emptyCodeSourceCount,
+  );
+  records = matched.records;
+  identityReport = matched.report;
+  if (identityReportPath !== undefined) {
+    await writeFile(identityReportPath, `${JSON.stringify(identityReport, null, 2)}\n`, 'utf8');
+  }
+}
 
-const campusName = cleaned.records[0]?.levelPath[0] ?? '员工组织';
+const campusName = records[0]?.levelPath[0] ?? '员工组织';
 const campusCode = 'employee-hospital';
 const sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex');
-const cleanedSha256 = createHash('sha256')
-  .update(JSON.stringify(cleaned.records), 'utf8')
-  .digest('hex');
+const cleanedSha256 = createHash('sha256').update(JSON.stringify(records), 'utf8').digest('hex');
 const documentKey = `employee-directory-${sourceSha256.slice(0, 16)}`;
-const entries = cleaned.records.map((record, index) => toManifestEntry(record, index, documentKey));
+const entries = records.map((record, index) => toManifestEntry(record, index, documentKey));
 const manifest = {
   schemaVersion: 1,
   directoryKind: 'employee',
@@ -54,7 +78,20 @@ const manifest = {
 };
 
 await writeFile(outputPath, `${JSON.stringify(manifest)}\n`, 'utf8');
-console.error(JSON.stringify({ ...cleaned.stats, manifestEntries: entries.length }));
+const identitySummary =
+  identityReport === undefined
+    ? undefined
+    : (({ unmatchedCurrentRecords, ...summary }) => ({
+        ...summary,
+        unresolvedRecordCount: unmatchedCurrentRecords.length,
+      }))(identityReport);
+console.error(
+  JSON.stringify({
+    ...cleaned.stats,
+    ...(identitySummary === undefined ? {} : { identityReport: identitySummary }),
+    manifestEntries: entries.length,
+  }),
+);
 
 function toManifestEntry(
   record: CleanEmployeeDirectoryRecord,
@@ -77,6 +114,7 @@ function toManifestEntry(
     ...(path[4] === undefined ? {} : { department: path[4] }),
     ...(path[5] === undefined ? {} : { subunit: path[5] }),
     contactName: record.name,
+    ...(record.employeeCode === undefined ? {} : { employeeCode: record.employeeCode }),
     entryKind: 'person',
     visibility: 'member',
     verificationStatus: 'source_exact',

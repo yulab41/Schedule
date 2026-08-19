@@ -101,6 +101,7 @@ export const directoryEntrySchema = z
     contacts: z.readonly(z.array(directoryContactMethodSchema).max(50)),
     department: z.string().min(1).max(150).optional(),
     displayOrder: z.number().int().nonnegative(),
+    employeeCode: z.string().min(1).max(64).optional(),
     entryKind: directoryEntryKindSchema,
     floor: z.string().min(1).max(64).optional(),
     id: z.string().uuid(),

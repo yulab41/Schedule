@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-19 员工通讯录工号配对（当前轮次）
+
+- 变更范围：以现有员工通讯录清洗结果为唯一集合，清单只用于按姓名/所属部门提取并配对工号；不从清单新增人员。工号写入员工条目独立字段、搜索别名和卡片标题，未唯一匹配项保持空缺。
+- 匹配结果：原目录 1070 条保持 1070 条；1012 条按姓名+路径部门匹配，48 条按唯一姓名补配；4 条同名候选冲突、6 条未找到候选，详见本机 ignored 的 `runtime/directory-data/employee/2026-08-19/employee-identity-match-report.json` 供人工核对。
+- 运行/浏览器验证：`pnpm smoke:browser`（本轮采用等价直接命令 `node scripts/smoke-browser.mjs`）通过管理员、成员、访客/vkey、访问记录、员工中文搜索和工号搜索；`node scripts/smoke-browser.mjs --check-core` 通过。全仓 Vitest 排除用户自有 `runtime/**`、`src/**` 后 121 文件/712 项通过（31 文件/262 项按环境跳过）。
+
 ## 2026-08-18 D/NP 固定班种分段状态提醒
 
 - 需求与引入点：D 班午间间休、NP 班夜间值班房听班属于一个排班内的分段状态，现有 `shift_types` 和日历契约只保存单一起止时间；`git log -S 'formatShiftTimeRange'` / `git blame` 确认 `1c84fd6` 首次加入的选中日期详情只显示班种、人员和连续起止时间，未表达分段状态。

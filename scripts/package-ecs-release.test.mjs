@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -27,6 +27,6 @@ describe('ECS directory import runtime packaging', () => {
   it('verifies the directory import artifact and current migration count', () => {
     expect(verifySource).toContain('infraScriptsDistTreeSha256');
     expect(verifySource).toContain('$DEPLOY_DIR/infra/scripts/dist');
-    expect(verifySource).toContain("grep -qx '38'");
+    expect(verifySource).toContain("grep -qx '40'");
   });
 });

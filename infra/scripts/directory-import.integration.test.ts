@@ -57,9 +57,19 @@ describeWithDatabase('directory snapshot import', () => {
       SELECT 'chinese-ngram' AS matchKind
       FROM directory_entries
       WHERE MATCH(search_text) AGAINST ('测试' IN BOOLEAN MODE)
+      UNION ALL
+      SELECT 'employee-code' AS matchKind
+      FROM directory_search_aliases
+      WHERE normalized_value = 'd0001'
     `);
     expect(preparedSearchRows.map((row) => row.matchKind)).toEqual(
-      expect.arrayContaining(['number-prefix', 'pinyin-prefix', 't9-prefix', 'chinese-ngram']),
+      expect.arrayContaining([
+        'number-prefix',
+        'pinyin-prefix',
+        't9-prefix',
+        'chinese-ngram',
+        'employee-code',
+      ]),
     );
     expect(toT9Digits('ce shi zhong xin')).toBe('2374494664946');
 
@@ -165,6 +175,7 @@ function createManifest(importVersion: string, extension: string): Record<string
         campusCode: 'synthetic-campus',
         department: '测试中心',
         contactName: '测试总机',
+        employeeCode: 'd0001',
         entryKind: 'switchboard',
         visibility: 'member',
         verificationStatus: 'source_exact',

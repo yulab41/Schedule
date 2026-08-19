@@ -795,6 +795,27 @@ async function assertEmployeeDirectory(page) {
   await page.locator('button[aria-label="清空搜索"]').click();
   await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);
 
+  await search.fill('d0898');
+  await search.press('Enter');
+  await page.waitForFunction(
+    () => {
+      const status = document.querySelector('.result-status')?.textContent ?? '';
+      return (
+        document.querySelectorAll('.directory-search-results .directory-entry').length > 0 &&
+        status.includes('找到') &&
+        !status.includes('正在更新')
+      );
+    },
+    null,
+    { timeout: 15000 },
+  );
+  const employeeCodeResultText = await page.locator('.directory-search-results').innerText();
+  if (!employeeCodeResultText.includes('工号 d0898')) {
+    fail('员工通讯录工号搜索或工号展示未返回预期结果。');
+  }
+  await page.locator('button[aria-label="清空搜索"]').click();
+  await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);
+
   await page.locator('.filter-open-action').click();
   const filterSheet = page.locator('dialog[open][aria-label="筛选员工通讯录"]');
   await filterSheet.waitFor({ state: 'visible', timeout: 5000 });

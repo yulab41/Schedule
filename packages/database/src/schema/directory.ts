@@ -125,6 +125,7 @@ export const directoryEntries = mysqlTable(
     departmentName: varchar('department_name', { length: 150 }),
     subunitName: varchar('subunit_name', { length: 150 }),
     contactName: varchar('contact_name', { length: 150 }),
+    employeeCode: varchar('employee_code', { length: 64 }),
     buildingName: varchar('building_name', { length: 100 }),
     floorName: varchar('floor_name', { length: 64 }),
     roomName: varchar('room_name', { length: 100 }),

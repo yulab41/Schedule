@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-19 员工通讯录工号配对（已实现，待生产发布与人工复核）
+
+- 批次范围：以现有员工通讯录清洗结果为唯一数据集合；用户提供的姓名/工号/所属部门清单只用于提取和配对工号，不从清单新增人员。新增 `employee_code` 字段、工号搜索别名和卡片标题展示，未唯一匹配项保持空缺。
+- 数据结果：原员工目录 1070 条仍为 1070 条；1012 条姓名+路径部门匹配，48 条唯一姓名补配，1060 条写入工号；4 条候选冲突、6 条无候选，人工核对清单写入本机 ignored 的 `runtime/directory-data/employee/2026-08-19/employee-identity-match-report.json`。本地 manifest `employee-20260819-b443f8cc-1e20641f` SHA-256 `a0d30cf7eb05734a71c3f783eda335af6be46c7ded12427cca07f697059d5e3c`，条目数保持 1070。
+- 本地发布：迁移 0040 已应用；dry-run added 0、changed 1060、unchanged 10、removed 0、warnings 0；本地发布批次 `c81dc2b7-1fe8-4c2a-8e4f-09fd77809969`，替换 `231ada79-3cde-4370-a07d-26ee6d1e2683`。
+- 验证：匹配器/清洗器/合同/展示分组与全仓非集成 Vitest 121 文件/712 项通过（31 文件/262 项按环境跳过）；API、数据库、合同、infra TypeScript 编译通过；Web Vite 构建通过；`node scripts/smoke-browser.mjs` 通过管理员、成员、访客/vkey、访问记录、员工中文搜索和工号搜索；`node scripts/smoke-browser.mjs --check-core` 通过；Prettier、任务文件 ESLint、`git diff --check` 通过。`vue-tsc` 本机依赖符号已被既有 ECS 打包流程移除，未替换用户依赖树。
+- 当前状态：已实现（本地代码、数据和浏览器验证完成）→待生产备份/部署与人工核对未匹配项。代码 checkpoint 计划提交消息：`feat(directory): map employee codes from identity list`。
+- 下一批次与停止条件：提交、推送并部署代码 checkpoint，生产原子发布同一 manifest；只报告备份、release、批次和验证结果，不自动填写上述 10 条人工复核记录。
+
 ## 2026-08-19 员工通讯录显示数据去噪（已完成，待用户复核）
 
 - 批次范围：清理员工通讯录层级字段边界遗留的句点、逗号、冒号、尖括号等无意义符号；保留括号等名称内部的有效符号。移除员工快照中的清洗说明备注，并在 Web 搜索结果路径中隐藏“汕大肿瘤医院”根节点；不改变号码、权限或院内通讯录展示。

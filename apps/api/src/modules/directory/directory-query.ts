@@ -180,6 +180,7 @@ async function lookupDirectoryEntries(
       contactName: directoryEntries.contactName,
       department: directoryEntries.departmentName,
       displayOrder: directoryEntries.displayOrder,
+      employeeCode: directoryEntries.employeeCode,
       entryKind: directoryEntries.entryKind,
       floor: directoryEntries.floorName,
       id: directoryEntries.id,
@@ -237,6 +238,7 @@ async function listDirectoryEntries(
       contactName: directoryEntries.contactName,
       department: directoryEntries.departmentName,
       displayOrder: directoryEntries.displayOrder,
+      employeeCode: directoryEntries.employeeCode,
       entryKind: directoryEntries.entryKind,
       floor: directoryEntries.floorName,
       id: directoryEntries.id,
@@ -451,6 +453,7 @@ function toDirectoryEntry(
     readonly contactName: string | null;
     readonly department: string | null;
     readonly displayOrder: number;
+    readonly employeeCode: string | null;
     readonly entryKind: DirectoryEntryKind;
     readonly floor: string | null;
     readonly id: string;
@@ -472,6 +475,7 @@ function toDirectoryEntry(
     contacts,
     ...(row.department === null ? {} : { department: row.department }),
     displayOrder: row.displayOrder,
+    ...(row.employeeCode === null ? {} : { employeeCode: row.employeeCode }),
     entryKind: row.entryKind,
     ...(row.floor === null ? {} : { floor: row.floor }),
     id: row.id,

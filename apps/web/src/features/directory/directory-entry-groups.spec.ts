@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getDirectoryGroupContexts,
+  getDirectoryGroupEmployeeCodes,
   getDirectoryGroupNotes,
   getDirectoryGroupTitle,
   groupDirectoryEntriesByContact,
@@ -112,6 +113,25 @@ describe('directory contact display groups', () => {
     expect(getDirectoryGroupContexts(groups[0]!)).toEqual([
       '住院诊疗区 › 手术中心 › 病房 · 住院楼 · 3楼 · 病房',
     ]);
+  });
+
+  it('keeps employee codes available on merged display groups', () => {
+    const groups = groupDirectoryEntriesByContact([
+      entry(
+        '20000000-0000-4000-8000-000000000027',
+        '甲处',
+        [contact('10000000-0000-4000-8000-000000000027')],
+        { employeeCode: 'd0001' },
+      ),
+      entry(
+        '20000000-0000-4000-8000-000000000028',
+        '乙处',
+        [contact('10000000-0000-4000-8000-000000000028')],
+        { employeeCode: 'g0002' },
+      ),
+    ]);
+
+    expect(getDirectoryGroupEmployeeCodes(groups[0]!)).toEqual(['d0001', 'g0002']);
   });
 
   it('treats contact order and formatting as presentation details, not different contact sets', () => {

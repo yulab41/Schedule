@@ -66,6 +66,7 @@ describe('directory contracts', () => {
             },
           ],
           displayOrder: 10,
+          employeeCode: 'd0001',
           entryKind: 'switchboard',
         },
       ],
@@ -73,6 +74,7 @@ describe('directory contracts', () => {
     });
 
     expect(page.entries[0]?.contacts[0]?.internalExtension).toBe('123456');
+    expect(page.entries[0]?.employeeCode).toBe('d0001');
     expect(() =>
       directoryPageSchema.parse({
         entries: [

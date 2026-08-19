@@ -29,6 +29,7 @@ const stableKeyPattern = /^[a-z0-9][a-z0-9:._-]*$/u;
 const campusCodePattern = /^[a-z0-9][a-z0-9-]*$/u;
 const phoneCharactersPattern = /^[0-9+()\-\s.]+$/u;
 const hanPattern = /\p{Script=Han}/u;
+const employeeCodePattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 
 const entryKinds = [
   'department',
@@ -109,6 +110,7 @@ export interface NormalizedDirectoryEntry {
   readonly visibility: DirectoryVisibility;
   readonly verificationStatus: DirectoryVerificationStatus;
   readonly displayOrder: number;
+  readonly employeeCode: string | undefined;
   readonly contacts: readonly NormalizedDirectoryContact[];
   readonly aliases: readonly NormalizedDirectoryAlias[];
   readonly searchText: string;
@@ -269,6 +271,10 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
     const building = readOptionalString(entry, 'building', 100, path);
     const floor = readOptionalString(entry, 'floor', 64, path);
     const room = readOptionalString(entry, 'room', 100, path);
+    const employeeCode = readOptionalString(entry, 'employeeCode', 64, path);
+    if (employeeCode !== undefined && !employeeCodePattern.test(employeeCode)) {
+      throw new DirectoryImportError(`${path}.employeeCode has an invalid format.`);
+    }
     const notes = readOptionalString(entry, 'notes', 1_000, path);
     if (department === undefined && contactName === undefined) {
       throw new DirectoryImportError(`${path} must provide department or contactName.`);
@@ -326,9 +332,16 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
       maximumAliasesPerEntry,
       path,
     );
-    const sourceAliases = [section, department, subunit, contactName, building, floor, room].filter(
-      (item): item is string => item !== undefined,
-    );
+    const sourceAliases = [
+      section,
+      department,
+      subunit,
+      contactName,
+      building,
+      floor,
+      room,
+      employeeCode,
+    ].filter((item): item is string => item !== undefined);
     const aliases = buildSearchAliases(sourceAliases, manualAliases);
     const searchText = [...new Set([...sourceAliases, ...manualAliases])].join(' ');
 
@@ -344,6 +357,7 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
       building,
       floor,
       room,
+      employeeCode,
       entryKind,
       notes,
       visibility,
@@ -532,6 +546,7 @@ export async function publishDirectorySnapshot(
         departmentName: entry.department ?? null,
         subunitName: entry.subunit ?? null,
         contactName: entry.contactName ?? null,
+        employeeCode: entry.employeeCode ?? null,
         buildingName: entry.building ?? null,
         floorName: entry.floor ?? null,
         roomName: entry.room ?? null,
