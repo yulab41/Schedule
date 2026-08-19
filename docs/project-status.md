@@ -7,10 +7,11 @@
 - 批次范围：只修复 20×30 PoC 在 PC 模拟器班次主体空白/整页随人员滚动，以及 Android 班次存在但矩阵纵向手势无位移；不改变 7×7/20×30 fixture、横向原生滚动、Worklet 位移、单格更新或视觉令牌。
 - 回归定位与测试先行：`git log -S`/`git blame` 确认 `type=list` 由 `6799f1f` 引入，后续将日期与班次主体变成两个复合直接子节点后触发跨运行时横向列表布局/可见性差异；页面自建立以来未声明 `disableScroll`。新增页面滚动隔离与单一直接内容项断言，旧实现 2 项失败，修复后定向 8/8、小程序 10 文件/41 项通过。
 - 实现：矩阵页声明 `disableScroll: true`，页面不再竞争纵向输入；日期和班次主体组合为一个贯穿 `contentWidth` 的直接内容项，继续使用同一个 `scroll-view type=list scroll-x`，不改变已通过的原生横向 compositor 路径。人员与班次仍由同一个纵向 SharedValue 同步位移，手势期间无 `setData`。
-- 验证：小程序 typecheck/build/source/Worklet/包体/确定性/模拟门禁通过（69 个构建文件、6 个源码/产物 Worklet、包体 111287 bytes）；`miniprogram-ci` dry-run 通过；任务文件 Prettier、根 lint/build/typecheck、`smoke:check-core` 通过。根 `verify` 仅被用户已有 `project.config.json`、Storybook 生成物和 `runtime/` 旧 ECS 副本，以及现行但与本轮无关的迁移计数测试拦截；排除这些用户/既有阻塞后的现行主工作区 123 文件/723 项通过、31 文件/262 项按环境跳过。
+- 验证：小程序 typecheck/build/source/Worklet/包体/确定性/模拟门禁通过（69 个构建文件、6 个源码/产物 Worklet，干净 checkpoint 包体 113757 bytes）；`miniprogram-ci` dry-run 通过；任务文件 Prettier、根 lint/build/typecheck、`smoke:check-core` 通过。根 `verify` 仅被用户已有 `project.config.json`、Storybook 生成物和 `runtime/` 旧 ECS 副本，以及现行但与本轮无关的迁移计数测试拦截；排除这些用户/既有阻塞后的现行主工作区 123 文件/723 项通过、31 文件/262 项按环境跳过。
 - 行为变化清单：PC/Android 都必须渲染班次文字与格线；矩阵纵向输入不再移动整个页面。日期/班次横向同源、人员横向冻结、日期纵向冻结、纵向惯性、斜向轴锁、点击/撤销调用次数与空值/错误路径保持。
-- 当前状态：已实现待 checkpoint、微信体验上传、ECS 同步和用户人工原生复核；checkpoint 识别消息为 `fix(miniprogram): isolate matrix scrolling`。
-- 下一批次与停止条件：完成上述 checkpoint 外部轨道后，只请用户按 D 清单复测 PC 班次渲染/矩阵拖动及 Android 纵向滑动；未明确通过前不进入 P2。
+- 发布：代码 checkpoint `fc22b2c`（`fix(miniprogram): isolate matrix scrolling`）已推送；微信体验版 `0.1.0-p1.20260819.16` 上传成功（48 个代码文件、34704 bytes，manifest `58f6d2a2063d7530b3b8af77bab62cfda8e8e6c86e438b6d8b4030d97dcc1b4b`）。ECS 发布前加密备份 archive `8cc672cf-8445-4bae-bfcc-850d87488c42`（50 表、106490 行、47291044 bytes，SHA-256 `548ca7f317dc4f816e3f8796c5463206a1233bc8a99aeff916d30d2ceb2facb4`）；release `fc22b2cf6aa4812e03ddb3982245d4e3e8b2aea4` 已部署，预热首次 SSL 探测失败后恢复，`ecs-verify.sh` 通过健康、41 条迁移、产物哈希、域名隔离、端口和容器检查。
+- 当前状态：已实现并发布 → 待用户人工原生复核。
+- 下一批次与停止条件：只请用户按 D 清单复测 PC 班次渲染/矩阵拖动及 Android 纵向滑动；未明确通过前不进入 P2。本状态收口 checkpoint 推送、微信体验上传和 ECS 同步后停止。
 
 ## 2026-08-19 科室/人员通讯录合并（当前批次）
 
