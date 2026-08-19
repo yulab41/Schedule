@@ -9,7 +9,9 @@
 - 实现：矩阵统一固定为 `82px` 表头 + `7 × 44px` 人员行 = `390px`，删除 `wx.getWindowInfo` 和矩阵顶部/安全区测量，仅保留横向视口宽度测量。内层 `horizontal-drag-gesture-handler native-view=scroll-view` 新增 `worklet:should-response-on-move`；横向占优返回 `true` 保留原生 compositor，纵向占优返回 `false` 让外层纵向 Worklet 接管。
 - 语义与视觉审计：7×7 仍完整显示；20×30 固定显示 7 行，其余 13 行只在矩阵内部纵向浏览。页面滚动继续关闭，日期纵向冻结、人员横向冻结、PC 横向/纵向路径、横向进度、纵向 `decay`、点击/撤销、副作用次数和空值路径不变。视觉调整遵循 `frontend-design`，未改变已确认的颜色、字号、间距和控件外观。
 - 验证：小程序 typecheck/build/source/Worklet/包体/确定性/模拟门禁通过（69 个构建文件、7 个源码/产物 Worklet、109192 bytes）；`miniprogram-ci` dry-run 通过；任务文件 Prettier、根 lint/build/typecheck、`smoke:check-core` 通过。完整小程序 42 项通过；排除用户自有 `runtime/**` 旧 ECS 副本和既有无关迁移计数测试后的现行主工作区 124 文件/729 项通过、31 文件/262 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信上传和 ECS 同步；原生效果仍待用户 Android 复核。checkpoint 识别消息：`fix(miniprogram): fix android matrix vertical gesture`。
+- 发布：代码 checkpoint `a9cfe26`（`fix(miniprogram): fix android matrix vertical gesture`）已推送；微信体验版 `0.1.0-p1.20260819.18` 上传成功（48 个代码文件、33906 bytes，manifest `52f705c2582ca5e3bb5ee8dd923145594085d616aa3b4ddd83c7d84cd6959555`）。ECS 发布前加密备份 archive `68caa925-2d68-41e3-bd60-b73975ba6753`（50 表、106499 行、47294960 bytes，SHA-256 `cd7d001f43277b499a84e09910d9223b7bc4d88bafab75f22005e4aa07eec568`）；release `a9cfe2693a89a9779bd0d58d45c7eb66eaa4dcc0` 已部署，预热首次 502 后恢复。
+- 线上验证：`ecs-verify.sh` 通过生产健康、产物哈希、41 条迁移、域名隔离、监听端口、容器和依赖检查；正式域名 `/api/health` 返回 200，服务器 `deploy-manifest.json` 精确指向 `a9cfe2693a89a9779bd0d58d45c7eb66eaa4dcc0`，未写业务数据。
+- 当前状态：已实现并发布 → 待用户 Android 人工复核；本状态收口 checkpoint 推送、微信体验上传和 ECS 同步后停止。
 - 下一批次与停止条件：只请用户复测 D：固定 7 行不超出常规手机页面、Android 纵向人员/班次同步移动、横向仍丝滑、斜向单轴；未明确通过前不进入 P2。
 
 ## 2026-08-19 通讯录科室/人员手势切换（当前批次）
