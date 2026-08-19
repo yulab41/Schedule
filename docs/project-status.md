@@ -159,10 +159,12 @@
 - 回归定位与测试先行：`git log -S`/`git blame` 确认初版事件/进度来自 `6cc7463`，WXS 延迟来自 `4b33274`，三轮无效 SharedValue 变体来自 `3b9a677`、`f8c743a`、`3933aee`。新结构回归先在旧实现明确失败，要求三个滚动容器、两个 ref、UI 线程直接 `scrollTo` 和 3.3.0；实现后定向 6/6、Mini 全套 10 文件/39 项与 typecheck 通过。
 - 本轮验证：Mini staging/production verify、源码/产物边界、3 个 Worklet、确定性、包体、无凭据 CI dry-run通过；包体为 104,865/104,858 bytes，manifest 为 `5de5e8a7a4cdf63048274ffd3e17723ff708f6370edc53a9494195d4aa494c6f` / `9e51bbaf54a9c7b77d1d592cfabfa4e11ac0d3a8ceb8048431a8141ad8f0682c`。根 lint/build/typecheck、任务文件 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需浏览器 smoke。排除用户自有 `runtime/**`/`src/**` 后全仓 119 文件/704 项和 31 文件/262 项环境跳过通过，唯一失败是本轮前已有的 `scripts/package-ecs-release.test.mjs` 仍断言 38 个迁移，而当前 `ecs-verify.sh` 与已部署基线为 39；本轮不修改该无关测试。根格式检查仍只被用户自有 `apps/miniprogram/project.config.json` 格式阻断，该文件不修改、不暂存。
 - 行为审计：矩阵数据、格子选择、撤销、横纵坐标、方向、惯性主体和滚动结束提示语义不变；冻结实现从样式 transform 改为 UI 线程直接滚动两个只读表头容器。同步仍由同一个主体事件驱动，不增加网络、业务写入或滚动期 `setData`，表头滚动禁用动画避免人为延迟。
-- 当前状态：ScrollViewContext 方案已实现并通过相关静态门禁，待 Git/ECS checkpoint、微信体验上传和用户人工原生复核；P1 不能进入 P2。
-- 下一批次：完成静态/构建/包体/确定性门禁、显式提交推送、ECS 发布和新的微信体验上传；随后用户复测 C/D 的手指拖动、快速反向和惯性滚动。7×7 日期表头须与主体同帧；20×30 日期/人员表头须分别与对应轴同帧且左上角固定。
-- 本轮代码 checkpoint 识别消息：`fix(miniprogram): synchronize matrix scroll contexts`。
-- 停止条件：新 checkpoint 推送、生产备份/部署/核验和微信体验上传完成后停止，等待用户人工复测；用户未明确通过前不进入 P2。
+- 本轮代码发布：checkpoint `7e73686`（`fix(miniprogram): synchronize matrix scroll contexts`）已推送。发布前加密数据库备份 archive 为 `1659677c-b22b-4ec1-9a1c-4acc9ef7ac77`（50 表、49,429 行、20,887,140 字节，SHA-256 `2dd68963a722afc7bd89065fc188f373d96d792a2bb020f93eba6f7b244dc82c`）；release `7e7368629b3c177fd3c38920c4d787680400a6a3` 从不可变产物部署，容器预热首次 502 后自动恢复，`ecs-verify.sh` 通过正式域名健康、39 个迁移、产物哈希、域名隔离、公开端口与容器检查。
+- 本轮微信体验上传：同一干净 `7e73686` 通过官方 Summer 编译，处理 48 个代码文件并生成 32,091 字节上传包；体验版本 `0.1.0-p1.20260819.6`、robot 1、staging profile、manifest `c8f6a37051d9e34e5154718037d5e4f87d9c0a725dced48ab0d697a4f8dab415` 已上传微信开发平台。未提交审核、未正式发布，全程未启动或控制本地微信开发者工具。
+- 当前状态：ScrollViewContext 方案的实现、代码推送、生产部署与微信体验上传均已完成，现为“已实现待用户人工原生复核”；P1 不能进入 P2。
+- 下一批次：用户使用体验版 `0.1.0-p1.20260819.6` 复测 C/D 的手指拖动、快速反向和惯性滚动。7×7 日期表头须与主体同帧；20×30 日期/人员表头须分别与对应轴同帧且左上角固定；顶部蓝色进度须在横向滚动后变化。
+- 本轮代码 checkpoint：`7e73686`（`fix(miniprogram): synchronize matrix scroll contexts`）；最终状态 checkpoint 识别消息：`docs(status): record scroll context upload`。
+- 停止条件：最终状态 checkpoint 推送并同步为 ECS release，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户人工复测；用户未明确通过前不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 
