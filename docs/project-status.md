@@ -8,8 +8,10 @@
 - 回归定位：`git log -S`/`git blame` 确认 T9 API 分支与别名由 `9bc4922` 引入，员工搜索提示同样来自 `9bc4922`；电话行标签/两列布局由 `926136a` 延续至 `b09da6e`。
 - 实现：导入器不再生成 T9 别名；API 先匹配 `employee_code` 精确/前缀，再执行原文、拼音和全文检索；迁移 `0041_remove_t9_directory_search.sql` 清理历史 T9 别名并收窄枚举。员工移动电话行隐藏通用标签，号码值 `nowrap`，院内固定电话标签保持。部署前发现 `ecs-verify.sh` 的迁移计数仍为 40，已同步更新为本批次迁移后的 41，避免发布后误报失败。
 - 验证：员工视图/导入器定向 24 项通过；真实 MySQL API、导入和迁移测试 21 项通过；contracts/database/API/Web typecheck、任务文件 ESLint/Prettier、`git diff --check` 通过；`SMOKE_BASE_URL=http://127.0.0.1:5173 node scripts/smoke-browser.mjs` 通过全链路、员工工号搜索与电话行布局断言；`node scripts/smoke-browser.mjs --check-core` 通过（未触及核心链路）。
-- 当前状态：已完成（含运行验证）→待部署；代码 checkpoint `427ff6b` 已推送，部署验证脚本修正待形成后续 checkpoint。部署前需备份生产数据库，发布后运行 `ecs-verify.sh` 并进行员工目录只读核验。
-- 下一批次与停止条件：完成本代码 checkpoint、生产迁移和线上只读核验；随后更新最终状态 checkpoint 并等待用户复核，不开始其他实现任务。
+- 正式发布：代码 checkpoint `427ff6b` 与部署验证修正 checkpoint `5704242` 已推送；发布前数据库备份 archive `6d798463-f2c1-4b22-a3c2-2e1c297ebead`（50 表、144597 行、62174612 字节，SHA-256 `157c51c67f0d5724687ef6b27beac82e33d2432a2dc187ec862723cfbd86796e`）；release `5704242e1b5aefb704f940c31668ee0f6f7343d0` 已部署，预热期间两次 502 后自动恢复，`ecs-verify.sh` 完整通过并确认 41 条迁移。
+- 正式域名只读核验：`/api/health` 返回 200；生产 published 快照为 internal 341/359、employee 1070/1073，employee 工号 1064 条；T9 别名 0，别名枚举不含 `t9`；正式 Web bundle 含 `employeeCode` 接线且不含 T9 字符串。未写入业务数据。
+- 当前状态：已完成（含代码发布、迁移、备份和线上只读核验）→待用户复核；需再提交并部署本状态文档 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致。
+- 下一批次与停止条件：只更新、提交、推送并部署本最终状态文档 checkpoint；随后等待用户复核，不开始其他实现任务。
 
 ## 2026-08-19 员工通讯录工号前缀优先配对（当前批次）
 
