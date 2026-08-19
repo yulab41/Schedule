@@ -136,12 +136,17 @@
 - 本轮代码发布：checkpoint `f8c743a`（`fix(miniprogram): synchronize matrix worklet headers`）已推送；发布前加密数据库备份 archive 为 `4e884107-d809-4bdd-b571-3e0052dccb90`（50 表、18,513 行、7,381,344 字节，SHA-256 `ba86782259103afdf09fd6c537e258a1ccd2228dae0b759db45737b403497ed7`）。release `f8c743adc24091bec3978e2d410d180584a5522c` 从隔离干净 worktree 构建并部署，预热首次 TLS 探测短暂失败后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离、公开端口和容器检查。
 - CI 兼容发布：checkpoint `76ce450`（`fix(miniprogram): stabilize official worklet upload`）已推送；发布前加密数据库备份 archive 为 `9adaa134-4a02-4d20-afaa-682908c9df81`（50 表、18,514 行、7,382,000 字节，SHA-256 `406263a21862c17fcffa97e7ee95221c89f136088eee5812647837b51ecbe219`）。release `76ce450d3a53a724cd2132887168be19ae277d50` 从干净 worktree 构建并部署，预热首次 502 后自动恢复，`ecs-verify.sh` 完整通过。
 - 微信体验上传：用户将当前出口 IP 加入代码上传密钥白名单后，从干净 `1fffa1d` 隔离工作区原样重试成功。官方 Summer 编译处理 48 个代码文件，生成 31,962 字节上传包；体验版本 `0.1.0-p1.20260819.4`、robot 1、staging profile、manifest `3b10bf169b84ee283adfb16d93974c39ba554230d5fac79ebcf81425e052efc9` 已上传微信开发平台。未提交审核、未正式发布，全程未启动或控制本地微信开发者工具。
-- 当前状态：矩阵 Worklet 修复、CI 兼容与微信体验上传均已完成，现等待用户在实体 Android 人工复测 C/D。动态月历和基础控件仍按用户已报告的 P1 确认状态管理；P1 尚未完成，不能提前进入 P2。
-- 下一批次：用户使用体验版 `0.1.0-p1.20260819.4` 人工复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动。7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。通过后再按仍未确认的 P1 项继续；若失败，只修复对应失败项。
+- 第三次人工回归：用户在体验版 `0.1.0-p1.20260819.4` 实体 Android 确认 C/D 仍失败，7×7 日期表头与 20×30 日期/人员表头均固定。该真机结果再次优先于静态测试，不将 `.4` 视为有效修复。
+- 本轮引入点与根因：`git log -S`/`git blame` 确认 `3b9a677` 把滚动偏移改为页面实例 SharedValue，`f8c743a` 又让样式 updater 捕获 `onLoad` 局部 SharedValue，两个 Worklet 仅依赖 `this._scrollX/_scrollY` 对象别名被假定为编译后仍是同一对象。普通 JS mock 会成立，但 Worklet 会序列化捕获值，真机已证明该别名不能作为共享身份保证。官方文档仍确认事件字段为 `event.detail.scrollLeft/scrollTop`、`worklet:onscrollupdate` 绑定无误，且 SharedValue 应被 Worklet 直接捕获。
+- 本轮修复：四个矩阵滚动 SharedValue 改为词法单一来源；日期/人员 updater 和滚动 Worklet 直接引用同一 `matrixScrollX/matrixScrollY`，彻底移除 `this._scrollX/_scrollY` 别名。仍使用 `{ flush: 'sync' }`，不改事件字段、偏移方向、视觉、点击、撤销、数据或 `setData` 次数。
+- 本轮验证：直接共享词法标识符的结构回归先在旧实现失败；修复后定向 6/6、Mini 10 文件/39 项、排除用户自有 `runtime/**`/`src/**` 后主仓 119 文件/700 项通过（31 文件/261 项按环境跳过）。Mini typecheck、staging/production verify、确定性、源码/包体、CI dry-run、根 lint/build/typecheck、任务文件 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core` 通过；staging/production 包体为 104,371/104,364 bytes，manifest 为 `4776e10ed9750d060dd8b94db66b24dee023ab484810c0f04501f4a12c225936` / `1a1e921a9b1dc0d978f874de306abc473be6528b7c6f430950d2d7787cd0e42f`，源码与产物均保留 5 个 Worklet。未触及 Web 核心链路，无需 `pnpm smoke:browser`；根格式全检仍只会被用户自有 `project.config.json` 拦截，该文件及 `runtime/`、`src/` 不修改、不暂存。
+- 当前状态：新的词法 SharedValue 修复已实现且本地门禁通过，尚需建立代码 checkpoint、推送、部署并上传新微信体验版。P1 尚未完成，不能提前进入 P2。
+- 下一批次：上传新体验版后由用户再次人工复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动。7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。用户未明确通过前不进入 P2。
 - 本 checkpoint 识别消息：`fix(miniprogram): synchronize matrix worklet headers`。
 - CI 兼容 checkpoint 识别消息：`fix(miniprogram): stabilize official worklet upload`。
-- 最终状态 checkpoint 识别消息：`docs(status): record matrix experience upload`。
-- 停止条件：当前状态 checkpoint 显式提交、推送、生产备份/部署/核验，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户完成 C/D 人工复测；用户未明确反馈通过前不进入 P2。
+- 本轮代码 checkpoint 识别消息：`fix(miniprogram): share matrix offsets across worklets`。
+- 最终状态 checkpoint 识别消息：`docs(status): record lexical matrix upload`。
+- 停止条件：代码 checkpoint 推送、生产备份/部署/核验并成功上传新微信体验版；随后再提交、推送、部署最终状态 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户完成 C/D 人工复测；用户未明确反馈通过前不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 

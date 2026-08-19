@@ -87,16 +87,14 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).toContain("'#matrix-date-track'");
     expect(source).toContain("'#matrix-member-track'");
     expect(source.match(/\{ flush: 'sync' \}/gu)).toHaveLength(2);
-    expect(source).toContain('const scrollX = shared(0)');
-    expect(source).toContain('const scrollY = shared(0)');
-    expect(source).toContain('this._scrollX = scrollX');
-    expect(source).toContain('this._scrollY = scrollY');
-    expect(source).toContain('translateX(${-scrollX.value}px)');
-    expect(source).toContain('translateY(${-scrollY.value}px)');
-    expect(source).not.toContain('translateX(${-this._scrollX.value}px)');
-    expect(source).not.toContain('translateY(${-this._scrollY.value}px)');
-    expect(source).toContain('this._scrollX.value = Math.max(0, event.detail.scrollLeft)');
-    expect(source).toContain('this._scrollY.value = Math.max(0, event.detail.scrollTop)');
+    expect(source).toContain('const matrixScrollX = shared(0)');
+    expect(source).toContain('const matrixScrollY = shared(0)');
+    expect(source).toContain('translateX(${-matrixScrollX.value}px)');
+    expect(source).toContain('translateY(${-matrixScrollY.value}px)');
+    expect(source).toContain('matrixScrollX.value = Math.max(0, event.detail.scrollLeft)');
+    expect(source).toContain('matrixScrollY.value = Math.max(0, event.detail.scrollTop)');
+    expect(source).not.toContain('this._scrollX');
+    expect(source).not.toContain('this._scrollY');
     expect(worklets.issues).toEqual([]);
     expect(worklets.count).toBeGreaterThanOrEqual(5);
   });
@@ -124,8 +122,6 @@ describe('P1 native manual scheduling matrix PoC', () => {
       setData,
     };
     definition.onLoad.call(instance, { mode: 'daily' });
-    instance._viewportWidth.value = 320;
-
     definition.handleGridScroll.call(instance, {
       detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
     });
@@ -133,9 +129,6 @@ describe('P1 native manual scheduling matrix PoC', () => {
     const styleBySelector = Object.fromEntries(
       animatedStyles.map(({ selector, updater }) => [selector, updater()]),
     );
-    expect(instance._scrollX.value).toBe(216);
-    expect(instance._scrollY.value).toBe(132);
-    expect(instance._scrollProgress.value).toBeGreaterThan(0);
     expect(styleBySelector['#matrix-date-track']).toEqual({ transform: 'translateX(-216px)' });
     expect(styleBySelector['#matrix-member-track']).toEqual({ transform: 'translateY(-132px)' });
     expect(

@@ -61,7 +61,7 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 
 - `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
 - 页面只有一个同时启用横纵滚动的 Skyline `scroll-view type=list`；成员行是直接子节点，日期表头、人员列和左上角为独立冻结覆盖层，禁止 Canvas。
-- `worklet:onscrollupdate` 在 UI 线程把 `scrollLeft`、`scrollTop` 写入 SharedValue；日期表头按 `-scrollLeft`、人员列按 `-scrollTop` 更新。结构测试必须证明 updater 直接捕获局部 SharedValue，且两个冻结轨道的 `applyAnimatedStyle` 均使用 `{ flush: 'sync' }`，从而在当前渲染时间片应用样式；不使用 WXS/普通 `bindscroll`，也不调用 JS `setData`。矩阵产物保留 5 个 Worklet。
+- `worklet:onscrollupdate` 在 UI 线程把 `scrollLeft`、`scrollTop` 写入 SharedValue；日期表头按 `-scrollLeft`、人员列按 `-scrollTop` 更新。结构测试必须证明滚动 Worklet 与 updater 直接捕获同一词法 SharedValue 标识符，禁止通过 `this._scrollX/_scrollY` 别名假设编译后对象身份不变；两个冻结轨道的 `applyAnimatedStyle` 均使用 `{ flush: 'sync' }`，从而在当前渲染时间片应用样式。不使用 WXS/普通 `bindscroll`，也不调用 JS `setData`。矩阵产物保留 5 个 Worklet。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
 - `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 
