@@ -97,6 +97,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).toContain('scrollViewContext.scrollTo(this._memberScrollRef.value');
     expect(source).toContain('left: scrollLeft');
     expect(source).toContain('top: scrollTop');
+    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-scroll-thumb['"]/u);
+    expect(source).toContain('_workletScrollActive');
     expect(source).not.toContain("applyAnimatedStyle('#matrix-date-track'");
     expect(source).not.toContain("applyAnimatedStyle('#matrix-member-track'");
     expect(worklets.issues).toEqual([]);
@@ -127,6 +129,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
       _dateScrollContext: dateScroll,
       _memberScrollContext: memberScroll,
       _lastScrollProgressPercent: -1,
+      _workletScrollActive: { value: false },
       setData,
     };
 
@@ -150,6 +153,43 @@ describe('P1 native manual scheduling matrix PoC', () => {
         scrollProgressPercent: expect.any(Number),
       }),
     );
+  });
+
+  it('does not let the fallback scroll path compete after a Worklet event is observed', async () => {
+    let definition;
+    vi.stubGlobal('wx', {
+      worklet: {
+        runOnJS: (callback) => callback,
+        scrollViewContext: { scrollTo: vi.fn() },
+        shared: (value) => ({ value }),
+      },
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    vi.stubGlobal('Component', vi.fn());
+    await import('../src/pages/manual-matrix-poc/index.ts');
+
+    const dateScroll = { scrollTo: vi.fn() };
+    const memberScroll = { scrollTo: vi.fn() };
+    const setData = vi.fn();
+    const instance = {
+      commitScrollProgress: definition.commitScrollProgress,
+      data: structuredClone(definition.data),
+      _dateScrollContext: dateScroll,
+      _memberScrollContext: memberScroll,
+      _lastScrollProgressPercent: -1,
+      _workletScrollActive: { value: true },
+      setData,
+    };
+
+    definition.handleGridScrollFallback.call(instance, {
+      detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
+    });
+
+    expect(dateScroll.scrollTo).not.toHaveBeenCalled();
+    expect(memberScroll.scrollTo).not.toHaveBeenCalled();
+    expect(setData).not.toHaveBeenCalled();
   });
 
   it('synchronizes both header scroll views on the UI thread without setData', async () => {
@@ -191,6 +231,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
       duration: 0,
       top: 132,
     });
+    expect(instance._workletScrollActive.value).toBe(true);
     expect(setData).not.toHaveBeenCalled();
   });
 

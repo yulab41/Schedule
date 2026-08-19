@@ -164,10 +164,12 @@
 - `.6` 真机回归结果：用户确认 7×7 和 20×30 的人员/日期表头仍固定，顶部蓝色进度条也固定；因此不能再把 UI 线程静态实现视为真机通过。该结果说明目标设备未可靠触发或执行当前 `worklet:onscrollupdate` 视觉路径，普通 mock/静态测试不足以证明原生同步。
 - 本轮修复：保留 UI 线程 `worklet.scrollViewContext.scrollTo()` 作为首选，并新增主体 `bindscroll` 兜底；`onReady` 通过 `NodesRef.node()` 获取两个普通 `ScrollViewContext`，事件直接调用 `scrollTo({left/top,duration:0,animated:false})`。顶部蓝条改为同一事件源的显式 `scrollProgressOffset` 数据绑定，按整数百分比节流，避免继续依赖失效的 `applyAnimatedStyle` updater。Web/WXML 结构、矩阵数据、点击、撤销、业务 API 和左上角冻结语义不变。
 - 本轮测试：回归先要求 `bindscroll`、两个 `node()` 引用和进度偏移绑定；实现后 Mini 全套 10 文件/40 项通过，定向矩阵 7/7，typecheck、staging verify、源码/包体审计、双构建确定性、无凭据 CI dry-run、任务文件 Prettier/ESLint、`git diff --check` 通过。staging verify 包体 106,233 bytes，manifest `a6263d24efa98e4d16c29081b1dba64e12f818267562829eded9477397506a6d`；源码/产物保留主体滚动与结束处理两个 Worklet。未触及 Web 核心链路，无需浏览器 smoke；根完整格式检查仍被用户自有 `apps/miniprogram/project.config.json` 阻断，`runtime/` 与 `src/` 未修改、未暂存。
-- 行为边界：兜底会在普通滚动线程同步表头，目标是先保证真机可见正确跟随；若目标设备仍产生可感知延迟，下一轮将依据人工录像再决定是否改为单滚动容器/原生自绘网格，不继续盲目调整 SharedValue 捕获。
-- 当前状态：本轮修复已实现待人工原生复核；P1 仍不能进入 P2。
+- 行为边界：本轮只消除 Worklet 与普通滚动回调的竞争并把蓝条实时动画移回 UI 线程；若真机仍有延迟，下一轮需依据录像评估单一滚动容器/原生自绘网格，不再继续调整 SharedValue 捕获方式。
+- 本轮追加修复：`_workletScrollActive` 在 Worklet 首次滚动后关闭普通兜底的 `scrollTo/setData`，顶部蓝条通过 `#matrix-scroll-thumb` 的 `applyAnimatedStyle({flush:'sync'})` 绑定滚动 SharedValue，避免双线程竞争和数据绑定动画滞后。定向矩阵 8/8、Mini 全套 16 文件/64 项、typecheck、staging verify、源码/包体、确定性、CI dry-run、Prettier 与 `git diff --check` 通过；staging 包体 106,663 bytes，manifest `6290b21d17343a62bc095b3b2e5871b43944c3b245ddcc33568b0fb65b94ca94`。
+- 微信上传状态：`.7` 因 IPv6 出口被微信平台拒绝；使用本机 IPv4 HTTP 代理 `127.0.0.1:7892` 后，体验版本 `0.1.0-p1.20260819.8` 已上传成功（manifest `a6263d24efa98e4d16c29081b1dba64e12f818267562829eded9477397506a6d`）。本轮新代码需在提交后重新上传；未提交审核或正式发布，未启动开发者工具。
+- 当前状态：本轮修复已实现，待提交、部署和体验版上传后人工原生复核；P1 仍不能进入 P2。
 - 下一批次：提交并上传本轮 checkpoint 后，用户人工复测 `0.1.0-p1` 最新体验版的 7×7 横向、20×30 横向/纵向/双向滚动和顶部蓝条；通过后再继续 P1 C/D，失败需提供具体设备/手势/延迟现象。
-- 本轮代码 checkpoint：待提交（`fix(miniprogram): add native scroll fallback for matrix headers`）；最终状态 checkpoint 识别消息：待本轮提交后填写。
+- 本轮代码 checkpoint：待提交（`fix(miniprogram): prevent dual scroll paths from competing`）；最终状态 checkpoint 识别消息：待本轮提交后填写。
 - 停止条件：最终状态 checkpoint 推送并同步为 ECS release，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户人工复测；用户未明确通过前不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）

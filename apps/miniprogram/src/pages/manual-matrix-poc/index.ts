@@ -64,6 +64,7 @@ interface ManualMatrixPageInstance {
   _memberScrollContext: MiniProgramScrollViewContext | null;
   _lastScrollProgressPercent: number;
   _scrollProgress: MiniProgramSharedValue<number>;
+  _workletScrollActive: MiniProgramSharedValue<boolean>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
   _viewportWidth: MiniProgramSharedValue<number>;
@@ -100,6 +101,16 @@ Page({
     this._memberScrollContext = null;
     this._lastScrollProgressPercent = -1;
     this._scrollProgress = shared(0);
+    this._workletScrollActive = shared(false);
+    const scrollProgress = this._scrollProgress;
+    this.applyAnimatedStyle(
+      '#matrix-scroll-thumb',
+      () => {
+        'worklet';
+        return { transform: `translateX(${scrollProgress.value * 36}px)` };
+      },
+      { flush: 'sync' },
+    );
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
     this._viewportWidth = shared(1);
@@ -128,6 +139,7 @@ Page({
   },
   handleGridScroll(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';
+    this._workletScrollActive.value = true;
     const scrollLeft = Math.max(0, event.detail.scrollLeft);
     const scrollTop = Math.max(0, event.detail.scrollTop);
     if (this._dateScrollRef.value !== null) {
@@ -149,6 +161,7 @@ Page({
     this._scrollProgress.value = Math.max(0, Math.min(1, scrollLeft / maximumScroll));
   },
   handleGridScrollFallback(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
+    if (this._workletScrollActive.value) return;
     const scrollLeft = Math.max(0, event.detail.scrollLeft);
     const scrollTop = Math.max(0, event.detail.scrollTop);
     this._dateScrollContext?.scrollTo({

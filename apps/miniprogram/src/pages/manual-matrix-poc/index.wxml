@@ -54,6 +54,7 @@
       aria-valuenow="{{scrollProgressPercent}}"
     >
       <view
+        id="matrix-scroll-thumb"
         class="scroll-progress-thumb"
         style="transform:translateX({{scrollProgressOffset}}px)"
       ></view>
