@@ -56,6 +56,8 @@ export interface ManualMatrixPocViewModel {
   readonly contentWidth: number;
   readonly dimensionLabel: string;
   readonly logicalCellCount: number;
+  readonly matrixBodyViewportHeight: number;
+  readonly matrixContentHeight: number;
   readonly matrixViewportHeight: number;
   readonly mode: ManualMatrixMode;
   readonly modeLabel: string;
@@ -70,6 +72,26 @@ export interface ManualMatrixPocViewModel {
 
 const MEMBER_COLUMN_WIDTH = 104;
 const DATE_COLUMN_WIDTH = 72;
+export const MANUAL_MATRIX_HEADER_HEIGHT = 82;
+export const MANUAL_MATRIX_ROW_HEIGHT = 44;
+const MANUAL_MATRIX_INITIAL_VISIBLE_ROWS = 7;
+const MANUAL_MATRIX_MINIMUM_VISIBLE_ROWS = 3;
+const MANUAL_MATRIX_BOTTOM_CLEARANCE = 16;
+
+export function calculateAdaptiveMatrixViewportHeight(options: {
+  readonly contentHeight: number;
+  readonly matrixTop: number;
+  readonly safeAreaBottom: number;
+  readonly screenHeight: number;
+  readonly windowHeight: number;
+}): number {
+  const bottomInset = Math.max(0, options.screenHeight - options.safeAreaBottom);
+  const availableHeight =
+    options.windowHeight - options.matrixTop - bottomInset - MANUAL_MATRIX_BOTTOM_CLEARANCE;
+  const minimumHeight =
+    MANUAL_MATRIX_HEADER_HEIGHT + MANUAL_MATRIX_MINIMUM_VISIBLE_ROWS * MANUAL_MATRIX_ROW_HEIGHT;
+  return Math.min(options.contentHeight, Math.max(minimumHeight, Math.floor(availableHeight)));
+}
 
 const memberNames = [
   '林医生',
@@ -147,6 +169,11 @@ export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMa
       rowIndex,
     };
   });
+  const matrixContentHeight = MANUAL_MATRIX_HEADER_HEIGHT + rows.length * MANUAL_MATRIX_ROW_HEIGHT;
+  const matrixViewportHeight = Math.min(
+    matrixContentHeight,
+    MANUAL_MATRIX_HEADER_HEIGHT + MANUAL_MATRIX_INITIAL_VISIBLE_ROWS * MANUAL_MATRIX_ROW_HEIGHT,
+  );
 
   return {
     activeShiftTypeId: 'shift-a',
@@ -155,7 +182,9 @@ export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMa
     contentWidth: MEMBER_COLUMN_WIDTH + dayCount * DATE_COLUMN_WIDTH,
     dimensionLabel: `${memberCount} 人 × ${dayCount} 天 = ${memberCount * dayCount} 个逻辑格`,
     logicalCellCount: memberCount * dayCount,
-    matrixViewportHeight: 82 + rows.length * 44,
+    matrixBodyViewportHeight: matrixViewportHeight - MANUAL_MATRIX_HEADER_HEIGHT,
+    matrixContentHeight,
+    matrixViewportHeight,
     mode,
     modeLabel: mode === 'daily' ? '常用' : '上限',
     rows,

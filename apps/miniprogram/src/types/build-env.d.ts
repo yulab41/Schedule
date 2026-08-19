@@ -14,11 +14,29 @@ interface MiniProgramWorkletAnimationConfig {
   readonly easing: unknown;
 }
 
+interface MiniProgramWindowInfo {
+  readonly screenHeight: number;
+  readonly safeArea?: {
+    readonly bottom: number;
+  };
+  readonly windowHeight: number;
+}
+
 declare const wx: {
+  getWindowInfo(): MiniProgramWindowInfo;
   readonly worklet: {
     readonly Easing: {
       bezier(x1: number, y1: number, x2: number, y2: number): unknown;
     };
+    cancelAnimation<T>(sharedValue: MiniProgramSharedValue<T>): void;
+    decay(
+      options: {
+        readonly clamp?: readonly [number, number];
+        readonly deceleration?: number;
+        readonly velocity?: number;
+      },
+      callback?: (finished: boolean) => void,
+    ): number;
     runOnJS<TArguments extends readonly unknown[]>(
       callback: (...arguments_: TArguments) => void,
     ): (...arguments_: TArguments) => void;

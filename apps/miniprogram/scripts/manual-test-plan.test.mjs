@@ -32,7 +32,16 @@ describe('P1 user-operated native test plan', () => {
         'locate-today',
       ],
       ['initial', 'horizontal-header-sync', 'cell-selected', 'undo'],
-      ['initial', 'dual-axis-header-sync', 'stale-cell', 'cell-selected', 'undo'],
+      [
+        'initial',
+        'adaptive-remaining-height',
+        'horizontal-date-body-sync',
+        'vertical-member-body-sync',
+        'diagonal-axis-lock',
+        'stale-cell',
+        'cell-selected',
+        'undo',
+      ],
     ]);
     expect(plan.completion).toMatchObject({ screenshotsRequiredOnPass: false });
     expect(source).not.toMatch(/MINITEST_|minium|cloud|token|privateKey/i);

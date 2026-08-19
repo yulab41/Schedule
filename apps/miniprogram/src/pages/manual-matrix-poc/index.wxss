@@ -221,6 +221,18 @@ page {
   box-sizing: border-box;
 }
 
+.matrix-body-viewport {
+  position: relative;
+  overflow: hidden;
+  background: var(--ui-color-surface);
+}
+
+.matrix-body-track,
+.matrix-member-track {
+  position: relative;
+  transform: translateY(0);
+}
+
 .member-header-spacer {
   width: 104px;
   height: 54px;

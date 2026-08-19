@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用一个横纵滚动主体、一个仅横向日期表头滚动容器、一个仅纵向人员表头滚动容器，以及固定左上角。每个可见成员行最多 30 格；首选路径是 `worklet:onscrollupdate` 在 UI 线程读取主体坐标，并以基础库 3.3.0 起提供的 `worklet.scrollViewContext.scrollTo()` 直接把 `left`/`top` 写入两个表头容器。三个 `NodesRef.ref()` 引用按官方模式保存在页面实例 SharedValue；同时保留 `bindscroll` + `NodesRef.node()` 的普通 `ScrollViewContext` 兜底，以处理真机不触发 Worklet 回调时的固定表头/固定蓝条问题。正常 UI 线程路径不依赖 `applyAnimatedStyle` 对象身份或逻辑线程 WXS；兜底仅按整数百分比更新顶部进度，且同步调用使用 `duration: 0`、`animated: false`。点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)、[微信官方 Skyline Scroll API 示例](https://github.com/wechat-miniprogram/skyline-skills/blob/master/skills/skyline-scroll-api/references/api/worklet-scroll-context.md)。
+手排采用长期存在的四层坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。横向由一个原生 `scroll-view type=list scroll-x` 同时承载日期与班次，保留 compositor 同源滚动；纵向由一个 UI 线程 SharedValue 同时变换人员轨道和班次轨道，不建立第二套日期/人员滚动容器，也不逐帧调用 `ScrollViewContext.scrollTo()`。矩阵视口按手机剩余可视高度动态计算，最少显示 3 行，7×7 完整显示，20×30 在固定日期/人员层内纵向浏览。`pan-gesture-handler` 与原生横向代理使用 10px/1.25 比例做一次手势方向锁，横向走原生惯性，纵向用有边界的 Worklet `decay`。点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
 
 ## 6. 网络、会话和缓存
 

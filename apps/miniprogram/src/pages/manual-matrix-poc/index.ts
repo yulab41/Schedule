@@ -1,6 +1,8 @@
 import {
+  calculateAdaptiveMatrixViewportHeight,
   createManualMatrixPocViewModel,
   getManualMatrixCellAssignment,
+  MANUAL_MATRIX_HEADER_HEIGHT,
   manualMatrixPocShiftTypes,
   updateManualMatrixCell,
   type ManualMatrixCell,
@@ -21,6 +23,13 @@ interface ManualMatrixCellSelectEvent {
   readonly detail: ManualMatrixLocation & { readonly key: string };
 }
 
+interface ManualMatrixGestureEvent {
+  readonly deltaX: number;
+  readonly deltaY: number;
+  readonly state: number;
+  readonly velocityY?: number;
+}
+
 interface ManualMatrixShiftSelectEvent {
   readonly currentTarget: {
     readonly dataset: { readonly shiftTypeId?: string };
@@ -34,15 +43,21 @@ interface ManualMatrixUndoEntry {
 }
 
 interface SelectorRect {
+  readonly top: number;
   readonly width: number;
 }
 
 interface ManualMatrixPageInstance {
   _commitScrollProgress: (progress: number) => void;
+  _gestureAxis: MiniProgramSharedValue<number>;
+  _gestureDistanceX: MiniProgramSharedValue<number>;
+  _gestureDistanceY: MiniProgramSharedValue<number>;
   _lastScrollProgressPercent: number;
+  _maxVerticalOffset: MiniProgramSharedValue<number>;
   _scrollProgress: MiniProgramSharedValue<number>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
+  _verticalOffset: MiniProgramSharedValue<number>;
   _viewportWidth: MiniProgramSharedValue<number>;
   _viewportWidthValue: number;
   readonly data: ManualMatrixPocViewModel;
@@ -59,10 +74,16 @@ interface ManualMatrixPageInstance {
     exec(): void;
   };
   setData(patch: Record<string, unknown>): void;
+  updateMatrixViewport(): void;
 }
 
-const { runOnJS, shared } = wx.worklet;
+const { cancelAnimation, decay, runOnJS, shared } = wx.worklet;
 const defaultViewModel = createManualMatrixPocViewModel('daily');
+const GESTURE_AXIS_UNDECIDED = 0;
+const GESTURE_AXIS_HORIZONTAL = 1;
+const GESTURE_AXIS_VERTICAL = 2;
+const GESTURE_DIRECTION_THRESHOLD = 10;
+const GESTURE_DIRECTION_RATIO = 1.25;
 
 Page({
   data: defaultViewModel,
@@ -70,7 +91,13 @@ Page({
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
+    this._gestureAxis = shared(GESTURE_AXIS_UNDECIDED);
+    this._gestureDistanceX = shared(0);
+    this._gestureDistanceY = shared(0);
     this._lastScrollProgressPercent = -1;
+    this._maxVerticalOffset = shared(
+      Math.max(0, viewModel.matrixContentHeight - viewModel.matrixViewportHeight),
+    );
     this._scrollProgress = shared(0);
     const scrollProgress = this._scrollProgress;
     this.applyAnimatedStyle(
@@ -81,6 +108,24 @@ Page({
       },
       { flush: 'sync' },
     );
+    this._verticalOffset = shared(0);
+    const verticalOffset = this._verticalOffset;
+    this.applyAnimatedStyle(
+      '#matrix-body-track',
+      () => {
+        'worklet';
+        return { transform: `translateY(${verticalOffset.value}px)` };
+      },
+      { flush: 'sync' },
+    );
+    this.applyAnimatedStyle(
+      '#matrix-member-track',
+      () => {
+        'worklet';
+        return { transform: `translateY(${verticalOffset.value}px)` };
+      },
+      { flush: 'sync' },
+    );
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
     this._viewportWidth = shared(1);
@@ -88,12 +133,116 @@ Page({
     if (mode !== defaultViewModel.mode) this.setData({ ...viewModel });
   },
   onReady(this: ManualMatrixPageInstance): void {
+    this.updateMatrixViewport();
+  },
+  onResize(this: ManualMatrixPageInstance): void {
+    this.updateMatrixViewport();
+  },
+  updateMatrixViewport(this: ManualMatrixPageInstance): void {
+    const windowInfo = wx.getWindowInfo();
     const query = this.createSelectorQuery();
     query.select('.matrix-scroll').boundingClientRect((rect) => {
       this._viewportWidth.value = Math.max(1, rect.width);
       this._viewportWidthValue = Math.max(1, rect.width);
     });
+    query.select('.matrix-shell').boundingClientRect((rect) => {
+      const matrixViewportHeight = calculateAdaptiveMatrixViewportHeight({
+        contentHeight: this.data.matrixContentHeight,
+        matrixTop: rect.top,
+        safeAreaBottom: windowInfo.safeArea?.bottom ?? windowInfo.screenHeight,
+        screenHeight: windowInfo.screenHeight,
+        windowHeight: windowInfo.windowHeight,
+      });
+      const matrixBodyViewportHeight = Math.max(
+        0,
+        matrixViewportHeight - MANUAL_MATRIX_HEADER_HEIGHT,
+      );
+      const maximumVerticalOffset = Math.max(
+        0,
+        this.data.matrixContentHeight - matrixViewportHeight,
+      );
+      this._maxVerticalOffset.value = maximumVerticalOffset;
+      this._verticalOffset.value = Math.max(
+        -maximumVerticalOffset,
+        Math.min(0, this._verticalOffset.value),
+      );
+      if (
+        matrixViewportHeight !== this.data.matrixViewportHeight ||
+        matrixBodyViewportHeight !== this.data.matrixBodyViewportHeight
+      ) {
+        this.setData({ matrixBodyViewportHeight, matrixViewportHeight });
+      }
+    });
     query.exec();
+  },
+  shouldHorizontalScrollRespond(
+    this: ManualMatrixPageInstance,
+    event: ManualMatrixGestureEvent,
+  ): boolean {
+    'worklet';
+    if (this._gestureAxis.value === GESTURE_AXIS_VERTICAL) return false;
+    if (this._gestureAxis.value === GESTURE_AXIS_HORIZONTAL) return true;
+    const horizontalDistance = Math.abs(event.deltaX);
+    const verticalDistance = Math.abs(event.deltaY);
+    if (horizontalDistance < 1 && verticalDistance < 1) return false;
+    return horizontalDistance >= verticalDistance * GESTURE_DIRECTION_RATIO;
+  },
+  handleMatrixPan(this: ManualMatrixPageInstance, event: ManualMatrixGestureEvent): void {
+    'worklet';
+    if (event.state === 1) {
+      cancelAnimation(this._verticalOffset);
+      this._gestureAxis.value = GESTURE_AXIS_UNDECIDED;
+      this._gestureDistanceX.value = 0;
+      this._gestureDistanceY.value = 0;
+      return;
+    }
+
+    if (event.state === 2) {
+      this._gestureDistanceX.value += Math.abs(event.deltaX);
+      this._gestureDistanceY.value += Math.abs(event.deltaY);
+      if (this._gestureAxis.value === GESTURE_AXIS_UNDECIDED) {
+        const horizontalDistance = this._gestureDistanceX.value;
+        const verticalDistance = this._gestureDistanceY.value;
+        if (
+          horizontalDistance < GESTURE_DIRECTION_THRESHOLD &&
+          verticalDistance < GESTURE_DIRECTION_THRESHOLD
+        ) {
+          return;
+        }
+        if (horizontalDistance >= verticalDistance * GESTURE_DIRECTION_RATIO) {
+          this._gestureAxis.value = GESTURE_AXIS_HORIZONTAL;
+        } else if (verticalDistance >= horizontalDistance * GESTURE_DIRECTION_RATIO) {
+          this._gestureAxis.value = GESTURE_AXIS_VERTICAL;
+        } else {
+          return;
+        }
+      }
+      if (this._gestureAxis.value === GESTURE_AXIS_VERTICAL) {
+        const nextOffset = this._verticalOffset.value + event.deltaY;
+        this._verticalOffset.value = Math.max(
+          -this._maxVerticalOffset.value,
+          Math.min(0, nextOffset),
+        );
+      }
+      return;
+    }
+
+    if (event.state === 3 || event.state === 4) {
+      if (
+        event.state === 3 &&
+        this._gestureAxis.value === GESTURE_AXIS_VERTICAL &&
+        this._maxVerticalOffset.value > 0
+      ) {
+        this._verticalOffset.value = decay({
+          clamp: [-this._maxVerticalOffset.value, 0],
+          deceleration: 0.997,
+          velocity: event.velocityY ?? 0,
+        });
+      }
+      this._gestureAxis.value = GESTURE_AXIS_UNDECIDED;
+      this._gestureDistanceX.value = 0;
+      this._gestureDistanceY.value = 0;
+    }
   },
   handleGridScroll(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';

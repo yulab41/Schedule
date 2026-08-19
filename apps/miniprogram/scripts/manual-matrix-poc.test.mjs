@@ -29,7 +29,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
   });
 
   it('builds the approved 7 by 7 and 20 by 30 deterministic fixtures', async () => {
-    const { createManualMatrixPocViewModel } =
+    const { calculateAdaptiveMatrixViewportHeight, createManualMatrixPocViewModel } =
       await import('../src/testing/fixtures/manual-matrix-poc.ts');
     const daily = createManualMatrixPocViewModel('daily');
     const maximum = createManualMatrixPocViewModel('maximum');
@@ -38,11 +38,13 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(daily.columns).toHaveLength(7);
     expect(daily.logicalCellCount).toBe(49);
     expect(daily.matrixViewportHeight).toBe(390);
+    expect(daily.matrixContentHeight).toBe(390);
     expect(daily.rows.flatMap((row) => row.cells)).toHaveLength(49);
     expect(maximum.rows).toHaveLength(20);
     expect(maximum.columns).toHaveLength(30);
     expect(maximum.logicalCellCount).toBe(600);
-    expect(maximum.matrixViewportHeight).toBe(962);
+    expect(maximum.matrixContentHeight).toBe(962);
+    expect(maximum.matrixViewportHeight).toBe(390);
     expect(maximum.rows.flatMap((row) => row.cells)).toHaveLength(600);
     expect(maximum.rows.at(-1)).toMatchObject({ isStale: true, realName: '宋护士' });
     expect(maximum.rows.at(-1)?.cells[7]).toMatchObject({ isStale: true });
@@ -50,6 +52,33 @@ describe('P1 native manual scheduling matrix PoC', () => {
       '国庆节',
       '国庆节',
     ]);
+    expect(
+      calculateAdaptiveMatrixViewportHeight({
+        contentHeight: maximum.matrixContentHeight,
+        matrixTop: 286,
+        safeAreaBottom: 820,
+        screenHeight: 844,
+        windowHeight: 844,
+      }),
+    ).toBe(518);
+    expect(
+      calculateAdaptiveMatrixViewportHeight({
+        contentHeight: daily.matrixContentHeight,
+        matrixTop: 286,
+        safeAreaBottom: 820,
+        screenHeight: 844,
+        windowHeight: 844,
+      }),
+    ).toBe(390);
+    expect(
+      calculateAdaptiveMatrixViewportHeight({
+        contentHeight: maximum.matrixContentHeight,
+        matrixTop: 360,
+        safeAreaBottom: 380,
+        screenHeight: 400,
+        windowHeight: 400,
+      }),
+    ).toBe(214);
   });
 
   it('registers a dedicated route and the hand-drawn schedule cell', () => {
@@ -67,13 +96,17 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses one horizontal grid scroll context and page-level vertical growth', () => {
+  it('uses one native horizontal context with UI-thread vertical layer coupling', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
     const worklets = findWorkletIssues(source, 'pages/manual-matrix-poc/index.ts');
 
     expect(template.match(/<scroll-view/gu)).toHaveLength(1);
+    expect(template).toMatch(/<pan-gesture-handler[\s\S]*?worklet:ongesture="handleMatrixPan"/u);
+    expect(template).toMatch(
+      /<horizontal-drag-gesture-handler[\s\S]*?native-view="scroll-view"[\s\S]*?worklet:should-response-on-move="shouldHorizontalScrollRespond"/u,
+    );
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
@@ -82,6 +115,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).not.toContain('<wxs');
     expect(template).toContain('wx:for="{{rows}}"');
     expect(template).toContain('class="matrix-date-content"');
+    expect(template).toContain('height:{{matrixBodyViewportHeight}}px');
+    expect(template).toContain('id="matrix-body-track"');
     expect(template).toContain('class="matrix-member-overlay"');
     expect(template).toContain('<manual-schedule-cell');
     expect(template).not.toMatch(/<canvas/iu);
@@ -92,8 +127,78 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).not.toContain('_dateScrollRef');
     expect(source).not.toContain('_memberScrollRef');
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-scroll-thumb['"]/u);
+    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-body-track['"]/u);
+    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-member-track['"]/u);
+    expect(source).toContain('calculateAdaptiveMatrixViewportHeight');
+    expect(source).toContain('this._gestureAxis.value');
+    expect(source).toContain('this._maxVerticalOffset.value');
+    expect(source).toContain('cancelAnimation(this._verticalOffset)');
+    expect(source).toContain('decay({');
     expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBeGreaterThanOrEqual(1);
+    expect(worklets.count).toBeGreaterThanOrEqual(5);
+  });
+
+  it('locks each drag to one axis and moves both vertical tracks from one shared offset', async () => {
+    let definition;
+    const cancelAnimation = vi.fn();
+    const decay = vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity)));
+    vi.stubGlobal('wx', {
+      worklet: {
+        cancelAnimation,
+        decay,
+        runOnJS: (callback) => callback,
+        shared: (value) => ({ value }),
+      },
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    vi.stubGlobal('Component', vi.fn());
+    await import('../src/pages/manual-matrix-poc/index.ts');
+    const instance = {
+      applyAnimatedStyle: vi.fn(),
+      commitScrollProgress: definition.commitScrollProgress,
+      data: structuredClone(definition.data),
+      setData: vi.fn(),
+    };
+    definition.onLoad.call(instance, { mode: 'maximum' });
+    instance._maxVerticalOffset.value = 300;
+
+    definition.handleMatrixPan.call(instance, { state: 1, deltaX: 0, deltaY: 0 });
+    definition.handleMatrixPan.call(instance, { state: 2, deltaX: 2, deltaY: -12 });
+
+    expect(instance._gestureAxis.value).toBe(2);
+    expect(instance._verticalOffset.value).toBe(-12);
+    expect(
+      definition.shouldHorizontalScrollRespond.call(instance, { deltaX: 2, deltaY: -12 }),
+    ).toBe(false);
+
+    definition.handleMatrixPan.call(instance, { state: 3, deltaX: 0, deltaY: 0, velocityY: -180 });
+    expect(decay).toHaveBeenCalledWith(
+      expect.objectContaining({ clamp: [-300, 0], velocity: -180 }),
+    );
+
+    definition.handleMatrixPan.call(instance, { state: 1, deltaX: 0, deltaY: 0 });
+    const verticalBeforeHorizontalDrag = instance._verticalOffset.value;
+    definition.handleMatrixPan.call(instance, { state: 2, deltaX: 14, deltaY: 2 });
+    definition.handleMatrixPan.call(instance, { state: 2, deltaX: 0, deltaY: -40 });
+
+    expect(instance._gestureAxis.value).toBe(1);
+    expect(instance._verticalOffset.value).toBe(verticalBeforeHorizontalDrag);
+    expect(definition.shouldHorizontalScrollRespond.call(instance, { deltaX: 14, deltaY: 2 })).toBe(
+      true,
+    );
+    expect(cancelAnimation).toHaveBeenCalledTimes(2);
+    expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(
+      '#matrix-body-track',
+      expect.any(Function),
+      { flush: 'sync' },
+    );
+    expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(
+      '#matrix-member-track',
+      expect.any(Function),
+      { flush: 'sync' },
+    );
   });
 
   it('keeps a logical-thread fallback for progress when UI callbacks are unavailable', async () => {

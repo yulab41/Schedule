@@ -50,7 +50,16 @@
       "id": "manual-matrix-maximum",
       "route": "pages/manual-matrix-poc/index?mode=maximum",
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--maximum-390",
-      "states": ["initial", "dual-axis-header-sync", "stale-cell", "cell-selected", "undo"]
+      "states": [
+        "initial",
+        "adaptive-remaining-height",
+        "horizontal-date-body-sync",
+        "vertical-member-body-sync",
+        "diagonal-axis-lock",
+        "stale-cell",
+        "cell-selected",
+        "undo"
+      ]
     }
   ]
 }
