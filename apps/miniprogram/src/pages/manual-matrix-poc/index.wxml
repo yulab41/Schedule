@@ -62,8 +62,16 @@
   </view>
 
   <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
-    <vertical-drag-gesture-handler worklet:ongesture="handleMatrixVerticalDrag">
-      <horizontal-drag-gesture-handler native-view="scroll-view">
+    <vertical-drag-gesture-handler
+      tag="matrix-vertical"
+      simultaneous-handlers="{{['matrix-horizontal']}}"
+      worklet:ongesture="handleMatrixVerticalDrag"
+    >
+      <horizontal-drag-gesture-handler
+        tag="matrix-horizontal"
+        simultaneous-handlers="{{['matrix-vertical']}}"
+        native-view="scroll-view"
+      >
         <scroll-view
           class="matrix-scroll"
           type="list"

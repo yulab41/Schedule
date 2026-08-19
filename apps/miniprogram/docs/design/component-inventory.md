@@ -28,7 +28,7 @@
 - 颜色、字号、间距、圆角、阴影和触控尺寸由 `@schedule/ui-tokens/tokens.ts` 同时生成 `tokens.css` 与 `tokens.wxss`；小程序构建只复制生成物，不维护第二套令牌值。
 - 已实现 `CalendarCell` 与 `CalendarMonth`：按当前 Web `buildMonthDisplayGrid` 公式为各面板生成实际 5 周或 6 周，跨月/今天/选中/周末/节假日/人员/加换状态独立；最后一行左右角显式携带圆角状态，18px 外框不再暴露反圆角，下方详情保持 12px 间距。
 - 月历使用 Skyline 原生三面板 `swiper`，Android 触控、PC 鼠标拖动和程序按钮共用同一翻页路径；关键箭头/定位图标使用真实 WXML 子节点，不依赖不同运行时表现不一致的伪元素。
-- 已实现 `ManualScheduleCell` 与矩阵 PoC：`pages/manual-matrix-poc/index?mode=daily|maximum` 分别生成 7×7 和 20×30 确定性数据；日期与班次共用一个原生横向滚动面，人员与班次共用一个纵向 SharedValue，左上角固定。20×30 视口按手机剩余可视空间动态计算；纵向与横向使用不 simultaneous 的 Skyline 方向专用识别器，一次手势只选择一个轴，滚动期间不调用 `setData`。
+- 已实现 `ManualScheduleCell` 与矩阵 PoC：`pages/manual-matrix-poc/index?mode=daily|maximum` 分别生成 7×7 和 20×30 确定性数据；日期与班次共用一个原生横向滚动面，人员与班次共用一个纵向 SharedValue，左上角固定。20×30 视口按手机剩余可视空间动态计算；纵向与横向使用双向协商的 Skyline 方向专用识别器，使 Android 内外层手势都可达，滚动期间不调用 `setData`。
 - 班种选择只更新前一选中格和目标格的数据路径；撤销栈只保存 `{key,before,after}` 增量。矩阵主体保持最多 20 行、600 个浅层逻辑格并由动态视口裁切；不依赖只支持纵向回收的 `list-builder`。
 - 已通过属性/事件单测、`miniprogram-simulate` 组件树与事件烟测、源码边界、包体和确定性构建。Storybook/simulate 仍不等价于微信运行时，基础控件、月历和矩阵的原生视觉状态均保持“已实现待用户实体 Android 人工复核”。
 - `UiSheet`、`UiDialog`、`UiConfirm`、导航与业务组件尚未实现；必须等待其对应黄金状态确认，不从本批次外推样式。

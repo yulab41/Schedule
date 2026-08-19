@@ -96,7 +96,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses exclusive native directional recognizers with UI-thread vertical layer coupling', () => {
+  it('lets both native directional recognizers negotiate so Android can reach the vertical handler', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
@@ -104,10 +104,11 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     expect(template.match(/<scroll-view/gu)).toHaveLength(1);
     expect(template).toMatch(
-      /<vertical-drag-gesture-handler[\s\S]*?worklet:ongesture="handleMatrixVerticalDrag"/u,
+      /<vertical-drag-gesture-handler[\s\S]*?tag="matrix-vertical"[\s\S]*?simultaneous-handlers="\{\{\['matrix-horizontal'\]\}\}"[\s\S]*?worklet:ongesture="handleMatrixVerticalDrag"/u,
     );
-    expect(template).toMatch(/<horizontal-drag-gesture-handler[\s\S]*?native-view="scroll-view"/u);
-    expect(template).not.toContain('simultaneous-handlers');
+    expect(template).toMatch(
+      /<horizontal-drag-gesture-handler[\s\S]*?tag="matrix-horizontal"[\s\S]*?simultaneous-handlers="\{\{\['matrix-vertical'\]\}\}"[\s\S]*?native-view="scroll-view"/u,
+    );
     expect(template).not.toContain('worklet:should-response-on-move');
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,

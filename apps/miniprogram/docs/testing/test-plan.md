@@ -61,7 +61,7 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 
 - `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
 - 页面只有一个 Skyline `scroll-view type=list scroll-x`，日期和班次位于同一横向内容树；人员列是壳层左侧覆盖层，左上角固定，班次主体由裁切视口承载，禁止双轴 `scroll-view`、独立表头滚动容器和 Canvas。
-- 日期与班次只有一个原生横向 `scroll-view`，人员与班次共用一个纵向 SharedValue；不得恢复三个滚动容器或逐帧 `ScrollViewContext.scrollTo()`。WXML 必须使用不带 `simultaneous-handlers` 的外层 `vertical-drag-gesture-handler` 与内层 `horizontal-drag-gesture-handler native-view="scroll-view"`，由 Skyline 原生方向识别互斥选轴。纵向 ACTIVE 只写一次共享偏移并同时作用于人员/班次轨道，END 使用有边界的 `decay`；横向 `worklet:onscrollupdate` 只更新进度 SharedValue，普通 `bindscroll` 仅作进度提示兜底。点击只更新目标格或目标行；撤销保存 `{key,before,after}`。
+- 日期与班次只有一个原生横向 `scroll-view`，人员与班次共用一个纵向 SharedValue；不得恢复三个滚动容器或逐帧 `ScrollViewContext.scrollTo()`。WXML 必须使用外层 `vertical-drag-gesture-handler` 与内层 `horizontal-drag-gesture-handler native-view="scroll-view"`，双方以唯一 `tag` 和双向 `simultaneous-handlers` 共同参与嵌套手势协商，防止默认内层优先让纵向回调不可达；不得恢复手写 Pan 选轴或 `should-response-on-move`。纵向 ACTIVE 只写一次共享偏移并同时作用于人员/班次轨道，END 使用有边界的 `decay`；横向 `worklet:onscrollupdate` 只更新进度 SharedValue，普通 `bindscroll` 仅作进度提示兜底。点击只更新目标格或目标行；撤销保存 `{key,before,after}`。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
 - `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 
