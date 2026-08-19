@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { DirectoryKind, GroupSummary } from '@schedule/contracts';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import InternalDirectoryView, { type DirectoryDataSource } from './InternalDirectoryView.vue';
-
-type DirectoryMode = 'internal' | 'employee';
+import {
+  getDirectorySwipeTarget,
+  type DirectoryMode,
+  type DirectorySwipeCoordinates,
+} from './directory-mode-gesture.js';
 
 const props = withDefaults(
   defineProps<{
@@ -38,6 +41,10 @@ const employeeDirectoryDataSource: DirectoryDataSource = {
 const activeDirectory = ref<DirectoryMode>(props.initialDirectory);
 const employeeTab = ref<HTMLButtonElement>();
 const internalTab = ref<HTMLButtonElement>();
+const modeTransitionDirection = ref<'forward' | 'backward' | undefined>();
+let modeTransitionTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+let activeModePointer:
+  { readonly pointerId: number; readonly startX: number; readonly startY: number } | undefined;
 
 const activeConfiguration = computed<{
   dataSource: DirectoryDataSource;
@@ -65,7 +72,21 @@ watch(
 );
 
 function selectDirectory(directory: DirectoryMode): void {
+  if (directory === activeDirectory.value) {
+    return;
+  }
+
+  modeTransitionDirection.value =
+    activeDirectory.value === 'internal' && directory === 'employee' ? 'forward' : 'backward';
   activeDirectory.value = directory;
+
+  if (modeTransitionTimer !== undefined) {
+    globalThis.clearTimeout(modeTransitionTimer);
+  }
+  modeTransitionTimer = globalThis.setTimeout(() => {
+    modeTransitionDirection.value = undefined;
+    modeTransitionTimer = undefined;
+  }, 240);
 }
 
 async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
@@ -73,19 +94,86 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
   await nextTick();
   (directory === 'internal' ? internalTab.value : employeeTab.value)?.focus();
 }
+
+function handleModePointerDown(event: PointerEvent): void {
+  if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) {
+    return;
+  }
+
+  const eventTarget = event.target;
+  if (
+    eventTarget instanceof Element &&
+    eventTarget.closest('a, button, input, select, textarea, [contenteditable="true"]')
+  ) {
+    return;
+  }
+
+  activeModePointer = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+  };
+
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement && target.setPointerCapture) {
+    target.setPointerCapture(event.pointerId);
+  }
+}
+
+function releaseModePointer(event: PointerEvent): void {
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement && target.hasPointerCapture?.(event.pointerId)) {
+    target.releasePointerCapture(event.pointerId);
+  }
+}
+
+function handleModePointerUp(event: PointerEvent): void {
+  if (activeModePointer === undefined || activeModePointer.pointerId !== event.pointerId) {
+    return;
+  }
+
+  const start = activeModePointer;
+  activeModePointer = undefined;
+  releaseModePointer(event);
+
+  const target = getDirectorySwipeTarget(activeDirectory.value, {
+    startX: start.startX,
+    startY: start.startY,
+    endX: event.clientX,
+    endY: event.clientY,
+  } satisfies DirectorySwipeCoordinates);
+  if (target !== undefined) {
+    selectDirectory(target);
+  }
+}
+
+function handleModePointerCancel(event: PointerEvent): void {
+  if (activeModePointer?.pointerId !== event.pointerId) {
+    return;
+  }
+
+  activeModePointer = undefined;
+  releaseModePointer(event);
+}
+
+onBeforeUnmount(() => {
+  if (modeTransitionTimer !== undefined) {
+    globalThis.clearTimeout(modeTransitionTimer);
+  }
+});
 </script>
 
 <template>
   <main class="unified-directory">
     <div class="directory-page-shell">
       <header class="directory-page-heading">
-        <div>
-          <p class="directory-eyebrow">院内协作</p>
-          <h1>通讯录</h1>
-          <p>查科室分机，或按姓名找到人员。</p>
-        </div>
-
-        <div class="directory-mode-rail" role="tablist" aria-label="通讯录范围">
+        <div
+          class="directory-mode-rail"
+          :class="{ 'is-employee': activeDirectory === 'employee' }"
+          role="tablist"
+          aria-label="通讯录范围"
+        >
+          <span class="directory-mode-indicator" aria-hidden="true" />
           <button
             id="directory-tab-internal"
             ref="internalTab"
@@ -139,8 +227,15 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
       <section
         id="directory-mode-panel"
         class="directory-mode-panel"
+        :class="{
+          'mode-transition-forward': modeTransitionDirection === 'forward',
+          'mode-transition-backward': modeTransitionDirection === 'backward',
+        }"
         role="tabpanel"
         :aria-labelledby="`directory-tab-${activeDirectory}`"
+        @pointerdown="handleModePointerDown"
+        @pointerup="handleModePointerUp"
+        @pointercancel="handleModePointerCancel"
       >
         <KeepAlive>
           <InternalDirectoryView
@@ -184,44 +279,20 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
   width: min(100%, 1060px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 28px 20px 48px;
+  padding: 12px 20px 40px;
 }
 
 .directory-page-heading {
-  display: grid;
-  margin-bottom: 20px;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-  align-items: end;
-  gap: 28px;
-}
-
-.directory-eyebrow {
-  margin: 0 0 5px;
-  color: var(--directory-accent);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.directory-page-heading h1 {
-  margin: 0;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', 'Segoe UI', sans-serif;
-  font-size: clamp(32px, 4vw, 42px);
-  font-weight: 720;
-  letter-spacing: -0.035em;
-  line-height: 1.06;
-}
-
-.directory-page-heading > div:first-child > p:last-child {
-  margin: 8px 0 0;
-  color: var(--directory-muted);
-  font-size: 14px;
+  display: flex;
+  margin-bottom: 12px;
+  align-items: center;
+  justify-content: center;
 }
 
 .directory-mode-rail {
   position: relative;
   display: grid;
+  width: min(100%, 360px);
   min-width: 0;
   padding: 4px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -235,7 +306,29 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
   backdrop-filter: blur(18px) saturate(1.18);
 }
 
+.directory-mode-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 5.5px);
+  background: var(--directory-surface);
+  border-radius: 11px;
+  box-shadow:
+    0 1px 2px rgb(22 32 42 / 12%),
+    0 5px 16px rgb(39 58 82 / 8%);
+  pointer-events: none;
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.directory-mode-rail.is-employee .directory-mode-indicator {
+  transform: translateX(calc(100% + 3px));
+}
+
 .directory-mode-tab {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   min-width: 0;
   min-height: 44px;
@@ -260,10 +353,8 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
 
 .directory-mode-tab.is-active {
   color: var(--directory-accent);
-  background: var(--directory-surface);
-  box-shadow:
-    0 1px 2px rgb(22 32 42 / 12%),
-    0 5px 16px rgb(39 58 82 / 8%);
+  background: transparent;
+  box-shadow: none;
 }
 
 .directory-mode-tab:focus-visible {
@@ -328,21 +419,47 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
 
 .directory-mode-panel {
   min-width: 0;
+  touch-action: pan-y;
+  overscroll-behavior-x: contain;
+}
+
+.directory-mode-panel.mode-transition-forward :deep(.internal-directory) {
+  animation: directory-mode-enter-forward 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.directory-mode-panel.mode-transition-backward :deep(.internal-directory) {
+  animation: directory-mode-enter-backward 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes directory-mode-enter-forward {
+  from {
+    opacity: 0.55;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes directory-mode-enter-backward {
+  from {
+    opacity: 0.55;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (max-width: 700px) {
   .directory-page-shell {
-    padding: 22px 14px 38px;
+    padding: 10px 14px 32px;
   }
 
   .directory-page-heading {
-    margin-bottom: 16px;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-  }
-
-  .directory-page-heading h1 {
-    font-size: 34px;
+    margin-bottom: 12px;
   }
 
   .directory-mode-rail {
@@ -361,8 +478,14 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .directory-mode-indicator,
   .directory-mode-tab {
     transition: none;
+  }
+
+  .directory-mode-panel.mode-transition-forward :deep(.internal-directory),
+  .directory-mode-panel.mode-transition-backward :deep(.internal-directory) {
+    animation: none;
   }
 }
 </style>

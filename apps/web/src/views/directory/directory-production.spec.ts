@@ -38,6 +38,29 @@ describe('production hospital directory integration', () => {
     expect(unified).toContain('InternalDirectoryView');
   });
 
+  it('supports horizontal swipe switching with a moving segmented control', () => {
+    const unified = source('./UnifiedDirectoryView.vue');
+
+    expect(unified).toContain('directory-mode-indicator');
+    expect(unified).toContain('@pointerdown="handleModePointerDown"');
+    expect(unified).toContain('@pointerup="handleModePointerUp"');
+    expect(unified).toContain('@pointercancel="handleModePointerCancel"');
+    expect(unified).toContain('touch-action: pan-y');
+    expect(unified).toContain('mode-transition-forward');
+    expect(unified).toContain('mode-transition-backward');
+    expect(unified).toContain('getDirectorySwipeTarget');
+  });
+
+  it('removes the confirmed decorative directory copy and blue guide strip', () => {
+    const unified = source('./UnifiedDirectoryView.vue');
+    const internal = source('./InternalDirectoryView.vue');
+
+    expect(unified).not.toContain('院内协作');
+    expect(unified).not.toContain('查科室分机，或按姓名找到人员。');
+    expect(internal).not.toContain('可从任意一级开始，选定上级后只显示匹配下级');
+    expect(internal).not.toContain('directory-wayfinding::before');
+  });
+
   it('uses the authenticated API as the production data source', () => {
     const view = source('./InternalDirectoryView.vue');
 

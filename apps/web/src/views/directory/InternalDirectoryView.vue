@@ -474,7 +474,6 @@ async function lookupPreferredEntries(
       <div class="wayfinding-header">
         <div>
           <p id="wayfinding-title">院区导览</p>
-          <span>可从任意一级开始，选定上级后只显示匹配下级</span>
         </div>
         <div class="wayfinding-actions">
           <button
@@ -969,15 +968,15 @@ async function lookupPreferredEntries(
 
 .directory-search {
   display: grid;
-  min-height: 54px;
+  min-height: 50px;
   grid-template-columns: 24px minmax(0, 1fr) auto auto;
   padding: 4px 5px 4px 16px;
   align-items: center;
   gap: 8px;
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border-strong);
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgb(22 32 42 / 7%);
+  border-radius: 14px;
+  box-shadow: none;
 }
 
 .directory-search:focus-within {
@@ -1044,28 +1043,17 @@ async function lookupPreferredEntries(
 }
 
 .directory-wayfinding {
-  position: relative;
   min-width: 0;
-  padding: 14px;
-  background: #eef6ff;
-  border: 1px solid #cfe3fb;
+  padding: 12px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-large);
-}
-
-.directory-wayfinding::before {
-  position: absolute;
-  top: 0;
-  right: 14px;
-  left: 14px;
-  height: 4px;
-  background: var(--ui-color-primary);
-  border-radius: 0 0 4px 4px;
-  content: '';
+  box-shadow: 0 6px 18px rgb(22 32 42 / 5%);
 }
 
 .wayfinding-header {
   display: flex;
-  padding: 4px 2px 10px;
+  padding: 0 2px 8px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1074,13 +1062,6 @@ async function lookupPreferredEntries(
 .wayfinding-header p {
   margin: 0;
   font-weight: var(--ui-font-weight-semibold);
-}
-
-.wayfinding-header span {
-  display: block;
-  margin-top: 2px;
-  color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-sm);
 }
 
 .wayfinding-actions {
@@ -1127,7 +1108,7 @@ async function lookupPreferredEntries(
 
 .wayfinding-stop {
   display: grid;
-  min-height: 52px;
+  min-height: 46px;
   grid-template-columns: 24px minmax(0, 1fr);
   padding: 8px;
   align-items: center;
@@ -1773,17 +1754,13 @@ async function lookupPreferredEntries(
   }
 
   .directory-wayfinding {
-    margin-right: -12px;
-    margin-left: -12px;
+    margin-right: 0;
+    margin-left: 0;
     padding-right: 12px;
     padding-left: 12px;
-    border-right: 0;
-    border-left: 0;
-    border-radius: 0;
-  }
-
-  .wayfinding-header span {
-    max-width: 190px;
+    border-right: 1px solid var(--ui-color-border);
+    border-left: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-large);
   }
 
   .wayfinding-actions {

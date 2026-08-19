@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-19 通讯录科室/人员手势切换（当前批次）
+
+- 批次范围：在已合并的“通讯录”页面落地移动端左右滑动切换“科室 / 人员”，标签使用移动的白色选中胶囊和同向内容入场动效；同时移除已确认的顶部说明文案、导览蓝色横条及冗余导览说明，保持现有筛选、搜索、收藏、拨号和键盘操作。
+- 回归定位与测试先行：`git log -S` / `git blame` 确认双模式入口与原说明布局由 `046dc654e8e5ee72881e7dc65be255934705c52f` 引入；新增 `directory-mode-gesture.test.ts` 与生产契约断言，旧实现先以缺少手势模块/指示器且仍含说明文案而失败，实施后手势/生产/Storybook 定向 29 项通过。
+- 实现：`getDirectorySwipeTarget` 以横向位移至少 48px 且横向幅度超过纵向 1.2 倍为触发条件；左滑 `internal → employee`、右滑反向，短划、垂直拖动、边界反向划动和输入/按钮拖动均忽略。面板声明 `touch-action: pan-y` 与横向 overscroll 隔离，点击、左右/Home/End 键盘和 `prefers-reduced-motion` 保持可用；模式变更以 240ms 系统曲线同步指示器和内容位移。
+- 视觉与预览：按 `frontend-design` 的系统级移动端语言收紧页面密度，以中性灰底、白色分段胶囊、单一蓝色强调和轻量阴影替代装饰条；Storybook `CompactMobile` 390px 预览实测左滑进入人员、右滑返回科室、纵向拖动不切换，标签 aria-selected、指示器矩阵位移和人员/科室内容均正确。
+- 验证：Web typecheck、Web production build、Storybook build、任务文件 ESLint/Prettier、`git diff --check` 通过；主工作区 Vitest 排除用户自有 `runtime/**` / `src/**` 后 123 文件/727 项通过、31 文件/262 项按环境跳过。全量还剩 3 项既有阻塞（ECS 验证脚本迁移断言仍期待 40、手动矩阵 fixture 两项与当前 P1 变更不一致），与本通讯录改动无关。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过登录、管理员、成员、访客与访问记录全流程；`smoke:check-core` 通过并确认本批次未触及核心链路。
+- 当前状态：已实现（含 Storybook/浏览器运行验证）→待代码 checkpoint、生产备份、ECS 发布与正式域名只读核验。
+- 下一批次与停止条件：完成代码提交、推送、生产备份/部署/验证及最终状态文档 checkpoint 后停止，等待用户在移动端实际滑动复核；不修改通讯录数据和其他未授权工作树文件。
+
 ## 2026-08-19 P1 最大矩阵跨运行时滚动隔离（当前批次）
 
 - 批次范围：只修复 20×30 PoC 在 PC 模拟器班次主体空白/整页随人员滚动，以及 Android 班次存在但矩阵纵向手势无位移；不改变 7×7/20×30 fixture、横向原生滚动、Worklet 位移、单格更新或视觉令牌。
