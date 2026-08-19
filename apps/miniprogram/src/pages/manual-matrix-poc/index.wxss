@@ -214,11 +214,25 @@ page {
   background: var(--ui-color-surface);
 }
 
-.matrix-top-spacer {
+.matrix-date-content {
   height: 82px;
   background: var(--ui-color-surface);
   border-bottom: 1px solid var(--ui-color-border);
   box-sizing: border-box;
+}
+
+.member-header-spacer {
+  width: 104px;
+  height: 54px;
+  flex: none;
+  background: var(--ui-color-surface-muted);
+  border-right: 1px solid var(--ui-color-border);
+  border-bottom: 1px solid var(--ui-color-border);
+  box-sizing: border-box;
+}
+
+.holiday-member-spacer {
+  height: 28px;
 }
 
 .matrix-row {
@@ -244,21 +258,6 @@ page {
   border-right: 1px solid var(--ui-color-border);
   border-bottom: 1px solid var(--ui-color-border);
   box-sizing: border-box;
-}
-
-.matrix-date-overlay {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  right: 0;
-  left: 104px;
-  height: 82px;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.matrix-date-track {
-  height: 82px;
 }
 
 .date-header-row,

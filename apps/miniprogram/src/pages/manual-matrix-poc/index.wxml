@@ -30,7 +30,7 @@
   <view class="matrix-toolbar">
     <view class="matrix-toolbar-copy">
       <text class="matrix-toolbar-title">选择格子即可排入当前班种</text>
-      <text class="matrix-toolbar-note">表头与人员列冻结；主体横纵滚动。</text>
+      <text class="matrix-toolbar-note">日期与班次同一滚动面；人员列随页面固定。</text>
     </view>
     <view
       class="undo-button {{canUndo ? '' : 'is-disabled'}}"
@@ -66,7 +66,6 @@
       class="matrix-scroll"
       type="list"
       scroll-x
-      scroll-y
       enhanced
       show-scrollbar
       bounces="{{false}}"
@@ -75,7 +74,26 @@
       worklet:onscrollend="handleGridScrollEnd"
       aria-label="手动排班矩阵"
     >
-      <view class="matrix-top-spacer" style="width:{{contentWidth}}px"></view>
+      <view class="matrix-date-content" style="width:{{contentWidth}}px">
+        <view class="date-header-row">
+          <view class="member-header-spacer"></view>
+          <view
+            wx:for="{{columns}}"
+            wx:key="cycleDay"
+            class="date-header {{item.isWeekend ? 'is-weekend' : ''}}"
+          >
+            <text class="date-value">{{item.dateLabel}}</text>
+            <text class="weekday-value">{{item.weekdayLabel}}</text>
+          </view>
+        </view>
+        <view class="holiday-header-row" aria-label="节假日摘要">
+          <view class="member-header-spacer holiday-member-spacer"></view>
+          <view wx:for="{{columns}}" wx:key="cycleDay" class="holiday-summary">
+            <text wx:if="{{item.holidayLabel}}" class="holiday-name">{{item.holidayLabel}}</text>
+            <text wx:elif="{{item.isWorkday}}" class="workday-badge">班</text>
+          </view>
+        </view>
+      </view>
       <view
         wx:for="{{rows}}"
         wx:key="membershipId"
@@ -101,51 +119,14 @@
       </view>
     </scroll-view>
 
-    <scroll-view
-      id="matrix-date-scroll"
-      class="matrix-date-overlay"
-      scroll-x
-      enhanced
-      show-scrollbar="{{false}}"
-      bounces="{{false}}"
-      aria-label="日期与节假日表头"
-    >
-      <view id="matrix-date-track" class="matrix-date-track" style="width:{{dateTrackWidth}}px">
-        <view class="date-header-row">
-          <view
-            wx:for="{{columns}}"
-            wx:key="cycleDay"
-            class="date-header {{item.isWeekend ? 'is-weekend' : ''}}"
-          >
-            <text class="date-value">{{item.dateLabel}}</text>
-            <text class="weekday-value">{{item.weekdayLabel}}</text>
-          </view>
-        </view>
-        <view class="holiday-header-row" aria-label="节假日摘要">
-          <view wx:for="{{columns}}" wx:key="cycleDay" class="holiday-summary">
-            <text wx:if="{{item.holidayLabel}}" class="holiday-name">{{item.holidayLabel}}</text>
-            <text wx:elif="{{item.isWorkday}}" class="workday-badge">班</text>
-          </view>
-        </view>
-      </view>
-    </scroll-view>
-
-    <scroll-view
-      id="matrix-member-scroll"
-      class="matrix-member-overlay"
-      scroll-y
-      enhanced
-      show-scrollbar="{{false}}"
-      bounces="{{false}}"
-      aria-label="值班人员表头"
-    >
+    <view class="matrix-member-overlay" aria-label="值班人员表头">
       <view id="matrix-member-track" class="matrix-member-track">
         <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
           <text>{{item.realName}}</text>
           <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
         </view>
       </view>
-    </scroll-view>
+    </view>
 
     <view class="matrix-corner">
       <view class="corner-member">值班人员 ↓</view>
@@ -154,6 +135,6 @@
   </view>
 
   <text class="matrix-note">
-    原生版本保持这套视觉状态，并用 Skyline 双轴滚动、UI 线程冻结同步与成员行按需绘制重写。
+    原生版本保持这套视觉状态；日期表头、班次主体共用一个横向滚动面，成员行随页面纵向延展。
   </text>
 </view>

@@ -37,34 +37,10 @@ interface SelectorRect {
   readonly width: number;
 }
 
-interface SelectorReference {
-  readonly ref: unknown;
-}
-
-interface MiniProgramScrollViewContext {
-  scrollTo(options: {
-    readonly animated?: boolean;
-    readonly duration?: number;
-    readonly left?: number;
-    readonly top?: number;
-  }): void;
-}
-
-interface SelectorNode {
-  readonly node: (
-    callback: (result: { readonly node: MiniProgramScrollViewContext }) => void,
-  ) => unknown;
-}
-
 interface ManualMatrixPageInstance {
   _commitScrollProgress: (progress: number) => void;
-  _dateScrollRef: MiniProgramSharedValue<unknown | null>;
-  _dateScrollContext: MiniProgramScrollViewContext | null;
-  _memberScrollRef: MiniProgramSharedValue<unknown | null>;
-  _memberScrollContext: MiniProgramScrollViewContext | null;
   _lastScrollProgressPercent: number;
   _scrollProgress: MiniProgramSharedValue<number>;
-  _workletScrollActive: MiniProgramSharedValue<boolean>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
   _viewportWidth: MiniProgramSharedValue<number>;
@@ -79,14 +55,13 @@ interface ManualMatrixPageInstance {
   createSelectorQuery(): {
     select(selector: string): {
       boundingClientRect(callback: (rect: SelectorRect) => void): unknown;
-      ref(callback: (reference: SelectorReference) => void): unknown;
-    } & SelectorNode;
+    };
     exec(): void;
   };
   setData(patch: Record<string, unknown>): void;
 }
 
-const { runOnJS, scrollViewContext, shared } = wx.worklet;
+const { runOnJS, shared } = wx.worklet;
 const defaultViewModel = createManualMatrixPocViewModel('daily');
 
 Page({
@@ -95,13 +70,8 @@ Page({
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
-    this._dateScrollRef = shared<unknown | null>(null);
-    this._dateScrollContext = null;
-    this._memberScrollRef = shared<unknown | null>(null);
-    this._memberScrollContext = null;
     this._lastScrollProgressPercent = -1;
     this._scrollProgress = shared(0);
-    this._workletScrollActive = shared(false);
     const scrollProgress = this._scrollProgress;
     this.applyAnimatedStyle(
       '#matrix-scroll-thumb',
@@ -119,18 +89,6 @@ Page({
   },
   onReady(this: ManualMatrixPageInstance): void {
     const query = this.createSelectorQuery();
-    query.select('#matrix-date-scroll').ref((reference) => {
-      this._dateScrollRef.value = reference.ref;
-    });
-    query.select('#matrix-member-scroll').ref((reference) => {
-      this._memberScrollRef.value = reference.ref;
-    });
-    query.select('#matrix-date-scroll').node((result) => {
-      this._dateScrollContext = result.node;
-    });
-    query.select('#matrix-member-scroll').node((result) => {
-      this._memberScrollContext = result.node;
-    });
     query.select('.matrix-scroll').boundingClientRect((rect) => {
       this._viewportWidth.value = Math.max(1, rect.width);
       this._viewportWidthValue = Math.max(1, rect.width);
@@ -139,41 +97,13 @@ Page({
   },
   handleGridScroll(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';
-    this._workletScrollActive.value = true;
     const scrollLeft = Math.max(0, event.detail.scrollLeft);
-    const scrollTop = Math.max(0, event.detail.scrollTop);
-    if (this._dateScrollRef.value !== null) {
-      scrollViewContext.scrollTo(this._dateScrollRef.value, {
-        left: scrollLeft,
-        duration: 0,
-        animated: false,
-      });
-    }
-    if (this._memberScrollRef.value !== null) {
-      scrollViewContext.scrollTo(this._memberScrollRef.value, {
-        top: scrollTop,
-        duration: 0,
-        animated: false,
-      });
-    }
     const scrollWidth = event.detail.scrollWidth ?? this._viewportWidth.value;
     const maximumScroll = Math.max(1, scrollWidth - this._viewportWidth.value);
     this._scrollProgress.value = Math.max(0, Math.min(1, scrollLeft / maximumScroll));
   },
   handleGridScrollFallback(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
-    if (this._workletScrollActive.value) return;
     const scrollLeft = Math.max(0, event.detail.scrollLeft);
-    const scrollTop = Math.max(0, event.detail.scrollTop);
-    this._dateScrollContext?.scrollTo({
-      left: scrollLeft,
-      duration: 0,
-      animated: false,
-    });
-    this._memberScrollContext?.scrollTo({
-      top: scrollTop,
-      duration: 0,
-      animated: false,
-    });
 
     const scrollWidth = event.detail.scrollWidth ?? this.data.contentWidth;
     const maximumScroll = Math.max(1, scrollWidth - Math.max(1, this._viewportWidthValue));

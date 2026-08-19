@@ -54,7 +54,6 @@ export interface ManualMatrixPocViewModel {
   readonly canUndo: boolean;
   readonly columns: readonly ManualMatrixColumn[];
   readonly contentWidth: number;
-  readonly dateTrackWidth: number;
   readonly dimensionLabel: string;
   readonly logicalCellCount: number;
   readonly matrixViewportHeight: number;
@@ -154,10 +153,9 @@ export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMa
     canUndo: false,
     columns,
     contentWidth: MEMBER_COLUMN_WIDTH + dayCount * DATE_COLUMN_WIDTH,
-    dateTrackWidth: dayCount * DATE_COLUMN_WIDTH,
     dimensionLabel: `${memberCount} 人 × ${dayCount} 天 = ${memberCount * dayCount} 个逻辑格`,
     logicalCellCount: memberCount * dayCount,
-    matrixViewportHeight: mode === 'daily' ? 390 : 439,
+    matrixViewportHeight: 82 + rows.length * 44,
     mode,
     modeLabel: mode === 'daily' ? '常用' : '上限',
     rows,

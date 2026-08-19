@@ -37,10 +37,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(daily.rows).toHaveLength(7);
     expect(daily.columns).toHaveLength(7);
     expect(daily.logicalCellCount).toBe(49);
+    expect(daily.matrixViewportHeight).toBe(390);
     expect(daily.rows.flatMap((row) => row.cells)).toHaveLength(49);
     expect(maximum.rows).toHaveLength(20);
     expect(maximum.columns).toHaveLength(30);
     expect(maximum.logicalCellCount).toBe(600);
+    expect(maximum.matrixViewportHeight).toBe(962);
     expect(maximum.rows.flatMap((row) => row.cells)).toHaveLength(600);
     expect(maximum.rows.at(-1)).toMatchObject({ isStale: true, realName: '宋护士' });
     expect(maximum.rows.at(-1)?.cells[7]).toMatchObject({ isStale: true });
@@ -65,52 +67,40 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses UI-thread ScrollViewContext to synchronize the body and two header viewports', () => {
+  it('uses one horizontal grid scroll context and page-level vertical growth', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
     const worklets = findWorkletIssues(source, 'pages/manual-matrix-poc/index.ts');
 
-    expect(template.match(/<scroll-view/gu)).toHaveLength(3);
+    expect(template.match(/<scroll-view/gu)).toHaveLength(1);
     expect(template).toMatch(
-      /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?scroll-y[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
+      /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
     expect(template).toContain('bindscroll="handleGridScrollFallback"');
+    expect(template).not.toContain('scroll-y');
     expect(template).not.toContain('<wxs');
     expect(template).toContain('wx:for="{{rows}}"');
-    expect(template).toMatch(
-      /<scroll-view[\s\S]*?id="matrix-date-scroll"[\s\S]*?scroll-x[\s\S]*?>/u,
-    );
-    expect(template).toMatch(
-      /<scroll-view[\s\S]*?id="matrix-member-scroll"[\s\S]*?scroll-y[\s\S]*?>/u,
-    );
+    expect(template).toContain('class="matrix-date-content"');
+    expect(template).toContain('class="matrix-member-overlay"');
     expect(template).toContain('<manual-schedule-cell');
     expect(template).not.toMatch(/<canvas/iu);
     expect(styles).toMatch(/\.matrix-corner\s*\{[^}]*position:\s*absolute;/su);
-    expect(styles).toMatch(/\.matrix-date-overlay\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
-    expect(source).toContain("select('#matrix-date-scroll').ref(");
-    expect(source).toContain("select('#matrix-member-scroll').ref(");
-    expect(source).toContain("select('#matrix-date-scroll').node(");
-    expect(source).toContain("select('#matrix-member-scroll').node(");
-    expect(source).toContain('scrollViewContext.scrollTo(this._dateScrollRef.value');
-    expect(source).toContain('scrollViewContext.scrollTo(this._memberScrollRef.value');
-    expect(source).toContain('left: scrollLeft');
-    expect(source).toContain('top: scrollTop');
+    expect(source).toContain('this._scrollProgress.value');
+    expect(source).not.toContain('scrollViewContext.scrollTo');
+    expect(source).not.toContain('_dateScrollRef');
+    expect(source).not.toContain('_memberScrollRef');
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-scroll-thumb['"]/u);
-    expect(source).toContain('_workletScrollActive');
-    expect(source).not.toContain("applyAnimatedStyle('#matrix-date-track'");
-    expect(source).not.toContain("applyAnimatedStyle('#matrix-member-track'");
     expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBeGreaterThanOrEqual(2);
+    expect(worklets.count).toBeGreaterThanOrEqual(1);
   });
 
-  it('keeps a logical-thread fallback for header refs and progress when UI callbacks are unavailable', async () => {
+  it('keeps a logical-thread fallback for progress when UI callbacks are unavailable', async () => {
     let definition;
     vi.stubGlobal('wx', {
       worklet: {
         runOnJS: (callback) => callback,
-        scrollViewContext: { scrollTo: vi.fn() },
         shared: (value) => ({ value }),
       },
     });
@@ -120,16 +110,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     vi.stubGlobal('Component', vi.fn());
     await import('../src/pages/manual-matrix-poc/index.ts');
 
-    const dateScroll = { scrollTo: vi.fn() };
-    const memberScroll = { scrollTo: vi.fn() };
     const setData = vi.fn();
     const instance = {
       commitScrollProgress: definition.commitScrollProgress,
       data: structuredClone(definition.data),
-      _dateScrollContext: dateScroll,
-      _memberScrollContext: memberScroll,
       _lastScrollProgressPercent: -1,
-      _workletScrollActive: { value: false },
+      _viewportWidthValue: 360,
       setData,
     };
 
@@ -137,16 +123,6 @@ describe('P1 native manual scheduling matrix PoC', () => {
       detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
     });
 
-    expect(dateScroll.scrollTo).toHaveBeenCalledWith({
-      animated: false,
-      duration: 0,
-      left: 216,
-    });
-    expect(memberScroll.scrollTo).toHaveBeenCalledWith({
-      animated: false,
-      duration: 0,
-      top: 132,
-    });
     expect(setData).toHaveBeenCalledWith(
       expect.objectContaining({
         scrollProgressOffset: expect.any(Number),
@@ -155,50 +131,11 @@ describe('P1 native manual scheduling matrix PoC', () => {
     );
   });
 
-  it('does not let the fallback scroll path compete after a Worklet event is observed', async () => {
+  it('updates the shared progress on the UI thread without setData', async () => {
     let definition;
     vi.stubGlobal('wx', {
       worklet: {
         runOnJS: (callback) => callback,
-        scrollViewContext: { scrollTo: vi.fn() },
-        shared: (value) => ({ value }),
-      },
-    });
-    vi.stubGlobal('Page', (value) => {
-      definition = value;
-    });
-    vi.stubGlobal('Component', vi.fn());
-    await import('../src/pages/manual-matrix-poc/index.ts');
-
-    const dateScroll = { scrollTo: vi.fn() };
-    const memberScroll = { scrollTo: vi.fn() };
-    const setData = vi.fn();
-    const instance = {
-      commitScrollProgress: definition.commitScrollProgress,
-      data: structuredClone(definition.data),
-      _dateScrollContext: dateScroll,
-      _memberScrollContext: memberScroll,
-      _lastScrollProgressPercent: -1,
-      _workletScrollActive: { value: true },
-      setData,
-    };
-
-    definition.handleGridScrollFallback.call(instance, {
-      detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
-    });
-
-    expect(dateScroll.scrollTo).not.toHaveBeenCalled();
-    expect(memberScroll.scrollTo).not.toHaveBeenCalled();
-    expect(setData).not.toHaveBeenCalled();
-  });
-
-  it('synchronizes both header scroll views on the UI thread without setData', async () => {
-    let definition;
-    const scrollTo = vi.fn();
-    vi.stubGlobal('wx', {
-      worklet: {
-        runOnJS: (callback) => callback,
-        scrollViewContext: { scrollTo },
         shared: (value) => ({ value }),
       },
     });
@@ -215,23 +152,11 @@ describe('P1 native manual scheduling matrix PoC', () => {
       setData,
     };
     definition.onLoad.call(instance, { mode: 'daily' });
-    instance._dateScrollRef.value = 'date-ref';
-    instance._memberScrollRef.value = 'member-ref';
     definition.handleGridScroll.call(instance, {
       detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
     });
 
-    expect(scrollTo).toHaveBeenNthCalledWith(1, 'date-ref', {
-      animated: false,
-      duration: 0,
-      left: 216,
-    });
-    expect(scrollTo).toHaveBeenNthCalledWith(2, 'member-ref', {
-      animated: false,
-      duration: 0,
-      top: 132,
-    });
-    expect(instance._workletScrollActive.value).toBe(true);
+    expect(instance._scrollProgress.value).toBeGreaterThan(0);
     expect(setData).not.toHaveBeenCalled();
   });
 
