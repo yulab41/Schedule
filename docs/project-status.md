@@ -10,8 +10,10 @@
 - 语义等价审计：API 成员调用仍由闭包保持接收者绑定，每次原操作仍只调用一次；异步错误、请求取消、群组切换、偏好读写和空查询语义继续由原组件处理。模式切换只挂载/激活对应缓存实例，不创建重复 DOM/ID；无契约、迁移或业务数据变更。
 - 验证：任务文件 Prettier/ESLint、Web typecheck/生产 build、Storybook build 通过；Web 全量 Vitest 71 文件/479 项通过。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过登录、管理员、成员、访客/vkey、访问记录全流程及单一“通讯录”入口、科室/人员切换、对应搜索和筛选；浏览器 error 为 0，移动端截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-ayuw5Q`。
 - 工作树隔离：根 `format:check` 仅被用户已有的 `apps/miniprogram/project.config.json` 与 `storybook-static-my-profile/` 产物格式拦截；用户已有的 `pnpm-workspace.yaml`、个人资料 Storybook、`runtime/`、`src/` 及上述两项均未修改、暂存或纳入本批次，任务文件格式检查独立通过。
-- 当前状态：已完成（含运行验证）→待 checkpoint、推送、生产备份、部署与正式域名只读核验；checkpoint 识别消息为 `feat(web): unify department and employee directories`。
-- 下一批次与停止条件：仅完成本批次 checkpoint、推送和生产发布，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；完成正式域名只读核验后停止并等待用户复核。
+- 正式发布：代码 checkpoint `046dc65`（`feat(web): unify department and employee directories`）已推送；发布前加密数据库备份 archive `b274d0d9-0a22-419e-b55f-27c6526adc8b`（50 表、106,469 行、47,280,000 字节，SHA-256 `1c98034e9a39fa97a28a6c05029da35fa0fff3b4f9ad25e61313cba6c0897a27`）。release `046dc654e8e5ee72881e7dc65be255934705c52f` 从隔离干净 worktree 构建并部署；容器预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、41 条迁移、产物哈希、域名隔离、公开端口和容器检查。
+- 正式域名只读核验：首页和 `/api/health` 均返回 200；390px 无横向溢出、浏览器 error 为 0，正式登录页仅显示密码认证且不含本地管理员/微信入口。服务器实际 Home bundle 同时命中“通讯录范围”“科室通讯录”“人员通讯录”，`current-release` 与代码 checkpoint 一致；未登录、未写业务数据。
+- 当前状态：已完成（含代码发布、数据库备份、ECS 验证与正式域名只读核验）→待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record unified directory deployment`。
+- 下一批次与停止条件：无自动活动批次；最终状态 checkpoint 推送并部署后停止，等待用户复核，不开始其他实现任务。
 
 ## 2026-08-19 员工通讯录搜索与电话行精简（当前批次）
 
