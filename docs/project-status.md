@@ -106,7 +106,7 @@
 
 - 批次范围：在基础控件、动态 5/6 周月历与 7×7/20×30 Skyline 手排矩阵 PoC 完成后，只完成 P1 用户人工原生验收交付；不接入业务 API，不实现 P2，不由 LLM 启动本地微信开发者工具，也不执行微信正式发布动作。用户于 2026-08-18 明确取消 MiniTest/Minium 云测，反馈人工测试通过后再进入 P2。
 - 安全迁入：外部 `E:\AItools\Schedule_miniprogram` 的 15 个文件、11295 字节经逐文件 SHA-256 校验迁入 `apps/miniprogram`，外部目录已移除。正式 AppID 保留；`project.private.config.json` 原样保留且由 Git 忽略，不输出或提交其内容。
-- 运行配置：`project.config.json.miniprogramRoot` 固定为 `dist/`；`src/app.json` 使用 Skyline、glass-easel、最低基础库 `3.0.2`、`disableABTest: true` 和 `sdkVersionEnd: 15.255.255`。P0 空 bootstrap 已替换为原生基础控件 PoC 画廊。
+- 运行配置：`project.config.json.miniprogramRoot` 固定为 `dist/`；`src/app.json` 使用 Skyline、glass-easel、最低基础库 `3.3.0`、`disableABTest: true` 和 `sdkVersionEnd: 15.255.255`。最低版本于 2026-08-19 经用户批准提高，以使用 UI 线程 `worklet.scrollViewContext`；P0 空 bootstrap 已替换为原生基础控件 PoC 画廊。
 - 工具链：确定性 staging/production `src→dist`、TypeScript、WXML/WXSS/JSON、运行边界、密钥、Worklet 指令、包体和双构建一致性门禁继续生效；`miniprogram-ci@2.1.31`、`miniprogram-simulate@1.6.2`、`jsdom@26.1.0` 和仅供可选截图比较器使用的 `pngjs@7.0.0` 精确锁定。CI dry-run 不读取凭据，真实上传私钥仍必须在仓库外。
 - 文档：专项计划、运行/构建、API 边界、分包、Web 同步、视觉标准、组件/页面清单、测试、用户人工原生验收、CI、staging、发布回滚和 4 个 ADR 已放入 `apps/miniprogram/docs`；`apps/miniprogram/AGENTS.md` 明确禁止 LLM 操作本地微信开发者工具。
 - Web 同步：计划内已有能力在对应 Mini 阶段实时跟随 Web；当前动态月历、连续周、统一时间选择器和自绘控件进入 P1/P4/P5 基线。院内通讯录属于迁移计划后新增功能，登记在 P10 最后补齐。
@@ -116,7 +116,7 @@
 - 矩阵实现：`pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture 继续使用一个 `scroll-view type=list` 承载横纵滚动；20 个成员行按视口绘制。日期表头以 `-scrollLeft`、人员列以 `-scrollTop` 由 `worklet:onscrollupdate` 在 UI 线程同帧同步，滚动中不经过 WXS/普通 `bindscroll`、不调用 `setData`；点击与撤销仍仅做增量更新，未使用 Canvas、整月 `setData` 或业务 API。
 - 人工验收工具：`testing/p1-manual-test-plan.json` 锁定基础控件、月历、7×7、20×30 四条原生路由、实际交互状态和既定视觉/性能目标；`docs/runbooks/manual-native-testing.md` 给出用户手工编译模式、实体 Android 操作和反馈格式。云测 runner、Minium Python/ZIP、云测凭据和专用 selector 已移除；`scripts/visual-compare.mjs` 仅在用户提供截图或失败需要量化时使用。
 - 回归来源与语义：`git log -S`/`git blame` 确认旧 Storybook 详情同卡来自 `8a49434`、Web 三面板来自 `41d284b`、生产外框裁切来自 `0aaa562`；本实现复用视觉和交互语义但未复制 Vue/DOM。相邻月份格只读，当前月日期只发出一次选择事件；月份切换只重建 PoC ViewModel，不接入 API 或业务 store。
-- 矩阵回归来源与语义：P1 黄金 story 由 `3884713` 引入；生产手排基础来自 `6512274`，冻结日期/人员列及密集移动交互来自 `1203dc7`。本实现保留同一人员×日期、班种、失效、选择和滚动语义，但用 WXML/WXSS/Skyline 重写；`type=list` 是最低基础库 3.0.2 可用的按视口绘制路径，不冒用 3.3.0 才提供且仅纵向的 `list-builder`。
+- 矩阵回归来源与语义：P1 黄金 story 由 `3884713` 引入；生产手排基础来自 `6512274`，冻结日期/人员列及密集移动交互来自 `1203dc7`。本实现保留同一人员×日期、班种、失效、选择和滚动语义，但用 WXML/WXSS/Skyline 重写；主体继续用 `type=list` 按视口绘制，3.3.0 仅用于 UI 线程 ScrollViewContext，同样不依赖只纵向回收的 `list-builder`。
 - 人工清单回归定位：`git log -S`/`git blame` 确认旧清单的 `dialog-open` 与 7×7 `vertical-scroll` 均由 `c8d50f5` 首次写入。已确认用户通过的基础控件 Storybook/原生页不存在对话框，7×7 的 82px 表头 + 7×44px 行恰好等于 390px 视口，不存在纵向滚动；人工清单使用实际可见的通知开启、联系方式取消核对、周视图选择，并仅在 20×30 验证纵向滚动。
 - 测试先行：令牌 WXSS、组件注册、开关几何/ARIA、禁用/加载事件和 simulate 组件树先红；实现后 token 2/2、Mini scripts 14/14、Mini typecheck/源码/产物/包体/双构建确定性和无凭证 CI dry-run通过。staging verify 产物 38,190 bytes、manifest `a65a195e8042b1ec25d944c3ba551ded0d3dbdd2d0d7c1d17e8878f499a0ac2a`；production verify 38,183 bytes、manifest `bd73d94f934bdab802a9a2476f57ebf10faa4ae1823c264944d9077357198c1d`。根 format/lint/build/typecheck、排除既有 `runtime/**` 副本后的全仓 112 文件/669 项（31 文件/261 项按环境跳过）、定向 Prettier/ESLint、ui-tokens build、`pnpm smoke:check-core` 与任务文件 `git diff --check` 通过。
 - 月历验证：测试先行时 5 项因页面/fixture/组件未实现而失败；实现后 P1 月历定向 7/7、Mini 全套 21/21、typecheck、源码审计、staging/production 构建与产物审计、双构建确定性和无凭证 CI dry-run 通过。staging verify 为 66,647 bytes、manifest `67b53ee7452ea91d55eb6e09ecc34711e8dad707eb574d4e07ce6f3bae08389c`；production 为 66,640 bytes、manifest `c56080588028ecfa088f2474de20e0152664196a3aab818db3fd06e394a62cd3`；源码/产物均保留 6 个 Worklet 指令。根 lint/build/typecheck、任务文件 Prettier/ESLint、排除用户自有 `runtime/**`/`src/**` 发布副本后的主仓 114 文件/676 项（31 文件/261 项按环境跳过）、`pnpm smoke:check-core` 和 `git diff --check` 通过；未触及核心 Web 链路，无需浏览器 smoke。
@@ -150,18 +150,19 @@
 - CI 兼容发布：checkpoint `76ce450`（`fix(miniprogram): stabilize official worklet upload`）已推送；发布前加密数据库备份 archive 为 `9adaa134-4a02-4d20-afaa-682908c9df81`（50 表、18,514 行、7,382,000 字节，SHA-256 `406263a21862c17fcffa97e7ee95221c89f136088eee5812647837b51ecbe219`）。release `76ce450d3a53a724cd2132887168be19ae277d50` 从干净 worktree 构建并部署，预热首次 502 后自动恢复，`ecs-verify.sh` 完整通过。
 - 微信体验上传：用户将当前出口 IP 加入代码上传密钥白名单后，从干净 `1fffa1d` 隔离工作区原样重试成功。官方 Summer 编译处理 48 个代码文件，生成 31,962 字节上传包；体验版本 `0.1.0-p1.20260819.4`、robot 1、staging profile、manifest `3b10bf169b84ee283adfb16d93974c39ba554230d5fac79ebcf81425e052efc9` 已上传微信开发平台。未提交审核、未正式发布，全程未启动或控制本地微信开发者工具。
 - 第三次人工回归：用户在体验版 `0.1.0-p1.20260819.4` 实体 Android 确认 C/D 仍失败，7×7 日期表头与 20×30 日期/人员表头均固定。该真机结果再次优先于静态测试，不将 `.4` 视为有效修复。
-- 本轮引入点与根因：`git log -S`/`git blame` 确认 `3b9a677` 把滚动偏移改为页面实例 SharedValue，`f8c743a` 又让样式 updater 捕获 `onLoad` 局部 SharedValue，两个 Worklet 仅依赖 `this._scrollX/_scrollY` 对象别名被假定为编译后仍是同一对象。普通 JS mock 会成立，但 Worklet 会序列化捕获值，真机已证明该别名不能作为共享身份保证。官方文档仍确认事件字段为 `event.detail.scrollLeft/scrollTop`、`worklet:onscrollupdate` 绑定无误，且 SharedValue 应被 Worklet 直接捕获。
-- 本轮修复：四个矩阵滚动 SharedValue 改为词法单一来源；日期/人员 updater 和滚动 Worklet 直接引用同一 `matrixScrollX/matrixScrollY`，彻底移除 `this._scrollX/_scrollY` 别名。仍使用 `{ flush: 'sync' }`，不改事件字段、偏移方向、视觉、点击、撤销、数据或 `setData` 次数。
+- `.5` 前的当时推断：`git log -S`/`git blame` 确认 `3b9a677` 把滚动偏移改为页面实例 SharedValue，`f8c743a` 又让样式 updater 捕获 `onLoad` 局部 SharedValue；据此曾把对象别名推断为根因并在 `3933aee` 改成词法单一来源。体验版 `.5` 的 Android 结果已否定该推断，不能再把普通 JS mock 当原生同步证据。
+- `.5` 人工回归：用户确认 7×7 日期表头与 20×30 日期/人员表头仍固定，顶部蓝色进度也不变化；而最早只做进度时曾可变化。该结果说明继续修改 SharedValue/`applyAnimatedStyle` 捕获方式没有验证价值。
 - 本轮验证：直接共享词法标识符的结构回归先在旧实现失败；修复后定向 6/6、Mini 10 文件/39 项、排除用户自有 `runtime/**`/`src/**` 后主仓 119 文件/700 项通过（31 文件/261 项按环境跳过）。Mini typecheck、staging/production verify、确定性、源码/包体、CI dry-run、根 lint/build/typecheck、任务文件 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core` 通过；staging/production 包体为 104,371/104,364 bytes，manifest 为 `4776e10ed9750d060dd8b94db66b24dee023ab484810c0f04501f4a12c225936` / `1a1e921a9b1dc0d978f874de306abc473be6528b7c6f430950d2d7787cd0e42f`，源码与产物均保留 5 个 Worklet。未触及 Web 核心链路，无需 `pnpm smoke:browser`；根格式全检仍只会被用户自有 `project.config.json` 拦截，该文件及 `runtime/`、`src/` 不修改、不暂存。
 - 本轮代码发布：checkpoint `3933aee`（`fix(miniprogram): share matrix offsets across worklets`）已推送；发布前加密数据库备份 archive 为 `1cd93149-b52b-4f29-a6ae-a1f81f828760`（50 表、18,517 行、7,383,976 字节，SHA-256 `0e3252417529440a2a218ce182d76943583ebec7cc0f5159cf60fd58de1ea01a`）。release `3933aeefb13b7ba9ea9c3d525c07d9405064116b` 从干净隔离工作区构建并部署，预热首次健康检查一次 502 后自动恢复，`ecs-verify.sh` 通过健康、38 个迁移、产物哈希、域名隔离、公开端口和容器检查。
 - 本轮微信体验上传：同一干净 `3933aee` 通过官方 Summer 编译，处理 48 个代码文件并生成 31,981 字节上传包；体验版本 `0.1.0-p1.20260819.5`、robot 1、staging profile、manifest `561a52ab8ff2accb359c3c3b6b1a5bcded5a5a042afc97a30faa01cdeaf2342f` 已上传微信开发平台。未提交审核、未正式发布，未启动或控制本地微信开发者工具。
-- 当前状态：词法 SharedValue 修复、代码推送、生产部署与新微信体验上传均已完成，现等待用户在实体 Android 人工复测 C/D。P1 尚未完成，不能提前进入 P2。
-- 下一批次：用户使用体验版 `0.1.0-p1.20260819.5` 再次人工复测 C/D，重点覆盖手指拖动、快速反向和松手后的惯性滚动。7×7 日期表头须与主体同帧，20×30 日期表头/人员列须分别与对应轴同帧且左上角固定。用户未明确通过前不进入 P2。
-- 本 checkpoint 识别消息：`fix(miniprogram): synchronize matrix worklet headers`。
-- CI 兼容 checkpoint 识别消息：`fix(miniprogram): stabilize official worklet upload`。
-- 本轮代码 checkpoint 识别消息：`fix(miniprogram): share matrix offsets across worklets`。
-- 最终状态 checkpoint 识别消息：`docs(status): record lexical matrix upload`。
-- 停止条件：最终状态 checkpoint 提交、推送、生产备份/部署/核验，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户完成 C/D 人工复测；用户未明确反馈通过前不进入 P2。
+- ScrollViewContext 决策：用户接受最低基础库从 3.0.2 提高至 3.3.0。新实现把日期表头、人员表头改为两个独立原生 `scroll-view`，用 `NodesRef.ref()` 保存引用；主体滚动 Worklet 直接调用 `worklet.scrollViewContext.scrollTo()` 同步 `left`/`top`，不再用 WXS 或 `applyAnimatedStyle` 移动冻结轨道。
+- 回归定位与测试先行：`git log -S`/`git blame` 确认初版事件/进度来自 `6cc7463`，WXS 延迟来自 `4b33274`，三轮无效 SharedValue 变体来自 `3b9a677`、`f8c743a`、`3933aee`。新结构回归先在旧实现明确失败，要求三个滚动容器、两个 ref、UI 线程直接 `scrollTo` 和 3.3.0；实现后定向 6/6、Mini 全套 10 文件/39 项与 typecheck 通过。
+- 本轮验证：Mini staging/production verify、源码/产物边界、3 个 Worklet、确定性、包体、无凭据 CI dry-run通过；包体为 104,865/104,858 bytes，manifest 为 `5de5e8a7a4cdf63048274ffd3e17723ff708f6370edc53a9494195d4aa494c6f` / `9e51bbaf54a9c7b77d1d592cfabfa4e11ac0d3a8ceb8048431a8141ad8f0682c`。根 lint/build/typecheck、任务文件 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需浏览器 smoke。排除用户自有 `runtime/**`/`src/**` 后全仓 119 文件/704 项和 31 文件/262 项环境跳过通过，唯一失败是本轮前已有的 `scripts/package-ecs-release.test.mjs` 仍断言 38 个迁移，而当前 `ecs-verify.sh` 与已部署基线为 39；本轮不修改该无关测试。根格式检查仍只被用户自有 `apps/miniprogram/project.config.json` 格式阻断，该文件不修改、不暂存。
+- 行为审计：矩阵数据、格子选择、撤销、横纵坐标、方向、惯性主体和滚动结束提示语义不变；冻结实现从样式 transform 改为 UI 线程直接滚动两个只读表头容器。同步仍由同一个主体事件驱动，不增加网络、业务写入或滚动期 `setData`，表头滚动禁用动画避免人为延迟。
+- 当前状态：ScrollViewContext 方案已实现并通过相关静态门禁，待 Git/ECS checkpoint、微信体验上传和用户人工原生复核；P1 不能进入 P2。
+- 下一批次：完成静态/构建/包体/确定性门禁、显式提交推送、ECS 发布和新的微信体验上传；随后用户复测 C/D 的手指拖动、快速反向和惯性滚动。7×7 日期表头须与主体同帧；20×30 日期/人员表头须分别与对应轴同帧且左上角固定。
+- 本轮代码 checkpoint 识别消息：`fix(miniprogram): synchronize matrix scroll contexts`。
+- 停止条件：新 checkpoint 推送、生产备份/部署/核验和微信体验上传完成后停止，等待用户人工复测；用户未明确通过前不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
 

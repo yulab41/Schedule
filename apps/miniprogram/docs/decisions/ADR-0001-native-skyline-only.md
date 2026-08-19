@@ -5,7 +5,7 @@
 
 ## 决策
 
-小程序统一使用原生 WXML/WXSS/TypeScript/JSON、Skyline 和 glass-easel，最低基础库 3.0.2。正式关闭 Skyline AB，目标版本上限 `15.255.255`，不维护 WebView fallback。
+小程序统一使用原生 WXML/WXSS/TypeScript/JSON、Skyline 和 glass-easel，最低基础库 3.3.0。正式关闭 Skyline AB，目标版本上限 `15.255.255`，不维护 WebView fallback。2026-08-19 用户在多次 Android 体验版复测否定 SharedValue/`applyAnimatedStyle` 矩阵冻结方案后，批准提高最低版本，以使用 UI 线程 `worklet.scrollViewContext`。
 
 ## 理由与后果
 

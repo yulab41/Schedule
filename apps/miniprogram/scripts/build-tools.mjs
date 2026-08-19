@@ -557,7 +557,7 @@ export function auditSourceTree() {
     }
     const skyline = appJson.rendererOptions?.skyline;
     if (skyline?.disableABTest !== true) issues.push('Skyline AB test must be disabled');
-    if (skyline?.sdkVersionBegin !== '3.0.2') issues.push('Skyline minimum must be 3.0.2');
+    if (skyline?.sdkVersionBegin !== '3.3.0') issues.push('Skyline minimum must be 3.3.0');
     if (skyline?.sdkVersionEnd !== '15.255.255') {
       issues.push('Skyline maximum must be 15.255.255');
     }

@@ -22,6 +22,17 @@ declare const wx: {
     runOnJS<TArguments extends readonly unknown[]>(
       callback: (...arguments_: TArguments) => void,
     ): (...arguments_: TArguments) => void;
+    readonly scrollViewContext: {
+      scrollTo(
+        reference: unknown,
+        options: {
+          readonly animated?: boolean;
+          readonly duration?: number;
+          readonly left?: number;
+          readonly top?: number;
+        },
+      ): void;
+    };
     shared<T>(initialValue: T): MiniProgramSharedValue<T>;
     timing(
       target: number,

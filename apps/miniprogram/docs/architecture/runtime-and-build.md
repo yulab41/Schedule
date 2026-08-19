@@ -7,9 +7,9 @@
 | 模板/样式/逻辑 | WXML、WXSS、TypeScript、JSON                                                 |
 | 渲染           | 所有页面 Skyline                                                             |
 | 组件框架       | `glass-easel`                                                                |
-| 最低基础库     | `3.0.2`                                                                      |
+| 最低基础库     | `3.3.0`                                                                      |
 | 回退           | 不提供 WebView 回退                                                          |
-| Skyline 发布   | `disableABTest: true`，`sdkVersionBegin: 3.0.2`，`sdkVersionEnd: 15.255.255` |
+| Skyline 发布   | `disableABTest: true`，`sdkVersionBegin: 3.3.0`，`sdkVersionEnd: 15.255.255` |
 
 `project.config.json` 的 `miniprogramRoot` 固定为 `dist/`。正式发布前将实际 Stable 编译基础库和微信客户端范围记录进 release 证据。
 
@@ -41,5 +41,5 @@
 - `src → dist` 编译、源码/产物边界、包体、Worklet 指令、双构建确定性和无凭证 CI dry-run 门禁已完成。
 - P1 基础控件批次新增从 `@schedule/ui-tokens` 单源生成并复制到 `dist/styles/tokens.wxss` 的路径；`app.wxss` 必须显式导入该文件，缺失或漂移由测试/产物审计阻断。
 - P1 月历按 Web 的实际 5/6 周高度生成三个面板，并使用 Skyline 原生 `swiper` 统一 Android 触控、PC 鼠标和程序翻页，不再维护一套仅在部分运行时生效的自定义 Pan Worklet。
-- P1 手排矩阵使用单一双轴 `scroll-view type=list`；20 个成员行作为直接子节点按视口绘制。`worklet:onscrollupdate` 在 UI 线程更新横向、纵向和进度 SharedValue；`applyAnimatedStyle` 的 updater 按官方典型写法直接捕获对应局部 SharedValue，页面实例保存同一对象供滚动 Worklet 写入。日期和人员冻结轨道显式使用 `{ flush: 'sync' }`，因为官方默认 `flush: 'async'` 会在下一渲染时间片应用样式，而同步配置才在当前时间片应用。不使用 WXS 或普通 `bindscroll`，避免跨运行路径带来的表头延迟。由于最低基础库固定为 3.0.2，本 PoC 不依赖 3.3.0 才提供且仅支持纵向的 `list-builder`；20×30 上限内不需要二维节点回收。
-- staging/production 构建当前须保留矩阵的 5 个函数首语句 `'worklet'` 指令；源码和产物测试同时约束两个冻结轨道捕获同一组 SharedValue，避免只在静态代码中存在。
+- P1 手排矩阵使用一个双轴 `scroll-view type=list` 承载主体，并用独立的横向日期表头与纵向人员表头 `scroll-view` 保持冻结语义。`NodesRef.ref()` 把两个表头引用存入页面实例 SharedValue；主体 `worklet:onscrollupdate` 在 UI 线程通过 `worklet.scrollViewContext.scrollTo()` 直接同步 `left`/`top`，`duration: 0` 且 `animated: false`。不使用 WXS、普通 `bindscroll` 或 `applyAnimatedStyle` 位移冻结层。该 API 要求基础库 3.3.0；20×30 上限内仍不需要二维节点回收。
+- staging/production 构建当前须保留矩阵至少 3 个函数首语句 `'worklet'` 指令；源码和产物测试同时约束两个表头 ref、直接 UI 线程 `scrollTo` 及滚动期间零 `setData`。

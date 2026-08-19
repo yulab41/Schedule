@@ -3,14 +3,14 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；用户人工真机反馈进一步确认当前 Web 月历为动态 5/6 周，并暴露小程序 Pan 手势、关键图标及矩阵冻结层的跨运行时差异。P1 已改为原生三面板 `swiper`、显式图标节点和 Worklet UI 线程表头同步，仍等待用户在 PC 模拟器与 Android 复测 A/B/C/D；明确反馈通过后才进入 P2
+- 状态：P0 与 P1 非视觉工具链已完成；月历已通过用户人工验收。矩阵的 SharedValue/`applyAnimatedStyle` 冻结方案经多次 Android 体验版复测仍固定，用户已批准把最低基础库提高到 3.3.0，并改用 UI 线程 `worklet.scrollViewContext` 直接同步三个滚动容器；C/D 通过后才进入 P2
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界
 
 1. 小程序与 Web/API 共用当前 monorepo，不建立第二个 Git 仓库；后端继续由 `apps/api` 和现有 ECS 提供 HTTPS API。
-2. 原生栈固定为 WXML、WXSS、TypeScript、JSON、Skyline 和 glass-easel；最低基础库 3.0.2，不提供 WebView 回退。
-3. `rendererOptions.skyline.disableABTest=true`，正式范围为 `3.0.2` 至 `15.255.255`。正式发布前记录实际 Stable 编译基础库。
+2. 原生栈固定为 WXML、WXSS、TypeScript、JSON、Skyline 和 glass-easel；最低基础库 3.3.0，不提供 WebView 回退。
+3. `rendererOptions.skyline.disableABTest=true`，正式范围为 `3.3.0` 至 `15.255.255`。正式发布前记录实际 Stable 编译基础库。
 4. 禁止 TDesign MiniProgram 和第三方 UI 库；基础控件、月历、排班格、弹层、导航和状态全部自绘。
 5. Web Storybook 是视觉黄金源；原生运行真值由用户人工操作微信开发者工具 GUI 和实体 Android 提供。LLM 永不启动、控制或自动化本地微信开发者工具。
 6. 源码采用确定性 `src → dist`；`dist`、私有配置、二维码、人工测试截图和上传私钥不进入 Git。
@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用一个横纵滚动主体、成员行纵向虚拟化和独立冻结覆盖层。每个可见成员行最多 30 格；`worklet:onscrollupdate` 在 UI 线程写入横纵 SharedValue，滚动 Worklet 和动画 updater 必须直接捕获同一词法 SharedValue 标识符，不得通过页面实例属性与局部变量的对象别名跨 Worklet 关联；两者分别驱动日期表头和人员列。冻结轨道的 `applyAnimatedStyle` 必须配置 `{ flush: 'sync' }`，使新样式在当前渲染时间片生效，而不是使用默认的下一时间片异步刷新；这是本项目最低基础库 3.0.2 已支持的能力。不经过 WXS/普通 `bindscroll`，滚动中不调用 `setData`；点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet 与动画样式](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
+手排采用一个横纵滚动主体、一个仅横向日期表头滚动容器、一个仅纵向人员表头滚动容器，以及固定左上角。每个可见成员行最多 30 格；`worklet:onscrollupdate` 在 UI 线程读取主体坐标，并以基础库 3.3.0 起提供的 `worklet.scrollViewContext.scrollTo()` 直接把 `left`/`top` 写入两个表头容器。三个 `NodesRef.ref()` 引用按官方模式保存在页面实例 SharedValue，不再依赖跨 Worklet 的 `applyAnimatedStyle` 对象身份或逻辑线程 WXS。同步调用使用 `duration: 0`、`animated: false`，滚动中不调用 `setData`；点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)、[微信官方 Skyline Scroll API 示例](https://github.com/wechat-miniprogram/skyline-skills/blob/master/skills/skyline-scroll-api/references/api/worklet-scroll-context.md)。
 
 ## 6. 网络、会话和缓存
 

@@ -58,51 +58,56 @@ describe('P1 native manual scheduling matrix PoC', () => {
     );
 
     expect(appConfig.pages).toContain('pages/manual-matrix-poc/index');
+    expect(appConfig.rendererOptions.skyline.sdkVersionBegin).toBe('3.3.0');
     expect(pageConfig.usingComponents).toEqual({
       'manual-schedule-cell': '/components/manual-schedule/manual-schedule-cell/index',
     });
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses one dual-axis viewport with same-frame Worklet synchronized frozen tracks', () => {
+  it('uses UI-thread ScrollViewContext to synchronize the body and two header viewports', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
     const worklets = findWorkletIssues(source, 'pages/manual-matrix-poc/index.ts');
 
-    expect(template.match(/<scroll-view/gu)).toHaveLength(1);
+    expect(template.match(/<scroll-view/gu)).toHaveLength(3);
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?scroll-y[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
     expect(template).not.toContain('bindscroll=');
     expect(template).not.toContain('<wxs');
     expect(template).toContain('wx:for="{{rows}}"');
-    expect(template).toContain('id="matrix-date-track"');
-    expect(template).toContain('id="matrix-member-track"');
+    expect(template).toMatch(
+      /<scroll-view[\s\S]*?id="matrix-date-scroll"[\s\S]*?scroll-x[\s\S]*?>/u,
+    );
+    expect(template).toMatch(
+      /<scroll-view[\s\S]*?id="matrix-member-scroll"[\s\S]*?scroll-y[\s\S]*?>/u,
+    );
     expect(template).toContain('<manual-schedule-cell');
     expect(template).not.toMatch(/<canvas/iu);
     expect(styles).toMatch(/\.matrix-corner\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-date-overlay\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
-    expect(source).toContain("'#matrix-date-track'");
-    expect(source).toContain("'#matrix-member-track'");
-    expect(source.match(/\{ flush: 'sync' \}/gu)).toHaveLength(2);
-    expect(source).toContain('const matrixScrollX = shared(0)');
-    expect(source).toContain('const matrixScrollY = shared(0)');
-    expect(source).toContain('translateX(${-matrixScrollX.value}px)');
-    expect(source).toContain('translateY(${-matrixScrollY.value}px)');
-    expect(source).toContain('matrixScrollX.value = Math.max(0, event.detail.scrollLeft)');
-    expect(source).toContain('matrixScrollY.value = Math.max(0, event.detail.scrollTop)');
-    expect(source).not.toContain('this._scrollX');
-    expect(source).not.toContain('this._scrollY');
+    expect(source).toContain("select('#matrix-date-scroll').ref(");
+    expect(source).toContain("select('#matrix-member-scroll').ref(");
+    expect(source).toContain('scrollViewContext.scrollTo(this._dateScrollRef.value');
+    expect(source).toContain('scrollViewContext.scrollTo(this._memberScrollRef.value');
+    expect(source).toContain('left: scrollLeft');
+    expect(source).toContain('top: scrollTop');
+    expect(source).not.toContain("applyAnimatedStyle('#matrix-date-track'");
+    expect(source).not.toContain("applyAnimatedStyle('#matrix-member-track'");
     expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBeGreaterThanOrEqual(5);
+    expect(worklets.count).toBeGreaterThanOrEqual(3);
   });
 
-  it('synchronizes frozen tracks on the UI thread without setData during scrolling', async () => {
+  it('synchronizes both header scroll views on the UI thread without setData', async () => {
     let definition;
+    const scrollTo = vi.fn();
     vi.stubGlobal('wx', {
       worklet: {
+        runOnJS: (callback) => callback,
+        scrollViewContext: { scrollTo },
         shared: (value) => ({ value }),
       },
     });
@@ -112,30 +117,29 @@ describe('P1 native manual scheduling matrix PoC', () => {
     vi.stubGlobal('Component', vi.fn());
     await import('../src/pages/manual-matrix-poc/index.ts');
     const setData = vi.fn();
-    const animatedStyles = [];
     const instance = {
       commitScrollProgress: definition.commitScrollProgress,
       data: structuredClone(definition.data),
-      applyAnimatedStyle(selector, updater, userConfig) {
-        animatedStyles.push({ selector, updater, userConfig });
-      },
+      applyAnimatedStyle: vi.fn(),
       setData,
     };
     definition.onLoad.call(instance, { mode: 'daily' });
+    instance._dateScrollRef.value = 'date-ref';
+    instance._memberScrollRef.value = 'member-ref';
     definition.handleGridScroll.call(instance, {
       detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
     });
 
-    const styleBySelector = Object.fromEntries(
-      animatedStyles.map(({ selector, updater }) => [selector, updater()]),
-    );
-    expect(styleBySelector['#matrix-date-track']).toEqual({ transform: 'translateX(-216px)' });
-    expect(styleBySelector['#matrix-member-track']).toEqual({ transform: 'translateY(-132px)' });
-    expect(
-      animatedStyles
-        .filter(({ selector }) => selector !== '#matrix-scroll-thumb')
-        .map(({ userConfig }) => userConfig),
-    ).toEqual([{ flush: 'sync' }, { flush: 'sync' }]);
+    expect(scrollTo).toHaveBeenNthCalledWith(1, 'date-ref', {
+      animated: false,
+      duration: 0,
+      left: 216,
+    });
+    expect(scrollTo).toHaveBeenNthCalledWith(2, 'member-ref', {
+      animated: false,
+      duration: 0,
+      top: 132,
+    });
     expect(setData).not.toHaveBeenCalled();
   });
 

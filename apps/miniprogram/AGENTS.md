@@ -36,7 +36,7 @@ These rules apply to `apps/miniprogram/**` and extend the repository-root `AGENT
 
 ## Runtime and code boundaries
 
-- Production pages use native WXML, WXSS, TypeScript, JSON, Skyline, and glass-easel. Minimum base library is 3.0.2; there is no WebView fallback.
+- Production pages use native WXML, WXSS, TypeScript, JSON, Skyline, and glass-easel. Minimum base library is 3.3.0; there is no WebView fallback. This compatibility floor is required by the approved UI-thread `worklet.scrollViewContext` matrix synchronization architecture.
 - Source lives in `src/`; generated output lives in ignored `dist/`. Do not hand-edit `dist/`.
 - Shared runtime code must be DOM-free, Node-free, database-free, and Zod-free in the Mini Program bundle.
 - Preserve `'worklet'` as the first statement of each Worklet function and run the Worklet output audit after every relevant build change.

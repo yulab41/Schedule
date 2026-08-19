@@ -96,7 +96,15 @@
       </view>
     </scroll-view>
 
-    <view class="matrix-date-overlay">
+    <scroll-view
+      id="matrix-date-scroll"
+      class="matrix-date-overlay"
+      scroll-x
+      enhanced
+      show-scrollbar="{{false}}"
+      bounces="{{false}}"
+      aria-label="日期与节假日表头"
+    >
       <view id="matrix-date-track" class="matrix-date-track" style="width:{{dateTrackWidth}}px">
         <view class="date-header-row">
           <view
@@ -115,16 +123,24 @@
           </view>
         </view>
       </view>
-    </view>
+    </scroll-view>
 
-    <view class="matrix-member-overlay">
+    <scroll-view
+      id="matrix-member-scroll"
+      class="matrix-member-overlay"
+      scroll-y
+      enhanced
+      show-scrollbar="{{false}}"
+      bounces="{{false}}"
+      aria-label="值班人员表头"
+    >
       <view id="matrix-member-track" class="matrix-member-track">
         <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
           <text>{{item.realName}}</text>
           <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
         </view>
       </view>
-    </view>
+    </scroll-view>
 
     <view class="matrix-corner">
       <view class="corner-member">值班人员 ↓</view>

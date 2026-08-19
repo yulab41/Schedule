@@ -37,10 +37,18 @@ interface SelectorRect {
   readonly width: number;
 }
 
+interface SelectorReference {
+  readonly ref: unknown;
+}
+
 interface ManualMatrixPageInstance {
   _commitScrollProgress: (progress: number) => void;
+  _dateScrollRef: MiniProgramSharedValue<unknown | null>;
+  _memberScrollRef: MiniProgramSharedValue<unknown | null>;
+  _scrollProgress: MiniProgramSharedValue<number>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
+  _viewportWidth: MiniProgramSharedValue<number>;
   readonly data: ManualMatrixPocViewModel;
   applyAnimatedStyle(
     selector: string,
@@ -51,72 +59,73 @@ interface ManualMatrixPageInstance {
   createSelectorQuery(): {
     select(selector: string): {
       boundingClientRect(callback: (rect: SelectorRect) => void): unknown;
+      ref(callback: (reference: SelectorReference) => void): unknown;
     };
     exec(): void;
   };
   setData(patch: Record<string, unknown>): void;
 }
 
-const { runOnJS, shared } = wx.worklet;
+const { runOnJS, scrollViewContext, shared } = wx.worklet;
 const defaultViewModel = createManualMatrixPocViewModel('daily');
-const matrixScrollProgress = shared(0);
-const matrixScrollX = shared(0);
-const matrixScrollY = shared(0);
-const matrixViewportWidth = shared(1);
 
 Page({
   data: defaultViewModel,
   onLoad(this: ManualMatrixPageInstance, options: { readonly mode?: string } = {}): void {
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
-    matrixScrollProgress.value = 0;
-    matrixScrollX.value = 0;
-    matrixScrollY.value = 0;
-    matrixViewportWidth.value = 1;
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
+    this._dateScrollRef = shared<unknown | null>(null);
+    this._memberScrollRef = shared<unknown | null>(null);
+    this._scrollProgress = shared(0);
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
-    this.applyAnimatedStyle(
-      '#matrix-date-track',
-      () => {
-        'worklet';
-        return { transform: `translateX(${-matrixScrollX.value}px)` };
-      },
-      { flush: 'sync' },
-    );
-    this.applyAnimatedStyle(
-      '#matrix-member-track',
-      () => {
-        'worklet';
-        return { transform: `translateY(${-matrixScrollY.value}px)` };
-      },
-      { flush: 'sync' },
-    );
+    this._viewportWidth = shared(1);
     this.applyAnimatedStyle('#matrix-scroll-thumb', () => {
       'worklet';
-      return { transform: `translateX(${matrixScrollProgress.value * 36}px)` };
+      return { transform: `translateX(${this._scrollProgress.value * 36}px)` };
     });
     if (mode !== defaultViewModel.mode) this.setData({ ...viewModel });
   },
   onReady(this: ManualMatrixPageInstance): void {
     const query = this.createSelectorQuery();
+    query.select('#matrix-date-scroll').ref((reference) => {
+      this._dateScrollRef.value = reference.ref;
+    });
+    query.select('#matrix-member-scroll').ref((reference) => {
+      this._memberScrollRef.value = reference.ref;
+    });
     query.select('.matrix-scroll').boundingClientRect((rect) => {
-      matrixViewportWidth.value = Math.max(1, rect.width);
+      this._viewportWidth.value = Math.max(1, rect.width);
     });
     query.exec();
   },
   handleGridScroll(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';
-    matrixScrollX.value = Math.max(0, event.detail.scrollLeft);
-    matrixScrollY.value = Math.max(0, event.detail.scrollTop);
-    const scrollWidth = event.detail.scrollWidth ?? matrixViewportWidth.value;
-    const maximumScroll = Math.max(1, scrollWidth - matrixViewportWidth.value);
-    matrixScrollProgress.value = Math.max(0, Math.min(1, matrixScrollX.value / maximumScroll));
+    const scrollLeft = Math.max(0, event.detail.scrollLeft);
+    const scrollTop = Math.max(0, event.detail.scrollTop);
+    if (this._dateScrollRef.value !== null) {
+      scrollViewContext.scrollTo(this._dateScrollRef.value, {
+        left: scrollLeft,
+        duration: 0,
+        animated: false,
+      });
+    }
+    if (this._memberScrollRef.value !== null) {
+      scrollViewContext.scrollTo(this._memberScrollRef.value, {
+        top: scrollTop,
+        duration: 0,
+        animated: false,
+      });
+    }
+    const scrollWidth = event.detail.scrollWidth ?? this._viewportWidth.value;
+    const maximumScroll = Math.max(1, scrollWidth - this._viewportWidth.value);
+    this._scrollProgress.value = Math.max(0, Math.min(1, scrollLeft / maximumScroll));
   },
   handleGridScrollEnd(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';
-    const scrollWidth = event.detail.scrollWidth ?? matrixViewportWidth.value;
-    const maximumScroll = Math.max(1, scrollWidth - matrixViewportWidth.value);
+    const scrollWidth = event.detail.scrollWidth ?? this._viewportWidth.value;
+    const maximumScroll = Math.max(1, scrollWidth - this._viewportWidth.value);
     const progress = Math.max(0, Math.min(1, event.detail.scrollLeft / maximumScroll));
     runOnJS(this._commitScrollProgress)(progress);
   },

@@ -18,7 +18,7 @@
 
 ## Skyline 全量
 
-正式包保留 `disableABTest: true` 和 `sdkVersionBegin: 3.0.2`/`sdkVersionEnd: 15.255.255`，避免 Skyline/WebView AB 分流。体验版先验证实际 renderer 和客户端范围。
+正式包保留 `disableABTest: true` 和 `sdkVersionBegin: 3.3.0`/`sdkVersionEnd: 15.255.255`，避免 Skyline/WebView AB 分流。体验版先验证实际 renderer、`worklet.scrollViewContext` 和客户端范围。
 
 ## 回滚
 
