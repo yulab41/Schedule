@@ -7,8 +7,10 @@
 - 批次范围：继续以现有员工通讯录清洗结果为唯一数据集合；姓名/工号/所属部门清单仍只用于提取和配对工号，不从清单新增人员。候选冲突时优先唯一的 `d`/`g` 开头工号；没有唯一 `d`/`g` 候选则不猜测、不写工号。
 - 数据结果：原员工目录保持 1070 条；1015 条按姓名+路径部门匹配，49 条按唯一姓名补配，共 1064 条写入工号；冲突数降为 0，6 条无候选继续保留空缺，人工核对清单更新至本机 ignored 的 `runtime/directory-data/employee/2026-08-19/employee-identity-match-report.json`。本地 manifest `employee-20260819-b443f8cc-ee8eefa6`，SHA-256 `1b840957e3b4eb6a90a393297890335f961b5d9b854f2f34f10c1e8ff37354f6`，条目数保持 1070。
 - 验证：匹配器/清洗器定向 2 文件/8 项通过；排除用户自有 `runtime/**`、`src/**` 与小程序依赖缺失测试的主工作区 Vitest 111 文件/674 项通过（31 文件/262 项按环境跳过）；infra TypeScript、Prettier、任务文件 ESLint、`git diff --check` 通过。未恢复本机既有依赖符号，也未改动用户所有的 `apps/miniprogram/project.config.json`、`pnpm-workspace.yaml`、`runtime/`、`src/`。
-- 当前状态：代码与本地 manifest 已更新，待提交、推送、生产备份、部署和线上只读核验；6 条无候选仍交人工核对，不自动填写结论。
-- 下一批次与停止条件：完成本批次单一 checkpoint 的提交、推送、生产备份、部署、员工数据原子发布和 `ecs-verify.sh`，确认 Git、origin 与服务器 release 一致后停止，等待人工核对。
+- 正式发布：代码 checkpoint `e5a6077` 已推送并部署。代码发布前备份 archive `95d2c1ba-a0bf-4395-a517-cc7d80c801e0`（50 表、112,468 行、48,259,892 字节，SHA-256 `86f0a2edca225e1a6acdc1ab2b70e309baf02d5c3d27dbc95a5a390be7882e05`）；release `e5a60777c9857cb87af91d9cb34e5cc239f7990c` 已部署，预热期间一次 502 后自动恢复，`ecs-verify.sh` 通过。
+- 正式数据发布：数据发布前第二次备份 archive `0f1bb789-4c25-4604-9110-fa3b87afdbc4`（50 表、112,477 行、48,263,136 字节，SHA-256 `e97575e3175acc7370848f5c7dd2edebcba961d80d5ec6e92fb89c31a3d9e287`）；员工 manifest 通过 SSH stdin dry-run 为 added 0、changed 4、unchanged 1066、removed 0、warnings 0，原子发布批次 `b631ec70-cbec-4c8b-9abe-462b7ac20995`，替换 `1b6152d0-a3cf-487b-9d6e-6386e6a82422`，发布流 manifest SHA-256 `c8b9503f3f4d25e465181d7f33ac6a092fa6f8961da8ace911805f92573960eb`。生产 employee 1070 条目、1073 个联系方式、29724 个别名、1064 个工号字段、6 条空缺；internal 快照未变，原目录未新增清单人员。
+- 当前状态：已完成（含代码发布、数据原子发布、备份、`ecs-verify.sh` 与线上只读聚合核验）→待人工核对 6 条无候选内容；不自动填写人工结论。
+- 下一批次与停止条件：只提交、推送并部署本状态文档 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后等待人工核对，不开始其他实现任务。
 
 ## 2026-08-19 员工通讯录显示数据去噪（已完成，待用户复核）
 
