@@ -67,4 +67,41 @@ describe('employee identity matching', () => {
       { candidateCodes: [], level: '医院/科室', name: '未知', reason: 'not_found' },
     ]);
   });
+
+  it('prefers a unique d or g code when the same department has competing candidates', () => {
+    const result = matchEmployeeDirectoryRecords(
+      [record('陈斯洁', ['医院', '放疗科二区（头颈及胸部放疗科）病房'])],
+      [
+        {
+          department: '放疗科二区（头颈及胸部放疗科）病房',
+          employeeCode: 'x0112',
+          name: '陈斯洁',
+          sourcePhone: '1',
+        },
+        {
+          department: '放疗科二区（头颈及胸部放疗科）病房',
+          employeeCode: 'd0860',
+          name: '陈斯洁',
+          sourcePhone: '2',
+        },
+      ],
+    );
+
+    expect(result.records[0]?.employeeCode).toBe('d0860');
+    expect(result.report.ambiguousCurrentRecordCount).toBe(0);
+    expect(result.report.matchedByDepartmentCount).toBe(1);
+  });
+
+  it('does not guess when competing candidates have no d or g code', () => {
+    const result = matchEmployeeDirectoryRecords(
+      [record('重名', ['医院', '科室'])],
+      [
+        { department: '科室', employeeCode: 'x0001', name: '重名', sourcePhone: '1' },
+        { department: '科室', employeeCode: 'h0002', name: '重名', sourcePhone: '2' },
+      ],
+    );
+
+    expect(result.records[0]?.employeeCode).toBeUndefined();
+    expect(result.report.ambiguousCurrentRecordCount).toBe(1);
+  });
 });

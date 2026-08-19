@@ -2,16 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-19 员工通讯录工号配对（已完成，待人工复核）
+## 2026-08-19 员工通讯录工号前缀优先配对（当前批次）
 
-- 批次范围：以现有员工通讯录清洗结果为唯一数据集合；用户提供的姓名/工号/所属部门清单只用于提取和配对工号，不从清单新增人员。新增 `employee_code` 字段、工号搜索别名和卡片标题展示，未唯一匹配项保持空缺。
-- 数据结果：原员工目录 1070 条仍为 1070 条；1012 条姓名+路径部门匹配，48 条唯一姓名补配，1060 条写入工号；4 条候选冲突、6 条无候选，人工核对清单写入本机 ignored 的 `runtime/directory-data/employee/2026-08-19/employee-identity-match-report.json`。本地 manifest `employee-20260819-b443f8cc-1e20641f` SHA-256 `a0d30cf7eb05734a71c3f783eda335af6be46c7ded12427cca07f697059d5e3c`，条目数保持 1070。
-- 本地发布：迁移 0040 已应用；dry-run added 0、changed 1060、unchanged 10、removed 0、warnings 0；本地发布批次 `c81dc2b7-1fe8-4c2a-8e4f-09fd77809969`，替换 `231ada79-3cde-4370-a07d-26ee6d1e2683`。
-- 验证：匹配器/清洗器/合同/展示分组与全仓非集成 Vitest 121 文件/712 项通过（31 文件/262 项按环境跳过）；API、数据库、合同、infra TypeScript 编译通过；Web Vite 构建通过；`node scripts/smoke-browser.mjs` 通过管理员、成员、访客/vkey、访问记录、员工中文搜索和工号搜索；`node scripts/smoke-browser.mjs --check-core` 通过；Prettier、任务文件 ESLint、`git diff --check` 通过。`vue-tsc` 本机依赖符号已被既有 ECS 打包流程移除，未替换用户依赖树。
-- 正式发布：代码 checkpoint `e92586b` 已推送并部署；发布前加密数据库备份 archive `f9c8ac3c-272d-44ca-82e2-59bc16a39388`（50 表、80,441 行、34,325,564 字节，SHA-256 `54048836162db81bbbc7e71e2c0bb4c9d4113bf60b2434a4c898737f929fb5b8`）。release `e92586b031d1a1491a29a5e91c9f7dddbb4cf192` 已部署，迁移 0040 应用，预热期间一次 502 后自动恢复，`ecs-verify.sh` 完整通过，正式 API health 200。
-- 正式数据发布：manifest SHA-256 `a0d30cf7eb05734a71c3f783eda335af6be46c7ded12427cca07f697059d5e3c`；SSH stdin dry-run added 0、changed 1060、unchanged 10、removed 0、warnings 0，原子批次 `1b6152d0-a3cf-487b-9d6e-6386e6a82422`，替换 `df42ee6c-fbd3-4ba8-96f3-e22ff3486261`。生产 employee 1070 条目、1073 个联系方式、29720 个别名、1060 个工号字段、0 条备注；原目录未新增清单人员。
-- 当前状态：已完成（含代码、数据发布与线上只读核验）→待人工复核上述 10 条未唯一匹配内容；不自动填写人工结论。
-- 下一批次与停止条件：只提交、推送并部署本状态文档 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致；随后等待人工复核，不开始其他实现任务。
+- 批次范围：继续以现有员工通讯录清洗结果为唯一数据集合；姓名/工号/所属部门清单仍只用于提取和配对工号，不从清单新增人员。候选冲突时优先唯一的 `d`/`g` 开头工号；没有唯一 `d`/`g` 候选则不猜测、不写工号。
+- 数据结果：原员工目录保持 1070 条；1015 条按姓名+路径部门匹配，49 条按唯一姓名补配，共 1064 条写入工号；冲突数降为 0，6 条无候选继续保留空缺，人工核对清单更新至本机 ignored 的 `runtime/directory-data/employee/2026-08-19/employee-identity-match-report.json`。本地 manifest `employee-20260819-b443f8cc-ee8eefa6`，SHA-256 `1b840957e3b4eb6a90a393297890335f961b5d9b854f2f34f10c1e8ff37354f6`，条目数保持 1070。
+- 验证：匹配器/清洗器定向 2 文件/8 项通过；排除用户自有 `runtime/**`、`src/**` 与小程序依赖缺失测试的主工作区 Vitest 111 文件/674 项通过（31 文件/262 项按环境跳过）；infra TypeScript、Prettier、任务文件 ESLint、`git diff --check` 通过。未恢复本机既有依赖符号，也未改动用户所有的 `apps/miniprogram/project.config.json`、`pnpm-workspace.yaml`、`runtime/`、`src/`。
+- 当前状态：代码与本地 manifest 已更新，待提交、推送、生产备份、部署和线上只读核验；6 条无候选仍交人工核对，不自动填写结论。
+- 下一批次与停止条件：完成本批次单一 checkpoint 的提交、推送、生产备份、部署、员工数据原子发布和 `ecs-verify.sh`，确认 Git、origin 与服务器 release 一致后停止，等待人工核对。
 
 ## 2026-08-19 员工通讯录显示数据去噪（已完成，待用户复核）
 

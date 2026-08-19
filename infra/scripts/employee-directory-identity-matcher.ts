@@ -95,17 +95,21 @@ export function matchEmployeeDirectoryRecords(
         (level) => normalizeMatchText(level) === normalizeMatchText(identity.department),
       ),
     );
+    const candidatePool = departmentCandidates.length > 0 ? departmentCandidates : candidates;
+    const preferredCandidates = candidatePool.filter((identity) =>
+      isPreferredEmployeeCode(identity.employeeCode),
+    );
     const selected =
-      departmentCandidates.length === 1
-        ? departmentCandidates[0]
-        : departmentCandidates.length > 1
+      preferredCandidates.length === 1
+        ? preferredCandidates[0]
+        : preferredCandidates.length > 1
           ? undefined
-          : candidates.length === 1
-            ? candidates[0]
+          : candidatePool.length === 1
+            ? candidatePool[0]
             : undefined;
 
     if (selected !== undefined) {
-      if (departmentCandidates.length === 1) matchedByDepartmentCount += 1;
+      if (departmentCandidates.length > 0) matchedByDepartmentCount += 1;
       else matchedByNameOnlyCount += 1;
       return { ...record, employeeCode: selected.employeeCode };
     }
@@ -143,4 +147,8 @@ function normalizeMatchText(value: string): string {
     .replaceAll(/\s+/gu, '')
     .replace(/\(停用\)$/u, '')
     .toLocaleLowerCase('zh-CN');
+}
+
+function isPreferredEmployeeCode(employeeCode: string): boolean {
+  return /^[dg]/iu.test(employeeCode.trim());
 }
