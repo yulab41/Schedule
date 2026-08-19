@@ -180,6 +180,9 @@
 - 本轮架构调整：用户确认沿用 Web 的单一 DOM 滚动语义。矩阵现在只有一个 `scroll-view type=list scroll-x`；日期/节假日表头直接作为同一内容树的首个子节点，班次行作为后续子节点，取消独立日期/人员滚动容器和每帧 `ScrollViewContext.scrollTo()`。矩阵高度按 `82 + rows × 44` 动态延展（7×7 为 390px，20×30 为 962px），纵向交给页面整体滚动；左侧人员列和左上角为静态覆盖层，仅横向冻结。Worklet 只更新滚动进度 SharedValue/进度条，普通 `bindscroll` 仅作为进度提示兜底，不再同步表头。该结构对应官方 Skyline 对单轴 scroll-view、type=list 直接子节点按需绘制和 Worklet UI 线程更新的约束，详见 `apps/miniprogram/docs/architecture/runtime-and-build.md` 与 `apps/miniprogram/docs/runbooks/manual-native-testing.md`。
 - 回归定位：`git log -S 'matrix-date-scroll'`/`git blame` 确认三个滚动容器由 `6cc7463` 引入，`ScrollViewContext.scrollTo` 由 `7e73686` 引入；本轮先修改矩阵结构测试，旧实现因 3 个 `<scroll-view>`、独立表头和 `scrollTo` 明确失败，再移除竞争路径。
 - 本轮验证：回归测试先要求单一横向滚动容器和页面纵向增长，旧三容器实现明确失败；切换后 Mini 全套 10 文件/40 项、typecheck、staging build、源码/包体审计、确定性、CI dry-run、Prettier、`git diff --check` 通过。staging 包体 104,759 bytes，manifest `dde91887efd8abe89a4f0869e827084a74f641d33349c961c90174afb4deb06c`。尚未进行本轮微信上传和用户人工真机复核。
+- 本轮代码 checkpoint：`e1a597d`（`fix(miniprogram): use single matrix scroll context`）已提交并推送；从该 commit 的隔离 worktree 构建并部署 ECS release `e1a597dbadcdd4542513e594422179dd22cc5b64`，发布脚本、数据库迁移、正式域名健康、产物哈希、容器和未知 Host 隔离全部通过（预热期间一次 502 后恢复）。
+- 本轮微信体验上传：官方 Summer 编译处理 48 个代码文件，上传包 31,948 bytes；体验版本 `0.1.0-p1.20260819.10`、robot 1、staging profile、manifest `dde91887efd8abe89a4f0869e827084a74f641d33349c961c90174afb4deb06c` 已上传微信开发平台。未提交审核、未正式发布、未启动或控制本地开发者工具。
+- 当前状态：`e1a597d` 已提交、推送、ECS 部署并上传体验版；等待用户人工复测新的单一横向滚动/页面纵向滚动结构，P1 仍不能进入 P2。用户人工复测不使用 MiniTest 云测。
 - 微信上传状态：`.7` 因 IPv6 出口被微信平台拒绝；使用本机 IPv4 HTTP 代理 `127.0.0.1:7892` 后，体验版本 `0.1.0-p1.20260819.8` 已上传成功。提交 `b152355` 的新代码随后以版本 `0.1.0-p1.20260819.9`、robot 1、staging profile、manifest `6290b21d17343a62bc095b3b2e5871b43944c3b245ddcc33568b0fb65b94ca94` 上传成功；未提交审核或正式发布，未启动开发者工具。
 - 当前状态：`b152355` 已提交、推送、部署 ECS 并上传微信体验版，待用户人工原生复核；P1 仍不能进入 P2。
 - 下一批次：提交并上传本轮 checkpoint 后，用户人工复测 `0.1.0-p1` 最新体验版的 7×7 横向、20×30 横向/纵向/双向滚动和顶部蓝条；通过后再继续 P1 C/D，失败需提供具体设备/手势/延迟现象。
