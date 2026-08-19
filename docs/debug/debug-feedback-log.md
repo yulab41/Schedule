@@ -9,7 +9,8 @@
 - 实现与语义：员工工号使用数据库字段精确/前缀排序（不依赖别名）；中文、拼音、首字母、号码和权限/分页保持。移除 T9 导入生成和数字匹配分支，迁移删除历史 T9 别名并收窄枚举；员工移动电话行改为号码全宽单列，固定电话标签仍保留。请求、Promise/catch、空值和副作用路径未改变。部署前发现 `ecs-verify.sh` 仍断言 40 条迁移，已更新为本批次迁移后的 41 条。
 - 运行/浏览器验证：真实 MySQL API、导入、迁移 3 文件/21 项通过；Web/API/contracts/database typecheck、任务文件 ESLint/Prettier、`git diff --check` 通过。`SMOKE_BASE_URL=http://127.0.0.1:5173 node scripts/smoke-browser.mjs` 通过管理员、成员、访客/vkey、访问记录、员工中文/工号搜索及电话布局；`node scripts/smoke-browser.mjs --check-core` 通过，确认未涉及核心链路。
 - 正式发布与核验：代码 checkpoint `427ff6b` 与部署验证修正 checkpoint `5704242` 已推送；发布前数据库备份 archive `6d798463-f2c1-4b22-a3c2-2e1c297ebead`（50 表、144597 行、62174612 字节，SHA-256 `157c51c67f0d5724687ef6b27beac82e33d2432a2dc187ec862723cfbd86796e`）；release `5704242e1b5aefb704f940c31668ee0f6f7343d0` 已部署，预热两次 502 后恢复，`ecs-verify.sh` 通过并确认 41 条迁移。正式域名 `/api/health` 200；生产 employee/internal 快照 1070/1073、341/359，1064 条 employee 记录含工号，T9 别名为 0、枚举不含 `t9`。仅执行只读核验，未写业务数据。
-- 当前状态：已完成（含运行验证、代码发布与线上只读核验）→待用户复核；需再提交并部署本状态文档 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致。
+- 最终状态发布：状态文档 checkpoint `a840572` 已推送并部署；文档发布前数据库备份 archive `7f0bb519-b706-4b6d-a733-5d4a0b4f10ba`（50 表、106421 行、47263568 字节，SHA-256 `d7d802c24146957b10b4c08413095c8c07277fd6504bcce0e7429e3dc1d9c642`）；release `a8405721ddb35693c6fa480d536d02f1d079af28` 的健康、产物哈希、域名隔离、容器与 41 条迁移核验通过。
+- 当前状态：已完成（含运行验证、代码发布、状态文档发布与线上只读核验）→待用户复核；不再开始其他实现任务。
 
 ## 2026-08-19 员工通讯录工号前缀优先配对（当前轮次）
 
