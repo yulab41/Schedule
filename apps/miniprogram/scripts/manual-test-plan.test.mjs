@@ -34,7 +34,9 @@ describe('P1 user-operated native test plan', () => {
       ['initial', 'horizontal-header-sync', 'cell-selected', 'undo'],
       [
         'initial',
+        'pc-body-rendered',
         'adaptive-remaining-height',
+        'page-scroll-isolated',
         'horizontal-date-body-sync',
         'vertical-member-body-sync',
         'diagonal-axis-lock',

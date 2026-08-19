@@ -214,8 +214,16 @@ page {
   background: var(--ui-color-surface);
 }
 
+.matrix-scroll-content {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  background: var(--ui-color-surface);
+}
+
 .matrix-date-content {
   height: 82px;
+  flex: none;
   background: var(--ui-color-surface);
   border-bottom: 1px solid var(--ui-color-border);
   box-sizing: border-box;

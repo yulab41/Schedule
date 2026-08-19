@@ -90,6 +90,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     expect(appConfig.pages).toContain('pages/manual-matrix-poc/index');
     expect(appConfig.rendererOptions.skyline.sdkVersionBegin).toBe('3.3.0');
+    expect(pageConfig.disableScroll).toBe(true);
     expect(pageConfig.usingComponents).toEqual({
       'manual-schedule-cell': '/components/manual-schedule/manual-schedule-cell/index',
     });
@@ -112,6 +113,10 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).not.toContain('worklet:should-response-on-move');
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
+    );
+    expect(template.match(/class="matrix-scroll-content"/gu)).toHaveLength(1);
+    expect(template).toMatch(
+      /<scroll-view[\s\S]*?<view[\s\S]*?class="matrix-scroll-content"[\s\S]*?class="matrix-date-content"[\s\S]*?class="matrix-body-viewport"[\s\S]*?<\/view>[\s\S]*?<\/scroll-view>/u,
     );
     expect(template).toContain('bindscroll="handleGridScrollFallback"');
     expect(template).not.toContain('scroll-y');

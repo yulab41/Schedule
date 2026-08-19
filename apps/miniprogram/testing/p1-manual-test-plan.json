@@ -52,7 +52,9 @@
       "storybookStoryId": "miniprogram-parity-p1-manual-matrix--maximum-390",
       "states": [
         "initial",
+        "pc-body-rendered",
         "adaptive-remaining-height",
+        "page-scroll-isolated",
         "horizontal-date-body-sync",
         "vertical-member-body-sync",
         "diagonal-axis-lock",
