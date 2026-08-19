@@ -466,8 +466,8 @@ async function assertResponsiveWorkbenchShell(page) {
 
 async function assertHospitalDirectory(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
-  const directoryNav = page.locator('.workbench-sidebar button', { hasText: '院内通讯录' }).first();
-  if ((await directoryNav.count()) === 0) fail('管理员工作台缺少“院内通讯录”入口。');
+  const directoryNav = page.locator('.workbench-sidebar button', { hasText: '通讯录' }).first();
+  if ((await directoryNav.count()) === 0) fail('管理员工作台缺少“通讯录”入口。');
   await directoryNav.click();
   await page.locator('.internal-directory').waitFor({ state: 'visible', timeout: 15000 });
   await page.locator('.wayfinding-stop').first().waitFor({ state: 'visible', timeout: 15000 });
@@ -506,7 +506,7 @@ async function assertHospitalDirectory(page) {
   if (initial.wayfindingOverflow) fail('1280px 院区导览仍依赖横向滚动。');
   if (initial.overflow) fail('1280px 院内通讯录出现横向溢出。');
 
-  const search = page.getByRole('searchbox', { name: '搜索院内通讯录' });
+  const search = page.getByRole('searchbox', { name: '搜索科室通讯录' });
   await search.fill('病案');
   await search.press('Enter');
   await page.waitForFunction(
@@ -603,7 +603,7 @@ async function assertHospitalDirectory(page) {
   );
 
   await page.locator('.filter-open-action').click();
-  const iconOpenedFilterSheet = page.locator('dialog[open][aria-label="筛选院内通讯录"]');
+  const iconOpenedFilterSheet = page.locator('dialog[open][aria-label="筛选科室通讯录"]');
   await iconOpenedFilterSheet.waitFor({ state: 'visible', timeout: 5000 });
   const filterSheetLayout = await iconOpenedFilterSheet.evaluate((dialog) => {
     const reset = dialog.querySelector('.sheet-reset-action');
@@ -643,7 +643,7 @@ async function assertHospitalDirectory(page) {
     (await targetStop.count()) > 0 ? targetStop : page.locator('.wayfinding-stop').last();
   const targetFilterKey = await filterStop.getAttribute('data-filter-key');
   await filterStop.click();
-  const filterSheet = page.locator('dialog[open][aria-label="筛选院内通讯录"]');
+  const filterSheet = page.locator('dialog[open][aria-label="筛选科室通讯录"]');
   await filterSheet.waitFor({ state: 'visible', timeout: 5000 });
   if (targetFilterKey === null) fail('院区导览层级缺少筛选定位标识。');
   const locatedSection = filterSheet.locator(
@@ -752,15 +752,16 @@ async function assertHospitalDirectory(page) {
 
 async function assertEmployeeDirectory(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
-  const directoryNav = page.locator('.workbench-sidebar button', { hasText: '员工通讯录' }).first();
-  if ((await directoryNav.count()) === 0) fail('管理员工作台缺少“员工通讯录”入口。');
+  const directoryNav = page.locator('.workbench-sidebar button', { hasText: '通讯录' }).first();
+  if ((await directoryNav.count()) === 0) fail('管理员工作台缺少“通讯录”入口。');
   await directoryNav.click();
+  await page.getByRole('tab', { name: '人员' }).click();
   await page.locator('.internal-directory').waitFor({ state: 'visible', timeout: 15000 });
   await page.locator('.wayfinding-stop').first().waitFor({ state: 'visible', timeout: 15000 });
 
   const heading = await page.locator('#directory-title').innerText();
-  if (heading !== '员工通讯录') fail('员工通讯录页面标题不正确。');
-  const search = page.getByRole('searchbox', { name: '搜索员工通讯录' });
+  if (heading !== '人员通讯录') fail('人员通讯录页面标题不正确。');
+  const search = page.getByRole('searchbox', { name: '搜索人员通讯录' });
   const placeholder = await search.getAttribute('placeholder');
   if (placeholder === null || !placeholder.includes('工号') || placeholder.includes('T9')) {
     fail('员工通讯录搜索框未提示工号搜索，或仍提示已移除的 T9 搜索。');
@@ -834,7 +835,7 @@ async function assertEmployeeDirectory(page) {
   await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);
 
   await page.locator('.filter-open-action').click();
-  const filterSheet = page.locator('dialog[open][aria-label="筛选员工通讯录"]');
+  const filterSheet = page.locator('dialog[open][aria-label="筛选人员通讯录"]');
   await filterSheet.waitFor({ state: 'visible', timeout: 5000 });
   if ((await filterSheet.locator('[aria-labelledby="directory-filter-section"]').count()) === 0) {
     fail('员工通讯录筛选面板缺少组织层级筛选。');
@@ -2650,11 +2651,11 @@ async function runSmoke() {
     if (
       (await page
         .locator('.workbench-sidebar button, .workbench-bottom-nav button', {
-          hasText: '院内通讯录',
+          hasText: '通讯录',
         })
         .count()) !== 1
     ) {
-      fail('成员模式缺少“院内通讯录”导航入口。');
+      fail('成员模式缺少“通讯录”导航入口。');
     }
     await assertRegularMemberDirectory(page);
     assertNoErrors(errors, '成员模式');

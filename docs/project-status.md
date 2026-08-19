@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-19 科室/人员通讯录合并（当前批次）
+
+- 批次范围：按用户确认的 Storybook 方案，将独立“院内通讯录”和“员工通讯录”合并为单一“通讯录”入口；页面顶部以“科室 / 人员”双标签切换，各模式继续显示原有导览、筛选、搜索、收藏、常用和拨号内容。不修改通讯录 API、快照、号码、权限、偏好结构或数据库。
+- 回归定位与测试先行：`git log -S` / `git blame` 确认独立员工入口与页面分支由 `9bc4922` 引入、院内入口由 `8309dce` 引入；合并契约测试在旧实现上 9 项失败，实现后任务定向 23 项通过。移除独立入口但不改变两套数据源方法、参数、调用次数、拒绝/取消/空值路径。
+- 实现与交互：新增生产 `UnifiedDirectoryView`，复用原 `InternalDirectoryView` 和两套既有 API 数据源；`KeepAlive` 为科室/人员分别保存搜索、筛选和本地视图状态，切回时不重置。标签支持点击、左右键、Home/End 与正确焦点；44px 触控目标、`focus-visible`、减少动态效果和 320/390/1280px 自适应均已覆盖。Storybook 直接引用生产组件，仅注入脱敏演示数据。
+- 语义等价审计：API 成员调用仍由闭包保持接收者绑定，每次原操作仍只调用一次；异步错误、请求取消、群组切换、偏好读写和空查询语义继续由原组件处理。模式切换只挂载/激活对应缓存实例，不创建重复 DOM/ID；无契约、迁移或业务数据变更。
+- 验证：任务文件 Prettier/ESLint、Web typecheck/生产 build、Storybook build 通过；Web 全量 Vitest 71 文件/479 项通过。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过登录、管理员、成员、访客/vkey、访问记录全流程及单一“通讯录”入口、科室/人员切换、对应搜索和筛选；浏览器 error 为 0，移动端截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-ayuw5Q`。
+- 工作树隔离：根 `format:check` 仅被用户已有的 `apps/miniprogram/project.config.json` 与 `storybook-static-my-profile/` 产物格式拦截；用户已有的 `pnpm-workspace.yaml`、个人资料 Storybook、`runtime/`、`src/` 及上述两项均未修改、暂存或纳入本批次，任务文件格式检查独立通过。
+- 当前状态：已完成（含运行验证）→待 checkpoint、推送、生产备份、部署与正式域名只读核验；checkpoint 识别消息为 `feat(web): unify department and employee directories`。
+- 下一批次与停止条件：仅完成本批次 checkpoint、推送和生产发布，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；完成正式域名只读核验后停止并等待用户复核。
+
 ## 2026-08-19 员工通讯录搜索与电话行精简（当前批次）
 
 - 批次范围：移除员工通讯录的 T9 搜索提示、别名生成和 API 数字 T9 匹配；新增 `employee_code` 精确/前缀搜索；同时完成员工卡片电话行去掉“移动电话”标签并保持长号/短号单行。不改变人员集合、号码、层级筛选、权限或收藏偏好。

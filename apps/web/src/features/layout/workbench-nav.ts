@@ -5,7 +5,6 @@ export type WorkbenchTabId =
   | 'calendar'
   | 'config'
   | 'directory'
-  | 'employee-directory'
   | 'duty'
   | 'events'
   | 'groups'
@@ -42,13 +41,7 @@ export interface WorkbenchNavItem {
 
 export const workbenchNavItems: readonly WorkbenchNavItem[] = [
   { icon: 'calendar', id: 'calendar', label: '排班日历', requiresAdministrator: false },
-  { icon: 'directory', id: 'directory', label: '院内通讯录', requiresAdministrator: false },
-  {
-    icon: 'directory',
-    id: 'employee-directory',
-    label: '员工通讯录',
-    requiresAdministrator: false,
-  },
+  { icon: 'directory', id: 'directory', label: '通讯录', requiresAdministrator: false },
   { icon: 'groups', id: 'groups', label: '群组管理', requiresAdministrator: false },
   { icon: 'manual', id: 'manual', label: '手动排班', requiresAdministrator: true },
   { icon: 'backfill', id: 'backfill', label: '排班补录', requiresAdministrator: true },

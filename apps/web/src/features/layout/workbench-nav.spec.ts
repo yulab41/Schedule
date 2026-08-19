@@ -21,7 +21,6 @@ describe('Workbench navigation', () => {
     expect(workbenchNavItems.map(({ icon, id }) => [id, icon])).toEqual([
       ['calendar', 'calendar'],
       ['directory', 'directory'],
-      ['employee-directory', 'directory'],
       ['groups', 'groups'],
       ['manual', 'manual'],
       ['backfill', 'backfill'],
@@ -52,7 +51,6 @@ describe('Workbench navigation', () => {
       'swap',
     ]);
     expect(getSecondaryMobileNavItems('owner').map((item) => item.id)).toEqual([
-      'employee-directory',
       'groups',
       'manual',
       'backfill',
@@ -88,7 +86,7 @@ describe('Workbench navigation', () => {
     expect(getVisibleNavItems('member').map((item) => item.id)).toContain('directory');
     expect(getVisibleNavItems('administrator').map((item) => item.id)).toContain('directory');
     expect(getVisibleNavItems('guest').map((item) => item.id)).not.toContain('directory');
-    expect(getWorkbenchPageTitle('directory')).toBe('院内通讯录');
+    expect(getWorkbenchPageTitle('directory')).toBe('通讯录');
   });
 
   it('uses the active workflow name in the compact application header', () => {

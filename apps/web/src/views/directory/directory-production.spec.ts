@@ -8,33 +8,34 @@ function source(relativePath: string): string {
 }
 
 describe('production hospital directory integration', () => {
-  it('mounts the real directory view from the workbench tab', () => {
+  it('mounts one unified directory view from one workbench entry', () => {
     const home = source('../HomeView.vue');
     const navigation = source('../../features/layout/workbench-nav.ts');
 
     expect(navigation).toContain("id: 'directory'");
-    expect(navigation).toContain("label: '院内通讯录'");
+    expect(navigation).toContain("label: '通讯录'");
+    expect(navigation).not.toContain("id: 'employee-directory'");
     expect(home).toContain(
-      "import InternalDirectoryView from './directory/InternalDirectoryView.vue'",
+      "import UnifiedDirectoryView from './directory/UnifiedDirectoryView.vue'",
     );
     expect(home).toContain("activeTab === 'directory'");
+    expect(home).not.toContain("activeTab === 'employee-directory'");
   });
 
-  it('mounts the employee directory as a separate authenticated dataset with the same view', () => {
-    const home = source('../HomeView.vue');
-    const employee = source('./EmployeeDirectoryView.vue');
-    const navigation = source('../../features/layout/workbench-nav.ts');
+  it('switches between the original authenticated datasets without duplicating their logic', () => {
+    const unified = source('./UnifiedDirectoryView.vue');
 
-    expect(navigation).toContain("id: 'employee-directory'");
-    expect(navigation).toContain("label: '员工通讯录'");
-    expect(home).toContain(
-      "import EmployeeDirectoryView from './directory/EmployeeDirectoryView.vue'",
-    );
-    expect(home).toContain("activeTab === 'employee-directory'");
-    expect(employee).toContain('getEmployeeDirectoryFacets');
-    expect(employee).toContain('searchEmployeeDirectory');
-    expect(employee).toContain('directory-kind="employee"');
-    expect(employee).toContain('title="员工通讯录"');
+    expect(unified).toContain('role="tablist"');
+    expect(unified).toContain('科室');
+    expect(unified).toContain('人员');
+    expect(unified).toContain('<KeepAlive>');
+    expect(unified).toContain('getDirectoryFacets');
+    expect(unified).toContain('searchDirectory');
+    expect(unified).toContain('getEmployeeDirectoryFacets');
+    expect(unified).toContain('searchEmployeeDirectory');
+    expect(unified).toContain("directoryKind: 'internal'");
+    expect(unified).toContain("directoryKind: 'employee'");
+    expect(unified).toContain('InternalDirectoryView');
   });
 
   it('uses the authenticated API as the production data source', () => {
@@ -141,7 +142,8 @@ describe('production hospital directory integration', () => {
     const smoke = source('../../../../../scripts/smoke-browser.mjs');
 
     expect(smoke).toContain('async function assertHospitalDirectory');
-    expect(smoke).toContain("hasText: '院内通讯录'");
+    expect(smoke).toContain("hasText: '通讯录'");
+    expect(smoke).toContain("getByRole('tab', { name: '人员' })");
     expect(smoke).toContain('aria-labelledby="directory-filter-department"');
     expect(smoke).toContain('更改上级后未自动清除不匹配的下级筛选');
     expect(smoke).toContain('固定电话短号被错误渲染为拨号链接');
