@@ -74,24 +74,7 @@ const MEMBER_COLUMN_WIDTH = 104;
 const DATE_COLUMN_WIDTH = 72;
 export const MANUAL_MATRIX_HEADER_HEIGHT = 82;
 export const MANUAL_MATRIX_ROW_HEIGHT = 44;
-const MANUAL_MATRIX_INITIAL_VISIBLE_ROWS = 7;
-const MANUAL_MATRIX_MINIMUM_VISIBLE_ROWS = 3;
-const MANUAL_MATRIX_BOTTOM_CLEARANCE = 16;
-
-export function calculateAdaptiveMatrixViewportHeight(options: {
-  readonly contentHeight: number;
-  readonly matrixTop: number;
-  readonly safeAreaBottom: number;
-  readonly screenHeight: number;
-  readonly windowHeight: number;
-}): number {
-  const bottomInset = Math.max(0, options.screenHeight - options.safeAreaBottom);
-  const availableHeight =
-    options.windowHeight - options.matrixTop - bottomInset - MANUAL_MATRIX_BOTTOM_CLEARANCE;
-  const minimumHeight =
-    MANUAL_MATRIX_HEADER_HEIGHT + MANUAL_MATRIX_MINIMUM_VISIBLE_ROWS * MANUAL_MATRIX_ROW_HEIGHT;
-  return Math.min(options.contentHeight, Math.max(minimumHeight, Math.floor(availableHeight)));
-}
+export const MANUAL_MATRIX_VISIBLE_ROWS = 7;
 
 const memberNames = [
   '林医生',
@@ -172,7 +155,7 @@ export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMa
   const matrixContentHeight = MANUAL_MATRIX_HEADER_HEIGHT + rows.length * MANUAL_MATRIX_ROW_HEIGHT;
   const matrixViewportHeight = Math.min(
     matrixContentHeight,
-    MANUAL_MATRIX_HEADER_HEIGHT + MANUAL_MATRIX_INITIAL_VISIBLE_ROWS * MANUAL_MATRIX_ROW_HEIGHT,
+    MANUAL_MATRIX_HEADER_HEIGHT + MANUAL_MATRIX_VISIBLE_ROWS * MANUAL_MATRIX_ROW_HEIGHT,
   );
 
   return {

@@ -29,8 +29,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
   });
 
   it('builds the approved 7 by 7 and 20 by 30 deterministic fixtures', async () => {
-    const { calculateAdaptiveMatrixViewportHeight, createManualMatrixPocViewModel } =
-      await import('../src/testing/fixtures/manual-matrix-poc.ts');
+    const {
+      createManualMatrixPocViewModel,
+      MANUAL_MATRIX_HEADER_HEIGHT,
+      MANUAL_MATRIX_ROW_HEIGHT,
+      MANUAL_MATRIX_VISIBLE_ROWS,
+    } = await import('../src/testing/fixtures/manual-matrix-poc.ts');
     const daily = createManualMatrixPocViewModel('daily');
     const maximum = createManualMatrixPocViewModel('maximum');
 
@@ -52,33 +56,10 @@ describe('P1 native manual scheduling matrix PoC', () => {
       '国庆节',
       '国庆节',
     ]);
-    expect(
-      calculateAdaptiveMatrixViewportHeight({
-        contentHeight: maximum.matrixContentHeight,
-        matrixTop: 286,
-        safeAreaBottom: 820,
-        screenHeight: 844,
-        windowHeight: 844,
-      }),
-    ).toBe(518);
-    expect(
-      calculateAdaptiveMatrixViewportHeight({
-        contentHeight: daily.matrixContentHeight,
-        matrixTop: 286,
-        safeAreaBottom: 820,
-        screenHeight: 844,
-        windowHeight: 844,
-      }),
-    ).toBe(390);
-    expect(
-      calculateAdaptiveMatrixViewportHeight({
-        contentHeight: maximum.matrixContentHeight,
-        matrixTop: 360,
-        safeAreaBottom: 380,
-        screenHeight: 400,
-        windowHeight: 400,
-      }),
-    ).toBe(214);
+    expect(MANUAL_MATRIX_VISIBLE_ROWS).toBe(7);
+    expect(maximum.matrixViewportHeight).toBe(
+      MANUAL_MATRIX_HEADER_HEIGHT + MANUAL_MATRIX_VISIBLE_ROWS * MANUAL_MATRIX_ROW_HEIGHT,
+    );
   });
 
   it('registers a dedicated route and the hand-drawn schedule cell', () => {
@@ -108,9 +89,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
       /<vertical-drag-gesture-handler[\s\S]*?tag="matrix-vertical"[\s\S]*?simultaneous-handlers="\{\{\['matrix-horizontal'\]\}\}"[\s\S]*?worklet:ongesture="handleMatrixVerticalDrag"/u,
     );
     expect(template).toMatch(
-      /<horizontal-drag-gesture-handler[\s\S]*?tag="matrix-horizontal"[\s\S]*?simultaneous-handlers="\{\{\['matrix-vertical'\]\}\}"[\s\S]*?native-view="scroll-view"/u,
+      /<horizontal-drag-gesture-handler[\s\S]*?tag="matrix-horizontal"[\s\S]*?simultaneous-handlers="\{\{\['matrix-vertical'\]\}\}"[\s\S]*?native-view="scroll-view"[\s\S]*?worklet:should-response-on-move="shouldHorizontalScrollRespond"/u,
     );
-    expect(template).not.toContain('worklet:should-response-on-move');
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
@@ -137,7 +117,9 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-scroll-thumb['"]/u);
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-body-track['"]/u);
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-member-track['"]/u);
-    expect(source).toContain('calculateAdaptiveMatrixViewportHeight');
+    expect(source).not.toContain('calculateAdaptiveMatrixViewportHeight');
+    expect(source).not.toContain('wx.getWindowInfo');
+    expect(source).toContain('shouldHorizontalScrollRespond');
     expect(source).toContain('this._maxVerticalOffset.value');
     expect(source).toContain('cancelAnimation(this._verticalOffset)');
     expect(source).toContain('decay({');
@@ -146,6 +128,27 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).not.toContain('_gestureDistanceY');
     expect(worklets.issues).toEqual([]);
     expect(worklets.count).toBeGreaterThanOrEqual(5);
+  });
+
+  it('releases the native horizontal proxy when Android movement is vertically dominant', async () => {
+    let definition;
+    vi.stubGlobal('wx', {
+      worklet: {
+        cancelAnimation: vi.fn(),
+        decay: vi.fn(),
+        runOnJS: (callback) => callback,
+        shared: (value) => ({ value }),
+      },
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    vi.stubGlobal('Component', vi.fn());
+    await import('../src/pages/manual-matrix-poc/index.ts');
+
+    expect(definition.shouldHorizontalScrollRespond({ deltaX: 18, deltaY: 4 })).toBe(true);
+    expect(definition.shouldHorizontalScrollRespond({ deltaX: 4, deltaY: 18 })).toBe(false);
+    expect(definition.shouldHorizontalScrollRespond({ deltaX: 12, deltaY: 12 })).toBe(true);
   });
 
   it('moves both vertical tracks from the direction-specific handler and one shared offset', async () => {

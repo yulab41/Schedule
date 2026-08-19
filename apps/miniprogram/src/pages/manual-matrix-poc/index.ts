@@ -1,8 +1,6 @@
 import {
-  calculateAdaptiveMatrixViewportHeight,
   createManualMatrixPocViewModel,
   getManualMatrixCellAssignment,
-  MANUAL_MATRIX_HEADER_HEIGHT,
   manualMatrixPocShiftTypes,
   updateManualMatrixCell,
   type ManualMatrixCell,
@@ -43,7 +41,6 @@ interface ManualMatrixUndoEntry {
 }
 
 interface SelectorRect {
-  readonly top: number;
   readonly width: number;
 }
 
@@ -128,41 +125,16 @@ Page({
     this.updateMatrixViewport();
   },
   updateMatrixViewport(this: ManualMatrixPageInstance): void {
-    const windowInfo = wx.getWindowInfo();
     const query = this.createSelectorQuery();
     query.select('.matrix-scroll').boundingClientRect((rect) => {
       this._viewportWidth.value = Math.max(1, rect.width);
       this._viewportWidthValue = Math.max(1, rect.width);
     });
-    query.select('.matrix-shell').boundingClientRect((rect) => {
-      const matrixViewportHeight = calculateAdaptiveMatrixViewportHeight({
-        contentHeight: this.data.matrixContentHeight,
-        matrixTop: rect.top,
-        safeAreaBottom: windowInfo.safeArea?.bottom ?? windowInfo.screenHeight,
-        screenHeight: windowInfo.screenHeight,
-        windowHeight: windowInfo.windowHeight,
-      });
-      const matrixBodyViewportHeight = Math.max(
-        0,
-        matrixViewportHeight - MANUAL_MATRIX_HEADER_HEIGHT,
-      );
-      const maximumVerticalOffset = Math.max(
-        0,
-        this.data.matrixContentHeight - matrixViewportHeight,
-      );
-      this._maxVerticalOffset.value = maximumVerticalOffset;
-      this._verticalOffset.value = Math.max(
-        -maximumVerticalOffset,
-        Math.min(0, this._verticalOffset.value),
-      );
-      if (
-        matrixViewportHeight !== this.data.matrixViewportHeight ||
-        matrixBodyViewportHeight !== this.data.matrixBodyViewportHeight
-      ) {
-        this.setData({ matrixBodyViewportHeight, matrixViewportHeight });
-      }
-    });
     query.exec();
+  },
+  shouldHorizontalScrollRespond(event: ManualMatrixGestureEvent): boolean {
+    'worklet';
+    return Math.abs(event.deltaX) >= Math.abs(event.deltaY);
   },
   handleMatrixVerticalDrag(this: ManualMatrixPageInstance, event: ManualMatrixGestureEvent): void {
     'worklet';

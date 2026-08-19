@@ -71,6 +71,7 @@
         tag="matrix-horizontal"
         simultaneous-handlers="{{['matrix-vertical']}}"
         native-view="scroll-view"
+        worklet:should-response-on-move="shouldHorizontalScrollRespond"
       >
         <scroll-view
           class="matrix-scroll"

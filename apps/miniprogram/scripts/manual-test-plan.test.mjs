@@ -35,7 +35,7 @@ describe('P1 user-operated native test plan', () => {
       [
         'initial',
         'pc-body-rendered',
-        'adaptive-remaining-height',
+        'fixed-seven-row-height',
         'page-scroll-isolated',
         'horizontal-date-body-sync',
         'vertical-member-body-sync',
