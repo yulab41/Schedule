@@ -12,6 +12,7 @@ export type WorkbenchTabId =
   | 'manual'
   | 'members'
   | 'notifications'
+  | 'profile'
   | 'statistics'
   | 'swap';
 
@@ -29,6 +30,7 @@ export type WorkbenchNavIconId =
   | 'manual'
   | 'members'
   | 'notifications'
+  | 'profile'
   | 'statistics'
   | 'swap';
 
@@ -42,6 +44,7 @@ export interface WorkbenchNavItem {
 export const workbenchNavItems: readonly WorkbenchNavItem[] = [
   { icon: 'calendar', id: 'calendar', label: '排班日历', requiresAdministrator: false },
   { icon: 'directory', id: 'directory', label: '通讯录', requiresAdministrator: false },
+  { icon: 'profile', id: 'profile', label: '我的', requiresAdministrator: false },
   { icon: 'groups', id: 'groups', label: '群组管理', requiresAdministrator: false },
   { icon: 'manual', id: 'manual', label: '手动排班', requiresAdministrator: true },
   { icon: 'backfill', id: 'backfill', label: '排班补录', requiresAdministrator: true },
@@ -60,7 +63,13 @@ export const workbenchNavItems: readonly WorkbenchNavItem[] = [
   { icon: 'config', id: 'config', label: '排班配置', requiresAdministrator: true },
 ];
 
-const primaryMobileTabIds: readonly WorkbenchTabId[] = ['calendar', 'directory', 'leave', 'swap'];
+const primaryMobileTabIds: readonly WorkbenchTabId[] = [
+  'calendar',
+  'directory',
+  'leave',
+  'swap',
+  'profile',
+];
 
 export function getVisibleNavItems(role: GroupRole): readonly WorkbenchNavItem[] {
   const base = workbenchNavItems.filter((item) => !item.requiresAdministrator || role !== 'member');

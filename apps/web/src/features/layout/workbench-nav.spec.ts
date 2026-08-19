@@ -21,6 +21,7 @@ describe('Workbench navigation', () => {
     expect(workbenchNavItems.map(({ icon, id }) => [id, icon])).toEqual([
       ['calendar', 'calendar'],
       ['directory', 'directory'],
+      ['profile', 'profile'],
       ['groups', 'groups'],
       ['manual', 'manual'],
       ['backfill', 'backfill'],
@@ -43,10 +44,11 @@ describe('Workbench navigation', () => {
     expect(memberIds).toContain('statistics');
   });
 
-  it('keeps the mobile bottom bar to four primary entries and a drawer', () => {
+  it('keeps the mobile bottom bar to five primary entries and a drawer', () => {
     expect(getPrimaryMobileNavItems('owner').map((item) => item.id)).toEqual([
       'calendar',
       'directory',
+      'profile',
       'leave',
       'swap',
     ]);

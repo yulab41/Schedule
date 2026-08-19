@@ -5,11 +5,8 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import InternalDirectoryView, { type DirectoryDataSource } from './InternalDirectoryView.vue';
-import {
-  getDirectorySwipeTarget,
-  type DirectoryMode,
-  type DirectorySwipeCoordinates,
-} from './directory-mode-gesture.js';
+
+type DirectoryMode = 'internal' | 'employee';
 
 const props = withDefaults(
   defineProps<{
@@ -43,8 +40,6 @@ const employeeTab = ref<HTMLButtonElement>();
 const internalTab = ref<HTMLButtonElement>();
 const modeTransitionDirection = ref<'forward' | 'backward' | undefined>();
 let modeTransitionTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
-let activeModePointer:
-  { readonly pointerId: number; readonly startX: number; readonly startY: number } | undefined;
 
 const activeConfiguration = computed<{
   dataSource: DirectoryDataSource;
@@ -93,67 +88,6 @@ async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
   selectDirectory(directory);
   await nextTick();
   (directory === 'internal' ? internalTab.value : employeeTab.value)?.focus();
-}
-
-function handleModePointerDown(event: PointerEvent): void {
-  if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) {
-    return;
-  }
-
-  const eventTarget = event.target;
-  if (
-    eventTarget instanceof Element &&
-    eventTarget.closest('a, button, input, select, textarea, [contenteditable="true"]')
-  ) {
-    return;
-  }
-
-  activeModePointer = {
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-  };
-
-  const target = event.currentTarget;
-  if (target instanceof HTMLElement && target.setPointerCapture) {
-    target.setPointerCapture(event.pointerId);
-  }
-}
-
-function releaseModePointer(event: PointerEvent): void {
-  const target = event.currentTarget;
-  if (target instanceof HTMLElement && target.hasPointerCapture?.(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId);
-  }
-}
-
-function handleModePointerUp(event: PointerEvent): void {
-  if (activeModePointer === undefined || activeModePointer.pointerId !== event.pointerId) {
-    return;
-  }
-
-  const start = activeModePointer;
-  activeModePointer = undefined;
-  releaseModePointer(event);
-
-  const target = getDirectorySwipeTarget(activeDirectory.value, {
-    startX: start.startX,
-    startY: start.startY,
-    endX: event.clientX,
-    endY: event.clientY,
-  } satisfies DirectorySwipeCoordinates);
-  if (target !== undefined) {
-    selectDirectory(target);
-  }
-}
-
-function handleModePointerCancel(event: PointerEvent): void {
-  if (activeModePointer?.pointerId !== event.pointerId) {
-    return;
-  }
-
-  activeModePointer = undefined;
-  releaseModePointer(event);
 }
 
 onBeforeUnmount(() => {
@@ -233,9 +167,6 @@ onBeforeUnmount(() => {
         }"
         role="tabpanel"
         :aria-labelledby="`directory-tab-${activeDirectory}`"
-        @pointerdown="handleModePointerDown"
-        @pointerup="handleModePointerUp"
-        @pointercancel="handleModePointerCancel"
       >
         <KeepAlive>
           <InternalDirectoryView
@@ -419,8 +350,6 @@ onBeforeUnmount(() => {
 
 .directory-mode-panel {
   min-width: 0;
-  touch-action: pan-y;
-  overscroll-behavior-x: contain;
 }
 
 .directory-mode-panel.mode-transition-forward :deep(.internal-directory) {

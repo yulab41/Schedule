@@ -50,6 +50,7 @@ const iconComponents: Readonly<Record<WorkbenchNavIconId, Component>> = {
   manual: TableIcon,
   members: UserIcon,
   notifications: NotificationIcon,
+  profile: UserIcon,
   statistics: ChartAnalyticsIcon,
   swap: SwapIcon,
 };

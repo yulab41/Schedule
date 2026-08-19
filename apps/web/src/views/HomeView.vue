@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
-import { ExportIcon } from 'tdesign-icons-vue-next';
+import { ExportIcon, UserIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../api/client.js';
@@ -32,6 +32,7 @@ import CalendarView from './calendar/CalendarView.vue';
 import ManualScheduleView from './schedules/ManualScheduleView.vue';
 import PastScheduleView from './schedules/PastScheduleView.vue';
 import UnifiedDirectoryView from './directory/UnifiedDirectoryView.vue';
+import MyProfileView from './my-profile/MyProfileView.vue';
 
 const emit = defineEmits<{
   (event: 'sign-out'): void;
@@ -117,6 +118,14 @@ function selectGroupTab(groupId: string | undefined): void {
       <div class="shell-actions">
         <NotificationBell />
         <button
+          type="button"
+          class="shell-profile-action"
+          aria-label="打开我的"
+          @click="activeTab = 'profile'"
+        >
+          <UserIcon aria-hidden="true" />
+        </button>
+        <button
           v-if="canExport"
           type="button"
           class="shell-export-action"
@@ -165,6 +174,12 @@ function selectGroupTab(groupId: string | undefined): void {
               />
               <CalendarView v-else-if="activeTab === 'calendar'" :group="currentGroup()!" />
               <UnifiedDirectoryView v-if="activeTab === 'directory'" :group="currentGroup()!" />
+              <MyProfileView
+                v-if="activeTab === 'profile'"
+                :group="currentGroup()!"
+                @navigate="activeTab = $event"
+                @sign-out="emit('sign-out')"
+              />
               <ManualScheduleView
                 v-if="activeTab === 'manual' && currentGroup()?.role !== 'member'"
                 :group="currentGroup()!"
@@ -257,6 +272,34 @@ function selectGroupTab(groupId: string | undefined): void {
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+}
+
+.shell-profile-action {
+  display: grid;
+  width: var(--ui-touch-target-minimum);
+  height: var(--ui-touch-target-minimum);
+  padding: 0;
+  place-items: center;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border: 1px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.shell-profile-action:hover,
+.shell-profile-action:focus-visible {
+  border-color: var(--ui-color-primary);
+}
+
+.shell-profile-action:focus-visible {
+  outline: 3px solid var(--ui-color-primary-light);
+  outline-offset: 2px;
+}
+
+.shell-profile-action svg {
+  width: 20px;
+  height: 20px;
 }
 
 .shell-export-action {

@@ -38,17 +38,16 @@ describe('production hospital directory integration', () => {
     expect(unified).toContain('InternalDirectoryView');
   });
 
-  it('supports horizontal swipe switching with a moving segmented control', () => {
+  it('keeps directory mode switching on explicit controls without page swipes', () => {
     const unified = source('./UnifiedDirectoryView.vue');
 
     expect(unified).toContain('directory-mode-indicator');
-    expect(unified).toContain('@pointerdown="handleModePointerDown"');
-    expect(unified).toContain('@pointerup="handleModePointerUp"');
-    expect(unified).toContain('@pointercancel="handleModePointerCancel"');
-    expect(unified).toContain('touch-action: pan-y');
+    expect(unified).not.toContain('@pointerdown="handleModePointerDown"');
+    expect(unified).not.toContain('@pointerup="handleModePointerUp"');
+    expect(unified).not.toContain('@pointercancel="handleModePointerCancel"');
+    expect(unified).not.toContain('getDirectorySwipeTarget');
     expect(unified).toContain('mode-transition-forward');
     expect(unified).toContain('mode-transition-backward');
-    expect(unified).toContain('getDirectorySwipeTarget');
   });
 
   it('removes the confirmed decorative directory copy and blue guide strip', () => {
