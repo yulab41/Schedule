@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；月历已通过用户人工验收。矩阵的 SharedValue/`applyAnimatedStyle` 冻结方案经多次 Android 体验版复测仍固定，用户已批准把最低基础库提高到 3.3.0，并改用 UI 线程 `worklet.scrollViewContext` 直接同步三个滚动容器；C/D 通过后才进入 P2
+- 状态：P0 与 P1 非视觉工具链已完成；月历与矩阵 C（7×7 横向）已通过用户 Android 人工验收。D 的原生横向滚动已通过，但 20×30 纵向手势未被旧的 simultaneous pan 结构识别；现改为 Skyline 互斥的纵向/横向专用识别器，D 复测通过后才进入 P2
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界
@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用长期存在的四层坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。横向由一个原生 `scroll-view type=list scroll-x` 同时承载日期与班次，保留 compositor 同源滚动；纵向由一个 UI 线程 SharedValue 同时变换人员轨道和班次轨道，不建立第二套日期/人员滚动容器，也不逐帧调用 `ScrollViewContext.scrollTo()`。矩阵视口按手机剩余可视高度动态计算，最少显示 3 行，7×7 完整显示，20×30 在固定日期/人员层内纵向浏览。`pan-gesture-handler` 与原生横向代理使用 10px/1.25 比例做一次手势方向锁，横向走原生惯性，纵向用有边界的 Worklet `decay`。点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
+手排采用长期存在的四层坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。横向由一个原生 `scroll-view type=list scroll-x` 同时承载日期与班次，保留 compositor 同源滚动；纵向由一个 UI 线程 SharedValue 同时变换人员轨道和班次轨道，不建立第二套日期/人员滚动容器，也不逐帧调用 `ScrollViewContext.scrollTo()`。矩阵视口按手机剩余可视高度动态计算，最少显示 3 行，7×7 完整显示，20×30 在固定日期/人员层内纵向浏览。外层 `vertical-drag-gesture-handler` 与内层 `horizontal-drag-gesture-handler native-view="scroll-view"` 不声明 simultaneous，由 Skyline 原生方向识别器互斥选轴；横向走原生惯性，纵向用有边界的 Worklet `decay`。点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
 
 ## 6. 网络、会话和缓存
 

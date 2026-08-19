@@ -62,17 +62,8 @@
   </view>
 
   <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
-    <pan-gesture-handler
-      tag="matrix-axis"
-      simultaneous-handlers="{{['matrix-horizontal']}}"
-      worklet:ongesture="handleMatrixPan"
-    >
-      <horizontal-drag-gesture-handler
-        tag="matrix-horizontal"
-        simultaneous-handlers="{{['matrix-axis']}}"
-        native-view="scroll-view"
-        worklet:should-response-on-move="shouldHorizontalScrollRespond"
-      >
+    <vertical-drag-gesture-handler worklet:ongesture="handleMatrixVerticalDrag">
+      <horizontal-drag-gesture-handler native-view="scroll-view">
         <scroll-view
           class="matrix-scroll"
           type="list"
@@ -144,7 +135,7 @@
           </view>
         </scroll-view>
       </horizontal-drag-gesture-handler>
-    </pan-gesture-handler>
+    </vertical-drag-gesture-handler>
 
     <view class="matrix-member-overlay" aria-label="值班人员表头">
       <view id="matrix-member-track" class="matrix-member-track">
