@@ -96,6 +96,24 @@ describe('directory contact display groups', () => {
     expect(groups.every((group) => group.entries.length === 1)).toBe(true);
   });
 
+  it('hides the employee hospital root from employee result contexts', () => {
+    const groups = groupDirectoryEntriesByContact([
+      entry(
+        '20000000-0000-4000-8000-000000000026',
+        '病房',
+        [contact('10000000-0000-4000-8000-000000000026')],
+        {
+          campus: { code: 'employee-hospital', name: '汕大肿瘤医院' },
+          contactName: '李杰',
+        },
+      ),
+    ]);
+
+    expect(getDirectoryGroupContexts(groups[0]!)).toEqual([
+      '住院诊疗区 › 手术中心 › 病房 · 住院楼 · 3楼 · 病房',
+    ]);
+  });
+
   it('treats contact order and formatting as presentation details, not different contact sets', () => {
     const voice = contact('10000000-0000-4000-8000-000000000031');
     const mobile = contact('10000000-0000-4000-8000-000000000032', {

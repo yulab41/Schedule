@@ -59,7 +59,7 @@ export function cleanEmployeeDirectoryRecords(
   let validExtensionCount = 0;
 
   for (const rawRecord of input) {
-    const name = normalizeText(rawRecord.姓名);
+    const name = normalizeDisplayText(rawRecord.姓名);
     const levelPath = normalizeLevelPath(rawRecord.crawl_path, rawRecord.层级);
     if (name.length === 0 || levelPath.length === 0) {
       droppedWithoutValidPhoneCount += 1;
@@ -136,12 +136,18 @@ export function classifyPhone(value: string): CleanEmployeePhone['kind'] | undef
 }
 
 function normalizeLevelPath(path: readonly unknown[] | undefined, level: unknown): string[] {
-  const fromPath = (path ?? []).map(normalizeText).filter((value) => value.length > 0);
+  const fromPath = (path ?? []).map(normalizeDisplayText).filter((value) => value.length > 0);
   if (fromPath.length > 0) return fromPath;
-  return normalizeText(level)
+  return normalizeDisplayText(level)
     .split('/')
-    .map((value) => value.trim())
+    .map(normalizeDisplayText)
     .filter((value) => value.length > 0);
+}
+
+const boundaryNoisePattern = /^[\s.,，。；;：:>＞|｜]+|[\s.,，。；;：:>＞|｜]+$/gu;
+
+function normalizeDisplayText(value: unknown): string {
+  return normalizeText(value).replace(boundaryNoisePattern, '').trim();
 }
 
 function normalizeText(value: unknown): string {

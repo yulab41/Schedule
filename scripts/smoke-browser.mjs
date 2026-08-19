@@ -788,6 +788,10 @@ async function assertEmployeeDirectory(page) {
   );
   const status = await page.locator('.result-status').innerText();
   if (!status.includes('找到')) fail('员工通讯录中文搜索没有返回结果。');
+  const employeeResultText = await page.locator('.directory-search-results').innerText();
+  if (employeeResultText.includes('数据清洗后') || employeeResultText.includes('汕大肿瘤医院')) {
+    fail('员工通讯录搜索结果仍显示清洗说明或医院根节点。');
+  }
   await page.locator('button[aria-label="清空搜索"]').click();
   await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);
 

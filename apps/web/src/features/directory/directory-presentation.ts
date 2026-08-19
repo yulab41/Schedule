@@ -65,7 +65,8 @@ export function getDirectoryEntryTitle(entry: DirectoryEntry): string {
 
 export function getDirectoryEntryPath(entry: DirectoryEntry): readonly string[] {
   const title = getDirectoryEntryTitle(entry);
-  return [...new Set([entry.campus.name, entry.section, entry.department, entry.subunit])].filter(
+  const campusName = entry.campus.code === 'employee-hospital' ? undefined : entry.campus.name;
+  return [...new Set([campusName, entry.section, entry.department, entry.subunit])].filter(
     (value): value is string => value !== undefined && value !== title,
   );
 }

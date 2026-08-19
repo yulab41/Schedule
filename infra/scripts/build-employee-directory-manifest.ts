@@ -28,12 +28,15 @@ if (cleaned.records.length === 0)
 const campusName = cleaned.records[0]?.levelPath[0] ?? '员工组织';
 const campusCode = 'employee-hospital';
 const sourceSha256 = createHash('sha256').update(sourceBytes).digest('hex');
+const cleanedSha256 = createHash('sha256')
+  .update(JSON.stringify(cleaned.records), 'utf8')
+  .digest('hex');
 const documentKey = `employee-directory-${sourceSha256.slice(0, 16)}`;
 const entries = cleaned.records.map((record, index) => toManifestEntry(record, index, documentKey));
 const manifest = {
   schemaVersion: 1,
   directoryKind: 'employee',
-  importVersion: `employee-${effectiveOn.replaceAll('-', '')}-${sourceSha256.slice(0, 12)}`,
+  importVersion: `employee-${effectiveOn.replaceAll('-', '')}-${sourceSha256.slice(0, 8)}-${cleanedSha256.slice(0, 8)}`,
   effectiveOn,
   campuses: [{ code: campusCode, name: campusName, displayOrder: 1 }],
   documents: [
@@ -78,7 +81,6 @@ function toManifestEntry(
     visibility: 'member',
     verificationStatus: 'source_exact',
     displayOrder: index + 1,
-    notes: '数据清洗后仅保留11位手机长号和6位手机短号。',
     contacts: toManifestContacts(record),
   };
 }
