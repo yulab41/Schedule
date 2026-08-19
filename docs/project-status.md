@@ -166,10 +166,10 @@
 - 本轮测试：回归先要求 `bindscroll`、两个 `node()` 引用和进度偏移绑定；实现后 Mini 全套 10 文件/40 项通过，定向矩阵 7/7，typecheck、staging verify、源码/包体审计、双构建确定性、无凭据 CI dry-run、任务文件 Prettier/ESLint、`git diff --check` 通过。staging verify 包体 106,233 bytes，manifest `a6263d24efa98e4d16c29081b1dba64e12f818267562829eded9477397506a6d`；源码/产物保留主体滚动与结束处理两个 Worklet。未触及 Web 核心链路，无需浏览器 smoke；根完整格式检查仍被用户自有 `apps/miniprogram/project.config.json` 阻断，`runtime/` 与 `src/` 未修改、未暂存。
 - 行为边界：本轮只消除 Worklet 与普通滚动回调的竞争并把蓝条实时动画移回 UI 线程；若真机仍有延迟，下一轮需依据录像评估单一滚动容器/原生自绘网格，不再继续调整 SharedValue 捕获方式。
 - 本轮追加修复：`_workletScrollActive` 在 Worklet 首次滚动后关闭普通兜底的 `scrollTo/setData`，顶部蓝条通过 `#matrix-scroll-thumb` 的 `applyAnimatedStyle({flush:'sync'})` 绑定滚动 SharedValue，避免双线程竞争和数据绑定动画滞后。定向矩阵 8/8、Mini 全套 16 文件/64 项、typecheck、staging verify、源码/包体、确定性、CI dry-run、Prettier 与 `git diff --check` 通过；staging 包体 106,663 bytes，manifest `6290b21d17343a62bc095b3b2e5871b43944c3b245ddcc33568b0fb65b94ca94`。
-- 微信上传状态：`.7` 因 IPv6 出口被微信平台拒绝；使用本机 IPv4 HTTP 代理 `127.0.0.1:7892` 后，体验版本 `0.1.0-p1.20260819.8` 已上传成功（manifest `a6263d24efa98e4d16c29081b1dba64e12f818267562829eded9477397506a6d`）。本轮新代码需在提交后重新上传；未提交审核或正式发布，未启动开发者工具。
-- 当前状态：本轮修复已实现，待提交、部署和体验版上传后人工原生复核；P1 仍不能进入 P2。
+- 微信上传状态：`.7` 因 IPv6 出口被微信平台拒绝；使用本机 IPv4 HTTP 代理 `127.0.0.1:7892` 后，体验版本 `0.1.0-p1.20260819.8` 已上传成功。提交 `b152355` 的新代码随后以版本 `0.1.0-p1.20260819.9`、robot 1、staging profile、manifest `6290b21d17343a62bc095b3b2e5871b43944c3b245ddcc33568b0fb65b94ca94` 上传成功；未提交审核或正式发布，未启动开发者工具。
+- 当前状态：`b152355` 已提交、推送、部署 ECS 并上传微信体验版，待用户人工原生复核；P1 仍不能进入 P2。
 - 下一批次：提交并上传本轮 checkpoint 后，用户人工复测 `0.1.0-p1` 最新体验版的 7×7 横向、20×30 横向/纵向/双向滚动和顶部蓝条；通过后再继续 P1 C/D，失败需提供具体设备/手势/延迟现象。
-- 本轮代码 checkpoint：待提交（`fix(miniprogram): prevent dual scroll paths from competing`）；最终状态 checkpoint 识别消息：待本轮提交后填写。
+- 本轮代码 checkpoint：`b152355`（`fix(miniprogram): prevent dual scroll paths from competing`）；ECS release `b152355cc008818e31e729bb87e4e285550c7c4d` 已通过健康、迁移、产物哈希和域名隔离校验；最终状态 checkpoint 识别消息：待用户复核后填写。
 - 停止条件：最终状态 checkpoint 推送并同步为 ECS release，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户人工复测；用户未明确通过前不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
