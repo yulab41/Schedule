@@ -41,5 +41,5 @@
 - `src → dist` 编译、源码/产物边界、包体、Worklet 指令、双构建确定性和无凭证 CI dry-run 门禁已完成。
 - P1 基础控件批次新增从 `@schedule/ui-tokens` 单源生成并复制到 `dist/styles/tokens.wxss` 的路径；`app.wxss` 必须显式导入该文件，缺失或漂移由测试/产物审计阻断。
 - P1 月历按 Web 的实际 5/6 周高度生成三个面板，并使用 Skyline 原生 `swiper` 统一 Android 触控、PC 鼠标和程序翻页，不再维护一套仅在部分运行时生效的自定义 Pan Worklet。
-- P1 手排矩阵使用一个双轴 `scroll-view type=list` 承载主体，并用独立的横向日期表头与纵向人员表头 `scroll-view` 保持冻结语义。`NodesRef.ref()` 把两个表头引用存入页面实例 SharedValue；主体 `worklet:onscrollupdate` 在 UI 线程通过 `worklet.scrollViewContext.scrollTo()` 直接同步 `left`/`top`，`duration: 0` 且 `animated: false`。不使用 WXS、普通 `bindscroll` 或 `applyAnimatedStyle` 位移冻结层。该 API 要求基础库 3.3.0；20×30 上限内仍不需要二维节点回收。
-- staging/production 构建当前须保留矩阵至少 3 个函数首语句 `'worklet'` 指令；源码和产物测试同时约束两个表头 ref、直接 UI 线程 `scrollTo` 及滚动期间零 `setData`。
+- P1 手排矩阵使用一个双轴 `scroll-view type=list` 承载主体，并用独立的横向日期表头与纵向人员表头 `scroll-view` 保持冻结语义。首选路径是 `NodesRef.ref()` 把两个表头引用存入页面实例 SharedValue；主体 `worklet:onscrollupdate` 在 UI 线程通过 `worklet.scrollViewContext.scrollTo()` 直接同步 `left`/`top`，`duration: 0` 且 `animated: false`。同时保留一个低频兜底路径：主体 `bindscroll` 通过 `NodesRef.node()` 获得普通 `ScrollViewContext`，在 Worklet 回调未被设备触发时仍能同步表头，并按整数百分比更新顶部滚动进度。兜底不使用 WXS 或 `applyAnimatedStyle` 位移冻结层；正常 Worklet 路径不调用滚动期 `setData`。该 API 要求基础库 3.3.0；20×30 上限内仍不需要二维节点回收。
+- staging/production 构建当前须保留矩阵主体滚动与结束处理两个函数首语句 `'worklet'` 指令；源码和产物测试同时约束两个表头 ref、直接 UI 线程 `scrollTo`，以及普通滚动兜底的节点同步与进度更新。

@@ -41,14 +41,33 @@ interface SelectorReference {
   readonly ref: unknown;
 }
 
+interface MiniProgramScrollViewContext {
+  scrollTo(options: {
+    readonly animated?: boolean;
+    readonly duration?: number;
+    readonly left?: number;
+    readonly top?: number;
+  }): void;
+}
+
+interface SelectorNode {
+  readonly node: (
+    callback: (result: { readonly node: MiniProgramScrollViewContext }) => void,
+  ) => unknown;
+}
+
 interface ManualMatrixPageInstance {
   _commitScrollProgress: (progress: number) => void;
   _dateScrollRef: MiniProgramSharedValue<unknown | null>;
+  _dateScrollContext: MiniProgramScrollViewContext | null;
   _memberScrollRef: MiniProgramSharedValue<unknown | null>;
+  _memberScrollContext: MiniProgramScrollViewContext | null;
+  _lastScrollProgressPercent: number;
   _scrollProgress: MiniProgramSharedValue<number>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
   _viewportWidth: MiniProgramSharedValue<number>;
+  _viewportWidthValue: number;
   readonly data: ManualMatrixPocViewModel;
   applyAnimatedStyle(
     selector: string,
@@ -60,7 +79,7 @@ interface ManualMatrixPageInstance {
     select(selector: string): {
       boundingClientRect(callback: (rect: SelectorRect) => void): unknown;
       ref(callback: (reference: SelectorReference) => void): unknown;
-    };
+    } & SelectorNode;
     exec(): void;
   };
   setData(patch: Record<string, unknown>): void;
@@ -76,15 +95,15 @@ Page({
     const viewModel = createManualMatrixPocViewModel(mode);
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
     this._dateScrollRef = shared<unknown | null>(null);
+    this._dateScrollContext = null;
     this._memberScrollRef = shared<unknown | null>(null);
+    this._memberScrollContext = null;
+    this._lastScrollProgressPercent = -1;
     this._scrollProgress = shared(0);
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
     this._viewportWidth = shared(1);
-    this.applyAnimatedStyle('#matrix-scroll-thumb', () => {
-      'worklet';
-      return { transform: `translateX(${this._scrollProgress.value * 36}px)` };
-    });
+    this._viewportWidthValue = 1;
     if (mode !== defaultViewModel.mode) this.setData({ ...viewModel });
   },
   onReady(this: ManualMatrixPageInstance): void {
@@ -95,8 +114,15 @@ Page({
     query.select('#matrix-member-scroll').ref((reference) => {
       this._memberScrollRef.value = reference.ref;
     });
+    query.select('#matrix-date-scroll').node((result) => {
+      this._dateScrollContext = result.node;
+    });
+    query.select('#matrix-member-scroll').node((result) => {
+      this._memberScrollContext = result.node;
+    });
     query.select('.matrix-scroll').boundingClientRect((rect) => {
       this._viewportWidth.value = Math.max(1, rect.width);
+      this._viewportWidthValue = Math.max(1, rect.width);
     });
     query.exec();
   },
@@ -122,6 +148,28 @@ Page({
     const maximumScroll = Math.max(1, scrollWidth - this._viewportWidth.value);
     this._scrollProgress.value = Math.max(0, Math.min(1, scrollLeft / maximumScroll));
   },
+  handleGridScrollFallback(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
+    const scrollLeft = Math.max(0, event.detail.scrollLeft);
+    const scrollTop = Math.max(0, event.detail.scrollTop);
+    this._dateScrollContext?.scrollTo({
+      left: scrollLeft,
+      duration: 0,
+      animated: false,
+    });
+    this._memberScrollContext?.scrollTo({
+      top: scrollTop,
+      duration: 0,
+      animated: false,
+    });
+
+    const scrollWidth = event.detail.scrollWidth ?? this.data.contentWidth;
+    const maximumScroll = Math.max(1, scrollWidth - Math.max(1, this._viewportWidthValue));
+    const progress = Math.max(0, Math.min(1, scrollLeft / maximumScroll));
+    const scrollProgressPercent = Math.round(progress * 100);
+    if (scrollProgressPercent === this._lastScrollProgressPercent) return;
+    this._lastScrollProgressPercent = scrollProgressPercent;
+    this.commitScrollProgress(progress);
+  },
   handleGridScrollEnd(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
     'worklet';
     const scrollWidth = event.detail.scrollWidth ?? this._viewportWidth.value;
@@ -136,7 +184,11 @@ Page({
         : progress >= 0.98
           ? '向右滑动返回较早日期，人员列保持固定'
           : `左右滑动查看全部 ${this.data.columns.length} 天，人员列保持固定`;
-    this.setData({ scrollHint, scrollProgressPercent: Math.round(progress * 100) });
+    this.setData({
+      scrollHint,
+      scrollProgressOffset: Math.round(progress * 36),
+      scrollProgressPercent: Math.round(progress * 100),
+    });
   },
   handleShiftSelect(this: ManualMatrixPageInstance, event: ManualMatrixShiftSelectEvent): void {
     const shiftTypeId = event.currentTarget.dataset.shiftTypeId;

@@ -75,7 +75,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?scroll-y[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
-    expect(template).not.toContain('bindscroll=');
+    expect(template).toContain('bindscroll="handleGridScrollFallback"');
     expect(template).not.toContain('<wxs');
     expect(template).toContain('wx:for="{{rows}}"');
     expect(template).toMatch(
@@ -91,6 +91,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
     expect(source).toContain("select('#matrix-date-scroll').ref(");
     expect(source).toContain("select('#matrix-member-scroll').ref(");
+    expect(source).toContain("select('#matrix-date-scroll').node(");
+    expect(source).toContain("select('#matrix-member-scroll').node(");
     expect(source).toContain('scrollViewContext.scrollTo(this._dateScrollRef.value');
     expect(source).toContain('scrollViewContext.scrollTo(this._memberScrollRef.value');
     expect(source).toContain('left: scrollLeft');
@@ -98,7 +100,56 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).not.toContain("applyAnimatedStyle('#matrix-date-track'");
     expect(source).not.toContain("applyAnimatedStyle('#matrix-member-track'");
     expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBeGreaterThanOrEqual(3);
+    expect(worklets.count).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps a logical-thread fallback for header refs and progress when UI callbacks are unavailable', async () => {
+    let definition;
+    vi.stubGlobal('wx', {
+      worklet: {
+        runOnJS: (callback) => callback,
+        scrollViewContext: { scrollTo: vi.fn() },
+        shared: (value) => ({ value }),
+      },
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    vi.stubGlobal('Component', vi.fn());
+    await import('../src/pages/manual-matrix-poc/index.ts');
+
+    const dateScroll = { scrollTo: vi.fn() };
+    const memberScroll = { scrollTo: vi.fn() };
+    const setData = vi.fn();
+    const instance = {
+      commitScrollProgress: definition.commitScrollProgress,
+      data: structuredClone(definition.data),
+      _dateScrollContext: dateScroll,
+      _memberScrollContext: memberScroll,
+      _lastScrollProgressPercent: -1,
+      setData,
+    };
+
+    definition.handleGridScrollFallback.call(instance, {
+      detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
+    });
+
+    expect(dateScroll.scrollTo).toHaveBeenCalledWith({
+      animated: false,
+      duration: 0,
+      left: 216,
+    });
+    expect(memberScroll.scrollTo).toHaveBeenCalledWith({
+      animated: false,
+      duration: 0,
+      top: 132,
+    });
+    expect(setData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scrollProgressOffset: expect.any(Number),
+        scrollProgressPercent: expect.any(Number),
+      }),
+    );
   });
 
   it('synchronizes both header scroll views on the UI thread without setData', async () => {

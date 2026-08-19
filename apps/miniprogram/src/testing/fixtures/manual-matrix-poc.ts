@@ -62,6 +62,7 @@ export interface ManualMatrixPocViewModel {
   readonly modeLabel: string;
   readonly rows: readonly ManualMatrixRow[];
   readonly scrollHint: string;
+  readonly scrollProgressOffset: number;
   readonly scrollProgressPercent: number;
   readonly selectedLocation: ManualMatrixLocation;
   readonly shiftTypes: readonly ManualMatrixShiftType[];
@@ -161,6 +162,7 @@ export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMa
     modeLabel: mode === 'daily' ? '常用' : '上限',
     rows,
     scrollHint: '向左滑动查看其余日期，人员列保持固定',
+    scrollProgressOffset: 0,
     scrollProgressPercent: 0,
     selectedLocation,
     shiftTypes: manualMatrixPocShiftTypes,

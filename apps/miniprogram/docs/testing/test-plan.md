@@ -61,7 +61,7 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 
 - `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
 - 页面主体只有一个同时启用横纵滚动的 Skyline `scroll-view type=list`；成员行是其直接子节点。日期表头和人员列分别由独立单轴 `scroll-view` 覆盖，左上角固定，禁止 Canvas。
-- 主体、日期表头和人员表头是三个原生滚动容器。`NodesRef.ref()` 把两个表头引用保存到页面实例 SharedValue；主体 `worklet:onscrollupdate` 在 UI 线程调用 `worklet.scrollViewContext.scrollTo()`，分别同步 `left` 与 `top`，且 `duration: 0`、`animated: false`。结构测试禁止恢复 WXS/普通 `bindscroll`、`applyAnimatedStyle` 表头位移或滚动期 JS `setData`。矩阵产物保留至少 3 个 Worklet。
+- 主体、日期表头和人员表头是三个原生滚动容器。`NodesRef.ref()` 把两个表头引用保存到页面实例 SharedValue；主体 `worklet:onscrollupdate` 在 UI 线程调用 `worklet.scrollViewContext.scrollTo()`，分别同步 `left` 与 `top`，且 `duration: 0`、`animated: false`。为覆盖真机上 Worklet 回调未触发的运行时差异，主体另挂 `bindscroll` 兜底并通过 `NodesRef.node()` 的普通 `ScrollViewContext` 同步两个表头；兜底仅按整数百分比更新顶部进度，不能恢复 WXS 或 `applyAnimatedStyle` 表头位移。点击只更新目标格或目标行；撤销保存 `{key,before,after}`；矩阵产物至少保留主体滚动与结束两个 Worklet。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
 - `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 

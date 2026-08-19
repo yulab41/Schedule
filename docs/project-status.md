@@ -113,7 +113,7 @@
 - Web 黄金稿：基础控件、月历、7×7 与 20×30 矩阵首轮均由用户确认；实体 Android 复测后确认 P1 Storybook 月历仍错误写死 42 格，而当前生产 Web `buildMonthDisplayGrid` 已按月份跨度动态生成 5/6 周，并为最后一行选中框适配左右底角。黄金稿与 Mini fixture 已同步纠正，12px 详情间距继续保持。
 - 原生实现：`@schedule/ui-tokens/tokens.ts` 同时生成 CSS/WXSS，构建把 WXSS 确定性复制到 `dist/styles` 并审计导入。新增自绘 `UiButton`、`UiSwitch`、`UiCheckbox`、`UiRadio`、`UiInputShell`、`UiPicker`、`UiAlert`、`UiChip`、`UiLoading`；开关保持 52×30px 本体、60×44px 触控层，禁用/加载态阻断事件。未引入 TDesign 或第三方 UI。
 - 月历实现：`pages/calendar-poc/index`、自绘 `CalendarMonth`/`CalendarCell` 和确定性 2026-10 fixture 现按 Web 同一周数公式生成 35/42 格面板；跨月/今天/选择/周末/节假日/人员/加换状态独立，最后一行显式标记左右底角。Android 触控、PC 鼠标和程序按钮统一改走 Skyline 原生三面板 `swiper`；箭头/定位图标使用真实 WXML 子节点，详情保持独立表面和 12px 间距。
-- 矩阵实现：`pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture 继续使用一个 `scroll-view type=list` 承载横纵滚动；20 个成员行按视口绘制。日期表头以 `-scrollLeft`、人员列以 `-scrollTop` 由 `worklet:onscrollupdate` 在 UI 线程同帧同步，滚动中不经过 WXS/普通 `bindscroll`、不调用 `setData`；点击与撤销仍仅做增量更新，未使用 Canvas、整月 `setData` 或业务 API。
+- 矩阵实现：`pages/manual-matrix-poc/index?mode=daily|maximum`、自绘 `ManualScheduleCell` 和确定性 7×7/20×30 fixture 继续使用一个 `scroll-view type=list` 承载横纵滚动；20 个成员行按视口绘制。首选路径由 `worklet:onscrollupdate` 在 UI 线程同帧调用 `worklet.scrollViewContext.scrollTo()` 同步日期/人员表头；另保留 `bindscroll` + `NodesRef.node()` 普通 `ScrollViewContext` 兜底，以覆盖真机未触发 Worklet 时的固定表头/固定蓝条。正常 Worklet 路径不调用 `setData`，兜底仅按整数百分比更新顶部进度；点击与撤销仍仅做增量更新，未使用 Canvas、整月 `setData` 或业务 API。
 - 人工验收工具：`testing/p1-manual-test-plan.json` 锁定基础控件、月历、7×7、20×30 四条原生路由、实际交互状态和既定视觉/性能目标；`docs/runbooks/manual-native-testing.md` 给出用户手工编译模式、实体 Android 操作和反馈格式。云测 runner、Minium Python/ZIP、云测凭据和专用 selector 已移除；`scripts/visual-compare.mjs` 仅在用户提供截图或失败需要量化时使用。
 - 回归来源与语义：`git log -S`/`git blame` 确认旧 Storybook 详情同卡来自 `8a49434`、Web 三面板来自 `41d284b`、生产外框裁切来自 `0aaa562`；本实现复用视觉和交互语义但未复制 Vue/DOM。相邻月份格只读，当前月日期只发出一次选择事件；月份切换只重建 PoC ViewModel，不接入 API 或业务 store。
 - 矩阵回归来源与语义：P1 黄金 story 由 `3884713` 引入；生产手排基础来自 `6512274`，冻结日期/人员列及密集移动交互来自 `1203dc7`。本实现保留同一人员×日期、班种、失效、选择和滚动语义，但用 WXML/WXSS/Skyline 重写；主体继续用 `type=list` 按视口绘制，3.3.0 仅用于 UI 线程 ScrollViewContext，同样不依赖只纵向回收的 `list-builder`。
@@ -161,9 +161,13 @@
 - 行为审计：矩阵数据、格子选择、撤销、横纵坐标、方向、惯性主体和滚动结束提示语义不变；冻结实现从样式 transform 改为 UI 线程直接滚动两个只读表头容器。同步仍由同一个主体事件驱动，不增加网络、业务写入或滚动期 `setData`，表头滚动禁用动画避免人为延迟。
 - 本轮代码发布：checkpoint `7e73686`（`fix(miniprogram): synchronize matrix scroll contexts`）已推送。发布前加密数据库备份 archive 为 `1659677c-b22b-4ec1-9a1c-4acc9ef7ac77`（50 表、49,429 行、20,887,140 字节，SHA-256 `2dd68963a722afc7bd89065fc188f373d96d792a2bb020f93eba6f7b244dc82c`）；release `7e7368629b3c177fd3c38920c4d787680400a6a3` 从不可变产物部署，容器预热首次 502 后自动恢复，`ecs-verify.sh` 通过正式域名健康、39 个迁移、产物哈希、域名隔离、公开端口与容器检查。
 - 本轮微信体验上传：同一干净 `7e73686` 通过官方 Summer 编译，处理 48 个代码文件并生成 32,091 字节上传包；体验版本 `0.1.0-p1.20260819.6`、robot 1、staging profile、manifest `c8f6a37051d9e34e5154718037d5e4f87d9c0a725dced48ab0d697a4f8dab415` 已上传微信开发平台。未提交审核、未正式发布，全程未启动或控制本地微信开发者工具。
-- 当前状态：ScrollViewContext 方案的实现、代码推送、生产部署与微信体验上传均已完成，现为“已实现待用户人工原生复核”；P1 不能进入 P2。
-- 下一批次：用户使用体验版 `0.1.0-p1.20260819.6` 复测 C/D 的手指拖动、快速反向和惯性滚动。7×7 日期表头须与主体同帧；20×30 日期/人员表头须分别与对应轴同帧且左上角固定；顶部蓝色进度须在横向滚动后变化。
-- 本轮代码 checkpoint：`7e73686`（`fix(miniprogram): synchronize matrix scroll contexts`）；最终状态 checkpoint 识别消息：`docs(status): record scroll context upload`。
+- `.6` 真机回归结果：用户确认 7×7 和 20×30 的人员/日期表头仍固定，顶部蓝色进度条也固定；因此不能再把 UI 线程静态实现视为真机通过。该结果说明目标设备未可靠触发或执行当前 `worklet:onscrollupdate` 视觉路径，普通 mock/静态测试不足以证明原生同步。
+- 本轮修复：保留 UI 线程 `worklet.scrollViewContext.scrollTo()` 作为首选，并新增主体 `bindscroll` 兜底；`onReady` 通过 `NodesRef.node()` 获取两个普通 `ScrollViewContext`，事件直接调用 `scrollTo({left/top,duration:0,animated:false})`。顶部蓝条改为同一事件源的显式 `scrollProgressOffset` 数据绑定，按整数百分比节流，避免继续依赖失效的 `applyAnimatedStyle` updater。Web/WXML 结构、矩阵数据、点击、撤销、业务 API 和左上角冻结语义不变。
+- 本轮测试：回归先要求 `bindscroll`、两个 `node()` 引用和进度偏移绑定；实现后 Mini 全套 10 文件/40 项通过，定向矩阵 7/7，typecheck、staging verify、源码/包体审计、双构建确定性、无凭据 CI dry-run、任务文件 Prettier/ESLint、`git diff --check` 通过。staging verify 包体 106,233 bytes，manifest `a6263d24efa98e4d16c29081b1dba64e12f818267562829eded9477397506a6d`；源码/产物保留主体滚动与结束处理两个 Worklet。未触及 Web 核心链路，无需浏览器 smoke；根完整格式检查仍被用户自有 `apps/miniprogram/project.config.json` 阻断，`runtime/` 与 `src/` 未修改、未暂存。
+- 行为边界：兜底会在普通滚动线程同步表头，目标是先保证真机可见正确跟随；若目标设备仍产生可感知延迟，下一轮将依据人工录像再决定是否改为单滚动容器/原生自绘网格，不继续盲目调整 SharedValue 捕获。
+- 当前状态：本轮修复已实现待人工原生复核；P1 仍不能进入 P2。
+- 下一批次：提交并上传本轮 checkpoint 后，用户人工复测 `0.1.0-p1` 最新体验版的 7×7 横向、20×30 横向/纵向/双向滚动和顶部蓝条；通过后再继续 P1 C/D，失败需提供具体设备/手势/延迟现象。
+- 本轮代码 checkpoint：待提交（`fix(miniprogram): add native scroll fallback for matrix headers`）；最终状态 checkpoint 识别消息：待本轮提交后填写。
 - 停止条件：最终状态 checkpoint 推送并同步为 ECS release，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户人工复测；用户未明确通过前不进入 P2。
 
 ## 2026-08-18 院内通讯录联动筛选与同号合并（DIR-06 至 DIR-08）
