@@ -19,8 +19,10 @@
 - 实现：`getDirectorySwipeTarget` 以横向位移至少 48px 且横向幅度超过纵向 1.2 倍为触发条件；左滑 `internal → employee`、右滑反向，短划、垂直拖动、边界反向划动和输入/按钮拖动均忽略。面板声明 `touch-action: pan-y` 与横向 overscroll 隔离，点击、左右/Home/End 键盘和 `prefers-reduced-motion` 保持可用；模式变更以 240ms 系统曲线同步指示器和内容位移。
 - 视觉与预览：按 `frontend-design` 的系统级移动端语言收紧页面密度，以中性灰底、白色分段胶囊、单一蓝色强调和轻量阴影替代装饰条；Storybook `CompactMobile` 390px 预览实测左滑进入人员、右滑返回科室、纵向拖动不切换，标签 aria-selected、指示器矩阵位移和人员/科室内容均正确。
 - 验证：Web typecheck、Web production build、Storybook build、任务文件 ESLint/Prettier、`git diff --check` 通过；主工作区 Vitest 排除用户自有 `runtime/**` / `src/**` 后 123 文件/727 项通过、31 文件/262 项按环境跳过。全量还剩 3 项既有阻塞（ECS 验证脚本迁移断言仍期待 40、手动矩阵 fixture 两项与当前 P1 变更不一致），与本通讯录改动无关。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 通过登录、管理员、成员、访客与访问记录全流程；`smoke:check-core` 通过并确认本批次未触及核心链路。
-- 当前状态：已实现（含 Storybook/浏览器运行验证）→待代码 checkpoint、生产备份、ECS 发布与正式域名只读核验。
-- 下一批次与停止条件：完成代码提交、推送、生产备份/部署/验证及最终状态文档 checkpoint 后停止，等待用户在移动端实际滑动复核；不修改通讯录数据和其他未授权工作树文件。
+- 发布：代码 checkpoint `34fbaea` 已推送；随后以并行提交后的当前 `HEAD=a9cfe26` 重新打包并部署，确保 Git、部署清单和服务器 `current-release` 一致。发布前加密数据库备份 archive `492a74d2-5d9c-4c59-bcdd-45a7a0ea0d0c`（50 表、106501 行、47295844 bytes，SHA-256 `e9fa6cd225d14f71defef0f2d10f0a2f1489e8674e813cd78b3533853ad8835e`）；release `a9cfe2693a89a9779bd0d58d45c7eb66eaa4dcc0` 已部署，预热首次 502 后恢复。
+- 线上验证：`ecs-verify.sh` 通过健康、产物哈希、41 条迁移、域名隔离、监听端口、容器和依赖检查；正式域名 `/api/health` 返回 200，数据库未写入业务数据。首次 SSH 中断留下的半发布状态已使用发布前自动文件备份恢复后再重试，当前服务完整运行。
+- 当前状态：已完成（含 Storybook/浏览器验证、代码发布、备份、ECS 验证与线上只读核验）→待用户在移动端实际滑动复核。
+- 下一批次与停止条件：不再自动修改通讯录数据或其他未授权工作树文件，等待用户确认左滑/右滑、纵向滚动不误切换及减少动态效果。
 
 ## 2026-08-19 P1 最大矩阵跨运行时滚动隔离（当前批次）
 
