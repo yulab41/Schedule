@@ -112,6 +112,31 @@ describe('production hospital directory integration', () => {
     expect(view).toMatch(/\.directory-dial-action:focus-visible\s*{[^}]*outline:/s);
   });
 
+  it('gives employee phone rows full width without generic mobile labels or wrapped numbers', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).toContain('function shouldShowContactLabel');
+    expect(view).toContain("directoryKind.value === 'employee' &&");
+    expect(view).toContain('v-if="shouldShowContactLabel(contact, entryGroup.entries.length > 1)"');
+    expect(view).toMatch(/:class="\{[\s\S]*?has-contact-label[\s\S]*?shouldShowContactLabel\(/s);
+    expect(view).toMatch(
+      /\.contact-method\s*{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*}/s,
+    );
+    expect(view).toMatch(
+      /\.contact-method\.has-contact-label\s*{[^}]*grid-template-columns:\s*minmax\(62px, auto\) minmax\(0, 1fr\);[^}]*}/s,
+    );
+    expect(view).toMatch(
+      /\.directory-dial-action strong,\s*\.directory-static-number\s*{[^}]*white-space:\s*nowrap;[^}]*}/s,
+    );
+  });
+
+  it('advertises employee-code search without exposing the removed T9 mode', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).toContain("? '搜索姓名、级别、工号、拼音、首字母或号码'");
+    expect(view).not.toContain('T9');
+  });
+
   it('keeps the directory in the full browser smoke journey', () => {
     const smoke = source('../../../../../scripts/smoke-browser.mjs');
 

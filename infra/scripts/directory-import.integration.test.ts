@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   activateDirectorySnapshot,
   publishDirectorySnapshot,
-  toT9Digits,
   validateDirectoryManifest,
 } from './directory-import-core.js';
 
@@ -63,15 +62,9 @@ describeWithDatabase('directory snapshot import', () => {
       WHERE normalized_value = 'd0001'
     `);
     expect(preparedSearchRows.map((row) => row.matchKind)).toEqual(
-      expect.arrayContaining([
-        'number-prefix',
-        'pinyin-prefix',
-        't9-prefix',
-        'chinese-ngram',
-        'employee-code',
-      ]),
+      expect.arrayContaining(['number-prefix', 'pinyin-prefix', 'chinese-ngram', 'employee-code']),
     );
-    expect(toT9Digits('ce shi zhong xin')).toBe('2374494664946');
+    expect(preparedSearchRows.map((row) => row.matchKind)).not.toContain('t9-prefix');
 
     const secondManifest = validateDirectoryManifest(createManifest('snapshot-2', '1001'));
     const second = await publishDirectorySnapshot(client, secondManifest, 'b'.repeat(64));

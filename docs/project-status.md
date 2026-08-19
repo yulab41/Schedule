@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-19 员工通讯录搜索与电话行精简（当前批次）
+
+- 批次范围：移除员工通讯录的 T9 搜索提示、别名生成和 API 数字 T9 匹配；新增 `employee_code` 精确/前缀搜索；同时完成员工卡片电话行去掉“移动电话”标签并保持长号/短号单行。不改变人员集合、号码、层级筛选、权限或收藏偏好。
+- 回归定位：`git log -S`/`git blame` 确认 T9 API 分支与别名由 `9bc4922` 引入，员工搜索提示同样来自 `9bc4922`；电话行标签/两列布局由 `926136a` 延续至 `b09da6e`。
+- 实现：导入器不再生成 T9 别名；API 先匹配 `employee_code` 精确/前缀，再执行原文、拼音和全文检索；迁移 `0041_remove_t9_directory_search.sql` 清理历史 T9 别名并收窄枚举。员工移动电话行隐藏通用标签，号码值 `nowrap`，院内固定电话标签保持。
+- 验证：员工视图/导入器定向 24 项通过；真实 MySQL API、导入和迁移测试 21 项通过；contracts/database/API/Web typecheck、任务文件 ESLint/Prettier、`git diff --check` 通过；`SMOKE_BASE_URL=http://127.0.0.1:5173 node scripts/smoke-browser.mjs` 通过全链路、员工工号搜索与电话行布局断言；`node scripts/smoke-browser.mjs --check-core` 通过（未触及核心链路）。
+- 当前状态：已完成（含运行验证）→待部署；提交信息拟为 `feat(directory): replace t9 with employee code search`。部署前需备份生产数据库，发布后运行 `ecs-verify.sh` 并进行员工目录只读核验。
+- 下一批次与停止条件：完成本代码 checkpoint、生产迁移和线上只读核验；随后更新最终状态 checkpoint 并等待用户复核，不开始其他实现任务。
+
 ## 2026-08-19 员工通讯录工号前缀优先配对（当前批次）
 
 - 批次范围：继续以现有员工通讯录清洗结果为唯一数据集合；姓名/工号/所属部门清单仍只用于提取和配对工号，不从清单新增人员。候选冲突时优先唯一的 `d`/`g` 开头工号；没有唯一 `d`/`g` 候选则不猜测、不写工号。

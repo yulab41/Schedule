@@ -333,18 +333,6 @@ function buildSearchRank(value: string | undefined): SQL<number> {
             OR directory_phone_prefix.normalized_internal_extension LIKE CONCAT(${digits}, '%')
           )
       ) THEN 650
-      WHEN EXISTS (
-        SELECT 1 FROM directory_search_aliases AS directory_t9_exact
-        WHERE directory_t9_exact.entry_id = ${directoryEntries.id}
-          AND directory_t9_exact.type = 't9'
-          AND directory_t9_exact.normalized_value = ${digits}
-      ) THEN 600
-      WHEN EXISTS (
-        SELECT 1 FROM directory_search_aliases AS directory_t9_prefix
-        WHERE directory_t9_prefix.entry_id = ${directoryEntries.id}
-          AND directory_t9_prefix.type = 't9'
-          AND directory_t9_prefix.normalized_value LIKE CONCAT(${digits}, '%')
-      ) THEN 550
       ELSE 0
     END`;
   }
@@ -355,6 +343,8 @@ function buildSearchRank(value: string | undefined): SQL<number> {
       ? sql<number>`0`
       : sql<number>`MATCH(${directoryEntries.searchText}) AGAINST (${fulltextQuery} IN BOOLEAN MODE)`;
   return sql<number>`CASE
+    WHEN LOWER(${directoryEntries.employeeCode}) = ${normalized} THEN 700
+    WHEN LOWER(${directoryEntries.employeeCode}) LIKE CONCAT(${normalized}, '%') THEN 650
     WHEN EXISTS (
       SELECT 1 FROM directory_search_aliases AS directory_alias_exact
       WHERE directory_alias_exact.entry_id = ${directoryEntries.id}

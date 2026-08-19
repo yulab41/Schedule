@@ -52,7 +52,7 @@ type DirectoryVisibility = (typeof visibilityValues)[number];
 type DirectoryVerificationStatus = (typeof verificationStatuses)[number];
 type DirectoryContactType = (typeof contactTypes)[number];
 type DirectoryAliasType =
-  'source' | 'manual' | 'pinyin_full' | 'pinyin_compact' | 'pinyin_initials' | 't9';
+  'source' | 'manual' | 'pinyin_full' | 'pinyin_compact' | 'pinyin_initials';
 
 export class DirectoryImportError extends Error {}
 
@@ -733,48 +733,8 @@ function buildSearchAliases(
     addAlias('pinyin_full', full, full);
     addAlias('pinyin_compact', full.replaceAll(' ', ''), full.replaceAll(' ', ''));
     addAlias('pinyin_initials', initials.replaceAll(' ', ''), initials.replaceAll(' ', ''));
-    addAlias('t9', full, toT9Digits(full));
-    addAlias('t9', initials, toT9Digits(initials));
   }
   return [...aliases.values()];
-}
-
-const t9DigitByLetter: Readonly<Record<string, string>> = {
-  a: '2',
-  b: '2',
-  c: '2',
-  d: '3',
-  e: '3',
-  f: '3',
-  g: '4',
-  h: '4',
-  i: '4',
-  j: '5',
-  k: '5',
-  l: '5',
-  m: '6',
-  n: '6',
-  o: '6',
-  p: '7',
-  q: '7',
-  r: '7',
-  s: '7',
-  t: '8',
-  u: '8',
-  v: '8',
-  w: '9',
-  x: '9',
-  y: '9',
-  z: '9',
-};
-
-export function toT9Digits(value: string): string {
-  return [...value.toLowerCase()]
-    .flatMap((character) => {
-      const digit = t9DigitByLetter[character];
-      return digit === undefined ? [] : [digit];
-    })
-    .join('');
 }
 
 async function upsertCampuses(

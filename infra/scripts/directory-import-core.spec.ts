@@ -107,6 +107,7 @@ describe('directory import manifest', () => {
         expect.objectContaining({ type: 'pinyin_initials', normalizedValue: 'cszx' }),
       ]),
     );
+    expect(entry?.aliases.some((alias) => alias.type === 't9')).toBe(false);
     expect(entry?.contentSha256).toMatch(/^[a-f0-9]{64}$/u);
   });
 

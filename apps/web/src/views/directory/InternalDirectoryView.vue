@@ -413,6 +413,14 @@ function getContactHeading(contact: DirectoryContactMethod, isMerged: boolean): 
   return (isMerged ? undefined : contact.label) ?? getDirectoryNumberLabel(contact.type, 'full');
 }
 
+function shouldShowContactLabel(contact: DirectoryContactMethod, isMerged: boolean): boolean {
+  const heading = getContactHeading(contact, isMerged);
+  return !(
+    directoryKind.value === 'employee' &&
+    (contact.type === 'mobile' || heading.startsWith('移动电话'))
+  );
+}
+
 function selectedFilterLabel(section: FilterSection): string {
   const value = filters.value[section.key];
   if (value === undefined) return '全部';
@@ -524,7 +532,7 @@ async function lookupPreferredEntries(
         enterkeyhint="search"
         :placeholder="
           directoryKind === 'employee'
-            ? '搜索姓名、级别、拼音、首字母、T9 或号码'
+            ? '搜索姓名、级别、工号、拼音、首字母或号码'
             : '搜索科室、姓名、拼音或号码'
         "
         @input="scheduleSearch"
@@ -623,8 +631,21 @@ async function lookupPreferredEntries(
             </header>
 
             <div class="contact-methods">
-              <div v-for="contact in entryGroup.contacts" :key="contact.id" class="contact-method">
-                <span class="contact-label">
+              <div
+                v-for="contact in entryGroup.contacts"
+                :key="contact.id"
+                class="contact-method"
+                :class="{
+                  'has-contact-label': shouldShowContactLabel(
+                    contact,
+                    entryGroup.entries.length > 1,
+                  ),
+                }"
+              >
+                <span
+                  v-if="shouldShowContactLabel(contact, entryGroup.entries.length > 1)"
+                  class="contact-label"
+                >
                   {{ getContactHeading(contact, entryGroup.entries.length > 1) }}
                 </span>
                 <div class="contact-number-group">
@@ -771,8 +792,17 @@ async function lookupPreferredEntries(
                   v-for="contact in entryGroup.contacts"
                   :key="contact.id"
                   class="contact-method"
+                  :class="{
+                    'has-contact-label': shouldShowContactLabel(
+                      contact,
+                      entryGroup.entries.length > 1,
+                    ),
+                  }"
                 >
-                  <span class="contact-label">
+                  <span
+                    v-if="shouldShowContactLabel(contact, entryGroup.entries.length > 1)"
+                    class="contact-label"
+                  >
                     {{ getContactHeading(contact, entryGroup.entries.length > 1) }}
                   </span>
                   <div class="contact-number-group">
@@ -1362,10 +1392,14 @@ async function lookupPreferredEntries(
   display: grid;
   min-width: 0;
   min-height: 44px;
-  grid-template-columns: minmax(62px, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   border-top: 1px solid var(--ui-color-border);
+}
+
+.contact-method.has-contact-label {
+  grid-template-columns: minmax(62px, auto) minmax(0, 1fr);
 }
 
 .contact-label {
@@ -1417,7 +1451,8 @@ async function lookupPreferredEntries(
 
 .directory-dial-action strong,
 .directory-static-number {
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .directory-dial-action small,
@@ -1797,7 +1832,7 @@ async function lookupPreferredEntries(
 }
 
 @media (max-width: 380px) {
-  .contact-method {
+  .contact-method.has-contact-label {
     grid-template-columns: minmax(58px, auto) minmax(0, 1fr);
     gap: 5px;
   }

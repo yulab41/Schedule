@@ -223,7 +223,6 @@ export const directorySearchAliases = mysqlTable(
       'pinyin_full',
       'pinyin_compact',
       'pinyin_initials',
-      't9',
     ]).notNull(),
     aliasValue: varchar('alias_value', { length: 255 }).notNull(),
     normalizedValue: varchar('normalized_value', { length: 255 }).notNull(),

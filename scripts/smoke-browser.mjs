@@ -762,8 +762,8 @@ async function assertEmployeeDirectory(page) {
   if (heading !== '员工通讯录') fail('员工通讯录页面标题不正确。');
   const search = page.getByRole('searchbox', { name: '搜索员工通讯录' });
   const placeholder = await search.getAttribute('placeholder');
-  if (placeholder === null || !placeholder.includes('T9')) {
-    fail('员工通讯录搜索框未提示 T9 搜索。');
+  if (placeholder === null || !placeholder.includes('工号') || placeholder.includes('T9')) {
+    fail('员工通讯录搜索框未提示工号搜索，或仍提示已移除的 T9 搜索。');
   }
   const initial = await page.evaluate(() => ({
     entries: document.querySelectorAll('.directory-entry').length,
@@ -812,6 +812,23 @@ async function assertEmployeeDirectory(page) {
   const employeeCodeResultText = await page.locator('.directory-search-results').innerText();
   if (!employeeCodeResultText.includes('工号 d0898')) {
     fail('员工通讯录工号搜索或工号展示未返回预期结果。');
+  }
+  const employeePhoneLayout = await page.evaluate(() => {
+    const method = document.querySelector('.directory-search-results .contact-method');
+    const group = method?.querySelector('.contact-number-group');
+    return {
+      hasMobileLabel: method?.textContent?.includes('移动电话') ?? false,
+      numberOverflow:
+        group !== null && group !== undefined && group.scrollWidth > group.clientWidth,
+      numberWhiteSpace:
+        group === null || group === undefined
+          ? ''
+          : getComputedStyle(group.querySelector('strong') ?? group).whiteSpace,
+    };
+  });
+  if (employeePhoneLayout.hasMobileLabel) fail('员工通讯录电话行仍显示移动电话标签。');
+  if (employeePhoneLayout.numberOverflow || employeePhoneLayout.numberWhiteSpace !== 'nowrap') {
+    fail('员工通讯录长短号电话行发生换行或横向溢出。');
   }
   await page.locator('button[aria-label="清空搜索"]').click();
   await page.waitForFunction(() => document.querySelector('.directory-search-results') === null);

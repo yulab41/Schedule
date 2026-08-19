@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-19 员工通讯录移除 T9、增加工号搜索与电话行修复
+
+- 反馈与引入点：用户要求去除低频 T9 搜索并增加工号搜索；同时完成上一轮“移动电话”标签占位导致号码换行的 UI 修复。`git log -S`/`git blame` 定位 T9 API/别名/提示均由 `9bc4922` 引入，电话卡片布局由 `926136a`/`b09da6e` 引入。
+- 测试先行：新增员工搜索提示不得出现 T9 且必须包含工号、导入结果不得生成 T9 别名、API fixture 直接以 `employee_code=d0001` 搜索、迁移后枚举不得含 T9、电话行无移动电话标签且号码不换行断言；旧实现对应断言失败，实现后通过。
+- 实现与语义：员工工号使用数据库字段精确/前缀排序（不依赖别名）；中文、拼音、首字母、号码和权限/分页保持。移除 T9 导入生成和数字匹配分支，迁移删除历史 T9 别名并收窄枚举；员工移动电话行改为号码全宽单列，固定电话标签仍保留。请求、Promise/catch、空值和副作用路径未改变。
+- 运行/浏览器验证：真实 MySQL API、导入、迁移 3 文件/21 项通过；Web/API/contracts/database typecheck、任务文件 ESLint/Prettier、`git diff --check` 通过。`SMOKE_BASE_URL=http://127.0.0.1:5173 node scripts/smoke-browser.mjs` 通过管理员、成员、访客/vkey、访问记录、员工中文/工号搜索及电话布局；`node scripts/smoke-browser.mjs --check-core` 通过，确认未涉及核心链路。
+- 当前状态：已完成（含运行验证）→待生产备份、代码发布和线上只读核验。
+
 ## 2026-08-19 员工通讯录工号前缀优先配对（当前轮次）
 
 - 反馈与引入点：在 `e92586b` 的姓名/部门配对基础上，用户要求同名候选优先 `d`/`g` 开头；本轮执行 `git log -S 'departmentCandidates.length === 1'` 与 `git blame infra/scripts/employee-directory-identity-matcher.ts`，确认原选择逻辑由 `e92586b` 引入。

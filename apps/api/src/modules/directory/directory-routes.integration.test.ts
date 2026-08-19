@@ -76,12 +76,15 @@ describeWithDatabase('internal directory routes', () => {
     expect(visitorKey.statusCode).toBe(404);
   });
 
-  it('searches Chinese, pinyin initials, exact numbers, and number prefixes with stable cursor pages', async () => {
+  it('searches Chinese, pinyin initials, employee codes, exact numbers, and number prefixes with stable cursor pages', async () => {
     const chinese = await getDirectory('member-token', 'q=%E6%80%A5%E8%AF%8A');
     expect(chinese.totalCount).toBe(2);
 
     const pinyin = await getDirectory('member-token', 'q=jzk');
     expect(pinyin.totalCount).toBe(2);
+
+    const employeeCode = await getDirectory('member-token', 'q=d0001');
+    expect(employeeCode.entries.map((entry) => entry.contactName)).toEqual(['急诊分诊台']);
 
     const extension = await getDirectory('member-token', 'q=1234');
     expect(extension.entries.map((entry) => entry.contactName)).toEqual(['急诊分诊台']);
@@ -309,6 +312,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
       contactName: '急诊分诊台',
       department: '急诊科',
       documentId: centralDocumentId,
+      employeeCode: 'd0001',
       entryKind: 'service',
       extension: '1234',
       floor: '3楼',
@@ -326,6 +330,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
       contactName: '值班医生',
       department: '急诊科',
       documentId: centralDocumentId,
+      employeeCode: undefined,
       entryKind: 'person',
       extension: '5678',
       floor: '3楼',
@@ -343,6 +348,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
       contactName: '检验窗口',
       department: '检验科',
       documentId: northDocumentId,
+      employeeCode: undefined,
       entryKind: 'department',
       extension: '2468',
       floor: '2楼',
@@ -360,6 +366,7 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
       contactName: '保卫处应急专线',
       department: '保卫处',
       documentId: centralDocumentId,
+      employeeCode: undefined,
       entryKind: 'emergency',
       extension: '9999',
       floor: '1楼',
@@ -376,11 +383,12 @@ async function seedDirectoryFixture(client: DatabaseClient): Promise<string> {
     await client.database.execute(sql`
       INSERT INTO directory_entries
         (id, batch_id, source_document_id, campus_id, entry_key, source_page,
-         source_locator, section_name, department_name, contact_name, building_name,
+         source_locator, section_name, department_name, contact_name, employee_code, building_name,
          floor_name, entry_kind, visibility, display_order, search_text, content_sha256)
       VALUES
         (${entry.id}, ${batchId}, ${entry.documentId}, ${entry.campusId}, ${`entry-${entry.order}`}, 1,
          ${`row-${entry.order}`}, ${entry.section}, ${entry.department}, ${entry.contactName},
+         ${entry.employeeCode ?? null},
          ${entry.building}, ${entry.floor}, ${entry.entryKind}, ${entry.visibility}, ${entry.order},
          ${entry.aliases.slice(0, 2).join(' ')}, ${entry.order.toString().padStart(64, '0')})
     `);
