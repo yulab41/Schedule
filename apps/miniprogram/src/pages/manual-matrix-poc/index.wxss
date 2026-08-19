@@ -208,6 +208,12 @@ page {
   box-shadow: var(--ui-shadow-card);
 }
 
+.matrix-vertical-gesture,
+.matrix-horizontal-gesture {
+  width: 100%;
+  height: 100%;
+}
+
 .matrix-scroll {
   width: 100%;
   height: 100%;

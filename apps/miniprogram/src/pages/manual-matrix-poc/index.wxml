@@ -63,15 +63,19 @@
 
   <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
     <vertical-drag-gesture-handler
+      class="matrix-vertical-gesture"
       tag="matrix-vertical"
       simultaneous-handlers="{{['matrix-horizontal']}}"
+      worklet:should-response-on-move="shouldVerticalDragRespond"
       worklet:ongesture="handleMatrixVerticalDrag"
     >
       <horizontal-drag-gesture-handler
+        class="matrix-horizontal-gesture"
         tag="matrix-horizontal"
         simultaneous-handlers="{{['matrix-vertical']}}"
         native-view="scroll-view"
         worklet:should-response-on-move="shouldHorizontalScrollRespond"
+        worklet:ongesture="handleMatrixHorizontalGesture"
       >
         <scroll-view
           class="matrix-scroll"
@@ -149,21 +153,21 @@
           </view>
         </scroll-view>
       </horizontal-drag-gesture-handler>
-    </vertical-drag-gesture-handler>
 
-    <view class="matrix-member-overlay" aria-label="值班人员表头">
-      <view id="matrix-member-track" class="matrix-member-track">
-        <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
-          <text>{{item.realName}}</text>
-          <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
+      <view class="matrix-member-overlay" aria-label="值班人员表头">
+        <view id="matrix-member-track" class="matrix-member-track">
+          <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
+            <text>{{item.realName}}</text>
+            <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
+          </view>
         </view>
       </view>
-    </view>
 
-    <view class="matrix-corner">
-      <view class="corner-member">值班人员 ↓</view>
-      <view class="corner-holiday">节假日</view>
-    </view>
+      <view class="matrix-corner">
+        <view class="corner-member">值班人员 ↓</view>
+        <view class="corner-holiday">节假日</view>
+      </view>
+    </vertical-drag-gesture-handler>
   </view>
 
   <text class="matrix-note">

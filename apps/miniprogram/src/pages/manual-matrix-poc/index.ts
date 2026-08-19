@@ -46,6 +46,7 @@ interface SelectorRect {
 
 interface ManualMatrixPageInstance {
   _commitScrollProgress: (progress: number) => void;
+  _gestureAxis: MiniProgramSharedValue<number>;
   _lastScrollProgressPercent: number;
   _maxVerticalOffset: MiniProgramSharedValue<number>;
   _scrollProgress: MiniProgramSharedValue<number>;
@@ -73,6 +74,11 @@ interface ManualMatrixPageInstance {
 
 const { cancelAnimation, decay, runOnJS, shared } = wx.worklet;
 const defaultViewModel = createManualMatrixPocViewModel('daily');
+const MATRIX_GESTURE_AXIS_UNDECIDED = 0;
+const MATRIX_GESTURE_AXIS_HORIZONTAL = 1;
+const MATRIX_GESTURE_AXIS_VERTICAL = 2;
+const MATRIX_GESTURE_DIRECTION_RATIO = 1.2;
+const MATRIX_GESTURE_MINIMUM_DELTA = 2;
 
 Page({
   data: defaultViewModel,
@@ -80,6 +86,7 @@ Page({
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
+    this._gestureAxis = shared(MATRIX_GESTURE_AXIS_UNDECIDED);
     this._lastScrollProgressPercent = -1;
     this._maxVerticalOffset = shared(
       Math.max(0, viewModel.matrixContentHeight - viewModel.matrixViewportHeight),
@@ -132,18 +139,80 @@ Page({
     });
     query.exec();
   },
-  shouldHorizontalScrollRespond(event: ManualMatrixGestureEvent): boolean {
+  shouldHorizontalScrollRespond(
+    this: ManualMatrixPageInstance,
+    event: ManualMatrixGestureEvent,
+  ): boolean {
     'worklet';
-    return Math.abs(event.deltaX) >= Math.abs(event.deltaY);
+    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL) return true;
+    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) return false;
+    const horizontalDistance = Math.abs(event.deltaX);
+    const verticalDistance = Math.abs(event.deltaY);
+    if (Math.max(horizontalDistance, verticalDistance) < MATRIX_GESTURE_MINIMUM_DELTA) {
+      return false;
+    }
+    if (horizontalDistance > verticalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_HORIZONTAL;
+      return true;
+    }
+    if (verticalDistance > horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
+    }
+    return false;
+  },
+  shouldVerticalDragRespond(
+    this: ManualMatrixPageInstance,
+    event: ManualMatrixGestureEvent,
+  ): boolean {
+    'worklet';
+    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) return true;
+    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL) return false;
+    const horizontalDistance = Math.abs(event.deltaX);
+    const verticalDistance = Math.abs(event.deltaY);
+    if (Math.max(horizontalDistance, verticalDistance) < MATRIX_GESTURE_MINIMUM_DELTA) {
+      return false;
+    }
+    if (verticalDistance > horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
+      return true;
+    }
+    if (horizontalDistance > verticalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_HORIZONTAL;
+    }
+    return false;
+  },
+  handleMatrixHorizontalGesture(
+    this: ManualMatrixPageInstance,
+    event: ManualMatrixGestureEvent,
+  ): void {
+    'worklet';
+    if (event.state === 0 || event.state === 1) {
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
+      return;
+    }
+    if (
+      (event.state === 3 || event.state === 4) &&
+      this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL
+    ) {
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
+    }
   },
   handleMatrixVerticalDrag(this: ManualMatrixPageInstance, event: ManualMatrixGestureEvent): void {
     'worklet';
     if (event.state === 0 || event.state === 1) {
       cancelAnimation(this._verticalOffset);
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
       return;
     }
 
     if (event.state === 2) {
+      if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_UNDECIDED) {
+        const horizontalDistance = Math.abs(event.deltaX);
+        const verticalDistance = Math.abs(event.deltaY);
+        if (verticalDistance <= horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) return;
+        this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
+      }
+      if (this._gestureAxis.value !== MATRIX_GESTURE_AXIS_VERTICAL) return;
       const nextOffset = this._verticalOffset.value + event.deltaY;
       this._verticalOffset.value = Math.max(
         -this._maxVerticalOffset.value,
@@ -153,11 +222,16 @@ Page({
     }
 
     if (event.state === 3 && this._maxVerticalOffset.value > 0) {
-      this._verticalOffset.value = decay({
-        clamp: [-this._maxVerticalOffset.value, 0],
-        deceleration: 0.997,
-        velocity: event.velocityY ?? 0,
-      });
+      if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) {
+        this._verticalOffset.value = decay({
+          clamp: [-this._maxVerticalOffset.value, 0],
+          deceleration: 0.997,
+          velocity: event.velocityY ?? 0,
+        });
+      }
+    }
+    if (event.state === 3 || event.state === 4) {
+      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
     }
   },
   handleGridScroll(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {

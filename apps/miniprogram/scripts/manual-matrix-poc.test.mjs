@@ -86,11 +86,20 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     expect(template.match(/<scroll-view/gu)).toHaveLength(1);
     expect(template).toMatch(
-      /<vertical-drag-gesture-handler[\s\S]*?tag="matrix-vertical"[\s\S]*?simultaneous-handlers="\{\{\['matrix-horizontal'\]\}\}"[\s\S]*?worklet:ongesture="handleMatrixVerticalDrag"/u,
+      /<vertical-drag-gesture-handler[\s\S]*?tag="matrix-vertical"[\s\S]*?simultaneous-handlers="\{\{\['matrix-horizontal'\]\}\}"[\s\S]*?worklet:should-response-on-move="shouldVerticalDragRespond"[\s\S]*?worklet:ongesture="handleMatrixVerticalDrag"/u,
     );
     expect(template).toMatch(
-      /<horizontal-drag-gesture-handler[\s\S]*?tag="matrix-horizontal"[\s\S]*?simultaneous-handlers="\{\{\['matrix-vertical'\]\}\}"[\s\S]*?native-view="scroll-view"[\s\S]*?worklet:should-response-on-move="shouldHorizontalScrollRespond"/u,
+      /<horizontal-drag-gesture-handler[\s\S]*?tag="matrix-horizontal"[\s\S]*?simultaneous-handlers="\{\{\['matrix-vertical'\]\}\}"[\s\S]*?native-view="scroll-view"[\s\S]*?worklet:should-response-on-move="shouldHorizontalScrollRespond"[\s\S]*?worklet:ongesture="handleMatrixHorizontalGesture"/u,
     );
+    const verticalHandlerStart = template.indexOf('<vertical-drag-gesture-handler');
+    const verticalHandlerEnd = template.indexOf(
+      '</vertical-drag-gesture-handler>',
+      verticalHandlerStart,
+    );
+    const memberOverlay = template.indexOf('class="matrix-member-overlay"');
+    expect(verticalHandlerStart).toBeGreaterThanOrEqual(0);
+    expect(memberOverlay).toBeGreaterThan(verticalHandlerStart);
+    expect(memberOverlay).toBeLessThan(verticalHandlerEnd);
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
@@ -123,14 +132,14 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).toContain('this._maxVerticalOffset.value');
     expect(source).toContain('cancelAnimation(this._verticalOffset)');
     expect(source).toContain('decay({');
-    expect(source).not.toContain('_gestureAxis');
+    expect(source).toContain('_gestureAxis');
     expect(source).not.toContain('_gestureDistanceX');
     expect(source).not.toContain('_gestureDistanceY');
     expect(worklets.issues).toEqual([]);
     expect(worklets.count).toBeGreaterThanOrEqual(5);
   });
 
-  it('releases the native horizontal proxy when Android movement is vertically dominant', async () => {
+  it('keeps ambiguous Android movement unclaimed and selects only the dominant axis', async () => {
     let definition;
     vi.stubGlobal('wx', {
       worklet: {
@@ -145,10 +154,37 @@ describe('P1 native manual scheduling matrix PoC', () => {
     });
     vi.stubGlobal('Component', vi.fn());
     await import('../src/pages/manual-matrix-poc/index.ts');
+    const instance = {
+      applyAnimatedStyle: vi.fn(),
+      commitScrollProgress: definition.commitScrollProgress,
+      data: structuredClone(definition.data),
+      setData: vi.fn(),
+    };
+    definition.onLoad.call(instance, { mode: 'maximum' });
 
-    expect(definition.shouldHorizontalScrollRespond({ deltaX: 18, deltaY: 4 })).toBe(true);
-    expect(definition.shouldHorizontalScrollRespond({ deltaX: 4, deltaY: 18 })).toBe(false);
-    expect(definition.shouldHorizontalScrollRespond({ deltaX: 12, deltaY: 12 })).toBe(true);
+    const horizontal = { deltaX: 18, deltaY: 4 };
+    const vertical = { deltaX: 4, deltaY: 18 };
+    const stationary = { deltaX: 0, deltaY: 0 };
+    const diagonal = { deltaX: 12, deltaY: 12 };
+    const ambiguous = { deltaX: 12, deltaY: 10 };
+
+    expect(definition.shouldHorizontalScrollRespond.call(instance, stationary)).toBe(false);
+    expect(definition.shouldVerticalDragRespond.call(instance, stationary)).toBe(false);
+    expect(definition.shouldHorizontalScrollRespond.call(instance, diagonal)).toBe(false);
+    expect(definition.shouldVerticalDragRespond.call(instance, diagonal)).toBe(false);
+    expect(definition.shouldHorizontalScrollRespond.call(instance, ambiguous)).toBe(false);
+    expect(definition.shouldVerticalDragRespond.call(instance, ambiguous)).toBe(false);
+
+    expect(definition.shouldHorizontalScrollRespond.call(instance, horizontal)).toBe(true);
+    expect(definition.shouldVerticalDragRespond.call(instance, horizontal)).toBe(false);
+    expect(definition.shouldHorizontalScrollRespond.call(instance, vertical)).toBe(true);
+    expect(definition.shouldVerticalDragRespond.call(instance, vertical)).toBe(false);
+
+    definition.handleMatrixHorizontalGesture.call(instance, { ...stationary, state: 3 });
+    expect(definition.shouldVerticalDragRespond.call(instance, vertical)).toBe(true);
+    expect(definition.shouldHorizontalScrollRespond.call(instance, vertical)).toBe(false);
+    expect(definition.shouldVerticalDragRespond.call(instance, horizontal)).toBe(true);
+    expect(definition.shouldHorizontalScrollRespond.call(instance, horizontal)).toBe(false);
   });
 
   it('moves both vertical tracks from the direction-specific handler and one shared offset', async () => {
