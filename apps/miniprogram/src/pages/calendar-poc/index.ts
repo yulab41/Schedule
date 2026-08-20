@@ -1,4 +1,5 @@
 import { createCalendarPocViewModel } from '../../testing/fixtures/calendar-poc.js';
+import { buildInfo } from '../../platform/build-info.js';
 
 interface MonthChangeEvent {
   readonly detail: { readonly delta: -1 | 1 };
@@ -19,7 +20,10 @@ function createPageData(
   monthOffset: number,
   selectedBusinessDate?: string,
 ): Record<string, unknown> {
-  return { ...createCalendarPocViewModel(monthOffset, selectedBusinessDate) };
+  return {
+    ...createCalendarPocViewModel(monthOffset, selectedBusinessDate),
+    buildLabel: buildInfo.buildLabel,
+  };
 }
 
 Page({

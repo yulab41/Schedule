@@ -23,7 +23,7 @@ describe('P1 Android gesture capability probe', () => {
     const entryTemplate = readSource('pages/index/index.wxml');
 
     expect(appConfig.pages).toContain('pages/gesture-probe/index');
-    expect(pageConfig).toMatchObject({ disableScroll: true, navigationStyle: 'custom' });
+    expect(pageConfig).toMatchObject({ disableScroll: false, navigationStyle: 'custom' });
     expect(entryTemplate).toContain('url="/pages/gesture-probe/index"');
     expect(entryTemplate).toContain('Android 手势能力探针');
   });

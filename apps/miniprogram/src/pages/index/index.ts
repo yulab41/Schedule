@@ -1,3 +1,5 @@
+import { buildInfo } from '../../platform/build-info.js';
+
 interface BooleanChangeEvent {
   readonly detail: { readonly checked: boolean };
 }
@@ -21,6 +23,7 @@ interface FoundationPageInstance {
 
 Page({
   data: {
+    buildLabel: buildInfo.buildLabel,
     calendarView: 'month' as const,
     changesOnly: true,
     contactChecked: true,

@@ -1,3 +1,5 @@
+import { buildInfo } from '../../platform/build-info.js';
+
 interface GestureProbeEvent {
   readonly deltaX: number;
   readonly deltaY: number;
@@ -21,6 +23,7 @@ const { shared } = wx.worklet;
 Page({
   data: {
     appVersion: '未知',
+    buildLabel: buildInfo.buildLabel,
     model: '未知',
     platform: '未知',
     sdkVersion: '未知',

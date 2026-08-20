@@ -8,6 +8,7 @@ import {
   type ManualMatrixLocation,
   type ManualMatrixPocViewModel,
 } from '../../testing/fixtures/manual-matrix-poc.js';
+import { buildInfo } from '../../platform/build-info.js';
 
 interface ManualMatrixCellSelectEvent {
   readonly detail: ManualMatrixLocation & { readonly key: string };
@@ -72,7 +73,7 @@ const MATRIX_GESTURE_DIRECTION_RATIO = 1.2;
 const MATRIX_GESTURE_MINIMUM_DELTA = 2;
 
 Page({
-  data: defaultViewModel,
+  data: { ...defaultViewModel, buildLabel: buildInfo.buildLabel },
   onLoad(this: ManualMatrixPageInstance, options: { readonly mode?: string } = {}): void {
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);

@@ -5,6 +5,19 @@
     <text class="probe-description">本页不包含矩阵、滚动容器或自定义单元格。</text>
   </view>
 
+  <view class="probe-card runtime-card">
+    <view class="probe-card-heading">
+      <text class="probe-card-title">C · 真机运行信息</text>
+      <text class="probe-card-note">只在本页显示</text>
+    </view>
+    <view class="runtime-row"><text>代码版本</text><text>{{buildLabel}}</text></view>
+    <view class="runtime-row"><text>基础库</text><text>{{sdkVersion}}</text></view>
+    <view class="runtime-row"><text>微信版本</text><text>{{appVersion}}</text></view>
+    <view class="runtime-row"><text>平台</text><text>{{platform}}</text></view>
+    <view class="runtime-row"><text>设备</text><text>{{model}}</text></view>
+    <view class="runtime-row"><text>系统</text><text>{{system}}</text></view>
+  </view>
+
   <view class="probe-card">
     <view class="probe-card-heading">
       <text class="probe-card-title">A · Skyline Pan Worklet</text>
@@ -36,17 +49,5 @@
       <text>{{touchStatus}}</text>
       <text>touchmove：{{touchMoveCount}} 次</text>
     </view>
-  </view>
-
-  <view class="probe-card runtime-card">
-    <view class="probe-card-heading">
-      <text class="probe-card-title">C · 真机运行信息</text>
-      <text class="probe-card-note">只在本页显示</text>
-    </view>
-    <view class="runtime-row"><text>基础库</text><text>{{sdkVersion}}</text></view>
-    <view class="runtime-row"><text>微信版本</text><text>{{appVersion}}</text></view>
-    <view class="runtime-row"><text>平台</text><text>{{platform}}</text></view>
-    <view class="runtime-row"><text>设备</text><text>{{model}}</text></view>
-    <view class="runtime-row"><text>系统</text><text>{{system}}</text></view>
   </view>
 </view>

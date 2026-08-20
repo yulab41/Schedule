@@ -54,14 +54,19 @@ page {
 
 .baseline-chip {
   display: flex;
+  max-width: 150px;
   padding: 5px 9px;
   flex: none;
   align-items: center;
-  color: var(--ui-color-warning);
-  background: var(--ui-color-warning-light);
+  overflow: hidden;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
   border-radius: var(--ui-radius-pill);
+  font-family: monospace;
   font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .preview-card {

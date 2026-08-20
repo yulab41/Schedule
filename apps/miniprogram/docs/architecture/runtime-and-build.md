@@ -26,6 +26,8 @@
 7. 对相同输入连续构建两次，以文件清单和 SHA‑256 证明确定性。
 8. 审计主包、单分包和总包体积。
 
+构建同时注入 `buildVersion` 与七位 Git commit：体验上传显示 `WECHAT_CI_VERSION@commit`，本地编译显示 `local@commit`。基础控件、月历、矩阵和诊断页均可见显示同一个 `buildLabel`；`dist/build-profile.json` 同步记录两字段，禁止手工维护页面版本文案。
+
 ## 环境隔离
 
 - staging 与 production 是两个编译期 profile，应用中没有隐藏环境切换入口。

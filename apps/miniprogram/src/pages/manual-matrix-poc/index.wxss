@@ -48,6 +48,15 @@ page {
   font-variant-numeric: tabular-nums;
 }
 
+.matrix-heading-meta {
+  display: flex;
+  max-width: 150px;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .mode-chip {
   padding: 5px 9px;
   flex: none;
@@ -56,6 +65,17 @@ page {
   border-radius: var(--ui-radius-pill);
   font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-semibold);
+}
+
+.build-chip {
+  max-width: 150px;
+  overflow: hidden;
+  color: var(--ui-color-text-muted);
+  font-family: monospace;
+  font-size: 10px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shift-palette {

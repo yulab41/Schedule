@@ -5,7 +5,10 @@
       <text class="page-title">{{title}}</text>
       <text class="page-description">{{dimensionLabel}}</text>
     </view>
-    <text class="mode-chip">{{modeLabel}}</text>
+    <view class="matrix-heading-meta">
+      <text class="mode-chip">{{modeLabel}}</text>
+      <text class="build-chip">{{buildLabel}}</text>
+    </view>
   </view>
 
   <view class="shift-palette" aria-label="班种按钮">

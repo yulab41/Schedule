@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import {
   copyFileSync,
   existsSync,
@@ -21,6 +22,7 @@ export const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export const SOURCE_ROOT = path.join(APP_ROOT, 'src');
 export const DIST_ROOT = path.join(APP_ROOT, 'dist');
 export const ARTIFACT_ROOT = path.join(APP_ROOT, '.artifacts');
+const REPOSITORY_ROOT = path.resolve(APP_ROOT, '..', '..');
 const UI_TOKENS_WXSS = path.resolve(
   APP_ROOT,
   '..',
@@ -235,7 +237,20 @@ function collectTypeScriptEntryPoints(sourceDirectory) {
   );
 }
 
-export async function buildMiniProgram({ outdir = DIST_ROOT, profile, sourceRoot = SOURCE_ROOT }) {
+function resolveGitCommit() {
+  return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+    cwd: REPOSITORY_ROOT,
+    encoding: 'utf8',
+  }).trim();
+}
+
+export async function buildMiniProgram({
+  buildCommit = resolveGitCommit(),
+  buildVersion = process.env.WECHAT_CI_VERSION?.trim() || 'local',
+  outdir = DIST_ROOT,
+  profile,
+  sourceRoot = SOURCE_ROOT,
+}) {
   const resolvedProfile = resolveBuildProfile(profile);
   const sourceDirectory = assertSafeSourceDirectory(sourceRoot);
   const outputDirectory = resetGeneratedDirectory(outdir);
@@ -248,7 +263,9 @@ export async function buildMiniProgram({ outdir = DIST_ROOT, profile, sourceRoot
     charset: 'utf8',
     define: {
       __MINIPROGRAM_API_BASE_URL__: JSON.stringify(BUILD_PROFILES[resolvedProfile].apiBaseUrl),
+      __MINIPROGRAM_BUILD_COMMIT__: JSON.stringify(buildCommit),
       __MINIPROGRAM_BUILD_PROFILE__: JSON.stringify(resolvedProfile),
+      __MINIPROGRAM_BUILD_VERSION__: JSON.stringify(buildVersion),
     },
     entryNames: '[dir]/[name]',
     entryPoints,
@@ -271,6 +288,8 @@ export async function buildMiniProgram({ outdir = DIST_ROOT, profile, sourceRoot
     `${JSON.stringify(
       {
         apiBaseUrl: BUILD_PROFILES[resolvedProfile].apiBaseUrl,
+        buildCommit,
+        buildVersion,
         profile: resolvedProfile,
         schemaVersion: 1,
       },

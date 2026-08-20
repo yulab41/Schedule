@@ -11,6 +11,8 @@
 7. `miniprogram-simulate` 的 props/events/state/component-tree 测试。
 8. 涉及 Web 核心链路时运行 `pnpm smoke:browser`；所有 checkpoint 运行 `pnpm smoke:check-core`。
 
+构建门禁还必须证明 `__MINIPROGRAM_BUILD_VERSION__` 与 `__MINIPROGRAM_BUILD_COMMIT__` 已被字面量替换，四个 P1 真机页面显示统一 `buildLabel`，体验版不允许只显示不可追溯的产品版本。
+
 P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构建升级均执行用户人工原生测试。Storybook、simulate 和 `miniprogram-ci` 编译均不能替代用户在微信运行时的人工确认。
 
 ## 关键套件

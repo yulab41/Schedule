@@ -8,7 +8,7 @@
           >沿用 Web 已确认的排班密度与状态语义，不使用小程序默认组件外观。</text
         >
       </view>
-      <view class="baseline-chip">待确认</view>
+      <view class="baseline-chip">{{buildLabel}}</view>
     </view>
 
     <view class="preview-card">

@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 小程序可见构建版本与探针首屏修复（当前批次）
+
+- 用户探针结果：`.29` Android 蓝点不动，但普通 `touchmove` 递增至 453 次；基础库 `3.17.0`、微信 `8.0.76`、Android 设备 `23116N5BC`。结论是普通触摸链路正常、目标运行时不执行 `pan-gesture-handler` Worklet；矩阵下一步必须转向非 gesture-handler 输入。探针页面因禁止页面滚动看不到系统字段，用户同时要求小程序内可见显示上传版本，防止体验版延迟/缓存误判。
+- 测试先行：构建常量、四页版本显示、探针运行信息顺序与页面滚动契约在旧实现上 4 项失败；实现后定向 3 文件/11 项、小程序 12 文件/48 项通过。
+- 实现：构建脚本注入 `buildVersion` 与七位 Git commit，并写入 `dist/build-profile.json`；体验上传显示 `WECHAT_CI_VERSION@commit`，本地编译显示 `local@commit`。基础控件、月历、7×7/20×30矩阵和探针均显示统一低对比度版本徽标。探针恢复页面滚动，将代码版本/SDK/平台/设备/系统卡移到蓝点之前。
+- 官方能力核对：官方资料未提供普通 `touchmove` 的 Worklet UI线程绑定；当前可确认的候选是逻辑线程普通触摸或 WXS 视图层事件。尚未实测 WXS 在本 Skyline/Android 组合的行为，因此本轮不修改矩阵输入方案。
+- 验证：小程序 typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（7 个源码/产物 Worklet、121764 bytes，manifest `bf132261c041cee3ca51d5b8c9a8ce966152dc17bee742c849c2c24f04652f62`）；任务文件 Prettier/ESLint、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过。排除用户自有 `runtime/**`/`src/**`、既有迁移计数测试和未完成护士 Storybook 草稿后，当前受控源码 136 文件/769 项通过、32 文件/265 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`feat(miniprogram): show visible build identity`。
+- 下一批次与停止条件：只请用户核对新体验版探针首屏代码版本与系统字段是否可见/页面能否滚动；确认版本链路后再单独决定 WXS 探针或普通触摸矩阵，不进入 P2。
+
 ## 2026-08-21 P1 Android 最小手势能力探针（当前批次）
 
 - 用户结果：显式真机命中高度版 `.27` 仍表现为 PC 横纵流畅、Android 横纵完全无输入；按既定停止条件不再修改矩阵，改做独立最小能力探针。

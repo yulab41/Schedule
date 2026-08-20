@@ -4,7 +4,7 @@
       <text class="context-label">P1 · 原生复刻基线</text>
       <text class="page-title">动态月历</text>
     </view>
-    <text class="baseline-chip">Web 已确认</text>
+    <text class="baseline-chip">{{buildLabel}}</text>
   </view>
 
   <view class="month-view">

@@ -42,12 +42,17 @@ page {
 }
 
 .baseline-chip {
+  max-width: 150px;
   padding: 5px 9px;
+  overflow: hidden;
   color: var(--ui-color-primary-dark);
   background: var(--ui-color-primary-light);
   border-radius: var(--ui-radius-pill);
+  font-family: monospace;
   font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .month-view {

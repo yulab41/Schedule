@@ -65,14 +65,24 @@ describe('Mini Program deterministic toolchain guards', () => {
       mkdirSync(sourceRoot, { recursive: true });
       writeFileSync(
         path.join(sourceRoot, 'app.ts'),
-        "function moveHeader() { 'worklet'; return 1; }\nApp({ moveHeader });\n",
+        "export const buildLabel = `${__MINIPROGRAM_BUILD_VERSION__}@${__MINIPROGRAM_BUILD_COMMIT__}`;\nfunction moveHeader() { 'worklet'; return 1; }\nApp({ moveHeader });\n",
         'utf8',
       );
-      await buildMiniProgram({ outdir, profile: 'staging', sourceRoot });
+      await buildMiniProgram({
+        buildCommit: 'abc1234',
+        buildVersion: '0.1.0-probe',
+        outdir,
+        profile: 'staging',
+        sourceRoot,
+      });
       const compiled = readFileSync(path.join(outdir, 'app.js'), 'utf8');
       const worklets = findWorkletIssues(compiled, 'app.js');
       expect(worklets.issues).toEqual([]);
       expect(worklets.count).toBeGreaterThanOrEqual(1);
+      expect(compiled).toContain('"0.1.0-probe"');
+      expect(compiled).toContain('"abc1234"');
+      expect(compiled).not.toContain('__MINIPROGRAM_BUILD_VERSION__');
+      expect(compiled).not.toContain('__MINIPROGRAM_BUILD_COMMIT__');
     } finally {
       rmSync(fixtureRoot, { force: true, recursive: true });
     }
