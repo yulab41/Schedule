@@ -14,12 +14,16 @@ interface ManualMatrixCellSelectEvent {
   readonly detail: ManualMatrixLocation & { readonly key: string };
 }
 
-interface ManualMatrixGestureEvent {
-  readonly deltaX: number;
-  readonly deltaY: number;
-  readonly state: number;
-  readonly velocityX?: number;
-  readonly velocityY?: number;
+interface ManualMatrixGestureConfig {
+  readonly maxHorizontalOffset: number;
+  readonly maxVerticalOffset: number;
+  readonly resetToken: string;
+}
+
+interface ManualMatrixGestureSettled {
+  readonly horizontalOffset: number;
+  readonly progress: number;
+  readonly verticalOffset: number;
 }
 
 interface ManualMatrixShiftSelectEvent {
@@ -39,20 +43,11 @@ interface SelectorRect {
 }
 
 interface ManualMatrixPageInstance {
-  _commitScrollProgress: (progress: number) => void;
-  _gestureAxis: MiniProgramSharedValue<number>;
-  _horizontalOffset: MiniProgramSharedValue<number>;
-  _maxHorizontalOffset: MiniProgramSharedValue<number>;
-  _maxVerticalOffset: MiniProgramSharedValue<number>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
-  _verticalOffset: MiniProgramSharedValue<number>;
-  readonly data: ManualMatrixPocViewModel;
-  applyAnimatedStyle(
-    selector: string,
-    updater: () => Record<string, string>,
-    userConfig?: { readonly flush?: 'async' | 'sync'; readonly immediate?: boolean },
-  ): void;
+  readonly data: ManualMatrixPocViewModel & {
+    readonly matrixGestureConfig: ManualMatrixGestureConfig;
+  };
   commitScrollProgress(progress: number): void;
   createSelectorQuery(): {
     select(selector: string): {
@@ -60,73 +55,31 @@ interface ManualMatrixPageInstance {
     };
     exec(): void;
   };
+  handleMatrixGestureSettled(result: ManualMatrixGestureSettled): void;
   setData(patch: Record<string, unknown>): void;
   updateMatrixViewport(): void;
 }
 
-const { cancelAnimation, decay, runOnJS, shared } = wx.worklet;
 const defaultViewModel = createManualMatrixPocViewModel('daily');
-const MATRIX_GESTURE_AXIS_UNDECIDED = 0;
-const MATRIX_GESTURE_AXIS_HORIZONTAL = 1;
-const MATRIX_GESTURE_AXIS_VERTICAL = 2;
-const MATRIX_GESTURE_DIRECTION_RATIO = 1.2;
-const MATRIX_GESTURE_MINIMUM_DELTA = 2;
+const defaultMatrixGestureConfig = createMatrixGestureConfig(defaultViewModel, 0);
 
 Page({
-  data: { ...defaultViewModel, buildLabel: buildInfo.buildLabel },
+  data: {
+    ...defaultViewModel,
+    buildLabel: buildInfo.buildLabel,
+    matrixGestureConfig: defaultMatrixGestureConfig,
+  },
   onLoad(this: ManualMatrixPageInstance, options: { readonly mode?: string } = {}): void {
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
-    this._commitScrollProgress = this.commitScrollProgress.bind(this);
-    this._gestureAxis = shared(MATRIX_GESTURE_AXIS_UNDECIDED);
-    this._horizontalOffset = shared(0);
-    this._maxHorizontalOffset = shared(Math.max(0, viewModel.contentWidth - 1));
-    this._maxVerticalOffset = shared(
-      Math.max(0, viewModel.matrixContentHeight - viewModel.matrixViewportHeight),
-    );
-    this._verticalOffset = shared(0);
-    const horizontalOffset = this._horizontalOffset;
-    const maximumHorizontalOffset = this._maxHorizontalOffset;
-    const verticalOffset = this._verticalOffset;
-    this.applyAnimatedStyle(
-      '#matrix-scroll-thumb',
-      () => {
-        'worklet';
-        const maximumOffset = Math.max(1, maximumHorizontalOffset.value);
-        const progress = Math.max(0, Math.min(1, -horizontalOffset.value / maximumOffset));
-        return { transform: `translateX(${progress * 36}px)` };
-      },
-      { flush: 'sync' },
-    );
-    this.applyAnimatedStyle(
-      '#matrix-date-track',
-      () => {
-        'worklet';
-        return { transform: `translateX(${horizontalOffset.value}px)` };
-      },
-      { flush: 'sync' },
-    );
-    this.applyAnimatedStyle(
-      '#matrix-body-track',
-      () => {
-        'worklet';
-        return {
-          transform: `translate(${horizontalOffset.value}px, ${verticalOffset.value}px)`,
-        };
-      },
-      { flush: 'sync' },
-    );
-    this.applyAnimatedStyle(
-      '#matrix-member-track',
-      () => {
-        'worklet';
-        return { transform: `translateY(${verticalOffset.value}px)` };
-      },
-      { flush: 'sync' },
-    );
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
-    if (mode !== defaultViewModel.mode) this.setData({ ...viewModel });
+    if (mode !== defaultViewModel.mode) {
+      this.setData({
+        ...viewModel,
+        matrixGestureConfig: createMatrixGestureConfig(viewModel, 0),
+      });
+    }
   },
   onReady(this: ManualMatrixPageInstance): void {
     this.updateMatrixViewport();
@@ -138,93 +91,18 @@ Page({
     const query = this.createSelectorQuery();
     query.select('.matrix-pan-surface').boundingClientRect((rect) => {
       const maximumHorizontalOffset = Math.max(0, this.data.contentWidth - Math.max(1, rect.width));
-      this._maxHorizontalOffset.value = maximumHorizontalOffset;
-      this._horizontalOffset.value = Math.max(
-        -maximumHorizontalOffset,
-        Math.min(0, this._horizontalOffset.value),
-      );
-      const progress =
-        maximumHorizontalOffset > 0
-          ? Math.max(0, Math.min(1, -this._horizontalOffset.value / maximumHorizontalOffset))
-          : 0;
-      this.commitScrollProgress(progress);
+      this.setData({
+        matrixGestureConfig: createMatrixGestureConfig(this.data, maximumHorizontalOffset),
+      });
     });
     query.exec();
   },
-  handleMatrixPan(this: ManualMatrixPageInstance, event: ManualMatrixGestureEvent): void {
-    'worklet';
-    if (event.state === 0 || event.state === 1) {
-      cancelAnimation(this._horizontalOffset);
-      cancelAnimation(this._verticalOffset);
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
-      return;
-    }
-
-    if (event.state === 2) {
-      if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_UNDECIDED) {
-        const horizontalDistance = Math.abs(event.deltaX);
-        const verticalDistance = Math.abs(event.deltaY);
-        if (Math.max(horizontalDistance, verticalDistance) < MATRIX_GESTURE_MINIMUM_DELTA) return;
-        if (horizontalDistance > verticalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
-          this._gestureAxis.value = MATRIX_GESTURE_AXIS_HORIZONTAL;
-        } else if (verticalDistance > horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
-          this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
-        } else {
-          return;
-        }
-      }
-      if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL) {
-        const nextOffset = this._horizontalOffset.value + event.deltaX;
-        this._horizontalOffset.value = Math.max(
-          -this._maxHorizontalOffset.value,
-          Math.min(0, nextOffset),
-        );
-      } else if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) {
-        const nextOffset = this._verticalOffset.value + event.deltaY;
-        this._verticalOffset.value = Math.max(
-          -this._maxVerticalOffset.value,
-          Math.min(0, nextOffset),
-        );
-      }
-      return;
-    }
-
-    if (event.state === 3) {
-      if (
-        this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL &&
-        this._maxHorizontalOffset.value > 0
-      ) {
-        const progress = Math.max(
-          0,
-          Math.min(1, -this._horizontalOffset.value / this._maxHorizontalOffset.value),
-        );
-        runOnJS(this._commitScrollProgress)(progress);
-        this._horizontalOffset.value = decay({
-          clamp: [-this._maxHorizontalOffset.value, 0],
-          deceleration: 0.997,
-          velocity: event.velocityX ?? 0,
-        });
-      } else if (
-        this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL &&
-        this._maxVerticalOffset.value > 0
-      ) {
-        this._verticalOffset.value = decay({
-          clamp: [-this._maxVerticalOffset.value, 0],
-          deceleration: 0.997,
-          velocity: event.velocityY ?? 0,
-        });
-      }
-    }
-    if (event.state === 4 && this._maxHorizontalOffset.value > 0) {
-      const progress = Math.max(
-        0,
-        Math.min(1, -this._horizontalOffset.value / this._maxHorizontalOffset.value),
-      );
-      runOnJS(this._commitScrollProgress)(progress);
-    }
-    if (event.state === 3 || event.state === 4) {
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
-    }
+  handleMatrixGestureSettled(
+    this: ManualMatrixPageInstance,
+    result: ManualMatrixGestureSettled,
+  ): void {
+    if (!Number.isFinite(result.progress)) return;
+    this.commitScrollProgress(Math.max(0, Math.min(1, result.progress)));
   },
   commitScrollProgress(this: ManualMatrixPageInstance, progress: number): void {
     const scrollHint =
@@ -290,6 +168,17 @@ Page({
     });
   },
 });
+
+function createMatrixGestureConfig(
+  viewModel: ManualMatrixPocViewModel,
+  maxHorizontalOffset: number,
+): ManualMatrixGestureConfig {
+  return {
+    maxHorizontalOffset: Math.max(0, maxHorizontalOffset),
+    maxVerticalOffset: Math.max(0, viewModel.matrixContentHeight - viewModel.matrixViewportHeight),
+    resetToken: viewModel.mode,
+  };
+}
 
 function cellPath(location: ManualMatrixLocation): string {
   return `rows[${location.rowIndex}].cells[${location.columnIndex}]`;

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,6 +18,37 @@ function applySetDataPatch(target, patch) {
     }
     target.rows[Number(match[1])].cells[Number(match[2])] = value;
   }
+}
+
+function loadMatrixGestureHandlers() {
+  const moduleRecord = { exports: {} };
+  vm.runInNewContext(readSource('pages/manual-matrix-poc/matrix-gesture.wxs'), {
+    module: moduleRecord,
+  });
+  return moduleRecord.exports;
+}
+
+function createWxsOwner() {
+  const state = {};
+  const frames = [];
+  const elements = new Map(
+    [
+      '#matrix-scroll-thumb',
+      '#matrix-date-track',
+      '#matrix-body-track',
+      '#matrix-member-track',
+    ].map((selector) => [selector, { setStyle: vi.fn() }]),
+  );
+  return {
+    callMethod: vi.fn(),
+    elements,
+    frames,
+    getState: () => state,
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+    },
+    selectComponent: (selector) => elements.get(selector),
+  };
 }
 
 describe('P1 native manual scheduling matrix PoC', () => {
@@ -78,31 +110,31 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses one plain-view pan surface and four Worklet layers without native scrolling', () => {
+  it('uses one plain-view WXS surface and four synchronized layers without native scrolling', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
+    const wxsSource = readSource('pages/manual-matrix-poc/matrix-gesture.wxs');
     const worklets = findWorkletIssues(source, 'pages/manual-matrix-poc/index.ts');
 
     expect(template).not.toContain('<scroll-view');
-    expect(template).toMatch(
-      /<pan-gesture-handler[\s\S]*?class="matrix-pan-gesture"[\s\S]*?style="height:\{\{matrixViewportHeight\}\}px"[\s\S]*?worklet:ongesture="handleMatrixPan"[\s\S]*?class="matrix-pan-surface"[\s\S]*?style="height:\{\{matrixViewportHeight\}\}px"/u,
-    );
+    expect(template).toContain('<wxs module="matrixGesture" src="./matrix-gesture.wxs"></wxs>');
+    expect(template).not.toContain('<pan-gesture-handler');
+    expect(template).not.toContain('worklet:ongesture');
+    expect(template).toMatch(/id="matrix-touch-surface"[\s\S]*?class="matrix-pan-surface"/u);
+    expect(template).toContain('change:matrix-config="{{matrixGesture.configure}}"');
+    expect(template).toContain('bindtouchstart="{{matrixGesture.touchStart}}"');
+    expect(template).toContain('bindtouchmove="{{matrixGesture.touchMove}}"');
+    expect(template).toContain('bindtouchend="{{matrixGesture.touchEnd}}"');
+    expect(template).toContain('bindtouchcancel="{{matrixGesture.touchCancel}}"');
     expect(template).not.toContain('native-view=');
     expect(template).not.toContain('vertical-drag-gesture-handler');
     expect(template).not.toContain('horizontal-drag-gesture-handler');
     expect(template).not.toContain('simultaneous-handlers');
-    const panHandlerStart = template.indexOf('<pan-gesture-handler');
-    const panHandlerEnd = template.indexOf('</pan-gesture-handler>', panHandlerStart);
-    const memberOverlay = template.indexOf('class="matrix-member-overlay"');
-    expect(panHandlerStart).toBeGreaterThanOrEqual(0);
-    expect(memberOverlay).toBeGreaterThan(panHandlerStart);
-    expect(memberOverlay).toBeLessThan(panHandlerEnd);
     expect(template).toContain('id="matrix-date-track"');
     expect(template).toContain('id="matrix-body-track"');
     expect(template).toContain('id="matrix-member-track"');
     expect(template).not.toContain('scroll-y');
-    expect(template).not.toContain('<wxs');
     expect(template).toContain('wx:for="{{rows}}"');
     expect(template).toContain('class="matrix-date-content"');
     expect(template).toContain('height:{{matrixBodyViewportHeight}}px');
@@ -112,210 +144,144 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).not.toMatch(/<canvas/iu);
     expect(styles).toMatch(/\.matrix-corner\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
+    expect(styles).toMatch(/\.matrix-pan-surface\s*\{[^}]*touch-action:\s*none;/su);
     expect(source).not.toContain('scrollViewContext.scrollTo');
-    expect(source).not.toContain('_dateScrollRef');
-    expect(source).not.toContain('_memberScrollRef');
-    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-scroll-thumb['"]/u);
-    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-date-track['"]/u);
-    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-body-track['"]/u);
-    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-member-track['"]/u);
+    expect(source).not.toContain('applyAnimatedStyle');
+    expect(source).not.toContain('wx.worklet');
+    expect(source).not.toContain('handleMatrixPan');
+    expect(source).toContain('handleMatrixGestureSettled');
+    expect(source).toContain('matrixGestureConfig');
     expect(source).not.toContain('calculateAdaptiveMatrixViewportHeight');
     expect(source).not.toContain('wx.getWindowInfo');
-    expect(source).toContain('handleMatrixPan');
-    expect(source).not.toContain('shouldMatrixNativeScrollRespond');
-    expect(source).not.toContain('shouldHorizontalScrollRespond');
-    expect(source).not.toContain('shouldVerticalDragRespond');
-    expect(source).not.toContain('handleMatrixVerticalDrag');
-    expect(source).not.toContain('handleMatrixHorizontalGesture');
-    expect(source).not.toContain('handleGridScroll');
-    expect(source).not.toContain('ManualMatrixScrollEvent');
-    expect(source).toContain('_horizontalOffset');
-    expect(source).toContain('_maxHorizontalOffset');
-    expect(source).toContain('velocityX');
-    expect(source).toContain('this._maxVerticalOffset.value');
-    expect(source).toContain('cancelAnimation(this._verticalOffset)');
-    expect(source).toContain('decay({');
-    expect(source).toContain('_gestureAxis');
-    expect(source).not.toContain('_gestureDistanceX');
-    expect(source).not.toContain('_gestureDistanceY');
+    expect(wxsSource).toContain("selectComponent('#matrix-date-track')");
+    expect(wxsSource).toContain("selectComponent('#matrix-body-track')");
+    expect(wxsSource).toContain("selectComponent('#matrix-member-track')");
+    expect(wxsSource).toContain("selectComponent('#matrix-scroll-thumb')");
+    expect(wxsSource).toContain('requestAnimationFrame');
+    expect(wxsSource).toContain("callMethod('handleMatrixGestureSettled'");
+    expect(wxsSource).not.toContain('setData');
     expect(worklets.issues).toEqual([]);
-    expect(worklets.count).toBeGreaterThanOrEqual(5);
+    expect(worklets.count).toBe(0);
   });
 
-  it('keeps ambiguous Android movement still and locks the first dominant axis until end', async () => {
-    let definition;
-    vi.stubGlobal('wx', {
-      worklet: {
-        cancelAnimation: vi.fn(),
-        decay: vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity))),
-        runOnJS: (callback) => callback,
-        shared: (value) => ({ value }),
-      },
+  it('keeps ambiguous movement still and moves each frozen layer on only its locked axis', () => {
+    const handlers = loadMatrixGestureHandlers();
+    const owner = createWxsOwner();
+    handlers.configure(
+      { maxHorizontalOffset: 300, maxVerticalOffset: 572, resetToken: 'maximum' },
+      undefined,
+      owner,
+    );
+    for (const element of owner.elements.values()) element.setStyle.mockClear();
+    owner.callMethod.mockClear();
+
+    handlers.touchStart({ timeStamp: 0, touches: [{ clientX: 180, clientY: 180 }] }, owner);
+    expect(
+      handlers.touchMove({ timeStamp: 16, touches: [{ clientX: 168, clientY: 168 }] }, owner),
+    ).toBeUndefined();
+    expect(owner.elements.get('#matrix-body-track').setStyle).not.toHaveBeenCalled();
+
+    expect(
+      handlers.touchMove({ timeStamp: 32, touches: [{ clientX: 140, clientY: 174 }] }, owner),
+    ).toBe(false);
+    expect(owner.elements.get('#matrix-date-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateX(-40px)',
     });
-    vi.stubGlobal('Page', (value) => {
-      definition = value;
+    expect(owner.elements.get('#matrix-member-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateY(0px)',
     });
-    vi.stubGlobal('Component', vi.fn());
-    await import('../src/pages/manual-matrix-poc/index.ts');
-    const instance = {
-      applyAnimatedStyle: vi.fn(),
-      commitScrollProgress: definition.commitScrollProgress,
-      data: structuredClone(definition.data),
-      setData: vi.fn(),
-    };
-    definition.onLoad.call(instance, { mode: 'maximum' });
-
-    instance._maxVerticalOffset.value = 300;
-    const active = (deltaX, deltaY) => ({ deltaX, deltaY, state: 2 });
-    instance._maxHorizontalOffset.value = 300;
-
-    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
-    definition.handleMatrixPan.call(instance, active(0, 0));
-    definition.handleMatrixPan.call(instance, active(12, 12));
-    definition.handleMatrixPan.call(instance, active(12, 10));
-    expect(instance._gestureAxis.value).toBe(0);
-    expect(instance._verticalOffset.value).toBe(0);
-
-    definition.handleMatrixPan.call(instance, active(-18, 4));
-    expect(instance._gestureAxis.value).toBe(1);
-    definition.handleMatrixPan.call(instance, active(4, -18));
-    expect(instance._gestureAxis.value).toBe(1);
-    expect(instance._verticalOffset.value).toBe(0);
-    expect(instance._horizontalOffset.value).toBe(-14);
-
-    definition.handleMatrixPan.call(instance, {
-      deltaX: 0,
-      deltaY: 0,
-      state: 3,
-      velocityX: -14,
+    expect(owner.elements.get('#matrix-body-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translate(-40px, 0px)',
     });
-    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
-    definition.handleMatrixPan.call(instance, active(4, -18));
-    expect(instance._gestureAxis.value).toBe(2);
-    expect(instance._verticalOffset.value).toBe(-18);
-    definition.handleMatrixPan.call(instance, active(-18, 4));
-    expect(instance._gestureAxis.value).toBe(2);
-    expect(instance._verticalOffset.value).toBe(-14);
-    expect(instance._horizontalOffset.value).toBe(-14);
+    expect(owner.elements.get('#matrix-scroll-thumb').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateX(4.8px)',
+    });
+
+    handlers.touchMove({ timeStamp: 48, touches: [{ clientX: 176, clientY: 110 }] }, owner);
+    expect(owner.elements.get('#matrix-member-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateY(0px)',
+    });
+
+    handlers.touchCancel({ timeStamp: 50 }, owner);
+    handlers.touchStart({ timeStamp: 64, touches: [{ clientX: 180, clientY: 180 }] }, owner);
+    handlers.touchMove({ timeStamp: 80, touches: [{ clientX: 182, clientY: 130 }] }, owner);
+    expect(owner.elements.get('#matrix-date-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateX(-4px)',
+    });
+    expect(owner.elements.get('#matrix-member-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateY(-50px)',
+    });
+    expect(owner.elements.get('#matrix-body-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translate(-4px, -50px)',
+    });
   });
 
-  it('moves all four layers from the plain-view pan surface and shared offsets', async () => {
-    let definition;
-    const cancelAnimation = vi.fn();
-    const decay = vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity)));
-    vi.stubGlobal('wx', {
-      worklet: {
-        cancelAnimation,
-        decay,
-        runOnJS: (callback) => callback,
-        shared: (value) => ({ value }),
-      },
-    });
-    vi.stubGlobal('Page', (value) => {
-      definition = value;
-    });
-    vi.stubGlobal('Component', vi.fn());
-    await import('../src/pages/manual-matrix-poc/index.ts');
-    const instance = {
-      applyAnimatedStyle: vi.fn(),
-      commitScrollProgress: definition.commitScrollProgress,
-      data: structuredClone(definition.data),
-      setData: vi.fn(),
-    };
-    definition.onLoad.call(instance, { mode: 'maximum' });
-    instance._maxVerticalOffset.value = 300;
-
-    definition.handleMatrixPan.call(instance, { state: 0, deltaX: 0, deltaY: 0 });
-    definition.handleMatrixPan.call(instance, { state: 2, deltaX: 2, deltaY: -12 });
-
-    expect(instance._verticalOffset.value).toBe(-12);
-
-    definition.handleMatrixPan.call(instance, {
-      state: 3,
-      deltaX: 0,
-      deltaY: 0,
-      velocityY: -180,
-    });
-    expect(decay).toHaveBeenCalledWith(
-      expect.objectContaining({ clamp: [-300, 0], velocity: -180 }),
+  it('preserves taps and performs bounded view-layer inertia before reporting final progress', () => {
+    const handlers = loadMatrixGestureHandlers();
+    const owner = createWxsOwner();
+    handlers.configure(
+      { maxHorizontalOffset: 300, maxVerticalOffset: 572, resetToken: 'maximum' },
+      undefined,
+      owner,
     );
+    owner.callMethod.mockClear();
 
-    definition.handleMatrixPan.call(instance, { state: 0, deltaX: 0, deltaY: 0 });
-    definition.handleMatrixPan.call(instance, { state: 4, deltaX: 0, deltaY: 0 });
+    handlers.touchStart({ timeStamp: 0, touches: [{ clientX: 180, clientY: 180 }] }, owner);
+    expect(
+      handlers.touchEnd({ timeStamp: 20, changedTouches: [{ clientX: 180, clientY: 180 }] }, owner),
+    ).toBeUndefined();
+    expect(owner.callMethod).not.toHaveBeenCalled();
 
-    expect(cancelAnimation).toHaveBeenCalledTimes(4);
-    expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(
-      '#matrix-date-track',
-      expect.any(Function),
-      { flush: 'sync' },
-    );
-    expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(
-      '#matrix-body-track',
-      expect.any(Function),
-      { flush: 'sync' },
-    );
-    expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(
-      '#matrix-member-track',
-      expect.any(Function),
-      { flush: 'sync' },
-    );
-  });
+    handlers.touchStart({ timeStamp: 40, touches: [{ clientX: 180, clientY: 180 }] }, owner);
+    handlers.touchMove({ timeStamp: 56, touches: [{ clientX: 140, clientY: 178 }] }, owner);
+    handlers.touchMove({ timeStamp: 72, touches: [{ clientX: 100, clientY: 176 }] }, owner);
+    expect(
+      handlers.touchEnd({ timeStamp: 76, changedTouches: [{ clientX: 100, clientY: 176 }] }, owner),
+    ).toBe(false);
+    expect(owner.frames).toHaveLength(1);
+    expect(owner.callMethod).not.toHaveBeenCalled();
 
-  it('commits progress only after a horizontal gesture ends', async () => {
-    let definition;
-    vi.stubGlobal('wx', {
-      worklet: {
-        cancelAnimation: vi.fn(),
-        decay: vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity))),
-        runOnJS: (callback) => callback,
-        shared: (value) => ({ value }),
-      },
-    });
-    vi.stubGlobal('Page', (value) => {
-      definition = value;
-    });
-    vi.stubGlobal('Component', vi.fn());
-    await import('../src/pages/manual-matrix-poc/index.ts');
-
-    const setData = vi.fn();
-    const instance = {
-      applyAnimatedStyle: vi.fn(),
-      commitScrollProgress: definition.commitScrollProgress,
-      data: structuredClone(definition.data),
-      setData,
-    };
-    definition.onLoad.call(instance, { mode: 'maximum' });
-    instance._maxHorizontalOffset.value = 300;
-    setData.mockClear();
-    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
-    definition.handleMatrixPan.call(instance, { deltaX: -120, deltaY: 4, state: 2 });
-    expect(setData).not.toHaveBeenCalled();
-    definition.handleMatrixPan.call(instance, {
-      deltaX: 0,
-      deltaY: 0,
-      state: 3,
-      velocityX: -240,
-      velocityY: 0,
-    });
-
-    expect(setData).toHaveBeenCalledWith(
+    let frameTime = 88;
+    for (let frame = 0; frame < 120 && owner.frames.length > 0; frame += 1) {
+      owner.frames.shift()(frameTime);
+      frameTime += 16;
+    }
+    expect(owner.frames).toHaveLength(0);
+    expect(owner.callMethod).toHaveBeenLastCalledWith(
+      'handleMatrixGestureSettled',
       expect.objectContaining({
-        scrollProgressOffset: expect.any(Number),
-        scrollProgressPercent: expect.any(Number),
+        horizontalOffset: -300,
+        progress: 1,
+        verticalOffset: 0,
       }),
     );
   });
 
-  it('updates the horizontal offset directly on the UI thread without setData', async () => {
+  it('cancels an in-flight WXS inertia frame when the next touch starts', () => {
+    const handlers = loadMatrixGestureHandlers();
+    const owner = createWxsOwner();
+    handlers.configure(
+      { maxHorizontalOffset: 300, maxVerticalOffset: 572, resetToken: 'maximum' },
+      undefined,
+      owner,
+    );
+    owner.callMethod.mockClear();
+
+    handlers.touchStart({ timeStamp: 0, touches: [{ clientX: 180, clientY: 180 }] }, owner);
+    handlers.touchMove({ timeStamp: 16, touches: [{ clientX: 100, clientY: 178 }] }, owner);
+    handlers.touchEnd({ timeStamp: 20, changedTouches: [{ clientX: 100, clientY: 178 }] }, owner);
+    const staleFrame = owner.frames.shift();
+    expect(staleFrame).toEqual(expect.any(Function));
+
+    handlers.touchStart({ timeStamp: 24, touches: [{ clientX: 100, clientY: 178 }] }, owner);
+    staleFrame(36);
+
+    expect(owner.frames).toHaveLength(0);
+    expect(owner.callMethod).not.toHaveBeenCalled();
+  });
+
+  it('updates the accessible progress summary only after WXS reports a settled position', async () => {
     let definition;
-    vi.stubGlobal('wx', {
-      worklet: {
-        cancelAnimation: vi.fn(),
-        decay: vi.fn(),
-        runOnJS: (callback) => callback,
-        shared: (value) => ({ value }),
-      },
-    });
     vi.stubGlobal('Page', (value) => {
       definition = value;
     });
@@ -325,17 +291,21 @@ describe('P1 native manual scheduling matrix PoC', () => {
     const instance = {
       commitScrollProgress: definition.commitScrollProgress,
       data: structuredClone(definition.data),
-      applyAnimatedStyle: vi.fn(),
       setData,
     };
-    definition.onLoad.call(instance, { mode: 'maximum' });
-    instance._maxHorizontalOffset.value = 300;
-    setData.mockClear();
-    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
-    definition.handleMatrixPan.call(instance, { deltaX: -96, deltaY: 2, state: 2 });
 
-    expect(instance._horizontalOffset.value).toBe(-96);
-    expect(setData).not.toHaveBeenCalled();
+    definition.handleMatrixGestureSettled.call(instance, {
+      horizontalOffset: -150,
+      progress: 0.5,
+      verticalOffset: -88,
+    });
+
+    expect(setData).toHaveBeenCalledOnce();
+    expect(setData).toHaveBeenCalledWith({
+      scrollHint: '左右滑动查看全部 7 天，人员列保持固定',
+      scrollProgressOffset: 18,
+      scrollProgressPercent: 50,
+    });
   });
 
   it('loads the maximum fixture from an explicit route mode without a runtime environment switch', async () => {

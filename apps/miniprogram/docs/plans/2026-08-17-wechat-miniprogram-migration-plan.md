@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；月历已通过用户 Android 人工验收。`.31` 独立探针确认 Android 16 的普通触摸与页面滚动正常，但最小 `pan-gesture-handler` Worklet 蓝点完全不响应，因此暂不修改矩阵，只增加 diagnostic-only WXS 视图层黄色点探针，并以 `78e341b`/体验版 `.23` 保留旧方案回退基线。替代输入探针和 C/D 复测通过后才进入 P2
+- 状态：P0 与 P1 非视觉工具链已完成；月历已通过用户 Android 人工验收。`.33` 独立探针确认 WXS 黄色点横纵均同步跟手，现已将 7×7/20×30 四层矩阵的输入、轴锁、同帧 transform 和惯性迁到 WXS 视图层，并以 `78e341b`/体验版 `.23` 保留旧方案回退基线。C/D 实体 Android 复测通过后才进入 P2
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界
@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用四层纯 Worklet 坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。矩阵内部完全移除 `scroll-view`/`native-view`，普通 WXML 裁切面上的单一 `pan-gesture-handler` 在 UI 线程直接维护有界 X/Y SharedValue；handler 与命中面都显式绑定当前矩阵像素高度，不能依赖绝对定位子层撑开。首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到 END/CANCELLED，横纵松手均使用有边界的 `decay`。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 与 20×30 共用同一引擎，手势 ACTIVE 不调用 `setData`。点击只更新目标格/行；撤销保存 `{key,before,after}`；600 格性能不足前不 Canvas 化。回退规则以 [ADR-0005](../decisions/ADR-0005-worklet-matrix-engine.md) 为准。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)。
+手排采用四层 WXS 视图层坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体，进度条直接读取同一 X。矩阵内部完全移除 `scroll-view`/`native-view`/`pan-gesture-handler`；普通 WXML 裁切面的单一 WXS 触摸入口维护有界 X/Y，并在同一 `touchmove`/`requestAnimationFrame` 回调内对日期、人员、主体和进度条执行 `ComponentDescriptor.setStyle`。首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到结束，松手惯性有边界；拖动/惯性不调用 `setData`，静止后只用一次 `callMethod` 更新可访问摘要。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 与 20×30 共用同一引擎。无位移触摸不阻止班次格点选；点击只更新目标格/行，撤销保存 `{key,before,after}`；600 格性能不足前不 Canvas 化。回退规则以 [ADR-0005](../decisions/ADR-0005-worklet-matrix-engine.md) 为准。[WXS 响应事件](https://developers.weixin.qq.com/miniprogram/dev/framework/view/interactive-animation.html)。
 
 ## 6. 网络、会话和缓存
 

@@ -15,6 +15,16 @@
 - 当前状态：已完成导航无停顿循环发布与新增动作图标预览 → 待用户确认。最终状态 checkpoint 识别消息：`docs(status): record continuous icon preview deployment`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint；保持 6007 Storybook 供用户验收，用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
 
+## 2026-08-21 P1 WXS 四层矩阵接入（当前批次）
+
+- 用户前置验收：体验版 `.33` 的黄色点可以移动，横向和纵向跟手感均为“同步”。这证明目标 Android 16 + Skyline 能执行内置 `view` 上的 WXS 触摸与同帧 `ComponentDescriptor.setStyle`，允许进入矩阵接入。
+- 范围与回归来源：`git log -S`/`git blame` 确认四层矩阵由 `6cdb9aa` 引入，命中高度由 `36e844e` 修正，目标 Android 最终证明 gesture-handler 输入不可用；WXS 探针由 `2b5f536` 引入并已真机通过。本轮只替换 7×7/20×30 矩阵的输入、坐标驱动和惯性，不修改四层 WXML 数据、390px 视口、班种、点格、撤销、fixture 或 `.23` 回退基线。
+- 测试先行与实现：新的 WXS 模块/单入口/四层同步/轴锁/有界惯性/保留 tap/静止后回报契约在旧实现上 3 项失败；实现后矩阵+探针定向 14/14、小程序 12 文件/50 项通过。矩阵已移除 `pan-gesture-handler` 和 5 个 Worklet updater，单一内置 `view` 的 WXS 在同一个 `touchmove` 或 `requestAnimationFrame` 回调更新日期 X、人员 Y、主体 X/Y 和进度条 X；2px/1.2 倍方向锁保持，拖动/惯性不 `setData`，最终静止后只 `callMethod` 一次。无位移触摸不返回 `false`，原班次格 select 与增量撤销路径保持。
+- 语义审计：尺寸仍由 `SelectorQuery` 在 ready/resize 低频测量并作为 config 传入 WXS；配置变化会取消在途惯性并按新边界裁剪。矩阵内部仍无滚动容器、Canvas、双引擎或高频逻辑层通信；页面、API、异步/错误路径、空值、业务数据和请求次数均未改变。
+- 验证：官方 `miniprogram-ci.getCompiledResult` 实际编译 53 个代码文件并返回 84 个结果文件；Mini typecheck/source/output/2 个剩余探针 Worklet/包体/确定性/simulate/CI dry-run 通过（128998 bytes，verify manifest `2727228c6cfd869d3ca3d5df3d9c062bb7fc6a9e2604b56b30edba74996f0a74`）。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/782 项通过、32 文件/265 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`fix(miniprogram): drive matrix gestures in WXS`。
+- 下一批次与停止条件：上传新体验版后只请用户重测 C/D 的横向、纵向、冻结层、惯性、进度条、点格和撤销；明确通过前不进入 P2。
+
 ## 2026-08-21 P1 WXS 视图层拖动能力探针（当前批次）
 
 - 用户复核：最终体验版探针页面可以滚动，运行信息完整，系统为 Android 16；最小 `pan-gesture-handler` 蓝点仍完全无法拖动或跟手。结合此前普通 `touchmove` 453 次，结论是页面/普通触摸正常，但目标 Android 不执行该 gesture-handler Worklet 输入路径。
@@ -24,7 +34,7 @@
 - 验证：小程序 12 文件/50 项、typecheck/source/output/7 个 Worklet/包体/确定性/simulate 与 CI dry-run 通过（124514 bytes，manifest `dbc3fc5bb108e4160708689ad9644aef4cfa8ae3505caf9bf86d09cd16f7d3d1`）；官方 `miniprogram-ci.getCompiledResult` 实际编译 52 个代码文件并返回 83 个结果文件，WXS/WXML 语法通过。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/782 项通过、32 文件/265 项按环境跳过。未排除的根测试/格式只被用户旧 release 副本与未完成文件阻断，本轮不修改。
 - 发布：代码 checkpoint `2b5f536`（`test(miniprogram): add WXS drag capability probe`）已推送；微信体验版 `0.1.0-p1.20260821.32` 从该提交的隔离工作树直连 IPv4 上传成功（52 个代码文件、38910 bytes，manifest `847b414aeef8e180e3e7c9d51a52bf3b16e1494e6deed3b15bdf40a8de33d6dd`），页面显示 `.32@2b5f536`。ECS 发布前加密数据库备份 archive `a8d1c866-15dc-401c-a434-92201bab19f3`（50 表、157681 行、70967916 bytes，SHA-256 `f1db6bfe9d575ff458ab5725b5960df95dfe3d570c11f802e556a567124ba6f4`）；release `2b5f536c10c8ba9f4c43e8e3d91a19f5703f1977` 已部署，预热首次 TLS EOF 后恢复。
 - 线上验证：`ecs-verify.sh` 通过健康、产物哈希、43 条迁移、域名隔离、公开端口、容器和依赖检查；正式主页/API 均为 200。当前状态：已实现并发布，正在收口最终状态 checkpoint；用户自有小程序配置、workspace、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
-- 下一批次与停止条件：上传新体验版后只请用户在黄色区域回报“移动/不动、跟手/延迟”；黄色点明确通过前不修改矩阵、不进入 P2。
+- 用户后续验收：最终 `.33` 黄色点可以移动，横向/纵向跟手感均同步；该探针停止条件已满足，矩阵接入转入上方独立批次。
 
 ## 2026-08-21 小程序可见构建版本与探针首屏修复（当前批次）
 

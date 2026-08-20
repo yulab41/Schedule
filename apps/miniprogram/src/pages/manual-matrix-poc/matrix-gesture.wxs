@@ -1,0 +1,272 @@
+var AXIS_UNDECIDED = 0;
+var AXIS_HORIZONTAL = 1;
+var AXIS_VERTICAL = 2;
+var DIRECTION_RATIO = 1.2;
+var MINIMUM_DELTA = 2;
+var MINIMUM_VELOCITY = 0.02;
+var MAXIMUM_VELOCITY = 3;
+var FRAME_FRICTION = 0.92;
+
+function clamp(value, minimum, maximum) {
+  if (value < minimum) return minimum;
+  if (value > maximum) return maximum;
+  return value;
+}
+
+function finiteNumber(value) {
+  var number = Number(value);
+  return number === number ? number : 0;
+}
+
+function firstTouch(event) {
+  if (event.touches && event.touches.length > 0) return event.touches[0];
+  if (event.changedTouches && event.changedTouches.length > 0) return event.changedTouches[0];
+  return null;
+}
+
+function createState() {
+  return {
+    animationToken: 0,
+    axis: AXIS_UNDECIDED,
+    bodyTrack: null,
+    dateTrack: null,
+    horizontalOffset: 0,
+    lastTime: 0,
+    lastX: 0,
+    lastY: 0,
+    maxHorizontalOffset: 0,
+    maxVerticalOffset: 0,
+    memberTrack: null,
+    moved: false,
+    originHorizontalOffset: 0,
+    originVerticalOffset: 0,
+    resetToken: '',
+    scrollThumb: null,
+    startX: 0,
+    startY: 0,
+    tracking: false,
+    velocityX: 0,
+    velocityY: 0,
+    verticalOffset: 0
+  };
+}
+
+function gestureState(ownerInstance) {
+  var ownerState = ownerInstance.getState();
+  if (!ownerState.matrixGesture) ownerState.matrixGesture = createState();
+  return ownerState.matrixGesture;
+}
+
+function resolveElements(ownerInstance, state) {
+  if (!state.dateTrack) state.dateTrack = ownerInstance.selectComponent('#matrix-date-track');
+  if (!state.bodyTrack) state.bodyTrack = ownerInstance.selectComponent('#matrix-body-track');
+  if (!state.memberTrack) {
+    state.memberTrack = ownerInstance.selectComponent('#matrix-member-track');
+  }
+  if (!state.scrollThumb) {
+    state.scrollThumb = ownerInstance.selectComponent('#matrix-scroll-thumb');
+  }
+}
+
+function progressFor(state) {
+  if (state.maxHorizontalOffset <= 0) return 0;
+  return clamp(-state.horizontalOffset / state.maxHorizontalOffset, 0, 1);
+}
+
+function applyStyles(ownerInstance, state) {
+  resolveElements(ownerInstance, state);
+  var horizontalOffset = state.horizontalOffset;
+  var verticalOffset = state.verticalOffset;
+  var progress = progressFor(state);
+  if (state.dateTrack) {
+    state.dateTrack.setStyle({ transform: 'translateX(' + horizontalOffset + 'px)' });
+  }
+  if (state.bodyTrack) {
+    state.bodyTrack.setStyle({
+      transform: 'translate(' + horizontalOffset + 'px, ' + verticalOffset + 'px)'
+    });
+  }
+  if (state.memberTrack) {
+    state.memberTrack.setStyle({ transform: 'translateY(' + verticalOffset + 'px)' });
+  }
+  if (state.scrollThumb) {
+    state.scrollThumb.setStyle({ transform: 'translateX(' + progress * 36 + 'px)' });
+  }
+}
+
+function reportPosition(ownerInstance, state) {
+  ownerInstance.callMethod('handleMatrixGestureSettled', {
+    horizontalOffset: state.horizontalOffset,
+    progress: progressFor(state),
+    verticalOffset: state.verticalOffset
+  });
+}
+
+function configure(value, oldValue, ownerInstance) {
+  var state = gestureState(ownerInstance);
+  var config = value || {};
+  var nextResetToken = '' + (config.resetToken || '');
+  state.animationToken += 1;
+  state.axis = AXIS_UNDECIDED;
+  state.moved = false;
+  state.tracking = false;
+  state.maxHorizontalOffset = Math.max(0, finiteNumber(config.maxHorizontalOffset));
+  state.maxVerticalOffset = Math.max(0, finiteNumber(config.maxVerticalOffset));
+  if (state.resetToken !== nextResetToken) {
+    state.horizontalOffset = 0;
+    state.verticalOffset = 0;
+    state.resetToken = nextResetToken;
+  }
+  state.horizontalOffset = clamp(
+    state.horizontalOffset,
+    -state.maxHorizontalOffset,
+    0
+  );
+  state.verticalOffset = clamp(state.verticalOffset, -state.maxVerticalOffset, 0);
+  applyStyles(ownerInstance, state);
+  reportPosition(ownerInstance, state);
+}
+
+function touchStart(event, ownerInstance) {
+  var touch = firstTouch(event);
+  if (!touch) return;
+  var state = gestureState(ownerInstance);
+  state.animationToken += 1;
+  state.axis = AXIS_UNDECIDED;
+  state.moved = false;
+  state.tracking = true;
+  state.startX = touch.clientX;
+  state.startY = touch.clientY;
+  state.lastX = touch.clientX;
+  state.lastY = touch.clientY;
+  state.lastTime = finiteNumber(event.timeStamp);
+  state.originHorizontalOffset = state.horizontalOffset;
+  state.originVerticalOffset = state.verticalOffset;
+  state.velocityX = 0;
+  state.velocityY = 0;
+}
+
+function updateVelocity(event, touch, state) {
+  var nextTime = finiteNumber(event.timeStamp);
+  var elapsed = nextTime - state.lastTime;
+  if (elapsed > 0 && elapsed <= 80) {
+    state.velocityX = clamp((touch.clientX - state.lastX) / elapsed, -MAXIMUM_VELOCITY, MAXIMUM_VELOCITY);
+    state.velocityY = clamp((touch.clientY - state.lastY) / elapsed, -MAXIMUM_VELOCITY, MAXIMUM_VELOCITY);
+  }
+  state.lastX = touch.clientX;
+  state.lastY = touch.clientY;
+  state.lastTime = nextTime;
+}
+
+function chooseAxis(horizontalDistance, verticalDistance) {
+  if (Math.max(horizontalDistance, verticalDistance) < MINIMUM_DELTA) {
+    return AXIS_UNDECIDED;
+  }
+  if (horizontalDistance > verticalDistance * DIRECTION_RATIO) return AXIS_HORIZONTAL;
+  if (verticalDistance > horizontalDistance * DIRECTION_RATIO) return AXIS_VERTICAL;
+  return AXIS_UNDECIDED;
+}
+
+function touchMove(event, ownerInstance) {
+  var touch = firstTouch(event);
+  var state = gestureState(ownerInstance);
+  if (!state.tracking || !touch) return;
+  var totalX = touch.clientX - state.startX;
+  var totalY = touch.clientY - state.startY;
+  updateVelocity(event, touch, state);
+  if (state.axis === AXIS_UNDECIDED) {
+    state.axis = chooseAxis(Math.abs(totalX), Math.abs(totalY));
+    if (state.axis === AXIS_UNDECIDED) return;
+  }
+  state.moved = true;
+  if (state.axis === AXIS_HORIZONTAL) {
+    state.horizontalOffset = clamp(
+      state.originHorizontalOffset + totalX,
+      -state.maxHorizontalOffset,
+      0
+    );
+  } else {
+    state.verticalOffset = clamp(
+      state.originVerticalOffset + totalY,
+      -state.maxVerticalOffset,
+      0
+    );
+  }
+  applyStyles(ownerInstance, state);
+  return false;
+}
+
+function finishInertia(ownerInstance, state) {
+  state.axis = AXIS_UNDECIDED;
+  state.velocityX = 0;
+  state.velocityY = 0;
+  reportPosition(ownerInstance, state);
+}
+
+function beginInertia(ownerInstance, state) {
+  var axis = state.axis;
+  var velocity = axis === AXIS_HORIZONTAL ? state.velocityX : state.velocityY;
+  if (Math.abs(velocity) < MINIMUM_VELOCITY) {
+    finishInertia(ownerInstance, state);
+    return false;
+  }
+  var animationToken = state.animationToken + 1;
+  state.animationToken = animationToken;
+  var previousFrameTime = 0;
+
+  function step(frameTime) {
+    if (state.animationToken !== animationToken) return;
+    var elapsed = previousFrameTime === 0 ? 16 : clamp(frameTime - previousFrameTime, 8, 32);
+    previousFrameTime = frameTime;
+    var previousOffset =
+      axis === AXIS_HORIZONTAL ? state.horizontalOffset : state.verticalOffset;
+    var minimumOffset =
+      axis === AXIS_HORIZONTAL ? -state.maxHorizontalOffset : -state.maxVerticalOffset;
+    var rawNextOffset = previousOffset + velocity * elapsed;
+    var nextOffset = clamp(rawNextOffset, minimumOffset, 0);
+    if (axis === AXIS_HORIZONTAL) state.horizontalOffset = nextOffset;
+    else state.verticalOffset = nextOffset;
+    applyStyles(ownerInstance, state);
+    velocity *= Math.pow(FRAME_FRICTION, elapsed / 16);
+    var reachedBoundary = nextOffset !== rawNextOffset;
+    if (reachedBoundary || Math.abs(velocity) < MINIMUM_VELOCITY) {
+      finishInertia(ownerInstance, state);
+      return;
+    }
+    ownerInstance.requestAnimationFrame(step);
+  }
+
+  ownerInstance.requestAnimationFrame(step);
+  return true;
+}
+
+function touchEnd(event, ownerInstance) {
+  var state = gestureState(ownerInstance);
+  if (!state.tracking) return;
+  state.tracking = false;
+  if (!state.moved || state.axis === AXIS_UNDECIDED) {
+    state.axis = AXIS_UNDECIDED;
+    return;
+  }
+  beginInertia(ownerInstance, state);
+  return false;
+}
+
+function touchCancel(event, ownerInstance) {
+  var state = gestureState(ownerInstance);
+  if (!state.tracking) return;
+  var moved = state.moved;
+  state.animationToken += 1;
+  state.axis = AXIS_UNDECIDED;
+  state.tracking = false;
+  if (moved) reportPosition(ownerInstance, state);
+  if (moved) return false;
+}
+
+module.exports = {
+  configure: configure,
+  touchCancel: touchCancel,
+  touchEnd: touchEnd,
+  touchMove: touchMove,
+  touchStart: touchStart
+};

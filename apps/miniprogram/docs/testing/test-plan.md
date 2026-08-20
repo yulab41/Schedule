@@ -62,8 +62,8 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 ## P1 手排矩阵 PoC 当前覆盖
 
 - `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
-- 页面矩阵内部不得出现 `scroll-view`、`native-view`、独立表头滚动容器或 Canvas。普通 WXML 裁切面只允许一个 `pan-gesture-handler`；handler 与 `.matrix-pan-surface` 必须分别以内联 `matrixViewportHeight` 像素高度建立真机命中区，禁止仅靠 `height:100%`。日期、人员、主体和左上角四层长期存在，页面 JSON 继续关闭页面滚动。
-- `ongesture` 测试必须覆盖零位移、等幅、近斜向、明确横向、明确纵向、选轴后反向抖动、横纵边界、END/CANCELLED 重置和两个轴的 `decay`。日期层绑定 X、人员层绑定 Y、主体绑定 X/Y，三个 `applyAnimatedStyle` 都必须 `flush:'sync'`；ACTIVE 不得 `setData`，逻辑线程只在结束/尺寸变化更新进度提示。点击只更新目标格或目标行；撤销保存 `{key,before,after}`。回退基线由 ADR-0005 固定。
+- 页面矩阵内部不得出现 `scroll-view`、`native-view`、`pan-gesture-handler`、独立表头滚动容器或 Canvas。普通 WXML 裁切面只有一个 WXS 触摸入口，并以内联 `matrixViewportHeight` 像素高度建立真机命中区。日期、人员、主体和左上角四层长期存在，页面 JSON 继续关闭页面滚动。
+- WXS 测试覆盖零位移保留 tap、等幅/近斜向保持未决、明确横向、明确纵向、选轴后反向抖动、横纵边界、取消、惯性和触摸打断惯性。日期层绑定 X、人员层绑定 Y、主体绑定 X/Y、进度条绑定 X；四个 `setStyle` 在同一视图层回调发生，拖动和惯性不 `setData`，只在最终静止/尺寸变化以 `callMethod` 更新一次进度摘要。点击只更新目标格或目标行；撤销保存 `{key,before,after}`。回退基线由 ADR-0005 固定。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
 - `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 

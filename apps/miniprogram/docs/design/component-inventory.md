@@ -28,7 +28,7 @@
 - 颜色、字号、间距、圆角、阴影和触控尺寸由 `@schedule/ui-tokens/tokens.ts` 同时生成 `tokens.css` 与 `tokens.wxss`；小程序构建只复制生成物，不维护第二套令牌值。
 - 已实现 `CalendarCell` 与 `CalendarMonth`：按当前 Web `buildMonthDisplayGrid` 公式为各面板生成实际 5 周或 6 周，跨月/今天/选中/周末/节假日/人员/加换状态独立；最后一行左右角显式携带圆角状态，18px 外框不再暴露反圆角，下方详情保持 12px 间距。
 - 月历使用 Skyline 原生三面板 `swiper`，Android 触控、PC 鼠标拖动和程序按钮共用同一翻页路径；关键箭头/定位图标使用真实 WXML 子节点，不依赖不同运行时表现不一致的伪元素。
-- 已实现 `ManualScheduleCell` 与矩阵 PoC：`pages/manual-matrix-poc/index?mode=daily|maximum` 分别生成 7×7 和 20×30 确定性数据。两种模式共用 390px 四层纯 Worklet 引擎：左上角固定，日期只随 X，人员只随 Y，班次随 X/Y；矩阵内部没有原生滚动容器，横纵惯性和轴锁均在 UI 线程完成，ACTIVE 不调用 `setData`。
+- 已实现 `ManualScheduleCell` 与矩阵 PoC：`pages/manual-matrix-poc/index?mode=daily|maximum` 分别生成 7×7 和 20×30 确定性数据。两种模式共用 390px 四层 WXS 视图层引擎：左上角固定，日期只随 X，人员只随 Y，班次随 X/Y，进度条复用 X；矩阵内部没有原生滚动容器或 gesture-handler，横纵轴锁与有界惯性不经过 `setData`。
 - 班种选择只更新前一选中格和目标格的数据路径；撤销栈只保存 `{key,before,after}` 增量。矩阵主体保持最多 20 行、600 个浅层逻辑格并由固定 7 行视口裁切；不依赖只支持纵向回收的 `list-builder`。
 - 已通过属性/事件单测、`miniprogram-simulate` 组件树与事件烟测、源码边界、包体和确定性构建。Storybook/simulate 仍不等价于微信运行时，基础控件、月历和矩阵的原生视觉状态均保持“已实现待用户实体 Android 人工复核”。
 - `UiSheet`、`UiDialog`、`UiConfirm`、导航与业务组件尚未实现；必须等待其对应黄金状态确认，不从本批次外推样式。

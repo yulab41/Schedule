@@ -1,15 +1,15 @@
-# ADR-0005：手排矩阵采用四层纯 Worklet 二维平移
+# ADR-0005：手排矩阵采用四层视图层二维平移
 
-- 状态：四层坐标结构已接受；gesture-handler 输入在目标 Android 不可用，待替代输入探针
+- 状态：四层坐标结构与 WXS 输入已接受，待 7×7/20×30 Android 人工验收
 - 日期：2026-08-20
 
 ## 决策
 
-7×7 与 20×30 手排矩阵统一使用普通 WXML `view` 裁切面和单一 `pan-gesture-handler`，矩阵内部不使用 `scroll-view`、`native-view`、嵌套横纵识别器或跨容器追赶。
+7×7 与 20×30 手排矩阵统一使用普通 WXML `view` 裁切面和单一 WXS 触摸入口，矩阵内部不使用 `scroll-view`、`native-view`、`pan-gesture-handler`、嵌套横纵识别器或跨容器追赶。
 
-同一个 UI 线程手势维护有界的 X/Y SharedValue：左上角固定，日期层只使用 X，人员层只使用 Y，班次主体同时使用 X/Y。首次明确方向后锁轴到 END/CANCELLED；横纵惯性均使用 Worklet `decay`。手势 ACTIVE 期间禁止 `setData`。
+同一个 WXS 视图层状态维护有界 X/Y：左上角固定，日期层只使用 X，人员层只使用 Y，班次主体同时使用 X/Y，顶部进度条直接使用相同 X。首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到触摸结束；横纵惯性使用 `ComponentDescriptor.requestAnimationFrame`，四层位置通过 `setStyle(transform)` 在同一回调更新。拖动和惯性期间禁止 `setData`，只在最终静止后以一次 `callMethod` 同步可访问进度摘要。
 
-四层内容均为绝对定位，不会撑开父级；`pan-gesture-handler` 和其普通视图命中面必须显式绑定当前 `matrixViewportHeight` 像素高度，禁止只依赖 `height:100%`。这保证 Android 的手势节点拥有真实命中矩形，而不是只显示溢出内容。
+四层内容均为绝对定位，不会撑开父级；普通 WXS 触摸面显式绑定当前 `matrixViewportHeight` 像素高度，禁止只依赖绝对定位子层撑开。WXS `touchstart`/无位移 `touchend` 不返回 `false`，保留自定义班次格的点选事件；只有已锁轴移动和对应结束才阻止默认移动。
 
 ## 理由
 
@@ -19,7 +19,7 @@
 
 体验版 `.27` 的 PC 模拟器已证明四层坐标可横纵流畅，但目标 Android 两轴均无输入。该结果尚不能否定四层引擎，必须先由 `pages/gesture-probe/index` 判断目标设备是否执行最小 `pan-gesture-handler` Worklet；探针结论出来前不继续修改矩阵。
 
-2026-08-21 的独立探针结果进一步证明：目标 Android 16 上普通 `touchmove` 可持续触发且页面可滚动，但最小蓝点 Worklet 完全不移动。因此 `pan-gesture-handler` 不再作为该设备的可用输入路径。现只在诊断页增加 WXS 视图层黄色点，验证普通内置 `view` 能否通过 `touchmove + ComponentDescriptor.setStyle` 同帧移动；在用户明确确认前，矩阵仍保留原实现和下述 Git 回退基线。
+2026-08-21 的独立探针结果进一步证明：目标 Android 16 上普通 `touchmove` 可持续触发且页面可滚动，但最小蓝点 Worklet 完全不移动，因此 `pan-gesture-handler` 不再作为该设备的可用输入路径。随后同一设备人工确认 WXS 黄色点横纵移动均同步跟手，证明普通内置 `view` 可通过 `touchmove + ComponentDescriptor.setStyle` 在 Skyline 视图层稳定移动；矩阵据此只替换输入与惯性实现，四层结构、尺寸、数据和回退基线保持。
 
 ## 回退
 

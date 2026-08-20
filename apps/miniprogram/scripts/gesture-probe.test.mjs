@@ -85,7 +85,7 @@ describe('P1 Android gesture capability probe', () => {
     );
   });
 
-  it('adds an isolated WXS view-layer drag probe without changing the matrix input engine', () => {
+  it('keeps the diagnostic WXS module isolated from the matrix WXS input module', () => {
     const template = readSource('pages/gesture-probe/index.wxml');
     const styles = readSource('pages/gesture-probe/index.wxss');
     const wxsSource = readSource('pages/gesture-probe/drag-probe.wxs');
@@ -102,7 +102,9 @@ describe('P1 Android gesture capability probe', () => {
     expect(wxsSource).toContain('setStyle');
     expect(wxsSource).toContain('module.exports');
     expect(matrixTemplate).not.toContain('drag-probe.wxs');
-    expect(matrixTemplate).toContain('worklet:ongesture="handleMatrixPan"');
+    expect(matrixTemplate).toContain(
+      '<wxs module="matrixGesture" src="./matrix-gesture.wxs"></wxs>',
+    );
   });
 
   it('keeps WXS drag coordinates bounded and updates the dot without setData', () => {

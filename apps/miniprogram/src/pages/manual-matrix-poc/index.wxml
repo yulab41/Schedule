@@ -1,3 +1,5 @@
+<wxs module="matrixGesture" src="./matrix-gesture.wxs"></wxs>
+
 <view class="matrix-preview">
   <view class="matrix-heading">
     <view class="matrix-heading-copy">
@@ -65,87 +67,88 @@
   </view>
 
   <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
-    <pan-gesture-handler
-      class="matrix-pan-gesture"
+    <view
+      id="matrix-touch-surface"
+      class="matrix-pan-surface"
       style="height:{{matrixViewportHeight}}px"
-      worklet:ongesture="handleMatrixPan"
+      aria-label="手动排班矩阵"
+      matrix-config="{{matrixGestureConfig}}"
+      change:matrix-config="{{matrixGesture.configure}}"
+      bindtouchstart="{{matrixGesture.touchStart}}"
+      bindtouchmove="{{matrixGesture.touchMove}}"
+      bindtouchend="{{matrixGesture.touchEnd}}"
+      bindtouchcancel="{{matrixGesture.touchCancel}}"
     >
-      <view
-        class="matrix-pan-surface"
-        style="height:{{matrixViewportHeight}}px"
-        aria-label="手动排班矩阵"
-      >
-        <view class="matrix-date-viewport">
-          <view id="matrix-date-track" class="matrix-date-content" style="width:{{contentWidth}}px">
-            <view class="date-header-row">
-              <view class="member-header-spacer"></view>
-              <view
-                wx:for="{{columns}}"
-                wx:key="cycleDay"
-                class="date-header {{item.isWeekend ? 'is-weekend' : ''}}"
-              >
-                <text class="date-value">{{item.dateLabel}}</text>
-                <text class="weekday-value">{{item.weekdayLabel}}</text>
-              </view>
-            </view>
-            <view class="holiday-header-row" aria-label="节假日摘要">
-              <view class="member-header-spacer holiday-member-spacer"></view>
-              <view wx:for="{{columns}}" wx:key="cycleDay" class="holiday-summary">
-                <text wx:if="{{item.holidayLabel}}" class="holiday-name"
-                  >{{item.holidayLabel}}</text
-                >
-                <text wx:elif="{{item.isWorkday}}" class="workday-badge">班</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <view class="matrix-body-viewport" style="height:{{matrixBodyViewportHeight}}px">
-          <view id="matrix-body-track" class="matrix-body-track">
+      <view class="matrix-date-viewport">
+        <view id="matrix-date-track" class="matrix-date-content" style="width:{{contentWidth}}px">
+          <view class="date-header-row">
+            <view class="member-header-spacer"></view>
             <view
-              wx:for="{{rows}}"
-              wx:key="membershipId"
-              wx:for-item="row"
-              class="matrix-row"
-              style="width:{{contentWidth}}px"
+              wx:for="{{columns}}"
+              wx:key="cycleDay"
+              class="date-header {{item.isWeekend ? 'is-weekend' : ''}}"
             >
-              <view class="member-spacer"></view>
-              <view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="matrix-cell-slot">
-                <manual-schedule-cell
-                  abbreviation="{{cell.abbreviation}}"
-                  aria-label="{{cell.ariaLabel}}"
-                  color="{{cell.color}}"
-                  column-index="{{cell.columnIndex}}"
-                  is-selected="{{cell.isSelected}}"
-                  is-stale="{{cell.isStale}}"
-                  key-value="{{cell.key}}"
-                  row-index="{{cell.rowIndex}}"
-                  text-color="{{cell.textColor}}"
-                  bind:select="handleCellSelect"
-                ></manual-schedule-cell>
-              </view>
+              <text class="date-value">{{item.dateLabel}}</text>
+              <text class="weekday-value">{{item.weekdayLabel}}</text>
             </view>
           </view>
-        </view>
-
-        <view class="matrix-member-overlay" aria-label="值班人员表头">
-          <view id="matrix-member-track" class="matrix-member-track">
-            <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
-              <text>{{item.realName}}</text>
-              <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
+          <view class="holiday-header-row" aria-label="节假日摘要">
+            <view class="member-header-spacer holiday-member-spacer"></view>
+            <view wx:for="{{columns}}" wx:key="cycleDay" class="holiday-summary">
+              <text wx:if="{{item.holidayLabel}}" class="holiday-name"
+                >{{item.holidayLabel}}</text
+              >
+              <text wx:elif="{{item.isWorkday}}" class="workday-badge">班</text>
             </view>
           </view>
-        </view>
-
-        <view class="matrix-corner">
-          <view class="corner-member">值班人员 ↓</view>
-          <view class="corner-holiday">节假日</view>
         </view>
       </view>
-    </pan-gesture-handler>
+
+      <view class="matrix-body-viewport" style="height:{{matrixBodyViewportHeight}}px">
+        <view id="matrix-body-track" class="matrix-body-track">
+          <view
+            wx:for="{{rows}}"
+            wx:key="membershipId"
+            wx:for-item="row"
+            class="matrix-row"
+            style="width:{{contentWidth}}px"
+          >
+            <view class="member-spacer"></view>
+            <view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="matrix-cell-slot">
+              <manual-schedule-cell
+                abbreviation="{{cell.abbreviation}}"
+                aria-label="{{cell.ariaLabel}}"
+                color="{{cell.color}}"
+                column-index="{{cell.columnIndex}}"
+                is-selected="{{cell.isSelected}}"
+                is-stale="{{cell.isStale}}"
+                key-value="{{cell.key}}"
+                row-index="{{cell.rowIndex}}"
+                text-color="{{cell.textColor}}"
+                bind:select="handleCellSelect"
+              ></manual-schedule-cell>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="matrix-member-overlay" aria-label="值班人员表头">
+        <view id="matrix-member-track" class="matrix-member-track">
+          <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
+            <text>{{item.realName}}</text>
+            <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="matrix-corner">
+        <view class="corner-member">值班人员 ↓</view>
+        <view class="corner-holiday">节假日</view>
+      </view>
+    </view>
   </view>
 
   <text class="matrix-note">
-    日期、人员与班次由同一个 UI 线程二维坐标驱动；单次手势只锁定一个方向。
+    日期、人员与班次由同一个 WXS 视图层坐标驱动；单次手势只锁定一个方向。
   </text>
 </view>
