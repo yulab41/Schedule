@@ -1,3 +1,5 @@
+<wxs module="wxsProbe" src="./drag-probe.wxs"></wxs>
+
 <view class="probe-page">
   <view class="probe-heading">
     <text class="probe-kicker">P1 · Android 诊断专用</text>
@@ -33,6 +35,24 @@
       </view>
     </pan-gesture-handler>
     <text class="probe-instruction">蓝点能跟手移动：gesture-handler Worklet 正常。</text>
+  </view>
+
+  <view class="probe-card">
+    <view class="probe-card-heading">
+      <text class="probe-card-title">D · WXS 视图层触摸</text>
+      <text class="probe-card-note">拖动黄色点</text>
+    </view>
+    <view
+      class="wxs-probe-surface"
+      style="width: 280px; height: 220px"
+      bindtouchstart="{{wxsProbe.touchStart}}"
+      bindtouchmove="{{wxsProbe.touchMove}}"
+      bindtouchend="{{wxsProbe.touchEnd}}"
+      bindtouchcancel="{{wxsProbe.touchEnd}}"
+    >
+      <view id="wxs-probe-dot" class="wxs-probe-dot"></view>
+    </view>
+    <text class="probe-instruction">黄色点能跟手移动：WXS 可作为矩阵的视图层输入候选。</text>
   </view>
 
   <view class="probe-card">

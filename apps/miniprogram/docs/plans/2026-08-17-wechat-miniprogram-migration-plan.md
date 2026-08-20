@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；月历已通过用户 Android 人工验收。四层纯 Worklet 矩阵 `.27` 在 PC 可横纵流畅，但 Android 两轴均无输入；现增加 diagnostic-only 最小 Pan/普通触摸探针以区分设备 gesture-handler 能力与矩阵冲突，并以 `78e341b`/体验版 `.23` 保留旧方案回退基线。探针结论和 C/D 复测通过后才进入 P2
+- 状态：P0 与 P1 非视觉工具链已完成；月历已通过用户 Android 人工验收。`.31` 独立探针确认 Android 16 的普通触摸与页面滚动正常，但最小 `pan-gesture-handler` Worklet 蓝点完全不响应，因此暂不修改矩阵，只增加 diagnostic-only WXS 视图层黄色点探针，并以 `78e341b`/体验版 `.23` 保留旧方案回退基线。替代输入探针和 C/D 复测通过后才进入 P2
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界

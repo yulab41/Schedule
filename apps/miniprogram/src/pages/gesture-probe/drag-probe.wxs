@@ -1,0 +1,55 @@
+var currentX = 0;
+var currentY = 0;
+var originX = 0;
+var originY = 0;
+var startX = 0;
+var startY = 0;
+var tracking = false;
+
+function clamp(value, minimum, maximum) {
+  if (value < minimum) return minimum;
+  if (value > maximum) return maximum;
+  return value;
+}
+
+function firstTouch(event) {
+  if (event.touches && event.touches.length > 0) return event.touches[0];
+  if (event.changedTouches && event.changedTouches.length > 0) return event.changedTouches[0];
+  return null;
+}
+
+function touchStart(event) {
+  var touch = firstTouch(event);
+  if (!touch) return false;
+  tracking = true;
+  startX = touch.clientX;
+  startY = touch.clientY;
+  originX = currentX;
+  originY = currentY;
+  return false;
+}
+
+function touchMove(event, ownerInstance) {
+  var touch = firstTouch(event);
+  if (!tracking || !touch) return false;
+  currentX = clamp(originX + touch.clientX - startX, -96, 96);
+  currentY = clamp(originY + touch.clientY - startY, -70, 70);
+  var dot = ownerInstance.selectComponent('#wxs-probe-dot');
+  if (dot) {
+    dot.setStyle({
+      transform: 'translate(' + currentX + 'px, ' + currentY + 'px)'
+    });
+  }
+  return false;
+}
+
+function touchEnd() {
+  tracking = false;
+  return false;
+}
+
+module.exports = {
+  touchEnd: touchEnd,
+  touchMove: touchMove,
+  touchStart: touchStart
+};

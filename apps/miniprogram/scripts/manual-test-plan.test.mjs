@@ -45,7 +45,7 @@ describe('P1 user-operated native test plan', () => {
         'cell-selected',
         'undo',
       ],
-      ['worklet-pan', 'ordinary-touch', 'device-runtime'],
+      ['worklet-pan', 'wxs-view-layer-touch', 'ordinary-touch', 'device-runtime'],
     ]);
     expect(plan.cases.at(-1)).toMatchObject({ diagnosticOnly: true });
     expect(plan.completion).toMatchObject({ screenshotsRequiredOnPass: false });

@@ -91,6 +91,30 @@ page {
   box-sizing: border-box;
 }
 
+.wxs-probe-surface {
+  position: relative;
+  overflow: hidden;
+  align-self: center;
+  touch-action: none;
+  background: var(--ui-color-warning-light);
+  border: 1px solid var(--ui-color-warning);
+  border-radius: var(--ui-radius-medium);
+}
+
+.wxs-probe-dot {
+  position: absolute;
+  top: 82px;
+  left: 112px;
+  width: 56px;
+  height: 56px;
+  transform: translate(0, 0);
+  background: var(--ui-color-warning);
+  border: 4px solid var(--ui-color-surface);
+  border-radius: 50%;
+  box-shadow: 0 8px 20px rgba(174, 117, 0, 0.24);
+  box-sizing: border-box;
+}
+
 .touch-probe-surface {
   display: flex;
   min-height: 120px;

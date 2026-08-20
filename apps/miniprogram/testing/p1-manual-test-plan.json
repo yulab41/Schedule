@@ -67,7 +67,7 @@
       "id": "android-gesture-probe",
       "route": "pages/gesture-probe/index",
       "diagnosticOnly": true,
-      "states": ["worklet-pan", "ordinary-touch", "device-runtime"]
+      "states": ["worklet-pan", "wxs-view-layer-touch", "ordinary-touch", "device-runtime"]
     }
   ]
 }

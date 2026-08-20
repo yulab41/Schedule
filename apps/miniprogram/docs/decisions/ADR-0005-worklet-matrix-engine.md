@@ -1,6 +1,6 @@
 # ADR-0005：手排矩阵采用四层纯 Worklet 二维平移
 
-- 状态：已接受，待 Android 人工验收
+- 状态：四层坐标结构已接受；gesture-handler 输入在目标 Android 不可用，待替代输入探针
 - 日期：2026-08-20
 
 ## 决策
@@ -18,6 +18,8 @@
 四层共享坐标与电子表格渲染器一致，并适合当前最大 20×30、600 格的有界规模。它保留现有 WXML 文字和点格语义，不提前 Canvas 化。
 
 体验版 `.27` 的 PC 模拟器已证明四层坐标可横纵流畅，但目标 Android 两轴均无输入。该结果尚不能否定四层引擎，必须先由 `pages/gesture-probe/index` 判断目标设备是否执行最小 `pan-gesture-handler` Worklet；探针结论出来前不继续修改矩阵。
+
+2026-08-21 的独立探针结果进一步证明：目标 Android 16 上普通 `touchmove` 可持续触发且页面可滚动，但最小蓝点 Worklet 完全不移动。因此 `pan-gesture-handler` 不再作为该设备的可用输入路径。现只在诊断页增加 WXS 视图层黄色点，验证普通内置 `view` 能否通过 `touchmove + ComponentDescriptor.setStyle` 同帧移动；在用户明确确认前，矩阵仍保留原实现和下述 Git 回退基线。
 
 ## 回退
 

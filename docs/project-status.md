@@ -13,6 +13,16 @@
 - 当前状态：预览已完成待 checkpoint 与生产同步；生产只落地导航无停顿循环，新动作图标待用户确认。checkpoint 识别消息：`feat(web): preview continuous minimal action icons`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
 - 下一批次与停止条件：只提交、推送并部署本预览 checkpoint，保持 6007 Storybook 供用户验收；用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
 
+## 2026-08-21 P1 WXS 视图层拖动能力探针（当前批次）
+
+- 用户复核：最终体验版探针页面可以滚动，运行信息完整，系统为 Android 16；最小 `pan-gesture-handler` 蓝点仍完全无法拖动或跟手。结合此前普通 `touchmove` 453 次，结论是页面/普通触摸正常，但目标 Android 不执行该 gesture-handler Worklet 输入路径。
+- 范围与回归来源：`git log -S`/`git blame` 确认独立 Pan/普通触摸探针由 `2d51e22` 引入、版本与首屏修复由 `e5ec6b9` 引入。本轮只在 diagnostic-only 探针页增加 WXS 黄色点，不修改 7×7/20×30 矩阵、业务 API、数据或旧回退基线。
+- 官方依据与选择：官方 WXS 响应事件文档允许内置组件把触摸响应留在视图层并以 `ComponentDescriptor.setStyle` 直接更新样式，避免普通 `touchmove → 逻辑层 → setData` 往返；但正文以 WebView 为背景，没有承诺 Skyline Android 等价性。因此先做独立真机探针，通过前不接入矩阵。[WXS 响应事件](https://developers.weixin.qq.com/miniprogram/dev/framework/view/interactive-animation.html)
+- 测试先行与实现：新增 WXS 模块/事件/矩阵隔离契约在旧实现上因 `drag-probe.wxs` 缺失而失败；实现后 5/5 通过。黄色点使用内置 `view` 的 WXS `touchstart/touchmove/touchend/touchcancel`，直接 `setStyle(transform)`，X/Y 分别限制在 ±96/±70px，不调用 `setData`；蓝色 Worklet 与灰色普通触摸探针保持不变。视觉按 `frontend-design` 只用现有 warning tokens 区分第三条链路，不建立产品 Storybook 黄金稿。
+- 验证：小程序 12 文件/50 项、typecheck/source/output/7 个 Worklet/包体/确定性/simulate 与 CI dry-run 通过（124514 bytes，manifest `dbc3fc5bb108e4160708689ad9644aef4cfa8ae3505caf9bf86d09cd16f7d3d1`）；官方 `miniprogram-ci.getCompiledResult` 实际编译 52 个代码文件并返回 83 个结果文件，WXS/WXML 语法通过。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/782 项通过、32 文件/265 项按环境跳过。未排除的根测试/格式只被用户旧 release 副本与未完成文件阻断，本轮不修改。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`test(miniprogram): add WXS drag capability probe`。
+- 下一批次与停止条件：上传新体验版后只请用户在黄色区域回报“移动/不动、跟手/延迟”；黄色点明确通过前不修改矩阵、不进入 P2。
+
 ## 2026-08-21 小程序可见构建版本与探针首屏修复（当前批次）
 
 - 用户探针结果：`.29` Android 蓝点不动，但普通 `touchmove` 递增至 453 次；基础库 `3.17.0`、微信 `8.0.76`、Android 设备 `23116N5BC`。结论是普通触摸链路正常、目标运行时不执行 `pan-gesture-handler` Worklet；矩阵下一步必须转向非 gesture-handler 输入。探针页面因禁止页面滚动看不到系统字段，用户同时要求小程序内可见显示上传版本，防止体验版延迟/缓存误判。

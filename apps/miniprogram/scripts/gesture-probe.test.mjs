@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -82,5 +83,48 @@ describe('P1 Android gesture capability probe', () => {
     expect(setData).toHaveBeenCalledWith(
       expect.objectContaining({ touchStatus: '普通触摸已结束' }),
     );
+  });
+
+  it('adds an isolated WXS view-layer drag probe without changing the matrix input engine', () => {
+    const template = readSource('pages/gesture-probe/index.wxml');
+    const styles = readSource('pages/gesture-probe/index.wxss');
+    const wxsSource = readSource('pages/gesture-probe/drag-probe.wxs');
+    const matrixTemplate = readSource('pages/manual-matrix-poc/index.wxml');
+
+    expect(template).toContain('<wxs module="wxsProbe" src="./drag-probe.wxs"></wxs>');
+    expect(template).toContain('bindtouchstart="{{wxsProbe.touchStart}}"');
+    expect(template).toContain('bindtouchmove="{{wxsProbe.touchMove}}"');
+    expect(template).toContain('bindtouchend="{{wxsProbe.touchEnd}}"');
+    expect(template).toContain('bindtouchcancel="{{wxsProbe.touchEnd}}"');
+    expect(template).toContain('id="wxs-probe-dot"');
+    expect(styles).toMatch(/\.wxs-probe-surface\s*\{[^}]*touch-action:\s*none;/su);
+    expect(wxsSource).toContain("selectComponent('#wxs-probe-dot')");
+    expect(wxsSource).toContain('setStyle');
+    expect(wxsSource).toContain('module.exports');
+    expect(matrixTemplate).not.toContain('drag-probe.wxs');
+    expect(matrixTemplate).toContain('worklet:ongesture="handleMatrixPan"');
+  });
+
+  it('keeps WXS drag coordinates bounded and updates the dot without setData', () => {
+    const moduleRecord = { exports: {} };
+    vm.runInNewContext(readSource('pages/gesture-probe/drag-probe.wxs'), {
+      module: moduleRecord,
+    });
+    const handlers = moduleRecord.exports;
+    const setStyle = vi.fn();
+    const ownerInstance = {
+      selectComponent: vi.fn(() => ({ setStyle })),
+    };
+
+    handlers.touchStart({ touches: [{ clientX: 100, clientY: 120 }] });
+    handlers.touchMove({ touches: [{ clientX: 136, clientY: 98 }] }, ownerInstance);
+    expect(setStyle).toHaveBeenLastCalledWith({ transform: 'translate(36px, -22px)' });
+
+    handlers.touchMove({ touches: [{ clientX: 999, clientY: -999 }] }, ownerInstance);
+    expect(setStyle).toHaveBeenLastCalledWith({ transform: 'translate(96px, -70px)' });
+
+    handlers.touchEnd();
+    handlers.touchMove({ touches: [{ clientX: 120, clientY: 120 }] }, ownerInstance);
+    expect(setStyle).toHaveBeenCalledTimes(2);
   });
 });

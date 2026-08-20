@@ -70,7 +70,8 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 ## P1 Android 手势能力探针
 
 - `pages/gesture-probe/index` 是 diagnostic-only 路由，不属于产品页面，也不建立 Storybook 黄金稿。
-- A 区严格使用普通视图上的最小 `pan-gesture-handler + SharedValue + applyAnimatedStyle` 蓝点；B 区只使用普通 `touchstart/touchmove/touchend` 并显示计数；C 区显示实际 SDK/平台/设备。
+- A 区严格使用普通视图上的最小 `pan-gesture-handler + SharedValue + applyAnimatedStyle` 蓝点；D 区使用内置 `view` 的 WXS 视图层 `touchstart/touchmove/touchend + ComponentDescriptor.setStyle` 黄色点；B 区只使用逻辑层普通触摸并显示计数；C 区显示实际版本、SDK、平台、设备和系统。
+- 官方 WXS 响应事件文档说明该路径用于避开逻辑层往返并在视图层直接更新 class/style，但正文以 WebView 为背景，没有承诺 Skyline Android 的等价行为；因此黄色点只作真机能力探针，通过前不得接入矩阵。[WXS 响应事件](https://developers.weixin.qq.com/miniprogram/dev/framework/view/interactive-animation.html)
 - 探针不含矩阵、`scroll-view`、`native-view`、自定义单元格或业务 API。它只用于判断 Android 是不执行 gesture-handler Worklet，还是矩阵页面存在局部输入竞争。
 
 ## P1 用户人工原生验收
