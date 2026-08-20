@@ -22,8 +22,10 @@
 - 语义等价审计：`select` / `sign-out` 仍各发出一次，抽屉仍在选择或退出时关闭；桌面/移动数组、接收者绑定、异步与错误路径、空值、权限和业务副作用不变。行为变化仅为当前导航图标的视觉循环及 SVG 几何。
 - 验证：当前主工作区排除用户自有 `runtime/**` / `src/**` 后 137 文件/774 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck/production build、完整 Storybook build、任务文件 Prettier/ESLint、导航定向测试、`smoke:check-core` 与 `git diff --check` 均通过。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已在当前源码服务运行，但本机 MySQL `127.0.0.1:3306` 拒绝连接，管理员登录回退 `/login?redirect=/`，失败发生在导航产品断言前；已确认的 Storybook 视觉稿与生产故事均由同一生产组件渲染。
 - 发布门禁修正：发布前 `ecs-verify.sh` 对现行 `a43618a` release 首次出现 API 目录哈希假失败；从 release 压缩包解出后逐文件 `diff` 为 0。`git log -S` / `git blame` 定位 `5f2bb8b`/`33eb489f` 引入的全路径排序与打包器逐目录深度优先排序不等价。同序断言在旧脚本上先失败；验证器改为逐层 sibling 排序递归后测试 3/3、服务器 `bash -n` 与现行 release 完整 `ecs-verify.sh` 通过，健康、产物哈希、域名隔离、容器和 43 条迁移均正常。修正 checkpoint 识别消息：`fix(infra): align release tree verification order`。
-- 当前状态：导航代码 checkpoint `5b9542a`（`feat(web): add animated minimal navigation icons`）已推送；验证器修正待 checkpoint 后一并生产发布。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
-- 下一批次与停止条件：只提交并推送本 checkpoint；生产数据库加密备份后从干净 worktree 部署，运行 `ecs-verify.sh` 与正式域名只读核验，再同步最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止并等待用户复核。
+- checkpoint 与发布：导航 checkpoint `5b9542a` 与验证器修正 `f66d1ec` 均已推送，并随共享不可变 release `2d51e222645dac9ac9473830ac570666e82225d1` 部署；发布前加密备份 archive `148061e7-9478-4f82-9ea4-2e70460da25e`（50 表、157659 行、70955780 bytes，SHA-256 `bcb51ac9561e53beb66d4cc57fc5262a84a05293fc6d7c6336ad1fb4fe39a640`）。状态同步 release `63a59f6099cd39c8c8448bc14d116c3fc2cbb108` 发布前备份 archive `458715c4-8565-4cf3-a4d2-6abf2cbf4d2e`（50 表、157660 行、70956440 bytes，SHA-256 `7deb1bf1410abaf987477ff82aa66948635fe9aada782def49ce50c5611dd14c`）。
+- 正式核验：修正后的 `ecs-verify.sh` 对两个 release 均通过健康、产物哈希、域名隔离、公开端口、容器、依赖和 43 条迁移；最终正式主页/API 为 200，未认证群组端点为 401。生产 `HomeView` JS/CSS bundle 命中 `lucide-minimal-icon`、回拨/换班关键帧、减少动态规则及来源标识；未登录或写入业务数据。
+- 当前状态：已完成（含推送、生产备份、部署与正式只读核验）→ 待用户复核。最终状态 checkpoint 识别消息：`docs(status): record navigation icon deployment`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后停止并等待用户验收，不开始其他修改。
 
 ## 2026-08-20 护士多班种日历偏好与分组详情（当前批次）
 
