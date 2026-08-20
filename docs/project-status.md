@@ -9,7 +9,8 @@
 - 实现：构建脚本注入 `buildVersion` 与七位 Git commit，并写入 `dist/build-profile.json`；体验上传显示 `WECHAT_CI_VERSION@commit`，本地编译显示 `local@commit`。基础控件、月历、7×7/20×30矩阵和探针均显示统一低对比度版本徽标。探针恢复页面滚动，将代码版本/SDK/平台/设备/系统卡移到蓝点之前。
 - 官方能力核对：官方资料未提供普通 `touchmove` 的 Worklet UI线程绑定；当前可确认的候选是逻辑线程普通触摸或 WXS 视图层事件。尚未实测 WXS 在本 Skyline/Android 组合的行为，因此本轮不修改矩阵输入方案。
 - 验证：小程序 typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（7 个源码/产物 Worklet、121764 bytes，manifest `bf132261c041cee3ca51d5b8c9a8ce966152dc17bee742c849c2c24f04652f62`）；任务文件 Prettier/ESLint、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过。排除用户自有 `runtime/**`/`src/**`、既有迁移计数测试和未完成护士 Storybook 草稿后，当前受控源码 136 文件/769 项通过、32 文件/265 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`feat(miniprogram): show visible build identity`。
+- 发布：代码 checkpoint `e5ec6b9`（`feat(miniprogram): show visible build identity`）已推送；微信体验版 `0.1.0-p1.20260821.30` 从该提交的干净工作树直连 IPv4 上传成功（51 个代码文件、38233 bytes，manifest `5f2815d413af7a4b09ca3b6057c2ecfaec95cc4d176556a4a5ed8050e4ec3e10`），页面显示 `0.1.0-p1.20260821.30@e5ec6b9`。ECS 发布前加密数据库备份 archive `519200ae-10d4-41b4-83bf-2f134d14fe97`（50 表、157678 行、70965932 bytes，SHA-256 `3a080d262ba65901117d1d80bfeca891be30564b12d7532d4fab776b6c6817d7`）；release `e5ec6b9dbf9da8017fb394db431a3aea2d887ee2` 已部署，预热首次 502 后恢复。
+- 线上验证：`ecs-verify.sh` 通过生产健康、产物哈希、43 条迁移、域名隔离、监听端口、容器和依赖检查；`current-release`、部署清单与代码 checkpoint 一致，正式首页与 `/api/health` 均为 200。当前状态：已实现并发布，正在收口最终状态 checkpoint；用户自有小程序配置、workspace、Storybook 草稿、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：只请用户核对新体验版探针首屏代码版本与系统字段是否可见/页面能否滚动；确认版本链路后再单独决定 WXS 探针或普通触摸矩阵，不进入 P2。
 
 ## 2026-08-21 P1 Android 最小手势能力探针（当前批次）
