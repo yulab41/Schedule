@@ -5,11 +5,14 @@
 ## 2026-08-20 员工通讯录第二轮增量同步与职务标签（当前批次）
 
 - 批次范围：以第一轮已发布的 1070 条员工记录和优化后的层级名称为主，合并第二轮 iOffice 全量数据；保留第一轮工号与层级，补入第二轮缺失的有效人员/层级关系和 `jobTitle` 职务标签，不覆盖第一轮优化文本，不新增无有效号码记录。
-- 本地数据：第二轮 1444 条 API 原始记录合并为 1200 条可导入记录（第一轮 1070 条保留、第二轮补入 130 条关系）；合并 manifest `runtime/directory-data/employee/2026-08-20-full/employee-directory-merged.manifest.json`，当前 1200 条、1203 个联系方式、140 条职务标签、1068 条工号字段；第二轮原始 CSV 保留在 `employee-api-raw.csv`。
+- 本地数据：第二轮 1444 条 API 原始记录合并为 1200 条可导入记录（第一轮 1070 条保留、第二轮补入 130 条关系）；合并 manifest `runtime/directory-data/employee/2026-08-20-full/employee-directory-merged.manifest.json` 的导入摘要为 1200 条、1203 个联系方式、140 条职务标签、1068 条工号字段；第二轮原始 CSV 保留在 `employee-api-raw.csv`。第一轮层级键 1070/1070 全部保留。
 - 实现：新增目录条目 `job_title` 字段和迁移 `0042_directory_job_titles.sql`；导入器、API 合约/查询和 Web 员工卡片均传递职务标签；员工卡片使用低对比度胶囊标签，保留现有紧凑布局、筛选、搜索、工号和拨号交互。
 - 测试先行与验证：新增清洗器、manifest、合约、分组和生产模板回归；定向 14 文件/106 项通过，infra 脚本构建通过，contracts/database 生产构建通过。完整 Web/API typecheck/build 当前被用户已有密码认证未完成改动阻断，与本批次目录文件无关，已单独记录；尚未执行生产导入。
-- 当前状态：已实现待浏览器复核 → 待生产迁移、备份、目录 dry-run 和原子发布；不得在发布前覆盖生产快照。
-- 下一批次与停止条件：先从本批次代码创建 checkpoint，部署并执行迁移 42；创建生产备份后以 merged manifest dry-run，确认 added/changed/removed 仅符合加法规则，再发布并用正式 API/浏览器只读核验员工数量、职务标签和工号搜索。
+- 发布：代码 checkpoint `a526c60`（`feat(directory): add employee job titles and additive snapshot`）已推送并部署；发布前数据库备份 archive `403292da-990d-44dc-9eb9-e787f57d5d4b`（50 表、106655 行、47348432 字节，SHA-256 `843646445888dd1061999e095a01c2eb72888bacc14c34ab4e2c618581738ccd`）。迁移计数更新为 42，正式 release `a526c60c56e3d2610030c409bbc53c479e0c4fe4`，`ecs-verify.sh` 通过；预热首次 502 后自动恢复。
+- 正式数据发布：merged manifest SHA-256 `73ea132c9f7f5b725fa209e165f6517a591344bfd2a16bed1cf8851f62fae40b`；SSH stdin dry-run 为 added 130、changed 1070、removed 0、warnings 0，原子发布批次 `5db71a2d-4471-4bcc-aafa-984cf2a1a3be`，替换上一员工批次。生产聚合核验为 employee 1200 条目、1203 个联系方式、140 个职务标签、1068 个工号字段；正式 `/api/health` 返回 200，未改动院内通讯录。
+- 验证：定向目录/合约/UI 14 文件 106 项通过；生产构建的 contracts/database/API/Web 产物包含 `jobTitle` 接线。完整 Web/API typecheck/build 仍被工作树中用户已有的密码认证未完成改动阻断；该改动未暂存、未提交、未部署。本批次已执行 `smoke:check-core`，其仅因上述用户改动缺少对应浏览器记录而阻断，未将其误判为目录回归。
+- 当前状态：已完成（含代码发布、迁移、生产备份、目录 dry-run、原子数据发布和正式聚合核验）→待用户复核员工职务标签和新增层级。
+- 下一批次与停止条件：无自动活动批次；等待用户复核，不再自动改写员工或院内通讯录。
 
 ## 2026-08-20 “我的”个人值班概览补齐（当前批次）
 
