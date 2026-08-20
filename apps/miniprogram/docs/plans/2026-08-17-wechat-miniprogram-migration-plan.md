@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；月历与矩阵 C（7×7 横向）已通过用户 Android 人工验收。D 的横向滚动已通过，但体验版 `.21` 人工复测确认从人员列或班次格起手都完全没有纵向位移，证明嵌套识别器的父级接管路径在目标 Android 不可达；现已改为一个原生滚动代理直接处理横纵轴，重新复测通过后才进入 P2
+- 状态：P0 与 P1 非视觉工具链已完成；月历已通过用户 Android 人工验收。矩阵 C 的旧原生横向方案曾通过、D 纵向始终不可达；用户已确认改为四层纯 Worklet 二维平移，并以 `78e341b`/体验版 `.23` 保留旧方案回退基线。C/D 重新复测通过后才进入 P2
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界
@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用长期存在的四层坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。横向由一个原生 `scroll-view type=list scroll-x` 同时承载日期与班次，保留 compositor 同源滚动；日期与班次组合为一个贯穿完整内容宽度的直接内容项，避免 `list` 按直接子节点可见性在不同运行时把班次主体当成第二个横向列表项裁掉。纵向由一个 UI 线程 SharedValue 同时变换人员轨道和班次轨道，不建立第二套日期/人员滚动容器，也不逐帧调用 `ScrollViewContext.scrollTo()`。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 完整显示，20×30 在固定日期/人员层内纵向浏览，独立矩阵页关闭页面级滚动。唯一 `pan-gesture-handler native-view="scroll-view"` 直接代理同一个横向 `scroll-view` 并接收完整 `deltaX/deltaY`：首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到 END/CANCELLED；横向锁定时不写 Y、继续由原生 `scroll-x` 提供惯性，纵向锁定时同一 Worklet 直接更新人员/班次 SharedValue，并在松手后执行有边界的 `decay`。禁止恢复嵌套横纵识别器和依赖 `should-response-on-move=false` 把同一次触摸转交父级的方案。点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
+手排采用四层纯 Worklet 坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。矩阵内部完全移除 `scroll-view`/`native-view`，普通 WXML 裁切面上的单一 `pan-gesture-handler` 在 UI 线程直接维护有界 X/Y SharedValue；首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到 END/CANCELLED，横纵松手均使用有边界的 `decay`。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 与 20×30 共用同一引擎，手势 ACTIVE 不调用 `setData`。点击只更新目标格/行；撤销保存 `{key,before,after}`；600 格性能不足前不 Canvas 化。回退规则以 [ADR-0005](../decisions/ADR-0005-worklet-matrix-engine.md) 为准。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)。
 
 ## 6. 网络、会话和缓存
 

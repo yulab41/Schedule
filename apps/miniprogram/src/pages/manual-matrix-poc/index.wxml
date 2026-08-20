@@ -62,28 +62,10 @@
   </view>
 
   <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
-    <pan-gesture-handler
-      class="matrix-pan-gesture"
-      native-view="scroll-view"
-      worklet:ongesture="handleMatrixPan"
-    >
-      <scroll-view
-        class="matrix-scroll"
-        type="list"
-        scroll-x
-        enhanced
-        show-scrollbar
-        bounces="{{false}}"
-        bindscroll="handleGridScrollFallback"
-        worklet:onscrollupdate="handleGridScroll"
-        worklet:onscrollend="handleGridScrollEnd"
-        aria-label="手动排班矩阵"
-      >
-        <view
-          class="matrix-scroll-content"
-          style="width:{{contentWidth}}px;height:{{matrixViewportHeight}}px"
-        >
-          <view class="matrix-date-content">
+    <pan-gesture-handler class="matrix-pan-gesture" worklet:ongesture="handleMatrixPan">
+      <view class="matrix-pan-surface" aria-label="手动排班矩阵">
+        <view class="matrix-date-viewport">
+          <view id="matrix-date-track" class="matrix-date-content" style="width:{{contentWidth}}px">
             <view class="date-header-row">
               <view class="member-header-spacer"></view>
               <view
@@ -105,61 +87,54 @@
               </view>
             </view>
           </view>
-          <view
-            class="matrix-body-viewport"
-            style="width:{{contentWidth}}px;height:{{matrixBodyViewportHeight}}px"
-          >
-            <view id="matrix-body-track" class="matrix-body-track">
-              <view
-                wx:for="{{rows}}"
-                wx:key="membershipId"
-                wx:for-item="row"
-                class="matrix-row"
-                style="width:{{contentWidth}}px"
-              >
-                <view class="member-spacer"></view>
-                <view
-                  wx:for="{{row.cells}}"
-                  wx:key="key"
-                  wx:for-item="cell"
-                  class="matrix-cell-slot"
-                >
-                  <manual-schedule-cell
-                    abbreviation="{{cell.abbreviation}}"
-                    aria-label="{{cell.ariaLabel}}"
-                    color="{{cell.color}}"
-                    column-index="{{cell.columnIndex}}"
-                    is-selected="{{cell.isSelected}}"
-                    is-stale="{{cell.isStale}}"
-                    key-value="{{cell.key}}"
-                    row-index="{{cell.rowIndex}}"
-                    text-color="{{cell.textColor}}"
-                    bind:select="handleCellSelect"
-                  ></manual-schedule-cell>
-                </view>
+        </view>
+
+        <view class="matrix-body-viewport" style="height:{{matrixBodyViewportHeight}}px">
+          <view id="matrix-body-track" class="matrix-body-track">
+            <view
+              wx:for="{{rows}}"
+              wx:key="membershipId"
+              wx:for-item="row"
+              class="matrix-row"
+              style="width:{{contentWidth}}px"
+            >
+              <view class="member-spacer"></view>
+              <view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="matrix-cell-slot">
+                <manual-schedule-cell
+                  abbreviation="{{cell.abbreviation}}"
+                  aria-label="{{cell.ariaLabel}}"
+                  color="{{cell.color}}"
+                  column-index="{{cell.columnIndex}}"
+                  is-selected="{{cell.isSelected}}"
+                  is-stale="{{cell.isStale}}"
+                  key-value="{{cell.key}}"
+                  row-index="{{cell.rowIndex}}"
+                  text-color="{{cell.textColor}}"
+                  bind:select="handleCellSelect"
+                ></manual-schedule-cell>
               </view>
             </view>
           </view>
         </view>
-      </scroll-view>
 
-      <view class="matrix-member-overlay" aria-label="值班人员表头">
-        <view id="matrix-member-track" class="matrix-member-track">
-          <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
-            <text>{{item.realName}}</text>
-            <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
+        <view class="matrix-member-overlay" aria-label="值班人员表头">
+          <view id="matrix-member-track" class="matrix-member-track">
+            <view wx:for="{{rows}}" wx:key="membershipId" class="member-name">
+              <text>{{item.realName}}</text>
+              <text wx:if="{{item.isStale}}" class="member-stale-badge">失效</text>
+            </view>
           </view>
         </view>
-      </view>
 
-      <view class="matrix-corner">
-        <view class="corner-member">值班人员 ↓</view>
-        <view class="corner-holiday">节假日</view>
+        <view class="matrix-corner">
+          <view class="corner-member">值班人员 ↓</view>
+          <view class="corner-holiday">节假日</view>
+        </view>
       </view>
     </pan-gesture-handler>
   </view>
 
   <text class="matrix-note">
-    横向时日期与班次由同一原生滚动面驱动；纵向时人员与班次由同一 UI 线程位移驱动。
+    日期、人员与班次由同一个 UI 线程二维坐标驱动；单次手势只锁定一个方向。
   </text>
 </view>

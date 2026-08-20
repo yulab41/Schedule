@@ -78,16 +78,17 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('uses one native scroll proxy so Android vertical movement does not depend on parent handoff', () => {
+  it('uses one plain-view pan surface and four Worklet layers without native scrolling', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
     const worklets = findWorkletIssues(source, 'pages/manual-matrix-poc/index.ts');
 
-    expect(template.match(/<scroll-view/gu)).toHaveLength(1);
+    expect(template).not.toContain('<scroll-view');
     expect(template).toMatch(
-      /<pan-gesture-handler[\s\S]*?native-view="scroll-view"[\s\S]*?worklet:ongesture="handleMatrixPan"/u,
+      /<pan-gesture-handler[\s\S]*?class="matrix-pan-gesture"[\s\S]*?worklet:ongesture="handleMatrixPan"[\s\S]*?class="matrix-pan-surface"/u,
     );
+    expect(template).not.toContain('native-view=');
     expect(template).not.toContain('vertical-drag-gesture-handler');
     expect(template).not.toContain('horizontal-drag-gesture-handler');
     expect(template).not.toContain('simultaneous-handlers');
@@ -97,14 +98,9 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(panHandlerStart).toBeGreaterThanOrEqual(0);
     expect(memberOverlay).toBeGreaterThan(panHandlerStart);
     expect(memberOverlay).toBeLessThan(panHandlerEnd);
-    expect(template).toMatch(
-      /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
-    );
-    expect(template.match(/class="matrix-scroll-content"/gu)).toHaveLength(1);
-    expect(template).toMatch(
-      /<scroll-view[\s\S]*?<view[\s\S]*?class="matrix-scroll-content"[\s\S]*?class="matrix-date-content"[\s\S]*?class="matrix-body-viewport"[\s\S]*?<\/view>[\s\S]*?<\/scroll-view>/u,
-    );
-    expect(template).toContain('bindscroll="handleGridScrollFallback"');
+    expect(template).toContain('id="matrix-date-track"');
+    expect(template).toContain('id="matrix-body-track"');
+    expect(template).toContain('id="matrix-member-track"');
     expect(template).not.toContain('scroll-y');
     expect(template).not.toContain('<wxs');
     expect(template).toContain('wx:for="{{rows}}"');
@@ -116,11 +112,11 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).not.toMatch(/<canvas/iu);
     expect(styles).toMatch(/\.matrix-corner\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
-    expect(source).toContain('this._scrollProgress.value');
     expect(source).not.toContain('scrollViewContext.scrollTo');
     expect(source).not.toContain('_dateScrollRef');
     expect(source).not.toContain('_memberScrollRef');
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-scroll-thumb['"]/u);
+    expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-date-track['"]/u);
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-body-track['"]/u);
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-member-track['"]/u);
     expect(source).not.toContain('calculateAdaptiveMatrixViewportHeight');
@@ -131,6 +127,11 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).not.toContain('shouldVerticalDragRespond');
     expect(source).not.toContain('handleMatrixVerticalDrag');
     expect(source).not.toContain('handleMatrixHorizontalGesture');
+    expect(source).not.toContain('handleGridScroll');
+    expect(source).not.toContain('ManualMatrixScrollEvent');
+    expect(source).toContain('_horizontalOffset');
+    expect(source).toContain('_maxHorizontalOffset');
+    expect(source).toContain('velocityX');
     expect(source).toContain('this._maxVerticalOffset.value');
     expect(source).toContain('cancelAnimation(this._verticalOffset)');
     expect(source).toContain('decay({');
@@ -146,7 +147,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     vi.stubGlobal('wx', {
       worklet: {
         cancelAnimation: vi.fn(),
-        decay: vi.fn(),
+        decay: vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity))),
         runOnJS: (callback) => callback,
         shared: (value) => ({ value }),
       },
@@ -166,6 +167,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     instance._maxVerticalOffset.value = 300;
     const active = (deltaX, deltaY) => ({ deltaX, deltaY, state: 2 });
+    instance._maxHorizontalOffset.value = 300;
 
     definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
     definition.handleMatrixPan.call(instance, active(0, 0));
@@ -174,23 +176,30 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(instance._gestureAxis.value).toBe(0);
     expect(instance._verticalOffset.value).toBe(0);
 
-    definition.handleMatrixPan.call(instance, active(18, 4));
+    definition.handleMatrixPan.call(instance, active(-18, 4));
     expect(instance._gestureAxis.value).toBe(1);
     definition.handleMatrixPan.call(instance, active(4, -18));
     expect(instance._gestureAxis.value).toBe(1);
     expect(instance._verticalOffset.value).toBe(0);
+    expect(instance._horizontalOffset.value).toBe(-14);
 
-    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 3 });
+    definition.handleMatrixPan.call(instance, {
+      deltaX: 0,
+      deltaY: 0,
+      state: 3,
+      velocityX: -14,
+    });
     definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
     definition.handleMatrixPan.call(instance, active(4, -18));
     expect(instance._gestureAxis.value).toBe(2);
     expect(instance._verticalOffset.value).toBe(-18);
-    definition.handleMatrixPan.call(instance, active(18, 4));
+    definition.handleMatrixPan.call(instance, active(-18, 4));
     expect(instance._gestureAxis.value).toBe(2);
     expect(instance._verticalOffset.value).toBe(-14);
+    expect(instance._horizontalOffset.value).toBe(-14);
   });
 
-  it('moves both vertical tracks from the single native proxy and one shared offset', async () => {
+  it('moves all four layers from the plain-view pan surface and shared offsets', async () => {
     let definition;
     const cancelAnimation = vi.fn();
     const decay = vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity)));
@@ -234,7 +243,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     definition.handleMatrixPan.call(instance, { state: 0, deltaX: 0, deltaY: 0 });
     definition.handleMatrixPan.call(instance, { state: 4, deltaX: 0, deltaY: 0 });
 
-    expect(cancelAnimation).toHaveBeenCalledTimes(2);
+    expect(cancelAnimation).toHaveBeenCalledTimes(4);
+    expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(
+      '#matrix-date-track',
+      expect.any(Function),
+      { flush: 'sync' },
+    );
     expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(
       '#matrix-body-track',
       expect.any(Function),
@@ -247,10 +261,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     );
   });
 
-  it('keeps a logical-thread fallback for progress when UI callbacks are unavailable', async () => {
+  it('commits progress only after a horizontal gesture ends', async () => {
     let definition;
     vi.stubGlobal('wx', {
       worklet: {
+        cancelAnimation: vi.fn(),
+        decay: vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity))),
         runOnJS: (callback) => callback,
         shared: (value) => ({ value }),
       },
@@ -263,15 +279,23 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     const setData = vi.fn();
     const instance = {
+      applyAnimatedStyle: vi.fn(),
       commitScrollProgress: definition.commitScrollProgress,
       data: structuredClone(definition.data),
-      _lastScrollProgressPercent: -1,
-      _viewportWidthValue: 360,
       setData,
     };
-
-    definition.handleGridScrollFallback.call(instance, {
-      detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
+    definition.onLoad.call(instance, { mode: 'maximum' });
+    instance._maxHorizontalOffset.value = 300;
+    setData.mockClear();
+    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
+    definition.handleMatrixPan.call(instance, { deltaX: -120, deltaY: 4, state: 2 });
+    expect(setData).not.toHaveBeenCalled();
+    definition.handleMatrixPan.call(instance, {
+      deltaX: 0,
+      deltaY: 0,
+      state: 3,
+      velocityX: -240,
+      velocityY: 0,
     });
 
     expect(setData).toHaveBeenCalledWith(
@@ -282,10 +306,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     );
   });
 
-  it('updates the shared progress on the UI thread without setData', async () => {
+  it('updates the horizontal offset directly on the UI thread without setData', async () => {
     let definition;
     vi.stubGlobal('wx', {
       worklet: {
+        cancelAnimation: vi.fn(),
+        decay: vi.fn(),
         runOnJS: (callback) => callback,
         shared: (value) => ({ value }),
       },
@@ -302,12 +328,13 @@ describe('P1 native manual scheduling matrix PoC', () => {
       applyAnimatedStyle: vi.fn(),
       setData,
     };
-    definition.onLoad.call(instance, { mode: 'daily' });
-    definition.handleGridScroll.call(instance, {
-      detail: { scrollLeft: 216, scrollTop: 132, scrollWidth: 2264 },
-    });
+    definition.onLoad.call(instance, { mode: 'maximum' });
+    instance._maxHorizontalOffset.value = 300;
+    setData.mockClear();
+    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
+    definition.handleMatrixPan.call(instance, { deltaX: -96, deltaY: 2, state: 2 });
 
-    expect(instance._scrollProgress.value).toBeGreaterThan(0);
+    expect(instance._horizontalOffset.value).toBe(-96);
     expect(setData).not.toHaveBeenCalled();
   });
 

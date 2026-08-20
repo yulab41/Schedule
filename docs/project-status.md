@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-20 P1 四层纯 Worklet 矩阵（当前批次）
+
+- 用户结果与决策：体验版 `.23` 从人员列/班次格起手仍均无纵向位移，单一 `native-view=scroll-view` 代理方案失败。用户确认改为电子表格式四层纯 Worklet 二维平移，同时保留旧方案回退能力。
+- 回退基线：Git release `78e341b5ca96ab1c95e4757e75524a88fcfa8219`、代码 `e43cf4fb907a3393107cc894d2832b31918bb06f`、微信体验版 `0.1.0-p1.20260820.23`；新方案人工失败时创建 `git revert` checkpoint 并重新上传，禁止 reset 或在运行包长期保留双引擎。权威决策见 `apps/miniprogram/docs/decisions/ADR-0005-worklet-matrix-engine.md`。
+- 测试先行：新契约在旧实现上 5 项失败，要求矩阵内部没有 `scroll-view/native-view`，普通视图上的一个 Pan Worklet 直接维护 X/Y，日期绑定 X、人员绑定 Y、主体绑定 X/Y，横向/纵向 ACTIVE 均不 `setData`，结束后才提交提示状态。
+- 实现：7×7/20×30 共用同一四层长期节点；2px/1.2 倍方向门槛与单手势轴锁保持，横纵边界分别由 maxX/maxY SharedValue 约束，两个方向松手均使用 `decay`。现有 390px 高度、单元格、班种、点格、撤销和视觉令牌不变。
+- 验证：失败测试已转绿；定向 9/9、小程序 10 文件/42 项、typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（5 个源码/产物 Worklet、110179 bytes，manifest `4866b63ce963dca6b583537e6b8a634bbea6c02a8cfe8de5db2e361136c92a18`）。任务文件 Prettier/ESLint、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 和既有过期迁移计数测试后的当前源码 129 文件/757 项通过、31 文件/262 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；原生效果仍必须由用户重新复测 C/D。checkpoint 识别消息：`fix(miniprogram): use four-layer worklet matrix engine`。
+- 下一批次与停止条件：只完成四层引擎发布并请用户复测；未明确通过前不进入 P2，也不删除 `.23` 回退记录。
+
 ## 2026-08-20 P1 Android 单一原生滚动代理（当前批次）
 
 - 用户澄清：体验版 `.21` 在 Android 上从左侧人员姓名或右侧班次格起手都完全没有纵向位移，只有横向丝滑；上一轮“班次已动、仅人员不动”的推断作废，未提交的人员动画层实验已完整撤销。

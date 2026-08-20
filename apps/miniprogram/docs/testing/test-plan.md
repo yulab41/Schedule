@@ -60,8 +60,8 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 ## P1 手排矩阵 PoC 当前覆盖
 
 - `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
-- 页面只有一个 Skyline `scroll-view type=list scroll-x`，日期和班次位于同一个贯穿完整宽度的直接内容项，避免复合直接子节点被横向列表布局/裁剪；人员列是壳层左侧覆盖层，左上角固定，班次主体由固定 7 行/390px 视口裁切。页面 JSON 必须关闭页面滚动，禁止页面与矩阵竞争纵向输入；同时禁止双轴 `scroll-view`、独立表头滚动容器和 Canvas。
-- 日期与班次只有一个原生横向 `scroll-view`，人员与班次共用一个纵向 SharedValue；不得恢复三个滚动容器或逐帧 `ScrollViewContext.scrollTo()`。WXML 必须只有一个 `pan-gesture-handler native-view="scroll-view"`，不得存在 `vertical-drag-gesture-handler`、`horizontal-drag-gesture-handler`、`simultaneous-handlers` 或 `should-response-on-move` 父级转交。其 `ongesture` 测试必须覆盖零位移、等幅、近斜向、明确横向、明确纵向、选轴后反向抖动和 END 重置：横向锁定不写 Y，纵向锁定同步写人员/班次轨道并使用有边界的 `decay`。横向 `worklet:onscrollupdate` 只更新进度 SharedValue，普通 `bindscroll` 仅作进度提示兜底。点击只更新目标格或目标行；撤销保存 `{key,before,after}`。
+- 页面矩阵内部不得出现 `scroll-view`、`native-view`、独立表头滚动容器或 Canvas。普通 WXML 裁切面只允许一个 `pan-gesture-handler`；日期、人员、主体和左上角四层长期存在，页面 JSON 继续关闭页面滚动。
+- `ongesture` 测试必须覆盖零位移、等幅、近斜向、明确横向、明确纵向、选轴后反向抖动、横纵边界、END/CANCELLED 重置和两个轴的 `decay`。日期层绑定 X、人员层绑定 Y、主体绑定 X/Y，三个 `applyAnimatedStyle` 都必须 `flush:'sync'`；ACTIVE 不得 `setData`，逻辑线程只在结束/尺寸变化更新进度提示。点击只更新目标格或目标行；撤销保存 `{key,before,after}`。回退基线由 ADR-0005 固定。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
 - `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 

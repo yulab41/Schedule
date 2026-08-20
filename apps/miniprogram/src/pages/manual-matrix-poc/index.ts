@@ -9,14 +9,6 @@ import {
   type ManualMatrixPocViewModel,
 } from '../../testing/fixtures/manual-matrix-poc.js';
 
-interface ManualMatrixScrollEvent {
-  readonly detail: {
-    readonly scrollLeft: number;
-    readonly scrollTop: number;
-    readonly scrollWidth?: number;
-  };
-}
-
 interface ManualMatrixCellSelectEvent {
   readonly detail: ManualMatrixLocation & { readonly key: string };
 }
@@ -25,6 +17,7 @@ interface ManualMatrixGestureEvent {
   readonly deltaX: number;
   readonly deltaY: number;
   readonly state: number;
+  readonly velocityX?: number;
   readonly velocityY?: number;
 }
 
@@ -47,14 +40,12 @@ interface SelectorRect {
 interface ManualMatrixPageInstance {
   _commitScrollProgress: (progress: number) => void;
   _gestureAxis: MiniProgramSharedValue<number>;
-  _lastScrollProgressPercent: number;
+  _horizontalOffset: MiniProgramSharedValue<number>;
+  _maxHorizontalOffset: MiniProgramSharedValue<number>;
   _maxVerticalOffset: MiniProgramSharedValue<number>;
-  _scrollProgress: MiniProgramSharedValue<number>;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
   _verticalOffset: MiniProgramSharedValue<number>;
-  _viewportWidth: MiniProgramSharedValue<number>;
-  _viewportWidthValue: number;
   readonly data: ManualMatrixPocViewModel;
   applyAnimatedStyle(
     selector: string,
@@ -87,27 +78,40 @@ Page({
     const viewModel = createManualMatrixPocViewModel(mode);
     this._commitScrollProgress = this.commitScrollProgress.bind(this);
     this._gestureAxis = shared(MATRIX_GESTURE_AXIS_UNDECIDED);
-    this._lastScrollProgressPercent = -1;
+    this._horizontalOffset = shared(0);
+    this._maxHorizontalOffset = shared(Math.max(0, viewModel.contentWidth - 1));
     this._maxVerticalOffset = shared(
       Math.max(0, viewModel.matrixContentHeight - viewModel.matrixViewportHeight),
     );
-    this._scrollProgress = shared(0);
-    const scrollProgress = this._scrollProgress;
+    this._verticalOffset = shared(0);
+    const horizontalOffset = this._horizontalOffset;
+    const maximumHorizontalOffset = this._maxHorizontalOffset;
+    const verticalOffset = this._verticalOffset;
     this.applyAnimatedStyle(
       '#matrix-scroll-thumb',
       () => {
         'worklet';
-        return { transform: `translateX(${scrollProgress.value * 36}px)` };
+        const maximumOffset = Math.max(1, maximumHorizontalOffset.value);
+        const progress = Math.max(0, Math.min(1, -horizontalOffset.value / maximumOffset));
+        return { transform: `translateX(${progress * 36}px)` };
       },
       { flush: 'sync' },
     );
-    this._verticalOffset = shared(0);
-    const verticalOffset = this._verticalOffset;
+    this.applyAnimatedStyle(
+      '#matrix-date-track',
+      () => {
+        'worklet';
+        return { transform: `translateX(${horizontalOffset.value}px)` };
+      },
+      { flush: 'sync' },
+    );
     this.applyAnimatedStyle(
       '#matrix-body-track',
       () => {
         'worklet';
-        return { transform: `translateY(${verticalOffset.value}px)` };
+        return {
+          transform: `translate(${horizontalOffset.value}px, ${verticalOffset.value}px)`,
+        };
       },
       { flush: 'sync' },
     );
@@ -121,8 +125,6 @@ Page({
     );
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
-    this._viewportWidth = shared(1);
-    this._viewportWidthValue = 1;
     if (mode !== defaultViewModel.mode) this.setData({ ...viewModel });
   },
   onReady(this: ManualMatrixPageInstance): void {
@@ -133,15 +135,25 @@ Page({
   },
   updateMatrixViewport(this: ManualMatrixPageInstance): void {
     const query = this.createSelectorQuery();
-    query.select('.matrix-scroll').boundingClientRect((rect) => {
-      this._viewportWidth.value = Math.max(1, rect.width);
-      this._viewportWidthValue = Math.max(1, rect.width);
+    query.select('.matrix-pan-surface').boundingClientRect((rect) => {
+      const maximumHorizontalOffset = Math.max(0, this.data.contentWidth - Math.max(1, rect.width));
+      this._maxHorizontalOffset.value = maximumHorizontalOffset;
+      this._horizontalOffset.value = Math.max(
+        -maximumHorizontalOffset,
+        Math.min(0, this._horizontalOffset.value),
+      );
+      const progress =
+        maximumHorizontalOffset > 0
+          ? Math.max(0, Math.min(1, -this._horizontalOffset.value / maximumHorizontalOffset))
+          : 0;
+      this.commitScrollProgress(progress);
     });
     query.exec();
   },
   handleMatrixPan(this: ManualMatrixPageInstance, event: ManualMatrixGestureEvent): void {
     'worklet';
     if (event.state === 0 || event.state === 1) {
+      cancelAnimation(this._horizontalOffset);
       cancelAnimation(this._verticalOffset);
       this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
       return;
@@ -160,17 +172,41 @@ Page({
           return;
         }
       }
-      if (this._gestureAxis.value !== MATRIX_GESTURE_AXIS_VERTICAL) return;
-      const nextOffset = this._verticalOffset.value + event.deltaY;
-      this._verticalOffset.value = Math.max(
-        -this._maxVerticalOffset.value,
-        Math.min(0, nextOffset),
-      );
+      if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL) {
+        const nextOffset = this._horizontalOffset.value + event.deltaX;
+        this._horizontalOffset.value = Math.max(
+          -this._maxHorizontalOffset.value,
+          Math.min(0, nextOffset),
+        );
+      } else if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) {
+        const nextOffset = this._verticalOffset.value + event.deltaY;
+        this._verticalOffset.value = Math.max(
+          -this._maxVerticalOffset.value,
+          Math.min(0, nextOffset),
+        );
+      }
       return;
     }
 
-    if (event.state === 3 && this._maxVerticalOffset.value > 0) {
-      if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) {
+    if (event.state === 3) {
+      if (
+        this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL &&
+        this._maxHorizontalOffset.value > 0
+      ) {
+        const progress = Math.max(
+          0,
+          Math.min(1, -this._horizontalOffset.value / this._maxHorizontalOffset.value),
+        );
+        runOnJS(this._commitScrollProgress)(progress);
+        this._horizontalOffset.value = decay({
+          clamp: [-this._maxHorizontalOffset.value, 0],
+          deceleration: 0.997,
+          velocity: event.velocityX ?? 0,
+        });
+      } else if (
+        this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL &&
+        this._maxVerticalOffset.value > 0
+      ) {
         this._verticalOffset.value = decay({
           clamp: [-this._maxVerticalOffset.value, 0],
           deceleration: 0.997,
@@ -178,34 +214,16 @@ Page({
         });
       }
     }
+    if (event.state === 4 && this._maxHorizontalOffset.value > 0) {
+      const progress = Math.max(
+        0,
+        Math.min(1, -this._horizontalOffset.value / this._maxHorizontalOffset.value),
+      );
+      runOnJS(this._commitScrollProgress)(progress);
+    }
     if (event.state === 3 || event.state === 4) {
       this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
     }
-  },
-  handleGridScroll(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
-    'worklet';
-    const scrollLeft = Math.max(0, event.detail.scrollLeft);
-    const scrollWidth = event.detail.scrollWidth ?? this._viewportWidth.value;
-    const maximumScroll = Math.max(1, scrollWidth - this._viewportWidth.value);
-    this._scrollProgress.value = Math.max(0, Math.min(1, scrollLeft / maximumScroll));
-  },
-  handleGridScrollFallback(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
-    const scrollLeft = Math.max(0, event.detail.scrollLeft);
-
-    const scrollWidth = event.detail.scrollWidth ?? this.data.contentWidth;
-    const maximumScroll = Math.max(1, scrollWidth - Math.max(1, this._viewportWidthValue));
-    const progress = Math.max(0, Math.min(1, scrollLeft / maximumScroll));
-    const scrollProgressPercent = Math.round(progress * 100);
-    if (scrollProgressPercent === this._lastScrollProgressPercent) return;
-    this._lastScrollProgressPercent = scrollProgressPercent;
-    this.commitScrollProgress(progress);
-  },
-  handleGridScrollEnd(this: ManualMatrixPageInstance, event: ManualMatrixScrollEvent): void {
-    'worklet';
-    const scrollWidth = event.detail.scrollWidth ?? this._viewportWidth.value;
-    const maximumScroll = Math.max(1, scrollWidth - this._viewportWidth.value);
-    const progress = Math.max(0, Math.min(1, event.detail.scrollLeft / maximumScroll));
-    runOnJS(this._commitScrollProgress)(progress);
   },
   commitScrollProgress(this: ManualMatrixPageInstance, progress: number): void {
     const scrollHint =
