@@ -10,8 +10,10 @@
 - 预览边界与可访问性：Storybook 强制播放只用于视觉验收；生产默认仍遵循 `prefers-reduced-motion`，新增 `forceIconMotion` 不由 `HomeView` 传入。1280×900 与 390×844 均无横向溢出，18 个动作主体在 450ms 间隔采样中全部变化，可见操作均不小于 44px；筛选状态及科室/人员切换实际通过。导航当前项连续 6 次采样为 6 个不同状态。Storybook Axe 为 0 项违规。
 - 验证：排除用户自有 `runtime/**` / `src/**` 后 139 文件/782 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck/production build、完整 Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 与 `git diff --check` 通过。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--desktop-workbench`。
 - 语义审计：生产变化只涉及当前导航图标的时间曲线；导航顺序、角色过滤、`select` / `sign-out` 事件次数、抽屉关闭、API、权限、数据和异步错误路径均不变。Storybook 场景使用静态脱敏示例，不请求 API、不拨号、不写业务数据。
-- 当前状态：预览已完成待 checkpoint 与生产同步；生产只落地导航无停顿循环，新动作图标待用户确认。checkpoint 识别消息：`feat(web): preview continuous minimal action icons`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
-- 下一批次与停止条件：只提交、推送并部署本预览 checkpoint，保持 6007 Storybook 供用户验收；用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
+- checkpoint 与发布：代码 checkpoint `e393118`（`feat(web): preview continuous minimal action icons`）已推送；发布前加密数据库备份 archive `d64be110-cc82-43a0-9e9e-39eb49c8487a`（50 表、157680 行、70967256 bytes，SHA-256 `c64643a48803111633e31cb87f63b52098ae2008a2e4188c7d804698abd99b1c`）。release `e3931187023997913a7161158195ff4ceb96cd5a` 已部署，预热首次 502 后自动恢复。
+- 正式核验：`ecs-verify.sh` 通过健康、产物哈希、域名隔离、公开端口、容器、依赖和 43 条迁移；正式主页/API 均为 200。生产 CSS 只含 1.5s / 1.8s / 2s 连续导航循环，不含旧 4s 周期；`lucide-minimal-action-icon` 未进入生产 bundle，确认新增 8 图标仍为 Storybook-only。
+- 当前状态：已完成导航无停顿循环发布与新增动作图标预览 → 待用户确认。最终状态 checkpoint 识别消息：`docs(status): record continuous icon preview deployment`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint；保持 6007 Storybook 供用户验收，用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
 
 ## 2026-08-21 P1 WXS 视图层拖动能力探针（当前批次）
 
