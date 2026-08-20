@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-20 P1 Android 单一原生滚动代理（当前批次）
+
+- 用户澄清：体验版 `.21` 在 Android 上从左侧人员姓名或右侧班次格起手都完全没有纵向位移，只有横向丝滑；上一轮“班次已动、仅人员不动”的推断作废，未提交的人员动画层实验已完整撤销。
+- 回归定位与测试先行：`git log -S`/`git blame` 确认 `6799f1f` 起一直采用外层纵向/全向 handler 与内层横向 `native-view=scroll-view` 嵌套，`48fbe08`/`50f8319` 只调整 simultaneous、让出与轴锁，真机仍证明外层从未 ACTIVE。新契约在旧实现上 3 项失败，要求只有一个原生滚动代理，禁止嵌套 handler、simultaneous 和 should-response 父级转交。
+- 实现：一个 `pan-gesture-handler native-view="scroll-view"` 直接承载既有横向 `scroll-view`、人员覆盖层和固定角，并在自身 `ongesture` 中锁轴。横向锁定时不写 Y，原生 `scroll-x` 保持现有丝滑路径；纵向锁定时同一回调直接更新人员/班次 SharedValue，完全绕过父级接管。2px 门槛、1.2 倍方向优势、END/CANCELLED 重置和纵向 `decay` 保持。
+- 语义等价审计：仅替换手势组件拓扑和回调入口；20×30 fixture、宽高、原生横向内容/进度、纵向偏移/边界、人员/班次动画绑定、点格、撤销、`setData` 次数、空值和错误路径不变。所有手势方法仍是页面成员 Worklet，没有新增异步或业务副作用。
+- 当前状态：失败测试已转绿，定向 9/9 与 typecheck 通过；待完整 Mini/根门禁、checkpoint、微信体验上传、ECS 同步及用户 Android 复核。checkpoint 识别消息：`fix(miniprogram): use one native matrix gesture proxy`。
+- 下一批次与停止条件：只复测 D 的人员列和班次格纵向起手；用户未明确通过前不进入 P2。
+
 ## 2026-08-20 移动常驻导航与科室电话行精简（当前批次）
 
 - 批次范围：移动底栏只常驻排班日历、通讯录、换班、我的，保持“更多”为第五项，其他已授权功能全部进入更多页；科室通讯录结果移除电话左侧类型标签，增加长号/短号组间距并保持号码单行。不修改桌面导航、权限、数据源、号码或拨号行为。
@@ -10,8 +19,9 @@
 - 视觉验证：新增生产移动导航 Storybook。390px 实测底栏标签精确为“排班日历 / 通讯录 / 换班 / 我的 / 更多”，5 项高度约 59px；更多页含请假、群组、手排、补录、加扣班、事件、通知、统计、成员、配置和退出。科室搜索“病案”在 390/320px 均为 0 个 `.contact-label`，长短号 gap 8px/6px，号码均 `white-space: nowrap`，页面 `scrollWidth = clientWidth`。
 - 验证：根 lint/build/typecheck、Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 与 `smoke:check-core` 通过；主工作区排除 `runtime/**`、`src/**` 和既有过期迁移计数测试后 128 文件/752 项通过、31 文件/262 项按环境跳过。完整格式检查仍被用户 `project.config.json`、旧 `storybook-static-my-profile/` 和已提交目录批次的 `directory-entry-groups.ts` 阻断，本轮文件格式通过。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在当前源码服务运行，因本机 MySQL 127.0.0.1:3306 拒绝连接而在管理员登录回退 `/login?redirect=/`；真实 Storybook 已覆盖底栏、更多页及科室号码 390/320px 几何和交互，控制台无产品错误。
-- checkpoint：待提交消息 `fix(web): keep mobile nav and compact directory phones`；只暂存导航、科室通讯录、对应测试、生产 Storybook、上轮非确定性测试夹具修正和状态/调试记录。用户小程序配置、`pnpm-workspace.yaml`、旧 Storybook 草稿/生成物、`runtime/`、`src/` 均不纳入。
-- 下一批次与停止条件：只创建并推送上述 checkpoint，基于干净工作树生成 release，创建生产加密备份后部署并运行 `ecs-verify.sh`；正式域名只读核验 bundle 与健康，不写业务数据。Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户复核。
+- checkpoint 与发布：代码 checkpoint `279c2fd`（`fix(web): keep mobile nav and compact directory phones`）首次推送遇到 GitHub 连接重置，网络恢复后快进推送成功。发布前加密数据库备份 archive `52df93d2-293b-4c05-84d6-b386ae367e35`（50 表、131796 行、58820132 字节，SHA-256 `107b4d31ecc0dd9c4eeab1ff50cdd1ca195f854c28d5814bf1576c6fe80e2b37`）；release `279c2fd2321f201973cf50fccc3361f8dff092e0` 从隔离干净工作树构建并部署，预热首次 TLS 连接重置后自动恢复。
+- 正式核验：`ecs-verify.sh` 通过健康、产物哈希、42 条迁移、域名隔离、公开端口、容器和依赖检查；首页与 `/api/health` 均为 200。正式 JS bundle 精确包含 `calendar,directory,swap,profile` 顺序，CSS bundle 命中 8px/6px gap 与 nowrap；Git `HEAD`、`origin/main`、服务器 release 和部署清单一致，未写业务数据。
+- 当前状态与下一批次：已完成实现、推送、生产备份、部署和只读核验 → 待用户复核；只同步最终状态文档 checkpoint 并部署后停止，不开始其他修改。
 
 ## 2026-08-20 个人数据口径与登录密码安全（当前批次）
 

@@ -8,7 +8,8 @@
 - 测试先行与实现：旧实现导航/电话布局 2 项失败；主入口改按显式数组顺序输出 calendar/directory/swap/profile，secondary 自动接收请假等其余入口。科室模式不再渲染 contact-label，人员模式规则不变；长短号 gap 调整为 8px、窄屏 6px，号码仍 nowrap。职称循环仅改局部变量名以清除模板 shadow warning。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 因本机 MySQL 127.0.0.1:3306 不可用，在管理员登录回退 `/login?redirect=/`。Storybook 390px 实测底栏 5 项顺序正确、更多页完整；科室“病案”结果在 390/320px 左侧标签为 0、gap 为 8px/6px、号码不换行、页面无横向溢出。
 - 验证：定向 3 文件/25 项、主工作区 128 文件/752 项通过，31 文件/262 项按环境跳过；根 lint/build/typecheck、Web build/typecheck、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 与 `smoke:check-core` 通过。格式全检只被用户配置/旧预览产物和已提交目录批次遗留文件阻断。
-- 状态：已实现待发布；checkpoint 识别消息为 `fix(web): keep mobile nav and compact directory phones`。
+- 正式发布与核验：checkpoint `279c2fd` 网络恢复后推送；发布前加密备份 `52df93d2-293b-4c05-84d6-b386ae367e35`（50 表、131796 行、58820132 字节，SHA-256 `107b4d31ecc0dd9c4eeab1ff50cdd1ca195f854c28d5814bf1576c6fe80e2b37`）后部署 release `279c2fd2321f201973cf50fccc3361f8dff092e0`，预热首次 TLS 连接重置后恢复，`ecs-verify.sh` 通过 42 条迁移。正式首页/API 200，bundle 命中四项顺序和 8px/6px 号码间距；未写业务数据。
+- 状态：已完成并发布 → 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record mobile nav and directory phone deployment`。
 
 ## 2026-08-20 个人数据与登录密码安全修复
 
