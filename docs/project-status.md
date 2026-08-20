@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-20 P1 Android Pan 命中高度修复（当前批次）
+
+- 用户结果：四层纯 Worklet 体验版 `.25` 在 PC 模拟器可横纵滚动且无黏滞，但 Android 真机横纵都完全不动；坐标、冻结层和惯性已由 PC 证明可运行，故障收窄为真机 Pan 未命中。
+- 排查：正式配置为基础库 `3.17.1`、`compileWorklet=true`、全局 Skyline，上传产物保留 5 个 Worklet，排除版本/编译缺失。`pan-gesture-handler` 与 `.matrix-pan-surface` 原先只写 `height:100%`，而内部四层全部绝对定位、不参与父级高度计算；Android 可显示溢出层但手势节点可能保持零高，PC 仍对溢出内容分发鼠标事件。
+- 测试先行与实现：新增真机命中区契约在旧实现上 1 项失败；handler 与普通命中面现都以内联 `matrixViewportHeight` 像素值定高，handler 显式 `display:block`。X/Y、四层 transform、轴锁、边界、惯性、点格和撤销均未改变。
+- 验证：定向 9/9、小程序 10 文件/42 项、typecheck/build/source/Worklet/包体/确定性与 `miniprogram-ci` dry-run 通过（5 个源码/产物 Worklet、110319 bytes，manifest `a478d162c3be8d47d6bfa6ad33d312f8fc6cc998b5acc6146c3a5945280c999c`）。任务文件 Prettier、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**`、既有过期迁移计数测试及正在编辑的两个未跟踪 Storybook 实验测试后，当前受控源码 127 文件/747 项通过、31 文件/262 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；只需用户复测 Android 是否开始响应任一方向。checkpoint 识别消息：`fix(miniprogram): size matrix gesture hit area`。
+- 下一批次与停止条件：若真机仍完全无输入，下一步不再调整布局，改为独立最小手势探针验证设备 gesture-handler 能力；未通过前不进入 P2。
+
 ## 2026-08-20 P1 四层纯 Worklet 矩阵（当前批次）
 
 - 用户结果与决策：体验版 `.23` 从人员列/班次格起手仍均无纵向位移，单一 `native-view=scroll-view` 代理方案失败。用户确认改为电子表格式四层纯 Worklet 二维平移，同时保留旧方案回退能力。

@@ -9,6 +9,8 @@
 
 同一个 UI 线程手势维护有界的 X/Y SharedValue：左上角固定，日期层只使用 X，人员层只使用 Y，班次主体同时使用 X/Y。首次明确方向后锁轴到 END/CANCELLED；横纵惯性均使用 Worklet `decay`。手势 ACTIVE 期间禁止 `setData`。
 
+四层内容均为绝对定位，不会撑开父级；`pan-gesture-handler` 和其普通视图命中面必须显式绑定当前 `matrixViewportHeight` 像素高度，禁止只依赖 `height:100%`。这保证 Android 的手势节点拥有真实命中矩形，而不是只显示溢出内容。
+
 ## 理由
 
 目标 Android 已通过人工测试证明：原生横向 `scroll-view` 无论由外层 handler、simultaneous 识别器还是单一 `native-view` 代理承载，都只保留横向滚动，无法提供可用的纵向 ACTIVE。继续依赖原生滚动上下文不能实现冻结首行/首列的双轴矩阵。

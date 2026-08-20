@@ -209,8 +209,8 @@ page {
 }
 
 .matrix-pan-gesture {
+  display: block;
   width: 100%;
-  height: 100%;
 }
 
 .matrix-pan-surface {

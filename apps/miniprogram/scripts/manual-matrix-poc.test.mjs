@@ -86,7 +86,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     expect(template).not.toContain('<scroll-view');
     expect(template).toMatch(
-      /<pan-gesture-handler[\s\S]*?class="matrix-pan-gesture"[\s\S]*?worklet:ongesture="handleMatrixPan"[\s\S]*?class="matrix-pan-surface"/u,
+      /<pan-gesture-handler[\s\S]*?class="matrix-pan-gesture"[\s\S]*?style="height:\{\{matrixViewportHeight\}\}px"[\s\S]*?worklet:ongesture="handleMatrixPan"[\s\S]*?class="matrix-pan-surface"[\s\S]*?style="height:\{\{matrixViewportHeight\}\}px"/u,
     );
     expect(template).not.toContain('native-view=');
     expect(template).not.toContain('vertical-drag-gesture-handler');

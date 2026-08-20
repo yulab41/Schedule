@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用四层纯 Worklet 坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。矩阵内部完全移除 `scroll-view`/`native-view`，普通 WXML 裁切面上的单一 `pan-gesture-handler` 在 UI 线程直接维护有界 X/Y SharedValue；首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到 END/CANCELLED，横纵松手均使用有边界的 `decay`。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 与 20×30 共用同一引擎，手势 ACTIVE 不调用 `setData`。点击只更新目标格/行；撤销保存 `{key,before,after}`；600 格性能不足前不 Canvas 化。回退规则以 [ADR-0005](../decisions/ADR-0005-worklet-matrix-engine.md) 为准。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)。
+手排采用四层纯 Worklet 坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。矩阵内部完全移除 `scroll-view`/`native-view`，普通 WXML 裁切面上的单一 `pan-gesture-handler` 在 UI 线程直接维护有界 X/Y SharedValue；handler 与命中面都显式绑定当前矩阵像素高度，不能依赖绝对定位子层撑开。首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到 END/CANCELLED，横纵松手均使用有边界的 `decay`。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 与 20×30 共用同一引擎，手势 ACTIVE 不调用 `setData`。点击只更新目标格/行；撤销保存 `{key,before,after}`；600 格性能不足前不 Canvas 化。回退规则以 [ADR-0005](../decisions/ADR-0005-worklet-matrix-engine.md) 为准。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)。
 
 ## 6. 网络、会话和缓存
 

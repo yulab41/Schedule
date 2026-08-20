@@ -62,8 +62,16 @@
   </view>
 
   <view class="matrix-shell" style="height:{{matrixViewportHeight}}px">
-    <pan-gesture-handler class="matrix-pan-gesture" worklet:ongesture="handleMatrixPan">
-      <view class="matrix-pan-surface" aria-label="手动排班矩阵">
+    <pan-gesture-handler
+      class="matrix-pan-gesture"
+      style="height:{{matrixViewportHeight}}px"
+      worklet:ongesture="handleMatrixPan"
+    >
+      <view
+        class="matrix-pan-surface"
+        style="height:{{matrixViewportHeight}}px"
+        aria-label="手动排班矩阵"
+      >
         <view class="matrix-date-viewport">
           <view id="matrix-date-track" class="matrix-date-content" style="width:{{contentWidth}}px">
             <view class="date-header-row">
