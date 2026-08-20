@@ -23,12 +23,26 @@ describe('production my profile page', () => {
     const view = source('./my-profile/MyProfileView.vue');
 
     expect(view).toContain('useSessionStore');
-    expect(view).toContain('session.profile?.realName');
+    expect(view).toContain('session?.profile?.realName');
     expect(view).toContain('group.name');
     expect(view).toContain('roleLabel');
     expect(view).not.toContain('林恩宇');
     expect(view).not.toContain('d0796');
     expect(view).not.toContain('8 天');
+  });
+
+  it('loads the personal duty overview that exists in the approved Storybook design', () => {
+    const view = source('./my-profile/MyProfileView.vue');
+
+    expect(view).toContain('api.listGroupMembers');
+    expect(view).toContain('api.listGroupContacts');
+    expect(view).toContain('api.getMonthStatistics');
+    expect(view).toContain('api.getYearStatistics');
+    expect(view).toContain('api.getCalendar');
+    expect(view).toContain('值班概览');
+    expect(view).toContain('值班节奏');
+    expect(view).toContain('下一班');
+    expect(view).toContain('buildMyProfileOverview');
   });
 
   it('keeps mobile entry points and safe account actions explicit', () => {

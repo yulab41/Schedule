@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite';
 
 import MyProfileView from '../../views/my-profile/MyProfileView.vue';
+import type { MyProfileOverview } from '../../views/my-profile/my-profile-overview.js';
 
 const demoProfile = {
   id: 'storybook-profile',
@@ -17,12 +18,49 @@ const demoGroup = {
   version: 1,
 } as const;
 
+const demoOverview = {
+  membershipId: 'storybook-membership',
+  mobilePhone: '13412348339',
+  monthCount: 8,
+  monthDelta: 2,
+  nextDuty: {
+    actualMemberName: '示例用户',
+    actualMembershipId: 'storybook-membership',
+    businessDate: '2026-08-22',
+    changeMarkers: [],
+    endsAt: '2026-08-22T09:30:00.000Z',
+    id: 'storybook-next-duty',
+    plannedMemberName: '示例用户',
+    plannedMembershipId: 'storybook-membership',
+    schedulePeriodId: 'storybook-period',
+    scheduleRoleId: 'storybook-role',
+    scheduleRoleName: '头颈外科',
+    shiftTypeAbbreviation: '日',
+    shiftTypeColor: '#0A66D5',
+    shiftTypeId: 'storybook-shift',
+    shiftTypeName: '日班',
+    shiftTypeTextColor: '#FFFFFF',
+    slotPosition: 1,
+    startsAt: '2026-08-22T00:00:00.000Z',
+  },
+  shortPhone: '68339',
+  specialDateCount: 3,
+  trend: [
+    { businessMonth: '2026-05', count: 4, label: '5月' },
+    { businessMonth: '2026-06', count: 6, label: '6月' },
+    { businessMonth: '2026-07', count: 6, label: '7月' },
+    { businessMonth: '2026-08', count: 8, label: '8月' },
+  ],
+  yearCount: 76,
+} satisfies MyProfileOverview;
+
 const meta = {
   title: 'Web UI 2.0/Production · 我的',
   component: MyProfileView,
   tags: ['autodocs'],
   args: {
     group: demoGroup,
+    overview: demoOverview,
     profile: demoProfile,
   },
   parameters: {

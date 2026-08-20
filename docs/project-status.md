@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-20 “我的”个人值班概览补齐（当前批次）
+
+- 批次范围：修复生产“我的”页面与已确认 Storybook 预览的信息差，只补齐真实个人值班统计、近四月节奏、下一班和本人联系方式；不硬编码预览数字，不新增 API/权限/数据库写入，不实现当前系统尚不支持的改密入口。
+- 回归定位与测试先行：`git log -S 'profile-grid'` / `git blame` 确认精简生产页由 `0b7b1b8` 引入，当时未迁移 Storybook 的统计、趋势与下一班区块。新增生产契约与个人概览关联测试在旧实现上分别因缺少 API 接线和 helper 模块失败，实现后 7/7 通过。
+- 实现：生产页并行读取当前成员、联系方式、本月/年度统计及本月/下月日历；只以 `isCurrentUser` 的 membership ID 关联私密数据，同名非当前成员不会误绑定。显示本月值班、年度累计、周末/节假日、本月相对上月变化、连续四个月趋势和下一待值班次；手机号脱敏，短号保留。访客不请求个人业务数据，失败态可重试，群组切换以请求序号阻止旧响应覆盖。
+- 视觉与 Storybook：沿用 `frontend-design` 的医护工作台系统语言，以浅灰画布、白色统计表面和单一深蓝“下一班”焦点卡补齐信息层级；生产 Story 使用合成 overview 后不再强制读取 Pinia。1280、390、320px 实测无横向溢出，390/320px 操作目标至少 44px，窄屏说明完整换行；Storybook Axe 从 4 个颜色对比问题修到 0。
+- 语义审计：现有 session、导航、退出、权限和业务写入均未改变；新增请求均为既有只读成员/联系/统计/日历 API，各调用一次。实际排班优先，未发生改派时才回退计划人员；日期/时间继续复用中国标准时间与业务日 helper。异步拒绝只进入本页错误态，不清会话、不改变群组或调用写接口。
+- 验证：任务定向 7/7、主工作区 126 文件/739 项通过，31 文件/262 项按环境跳过；唯一既有失败为 `package-ecs-release.test.mjs` 仍期待 40 条迁移而当前验证脚本为 41。Web/根 typecheck、Web/根 build、根 lint、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core` 通过；完整 `pnpm verify` 只被用户自有 `project.config.json` 和 `storybook-static-my-profile/` 格式阻断。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 首次因 5173 未启动失败；启动 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 当前源码后复跑，因本机 MySQL 127.0.0.1:3306 拒绝连接而在管理员登录回退 `/login?redirect=/`，与上一轮同一环境阻塞一致。独立 Storybook 真实组件已完成桌面/手机/窄屏、无溢出、触达区、完整文字和 Axe 验证。
+- checkpoint：待提交消息 `feat(web): restore personal duty overview`；只暂存本批次 5 个 Web 文件与本状态文档，用户自有小程序配置、`pnpm-workspace.yaml`、Storybook 草稿/生成物、`runtime/`、`src/` 均不纳入。
+- 下一批次与停止条件：只创建并推送上述 checkpoint，按规则创建生产备份、部署该 release、运行 `ecs-verify.sh` 与正式域名只读核验；确认 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户视觉复核。
+
 ## 2026-08-20 P1 Android 人员纵向命中与单手势轴锁（当前批次）
 
 - 用户反馈：微信体验版 `0.1.0-p1.20260819.19` 在 Android 上人员仍不发生纵向移动，D 未通过，不进入 P2；PC 已确认双轴流畅，横向原生路径继续保留。
