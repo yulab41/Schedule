@@ -10,8 +10,10 @@
 - 回归与测试先行：静态来源、点击 keyframe、禁止循环/透明度/描边裁切、点击接线和移动端导出图标可见性守卫均在旧预览上失败后转绿。浏览器逐项点击 8 个图标均命中对应有限动画；科室四格中途接近 90°，结束后 `transform: none` 且 SVG `outerHTML` 前后完全一致。390×844 无横向溢出、无小于 44px 的可见操作，顶部导出图标存在；Storybook Axe 0 项违规。
 - 验证：任务定向 8/8、排除用户自有 `runtime/**` / `src/**` 后 139 文件/782 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 与 `git diff --check` 通过。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--icon-motion-board`。
 - 语义与发布边界：全部修改位于 Storybook 组件/故事/契约测试，不进入生产 Web bundle，不请求 API、不拨号、不写业务数据。生产导航动画、权限、路由、交互事件和数据路径不变。
-- 当前状态：静态保真点击动效预览已完成待 checkpoint 与生产同步，等待用户视觉确认。checkpoint 识别消息：`fix(web): preserve static action icons in motion preview`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
-- 下一批次与停止条件：只提交、推送并部署本 Storybook 修订 checkpoint，保持 6007 预览供用户验收；未得到明确确认前不替换任何生产动作图标。
+- checkpoint 与发布：代码 checkpoint `b70bb99`（`fix(web): preserve static action icons in motion preview`）已推送；发布前加密数据库备份 archive `2e3d6c26-1416-4367-a83f-438e17bbcbf5`（50 表、157686 行、70971224 bytes，SHA-256 `e861ebc29bed951f854ee0cc08b00859ed556a84cab336ed741ea1ffd48f5a28`）。release `b70bb99be83747d5082137c042b09523a19d739c` 已部署，预热首次 502 后恢复。
+- 正式核验：`ecs-verify.sh` 通过健康、产物哈希、域名隔离、公开端口、容器、依赖和 43 条迁移；正式 Web/API 产物哈希与上一版一致，确认 Storybook 修订没有改变生产 UI 或业务行为。
+- 当前状态：静态保真点击动效预览已完成并同步 → 待用户视觉确认。最终状态 checkpoint 识别消息：`docs(status): record static-preserving icon preview deployment`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，保持 6007 预览供用户验收；未得到明确确认前不替换任何生产动作图标。
 
 ## 2026-08-21 Lucide Minimal 连续动作图标预览（当前批次）
 
