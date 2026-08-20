@@ -9,7 +9,9 @@
 - 实现：一个 `pan-gesture-handler native-view="scroll-view"` 直接承载既有横向 `scroll-view`、人员覆盖层和固定角，并在自身 `ongesture` 中锁轴。横向锁定时不写 Y，原生 `scroll-x` 保持现有丝滑路径；纵向锁定时同一回调直接更新人员/班次 SharedValue，完全绕过父级接管。2px 门槛、1.2 倍方向优势、END/CANCELLED 重置和纵向 `decay` 保持。
 - 语义等价审计：仅替换手势组件拓扑和回调入口；20×30 fixture、宽高、原生横向内容/进度、纵向偏移/边界、人员/班次动画绑定、点格、撤销、`setData` 次数、空值和错误路径不变。所有手势方法仍是页面成员 Worklet，没有新增异步或业务副作用。
 - 验证：失败测试已转绿；定向 9/9、小程序 10 文件/42 项、typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（6 个源码/产物 Worklet、109919 bytes，manifest `125d7a956fd8f2ebdd42a63c78d61a17b92f18b39916e14a631ca2f6649308c9`）。任务文件 Prettier/ESLint、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 和既有过期迁移计数测试后的当前源码 128 文件/752 项通过、31 文件/262 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；原生效果仍必须由用户 Android 复核。checkpoint 识别消息：`fix(miniprogram): use one native matrix gesture proxy`。
+- 发布：代码 checkpoint `e43cf4f`（`fix(miniprogram): use one native matrix gesture proxy`）已推送；微信体验版 `0.1.0-p1.20260820.22` 上传成功（48 个代码文件、34622 bytes，manifest `b3ab9c02ccf95b30fbe13df82333b974fb96a97f6f0478893d09a8ce6064c591`）。ECS 发布前加密备份 archive `8c26dfb6-4572-4db8-9bac-949b8352dfd8`（50 表、157061 行、70235196 bytes，SHA-256 `e3f9d8af3fd7835738ec8e376daf7135aed60c8ab835f44c2e713fcb18fa6f89`）；release `e43cf4fb907a3393107cc894d2832b31918bb06f` 已部署，预热首次 502 后恢复。
+- 线上验证：`ecs-verify.sh` 通过生产健康、产物哈希、42 条迁移、域名隔离、监听端口、容器和依赖检查；`current-release`、部署清单与 Git checkpoint 精确一致，正式域名 `/api/health` 返回 200，未写业务数据。
+- 当前状态：已实现并发布 → 待用户 Android 人工复核；本状态收口 checkpoint 推送、微信体验上传和 ECS 同步后停止。
 - 下一批次与停止条件：只复测 D 的人员列和班次格纵向起手；用户未明确通过前不进入 P2。
 
 ## 2026-08-20 移动常驻导航与科室电话行精简（当前批次）
