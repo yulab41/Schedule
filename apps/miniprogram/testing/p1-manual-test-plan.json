@@ -62,6 +62,12 @@
         "cell-selected",
         "undo"
       ]
+    },
+    {
+      "id": "android-gesture-probe",
+      "route": "pages/gesture-probe/index",
+      "diagnosticOnly": true,
+      "states": ["worklet-pan", "ordinary-touch", "device-runtime"]
     }
   ]
 }

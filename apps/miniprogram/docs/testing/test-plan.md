@@ -65,10 +65,16 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。
 - `miniprogram-simulate` 已覆盖选择、失效状态和禁用格不发事件；原生双轴滚动、冻结手感、视觉与 20×30 渲染时间由用户实体 Android 判定。
 
+## P1 Android 手势能力探针
+
+- `pages/gesture-probe/index` 是 diagnostic-only 路由，不属于产品页面，也不建立 Storybook 黄金稿。
+- A 区严格使用普通视图上的最小 `pan-gesture-handler + SharedValue + applyAnimatedStyle` 蓝点；B 区只使用普通 `touchstart/touchmove/touchend` 并显示计数；C 区显示实际 SDK/平台/设备。
+- 探针不含矩阵、`scroll-view`、`native-view`、自定义单元格或业务 API。它只用于判断 Android 是不执行 gesture-handler Worklet，还是矩阵页面存在局部输入竞争。
+
 ## P1 用户人工原生验收
 
-- `testing/p1-manual-test-plan.json` 固定基础控件、动态月历、7×7 和 20×30 四条原生路由、交互状态与性能目标；静态测试防止人工清单与已实现页面漂移。
-- 用户按 `docs/runbooks/manual-native-testing.md` 人工配置四个编译模式，在 GUI 模拟器和实体 Android 操作。7×7 高度刚好容纳 7 行，因此只验证横向滚动；纵向滚动由 20×30 用例验证。
+- `testing/p1-manual-test-plan.json` 固定基础控件、动态月历、7×7、20×30 与 diagnostic-only 手势探针五条原生路由；静态测试防止人工清单与已实现页面漂移。
+- 用户按 `docs/runbooks/manual-native-testing.md` 人工配置对应编译模式，在 GUI 模拟器和实体 Android 操作。7×7 高度刚好容纳 7 行，因此只验证横向滚动；纵向滚动由 20×30 用例验证；探针只在矩阵真机完全无输入时执行。
 - 通过时用户只需明确回复“P1 人工测试通过”或“通过”，不强制上传截图；失败时提供页面、状态和现象，截图只作为可选诊断证据。
 - 自有比较器对稳定区相似度、显著差异像素和关键几何分别判定；图片/遮罩尺寸不一致、缺失几何、越界或非批准遮罩均失败关闭。
 - 比较器测试覆盖相同图通过、遮罩忽略、超过 2% 像素失败和超过 2px 几何失败；仅在用户提供截图或失败需要量化时使用，不是人工通过的前置条件。

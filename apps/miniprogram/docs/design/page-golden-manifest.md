@@ -16,3 +16,5 @@
 截图文件只放 `.artifacts/` 或外部 CI artifact，不进入 Git。清单记录 artifact ID、commit、fixture hash、设备、基础库和遮罩版本，不记录本地绝对截图路径。
 
 P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-confirmation.md)。以上 Storybook ID 是 Web 黄金源；后续原生截图不得反向覆盖这些 story。
+
+`pages/gesture-probe/index` 是仅用于区分 Android Pan Worklet 与普通触摸能力的 diagnostic-only 页面，不是产品 UI，不建立 Storybook 黄金样张，也不参与 98% 视觉门槛。

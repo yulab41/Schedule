@@ -20,6 +20,7 @@ describe('P1 user-operated native test plan', () => {
       'pages/calendar-poc/index',
       'pages/manual-matrix-poc/index?mode=daily',
       'pages/manual-matrix-poc/index?mode=maximum',
+      'pages/gesture-probe/index',
     ]);
     expect(plan.cases.map((entry) => entry.states)).toEqual([
       ['initial', 'notification-on', 'contact-unchecked', 'week-selected'],
@@ -44,7 +45,9 @@ describe('P1 user-operated native test plan', () => {
         'cell-selected',
         'undo',
       ],
+      ['worklet-pan', 'ordinary-touch', 'device-runtime'],
     ]);
+    expect(plan.cases.at(-1)).toMatchObject({ diagnosticOnly: true });
     expect(plan.completion).toMatchObject({ screenshotsRequiredOnPass: false });
     expect(source).not.toMatch(/MINITEST_|minium|cloud|token|privateKey/i);
   });

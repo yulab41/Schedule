@@ -22,7 +22,20 @@ interface MiniProgramWindowInfo {
   readonly windowHeight: number;
 }
 
+interface MiniProgramAppBaseInfo {
+  readonly SDKVersion: string;
+  readonly version: string;
+}
+
+interface MiniProgramDeviceInfo {
+  readonly model: string;
+  readonly platform: string;
+  readonly system: string;
+}
+
 declare const wx: {
+  getAppBaseInfo(): MiniProgramAppBaseInfo;
+  getDeviceInfo(): MiniProgramDeviceInfo;
   getWindowInfo(): MiniProgramWindowInfo;
   readonly worklet: {
     readonly Easing: {

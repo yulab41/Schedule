@@ -1,0 +1,52 @@
+<view class="probe-page">
+  <view class="probe-heading">
+    <text class="probe-kicker">P1 · Android 诊断专用</text>
+    <text class="probe-title">手势能力探针</text>
+    <text class="probe-description">本页不包含矩阵、滚动容器或自定义单元格。</text>
+  </view>
+
+  <view class="probe-card">
+    <view class="probe-card-heading">
+      <text class="probe-card-title">A · Skyline Pan Worklet</text>
+      <text class="probe-card-note">拖动蓝点</text>
+    </view>
+    <pan-gesture-handler
+      class="worklet-probe-handler"
+      style="width: 280px; height: 220px"
+      worklet:ongesture="handleProbePan"
+    >
+      <view class="worklet-probe-surface" style="width: 280px; height: 220px">
+        <view id="gesture-probe-dot" class="gesture-probe-dot"></view>
+      </view>
+    </pan-gesture-handler>
+    <text class="probe-instruction">蓝点能跟手移动：gesture-handler Worklet 正常。</text>
+  </view>
+
+  <view class="probe-card">
+    <view class="probe-card-heading">
+      <text class="probe-card-title">B · 普通触摸事件</text>
+      <text class="probe-card-note">滑动灰色区域</text>
+    </view>
+    <view
+      class="touch-probe-surface"
+      bindtouchstart="handleTouchStart"
+      bindtouchmove="handleTouchMove"
+      bindtouchend="handleTouchEnd"
+    >
+      <text>{{touchStatus}}</text>
+      <text>touchmove：{{touchMoveCount}} 次</text>
+    </view>
+  </view>
+
+  <view class="probe-card runtime-card">
+    <view class="probe-card-heading">
+      <text class="probe-card-title">C · 真机运行信息</text>
+      <text class="probe-card-note">只在本页显示</text>
+    </view>
+    <view class="runtime-row"><text>基础库</text><text>{{sdkVersion}}</text></view>
+    <view class="runtime-row"><text>微信版本</text><text>{{appVersion}}</text></view>
+    <view class="runtime-row"><text>平台</text><text>{{platform}}</text></view>
+    <view class="runtime-row"><text>设备</text><text>{{model}}</text></view>
+    <view class="runtime-row"><text>系统</text><text>{{system}}</text></view>
+  </view>
+</view>

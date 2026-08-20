@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 P1 Android 最小手势能力探针（当前批次）
+
+- 用户结果：显式真机命中高度版 `.27` 仍表现为 PC 横纵流畅、Android 横纵完全无输入；按既定停止条件不再修改矩阵，改做独立最小能力探针。
+- 测试先行：新增路由/最小 Pan/普通触摸/设备信息与人工计划契约在旧实现上 4 项失败；实现后定向 2 文件/5 项通过，基础画廊入口测试同步从 3 条更新为 4 条。
+- 实现：新增 diagnostic-only `pages/gesture-probe/index`。A 区严格使用明确 280×220 尺寸的 `pan-gesture-handler + 普通 view + SharedValue 蓝点`；B 区只使用普通 `touchstart/touchmove/touchend` 并显示计数；C 区只在本页展示 SDK、微信版本、平台、设备和系统。页面不含矩阵、滚动容器、自定义单元格、业务 API 或业务数据。
+- 验证：小程序 11 文件/45 项、typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（7 个源码/产物 Worklet、118486 bytes，manifest `de9c5c4954f50437345c760f7afe0cf982303295250fb5f2a54533f0f8149a63`）。根 lint/build/typecheck、`smoke:check-core` 与任务文件格式通过；排除用户自有 `runtime/**`/`src/**`、既有迁移计数测试和正在编辑的未跟踪护士 Storybook 实验后，当前受控源码 135 文件/766 项通过、32 文件/265 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；探针只需用户回报蓝点、普通触摸计数和运行信息。checkpoint 识别消息：`test(miniprogram): add android gesture capability probe`。
+- 下一批次与停止条件：探针结果出来前不修改矩阵、不进入 P2；蓝点不动但普通触摸递增则转向非 gesture-handler 输入方案，两者都不动则检查页面/真机调试输入层，蓝点移动则回到矩阵局部竞争排查。
+
 ## 2026-08-21 Lucide Minimal 导航图标落地（当前批次）
 
 - 批次范围：用户已确认 Storybook 的“开源 Lucide Minimal 推荐版”；本批次只把生产工作台桌面侧栏、移动底栏、更多页及退出入口的图标替换为同一套本地 SVG 动效。导航顺序、角色过滤、路由、抽屉关闭、退出事件、API、权限和数据库均不修改。

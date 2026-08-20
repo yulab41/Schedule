@@ -1,5 +1,10 @@
 {
-  "pages": ["pages/index/index", "pages/calendar-poc/index", "pages/manual-matrix-poc/index"],
+  "pages": [
+    "pages/index/index",
+    "pages/calendar-poc/index",
+    "pages/manual-matrix-poc/index",
+    "pages/gesture-probe/index"
+  ],
   "window": {
     "backgroundColor": "#F4F7FB",
     "navigationBarTextStyle": "black",

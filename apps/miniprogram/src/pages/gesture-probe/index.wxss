@@ -1,0 +1,133 @@
+page {
+  min-height: 100%;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-background);
+}
+
+.probe-page {
+  display: flex;
+  min-height: 100%;
+  padding: 24px 16px 32px;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.probe-heading,
+.probe-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.probe-heading {
+  gap: 4px;
+}
+
+.probe-kicker,
+.probe-card-note {
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.probe-title {
+  font-size: var(--ui-font-size-xxl);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.probe-description,
+.probe-instruction {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.probe-card {
+  padding: 14px;
+  gap: 12px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.probe-card-heading {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.probe-card-title {
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.worklet-probe-handler {
+  display: block;
+  align-self: center;
+}
+
+.worklet-probe-surface {
+  position: relative;
+  overflow: hidden;
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.gesture-probe-dot {
+  position: absolute;
+  top: 82px;
+  left: 112px;
+  width: 56px;
+  height: 56px;
+  transform: translate(0, 0);
+  background: var(--ui-color-primary);
+  border: 4px solid var(--ui-color-surface);
+  border-radius: 50%;
+  box-shadow: 0 8px 20px rgba(10, 102, 213, 0.28);
+  box-sizing: border-box;
+}
+
+.touch-probe-surface {
+  display: flex;
+  min-height: 120px;
+  padding: 16px;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px dashed var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+}
+
+.runtime-card {
+  gap: 0;
+}
+
+.runtime-row {
+  display: grid;
+  min-height: var(--ui-touch-target-minimum);
+  padding: 8px 0;
+  box-sizing: border-box;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--ui-color-border);
+  font-size: var(--ui-font-size-sm);
+}
+
+.runtime-row text:first-child {
+  color: var(--ui-color-text-muted);
+}
+
+.runtime-row text:last-child {
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
