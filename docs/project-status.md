@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 Lucide Minimal 导航图标落地（当前批次）
+
+- 批次范围：用户已确认 Storybook 的“开源 Lucide Minimal 推荐版”；本批次只把生产工作台桌面侧栏、移动底栏、更多页及退出入口的图标替换为同一套本地 SVG 动效。导航顺序、角色过滤、路由、抽屉关闭、退出事件、API、权限和数据库均不修改。
+- 回归来源与测试先行：`git log -S` / `git blame` 确认 TDesign 图标映射由 `5b00fa7` 引入，通讯录与“我的”入口分别由 `8309dce`、`0b7b1b8` 补充。生产接线、全图标覆盖、循环范围和许可记录断言在旧实现上 4 项失败；实现后导航定向 14/14 通过。
+- 设计与实现：新增无运行时依赖的 `WorkbenchNavIcon`，用 24×24、2px 圆端单色线条覆盖 14 个业务入口及“更多 / 退出”。日历勾选、通讯录人物进入、历史回拨、换班双箭头、通知摆铃、统计趋势绘制等均按图标定义使用独立 CSS 循环；只有当前目的地持续播放，非当前项与退出保持静态，移动次级页面由“更多”承接当前态。系统减少动态偏好会停用动画。
+- 来源与许可：几何以 Lucide ISC（含 Feather MIT 派生声明）为基线，动效参考 `pqoqubbw/icons` MIT；未新增动画包或第三方运行时。来源选择、未选方案和完整许可文本已保存于 `apps/web/docs/`。
+- 语义等价审计：`select` / `sign-out` 仍各发出一次，抽屉仍在选择或退出时关闭；桌面/移动数组、接收者绑定、异步与错误路径、空值、权限和业务副作用不变。行为变化仅为当前导航图标的视觉循环及 SVG 几何。
+- 验证：当前主工作区排除用户自有 `runtime/**` / `src/**` 后 136 文件/770 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck/production build、完整 Storybook build、任务文件 Prettier/ESLint、导航定向测试、`smoke:check-core` 与 `git diff --check` 均通过。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已在当前源码服务运行，但本机 MySQL `127.0.0.1:3306` 拒绝连接，管理员登录回退 `/login?redirect=/`，失败发生在导航产品断言前；已确认的 Storybook 视觉稿与生产故事均由同一生产组件渲染。
+- 当前状态：已实现待 checkpoint 与生产发布。checkpoint 识别消息：`feat(web): add animated minimal navigation icons`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交并推送本 checkpoint；生产数据库加密备份后从干净 worktree 部署，运行 `ecs-verify.sh` 与正式域名只读核验，再同步最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止并等待用户复核。
+
 ## 2026-08-20 护士多班种日历偏好与分组详情（当前批次）
 
 - 批次范围：落地用户确认的护士一天多班种方案；月视图按群组/个人默认只筛选一个班种且同班人员姓名逐一显示，周视图继续显示全部班次；仅重做选中日期详情卡。不得修改 `MonthGrid.vue`、`WeekGrid.vue` 的模板或样式。

@@ -1,26 +1,9 @@
 <script setup lang="ts">
-import {
-  AdjustmentIcon,
-  CalendarEventIcon,
-  CalendarIcon,
-  CallIcon,
-  ChartAnalyticsIcon,
-  HistoryIcon,
-  LogoutIcon,
-  MoreIcon,
-  NotificationIcon,
-  SettingIcon,
-  SwapIcon,
-  TableIcon,
-  TaskTimeIcon,
-  UsergroupIcon,
-  UserIcon,
-} from 'tdesign-icons-vue-next';
-import type { Component } from 'vue';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
-import type { WorkbenchNavIconId, WorkbenchNavItem, WorkbenchTabId } from './workbench-nav.js';
+import WorkbenchNavIcon from './WorkbenchNavIcon.vue';
+import type { WorkbenchNavItem, WorkbenchTabId } from './workbench-nav.js';
 
 defineProps<{
   readonly activeTab: WorkbenchTabId;
@@ -37,23 +20,6 @@ const emit = defineEmits<{
 const desktopQuery = window.matchMedia('(min-width: 1024px)');
 const isDesktop = ref(desktopQuery.matches);
 const drawerVisible = ref(false);
-
-const iconComponents: Readonly<Record<WorkbenchNavIconId, Component>> = {
-  backfill: HistoryIcon,
-  calendar: CalendarIcon,
-  config: SettingIcon,
-  directory: CallIcon,
-  duty: AdjustmentIcon,
-  events: CalendarEventIcon,
-  groups: UsergroupIcon,
-  leave: TaskTimeIcon,
-  manual: TableIcon,
-  members: UserIcon,
-  notifications: NotificationIcon,
-  profile: UserIcon,
-  statistics: ChartAnalyticsIcon,
-  swap: SwapIcon,
-};
 
 function updateDesktop(): void {
   isDesktop.value = desktopQuery.matches;
@@ -90,7 +56,12 @@ onBeforeUnmount(() => {
       :aria-current="item.id === activeTab ? 'page' : undefined"
       @click="select(item.id)"
     >
-      <component :is="iconComponents[item.icon]" aria-hidden="true" />
+      <WorkbenchNavIcon
+        :name="item.icon"
+        :active="item.id === activeTab"
+        :looping="item.id === activeTab"
+        aria-hidden="true"
+      />
       <span>{{ item.label }}</span>
     </button>
   </nav>
@@ -109,7 +80,12 @@ onBeforeUnmount(() => {
         :aria-current="item.id === activeTab ? 'page' : undefined"
         @click="select(item.id)"
       >
-        <component :is="iconComponents[item.icon]" aria-hidden="true" />
+        <WorkbenchNavIcon
+          :name="item.icon"
+          :active="item.id === activeTab"
+          :looping="item.id === activeTab"
+          aria-hidden="true"
+        />
         <span>{{ item.label }}</span>
       </button>
       <button
@@ -120,7 +96,12 @@ onBeforeUnmount(() => {
         :class="{ 'is-active': secondaryItems.some((item) => item.id === activeTab) }"
         @click="drawerVisible = true"
       >
-        <MoreIcon aria-hidden="true" />
+        <WorkbenchNavIcon
+          name="more"
+          :active="secondaryItems.some((item) => item.id === activeTab)"
+          :looping="secondaryItems.some((item) => item.id === activeTab)"
+          aria-hidden="true"
+        />
         <span>更多</span>
       </button>
     </nav>
@@ -136,7 +117,12 @@ onBeforeUnmount(() => {
           :aria-current="item.id === activeTab ? 'page' : undefined"
           @click="select(item.id)"
         >
-          <component :is="iconComponents[item.icon]" aria-hidden="true" />
+          <WorkbenchNavIcon
+            :name="item.icon"
+            :active="item.id === activeTab"
+            :looping="item.id === activeTab"
+            aria-hidden="true"
+          />
           <span>{{ item.label }}</span>
           <span class="more-nav-chevron" aria-hidden="true">›</span>
         </button>
@@ -150,13 +136,18 @@ onBeforeUnmount(() => {
           :aria-current="item.id === activeTab ? 'page' : undefined"
           @click="select(item.id)"
         >
-          <component :is="iconComponents[item.icon]" aria-hidden="true" />
+          <WorkbenchNavIcon
+            :name="item.icon"
+            :active="item.id === activeTab"
+            :looping="item.id === activeTab"
+            aria-hidden="true"
+          />
           <span>{{ item.label }}</span>
           <span class="more-nav-chevron" aria-hidden="true">›</span>
         </button>
         <p class="more-nav-group">账号</p>
         <button type="button" class="more-nav-item is-danger" @click="signOut">
-          <LogoutIcon aria-hidden="true" />
+          <WorkbenchNavIcon name="logout" aria-hidden="true" />
           <span>退出登录</span>
         </button>
       </nav>
