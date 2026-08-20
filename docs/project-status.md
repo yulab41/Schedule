@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 Lucide Minimal 静态保真点击动效预览修订（当前批次）
+
+- 用户反馈与批次范围：上一版为动作重新绘制图标并自动循环，偏离用户认可的 Lucide Minimal 精髓，整版否决。本批次只重做 Storybook 动效预览：静止时必须保持当前生产图标的原始几何、线宽和颜色，只有点击后播放一次并恢复原样。已发布的导航连续循环与所有生产调用点均不修改。
+- 静态来源：通知精确复用生产 `NotificationBell` 的两条铃铛路径；个人中心、导出和电话直接渲染现有 TDesign `UserIcon` / `ExportIcon` / `CallIcon` SVG；筛选精确复用日历三条横线；定位复用现有准星结构；科室复用通讯录四格轴对称标记；人员复用双头像与共同肩线。没有新增波纹、装饰点线、淡出、描边裁切或形状替换。
+- 点击动效：铃铛原位摇晃；个人图标轻微上移回弹；导出图标上行返回；筛选三条原线左右错动后复位；定位准星旋转 90°；科室四格利用轴对称旋转 90°；双头像向中间聚合再复位；原电话听筒轻摆。所有动画为 480–620ms 单次播放，无 `infinite`，未点击时 0 个动画运行；Storybook 的 `previewMotion` 只绕过预览环境的减少动态偏好，未来生产默认关闭。
+- 回归与测试先行：静态来源、点击 keyframe、禁止循环/透明度/描边裁切、点击接线和移动端导出图标可见性守卫均在旧预览上失败后转绿。浏览器逐项点击 8 个图标均命中对应有限动画；科室四格中途接近 90°，结束后 `transform: none` 且 SVG `outerHTML` 前后完全一致。390×844 无横向溢出、无小于 44px 的可见操作，顶部导出图标存在；Storybook Axe 0 项违规。
+- 验证：任务定向 8/8、排除用户自有 `runtime/**` / `src/**` 后 139 文件/782 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 与 `git diff --check` 通过。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--icon-motion-board`。
+- 语义与发布边界：全部修改位于 Storybook 组件/故事/契约测试，不进入生产 Web bundle，不请求 API、不拨号、不写业务数据。生产导航动画、权限、路由、交互事件和数据路径不变。
+- 当前状态：静态保真点击动效预览已完成待 checkpoint 与生产同步，等待用户视觉确认。checkpoint 识别消息：`fix(web): preserve static action icons in motion preview`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本 Storybook 修订 checkpoint，保持 6007 预览供用户验收；未得到明确确认前不替换任何生产动作图标。
+
 ## 2026-08-21 Lucide Minimal 连续动作图标预览（当前批次）
 
 - 批次范围：按用户要求移除现有导航 SVG 循环的大段暂停，使当前入口首尾无空拍连续播放；另只在 Storybook 预览顶部通知/个人中心/导出、日历筛选/定位、通讯录科室/人员及全部电话入口的同系 SVG 动效。新增 8 个动作图标尚未接入生产调用点，等待用户确认后再统一替换。

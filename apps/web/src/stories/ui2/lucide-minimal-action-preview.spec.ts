@@ -8,7 +8,7 @@ function readSource(relativePath: string): string {
 }
 
 describe('Lucide Minimal action icon preview', () => {
-  it('covers every requested workbench action with semantic continuous motion', () => {
+  it('keeps the current production geometry intact and animates it only on demand', () => {
     const icon = readSource('./LucideMinimalActionIcon.vue');
 
     for (const name of [
@@ -26,26 +26,48 @@ describe('Lucide Minimal action icon preview', () => {
     }
 
     for (const motion of [
-      'action-bell',
-      'action-department',
-      'action-export',
-      'action-filter',
-      'action-locate',
-      'action-people',
-      'action-phone',
-      'action-profile',
+      'click-bell',
+      'click-department',
+      'click-export',
+      'click-filter-bottom',
+      'click-filter-middle',
+      'click-filter-top',
+      'click-locate',
+      'click-people-left',
+      'click-people-right',
+      'click-phone',
+      'click-profile',
     ]) {
       expect(icon).toContain(`@keyframes ${motion}`);
     }
 
-    expect(icon).toContain('data-source="lucide-animated-pqoqubbw"');
+    expect(icon).toContain(
+      "import { CallIcon, ExportIcon, UserIcon } from 'tdesign-icons-vue-next'",
+    );
+    for (const source of [
+      'calendar-filter',
+      'calendar-locator',
+      'directory-department',
+      'directory-people',
+      'notification-bell',
+      'tdesign-call',
+      'tdesign-export',
+      'tdesign-user',
+    ]) {
+      expect(icon).toContain(`data-static-source="${source}"`);
+    }
+
+    expect(icon).toContain('readonly motionKey?: number;');
+    expect(icon).toContain('readonly previewMotion?: boolean;');
+    expect(icon).toContain('transform: rotate(90deg);');
     expect(icon).toContain('stroke-width: 2;');
     expect(icon).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(icon).not.toMatch(/\d+%\s*,\s*\d+%/u);
-    expect(icon).not.toContain('stroke-dashoffset: 1;');
-    expect(icon).toContain('stroke-dashoffset: 0.22;');
-    expect(icon).not.toContain('icon-detail');
-    expect(icon).not.toContain('icon-layer-fill');
+    expect(icon).not.toContain('infinite');
+    expect(icon).not.toContain('stroke-dasharray');
+    expect(icon).not.toContain('stroke-dashoffset');
+    expect(icon).not.toContain('opacity:');
+    expect(icon).not.toContain('readonly delay?: number;');
+    expect(icon).not.toContain('readonly looping?: boolean;');
   });
 
   it('places the icon system in the requested desktop and mobile product contexts', () => {
@@ -70,6 +92,17 @@ describe('Lucide Minimal action icon preview', () => {
     expect(story).toContain('DesktopWorkbench');
     expect(story).toContain('MobileWorkbench390');
     expect(story).toContain('IconMotionBoard');
+    expect(preview).toContain('点击图标播放');
+    expect(preview).toContain('playMotion');
+    expect(preview).toContain(':motion-key="motionKeys.bell"');
+    expect(preview).toContain('preview-motion');
+    expect(preview).toContain("playMotion('department')");
+    expect(preview).toContain('@click.prevent="playMotion(\'phone\')"');
+    expect(preview).not.toContain('force-motion');
+    expect(preview).not.toContain(':delay=');
+    expect(preview).not.toContain('首尾连续 · 无空拍');
+    expect(preview).not.toContain('.export-action span {');
+    expect(preview).toContain('.export-action > span:last-child');
 
     for (const insufficientContrastColor of [
       '#7c8793',

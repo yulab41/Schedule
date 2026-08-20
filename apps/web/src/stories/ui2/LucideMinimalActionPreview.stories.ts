@@ -24,6 +24,6 @@ export const MobileWorkbench390: Story = {
 };
 
 export const IconMotionBoard: Story = {
-  name: '3 · 全图标连续动效板',
+  name: '3 · 全图标点击动效板',
   args: { boardOnly: true },
 };

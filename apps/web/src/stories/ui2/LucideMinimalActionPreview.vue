@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { reactive, ref } from 'vue';
 
 import LucideMinimalActionIcon, {
   type LucideMinimalActionIconName,
@@ -11,45 +11,83 @@ const filterActive = ref(false);
 const directoryMode = ref<'department' | 'people'>('department');
 const calendarDays = [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30] as const;
 const motionIcons: readonly {
-  delay: number;
   label: string;
   name: LucideMinimalActionIconName;
   note: string;
 }[] = [
-  { delay: 0, label: '通知', name: 'bell', note: '铃体连续回摆' },
-  { delay: 70, label: '个人中心', name: 'profile', note: '轮廓往复绘制' },
-  { delay: 140, label: '导出', name: 'export', note: '箭头持续上行' },
-  { delay: 210, label: '筛选', name: 'filter', note: '漏斗路径重绘' },
-  { delay: 280, label: '定位', name: 'locate', note: '目标环持续扫描' },
-  { delay: 350, label: '科室', name: 'department', note: '医疗标识写入' },
-  { delay: 420, label: '人员', name: 'people', note: '第二成员进入' },
-  { delay: 490, label: '电话', name: 'phone', note: '听筒接通描边' },
+  { label: '通知', name: 'bell', note: '原铃铛 · 点击摇晃' },
+  { label: '个人中心', name: 'profile', note: '原用户图标 · 点击回应' },
+  { label: '导出', name: 'export', note: '原导出图标 · 点击上行' },
+  { label: '筛选', name: 'filter', note: '原三横线 · 点击错动' },
+  { label: '定位', name: 'locate', note: '原准星 · 点击转向' },
+  { label: '科室', name: 'department', note: '原四格 · 点击转 90°' },
+  { label: '人员', name: 'people', note: '原双人图标 · 点击聚合' },
+  { label: '电话', name: 'phone', note: '原听筒 · 点击轻摆' },
 ];
+
+const motionKeys = reactive<Record<LucideMinimalActionIconName, number>>({
+  bell: 0,
+  department: 0,
+  export: 0,
+  filter: 0,
+  locate: 0,
+  people: 0,
+  phone: 0,
+  profile: 0,
+});
+
+function playMotion(name: LucideMinimalActionIconName): void {
+  motionKeys[name] += 1;
+}
+
+function toggleFilter(): void {
+  filterActive.value = !filterActive.value;
+  playMotion('filter');
+}
+
+function selectDepartment(): void {
+  directoryMode.value = 'department';
+  playMotion('department');
+}
+
+function selectPeople(): void {
+  directoryMode.value = 'people';
+  playMotion('people');
+}
 </script>
 
 <template>
   <main class="action-motion-preview" :class="{ 'is-board-only': boardOnly }">
     <header class="preview-intro">
       <div>
-        <p>Lucide Minimal · Continuous motion</p>
+        <p>Lucide Minimal · Static-preserving motion</p>
         <h1>医疗工作台动作图标</h1>
       </div>
-      <span>首尾连续 · 无空拍</span>
+      <span>静态原样 · 点击回应</span>
     </header>
 
     <section class="motion-board" aria-label="动作图标总览">
-      <article v-for="icon in motionIcons" :key="icon.name" class="motion-swatch">
+      <button
+        v-for="icon in motionIcons"
+        :key="icon.name"
+        type="button"
+        class="motion-swatch"
+        :aria-label="`${icon.label}，点击图标播放`"
+        @click="playMotion(icon.name)"
+      >
         <span class="swatch-icon">
-          <LucideMinimalActionIcon :name="icon.name" :delay="icon.delay" force-motion />
+          <LucideMinimalActionIcon
+            :name="icon.name"
+            :motion-key="motionKeys[icon.name]"
+            preview-motion
+          />
         </span>
         <strong>{{ icon.label }}</strong>
         <small>{{ icon.note }}</small>
-      </article>
+      </button>
     </section>
 
-    <p v-if="boardOnly" class="preview-note">
-      预览强制播放；落地后继续遵循系统“减少动态效果”偏好。
-    </p>
+    <p v-if="boardOnly" class="preview-note">点击图标播放；不点击时与当前生产静态样式完全一致。</p>
 
     <section v-else class="workbench-frame" aria-label="动作图标工作台场景预览">
       <header class="workbench-header">
@@ -58,15 +96,34 @@ const motionIcons: readonly {
           <h2>排班日历</h2>
         </div>
         <div class="header-actions">
-          <button type="button" class="icon-action" aria-label="通知中心">
-            <LucideMinimalActionIcon name="bell" force-motion />
+          <button
+            type="button"
+            class="icon-action"
+            aria-label="通知中心"
+            @click="playMotion('bell')"
+          >
+            <LucideMinimalActionIcon name="bell" :motion-key="motionKeys.bell" preview-motion />
             <i class="unread-dot" aria-hidden="true" />
           </button>
-          <button type="button" class="icon-action" aria-label="个人中心">
-            <LucideMinimalActionIcon name="profile" :delay="90" force-motion />
+          <button
+            type="button"
+            class="icon-action"
+            aria-label="个人中心"
+            @click="playMotion('profile')"
+          >
+            <LucideMinimalActionIcon
+              name="profile"
+              :motion-key="motionKeys.profile"
+              preview-motion
+            />
           </button>
-          <button type="button" class="export-action" aria-label="导出排班">
-            <LucideMinimalActionIcon name="export" :delay="180" force-motion />
+          <button
+            type="button"
+            class="export-action"
+            aria-label="导出排班"
+            @click="playMotion('export')"
+          >
+            <LucideMinimalActionIcon name="export" :motion-key="motionKeys.export" preview-motion />
             <span>导出</span>
           </button>
         </div>
@@ -84,9 +141,13 @@ const motionIcons: readonly {
               class="filter-action"
               :class="{ 'is-active': filterActive }"
               :aria-pressed="filterActive"
-              @click="filterActive = !filterActive"
+              @click="toggleFilter"
             >
-              <LucideMinimalActionIcon name="filter" :delay="240" force-motion />
+              <LucideMinimalActionIcon
+                name="filter"
+                :motion-key="motionKeys.filter"
+                preview-motion
+              />
               <span>筛选</span>
               <b v-if="filterActive">1</b>
             </button>
@@ -95,8 +156,17 @@ const motionIcons: readonly {
           <div class="calendar-toolbar">
             <button type="button" aria-label="上个月">‹</button>
             <strong>8 月第 4 周</strong>
-            <button type="button" class="locate-action" aria-label="定位到今天">
-              <LucideMinimalActionIcon name="locate" :delay="320" force-motion />
+            <button
+              type="button"
+              class="locate-action"
+              aria-label="定位到今天"
+              @click="playMotion('locate')"
+            >
+              <LucideMinimalActionIcon
+                name="locate"
+                :motion-key="motionKeys.locate"
+                preview-motion
+              />
             </button>
             <button type="button" aria-label="下个月">›</button>
           </div>
@@ -125,8 +195,12 @@ const motionIcons: readonly {
               <strong>李医生</strong>
               <span>08:00–18:00 · 急诊一线</span>
             </div>
-            <a href="tel:6618" aria-label="拨打李医生短号 6618">
-              <LucideMinimalActionIcon name="phone" :delay="400" force-motion />
+            <a
+              href="tel:6618"
+              aria-label="拨打李医生短号 6618"
+              @click.prevent="playMotion('phone')"
+            >
+              <LucideMinimalActionIcon name="phone" :motion-key="motionKeys.phone" preview-motion />
               <span>短号 6618</span>
             </a>
           </article>
@@ -146,9 +220,13 @@ const motionIcons: readonly {
               role="tab"
               :aria-selected="directoryMode === 'department'"
               :class="{ 'is-active': directoryMode === 'department' }"
-              @click="directoryMode = 'department'"
+              @click="selectDepartment"
             >
-              <LucideMinimalActionIcon name="department" :delay="280" force-motion />
+              <LucideMinimalActionIcon
+                name="department"
+                :motion-key="motionKeys.department"
+                preview-motion
+              />
               <span>科室</span>
             </button>
             <button
@@ -156,9 +234,13 @@ const motionIcons: readonly {
               role="tab"
               :aria-selected="directoryMode === 'people'"
               :class="{ 'is-active': directoryMode === 'people' }"
-              @click="directoryMode = 'people'"
+              @click="selectPeople"
             >
-              <LucideMinimalActionIcon name="people" :delay="360" force-motion />
+              <LucideMinimalActionIcon
+                name="people"
+                :motion-key="motionKeys.people"
+                preview-motion
+              />
               <span>人员</span>
             </button>
           </div>
@@ -170,13 +252,21 @@ const motionIcons: readonly {
               <small>门急诊楼 · 1 层</small>
             </div>
             <div class="dial-stack">
-              <a href="tel:6618">
+              <a href="tel:6618" @click.prevent="playMotion('phone')">
                 <span>短号 6618</span>
-                <LucideMinimalActionIcon name="phone" :delay="440" force-motion />
+                <LucideMinimalActionIcon
+                  name="phone"
+                  :motion-key="motionKeys.phone"
+                  preview-motion
+                />
               </a>
-              <a href="tel:13800138000">
+              <a href="tel:13800138000" @click.prevent="playMotion('phone')">
                 <span>手机 138 0013 8000</span>
-                <LucideMinimalActionIcon name="phone" :delay="520" force-motion />
+                <LucideMinimalActionIcon
+                  name="phone"
+                  :motion-key="motionKeys.phone"
+                  preview-motion
+                />
               </a>
             </div>
           </article>
@@ -188,13 +278,21 @@ const motionIcons: readonly {
               <small>今日 18:00 前在岗</small>
             </div>
             <div class="dial-stack">
-              <a href="tel:6639">
+              <a href="tel:6639" @click.prevent="playMotion('phone')">
                 <span>短号 6639</span>
-                <LucideMinimalActionIcon name="phone" :delay="440" force-motion />
+                <LucideMinimalActionIcon
+                  name="phone"
+                  :motion-key="motionKeys.phone"
+                  preview-motion
+                />
               </a>
-              <a href="tel:13800138039">
+              <a href="tel:13800138039" @click.prevent="playMotion('phone')">
                 <span>手机 138 0013 8039</span>
-                <LucideMinimalActionIcon name="phone" :delay="520" force-motion />
+                <LucideMinimalActionIcon
+                  name="phone"
+                  :motion-key="motionKeys.phone"
+                  preview-motion
+                />
               </a>
             </div>
           </article>
@@ -283,6 +381,9 @@ const motionIcons: readonly {
   background: #ffffff;
   border: 1px solid #e1e6ec;
   border-radius: 16px;
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
 }
 
 .swatch-icon {
@@ -723,7 +824,7 @@ a:focus-visible {
     padding: 0;
   }
 
-  .export-action span {
+  .export-action > span:last-child {
     position: absolute;
     overflow: hidden;
     width: 1px;

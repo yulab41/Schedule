@@ -1,277 +1,359 @@
 <script setup lang="ts">
+import { CallIcon, ExportIcon, UserIcon } from 'tdesign-icons-vue-next';
+
 export type LucideMinimalActionIconName =
   'bell' | 'department' | 'export' | 'filter' | 'locate' | 'people' | 'phone' | 'profile';
 
 withDefaults(
   defineProps<{
-    readonly delay?: number;
-    readonly forceMotion?: boolean;
-    readonly looping?: boolean;
+    readonly motionKey?: number;
     readonly name: LucideMinimalActionIconName;
+    readonly previewMotion?: boolean;
   }>(),
-  { delay: 0, forceMotion: false, looping: true },
+  { motionKey: 0, previewMotion: false },
 );
 </script>
 
 <template>
-  <svg
-    class="lucide-minimal-action-icon"
-    :class="[{ 'force-motion': forceMotion, 'is-looping': looping }, `icon-${name}`]"
-    :style="{ '--action-delay': `${delay}ms` }"
-    data-source="lucide-animated-pqoqubbw"
-    viewBox="0 0 24 24"
-    fill="none"
+  <span
+    class="static-motion-icon"
+    :class="[`icon-${name}`, { 'preview-motion': previewMotion }]"
     aria-hidden="true"
   >
-    <template v-if="name === 'bell'">
-      <g class="action-actor" data-part="bell">
-        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-      </g>
-    </template>
+    <span
+      :key="`${name}-${motionKey}`"
+      class="motion-glyph"
+      :class="{ 'is-animating': motionKey > 0 }"
+    >
+      <svg
+        v-if="name === 'bell'"
+        class="source-svg"
+        data-static-source="notification-bell"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <g data-part="bell">
+          <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
+          <path d="M10 21h4" />
+        </g>
+      </svg>
 
-    <template v-else-if="name === 'profile'">
-      <g class="action-actor" data-part="profile">
-        <circle pathLength="1" cx="12" cy="7" r="4" />
-        <path pathLength="1" d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" />
-      </g>
-    </template>
-
-    <template v-else-if="name === 'export'">
-      <path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
-      <g class="action-actor" data-part="export-arrow">
-        <path d="m8 7 4-4 4 4" />
-        <path d="M12 3v13" />
-      </g>
-    </template>
-
-    <template v-else-if="name === 'filter'">
-      <path
-        class="action-actor"
-        data-part="filter"
-        pathLength="1"
-        d="M22 3H2l8 9.5V19l4 2v-8.5L22 3Z"
+      <UserIcon
+        v-else-if="name === 'profile'"
+        class="native-icon"
+        data-static-source="tdesign-user"
       />
-    </template>
 
-    <template v-else-if="name === 'locate'">
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-      <circle class="action-actor" data-part="locator-ring" pathLength="1" cx="12" cy="12" r="7" />
-      <circle cx="12" cy="12" r="1" />
-    </template>
-
-    <template v-else-if="name === 'department'">
-      <path d="M6 22V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v17M4 22h16M10 22v-4h4v4" />
-      <path class="action-actor" data-part="department-cross" pathLength="1" d="M12 7v6M9 10h6" />
-    </template>
-
-    <template v-else-if="name === 'people'">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <g class="action-actor" data-part="second-person">
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </g>
-    </template>
-
-    <template v-else-if="name === 'phone'">
-      <path
-        class="action-actor"
-        data-part="phone"
-        pathLength="1"
-        d="M22 16.9v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.68 2.8a2 2 0 0 1-.45 2.11L8.07 9.9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.32 1.84.55 2.8.68A2 2 0 0 1 22 16.9Z"
+      <ExportIcon
+        v-else-if="name === 'export'"
+        class="native-icon"
+        data-static-source="tdesign-export"
       />
-    </template>
-  </svg>
+
+      <svg
+        v-else-if="name === 'filter'"
+        class="source-svg"
+        data-static-source="calendar-filter"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <path class="filter-top" d="M4 6h16" />
+        <path class="filter-middle" d="M7 12h10" />
+        <path class="filter-bottom" d="M10 18h4" />
+      </svg>
+
+      <svg
+        v-else-if="name === 'locate'"
+        class="source-svg"
+        data-static-source="calendar-locator"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <g class="locate-rotor">
+          <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          <circle cx="12" cy="12" r="6" />
+        </g>
+        <circle class="locate-center" cx="12" cy="12" r="1.5" />
+      </svg>
+
+      <svg
+        v-else-if="name === 'department'"
+        class="source-svg"
+        data-static-source="directory-department"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <g class="department-rotor">
+          <rect x="4" y="4" width="6" height="6" rx="1.5" />
+          <rect x="14" y="4" width="6" height="6" rx="1.5" />
+          <rect x="4" y="14" width="6" height="6" rx="1.5" />
+          <rect x="14" y="14" width="6" height="6" rx="1.5" />
+        </g>
+      </svg>
+
+      <svg
+        v-else-if="name === 'people'"
+        class="source-svg"
+        data-static-source="directory-people"
+        viewBox="0 0 24 24"
+        fill="none"
+      >
+        <circle class="person-left" cx="8" cy="7" r="4" />
+        <circle class="person-right" cx="16" cy="7" r="4" />
+        <path d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2" />
+      </svg>
+
+      <CallIcon
+        v-else-if="name === 'phone'"
+        class="native-icon"
+        data-static-source="tdesign-call"
+      />
+    </span>
+  </span>
 </template>
 
 <style scoped>
-.lucide-minimal-action-icon {
-  --action-delay: 0ms;
-  --action-loop: 1800ms;
+.static-motion-icon,
+.motion-glyph {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: inherit;
+}
+
+.source-svg,
+.native-icon {
   display: block;
   width: 24px;
   height: 24px;
   overflow: visible;
+}
+
+.source-svg {
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.action-actor {
+.native-icon,
+.source-svg [data-part='bell'],
+.filter-top,
+.filter-middle,
+.filter-bottom,
+.locate-rotor,
+.department-rotor,
+.person-left,
+.person-right {
   transform-box: fill-box;
   transform-origin: center;
 }
 
-.is-looping.icon-bell [data-part='bell'] {
+.locate-center {
+  fill: currentColor;
+  stroke: none;
+}
+
+.icon-bell .is-animating [data-part='bell'] {
   transform-box: view-box;
   transform-origin: 12px 3px;
-  animation: action-bell 1400ms ease-in-out var(--action-delay) infinite;
+  animation: click-bell 620ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.is-looping.icon-profile [data-part='profile'] {
-  stroke-dasharray: 1 1;
-  animation: action-profile var(--action-loop) ease-in-out var(--action-delay) infinite;
+.icon-profile .is-animating [data-static-source='tdesign-user'] {
+  animation: click-profile 480ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.is-looping.icon-export [data-part='export-arrow'] {
-  animation: action-export 1500ms cubic-bezier(0.2, 0, 0, 1) var(--action-delay) infinite;
+.icon-export .is-animating [data-static-source='tdesign-export'] {
+  animation: click-export 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.is-looping.icon-filter [data-part='filter'] {
-  stroke-dasharray: 1 1;
-  animation: action-filter var(--action-loop) ease-in-out var(--action-delay) infinite;
+.icon-filter .is-animating .filter-top {
+  animation: click-filter-top 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.is-looping.icon-locate [data-part='locator-ring'] {
+.icon-filter .is-animating .filter-middle {
+  animation: click-filter-middle 520ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.icon-filter .is-animating .filter-bottom {
+  animation: click-filter-bottom 520ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.icon-locate .is-animating .locate-rotor {
   transform-box: view-box;
   transform-origin: 12px 12px;
-  stroke-dasharray: 0.22 0.08;
-  animation: action-locate 1500ms linear var(--action-delay) infinite;
+  animation: click-locate 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.is-looping.icon-department [data-part='department-cross'] {
-  stroke-dasharray: 1 1;
-  animation: action-department 1500ms ease-in-out var(--action-delay) infinite;
+.icon-department .is-animating .department-rotor {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  animation: click-department 500ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.is-looping.icon-people [data-part='second-person'] {
-  animation: action-people var(--action-loop) cubic-bezier(0.2, 0, 0, 1) var(--action-delay)
-    infinite;
+.icon-people .is-animating .person-left {
+  animation: click-people-left 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.is-looping.icon-phone [data-part='phone'] {
-  stroke-dasharray: 1 1;
-  animation: action-phone 1500ms ease-in-out var(--action-delay) infinite;
+.icon-people .is-animating .person-right {
+  animation: click-people-right 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-@keyframes action-bell {
+.icon-phone .is-animating [data-static-source='tdesign-call'] {
+  animation: click-phone 620ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes click-bell {
   0% {
     transform: rotate(0deg);
   }
-  20% {
-    transform: rotate(-8deg);
+  22% {
+    transform: rotate(-9deg);
   }
-  40% {
-    transform: rotate(7deg);
+  44% {
+    transform: rotate(8deg);
   }
-  60% {
-    transform: rotate(-4deg);
+  64% {
+    transform: rotate(-5deg);
   }
-  80% {
-    transform: rotate(2deg);
+  82% {
+    transform: rotate(3deg);
   }
   100% {
     transform: rotate(0deg);
   }
 }
 
-@keyframes action-profile {
+@keyframes click-profile {
   0% {
-    opacity: 0.72;
-    stroke-dashoffset: 0.22;
+    transform: translateY(0);
   }
-  50% {
-    opacity: 1;
-    stroke-dashoffset: 0;
-  }
-  100% {
-    opacity: 0.72;
-    stroke-dashoffset: 0.22;
-  }
-}
-
-@keyframes action-export {
-  0% {
-    opacity: 0.55;
-    transform: translateY(1.5px);
-  }
-  50% {
-    opacity: 1;
+  42% {
     transform: translateY(-1.5px);
   }
+  68% {
+    transform: translateY(0.5px);
+  }
   100% {
-    opacity: 0.55;
-    transform: translateY(1.5px);
+    transform: translateY(0);
   }
 }
 
-@keyframes action-filter {
+@keyframes click-export {
   0% {
-    opacity: 0.72;
-    stroke-dashoffset: 0.22;
+    transform: translateY(0);
   }
-  50% {
-    opacity: 1;
-    stroke-dashoffset: 0;
+  46% {
+    transform: translateY(-2px);
   }
   100% {
-    opacity: 0.72;
-    stroke-dashoffset: 0.22;
+    transform: translateY(0);
   }
 }
 
-@keyframes action-locate {
+@keyframes click-filter-top {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes click-filter-middle {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes click-filter-bottom {
+  0% {
+    transform: translateX(0);
+  }
+  46% {
+    transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes click-locate {
   0% {
     transform: rotate(0deg);
   }
   100% {
-    transform: rotate(360deg);
+    transform: rotate(90deg);
   }
 }
 
-@keyframes action-department {
+@keyframes click-department {
   0% {
-    opacity: 0.68;
-    stroke-dashoffset: 0.2;
-  }
-  50% {
-    opacity: 1;
-    stroke-dashoffset: 0;
+    transform: rotate(0deg);
   }
   100% {
-    opacity: 0.68;
-    stroke-dashoffset: 0.2;
+    transform: rotate(90deg);
   }
 }
 
-@keyframes action-people {
+@keyframes click-people-left {
   0% {
-    opacity: 0.4;
-    transform: translateX(-2px);
-  }
-  50% {
-    opacity: 1;
     transform: translateX(0);
   }
+  46% {
+    transform: translateX(1px);
+  }
   100% {
-    opacity: 0.4;
-    transform: translateX(-2px);
+    transform: translateX(0);
   }
 }
 
-@keyframes action-phone {
+@keyframes click-people-right {
   0% {
-    opacity: 0.72;
-    stroke-dashoffset: 0.18;
-    transform: rotate(-3deg);
+    transform: translateX(0);
   }
-  50% {
-    opacity: 1;
-    stroke-dashoffset: 0;
-    transform: rotate(2deg);
+  46% {
+    transform: translateX(-1px);
   }
   100% {
-    opacity: 0.72;
-    stroke-dashoffset: 0.18;
+    transform: translateX(0);
+  }
+}
+
+@keyframes click-phone {
+  0% {
+    transform: rotate(0deg);
+  }
+  26% {
+    transform: rotate(-8deg);
+  }
+  52% {
+    transform: rotate(7deg);
+  }
+  74% {
     transform: rotate(-3deg);
+  }
+  100% {
+    transform: rotate(0deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lucide-minimal-action-icon:not(.force-motion) .action-actor {
-    animation: none;
+  .static-motion-icon:not(.preview-motion) .is-animating .native-icon,
+  .static-motion-icon:not(.preview-motion) .is-animating .source-svg * {
+    animation: none !important;
   }
 }
 </style>
