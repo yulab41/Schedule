@@ -8,7 +8,9 @@
 - 排查：正式配置为基础库 `3.17.1`、`compileWorklet=true`、全局 Skyline，上传产物保留 5 个 Worklet，排除版本/编译缺失。`pan-gesture-handler` 与 `.matrix-pan-surface` 原先只写 `height:100%`，而内部四层全部绝对定位、不参与父级高度计算；Android 可显示溢出层但手势节点可能保持零高，PC 仍对溢出内容分发鼠标事件。
 - 测试先行与实现：新增真机命中区契约在旧实现上 1 项失败；handler 与普通命中面现都以内联 `matrixViewportHeight` 像素值定高，handler 显式 `display:block`。X/Y、四层 transform、轴锁、边界、惯性、点格和撤销均未改变。
 - 验证：定向 9/9、小程序 10 文件/42 项、typecheck/build/source/Worklet/包体/确定性与 `miniprogram-ci` dry-run 通过（5 个源码/产物 Worklet、110319 bytes，manifest `a478d162c3be8d47d6bfa6ad33d312f8fc6cc998b5acc6146c3a5945280c999c`）。任务文件 Prettier、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**`、既有过期迁移计数测试及正在编辑的两个未跟踪 Storybook 实验测试后，当前受控源码 127 文件/747 项通过、31 文件/262 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；只需用户复测 Android 是否开始响应任一方向。checkpoint 识别消息：`fix(miniprogram): size matrix gesture hit area`。
+- 发布：代码 checkpoint `36e844e`（`fix(miniprogram): size matrix gesture hit area`）已推送。微信体验版首次经本地代理上传被平台以不可配置的 IPv6 白名单拒绝，清除代理并强制 Node IPv4 后，同一 checkpoint 以 `0.1.0-p1.20260820.26` 上传成功（48 个代码文件、34656 bytes，manifest `2c5336adf30f1e5ed11294be1b55beb3eb5bbb63c1271427d7cc8380d57f4337`）。ECS 发布前加密备份 archive `871c1a1e-0ce4-439e-9835-f49960b2d4b8`（50 表、157655 行、70950404 bytes，SHA-256 `bc7fdfd127b8674756472ae926781b8506822fd199ef38435ae0ccad935fceeb`）；release `36e844e5cfba16f505f0fe8beb83574b920bdb2a` 已部署，预热首次 502 后恢复。
+- 线上验证：`ecs-verify.sh` 通过生产健康、产物哈希、42 条迁移、域名隔离、监听端口、容器和依赖检查；`current-release`、部署清单与 Git checkpoint 精确一致，正式域名 `/api/health` 返回 200，未写业务数据。
+- 当前状态：已实现并发布 → 待用户 Android 人工复核；本状态收口 checkpoint 推送、微信体验上传和 ECS 同步后停止。
 - 下一批次与停止条件：若真机仍完全无输入，下一步不再调整布局，改为独立最小手势探针验证设备 gesture-handler 能力；未通过前不进入 P2。
 
 ## 2026-08-20 P1 四层纯 Worklet 矩阵（当前批次）
