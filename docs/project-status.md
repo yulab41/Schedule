@@ -11,8 +11,9 @@
 - 语义审计：现有 session、导航、退出、权限和业务写入均未改变；新增请求均为既有只读成员/联系/统计/日历 API，各调用一次。实际排班优先，未发生改派时才回退计划人员；日期/时间继续复用中国标准时间与业务日 helper。异步拒绝只进入本页错误态，不清会话、不改变群组或调用写接口。
 - 验证：任务定向 7/7、主工作区 126 文件/739 项通过，31 文件/262 项按环境跳过；唯一既有失败为 `package-ecs-release.test.mjs` 仍期待 40 条迁移而当前验证脚本为 41。Web/根 typecheck、Web/根 build、根 lint、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 与 `pnpm smoke:check-core` 通过；完整 `pnpm verify` 只被用户自有 `project.config.json` 和 `storybook-static-my-profile/` 格式阻断。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 首次因 5173 未启动失败；启动 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 当前源码后复跑，因本机 MySQL 127.0.0.1:3306 拒绝连接而在管理员登录回退 `/login?redirect=/`，与上一轮同一环境阻塞一致。独立 Storybook 真实组件已完成桌面/手机/窄屏、无溢出、触达区、完整文字和 Axe 验证。
-- checkpoint：待提交消息 `feat(web): restore personal duty overview`；只暂存本批次 5 个 Web 文件与本状态文档，用户自有小程序配置、`pnpm-workspace.yaml`、Storybook 草稿/生成物、`runtime/`、`src/` 均不纳入。
-- 下一批次与停止条件：只创建并推送上述 checkpoint，按规则创建生产备份、部署该 release、运行 `ecs-verify.sh` 与正式域名只读核验；确认 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户视觉复核。
+- checkpoint 与发布：代码 checkpoint `ebd1b19`（`feat(web): restore personal duty overview`）已推送。发布前加密数据库备份 archive `e4996edc-1c75-4168-a813-27425cfaf4dc`（50 表、106653 行、47347108 字节，SHA-256 `64d426333877a70f24303b615e5d64a42e4fb327515d36f5af1d70ec3d2eb4e7`）；release `ebd1b19f0f48a6a211cd16e9b29f0a2cbf676b18` 从隔离干净工作树构建并部署，预热首次 502 后自动恢复。
+- 正式核验：`ecs-verify.sh` 通过正式健康、产物哈希、41 条迁移、域名隔离、公开端口、容器和依赖检查；首页与 `/api/health` 均为 200，正式 `HomeView` bundle 精确包含“值班概览 / 值班节奏 / 下一班”。Git `HEAD`、`origin/main`、服务器 `current-release` 与部署清单一致；未登录、未提交表单、未写业务数据。
+- 当前状态与下一批次：已完成代码、推送、生产备份、部署和只读核验 → 待用户复核；只同步最终状态文档 checkpoint 并部署，使最终 Git/服务器 release 一致后停止，不开始其他修改。
 
 ## 2026-08-20 P1 Android 人员纵向命中与单手势轴锁（当前批次）
 
