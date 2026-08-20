@@ -8,7 +8,9 @@
 - 测试先行：新增路由/最小 Pan/普通触摸/设备信息与人工计划契约在旧实现上 4 项失败；实现后定向 2 文件/5 项通过，基础画廊入口测试同步从 3 条更新为 4 条。
 - 实现：新增 diagnostic-only `pages/gesture-probe/index`。A 区严格使用明确 280×220 尺寸的 `pan-gesture-handler + 普通 view + SharedValue 蓝点`；B 区只使用普通 `touchstart/touchmove/touchend` 并显示计数；C 区只在本页展示 SDK、微信版本、平台、设备和系统。页面不含矩阵、滚动容器、自定义单元格、业务 API 或业务数据。
 - 验证：小程序 11 文件/45 项、typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（7 个源码/产物 Worklet、118486 bytes，manifest `de9c5c4954f50437345c760f7afe0cf982303295250fb5f2a54533f0f8149a63`）。根 lint/build/typecheck、`smoke:check-core` 与任务文件格式通过；排除用户自有 `runtime/**`/`src/**`、既有迁移计数测试和正在编辑的未跟踪护士 Storybook 实验后，当前受控源码 135 文件/766 项通过、32 文件/265 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；探针只需用户回报蓝点、普通触摸计数和运行信息。checkpoint 识别消息：`test(miniprogram): add android gesture capability probe`。
+- 发布：代码 checkpoint `2d51e22`（`test(miniprogram): add android gesture capability probe`）已推送；微信体验版 `0.1.0-p1.20260821.28` 通过直连 IPv4 上传成功（51 个代码文件、37530 bytes，manifest `144357f354982407c11770a9c498c239d8d483d9371d7533f9b4cb8792fbcbbd`）。ECS 发布前加密备份 archive `148061e7-9478-4f82-9ea4-2e70460da25e`（50 表、157659 行、70955780 bytes，SHA-256 `bcb51ac9561e53beb66d4cc57fc5262a84a05293fc6d7c6336ad1fb4fe39a640`）；release `2d51e222645dac9ac9473830ac570666e82225d1` 已部署，预热首次 TLS 重置后恢复。
+- 线上验证：`ecs-verify.sh` 通过生产健康、产物哈希、43 条迁移、域名隔离、监听端口、容器和依赖检查；`current-release`、部署清单与 Git checkpoint 精确一致，正式域名 `/api/health` 返回 200，未写业务数据。
+- 当前状态：已实现并发布 → 待用户仅测试探针并回报蓝点、普通触摸计数和运行信息；本状态收口 checkpoint 推送、微信体验上传和 ECS 同步后停止。
 - 下一批次与停止条件：探针结果出来前不修改矩阵、不进入 P2；蓝点不动但普通触摸递增则转向非 gesture-handler 输入方案，两者都不动则检查页面/真机调试输入层，蓝点移动则回到矩阵局部竞争排查。
 
 ## 2026-08-21 Lucide Minimal 导航图标落地（当前批次）
