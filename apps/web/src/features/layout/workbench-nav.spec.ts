@@ -44,18 +44,18 @@ describe('Workbench navigation', () => {
     expect(memberIds).toContain('statistics');
   });
 
-  it('keeps the mobile bottom bar to five primary entries and a drawer', () => {
+  it('keeps calendar, directory, swap, and profile resident beside the mobile drawer', () => {
     expect(getPrimaryMobileNavItems('owner').map((item) => item.id)).toEqual([
       'calendar',
       'directory',
-      'profile',
-      'leave',
       'swap',
+      'profile',
     ]);
     expect(getSecondaryMobileNavItems('owner').map((item) => item.id)).toEqual([
       'groups',
       'manual',
       'backfill',
+      'leave',
       'duty',
       'events',
       'notifications',

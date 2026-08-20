@@ -135,10 +135,11 @@ describe('production hospital directory integration', () => {
     expect(view).toMatch(/\.directory-dial-action:focus-visible\s*{[^}]*outline:/s);
   });
 
-  it('gives employee phone rows full width without generic mobile labels or wrapped numbers', () => {
+  it('gives department phone rows full width and keeps long and short numbers separated', () => {
     const view = source('./InternalDirectoryView.vue');
 
     expect(view).toContain('function shouldShowContactLabel');
+    expect(view).toContain("if (directoryKind.value === 'internal') return false;");
     expect(view).toContain("directoryKind.value === 'employee' &&");
     expect(view).toContain('v-if="shouldShowContactLabel(contact, entryGroup.entries.length > 1)"');
     expect(view).toMatch(/:class="\{[\s\S]*?has-contact-label[\s\S]*?shouldShowContactLabel\(/s);
@@ -150,6 +151,10 @@ describe('production hospital directory integration', () => {
     );
     expect(view).toMatch(
       /\.directory-dial-action strong,\s*\.directory-static-number\s*{[^}]*white-space:\s*nowrap;[^}]*}/s,
+    );
+    expect(view).toMatch(/\.contact-number-group\s*{[^}]*gap:\s*8px;[^}]*}/s);
+    expect(view).toMatch(
+      /@media \(max-width: 380px\)[\s\S]*?\.contact-number-group\s*{[^}]*gap:\s*6px;[^}]*}/s,
     );
   });
 

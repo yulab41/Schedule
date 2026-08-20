@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-20 移动常驻导航与科室电话行精简（当前批次）
+
+- 批次范围：移动底栏只常驻排班日历、通讯录、换班、我的，保持“更多”为第五项，其他已授权功能全部进入更多页；科室通讯录结果移除电话左侧类型标签，增加长号/短号组间距并保持号码单行。不修改桌面导航、权限、数据源、号码或拨号行为。
+- 回归定位与测试先行：`git log -S` / `git blame` 确认移动主入口由 `db35a77` 建立并在 `0b7b1b8` 固定为日历/通讯录/请假/换班/我的，电话标签与两列布局由 `427ff6b` 引入。更新导航与通讯录契约后旧实现 2 项失败，实现后相关 3 文件/25 项通过。
+- 实现与语义：`primaryMobileTabIds` 精确为 calendar/directory/swap/profile，主入口按该数组顺序生成，避免被桌面配置顺序重排；请假及其余入口均由 secondary 列表进入更多页，角色过滤和桌面全量侧栏不变。科室模式的 `shouldShowContactLabel` 始终为 false，人员模式既有移动电话标签规则保持；长短号外层 gap 为 8px，≤380px 为 6px，内部号码继续 `nowrap`。仅把两个职称循环局部变量从 `title` 改为 `jobTitle` 以清除既有 lint 警告，渲染值/顺序不变。
+- 视觉验证：新增生产移动导航 Storybook。390px 实测底栏标签精确为“排班日历 / 通讯录 / 换班 / 我的 / 更多”，5 项高度约 59px；更多页含请假、群组、手排、补录、加扣班、事件、通知、统计、成员、配置和退出。科室搜索“病案”在 390/320px 均为 0 个 `.contact-label`，长短号 gap 8px/6px，号码均 `white-space: nowrap`，页面 `scrollWidth = clientWidth`。
+- 验证：根 lint/build/typecheck、Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 与 `smoke:check-core` 通过；主工作区排除 `runtime/**`、`src/**` 和既有过期迁移计数测试后 128 文件/752 项通过、31 文件/262 项按环境跳过。完整格式检查仍被用户 `project.config.json`、旧 `storybook-static-my-profile/` 和已提交目录批次的 `directory-entry-groups.ts` 阻断，本轮文件格式通过。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在当前源码服务运行，因本机 MySQL 127.0.0.1:3306 拒绝连接而在管理员登录回退 `/login?redirect=/`；真实 Storybook 已覆盖底栏、更多页及科室号码 390/320px 几何和交互，控制台无产品错误。
+- checkpoint：待提交消息 `fix(web): keep mobile nav and compact directory phones`；只暂存导航、科室通讯录、对应测试、生产 Storybook、上轮非确定性测试夹具修正和状态/调试记录。用户小程序配置、`pnpm-workspace.yaml`、旧 Storybook 草稿/生成物、`runtime/`、`src/` 均不纳入。
+- 下一批次与停止条件：只创建并推送上述 checkpoint，基于干净工作树生成 release，创建生产加密备份后部署并运行 `ecs-verify.sh`；正式域名只读核验 bundle 与健康，不写业务数据。Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户复核。
+
 ## 2026-08-20 个人数据口径与登录密码安全（当前批次）
 
 - 批次范围：按用户反馈把“我的”统计单位从错误的“天”改为实际班次“次”，手机号完整显示，移除快速进入卡片；新增受认证保护的修改登录密码能力，并在登录/会话恢复时检测是否仍为初始密码，显示已确认的 Storybook 风格安全提醒。无数据库迁移，不修改排班、通讯录或权限数据。

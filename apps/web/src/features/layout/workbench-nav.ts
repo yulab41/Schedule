@@ -63,13 +63,7 @@ export const workbenchNavItems: readonly WorkbenchNavItem[] = [
   { icon: 'config', id: 'config', label: '排班配置', requiresAdministrator: true },
 ];
 
-const primaryMobileTabIds: readonly WorkbenchTabId[] = [
-  'calendar',
-  'directory',
-  'leave',
-  'swap',
-  'profile',
-];
+const primaryMobileTabIds: readonly WorkbenchTabId[] = ['calendar', 'directory', 'swap', 'profile'];
 
 export function getVisibleNavItems(role: GroupRole): readonly WorkbenchNavItem[] {
   const base = workbenchNavItems.filter((item) => !item.requiresAdministrator || role !== 'member');
@@ -84,7 +78,11 @@ export function getDesktopNavItems(role: GroupRole): readonly WorkbenchNavItem[]
 }
 
 export function getPrimaryMobileNavItems(role: GroupRole): readonly WorkbenchNavItem[] {
-  return getVisibleNavItems(role).filter((item) => primaryMobileTabIds.includes(item.id));
+  const visibleItems = new Map(getVisibleNavItems(role).map((item) => [item.id, item]));
+  return primaryMobileTabIds.flatMap((id) => {
+    const item = visibleItems.get(id);
+    return item === undefined ? [] : [item];
+  });
 }
 
 export function getSecondaryMobileNavItems(role: GroupRole): readonly WorkbenchNavItem[] {

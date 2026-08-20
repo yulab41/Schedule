@@ -67,6 +67,7 @@ describe('my profile overview', () => {
       calendars: [calendar([later, next, reassigned])],
       contacts: [],
       members: [member('member-current', true)],
+      now: '2026-08-20T00:00:00.000Z',
     });
 
     expect(overview.nextDuty?.id).toBe('next');

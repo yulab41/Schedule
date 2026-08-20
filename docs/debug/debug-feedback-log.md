@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-20 移动常驻导航与科室电话行精简
+
+- 反馈与引入点：用户指定移动常驻日历/通讯录/换班/我的，其余进入更多，并要求科室电话移除左侧标签、扩大号码空间。`git log -S` / `git blame` 定位移动入口由 `db35a77`/`0b7b1b8` 引入，电话标签和 62px 标签列由 `427ff6b` 引入。
+- 测试先行与实现：旧实现导航/电话布局 2 项失败；主入口改按显式数组顺序输出 calendar/directory/swap/profile，secondary 自动接收请假等其余入口。科室模式不再渲染 contact-label，人员模式规则不变；长短号 gap 调整为 8px、窄屏 6px，号码仍 nowrap。职称循环仅改局部变量名以清除模板 shadow warning。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 因本机 MySQL 127.0.0.1:3306 不可用，在管理员登录回退 `/login?redirect=/`。Storybook 390px 实测底栏 5 项顺序正确、更多页完整；科室“病案”结果在 390/320px 左侧标签为 0、gap 为 8px/6px、号码不换行、页面无横向溢出。
+- 验证：定向 3 文件/25 项、主工作区 128 文件/752 项通过，31 文件/262 项按环境跳过；根 lint/build/typecheck、Web build/typecheck、Storybook build、任务文件 Prettier/ESLint、`git diff --check` 与 `smoke:check-core` 通过。格式全检只被用户配置/旧预览产物和已提交目录批次遗留文件阻断。
+- 状态：已实现待发布；checkpoint 识别消息为 `fix(web): keep mobile nav and compact directory phones`。
+
 ## 2026-08-20 个人数据与登录密码安全修复
 
 - 反馈与引入点：用户要求手机号完整显示、修正个人统计、增加改密与初始密码登录提醒，并移除快速进入。`git log -S` / `git blame` 定位密码登录由 `de3ad5f` 引入、快速入口由 `0b7b1b8` 引入、统计单位/脱敏由 `ebd1b19` 引入；领域 `actualCount` 明确定义为班次数而不是天数。

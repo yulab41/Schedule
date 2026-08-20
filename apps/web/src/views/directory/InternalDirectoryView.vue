@@ -415,6 +415,7 @@ function getContactHeading(contact: DirectoryContactMethod, isMerged: boolean): 
 }
 
 function shouldShowContactLabel(contact: DirectoryContactMethod, isMerged: boolean): boolean {
+  if (directoryKind.value === 'internal') return false;
   const heading = getContactHeading(contact, isMerged);
   return !(
     directoryKind.value === 'employee' &&
@@ -591,11 +592,11 @@ async function lookupPreferredEntries(
                   <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
                   <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
                   <span
-                    v-for="title in getDirectoryGroupJobTitles(entryGroup)"
-                    :key="title"
+                    v-for="jobTitle in getDirectoryGroupJobTitles(entryGroup)"
+                    :key="jobTitle"
                     class="entry-job-title"
                   >
-                    {{ title }}
+                    {{ jobTitle }}
                   </span>
                   <span
                     v-if="getDirectoryGroupEmployeeCodes(entryGroup).length > 0"
@@ -752,11 +753,11 @@ async function lookupPreferredEntries(
                     <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
                     <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
                     <span
-                      v-for="title in getDirectoryGroupJobTitles(entryGroup)"
-                      :key="title"
+                      v-for="jobTitle in getDirectoryGroupJobTitles(entryGroup)"
+                      :key="jobTitle"
                       class="entry-job-title"
                     >
-                      {{ title }}
+                      {{ jobTitle }}
                     </span>
                     <span
                       v-if="getDirectoryGroupEmployeeCodes(entryGroup).length > 0"
@@ -1421,7 +1422,8 @@ async function lookupPreferredEntries(
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .directory-dial-action {
@@ -1840,7 +1842,7 @@ async function lookupPreferredEntries(
   }
 
   .contact-number-group {
-    gap: 1px;
+    gap: 6px;
   }
 
   .directory-dial-action {
