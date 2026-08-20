@@ -160,6 +160,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(wxsSource).toContain('requestAnimationFrame');
     expect(wxsSource).toContain("callMethod('handleMatrixGestureSettled'");
     expect(wxsSource).not.toContain('setData');
+    expect(wxsSource).not.toMatch(/\b(?:Number|String)\s*\(/u);
     expect(worklets.issues).toEqual([]);
     expect(worklets.count).toBe(0);
   });

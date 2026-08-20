@@ -21,8 +21,9 @@
 - 范围与回归来源：`git log -S`/`git blame` 确认四层矩阵由 `6cdb9aa` 引入，命中高度由 `36e844e` 修正，目标 Android 最终证明 gesture-handler 输入不可用；WXS 探针由 `2b5f536` 引入并已真机通过。本轮只替换 7×7/20×30 矩阵的输入、坐标驱动和惯性，不修改四层 WXML 数据、390px 视口、班种、点格、撤销、fixture 或 `.23` 回退基线。
 - 测试先行与实现：新的 WXS 模块/单入口/四层同步/轴锁/有界惯性/保留 tap/静止后回报契约在旧实现上 3 项失败；实现后矩阵+探针定向 14/14、小程序 12 文件/50 项通过。矩阵已移除 `pan-gesture-handler` 和 5 个 Worklet updater，单一内置 `view` 的 WXS 在同一个 `touchmove` 或 `requestAnimationFrame` 回调更新日期 X、人员 Y、主体 X/Y 和进度条 X；2px/1.2 倍方向锁保持，拖动/惯性不 `setData`，最终静止后只 `callMethod` 一次。无位移触摸不返回 `false`，原班次格 select 与增量撤销路径保持。
 - 语义审计：尺寸仍由 `SelectorQuery` 在 ready/resize 低频测量并作为 config 传入 WXS；配置变化会取消在途惯性并按新边界裁剪。矩阵内部仍无滚动容器、Canvas、双引擎或高频逻辑层通信；页面、API、异步/错误路径、空值、业务数据和请求次数均未改变。
-- 验证：官方 `miniprogram-ci.getCompiledResult` 实际编译 53 个代码文件并返回 84 个结果文件；Mini typecheck/source/output/2 个剩余探针 Worklet/包体/确定性/simulate/CI dry-run 通过（128998 bytes，verify manifest `2727228c6cfd869d3ca3d5df3d9c062bb7fc6a9e2604b56b30edba74996f0a74`）。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/782 项通过、32 文件/265 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`fix(miniprogram): drive matrix gestures in WXS`。
+- 验证：官方 `miniprogram-ci.getCompiledResult` 实际编译 53 个代码文件并返回 84 个结果文件；Mini typecheck/source/output/2 个剩余探针 Worklet/包体/确定性/simulate/CI dry-run 通过（129008 bytes，verify manifest `d1c0b70755b610c548be78e62cad34a37620ce057524358e6defac3fad80d8be`）。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/782 项通过、32 文件/265 项按环境跳过。
+- 上传编译兼容：代码 checkpoint `c35b35b` 已推送，但首次体验版 `.34` 在平台上传编译阶段以 `-80054` 拒绝，精确定位 WXS 不支持 `Number(value)`。该失败版本未上传成功、不可测试。新增禁止 `Number/String` 构造调用的回归守卫先失败后通过，改为纯 `typeof` 数值检查；官方编译结果、Mini 12 文件/50 项、根 lint/typecheck/核心门禁随后通过。
+- 当前状态：WXS 子集修正待 checkpoint、重新上传 `.34` 和 ECS 同步。修正 checkpoint 识别消息：`fix(miniprogram): keep matrix WXS in supported syntax`。
 - 下一批次与停止条件：上传新体验版后只请用户重测 C/D 的横向、纵向、冻结层、惯性、进度条、点格和撤销；明确通过前不进入 P2。
 
 ## 2026-08-21 P1 WXS 视图层拖动能力探针（当前批次）

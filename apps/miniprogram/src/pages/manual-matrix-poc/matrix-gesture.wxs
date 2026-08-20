@@ -14,8 +14,8 @@ function clamp(value, minimum, maximum) {
 }
 
 function finiteNumber(value) {
-  var number = Number(value);
-  return number === number ? number : 0;
+  if (typeof value !== 'number') return 0;
+  return value === value ? value : 0;
 }
 
 function firstTouch(event) {
