@@ -11,8 +11,9 @@
 - 界面：移除“快速进入 / 工作入口”整卡，账户设置新增 44px“修改登录密码”。生产 `PasswordChangeDialog` 复用 Storybook 的琥珀安全图标、居中白色圆角面板和双按钮结构，不展示初始密码明文；提醒态可进入编辑或本次登录不再提示，编辑态含当前/新/确认密码、焦点锁定、Esc/背景关闭、回焦和减少动态支持。
 - 验证：定向 8 文件/34 项与日志脱敏 10 项通过；主工作区 128 文件/753 项通过、31 文件/262 项按环境跳过。根 typecheck/build、Web/API/contracts typecheck/build、Storybook build、任务文件 Prettier/ESLint 和 `git diff --check` 通过。既有目录批次仍有 1 项 `package-ecs-release.test.mjs` 期待 40 而实际为 42，根 lint 仍被 `InternalDirectoryView.vue` 两个既有变量遮蔽警告阻断，本轮不混入修复。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在 `AUTH_DEV_MODE=true` / `VITE_AUTH_DEV_MODE=true` 当前源码服务运行，因本机 MySQL 127.0.0.1:3306 拒绝连接而在管理员登录回退 `/login?redirect=/`。Storybook 真实生产组件已验证提醒/编辑两态、390/320px 无横向溢出、输入/按钮/关闭目标均为 44px；个人页显示完整手机号、统计“次”、快速入口 0 个，未输入或提交密码。
-- checkpoint：待提交消息 `feat(auth): add password change and profile security`；只暂存本批次认证、会话、个人页、生产弹窗、测试、状态与调试记录。用户自有小程序配置、`pnpm-workspace.yaml`、旧 Storybook 草稿/生成物、`runtime/`、`src/` 均不纳入。
-- 下一批次与停止条件：只创建并推送上述 checkpoint，基于干净工作树生成 release，创建生产加密备份后部署，运行 `ecs-verify.sh` 与正式域名只读核验；不在浏览器替用户执行最终改密提交。Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，等待用户自行修改密码并复核。
+- checkpoint 与发布：代码 checkpoint `664bc1f`（`feat(auth): add password change and profile security`）已推送。发布前加密数据库备份 archive `e1c4985d-9519-42f1-8847-f1dbe9066c97`（50 表、131794 行、58818808 字节，SHA-256 `b4f59adc7f17864af2c693939890a1d37567a5fe3b866b89347f03389dfbf2c9`）；release `664bc1f8a86ff2c342f7afe09213030ab2ede1cd` 从隔离干净工作树构建并部署，预热首次 502 后自动恢复。
+- 正式核验：`ecs-verify.sh` 通过正式健康、产物哈希、42 条迁移、域名隔离、公开端口、容器和依赖检查；首页与 `/api/health` 为 200，未认证密码状态端点返回 401。正式 Web bundle 精确包含完整手机号个人页、班次“次”、修改登录密码和初始密码提醒，API bundle 包含受保护状态/改密路由。Git `HEAD`、`origin/main`、服务器 release 与清单一致；未登录、未输入或提交密码、未写业务数据。
+- 当前状态与下一批次：已完成实现、推送、生产备份、部署和只读核验 → 待用户复核；只同步最终状态文档 checkpoint 并部署后停止，不替用户执行最终改密提交，也不开始其他修改。
 
 ## 2026-08-20 员工通讯录第二轮增量同步与职务标签（当前批次）
 

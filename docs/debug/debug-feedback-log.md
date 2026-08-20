@@ -9,7 +9,8 @@
 - 实现与语义：初始密码登录响应和恢复状态统一驱动一次登录内提醒；改密事务校验当前密码、生成新随机盐 scrypt 哈希并写无密码内容的审计。错误当前密码不更新；新旧相同拒绝；会话 token、资料、群组和业务权限不变。个人统计改用“次”，辅助请求部分失败不再整体归零；手机号完整展示，快速入口删除。
 - 运行/浏览器验证：`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 启动当前源码后因本机 MySQL 127.0.0.1:3306 不可用，在管理员登录回退 `/login?redirect=/`，未进入产品断言。Storybook 生产提醒/编辑两态在 390×844 实际操作通过，320px/390px 无横向溢出，字段 autocomplete 正确且输入/按钮/关闭触达均 44px；个人页完整手机号、统计“次”、快速入口 0 个。全程未输入或提交密码。
 - 验证：主工作区 128 文件/753 项通过、31 文件/262 项按环境跳过；根 typecheck/build、Web/API/contracts typecheck/build、Storybook build、任务文件 Prettier/ESLint 与 `git diff --check` 通过。仅保留已提交目录批次的迁移计数测试 40→42 未同步和 2 个模板变量遮蔽 lint 警告，不纳入本认证 checkpoint。
-- 状态：已实现待发布；checkpoint 识别消息为 `feat(auth): add password change and profile security`。发布后只读验证端点、bundle 和服务器 release，不替用户执行最终密码修改。
+- 正式发布与核验：checkpoint `664bc1f` 已推送；发布前加密备份 `e1c4985d-9519-42f1-8847-f1dbe9066c97`（50 表、131794 行、58818808 字节，SHA-256 `b4f59adc7f17864af2c693939890a1d37567a5fe3b866b89347f03389dfbf2c9`）后部署 release `664bc1f8a86ff2c342f7afe09213030ab2ede1cd`，预热首次 502 后恢复，`ecs-verify.sh` 通过 42 条迁移。正式首页/API 200，未认证密码状态端点 401，Web/API bundle 命中改密、初始密码提醒和正确统计口径；未登录、未输入或提交密码、未写业务数据。
+- 状态：已完成并发布 → 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record profile password security deployment`。只读验证端点、bundle 和服务器 release，不替用户执行最终密码修改。
 
 ## 2026-08-19 员工通讯录移除 T9、增加工号搜索与电话行修复
 
