@@ -5,6 +5,8 @@ export type EmployeePhoneField = (typeof phoneFields)[number];
 
 export interface EmployeeDirectoryRawRecord {
   readonly crawl_path?: readonly unknown[];
+  readonly employeeCode?: unknown;
+  readonly jobTitle?: unknown;
   readonly 层级?: unknown;
   readonly 姓名?: unknown;
   readonly 移动电话?: unknown;
@@ -20,6 +22,7 @@ export interface CleanEmployeePhone {
 
 export interface CleanEmployeeDirectoryRecord {
   readonly employeeCode?: string;
+  readonly jobTitle?: string;
   readonly name: string;
   readonly level: string;
   readonly levelPath: readonly string[];
@@ -97,6 +100,12 @@ export function cleanEmployeeDirectoryRecords(
       levelPath,
       name,
       phones,
+      ...(normalizeDisplayText(rawRecord.employeeCode).length > 0
+        ? { employeeCode: normalizeDisplayText(rawRecord.employeeCode) }
+        : {}),
+      ...(normalizeDisplayText(rawRecord.jobTitle).length > 0
+        ? { jobTitle: normalizeDisplayText(rawRecord.jobTitle) }
+        : {}),
     };
     const recordKey = JSON.stringify([
       record.name,

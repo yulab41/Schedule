@@ -87,4 +87,17 @@ describe('employee directory cleaner', () => {
       ],
     });
   });
+
+  it('carries a source job title through cleaning', () => {
+    const result = cleanEmployeeDirectoryRecords([
+      {
+        姓名: '李杰',
+        层级: '汕大肿瘤医院/行政后勤类科室/行政领导',
+        jobTitle: '院长',
+        移动电话: '13602790063',
+      },
+    ]);
+
+    expect(result.records[0]).toMatchObject({ name: '李杰', jobTitle: '院长' });
+  });
 });

@@ -33,6 +33,7 @@ import {
   type DirectoryEntryDisplayGroup,
   getDirectoryGroupContexts,
   getDirectoryGroupEmployeeCodes,
+  getDirectoryGroupJobTitles,
   getDirectoryGroupKindLabel,
   getDirectoryGroupNotes,
   getDirectoryGroupTitle,
@@ -590,6 +591,13 @@ async function lookupPreferredEntries(
                   <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
                   <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
                   <span
+                    v-for="title in getDirectoryGroupJobTitles(entryGroup)"
+                    :key="title"
+                    class="entry-job-title"
+                  >
+                    {{ title }}
+                  </span>
+                  <span
                     v-if="getDirectoryGroupEmployeeCodes(entryGroup).length > 0"
                     class="entry-employee-code"
                   >
@@ -743,6 +751,13 @@ async function lookupPreferredEntries(
                   <div class="entry-title-line">
                     <h3>{{ getDirectoryGroupTitle(entryGroup) }}</h3>
                     <span class="entry-kind">{{ getDirectoryGroupKindLabel(entryGroup) }}</span>
+                    <span
+                      v-for="title in getDirectoryGroupJobTitles(entryGroup)"
+                      :key="title"
+                      class="entry-job-title"
+                    >
+                      {{ title }}
+                    </span>
                     <span
                       v-if="getDirectoryGroupEmployeeCodes(entryGroup).length > 0"
                       class="entry-employee-code"
@@ -1326,6 +1341,16 @@ async function lookupPreferredEntries(
   padding: 2px 6px;
   color: var(--ui-color-primary);
   background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: 11px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.entry-job-title {
+  padding: 2px 7px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-pill);
   font-size: 11px;
   font-weight: var(--ui-font-weight-semibold);

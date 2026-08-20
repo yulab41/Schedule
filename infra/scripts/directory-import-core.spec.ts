@@ -62,6 +62,7 @@ function createManifest(): SyntheticManifest {
         department: '测试中心',
         subunit: '综合服务台',
         contactName: '测试总机',
+        jobTitle: '主任',
         building: 'A座',
         floor: '1楼',
         room: '101',
@@ -99,6 +100,7 @@ describe('directory import manifest', () => {
       normalizedInternalExtension: '1000',
     });
     expect(entry?.searchText).toContain('测试中心');
+    expect(entry?.jobTitle).toBe('主任');
     expect(entry?.aliases).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'source', normalizedValue: '测试中心' }),

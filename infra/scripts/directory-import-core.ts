@@ -102,6 +102,7 @@ export interface NormalizedDirectoryEntry {
   readonly department: string | undefined;
   readonly subunit: string | undefined;
   readonly contactName: string | undefined;
+  readonly jobTitle: string | undefined;
   readonly building: string | undefined;
   readonly floor: string | undefined;
   readonly room: string | undefined;
@@ -268,6 +269,7 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
     const department = readOptionalString(entry, 'department', 150, path);
     const subunit = readOptionalString(entry, 'subunit', 150, path);
     const contactName = readOptionalString(entry, 'contactName', 150, path);
+    const jobTitle = readOptionalString(entry, 'jobTitle', 100, path);
     const building = readOptionalString(entry, 'building', 100, path);
     const floor = readOptionalString(entry, 'floor', 64, path);
     const room = readOptionalString(entry, 'room', 100, path);
@@ -337,6 +339,7 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
       department,
       subunit,
       contactName,
+      jobTitle,
       building,
       floor,
       room,
@@ -354,6 +357,7 @@ export function validateDirectoryManifest(input: unknown): NormalizedDirectoryMa
       department,
       subunit,
       contactName,
+      jobTitle,
       building,
       floor,
       room,
@@ -546,6 +550,7 @@ export async function publishDirectorySnapshot(
         departmentName: entry.department ?? null,
         subunitName: entry.subunit ?? null,
         contactName: entry.contactName ?? null,
+        jobTitle: entry.jobTitle ?? null,
         employeeCode: entry.employeeCode ?? null,
         buildingName: entry.building ?? null,
         floorName: entry.floor ?? null,

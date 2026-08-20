@@ -102,3 +102,13 @@ export function getDirectoryGroupEmployeeCodes(
       .filter((value): value is string => value !== undefined && value.length > 0),
   );
 }
+
+export function getDirectoryGroupJobTitles(
+  group: DirectoryEntryDisplayGroup,
+): readonly string[] {
+  return unique(
+    group.entries
+      .map((entry) => entry.jobTitle)
+      .filter((value): value is string => value !== undefined && value.length > 0),
+  );
+}

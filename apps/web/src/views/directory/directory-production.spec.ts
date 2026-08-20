@@ -160,6 +160,13 @@ describe('production hospital directory integration', () => {
     expect(view).not.toContain('T9');
   });
 
+  it('renders employee job-title tags from directory entries', () => {
+    const view = source('./InternalDirectoryView.vue');
+
+    expect(view).toContain('getDirectoryGroupJobTitles(entryGroup)');
+    expect(view).toContain('class="entry-job-title"');
+  });
+
   it('keeps the directory in the full browser smoke journey', () => {
     const smoke = source('../../../../../scripts/smoke-browser.mjs');
 

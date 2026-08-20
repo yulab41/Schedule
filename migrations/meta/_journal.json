@@ -288,6 +288,13 @@
       "when": 1785542400041,
       "tag": "0041_remove_t9_directory_search",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1785542400042,
+      "tag": "0042_directory_job_titles",
+      "breakpoints": true
     }
   ]
 }

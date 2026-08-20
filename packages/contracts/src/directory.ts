@@ -105,6 +105,7 @@ export const directoryEntrySchema = z
     entryKind: directoryEntryKindSchema,
     floor: z.string().min(1).max(64).optional(),
     id: z.string().uuid(),
+    jobTitle: z.string().min(1).max(100).optional(),
     notes: z.string().min(1).max(1000).optional(),
     room: z.string().min(1).max(100).optional(),
     section: z.string().min(1).max(100).optional(),

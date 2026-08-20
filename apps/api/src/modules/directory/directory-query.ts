@@ -178,6 +178,7 @@ async function lookupDirectoryEntries(
       campusDisplayOrder: directoryCampuses.displayOrder,
       campusName: directoryCampuses.name,
       contactName: directoryEntries.contactName,
+      jobTitle: directoryEntries.jobTitle,
       department: directoryEntries.departmentName,
       displayOrder: directoryEntries.displayOrder,
       employeeCode: directoryEntries.employeeCode,
@@ -236,6 +237,7 @@ async function listDirectoryEntries(
       campusDisplayOrder: directoryCampuses.displayOrder,
       campusName: directoryCampuses.name,
       contactName: directoryEntries.contactName,
+      jobTitle: directoryEntries.jobTitle,
       department: directoryEntries.departmentName,
       displayOrder: directoryEntries.displayOrder,
       employeeCode: directoryEntries.employeeCode,
@@ -441,6 +443,7 @@ function toDirectoryEntry(
     readonly campusDialingNote: string | null;
     readonly campusName: string;
     readonly contactName: string | null;
+    readonly jobTitle: string | null;
     readonly department: string | null;
     readonly displayOrder: number;
     readonly employeeCode: string | null;
@@ -462,6 +465,7 @@ function toDirectoryEntry(
       name: row.campusName,
     },
     ...(row.contactName === null ? {} : { contactName: row.contactName }),
+    ...(row.jobTitle === null ? {} : { jobTitle: row.jobTitle }),
     contacts,
     ...(row.department === null ? {} : { department: row.department }),
     displayOrder: row.displayOrder,

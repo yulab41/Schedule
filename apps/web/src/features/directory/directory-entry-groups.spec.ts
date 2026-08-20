@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getDirectoryGroupContexts,
   getDirectoryGroupEmployeeCodes,
+  getDirectoryGroupJobTitles,
   getDirectoryGroupNotes,
   getDirectoryGroupTitle,
   groupDirectoryEntriesByContact,
@@ -132,6 +133,25 @@ describe('directory contact display groups', () => {
     ]);
 
     expect(getDirectoryGroupEmployeeCodes(groups[0]!)).toEqual(['d0001', 'g0002']);
+  });
+
+  it('keeps distinct job titles available on merged display groups', () => {
+    const groups = groupDirectoryEntriesByContact([
+      entry(
+        '20000000-0000-4000-8000-000000000029',
+        '甲处',
+        [contact('10000000-0000-4000-8000-000000000029')],
+        { jobTitle: '主任' },
+      ),
+      entry(
+        '20000000-0000-4000-8000-000000000030',
+        '乙处',
+        [contact('10000000-0000-4000-8000-000000000030')],
+        { jobTitle: '护士长' },
+      ),
+    ]);
+
+    expect(getDirectoryGroupJobTitles(groups[0]!)).toEqual(['主任', '护士长']);
   });
 
   it('treats contact order and formatting as presentation details, not different contact sets', () => {

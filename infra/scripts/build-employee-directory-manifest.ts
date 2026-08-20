@@ -114,6 +114,7 @@ function toManifestEntry(
     ...(path[4] === undefined ? {} : { department: path[4] }),
     ...(path[5] === undefined ? {} : { subunit: path[5] }),
     contactName: record.name,
+    ...(record.jobTitle === undefined ? {} : { jobTitle: record.jobTitle }),
     ...(record.employeeCode === undefined ? {} : { employeeCode: record.employeeCode }),
     entryKind: 'person',
     visibility: 'member',
