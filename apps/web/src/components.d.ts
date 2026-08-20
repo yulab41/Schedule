@@ -14,6 +14,7 @@ declare module 'vue' {
     AppStatePanel: typeof import('./components/AppStatePanel.vue')['default']
     CompactSwitch: typeof import('./components/CompactSwitch.vue')['default']
     DataConflictDialog: typeof import('./components/DataConflictDialog.vue')['default']
+    PasswordChangeDialog: typeof import('./components/PasswordChangeDialog.vue')['default']
     ResponsiveSheet: typeof import('./components/ResponsiveSheet.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

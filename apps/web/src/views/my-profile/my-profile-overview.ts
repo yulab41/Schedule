@@ -16,13 +16,13 @@ export interface MyProfileTrendPoint {
 export interface MyProfileOverview {
   readonly membershipId?: string;
   readonly mobilePhone?: string;
-  readonly monthCount: number;
+  readonly monthCount?: number;
   readonly monthDelta?: number;
   readonly nextDuty?: CalendarDutyAssignment;
   readonly shortPhone?: string;
-  readonly specialDateCount: number;
+  readonly specialDateCount?: number;
   readonly trend: readonly MyProfileTrendPoint[];
-  readonly yearCount: number;
+  readonly yearCount?: number;
 }
 
 export interface BuildMyProfileOverviewInput {
@@ -54,29 +54,28 @@ export function buildMyProfileOverview(input: BuildMyProfileOverviewInput): MyPr
     monthRow?.actualCount,
   );
   const previousCount = trend.at(-2)?.count;
-  const monthCount = monthRow?.actualCount ?? trend.at(-1)?.count ?? 0;
+  const monthCount = monthRow?.actualCount;
   const nextDuty = findNextDuty(input, membershipId);
 
   return {
     membershipId,
     ...(contact?.mobilePhone === undefined ? {} : { mobilePhone: contact.mobilePhone }),
-    monthCount,
-    ...(previousCount === undefined ? {} : { monthDelta: monthCount - previousCount }),
+    ...(monthCount === undefined ? {} : { monthCount }),
+    ...(previousCount === undefined || monthCount === undefined
+      ? {}
+      : { monthDelta: monthCount - previousCount }),
     ...(nextDuty === undefined ? {} : { nextDuty }),
     ...(contact?.shortPhone === undefined ? {} : { shortPhone: contact.shortPhone }),
-    specialDateCount: (monthRow?.weekendCount ?? 0) + (monthRow?.holidayCount ?? 0),
+    ...(monthRow === undefined
+      ? {}
+      : { specialDateCount: monthRow.weekendCount + monthRow.holidayCount }),
     trend,
-    yearCount: yearRow?.actualCount ?? 0,
+    ...(yearRow === undefined ? {} : { yearCount: yearRow.actualCount }),
   };
 }
 
 export function emptyMyProfileOverview(): MyProfileOverview {
-  return {
-    monthCount: 0,
-    specialDateCount: 0,
-    trend: [],
-    yearCount: 0,
-  };
+  return { trend: [] };
 }
 
 function buildTrend(
@@ -85,8 +84,8 @@ function buildTrend(
   businessMonth: string,
   currentMonthCount: number | undefined,
 ): readonly MyProfileTrendPoint[] {
-  if (statistics === undefined && currentMonthCount === undefined) return [];
-  const months = new Map(statistics?.months.map((month) => [month.businessMonth, month]));
+  if (statistics === undefined) return [];
+  const months = new Map(statistics.months.map((month) => [month.businessMonth, month]));
   return [-3, -2, -1, 0].map((offset) => {
     const month = shiftBusinessMonth(businessMonth, offset);
     const statisticsMonth = months.get(month);

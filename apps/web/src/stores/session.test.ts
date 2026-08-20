@@ -29,6 +29,25 @@ describe('session manager', () => {
     expect(manager.status.value).toBe('authenticated');
   });
 
+  it('checks the default-password status when restoring an authenticated session', async () => {
+    const passwordAuth = {
+      changePassword: vi.fn(),
+      getStatus: vi.fn().mockResolvedValue({ hasPassword: true, mustChangePassword: true }),
+      login: vi.fn(),
+      register: vi.fn(),
+    };
+    const manager = createSessionManager({
+      api: createApiClient(),
+      auth: createAuthClient(),
+      passwordAuth,
+    });
+
+    await manager.restore();
+
+    expect(passwordAuth.getStatus).toHaveBeenCalledOnce();
+    expect(manager.passwordReminderVisible.value).toBe(true);
+  });
+
   it('remains anonymous without a confirmed session', async () => {
     const api = createApiClient();
     const auth = createAuthClient({
@@ -82,7 +101,13 @@ describe('session manager', () => {
     const api = createApiClient();
     const auth = createAuthClient();
     const passwordAuth = {
-      login: vi.fn().mockResolvedValue({ isNewUser: false, token: 'password-token' }),
+      changePassword: vi.fn(),
+      getStatus: vi.fn(),
+      login: vi.fn().mockResolvedValue({
+        isNewUser: false,
+        mustChangePassword: true,
+        token: 'password-token',
+      }),
       register: vi.fn(),
     };
     const manager = createSessionManager({ api, auth, passwordAuth });
@@ -95,6 +120,36 @@ describe('session manager', () => {
     });
     expect(auth.setSession).toHaveBeenCalledWith('password-token');
     expect(auth.signInWithPassword).not.toHaveBeenCalled();
+    expect(manager.mustChangePassword.value).toBe(true);
+    expect(manager.passwordReminderVisible.value).toBe(true);
+  });
+
+  it('changes the current password and clears the default-password reminder', async () => {
+    const passwordAuth = {
+      changePassword: vi.fn().mockResolvedValue({ passwordChanged: true }),
+      getStatus: vi.fn(),
+      login: vi.fn().mockResolvedValue({
+        isNewUser: false,
+        mustChangePassword: true,
+        token: 'password-token',
+      }),
+      register: vi.fn(),
+    };
+    const manager = createSessionManager({
+      api: createApiClient(),
+      auth: createAuthClient(),
+      passwordAuth,
+    });
+    await manager.signIn({ password: '123', username: 'linenyu' });
+
+    await manager.changePassword({
+      currentPassword: '123',
+      newPassword: 'changed-password',
+    });
+
+    expect(passwordAuth.changePassword).toHaveBeenCalledOnce();
+    expect(manager.mustChangePassword.value).toBe(false);
+    expect(manager.passwordReminderVisible.value).toBe(false);
   });
 
   it('clears protected state even when sign-out fails', async () => {

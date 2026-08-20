@@ -84,7 +84,7 @@ describe('my profile overview', () => {
 
     expect(overview.membershipId).toBeUndefined();
     expect(overview.mobilePhone).toBeUndefined();
-    expect(overview.monthCount).toBe(0);
+    expect(overview.monthCount).toBeUndefined();
     expect(overview.nextDuty).toBeUndefined();
   });
 });

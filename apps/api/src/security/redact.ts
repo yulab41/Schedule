@@ -3,6 +3,8 @@ export const REDACTED = '[REDACTED]';
 // 日志与安全审计必须共用同一份敏感字段清单，任何一侧新增字段都需要先改这里。
 const sensitiveFieldNames = [
   'password',
+  'currentPassword',
+  'newPassword',
   'token',
   'accessToken',
   'refreshToken',

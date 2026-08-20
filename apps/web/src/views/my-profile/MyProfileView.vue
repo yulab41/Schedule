@@ -1,12 +1,6 @@
 <script setup lang="ts">
 import type { GroupSummary, UserProfile } from '@schedule/contracts';
-import {
-  CalendarIcon,
-  LogoutIcon,
-  NotificationIcon,
-  SwapIcon,
-  TaskTimeIcon,
-} from 'tdesign-icons-vue-next';
+import { LogoutIcon } from 'tdesign-icons-vue-next';
 import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -34,6 +28,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  (event: 'change-password'): void;
   (event: 'navigate', tabId: WorkbenchTabId): void;
   (event: 'sign-out'): void;
 }>();
@@ -57,9 +52,8 @@ const monthDeltaLabel = computed(() => {
   const delta = overview.value.monthDelta;
   if (delta === undefined) return '暂无上月对比';
   if (delta === 0) return '与上月持平';
-  return `较上月 ${delta > 0 ? '+' : ''}${delta} 天`;
+  return `较上月 ${delta > 0 ? '+' : ''}${delta} 次`;
 });
-const maskedMobilePhone = computed(() => maskPhone(overview.value.mobilePhone));
 const nextDutyDateLabel = computed(() =>
   overview.value.nextDuty === undefined
     ? undefined
@@ -99,9 +93,10 @@ async function loadOverview(): Promise<void> {
   const year = Number(businessMonth.slice(0, 4));
 
   try {
-    const [members, contacts, monthStatistics, yearStatistics, currentCalendar, nextCalendar] =
-      await Promise.all([
-        api.listGroupMembers(props.group.id),
+    const members = await api.listGroupMembers(props.group.id);
+    if (requestId !== overviewRequestId) return;
+    const [contacts, monthStatistics, yearStatistics, currentCalendar, nextCalendar] =
+      await Promise.allSettled([
         api.listGroupContacts(props.group.id),
         api.getMonthStatistics(props.group.id, businessMonth),
         api.getYearStatistics(props.group.id, year),
@@ -112,12 +107,20 @@ async function loadOverview(): Promise<void> {
     loadedOverview.value = buildMyProfileOverview({
       businessDate: getBusinessDate(),
       businessMonth,
-      calendars: [currentCalendar, nextCalendar],
-      contacts,
+      calendars: [currentCalendar, nextCalendar].flatMap((result) =>
+        result.status === 'fulfilled' ? [result.value] : [],
+      ),
+      contacts: contacts.status === 'fulfilled' ? contacts.value : [],
       members,
-      monthStatistics,
-      yearStatistics,
+      ...(monthStatistics.status === 'fulfilled' ? { monthStatistics: monthStatistics.value } : {}),
+      ...(yearStatistics.status === 'fulfilled' ? { yearStatistics: yearStatistics.value } : {}),
     });
+    if (monthStatistics.status === 'rejected' && yearStatistics.status === 'rejected') {
+      overviewError.value = toUserMessage(
+        monthStatistics.reason,
+        '个人统计暂时无法加载，请稍后重试。',
+      );
+    }
   } catch (error) {
     if (requestId !== overviewRequestId) return;
     loadedOverview.value = emptyMyProfileOverview();
@@ -132,13 +135,6 @@ function getTrendBarStyle(count: number): Readonly<Record<string, string>> {
   return { height: `${percentage}%` };
 }
 
-function maskPhone(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  const digits = value.replaceAll(/\D/gu, '');
-  if (digits.length < 7) return value;
-  return `${digits.slice(0, 3)} •••• ${digits.slice(-4)}`;
-}
-
 function navigate(tabId: WorkbenchTabId): void {
   emit('navigate', tabId);
 }
@@ -150,7 +146,7 @@ function navigate(tabId: WorkbenchTabId): void {
       <div>
         <p class="profile-eyebrow">个人中心</p>
         <h2 id="my-profile-title">我的</h2>
-        <p class="profile-heading-copy">账户、群组与常用工作入口</p>
+        <p class="profile-heading-copy">账户、值班与安全设置</p>
       </div>
       <div class="profile-heading-avatar" aria-hidden="true">{{ profileInitial }}</div>
     </header>
@@ -189,20 +185,20 @@ function navigate(tabId: WorkbenchTabId): void {
         <div v-else class="profile-stat-list">
           <article class="profile-stat is-primary">
             <span>本月值班</span>
-            <strong>{{ overview.monthCount }}<small>天</small></strong>
+            <strong>{{ overview.monthCount ?? '—' }}<small>次</small></strong>
             <em :class="{ 'is-positive': (overview.monthDelta ?? 0) > 0 }">
               {{ monthDeltaLabel }}
             </em>
           </article>
           <article class="profile-stat">
             <span>年度累计</span>
-            <strong>{{ overview.yearCount }}<small>天</small></strong>
+            <strong>{{ overview.yearCount ?? '—' }}<small>次</small></strong>
             <em>{{ overviewYear }} 年个人值班</em>
           </article>
           <article class="profile-stat">
             <span>特殊日期</span>
-            <strong>{{ overview.specialDateCount }}<small>天</small></strong>
-            <em>本月周末与节假日</em>
+            <strong>{{ overview.specialDateCount ?? '—' }}<small>次</small></strong>
+            <em>本月周末与节假日班次</em>
           </article>
         </div>
       </section>
@@ -263,46 +259,11 @@ function navigate(tabId: WorkbenchTabId): void {
     </template>
 
     <div class="profile-grid">
-      <section
-        v-if="props.group.role !== 'guest'"
-        class="profile-card"
-        aria-labelledby="profile-shortcuts-title"
-      >
-        <div class="profile-card-heading">
-          <div>
-            <p class="profile-eyebrow">快速进入</p>
-            <h3 id="profile-shortcuts-title">工作入口</h3>
-          </div>
-        </div>
-        <div class="profile-shortcuts">
-          <button type="button" class="profile-shortcut" @click="navigate('calendar')">
-            <CalendarIcon aria-hidden="true" />
-            <span><strong>排班日历</strong><small>查看我的排班</small></span>
-            <b aria-hidden="true">›</b>
-          </button>
-          <button type="button" class="profile-shortcut" @click="navigate('leave')">
-            <TaskTimeIcon aria-hidden="true" />
-            <span><strong>请假与审批</strong><small>管理我的申请</small></span>
-            <b aria-hidden="true">›</b>
-          </button>
-          <button type="button" class="profile-shortcut" @click="navigate('swap')">
-            <SwapIcon aria-hidden="true" />
-            <span><strong>换班</strong><small>查看我的申请</small></span>
-            <b aria-hidden="true">›</b>
-          </button>
-          <button type="button" class="profile-shortcut" @click="navigate('notifications')">
-            <NotificationIcon aria-hidden="true" />
-            <span><strong>通知设置</strong><small>管理个人提醒</small></span>
-            <b aria-hidden="true">›</b>
-          </button>
-        </div>
-      </section>
-
       <section class="profile-card" aria-labelledby="profile-account-title">
         <div class="profile-card-heading">
           <div>
-            <p class="profile-eyebrow">账号与群组</p>
-            <h3 id="profile-account-title">账户信息</h3>
+            <p class="profile-eyebrow">账号与安全</p>
+            <h3 id="profile-account-title">账户设置</h3>
           </div>
           <span class="profile-private-note">仅自己可见</span>
         </div>
@@ -319,9 +280,9 @@ function navigate(tabId: WorkbenchTabId): void {
             <dt>群组身份</dt>
             <dd>{{ roleLabel }}</dd>
           </div>
-          <div v-if="maskedMobilePhone !== undefined">
+          <div v-if="overview.mobilePhone !== undefined">
             <dt>手机号</dt>
-            <dd>{{ maskedMobilePhone }}</dd>
+            <dd>{{ overview.mobilePhone }}</dd>
           </div>
           <div v-if="overview.shortPhone !== undefined">
             <dt>短号</dt>
@@ -330,6 +291,18 @@ function navigate(tabId: WorkbenchTabId): void {
           <div>
             <dt>登录状态</dt>
             <dd class="profile-detail-status"><i aria-hidden="true" />已验证</dd>
+          </div>
+          <div>
+            <dt>登录密码</dt>
+            <dd>
+              <button
+                type="button"
+                class="profile-password-action"
+                @click="emit('change-password')"
+              >
+                修改登录密码
+              </button>
+            </dd>
           </div>
         </dl>
       </section>
@@ -359,7 +332,6 @@ function navigate(tabId: WorkbenchTabId): void {
 .profile-next-duty-heading,
 .profile-name-row,
 .profile-status,
-.profile-shortcut,
 .profile-actions {
   display: flex;
   align-items: center;
@@ -754,7 +726,7 @@ function navigate(tabId: WorkbenchTabId): void {
 
 .profile-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  grid-template-columns: 1fr;
   gap: var(--ui-spacing-lg);
 }
 
@@ -778,78 +750,10 @@ function navigate(tabId: WorkbenchTabId): void {
   font-weight: var(--ui-font-weight-regular);
 }
 
-.profile-shortcuts {
-  display: grid;
-  gap: 2px;
-}
-
-.profile-shortcut {
-  width: 100%;
-  min-height: 56px;
-  padding: 8px 4px;
-  gap: 12px;
-  color: var(--ui-color-text-primary);
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--ui-color-border);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  transition: background var(--ui-duration-fast) ease;
-}
-
-.profile-shortcut:last-child {
-  border-bottom: 0;
-}
-
-.profile-shortcut:hover,
-.profile-shortcut:focus-visible {
-  background: var(--ui-color-primary-light);
-}
-
-.profile-shortcut:focus-visible,
-.profile-sign-out:focus-visible {
+.profile-sign-out:focus-visible,
+.profile-password-action:focus-visible {
   outline: 3px solid var(--ui-color-primary-light);
   outline-offset: 2px;
-}
-
-.profile-shortcut > svg {
-  width: 22px;
-  height: 22px;
-  padding: 6px;
-  box-sizing: content-box;
-  color: var(--ui-color-primary);
-  background: var(--ui-color-primary-light);
-  border-radius: 10px;
-}
-
-.profile-shortcut > span {
-  min-width: 0;
-  flex: 1;
-}
-
-.profile-shortcut strong,
-.profile-shortcut small {
-  display: block;
-}
-
-.profile-shortcut strong {
-  font-size: var(--ui-font-size-sm);
-}
-
-.profile-shortcut small {
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-shortcut b {
-  color: var(--ui-color-text-muted);
-  font-size: 24px;
-  font-weight: var(--ui-font-weight-regular);
 }
 
 .profile-details {
@@ -889,6 +793,23 @@ function navigate(tabId: WorkbenchTabId): void {
   align-items: center;
   gap: 6px;
   color: #19724a !important;
+}
+
+.profile-password-action {
+  min-height: var(--ui-touch-target-minimum);
+  padding: 0 12px;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-small);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.profile-password-action:hover {
+  border-color: var(--ui-color-primary);
 }
 
 .profile-actions {
@@ -978,7 +899,6 @@ function navigate(tabId: WorkbenchTabId): void {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .profile-shortcut,
   .profile-pulse-column > i {
     transition: none;
   }

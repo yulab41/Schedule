@@ -35,6 +35,7 @@ import UnifiedDirectoryView from './directory/UnifiedDirectoryView.vue';
 import MyProfileView from './my-profile/MyProfileView.vue';
 
 const emit = defineEmits<{
+  (event: 'change-password'): void;
   (event: 'sign-out'): void;
 }>();
 
@@ -177,6 +178,7 @@ function selectGroupTab(groupId: string | undefined): void {
               <MyProfileView
                 v-if="activeTab === 'profile'"
                 :group="currentGroup()!"
+                @change-password="emit('change-password')"
                 @navigate="activeTab = $event"
                 @sign-out="emit('sign-out')"
               />

@@ -43,6 +43,9 @@ describe('production my profile page', () => {
     expect(view).toContain('值班节奏');
     expect(view).toContain('下一班');
     expect(view).toContain('buildMyProfileOverview');
+    expect(view).toContain('<small>次</small>');
+    expect(view).not.toContain('<small>天</small>');
+    expect(view).not.toContain('maskPhone');
   });
 
   it('keeps mobile entry points and safe account actions explicit', () => {
@@ -54,5 +57,16 @@ describe('production my profile page', () => {
     expect(home).toContain('aria-label="打开我的"');
     expect(nav).toContain('退出登录');
     expect(nav).toContain('item.id === activeTab');
+  });
+
+  it('removes quick-entry cards and exposes password change from account settings', () => {
+    const view = source('./my-profile/MyProfileView.vue');
+    const home = source('./HomeView.vue');
+
+    expect(view).not.toContain('profile-shortcuts');
+    expect(view).not.toContain('工作入口');
+    expect(view).toContain("emit('change-password')");
+    expect(view).toContain('修改登录密码');
+    expect(home).toContain("(event: 'change-password')");
   });
 });

@@ -4,6 +4,7 @@ import { createPasswordAuthClient } from './password-auth.js';
 
 const responseBody = {
   isNewUser: false,
+  mustChangePassword: false,
   token: 'password-session-token',
 };
 
@@ -53,5 +54,41 @@ describe('password auth client', () => {
       message: '该账号已存在，请换一个账号。',
       status: 409,
     });
+  });
+
+  it('uses the active bearer session for password status and password changes', async () => {
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ hasPassword: true, mustChangePassword: true }), {
+          status: 200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ passwordChanged: true }), { status: 200 }),
+      );
+    const auth = {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { access_token: 'active-token' } },
+      }),
+    };
+    const client = createPasswordAuthClient({ auth, fetch: fetchImplementation });
+
+    await expect(client.getStatus()).resolves.toEqual({
+      hasPassword: true,
+      mustChangePassword: true,
+    });
+    await expect(
+      client.changePassword({ currentPassword: '123', newPassword: 'changed-password' }),
+    ).resolves.toEqual({ passwordChanged: true });
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/auth/password',
+      expect.objectContaining({
+        body: JSON.stringify({ currentPassword: '123', newPassword: 'changed-password' }),
+        headers: expect.objectContaining({ Authorization: 'Bearer active-token' }),
+        method: 'PATCH',
+      }),
+    );
   });
 });

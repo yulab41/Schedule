@@ -1,6 +1,11 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 
-import type { PasswordAuthResponse } from '@schedule/contracts';
+import type {
+  PasswordAuthResponse,
+  PasswordChangeRequest,
+  PasswordChangeResponse,
+  PasswordStatusResponse,
+} from '@schedule/contracts';
 import {
   type DatabaseClient,
   userPasswordCredentials,
@@ -13,6 +18,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { createPasswordSessionToken } from '../../adapters/auth/wechat-auth.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 
 const PASSWORD_HASH_ALGORITHM = 'scrypt';
 const SCRYPT_COST = 16_384;
@@ -21,6 +27,7 @@ const SCRYPT_PARALLELIZATION = 1;
 const PASSWORD_HASH_KEY_LENGTH = 64;
 const PASSWORD_HASH_SALT_LENGTH = 16;
 const PASSWORD_HASH_MAX_MEMORY = 32 * 1024 * 1024;
+const DEFAULT_INITIAL_PASSWORD = '123';
 
 export interface PasswordAuthServiceOptions {
   readonly databaseClient: DatabaseClient;
@@ -72,6 +79,7 @@ export class PasswordAuthService {
 
     return {
       isNewUser: true,
+      mustChangePassword: isDefaultPassword(password),
       profile: undefined,
       token: createPasswordSessionToken(
         { sub: userId, username: normalizedUsername },
@@ -105,12 +113,86 @@ export class PasswordAuthService {
 
     return {
       isNewUser: false,
+      mustChangePassword: isDefaultPassword(password),
       profile: await this.findProfile(credential.userId),
       token: createPasswordSessionToken(
         { sub: credential.userId, username: normalizedUsername },
         this.sessionSecret,
       ),
     };
+  }
+
+  public async getStatus(identity: AuthenticatedIdentity): Promise<PasswordStatusResponse> {
+    const [credential] = await this.databaseClient.database
+      .select({ passwordHash: userPasswordCredentials.passwordHash })
+      .from(userPasswordCredentials)
+      .innerJoin(users, eq(users.id, userPasswordCredentials.userId))
+      .where(
+        and(
+          eq(users.cloudbaseUid, identity.cloudbaseUid),
+          eq(users.status, 'active'),
+          isNull(users.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return credential === undefined
+      ? { hasPassword: false, mustChangePassword: false }
+      : {
+          hasPassword: true,
+          mustChangePassword: await verifyPassword(
+            DEFAULT_INITIAL_PASSWORD,
+            credential.passwordHash,
+          ),
+        };
+  }
+
+  public async changePassword(
+    identity: AuthenticatedIdentity,
+    input: PasswordChangeRequest,
+  ): Promise<PasswordChangeResponse> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const [credential] = await transaction
+        .select({
+          passwordHash: userPasswordCredentials.passwordHash,
+          userId: users.id,
+        })
+        .from(userPasswordCredentials)
+        .innerJoin(users, eq(users.id, userPasswordCredentials.userId))
+        .where(
+          and(
+            eq(users.cloudbaseUid, identity.cloudbaseUid),
+            eq(users.status, 'active'),
+            isNull(users.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+
+      if (credential === undefined) {
+        throw passwordChangeUnavailableError();
+      }
+      if (!(await verifyPassword(input.currentPassword, credential.passwordHash))) {
+        throw invalidCurrentPasswordError();
+      }
+
+      const passwordHash = await hashPassword(input.newPassword);
+      await transaction
+        .update(userPasswordCredentials)
+        .set({ passwordHash })
+        .where(eq(userPasswordCredentials.userId, credential.userId));
+      await this.auditWriter.append(transaction, {
+        action: 'password_changed',
+        actorUserId: credential.userId,
+        metadata: { loginChannel: PASSWORD_HASH_ALGORITHM },
+        operationId: randomUUID(),
+        outcome: 'completed',
+        targetId: credential.userId,
+        targetType: 'user',
+      });
+
+      return { passwordChanged: true };
+    });
   }
 
   private async findProfile(userId: string): Promise<PasswordAuthResponse['profile']> {
@@ -132,6 +214,10 @@ export class PasswordAuthService {
 
 export function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
+}
+
+export function isDefaultPassword(password: string): boolean {
+  return password === DEFAULT_INITIAL_PASSWORD;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -240,5 +326,21 @@ function invalidCredentialsError(): ApiError {
     code: 'AUTHENTICATION_REQUIRED',
     statusCode: 401,
     userMessage: '账号或密码不正确，请重试。',
+  });
+}
+
+function invalidCurrentPasswordError(): ApiError {
+  return new ApiError({
+    code: 'VALIDATION_FAILED',
+    statusCode: 400,
+    userMessage: '当前密码不正确，请重新输入。',
+  });
+}
+
+function passwordChangeUnavailableError(): ApiError {
+  return new ApiError({
+    code: 'FORBIDDEN',
+    statusCode: 403,
+    userMessage: '当前登录方式不支持修改密码。',
   });
 }

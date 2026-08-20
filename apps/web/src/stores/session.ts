@@ -27,12 +27,17 @@ export interface SessionDependencies {
 
 export function createSessionManager(dependencies: SessionDependencies) {
   const errorMessage = ref<string | undefined>();
+  const mustChangePassword = ref(false);
+  const passwordReminderDismissed = ref(false);
   const profile = ref<UserProfile | undefined>();
   const status = ref<SessionStatus>('loading');
   let restorePromise: Promise<void> | undefined;
 
   const isAuthenticated = computed(() => status.value === 'authenticated');
   const needsProfile = computed(() => status.value === 'needs-profile');
+  const passwordReminderVisible = computed(
+    () => mustChangePassword.value && !passwordReminderDismissed.value,
+  );
 
   async function restore(): Promise<void> {
     if (restorePromise !== undefined) {
@@ -71,6 +76,8 @@ export function createSessionManager(dependencies: SessionDependencies) {
         throw new SessionError('登录状态未能建立，请重试。');
       }
       dependencies.auth.setSession(result.token);
+      mustChangePassword.value = result.mustChangePassword;
+      passwordReminderDismissed.value = false;
     } catch (error) {
       if (isMissingSessionError(error)) {
         throw new SessionError('账号或密码不正确，请重试。');
@@ -102,6 +109,8 @@ export function createSessionManager(dependencies: SessionDependencies) {
       throw new SessionError('登录状态未能建立，请重试。');
     }
     dependencies.auth.setSession(result.token);
+    mustChangePassword.value = result.mustChangePassword;
+    passwordReminderDismissed.value = false;
     await loadProfile();
   }
 
@@ -118,6 +127,25 @@ export function createSessionManager(dependencies: SessionDependencies) {
     }
     dependencies.auth.setSession(accessToken);
     await loadProfile();
+    await refreshPasswordStatus();
+  }
+
+  async function changePassword(input: {
+    readonly currentPassword: string;
+    readonly newPassword: string;
+  }): Promise<void> {
+    clearError();
+    const client = dependencies.passwordAuth;
+    if (client === undefined) {
+      throw new SessionError('当前登录方式不支持修改密码。');
+    }
+    await client.changePassword(input);
+    mustChangePassword.value = false;
+    passwordReminderDismissed.value = true;
+  }
+
+  function dismissPasswordReminder(): void {
+    passwordReminderDismissed.value = true;
   }
 
   async function completeProfile(realName: string): Promise<void> {
@@ -162,6 +190,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
       }
 
       await loadProfile();
+      await refreshPasswordStatus();
     } catch (error) {
       if (isMissingSessionError(error)) {
         clearSession();
@@ -197,6 +226,21 @@ export function createSessionManager(dependencies: SessionDependencies) {
     }
   }
 
+  async function refreshPasswordStatus(): Promise<void> {
+    const getStatus = dependencies.passwordAuth?.getStatus;
+    if (getStatus === undefined) {
+      mustChangePassword.value = false;
+      return;
+    }
+    try {
+      const passwordStatus = await getStatus.call(dependencies.passwordAuth);
+      mustChangePassword.value = passwordStatus.mustChangePassword;
+      passwordReminderDismissed.value = false;
+    } catch {
+      mustChangePassword.value = false;
+    }
+  }
+
   function handleSessionError(
     error: unknown,
     fallbackStatus: Exclude<SessionStatus, 'anonymous'> = 'error',
@@ -212,6 +256,8 @@ export function createSessionManager(dependencies: SessionDependencies) {
   }
 
   function clearSession(): void {
+    mustChangePassword.value = false;
+    passwordReminderDismissed.value = false;
     profile.value = undefined;
     status.value = 'anonymous';
   }
@@ -221,11 +267,15 @@ export function createSessionManager(dependencies: SessionDependencies) {
   }
 
   return {
+    changePassword,
     completeProfile,
+    dismissPasswordReminder,
     errorMessage,
     isAuthenticated,
+    mustChangePassword,
     needsProfile,
     profile,
+    passwordReminderVisible,
     restore,
     signInDev,
     signInToken,
@@ -264,9 +314,16 @@ function isMissingSessionError(error: unknown): boolean {
 
 function createLegacyPasswordAuth(auth: AuthClient): PasswordAuthClient {
   return {
+    changePassword() {
+      return Promise.reject(new SessionError('当前登录方式不支持修改密码。'));
+    },
+    getStatus() {
+      return Promise.resolve({ hasPassword: false, mustChangePassword: false });
+    },
     login(input) {
       return auth.signInWithPassword(input).then((result) => ({
         isNewUser: false,
+        mustChangePassword: false,
         profile: undefined,
         token: result.data?.session?.access_token ?? '',
       }));

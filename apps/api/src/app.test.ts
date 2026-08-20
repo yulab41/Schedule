@@ -181,6 +181,8 @@ describe('API runtime', () => {
     app.log.info(
       {
         accessToken: 'token-value',
+        currentPassword: 'current-password-value',
+        newPassword: 'new-password-value',
         password: 'password-value',
         phoneNumber: '13800138000',
         telephone: '010-12345678',
@@ -229,6 +231,8 @@ describe('API runtime', () => {
     expect(output).toContain('[REDACTED]');
     expect(output).not.toContain('token-value');
     expect(output).not.toContain('password-value');
+    expect(output).not.toContain('current-password-value');
+    expect(output).not.toContain('new-password-value');
     expect(output).not.toContain('13800138000');
     expect(output).not.toContain('010-12345678');
     expect(output).not.toContain('deep-password-value');
