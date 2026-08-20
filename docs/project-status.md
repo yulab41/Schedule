@@ -9,7 +9,9 @@
 - 测试先行：新契约在旧实现上 5 项失败，要求矩阵内部没有 `scroll-view/native-view`，普通视图上的一个 Pan Worklet 直接维护 X/Y，日期绑定 X、人员绑定 Y、主体绑定 X/Y，横向/纵向 ACTIVE 均不 `setData`，结束后才提交提示状态。
 - 实现：7×7/20×30 共用同一四层长期节点；2px/1.2 倍方向门槛与单手势轴锁保持，横纵边界分别由 maxX/maxY SharedValue 约束，两个方向松手均使用 `decay`。现有 390px 高度、单元格、班种、点格、撤销和视觉令牌不变。
 - 验证：失败测试已转绿；定向 9/9、小程序 10 文件/42 项、typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（5 个源码/产物 Worklet、110179 bytes，manifest `4866b63ce963dca6b583537e6b8a634bbea6c02a8cfe8de5db2e361136c92a18`）。任务文件 Prettier/ESLint、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 和既有过期迁移计数测试后的当前源码 129 文件/757 项通过、31 文件/262 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；原生效果仍必须由用户重新复测 C/D。checkpoint 识别消息：`fix(miniprogram): use four-layer worklet matrix engine`。
+- 发布：代码 checkpoint `6cdb9aa`（`fix(miniprogram): use four-layer worklet matrix engine`）已推送；微信体验版 `0.1.0-p1.20260820.24` 上传成功（48 个代码文件、34652 bytes，manifest `b0603cd75a93d9ee9f8db3d758e12b5b1e39d9139882b0ff2fc57c644426c216`）。ECS 发布前加密备份 archive `74d98de0-50a5-4b34-a4d8-60cb9c22d9c4`（50 表、157653 行、70949080 bytes，SHA-256 `f7536d84b782d58fb610a834c6200e7cf4181f328ecdd7f3ff8d678b143a6968`）；release `6cdb9aa45e864497a4ce178f731287ebfb4296aa` 已部署，预热首次 502 后恢复。
+- 线上验证：`ecs-verify.sh` 通过生产健康、产物哈希、42 条迁移、域名隔离、监听端口、容器和依赖检查；`current-release`、部署清单与 Git checkpoint 精确一致，正式域名 `/api/health` 返回 200，未写业务数据。
+- 当前状态：已实现并发布 → 待用户比较新 `.24`/最终收口体验版与旧 `.23`，重新复测 C/D；本状态收口 checkpoint 推送、微信体验上传和 ECS 同步后停止。
 - 下一批次与停止条件：只完成四层引擎发布并请用户复测；未明确通过前不进入 P2，也不删除 `.23` 回退记录。
 
 ## 2026-08-20 P1 Android 单一原生滚动代理（当前批次）
