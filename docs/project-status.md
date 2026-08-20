@@ -9,8 +9,9 @@
 - 设计与实现：新增无运行时依赖的 `WorkbenchNavIcon`，用 24×24、2px 圆端单色线条覆盖 14 个业务入口及“更多 / 退出”。日历勾选、通讯录人物进入、历史回拨、换班双箭头、通知摆铃、统计趋势绘制等均按图标定义使用独立 CSS 循环；只有当前目的地持续播放，非当前项与退出保持静态，移动次级页面由“更多”承接当前态。系统减少动态偏好会停用动画。
 - 来源与许可：几何以 Lucide ISC（含 Feather MIT 派生声明）为基线，动效参考 `pqoqubbw/icons` MIT；未新增动画包或第三方运行时。来源选择、未选方案和完整许可文本已保存于 `apps/web/docs/`。
 - 语义等价审计：`select` / `sign-out` 仍各发出一次，抽屉仍在选择或退出时关闭；桌面/移动数组、接收者绑定、异步与错误路径、空值、权限和业务副作用不变。行为变化仅为当前导航图标的视觉循环及 SVG 几何。
-- 验证：当前主工作区排除用户自有 `runtime/**` / `src/**` 后 136 文件/770 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck/production build、完整 Storybook build、任务文件 Prettier/ESLint、导航定向测试、`smoke:check-core` 与 `git diff --check` 均通过。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已在当前源码服务运行，但本机 MySQL `127.0.0.1:3306` 拒绝连接，管理员登录回退 `/login?redirect=/`，失败发生在导航产品断言前；已确认的 Storybook 视觉稿与生产故事均由同一生产组件渲染。
-- 当前状态：已实现待 checkpoint 与生产发布。checkpoint 识别消息：`feat(web): add animated minimal navigation icons`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 验证：当前主工作区排除用户自有 `runtime/**` / `src/**` 后 137 文件/774 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck/production build、完整 Storybook build、任务文件 Prettier/ESLint、导航定向测试、`smoke:check-core` 与 `git diff --check` 均通过。`运行/浏览器验证：pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已在当前源码服务运行，但本机 MySQL `127.0.0.1:3306` 拒绝连接，管理员登录回退 `/login?redirect=/`，失败发生在导航产品断言前；已确认的 Storybook 视觉稿与生产故事均由同一生产组件渲染。
+- 发布门禁修正：发布前 `ecs-verify.sh` 对现行 `a43618a` release 首次出现 API 目录哈希假失败；从 release 压缩包解出后逐文件 `diff` 为 0。`git log -S` / `git blame` 定位 `5f2bb8b`/`33eb489f` 引入的全路径排序与打包器逐目录深度优先排序不等价。同序断言在旧脚本上先失败；验证器改为逐层 sibling 排序递归后测试 3/3、服务器 `bash -n` 与现行 release 完整 `ecs-verify.sh` 通过，健康、产物哈希、域名隔离、容器和 43 条迁移均正常。修正 checkpoint 识别消息：`fix(infra): align release tree verification order`。
+- 当前状态：导航代码 checkpoint `5b9542a`（`feat(web): add animated minimal navigation icons`）已推送；验证器修正待 checkpoint 后一并生产发布。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
 - 下一批次与停止条件：只提交并推送本 checkpoint；生产数据库加密备份后从干净 worktree 部署，运行 `ecs-verify.sh` 与正式域名只读核验，再同步最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致后停止并等待用户复核。
 
 ## 2026-08-20 护士多班种日历偏好与分组详情（当前批次）

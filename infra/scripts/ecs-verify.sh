@@ -14,14 +14,31 @@ manifest_value() {
     "$DEPLOY_DIR/deploy-manifest.json" | head -1
 }
 
+tree_sha256_entries() {
+  local root="$1"
+  local root_prefix="$2"
+  local relative_root="$3"
+  local current_root="$root"
+  if [ -n "$relative_root" ]; then
+    current_root="$root/$relative_root"
+  fi
+
+  while IFS= read -r -d '' entry_name; do
+    local relative_path="${relative_root:+$relative_root/}$entry_name"
+    if [ -d "$root/$relative_path" ]; then
+      tree_sha256_entries "$root" "$root_prefix" "$relative_path"
+    elif [ -f "$root/$relative_path" ]; then
+      local file_hash
+      file_hash="$(sha256sum "$root/$relative_path" | awk '{print $1}')"
+      printf '%s\0%s\0' "$root_prefix/$relative_path" "$file_hash"
+    fi
+  done < <(LC_ALL=C find "$current_root" -mindepth 1 -maxdepth 1 -printf '%f\0' | LC_ALL=C sort -z)
+}
+
 tree_sha256() {
   local root="$1"
   local root_prefix="${root#"$DEPLOY_DIR/"}"
-  LC_ALL=C find "$root" -type f -printf '%P\0' | LC_ALL=C sort -z | while IFS= read -r -d '' relative_path; do
-    local file_hash
-    file_hash="$(sha256sum "$root/$relative_path" | awk '{print $1}')"
-    printf '%s\0%s\0' "$root_prefix/$relative_path" "$file_hash"
-  done | sha256sum | awk '{print $1}'
+  tree_sha256_entries "$root" "$root_prefix" '' | sha256sum | awk '{print $1}'
 }
 
 compose() {

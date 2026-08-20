@@ -29,4 +29,11 @@ describe('ECS directory import runtime packaging', () => {
     expect(verifySource).toContain('$DEPLOY_DIR/infra/scripts/dist');
     expect(verifySource).toContain("grep -qx '43'");
   });
+
+  it('hashes release trees in the same sibling-sorted recursive order as the packager', () => {
+    expect(packageSource).toContain('for (const child of fs.readdirSync(currentPath).sort())');
+    expect(verifySource).toContain('tree_sha256_entries()');
+    expect(verifySource).toContain(`find "$current_root" -mindepth 1 -maxdepth 1 -printf '%f\\0'`);
+    expect(verifySource).not.toContain(`find "$root" -type f -printf '%P\\0' | LC_ALL=C sort -z`);
+  });
 });
