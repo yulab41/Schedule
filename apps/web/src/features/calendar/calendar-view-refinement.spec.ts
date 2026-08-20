@@ -238,7 +238,9 @@ describe('formal calendar view refinement', () => {
     expect(dutyCell).toContain(':href="buildDialLink(option.number)"');
     expect(dutyCell).not.toContain('isCoarsePointer');
     expect(dutyCell).not.toContain('@click="copyNumber(option.number)"');
-    expect(selectedDateDetails).toContain('v-for="option in row.phoneOptions"');
+    expect(selectedDateDetails).toContain(
+      'v-for="option in orderedPhoneOptions(row.phoneOptions)"',
+    );
     expect(selectedDateDetails).not.toContain('@click="copyNumber(option.number)"');
   });
 });

@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { DissolvedGroup, GroupCatalogEntry, GroupSummary } from '@schedule/contracts';
+import type {
+  CalendarPreferences,
+  CalendarPreferenceView,
+  DissolvedGroup,
+  GroupCatalogEntry,
+  GroupSummary,
+} from '@schedule/contracts';
 import { computed, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -40,6 +46,23 @@ const isDissolving = ref(false);
 const isRestoring = ref(false);
 const leaveConfirmVisible = ref(false);
 const dissolveConfirmVisible = ref(false);
+const calendarPreferences = ref<CalendarPreferences>();
+const calendarShiftOptions = ref<readonly { label: string; value: string }[]>([]);
+const groupCalendarView = ref<CalendarPreferenceView>('month');
+const groupMonthShiftTypeId = ref('');
+const memberCalendarView = ref<CalendarPreferenceView | 'follow'>('follow');
+const memberMonthShiftTypeId = ref('');
+const isSavingGroupCalendarDefaults = ref(false);
+const isSavingMemberCalendarPreferences = ref(false);
+
+const calendarViewOptions: readonly {
+  readonly label: string;
+  readonly value: CalendarPreferenceView;
+}[] = [
+  { label: '月视图', value: 'month' },
+  { label: '周视图', value: 'week' },
+  { label: '列表视图', value: 'list' },
+];
 
 const parsedRosterNames = computed(() => parseRosterNames(rosterNames.value));
 const catalogOptions = computed(() =>
@@ -57,6 +80,7 @@ watch(
     groupName.value = props.group?.name ?? '';
     editedGroupCode.value = props.group?.groupCode ?? '';
     void loadDissolved();
+    void loadCalendarPreferences();
   },
   { immediate: true },
 );
@@ -82,6 +106,80 @@ async function loadDissolved(): Promise<void> {
     dissolvedGroups.value = await api.listDissolvedGroups();
   } catch {
     dissolvedGroups.value = [];
+  }
+}
+
+async function loadCalendarPreferences(): Promise<void> {
+  const groupId = props.group?.id;
+  calendarPreferences.value = undefined;
+  calendarShiftOptions.value = [];
+  if (groupId === undefined || props.group?.role === 'guest') return;
+
+  try {
+    const [preferences, config] = await Promise.all([
+      api.getCalendarPreferences(groupId),
+      api.getSchedulingConfig(groupId),
+    ]);
+    if (props.group?.id !== groupId) return;
+    calendarShiftOptions.value = config.shiftTypes
+      .filter((shiftType) => shiftType.isEnabled)
+      .map((shiftType) => ({
+        label: `${shiftType.name}（${shiftType.abbreviation}）`,
+        value: shiftType.id,
+      }));
+    applyCalendarPreferences(preferences);
+  } catch (error) {
+    if (props.group?.id === groupId) {
+      errorMessage.value = toUserMessage(error, '日历偏好暂时无法加载，请稍后重试。');
+    }
+  }
+}
+
+function applyCalendarPreferences(preferences: CalendarPreferences): void {
+  calendarPreferences.value = preferences;
+  groupCalendarView.value = preferences.groupDefaultView;
+  groupMonthShiftTypeId.value = preferences.groupDefaultMonthShiftTypeId ?? '';
+  memberCalendarView.value = preferences.memberDefaultView ?? 'follow';
+  memberMonthShiftTypeId.value = preferences.memberDefaultMonthShiftTypeId ?? '';
+}
+
+async function saveGroupCalendarDefaults(): Promise<void> {
+  if (props.group === undefined || calendarPreferences.value?.canManageGroupDefaults !== true) {
+    return;
+  }
+  resetMessages();
+  isSavingGroupCalendarDefaults.value = true;
+  try {
+    applyCalendarPreferences(
+      await api.updateGroupCalendarDefaults(props.group.id, {
+        defaultMonthShiftTypeId: groupMonthShiftTypeId.value || null,
+        defaultView: groupCalendarView.value,
+      }),
+    );
+    infoMessage.value = '群组日历默认设置已保存。';
+  } catch (error) {
+    errorMessage.value = toUserMessage(error, '群组日历默认设置未保存，请稍后重试。');
+  } finally {
+    isSavingGroupCalendarDefaults.value = false;
+  }
+}
+
+async function saveMyCalendarPreferences(): Promise<void> {
+  if (props.group === undefined || calendarPreferences.value === undefined) return;
+  resetMessages();
+  isSavingMemberCalendarPreferences.value = true;
+  try {
+    applyCalendarPreferences(
+      await api.updateMyCalendarPreferences(props.group.id, {
+        defaultMonthShiftTypeId: memberMonthShiftTypeId.value || null,
+        defaultView: memberCalendarView.value === 'follow' ? null : memberCalendarView.value,
+      }),
+    );
+    infoMessage.value = '我的日历偏好已保存。';
+  } catch (error) {
+    errorMessage.value = toUserMessage(error, '我的日历偏好未保存，请稍后重试。');
+  } finally {
+    isSavingMemberCalendarPreferences.value = false;
   }
 }
 
@@ -323,6 +421,104 @@ function resetMessages(): void {
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
 
     <div class="group-card-grid">
+      <t-card
+        v-if="calendarPreferences !== undefined"
+        title="日历偏好"
+        class="group-card calendar-preferences-card"
+      >
+        <div class="calendar-preference-sections">
+          <section
+            v-if="calendarPreferences.canManageGroupDefaults"
+            class="calendar-preference-section"
+          >
+            <header>
+              <div>
+                <strong>群组日历默认设置</strong>
+                <span>决定成员首次打开排班日历时看到的视图。</span>
+              </div>
+              <span class="preference-scope">群组默认</span>
+            </header>
+            <div class="calendar-view-segment" role="radiogroup" aria-label="群组默认视图">
+              <button
+                v-for="option in calendarViewOptions"
+                :key="option.value"
+                type="button"
+                role="radio"
+                :aria-checked="groupCalendarView === option.value"
+                :class="{ 'is-active': groupCalendarView === option.value }"
+                @click="groupCalendarView = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <label class="calendar-shift-setting">
+              <span>月视图默认班种</span>
+              <t-select
+                v-model="groupMonthShiftTypeId"
+                :options="[{ label: '自动选择首个启用班种', value: '' }, ...calendarShiftOptions]"
+              />
+            </label>
+            <t-button
+              theme="primary"
+              :loading="isSavingGroupCalendarDefaults"
+              @click="saveGroupCalendarDefaults"
+            >
+              保存群组默认
+            </t-button>
+          </section>
+
+          <section class="calendar-preference-section">
+            <header>
+              <div>
+                <strong>我的日历偏好</strong>
+                <span>个人设置优先；选择跟随群组可自动接收管理员调整。</span>
+              </div>
+              <span class="preference-scope is-personal">仅自己</span>
+            </header>
+            <div
+              class="calendar-view-segment is-personal"
+              role="radiogroup"
+              aria-label="我的默认视图"
+            >
+              <button
+                type="button"
+                role="radio"
+                :aria-checked="memberCalendarView === 'follow'"
+                :class="{ 'is-active': memberCalendarView === 'follow' }"
+                @click="memberCalendarView = 'follow'"
+              >
+                跟随群组
+              </button>
+              <button
+                v-for="option in calendarViewOptions"
+                :key="option.value"
+                type="button"
+                role="radio"
+                :aria-checked="memberCalendarView === option.value"
+                :class="{ 'is-active': memberCalendarView === option.value }"
+                @click="memberCalendarView = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <label class="calendar-shift-setting">
+              <span>月视图默认班种</span>
+              <t-select
+                v-model="memberMonthShiftTypeId"
+                :options="[{ label: '跟随群组', value: '' }, ...calendarShiftOptions]"
+              />
+            </label>
+            <t-button
+              theme="primary"
+              :loading="isSavingMemberCalendarPreferences"
+              @click="saveMyCalendarPreferences"
+            >
+              保存我的偏好
+            </t-button>
+          </section>
+        </div>
+      </t-card>
+
       <t-card
         v-if="props.group !== undefined"
         title="当前群组操作"
@@ -604,9 +800,111 @@ function resetMessages(): void {
 }
 
 .current-group-card,
+.calendar-preferences-card,
 .created-roster-card,
 .dissolved-groups-card {
   grid-column: 1 / -1;
+}
+
+.calendar-preference-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-spacing-md);
+}
+
+.calendar-preference-section {
+  display: grid;
+  min-width: 0;
+  padding: var(--ui-spacing-md);
+  align-content: start;
+  gap: var(--ui-spacing-sm);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.calendar-preference-section > header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-spacing-sm);
+}
+
+.calendar-preference-section > header > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.calendar-preference-section > header strong {
+  font-size: var(--ui-font-size-md);
+}
+
+.calendar-preference-section > header div > span,
+.calendar-shift-setting > span {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.preference-scope {
+  padding: 3px 8px;
+  flex: 0 0 auto;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.preference-scope.is-personal {
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+}
+
+.calendar-view-segment {
+  display: grid;
+  padding: 3px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  background: var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.calendar-view-segment.is-personal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.calendar-view-segment button {
+  min-height: var(--ui-touch-target-minimum);
+  padding: 6px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--ui-radius-small);
+  cursor: pointer;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.calendar-view-segment button.is-active {
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.calendar-view-segment button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.calendar-shift-setting {
+  display: grid;
+  gap: var(--ui-spacing-xxs);
+}
+
+.calendar-preference-section > :deep(.t-button) {
+  min-height: var(--ui-touch-target-minimum);
 }
 
 .group-card :deep(.t-card__header) {
@@ -728,9 +1026,14 @@ function resetMessages(): void {
   }
 
   .current-group-card,
+  .calendar-preferences-card,
   .created-roster-card,
   .dissolved-groups-card {
     grid-column: auto;
+  }
+
+  .calendar-preference-sections {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .group-card :deep(.t-card__body) {

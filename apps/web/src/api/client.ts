@@ -12,6 +12,7 @@ import type {
   ApplyManualScheduleTemplateRequest,
   ApproveLeaveRequestInput,
   ApprovedLeaveRequestResult,
+  CalendarPreferences,
   CalendarReadModel,
   ClaimGroupResponse,
   CreatePastScheduleAssignmentInput,
@@ -80,6 +81,7 @@ import type {
   RejectLeaveRequestInput,
   ReorderRotationMembersRequest,
   UpdateGroupCodeRequest,
+  UpdateGroupCalendarDefaults,
   ReplaceScheduleRoleMembersRequest,
   RevokeDutyAdjustmentInput,
   ScheduleRole,
@@ -112,6 +114,7 @@ import type {
   UpdateGroupLeaveReflowStrategyInput,
   UpdateGroupSwapSettingsInput,
   UpdateMemberSwapSettingsInput,
+  UpdateMemberCalendarPreferences,
   UpdateShiftTypeRequest,
   UserProfile,
   VisitorAccessLogPage,
@@ -123,6 +126,7 @@ import {
   apiErrorCodes,
   appliedManualScheduleTemplateResultSchema,
   approvedLeaveRequestResultSchema,
+  calendarPreferencesSchema,
   calendarReadModelSchema,
   claimGroupResponseSchema,
   convertPendingRosterResponseSchema,
@@ -313,6 +317,7 @@ export interface ApiClient {
   deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
   deleteShiftType(groupId: string, shiftTypeId: string): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
+  getCalendarPreferences(groupId: string): Promise<CalendarPreferences>;
   getGuestGroupCalendarByVisitorKey(
     groupId: string,
     visitorKey: string,
@@ -434,6 +439,10 @@ export interface ApiClient {
     input: PreviewManualTemplateApplyRequest,
   ): Promise<ManualApplyPreview>;
   updateGroupCode(groupId: string, input: UpdateGroupCodeRequest): Promise<GroupSummary>;
+  updateGroupCalendarDefaults(
+    groupId: string,
+    input: UpdateGroupCalendarDefaults,
+  ): Promise<CalendarPreferences>;
   rejectLeaveRequest(
     groupId: string,
     leaveRequestId: string,
@@ -524,6 +533,10 @@ export interface ApiClient {
     groupId: string,
     input: UpdateMemberSwapSettingsInput,
   ): Promise<MemberSwapSettings>;
+  updateMyCalendarPreferences(
+    groupId: string,
+    input: UpdateMemberCalendarPreferences,
+  ): Promise<CalendarPreferences>;
   updateRotationRule(
     groupId: string,
     roleId: string,
@@ -1182,6 +1195,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
         { method: 'GET' },
         isResponseBodyFromSchema(calendarReadModelSchema),
+      );
+    },
+    getCalendarPreferences(groupId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/calendar-preferences`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(calendarPreferencesSchema),
       );
     },
     getGuestGroupCalendarByVisitorKey(groupId, visitorKey, businessMonth) {
@@ -1929,6 +1952,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isResponseBodyFromSchema(groupSummarySchema),
       );
     },
+    updateGroupCalendarDefaults(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/calendar-settings`,
+        { body: JSON.stringify(input), method: 'PUT' },
+        isResponseBodyFromSchema(calendarPreferencesSchema),
+      );
+    },
     rejectLeaveRequest(groupId, leaveRequestId, input) {
       return requestJson(
         options.auth,
@@ -2158,6 +2191,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'PUT',
         },
         isResponseBodyFromSchema(memberSwapSettingsSchema),
+      );
+    },
+    updateMyCalendarPreferences(groupId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/calendar-preferences/mine`,
+        { body: JSON.stringify(input), method: 'PUT' },
+        isResponseBodyFromSchema(calendarPreferencesSchema),
       );
     },
     updateRotationRule(groupId, roleId, input) {

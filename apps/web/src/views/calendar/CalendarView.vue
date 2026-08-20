@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type {
   CalendarDutyAssignment,
+  CalendarPreferences,
   CalendarReadModel,
   ConfirmedHolidayDate,
   GroupSummary,
@@ -57,6 +58,7 @@ const props = defineProps<{
 const api = createApiClient({ auth: localAuth });
 const businessMonth = ref(getCurrentBusinessMonth());
 const calendar = shallowRef<CalendarReadModel>();
+const calendarPreferences = shallowRef<CalendarPreferences>();
 const holidays = shallowRef<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
 const errorMessage = ref<string>();
 const conflictMessage = ref('');
@@ -118,6 +120,22 @@ const visibleAssignments = computed(() =>
     shiftTypeIds: shiftTypeIds.value,
   }),
 );
+const effectiveMonthShiftTypeId = computed(() => {
+  const shiftTypes = calendar.value?.shiftTypes ?? [];
+  const preferredId = calendarPreferences.value?.effectiveMonthShiftTypeId;
+  if (preferredId !== null && preferredId !== undefined) {
+    const preferred = shiftTypes.find((shiftType) => shiftType.id === preferredId);
+    if (preferred !== undefined) return preferred.id;
+  }
+  return shiftTypes[0]?.id;
+});
+const monthVisibleAssignments = computed(() => {
+  if (shiftTypeIds.value.length > 0) return visibleAssignments.value;
+  const shiftTypeId = effectiveMonthShiftTypeId.value;
+  return shiftTypeId === undefined
+    ? visibleAssignments.value
+    : visibleAssignments.value.filter((assignment) => assignment.shiftTypeId === shiftTypeId);
+});
 const roleOptions = computed(() =>
   (calendar.value?.roles ?? []).map((role) => ({ label: role.name, value: role.id })),
 );
@@ -159,6 +177,15 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => props.group.id,
+  () => {
+    calendarPreferences.value = undefined;
+    void loadCalendarPreferences();
+  },
+  { immediate: true },
+);
+
 watch(viewMode, () => {
   if (viewMode.value === 'week' && weekStart.value === '') {
     weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
@@ -189,7 +216,6 @@ watch(
 );
 
 onMounted(() => {
-  viewMode.value = 'month';
   weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
   window.addEventListener('focus', onWindowFocus);
   window.addEventListener('resize', onWindowResize);
@@ -209,6 +235,21 @@ function onWindowFocus(): void {
 
 function onWindowResize(): void {
   void recenterSwipeViewport();
+}
+
+async function loadCalendarPreferences(): Promise<void> {
+  const groupId = props.group.id;
+  try {
+    const preferences = await api.getCalendarPreferences(props.group.id);
+    if (props.group.id !== groupId) return;
+    calendarPreferences.value = preferences;
+    viewMode.value = preferences.effectiveView;
+    if (viewMode.value === 'week' && weekStart.value === '') {
+      weekStart.value = getVisibleWeekForMonth(businessMonth.value, todayBusinessDate);
+    }
+  } catch {
+    // 偏好读取失败不应阻断日历；沿用月视图与首个可用班种。
+  }
 }
 
 async function loadCalendar(options: { readonly forceRefresh?: boolean } = {}): Promise<void> {
@@ -887,7 +928,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
                 :inert="panelIndex !== 1"
               >
                 <MonthGrid
-                  :assignments="visibleAssignments"
+                  :assignments="monthVisibleAssignments"
                   :business-month="panelMonth"
                   :holidays="holidays"
                   :members="calendar.members"
@@ -964,6 +1005,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
         :assignments="visibleAssignments"
         :members="calendar.members"
         :selected-date="selectedDate"
+        :shift-type-order="calendar.shiftTypes.map((shiftType) => shiftType.id)"
         @open-events="openAssignmentEvents"
       />
     </template>

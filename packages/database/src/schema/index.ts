@@ -111,6 +111,10 @@ export const groups = mysqlTable(
     })
       .default(1)
       .notNull(),
+    defaultCalendarView: mysqlEnum('default_calendar_view', ['month', 'week', 'list'])
+      .default('month')
+      .notNull(),
+    defaultMonthShiftTypeId: char('default_month_shift_type_id', { length: 36 }),
     ...auditableColumns(),
   },
   (table) => [
@@ -164,6 +168,8 @@ export const groupMemberships = mysqlTable(
     })
       .default(0)
       .notNull(),
+    calendarViewOverride: mysqlEnum('calendar_view_override', ['month', 'week', 'list']),
+    monthShiftTypeOverrideId: char('month_shift_type_override_id', { length: 36 }),
     activeUserId: char('active_user_id', { length: 36 }).generatedAlwaysAs(
       sql`if(deleted_at is null and status = 'active', user_id, null)`,
       { mode: 'stored' },

@@ -85,6 +85,47 @@ const fixedShiftAssignments: readonly CalendarDutyAssignment[] = [
   },
 ];
 
+const groupedNurseAssignments: readonly CalendarDutyAssignment[] = [
+  ...['membership-1', 'membership-2', 'membership-3'].map(
+    (membershipId, index): CalendarDutyAssignment => ({
+      businessDate: '2026-08-19',
+      changeMarkers: [],
+      endsAt: '2026-08-19T09:30:00.000Z',
+      id: `d-duty-${index + 1}`,
+      plannedMemberName: ['林恩宇', '陈晓燕', '周佩珊'][index],
+      plannedMembershipId: membershipId,
+      schedulePeriodId: 'period-3',
+      scheduleRoleId: 'nurse-duty',
+      scheduleRoleName: '护理值班',
+      shiftTypeAbbreviation: 'D',
+      shiftTypeColor: '#0A66D5',
+      shiftTypeId: 'shift-d',
+      shiftTypeName: 'D 班',
+      shiftTypeTextColor: '#FFFFFF',
+      slotPosition: index + 1,
+      startsAt: '2026-08-19T00:00:00.000Z',
+    }),
+  ),
+  {
+    businessDate: '2026-08-19',
+    changeMarkers: [],
+    endsAt: '2026-08-19T14:00:00.000Z',
+    id: 'p-duty-1',
+    plannedMemberName: '陈晓燕',
+    plannedMembershipId: 'membership-2',
+    schedulePeriodId: 'period-3',
+    scheduleRoleId: 'nurse-duty',
+    scheduleRoleName: '护理值班',
+    shiftTypeAbbreviation: 'P',
+    shiftTypeColor: '#7762A8',
+    shiftTypeId: 'shift-p',
+    shiftTypeName: 'P 班',
+    shiftTypeTextColor: '#FFFFFF',
+    slotPosition: 4,
+    startsAt: '2026-08-19T06:00:00.000Z',
+  },
+];
+
 const members: readonly CalendarDutyMember[] = [
   {
     isConfirmed: true,
@@ -98,6 +139,13 @@ const members: readonly CalendarDutyMember[] = [
     membershipId: 'membership-2',
     mobilePhone: '13900139000',
     realName: '陈护士',
+  },
+  {
+    isConfirmed: true,
+    membershipId: 'membership-3',
+    mobilePhone: '13800138003',
+    realName: '周佩珊',
+    shortPhone: '6639',
   },
 ];
 
@@ -140,5 +188,14 @@ export const FixedShiftSegments: Story = {
   args: {
     assignments: fixedShiftAssignments,
     selectedDate: '2026-08-18',
+  },
+};
+
+export const GroupedNurseShifts: Story = {
+  name: '护士同班多人分组详情',
+  args: {
+    assignments: groupedNurseAssignments,
+    selectedDate: '2026-08-19',
+    shiftTypeOrder: ['shift-d', 'shift-p'],
   },
 };

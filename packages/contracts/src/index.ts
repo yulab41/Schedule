@@ -8,6 +8,7 @@ export * from './past-schedules.js';
 export * from './scheduling-config.js';
 export * from './users.js';
 export * from './calendar.js';
+export * from './calendar-preferences.js';
 export * from './leaves.js';
 export * from './swaps.js';
 export * from './duty-adjustments.js';

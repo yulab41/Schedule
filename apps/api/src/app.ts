@@ -65,6 +65,8 @@ import type { PasswordAuthService } from './modules/auth/password-auth-service.j
 import { registerPasswordAuthRoutes } from './modules/auth/password-auth-routes.js';
 import { registerDirectoryRoutes } from './modules/directory/directory-routes.js';
 import { DirectoryQuery } from './modules/directory/directory-query.js';
+import { registerCalendarPreferencesRoutes } from './modules/calendar-preferences/calendar-preferences-routes.js';
+import { CalendarPreferencesService } from './modules/calendar-preferences/calendar-preferences-service.js';
 
 type ApiLoggerOptions = NonNullable<FastifyServerOptions['logger']>;
 type ApiLoggerConfiguration = Exclude<ApiLoggerOptions, boolean>;
@@ -157,6 +159,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new CalendarQuery(options.databaseClient),
       new VisitorAccessLogService(options.databaseClient),
     );
+    registerCalendarPreferencesRoutes(app, new CalendarPreferencesService(options.databaseClient));
     registerManualScheduleTemplateRoutes(
       app,
       new ManualScheduleTemplateService(options.databaseClient),

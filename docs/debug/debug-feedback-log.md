@@ -555,3 +555,8 @@
 - 设计与实现：依 `frontend-design` 保持临床蓝、病历纸白、系统字体和紧凑卡片；在基础页“状态反馈”后新增“人工测试入口”，三行 52px 原生 `navigator` 分别进入月历、7×7 和 20×30。入口只做测试路由，不把矩阵嵌进基础页，不改变已确认页面的布局、Fixture、事件或 Worklet。
 - 测试先行与验证：新增三个精确 URL、入口数量和 52px 触控行断言，旧代码因没有 `navigator` 先失败；实现后定向 6/6、Mini 全套 37/37、排除用户自有 `runtime/**`/`src/**` 的主工作区 118 文件/695 项通过（31 文件/261 项按环境跳过）。staging/production verify 保留 11 个 Worklet，包体为 103,806/103,799 bytes，manifest 为 `3d2ec066cf7f054d7f08e1a182d8dfebcb476beaa844c0559a6d229b62b1e8b1` / `a9e3f8b6d4b0c83fc728e56e4bf00d47b4f291b23674d26aebc2929bf5743847`；确定性、无凭据 CI dry-run、根 lint/build/typecheck、任务文件 Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。根 `format:check` 仍只被用户自有 `apps/miniprogram/project.config.json` 拦截；未启动或控制微信开发者工具，当前待用户重新编译并从入口完成 A/C/D。
 - 正式发布：代码 checkpoint `e2852ef` 已推送；发布前加密数据库备份 archive 为 `07fb20ed-651b-43e1-b09d-82d9ef2415ca`（50 表、18,501 行、7,373,524 字节，SHA-256 `87751e7f8800d6691082b3e922317d6e39c3d4906b2e438a9beb76f11e1872b4`）。release `e2852ef603a0f8dee5dc5e991243b63d0a0182be` 从干净 worktree 构建并部署；容器预热首个健康检查一次 502 后恢复，`ecs-verify.sh`、外部正式首页与 API 均通过。最终状态 checkpoint 识别消息：`docs(status): record native p1 navigation deployment`。
+
+## 2026-08-20 护士多班种日历偏好与分组详情落地
+
+- 引入点：`git log -S`/`git blame` 确认默认月视图与通用筛选来自 `db35a77`/`ab25064`，选中日期逐班次轨道来自 `1c84fd6`，群组设置入口来自 `720404a`。本轮只在 `CalendarView` 数据调用点应用月视图默认班种，并重构 `SelectedDateDutyDetails`；`MonthGrid.vue`、`WeekGrid.vue` 源码哈希由回归测试锁定且不修改。
+- 运行/浏览器验证：`pnpm smoke:browser` 的等价直接入口 `node scripts/smoke-browser.mjs` 已在当前源码 5173 与开发认证 API 3000 上运行；本机 MySQL `127.0.0.1:3306` 拒绝连接，管理员登录回退 `/login?redirect=/`，因此完整业务 smoke 在登录门禁停止。独立 Storybook 真实生产详情组件已在 390px 验证同班三人收进一张 D 班卡、姓名全部可见、短号/手机分体拨号、44px 操作和无横向溢出；控制台无产品错误。Docker Desktop 未运行，隔离 MySQL 集成测试按环境跳过。

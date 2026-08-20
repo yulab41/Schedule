@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-20 护士多班种日历偏好与分组详情（当前批次）
+
+- 批次范围：落地用户确认的护士一天多班种方案；月视图按群组/个人默认只筛选一个班种且同班人员姓名逐一显示，周视图继续显示全部班次；仅重做选中日期详情卡。不得修改 `MonthGrid.vue`、`WeekGrid.vue` 的模板或样式。
+- 回归来源与测试先行：`git log -S`/`git blame` 确认默认月视图/通用过滤来自 `db35a77`/`ab25064`，逐班次详情轨道来自 `1c84fd6`，群组设置来自 `720404a`。新契约、分组 helper、生产接线和迁移计数在旧实现上分别因模块/接线缺失而失败；实现后定向 14 项通过。月/周组件 SHA-256 守卫分别锁定 `40bab5615ad05189a842fdbf3ccf63687d73967ba7dfb1ee909589bd202cb188`、`32d50cdc5dca2c6b3e21147768047972246c813b83054b1906d81286ac866a60`，工作树对两文件无 diff。
+- 持久化与权限：迁移 `0043_calendar_preferences` 为群组增加默认视图/默认月班种，为成员关系增加可空的个人覆盖；默认视图为月，空个人值表示跟随群组。新增受认证的读取、群组默认更新和本人偏好更新 API；群主、群管理员、后台管理员可改群组默认，active owner/administrator/member 可读写本人偏好，guest/跨群拒绝。班种 ID 必须属于当前群组、未删除且已启用；失效旧值读取时安全回退。
+- Web 行为：群组管理页新增“群组日历默认设置 / 我的日历偏好”。`CalendarView` 读取有效偏好；只在月视图且用户未手动筛选班种时使用默认班种，周/列表和手动筛选保持原 `visibleAssignments`。详情按班种开始时间与配置顺序分卡，同班多人留在同一卡内且姓名全部可见；点击姓名展开短号优先的“短号 / 手机”分体拨号，固定 D/NP 说明每班种只显示一次，事件入口逐人保留。
+- 验证：主工作区排除用户自有 `runtime/**`/`src/**` 后 136 文件/773 项通过，32 文件/265 项数据库集成按环境跳过；Contracts/Database/API/Web typecheck、Contracts/Database/API 构建、Web production build、Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 通过。生产详情 Storybook 在 390px 验证同班三人一张 D 卡、姓名完整、短号/手机分体拨号、44px 操作、无横向溢出和零产品控制台错误。
+- 环境限制：`运行/浏览器验证：pnpm smoke:browser` 的等价直接入口已运行，但本机 MySQL 127.0.0.1:3306 拒绝连接，管理员登录回退 `/login?redirect=/`；Docker Desktop 未运行，迁移/API 集成按环境跳过。失败发生在产品断言前，未归因为功能回归；生产部署仍须先备份并以迁移器、`ecs-verify.sh` 和正式域名只读复核收口。
+- checkpoint 识别消息：`feat(calendar): add multi-shift preferences and grouped details`。现有小程序、其他 Storybook、`pnpm-workspace.yaml`、`runtime/`、`src/` 均为用户所有，不纳入本 checkpoint。
+- 下一批次与停止条件：只完成任务文件最终审计、提交推送、生产加密数据库备份、迁移/部署与正式只读核验；使 Git `HEAD`、`origin/main`、服务器 `current-release` 一致后停止，不进入其他 Web 或小程序任务。
+
 ## 2026-08-20 P1 Android Pan 命中高度修复（当前批次）
 
 - 用户结果：四层纯 Worklet 体验版 `.25` 在 PC 模拟器可横纵滚动且无黏滞，但 Android 真机横纵都完全不动；坐标、冻结层和惯性已由 PC 证明可运行，故障收窄为真机 Pan 未命中。

@@ -189,5 +189,5 @@ fi
 echo "[verify] migration count"
 docker exec medical-schedule-prod-mysql-1 sh -c \
   'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
-  -e "SELECT COUNT(*) FROM __drizzle_migrations"' | grep -qx '42'
+  -e "SELECT COUNT(*) FROM __drizzle_migrations"' | grep -qx '43'
 echo "[verify] complete"
