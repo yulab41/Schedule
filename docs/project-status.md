@@ -22,7 +22,8 @@
 - 官方依据与选择：官方 WXS 响应事件文档允许内置组件把触摸响应留在视图层并以 `ComponentDescriptor.setStyle` 直接更新样式，避免普通 `touchmove → 逻辑层 → setData` 往返；但正文以 WebView 为背景，没有承诺 Skyline Android 等价性。因此先做独立真机探针，通过前不接入矩阵。[WXS 响应事件](https://developers.weixin.qq.com/miniprogram/dev/framework/view/interactive-animation.html)
 - 测试先行与实现：新增 WXS 模块/事件/矩阵隔离契约在旧实现上因 `drag-probe.wxs` 缺失而失败；实现后 5/5 通过。黄色点使用内置 `view` 的 WXS `touchstart/touchmove/touchend/touchcancel`，直接 `setStyle(transform)`，X/Y 分别限制在 ±96/±70px，不调用 `setData`；蓝色 Worklet 与灰色普通触摸探针保持不变。视觉按 `frontend-design` 只用现有 warning tokens 区分第三条链路，不建立产品 Storybook 黄金稿。
 - 验证：小程序 12 文件/50 项、typecheck/source/output/7 个 Worklet/包体/确定性/simulate 与 CI dry-run 通过（124514 bytes，manifest `dbc3fc5bb108e4160708689ad9644aef4cfa8ae3505caf9bf86d09cd16f7d3d1`）；官方 `miniprogram-ci.getCompiledResult` 实际编译 52 个代码文件并返回 83 个结果文件，WXS/WXML 语法通过。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/782 项通过、32 文件/265 项按环境跳过。未排除的根测试/格式只被用户旧 release 副本与未完成文件阻断，本轮不修改。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`test(miniprogram): add WXS drag capability probe`。
+- 发布：代码 checkpoint `2b5f536`（`test(miniprogram): add WXS drag capability probe`）已推送；微信体验版 `0.1.0-p1.20260821.32` 从该提交的隔离工作树直连 IPv4 上传成功（52 个代码文件、38910 bytes，manifest `847b414aeef8e180e3e7c9d51a52bf3b16e1494e6deed3b15bdf40a8de33d6dd`），页面显示 `.32@2b5f536`。ECS 发布前加密数据库备份 archive `a8d1c866-15dc-401c-a434-92201bab19f3`（50 表、157681 行、70967916 bytes，SHA-256 `f1db6bfe9d575ff458ab5725b5960df95dfe3d570c11f802e556a567124ba6f4`）；release `2b5f536c10c8ba9f4c43e8e3d91a19f5703f1977` 已部署，预热首次 TLS EOF 后恢复。
+- 线上验证：`ecs-verify.sh` 通过健康、产物哈希、43 条迁移、域名隔离、公开端口、容器和依赖检查；正式主页/API 均为 200。当前状态：已实现并发布，正在收口最终状态 checkpoint；用户自有小程序配置、workspace、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：上传新体验版后只请用户在黄色区域回报“移动/不动、跟手/延迟”；黄色点明确通过前不修改矩阵、不进入 P2。
 
 ## 2026-08-21 小程序可见构建版本与探针首屏修复（当前批次）
