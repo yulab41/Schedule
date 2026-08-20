@@ -8,6 +8,7 @@ import type { WorkbenchNavItem, WorkbenchTabId } from './workbench-nav.js';
 defineProps<{
   readonly activeTab: WorkbenchTabId;
   readonly desktopItems: readonly WorkbenchNavItem[];
+  readonly forceIconMotion?: boolean;
   readonly primaryItems: readonly WorkbenchNavItem[];
   readonly secondaryItems: readonly WorkbenchNavItem[];
 }>();
@@ -59,6 +60,7 @@ onBeforeUnmount(() => {
       <WorkbenchNavIcon
         :name="item.icon"
         :active="item.id === activeTab"
+        :force-motion="forceIconMotion"
         :looping="item.id === activeTab"
         aria-hidden="true"
       />
@@ -83,6 +85,7 @@ onBeforeUnmount(() => {
         <WorkbenchNavIcon
           :name="item.icon"
           :active="item.id === activeTab"
+          :force-motion="forceIconMotion"
           :looping="item.id === activeTab"
           aria-hidden="true"
         />
@@ -99,6 +102,7 @@ onBeforeUnmount(() => {
         <WorkbenchNavIcon
           name="more"
           :active="secondaryItems.some((item) => item.id === activeTab)"
+          :force-motion="forceIconMotion"
           :looping="secondaryItems.some((item) => item.id === activeTab)"
           aria-hidden="true"
         />
@@ -120,6 +124,7 @@ onBeforeUnmount(() => {
           <WorkbenchNavIcon
             :name="item.icon"
             :active="item.id === activeTab"
+            :force-motion="forceIconMotion"
             :looping="item.id === activeTab"
             aria-hidden="true"
           />
@@ -139,6 +144,7 @@ onBeforeUnmount(() => {
           <WorkbenchNavIcon
             :name="item.icon"
             :active="item.id === activeTab"
+            :force-motion="forceIconMotion"
             :looping="item.id === activeTab"
             aria-hidden="true"
           />

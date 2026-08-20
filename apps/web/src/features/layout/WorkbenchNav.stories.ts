@@ -18,6 +18,7 @@ const meta = {
   args: {
     activeTab: 'calendar',
     desktopItems: ownerDesktopItems,
+    forceIconMotion: true,
     primaryItems: ownerPrimaryItems,
     secondaryItems: ownerSecondaryItems,
   },

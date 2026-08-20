@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 Lucide Minimal 连续动作图标预览（当前批次）
+
+- 批次范围：按用户要求移除现有导航 SVG 循环的大段暂停，使当前入口首尾无空拍连续播放；另只在 Storybook 预览顶部通知/个人中心/导出、日历筛选/定位、通讯录科室/人员及全部电话入口的同系 SVG 动效。新增 8 个动作图标尚未接入生产调用点，等待用户确认后再统一替换。
+- 回归来源与测试先行：`git log -S` / `git blame` 确认 4 秒循环及约 60% 静止区由 `5b9542a` 引入；顶部动作来自 `5b00fa7`，日历定位/筛选来自 `daff238`、`8a49434`、`abd20d2`，通讯录模式来自 `046dc65`，电话入口分批来自 `8309dce`、`1c84fd6`、`41d284b`、`5437995`、`b09da6e`、`f723b0d`。连续循环和新预览在旧实现上 3 项失败；截图发现路径端点可读性不足、Axe 发现 17 个低对比节点，追加守卫均先失败后转绿。
+- 设计与实现：沿用 `frontend-design` 的医疗工作台语境及 Lucide Minimal 24×24、2px 圆端单色线条。导航默认循环由 4000ms 改为 1800ms，所有关键帧覆盖完整 0–100% 周期且不再成组停留；回拨/齿轮使用连续线性旋转。新增铃体回摆、个人轮廓描绘、导出箭头上行、漏斗重绘、目标环扫描、科室医疗十字写入、第二成员进入、听筒接通描边；端点保留至少约 75% 轮廓，避免闪烁或失去识别性。
+- 预览边界与可访问性：Storybook 强制播放只用于视觉验收；生产默认仍遵循 `prefers-reduced-motion`，新增 `forceIconMotion` 不由 `HomeView` 传入。1280×900 与 390×844 均无横向溢出，18 个动作主体在 450ms 间隔采样中全部变化，可见操作均不小于 44px；筛选状态及科室/人员切换实际通过。导航当前项连续 6 次采样为 6 个不同状态。Storybook Axe 为 0 项违规。
+- 验证：排除用户自有 `runtime/**` / `src/**` 后 139 文件/782 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck/production build、完整 Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 与 `git diff --check` 通过。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--desktop-workbench`。
+- 语义审计：生产变化只涉及当前导航图标的时间曲线；导航顺序、角色过滤、`select` / `sign-out` 事件次数、抽屉关闭、API、权限、数据和异步错误路径均不变。Storybook 场景使用静态脱敏示例，不请求 API、不拨号、不写业务数据。
+- 当前状态：预览已完成待 checkpoint 与生产同步；生产只落地导航无停顿循环，新动作图标待用户确认。checkpoint 识别消息：`feat(web): preview continuous minimal action icons`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本预览 checkpoint，保持 6007 Storybook 供用户验收；用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
+
 ## 2026-08-21 小程序可见构建版本与探针首屏修复（当前批次）
 
 - 用户探针结果：`.29` Android 蓝点不动，但普通 `touchmove` 递增至 453 次；基础库 `3.17.0`、微信 `8.0.76`、Android 设备 `23116N5BC`。结论是普通触摸链路正常、目标运行时不执行 `pan-gesture-handler` Worklet；矩阵下一步必须转向非 gesture-handler 输入。探针页面因禁止页面滚动看不到系统字段，用户同时要求小程序内可见显示上传版本，防止体验版延迟/缓存误判。

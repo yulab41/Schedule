@@ -166,7 +166,7 @@ withDefaults(
 
 <style scoped>
 .lucide-minimal-icon {
-  --minimal-loop: 4000ms;
+  --minimal-loop: 1800ms;
   --minimal-delay: 0ms;
   display: block;
   width: 24px;
@@ -184,11 +184,11 @@ withDefaults(
 }
 
 .style-apple {
-  --minimal-loop: 4500ms;
+  --minimal-loop: 2000ms;
 }
 
 .style-android {
-  --minimal-loop: 3600ms;
+  --minimal-loop: 1500ms;
 }
 
 .is-looping.icon-calendar [data-part='check'],
@@ -213,8 +213,7 @@ withDefaults(
 .is-looping.icon-backfill [data-part='clock-hands'] {
   transform-box: view-box;
   transform-origin: 12px 12px;
-  animation: minimal-rewind var(--minimal-loop) cubic-bezier(0.4, 0, 0.2, 1) var(--minimal-delay)
-    infinite;
+  animation: minimal-rewind var(--minimal-loop) linear var(--minimal-delay) infinite;
 }
 
 .is-looping.icon-swap [data-part='arrow-left'] {
@@ -249,8 +248,7 @@ withDefaults(
 .is-looping.icon-config [data-part='gear'] {
   transform-box: view-box;
   transform-origin: 12px 12px;
-  animation: minimal-gear var(--minimal-loop) cubic-bezier(0.2, 0, 0, 1) var(--minimal-delay)
-    infinite;
+  animation: minimal-gear var(--minimal-loop) linear var(--minimal-delay) infinite;
 }
 
 .is-looping.icon-more [data-part^='dot-'] {
@@ -271,196 +269,182 @@ withDefaults(
 }
 
 @keyframes minimal-draw {
-  0%,
-  8%,
-  42%,
-  100% {
-    opacity: 0;
+  0% {
+    opacity: 0.3;
     stroke-dashoffset: 1;
   }
-  22%,
-  34% {
+  50% {
     opacity: 1;
     stroke-dashoffset: 0;
+  }
+  100% {
+    opacity: 0.3;
+    stroke-dashoffset: 1;
   }
 }
 
 @keyframes minimal-enter {
-  0%,
-  8%,
-  44%,
+  0% {
+    opacity: 0.45;
+    transform: translateX(-2px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(0);
+  }
   100% {
     opacity: 0.45;
     transform: translateX(-2px);
   }
-  22%,
-  34% {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 @keyframes minimal-column {
-  0%,
-  8%,
-  44%,
-  100% {
+  0% {
     transform: translateX(0);
   }
-  22%,
-  34% {
+  50% {
     transform: translateX(-3px);
+  }
+  100% {
+    transform: translateX(0);
   }
 }
 
 @keyframes minimal-rewind {
-  0%,
-  8%,
-  48%,
-  100% {
+  0% {
     transform: rotate(0deg);
   }
-  32%,
-  38% {
+  100% {
     transform: rotate(-360deg);
   }
 }
 
 @keyframes minimal-swap-left {
-  0%,
-  8%,
-  44%,
-  100% {
+  0% {
     transform: translateX(0);
   }
-  22% {
+  25% {
     transform: translateX(-2px);
   }
-  32% {
+  50% {
+    transform: translateX(0);
+  }
+  75% {
     transform: translateX(1px);
+  }
+  100% {
+    transform: translateX(0);
   }
 }
 
 @keyframes minimal-swap-right {
-  0%,
-  8%,
-  44%,
-  100% {
+  0% {
     transform: translateX(0);
   }
-  22% {
+  25% {
     transform: translateX(2px);
   }
-  32% {
+  50% {
+    transform: translateX(0);
+  }
+  75% {
     transform: translateX(-1px);
+  }
+  100% {
+    transform: translateX(0);
   }
 }
 
 @keyframes minimal-duty {
-  0%,
-  8%,
-  46%,
-  100% {
+  0% {
     opacity: 0.55;
   }
-  20%,
-  34% {
+  50% {
     opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
   }
 }
 
 @keyframes minimal-event-step {
-  0%,
-  8%,
-  46%,
-  100% {
+  0% {
     transform: translateY(-7px);
   }
-  20% {
-    transform: translateY(0);
-  }
-  32% {
+  50% {
     transform: translateY(7px);
+  }
+  100% {
+    transform: translateY(-7px);
   }
 }
 
 @keyframes minimal-bell {
-  0%,
-  8%,
-  36%,
-  100% {
+  0% {
     transform: rotate(0deg);
   }
-  14% {
+  20% {
     transform: rotate(-8deg);
   }
-  20% {
+  40% {
     transform: rotate(7deg);
   }
-  26% {
+  60% {
     transform: rotate(-4deg);
   }
-  31% {
+  80% {
     transform: rotate(2deg);
+  }
+  100% {
+    transform: rotate(0deg);
   }
 }
 
 @keyframes minimal-profile {
-  0%,
-  8%,
-  42%,
-  100% {
+  0% {
     transform: translateY(0);
   }
-  22%,
-  30% {
+  50% {
     transform: translateY(-1.5px);
+  }
+  100% {
+    transform: translateY(0);
   }
 }
 
 @keyframes minimal-gear {
-  0%,
-  8%,
-  44%,
-  100% {
+  0% {
     transform: rotate(0deg);
   }
-  30%,
-  36% {
-    transform: rotate(90deg);
+  100% {
+    transform: rotate(360deg);
   }
 }
 
 @keyframes minimal-dot {
-  0%,
-  8%,
-  38%,
-  100% {
+  0% {
     transform: translateY(0);
   }
-  20% {
+  50% {
     transform: translateY(-2px);
   }
-  28% {
-    transform: translateY(0.5px);
+  100% {
+    transform: translateY(0);
   }
 }
 
 @keyframes minimal-logout {
-  0%,
-  8%,
-  44%,
-  100% {
-    opacity: 1;
+  0% {
+    opacity: 0.55;
     transform: translateX(0);
   }
-  24% {
+  50% {
     opacity: 1;
-    transform: translateX(2px);
-  }
-  34% {
-    opacity: 0.5;
     transform: translateX(3px);
+  }
+  100% {
+    opacity: 0.55;
+    transform: translateX(0);
   }
 }
 

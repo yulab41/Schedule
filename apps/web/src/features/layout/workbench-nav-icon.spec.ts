@@ -72,12 +72,23 @@ describe('production workbench navigation icons', () => {
   });
 
   it('previews the production component on desktop and mobile', () => {
+    const nav = readSource('./WorkbenchNav.vue');
     const story = readSource('./WorkbenchNav.stories.ts');
 
+    expect(nav).toContain('readonly forceIconMotion?: boolean;');
+    expect(nav.match(/:force-motion="forceIconMotion"/gu)).toHaveLength(5);
     expect(story).toContain("title: 'Web UI 2.0/Production · Workbench Navigation'");
+    expect(story).toContain('forceIconMotion: true');
     expect(story).toContain('DesktopOwner');
     expect(story).toContain('MobilePrimary390');
     expect(story).toContain('MobileSecondary390');
     expect(story).toContain("args: { activeTab: 'leave' }");
+  });
+
+  it('plays every navigation loop continuously without grouped idle keyframes', () => {
+    const icon = readSource('./WorkbenchNavIcon.vue');
+
+    expect(icon).toContain('--minimal-loop: 1800ms;');
+    expect(icon).not.toMatch(/\d+%\s*,\s*\d+%/u);
   });
 });
