@@ -8,7 +8,8 @@
 - 回归定位与测试先行：`git log -S`/`git blame` 确认 `6799f1f` 起一直采用外层纵向/全向 handler 与内层横向 `native-view=scroll-view` 嵌套，`48fbe08`/`50f8319` 只调整 simultaneous、让出与轴锁，真机仍证明外层从未 ACTIVE。新契约在旧实现上 3 项失败，要求只有一个原生滚动代理，禁止嵌套 handler、simultaneous 和 should-response 父级转交。
 - 实现：一个 `pan-gesture-handler native-view="scroll-view"` 直接承载既有横向 `scroll-view`、人员覆盖层和固定角，并在自身 `ongesture` 中锁轴。横向锁定时不写 Y，原生 `scroll-x` 保持现有丝滑路径；纵向锁定时同一回调直接更新人员/班次 SharedValue，完全绕过父级接管。2px 门槛、1.2 倍方向优势、END/CANCELLED 重置和纵向 `decay` 保持。
 - 语义等价审计：仅替换手势组件拓扑和回调入口；20×30 fixture、宽高、原生横向内容/进度、纵向偏移/边界、人员/班次动画绑定、点格、撤销、`setData` 次数、空值和错误路径不变。所有手势方法仍是页面成员 Worklet，没有新增异步或业务副作用。
-- 当前状态：失败测试已转绿，定向 9/9 与 typecheck 通过；待完整 Mini/根门禁、checkpoint、微信体验上传、ECS 同步及用户 Android 复核。checkpoint 识别消息：`fix(miniprogram): use one native matrix gesture proxy`。
+- 验证：失败测试已转绿；定向 9/9、小程序 10 文件/42 项、typecheck/build/source/Worklet/包体/确定性/模拟门禁与 `miniprogram-ci` dry-run 通过（6 个源码/产物 Worklet、109919 bytes，manifest `125d7a956fd8f2ebdd42a63c78d61a17b92f18b39916e14a631ca2f6649308c9`）。任务文件 Prettier/ESLint、根 lint/build/typecheck、`smoke:check-core` 与 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 和既有过期迁移计数测试后的当前源码 128 文件/752 项通过、31 文件/262 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步；原生效果仍必须由用户 Android 复核。checkpoint 识别消息：`fix(miniprogram): use one native matrix gesture proxy`。
 - 下一批次与停止条件：只复测 D 的人员列和班次格纵向起手；用户未明确通过前不进入 P2。
 
 ## 2026-08-20 移动常驻导航与科室电话行精简（当前批次）

@@ -78,7 +78,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(cellConfig).toMatchObject({ component: true });
   });
 
-  it('lets both native directional recognizers negotiate so Android can reach the vertical handler', () => {
+  it('uses one native scroll proxy so Android vertical movement does not depend on parent handoff', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
     const source = readSource('pages/manual-matrix-poc/index.ts');
@@ -86,20 +86,17 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     expect(template.match(/<scroll-view/gu)).toHaveLength(1);
     expect(template).toMatch(
-      /<vertical-drag-gesture-handler[\s\S]*?tag="matrix-vertical"[\s\S]*?simultaneous-handlers="\{\{\['matrix-horizontal'\]\}\}"[\s\S]*?worklet:should-response-on-move="shouldVerticalDragRespond"[\s\S]*?worklet:ongesture="handleMatrixVerticalDrag"/u,
+      /<pan-gesture-handler[\s\S]*?native-view="scroll-view"[\s\S]*?worklet:ongesture="handleMatrixPan"/u,
     );
-    expect(template).toMatch(
-      /<horizontal-drag-gesture-handler[\s\S]*?tag="matrix-horizontal"[\s\S]*?simultaneous-handlers="\{\{\['matrix-vertical'\]\}\}"[\s\S]*?native-view="scroll-view"[\s\S]*?worklet:should-response-on-move="shouldHorizontalScrollRespond"[\s\S]*?worklet:ongesture="handleMatrixHorizontalGesture"/u,
-    );
-    const verticalHandlerStart = template.indexOf('<vertical-drag-gesture-handler');
-    const verticalHandlerEnd = template.indexOf(
-      '</vertical-drag-gesture-handler>',
-      verticalHandlerStart,
-    );
+    expect(template).not.toContain('vertical-drag-gesture-handler');
+    expect(template).not.toContain('horizontal-drag-gesture-handler');
+    expect(template).not.toContain('simultaneous-handlers');
+    const panHandlerStart = template.indexOf('<pan-gesture-handler');
+    const panHandlerEnd = template.indexOf('</pan-gesture-handler>', panHandlerStart);
     const memberOverlay = template.indexOf('class="matrix-member-overlay"');
-    expect(verticalHandlerStart).toBeGreaterThanOrEqual(0);
-    expect(memberOverlay).toBeGreaterThan(verticalHandlerStart);
-    expect(memberOverlay).toBeLessThan(verticalHandlerEnd);
+    expect(panHandlerStart).toBeGreaterThanOrEqual(0);
+    expect(memberOverlay).toBeGreaterThan(panHandlerStart);
+    expect(memberOverlay).toBeLessThan(panHandlerEnd);
     expect(template).toMatch(
       /<scroll-view[\s\S]*?type="list"[\s\S]*?scroll-x[\s\S]*?worklet:onscrollupdate="handleGridScroll"/u,
     );
@@ -128,7 +125,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).toMatch(/this\.applyAnimatedStyle\(\s*['"]#matrix-member-track['"]/u);
     expect(source).not.toContain('calculateAdaptiveMatrixViewportHeight');
     expect(source).not.toContain('wx.getWindowInfo');
-    expect(source).toContain('shouldHorizontalScrollRespond');
+    expect(source).toContain('handleMatrixPan');
+    expect(source).not.toContain('shouldMatrixNativeScrollRespond');
+    expect(source).not.toContain('shouldHorizontalScrollRespond');
+    expect(source).not.toContain('shouldVerticalDragRespond');
+    expect(source).not.toContain('handleMatrixVerticalDrag');
+    expect(source).not.toContain('handleMatrixHorizontalGesture');
     expect(source).toContain('this._maxVerticalOffset.value');
     expect(source).toContain('cancelAnimation(this._verticalOffset)');
     expect(source).toContain('decay({');
@@ -139,7 +141,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(worklets.count).toBeGreaterThanOrEqual(5);
   });
 
-  it('keeps ambiguous Android movement unclaimed and selects only the dominant axis', async () => {
+  it('keeps ambiguous Android movement still and locks the first dominant axis until end', async () => {
     let definition;
     vi.stubGlobal('wx', {
       worklet: {
@@ -162,32 +164,33 @@ describe('P1 native manual scheduling matrix PoC', () => {
     };
     definition.onLoad.call(instance, { mode: 'maximum' });
 
-    const horizontal = { deltaX: 18, deltaY: 4 };
-    const vertical = { deltaX: 4, deltaY: 18 };
-    const stationary = { deltaX: 0, deltaY: 0 };
-    const diagonal = { deltaX: 12, deltaY: 12 };
-    const ambiguous = { deltaX: 12, deltaY: 10 };
+    instance._maxVerticalOffset.value = 300;
+    const active = (deltaX, deltaY) => ({ deltaX, deltaY, state: 2 });
 
-    expect(definition.shouldHorizontalScrollRespond.call(instance, stationary)).toBe(false);
-    expect(definition.shouldVerticalDragRespond.call(instance, stationary)).toBe(false);
-    expect(definition.shouldHorizontalScrollRespond.call(instance, diagonal)).toBe(false);
-    expect(definition.shouldVerticalDragRespond.call(instance, diagonal)).toBe(false);
-    expect(definition.shouldHorizontalScrollRespond.call(instance, ambiguous)).toBe(false);
-    expect(definition.shouldVerticalDragRespond.call(instance, ambiguous)).toBe(false);
+    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
+    definition.handleMatrixPan.call(instance, active(0, 0));
+    definition.handleMatrixPan.call(instance, active(12, 12));
+    definition.handleMatrixPan.call(instance, active(12, 10));
+    expect(instance._gestureAxis.value).toBe(0);
+    expect(instance._verticalOffset.value).toBe(0);
 
-    expect(definition.shouldHorizontalScrollRespond.call(instance, horizontal)).toBe(true);
-    expect(definition.shouldVerticalDragRespond.call(instance, horizontal)).toBe(false);
-    expect(definition.shouldHorizontalScrollRespond.call(instance, vertical)).toBe(true);
-    expect(definition.shouldVerticalDragRespond.call(instance, vertical)).toBe(false);
+    definition.handleMatrixPan.call(instance, active(18, 4));
+    expect(instance._gestureAxis.value).toBe(1);
+    definition.handleMatrixPan.call(instance, active(4, -18));
+    expect(instance._gestureAxis.value).toBe(1);
+    expect(instance._verticalOffset.value).toBe(0);
 
-    definition.handleMatrixHorizontalGesture.call(instance, { ...stationary, state: 3 });
-    expect(definition.shouldVerticalDragRespond.call(instance, vertical)).toBe(true);
-    expect(definition.shouldHorizontalScrollRespond.call(instance, vertical)).toBe(false);
-    expect(definition.shouldVerticalDragRespond.call(instance, horizontal)).toBe(true);
-    expect(definition.shouldHorizontalScrollRespond.call(instance, horizontal)).toBe(false);
+    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 3 });
+    definition.handleMatrixPan.call(instance, { deltaX: 0, deltaY: 0, state: 0 });
+    definition.handleMatrixPan.call(instance, active(4, -18));
+    expect(instance._gestureAxis.value).toBe(2);
+    expect(instance._verticalOffset.value).toBe(-18);
+    definition.handleMatrixPan.call(instance, active(18, 4));
+    expect(instance._gestureAxis.value).toBe(2);
+    expect(instance._verticalOffset.value).toBe(-14);
   });
 
-  it('moves both vertical tracks from the direction-specific handler and one shared offset', async () => {
+  it('moves both vertical tracks from the single native proxy and one shared offset', async () => {
     let definition;
     const cancelAnimation = vi.fn();
     const decay = vi.fn(({ clamp, velocity }) => Math.max(clamp[0], Math.min(clamp[1], velocity)));
@@ -213,12 +216,12 @@ describe('P1 native manual scheduling matrix PoC', () => {
     definition.onLoad.call(instance, { mode: 'maximum' });
     instance._maxVerticalOffset.value = 300;
 
-    definition.handleMatrixVerticalDrag.call(instance, { state: 0, deltaX: 0, deltaY: 0 });
-    definition.handleMatrixVerticalDrag.call(instance, { state: 2, deltaX: 2, deltaY: -12 });
+    definition.handleMatrixPan.call(instance, { state: 0, deltaX: 0, deltaY: 0 });
+    definition.handleMatrixPan.call(instance, { state: 2, deltaX: 2, deltaY: -12 });
 
     expect(instance._verticalOffset.value).toBe(-12);
 
-    definition.handleMatrixVerticalDrag.call(instance, {
+    definition.handleMatrixPan.call(instance, {
       state: 3,
       deltaX: 0,
       deltaY: 0,
@@ -228,8 +231,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
       expect.objectContaining({ clamp: [-300, 0], velocity: -180 }),
     );
 
-    definition.handleMatrixVerticalDrag.call(instance, { state: 0, deltaX: 0, deltaY: 0 });
-    definition.handleMatrixVerticalDrag.call(instance, { state: 4, deltaX: 0, deltaY: 0 });
+    definition.handleMatrixPan.call(instance, { state: 0, deltaX: 0, deltaY: 0 });
+    definition.handleMatrixPan.call(instance, { state: 4, deltaX: 0, deltaY: 0 });
 
     expect(cancelAnimation).toHaveBeenCalledTimes(2);
     expect(instance.applyAnimatedStyle).toHaveBeenCalledWith(

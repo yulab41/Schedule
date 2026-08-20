@@ -139,65 +139,7 @@ Page({
     });
     query.exec();
   },
-  shouldHorizontalScrollRespond(
-    this: ManualMatrixPageInstance,
-    event: ManualMatrixGestureEvent,
-  ): boolean {
-    'worklet';
-    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL) return true;
-    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) return false;
-    const horizontalDistance = Math.abs(event.deltaX);
-    const verticalDistance = Math.abs(event.deltaY);
-    if (Math.max(horizontalDistance, verticalDistance) < MATRIX_GESTURE_MINIMUM_DELTA) {
-      return false;
-    }
-    if (horizontalDistance > verticalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_HORIZONTAL;
-      return true;
-    }
-    if (verticalDistance > horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
-    }
-    return false;
-  },
-  shouldVerticalDragRespond(
-    this: ManualMatrixPageInstance,
-    event: ManualMatrixGestureEvent,
-  ): boolean {
-    'worklet';
-    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_VERTICAL) return true;
-    if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL) return false;
-    const horizontalDistance = Math.abs(event.deltaX);
-    const verticalDistance = Math.abs(event.deltaY);
-    if (Math.max(horizontalDistance, verticalDistance) < MATRIX_GESTURE_MINIMUM_DELTA) {
-      return false;
-    }
-    if (verticalDistance > horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
-      return true;
-    }
-    if (horizontalDistance > verticalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_HORIZONTAL;
-    }
-    return false;
-  },
-  handleMatrixHorizontalGesture(
-    this: ManualMatrixPageInstance,
-    event: ManualMatrixGestureEvent,
-  ): void {
-    'worklet';
-    if (event.state === 0 || event.state === 1) {
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
-      return;
-    }
-    if (
-      (event.state === 3 || event.state === 4) &&
-      this._gestureAxis.value === MATRIX_GESTURE_AXIS_HORIZONTAL
-    ) {
-      this._gestureAxis.value = MATRIX_GESTURE_AXIS_UNDECIDED;
-    }
-  },
-  handleMatrixVerticalDrag(this: ManualMatrixPageInstance, event: ManualMatrixGestureEvent): void {
+  handleMatrixPan(this: ManualMatrixPageInstance, event: ManualMatrixGestureEvent): void {
     'worklet';
     if (event.state === 0 || event.state === 1) {
       cancelAnimation(this._verticalOffset);
@@ -209,8 +151,14 @@ Page({
       if (this._gestureAxis.value === MATRIX_GESTURE_AXIS_UNDECIDED) {
         const horizontalDistance = Math.abs(event.deltaX);
         const verticalDistance = Math.abs(event.deltaY);
-        if (verticalDistance <= horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) return;
-        this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
+        if (Math.max(horizontalDistance, verticalDistance) < MATRIX_GESTURE_MINIMUM_DELTA) return;
+        if (horizontalDistance > verticalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
+          this._gestureAxis.value = MATRIX_GESTURE_AXIS_HORIZONTAL;
+        } else if (verticalDistance > horizontalDistance * MATRIX_GESTURE_DIRECTION_RATIO) {
+          this._gestureAxis.value = MATRIX_GESTURE_AXIS_VERTICAL;
+        } else {
+          return;
+        }
       }
       if (this._gestureAxis.value !== MATRIX_GESTURE_AXIS_VERTICAL) return;
       const nextOffset = this._verticalOffset.value + event.deltaY;

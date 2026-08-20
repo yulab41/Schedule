@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0 与 P1 非视觉工具链已完成；月历与矩阵 C（7×7 横向）已通过用户 Android 人工验收。D 的横向滚动已通过，但体验版 `.19` 人工复测确认人员仍不能纵向移动；现已修复零位移过早激活横向代理、人员层位于纵向手势命中范围外和单次手势缺少持久轴锁三个差异，重新复测通过后才进入 P2
+- 状态：P0 与 P1 非视觉工具链已完成；月历与矩阵 C（7×7 横向）已通过用户 Android 人工验收。D 的横向滚动已通过，但体验版 `.21` 人工复测确认从人员列或班次格起手都完全没有纵向位移，证明嵌套识别器的父级接管路径在目标 Android 不可达；现已改为一个原生滚动代理直接处理横纵轴，重新复测通过后才进入 P2
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界
@@ -97,7 +97,7 @@ production https://hosp.schedule.eylinhome.top/api
 
 首页月历按当月实际跨度生成 5×7 或 6×7，不虚拟化；今日、选中、历史、补录、周末、节假日、跨月、班次和变更独立建模。P1 真机验证后选择原生三面板 `swiper` 统一 Android 触控、PC 鼠标与程序翻页，并显式维护当前高度和底角状态。
 
-手排采用长期存在的四层坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。横向由一个原生 `scroll-view type=list scroll-x` 同时承载日期与班次，保留 compositor 同源滚动；日期与班次组合为一个贯穿完整内容宽度的直接内容项，避免 `list` 按直接子节点可见性在不同运行时把班次主体当成第二个横向列表项裁掉。纵向由一个 UI 线程 SharedValue 同时变换人员轨道和班次轨道，不建立第二套日期/人员滚动容器，也不逐帧调用 `ScrollViewContext.scrollTo()`。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 完整显示，20×30 在固定日期/人员层内纵向浏览，独立矩阵页关闭页面级滚动。外层 `vertical-drag-gesture-handler` 必须包住原生横向面、人员覆盖层和固定角，内层 `horizontal-drag-gesture-handler native-view="scroll-view"` 与它使用 `tag` 和双向 `simultaneous-handlers`。两个识别器的 `worklet:should-response-on-move` 共用一个 UI 线程轴锁：小于 2px 或未达到 1.2 倍主轴优势时双方保持未决，明确选轴后直到 END/CANCELLED 不得换轴。横向走原生惯性，纵向用有边界的 Worklet `decay`。点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
+手排采用长期存在的四层坐标结构：固定左上角、只随 X 移动的日期层、只随 Y 移动的人员层、同时随 X/Y 移动的班次主体。横向由一个原生 `scroll-view type=list scroll-x` 同时承载日期与班次，保留 compositor 同源滚动；日期与班次组合为一个贯穿完整内容宽度的直接内容项，避免 `list` 按直接子节点可见性在不同运行时把班次主体当成第二个横向列表项裁掉。纵向由一个 UI 线程 SharedValue 同时变换人员轨道和班次轨道，不建立第二套日期/人员滚动容器，也不逐帧调用 `ScrollViewContext.scrollTo()`。矩阵视口固定为 82px 表头加 7 个 44px 人员行，共 390px；7×7 完整显示，20×30 在固定日期/人员层内纵向浏览，独立矩阵页关闭页面级滚动。唯一 `pan-gesture-handler native-view="scroll-view"` 直接代理同一个横向 `scroll-view` 并接收完整 `deltaX/deltaY`：首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到 END/CANCELLED；横向锁定时不写 Y、继续由原生 `scroll-x` 提供惯性，纵向锁定时同一 Worklet 直接更新人员/班次 SharedValue，并在松手后执行有边界的 `decay`。禁止恢复嵌套横纵识别器和依赖 `should-response-on-move=false` 把同一次触摸转交父级的方案。点击只更新目标格/行；撤销保存 `{key,before,after}`；禁止整屏 Canvas。[Worklet](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/worklet.html)、[手势](https://developers.weixin.qq.com/miniprogram/dev/framework/runtime/skyline/gesture.html)、[scroll-view](https://developers.weixin.qq.com/miniprogram/dev/component/scroll-view.html)。
 
 ## 6. 网络、会话和缓存
 
