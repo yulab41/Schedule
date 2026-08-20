@@ -10,8 +10,10 @@
 - Web 行为：群组管理页新增“群组日历默认设置 / 我的日历偏好”。`CalendarView` 读取有效偏好；只在月视图且用户未手动筛选班种时使用默认班种，周/列表和手动筛选保持原 `visibleAssignments`。详情按班种开始时间与配置顺序分卡，同班多人留在同一卡内且姓名全部可见；点击姓名展开短号优先的“短号 / 手机”分体拨号，固定 D/NP 说明每班种只显示一次，事件入口逐人保留。
 - 验证：主工作区排除用户自有 `runtime/**`/`src/**` 后 136 文件/773 项通过，32 文件/265 项数据库集成按环境跳过；Contracts/Database/API/Web typecheck、Contracts/Database/API 构建、Web production build、Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 通过。生产详情 Storybook 在 390px 验证同班三人一张 D 卡、姓名完整、短号/手机分体拨号、44px 操作、无横向溢出和零产品控制台错误。
 - 环境限制：`运行/浏览器验证：pnpm smoke:browser` 的等价直接入口已运行，但本机 MySQL 127.0.0.1:3306 拒绝连接，管理员登录回退 `/login?redirect=/`；Docker Desktop 未运行，迁移/API 集成按环境跳过。失败发生在产品断言前，未归因为功能回归；生产部署仍须先备份并以迁移器、`ecs-verify.sh` 和正式域名只读复核收口。
-- checkpoint 识别消息：`feat(calendar): add multi-shift preferences and grouped details`。现有小程序、其他 Storybook、`pnpm-workspace.yaml`、`runtime/`、`src/` 均为用户所有，不纳入本 checkpoint。
-- 下一批次与停止条件：只完成任务文件最终审计、提交推送、生产加密数据库备份、迁移/部署与正式只读核验；使 Git `HEAD`、`origin/main`、服务器 `current-release` 一致后停止，不进入其他 Web 或小程序任务。
+- checkpoint 与发布：代码 checkpoint `f723b0d`（`feat(calendar): add multi-shift preferences and grouped details`）已推送。发布前加密数据库备份 archive `9b092f7f-4fc9-4002-964a-09c2cac62e9a`（50 表、157657 行、70951728 字节，SHA-256 `8bd68d81e2390a5b13986d57702641edfb026d4823d6f2490bf32d22f030a13a`）；release `f723b0dbbe5b5f313158f2f76f8466159443074d` 从隔离干净工作树构建并部署，容器预热首次 502 后自动恢复。
+- 正式核验：`ecs-verify.sh` 通过健康、产物哈希、域名隔离、公开端口、容器和依赖检查；正式数据库为 43 条迁移，4 个日历偏好列齐全。首页健康返回 200，未认证偏好端点返回 401；正式 Web/API bundle 分别命中“群组日历默认设置”和 `/calendar-preferences/mine`。服务器 release、部署清单与代码 checkpoint 一致，部署未复制本地数据库或写入排班业务数据。
+- 当前状态：已完成（含代码推送、生产备份、迁移、部署和正式只读核验）→ 待用户复核。现有小程序、其他 Storybook、`pnpm-workspace.yaml`、`runtime/`、`src/` 均为用户所有，未纳入 checkpoint。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main`、服务器 `current-release` 一致；随后停止，不进入其他 Web 或小程序任务。
 
 ## 2026-08-20 P1 Android Pan 命中高度修复（当前批次）
 

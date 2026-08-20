@@ -560,3 +560,4 @@
 
 - 引入点：`git log -S`/`git blame` 确认默认月视图与通用筛选来自 `db35a77`/`ab25064`，选中日期逐班次轨道来自 `1c84fd6`，群组设置入口来自 `720404a`。本轮只在 `CalendarView` 数据调用点应用月视图默认班种，并重构 `SelectedDateDutyDetails`；`MonthGrid.vue`、`WeekGrid.vue` 源码哈希由回归测试锁定且不修改。
 - 运行/浏览器验证：`pnpm smoke:browser` 的等价直接入口 `node scripts/smoke-browser.mjs` 已在当前源码 5173 与开发认证 API 3000 上运行；本机 MySQL `127.0.0.1:3306` 拒绝连接，管理员登录回退 `/login?redirect=/`，因此完整业务 smoke 在登录门禁停止。独立 Storybook 真实生产详情组件已在 390px 验证同班三人收进一张 D 班卡、姓名全部可见、短号/手机分体拨号、44px 操作和无横向溢出；控制台无产品错误。Docker Desktop 未运行，隔离 MySQL 集成测试按环境跳过。
+- 正式发布与核验：代码 checkpoint `f723b0d` 已推送；发布前加密数据库备份 archive `9b092f7f-4fc9-4002-964a-09c2cac62e9a`（50 表、157657 行、70951728 字节，SHA-256 `8bd68d81e2390a5b13986d57702641edfb026d4823d6f2490bf32d22f030a13a`）。隔离干净工作树构建并部署 release `f723b0dbbe5b5f313158f2f76f8466159443074d`；预热首次 502 后恢复，`ecs-verify.sh` 通过。正式数据库为 43 条迁移且 4 个偏好列齐全，健康 200、未认证偏好端点 401，Web/API bundle 接线命中；未写入排班业务数据。
