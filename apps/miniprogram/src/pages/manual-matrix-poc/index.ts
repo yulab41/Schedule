@@ -14,6 +14,16 @@ interface ManualMatrixCellSelectEvent {
   readonly detail: ManualMatrixLocation & { readonly key: string };
 }
 
+interface ManualMatrixCellTapEvent {
+  readonly currentTarget: {
+    readonly dataset: {
+      readonly columnIndex?: number | string;
+      readonly key?: string;
+      readonly rowIndex?: number | string;
+    };
+  };
+}
+
 interface ManualMatrixGestureConfig {
   readonly horizontalOffset: number;
   readonly maxHorizontalOffset: number;
@@ -41,10 +51,6 @@ interface ManualMatrixUndoEntry {
   readonly key: string;
 }
 
-interface SelectorRect {
-  readonly width: number;
-}
-
 interface ManualMatrixPageInstance {
   _matrixGestureRevision: number;
   _selectedLocation: ManualMatrixLocation;
@@ -53,19 +59,19 @@ interface ManualMatrixPageInstance {
     readonly matrixGestureConfig: ManualMatrixGestureConfig;
   };
   commitScrollProgress(progress: number): void;
-  createSelectorQuery(): {
-    select(selector: string): {
-      boundingClientRect(callback: (rect: SelectorRect) => void): unknown;
-    };
-    exec(): void;
-  };
+  handleCellSelect(event: ManualMatrixCellSelectEvent): void;
   handleMatrixGestureSettled(result: ManualMatrixGestureSettled): void;
   setData(patch: Record<string, unknown>): void;
   updateMatrixViewport(): void;
 }
 
+const MATRIX_PAGE_HORIZONTAL_CHROME = 30;
+const MATRIX_VIEWPORT_FALLBACK_WIDTH = 290;
 const defaultViewModel = createManualMatrixPocViewModel('daily');
-const defaultMatrixGestureConfig = createMatrixGestureConfig(defaultViewModel, 0);
+const defaultMatrixGestureConfig = createMatrixGestureConfig(
+  defaultViewModel,
+  resolveMaxHorizontalOffset(defaultViewModel),
+);
 
 Page({
   data: {
@@ -82,35 +88,30 @@ Page({
     if (mode !== defaultViewModel.mode) {
       this.setData({
         ...viewModel,
-        matrixGestureConfig: createMatrixGestureConfig(viewModel, 0),
+        matrixGestureConfig: createMatrixGestureConfig(
+          viewModel,
+          resolveMaxHorizontalOffset(viewModel),
+        ),
       });
     }
-  },
-  onReady(this: ManualMatrixPageInstance): void {
-    this.updateMatrixViewport();
   },
   onResize(this: ManualMatrixPageInstance): void {
     this.updateMatrixViewport();
   },
   updateMatrixViewport(this: ManualMatrixPageInstance): void {
-    const query = this.createSelectorQuery();
-    query.select('.matrix-pan-surface').boundingClientRect((rect) => {
-      const maximumHorizontalOffset = Math.max(0, this.data.contentWidth - Math.max(1, rect.width));
-      const config = createMatrixGestureConfig(
-        this.data,
-        maximumHorizontalOffset,
-        this.data.matrixGestureConfig.horizontalOffset,
-        this.data.matrixGestureConfig.verticalOffset,
-        this._matrixGestureRevision,
-      );
-      const progress =
-        config.maxHorizontalOffset > 0 ? -config.horizontalOffset / config.maxHorizontalOffset : 0;
-      this.setData({
-        ...createScrollProgressPatch(this.data.columns.length, progress),
-        matrixGestureConfig: config,
-      });
+    const config = createMatrixGestureConfig(
+      this.data,
+      resolveMaxHorizontalOffset(this.data),
+      this.data.matrixGestureConfig.horizontalOffset,
+      this.data.matrixGestureConfig.verticalOffset,
+      this._matrixGestureRevision,
+    );
+    const progress =
+      config.maxHorizontalOffset > 0 ? -config.horizontalOffset / config.maxHorizontalOffset : 0;
+    this.setData({
+      ...createScrollProgressPatch(this.data.columns.length, progress),
+      matrixGestureConfig: config,
     });
-    query.exec();
   },
   handleMatrixGestureSettled(
     this: ManualMatrixPageInstance,
@@ -144,6 +145,13 @@ Page({
     if (manualMatrixPocShiftTypes.some((shiftType) => shiftType.id === shiftTypeId)) {
       this.setData({ activeShiftTypeId: shiftTypeId });
     }
+  },
+  handleCellTap(this: ManualMatrixPageInstance, event: ManualMatrixCellTapEvent): void {
+    const columnIndex = Number(event.currentTarget.dataset.columnIndex);
+    const rowIndex = Number(event.currentTarget.dataset.rowIndex);
+    const key = event.currentTarget.dataset.key;
+    if (!Number.isInteger(columnIndex) || !Number.isInteger(rowIndex) || key === undefined) return;
+    this.handleCellSelect({ detail: { columnIndex, key, rowIndex } });
   },
   handleCellSelect(this: ManualMatrixPageInstance, event: ManualMatrixCellSelectEvent): void {
     const { columnIndex, key, rowIndex } = event.detail;
@@ -190,6 +198,20 @@ Page({
     });
   },
 });
+
+function resolveMaxHorizontalOffset(viewModel: ManualMatrixPocViewModel): number {
+  const viewportWidth = resolveMatrixViewportWidth();
+  return Math.max(0, viewModel.contentWidth - viewportWidth);
+}
+
+function resolveMatrixViewportWidth(): number {
+  if (typeof wx === 'undefined' || typeof wx.getWindowInfo !== 'function') {
+    return MATRIX_VIEWPORT_FALLBACK_WIDTH;
+  }
+  const windowWidth = wx.getWindowInfo().windowWidth;
+  if (!Number.isFinite(windowWidth)) return MATRIX_VIEWPORT_FALLBACK_WIDTH;
+  return Math.max(1, windowWidth - MATRIX_PAGE_HORIZONTAL_CHROME);
+}
 
 function createMatrixGestureConfig(
   viewModel: ManualMatrixPocViewModel,

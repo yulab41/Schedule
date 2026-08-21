@@ -22,6 +22,7 @@ interface MiniProgramWindowInfo {
     readonly bottom: number;
   };
   readonly windowHeight: number;
+  readonly windowWidth: number;
 }
 
 interface MiniProgramAppBaseInfo {

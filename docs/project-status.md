@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 Lucide Minimal 动作图标生产落地（当前批次）
+
+- 用户确认与范围：用户确认 Storybook 的静态保真点击动效并授权应用。本批次只替换顶部通知/个人中心/导出、日历筛选/定位、通讯录科室/人员及所有现有电话图标；已确认导航动效、业务布局、权限、API 和数据库不修改。
+- 回归来源与测试先行：`git log -S` / `git blame` 定位顶部入口来自 `abd20d2` / `0b7b1b8` / `daff238`，日历来自 `abd20d2` / `a1a732a`，通讯录模式来自 `046dc65`，电话图标来自 `8a49434`、`1c84fd6`、`8309dce`、`5437995`、`b09da6e`、`41d284b`、`f723b0d`。生产共用源与全部入口接线守卫在旧实现上 7/7 失败，实现后转绿；重新挂载不得自动播放的追加守卫也先失败后通过。
+- 实现与设计：`frontend-design` 继续采用医疗工作台的克制蓝白系统语言，不改变布局、色彩或按钮外观。确认稿组件迁入生产 `components`，Storybook 与正式页面共享同一 24×24 SVG/动画源；各调用点用 CSS 变量保持原 16/17/18/20/21.6px 尺寸和原线宽。铃铛摇晃、个人回弹、导出箭头/外框反向弹出、筛选三线错动、定位/科室转 90°、双人并排响应和电话轻摆均为 480–620ms 单次点击动画。
+- 交互与语义审计：图标只监听组件挂载后的 motion key 变化，已点击过的定位图标在月/周/列表切换后重新挂载仍静止；科室/人员已选中时在递增 key 前返回。顶部页面切换/导出打开、通知轮询/Sheet、日历定位/筛选、电话菜单、`tel:` 地址、通讯录使用次数和本地偏好各保持原调用一次；没有新增网络、写入、异步或错误路径。生产继续遵循 `prefers-reduced-motion`。
+- 运行/浏览器验证：真实生产 `UnifiedDirectoryView` Story 在 390×844 验证人员首次切换 key 0→1、重复点击仍为 1；真实 `SelectedDateDutyDetails` Story 只让被点电话 key 0→1，其他保持 0，拨号仍为 `tel:61234` / `tel:13800138000`。确认稿导出峰值箭头向右上、外框向左下；两个 Story 的 Axe 违规均为 0，控制台无产品 error/warning，仅有 Storybook 11 `PopoverProvider ariaLabel` 前向兼容提示。预览：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--mobile-workbench-390`。
+- 验证：任务定向 9 文件/55 项及生产守卫通过；排除用户自有 `runtime/**` / `src/**` 后 140 文件/790 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 因本机 5173/3000/3306 均无服务且 Docker 不可用，在打开登录页时 `ERR_CONNECTION_REFUSED`，未进入产品断言；同构生产 Story 已完成本批次真实交互验证。
+- 当前状态：已实现待 checkpoint / 发布；checkpoint 识别消息：`feat(web): apply approved action icon motion`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本生产图标 checkpoint，完成生产备份、`ecs-verify.sh` 与正式域名只读核验，再记录最终 release；随后停止并等待用户复核。
+
 ## 2026-08-21 导出图标柔和回弹动效微调（当前批次）
 
 - 用户要求与范围：只重做 Storybook 预览里的导出图标点击动效，保留现有 TDesign `ExportIcon` 静态路径和 Lucide Minimal 线条；外框允许参与运动。生产调用点、人员图标及其余动作图标不修改。
@@ -52,6 +63,16 @@
 - 正式核验：`ecs-verify.sh` 通过健康、产物哈希、域名隔离、公开端口、容器、依赖和 43 条迁移；正式主页/API 均为 200。生产 CSS 只含 1.5s / 1.8s / 2s 连续导航循环，不含旧 4s 周期；`lucide-minimal-action-icon` 未进入生产 bundle，确认新增 8 图标仍为 Storybook-only。
 - 当前状态：已完成导航无停顿循环发布与新增动作图标预览 → 待用户确认。最终状态 checkpoint 识别消息：`docs(status): record continuous icon preview deployment`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint；保持 6007 Storybook 供用户验收，用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
+
+## 2026-08-21 P1 矩阵首屏渲染阻塞优化（当前批次）
+
+- 用户反馈：`.40` 进入 7×7 或 20×30 后会冻结 3–5 秒，期间滑动和点格均无响应；冻结结束后快慢速横纵滑、惯性、冻结层、进度条、点格和撤销全部正常且丝滑。故障已从手势/状态收窄为首屏组件树构建与首次边界初始化。
+- 引入点与根因：`git log -S`/`git blame` 确认 `6cc7463` 起为每个逻辑格实例化 `ManualScheduleCell`，最大矩阵创建 600 个自定义组件；横向边界仍等待 `onReady → SelectorQuery → setData` 才建立。即使 7×7，也要经过相同的组件初始化和二次渲染门槛。
+- 测试先行与实现：新增页面零自定义组件实例、浅层内置格、七组视觉 selector 与保留组件逐项一致、同步 `getWindowInfo` 边界、无 `onReady`/`SelectorQuery`、原生 dataset 点格契约，旧实现 4 项失败；实现后矩阵 12/12、Mini 12 文件/53 项通过。矩阵 WXML 直接渲染 72×44 内置 `view`，保留的 `ManualScheduleCell` 源码与 simulate 不删除；390px 窗宽在模块初始化即得到 maxX=248px，旋转时同步校准。
+- 视觉与语义审计：按 `frontend-design` 采用“视觉零改动、结构降层”，页面内普通/按压/选中/失效/班次徽标/空态/失效徽标七组声明与组件源码归一化后完全相同；数据路径、ARIA、44px 几何、班种颜色、点格一次事件、增量撤销、WXS 四层坐标、轴锁、惯性、进度条、API 和 fixture 不变。
+- 验证：官方 `miniprogram-ci.getCompiledResult` 编译文件由 53 降为 50、返回 80 个结果文件；Mini typecheck/source/output/2 个探针 Worklet/包体/确定性/simulate 通过（132585 bytes，manifest `20dc42fe7735eb7124d3e8d7be64a40442fbbc647fc38f90290b8ff5695a158d`）。根 lint/build/typecheck、`smoke:check-core`、任务格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 140 文件/790 项通过、32 文件/265 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`perf(miniprogram): flatten matrix cell rendering`。
+- 下一批次与停止条件：上传后只验证进入 C/D 后的首次点格/滑动响应时间及现有完整交互；首屏响应明确通过前不进入 P2。
 
 ## 2026-08-21 P1 WXS 快速惯性 NaN 修复（当前批次）
 

@@ -63,6 +63,7 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 
 - `daily` fixture 精确生成 7 人、7 天和 49 格；`maximum` 精确生成 20 人、30 天和 600 格，并包含失效成员、失效格和节假日状态。
 - 页面矩阵内部不得出现 `scroll-view`、`native-view`、`pan-gesture-handler`、独立表头滚动容器或 Canvas。普通 WXML 裁切面只有一个 WXS 触摸入口，并以内联 `matrixViewportHeight` 像素高度建立真机命中区。日期、人员、主体和左上角四层长期存在，页面 JSON 继续关闭页面滚动。
+- 矩阵页面 `usingComponents` 为空，WXML 不得出现 `manual-schedule-cell` 实例；49/600 格使用浅层内置 `view`，且页面内七组格子 selector 声明必须与保留的 `ManualScheduleCell` 组件逐项一致。首个横向边界必须从 `getWindowInfo` 同步得到，禁止恢复 `onReady`/`SelectorQuery` 首屏门槛；390px 窗宽下 7×7 的初始 maxX 固定为 248px。
 - WXS 测试覆盖零位移保留 tap、等幅/近斜向保持未决、明确横向、明确纵向、选轴后反向抖动、横纵边界、取消、惯性和触摸打断惯性。日期层绑定 X、人员层绑定 Y、主体绑定 X/Y、进度条绑定 X；四个 `setStyle` 在同一视图层回调发生，拖动和惯性不 `setData`，只在最终静止/尺寸变化以 `callMethod` 更新一次进度摘要。另必须模拟静止 `setData` 后四层节点句柄全部更换、坐标恢复、第二次同轴/跨轴手势以及上一轮延迟同步撞上新触摸，阻断一次后失效、单层移动和松手回零。点击只更新目标格或目标行；撤销保存 `{key,before,after}`。回退基线由 ADR-0005 固定。
 - 惯性测试调用 RAF callback 时故意不传时间戳，要求 120 帧内停止、所有 transform 不含 `NaN`，并立即执行另一轴手势验证主体二维 transform 仍有效。WXS 源码禁止依赖 `Math.pow` 或 RAF 时间参数。
 - 选择格只更新目标格及必要的前一选中格路径；撤销只保存并恢复 `{key,before,after}` 增量，不保存整月快照。

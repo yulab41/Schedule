@@ -114,19 +114,30 @@
             style="width:{{contentWidth}}px"
           >
             <view class="member-spacer"></view>
-            <view wx:for="{{row.cells}}" wx:key="key" wx:for-item="cell" class="matrix-cell-slot">
-              <manual-schedule-cell
-                abbreviation="{{cell.abbreviation}}"
-                aria-label="{{cell.ariaLabel}}"
-                color="{{cell.color}}"
-                column-index="{{cell.columnIndex}}"
-                is-selected="{{cell.isSelected}}"
-                is-stale="{{cell.isStale}}"
-                key-value="{{cell.key}}"
-                row-index="{{cell.rowIndex}}"
-                text-color="{{cell.textColor}}"
-                bind:select="handleCellSelect"
-              ></manual-schedule-cell>
+            <view
+              wx:for="{{row.cells}}"
+              wx:key="key"
+              wx:for-item="cell"
+              class="matrix-cell-slot manual-schedule-cell {{cell.isSelected ? 'is-selected' : ''}} {{cell.isStale ? 'is-stale' : ''}}"
+              hover-class="is-pressed"
+              hover-start-time="0"
+              hover-stay-time="70"
+              aria-role="button"
+              aria-label="{{cell.ariaLabel}}"
+              aria-pressed="{{cell.isSelected}}"
+              data-column-index="{{cell.columnIndex}}"
+              data-key="{{cell.key}}"
+              data-row-index="{{cell.rowIndex}}"
+              bindtap="handleCellTap"
+            >
+              <text
+                wx:if="{{cell.abbreviation}}"
+                class="cell-shift"
+                style="background-color:{{cell.color}};color:{{cell.textColor}}"
+                >{{cell.abbreviation}}</text
+              >
+              <text wx:else class="cell-empty">—</text>
+              <text wx:if="{{cell.isStale}}" class="stale-badge">失效</text>
             </view>
           </view>
         </view>

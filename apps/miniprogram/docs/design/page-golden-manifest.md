@@ -17,4 +17,6 @@
 
 P1 视觉意图和状态矩阵见 [`p1-visual-confirmation.md`](./p1-visual-confirmation.md)。以上 Storybook ID 是 Web 黄金源；后续原生截图不得反向覆盖这些 story。
 
+矩阵性能扁平化不得建立新的视觉基线：页面内 `.manual-schedule-cell`、按压、选中、失效、班次徽标、空态和失效徽标声明与保留组件逐项等价，仍对照原 daily/maximum Storybook 状态。
+
 `pages/gesture-probe/index` 是用于区分 Android Pan Worklet、WXS 视图层与普通逻辑层触摸能力的 diagnostic-only 页面，不是产品 UI，不建立 Storybook 黄金样张，也不参与 98% 视觉门槛。WXS 黄色点已由目标 Android 确认横纵同步跟手，矩阵接入后仍需独立完成 C/D 产品交互验收。

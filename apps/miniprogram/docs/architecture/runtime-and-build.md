@@ -48,6 +48,7 @@
 - 普通视图上的唯一 WXS 入口在视图层读取 `touchstart/touchmove/touchend/touchcancel`，达到 2px 且某轴超过另一轴 1.2 倍后锁轴。横向在一次回调更新日期/主体/进度条，纵向更新人员/主体；松手惯性使用 `ComponentDescriptor.requestAnimationFrame` 且有界。零位移不返回 `false`，保留班次格 tap；移动和惯性全程不调用 `setData`，最终静止才以一次 `callMethod` 更新逻辑层摘要。独立矩阵页继续声明 `disableScroll: true`。
 - WXS 惯性不读取 `requestAnimationFrame` 回调参数：目标 Skyline 可能不提供浏览器式时间戳。每帧使用固定 16ms 位移和 `velocity *= 0.92` 衰减，避免第二帧计算产生 NaN；边界函数对 NaN 防御性归零。快速滑动和慢速滑动因此共用同一有限坐标状态，惯性结束后可立即同轴或换轴。
 - WXS 使用模块级坐标状态并在每次 transform 前按 ID 获取当前四层节点，不缓存跨渲染提交的 `ComponentDescriptor`。静止回写会把 X/Y、进度和递增 `syncRevision` 作为一个数据批次保存；`change:matrix-config` 在渲染后恢复相同 transform，避免松手回零。相同模式的普通同步不会重置轴或 tracking；若回写晚于下一次触摸，只更新边界并保留新手势。
+- 矩阵格在页面内使用视觉等价的浅层内置 `view`，不实例化 49/600 个 `ManualScheduleCell` 自定义组件；可复用组件源码、样式和 simulate 测试继续保留。页面样式对七个共享 selector 做源码等价守卫，确保扁平化不改变 72×44 几何、班次徽标、选中框、按压或失效态。横向可滚边界由 `getWindowInfo().windowWidth - 30px` 在首帧同步建立，`onResize` 才重新校准，不再依赖首次 `SelectorQuery`。
 - 顶部进度条由 WXS 直接读取 X/maxX 并随横向惯性更新；逻辑线程只在触摸最终静止或尺寸变化时更新 ARIA/提示文字。20×30 只有 600 个逻辑格，保持浅层单元格和裁切视口即可，不押注二维 `grid-builder`。旧实现与回退规则见 [ADR-0005](../decisions/ADR-0005-worklet-matrix-engine.md)。
 - `pages/gesture-probe/index` 是 diagnostic-only 最小页：A 区验证 Pan Worklet 蓝点，D 区验证 WXS 黄色点，B 区计数普通逻辑层触摸，C 区显示设备运行信息。目标 Android 已确认黄色点横纵同步跟手，矩阵因此使用同一 WXS 原语；探针仍不属于产品 UI。
 

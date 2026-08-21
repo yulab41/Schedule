@@ -9,6 +9,12 @@ function readSource(relativePath) {
   return readFileSync(new URL(`../src/${relativePath}`, import.meta.url), 'utf8');
 }
 
+function cssDeclarations(source, selector) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  const declarations = new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`, 'u').exec(source)?.[1];
+  return declarations?.replace(/\s+/gu, ' ').trim();
+}
+
 function applySetDataPatch(target, patch) {
   for (const [path, value] of Object.entries(patch)) {
     const match = /^rows\[(\d+)\]\.cells\[(\d+)\]$/u.exec(path);
@@ -101,7 +107,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     );
   });
 
-  it('registers a dedicated route and the hand-drawn schedule cell', () => {
+  it('registers a dedicated route while keeping the reusable hand-drawn cell available', () => {
     const appConfig = JSON.parse(readSource('app.json'));
     const pageConfig = JSON.parse(readSource('pages/manual-matrix-poc/index.json'));
     const cellConfig = JSON.parse(
@@ -111,15 +117,16 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(appConfig.pages).toContain('pages/manual-matrix-poc/index');
     expect(appConfig.rendererOptions.skyline.sdkVersionBegin).toBe('3.3.0');
     expect(pageConfig.disableScroll).toBe(true);
-    expect(pageConfig.usingComponents).toEqual({
-      'manual-schedule-cell': '/components/manual-schedule/manual-schedule-cell/index',
-    });
+    expect(pageConfig.usingComponents).toEqual({});
     expect(cellConfig).toMatchObject({ component: true });
   });
 
   it('uses one plain-view WXS surface and four synchronized layers without native scrolling', () => {
     const template = readSource('pages/manual-matrix-poc/index.wxml');
     const styles = readSource('pages/manual-matrix-poc/index.wxss');
+    const reusableCellStyles = readSource(
+      'components/manual-schedule/manual-schedule-cell/index.wxss',
+    );
     const source = readSource('pages/manual-matrix-poc/index.ts');
     const wxsSource = readSource('pages/manual-matrix-poc/matrix-gesture.wxs');
     const worklets = findWorkletIssues(source, 'pages/manual-matrix-poc/index.ts');
@@ -147,11 +154,30 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(template).toContain('height:{{matrixBodyViewportHeight}}px');
     expect(template).toContain('id="matrix-body-track"');
     expect(template).toContain('class="matrix-member-overlay"');
-    expect(template).toContain('<manual-schedule-cell');
+    expect(template).not.toContain('<manual-schedule-cell');
+    expect(template).toContain('class="matrix-cell-slot manual-schedule-cell');
+    expect(template).toContain('bindtap="handleCellTap"');
+    expect(template).toContain('data-column-index="{{cell.columnIndex}}"');
+    expect(template).toContain('data-row-index="{{cell.rowIndex}}"');
     expect(template).not.toMatch(/<canvas/iu);
     expect(styles).toMatch(/\.matrix-corner\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-member-overlay\s*\{[^}]*position:\s*absolute;/su);
     expect(styles).toMatch(/\.matrix-pan-surface\s*\{[^}]*touch-action:\s*none;/su);
+    expect(styles).toMatch(/\.manual-schedule-cell\s*\{[^}]*width:\s*72px;[^}]*height:\s*44px;/su);
+    expect(styles).toContain('.manual-schedule-cell.is-selected');
+    expect(styles).toContain('.manual-schedule-cell.is-stale');
+    expect(styles).toContain('.cell-shift');
+    for (const selector of [
+      '.manual-schedule-cell',
+      '.manual-schedule-cell.is-pressed',
+      '.manual-schedule-cell.is-selected',
+      '.manual-schedule-cell.is-stale',
+      '.cell-shift',
+      '.cell-empty',
+      '.stale-badge',
+    ]) {
+      expect(cssDeclarations(styles, selector)).toBe(cssDeclarations(reusableCellStyles, selector));
+    }
     expect(source).not.toContain('scrollViewContext.scrollTo');
     expect(source).not.toContain('applyAnimatedStyle');
     expect(source).not.toContain('wx.worklet');
@@ -162,7 +188,10 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).toContain('syncRevision');
     expect(source).toContain('verticalOffset');
     expect(source).not.toContain('calculateAdaptiveMatrixViewportHeight');
-    expect(source).not.toContain('wx.getWindowInfo');
+    expect(source).toContain('wx.getWindowInfo');
+    expect(source).not.toContain('createSelectorQuery');
+    expect(source).not.toContain('onReady');
+    expect(source).toContain('handleCellTap');
     expect(wxsSource).toContain("selectComponent('#matrix-date-track')");
     expect(wxsSource).toContain("selectComponent('#matrix-body-track')");
     expect(wxsSource).toContain("selectComponent('#matrix-member-track')");
@@ -176,6 +205,21 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(wxsSource).not.toMatch(/state\.(?:bodyTrack|dateTrack|memberTrack|scrollThumb)\s*=/u);
     expect(worklets.issues).toEqual([]);
     expect(worklets.count).toBe(0);
+  });
+
+  it('computes the first horizontal boundary synchronously before the page becomes ready', async () => {
+    let definition;
+    vi.stubGlobal('wx', {
+      getWindowInfo: () => ({ windowWidth: 390 }),
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    vi.stubGlobal('Component', vi.fn());
+    await import('../src/pages/manual-matrix-poc/index.ts');
+
+    expect(definition.onReady).toBeUndefined();
+    expect(definition.data.matrixGestureConfig.maxHorizontalOffset).toBe(248);
   });
 
   it('keeps ambiguous movement still and moves each frozen layer on only its locked axis', () => {
@@ -484,6 +528,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
       _selectedLocation: { columnIndex: 2, rowIndex: 1 },
       _undoStack: [],
       data,
+      handleCellSelect: definition.handleCellSelect,
       setData(patch) {
         patches.push(patch);
         applySetDataPatch(this.data, patch);
@@ -491,11 +536,13 @@ describe('P1 native manual scheduling matrix PoC', () => {
     };
     const target = data.rows[2].cells[4];
 
-    definition.handleCellSelect.call(instance, {
-      detail: {
-        columnIndex: 4,
-        key: target.key,
-        rowIndex: 2,
+    definition.handleCellTap.call(instance, {
+      currentTarget: {
+        dataset: {
+          columnIndex: 4,
+          key: target.key,
+          rowIndex: 2,
+        },
       },
     });
 

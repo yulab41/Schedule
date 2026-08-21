@@ -15,6 +15,8 @@ Skyline 的 WXS `requestAnimationFrame` 回调不得假设带有浏览器时间�
 
 WXS 坐标保存在模块级视图状态中，不依赖可能随渲染提交失效的页面 `ComponentDescriptor.getState()`，也不长期缓存日期、人员、主体或进度条节点句柄；每帧按稳定 ID 重新取得当前渲染节点。静止后的 `callMethod` 把 X/Y 与进度一起回传，逻辑层在同一次 `setData` 中保存摘要和带 `syncRevision` 的坐标配置；WXS 属性观察器在渲染提交后重新应用同一 X/Y。若上一轮回写晚于下一次 `touchstart` 到达，观察器只更新边界，不得取消或覆盖正在进行的新手势。
 
+矩阵热路径不为每个逻辑格创建自定义组件实例。7×7/20×30 均直接渲染视觉等价的内置 `view` 格子，复用 `ManualScheduleCell` 的完整样式与数据路径；独立可复用组件继续保留并单测，但不进入 600 格矩阵树。横向边界在页面模块初始化时用 `wx.getWindowInfo().windowWidth` 同步计算，扣除 28px 页面横向内边距与 2px 壳层边框；旋转时同步校准，不再等待 `onReady → SelectorQuery → setData` 才开放交互。
+
 ## 理由
 
 目标 Android 已通过人工测试证明：原生横向 `scroll-view` 无论由外层 handler、simultaneous 识别器还是单一 `native-view` 代理承载，都只保留横向滚动，无法提供可用的纵向 ACTIVE。继续依赖原生滚动上下文不能实现冻结首行/首列的双轴矩阵。
