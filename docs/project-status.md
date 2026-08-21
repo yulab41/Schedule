@@ -46,8 +46,9 @@
 - 引入点与根因：`git log -S`/`git blame` 定位 `c35b35b` 的惯性 `step(frameTime)` 把 WXS `requestAnimationFrame` 回调参数当作浏览器时间戳。目标 Skyline 第二帧不提供该参数，`frameTime - previousFrameTime` 生成 NaN；主体使用 `translate(X,Y)`，任一轴 NaN 会使整个主体 transform 失效，而日期/人员单轴 transform 仍可移动，精确对应真机现象。
 - 测试先行与实现：将惯性测试改为调用 RAF callback 时不传参数，并断言 120 帧内停止、所有 transform 不含 `NaN`、快速惯性后立即换轴主体仍同步；旧实现以 `translateX(NaNpx)` 和 `Math.pow` 依赖 2 项失败，修复后矩阵 11/11、Mini 12 文件/52 项通过。惯性现使用固定 16ms 步长和 `velocity *= 0.92`，不读取 RAF 参数、不调用 `Math.pow`；通用 clamp 对 NaN 防御性归零。
 - 语义审计：只替换惯性帧时间来源和衰减等价实现；触摸跟手、2px/1.2 倍轴锁、四层 transform、边界、静止坐标回写、连续手势、进度条、点格、撤销、390px 视口、fixture 与 API 不变。高频路径仍不 `setData`。
-- 验证：Mini typecheck/source/output/2 个探针 Worklet/包体/确定性/simulate 通过（130232 bytes，manifest `2479c0c86d61813d2ecba0e711651ebbd1506447c54a6f49a4033f0a61e596e0`）；根 lint/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过。本机共享 pnpm 依赖树在并行任务中缺少 `.bin/tsc`/esbuild，导致根 build 在产品编译前停止；checkpoint 后必须从隔离工作树完成冻结安装、根 build、微信实际上传和 ECS 打包，不能把该环境错误归为产品通过。
-- 当前状态：已实现待 checkpoint 与隔离构建。checkpoint 识别消息：`fix(miniprogram): stabilize fast matrix inertia`。
+- 验证：Mini typecheck/source/output/2 个探针 Worklet/包体/确定性/simulate 通过（130232 bytes，manifest `2479c0c86d61813d2ecba0e711651ebbd1506447c54a6f49a4033f0a61e596e0`）；根 lint/typecheck、`smoke:check-core`、任务测试文件格式和 `git diff --check` 通过。主工作区根 build 因并行任务重建 pnpm 依赖树而在产品编译前缺少 `.bin/tsc`/esbuild；精确 checkpoint 的隔离冻结安装后根 build 通过。隔离 Mini 中矩阵及其余 48 项通过，只有既有 `visual-compare.test.mjs` 的 Windows CRLF 副本解析失败；主工作区同源码完整 Mini 52 项已通过。
+- 发布：代码 checkpoint `3e18c22`（`fix(miniprogram): stabilize fast matrix inertia`）已推送；微信体验版 `0.1.0-p1.20260821.39` 从隔离工作树上传成功（53 个代码文件、38032 bytes，manifest `c4167dccaddda26728209215d9e3de669aeede6c44662ccd7ad91721d8cd7d42`）。ECS 发布前加密数据库备份 archive `6d0c023b-6b28-4978-adbc-dd1ad83d1279`（50 表、157692 行、70975192 bytes，SHA-256 `d8b628e33c2081c366095184db714a8238ec68f2df5e0b158f9a6bb3d23d36fe`）；release `3e18c221b778ce55cbff36686475953e87397d47` 已部署，预热首次 TLS reset 后恢复，`ecs-verify.sh` 与正式主页/API 200 通过。
+- 当前状态：已实现并发布，正在收口最终状态 checkpoint；`.39@3e18c22` 可供快速惯性人工复核。用户自有小程序配置、workspace、Web 动效批次、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：隔离构建、上传和 ECS 同步后只复测快速横/纵滑、惯性结束位置、再次同轴/换轴、主体同步和进度条；明确通过前不进入 P2。
 
 ## 2026-08-21 P1 WXS 矩阵连续手势与回弹修复（当前批次）
