@@ -17,7 +17,7 @@ const motionIcons: readonly {
 }[] = [
   { label: '通知', name: 'bell', note: '原铃铛 · 点击摇晃' },
   { label: '个人中心', name: 'profile', note: '原用户图标 · 点击回应' },
-  { label: '导出', name: 'export', note: '原导出图标 · 箭头顺向出现' },
+  { label: '导出', name: 'export', note: '原导出图标 · 箭头柔和弹出' },
   { label: '筛选', name: 'filter', note: '原三横线 · 点击错动' },
   { label: '定位', name: 'locate', note: '原准星 · 点击转向' },
   { label: '科室', name: 'department', note: '原四格 · 点击转 90°' },

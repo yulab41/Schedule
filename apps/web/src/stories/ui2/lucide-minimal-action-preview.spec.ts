@@ -29,6 +29,7 @@ describe('Lucide Minimal action icon preview', () => {
       'click-bell',
       'click-department',
       'click-export-arrow',
+      'click-export-frame',
       'click-filter-bottom',
       'click-filter-middle',
       'click-filter-top',
@@ -61,7 +62,9 @@ describe('Lucide Minimal action icon preview', () => {
     expect(icon).toContain('readonly previewMotion?: boolean;');
     expect(icon).toContain('transform: rotate(90deg);');
     expect(icon).toContain(':deep(#stroke2)');
-    expect(icon).toContain('stroke-dashoffset: 42;');
+    expect(icon).toContain(':deep(#stroke1)');
+    expect(icon).toContain('transform: translate(2.2px, -2.2px);');
+    expect(icon).toContain('transform: translate(-0.7px, 0.7px);');
     expect(icon).toContain('d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"');
     expect(icon).toContain('d="M22 21v-2a4 4 0 0 0-3-3.87"');
     expect(icon).not.toContain('d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2"');
@@ -69,7 +72,8 @@ describe('Lucide Minimal action icon preview', () => {
     expect(icon).toContain('stroke-width: 2;');
     expect(icon).toContain('@media (prefers-reduced-motion: reduce)');
     expect(icon).not.toContain('infinite');
-    expect(icon.match(/stroke-dasharray/gu)).toHaveLength(1);
+    expect(icon).not.toContain('stroke-dasharray');
+    expect(icon).not.toContain('stroke-dashoffset');
     expect(icon).not.toContain('opacity:');
     expect(icon).not.toContain('readonly delay?: number;');
     expect(icon).not.toContain('readonly looping?: boolean;');
@@ -108,6 +112,7 @@ describe('Lucide Minimal action icon preview', () => {
     expect(preview).not.toContain('force-motion');
     expect(preview).not.toContain(':delay=');
     expect(preview).not.toContain('首尾连续 · 无空拍');
+    expect(preview).toContain('原导出图标 · 箭头柔和弹出');
     expect(preview).not.toContain('.export-action span {');
     expect(preview).toContain('.export-action > span:last-child');
 

@@ -172,9 +172,16 @@ withDefaults(
   animation: click-profile 480ms cubic-bezier(0.2, 0, 0, 1);
 }
 
+.icon-export .is-animating [data-static-source='tdesign-export'] :deep(#stroke1) {
+  transform-box: view-box;
+  transform-origin: center;
+  animation: click-export-frame 620ms cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
 .icon-export .is-animating [data-static-source='tdesign-export'] :deep(#stroke2) {
-  stroke-dasharray: 42;
-  animation: click-export-arrow 620ms linear;
+  transform-box: view-box;
+  transform-origin: center;
+  animation: click-export-arrow 620ms cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .icon-filter .is-animating .filter-top {
@@ -251,13 +258,37 @@ withDefaults(
 
 @keyframes click-export-arrow {
   0% {
-    stroke-dashoffset: 42;
+    transform: translate(0);
   }
-  72% {
-    stroke-dashoffset: 0;
+  40% {
+    transform: translate(2.2px, -2.2px);
+  }
+  64% {
+    transform: translate(-0.3px, 0.3px);
+  }
+  82% {
+    transform: translate(0.16px, -0.16px);
   }
   100% {
-    stroke-dashoffset: 0;
+    transform: translate(0);
+  }
+}
+
+@keyframes click-export-frame {
+  0% {
+    transform: translate(0);
+  }
+  36% {
+    transform: translate(-0.7px, 0.7px);
+  }
+  64% {
+    transform: translate(0.2px, -0.2px);
+  }
+  82% {
+    transform: translate(-0.08px, 0.08px);
+  }
+  100% {
+    transform: translate(0);
   }
 }
 
@@ -359,6 +390,10 @@ withDefaults(
 
 @media (prefers-reduced-motion: reduce) {
   .static-motion-icon:not(.preview-motion) .is-animating .native-icon,
+  .static-motion-icon:not(.preview-motion)
+    .is-animating
+    [data-static-source='tdesign-export']
+    :deep(#stroke1),
   .static-motion-icon:not(.preview-motion)
     .is-animating
     [data-static-source='tdesign-export']

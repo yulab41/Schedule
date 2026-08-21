@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 导出图标柔和回弹动效微调（当前批次）
+
+- 用户要求与范围：只重做 Storybook 预览里的导出图标点击动效，保留现有 TDesign `ExportIcon` 静态路径和 Lucide Minimal 线条；外框允许参与运动。生产调用点、人员图标及其余动作图标不修改。
+- 回归来源与测试先行：`git log -S` / `git blame` 确认 `34c6652` 首次把导出箭头改为 42px dash 的 620ms 线性顺向出现，用户反馈观感生硬。新增外框独立 keyframe、相反方向位移、禁止 dash/dashoffset 和新说明文案守卫，旧实现 2/2 失败，实现后 2/2 转绿。
+- 设计与实现：移除描边擦除；箭头整体向右上弹出 2.2px，外框同时向左下轻让 0.7px，再经过两段小幅反向回弹，于 620ms 恢复原位。两条原始 `d` 路径、线宽、颜色和未点击静态外观不变；无透明度、循环或额外点线。
+- 运行/浏览器验证：390×844 Storybook 实际点击时，峰值采样箭头 `translate(2.10px, -2.10px)`、外框 `translate(-0.65px, 0.65px)`；结束后两者 `transform: none`，前后路径完全一致，dash 为 `none` / `0px`，控制台无 error/warning。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--mobile-workbench-390`。
+- 验证：任务定向 2/2、排除用户自有 `runtime/**` / `src/**` 后 139 文件/784 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 与浏览器复核通过。直接未排除运行会误扫 `runtime/` 内旧发布副本并产生既有换行/旧版本失败，未改动这些目录。
+- 语义边界：全部修改仍为 Storybook-only，不进入生产 Web bundle，不请求 API、不拨号、不写数据；正式导出图标尚未替换。
+- 当前状态：已实现待 checkpoint / 发布；checkpoint 识别消息：`fix(web): soften export icon motion preview`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本 Storybook checkpoint，完成生产备份与 `ecs-verify.sh`，再记录最终 release 并停止，等待用户视觉确认。
+
 ## 2026-08-21 静态保真动作图标微调（当前批次）
 
 - 用户要求与范围：只微调 Storybook 的人员与导出图标。人员不再使用 `046dc65` 引入的“双头像共用一个身体”，改为已确认群组管理图标的主/次双人并排几何；导出保留 `5b00fa7` 起使用的 TDesign `ExportIcon` 静态外观，只让箭头路径沿自身方向出现。生产调用点、已确认导航和其他 6 个动作图标不修改。
