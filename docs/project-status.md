@@ -45,7 +45,8 @@
 - 测试先行与实现：新增“渲染提交后四个节点句柄全部替换仍恢复 X/Y 并支持第二次手势”“上一轮延迟同步不得取消新触摸”“静止摘要与坐标配置同批回写”契约，旧实现 4 项失败；实现后矩阵 11/11、Mini 12 文件/52 项通过。WXS 改用模块级视图坐标，每次 transform 按稳定 ID 获取当前节点；逻辑层把 X/Y、进度和递增 `syncRevision` 同批保存，属性观察器在渲染后重放坐标。同模式同步若遇正在 tracking 的新手势只更新边界，不重置轴、坐标或触摸状态。
 - 语义审计：高频 `touchmove`/惯性仍完全没有 `setData`；只在最终静止一次回写可访问摘要和坐标。2px/1.2 倍轴锁、四层对应关系、边界、惯性、进度条、390px 视口、点格、撤销、fixture 和 API 均不改变。节点重新查询只发生在 WXS 视图层 ID 查找，不跨逻辑层。
 - 验证：官方 `miniprogram-ci.getCompiledResult` 编译 53 个代码文件并返回 84 个结果文件；Mini typecheck/source/output/2 个探针 Worklet/包体/确定性/simulate 通过（130290 bytes，manifest `3fb10162dfc8d05974697708f781ea42e14efecab26a5c1a6468b8f48f535969`）。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/784 项通过、32 文件/265 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`fix(miniprogram): preserve matrix state across gestures`。
+- 发布：代码 checkpoint `181cab0`（`fix(miniprogram): preserve matrix state across gestures`）已推送；微信体验版 `0.1.0-p1.20260821.36` 从隔离工作树直连 IPv4 上传成功（53 个代码文件、38069 bytes，manifest `f8b935b27ceccfc4b550cc18d4dbcfe42f5d7dbf668d1a15a58b5a4861699def`）。ECS 发布前加密数据库备份 archive `39645aab-1d89-44c5-af88-c01995cd271b`（50 表、157688 行、70972548 bytes，SHA-256 `522324e4bbe4ccff0b1a996eea35b6b932e353baf54f7eafb91c99814a694eeb`）；release `181cab00fee905222769b589a96d512be41c1ae3` 已部署，预热首次 502 后恢复，`ecs-verify.sh` 与正式主页/API 200 通过。
+- 当前状态：已实现并发布，正在收口最终状态 checkpoint；`.36@181cab0` 可供 C/D 连续手势人工复核。用户自有小程序配置、workspace、Web 动效批次、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：上传新体验版后只复测 C/D 连续多次同轴、换轴、松手位置保持、四层同步、进度条、点格和撤销；明确通过前不进入 P2。
 
 ## 2026-08-21 P1 WXS 四层矩阵接入（当前批次）
