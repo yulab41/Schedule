@@ -71,7 +71,8 @@
 - 测试先行与实现：新增页面零自定义组件实例、浅层内置格、七组视觉 selector 与保留组件逐项一致、同步 `getWindowInfo` 边界、无 `onReady`/`SelectorQuery`、原生 dataset 点格契约，旧实现 4 项失败；实现后矩阵 12/12、Mini 12 文件/53 项通过。矩阵 WXML 直接渲染 72×44 内置 `view`，保留的 `ManualScheduleCell` 源码与 simulate 不删除；390px 窗宽在模块初始化即得到 maxX=248px，旋转时同步校准。
 - 视觉与语义审计：按 `frontend-design` 采用“视觉零改动、结构降层”，页面内普通/按压/选中/失效/班次徽标/空态/失效徽标七组声明与组件源码归一化后完全相同；数据路径、ARIA、44px 几何、班种颜色、点格一次事件、增量撤销、WXS 四层坐标、轴锁、惯性、进度条、API 和 fixture 不变。
 - 验证：官方 `miniprogram-ci.getCompiledResult` 编译文件由 53 降为 50、返回 80 个结果文件；Mini typecheck/source/output/2 个探针 Worklet/包体/确定性/simulate 通过（132585 bytes，manifest `20dc42fe7735eb7124d3e8d7be64a40442fbbc647fc38f90290b8ff5695a158d`）。根 lint/build/typecheck、`smoke:check-core`、任务格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 140 文件/790 项通过、32 文件/265 项按环境跳过。
-- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`perf(miniprogram): flatten matrix cell rendering`。
+- 发布：代码 checkpoint `e5f7be2`（`perf(miniprogram): flatten matrix cell rendering`）已推送；微信体验版 `0.1.0-p1.20260821.41` 从隔离工作树上传成功（50 个代码文件、37878 bytes，manifest `9da55ac6aeb8cb3945d3dc211e1f3209c23a17e1255c1507db06842dd91e07e1`）。ECS 发布前加密数据库备份 archive `8d159f9b-b8ec-4ad1-9583-981de8e2eded`（50 表、157696 行、70977836 bytes，SHA-256 `5d9dc40ae51e54eb37e7a1a011cff7e553cdf301bd31af6bbeb7b59b6798731d`）；release `e5f7be20b4c71c5e2e51afc356f41b620a6d24f8` 已部署，预热首次 502 后恢复，`ecs-verify.sh` 与正式主页/API 200 通过。
+- 当前状态：已实现并发布，正在收口最终状态 checkpoint；`.41@e5f7be2` 可供首屏响应人工复核。用户自有小程序配置、workspace、Web 动效批次、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：上传后只验证进入 C/D 后的首次点格/滑动响应时间及现有完整交互；首屏响应明确通过前不进入 P2。
 
 ## 2026-08-21 P1 WXS 快速惯性 NaN 修复（当前批次）
