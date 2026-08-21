@@ -4,9 +4,9 @@ import type {
   CalendarDutyAssignment,
   CalendarDutyMember,
 } from '@schedule/contracts';
-import { CallIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
+import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import {
   buildDialLink,
   formatShiftTimeRange,
@@ -33,6 +33,7 @@ const emit = defineEmits<{
 }>();
 
 const isMenuOpen = ref(false);
+const phoneMotionKey = ref(0);
 const dutyName = computed(() => getDutyMemberName(props.assignment) ?? '待定');
 const shiftTimeRange = computed(() => formatShiftTimeRange(props.assignment));
 const phoneOptions = computed<readonly PhoneOption[]>(() => getAvailablePhoneOptions(props.member));
@@ -61,6 +62,7 @@ const nameTitle = computed(() => {
   return base;
 });
 function toggleMenu(): void {
+  phoneMotionKey.value += 1;
   isMenuOpen.value = !isMenuOpen.value;
 }
 
@@ -107,7 +109,11 @@ onUnmounted(() => {
       :title="nameTitle"
       @click.stop="toggleMenu"
     >
-      <CallIcon aria-hidden="true" />
+      <LucideMinimalActionIcon
+        class="phone-motion-icon"
+        name="phone"
+        :motion-key="phoneMotionKey"
+      />
     </button>
     <span
       v-if="!hideShiftBadge"
@@ -204,9 +210,8 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.duty-phone-button svg {
-  width: 18px;
-  height: 18px;
+.duty-phone-button .phone-motion-icon {
+  --action-motion-icon-size: 18px;
 }
 
 .duty-cell.contact-button {

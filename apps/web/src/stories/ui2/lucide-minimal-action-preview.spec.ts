@@ -9,7 +9,7 @@ function readSource(relativePath: string): string {
 
 describe('Lucide Minimal action icon preview', () => {
   it('keeps the current production geometry intact and animates it only on demand', () => {
-    const icon = readSource('./LucideMinimalActionIcon.vue');
+    const icon = readSource('../../components/LucideMinimalActionIcon.vue');
 
     for (const name of [
       'bell',
@@ -69,7 +69,7 @@ describe('Lucide Minimal action icon preview', () => {
     expect(icon).toContain('d="M22 21v-2a4 4 0 0 0-3-3.87"');
     expect(icon).not.toContain('d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2"');
     expect(icon).toContain(':data-motion-key="motionKey"');
-    expect(icon).toContain('stroke-width: 2;');
+    expect(icon).toContain('stroke-width: var(--action-motion-icon-stroke-width, 2);');
     expect(icon).toContain('@media (prefers-reduced-motion: reduce)');
     expect(icon).not.toContain('infinite');
     expect(icon).not.toContain('stroke-dasharray');
@@ -82,6 +82,8 @@ describe('Lucide Minimal action icon preview', () => {
   it('places the icon system in the requested desktop and mobile product contexts', () => {
     const preview = readSource('./LucideMinimalActionPreview.vue');
     const story = readSource('./LucideMinimalActionPreview.stories.ts');
+
+    expect(preview).toContain("from '../../components/LucideMinimalActionIcon.vue'");
 
     for (const label of [
       '通知中心',

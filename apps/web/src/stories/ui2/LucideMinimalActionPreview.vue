@@ -3,7 +3,7 @@ import { reactive, ref } from 'vue';
 
 import LucideMinimalActionIcon, {
   type LucideMinimalActionIconName,
-} from './LucideMinimalActionIcon.vue';
+} from '../../components/LucideMinimalActionIcon.vue';
 
 withDefaults(defineProps<{ readonly boardOnly?: boolean }>(), { boardOnly: false });
 

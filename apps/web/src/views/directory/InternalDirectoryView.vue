@@ -10,7 +10,6 @@ import type {
   GroupSummary,
 } from '@schedule/contracts';
 import {
-  CallIcon,
   ChevronRightIcon,
   CloseIcon,
   FilterIcon,
@@ -19,10 +18,11 @@ import {
   StarFilledIcon,
   StarIcon,
 } from 'tdesign-icons-vue-next';
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
+import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import {
   getCompatibleDirectoryFacetOptions,
@@ -113,6 +113,7 @@ const preferences = ref<DirectoryPreferences>(parseDirectoryPreferences(undefine
 const nextCursor = ref<string>();
 const totalCount = ref(0);
 const filterSheetVisible = ref(false);
+const phoneMotionKeys = reactive<Record<string, number>>({});
 const collapsedFilterKeys = ref<ReadonlySet<DirectoryFilterKey>>(new Set());
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
@@ -398,10 +399,28 @@ function toggleFavorite(group: DirectoryEntryDisplayGroup): void {
   persistDirectoryPreferences(props.group.id, preferences.value);
 }
 
-function recordDirectoryUse(group: DirectoryEntryDisplayGroup): void {
+function recordDirectoryUse(group: DirectoryEntryDisplayGroup, motionId: string): void {
+  playPhoneMotion(motionId);
   rememberPriorityEntries(group);
   preferences.value = recordDirectoryUsePreference(preferences.value, group);
   persistDirectoryPreferences(props.group.id, preferences.value);
+}
+
+function phoneMotionId(
+  surface: string,
+  groupId: string,
+  contactId: string,
+  channel: 'extension' | 'full',
+): string {
+  return `${surface}:${groupId}:${contactId}:${channel}`;
+}
+
+function phoneMotionKey(motionId: string): number {
+  return phoneMotionKeys[motionId] ?? 0;
+}
+
+function playPhoneMotion(motionId: string): void {
+  phoneMotionKeys[motionId] = phoneMotionKey(motionId) + 1;
 }
 
 function rememberPriorityEntries(group: DirectoryEntryDisplayGroup): void {
@@ -665,11 +684,22 @@ async function lookupPreferredEntries(
                     class="directory-dial-action"
                     :href="toDirectoryDialHref(contact.fullNumber)"
                     :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
-                    @click="recordDirectoryUse(entryGroup)"
+                    @click="
+                      recordDirectoryUse(
+                        entryGroup,
+                        phoneMotionId('results', entryGroup.id, contact.id, 'full'),
+                      )
+                    "
                   >
                     <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
                     <strong>{{ contact.fullNumber }}</strong>
-                    <CallIcon aria-hidden="true" />
+                    <LucideMinimalActionIcon
+                      class="phone-motion-icon"
+                      name="phone"
+                      :motion-key="
+                        phoneMotionKey(phoneMotionId('results', entryGroup.id, contact.id, 'full'))
+                      "
+                    />
                   </a>
                   <strong
                     v-else-if="contact.fullNumber !== undefined"
@@ -686,11 +716,24 @@ async function lookupPreferredEntries(
                     class="directory-dial-action"
                     :href="toDirectoryDialHref(getSafeInternalExtension(contact)!)"
                     :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
-                    @click="recordDirectoryUse(entryGroup)"
+                    @click="
+                      recordDirectoryUse(
+                        entryGroup,
+                        phoneMotionId('results', entryGroup.id, contact.id, 'extension'),
+                      )
+                    "
                   >
                     <small>短号</small>
                     <strong>{{ getSafeInternalExtension(contact) }}</strong>
-                    <CallIcon aria-hidden="true" />
+                    <LucideMinimalActionIcon
+                      class="phone-motion-icon"
+                      name="phone"
+                      :motion-key="
+                        phoneMotionKey(
+                          phoneMotionId('results', entryGroup.id, contact.id, 'extension'),
+                        )
+                      "
+                    />
                   </a>
                   <strong
                     v-else-if="getSafeInternalExtension(contact) !== undefined"
@@ -829,11 +872,24 @@ async function lookupPreferredEntries(
                       class="directory-dial-action"
                       :href="toDirectoryDialHref(contact.fullNumber)"
                       :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'full')} ${contact.fullNumber}`"
-                      @click="recordDirectoryUse(entryGroup)"
+                      @click="
+                        recordDirectoryUse(
+                          entryGroup,
+                          phoneMotionId(section.key, entryGroup.id, contact.id, 'full'),
+                        )
+                      "
                     >
                       <small v-if="getSafeInternalExtension(contact) !== undefined">长号</small>
                       <strong>{{ contact.fullNumber }}</strong>
-                      <CallIcon aria-hidden="true" />
+                      <LucideMinimalActionIcon
+                        class="phone-motion-icon"
+                        name="phone"
+                        :motion-key="
+                          phoneMotionKey(
+                            phoneMotionId(section.key, entryGroup.id, contact.id, 'full'),
+                          )
+                        "
+                      />
                     </a>
                     <strong
                       v-else-if="contact.fullNumber !== undefined"
@@ -850,11 +906,24 @@ async function lookupPreferredEntries(
                       class="directory-dial-action"
                       :href="toDirectoryDialHref(getSafeInternalExtension(contact)!)"
                       :aria-label="`拨打${getDirectoryGroupTitle(entryGroup)}的${getDirectoryNumberLabel(contact.type, 'extension')} ${getSafeInternalExtension(contact)}`"
-                      @click="recordDirectoryUse(entryGroup)"
+                      @click="
+                        recordDirectoryUse(
+                          entryGroup,
+                          phoneMotionId(section.key, entryGroup.id, contact.id, 'extension'),
+                        )
+                      "
                     >
                       <small>短号</small>
                       <strong>{{ getSafeInternalExtension(contact) }}</strong>
-                      <CallIcon aria-hidden="true" />
+                      <LucideMinimalActionIcon
+                        class="phone-motion-icon"
+                        name="phone"
+                        :motion-key="
+                          phoneMotionKey(
+                            phoneMotionId(section.key, entryGroup.id, contact.id, 'extension'),
+                          )
+                        "
+                      />
                     </a>
                     <strong
                       v-else-if="getSafeInternalExtension(contact) !== undefined"
@@ -1451,9 +1520,8 @@ async function lookupPreferredEntries(
   outline-offset: 2px;
 }
 
-.directory-dial-action svg {
-  width: 17px;
-  height: 17px;
+.directory-dial-action .phone-motion-icon {
+  --action-motion-icon-size: 17px;
   flex: 0 0 auto;
 }
 

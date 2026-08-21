@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 Lucide Minimal 动作图标生产落地
+
+- 用户确认与引入点：用户确认 Storybook 的静态保真点击动效并授权应用。`git log -S` / `git blame` 定位顶部通知/个人/导出分别来自 `abd20d2`、`0b7b1b8`、`daff238`，日历筛选/定位来自 `abd20d2`/`a1a732a`，通讯录模式来自 `046dc65`，现有电话图标来自 `8a49434`、`1c84fd6`、`8309dce`、`5437995`、`b09da6e`、`41d284b`、`f723b0d`。
+- 测试先行与实现：生产共用源、顶部、日历、通讯录选中守卫和全部现有电话图标接线在旧代码上 7/7 失败，实现后转绿。Storybook 图标组件迁入生产 `components`，预览与应用引用同一 SVG/动画源；各入口只递增自己的 motion key，科室/人员已选中时先返回，电话拨号 `href`、使用次数记录和菜单展开保持原调用。
+- 仅点击语义：审计发现简单使用 `motionKey > 0` 会让已点击过的定位图标在月/周/列表重新挂载时自动播放；追加守卫先失败后改为只监听组件挂载后的 key 变化。生产遵循 `prefers-reduced-motion`，Storybook 的 `previewMotion` 只用于确认稿强制演示。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173/3000/3306 均无服务且 Docker 不可用，因此在第 1/6 步访问登录页时以 `ERR_CONNECTION_REFUSED` 停止，未进入产品断言。真实生产 `UnifiedDirectoryView` Story 在 390×844 验证人员首次切换 key 0→1、重复点击仍为 1；真实 `SelectedDateDutyDetails` Story 只让被点电话 key 0→1，其他保持 0，两个链接仍为 `tel:61234` / `tel:13800138000`；确认稿导出峰值箭头向右上、外框向左下，Axe 违规 0。控制台无产品 error/warning，仅有 Storybook 11 的前向兼容提示。
+- 验证：任务定向 9 文件/55 项及新增生产守卫通过；排除用户自有 `runtime/**` / `src/**` 后 140 文件/790 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。生产部署与正式只读核验待 checkpoint 后执行。
+
 ## 2026-08-20 移动常驻导航与科室电话行精简
 
 - 反馈与引入点：用户指定移动常驻日历/通讯录/换班/我的，其余进入更多，并要求科室电话移除左侧标签、扩大号码空间。`git log -S` / `git blame` 定位移动入口由 `db35a77`/`0b7b1b8` 引入，电话标签和 62px 标签列由 `427ff6b` 引入。

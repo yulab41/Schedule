@@ -21,6 +21,7 @@ import {
 import { localAuth } from '../../auth/local-auth.js';
 import DataConflictDialog from '../../components/DataConflictDialog.vue';
 import CompactSwitch from '../../components/CompactSwitch.vue';
+import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import TemporalPicker from '../../components/TemporalPicker.vue';
 import { responsiveSheetPopupProps } from '../../components/responsive-sheet-popup.js';
@@ -71,6 +72,8 @@ const selectedAssignment = ref<CalendarDutyAssignment>();
 const assignmentEvents = ref<readonly ScheduleEvent[]>([]);
 const eventDialogVisible = ref(false);
 const filterSheetVisible = ref(false);
+const filterMotionKey = ref(0);
+const locateMotionKey = ref(0);
 const membershipIds = ref<string[]>([]);
 const onlyChanges = ref(false);
 const roleIds = ref<string[]>([]);
@@ -580,6 +583,16 @@ function clearFilters(): void {
   shiftTypeIds.value = [];
 }
 
+function openCalendarFilters(): void {
+  filterMotionKey.value += 1;
+  filterSheetVisible.value = true;
+}
+
+function playLocateMotionAndGoToToday(): void {
+  locateMotionKey.value += 1;
+  goToToday();
+}
+
 function goToToday(): void {
   if (viewMode.value === 'list') {
     pendingListTodayLocation.value = true;
@@ -691,11 +704,13 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           :aria-label="
             activeFilterCount > 0 ? `筛选排班，已启用${activeFilterCount}项` : '筛选排班'
           "
-          @click="filterSheetVisible = true"
+          @click="openCalendarFilters"
         >
-          <svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 6h16M7 12h10M10 18h4" />
-          </svg>
+          <LucideMinimalActionIcon
+            class="filter-icon"
+            name="filter"
+            :motion-key="filterMotionKey"
+          />
           <span>筛选</span>
           <span v-if="activeFilterCount > 0" class="filter-count">{{ activeFilterCount }}</span>
         </button>
@@ -789,14 +804,16 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             class="calendar-locator"
             type="button"
             aria-label="定位到今天"
-            @click="goToToday"
+            @click="playLocateMotionAndGoToToday"
             @touchcancel.passive="releaseCalendarControl"
             @touchend.passive="releaseCalendarControl"
             @touchstart.passive="pressCalendarControl"
           >
-            <span class="locator-crosshair" aria-hidden="true">
-              <span class="locator-crosshair-center" />
-            </span>
+            <LucideMinimalActionIcon
+              class="locator-motion-icon"
+              name="locate"
+              :motion-key="locateMotionKey"
+            />
           </button>
           <button
             class="calendar-step week-step"
@@ -872,14 +889,16 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               class="calendar-locator"
               type="button"
               aria-label="定位到今天"
-              @click="goToToday"
+              @click="playLocateMotionAndGoToToday"
               @touchcancel.passive="releaseCalendarControl"
               @touchend.passive="releaseCalendarControl"
               @touchstart.passive="pressCalendarControl"
             >
-              <span class="locator-crosshair" aria-hidden="true">
-                <span class="locator-crosshair-center" />
-              </span>
+              <LucideMinimalActionIcon
+                class="locator-motion-icon"
+                name="locate"
+                :motion-key="locateMotionKey"
+              />
             </button>
             <button
               class="calendar-step month-step"
@@ -969,14 +988,16 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
               class="calendar-locator"
               type="button"
               aria-label="定位到今天"
-              @click="goToToday"
+              @click="playLocateMotionAndGoToToday"
               @touchcancel.passive="releaseCalendarControl"
               @touchend.passive="releaseCalendarControl"
               @touchstart.passive="pressCalendarControl"
             >
-              <span class="locator-crosshair" aria-hidden="true">
-                <span class="locator-crosshair-center" />
-              </span>
+              <LucideMinimalActionIcon
+                class="locator-motion-icon"
+                name="locate"
+                :motion-key="locateMotionKey"
+              />
             </button>
           </div>
           <div class="list-meta">
@@ -1095,12 +1116,12 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 }
 
 .filter-icon {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  --action-motion-icon-size: 20px;
+  --action-motion-icon-stroke-width: 1.8;
+}
+
+.locator-motion-icon {
+  --action-motion-icon-size: 16px;
 }
 
 .calendar-locator {
@@ -1189,36 +1210,6 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   .calendar-locator.is-touch-pressed {
     transform: none;
   }
-}
-
-.locator-crosshair {
-  position: relative;
-  display: block;
-  width: 16px;
-  height: 16px;
-  background:
-    linear-gradient(currentColor, currentColor) center top / 2px 4px no-repeat,
-    linear-gradient(currentColor, currentColor) center bottom / 2px 4px no-repeat,
-    linear-gradient(currentColor, currentColor) left center / 4px 2px no-repeat,
-    linear-gradient(currentColor, currentColor) right center / 4px 2px no-repeat;
-}
-
-.locator-crosshair::before {
-  position: absolute;
-  inset: 2px;
-  content: '';
-  border: 2px solid currentColor;
-  border-radius: 50%;
-}
-
-.locator-crosshair-center {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 4px;
-  height: 4px;
-  background: currentColor;
-  border-radius: 50%;
 }
 
 .month-navigation,

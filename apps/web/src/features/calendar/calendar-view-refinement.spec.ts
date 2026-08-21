@@ -223,7 +223,7 @@ describe('formal calendar view refinement', () => {
       /\.calendar-step:focus-visible,\s*\.calendar-locator:focus-visible\s*{[^}]*outline:/s,
     );
     expect(calendarView).toContain('class="calendar-locator"');
-    expect(calendarView).toContain('class="locator-crosshair-center"');
+    expect(calendarView.match(/name="locate"/gu)).toHaveLength(3);
     expect(calendarView).toMatch(
       /\.calendar-locator\s*{[^}]*background:\s*transparent;[^}]*border:\s*0;[^}]*box-shadow:\s*none;/s,
     );

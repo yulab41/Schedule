@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
+import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import InternalDirectoryView, { type DirectoryDataSource } from './InternalDirectoryView.vue';
 
 type DirectoryMode = 'internal' | 'employee';
@@ -36,8 +37,10 @@ const employeeDirectoryDataSource: DirectoryDataSource = {
 };
 
 const activeDirectory = ref<DirectoryMode>(props.initialDirectory);
+const departmentMotionKey = ref(0);
 const employeeTab = ref<HTMLButtonElement>();
 const internalTab = ref<HTMLButtonElement>();
+const peopleMotionKey = ref(0);
 const modeTransitionDirection = ref<'forward' | 'backward' | undefined>();
 let modeTransitionTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
 
@@ -71,6 +74,7 @@ function selectDirectory(directory: DirectoryMode): void {
     return;
   }
 
+  playDirectoryMotion(directory);
   modeTransitionDirection.value =
     activeDirectory.value === 'internal' && directory === 'employee' ? 'forward' : 'backward';
   activeDirectory.value = directory;
@@ -82,6 +86,11 @@ function selectDirectory(directory: DirectoryMode): void {
     modeTransitionDirection.value = undefined;
     modeTransitionTimer = undefined;
   }, 240);
+}
+
+function playDirectoryMotion(directory: DirectoryMode): void {
+  if (directory === 'internal') departmentMotionKey.value += 1;
+  else peopleMotionKey.value += 1;
 }
 
 async function moveDirectoryFocus(directory: DirectoryMode): Promise<void> {
@@ -124,12 +133,11 @@ onBeforeUnmount(() => {
             @keydown.end.prevent="moveDirectoryFocus('employee')"
             @keydown.home.prevent="moveDirectoryFocus('internal')"
           >
-            <span class="department-mark" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-              <i />
-            </span>
+            <LucideMinimalActionIcon
+              class="directory-mode-icon"
+              name="department"
+              :motion-key="departmentMotionKey"
+            />
             <span>科室</span>
           </button>
           <button
@@ -148,11 +156,11 @@ onBeforeUnmount(() => {
             @keydown.end.prevent="moveDirectoryFocus('employee')"
             @keydown.home.prevent="moveDirectoryFocus('internal')"
           >
-            <span class="people-mark" aria-hidden="true">
-              <i />
-              <i />
-              <b />
-            </span>
+            <LucideMinimalActionIcon
+              class="directory-mode-icon"
+              name="people"
+              :motion-key="peopleMotionKey"
+            />
             <span>人员</span>
           </button>
         </div>
@@ -297,55 +305,9 @@ onBeforeUnmount(() => {
   transform: scale(0.985);
 }
 
-.department-mark {
-  display: grid;
-  width: 17px;
-  height: 17px;
-  grid-template-columns: repeat(2, 6px);
-  grid-template-rows: repeat(2, 6px);
-  place-content: center;
-  gap: 2px;
-}
-
-.department-mark i {
-  display: block;
-  border: 1.6px solid currentcolor;
-  border-radius: 2px;
-}
-
-.people-mark {
-  position: relative;
-  width: 18px;
-  height: 17px;
-}
-
-.people-mark i {
-  position: absolute;
-  top: 1px;
-  width: 7px;
-  height: 7px;
-  border: 1.6px solid currentcolor;
-  border-radius: 50%;
-}
-
-.people-mark i:first-child {
-  left: 1px;
-}
-
-.people-mark i:nth-child(2) {
-  right: 1px;
-}
-
-.people-mark b {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 7px;
-  border: 1.6px solid currentcolor;
-  border-top-left-radius: 7px;
-  border-top-right-radius: 7px;
-  border-bottom: 0;
+.directory-mode-icon {
+  --action-motion-icon-size: 18px;
+  --action-motion-icon-stroke-width: 1.8;
 }
 
 .directory-mode-panel {

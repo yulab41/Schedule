@@ -90,7 +90,7 @@ describe('formal compact workbench shell', () => {
   it('places export in the compact header and keeps its mobile accessible name', () => {
     expect(homeView).toContain('class="shell-export-action"');
     expect(homeView).toContain('aria-label="导出排班"');
-    expect(homeView).toContain('@click="exportDialogVisible = true"');
+    expect(homeView).toContain('@click="openExportDialog"');
     expect(homeView).not.toContain('grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);');
   });
 

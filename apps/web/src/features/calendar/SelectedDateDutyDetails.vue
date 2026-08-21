@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { CalendarDutyAssignment, CalendarDutyMember } from '@schedule/contracts';
-import { CallIcon, ChevronRightIcon, HistoryIcon } from 'tdesign-icons-vue-next';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { ChevronRightIcon, HistoryIcon } from 'tdesign-icons-vue-next';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
+import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import {
   buildDialLink,
   formatShiftTimeRange,
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 
 const currentTime = ref(new Date());
 const expandedAssignmentId = ref<string>();
+const phoneMotionKeys = reactive<Record<string, number>>({});
 const displayGroups = computed(() =>
   buildGroupedDutyDetails(
     props.selectedDate,
@@ -61,8 +63,21 @@ function getGroupTimeRange(group: GroupedDutyDetail): string {
 }
 
 function togglePhone(assignmentId: string): void {
+  playPhoneMotion(phoneMotionId(assignmentId, 'toggle'));
   expandedAssignmentId.value =
     expandedAssignmentId.value === assignmentId ? undefined : assignmentId;
+}
+
+function phoneMotionId(assignmentId: string, channel: string): string {
+  return `${assignmentId}:${channel}`;
+}
+
+function phoneMotionKey(motionId: string): number {
+  return phoneMotionKeys[motionId] ?? 0;
+}
+
+function playPhoneMotion(motionId: string): void {
+  phoneMotionKeys[motionId] = phoneMotionKey(motionId) + 1;
 }
 
 function phoneLabel(label: string): string {
@@ -143,7 +158,11 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
                   <strong>{{ row.dutyName }}</strong>
                   <small>{{ row.assignment.scheduleRoleName }}</small>
                 </span>
-                <CallIcon aria-hidden="true" />
+                <LucideMinimalActionIcon
+                  class="phone-motion-icon"
+                  name="phone"
+                  :motion-key="phoneMotionKey(phoneMotionId(row.assignment.id, 'toggle'))"
+                />
                 <ChevronRightIcon class="disclosure-icon" aria-hidden="true" />
               </button>
               <div v-else class="staff-name-static">
@@ -161,8 +180,13 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
                 v-for="option in orderedPhoneOptions(row.phoneOptions)"
                 :key="`${option.label}:${option.number}`"
                 :href="buildDialLink(option.number)"
+                @click="playPhoneMotion(phoneMotionId(row.assignment.id, option.label))"
               >
-                <CallIcon aria-hidden="true" />
+                <LucideMinimalActionIcon
+                  class="phone-motion-icon"
+                  name="phone"
+                  :motion-key="phoneMotionKey(phoneMotionId(row.assignment.id, option.label))"
+                />
                 {{ phoneLabel(option.label) }} {{ option.number }}
               </a>
             </div>
@@ -416,6 +440,11 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
   color: var(--ui-color-primary);
 }
 
+.staff-name-button .phone-motion-icon {
+  --action-motion-icon-size: 16px;
+  color: var(--ui-color-primary);
+}
+
 .staff-name-button .disclosure-icon {
   transition: transform var(--ui-duration-fast) ease;
 }
@@ -456,6 +485,10 @@ function orderedPhoneOptions<T extends { readonly label: string }>(
 .event-action svg {
   width: 16px;
   height: 16px;
+}
+
+.phone-split-actions .phone-motion-icon {
+  --action-motion-icon-size: 16px;
 }
 
 .staff-duty-meta {

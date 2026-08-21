@@ -3,11 +3,13 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
+import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import { getGenericBrowserNotificationBody } from './notification-logic.js';
 import NotificationCenterPanel from './NotificationCenterPanel.vue';
 
 const api = createApiClient({ auth: localAuth });
+const bellMotionKey = ref(0);
 const isOpen = ref(false);
 const unreadCount = ref(0);
 let timer: number | undefined;
@@ -54,6 +56,11 @@ function showGenericBrowserNotification(): void {
 function onUnreadChanged(count: number): void {
   unreadCount.value = count;
 }
+
+function openNotificationCenter(): void {
+  bellMotionKey.value += 1;
+  isOpen.value = true;
+}
 </script>
 
 <template>
@@ -62,12 +69,9 @@ function onUnreadChanged(count: number): void {
       type="button"
       class="notification-trigger"
       :aria-label="unreadCount > 0 ? `通知中心，${unreadCount}条未读` : '通知中心'"
-      @click="isOpen = true"
+      @click="openNotificationCenter"
     >
-      <svg class="notification-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
-        <path d="M10 21h4" />
-      </svg>
+      <LucideMinimalActionIcon class="notification-icon" name="bell" :motion-key="bellMotionKey" />
       <span v-if="unreadCount > 0" class="notification-dot" aria-hidden="true" />
     </button>
     <ResponsiveSheet id="notification-center-sheet" v-model:visible="isOpen" title="通知中心">
@@ -92,13 +96,8 @@ function onUnreadChanged(count: number): void {
 }
 
 .notification-icon {
-  display: block;
-  width: 21.6px;
-  height: 21.6px;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  --action-motion-icon-size: 21.6px;
+  --action-motion-icon-stroke-width: 1.8;
 }
 
 .notification-dot {

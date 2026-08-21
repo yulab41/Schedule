@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { GroupSummary } from '@schedule/contracts';
-import { ExportIcon, UserIcon } from 'tdesign-icons-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import { createApiClient } from '../api/client.js';
 import { toUserMessage } from '../utils/user-message.js';
 import { localAuth } from '../auth/local-auth.js';
 import AppStatePanel from '../components/AppStatePanel.vue';
+import LucideMinimalActionIcon from '../components/LucideMinimalActionIcon.vue';
 import NotificationBell from '../features/notifications/NotificationBell.vue';
 import GroupSetupPanel from '../features/groups/GroupSetupPanel.vue';
 import GroupSwitcher from '../features/groups/GroupSwitcher.vue';
@@ -47,6 +47,8 @@ const errorMessage = ref<string>();
 const isLoading = ref(false);
 const activeTab = ref<WorkbenchTabId>('calendar');
 const exportDialogVisible = ref(false);
+const exportMotionKey = ref(0);
+const profileMotionKey = ref(0);
 
 const effectiveGroupRole = computed(() =>
   currentGroup()?.isDeveloperAdmin ? 'owner' : (currentGroup()?.role ?? 'member'),
@@ -101,6 +103,16 @@ function selectGroupTab(groupId: string | undefined): void {
   selectGroup(groupId);
   activeTab.value = 'calendar';
 }
+
+function playProfileMotion(): void {
+  profileMotionKey.value += 1;
+  activeTab.value = 'profile';
+}
+
+function openExportDialog(): void {
+  exportMotionKey.value += 1;
+  exportDialogVisible.value = true;
+}
 </script>
 
 <template>
@@ -122,18 +134,26 @@ function selectGroupTab(groupId: string | undefined): void {
           type="button"
           class="shell-profile-action"
           aria-label="打开我的"
-          @click="activeTab = 'profile'"
+          @click="playProfileMotion"
         >
-          <UserIcon aria-hidden="true" />
+          <LucideMinimalActionIcon
+            class="top-action-motion-icon"
+            name="profile"
+            :motion-key="profileMotionKey"
+          />
         </button>
         <button
           v-if="canExport"
           type="button"
           class="shell-export-action"
           aria-label="导出排班"
-          @click="exportDialogVisible = true"
+          @click="openExportDialog"
         >
-          <ExportIcon aria-hidden="true" />
+          <LucideMinimalActionIcon
+            class="top-action-motion-icon"
+            name="export"
+            :motion-key="exportMotionKey"
+          />
           <span>导出</span>
         </button>
       </div>
@@ -299,9 +319,8 @@ function selectGroupTab(groupId: string | undefined): void {
   outline-offset: 2px;
 }
 
-.shell-profile-action svg {
-  width: 20px;
-  height: 20px;
+.top-action-motion-icon {
+  --action-motion-icon-size: 20px;
 }
 
 .shell-export-action {
@@ -320,11 +339,6 @@ function selectGroupTab(groupId: string | undefined): void {
   font: inherit;
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
-}
-
-.shell-export-action svg {
-  width: 20px;
-  height: 20px;
 }
 
 .home-body {

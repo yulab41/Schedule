@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import { CallIcon, ExportIcon, UserIcon } from 'tdesign-icons-vue-next';
+import { ref, toRefs, watch } from 'vue';
 
 export type LucideMinimalActionIconName =
   'bell' | 'department' | 'export' | 'filter' | 'locate' | 'people' | 'phone' | 'profile';
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     readonly motionKey?: number;
     readonly name: LucideMinimalActionIconName;
     readonly previewMotion?: boolean;
   }>(),
   { motionKey: 0, previewMotion: false },
+);
+const { motionKey, name, previewMotion } = toRefs(props);
+const isAnimating = ref(false);
+
+watch(
+  () => props.motionKey,
+  (currentMotionKey, previousMotionKey) => {
+    if (currentMotionKey === previousMotionKey) return;
+    isAnimating.value = true;
+  },
+  { flush: 'sync' },
 );
 </script>
 
@@ -24,7 +36,7 @@ withDefaults(
     <span
       :key="`${name}-${motionKey}`"
       class="motion-glyph"
-      :class="{ 'is-animating': motionKey > 0 }"
+      :class="{ 'is-animating': isAnimating }"
     >
       <svg
         v-if="name === 'bell'"
@@ -122,8 +134,8 @@ withDefaults(
 .static-motion-icon,
 .motion-glyph {
   display: inline-grid;
-  width: 24px;
-  height: 24px;
+  width: var(--action-motion-icon-size, 24px);
+  height: var(--action-motion-icon-size, 24px);
   flex: 0 0 auto;
   place-items: center;
   color: inherit;
@@ -132,14 +144,14 @@ withDefaults(
 .source-svg,
 .native-icon {
   display: block;
-  width: 24px;
-  height: 24px;
+  width: var(--action-motion-icon-size, 24px);
+  height: var(--action-motion-icon-size, 24px);
   overflow: visible;
 }
 
 .source-svg {
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: var(--action-motion-icon-stroke-width, 2);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
