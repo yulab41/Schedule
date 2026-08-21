@@ -154,7 +154,7 @@ function openExportDialog(): void {
             name="export"
             :motion-key="exportMotionKey"
           />
-          <span>导出</span>
+          <span class="shell-export-label">导出</span>
         </button>
       </div>
     </header>
@@ -377,7 +377,7 @@ function openExportDialog(): void {
     padding: 0;
   }
 
-  .shell-export-action span {
+  .shell-export-action > .shell-export-label {
     position: absolute;
     overflow: hidden;
     width: 1px;

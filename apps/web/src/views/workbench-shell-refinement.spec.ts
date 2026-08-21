@@ -91,6 +91,9 @@ describe('formal compact workbench shell', () => {
     expect(homeView).toContain('class="shell-export-action"');
     expect(homeView).toContain('aria-label="导出排班"');
     expect(homeView).toContain('@click="openExportDialog"');
+    expect(homeView).toContain('<span class="shell-export-label">导出</span>');
+    expect(homeView).toContain('.shell-export-action > .shell-export-label');
+    expect(homeView).not.toContain('.shell-export-action span {');
     expect(homeView).not.toContain('grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);');
   });
 

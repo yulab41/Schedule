@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 移动导出按钮空白
+
+- 反馈与引入点：用户报告动作图标上线后移动端导出按钮为空白。`git log -S` / `git blame` 定位 `daff238` 的 `.shell-export-action span` 原本只隐藏文字；`b70bb99` 的动作图标以 `<span>` 为根，`fea129b` 接入后父级 scoped CSS 也把图标裁成 1×1。
+- 测试先行与修复：新增 `shell-export-label`、直接子元素选择器和禁止宽泛 selector 的回归守卫；旧实现 1/5 失败，修复后 5/5。只把移动规则收窄为 `.shell-export-action > .shell-export-label`；20px SVG、导出 motion key、权限、点击一次打开 Sheet、API 与错误路径均不变。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173 无监听，在第 1/6 步以 `ERR_CONNECTION_REFUSED` 停止，未进入产品断言。Vite production CSS 已验证只隐藏文字直接子元素，不再匹配 `top-action-motion-icon`；正式发布后执行 390px 实际复核。
+- 验证：定向 2 文件/10 项、排除用户自有 `runtime/**` / `src/**` 后 141 文件/794 项通过，32 文件/265 项按环境跳过；根 lint/typecheck、Web typecheck/build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。checkpoint 识别消息：`fix(web): keep mobile export icon visible`。
+
 ## 2026-08-21 Lucide Minimal 动作图标生产落地
 
 - 用户确认与引入点：用户确认 Storybook 的静态保真点击动效并授权应用。`git log -S` / `git blame` 定位顶部通知/个人/导出分别来自 `abd20d2`、`0b7b1b8`、`daff238`，日历筛选/定位来自 `abd20d2`/`a1a732a`，通讯录模式来自 `046dc65`，现有电话图标来自 `8a49434`、`1c84fd6`、`8309dce`、`5437995`、`b09da6e`、`41d284b`、`f723b0d`。
