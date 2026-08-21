@@ -11,6 +11,8 @@
 
 四层内容均为绝对定位，不会撑开父级；普通 WXS 触摸面显式绑定当前 `matrixViewportHeight` 像素高度，禁止只依赖绝对定位子层撑开。WXS `touchstart`/无位移 `touchend` 不返回 `false`，保留自定义班次格的点选事件；只有已锁轴移动和对应结束才阻止默认移动。
 
+WXS 坐标保存在模块级视图状态中，不依赖可能随渲染提交失效的页面 `ComponentDescriptor.getState()`，也不长期缓存日期、人员、主体或进度条节点句柄；每帧按稳定 ID 重新取得当前渲染节点。静止后的 `callMethod` 把 X/Y 与进度一起回传，逻辑层在同一次 `setData` 中保存摘要和带 `syncRevision` 的坐标配置；WXS 属性观察器在渲染提交后重新应用同一 X/Y。若上一轮回写晚于下一次 `touchstart` 到达，观察器只更新边界，不得取消或覆盖正在进行的新手势。
+
 ## 理由
 
 目标 Android 已通过人工测试证明：原生横向 `scroll-view` 无论由外层 handler、simultaneous 识别器还是单一 `native-view` 代理承载，都只保留横向滚动，无法提供可用的纵向 ACTIVE。继续依赖原生滚动上下文不能实现冻结首行/首列的双轴矩阵。

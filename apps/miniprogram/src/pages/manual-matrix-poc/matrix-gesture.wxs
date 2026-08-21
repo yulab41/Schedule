@@ -28,20 +28,16 @@ function createState() {
   return {
     animationToken: 0,
     axis: AXIS_UNDECIDED,
-    bodyTrack: null,
-    dateTrack: null,
     horizontalOffset: 0,
     lastTime: 0,
     lastX: 0,
     lastY: 0,
     maxHorizontalOffset: 0,
     maxVerticalOffset: 0,
-    memberTrack: null,
     moved: false,
     originHorizontalOffset: 0,
     originVerticalOffset: 0,
     resetToken: '',
-    scrollThumb: null,
     startX: 0,
     startY: 0,
     tracking: false,
@@ -51,21 +47,19 @@ function createState() {
   };
 }
 
-function gestureState(ownerInstance) {
-  var ownerState = ownerInstance.getState();
-  if (!ownerState.matrixGesture) ownerState.matrixGesture = createState();
-  return ownerState.matrixGesture;
+var matrixState = createState();
+
+function gestureState() {
+  return matrixState;
 }
 
-function resolveElements(ownerInstance, state) {
-  if (!state.dateTrack) state.dateTrack = ownerInstance.selectComponent('#matrix-date-track');
-  if (!state.bodyTrack) state.bodyTrack = ownerInstance.selectComponent('#matrix-body-track');
-  if (!state.memberTrack) {
-    state.memberTrack = ownerInstance.selectComponent('#matrix-member-track');
-  }
-  if (!state.scrollThumb) {
-    state.scrollThumb = ownerInstance.selectComponent('#matrix-scroll-thumb');
-  }
+function resolveElements(ownerInstance) {
+  return {
+    bodyTrack: ownerInstance.selectComponent('#matrix-body-track'),
+    dateTrack: ownerInstance.selectComponent('#matrix-date-track'),
+    memberTrack: ownerInstance.selectComponent('#matrix-member-track'),
+    scrollThumb: ownerInstance.selectComponent('#matrix-scroll-thumb')
+  };
 }
 
 function progressFor(state) {
@@ -74,23 +68,23 @@ function progressFor(state) {
 }
 
 function applyStyles(ownerInstance, state) {
-  resolveElements(ownerInstance, state);
+  var elements = resolveElements(ownerInstance);
   var horizontalOffset = state.horizontalOffset;
   var verticalOffset = state.verticalOffset;
   var progress = progressFor(state);
-  if (state.dateTrack) {
-    state.dateTrack.setStyle({ transform: 'translateX(' + horizontalOffset + 'px)' });
+  if (elements.dateTrack) {
+    elements.dateTrack.setStyle({ transform: 'translateX(' + horizontalOffset + 'px)' });
   }
-  if (state.bodyTrack) {
-    state.bodyTrack.setStyle({
+  if (elements.bodyTrack) {
+    elements.bodyTrack.setStyle({
       transform: 'translate(' + horizontalOffset + 'px, ' + verticalOffset + 'px)'
     });
   }
-  if (state.memberTrack) {
-    state.memberTrack.setStyle({ transform: 'translateY(' + verticalOffset + 'px)' });
+  if (elements.memberTrack) {
+    elements.memberTrack.setStyle({ transform: 'translateY(' + verticalOffset + 'px)' });
   }
-  if (state.scrollThumb) {
-    state.scrollThumb.setStyle({ transform: 'translateX(' + progress * 36 + 'px)' });
+  if (elements.scrollThumb) {
+    elements.scrollThumb.setStyle({ transform: 'translateX(' + progress * 36 + 'px)' });
   }
 }
 
@@ -103,19 +97,23 @@ function reportPosition(ownerInstance, state) {
 }
 
 function configure(value, oldValue, ownerInstance) {
-  var state = gestureState(ownerInstance);
+  var state = gestureState();
   var config = value || {};
   var nextResetToken = '' + (config.resetToken || '');
+  var shouldReset = state.resetToken !== nextResetToken;
   state.animationToken += 1;
-  state.axis = AXIS_UNDECIDED;
-  state.moved = false;
-  state.tracking = false;
   state.maxHorizontalOffset = Math.max(0, finiteNumber(config.maxHorizontalOffset));
   state.maxVerticalOffset = Math.max(0, finiteNumber(config.maxVerticalOffset));
-  if (state.resetToken !== nextResetToken) {
-    state.horizontalOffset = 0;
-    state.verticalOffset = 0;
+  if (shouldReset) {
+    state.axis = AXIS_UNDECIDED;
+    state.moved = false;
+    state.tracking = false;
+    state.horizontalOffset = finiteNumber(config.horizontalOffset);
+    state.verticalOffset = finiteNumber(config.verticalOffset);
     state.resetToken = nextResetToken;
+  } else if (!state.tracking) {
+    state.horizontalOffset = finiteNumber(config.horizontalOffset);
+    state.verticalOffset = finiteNumber(config.verticalOffset);
   }
   state.horizontalOffset = clamp(
     state.horizontalOffset,
@@ -124,13 +122,12 @@ function configure(value, oldValue, ownerInstance) {
   );
   state.verticalOffset = clamp(state.verticalOffset, -state.maxVerticalOffset, 0);
   applyStyles(ownerInstance, state);
-  reportPosition(ownerInstance, state);
 }
 
 function touchStart(event, ownerInstance) {
   var touch = firstTouch(event);
   if (!touch) return;
-  var state = gestureState(ownerInstance);
+  var state = gestureState();
   state.animationToken += 1;
   state.axis = AXIS_UNDECIDED;
   state.moved = false;
@@ -169,7 +166,7 @@ function chooseAxis(horizontalDistance, verticalDistance) {
 
 function touchMove(event, ownerInstance) {
   var touch = firstTouch(event);
-  var state = gestureState(ownerInstance);
+  var state = gestureState();
   if (!state.tracking || !touch) return;
   var totalX = touch.clientX - state.startX;
   var totalY = touch.clientY - state.startY;
@@ -241,7 +238,7 @@ function beginInertia(ownerInstance, state) {
 }
 
 function touchEnd(event, ownerInstance) {
-  var state = gestureState(ownerInstance);
+  var state = gestureState();
   if (!state.tracking) return;
   state.tracking = false;
   if (!state.moved || state.axis === AXIS_UNDECIDED) {
@@ -253,7 +250,7 @@ function touchEnd(event, ownerInstance) {
 }
 
 function touchCancel(event, ownerInstance) {
-  var state = gestureState(ownerInstance);
+  var state = gestureState();
   if (!state.tracking) return;
   var moved = state.moved;
   state.animationToken += 1;

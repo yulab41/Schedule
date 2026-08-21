@@ -28,6 +28,16 @@
 - 当前状态：已完成导航无停顿循环发布与新增动作图标预览 → 待用户确认。最终状态 checkpoint 识别消息：`docs(status): record continuous icon preview deployment`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint；保持 6007 Storybook 供用户验收，用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
 
+## 2026-08-21 P1 WXS 矩阵连续手势与回弹修复（当前批次）
+
+- 用户反馈：`.35` 代码版本正确；7×7 和 20×30 首次横向/纵向可用，但松手后回到初始位置，第二次同轴手势无响应；此后换轴时只剩日期或人员单层移动。首次横向时日期+班次、首次纵向时人员+班次同步，证明坐标计算与首帧四层更新本身正确。
+- 引入点与根因：`git log -S`/`git blame` 定位 `c35b35b` 首次加入静止 `callMethod → setData` 回写、页面 `getState()` 状态和跨渲染缓存 `ComponentDescriptor`。真机结果表明第一次静止回写后直接 transform/节点句柄失效，下一次触摸继续使用过期状态或过期节点，因此回弹、一次后失效并按层分裂。
+- 测试先行与实现：新增“渲染提交后四个节点句柄全部替换仍恢复 X/Y 并支持第二次手势”“上一轮延迟同步不得取消新触摸”“静止摘要与坐标配置同批回写”契约，旧实现 4 项失败；实现后矩阵 11/11、Mini 12 文件/52 项通过。WXS 改用模块级视图坐标，每次 transform 按稳定 ID 获取当前节点；逻辑层把 X/Y、进度和递增 `syncRevision` 同批保存，属性观察器在渲染后重放坐标。同模式同步若遇正在 tracking 的新手势只更新边界，不重置轴、坐标或触摸状态。
+- 语义审计：高频 `touchmove`/惯性仍完全没有 `setData`；只在最终静止一次回写可访问摘要和坐标。2px/1.2 倍轴锁、四层对应关系、边界、惯性、进度条、390px 视口、点格、撤销、fixture 和 API 均不改变。节点重新查询只发生在 WXS 视图层 ID 查找，不跨逻辑层。
+- 验证：官方 `miniprogram-ci.getCompiledResult` 编译 53 个代码文件并返回 84 个结果文件；Mini typecheck/source/output/2 个探针 Worklet/包体/确定性/simulate 通过（130290 bytes，manifest `3fb10162dfc8d05974697708f781ea42e14efecab26a5c1a6468b8f48f535969`）。根 lint/build/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过；排除用户自有 `runtime/**`/`src/**` 后主源码 139 文件/784 项通过、32 文件/265 项按环境跳过。
+- 当前状态：已实现待 checkpoint、微信体验上传和 ECS 同步。checkpoint 识别消息：`fix(miniprogram): preserve matrix state across gestures`。
+- 下一批次与停止条件：上传新体验版后只复测 C/D 连续多次同轴、换轴、松手位置保持、四层同步、进度条、点格和撤销；明确通过前不进入 P2。
+
 ## 2026-08-21 P1 WXS 四层矩阵接入（当前批次）
 
 - 用户前置验收：体验版 `.33` 的黄色点可以移动，横向和纵向跟手感均为“同步”。这证明目标 Android 16 + Skyline 能执行内置 `view` 上的 WXS 触摸与同帧 `ComponentDescriptor.setStyle`，允许进入矩阵接入。

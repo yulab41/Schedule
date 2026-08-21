@@ -15,9 +15,12 @@ interface ManualMatrixCellSelectEvent {
 }
 
 interface ManualMatrixGestureConfig {
+  readonly horizontalOffset: number;
   readonly maxHorizontalOffset: number;
   readonly maxVerticalOffset: number;
   readonly resetToken: string;
+  readonly syncRevision: number;
+  readonly verticalOffset: number;
 }
 
 interface ManualMatrixGestureSettled {
@@ -43,6 +46,7 @@ interface SelectorRect {
 }
 
 interface ManualMatrixPageInstance {
+  _matrixGestureRevision: number;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
   readonly data: ManualMatrixPocViewModel & {
@@ -72,6 +76,7 @@ Page({
   onLoad(this: ManualMatrixPageInstance, options: { readonly mode?: string } = {}): void {
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
+    this._matrixGestureRevision = 0;
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
     if (mode !== defaultViewModel.mode) {
@@ -91,8 +96,18 @@ Page({
     const query = this.createSelectorQuery();
     query.select('.matrix-pan-surface').boundingClientRect((rect) => {
       const maximumHorizontalOffset = Math.max(0, this.data.contentWidth - Math.max(1, rect.width));
+      const config = createMatrixGestureConfig(
+        this.data,
+        maximumHorizontalOffset,
+        this.data.matrixGestureConfig.horizontalOffset,
+        this.data.matrixGestureConfig.verticalOffset,
+        this._matrixGestureRevision,
+      );
+      const progress =
+        config.maxHorizontalOffset > 0 ? -config.horizontalOffset / config.maxHorizontalOffset : 0;
       this.setData({
-        matrixGestureConfig: createMatrixGestureConfig(this.data, maximumHorizontalOffset),
+        ...createScrollProgressPatch(this.data.columns.length, progress),
+        matrixGestureConfig: config,
       });
     });
     query.exec();
@@ -101,21 +116,28 @@ Page({
     this: ManualMatrixPageInstance,
     result: ManualMatrixGestureSettled,
   ): void {
-    if (!Number.isFinite(result.progress)) return;
-    this.commitScrollProgress(Math.max(0, Math.min(1, result.progress)));
+    if (
+      !Number.isFinite(result.horizontalOffset) ||
+      !Number.isFinite(result.progress) ||
+      !Number.isFinite(result.verticalOffset)
+    ) {
+      return;
+    }
+    const progress = Math.max(0, Math.min(1, result.progress));
+    this._matrixGestureRevision += 1;
+    this.setData({
+      ...createScrollProgressPatch(this.data.columns.length, progress),
+      matrixGestureConfig: createMatrixGestureConfig(
+        this.data,
+        this.data.matrixGestureConfig.maxHorizontalOffset,
+        result.horizontalOffset,
+        result.verticalOffset,
+        this._matrixGestureRevision,
+      ),
+    });
   },
   commitScrollProgress(this: ManualMatrixPageInstance, progress: number): void {
-    const scrollHint =
-      progress <= 0.02
-        ? '向左滑动查看其余日期，人员列保持固定'
-        : progress >= 0.98
-          ? '向右滑动返回较早日期，人员列保持固定'
-          : `左右滑动查看全部 ${this.data.columns.length} 天，人员列保持固定`;
-    this.setData({
-      scrollHint,
-      scrollProgressOffset: Math.round(progress * 36),
-      scrollProgressPercent: Math.round(progress * 100),
-    });
+    this.setData(createScrollProgressPatch(this.data.columns.length, progress));
   },
   handleShiftSelect(this: ManualMatrixPageInstance, event: ManualMatrixShiftSelectEvent): void {
     const shiftTypeId = event.currentTarget.dataset.shiftTypeId;
@@ -172,11 +194,37 @@ Page({
 function createMatrixGestureConfig(
   viewModel: ManualMatrixPocViewModel,
   maxHorizontalOffset: number,
+  horizontalOffset = 0,
+  verticalOffset = 0,
+  syncRevision = 0,
 ): ManualMatrixGestureConfig {
+  const normalizedMaxHorizontalOffset = Math.max(0, maxHorizontalOffset);
+  const maxVerticalOffset = Math.max(
+    0,
+    viewModel.matrixContentHeight - viewModel.matrixViewportHeight,
+  );
   return {
-    maxHorizontalOffset: Math.max(0, maxHorizontalOffset),
-    maxVerticalOffset: Math.max(0, viewModel.matrixContentHeight - viewModel.matrixViewportHeight),
+    horizontalOffset: Math.max(-normalizedMaxHorizontalOffset, Math.min(0, horizontalOffset)),
+    maxHorizontalOffset: normalizedMaxHorizontalOffset,
+    maxVerticalOffset,
     resetToken: viewModel.mode,
+    syncRevision,
+    verticalOffset: Math.max(-maxVerticalOffset, Math.min(0, verticalOffset)),
+  };
+}
+
+function createScrollProgressPatch(columnCount: number, progress: number): Record<string, unknown> {
+  const normalizedProgress = Math.max(0, Math.min(1, progress));
+  const scrollHint =
+    normalizedProgress <= 0.02
+      ? '向左滑动查看其余日期，人员列保持固定'
+      : normalizedProgress >= 0.98
+        ? '向右滑动返回较早日期，人员列保持固定'
+        : `左右滑动查看全部 ${columnCount} 天，人员列保持固定`;
+  return {
+    scrollHint,
+    scrollProgressOffset: Math.round(normalizedProgress * 36),
+    scrollProgressPercent: Math.round(normalizedProgress * 100),
   };
 }
 

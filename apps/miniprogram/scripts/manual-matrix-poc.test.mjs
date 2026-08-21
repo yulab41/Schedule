@@ -31,19 +31,26 @@ function loadMatrixGestureHandlers() {
 function createWxsOwner() {
   const state = {};
   const frames = [];
-  const elements = new Map(
-    [
-      '#matrix-scroll-thumb',
-      '#matrix-date-track',
-      '#matrix-body-track',
-      '#matrix-member-track',
-    ].map((selector) => [selector, { setStyle: vi.fn() }]),
-  );
+  const createElements = () =>
+    new Map(
+      [
+        '#matrix-scroll-thumb',
+        '#matrix-date-track',
+        '#matrix-body-track',
+        '#matrix-member-track',
+      ].map((selector) => [selector, { setStyle: vi.fn() }]),
+    );
+  let elements = createElements();
   return {
     callMethod: vi.fn(),
-    elements,
+    get elements() {
+      return elements;
+    },
     frames,
     getState: () => state,
+    replaceElements() {
+      elements = createElements();
+    },
     requestAnimationFrame(callback) {
       frames.push(callback);
     },
@@ -151,6 +158,9 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(source).not.toContain('handleMatrixPan');
     expect(source).toContain('handleMatrixGestureSettled');
     expect(source).toContain('matrixGestureConfig');
+    expect(source).toContain('horizontalOffset');
+    expect(source).toContain('syncRevision');
+    expect(source).toContain('verticalOffset');
     expect(source).not.toContain('calculateAdaptiveMatrixViewportHeight');
     expect(source).not.toContain('wx.getWindowInfo');
     expect(wxsSource).toContain("selectComponent('#matrix-date-track')");
@@ -161,6 +171,8 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(wxsSource).toContain("callMethod('handleMatrixGestureSettled'");
     expect(wxsSource).not.toContain('setData');
     expect(wxsSource).not.toMatch(/\b(?:Number|String)\s*\(/u);
+    expect(wxsSource).not.toContain('.getState()');
+    expect(wxsSource).not.toMatch(/state\.(?:bodyTrack|dateTrack|memberTrack|scrollThumb)\s*=/u);
     expect(worklets.issues).toEqual([]);
     expect(worklets.count).toBe(0);
   });
@@ -281,6 +293,83 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(owner.callMethod).not.toHaveBeenCalled();
   });
 
+  it('restores settled coordinates onto fresh render descriptors and supports another gesture', () => {
+    const handlers = loadMatrixGestureHandlers();
+    const owner = createWxsOwner();
+    const initialConfig = {
+      horizontalOffset: 0,
+      maxHorizontalOffset: 300,
+      maxVerticalOffset: 572,
+      resetToken: 'maximum',
+      syncRevision: 0,
+      verticalOffset: 0,
+    };
+    handlers.configure(initialConfig, undefined, owner);
+    owner.callMethod.mockClear();
+
+    handlers.touchStart({ timeStamp: 0, touches: [{ clientX: 180, clientY: 180 }] }, owner);
+    handlers.touchMove({ timeStamp: 16, touches: [{ clientX: 140, clientY: 178 }] }, owner);
+    handlers.touchCancel({ timeStamp: 20 }, owner);
+    expect(owner.callMethod).toHaveBeenLastCalledWith('handleMatrixGestureSettled', {
+      horizontalOffset: -40,
+      progress: 40 / 300,
+      verticalOffset: 0,
+    });
+
+    owner.replaceElements();
+    const settledConfig = {
+      ...initialConfig,
+      horizontalOffset: -40,
+      syncRevision: 1,
+    };
+    handlers.configure(settledConfig, initialConfig, owner);
+    expect(owner.elements.get('#matrix-date-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateX(-40px)',
+    });
+    expect(owner.elements.get('#matrix-body-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translate(-40px, 0px)',
+    });
+
+    handlers.touchStart({ timeStamp: 24, touches: [{ clientX: 140, clientY: 178 }] }, owner);
+    handlers.touchMove({ timeStamp: 40, touches: [{ clientX: 110, clientY: 176 }] }, owner);
+    expect(owner.elements.get('#matrix-date-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateX(-70px)',
+    });
+    expect(owner.elements.get('#matrix-body-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translate(-70px, 0px)',
+    });
+  });
+
+  it('does not let a delayed render sync cancel a newer active touch', () => {
+    const handlers = loadMatrixGestureHandlers();
+    const owner = createWxsOwner();
+    const initialConfig = {
+      horizontalOffset: 0,
+      maxHorizontalOffset: 300,
+      maxVerticalOffset: 572,
+      resetToken: 'maximum',
+      syncRevision: 0,
+      verticalOffset: 0,
+    };
+    handlers.configure(initialConfig, undefined, owner);
+    handlers.touchStart({ timeStamp: 0, touches: [{ clientX: 180, clientY: 180 }] }, owner);
+    handlers.touchMove({ timeStamp: 16, touches: [{ clientX: 140, clientY: 178 }] }, owner);
+
+    handlers.configure(
+      { ...initialConfig, horizontalOffset: -10, syncRevision: 1 },
+      initialConfig,
+      owner,
+    );
+    handlers.touchMove({ timeStamp: 32, touches: [{ clientX: 120, clientY: 176 }] }, owner);
+
+    expect(owner.elements.get('#matrix-date-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateX(-60px)',
+    });
+    expect(owner.elements.get('#matrix-body-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translate(-60px, 0px)',
+    });
+  });
+
   it('updates the accessible progress summary only after WXS reports a settled position', async () => {
     let definition;
     vi.stubGlobal('Page', (value) => {
@@ -288,10 +377,24 @@ describe('P1 native manual scheduling matrix PoC', () => {
     });
     vi.stubGlobal('Component', vi.fn());
     await import('../src/pages/manual-matrix-poc/index.ts');
+    const { createManualMatrixPocViewModel } =
+      await import('../src/testing/fixtures/manual-matrix-poc.ts');
     const setData = vi.fn();
+    const data = {
+      ...createManualMatrixPocViewModel('maximum'),
+      matrixGestureConfig: {
+        horizontalOffset: 0,
+        maxHorizontalOffset: 300,
+        maxVerticalOffset: 572,
+        resetToken: 'maximum',
+        syncRevision: 0,
+        verticalOffset: 0,
+      },
+    };
     const instance = {
+      _matrixGestureRevision: 0,
       commitScrollProgress: definition.commitScrollProgress,
-      data: structuredClone(definition.data),
+      data,
       setData,
     };
 
@@ -303,7 +406,15 @@ describe('P1 native manual scheduling matrix PoC', () => {
 
     expect(setData).toHaveBeenCalledOnce();
     expect(setData).toHaveBeenCalledWith({
-      scrollHint: '左右滑动查看全部 7 天，人员列保持固定',
+      matrixGestureConfig: {
+        horizontalOffset: -150,
+        maxHorizontalOffset: 300,
+        maxVerticalOffset: 572,
+        resetToken: 'maximum',
+        syncRevision: 1,
+        verticalOffset: -88,
+      },
+      scrollHint: '左右滑动查看全部 30 天，人员列保持固定',
       scrollProgressOffset: 18,
       scrollProgressPercent: 50,
     });
