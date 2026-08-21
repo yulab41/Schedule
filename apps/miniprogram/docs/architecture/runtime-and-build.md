@@ -46,6 +46,7 @@
 - P1 手排矩阵采用固定四层 WXS 视图层坐标模型，不在触摸期间重排 WXML：左上角固定；日期层只读取 X；人员层只读取 Y；班次主体同时读取 X/Y；进度条直接使用相同 X。矩阵内部没有 `scroll-view`、`native-view`、`pan-gesture-handler`、第二个表头容器或 `ScrollViewContext.scrollTo()` 追赶。
 - 矩阵壳层固定为 `82px` 表头加 7 个 `44px` 人员行，共 390px；不再按窗口高度、矩阵顶部或安全区动态覆写。7×7 完整显示，20×30 固定显示 7 行并在壳层内纵向浏览，常规手机尺寸下不会因运行时测量把矩阵延伸到页面外。
 - 普通视图上的唯一 WXS 入口在视图层读取 `touchstart/touchmove/touchend/touchcancel`，达到 2px 且某轴超过另一轴 1.2 倍后锁轴。横向在一次回调更新日期/主体/进度条，纵向更新人员/主体；松手惯性使用 `ComponentDescriptor.requestAnimationFrame` 且有界。零位移不返回 `false`，保留班次格 tap；移动和惯性全程不调用 `setData`，最终静止才以一次 `callMethod` 更新逻辑层摘要。独立矩阵页继续声明 `disableScroll: true`。
+- WXS 惯性不读取 `requestAnimationFrame` 回调参数：目标 Skyline 可能不提供浏览器式时间戳。每帧使用固定 16ms 位移和 `velocity *= 0.92` 衰减，避免第二帧计算产生 NaN；边界函数对 NaN 防御性归零。快速滑动和慢速滑动因此共用同一有限坐标状态，惯性结束后可立即同轴或换轴。
 - WXS 使用模块级坐标状态并在每次 transform 前按 ID 获取当前四层节点，不缓存跨渲染提交的 `ComponentDescriptor`。静止回写会把 X/Y、进度和递增 `syncRevision` 作为一个数据批次保存；`change:matrix-config` 在渲染后恢复相同 transform，避免松手回零。相同模式的普通同步不会重置轴或 tracking；若回写晚于下一次触摸，只更新边界并保留新手势。
 - 顶部进度条由 WXS 直接读取 X/maxX 并随横向惯性更新；逻辑线程只在触摸最终静止或尺寸变化时更新 ARIA/提示文字。20×30 只有 600 个逻辑格，保持浅层单元格和裁切视口即可，不押注二维 `grid-builder`。旧实现与回退规则见 [ADR-0005](../decisions/ADR-0005-worklet-matrix-engine.md)。
 - `pages/gesture-probe/index` 是 diagnostic-only 最小页：A 区验证 Pan Worklet 蓝点，D 区验证 WXS 黄色点，B 区计数普通逻辑层触摸，C 区显示设备运行信息。目标 Android 已确认黄色点横纵同步跟手，矩阵因此使用同一 WXS 原语；探针仍不属于产品 UI。

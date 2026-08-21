@@ -169,6 +169,7 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(wxsSource).toContain("selectComponent('#matrix-scroll-thumb')");
     expect(wxsSource).toContain('requestAnimationFrame');
     expect(wxsSource).toContain("callMethod('handleMatrixGestureSettled'");
+    expect(wxsSource).not.toContain('Math.pow');
     expect(wxsSource).not.toContain('setData');
     expect(wxsSource).not.toMatch(/\b(?:Number|String)\s*\(/u);
     expect(wxsSource).not.toContain('.getState()');
@@ -254,12 +255,15 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(owner.frames).toHaveLength(1);
     expect(owner.callMethod).not.toHaveBeenCalled();
 
-    let frameTime = 88;
     for (let frame = 0; frame < 120 && owner.frames.length > 0; frame += 1) {
-      owner.frames.shift()(frameTime);
-      frameTime += 16;
+      owner.frames.shift()();
     }
     expect(owner.frames).toHaveLength(0);
+    for (const element of owner.elements.values()) {
+      for (const [style] of element.setStyle.mock.calls) {
+        expect(style.transform).not.toContain('NaN');
+      }
+    }
     expect(owner.callMethod).toHaveBeenLastCalledWith(
       'handleMatrixGestureSettled',
       expect.objectContaining({
@@ -268,6 +272,15 @@ describe('P1 native manual scheduling matrix PoC', () => {
         verticalOffset: 0,
       }),
     );
+
+    handlers.touchStart({ timeStamp: 100, touches: [{ clientX: 100, clientY: 180 }] }, owner);
+    handlers.touchMove({ timeStamp: 116, touches: [{ clientX: 102, clientY: 130 }] }, owner);
+    expect(owner.elements.get('#matrix-member-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translateY(-50px)',
+    });
+    expect(owner.elements.get('#matrix-body-track').setStyle).toHaveBeenLastCalledWith({
+      transform: 'translate(-300px, -50px)',
+    });
   });
 
   it('cancels an in-flight WXS inertia frame when the next touch starts', () => {

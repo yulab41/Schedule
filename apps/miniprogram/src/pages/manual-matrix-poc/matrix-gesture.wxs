@@ -6,8 +6,10 @@ var MINIMUM_DELTA = 2;
 var MINIMUM_VELOCITY = 0.02;
 var MAXIMUM_VELOCITY = 3;
 var FRAME_FRICTION = 0.92;
+var FRAME_DURATION = 16;
 
 function clamp(value, minimum, maximum) {
+  if (value !== value) return 0;
   if (value < minimum) return minimum;
   if (value > maximum) return maximum;
   return value;
@@ -209,22 +211,19 @@ function beginInertia(ownerInstance, state) {
   }
   var animationToken = state.animationToken + 1;
   state.animationToken = animationToken;
-  var previousFrameTime = 0;
 
-  function step(frameTime) {
+  function step() {
     if (state.animationToken !== animationToken) return;
-    var elapsed = previousFrameTime === 0 ? 16 : clamp(frameTime - previousFrameTime, 8, 32);
-    previousFrameTime = frameTime;
     var previousOffset =
       axis === AXIS_HORIZONTAL ? state.horizontalOffset : state.verticalOffset;
     var minimumOffset =
       axis === AXIS_HORIZONTAL ? -state.maxHorizontalOffset : -state.maxVerticalOffset;
-    var rawNextOffset = previousOffset + velocity * elapsed;
+    var rawNextOffset = previousOffset + velocity * FRAME_DURATION;
     var nextOffset = clamp(rawNextOffset, minimumOffset, 0);
     if (axis === AXIS_HORIZONTAL) state.horizontalOffset = nextOffset;
     else state.verticalOffset = nextOffset;
     applyStyles(ownerInstance, state);
-    velocity *= Math.pow(FRAME_FRICTION, elapsed / 16);
+    velocity *= FRAME_FRICTION;
     var reachedBoundary = nextOffset !== rawNextOffset;
     if (reachedBoundary || Math.abs(velocity) < MINIMUM_VELOCITY) {
       finishInertia(ownerInstance, state);

@@ -9,6 +9,8 @@
 
 同一个 WXS 视图层状态维护有界 X/Y：左上角固定，日期层只使用 X，人员层只使用 Y，班次主体同时使用 X/Y，顶部进度条直接使用相同 X。首次达到 2px 且某轴超过另一轴 1.2 倍后锁轴到触摸结束；横纵惯性使用 `ComponentDescriptor.requestAnimationFrame`，四层位置通过 `setStyle(transform)` 在同一回调更新。拖动和惯性期间禁止 `setData`，只在最终静止后以一次 `callMethod` 同步可访问进度摘要。
 
+Skyline 的 WXS `requestAnimationFrame` 回调不得假设带有浏览器时间戳参数。惯性固定使用 16ms 逻辑步长与每帧乘法衰减，不读取回调参数或调用 `Math.pow`；所有坐标进入 transform 前必须保持有限数值，通用边界函数对 NaN 回退为 0。否则某一轴 NaN 会使主体二维 transform 整体失效，而日期/人员单轴层仍可能移动。
+
 四层内容均为绝对定位，不会撑开父级；普通 WXS 触摸面显式绑定当前 `matrixViewportHeight` 像素高度，禁止只依赖绝对定位子层撑开。WXS `touchstart`/无位移 `touchend` 不返回 `false`，保留自定义班次格的点选事件；只有已锁轴移动和对应结束才阻止默认移动。
 
 WXS 坐标保存在模块级视图状态中，不依赖可能随渲染提交失效的页面 `ComponentDescriptor.getState()`，也不长期缓存日期、人员、主体或进度条节点句柄；每帧按稳定 ID 重新取得当前渲染节点。静止后的 `callMethod` 把 X/Y 与进度一起回传，逻辑层在同一次 `setData` 中保存摘要和带 `syncRevision` 的坐标配置；WXS 属性观察器在渲染提交后重新应用同一 X/Y。若上一轮回写晚于下一次 `touchstart` 到达，观察器只更新边界，不得取消或覆盖正在进行的新手势。

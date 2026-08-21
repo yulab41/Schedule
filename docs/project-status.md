@@ -40,6 +40,16 @@
 - 当前状态：已完成导航无停顿循环发布与新增动作图标预览 → 待用户确认。最终状态 checkpoint 识别消息：`docs(status): record continuous icon preview deployment`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 未纳入本批次。
 - 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint；保持 6007 Storybook 供用户验收，用户明确确认后才在独立批次替换顶部、日历、通讯录和电话的生产图标。
 
+## 2026-08-21 P1 WXS 快速惯性 NaN 修复（当前批次）
+
+- 用户反馈：`.38` 慢速拖动已可连续、松手位置保持、换轴和点格/撤销正常；快速滑动进入惯性后仍回到初始位置并锁死。快速横滑后再纵滑只剩人员层，快速纵滑后再横滑只剩日期层，进度条始终跟手。
+- 引入点与根因：`git log -S`/`git blame` 定位 `c35b35b` 的惯性 `step(frameTime)` 把 WXS `requestAnimationFrame` 回调参数当作浏览器时间戳。目标 Skyline 第二帧不提供该参数，`frameTime - previousFrameTime` 生成 NaN；主体使用 `translate(X,Y)`，任一轴 NaN 会使整个主体 transform 失效，而日期/人员单轴 transform 仍可移动，精确对应真机现象。
+- 测试先行与实现：将惯性测试改为调用 RAF callback 时不传参数，并断言 120 帧内停止、所有 transform 不含 `NaN`、快速惯性后立即换轴主体仍同步；旧实现以 `translateX(NaNpx)` 和 `Math.pow` 依赖 2 项失败，修复后矩阵 11/11、Mini 12 文件/52 项通过。惯性现使用固定 16ms 步长和 `velocity *= 0.92`，不读取 RAF 参数、不调用 `Math.pow`；通用 clamp 对 NaN 防御性归零。
+- 语义审计：只替换惯性帧时间来源和衰减等价实现；触摸跟手、2px/1.2 倍轴锁、四层 transform、边界、静止坐标回写、连续手势、进度条、点格、撤销、390px 视口、fixture 与 API 不变。高频路径仍不 `setData`。
+- 验证：Mini typecheck/source/output/2 个探针 Worklet/包体/确定性/simulate 通过（130232 bytes，manifest `2479c0c86d61813d2ecba0e711651ebbd1506447c54a6f49a4033f0a61e596e0`）；根 lint/typecheck、`smoke:check-core`、任务文件格式和 `git diff --check` 通过。本机共享 pnpm 依赖树在并行任务中缺少 `.bin/tsc`/esbuild，导致根 build 在产品编译前停止；checkpoint 后必须从隔离工作树完成冻结安装、根 build、微信实际上传和 ECS 打包，不能把该环境错误归为产品通过。
+- 当前状态：已实现待 checkpoint 与隔离构建。checkpoint 识别消息：`fix(miniprogram): stabilize fast matrix inertia`。
+- 下一批次与停止条件：隔离构建、上传和 ECS 同步后只复测快速横/纵滑、惯性结束位置、再次同轴/换轴、主体同步和进度条；明确通过前不进入 P2。
+
 ## 2026-08-21 P1 WXS 矩阵连续手势与回弹修复（当前批次）
 
 - 用户反馈：`.35` 代码版本正确；7×7 和 20×30 首次横向/纵向可用，但松手后回到初始位置，第二次同轴手势无响应；此后换轴时只剩日期或人员单层移动。首次横向时日期+班次、首次纵向时人员+班次同步，证明坐标计算与首帧四层更新本身正确。
