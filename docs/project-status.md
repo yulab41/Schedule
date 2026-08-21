@@ -10,8 +10,10 @@
 - 运行/浏览器验证：390×844 Storybook 实际点击时，峰值采样箭头 `translate(2.10px, -2.10px)`、外框 `translate(-0.65px, 0.65px)`；结束后两者 `transform: none`，前后路径完全一致，dash 为 `none` / `0px`，控制台无 error/warning。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--mobile-workbench-390`。
 - 验证：任务定向 2/2、排除用户自有 `runtime/**` / `src/**` 后 139 文件/784 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 与浏览器复核通过。直接未排除运行会误扫 `runtime/` 内旧发布副本并产生既有换行/旧版本失败，未改动这些目录。
 - 语义边界：全部修改仍为 Storybook-only，不进入生产 Web bundle，不请求 API、不拨号、不写数据；正式导出图标尚未替换。
-- 当前状态：已实现待 checkpoint / 发布；checkpoint 识别消息：`fix(web): soften export icon motion preview`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
-- 下一批次与停止条件：只提交、推送并部署本 Storybook checkpoint，完成生产备份与 `ecs-verify.sh`，再记录最终 release 并停止，等待用户视觉确认。
+- checkpoint 与发布：代码 checkpoint `d19dade`（`fix(web): soften export icon motion preview`）已推送；发布前加密数据库备份 archive `226dcd19-189f-4d6a-a355-982e27345608`（50 表、157694 行、70976516 bytes，SHA-256 `5465adebc505a965bf028ead7108a6c168ef1a38ed6dc27a3164aaff2ba0ae79`）。release `d19dade7665059f766cad48d7237a0bc671402c2` 已部署，预热首次 TLS EOF 后恢复。
+- 正式核验：`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移；正式 Web/API 产物哈希与上一版一致，确认本微调未改变生产 UI 或业务行为。
+- 当前状态：导出柔和回弹预览已完成并同步 → 待用户视觉确认。最终状态 checkpoint 识别消息：`docs(status): record soft export motion preview deployment`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后停止，未得到明确确认前不替换生产图标。
 
 ## 2026-08-21 静态保真动作图标微调（当前批次）
 
