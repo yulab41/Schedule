@@ -8,7 +8,9 @@
 - 测试先行与实现：生产共用源、顶部、日历、通讯录选中守卫和全部现有电话图标接线在旧代码上 7/7 失败，实现后转绿。Storybook 图标组件迁入生产 `components`，预览与应用引用同一 SVG/动画源；各入口只递增自己的 motion key，科室/人员已选中时先返回，电话拨号 `href`、使用次数记录和菜单展开保持原调用。
 - 仅点击语义：审计发现简单使用 `motionKey > 0` 会让已点击过的定位图标在月/周/列表重新挂载时自动播放；追加守卫先失败后改为只监听组件挂载后的 key 变化。生产遵循 `prefers-reduced-motion`，Storybook 的 `previewMotion` 只用于确认稿强制演示。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173/3000/3306 均无服务且 Docker 不可用，因此在第 1/6 步访问登录页时以 `ERR_CONNECTION_REFUSED` 停止，未进入产品断言。真实生产 `UnifiedDirectoryView` Story 在 390×844 验证人员首次切换 key 0→1、重复点击仍为 1；真实 `SelectedDateDutyDetails` Story 只让被点电话 key 0→1，其他保持 0，两个链接仍为 `tel:61234` / `tel:13800138000`；确认稿导出峰值箭头向右上、外框向左下，Axe 违规 0。控制台无产品 error/warning，仅有 Storybook 11 的前向兼容提示。
-- 验证：任务定向 9 文件/55 项及新增生产守卫通过；排除用户自有 `runtime/**` / `src/**` 后 140 文件/790 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。生产部署与正式只读核验待 checkpoint 后执行。
+- 验证：任务定向 9 文件/55 项及新增生产守卫通过；排除用户自有 `runtime/**` / `src/**` 后 140 文件/790 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。
+- 正式发布与核验：代码 checkpoint `fea129b` 已推送；发布前加密备份 `7b782097-5e41-434b-895a-cc340187e16b`（50 表、157697 行、70978500 bytes，SHA-256 `f12b363391327c007581bc039e601d4dba3020e9aa94dfe68d6ff354baa895b7`）后部署 release `fea129bb15270c5c5a2d4405b2f9e0e9599e150b`，预热首次 TLS EOF 后恢复。`ecs-verify.sh` 通过 43 条迁移、产物哈希、域名/IP 隔离、端口和容器；正式首页/API 200，Web bundle 命中全部点击 keyframe 与静态源，API/契约/数据库/领域产物哈希不变。
+- 当前状态：生产落地已完成并发布 → 待用户复核；最终状态 checkpoint 识别消息为 `docs(status): record action icon motion deployment`。
 
 ## 2026-08-20 移动常驻导航与科室电话行精简
 

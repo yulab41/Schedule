@@ -10,8 +10,10 @@
 - 交互与语义审计：图标只监听组件挂载后的 motion key 变化，已点击过的定位图标在月/周/列表切换后重新挂载仍静止；科室/人员已选中时在递增 key 前返回。顶部页面切换/导出打开、通知轮询/Sheet、日历定位/筛选、电话菜单、`tel:` 地址、通讯录使用次数和本地偏好各保持原调用一次；没有新增网络、写入、异步或错误路径。生产继续遵循 `prefers-reduced-motion`。
 - 运行/浏览器验证：真实生产 `UnifiedDirectoryView` Story 在 390×844 验证人员首次切换 key 0→1、重复点击仍为 1；真实 `SelectedDateDutyDetails` Story 只让被点电话 key 0→1，其他保持 0，拨号仍为 `tel:61234` / `tel:13800138000`。确认稿导出峰值箭头向右上、外框向左下；两个 Story 的 Axe 违规均为 0，控制台无产品 error/warning，仅有 Storybook 11 `PopoverProvider ariaLabel` 前向兼容提示。预览：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--mobile-workbench-390`。
 - 验证：任务定向 9 文件/55 项及生产守卫通过；排除用户自有 `runtime/**` / `src/**` 后 140 文件/790 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 因本机 5173/3000/3306 均无服务且 Docker 不可用，在打开登录页时 `ERR_CONNECTION_REFUSED`，未进入产品断言；同构生产 Story 已完成本批次真实交互验证。
-- 当前状态：已实现待 checkpoint / 发布；checkpoint 识别消息：`feat(web): apply approved action icon motion`。用户自有小程序/WXS、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
-- 下一批次与停止条件：只提交、推送并部署本生产图标 checkpoint，完成生产备份、`ecs-verify.sh` 与正式域名只读核验，再记录最终 release；随后停止并等待用户复核。
+- checkpoint 与发布：代码 checkpoint `fea129b`（`feat(web): apply approved action icon motion`）已推送；发布前加密数据库备份 archive `7b782097-5e41-434b-895a-cc340187e16b`（50 表、157697 行、70978500 bytes，SHA-256 `f12b363391327c007581bc039e601d4dba3020e9aa94dfe68d6ff354baa895b7`）。release `fea129bb15270c5c5a2d4405b2f9e0e9599e150b` 已部署，预热首次 TLS EOF 后恢复。
+- 正式核验：`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移；正式首页/API 均为 200。正式 Web bundle 精确命中 9 组点击 keyframe、铃铛/双人静态源和导出双部件回弹；API、契约、数据库与领域产物哈希保持不变。
+- 当前状态：已确认动作图标全部生产落地并发布 → 待用户复核。最终状态 checkpoint 识别消息：`docs(status): record action icon motion deployment`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后停止，不开始其他图标修改。
 
 ## 2026-08-21 导出图标柔和回弹动效微调（当前批次）
 
