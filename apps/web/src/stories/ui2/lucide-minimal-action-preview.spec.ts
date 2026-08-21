@@ -28,13 +28,13 @@ describe('Lucide Minimal action icon preview', () => {
     for (const motion of [
       'click-bell',
       'click-department',
-      'click-export',
+      'click-export-arrow',
       'click-filter-bottom',
       'click-filter-middle',
       'click-filter-top',
       'click-locate',
-      'click-people-left',
-      'click-people-right',
+      'click-people-primary',
+      'click-people-secondary',
       'click-phone',
       'click-profile',
     ]) {
@@ -60,11 +60,16 @@ describe('Lucide Minimal action icon preview', () => {
     expect(icon).toContain('readonly motionKey?: number;');
     expect(icon).toContain('readonly previewMotion?: boolean;');
     expect(icon).toContain('transform: rotate(90deg);');
+    expect(icon).toContain(':deep(#stroke2)');
+    expect(icon).toContain('stroke-dashoffset: 42;');
+    expect(icon).toContain('d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"');
+    expect(icon).toContain('d="M22 21v-2a4 4 0 0 0-3-3.87"');
+    expect(icon).not.toContain('d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2"');
+    expect(icon).toContain(':data-motion-key="motionKey"');
     expect(icon).toContain('stroke-width: 2;');
     expect(icon).toContain('@media (prefers-reduced-motion: reduce)');
     expect(icon).not.toContain('infinite');
-    expect(icon).not.toContain('stroke-dasharray');
-    expect(icon).not.toContain('stroke-dashoffset');
+    expect(icon.match(/stroke-dasharray/gu)).toHaveLength(1);
     expect(icon).not.toContain('opacity:');
     expect(icon).not.toContain('readonly delay?: number;');
     expect(icon).not.toContain('readonly looping?: boolean;');
@@ -97,6 +102,8 @@ describe('Lucide Minimal action icon preview', () => {
     expect(preview).toContain(':motion-key="motionKeys.bell"');
     expect(preview).toContain('preview-motion');
     expect(preview).toContain("playMotion('department')");
+    expect(preview).toContain("if (directoryMode.value === 'department') return;");
+    expect(preview).toContain("if (directoryMode.value === 'people') return;");
     expect(preview).toContain('@click.prevent="playMotion(\'phone\')"');
     expect(preview).not.toContain('force-motion');
     expect(preview).not.toContain(':delay=');

@@ -18,6 +18,7 @@ withDefaults(
   <span
     class="static-motion-icon"
     :class="[`icon-${name}`, { 'preview-motion': previewMotion }]"
+    :data-motion-key="motionKey"
     aria-hidden="true"
   >
     <span
@@ -98,9 +99,14 @@ withDefaults(
         viewBox="0 0 24 24"
         fill="none"
       >
-        <circle class="person-left" cx="8" cy="7" r="4" />
-        <circle class="person-right" cx="16" cy="7" r="4" />
-        <path d="M3 21v-2a7 7 0 0 1 7-7h4a7 7 0 0 1 7 7v2" />
+        <g class="person-primary">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+        </g>
+        <g class="person-secondary">
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </g>
       </svg>
 
       <CallIcon
@@ -145,8 +151,8 @@ withDefaults(
 .filter-bottom,
 .locate-rotor,
 .department-rotor,
-.person-left,
-.person-right {
+.person-primary,
+.person-secondary {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -166,8 +172,9 @@ withDefaults(
   animation: click-profile 480ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.icon-export .is-animating [data-static-source='tdesign-export'] {
-  animation: click-export 520ms cubic-bezier(0.2, 0, 0, 1);
+.icon-export .is-animating [data-static-source='tdesign-export'] :deep(#stroke2) {
+  stroke-dasharray: 42;
+  animation: click-export-arrow 620ms linear;
 }
 
 .icon-filter .is-animating .filter-top {
@@ -194,12 +201,12 @@ withDefaults(
   animation: click-department 500ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.icon-people .is-animating .person-left {
-  animation: click-people-left 520ms cubic-bezier(0.2, 0, 0, 1);
+.icon-people .is-animating .person-primary {
+  animation: click-people-primary 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-.icon-people .is-animating .person-right {
-  animation: click-people-right 520ms cubic-bezier(0.2, 0, 0, 1);
+.icon-people .is-animating .person-secondary {
+  animation: click-people-secondary 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 .icon-phone .is-animating [data-static-source='tdesign-call'] {
@@ -242,15 +249,15 @@ withDefaults(
   }
 }
 
-@keyframes click-export {
+@keyframes click-export-arrow {
   0% {
-    transform: translateY(0);
+    stroke-dashoffset: 42;
   }
-  46% {
-    transform: translateY(-2px);
+  72% {
+    stroke-dashoffset: 0;
   }
   100% {
-    transform: translateY(0);
+    stroke-dashoffset: 0;
   }
 }
 
@@ -308,24 +315,24 @@ withDefaults(
   }
 }
 
-@keyframes click-people-left {
+@keyframes click-people-primary {
   0% {
     transform: translateX(0);
   }
   46% {
-    transform: translateX(1px);
+    transform: translateX(-0.75px);
   }
   100% {
     transform: translateX(0);
   }
 }
 
-@keyframes click-people-right {
+@keyframes click-people-secondary {
   0% {
     transform: translateX(0);
   }
   46% {
-    transform: translateX(-1px);
+    transform: translateX(1px);
   }
   100% {
     transform: translateX(0);
@@ -352,6 +359,10 @@ withDefaults(
 
 @media (prefers-reduced-motion: reduce) {
   .static-motion-icon:not(.preview-motion) .is-animating .native-icon,
+  .static-motion-icon:not(.preview-motion)
+    .is-animating
+    [data-static-source='tdesign-export']
+    :deep(#stroke2),
   .static-motion-icon:not(.preview-motion) .is-animating .source-svg * {
     animation: none !important;
   }

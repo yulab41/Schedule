@@ -17,11 +17,11 @@ const motionIcons: readonly {
 }[] = [
   { label: '通知', name: 'bell', note: '原铃铛 · 点击摇晃' },
   { label: '个人中心', name: 'profile', note: '原用户图标 · 点击回应' },
-  { label: '导出', name: 'export', note: '原导出图标 · 点击上行' },
+  { label: '导出', name: 'export', note: '原导出图标 · 箭头顺向出现' },
   { label: '筛选', name: 'filter', note: '原三横线 · 点击错动' },
   { label: '定位', name: 'locate', note: '原准星 · 点击转向' },
   { label: '科室', name: 'department', note: '原四格 · 点击转 90°' },
-  { label: '人员', name: 'people', note: '原双人图标 · 点击聚合' },
+  { label: '人员', name: 'people', note: '群组双人图标 · 点击并排' },
   { label: '电话', name: 'phone', note: '原听筒 · 点击轻摆' },
 ];
 
@@ -46,11 +46,13 @@ function toggleFilter(): void {
 }
 
 function selectDepartment(): void {
+  if (directoryMode.value === 'department') return;
   directoryMode.value = 'department';
   playMotion('department');
 }
 
 function selectPeople(): void {
+  if (directoryMode.value === 'people') return;
   directoryMode.value = 'people';
   playMotion('people');
 }

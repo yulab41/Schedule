@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-21 静态保真动作图标微调（当前批次）
+
+- 用户要求与范围：只微调 Storybook 的人员与导出图标。人员不再使用 `046dc65` 引入的“双头像共用一个身体”，改为已确认群组管理图标的主/次双人并排几何；导出保留 `5b00fa7` 起使用的 TDesign `ExportIcon` 静态外观，只让箭头路径沿自身方向出现。生产调用点、已确认导航和其他 6 个动作图标不修改。
+- 测试先行与实现：群组双人路径、导出 `#stroke2` 单独动效、禁止共享肩线、动效 key、已选标签不得重播等守卫在旧预览上失败后转绿。人员主/次轮廓点击时分别轻移，520ms 后复位；`selectDepartment` / `selectPeople` 在已选中时直接返回，因此重复点击不增加 `motionKey`。导出外框 `#stroke1` 始终静止，`#stroke2` 以 42px dash 在 620ms 内线性顺向出现并恢复完整静态线条。
+- 浏览器验证：390px 初始运行动画为 0，人员静态路径精确命中群组管理的三条路径；首次切换 `motionKey` 0→1，主/次人员均执行有限动画，结束后 `transform: none`，再次点击已选标签保持 key=1 且不重播。导出点击 110ms 时 dash offset 为 21.66px，约完成一半路径；结束后 offset=0、外框未动、箭头 `d` 前后相同。页面无横向溢出，更新后顶部导出 SVG 可见。
+- 验证：任务定向 8/8、排除用户自有 `runtime/**` / `src/**` 后 139 文件/784 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/build/typecheck、Web typecheck、完整 Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 与 `git diff --check` 通过。预览地址：`http://127.0.0.1:6007/?path=/story/web-ui-2-0-icon-motion-%C2%B7-lucide-minimal-actions--mobile-workbench-390`。
+- 语义边界：全部修改仍为 Storybook-only，不进入生产 Web bundle，不请求 API、不拨号、不写数据；正式人员图标与导出行为尚未替换。
+- 当前状态：微调预览已完成待 checkpoint 与生产同步，等待用户视觉确认。checkpoint 识别消息：`fix(web): refine people and export motion preview`。用户自有小程序配置、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本 Storybook 微调 checkpoint；未得到明确确认前不替换生产图标。
+
 ## 2026-08-21 Lucide Minimal 静态保真点击动效预览修订（当前批次）
 
 - 用户反馈与批次范围：上一版为动作重新绘制图标并自动循环，偏离用户认可的 Lucide Minimal 精髓，整版否决。本批次只重做 Storybook 动效预览：静止时必须保持当前生产图标的原始几何、线宽和颜色，只有点击后播放一次并恢复原样。已发布的导航连续循环与所有生产调用点均不修改。
