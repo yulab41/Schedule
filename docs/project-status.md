@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 移动导出按钮空白修复（当前批次）
+
+- 用户反馈与范围：生产落地动作图标后，移动端顶部导出按钮为空白。本批次只修复导出文字隐藏规则误伤图标，不修改 SVG、动效、导出权限、弹窗、API 或其他入口。
+- 引入点与根因：`git log -S` / `git blame` 确认 `daff238` 为移动端加入 `.shell-export-action span`，原意是隐藏“导出”文字；`b70bb99` 将动作图标根节点定义为 `<span>`，`fea129b` 接入生产后，Vue scoped CSS 同时把图标根节点裁成 1×1，形成空白按钮。
+- 测试先行与实现：新增文字专用类、直接子元素选择器及禁止宽泛后代选择器守卫；旧实现 1 项失败、4 项通过，修复后 5/5 转绿。模板给文字增加 `shell-export-label`，移动规则收窄为 `.shell-export-action > .shell-export-label`；图标仍为 20px，点击 key、导出 Sheet 打开和可访问名称不变。
+- 验证：工作台/生产图标定向 2 文件/10 项通过；排除用户自有 `runtime/**` / `src/**` 后 141 文件/794 项通过，32 文件/265 项数据库集成按环境跳过；根 lint/typecheck、Web typecheck/production build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。生产 CSS 已精确编译为直接子元素选择器，不再命中 `top-action-motion-icon`。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173 无服务，在第 1/6 步以 `ERR_CONNECTION_REFUSED` 停止，未进入产品断言。390×844 Storybook 实测导出按钮 44×44、SVG 根与图形 24×24，`clip-path: none` 且点击后仍可见；正式域名在同断点命中移动媒体规则，已部署 CSS 只裁剪 `.shell-export-label`、不含宽泛 `.shell-export-action span`，顶部图标尺寸仍为 20px。当前正式会话只有“成员”群组，按权限不渲染导出入口，因此未虚构管理员按钮量测，也未触发业务写入。
+- checkpoint 与发布：代码 checkpoint `993bdf4`（`fix(web): keep mobile export icon visible`）已推送；发布前加密数据库备份 archive `e186ef3e-f2aa-4658-b8dc-765a07873dc2`（50 表、157700 行、70980528 bytes，SHA-256 `95c0d57b6727080b5d65267fa0d9e63a9e753dcd4b04a3c152d3e8124f04f6da`）。release `993bdf42b8052fcf0bab75e5e42bf48cd3f9d558` 已部署，预热首次 502 后恢复；`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、端口、容器、依赖与 43 条迁移，服务器 `current-release` / manifest 一致。
+- 当前状态：导出按钮空白回归已修复并发布 → 待用户复核。最终状态 checkpoint 识别消息：`docs(status): record mobile export icon fix deployment`。用户自有小程序/CI、并行密码弹窗、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
+- 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后停止。
+
 ## 2026-08-21 Lucide Minimal 动作图标生产落地（当前批次）
 
 - 用户确认与范围：用户确认 Storybook 的静态保真点击动效并授权应用。本批次只替换顶部通知/个人中心/导出、日历筛选/定位、通讯录科室/人员及所有现有电话图标；已确认导航动效、业务布局、权限、API 和数据库不修改。

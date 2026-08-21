@@ -6,8 +6,9 @@
 
 - 反馈与引入点：用户报告动作图标上线后移动端导出按钮为空白。`git log -S` / `git blame` 定位 `daff238` 的 `.shell-export-action span` 原本只隐藏文字；`b70bb99` 的动作图标以 `<span>` 为根，`fea129b` 接入后父级 scoped CSS 也把图标裁成 1×1。
 - 测试先行与修复：新增 `shell-export-label`、直接子元素选择器和禁止宽泛 selector 的回归守卫；旧实现 1/5 失败，修复后 5/5。只把移动规则收窄为 `.shell-export-action > .shell-export-label`；20px SVG、导出 motion key、权限、点击一次打开 Sheet、API 与错误路径均不变。
-- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173 无监听，在第 1/6 步以 `ERR_CONNECTION_REFUSED` 停止，未进入产品断言。Vite production CSS 已验证只隐藏文字直接子元素，不再匹配 `top-action-motion-icon`；正式发布后执行 390px 实际复核。
-- 验证：定向 2 文件/10 项、排除用户自有 `runtime/**` / `src/**` 后 141 文件/794 项通过，32 文件/265 项按环境跳过；根 lint/typecheck、Web typecheck/build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。checkpoint 识别消息：`fix(web): keep mobile export icon visible`。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173 无监听，在第 1/6 步以 `ERR_CONNECTION_REFUSED` 停止，未进入产品断言。390×844 Storybook 实测导出按钮 44×44、图标根/SVG 24×24、`clip-path: none`，点击后仍保持 24×24；正式域名同断点命中移动媒体规则，线上 CSS 精确包含 `.shell-export-action>.shell-export-label`、不含 `.shell-export-action span`，并保留 `.top-action-motion-icon` 的 20px 尺寸。正式账号只有成员群组，权限层不渲染导出按钮，本次未触发导出或其他业务写入。
+- 验证：定向 2 文件/10 项、排除用户自有 `runtime/**` / `src/**` 后 141 文件/794 项通过，32 文件/265 项按环境跳过；根 lint/typecheck、Web typecheck/build、任务文件 Prettier/ESLint 与 `smoke:check-core` 通过。
+- 正式发布与核验：checkpoint `993bdf4` 已推送；备份 archive `e186ef3e-f2aa-4658-b8dc-765a07873dc2`（50 表、157700 行、70980528 bytes，SHA-256 `95c0d57b6727080b5d65267fa0d9e63a9e753dcd4b04a3c152d3e8124f04f6da`）后部署 release `993bdf42b8052fcf0bab75e5e42bf48cd3f9d558`，预热首次 502 后恢复；`ecs-verify.sh` 通过健康、哈希、隔离、端口、容器、依赖和 43 条迁移，服务器 release/manifest 一致。当前状态：已完成并发布 → 待用户复核；最终状态 checkpoint 识别消息：`docs(status): record mobile export icon fix deployment`。
 
 ## 2026-08-21 Lucide Minimal 动作图标生产落地
 
