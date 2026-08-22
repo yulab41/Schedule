@@ -10,7 +10,9 @@
 - 测试先行与验证：contracts 7 项、真实 MySQL P3-F 5 项通过，覆盖脱敏列表、预分配 locator、管理员权限/重复用户名、current/code proof、旧 session、错误 proof 回滚。既有 `platform-admin.integration` 10 项中 9 项通过，唯一失败仍为原有 backup fixture 重复固定 contact UUID；与本批新增方法无调用关系。
 - 根/Mini 门禁：root build/typecheck/lint、client generated freshness、受控非 integration 154 文件/851 项通过，2 DB 文件/19 项按环境跳过；Mini 15 文件/63 项、typecheck、verify/source/2 Worklets/package/determinism/CI dry-run 通过（147968 bytes，manifest `ea3d3ffb4770138206ae9faee3efd44b1653c2f0e98ca699744c4665726b954b`）。根 format 仍精确只有既有/用户所有 11 项阻塞；Mini 运行源码未变，不新增体验上传。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板、样式或页面变化，不需要人工视觉确认；`smoke:check-core` 待本记录落盘后复核。
-- 当前状态：实现和本地验证完成，待 checkpoint `feat(auth): require admin password proof` 推送及生产备份/部署/只读核验。完成后进入首个 Web/Mini 视觉黄金稿暂停点。
+- checkpoint 与发布：代码 checkpoint `0225e0e`（`feat(auth): require admin password proof`）已推送；精确 clean worktree production build/package 通过。加密备份 archive `2e4b0172-0fcd-4df6-8510-6e001f705a60`（53 表、161459 行、76304648 bytes，SHA-256 `9b0ffc05d9643ecd7c83c55d1bdcab54d0d1e02a318e042f977b066be0cf65c0`）后部署 release `0225e0e79ae9838fe8c27dcb01a7808bea9ec98e`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过。
+- 生产只读复核：46 migrations/53 业务表，detachment/linkToken/identity/Union 均 0 行，40 用户 authVersion 全 1，24 密码 hash 非空且聚合不变；未调用真实微信 code、未写生产业务数据，精确远端目录已删除、本地 worktree 已注销。
+- 当前状态：P3-F 已完成回归、推送、生产备份/部署和 password/code proof 不变量核验；最终状态 checkpoint 识别消息：`docs(status): record admin password proof deployment`。文档 release 待对齐后，下一批只做管理员 URL Link/Mini admin-bind 的非 UI 后端，之后暂停等待视觉黄金稿人工确认。
 - 下一活动批次与停止条件：只有管理员 URL Link ticket、Mini admin-bind preview/confirm 的非 UI contracts/service/审计，且不实现页面；完成后暂停，等待 Web 登录页/平台账号后台与 Mini 登录/绑定/建档黄金稿人工视觉确认。
 
 ## 2026-08-22 P3-E 当前 Mini AppID 解绑（当前批次）
