@@ -14,7 +14,9 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无 Web/Mini 模板、样式或页面变化，不需要人工视觉确认；`smoke:check-core` 待本记录落盘后复核。
 - checkpoint 与发布：代码 checkpoint `15ee912`（`feat(auth): enforce current mini identity unbind`）已推送；精确 clean worktree production build/package 通过。加密备份 archive `03d4a0f7-cefa-48c6-a835-f34d0e69e8db`（52 表、161456 行、76302488 bytes，SHA-256 `df942df399b6af301d941e99e2883cef1f50c1f762dc75582c3f4c48b602b58d`）后部署 release `15ee912f5ed3b57855fa3919c58fada218f78d00`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过 46 migrations。
 - 生产只读复核：用户/管理员新路由未认证探测均为 401；46 migrations/53 业务表，detachment/linkToken/identity/Union 均 0 行，40 用户 authVersion 全 1，24 密码 hash 非空且聚合不变；未调用真实微信 code、未写生产身份，精确远端目录已删除、本地 worktree 已注销。
-- 当前状态：P3-E 已完成回归、0046 迁移、推送、生产备份/部署和解绑不变量核验；最终状态 checkpoint 识别消息：`docs(status): record current mini identity unbind deployment`。该文档 checkpoint 推送并按根规则作为 production release 对齐后进入管理员账号/密码 proof 后端批次。
+- checkpoint 与发布：代码 checkpoint `15ee912` 已推送；精确 clean worktree production build/package 通过。加密备份 archive `03d4a0f7-cefa-48c6-a835-f34d0e69e8db`（52 表、161456 行、76302488 bytes，SHA-256 `df942df399b6af301d941e99e2883cef1f50c1f762dc75582c3f4c48b602b58d`）后部署 release `15ee912f5ed3b57855fa3919c58fada218f78d00`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过 46 migrations。
+- 生产只读复核：用户/管理员新路由未认证探测均为 401；46 migrations/53 业务表，detachment/linkToken/identity/Union 均 0 行，40 用户 authVersion 全 1，24 密码 hash 非空且聚合不变；未调用真实微信 code、未写生产身份，精确远端目录已删除、本地 worktree 已注销。
+- 当前状态：P3-E 已完成回归、0046 迁移、推送、生产备份/部署和解绑不变量核验；最终状态 checkpoint 识别消息：`docs(status): record current mini identity unbind deployment`。文档 release 待对齐后进入管理员账号/密码 proof 后端批次。
 - 下一活动批次与停止条件：只实现平台管理员脱敏账号状态/用户名分配和 `/me/password` 当前密码或新微信 code proof；不做管理员 URL Link、Mini 页面或公开注册关闭。authVersion、密码 hash、管理员权限、审计、并发和旧 session 测试通过后，进入首个 Web/Mini 视觉黄金稿暂停点。
 
 ## 2026-08-22 P3-D linkToken 消费与显式建档（当前批次）
