@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3 身份安全预检（当前批次）
+
+- 同步与范围：预检开始时本地 `HEAD`、`origin/main` 与生产 `current-release` 均为 `98ce251`；只读审计 contracts、schema/migrations、JWT/auth port、密码/Mini/Web 微信服务、用户/平台路由、Web 登录和生产聚合数据。未写生产数据、调用真实微信登录、修改接口或 UI。
+- 引入点：`12e7f40` 引入无 appId 且 UnionID 直接唯一的 identity；`39f9c66`/`12e7f40` 让未知 Mini 自动建号；`de3ad5f` 引入匿名密码注册；`a837586` 引入真实注销；`39f9c66` 的 30 天 JWT 无 `authVersion`。这些均早于已批准 Mini 迁移计划/ADR，P3 必须收口。
+- 生产聚合：40 用户（34 active/2 suspended/4 deleted），35 有资料；24 个 active 密码身份均为规范用户名、独立 scrypt hash。19 个已有 password locator，5 个 locator 为 null 且资料/active membership 完整，当前会被密码登录错误拒绝。identity 表为 0；1 个 legacy Mini stub 无资料和业务引用，仅有创建审计；另 9 个无登录资料用户无 active membership，全部保留不自动处理。生产 Mini/会话/平台配置存在，Web 微信配置不存在；未输出任何实际标识或 secret。
+- 结论与顺序：先做向后兼容 P3-A（`auth_version`、identity `app_id` 过渡列、`wechat_union_accounts`、nullable password hash、只补 5 个 password locator），再做版本化 session/identity resolver、link-required/绑定/解绑和管理员/password proof。tightening migration 单独后置。完整证据见 [`p3-identity-security-preflight.md`](../apps/miniprogram/docs/architecture/p3-identity-security-preflight.md)。
+- 视觉停止点：Web 仅登录页和平台账号后台黄金稿是首个需用户确认的前端批次；Mini 登录/绑定/建档/解绑页面随后逐页确认。P3-A 不改视觉。
+- 验证：Git history/blame、schema/route/session 调用点和生产只读聚合审计完成；任务 Prettier、`git diff --check` 与 `smoke:check-core` 通过，根 `format:check` 仍只有既有/用户所有 11 项阻塞。本批未改核心链路或页面，不运行新的产品浏览器断言。
+- 当前状态：只读预检完成，待 checkpoint `docs(miniprogram): record p3 identity preflight` 推送和 ECS 文档 release 对齐；无 Mini 产物修改，不新增体验上传。
+- 下一活动批次与停止条件：只实施 P3-A 加法式 schema/Drizzle/migration 测试与 5 个 locator 的确定性受限 backfill；不得改变登录 response、路由或 UI。旧代码兼容、迁移前置聚合、回滚和全仓/生产迁移验证通过后停止该安全 checkpoint。
+
 ## 2026-08-22 P2 共享核心完成审计（当前批次）
 
 - 同步基线：审计开始时本地 `HEAD`、`origin/main` 与生产 `current-release` 均为 `7acbb95`；远端没有新增 Web 提交。用户所有未提交 Mini 配置、workspace、目录/个人页/护士 Storybook、`runtime/`、`src/` 和工作簿未修改或纳入。

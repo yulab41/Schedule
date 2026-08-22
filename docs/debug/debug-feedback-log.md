@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3 身份安全预检
+
+- 只读结论：identity 缺 appId、UnionID 直接唯一、未知 Mini 自动建号、匿名密码注册、真实注销和无版本 JWT 均与已批准 P3/ADR 冲突；引入点分别为 `12e7f40`、`39f9c66`、`de3ad5f`、`a837586`。
+- 生产聚合：40 用户、24 密码身份、0 identity；5 个密码账号 locator 为 null 且有 active membership，当前登录错误拒绝；1 个无业务引用 legacy Mini stub；9 个无登录且无 active membership 的资料用户。只输出计数/配置存在性，无 PII/credential/secret。
+- 顺序：P3-A 仅做 additive schema 和受限 locator backfill；之后才接 authVersion session、link-required、绑定/解绑和管理员/password proof。登录页/账号后台黄金稿为首个视觉暂停点。详细见 `apps/miniprogram/docs/architecture/p3-identity-security-preflight.md`。
+- 验证：history/blame、schema/route/session 与生产聚合只读审计完成；任务格式/diff/`smoke:check-core` 通过，根 format 仅有既有/用户所有 11 项阻塞。本批无产品浏览器断言。
+- 本批无代码/UI/Mini 产物变化；checkpoint 识别消息：`docs(miniprogram): record p3 identity preflight`。
+
 ## 2026-08-22 P2 共享核心完成审计
 
 - 结论：P2 最小边界完成。Web 已先行采用 calendar/manual/publication presentation；calendar/holiday client、generated decoder 和错误语义；Mini 已复用 manual transition 与 `wx.request` JSON transport；tokens/fixtures/bundle 门禁齐全。domain runtime 只取 Zod-free metadata leaf。

@@ -7,6 +7,7 @@
 - 总计划：[`plans/2026-08-17-wechat-miniprogram-migration-plan.md`](plans/2026-08-17-wechat-miniprogram-migration-plan.md)
 - 运行与构建：[`architecture/runtime-and-build.md`](architecture/runtime-and-build.md)
 - API 边界：[`architecture/client-api-boundary.md`](architecture/client-api-boundary.md)
+- P3 身份安全预检：[`architecture/p3-identity-security-preflight.md`](architecture/p3-identity-security-preflight.md)
 - 分包布局：[`architecture/package-layout.md`](architecture/package-layout.md)
 - Web 同步策略：[`architecture/web-sync-policy.md`](architecture/web-sync-policy.md)
 - 矩阵踩坑与后续守则：[`architecture/matrix-gesture-lessons.md`](architecture/matrix-gesture-lessons.md)
