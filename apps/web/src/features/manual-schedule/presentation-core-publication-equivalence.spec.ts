@@ -132,16 +132,6 @@ describe('schedule publication presentation-core equivalence', () => {
         workflowImpacts: [{}],
       },
       {
-        acknowledgePastDates: false,
-        acknowledgeWorkflowRevocations: true,
-        action: 'withdraw',
-        hardConflicts: [{}],
-        hasPastDates: true,
-        hasTarget: true,
-        vacancies: [{}],
-        workflowImpacts: [],
-      },
-      {
         acknowledgePastDates: true,
         acknowledgeWorkflowRevocations: true,
         action: 'withdraw',
@@ -180,6 +170,7 @@ describe('schedule publication presentation-core equivalence', () => {
         canConfirmSchedulePeriodMutation({
           acknowledgePastDates: fixture.acknowledgePastDates,
           acknowledgeWorkflowRevocations: fixture.acknowledgeWorkflowRevocations,
+          action: fixture.action,
           hasPastDates: fixture.hasPastDates,
           hasTarget: fixture.hasTarget,
           requiresAcknowledgement: sharedRequires,

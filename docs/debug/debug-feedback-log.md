@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 当前月撤回确认门禁
+
+- 引入点与红灯：`927241c` 同时给 publish/withdraw 增加 `acknowledgePastDates` 禁用与提交守卫，但控件只在 publish 渲染。新回归旧实现 2/3 失败；重新发布双确认基线保持通过。
+- 修复与语义：共享确认输入增加 action，只有 publish + past dates 检查第二日期确认；Vue script 和 confirm button 禁用条件同步限定 action。撤回仍要求可见的通用影响确认，重新发布仍要求通用+日期双确认；请求体、UUID、API 接收者、版本/幂等、异步错误和调用次数不变。
+- 验证：回归 3/3、发布等价/边界 3 文件/11 项、受控全仓 146 文件/817 项通过，32 文件/265 项按环境跳过；presentation-core/Web/根 build/typecheck/lint 通过。Mini 13 文件/54 项及 verify/source/Worklet/package/determinism/CI dry-run 通过（133701 bytes，manifest `2fa6b96c62c44c32fcd1ec26626970ba801e894bd02656422ca2e61113d239ad`）；任务格式、diff check 和 `smoke:check-core` 通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；元素、文案和 style 不变，无视觉确认点。checkpoint 识别消息：`fix(web): allow current-month schedule withdrawal`。
+
 ## 2026-08-22 P2 发布生命周期共享
 
 - 引入点与红灯：草稿批次/历史分组/批量发布来自 `2834f07`，发布/撤回/重发与确认来自 `7c783c7`/`968c6c5`，过去日期门禁来自 `927241c`。共享导出、黄金语料和 Web 接线旧代码 6/6 失败，实现后定向 4 文件/24 项通过。

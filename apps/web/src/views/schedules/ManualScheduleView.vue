@@ -683,6 +683,7 @@ async function confirmPeriodMutation(): Promise<void> {
     !canConfirmSchedulePeriodMutation({
       acknowledgePastDates: acknowledgePastDates.value,
       acknowledgeWorkflowRevocations: acknowledgeWorkflowRevocations.value,
+      action: periodMutationAction.value,
       hasPastDates: periodMutationHasPastDates.value,
       hasTarget: true,
       requiresAcknowledgement: periodMutationRequiresAcknowledgement.value,
@@ -1207,7 +1208,9 @@ function scheduleBusinessHandoverRefresh(): void {
         disabled:
           isLoadingPeriodMutation ||
           (periodMutationRequiresAcknowledgement && !acknowledgeWorkflowRevocations) ||
-          (periodMutationHasPastDates && !acknowledgePastDates),
+          (periodMutationAction === 'publish' &&
+            periodMutationHasPastDates &&
+            !acknowledgePastDates),
         loading: isMutatingPeriod,
         theme: periodMutationAction === 'withdraw' ? 'danger' : 'primary',
       }"

@@ -53,6 +53,7 @@ export interface SchedulePeriodMutationAcknowledgementInput {
 export interface SchedulePeriodMutationConfirmationInput {
   readonly acknowledgePastDates: boolean;
   readonly acknowledgeWorkflowRevocations: boolean;
+  readonly action: SchedulePeriodMutationAction;
   readonly hasPastDates: boolean;
   readonly hasTarget: boolean;
   readonly requiresAcknowledgement: boolean;
@@ -216,6 +217,7 @@ export function requiresSchedulePeriodMutationAcknowledgement({
 export function canConfirmSchedulePeriodMutation({
   acknowledgePastDates,
   acknowledgeWorkflowRevocations,
+  action,
   hasPastDates,
   hasTarget,
   requiresAcknowledgement,
@@ -223,7 +225,7 @@ export function canConfirmSchedulePeriodMutation({
   return !(
     !hasTarget ||
     (requiresAcknowledgement && !acknowledgeWorkflowRevocations) ||
-    (hasPastDates && !acknowledgePastDates)
+    (action === 'publish' && hasPastDates && !acknowledgePastDates)
   );
 }
 

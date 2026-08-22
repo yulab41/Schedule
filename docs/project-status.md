@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 当前月撤回确认门禁修复（当前批次）
+
+- 范围与引入点：只修复当前月已发布版本含已过日期时“撤销发布”确认不可达，不改重新发布、过去日期锁定、API、版本、幂等、工作流撤销、文案、元素或样式。`git log -S`/`git blame` 与 `git show` 确认 `927241c` 新增 `acknowledgePastDates` 检查时将其用于 publish/withdraw 两种 action，但对应控件只在 publish 渲染。
+- 测试先行：新增共享确认结果与 Vue 禁用表达式回归，旧实现 3 项中 2 项失败：撤回在勾选可见通用确认后仍为 false，模板缺少 publish action 限定；重新发布额外日期确认保持通过。修复后回归 3/3、发布等价/运行边界合计 3 文件/11 项通过。
+- 实现与语义：共享 `canConfirmSchedulePeriodMutation` 显式接收 action，仅 publish + past dates 要求 `acknowledgePastDates`；Web script 与模板传入/检查同一 action。当前月撤回仍需“我已了解上述影响”的通用确认，并继续把 workflow acknowledgement、expectedVersion 和 controller 生成的 UUID 发送原 API；重新发布含过去日期仍需通用确认加日期确认。API 成员调用、请求次数、Promise/catch/finally、冲突刷新和加载状态不变。
+- 验证：presentation-core/Web/根 build、typecheck、lint 通过；受控全仓 146 文件/817 项通过，32 文件/265 项数据库集成按环境跳过。Mini 13 文件/54 项及 typecheck/verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（133701 bytes，manifest `2fa6b96c62c44c32fcd1ec26626970ba801e894bd02656422ca2e61113d239ad`）；任务 Prettier、`git diff --check`、`smoke:check-core` 通过。根 `format:check` 仍只被用户所有 workspace/Mini 配置、已提交目录文件和 Storybook 生成物拦截；默认 Mini 命令的 ignored ECS runner 副本阻塞沿用上一 checkpoint，不修改相关文件。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。Vue 只改变 confirm button 的布尔禁用条件，元素、文案和 style 与 `HEAD` 不变，不需要人工视觉确认。
+- 当前状态：回归已修复并完成本地验证，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`fix(web): allow current-month schedule withdrawal`。
+- 下一活动批次与停止条件：只读审计 `@schedule/client-core` 的最小只读端点、transport、错误语义、紧凑解码器与黄金响应边界；如日历/配置/历史端点顺序存在多种高影响方案，先向用户确认，不进入 P3 或 Mini 业务页面。
+
 ## 2026-08-22 P2 发布生命周期共享（当前批次）
 
 - 批次范围：只抽取发布草稿批次、按月版本历史、过去业务日期、发布/撤回/重发确认门禁和不含 `operationId` 的请求 intent，Web 先行；不改 Vue 模板/样式、公共 API、权限、transport、冲突刷新、错误文案或 Mini 业务页。同步至 `3ffc85f` 时 `origin/main` 无新增已提交 Web 排班变化；用户所有目录/个人页/护士 Storybook 属并行 Web/P10，不纳入。
