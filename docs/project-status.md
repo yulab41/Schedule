@@ -12,7 +12,7 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板、样式或页面变化，不需要人工视觉确认；`smoke:check-core` 待本记录落盘后复核。
 - checkpoint 与发布：代码 checkpoint `0225e0e`（`feat(auth): require admin password proof`）已推送；精确 clean worktree production build/package 通过。加密备份 archive `2e4b0172-0fcd-4df6-8510-6e001f705a60`（53 表、161459 行、76304648 bytes，SHA-256 `9b0ffc05d9643ecd7c83c55d1bdcab54d0d1e02a318e042f977b066be0cf65c0`）后部署 release `0225e0e79ae9838fe8c27dcb01a7808bea9ec98e`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过。
 - 生产只读复核：46 migrations/53 业务表，detachment/linkToken/identity/Union 均 0 行，40 用户 authVersion 全 1，24 密码 hash 非空且聚合不变；未调用真实微信 code、未写生产业务数据，精确远端目录已删除、本地 worktree 已注销。
-- 当前状态：P3-F 已完成回归、推送、生产备份/部署和 password/code proof 不变量核验；最终状态 checkpoint 识别消息：`docs(status): record admin password proof deployment`。文档 release 待对齐后，下一批只做管理员 URL Link/Mini admin-bind 的非 UI 后端，之后暂停等待视觉黄金稿人工确认。
+- 当前状态：P3-F 已完成回归、推送、生产备份/部署和 password/code proof 不变量核验；最终状态 checkpoint 识别消息：`docs(status): record admin password proof deployment`。本状态文档 checkpoint 将作为最终 docs-only release 对齐，下一批只做管理员 URL Link/Mini admin-bind 的非 UI 后端，之后暂停等待视觉黄金稿人工确认。
 - 下一活动批次与停止条件：只有管理员 URL Link ticket、Mini admin-bind preview/confirm 的非 UI contracts/service/审计，且不实现页面；完成后暂停，等待 Web 登录页/平台账号后台与 Mini 登录/绑定/建档黄金稿人工视觉确认。
 
 ## 2026-08-22 P3-E 当前 Mini AppID 解绑（当前批次）
