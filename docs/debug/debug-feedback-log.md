@@ -9,6 +9,7 @@
 - 语义审计：抽取函数无 `this`；错误消息、`??`（含显式空字符串）、泛型 DTO 身份、输入数组顺序、分组内排序和无额外副作用由 6 组等价测试锁定。运行边界测试证明 ES2020 browser bundle 只有包内输入且无 contracts/Zod、scheduling-domain barrel、Vue/Pinia/Router、DOM、fetch、Node 或数据库。MonthGrid/WeekGrid 字节哈希保持。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173/3000/3306 无监听、Docker 不可用，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。`smoke:check-core` 通过，确认未触及强制核心链路文件；本轮无视觉源变化。
 - 验证：共享包/Web/根 build 与 typecheck、根 lint、日历/边界 14 文件 67 项、受控全仓 139 文件/791 项通过，32 文件/265 项按环境跳过；Mini verify/source/Worklet/package/determinism/CI dry-run、任务 Prettier 和 `git diff --check` 通过。根 verify/format 只被用户所有配置、目录文件和 Storybook 生成物阻断。checkpoint 识别消息：`refactor(presentation): share calendar core with web`。
+- 发布与核验：checkpoint `ca16d7e` 已推送；本地 Node `miniprogram-ci` 从精确干净 worktree 上传体验版 `0.1.0-p2.20260822.43`（50 个代码文件、37872 bytes，manifest `7d6cf8febb025c7cd608638401c9dbc3693188c70b63cf3c962cec8578e73a4b`），未审核、未正式发布。数据库备份 `12899cc6-e6ad-4913-9ae1-0da3af2da1bd`（50 表、160997 行、75531784 bytes，SHA-256 `34a0e656ff0720ccd38f274265d7acbb38f10f63c3043fbc8618abc2feba8476`）后部署 release `ca16d7e3a77dd0e1a04ce23f363de93c7f6cb4fb`；预热首个 502 后恢复，`ecs-verify.sh` 通过并清理临时发布目录。最终状态 checkpoint 识别消息：`docs(status): record p2 calendar core deployment`。
 
 ## 2026-08-22 移动导出按钮空白
 

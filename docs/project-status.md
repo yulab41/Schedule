@@ -10,7 +10,9 @@
 - Web 先行与语义等价：现有 `calendar-logic.ts`、`calendar-views.ts`、`month-grid-presentation.ts` 保持原导出，内部改为共享包适配；全部 Vue 模板/样式和 API/cache/异步错误路径不变。抽取函数均为裸纯函数，无 `this`/接收者变化；错误消息、`??` 空值语义（含显式空字符串）、类型收窄、对象身份、输入数组顺序、排序副作用和调用次数由黄金测试锁定。MonthGrid/WeekGrid 字节哈希仍通过。
 - 验证：presentation-core build/typecheck、Web typecheck/production build、根 build/typecheck/lint、日历/边界 14 文件 67 项及排除用户所有 `runtime/**`/`src/**`/未完成 Storybook 后受控全仓 139 文件/791 项通过，32 文件/265 项数据库集成按环境跳过。Mini 53 项随全仓通过，staging verify/source/2 个 Worklet/package/determinism/官方 CI dry-run 通过（132585 bytes，manifest `36ab7283f748582b4486e2b4931a5aea4c29aad8e74c73d4b9152c18cc0b715f`）；任务文件 Prettier、`git diff --check` 与 `smoke:check-core` 通过。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173/3000/3306 无监听且 Docker 不可用，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。根 `format:check` 仅被用户所有 `pnpm-workspace.yaml`、`apps/miniprogram/project.config.json`、目录文件和 Storybook 生成物拦截；任务文件独立检查通过。
-- 当前状态：已完成 Web 先行共享日历核心与回归验证，待 checkpoint/推送、微信体验上传及正式 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(presentation): share calendar core with web`。本轮无视觉源变化，不需要人工视觉确认。
+- checkpoint 与发布：代码 checkpoint `ca16d7e`（`refactor(presentation): share calendar core with web`）已推送；本地 Node `miniprogram-ci` 从精确干净 worktree 上传体验版 `0.1.0-p2.20260822.43`（50 个代码文件、37872 bytes，manifest `7d6cf8febb025c7cd608638401c9dbc3693188c70b63cf3c962cec8578e73a4b`），未审核、未正式发布。上传前公网 IPv4 为 `103.54.154.22`，进程报告使用本地 `127.0.0.1:7892` 代理且平台接受。
+- 正式发布：数据库备份 archive `12899cc6-e6ad-4913-9ae1-0da3af2da1bd`（50 表、160997 行、75531784 bytes，SHA-256 `34a0e656ff0720ccd38f274265d7acbb38f10f63c3043fbc8618abc2feba8476`）后部署 release `ca16d7e3a77dd0e1a04ce23f363de93c7f6cb4fb`；预热首个 502 后恢复，`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移，临时发布目录已删除。
+- 当前状态：P2 日历共享核心已完成 Web 先行迁移、回归、Git 推送、微信体验上传和 ECS 发布；Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。本轮无视觉源变化，不需要人工视觉确认。最终状态 checkpoint 识别消息：`docs(status): record p2 calendar core deployment`。
 - 下一活动批次与停止条件：只做 P2 手排单元格 transition/选择/撤销的最小共享边界，先用 Web 完整快照与 Mini `{key,before,after}` 增量语义的黄金动作轨证明兼容；Web 回归通过前不让 Mini 业务页复用，不进入发布状态机或 P3。
 
 ## 2026-08-22 密码提醒永久不再提示与弹窗收口（当前批次）
