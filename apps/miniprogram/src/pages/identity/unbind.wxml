@@ -1,0 +1,72 @@
+<scroll-view class="identity-scroll" scroll-y show-scrollbar="{{false}}">
+  <view class="identity-page">
+    <view class="identity-header">
+      <view class="identity-brand"
+        ><text class="identity-brand__mark">+</text><text>排班台</text></view
+      >
+      <text class="identity-build-label">{{buildLabel}}</text>
+    </view>
+
+    <view class="identity-progress">
+      <view class="identity-progress__track"
+        ><view class="identity-progress__fill" style="width: 72%"></view
+      ></view>
+      <view class="identity-progress__labels">
+        <text class="is-active">微信身份</text><text class="is-active">账号证明</text
+        ><text>进入排班</text>
+      </view>
+    </view>
+
+    <view class="identity-heading">
+      <text class="identity-eyebrow">账号安全</text>
+      <text class="identity-title">解除当前微信绑定</text>
+      <text class="identity-description">只移除当前小程序身份，不删除 Web 账号或排班资料。</text>
+    </view>
+
+    <view class="identity-card">
+      <ui-loading wx:if="{{loading}}" label="正在确认解绑"></ui-loading>
+      <block wx:else>
+        <ui-alert
+          wx:if="{{errorMessage}}"
+          class="identity-error"
+          title="解绑没有完成"
+          message="{{errorMessage}}"
+          tone="danger"
+        ></ui-alert>
+        <block wx:if="{{mode === 'confirm'}}">
+          <view class="identity-status identity-status--warning"
+            ><text class="identity-status__icon">!</text><text>解除当前小程序身份</text></view
+          >
+          <view class="identity-target identity-target--danger"
+            ><text class="identity-target__label">将被解除</text
+            ><text class="identity-target__name">当前微信身份</text
+            ><text class="identity-target__username">仅限当前小程序 AppID</text></view
+          >
+          <view class="identity-checklist"
+            ><text class="identity-checklist__item">Web 账号保留</text
+            ><text class="identity-checklist__item">个人资料和排班保留</text
+            ><text class="identity-checklist__item">解绑后可重新绑定</text></view
+          >
+          <button
+            class="identity-danger-button"
+            type="button"
+            disabled="{{loading}}"
+            bindtap="handleUnbind"
+          >
+            解除当前身份
+          </button>
+          <navigator class="identity-navigator" open-type="navigateBack">保留当前绑定</navigator>
+        </block>
+        <block wx:elif="{{mode === 'success'}}">
+          <view class="identity-success-mark" aria-hidden="true">✓</view>
+          <text class="identity-card__heading">当前身份已解除</text>
+          <text class="identity-success-copy"
+            >Web 账号、个人资料和排班均已保留。你可以在下次微信登录后重新绑定。</text
+          >
+        </block>
+      </block>
+    </view>
+
+    <text class="identity-privacy">⌁ 解绑只作用于当前小程序 AppID</text>
+  </view>
+</scroll-view>

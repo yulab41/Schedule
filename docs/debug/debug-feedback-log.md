@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 原生解绑页面切片
+
+- 实现：新增 `pages/identity/unbind`，fresh `wx.login` + `/me/wechat/miniprogram/unbind` + 页面级 Idempotency-Key；不删除 Web 账号、资料或排班。
+- 验证：Mini 定向 6 项、受控 16 文件/69 项、typecheck、verify（2/2 Worklet，203180 bytes，manifest `d896d1541b933d332a64382b6e244acc0445cdf8d6d6afdf1ba330b089fac44e`）和 CI dry-run 通过。
+- 状态：已实现待人工原生复核；下一步本地 Node `miniprogram-ci` 上传新体验版，等待 P3 完整反馈。
+- checkpoint 识别消息：`feat(miniprogram): add p3 native unbind page`。
+
 ## 2026-08-23 P3 解绑确认视觉黄金状态
 
 - 实现：Storybook 新增 Mini 当前 AppID 解绑确认和 320px 边界；危险操作只移除微信身份，不删除 Web 账号、资料或排班。

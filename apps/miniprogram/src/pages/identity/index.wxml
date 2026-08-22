@@ -160,6 +160,9 @@
         <text class="identity-success-copy"
           >身份已确认。P4 工作台接入后，这里将进入你有权限的群组。</text
         >
+        <navigator class="identity-navigator" url="/pages/identity/unbind"
+          >解除当前微信绑定</navigator
+        >
         <text class="identity-card__note">本轮只完成身份安全，不提前显示未迁移的业务页面。</text>
       </block>
     </view>

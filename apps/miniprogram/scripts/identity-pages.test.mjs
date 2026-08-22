@@ -21,6 +21,7 @@ describe('P3 native identity pages', () => {
       'pages/manual-matrix-poc/index',
       'pages/gesture-probe/index',
       'pages/identity/index',
+      'pages/identity/unbind',
       'pages/admin-bind/preview',
     ]);
   });
@@ -51,6 +52,18 @@ describe('P3 native identity pages', () => {
     expect(client).toContain("'/auth/wechat/admin-bind/preview'");
     expect(client).toContain("'/auth/wechat/admin-bind/confirm'");
     expect(client).toContain('getWechatCode()');
+  });
+
+  it('keeps unbind scoped to the current Mini AppID and idempotent', () => {
+    const template = readSource('pages/identity/unbind.wxml');
+    const source = readSource('pages/identity/unbind.ts');
+    const client = readSource('platform/wechat-identity.ts');
+
+    expect(template).toContain('不删除 Web 账号或排班资料');
+    expect(source).toContain('createIdempotencyKey');
+    expect(source).toContain('unbindWechatIdentity(this._idempotencyKey)');
+    expect(client).toContain("'/me/wechat/miniprogram/unbind'");
+    expect(client).toContain("'Idempotency-Key'");
   });
 
   it('keeps the identity client native-only and free of shared runtime violations', () => {

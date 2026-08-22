@@ -5,6 +5,7 @@
     "pages/manual-matrix-poc/index",
     "pages/gesture-probe/index",
     "pages/identity/index",
+    "pages/identity/unbind",
     "pages/admin-bind/preview"
   ],
   "window": {

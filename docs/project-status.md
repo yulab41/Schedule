@@ -2,13 +2,20 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 原生解绑页面切片（当前批次）
+
+- 范围：新增 Mini `pages/identity/unbind`，使用 fresh `wx.login` 调用 `/me/wechat/miniprogram/unbind`，以页面级稳定 Idempotency-Key 保护重复提交；成功只显示当前身份解除，Web 账号/资料/排班保留。
+- 验证：Mini 定向 6 项、受控全套 16 文件/69 项、typecheck、source/build/Worklet/包体/确定性 verify（2/2 Worklet，203180 bytes，manifest `d896d1541b933d332a64382b6e244acc0445cdf8d6d6afdf1ba330b089fac44e`）和 CI dry-run 通过。
+- 当前状态：已实现待人工原生复核；下一步上传同一 checkpoint 体验版并等待登录、绑定、建档、管理员绑定和解绑完整清单反馈。
+- 停止条件：用户在微信开发者工具/实体 Android 复核全部 P3 身份状态并明确反馈通过或差异；未通过前不进入 P4。
+
 ## 2026-08-23 P3 解绑确认视觉黄金状态（当前批次）
 
 - 范围：只新增已确认 P3 Storybook 的 Mini 当前 AppID 解绑确认/320px 边界状态；明确保留 Web 账号、个人资料和排班，未实现原生解绑 WXML/WXSS，不调用 API。
-- 黄金映射：新增 `miniprogram-parity-p3-identity-security--mini-unbind-confirm` / `--mini-unbind-confirm-320`，与现有登录、绑定、建档、管理员绑定状态保持同一身份进度线和令牌。
+- 黄金映射：新增 `miniprogram-parity-p3-identity-security--mini-unbind-confirm` / `--mini-unbind-confirm-320`，与现有登录、绑定、建档、管理员绑定状态保持同一身份进度线和令牌；原生页面为 `pages/identity/unbind`。
 - 当前验证：clean worktree build、Storybook build、P3 source Vitest 4/4 与 390/320 浏览器几何自检通过；两种视口 `body.scrollWidth === viewport`，仅静态服务器 favicon 404。用户已确认前 9 个 P3 身份状态，本新增危险操作状态需单独确认。
 - checkpoint 与发布：代码 checkpoint `89b7bdc` 已推送；生产备份 `0a29cff1-5b32-48e2-96b9-822084e82d8e`（54 表、161504 行、76326552 bytes，SHA-256 `1010dc734ca26a6beec48d4c2b13b501032c9d5c0cd9a17098907e2555bfad1f`）后部署 release `89b7bdc5b7c36b1b5dbacf182aff89cbf261e809`，`ecs-verify.sh` 通过，47 migrations/54 表，identity/admin-ticket 均 0。
-- 当前状态：已实现待视觉复核；确认前不接入原生解绑页面，也不进入 P4。
+- 当前状态：解绑黄金已接入原生切片，待用户实体运行时复核；不进入 P4。
 - 停止条件：等待用户确认解绑状态的文案、危险色、按钮层级和 320px 布局后，再实现 Mini 解绑页面并接入 `/me/wechat/miniprogram/unbind`。
 
 ## 2026-08-22 P3 Web 身份生产接线（当前批次）

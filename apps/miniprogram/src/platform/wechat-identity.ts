@@ -27,6 +27,10 @@ export interface WechatAdminBindingPreviewResult {
   readonly usernameMasked: string;
 }
 
+export interface WechatUnbindResult {
+  readonly unbound: true;
+}
+
 export type WechatLoginResult = WechatAuthenticatedResult | WechatLinkRequiredResult;
 
 export class WechatIdentityClientError extends Error {
@@ -121,14 +125,18 @@ function readApiError(value: unknown, statusCode: number): WechatIdentityClientE
   );
 }
 
-function postJson(path: string, data: Readonly<Record<string, string>>): Promise<unknown> {
+function postJson(
+  path: string,
+  data: Readonly<Record<string, string>>,
+  extraHeaders: Readonly<Record<string, string>> = {},
+): Promise<unknown> {
   const baseUrl = runtimeConfig.apiBaseUrl.replace(/\/$/u, '');
   return new Promise((resolve, reject) => {
     try {
       wx.request({
         data,
         fail: () => reject(new WechatIdentityClientError('网络连接失败，请稍后重试。')),
-        header: { 'content-type': 'application/json' },
+        header: { 'content-type': 'application/json', ...extraHeaders },
         method: 'POST',
         success: (response) => {
           if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -193,6 +201,18 @@ export async function confirmAdminBinding(ticket: string): Promise<WechatAuthent
   return decodeAuthenticated(
     await postJson('/auth/wechat/admin-bind/confirm', { code: await getWechatCode(), ticket }),
   );
+}
+
+export async function unbindWechatIdentity(idempotencyKey: string): Promise<WechatUnbindResult> {
+  const value = await postJson(
+    '/me/wechat/miniprogram/unbind',
+    { code: await getWechatCode() },
+    { 'Idempotency-Key': idempotencyKey },
+  );
+  if (!isRecord(value) || value.unbound !== true) {
+    throw new WechatIdentityClientError('解绑响应无效。');
+  }
+  return { unbound: true };
 }
 
 export function persistWechatSession(result: WechatAuthenticatedResult): void {

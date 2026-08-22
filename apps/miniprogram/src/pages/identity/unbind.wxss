@@ -1,0 +1,45 @@
+@import '../../styles/identity.wxss';
+
+.identity-target--danger {
+  background: var(--ui-color-danger-light);
+  border-color: rgba(217, 45, 32, 0.25);
+}
+
+.identity-target--danger .identity-target__label {
+  color: var(--ui-color-danger);
+}
+
+.identity-danger-button {
+  display: flex;
+  width: 100%;
+  min-height: var(--ui-touch-target-comfortable);
+  margin-top: 22px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  color: var(--ui-color-white);
+  background: var(--ui-color-danger);
+  border: 1px solid var(--ui-color-danger);
+  border-radius: var(--ui-radius-medium);
+  font-family: var(--ui-font-family-system);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.identity-danger-button[disabled] {
+  opacity: 0.62;
+}
+
+.identity-navigator {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  margin-top: 9px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary-dark);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
