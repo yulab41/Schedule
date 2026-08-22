@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 Mini 默认身份入口修正（当前批次）
+
+- 引入点与修正：`git log -S 'pages/index/index'`/`git blame` 确认 P1 基础页自 `3884713b` 初始化并在 `2d51e222` 成为首路由；P3 身份页追加后仍位于列表末尾，导致冷启动进入 P1 展示页而看不到登录入口。仅将既有 `pages/identity/index` 调整为 `app.json` 首项，P1 月历/矩阵/手势路由与 P3 解绑、管理员预览路由仍保留；无 ECS 中继、凭证、公共 API 或页面逻辑变化。
+- 验证：Mini 定向 6 项、受控全套 16 文件/69 项、TypeScript typecheck、staging build、verify、Worklet/source/package audit、determinism、官方 CI dry-run 和 `git diff --check` 通过；浏览器 smoke 因本机监听 `localhost:5173` 被系统 `EACCES` 阻断，未进入产品断言（本批仅 Mini 入口变更）。
+- checkpoint：拟提交 `fix(miniprogram): open identity page by default`；推送后从精确干净 worktree 用仓库外微信密钥、本地 Node `miniprogram-ci` 上传下一体验版，随后按根规则备份/部署/`ecs-verify` 对齐生产。不得审核或正式发布。
+- 当前状态：已实现待人工原生复核；等待用户重新打开体验版确认冷启动显示“微信登录”入口，并复核登录、绑定、建档、管理员绑定和解绑完整 P3 清单。
+- 下一活动批次与停止条件：只做本入口 checkpoint 的上传、生产对齐和用户实体 Android/微信复核；用户明确通过前不进入 P4 或新的 Web/Mini 页面。
+
 ## 2026-08-23 P3 原生解绑页面切片（当前批次）
 
 - 范围：新增 Mini `pages/identity/unbind`，使用 fresh `wx.login` 调用 `/me/wechat/miniprogram/unbind`，以页面级稳定 Idempotency-Key 保护重复提交；成功只显示当前身份解除，Web 账号/资料/排班保留。

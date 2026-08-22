@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 Mini 默认身份入口修正
+
+- 反馈：冷启动没有看到登录入口。原因是 `app.json` 仍以 P1 `pages/index/index` 为第一项，P3 `pages/identity/index` 只是已注册但不会默认打开。
+- 引入点审计：`git log -S 'pages/index/index'`/`git blame` 定位 P1 首路由来自 `3884713b`/`2d51e222`；本轮只重排既有路由并更新静态期望，不改身份页面逻辑、公共 API、ECS 或上传凭证。
+- 验证：定向 6/6、受控全套 16 文件/69 项、typecheck、staging build、verify（2/2 Worklet，203180 bytes，manifest `f1715957936d60ccbe911acf28f923788ea2c6f53b5a10bd7ece9012b37bc4e8`）、source/package audit、determinism、官方 CI dry-run 和 `git diff --check` 通过。
+- 运行/浏览器验证：`node scripts/smoke-browser.mjs` 因本机 `localhost:5173` 无服务先得到 `ERR_CONNECTION_REFUSED`；尝试直接启动 Vite 仍被系统 `EACCES` 拒绝监听 `::1:5173`，未进入浏览器产品断言。本轮无 Web 代码变化。
+- 状态：待 checkpoint 提交/推送、从精确干净 worktree 本地 `miniprogram-ci` 上传下一体验版，再等待用户在微信开发者工具/实体 Android 冷启动确认登录入口及完整 P3 身份流程。
+- checkpoint 识别消息：`fix(miniprogram): open identity page by default`。
+
 ## 2026-08-23 P3 原生解绑页面切片
 
 - 实现：新增 `pages/identity/unbind`，fresh `wx.login` + `/me/wechat/miniprogram/unbind` + 页面级 Idempotency-Key；不删除 Web 账号、资料或排班。

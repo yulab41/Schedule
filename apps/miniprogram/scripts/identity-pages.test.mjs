@@ -12,15 +12,15 @@ function readJson(relativePath) {
 }
 
 describe('P3 native identity pages', () => {
-  it('registers identity and URL Link routes without replacing the approved P1 entry route', () => {
+  it('opens the identity page by default while preserving the approved P1 routes', () => {
     const app = readJson('app.json');
 
     expect(app.pages).toEqual([
+      'pages/identity/index',
       'pages/index/index',
       'pages/calendar-poc/index',
       'pages/manual-matrix-poc/index',
       'pages/gesture-probe/index',
-      'pages/identity/index',
       'pages/identity/unbind',
       'pages/admin-bind/preview',
     ]);
