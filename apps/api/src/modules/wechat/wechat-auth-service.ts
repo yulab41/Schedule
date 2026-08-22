@@ -1,17 +1,12 @@
-import { randomUUID } from 'node:crypto';
-
 import type { WechatLoginResponse, UserProfile } from '@schedule/contracts';
-import {
-  type DatabaseClient,
-  type DatabaseTransaction,
-  userProfiles,
-  users,
-} from '@schedule/database';
+import { type DatabaseClient, userProfiles, users } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
 
-import { createWechatSessionToken } from '../../adapters/auth/wechat-auth.js';
+import {
+  createWechatSessionToken,
+  WECHAT_SESSION_TTL_SECONDS,
+} from '../../adapters/auth/wechat-auth.js';
 import { ApiError } from '../../plugins/error-handler.js';
-import { AuditWriter } from '../audit/audit-writer.js';
 import { WechatIdentityResolver } from './wechat-identity-resolver.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
 import {
@@ -19,24 +14,32 @@ import {
   type WechatExchangeCodeResult,
   type WechatGateway,
 } from './wechat-gateway.js';
+import { WechatLinkTokenService } from './wechat-link-token-service.js';
 
 export interface WechatAuthServiceOptions {
   readonly databaseClient: DatabaseClient;
   readonly gateway: WechatGateway;
+  readonly now?: (() => Date) | undefined;
   readonly sessionSecret: string | undefined;
 }
 
 export class WechatAuthService {
-  private readonly auditWriter = new AuditWriter();
   private readonly databaseClient: DatabaseClient;
   private readonly gateway: WechatGateway;
   private readonly identityResolver: WechatIdentityResolver;
+  private readonly linkTokenService: WechatLinkTokenService;
+  private readonly now: () => Date;
   private readonly sessionSecret: string | undefined;
 
   public constructor(options: WechatAuthServiceOptions) {
     this.databaseClient = options.databaseClient;
     this.gateway = options.gateway;
     this.identityResolver = new WechatIdentityResolver(options.databaseClient);
+    this.now = options.now ?? (() => new Date());
+    this.linkTokenService = new WechatLinkTokenService({
+      databaseClient: options.databaseClient,
+      now: this.now,
+    });
     this.sessionSecret = options.sessionSecret;
   }
 
@@ -54,7 +57,6 @@ export class WechatAuthService {
     const appId = this.getAppId();
     const resolved = await this.identityResolver.resolve({
       appId,
-      createUser: (transaction) => this.createWechatUser(transaction, exchanged),
       onResolved: async (transaction, userId) => {
         await transaction
           .update(users)
@@ -65,9 +67,33 @@ export class WechatAuthService {
       subject: exchanged.openid,
       unionId: exchanged.unionid,
     });
+    if (resolved === undefined) {
+      return {
+        ...(await this.linkTokenService.issue({
+          appId,
+          existingUserId: undefined,
+          subject: exchanged.openid,
+          unionId: exchanged.unionid,
+        })),
+        status: 'link_required',
+      };
+    }
+    const profile = await this.findProfile(resolved.userId);
+    if (profile === undefined) {
+      return {
+        ...(await this.linkTokenService.issue({
+          appId,
+          existingUserId: resolved.userId,
+          subject: exchanged.openid,
+          unionId: exchanged.unionid,
+        })),
+        status: 'link_required',
+      };
+    }
     return {
-      isNewUser: resolved.isNewUser,
-      profile: await this.findProfile(resolved.userId),
+      expiresAt: new Date(this.now().valueOf() + WECHAT_SESSION_TTL_SECONDS * 1000).toISOString(),
+      profile,
+      status: 'authenticated',
       token: this.issueSessionForUser(resolved.userId, exchanged.openid, resolved.authVersion),
     };
   }
@@ -83,28 +109,6 @@ export class WechatAuthService {
       },
       this.sessionSecret,
     );
-  }
-
-  private async createWechatUser(
-    transaction: DatabaseTransaction,
-    exchanged: { readonly openid: string },
-  ): Promise<{ readonly authVersion: number; readonly userId: string }> {
-    const userId = randomUUID();
-    await transaction.insert(users).values({
-      cloudbaseUid: `wx_${exchanged.openid}`,
-      id: userId,
-      wechatOpenid: exchanged.openid,
-    });
-    await this.auditWriter.append(transaction, {
-      action: 'wechat_user_created',
-      actorUserId: userId,
-      metadata: { loginChannel: 'wechat' },
-      operationId: randomUUID(),
-      outcome: 'completed',
-      targetId: userId,
-      targetType: 'user',
-    });
-    return { authVersion: 1, userId };
   }
 
   private getAppId(): string {

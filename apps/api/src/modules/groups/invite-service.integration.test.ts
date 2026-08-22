@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -348,21 +348,29 @@ describeWithDatabase('invite links and identity binding', () => {
     code: string,
     realName: string,
   ): Promise<{ readonly id: string; readonly token: string }> {
+    const userId = randomUUID();
+    const openid = `mock-openid-${code}`;
+    await client.database.execute(sql`
+      INSERT INTO users (id, cloudbase_uid, wechat_openid, status)
+      VALUES (${userId}, ${`wx_${openid}`}, ${openid}, 'active')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO user_profiles (user_id, real_name)
+      VALUES (${userId}, ${realName})
+    `);
+    await client.database.execute(sql`
+      INSERT INTO user_auth_identities (id, user_id, provider, app_id, subject)
+      VALUES (${randomUUID()}, ${userId}, 'wechat_mini_program', 'mock-mini-app-id', ${openid})
+    `);
     const login = await app.inject({
       method: 'POST',
       payload: { code },
       url: '/auth/wechat/login',
     });
     expect(login.statusCode).toBe(200);
-    const body = login.json() as { token: string };
-    const registered = await app.inject({
-      headers: { authorization: `Bearer ${body.token}` },
-      method: 'POST',
-      payload: { realName },
-      url: '/users',
-    });
-    expect(registered.statusCode).toBe(201);
-    return { id: (registered.json() as { id: string }).id, token: body.token };
+    const body = login.json() as { status: string; token: string };
+    expect(body.status).toBe('authenticated');
+    return { id: userId, token: body.token };
   }
 
   async function createGroup(token: string, name: string, groupCode: string): Promise<string> {
@@ -566,6 +574,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS wechat_link_tokens`);
   await client.database.execute(sql`DROP TABLE IF EXISTS wechat_union_accounts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);

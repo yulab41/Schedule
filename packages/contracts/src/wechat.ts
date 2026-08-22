@@ -10,13 +10,31 @@ export const wechatLoginRequestSchema = z
   .strict();
 export type WechatLoginRequest = z.infer<typeof wechatLoginRequestSchema>;
 
-export const wechatLoginResponseSchema = z
+const legacyWechatLoginResponseSchema = z
   .object({
     isNewUser: z.boolean(),
     profile: userProfileSchema.optional(),
     token: z.string().min(1),
   })
   .strict();
+
+export const wechatLoginResponseSchema = z.discriminatedUnion('status', [
+  z
+    .object({
+      expiresAt: z.string().datetime({ offset: true }),
+      profile: userProfileSchema,
+      status: z.literal('authenticated'),
+      token: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      expiresAt: z.string().datetime({ offset: true }),
+      linkToken: z.string().min(1),
+      status: z.literal('link_required'),
+    })
+    .strict(),
+]);
 export type WechatLoginResponse = z.infer<typeof wechatLoginResponseSchema>;
 
 export const wechatWebLoginStartQuerySchema = z
@@ -42,8 +60,8 @@ export const wechatWebLoginExchangeRequestSchema = z
   .strict();
 export type WechatWebLoginExchangeRequest = z.infer<typeof wechatWebLoginExchangeRequestSchema>;
 
-export const wechatWebLoginResponseSchema = wechatLoginResponseSchema;
-export type WechatWebLoginResponse = WechatLoginResponse;
+export const wechatWebLoginResponseSchema = legacyWechatLoginResponseSchema;
+export type WechatWebLoginResponse = z.infer<typeof wechatWebLoginResponseSchema>;
 
 export const visitorResolveRequestSchema = z
   .object({

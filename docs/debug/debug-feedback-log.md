@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-C 显式微信关联与无注销边界
+
+- 红灯：Mini 判别联合、三类 link 错误、脱敏、0045 schema、link service 模块、未知不建号和注销 404 均在旧实现失败。
+- 实现：未知 Mini 只返回 10 分钟 link_required 并写哈希 token，不建 user/identity/Union/audit；已知有 profile 才签 authenticated session，已知无 profile 的 token 绑定 existing user。link service 行锁单次消费并区分 invalid/used/expired；password/Web response 解耦，错误码生成到 client-core，linkToken/Union 日志脱敏。
+- 无注销：删除 contract/service/route；404 回归确认 locator/status/profile/contact/audit 原样保留。公开 password register 本批不动。
+- 验证：静态/contract/client 8 文件/29 项，真实 MySQL link 4、身份 14、邀请 7、无注销 1、迁移 17 项，非 DB 全仓 156 文件/854 项通过。Mini 15 文件/62 项及全部静态/包门禁通过（147968 bytes，manifest `66353d723b345147d0e36d83334fee21b60fdfa61420159aa9ae84c12d88a20c`）；根 build/typecheck/lint、任务格式/diff/`smoke:check-core` 通过，根 format 仅既有/用户所有 11 项。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): require explicit wechat linking`。
+
 ## 2026-08-22 P3-B 版本化会话与 AppID identity
 
 - 红灯：claim/gateway 3 项和身份集成 5 项在旧实现失败，覆盖无版本/AppID 校验、legacy scoped 认领与跨渠道 Union 500。

@@ -5,7 +5,7 @@ const calendarReadModelSchemaJson =
 const holidayReadModelSchemaJson =
   '{"type":"object","properties":{"confirmed":{"type":"boolean"},"dates":{"type":"array","items":{"type":"object","properties":{"date":{"type":"string"},"holidayName":{"type":"string"},"isOffDay":{"type":"boolean"},"isWorkday":{"type":"boolean"}},"required":["date","holidayName","isOffDay","isWorkday"],"additionalProperties":false}},"year":{"type":"integer","maximum":9007199254740991,"minimum":-9007199254740991}},"required":["confirmed","dates","year"],"additionalProperties":false}';
 const apiErrorCodesJson =
-  '["AUTHENTICATION_REQUIRED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","UNSUPPORTED_MEDIA_TYPE","CONFLICT","RATE_LIMITED","SERVICE_UNAVAILABLE","INTERNAL_ERROR","WECHAT_LOGIN_FAILED","WECHAT_MESSAGE_SEND_FAILED","INVITE_INVALID","INVITE_USED","INVITE_EXPIRED","VISITOR_KEY_INVALID"]';
+  '["AUTHENTICATION_REQUIRED","FORBIDDEN","NOT_FOUND","VALIDATION_FAILED","UNSUPPORTED_MEDIA_TYPE","CONFLICT","RATE_LIMITED","SERVICE_UNAVAILABLE","INTERNAL_ERROR","WECHAT_LOGIN_FAILED","WECHAT_LINK_TOKEN_INVALID","WECHAT_LINK_TOKEN_USED","WECHAT_LINK_TOKEN_EXPIRED","WECHAT_MESSAGE_SEND_FAILED","INVITE_INVALID","INVITE_USED","INVITE_EXPIRED","VISITOR_KEY_INVALID"]';
 
 export const calendarReadModelJsonSchema = JSON.parse(
   calendarReadModelSchemaJson,

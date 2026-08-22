@@ -9,6 +9,7 @@ const sensitiveFieldNames = [
   'accessToken',
   'refreshToken',
   'authorization',
+  'linkToken',
   'appSecret',
   'phone',
   'phoneNumber',
@@ -17,6 +18,7 @@ const sensitiveFieldNames = [
   'mobile',
   'telephone',
   'openid',
+  'unionId',
   'visitorKey',
 ] as const;
 

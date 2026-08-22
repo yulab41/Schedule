@@ -91,6 +91,13 @@ export class WechatWebAuthService {
       subject: exchanged.openid,
       unionId: exchanged.unionid,
     });
+    if (resolved === undefined) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '微信身份状态冲突，请联系管理员处理。',
+      });
+    }
     const profile = await this.findProfile(resolved.userId);
     return {
       isNewUser: profile === undefined,

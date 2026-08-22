@@ -309,6 +309,13 @@
       "when": 1785542400044,
       "tag": "0044_identity_security_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1785542400045,
+      "tag": "0045_wechat_link_tokens",
+      "breakpoints": true
     }
   ]
 }

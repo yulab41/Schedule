@@ -6,6 +6,7 @@ const canonicalSensitiveFields = [
   'accessToken',
   'appSecret',
   'authorization',
+  'linkToken',
   'mobile',
   'mobilePhone',
   'openid',
@@ -16,6 +17,7 @@ const canonicalSensitiveFields = [
   'shortPhone',
   'telephone',
   'token',
+  'unionId',
   'visitorKey',
 ] as const;
 

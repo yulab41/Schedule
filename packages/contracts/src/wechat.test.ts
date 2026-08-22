@@ -11,19 +11,37 @@ import {
 } from './wechat.js';
 
 describe('wechat mini program contracts', () => {
-  it('accepts a login response for a returning user without a profile override', () => {
+  it('accepts an authenticated result only with expiry and a complete profile', () => {
     const result = wechatLoginResponseSchema.safeParse({
-      isNewUser: false,
+      expiresAt: '2026-09-21T00:00:00.000Z',
       profile: { id: 'u1', realName: '张三', version: 1 },
+      status: 'authenticated',
       token: 'signed-token',
     });
     expect(result.success).toBe(true);
+    expect(
+      wechatLoginResponseSchema.safeParse({
+        expiresAt: '2026-09-21T00:00:00.000Z',
+        status: 'authenticated',
+        token: 'signed-token',
+      }).success,
+    ).toBe(false);
   });
 
-  it('allows a new user login response without a profile', () => {
+  it('accepts link_required without issuing a session and rejects the legacy shape', () => {
     expect(
-      wechatLoginResponseSchema.safeParse({ isNewUser: true, token: 'signed-token' }).success,
+      wechatLoginResponseSchema.safeParse({
+        expiresAt: '2026-08-22T10:10:00.000Z',
+        linkToken: 'one-time-link-token',
+        status: 'link_required',
+      }).success,
     ).toBe(true);
+    expect(
+      wechatLoginResponseSchema.safeParse({
+        isNewUser: true,
+        token: 'signed-token',
+      }).success,
+    ).toBe(false);
   });
 
   it('requires a 32-character hexadecimal visitor key', () => {

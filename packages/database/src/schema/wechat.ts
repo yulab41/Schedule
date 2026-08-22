@@ -52,6 +52,29 @@ export const wechatUnionAccounts = mysqlTable(
   ],
 );
 
+export const wechatLinkTokens = mysqlTable(
+  'wechat_link_tokens',
+  {
+    id: identifier(),
+    tokenHash: char('token_hash', { length: 64 }).notNull(),
+    appId: varchar('app_id', { length: 64 }).notNull(),
+    subject: varchar('subject', { length: 128 }).notNull(),
+    unionId: varchar('union_id', { length: 128 }),
+    existingUserId: char('existing_user_id', { length: 36 }),
+    status: mysqlEnum('status', ['pending', 'consumed']).default('pending').notNull(),
+    expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
+    consumedAt: timestamp('consumed_at', { fsp: 3 }),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('wechat_link_tokens_token_hash_unique').on(table.tokenHash),
+    index('wechat_link_tokens_identity_status_idx').on(table.appId, table.subject, table.status),
+    index('wechat_link_tokens_existing_user_idx').on(table.existingUserId),
+    index('wechat_link_tokens_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
 export const inviteTokens = mysqlTable(
   'invite_tokens',
   {

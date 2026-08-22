@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -61,7 +62,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
     }
   });
 
-  it('logs in a new WeChat user, creates an account without a profile, and audits it', async () => {
+  it('returns link_required for an unknown WeChat identity without creating a user', async () => {
     const login = await app.inject({
       method: 'POST',
       payload: { code: 'code-a' },
@@ -70,71 +71,56 @@ describeWithDatabase('wechat authentication and sessions', () => {
 
     expect(login.statusCode).toBe(200);
     const body = login.json() as {
-      isNewUser: boolean;
-      profile?: unknown;
-      token: string;
+      expiresAt: string;
+      linkToken: string;
+      status: string;
     };
-    expect(body).toMatchObject({ isNewUser: true });
-    expect(body.profile).toBeUndefined();
-    expect(typeof body.token).toBe('string');
-
-    const [rows] = (await client.database.execute(
-      sql`SELECT cloudbase_uid AS cloudbaseUid, wechat_openid AS openid
-          FROM users WHERE is_developer_admin = 0`,
-    )) as unknown as [{ cloudbaseUid: string; openid: string }[], unknown];
-    expect(rows).toEqual([{ cloudbaseUid: 'wx_mock-openid-code-a', openid: 'mock-openid-code-a' }]);
-
-    const claims = verifyWechatSessionToken(body.token, TEST_SESSION_SECRET);
-    expect(claims).toMatchObject({
-      appId: 'mock-mini-app-id',
-      authVersion: 1,
-      openid: 'mock-openid-code-a',
-      provider: 'wechat_mini_program',
-    });
-    const [identityRows] = (await client.database.execute(sql`
-      SELECT app_id AS appId, provider, subject, union_id AS unionId
-      FROM user_auth_identities
-    `)) as unknown as [
-      { appId: string | null; provider: string; subject: string; unionId: string | null }[],
-      unknown,
-    ];
-    expect(identityRows).toEqual([
-      {
-        appId: 'mock-mini-app-id',
-        provider: 'wechat_mini_program',
-        subject: 'mock-openid-code-a',
-        unionId: null,
-      },
-    ]);
-
-    const [auditRows] = (await client.database.execute(
-      sql`SELECT action FROM audit_logs WHERE target_type = 'user'`,
-    )) as unknown as [{ action: string }[], unknown];
-    expect(auditRows).toEqual([{ action: 'wechat_user_created' }]);
-
-    const profile = await app.inject({
-      headers: { authorization: `Bearer ${body.token}` },
-      method: 'GET',
-      url: '/users/me',
-    });
-    expect(profile.statusCode).toBe(404);
-  });
-
-  it('returns the same account on repeated logins without creating a second user', async () => {
-    const firstLogin = await login('code-a');
-    const secondLogin = await login('code-a');
-
-    expect(firstLogin.isNewUser).toBe(true);
-    expect(secondLogin.isNewUser).toBe(false);
-    expect(secondLogin.profile).toBeUndefined();
+    expect(body.status).toBe('link_required');
+    expect(typeof body.linkToken).toBe('string');
+    expect(new Date(body.expiresAt).valueOf()).toBeGreaterThan(Date.now());
 
     const [rows] = (await client.database.execute(
       sql`SELECT COUNT(*) AS count FROM users WHERE is_developer_admin = 0`,
     )) as unknown as [{ count: number }[], unknown];
-    expect(rows[0]?.count).toBe(1);
+    expect(rows).toEqual([{ count: 0 }]);
+    const [identityRows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM user_auth_identities`,
+    );
+    const [unionRows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM wechat_union_accounts`,
+    );
+    expect(identityRows).toEqual([{ count: 0 }]);
+    expect(unionRows).toEqual([{ count: 0 }]);
+    const [linkRows] = (await client.database.execute(sql`
+      SELECT token_hash AS tokenHash FROM wechat_link_tokens
+    `)) as unknown as [{ tokenHash: string }[], unknown];
+    expect(linkRows).toEqual([{ tokenHash: sha256(body.linkToken) }]);
+    expect(linkRows[0]?.tokenHash).not.toBe(body.linkToken);
+
+    const [auditRows] = (await client.database.execute(
+      sql`SELECT action FROM audit_logs WHERE target_type = 'user'`,
+    )) as unknown as [{ action: string }[], unknown];
+    expect(auditRows).toEqual([]);
+  });
+
+  it('issues independent one-time link tokens on repeated unknown logins without creating users', async () => {
+    const firstLogin = await loginForLink('code-a');
+    const secondLogin = await loginForLink('code-a');
+
+    expect(firstLogin.linkToken).not.toBe(secondLogin.linkToken);
+
+    const [rows] = (await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM users WHERE is_developer_admin = 0`,
+    )) as unknown as [{ count: number }[], unknown];
+    expect(rows[0]?.count).toBe(0);
+    const [links] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM wechat_link_tokens`,
+    );
+    expect(links).toEqual([{ count: 2 }]);
   });
 
   it('accepts rollout-era version-1 tokens and rejects old and new tokens after authVersion changes', async () => {
+    await seedKnownMiniUser('versioned');
     const loginResponse = await login('versioned');
     const [rows] = (await client.database.execute(sql`
       SELECT id FROM users WHERE wechat_openid = 'mock-openid-versioned'
@@ -149,8 +135,8 @@ describeWithDatabase('wechat authentication and sessions', () => {
       TEST_SESSION_SECRET,
     );
 
-    expect((await readProfile(loginResponse.token)).statusCode).toBe(404);
-    expect((await readProfile(legacyToken)).statusCode).toBe(404);
+    expect((await readProfile(loginResponse.token)).statusCode).toBe(200);
+    expect((await readProfile(legacyToken)).statusCode).toBe(200);
 
     await client.database.execute(sql`
       UPDATE users SET auth_version = 2 WHERE id = ${userId}
@@ -161,6 +147,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
   });
 
   it('requires new Mini tokens to match their AppID-scoped identity', async () => {
+    await seedKnownMiniUser('scoped');
     const loginResponse = await login('scoped');
     const claims = verifyWechatSessionToken(loginResponse.token, TEST_SESSION_SECRET);
     if (claims === undefined) throw new Error('expected signed Mini claims');
@@ -264,8 +251,8 @@ describeWithDatabase('wechat authentication and sessions', () => {
       VALUES (${legacyUserId}, 'wx_mock-openid-legacy', 'mock-openid-legacy', 'active')
     `);
 
-    const response = await login('legacy');
-    expect(response.isNewUser).toBe(false);
+    const response = await loginForLink('legacy');
+    expect(response.status).toBe('link_required');
     const [usersAfter] = (await client.database.execute(sql`
       SELECT COUNT(*) AS count FROM users WHERE is_developer_admin = 0
     `)) as unknown as [{ count: number }[], unknown];
@@ -293,8 +280,8 @@ describeWithDatabase('wechat authentication and sessions', () => {
       )
     `);
 
-    const response = await login('legacy-identity');
-    expect(response.isNewUser).toBe(false);
+    const response = await loginForLink('legacy-identity');
+    expect(response.status).toBe('link_required');
     const [identityRows] = (await client.database.execute(sql`
       SELECT app_id AS appId FROM user_auth_identities WHERE user_id = ${userId}
     `)) as unknown as [{ appId: string | null }[], unknown];
@@ -322,6 +309,12 @@ describeWithDatabase('wechat authentication and sessions', () => {
       Math.floor(Date.now() / 1000),
     );
     const webLogin = await webService.exchange('web-code', webState);
+    const initialWebClaims = verifyWechatSessionToken(webLogin.token, TEST_SESSION_SECRET);
+    if (initialWebClaims === undefined) throw new Error('expected signed Web claims');
+    await client.database.execute(sql`
+      INSERT INTO user_profiles (user_id, real_name)
+      VALUES (${initialWebClaims.sub}, 'Cross Channel User')
+    `);
 
     const miniGateway: WechatGateway = {
       appId: 'mini-app-id',
@@ -356,7 +349,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
     expect(miniLogin.statusCode, miniLogin.body).toBe(200);
 
     const miniToken = (miniLogin.json() as { token: string }).token;
-    const webClaims = verifyWechatSessionToken(webLogin.token, TEST_SESSION_SECRET);
+    const webClaims = initialWebClaims;
     const miniClaims = verifyWechatSessionToken(miniToken, TEST_SESSION_SECRET);
     if (webClaims === undefined || miniClaims === undefined) {
       throw new Error('expected signed cross-channel claims');
@@ -386,7 +379,8 @@ describeWithDatabase('wechat authentication and sessions', () => {
       method: 'GET',
       url: '/users/me',
     });
-    expect(webProfile.statusCode).toBe(404);
+    expect(webProfile.statusCode).toBe(200);
+    expect(webProfile.json()).toMatchObject({ realName: 'Cross Channel User' });
     await client.database.execute(sql`
       UPDATE users SET auth_version = 2 WHERE id = ${webClaims.sub}
     `);
@@ -468,28 +462,20 @@ describeWithDatabase('wechat authentication and sessions', () => {
     expect(rows).toEqual([{ userId: identityUserId }]);
   });
 
-  it('completes the profile through the existing register endpoint after login', async () => {
-    const loginResponse = await login('code-b');
+  it('returns link_required for a known identity without a profile and records the target user', async () => {
+    const userId = await seedKnownMiniUser('code-b', { withProfile: false });
+    const loginResponse = await loginForLink('code-b');
 
-    const register = await app.inject({
-      headers: { authorization: `Bearer ${loginResponse.token}` },
-      method: 'POST',
-      payload: { realName: '张三' },
-      url: '/users',
-    });
-    expect(register.statusCode).toBe(201);
-    expect(register.json()).toMatchObject({ realName: '张三', version: 1 });
-
-    const profile = await app.inject({
-      headers: { authorization: `Bearer ${loginResponse.token}` },
-      method: 'GET',
-      url: '/users/me',
-    });
-    expect(profile.statusCode).toBe(200);
-    expect(profile.json()).toMatchObject({ realName: '张三', version: 1 });
+    const [rows] = (await client.database.execute(sql`
+      SELECT existing_user_id AS existingUserId
+      FROM wechat_link_tokens
+      WHERE token_hash = ${sha256(loginResponse.linkToken)}
+    `)) as unknown as [{ existingUserId: string | null }[], unknown];
+    expect(rows).toEqual([{ existingUserId: userId }]);
   });
 
   it('rejects expired and tampered session tokens with 401', async () => {
+    await seedKnownMiniUser('code-c');
     const loginResponse = await login('code-c');
     const [rows] = (await client.database.execute(
       sql`SELECT id FROM users WHERE wechat_openid = 'mock-openid-code-c'`,
@@ -519,6 +505,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
   });
 
   it('fails closed with 401 when the session secret is missing', async () => {
+    await seedKnownMiniUser('code-d');
     const secretless = createApp({
       authPort: createWechatAuthPort({
         allowDevTokens: false,
@@ -597,9 +584,10 @@ describeWithDatabase('wechat authentication and sessions', () => {
   });
 
   async function login(code: string): Promise<{
-    isNewUser: boolean;
-    profile?: unknown;
-    token: string;
+    readonly expiresAt: string;
+    readonly profile: { readonly id: string; readonly realName: string; readonly version: number };
+    readonly status: 'authenticated';
+    readonly token: string;
   }> {
     const response = await app.inject({
       method: 'POST',
@@ -607,7 +595,32 @@ describeWithDatabase('wechat authentication and sessions', () => {
       url: '/auth/wechat/login',
     });
     expect(response.statusCode).toBe(200);
-    return response.json() as { isNewUser: boolean; profile?: unknown; token: string };
+    const body = response.json() as {
+      expiresAt: string;
+      profile: { id: string; realName: string; version: number };
+      status: 'authenticated';
+      token: string;
+    };
+    expect(body.status).toBe('authenticated');
+    return body;
+  }
+
+  async function loginForLink(code: string): Promise<{
+    readonly expiresAt: string;
+    readonly linkToken: string;
+    readonly status: 'link_required';
+  }> {
+    const response = await app.inject({
+      method: 'POST',
+      payload: { code },
+      url: '/auth/wechat/login',
+    });
+    expect(response.statusCode).toBe(200);
+    return response.json() as {
+      expiresAt: string;
+      linkToken: string;
+      status: 'link_required';
+    };
   }
 
   async function readProfile(token: string) {
@@ -617,7 +630,34 @@ describeWithDatabase('wechat authentication and sessions', () => {
       url: '/users/me',
     });
   }
+
+  async function seedKnownMiniUser(
+    code: string,
+    options: { readonly withProfile?: boolean } = {},
+  ): Promise<string> {
+    const userId = randomUUID();
+    const openid = `mock-openid-${code}`;
+    await client.database.execute(sql`
+      INSERT INTO users (id, cloudbase_uid, wechat_openid, status)
+      VALUES (${userId}, ${`wx_${openid}`}, ${openid}, 'active')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO user_auth_identities (id, user_id, provider, app_id, subject)
+      VALUES (${randomUUID()}, ${userId}, 'wechat_mini_program', 'mock-mini-app-id', ${openid})
+    `);
+    if (options.withProfile !== false) {
+      await client.database.execute(sql`
+        INSERT INTO user_profiles (user_id, real_name)
+        VALUES (${userId}, ${`User ${code}`})
+      `);
+    }
+    return userId;
+  }
 });
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
 
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {
   if (process.env.NODE_ENV !== 'test') {
@@ -702,6 +742,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS wechat_link_tokens`);
   await client.database.execute(sql`DROP TABLE IF EXISTS wechat_union_accounts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);

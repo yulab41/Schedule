@@ -2,6 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-C 显式微信关联与无注销边界（当前批次）
+
+- 范围：只把 Mini 登录改为 `authenticated | link_required` 判别联合，建立 10 分钟单次哈希 linkToken 基础并移除真实账号注销 contract/service/route；不实现 link-password/register 消费端点、解绑、管理员账号 API、Web 登录页或 Mini 页面。公开密码注册暂保留到同步视觉批次。
+- 测试先行：新 Mini contract、错误码、脱敏、schema 与 link service 在旧实现共 8 个断言/模块失败；未知登录旧实现仍自动建号；注销保留测试旧实现返回 200 并删除数据。实现后静态/contract/client 8 文件/29 项，真实 MySQL linkToken 4 项、身份 14 项、邀请 7 项、无注销 1 项、全迁移 17 项通过。
+- 登录语义：未知 `(appId,openid)` 且无 Union 归属时只写 `wechat_link_tokens`，返回 `{status:'link_required',linkToken,expiresAt}`，不写 users/profile/identity/Union/audit，也不签 session。已知 identity/Union 且有 profile 返回 `{status:'authenticated',token,expiresAt,profile}`；已知但无 profile 也返回 link_required，并在 token 记录中绑定 existing user，等待下一批显式建档。password 与 Web 微信旧 response schema 已独立，行为不变。
+- linkToken 安全：数据库只存 SHA-256、AppID/subject/可选 Union/existing user、pending/consumed 与到期时间，不存 raw token。消费事务行锁保证并发只有一次成功；后续关联操作失败会连同 consumed 状态回滚；无效/已用/过期分别为 typed 401/409/410。`linkToken`/`unionId` 加入深层/Pino 脱敏；新错误码同源生成到 client-core。
+- 无注销：`DeregisterAccountResult`、`deregisterOwnAccount` 和 `/users/me/deregister` 已从生产 contract/service/routes 删除。404 集成证明用户 locator/status/profile/contact/audit 均不变；仓库生产 TS/Vue 无注销入口。解绑仍待后续专用接口，不以注销替代。
+- schema/migration：新增 0045 `wechat_link_tokens`；迁移数 45、业务表 52，全部 test DB reset 同步。根 build/typecheck/lint 通过；受控非 DB 全仓 156 文件/854 项通过，33 文件/279 项按环境跳过。
+- Mini/门禁：Mini 15 文件/62 项及 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147968 bytes，manifest `66353d723b345147d0e36d83334fee21b60fdfa61420159aa9ae84c12d88a20c`）；任务 Prettier/`git diff --check`/`smoke:check-core` 通过，根 format 仍只有既有/用户所有 11 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板/样式/页面变化，不需要人工视觉确认。
+- 当前状态：P3-C 实现和本地门禁完成，待 checkpoint `feat(auth): require explicit wechat linking` 推送、本地 Node 体验上传和生产备份/迁移/部署/验证；不得提交审核或正式发布 Mini。
+- 下一活动批次与停止条件：只做 P3-D `/auth/wechat/link-password` 与 `/auth/wechat/register` 的 linkToken 消费、密码 proof 和真实姓名建档；不得做管理员 URL Link、解绑、公开 Web 注册关闭或任何 UI。过期/篡改/重放/并发、用户名密码错误、Union 冲突、已有/新用户事务与 authVersion 测试通过后停止。
+
 ## 2026-08-22 P3-B 版本化会话与 AppID identity（当前批次）
 
 - 范围：只增加 JWT `authVersion/appId`、逐请求版本/identity 校验、Mini/Web AppID resolver、Union account 关联和 legacy 精确惰性认领；未知微信仍保持现有 `isNewUser` 自动建号结果，不改 contracts、路由、公开注册、注销/解绑或 UI。

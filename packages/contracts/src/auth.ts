@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { wechatLoginResponseSchema } from './wechat.js';
+import { userProfileSchema } from './users.js';
 
 export const passwordUsernameSchema = z
   .string()
@@ -22,9 +22,14 @@ export type PasswordRegisterRequest = z.infer<typeof passwordRegisterRequestSche
 export const passwordLoginRequestSchema = passwordRegisterRequestSchema;
 export type PasswordLoginRequest = z.infer<typeof passwordLoginRequestSchema>;
 
-export const passwordAuthResponseSchema = wechatLoginResponseSchema.extend({
-  mustChangePassword: z.boolean(),
-});
+export const passwordAuthResponseSchema = z
+  .object({
+    isNewUser: z.boolean(),
+    mustChangePassword: z.boolean(),
+    profile: userProfileSchema.optional(),
+    token: z.string().min(1),
+  })
+  .strict();
 export type PasswordAuthResponse = z.infer<typeof passwordAuthResponseSchema>;
 
 export const passwordChangeRequestSchema = z

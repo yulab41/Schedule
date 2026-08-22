@@ -205,7 +205,7 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(recreated.statusCode).toBe(201);
   });
 
-  it('deregisters an account by detaching identity and contacts while keeping history', async () => {
+  it('does not expose account deregistration and preserves identity, contacts, and history', async () => {
     const groupId = await createGroup('member-token', 'Doctor Group', '5678');
     const members = (
       await app.inject({
@@ -217,20 +217,20 @@ describeWithDatabase('platform administration and recovery', () => {
     const membershipId = members.find((member) => member.isCurrentUser)?.id;
     expect(membershipId).toBeDefined();
 
-    await app.inject({
+    const contact = await app.inject({
       headers: { authorization: 'Bearer member-token' },
       method: 'PUT',
-      payload: { confirm: true, mobilePhone: '13800138000' },
+      payload: { isConfirmed: true, mobilePhone: '13800138000' },
       url: `/groups/${groupId}/members/${membershipId}/contact`,
     });
+    expect(contact.statusCode).toBe(200);
 
     const deregistered = await app.inject({
       headers: { authorization: 'Bearer member-token' },
       method: 'POST',
       url: '/users/me/deregister',
     });
-    expect(deregistered.statusCode).toBe(200);
-    expect(deregistered.json()).toMatchObject({ status: 'deleted' });
+    expect(deregistered.statusCode).toBe(404);
 
     const [userRows] = (await client.database.execute(
       sql`SELECT u.cloudbase_uid, u.status, u.deleted_at
@@ -241,9 +241,9 @@ describeWithDatabase('platform administration and recovery', () => {
       { cloudbase_uid: string | null; deleted_at: Date | null; status: string }[],
       unknown,
     ];
-    expect(userRows[0]?.cloudbase_uid).toBeNull();
-    expect(userRows[0]?.status).toBe('deleted');
-    expect(userRows[0]?.deleted_at).not.toBeNull();
+    expect(userRows[0]?.cloudbase_uid).toBe('cloudbase-member');
+    expect(userRows[0]?.status).toBe('active');
+    expect(userRows[0]?.deleted_at).toBeNull();
 
     const [contactRows] = (await client.database.execute(
       sql`SELECT c.mobile_phone, c.is_confirmed
@@ -251,8 +251,8 @@ describeWithDatabase('platform administration and recovery', () => {
           JOIN group_memberships m ON m.id = c.membership_id
           WHERE m.group_id = ${groupId}`,
     )) as unknown as [{ is_confirmed: number; mobile_phone: string | null }[], unknown];
-    expect(contactRows[0]?.mobile_phone).toBeNull();
-    expect(contactRows[0]?.is_confirmed).toBe(0);
+    expect(contactRows[0]?.mobile_phone).toBe('13800138000');
+    expect(contactRows[0]?.is_confirmed).toBe(1);
 
     const [profileRows] = (await client.database.execute(
       sql`SELECT real_name FROM user_profiles WHERE real_name = 'Member Doctor'`,
@@ -262,7 +262,7 @@ describeWithDatabase('platform administration and recovery', () => {
     const [auditRows] = (await client.database.execute(
       sql`SELECT action FROM audit_logs WHERE action = 'user_deregister'`,
     )) as unknown as [{ action: string }[], unknown];
-    expect(auditRows).toHaveLength(1);
+    expect(auditRows).toHaveLength(0);
 
     const reRegistered = await app.inject({
       headers: { authorization: 'Bearer member-token' },
@@ -270,7 +270,7 @@ describeWithDatabase('platform administration and recovery', () => {
       payload: { realName: 'Member Doctor Again' },
       url: '/users',
     });
-    expect(reRegistered.statusCode).toBe(201);
+    expect(reRegistered.statusCode).toBe(409);
   });
 
   it('lets platform administrators suspend and reactivate accounts', async () => {
@@ -650,6 +650,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS wechat_link_tokens`);
   await client.database.execute(sql`DROP TABLE IF EXISTS wechat_union_accounts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);

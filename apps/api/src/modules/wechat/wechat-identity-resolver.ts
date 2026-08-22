@@ -21,7 +21,8 @@ interface CreatedWechatUser {
 
 interface ResolveWechatIdentityInput {
   readonly appId: string;
-  readonly createUser: (transaction: DatabaseTransaction) => Promise<CreatedWechatUser>;
+  readonly createUser?:
+    ((transaction: DatabaseTransaction) => Promise<CreatedWechatUser>) | undefined;
   readonly onResolved?:
     ((transaction: DatabaseTransaction, userId: string) => Promise<void>) | undefined;
   readonly provider: WechatIdentityProvider;
@@ -36,7 +37,9 @@ export interface ResolvedWechatIdentity extends CreatedWechatUser {
 export class WechatIdentityResolver {
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
-  public async resolve(input: ResolveWechatIdentityInput): Promise<ResolvedWechatIdentity> {
+  public async resolve(
+    input: ResolveWechatIdentityInput,
+  ): Promise<ResolvedWechatIdentity | undefined> {
     if (input.appId.length === 0) {
       throw identityConfigurationError();
     }
@@ -77,6 +80,7 @@ export class WechatIdentityResolver {
           return { ...user, isNewUser: false };
         }
 
+        if (input.createUser === undefined) return undefined;
         const created = await input.createUser(transaction);
         await this.insertIdentity(transaction, input, created.userId);
         await this.ensureUnionAccount(transaction, created.userId, input.unionId);

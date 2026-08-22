@@ -15,7 +15,7 @@ export interface WechatSessionClaims {
   readonly sub: string;
 }
 
-const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+export const WECHAT_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MINIMUM_SESSION_SECRET_LENGTH = 32;
 
 export function createWechatSessionToken(
@@ -39,7 +39,7 @@ export function createWechatSessionToken(
 
   const header = encodeBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = encodeBase64Url(
-    JSON.stringify({ exp: nowSeconds + SESSION_TTL_SECONDS, ...claims }),
+    JSON.stringify({ exp: nowSeconds + WECHAT_SESSION_TTL_SECONDS, ...claims }),
   );
   const signature = createHmac('sha256', sessionSecret)
     .update(`${header}.${payload}`)

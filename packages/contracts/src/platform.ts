@@ -37,8 +37,3 @@ export interface PlatformMeResponse {
 export interface UpdatePlatformUserStatusInput {
   readonly status: 'active' | 'suspended';
 }
-
-export interface DeregisterAccountResult {
-  readonly id: string;
-  readonly status: 'deleted';
-}
