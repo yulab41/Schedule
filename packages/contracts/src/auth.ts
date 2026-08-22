@@ -44,6 +44,43 @@ export const passwordChangeRequestSchema = z
   });
 export type PasswordChangeRequest = z.infer<typeof passwordChangeRequestSchema>;
 
+export const passwordProofChangeRequestSchema = z.union([
+  z
+    .object({
+      currentPassword: passwordSecretSchema,
+      newPassword: passwordSecretSchema,
+    })
+    .strict()
+    .refine((value) => value.currentPassword !== value.newPassword, {
+      message: 'The new password must differ from the current password.',
+      path: ['newPassword'],
+    }),
+  z
+    .object({
+      code: z.string().min(1).max(512),
+      newPassword: passwordSecretSchema,
+    })
+    .strict(),
+]);
+export type PasswordProofChangeRequest = z.infer<typeof passwordProofChangeRequestSchema>;
+
+export const passwordIdentityAssignmentRequestSchema = z
+  .object({ username: passwordUsernameSchema })
+  .strict();
+export type PasswordIdentityAssignmentRequest = z.infer<
+  typeof passwordIdentityAssignmentRequestSchema
+>;
+
+export const passwordIdentityAssignmentResponseSchema = z
+  .object({
+    passwordConfigured: z.boolean(),
+    username: passwordUsernameSchema,
+  })
+  .strict();
+export type PasswordIdentityAssignmentResponse = z.infer<
+  typeof passwordIdentityAssignmentResponseSchema
+>;
+
 export const passwordChangeResponseSchema = z.object({ passwordChanged: z.literal(true) }).strict();
 export type PasswordChangeResponse = z.infer<typeof passwordChangeResponseSchema>;
 

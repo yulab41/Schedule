@@ -4,21 +4,26 @@ import type {
   PasswordAuthResponse,
   PasswordChangeRequest,
   PasswordChangeResponse,
+  PasswordProofChangeRequest,
   PasswordStatusResponse,
 } from '@schedule/contracts';
 import {
   type DatabaseClient,
+  type DatabaseTransaction,
   userPasswordCredentials,
+  userAuthIdentities,
   userProfiles,
   users,
   withTransaction,
 } from '@schedule/database';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { createPasswordSessionToken } from '../../adapters/auth/wechat-auth.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
+import { WechatGatewayError, type WechatGateway } from '../wechat/wechat-gateway.js';
+import { toWechatGatewayApiError } from '../wechat/wechat-errors.js';
 
 const PASSWORD_HASH_ALGORITHM = 'scrypt';
 const SCRYPT_COST = 16_384;
@@ -31,16 +36,19 @@ const DEFAULT_INITIAL_PASSWORD = '123';
 
 export interface PasswordAuthServiceOptions {
   readonly databaseClient: DatabaseClient;
+  readonly gateway?: WechatGateway | undefined;
   readonly sessionSecret: string | undefined;
 }
 
 export class PasswordAuthService {
   private readonly auditWriter = new AuditWriter();
   private readonly databaseClient: DatabaseClient;
+  private readonly gateway: WechatGateway | undefined;
   private readonly sessionSecret: string | undefined;
 
   public constructor(options: PasswordAuthServiceOptions) {
     this.databaseClient = options.databaseClient;
+    this.gateway = options.gateway;
     this.sessionSecret = options.sessionSecret;
   }
 
@@ -201,6 +209,99 @@ export class PasswordAuthService {
     });
   }
 
+  public async changePasswordWithProof(
+    identity: AuthenticatedIdentity,
+    input: PasswordProofChangeRequest,
+  ): Promise<PasswordChangeResponse> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const [credential] = await transaction
+        .select({
+          passwordHash: userPasswordCredentials.passwordHash,
+          userId: users.id,
+        })
+        .from(userPasswordCredentials)
+        .innerJoin(users, eq(users.id, userPasswordCredentials.userId))
+        .where(
+          and(
+            eq(users.cloudbaseUid, identity.cloudbaseUid),
+            eq(users.status, 'active'),
+            isNull(users.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (credential === undefined) throw passwordChangeUnavailableError();
+
+      if ('currentPassword' in input) {
+        if (
+          credential.passwordHash === null ||
+          !(await verifyPassword(input.currentPassword, credential.passwordHash))
+        ) {
+          throw invalidCurrentPasswordError();
+        }
+      } else {
+        await this.assertWechatCodeProof(transaction, credential.userId, input.code);
+      }
+
+      const passwordHash = await hashPassword(input.newPassword);
+      await transaction
+        .update(userPasswordCredentials)
+        .set({ passwordHash })
+        .where(eq(userPasswordCredentials.userId, credential.userId));
+      await transaction
+        .update(users)
+        .set({
+          authVersion: sql`${users.authVersion} + 1`,
+          version: sql`${users.version} + 1`,
+        })
+        .where(eq(users.id, credential.userId));
+      await this.auditWriter.append(transaction, {
+        action: 'password_changed',
+        actorUserId: credential.userId,
+        metadata: {
+          loginChannel: 'password_proof',
+          proof: 'currentPassword' in input ? 'current_password' : 'wechat_code',
+        },
+        operationId: randomUUID(),
+        outcome: 'completed',
+        targetId: credential.userId,
+        targetType: 'user',
+      });
+      return { passwordChanged: true };
+    });
+  }
+
+  private async assertWechatCodeProof(
+    transaction: DatabaseTransaction,
+    userId: string,
+    code: string,
+  ): Promise<void> {
+    if (this.gateway === undefined) throw passwordChangeUnavailableError();
+    let exchanged;
+    try {
+      exchanged = await this.gateway.exchangeCode(code);
+    } catch (error) {
+      if (error instanceof WechatGatewayError) throw toWechatGatewayApiError(error);
+      throw error;
+    }
+    const appId = this.gateway.appId;
+    if (appId === undefined || appId.length === 0) throw passwordChangeUnavailableError();
+    const [wechatIdentity] = await transaction
+      .select({ userId: userAuthIdentities.userId })
+      .from(userAuthIdentities)
+      .where(
+        and(
+          eq(userAuthIdentities.provider, 'wechat_mini_program'),
+          eq(userAuthIdentities.appId, appId),
+          eq(userAuthIdentities.subject, exchanged.openid),
+          eq(userAuthIdentities.userId, userId),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (wechatIdentity === undefined) throw invalidWechatCodeProofError();
+  }
+
   private async findProfile(userId: string): Promise<PasswordAuthResponse['profile']> {
     const [profile] = await this.databaseClient.database
       .select({
@@ -348,5 +449,13 @@ function passwordChangeUnavailableError(): ApiError {
     code: 'FORBIDDEN',
     statusCode: 403,
     userMessage: '当前登录方式不支持修改密码。',
+  });
+}
+
+function invalidWechatCodeProofError(): ApiError {
+  return new ApiError({
+    code: 'AUTHENTICATION_REQUIRED',
+    statusCode: 401,
+    userMessage: '微信身份校验失败，请重新登录后重试。',
   });
 }

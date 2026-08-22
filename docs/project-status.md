@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-F 管理员账号状态与 password/code proof（当前批次）
+
+- 范围：只新增平台管理员脱敏账号列表、`PUT /platform-admin/users/:userId/password-identity` 用户名分配，以及 `PUT /me/password` 当前密码或新微信 code proof；不关闭公开注册、不做管理员 URL Link、Mini 页面或 Web/Mini UI。
+- 账号分配：列表只返回 id/status/authVersion/username/hasPassword，不返回姓名、联系方式或密码 hash。管理员可给无 credential 用户创建 nullable password credential，并在 locator 为空时补 `password_<userId>`；已有用户名同值幂等，重复用户名 409，后台 developer admin 不可被此接口改名。用户名或 locator 变化递增 authVersion/version并写审计。
+- password proof：currentPassword 与 code 为严格互斥联合；current proof 保持既有校验语义，code proof 在同一事务内 exchange、锁定当前 Mini AppID identity、更新 scrypt hash、递增 authVersion/version、写审计。首次设密必须先有管理员分配的 username，错误 proof/错误身份/双 proof 均失败关闭，旧 session 立即失效。
+- 测试先行与验证：contracts 7 项、真实 MySQL P3-F 5 项通过，覆盖脱敏列表、预分配 locator、管理员权限/重复用户名、current/code proof、旧 session、错误 proof 回滚。既有 `platform-admin.integration` 10 项中 9 项通过，唯一失败仍为原有 backup fixture 重复固定 contact UUID；与本批新增方法无调用关系。
+- 根/Mini 门禁：root build/typecheck/lint、client generated freshness、受控非 integration 154 文件/851 项通过，2 DB 文件/19 项按环境跳过；Mini 15 文件/63 项、typecheck、verify/source/2 Worklets/package/determinism/CI dry-run 通过（147968 bytes，manifest `ea3d3ffb4770138206ae9faee3efd44b1653c2f0e98ca699744c4665726b954b`）。根 format 仍精确只有既有/用户所有 11 项阻塞；Mini 运行源码未变，不新增体验上传。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板、样式或页面变化，不需要人工视觉确认；`smoke:check-core` 待本记录落盘后复核。
+- 当前状态：实现和本地验证完成，待 checkpoint `feat(auth): require admin password proof` 推送及生产备份/部署/只读核验。完成后进入首个 Web/Mini 视觉黄金稿暂停点。
+- 下一活动批次与停止条件：只有管理员 URL Link ticket、Mini admin-bind preview/confirm 的非 UI contracts/service/审计，且不实现页面；完成后暂停，等待 Web 登录页/平台账号后台与 Mini 登录/绑定/建档黄金稿人工视觉确认。
+
 ## 2026-08-22 P3-E 当前 Mini AppID 解绑（当前批次）
 
 - 范围：只实现用户/平台管理员解除当前正式 Mini AppID identity 的后端 contracts、fresh code/管理员原因、可用 Web 密码前置、Idempotency-Key、审计、authVersion 递增和旧 session 失效；不关闭公开注册、不做管理员绑定 ticket/password proof 或任何 UI。ADR-0004 的“无注销”边界保持不变。

@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   passwordAuthResponseSchema,
   passwordChangeRequestSchema,
+  passwordIdentityAssignmentRequestSchema,
   passwordRegisterRequestSchema,
+  passwordProofChangeRequestSchema,
 } from './auth.js';
 
 describe('password authentication contracts', () => {
@@ -46,5 +48,33 @@ describe('password authentication contracts', () => {
       passwordChangeRequestSchema.safeParse({ currentPassword: 'same', newPassword: 'same' })
         .success,
     ).toBe(false);
+  });
+
+  it('accepts exactly one current-password or WeChat-code proof', () => {
+    expect(
+      passwordProofChangeRequestSchema.parse({
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      }),
+    ).toEqual({ currentPassword: 'old-password', newPassword: 'new-password' });
+    expect(
+      passwordProofChangeRequestSchema.parse({
+        code: 'fresh-wechat-code',
+        newPassword: 'new-password',
+      }),
+    ).toEqual({ code: 'fresh-wechat-code', newPassword: 'new-password' });
+    expect(
+      passwordProofChangeRequestSchema.safeParse({
+        code: 'fresh-wechat-code',
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('keeps admin password identity assignment username-only', () => {
+    expect(passwordIdentityAssignmentRequestSchema.parse({ username: '  Doctor.One  ' })).toEqual({
+      username: 'Doctor.One',
+    });
   });
 });

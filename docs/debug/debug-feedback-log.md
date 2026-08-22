@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-F 管理员账号状态与 password/code proof
+
+- 实现：平台管理员列表仅暴露脱敏账号状态；用户名分配可创建 nullable credential 并补 password locator；`PUT /me/password` 严格互斥支持 currentPassword/WeChat code proof，成功更新 hash、authVersion/version和审计，旧 token 失效。
+- 验证：contracts 7 项、真实 MySQL 5 项、root build/typecheck/lint、受控非 integration 154 文件/851 项、Mini 15 文件/63 项与全部包门禁通过。既有 platform-admin integration 9/10，唯一失败是固定 contact UUID 的历史 backup fixture。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): require admin password proof`。
+
 ## 2026-08-22 P3-E 当前 Mini AppID 解绑
 
 - 红灯与设计：新增 contracts/0046/schema 先在旧实现 3 项失败；5 个路由场景先返回 404。只删当前 Mini identity 会被 Union resolver 自动回挂，因此增加仅存 subject hash 的 detachment marker，并在 resolver 默认拒绝、显式密码重绑时原子清除。

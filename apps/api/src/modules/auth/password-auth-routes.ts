@@ -1,6 +1,7 @@
 import {
   passwordChangeRequestSchema,
   passwordLoginRequestSchema,
+  passwordProofChangeRequestSchema,
   passwordRegisterRequestSchema,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -32,6 +33,13 @@ export function registerPasswordAuthRoutes(
       parsePasswordChangeRequest(request.body),
     ),
   );
+
+  app.put('/me/password', { preHandler: app.authenticate }, async (request) =>
+    passwordAuthService.changePasswordWithProof(
+      getAuthenticatedIdentity(request),
+      parsePasswordProofChangeRequest(request.body),
+    ),
+  );
 }
 
 function parsePasswordRegisterRequest(value: unknown) {
@@ -57,6 +65,18 @@ function parsePasswordChangeRequest(value: unknown) {
       code: 'VALIDATION_FAILED',
       statusCode: 400,
       userMessage: '当前密码和新密码不能为空，且新密码不能与当前密码相同。',
+    });
+  }
+  return result.data;
+}
+
+function parsePasswordProofChangeRequest(value: unknown) {
+  const result = passwordProofChangeRequestSchema.safeParse(value);
+  if (!result.success) {
+    throw new ApiError({
+      code: 'VALIDATION_FAILED',
+      statusCode: 400,
+      userMessage: '当前密码或微信校验码与新密码不能为空。',
     });
   }
   return result.data;

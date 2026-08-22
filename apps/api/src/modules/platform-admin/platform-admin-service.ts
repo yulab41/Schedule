@@ -3,6 +3,9 @@ import { randomUUID } from 'node:crypto';
 import type {
   PlatformBackup,
   PlatformBackupList,
+  PlatformAdminUserAccountList,
+  PasswordIdentityAssignmentRequest,
+  PasswordIdentityAssignmentResponse,
   PlatformJobRun,
   PlatformJobStatusPage,
   PlatformMeResponse,
@@ -12,6 +15,7 @@ import {
   backupArchives,
   groups,
   platformJobRuns,
+  userPasswordCredentials,
   users,
   withTransaction,
   type DatabaseClient,
@@ -19,8 +23,10 @@ import {
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
+import { isDuplicateKeyError } from '../../database-error.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import { normalizeUsername } from '../auth/password-auth-service.js';
 import { requirePlatformAdmin } from './platform-admin.js';
 
 const recycleWindowDays = 30;
@@ -62,6 +68,121 @@ export class PlatformAdminService {
       )
       .limit(1);
     return { isPlatformAdmin: user?.isDeveloperAdmin === 1 };
+  }
+
+  public async listUserAccounts(
+    identity: AuthenticatedIdentity,
+  ): Promise<PlatformAdminUserAccountList> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      await requirePlatformAdmin(transaction, identity, this.allowedCloudbaseUids);
+      const rows = await transaction
+        .select({
+          authVersion: users.authVersion,
+          hasPassword: userPasswordCredentials.passwordHash,
+          id: users.id,
+          status: users.status,
+          username: userPasswordCredentials.username,
+        })
+        .from(users)
+        .leftJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
+        .where(isNull(users.deletedAt))
+        .orderBy(users.createdAt, users.id);
+      return {
+        users: rows.map((row) => ({
+          authVersion: row.authVersion,
+          hasPassword: row.hasPassword !== null,
+          id: row.id,
+          status: row.status as 'active' | 'suspended',
+          ...(row.username === null ? {} : { username: row.username }),
+        })),
+      };
+    });
+  }
+
+  public async assignPasswordIdentity(
+    identity: AuthenticatedIdentity,
+    userId: string,
+    input: PasswordIdentityAssignmentRequest,
+  ): Promise<PasswordIdentityAssignmentResponse> {
+    const username = normalizeUsername(input.username);
+    try {
+      return await withTransaction(this.databaseClient, async (transaction) => {
+        const actorUserId = await requirePlatformAdmin(
+          transaction,
+          identity,
+          this.allowedCloudbaseUids,
+        );
+        const [target] = await transaction
+          .select({
+            authVersion: users.authVersion,
+            cloudbaseUid: users.cloudbaseUid,
+            credentialUsername: userPasswordCredentials.username,
+            id: users.id,
+            isDeveloperAdmin: users.isDeveloperAdmin,
+            passwordHash: userPasswordCredentials.passwordHash,
+            status: users.status,
+          })
+          .from(users)
+          .leftJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
+          .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+          .limit(1)
+          .for('update');
+        if (target === undefined)
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '用户不存在。',
+          });
+        if (target.isDeveloperAdmin === 1)
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '后台系统账号不能通过此接口修改。',
+          });
+        if (target.credentialUsername === username) {
+          return { passwordConfigured: target.passwordHash !== null, username };
+        }
+        if (target.credentialUsername === null) {
+          await transaction.insert(userPasswordCredentials).values({
+            passwordHash: null,
+            userId,
+            username,
+          });
+        } else {
+          await transaction
+            .update(userPasswordCredentials)
+            .set({ username })
+            .where(eq(userPasswordCredentials.userId, userId));
+        }
+        await transaction
+          .update(users)
+          .set({
+            authVersion: sql`${users.authVersion} + 1`,
+            cloudbaseUid: target.cloudbaseUid ?? `password_${userId}`,
+            version: sql`${users.version} + 1`,
+          })
+          .where(eq(users.id, userId));
+        await this.auditWriter.append(transaction, {
+          action: 'password_identity_assigned',
+          actorUserId,
+          metadata: { passwordConfigured: target.passwordHash !== null },
+          operationId: randomUUID(),
+          outcome: 'completed',
+          targetId: userId,
+          targetType: 'user',
+        });
+        return { passwordConfigured: target.passwordHash !== null, username };
+      });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new ApiError({
+          code: 'CONFLICT',
+          statusCode: 409,
+          userMessage: '该用户名已被其他账号使用。',
+        });
+      }
+      throw error;
+    }
   }
 
   public async listBackups(identity: AuthenticatedIdentity): Promise<PlatformBackupList> {

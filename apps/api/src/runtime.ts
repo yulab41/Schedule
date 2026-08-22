@@ -41,6 +41,7 @@ export function createRuntimeApp(
     environment.AUTH_PASSWORD_ENABLED === 'true'
       ? new PasswordAuthService({
           databaseClient,
+          gateway: wechatGateway,
           sessionSecret: environment.WECHAT_SESSION_SECRET,
         })
       : undefined;

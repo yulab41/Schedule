@@ -1,4 +1,7 @@
-import type { UpdatePlatformUserStatusInput } from '@schedule/contracts';
+import {
+  passwordIdentityAssignmentRequestSchema,
+  type UpdatePlatformUserStatusInput,
+} from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
@@ -23,6 +26,21 @@ export function registerPlatformAdminRoutes(
 
   app.get('/platform/jobs', { preHandler: app.authenticate }, async (request) =>
     platformAdminService.listJobRuns(getAuthenticatedIdentity(request)),
+  );
+
+  app.get('/platform-admin/users', { preHandler: app.authenticate }, async (request) =>
+    platformAdminService.listUserAccounts(getAuthenticatedIdentity(request)),
+  );
+
+  app.put(
+    '/platform-admin/users/:userId/password-identity',
+    { preHandler: app.authenticate },
+    async (request) =>
+      platformAdminService.assignPasswordIdentity(
+        getAuthenticatedIdentity(request),
+        parseUserId(request),
+        parsePasswordIdentityAssignment(request.body),
+      ),
   );
 
   app.get('/platform/backups', { preHandler: app.authenticate }, async (request) =>
@@ -86,6 +104,12 @@ function parseUserStatusInput(value: unknown): UpdatePlatformUserStatusInput {
     throwValidationError();
   }
 
+  return result.data;
+}
+
+function parsePasswordIdentityAssignment(value: unknown) {
+  const result = passwordIdentityAssignmentRequestSchema.safeParse(value);
+  if (!result.success) throwValidationError();
   return result.data;
 }
 
