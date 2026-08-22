@@ -9,6 +9,7 @@
 - 边界与验证：生产源无 contracts/Zod、Vue/Pinia/Router、DOM/fetch、Node、数据库或 scheduling-domain；presentation-core/Web/根 build/typecheck/lint、受控全仓 145 文件/814 项通过，32 文件/265 项按环境跳过。Mini 13 文件/54 项及 typecheck/verify/source/2 Worklets/package/determinism/CI dry-run 通过（133701 bytes，manifest `910f561f32385a6ee1f3b64d92133cae5cd0650d6e2d816e441700c65c5b8cfe`）；默认 Mini 命令只被用户所有 ignored ECS runner 副本的 17 项基线失败干扰。任务格式、diff check、`smoke:check-core` 通过，根 format 只被既有/用户所有文件拦截。
 - 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；SFC template/style 与 `HEAD` 逐字相同，无视觉变化。
 - 后续回归：审计确认 `927241c` 起当前月撤回含过去日期时存在隐藏 `acknowledgePastDates` 门禁；本轮按等价要求未修。下一 checkpoint 先以独立红灯测试把第二日期确认限定为重新发布。当前 checkpoint 识别消息：`refactor(presentation): share publication lifecycle`。
+- 发布与核验：checkpoint `3be831b` 已推送；本地 Node `miniprogram-ci` 从精确干净 worktree 上传体验版 `0.1.0-p2.20260822.45`（50 个代码文件、38664 bytes，manifest `b3df47f67ce38390cfda991a0e20630b0fcec068518b3777a51d789a2ecc7c47`），未审核、未正式发布。数据库备份 `4b60a85e-df68-4c3e-b734-1dd7c573e24e`（50 表、161436 行、76287740 bytes，SHA-256 `ff99363572bfe77b909d94e0be6d0dc8ade962eed40ff418431be3eaad8ba1f1`）后部署 release `3be831be71a9662d9cb48eea8d693d24ba5077cd`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过并清理精确临时目录。最终状态 checkpoint 识别消息：`docs(status): record p2 publication lifecycle deployment`。
 
 ## 2026-08-22 P2 手排 transition、选择与撤销共享
 

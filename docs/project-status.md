@@ -12,7 +12,9 @@
 - 验证：presentation-core/Web/根 build、typecheck、lint 通过；受控全仓 145 文件/814 项通过，32 文件/265 项数据库集成按环境跳过。Mini typecheck、13 文件/54 项、verify/source/2 个 Worklet/package/determinism/官方 CI dry-run 通过（133701 bytes，manifest `910f561f32385a6ee1f3b64d92133cae5cd0650d6e2d816e441700c65c5b8cfe`）；任务 Prettier、`git diff --check`、`smoke:check-core` 通过。默认 Mini 测试仍会扫描用户所有 ignored `.artifacts/ecs-runner-*` 并产生 17 个基线路径失败，排除后全绿；根 `format:check` 仍只被用户所有 workspace/Mini 配置、已提交目录文件和 Storybook 生成物拦截。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。`ManualScheduleView.vue` 的 template/style 与 `HEAD` 逐字相同，本轮无视觉变化，不需要人工视觉确认。
 - 审计发现：`927241c` 起，当前月版本含已过日期时，撤回对话框不渲染 `acknowledgePastDates` 控件却仍检查该值，确认路径不可达。本等价重构按规则未夹带行为修复；须在独立 checkpoint 先写旧代码失败的回归测试，再把过去日期第二确认限定为重新发布。
-- 当前状态：共享实现与 Web 先行回归已完成，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(presentation): share publication lifecycle`。
+- checkpoint 与体验上传：代码 checkpoint `3be831b`（`refactor(presentation): share publication lifecycle`）已推送；从该精确提交的隔离干净 worktree 使用本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p2.20260822.45`（50 个代码文件、38664 bytes，manifest `b3df47f67ce38390cfda991a0e20630b0fcec068518b3777a51d789a2ecc7c47`）。上传前公网 IPv4 为 `103.54.154.22`，使用仓库外本地私钥和本地 `127.0.0.1:7892` 代理；未提交审核、未正式发布，也未使用 ECS 或微信开发者工具 CLI。
+- 正式发布：数据库备份 archive `4b60a85e-df68-4c3e-b734-1dd7c573e24e`（50 表、161436 行、76287740 bytes，SHA-256 `ff99363572bfe77b909d94e0be6d0dc8ade962eed40ff418431be3eaad8ba1f1`）后部署 release `3be831be71a9662d9cb48eea8d693d24ba5077cd`；预热首个 502 后恢复，`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移，精确临时发布目录已删除。
+- 当前状态：P2 发布生命周期共享已完成 Web 先行迁移、回归、Git 推送、微信体验上传和 ECS 发布。本轮无视觉变化，不需要人工视觉确认；最终状态 checkpoint 识别消息：`docs(status): record p2 publication lifecycle deployment`。
 - 下一活动批次与停止条件：先独立修复上述当前月撤回确认门禁并完成回归/发布；随后只审计 `@schedule/client-core` 的最小只读端点、transport、错误和黄金解码边界，若存在多种高影响端点顺序再向用户确认，不进入 P3 或 Mini 业务页。
 
 ## 2026-08-22 P2 手排 transition、选择与撤销共享（当前批次）
