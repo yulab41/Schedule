@@ -5,8 +5,9 @@
 ## 2026-08-22 P3 原生身份页面首个切片
 
 - 实现：新增 `pages/identity/index` 和 `pages/admin-bind/preview`，覆盖微信登录、未知微信 `link_required`、既有账号密码绑定、真实姓名建档、管理员 ticket 脱敏预览和 fresh-code confirm；API 客户端无 Zod/Node/DOM/fetch，不触碰 P4 工作台。
-- 验证：Mini typecheck/build、source audit、受控 16 文件/68 项、verify（2/2 Worklet，192620 bytes，manifest `ac7028b027db185a85ac24751e5202312e3a8cf8822feeac77a2304e9a08418e`）和 CI dry-run 通过。默认 test 对用户自有 `.artifacts/ecs-runner-deploy-*` 产生 17 项旧副本失败，排除后全绿。
-- 状态：已实现待人工原生复核；下一步为本 checkpoint 的本地 Node `miniprogram-ci` 体验上传，之后等待微信开发者工具/实体 Android 反馈。
+- 验证：Mini typecheck/build、source audit、受控 16 文件/68 项、verify（2/2 Worklet，196458 bytes，manifest `abaf0bb1aede3a6fea714c7419c28815b2d45cc83d477e9f1e3c85901147f18b`）和 CI dry-run 通过。默认 test 对用户自有 `.artifacts/ecs-runner-deploy-*` 产生 17 项旧副本失败，排除后全绿。
+- 发布：checkpoint `e69cfb7` 已推送；本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p3.20260822.50`（57 文件，manifest `edbb1ffa99ab1ce6b0f2d8d40eac92e0291effdabb9ea1c146d5a09189088854`），未审核/正式发布。生产备份 `99b3dc26-a266-45f6-aac7-ce7b06574d3b` 后部署 release `e69cfb76ea0d5587a993b5c817f010606cdbb0d3`，`ecs-verify` 与生产身份不变量通过。
+- 状态：已实现待人工原生复核；等待微信开发者工具/实体 Android 反馈。
 - checkpoint 识别消息：`feat(miniprogram): add p3 native identity pages`。
 
 ## 2026-08-22 P3 身份安全视觉黄金稿

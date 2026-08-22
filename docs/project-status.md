@@ -7,8 +7,9 @@
 - 范围：在已确认的 P3 黄金稿基础上，新增 Mini `pages/identity/index` 登录/`link_required`/既有账号密码绑定/首次真实姓名建档，以及后端固定 URL Link 路径 `pages/admin-bind/preview` 的脱敏 preview/当前微信 fresh-code confirm；保留 P1 入口和 POC 路由，不实现 P4 工作台。
 - 接线：`src/platform/wechat-identity.ts` 只使用 `wx.login`、`wx.request` POST 和会话存储；未知微信不自动建号，linkToken 只在内存页面状态中流转；管理员 ticket 先 preview，confirm 再重新 `wx.login`，authenticated 结果写入独立 session storage。
 - 黄金映射：`docs/design/page-golden-manifest.md` 已登记 `miniprogram-parity-p3-identity-security--mini-login-390/320`、`mini-link-password`、`mini-register-profile`、`mini-admin-link-preview/confirm`；用户已确认 Web 黄金稿，当前需要实体 Android/微信运行时复核。
-- 验证：Mini typecheck、构建、source audit、受控测试 16 文件/68 项、verify（sourceWorklets/outputWorklets 2/2，package 192620 bytes，manifest `ac7028b027db185a85ac24751e5202312e3a8cf8822feeac77a2304e9a08418e`）和 CI dry-run 通过。默认全量测试误扫用户自有 `.artifacts/ecs-runner-deploy-*` 副本的 17 项已排除并单独记录，未修改该目录。
-- 当前状态：已实现待人工原生复核；checkpoint 识别消息为 `feat(miniprogram): add p3 native identity pages`。推送并上传同一体验版后暂停，不进入 P4 或 P3 其他页面。
+- 验证：Mini typecheck、构建、source audit、受控测试 16 文件/68 项、clean worktree verify（sourceWorklets/outputWorklets 2/2，package 196458 bytes，manifest `abaf0bb1aede3a6fea714c7419c28815b2d45cc83d477e9f1e3c85901147f18b`）和 CI dry-run 通过。默认全量测试误扫用户自有 `.artifacts/ecs-runner-deploy-*` 副本的 17 项已排除并单独记录，未修改该目录。
+- checkpoint 与发布：代码 checkpoint `e69cfb7` 已推送；本地 Node `miniprogram-ci` 使用仓库外私钥上传体验版 `0.1.0-p3.20260822.50`，57 个平台代码文件，上传 manifest `edbb1ffa99ab1ce6b0f2d8d40eac92e0291effdabb9ea1c146d5a09189088854`，未审核/正式发布。生产备份 `99b3dc26-a266-45f6-aac7-ce7b06574d3b`（54 表、161500 行、76323908 bytes，SHA-256 `88909db9853ad137075d5beae0248885db2a5dfeaa93b2f68f27071b421b294c`）后部署 release `e69cfb76ea0d5587a993b5c817f010606cdbb0d3`；`ecs-verify.sh` 通过，47 migrations/54 业务表，identity/detachment/link/Union/admin-ticket 均 0，40/40 用户 authVersion=1，24/3024 密码 hash 汇总不变。
+- 当前状态：已实现待人工原生复核；P3 页面 checkpoint 已推送、体验版已上传、ECS 已部署；不进入 P4 或 P3 其他页面，等待用户在微信开发者工具/实体 Android 复核。
 - 停止条件：用户在微信开发者工具/实体 Android 复核登录、link_required→密码绑定、首次建档、管理员 preview→confirm、错误/加载/成功状态后，明确反馈通过或给出差异。
 
 ## 2026-08-22 P3 身份安全视觉黄金稿（当前批次）
