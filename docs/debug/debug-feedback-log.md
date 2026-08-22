@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 共享核心完成审计
+
+- 结论：P2 最小边界完成。Web 已先行采用 calendar/manual/publication presentation；calendar/holiday client、generated decoder 和错误语义；Mini 已复用 manual transition 与 `wx.request` JSON transport；tokens/fixtures/bundle 门禁齐全。domain runtime 只取 Zod-free metadata leaf。
+- 明确延后：token/401 单飞重登到 P3/P4，幂等写/退避到 P5–P7，downloadFile/FileSystem 到 P9，迁移后新增 Web 功能到 P10；不提前扩张共享公共 API。
+- 验证：P2 专项 14 文件/55 项、受控全仓 153 文件/842 项通过，32 文件/265 项跳过；Mini 15 文件/62 项与 verify/source/Worklet/package/determinism/CI dry-run 通过（147887 bytes，manifest `44e00e35fbbe675c4125484afb2f6ecb8ee7400c268afd731fb61b209dc251a8`）；任务格式/diff/`smoke:check-core` 通过，根 format 仅有既有/用户所有 11 项阻塞。默认测试误扫用户所有历史副本，显式排除后通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；本批仅阶段文档，无视觉变化。checkpoint 识别消息：`docs(miniprogram): close p2 shared core`。
+
 ## 2026-08-22 P2 scheduling-domain runtime barrel
 
 - 引入点与红灯：`ae649b3` 为 health summary 从 contracts barrel 运行时取 `workspaceName`。bundle 守卫旧实现 1/2 失败，显示 23 个 contracts 源文件；summary 基线通过。

@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 共享核心完成审计（当前批次）
+
+- 同步基线：审计开始时本地 `HEAD`、`origin/main` 与生产 `current-release` 均为 `7acbb95`；远端没有新增 Web 提交。用户所有未提交 Mini 配置、workspace、目录/个人页/护士 Storybook、`runtime/`、`src/` 和工作簿未修改或纳入。
+- presentation-core：日历字符串/CST 语义、5/6 周月格、周/列表 ViewModel、筛选/分组；手排 Map transition、选择和两类撤销；发布草稿/历史分组、过去日期/确认门禁和请求 intent 均已由 Web 先行采用。黄金 fixtures 与旧实现/共享实现锁定对象身份、输入顺序、`??`、排序、时钟调用次数、同步/错误/副作用等价；Mini 复用 replace 模式单格 transition。
+- client-core/tokens：三个现有月历/节假日 GET 端点、service、transport 接口、共享错误、contracts 生成紧凑 decoder 与黄金 API 响应已由 Web 先行采用；Mini `wx.request` 明确校验 Bearer/public、2xx、错误体、无效响应和网络/bridge 错误。CSS/WXSS tokens 单源生成。presentation/client/domain browser bundle 与 Mini 包均无 contracts barrel、Zod、Vue/Pinia/Router、DOM、fetch、Node 或数据库运行依赖。
+- 最小边界结论：P2 停止条件已满足，不扩张为大而全 client-core。token/401 单飞重登归 P3/P4，幂等写与退避随 P5–P7 实际调用点迁移，downloadFile/FileSystem 随 P9 导出迁移；P10 承接迁移计划后新增 Web 功能。
+- 验证：presentation/client/tokens build/typecheck 与 generated freshness 通过；P2 专项 14 文件/55 项、受控全仓 153 文件/842 项通过，32 文件/265 项数据库集成按环境跳过。Mini 15 文件/62 项及 typecheck/verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147887 bytes，manifest `44e00e35fbbe675c4125484afb2f6ecb8ee7400c268afd731fb61b209dc251a8`）；任务 Prettier、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只有既有/用户所有 11 项阻塞。默认 Vitest 仍会扫描用户所有 `runtime/`/`.artifacts/` 历史副本，受控命令显式排除；未修改副本。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。审计只改阶段文档，没有模板、样式、页面或运行逻辑变化，不需要人工视觉确认。
+- 当前状态：P2 可由文档 checkpoint `docs(miniprogram): close p2 shared core` 正式关闭；本轮未修改 Mini 产物，不新增体验版上传。该 checkpoint 推送并按根规则完成生产备份、部署和 `ecs-verify.sh` 后进入 P3。
+- 下一活动批次与停止条件：只做 P3 身份安全预检，核对现有身份表/迁移、provider/appId/subject 与 UnionID 冲突、公开注册、会话 `authVersion`、管理员分配用户名和生产数据风险；先形成不写生产数据的实施顺序与回滚门禁，遇到高影响公共接口或数据修复选择先询问用户。
+
 ## 2026-08-22 P2 scheduling-domain barrel 解耦（当前批次）
 
 - 完成审计与范围：P2 完成审计发现 `scheduling-domain/src/index.ts` 自 `ae649b3` 起为 health summary 运行时导入 `@schedule/contracts` 总 barrel，未来 Mini 使用 domain 会连带 23 个 contracts 源文件和 Zod。只解耦该 metadata 运行路径，不改领域算法、统计类型、API、数据库或 Mini 页面。

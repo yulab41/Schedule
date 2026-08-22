@@ -47,3 +47,9 @@ decoder 描述由 contracts 的 Zod schema 通过公开 `toJSONSchema` 确定性
 Mini 的 `src/platform/client-core-calendar.ts` 现同时提供注入式 `wx.request` JSON transport 和 runtime calendar client 工厂。transport 按 endpoint auth 模式决定是否读取一次 Bearer，公开请求不读取 token；显式检查 2xx `statusCode`、共享 decoder、known API error、无效成功响应和网络/bridge 失败。runtime 包装以成员调用 `wx.request(requestOptions)` 保留宿主接收者，导入模块不会发请求。
 
 共享错误码由 contracts 同源生成；known code 保留 message/requestId/latestData/status，未知错误体沿用 Web 的 401/403/409/通用中文 fallback。当前没有重试、写队列、token 持久化、401 清理或静默登录；这些状态协调不得藏进 transport。Mini 仍没有业务页面、缓存或启动时网络调用。
+
+## P2 收口与后续边界
+
+2026-08-22 完成审计确认 P2 只关闭上述月历 JSON 垂直切片。它已经提供真实 Web 调用点、Mini `wx.request` adapter、黄金响应、Zod/紧凑 decoder 等价和无平台依赖 bundle 证据，足以建立后续端点的受控模式。
+
+身份 token、401 单飞重登和会话清理由 P3/P4 的身份状态机拥有；幂等写入与退避只在 P5–P7 迁移对应 Web 写调用点时增加；Blob、`wx.downloadFile` 和 FileSystem 在 P9 导出切片中由 Web 先行接入。以上能力不得提前塞进 transport，也不得在没有 Web 回归调用点时扩张公共 API。
