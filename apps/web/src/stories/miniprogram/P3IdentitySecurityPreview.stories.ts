@@ -72,3 +72,15 @@ export const MiniAdminLinkConfirm: Story = {
   args: { screen: 'mini-admin-confirm' },
   globals: { viewport: 'mobile390' },
 };
+
+export const MiniUnbindConfirm: Story = {
+  name: '10 · Mini 解绑当前身份',
+  args: { screen: 'mini-unbind' },
+  globals: { viewport: 'mobile390' },
+};
+
+export const MiniUnbindConfirm320: Story = {
+  name: '11 · Mini 解绑边界 · 320×844',
+  args: { screen: 'mini-unbind' },
+  globals: { viewport: 'mobile320' },
+};

@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 解绑确认视觉黄金状态
+
+- 实现：Storybook 新增 Mini 当前 AppID 解绑确认和 320px 边界；危险操作只移除微信身份，不删除 Web 账号、资料或排班。
+- 状态：未实现原生解绑页面；本轮验证后暂停等待用户视觉确认。
+- checkpoint 识别消息：`feat(miniprogram): add p3 unbind visual golden`。
+
 ## 2026-08-22 P3 Web 身份生产接线
 
 - 实现：Web 登录去除公开注册入口；API `/auth/password/register` 关闭并返回 403；新增平台账号生产页面与 `ApiClient` 的账号列表、用户名分配、管理员绑定链接方法。

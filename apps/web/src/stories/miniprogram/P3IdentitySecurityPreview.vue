@@ -8,7 +8,8 @@ export type P3IdentityScreen =
   | 'mini-link'
   | 'mini-register'
   | 'mini-admin-preview'
-  | 'mini-admin-confirm';
+  | 'mini-admin-confirm'
+  | 'mini-unbind';
 
 const props = withDefaults(
   defineProps<{
@@ -43,6 +44,7 @@ const miniTitle = computed(() => {
   if (screen.value === 'mini-register') return '补全你的微信档案';
   if (screen.value === 'mini-admin-preview') return '确认这条绑定';
   if (screen.value === 'mini-admin-confirm') return '绑定已准备好';
+  if (screen.value === 'mini-unbind') return '解除当前微信绑定';
   return '进入你的排班台';
 });
 const miniDescription = computed(() => {
@@ -50,10 +52,16 @@ const miniDescription = computed(() => {
   if (screen.value === 'mini-register') return '只需填写真实姓名，之后可由管理员完成入组。';
   if (screen.value === 'mini-admin-preview') return '请核对脱敏信息，确认是管理员为你准备的账号。';
   if (screen.value === 'mini-admin-confirm') return '当前微信身份将绑定到以下排班账号。';
+  if (screen.value === 'mini-unbind') return '只移除当前小程序身份，不删除 Web 账号或排班资料。';
   return '微信登录只用于确认你的排班身份，不创建公开账号。';
 });
 const miniStep = computed(() => {
-  if (screen.value === 'mini-admin-preview' || screen.value === 'mini-admin-confirm') return 2;
+  if (
+    screen.value === 'mini-admin-preview' ||
+    screen.value === 'mini-admin-confirm' ||
+    screen.value === 'mini-unbind'
+  )
+    return 2;
   if (screen.value === 'mini-link' || screen.value === 'mini-register') return 2;
   return 1;
 });
@@ -307,7 +315,9 @@ function advanceMiniFlow(): void {
           {{
             screen === 'mini-admin-preview' || screen === 'mini-admin-confirm'
               ? '管理员绑定'
-              : '微信登录'
+              : screen === 'mini-unbind'
+                ? '账号安全'
+                : '微信登录'
           }}
         </p>
         <h1>{{ miniTitle }}</h1>
@@ -392,6 +402,36 @@ function advanceMiniFlow(): void {
           >
             暂不绑定
           </button>
+        </template>
+
+        <template v-else-if="screen === 'mini-unbind'">
+          <div class="card-status warning">
+            <span class="status-icon">!</span><span>解除当前小程序身份</span>
+          </div>
+          <div class="binding-target danger">
+            <span class="target-label">将被解除</span><strong>当前微信身份</strong
+            ><span class="target-account">仅限当前小程序 AppID</span>
+          </div>
+          <div class="binding-checklist">
+            <span><i aria-hidden="true">✓</i>Web 账号保留</span
+            ><span><i aria-hidden="true">✓</i>个人资料和排班保留</span
+            ><span><i aria-hidden="true">✓</i>解绑后可重新绑定</span>
+          </div>
+          <button
+            class="mini-primary danger"
+            type="button"
+            @click="showFeedback('预览状态：已提交解绑确认')"
+          >
+            解除当前身份
+          </button>
+          <button
+            class="mini-secondary"
+            type="button"
+            @click="showFeedback('预览状态：已保留当前绑定')"
+          >
+            保留当前绑定
+          </button>
+          <p v-if="feedback" class="preview-feedback" role="status">{{ feedback }}</p>
         </template>
 
         <template v-else>
@@ -654,6 +694,12 @@ button {
 .primary-action:hover,
 .mini-primary:hover {
   background: var(--p3-blue-dark);
+}
+
+.mini-primary.danger {
+  background: var(--ui-color-danger);
+  border-color: var(--ui-color-danger);
+  box-shadow: none;
 }
 
 .quiet-action,
@@ -1316,6 +1362,15 @@ code {
   background: var(--p3-amber-soft);
   border: 1px solid color-mix(in srgb, var(--p3-amber) 25%, transparent);
   border-radius: var(--ui-radius-medium);
+}
+
+.binding-target.danger {
+  background: var(--ui-color-danger-light);
+  border-color: color-mix(in srgb, var(--ui-color-danger) 25%, transparent);
+}
+
+.binding-target.danger .target-label {
+  color: var(--ui-color-danger);
 }
 
 .target-label {

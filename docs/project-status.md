@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 解绑确认视觉黄金状态（当前批次）
+
+- 范围：只新增已确认 P3 Storybook 的 Mini 当前 AppID 解绑确认/320px 边界状态；明确保留 Web 账号、个人资料和排班，未实现原生解绑 WXML/WXSS，不调用 API。
+- 黄金映射：新增 `miniprogram-parity-p3-identity-security--mini-unbind-confirm` / `--mini-unbind-confirm-320`，与现有登录、绑定、建档、管理员绑定状态保持同一身份进度线和令牌。
+- 当前验证：待本轮 clean worktree Storybook build、Vitest 和浏览器几何自检；用户已确认前 9 个 P3 身份状态，本新增危险操作状态需单独确认。
+- 当前状态：已实现待视觉复核；确认前不接入原生解绑页面，也不进入 P4。
+- 停止条件：等待用户确认解绑状态的文案、危险色、按钮层级和 320px 布局后，再实现 Mini 解绑页面并接入 `/me/wechat/miniprogram/unbind`。
+
 ## 2026-08-22 P3 Web 身份生产接线（当前批次）
 
 - 范围：接通已确认黄金稿对应的 Web 登录和平台账号后台；Web 登录移除公开注册控件，API `/auth/password/register` 对匿名请求返回 403 且不创建用户；平台管理员页面接入脱敏账号列表、用户名分配和管理员 Mini 绑定链接生成。不修改用户未提交的目录/Storybook 文件，不进入 P4 页面。

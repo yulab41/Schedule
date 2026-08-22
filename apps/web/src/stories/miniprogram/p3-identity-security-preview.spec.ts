@@ -31,8 +31,10 @@ describe('P3 identity security preview', () => {
     expect(source).toContain("'mini-link'");
     expect(source).toContain("'mini-register'");
     expect(source).toContain("'mini-admin-preview'");
+    expect(source).toContain("'mini-unbind'");
     expect(source).toContain('还剩约 10 分钟');
     expect(source).toContain('账号 d0***');
+    expect(source).toContain('不会删除 Web 账号或排班资料');
   });
 
   it('keeps the 44px touch target and reduced-motion guard', () => {
