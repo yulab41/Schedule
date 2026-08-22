@@ -25,6 +25,7 @@ import { and, asc, desc, eq, gt, inArray, lt, or, sql, type SQL } from 'drizzle-
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
+import { DirectoryFacetCache } from './directory-facet-cache.js';
 
 const defaultPageSize = 30;
 const entryKindOrder: readonly DirectoryEntryKind[] = [
@@ -65,6 +66,7 @@ interface DirectoryFacetRow {
 
 export class DirectoryQuery {
   private readonly permissionService = new GroupPermissionService();
+  private readonly facetCache = new DirectoryFacetCache<DirectoryFacetSnapshot>();
 
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
@@ -110,24 +112,30 @@ export class DirectoryQuery {
       const visibilityConditions = canViewAdministratorEntries
         ? []
         : [eq(directoryEntries.visibility, 'member')];
-      const rows = await transaction
-        .select({
-          building: directoryEntries.buildingName,
-          campusCode: directoryCampuses.code,
-          campusDisplayOrder: directoryCampuses.displayOrder,
-          campusName: directoryCampuses.name,
-          department: directoryEntries.departmentName,
-          entryKind: directoryEntries.entryKind,
-          floor: directoryEntries.floorName,
-          section: directoryEntries.sectionName,
-          subunit: directoryEntries.subunitName,
-        })
-        .from(directoryEntries)
-        .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
-        .where(and(eq(directoryEntries.batchId, batch.id), ...visibilityConditions))
-        .orderBy(asc(directoryCampuses.displayOrder), asc(directoryEntries.displayOrder));
+      const visibilityKey = canViewAdministratorEntries ? 'administrator' : 'member';
+      return this.facetCache.getOrLoad(
+        `${groupId}:${directoryKind}:${batch.id}:${visibilityKey}`,
+        async () => {
+          const rows = await transaction
+            .select({
+              building: directoryEntries.buildingName,
+              campusCode: directoryCampuses.code,
+              campusDisplayOrder: directoryCampuses.displayOrder,
+              campusName: directoryCampuses.name,
+              department: directoryEntries.departmentName,
+              entryKind: directoryEntries.entryKind,
+              floor: directoryEntries.floorName,
+              section: directoryEntries.sectionName,
+              subunit: directoryEntries.subunitName,
+            })
+            .from(directoryEntries)
+            .innerJoin(directoryCampuses, eq(directoryCampuses.id, directoryEntries.campusId))
+            .where(and(eq(directoryEntries.batchId, batch.id), ...visibilityConditions))
+            .orderBy(asc(directoryCampuses.displayOrder), asc(directoryEntries.displayOrder));
 
-      return buildFacetSnapshot(batch, rows);
+          return buildFacetSnapshot(batch, rows);
+        },
+      );
     });
   }
 

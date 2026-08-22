@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getCompatibleDirectoryFacetOptions,
+  getCompatibleDirectoryFacetOptionsByKey,
   getMeaningfulDirectoryFilterKeys,
   updateDirectoryFilterSelection,
 } from './directory-filter-hierarchy.js';
@@ -95,6 +96,23 @@ describe('directory filter hierarchy', () => {
         (option) => option.value,
       ),
     ).toEqual(['医疗服务部']);
+  });
+
+  it('derives all compatible levels from one shared compatibility result', () => {
+    const optionsByKey = getCompatibleDirectoryFacetOptionsByKey(snapshot, {
+      campusCode: 'main',
+    });
+
+    expect(optionsByKey.get('campusCode')).toEqual([
+      { count: 1, label: '本部院区', value: 'main' },
+      { count: 1, label: '东院区', value: 'east' },
+    ]);
+    expect(optionsByKey.get('department')).toEqual([
+      { count: 1, label: '医疗服务部', value: '医疗服务部' },
+    ]);
+    expect(
+      getMeaningfulDirectoryFilterKeys(snapshot, { campusCode: 'main' }, optionsByKey),
+    ).toEqual(['campusCode']);
   });
 
   it('clears incompatible descendants when an ancestor changes', () => {

@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 通讯录打开性能优化（当前批次）
+
+- 范围：只优化 Web/API 通讯录 facet 初载与筛选渲染；不改变权限、搜索语义、筛选结果、收藏查询、联系方式数据或分页大小。
+- 回归来源：`8309dce`/`926136a` 引入重复层级扫描，`5437995` 将 facet 与收藏恢复合并等待，`ee1296e` 保留隐藏筛选选项 DOM，`e74e5f3` 每次请求扫描发布批次层级行；本轮已执行 `git log -S` 与 `git blame`。
+- 实现：筛选选项改为面板打开且层级展开时才创建；facet 与收藏恢复独立完成；七层兼容性共享一次路径计算；服务端按群组/目录类型/发布批次/可见性复用只读快照，失败请求不入缓存。
+- 验证：目录定向测试 43 项通过，Web/API typecheck、build、ESLint、任务文件 Prettier 通过；API MySQL 集成因本机无测试数据库跳过；`pnpm smoke:browser` 因本机端口监听被系统拒绝/5173 无服务未进入产品断言，`smoke:check-core` 通过；正式域名待 checkpoint 部署后只读复核。
+- 当前状态：已实现待浏览器复核；checkpoint 识别消息为 `perf(directory): defer facet rendering and cache snapshots`。完成后停止，不开始其他批次。
+
 ## 2026-08-22 P3-G 管理员 URL Link ticket 与 Mini admin-bind（当前批次）
 
 - 范围：只新增平台管理员生成单次 binding ticket/URL Link、Mini `admin-bind/preview` 脱敏预览和 `confirm` 新 code 主动确认；不实现管理员/小程序页面、不关闭公开注册、不提交审核或正式发布。外部 URL Link 有效期不作为授权边界，服务端 ticket 严格 10 分钟。

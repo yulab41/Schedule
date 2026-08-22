@@ -80,6 +80,8 @@ describe('production hospital directory integration', () => {
     expect(view).toContain('data-filter-section');
     expect(view).toMatch(/\.wayfinding-ribbon\s*{[^}]*grid-template-columns:\s*repeat\(auto-fit,/s);
     expect(view).not.toMatch(/\.wayfinding-ribbon\s*{[^}]*overflow-x:\s*auto/s);
+    expect(view).toContain('getCompatibleDirectoryFacetOptionsByKey');
+    expect(view).not.toContain('Promise.allSettled');
   });
 
   it('uses a taller filter sheet with a sticky flat reset and collapsible levels', () => {
@@ -91,7 +93,8 @@ describe('production hospital directory integration', () => {
     expect(view).toContain('FilterClearIcon');
     expect(view).toContain(':aria-expanded="isFilterSectionExpanded(section.key)"');
     expect(view).toContain('ChevronRightIcon');
-    expect(view).toContain('v-show="isFilterSectionExpanded(section.key)"');
+    expect(view).toContain('v-if="filterSheetVisible && isFilterSectionExpanded(section.key)"');
+    expect(view).not.toContain('v-show="isFilterSectionExpanded(section.key)"');
     expect(view).toMatch(/\.sheet-reset-action\s*{[^}]*width:\s*100%/s);
     expect(view).toMatch(/:deep\(\.directory-filter-sheet\)\s*{[^}]*max-height:/s);
   });

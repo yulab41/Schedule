@@ -17,6 +17,47 @@ export interface DirectoryFilterSelectionResult {
   readonly filters: DirectoryFilters;
 }
 
+export type DirectoryFacetOptionsByKey = ReadonlyMap<
+  DirectoryFilterKey,
+  readonly DirectoryFacetOption[]
+>;
+
+export function getCompatibleDirectoryFacetOptionsByKey(
+  snapshot: DirectoryFacetSnapshot,
+  filters: DirectoryFilters,
+): DirectoryFacetOptionsByKey {
+  const countsByKey = new Map<DirectoryFilterKey, Map<string, number>>(
+    directoryFilterHierarchy.map((key) => [key, new Map<string, number>()]),
+  );
+
+  for (const path of snapshot.paths) {
+    let matchesAncestors = true;
+    for (const key of directoryFilterHierarchy) {
+      const value = path[key];
+      if (matchesAncestors && value !== undefined) {
+        const counts = countsByKey.get(key);
+        if (counts !== undefined) counts.set(value, (counts.get(value) ?? 0) + path.count);
+      }
+
+      const selected = filters[key];
+      if (selected !== undefined && value !== selected) matchesAncestors = false;
+    }
+  }
+
+  return new Map(
+    directoryFilterHierarchy.map((key) => {
+      const counts = countsByKey.get(key) ?? new Map<string, number>();
+      return [
+        key,
+        getSnapshotOptions(snapshot, key).flatMap((option) => {
+          const count = counts.get(option.value);
+          return count === undefined ? [] : [{ ...option, count }];
+        }),
+      ];
+    }),
+  );
+}
+
 export function getCompatibleDirectoryFacetOptions(
   snapshot: DirectoryFacetSnapshot,
   filters: DirectoryFilters,
@@ -46,10 +87,12 @@ export function getCompatibleDirectoryFacetOptions(
 export function getMeaningfulDirectoryFilterKeys(
   snapshot: DirectoryFacetSnapshot,
   filters: DirectoryFilters,
+  compatibleOptions: DirectoryFacetOptionsByKey = getCompatibleDirectoryFacetOptionsByKey(
+    snapshot,
+    filters,
+  ),
 ): readonly DirectoryFilterKey[] {
-  return directoryFilterHierarchy.filter(
-    (key) => getCompatibleDirectoryFacetOptions(snapshot, filters, key).length > 1,
-  );
+  return directoryFilterHierarchy.filter((key) => (compatibleOptions.get(key)?.length ?? 0) > 1);
 }
 
 export function updateDirectoryFilterSelection(

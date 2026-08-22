@@ -25,7 +25,7 @@ import { localAuth } from '../../auth/local-auth.js';
 import LucideMinimalActionIcon from '../../components/LucideMinimalActionIcon.vue';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
 import {
-  getCompatibleDirectoryFacetOptions,
+  getCompatibleDirectoryFacetOptionsByKey,
   getMeaningfulDirectoryFilterKeys,
   updateDirectoryFilterSelection,
 } from '../../features/directory/directory-filter-hierarchy.js';
@@ -129,44 +129,47 @@ const filterSectionElements = new Map<DirectoryFilterKey, HTMLElement>();
 const filterSections = computed<readonly FilterSection[]>(() => {
   const snapshot = facets.value;
   if (snapshot === undefined) return [];
+  const compatibleOptions = getCompatibleDirectoryFacetOptionsByKey(snapshot, filters.value);
   const sections: readonly FilterSection[] = [
     {
       key: 'campusCode',
       label: filterLabels.value.campusCode,
-      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'campusCode'),
+      options: compatibleOptions.get('campusCode') ?? [],
     },
     {
       key: 'section',
       label: filterLabels.value.section,
-      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'section'),
+      options: compatibleOptions.get('section') ?? [],
     },
     {
       key: 'building',
       label: filterLabels.value.building,
-      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'building'),
+      options: compatibleOptions.get('building') ?? [],
     },
     {
       key: 'floor',
       label: filterLabels.value.floor,
-      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'floor'),
+      options: compatibleOptions.get('floor') ?? [],
     },
     {
       key: 'department',
       label: filterLabels.value.department,
-      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'department'),
+      options: compatibleOptions.get('department') ?? [],
     },
     {
       key: 'subunit',
       label: filterLabels.value.subunit,
-      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'subunit'),
+      options: compatibleOptions.get('subunit') ?? [],
     },
     {
       key: 'entryKind',
       label: filterLabels.value.entryKind,
-      options: getCompatibleDirectoryFacetOptions(snapshot, filters.value, 'entryKind'),
+      options: compatibleOptions.get('entryKind') ?? [],
     },
   ];
-  const meaningfulKeys = new Set(getMeaningfulDirectoryFilterKeys(snapshot, filters.value));
+  const meaningfulKeys = new Set(
+    getMeaningfulDirectoryFilterKeys(snapshot, filters.value, compatibleOptions),
+  );
   return sections.filter((section) => meaningfulKeys.has(section.key));
 });
 
@@ -252,21 +255,28 @@ async function initializeDirectory(): Promise<void> {
   const groupId = props.group.id;
   const dataSource = source.value;
   preferences.value = readDirectoryPreferences(groupId);
-  const [facetResult, priorityResult] = await Promise.allSettled([
-    dataSource.getDirectoryFacets(groupId),
-    lookupPreferredEntries(dataSource, groupId, getDirectoryPreferenceEntryIds(preferences.value)),
-  ]);
-  if (context !== contextSequence) return;
-
-  if (facetResult.status === 'fulfilled') facets.value = facetResult.value;
-  else {
-    errorMessage.value = toUserMessage(
-      facetResult.reason,
-      `${directoryTitle.value}筛选项暂时无法加载，请稍后重试。`,
-    );
-  }
-
-  if (priorityResult.status === 'fulfilled') priorityEntries.value = priorityResult.value;
+  void dataSource.getDirectoryFacets(groupId).then(
+    (result) => {
+      if (context === contextSequence) facets.value = result;
+    },
+    (reason: unknown) => {
+      if (context !== contextSequence) return;
+      errorMessage.value = toUserMessage(
+        reason,
+        `${directoryTitle.value}筛选项暂时无法加载，请稍后重试。`,
+      );
+    },
+  );
+  void lookupPreferredEntries(
+    dataSource,
+    groupId,
+    getDirectoryPreferenceEntryIds(preferences.value),
+  ).then(
+    (result) => {
+      if (context === contextSequence) priorityEntries.value = result;
+    },
+    () => undefined,
+  );
 }
 
 async function loadEntries(append: boolean): Promise<void> {
@@ -1008,7 +1018,7 @@ async function lookupPreferredEntries(
             </h3>
           </header>
           <div
-            v-show="isFilterSectionExpanded(section.key)"
+            v-if="filterSheetVisible && isFilterSectionExpanded(section.key)"
             :id="`directory-filter-options-${section.key}`"
             class="filter-options"
           >
