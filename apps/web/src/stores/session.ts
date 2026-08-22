@@ -25,6 +25,34 @@ export interface SessionDependencies {
   readonly passwordAuth?: PasswordAuthClient;
 }
 
+const passwordReminderDismissedStorageKeyPrefix = 'schedule.password-reminder.dismissed.';
+
+function getBrowserStorage(): Storage | undefined {
+  return typeof globalThis.localStorage === 'undefined' ? undefined : globalThis.localStorage;
+}
+
+function passwordReminderDismissedStorageKey(profileId: string): string {
+  return `${passwordReminderDismissedStorageKeyPrefix}${profileId}`;
+}
+
+function hasDismissedPasswordReminder(profileId: string | undefined): boolean {
+  if (profileId === undefined || profileId.length === 0) return false;
+  try {
+    return getBrowserStorage()?.getItem(passwordReminderDismissedStorageKey(profileId)) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function persistPasswordReminderDismissal(profileId: string | undefined): void {
+  if (profileId === undefined || profileId.length === 0) return;
+  try {
+    getBrowserStorage()?.setItem(passwordReminderDismissedStorageKey(profileId), 'true');
+  } catch {
+    // A storage restriction should not block the current session from continuing.
+  }
+}
+
 export function createSessionManager(dependencies: SessionDependencies) {
   const errorMessage = ref<string | undefined>();
   const mustChangePassword = ref(false);
@@ -86,6 +114,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
     }
 
     await loadProfile();
+    syncPasswordReminderPreference();
   }
 
   async function register(input: {
@@ -112,6 +141,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
     mustChangePassword.value = result.mustChangePassword;
     passwordReminderDismissed.value = false;
     await loadProfile();
+    syncPasswordReminderPreference();
   }
 
   async function signInDev(uid: string): Promise<void> {
@@ -145,6 +175,11 @@ export function createSessionManager(dependencies: SessionDependencies) {
   }
 
   function dismissPasswordReminder(): void {
+    passwordReminderDismissed.value = true;
+    persistPasswordReminderDismissal(profile.value?.id);
+  }
+
+  function closePasswordReminder(): void {
     passwordReminderDismissed.value = true;
   }
 
@@ -235,7 +270,7 @@ export function createSessionManager(dependencies: SessionDependencies) {
     try {
       const passwordStatus = await getStatus.call(dependencies.passwordAuth);
       mustChangePassword.value = passwordStatus.mustChangePassword;
-      passwordReminderDismissed.value = false;
+      syncPasswordReminderPreference();
     } catch {
       mustChangePassword.value = false;
     }
@@ -266,8 +301,13 @@ export function createSessionManager(dependencies: SessionDependencies) {
     errorMessage.value = undefined;
   }
 
+  function syncPasswordReminderPreference(): void {
+    passwordReminderDismissed.value = hasDismissedPasswordReminder(profile.value?.id);
+  }
+
   return {
     changePassword,
+    closePasswordReminder,
     completeProfile,
     dismissPasswordReminder,
     errorMessage,

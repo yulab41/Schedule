@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 密码提醒永久不再提示与弹窗收口（当前批次）
+
+- 用户确认与范围：确认 Storybook 终稿；移除右上角关闭按钮，提醒操作只显示“不再提示”；取消只关闭当前会话，“不再提示”按用户资料永久保存，不修改密码校验、提交 API、权限或其他弹窗。
+- 引入点与测试先行：`git log -S 'dismissPasswordReminder'` / `git blame` 定位 `664bc1f` 的会话内 ref 与关闭按钮后的焦点索引；旧实现新增断言先失败，实现后生产弹窗 2/2、会话管理 13/13 通过。
+- 实现与验证：按 `user_profiles.id` 写入 `schedule.password-reminder.dismissed.<profileId>`，登录/恢复/刷新密码状态读取；去掉右上角按钮后编辑态聚焦第一个密码框。Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 通过；`pnpm smoke:browser` 因本机 5173 未启动在第 1/6 步 `ERR_CONNECTION_REFUSED`，已写入调试记录。
+- 当前状态：已完成（含 Storybook 与运行验证）→ 待 checkpoint / 发布；checkpoint 识别消息：`fix(web): persist password reminder opt-out`。本批次只包含密码弹窗、会话偏好、AppLayout、定向测试和验证记录；其他小程序/Storybook/runtime/src 改动不纳入。
+- 下一批次与停止条件：只提交、推送并部署本 checkpoint，完成生产备份、`ecs-verify.sh` 与正式只读核验，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止。
+
 ## 2026-08-22 移动导出按钮空白修复（当前批次）
 
 - 用户反馈与范围：生产落地动作图标后，移动端顶部导出按钮为空白。本批次只修复导出文字隐藏规则误伤图标，不修改 SVG、动效、导出权限、弹窗、API 或其他入口。
@@ -12,6 +20,16 @@
 - checkpoint 与发布：代码 checkpoint `993bdf4`（`fix(web): keep mobile export icon visible`）已推送；发布前加密数据库备份 archive `e186ef3e-f2aa-4658-b8dc-765a07873dc2`（50 表、157700 行、70980528 bytes，SHA-256 `95c0d57b6727080b5d65267fa0d9e63a9e753dcd4b04a3c152d3e8124f04f6da`）。release `993bdf42b8052fcf0bab75e5e42bf48cd3f9d558` 已部署，预热首次 502 后恢复；`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、端口、容器、依赖与 43 条迁移，服务器 `current-release` / manifest 一致。
 - 当前状态：导出按钮空白回归已修复并发布 → 待用户复核。最终状态 checkpoint 识别消息：`docs(status): record mobile export icon fix deployment`。用户自有小程序/CI、并行密码弹窗、`pnpm-workspace.yaml`、其他 Storybook、`runtime/` 和 `src/` 不纳入本批次。
 - 下一批次与停止条件：只提交、推送并部署本最终状态 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后停止。
+
+## 2026-08-22 P1 矩阵经验固化（当前批次）
+
+- 用户要求：把矩阵多轮真机踩坑、后续优化和防复发经验精简归档，方便后续阶段直接调阅。
+- P1 人工验收：2026-08-22 用户明确确认 P1 通过。基础控件、动态月历、7×7 与 20×30 均通过实体 Android 复核；矩阵正常进入后的横纵滚动、冻结层、进度条、点格和撤销流畅，首入约 500ms 内立即操作的短卡接受为 PoC 边界。
+- 归档：权威精简记录为 `apps/miniprogram/docs/architecture/matrix-gesture-lessons.md`；ADR-0005 和专项 README 只保留入口，不复制历史。内容覆盖平台探针、单坐标源、渲染后恢复、无时间戳 RAF、浅层 600 格及后续必测清单。
+- ECS 微信上传中继已取消：用户确认当前正式 ECS 为 `120.77.220.79` 且只有 2GB 内存，不承担 `miniprogram-ci` 的千级依赖树；代码与规则维持本地 Node 直传。此前误在旧地址 `8.148.183.46` 创建的临时 runner/凭证必须清理并核验不存在，未清理前不得结束本批次。
+- 验证：Mini 13 文件/57 项、typecheck、staging verify、源码/Worklet、确定性、包体、官方 CI dry-run、任务脚本 Prettier/ESLint、`smoke:check-core` 与 `git diff --check` 已通过；产物 132585 bytes，manifest `2090a10f25e4912e7578f8a02c6f7094ce74f78b9b72b3b4186a25d851d38c18`。
+- 当前状态：P1 已通过，待完成旧服务器凭证清理、复核最终 diff、提交/推送、微信体验上传与正式 ECS 备份/部署/验证后关闭本批次。旧服务器 SSH 仍在 banner 前超时；本地直传公网 IPv4 已变为 `103.54.154.21`，须加入微信代码上传白名单。checkpoint 识别消息：`docs(miniprogram): close p1 native validation`。
+- 下一活动批次：P2 共享核心，首轮只做 1 项复杂任务——审计并确定 `presentation-core` 的最小抽取边界、黄金 fixtures 与 Web 先行切换顺序；未通过 Web 等价回归前不实现 Mini 业务页面，不进入 P3 身份安全。
 
 ## 2026-08-21 Lucide Minimal 动作图标生产落地（当前批次）
 

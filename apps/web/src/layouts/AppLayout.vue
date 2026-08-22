@@ -46,7 +46,13 @@ function openPasswordDialog(): void {
 function closePasswordDialog(): void {
   passwordDialogRequested.value = false;
   passwordError.value = undefined;
-  if (session.passwordReminderVisible) session.dismissPasswordReminder();
+  if (session.passwordReminderVisible) session.closePasswordReminder();
+}
+
+function dismissPasswordDialog(): void {
+  passwordDialogRequested.value = false;
+  passwordError.value = undefined;
+  session.dismissPasswordReminder();
 }
 
 async function changePassword(input: {
@@ -110,7 +116,7 @@ async function changePassword(input: {
       :visible="passwordDialogVisible"
       v-bind="passwordError === undefined ? {} : { errorMessage: passwordError }"
       @close="closePasswordDialog"
-      @dismiss="closePasswordDialog"
+      @dismiss="dismissPasswordDialog"
       @submit="changePassword"
     />
   </t-layout>

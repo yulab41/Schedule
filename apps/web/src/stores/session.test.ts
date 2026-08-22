@@ -152,6 +152,84 @@ describe('session manager', () => {
     expect(manager.passwordReminderVisible.value).toBe(false);
   });
 
+  it('persists opting out of the default-password reminder across restored sessions', async () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+
+    try {
+      const passwordAuth = {
+        changePassword: vi.fn(),
+        getStatus: vi.fn().mockResolvedValue({ hasPassword: true, mustChangePassword: true }),
+        login: vi.fn().mockResolvedValue({
+          isNewUser: false,
+          mustChangePassword: true,
+          token: 'password-token',
+        }),
+        register: vi.fn(),
+      };
+      const manager = createSessionManager({
+        api: createApiClient(),
+        auth: createAuthClient(),
+        passwordAuth,
+      });
+
+      await manager.signIn({ password: '123', username: 'linenyu' });
+      manager.dismissPasswordReminder();
+
+      expect(manager.passwordReminderVisible.value).toBe(false);
+      expect(values.get('schedule.password-reminder.dismissed.profile-1')).toBe('true');
+
+      const restoredManager = createSessionManager({
+        api: createApiClient(),
+        auth: createAuthClient(),
+        passwordAuth,
+      });
+      await restoredManager.restore();
+
+      expect(restoredManager.passwordReminderVisible.value).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('closes the reminder for the current session without persisting an opt-out', async () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+      removeItem: (key: string) => values.delete(key),
+    });
+
+    try {
+      const manager = createSessionManager({
+        api: createApiClient(),
+        auth: createAuthClient(),
+        passwordAuth: {
+          changePassword: vi.fn(),
+          getStatus: vi.fn().mockResolvedValue({ hasPassword: true, mustChangePassword: true }),
+          login: vi.fn().mockResolvedValue({
+            isNewUser: false,
+            mustChangePassword: true,
+            token: 'password-token',
+          }),
+          register: vi.fn(),
+        },
+      });
+
+      await manager.signIn({ password: '123', username: 'linenyu' });
+      manager.closePasswordReminder();
+
+      expect(manager.passwordReminderVisible.value).toBe(false);
+      expect(values.get('schedule.password-reminder.dismissed.profile-1')).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('clears protected state even when sign-out fails', async () => {
     const manager = createSessionManager({
       api: createApiClient(),

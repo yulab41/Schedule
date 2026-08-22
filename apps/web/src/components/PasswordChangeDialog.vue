@@ -81,7 +81,7 @@ function reset(isReminder: boolean): void {
 function startEditor(): void {
   editorOpen.value = true;
   localError.value = undefined;
-  void nextTick(() => getFocusableElements(dialog.value!)[1]?.focus());
+  void nextTick(() => getFocusableElements(dialog.value!)[0]?.focus());
 }
 
 function submit(): void {
@@ -156,15 +156,6 @@ function trapFocus(event: KeyboardEvent): void {
     @keydown="trapFocus"
   >
     <section class="password-dialog-panel">
-      <button
-        type="button"
-        class="password-dialog-close"
-        aria-label="关闭"
-        :disabled="saving"
-        @click="close"
-      >
-        ×
-      </button>
       <div class="password-dialog-icon" aria-hidden="true"><span>!</span></div>
       <p class="password-dialog-eyebrow">账号安全提醒</p>
       <h2 id="password-dialog-title">{{ title }}</h2>
@@ -176,9 +167,7 @@ function trapFocus(event: KeyboardEvent): void {
         <div class="password-dialog-actions">
           <button type="button" class="secondary-button" @click="close">取消</button>
           <button type="button" class="primary-button" @click="startEditor">修改密码</button>
-          <button type="button" class="quiet-button" @click="emit('dismiss')">
-            本次登录不再提示
-          </button>
+          <button type="button" class="quiet-button" @click="emit('dismiss')">不再提示</button>
         </div>
       </template>
 
@@ -257,35 +246,13 @@ function trapFocus(event: KeyboardEvent): void {
 
 .password-dialog-panel {
   position: relative;
-  padding: 30px 30px 24px;
+  padding: 34px 32px 25px;
   overflow-y: auto;
   background: var(--ui-color-surface);
-  border: 1px solid rgb(255 255 255 / 65%);
-  border-radius: 24px;
-  box-shadow: 0 28px 70px rgb(6 24 46 / 24%);
+  border: 1px solid #e6edf5;
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgb(6 24 46 / 22%);
   text-align: center;
-}
-
-.password-dialog-close {
-  position: absolute;
-  top: 13px;
-  right: 15px;
-  display: grid;
-  width: var(--ui-touch-target-minimum);
-  height: var(--ui-touch-target-minimum);
-  padding: 0;
-  place-items: center;
-  color: #66758a;
-  background: transparent;
-  border: 0;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 24px;
-}
-
-.password-dialog-close:hover,
-.password-dialog-close:focus-visible {
-  background: #f3f6fa;
 }
 
 .password-dialog-icon {
@@ -335,12 +302,17 @@ function trapFocus(event: KeyboardEvent): void {
 .password-dialog-actions {
   display: grid;
   margin-top: 24px;
-  grid-template-columns: 1fr 1.35fr;
-  gap: 9px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .password-dialog-actions button {
+  display: inline-flex;
+  width: 100%;
   min-height: var(--ui-touch-target-minimum);
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
   border-radius: 11px;
   cursor: pointer;
   font: inherit;
@@ -363,16 +335,22 @@ function trapFocus(event: KeyboardEvent): void {
 
 .quiet-button {
   grid-column: 1 / -1;
+  min-height: 40px !important;
+  margin-top: -1px;
   color: #69778a;
   background: transparent;
   border: 0;
-  font-size: 11px !important;
+  font-size: 13px !important;
+  font-weight: var(--ui-font-weight-semibold) !important;
+  text-decoration: underline;
+  text-decoration-color: #b8cfe7;
+  text-underline-offset: 4px;
 }
 
 .password-dialog-note {
-  margin: 20px 0 0;
+  margin: 16px 0 0;
   color: var(--ui-color-text-secondary);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .password-form {
@@ -432,8 +410,8 @@ input:disabled {
 
 @media (max-width: 420px) {
   .password-dialog-panel {
-    padding: 28px 22px 22px;
-    border-radius: 22px;
+    padding: 30px 22px 22px;
+    border-radius: 18px;
   }
 }
 

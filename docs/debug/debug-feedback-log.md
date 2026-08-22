@@ -579,3 +579,11 @@
 - 引入点：`git log -S`/`git blame` 确认默认月视图与通用筛选来自 `db35a77`/`ab25064`，选中日期逐班次轨道来自 `1c84fd6`，群组设置入口来自 `720404a`。本轮只在 `CalendarView` 数据调用点应用月视图默认班种，并重构 `SelectedDateDutyDetails`；`MonthGrid.vue`、`WeekGrid.vue` 源码哈希由回归测试锁定且不修改。
 - 运行/浏览器验证：`pnpm smoke:browser` 的等价直接入口 `node scripts/smoke-browser.mjs` 已在当前源码 5173 与开发认证 API 3000 上运行；本机 MySQL `127.0.0.1:3306` 拒绝连接，管理员登录回退 `/login?redirect=/`，因此完整业务 smoke 在登录门禁停止。独立 Storybook 真实生产详情组件已在 390px 验证同班三人收进一张 D 班卡、姓名全部可见、短号/手机分体拨号、44px 操作和无横向溢出；控制台无产品错误。Docker Desktop 未运行，隔离 MySQL 集成测试按环境跳过。
 - 正式发布与核验：代码 checkpoint `f723b0d` 已推送；发布前加密数据库备份 archive `9b092f7f-4fc9-4002-964a-09c2cac62e9a`（50 表、157657 行、70951728 字节，SHA-256 `8bd68d81e2390a5b13986d57702641edfb026d4823d6f2490bf32d22f030a13a`）。隔离干净工作树构建并部署 release `f723b0dbbe5b5f313158f2f76f8466159443074d`；预热首次 502 后恢复，`ecs-verify.sh` 通过。正式数据库为 43 条迁移且 4 个偏好列齐全，健康 200、未认证偏好端点 401，Web/API bundle 接线命中；未写入排班业务数据。
+
+## 2026-08-22 密码提醒永久不再提示与弹窗收口
+
+- 引入点：`git log -S 'dismissPasswordReminder'` / `git blame` 确认 `664bc1f` 首次把“不再提示”实现为会话内 `ref`；`getFocusableElements(dialog.value!)[1]` 同样来自 `664bc1f`，去掉右上角关闭按钮后会跳过第一个密码输入框。
+- 测试先行：旧实现新增的弹窗文案/移除关闭按钮、焦点索引、永久偏好与“取消仅本次关闭”断言先失败；实现后生产弹窗 2/2、会话管理 13/13 通过（工作区扫描含用户自有 `runtime/**` 副本共 42 项）。
+- 实现与语义：移除右上角关闭按钮，次级操作只显示“不再提示”；取消路径新增 `closePasswordReminder`，只关闭当前会话；“不再提示”新增按 `user_profiles.id` 隔离的 `localStorage` 偏好，登录、恢复会话与刷新密码状态均读取，存储异常不阻断登录。密码校验、修改提交、焦点陷阱和 API 调用次数不变。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，在第 1/6 步访问 `http://localhost:5173` 因本机无 Web 服务以 `ERR_CONNECTION_REFUSED` 停止；`pnpm smoke:check-core` 首次按门禁提示需先记录本条浏览器结果，记录后待复核。Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、定向 Vitest 通过；Storybook 390×844 需复核“不再提示”文案、无右上角按钮及取消/永久偏好交互。
+- 当前状态：已实现待浏览器复核；未提交、未推送、未部署。仓库已有用户自有未提交改动，`docs/project-status.md` 当前活动批次与本 UI 任务不一致，暂不混入 checkpoint。

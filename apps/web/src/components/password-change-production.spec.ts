@@ -22,4 +22,22 @@ describe('production password change dialog', () => {
     expect(layout).toContain('PasswordChangeDialog');
     expect(layout).toContain('session.passwordReminderVisible');
   });
+
+  it('keeps the reminder actions balanced and makes the secondary reminder control readable', () => {
+    const dialog = source('./PasswordChangeDialog.vue');
+
+    expect(dialog).not.toContain('password-dialog-close');
+    expect(dialog).toContain('不再提示');
+    expect(dialog).not.toContain('本次登录不再提示');
+    expect(dialog).toContain('getFocusableElements(dialog.value!)[0]?.focus()');
+    expect(dialog).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
+    expect(dialog).toContain('font-size: 13px !important;');
+    expect(dialog).not.toContain('grid-template-columns: 1fr 1.35fr;');
+    expect(dialog).not.toContain('font-size: 11px !important;');
+
+    const layout = source('../layouts/AppLayout.vue');
+    expect(layout).toContain('@close="closePasswordDialog"');
+    expect(layout).toContain('@dismiss="dismissPasswordDialog"');
+    expect(layout).toContain('session.closePasswordReminder');
+  });
 });
