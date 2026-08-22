@@ -78,6 +78,9 @@ importers:
 
   apps/miniprogram:
     dependencies:
+      '@schedule/client-core':
+        specifier: workspace:*
+        version: link:../../packages/client-core
       '@schedule/presentation-core':
         specifier: workspace:*
         version: link:../../packages/presentation-core
@@ -109,6 +112,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@schedule/client-core':
+        specifier: workspace:*
+        version: link:../../packages/client-core
       '@schedule/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -182,6 +188,16 @@ importers:
       pinyin-pro:
         specifier: 3.29.2
         version: 3.29.2
+
+  packages/client-core:
+    dependencies:
+      '@schedule/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      zod:
+        specifier: ^4.1.12
+        version: 4.4.3
 
   packages/contracts:
     dependencies:

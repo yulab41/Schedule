@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 client-core 月历读取边界
+
+- 引入点与红灯：月历 `ab25064`、节假日 `48c6fdd`/`fbf59fa`、统一请求管线 `dd9981f`、fetch receiver `1c5d2c5`。Web/Mini 旧代码均因无 client-core 失败，Mini 真实边界入口追加红灯后实现。
+- 实现与等价：新增 endpoint/transport/service/紧凑 decoder 和 Zod→JSON Schema 确定生成；Web 三方法委托共享 service，原 fetch/auth/offline/error 管线不动。路径编码、bearer/public、receiver、拒绝对象、调用次数、原响应身份及页面缓存/副作用保持；无重试。
+- 生成与边界：生成器对未知 keyword/type 失败关闭，freshness 与 Zod 深等价通过；显式 ASCII hex 正则避免丢失 `i` flag。client-core browser bundle 与 Mini 8949-byte 输出无 Zod、contracts runtime、Node/DOM/fetch/Vue/数据库，Mini 无页面或网络。
+- 验证：定向 5 文件/167 项、受控全仓 150 文件/829 项通过，32 文件/265 项按环境跳过；client-core/Web/根 build/typecheck/lint 通过。Mini 14 文件/56 项及 verify/source/Worklet/package/determinism/CI dry-run 通过（142817 bytes，manifest `fa75f52b0c78f7c14d42d1aaf5e037051326e8348adfc8e2f6f208c4268576c8`）；冻结 lockfile、任务格式、diff check 和 `smoke:check-core` 通过。根 format 仅有既有/用户所有 11 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无模板/样式/页面变化。checkpoint 识别消息：`refactor(client): share calendar read boundary`。
+
 ## 2026-08-22 当前月撤回确认门禁
 
 - 引入点与红灯：`927241c` 同时给 publish/withdraw 增加 `acknowledgePastDates` 禁用与提交守卫，但控件只在 publish 渲染。新回归旧实现 2/3 失败；重新发布双确认基线保持通过。

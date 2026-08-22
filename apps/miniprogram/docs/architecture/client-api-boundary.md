@@ -35,3 +35,13 @@ Web 与 Mini 使用相同 endpoint descriptor 和黄金响应。Web 的 Zod 解�
 客户端 capability 和 UI 隐藏只是体验层。API 必须独立校验身份、群成员关系、角色、能力开关、输入、版本、幂等和事务。小程序目录不得复制后端实现或数据库 schema。
 
 具体公共契约、登录/解绑、手排限制、原子补录、访客、订阅和导出决策见[总计划](../plans/2026-08-17-wechat-miniprogram-migration-plan.md#7-公共接口和后端改造)。
+
+## 当前 P2 月历垂直切片
+
+首个 `@schedule/client-core` 切片固定为三个既有只读端点：鉴权月历、鉴权节假日和公开节假日。共享包提供 endpoint ID、auth 模式、GET 方法、编码路径、紧凑 decoder、service 和 transport 接口；不包含 base URL、fetch、`wx`、会话、缓存、重试或 UI。
+
+Web 的三个既有公开方法先委托共享 service，transport 仍使用原 `requestWithOnline` 管线，因此保留 `fetch.call(globalThis)` 接收者、Bearer/public header、离线 GET、HTTP/API 错误、无效 2xx 响应和调用次数。缓存、最新请求、节假日 fallback 与页面错误状态仍由原 Web 调用点拥有。
+
+decoder 描述由 contracts 的 Zod schema 通过公开 `toJSONSchema` 确定性生成，生成器只接受已审关键字并对未知结构失败关闭；生成文件纳入 freshness 与 Zod 深等价测试。生产 decoder 返回原响应对象，不克隆或转换。月历颜色正则以等价的显式 ASCII 大小写集合表达，避免 JSON Schema 丢失 RegExp `i` flag 后收窄合法值。
+
+Mini 当前只编译 `src/platform/client-core-calendar.ts` 边界模块，用同一 decoder/path 完成真实 esbuild、源码、产物、包体和确定性审计；没有 `wx.request`、网络调用、缓存或业务页面。Mini transport、共享错误映射、GET 退避和 401 协调留给后续独立 P2 checkpoint。

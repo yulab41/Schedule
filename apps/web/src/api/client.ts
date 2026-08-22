@@ -120,6 +120,11 @@ import type {
   VisitorAccessLogPage,
   VisitorResolveResponse,
 } from '@schedule/contracts';
+import {
+  createCalendarReadClient,
+  type ClientEndpoint,
+  type ClientTransport,
+} from '@schedule/client-core';
 
 import {
   addRosterEntriesResponseSchema,
@@ -154,7 +159,6 @@ import {
   groupNotificationSettingsSchema,
   visitorAccessLogPageSchema,
   visitorResolveResponseSchema,
-  holidayReadModelSchema,
   leaveAffectedShiftListSchema,
   leaveReflowPreviewSchema,
   leaveRequestListSchema,
@@ -619,6 +623,30 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       path,
     });
   }
+
+  const calendarReadClient = createCalendarReadClient({
+    request<Input, Output>(endpoint: ClientEndpoint<Input, Output>, input: Input) {
+      const path = endpoint.path(input);
+      const isResponseBody = (value: unknown): value is Output =>
+        endpoint.decoder.safeDecode(value).success;
+      return endpoint.auth === 'bearer'
+        ? requestJson<Output>(
+            options.auth,
+            fetchImplementation,
+            baseUrl,
+            path,
+            { method: endpoint.method },
+            isResponseBody,
+          )
+        : requestPublicJson<Output>(
+            fetchImplementation,
+            baseUrl,
+            path,
+            { method: endpoint.method },
+            isResponseBody,
+          );
+    },
+  } satisfies ClientTransport);
 
   return {
     createExportJob(groupId, input) {
@@ -1188,14 +1216,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     getCalendar(groupId, businessMonth) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/calendar?businessMonth=${encodeURIComponent(businessMonth)}`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(calendarReadModelSchema),
-      );
+      return calendarReadClient.getCalendar(groupId, businessMonth);
     },
     getCalendarPreferences(groupId) {
       return requestJson(
@@ -1251,23 +1272,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     getHolidays(year) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/holidays?year=${encodeURIComponent(String(year))}`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(holidayReadModelSchema),
-      );
+      return calendarReadClient.getHolidays(year);
     },
     getGuestHolidays(year) {
-      return requestPublicJson(
-        fetchImplementation,
-        baseUrl,
-        `/guest/holidays?year=${encodeURIComponent(String(year))}`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(holidayReadModelSchema),
-      );
+      return calendarReadClient.getGuestHolidays(year);
     },
     getEventDetail(groupId, eventId) {
       return requestJson(

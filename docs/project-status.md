@@ -2,6 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 client-core 月历垂直切片（当前批次）
+
+- 用户选择与范围：用户确认方案 2；首个 `@schedule/client-core` 只覆盖 `getCalendar`、`getHolidays`、`getGuestHolidays`，Web 先切换，Mini 只编译共享 decoder/path 边界，不建业务页、不发网络请求、不进入 P3。同步基线 `607a40f` 与 `origin/main` 一致，无新增已提交 Web 月历变化；用户所有目录/个人页/护士 Storybook 继续登记 P10，不纳入。
+- 引入点与红灯：`git log -S`/`git blame` 定位鉴权月历为 `ab25064`，鉴权/公开节假日为 `48c6fdd`/`fbf59fa`，统一请求/离线管线为 `dd9981f`，原生 fetch 接收者为 `1c5d2c5`。Web/Mini 测试先因缺少 client-core 包失败，Mini 实际边界模块追加测试再因文件缺失失败；实现后定向 5 文件/167 项和 Mini 边界 2 项通过。
+- 共享实现：新增私有 workspace 包，提供 `ClientEndpoint`、`ClientTransport`、三端点 descriptor、月历 service 和无依赖紧凑 JSON Schema decoder。endpoint 保留原 `encodeURIComponent`/`String(year)`、bearer/public、GET 和 ID；service 以成员调用转交 transport，拒绝不捕获、不包装、不重试。
+- 生成与黄金：contracts Zod 4 公开 `toJSONSchema` 生成经白名单压缩的确定性描述，未知 keyword/type 和非 false additionalProperties 失败关闭；生成 freshness 与 Zod 结构等价受测。黄金响应覆盖计划/实际人员、三类 marker、可选电话、全日跨日班、大小写十六进制色、节假日/调休；有效结果与 Zod 深等且 decoder 返回原对象，未知字段、错误月、marker、颜色、整数和缺失数组同拒绝。
+- Web 等价：三个 `ApiClient` 方法只委托共享 service；原 `requestJson/requestPublicJson → requestWithOnline → fetch.call(globalThis) → parseJsonResponse/ApiClientError` 完全保留。Bearer/public headers、session 次数、离线 GET、HTTP/网络/无效 2xx 错误、响应对象、缓存、请求 tracker、holiday fallback 和调用次数不变；未启用 GET 重试。
+- Mini 边界：package/tsconfig/Vitest/esbuild 显式接入 client-core；`src/platform/client-core-calendar.ts` 作为无网络边界入口被真实构建为 8949-byte JS。源码/产物与 browser bundle 均无 Zod、contracts runtime、Node、DOM、fetch、Vue、数据库或绝对路径；未增加 WXML/WXSS/路由。
+- 验证：client-core 生成检查/build/typecheck、Web build/typecheck、根 build/typecheck/lint，定向 5 文件/167 项及受控全仓 150 文件/829 项通过，32 文件/265 项数据库集成按环境跳过。Mini 14 文件/56 项、verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（142817 bytes，manifest `fa75f52b0c78f7c14d42d1aaf5e037051326e8348adfc8e2f6f208c4268576c8`）；冻结 lockfile、任务格式、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只被用户所有 workspace/Mini 配置、已提交目录文件和 Storybook 生成物 11 项拦截。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本轮没有模板、样式或页面变化，不需要人工视觉确认。
+- 当前状态：方案 2 的共享实现、Web 先行和 Mini bundle 边界已完成本地验证，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(client): share calendar read boundary`。
+- 下一活动批次与停止条件：只实现 P2 Mini `wx.request` JSON transport 与共享错误映射，覆盖 statusCode、Bearer/public、无效业务响应和网络错误；不建页面、不持久化会话、不实现静默重登、GET 重试或 P3 身份流程。
+
 ## 2026-08-22 当前月撤回确认门禁修复（当前批次）
 
 - 范围与引入点：只修复当前月已发布版本含已过日期时“撤销发布”确认不可达，不改重新发布、过去日期锁定、API、版本、幂等、工作流撤销、文案、元素或样式。`git log -S`/`git blame` 与 `git show` 确认 `927241c` 新增 `acknowledgePastDates` 检查时将其用于 publish/withdraw 两种 action，但对应控件只在 publish 渲染。

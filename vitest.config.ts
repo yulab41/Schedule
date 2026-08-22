@@ -6,6 +6,16 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: '@schedule/client-core/testing',
+        replacement: fileURLToPath(
+          new URL('./packages/client-core/src/testing/index.ts', import.meta.url),
+        ),
+      },
+      {
+        find: '@schedule/client-core',
+        replacement: fileURLToPath(new URL('./packages/client-core/src/index.ts', import.meta.url)),
+      },
+      {
         find: '@schedule/presentation-core/testing',
         replacement: fileURLToPath(
           new URL('./packages/presentation-core/src/testing/index.ts', import.meta.url),

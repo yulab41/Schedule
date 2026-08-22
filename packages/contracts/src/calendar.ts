@@ -17,10 +17,10 @@ export const calendarDutyAssignmentSchema = z
     scheduleRoleId: z.string().min(1),
     scheduleRoleName: z.string().min(1),
     shiftTypeAbbreviation: z.string().min(1),
-    shiftTypeColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    shiftTypeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/u),
     shiftTypeId: z.string().min(1),
     shiftTypeName: z.string().min(1),
-    shiftTypeTextColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    shiftTypeTextColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/u),
     slotPosition: z.number().int().min(1),
     startsAt: z.string(),
   })
@@ -49,7 +49,7 @@ export type CalendarRoleSummary = z.infer<typeof calendarRoleSummarySchema>;
 export const calendarShiftTypeSummarySchema = z
   .object({
     abbreviation: z.string().min(1),
-    color: z.string().regex(/^#[\dA-F]{6}$/iu),
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/u),
     crossesMidnight: z.boolean(),
     endTime: z
       .string()
@@ -62,7 +62,7 @@ export const calendarShiftTypeSummarySchema = z
       .string()
       .regex(/^\d{2}:\d{2}$/u)
       .optional(),
-    textColor: z.string().regex(/^#[\dA-F]{6}$/iu),
+    textColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/u),
   })
   .strict();
 export type CalendarShiftTypeSummary = z.infer<typeof calendarShiftTypeSummarySchema>;

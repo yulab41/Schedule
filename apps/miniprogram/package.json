@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@schedule/client-core": "workspace:*",
     "@schedule/presentation-core": "workspace:*"
   },
   "scripts": {
