@@ -9,6 +9,7 @@
 - 体积与边界：三个逐文件入口的 183133-byte 中间实现未保留，合并单一 platform 入口后为 147887 bytes（+5070）。源码/产物继续无 Zod/contracts runtime、Node/DOM/fetch/Vue/数据库，无页面/WXML/WXSS/路由。
 - 验证：共享/Web 4 文件/15 项、Mini 2 文件/8 项、受控全仓 152 文件/840 项通过，32 文件/265 项按环境跳过；client-core/Web/根 build/typecheck/lint 和 Mini 15 文件/62 项、verify/source/Worklet/package/determinism/CI dry-run 通过（manifest `219a4fbe51fa35bf2e64c7a06b02e542da216859568dbfcb71f4f15ccbb76144`）；任务格式、diff check、`smoke:check-core` 通过，根 format 仅有既有/用户所有 11 项阻塞。
 - 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(client): add miniprogram json transport`。
+- 发布与核验：checkpoint `884512c` 已推送并通过精确干净 worktree 生成/build 门禁；体验版 `0.1.0-p2.20260822.48` 本地上传成功（50 个平台代码文件、38661 bytes，manifest `8bd158a8a7167737f696d587ed28b4749f16549c5d47ddae7a3c2e3114b8558c`），未审核、未正式发布。数据库备份 `9abd6e66-d9f8-4ea9-ba4d-9d045007d367`（50 表、161442 行、76291708 bytes，SHA-256 `d466606aa4232fe28ee23e66d1a79751db39b659b3ee4b1544c9f34440753fae`）后部署 release `884512c0a979a99b7971006f8a50e40b2ad12f03`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过并清理临时目录。最终状态 checkpoint 识别消息：`docs(status): record miniprogram json transport deployment`。
 
 ## 2026-08-22 P2 client-core 月历读取边界
 

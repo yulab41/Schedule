@@ -11,7 +11,9 @@
 - 体积收口：最初拆成三个 TS 入口会因当前构建器逐文件打包而增至 183133 bytes；同轮合并为单一 `client-core-calendar.ts` platform 入口后降至 147887 bytes，只比上一 checkpoint 增加 5070 bytes。无 setTimeout、重试、写队列、页面、WXML/WXSS 或路由。
 - 验证：client-core generated check/build/typecheck、Web build/typecheck、根 build/typecheck/lint，共享/Web 定向 4 文件/15 项、Mini transport 2 文件/8 项及受控全仓 152 文件/840 项通过，32 文件/265 项数据库集成按环境跳过。Mini 15 文件/62 项、verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147887 bytes，manifest `219a4fbe51fa35bf2e64c7a06b02e542da216859568dbfcb71f4f15ccbb76144`）；任务格式、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只有既有/用户所有 11 项阻塞。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本轮无模板/样式/页面变化，不需要人工视觉确认。
-- 当前状态：Mini JSON transport 与共享错误映射已完成本地验证，待 checkpoint/推送、体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`feat(client): add miniprogram json transport`。
+- checkpoint 与体验上传：代码 checkpoint `884512c`（`feat(client): add miniprogram json transport`）已推送；精确干净 worktree 生成检查/build 通过，本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p2.20260822.48`（50 个平台代码文件、38661 bytes，manifest `8bd158a8a7167737f696d587ed28b4749f16549c5d47ddae7a3c2e3114b8558c`）。未提交审核、未正式发布，也未使用 ECS 或开发者工具 CLI。
+- 正式发布：数据库备份 archive `9abd6e66-d9f8-4ea9-ba4d-9d045007d367`（50 表、161442 行、76291708 bytes，SHA-256 `d466606aa4232fe28ee23e66d1a79751db39b659b3ee4b1544c9f34440753fae`）后部署 release `884512c0a979a99b7971006f8a50e40b2ad12f03`；预热首个 502 后恢复，`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移，精确临时目录已删除。
+- 当前状态：Mini JSON transport 与共享错误映射已完成回归、Git 推送、微信体验上传和 ECS 发布；无视觉确认点。最终状态 checkpoint 识别消息：`docs(status): record miniprogram json transport deployment`。
 - 下一活动批次与停止条件：只做 P2 完成审计，逐项核对 presentation-core、client-core、transport、tokens、fixtures、生成 decoder、Web 先行与 Mini bundle 门禁；证据不足则只补缺口，证据完整后才把下一批切到 P3 身份安全预检。
 
 ## 2026-08-22 P2 client-core 月历垂直切片（当前批次）
