@@ -12,7 +12,9 @@
 - 验证：contracts/API typecheck、生成 freshness、根 build/typecheck/lint 通过；contracts/密码/路由/gateway/Web 微信 5 文件/36 项，真实 MySQL identity 22、linkToken 4、邀请 7、database migration/client 19 项通过。受控非 integration 全仓 152 文件/845 项通过，2 个 DB 文件/19 项按该命令环境跳过；默认显式文件运行仍会扫描用户所有 `runtime/**` 历史副本，受控命令排除且未修改副本。
 - Mini/门禁：Mini 运行源码与生成 client 未变；15 文件/63 项、typecheck、verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147968 bytes，manifest `254d964d5f368f185fb5556642c6b2b3d20fd96b0f58b7c47b67fe03ddacac3b`）。本 checkpoint 不需要新增体验上传；上一体验版仍为 `0.1.0-p3.20260822.49`。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无 Web/Mini 模板、样式或页面变化，不需要人工视觉确认；任务 Prettier/ESLint/`git diff --check`/`smoke:check-core` 通过。根 format 仍精确只有既有/用户所有 11 项阻塞。
-- 当前状态：实现和本地门禁完成，待 checkpoint `feat(auth): complete explicit wechat linking` 推送及生产备份/部署/只读核验；无 migration，生产不得调用真实微信登录或写业务身份数据。
+- checkpoint 与发布：代码 checkpoint `2fc9c16`（`feat(auth): complete explicit wechat linking`）已推送；精确 clean worktree production build/package 和依赖构建顺序复核通过。加密备份 archive `94ed7fdd-645e-4c0c-913d-4a911f04c018`（52 表、161454 行、76301168 bytes，SHA-256 `94afd1c97a7794dd2e8105557c659c5f443b199fe009ae927b879d6c6e40458e`）后部署 release `2fc9c164e716bea4b00c4eaf5bb32d67109cd93e`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过 45 migrations。
+- 生产只读复核：两个新路由以空 JSON 均返回 400 `VALIDATION_FAILED`，未进入 token/identity 事务；linkToken/identity/Union 仍为 0，40 个 authVersion 全 1、legacy Mini 仍 1、24 个密码 hash 非空且聚合发布前后不变，52 个业务表不变。未调用真实微信登录、未写业务身份数据，精确远端目录已删除、本地 worktree 已注销。
+- 当前状态：P3-D 已完成回归、推送、生产备份/部署和无隐式身份写入核验；最终状态 checkpoint 识别消息：`docs(status): record explicit linking endpoints deployment`。该文档 checkpoint 推送并按根规则作为 production release 对齐后进入当前 AppID 解绑批次。
 - 下一活动批次与停止条件：只实现用户/平台管理员“解除当前 Mini AppID identity”服务端 contracts、code proof/原因、可用 Web 密码前置、幂等、审计和 authVersion 递增；必须保留用户、资料、用户名、群组、排班、审计与其他渠道。不得关闭公开注册、实现管理员绑定 ticket/password proof 或 UI；并发、错误 code、跨 AppID、旧 session 失效和业务引用不变量通过后停止。
 
 ## 2026-08-22 P3-C 显式微信关联与无注销边界（当前批次）

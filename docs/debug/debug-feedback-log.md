@@ -9,6 +9,7 @@
 - 事务与等价：resolver 原逻辑提取为可复用调用方事务的入口，原 `resolve()` 的 receiver、单事务、空 AppID 前置拒绝、查询/回调顺序、返回/错误保持。linkToken、identity/Union/legacy openid、profile、审计、session 签名和 consumed 同事务；错误 proof、篡改、过期、重放、并发、Union 冲突及缺 secret 均失败关闭并按预期回滚。
 - 验证：契约/密码/Web 微信定向 5 文件/36 项；真实 MySQL identity 22、linkToken 4、邀请 7、database 19 项；受控非 integration 全仓 152 文件/845 项通过（2 文件/19 项环境跳过）。根 build/typecheck/lint、Mini 15 文件/63 项与全部静态/包门禁、任务格式/diff 通过；根 format 仍仅既有/用户所有 11 项。
 - 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；本批无视觉变化。checkpoint 识别消息：`feat(auth): complete explicit wechat linking`。
+- 发布与核验：checkpoint `2fc9c16` 已推送；备份 `94ed7fdd-645e-4c0c-913d-4a911f04c018`（52 表、161454 行、76301168 bytes，SHA-256 `94afd1c97a7794dd2e8105557c659c5f443b199fe009ae927b879d6c6e40458e`）后部署 release `2fc9c164e716bea4b00c4eaf5bb32d67109cd93e`，`ecs-verify.sh` 通过。新路由空 JSON 均 400；生产 linkToken/identity/Union 0、authVersion 全 1、legacy Mini 1、密码聚合不变，未调用微信或写身份。最终状态 checkpoint：`docs(status): record explicit linking endpoints deployment`。
 
 ## 2026-08-22 P3-C 显式微信关联与无注销边界
 
