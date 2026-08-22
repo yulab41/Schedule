@@ -9,6 +9,7 @@
 - 等价：未知 Mini 仍返回原 `isNewUser` 并自动建号，contracts/路由/UI 不变；旧 password/Mini 会话、dev token、资料/群组和错误传播保持。P3-C 才切 `link_required`。
 - 验证：专项 6 文件/49 项、真实 MySQL 身份 14 项+邀请 7 项、非 DB 全仓 155 文件/852 项、Mini 15 文件/62 项及全部静态/包门禁通过；根 build/typecheck/lint、任务格式/diff/`smoke:check-core` 通过，根 format 仅既有/用户所有 11 项。
 - 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): version scoped identities`。
+- 发布与核验：checkpoint `4416f79` 已推送；备份 `e4a7cee1-95ed-48b5-a7c9-50592be31aea`（51 表、161450 行、76298360 bytes，SHA-256 `d8813940663d3f939172a8bdacab6591776acbef47771623a6f79adf6a44b743`）后部署 release `4416f79be3764f510a0ef04fad56ed997e43841a`，`ecs-verify.sh` 通过。部署前后 0 identity/Union、authVersion 全 1、legacy Mini 1、password hash 摘要不变；未触发身份写。最终状态 checkpoint：`docs(status): record scoped identity deployment`。
 
 ## 2026-08-22 P3-A 加法式身份基础
 

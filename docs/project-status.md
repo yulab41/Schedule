@@ -11,7 +11,9 @@
 - 邀请兼容：账号合并在同事务移动 source identity/Union 到 target，并按 target authVersion 签发 scoped token；目标不存在或唯一约束冲突失败关闭。群组/资料/旧 response、异步错误和 API 调用次数保持。
 - 验证：根 build/typecheck/lint 通过；受控非 DB 全仓 155 文件/852 项通过，32 文件/275 项按环境跳过。Mini 15 文件/62 项及 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147887 bytes，manifest `ce7530de82ec5f4cb5d755bb82776231ce22a1034a8bc1d063a060d0348b400f`）。任务 Prettier/`git diff --check`/`smoke:check-core` 通过；根 format 仍只有既有/用户所有 11 项阻塞。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板/样式/页面变化，不需要人工视觉确认。
-- 当前状态：P3-B 实现和本地门禁完成，待 checkpoint `feat(auth): version scoped identities` 推送和生产备份/部署/验证；本轮不修改 Mini 产物代码，不新增体验上传。
+- checkpoint 与发布：代码 checkpoint `4416f79`（`feat(auth): version scoped identities`）已推送；精确干净 worktree production build/package 通过。数据库备份 archive `e4a7cee1-95ed-48b5-a7c9-50592be31aea`（51 表、161450 行、76298360 bytes，SHA-256 `d8813940663d3f939172a8bdacab6591776acbef47771623a6f79adf6a44b743`）后部署 release `4416f79be3764f510a0ef04fad56ed997e43841a`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过 44 migrations。
+- 生产只读复核：部署前后 identity/Union 行均为 0、40 个 authVersion 均为 1、legacy Mini 无 identity 仍为 1 个、24 个 password hash 聚合摘要仍为 `afcb01bb10ea0bd96b3b1bd08772c14575c6f7c3ab5f5149f765bf870260dcbb`。未登录、未调用真实微信、未触发惰性认领或写业务数据，精确临时目录已删除。
+- 当前状态：P3-B 已完成回归、推送、生产备份/部署和无隐式身份写入复核；本轮不修改 Mini 产物代码，不新增体验上传，也无人工视觉确认点。最终状态 checkpoint 识别消息：`docs(status): record scoped identity deployment`。
 - 下一活动批次与停止条件：只做 P3-C 哈希 linkToken、未知 Mini `link_required` 和账号注销代码/API 移除；保留密码登录及当前 Web 注册页到同步视觉批次，不实现绑定/解绑确认、管理员账号页或 Mini 页面。未知登录不建号、token 过期/篡改/重放/并发与无注销测试通过后停止。
 
 ## 2026-08-22 P3-A 加法式身份基础（当前批次）
