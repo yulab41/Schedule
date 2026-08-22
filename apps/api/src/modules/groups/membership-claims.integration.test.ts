@@ -291,6 +291,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'roster_entries',
     'idempotency_keys',
     '`groups`',
+    'wechat_union_accounts',
     'user_auth_identities',
     'user_password_credentials',
     'user_profiles',

@@ -19,6 +19,7 @@ export const userAuthIdentities = mysqlTable(
     id: identifier(),
     userId: char('user_id', { length: 36 }).notNull(),
     provider: mysqlEnum('provider', ['wechat_mini_program', 'wechat_web']).notNull(),
+    appId: varchar('app_id', { length: 64 }),
     subject: varchar('subject', { length: 128 }).notNull(),
     unionId: varchar('union_id', { length: 128 }),
     createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
@@ -27,7 +28,27 @@ export const userAuthIdentities = mysqlTable(
   (table) => [
     uniqueIndex('user_auth_identities_provider_subject_unique').on(table.provider, table.subject),
     uniqueIndex('user_auth_identities_union_id_unique').on(table.unionId),
+    index('user_auth_identities_provider_app_subject_idx').on(
+      table.provider,
+      table.appId,
+      table.subject,
+    ),
     index('user_auth_identities_user_idx').on(table.userId),
+  ],
+);
+
+export const wechatUnionAccounts = mysqlTable(
+  'wechat_union_accounts',
+  {
+    id: identifier(),
+    userId: char('user_id', { length: 36 }).notNull(),
+    unionId: varchar('union_id', { length: 128 }).notNull(),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('wechat_union_accounts_union_id_unique').on(table.unionId),
+    uniqueIndex('wechat_union_accounts_user_id_unique').on(table.userId),
   ],
 );
 

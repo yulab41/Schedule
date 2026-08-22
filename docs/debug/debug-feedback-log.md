@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-A 加法式身份基础
+
+- 红灯：foundation 4/4、nullable password 2/7、migration verifier 1/3 在旧实现失败；定位 identity/password/JWT 来源为 `12e7f40`/`de3ad5f`/`39f9c66`。
+- 实现：migration 0044 增加 authVersion、可空 appId 过渡列、Union 一人一号表和 nullable hash；临时 CHECK 在 DDL 前阻断 locator/Union 冲突，只补 active password credential 的 null locator。null hash 登录/状态/proof 失败关闭；产品 API/UI 不变。集成 reset 补齐三张身份表清理。
+- 验证：专项 14 项、真实 MySQL migration 17/17、非 DB 全仓 154 文件/848 项、Mini 15 文件/62 项及全部静态/包门禁通过；主工作区其余 integration 240 项通过。6 文件/10 项旧断言/fixture 与用户 runtime 副本失败已独立归因，不修改。根 build/typecheck/lint、任务格式/diff/`smoke:check-core` 通过，根 format 仅既有/用户所有 11 项。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): add identity security foundation`。
+
 ## 2026-08-22 P3 身份安全预检
 
 - 只读结论：identity 缺 appId、UnionID 直接唯一、未知 Mini 自动建号、匿名密码注册、真实注销和无版本 JWT 均与已批准 P3/ADR 冲突；引入点分别为 `12e7f40`、`39f9c66`、`de3ad5f`、`a837586`。

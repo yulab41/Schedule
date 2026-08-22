@@ -44,6 +44,7 @@ export const users = mysqlTable(
     id: identifier(),
     cloudbaseUid: varchar('cloudbase_uid', { length: 128 }),
     isDeveloperAdmin: tinyint('is_developer_admin', { unsigned: true }).default(0).notNull(),
+    authVersion: int('auth_version', { unsigned: true }).default(1).notNull(),
     wechatOpenid: varchar('wechat_openid', { length: 64 }),
     status: mysqlEnum('status', ['active', 'suspended', 'deleted']).default('active').notNull(),
     ...auditableColumns(),
@@ -61,7 +62,7 @@ export const userPasswordCredentials = mysqlTable(
       .primaryKey()
       .references(() => users.id, { onDelete: 'cascade' }),
     username: varchar('username', { length: 64 }).notNull(),
-    passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+    passwordHash: varchar('password_hash', { length: 255 }),
     createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
   },

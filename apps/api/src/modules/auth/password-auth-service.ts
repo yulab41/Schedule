@@ -105,6 +105,7 @@ export class PasswordAuthService {
     if (
       credential === undefined ||
       credential.cloudbaseUid === null ||
+      credential.passwordHash === null ||
       credential.status !== 'active' ||
       !(await verifyPassword(password, credential.passwordHash))
     ) {
@@ -136,7 +137,7 @@ export class PasswordAuthService {
       )
       .limit(1);
 
-    return credential === undefined
+    return credential === undefined || credential.passwordHash === null
       ? { hasPassword: false, mustChangePassword: false }
       : {
           hasPassword: true,
@@ -169,7 +170,7 @@ export class PasswordAuthService {
         .limit(1)
         .for('update');
 
-      if (credential === undefined) {
+      if (credential === undefined || credential.passwordHash === null) {
         throw passwordChangeUnavailableError();
       }
       if (!(await verifyPassword(input.currentPassword, credential.passwordHash))) {

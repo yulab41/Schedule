@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-A 加法式身份基础（当前批次）
+
+- 范围与引入点：只实现预检批准的 additive schema、受限 legacy locator backfill 和 nullable password 防御；不改登录 response、路由、JWT、公开注册、注销/解绑行为或 UI。identity/password/JWT 旧形态分别来自 `12e7f40`、`de3ad5f`、`39f9c66`。
+- 测试先行：identity foundation 静态门禁旧实现 4/4 失败；预分配 username 的 null hash 在旧 password service 会触发 `null.split()`，新增 7 项中 2 项失败；迁移计数 verifier 旧实现 1/3 失败。实现后专项 3 文件/14 项、真实 MySQL 全迁移/回填/冲突 17/17 通过。
+- schema/migration：新增 `users.auth_version=1`、可空 identity `app_id` 过渡列与索引、`wechat_union_accounts`（UnionID/userId 分别唯一）、nullable `password_hash`，保留 legacy identity UnionID 列/唯一索引。SQL 先用临时 CHECK 门禁 locator 碰撞与单用户多 UnionID，再只为 active、未删除且已有 password credential 的 null locator 写 `password_<userId>`；无凭证用户不动，旧 hash 字节不变。迁移数为 44，表数为 51。
+- 运行语义：既有非空密码登录/状态/改密路径不变；预分配但无 hash 的账号现在稳定返回“无密码”/无效登录，当前密码 proof 返回 403，不再抛 TypeError。27 个集成 reset 补齐 union/identity/password 清理，只改变测试隔离，不改变产品。
+- 验证：根 build/typecheck/lint 通过；受控非 DB 全仓 154 文件/848 项通过，32 文件/268 项按环境跳过。Mini 15 文件/62 项及 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147887 bytes，manifest `d235758236e918b96a52b4056be9817747412a15480f5935b91b4cdc59fc212b`）。任务 Prettier、`git diff --check` 与 `smoke:check-core` 通过；根 format 仍只有既有/用户所有 11 项阻塞。
+- DB 集成说明：P3 migration 17/17；其余主工作区 integration 240 项通过。另有 6 个文件/10 项既有断言或 fixture 独立复现失败：旧 contact `confirm` 字段、姓名并发仍期待可自改、developer admin 使 owner/用户计数假设失效、平台注销/备份 fixture、calendar preferences 未检查配置响应；均早于本批且调用点未改，不在身份 schema checkpoint 顺手修订。用户所有 `runtime/` 副本会产生同名旧 reset 失败，受控命令显式排除且未修改副本。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板/样式/页面变化，不需要人工视觉确认。
+- 当前状态：P3-A 实现和本地门禁完成，待 checkpoint `feat(auth): add identity security foundation` 推送、生产备份/迁移/部署、44 migration/51 table 与精确 5 locator 聚合复核；本轮无 Mini 产物代码变化，不新增体验上传。
+- 下一活动批次与停止条件：只做 P3-B 版本化 session 与 AppID identity resolver；新 token 写 `authVersion/appId`，旧 token 缺版本按 1 兼容，认证逐次核对 active/deleted/version，legacy Mini 仅精确惰性认领。不得实现 link-required、绑定/解绑、路由或 UI；旧 Web/上一 Mini 会话兼容和安全测试通过后停止。
+
 ## 2026-08-22 P3 身份安全预检（当前批次）
 
 - 同步与范围：预检开始时本地 `HEAD`、`origin/main` 与生产 `current-release` 均为 `98ce251`；只读审计 contracts、schema/migrations、JWT/auth port、密码/Mini/Web 微信服务、用户/平台路由、Web 登录和生产聚合数据。未写生产数据、调用真实微信登录、修改接口或 UI。

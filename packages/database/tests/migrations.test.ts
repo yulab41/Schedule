@@ -46,11 +46,11 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'user_auth_identities', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
+          AND table_name IN ('users', 'user_profiles', 'user_auth_identities', 'wechat_union_accounts', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 43 }]);
-    expect(tables).toEqual([{ count: 50 }]);
+    expect(migrations).toEqual([{ count: 44 }]);
+    expect(tables).toEqual([{ count: 51 }]);
   });
 
   it('creates directory snapshot, prefix, and Chinese ngram search constraints', async () => {
@@ -147,6 +147,162 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT cloudbase_uid FROM users WHERE id = ${userId}`,
     )) as unknown as [{ cloudbase_uid: string | null }[], unknown];
     expect(rows[0]?.cloudbase_uid).toBeNull();
+  });
+
+  it('adds the P3 identity foundation without changing unrelated users or password hashes', async () => {
+    const preP3MigrationsDirectory = await createLegacyMigrationsDirectory(43);
+    try {
+      await migrateDatabase(client, preP3MigrationsDirectory);
+      const credentialUserId = randomUUID();
+      const untouchedUserId = randomUUID();
+      const passwordHash = 'scrypt$16384$8$1$test-salt$test-key';
+      const unionId = 'union-p3-foundation';
+
+      await client.database.execute(sql`
+        INSERT INTO users (id, status)
+        VALUES (${credentialUserId}, 'active'), (${untouchedUserId}, 'active')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO user_password_credentials (user_id, username, password_hash)
+        VALUES (${credentialUserId}, 'p3-foundation', ${passwordHash})
+      `);
+      await client.database.execute(sql`
+        INSERT INTO user_auth_identities (id, user_id, provider, subject, union_id)
+        VALUES (
+          ${randomUUID()}, ${credentialUserId}, 'wechat_mini_program',
+          'openid-p3-foundation', ${unionId}
+        )
+      `);
+
+      await runMigrationFile(client, '0044_identity_security_foundation');
+
+      const [usersAfterMigration] = (await client.database.execute(sql`
+        SELECT id, auth_version AS authVersion, cloudbase_uid AS cloudbaseUid
+        FROM users
+        WHERE id IN (${credentialUserId}, ${untouchedUserId})
+        ORDER BY id
+      `)) as unknown as [
+        { authVersion: number; cloudbaseUid: string | null; id: string }[],
+        unknown,
+      ];
+      const credentialUser = usersAfterMigration.find((row) => row.id === credentialUserId);
+      const untouchedUser = usersAfterMigration.find((row) => row.id === untouchedUserId);
+      expect(credentialUser).toMatchObject({
+        authVersion: 1,
+        cloudbaseUid: `password_${credentialUserId}`,
+      });
+      expect(untouchedUser).toMatchObject({ authVersion: 1, cloudbaseUid: null });
+
+      const [credentials] = (await client.database.execute(sql`
+        SELECT password_hash AS passwordHash
+        FROM user_password_credentials
+        WHERE user_id = ${credentialUserId}
+      `)) as unknown as [{ passwordHash: string | null }[], unknown];
+      expect(credentials).toEqual([{ passwordHash }]);
+
+      const [identityRows] = (await client.database.execute(sql`
+        SELECT app_id AS appId
+        FROM user_auth_identities
+        WHERE user_id = ${credentialUserId}
+      `)) as unknown as [{ appId: string | null }[], unknown];
+      expect(identityRows).toEqual([{ appId: null }]);
+
+      const [unionRows] = (await client.database.execute(sql`
+        SELECT union_id AS unionId, user_id AS userId
+        FROM wechat_union_accounts
+      `)) as unknown as [{ unionId: string; userId: string }[], unknown];
+      expect(unionRows).toEqual([{ unionId, userId: credentialUserId }]);
+
+      const [passwordColumns] = (await client.database.execute(sql`
+        SELECT IS_NULLABLE AS isNullable
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'user_password_credentials'
+          AND COLUMN_NAME = 'password_hash'
+      `)) as unknown as [{ isNullable: string }[], unknown];
+      expect(passwordColumns).toEqual([{ isNullable: 'YES' }]);
+
+      await expect(
+        client.database.execute(sql`
+          INSERT INTO wechat_union_accounts (id, user_id, union_id)
+          VALUES (${randomUUID()}, ${credentialUserId}, 'another-union')
+        `),
+      ).rejects.toThrow();
+    } finally {
+      await rm(preP3MigrationsDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('fails P3 identity foundation before persistent DDL when a locator would collide', async () => {
+    const preP3MigrationsDirectory = await createLegacyMigrationsDirectory(43);
+    try {
+      await migrateDatabase(client, preP3MigrationsDirectory);
+      const targetUserId = randomUUID();
+      await client.database.execute(sql`
+        INSERT INTO users (id, status)
+        VALUES
+          (${targetUserId}, 'active'),
+          (${randomUUID()}, 'active')
+      `);
+      await client.database.execute(sql`
+        UPDATE users
+        SET cloudbase_uid = ${`password_${targetUserId}`}
+        WHERE id <> ${targetUserId}
+          AND cloudbase_uid IS NULL
+        LIMIT 1
+      `);
+      await client.database.execute(sql`
+        INSERT INTO user_password_credentials (user_id, username, password_hash)
+        VALUES (${targetUserId}, 'p3-collision', 'scrypt$test')
+      `);
+
+      await expect(runMigrationFile(client, '0044_identity_security_foundation')).rejects.toThrow(
+        /_identity_foundation_validation/,
+      );
+
+      const [columns] = (await client.database.execute(sql`
+        SELECT COUNT(*) AS count
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'users'
+          AND COLUMN_NAME = 'auth_version'
+      `)) as unknown as [{ count: number }[], unknown];
+      expect(columns).toEqual([{ count: 0 }]);
+    } finally {
+      await rm(preP3MigrationsDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('fails P3 identity foundation before persistent DDL when one user has multiple UnionIDs', async () => {
+    const preP3MigrationsDirectory = await createLegacyMigrationsDirectory(43);
+    try {
+      await migrateDatabase(client, preP3MigrationsDirectory);
+      const userId = randomUUID();
+      await client.database.execute(
+        sql`INSERT INTO users (id, status) VALUES (${userId}, 'active')`,
+      );
+      await client.database.execute(sql`
+        INSERT INTO user_auth_identities (id, user_id, provider, subject, union_id)
+        VALUES
+          (${randomUUID()}, ${userId}, 'wechat_mini_program', 'mini-subject', 'union-mini'),
+          (${randomUUID()}, ${userId}, 'wechat_web', 'web-subject', 'union-web')
+      `);
+
+      await expect(runMigrationFile(client, '0044_identity_security_foundation')).rejects.toThrow(
+        /_identity_foundation_validation/,
+      );
+
+      const [columns] = (await client.database.execute(sql`
+        SELECT COUNT(*) AS count
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'users'
+          AND COLUMN_NAME = 'auth_version'
+      `)) as unknown as [{ count: number }[], unknown];
+      expect(columns).toEqual([{ count: 0 }]);
+    } finally {
+      await rm(preP3MigrationsDirectory, { force: true, recursive: true });
+    }
   });
 
   it('uses UTC for every MySQL session', async () => {
@@ -428,13 +584,13 @@ async function runMigrationFile(client: DatabaseClient, migrationName: string): 
   }
 }
 
-async function createLegacyMigrationsDirectory(): Promise<string> {
+async function createLegacyMigrationsDirectory(entryCount = 32): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'schedule-migrations-'));
   await mkdir(join(directory, 'meta'));
   const journal = JSON.parse(
     await readFile(join(migrationsDirectory, 'meta/_journal.json'), 'utf8'),
   ) as { dialect: string; entries: readonly { tag: string }[]; version: string };
-  const legacyEntries = journal.entries.slice(0, 32);
+  const legacyEntries = journal.entries.slice(0, entryCount);
   await writeFile(
     join(directory, 'meta/_journal.json'),
     JSON.stringify({ dialect: journal.dialect, entries: legacyEntries, version: journal.version }),
@@ -564,6 +720,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS wechat_union_accounts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS users`);
   await client.database.execute(sql`DROP TABLE IF EXISTS __drizzle_migrations`);
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);

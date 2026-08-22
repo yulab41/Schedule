@@ -302,6 +302,13 @@
       "when": 1785542400043,
       "tag": "0043_calendar_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1785542400044,
+      "tag": "0044_identity_security_foundation",
+      "breakpoints": true
     }
   ]
 }

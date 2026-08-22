@@ -49,6 +49,67 @@ describe('password authentication primitives', () => {
     expect(isDefaultPassword('changed-password')).toBe(false);
   });
 
+  it('treats a preallocated username without a password hash as not yet password-enabled', async () => {
+    const loginClient = {
+      close: vi.fn(),
+      database: {
+        select: vi.fn(() =>
+          createSelect([
+            {
+              cloudbaseUid: 'password_user-1',
+              passwordHash: null,
+              status: 'active',
+              userId: 'user-1',
+            },
+          ]),
+        ),
+      },
+    } as unknown as DatabaseClient;
+    const loginService = new PasswordAuthService({
+      databaseClient: loginClient,
+      sessionSecret: 's'.repeat(32),
+    });
+
+    await expect(loginService.login('linenyu', 'password')).rejects.toMatchObject({
+      statusCode: 401,
+    });
+
+    const statusClient = {
+      close: vi.fn(),
+      database: { select: vi.fn(() => createSelect([{ passwordHash: null }])) },
+    } as unknown as DatabaseClient;
+    const statusService = new PasswordAuthService({
+      databaseClient: statusClient,
+      sessionSecret: 's'.repeat(32),
+    });
+    await expect(statusService.getStatus({ cloudbaseUid: 'password_user-1' })).resolves.toEqual({
+      hasPassword: false,
+      mustChangePassword: false,
+    });
+  });
+
+  it('does not accept current-password proof before a preallocated identity has set a password', async () => {
+    const updateWhere = vi.fn().mockResolvedValue(undefined);
+    const transaction = {
+      insert: vi.fn(),
+      select: vi.fn(() => createLockedSelect([{ passwordHash: null, userId: 'user-1' }])),
+      update: vi.fn(() => ({ set: vi.fn(() => ({ where: updateWhere })) })),
+    };
+    const databaseClient = {
+      close: vi.fn(),
+      database: { transaction: vi.fn(async (operation) => operation(transaction)) },
+    } as unknown as DatabaseClient;
+    const service = new PasswordAuthService({ databaseClient, sessionSecret: 's'.repeat(32) });
+
+    await expect(
+      service.changePassword(
+        { cloudbaseUid: 'password_user-1' },
+        { currentPassword: 'anything', newPassword: 'changed-password' },
+      ),
+    ).rejects.toMatchObject({ statusCode: 403 });
+    expect(updateWhere).not.toHaveBeenCalled();
+  });
+
   it('verifies the current password, replaces the hash, and writes an audit record', async () => {
     const existingHash = await hashPassword('123');
     const updateWhere = vi.fn().mockResolvedValue(undefined);
@@ -104,6 +165,19 @@ function createLockedSelect(rows: readonly unknown[]) {
   chain.from.mockReturnValue(chain);
   chain.innerJoin.mockReturnValue(chain);
   chain.limit.mockReturnValue(chain);
+  chain.where.mockReturnValue(chain);
+  return chain;
+}
+
+function createSelect(rows: readonly unknown[]) {
+  const chain = {
+    from: vi.fn(),
+    innerJoin: vi.fn(),
+    limit: vi.fn().mockResolvedValue(rows),
+    where: vi.fn(),
+  };
+  chain.from.mockReturnValue(chain);
+  chain.innerJoin.mockReturnValue(chain);
   chain.where.mockReturnValue(chain);
   return chain;
 }
