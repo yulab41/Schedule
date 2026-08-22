@@ -52,6 +52,32 @@ export const wechatUnionAccounts = mysqlTable(
   ],
 );
 
+export const wechatIdentityDetachments = mysqlTable(
+  'wechat_identity_detachments',
+  {
+    id: identifier(),
+    userId: char('user_id', { length: 36 }).notNull(),
+    provider: mysqlEnum('provider', ['wechat_mini_program', 'wechat_web']).notNull(),
+    appId: varchar('app_id', { length: 64 }).notNull(),
+    subjectHash: char('subject_hash', { length: 64 }).notNull(),
+    detachedAt: timestamp('detached_at', { fsp: 3 }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('wechat_identity_detachments_scope_unique').on(
+      table.provider,
+      table.appId,
+      table.subjectHash,
+    ),
+    uniqueIndex('wechat_identity_detachments_user_scope_unique').on(
+      table.provider,
+      table.appId,
+      table.userId,
+    ),
+  ],
+);
+
 export const wechatLinkTokens = mysqlTable(
   'wechat_link_tokens',
   {

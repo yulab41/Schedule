@@ -128,6 +128,7 @@ export class WechatAuthService {
       }
 
       const resolved = await this.identityResolver.resolveInTransaction(transaction, {
+        allowDetachedIdentity: true,
         appId: identity.appId,
         createUser: async () => ({
           authVersion: account.authVersion,
@@ -175,6 +176,7 @@ export class WechatAuthService {
           ? undefined
           : await this.getActiveUser(transaction, identity.existingUserId);
       const resolved = await this.identityResolver.resolveInTransaction(transaction, {
+        allowDetachedIdentity: true,
         appId: identity.appId,
         createUser: (currentTransaction) =>
           existingUser === undefined

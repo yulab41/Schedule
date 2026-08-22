@@ -399,6 +399,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS idempotency_keys`);
   await client.database.execute(sql`DROP TABLE IF EXISTS \`groups\``);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_profiles`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS wechat_identity_detachments`);
   await client.database.execute(sql`DROP TABLE IF EXISTS wechat_link_tokens`);
   await client.database.execute(sql`DROP TABLE IF EXISTS wechat_union_accounts`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);

@@ -316,6 +316,13 @@
       "when": 1785542400045,
       "tag": "0045_wechat_link_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1785542400046,
+      "tag": "0046_wechat_identity_detachments",
+      "breakpoints": true
     }
   ]
 }

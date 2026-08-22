@@ -66,6 +66,27 @@ export type WechatRegisterRequest = z.infer<typeof wechatRegisterRequestSchema>;
 export const wechatRegisterResponseSchema = wechatAuthenticatedResponseSchema;
 export type WechatRegisterResponse = z.infer<typeof wechatRegisterResponseSchema>;
 
+export const wechatMiniProgramUnbindRequestSchema = z
+  .object({
+    code: z.string().min(1).max(512),
+  })
+  .strict();
+export type WechatMiniProgramUnbindRequest = z.infer<typeof wechatMiniProgramUnbindRequestSchema>;
+
+export const platformAdminWechatMiniProgramUnbindRequestSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+export type PlatformAdminWechatMiniProgramUnbindRequest = z.infer<
+  typeof platformAdminWechatMiniProgramUnbindRequestSchema
+>;
+
+export const wechatMiniProgramUnbindResponseSchema = z
+  .object({ unbound: z.literal(true) })
+  .strict();
+export type WechatMiniProgramUnbindResponse = z.infer<typeof wechatMiniProgramUnbindResponseSchema>;
+
 export const wechatWebLoginStartQuerySchema = z
   .object({
     state: z.string().min(16).max(256),

@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-E 当前 Mini AppID 解绑
+
+- 红灯与设计：新增 contracts/0046/schema 先在旧实现 3 项失败；5 个路由场景先返回 404。只删当前 Mini identity 会被 Union resolver 自动回挂，因此增加仅存 subject hash 的 detachment marker，并在 resolver 默认拒绝、显式密码重绑时原子清除。
+- 实现：用户 fresh code + password prerequisite 与平台管理员 reason + password prerequisite 共用 current-AppID scoped service；Idempotency-Key 同 fingerprint replay，cross-body 409；删除 identity、清除 legacy mirror、authVersion/version、审计和 result 同事务。其他 Web/ Mini identity、Union、profile/password/群组引用不变。
+- 等价与测试：`resolve()` 空 AppID 仍在开事务前拒绝；新增 `resolveInTransaction` 只改变调用方事务复用，不改变原查询顺序、receiver、错误或结果。真实 MySQL 解绑 6、既有微信 22、linkToken 4、邀请 7、迁移 19 项通过；受控非 integration 153 文件/848 项通过。平台 admin 10 项中 9 项通过，backup fixture 固定 contact UUID 的既有失败未改。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；本批无视觉变化。checkpoint 识别消息：`feat(auth): enforce current mini identity unbind`。
+
 ## 2026-08-22 P3-D linkToken 消费与显式建档
 
 - 红灯与来源：contracts 新用例在旧代码 1 项失败，真实 MySQL 7 个新端点场景全部 404；登录、resolver、密码和 linkToken 来源为 `39f9c66`/`4416f79`/`de3ad5f`/`3919050`。默认 Vitest 另扫用户 `runtime/**` 副本导致迁移表竞争，显式排除后主文件红灯/绿灯可重复。

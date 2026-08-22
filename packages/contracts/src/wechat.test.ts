@@ -7,9 +7,12 @@ import {
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
   visitorResolveRequestSchema,
+  platformAdminWechatMiniProgramUnbindRequestSchema,
   wechatLinkPasswordRequestSchema,
   wechatLinkPasswordResponseSchema,
   wechatLoginResponseSchema,
+  wechatMiniProgramUnbindRequestSchema,
+  wechatMiniProgramUnbindResponseSchema,
   wechatRegisterRequestSchema,
   wechatRegisterResponseSchema,
 } from './wechat.js';
@@ -90,6 +93,24 @@ describe('wechat mini program contracts', () => {
         realName: '   ',
       }).success,
     ).toBe(false);
+  });
+
+  it('defines strict self/admin Mini identity unbind contracts without delete semantics', () => {
+    expect(wechatMiniProgramUnbindRequestSchema.safeParse({ code: 'fresh-code' }).success).toBe(
+      true,
+    );
+    expect(
+      wechatMiniProgramUnbindRequestSchema.safeParse({ code: 'fresh-code', deleteUser: true })
+        .success,
+    ).toBe(false);
+    expect(
+      platformAdminWechatMiniProgramUnbindRequestSchema.parse({ reason: '  用户申请解绑  ' }),
+    ).toEqual({ reason: '用户申请解绑' });
+    expect(
+      platformAdminWechatMiniProgramUnbindRequestSchema.safeParse({ reason: '   ' }).success,
+    ).toBe(false);
+    expect(wechatMiniProgramUnbindResponseSchema.safeParse({ unbound: true }).success).toBe(true);
+    expect(wechatMiniProgramUnbindResponseSchema.safeParse({ deleted: true }).success).toBe(false);
   });
 
   it('requires a 32-character hexadecimal visitor key', () => {

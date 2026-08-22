@@ -5,12 +5,14 @@ import {
   type DatabaseTransaction,
   userAuthIdentities,
   users,
+  wechatIdentityDetachments,
   wechatUnionAccounts,
   withTransaction,
 } from '@schedule/database';
 import { and, eq } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { hashWechatIdentitySubject } from './wechat-identity-hash.js';
 
 export type WechatIdentityProvider = 'wechat_mini_program' | 'wechat_web';
 
@@ -20,6 +22,7 @@ interface CreatedWechatUser {
 }
 
 interface ResolveWechatIdentityInput {
+  readonly allowDetachedIdentity?: boolean | undefined;
   readonly appId: string;
   readonly createUser?:
     ((transaction: DatabaseTransaction) => Promise<CreatedWechatUser>) | undefined;
@@ -65,6 +68,10 @@ export class WechatIdentityResolver {
     }
 
     try {
+      const detachment = await this.findDetachment(transaction, input);
+      if (detachment !== undefined && input.allowDetachedIdentity !== true) {
+        return undefined;
+      }
       const existingIdentity = await this.findIdentity(transaction, input);
       if (existingIdentity !== undefined) {
         if (existingIdentity.appId === null) {
@@ -77,6 +84,7 @@ export class WechatIdentityResolver {
         }
         const user = await this.getActiveUser(transaction, existingIdentity.userId);
         await this.ensureUnionAccount(transaction, user.userId, input.unionId);
+        await this.clearMatchingDetachment(transaction, detachment, user.userId);
         await input.onResolved?.(transaction, user.userId);
         return { ...user, isNewUser: false };
       }
@@ -86,6 +94,7 @@ export class WechatIdentityResolver {
         if (legacyUser !== undefined) {
           await this.insertIdentity(transaction, input, legacyUser.userId);
           await this.ensureUnionAccount(transaction, legacyUser.userId, input.unionId);
+          await this.clearMatchingDetachment(transaction, detachment, legacyUser.userId);
           await input.onResolved?.(transaction, legacyUser.userId);
           return { ...legacyUser, isNewUser: false };
         }
@@ -95,6 +104,7 @@ export class WechatIdentityResolver {
       if (unionUser !== undefined) {
         const user = await this.getActiveUser(transaction, unionUser);
         await this.insertIdentity(transaction, input, user.userId);
+        await this.clearMatchingDetachment(transaction, detachment, user.userId);
         await input.onResolved?.(transaction, user.userId);
         return { ...user, isNewUser: false };
       }
@@ -103,6 +113,7 @@ export class WechatIdentityResolver {
       const created = await input.createUser(transaction);
       await this.insertIdentity(transaction, input, created.userId);
       await this.ensureUnionAccount(transaction, created.userId, input.unionId);
+      await this.clearMatchingDetachment(transaction, detachment, created.userId);
       await input.onResolved?.(transaction, created.userId);
       return { ...created, isNewUser: true };
     } catch (error) {
@@ -111,6 +122,38 @@ export class WechatIdentityResolver {
       }
       throw error;
     }
+  }
+
+  private async clearMatchingDetachment(
+    transaction: DatabaseTransaction,
+    detachment: { readonly id: string; readonly userId: string } | undefined,
+    userId: string,
+  ): Promise<void> {
+    if (detachment === undefined) return;
+    if (detachment.userId !== userId) throw identityConflictError();
+    await transaction
+      .delete(wechatIdentityDetachments)
+      .where(eq(wechatIdentityDetachments.id, detachment.id));
+  }
+
+  private async findDetachment(
+    transaction: DatabaseTransaction,
+    input: Pick<ResolveWechatIdentityInput, 'appId' | 'provider' | 'subject'>,
+  ): Promise<{ readonly id: string; readonly userId: string } | undefined> {
+    if (input.provider !== 'wechat_mini_program') return undefined;
+    const [detachment] = await transaction
+      .select({ id: wechatIdentityDetachments.id, userId: wechatIdentityDetachments.userId })
+      .from(wechatIdentityDetachments)
+      .where(
+        and(
+          eq(wechatIdentityDetachments.provider, input.provider),
+          eq(wechatIdentityDetachments.appId, input.appId),
+          eq(wechatIdentityDetachments.subjectHash, hashWechatIdentitySubject(input.subject)),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    return detachment;
   }
 
   private async findIdentity(

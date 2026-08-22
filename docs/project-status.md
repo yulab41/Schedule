@@ -2,6 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-E 当前 Mini AppID 解绑（当前批次）
+
+- 范围：只实现用户/平台管理员解除当前正式 Mini AppID identity 的后端 contracts、fresh code/管理员原因、可用 Web 密码前置、Idempotency-Key、审计、authVersion 递增和旧 session 失效；不关闭公开注册、不做管理员绑定 ticket/password proof 或任何 UI。ADR-0004 的“无注销”边界保持不变。
+- 安全设计：新增 0046 `wechat_identity_detachments`，只存 provider/AppID/subject SHA-256/userId，唯一约束当前 AppID 与用户；删除 identity 时清空 legacy `wechat_openid` 镜像但保留用户、profile、password、Union、Web/其他 Mini identity 和业务引用。普通登录遇 detachment 返回 `link_required`，不会经 Union 自动回挂；正确密码显式 link-password 才能同事务清除标记并重绑。
+- 用户/管理员语义：用户 `POST /me/wechat/miniprogram/unbind {code}` 要求新的微信 code、当前 active user 和可用 password；管理员 `POST /platform-admin/users/:userId/wechat/miniprogram/unbind {reason}` 要求平台权限、目标未删除且有 password。两者只匹配当前 AppID；缺少身份、跨 AppID、Union/subject 错配、无密码均失败关闭。
+- 幂等/并发：Idempotency-Key 必须 UUID；code exchange、identity/标记锁、密码前置、删除、authVersion、审计和 completed result 在同一事务。相同 key 同 fingerprint 返回同一 `{unbound:true}`，不同 body 409；用户在第一次成功后用密码会话可安全重试，重复不会再次递增版本或审计。
+- resolver 等价：`resolveInTransaction` 默认拒绝被解绑标记的 Mini identity；显式 link-password/register 以 `allowDetachedIdentity` 复用同一调用方事务，并只允许原 user 清除标记。原 `resolve()` 的空 AppID 前置拒绝、receiver、事务、调用顺序、返回和错误保持。
+- 测试先行与验证：旧代码上 contracts/schema 3 项失败，5 个实际新路由场景返回 404；实现后静态 contracts/schema/package 15 项，真实 MySQL 解绑 6、既有微信 22、linkToken 4、邀请 7、migration/client 19 项通过。受控非 integration 全仓 153 文件/848 项通过，2 文件/19 项按环境跳过；既有 `platform-admin.integration` 10 项中 9 项通过，唯一失败为原有 backup fixture 重复固定 contact UUID，与本批无调用关系。
+- 根/Mini 门禁：根 build/typecheck/lint、client generated freshness、Mini 15 文件/63 项、typecheck、verify/source/2 Worklets/package/determinism/CI dry-run 通过（147968 bytes，manifest `82c894febd7d7991d8ae381d5e8b6c4b5a048acc706e8e0878e4f1ae295486be`）；任务 Prettier/`git diff --check` 通过，根 format 仍精确只有既有/用户所有 11 项阻塞。Mini 运行源码未变，不新增体验上传。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无 Web/Mini 模板、样式或页面变化，不需要人工视觉确认；`smoke:check-core` 待本记录落盘后复核。
+- 当前状态：实现与本地验证完成，待 checkpoint `feat(auth): enforce current mini identity unbind` 推送、生产备份/迁移/部署/`ecs-verify` 和只读不变量核验。生产预计为 46 migrations/53 业务表；不得调用真实微信登录或写生产身份数据。
+- 下一活动批次与停止条件：只实现平台管理员脱敏账号状态/用户名分配和 `/me/password` 当前密码或新微信 code proof；不做管理员 URL Link、Mini 页面或公开注册关闭。authVersion、密码 hash、管理员权限、审计、并发和旧 session 测试通过后，进入首个 Web/Mini 视觉黄金稿暂停点。
+
 ## 2026-08-22 P3-D linkToken 消费与显式建档（当前批次）
 
 - 范围：只新增 `POST /auth/wechat/link-password` 和 `POST /auth/wechat/register` 的严格 contracts、原子 linkToken 消费、密码 proof、真实姓名建档和 authenticated response；不做管理员 ticket/URL Link、密码修改 proof、解绑、公开 Web 注册关闭或任何页面。该子步对应身份预检 P3-C 第 2 项，当前状态沿用 P3-D checkpoint 标签。

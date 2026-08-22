@@ -53,6 +53,8 @@ import { PastScheduleService } from './modules/past-schedules/past-schedule-serv
 import { ExportService } from './modules/exports/export-service.js';
 import { WechatAuthService } from './modules/wechat/wechat-auth-service.js';
 import { registerWechatAuthRoutes } from './modules/wechat/wechat-auth-routes.js';
+import { registerWechatIdentityUnbindRoutes } from './modules/wechat/wechat-identity-unbind-routes.js';
+import { WechatIdentityUnbindService } from './modules/wechat/wechat-identity-unbind-service.js';
 import { registerWechatWebAuthRoutes } from './modules/wechat/wechat-web-auth-routes.js';
 import type { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.js';
 import { registerAuthentication } from './plugins/authenticate.js';
@@ -123,6 +125,14 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         sessionSecret: options.wechatSessionSecret,
       });
       registerWechatAuthRoutes(app, wechatAuthService);
+      registerWechatIdentityUnbindRoutes(
+        app,
+        new WechatIdentityUnbindService({
+          allowedPlatformAdminUids: platformAdminUids,
+          databaseClient: options.databaseClient,
+          gateway: options.wechatGateway,
+        }),
+      );
     }
     if (options.wechatWebAuthService !== undefined) {
       registerWechatWebAuthRoutes(app, options.wechatWebAuthService);
