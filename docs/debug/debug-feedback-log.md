@@ -8,6 +8,7 @@
 - 验证：contracts 7 项、真实 MySQL 5 项、root build/typecheck/lint、受控非 integration 154 文件/851 项、Mini 15 文件/63 项与全部包门禁通过。既有 platform-admin integration 9/10，唯一失败是固定 contact UUID 的历史 backup fixture。
 - 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): require admin password proof`。
 - 发布与核验：checkpoint `0225e0e` 已推送；备份 `2e4b0172-0fcd-4df6-8510-6e001f705a60`（53 表、161459 行、76304648 bytes，SHA-256 `9b0ffc05d9643ecd7c83c55d1bdcab54d0d1e02a318e042f977b066be0cf65c0`）后部署 release `0225e0e79ae9838fe8c27dcb01a7808bea9ec98e`，`ecs-verify.sh` 通过，公网 health 200；生产身份/link/detachment/Union 仍 0，密码聚合不变。最终状态 checkpoint：`docs(status): record admin password proof deployment`。
+- 文档 release：状态 checkpoint `62d57cf` 已推送；第二次备份 archive `bf343d8c-9fc7-4f39-9042-019c8ced6e78`（53 表、161460 行、76305308 bytes，SHA-256 `5c1e60bd0f12b4fdd406e4effe26cc6e2b9ffe2b6a1c0cb922450a4fed99be29`）后部署 release `62d57cf1b6d10966dfef39e38807cdeb4b4e846a`，`ecs-verify.sh` 与公网 health 200 通过，Git/服务器 release 已对齐。
 
 ## 2026-08-22 P3-E 当前 Mini AppID 解绑
 
