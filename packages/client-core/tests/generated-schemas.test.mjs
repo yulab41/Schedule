@@ -6,7 +6,7 @@ import { calendarReadModelSchema, holidayReadModelSchema } from '@schedule/contr
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { sanitizeJsonSchema } from '../scripts/schema-generation.mjs';
+import { isGeneratedSourceCurrent, sanitizeJsonSchema } from '../scripts/schema-generation.mjs';
 
 describe('client-core generated schemas', () => {
   it('stay structurally equal to the authoritative Zod contracts', () => {
@@ -16,5 +16,10 @@ describe('client-core generated schemas', () => {
     expect(holidayReadModelJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(holidayReadModelSchema), 'holidayReadModel'),
     );
+  });
+
+  it('treats Git CRLF checkout and generated LF source as the same content', () => {
+    expect(isGeneratedSourceCurrent('first\r\nsecond\r\n', 'first\nsecond\n')).toBe(true);
+    expect(isGeneratedSourceCurrent('first\r\nchanged\r\n', 'first\nsecond\n')).toBe(false);
   });
 });

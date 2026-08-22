@@ -12,7 +12,8 @@
 - Mini 边界：package/tsconfig/Vitest/esbuild 显式接入 client-core；`src/platform/client-core-calendar.ts` 作为无网络边界入口被真实构建为 8949-byte JS。源码/产物与 browser bundle 均无 Zod、contracts runtime、Node、DOM、fetch、Vue、数据库或绝对路径；未增加 WXML/WXSS/路由。
 - 验证：client-core 生成检查/build/typecheck、Web build/typecheck、根 build/typecheck/lint，定向 5 文件/167 项及受控全仓 150 文件/829 项通过，32 文件/265 项数据库集成按环境跳过。Mini 14 文件/56 项、verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（142817 bytes，manifest `fa75f52b0c78f7c14d42d1aaf5e037051326e8348adfc8e2f6f208c4268576c8`）；冻结 lockfile、任务格式、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只被用户所有 workspace/Mini 配置、已提交目录文件和 Storybook 生成物 11 项拦截。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本轮没有模板、样式或页面变化，不需要人工视觉确认。
-- 当前状态：方案 2 的共享实现、Web 先行和 Mini bundle 边界已完成本地验证，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(client): share calendar read boundary`。
+- 隔离门禁修正：代码 checkpoint `60cec6e`（`refactor(client): share calendar read boundary`）推送后，精确干净 Windows worktree 首次 `check:generated` 因 checkout CRLF 与生成 LF 做原始字节比较而假失败；该提交未上传微信、未部署 ECS，首次 release 包已作废。新增换行等价测试旧实现 1/2 失败，比较统一归一到 LF 后 2/2、生成检查/build/typecheck/lint 通过；修正 checkpoint 识别消息：`fix(client): normalize generated schema line endings`。
+- 当前状态：方案 2 实现与换行门禁修正已完成本地验证，待修正 checkpoint/推送、精确干净 worktree 复核、微信体验上传和 ECS 备份/部署/验证。
 - 下一活动批次与停止条件：只实现 P2 Mini `wx.request` JSON transport 与共享错误映射，覆盖 statusCode、Bearer/public、无效业务响应和网络错误；不建页面、不持久化会话、不实现静默重登、GET 重试或 P3 身份流程。
 
 ## 2026-08-22 当前月撤回确认门禁修复（当前批次）

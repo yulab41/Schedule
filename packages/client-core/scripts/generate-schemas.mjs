@@ -7,7 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { calendarReadModelSchema, holidayReadModelSchema } from '../../contracts/dist/index.js';
 import { z } from 'zod';
 
-import { renderGeneratedSchemas, sanitizeJsonSchema } from './schema-generation.mjs';
+import {
+  isGeneratedSourceCurrent,
+  renderGeneratedSchemas,
+  sanitizeJsonSchema,
+} from './schema-generation.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = path.join(packageRoot, 'src', 'generated', 'calendar-schemas.ts');
@@ -17,7 +21,10 @@ const source = renderGeneratedSchemas({
 });
 
 if (process.argv.includes('--check')) {
-  if (!existsSync(outputPath) || readFileSync(outputPath, 'utf8') !== source) {
+  if (
+    !existsSync(outputPath) ||
+    !isGeneratedSourceCurrent(readFileSync(outputPath, 'utf8'), source)
+  ) {
     console.error('[client-core] generated calendar schemas are stale');
     process.exitCode = 1;
   } else {

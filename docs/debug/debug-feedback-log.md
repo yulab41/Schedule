@@ -9,6 +9,7 @@
 - 生成与边界：生成器对未知 keyword/type 失败关闭，freshness 与 Zod 深等价通过；显式 ASCII hex 正则避免丢失 `i` flag。client-core browser bundle 与 Mini 8949-byte 输出无 Zod、contracts runtime、Node/DOM/fetch/Vue/数据库，Mini 无页面或网络。
 - 验证：定向 5 文件/167 项、受控全仓 150 文件/829 项通过，32 文件/265 项按环境跳过；client-core/Web/根 build/typecheck/lint 通过。Mini 14 文件/56 项及 verify/source/Worklet/package/determinism/CI dry-run 通过（142817 bytes，manifest `fa75f52b0c78f7c14d42d1aaf5e037051326e8348adfc8e2f6f208c4268576c8`）；冻结 lockfile、任务格式、diff check 和 `smoke:check-core` 通过。根 format 仅有既有/用户所有 11 项阻塞。
 - 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无模板/样式/页面变化。checkpoint 识别消息：`refactor(client): share calendar read boundary`。
+- 隔离回归：`60cec6e` 推送后的精确 Windows worktree 因 CRLF/LF 原始比较误报 generated stale；未上传、未部署，生成的 release 包作废。换行测试旧实现 1/2 失败，统一 LF 后 2/2 与 check/build/typecheck/lint 通过；修正 checkpoint 识别消息：`fix(client): normalize generated schema line endings`。
 
 ## 2026-08-22 当前月撤回确认门禁
 

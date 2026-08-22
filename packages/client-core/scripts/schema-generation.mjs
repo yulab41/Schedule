@@ -78,7 +78,15 @@ export function renderGeneratedSchemas({ calendar, holidays }) {
   ].join('\n');
 }
 
+export function isGeneratedSourceCurrent(currentSource, generatedSource) {
+  return normalizeLineEndings(currentSource) === normalizeLineEndings(generatedSource);
+}
+
 function quoteJson(value) {
   const json = JSON.stringify(value).replaceAll('\\', '\\\\').replaceAll("'", "\\'");
   return `'${json}'`;
+}
+
+function normalizeLineEndings(value) {
+  return value.replace(/\r\n?/gu, '\n');
 }
