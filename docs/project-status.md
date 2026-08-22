@@ -29,8 +29,9 @@
 - 归档：权威精简记录为 `apps/miniprogram/docs/architecture/matrix-gesture-lessons.md`；ADR-0005 和专项 README 只保留入口，不复制历史。内容覆盖平台探针、单坐标源、渲染后恢复、无时间戳 RAF、浅层 600 格及后续必测清单。
 - ECS 微信上传中继已取消：用户确认当前正式 ECS 为 `120.77.220.79` 且只有 2GB 内存，不承担 `miniprogram-ci` 的千级依赖树；代码与规则维持本地 Node 直传。旧地址 `8.148.183.46` 已由用户删除清空；用户另确认上传私钥未暴露，因此不再执行旧机清理或密钥轮换。
 - 验证：Mini `verify`、typecheck、staging build/source/Worklet/package/determinism、官方 CI dry-run、12 个受控测试文件 53/53、根 typecheck、`smoke:check-core` 与 `git diff --check` 通过；产物 132585 bytes，manifest `569434dcf8d57b302c22f5007c300e817df0c37da52212509902c459d66e40e6`。默认 Mini 测试还会扫描既有 ignored `.artifacts/ecs-runner-*` 副本并产生 17 个路径/旧 tsconfig 失败，已用 `--exclude ".artifacts/**"` 复跑并通过；未修改该副本。
-- 其他门禁：`pnpm verify` 仅被用户所有的 `apps/miniprogram/project.config.json`、目录文件和 Storybook 生成目录格式问题拦截；`pnpm smoke:browser` 因本机 5173 未启动在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。公网 IPv4 为 `103.54.154.21`，体验上传前须加入微信代码上传 IP 白名单；当前会话尚未注入仓库外 `WECHAT_CI_PRIVATE_KEY_PATH`。
-- 当前状态：P1 人工验收与本地门禁已完成，待复核最终 diff、提交/推送、微信体验上传与正式 ECS 备份/部署/验证后关闭本批次；checkpoint 识别消息：`docs(miniprogram): close p1 native validation`。
+- 其他门禁：`pnpm verify` 仅被用户所有的 `apps/miniprogram/project.config.json`、目录文件和 Storybook 生成目录格式问题拦截；`pnpm smoke:browser` 因本机 5173 未启动在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。公网 IPv4 `103.54.154.21` 已由用户加入微信代码上传 IP 白名单；首次上传选择了 IPv6 并被 `-10008` 拒绝，随后以 `NODE_OPTIONS=--dns-result-order=ipv4first` 重试成功。
+- checkpoint 与发布：代码 checkpoint `408d627`（`docs(miniprogram): close p1 native validation`）已推送；本地 Node `miniprogram-ci` 从该精确隔离 worktree 上传体验版 `0.1.0-p1.20260822.42`（50 个代码文件、37884 bytes，官方 manifest `fea3d5d577093074971f4f6506a7b76d32297e63d5e5880c80f658846d90539`）。ECS 发布前加密数据库备份 archive `21b9c2ab-2b24-488b-af79-c7c7aaf58648`（50 表、157816 行、71023400 bytes，SHA-256 `dcee1e32f2495a73a40682b8f58d12ee3a1610377458240f4ddcbe77daee83a6`）；release `408d6279b0a21d634746021c8971e458c5a3f36d` 已部署，`ecs-verify.sh` 通过，临时上传目录已删除。未提交审核、未正式发布、未使用 ECS 上传、未启动或控制微信开发者工具。
+- 当前状态：P1 已完成（实体 Android 人工验收、本地门禁、Git 推送、微信体验上传、正式 ECS 备份/部署/验证）→ 待用户复核；Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。最终状态 checkpoint 识别消息：`docs(status): record p1 validation deployment`。
 - 下一活动批次：P2 共享核心，首轮只做 1 项复杂任务——审计并确定 `presentation-core` 的最小抽取边界、黄金 fixtures 与 Web 先行切换顺序；未通过 Web 等价回归前不实现 Mini 业务页面，不进入 P3 身份安全。
 
 ## 2026-08-21 Lucide Minimal 动作图标生产落地（当前批次）
