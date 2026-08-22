@@ -8,6 +8,7 @@
 - 实现：migration 0044 增加 authVersion、可空 appId 过渡列、Union 一人一号表和 nullable hash；临时 CHECK 在 DDL 前阻断 locator/Union 冲突，只补 active password credential 的 null locator。null hash 登录/状态/proof 失败关闭；产品 API/UI 不变。集成 reset 补齐三张身份表清理。
 - 验证：专项 14 项、真实 MySQL migration 17/17、非 DB 全仓 154 文件/848 项、Mini 15 文件/62 项及全部静态/包门禁通过；主工作区其余 integration 240 项通过。6 文件/10 项旧断言/fixture 与用户 runtime 副本失败已独立归因，不修改。根 build/typecheck/lint、任务格式/diff/`smoke:check-core` 通过，根 format 仅既有/用户所有 11 项。
 - 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): add identity security foundation`。
+- 发布与核验：checkpoint `297ec33` 已推送；迁移前备份 `e39ec634-be53-4536-891b-c729dee78aa6`（50 表、161448 行、76295676 bytes，SHA-256 `81f186d12654c15f5a93436ec7e51fe6260316c9453a9e6a60496a642e58899e`）后部署 release `297ec3356c9b7717cdb2c5f9c2326cfcfabca74c`。`ecs-verify.sh` 通过 44 migrations；生产精确补 5 个 locator、保留 9 个无凭证 null locator，24 个 hash 摘要不变，authVersion/appId/Union/nullability 全部符合门禁。最终状态 checkpoint：`docs(status): record p3 identity foundation deployment`。
 
 ## 2026-08-22 P3 身份安全预检
 

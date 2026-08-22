@@ -11,7 +11,9 @@
 - 验证：根 build/typecheck/lint 通过；受控非 DB 全仓 154 文件/848 项通过，32 文件/268 项按环境跳过。Mini 15 文件/62 项及 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147887 bytes，manifest `d235758236e918b96a52b4056be9817747412a15480f5935b91b4cdc59fc212b`）。任务 Prettier、`git diff --check` 与 `smoke:check-core` 通过；根 format 仍只有既有/用户所有 11 项阻塞。
 - DB 集成说明：P3 migration 17/17；其余主工作区 integration 240 项通过。另有 6 个文件/10 项既有断言或 fixture 独立复现失败：旧 contact `confirm` 字段、姓名并发仍期待可自改、developer admin 使 owner/用户计数假设失效、平台注销/备份 fixture、calendar preferences 未检查配置响应；均早于本批且调用点未改，不在身份 schema checkpoint 顺手修订。用户所有 `runtime/` 副本会产生同名旧 reset 失败，受控命令显式排除且未修改副本。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板/样式/页面变化，不需要人工视觉确认。
-- 当前状态：P3-A 实现和本地门禁完成，待 checkpoint `feat(auth): add identity security foundation` 推送、生产备份/迁移/部署、44 migration/51 table 与精确 5 locator 聚合复核；本轮无 Mini 产物代码变化，不新增体验上传。
+- checkpoint 与发布：代码 checkpoint `297ec33`（`feat(auth): add identity security foundation`）已推送；精确干净 worktree production build/package 通过。迁移前聚合精确为 43 migrations、0 identity、5 个目标 null locator、0 locator/Union 冲突。数据库备份 archive `e39ec634-be53-4536-891b-c729dee78aa6`（50 表、161448 行、76295676 bytes，SHA-256 `81f186d12654c15f5a93436ec7e51fe6260316c9453a9e6a60496a642e58899e`）后部署 release `297ec3356c9b7717cdb2c5f9c2326cfcfabca74c`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过。
+- 生产迁移复核：44 migrations/51 表；0 identity/0 Union 行；目标 null locator 从 5 降为 0，active password locator 从 19 增为 24；9 个无凭证 active null locator 保持；24 个 password hash 均非空且聚合摘要迁移前后同为 `afcb01bb10ea0bd96b3b1bd08772c14575c6f7c3ab5f5149f765bf870260dcbb`。40 个用户 `auth_version` 均为 1，appId/hash nullability 与 schema 一致，精确临时目录已删除。
+- 当前状态：P3-A 已完成回归、推送、生产备份/迁移/部署和数据不变量复核；无 Mini 产物代码变化，不新增体验上传，也无人工视觉确认点。最终状态 checkpoint 识别消息：`docs(status): record p3 identity foundation deployment`。
 - 下一活动批次与停止条件：只做 P3-B 版本化 session 与 AppID identity resolver；新 token 写 `authVersion/appId`，旧 token 缺版本按 1 兼容，认证逐次核对 active/deleted/version，legacy Mini 仅精确惰性认领。不得实现 link-required、绑定/解绑、路由或 UI；旧 Web/上一 Mini 会话兼容和安全测试通过后停止。
 
 ## 2026-08-22 P3 身份安全预检（当前批次）
