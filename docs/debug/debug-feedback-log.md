@@ -8,6 +8,7 @@
 - 修复与等价：新增 Zod-free `@schedule/contracts/workspace-name` 子路径，domain 只改 import；health 字符串、同步调用、统计 type-only imports 和全部算法不变。修复后 runtime 仅含一个 metadata leaf，无 contracts index/Zod。
 - 验证：定向 2 文件/3 项、受控全仓 153 文件/842 项通过，32 文件/265 项跳过；contracts/domain/根 build/typecheck/lint、任务格式、diff check 和 `smoke:check-core` 通过，根 format 仅有既有/用户所有 11 项阻塞。
 - 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`refactor(domain): isolate runtime metadata`。
+- 发布与核验：checkpoint `502bb85` 已推送并从精确干净 worktree 完成 production build/package；数据库备份 `d0eb57b2-e691-40c6-94f9-ddb317723dea`（50 表、161444 行、76293032 bytes，SHA-256 `8cdfebf62ed788ad401e24470ffc18cbc3f2d86a61d579eb5c5c8a27a9151aab`）后部署 release `502bb85d70b21c3a541cfdfbbdaea6ed9bb097e8`，预热首个 502 后恢复，`ecs-verify.sh` 完整通过并清理临时目录。最终状态 checkpoint 识别消息：`docs(status): record domain runtime deployment`。
 
 ## 2026-08-22 P2 Mini wx.request transport
 

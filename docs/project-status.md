@@ -9,7 +9,8 @@
 - 语义等价：workspace 名称仍单源于 contracts，API `createDomainSummary` 导出、调用方式、字符串、同步路径和调用次数不变；statistics 的 contracts import 仍为 type-only，esbuild 证明不进入运行包。没有异步、错误、空值或副作用变化。
 - 验证：contracts/domain build/typecheck、定向 2 文件/3 项、根 build/typecheck/lint 及受控全仓 153 文件/842 项通过，32 文件/265 项数据库集成按环境跳过；任务格式、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只有既有/用户所有 11 项阻塞。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。无模板/样式/页面变化，不需要人工视觉确认。
-- 当前状态：P2 domain barrel 明确缺口已修复，待 checkpoint/推送和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(domain): isolate runtime metadata`。本轮未修改 Mini 包，不需要新的微信体验上传。
+- checkpoint 与发布：代码 checkpoint `502bb85`（`refactor(domain): isolate runtime metadata`）已推送；精确干净 worktree 的 production build/package 通过。数据库备份 archive `d0eb57b2-e691-40c6-94f9-ddb317723dea`（50 表、161444 行、76293032 bytes，SHA-256 `8cdfebf62ed788ad401e24470ffc18cbc3f2d86a61d579eb5c5c8a27a9151aab`）后部署 release `502bb85d70b21c3a541cfdfbbdaea6ed9bb097e8`；预热首个 502 后恢复，`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移，精确临时目录已删除。
+- 当前状态：P2 domain barrel 明确缺口已完成回归、推送与正式发布；本轮未修改 Mini 包，不需要新的微信体验上传，也无人工视觉确认点。最终状态 checkpoint 识别消息：`docs(status): record domain runtime deployment`。
 - 下一活动批次与停止条件：重新执行 P2 完成审计；若 presentation-core、client-core、transport、tokens、fixtures、decoder、Web-first 和 Mini bundle 全部有直接证据，则只更新阶段状态并把下一批切到 P3 身份安全预检，否则继续补唯一缺口。
 
 ## 2026-08-22 P2 Mini wx.request JSON transport（当前批次）
