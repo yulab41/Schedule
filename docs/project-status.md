@@ -6,7 +6,8 @@
 
 - 范围：只新增已确认 P3 Storybook 的 Mini 当前 AppID 解绑确认/320px 边界状态；明确保留 Web 账号、个人资料和排班，未实现原生解绑 WXML/WXSS，不调用 API。
 - 黄金映射：新增 `miniprogram-parity-p3-identity-security--mini-unbind-confirm` / `--mini-unbind-confirm-320`，与现有登录、绑定、建档、管理员绑定状态保持同一身份进度线和令牌。
-- 当前验证：待本轮 clean worktree Storybook build、Vitest 和浏览器几何自检；用户已确认前 9 个 P3 身份状态，本新增危险操作状态需单独确认。
+- 当前验证：clean worktree build、Storybook build、P3 source Vitest 4/4 与 390/320 浏览器几何自检通过；两种视口 `body.scrollWidth === viewport`，仅静态服务器 favicon 404。用户已确认前 9 个 P3 身份状态，本新增危险操作状态需单独确认。
+- checkpoint 与发布：代码 checkpoint `89b7bdc` 已推送；生产备份 `0a29cff1-5b32-48e2-96b9-822084e82d8e`（54 表、161504 行、76326552 bytes，SHA-256 `1010dc734ca26a6beec48d4c2b13b501032c9d5c0cd9a17098907e2555bfad1f`）后部署 release `89b7bdc5b7c36b1b5dbacf182aff89cbf261e809`，`ecs-verify.sh` 通过，47 migrations/54 表，identity/admin-ticket 均 0。
 - 当前状态：已实现待视觉复核；确认前不接入原生解绑页面，也不进入 P4。
 - 停止条件：等待用户确认解绑状态的文案、危险色、按钮层级和 320px 布局后，再实现 Mini 解绑页面并接入 `/me/wechat/miniprogram/unbind`。
 

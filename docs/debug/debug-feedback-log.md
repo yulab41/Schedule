@@ -5,6 +5,8 @@
 ## 2026-08-23 P3 解绑确认视觉黄金状态
 
 - 实现：Storybook 新增 Mini 当前 AppID 解绑确认和 320px 边界；危险操作只移除微信身份，不删除 Web 账号、资料或排班。
+- 验证：clean Storybook build、P3 source Vitest 4/4、390/320 浏览器几何自检通过，无横向溢出。
+- 发布：checkpoint `89b7bdc` 已推送；备份 `0a29cff1-5b32-48e2-96b9-822084e82d8e` 后部署 release `89b7bdc5b7c36b1b5dbacf182aff89cbf261e809`，`ecs-verify` 通过。
 - 状态：未实现原生解绑页面；本轮验证后暂停等待用户视觉确认。
 - checkpoint 识别消息：`feat(miniprogram): add p3 unbind visual golden`。
 
