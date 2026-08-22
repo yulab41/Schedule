@@ -77,6 +77,10 @@ importers:
         version: link:../../packages/test-fixtures
 
   apps/miniprogram:
+    dependencies:
+      '@schedule/presentation-core':
+        specifier: workspace:*
+        version: link:../../packages/presentation-core
     devDependencies:
       '@babel/preset-typescript':
         specifier: 7.21.4

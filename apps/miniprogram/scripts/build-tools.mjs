@@ -23,6 +23,13 @@ export const SOURCE_ROOT = path.join(APP_ROOT, 'src');
 export const DIST_ROOT = path.join(APP_ROOT, 'dist');
 export const ARTIFACT_ROOT = path.join(APP_ROOT, '.artifacts');
 const REPOSITORY_ROOT = path.resolve(APP_ROOT, '..', '..');
+const PRESENTATION_CORE_ENTRY = path.join(
+  REPOSITORY_ROOT,
+  'packages',
+  'presentation-core',
+  'src',
+  'index.ts',
+);
 const UI_TOKENS_WXSS = path.resolve(
   APP_ROOT,
   '..',
@@ -259,6 +266,9 @@ export async function buildMiniProgram({
 
   const result = await esbuild({
     absWorkingDir: APP_ROOT,
+    alias: {
+      '@schedule/presentation-core': PRESENTATION_CORE_ENTRY,
+    },
     bundle: true,
     charset: 'utf8',
     define: {

@@ -1,6 +1,24 @@
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: [
+      {
+        find: '@schedule/presentation-core/testing',
+        replacement: fileURLToPath(
+          new URL('./packages/presentation-core/src/testing/index.ts', import.meta.url),
+        ),
+      },
+      {
+        find: '@schedule/presentation-core',
+        replacement: fileURLToPath(
+          new URL('./packages/presentation-core/src/index.ts', import.meta.url),
+        ),
+      },
+    ],
+  },
   test: {
     // Database integration tests share the one isolated TEST_MYSQL_DATABASE.
     fileParallelism: false,

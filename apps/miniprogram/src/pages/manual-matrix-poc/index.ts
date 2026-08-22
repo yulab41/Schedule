@@ -1,4 +1,10 @@
 import {
+  resolveManualCellMutation,
+  resolveManualSelection,
+  type ManualCellMutation,
+} from '@schedule/presentation-core';
+
+import {
   createManualMatrixPocViewModel,
   getManualMatrixCellAssignment,
   manualMatrixPocShiftTypes,
@@ -45,11 +51,10 @@ interface ManualMatrixShiftSelectEvent {
   };
 }
 
-interface ManualMatrixUndoEntry {
+type ManualMatrixUndoEntry = ManualCellMutation<ManualMatrixCellAssignment> & {
   readonly after: ManualMatrixCellAssignment;
   readonly before: ManualMatrixCellAssignment;
-  readonly key: string;
-}
+};
 
 interface ManualMatrixPageInstance {
   _matrixGestureRevision: number;
@@ -168,8 +173,19 @@ Page({
       shiftTypeId: activeShift.id,
       textColor: activeShift.textColor,
     } as const;
+    const mutation: ManualMatrixUndoEntry = resolveManualCellMutation({
+      active: after,
+      before,
+      key,
+      mode: 'replace',
+    });
     const patch: Record<string, unknown> = { canUndo: true };
     const previousLocation = this._selectedLocation;
+    const nextLocation = resolveManualSelection(
+      previousLocation,
+      { columnIndex, rowIndex },
+      { isSame: isSameManualMatrixLocation, mode: 'replace' },
+    );
     if (previousLocation.rowIndex !== rowIndex || previousLocation.columnIndex !== columnIndex) {
       const previousCell =
         this.data.rows[previousLocation.rowIndex]?.cells[previousLocation.columnIndex];
@@ -177,9 +193,9 @@ Page({
         patch[cellPath(previousLocation)] = { ...previousCell, isSelected: false };
       }
     }
-    patch[cellPath({ columnIndex, rowIndex })] = updateManualMatrixCell(currentCell, after, true);
-    this._undoStack.push({ after, before, key });
-    this._selectedLocation = { columnIndex, rowIndex };
+    patch[cellPath(nextLocation)] = updateManualMatrixCell(currentCell, mutation.after, true);
+    this._undoStack.push(mutation);
+    this._selectedLocation = nextLocation;
     this.setData(patch);
   },
   handleUndo(this: ManualMatrixPageInstance): void {
@@ -252,6 +268,13 @@ function createScrollProgressPatch(columnCount: number, progress: number): Recor
 
 function cellPath(location: ManualMatrixLocation): string {
   return `rows[${location.rowIndex}].cells[${location.columnIndex}]`;
+}
+
+function isSameManualMatrixLocation(
+  left: ManualMatrixLocation,
+  right: ManualMatrixLocation,
+): boolean {
+  return left.rowIndex === right.rowIndex && left.columnIndex === right.columnIndex;
 }
 
 function findCellLocation(

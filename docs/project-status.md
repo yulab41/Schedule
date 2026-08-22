@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 手排 transition、选择与撤销共享（当前批次）
+
+- 批次范围：继日历后只抽取手排单元格 Map transition、选择模式与撤销原语，先切 Web，再让 diagnostic-only Mini P1 矩阵复用；不迁移 Mini 业务页、不改模板/样式/API/权限/发布流程或 P3。同步基线 `7d52f2b` 以来无 Web 手排代码更新；并行医生历史/节假日补录只改变共用生产数据与状态文档，无新增端侧功能。
+- 引入点与测试先行：`git log -S`/`git blame` 定位 Web 快照撤销/同格选择为 `6512274`、同班种再次点击清除为 `b1ce5c7`/`25bb8fa`，Mini 增量 `{key,before,after}` 与 replace 选择为 `6cc7463`。共享契约旧代码 5/5 失败，Web 接线守卫旧代码 1/6 失败，Mini 依赖/接线守卫旧代码 1/1 失败；实现后全部转绿。
+- 实现：`presentation-core` 新增无依赖泛型 cell mutation、apply/revert、行列清除、snapshot undo stack 与 `toggle|replace` 两套选择/赋值模式，黄金动作轨同时锁定 Web 和 Mini。Web 继续使用完整 Map 快照，`ManualScheduleView` 只把既有选择/涂抹计算交给共享原语；Mini 保持单格增量 undo 和局部 `setData`，不复制 600 格快照。
+- 语义等价：Web 同格再次点击仍取消选择、同班种仍清除，active 班种存在时仍先 push 一份 Map 快照；成员移除/行列清除/undo 仍只恢复 cells，不恢复成员或选择。Mini 同班种仍 replace、同格仍保持选中，undo entry 仍只有 `key/before/after`。共享函数无 `this`/异步/错误路径；replace 模式不调用 equality callback，toggle 比较、`undefined` 删除语义、对象身份、Map 不变性和调用次数均由动作轨覆盖。
+- Mini 源码边界：Mini package 显式依赖共享包，noEmit `rootDir` 覆盖仓库；esbuild 与 Vitest 将包名精确 alias 到共享源码。临时移走 `packages/presentation-core/dist` 后 Mini typecheck 与 staging build 仍通过，证明不依赖预生成 dist；构建产物审计继续阻断 DOM、Node、数据库、Zod、绝对路径和 source map。
+- 验证：共享包/Web/根 build、typecheck、lint，手排/边界 4 文件 22 项，Mini 13 文件/54 项及受控全仓 141 文件/798 项通过，32 文件/265 项数据库集成按环境跳过。Mini staging verify/source/2 个 Worklet/package/determinism/官方 CI dry-run 通过（133701 bytes，manifest `97f0ab994df01736b613c5d3e9b8379db82d40053a004a4bdcf0c542392c24e4`）；任务 Prettier、`git diff --check`、`smoke:check-core` 通过。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。`ManualScheduleView.vue` 的 template/style 与 `HEAD` 逐字相同，本轮无视觉变化。根 `format:check` 仍只被用户所有 workspace/Mini 配置、目录文件和 Storybook 生成物拦截。
+- 当前状态：Web 先行与 Mini PoC 增量适配已完成验证，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(presentation): share manual transitions`。本轮不需要人工视觉确认。
+- 下一活动批次与停止条件：只抽取 P2 发布/撤回/重发的历史分组、过去日期、确认条件与请求 intent，Web 先行；API 调用、`crypto.randomUUID`、冲突刷新和错误状态继续留在 controller，等价回归前不进入 client-core、P3 或 Mini 业务页面。
+
 ## 2026-08-22 历史排班节假日覆盖补齐（当前批次）
 
 - 用户授权与范围：将节假日覆盖补齐到头颈外科医生正式排班数据涉及的既往年份。生产排班日期为 2017-12-31 至 2026-10-31；原生产库仅有 2026 年 confirmed 节假日版本，因此本轮新增并确认 2017–2025，2026 保持既有版本不重复建版。

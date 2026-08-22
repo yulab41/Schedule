@@ -1,4 +1,15 @@
 import type { ManualScheduleTemplate, SchedulePeriodHistoryItem } from '@schedule/contracts';
+import {
+  applyManualCellMutation,
+  clearManualCell,
+  clearManualColumn,
+  clearManualRow,
+  createManualCellKey,
+  createManualSnapshotUndoStack,
+  getManualCellValue,
+  type ManualCellMap,
+  type ManualSnapshotUndoStack,
+} from '@schedule/presentation-core';
 import { formatChinaDateTime } from '@schedule/scheduling-domain';
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六'] as const;
@@ -20,17 +31,11 @@ export interface ManualGridSelection {
   readonly membershipId: string;
 }
 
-export type TemplateCellMap = ReadonlyMap<string, string>;
-
-export interface TemplateUndoStack {
-  canUndo(): boolean;
-  clear(): void;
-  pop(): TemplateCellMap | undefined;
-  push(snapshot: TemplateCellMap): void;
-}
+export type TemplateCellMap = ManualCellMap<string>;
+export type TemplateUndoStack = ManualSnapshotUndoStack<string>;
 
 export function createCellKey(cycleDay: number, membershipId: string): string {
-  return `${cycleDay}:${membershipId}`;
+  return createManualCellKey(cycleDay, membershipId);
 }
 
 export function getTemplateDateColumns(
@@ -56,9 +61,12 @@ export function applyShiftToCell(
   membershipId: string,
   shiftTypeId: string,
 ): TemplateCellMap {
-  const next = new Map(cells);
-  next.set(createCellKey(cycleDay, membershipId), shiftTypeId);
-  return next;
+  const key = createCellKey(cycleDay, membershipId);
+  return applyManualCellMutation(cells, {
+    after: shiftTypeId,
+    before: cells.get(key),
+    key,
+  });
 }
 
 export function clearCell(
@@ -66,33 +74,15 @@ export function clearCell(
   cycleDay: number,
   membershipId: string,
 ): TemplateCellMap {
-  const next = new Map(cells);
-  next.delete(createCellKey(cycleDay, membershipId));
-  return next;
+  return clearManualCell(cells, createCellKey(cycleDay, membershipId));
 }
 
 export function clearRow(cells: TemplateCellMap, membershipId: string): TemplateCellMap {
-  const next = new Map(cells);
-  const suffix = `:${membershipId}`;
-  for (const key of next.keys()) {
-    if (key.endsWith(suffix)) {
-      next.delete(key);
-    }
-  }
-
-  return next;
+  return clearManualRow(cells, membershipId);
 }
 
 export function clearColumn(cells: TemplateCellMap, cycleDay: number): TemplateCellMap {
-  const next = new Map(cells);
-  const prefix = `${cycleDay}:`;
-  for (const key of next.keys()) {
-    if (key.startsWith(prefix)) {
-      next.delete(key);
-    }
-  }
-
-  return next;
+  return clearManualColumn(cells, cycleDay);
 }
 
 export function isShiftTypeFillable(shiftType: { readonly isEnabled: boolean }): boolean {
@@ -104,7 +94,7 @@ export function getTemplateCellShiftTypeId(
   cycleDay: number,
   membershipId: string,
 ): string | undefined {
-  return cells.get(createCellKey(cycleDay, membershipId));
+  return getManualCellValue(cells, createCellKey(cycleDay, membershipId));
 }
 
 export function templateToCellMap(template: ManualScheduleTemplate): TemplateCellMap {
@@ -117,22 +107,7 @@ export function templateToCellMap(template: ManualScheduleTemplate): TemplateCel
 }
 
 export function createTemplateUndoStack(): TemplateUndoStack {
-  const stack: TemplateCellMap[] = [];
-
-  return {
-    canUndo() {
-      return stack.length > 0;
-    },
-    clear() {
-      stack.length = 0;
-    },
-    pop() {
-      return stack.pop();
-    },
-    push(snapshot) {
-      stack.push(new Map(snapshot));
-    },
-  };
+  return createManualSnapshotUndoStack<string>();
 }
 
 export function formatScheduleDraftCode(createdAt: string): string {

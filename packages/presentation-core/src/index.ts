@@ -38,3 +38,20 @@ export {
   type MonthDisplayCell,
   type MonthDisplayWeek,
 } from './calendar.js';
+export {
+  applyManualCellMutation,
+  clearManualCell,
+  clearManualColumn,
+  clearManualRow,
+  createManualCellKey,
+  createManualSnapshotUndoStack,
+  getManualCellValue,
+  resolveManualCellMutation,
+  resolveManualSelection,
+  revertManualCellMutation,
+  type ManualCellMap,
+  type ManualCellMutation,
+  type ManualCellMutationMode,
+  type ManualSelectionMode,
+  type ManualSnapshotUndoStack,
+} from './manual-schedule.js';

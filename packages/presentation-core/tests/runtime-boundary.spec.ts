@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 const productionSources = [
   new URL('../src/index.ts', import.meta.url),
   new URL('../src/calendar.ts', import.meta.url),
+  new URL('../src/manual-schedule.ts', import.meta.url),
 ];
 
 describe('presentation-core runtime boundary', () => {
@@ -43,9 +44,12 @@ describe('presentation-core runtime boundary', () => {
     const output = result.outputFiles[0]?.text ?? '';
     expect(output.length).toBeGreaterThan(0);
     expect(output).not.toMatch(/\b(?:document|fetch|localStorage|window|ResizeObserver)\b/u);
-    expect(Object.keys(result.metafile.inputs)).toEqual([
-      'packages/presentation-core/src/calendar.ts',
-      'packages/presentation-core/src/index.ts',
-    ]);
+    expect(Object.keys(result.metafile.inputs).sort()).toEqual(
+      [
+        'packages/presentation-core/src/calendar.ts',
+        'packages/presentation-core/src/index.ts',
+        'packages/presentation-core/src/manual-schedule.ts',
+      ].sort(),
+    );
   });
 });

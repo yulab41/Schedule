@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 手排 transition、选择与撤销共享
+
+- 引入点与红灯：`git log -S`/`git blame` 定位 Web 快照撤销/选择为 `6512274`，涂抹模式为 `b1ce5c7`/`25bb8fa`，Mini 增量 undo 为 `6cc7463`。共享导出旧代码 5/5 失败，Web 接线 1/6 失败，Mini 依赖接线 1/1 失败，随后分别转绿。
+- 实现与等价：共享核心提供泛型 Map mutation、apply/revert、行列清除、snapshot stack 和 `toggle|replace` 模式。Web 保持同格取消选择、同班种清除和完整快照；Mini 保持 replace 选择、单格 `{key,before,after}` 与局部 `setData`。undo 仍只恢复 cells；无 `this`/异步/错误变化，replace 不调用 equality callback。
+- Mini 边界：package、tsc、esbuild 与 Vitest 均使用共享源码；移走 shared dist 后 Mini typecheck/build 通过。产物继续通过 DOM/Node/Zod/数据库/绝对路径审计，包体 133701 bytes，determinism manifest `97f0ab994df01736b613c5d3e9b8379db82d40053a004a4bdcf0c542392c24e4`。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；`smoke:check-core` 通过。Web SFC template/style 与 `HEAD` 逐字相同，无视觉变化。
+- 验证：共享包/Web/根 build/typecheck/lint、手排/边界 4 文件 22 项、Mini 13 文件/54 项、受控全仓 141 文件/798 项通过，32 文件/265 项按环境跳过；Mini verify/source/Worklet/package/determinism/CI dry-run、任务 Prettier 与 `git diff --check` 通过。根 format 只被用户所有文件拦截。checkpoint 识别消息：`refactor(presentation): share manual transitions`。
+
 ## 2026-08-22 P2 日历共享核心 Web 先行迁移
 
 - 引入点：`git log -S` / `git blame` 确认生产 5/6 周月网格来自 `abd20d2`，默认选择来自 `7c80488`，切月保持完整日期来自 `daf7ede`，日期分组和 CST 班次排序来自 `db35a77` / `b1ce5c7`，筛选及实际人员优先来自 `ab25064`。

@@ -12,6 +12,11 @@ import type {
   ScheduleWorkflowImpact,
   SchedulingConfig,
 } from '@schedule/contracts';
+import {
+  applyManualCellMutation,
+  resolveManualCellMutation,
+  resolveManualSelection,
+} from '@schedule/presentation-core';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
@@ -34,7 +39,6 @@ import ClearActions from '../../features/manual-schedule/ClearActions.vue';
 import ManualGrid from '../../features/manual-schedule/ManualGrid.vue';
 import ShiftPalette from '../../features/manual-schedule/ShiftPalette.vue';
 import {
-  applyShiftToCell,
   clearCell,
   clearColumn,
   clearRow,
@@ -387,28 +391,28 @@ function toggleMember(membershipId: string): void {
 }
 
 function handleCellClick(selection: ManualGridSelection): void {
-  selectedCell.value =
-    selectedCell.value !== undefined &&
-    selectedCell.value.cycleDay === selection.cycleDay &&
-    selectedCell.value.membershipId === selection.membershipId
-      ? undefined
-      : selection;
+  selectedCell.value = resolveManualSelection(selectedCell.value, selection, {
+    isSame: isSameManualGridSelection,
+    mode: 'toggle',
+  });
   if (activeShiftTypeId.value !== undefined) {
     pushUndo();
-    const currentShiftTypeId = cells.value.get(
-      createCellKey(selection.cycleDay, selection.membershipId),
+    const key = createCellKey(selection.cycleDay, selection.membershipId);
+    cells.value = applyManualCellMutation(
+      cells.value,
+      resolveManualCellMutation({
+        active: activeShiftTypeId.value,
+        before: cells.value.get(key),
+        key,
+        mode: 'toggle',
+      }),
     );
-    cells.value =
-      currentShiftTypeId === activeShiftTypeId.value
-        ? clearCell(cells.value, selection.cycleDay, selection.membershipId)
-        : applyShiftToCell(
-            cells.value,
-            selection.cycleDay,
-            selection.membershipId,
-            activeShiftTypeId.value,
-          );
     infoMessage.value = undefined;
   }
+}
+
+function isSameManualGridSelection(left: ManualGridSelection, right: ManualGridSelection): boolean {
+  return left.cycleDay === right.cycleDay && left.membershipId === right.membershipId;
 }
 
 function selectShiftType(shiftTypeId: string): void {
