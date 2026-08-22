@@ -2,7 +2,6 @@ import {
   passwordChangeRequestSchema,
   passwordLoginRequestSchema,
   passwordProofChangeRequestSchema,
-  passwordRegisterRequestSchema,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
@@ -13,9 +12,12 @@ export function registerPasswordAuthRoutes(
   app: FastifyInstance,
   passwordAuthService: PasswordAuthService,
 ): void {
-  app.post('/auth/password/register', async (request, reply) => {
-    const input = parsePasswordRegisterRequest(request.body);
-    return reply.code(201).send(await passwordAuthService.register(input.username, input.password));
+  app.post('/auth/password/register', async () => {
+    throw new ApiError({
+      code: 'FORBIDDEN',
+      statusCode: 403,
+      userMessage: '公开账号注册已关闭，请联系平台管理员。',
+    });
   });
 
   app.post('/auth/password/login', async (request) => {
@@ -40,14 +42,6 @@ export function registerPasswordAuthRoutes(
       parsePasswordProofChangeRequest(request.body),
     ),
   );
-}
-
-function parsePasswordRegisterRequest(value: unknown) {
-  const result = passwordRegisterRequestSchema.safeParse(value);
-  if (!result.success) {
-    throw invalidRequestError();
-  }
-  return result.data;
 }
 
 function parsePasswordLoginRequest(value: unknown) {

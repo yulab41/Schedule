@@ -17,6 +17,7 @@ import type {
   ClaimGroupResponse,
   CreatePastScheduleAssignmentInput,
   CreateScheduleExportInput,
+  CreateWechatAdminBindingLinkResponse,
   CreateDirectDutyAdjustmentInput,
   CreateDutyAdjustmentRequestInput,
   CreateDirectSwapInput,
@@ -54,6 +55,10 @@ import type {
   MonthStatisticsSnapshot,
   NotificationPage,
   NotificationRecord,
+  PasswordIdentityAssignmentRequest,
+  PasswordIdentityAssignmentResponse,
+  PlatformAdminUserAccount,
+  PlatformAdminUserAccountList,
   PastScheduleAssignment,
   PastScheduleBackfillRecord,
   PastSchedulePeriod,
@@ -130,6 +135,7 @@ import {
   addRosterEntriesResponseSchema,
   apiErrorCodes,
   appliedManualScheduleTemplateResultSchema,
+  createWechatAdminBindingLinkResponseSchema,
   approvedLeaveRequestResultSchema,
   calendarPreferencesSchema,
   calendarReadModelSchema,
@@ -178,6 +184,8 @@ import {
   pastSchedulePeriodListSchema,
   notificationPageSchema,
   notificationRecordSchema,
+  passwordIdentityAssignmentResponseSchema,
+  platformAdminUserAccountListSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   pushConfigurationSchema,
@@ -213,7 +221,12 @@ export interface ApiClient {
     dutyAdjustmentId: string,
     input: DutyAdjustmentMutationInput,
   ): Promise<DutyAdjustmentRequest>;
+  assignPlatformPasswordIdentity(
+    userId: string,
+    input: PasswordIdentityAssignmentRequest,
+  ): Promise<PasswordIdentityAssignmentResponse>;
   createExportJob(groupId: string, input: CreateScheduleExportInput): Promise<ScheduleExportJob>;
+  createWechatAdminBindingLink(userId: string): Promise<CreateWechatAdminBindingLinkResponse>;
   deletePushSubscription(): Promise<{ readonly deleted: boolean }>;
   downloadExport(groupId: string, exportJobId: string): Promise<string>;
   getExportJob(groupId: string, exportJobId: string): Promise<ScheduleExportJob>;
@@ -236,6 +249,7 @@ export interface ApiClient {
     readonly pageSize?: number;
     readonly unreadOnly?: boolean;
   }): Promise<NotificationPage>;
+  listPlatformUserAccounts(): Promise<PlatformAdminUserAccount[]>;
   resolveGuestGroup(visitorKey: string): Promise<VisitorResolveResponse>;
   markAllNotificationsRead(groupId?: string): Promise<{ readonly count: number }>;
   markNotificationRead(notificationId: string): Promise<NotificationRecord>;
@@ -649,6 +663,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   } satisfies ClientTransport);
 
   return {
+    assignPlatformPasswordIdentity(userId, input) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/platform-admin/users/${encodeURIComponent(userId)}/password-identity`,
+        { body: JSON.stringify(input), method: 'PUT' },
+        isResponseBodyFromSchema(passwordIdentityAssignmentResponseSchema),
+      );
+    },
     createExportJob(groupId, input) {
       return requestJson(
         options.auth,
@@ -801,6 +825,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         { method: 'GET' },
         isResponseBodyFromSchema(notificationPageSchema),
       );
+    },
+    listPlatformUserAccounts() {
+      return requestJson<PlatformAdminUserAccountList>(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        '/platform-admin/users',
+        { method: 'GET' },
+        isResponseBodyFromSchema(platformAdminUserAccountListSchema),
+      ).then((result) => result.users);
     },
     resolveGuestGroup(visitorKey) {
       return requestPublicJson(
@@ -1137,6 +1171,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
           method: 'POST',
         },
         isResponseBodyFromSchema(shiftTypeSchema),
+      );
+    },
+    createWechatAdminBindingLink(userId) {
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/platform-admin/users/${encodeURIComponent(userId)}/wechat-miniprogram-binding-links`,
+        { method: 'POST' },
+        isResponseBodyFromSchema(createWechatAdminBindingLinkResponseSchema),
       );
     },
     createGroup(input) {

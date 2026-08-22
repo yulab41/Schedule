@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3 Web 身份生产接线
+
+- 实现：Web 登录去除公开注册入口；API `/auth/password/register` 关闭并返回 403；新增平台账号生产页面与 `ApiClient` 的账号列表、用户名分配、管理员绑定链接方法。
+- 验证：API auth route 3 项、Web client 155 项、Web typecheck、root lint 通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本机 localhost:5173 第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言；`pnpm smoke:check-core` 待本记录提交后复核。
+- checkpoint 识别消息：`feat(auth): wire p3 web identity surfaces`。
+
 ## 2026-08-22 P3 原生身份页面首个切片
 
 - 实现：新增 `pages/identity/index` 和 `pages/admin-bind/preview`，覆盖微信登录、未知微信 `link_required`、既有账号密码绑定、真实姓名建档、管理员 ticket 脱敏预览和 fresh-code confirm；API 客户端无 Zod/Node/DOM/fetch，不触碰 P4 工作台。

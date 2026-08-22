@@ -7,12 +7,8 @@ import SiteComplianceFooter from '../../components/SiteComplianceFooter.vue';
 import { useSessionStore } from '../../stores/session.js';
 import { toUserMessage } from '../../utils/user-message.js';
 
-type AuthMode = 'login' | 'register';
-
-const authMode = ref<AuthMode>('login');
 const username = ref('');
 const password = ref('');
-const confirmPassword = ref('');
 const submitError = ref<string | undefined>();
 const submitting = ref(false);
 const route = useRoute();
@@ -25,27 +21,12 @@ function getRedirect(): string {
   return typeof route.query.redirect === 'string' ? route.query.redirect : '/';
 }
 
-function switchMode(nextMode: AuthMode): void {
-  authMode.value = nextMode;
-  submitError.value = undefined;
-  password.value = '';
-  confirmPassword.value = '';
-}
-
 async function submit(): Promise<void> {
   submitError.value = undefined;
-  if (authMode.value === 'register' && password.value !== confirmPassword.value) {
-    submitError.value = '两次输入的密码不一致。';
-    return;
-  }
 
   submitting.value = true;
   try {
-    if (authMode.value === 'register') {
-      await session.register({ password: password.value, username: username.value });
-    } else {
-      await session.signIn({ password: password.value, username: username.value });
-    }
+    await session.signIn({ password: password.value, username: username.value });
     await router.replace(getRedirect());
   } catch (error) {
     submitError.value = toUserMessage(error, '操作未完成，请稍后重试。');
@@ -78,27 +59,6 @@ async function submitDev(uid: string): Promise<void> {
         <p>登录后查看所在群组的排班、请假和班次变更。</p>
       </div>
 
-      <div class="auth-mode-switch" role="tablist" aria-label="登录或注册">
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="authMode === 'login'"
-          :class="{ 'is-active': authMode === 'login' }"
-          @click="switchMode('login')"
-        >
-          登录
-        </button>
-        <button
-          type="button"
-          role="tab"
-          :aria-selected="authMode === 'register'"
-          :class="{ 'is-active': authMode === 'register' }"
-          @click="switchMode('register')"
-        >
-          注册
-        </button>
-      </div>
-
       <section class="auth-card">
         <t-alert
           v-if="submitError !== undefined || session.errorMessage !== undefined"
@@ -126,28 +86,15 @@ async function submitDev(uid: string): Promise<void> {
               <LockOnIcon aria-hidden="true" />
               <input
                 v-model="password"
-                :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'"
+                autocomplete="current-password"
                 placeholder="请输入密码"
                 required
                 type="password"
               />
             </span>
           </label>
-          <label v-if="authMode === 'register'">
-            <span>确认密码</span>
-            <span class="auth-input-shell">
-              <LockOnIcon aria-hidden="true" />
-              <input
-                v-model="confirmPassword"
-                autocomplete="new-password"
-                placeholder="请再次输入密码"
-                required
-                type="password"
-              />
-            </span>
-          </label>
           <t-button class="auth-submit" block :loading="submitting" theme="primary" type="submit">
-            {{ authMode === 'login' ? '进入工作台' : '创建账号' }}
+            进入工作台
           </t-button>
         </form>
 
@@ -181,6 +128,7 @@ async function submitDev(uid: string): Promise<void> {
             </t-button>
           </div>
         </template>
+        <p class="auth-admin-note">账号由平台管理员预置。账号或密码问题请联系平台管理员。</p>
       </section>
 
       <p class="auth-privacy-note">账号只用于排班身份识别。联系信息仅对有权限的群组成员可见。</p>
@@ -249,32 +197,6 @@ async function submitDev(uid: string): Promise<void> {
   margin: 0;
   color: var(--ui-color-text-secondary);
   line-height: var(--ui-line-height-normal);
-}
-
-.auth-mode-switch {
-  display: grid;
-  margin: 30px 0 14px;
-  padding: 3px;
-  grid-template-columns: repeat(2, 1fr);
-  background: color-mix(in srgb, var(--ui-color-border) 72%, var(--ui-color-background));
-  border-radius: var(--ui-radius-medium);
-}
-
-.auth-mode-switch button {
-  min-height: var(--ui-touch-target-minimum);
-  color: var(--ui-color-text-secondary);
-  background: transparent;
-  border: 0;
-  border-radius: 11px;
-  cursor: pointer;
-  font-size: var(--ui-font-size-sm);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
-.auth-mode-switch button.is-active {
-  color: var(--ui-color-text-primary);
-  background: var(--ui-color-surface);
-  box-shadow: 0 2px 8px rgb(22 32 42 / 9%);
 }
 
 .auth-card {
@@ -347,6 +269,14 @@ async function submitDev(uid: string): Promise<void> {
   margin: 15px 8px 0;
   color: var(--ui-color-text-secondary);
   font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.auth-admin-note {
+  margin: 2px 4px 0;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
   line-height: 1.45;
   text-align: center;
 }

@@ -15,6 +15,23 @@ afterEach(async () => {
 });
 
 describe('password auth routes', () => {
+  it('rejects public password registration without invoking the service', async () => {
+    const service = createService();
+    const app = createTestApp(service);
+
+    const response = await app.inject({
+      method: 'POST',
+      payload: { password: 'password', username: 'public-user' },
+      url: '/auth/password/register',
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({
+      error: { code: 'FORBIDDEN', message: '公开账号注册已关闭，请联系平台管理员。' },
+    });
+    expect(service.register).not.toHaveBeenCalled();
+  });
+
   it('protects password status and returns the default-password flag', async () => {
     const service = createService({
       getStatus: vi.fn().mockResolvedValue({
@@ -82,7 +99,7 @@ function createTestApp(service: PasswordAuthService) {
   return app;
 }
 
-function createService(overrides: Partial<PasswordAuthService>): PasswordAuthService {
+function createService(overrides: Partial<PasswordAuthService> = {}): PasswordAuthService {
   return {
     changePassword: vi.fn(),
     getStatus: vi.fn(),

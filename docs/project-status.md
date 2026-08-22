@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3 Web 身份生产接线（当前批次）
+
+- 范围：接通已确认黄金稿对应的 Web 登录和平台账号后台；Web 登录移除公开注册控件，API `/auth/password/register` 对匿名请求返回 403 且不创建用户；平台管理员页面接入脱敏账号列表、用户名分配和管理员 Mini 绑定链接生成。不修改用户未提交的目录/Storybook 文件，不进入 P4 页面。
+- 安全边界：平台账号页面只展示 userId 截断值、username、hasPassword、status、authVersion；不展示姓名、联系方式或密码 hash。绑定链接由服务端生成并显示为受控操作结果。
+- 当前验证：API auth route 3 项、Web API client 155 项、Web typecheck、root lint 通过；`pnpm smoke:browser` 在第 1/6 步因 localhost:5173 未启动 `ERR_CONNECTION_REFUSED`，未进入产品断言。
+- 当前状态：已实现待浏览器复核；下一步补齐本轮 smoke/core 记录，运行 Web 定向回归并与 P3 Mini checkpoint 合并发布。
+- 停止条件：生产 Web 登录和平台账号页面验证通过后，继续 P3 原生身份验收；不开始 P4 工作台。
+
 ## 2026-08-22 P3 原生身份页面首个切片（当前批次）
 
 - 范围：在已确认的 P3 黄金稿基础上，新增 Mini `pages/identity/index` 登录/`link_required`/既有账号密码绑定/首次真实姓名建档，以及后端固定 URL Link 路径 `pages/admin-bind/preview` 的脱敏 preview/当前微信 fresh-code confirm；保留 P1 入口和 POC 路由，不实现 P4 工作台。

@@ -28,6 +28,12 @@ export const router = createRouter({
       path: '/guest',
     },
     {
+      component: () => import('../views/platform/PlatformAdminUsersView.vue'),
+      meta: { requiresAuth: true },
+      name: 'platform-admin-users',
+      path: '/platform-admin/users',
+    },
+    {
       component: () => import('../layouts/AppLayout.vue'),
       meta: { requiresAuth: true },
       path: '/',
