@@ -10,6 +10,7 @@
 - 验证：定向 5 文件/167 项、受控全仓 150 文件/829 项通过，32 文件/265 项按环境跳过；client-core/Web/根 build/typecheck/lint 通过。Mini 14 文件/56 项及 verify/source/Worklet/package/determinism/CI dry-run 通过（142817 bytes，manifest `fa75f52b0c78f7c14d42d1aaf5e037051326e8348adfc8e2f6f208c4268576c8`）；冻结 lockfile、任务格式、diff check 和 `smoke:check-core` 通过。根 format 仅有既有/用户所有 11 项阻塞。
 - 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无模板/样式/页面变化。checkpoint 识别消息：`refactor(client): share calendar read boundary`。
 - 隔离回归：`60cec6e` 推送后的精确 Windows worktree 因 CRLF/LF 原始比较误报 generated stale；未上传、未部署，生成的 release 包作废。换行测试旧实现 1/2 失败，统一 LF 后 2/2 与 check/build/typecheck/lint 通过；修正 checkpoint 识别消息：`fix(client): normalize generated schema line endings`。
+- 发布与核验：修正 checkpoint `7b52ef8` 已推送并通过精确干净 worktree 门禁；体验版 `0.1.0-p2.20260822.47` 本地上传成功（50 个平台代码文件、38673 bytes，manifest `28ceb48c307f4d4ae704de6db71371e96cc7b0959e2fff061b9cb7e86750e60f`），完成后的遥测 TLS 断开不影响 exit 0 上传结果，未审核、未正式发布。数据库备份 `8a28f6c0-20ec-4c5a-99ac-1f2c1e4ded55`（50 表、161440 行、76290384 bytes，SHA-256 `28dde6c0bdd058388da04c38e6e55452f700cfc8211123f23cb97b73e854a151`）后部署 release `7b52ef8093cfcd95c7a90cfee16e1a946fd34c35`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过并清理临时目录。最终状态 checkpoint 识别消息：`docs(status): record client-core calendar boundary deployment`。
 
 ## 2026-08-22 当前月撤回确认门禁
 

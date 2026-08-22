@@ -13,7 +13,9 @@
 - 验证：client-core 生成检查/build/typecheck、Web build/typecheck、根 build/typecheck/lint，定向 5 文件/167 项及受控全仓 150 文件/829 项通过，32 文件/265 项数据库集成按环境跳过。Mini 14 文件/56 项、verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（142817 bytes，manifest `fa75f52b0c78f7c14d42d1aaf5e037051326e8348adfc8e2f6f208c4268576c8`）；冻结 lockfile、任务格式、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只被用户所有 workspace/Mini 配置、已提交目录文件和 Storybook 生成物 11 项拦截。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本轮没有模板、样式或页面变化，不需要人工视觉确认。
 - 隔离门禁修正：代码 checkpoint `60cec6e`（`refactor(client): share calendar read boundary`）推送后，精确干净 Windows worktree 首次 `check:generated` 因 checkout CRLF 与生成 LF 做原始字节比较而假失败；该提交未上传微信、未部署 ECS，首次 release 包已作废。新增换行等价测试旧实现 1/2 失败，比较统一归一到 LF 后 2/2、生成检查/build/typecheck/lint 通过；修正 checkpoint 识别消息：`fix(client): normalize generated schema line endings`。
-- 当前状态：方案 2 实现与换行门禁修正已完成本地验证，待修正 checkpoint/推送、精确干净 worktree 复核、微信体验上传和 ECS 备份/部署/验证。
+- checkpoint 与体验上传：修正 checkpoint `7b52ef8`（`fix(client): normalize generated schema line endings`）已推送，精确干净 worktree 的生成检查和回归通过；本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p2.20260822.47`（50 个平台代码文件、38673 bytes，manifest `28ceb48c307f4d4ae704de6db71371e96cc7b0959e2fff061b9cb7e86750e60f`）。上传完成后平台遥测上报有一次 TLS 断开，但命令已明确 completed 且 exit 0；未提交审核、未正式发布。
+- 正式发布：数据库备份 archive `8a28f6c0-20ec-4c5a-99ac-1f2c1e4ded55`（50 表、161440 行、76290384 bytes，SHA-256 `28dde6c0bdd058388da04c38e6e55452f700cfc8211123f23cb97b73e854a151`）后部署 release `7b52ef8093cfcd95c7a90cfee16e1a946fd34c35`；预热首个 502 后恢复，`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移，精确临时发布目录已删除。
+- 当前状态：方案 2 月历读取边界已完成 Web 先行、Mini bundle 边界、回归、Git 推送、微信体验上传和 ECS 发布；无视觉确认点。最终状态 checkpoint 识别消息：`docs(status): record client-core calendar boundary deployment`。
 - 下一活动批次与停止条件：只实现 P2 Mini `wx.request` JSON transport 与共享错误映射，覆盖 statusCode、Bearer/public、无效业务响应和网络错误；不建页面、不持久化会话、不实现静默重登、GET 重试或 P3 身份流程。
 
 ## 2026-08-22 当前月撤回确认门禁修复（当前批次）
