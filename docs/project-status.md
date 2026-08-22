@@ -7,8 +7,9 @@
 - 用户确认与范围：确认 Storybook 终稿；移除右上角关闭按钮，提醒操作只显示“不再提示”；取消只关闭当前会话，“不再提示”按用户资料永久保存，不修改密码校验、提交 API、权限或其他弹窗。
 - 引入点与测试先行：`git log -S 'dismissPasswordReminder'` / `git blame` 定位 `664bc1f` 的会话内 ref 与关闭按钮后的焦点索引；旧实现新增断言先失败，实现后生产弹窗 2/2、会话管理 13/13 通过。
 - 实现与验证：按 `user_profiles.id` 写入 `schedule.password-reminder.dismissed.<profileId>`，登录/恢复/刷新密码状态读取；去掉右上角按钮后编辑态聚焦第一个密码框。Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、`smoke:check-core` 通过；`pnpm smoke:browser` 因本机 5173 未启动在第 1/6 步 `ERR_CONNECTION_REFUSED`，已写入调试记录。
-- 当前状态：已完成（含 Storybook 与运行验证）→ 待 checkpoint / 发布；checkpoint 识别消息：`fix(web): persist password reminder opt-out`。本批次只包含密码弹窗、会话偏好、AppLayout、定向测试和验证记录；其他小程序/Storybook/runtime/src 改动不纳入。
-- 下一批次与停止条件：只提交、推送并部署本 checkpoint，完成生产备份、`ecs-verify.sh` 与正式只读核验，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止。
+- 正式发布：代码 checkpoint `fc05236`（`fix(web): persist password reminder opt-out`）已推送；发布前数据库备份 archive `cd80262e-341e-4b41-8aef-10f3b4cd7c5d`（50 表、157702 行、70981852 bytes，SHA-256 `7ff5252339a3072defdf91bfaccb1eed01f501d1d6aa8afd934c4470a5572e95`）。release `fc052367239cf4c67430c9d61ddc993bb33974d6` 已部署，预热首次 502 后恢复；`ecs-verify.sh`、正式首页/API 200 与线上 bundle 只读命中“不再提示”且无旧文案/关闭类名。
+- 当前状态：代码与 Storybook 确认稿已完成并发布 → 待状态 checkpoint 收口；最终状态 checkpoint 识别消息：`docs(status): record password reminder deployment`。本批次只包含密码弹窗、会话偏好、AppLayout、定向测试和验证记录；其他小程序/Storybook/runtime/src 改动不纳入。
+- 下一批次与停止条件：只提交、推送并部署本状态 checkpoint，使 Git `HEAD`、`origin/main` 和服务器 `current-release` 一致后停止，不开始其他修改。
 
 ## 2026-08-22 移动导出按钮空白修复（当前批次）
 

@@ -586,4 +586,5 @@
 - 测试先行：旧实现新增的弹窗文案/移除关闭按钮、焦点索引、永久偏好与“取消仅本次关闭”断言先失败；实现后生产弹窗 2/2、会话管理 13/13 通过（工作区扫描含用户自有 `runtime/**` 副本共 42 项）。
 - 实现与语义：移除右上角关闭按钮，次级操作只显示“不再提示”；取消路径新增 `closePasswordReminder`，只关闭当前会话；“不再提示”新增按 `user_profiles.id` 隔离的 `localStorage` 偏好，登录、恢复会话与刷新密码状态均读取，存储异常不阻断登录。密码校验、修改提交、焦点陷阱和 API 调用次数不变。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，在第 1/6 步访问 `http://localhost:5173` 因本机无 Web 服务以 `ERR_CONNECTION_REFUSED` 停止；`pnpm smoke:check-core` 首次按门禁提示需先记录本条浏览器结果，记录后待复核。Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、定向 Vitest 通过；Storybook 390×844 需复核“不再提示”文案、无右上角按钮及取消/永久偏好交互。
-- 当前状态：已实现待浏览器复核；未提交、未推送、未部署。仓库已有用户自有未提交改动，`docs/project-status.md` 当前活动批次与本 UI 任务不一致，暂不混入 checkpoint。
+- 正式发布：代码 checkpoint `fc05236` 已推送；数据库备份 archive `cd80262e-341e-4b41-8aef-10f3b4cd7c5d`（50 表、157702 行、70981852 bytes，SHA-256 `7ff5252339a3072defdf91bfaccb1eed01f501d1d6aa8afd934c4470a5572e95`）后，release `fc052367239cf4c67430c9d61ddc993bb33974d6` 已部署；预热首次 502 后恢复，`ecs-verify.sh`、正式首页/API 200，线上 bundle 只读命中“不再提示”且不含旧文案/关闭类名。
+- 当前状态：已完成（含 Storybook、代码发布、生产备份、ECS 验证与正式 bundle 只读复核）→ 待状态 checkpoint 收口；其他用户自有小程序/Storybook/runtime/src 改动未纳入。
