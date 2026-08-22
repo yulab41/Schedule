@@ -7,7 +7,11 @@ import {
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
   visitorResolveRequestSchema,
+  wechatLinkPasswordRequestSchema,
+  wechatLinkPasswordResponseSchema,
   wechatLoginResponseSchema,
+  wechatRegisterRequestSchema,
+  wechatRegisterResponseSchema,
 } from './wechat.js';
 
 describe('wechat mini program contracts', () => {
@@ -40,6 +44,50 @@ describe('wechat mini program contracts', () => {
       wechatLoginResponseSchema.safeParse({
         isNewUser: true,
         token: 'signed-token',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('defines strict password-link and real-name registration contracts', () => {
+    const linked = {
+      expiresAt: '2026-09-21T00:00:00.000Z',
+      profile: { id: 'u1', realName: '张三', version: 1 },
+      status: 'authenticated' as const,
+      token: 'signed-token',
+    };
+
+    expect(
+      wechatLinkPasswordRequestSchema.parse({
+        linkToken: 'one-time-link-token',
+        password: 'secret',
+        username: '  Doctor.One  ',
+      }),
+    ).toEqual({
+      linkToken: 'one-time-link-token',
+      password: 'secret',
+      username: 'Doctor.One',
+    });
+    expect(wechatLinkPasswordResponseSchema.safeParse(linked).success).toBe(true);
+    expect(
+      wechatLinkPasswordRequestSchema.safeParse({
+        extra: true,
+        linkToken: 'one-time-link-token',
+        password: 'secret',
+        username: 'doctor.one',
+      }).success,
+    ).toBe(false);
+
+    expect(
+      wechatRegisterRequestSchema.parse({
+        linkToken: 'one-time-link-token',
+        realName: '  张三  ',
+      }),
+    ).toEqual({ linkToken: 'one-time-link-token', realName: '张三' });
+    expect(wechatRegisterResponseSchema.safeParse(linked).success).toBe(true);
+    expect(
+      wechatRegisterRequestSchema.safeParse({
+        linkToken: 'one-time-link-token',
+        realName: '   ',
       }).success,
     ).toBe(false);
   });

@@ -45,48 +45,66 @@ export class WechatIdentityResolver {
     }
 
     try {
-      return await withTransaction(this.databaseClient, async (transaction) => {
-        const existingIdentity = await this.findIdentity(transaction, input);
-        if (existingIdentity !== undefined) {
-          if (existingIdentity.appId === null) {
-            await transaction
-              .update(userAuthIdentities)
-              .set({ appId: input.appId })
-              .where(eq(userAuthIdentities.id, existingIdentity.id));
-          } else if (existingIdentity.appId !== input.appId) {
-            throw identityConflictError();
-          }
-          const user = await this.getActiveUser(transaction, existingIdentity.userId);
-          await this.ensureUnionAccount(transaction, user.userId, input.unionId);
-          await input.onResolved?.(transaction, user.userId);
-          return { ...user, isNewUser: false };
-        }
+      return await withTransaction(this.databaseClient, (transaction) =>
+        this.resolveInTransaction(transaction, input),
+      );
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw identityConflictError();
+      }
+      throw error;
+    }
+  }
 
-        if (input.provider === 'wechat_mini_program') {
-          const legacyUser = await this.findLegacyMiniUser(transaction, input.subject);
-          if (legacyUser !== undefined) {
-            await this.insertIdentity(transaction, input, legacyUser.userId);
-            await this.ensureUnionAccount(transaction, legacyUser.userId, input.unionId);
-            await input.onResolved?.(transaction, legacyUser.userId);
-            return { ...legacyUser, isNewUser: false };
-          }
-        }
+  public async resolveInTransaction(
+    transaction: DatabaseTransaction,
+    input: ResolveWechatIdentityInput,
+  ): Promise<ResolvedWechatIdentity | undefined> {
+    if (input.appId.length === 0) {
+      throw identityConfigurationError();
+    }
 
-        const unionUser = await this.findUnionUser(transaction, input.unionId);
-        if (unionUser !== undefined) {
-          const user = await this.getActiveUser(transaction, unionUser);
-          await this.insertIdentity(transaction, input, user.userId);
-          await input.onResolved?.(transaction, user.userId);
-          return { ...user, isNewUser: false };
+    try {
+      const existingIdentity = await this.findIdentity(transaction, input);
+      if (existingIdentity !== undefined) {
+        if (existingIdentity.appId === null) {
+          await transaction
+            .update(userAuthIdentities)
+            .set({ appId: input.appId })
+            .where(eq(userAuthIdentities.id, existingIdentity.id));
+        } else if (existingIdentity.appId !== input.appId) {
+          throw identityConflictError();
         }
+        const user = await this.getActiveUser(transaction, existingIdentity.userId);
+        await this.ensureUnionAccount(transaction, user.userId, input.unionId);
+        await input.onResolved?.(transaction, user.userId);
+        return { ...user, isNewUser: false };
+      }
 
-        if (input.createUser === undefined) return undefined;
-        const created = await input.createUser(transaction);
-        await this.insertIdentity(transaction, input, created.userId);
-        await this.ensureUnionAccount(transaction, created.userId, input.unionId);
-        await input.onResolved?.(transaction, created.userId);
-        return { ...created, isNewUser: true };
-      });
+      if (input.provider === 'wechat_mini_program') {
+        const legacyUser = await this.findLegacyMiniUser(transaction, input.subject);
+        if (legacyUser !== undefined) {
+          await this.insertIdentity(transaction, input, legacyUser.userId);
+          await this.ensureUnionAccount(transaction, legacyUser.userId, input.unionId);
+          await input.onResolved?.(transaction, legacyUser.userId);
+          return { ...legacyUser, isNewUser: false };
+        }
+      }
+
+      const unionUser = await this.findUnionUser(transaction, input.unionId);
+      if (unionUser !== undefined) {
+        const user = await this.getActiveUser(transaction, unionUser);
+        await this.insertIdentity(transaction, input, user.userId);
+        await input.onResolved?.(transaction, user.userId);
+        return { ...user, isNewUser: false };
+      }
+
+      if (input.createUser === undefined) return undefined;
+      const created = await input.createUser(transaction);
+      await this.insertIdentity(transaction, input, created.userId);
+      await this.ensureUnionAccount(transaction, created.userId, input.unionId);
+      await input.onResolved?.(transaction, created.userId);
+      return { ...created, isNewUser: true };
     } catch (error) {
       if (isDuplicateKeyError(error)) {
         throw identityConflictError();

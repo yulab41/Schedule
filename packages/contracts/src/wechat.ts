@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { passwordSecretSchema, passwordUsernameSchema } from './auth.js';
 import { groupSummarySchema } from './groups.js';
 import { userProfileSchema } from './users.js';
 
@@ -18,15 +19,18 @@ const legacyWechatLoginResponseSchema = z
   })
   .strict();
 
+export const wechatAuthenticatedResponseSchema = z
+  .object({
+    expiresAt: z.string().datetime({ offset: true }),
+    profile: userProfileSchema,
+    status: z.literal('authenticated'),
+    token: z.string().min(1),
+  })
+  .strict();
+export type WechatAuthenticatedResponse = z.infer<typeof wechatAuthenticatedResponseSchema>;
+
 export const wechatLoginResponseSchema = z.discriminatedUnion('status', [
-  z
-    .object({
-      expiresAt: z.string().datetime({ offset: true }),
-      profile: userProfileSchema,
-      status: z.literal('authenticated'),
-      token: z.string().min(1),
-    })
-    .strict(),
+  wechatAuthenticatedResponseSchema,
   z
     .object({
       expiresAt: z.string().datetime({ offset: true }),
@@ -36,6 +40,31 @@ export const wechatLoginResponseSchema = z.discriminatedUnion('status', [
     .strict(),
 ]);
 export type WechatLoginResponse = z.infer<typeof wechatLoginResponseSchema>;
+
+const wechatLinkTokenSchema = z.string().min(1).max(512);
+
+export const wechatLinkPasswordRequestSchema = z
+  .object({
+    linkToken: wechatLinkTokenSchema,
+    password: passwordSecretSchema,
+    username: passwordUsernameSchema,
+  })
+  .strict();
+export type WechatLinkPasswordRequest = z.infer<typeof wechatLinkPasswordRequestSchema>;
+
+export const wechatLinkPasswordResponseSchema = wechatAuthenticatedResponseSchema;
+export type WechatLinkPasswordResponse = z.infer<typeof wechatLinkPasswordResponseSchema>;
+
+export const wechatRegisterRequestSchema = z
+  .object({
+    linkToken: wechatLinkTokenSchema,
+    realName: z.string().trim().min(1).max(100),
+  })
+  .strict();
+export type WechatRegisterRequest = z.infer<typeof wechatRegisterRequestSchema>;
+
+export const wechatRegisterResponseSchema = wechatAuthenticatedResponseSchema;
+export type WechatRegisterResponse = z.infer<typeof wechatRegisterResponseSchema>;
 
 export const wechatWebLoginStartQuerySchema = z
   .object({

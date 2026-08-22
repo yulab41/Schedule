@@ -2,6 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-D linkToken 消费与显式建档（当前批次）
+
+- 范围：只新增 `POST /auth/wechat/link-password` 和 `POST /auth/wechat/register` 的严格 contracts、原子 linkToken 消费、密码 proof、真实姓名建档和 authenticated response；不做管理员 ticket/URL Link、密码修改 proof、解绑、公开 Web 注册关闭或任何页面。该子步对应身份预检 P3-C 第 2 项，当前状态沿用 P3-D checkpoint 标签。
+- 引入点与测试先行：微信登录/identity resolver/密码登录分别来自 `39f9c66`、`4416f79`、`de3ad5f`，一次性 linkToken 来自 `3919050`。新 contracts 在旧代码先 1 项失败；真实 MySQL 新增 7 个端点场景在旧路由全部返回 404。实现后的契约要求 linkToken 非空且有界、用户名沿用既有 trim/格式、真实姓名 trim 后 1–100 字，两个端点只返回完整 `authenticated` 结果。
+- 密码绑定：在 linkToken 行锁事务内规范化用户名并验证 active、未删除、有资料且有非空 hash 的密码账号；错误用户名/密码统一 401 且 token 保持 pending，可用正确 proof 重试。成功时只把当前 `(Mini provider, AppID, openid)` 和可选 UnionID 绑定到该业务用户，保留其 profile/authVersion，签发同版本 scoped session 并写脱敏审计；token 已绑定其他 user、legacy openid 不同或 Union 归属冲突均 409 且不合并。
+- 微信建档：未知 identity 原子创建 synthetic locator 的 active user、真实姓名 profile、当前 AppID identity、可选 Union account 和审计，不创建 password credential；已知 identity/Union 且无 profile 时只补原 user 的 profile，不创建第二个用户。重复 profile、已绑定冲突和 suspended/deleted user 失败关闭；入群仍由后续完全同名预设成员规则决定。
+- 事务/并发：resolver 新增复用调用方事务的入口，原 `resolve()` 仍保持空 AppID 在开事务前拒绝、单事务、查询/回调顺序、返回对象和 duplicate→409 语义。linkToken 锁、密码/建档、identity/Union/legacy openid、审计、session 签发和 consumed 更新属于同一事务；签名 secret 缺失会全部回滚。同 token 并发只有 201/409 各一，篡改 401、过期 410、重放 409，失败均不泄露存储身份。
+- 验证：contracts/API typecheck、生成 freshness、根 build/typecheck/lint 通过；contracts/密码/路由/gateway/Web 微信 5 文件/36 项，真实 MySQL identity 22、linkToken 4、邀请 7、database migration/client 19 项通过。受控非 integration 全仓 152 文件/845 项通过，2 个 DB 文件/19 项按该命令环境跳过；默认显式文件运行仍会扫描用户所有 `runtime/**` 历史副本，受控命令排除且未修改副本。
+- Mini/门禁：Mini 运行源码与生成 client 未变；15 文件/63 项、typecheck、verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147968 bytes，manifest `254d964d5f368f185fb5556642c6b2b3d20fd96b0f58b7c47b67fe03ddacac3b`）。本 checkpoint 不需要新增体验上传；上一体验版仍为 `0.1.0-p3.20260822.49`。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无 Web/Mini 模板、样式或页面变化，不需要人工视觉确认；任务 Prettier/ESLint/`git diff --check`/`smoke:check-core` 通过。根 format 仍精确只有既有/用户所有 11 项阻塞。
+- 当前状态：实现和本地门禁完成，待 checkpoint `feat(auth): complete explicit wechat linking` 推送及生产备份/部署/只读核验；无 migration，生产不得调用真实微信登录或写业务身份数据。
+- 下一活动批次与停止条件：只实现用户/平台管理员“解除当前 Mini AppID identity”服务端 contracts、code proof/原因、可用 Web 密码前置、幂等、审计和 authVersion 递增；必须保留用户、资料、用户名、群组、排班、审计与其他渠道。不得关闭公开注册、实现管理员绑定 ticket/password proof 或 UI；并发、错误 code、跨 AppID、旧 session 失效和业务引用不变量通过后停止。
+
 ## 2026-08-22 P3-C 显式微信关联与无注销边界（当前批次）
 
 - 范围：只把 Mini 登录改为 `authenticated | link_required` 判别联合，建立 10 分钟单次哈希 linkToken 基础并移除真实账号注销 contract/service/route；不实现 link-password/register 消费端点、解绑、管理员账号 API、Web 登录页或 Mini 页面。公开密码注册暂保留到同步视觉批次。

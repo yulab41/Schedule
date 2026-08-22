@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-D linkToken 消费与显式建档
+
+- 红灯与来源：contracts 新用例在旧代码 1 项失败，真实 MySQL 7 个新端点场景全部 404；登录、resolver、密码和 linkToken 来源为 `39f9c66`/`4416f79`/`de3ad5f`/`3919050`。默认 Vitest 另扫用户 `runtime/**` 副本导致迁移表竞争，显式排除后主文件红灯/绿灯可重复。
+- 实现：新增严格 link-password/register contracts 与 200/201 routes。密码 proof 只接受 active、未删除、有资料和非空 hash 的账号；新微信建档创建 synthetic locator/user/profile/identity/可选 Union，不创建密码；已知无 profile identity 只补原 user。两条路径返回完整 authenticated profile/session并保留 authVersion。
+- 事务与等价：resolver 原逻辑提取为可复用调用方事务的入口，原 `resolve()` 的 receiver、单事务、空 AppID 前置拒绝、查询/回调顺序、返回/错误保持。linkToken、identity/Union/legacy openid、profile、审计、session 签名和 consumed 同事务；错误 proof、篡改、过期、重放、并发、Union 冲突及缺 secret 均失败关闭并按预期回滚。
+- 验证：契约/密码/Web 微信定向 5 文件/36 项；真实 MySQL identity 22、linkToken 4、邀请 7、database 19 项；受控非 integration 全仓 152 文件/845 项通过（2 文件/19 项环境跳过）。根 build/typecheck/lint、Mini 15 文件/63 项与全部静态/包门禁、任务格式/diff 通过；根 format 仍仅既有/用户所有 11 项。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；本批无视觉变化。checkpoint 识别消息：`feat(auth): complete explicit wechat linking`。
+
 ## 2026-08-22 P3-C 显式微信关联与无注销边界
 
 - 红灯：Mini 判别联合、三类 link 错误、脱敏、0045 schema、link service 模块、未知不建号和注销 404 均在旧实现失败。
