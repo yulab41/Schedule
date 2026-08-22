@@ -20,11 +20,10 @@ export * from './platform.js';
 export * from './wechat.js';
 export * from './auth.js';
 export * from './directory.js';
+export { workspaceName } from './workspace-name.js';
 
 export interface SystemStatus {
   component: 'api' | 'web';
   ready: boolean;
   summary: string;
 }
-
-export const workspaceName = 'medical-staff-scheduling-system';

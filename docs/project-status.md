@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 scheduling-domain barrel 解耦（当前批次）
+
+- 完成审计与范围：P2 完成审计发现 `scheduling-domain/src/index.ts` 自 `ae649b3` 起为 health summary 运行时导入 `@schedule/contracts` 总 barrel，未来 Mini 使用 domain 会连带 23 个 contracts 源文件和 Zod。只解耦该 metadata 运行路径，不改领域算法、统计类型、API、数据库或 Mini 页面。
+- 测试先行：新增 browser bundle 与 health summary 守卫；旧实现 2 项中 bundle 1 项失败，实际列出 contracts 的 23 个源文件。新增 `@schedule/contracts/workspace-name` Zod-free 子路径并切换 domain 后，bundle 只含该一个 contracts leaf，Zod 与 contracts index 均不存在，summary 仍精确为 `medical-staff-scheduling-system domain is ready.`。
+- 语义等价：workspace 名称仍单源于 contracts，API `createDomainSummary` 导出、调用方式、字符串、同步路径和调用次数不变；statistics 的 contracts import 仍为 type-only，esbuild 证明不进入运行包。没有异步、错误、空值或副作用变化。
+- 验证：contracts/domain build/typecheck、定向 2 文件/3 项、根 build/typecheck/lint 及受控全仓 153 文件/842 项通过，32 文件/265 项数据库集成按环境跳过；任务格式、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只有既有/用户所有 11 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。无模板/样式/页面变化，不需要人工视觉确认。
+- 当前状态：P2 domain barrel 明确缺口已修复，待 checkpoint/推送和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(domain): isolate runtime metadata`。本轮未修改 Mini 包，不需要新的微信体验上传。
+- 下一活动批次与停止条件：重新执行 P2 完成审计；若 presentation-core、client-core、transport、tokens、fixtures、decoder、Web-first 和 Mini bundle 全部有直接证据，则只更新阶段状态并把下一批切到 P3 身份安全预检，否则继续补唯一缺口。
+
 ## 2026-08-22 P2 Mini wx.request JSON transport（当前批次）
 
 - 批次范围：只为已共享的月历/节假日 GET endpoint 增加 Mini `wx.request` transport 与共享错误映射；不建页面、不缓存、不持久化 token、不清理 401、不静默重登、不重试、不进入 P3。同步基线 `23284e8` 与 `origin/main` 一致，无新增已提交 Web 相关变化。

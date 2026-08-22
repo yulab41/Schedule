@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 scheduling-domain runtime barrel
+
+- 引入点与红灯：`ae649b3` 为 health summary 从 contracts barrel 运行时取 `workspaceName`。bundle 守卫旧实现 1/2 失败，显示 23 个 contracts 源文件；summary 基线通过。
+- 修复与等价：新增 Zod-free `@schedule/contracts/workspace-name` 子路径，domain 只改 import；health 字符串、同步调用、统计 type-only imports 和全部算法不变。修复后 runtime 仅含一个 metadata leaf，无 contracts index/Zod。
+- 验证：定向 2 文件/3 项、受控全仓 153 文件/842 项通过，32 文件/265 项跳过；contracts/domain/根 build/typecheck/lint、任务格式、diff check 和 `smoke:check-core` 通过，根 format 仅有既有/用户所有 11 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`refactor(domain): isolate runtime metadata`。
+
 ## 2026-08-22 P2 Mini wx.request transport
 
 - 红灯与范围：共享错误 API 旧实现 3/3 失败，Mini transport 因模块缺失失败；只实现月历/节假日 GET、status/auth/decode/error，不建页面、缓存、会话持久化、重登或重试。

@@ -15,6 +15,7 @@
     "paths": {
       "@schedule/client-core": ["packages/client-core/src/index.ts"],
       "@schedule/client-core/testing": ["packages/client-core/src/testing/index.ts"],
+      "@schedule/contracts/workspace-name": ["packages/contracts/src/workspace-name.ts"],
       "@schedule/contracts": ["packages/contracts/src/index.ts"],
       "@schedule/database": ["packages/database/src/index.ts"],
       "@schedule/presentation-core": ["packages/presentation-core/src/index.ts"],

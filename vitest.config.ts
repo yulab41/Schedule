@@ -6,6 +6,12 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: '@schedule/contracts/workspace-name',
+        replacement: fileURLToPath(
+          new URL('./packages/contracts/src/workspace-name.ts', import.meta.url),
+        ),
+      },
+      {
         find: '@schedule/client-core/testing',
         replacement: fileURLToPath(
           new URL('./packages/client-core/src/testing/index.ts', import.meta.url),

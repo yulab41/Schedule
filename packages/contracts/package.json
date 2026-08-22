@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./workspace-name": {
+      "types": "./dist/workspace-name.d.ts",
+      "import": "./dist/workspace-name.js"
     }
   },
   "scripts": {

@@ -1,4 +1,4 @@
-import { workspaceName } from '@schedule/contracts';
+import { workspaceName } from '@schedule/contracts/workspace-name';
 
 export { calculateReadableTextColor, calculateShiftEndDate } from './shift-time.js';
 export {
