@@ -8,6 +8,7 @@
 - 修复与语义：共享确认输入增加 action，只有 publish + past dates 检查第二日期确认；Vue script 和 confirm button 禁用条件同步限定 action。撤回仍要求可见的通用影响确认，重新发布仍要求通用+日期双确认；请求体、UUID、API 接收者、版本/幂等、异步错误和调用次数不变。
 - 验证：回归 3/3、发布等价/边界 3 文件/11 项、受控全仓 146 文件/817 项通过，32 文件/265 项按环境跳过；presentation-core/Web/根 build/typecheck/lint 通过。Mini 13 文件/54 项及 verify/source/Worklet/package/determinism/CI dry-run 通过（133701 bytes，manifest `2fa6b96c62c44c32fcd1ec26626970ba801e894bd02656422ca2e61113d239ad`）；任务格式、diff check 和 `smoke:check-core` 通过。
 - 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；元素、文案和 style 不变，无视觉确认点。checkpoint 识别消息：`fix(web): allow current-month schedule withdrawal`。
+- 发布与核验：checkpoint `b24db46` 已推送；本地 Node `miniprogram-ci` 从精确干净 worktree 上传体验版 `0.1.0-p2.20260822.46`（50 个代码文件、38661 bytes，manifest `012f71bed84a4bfd04c44a6426ac7b2453f767be7c01fec625fc483da19ec2dc`），未审核、未正式发布。数据库备份 `b021d3b4-4582-4607-86b2-63c49bb7c79e`（50 表、161438 行、76289064 bytes，SHA-256 `4b8a59e5b85235d74829a91a65f3ade8b7295f5ac2f0c85ea6ee4c7547974efd`）后部署 release `b24db461d77a839a23410f1d696662347338733a`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过并清理精确临时目录。最终状态 checkpoint 识别消息：`docs(status): record current-month withdrawal deployment`。
 
 ## 2026-08-22 P2 发布生命周期共享
 

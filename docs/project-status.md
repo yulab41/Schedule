@@ -9,7 +9,9 @@
 - 实现与语义：共享 `canConfirmSchedulePeriodMutation` 显式接收 action，仅 publish + past dates 要求 `acknowledgePastDates`；Web script 与模板传入/检查同一 action。当前月撤回仍需“我已了解上述影响”的通用确认，并继续把 workflow acknowledgement、expectedVersion 和 controller 生成的 UUID 发送原 API；重新发布含过去日期仍需通用确认加日期确认。API 成员调用、请求次数、Promise/catch/finally、冲突刷新和加载状态不变。
 - 验证：presentation-core/Web/根 build、typecheck、lint 通过；受控全仓 146 文件/817 项通过，32 文件/265 项数据库集成按环境跳过。Mini 13 文件/54 项及 typecheck/verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（133701 bytes，manifest `2fa6b96c62c44c32fcd1ec26626970ba801e894bd02656422ca2e61113d239ad`）；任务 Prettier、`git diff --check`、`smoke:check-core` 通过。根 `format:check` 仍只被用户所有 workspace/Mini 配置、已提交目录文件和 Storybook 生成物拦截；默认 Mini 命令的 ignored ECS runner 副本阻塞沿用上一 checkpoint，不修改相关文件。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。Vue 只改变 confirm button 的布尔禁用条件，元素、文案和 style 与 `HEAD` 不变，不需要人工视觉确认。
-- 当前状态：回归已修复并完成本地验证，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`fix(web): allow current-month schedule withdrawal`。
+- checkpoint 与体验上传：代码 checkpoint `b24db46`（`fix(web): allow current-month schedule withdrawal`）已推送；从精确隔离干净 worktree 使用本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p2.20260822.46`（50 个代码文件、38661 bytes，manifest `012f71bed84a4bfd04c44a6426ac7b2453f767be7c01fec625fc483da19ec2dc`）。公网 IPv4 仍为 `103.54.154.22`；未提交审核、未正式发布，也未使用 ECS 或微信开发者工具 CLI。
+- 正式发布：数据库备份 archive `b021d3b4-4582-4607-86b2-63c49bb7c79e`（50 表、161438 行、76289064 bytes，SHA-256 `4b8a59e5b85235d74829a91a65f3ade8b7295f5ac2f0c85ea6ee4c7547974efd`）后部署 release `b24db461d77a839a23410f1d696662347338733a`；预热首个 502 后恢复，`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移，精确临时发布目录已删除。
+- 当前状态：当前月撤回确认路径已完成回归修复、Git 推送、微信体验上传和 ECS 发布；无视觉确认点。最终状态 checkpoint 识别消息：`docs(status): record current-month withdrawal deployment`。
 - 下一活动批次与停止条件：只读审计 `@schedule/client-core` 的最小只读端点、transport、错误语义、紧凑解码器与黄金响应边界；如日历/配置/历史端点顺序存在多种高影响方案，先向用户确认，不进入 P3 或 Mini 业务页面。
 
 ## 2026-08-22 P2 发布生命周期共享（当前批次）
