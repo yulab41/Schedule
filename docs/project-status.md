@@ -7,7 +7,8 @@
 - 范围：接通已确认黄金稿对应的 Web 登录和平台账号后台；Web 登录移除公开注册控件，API `/auth/password/register` 对匿名请求返回 403 且不创建用户；平台管理员页面接入脱敏账号列表、用户名分配和管理员 Mini 绑定链接生成。不修改用户未提交的目录/Storybook 文件，不进入 P4 页面。
 - 安全边界：平台账号页面只展示 userId 截断值、username、hasPassword、status、authVersion；不展示姓名、联系方式或密码 hash。绑定链接由服务端生成并显示为受控操作结果。
 - 当前验证：API auth route 3 项、Web P3/Api client 157 项、Web typecheck/build、root lint 通过；`pnpm smoke:check-core` 通过。`pnpm smoke:browser` 在本机 5173/5174 绑定被系统 `EACCES` 阻断；clean static build 复核已通过登录页布局、隐藏公开注册和键盘焦点，随后因无开发身份按钮无法继续工作台流程。
-- 当前状态：已实现待浏览器复核；修正 smoke 旧注册控件选择器和登录焦点断言后，待修正 checkpoint 生产同步并继续 P3 原生复核。
+- checkpoint 与发布：代码 checkpoint `02a508d` 与修正 `b9a5382` 已推送；生产备份 `0e062719-9a52-4367-8624-2b0f8fc315a2`（54 表、161502 行、76325228 bytes，SHA-256 `ec1a8efb85677df6b1ce93cecba3984c3a2d53721ca000d59340849d8c7b9266`）后部署 release `b9a538240e7148913cb4dd933b93395b05c5a05d`，`ecs-verify.sh` 通过。Web 公开注册已关闭，平台账号页面已接入。
+- 当前状态：Web P3 身份生产接线已完成；Mini P3 身份页面已上传体验版，仍待用户在微信开发者工具/实体 Android 完成原生复核，不进入 P4。
 - 停止条件：生产 Web 登录和平台账号页面验证通过后，继续 P3 原生身份验收；不开始 P4 工作台。
 
 ## 2026-08-22 P3 原生身份页面首个切片（当前批次）

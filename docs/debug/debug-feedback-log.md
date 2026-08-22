@@ -8,7 +8,8 @@
 - 验证：API auth route 3 项、Web client 155 项、Web typecheck、root lint 通过。
 - 运行/浏览器验证：`pnpm smoke:check-core` 通过；`pnpm smoke:browser` 的 Node 监听在 5173/5174 被系统 `EACCES` 阻断。clean static build 用 `SMOKE_BASE_URL=http://127.0.0.1:6008` 复核到登录页：横向布局、关闭公开注册和键盘焦点通过，随后因 production build 没有本地开发身份按钮停止。
 - 修正：同步 smoke 旧 `.auth-mode-switch` 选择器到仅登录语义，并为登录/访客按钮补 3px focus-visible 描边。
-- checkpoint 识别消息：`fix(web): align p3 smoke with closed registration`。
+- 发布：代码 checkpoint `02a508d` 与修正 `b9a5382` 已推送；生产备份 `0e062719-9a52-4367-8624-2b0f8fc315a2` 后部署 release `b9a538240e7148913cb4dd933b93395b05c5a05d`，`ecs-verify` 通过。Web 公开注册关闭，平台账号页面已接线。
+- checkpoint 识别消息：`fix(web): align p3 smoke with closed registration`；当前等待 Mini 原生复核。
 
 ## 2026-08-22 P3 原生身份页面首个切片
 
