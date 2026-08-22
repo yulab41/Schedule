@@ -8,7 +8,8 @@
 - 引入点审计：`git log -S 'pages/index/index'`/`git blame` 定位 P1 首路由来自 `3884713b`/`2d51e222`；本轮只重排既有路由并更新静态期望，不改身份页面逻辑、公共 API、ECS 或上传凭证。
 - 验证：定向 6/6、受控全套 16 文件/69 项、typecheck、staging build、verify（2/2 Worklet，203180 bytes，manifest `f1715957936d60ccbe911acf28f923788ea2c6f53b5a10bd7ece9012b37bc4e8`）、source/package audit、determinism、官方 CI dry-run 和 `git diff --check` 通过。
 - 运行/浏览器验证：`node scripts/smoke-browser.mjs` 因本机 `localhost:5173` 无服务先得到 `ERR_CONNECTION_REFUSED`；尝试直接启动 Vite 仍被系统 `EACCES` 拒绝监听 `::1:5173`，未进入浏览器产品断言。本轮无 Web 代码变化。
-- 状态：待 checkpoint 提交/推送、从精确干净 worktree 本地 `miniprogram-ci` 上传下一体验版，再等待用户在微信开发者工具/实体 Android 冷启动确认登录入口及完整 P3 身份流程。
+- 发布：checkpoint `984695ac` 已推送；公网 IPv4 `103.54.154.21` 与白名单一致。从精确干净 worktree 使用仓库外私钥、本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p3.20260823.53`（60 个平台代码文件，上传 manifest `7befc46d5b5bae0bbd5b189047d01ae5963e3c3d6aa1ccbe86e68d6937c433d4`），未审核/正式发布。正确生产 ECS `120.77.220.79` 的备份 archive `6d1c0b1f-1bc8-46df-bd46-e5821a8e9723`（54 表、161508 行、76329196 bytes，SHA-256 `d717001dcebf8e0783d3339e43cbe4e73159d58c65a84d6eed3e5da3f12ed361`）后部署 release `984695ac13eff7e58258c4a549b0a506eb650d41`；`ecs-verify.sh` 通过，临时目录已删除，Git/远端/服务器 release 一致。未使用 ECS 上传小程序。
+- 状态：等待用户在微信开发者工具/实体 Android 冷启动确认登录入口及完整 P3 身份流程。
 - checkpoint 识别消息：`fix(miniprogram): open identity page by default`。
 
 ## 2026-08-23 P3 原生解绑页面切片

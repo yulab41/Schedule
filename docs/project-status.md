@@ -6,7 +6,7 @@
 
 - 引入点与修正：`git log -S 'pages/index/index'`/`git blame` 确认 P1 基础页自 `3884713b` 初始化并在 `2d51e222` 成为首路由；P3 身份页追加后仍位于列表末尾，导致冷启动进入 P1 展示页而看不到登录入口。仅将既有 `pages/identity/index` 调整为 `app.json` 首项，P1 月历/矩阵/手势路由与 P3 解绑、管理员预览路由仍保留；无 ECS 中继、凭证、公共 API 或页面逻辑变化。
 - 验证：Mini 定向 6 项、受控全套 16 文件/69 项、TypeScript typecheck、staging build、verify、Worklet/source/package audit、determinism、官方 CI dry-run 和 `git diff --check` 通过；浏览器 smoke 因本机监听 `localhost:5173` 被系统 `EACCES` 阻断，未进入产品断言（本批仅 Mini 入口变更）。
-- checkpoint：拟提交 `fix(miniprogram): open identity page by default`；推送后从精确干净 worktree 用仓库外微信密钥、本地 Node `miniprogram-ci` 上传下一体验版，随后按根规则备份/部署/`ecs-verify` 对齐生产。不得审核或正式发布。
+- checkpoint 与发布：代码 checkpoint `984695ac`（`fix(miniprogram): open identity page by default`）已推送；当前公网 IPv4 `103.54.154.21` 与微信上传白名单一致。从精确干净 worktree 使用仓库外私钥、本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p3.20260823.53`，60 个平台代码文件，上传 manifest `7befc46d5b5bae0bbd5b189047d01ae5963e3c3d6aa1ccbe86e68d6937c433d4`，未审核/正式发布。正确生产 ECS `120.77.220.79` 发布前数据库备份 archive `6d1c0b1f-1bc8-46df-bd46-e5821a8e9723`（54 表、161508 行、76329196 bytes，SHA-256 `d717001dcebf8e0783d3339e43cbe4e73159d58c65a84d6eed3e5da3f12ed361`）后部署 release `984695ac13eff7e58258c4a549b0a506eb650d41`；`ecs-verify.sh` 通过，部署临时目录已删除，Git `HEAD`、`origin/main` 和服务器 `current-release` 一致。未使用 ECS 上传小程序，未包含审核或正式发布。
 - 当前状态：已实现待人工原生复核；等待用户重新打开体验版确认冷启动显示“微信登录”入口，并复核登录、绑定、建档、管理员绑定和解绑完整 P3 清单。
 - 下一活动批次与停止条件：只做本入口 checkpoint 的上传、生产对齐和用户实体 Android/微信复核；用户明确通过前不进入 P4 或新的 Web/Mini 页面。
 
