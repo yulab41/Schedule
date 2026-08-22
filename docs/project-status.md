@@ -7,9 +7,10 @@
 - 范围：只新增 Web Storybook 身份安全黄金稿，不修改生产 Web 登录/平台账号页面，不创建小程序 WXML/WXSS 页面，不调用 API。覆盖 Web 无公开注册登录、平台账号用户名分配、Mini 微信登录、密码绑定、首次真实姓名建档、管理员 URL Link 脱敏预览与确认。
 - 设计：沿用 `@schedule/ui-tokens` 的医护工作台蓝白令牌和系统字体；Web 使用“身份确认台”双栏结构，Mini 使用 390px 单列身份步骤流；身份进度线是唯一强调元素，区分微信身份、账号证明和进入排班。所有按钮仅改变 Storybook 预览状态。
 - 安全文案：Web 明确没有“注册”入口；平台账号表只展示必要状态，不显示密码/联系方式；管理员绑定只展示 `林*`、`d0***` 和约 10 分钟期限；Mini 首次建档只收真实姓名，不隐含注销或自动建号。
-- 当前验证：新黄金稿已通过 Prettier、定向 ESLint 与 Web `vue-tsc`；源级 Vitest 尚待在完整 clean worktree 复核。共享工作区依赖曾因并行任务缺少 Rollup Windows optional binary 阻断 Storybook/Vitest 启动，未修改用户配置或依赖声明。
-- 当前状态：已实现待浏览器复核；下一步启动 Storybook 检查 390×844、320×844 和 1280×900，并提供预览地址。用户确认前不实现小程序身份页面或替换生产 Web 页面。
-- 停止条件：Storybook 黄金稿可访问且完成自检后暂停，等待用户人工视觉确认；确认前不进入原生 WXML/WXSS 或 P3 身份页面生产接线。
+- 当前验证：clean worktree 的完整 build、Web `vue-tsc`、定向 ESLint、源级 Vitest 4/4 与 Storybook build 通过。真实静态 Storybook 浏览器检查覆盖 390×844、320×844、1280×900 的 Web/Mini 登录、平台账号、首次建档、密码绑定和管理员绑定状态；所有页面 `body.scrollWidth === viewport`，无 page error。Web 登录仅有静态 Python 服务器缺少 `/favicon.ico` 的 404，不属于页面资源或产品错误。
+- 预览地址：`http://127.0.0.1:6007/?path=/story/miniprogram-parity-p3-identity-security--mini-login-390`；同一 Story 下可切换 `web-login`、`platform-admin-accounts`、`platform-admin-assignment`、`mini-login-320`、`mini-link-password`、`mini-register-profile`、`mini-admin-link-preview`、`mini-admin-link-confirm`。
+- 当前状态：已完成（含 Storybook 浏览器自检）→ 待用户复核。用户确认前不实现小程序身份页面或替换生产 Web 页面。
+- 停止条件：等待用户人工视觉确认这 9 个身份状态；确认前不进入原生 WXML/WXSS 或 P3 身份页面生产接线。
 
 ## 2026-08-22 通讯录打开性能优化（当前批次）
 

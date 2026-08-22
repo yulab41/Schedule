@@ -6,8 +6,9 @@
 
 - 实现：新增 `P3IdentitySecurityPreview` Storybook 黄金稿及 9 个 Web/Mini 身份状态，保持 Web 无公开注册、平台账号不暴露密码、Mini 管理员 ticket 脱敏与 10 分钟边界；未改生产页面、Mini 页面或 API。
 - 设计：使用现有 UI token 和医护工作台蓝白语义；Web 为身份确认台，Mini 为身份步骤流，进度线表达微信身份→账号证明→进入排班。
-- 验证：Prettier、定向 ESLint、Web `vue-tsc` 通过；Storybook/Vitest 启动曾被共享 `node_modules` 缺少 Windows Rollup optional binary 阻断，clean worktree 视觉验证待执行。
-- checkpoint 识别消息：`feat(miniprogram): add p3 identity security visual goldens`。
+- 验证：clean worktree 完整 build、Web `vue-tsc`、定向 ESLint、源级 Vitest 4/4、Storybook build 通过；真实静态 Storybook 浏览器检查覆盖 Web 登录/平台账号与 Mini 390/320 身份状态，所有页面无横向溢出或 page error。Web 登录只有 Python 静态服务器 `/favicon.ico` 404。
+- 预览：`http://127.0.0.1:6007/?path=/story/miniprogram-parity-p3-identity-security--mini-login-390`；截图保存在仓库外临时目录 `C:\Users\eylin\AppData\Local\Temp\p3-identity-screens`，未进入 Git。
+- checkpoint 识别消息：`fix(miniprogram): stabilize p3 visual guard`；当前状态已完成 → 待用户人工视觉确认。
 
 ## 2026-08-22 P3-G 管理员 URL Link ticket 与 Mini admin-bind
 
