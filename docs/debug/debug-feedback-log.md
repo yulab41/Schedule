@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 Mini wx.request transport
+
+- 红灯与范围：共享错误 API 旧实现 3/3 失败，Mini transport 因模块缺失失败；只实现月历/节假日 GET、status/auth/decode/error，不建页面、缓存、会话持久化、重登或重试。
+- 实现与等价：contracts code 生成到 client-core；known/fallback/invalid/network 与 Web 逐字段等价。Mini bearer 读一次 token、public 不读，`wx.request` 成员调用一次，2xx 解码原对象，callback/sync throw 同映射；拒绝不包装重试。
+- 体积与边界：三个逐文件入口的 183133-byte 中间实现未保留，合并单一 platform 入口后为 147887 bytes（+5070）。源码/产物继续无 Zod/contracts runtime、Node/DOM/fetch/Vue/数据库，无页面/WXML/WXSS/路由。
+- 验证：共享/Web 4 文件/15 项、Mini 2 文件/8 项、受控全仓 152 文件/840 项通过，32 文件/265 项按环境跳过；client-core/Web/根 build/typecheck/lint 和 Mini 15 文件/62 项、verify/source/Worklet/package/determinism/CI dry-run 通过（manifest `219a4fbe51fa35bf2e64c7a06b02e542da216859568dbfcb71f4f15ccbb76144`）；任务格式、diff check、`smoke:check-core` 通过，根 format 仅有既有/用户所有 11 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(client): add miniprogram json transport`。
+
 ## 2026-08-22 P2 client-core 月历读取边界
 
 - 引入点与红灯：月历 `ab25064`、节假日 `48c6fdd`/`fbf59fa`、统一请求管线 `dd9981f`、fetch receiver `1c5d2c5`。Web/Mini 旧代码均因无 client-core 失败，Mini 真实边界入口追加红灯后实现。

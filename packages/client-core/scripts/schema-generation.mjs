@@ -59,7 +59,7 @@ export function sanitizeJsonSchema(schema, path = '$') {
   return result;
 }
 
-export function renderGeneratedSchemas({ calendar, holidays }) {
+export function renderGeneratedSchemas({ calendar, errorCodes, holidays }) {
   return [
     "import type { CompactJsonSchema } from '../json-decoder.js';",
     '',
@@ -67,6 +67,8 @@ export function renderGeneratedSchemas({ calendar, holidays }) {
     `  ${quoteJson(calendar)};`,
     'const holidayReadModelSchemaJson =',
     `  ${quoteJson(holidays)};`,
+    'const apiErrorCodesJson =',
+    `  ${quoteJson(errorCodes)};`,
     '',
     'export const calendarReadModelJsonSchema = JSON.parse(',
     '  calendarReadModelSchemaJson,',
@@ -74,6 +76,7 @@ export function renderGeneratedSchemas({ calendar, holidays }) {
     'export const holidayReadModelJsonSchema = JSON.parse(',
     '  holidayReadModelSchemaJson,',
     ') as CompactJsonSchema;',
+    'export const generatedApiErrorCodes = JSON.parse(apiErrorCodesJson) as readonly string[];',
     '',
   ].join('\n');
 }

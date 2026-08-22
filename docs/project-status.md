@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 Mini wx.request JSON transport（当前批次）
+
+- 批次范围：只为已共享的月历/节假日 GET endpoint 增加 Mini `wx.request` transport 与共享错误映射；不建页面、不缓存、不持久化 token、不清理 401、不静默重登、不重试、不进入 P3。同步基线 `23284e8` 与 `origin/main` 一致，无新增已提交 Web 相关变化。
+- 引入点与红灯：Web HTTP/API fallback 与错误类来自 `e38cdba`/`5ba3993`，统一 online/auth/fetch 管线来自 `dd9981f`/`1c5d2c5`；Mini 此前无 request transport。共享错误测试旧实现 3/3 失败，Mini transport 套件先因模块缺失失败；实现后共享/生成/边界与 Web 错误等价 4 文件/15 项、Mini transport/边界 2 文件/8 项通过。
+- 共享错误：contracts 的 15 个 API code 随 schema 同源生成；`ClientCoreError` 保留 code/message/requestId/latestData/status。known body、401/403/409/通用 fallback、无效 2xx、缺 Bearer 和 network error 与 Web 逐字段等价；Web `ApiClientError` 与原请求实现未改。
+- Mini transport：注入式 transport 对 bearer endpoint 同步读取一次 token，public endpoint 完全不读取；以原 method/path/base URL 调一次 request，显式接受 200–299、解码原响应对象，非 2xx 走共享 HTTP error，callback fail 与同步 bridge throw 映射 NETWORK_ERROR。runtime 工厂用 `wx.request(requestOptions)` 成员调用；模块导入不发请求。
+- 体积收口：最初拆成三个 TS 入口会因当前构建器逐文件打包而增至 183133 bytes；同轮合并为单一 `client-core-calendar.ts` platform 入口后降至 147887 bytes，只比上一 checkpoint 增加 5070 bytes。无 setTimeout、重试、写队列、页面、WXML/WXSS 或路由。
+- 验证：client-core generated check/build/typecheck、Web build/typecheck、根 build/typecheck/lint，共享/Web 定向 4 文件/15 项、Mini transport 2 文件/8 项及受控全仓 152 文件/840 项通过，32 文件/265 项数据库集成按环境跳过。Mini 15 文件/62 项、verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147887 bytes，manifest `219a4fbe51fa35bf2e64c7a06b02e542da216859568dbfcb71f4f15ccbb76144`）；任务格式、`git diff --check` 和 `smoke:check-core` 通过。根 `format:check` 仍只有既有/用户所有 11 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本轮无模板/样式/页面变化，不需要人工视觉确认。
+- 当前状态：Mini JSON transport 与共享错误映射已完成本地验证，待 checkpoint/推送、体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`feat(client): add miniprogram json transport`。
+- 下一活动批次与停止条件：只做 P2 完成审计，逐项核对 presentation-core、client-core、transport、tokens、fixtures、生成 decoder、Web 先行与 Mini bundle 门禁；证据不足则只补缺口，证据完整后才把下一批切到 P3 身份安全预检。
+
 ## 2026-08-22 P2 client-core 月历垂直切片（当前批次）
 
 - 用户选择与范围：用户确认方案 2；首个 `@schedule/client-core` 只覆盖 `getCalendar`、`getHolidays`、`getGuestHolidays`，Web 先切换，Mini 只编译共享 decoder/path 边界，不建业务页、不发网络请求、不进入 P3。同步基线 `607a40f` 与 `origin/main` 一致，无新增已提交 Web 月历变化；用户所有目录/个人页/护士 Storybook 继续登记 P10，不纳入。

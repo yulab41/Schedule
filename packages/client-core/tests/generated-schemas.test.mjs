@@ -1,8 +1,13 @@
 import {
   calendarReadModelJsonSchema,
+  generatedApiErrorCodes,
   holidayReadModelJsonSchema,
 } from '../src/generated/calendar-schemas.js';
-import { calendarReadModelSchema, holidayReadModelSchema } from '@schedule/contracts';
+import {
+  apiErrorCodes,
+  calendarReadModelSchema,
+  holidayReadModelSchema,
+} from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
@@ -16,6 +21,7 @@ describe('client-core generated schemas', () => {
     expect(holidayReadModelJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(holidayReadModelSchema), 'holidayReadModel'),
     );
+    expect(generatedApiErrorCodes).toEqual(apiErrorCodes);
   });
 
   it('treats Git CRLF checkout and generated LF source as the same content', () => {

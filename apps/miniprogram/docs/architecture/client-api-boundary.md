@@ -44,4 +44,6 @@ Web 的三个既有公开方法先委托共享 service，transport 仍使用原 
 
 decoder 描述由 contracts 的 Zod schema 通过公开 `toJSONSchema` 确定性生成，生成器只接受已审关键字并对未知结构失败关闭；生成文件纳入 freshness 与 Zod 深等价测试。生产 decoder 返回原响应对象，不克隆或转换。月历颜色正则以等价的显式 ASCII 大小写集合表达，避免 JSON Schema 丢失 RegExp `i` flag 后收窄合法值。
 
-Mini 当前只编译 `src/platform/client-core-calendar.ts` 边界模块，用同一 decoder/path 完成真实 esbuild、源码、产物、包体和确定性审计；没有 `wx.request`、网络调用、缓存或业务页面。Mini transport、共享错误映射、GET 退避和 401 协调留给后续独立 P2 checkpoint。
+Mini 的 `src/platform/client-core-calendar.ts` 现同时提供注入式 `wx.request` JSON transport 和 runtime calendar client 工厂。transport 按 endpoint auth 模式决定是否读取一次 Bearer，公开请求不读取 token；显式检查 2xx `statusCode`、共享 decoder、known API error、无效成功响应和网络/bridge 失败。runtime 包装以成员调用 `wx.request(requestOptions)` 保留宿主接收者，导入模块不会发请求。
+
+共享错误码由 contracts 同源生成；known code 保留 message/requestId/latestData/status，未知错误体沿用 Web 的 401/403/409/通用中文 fallback。当前没有重试、写队列、token 持久化、401 清理或静默登录；这些状态协调不得藏进 transport。Mini 仍没有业务页面、缓存或启动时网络调用。

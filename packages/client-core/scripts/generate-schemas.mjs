@@ -4,7 +4,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { calendarReadModelSchema, holidayReadModelSchema } from '../../contracts/dist/index.js';
+import {
+  apiErrorCodes,
+  calendarReadModelSchema,
+  holidayReadModelSchema,
+} from '../../contracts/dist/index.js';
 import { z } from 'zod';
 
 import {
@@ -17,6 +21,7 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const outputPath = path.join(packageRoot, 'src', 'generated', 'calendar-schemas.ts');
 const source = renderGeneratedSchemas({
   calendar: sanitizeJsonSchema(z.toJSONSchema(calendarReadModelSchema), 'calendarReadModel'),
+  errorCodes: [...apiErrorCodes],
   holidays: sanitizeJsonSchema(z.toJSONSchema(holidayReadModelSchema), 'holidayReadModel'),
 });
 

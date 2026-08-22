@@ -12,6 +12,14 @@ export {
   type ClientTransport,
 } from './endpoint.js';
 export {
+  ClientCoreError,
+  createAuthenticationRequiredError,
+  createHttpClientError,
+  createInvalidResponseError,
+  createNetworkError,
+  type ClientCoreErrorCode,
+} from './error.js';
+export {
   createCompactDecoder,
   type CompactDecoder,
   type CompactDecodeResult,

@@ -36,10 +36,19 @@ interface MiniProgramDeviceInfo {
   readonly system: string;
 }
 
+interface MiniProgramRequestOptions {
+  readonly fail: (error: unknown) => void;
+  readonly header: Readonly<Record<string, string>>;
+  readonly method: 'GET';
+  readonly success: (response: { readonly data: unknown; readonly statusCode: number }) => void;
+  readonly url: string;
+}
+
 declare const wx: {
   getAppBaseInfo(): MiniProgramAppBaseInfo;
   getDeviceInfo(): MiniProgramDeviceInfo;
   getWindowInfo(): MiniProgramWindowInfo;
+  request(options: MiniProgramRequestOptions): unknown;
   readonly worklet: {
     readonly Easing: {
       bezier(x1: number, y1: number, x2: number, y2: number): unknown;

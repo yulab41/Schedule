@@ -5,6 +5,9 @@ import {
   calendarReadEndpoints,
   calendarReadModelDecoder,
   createCalendarReadClient,
+  createHttpClientError,
+  createInvalidResponseError,
+  createNetworkError,
   holidayReadModelDecoder,
   type ClientTransport,
 } from '@schedule/client-core';
@@ -163,6 +166,43 @@ describe('client-core calendar vertical slice', () => {
     expect(fetchImplementation.mock.calls[2]?.[1]?.headers).toEqual({});
   });
 
+  it('keeps shared Mini error mapping equal to the existing Web pipeline', async () => {
+    const conflictBody = {
+      error: {
+        code: 'CONFLICT',
+        latestData: { version: 3 },
+        message: '资料版本冲突。',
+        requestId: 'request-3',
+      },
+    };
+    const conflictClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(JSON.stringify(conflictBody), { status: 409 })),
+    });
+    const invalidClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 })),
+    });
+    const networkClient = createApiClient({
+      auth: createAuthClient(),
+      fetch: vi.fn<typeof fetch>().mockRejectedValue(new Error('network down')),
+    });
+
+    expect(
+      errorSnapshot(await conflictClient.getCalendar('group-1', '2026-08').catch((error) => error)),
+    ).toEqual(errorSnapshot(createHttpClientError(409, conflictBody)));
+    expect(
+      errorSnapshot(await invalidClient.getCalendar('group-1', '2026-08').catch((error) => error)),
+    ).toEqual(errorSnapshot(createInvalidResponseError(200)));
+    expect(
+      errorSnapshot(await networkClient.getCalendar('group-1', '2026-08').catch((error) => error)),
+    ).toEqual(errorSnapshot(createNetworkError()));
+  });
+
   it('wires only the selected Web methods while preserving the existing fetch pipeline', () => {
     const source = readFileSync(fileURLToPath(new URL('./client.ts', import.meta.url)), 'utf8');
     const webPackage = JSON.parse(
@@ -188,5 +228,22 @@ function createAuthClient(): AuthClient {
     setSession() {},
     signInWithPassword: () => Promise.resolve({}),
     signOut: () => Promise.resolve({}),
+  };
+}
+
+function errorSnapshot(error: unknown) {
+  const candidate = error as {
+    readonly code?: unknown;
+    readonly latestData?: unknown;
+    readonly message?: unknown;
+    readonly requestId?: unknown;
+    readonly status?: unknown;
+  };
+  return {
+    code: candidate.code,
+    latestData: candidate.latestData,
+    message: candidate.message,
+    requestId: candidate.requestId,
+    status: candidate.status,
   };
 }
