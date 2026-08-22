@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3 原生身份页面首个切片
+
+- 实现：新增 `pages/identity/index` 和 `pages/admin-bind/preview`，覆盖微信登录、未知微信 `link_required`、既有账号密码绑定、真实姓名建档、管理员 ticket 脱敏预览和 fresh-code confirm；API 客户端无 Zod/Node/DOM/fetch，不触碰 P4 工作台。
+- 验证：Mini typecheck/build、source audit、受控 16 文件/68 项、verify（2/2 Worklet，192620 bytes，manifest `ac7028b027db185a85ac24751e5202312e3a8cf8822feeac77a2304e9a08418e`）和 CI dry-run 通过。默认 test 对用户自有 `.artifacts/ecs-runner-deploy-*` 产生 17 项旧副本失败，排除后全绿。
+- 状态：已实现待人工原生复核；下一步为本 checkpoint 的本地 Node `miniprogram-ci` 体验上传，之后等待微信开发者工具/实体 Android 反馈。
+- checkpoint 识别消息：`feat(miniprogram): add p3 native identity pages`。
+
 ## 2026-08-22 P3 身份安全视觉黄金稿
 
 - 实现：新增 `P3IdentitySecurityPreview` Storybook 黄金稿及 9 个 Web/Mini 身份状态，保持 Web 无公开注册、平台账号不暴露密码、Mini 管理员 ticket 脱敏与 10 分钟边界；未改生产页面、Mini 页面或 API。

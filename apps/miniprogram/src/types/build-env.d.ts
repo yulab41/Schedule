@@ -37,18 +37,31 @@ interface MiniProgramDeviceInfo {
 }
 
 interface MiniProgramRequestOptions {
+  readonly data?: unknown;
   readonly fail: (error: unknown) => void;
   readonly header: Readonly<Record<string, string>>;
-  readonly method: 'GET';
+  readonly method: 'GET' | 'POST';
   readonly success: (response: { readonly data: unknown; readonly statusCode: number }) => void;
   readonly url: string;
+}
+
+interface MiniProgramLoginSuccess {
+  readonly code: string;
 }
 
 declare const wx: {
   getAppBaseInfo(): MiniProgramAppBaseInfo;
   getDeviceInfo(): MiniProgramDeviceInfo;
   getWindowInfo(): MiniProgramWindowInfo;
+  getStorageSync(key: string): unknown;
+  login(options: {
+    readonly fail: (error: unknown) => void;
+    readonly success: (response: MiniProgramLoginSuccess) => void;
+  }): unknown;
+  removeStorageSync(key: string): void;
   request(options: MiniProgramRequestOptions): unknown;
+  setStorageSync(key: string, value: unknown): void;
+  navigateBack(options?: { readonly delta?: number }): void;
   readonly worklet: {
     readonly Easing: {
       bezier(x1: number, y1: number, x2: number, y2: number): unknown;

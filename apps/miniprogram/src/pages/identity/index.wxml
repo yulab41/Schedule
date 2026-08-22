@@ -1,0 +1,169 @@
+<scroll-view class="identity-scroll" scroll-y show-scrollbar="{{false}}">
+  <view class="identity-page">
+    <view class="identity-header">
+      <view class="identity-brand"
+        ><text class="identity-brand__mark">+</text><text>排班台</text></view
+      >
+      <text class="identity-build-label">{{buildLabel}}</text>
+    </view>
+
+    <view wx:if="{{mode !== 'login' && mode !== 'authenticated'}}" class="identity-progress">
+      <view class="identity-progress__track"
+        ><view
+          class="identity-progress__fill"
+          style="width: {{mode === 'choice' || mode === 'password' || mode === 'register' ? '72%' : '100%'}}"
+        ></view
+      ></view>
+      <view class="identity-progress__labels">
+        <text class="is-active">微信身份</text>
+        <text class="is-active">账号证明</text>
+        <text>进入排班</text>
+      </view>
+    </view>
+
+    <view class="identity-heading">
+      <text class="identity-eyebrow"
+        >{{mode === 'login' ? '微信登录' : mode === 'register' ? '首次建档' : '账号证明'}}</text
+      >
+      <text class="identity-title"
+        >{{mode === 'login' ? '进入你的排班台' : mode === 'choice' ? '找到你的排班账号' : mode ===
+        'password' ? '绑定既有账号' : mode === 'register' ? '补全你的微信档案' :
+        '身份已确认'}}</text
+      >
+      <text class="identity-description"
+        >{{mode === 'login' ? '微信登录只用于确认你的排班身份，不创建公开账号。' : mode === 'choice'
+        ? '这个微信身份还没有绑定排班账号，请选择下一步。' : mode === 'password' ?
+        '使用平台管理员分配的账号完成一次绑定。' : mode === 'register' ?
+        '只需填写真实姓名，之后可由管理员完成入组。' :
+        '当前微信身份已准备进入有权限的排班群组。'}}</text
+      >
+    </view>
+
+    <view class="identity-card">
+      <ui-alert
+        wx:if="{{errorMessage}}"
+        class="identity-error"
+        title="无法继续"
+        message="{{errorMessage}}"
+        tone="danger"
+      ></ui-alert>
+
+      <block wx:if="{{mode === 'login'}}">
+        <view class="identity-mark" aria-hidden="true">微</view>
+        <text class="identity-card__heading">使用当前微信身份</text>
+        <text class="identity-card__copy">我们只读取微信提供的身份标识，不公开你的联系方式。</text>
+        <ui-button
+          class="identity-card__button"
+          label="微信登录"
+          variant="primary"
+          loading="{{loading}}"
+          bind:press="handleWechatLogin"
+        ></ui-button>
+        <text class="identity-card__note">首次登录不会自动创建业务账号。</text>
+      </block>
+
+      <block wx:elif="{{mode === 'choice'}}">
+        <view class="identity-status identity-status--info"
+          ><text class="identity-status__icon">i</text><text>已找到可绑定的微信身份</text></view
+        >
+        <view class="identity-account"
+          ><text class="identity-account__avatar">微</text
+          ><view class="identity-account__copy"
+            ><text>当前微信</text><text>请选择已有账号或首次建档</text></view
+          ></view
+        >
+        <ui-button
+          class="identity-card__button"
+          label="绑定既有账号"
+          variant="primary"
+          bind:press="handleChoosePassword"
+        ></ui-button>
+        <ui-button
+          class="identity-card__button identity-card__button--secondary"
+          label="这是我第一次使用"
+          variant="secondary"
+          bind:press="handleChooseRegister"
+        ></ui-button>
+      </block>
+
+      <block wx:elif="{{mode === 'password'}}">
+        <view class="identity-status"
+          ><text class="identity-status__icon">✓</text><text>已找到可绑定的排班账号</text></view
+        >
+        <ui-input-shell
+          label="账号"
+          value="{{username}}"
+          placeholder="请输入平台管理员分配的账号"
+          required
+          bind:change="handleUsernameChange"
+        ></ui-input-shell>
+        <view class="identity-field"
+          ><text class="identity-field__label">密码</text
+          ><input
+            class="identity-field__control"
+            password
+            value="{{password}}"
+            placeholder="请输入密码"
+            bindinput="handlePasswordInput"
+        /></view>
+        <ui-button
+          class="identity-card__button"
+          label="绑定并进入排班"
+          variant="primary"
+          loading="{{loading}}"
+          bind:press="handleLinkPassword"
+        ></ui-button>
+        <ui-button
+          class="identity-card__button identity-card__button--secondary"
+          label="返回选择"
+          variant="secondary"
+          bind:press="handleBackToChoice"
+        ></ui-button>
+        <text class="identity-card__note"
+          >密码只用于证明你拥有这个排班账号，不会显示给管理员。</text
+        >
+      </block>
+
+      <block wx:elif="{{mode === 'register'}}">
+        <view class="identity-status identity-status--info"
+          ><text class="identity-status__icon">i</text><text>这是你的首次微信登录</text></view
+        >
+        <ui-input-shell
+          label="真实姓名"
+          value="{{realName}}"
+          placeholder="请输入资料中的真实姓名"
+          required
+          bind:change="handleRealNameChange"
+        ></ui-input-shell>
+        <view class="identity-callout"
+          ><text class="identity-callout__icon">!</text
+          ><text>请填写证件或院内资料中的真实姓名，之后才能加入预设群组。</text></view
+        >
+        <ui-button
+          class="identity-card__button"
+          label="创建微信档案"
+          variant="primary"
+          loading="{{loading}}"
+          bind:press="handleRegister"
+        ></ui-button>
+        <ui-button
+          class="identity-card__button identity-card__button--secondary"
+          label="返回选择"
+          variant="secondary"
+          bind:press="handleBackToChoice"
+        ></ui-button>
+      </block>
+
+      <block wx:else>
+        <view class="identity-success-mark" aria-hidden="true">✓</view>
+        <text class="identity-card__heading">准备进入排班台</text>
+        <text class="identity-success-copy"
+          >身份已确认。P4 工作台接入后，这里将进入你有权限的群组。</text
+        >
+        <text class="identity-card__note">本轮只完成身份安全，不提前显示未迁移的业务页面。</text>
+      </block>
+    </view>
+
+    <text class="identity-privacy">⌁ 你的身份信息只用于进入有权限的排班群组</text>
+  </view>
+</scroll-view>

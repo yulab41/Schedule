@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3 原生身份页面首个切片（当前批次）
+
+- 范围：在已确认的 P3 黄金稿基础上，新增 Mini `pages/identity/index` 登录/`link_required`/既有账号密码绑定/首次真实姓名建档，以及后端固定 URL Link 路径 `pages/admin-bind/preview` 的脱敏 preview/当前微信 fresh-code confirm；保留 P1 入口和 POC 路由，不实现 P4 工作台。
+- 接线：`src/platform/wechat-identity.ts` 只使用 `wx.login`、`wx.request` POST 和会话存储；未知微信不自动建号，linkToken 只在内存页面状态中流转；管理员 ticket 先 preview，confirm 再重新 `wx.login`，authenticated 结果写入独立 session storage。
+- 黄金映射：`docs/design/page-golden-manifest.md` 已登记 `miniprogram-parity-p3-identity-security--mini-login-390/320`、`mini-link-password`、`mini-register-profile`、`mini-admin-link-preview/confirm`；用户已确认 Web 黄金稿，当前需要实体 Android/微信运行时复核。
+- 验证：Mini typecheck、构建、source audit、受控测试 16 文件/68 项、verify（sourceWorklets/outputWorklets 2/2，package 192620 bytes，manifest `ac7028b027db185a85ac24751e5202312e3a8cf8822feeac77a2304e9a08418e`）和 CI dry-run 通过。默认全量测试误扫用户自有 `.artifacts/ecs-runner-deploy-*` 副本的 17 项已排除并单独记录，未修改该目录。
+- 当前状态：已实现待人工原生复核；checkpoint 识别消息为 `feat(miniprogram): add p3 native identity pages`。推送并上传同一体验版后暂停，不进入 P4 或 P3 其他页面。
+- 停止条件：用户在微信开发者工具/实体 Android 复核登录、link_required→密码绑定、首次建档、管理员 preview→confirm、错误/加载/成功状态后，明确反馈通过或给出差异。
+
 ## 2026-08-22 P3 身份安全视觉黄金稿（当前批次）
 
 - 范围：只新增 Web Storybook 身份安全黄金稿，不修改生产 Web 登录/平台账号页面，不创建小程序 WXML/WXSS 页面，不调用 API。覆盖 Web 无公开注册登录、平台账号用户名分配、Mini 微信登录、密码绑定、首次真实姓名建档、管理员 URL Link 脱敏预览与确认。

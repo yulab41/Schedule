@@ -3,7 +3,9 @@
     "pages/index/index",
     "pages/calendar-poc/index",
     "pages/manual-matrix-poc/index",
-    "pages/gesture-probe/index"
+    "pages/gesture-probe/index",
+    "pages/identity/index",
+    "pages/admin-bind/preview"
   ],
   "window": {
     "backgroundColor": "#F4F7FB",

@@ -1,0 +1,19 @@
+@import '../../styles/identity.wxss';
+
+.identity-navigator {
+  display: flex;
+  min-height: var(--ui-touch-target-minimum);
+  margin-top: 9px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary-dark);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.identity-target--neutral {
+  background: var(--ui-color-surface-muted);
+  border-color: transparent;
+}

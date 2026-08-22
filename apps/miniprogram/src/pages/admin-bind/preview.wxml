@@ -1,0 +1,101 @@
+<scroll-view class="identity-scroll" scroll-y show-scrollbar="{{false}}">
+  <view class="identity-page">
+    <view class="identity-header">
+      <view class="identity-brand"
+        ><text class="identity-brand__mark">+</text><text>排班台</text></view
+      >
+      <text class="identity-build-label">{{buildLabel}}</text>
+    </view>
+
+    <view class="identity-progress">
+      <view class="identity-progress__track"
+        ><view
+          class="identity-progress__fill"
+          style="width: {{mode === 'preview' ? '72%' : mode === 'confirm' ? '86%' : '100%'}}"
+        ></view
+      ></view>
+      <view class="identity-progress__labels">
+        <text class="is-active">微信身份</text>
+        <text class="is-active">账号证明</text>
+        <text class="{{mode === 'authenticated' ? 'is-active' : ''}}">进入排班</text>
+      </view>
+    </view>
+
+    <view class="identity-heading">
+      <text class="identity-eyebrow">管理员绑定</text>
+      <text class="identity-title"
+        >{{mode === 'loading' ? '正在读取绑定' : mode === 'preview' ? '确认这条绑定' : mode ===
+        'confirm' ? '绑定已准备好' : mode === 'authenticated' ? '绑定完成' :
+        '绑定链接不可用'}}</text
+      >
+      <text class="identity-description"
+        >{{mode === 'preview' ? '请核对脱敏信息，确认是管理员为你准备的账号。' : mode === 'confirm'
+        ? '当前微信身份将绑定到以下排班账号。' : mode === 'authenticated' ?
+        '当前微信身份已经可以进入有权限的排班群组。' : mode === 'error' ?
+        '请向管理员重新获取一条新的绑定链接。' : '服务端正在验证这条单次绑定链接。'}}</text
+      >
+    </view>
+
+    <view class="identity-card">
+      <ui-loading wx:if="{{mode === 'loading'}}" label="正在读取绑定信息"></ui-loading>
+      <block wx:elif="{{mode === 'error'}}">
+        <ui-alert title="绑定链接无效" message="{{errorMessage}}" tone="danger"></ui-alert>
+        <text class="identity-card__note">链接不会完成任何身份绑定，请重新获取。</text>
+      </block>
+      <block wx:elif="{{mode === 'preview'}}">
+        <view class="identity-status identity-status--warning"
+          ><text class="identity-status__icon">!</text
+          ><text>绑定链接 · {{expiresAtLabel}}</text></view
+        >
+        <view class="identity-target"
+          ><text class="identity-target__label">绑定到</text
+          ><text class="identity-target__name">{{realNameMasked}}</text
+          ><text class="identity-target__username">账号 {{usernameMasked}}</text></view
+        >
+        <view class="identity-checklist"
+          ><text class="identity-checklist__item">当前微信身份</text
+          ><text class="identity-checklist__item">目标账号已预置</text
+          ><text class="identity-checklist__item">绑定后旧会话会失效</text></view
+        >
+        <ui-button
+          class="identity-card__button"
+          label="确认并继续"
+          variant="primary"
+          loading="{{loading}}"
+          bind:press="handleContinue"
+        ></ui-button>
+        <navigator class="identity-navigator" open-type="navigateBack">暂不绑定</navigator>
+      </block>
+      <block wx:elif="{{mode === 'confirm'}}">
+        <view class="identity-success-mark" aria-hidden="true">✓</view>
+        <text class="identity-card__heading">准备绑定到{{realNameMasked}}</text>
+        <text class="identity-success-copy"
+          >确认后，这个微信身份会成为该账号的当前小程序身份。</text
+        >
+        <view class="identity-target identity-target--neutral"
+          ><text class="identity-target__label">目标账号</text
+          ><text class="identity-target__username">{{usernameMasked}}</text></view
+        >
+        <ui-button
+          class="identity-card__button"
+          label="确认绑定"
+          variant="primary"
+          loading="{{loading}}"
+          bind:press="handleConfirm"
+        ></ui-button>
+        <text class="identity-card__note"
+          >绑定只作用于当前小程序 AppID，不会删除 Web 账号或排班资料。</text
+        >
+      </block>
+      <block wx:else>
+        <view class="identity-success-mark" aria-hidden="true">✓</view>
+        <text class="identity-card__heading">管理员绑定已完成</text>
+        <text class="identity-success-copy"
+          >当前微信身份已绑定。P4 工作台接入后，这里将进入你有权限的群组。</text
+        >
+      </block>
+    </view>
+
+    <text class="identity-privacy">⌁ 你的身份信息只用于进入有权限的排班群组</text>
+  </view>
+</scroll-view>
