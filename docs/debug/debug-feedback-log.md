@@ -5,8 +5,9 @@
 ## 2026-08-23 P3 原生解绑页面切片
 
 - 实现：新增 `pages/identity/unbind`，fresh `wx.login` + `/me/wechat/miniprogram/unbind` + 页面级 Idempotency-Key；不删除 Web 账号、资料或排班。
-- 验证：Mini 定向 6 项、受控 16 文件/69 项、typecheck、verify（2/2 Worklet，203180 bytes，manifest `d896d1541b933d332a64382b6e244acc0445cdf8d6d6afdf1ba330b089fac44e`）和 CI dry-run 通过。
-- 状态：已实现待人工原生复核；下一步本地 Node `miniprogram-ci` 上传新体验版，等待 P3 完整反馈。
+- 验证：Mini 定向 6 项、受控 16 文件/69 项、typecheck、verify（2/2 Worklet，207146 bytes，manifest `a83fbdd9cb177fc8e14f14984d55726f16a1a18c2a402b5c85818ece7fceccdb`）和 CI dry-run 通过。
+- 发布：checkpoint `9b7ffbe` 已推送；本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p3.20260823.52`（60 文件，manifest `931fc9eb526bb111265b61fc4dcbee93038dc26a10123dd217f882e0d9693c3d`），生产备份 `495bb52d-2890-4c0d-af62-1b06738712ed` 后部署 release `9b7ffbef8b152a31ba675a2a36f5c3e788a058b3`，`ecs-verify` 通过。
+- 状态：已实现待人工原生复核；等待 P3 完整反馈。
 - checkpoint 识别消息：`feat(miniprogram): add p3 native unbind page`。
 
 ## 2026-08-23 P3 解绑确认视觉黄金状态

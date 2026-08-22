@@ -5,8 +5,9 @@
 ## 2026-08-23 P3 原生解绑页面切片（当前批次）
 
 - 范围：新增 Mini `pages/identity/unbind`，使用 fresh `wx.login` 调用 `/me/wechat/miniprogram/unbind`，以页面级稳定 Idempotency-Key 保护重复提交；成功只显示当前身份解除，Web 账号/资料/排班保留。
-- 验证：Mini 定向 6 项、受控全套 16 文件/69 项、typecheck、source/build/Worklet/包体/确定性 verify（2/2 Worklet，203180 bytes，manifest `d896d1541b933d332a64382b6e244acc0445cdf8d6d6afdf1ba330b089fac44e`）和 CI dry-run 通过。
-- 当前状态：已实现待人工原生复核；下一步上传同一 checkpoint 体验版并等待登录、绑定、建档、管理员绑定和解绑完整清单反馈。
+- 验证：Mini 定向 6 项、受控全套 16 文件/69 项、typecheck、source/build/Worklet/包体/确定性 verify（2/2 Worklet，207146 bytes，manifest `a83fbdd9cb177fc8e14f14984d55726f16a1a18c2a402b5c85818ece7fceccdb`）和 CI dry-run 通过。
+- checkpoint 与发布：代码 checkpoint `9b7ffbe` 已推送；本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p3.20260823.52`，60 个平台代码文件，上传 manifest `931fc9eb526bb111265b61fc4dcbee93038dc26a10123dd217f882e0d9693c3d`，未审核/正式发布。生产备份 `495bb52d-2890-4c0d-af62-1b06738712ed`（54 表、161506 行、76327876 bytes，SHA-256 `a67d2e648d531086dcbb483dc7e16b066733803f4f03380b4d79451857bb6a19`）后部署 release `9b7ffbef8b152a31ba675a2a36f5c3e788a058b3`；`ecs-verify.sh` 通过，47 migrations/54 表，identity/admin-ticket 均 0。
+- 当前状态：已实现待人工原生复核；等待登录、绑定、建档、管理员绑定和解绑完整清单反馈。
 - 停止条件：用户在微信开发者工具/实体 Android 复核全部 P3 身份状态并明确反馈通过或差异；未通过前不进入 P4。
 
 ## 2026-08-23 P3 解绑确认视觉黄金状态（当前批次）
