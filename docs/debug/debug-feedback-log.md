@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3 身份安全视觉黄金稿
+
+- 实现：新增 `P3IdentitySecurityPreview` Storybook 黄金稿及 9 个 Web/Mini 身份状态，保持 Web 无公开注册、平台账号不暴露密码、Mini 管理员 ticket 脱敏与 10 分钟边界；未改生产页面、Mini 页面或 API。
+- 设计：使用现有 UI token 和医护工作台蓝白语义；Web 为身份确认台，Mini 为身份步骤流，进度线表达微信身份→账号证明→进入排班。
+- 验证：Prettier、定向 ESLint、Web `vue-tsc` 通过；Storybook/Vitest 启动曾被共享 `node_modules` 缺少 Windows Rollup optional binary 阻断，clean worktree 视觉验证待执行。
+- checkpoint 识别消息：`feat(miniprogram): add p3 identity security visual goldens`。
+
 ## 2026-08-22 P3-G 管理员 URL Link ticket 与 Mini admin-bind
 
 - 实现：管理员 ticket 只存 hash、当前 AppID、target、pending/consumed/expiry；URL Link 只携带 ticket，服务端 10 分钟过期。preview 只返回 masked preview；confirm 以新 Mini code 在同一 ticket 事务内完成 current-AppID identity/Union 绑定、审计、session 签发和单次消费。
