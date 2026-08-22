@@ -3,16 +3,16 @@ import { randomUUID } from 'node:crypto';
 import type { WechatLoginResponse, UserProfile } from '@schedule/contracts';
 import {
   type DatabaseClient,
-  userAuthIdentities,
+  type DatabaseTransaction,
   userProfiles,
   users,
-  withTransaction,
 } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import { createWechatSessionToken } from '../../adapters/auth/wechat-auth.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import { WechatIdentityResolver } from './wechat-identity-resolver.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
 import {
   WechatGatewayError,
@@ -30,11 +30,13 @@ export class WechatAuthService {
   private readonly auditWriter = new AuditWriter();
   private readonly databaseClient: DatabaseClient;
   private readonly gateway: WechatGateway;
+  private readonly identityResolver: WechatIdentityResolver;
   private readonly sessionSecret: string | undefined;
 
   public constructor(options: WechatAuthServiceOptions) {
     this.databaseClient = options.databaseClient;
     this.gateway = options.gateway;
+    this.identityResolver = new WechatIdentityResolver(options.databaseClient);
     this.sessionSecret = options.sessionSecret;
   }
 
@@ -49,141 +51,72 @@ export class WechatAuthService {
       throw error;
     }
 
-    const [existingUser] = await this.databaseClient.database
-      .select({ cloudbaseUid: users.cloudbaseUid, id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.wechatOpenid, exchanged.openid),
-          eq(users.status, 'active'),
-          isNull(users.deletedAt),
-        ),
-      )
-      .limit(1);
-
-    if (existingUser !== undefined && existingUser.cloudbaseUid !== null) {
-      await this.ensureMiniProgramIdentity(existingUser.id, exchanged);
-      return {
-        isNewUser: false,
-        profile: await this.findProfile(existingUser.id),
-        token: this.issueSessionForUser(existingUser.id, exchanged.openid),
-      };
-    }
-
-    if (exchanged.unionid !== undefined) {
-      const [linkedIdentity] = await this.databaseClient.database
-        .select({ userId: userAuthIdentities.userId })
-        .from(userAuthIdentities)
-        .where(eq(userAuthIdentities.unionId, exchanged.unionid))
-        .limit(1);
-      if (linkedIdentity !== undefined) {
-        await this.databaseClient.database
+    const appId = this.getAppId();
+    const resolved = await this.identityResolver.resolve({
+      appId,
+      createUser: (transaction) => this.createWechatUser(transaction, exchanged),
+      onResolved: async (transaction, userId) => {
+        await transaction
           .update(users)
           .set({ wechatOpenid: exchanged.openid })
-          .where(
-            and(
-              eq(users.id, linkedIdentity.userId),
-              isNull(users.wechatOpenid),
-              eq(users.status, 'active'),
-              isNull(users.deletedAt),
-            ),
-          );
-        await this.ensureMiniProgramIdentity(linkedIdentity.userId, exchanged);
-        return {
-          isNewUser: false,
-          profile: await this.findProfile(linkedIdentity.userId),
-          token: this.issueSessionForUser(linkedIdentity.userId, exchanged.openid),
-        };
-      }
-    }
-
-    const userId = await this.createWechatUser(exchanged);
+          .where(and(eq(users.id, userId), isNull(users.wechatOpenid)));
+      },
+      provider: 'wechat_mini_program',
+      subject: exchanged.openid,
+      unionId: exchanged.unionid,
+    });
     return {
-      isNewUser: true,
-      profile: undefined,
-      token: this.issueSessionForUser(userId, exchanged.openid),
+      isNewUser: resolved.isNewUser,
+      profile: await this.findProfile(resolved.userId),
+      token: this.issueSessionForUser(resolved.userId, exchanged.openid, resolved.authVersion),
     };
   }
 
-  public issueSessionForUser(userId: string, openid: string): string {
+  public issueSessionForUser(userId: string, openid: string, authVersion: number): string {
     return createWechatSessionToken(
-      { openid, provider: 'wechat_mini_program', sub: userId },
+      {
+        appId: this.getAppId(),
+        authVersion,
+        openid,
+        provider: 'wechat_mini_program',
+        sub: userId,
+      },
       this.sessionSecret,
     );
   }
 
-  private async createWechatUser(exchanged: {
-    readonly openid: string;
-    readonly unionid: string | undefined;
-  }): Promise<string> {
+  private async createWechatUser(
+    transaction: DatabaseTransaction,
+    exchanged: { readonly openid: string },
+  ): Promise<{ readonly authVersion: number; readonly userId: string }> {
     const userId = randomUUID();
-    try {
-      return await withTransaction(this.databaseClient, async (transaction) => {
-        await transaction.insert(users).values({
-          cloudbaseUid: `wx_${exchanged.openid}`,
-          id: userId,
-          wechatOpenid: exchanged.openid,
-        });
-        await transaction.insert(userAuthIdentities).values({
-          id: randomUUID(),
-          provider: 'wechat_mini_program',
-          subject: exchanged.openid,
-          unionId: exchanged.unionid,
-          userId,
-        });
-        await this.auditWriter.append(transaction, {
-          action: 'wechat_user_created',
-          actorUserId: userId,
-          metadata: { loginChannel: 'wechat' },
-          operationId: randomUUID(),
-          outcome: 'completed',
-          targetId: userId,
-          targetType: 'user',
-        });
-        return userId;
-      });
-    } catch (error) {
-      if (isDuplicateKeyError(error)) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该微信账号已存在且状态异常，请联系管理员。',
-        });
-      }
-      throw error;
-    }
+    await transaction.insert(users).values({
+      cloudbaseUid: `wx_${exchanged.openid}`,
+      id: userId,
+      wechatOpenid: exchanged.openid,
+    });
+    await this.auditWriter.append(transaction, {
+      action: 'wechat_user_created',
+      actorUserId: userId,
+      metadata: { loginChannel: 'wechat' },
+      operationId: randomUUID(),
+      outcome: 'completed',
+      targetId: userId,
+      targetType: 'user',
+    });
+    return { authVersion: 1, userId };
   }
 
-  private async ensureMiniProgramIdentity(
-    userId: string,
-    exchanged: { readonly openid: string; readonly unionid: string | undefined },
-  ): Promise<void> {
-    const [existingIdentity] = await this.databaseClient.database
-      .select({ id: userAuthIdentities.id })
-      .from(userAuthIdentities)
-      .where(
-        and(
-          eq(userAuthIdentities.provider, 'wechat_mini_program'),
-          eq(userAuthIdentities.subject, exchanged.openid),
-        ),
-      )
-      .limit(1);
-    if (existingIdentity === undefined) {
-      await this.databaseClient.database.insert(userAuthIdentities).values({
-        id: randomUUID(),
-        provider: 'wechat_mini_program',
-        subject: exchanged.openid,
-        unionId: exchanged.unionid,
-        userId,
+  private getAppId(): string {
+    const appId = this.gateway.appId;
+    if (appId === undefined || appId.length === 0) {
+      throw new ApiError({
+        code: 'SERVICE_UNAVAILABLE',
+        statusCode: 503,
+        userMessage: '微信登录暂未配置，请稍后重试。',
       });
-      return;
     }
-    if (exchanged.unionid !== undefined) {
-      await this.databaseClient.database
-        .update(userAuthIdentities)
-        .set({ unionId: exchanged.unionid })
-        .where(eq(userAuthIdentities.id, existingIdentity.id));
-    }
+    return appId;
   }
 
   private async findProfile(userId: string): Promise<UserProfile | undefined> {
@@ -202,10 +135,4 @@ export class WechatAuthService {
     }
     return { id: profile.id, realName: profile.realName, version: profile.version };
   }
-}
-
-function isDuplicateKeyError(error: unknown): boolean {
-  return (
-    typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_DUP_ENTRY'
-  );
 }

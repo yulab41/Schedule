@@ -31,7 +31,7 @@ describe('password authentication primitives', () => {
 
   it('issues a password session that the shared auth port can distinguish from WeChat', () => {
     const token = createPasswordSessionToken(
-      { sub: 'user-1', username: 'linenyu' },
+      { authVersion: 3, sub: 'user-1', username: 'linenyu' },
       's'.repeat(32),
       1_000,
     );
@@ -40,6 +40,7 @@ describe('password authentication primitives', () => {
       openid: 'linenyu',
       provider: 'password',
       sub: 'user-1',
+      authVersion: 3,
     });
   });
 

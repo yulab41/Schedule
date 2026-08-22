@@ -7,6 +7,8 @@ import { ApiError } from '../../plugins/error-handler.js';
 import type { AuthPort } from './auth-port.js';
 
 export interface WechatSessionClaims {
+  readonly appId?: string;
+  readonly authVersion?: number;
   readonly exp: number;
   readonly openid: string;
   readonly provider?: 'password' | 'wechat_mini_program' | 'wechat_web';
@@ -18,6 +20,8 @@ const MINIMUM_SESSION_SECRET_LENGTH = 32;
 
 export function createWechatSessionToken(
   claims: {
+    readonly appId?: string;
+    readonly authVersion?: number;
     readonly openid: string;
     readonly provider?: 'password' | 'wechat_mini_program' | 'wechat_web';
     readonly sub: string;
@@ -44,12 +48,17 @@ export function createWechatSessionToken(
 }
 
 export function createPasswordSessionToken(
-  claims: { readonly sub: string; readonly username: string },
+  claims: { readonly authVersion: number; readonly sub: string; readonly username: string },
   sessionSecret: string | undefined,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): string {
   return createWechatSessionToken(
-    { openid: claims.username, provider: 'password', sub: claims.sub },
+    {
+      authVersion: claims.authVersion,
+      openid: claims.username,
+      provider: 'password',
+      sub: claims.sub,
+    },
     sessionSecret,
     nowSeconds,
   );
@@ -115,12 +124,18 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
 
       const claims = verifyWechatSessionToken(token, options.sessionSecret);
       if (claims !== undefined) {
+        const authVersion = claims.authVersion ?? 1;
         if (claims.provider === 'password') {
           const [user] = await options.databaseClient.database
-            .select({ cloudbaseUid: users.cloudbaseUid })
+            .select({ authVersion: users.authVersion, cloudbaseUid: users.cloudbaseUid })
             .from(users)
             .where(
-              and(eq(users.id, claims.sub), eq(users.status, 'active'), isNull(users.deletedAt)),
+              and(
+                eq(users.id, claims.sub),
+                eq(users.authVersion, authVersion),
+                eq(users.status, 'active'),
+                isNull(users.deletedAt),
+              ),
             )
             .limit(1);
           return user?.cloudbaseUid === null || user?.cloudbaseUid === undefined
@@ -134,7 +149,9 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
             .where(
               and(
                 eq(userAuthIdentities.provider, 'wechat_web'),
+                ...(claims.appId === undefined ? [] : [eq(userAuthIdentities.appId, claims.appId)]),
                 eq(userAuthIdentities.subject, claims.openid),
+                eq(userAuthIdentities.userId, claims.sub),
               ),
             )
             .limit(1);
@@ -142,11 +159,12 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
             return undefined;
           }
           const [user] = await options.databaseClient.database
-            .select({ cloudbaseUid: users.cloudbaseUid })
+            .select({ authVersion: users.authVersion, cloudbaseUid: users.cloudbaseUid })
             .from(users)
             .where(
               and(
                 eq(users.id, identity.userId),
+                eq(users.authVersion, authVersion),
                 eq(users.status, 'active'),
                 isNull(users.deletedAt),
               ),
@@ -156,12 +174,46 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
             ? undefined
             : { cloudbaseUid: user.cloudbaseUid };
         }
+
+        if (claims.appId !== undefined) {
+          const [identity] = await options.databaseClient.database
+            .select({ userId: userAuthIdentities.userId })
+            .from(userAuthIdentities)
+            .where(
+              and(
+                eq(userAuthIdentities.provider, 'wechat_mini_program'),
+                eq(userAuthIdentities.appId, claims.appId),
+                eq(userAuthIdentities.subject, claims.openid),
+                eq(userAuthIdentities.userId, claims.sub),
+              ),
+            )
+            .limit(1);
+          if (identity === undefined) return undefined;
+
+          const [user] = await options.databaseClient.database
+            .select({ cloudbaseUid: users.cloudbaseUid })
+            .from(users)
+            .where(
+              and(
+                eq(users.id, identity.userId),
+                eq(users.authVersion, authVersion),
+                eq(users.status, 'active'),
+                isNull(users.deletedAt),
+              ),
+            )
+            .limit(1);
+          return user?.cloudbaseUid === null || user?.cloudbaseUid === undefined
+            ? undefined
+            : { cloudbaseUid: user.cloudbaseUid };
+        }
+
         const [user] = await options.databaseClient.database
           .select({ cloudbaseUid: users.cloudbaseUid })
           .from(users)
           .where(
             and(
               eq(users.id, claims.sub),
+              eq(users.authVersion, authVersion),
               eq(users.wechatOpenid, claims.openid),
               eq(users.status, 'active'),
               isNull(users.deletedAt),
@@ -187,6 +239,8 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
     return false;
   }
   const candidate = value as {
+    appId?: unknown;
+    authVersion?: unknown;
     exp?: unknown;
     openid?: unknown;
     provider?: unknown;
@@ -194,6 +248,12 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
   };
   return (
     typeof candidate.exp === 'number' &&
+    (candidate.appId === undefined ||
+      (typeof candidate.appId === 'string' && candidate.appId.length > 0)) &&
+    (candidate.authVersion === undefined ||
+      (typeof candidate.authVersion === 'number' &&
+        Number.isInteger(candidate.authVersion) &&
+        candidate.authVersion >= 1)) &&
     typeof candidate.openid === 'string' &&
     candidate.openid.length > 0 &&
     typeof candidate.sub === 'string' &&
@@ -201,7 +261,8 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
     (candidate.provider === undefined ||
       candidate.provider === 'password' ||
       candidate.provider === 'wechat_mini_program' ||
-      candidate.provider === 'wechat_web')
+      candidate.provider === 'wechat_web') &&
+    !(candidate.provider === 'password' && candidate.appId !== undefined)
   );
 }
 

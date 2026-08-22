@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-B 版本化会话与 AppID identity（当前批次）
+
+- 范围：只增加 JWT `authVersion/appId`、逐请求版本/identity 校验、Mini/Web AppID resolver、Union account 关联和 legacy 精确惰性认领；未知微信仍保持现有 `isNewUser` 自动建号结果，不改 contracts、路由、公开注册、注销/解绑或 UI。
+- 测试先行：新 claim/gateway 门禁在旧实现 19 项中 3 项失败；真实 MySQL 身份场景在旧实现 11 项中 5 项失败，分别暴露无版本校验、AppID 不生效、legacy identity 不 scoped 和 Mini/Web 同 Union 触发旧唯一键 500。实现后 auth/password/gateway/Web state 与身份/邀请 6 文件/49 项、真实 MySQL 身份 14 项和邀请 7 项全通过。
+- 会话语义：新 password token 写 `authVersion`，新 Mini/Web token 同时写 provider AppID；旧 token 缺版本按 1、旧 Mini token 缺 AppID 按 legacy openid 兼容。认证每次核对用户 active/deleted/authVersion；新微信 token 还必须精确匹配 `(provider, appId, subject, userId)` identity。版本增加后新旧 token 都立即 401；dev token 兼容不变。
+- identity/Union：Mini gateway 只公开 AppID，AppSecret 改为 ECMAScript private field；共享 resolver 在事务内优先精确 identity，再认领 null-AppID/legacy openid，再按 `wechat_union_accounts` 关联，最后才沿用旧建号。新 identity 的 legacy `union_id` 保持 null，Mini/Web 同自然人以一条 Union account + 两条 scoped identity 落库；跨用户 Union 冲突 409 且不合并。生产现有 legacy Mini 用户只在本人下次精确登录时惰性补 identity。
+- 邀请兼容：账号合并在同事务移动 source identity/Union 到 target，并按 target authVersion 签发 scoped token；目标不存在或唯一约束冲突失败关闭。群组/资料/旧 response、异步错误和 API 调用次数保持。
+- 验证：根 build/typecheck/lint 通过；受控非 DB 全仓 155 文件/852 项通过，32 文件/275 项按环境跳过。Mini 15 文件/62 项及 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147887 bytes，manifest `ce7530de82ec5f4cb5d755bb82776231ce22a1034a8bc1d063a060d0348b400f`）。任务 Prettier/`git diff --check`/`smoke:check-core` 通过；根 format 仍只有既有/用户所有 11 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板/样式/页面变化，不需要人工视觉确认。
+- 当前状态：P3-B 实现和本地门禁完成，待 checkpoint `feat(auth): version scoped identities` 推送和生产备份/部署/验证；本轮不修改 Mini 产物代码，不新增体验上传。
+- 下一活动批次与停止条件：只做 P3-C 哈希 linkToken、未知 Mini `link_required` 和账号注销代码/API 移除；保留密码登录及当前 Web 注册页到同步视觉批次，不实现绑定/解绑确认、管理员账号页或 Mini 页面。未知登录不建号、token 过期/篡改/重放/并发与无注销测试通过后停止。
+
 ## 2026-08-22 P3-A 加法式身份基础（当前批次）
 
 - 范围与引入点：只实现预检批准的 additive schema、受限 legacy locator backfill 和 nullable password 防御；不改登录 response、路由、JWT、公开注册、注销/解绑行为或 UI。identity/password/JWT 旧形态分别来自 `12e7f40`、`de3ad5f`、`39f9c66`。

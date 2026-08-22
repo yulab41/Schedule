@@ -20,6 +20,7 @@ export interface WechatSubscribeMessageResult {
 }
 
 export interface WechatGateway {
+  readonly appId?: string | undefined;
   readonly isConfigured: boolean;
   exchangeCode(code: string): Promise<WechatExchangeCodeResult>;
   getUnlimitedQr(scene: string, page: string, envVersion: string): Promise<Uint8Array>;
@@ -75,9 +76,9 @@ export interface WechatApiGatewayOptions {
 }
 
 export class WechatApiGateway implements WechatGateway {
+  public readonly appId: string | undefined;
   public readonly isConfigured: boolean;
-  private readonly appId: string | undefined;
-  private readonly appSecret: string | undefined;
+  readonly #appSecret: string | undefined;
   private readonly fetchFn: typeof fetch;
   private readonly now: () => number;
   private readonly requestTimeoutMs: number;
@@ -87,11 +88,11 @@ export class WechatApiGateway implements WechatGateway {
     options: WechatApiGatewayOptions = { appId: undefined, appSecret: undefined },
   ) {
     this.appId = options.appId;
-    this.appSecret = options.appSecret;
+    this.#appSecret = options.appSecret;
     this.fetchFn = options.fetchFn ?? fetch;
     this.now = options.now ?? Date.now;
     this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-    this.isConfigured = this.appId !== undefined && this.appSecret !== undefined;
+    this.isConfigured = this.appId !== undefined && this.#appSecret !== undefined;
   }
 
   public async exchangeCode(code: string): Promise<WechatExchangeCodeResult> {
@@ -99,7 +100,7 @@ export class WechatApiGateway implements WechatGateway {
 
     const url = new URL(`${WECHAT_API_BASE_URL}/sns/jscode2session`);
     url.searchParams.set('appid', this.appId as string);
-    url.searchParams.set('secret', this.appSecret as string);
+    url.searchParams.set('secret', this.#appSecret as string);
     url.searchParams.set('js_code', code);
     url.searchParams.set('grant_type', 'authorization_code');
 
@@ -199,7 +200,7 @@ export class WechatApiGateway implements WechatGateway {
     const url = new URL(`${WECHAT_API_BASE_URL}/cgi-bin/token`);
     url.searchParams.set('grant_type', 'client_credential');
     url.searchParams.set('appid', this.appId as string);
-    url.searchParams.set('secret', this.appSecret as string);
+    url.searchParams.set('secret', this.#appSecret as string);
 
     const payload = await this.requestJson(url);
     if (typeof payload.access_token !== 'string' || payload.access_token.length === 0) {
@@ -299,7 +300,7 @@ export interface WechatWebApiGatewayOptions {
 export class WechatWebApiGateway implements WechatWebGateway {
   public readonly isConfigured: boolean;
   public readonly appId: string | undefined;
-  private readonly appSecret: string | undefined;
+  readonly #appSecret: string | undefined;
   private readonly fetchFn: typeof fetch;
   private readonly requestTimeoutMs: number;
 
@@ -307,10 +308,10 @@ export class WechatWebApiGateway implements WechatWebGateway {
     options: WechatWebApiGatewayOptions = { appId: undefined, appSecret: undefined },
   ) {
     this.appId = options.appId;
-    this.appSecret = options.appSecret;
+    this.#appSecret = options.appSecret;
     this.fetchFn = options.fetchFn ?? fetch;
     this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
-    this.isConfigured = this.appId !== undefined && this.appSecret !== undefined;
+    this.isConfigured = this.appId !== undefined && this.#appSecret !== undefined;
   }
 
   public async exchangeCode(code: string): Promise<WechatExchangeCodeResult> {
@@ -318,7 +319,7 @@ export class WechatWebApiGateway implements WechatWebGateway {
 
     const url = new URL(`${WECHAT_API_BASE_URL}/sns/oauth2/access_token`);
     url.searchParams.set('appid', this.appId as string);
-    url.searchParams.set('secret', this.appSecret as string);
+    url.searchParams.set('secret', this.#appSecret as string);
     url.searchParams.set('code', code);
     url.searchParams.set('grant_type', 'authorization_code');
 
@@ -402,6 +403,7 @@ export function createMockWechatGateway(options: MockWechatGatewayOptions = {}):
   const log = options.log ?? (() => undefined);
 
   return {
+    appId: 'mock-mini-app-id',
     isConfigured: true,
     async exchangeCode(code) {
       return { openid: `mock-openid-${code}`, sessionKey: undefined, unionid: undefined };

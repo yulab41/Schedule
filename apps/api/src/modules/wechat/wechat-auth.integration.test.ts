@@ -9,13 +9,20 @@ import {
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createWechatAuthPort, createWechatSessionToken } from '../../adapters/auth/wechat-auth.js';
+import {
+  createWechatAuthPort,
+  createWechatSessionToken,
+  verifyWechatSessionToken,
+} from '../../adapters/auth/wechat-auth.js';
 import { createApp } from '../../app.js';
+import { hashPassword, PasswordAuthService } from '../auth/password-auth-service.js';
 import {
   WechatGatewayError,
   createMockWechatGateway,
   type WechatGateway,
+  type WechatWebGateway,
 } from './wechat-gateway.js';
+import { createWechatWebState, WechatWebAuthService } from './wechat-web-auth-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
@@ -72,9 +79,33 @@ describeWithDatabase('wechat authentication and sessions', () => {
     expect(typeof body.token).toBe('string');
 
     const [rows] = (await client.database.execute(
-      sql`SELECT cloudbase_uid AS cloudbaseUid, wechat_openid AS openid FROM users`,
+      sql`SELECT cloudbase_uid AS cloudbaseUid, wechat_openid AS openid
+          FROM users WHERE is_developer_admin = 0`,
     )) as unknown as [{ cloudbaseUid: string; openid: string }[], unknown];
     expect(rows).toEqual([{ cloudbaseUid: 'wx_mock-openid-code-a', openid: 'mock-openid-code-a' }]);
+
+    const claims = verifyWechatSessionToken(body.token, TEST_SESSION_SECRET);
+    expect(claims).toMatchObject({
+      appId: 'mock-mini-app-id',
+      authVersion: 1,
+      openid: 'mock-openid-code-a',
+      provider: 'wechat_mini_program',
+    });
+    const [identityRows] = (await client.database.execute(sql`
+      SELECT app_id AS appId, provider, subject, union_id AS unionId
+      FROM user_auth_identities
+    `)) as unknown as [
+      { appId: string | null; provider: string; subject: string; unionId: string | null }[],
+      unknown,
+    ];
+    expect(identityRows).toEqual([
+      {
+        appId: 'mock-mini-app-id',
+        provider: 'wechat_mini_program',
+        subject: 'mock-openid-code-a',
+        unionId: null,
+      },
+    ]);
 
     const [auditRows] = (await client.database.execute(
       sql`SELECT action FROM audit_logs WHERE target_type = 'user'`,
@@ -98,9 +129,343 @@ describeWithDatabase('wechat authentication and sessions', () => {
     expect(secondLogin.profile).toBeUndefined();
 
     const [rows] = (await client.database.execute(
-      sql`SELECT COUNT(*) AS count FROM users`,
+      sql`SELECT COUNT(*) AS count FROM users WHERE is_developer_admin = 0`,
     )) as unknown as [{ count: number }[], unknown];
     expect(rows[0]?.count).toBe(1);
+  });
+
+  it('accepts rollout-era version-1 tokens and rejects old and new tokens after authVersion changes', async () => {
+    const loginResponse = await login('versioned');
+    const [rows] = (await client.database.execute(sql`
+      SELECT id FROM users WHERE wechat_openid = 'mock-openid-versioned'
+    `)) as unknown as [{ id: string }[], unknown];
+    const userId = rows[0]?.id as string;
+    const legacyToken = createWechatSessionToken(
+      {
+        openid: 'mock-openid-versioned',
+        provider: 'wechat_mini_program',
+        sub: userId,
+      },
+      TEST_SESSION_SECRET,
+    );
+
+    expect((await readProfile(loginResponse.token)).statusCode).toBe(404);
+    expect((await readProfile(legacyToken)).statusCode).toBe(404);
+
+    await client.database.execute(sql`
+      UPDATE users SET auth_version = 2 WHERE id = ${userId}
+    `);
+
+    expect((await readProfile(loginResponse.token)).statusCode).toBe(401);
+    expect((await readProfile(legacyToken)).statusCode).toBe(401);
+  });
+
+  it('requires new Mini tokens to match their AppID-scoped identity', async () => {
+    const loginResponse = await login('scoped');
+    const claims = verifyWechatSessionToken(loginResponse.token, TEST_SESSION_SECRET);
+    if (claims === undefined) throw new Error('expected signed Mini claims');
+    const wrongAppToken = createWechatSessionToken(
+      {
+        appId: 'another-mini-app',
+        authVersion: 1,
+        openid: claims.openid,
+        provider: 'wechat_mini_program',
+        sub: claims.sub,
+      },
+      TEST_SESSION_SECRET,
+    );
+
+    expect((await readProfile(wrongAppToken)).statusCode).toBe(401);
+    await client.database.execute(
+      sql`DELETE FROM user_auth_identities WHERE user_id = ${claims.sub}`,
+    );
+    expect((await readProfile(loginResponse.token)).statusCode).toBe(401);
+  });
+
+  it('issues versioned password sessions and rejects them after authVersion changes', async () => {
+    const userId = '20000000-0000-4000-8000-000000000001';
+    await client.database.execute(sql`
+      INSERT INTO users (id, cloudbase_uid, status)
+      VALUES (${userId}, ${`password_${userId}`}, 'active')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO user_profiles (user_id, real_name)
+      VALUES (${userId}, 'Password User')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO user_password_credentials (user_id, username, password_hash)
+      VALUES (${userId}, 'password-user', ${await hashPassword('password')})
+    `);
+    const passwordService = new PasswordAuthService({
+      databaseClient: client,
+      sessionSecret: TEST_SESSION_SECRET,
+    });
+    const passwordApp = createApp({
+      authPort: createWechatAuthPort({
+        allowDevTokens: false,
+        databaseClient: client,
+        sessionSecret: TEST_SESSION_SECRET,
+      }),
+      databaseClient: client,
+      logger: false,
+      passwordAuthService: passwordService,
+    });
+    extraApps.push(passwordApp);
+
+    const loginResponse = await passwordApp.inject({
+      method: 'POST',
+      payload: { password: 'password', username: 'password-user' },
+      url: '/auth/password/login',
+    });
+    expect(loginResponse.statusCode).toBe(200);
+    const token = (loginResponse.json() as { token: string }).token;
+    const legacyToken = createWechatSessionToken(
+      { openid: 'password-user', provider: 'password', sub: userId },
+      TEST_SESSION_SECRET,
+    );
+    expect(verifyWechatSessionToken(token, TEST_SESSION_SECRET)).toMatchObject({
+      authVersion: 1,
+      openid: 'password-user',
+      provider: 'password',
+      sub: userId,
+    });
+    const profile = await passwordApp.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: '/users/me',
+    });
+    expect(profile.statusCode).toBe(200);
+    const legacyProfile = await passwordApp.inject({
+      headers: { authorization: `Bearer ${legacyToken}` },
+      method: 'GET',
+      url: '/users/me',
+    });
+    expect(legacyProfile.statusCode).toBe(200);
+
+    await client.database.execute(sql`UPDATE users SET auth_version = 2 WHERE id = ${userId}`);
+    const stale = await passwordApp.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: '/users/me',
+    });
+    const staleLegacy = await passwordApp.inject({
+      headers: { authorization: `Bearer ${legacyToken}` },
+      method: 'GET',
+      url: '/users/me',
+    });
+    expect(stale.statusCode).toBe(401);
+    expect(staleLegacy.statusCode).toBe(401);
+  });
+
+  it('lazily adopts the exact legacy Mini openid without creating another user', async () => {
+    const legacyUserId = '10000000-0000-4000-8000-000000000001';
+    await client.database.execute(sql`
+      INSERT INTO users (id, cloudbase_uid, wechat_openid, status)
+      VALUES (${legacyUserId}, 'wx_mock-openid-legacy', 'mock-openid-legacy', 'active')
+    `);
+
+    const response = await login('legacy');
+    expect(response.isNewUser).toBe(false);
+    const [usersAfter] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count FROM users WHERE is_developer_admin = 0
+    `)) as unknown as [{ count: number }[], unknown];
+    expect(usersAfter).toEqual([{ count: 1 }]);
+    const [identities] = (await client.database.execute(sql`
+      SELECT app_id AS appId, subject, user_id AS userId
+      FROM user_auth_identities
+    `)) as unknown as [{ appId: string | null; subject: string; userId: string }[], unknown];
+    expect(identities).toEqual([
+      { appId: 'mock-mini-app-id', subject: 'mock-openid-legacy', userId: legacyUserId },
+    ]);
+  });
+
+  it('scopes an existing legacy identity with a null AppID on its next exact login', async () => {
+    const userId = '30000000-0000-4000-8000-000000000001';
+    await client.database.execute(sql`
+      INSERT INTO users (id, cloudbase_uid, wechat_openid, status)
+      VALUES (${userId}, 'wx_mock-openid-legacy-identity', 'mock-openid-legacy-identity', 'active')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO user_auth_identities (id, user_id, provider, app_id, subject)
+      VALUES (
+        '30000000-0000-4000-8000-000000000002', ${userId},
+        'wechat_mini_program', NULL, 'mock-openid-legacy-identity'
+      )
+    `);
+
+    const response = await login('legacy-identity');
+    expect(response.isNewUser).toBe(false);
+    const [identityRows] = (await client.database.execute(sql`
+      SELECT app_id AS appId FROM user_auth_identities WHERE user_id = ${userId}
+    `)) as unknown as [{ appId: string | null }[], unknown];
+    expect(identityRows).toEqual([{ appId: 'mock-mini-app-id' }]);
+  });
+
+  it('uses one Union account for Web and Mini identities of the same natural person', async () => {
+    const unionId = 'shared-union-id';
+    const webGateway: WechatWebGateway = {
+      appId: 'web-app-id',
+      isConfigured: true,
+      async exchangeCode() {
+        return { openid: 'web-openid', sessionKey: undefined, unionid: unionId };
+      },
+    };
+    const webService = new WechatWebAuthService({
+      databaseClient: client,
+      gateway: webGateway,
+      redirectUri: 'https://example.test/callback',
+      sessionSecret: TEST_SESSION_SECRET,
+    });
+    const webState = createWechatWebState(
+      'cross-channel-state',
+      TEST_SESSION_SECRET,
+      Math.floor(Date.now() / 1000),
+    );
+    const webLogin = await webService.exchange('web-code', webState);
+
+    const miniGateway: WechatGateway = {
+      appId: 'mini-app-id',
+      isConfigured: true,
+      async exchangeCode() {
+        return { openid: 'mini-openid', sessionKey: undefined, unionid: unionId };
+      },
+      async getUnlimitedQr() {
+        return new Uint8Array();
+      },
+      async sendSubscribeMessage() {
+        return { messageId: null };
+      },
+    };
+    const crossChannelApp = createApp({
+      authPort: createWechatAuthPort({
+        allowDevTokens: false,
+        databaseClient: client,
+        sessionSecret: TEST_SESSION_SECRET,
+      }),
+      databaseClient: client,
+      logger: false,
+      wechatGateway: miniGateway,
+      wechatSessionSecret: TEST_SESSION_SECRET,
+    });
+    extraApps.push(crossChannelApp);
+    const miniLogin = await crossChannelApp.inject({
+      method: 'POST',
+      payload: { code: 'mini-code' },
+      url: '/auth/wechat/login',
+    });
+    expect(miniLogin.statusCode, miniLogin.body).toBe(200);
+
+    const miniToken = (miniLogin.json() as { token: string }).token;
+    const webClaims = verifyWechatSessionToken(webLogin.token, TEST_SESSION_SECRET);
+    const miniClaims = verifyWechatSessionToken(miniToken, TEST_SESSION_SECRET);
+    if (webClaims === undefined || miniClaims === undefined) {
+      throw new Error('expected signed cross-channel claims');
+    }
+    expect(miniClaims.sub).toBe(webClaims.sub);
+    expect(webClaims).toMatchObject({ appId: 'web-app-id', authVersion: 1 });
+    expect(miniClaims).toMatchObject({ appId: 'mini-app-id', authVersion: 1 });
+
+    const [identityRows] = (await client.database.execute(sql`
+      SELECT app_id AS appId, provider, union_id AS unionId, user_id AS userId
+      FROM user_auth_identities
+      ORDER BY provider
+    `)) as unknown as [
+      { appId: string | null; provider: string; unionId: string | null; userId: string }[],
+      unknown,
+    ];
+    expect(identityRows).toHaveLength(2);
+    expect(new Set(identityRows.map((row) => row.userId))).toEqual(new Set([webClaims.sub]));
+    expect(identityRows.map((row) => row.unionId)).toEqual([null, null]);
+    const [unionRows] = (await client.database.execute(sql`
+      SELECT union_id AS unionId, user_id AS userId FROM wechat_union_accounts
+    `)) as unknown as [{ unionId: string; userId: string }[], unknown];
+    expect(unionRows).toEqual([{ unionId, userId: webClaims.sub }]);
+
+    const webProfile = await crossChannelApp.inject({
+      headers: { authorization: `Bearer ${webLogin.token}` },
+      method: 'GET',
+      url: '/users/me',
+    });
+    expect(webProfile.statusCode).toBe(404);
+    await client.database.execute(sql`
+      UPDATE users SET auth_version = 2 WHERE id = ${webClaims.sub}
+    `);
+    const staleWeb = await crossChannelApp.inject({
+      headers: { authorization: `Bearer ${webLogin.token}` },
+      method: 'GET',
+      url: '/users/me',
+    });
+    const staleMini = await crossChannelApp.inject({
+      headers: { authorization: `Bearer ${miniToken}` },
+      method: 'GET',
+      url: '/users/me',
+    });
+    expect(staleWeb.statusCode).toBe(401);
+    expect(staleMini.statusCode).toBe(401);
+  });
+
+  it('fails closed instead of merging an exact identity with another user Union account', async () => {
+    const unionUserId = '40000000-0000-4000-8000-000000000001';
+    const identityUserId = '40000000-0000-4000-8000-000000000002';
+    await client.database.execute(sql`
+      INSERT INTO users (id, cloudbase_uid, status)
+      VALUES
+        (${unionUserId}, 'wx_union-owner', 'active'),
+        (${identityUserId}, 'wx_identity-owner', 'active')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO wechat_union_accounts (id, user_id, union_id)
+      VALUES ('40000000-0000-4000-8000-000000000003', ${unionUserId}, 'conflict-union')
+    `);
+    await client.database.execute(sql`
+      INSERT INTO user_auth_identities (id, user_id, provider, app_id, subject)
+      VALUES (
+        '40000000-0000-4000-8000-000000000004', ${identityUserId},
+        'wechat_mini_program', 'conflict-mini-app', 'conflict-openid'
+      )
+    `);
+
+    const conflictGateway: WechatGateway = {
+      appId: 'conflict-mini-app',
+      isConfigured: true,
+      async exchangeCode() {
+        return {
+          openid: 'conflict-openid',
+          sessionKey: undefined,
+          unionid: 'conflict-union',
+        };
+      },
+      async getUnlimitedQr() {
+        return new Uint8Array();
+      },
+      async sendSubscribeMessage() {
+        return { messageId: null };
+      },
+    };
+    const conflictApp = createApp({
+      authPort: createWechatAuthPort({
+        allowDevTokens: false,
+        databaseClient: client,
+        sessionSecret: TEST_SESSION_SECRET,
+      }),
+      databaseClient: client,
+      logger: false,
+      wechatGateway: conflictGateway,
+      wechatSessionSecret: TEST_SESSION_SECRET,
+    });
+    extraApps.push(conflictApp);
+    const response = await conflictApp.inject({
+      method: 'POST',
+      payload: { code: 'conflict' },
+      url: '/auth/wechat/login',
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: 'CONFLICT' } });
+    const [rows] = (await client.database.execute(sql`
+      SELECT user_id AS userId FROM user_auth_identities WHERE subject = 'conflict-openid'
+    `)) as unknown as [{ userId: string }[], unknown];
+    expect(rows).toEqual([{ userId: identityUserId }]);
   });
 
   it('completes the profile through the existing register endpoint after login', async () => {
@@ -197,6 +562,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
 
   it('maps invalid WeChat login codes to 401 WECHAT_LOGIN_FAILED', async () => {
     const failingGateway: WechatGateway = {
+      appId: 'failing-mini-app-id',
       isConfigured: true,
       async exchangeCode() {
         throw new WechatGatewayError(40029, 'invalid code', 'WECHAT_LOGIN_FAILED');
@@ -242,6 +608,14 @@ describeWithDatabase('wechat authentication and sessions', () => {
     });
     expect(response.statusCode).toBe(200);
     return response.json() as { isNewUser: boolean; profile?: unknown; token: string };
+  }
+
+  async function readProfile(token: string) {
+    return app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: '/users/me',
+    });
   }
 });
 

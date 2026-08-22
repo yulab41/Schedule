@@ -37,6 +37,7 @@ function createGateway(
     fetchFn,
     now,
   });
+  expect(gateway.appId).toBe('app-id');
   return { fetchFn, gateway };
 }
 
@@ -44,6 +45,7 @@ describe('mock WeChat gateway', () => {
   it('is always configured and returns stable mock openids per code', async () => {
     const gateway = createMockWechatGateway();
     expect(gateway.isConfigured).toBe(true);
+    expect(gateway.appId).toBe('mock-mini-app-id');
 
     await expect(gateway.exchangeCode('code-a')).resolves.toEqual({
       openid: 'mock-openid-code-a',
@@ -154,6 +156,13 @@ describe('real WeChat web gateway', () => {
 });
 
 describe('real WeChat API gateway', () => {
+  it('exposes AppID without exposing AppSecret', () => {
+    const gateway = new WechatApiGateway({ appId: 'app-id', appSecret: 'app-secret' });
+
+    expect(gateway.appId).toBe('app-id');
+    expect(gateway).not.toHaveProperty('appSecret');
+  });
+
   it('is not configured without credentials and fails closed', async () => {
     const gateway = new WechatApiGateway({ appId: undefined, appSecret: undefined });
 

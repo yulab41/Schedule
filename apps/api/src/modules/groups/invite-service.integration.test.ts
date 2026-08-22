@@ -10,7 +10,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createWechatAuthPort } from '../../adapters/auth/wechat-auth.js';
+import { createWechatAuthPort, verifyWechatSessionToken } from '../../adapters/auth/wechat-auth.js';
 import { createApp } from '../../app.js';
 import { createMockWechatGateway } from '../wechat/wechat-gateway.js';
 
@@ -211,6 +211,12 @@ describeWithDatabase('invite links and identity binding', () => {
     await client.database.execute(
       sql`UPDATE users SET wechat_openid = NULL WHERE id = ${target.id}`,
     );
+    await client.database.execute(
+      sql`DELETE FROM wechat_union_accounts WHERE user_id = ${target.id}`,
+    );
+    await client.database.execute(
+      sql`DELETE FROM user_auth_identities WHERE user_id = ${target.id}`,
+    );
 
     const source = await registerUser('merge-source', 'Source User');
     const sourceGroupId = await createGroup(source.token, 'Source group', '7890');
@@ -224,6 +230,13 @@ describeWithDatabase('invite links and identity binding', () => {
     const mergedBody = merged.json() as { group: { id: string }; token?: string };
     expect(mergedBody.group.id).toBe(groupId);
     expect(typeof mergedBody.token).toBe('string');
+    expect(verifyWechatSessionToken(mergedBody.token, TEST_SESSION_SECRET)).toMatchObject({
+      appId: 'mock-mini-app-id',
+      authVersion: 1,
+      openid: 'mock-openid-merge-source',
+      provider: 'wechat_mini_program',
+      sub: target.id,
+    });
 
     const [sourceRows] = (await client.database.execute(
       sql`SELECT status, wechat_openid AS openid FROM users WHERE id = ${source.id}`,
@@ -238,6 +251,18 @@ describeWithDatabase('invite links and identity binding', () => {
       sql`SELECT id FROM users WHERE cloudbase_uid = 'wx_mock-openid-merge-target'`,
     )) as unknown as [{ id: string }[], unknown];
     expect(groupRows[0]?.ownerUserId).toBe(targetRows[0]?.id);
+    const [identityRows] = (await client.database.execute(sql`
+      SELECT app_id AS appId, subject, user_id AS userId
+      FROM user_auth_identities
+      WHERE subject = 'mock-openid-merge-source'
+    `)) as unknown as [{ appId: string | null; subject: string; userId: string }[], unknown];
+    expect(identityRows).toEqual([
+      {
+        appId: 'mock-mini-app-id',
+        subject: 'mock-openid-merge-source',
+        userId: target.id,
+      },
+    ]);
 
     const profile = await app.inject({
       headers: { authorization: `Bearer ${mergedBody.token as string}` },

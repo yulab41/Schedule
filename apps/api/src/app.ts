@@ -135,7 +135,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         issueSessionForUser:
           wechatAuthService === undefined
             ? undefined
-            : (userId, openid) => wechatAuthService.issueSessionForUser(userId, openid),
+            : (userId, openid, authVersion) =>
+                wechatAuthService.issueSessionForUser(userId, openid, authVersion),
         platformAdminUids,
       }),
     );

@@ -7,10 +7,9 @@ import type {
 } from '@schedule/contracts';
 import {
   type DatabaseClient,
-  userAuthIdentities,
+  type DatabaseTransaction,
   userProfiles,
   users,
-  withTransaction,
 } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -22,6 +21,7 @@ import {
   type WechatWebGateway,
 } from './wechat-gateway.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
+import { WechatIdentityResolver } from './wechat-identity-resolver.js';
 
 const STATE_TTL_SECONDS = 5 * 60;
 
@@ -36,6 +36,7 @@ export interface WechatWebAuthServiceOptions {
 export class WechatWebAuthService {
   private readonly databaseClient: DatabaseClient;
   private readonly gateway: WechatWebGateway;
+  private readonly identityResolver: WechatIdentityResolver;
   private readonly nowSeconds: () => number;
   private readonly redirectUri: string | undefined;
   private readonly sessionSecret: string | undefined;
@@ -43,6 +44,7 @@ export class WechatWebAuthService {
   public constructor(options: WechatWebAuthServiceOptions) {
     this.databaseClient = options.databaseClient;
     this.gateway = options.gateway;
+    this.identityResolver = new WechatIdentityResolver(options.databaseClient);
     this.nowSeconds = options.nowSeconds ?? (() => Math.floor(Date.now() / 1000));
     this.redirectUri = options.redirectUri;
     this.sessionSecret = options.sessionSecret;
@@ -81,13 +83,26 @@ export class WechatWebAuthService {
       throw error;
     }
 
-    const userId = await this.resolveUser(exchanged);
-    const profile = await this.findProfile(userId);
+    const appId = this.getAppId();
+    const resolved = await this.identityResolver.resolve({
+      appId,
+      createUser: (transaction) => this.createWechatUser(transaction, exchanged),
+      provider: 'wechat_web',
+      subject: exchanged.openid,
+      unionId: exchanged.unionid,
+    });
+    const profile = await this.findProfile(resolved.userId);
     return {
       isNewUser: profile === undefined,
       profile,
       token: createWechatSessionToken(
-        { openid: exchanged.openid, provider: 'wechat_web', sub: userId },
+        {
+          appId,
+          authVersion: resolved.authVersion,
+          openid: exchanged.openid,
+          provider: 'wechat_web',
+          sub: resolved.userId,
+        },
         this.sessionSecret,
       ),
     };
@@ -116,86 +131,16 @@ export class WechatWebAuthService {
     return this.redirectUri;
   }
 
-  private async resolveUser(exchanged: WechatExchangeCodeResult): Promise<string> {
-    const [subjectIdentity] = await this.databaseClient.database
-      .select({ id: userAuthIdentities.id, userId: userAuthIdentities.userId })
-      .from(userAuthIdentities)
-      .where(
-        and(
-          eq(userAuthIdentities.provider, 'wechat_web'),
-          eq(userAuthIdentities.subject, exchanged.openid),
-        ),
-      )
-      .limit(1);
-    if (subjectIdentity !== undefined) {
-      await this.updateUnionId(subjectIdentity.id, exchanged.unionid);
-      return subjectIdentity.userId;
-    }
-
-    if (exchanged.unionid !== undefined) {
-      const [unionIdentity] = await this.databaseClient.database
-        .select({ userId: userAuthIdentities.userId })
-        .from(userAuthIdentities)
-        .where(eq(userAuthIdentities.unionId, exchanged.unionid))
-        .limit(1);
-      if (unionIdentity !== undefined) {
-        await this.linkIdentity(unionIdentity.userId, exchanged);
-        return unionIdentity.userId;
-      }
-    }
-
+  private async createWechatUser(
+    transaction: DatabaseTransaction,
+    exchanged: WechatExchangeCodeResult,
+  ): Promise<{ readonly authVersion: number; readonly userId: string }> {
     const userId = randomUUID();
-    try {
-      return await withTransaction(this.databaseClient, async (transaction) => {
-        await transaction.insert(users).values({
-          cloudbaseUid: `wx_web_${exchanged.unionid ?? exchanged.openid}`,
-          id: userId,
-        });
-        await transaction.insert(userAuthIdentities).values({
-          id: randomUUID(),
-          provider: 'wechat_web',
-          subject: exchanged.openid,
-          unionId: exchanged.unionid,
-          userId,
-        });
-        return userId;
-      });
-    } catch (error) {
-      if (isDuplicateKeyError(error)) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该微信账号正在注册，请稍后重试。',
-        });
-      }
-      throw error;
-    }
-  }
-
-  private async linkIdentity(userId: string, exchanged: WechatExchangeCodeResult): Promise<void> {
-    try {
-      await this.databaseClient.database.insert(userAuthIdentities).values({
-        id: randomUUID(),
-        provider: 'wechat_web',
-        subject: exchanged.openid,
-        unionId: exchanged.unionid,
-        userId,
-      });
-    } catch (error) {
-      if (!isDuplicateKeyError(error)) {
-        throw error;
-      }
-    }
-  }
-
-  private async updateUnionId(identityId: string, unionId: string | undefined): Promise<void> {
-    if (unionId === undefined) {
-      return;
-    }
-    await this.databaseClient.database
-      .update(userAuthIdentities)
-      .set({ unionId })
-      .where(eq(userAuthIdentities.id, identityId));
+    await transaction.insert(users).values({
+      cloudbaseUid: `wx_web_${exchanged.unionid ?? exchanged.openid}`,
+      id: userId,
+    });
+    return { authVersion: 1, userId };
   }
 
   private async findProfile(userId: string): Promise<UserProfile | undefined> {
@@ -282,10 +227,4 @@ export function verifyWechatWebState(
 
 function encodeBase64Url(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64url');
-}
-
-function isDuplicateKeyError(error: unknown): boolean {
-  return (
-    typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_DUP_ENTRY'
-  );
 }

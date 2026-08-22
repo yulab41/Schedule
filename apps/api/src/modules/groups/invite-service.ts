@@ -19,8 +19,10 @@ import {
   membershipClaimRequests,
   rosterEntries,
   scheduleRoles,
+  userAuthIdentities,
   userProfiles,
   users,
+  wechatUnionAccounts,
   withTransaction,
 } from '@schedule/database';
 import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
@@ -43,7 +45,8 @@ export interface CreateInviteLinkInput {
 export interface InviteServiceOptions {
   readonly databaseClient: DatabaseClient;
   readonly holidayAdminUids?: ReadonlySet<string>;
-  readonly issueSessionForUser?: ((userId: string, openid: string) => string) | undefined;
+  readonly issueSessionForUser?:
+    ((userId: string, openid: string, authVersion: number) => string) | undefined;
   readonly platformAdminUids?: ReadonlySet<string>;
 }
 
@@ -51,7 +54,8 @@ export class InviteService {
   private readonly auditWriter = new AuditWriter();
   private readonly databaseClient: DatabaseClient;
   private readonly holidayAdminUids: ReadonlySet<string>;
-  private readonly issueSessionForUser: ((userId: string, openid: string) => string) | undefined;
+  private readonly issueSessionForUser:
+    ((userId: string, openid: string, authVersion: number) => string) | undefined;
   private readonly permissionService = new GroupPermissionService();
   private readonly platformAdminUids: ReadonlySet<string>;
 
@@ -540,14 +544,20 @@ export class InviteService {
     }
 
     const [targetUserRow] = await transaction
-      .select({ wechatOpenid: users.wechatOpenid })
+      .select({ authVersion: users.authVersion, wechatOpenid: users.wechatOpenid })
       .from(users)
       .where(eq(users.id, targetMembership.userId))
       .limit(1)
       .for('update');
+    if (targetUserRow === undefined) {
+      throw new ApiError({
+        code: 'CONFLICT',
+        statusCode: 409,
+        userMessage: '目标账号已不存在，无法合并。',
+      });
+    }
     if (
-      targetUserRow?.wechatOpenid !== null &&
-      targetUserRow?.wechatOpenid !== undefined &&
+      targetUserRow.wechatOpenid !== null &&
       targetUserRow.wechatOpenid !== currentUserRow.wechatOpenid
     ) {
       throw new ApiError({
@@ -610,6 +620,14 @@ export class InviteService {
       .set({ wechatOpenid: openid, version: sql`${users.version} + 1` })
       .where(eq(users.id, targetMembership.userId));
     await transaction
+      .update(userAuthIdentities)
+      .set({ userId: targetMembership.userId })
+      .where(eq(userAuthIdentities.userId, currentUser.id));
+    await transaction
+      .update(wechatUnionAccounts)
+      .set({ userId: targetMembership.userId })
+      .where(eq(wechatUnionAccounts.userId, currentUser.id));
+    await transaction
       .update(users)
       .set({
         cloudbaseUid: null,
@@ -632,7 +650,7 @@ export class InviteService {
     }
     return {
       role: targetMembership.role as GroupRole,
-      token: this.issueSessionForUser(targetMembership.userId, openid),
+      token: this.issueSessionForUser(targetMembership.userId, openid, targetUserRow.authVersion),
     };
   }
 

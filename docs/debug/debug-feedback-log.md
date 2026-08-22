@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-B 版本化会话与 AppID identity
+
+- 红灯：claim/gateway 3 项和身份集成 5 项在旧实现失败，覆盖无版本/AppID 校验、legacy scoped 认领与跨渠道 Union 500。
+- 实现：新 token 写 authVersion，Mini/Web 再写 AppID；旧 token 缺版本按 1 兼容。认证逐次校验 active/deleted/version 和 scoped identity。事务 resolver 统一 Mini/Web identity、Union account、legacy openid/null-AppID 惰性认领与冲突；AppSecret 使用 private field。邀请合并移动 identity/Union 并按目标版本重签。
+- 等价：未知 Mini 仍返回原 `isNewUser` 并自动建号，contracts/路由/UI 不变；旧 password/Mini 会话、dev token、资料/群组和错误传播保持。P3-C 才切 `link_required`。
+- 验证：专项 6 文件/49 项、真实 MySQL 身份 14 项+邀请 7 项、非 DB 全仓 155 文件/852 项、Mini 15 文件/62 项及全部静态/包门禁通过；根 build/typecheck/lint、任务格式/diff/`smoke:check-core` 通过，根 format 仅既有/用户所有 11 项。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): version scoped identities`。
+
 ## 2026-08-22 P3-A 加法式身份基础
 
 - 红灯：foundation 4/4、nullable password 2/7、migration verifier 1/3 在旧实现失败；定位 identity/password/JWT 来源为 `12e7f40`/`de3ad5f`/`39f9c66`。

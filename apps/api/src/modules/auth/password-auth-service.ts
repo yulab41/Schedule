@@ -82,7 +82,7 @@ export class PasswordAuthService {
       mustChangePassword: isDefaultPassword(password),
       profile: undefined,
       token: createPasswordSessionToken(
-        { sub: userId, username: normalizedUsername },
+        { authVersion: 1, sub: userId, username: normalizedUsername },
         this.sessionSecret,
       ),
     };
@@ -92,6 +92,7 @@ export class PasswordAuthService {
     const normalizedUsername = normalizeUsername(username);
     const [credential] = await this.databaseClient.database
       .select({
+        authVersion: users.authVersion,
         cloudbaseUid: users.cloudbaseUid,
         passwordHash: userPasswordCredentials.passwordHash,
         status: users.status,
@@ -117,7 +118,11 @@ export class PasswordAuthService {
       mustChangePassword: isDefaultPassword(password),
       profile: await this.findProfile(credential.userId),
       token: createPasswordSessionToken(
-        { sub: credential.userId, username: normalizedUsername },
+        {
+          authVersion: credential.authVersion,
+          sub: credential.userId,
+          username: normalizedUsername,
+        },
         this.sessionSecret,
       ),
     };
