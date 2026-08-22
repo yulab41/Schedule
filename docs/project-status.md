@@ -10,9 +10,10 @@
 - linkToken 安全：数据库只存 SHA-256、AppID/subject/可选 Union/existing user、pending/consumed 与到期时间，不存 raw token。消费事务行锁保证并发只有一次成功；后续关联操作失败会连同 consumed 状态回滚；无效/已用/过期分别为 typed 401/409/410。`linkToken`/`unionId` 加入深层/Pino 脱敏；新错误码同源生成到 client-core。
 - 无注销：`DeregisterAccountResult`、`deregisterOwnAccount` 和 `/users/me/deregister` 已从生产 contract/service/routes 删除。404 集成证明用户 locator/status/profile/contact/audit 均不变；仓库生产 TS/Vue 无注销入口。解绑仍待后续专用接口，不以注销替代。
 - schema/migration：新增 0045 `wechat_link_tokens`；迁移数 45、业务表 52，全部 test DB reset 同步。根 build/typecheck/lint 通过；受控非 DB 全仓 156 文件/854 项通过，33 文件/279 项按环境跳过。
-- Mini/门禁：Mini 15 文件/62 项及 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147968 bytes，manifest `66353d723b345147d0e36d83334fee21b60fdfa61420159aa9ae84c12d88a20c`）；任务 Prettier/`git diff --check`/`smoke:check-core` 通过，根 format 仍只有既有/用户所有 11 项阻塞。
-- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板/样式/页面变化，不需要人工视觉确认。
-- 当前状态：P3-C 实现和本地门禁完成，待 checkpoint `feat(auth): require explicit wechat linking` 推送、本地 Node 体验上传和生产备份/迁移/部署/验证；不得提交审核或正式发布 Mini。
+- Mini/门禁：P3-C 代码 checkpoint 前 Mini 15 文件/62 项及 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147968 bytes，manifest `66353d723b345147d0e36d83334fee21b60fdfa61420159aa9ae84c12d88a20c`）；代码 checkpoint `3919050`（`feat(auth): require explicit wechat linking`）已推送，但尚未上传或部署。
+- Windows 干净检出回归：从 `3919050` 创建的精确 clean worktree 在 Vitest 导入 `visual-compare.mjs` 时因首行 shebang 被 Git 检出为 CRLF 而报语法错误；`git log -S`/`git blame` 定位为 `c8d50f5` 引入。新增源文件首字符回归在旧代码先失败，删除仅由 `node scripts/visual-compare.mjs` 调用的冗余 shebang 后 15 文件/63 项通过；直接 CLI 入口、参数、异步错误、输出与退出码不变。主工作区复跑 verify/source/2 Worklets/package/determinism/官方 CI dry-run 通过（147968 bytes，pre-checkpoint manifest `ad14c322f192ef0d0593499ebe011f05a9fa35c2cdfbd3c1d072efa9c80c9636`）。
+- 运行/浏览器验证：`pnpm smoke:browser` 已在修复后重跑，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无模板/样式/页面变化，不需要人工视觉确认；任务 Prettier/ESLint/`git diff --check`/`smoke:check-core` 通过，根 format 仍只有既有/用户所有 11 项阻塞。
+- 当前状态：P3-C 代码已推送但 clean-worktree 上传门禁发现并修复 Windows 导入回归；待 checkpoint `fix(miniprogram): keep visual comparer importable on Windows` 推送后，从该精确提交重新通过干净门禁、本地 Node 体验上传和生产备份/迁移/部署/验证。`3919050` 产物已作废，不得上传；不得提交审核或正式发布 Mini。
 - 下一活动批次与停止条件：只做 P3-D `/auth/wechat/link-password` 与 `/auth/wechat/register` 的 linkToken 消费、密码 proof 和真实姓名建档；不得做管理员 URL Link、解绑、公开 Web 注册关闭或任何 UI。过期/篡改/重放/并发、用户名密码错误、Union 冲突、已有/新用户事务与 authVersion 测试通过后停止。
 
 ## 2026-08-22 P3-B 版本化会话与 AppID identity（当前批次）

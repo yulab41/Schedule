@@ -25,6 +25,11 @@ const geometry = {
   },
 };
 
+it('keeps the importable visual comparer free of a Windows-CRLF-sensitive shebang', async () => {
+  const source = await readFile(new URL('./visual-compare.mjs', import.meta.url), 'utf8');
+  expect(source.startsWith('#!')).toBe(false);
+});
+
 describe('visual evidence comparator', () => {
   it('passes identical stable pixels and writes a machine-readable report and heatmap', async () => {
     const outputDirectory = await mkdtemp(path.join(tmpdir(), 'schedule-visual-pass-'));

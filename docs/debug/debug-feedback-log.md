@@ -7,8 +7,9 @@
 - 红灯：Mini 判别联合、三类 link 错误、脱敏、0045 schema、link service 模块、未知不建号和注销 404 均在旧实现失败。
 - 实现：未知 Mini 只返回 10 分钟 link_required 并写哈希 token，不建 user/identity/Union/audit；已知有 profile 才签 authenticated session，已知无 profile 的 token 绑定 existing user。link service 行锁单次消费并区分 invalid/used/expired；password/Web response 解耦，错误码生成到 client-core，linkToken/Union 日志脱敏。
 - 无注销：删除 contract/service/route；404 回归确认 locator/status/profile/contact/audit 原样保留。公开 password register 本批不动。
-- 验证：静态/contract/client 8 文件/29 项，真实 MySQL link 4、身份 14、邀请 7、无注销 1、迁移 17 项，非 DB 全仓 156 文件/854 项通过。Mini 15 文件/62 项及全部静态/包门禁通过（147968 bytes，manifest `66353d723b345147d0e36d83334fee21b60fdfa61420159aa9ae84c12d88a20c`）；根 build/typecheck/lint、任务格式/diff/`smoke:check-core` 通过，根 format 仅既有/用户所有 11 项。
-- 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。checkpoint 识别消息：`feat(auth): require explicit wechat linking`。
+- 验证：静态/contract/client 8 文件/29 项，真实 MySQL link 4、身份 14、邀请 7、无注销 1、迁移 17 项，非 DB 全仓 156 文件/854 项通过。Mini 15 文件/62 项及全部静态/包门禁通过（147968 bytes，manifest `66353d723b345147d0e36d83334fee21b60fdfa61420159aa9ae84c12d88a20c`）；根 build/typecheck/lint、任务格式/diff/`smoke:check-core` 通过，根 format 仅既有/用户所有 11 项。代码 checkpoint `3919050` 已推送，尚未上传或部署。
+- Windows clean-worktree 回归：`3919050` 的 CRLF 检出让 Vitest 导入含 shebang 的 `visual-compare.mjs` 时语法失败；引入点为 `c8d50f5`。新增断言在旧代码先失败，删除冗余 shebang 后 Mini 15 文件/63 项、typecheck、verify/source/2 Worklets/package/determinism/CI dry-run 通过（147968 bytes，pre-checkpoint manifest `ad14c322f192ef0d0593499ebe011f05a9fa35c2cdfbd3c1d072efa9c80c9636`）。脚本仍由显式 `node` 调用，CLI 行为、错误路径和调用次数不变；`3919050` 产物作废。
+- 运行/浏览器验证：修复后 `pnpm smoke:browser` 仍在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；无视觉变化。修复 checkpoint 识别消息：`fix(miniprogram): keep visual comparer importable on Windows`。
 
 ## 2026-08-22 P3-B 版本化会话与 AppID identity
 
