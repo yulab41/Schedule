@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 Mini 生产 API 体验版联通修复
+
+- 根因：体验版 `0.1.0-p3.20260823.53` 使用 staging profile；`wx.login` 成功后请求 `/auth/wechat/login` 时，staging 域名 HTTPS 不可达，因此客户端显示“网络连接失败”。当前 2G ECS 只有 production 服务，没有 staging 服务或域名配置。
+- 用户决策：不补建独立 staging；体验版与正式版均使用 production profile，测试身份绑定/建档允许写入 production；不增加运行时环境切换。
+- 验证：production API `/api/health` 返回 200；Mini production typecheck 与 `node scripts/verify.mjs --profile=production` 通过（2/2 Worklet，203145 bytes）；未运行 `pnpm smoke:browser`，本轮仅 Mini profile/上传链路。
+- 发布：`HEAD` `041a7424` 的 production profile 体验版 `0.1.0-p3.20260823.55` 已由本地 Node `miniprogram-ci` 成功上传，60 个代码文件，manifest `65bbb71f9b285d20de57f91e24e96ebd931d61118d7065dc64fa86c73b5a2ddd`；未审核/正式发布。
+- 状态：已实现待浏览器/原生复核；等待用户在体验版复核微信登录及完整 P3 身份流程。
+- checkpoint 识别消息：`docs(status): record production-profile mini experience`。
+
 ## 2026-08-23 P3 Mini 默认身份入口修正
 
 - 反馈：冷启动没有看到登录入口。原因是 `app.json` 仍以 P1 `pages/index/index` 为第一项，P3 `pages/identity/index` 只是已注册但不会默认打开。

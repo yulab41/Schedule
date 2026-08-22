@@ -2,7 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-23 P3 Mini 默认身份入口修正（当前批次）
+## 2026-08-23 P3 Mini 生产 API 体验版联通修复（当前批次）
+
+- 根因与决策：体验版 `0.1.0-p3.20260823.53` 按既有 staging profile 指向 `staging-hosp.schedule.eylinhome.top`；该域名未部署到当前 2G ECS，HTTPS 握手失败。用户确认不补建独立 staging，体验版测试身份允许写入 production；今后体验版与正式版均使用 production profile，不增加运行时环境切换。
+- 验证：生产 `https://hosp.schedule.eylinhome.top/api/health` 返回 200；Mini production profile typecheck 通过，`node scripts/verify.mjs --profile=production` 通过（2/2 Worklet，203145 bytes，manifest `232bddf2d61a01f1a176d29aa14b09e1cf81ffca0d27a75f24d57274e40e4320`）。
+- 体验上传：从当前 `HEAD` `041a7424` 使用仓库外私钥、本地 Node `miniprogram-ci` 成功上传 `0.1.0-p3.20260823.55`，production profile，60 个平台代码文件，上传 manifest `65bbb71f9b285d20de57f91e24e96ebd931d61118d7065dc64fa86c73b5a2ddd`；未审核/正式发布。
+- 当前状态：已实现待人工原生复核；请用户在微信体验版 `0.1.0-p3.20260823.55` 重新复核微信登录、link_required→密码绑定、首次建档、管理员绑定和解绑。体验数据按用户决定写入生产，测试需使用专用身份，避免误改正式业务数据。
+- 下一活动批次与停止条件：只做该 production-profile 体验版的实体 Android/微信复核；用户明确通过前不补 staging、不进入 P4 或新的 Web/Mini 页面。
+- 文档 checkpoint 识别消息：`docs(status): record production-profile mini experience`。
+
+## 2026-08-23 P3 Mini 默认身份入口修正（前一 checkpoint）
 
 - 引入点与修正：`git log -S 'pages/index/index'`/`git blame` 确认 P1 基础页自 `3884713b` 初始化并在 `2d51e222` 成为首路由；P3 身份页追加后仍位于列表末尾，导致冷启动进入 P1 展示页而看不到登录入口。仅将既有 `pages/identity/index` 调整为 `app.json` 首项，P1 月历/矩阵/手势路由与 P3 解绑、管理员预览路由仍保留；无 ECS 中继、凭证、公共 API 或页面逻辑变化。
 - 验证：Mini 定向 6 项、受控全套 16 文件/69 项、TypeScript typecheck、staging build、verify、Worklet/source/package audit、determinism、官方 CI dry-run 和 `git diff --check` 通过；浏览器 smoke 因本机监听 `localhost:5173` 被系统 `EACCES` 阻断，未进入产品断言（本批仅 Mini 入口变更）。
