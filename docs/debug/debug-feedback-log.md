@@ -6,8 +6,9 @@
 
 - 实现：Web 登录去除公开注册入口；API `/auth/password/register` 关闭并返回 403；新增平台账号生产页面与 `ApiClient` 的账号列表、用户名分配、管理员绑定链接方法。
 - 验证：API auth route 3 项、Web client 155 项、Web typecheck、root lint 通过。
-- 运行/浏览器验证：`pnpm smoke:browser` 在本机 localhost:5173 第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言；`pnpm smoke:check-core` 待本记录提交后复核。
-- checkpoint 识别消息：`feat(auth): wire p3 web identity surfaces`。
+- 运行/浏览器验证：`pnpm smoke:check-core` 通过；`pnpm smoke:browser` 的 Node 监听在 5173/5174 被系统 `EACCES` 阻断。clean static build 用 `SMOKE_BASE_URL=http://127.0.0.1:6008` 复核到登录页：横向布局、关闭公开注册和键盘焦点通过，随后因 production build 没有本地开发身份按钮停止。
+- 修正：同步 smoke 旧 `.auth-mode-switch` 选择器到仅登录语义，并为登录/访客按钮补 3px focus-visible 描边。
+- checkpoint 识别消息：`fix(web): align p3 smoke with closed registration`。
 
 ## 2026-08-22 P3 原生身份页面首个切片
 

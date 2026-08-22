@@ -261,9 +261,7 @@ async function assertResponsiveLoginShell(page) {
     await page.setViewportSize({ height, width });
     await page.waitForTimeout(150);
     const result = await page.evaluate(() => {
-      const controls = [
-        ...document.querySelectorAll('.auth-mode-switch button, .auth-submit, .guest-entry'),
-      ];
+      const controls = [...document.querySelectorAll('.auth-submit, .guest-entry')];
       const footer = document.querySelector('.site-compliance-footer');
       const filingLink = footer?.querySelector('a');
       return {
@@ -271,6 +269,7 @@ async function assertResponsiveLoginShell(page) {
         filingLinkHeight: filingLink?.getBoundingClientRect().height ?? 0,
         filingVisible: document.body.innerText.includes('粤ICP备2026116116号-1'),
         overflow: document.documentElement.scrollWidth > window.innerWidth,
+        publicRegistrationVisible: document.querySelector('.auth-mode-switch') !== null,
         smallControls: controls
           .filter((element) => {
             const rect = element.getBoundingClientRect();
@@ -281,6 +280,7 @@ async function assertResponsiveLoginShell(page) {
     });
 
     if (result.overflow) fail(`${width}px 登录页出现横向溢出。`);
+    if (result.publicRegistrationVisible) fail(`${width}px 登录页仍显示公开注册控件。`);
     if (!result.filingVisible || result.filingBackground !== 'rgba(0, 0, 0, 0)') {
       fail(`${width}px 登录页 ICP 页脚缺失或没有融入页面画布。`);
     }
@@ -291,11 +291,7 @@ async function assertResponsiveLoginShell(page) {
   }
 
   await page.setViewportSize({ height: 900, width: 1280 });
-  await assertKeyboardFocusVisible(
-    page,
-    page.locator('.auth-mode-switch button').first(),
-    '登录方式切换',
-  );
+  await assertKeyboardFocusVisible(page, page.locator('.auth-submit').first(), '登录提交按钮');
   await assertReducedMotion(page, '登录页');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 }

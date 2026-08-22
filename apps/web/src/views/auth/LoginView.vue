@@ -256,6 +256,13 @@ async function submitDev(uid: string): Promise<void> {
   border-radius: var(--ui-radius-medium);
 }
 
+.auth-submit:focus-visible,
+.guest-entry:focus-visible,
+.dev-auth-actions :deep(.t-button:focus-visible) {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
+}
+
 .auth-submit {
   box-shadow: var(--ui-shadow-primary);
 }

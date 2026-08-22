@@ -6,8 +6,8 @@
 
 - 范围：接通已确认黄金稿对应的 Web 登录和平台账号后台；Web 登录移除公开注册控件，API `/auth/password/register` 对匿名请求返回 403 且不创建用户；平台管理员页面接入脱敏账号列表、用户名分配和管理员 Mini 绑定链接生成。不修改用户未提交的目录/Storybook 文件，不进入 P4 页面。
 - 安全边界：平台账号页面只展示 userId 截断值、username、hasPassword、status、authVersion；不展示姓名、联系方式或密码 hash。绑定链接由服务端生成并显示为受控操作结果。
-- 当前验证：API auth route 3 项、Web API client 155 项、Web typecheck、root lint 通过；`pnpm smoke:browser` 在第 1/6 步因 localhost:5173 未启动 `ERR_CONNECTION_REFUSED`，未进入产品断言。
-- 当前状态：已实现待浏览器复核；下一步补齐本轮 smoke/core 记录，运行 Web 定向回归并与 P3 Mini checkpoint 合并发布。
+- 当前验证：API auth route 3 项、Web P3/Api client 157 项、Web typecheck/build、root lint 通过；`pnpm smoke:check-core` 通过。`pnpm smoke:browser` 在本机 5173/5174 绑定被系统 `EACCES` 阻断；clean static build 复核已通过登录页布局、隐藏公开注册和键盘焦点，随后因无开发身份按钮无法继续工作台流程。
+- 当前状态：已实现待浏览器复核；修正 smoke 旧注册控件选择器和登录焦点断言后，待修正 checkpoint 生产同步并继续 P3 原生复核。
 - 停止条件：生产 Web 登录和平台账号页面验证通过后，继续 P3 原生身份验收；不开始 P4 工作台。
 
 ## 2026-08-22 P3 原生身份页面首个切片（当前批次）
