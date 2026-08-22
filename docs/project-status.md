@@ -11,7 +11,9 @@
 - Mini 源码边界：Mini package 显式依赖共享包，noEmit `rootDir` 覆盖仓库；esbuild 与 Vitest 将包名精确 alias 到共享源码。临时移走 `packages/presentation-core/dist` 后 Mini typecheck 与 staging build 仍通过，证明不依赖预生成 dist；构建产物审计继续阻断 DOM、Node、数据库、Zod、绝对路径和 source map。
 - 验证：共享包/Web/根 build、typecheck、lint，手排/边界 4 文件 22 项，Mini 13 文件/54 项及受控全仓 141 文件/798 项通过，32 文件/265 项数据库集成按环境跳过。Mini staging verify/source/2 个 Worklet/package/determinism/官方 CI dry-run 通过（133701 bytes，manifest `97f0ab994df01736b613c5d3e9b8379db82d40053a004a4bdcf0c542392c24e4`）；任务 Prettier、`git diff --check`、`smoke:check-core` 通过。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。`ManualScheduleView.vue` 的 template/style 与 `HEAD` 逐字相同，本轮无视觉变化。根 `format:check` 仍只被用户所有 workspace/Mini 配置、目录文件和 Storybook 生成物拦截。
-- 当前状态：Web 先行与 Mini PoC 增量适配已完成验证，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(presentation): share manual transitions`。本轮不需要人工视觉确认。
+- checkpoint 与体验上传：代码 checkpoint `42bcf49`（`refactor(presentation): share manual transitions`）已推送；从该精确提交的隔离干净 worktree 使用本地 Node `miniprogram-ci` 上传体验版 `0.1.0-p2.20260822.44`（50 个代码文件、38662 bytes，manifest `bf9a3f2d86142beced1e6c39761cc83880457f3b48ed0b685e6871831e08bbc7`）。上传前公网 IPv4 为 `103.54.154.22`，仅使用仓库外本地私钥和本地 `127.0.0.1:7892` 代理；未提交审核、未正式发布，也未使用 ECS 或微信开发者工具 CLI。
+- 正式发布：数据库备份 archive `1c623d16-9a19-48f3-872a-2d67841be221`（50 表、161434 行、76286416 bytes，SHA-256 `7f94a49b6235874605ffc189b0e054895ef64c10bd8d10ca3a421ce2ece834b1`）后部署 release `42bcf4992a834c042d9c355091919418f1574395`；预热首个 502 后恢复，`ecs-verify.sh` 通过健康、产物哈希、域名/IP 隔离、公开端口、容器、依赖和 43 条迁移，精确临时发布目录已删除。
+- 当前状态：P2 手排 transition、选择与撤销共享已完成 Web 先行迁移、Mini PoC 增量适配、回归、Git 推送、微信体验上传和 ECS 发布。本轮没有模板/样式变化，不需要人工视觉确认；最终状态 checkpoint 识别消息：`docs(status): record p2 manual transition deployment`。
 - 下一活动批次与停止条件：只抽取 P2 发布/撤回/重发的历史分组、过去日期、确认条件与请求 intent，Web 先行；API 调用、`crypto.randomUUID`、冲突刷新和错误状态继续留在 controller，等价回归前不进入 client-core、P3 或 Mini 业务页面。
 
 ## 2026-08-22 历史排班节假日覆盖补齐（当前批次）

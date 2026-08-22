@@ -9,6 +9,7 @@
 - Mini 边界：package、tsc、esbuild 与 Vitest 均使用共享源码；移走 shared dist 后 Mini typecheck/build 通过。产物继续通过 DOM/Node/Zod/数据库/绝对路径审计，包体 133701 bytes，determinism manifest `97f0ab994df01736b613c5d3e9b8379db82d40053a004a4bdcf0c542392c24e4`。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；`smoke:check-core` 通过。Web SFC template/style 与 `HEAD` 逐字相同，无视觉变化。
 - 验证：共享包/Web/根 build/typecheck/lint、手排/边界 4 文件 22 项、Mini 13 文件/54 项、受控全仓 141 文件/798 项通过，32 文件/265 项按环境跳过；Mini verify/source/Worklet/package/determinism/CI dry-run、任务 Prettier 与 `git diff --check` 通过。根 format 只被用户所有文件拦截。checkpoint 识别消息：`refactor(presentation): share manual transitions`。
+- 发布与核验：checkpoint `42bcf49` 已推送；本地 Node `miniprogram-ci` 从精确干净 worktree 上传体验版 `0.1.0-p2.20260822.44`（50 个代码文件、38662 bytes，manifest `bf9a3f2d86142beced1e6c39761cc83880457f3b48ed0b685e6871831e08bbc7`），未审核、未正式发布。数据库备份 `1c623d16-9a19-48f3-872a-2d67841be221`（50 表、161434 行、76286416 bytes，SHA-256 `7f94a49b6235874605ffc189b0e054895ef64c10bd8d10ca3a421ce2ece834b1`）后部署 release `42bcf4992a834c042d9c355091919418f1574395`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过并清理精确临时目录。最终状态 checkpoint 识别消息：`docs(status): record p2 manual transition deployment`。
 
 ## 2026-08-22 P2 日历共享核心 Web 先行迁移
 
