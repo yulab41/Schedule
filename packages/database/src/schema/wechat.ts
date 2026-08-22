@@ -78,6 +78,26 @@ export const wechatIdentityDetachments = mysqlTable(
   ],
 );
 
+export const wechatAdminBindingTickets = mysqlTable(
+  'wechat_admin_binding_tickets',
+  {
+    id: identifier(),
+    ticketHash: char('ticket_hash', { length: 64 }).notNull(),
+    targetUserId: char('target_user_id', { length: 36 }).notNull(),
+    appId: varchar('app_id', { length: 64 }).notNull(),
+    status: mysqlEnum('status', ['pending', 'consumed']).default('pending').notNull(),
+    expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
+    consumedAt: timestamp('consumed_at', { fsp: 3 }),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { fsp: 3 }).defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('wechat_admin_binding_tickets_ticket_hash_unique').on(table.ticketHash),
+    index('wechat_admin_binding_tickets_target_status_idx').on(table.targetUserId, table.status),
+    index('wechat_admin_binding_tickets_expires_at_idx').on(table.expiresAt),
+  ],
+);
+
 export const wechatLinkTokens = mysqlTable(
   'wechat_link_tokens',
   {

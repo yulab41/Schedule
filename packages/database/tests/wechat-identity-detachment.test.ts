@@ -34,4 +34,10 @@ describe('P3 WeChat identity detachment schema', () => {
     expect(schema).toContain("appId: varchar('app_id', { length: 64 }).notNull()");
     expect(schema).toContain("uniqueIndex('wechat_identity_detachments_user_scope_unique')");
   });
+
+  it('keeps admin tickets separate from the identity detachment marker', () => {
+    expect(schema).toContain('export const wechatAdminBindingTickets = mysqlTable(');
+    expect(schema).toContain("ticketHash: char('ticket_hash', { length: 64 }).notNull()");
+    expect(schema).not.toContain("ticket: varchar('ticket'");
+  });
 });

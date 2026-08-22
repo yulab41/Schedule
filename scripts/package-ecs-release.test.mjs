@@ -27,7 +27,7 @@ describe('ECS directory import runtime packaging', () => {
   it('verifies the directory import artifact and current migration count', () => {
     expect(verifySource).toContain('infraScriptsDistTreeSha256');
     expect(verifySource).toContain('$DEPLOY_DIR/infra/scripts/dist');
-    expect(verifySource).toContain("grep -qx '46'");
+    expect(verifySource).toContain("grep -qx '47'");
   });
 
   it('hashes release trees in the same sibling-sorted recursive order as the packager', () => {

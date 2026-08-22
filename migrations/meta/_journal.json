@@ -323,6 +323,13 @@
       "when": 1785542400046,
       "tag": "0046_wechat_identity_detachments",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1785542400047,
+      "tag": "0047_wechat_admin_binding_tickets",
+      "breakpoints": true
     }
   ]
 }

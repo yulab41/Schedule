@@ -55,6 +55,8 @@ import { WechatAuthService } from './modules/wechat/wechat-auth-service.js';
 import { registerWechatAuthRoutes } from './modules/wechat/wechat-auth-routes.js';
 import { registerWechatIdentityUnbindRoutes } from './modules/wechat/wechat-identity-unbind-routes.js';
 import { WechatIdentityUnbindService } from './modules/wechat/wechat-identity-unbind-service.js';
+import { registerWechatAdminBindingRoutes } from './modules/wechat/wechat-admin-binding-routes.js';
+import { WechatAdminBindingService } from './modules/wechat/wechat-admin-binding-service.js';
 import { registerWechatWebAuthRoutes } from './modules/wechat/wechat-web-auth-routes.js';
 import type { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.js';
 import { registerAuthentication } from './plugins/authenticate.js';
@@ -131,6 +133,15 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
           allowedPlatformAdminUids: platformAdminUids,
           databaseClient: options.databaseClient,
           gateway: options.wechatGateway,
+        }),
+      );
+      registerWechatAdminBindingRoutes(
+        app,
+        new WechatAdminBindingService({
+          allowedPlatformAdminUids: platformAdminUids,
+          databaseClient: options.databaseClient,
+          gateway: options.wechatGateway,
+          sessionSecret: options.wechatSessionSecret,
         }),
       );
     }

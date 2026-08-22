@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P3-G 管理员 URL Link ticket 与 Mini admin-bind（当前批次）
+
+- 范围：只新增平台管理员生成单次 binding ticket/URL Link、Mini `admin-bind/preview` 脱敏预览和 `confirm` 新 code 主动确认；不实现管理员/小程序页面、不关闭公开注册、不提交审核或正式发布。外部 URL Link 有效期不作为授权边界，服务端 ticket 严格 10 分钟。
+- 安全语义：0047 `wechat_admin_binding_tickets` 只存 SHA-256 ticket hash、target user、当前 AppID、pending/consumed 和 expiry；preview 不消费、不写 identity，只返回 masked realName/username。confirm 在 ticket 行锁事务内验证 target active/password/profile、exchange current Mini code、复用 resolver 的显式 detached 规则、绑定 identity/Union、审计、签发 scoped session，再消费 ticket；URL 本身不完成绑定。
+- 冲突/回滚：篡改/不存在 401、重放 409、过期 410、非管理员/无 password target 403、code 属于其他 user 409；所有失败保持 ticket pending、无 identity 合并。P3-E detachment 可由 target 的显式 confirm 清除，其他渠道和业务引用保持。
+- 验证：contracts 11 项，0047/schema/package 静态 19 项，真实 MySQL admin-bind 4、P3-E/F 15、migration/client 21 项通过；受控非 integration 全仓 155 文件/855 项通过，2 文件/19 项按环境跳过。root lint、P3-G 定向 ESLint、Mini 15 文件/63 项及 verify/source/2 Worklets/package/determinism/CI dry-run 通过（147968 bytes，manifest `0045ce853e9dd6d7bac9da95ee50a6715fa9bb70c8aec3fd3bd583c024b8d33f`）。共享工作区 API typecheck 被用户未提交的 `apps/api/src/modules/directory/directory-facet-cache.spec.ts` 缺失模块阻断；将以精确 clean worktree 复核。根 format 当前为既有/用户所有 11 项加同一组用户目录文件 3 项阻塞。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言；`pnpm smoke:check-core` 已通过。本批无模板、样式或页面变化，不需要人工视觉确认。
+- 当前状态：实现和本地门禁完成，待 checkpoint `feat(auth): add admin mini binding ticket` 推送及生产备份/部署/只读核验；完成后不再实现页面，暂停等待 Web 登录/平台账号后台和 Mini 登录/绑定/建档黄金稿人工视觉确认。
+
 ## 2026-08-22 P3-F 管理员账号状态与 password/code proof（当前批次）
 
 - 范围：只新增平台管理员脱敏账号列表、`PUT /platform-admin/users/:userId/password-identity` 用户名分配，以及 `PUT /me/password` 当前密码或新微信 code proof；不关闭公开注册、不做管理员 URL Link、Mini 页面或 Web/Mini UI。

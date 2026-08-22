@@ -87,6 +87,46 @@ export const wechatMiniProgramUnbindResponseSchema = z
   .strict();
 export type WechatMiniProgramUnbindResponse = z.infer<typeof wechatMiniProgramUnbindResponseSchema>;
 
+export const createWechatAdminBindingLinkResponseSchema = z
+  .object({
+    expiresAt: z.string().datetime({ offset: true }),
+    urlLink: z.string().url(),
+  })
+  .strict();
+export type CreateWechatAdminBindingLinkResponse = z.infer<
+  typeof createWechatAdminBindingLinkResponseSchema
+>;
+
+export const wechatAdminBindingPreviewRequestSchema = z
+  .object({ ticket: wechatLinkTokenSchema })
+  .strict();
+export type WechatAdminBindingPreviewRequest = z.infer<
+  typeof wechatAdminBindingPreviewRequestSchema
+>;
+
+export const wechatAdminBindingPreviewResponseSchema = z
+  .object({
+    expiresAt: z.string().datetime({ offset: true }),
+    realNameMasked: z.string().min(1),
+    usernameMasked: z.string().min(1),
+  })
+  .strict();
+export type WechatAdminBindingPreviewResponse = z.infer<
+  typeof wechatAdminBindingPreviewResponseSchema
+>;
+
+export const wechatAdminBindingConfirmRequestSchema = z
+  .object({ ticket: wechatLinkTokenSchema, code: z.string().min(1).max(512) })
+  .strict();
+export type WechatAdminBindingConfirmRequest = z.infer<
+  typeof wechatAdminBindingConfirmRequestSchema
+>;
+
+export const wechatAdminBindingConfirmResponseSchema = wechatAuthenticatedResponseSchema;
+export type WechatAdminBindingConfirmResponse = z.infer<
+  typeof wechatAdminBindingConfirmResponseSchema
+>;
+
 export const wechatWebLoginStartQuerySchema = z
   .object({
     state: z.string().min(16).max(256),

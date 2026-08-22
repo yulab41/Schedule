@@ -24,6 +24,7 @@ export interface WechatGateway {
   readonly isConfigured: boolean;
   exchangeCode(code: string): Promise<WechatExchangeCodeResult>;
   getUnlimitedQr(scene: string, page: string, envVersion: string): Promise<Uint8Array>;
+  generateUrlLink?(path: string, query: string, envVersion: string): Promise<string>;
   sendSubscribeMessage(
     openid: string,
     templateId: string,
@@ -154,6 +155,35 @@ export class WechatApiGateway implements WechatGateway {
       );
     }
     return bytes;
+  }
+
+  public async generateUrlLink(path: string, query: string, envVersion: string): Promise<string> {
+    this.assertConfigured();
+    const accessToken = await this.getAccessToken();
+    const payload = await this.requestJson(
+      `${WECHAT_API_BASE_URL}/wxa/generate_urllink?access_token=${encodeURIComponent(accessToken)}`,
+      {
+        body: JSON.stringify({
+          env_version: envVersion,
+          expire_interval: 1,
+          expire_type: 1,
+          is_expire: true,
+          path,
+          query,
+        }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      },
+    );
+    if (typeof payload.url_link !== 'string' || payload.url_link.length === 0) {
+      throw new WechatGatewayError(
+        null,
+        null,
+        'SERVICE_UNAVAILABLE',
+        'WeChat URL Link response did not include a URL Link.',
+      );
+    }
+    return payload.url_link;
   }
 
   public async sendSubscribeMessage(
@@ -410,6 +440,9 @@ export function createMockWechatGateway(options: MockWechatGatewayOptions = {}):
     },
     async getUnlimitedQr() {
       return MOCK_QR_BYTES;
+    },
+    async generateUrlLink(path, query, envVersion) {
+      return `https://mock.example.test/${encodeURIComponent(path)}?${encodeURIComponent(query)}&env=${encodeURIComponent(envVersion)}`;
     },
     async sendSubscribeMessage(openid, templateId, data) {
       const message = { data, openid, templateId };

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   acceptInviteResponseSchema,
+  createWechatAdminBindingLinkResponseSchema,
   createInviteLinkRequestSchema,
   groupQrResponseSchema,
   visitorKeyChangedResponseSchema,
@@ -13,6 +14,10 @@ import {
   wechatLoginResponseSchema,
   wechatMiniProgramUnbindRequestSchema,
   wechatMiniProgramUnbindResponseSchema,
+  wechatAdminBindingConfirmRequestSchema,
+  wechatAdminBindingConfirmResponseSchema,
+  wechatAdminBindingPreviewRequestSchema,
+  wechatAdminBindingPreviewResponseSchema,
   wechatRegisterRequestSchema,
   wechatRegisterResponseSchema,
 } from './wechat.js';
@@ -111,6 +116,39 @@ describe('wechat mini program contracts', () => {
     ).toBe(false);
     expect(wechatMiniProgramUnbindResponseSchema.safeParse({ unbound: true }).success).toBe(true);
     expect(wechatMiniProgramUnbindResponseSchema.safeParse({ deleted: true }).success).toBe(false);
+  });
+
+  it('defines a masked preview and authenticated admin-binding confirmation', () => {
+    expect(
+      createWechatAdminBindingLinkResponseSchema.safeParse({
+        expiresAt: '2026-09-21T00:00:00.000Z',
+        urlLink: 'https://w.example.test/link',
+      }).success,
+    ).toBe(true);
+    expect(wechatAdminBindingPreviewRequestSchema.parse({ ticket: 'ticket-value' })).toEqual({
+      ticket: 'ticket-value',
+    });
+    expect(
+      wechatAdminBindingPreviewResponseSchema.safeParse({
+        expiresAt: '2026-09-21T00:00:00.000Z',
+        realNameMasked: '张*',
+        usernameMasked: 'doc***',
+      }).success,
+    ).toBe(true);
+    expect(
+      wechatAdminBindingConfirmRequestSchema.safeParse({
+        code: 'fresh-code',
+        ticket: 'ticket-value',
+      }).success,
+    ).toBe(true);
+    expect(
+      wechatAdminBindingConfirmResponseSchema.safeParse({
+        expiresAt: '2026-09-21T00:00:00.000Z',
+        profile: { id: 'u1', realName: '张三', version: 1 },
+        status: 'authenticated',
+        token: 'token',
+      }).success,
+    ).toBe(true);
   });
 
   it('requires a 32-character hexadecimal visitor key', () => {
