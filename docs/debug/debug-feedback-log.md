@@ -5,8 +5,9 @@
 ## 2026-08-22 P3-G 管理员 URL Link ticket 与 Mini admin-bind
 
 - 实现：管理员 ticket 只存 hash、当前 AppID、target、pending/consumed/expiry；URL Link 只携带 ticket，服务端 10 分钟过期。preview 只返回 masked preview；confirm 以新 Mini code 在同一 ticket 事务内完成 current-AppID identity/Union 绑定、审计、session 签发和单次消费。
-- 验证：contracts/0047/schema/package 19 项，真实 admin-bind 4、P3-E/F 15、migration/client 21 项，受控非 integration 155 文件/855 项和 Mini 15/63 全部门禁通过；root lint 与 P3-G 定向 ESLint 通过。共享工作区 API typecheck 只被用户未提交目录 spec 的缺失模块阻断；精确 clean worktree 复核待执行。根 format 为既有/用户所有 11 项加同一组用户目录文件 3 项。无 UI 变化。`pnpm smoke:browser` 仍在 5173 第 1/6 步 `ERR_CONNECTION_REFUSED`；`pnpm smoke:check-core` 已通过。
-- checkpoint 识别消息：`feat(auth): add admin mini binding ticket`。
+- 验证：contracts/0047/schema/package 19 项，真实 admin-bind 4、P3-E/F 15、migration/client 21 项，受控非 integration 155 文件/855 项和 Mini 15/63 全部门禁通过；精确 clean worktree 的 frozen install、root build/typecheck/lint 通过。Windows clean worktree 的 `format:check` 受全仓 CRLF 基线影响，未修改基线文件。无 UI 变化。`pnpm smoke:browser` 仍在 5173 第 1/6 步 `ERR_CONNECTION_REFUSED`；`pnpm smoke:check-core` 已通过。
+- 发布：代码 checkpoint `668103c` 已推送；备份 `5d02a3cb-5eb3-41f7-8572-3a1bdfcfd7f3`（53 表、161465 行、76308616 bytes，SHA-256 `0f83718e5bd0987502a0877ae91e656e8b07c510f814140d674c44d9d7cec43c`）后部署 release `668103c2b6aabd72493f20c9a61f9c327e9c0d3a`。其后并行 Web 目录子提交 `99f222d` 进入生产但未改动 P3-G；最终 release `99f222d1ac4a0d83d4ab970fae3a0db845cbd4a1` 重跑 `ecs-verify.sh` 通过 47 migrations/54 业务表，identity/detachment/link/Union/admin-ticket 均 0。无 Mini runtime 变化，本轮未上传体验版。
+- checkpoint 识别消息：`feat(auth): add admin mini binding ticket`；当前停止于页面人工视觉确认前。
 
 ## 2026-08-22 P3-F 管理员账号状态与 password/code proof
 
