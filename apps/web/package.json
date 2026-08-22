@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@schedule/contracts": "workspace:*",
+    "@schedule/presentation-core": "workspace:*",
     "@schedule/scheduling-domain": "workspace:*",
     "@schedule/ui-tokens": "workspace:*",
     "@tanstack/vue-query": "^5.101.4",

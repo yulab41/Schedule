@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 日历共享核心 Web 先行迁移
+
+- 引入点：`git log -S` / `git blame` 确认生产 5/6 周月网格来自 `abd20d2`，默认选择来自 `7c80488`，切月保持完整日期来自 `daf7ede`，日期分组和 CST 班次排序来自 `db35a77` / `b1ce5c7`，筛选及实际人员优先来自 `ab25064`。
+- 测试先行与实现：新增旧 Web/共享实现黄金等价测试，旧代码因不存在 `@schedule/presentation-core` 先失败；新包只包含纯日期字符串、月周网格、选择、节假日、筛选/分组/排序和列表 ViewModel。Web 原 feature 模块变为兼容适配层；Vue 模板/样式、API/cache、异步、错误与调用次数不变。
+- 语义审计：抽取函数无 `this`；错误消息、`??`（含显式空字符串）、泛型 DTO 身份、输入数组顺序、分组内排序和无额外副作用由 6 组等价测试锁定。运行边界测试证明 ES2020 browser bundle 只有包内输入且无 contracts/Zod、scheduling-domain barrel、Vue/Pinia/Router、DOM、fetch、Node 或数据库。MonthGrid/WeekGrid 字节哈希保持。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173/3000/3306 无监听、Docker 不可用，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。`smoke:check-core` 通过，确认未触及强制核心链路文件；本轮无视觉源变化。
+- 验证：共享包/Web/根 build 与 typecheck、根 lint、日历/边界 14 文件 67 项、受控全仓 139 文件/791 项通过，32 文件/265 项按环境跳过；Mini verify/source/Worklet/package/determinism/CI dry-run、任务 Prettier 和 `git diff --check` 通过。根 verify/format 只被用户所有配置、目录文件和 Storybook 生成物阻断。checkpoint 识别消息：`refactor(presentation): share calendar core with web`。
+
 ## 2026-08-22 移动导出按钮空白
 
 - 反馈与引入点：用户报告动作图标上线后移动端导出按钮为空白。`git log -S` / `git blame` 定位 `daff238` 的 `.shell-export-action span` 原本只隐藏文字；`b70bb99` 的动作图标以 `<span>` 为根，`fea129b` 接入后父级 scoped CSS 也把图标裁成 1×1。

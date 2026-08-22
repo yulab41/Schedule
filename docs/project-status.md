@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 日历共享核心 Web 先行迁移（当前批次）
+
+- 批次范围：按用户确认的顺序先做日历，只建立 Mini-safe 的最小 `@schedule/presentation-core`、黄金 fixtures 与 Web 兼容接线；本轮不让 Mini 业务页复用、不迁移页面、不改公共 API/视觉/权限/transport。P2 Web 同步基线为 `b1a52b6`，远端没有新增已提交日历变化；未提交的目录/个人页/护士 Storybook 属其他任务或 P10，不纳入。
+- 引入点与测试先行：`git log -S`/`git blame` 定位生产月网格为 `abd20d2`、默认选择为 `7c80488`、切月完整日期为 `daf7ede`、分组排序为 `db35a77`/`b1ce5c7`、筛选与实际人员优先为 `ab25064`。旧代码新增等价测试先因缺少 `@schedule/presentation-core` 失败；实现后共享/旧实现 6 组黄金等价和运行边界 2 项通过。
+- 实现与边界：新包只包含 `YYYY-MM(-DD)` 月/周运算、5/6 周展示网格、选择重定向、节假日连续区间、排班筛选/分组/CST 班次排序及列表 ViewModel；黄金语料覆盖 2026-08/09/10、2028 闰二月、跨月周、实际/计划人员、A/P/N 排序、三类变更和节假日/调休。生产源无 runtime dependency，ES2020 browser bundle 只含包内两个输入，明确不含 contracts/Zod、scheduling-domain barrel、Vue/Pinia/Router、DOM、fetch、Node 或数据库。
+- Web 先行与语义等价：现有 `calendar-logic.ts`、`calendar-views.ts`、`month-grid-presentation.ts` 保持原导出，内部改为共享包适配；全部 Vue 模板/样式和 API/cache/异步错误路径不变。抽取函数均为裸纯函数，无 `this`/接收者变化；错误消息、`??` 空值语义（含显式空字符串）、类型收窄、对象身份、输入数组顺序、排序副作用和调用次数由黄金测试锁定。MonthGrid/WeekGrid 字节哈希仍通过。
+- 验证：presentation-core build/typecheck、Web typecheck/production build、根 build/typecheck/lint、日历/边界 14 文件 67 项及排除用户所有 `runtime/**`/`src/**`/未完成 Storybook 后受控全仓 139 文件/791 项通过，32 文件/265 项数据库集成按环境跳过。Mini 53 项随全仓通过，staging verify/source/2 个 Worklet/package/determinism/官方 CI dry-run 通过（132585 bytes，manifest `36ab7283f748582b4486e2b4931a5aea4c29aad8e74c73d4b9152c18cc0b715f`）；任务文件 Prettier、`git diff --check` 与 `smoke:check-core` 通过。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 已运行；本机 5173/3000/3306 无监听且 Docker 不可用，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。根 `format:check` 仅被用户所有 `pnpm-workspace.yaml`、`apps/miniprogram/project.config.json`、目录文件和 Storybook 生成物拦截；任务文件独立检查通过。
+- 当前状态：已完成 Web 先行共享日历核心与回归验证，待 checkpoint/推送、微信体验上传及正式 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(presentation): share calendar core with web`。本轮无视觉源变化，不需要人工视觉确认。
+- 下一活动批次与停止条件：只做 P2 手排单元格 transition/选择/撤销的最小共享边界，先用 Web 完整快照与 Mini `{key,before,after}` 增量语义的黄金动作轨证明兼容；Web 回归通过前不让 Mini 业务页复用，不进入发布状态机或 P3。
+
 ## 2026-08-22 密码提醒永久不再提示与弹窗收口（当前批次）
 
 - 用户确认与范围：确认 Storybook 终稿；移除右上角关闭按钮，提醒操作只显示“不再提示”；取消只关闭当前会话，“不再提示”按用户资料永久保存，不修改密码校验、提交 API、权限或其他弹窗。
