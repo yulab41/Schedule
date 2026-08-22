@@ -8,7 +8,7 @@
 - 回归来源：`8309dce`/`926136a` 引入重复层级扫描，`5437995` 将 facet 与收藏恢复合并等待，`ee1296e` 保留隐藏筛选选项 DOM，`e74e5f3` 每次请求扫描发布批次层级行；本轮已执行 `git log -S` 与 `git blame`。
 - 实现：筛选选项改为面板打开且层级展开时才创建；facet 与收藏恢复独立完成；七层兼容性共享一次路径计算；服务端按群组/目录类型/发布批次/可见性复用只读快照，失败请求不入缓存。
 - 验证：目录定向测试 43 项通过，Web/API typecheck、build、ESLint、任务文件 Prettier 通过；API MySQL 集成因本机无测试数据库跳过；`pnpm smoke:browser` 因本机端口监听被系统拒绝/5173 无服务未进入产品断言，`smoke:check-core` 通过；正式域名只读复核首次打开约 295ms、筛选面板约 299ms、人员切换约 292ms，空闲态无联系人卡片且无浏览器断言错误。
-- 发布与核验：代码 checkpoint `99f222d` 已推送；生产备份 archive `7fcbc271-02ce-4e3b-b7e5-2352be497ba2`（53 表、161466 行、76309276 bytes，SHA-256 `c65b201fdb7f5a7838eff59cef6af13f7b1181de93a6984cc98464b7e27318c6`）后部署 release `99f222d1ac4a0d83d4ab970fae3a0db845cbd4a1`，迁移、容器健康、artifact hash、域名隔离、无旧依赖和 53 表迁移检查均通过；文档 checkpoint 待单独发布。
+- 发布与核验：代码 checkpoint `99f222d` 已推送；生产备份 archive `7fcbc271-02ce-4e3b-b7e5-2352be497ba2`（53 表、161466 行、76309276 bytes，SHA-256 `c65b201fdb7f5a7838eff59cef6af13f7b1181de93a6984cc98464b7e27318c6`）后部署 release `99f222d1ac4a0d83d4ab970fae3a0db845cbd4a1`，迁移、容器健康、artifact hash、域名隔离、无旧依赖和 53 表迁移检查均通过；状态 checkpoint `887bcd1` 已推送，备份 archive `b11a59ff-0c2a-4963-9a82-d8405ca810e5`（54 表、161479 行、76315120 bytes，SHA-256 `d7e9dc5a6b0e2f4908bb81ca5ce6eb5208c8a2d906476dd09e91ce79ae5dbf11`）后部署 release `887bcd19ff61d91208190d7b7421aa1c433ba8d6`，最终 release 浏览器复核打开约 290ms、筛选约 288ms；本状态 checkpoint 随下一次文档 release 部署收口。
 - 当前状态：已完成（含运行验证）→ 待用户复核。checkpoint 识别消息为 `perf(directory): defer facet rendering and cache snapshots`。完成后停止，不开始其他批次。
 
 ## 2026-08-22 P3-G 管理员 URL Link ticket 与 Mini admin-bind（当前批次）
