@@ -8,6 +8,7 @@ const productionSources = [
   new URL('../src/index.ts', import.meta.url),
   new URL('../src/calendar.ts', import.meta.url),
   new URL('../src/manual-schedule.ts', import.meta.url),
+  new URL('../src/schedule-publication.ts', import.meta.url),
 ];
 
 describe('presentation-core runtime boundary', () => {
@@ -49,6 +50,7 @@ describe('presentation-core runtime boundary', () => {
         'packages/presentation-core/src/calendar.ts',
         'packages/presentation-core/src/index.ts',
         'packages/presentation-core/src/manual-schedule.ts',
+        'packages/presentation-core/src/schedule-publication.ts',
       ].sort(),
     );
   });

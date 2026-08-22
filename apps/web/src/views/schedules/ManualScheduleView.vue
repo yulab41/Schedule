@@ -14,8 +14,18 @@ import type {
 } from '@schedule/contracts';
 import {
   applyManualCellMutation,
+  canConfirmSchedulePeriodMutation,
+  createScheduleDraftBatchPublishIntent,
+  createSchedulePeriodMutationIntent,
+  groupScheduleDraftBatches,
+  groupScheduleVersionMonths,
+  hasSchedulePeriodMutationBlockers,
+  hasSchedulePeriodPastDates,
+  isSchedulePeriodPastMonth,
+  requiresSchedulePeriodMutationAcknowledgement,
   resolveManualCellMutation,
   resolveManualSelection,
+  type ScheduleDraftBatch,
 } from '@schedule/presentation-core';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
@@ -111,37 +121,27 @@ const isMutatingPeriod = ref(false);
 let requestVersion = 0;
 let businessHandoverRefreshTimer: number | undefined;
 
-interface DraftBatch {
-  readonly items: readonly SchedulePeriodHistoryItem[];
-  readonly key: string;
-  readonly rangeEnd: string;
-  readonly rangeStart: string;
-  readonly roleName: string;
-}
-
 interface BlockedBatch {
-  readonly batch: DraftBatch;
+  readonly batch: ScheduleDraftBatch<SchedulePeriodHistoryItem>;
   readonly conflictingMonths: readonly string[];
   readonly message: string;
   readonly needsReplace: boolean;
   readonly workflowImpacts: readonly ScheduleWorkflowImpact[];
 }
 
-const hasPeriodMutationBlockers = computed(
-  () =>
-    periodMutationAction.value === 'publish' &&
-    ((periodMutationPublishPreview.value?.hardConflicts.length ?? 0) > 0 ||
-      (periodMutationPublishPreview.value?.vacancies.length ?? 0) > 0),
+const hasPeriodMutationBlockers = computed(() =>
+  hasSchedulePeriodMutationBlockers(periodMutationAction.value, periodMutationPublishPreview.value),
 );
 const periodMutationHasPastDates = computed(
   () =>
     periodMutationTarget.value !== undefined && hasPastDatesInVersion(periodMutationTarget.value),
 );
-const periodMutationRequiresAcknowledgement = computed(
-  () =>
-    hasPeriodMutationBlockers.value ||
-    periodMutationHasPastDates.value ||
-    (periodMutationImpact.value?.workflowImpacts.length ?? 0) > 0,
+const periodMutationRequiresAcknowledgement = computed(() =>
+  requiresSchedulePeriodMutationAcknowledgement({
+    hasBlockers: hasPeriodMutationBlockers.value,
+    hasPastDates: periodMutationHasPastDates.value,
+    workflowImpacts: periodMutationImpact.value?.workflowImpacts,
+  }),
 );
 
 const roleOptions = computed(() =>
@@ -189,74 +189,8 @@ const canUndo = computed(() => undoStack.canUndo());
 const staleWarning = computed(
   () => staleMemberIds.value.length > 0 || staleCellKeys.value.size > 0,
 );
-const draftBatches = computed<readonly DraftBatch[]>(() => {
-  const groups = new Map<string, SchedulePeriodHistoryItem[]>();
-  for (const item of history.value) {
-    if (item.status !== 'draft') {
-      continue;
-    }
-    const key = item.operationId ?? item.id;
-    const list = groups.get(key) ?? [];
-    list.push(item);
-    groups.set(key, list);
-  }
-
-  return [...groups.values()]
-    .map((items) => {
-      const sorted = [...items].sort(
-        (first, second) =>
-          first.businessMonth.localeCompare(second.businessMonth) ||
-          first.revision - second.revision,
-      );
-      const first = sorted[0];
-      const last = sorted[sorted.length - 1];
-      return {
-        items: sorted,
-        key: first?.operationId ?? first?.id ?? '',
-        rangeEnd: last?.applyEndDate ?? `${last?.businessMonth ?? ''}-01`,
-        rangeStart: first?.applyStartDate ?? `${first?.businessMonth ?? ''}-01`,
-        roleName: first?.scheduleRoleName ?? '',
-      };
-    })
-    .sort((first, second) =>
-      (second.items[0]?.businessMonth ?? '').localeCompare(first.items[0]?.businessMonth ?? ''),
-    );
-});
-const versionMonthGroups = computed(() => {
-  const groups = new Map<
-    string,
-    {
-      businessMonth: string;
-      items: SchedulePeriodHistoryItem[];
-      roleName: string;
-    }
-  >();
-  for (const item of history.value) {
-    if (item.status === 'draft') {
-      continue;
-    }
-    const key = `${item.businessMonth}|${item.scheduleRoleId}`;
-    const group = groups.get(key) ?? {
-      businessMonth: item.businessMonth,
-      items: [],
-      roleName: item.scheduleRoleName,
-    };
-    group.items.push(item);
-    groups.set(key, group);
-  }
-
-  return [...groups.values()]
-    .map((group) => ({
-      ...group,
-      archived: [...group.items]
-        .filter((item) => item.status === 'replaced' || item.status === 'withdrawn')
-        .sort((first, second) => second.revision - first.revision),
-      current: [...group.items].filter((item) => item.status === 'published'),
-      past: [...group.items].filter((item) => item.status === 'past'),
-      items: [...group.items].sort((first, second) => second.revision - first.revision),
-    }))
-    .sort((first, second) => second.businessMonth.localeCompare(first.businessMonth));
-});
+const draftBatches = computed(() => groupScheduleDraftBatches(history.value));
+const versionMonthGroups = computed(() => groupScheduleVersionMonths(history.value));
 
 watch(startDate, () => {
   void loadHolidays();
@@ -596,7 +530,7 @@ function onApplied(result: AppliedManualScheduleTemplateResult): void {
 }
 
 async function publishBatch(
-  batch: DraftBatch,
+  batch: ScheduleDraftBatch<SchedulePeriodHistoryItem>,
   acknowledge = false,
   replace = false,
   acknowledgeWorkflows = false,
@@ -609,12 +543,14 @@ async function publishBatch(
   isPublishingId.value = batch.key;
 
   try {
+    const intent = createScheduleDraftBatchPublishIntent(batch, {
+      acknowledgeBlockers: acknowledge,
+      acknowledgeWorkflowRevocations: acknowledgeWorkflows,
+      replacePublished: replace,
+    });
     const result = await api.publishScheduleDraftBatch(props.group.id, {
-      ...(acknowledge ? { acknowledgeBlockers: true } : {}),
-      ...(acknowledgeWorkflows ? { acknowledgeWorkflowRevocations: true } : {}),
+      ...intent,
       operationId: crypto.randomUUID(),
-      ...(replace ? { replacePublished: true } : {}),
-      schedulePeriodIds: batch.items.map((item) => item.id),
     });
     infoMessage.value = `已发布 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班（共 ${result.periods.length} 个月）。`;
     await loadData();
@@ -657,7 +593,7 @@ async function publishBatch(
   }
 }
 
-async function deleteBatch(batch: DraftBatch): Promise<void> {
+async function deleteBatch(batch: ScheduleDraftBatch<SchedulePeriodHistoryItem>): Promise<void> {
   if (
     !window.confirm(
       `确定删除 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班草稿吗（共 ${batch.items.length} 个月）？删除后不可恢复。`,
@@ -744,8 +680,13 @@ async function confirmPeriodMutation(): Promise<void> {
   const target = periodMutationTarget.value;
   if (
     target === undefined ||
-    (periodMutationRequiresAcknowledgement.value && !acknowledgeWorkflowRevocations.value) ||
-    (periodMutationHasPastDates.value && !acknowledgePastDates.value)
+    !canConfirmSchedulePeriodMutation({
+      acknowledgePastDates: acknowledgePastDates.value,
+      acknowledgeWorkflowRevocations: acknowledgeWorkflowRevocations.value,
+      hasPastDates: periodMutationHasPastDates.value,
+      hasTarget: true,
+      requiresAcknowledgement: periodMutationRequiresAcknowledgement.value,
+    })
   ) {
     return;
   }
@@ -753,20 +694,21 @@ async function confirmPeriodMutation(): Promise<void> {
   isMutatingPeriod.value = true;
   errorMessage.value = undefined;
   try {
-    if (periodMutationAction.value === 'withdraw') {
-      await api.withdrawSchedulePeriod(props.group.id, target.id, {
-        ...(acknowledgeWorkflowRevocations.value ? { acknowledgeWorkflowRevocations: true } : {}),
-        expectedVersion: target.version,
+    const intent = createSchedulePeriodMutationIntent(target, {
+      acknowledgeWorkflowRevocations: acknowledgeWorkflowRevocations.value,
+      action: periodMutationAction.value,
+      hasBlockers: hasPeriodMutationBlockers.value,
+    });
+    if (intent.action === 'withdraw') {
+      await api.withdrawSchedulePeriod(props.group.id, intent.schedulePeriodId, {
+        ...intent.request,
         operationId: crypto.randomUUID(),
       });
       infoMessage.value = `${target.businessMonth.slice(0, 7)} 的当前排班已撤销并归档。`;
     } else {
-      await api.publishSchedulePeriod(props.group.id, target.id, {
-        ...(hasPeriodMutationBlockers.value ? { acknowledgeBlockers: true } : {}),
-        ...(acknowledgeWorkflowRevocations.value ? { acknowledgeWorkflowRevocations: true } : {}),
-        expectedVersion: target.version,
+      await api.publishSchedulePeriod(props.group.id, intent.schedulePeriodId, {
+        ...intent.request,
         operationId: crypto.randomUUID(),
-        replacePublished: true,
       });
       infoMessage.value = `${target.businessMonth.slice(0, 7)} 的归档排班已重新发布。`;
     }
@@ -810,19 +752,11 @@ function draftCode(item: SchedulePeriodHistoryItem): string {
 }
 
 function isPastMonth(item: SchedulePeriodHistoryItem): boolean {
-  return item.businessMonth.slice(0, 7) < getCurrentBusinessMonth();
+  return isSchedulePeriodPastMonth(item, getCurrentBusinessMonth());
 }
 
 function hasPastDatesInVersion(item: SchedulePeriodHistoryItem): boolean {
-  if (isPastMonth(item)) {
-    return true;
-  }
-  const month = item.businessMonth.slice(0, 7);
-  if (month > getCurrentBusinessMonth()) {
-    return false;
-  }
-  const startDate = item.applyStartDate ?? `${month}-01`;
-  return startDate < getBusinessDate();
+  return hasSchedulePeriodPastDates(item, { getBusinessDate, getCurrentBusinessMonth });
 }
 
 function navigateBackfill(): void {

@@ -11,3 +11,9 @@ export {
   type ManualGoldenSelection,
   type ManualGoldenWebAction,
 } from './manual-schedule-golden.js';
+export {
+  schedulePublicationGoldenBusinessDate,
+  schedulePublicationGoldenCurrentMonth,
+  schedulePublicationGoldenHistory,
+  type SchedulePublicationGoldenHistoryItem,
+} from './schedule-publication-golden.js';

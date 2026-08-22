@@ -2,6 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 发布生命周期共享（当前批次）
+
+- 批次范围：只抽取发布草稿批次、按月版本历史、过去业务日期、发布/撤回/重发确认门禁和不含 `operationId` 的请求 intent，Web 先行；不改 Vue 模板/样式、公共 API、权限、transport、冲突刷新、错误文案或 Mini 业务页。同步至 `3ffc85f` 时 `origin/main` 无新增已提交 Web 排班变化；用户所有目录/个人页/护士 Storybook 属并行 Web/P10，不纳入。
+- 引入点与测试先行：`git log -S`/`git blame` 定位草稿批次/版本分组/批量发布为 `2834f07`，发布生命周期、确认和请求体为 `7c783c7`，覆盖保护为 `968c6c5`，过去日期与门禁为 `927241c`。共享导出、黄金 fixtures 与 Web 接线旧代码 6/6 失败；实现后发布等价/既有手排/编辑器/运行边界 4 文件 24 项通过。
+- 实现与黄金语料：`presentation-core` 新增独立 `schedule-publication` 模块，保留 draft 以 `operationId ?? id` 分批、月份/修订排序、published/current、past、replaced/withdrawn archived 与 pending 未分类项；黄金历史覆盖跨月批次、无 operation、显式空字符串、当前/过去/未来月、同月多岗位和全部状态。请求 intent 只输出可移植 DTO 字段，API 成员调用和 `crypto.randomUUID()` 仍在 Web controller。
+- 语义等价：输入数组不变、输出数组为副本、DTO 对象身份不变；`??` 不把空字符串当缺失，`localeCompare`、稳定排序和未分类状态均保持。业务时钟以裸回调注入，过去月/未来月/当前月仍分别调用当前业务月 1/2/2 次、业务日期 0/0/1 次；确认短路、可选 true 字段、请求次数、API 接收者、Promise/catch/finally 和冲突刷新路径不变。
+- 边界：共享生产源不依赖 contracts/Zod、Vue/Pinia/Router、DOM、fetch、Node、数据库或 scheduling-domain；ES2020 browser bundle 输入清单只增加包内 `schedule-publication.ts`。Mini 当前业务页不复用发布逻辑，staging 包体仍为 133701 bytes，说明未使用导出被 tree-shake。
+- 验证：presentation-core/Web/根 build、typecheck、lint 通过；受控全仓 145 文件/814 项通过，32 文件/265 项数据库集成按环境跳过。Mini typecheck、13 文件/54 项、verify/source/2 个 Worklet/package/determinism/官方 CI dry-run 通过（133701 bytes，manifest `910f561f32385a6ee1f3b64d92133cae5cd0650d6e2d816e441700c65c5b8cfe`）；任务 Prettier、`git diff --check`、`smoke:check-core` 通过。默认 Mini 测试仍会扫描用户所有 ignored `.artifacts/ecs-runner-*` 并产生 17 个基线路径失败，排除后全绿；根 `format:check` 仍只被用户所有 workspace/Mini 配置、已提交目录文件和 Storybook 生成物拦截。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。`ManualScheduleView.vue` 的 template/style 与 `HEAD` 逐字相同，本轮无视觉变化，不需要人工视觉确认。
+- 审计发现：`927241c` 起，当前月版本含已过日期时，撤回对话框不渲染 `acknowledgePastDates` 控件却仍检查该值，确认路径不可达。本等价重构按规则未夹带行为修复；须在独立 checkpoint 先写旧代码失败的回归测试，再把过去日期第二确认限定为重新发布。
+- 当前状态：共享实现与 Web 先行回归已完成，待 checkpoint/推送、微信体验上传和 ECS 备份/部署/验证；checkpoint 识别消息：`refactor(presentation): share publication lifecycle`。
+- 下一活动批次与停止条件：先独立修复上述当前月撤回确认门禁并完成回归/发布；随后只审计 `@schedule/client-core` 的最小只读端点、transport、错误和黄金解码边界，若存在多种高影响端点顺序再向用户确认，不进入 P3 或 Mini 业务页。
+
 ## 2026-08-22 P2 手排 transition、选择与撤销共享（当前批次）
 
 - 批次范围：继日历后只抽取手排单元格 Map transition、选择模式与撤销原语，先切 Web，再让 diagnostic-only Mini P1 矩阵复用；不迁移 Mini 业务页、不改模板/样式/API/权限/发布流程或 P3。同步基线 `7d52f2b` 以来无 Web 手排代码更新；并行医生历史/节假日补录只改变共用生产数据与状态文档，无新增端侧功能。

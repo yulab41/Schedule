@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-22 P2 发布生命周期共享
+
+- 引入点与红灯：草稿批次/历史分组/批量发布来自 `2834f07`，发布/撤回/重发与确认来自 `7c783c7`/`968c6c5`，过去日期门禁来自 `927241c`。共享导出、黄金语料和 Web 接线旧代码 6/6 失败，实现后定向 4 文件/24 项通过。
+- 实现与等价：共享核心只接收结构化历史、注入业务时钟和布尔确认状态，输出新分组数组或不含 `operationId` 的请求 intent。对象身份、输入顺序、`??` 空字符串、`localeCompare`、当前/过去/归档/未分类状态、时钟调用次数与确认短路保持；API 成员调用、UUID、冲突刷新、错误/catch/finally 和 UI 状态继续在 Web。
+- 边界与验证：生产源无 contracts/Zod、Vue/Pinia/Router、DOM/fetch、Node、数据库或 scheduling-domain；presentation-core/Web/根 build/typecheck/lint、受控全仓 145 文件/814 项通过，32 文件/265 项按环境跳过。Mini 13 文件/54 项及 typecheck/verify/source/2 Worklets/package/determinism/CI dry-run 通过（133701 bytes，manifest `910f561f32385a6ee1f3b64d92133cae5cd0650d6e2d816e441700c65c5b8cfe`）；默认 Mini 命令只被用户所有 ignored ECS runner 副本的 17 项基线失败干扰。任务格式、diff check、`smoke:check-core` 通过，根 format 只被既有/用户所有文件拦截。
+- 运行/浏览器验证：`pnpm smoke:browser` 在本机 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；SFC template/style 与 `HEAD` 逐字相同，无视觉变化。
+- 后续回归：审计确认 `927241c` 起当前月撤回含过去日期时存在隐藏 `acknowledgePastDates` 门禁；本轮按等价要求未修。下一 checkpoint 先以独立红灯测试把第二日期确认限定为重新发布。当前 checkpoint 识别消息：`refactor(presentation): share publication lifecycle`。
+
 ## 2026-08-22 P2 手排 transition、选择与撤销共享
 
 - 引入点与红灯：`git log -S`/`git blame` 定位 Web 快照撤销/选择为 `6512274`，涂抹模式为 `b1ce5c7`/`25bb8fa`，Mini 增量 undo 为 `6cc7463`。共享导出旧代码 5/5 失败，Web 接线 1/6 失败，Mini 依赖接线 1/1 失败，随后分别转绿。
