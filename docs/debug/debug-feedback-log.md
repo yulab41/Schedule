@@ -8,6 +8,7 @@
 - 实现：用户 fresh code + password prerequisite 与平台管理员 reason + password prerequisite 共用 current-AppID scoped service；Idempotency-Key 同 fingerprint replay，cross-body 409；删除 identity、清除 legacy mirror、authVersion/version、审计和 result 同事务。其他 Web/ Mini identity、Union、profile/password/群组引用不变。
 - 等价与测试：`resolve()` 空 AppID 仍在开事务前拒绝；新增 `resolveInTransaction` 只改变调用方事务复用，不改变原查询顺序、receiver、错误或结果。真实 MySQL 解绑 6、既有微信 22、linkToken 4、邀请 7、迁移 19 项通过；受控非 integration 153 文件/848 项通过。平台 admin 10 项中 9 项通过，backup fixture 固定 contact UUID 的既有失败未改。
 - 运行/浏览器验证：`pnpm smoke:browser` 在 5173 未启动时第 1/6 步 `ERR_CONNECTION_REFUSED`；本批无视觉变化。checkpoint 识别消息：`feat(auth): enforce current mini identity unbind`。
+- 发布与核验：checkpoint `15ee912` 已推送；备份 `03d4a0f7-cefa-48c6-a835-f34d0e69e8db`（52 表、161456 行、76302488 bytes，SHA-256 `df942df399b6af301d941e99e2883cef1f50c1f762dc75582c3f4c48b602b58d`）后部署 release `15ee912f5ed3b57855fa3919c58fada218f78d00`，`ecs-verify.sh` 通过 46 migrations。未认证路由探测均 401；生产 detachment/linkToken/identity/Union 0、authVersion 全 1、密码聚合不变，未调用微信或写身份。最终状态 checkpoint：`docs(status): record current mini identity unbind deployment`。
 
 ## 2026-08-22 P3-D linkToken 消费与显式建档
 

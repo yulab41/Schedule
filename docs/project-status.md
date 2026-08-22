@@ -12,7 +12,9 @@
 - 测试先行与验证：旧代码上 contracts/schema 3 项失败，5 个实际新路由场景返回 404；实现后静态 contracts/schema/package 15 项，真实 MySQL 解绑 6、既有微信 22、linkToken 4、邀请 7、migration/client 19 项通过。受控非 integration 全仓 153 文件/848 项通过，2 文件/19 项按环境跳过；既有 `platform-admin.integration` 10 项中 9 项通过，唯一失败为原有 backup fixture 重复固定 contact UUID，与本批无调用关系。
 - 根/Mini 门禁：根 build/typecheck/lint、client generated freshness、Mini 15 文件/63 项、typecheck、verify/source/2 Worklets/package/determinism/CI dry-run 通过（147968 bytes，manifest `82c894febd7d7991d8ae381d5e8b6c4b5a048acc706e8e0878e4f1ae295486be`）；任务 Prettier/`git diff --check` 通过，根 format 仍精确只有既有/用户所有 11 项阻塞。Mini 运行源码未变，不新增体验上传。
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，本机 5173 无服务，在第 1/6 步 `ERR_CONNECTION_REFUSED`，未进入产品断言。本批无 Web/Mini 模板、样式或页面变化，不需要人工视觉确认；`smoke:check-core` 待本记录落盘后复核。
-- 当前状态：实现与本地验证完成，待 checkpoint `feat(auth): enforce current mini identity unbind` 推送、生产备份/迁移/部署/`ecs-verify` 和只读不变量核验。生产预计为 46 migrations/53 业务表；不得调用真实微信登录或写生产身份数据。
+- checkpoint 与发布：代码 checkpoint `15ee912`（`feat(auth): enforce current mini identity unbind`）已推送；精确 clean worktree production build/package 通过。加密备份 archive `03d4a0f7-cefa-48c6-a835-f34d0e69e8db`（52 表、161456 行、76302488 bytes，SHA-256 `df942df399b6af301d941e99e2883cef1f50c1f762dc75582c3f4c48b602b58d`）后部署 release `15ee912f5ed3b57855fa3919c58fada218f78d00`；预热首个 502 后恢复，`ecs-verify.sh` 完整通过 46 migrations。
+- 生产只读复核：用户/管理员新路由未认证探测均为 401；46 migrations/53 业务表，detachment/linkToken/identity/Union 均 0 行，40 用户 authVersion 全 1，24 密码 hash 非空且聚合不变；未调用真实微信 code、未写生产身份，精确远端目录已删除、本地 worktree 已注销。
+- 当前状态：P3-E 已完成回归、0046 迁移、推送、生产备份/部署和解绑不变量核验；最终状态 checkpoint 识别消息：`docs(status): record current mini identity unbind deployment`。该文档 checkpoint 推送并按根规则作为 production release 对齐后进入管理员账号/密码 proof 后端批次。
 - 下一活动批次与停止条件：只实现平台管理员脱敏账号状态/用户名分配和 `/me/password` 当前密码或新微信 code proof；不做管理员 URL Link、Mini 页面或公开注册关闭。authVersion、密码 hash、管理员权限、审计、并发和旧 session 测试通过后，进入首个 Web/Mini 视觉黄金稿暂停点。
 
 ## 2026-08-22 P3-D linkToken 消费与显式建档（当前批次）
