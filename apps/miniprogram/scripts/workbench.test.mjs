@@ -83,6 +83,38 @@ describe('P4 native workbench', () => {
     expect(historyIcon).toContain('M2.552 13C3.0517 17.7767');
   });
 
+  it('uses one Web-matched date label formatter without an intermediate legacy label', () => {
+    const pageSource = readSource('pages/workbench/index.ts');
+    const modelSource = readSource('features/workbench/workbench-model.ts');
+
+    expect(modelSource).toContain('export function formatDateLabel');
+    expect(pageSource).toMatch(/import\s*\{[\s\S]*?formatDateLabel,[\s\S]*?\}\s*from/s);
+    expect(pageSource).not.toMatch(/\nfunction formatDateLabel\(/u);
+    expect(pageSource).not.toContain(' · 星期');
+  });
+
+  it('draws the list scroll clipping boundary directly below the month controls', () => {
+    const template = readSource('pages/workbench/index.wxml');
+    const pageStyles = readSource('pages/workbench/index.wxss');
+
+    expect(template).toContain('class="list-scroll-boundary"');
+    expect(pageStyles).toMatch(
+      /\.list-scroll-boundary\s*{[^}]*height:\s*1px;[^}]*background:\s*var\(--ui-color-border\);/s,
+    );
+    expect(pageStyles).toMatch(/\.list-calendar-heading\s*{[^}]*margin-bottom:\s*0;/s);
+  });
+
+  it('keeps today prefetched and stages locate target panels before motion starts', () => {
+    const pageSource = readSource('pages/workbench/index.ts');
+
+    expect(pageSource).toContain('const requestedMonths = new Set<string>([initialMonth]);');
+    expect(pageSource).toContain('function startLocateTransition(');
+    expect(pageSource).toContain('month.startProgrammaticShift(delta, targetHeight)');
+    expect(pageSource).toMatch(
+      /handleMonthChange[\s\S]*?\.setData\(\s*{[\s\S]*?\.\.\.createViewPatch\(this, period\)/s,
+    );
+  });
+
   it('keeps the P4 shell read-only and exposes the confirmed navigation states', () => {
     const template = readSource('pages/workbench/index.wxml');
     const pageSource = readSource('pages/workbench/index.ts');
@@ -187,7 +219,7 @@ describe('P4 native workbench', () => {
       /\.list-swiper\s*{[^}]*overflow:\s*hidden;[^}]*background:\s*var\(--ui-color-background\);/s,
     );
     expect(pageStyles).toMatch(
-      /\.list-calendar-heading\s*{[^}]*position:\s*relative;[^}]*z-index:\s*1;/s,
+      /\.list-calendar-heading\s*{[^}]*position:\s*relative;[^}]*z-index:\s*2;/s,
     );
     expect(pageStyles).toMatch(/\.list-calendar-heading\s*{[^}]*box-shadow:\s*none;/s);
     expect(pageStyles).toMatch(/\.filter-sheet\s*{[^}]*height:\s*468px;/s);

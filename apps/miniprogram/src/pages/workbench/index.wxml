@@ -515,6 +515,7 @@
                     mode="aspectFit" /></view
               ></view>
             </view>
+            <view class="list-scroll-boundary" aria-hidden="true"></view>
             <swiper
               class="period-swiper list-swiper"
               current="{{listSwiperCurrent}}"

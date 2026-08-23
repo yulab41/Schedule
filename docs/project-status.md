@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 日期详情、列表裁切边界与定位预调度修复（当前批次）
+
+- 用户反馈：点击月/周/列表日期后，下方详情日期会从带空格和“· 星期”的旧格式快速闪成 Web 的紧凑格式；列表月份控件与日期卡之间缺少可见上滑边界；定位到今天时目标卡片先到位，日期格内容和五/六行高度随后才补上。本批只修这 3 项 P4 视觉/调度回归，不进入 P5。
+- 引入点：`git log -S`/`git blame` 确认页面层旧 `formatDateLabel` 来自 `ad4cfb2c`，ViewModel 在 `d9296df` 改为 Web 口径后两者并存；列表 8px heading 外间距来自 `d9296df`，把真实 swiper 裁切点留成无形门槛；定位动画/finish 后再重建目标 ViewModel 来自 `733e3af6`，`3fc41610` 的五个月资源淘汰又会删除今天月份，导致定位时才重新读取。
+- 实现与语义：ViewModel 导出唯一 `formatDateLabel`，页面删除遗留格式器，三种日期选择共用 `selectBusinessDate` 并在一次 `setData` 中同步标签、详情和选择态。列表 heading 外间距归零，新增 1px `list-scroll-boundary` 与原底边重叠，日期卡保留内部 8px 起始空间并在滚动时沿可见线裁切。请求月集合始终保留 `initialMonth`，定位前把今天的中央月/周/列表面板复制到即将滑入的 0/2 面板；月视图同时把目标行高传给横纵同步动画。finish 时目标 period 与完整 ViewPatch 原子提交并立即执行待定滚动，网络刷新留在后台。
+- 边界审计：普通换月、周/list swipe、筛选、request serial、Promise catch、离线缓存和业务写入不变；浏览远离今天时内存/只读 GET 窗口最多多保留一个今天月份，首次读取后复用现有 24h 缓存且定位本身不再触发目标月份读取。日期点击从两次 UI patch 明确收敛为一次，目标日期和详情调用次数不变。
+- 测试与验证：目标高度覆盖、单一日期格式、列表可见边界和定位预调度 4 项断言在 `ce4057b` 上失败，修复后定向 24/24。隔离 `ce4057b` + 本轮 7 文件的 Mini 18 文件/89 项、typecheck、production verify（2/2 Worklet，412558 bytes，manifest `a116e225eb4ed78ff80245228d454ab5f966e23d1f80f95d2d8579d9c894a822`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；未改 Web 核心链路，无需完整浏览器 smoke。一次从仓库根误跑的定向命令因 `process.cwd()` 和既有 `.artifacts` 副本产生 13 项路径噪声，正确 Mini 目录与隔离基线随后全绿且未改这些目录。主工作区并行手排/contracts 改动保持未修改、未暂存。
+- 当前状态与停止条件：已实现并完成本地验证；下一步创建并推送 `fix(miniprogram): stabilize date selection and locate data` checkpoint，上传同一精确 production-profile 体验版 `.68`，备份并部署同一 Git release，记录最终状态后暂停等待实体微信复核；不补独立 staging、不进入 P5。
+
 ## 2026-08-23 P4 月历横向与高度同步过渡修复（当前批次）
 
 - 用户反馈：体验版 `.66` 已消除底边抖动，但五/六行高度要等横向换月结束后才变化，两个动作视觉割裂。本批只把目标月份行数判断提前并与换月动画同步，不改变 8px 节奏或其他 P4 行为，不进入 P5。

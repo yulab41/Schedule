@@ -202,7 +202,7 @@ describe('P1 native dynamic month calendar PoC', () => {
       }),
     };
 
-    definition.methods.startProgrammaticShift.call(instance, 1);
+    definition.methods.startProgrammaticShift.call(instance, 1, 306);
     definition.methods.startProgrammaticShift.call(instance, -1);
 
     expect(instance.setData).toHaveBeenNthCalledWith(1, { stepMotion: '' }, expect.any(Function));
@@ -210,7 +210,7 @@ describe('P1 native dynamic month calendar PoC', () => {
       stepMotion: 'next',
       swiperCurrent: 2,
       swiperDuration: 240,
-      viewportHeight: 324,
+      viewportHeight: 306,
     });
     expect(instance.setData).toHaveBeenCalledTimes(2);
     expect(instance._monthHeightTargetIndex).toBe(2);

@@ -17,6 +17,7 @@ import {
 } from '../../platform/workbench-read.js';
 import {
   createWorkbenchViewModel,
+  formatDateLabel,
   getTodayBusinessDate,
   type WorkbenchFilters,
   type WorkbenchViewModel,
@@ -119,7 +120,9 @@ interface WorkbenchPageInstance {
   pendingScrollTarget: string | undefined;
   pendingWeekTarget: string | undefined;
   requestSerial: number;
-  selectComponent(selector: string): { startProgrammaticShift?(delta: -1 | 1): void } | undefined;
+  selectComponent(
+    selector: string,
+  ): { startProgrammaticShift?(delta: -1 | 1, targetHeight?: number): void } | undefined;
   setData(patch: Partial<WorkbenchPageData>, callback?: () => void): void;
 }
 
@@ -330,17 +333,35 @@ Page({
   },
 
   handleMonthChange(this: WorkbenchPageInstance, event: MonthChangeEvent): void {
+    const locateTarget = this.monthLocateTarget;
     const businessMonth =
-      this.monthLocateTarget ?? addBusinessMonths(this.data.businessMonth, event.detail.delta);
+      locateTarget ?? addBusinessMonths(this.data.businessMonth, event.detail.delta);
     this.monthLocateTarget = undefined;
-    this.setData({
-      announcement: event.detail.delta < 0 ? '已切换到上个月。' : '已切换到下个月。',
+    const selectedDate =
+      locateTarget === undefined
+        ? retargetSelectedDateToMonth(this.data.selectedDate, businessMonth)
+        : today;
+    const period = {
       businessMonth,
-      selectedDate: retargetSelectedDateToMonth(this.data.selectedDate, businessMonth),
+      selectedDate,
       weekStart: getWeekStartDate(`${businessMonth}-01`),
-    });
-    refreshView(this);
-    void loadWorkbench(this);
+    };
+    this.setData(
+      {
+        ...createViewPatch(this, period),
+        ...period,
+        announcement:
+          locateTarget !== undefined
+            ? '已定位到今天。'
+            : event.detail.delta < 0
+              ? '已切换到上个月。'
+              : '已切换到下个月。',
+      },
+      () => {
+        flushPendingScrollTarget(this);
+        void loadWorkbench(this);
+      },
+    );
   },
 
   handleWeekChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -359,8 +380,6 @@ Page({
       {
         announcement: this.data.viewMode === 'week' ? '已定位到本周。' : '已定位到今天。',
         locateIconAnimating: false,
-        selectedDate: today,
-        selectedLabel: formatDateLabel(today),
         scrollTarget: '',
       },
       () => {
@@ -372,21 +391,31 @@ Page({
       this.monthLocateTarget = initialMonth;
       this.pendingScrollTarget = 'workbench-content-top';
       const direction: -1 | 1 = initialMonth < this.data.businessMonth ? -1 : 1;
-      const month = this.selectComponent('#workbench-month');
-      if (month?.startProgrammaticShift !== undefined) month.startProgrammaticShift(direction);
-      else applyTodayLocation(this);
+      startLocateTransition(this, 'month', direction, {
+        businessMonth: initialMonth,
+        selectedDate: today,
+        weekStart: targetWeekStart,
+      });
       return;
     }
     if (this.data.viewMode === 'week' && this.data.weekStart !== targetWeekStart) {
       this.pendingWeekTarget = targetWeekStart;
       this.pendingScrollTarget = 'workbench-content-top';
-      startPeriodSwiper(this, 'week', targetWeekStart < this.data.weekStart ? -1 : 1);
+      startLocateTransition(this, 'week', targetWeekStart < this.data.weekStart ? -1 : 1, {
+        businessMonth: initialMonth,
+        selectedDate: today,
+        weekStart: targetWeekStart,
+      });
       return;
     }
     if (this.data.viewMode === 'list' && this.data.businessMonth !== initialMonth) {
       this.pendingListTarget = initialMonth;
       this.pendingScrollTarget = `list-day-${today}`;
-      startPeriodSwiper(this, 'list', initialMonth < this.data.businessMonth ? -1 : 1);
+      startLocateTransition(this, 'list', initialMonth < this.data.businessMonth ? -1 : 1, {
+        businessMonth: initialMonth,
+        selectedDate: today,
+        weekStart: targetWeekStart,
+      });
       return;
     }
     applyTodayLocation(this);
@@ -417,37 +446,19 @@ Page({
   handleDateSelect(this: WorkbenchPageInstance, event: TapEvent): void {
     const businessDate = event.detail?.businessDate;
     if (businessDate === undefined) return;
-    this.setData({
-      announcement: `已选择 ${formatDateLabel(businessDate)}。`,
-      expandedDetailKey: '',
-      selectedDate: businessDate,
-      selectedLabel: formatDateLabel(businessDate),
-    });
-    refreshView(this);
+    selectBusinessDate(this, businessDate);
   },
 
   handleWeekDaySelect(this: WorkbenchPageInstance, event: TapEvent): void {
     const businessDate = event.currentTarget.dataset.businessDate;
     if (businessDate === undefined) return;
-    this.setData({
-      announcement: `已选择 ${formatDateLabel(businessDate)}。`,
-      expandedDetailKey: '',
-      selectedDate: businessDate,
-      selectedLabel: formatDateLabel(businessDate),
-    });
-    refreshView(this);
+    selectBusinessDate(this, businessDate);
   },
 
   handleListSelect(this: WorkbenchPageInstance, event: TapEvent): void {
     const businessDate = event.currentTarget.dataset.businessDate;
     if (businessDate === undefined) return;
-    this.setData({
-      announcement: `已选择 ${formatDateLabel(businessDate)}。`,
-      expandedDetailKey: '',
-      selectedDate: businessDate,
-      selectedLabel: formatDateLabel(businessDate),
-    });
-    refreshView(this);
+    selectBusinessDate(this, businessDate);
   },
 
   handleListCall(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -589,11 +600,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
       state: monthResults.some((result) => result.offline) ? 'offline' : 'ready',
     });
     refreshView(page);
-    if (page.pendingScrollTarget !== undefined) {
-      const target = page.pendingScrollTarget;
-      page.pendingScrollTarget = undefined;
-      scrollToTarget(page, target);
-    }
+    flushPendingScrollTarget(page);
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
     const message = getReadErrorMessage(error);
@@ -727,12 +734,12 @@ function commitPeriodShift(
       listSwiperCurrent: view === 'list' ? 1 : page.data.listSwiperCurrent,
       periodSwiperDuration: 0,
       selectedDate,
-      selectedLabel: formatDateLabel(selectedDate),
       weekStart,
       weekSwiperCurrent: view === 'week' ? 1 : page.data.weekSwiperCurrent,
     },
     () => {
       page.setData({ periodSwiperDuration: 260 });
+      flushPendingScrollTarget(page);
       void loadWorkbench(page);
     },
   );
@@ -743,16 +750,19 @@ function getRequestedMonths(
   businessMonth: string,
   weekStart: string,
 ): readonly string[] {
+  const requestedMonths = new Set<string>([initialMonth]);
   if (view === 'week') {
-    return [
-      ...new Set(
-        ([-1, 0, 1] as const).flatMap((relative) =>
-          getWeekBusinessMonths(addWeeks(weekStart, relative)),
-        ),
-      ),
-    ];
+    for (const relative of [-1, 0, 1] as const) {
+      for (const month of getWeekBusinessMonths(addWeeks(weekStart, relative))) {
+        requestedMonths.add(month);
+      }
+    }
+  } else {
+    for (const relative of [-2, -1, 0, 1, 2] as const) {
+      requestedMonths.add(addBusinessMonths(businessMonth, relative));
+    }
   }
-  return [-2, -1, 0, 1, 2].map((relative) => addBusinessMonths(businessMonth, relative));
+  return [...requestedMonths];
 }
 
 function getSwiperDelta(current: number): -1 | 0 | 1 {
@@ -772,15 +782,102 @@ function startPeriodSwiper(
   });
 }
 
-function applyTodayLocation(page: WorkbenchPageInstance): void {
+function startLocateTransition(
+  page: WorkbenchPageInstance,
+  view: WorkbenchView,
+  delta: -1 | 1,
+  period: Pick<WorkbenchPageData, 'businessMonth' | 'selectedDate' | 'weekStart'>,
+): void {
+  const patch = createViewPatch(page, period);
+  const targetIndex: 0 | 2 = delta < 0 ? 0 : 2;
+  if (view === 'month') {
+    const targetPanel = patch.monthPanels?.[1];
+    const targetHeight = patch.gridHeight;
+    if (
+      targetPanel === undefined ||
+      targetHeight === undefined ||
+      page.data.monthPanels.length !== 3
+    ) {
+      applyTodayLocation(page);
+      return;
+    }
+    const monthPanels = [...page.data.monthPanels];
+    const monthPanelHeights = [...page.data.monthPanelHeights];
+    monthPanels[targetIndex] = { ...targetPanel, relative: delta };
+    monthPanelHeights[targetIndex] = targetHeight;
+    page.setData({ monthPanelHeights, monthPanels }, () => {
+      const month = page.selectComponent('#workbench-month');
+      if (month?.startProgrammaticShift !== undefined) {
+        month.startProgrammaticShift(delta, targetHeight);
+      } else {
+        applyTodayLocation(page);
+      }
+    });
+    return;
+  }
+
+  if (view === 'week') {
+    const targetPanel = patch.weekPanels?.[1];
+    if (targetPanel === undefined || page.data.weekPanels.length !== 3) {
+      applyTodayLocation(page);
+      return;
+    }
+    const weekPanels = [...page.data.weekPanels];
+    weekPanels[targetIndex] = { ...targetPanel, relative: delta };
+    page.setData({ weekPanels }, () => startPeriodSwiper(page, 'week', delta));
+    return;
+  }
+
+  const targetPanel = patch.listPanels?.[1];
+  if (targetPanel === undefined || page.data.listPanels.length !== 3) {
+    applyTodayLocation(page);
+    return;
+  }
+  const listPanels = [...page.data.listPanels];
+  listPanels[targetIndex] = { ...targetPanel, relative: delta };
+  page.setData({ listPanels }, () => startPeriodSwiper(page, 'list', delta));
+}
+
+function selectBusinessDate(page: WorkbenchPageInstance, businessDate: string): void {
+  const period = {
+    businessMonth: page.data.businessMonth,
+    selectedDate: businessDate,
+    weekStart: page.data.weekStart,
+  };
   page.setData({
+    ...createViewPatch(page, period),
+    announcement: `已选择 ${formatDateLabel(businessDate)}。`,
+    expandedDetailKey: '',
+    selectedDate: businessDate,
+  });
+}
+
+function applyTodayLocation(page: WorkbenchPageInstance): void {
+  page.monthLocateTarget = undefined;
+  page.pendingListTarget = undefined;
+  page.pendingScrollTarget = undefined;
+  page.pendingWeekTarget = undefined;
+  const period = {
     businessMonth: initialMonth,
     selectedDate: today,
-    selectedLabel: formatDateLabel(today),
     weekStart: getWeekStartDate(today),
-  });
-  refreshView(page);
-  const target = page.data.viewMode === 'list' ? `list-day-${today}` : 'workbench-content-top';
+  };
+  page.setData(
+    {
+      ...createViewPatch(page, period),
+      ...period,
+    },
+    () => {
+      const target = page.data.viewMode === 'list' ? `list-day-${today}` : 'workbench-content-top';
+      scrollToTarget(page, target);
+    },
+  );
+}
+
+function flushPendingScrollTarget(page: WorkbenchPageInstance): void {
+  const target = page.pendingScrollTarget;
+  if (target === undefined) return;
+  page.pendingScrollTarget = undefined;
   scrollToTarget(page, target);
 }
 
@@ -963,13 +1060,6 @@ function formatRole(role: GroupSummary['role']): string {
 
 function formatMonthLabel(businessMonth: string): string {
   return `${Number(businessMonth.slice(0, 4))} 年 ${Number(businessMonth.slice(5, 7))} 月`;
-}
-
-function formatDateLabel(businessDate: string): string {
-  const weekday = ['日', '一', '二', '三', '四', '五', '六'][
-    new Date(`${businessDate}T00:00:00Z`).getUTCDay()
-  ];
-  return `${Number(businessDate.slice(5, 7))} 月 ${Number(businessDate.slice(8, 10))} 日 · 星期${weekday}`;
 }
 
 function emptyHoliday(year: number): HolidayReadModel {

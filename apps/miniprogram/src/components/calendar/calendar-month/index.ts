@@ -21,7 +21,7 @@ interface CalendarMonthInstance {
     readonly swiperDuration: number;
     readonly viewportHeight: number;
   };
-  startProgrammaticShift(delta: -1 | 1): void;
+  startProgrammaticShift(delta: -1 | 1, targetHeight?: number): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail?: unknown): void;
 }
@@ -100,7 +100,11 @@ Component({
       this._monthShiftPending = true;
       this.triggerEvent('monthchange', { delta: current === 0 ? -1 : 1 });
     },
-    startProgrammaticShift(this: CalendarMonthInstance, delta: -1 | 1): void {
+    startProgrammaticShift(
+      this: CalendarMonthInstance,
+      delta: -1 | 1,
+      targetHeight?: number,
+    ): void {
       if (this._monthShiftPending || this._monthHeightTargetIndex !== undefined) return;
       const targetIndex = delta === -1 ? 0 : 2;
       this._monthHeightTargetIndex = targetIndex;
@@ -109,7 +113,7 @@ Component({
           stepMotion: delta < 0 ? 'previous' : 'next',
           swiperCurrent: targetIndex,
           swiperDuration: 240,
-          viewportHeight: this.data.panelHeights?.[targetIndex] ?? 270,
+          viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
         });
       });
     },
