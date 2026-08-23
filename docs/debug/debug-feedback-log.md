@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 三视图卡片节奏与事件图标回归
+
+- 反馈与引入点：Mini 月卡到控制区只有 6px，周/列表各由自身 margin 留 12px；`git log -S`/`git blame` 定位到 `50c6d1ed`/`ad4cfb2c`。详情事件图标是 `d9296df` 新增的 13px 圆形伪元素拼图。生产 Web 390px 实测月/周/列表均为控制区底 144px→首卡顶 158px，即统一 14px；Web History SVG 实测 16×16。
+- 测试先行与实现：旧实现共享 14px 节奏与 Web History SVG 两项断言全部失败；修复后由 `.workbench-view-anchor` 单点提供 14px `border-box` 上内边距，删除月特例和周/列表 margin。事件入口改用同路径 `web-history.svg`，删除 `::before`/`::after` 手绘。三视图内部按内容自然高度、选中详情 12px 间距、列表内层滚动均保持。
+- 语义审计：只调整布局几何与图标载体；日历读取、缓存、筛选、swiper/定位、详情入口 `handleUnavailable`、Promise/错误路径和调用次数不变，无 API 或业务写入。
+- 验证：定向 13/13、受控 Mini 18 文件/84 项、typecheck、production verify（2/2 Worklet，405458 bytes，manifest `108f9d0126dd21419839843469ef9e437fb197f727f6f1ea8d9ae30c7162b2b6`）与 CI dry-run 通过。运行/浏览器验证：生产 Web 390px 三视图间距均为 14px、History SVG 为 16×16，未触发业务写入且视口已恢复；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。
+- 行为变化清单：月/周/列表首卡统一离控制区 14px；事件记录图标从不稳定的 13px 伪元素拼图改为标准 16px SVG；其余布局和事件不变。checkpoint 识别消息：`fix(miniprogram): unify p4 card rhythm and event icon`。
+
 ## 2026-08-23 P4 月历摘要、标识位置与按压反馈回归
 
 - 反馈与引入点：实体截图显示 Mini 多出 Web 没有的月份/24 小时缓存摘要，月格变更标识绝对定位在右下角，导航蓝色按压框松手后停留过久。`git log -S`/`git blame` 定位摘要到 `ad4cfb2c`，人名/绝对定位标识和月导航到 `1f715c96`，周/列表入口来自 P4 工作台提交；生产 `MonthGrid.vue`/`DutyCell.vue` 390px 实测姓名与标识同一 flex 行、纵坐标一致、间距 2px。

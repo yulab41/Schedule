@@ -222,7 +222,11 @@
                       hover-class="is-pressed"
                       aria-role="button"
                       bindtap="handleUnavailable"
-                      ><view class="history-icon" aria-hidden="true"></view
+                      ><image
+                        class="event-history-icon"
+                        src="/assets/icons/web-history.svg"
+                        mode="aspectFit"
+                      />
                       ><text>事件记录</text></view
                     >
                   </view>
@@ -444,7 +448,11 @@
                       hover-class="is-pressed"
                       aria-role="button"
                       bindtap="handleUnavailable"
-                      ><view class="history-icon" aria-hidden="true"></view
+                      ><image
+                        class="event-history-icon"
+                        src="/assets/icons/web-history.svg"
+                        mode="aspectFit"
+                      />
                       ><text>事件记录</text></view
                     >
                   </view>

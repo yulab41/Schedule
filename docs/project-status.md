@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 三视图卡片节奏与事件图标修复（当前批次）
+
+- 用户反馈：实体微信中，月/周/列表首卡与“月/周/列表 + 筛选”控制区的垂直距离不一致；选中日期详情的“事件记录”图标显示异常。本批只修这 2 项 P4 视觉回归，不改变三视图按内容自然生成的内部高度，不进入 P5。
+- 引入点与视觉审查：`git log -S`/`git blame` 确认周/列表 12px 卡片 margin 来自 `ad4cfb2c`，月视图独立 6px anchor padding 来自 `50c6d1ed`，13px 圆形加伪元素的事件图标来自 `d9296df`。生产 Web 390×844 实测控制区底边为 144px，月卡、周卡、列表首层均从 158px 开始，三者间距统一为 14px；Web `HistoryIcon` 为标准 16×16、`viewBox="0 0 24 24"` 的 SVG 路径。
+- 实现与语义：以共享 `.workbench-view-anchor` 统一 14px `padding-top` 并使用 `border-box`，移除月视图特例和周/列表各自 margin；列表的 flex/内层 `scroll-view` 仍在扣除间距后的内容盒内工作。事件入口改为与生产 Web 同路径的 `web-history.svg`，颜色固定为同源次要文字色 `#5e6a78`，删除容易在原生渲染中错位的伪元素拼图。日历 GET、缓存、筛选、swiper、定位、详情事件入口和调用次数均未变。
+- 测试与验证：统一节奏和 History SVG 断言在旧实现 2/2 失败，修复后定向 13/13、受控 Mini 18 文件/84 项通过；Mini typecheck、production verify（2/2 Worklet，405458 bytes，manifest `108f9d0126dd21419839843469ef9e437fb197f727f6f1ea8d9ae30c7162b2b6`）及 CI dry-run 通过。运行/浏览器验证：生产 Web 390px 逐项切换月/周/列表并测得统一 14px，事件 SVG 实测 16×16；未触发业务写入且浏览器视口已恢复。未改 Web 核心链路，无需完整 `pnpm smoke:browser`。
+- 当前状态与下一批次：已实现并完成本地/运行验证；下一步只创建并推送 `fix(miniprogram): unify p4 card rhythm and event icon` checkpoint，上传同一精确 production-profile 体验版，备份并部署同一 Git release，记录最终状态后暂停，等待用户实体微信复核；不补独立 staging、不进入 P5。
+
 ## 2026-08-23 P4 月历摘要、标识位置与按压反馈修复（当前批次）
 
 - 用户反馈：实体微信截图中，Mini 在视图控制器上方多出 Web 没有的“月份 / 只读查看 · 24 小时缓存”摘要；月格“换/加”等标识独占右下角而非跟在人名后；左右换期与定位按钮松手后蓝色按压框消失过慢。本批只修这 3 项 P4 显示/反馈，不进入 P5。

@@ -57,6 +57,32 @@ describe('P4 native workbench', () => {
     expect(template.match(/hover-stay-time="60"/g)).toHaveLength(6);
   });
 
+  it('starts month, week and list cards on the same 14px Web rhythm', () => {
+    const pageStyles = readSource('pages/workbench/index.wxss');
+
+    expect(pageStyles).toMatch(
+      /\.workbench-view-anchor\s*{[^}]*box-sizing:\s*border-box;[^}]*padding-top:\s*14px;/s,
+    );
+    expect(pageStyles).not.toContain('.workbench-view-anchor.is-month-mode');
+    expect(pageStyles).not.toMatch(
+      /\.selected-date-details,\s*\.week-calendar,\s*\.list-calendar\s*{[^}]*margin-top:/s,
+    );
+  });
+
+  it('uses the production Web history SVG for event actions', () => {
+    const template = readSource('pages/workbench/index.wxml');
+    const pageStyles = readSource('pages/workbench/index.wxss');
+    const historyIcon = readSource('assets/icons/web-history.svg');
+
+    expect(template.match(/src="\/assets\/icons\/web-history\.svg"/g)).toHaveLength(2);
+    expect(template).not.toContain('class="history-icon"');
+    expect(pageStyles).toMatch(/\.event-history-icon\s*{[^}]*width:\s*16px;[^}]*height:\s*16px;/s);
+    expect(pageStyles).not.toContain('.history-icon::before');
+    expect(pageStyles).not.toContain('.history-icon::after');
+    expect(historyIcon).toContain('viewBox="0 0 24 24"');
+    expect(historyIcon).toContain('M2.552 13C3.0517 17.7767');
+  });
+
   it('keeps the P4 shell read-only and exposes the confirmed navigation states', () => {
     const template = readSource('pages/workbench/index.wxml');
     const pageSource = readSource('pages/workbench/index.ts');
