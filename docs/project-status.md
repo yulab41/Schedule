@@ -9,8 +9,8 @@
 - 验证：P4 定向视觉源测试 3/3 通过；Web `vue-tsc --noEmit -p tsconfig.json` 通过；Storybook build 通过（2852 modules）；`pnpm smoke:check-core` 通过并确认未涉及核心链路。
 - 运行/浏览器验证：静态 Storybook `miniprogram-parity-p4-workbench--ready-390`、`--ready-320`、`--empty`、`--loading`、`--error`、`--offline` 全部可渲染；390px/320px 无横向滚动，320px 经典滚动条场景修正后 `documentScrollWidth=320`，浏览器 error/warn 为 0。
 - 当前状态：已实现待人工视觉确认；Storybook story ID 为 `miniprogram-parity-p4-workbench--ready-390`、`--ready-320`、`--empty`、`--loading`、`--error`、`--offline`。此阶段尚未修改小程序原生 WXML/WXSS、API 或生产数据。
-- checkpoint：待提交，提交消息 `feat(miniprogram): add p4 workbench visual golden`。
-- 停止条件：用户人工确认 390×844/320px 的工作台层级、群组卡、月历密度、底部导航和异常文案后，才进入原生 `pages/workbench`/日历接线；确认前不开始 P4 原生页面或生产部署。
+- checkpoint：代码提交 `8b70871`（`feat(miniprogram): add p4 workbench visual golden`）已推送并部署；生产数据库备份 archive `b42ee832-51f6-4f5e-b078-aa49f2b50b2c`（54 表、161521 行、76336812 bytes，SHA-256 `1314bd47fb688b3809b22fc1c2c72ec58be8fa96ae902d5cc736b373cac7eb2e`），release `8b7087148d4f83646534820dd2088de39519cce5`；`ecs-verify.sh` 通过。小程序未上传新体验版，因为本 checkpoint 未修改 Mini 原生代码。
+- 停止条件：用户人工确认 390×844/320px 的工作台层级、群组卡、月历密度、底部导航和异常文案后，才进入原生 `pages/workbench`/日历接线；确认前不开始 P4 原生页面。
 
 ## 2026-08-23 P3 已有账号绑定遗留微信身份修复（当前批次）
 
