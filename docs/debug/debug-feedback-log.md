@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 月历摘要、标识位置与按压反馈回归
+
+- 反馈与引入点：实体截图显示 Mini 多出 Web 没有的月份/24 小时缓存摘要，月格变更标识绝对定位在右下角，导航蓝色按压框松手后停留过久。`git log -S`/`git blame` 定位摘要到 `ad4cfb2c`，人名/绝对定位标识和月导航到 `1f715c96`，周/列表入口来自 P4 工作台提交；生产 `MonthGrid.vue`/`DutyCell.vue` 390px 实测姓名与标识同一 flex 行、纵坐标一致、间距 2px。
+- 测试先行与实现：旧实现摘要、月格同行与 60ms 按压停留 3 项断言全部失败；修复后删除摘要并把滚动锚点移到视图控制器，月格以人员行顺序渲染姓名和 13px 标识，月/周/列表 9 个换期/定位按钮统一按下即显示、松手后 60ms 释放。Web 周视图有意把班种/变更放第二行，Mini 列表本就在人名后，故两者保持不变。
+- 语义审计：只删除冗余文案/样式、重排同一只读 `person`/`marker` 数据和配置微信 hover 时长；GET、24 小时缓存、手机号脱敏、Promise/错误路径、筛选、swiper/定位事件、图标动画与调用次数不变。
+- 验证：定向 11/11、受控 Mini 18 文件/82 项、typecheck、production verify（2/2 Worklet，405117 bytes，manifest `d9df7f147907e9c1a980c4537375a93d7c79c1bb460367890c786f390eabb4c3`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：生产 Web 390×844 只读确认无摘要行及姓名后标识几何，未触发业务写入且已恢复视口；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。一次根目录 Mini 测试仅因错误 `process.cwd()`/既有 `runtime` 副本出现 11 项路径失败，正确工作目录重跑全绿。
+- 行为变化清单：顶部减少一条 40px 摘要；月格标识从右下绝对定位改为姓名后 2px；导航蓝底释放从微信默认停留缩短到 60ms，图标动画不变。checkpoint 识别消息：`fix(miniprogram): align p4 calendar markers and feedback`。
+
 ## 2026-08-23 P4 原生控件滚动、列表裁切与详情同构回归
 
 - 反馈与引入点：实体截图证明 Mini 月/周的视图筛选行被错误 sticky 并覆盖日历；用户进一步明确列表问题是月份工具栏下沿阴影本身应删除；选中日期仍使用旧扁平摘要。`git log -S`/`git blame` 定位 sticky 到 `3fc41610`，inline top、列表内滚动与工具栏阴影到 `50c6d1ed`，旧详情模型/模板到 `ad4cfb2c`/`733e3af6`。

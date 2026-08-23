@@ -100,11 +100,19 @@
   white-space: nowrap;
 }
 
+.month-duty-line {
+  display: flex;
+  width: 100%;
+  margin-top: 2px;
+  align-items: center;
+  gap: 2px;
+}
+
 .month-person {
   display: block;
-  max-width: 100%;
-  margin-top: 2px;
+  min-width: 0;
   overflow: hidden;
+  flex: 0 1 auto;
   font-size: 9px;
   font-weight: var(--ui-font-weight-semibold);
   line-height: 14px;
@@ -113,12 +121,10 @@
 }
 
 .change-mark {
-  position: absolute;
-  right: 3px;
-  bottom: 4px;
   display: flex;
   width: 13px;
   height: 13px;
+  flex: none;
   align-items: center;
   justify-content: center;
   color: #a66700;

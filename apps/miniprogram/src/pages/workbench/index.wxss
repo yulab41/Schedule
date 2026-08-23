@@ -30,8 +30,6 @@ page {
 
 .brand-lockup,
 .identity-chip,
-.period-row,
-.cache-note,
 .view-controls,
 .view-switch,
 .filter-button,
@@ -250,33 +248,6 @@ page {
   color: var(--ui-color-primary);
   font-size: var(--ui-font-size-md);
   font-weight: var(--ui-font-weight-strong);
-}
-
-.period-row {
-  min-height: 40px;
-  margin-top: 10px;
-  justify-content: space-between;
-}
-
-.period-label {
-  color: var(--ui-color-text-primary);
-  font-size: var(--ui-font-size-md);
-  font-weight: var(--ui-font-weight-semibold);
-}
-
-.cache-note {
-  margin-left: 8px;
-  color: var(--ui-color-text-muted);
-  font-size: 10px;
-  white-space: nowrap;
-}
-
-.cache-dot {
-  width: 6px;
-  height: 6px;
-  margin-right: 5px;
-  background: var(--ui-color-success);
-  border-radius: 50%;
 }
 
 .offline-note {
@@ -1707,7 +1678,6 @@ page {
   overflow: hidden;
 }
 
-.workbench-content.is-list-mode .period-row,
 .workbench-content.is-list-mode .offline-note,
 .workbench-content.is-list-mode .view-controls {
   flex: none;
@@ -1721,10 +1691,6 @@ page {
 .workbench-content.is-list-mode .workbench-view-anchor {
   min-height: 0;
   flex: 1;
-}
-
-.period-row {
-  margin-top: 0;
 }
 
 .view-switch {

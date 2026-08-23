@@ -3,6 +3,8 @@
     <view
       class="month-step"
       hover-class="is-pressed"
+      hover-start-time="0"
+      hover-stay-time="60"
       aria-role="button"
       aria-label="上一月"
       bindtap="handlePrevious"
@@ -21,6 +23,8 @@
     <view
       class="locate-button"
       hover-class="is-pressed"
+      hover-start-time="0"
+      hover-stay-time="60"
       aria-role="button"
       aria-label="定位到今天"
       bindtap="handleLocateToday"
@@ -32,6 +36,8 @@
     <view
       class="month-step"
       hover-class="is-pressed"
+      hover-start-time="0"
+      hover-stay-time="60"
       aria-role="button"
       aria-label="下一月"
       bindtap="handleNext"

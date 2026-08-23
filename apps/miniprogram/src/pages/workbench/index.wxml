@@ -75,12 +75,8 @@
     show-scrollbar="{{false}}"
   >
     <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
-      <view id="workbench-content-top" class="period-row">
-        <text class="period-label">{{monthLabel}}</text>
-        <text class="cache-note"><text class="cache-dot" />只读查看 · 24 小时缓存</text>
-      </view>
       <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
-      <view class="view-controls" aria-label="排班视图">
+      <view id="workbench-content-top" class="view-controls" aria-label="排班视图">
         <view class="view-switch" aria-role="tablist">
           <view
             wx:for="{{viewOptions}}"
@@ -244,6 +240,8 @@
                 class="calendar-step"
                 data-delta="-1"
                 hover-class="is-pressed"
+                hover-start-time="0"
+                hover-stay-time="60"
                 aria-role="button"
                 aria-label="上一周"
                 bindtap="handleWeekChange"
@@ -260,6 +258,8 @@
               <view
                 class="calendar-locator"
                 hover-class="is-pressed"
+                hover-start-time="0"
+                hover-stay-time="60"
                 aria-role="button"
                 aria-label="定位到今天"
                 bindtap="handleLocateToday"
@@ -273,6 +273,8 @@
                 class="calendar-step"
                 data-delta="1"
                 hover-class="is-pressed"
+                hover-start-time="0"
+                hover-stay-time="60"
                 aria-role="button"
                 aria-label="下一周"
                 bindtap="handleWeekChange"
@@ -460,6 +462,8 @@
                 class="calendar-step"
                 data-delta="-1"
                 hover-class="is-pressed"
+                hover-start-time="0"
+                hover-stay-time="60"
                 aria-role="button"
                 aria-label="上一月"
                 bindtap="handleListMonthChange"
@@ -477,6 +481,8 @@
                 class="calendar-step"
                 data-delta="1"
                 hover-class="is-pressed"
+                hover-start-time="0"
+                hover-stay-time="60"
                 aria-role="button"
                 aria-label="下一月"
                 bindtap="handleListMonthChange"
@@ -489,6 +495,8 @@
               <view
                 class="calendar-locator"
                 hover-class="is-pressed"
+                hover-start-time="0"
+                hover-stay-time="60"
                 aria-role="button"
                 aria-label="定位到今天"
                 bindtap="handleLocateToday"

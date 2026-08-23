@@ -26,6 +26,37 @@ describe('P4 native workbench', () => {
     expect(identityPage).toContain('进入排班台');
   });
 
+  it('omits the Mini-only period and cache summary above the Web-matched controls', () => {
+    const template = readSource('pages/workbench/index.wxml');
+
+    expect(template).not.toContain('24 小时缓存');
+    expect(template).not.toContain('class="period-row"');
+    expect(template).not.toContain('class="cache-note"');
+  });
+
+  it('keeps month change markers inline immediately after the assignee like mobile Web', () => {
+    const cellTemplate = readSource('components/calendar/calendar-cell/index.wxml');
+    const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
+
+    expect(cellTemplate).toMatch(
+      /class="month-duty-line"[\s\S]*class="month-person"[\s\S]*class="change-mark"/s,
+    );
+    expect(cellStyles).toMatch(
+      /\.month-duty-line\s*{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*gap:\s*2px;/s,
+    );
+    expect(cellStyles).not.toMatch(/\.change-mark\s*{[^}]*position:\s*absolute;/s);
+  });
+
+  it('releases month, week and list navigation press backgrounds after 60ms', () => {
+    const template = readSource('pages/workbench/index.wxml');
+    const monthTemplate = readSource('components/calendar/calendar-month/index.wxml');
+
+    expect(monthTemplate.match(/hover-start-time="0"/g)).toHaveLength(3);
+    expect(monthTemplate.match(/hover-stay-time="60"/g)).toHaveLength(3);
+    expect(template.match(/hover-start-time="0"/g)).toHaveLength(6);
+    expect(template.match(/hover-stay-time="60"/g)).toHaveLength(6);
+  });
+
   it('keeps the P4 shell read-only and exposes the confirmed navigation states', () => {
     const template = readSource('pages/workbench/index.wxml');
     const pageSource = readSource('pages/workbench/index.ts');
@@ -33,7 +64,6 @@ describe('P4 native workbench', () => {
     const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
     const pageStyles = readSource('pages/workbench/index.wxss');
     const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
-    expect(template).toContain('24 小时缓存');
     expect(template).toContain('月');
     expect(template).toContain('周');
     expect(template).toContain('列表');

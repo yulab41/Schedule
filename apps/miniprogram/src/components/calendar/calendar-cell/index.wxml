@@ -11,6 +11,8 @@
 >
   <text class="date-number">{{day}}</text>
   <text wx:if="{{holiday}}" class="holiday-chip">{{holiday}}</text>
-  <text wx:if="{{person}}" class="month-person">{{person}}</text>
-  <text wx:if="{{marker}}" class="change-mark">{{marker}}</text>
+  <view wx:if="{{person || marker}}" class="month-duty-line">
+    <text wx:if="{{person}}" class="month-person">{{person}}</text>
+    <text wx:if="{{marker}}" class="change-mark">{{marker}}</text>
+  </view>
 </view>
