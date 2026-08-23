@@ -150,9 +150,9 @@ describe('P4 native workbench', () => {
     expect(template).toContain('nav-icon nav-adjustment');
     expect(template).toContain('nav-icon nav-more');
     expect(monthTemplate).toContain('is-bottom-row');
-    expect(monthTemplate).toContain('bindtransition="handleMonthTransition"');
-    expect(monthTemplate).toContain('style="height:{{viewportHeight}}px"');
-    expect(template).toContain('panel-heights="{{monthPanelHeights}}"');
+    expect(monthTemplate).not.toContain('bindtransition=');
+    expect(monthTemplate).toContain('style="height:{{gridHeight}}px"');
+    expect(template).not.toContain('panel-heights=');
     expect(pageStyles).toContain('@keyframes click-filter-top');
     expect(pageStyles).toContain('@keyframes click-locate');
     expect(pageStyles).toContain('@keyframes minimal-swap-left');

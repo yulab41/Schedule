@@ -2,13 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-23 P4 8px 卡片节奏与月历高度稳定修复（当前批次）
+## 2026-08-23 P4 8px 节奏与月历单次定高修复（当前批次）
 
-- 用户反馈：上一体验版统一 14px 后视觉仍过宽，要求月/周/列表首卡统一改为 8px；换月时卡片会先按不需要的六行高度增高，再发现目标实际只有五行而缩回。本批只修这 2 项 P4 原生视觉/过渡回归，不进入 P5。
-- 引入点：8px 变更直接修正上一 checkpoint `48f2dc4` 的 14px 共享 anchor；`git log -S`/`git blame` 确认 `bindtransition` 提前改高、三面板 `panelHeights` 和回中高度逻辑由 `3fc41610` 引入。微信 `swiper` 官方文档说明 item 位置变化即触发 transition，而代码在程序化换月和 `duration=0` 回中时仍消费 `dx`，会把另一侧面板高度短暂覆盖到已明确的目标高度。
-- 实现与语义：共享 `.workbench-view-anchor` 从 14px 收紧为 8px，三视图仍由同一规则控制。程序化换月已显式按目标 index 设置高度，因此其 transition 不再重复猜方向；提交后的无动画回中、pending 阶段及 `swiperDuration=0` 阶段全部忽略 transition，并把 `_monthShiftPending` 保持到回中和 240ms 配置恢复均提交完成后才释放。真实用户拖动仍在中央面板且非 pending/非零动画时按目标相邻面板高度提前过渡，五/六行真实高度计算不变。
-- 测试与验证：8px、回中期间 pending、回中 transition 噪声和程序化 transition 覆盖 4 项回归断言均在对应旧实现上失败；修复后定向 21/21、受控 Mini 18 文件/86 项通过。Mini typecheck、production verify（2/2 Worklet，405612 bytes，manifest `80a4135dfcf09f6be5f74891d389c46f611d74e25618d6c0057831db48e00aba`）和 CI dry-run 通过。一次未加 exclude 的定向命令额外误扫既有 `.artifacts/ecs-runner-deploy-*` 副本并产生 3 项路径失败，真实任务文件同时正确暴露 3 项预期旧实现失败；后续命令显式排除该用户目录并全绿，未修改其内容。
-- 当前状态与下一批次：已实现并完成本地验证；下一步只创建并推送 `fix(miniprogram): tighten p4 rhythm and stabilize month height` checkpoint，上传同一精确 production-profile 体验版，备份并部署同一 Git release，记录最终状态后暂停，等待用户实体微信复核；不补独立 staging、不进入 P5。
+- 用户反馈与中间结论：月/周/列表首卡已按要求从 14px 统一为 8px；第一轮仅屏蔽程序化换月和无动画回中的 transition 噪声，checkpoint `206a16e`、production-profile 体验版 `.65`（manifest `a1dde130aa45d0330746035b06182404a80f13b6ed6ecc7941de59fa20aff412`）及生产 release `206a16eaebea0adea0556a6ca3cc6de5e31ebe52` 均已发布。实体微信复核证明五/六行切换的底边仍会短暂闪动，该 checkpoint 只是未完成的中间修复。
+- 引入点与根因：`git log -S`/`git blame` 再次确认 `3fc41610` 同时引入 `bindtransition.dx`、`panelHeights` 和独立 `viewportHeight`，使横向 swiper 动画期间提前裁切/扩展底行；即使过滤部分事件，真实拖动仍会与 height animation 并发。`3fc41610^` 的原行为只绑定最终中央月份 `gridHeight`，不存在滑动期间的第二条改高通道。
+- 最终实现与语义：保留共享 8px anchor。完整删除 `bindtransition`、`panelHeights`、`viewportHeight` 及程序化/回中时的高度写入；按钮和手势只改变横向 `swiperCurrent`，月份提交后由父页按最终中央面板的 `cells.length / 7 * 54` 更新一次 `gridHeight`，高度过渡恢复改版前的 180ms ease-out。`_monthShiftPending` 仍保持到回中和 duration 恢复均完成，目标月份、`monthchange` 次数、三面板回中、GET/缓存、Promise/错误路径不变。
+- 测试与验证：新的“禁止滑动期间改高”结构、回中 patch 和程序化 patch 断言在 `206a16e` 上 4 项失败，修复后定向 20/20、受控 Mini 18 文件/85 项通过；typecheck、production verify（2/2 Worklet，404393 bytes，manifest `0a9ee5e807606fb6341e781f1e2af72c48d57d5d705d854d7a3cfe8f7ed84773`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。首次红灯命令仍误扫用户既有 `.artifacts/ecs-runner-deploy-*` 副本并额外出现 3 项路径失败，后续显式排除且未修改该目录。
+- 发布记录与下一步：中间版生产备份 archive `3d24a9ae-82b5-4c7c-9352-8fdf6b1d4f07`（54 表、162550 行、76679172 bytes，SHA-256 `201b3b4358a530ddc98e0aa74ee095c7fe0654e6b3bfc950e4a759b2229f8d39`）后部署 `206a16e`，首次健康 502 后自动恢复且 `ecs-verify.sh` 全项通过。下一步只创建并推送 `fix(miniprogram): remove eager month resizing` checkpoint，上传精确 production-profile 体验版 `.66`，备份并部署同一 Git release，记录最终状态后暂停等待实体微信复核；不补独立 staging、不进入 P5。
 
 ## 2026-08-23 P4 三视图卡片节奏与事件图标修复（当前批次）
 

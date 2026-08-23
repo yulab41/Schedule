@@ -86,19 +86,27 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(pageStyles).toMatch(/\.month-selected-summary\s*\{[^}]*margin-top:\s*12px;/su);
   });
 
-  it('uses the native three-panel swiper and explicit icon nodes on every runtime', () => {
+  it('uses one committed grid height instead of resizing during a native swipe', () => {
     const template = readSource('components/calendar/calendar-month/index.wxml');
+    const source = readSource('components/calendar/calendar-month/index.ts');
 
     expect(template).toContain('<swiper');
     expect(template).toContain('current="{{swiperCurrent}}"');
+    expect(template).toContain('style="height:{{gridHeight}}px"');
     expect(template).toContain('bindanimationfinish="handleMonthSwipe"');
+    expect(template).not.toContain('bindtransition=');
+    expect(template).not.toContain('viewportHeight');
     expect(template).toContain('<swiper-item');
     expect(template).not.toContain('<pan-gesture-handler');
     expect(template).toContain('/assets/icons/web-chevron-left.svg');
     expect(template).toContain('/assets/icons/web-chevron-right.svg');
     expect(template).toContain('/assets/icons/web-locate.svg');
     const styles = readSource('components/calendar/calendar-month/index.wxss');
+    expect(styles).toMatch(/transition:\s*height 180ms ease-out;/u);
     expect(styles).not.toContain('locate-crosshair::before');
+    expect(source).not.toContain('handleMonthTransition');
+    expect(source).not.toContain('panelHeights');
+    expect(source).not.toContain('viewportHeight');
   });
 
   it('commits one native swipe and recenters when the panel data changes', async () => {
@@ -113,10 +121,8 @@ describe('P1 native dynamic month calendar PoC', () => {
     const instance = {
       _monthShiftPending: false,
       data: {
-        panelHeights: [270, 324, 270],
         swiperCurrent: 1,
         swiperDuration: 240,
-        viewportHeight: 324,
       },
       setData: vi.fn((patch, callback) => {
         if (patch.swiperCurrent === 1) recenterPendingStates.push(instance._monthShiftPending);
@@ -137,57 +143,35 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance.setData.mock.calls[0]?.[0]).toEqual({
       swiperCurrent: 1,
       swiperDuration: 0,
-      viewportHeight: 324,
     });
     expect(recenterPendingStates).toEqual([true]);
     expect(durationRestorePendingStates).toEqual([true]);
     expect(instance._monthShiftPending).toBe(false);
   });
 
-  it('ignores zero-duration recenter transition noise instead of flashing an adjacent height', async () => {
+  it('keeps programmatic month shifts horizontal until the final month is committed', async () => {
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;
     });
     await import('../src/components/calendar/calendar-month/index.ts');
-    const setData = vi.fn();
-    const instance = {
-      _monthShiftPending: true,
-      data: {
-        panelHeights: [324, 270, 324],
-        swiperCurrent: 2,
-        swiperDuration: 0,
-        viewportHeight: 270,
-      },
-      setData,
-    };
-
-    definition.methods.handleMonthTransition.call(instance, { detail: { dx: -24 } });
-
-    expect(setData).not.toHaveBeenCalled();
-  });
-
-  it('does not let programmatic transition noise overwrite the explicit target height', async () => {
-    let definition;
-    vi.stubGlobal('Component', (value) => {
-      definition = value;
-    });
-    await import('../src/components/calendar/calendar-month/index.ts');
-    const setData = vi.fn();
     const instance = {
       _monthShiftPending: false,
       data: {
-        panelHeights: [324, 270, 270],
-        swiperCurrent: 2,
+        swiperCurrent: 1,
         swiperDuration: 240,
-        viewportHeight: 270,
       },
-      setData,
+      setData: vi.fn((_patch, callback) => callback?.()),
     };
 
-    definition.methods.handleMonthTransition.call(instance, { detail: { dx: 24 } });
+    definition.methods.startProgrammaticShift.call(instance, 1);
 
-    expect(setData).not.toHaveBeenCalled();
+    expect(instance.setData).toHaveBeenNthCalledWith(1, { stepMotion: '' }, expect.any(Function));
+    expect(instance.setData.mock.calls[1]?.[0]).toEqual({
+      stepMotion: 'next',
+      swiperCurrent: 2,
+      swiperDuration: 240,
+    });
   });
 
   it('keeps adjacent cells inert and emits one semantic current-date selection', async () => {

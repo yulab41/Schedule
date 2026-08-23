@@ -4,11 +4,11 @@
 
 ## 2026-08-23 P4 8px 节奏与月历高度闪动回归
 
-- 反馈与引入点：用户明确把上一 checkpoint `48f2dc4` 的三视图共享 14px 改为 8px。换月先长后缩来自 `3fc41610`：程序化换月已设置目标高度，`bindtransition.dx` 却仍可能重复覆盖；新月份提交后 `duration=0` 回中也会继续触发位置变化并读到相邻面板高度。
-- 测试先行与实现：8px、回中 pending 时序、回中 transition 噪声、程序化 transition 覆盖四项断言分别在对应旧实现上失败。修复后共享 anchor 改 8px；transition 只在中央面板、非 pending、非零动画的真实拖动阶段参与高度预判，程序化目标与无动画回中不再被覆盖；pending 保持到回中和 240ms 恢复两次 `setData` 均完成后释放。
-- 语义审计：五/六行高度仍按 `cells.length / 7 * 54`，按钮/手势/定位的目标月份、`monthchange` 次数、三面板回中、GET/缓存、Promise/错误路径均不变；只收紧 6px 空间并消除错误中间高度。
-- 验证：定向 21/21、受控 Mini 18 文件/86 项、typecheck、production verify（2/2 Worklet，405612 bytes，manifest `80a4135dfcf09f6be5f74891d389c46f611d74e25618d6c0057831db48e00aba`）及 CI dry-run 通过。一次未排除既有 `.artifacts/ecs-runner-deploy-*` 副本的定向命令额外出现 3 项路径失败，显式排除后真实源全绿，未修改该用户目录。未改 Web 核心链路，无需完整 `pnpm smoke:browser`。
-- 行为变化清单：三视图首卡距控制区统一从 14px 改 8px；按钮换月和提交回中不再被 transition 套用另一侧高度；真实拖动仍按目标五/六行高度过渡。checkpoint 识别消息：`fix(miniprogram): tighten p4 rhythm and stabilize month height`。
+- 反馈与引入点：8px 已在中间 checkpoint `206a16e` 完成；实体微信复核表明其月高保护只加快/过滤了部分错误动作，五/六行切换时底边仍闪。`git log -S`/`git blame` 和 `git show 3fc41610^` 证明根因是 `3fc41610` 新增的滑动期 `bindtransition.dx → panelHeights → viewportHeight` 独立改高通道，横向滑动与纵向裁切动画并发。
+- 测试先行与实现：改写回归契约，要求模板仅绑定最终 `gridHeight`、无 `bindtransition`，回中与程序化 shift patch 都不能包含高度；这些断言在 `206a16e` 上 4 项失败。实现完整删除 transition handler、三个面板高度、独立 viewport 和三处中间高度写入，父页只在最终月份 ViewModel 提交时计算一次 `cells.length / 7 * 54`；保留上一轮更严的 pending 回中时序，并恢复改版前 180ms height ease-out。
+- 语义审计：接收者绑定、按钮/手势/定位目标、`monthchange` 调用次数、swiper duration/回中顺序、空值、GET/缓存、Promise catch 和业务写入均不变；明确行为变化只有“滑动期间不再预读相邻面板高度”，最终五/六行高度仍正确。
+- 验证：定向 20/20、受控 Mini 18 文件/85 项、typecheck、production verify（2/2 Worklet，404393 bytes，manifest `0a9ee5e807606fb6341e781f1e2af72c48d57d5d705d854d7a3cfe8f7ed84773`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。红灯阶段命令额外误扫既有 `.artifacts` 旧副本并出现 3 项路径失败，显式排除后真实源全绿，用户目录未改。
+- 中间发布与下一步：`206a16e` 已推送，体验版 `.65`（manifest `a1dde130aa45d0330746035b06182404a80f13b6ed6ecc7941de59fa20aff412`）及生产 release 已发布；生产备份 archive `3d24a9ae-82b5-4c7c-9352-8fdf6b1d4f07`，`ecs-verify.sh` 通过，但实体结论为未解决。新 checkpoint 识别消息：`fix(miniprogram): remove eager month resizing`，随后上传 `.66` 并部署精确 commit，等待实体复核。
 
 ## 2026-08-23 P4 三视图卡片节奏与事件图标回归
 
