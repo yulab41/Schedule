@@ -8,6 +8,7 @@
 - 测试先行与实现：新增唯一月份格式、不可达类清零、工作台 WXSS <43KB 和加载/视图切换单 patch 契约，旧实现 2 项失败。修复后页面复用 ViewModel 月份格式；删除不可达 CSS 与组合选择器死分支；网络读取完成后把 ViewPatch、筛选摘要和状态一次提交，视图切换同理。
 - 语义审计：CSS 只删除模板/动态类集合均不可达的规则，现用类、状态和 keyframes 保留；加载合并不改变 calendar/holiday 赋值顺序、request serial、catch、缓存、筛选或 GET/写入次数。月份字符串字节级一致，接收者/空值/调用次数不变。
 - 验证与体积：定向 18/18；隔离 `aa17776` + 本轮 4 文件的 Mini 18 文件/91 项、typecheck、production verify（2/2 Worklet，405716 bytes，manifest `7f3e872ac6136de930bdf44dff5a35f60103c05cc752c3af94d5e037fe484c59`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。编译 WXSS 50258→39891 bytes，production package 412558→405716 bytes。checkpoint 识别消息：`refactor(miniprogram): remove legacy presentation debt`。
+- 发布：代码 checkpoint `9a436e8` 已推送；精确 worktree 上传 production-profile `.69`（63 文件，manifest `b035de67989a542f4ff03d99617bf44c76ffc6e2799fad1bbf74d085361a8dc9`），未审核/正式发布。生产备份 archive `c311d738-cd8f-4fc2-bec6-301317d54397`（54 表、162557 行、76683800 bytes，SHA-256 `69d60f211e1506e0d629eeaad31f4cb5976507088193be13ea9e1cb48291d07b`）后部署 release `9a436e8b8524c5bfef3f0c2d8ba2040d170f8313`；预热首次 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record mini presentation debt deployment`。
 
 ## 2026-08-23 P4 日期闪动、列表无形门槛与定位慢拍回归
 
