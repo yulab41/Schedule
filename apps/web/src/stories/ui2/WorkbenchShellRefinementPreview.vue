@@ -196,6 +196,7 @@ const navItems: readonly { icon: Ui2IconName; id: string; label: string }[] = [
             <Ui2MonthCalendar
               scenario="october-holiday"
               :selected-day="selectedDay"
+              @locate="selectedDay = 14"
               @select="selectedDay = $event"
             />
 

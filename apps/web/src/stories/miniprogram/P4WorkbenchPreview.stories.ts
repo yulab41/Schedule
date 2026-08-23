@@ -11,7 +11,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'P4 第一视觉切片：身份确认后进入有权限群组的只读工作台。月视图复用当前 Web 黄金日历；周视图、列表视图和异常状态先作为明确的可见边界，不提前伪装成已接入业务。',
+          'P4 第一视觉切片：身份确认后进入有权限群组的只读工作台。对齐 Web 的月/周/列表、定位到今天、筛选和选中日期详情；写入型业务仍保持在后续阶段。',
       },
     },
   },
@@ -32,26 +32,44 @@ export const Ready320: Story = {
   globals: { viewport: 'mobile320' },
 };
 
+export const FilterOpen390: Story = {
+  name: '3 · 已认证工作台 / 筛选展开 · 390×844',
+  args: { state: 'ready', viewport: 'mobile-390', initialFilterOpen: true },
+  globals: { viewport: 'mobile390' },
+};
+
+export const Week390: Story = {
+  name: '4 · 已认证工作台 / 周视图 · 390×844',
+  args: { state: 'ready', viewport: 'mobile-390', initialView: 'week' },
+  globals: { viewport: 'mobile390' },
+};
+
+export const List390: Story = {
+  name: '5 · 已认证工作台 / 列表视图 · 390×844',
+  args: { state: 'ready', viewport: 'mobile-390', initialView: 'list' },
+  globals: { viewport: 'mobile390' },
+};
+
 export const Empty: Story = {
-  name: '3 · 当前群组暂无已发布排班',
+  name: '6 · 当前群组暂无已发布排班',
   args: { state: 'empty' },
   globals: { viewport: 'mobile390' },
 };
 
 export const Loading: Story = {
-  name: '4 · 读取中',
+  name: '7 · 读取中',
   args: { state: 'loading' },
   globals: { viewport: 'mobile390' },
 };
 
 export const Error: Story = {
-  name: '5 · 读取失败可重试',
+  name: '8 · 读取失败可重试',
   args: { state: 'error' },
   globals: { viewport: 'mobile390' },
 };
 
 export const Offline: Story = {
-  name: '6 · 离线只读缓存',
+  name: '9 · 离线只读缓存',
   args: { state: 'offline' },
   globals: { viewport: 'mobile390' },
 };

@@ -32,7 +32,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: 'select', day: number): void;
-  (event: 'month-change', offset: number): void;
+  (event: 'month-change', offset: -1 | 1): void;
+  (event: 'locate'): void;
 }>();
 
 const monthOffset = ref(0);
@@ -173,6 +174,11 @@ function changeMonth(offset: -1 | 1): void {
   emit('month-change', offset);
 }
 
+function locateToday(): void {
+  monthOffset.value = 0;
+  emit('locate');
+}
+
 function onPointerDown(event: PointerEvent): void {
   pointerStart.value = { x: event.clientX, y: event.clientY };
 }
@@ -200,6 +206,9 @@ function onPointerUp(event: PointerEvent): void {
         <strong>{{ monthLabel }}</strong>
         <span>左右滑动切换月份</span>
       </div>
+      <button class="locate-button" type="button" aria-label="定位到今天" @click="locateToday">
+        <span class="locate-crosshair" aria-hidden="true"><span /></span>
+      </button>
       <button class="icon-button" type="button" aria-label="下个月" @click="changeMonth(1)">
         <Ui2Icon name="chevron-right" />
       </button>
@@ -268,7 +277,7 @@ function onPointerUp(event: PointerEvent): void {
 
 .month-toolbar {
   display: grid;
-  grid-template-columns: 48px 1fr 48px;
+  grid-template-columns: 48px minmax(0, 1fr) 44px 48px;
   align-items: center;
   min-height: 60px;
   padding: 4px 6px;
@@ -307,6 +316,60 @@ function onPointerUp(event: PointerEvent): void {
 .icon-button:active {
   background: var(--ui2-primary-tint);
   transform: scale(0.96);
+}
+
+.icon-button:focus-visible,
+.locate-button:focus-visible {
+  outline: 3px solid rgb(10 102 213 / 26%);
+  outline-offset: 2px;
+}
+
+.locate-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  color: var(--ui2-primary);
+  background: transparent;
+  border: 0;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.locate-button:active {
+  background: var(--ui2-primary-tint);
+  transform: scale(0.96);
+}
+
+.locate-crosshair {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+  background:
+    linear-gradient(currentColor, currentColor) center top / 2px 4px no-repeat,
+    linear-gradient(currentColor, currentColor) center bottom / 2px 4px no-repeat,
+    linear-gradient(currentColor, currentColor) left center / 4px 2px no-repeat,
+    linear-gradient(currentColor, currentColor) right center / 4px 2px no-repeat;
+}
+
+.locate-crosshair::before {
+  position: absolute;
+  inset: 2px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  content: '';
+}
+
+.locate-crosshair > span {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
 }
 
 .weekday-row,
@@ -475,6 +538,15 @@ function onPointerUp(event: PointerEvent): void {
   line-height: 1;
 }
 
+@media (max-width: 640px) {
+  .calendar-cell {
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 3px;
+  }
+}
+
 @media (max-width: 340px) {
   .month-card {
     margin-inline: -12px;
@@ -484,13 +556,14 @@ function onPointerUp(event: PointerEvent): void {
   }
 
   .calendar-cell {
-    min-height: 50px;
+    min-height: 0;
     padding-inline: 2px;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .icon-button,
+  .locate-button,
   .calendar-cell {
     transition:
       background 140ms ease,

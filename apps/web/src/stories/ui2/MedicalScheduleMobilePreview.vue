@@ -142,6 +142,7 @@ function selectNav(id: string): void {
             <Ui2MonthCalendar
               :scenario="calendarScenario"
               :selected-day="selectedDay"
+              @locate="selectedDay = 14"
               @select="selectedDay = $event"
             />
 
