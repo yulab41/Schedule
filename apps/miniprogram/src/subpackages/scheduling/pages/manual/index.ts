@@ -31,6 +31,10 @@ import {
   resolveManualSelection,
 } from '@schedule/presentation-core';
 import { ClientCoreError } from '@schedule/client-core';
+import {
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../../../../app/client-capability-store.js';
 
 import { buildInfo } from '../../../../platform/build-info.js';
 import {
@@ -298,6 +302,7 @@ interface ManualPageInstance {
   _holidays: ReadonlyMap<string, ConfirmedHolidayDate>;
   _history: readonly SchedulePeriodHistoryItem[];
   _isDirty: boolean;
+  _loadSerial: number;
   _matrixGestureRevision: number;
   _memberIds: string[];
   _memberNames: Map<string, string>;
@@ -436,6 +441,7 @@ Page({
   _holidays: new Map<string, ConfirmedHolidayDate>(),
   _history: [] as readonly SchedulePeriodHistoryItem[],
   _isDirty: false,
+  _loadSerial: 0,
   _matrixGestureRevision: 0,
   _memberIds: [] as string[],
   _memberNames: new Map<string, string>(),
@@ -454,7 +460,13 @@ Page({
 
   onLoad(this: ManualPageInstance): void {
     this.setData(createShellLayoutPatch());
-    void loadManualPage(this);
+    void loadManualPageWithCapability(this);
+  },
+
+  onShow(this: ManualPageInstance): void {
+    void requireClientCapability('core').catch((error: unknown) =>
+      setManualCapabilityError(this, error),
+    );
   },
 
   onResize(this: ManualPageInstance): void {
@@ -462,7 +474,7 @@ Page({
   },
 
   handleReload(this: ManualPageInstance): void {
-    void loadManualPage(this);
+    void loadManualPageWithCapability(this);
   },
 
   handleBack(): void {
@@ -830,9 +842,11 @@ Page({
 });
 
 async function loadManualPage(page: ManualPageInstance): Promise<void> {
+  const serial = ++page._loadSerial;
   page.setData({ errorMessage: '', isBusy: true, state: 'loading' });
   try {
     const groups = await workbenchClient.listGroups();
+    if (serial !== page._loadSerial) return;
     const ownerId = getStoredWechatProfile()?.id;
     if (ownerId === undefined) throw new Error('登录状态已失效，请重新登录。');
     const storedGroupId = readStoredWorkbenchGroupId(ownerId);
@@ -851,27 +865,46 @@ async function loadManualPage(page: ManualPageInstance): Promise<void> {
           candidate.isDeveloperAdmin,
       );
     if (group === undefined) throw new Error('仅管理员与群主可以使用手动排班。');
-    page._currentGroupId = group.id;
-    writeStoredWorkbenchGroupId(ownerId, group.id);
     const [config, templates, history] = await Promise.all([
       manualClient.getConfig(group.id),
       manualClient.listTemplates(group.id),
       publicationClient.listHistory(group.id),
     ]);
+    if (serial !== page._loadSerial) return;
+    const holidays = await loadHolidayMap(today).catch(() => new Map());
+    if (serial !== page._loadSerial) return;
+    page._currentGroupId = group.id;
     page._config = config;
     page._templates = templates;
     page._history = history;
-    page._holidays = await loadHolidayMap(today).catch(() => new Map());
+    page._holidays = holidays;
+    writeStoredWorkbenchGroupId(ownerId, group.id);
     page.setData({ currentGroupName: group.name, isBusy: false });
     if (templates[0] !== undefined) openTemplate(page, templates[0]);
     else initializeNewTemplate(page);
   } catch (error) {
+    if (serial !== page._loadSerial) return;
     page.setData({
       errorMessage: toUserMessage(error, '手动排班暂时无法加载，请稍后重试。'),
       isBusy: false,
       state: 'error',
     });
   }
+}
+
+async function loadManualPageWithCapability(page: ManualPageInstance): Promise<void> {
+  try {
+    await requireClientCapability('core');
+    await loadManualPage(page);
+  } catch (error) {
+    setManualCapabilityError(page, error);
+  }
+}
+
+function setManualCapabilityError(page: ManualPageInstance, error: unknown): void {
+  if (!(error instanceof ClientCapabilityDisabledError)) return;
+  page._loadSerial += 1;
+  page.setData({ errorMessage: error.message, isBusy: false, state: 'error' });
 }
 
 function initializeNewTemplate(page: ManualPageInstance): void {

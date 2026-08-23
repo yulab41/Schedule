@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createWechatAuthPort, verifyWechatSessionToken } from '../../adapters/auth/wechat-auth.js';
 import { createApp } from '../../app.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { createMockWechatGateway } from '../wechat/wechat-gateway.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
@@ -20,6 +21,7 @@ const describeWithDatabase = databaseOptions === undefined ? describe.skip : des
 const TEST_SESSION_SECRET = 'test-wechat-session-secret-0123456789abcdef';
 const PLATFORM_ADMIN_UID = 'wx_mock-openid-admin-source';
 const HOLIDAY_ADMIN_UID = 'wx_mock-openid-holiday-source';
+const TEST_CLIENT_CAPABILITY_POLICY = createTestClientCapabilityPolicy();
 
 describeWithDatabase('invite links and identity binding', () => {
   let app: ReturnType<typeof createApp>;
@@ -36,6 +38,7 @@ describeWithDatabase('invite links and identity binding', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       holidayAdminUids: new Set([HOLIDAY_ADMIN_UID]),
       logger: false,
       platformAdminUids: new Set([PLATFORM_ADMIN_UID]),
@@ -220,12 +223,23 @@ describeWithDatabase('invite links and identity binding', () => {
 
     const source = await registerUser('merge-source', 'Source User');
     const sourceGroupId = await createGroup(source.token, 'Source group', '7890');
+    const versionedLogin = await app.inject({
+      headers: {
+        'x-schedule-client-platform': 'miniprogram',
+        'x-schedule-client-version': '0.1.0-p6.20260824.79',
+      },
+      method: 'POST',
+      payload: { code: 'merge-source' },
+      url: '/auth/wechat/login',
+    });
+    expect(versionedLogin.statusCode, versionedLogin.body).toBe(200);
+    const versionedSourceToken = (versionedLogin.json() as { token: string }).token;
 
     const secondInvite = await createInvite(owner.token, groupId, {
       targetMembershipId,
     });
     const secondToken = (secondInvite.json() as { token: string }).token;
-    const merged = await acceptInvite(source.token, secondToken, 'Target User');
+    const merged = await acceptInvite(versionedSourceToken, secondToken, 'Target User');
     expect(merged.statusCode, merged.body).toBe(200);
     const mergedBody = merged.json() as { group: { id: string }; token?: string };
     expect(mergedBody.group.id).toBe(groupId);
@@ -233,6 +247,7 @@ describeWithDatabase('invite links and identity binding', () => {
     expect(verifyWechatSessionToken(mergedBody.token, TEST_SESSION_SECRET)).toMatchObject({
       appId: 'mock-mini-app-id',
       authVersion: 1,
+      clientVersion: '0.1.0-p6.20260824.79',
       openid: 'mock-openid-merge-source',
       provider: 'wechat_mini_program',
       sub: target.id,
@@ -486,6 +501,22 @@ describeWithDatabase('invite links and identity binding', () => {
     });
   }
 });
+
+function createTestClientCapabilityPolicy(): ClientCapabilityPolicy {
+  return new ClientCapabilityPolicy({
+    capabilities: {
+      core: true,
+      externalMessages: true,
+      global: true,
+      guest: true,
+      insights: true,
+      organization: true,
+      workflows: true,
+    },
+    legacyVersion: '0.1.0-p6.20260824.78',
+    supportedVersions: ['0.1.0-p6.20260824.78', '0.1.0-p6.20260824.79'],
+  });
+}
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');

@@ -1,3 +1,4 @@
+import { clientVersionSchema, type ClientVersion } from '@schedule/contracts';
 import { z } from 'zod';
 
 const portSchema = z.coerce.number().int().min(1).max(65_535);
@@ -34,6 +35,33 @@ const wechatSettings = {
 };
 const authSettings = {
   AUTH_PASSWORD_ENABLED: z.enum(['true', 'false']).default('false'),
+};
+const strictBooleanStringSchema = z.enum(['true', 'false']).default('false');
+const supportedClientVersionsSchema = z.preprocess(
+  (value) => {
+    if (value === undefined || (typeof value === 'string' && value.trim().length === 0)) {
+      return [];
+    }
+    return typeof value === 'string' ? value.split(',').map((part) => part.trim()) : value;
+  },
+  z
+    .array(clientVersionSchema)
+    .refine((versions) => new Set(versions).size === versions.length, 'versions must be unique'),
+);
+const optionalClientVersionSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim().length === 0 ? undefined : value),
+  clientVersionSchema.optional(),
+);
+const clientCapabilitySettings = {
+  MINIPROGRAM_CAPABILITY_CORE_ENABLED: strictBooleanStringSchema,
+  MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED: strictBooleanStringSchema,
+  MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED: strictBooleanStringSchema,
+  MINIPROGRAM_CAPABILITY_GUEST_ENABLED: strictBooleanStringSchema,
+  MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED: strictBooleanStringSchema,
+  MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED: strictBooleanStringSchema,
+  MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED: strictBooleanStringSchema,
+  MINIPROGRAM_LEGACY_CLIENT_VERSION: optionalClientVersionSchema,
+  MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: supportedClientVersionsSchema,
 };
 const vapidSettings = {
   VAPID_PRIVATE_KEY: optionalTextSchema,
@@ -87,11 +115,22 @@ function hasValidProductionPasswordConfiguration(environment: {
   return true;
 }
 
+function hasValidClientVersionConfiguration(environment: {
+  readonly MINIPROGRAM_LEGACY_CLIENT_VERSION?: ClientVersion | undefined;
+  readonly MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: readonly ClientVersion[];
+}): boolean {
+  const supported = environment.MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS;
+  const legacy = environment.MINIPROGRAM_LEGACY_CLIENT_VERSION;
+  if (supported.length === 0) return legacy === undefined;
+  return legacy !== undefined && supported.includes(legacy);
+}
+
 export const environmentSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
     ...authSettings,
+    ...clientCapabilitySettings,
     ...applicationSettings,
     ...databaseSettings,
     ...operationSettings,
@@ -117,6 +156,11 @@ export const environmentSchema = z
     message: 'VAPID_SUBJECT, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be configured together',
     path: ['VAPID_SUBJECT'],
   })
+  .refine(hasValidClientVersionConfiguration, {
+    message:
+      'MINIPROGRAM_LEGACY_CLIENT_VERSION must be included in MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS, or both must be empty',
+    path: ['MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS'],
+  })
   .refine(hasCompleteWebWechatConfiguration, {
     message:
       'WECHAT_WEB_APPID, WECHAT_WEB_APPSECRET and WECHAT_WEB_REDIRECT_URI must be configured together',
@@ -132,6 +176,7 @@ const testEnvironmentSchema = z
     NODE_ENV: z.literal('test'),
     AUTH_DEV_MODE: z.enum(['true', 'false']).default('false'),
     ...authSettings,
+    ...clientCapabilitySettings,
     ...applicationSettings,
     BACKUP_DIR: requiredTextSchema.default('./backups'),
     TEST_MYSQL_HOST: requiredTextSchema.default('127.0.0.1'),
@@ -145,6 +190,11 @@ const testEnvironmentSchema = z
   .refine(hasCompleteVapidConfiguration, {
     message: 'VAPID_SUBJECT, VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be configured together',
     path: ['VAPID_SUBJECT'],
+  })
+  .refine(hasValidClientVersionConfiguration, {
+    message:
+      'MINIPROGRAM_LEGACY_CLIENT_VERSION must be included in MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS, or both must be empty',
+    path: ['MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS'],
   });
 
 export type Environment = z.infer<typeof environmentSchema>;
@@ -171,6 +221,19 @@ export function loadEnvironment(values: NodeJS.ProcessEnv = process.env): Enviro
       API_HOST: testResult.data.API_HOST,
       API_PORT: testResult.data.API_PORT,
       BACKUP_DIR: testResult.data.BACKUP_DIR,
+      MINIPROGRAM_CAPABILITY_CORE_ENABLED: testResult.data.MINIPROGRAM_CAPABILITY_CORE_ENABLED,
+      MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED:
+        testResult.data.MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED,
+      MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED: testResult.data.MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED,
+      MINIPROGRAM_CAPABILITY_GUEST_ENABLED: testResult.data.MINIPROGRAM_CAPABILITY_GUEST_ENABLED,
+      MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED:
+        testResult.data.MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED,
+      MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED:
+        testResult.data.MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED,
+      MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED:
+        testResult.data.MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED,
+      MINIPROGRAM_LEGACY_CLIENT_VERSION: testResult.data.MINIPROGRAM_LEGACY_CLIENT_VERSION,
+      MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: testResult.data.MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS,
       VAPID_PRIVATE_KEY: testResult.data.VAPID_PRIVATE_KEY,
       VAPID_PUBLIC_KEY: testResult.data.VAPID_PUBLIC_KEY,
       VAPID_SUBJECT: testResult.data.VAPID_SUBJECT,

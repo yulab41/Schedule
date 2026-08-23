@@ -18,6 +18,11 @@ import {
   type PastScheduleClient,
   type SchedulePublicationClient,
 } from '@schedule/client-core';
+import type { ClientEndpoint } from '@schedule/client-core';
+import {
+  requireClientCapability,
+  type ClientCapabilityRequirement,
+} from '../app/client-capability-store.js';
 import {
   executeWxJsonRequest,
   WxRequestNetworkError,
@@ -36,6 +41,11 @@ export interface RuntimeWechatRequestAuthentication {
   readonly recoverAccessToken: (failedToken: string) => Promise<string | undefined>;
 }
 
+type CapabilityResolver = (
+  endpoint: ClientEndpoint<unknown, unknown>,
+  input: unknown,
+) => ClientCapabilityRequirement;
+
 export function decodeCalendarReadPayload(value: unknown): unknown | undefined {
   const decoded = calendarReadModelDecoder.safeDecode(value);
   return decoded.success ? decoded.data : undefined;
@@ -53,6 +63,7 @@ export function getCalendarReadPath(groupId: string, businessMonth: string): str
 export function createWxJsonTransport(options: {
   readonly apiBaseUrl: string;
   readonly awaitAccessToken?: (() => Promise<string | undefined>) | undefined;
+  readonly capability: ClientCapabilityRequirement | CapabilityResolver;
   readonly delay?: ((milliseconds: number) => Promise<void>) | undefined;
   readonly finalizeUnauthorized?: ((failedToken: string) => void) | undefined;
   readonly getSessionGeneration?: (() => number) | undefined;
@@ -68,6 +79,11 @@ export function createWxJsonTransport(options: {
         const idempotencyKey = endpoint.idempotencyKey?.(input);
         const body = endpoint.body?.(input);
         const path = endpoint.path(input);
+        const capability =
+          typeof options.capability === 'function'
+            ? options.capability(endpoint as ClientEndpoint<unknown, unknown>, input)
+            : options.capability;
+        await requireClientCapability(capability);
         let accessToken = endpoint.auth === 'bearer' ? options.getAccessToken() : undefined;
         if (
           endpoint.auth === 'bearer' &&
@@ -99,6 +115,7 @@ export function createWxJsonTransport(options: {
                     : { sessionGeneration: options.sessionGeneration() }),
                 },
               }),
+          capability,
           ...(body === undefined ? {} : { data: body }),
           ...(options.delay === undefined ? {} : { delay: options.delay }),
           ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
@@ -125,9 +142,11 @@ export function createWxJsonTransport(options: {
 function createRuntimeWxJsonTransport(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
+  capability: ClientCapabilityRequirement | CapabilityResolver = 'core',
 ): ClientTransport {
   return createWxJsonTransport({
     apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
+    capability,
     ...(authentication === undefined
       ? {}
       : {
@@ -154,7 +173,7 @@ export function createRuntimeGroupMobilePhoneConsentClient(
   authentication?: RuntimeWechatRequestAuthentication,
 ): GroupMobilePhoneConsentClient {
   return createGroupMobilePhoneConsentClient(
-    createRuntimeWxJsonTransport(getAccessToken, authentication),
+    createRuntimeWxJsonTransport(getAccessToken, authentication, resolvePhoneConsentCapability),
   );
 }
 
@@ -179,4 +198,24 @@ export function createRuntimeCalendarReadClient(
   authentication?: RuntimeWechatRequestAuthentication,
 ): CalendarReadClient {
   return createCalendarReadClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
+}
+
+function resolvePhoneConsentCapability(
+  endpoint: ClientEndpoint<unknown, unknown>,
+  input: unknown,
+): ClientCapabilityRequirement {
+  if (endpoint.id === 'group-mobile-phone-consent.status') return 'bypass';
+  if (
+    endpoint.id === 'group-mobile-phone-consent.update' &&
+    isRecord(input) &&
+    isRecord(input['request']) &&
+    input['request']['consented'] === false
+  ) {
+    return 'bypass';
+  }
+  return 'core';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

@@ -10,6 +10,10 @@ import {
 
 import { buildInfo } from '../../platform/build-info.js';
 import {
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../../app/client-capability-store.js';
+import {
   canUseWorkbenchOfflineFallback,
   clearWorkbenchGroupCaches,
   createWorkbenchReadClient,
@@ -232,16 +236,19 @@ Page({
   onLoad(this: WorkbenchPageInstance): void {
     this.isVisible = true;
     this.setData(createShellLayoutPatch());
-    void loadWorkbench(this);
+    void loadWorkbenchWithCapability(this);
   },
 
   onShow(this: WorkbenchPageInstance): void {
     this.isVisible = true;
-    if (!this.hasShown) {
-      this.hasShown = true;
-      return;
-    }
-    void loadWorkbench(this, { forceRefresh: true });
+    const isInitialShow = !this.hasShown;
+    this.hasShown = true;
+    void requireClientCapability('core')
+      .then(() => {
+        if (isInitialShow) return;
+        return loadWorkbench(this, { forceRefresh: true });
+      })
+      .catch((error: unknown) => setWorkbenchCapabilityError(this, error));
   },
 
   onHide(this: WorkbenchPageInstance): void {
@@ -289,7 +296,7 @@ Page({
       selectedLabel: formatDateLabel(today),
       weekStart: getWeekStartDate(today),
     });
-    void loadWorkbench(this);
+    void loadWorkbenchWithCapability(this);
   },
 
   handleOpenGroupSettings(this: WorkbenchPageInstance): void {
@@ -588,7 +595,7 @@ Page({
   preventSheetTouchMove(): void {},
 
   handleRetry(this: WorkbenchPageInstance): void {
-    void loadWorkbench(this);
+    void loadWorkbenchWithCapability(this);
   },
 
   handleOpenIdentity(this: WorkbenchPageInstance): void {
@@ -723,6 +730,29 @@ async function loadWorkbench(
       state: 'error',
     });
   }
+}
+
+async function loadWorkbenchWithCapability(
+  page: WorkbenchPageInstance,
+  options: { readonly forceRefresh?: boolean } = {},
+): Promise<void> {
+  try {
+    await requireClientCapability('core');
+    await loadWorkbench(page, options);
+  } catch (error) {
+    setWorkbenchCapabilityError(page, error);
+  }
+}
+
+function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown): void {
+  if (!(error instanceof ClientCapabilityDisabledError)) return;
+  page.requestSerial += 1;
+  page.setData({
+    canReLogin: false,
+    errorMessage: error.message,
+    offlineNotice: '',
+    state: 'error',
+  });
 }
 
 async function readMonth(

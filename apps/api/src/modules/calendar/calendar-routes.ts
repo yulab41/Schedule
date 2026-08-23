@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { createPublicMiniCapabilityGuard } from '../../plugins/client-capability-guard.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { CalendarQuery } from './calendar-query.js';
 import type { VisitorAccessLogService } from './visitor-access-log.js';
 
@@ -24,6 +26,7 @@ export function registerCalendarRoutes(
   app: FastifyInstance,
   calendarQuery: CalendarQuery,
   visitorAccessLogService: VisitorAccessLogService,
+  clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
 ): void {
   app.get('/groups/:groupId/calendar', { preHandler: app.authenticate }, (request) =>
     calendarQuery.readMonth(
@@ -52,27 +55,37 @@ export function registerCalendarRoutes(
     ),
   );
 
-  app.post('/guest/groups/resolve', async (request, reply) => {
-    const input = parseOrThrow(visitorResolveRequestSchema, request.body);
-    return reply.code(200).send(await visitorAccessLogService.resolveGroup(input.visitorKey));
-  });
+  const publicMiniGuestGuard = createPublicMiniCapabilityGuard(clientCapabilityPolicy);
 
-  app.get('/guest/groups/:groupId/calendar', async (request) => {
-    const groupId = parseGroupId(request);
-    const input = parseGuestCalendarQuery(request.query);
-    const resolved = await visitorAccessLogService.resolveGroup(input.visitorKey, groupId);
-    const calendar = await calendarQuery.readGuestMonthByGroupId(
-      resolved.groupId,
-      input.businessMonth,
-    );
-    await visitorAccessLogService.recordAccess(
-      resolved.groupId,
-      input.businessMonth,
-      request.ip,
-      request.id,
-    );
-    return calendar;
-  });
+  app.post(
+    '/guest/groups/resolve',
+    { preHandler: publicMiniGuestGuard },
+    async (request, reply) => {
+      const input = parseOrThrow(visitorResolveRequestSchema, request.body);
+      return reply.code(200).send(await visitorAccessLogService.resolveGroup(input.visitorKey));
+    },
+  );
+
+  app.get(
+    '/guest/groups/:groupId/calendar',
+    { preHandler: publicMiniGuestGuard },
+    async (request) => {
+      const groupId = parseGroupId(request);
+      const input = parseGuestCalendarQuery(request.query);
+      const resolved = await visitorAccessLogService.resolveGroup(input.visitorKey, groupId);
+      const calendar = await calendarQuery.readGuestMonthByGroupId(
+        resolved.groupId,
+        input.businessMonth,
+      );
+      await visitorAccessLogService.recordAccess(
+        resolved.groupId,
+        input.businessMonth,
+        request.ip,
+        request.id,
+      );
+      return calendar;
+    },
+  );
 }
 
 function getAuthenticatedIdentity(request: FastifyRequest) {

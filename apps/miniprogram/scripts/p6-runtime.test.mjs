@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import { calendarApiGoldenResponse, holidayApiGoldenResponse } from '@schedule/client-core/testing';
+import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -18,11 +19,13 @@ function createStorageWx(initial = {}) {
 async function importRuntime() {
   vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
   vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
-  return Promise.all([
+  const modules = await Promise.all([
     import('../src/platform/wechat-identity.ts'),
     import('../src/platform/workbench-read.ts'),
     import('../src/platform/client-core-calendar.ts'),
   ]);
+  await enableTestClientCapabilities();
+  return modules;
 }
 
 describe('P6-A session, transport and private cache runtime', () => {
@@ -246,6 +249,7 @@ describe('P6-A session, transport and private cache runtime', () => {
     );
 
     const pending = client.getHolidays(2026);
+    await vi.waitFor(() => expect(completeRequest).toBeTypeOf('function'));
     identity.persistWechatSession(authenticated('user-2', now, 'new'));
     completeRequest({ data: holidayApiGoldenResponse, statusCode: 200 });
     await expect(pending).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED', status: 401 });

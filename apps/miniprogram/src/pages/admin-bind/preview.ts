@@ -1,5 +1,9 @@
 import { buildInfo } from '../../platform/build-info.js';
 import {
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../../app/client-capability-store.js';
+import {
   confirmAdminBinding,
   getIdentityErrorMessage,
   persistWechatSession,
@@ -87,14 +91,26 @@ Page({
       return;
     }
     this.setData({ loading: true, mode: 'loading' });
-    void previewAdminBinding(ticket)
+    void requireClientCapability('core')
+      .then(() => previewAdminBinding(ticket))
       .then((result) => this.setData(previewPatch(result)))
-      .catch((error: unknown) =>
-        this.setData({
-          errorMessage: getIdentityErrorMessage(error),
-          loading: false,
-          mode: 'error',
-        }),
-      );
+      .catch((error: unknown) => setAdminBindingCapabilityError(this, error));
+  },
+
+  onShow(this: AdminBindingPageInstance): void {
+    void requireClientCapability('core').catch((error: unknown) =>
+      setAdminBindingCapabilityError(this, error),
+    );
   },
 });
+
+function setAdminBindingCapabilityError(page: AdminBindingPageInstance, error: unknown): void {
+  page.setData({
+    errorMessage:
+      error instanceof ClientCapabilityDisabledError
+        ? error.message
+        : getIdentityErrorMessage(error),
+    loading: false,
+    mode: 'error',
+  });
+}

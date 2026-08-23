@@ -1,5 +1,9 @@
 import { runtimeConfig } from './runtime-config.js';
 import {
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../app/client-capability-store.js';
+import {
   clearPrivateBusinessStorage,
   clearWechatSessionStorage,
   WECHAT_SESSION_STORAGE_KEY,
@@ -155,6 +159,7 @@ async function postJson(
   const idempotencyKey = readString(extraHeaders['Idempotency-Key']);
   try {
     const response = await executeWxJsonRequest({
+      capability: 'core',
       data,
       header: { 'content-type': 'application/json', ...extraHeaders },
       ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
@@ -167,6 +172,7 @@ async function postJson(
     }
     return response.data;
   } catch (error) {
+    if (error instanceof ClientCapabilityDisabledError) throw error;
     if (error instanceof WechatIdentityClientError) throw error;
     if (error instanceof WxRequestNetworkError) {
       throw new WechatIdentityClientError('网络连接失败，请稍后重试。');
@@ -193,6 +199,7 @@ function getWechatCode(): Promise<string> {
 }
 
 export async function loginWithWechat(): Promise<WechatLoginResult> {
+  await requireClientCapability('core');
   return decodeLogin(await postJson('/auth/wechat/login', { code: await getWechatCode() }));
 }
 
@@ -201,6 +208,7 @@ export async function linkWechatPassword(
   username: string,
   password: string,
 ): Promise<WechatAuthenticatedResult> {
+  await requireClientCapability('core');
   return decodeAuthenticated(
     await postJson('/auth/wechat/link-password', { linkToken, password, username }),
   );
@@ -210,16 +218,19 @@ export async function registerWechat(
   linkToken: string,
   realName: string,
 ): Promise<WechatAuthenticatedResult> {
+  await requireClientCapability('core');
   return decodeAuthenticated(await postJson('/auth/wechat/register', { linkToken, realName }));
 }
 
 export async function previewAdminBinding(
   ticket: string,
 ): Promise<WechatAdminBindingPreviewResult> {
+  await requireClientCapability('core');
   return decodePreview(await postJson('/auth/wechat/admin-bind/preview', { ticket }));
 }
 
 export async function confirmAdminBinding(ticket: string): Promise<WechatAuthenticatedResult> {
+  await requireClientCapability('core');
   return decodeAuthenticated(
     await postJson('/auth/wechat/admin-bind/confirm', { code: await getWechatCode(), ticket }),
   );
@@ -242,6 +253,7 @@ export async function unbindWechatIdentity(idempotencyKey: string): Promise<Wech
         recoverAccessToken: recoverWechatSession,
         sessionGeneration: getWechatSessionGeneration(),
       },
+      capability: 'bypass',
       data: { code: await getWechatCode() },
       header: { 'content-type': 'application/json' },
       idempotencyKey,
@@ -371,6 +383,7 @@ export function finalizeWechatUnauthorized(failedToken: string): void {
 }
 
 export function getIdentityErrorMessage(error: unknown): string {
+  if (error instanceof ClientCapabilityDisabledError) return error.message;
   return error instanceof WechatIdentityClientError ? error.message : '操作未完成，请稍后重试。';
 }
 

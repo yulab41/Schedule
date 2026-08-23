@@ -22,6 +22,8 @@ const wechatGatewayStatusCodes: Readonly<Record<ApiErrorCode, number>> = {
   INVITE_USED: 409,
   INVITE_EXPIRED: 410,
   VISITOR_KEY_INVALID: 404,
+  CLIENT_VERSION_UNSUPPORTED: 426,
+  CLIENT_CAPABILITY_DISABLED: 503,
 };
 
 const wechatGatewayUserMessages: Readonly<Record<ApiErrorCode, string>> = {
@@ -43,6 +45,8 @@ const wechatGatewayUserMessages: Readonly<Record<ApiErrorCode, string>> = {
   INVITE_USED: '邀请链接已被使用。',
   INVITE_EXPIRED: '邀请链接已过期。',
   VISITOR_KEY_INVALID: '访客链接无效。',
+  CLIENT_VERSION_UNSUPPORTED: '当前客户端版本不受支持，请更新后重试。',
+  CLIENT_CAPABILITY_DISABLED: '当前客户端功能已暂停，请稍后重试。',
 };
 
 export function toWechatGatewayApiError(error: WechatGatewayError): ApiError {

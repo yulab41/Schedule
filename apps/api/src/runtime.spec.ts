@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { loadEnvironment } from './config/env.js';
-import { isDevAuthEnabled } from './runtime.js';
+import { createClientCapabilityPolicy, isDevAuthEnabled } from './runtime.js';
 
 const validEnvironment = {
   MYSQL_DATABASE: 'schedule_dev',
@@ -60,5 +60,31 @@ describe('isDevAuthEnabled', () => {
         }),
       ),
     ).toBe(false);
+  });
+});
+
+describe('createClientCapabilityPolicy', () => {
+  it('keeps the runtime deny-all with an empty allowlist by default', () => {
+    const policy = createClientCapabilityPolicy(loadEnvironment(validEnvironment));
+    expect(policy.resolve('miniprogram', '0.1.0-p6.20260824.79')).toBeUndefined();
+    expect(policy.resolveLegacyMini()).toBeUndefined();
+  });
+
+  it('uses only explicitly configured exact versions and effective switches', () => {
+    const policy = createClientCapabilityPolicy(
+      loadEnvironment({
+        ...validEnvironment,
+        MINIPROGRAM_CAPABILITY_CORE_ENABLED: 'true',
+        MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED: 'true',
+        MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
+        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.78,0.1.0-p6.20260824.79',
+      }),
+    );
+    expect(policy.resolveLegacyMini()).toMatchObject({ core: true, global: true });
+    expect(policy.resolve('miniprogram', '0.1.0-p6.20260824.79')).toMatchObject({
+      core: true,
+      global: true,
+      workflows: false,
+    });
   });
 });

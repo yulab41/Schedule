@@ -3,6 +3,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { createPublicMiniCapabilityGuard } from '../../plugins/client-capability-guard.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { HolidayService } from './holiday-service.js';
 
 const yearSchema = z.coerce.number().int().min(1900).max(2100);
@@ -27,13 +29,19 @@ const holidayImportInputSchema = z
   })
   .strict();
 
-export function registerHolidayRoutes(app: FastifyInstance, holidayService: HolidayService): void {
+export function registerHolidayRoutes(
+  app: FastifyInstance,
+  holidayService: HolidayService,
+  clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
+): void {
   app.get('/holidays', { preHandler: app.authenticate }, (request) =>
     holidayService.getConfirmed(getAuthenticatedIdentity(request), parseYearQuery(request)),
   );
 
-  app.get('/guest/holidays', (request) =>
-    holidayService.getConfirmedPublic(parseYearQuery(request)),
+  app.get(
+    '/guest/holidays',
+    { preHandler: createPublicMiniCapabilityGuard(clientCapabilityPolicy) },
+    (request) => holidayService.getConfirmedPublic(parseYearQuery(request)),
   );
 
   app.post('/holidays/import-preview', { preHandler: app.authenticate }, (request) =>

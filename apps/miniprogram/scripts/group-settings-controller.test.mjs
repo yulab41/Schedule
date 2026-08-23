@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const membershipId = '22222222-2222-4222-8222-222222222222';
@@ -71,6 +72,7 @@ describe('P5 native group mobile-phone consent controller', () => {
       }),
     });
     await import('../src/subpackages/organization/pages/group-settings/index.ts');
+    await enableTestClientCapabilities();
   });
 
   afterEach(() => {

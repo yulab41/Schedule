@@ -16,6 +16,7 @@ import {
   verifyWechatSessionToken,
 } from '../../adapters/auth/wechat-auth.js';
 import { createApp } from '../../app.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { hashPassword, PasswordAuthService } from '../auth/password-auth-service.js';
 import {
   WechatGatewayError,
@@ -29,6 +30,7 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 const TEST_SESSION_SECRET = 'test-wechat-session-secret-0123456789abcdef';
+const TEST_CLIENT_CAPABILITY_POLICY = createTestClientCapabilityPolicy();
 
 describeWithDatabase('wechat authentication and sessions', () => {
   let app: ReturnType<typeof createApp>;
@@ -46,6 +48,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: createMockWechatGateway(),
       wechatSessionSecret: TEST_SESSION_SECRET,
@@ -117,6 +120,77 @@ describeWithDatabase('wechat authentication and sessions', () => {
       sql`SELECT COUNT(*) AS count FROM wechat_link_tokens`,
     );
     expect(links).toEqual([{ count: 2 }]);
+  });
+
+  it('signs the exact paired Mini client version and rejects unknown versions before the gateway', async () => {
+    await seedKnownMiniUser('signed-client-version');
+    const signed = await app.inject({
+      headers: {
+        'x-schedule-client-platform': 'miniprogram',
+        'x-schedule-client-version': '0.1.0-p6.20260824.79',
+      },
+      method: 'POST',
+      payload: { code: 'signed-client-version' },
+      url: '/auth/wechat/login',
+    });
+    expect(signed.statusCode, signed.body).toBe(200);
+    const signedToken = (signed.json() as { token: string }).token;
+    expect(verifyWechatSessionToken(signedToken, TEST_SESSION_SECRET)).toMatchObject({
+      clientVersion: '0.1.0-p6.20260824.79',
+      provider: 'wechat_mini_program',
+    });
+    expect(
+      await createWechatAuthPort({
+        allowDevTokens: false,
+        databaseClient: client,
+        sessionSecret: TEST_SESSION_SECRET,
+      }).authenticate({ authorization: `Bearer ${signedToken}` }),
+    ).toMatchObject({
+      clientPlatform: 'miniprogram',
+      clientVersion: '0.1.0-p6.20260824.79',
+    });
+    expect((await readProfile(signedToken)).statusCode).toBe(200);
+
+    let gatewayCalls = 0;
+    const countingGateway: WechatGateway = {
+      appId: 'counting-mini-app',
+      isConfigured: true,
+      async exchangeCode() {
+        gatewayCalls += 1;
+        return { openid: 'must-not-run', sessionKey: undefined, unionid: undefined };
+      },
+      async getUnlimitedQr() {
+        return new Uint8Array();
+      },
+      async sendSubscribeMessage() {
+        return { messageId: null };
+      },
+    };
+    const countingApp = createApp({
+      authPort: createWechatAuthPort({
+        allowDevTokens: false,
+        databaseClient: client,
+        sessionSecret: TEST_SESSION_SECRET,
+      }),
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
+      databaseClient: client,
+      logger: false,
+      wechatGateway: countingGateway,
+      wechatSessionSecret: TEST_SESSION_SECRET,
+    });
+    extraApps.push(countingApp);
+    const unsupported = await countingApp.inject({
+      headers: {
+        'x-schedule-client-platform': 'miniprogram',
+        'x-schedule-client-version': '0.1.0-p6.20260824.80',
+      },
+      method: 'POST',
+      payload: { code: 'unknown-client-version' },
+      url: '/auth/wechat/login',
+    });
+    expect(unsupported.statusCode).toBe(426);
+    expect(unsupported.json()).toMatchObject({ error: { code: 'CLIENT_VERSION_UNSUPPORTED' } });
+    expect(gatewayCalls).toBe(0);
   });
 
   it('accepts rollout-era version-1 tokens and rejects old and new tokens after authVersion changes', async () => {
@@ -194,6 +268,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       passwordAuthService: passwordService,
     });
@@ -336,6 +411,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: miniGateway,
       wechatSessionSecret: TEST_SESSION_SECRET,
@@ -443,6 +519,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: conflictGateway,
       wechatSessionSecret: TEST_SESSION_SECRET,
@@ -600,6 +677,10 @@ describeWithDatabase('wechat authentication and sessions', () => {
     const pending = await loginForLink('password-link');
 
     const response = await app.inject({
+      headers: {
+        'x-schedule-client-platform': 'miniprogram',
+        'x-schedule-client-version': '0.1.0-p6.20260824.79',
+      },
       method: 'POST',
       payload: {
         linkToken: pending.linkToken,
@@ -622,6 +703,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
     expect(verifyWechatSessionToken(body.token, TEST_SESSION_SECRET)).toMatchObject({
       appId: 'mock-mini-app-id',
       authVersion: 3,
+      clientVersion: '0.1.0-p6.20260824.79',
       openid: 'mock-openid-password-link',
       provider: 'wechat_mini_program',
       sub: userId,
@@ -685,6 +767,10 @@ describeWithDatabase('wechat authentication and sessions', () => {
   it('registers a new Mini-only user, profile, identity, and session in one transaction', async () => {
     const pending = await loginForLink('new-registration');
     const response = await app.inject({
+      headers: {
+        'x-schedule-client-platform': 'miniprogram',
+        'x-schedule-client-version': '0.1.0-p6.20260824.79',
+      },
       method: 'POST',
       payload: { linkToken: pending.linkToken, realName: '  李医生  ' },
       url: '/auth/wechat/register',
@@ -704,6 +790,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
     expect(claims).toMatchObject({
       appId: 'mock-mini-app-id',
       authVersion: 1,
+      clientVersion: '0.1.0-p6.20260824.79',
       openid: 'mock-openid-new-registration',
       provider: 'wechat_mini_program',
       sub: body.profile.id,
@@ -837,6 +924,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: undefined,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: createMockWechatGateway(),
       wechatSessionSecret: undefined,
@@ -939,6 +1027,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: unionGateway,
       wechatSessionSecret: TEST_SESSION_SECRET,
@@ -1024,6 +1113,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: undefined,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: createMockWechatGateway(),
     });
@@ -1046,6 +1136,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
     });
     extraApps.push(devApp);
@@ -1079,6 +1170,7 @@ describeWithDatabase('wechat authentication and sessions', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: failingGateway,
       wechatSessionSecret: TEST_SESSION_SECRET,
@@ -1195,6 +1287,22 @@ describeWithDatabase('wechat authentication and sessions', () => {
     return userId;
   }
 });
+
+function createTestClientCapabilityPolicy(): ClientCapabilityPolicy {
+  return new ClientCapabilityPolicy({
+    capabilities: {
+      core: true,
+      externalMessages: true,
+      global: true,
+      guest: true,
+      insights: true,
+      organization: true,
+      workflows: true,
+    },
+    legacyVersion: '0.1.0-p6.20260824.78',
+    supportedVersions: ['0.1.0-p6.20260824.78', '0.1.0-p6.20260824.79'],
+  });
+}
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');

@@ -3,6 +3,7 @@ import {
   holidayApiGoldenResponse,
   pastScheduleBackfillBatchGoldenResult,
 } from '@schedule/client-core/testing';
+import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 describe('P5 native atomic backfill controller', () => {
   let definition;
@@ -27,6 +28,7 @@ describe('P5 native atomic backfill controller', () => {
       setStorageSync: vi.fn(),
     });
     await import('../src/subpackages/scheduling/pages/backfill/index.ts');
+    await enableTestClientCapabilities();
   });
 
   afterEach(() => {

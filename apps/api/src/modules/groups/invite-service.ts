@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import type {
   AcceptInviteResponse,
+  ClientVersion,
   CreateInviteLinkResponse,
   GroupRole,
   InvitePermissionRole,
@@ -45,8 +46,12 @@ export interface CreateInviteLinkInput {
 export interface InviteServiceOptions {
   readonly databaseClient: DatabaseClient;
   readonly holidayAdminUids?: ReadonlySet<string>;
-  readonly issueSessionForUser?:
-    ((userId: string, openid: string, authVersion: number) => string) | undefined;
+  readonly issueSessionForUser?: (
+    userId: string,
+    openid: string,
+    authVersion: number,
+    clientVersion?: ClientVersion,
+  ) => string;
   readonly platformAdminUids?: ReadonlySet<string>;
 }
 
@@ -55,7 +60,13 @@ export class InviteService {
   private readonly databaseClient: DatabaseClient;
   private readonly holidayAdminUids: ReadonlySet<string>;
   private readonly issueSessionForUser:
-    ((userId: string, openid: string, authVersion: number) => string) | undefined;
+    | ((
+        userId: string,
+        openid: string,
+        authVersion: number,
+        clientVersion?: ClientVersion,
+      ) => string)
+    | undefined;
   private readonly permissionService = new GroupPermissionService();
   private readonly platformAdminUids: ReadonlySet<string>;
 
@@ -218,7 +229,13 @@ export class InviteService {
       if (invite.targetRosterEntryId !== null) {
         role = await this.acceptRosterTarget(transaction, group, invite, currentUser.id);
       } else if (invite.targetMembershipId !== null) {
-        const result = await this.acceptMembershipTarget(transaction, group, invite, currentUser);
+        const result = await this.acceptMembershipTarget(
+          transaction,
+          group,
+          invite,
+          currentUser,
+          identity.clientVersion,
+        );
         role = result.role;
         tokenOverride = result.token;
       } else {
@@ -447,6 +464,7 @@ export class InviteService {
     },
     invite: typeof inviteTokens.$inferSelect,
     currentUser: { readonly cloudbaseUid: string; readonly id: string; readonly realName: string },
+    clientVersion?: ClientVersion,
   ): Promise<{ readonly role: GroupRole; readonly token: string | undefined }> {
     const [membership] = await transaction
       .select({
@@ -498,7 +516,14 @@ export class InviteService {
       return { role: invite.permissionRole, token: undefined };
     }
 
-    return this.mergeWechatAccounts(transaction, group, invite, membership, currentUser);
+    return this.mergeWechatAccounts(
+      transaction,
+      group,
+      invite,
+      membership,
+      currentUser,
+      clientVersion,
+    );
   }
 
   private async mergeWechatAccounts(
@@ -517,6 +542,7 @@ export class InviteService {
       readonly userId: string;
     },
     currentUser: { readonly cloudbaseUid: string; readonly id: string; readonly realName: string },
+    clientVersion?: ClientVersion,
   ): Promise<{ readonly role: GroupRole; readonly token: string | undefined }> {
     if (
       this.platformAdminUids.has(currentUser.cloudbaseUid) ||
@@ -650,7 +676,12 @@ export class InviteService {
     }
     return {
       role: targetMembership.role as GroupRole,
-      token: this.issueSessionForUser(targetMembership.userId, openid, targetUserRow.authVersion),
+      token: this.issueSessionForUser(
+        targetMembership.userId,
+        openid,
+        targetUserRow.authVersion,
+        clientVersion,
+      ),
     };
   }
 

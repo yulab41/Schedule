@@ -28,6 +28,25 @@ describe('versioned WeChat session claims', () => {
     });
   });
 
+  it('signs an exact Mini clientVersion while retaining unknown future claims', () => {
+    const claims = {
+      appId: 'mini-app-id',
+      authVersion: 3,
+      clientVersion: '0.1.0-p6.20260824.79',
+      futureClaim: 'accepted-by-old-verifier',
+      openid: 'mini-openid',
+      provider: 'wechat_mini_program' as const,
+      sub: 'user-1',
+    };
+    const token = createWechatSessionToken(claims, secret, 1_000);
+
+    expect(verifyWechatSessionToken(token, secret, 1_001)).toMatchObject({
+      clientVersion: '0.1.0-p6.20260824.79',
+      futureClaim: 'accepted-by-old-verifier',
+      provider: 'wechat_mini_program',
+    });
+  });
+
   it('keeps rollout-era claims without authVersion or AppID readable as legacy version 1', () => {
     const token = createWechatSessionToken(
       { openid: 'legacy-openid', provider: 'wechat_mini_program', sub: 'user-legacy' },
@@ -59,6 +78,18 @@ describe('versioned WeChat session claims', () => {
       },
       {
         authVersion: 1.5,
+        openid: 'username',
+        provider: 'password' as const,
+        sub: 'user-1',
+      },
+      {
+        clientVersion: 'not-a-version',
+        openid: 'mini-openid',
+        provider: 'wechat_mini_program' as const,
+        sub: 'user-1',
+      },
+      {
+        clientVersion: '0.1.0-p6.20260824.79',
         openid: 'username',
         provider: 'password' as const,
         sub: 'user-1',

@@ -6,6 +6,8 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
+import { resolveMiniClientVersion } from '../client-capabilities/client-version-headers.js';
 import type { WechatAdminBindingService } from './wechat-admin-binding-service.js';
 
 const userIdSchema = z.string().uuid();
@@ -13,6 +15,7 @@ const userIdSchema = z.string().uuid();
 export function registerWechatAdminBindingRoutes(
   app: FastifyInstance,
   service: WechatAdminBindingService,
+  clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
 ): void {
   app.post(
     '/platform-admin/users/:userId/wechat-miniprogram-binding-links',
@@ -26,7 +29,11 @@ export function registerWechatAdminBindingRoutes(
   );
 
   app.post('/auth/wechat/admin-bind/confirm', async (request) =>
-    service.confirm(parseConfirmInput(request.body), request.id),
+    service.confirm(
+      parseConfirmInput(request.body),
+      request.id,
+      resolveMiniClientVersion(request, clientCapabilityPolicy),
+    ),
   );
 }
 

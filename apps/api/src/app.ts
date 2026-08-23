@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { AuthPort } from './adapters/auth/auth-port.js';
+import type { ClientVersion } from '@schedule/contracts';
 import type { DatabaseClient } from '@schedule/database';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
@@ -71,6 +72,8 @@ import { registerDirectoryRoutes } from './modules/directory/directory-routes.js
 import { DirectoryQuery } from './modules/directory/directory-query.js';
 import { registerCalendarPreferencesRoutes } from './modules/calendar-preferences/calendar-preferences-routes.js';
 import { CalendarPreferencesService } from './modules/calendar-preferences/calendar-preferences-service.js';
+import { ClientCapabilityPolicy } from './modules/client-capabilities/client-capability-policy.js';
+import { registerClientCapabilityRoutes } from './modules/client-capabilities/client-capability-routes.js';
 
 type ApiLoggerOptions = NonNullable<FastifyServerOptions['logger']>;
 type ApiLoggerConfiguration = Exclude<ApiLoggerOptions, boolean>;
@@ -83,6 +86,7 @@ declare module 'fastify' {
 
 export interface CreateAppOptions {
   readonly authPort?: AuthPort;
+  readonly clientCapabilityPolicy?: ClientCapabilityPolicy;
   readonly databaseClient?: DatabaseClient;
   readonly holidayAdminUids?: ReadonlySet<string>;
   readonly logger?: false;
@@ -104,6 +108,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
   registerRequestContext(app);
   registerErrorHandler(app);
+  const clientCapabilityPolicy =
+    options.clientCapabilityPolicy ?? ClientCapabilityPolicy.disabled();
+  registerClientCapabilityRoutes(app, clientCapabilityPolicy);
   if (options.wechatGateway !== undefined) {
     app.decorate('wechatGateway', options.wechatGateway);
   }
@@ -112,7 +119,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   app.get('/ready', () => getApiStatus());
 
   if (options.authPort !== undefined && options.databaseClient !== undefined) {
-    registerAuthentication(app, options.authPort);
+    registerAuthentication(app, options.authPort, clientCapabilityPolicy);
     registerUserRoutes(app, new UserService(options.databaseClient));
     if (options.passwordAuthService !== undefined) {
       registerPasswordAuthRoutes(app, options.passwordAuthService);
@@ -126,7 +133,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         gateway: options.wechatGateway,
         sessionSecret: options.wechatSessionSecret,
       });
-      registerWechatAuthRoutes(app, wechatAuthService);
+      registerWechatAuthRoutes(app, wechatAuthService, clientCapabilityPolicy);
       registerWechatIdentityUnbindRoutes(
         app,
         new WechatIdentityUnbindService({
@@ -143,6 +150,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
           gateway: options.wechatGateway,
           sessionSecret: options.wechatSessionSecret,
         }),
+        clientCapabilityPolicy,
       );
     }
     if (options.wechatWebAuthService !== undefined) {
@@ -153,11 +161,17 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new InviteService({
         databaseClient: options.databaseClient,
         holidayAdminUids,
-        issueSessionForUser:
-          wechatAuthService === undefined
-            ? undefined
-            : (userId, openid, authVersion) =>
-                wechatAuthService.issueSessionForUser(userId, openid, authVersion),
+        ...(wechatAuthService === undefined
+          ? {}
+          : {
+              issueSessionForUser: (
+                userId: string,
+                openid: string,
+                authVersion: number,
+                clientVersion?: ClientVersion,
+              ) =>
+                wechatAuthService.issueSessionForUser(userId, openid, authVersion, clientVersion),
+            }),
         platformAdminUids,
       }),
     );
@@ -180,6 +194,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       app,
       new CalendarQuery(options.databaseClient),
       new VisitorAccessLogService(options.databaseClient),
+      clientCapabilityPolicy,
     );
     registerCalendarPreferencesRoutes(app, new CalendarPreferencesService(options.databaseClient));
     registerManualScheduleTemplateRoutes(
@@ -202,7 +217,11 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         options.pushDispatcher ?? createPushDispatcher(process.env),
       ),
     );
-    registerHolidayRoutes(app, new HolidayService(options.databaseClient, holidayAdminUids));
+    registerHolidayRoutes(
+      app,
+      new HolidayService(options.databaseClient, holidayAdminUids),
+      clientCapabilityPolicy,
+    );
     registerStatisticsRoutes(app, new StatisticsService(options.databaseClient));
     registerExportRoutes(app, new ExportService(options.databaseClient));
     registerPastScheduleRoutes(app, new PastScheduleService(options.databaseClient));

@@ -1,3 +1,9 @@
+import {
+  requireClientCapability,
+  type ClientCapabilityRequirement,
+} from '../app/client-capability-store.js';
+import { buildInfo } from './build-info.js';
+
 export interface WxJsonRequestSuccess {
   readonly data: unknown;
   readonly statusCode: number;
@@ -40,6 +46,7 @@ export interface WxRequestAuthenticationPolicy {
 
 export interface ExecuteWxJsonRequestInput {
   readonly authentication?: WxRequestAuthenticationPolicy | undefined;
+  readonly capability: ClientCapabilityRequirement;
   readonly data?: unknown;
   readonly delay?: ((milliseconds: number) => Promise<void>) | undefined;
   readonly header?: Readonly<Record<string, string>> | undefined;
@@ -66,6 +73,7 @@ export async function executeWxJsonRequest(
   let sessionGeneration = input.authentication?.sessionGeneration;
 
   for (;;) {
+    await requireClientCapability(input.capability);
     let response: WxJsonRequestSuccess;
     try {
       response = await requestOnce(input, accessToken);
@@ -131,6 +139,8 @@ function requestOnce(
   return new Promise((resolve, reject) => {
     const header = {
       ...(input.header ?? {}),
+      'X-Schedule-Client-Platform': 'miniprogram',
+      'X-Schedule-Client-Version': buildInfo.buildVersion,
       ...(accessToken === undefined ? {} : { Authorization: `Bearer ${accessToken}` }),
       ...(typeof input.idempotencyKey !== 'string' || input.idempotencyKey.length === 0
         ? {}

@@ -6,25 +6,51 @@ import {
 import type { FastifyInstance } from 'fastify';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
+import { resolveMiniClientVersion } from '../client-capabilities/client-version-headers.js';
 import type { WechatAuthService } from './wechat-auth-service.js';
 
 export function registerWechatAuthRoutes(
   app: FastifyInstance,
   wechatAuthService: WechatAuthService,
+  clientCapabilityPolicy: ClientCapabilityPolicy = ClientCapabilityPolicy.disabled(),
 ): void {
   app.post('/auth/wechat/login', async (request, reply) => {
     const input = parseWechatLoginRequest(request.body);
-    return reply.code(200).send(await wechatAuthService.login(input.code));
+    return reply
+      .code(200)
+      .send(
+        await wechatAuthService.login(
+          input.code,
+          resolveMiniClientVersion(request, clientCapabilityPolicy),
+        ),
+      );
   });
 
   app.post('/auth/wechat/link-password', async (request, reply) => {
     const input = parseWechatLinkPasswordRequest(request.body);
-    return reply.code(200).send(await wechatAuthService.linkPassword(input, request.id));
+    return reply
+      .code(200)
+      .send(
+        await wechatAuthService.linkPassword(
+          input,
+          request.id,
+          resolveMiniClientVersion(request, clientCapabilityPolicy),
+        ),
+      );
   });
 
   app.post('/auth/wechat/register', async (request, reply) => {
     const input = parseWechatRegisterRequest(request.body);
-    return reply.code(201).send(await wechatAuthService.register(input, request.id));
+    return reply
+      .code(201)
+      .send(
+        await wechatAuthService.register(
+          input,
+          request.id,
+          resolveMiniClientVersion(request, clientCapabilityPolicy),
+        ),
+      );
   });
 }
 

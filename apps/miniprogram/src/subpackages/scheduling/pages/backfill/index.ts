@@ -1,4 +1,8 @@
 import { ClientCoreError } from '@schedule/client-core';
+import {
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../../../../app/client-capability-store.js';
 import type {
   CalendarReadModel,
   ConfirmedHolidayDate,
@@ -208,10 +212,13 @@ Page({
   onLoad(this: BackfillPageInstance, query: Readonly<Record<string, string | undefined>>): void {
     this._initialPeriodId = decodeQueryValue(query['schedulePeriodId']);
     this.setData(createShellLayoutPatch());
-    void loadBackfillPage(this);
+    void loadBackfillPageWithCapability(this);
   },
 
   onShow(this: BackfillPageInstance): void {
+    void requireClientCapability('core').catch((error: unknown) =>
+      setBackfillCapabilityError(this, error),
+    );
     const today = getChinaStandardTimeBusinessDate();
     if (today !== this.data.today) {
       this.setData({ today });
@@ -228,7 +235,7 @@ Page({
   },
 
   handleReload(this: BackfillPageInstance): void {
-    void loadBackfillPage(this);
+    void loadBackfillPageWithCapability(this);
   },
 
   handleRoleChange(this: BackfillPageInstance, event: PickerChangeEvent): void {
@@ -410,6 +417,21 @@ async function loadBackfillPage(page: BackfillPageInstance): Promise<void> {
       state: 'error',
     });
   }
+}
+
+async function loadBackfillPageWithCapability(page: BackfillPageInstance): Promise<void> {
+  try {
+    await requireClientCapability('core');
+    await loadBackfillPage(page);
+  } catch (error) {
+    setBackfillCapabilityError(page, error);
+  }
+}
+
+function setBackfillCapabilityError(page: BackfillPageInstance, error: unknown): void {
+  if (!(error instanceof ClientCapabilityDisabledError)) return;
+  page._loadSerial += 1;
+  page.setData({ errorMessage: error.message, isBusy: false, state: 'error' });
 }
 
 async function loadCalendarContext(page: BackfillPageInstance): Promise<boolean> {

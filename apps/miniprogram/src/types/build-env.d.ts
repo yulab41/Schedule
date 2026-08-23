@@ -5,6 +5,7 @@ declare const __MINIPROGRAM_BUILD_VERSION__: string;
 
 declare function App<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function Component<TOptions extends Record<string, unknown>>(options: TOptions): void;
+declare function getApp<TApp = Record<string, unknown>>(): TApp;
 declare function Page<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function setTimeout(callback: () => void, milliseconds: number): unknown;
 

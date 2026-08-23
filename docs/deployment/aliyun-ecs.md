@@ -7,12 +7,19 @@
 服务器不负责安装依赖或编译。完成本地验证后，在仓库根目录执行：
 
 ```bash
-NODE_ENV=production AUTH_DEV_MODE=false AUTH_PASSWORD_ENABLED=true pnpm ecs:package
+RELEASE_COMMIT="$(git rev-parse HEAD)"
+ROLLBACK_CANDIDATE="<已审计且已保留在服务器的40位release>"
+NODE_ENV=production AUTH_DEV_MODE=false AUTH_PASSWORD_ENABLED=true \
+ECS_RELEASE_EXPECTED_COMMIT="$RELEASE_COMMIT" \
+ECS_ROLLBACK_CANDIDATE="$ROLLBACK_CANDIDATE" \
+pnpm ecs:package
 ```
 
-将 `runtime/ecs-release/` 中的三个产物，以及同一 commit 的 `infra/scripts/ecs-update.sh`、`infra/scripts/ecs-verify.sh`，上传到服务器独立临时目录。部署脚本不会持久化在 `/opt/schedule/infra/scripts/`，不得调用该路径或复用来源不明的旧 `/tmp/ecs-*.sh`。
+打包器会先重建工作区，并要求 Git tracked/untracked 均干净、commit 与显式变量一致、rollback candidate 是当前 commit 的祖先；六个发布 shell 必须为 LF 且逐文件通过 `bash -n`。将 `runtime/ecs-release/` 中的三个产物，以及同一 commit 的 `infra/scripts/ecs-update.sh`、`infra/scripts/ecs-verify.sh`，上传到服务器独立临时目录。不要复用来源不明的旧 `/tmp/ecs-*.sh`。
 
-从 Windows 上传时先把两份 shell 脚本规范化为 LF，并在服务器执行 `bash -n`。示例：
+成功部署后，归档内的 updater、verifier、rollback、capability switch 和数据库备份脚本会以 root 所有、不可被组/其他用户写入的形式安装到 `/usr/local/lib/schedule` 或 `/usr/local/bin`，并由独立 control-plane manifest 校验。应用回滚只回退 `/opt/schedule` 应用产物，控制面保持前向版本。
+
+从 Windows 上传后仍在服务器复核 LF 与 `bash -n`。示例：
 
 ```bash
 RELEASE_ID="$(sed -nE 's/.*"releaseId"[[:space:]]*:[[:space:]]*"([0-9a-f]{40})".*/\1/p' /tmp/deploy-manifest.json | head -1)"
@@ -28,7 +35,11 @@ bash "$SCRIPT_DIR/ecs-update.sh" \
 bash "$SCRIPT_DIR/ecs-verify.sh"
 ```
 
-发布前必须先备份生产数据库和当前 release。发布失败时保留上一份可用 release，按项目既有回滚流程恢复，不要删除其他站点的容器或配置。
+发布前必须先备份生产数据库和当前 release。发布失败时保留上一份可用 release，不要删除其他站点的容器或配置。部署后的显式应用回滚只接受当前 manifest 中的单一审计前驱，并在回退前再做数据库备份、artifact/hash/path/schema 兼容检查；回退后完整校验失败会自动前滚原版本：
+
+```bash
+sudo schedule-ecs-rollback <当前manifest声明的40位rollbackCandidate>
+```
 
 ## 生产认证配置
 
@@ -39,9 +50,18 @@ NODE_ENV=production
 AUTH_DEV_MODE=false
 AUTH_PASSWORD_ENABLED=true
 WECHAT_SESSION_SECRET=服务器上的随机长密钥
+MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79
+MINIPROGRAM_LEGACY_CLIENT_VERSION=0.1.0-p6.20260824.78
+MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED=true
+MINIPROGRAM_CAPABILITY_CORE_ENABLED=true
+MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED=false
+MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED=false
+MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED=false
+MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED=false
+MINIPROGRAM_CAPABILITY_GUEST_ENABLED=true
 ```
 
-`WECHAT_SESSION_SECRET` 由部署流程生成并只保留在服务器。账号密码接口是：
+`.env.production` 必须由 root 所有且权限为 `0600`。`WECHAT_SESSION_SECRET` 由部署流程生成并只保留在服务器。七维能力开关必须逐项显式配置；使用 `sudo schedule-client-capability <global|core|workflows|organization|insights|externalMessages|guest> <true|false>` 原子切换并自动探测，禁止手工输出整份环境文件。账号密码接口是：
 
 - `POST /api/auth/password/register`
 - `POST /api/auth/password/login`

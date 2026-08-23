@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+import { clientVersionSchema, type ClientVersion } from '@schedule/contracts';
 import { type DatabaseClient, userAuthIdentities, users } from '@schedule/database';
 import { and, eq, isNull } from 'drizzle-orm';
 
@@ -9,6 +10,7 @@ import type { AuthPort } from './auth-port.js';
 export interface WechatSessionClaims {
   readonly appId?: string;
   readonly authVersion?: number;
+  readonly clientVersion?: ClientVersion;
   readonly exp: number;
   readonly openid: string;
   readonly provider?: 'password' | 'wechat_mini_program' | 'wechat_web';
@@ -22,6 +24,7 @@ export function createWechatSessionToken(
   claims: {
     readonly appId?: string;
     readonly authVersion?: number;
+    readonly clientVersion?: ClientVersion;
     readonly openid: string;
     readonly provider?: 'password' | 'wechat_mini_program' | 'wechat_web';
     readonly sub: string;
@@ -204,7 +207,13 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
             .limit(1);
           return user?.cloudbaseUid === null || user?.cloudbaseUid === undefined
             ? undefined
-            : { cloudbaseUid: user.cloudbaseUid };
+            : {
+                clientPlatform: 'miniprogram',
+                ...(claims.clientVersion === undefined
+                  ? {}
+                  : { clientVersion: claims.clientVersion }),
+                cloudbaseUid: user.cloudbaseUid,
+              };
         }
 
         const [user] = await options.databaseClient.database
@@ -221,7 +230,11 @@ export function createWechatAuthPort(options: WechatAuthPortOptions): AuthPort {
           )
           .limit(1);
         if (user !== undefined && user.cloudbaseUid !== null) {
-          return { cloudbaseUid: user.cloudbaseUid };
+          return {
+            clientPlatform: 'miniprogram',
+            ...(claims.clientVersion === undefined ? {} : { clientVersion: claims.clientVersion }),
+            cloudbaseUid: user.cloudbaseUid,
+          };
         }
         return undefined;
       }
@@ -241,6 +254,7 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
   const candidate = value as {
     appId?: unknown;
     authVersion?: unknown;
+    clientVersion?: unknown;
     exp?: unknown;
     openid?: unknown;
     provider?: unknown;
@@ -254,6 +268,8 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
       (typeof candidate.authVersion === 'number' &&
         Number.isInteger(candidate.authVersion) &&
         candidate.authVersion >= 1)) &&
+    (candidate.clientVersion === undefined ||
+      clientVersionSchema.safeParse(candidate.clientVersion).success) &&
     typeof candidate.openid === 'string' &&
     candidate.openid.length > 0 &&
     typeof candidate.sub === 'string' &&
@@ -262,6 +278,7 @@ function isWechatSessionClaims(value: unknown): value is WechatSessionClaims {
       candidate.provider === 'password' ||
       candidate.provider === 'wechat_mini_program' ||
       candidate.provider === 'wechat_web') &&
+    !(candidate.clientVersion !== undefined && candidate.provider !== 'wechat_mini_program') &&
     !(candidate.provider === 'password' && candidate.appId !== undefined)
   );
 }

@@ -9,9 +9,13 @@ import {
 import { calendarApiGoldenResponse, holidayApiGoldenResponse } from '@schedule/client-core/testing';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createWxJsonTransport } from '../src/platform/client-core-calendar.js';
+import { createWxJsonTransport as createRawWxJsonTransport } from '../src/platform/client-core-calendar.js';
 
 const appRoot = new URL('../', import.meta.url);
+
+function createWxJsonTransport(options) {
+  return createRawWxJsonTransport({ capability: 'bypass', ...options });
+}
 
 describe('P2 Mini wx.request JSON transport', () => {
   it('sends one bearer GET and decodes the original calendar response', async () => {
@@ -55,7 +59,10 @@ describe('P2 Mini wx.request JSON transport', () => {
       transport.request(calendarReadEndpoints.guestHolidays, { year: 2026 }),
     ).resolves.toBe(holidayApiGoldenResponse);
     expect(getAccessToken).not.toHaveBeenCalled();
-    expect(request.mock.calls[0]?.[0].header).toEqual({});
+    expect(request.mock.calls[0]?.[0].header).toEqual({
+      'X-Schedule-Client-Platform': 'miniprogram',
+      'X-Schedule-Client-Version': 'test',
+    });
   });
 
   it('forwards JSON bodies and idempotency keys for protected writes', async () => {

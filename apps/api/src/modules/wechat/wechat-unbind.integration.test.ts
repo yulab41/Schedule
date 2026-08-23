@@ -18,6 +18,7 @@ import {
   verifyWechatSessionToken,
 } from '../../adapters/auth/wechat-auth.js';
 import { createApp } from '../../app.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { hashPassword } from '../auth/password-auth-service.js';
 import type { WechatGateway } from './wechat-gateway.js';
 
@@ -25,6 +26,7 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 const TEST_SESSION_SECRET = 'test-wechat-session-secret-0123456789abcdef';
+const TEST_CLIENT_CAPABILITY_POLICY = createTestClientCapabilityPolicy();
 const CURRENT_APP_ID = 'unbind-mini-app';
 const DEVELOPER_ADMIN_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -43,6 +45,7 @@ describeWithDatabase('current Mini AppID identity unbind', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       wechatGateway: createProofGateway(),
       wechatSessionSecret: TEST_SESSION_SECRET,
@@ -486,6 +489,22 @@ function developerAdminToken(): string {
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function createTestClientCapabilityPolicy(): ClientCapabilityPolicy {
+  return new ClientCapabilityPolicy({
+    capabilities: {
+      core: true,
+      externalMessages: true,
+      global: true,
+      guest: true,
+      insights: true,
+      organization: true,
+      workflows: true,
+    },
+    legacyVersion: '0.1.0-p6.20260824.78',
+    supportedVersions: ['0.1.0-p6.20260824.78', '0.1.0-p6.20260824.79'],
+  });
 }
 
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {

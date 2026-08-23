@@ -2,6 +2,20 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布（待生产演练）
+
+- 范围与基线：P6-A 代码/状态、`origin/main` 与 production 均为 `0cfdeba6`；用户已确认 P4 全部完成并允许后续 checkpoint 直接提交。本批只完成 P6-B signed `clientVersion`、`/client-capabilities`、Mini/API 双端守卫、生产 kill switch 和应用回滚控制，不进入 P6 性能/遥测/IP 保留或 P7，不改 Web UI。用户自有 Mini config、workspace、Storybook、`.artifacts/runtime/src` 和工作簿保持未纳入。
+- 引入点：`git log -S`/`git blame` 定位 shared endpoint/decoder 到 `60cec6ed`，错误生成到 `884512c0`/`5ba3993d`，JWT/session 到 `39f9c66e`/`4416f79b`，集中认证到 `0a794d9a`，env 到 `c4504055`，Mini App/request/工作台/手机号 client 到 `3884713b`、`9e3a966c`、`ad4cfb2c`、`59300957`；ECS immutable updater/packager/verify 的恢复与归档基础来自 `5f2bb8b3`。
+- 契约与 API：新增严格 semver-like≤64 的 Mini platform/version、七维 `global/core/workflows/organization/insights/externalMessages/guest` 响应和两条 `X-Schedule-Client-*` header；未知版本 426、disabled 503。Mini login/link/register/admin-bind/invite 重签只给 Mini JWT 增加可选 claim；旧无 claim Mini 映射体验版 `.78`，Web/password/dev 不标记。公开 guest 三路只在出现成对 Mini headers 时守 guest，headerless Web 不变；未分类 authenticated Mini 路由失败关闭。解绑和手机号 GET/revoke 在 global off/版本退役时仍可用，grant 仍受 core。
+- Mini：App.globalData 持有纯内存 capability store，launch/show 单飞强刷；业务请求等待前台 refresh in-flight 后才决策，每次网络尝试附精确平台/版本 header。网络、404、未知版本、非法/额外字段全部失败关闭；core=false 在 token recovery/`wx.login`/业务 request 前停止。现有 identity/workbench/manual/backfill/group-settings 页面复用既有 error layout；没有 WXML/WXSS 或第二套视觉，unbind 与手机号读取/撤回为唯一 bypass。
+- 生产控制：runtime/env 安全默认版本空、七开关全 false；production 显式允许 `.78,.79`，开启 global/core/guest，后续阶段五项保持关闭。`.env.production` 必须 UID0/0600。原子 switch 只保存目标旧 boolean、不复制秘密，持 release/capability 双锁，健康/严格响应失败及 ERR/HUP/INT/TERM/EXIT 自动反改。release manifest 新增 feature level、控制脚本哈希、DB schema 49..49 与单一审计 rollback candidate；packager 强制 clean tracked/untracked、expected commit/candidate ancestor、fresh build、LF、逐文件 `bash -n`、canonical runtime 和无 shell 注入。
+- 回滚语义：rollback 只接受当前 manifest 明示的直接安全前驱，严格 realpath/hash/root 权限/DB range，先独立加密备份；应用文件和 current-release 原子回退，数据库绝不降级/恢复。可信 updater/verifier/rollback/switch/backup 控制面以独立 manifest 前向保留；target full verify 失败自动前滚原 release。updater 自身对 artifact、schema、迁移后 count、system controls 和信号/退出做事务式补偿；pre-P6 只在 DB=49 且无 P6 feature 文件时兼容本次直接前驱。
+- 语义审计：成员调用、body/path/operationId/idempotency snapshot、重试次数、事务与 catch 范围不变；新增行为只在 Mini 版本/能力前置边界。global=false 的有效响应七维全 false；版本比较为精确 allowlist，无 latest/range fallback。Web/API 普通身份、headerless public guest、P5 危险写、缓存/离线规则与视觉不变。
+- 验证：测试先行 capability/headers/policy/guest/escape/App race/错误透传、manual in-flight invalidation 与 release controls 全部先红后绿。API 非 DB 28 files/133 tests；真实 MySQL auth/admin-bind/unbind/password/invite 共 48/48；Mini 29 files/171 tests；contracts/client/release 定向 8 files/36 tests。受控非 Mini 176 files/948 tests 通过，36 files/324 tests 按环境跳过；根宽泛 Vitest 唯一 35 项失败是 Mini 被错误 cwd 启动，正确 Mini cwd 全绿。全仓 typecheck、Lint、generated freshness、任务 Prettier、`git diff --check` 通过；production build 首次 Web 在 Vite 已完成后触发 Windows libuv assertion，原样串行重跑 Web+holiday build 通过。
+- Mini 门禁：production verify 2/2 Worklet、1,276,505 bytes、manifest `6579cd39868a1e1fc19b8d2a8bfd1e17336c467fe1007cf9366b45eaf1def9b9`；package main/scheduling/organization 为 828349/333041/115115 bytes，source/determinism/CI dry-run 同 manifest 通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 在当前源码 4173 与本地 API 3000 运行；首次未设置 Web dev auth 按门禁停止，随后两次手机 filter 44px 瞬时量测失败，未改产品代码的原样复跑最终通过管理员、成员、访客 vkey 和访问记录全链路，无浏览器错误，截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-mbiazF`。诊断插桩已撤回，smoke 源码无 diff。
+- checkpoint/下一批：本节随代码 checkpoint `feat(platform): gate miniprogram capabilities and rollback` 提交；提交后直接推送、生产备份/配置、部署，演练 global kill switch→回退 `0cfdeba6d079f2b7957f5be31e78ae450f5ec645`→完整验证→前滚恢复，再上传 `.79` 体验版。上述全部成功并另做状态 checkpoint 后，下一活动批次只做 P6-C 性能预算/遥测/90天访客IP清理与核心 RC；未取得用户当次明确批准前不提审、不正式发布。
+
 ## 2026-08-24 P6-A 会话、弱网与离线缓存安全壳（当前 checkpoint）
 
 - 范围与基线：P5 已完成并以 `02286282` 对齐 Git、`origin/main` 与 production release。本批只完成 P6 核心 v1 的会话—transport—缓存生命周期，不改 Web/API/contracts/数据库或视觉，不进入 capability/回滚、性能预算、遥测、访客 IP 清理或 P7。用户自有 Mini 配置、workspace、Storybook、`.artifacts/runtime/src` 和工作簿保持未修改。

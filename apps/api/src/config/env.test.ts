@@ -18,10 +18,83 @@ describe('loadEnvironment', () => {
       MYSQL_HOST: '127.0.0.1',
       MYSQL_PORT: 3306,
       NODE_ENV: 'development',
+      MINIPROGRAM_CAPABILITY_CORE_ENABLED: 'false',
+      MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED: 'false',
+      MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED: 'false',
+      MINIPROGRAM_CAPABILITY_GUEST_ENABLED: 'false',
+      MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED: 'false',
+      MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED: 'false',
+      MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED: 'false',
+      MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: [],
       WECHAT_MOCK_MODE: 'false',
       WECHAT_QR_ENV_VERSION: 'release',
     });
     expect(loadEnvironment(validEnvironment).WECHAT_APPID).toBeUndefined();
+    expect(loadEnvironment(validEnvironment).MINIPROGRAM_LEGACY_CLIENT_VERSION).toBeUndefined();
+  });
+
+  it('accepts only an exact supported Mini version list with an included legacy version', () => {
+    const environment = loadEnvironment({
+      ...validEnvironment,
+      MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
+      MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.78, 0.1.0-p6.20260824.79',
+    });
+    expect(environment.MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS).toEqual([
+      '0.1.0-p6.20260824.78',
+      '0.1.0-p6.20260824.79',
+    ]);
+
+    for (const values of [
+      {
+        MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
+        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '',
+      },
+      {
+        MINIPROGRAM_LEGACY_CLIENT_VERSION: '',
+        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.79',
+      },
+      {
+        MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
+        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.79',
+      },
+      {
+        MINIPROGRAM_LEGACY_CLIENT_VERSION: '0.1.0-p6.20260824.78',
+        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: '0.1.0-p6.20260824.78,0.1.0-p6.20260824.78',
+      },
+      {
+        MINIPROGRAM_LEGACY_CLIENT_VERSION: 'not-a-version',
+        MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS: 'not-a-version',
+      },
+    ]) {
+      expect(() => loadEnvironment({ ...validEnvironment, ...values })).toThrow(
+        /MINIPROGRAM_(SUPPORTED|LEGACY)/,
+      );
+    }
+  });
+
+  it('parses all seven Mini capability switches as strict false-by-default flags', () => {
+    const enabled = loadEnvironment({
+      ...validEnvironment,
+      MINIPROGRAM_CAPABILITY_CORE_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_GUEST_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED: 'true',
+    });
+    expect(enabled).toMatchObject({
+      MINIPROGRAM_CAPABILITY_CORE_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_GUEST_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED: 'true',
+      MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED: 'true',
+    });
+    expect(() =>
+      loadEnvironment({ ...validEnvironment, MINIPROGRAM_CAPABILITY_CORE_ENABLED: 'yes' }),
+    ).toThrow(/MINIPROGRAM_CAPABILITY_CORE_ENABLED/);
   });
 
   it('validates the development auth switch as a strict boolean string', () => {

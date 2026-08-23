@@ -17,6 +17,7 @@ import {
   verifyWechatSessionToken,
 } from '../../adapters/auth/wechat-auth.js';
 import { createApp } from '../../app.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { hashPassword } from '../auth/password-auth-service.js';
 import type { WechatGateway } from './wechat-gateway.js';
 
@@ -24,6 +25,7 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 const TEST_SESSION_SECRET = 'test-admin-binding-secret-0123456789abcdef';
+const TEST_CLIENT_CAPABILITY_POLICY = createTestClientCapabilityPolicy();
 const CURRENT_APP_ID = 'admin-binding-app';
 const ADMIN_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -42,6 +44,7 @@ describeWithDatabase('admin WeChat binding ticket', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       platformAdminUids: new Set(),
       wechatGateway: createBindingGateway(),
@@ -82,6 +85,10 @@ describeWithDatabase('admin WeChat binding ticket', () => {
     expect(preview.json()).toMatchObject({ realNameMasked: '目*', usernameMasked: 'ta***' });
 
     const confirmed = await app.inject({
+      headers: {
+        'x-schedule-client-platform': 'miniprogram',
+        'x-schedule-client-version': '0.1.0-p6.20260824.79',
+      },
       method: 'POST',
       payload: { code: 'admin-target', ticket },
       url: '/auth/wechat/admin-bind/confirm',
@@ -91,7 +98,11 @@ describeWithDatabase('admin WeChat binding ticket', () => {
       (confirmed.json() as { token: string }).token,
       TEST_SESSION_SECRET,
     );
-    expect(claims).toMatchObject({ appId: CURRENT_APP_ID, sub: target.userId });
+    expect(claims).toMatchObject({
+      appId: CURRENT_APP_ID,
+      clientVersion: '0.1.0-p6.20260824.79',
+      sub: target.userId,
+    });
     const [state] = await client.database.execute<{ identities: number; consumed: number }>(sql`
       SELECT
         (SELECT COUNT(*) FROM user_auth_identities WHERE user_id = ${target.userId}) AS identities,
@@ -239,6 +250,22 @@ function adminToken(): string {
 
 function passwordToken(userId: string, username: string): string {
   return createPasswordSessionToken({ authVersion: 1, sub: userId, username }, TEST_SESSION_SECRET);
+}
+
+function createTestClientCapabilityPolicy(): ClientCapabilityPolicy {
+  return new ClientCapabilityPolicy({
+    capabilities: {
+      core: true,
+      externalMessages: true,
+      global: true,
+      guest: true,
+      insights: true,
+      organization: true,
+      workflows: true,
+    },
+    legacyVersion: '0.1.0-p6.20260824.78',
+    supportedVersions: ['0.1.0-p6.20260824.78', '0.1.0-p6.20260824.79'],
+  });
 }
 
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {

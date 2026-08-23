@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布
+
+- 范围/引入点：本轮只做 capability 与 rollback，不改 Web UI。shared endpoint/error 来自 `60cec6ed`/`884512c0`/`5ba3993d`，JWT/auth/env 来自 `39f9c66e`/`4416f79b`/`0a794d9a`/`c4504055`，Mini App/transport/workbench/consent 来自 `3884713b`/`9e3a966c`/`ad4cfb2c`/`59300957`，ECS immutable release 基础来自 `5f2bb8b3`。
+- 实现：严格两 header、signed Mini claim、legacy .78/current .79 exact allowlist、七维 effective response、426/503、authenticated route fail-closed 与 public guest paired-header guard 完成。Mini App-global 纯内存 store、launch/show refresh flight、请求前守卫与既有 disabled layout 完成；privacy escape 先于版本/flag，grant 仍 core。
+- 发布安全：显式 env 默认全关；production global/core/guest 开。switch 双锁、0600、只保留旧 boolean、信号/失败反改；manifest 固定 feature/hash/DB49/candidate。packager clean+fresh build+LF+逐脚本 bash-n+canonical/shell gate；rollback 只接受明示前驱，先 DB backup，不回退 DB，控制面前向保留，verify 失败自动前滚；update/current-release/system controls 均原子/可补偿。
+- 测试：API 28/133 non-DB，真实 MySQL 48/48；Mini 29/171（含 manual in-flight capability invalidation 红→绿）；contracts/client/release 8/36；受控 non-Mini 176/948，36/324 skip。全仓 typecheck/Lint/build/generated/Prettier/diff check 和 Mini production verify/package/source/determinism/dry-run 通过；Mini 1,276,505 bytes、2 Worklets、manifest `6579cd39868a1e1fc19b8d2a8bfd1e17336c467fe1007cf9366b45eaf1def9b9`。
+- 运行/浏览器验证：`pnpm smoke:browser` 当前源码 4173/API3000 最终通过管理员、成员、访客 vkey 与访问记录，无浏览器错误，截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-mbiazF`。首次缺 Web dev auth、随后两次 44px 瞬时量测停止，原样复跑通过；临时诊断已完全撤回。
+- 状态：代码待 checkpoint `feat(platform): gate miniprogram capabilities and rollback`；随后 push、生产备份/配置、deploy、kill-switch/rollback/roll-forward 演练及 .79 体验上传。未提审/正式发布。
+
 ## 2026-08-24 P6-A 会话、弱网与离线缓存安全壳
 
 - 范围/引入点：本轮只做 P6-A Mini runtime，不改 UI、Web/API/contracts/DB。session、一次请求 transport、24h 缓存、解绑成功状态和多月表现分别来自 `e69cfb76`、`884512c0`、`ad4cfb2c`、`9b7ffbef`、`3fc41610`。审计确认旧实现可在 401/403 后读缓存、解绑留 token/cache、换账号复用 group/month cache，并被邻月弱网拖垮当前月。

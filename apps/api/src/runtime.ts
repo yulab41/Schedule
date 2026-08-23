@@ -11,6 +11,7 @@ import { WechatWebAuthService } from './modules/wechat/wechat-web-auth-service.j
 import { WorkflowSelfHealingService } from './modules/workflows/workflow-self-healing-service.js';
 import { createPushDispatcher } from './modules/notifications/notification-dispatcher.js';
 import { PasswordAuthService } from './modules/auth/password-auth-service.js';
+import { ClientCapabilityPolicy } from './modules/client-capabilities/client-capability-policy.js';
 
 interface RuntimeAppOptions {
   readonly authPort?: AuthPort;
@@ -22,6 +23,24 @@ interface RuntimeAppOptions {
  */
 export function isDevAuthEnabled(environment: Environment): boolean {
   return environment.NODE_ENV === 'development' && environment.AUTH_DEV_MODE === 'true';
+}
+
+export function createClientCapabilityPolicy(environment: Environment): ClientCapabilityPolicy {
+  return new ClientCapabilityPolicy({
+    capabilities: {
+      core: environment.MINIPROGRAM_CAPABILITY_CORE_ENABLED === 'true',
+      externalMessages: environment.MINIPROGRAM_CAPABILITY_EXTERNAL_MESSAGES_ENABLED === 'true',
+      global: environment.MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED === 'true',
+      guest: environment.MINIPROGRAM_CAPABILITY_GUEST_ENABLED === 'true',
+      insights: environment.MINIPROGRAM_CAPABILITY_INSIGHTS_ENABLED === 'true',
+      organization: environment.MINIPROGRAM_CAPABILITY_ORGANIZATION_ENABLED === 'true',
+      workflows: environment.MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED === 'true',
+    },
+    ...(environment.MINIPROGRAM_LEGACY_CLIENT_VERSION === undefined
+      ? {}
+      : { legacyVersion: environment.MINIPROGRAM_LEGACY_CLIENT_VERSION }),
+    supportedVersions: environment.MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS,
+  });
 }
 
 export function createRuntimeApp(
@@ -76,6 +95,7 @@ export function createRuntimeApp(
         });
   const app = createApp({
     authPort,
+    clientCapabilityPolicy: createClientCapabilityPolicy(environment),
     databaseClient,
     pushDispatcher: createPushDispatcher(environment),
     ...(passwordAuthService === undefined ? {} : { passwordAuthService }),

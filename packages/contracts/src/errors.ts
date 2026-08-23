@@ -19,6 +19,8 @@ export const apiErrorCodes = [
   'INVITE_USED',
   'INVITE_EXPIRED',
   'VISITOR_KEY_INVALID',
+  'CLIENT_VERSION_UNSUPPORTED',
+  'CLIENT_CAPABILITY_DISABLED',
 ] as const;
 
 export type ApiErrorCode = (typeof apiErrorCodes)[number];

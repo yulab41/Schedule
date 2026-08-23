@@ -28,6 +28,23 @@ describe('client-core error mapping', () => {
     });
   });
 
+  it('preserves capability and version gate errors from the generated protocol', () => {
+    for (const [status, code] of [
+      [426, 'CLIENT_VERSION_UNSUPPORTED'],
+      [503, 'CLIENT_CAPABILITY_DISABLED'],
+    ] as const) {
+      expect(
+        createHttpClientError(status, {
+          error: {
+            code,
+            message: '客户端能力不可用。',
+            requestId: `request-${status}`,
+          },
+        }),
+      ).toMatchObject({ code, requestId: `request-${status}`, status });
+    }
+  });
+
   it('uses the existing Web fallback messages for malformed error bodies', () => {
     expect(createHttpClientError(401, undefined)).toMatchObject({
       code: undefined,

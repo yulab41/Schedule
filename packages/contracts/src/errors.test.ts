@@ -23,6 +23,8 @@ describe('API error codes', () => {
       'INVITE_USED',
       'INVITE_EXPIRED',
       'VISITOR_KEY_INVALID',
+      'CLIENT_VERSION_UNSUPPORTED',
+      'CLIENT_CAPABILITY_DISABLED',
     ]);
     expect(new Set(apiErrorCodes).size).toBe(apiErrorCodes.length);
   });

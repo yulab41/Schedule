@@ -17,6 +17,7 @@ import {
   createWechatSessionToken,
 } from '../../adapters/auth/wechat-auth.js';
 import { createApp } from '../../app.js';
+import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { hashPassword, PasswordAuthService } from './password-auth-service.js';
 import type { WechatGateway } from '../wechat/wechat-gateway.js';
 
@@ -24,6 +25,7 @@ const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', i
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
 const TEST_SESSION_SECRET = 'test-password-identity-secret-0123456789abcdef';
+const TEST_CLIENT_CAPABILITY_POLICY = createTestClientCapabilityPolicy();
 const CURRENT_APP_ID = 'password-proof-app';
 const DEVELOPER_ADMIN_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -42,6 +44,7 @@ describeWithDatabase('admin password identity and proof', () => {
         sessionSecret: TEST_SESSION_SECRET,
       }),
       databaseClient: client,
+      clientCapabilityPolicy: TEST_CLIENT_CAPABILITY_POLICY,
       logger: false,
       passwordAuthService: new PasswordAuthService({
         databaseClient: client,
@@ -320,6 +323,22 @@ function createProofGateway(): WechatGateway {
 
 function passwordToken(userId: string, username: string, authVersion: number): string {
   return createPasswordSessionToken({ authVersion, sub: userId, username }, TEST_SESSION_SECRET);
+}
+
+function createTestClientCapabilityPolicy(): ClientCapabilityPolicy {
+  return new ClientCapabilityPolicy({
+    capabilities: {
+      core: true,
+      externalMessages: true,
+      global: true,
+      guest: true,
+      insights: true,
+      organization: true,
+      workflows: true,
+    },
+    legacyVersion: '0.1.0-p6.20260824.78',
+    supportedVersions: ['0.1.0-p6.20260824.78', '0.1.0-p6.20260824.79'],
+  });
 }
 
 function getTestDatabaseOptions(): DatabaseConnectionOptions | undefined {

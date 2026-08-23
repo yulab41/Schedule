@@ -1,4 +1,8 @@
+import type { ClientPlatform, ClientVersion } from '@schedule/contracts';
+
 export interface AuthenticatedIdentity {
+  readonly clientPlatform?: ClientPlatform;
+  readonly clientVersion?: ClientVersion;
   readonly cloudbaseUid: string;
 }
 

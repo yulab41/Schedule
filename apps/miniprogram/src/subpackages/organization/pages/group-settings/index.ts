@@ -1,4 +1,8 @@
 import { ClientCoreError, type GroupMobilePhoneConsentSubmission } from '@schedule/client-core';
+import {
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../../../../app/client-capability-store.js';
 import type { GroupMobilePhoneConsent, GroupSummary } from '@schedule/contracts';
 import {
   createGroupMobilePhoneConsentDraft,
@@ -103,7 +107,13 @@ Page({
   ): void {
     this._requestedGroupId = decodeQueryValue(query['groupId']);
     this.setData({ ...createShellLayoutPatch(), ...createProfilePatch() });
-    void loadGroupSettings(this);
+    void loadGroupSettingsWithCapability(this);
+  },
+
+  onShow(this: GroupSettingsPageInstance): void {
+    void requireClientCapability('core').catch((error: unknown) =>
+      setGroupSettingsCapabilityError(this, error),
+    );
   },
 
   handleBack(): void {
@@ -111,7 +121,7 @@ Page({
   },
 
   handleRetry(this: GroupSettingsPageInstance): void {
-    void loadGroupSettings(this);
+    void loadGroupSettingsWithCapability(this);
   },
 
   handleConsentToggle(this: GroupSettingsPageInstance): void {
@@ -170,6 +180,27 @@ async function loadGroupSettings(page: GroupSettingsPageInstance): Promise<void>
       state: 'error',
     });
   }
+}
+
+async function loadGroupSettingsWithCapability(page: GroupSettingsPageInstance): Promise<void> {
+  try {
+    await requireClientCapability('core');
+    await loadGroupSettings(page);
+  } catch (error) {
+    setGroupSettingsCapabilityError(page, error);
+  }
+}
+
+function setGroupSettingsCapabilityError(page: GroupSettingsPageInstance, error: unknown): void {
+  if (!(error instanceof ClientCapabilityDisabledError)) return;
+  page._loadSerial += 1;
+  page.setData({
+    errorMessage: error.message,
+    isSaving: false,
+    saveDisabled: true,
+    state: 'error',
+    switchDisabled: true,
+  });
 }
 
 async function saveConsent(page: GroupSettingsPageInstance): Promise<void> {

@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import type {
+  ClientVersion,
   CreateWechatAdminBindingLinkResponse,
   WechatAdminBindingConfirmRequest,
   WechatAdminBindingConfirmResponse,
@@ -131,6 +132,7 @@ export class WechatAdminBindingService {
   public async confirm(
     input: WechatAdminBindingConfirmRequest,
     requestId?: string,
+    clientVersion?: ClientVersion,
   ): Promise<WechatAdminBindingConfirmResponse> {
     const appId = this.getAppId();
     return withTransaction(this.databaseClient, async (transaction) => {
@@ -193,6 +195,7 @@ export class WechatAdminBindingService {
           {
             appId,
             authVersion: target.authVersion,
+            ...(clientVersion === undefined ? {} : { clientVersion }),
             openid: exchanged.openid,
             provider: 'wechat_mini_program',
             sub: target.userId,

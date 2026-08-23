@@ -4,6 +4,7 @@ import type {
   GroupSummary,
   HolidayReadModel,
 } from '@schedule/contracts';
+import { requireClientCapability } from '../app/client-capability-store.js';
 import { calendarReadModelDecoder, holidayReadModelDecoder } from '@schedule/client-core';
 
 import { runtimeConfig } from './runtime-config.js';
@@ -143,6 +144,7 @@ function requestJson(path: string): Promise<unknown> {
 }
 
 async function requestJsonWithSession(path: string): Promise<unknown> {
+  await requireClientCapability('core');
   let token = getStoredWechatToken();
   if (token === undefined) token = await awaitWechatSessionRecovery();
   if (token === undefined)
@@ -158,6 +160,7 @@ async function requestJsonWithSession(path: string): Promise<unknown> {
         recoverAccessToken: recoverWechatSession,
         sessionGeneration: getWechatSessionGeneration(),
       },
+      capability: 'core',
       method: 'GET',
       request: (requestOptions) => wx.request(requestOptions),
       url: `${baseUrl}${path}`,

@@ -1,5 +1,9 @@
 import { buildInfo } from '../../platform/build-info.js';
 import {
+  ClientCapabilityDisabledError,
+  requireClientCapability,
+} from '../../app/client-capability-store.js';
+import {
   getIdentityErrorMessage,
   getStoredWechatProfile,
   linkWechatPassword,
@@ -56,6 +60,11 @@ Page({
 
   onLoad(this: IdentityPageInstance): void {
     if (getStoredWechatProfile() !== undefined) this.setData({ mode: 'authenticated' });
+    void guardIdentityCapability(this);
+  },
+
+  onShow(this: IdentityPageInstance): void {
+    void guardIdentityCapability(this);
   },
 
   handleBackToChoice(this: IdentityPageInstance): void {
@@ -128,3 +137,13 @@ Page({
     this.setData({ username: event.detail.value });
   },
 });
+
+async function guardIdentityCapability(page: IdentityPageInstance): Promise<void> {
+  try {
+    await requireClientCapability('core');
+  } catch (error) {
+    if (error instanceof ClientCapabilityDisabledError) {
+      page.setData({ errorMessage: error.message, loading: false });
+    }
+  }
+}

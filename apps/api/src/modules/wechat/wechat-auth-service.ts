@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  ClientVersion,
   UserProfile,
   WechatLinkPasswordRequest,
   WechatLinkPasswordResponse,
@@ -66,7 +67,7 @@ export class WechatAuthService {
     this.sessionSecret = options.sessionSecret;
   }
 
-  public async login(code: string): Promise<WechatLoginResponse> {
+  public async login(code: string, clientVersion?: ClientVersion): Promise<WechatLoginResponse> {
     let exchanged: WechatExchangeCodeResult;
     try {
       exchanged = await this.gateway.exchangeCode(code);
@@ -117,13 +118,19 @@ export class WechatAuthService {
       expiresAt: new Date(this.now().valueOf() + WECHAT_SESSION_TTL_SECONDS * 1000).toISOString(),
       profile,
       status: 'authenticated',
-      token: this.issueSessionForUser(resolved.userId, exchanged.openid, resolved.authVersion),
+      token: this.issueSessionForUser(
+        resolved.userId,
+        exchanged.openid,
+        resolved.authVersion,
+        clientVersion,
+      ),
     };
   }
 
   public async linkPassword(
     input: WechatLinkPasswordRequest,
     requestId?: string,
+    clientVersion?: ClientVersion,
   ): Promise<WechatLinkPasswordResponse> {
     return this.linkTokenService.consume(input.linkToken, async (transaction, identity) => {
       this.assertCurrentAppId(identity.appId);
@@ -172,6 +179,7 @@ export class WechatAuthService {
         identity.subject,
         account.authVersion,
         account.profile,
+        clientVersion,
       );
     });
   }
@@ -179,6 +187,7 @@ export class WechatAuthService {
   public async register(
     input: WechatRegisterRequest,
     requestId?: string,
+    clientVersion?: ClientVersion,
   ): Promise<WechatRegisterResponse> {
     return this.linkTokenService.consume(input.linkToken, async (transaction, identity) => {
       this.assertCurrentAppId(identity.appId);
@@ -222,15 +231,22 @@ export class WechatAuthService {
         identity.subject,
         resolved.authVersion,
         profile,
+        clientVersion,
       );
     });
   }
 
-  public issueSessionForUser(userId: string, openid: string, authVersion: number): string {
+  public issueSessionForUser(
+    userId: string,
+    openid: string,
+    authVersion: number,
+    clientVersion?: ClientVersion,
+  ): string {
     return createWechatSessionToken(
       {
         appId: this.getAppId(),
         authVersion,
+        ...(clientVersion === undefined ? {} : { clientVersion }),
         openid,
         provider: 'wechat_mini_program',
         sub: userId,
@@ -261,12 +277,13 @@ export class WechatAuthService {
     subject: string,
     authVersion: number,
     profile: UserProfile,
+    clientVersion?: ClientVersion,
   ): WechatLinkPasswordResponse {
     return {
       expiresAt: new Date(this.now().valueOf() + WECHAT_SESSION_TTL_SECONDS * 1000).toISOString(),
       profile,
       status: 'authenticated',
-      token: this.issueSessionForUser(userId, subject, authVersion),
+      token: this.issueSessionForUser(userId, subject, authVersion, clientVersion),
     };
   }
 

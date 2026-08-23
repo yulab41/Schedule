@@ -8,6 +8,7 @@ import {
   apiErrorCodes,
   appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
+  clientCapabilityResponseSchema,
   groupMobilePhoneConsentSchema,
   holidayReadModelSchema,
   manualApplyPreviewSchema,
@@ -44,6 +45,10 @@ const source = renderGeneratedSchemas({
     calendarReadModel: sanitizeJsonSchema(
       z.toJSONSchema(calendarReadModelSchema),
       'calendarReadModel',
+    ),
+    clientCapabilityResponse: sanitizeJsonSchema(
+      z.toJSONSchema(clientCapabilityResponseSchema),
+      'clientCapabilityResponse',
     ),
     groupMobilePhoneConsent: sanitizeJsonSchema(
       z.toJSONSchema(groupMobilePhoneConsentSchema),

@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const RELEASE_ROOT = path.resolve(ROOT, process.argv[2] ?? 'runtime/ecs-release');
 const RELEASE_PATH_PREFIX = path.join(ROOT, 'runtime') + path.sep;
+const RELEASE_FEATURE_LEVEL = 'p6-client-capabilities-v1';
 
 const DIST_PATHS = [
   'migrations',
@@ -28,6 +29,11 @@ const DIST_PATHS = [
   'infra/docker/compose.prod.yml',
   'infra/docker/nginx.prod.conf',
   'infra/scripts/dist',
+  'infra/scripts/ecs-update.sh',
+  'infra/scripts/ecs-verify.sh',
+  'infra/scripts/ecs-rollback.sh',
+  'infra/scripts/client-capability-switch.sh',
+  'infra/scripts/schedule-backup.sh',
   'infra/scripts/schedule-notifications.sh',
   '.env.production.example',
 ];
@@ -40,18 +46,26 @@ const TREE_PATHS = {
   infraScriptsDist: 'infra/scripts/dist',
   migrations: 'migrations',
 };
+const PORTABLE_SHELL_PATHS = [
+  'infra/scripts/ecs-update.sh',
+  'infra/scripts/ecs-verify.sh',
+  'infra/scripts/ecs-rollback.sh',
+  'infra/scripts/client-capability-switch.sh',
+  'infra/scripts/schedule-backup.sh',
+  'infra/scripts/schedule-notifications.sh',
+];
 
 function fail(message) {
   console.error(`[ecs:package] 失败：${message}`);
   process.exit(1);
 }
 
-function run(command, args) {
+function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: ROOT,
     encoding: 'utf8',
     stdio: 'inherit',
-    shell: process.platform === 'win32',
+    shell: options.shell ?? false,
   });
   if (result.status !== 0) {
     fail(`${command} ${args.join(' ')} 执行失败。`);
@@ -95,12 +109,30 @@ function sha256Tree(relativePath) {
 }
 
 function gitCommit() {
-  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+  return gitOutput(['rev-parse', 'HEAD']);
+}
+
+function rollbackCandidate() {
+  const candidate = process.env.ECS_ROLLBACK_CANDIDATE?.trim();
+  const commit = gitCommit();
+  if (!/^[0-9a-f]{40}$/.test(candidate ?? '') || candidate === commit) {
+    fail('ECS_ROLLBACK_CANDIDATE 必须是不同于 HEAD 的 40 位已审计 commit。');
+  }
+  const ancestry = spawnSync('git', ['merge-base', '--is-ancestor', candidate, commit], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (ancestry.status !== 0) fail('ECS_ROLLBACK_CANDIDATE 必须是当前 HEAD 的祖先。');
+  return candidate;
+}
+
+function gitOutput(args) {
+  const result = spawnSync('git', args, {
     cwd: ROOT,
     encoding: 'utf8',
   });
   if (result.status !== 0) {
-    fail('无法读取当前 Git commit。');
+    fail(`git ${args.join(' ')} 执行失败。`);
   }
   return result.stdout.trim();
 }
@@ -108,6 +140,74 @@ function gitCommit() {
 function ensureInsideRuntime() {
   if (!RELEASE_ROOT.startsWith(RELEASE_PATH_PREFIX)) {
     fail(`发布目录必须位于 runtime/ 下：${RELEASE_ROOT}`);
+  }
+  const runtimeRoot = path.join(ROOT, 'runtime');
+  if (!fs.existsSync(runtimeRoot)) fs.mkdirSync(runtimeRoot);
+  if (fs.lstatSync(runtimeRoot).isSymbolicLink()) {
+    fail('runtime/ 不得是符号链接或目录联接。');
+  }
+  const relativeSegments = path.relative(runtimeRoot, RELEASE_ROOT).split(path.sep);
+  let current = runtimeRoot;
+  for (const segment of relativeSegments) {
+    current = path.join(current, segment);
+    if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) {
+      fail(`发布目录不得穿过符号链接或目录联接：${current}`);
+    }
+  }
+  const canonicalRuntime = fs.realpathSync(runtimeRoot);
+  let existingAncestor = path.dirname(RELEASE_ROOT);
+  while (!fs.existsSync(existingAncestor)) existingAncestor = path.dirname(existingAncestor);
+  const canonicalAncestor = fs.realpathSync(existingAncestor);
+  if (
+    canonicalAncestor !== canonicalRuntime &&
+    !canonicalAncestor.startsWith(canonicalRuntime + path.sep)
+  ) {
+    fail(`发布目录的真实父路径越界：${canonicalAncestor}`);
+  }
+}
+
+function assertExpectedCleanCommit() {
+  const commit = gitCommit();
+  const expected = process.env.ECS_RELEASE_EXPECTED_COMMIT?.trim();
+  if (!/^[0-9a-f]{40}$/.test(expected ?? '') || expected !== commit) {
+    fail('ECS_RELEASE_EXPECTED_COMMIT 必须与当前 40 位 Git HEAD 完全一致。');
+  }
+  const status = gitOutput(['status', '--porcelain', '--untracked-files=all']);
+  if (status !== '') fail('正式 release 禁止包含 tracked 或 staged 工作树改动。');
+  return commit;
+}
+
+function assertPortableShellScripts() {
+  for (const relativePath of PORTABLE_SHELL_PATHS) {
+    const content = fs.readFileSync(path.join(ROOT, relativePath));
+    if (content.includes(13)) fail(`${relativePath} 含 CR 字节，必须使用 LF。`);
+  }
+}
+
+function assertPortableShellSyntax() {
+  const configured = process.env.SCHEDULE_BASH_PATH?.trim();
+  const candidates =
+    process.platform === 'win32'
+      ? [
+          configured,
+          'C:\\Program Files\\Git\\bin\\bash.exe',
+          'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+        ]
+      : [configured, 'bash'];
+  const shell = candidates.find(
+    (candidate) =>
+      candidate !== undefined &&
+      candidate.length > 0 &&
+      (candidate === 'bash' || fs.existsSync(candidate)),
+  );
+  if (shell === undefined) fail('找不到可用于 release shell 语法门禁的 Bash。');
+  for (const relativePath of PORTABLE_SHELL_PATHS) {
+    const result = spawnSync(shell, ['-n', relativePath], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: 'inherit',
+    });
+    if (result.status !== 0) fail(`${relativePath} 未通过 bash -n。`);
   }
 }
 
@@ -123,6 +223,12 @@ if (
 ) {
   fail('正式 ECS release 必须使用 NODE_ENV=production 且 AUTH_DEV_MODE=false。');
 }
+const commit = assertExpectedCleanCommit();
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+run(pnpmCommand, ['build'], { shell: process.platform === 'win32' });
+assertExpectedCleanCommit();
+assertPortableShellScripts();
+assertPortableShellSyntax();
 for (const relativePath of DIST_PATHS) {
   if (!fs.existsSync(path.join(ROOT, relativePath))) {
     fail(`请先完成构建，缺少：${relativePath}`);
@@ -136,17 +242,20 @@ const distArchivePath = path.join(RELEASE_ROOT, 'schedule-dist.tar.gz');
 const apiFlatArchivePath = path.join(RELEASE_ROOT, 'api-flat.tar.zst');
 const apiFlatPath = fs.mkdtempSync(path.join(os.tmpdir(), 'schedule-api-flat-'));
 
-const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-run(pnpmCommand, [
-  'deploy',
-  '--legacy',
-  '--config.node-linker=hoisted',
-  '--config.shamefully-hoist=true',
-  '--filter',
-  '@schedule/holiday-import-script',
-  '--prod',
-  apiFlatPath,
-]);
+run(
+  pnpmCommand,
+  [
+    'deploy',
+    '--legacy',
+    '--config.node-linker=hoisted',
+    '--config.shamefully-hoist=true',
+    '--filter',
+    '@schedule/holiday-import-script',
+    '--prod',
+    apiFlatPath,
+  ],
+  { shell: process.platform === 'win32' },
+);
 
 if (!fs.existsSync(path.join(apiFlatPath, 'node_modules'))) {
   fail('pnpm deploy 未生成 api-flat/node_modules。');
@@ -159,9 +268,12 @@ run(tarPath(), ['-czf', distArchivePath, '-C', ROOT, ...DIST_PATHS]);
 run(tarPath(), ['--zstd', '-cf', apiFlatArchivePath, '-C', apiFlatPath, 'node_modules']);
 fs.rmSync(apiFlatPath, { force: true, recursive: true });
 
-const commit = gitCommit();
 const manifest = {
   schemaVersion: 1,
+  releaseFeatureLevel: RELEASE_FEATURE_LEVEL,
+  databaseSchemaMin: '49',
+  databaseSchemaMax: '49',
+  rollbackCandidate: rollbackCandidate(),
   releaseId: commit,
   gitCommit: commit,
   generatedAt: new Date().toISOString(),
@@ -182,6 +294,13 @@ const manifest = {
     nginxConfigSha256: sha256File(path.join(ROOT, 'infra/docker/nginx.prod.conf')),
     notificationSchedulerSha256: sha256File(
       path.join(ROOT, 'infra/scripts/schedule-notifications.sh'),
+    ),
+    backupSchedulerSha256: sha256File(path.join(ROOT, 'infra/scripts/schedule-backup.sh')),
+    ecsUpdateSha256: sha256File(path.join(ROOT, 'infra/scripts/ecs-update.sh')),
+    ecsVerifySha256: sha256File(path.join(ROOT, 'infra/scripts/ecs-verify.sh')),
+    ecsRollbackSha256: sha256File(path.join(ROOT, 'infra/scripts/ecs-rollback.sh')),
+    clientCapabilitySwitchSha256: sha256File(
+      path.join(ROOT, 'infra/scripts/client-capability-switch.sh'),
     ),
   },
 };

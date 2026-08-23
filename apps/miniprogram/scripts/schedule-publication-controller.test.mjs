@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 describe('P5 native schedule publication controller', () => {
   let definition;
@@ -27,6 +28,7 @@ describe('P5 native schedule publication controller', () => {
       request: vi.fn(),
     });
     await import('../src/subpackages/scheduling/pages/manual/index.ts');
+    await enableTestClientCapabilities();
   });
 
   afterEach(() => {

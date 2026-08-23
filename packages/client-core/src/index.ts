@@ -6,6 +6,12 @@ export {
   type CalendarReadClient,
 } from './calendar-client.js';
 export {
+  clientCapabilityEndpoints,
+  clientCapabilityResponseDecoder,
+  createClientCapabilityClient,
+  type ClientCapabilityClient,
+} from './client-capability-client.js';
+export {
   defineClientEndpoint,
   type ClientEndpoint,
   type ClientEndpointAuth,

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { calendarApiGoldenResponse, holidayApiGoldenResponse } from '@schedule/client-core/testing';
+import { enableTestClientCapabilities } from './test-client-capabilities.mjs';
 
 const DAY = 24 * 60 * 60 * 1000;
 const activeMonth = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7);
@@ -55,6 +56,7 @@ describe('P6-A workbench runtime coordination', () => {
     });
     vi.stubGlobal('wx', createWx(storage, request));
     await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
     instance = createPageInstance(definition);
 
     definition.onLoad.call(instance);
@@ -116,6 +118,7 @@ describe('P6-A workbench runtime coordination', () => {
     });
     vi.stubGlobal('wx', createWx(storage, request));
     await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
     const instance = createPageInstance(definition);
 
     definition.onLoad.call(instance);
@@ -149,6 +152,7 @@ describe('P6-A workbench runtime coordination', () => {
     const request = vi.fn((options) => options.fail(new Error('offline')));
     vi.stubGlobal('wx', createWx(storage, request));
     await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
     const instance = createPageInstance(definition);
 
     definition.onLoad.call(instance);
