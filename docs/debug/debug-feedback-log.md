@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 安全区、筛选层与周/列表内容回归
+
+- 反馈与引入点：实体截图证明 Mini 月历顶部/沉浸式状态栏遮挡、筛选下拉撑高 sheet、三视图按压态不一致、周/列表内容与 Web 不同以及列表外层滚动。`git log -S`/`git blame` 定位到 `733e3af6`、`3fc41610`、`ad4cfb2` 和 `1f715c96` 的对应调用点。
+- 测试先行与实现：安全区/筛选/周列表结构回归旧实现 3 项失败；修复后以微信状态栏和胶囊几何计算顶栏，月历锚点留白，468px 筛选 sheet 的下拉改为按上下空间展开的覆盖层；周格补成员/班种/变更标记，列表改 Web 同构日期卡与内层平滑滚动，固定全部工具栏并删除说明文字。
+- 语义审计：API 请求、request serial、离线 catch、筛选条件与身份/排班写入次数不变；新增的可拨号入口只在日历读模型已提供完整号码或短号时显示，离线缓存仍删除完整手机号。变化属于明确的 P4 视觉/交互修复，不是隐式重构。
+- 验证：定向 8/8、受控 Mini 18 文件/79 项、typecheck、ESLint、Prettier、production verify（2/2 Worklet，386770 bytes，manifest `b45d0c7d6123a2c9e3d62410db973da924c542dd2db7db3931f113d92246c093`）、CI dry-run、`git diff --check` 和 `pnpm smoke:check-core` 通过。运行/浏览器验证：生产 Web 390px 只读对照周格、列表卡、筛选弹层和操作图标完成，浏览器视口已恢复；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。
+- 发布：checkpoint `50c6d1e` 已推送；production-profile 体验版 `0.1.0-p4.20260823.61` 上传成功（63 个平台代码文件，manifest `7ececb7ce5c30bc05246f4b90b65980e627ed35c3a2f17847438264a69e7fd45`），未审核/正式发布。生产备份 archive `dca6bce8-9453-4a8e-98c3-931570e4f173`（54 表、162542 行、76673880 bytes，SHA-256 `dd327717cfeba57e9fe59a7e60a6c9248a777a3e33c8b8893e8c0aa7976e3521`）后部署 release `50c6d1edc966b3c029d6b4e825f7fcb86d5d8f21`，预热首次 502 自动恢复，`ecs-verify.sh` 全项通过，临时目录已清理。
+- 状态：已完成（含运行验证、体验上传和生产发布）→待实体 Android/微信复核；最终状态 checkpoint 识别消息 `docs(status): record p4 native detail deployment`，用户确认前不进入 P5。
+
 ## 2026-08-23 P4 空月、滑动层级与移动图标回归
 
 - 反馈与引入点：Mini 无排班月份整页空态、展开式筛选、周标题缺周序和三面板复位反跳由 `733e3af6` 引入；五/六行月高只在滑动完成后变化的过渡来自 `4b33274e`；Web 列表定位时工具栏未固定来自 `38611902`，月格隐藏相邻月值班姓名来自 `abd20d2`/`ab25064`。以上调用点均执行 `git log -S` 与 `git blame`。

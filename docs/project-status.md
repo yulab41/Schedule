@@ -9,7 +9,7 @@
 - 实现：用 `getWindowInfo().statusBarHeight`/`safeArea.top` 和微信胶囊几何动态计算顶栏高度、操作区位置及内容偏移；月历锚点留出固定工具栏间隙；筛选 sheet 固定 468px，三个选项面板改为绝对定位覆盖层并按实际上下空间自动选择展开方向；月/周/列表换期与定位统一为 Web 的圆角缩放按压反馈。
 - 内容与滚动边界：周视图改为日期/节假日/成员/班种缩写/变更标记的 Web 同构单元格，列表改为按日期卡片分组的成员、班种时间、岗位、变更标记与已授权电话入口；列表模式禁止外层滚动，仅内层 `scroll-view` 平滑定位，月份/视图/筛选/列表工具栏全部固定，并删除说明文字。仍为只读 P4，未增加排班或身份写入。
 - 测试先行与验证：新增结构/安全区/筛选/周列表模型回归断言，旧实现 3 项失败，修复后定向 8/8、受控 Mini 18 文件/79 项通过；Mini typecheck、ESLint、任务文件 Prettier、production verify（2/2 Worklet，386770 bytes，manifest `b45d0c7d6123a2c9e3d62410db973da924c542dd2db7db3931f113d92246c093`）、CI dry-run、`git diff --check` 与 `pnpm smoke:check-core` 通过。未触及 Web 核心链路，无需 `pnpm smoke:browser`；生产 Web 390px 对照后已恢复浏览器视口。
-- 当前状态：已实现并完成本地运行验证，待以 `fix(miniprogram): align p4 native calendar details` 建立可发布 checkpoint，随后上传 production-profile 体验版并执行生产备份/部署/验证。
+- 当前状态：已完成（含运行验证、体验上传和生产发布）→待用户实体原生复核。代码 checkpoint `50c6d1e`（`fix(miniprogram): align p4 native calendar details`）已推送；production-profile 体验版 `0.1.0-p4.20260823.61` 上传成功，63 个平台代码文件，upload manifest `7ececb7ce5c30bc05246f4b90b65980e627ed35c3a2f17847438264a69e7fd45`，未审核/正式发布。代码发布前加密备份 archive `dca6bce8-9453-4a8e-98c3-931570e4f173`（54 表、162542 行、76673880 bytes，SHA-256 `dd327717cfeba57e9fe59a7e60a6c9248a777a3e33c8b8893e8c0aa7976e3521`）后部署 release `50c6d1edc966b3c029d6b4e825f7fcb86d5d8f21`，预热首次 502 自动恢复，`ecs-verify.sh` 全项通过，本地/远程发布临时目录已删除。最终状态 checkpoint 识别消息为 `docs(status): record p4 native detail deployment`。
 - 下一活动批次与停止条件：发布完成后暂停，等待用户在新体验版只复核上述六项视觉/交互；未确认前不进入 P5，不补独立 staging。
 
 ## 2026-08-23 P4 月历导航与 Web 移动一致性修复（当前批次）
