@@ -9,10 +9,11 @@
 - 设计意图：沿用 Web 医护工作台的蓝白令牌、紧凑群组切换器、固定比例月历和 44px 触控区；原生层只使用 WXML/WXSS/TS 与既有 `CalendarMonth`，不引入 TDesign 或第三方 UI。
 - 数据边界：日历/节假日复用 `client-core` 只读解码与 transport；群组/成员在 Mini read client 做同样的结构校验；缓存写入前剥离完整 `mobilePhone`，读取时校验 decoder，过期后只允许重新读取，不建立离线写入队列。
 - 回归引入点：执行 `git log -S 'pages/workbench' --oneline -- apps/miniprogram/src apps/miniprogram/docs` 确认无既有原生工作台；执行 `git log -S 'createRuntimeCalendarReadClient' --oneline -- apps/miniprogram/src/platform/client-core-calendar.ts` 与 `git blame` 核对既有 P2 日历 transport；月历三面板/定位行为沿用 P1 `CalendarMonth` 的 `git blame` 来源。
-- 测试先行与验证：P4 回归测试先在缺少页面/模型时失败，接入后 `workbench` 5/5、identity 6/6、calendar POC 6/6、calendar simulate 1/1 通过；Mini typecheck、source audit、package audit、determinism、production build、`verify`、CI dry-run 均通过（2/2 Worklet，production manifest `cd0d11bff7a20e6b56917d5bf821c78259c1682b9297bebee59e47f7507fb865`）。受控测试命令排除仓库既有 `.artifacts/ecs-runner-deploy-*` 临时副本；该副本的相对 tsconfig 失败未修改。
+- 测试先行与验证：P4 回归测试先在缺少页面/模型时失败，接入后 `workbench` 5/5、identity 6/6、calendar POC 6/6、calendar simulate 1/1 通过；Mini typecheck、source audit、package audit、determinism、production build、`verify`、CI dry-run 均通过（2/2 Worklet，production manifest `afb8d398e1d496d27173eb0ec98050b13e8c946e697625b49cda0ea934db348c`）。受控测试命令排除仓库既有 `.artifacts/ecs-runner-deploy-*` 临时副本；该副本的相对 tsconfig 失败未修改。
 - 当前状态：已实现待人工原生复核。尚未宣称 Android/微信运行时视觉通过；Storybook/模拟器/构建不能替代实体设备确认。
 - 原生验收停止点：体验版安装后，从身份页点击“进入排班台”，依次确认 390/320 边界、群组切换、月历左右滑动/上一期/下一期/定位/选中详情、周视图、列表视图、筛选、离线/错误/空态和底部禁用入口；用户反馈前不继续扩展 P4 业务功能。
 - 下一活动批次：仅处理用户原生设备反馈及由反馈直接证明的 P4 视觉/交互修正；不补独立 staging，不进入 P5 手排/发布。
+- checkpoint 与发布：代码 checkpoint `ad4cfb2`（`feat(miniprogram): add p4 readonly workbench`）已推送；production profile 体验版 `0.1.0-p4.20260823.57` 上传成功，63 个平台代码文件，上传 manifest `fc04085494fd9bb32551dd425781f349df246c87fbe8fb1ec7b3d6dc2bc80994`，未审核/正式发布。ECS 发布前数据库备份 archive `a58446e5-0ba9-4d4e-b0a7-a56ff4b205f3`（54 表、161788 行、76427808 bytes，SHA-256 `6d2e8f28901c9443db3fff233c3551241c8a129ffe698bd2ecf14287b998a39b`）后部署 release `ad4cfb2ca94ae646b85e8b753f8b1dfebfc8e1f1`；`ecs-verify.sh` 全项通过，部署临时目录已删除。首次微信 CI 尝试因出口临时 IPv6 不在白名单失败，随后强制 IPv4 `103.54.154.21` 上传成功。
 
 ## 2026-08-23 P4 工作台 Web 黄金审查与月历规范修正（前一阶段）
 
