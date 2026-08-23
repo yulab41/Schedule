@@ -84,7 +84,13 @@ describe('P1 native dynamic month calendar PoC', () => {
     );
     expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
     expect(monthStyles).toMatch(
-      /\.calendar-cell-slot\.is-selected::after\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/su,
+      /\.calendar-cell-slot\.is-selected::after\s*\{[^}]*right:\s*-1px;[^}]*bottom:\s*-1px;[^}]*border:\s*2px solid var\(--ui-color-primary\);/su,
+    );
+    expect(monthStyles).toMatch(
+      /\.calendar-cell-slot\.is-selected\.is-bottom-row::after\s*\{[^}]*bottom:\s*0;/su,
+    );
+    expect(monthStyles).toMatch(
+      /\.calendar-cell-slot\.is-selected:nth-child\(7n\)::after\s*\{[^}]*right:\s*0;/su,
     );
     expect(cellStyles).not.toContain('.calendar-cell.is-selected::after');
     expect(pageTemplate).toContain('class="selected-summary month-selected-summary"');
@@ -101,8 +107,9 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(template).toContain('bindchange="handleMonthChangeStart"');
     expect(template).toContain('bindanimationfinish="handleMonthSwipe"');
     expect(template).not.toContain('bindtransition=');
+    expect(template).toContain('circular="{{true}}"');
     expect(template).toContain('<swiper-item');
-    expect(template).toContain('wx:key="relative"');
+    expect(template).toContain('wx:key="slot"');
     expect(template).not.toContain('<pan-gesture-handler');
     expect(template).toContain('/assets/icons/web-chevron-left.svg');
     expect(template).toContain('/assets/icons/web-chevron-right.svg');
@@ -122,6 +129,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     });
     await import('../src/components/calendar/calendar-month/index.ts');
     const instance = {
+      _monthActiveSlot: 1,
       _monthHeightTargetIndex: undefined,
       _monthShiftPending: false,
       data: {
@@ -141,7 +149,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance.setData).toHaveBeenCalledWith({ viewportHeight: 324 });
   });
 
-  it('commits one native swipe and recenters only after the parent confirms the period', async () => {
+  it('commits one native circular swipe without ever moving back to the center slot', async () => {
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;
@@ -151,6 +159,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     const recenterPendingStates = [];
     const durationRestorePendingStates = [];
     const instance = {
+      _monthActiveSlot: 1,
       _monthHeightTargetIndex: 2,
       _monthShiftPending: false,
       _queuedMonthDelta: 0,
@@ -162,8 +171,10 @@ describe('P1 native dynamic month calendar PoC', () => {
       },
       setData: vi.fn((patch, callback) => {
         Object.assign(instance.data, patch);
-        if (patch.swiperCurrent === 1) recenterPendingStates.push(instance._monthShiftPending);
-        if (patch.swiperDuration === 240) {
+        if (patch.swiperCurrent === 1 && instance._monthActiveSlot !== 1) {
+          recenterPendingStates.push(instance._monthShiftPending);
+        }
+        if (patch.swiperDuration === 0) {
           durationRestorePendingStates.push(instance._monthShiftPending);
         }
         callback?.();
@@ -174,20 +185,17 @@ describe('P1 native dynamic month calendar PoC', () => {
     definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
     definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
     expect(triggerEvent).toHaveBeenCalledOnce();
-    expect(triggerEvent).toHaveBeenCalledWith('monthchange', { delta: 1 });
+    expect(triggerEvent).toHaveBeenCalledWith('monthchange', { current: 2, delta: 1 });
 
     expect(definition.observers.panels).toBeUndefined();
     definition.methods.finishPeriodShift.call(instance);
-    expect(instance.setData.mock.calls[0]?.[0]).toEqual({
-      swiperCurrent: 1,
-      swiperDuration: 0,
-      viewportHeight: 324,
-    });
-    expect(recenterPendingStates).toEqual([true]);
-    expect(durationRestorePendingStates).toEqual([true]);
+    expect(instance.data.swiperCurrent).toBe(2);
+    expect(instance._monthActiveSlot).toBe(2);
+    expect(recenterPendingStates).toEqual([]);
+    expect(durationRestorePendingStates).toEqual([]);
     expect(instance._monthShiftPending).toBe(false);
     expect(instance._monthHeightTargetIndex).toBeUndefined();
-    expect(triggerEvent).toHaveBeenLastCalledWith('monthrecentered', { continues: false });
+    expect(triggerEvent).toHaveBeenLastCalledWith('monthsettled', { continues: false });
   });
 
   it('starts programmatic horizontal and height motion together and queues rapid taps', async () => {
@@ -197,6 +205,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     });
     await import('../src/components/calendar/calendar-month/index.ts');
     const instance = {
+      _monthActiveSlot: 1,
       _monthHeightTargetIndex: undefined,
       _monthShiftPending: false,
       _queuedMonthDelta: 0,
@@ -234,25 +243,25 @@ describe('P1 native dynamic month calendar PoC', () => {
 
     expect(instance._queuedMonthDelta).toBe(1);
     expect(instance._monthHeightTargetIndex).toBeUndefined();
-    expect(instance.data.swiperCurrent).toBe(1);
-    expect(instance.triggerEvent).toHaveBeenLastCalledWith('monthrecentered', {
+    expect(instance.data.swiperCurrent).toBe(2);
+    expect(instance.triggerEvent).toHaveBeenLastCalledWith('monthsettled', {
       continues: true,
     });
 
     definition.methods.continueQueuedShift.call(instance);
     expect(instance._queuedMonthDelta).toBe(0);
-    expect(instance._monthHeightTargetIndex).toBe(2);
-    expect(instance.data.swiperCurrent).toBe(2);
+    expect(instance._monthHeightTargetIndex).toBe(0);
+    expect(instance.data.swiperCurrent).toBe(0);
   });
 
-  it('reads the rapid-tap queue only after the zero-duration recenter finishes', async () => {
+  it('reads the rapid-tap queue when the circular slot settles', async () => {
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;
     });
     await import('../src/components/calendar/calendar-month/index.ts');
-    const callbacks = [];
     const instance = {
+      _monthActiveSlot: 2,
       _monthHeightTargetIndex: 2,
       _monthShiftPending: true,
       _queuedMonthDelta: 0,
@@ -264,19 +273,18 @@ describe('P1 native dynamic month calendar PoC', () => {
       },
       setData: vi.fn((patch, callback) => {
         Object.assign(instance.data, patch);
-        if (callback !== undefined) callbacks.push(callback);
+        callback?.();
       }),
       triggerEvent: vi.fn(),
     };
 
-    definition.methods.finishPeriodShift.call(instance);
     instance._queuedMonthDelta = 1;
-    callbacks.shift()?.();
-    callbacks.shift()?.();
+    definition.methods.finishPeriodShift.call(instance);
 
-    expect(instance.triggerEvent).toHaveBeenLastCalledWith('monthrecentered', {
+    expect(instance.triggerEvent).toHaveBeenLastCalledWith('monthsettled', {
       continues: true,
     });
+    expect(instance.setData).not.toHaveBeenCalled();
   });
 
   it('keeps adjacent cells inert and emits one semantic current-date selection', async () => {

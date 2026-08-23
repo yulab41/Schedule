@@ -10,8 +10,11 @@ interface CalendarSelectEvent {
   readonly detail: { readonly businessDate: string };
 }
 
+type MonthSlot = 0 | 1 | 2;
+
 interface CalendarMonthInstance {
-  _monthHeightTargetIndex: 0 | 2 | undefined;
+  _monthActiveSlot: MonthSlot;
+  _monthHeightTargetIndex: MonthSlot | undefined;
   _monthShiftPending: boolean;
   _queuedMonthDelta: number;
   readonly data: {
@@ -56,6 +59,7 @@ Component({
   },
   lifetimes: {
     attached(this: CalendarMonthInstance): void {
+      this._monthActiveSlot = 1;
       this._monthHeightTargetIndex = undefined;
       this._monthShiftPending = false;
       this._queuedMonthDelta = 0;
@@ -64,10 +68,11 @@ Component({
   methods: {
     handleMonthChangeStart(this: CalendarMonthInstance, event: MonthChangeStartEvent): void {
       const { current } = event.detail;
+      if (!isMonthSlot(current)) return;
       if (
         this._monthShiftPending ||
         this._monthHeightTargetIndex !== undefined ||
-        (current !== 0 && current !== 2)
+        current === this._monthActiveSlot
       ) {
         return;
       }
@@ -77,16 +82,22 @@ Component({
     },
     handleMonthSwipe(this: CalendarMonthInstance, event: MonthSwipeEvent): void {
       const { current } = event.detail;
-      if (current === 1) {
+      if (!isMonthSlot(current)) return;
+      if (current === this._monthActiveSlot) {
         if (this._monthHeightTargetIndex === undefined) return;
         this._monthHeightTargetIndex = undefined;
-        const viewportHeight = this.data.panelHeights?.[1] ?? 270;
+        const viewportHeight = this.data.panelHeights?.[this._monthActiveSlot] ?? 270;
         if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
         return;
       }
       if (this._monthShiftPending) return;
+      const delta = getMonthSlotDelta(this._monthActiveSlot, current);
+      if (delta === 0) return;
+      this._monthActiveSlot = current;
       this._monthShiftPending = true;
-      this.triggerEvent('monthchange', { delta: current === 0 ? -1 : 1 });
+      this.setData({ swiperCurrent: current }, () => {
+        this.triggerEvent('monthchange', { current, delta });
+      });
     },
     startProgrammaticShift(
       this: CalendarMonthInstance,
@@ -97,7 +108,7 @@ Component({
         this._queuedMonthDelta = clampMonthShiftQueue(this._queuedMonthDelta + delta);
         return;
       }
-      const targetIndex = delta === -1 ? 0 : 2;
+      const targetIndex = getAdjacentMonthSlot(this._monthActiveSlot, delta);
       this._monthHeightTargetIndex = targetIndex;
       this.setData({ stepMotion: '' }, () => {
         this.setData({
@@ -109,20 +120,11 @@ Component({
       });
     },
     finishPeriodShift(this: CalendarMonthInstance): void {
-      this.setData(
-        {
-          swiperCurrent: 1,
-          swiperDuration: 0,
-          viewportHeight: this.data.panelHeights?.[1] ?? 270,
-        },
-        () => {
-          this.setData({ swiperDuration: 240 }, () => {
-            this._monthHeightTargetIndex = undefined;
-            this._monthShiftPending = false;
-            this.triggerEvent('monthrecentered', { continues: this._queuedMonthDelta !== 0 });
-          });
-        },
-      );
+      this._monthHeightTargetIndex = undefined;
+      this._monthShiftPending = false;
+      this.triggerEvent('monthsettled', {
+        continues: this._queuedMonthDelta !== 0,
+      });
     },
     continueQueuedShift(this: CalendarMonthInstance): void {
       const queuedDelta = this._queuedMonthDelta;
@@ -151,4 +153,18 @@ Component({
 
 function clampMonthShiftQueue(value: number): number {
   return Math.max(-6, Math.min(6, value));
+}
+
+function isMonthSlot(value: number): value is MonthSlot {
+  return value === 0 || value === 1 || value === 2;
+}
+
+function getAdjacentMonthSlot(activeSlot: MonthSlot, delta: -1 | 1): MonthSlot {
+  return ((activeSlot + delta + 3) % 3) as MonthSlot;
+}
+
+function getMonthSlotDelta(activeSlot: MonthSlot, targetSlot: MonthSlot): -1 | 0 | 1 {
+  if (getAdjacentMonthSlot(activeSlot, 1) === targetSlot) return 1;
+  if (getAdjacentMonthSlot(activeSlot, -1) === targetSlot) return -1;
+  return 0;
 }

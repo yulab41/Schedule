@@ -62,7 +62,7 @@
     current="{{swiperCurrent}}"
     duration="{{swiperDuration}}"
     easing-function="easeOutCubic"
-    circular="{{false}}"
+    circular="{{true}}"
     skip-hidden-item-layout="{{false}}"
     bindchange="handleMonthChangeStart"
     bindanimationfinish="handleMonthSwipe"
@@ -70,7 +70,7 @@
   >
     <swiper-item
       wx:for="{{panels}}"
-      wx:key="relative"
+      wx:key="slot"
       class="calendar-slide-panel"
       aria-hidden="{{item.relative !== 0}}"
     >

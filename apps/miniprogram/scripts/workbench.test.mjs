@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
-  createMonthRecenterBridge,
+  createMonthRing,
   createWorkbenchViewModel,
   getTodayBusinessDate,
   getHorizontalSwipeDelta,
@@ -96,6 +96,7 @@ describe('P4 native workbench', () => {
 
   it('places the list clipping line at the full-width card edge and keeps its floor flush', () => {
     const template = readSource('pages/workbench/index.wxml');
+    const pageSource = readSource('pages/workbench/index.ts');
     const pageStyles = readSource('pages/workbench/index.wxss');
 
     expect(template).toContain('class="list-scroll-boundary"');
@@ -105,8 +106,17 @@ describe('P4 native workbench', () => {
     expect(pageStyles).toMatch(
       /\.list-calendar-heading\s*{[^}]*box-shadow:\s*var\(--ui-shadow-card\);/s,
     );
+    expect(pageStyles).toMatch(/\.list-scroll-boundary\s*{[^}]*box-shadow:\s*none;/s);
     expect(pageStyles).toMatch(/\.workbench-content\.is-list-mode\s*{[^}]*padding-bottom:\s*0;/s);
-    expect(pageStyles).toMatch(/\.list-panel-scroll\s*{[^}]*padding:\s*8px 0 16px;/s);
+    expect(pageStyles).toMatch(/\.list-panel-content\s*{[^}]*padding-top:\s*8px;/s);
+    expect(pageStyles).toMatch(/\.list-day-card:last-child\s*{[^}]*margin-bottom:\s*0;/s);
+    expect(pageStyles).not.toMatch(/\.list-panel-scroll\s*{[^}]*padding:/s);
+    expect(template).toContain('class="list-panel-content"');
+    const viewChangeSource = pageSource.slice(
+      pageSource.indexOf('handleViewChange('),
+      pageSource.indexOf('handleFilterToggle('),
+    );
+    expect(viewChangeSource).toContain("listScrollTarget: ''");
     expect(template).toContain(
       "class=\"workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}\"",
     );
@@ -123,7 +133,7 @@ describe('P4 native workbench', () => {
     expect(pageSource).toContain('function startLocateTransition(');
     expect(pageSource).toContain('month.startProgrammaticShift(delta, targetHeight)');
     expect(pageSource).toMatch(
-      /handleMonthChange[\s\S]*?const viewPatch = createViewPatch\(this, period\);[\s\S]*?createMonthRecenterBridge/s,
+      /handleMonthChange[\s\S]*?this\.monthRingSlot = event\.detail\.current;[\s\S]*?createViewPatch\(this, period\)/s,
     );
   });
 
@@ -172,18 +182,22 @@ describe('P4 native workbench', () => {
       pageSource.indexOf('function commitPeriodShift('),
       pageSource.indexOf('function startLocateTransition('),
     );
+    const monthFinishSource = monthSource.slice(
+      monthSource.indexOf('finishPeriodShift('),
+      monthSource.indexOf('continueQueuedShift('),
+    );
 
     expect(monthSource).toContain('_queuedMonthDelta');
     expect(monthSource).toContain('finishPeriodShift');
     expect(monthSource).toContain('continueQueuedShift');
-    expect(monthSource).toContain(
-      "this.triggerEvent('monthrecentered', { continues: this._queuedMonthDelta !== 0 });",
-    );
+    expect(monthSource).toContain("this.triggerEvent('monthsettled', {");
+    expect(monthFinishSource).not.toContain('swiperDuration: 0');
+    expect(monthFinishSource).not.toContain('swiperCurrent');
     expect(monthSource).not.toMatch(/panels\(this:\s*CalendarMonthInstance\)/u);
-    expect(template).toContain('bind:monthrecentered="handleMonthRecentered"');
-    expect(pageSource).toContain('pendingMonthViewPatch');
-    expect(pageSource).toContain('handleMonthRecentered');
-    expect(pageSource).toContain('createMonthRecenterBridge');
+    expect(template).toContain('bind:monthsettled="handleMonthSettled"');
+    expect(pageSource).not.toContain('pendingMonthViewPatch');
+    expect(pageSource).toContain('handleMonthSettled');
+    expect(pageSource).toContain('createMonthRing');
     expect(pageSource).toContain('periodShiftQueue');
     expect(pageSource).toContain('periodShiftCommitPending');
     expect(pageSource).toContain('function continuePeriodShift(');
@@ -194,7 +208,7 @@ describe('P4 native workbench', () => {
     expect(readMonthsSource).not.toContain('page.monthResources.delete(');
   });
 
-  it('mirrors the committed month into the active and center slots before recentering', () => {
+  it('rotates logical months into stable physical slots without a recenter step', () => {
     const august = createWorkbenchViewModel(
       calendarApiGoldenResponse,
       holidayApiGoldenResponse,
@@ -211,18 +225,13 @@ describe('P4 native workbench', () => {
     );
     const heights = (panels) => panels.map((panel) => (panel.cells.length / 7) * 54);
 
-    const next = createMonthRecenterBridge(
-      august.monthPanels,
-      heights(august.monthPanels),
-      september.monthPanels,
-      heights(september.monthPanels),
-      1,
-    );
-    expect(next.monthPanels.map((panel) => panel.key)).toEqual(['2026-07', '2026-09', '2026-09']);
-    expect(next.monthPanels.map((panel) => panel.relative)).toEqual([-1, 0, 1]);
-    expect(next.monthPanels[1]?.cells).toBe(september.monthPanels[1]?.cells);
+    const next = createMonthRing(september.monthPanels, heights(september.monthPanels), 2);
+    expect(next.monthPanels.map((panel) => panel.key)).toEqual(['2026-10', '2026-08', '2026-09']);
+    expect(next.monthPanels.map((panel) => panel.relative)).toEqual([1, -1, 0]);
+    expect(next.monthPanels.map((panel) => panel.slot)).toEqual([0, 1, 2]);
     expect(next.monthPanels[2]?.cells).toBe(september.monthPanels[1]?.cells);
-    expect(next.monthPanelHeights[1]).toBe(next.monthPanelHeights[2]);
+    expect(next.monthPanelHeights[2]).toBe(heights(september.monthPanels)[1]);
+    expect(august.monthPanels[1]?.slot).toBe(1);
   });
 
   it('resets a previous locate animation when switching week or list views', () => {
@@ -314,7 +323,7 @@ describe('P4 native workbench', () => {
     expect(monthStyles).toContain('@keyframes click-locate');
     expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
     expect(monthStyles).toMatch(
-      /\.calendar-cell-slot\.is-selected::after\s*{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/s,
+      /\.calendar-cell-slot\.is-selected::after\s*{[^}]*right:\s*-1px;[^}]*bottom:\s*-1px;[^}]*border:\s*2px solid var\(--ui-color-primary\);/s,
     );
     expect(cellStyles).not.toContain('.calendar-cell.is-selected::after');
     expect(pageSource).toContain("? 'offline' : 'ready'");

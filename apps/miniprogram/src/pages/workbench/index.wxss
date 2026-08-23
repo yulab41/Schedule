@@ -1409,7 +1409,11 @@ page {
 .list-panel-scroll {
   height: 100%;
   box-sizing: border-box;
-  padding: 8px 0 16px;
+}
+
+.list-panel-content {
+  padding-top: 8px;
+  box-sizing: border-box;
 }
 
 .list-calendar {
@@ -1448,7 +1452,7 @@ page {
   flex: none;
   background: var(--ui-color-background);
   border-bottom: 1px solid var(--ui-color-border);
-  box-shadow: 0 4px 10px rgba(22, 32, 42, 0.05);
+  box-shadow: none;
 }
 
 .list-swiper {
@@ -1593,6 +1597,10 @@ page {
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-medium);
+}
+
+.list-day-card:last-child {
+  margin-bottom: 0;
 }
 
 .list-day-card.is-today {

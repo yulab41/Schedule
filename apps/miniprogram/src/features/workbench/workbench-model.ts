@@ -14,6 +14,7 @@ import {
 } from '@schedule/presentation-core';
 
 export type WorkbenchRelativePanel = -1 | 0 | 1;
+export type MonthSlot = 0 | 1 | 2;
 export interface WorkbenchFilters {
   readonly membershipIds: readonly string[];
   readonly onlyChanges: boolean;
@@ -42,6 +43,7 @@ export interface WorkbenchPanel {
   readonly cells: readonly WorkbenchCell[];
   readonly key: string;
   readonly relative: WorkbenchRelativePanel;
+  readonly slot: MonthSlot;
 }
 
 export interface WorkbenchDetail {
@@ -137,7 +139,7 @@ export interface WorkbenchViewModel {
   readonly weekPanels: readonly WorkbenchWeekPanel[];
 }
 
-export interface MonthRecenterBridge {
+export interface MonthRing {
   readonly monthPanelHeights: readonly number[];
   readonly monthPanels: readonly WorkbenchPanel[];
 }
@@ -149,25 +151,48 @@ export const emptyWorkbenchFilters: WorkbenchFilters = {
   shiftTypeIds: [],
 };
 
-export function createMonthRecenterBridge(
-  currentPanels: readonly WorkbenchPanel[],
-  currentHeights: readonly number[],
-  nextPanels: readonly WorkbenchPanel[],
-  nextHeights: readonly number[],
-  delta: -1 | 1,
-): MonthRecenterBridge {
-  const targetPanel = nextPanels[1];
-  const targetHeight = nextHeights[1];
-  if (currentPanels.length !== 3 || targetPanel === undefined || targetHeight === undefined) {
-    return { monthPanelHeights: nextHeights, monthPanels: nextPanels };
+export function getAdjacentMonthSlot(activeSlot: MonthSlot, delta: -1 | 1): MonthSlot {
+  return ((activeSlot + delta + 3) % 3) as MonthSlot;
+}
+
+export function createMonthRing(
+  logicalPanels: readonly WorkbenchPanel[],
+  logicalHeights: readonly number[],
+  activeSlot: MonthSlot,
+): MonthRing {
+  const panelByRelative = new Map(logicalPanels.map((panel) => [panel.relative, panel]));
+  const heightByRelative = new Map(
+    logicalPanels.map((panel, index) => [panel.relative, logicalHeights[index]]),
+  );
+  const previousPanel = panelByRelative.get(-1);
+  const currentPanel = panelByRelative.get(0);
+  const nextPanel = panelByRelative.get(1);
+  const previousHeight = heightByRelative.get(-1);
+  const currentHeight = heightByRelative.get(0);
+  const nextHeight = heightByRelative.get(1);
+  if (
+    previousPanel === undefined ||
+    currentPanel === undefined ||
+    nextPanel === undefined ||
+    previousHeight === undefined ||
+    currentHeight === undefined ||
+    nextHeight === undefined
+  ) {
+    return {
+      monthPanelHeights: logicalHeights,
+      monthPanels: logicalPanels.map((panel, slot) => ({ ...panel, slot: slot as MonthSlot })),
+    };
   }
-  const targetIndex: 0 | 2 = delta < 0 ? 0 : 2;
-  const monthPanels = [...currentPanels];
-  const monthPanelHeights = [...currentHeights];
-  monthPanels[1] = { ...targetPanel, relative: 0 };
-  monthPanels[targetIndex] = { ...targetPanel, relative: delta };
-  monthPanelHeights[1] = targetHeight;
-  monthPanelHeights[targetIndex] = targetHeight;
+  const nextSlot = getAdjacentMonthSlot(activeSlot, 1);
+  const previousSlot = getAdjacentMonthSlot(activeSlot, -1);
+  const monthPanels = new Array<WorkbenchPanel>(3);
+  const monthPanelHeights = new Array<number>(3);
+  monthPanels[activeSlot] = { ...currentPanel, slot: activeSlot };
+  monthPanels[nextSlot] = { ...nextPanel, slot: nextSlot };
+  monthPanels[previousSlot] = { ...previousPanel, slot: previousSlot };
+  monthPanelHeights[activeSlot] = currentHeight;
+  monthPanelHeights[nextSlot] = nextHeight;
+  monthPanelHeights[previousSlot] = previousHeight;
   return { monthPanelHeights, monthPanels };
 }
 
@@ -249,6 +274,7 @@ export function createWorkbenchViewModel(
       ),
       key: panelMonth,
       relative,
+      slot: (relative + 1) as MonthSlot,
     } satisfies WorkbenchPanel;
   });
   const weekPanels = ([-1, 0, 1] as const).map((relative) => {

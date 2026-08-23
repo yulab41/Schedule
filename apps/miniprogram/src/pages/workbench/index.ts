@@ -16,11 +16,13 @@ import {
   writeWorkbenchCache,
 } from '../../platform/workbench-read.js';
 import {
-  createMonthRecenterBridge,
+  createMonthRing,
   createWorkbenchViewModel,
   formatDateLabel,
   formatMonthLabel,
+  getAdjacentMonthSlot,
   getTodayBusinessDate,
+  type MonthSlot,
   type WorkbenchFilters,
   type WorkbenchViewModel,
 } from '../../features/workbench/workbench-model.js';
@@ -36,10 +38,10 @@ interface TapEvent {
 }
 
 interface MonthChangeEvent {
-  readonly detail: { readonly delta: -1 | 1 };
+  readonly detail: { readonly current: MonthSlot; readonly delta: -1 | 1 };
 }
 
-interface MonthRecenterEvent {
+interface MonthSettledEvent {
   readonly detail: { readonly continues: boolean };
 }
 
@@ -121,8 +123,8 @@ interface WorkbenchPageInstance {
   calendar: CalendarReadModel | undefined;
   holidays: HolidayReadModel | undefined;
   monthLocateTarget: string | undefined;
+  monthRingSlot: MonthSlot;
   monthResources: Map<string, MonthReadResult>;
-  pendingMonthViewPatch: Partial<WorkbenchPageData> | undefined;
   pendingListTarget: string | undefined;
   pendingScrollTarget: string | undefined;
   pendingWeekTarget: string | undefined;
@@ -205,8 +207,8 @@ Page({
   calendar: undefined,
   holidays: undefined,
   monthLocateTarget: undefined,
+  monthRingSlot: 1,
   monthResources: new Map<string, MonthReadResult>(),
-  pendingMonthViewPatch: undefined,
   pendingListTarget: undefined,
   pendingScrollTarget: undefined,
   pendingWeekTarget: undefined,
@@ -233,6 +235,7 @@ Page({
     wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, groupId);
     this.calendar = undefined;
     this.holidays = undefined;
+    this.monthRingSlot = 1;
     this.monthResources.clear();
     this.setData({
       activeFilterCount: 0,
@@ -258,6 +261,7 @@ Page({
     const view = event.currentTarget.dataset.view;
     if (view !== 'month' && view !== 'week' && view !== 'list') return;
     const nextView = view as WorkbenchView;
+    if (nextView === this.data.viewMode) return;
     const nextWeekStart =
       nextView === 'week' ? getWeekStartDate(this.data.selectedDate) : this.data.weekStart;
     const period = {
@@ -265,7 +269,7 @@ Page({
       selectedDate: this.data.selectedDate,
       weekStart: nextWeekStart,
     };
-    this.pendingMonthViewPatch = undefined;
+    this.monthRingSlot = 1;
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
@@ -275,6 +279,7 @@ Page({
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
       filterOpen: false,
       filterOpenField: '',
+      listScrollTarget: '',
       listSwiperCurrent: 1,
       locateIconAnimating: false,
       periodSwiperDuration: 260,
@@ -377,6 +382,7 @@ Page({
       selectedDate,
       weekStart: getWeekStartDate(`${businessMonth}-01`),
     };
+    this.monthRingSlot = event.detail.current;
     const viewPatch = createViewPatch(this, period);
     const finalPatch: Partial<WorkbenchPageData> = {
       ...viewPatch,
@@ -388,29 +394,15 @@ Page({
             ? '已切换到上个月。'
             : '已切换到下个月。',
     };
-    this.pendingMonthViewPatch = finalPatch;
-    const bridge = createMonthRecenterBridge(
-      this.data.monthPanels,
-      this.data.monthPanelHeights,
-      viewPatch.monthPanels ?? this.data.monthPanels,
-      viewPatch.monthPanelHeights ?? this.data.monthPanelHeights,
-      event.detail.delta,
-    );
-    this.setData(
-      {
-        ...finalPatch,
-        ...bridge,
-      },
-      () => {
-        const month = this.selectComponent('#workbench-month');
-        if (month?.finishPeriodShift !== undefined) month.finishPeriodShift();
-        else finalizeMonthRecenter(this, false);
-      },
-    );
+    this.setData(finalPatch, () => {
+      const month = this.selectComponent('#workbench-month');
+      if (month?.finishPeriodShift !== undefined) month.finishPeriodShift();
+      else finishMonthShift(this, false);
+    });
   },
 
-  handleMonthRecentered(this: WorkbenchPageInstance, event: MonthRecenterEvent): void {
-    finalizeMonthRecenter(this, event.detail.continues);
+  handleMonthSettled(this: WorkbenchPageInstance, event: MonthSettledEvent): void {
+    finishMonthShift(this, event.detail.continues);
   },
 
   handleWeekChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -781,12 +773,13 @@ function createViewPatch(
     period.weekStart,
     filters,
   );
+  const logicalMonthPanelHeights = view.monthPanels.map((panel) => (panel.cells.length / 7) * 54);
+  const monthRing = createMonthRing(view.monthPanels, logicalMonthPanelHeights, page.monthRingSlot);
   return {
     gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 54,
     listPanels: view.listPanels,
     monthLabel: view.monthLabel,
-    monthPanelHeights: view.monthPanels.map((panel) => (panel.cells.length / 7) * 54),
-    monthPanels: view.monthPanels,
+    ...monthRing,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     selectedDetails: view.selectedDetails,
     selectedLabel: view.selectedLabel,
@@ -794,19 +787,14 @@ function createViewPatch(
   };
 }
 
-function finalizeMonthRecenter(page: WorkbenchPageInstance, continues: boolean): void {
-  const finalPatch = page.pendingMonthViewPatch;
-  page.pendingMonthViewPatch = undefined;
-  if (finalPatch === undefined) return;
-  page.setData(finalPatch, () => {
-    flushPendingScrollTarget(page);
-    const month = page.selectComponent('#workbench-month');
-    if (continues && month?.continueQueuedShift !== undefined) {
-      month.continueQueuedShift();
-      return;
-    }
-    void refreshWorkbenchWindow(page);
-  });
+function finishMonthShift(page: WorkbenchPageInstance, continues: boolean): void {
+  flushPendingScrollTarget(page);
+  const month = page.selectComponent('#workbench-month');
+  if (continues && month?.continueQueuedShift !== undefined) {
+    month.continueQueuedShift();
+    return;
+  }
+  void refreshWorkbenchWindow(page);
 }
 
 function commitPeriodShift(
@@ -925,7 +913,8 @@ function startLocateTransition(
   const patch = createViewPatch(page, period);
   const targetIndex: 0 | 2 = delta < 0 ? 0 : 2;
   if (view === 'month') {
-    const targetPanel = patch.monthPanels?.[1];
+    const monthTargetSlot = getAdjacentMonthSlot(page.monthRingSlot, delta);
+    const targetPanel = patch.monthPanels?.[page.monthRingSlot];
     const targetHeight = patch.gridHeight;
     if (
       targetPanel === undefined ||
@@ -937,8 +926,8 @@ function startLocateTransition(
     }
     const monthPanels = [...page.data.monthPanels];
     const monthPanelHeights = [...page.data.monthPanelHeights];
-    monthPanels[targetIndex] = { ...targetPanel, relative: delta };
-    monthPanelHeights[targetIndex] = targetHeight;
+    monthPanels[monthTargetSlot] = { ...targetPanel, relative: delta, slot: monthTargetSlot };
+    monthPanelHeights[monthTargetSlot] = targetHeight;
     page.setData({ monthPanelHeights, monthPanels }, () => {
       const month = page.selectComponent('#workbench-month');
       if (month?.startProgrammaticShift !== undefined) {
