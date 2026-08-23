@@ -474,6 +474,124 @@ describeWithDatabase('wechat authentication and sessions', () => {
     expect(rows).toEqual([{ existingUserId: userId }]);
   });
 
+  it('rehomes an empty legacy Mini identity when password proof selects the account', async () => {
+    const legacyUserId = await seedKnownMiniUser('legacy-password-link', { withProfile: false });
+    const targetUserId = await seedPasswordUser('legacy.target', 'correct-password', {
+      realName: 'Password User',
+    });
+    const pending = await loginForLink('legacy-password-link');
+
+    const response = await app.inject({
+      method: 'POST',
+      payload: {
+        linkToken: pending.linkToken,
+        password: 'correct-password',
+        username: 'legacy.target',
+      },
+      url: '/auth/wechat/link-password',
+    });
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json()).toMatchObject({
+      profile: { id: targetUserId, realName: 'Password User' },
+      status: 'authenticated',
+    });
+
+    const [identityRows] = (await client.database.execute(sql`
+      SELECT user_id AS userId
+      FROM user_auth_identities
+      WHERE subject = 'mock-openid-legacy-password-link'
+    `)) as unknown as [{ userId: string }[], unknown];
+    expect(identityRows).toEqual([{ userId: targetUserId }]);
+
+    const [legacyRows] = (await client.database.execute(sql`
+      SELECT
+        status,
+        cloudbase_uid AS cloudbaseUid,
+        wechat_openid AS wechatOpenid,
+        deleted_at IS NOT NULL AS isDeleted
+      FROM users
+      WHERE id = ${legacyUserId}
+    `)) as unknown as [
+      {
+        cloudbaseUid: string | null;
+        isDeleted: number;
+        status: string;
+        wechatOpenid: string | null;
+      }[],
+      unknown,
+    ];
+    expect(legacyRows).toEqual([
+      { cloudbaseUid: null, isDeleted: 1, status: 'deleted', wechatOpenid: null },
+    ]);
+    expect(await readLinkStatus(pending.linkToken)).toBe('consumed');
+  });
+
+  it('rehomes a legacy Mini identity with a matching profile created by first use', async () => {
+    const legacyUserId = await seedKnownMiniUser('legacy-profile-password-link', {
+      withProfile: false,
+    });
+    const pending = await loginForLink('legacy-profile-password-link');
+    await client.database.execute(sql`
+      INSERT INTO user_profiles (user_id, real_name)
+      VALUES (${legacyUserId}, 'User legacy-profile-password-link')
+    `);
+    const targetUserId = await seedPasswordUser('legacy.profile.target', 'correct-password', {
+      realName: 'User legacy-profile-password-link',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      payload: {
+        linkToken: pending.linkToken,
+        password: 'correct-password',
+        username: 'legacy.profile.target',
+      },
+      url: '/auth/wechat/link-password',
+    });
+
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json()).toMatchObject({
+      profile: { id: targetUserId, realName: 'User legacy-profile-password-link' },
+      status: 'authenticated',
+    });
+
+    const [legacyProfileRows] = (await client.database.execute(sql`
+      SELECT deleted_at IS NOT NULL AS isDeleted
+      FROM user_profiles
+      WHERE user_id = ${legacyUserId}
+    `)) as unknown as [{ isDeleted: number }[], unknown];
+    expect(legacyProfileRows).toEqual([{ isDeleted: 1 }]);
+  });
+
+  it('keeps a legacy Mini identity pending when the profile does not match the password account', async () => {
+    const legacyUserId = await seedKnownMiniUser('legacy-profile-mismatch', {
+      withProfile: false,
+    });
+    const pending = await loginForLink('legacy-profile-mismatch');
+    await client.database.execute(sql`
+      INSERT INTO user_profiles (user_id, real_name)
+      VALUES (${legacyUserId}, 'Different Profile')
+    `);
+    await seedPasswordUser('legacy.mismatch.target', 'correct-password', {
+      realName: 'Password User',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      payload: {
+        linkToken: pending.linkToken,
+        password: 'correct-password',
+        username: 'legacy.mismatch.target',
+      },
+      url: '/auth/wechat/link-password',
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: 'CONFLICT' } });
+    expect(await readLinkStatus(pending.linkToken)).toBe('pending');
+  });
+
   it('links a pending Mini identity to a password account and preserves its authVersion', async () => {
     const userId = await seedPasswordUser('doctor.one', 'correct-password', {
       authVersion: 3,

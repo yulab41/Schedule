@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 已有账号绑定遗留微信身份修复
+
+- 反馈：体验版微信登录已成功；选择“绑定既有账号”输入 D0796 和密码后提示“身份状态发生变化”，而“第一次使用”可以在排班台前完成。
+- 定位：生产只读检查确认 D0796 是正常密码账号；当前微信 identity 先指向历史迁移遗留的 active 空壳用户。原 `linkPassword` 在 `identity.existingUserId !== account.userId` 时直接返回 `CONFLICT`，引入点为 `2fc9c164`。
+- 测试先行与实现：新增空壳无资料、首次使用后已有同名资料、资料姓名不匹配拒绝三条回归路径；通过后才实现受严格不变量保护的原子 rehome。来源存在密码、群组/群主、解绑记录、UnionID、多个 identity 或不同资料时不迁移，link token 保持 pending。
+- 验证：API 微信认证集成测试 25/25、API typecheck、`git diff --check` 通过；本轮只改 API 与测试/文档，未触及 Web 核心链路，不运行浏览器 smoke；小程序体验版 56 无需重新上传。
+- 发布状态：待提交、推送、生产备份和部署；发布后用体验版 `0.1.0-p3.20260823.56` 重新开始登录并复核 D0796 绑定。
+
 ## 2026-08-23 P3 Mini production 默认 profile 固化
 
 - 引入点：`git log -S 'upload-experience --profile=staging'`/`git blame` 确认默认 staging 由 `3884713b` 初始化；用户已决定不补建 staging，体验版与正式版统一使用 production API。

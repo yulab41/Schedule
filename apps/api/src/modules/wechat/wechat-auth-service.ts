@@ -9,13 +9,18 @@ import type {
   WechatRegisterResponse,
 } from '@schedule/contracts';
 import {
+  groupMemberships,
+  groups,
   type DatabaseClient,
   type DatabaseTransaction,
   userPasswordCredentials,
+  userAuthIdentities,
   userProfiles,
   users,
+  wechatIdentityDetachments,
+  wechatUnionAccounts,
 } from '@schedule/database';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import {
   createWechatSessionToken,
@@ -124,7 +129,13 @@ export class WechatAuthService {
       this.assertCurrentAppId(identity.appId);
       const account = await this.findPasswordAccount(transaction, input.username, input.password);
       if (identity.existingUserId !== undefined && identity.existingUserId !== account.userId) {
-        throw identityConflictError();
+        await this.rehomeLegacyWechatIdentity(
+          transaction,
+          identity.existingUserId,
+          account,
+          identity.subject,
+          requestId,
+        );
       }
 
       const resolved = await this.identityResolver.resolveInTransaction(transaction, {
@@ -266,6 +277,7 @@ export class WechatAuthService {
   ): Promise<{
     readonly authVersion: number;
     readonly profile: UserProfile;
+    readonly wechatOpenid: string | null;
     readonly userId: string;
   }> {
     const [account] = await transaction
@@ -276,6 +288,7 @@ export class WechatAuthService {
         profileVersion: userProfiles.version,
         realName: userProfiles.realName,
         userId: users.id,
+        wechatOpenid: users.wechatOpenid,
       })
       .from(userPasswordCredentials)
       .innerJoin(users, eq(users.id, userPasswordCredentials.userId))
@@ -305,8 +318,140 @@ export class WechatAuthService {
         realName: account.realName,
         version: account.profileVersion,
       },
+      wechatOpenid: account.wechatOpenid,
       userId: account.userId,
     };
+  }
+
+  private async rehomeLegacyWechatIdentity(
+    transaction: DatabaseTransaction,
+    sourceUserId: string,
+    account: {
+      readonly profile: UserProfile;
+      readonly userId: string;
+      readonly wechatOpenid: string | null;
+    },
+    subject: string,
+    requestId?: string,
+  ): Promise<void> {
+    if (account.wechatOpenid !== null && account.wechatOpenid !== subject) {
+      throw identityConflictError();
+    }
+
+    const [source] = await transaction
+      .select({
+        cloudbaseUid: users.cloudbaseUid,
+        deletedAt: users.deletedAt,
+        detachmentCount: sql<number>`(
+          SELECT COUNT(*) FROM ${wechatIdentityDetachments}
+          WHERE ${wechatIdentityDetachments.userId} = ${sourceUserId}
+        )`,
+        groupMembershipCount: sql<number>`(
+          SELECT COUNT(*) FROM ${groupMemberships}
+          WHERE ${groupMemberships.userId} = ${sourceUserId}
+        )`,
+        identityCount: sql<number>`(
+          SELECT COUNT(*) FROM ${userAuthIdentities}
+          WHERE ${userAuthIdentities.userId} = ${sourceUserId}
+        )`,
+        ownedGroupCount: sql<number>`(
+          SELECT COUNT(*) FROM ${groups}
+          WHERE ${groups.ownerUserId} = ${sourceUserId}
+        )`,
+        passwordCount: sql<number>`(
+          SELECT COUNT(*) FROM ${userPasswordCredentials}
+          WHERE ${userPasswordCredentials.userId} = ${sourceUserId}
+        )`,
+        profileCount: sql<number>`(
+          SELECT COUNT(*) FROM ${userProfiles}
+          WHERE ${userProfiles.userId} = ${sourceUserId}
+        )`,
+        profileRealName: sql<string | null>`(
+          SELECT ${userProfiles.realName} FROM ${userProfiles}
+          WHERE ${userProfiles.userId} = ${sourceUserId}
+          ORDER BY ${userProfiles.deletedAt} IS NULL DESC, ${userProfiles.updatedAt} DESC
+          LIMIT 1
+        )`,
+        status: users.status,
+        unionCount: sql<number>`(
+          SELECT COUNT(*) FROM ${wechatUnionAccounts}
+          WHERE ${wechatUnionAccounts.userId} = ${sourceUserId}
+        )`,
+        wechatOpenid: users.wechatOpenid,
+      })
+      .from(users)
+      .where(eq(users.id, sourceUserId))
+      .limit(1)
+      .for('update');
+
+    if (
+      source === undefined ||
+      source.cloudbaseUid === null ||
+      source.deletedAt !== null ||
+      source.status !== 'active' ||
+      source.wechatOpenid !== subject ||
+      Number(source.detachmentCount) !== 0 ||
+      Number(source.groupMembershipCount) !== 0 ||
+      Number(source.identityCount) !== 1 ||
+      Number(source.ownedGroupCount) !== 0 ||
+      Number(source.passwordCount) !== 0 ||
+      Number(source.profileCount) > 1 ||
+      Number(source.unionCount) !== 0 ||
+      (source.profileRealName !== null && source.profileRealName !== account.profile.realName)
+    ) {
+      throw identityConflictError();
+    }
+
+    const [legacyIdentity] = await transaction
+      .select({ id: userAuthIdentities.id })
+      .from(userAuthIdentities)
+      .where(
+        and(
+          eq(userAuthIdentities.provider, 'wechat_mini_program'),
+          eq(userAuthIdentities.subject, subject),
+          eq(userAuthIdentities.userId, sourceUserId),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (legacyIdentity === undefined) throw identityConflictError();
+
+    await transaction
+      .update(userAuthIdentities)
+      .set({ userId: account.userId })
+      .where(eq(userAuthIdentities.id, legacyIdentity.id));
+    await transaction
+      .update(userProfiles)
+      .set({ deletedAt: sql`current_timestamp(3)`, version: sql`${userProfiles.version} + 1` })
+      .where(and(eq(userProfiles.userId, sourceUserId), isNull(userProfiles.deletedAt)));
+    await transaction
+      .update(users)
+      .set({
+        cloudbaseUid: null,
+        deletedAt: sql`current_timestamp(3)`,
+        status: 'deleted',
+        version: sql`${users.version} + 1`,
+        wechatOpenid: null,
+      })
+      .where(eq(users.id, sourceUserId));
+    await transaction
+      .update(users)
+      .set({
+        wechatOpenid: subject,
+        version: sql`${users.version} + 1`,
+      })
+      .where(eq(users.id, account.userId));
+
+    await this.auditWriter.append(transaction, {
+      action: 'wechat_miniprogram_legacy_rehomed',
+      actorUserId: account.userId,
+      metadata: { proof: 'password' },
+      operationId: randomUUID(),
+      outcome: 'completed',
+      ...(requestId === undefined ? {} : { requestId }),
+      targetId: sourceUserId,
+      targetType: 'user',
+    });
   }
 
   private async getActiveUser(

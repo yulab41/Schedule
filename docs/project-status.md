@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P3 已有账号绑定遗留微信身份修复（当前批次）
+
+- 根因与引入点：生产只读核对确认 D0796 密码账号正常，但当前微信身份已被历史迁移产生的无业务“空壳用户”占用；`git log -S 'identity.existingUserId !== undefined && identity.existingUserId !== account.userId'`/`git blame` 定位原始拒绝逻辑来自 `2fc9c164`，因此输入正确密码仍返回 `CONFLICT`。
+- 测试先行：在 `wechat-auth.integration.test.ts` 先加入遗留身份绑定回归场景；实现后覆盖空壳无资料、首次使用后已有同名资料、姓名不匹配拒绝三条路径。
+- 实现：密码证明通过后，仅在来源用户仍为 active、仅有一个 Mini identity、无密码、无群组/群主/解绑记录/UnionID、最多一份且与目标账号同名资料时，将 identity 和 legacy openid 原子迁移到目标密码账号；来源资料软删除、用户标记 deleted 并清除登录 UID；任一条件不满足则保留 token pending 并返回冲突。
+- 验证：API 微信认证集成测试 25/25 通过；API typecheck、任务文件 `git diff --check` 通过。未改 Web 核心链路，无需 `pnpm smoke:browser`；小程序代码未变，体验版 `0.1.0-p3.20260823.56` 继续可用。
+- checkpoint：提交信息拟为 `fix(auth): rehome empty legacy WeChat identity`；随后推送并按仓库规则执行生产备份、部署和 `ecs-verify.sh`。
+- 当前状态：已实现待生产发布；发布后请用户在体验版 56 重新开始微信登录，选择“绑定既有账号”，输入 D0796 和对应密码复核。
+- 下一活动批次与停止条件：只做本修复的生产发布和体验版人工复核；不补 staging，不进入新的 Web/Mini 功能任务。
+
 ## 2026-08-23 P3 Mini production 默认 profile 固化（当前批次）
 
 - 实现：`apps/miniprogram/package.json` 的默认 `build`、`check:determinism`、`ci:dry-run`、`preview`、`upload:experience` 和 `verify` 全部改为 `--profile=production`；保留显式 `build:staging` 作为未部署环境的本地入口，不提供运行时环境切换。
