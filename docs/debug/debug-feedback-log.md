@@ -8,8 +8,9 @@
 - 测试先行：新增 `p6-runtime`、`workbench-runtime` 并扩展 transport/P5 controller 回归；旧实现 15 failed/5 passed，另有 64 个未处理 401 rejection。实现后核心 3 文件/26 项、全 Mini 28 文件/155 项、受控非 Mini 169 文件/901 项通过；主审新增活动月保持断言先失败（邻月回写成 2026-06），修复后转绿。
 - 实现：统一 executor 为 GET/非空幂等写提供 12s timeout 与 network/502/503/504 的 200/400ms 两次退避；空/无 key 写、4xx、invalid 不重试。64 并发/顺序旧 token 401 单飞一次 `wx.login`/login POST，fresh-code proof 401 不误判；严格 UTC session expiry、generation/tombstone、跨用户/解绑/final401/link-required 清理。v2 owner cache、无 groupCode snapshot、24h/未来/损坏/quota/离群门禁与真离线冷启完成；active month 先 ready，邻月非暂态失败关闭；hide/unload 旧 serial 不提交，show 强制重验。
 - 行为审计：P5 所有危险写保持同 payload/key 自动重放，不建立离线写队列；非幂等写仍一次。`wx.request` 接收者、409/失败草稿、成功清 key、公开请求、完整手机号缓存剥离和 Web 语义不变。旧 generation 200 拒绝但不清新 session；storage 物理删除失败也不能恢复旧 token。
-- 验证：全仓 typecheck/Lint/build、Mini source、production verify/package/determinism/CI dry-run 和任务 diff check 通过。主工作区 Mini 为 1077632 bytes，2/2 Worklet，manifest `dae4bb9ef77b649f9674a8a2f5a8b7b4f6603569bec2b5975f23dbd0924b56f2`；无 Web 核心变化，不运行浏览器 smoke，`pnpm smoke:check-core` 通过。
-- checkpoint：`fix(miniprogram): harden session and offline runtime`。推送/体验上传/ECS 发布后，下一批只做 P6-B client capability、kill switch 和应用回滚演练；P6 性能量化、遥测/IP 保留和人工 RC 仍未关闭。
+- 验证：全仓 typecheck/Lint/build、Mini source、production verify/package/determinism/CI dry-run 和任务 diff check 通过。精确 `9e3a966c` clean worktree Mini 为 1087846 bytes、2/2 Worklet、manifest `c5f68ce84139fe4b4ff4e06048870477f2c92e47fc2361fb3a7a521797238167`；无 Web 核心变化，不运行浏览器 smoke，`pnpm smoke:check-core` 通过。
+- 发布：代码 checkpoint `9e3a966c` 已推送；production-profile 体验版 `0.1.0-p6.20260824.78` 上传成功（72 文件、zip 396436 bytes，manifest `947ad9001a9e12d3935abe49ede87102cc9c4e22f8e856e70732ea169863edce`），未提审/正式发布。生产备份 `3144fa12-8b3f-4e88-880f-9fe839e4cea4`（54 表、162572 行、76698680 bytes，SHA-256 `d62508415d7856753afbc041a9417a693f630449fc08ce89f7a0660e52c6678c`）后部署 release `9e3a966cb7bc81fe0399494fb719c142471f9c0a`；预热首次 TLS EOF 后恢复，`ecs-verify.sh` 通过 49 migrations，公网健康 200，远端临时目录已删除。
+- 状态：P6-A 已完成（含自动运行验证、体验上传与生产发布）→待 P6 RC 实体复核。最终状态 checkpoint `docs(status): record p6 runtime hardening deployment` 对齐后，下一批只做 P6-B client capability、kill switch 和应用回滚演练；P6 性能量化、遥测/IP 保留和人工 RC 仍未关闭。
 
 ## 2026-08-24 P5 群组内手机号单独同意
 
