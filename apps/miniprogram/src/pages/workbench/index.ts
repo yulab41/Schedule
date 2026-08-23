@@ -18,6 +18,7 @@ import {
 } from '../../platform/workbench-read.js';
 import {
   createWorkbenchViewModel,
+  getHorizontalSwipeDelta,
   getTodayBusinessDate,
   type WorkbenchFilter,
   type WorkbenchViewModel,
@@ -35,6 +36,18 @@ interface MonthChangeEvent {
   readonly detail: { readonly delta: -1 | 1 };
 }
 
+interface TouchPoint {
+  readonly clientX?: number;
+  readonly clientY?: number;
+  readonly pageX?: number;
+  readonly pageY?: number;
+}
+
+interface SwipeEvent {
+  readonly changedTouches?: readonly TouchPoint[];
+  readonly touches?: readonly TouchPoint[];
+}
+
 interface WorkbenchPageData {
   readonly activeFilter: WorkbenchFilter;
   readonly activeFilterLabel: string;
@@ -46,18 +59,23 @@ interface WorkbenchPageData {
   readonly currentGroupRole: string;
   readonly canReLogin: boolean;
   readonly errorMessage: string;
+  readonly filterIconAnimating: boolean;
   readonly filterOpen: boolean;
   readonly groupOpen: boolean;
   readonly groups: readonly GroupSummary[];
   readonly gridHeight: number;
   readonly listRows: WorkbenchViewModel['listRows'];
+  readonly locateIconAnimating: boolean;
   readonly monthLabel: string;
   readonly monthPanels: WorkbenchViewModel['monthPanels'];
   readonly offlineNotice: string;
+  readonly refreshing: boolean;
+  readonly scrollTarget: string;
   readonly selectedDate: string;
   readonly selectedDetails: WorkbenchViewModel['selectedDetails'];
   readonly selectedLabel: string;
   readonly selectedCountLabel: string;
+  readonly calendarNavAnimating: boolean;
   readonly state: WorkbenchState;
   readonly viewMode: WorkbenchView;
   readonly weekDays: WorkbenchViewModel['weekDays'];
@@ -69,11 +87,12 @@ interface WorkbenchPageData {
 
 interface WorkbenchPageInstance {
   data: WorkbenchPageData;
-  calendar?: CalendarReadModel;
+  calendar: CalendarReadModel | undefined;
   groupMembers: readonly WorkbenchMember[];
-  holidays?: HolidayReadModel;
+  holidays: HolidayReadModel | undefined;
   requestSerial: number;
-  setData(patch: Partial<WorkbenchPageData>): void;
+  swipeStart: { readonly x: number; readonly y: number } | undefined;
+  setData(patch: Partial<WorkbenchPageData>, callback?: () => void): void;
 }
 
 const client = createWorkbenchReadClient();
@@ -92,18 +111,23 @@ Page({
     currentGroupRole: '',
     canReLogin: false,
     errorMessage: '',
+    filterIconAnimating: false,
     filterOpen: false,
     groupOpen: false,
     groups: [],
     gridHeight: 270,
     listRows: [],
+    locateIconAnimating: false,
     monthLabel: formatMonthLabel(initialMonth),
     monthPanels: [],
     offlineNotice: '',
+    refreshing: false,
+    scrollTarget: '',
     selectedDate: today,
     selectedDetails: [],
     selectedLabel: formatDateLabel(today),
     selectedCountLabel: '0 个班次',
+    calendarNavAnimating: false,
     state: 'loading' as WorkbenchState,
     viewMode: 'month' as const,
     weekDays: [],
@@ -113,8 +137,11 @@ Page({
     filterOptions: ['all', 'mine', 'changes'],
   } satisfies WorkbenchPageData,
 
+  calendar: undefined,
   groupMembers: [],
+  holidays: undefined,
   requestSerial: 0,
+  swipeStart: undefined,
 
   onLoad(this: WorkbenchPageInstance): void {
     void loadWorkbench(this);
@@ -131,6 +158,8 @@ Page({
       return;
     }
     wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, groupId);
+    this.calendar = undefined;
+    this.holidays = undefined;
     this.setData({
       businessMonth: initialMonth,
       currentGroupId: groupId,
@@ -160,7 +189,20 @@ Page({
   },
 
   handleFilterToggle(this: WorkbenchPageInstance): void {
-    this.setData({ filterOpen: !this.data.filterOpen, groupOpen: false });
+    this.setData(
+      {
+        filterIconAnimating: false,
+        filterOpen: !this.data.filterOpen,
+        groupOpen: false,
+      },
+      () => {
+        this.setData({ filterIconAnimating: true });
+      },
+    );
+  },
+
+  handleFilterComplete(this: WorkbenchPageInstance): void {
+    this.setData({ announcement: '已完成筛选设置。', filterOpen: false });
   },
 
   handleFilterSelect(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -193,41 +235,51 @@ Page({
 
   handleWeekChange(this: WorkbenchPageInstance, event: TapEvent): void {
     const delta = event.currentTarget.dataset.delta === '-1' ? -1 : 1;
-    const weekStart = addWeeks(this.data.weekStart, delta);
-    const selectedDate = addWeeks(this.data.selectedDate, delta);
-    this.setData({
-      announcement: delta < 0 ? '已切换到上一周。' : '已切换到下一周。',
-      businessMonth: getBusinessMonthOf(weekStart),
-      selectedDate,
-      selectedLabel: formatDateLabel(selectedDate),
-      weekStart,
-    });
-    void loadWorkbench(this);
+    shiftWeek(this, delta);
   },
 
   handleListMonthChange(this: WorkbenchPageInstance, event: TapEvent): void {
     const delta = event.currentTarget.dataset.delta === '-1' ? -1 : 1;
-    const businessMonth = addBusinessMonths(this.data.businessMonth, delta);
-    const selectedDate = retargetSelectedDateToMonth(this.data.selectedDate, businessMonth);
-    this.setData({
-      announcement: delta < 0 ? '已切换到上个月。' : '已切换到下个月。',
-      businessMonth,
-      selectedDate,
-      selectedLabel: formatDateLabel(selectedDate),
-      weekStart: getWeekStartDate(`${businessMonth}-01`),
-    });
-    void loadWorkbench(this);
+    shiftListMonth(this, delta);
   },
 
   handleLocateToday(this: WorkbenchPageInstance): void {
-    this.setData({
-      announcement: this.data.viewMode === 'week' ? '已定位到本周。' : '已定位到今天。',
-      businessMonth: initialMonth,
-      selectedDate: today,
-      selectedLabel: formatDateLabel(today),
-      weekStart: getWeekStartDate(today),
-    });
+    const scrollTarget = 'workbench-view-anchor';
+    this.setData(
+      {
+        announcement: this.data.viewMode === 'week' ? '已定位到本周。' : '已定位到今天。',
+        businessMonth: initialMonth,
+        locateIconAnimating: false,
+        selectedDate: today,
+        selectedLabel: formatDateLabel(today),
+        scrollTarget: '',
+        weekStart: getWeekStartDate(today),
+      },
+      () => {
+        this.setData({ locateIconAnimating: true, scrollTarget });
+      },
+    );
     void loadWorkbench(this);
+  },
+
+  handleCalendarNav(this: WorkbenchPageInstance): void {
+    this.setData({ calendarNavAnimating: false, scrollTarget: '' }, () => {
+      this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-view-anchor' });
+    });
+  },
+
+  handleSwipeStart(this: WorkbenchPageInstance, event: SwipeEvent): void {
+    this.swipeStart = getTouchPoint(event);
+  },
+
+  handleWeekSwipeEnd(this: WorkbenchPageInstance, event: SwipeEvent): void {
+    const delta = getSwipeDelta(this, event);
+    if (delta !== 0) shiftWeek(this, delta);
+  },
+
+  handleListSwipeEnd(this: WorkbenchPageInstance, event: SwipeEvent): void {
+    const delta = getSwipeDelta(this, event);
+    if (delta !== 0) shiftListMonth(this, delta);
   },
 
   handleDateSelect(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -280,7 +332,13 @@ Page({
 async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
-  page.setData({ canReLogin: false, errorMessage: '', state: 'loading' });
+  const hasLoadedData = page.calendar !== undefined && page.holidays !== undefined;
+  page.setData({
+    canReLogin: false,
+    errorMessage: '',
+    refreshing: hasLoadedData,
+    state: hasLoadedData ? page.data.state : 'loading',
+  });
   try {
     const groups = await client.listGroups();
     if (!isCurrentRequest(page, requestSerial)) return;
@@ -289,6 +347,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
         currentGroupId: '',
         currentGroupName: '暂无可查看的群组',
         groups,
+        refreshing: false,
         state: 'empty',
       });
       return;
@@ -334,6 +393,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
       offlineNotice: monthResults.some((result) => result.offline)
         ? '离线只读 · 显示最近一次成功读取的排班'
         : '',
+      refreshing: false,
       state: monthResults.some((result) => result.offline)
         ? 'offline'
         : page.calendar.assignments.length === 0
@@ -344,7 +404,12 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
     const message = getReadErrorMessage(error);
-    page.setData({ canReLogin: isAuthRequired(error), errorMessage: message, state: 'error' });
+    page.setData({
+      canReLogin: isAuthRequired(error),
+      errorMessage: message,
+      refreshing: false,
+      state: 'error',
+    });
   }
 }
 
@@ -413,6 +478,50 @@ function refreshView(page: WorkbenchPageInstance): void {
     weekDays: view.weekDays,
     weekRangeLabel: view.weekRangeLabel,
   });
+}
+
+function shiftWeek(page: WorkbenchPageInstance, delta: -1 | 1): void {
+  const weekStart = addWeeks(page.data.weekStart, delta);
+  const selectedDate = addWeeks(page.data.selectedDate, delta);
+  page.setData({
+    announcement: delta < 0 ? '已切换到上一周。' : '已切换到下一周。',
+    businessMonth: getBusinessMonthOf(weekStart),
+    selectedDate,
+    selectedLabel: formatDateLabel(selectedDate),
+    weekStart,
+  });
+  void loadWorkbench(page);
+}
+
+function shiftListMonth(page: WorkbenchPageInstance, delta: -1 | 1): void {
+  const businessMonth = addBusinessMonths(page.data.businessMonth, delta);
+  const selectedDate = retargetSelectedDateToMonth(page.data.selectedDate, businessMonth);
+  page.setData({
+    announcement: delta < 0 ? '已切换到上个月。' : '已切换到下个月。',
+    businessMonth,
+    selectedDate,
+    selectedLabel: formatDateLabel(selectedDate),
+    weekStart: getWeekStartDate(`${businessMonth}-01`),
+  });
+  void loadWorkbench(page);
+}
+
+function getTouchPoint(event: SwipeEvent): { readonly x: number; readonly y: number } | undefined {
+  const point = event.changedTouches?.[0] ?? event.touches?.[0];
+  if (point === undefined) return undefined;
+  const x = point.clientX ?? point.pageX;
+  const y = point.clientY ?? point.pageY;
+  return typeof x === 'number' && typeof y === 'number' && Number.isFinite(x) && Number.isFinite(y)
+    ? { x, y }
+    : undefined;
+}
+
+function getSwipeDelta(page: WorkbenchPageInstance, event: SwipeEvent): -1 | 0 | 1 {
+  const start = page.swipeStart;
+  const end = getTouchPoint(event);
+  page.swipeStart = undefined;
+  if (start === undefined || end === undefined) return 0;
+  return getHorizontalSwipeDelta(end.x - start.x, end.y - start.y);
 }
 
 function getRequestedMonths(

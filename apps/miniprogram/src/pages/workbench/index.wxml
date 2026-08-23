@@ -1,5 +1,11 @@
 <view class="workbench-page">
-  <scroll-view class="workbench-scroll" scroll-y show-scrollbar="{{false}}">
+  <scroll-view
+    class="workbench-scroll"
+    scroll-y
+    scroll-with-animation="{{true}}"
+    scroll-into-view="{{scrollTarget}}"
+    show-scrollbar="{{false}}"
+  >
     <view class="workbench-header">
       <view class="brand-lockup">
         <text class="brand-mark" aria-hidden="true">+</text>
@@ -57,6 +63,10 @@
         <text class="cache-note"><text class="cache-dot" />只读查看 · 24 小时缓存</text>
       </view>
       <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
+      <view wx:if="{{refreshing}}" class="refresh-indicator" aria-live="polite">
+        <view class="refresh-spinner" aria-hidden="true"></view>
+        <text>正在读取排班…</text>
+      </view>
 
       <view class="view-controls" aria-label="排班视图">
         <view class="view-switch" aria-role="tablist">
@@ -78,7 +88,9 @@
           aria-label="筛选排班"
           bindtap="handleFilterToggle"
         >
-          <view class="filter-icon" aria-hidden="true"
+          <view
+            class="filter-icon {{filterIconAnimating ? 'is-animating' : ''}}"
+            aria-hidden="true"
             ><view></view><view></view><view></view
           ></view>
           <text>筛选</text>
@@ -87,7 +99,16 @@
       </view>
 
       <view wx:if="{{filterOpen}}" class="filter-panel" aria-label="筛选排班">
-        <view class="filter-panel-heading"><text>筛选排班</text><text>只读条件</text></view>
+        <view class="filter-panel-heading">
+          <text>筛选排班</text>
+          <view
+            class="filter-complete"
+            hover-class="is-pressed"
+            aria-role="button"
+            bindtap="handleFilterComplete"
+            >完成</view
+          >
+        </view>
         <view
           wx:for="{{filterOptions}}"
           wx:key="*this"
@@ -110,15 +131,16 @@
         >{{announcement}}</text
       >
 
-      <block wx:if="{{state === 'ready' && viewMode === 'month'}}">
-        <calendar-month
-          grid-height="{{gridHeight}}"
-          month-label="{{monthLabel}}"
-          panels="{{monthPanels}}"
-          bind:locatetoday="handleLocateToday"
-          bind:monthchange="handleMonthChange"
-          bind:select="handleDateSelect"
-        ></calendar-month>
+      <view id="workbench-view-anchor" class="workbench-view-anchor">
+        <block wx:if="{{state === 'ready' && viewMode === 'month'}}">
+          <calendar-month
+            grid-height="{{gridHeight}}"
+            month-label="{{monthLabel}}"
+            panels="{{monthPanels}}"
+            bind:locatetoday="handleLocateToday"
+            bind:monthchange="handleMonthChange"
+            bind:select="handleDateSelect"
+          ></calendar-month>
         <view class="selected-detail" aria-label="选中日期值班详情">
           <view class="selected-detail-heading">
             <view class="summary-date"
@@ -139,10 +161,15 @@
           </view>
           <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
         </view>
-      </block>
+        </block>
 
-      <block wx:elif="{{state === 'ready' && viewMode === 'week'}}">
-        <view class="week-calendar" aria-label="周视图">
+        <block wx:elif="{{state === 'ready' && viewMode === 'week'}}">
+          <view
+            class="week-calendar"
+            aria-label="周视图"
+            bindtouchstart="handleSwipeStart"
+            bindtouchend="handleWeekSwipeEnd"
+          >
           <view class="calendar-navigation">
             <view
               class="calendar-step"
@@ -162,7 +189,8 @@
               aria-role="button"
               aria-label="定位到今天"
               bindtap="handleLocateToday"
-              ><view class="locate-crosshair"><view></view></view
+              ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
+                ><view></view></view
             ></view>
             <view
               class="calendar-step"
@@ -196,7 +224,7 @@
               ><text class="week-duty">{{item.duty}}</text>
             </view>
           </view>
-        </view>
+          </view>
         <view class="selected-detail compact-detail" aria-label="选中日期值班详情">
           <view class="selected-detail-heading"
             ><view class="summary-date"
@@ -212,10 +240,15 @@
           >
           <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
         </view>
-      </block>
+        </block>
 
-      <block wx:elif="{{state === 'ready' && viewMode === 'list'}}">
-        <view class="list-calendar" aria-label="列表视图">
+        <block wx:elif="{{state === 'ready' && viewMode === 'list'}}">
+          <view
+            class="list-calendar"
+            aria-label="列表视图"
+            bindtouchstart="handleSwipeStart"
+            bindtouchend="handleListSwipeEnd"
+          >
           <view class="list-calendar-heading">
             <view
               class="calendar-step"
@@ -235,7 +268,8 @@
               aria-role="button"
               aria-label="定位到今天"
               bindtap="handleLocateToday"
-              ><view class="locate-crosshair"><view></view></view
+              ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
+                ><view></view></view
             ></view>
             <view
               class="calendar-step"
@@ -264,55 +298,63 @@
             <view class="list-copy"
               ><text class="list-title">{{item.shift}} · {{item.name}}</text
               ><text class="list-note">{{item.note}}</text></view
-            ><text class="list-arrow">›</text>
+            ><view class="list-chevron" aria-hidden="true"></view>
           </view>
-        </view>
-      </block>
+          </view>
+        </block>
 
-      <view wx:elif="{{state === 'loading'}}" class="state-card state-loading" aria-live="polite"
-        ><view class="state-mark"><view class="state-spinner"></view></view
-        ><text class="state-title">正在读取排班</text
-        ><text class="state-description">正在读取当前群组的月历和班次。</text></view
-      >
-      <view wx:elif="{{state === 'empty'}}" class="state-card state-empty" aria-live="polite"
-        ><view class="state-mark">日</view
-        ><text class="state-title"
-          >{{currentGroupId ? '暂时没有已发布排班' : '暂无可查看的群组'}}</text
-        ><text class="state-description"
-          >{{currentGroupId ? '群主完成发布后，这里会显示当前群组的值班安排。' :
-          '身份确认后，加入有权限的群组即可查看排班。'}}</text
-        ></view
-      >
-      <view wx:elif="{{state === 'offline'}}" class="state-card state-offline" aria-live="polite"
-        ><view class="state-mark">日</view><text class="state-title">当前为离线状态</text
-        ><text class="state-description"
-          >只显示最近一次成功读取的内容，离线时不能提交业务变更。</text
-        ></view
-      >
-      <view wx:elif="{{state === 'error'}}" class="state-card state-error" aria-live="polite"
-        ><view class="state-mark">!</view><text class="state-title">排班暂时无法加载</text
-        ><text class="state-description">{{errorMessage}}</text
-        ><view
-          class="retry-action"
-          hover-class="is-pressed"
-          aria-role="button"
-          bindtap="handleRetry"
-          >重新加载</view
-        ><view
-          wx:if="{{canReLogin}}"
-          class="login-action"
-          hover-class="is-pressed"
-          aria-role="button"
-          bindtap="handleOpenIdentity"
-          >重新登录</view
-        ></view
-      >
+        <view wx:elif="{{state === 'loading'}}" class="state-card state-loading" aria-live="polite"
+          ><view class="state-mark"><view class="state-spinner"></view></view
+          ><text class="state-title">正在读取排班</text
+          ><text class="state-description">正在读取当前群组的月历和班次。</text></view
+        >
+        <view wx:elif="{{state === 'empty'}}" class="state-card state-empty" aria-live="polite"
+          ><view class="state-mark">日</view
+          ><text class="state-title"
+            >{{currentGroupId ? '暂时没有已发布排班' : '暂无可查看的群组'}}</text
+          ><text class="state-description"
+            >{{currentGroupId ? '群主完成发布后，这里会显示当前群组的值班安排。' :
+            '身份确认后，加入有权限的群组即可查看排班。'}}</text
+          ></view
+        >
+        <view wx:elif="{{state === 'offline'}}" class="state-card state-offline" aria-live="polite"
+          ><view class="state-mark">日</view><text class="state-title">当前为离线状态</text
+          ><text class="state-description"
+            >只显示最近一次成功读取的内容，离线时不能提交业务变更。</text
+          ></view
+        >
+        <view wx:elif="{{state === 'error'}}" class="state-card state-error" aria-live="polite"
+          ><view class="state-mark">!</view><text class="state-title">排班暂时无法加载</text
+          ><text class="state-description">{{errorMessage}}</text
+          ><view
+            class="retry-action"
+            hover-class="is-pressed"
+            aria-role="button"
+            bindtap="handleRetry"
+            >重新加载</view
+          ><view
+            wx:if="{{canReLogin}}"
+            class="login-action"
+            hover-class="is-pressed"
+            aria-role="button"
+            bindtap="handleOpenIdentity"
+            >重新登录</view
+          ></view
+        >
+      </view>
     </view>
   </scroll-view>
 
   <view class="bottom-nav" aria-label="工作台导航">
-    <view class="bottom-nav-item is-active" aria-role="button" aria-current="page"
-      ><view class="nav-icon nav-calendar"></view><text>日历</text></view
+    <view
+      class="bottom-nav-item is-active"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-current="page"
+      bindtap="handleCalendarNav"
+      ><view class="nav-icon nav-calendar {{calendarNavAnimating ? 'is-animating' : ''}}"
+        ><view></view></view
+      ><text>日历</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
@@ -320,7 +362,8 @@
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-leave"></view><text>请假</text></view
+      ><view class="nav-icon nav-leave"><view></view><view></view><view></view></view
+      ><text>请假</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
@@ -328,7 +371,7 @@
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-swap"></view><text>换班</text></view
+      ><view class="nav-icon nav-swap"><view></view><view></view></view><text>换班</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
@@ -336,7 +379,7 @@
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-adjustment"></view><text>调班</text></view
+      ><view class="nav-icon nav-adjustment"><view></view></view><text>调班</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
@@ -344,7 +387,8 @@
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-more"></view><text>更多</text></view
+      ><view class="nav-icon nav-more"><view></view><view></view><view></view></view
+      ><text>更多</text></view
     >
   </view>
 </view>

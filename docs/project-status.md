@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 原生工作台反馈修复（当前批次）
+
+- 用户反馈：月份切换显示整页“正在读取排班”并等待约 1–2 秒；周/列表不能左右滑动；周视图选择框两端圆角处理不完整；月视图底部边界线重叠；筛选未完整继承 Web 面板；定位无滚动效果；定位、筛选和底部导航图标未继承 Web 的点击动效。
+- 引入点核对：`git log -S "state: 'loading'"`/`git blame` 定位整页加载来自 P4 初始 `loadWorkbench`；`git log -S 'handleWeekChange'` 定位周视图仅按钮导航；`git log -S 'calendar-cell-slot'`/`git blame` 定位月历每格底部间距造成边界叠线；Web 黄金稿 `P4WorkbenchPreview.vue` 与 `Ui2Icon`/action-motion 源作为交互和动效依据。
+- 实现：已有数据切换月份/周/列表时保留旧内容并显示行内读取指示，不再替换整页；新增主导水平手势判定和周/列表左右滑动；筛选面板补“完成”、选中态与计数保持 Web 语义；定位通过 `scroll-into-view` 和动画图标回到工作台锚点；修正月历底行间距、周视图外框裁剪与选择框；补齐筛选/定位/日历导航/底部导航的原生分段动效和 reduced-motion 处理。仅修改 Mini WXML/WXSS/TS/测试，不改 Web 核心链路、API 或生产数据。
+- 测试先行与验证：新增滑动方向/阈值、底行标记和模板契约断言；`pnpm exec vitest run scripts --exclude '.artifacts/**' --fileParallelism=false` 18 文件/77 项通过；Mini typecheck、production build、source audit、package audit、determinism、verify 通过。全量默认测试仍会扫描仓库既有 `.artifacts/ecs-runner-deploy-*` 临时副本并报告其相对 tsconfig/生成 tokens 路径错误，未修改该副本；本批未触及 Web 核心链路，未运行 `pnpm smoke:browser`。
+- 当前状态：已实现待人工原生复核。尚未宣称 Android/微信运行时视觉通过；Storybook/模拟器/构建不能替代实体设备确认。
+- 原生验收停止点：体验版安装后，确认月切换不再整页闪屏、周/列表左右滑动、周选择框左右边界、月历底线、筛选面板/计数、定位滚动、定位/筛选/底部导航图标动效，并复核 390/320 边界；用户确认前不进入 P5 或扩展 P4 业务写入。
+- checkpoint 与发布：代码 checkpoint 将使用 `fix(miniprogram): refine p4 workbench interactions`；体验上传与 production ECS 备份/部署/验证待本轮代码 checkpoint 后执行。
+
 ## 2026-08-23 P4 小程序原生工作台接续（当前批次）
 
 - 前置确认：用户已确认 Web 黄金稿 `miniprogram-parity-p4-workbench--ready-390`、`--ready-320` 及月/周/列表、定位、筛选和异常状态；现进入原生 `pages/workbench/index`，不再等待 Web 视觉确认。

@@ -108,6 +108,10 @@
   border-radius: 50%;
 }
 
+.locate-crosshair.is-animating {
+  animation: click-locate 520ms cubic-bezier(0.2, 0, 0, 1);
+}
+
 .locate-tick {
   position: absolute;
   background: currentColor;
@@ -202,6 +206,10 @@
   box-sizing: border-box;
 }
 
+.calendar-cell-slot.is-bottom-row {
+  padding-bottom: 0;
+}
+
 .calendar-cell-slot.is-bottom-left {
   overflow: hidden;
   border-bottom-left-radius: 17px;
@@ -210,4 +218,20 @@
 .calendar-cell-slot.is-bottom-right {
   overflow: hidden;
   border-bottom-right-radius: 17px;
+}
+
+@keyframes click-locate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(90deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .locate-crosshair.is-animating {
+    animation: none;
+  }
 }

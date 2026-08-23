@@ -23,7 +23,7 @@
       aria-label="定位到今天"
       bindtap="handleLocateToday"
     >
-      <view class="locate-crosshair" aria-hidden="true">
+      <view class="locate-crosshair {{locateAnimating ? 'is-animating' : ''}}" aria-hidden="true">
         <view class="locate-tick is-top"></view>
         <view class="locate-tick is-right"></view>
         <view class="locate-tick is-bottom"></view>
@@ -71,7 +71,7 @@
         <view
           wx:for="{{item.cells}}"
           wx:key="businessDate"
-          class="calendar-cell-slot {{item.isBottomLeft ? 'is-bottom-left' : ''}} {{item.isBottomRight ? 'is-bottom-right' : ''}}"
+          class="calendar-cell-slot {{item.isBottomRow ? 'is-bottom-row' : ''}} {{item.isBottomLeft ? 'is-bottom-left' : ''}} {{item.isBottomRight ? 'is-bottom-right' : ''}}"
         >
           <calendar-cell
             aria-label="{{item.ariaLabel}}"

@@ -20,6 +20,7 @@ export interface WorkbenchCell {
   readonly holiday: string;
   readonly isBottomLeft: boolean;
   readonly isBottomRight: boolean;
+  readonly isBottomRow: boolean;
   readonly isCurrentMonth: boolean;
   readonly isHoliday: boolean;
   readonly isSelected: boolean;
@@ -84,6 +85,22 @@ const weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'] as const
 
 export function getTodayBusinessDate(now: Date = new Date()): string {
   return new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+export function getHorizontalSwipeDelta(
+  deltaX: number,
+  deltaY: number,
+  threshold = 36,
+): -1 | 0 | 1 {
+  if (
+    !Number.isFinite(deltaX) ||
+    !Number.isFinite(deltaY) ||
+    Math.abs(deltaX) < threshold ||
+    Math.abs(deltaX) <= Math.abs(deltaY)
+  ) {
+    return 0;
+  }
+  return deltaX < 0 ? 1 : -1;
 }
 
 export function sanitizeCalendarForCache(calendar: CalendarReadModel): CalendarReadModel {
@@ -206,6 +223,7 @@ function createMonthCells(
       holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
       isBottomLeft: index === grid.length - 7,
       isBottomRight: index === grid.length - 1,
+      isBottomRow: index >= grid.length - 7,
       isCurrentMonth: !cell.isOutsideMonth,
       isHoliday: holiday?.isOffDay === true,
       isSelected: !cell.isOutsideMonth && cell.businessDate === selectedDate,

@@ -9,6 +9,7 @@ interface CalendarSelectEvent {
 interface CalendarMonthInstance {
   _monthShiftPending: boolean;
   readonly data: {
+    readonly locateAnimating: boolean;
     readonly swiperCurrent: number;
     readonly swiperDuration: number;
   };
@@ -24,6 +25,7 @@ Component({
     panels: { type: Array, value: [] },
   },
   data: {
+    locateAnimating: false,
     swiperCurrent: 1,
     swiperDuration: 240,
   },
@@ -59,7 +61,10 @@ Component({
       this.startProgrammaticShift(1);
     },
     handleLocateToday(this: CalendarMonthInstance): void {
-      this.triggerEvent('locatetoday');
+      this.setData({ locateAnimating: false }, () => {
+        this.setData({ locateAnimating: true });
+        this.triggerEvent('locatetoday');
+      });
     },
     handleCellSelect(this: CalendarMonthInstance, event: CalendarSelectEvent): void {
       this.triggerEvent('select', event.detail);
