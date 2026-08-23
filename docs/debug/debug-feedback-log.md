@@ -10,6 +10,7 @@
 - 验证：定向 8/8、受控 Mini 18 文件/79 项、typecheck、source/package audit、determinism、production verify（2/2 Worklet，405150 bytes，manifest `460c9c17dd514e03b08c0e2d0c74558bb915acc93ebb031554d487d42504cfff`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。完整测试显式排除仓库既有的忽略目录 `.artifacts/ecs-runner-deploy-*`（其中含不完整旧源码副本），未删除或改动该既有产物。
 - 运行/浏览器验证：生产域名 390×844 只读对照显示 Web 详情为“选中日期/班种数—班种卡—成员/岗位—电话/状态—事件记录”层级；浏览器提示弹层只取消、未提交数据，视口已恢复。未触及 Web 核心链路，无需完整 `pnpm smoke:browser`；原生最终视觉仍待用户体验版确认。
 - 行为变化清单：月/周不再固定视图筛选行；列表控制区仍固定并删除下沿阴影；详情按班种而非 assignment 数计数并分组；日期删除中点；电话面板本地展开；事件入口仅阶段提示。checkpoint 识别消息：`fix(miniprogram): match p4 selected duty details`。
+- 发布：代码 checkpoint `d9296df` 已推送；production-profile 体验版 `0.1.0-p4.20260823.62` 上传成功，63 个平台代码文件，manifest `4922f360416b9f0feed545c1f80ef5bb200557378cd0fc8e7c5642d3ecb0f4b9`，未审核/正式发布。生产备份 archive `61a0df40-43fb-4f9d-af77-20032bbc2385`（54 表、162544 行、76675204 bytes，SHA-256 `38064443aaf02cf46db2e1f9873eceb076f9bc0c92b333278dbfccadcde5b16f`）后部署 release `d9296df06b3579210cf9b50557cc1be81073ca41`，容器预热首次 502 后自动恢复，`ecs-verify.sh` 全项通过。首次远端调用误用相对产物路径，在哈希预检处停止、未解压或迁移；改用同一临时目录的绝对路径后发布成功。
 
 ## 2026-08-23 P4 安全区、筛选层与周/列表内容回归
 

@@ -9,8 +9,8 @@
 - 实现：视图/筛选控件恢复普通文档流，月/周随页面滚动，列表仍通过外层禁滚和内层 `scroll-view` 自然固定；列表月份工具栏删除下沿阴影，保留 1px 边框、圆角、固定底部间距和独立背景裁切。选中详情改为 Web 同构的“日期 + 班种数 → 班种卡 → 成员/岗位/状态 → 电话展开/变更说明/事件入口”，按班种与时间排序，并采用 Web 的“替 / 请假替班”详情口径；事件记录仍属于后续阶段，当前入口只给阶段提示，未新增业务读取或写入。
 - 语义审计：日历 GET、缓存、request serial、Promise catch、筛选和换期调用次数不变；手机号仍只来自已返回的日历成员字段，24 小时缓存继续删除完整手机号；新增状态仅控制电话展开，拨号仍以 `wx.makePhoneCall` 成员调用执行。日期视觉格式和计数由旧“8月23日 · 周日 / 1 个班次”明确改为 Web 的“8月23日 周日 / 1 个班种”。
 - 测试先行与验证：新结构/滚动/裁切断言在旧实现 2 项失败，用户澄清后的去阴影断言再失败 1 项，详情标识 Web 口径断言再失败 1 项；修复后定向 8/8、受控 Mini 18 文件/79 项通过；typecheck、source/package audit、determinism、production verify（2/2 Worklet，405150 bytes，manifest `460c9c17dd514e03b08c0e2d0c74558bb915acc93ebb031554d487d42504cfff`）、CI dry-run、ESLint、Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：生产 Web 390×844 只读对照确认详情层级与几何，未触发写入且浏览器视口已恢复；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。仓库既有忽略目录 `.artifacts/ecs-runner-deploy-*` 含一份不完整旧源码副本，故完整测试以 `--exclude "**/.artifacts/**"` 限定真实 `scripts/` 源码，未删除或改动该既有产物。
-- 当前状态：已完成本地实现和验证，待创建并推送代码 checkpoint `fix(miniprogram): match p4 selected duty details`，随后上传 production-profile 体验版、备份并部署同一精确 checkpoint。
-- 下一活动批次与停止条件：完成 checkpoint、体验上传和生产部署后暂停，只等待用户在实体微信复核三项反馈；未确认前不进入 P5、不补独立 staging。
+- 当前状态：已完成（含运行验证、体验上传和生产发布）→待用户实体原生复核。代码 checkpoint `d9296df`（`fix(miniprogram): match p4 selected duty details`）已推送；production-profile 体验版 `0.1.0-p4.20260823.62` 上传成功，63 个平台代码文件，上传 manifest `4922f360416b9f0feed545c1f80ef5bb200557378cd0fc8e7c5642d3ecb0f4b9`，未审核/正式发布。部署前数据库备份 archive `61a0df40-43fb-4f9d-af77-20032bbc2385`（54 表、162544 行、76675204 bytes，SHA-256 `38064443aaf02cf46db2e1f9873eceb076f9bc0c92b333278dbfccadcde5b16f`）后部署 release `d9296df06b3579210cf9b50557cc1be81073ca41`；容器预热首个健康请求 502、第二次恢复，`ecs-verify.sh` 的健康、域名隔离、产物哈希、容器、迁移和旧记录检查全项通过。
+- 下一活动批次与停止条件：最终状态 checkpoint 识别消息为 `docs(status): record p4 selected duty deployment`；推送并同步为生产 current-release 后暂停，只等待用户在实体微信复核三项反馈，未确认前不进入 P5、不补独立 staging。
 
 ## 2026-08-23 P4 原生安全区与视图内容一致性修复（当前批次）
 
