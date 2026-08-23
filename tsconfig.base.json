@@ -18,6 +18,9 @@
       "@schedule/contracts/manual-schedule-limits": [
         "packages/contracts/src/manual-schedule-limits.ts"
       ],
+      "@schedule/contracts/past-schedule-limits": [
+        "packages/contracts/src/past-schedule-limits.ts"
+      ],
       "@schedule/contracts/workspace-name": ["packages/contracts/src/workspace-name.ts"],
       "@schedule/contracts": ["packages/contracts/src/index.ts"],
       "@schedule/database": ["packages/database/src/index.ts"],

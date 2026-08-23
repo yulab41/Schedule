@@ -17,7 +17,7 @@ describe('native P5 manual schedule page', () => {
   it('is registered in the scheduling subpackage and mapped to the approved golden', () => {
     const appJson = JSON.parse(readFileSync(path.join(sourceRoot, 'app.json'), 'utf8'));
     expect(appJson.subpackages).toContainEqual({
-      pages: ['pages/manual/index'],
+      pages: ['pages/manual/index', 'pages/backfill/index'],
       root: 'subpackages/scheduling',
     });
     const manifest = readFileSync(

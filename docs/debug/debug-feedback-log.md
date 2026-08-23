@@ -2,6 +2,16 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P5 Web 同构原子排班补录
+
+- 范围与引入点：用户确认 P4 已全部完成并授权直接提交后续版本，本轮只收口 P5 排班补录，不提前实现手机号同意。`git log -S`/`git blame` 确认 Web 多日期 staged/逐条确认来自 `561310ce`，服务端单条补录来自 `561310ce`，补录当前状态追踪来自 `0bcc39fa`；幂等 helper 最初来自 `7aac9c28`，completed 重放分支来自 `3a082d8d`、重试竞态修复来自 `31999918`，header/body operation-id 兼容来自 `591ccff6`。旧 Web 逐条事务会部分成功，Mini 发布历史入口则指向未注册页面。
+- 测试先行与实现：contracts、API、client-core、presentation-core、Web 与 Mini 的缺模块/缺端点/逐条提交/未注册页面回归均先失败。新增最多 31 项且 `scheduleRoleId|businessDate` 唯一的严格真实日期契约；`POST /groups/:groupId/past-schedules/backfill-batches` 在一个事务内完成权限、规范指纹幂等、全部 upsert、逐项 immutable `schedule_backfill_completed`、按月统计和一次 workflow self-heal，任一失败连 period/event/idempotency 一起回滚。过期 24h key 现删除旧行后可复用；同 key 同 payload 重放不增写、异 payload 409。软删除 slot 1 唯一键冲突改为锁定并恢复原行。
+- 跨端语义：Web/Mini 共用 endpoint/compact decoder 与纯 TS staged ViewModel；班种、成员和日期第二次点击均取消，今天/未来/相邻月失败关闭，岗位/月切换清除不匹配草稿。确认时冻结排序 items 与统一 reason，一次 POST；网络结果不明确保留同一 operationId，payload 改变才换 key，成功才清草稿。Mini 新增原生 `subpackages/scheduling/pages/backfill`，复刻已确认 Web 手机版结构、44px、全宽七列、390/320 compact class、最近记录和多 slot 只读显示；无离线写队列或业务正文缓存。
+- 行为变化审计：旧单条 GET/POST/PUT 保留；active assignment 仍按 slotPosition/id 第一条修改，新 operationId 的同值写仍保持既有 version+1。新增 batch 会为每项写不可变补录事件并计入 manualAdjustment，`affectedShiftIds` 是 assignment ID；这修复了页面宣称“留下事件记录”而历史实现只写可变 trace 的缺口。Web shared transport 仍以成员调用保留 `fetch.call(globalThis)`、Bearer/public、离线 guard、错误映射和调用次数；Mini 仍以成员调用 `wx.request`。提交成功后的 records/calendar 刷新失败现在明确显示“已成功，刷新失败”，不再误报整批未确认。
+- 验证：真实 MySQL past-schedules 11/11；受控非 DB 工作区 163 文件/881 项，Mini 24 文件/122 项，相关 Web 日历不可变/移动端/原子补录 23/23 通过；全仓 typecheck、Lint、production build 通过。Mini production verify 通过（2/2 Worklet，822181 bytes，manifest `bfddbcd05dad7632b7e184335a681347ec60d862caaa109edc725310b222b4d3`），source/package/determinism 与 CI dry-run 同 manifest 通过。根测试若不排除用户自有 `.artifacts/runtime/src` 会误扫历史副本，正确工作目录/排除后真实源全绿，未修改这些用户目录。全量 format check 只被用户自有 `project.config.json`、未提交 Storybook 静态目录和既有 `directory-entry-groups.ts` 阻断；任务文件定向 Prettier 与 `git diff --check` 通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 `http://127.0.0.1:4173` 当前源码、仅当前进程开发认证和本地 API 上通过；管理员、成员、访客 vkey、访问记录及既有 1280/390/320 补录颜色、44px、无横溢与成员二次点击检查均无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-so5b9r`。原生微信视觉/交互仍只能由体验版实体运行复核。
+- checkpoint：识别消息 `feat(scheduling): add atomic backfill flow`；提交、推送、production-profile 体验上传、生产备份/部署/验证完成后，再写最终状态 checkpoint。下一批只实现 P5 群组设置中的手机号单独同意，不提前进入 P6。
+
 ## 2026-08-24 P5 手排限制与发布版本闭环
 
 - 前置与引入点：用户确认 P4 已全部完成并允许直接提交后续版本。`git log -S`/`git blame` 确认草稿/历史、发布状态机、共享 presentation-core 和既往日期撤回分别来自 `2834f07e`、`7c783c71`、`3be831be`、`b24db461`；浏览器 smoke 的旧“个班次”/`.track-event` 选择器来自 `1c84fd65`，生产按班种分组结构由 `f723b0db` 引入。

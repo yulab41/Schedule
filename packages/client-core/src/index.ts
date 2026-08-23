@@ -36,6 +36,15 @@ export {
   type ManualScheduleClient,
 } from './manual-schedule-client.js';
 export {
+  createPastScheduleClient,
+  pastScheduleBackfillBatchResultDecoder,
+  pastScheduleBackfillRecordListDecoder,
+  pastScheduleEndpoints,
+  pastSchedulePeriodListDecoder,
+  type PastScheduleBackfillBatchSubmission,
+  type PastScheduleClient,
+} from './past-schedule-client.js';
+export {
   createSchedulePublicationClient,
   publishSchedulePeriodBatchResultDecoder,
   publishSchedulePeriodResultDecoder,

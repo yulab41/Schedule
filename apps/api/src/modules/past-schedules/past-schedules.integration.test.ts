@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type {
-  PastScheduleAssignment,
-  PastSchedulePeriod,
-  SchedulingConfig,
+import {
+  MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS,
+  type PastScheduleBackfillBatchRequest,
+  type PastScheduleBackfillBatchResult,
+  type PastScheduleAssignment,
+  type PastSchedulePeriod,
+  type SchedulingConfig,
 } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
@@ -269,6 +272,254 @@ describeWithDatabase('past schedule backfill', () => {
     expect(future.statusCode).toBe(409);
   });
 
+  it('atomically backfills thirty-one past dates and writes immutable versioned events', async () => {
+    const operationId = randomUUID();
+    const response = await backfillBatch(
+      'owner-token',
+      {
+        items: Array.from({ length: MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS }, (_, index) =>
+          batchItem(index + 1),
+        ),
+        reason: '  月度集中补录  ',
+      },
+      operationId,
+    );
+
+    expect(response.statusCode, response.body).toBe(200);
+    const result = response.json() as PastScheduleBackfillBatchResult;
+    expect(result.assignments).toHaveLength(MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS);
+    expect(result.eventIds).toHaveLength(MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS);
+    expect(result.assignments[0]).toMatchObject({
+      actualMemberId: ownerMembershipId,
+      businessDate: '2026-07-01',
+      shiftTypeId: allDayShiftTypeId,
+      slotPosition: 1,
+    });
+
+    const state = await countBackfillState();
+    expect(state).toMatchObject({ assignments: 31, events: 31, idempotencyKeys: 1, periods: 1 });
+    const eventRows = (
+      await client.database.execute(
+        sql`SELECT affected_shift_ids AS affectedShiftIds,
+              before_data AS beforeData, after_data AS afterData,
+              object_id AS objectId, object_type AS objectType, operation_id AS operationId,
+              reason
+            FROM schedule_events WHERE id = ${result.eventIds[0]}`,
+      )
+    )[0] as unknown as readonly {
+      readonly affectedShiftIds: readonly string[];
+      readonly afterData: Record<string, unknown>;
+      readonly beforeData: Record<string, unknown>;
+      readonly objectId: string;
+      readonly objectType: string;
+      readonly operationId: string;
+      readonly reason: string | null;
+    }[];
+    expect(eventRows[0]).toMatchObject({
+      affectedShiftIds: [result.assignments[0]?.assignmentId],
+      afterData: {
+        actualMemberName: 'Owner Doctor',
+        actualMembershipId: ownerMembershipId,
+        reason: '月度集中补录',
+        shiftTypeId: allDayShiftTypeId,
+        shiftTypeName: '全天班',
+        version: 1,
+      },
+      beforeData: {
+        actualMemberName: null,
+        actualMembershipId: null,
+        reason: null,
+        shiftTypeId: null,
+        shiftTypeName: null,
+        version: 0,
+      },
+      objectId: result.assignments[0]?.assignmentId,
+      objectType: 'shift_assignment',
+      operationId,
+      reason: '月度集中补录',
+    });
+  });
+
+  it('rejects oversized, duplicate, and invalid-date batches before writing', async () => {
+    const requests: readonly PastScheduleBackfillBatchRequest[] = [
+      {
+        items: Array.from({ length: MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS + 1 }, (_, index) =>
+          batchItem((index % 31) + 1),
+        ),
+      },
+      { items: [batchItem(1), batchItem(1)] },
+      { items: [{ ...batchItem(1), businessDate: '2026-02-31' }] },
+    ];
+
+    for (const request of requests) {
+      const response = await backfillBatch('owner-token', request, randomUUID());
+      expect(response.statusCode, response.body).toBe(400);
+    }
+    const future = await backfillBatch(
+      'owner-token',
+      { items: [{ ...batchItem(1), businessDate: '2099-09-01' }] },
+      randomUUID(),
+    );
+    expect(future.statusCode, future.body).toBe(409);
+    expect(await countBackfillState()).toMatchObject({
+      assignments: 0,
+      events: 0,
+      idempotencyKeys: 0,
+      periods: 0,
+    });
+  });
+
+  it('keeps the legacy version increment and per-item event semantics for a new no-op operation', async () => {
+    const request = { items: [batchItem(1)] };
+    const first = await backfillBatch('owner-token', request, randomUUID());
+    expect(first.statusCode, first.body).toBe(200);
+    const assignmentId = (first.json() as PastScheduleBackfillBatchResult).assignments[0]
+      ?.assignmentId as string;
+
+    const second = await backfillBatch('owner-token', request, randomUUID());
+    expect(second.statusCode, second.body).toBe(200);
+    const rows = (
+      await client.database.execute(
+        sql`SELECT version FROM shift_assignments WHERE id = ${assignmentId}`,
+      )
+    )[0] as unknown as readonly { readonly version: number }[];
+    expect(rows).toEqual([{ version: 2 }]);
+    expect(await countBackfillState()).toMatchObject({ assignments: 1, events: 2 });
+  });
+
+  it('revives a soft-deleted slot one instead of colliding with the assignment unique key', async () => {
+    const first = await backfillBatch('owner-token', { items: [batchItem(1)] }, randomUUID());
+    expect(first.statusCode, first.body).toBe(200);
+    const assignmentId = (first.json() as PastScheduleBackfillBatchResult).assignments[0]
+      ?.assignmentId as string;
+    await client.database.execute(
+      sql`UPDATE shift_assignments SET deleted_at = NOW(3) WHERE id = ${assignmentId}`,
+    );
+
+    const revived = await backfillBatch(
+      'owner-token',
+      { items: [batchItem(1)], reason: '恢复已删除槽位' },
+      randomUUID(),
+    );
+    expect(revived.statusCode, revived.body).toBe(200);
+    expect((revived.json() as PastScheduleBackfillBatchResult).assignments[0]).toMatchObject({
+      assignmentId,
+      slotPosition: 1,
+    });
+    const rows = (
+      await client.database.execute(
+        sql`SELECT deleted_at AS deletedAt, slot_position AS slotPosition, version
+            FROM shift_assignments WHERE id = ${assignmentId}`,
+      )
+    )[0] as unknown as readonly {
+      readonly deletedAt: Date | null;
+      readonly slotPosition: number;
+      readonly version: number;
+    }[];
+    expect(rows).toEqual([{ deletedAt: null, slotPosition: 1, version: 2 }]);
+  });
+
+  it('allows an expired idempotency key to be reused with a different payload', async () => {
+    const operationId = randomUUID();
+    const first = await backfillBatch('owner-token', { items: [batchItem(1)] }, operationId);
+    expect(first.statusCode, first.body).toBe(200);
+    await client.database.execute(
+      sql`UPDATE idempotency_keys SET expires_at = DATE_SUB(NOW(3), INTERVAL 1 SECOND)
+          WHERE operation_key = ${operationId}
+            AND scope = ${`past_schedule_backfill:${groupId}`}`,
+    );
+
+    const reused = await backfillBatch(
+      'owner-token',
+      { items: [{ ...batchItem(1), actualMembershipId: candidateMembershipId }] },
+      operationId,
+    );
+    expect(reused.statusCode, reused.body).toBe(200);
+    expect((reused.json() as PastScheduleBackfillBatchResult).assignments[0]).toMatchObject({
+      actualMemberId: candidateMembershipId,
+    });
+    expect(await countBackfillState()).toMatchObject({
+      assignments: 1,
+      events: 2,
+      idempotencyKeys: 1,
+      periods: 1,
+    });
+  });
+
+  it('rolls back periods, assignments, events, and the idempotency row after a partial failure', async () => {
+    const before = await countBackfillState();
+    const response = await backfillBatch(
+      'owner-token',
+      {
+        items: [batchItem(1), { ...batchItem(2), actualMembershipId: randomUUID() }],
+        reason: '第二条故意失败',
+      },
+      randomUUID(),
+    );
+
+    expect(response.statusCode, response.body).toBe(404);
+    expect(await countBackfillState()).toEqual(before);
+  });
+
+  it('supports the header/body operation-id matrix, replay, payload conflicts, and permissions', async () => {
+    const headerOnly = await backfillBatch('owner-token', { items: [batchItem(1)] }, randomUUID());
+    expect(headerOnly.statusCode, headerOnly.body).toBe(200);
+
+    const bodyOnlyOperationId = randomUUID();
+    const bodyOnly = await backfillBatch('owner-token', {
+      items: [batchItem(2)],
+      operationId: bodyOnlyOperationId,
+    });
+    expect(bodyOnly.statusCode, bodyOnly.body).toBe(200);
+
+    const replayOperationId = randomUUID();
+    const first = await backfillBatch(
+      'owner-token',
+      { items: [batchItem(4), batchItem(3)] },
+      replayOperationId,
+    );
+    expect(first.statusCode, first.body).toBe(200);
+    const stateAfterFirst = await countBackfillState();
+    const replay = await backfillBatch(
+      'owner-token',
+      { items: [batchItem(3), batchItem(4)], operationId: replayOperationId },
+      replayOperationId,
+    );
+    expect(replay.statusCode, replay.body).toBe(200);
+    expect(replay.json()).toEqual(first.json());
+    expect(await countBackfillState()).toEqual(stateAfterFirst);
+
+    const conflicting = await backfillBatch(
+      'owner-token',
+      {
+        items: [{ ...batchItem(3), actualMembershipId: candidateMembershipId }, batchItem(4)],
+        operationId: replayOperationId,
+      },
+      replayOperationId,
+    );
+    expect(conflicting.statusCode, conflicting.body).toBe(409);
+
+    for (const response of [
+      await backfillBatch('owner-token', { items: [batchItem(5)] }),
+      await backfillBatch('owner-token', { items: [batchItem(5)] }, 'not-a-uuid'),
+      await backfillBatch(
+        'owner-token',
+        { items: [batchItem(5)], operationId: randomUUID() },
+        randomUUID(),
+      ),
+      await backfillBatch('owner-token', { items: [batchItem(5)] }, [randomUUID(), randomUUID()]),
+    ]) {
+      expect(response.statusCode, response.body).toBe(400);
+    }
+
+    const forbidden = await backfillBatch(
+      'candidate-token',
+      { items: [batchItem(6)] },
+      randomUUID(),
+    );
+    expect(forbidden.statusCode, forbidden.body).toBe(403);
+  });
+
   it('auto-archives a stale completed duty adjustment when a past assignment is backfilled', async () => {
     await publishMonth('2026-08');
     const pastPeriodId = (await findPastPeriodId()) as string;
@@ -399,6 +650,66 @@ describeWithDatabase('past schedule backfill', () => {
       payload: input,
       url: `/groups/${groupId}/past-schedules/${periodId}/assignments/${assignmentId}`,
     });
+  }
+
+  function batchItem(day: number): PastScheduleBackfillBatchRequest['items'][number] {
+    return {
+      actualMembershipId: ownerMembershipId,
+      businessDate: `2026-07-${String(day).padStart(2, '0')}`,
+      scheduleRoleId: primaryRoleId,
+      shiftTypeId: allDayShiftTypeId,
+    };
+  }
+
+  function backfillBatch(
+    token: string,
+    input: PastScheduleBackfillBatchRequest,
+    operationId?: string | string[],
+  ) {
+    return app.inject({
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(operationId === undefined ? {} : { 'idempotency-key': operationId }),
+      },
+      method: 'POST',
+      payload: input,
+      url: `/groups/${groupId}/past-schedules/backfill-batches`,
+    });
+  }
+
+  async function countBackfillState(): Promise<{
+    readonly assignments: number;
+    readonly events: number;
+    readonly idempotencyKeys: number;
+    readonly periods: number;
+  }> {
+    const assignmentRows = (
+      await client.database.execute(sql`SELECT COUNT(*) AS count FROM shift_assignments`)
+    )[0] as unknown as readonly { readonly count: number }[];
+    const eventRows = (
+      await client.database.execute(
+        sql`SELECT COUNT(*) AS count FROM schedule_events
+            WHERE group_id = ${groupId} AND event_type = 'schedule_backfill_completed'`,
+      )
+    )[0] as unknown as readonly { readonly count: number }[];
+    const idempotencyRows = (
+      await client.database.execute(
+        sql`SELECT COUNT(*) AS count FROM idempotency_keys
+            WHERE scope = ${`past_schedule_backfill:${groupId}`}`,
+      )
+    )[0] as unknown as readonly { readonly count: number }[];
+    const periodRows = (
+      await client.database.execute(
+        sql`SELECT COUNT(*) AS count FROM schedule_periods
+            WHERE group_id = ${groupId} AND business_month = '2026-07-01'`,
+      )
+    )[0] as unknown as readonly { readonly count: number }[];
+    return {
+      assignments: assignmentRows[0]?.count ?? 0,
+      events: eventRows[0]?.count ?? 0,
+      idempotencyKeys: idempotencyRows[0]?.count ?? 0,
+      periods: periodRows[0]?.count ?? 0,
+    };
   }
 
   async function registerUser(token: string, realName: string): Promise<void> {

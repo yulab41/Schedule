@@ -60,6 +60,7 @@ import type {
   PlatformAdminUserAccount,
   PlatformAdminUserAccountList,
   PastScheduleAssignment,
+  PastScheduleBackfillBatchResult,
   PastScheduleBackfillRecord,
   PastSchedulePeriod,
   PushConfiguration,
@@ -127,8 +128,10 @@ import type {
 } from '@schedule/contracts';
 import {
   createCalendarReadClient,
+  createPastScheduleClient,
   type ClientEndpoint,
   type ClientTransport,
+  type PastScheduleBackfillBatchSubmission,
 } from '@schedule/client-core';
 
 import {
@@ -180,8 +183,6 @@ import {
   memberSwapSettingsSchema,
   monthStatisticsSnapshotSchema,
   pastScheduleAssignmentListSchema,
-  pastScheduleBackfillRecordListSchema,
-  pastSchedulePeriodListSchema,
   notificationPageSchema,
   notificationRecordSchema,
   passwordIdentityAssignmentResponseSchema,
@@ -369,6 +370,10 @@ export interface ApiClient {
     schedulePeriodId: string,
   ): Promise<readonly PastScheduleAssignment[]>;
   listPastScheduleBackfillRecords(groupId: string): Promise<readonly PastScheduleBackfillRecord[]>;
+  submitPastScheduleBackfillBatch(
+    groupId: string,
+    input: PastScheduleBackfillBatchSubmission,
+  ): Promise<PastScheduleBackfillBatchResult>;
   updatePastScheduleAssignment(
     groupId: string,
     schedulePeriodId: string,
@@ -614,7 +619,11 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     fetchImplementationOverride: typeof fetch,
     baseUrlOverride: string,
     path: string,
-    init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT' },
+    init: {
+      readonly body?: string;
+      readonly headers?: Readonly<Record<string, string>>;
+      readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
+    },
     isResponseBody: (value: unknown) => value is ResponseBody,
   ): Promise<ResponseBody> {
     return requestWithOnline({
@@ -646,9 +655,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     });
   }
 
-  const calendarReadClient = createCalendarReadClient({
+  const sharedClientTransport = {
     request<Input, Output>(endpoint: ClientEndpoint<Input, Output>, input: Input) {
       const path = endpoint.path(input);
+      const body = endpoint.body?.(input);
+      const idempotencyKey = endpoint.idempotencyKey?.(input);
+      const init = {
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        ...(idempotencyKey === undefined ? {} : { headers: { 'Idempotency-Key': idempotencyKey } }),
+        method: endpoint.method,
+      };
       const isResponseBody = (value: unknown): value is Output =>
         endpoint.decoder.safeDecode(value).success;
       return endpoint.auth === 'bearer'
@@ -657,18 +673,14 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
             fetchImplementation,
             baseUrl,
             path,
-            { method: endpoint.method },
+            init,
             isResponseBody,
           )
-        : requestPublicJson<Output>(
-            fetchImplementation,
-            baseUrl,
-            path,
-            { method: endpoint.method },
-            isResponseBody,
-          );
+        : requestPublicJson<Output>(fetchImplementation, baseUrl, path, init, isResponseBody);
     },
-  } satisfies ClientTransport);
+  } satisfies ClientTransport;
+  const calendarReadClient = createCalendarReadClient(sharedClientTransport);
+  const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
 
   return {
     assignPlatformPasswordIdentity(userId, input) {
@@ -1469,14 +1481,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listPastSchedulePeriods(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/past-schedules`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(pastSchedulePeriodListSchema),
-      );
+      return pastScheduleClient.listPeriods(groupId);
     },
     listPastScheduleAssignments(groupId, schedulePeriodId) {
       return requestJson(
@@ -1489,14 +1494,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listPastScheduleBackfillRecords(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/past-schedules/backfill-records`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(pastScheduleBackfillRecordListSchema),
-      );
+      return pastScheduleClient.listBackfillRecords(groupId);
+    },
+    submitPastScheduleBackfillBatch(groupId, input) {
+      return pastScheduleClient.submitBackfillBatch(groupId, input);
     },
     updatePastScheduleAssignment(groupId, schedulePeriodId, assignmentId, input) {
       return requestJson(

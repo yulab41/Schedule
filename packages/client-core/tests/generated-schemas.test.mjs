@@ -6,6 +6,9 @@ import {
   manualApplyPreviewJsonSchema,
   manualScheduleTemplateJsonSchema,
   manualScheduleTemplateListJsonSchema,
+  pastScheduleBackfillBatchResultJsonSchema,
+  pastScheduleBackfillRecordListJsonSchema,
+  pastSchedulePeriodListJsonSchema,
   publishSchedulePeriodBatchResultJsonSchema,
   publishSchedulePeriodResultJsonSchema,
   scheduleChangeImpactPreviewJsonSchema,
@@ -22,6 +25,9 @@ import {
   manualApplyPreviewSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
+  pastScheduleBackfillBatchResultSchema,
+  pastScheduleBackfillRecordListSchema,
+  pastSchedulePeriodListSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   scheduleChangeImpactPreviewSchema,
@@ -59,6 +65,21 @@ describe('client-core generated schemas', () => {
       sanitizeJsonSchema(
         z.toJSONSchema(appliedManualScheduleTemplateResultSchema),
         'appliedManualScheduleTemplateResult',
+      ),
+    );
+    expect(pastSchedulePeriodListJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(pastSchedulePeriodListSchema), 'pastSchedulePeriodList'),
+    );
+    expect(pastScheduleBackfillRecordListJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(pastScheduleBackfillRecordListSchema),
+        'pastScheduleBackfillRecordList',
+      ),
+    );
+    expect(pastScheduleBackfillBatchResultJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(pastScheduleBackfillBatchResultSchema),
+        'pastScheduleBackfillBatchResult',
       ),
     );
     expect(schedulingConfigJsonSchema).toEqual(

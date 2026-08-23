@@ -53,6 +53,9 @@ describe('Mini Program deterministic toolchain guards', () => {
     expect(
       findRuntimeBoundaryIssues("import '@schedule/contracts/manual-schedule-limits';"),
     ).not.toContain('imports forbidden runtime module: @schedule/contracts/manual-schedule-limits');
+    expect(
+      findRuntimeBoundaryIssues("import '@schedule/contracts/past-schedule-limits';"),
+    ).not.toContain('imports forbidden runtime module: @schedule/contracts/past-schedule-limits');
   });
 
   it('requires worklet to be the first and only directive', () => {

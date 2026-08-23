@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+import { isValidManualScheduleDate } from './manual-schedule-limits.js';
+import { MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS } from './past-schedule-limits.js';
+
+export { MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS };
+
 export const pastSchedulePeriodSchema = z
   .object({
     businessMonth: z.string().regex(/^\d{4}-\d{2}$/u),
@@ -46,6 +51,57 @@ export interface CreatePastScheduleAssignmentInput {
   readonly scheduleRoleId: string;
   readonly shiftTypeId: string;
 }
+
+const pastScheduleUuidSchema = z.string().uuid();
+const pastScheduleBusinessDateSchema = z
+  .string()
+  .refine(isValidManualScheduleDate, '日期必须使用有效的 YYYY-MM-DD 格式。');
+
+export const pastScheduleBackfillBatchItemSchema = z
+  .object({
+    actualMembershipId: pastScheduleUuidSchema,
+    businessDate: pastScheduleBusinessDateSchema,
+    scheduleRoleId: pastScheduleUuidSchema,
+    shiftTypeId: pastScheduleUuidSchema,
+  })
+  .strict();
+export type PastScheduleBackfillBatchItem = z.infer<typeof pastScheduleBackfillBatchItemSchema>;
+
+export const pastScheduleBackfillBatchRequestSchema = z
+  .object({
+    items: z
+      .array(pastScheduleBackfillBatchItemSchema)
+      .min(1)
+      .max(MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS),
+    operationId: pastScheduleUuidSchema.optional(),
+    reason: z.string().trim().min(1).max(1000).optional(),
+  })
+  .strict()
+  .superRefine((request, context) => {
+    const seenBusinessKeys = new Set<string>();
+    for (const [index, item] of request.items.entries()) {
+      const businessKey = `${item.scheduleRoleId}|${item.businessDate}`;
+      if (seenBusinessKeys.has(businessKey)) {
+        context.addIssue({
+          code: 'custom',
+          message: '同一批次不能重复补录相同岗位和业务日期。',
+          path: ['items', index],
+        });
+      }
+      seenBusinessKeys.add(businessKey);
+    }
+  });
+export type PastScheduleBackfillBatchRequest = z.infer<
+  typeof pastScheduleBackfillBatchRequestSchema
+>;
+
+export const pastScheduleBackfillBatchResultSchema = z
+  .object({
+    assignments: z.array(pastScheduleAssignmentSchema),
+    eventIds: z.array(z.string().min(1)),
+  })
+  .strict();
+export type PastScheduleBackfillBatchResult = z.infer<typeof pastScheduleBackfillBatchResultSchema>;
 
 export const updatePastScheduleAssignmentResultSchema = z
   .object({

@@ -31,6 +31,13 @@ const CONTRACTS_MANUAL_SCHEDULE_LIMITS_ENTRY = path.join(
   'src',
   'manual-schedule-limits.ts',
 );
+const CONTRACTS_PAST_SCHEDULE_LIMITS_ENTRY = path.join(
+  REPOSITORY_ROOT,
+  'packages',
+  'contracts',
+  'src',
+  'past-schedule-limits.ts',
+);
 const PRESENTATION_CORE_ENTRY = path.join(
   REPOSITORY_ROOT,
   'packages',
@@ -278,6 +285,7 @@ export async function buildMiniProgram({
     alias: {
       '@schedule/client-core': CLIENT_CORE_ENTRY,
       '@schedule/contracts/manual-schedule-limits': CONTRACTS_MANUAL_SCHEDULE_LIMITS_ENTRY,
+      '@schedule/contracts/past-schedule-limits': CONTRACTS_PAST_SCHEDULE_LIMITS_ENTRY,
       '@schedule/presentation-core': PRESENTATION_CORE_ENTRY,
     },
     bundle: true,

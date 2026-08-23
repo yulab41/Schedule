@@ -56,6 +56,21 @@ export {
   type ManualSnapshotUndoStack,
 } from './manual-schedule.js';
 export {
+  createBackfillStageKey,
+  createPastScheduleBackfillBatchSnapshot,
+  filterPastScheduleBackfillStages,
+  getPastScheduleBackfillBatchFingerprint,
+  summarizePastScheduleBackfillStages,
+  toggleBackfillSelection,
+  toggleBackfillStage,
+  type PastScheduleBackfillBatchSnapshot,
+  type PastScheduleBackfillStage,
+  type PastScheduleBackfillStageMap,
+  type PastScheduleBackfillStageOutcome,
+  type PastScheduleBackfillStageTransition,
+  type PastScheduleBackfillSummary,
+} from './past-schedule-backfill.js';
+export {
   canConfirmSchedulePeriodMutation,
   createScheduleDraftBatchPublishIntent,
   createSchedulePeriodMutationIntent,

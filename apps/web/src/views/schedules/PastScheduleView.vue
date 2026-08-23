@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS } from '@schedule/contracts';
 import type {
   CalendarDutyAssignment,
   CalendarReadModel,
@@ -9,8 +10,18 @@ import type {
   SchedulingConfig,
   SchedulingGroupMember,
 } from '@schedule/contracts';
+import {
+  createBackfillStageKey,
+  createPastScheduleBackfillBatchSnapshot,
+  filterPastScheduleBackfillStages,
+  getPastScheduleBackfillBatchFingerprint,
+  summarizePastScheduleBackfillStages,
+  toggleBackfillSelection,
+  toggleBackfillStage,
+  type PastScheduleBackfillStageMap,
+} from '@schedule/presentation-core';
 import { ChevronLeftIcon, ChevronRightIcon } from 'tdesign-icons-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
 import { createApiClient } from '../../api/client.js';
@@ -24,11 +35,10 @@ import {
   getCurrentBusinessMonth,
 } from '../../features/calendar/calendar-logic.js';
 import { getBusinessDate } from '../../features/calendar/calendar-views.js';
-
-interface StagedPaint {
-  readonly memberId: string;
-  readonly shiftTypeId: string;
-}
+import {
+  resolvePastScheduleBackfillAttempt,
+  type PastScheduleBackfillAttempt,
+} from './past-schedule-batch.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -45,7 +55,7 @@ const shiftTypes = computed(() =>
 const members = computed<readonly SchedulingGroupMember[]>(() => config.value?.groupMembers ?? []);
 const calendar = ref<CalendarReadModel>();
 const holidays = ref<ReadonlyMap<string, ConfirmedHolidayDate>>(new Map());
-const staged = ref<ReadonlyMap<string, StagedPaint>>(new Map());
+const staged = ref<PastScheduleBackfillStageMap>(new Map());
 const records = ref<readonly PastScheduleBackfillRecord[]>([]);
 const activeShiftTypeId = ref('');
 const activeMemberId = ref('');
@@ -54,6 +64,7 @@ const isLoading = ref(false);
 const isSaving = ref(false);
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
+const batchAttempt = ref<PastScheduleBackfillAttempt>();
 
 const today = getBusinessDate();
 const roleOptions = computed(() =>
@@ -69,17 +80,24 @@ const assignmentsByDate = computed(() => {
   return map;
 });
 const pendingStages = computed(() =>
-  [...staged.value.entries()]
-    .map(([date, paint]) => ({
-      date,
-      memberName:
-        members.value.find((member) => member.membershipId === paint.memberId)?.realName ?? '',
-      shiftTypeName:
-        shiftTypes.value.find((shiftType) => shiftType.id === paint.shiftTypeId)?.name ?? '',
-    }))
-    .sort((first, second) => first.date.localeCompare(second.date)),
+  summarizePastScheduleBackfillStages(staged.value, {
+    memberNames: new Map(
+      members.value.map((member) => [member.membershipId, member.realName] as const),
+    ),
+    shiftTypeNames: new Map(
+      shiftTypes.value.map((shiftType) => [shiftType.id, shiftType.name] as const),
+    ),
+  }),
 );
-const stagedDateSet = computed(() => new Set(staged.value.keys()));
+const currentStages = computed(() =>
+  filterPastScheduleBackfillStages(staged.value, {
+    businessMonth: businessMonth.value,
+    scheduleRoleId: roleId.value,
+  }),
+);
+const stagedDateSet = computed(
+  () => new Set([...currentStages.value.values()].map((item) => item.businessDate)),
+);
 const activeShiftTypeName = computed(
   () =>
     shiftTypes.value.find((shiftType) => shiftType.id === activeShiftTypeId.value)?.name ??
@@ -103,6 +121,10 @@ const paintStatusText = computed(() => {
 
 onMounted(() => {
   void loadData();
+});
+
+watch(reason, () => {
+  batchAttempt.value = undefined;
 });
 
 async function loadData(): Promise<void> {
@@ -192,106 +214,142 @@ function buildEmptyCalendar(): CalendarReadModel {
 }
 
 function changeMonth(delta: number): void {
+  if (isSaving.value) return;
   businessMonth.value = addBusinessMonths(businessMonth.value, delta);
+  discardMismatchedStages();
   void loadCalendar();
 }
 
 function onMonthInput(value: string): void {
-  if (/^\d{4}-\d{2}$/u.test(value)) {
+  if (!isSaving.value && /^\d{4}-\d{2}$/u.test(value)) {
     businessMonth.value = value;
+    discardMismatchedStages();
     void loadCalendar();
   }
 }
 
 function onRoleChange(value: SelectValue): void {
+  if (isSaving.value) return;
   roleId.value = String(value ?? '');
+  discardMismatchedStages();
   void loadCalendar();
 }
 
 function selectShiftType(shiftTypeId: string): void {
-  activeShiftTypeId.value = activeShiftTypeId.value === shiftTypeId ? '' : shiftTypeId;
+  if (isSaving.value) return;
+  activeShiftTypeId.value = toggleBackfillSelection(activeShiftTypeId.value, shiftTypeId);
 }
 
 function selectMember(memberId: string): void {
-  activeMemberId.value = activeMemberId.value === memberId ? '' : memberId;
-}
-
-function onCalendarClick(event: MouseEvent): void {
-  const cell = (event.target as HTMLElement | null)?.closest?.('.day-cell') as
-    HTMLElement | undefined;
-  const date = cell?.dataset.date;
-  if (date === undefined || date === '') {
-    return;
-  }
-  clickDate(date);
+  if (isSaving.value) return;
+  activeMemberId.value = toggleBackfillSelection(activeMemberId.value, memberId);
 }
 
 function clickDate(date: string): void {
+  if (isSaving.value) return;
   errorMessage.value = undefined;
-  if (staged.value.has(date)) {
-    removeStage(date);
-    return;
-  }
-  if (activeShiftTypeId.value === '' || activeMemberId.value === '') {
+  const transition = toggleBackfillStage(
+    staged.value,
+    {
+      actualMembershipId: activeMemberId.value,
+      businessDate: date,
+      scheduleRoleId: roleId.value,
+      shiftTypeId: activeShiftTypeId.value,
+    },
+    {
+      businessMonth: businessMonth.value,
+      maximumItems: MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS,
+      today,
+    },
+  );
+  if (transition.outcome === 'selection-required') {
     infoMessage.value = '请先选择班种和成员（保持选中），再点击既往日期进行配班。';
     return;
   }
-  if (date >= today) {
+  if (transition.outcome === 'not-past') {
     errorMessage.value = `该日期（${date}）尚未过去，请使用正常排班功能修改。`;
     return;
   }
-  const existing = assignmentsByDate.value.get(date)?.[0];
-  if (
-    existing !== undefined &&
-    (existing.actualMembershipId ?? existing.plannedMembershipId) === activeMemberId.value &&
-    existing.shiftTypeId === activeShiftTypeId.value
-  ) {
-    infoMessage.value = `该日期（${date}）已是此配班，无需重复补录。`;
+  if (transition.outcome === 'invalid-date' || transition.outcome === 'outside-month') {
+    errorMessage.value = `该日期（${date}）不属于当前补录月份，无法加入。`;
     return;
   }
-  const next = new Map(staged.value);
-  next.set(date, { memberId: activeMemberId.value, shiftTypeId: activeShiftTypeId.value });
-  staged.value = next;
+  if (transition.outcome === 'limit-reached') {
+    errorMessage.value = `一次最多确认 ${MAX_PAST_SCHEDULE_BACKFILL_BATCH_ITEMS} 条补录，请先确认当前草稿。`;
+    return;
+  }
+  if (transition.outcome === 'added') {
+    const existing = assignmentsByDate.value.get(date)?.[0];
+    if (
+      existing !== undefined &&
+      (existing.actualMembershipId ?? existing.plannedMembershipId) === activeMemberId.value &&
+      existing.shiftTypeId === activeShiftTypeId.value
+    ) {
+      infoMessage.value = `该日期（${date}）已是此配班，无需重复补录。`;
+      return;
+    }
+  }
+  staged.value = transition.stages;
+  batchAttempt.value = undefined;
 }
 
-function removeStage(date: string): void {
+function removeStage(date: string, scheduleRoleId = roleId.value): void {
+  if (isSaving.value) return;
   const next = new Map(staged.value);
-  next.delete(date);
+  next.delete(createBackfillStageKey(scheduleRoleId, date));
   staged.value = next;
+  batchAttempt.value = undefined;
 }
 
 function clearStaged(): void {
+  if (isSaving.value) return;
   staged.value = new Map();
+  batchAttempt.value = undefined;
   infoMessage.value = '已清空待确认的补录项。';
 }
 
+function discardMismatchedStages(): void {
+  const next = filterPastScheduleBackfillStages(staged.value, {
+    businessMonth: businessMonth.value,
+    scheduleRoleId: roleId.value,
+  });
+  if (next.size !== staged.value.size) {
+    staged.value = next;
+    batchAttempt.value = undefined;
+    infoMessage.value = '已清空与当前岗位或月份不匹配的补录草稿。';
+  }
+}
+
 async function confirmStaged(): Promise<void> {
+  if (isSaving.value) return;
   if (staged.value.size === 0) {
     infoMessage.value = '没有待确认的补录项。';
     return;
   }
+  const fingerprint = getPastScheduleBackfillBatchFingerprint(
+    [...staged.value.values()],
+    reason.value,
+  );
+  const attempt = resolvePastScheduleBackfillAttempt(batchAttempt.value, fingerprint, () =>
+    crypto.randomUUID(),
+  );
+  batchAttempt.value = attempt;
+  const snapshot = createPastScheduleBackfillBatchSnapshot(
+    staged.value,
+    reason.value,
+    attempt.operationId,
+  );
   isSaving.value = true;
   errorMessage.value = undefined;
-  let confirmedCount = 0;
   try {
-    for (const [date, paint] of [...staged.value.entries()].sort(([a], [b]) =>
-      a.localeCompare(b),
-    )) {
-      await api.createPastScheduleAssignment(props.group.id, {
-        actualMembershipId: paint.memberId,
-        businessDate: date,
-        ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
-        scheduleRoleId: roleId.value,
-        shiftTypeId: paint.shiftTypeId,
-      });
-      confirmedCount += 1;
-    }
+    const result = await api.submitPastScheduleBackfillBatch(props.group.id, snapshot);
     staged.value = new Map();
-    infoMessage.value = `已确认补录 ${confirmedCount} 条，并留下“排班补录”事件记录。`;
+    batchAttempt.value = undefined;
+    infoMessage.value = `已确认补录 ${result.assignments.length} 条，并留下“排班补录”事件记录。`;
     await loadData();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '排班补录暂时无法完成，请稍后重试。');
-    infoMessage.value = `已确认 ${confirmedCount} 条，其余未提交成功，请重试。`;
+    infoMessage.value = '未能确认本批结果；草稿与重试凭据已保留，可直接重试。';
   } finally {
     isSaving.value = false;
   }
@@ -323,6 +381,7 @@ function formatEventTime(value: string): string {
           <t-select
             :value="roleId"
             :options="roleOptions"
+            :disabled="isSaving"
             placeholder="请选择排班岗位"
             @change="onRoleChange"
           />
@@ -330,18 +389,19 @@ function formatEventTime(value: string): string {
         <label>
           月份
           <span class="month-nav">
-            <t-button variant="outline" size="small" @click="changeMonth(-1)">
+            <t-button variant="outline" size="small" :disabled="isSaving" @click="changeMonth(-1)">
               <template #icon><ChevronLeftIcon /></template>
               上一月
             </t-button>
             <TemporalPicker
               :model-value="businessMonth"
               class="month-input"
+              :disabled="isSaving"
               kind="month"
               label="历史排班年月"
               @update:model-value="onMonthInput"
             />
-            <t-button variant="outline" size="small" @click="changeMonth(1)">
+            <t-button variant="outline" size="small" :disabled="isSaving" @click="changeMonth(1)">
               <template #icon><ChevronRightIcon /></template>
               下一月
             </t-button>
@@ -361,6 +421,7 @@ function formatEventTime(value: string): string {
               class="palette-button shift-type-button"
               :class="{ 'is-active': activeShiftTypeId === shiftType.id }"
               :aria-pressed="activeShiftTypeId === shiftType.id"
+              :disabled="isSaving"
               :style="{
                 backgroundColor: shiftType.color,
                 color: shiftType.textColor,
@@ -379,6 +440,7 @@ function formatEventTime(value: string): string {
               class="palette-button member-button"
               :class="{ 'is-active': activeMemberId === member.membershipId }"
               :aria-pressed="activeMemberId === member.membershipId"
+              :disabled="isSaving"
               @click="selectMember(member.membershipId)"
             >
               {{ member.realName }}
@@ -386,7 +448,12 @@ function formatEventTime(value: string): string {
           </div>
           <label class="reason-field">
             补录说明（选填，作用于本次确认）
-            <t-textarea v-model="reason" :maxlength="1000" placeholder="记录本次补录原因" />
+            <t-textarea
+              v-model="reason"
+              :disabled="isSaving"
+              :maxlength="1000"
+              placeholder="记录本次补录原因"
+            />
           </label>
         </div>
 
@@ -400,13 +467,14 @@ function formatEventTime(value: string): string {
           <strong>待确认补录（{{ pendingStages.length }}）</strong>
           <button
             v-for="item in pendingStages"
-            :key="item.date"
+            :key="`${item.scheduleRoleId}:${item.businessDate}`"
             type="button"
             class="staged-item"
-            :aria-label="`移除 ${item.date} ${item.memberName} ${item.shiftTypeName} 的待确认补录`"
-            @click="removeStage(item.date)"
+            :aria-label="`移除 ${item.businessDate} ${item.memberName} ${item.shiftTypeName} 的待确认补录`"
+            :disabled="isSaving"
+            @click="removeStage(item.businessDate, item.scheduleRoleId)"
           >
-            <span>{{ item.date }}：{{ item.memberName }} · {{ item.shiftTypeName }}</span>
+            <span>{{ item.businessDate }}：{{ item.memberName }} · {{ item.shiftTypeName }}</span>
             <span class="staged-remove">移除</span>
           </button>
           <div class="staged-actions">
@@ -436,7 +504,7 @@ function formatEventTime(value: string): string {
             :invert-past-colors="true"
             :members="calendar.members"
             :today="today"
-            @click="onCalendarClick"
+            @select-date="clickDate"
           />
         </section>
       </template>
@@ -555,6 +623,12 @@ function formatEventTime(value: string): string {
 
 .palette-button:active {
   transform: scale(0.97);
+}
+
+.palette-button:disabled,
+.staged-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
 }
 
 .palette-button:focus-visible {

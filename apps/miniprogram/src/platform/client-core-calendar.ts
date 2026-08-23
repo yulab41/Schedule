@@ -7,11 +7,13 @@ import {
   createInvalidResponseError,
   createManualScheduleClient,
   createNetworkError,
+  createPastScheduleClient,
   createSchedulePublicationClient,
   holidayReadModelDecoder,
   type CalendarReadClient,
   type ClientTransport,
   type ManualScheduleClient,
+  type PastScheduleClient,
   type SchedulePublicationClient,
 } from '@schedule/client-core';
 
@@ -111,6 +113,18 @@ export function createRuntimeSchedulePublicationClient(
   getAccessToken: () => string | undefined,
 ): SchedulePublicationClient {
   return createSchedulePublicationClient(
+    createWxJsonTransport({
+      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
+      getAccessToken,
+      request: (requestOptions) => wx.request(requestOptions),
+    }),
+  );
+}
+
+export function createRuntimePastScheduleClient(
+  getAccessToken: () => string | undefined,
+): PastScheduleClient {
+  return createPastScheduleClient(
     createWxJsonTransport({
       apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
       getAccessToken,

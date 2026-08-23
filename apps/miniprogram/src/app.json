@@ -12,7 +12,7 @@
   "subpackages": [
     {
       "root": "subpackages/scheduling",
-      "pages": ["pages/manual/index"]
+      "pages": ["pages/manual/index", "pages/backfill/index"]
     }
   ],
   "window": {

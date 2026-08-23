@@ -1,0 +1,243 @@
+<view class="backfill-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回排班台"
+      bindtap="handleBack"
+    >
+      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+    </view>
+    <view class="header-title">
+      <text class="header-title-main">排班补录</text>
+      <text class="header-title-sub">{{currentGroupName}} · 管理员</text>
+    </view>
+    <text class="phase-chip">P5</text>
+  </view>
+
+  <scroll-view
+    class="backfill-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card">
+        <ui-loading label="正在加载既往排班"></ui-loading>
+      </view>
+      <view wx:elif="{{state === 'error'}}" class="page-state-card">
+        <ui-alert tone="danger" title="排班补录暂时无法加载" message="{{errorMessage}}"></ui-alert>
+        <view
+          class="web-button is-primary"
+          hover-class="is-pressed"
+          aria-role="button"
+          bindtap="handleReload"
+          >重新加载</view
+        >
+      </view>
+      <view wx:else class="web-parity-page past-schedule-view">
+        <text class="page-title">排班补录</text>
+        <ui-alert
+          tone="primary"
+          title="管理员操作"
+          message="仅管理员与群主可进入，可自由切换既往月份/年份。先选择班种和成员（再次点击取消选中），再点击日历中的既往日期配班；确认后才会生效并留下“排班补录”事件记录。"
+        ></ui-alert>
+        <ui-alert
+          wx:if="{{errorMessage}}"
+          tone="danger"
+          title="操作未完成"
+          message="{{errorMessage}}"
+        ></ui-alert>
+        <ui-alert
+          wx:if="{{infoMessage}}"
+          tone="success"
+          title="排班补录"
+          message="{{infoMessage}}"
+        ></ui-alert>
+
+        <view class="controls">
+          <view class="field-label">
+            <text>排班岗位</text>
+            <picker
+              disabled="{{isBusy}}"
+              range="{{roleLabels}}"
+              value="{{roleIndex}}"
+              bindchange="handleRoleChange"
+            >
+              <view class="web-input-shell"
+                ><text>{{roleLabels[roleIndex] || '请选择排班岗位'}}</text><text>⌄</text></view
+              >
+            </picker>
+          </view>
+          <view class="field-label">
+            <text>月份</text>
+            <view class="month-nav">
+              <view
+                class="web-button is-outline"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-disabled="{{isBusy}}"
+                bindtap="handlePreviousMonth"
+                >‹ 上一月</view
+              >
+              <picker
+                mode="date"
+                fields="month"
+                disabled="{{isBusy}}"
+                value="{{businessMonth}}"
+                bindchange="handleMonthChange"
+              >
+                <view class="web-input-shell month-input">{{businessMonth}}</view>
+              </picker>
+              <view
+                class="web-button is-outline"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-disabled="{{isBusy}}"
+                bindtap="handleNextMonth"
+                >下一月 ›</view
+              >
+            </view>
+          </view>
+        </view>
+
+        <view class="palette-section">
+          <view class="palette-row">
+            <text class="palette-label">班种</text>
+            <view
+              wx:for="{{shiftTypes}}"
+              wx:key="id"
+              class="palette-button shift-type-button {{activeShiftTypeId === item.id ? 'is-active' : ''}}"
+              style="background-color:{{item.color}};color:{{item.textColor}}"
+              hover-class="is-pressed"
+              aria-role="button"
+              aria-pressed="{{activeShiftTypeId === item.id}}"
+              data-id="{{item.id}}"
+              bindtap="handleShiftTap"
+              >{{item.name}}</view
+            >
+          </view>
+          <view class="palette-row">
+            <text class="palette-label">成员</text>
+            <view
+              wx:for="{{members}}"
+              wx:key="membershipId"
+              class="palette-button member-button {{activeMemberId === item.membershipId ? 'is-active' : ''}}"
+              hover-class="is-pressed"
+              aria-role="button"
+              aria-pressed="{{activeMemberId === item.membershipId}}"
+              data-id="{{item.membershipId}}"
+              bindtap="handleMemberTap"
+              >{{item.realName}}</view
+            >
+          </view>
+          <view class="reason-field">
+            <text>补录说明（选填，作用于本次确认）</text>
+            <textarea
+              value="{{reason}}"
+              maxlength="1000"
+              disabled="{{isBusy}}"
+              placeholder="记录本次补录原因"
+              bindinput="handleReasonInput"
+            />
+          </view>
+        </view>
+
+        <view class="paint-status {{isPaintReady ? 'is-ready' : ''}}" aria-live="polite">
+          <text class="paint-status-label">当前配班</text>
+          <text class="paint-status-value">{{activeMemberName}} · {{activeShiftTypeName}}</text>
+          <text class="paint-status-message">{{paintStatusText}}</text>
+        </view>
+
+        <view wx:if="{{pendingCount > 0}}" class="staged-panel">
+          <text class="staged-heading">待确认补录（{{pendingCount}}）</text>
+          <view
+            wx:for="{{pending}}"
+            wx:key="key"
+            class="staged-item"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-label="移除 {{item.businessDate}} {{item.memberName}} {{item.shiftTypeName}} 的待确认补录"
+            data-key="{{item.key}}"
+            bindtap="handleRemovePending"
+          >
+            <text>{{item.businessDate}}：{{item.memberName}} · {{item.shiftTypeName}}</text
+            ><text class="staged-remove">移除</text>
+          </view>
+          <view class="staged-actions">
+            <view
+              class="web-button is-primary"
+              hover-class="is-pressed"
+              aria-role="button"
+              aria-disabled="{{isBusy}}"
+              bindtap="handleConfirm"
+              >{{isBusy ? '正在确认' : '确认补录'}}</view
+            >
+            <view
+              class="web-button is-outline"
+              hover-class="is-pressed"
+              aria-role="button"
+              aria-disabled="{{isBusy}}"
+              bindtap="handleClear"
+              >清空草稿</view
+            >
+          </view>
+        </view>
+
+        <text class="paint-hint"
+          >提示：灰色为未来日期（不可补录），正常底色为既往日期；可连续点击多个日期加入待确认（蓝色描边），再统一点击“确认补录”一次性生效；再次点击已加入的日期可取消该项（不会生成记录）。</text
+        >
+
+        <view wx:if="{{roleId}}" class="backfill-calendar" aria-label="补录日期选择">
+          <view class="backfill-calendar-heading"
+            ><text>{{monthLabel}}</text><text>点击整格加入或取消待确认补录</text></view
+          >
+          <view class="month-grid">
+            <view class="weekday-row" aria-hidden="true"
+              ><text>一</text><text>二</text><text>三</text><text>四</text><text>五</text
+              ><text class="is-weekend">六</text><text class="is-weekend">日</text></view
+            >
+            <view class="calendar-cells">
+              <view
+                wx:for="{{calendarCells}}"
+                wx:key="businessDate"
+                class="day-cell {{item.isCurrentMonth ? '' : 'is-outside'}} {{item.isFuture ? 'is-future' : 'is-past'}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isHoliday ? 'is-holiday' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isPending ? 'is-pending' : ''}}"
+                hover-class="{{item.isFuture ? '' : 'is-pressed'}}"
+                aria-role="button"
+                aria-label="{{item.ariaLabel}}"
+                aria-disabled="{{item.isFuture}}"
+                data-date="{{item.businessDate}}"
+                data-month="{{item.month}}"
+                bindtap="handleDateTap"
+              >
+                <view class="day-header"
+                  ><text class="day-number">{{item.day}}</text
+                  ><text wx:if="{{item.holiday}}" class="holiday-tag">{{item.holiday}}</text></view
+                >
+                <view class="duty-list">
+                  <view wx:for="{{item.duties}}" wx:key="key" wx:for-item="duty" class="duty-row">
+                    <text class="duty-name">{{duty.name}}</text
+                    ><text wx:if="{{duty.abbreviation}}" class="shift-badge"
+                      >{{duty.abbreviation}}</text
+                    >
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view class="events-section">
+          <text class="events-title">最近补录记录</text>
+          <text wx:if="{{records.length === 0}}" class="records-empty">暂无补录记录</text>
+          <view wx:for="{{records}}" wx:key="key" class="event-row"
+            ><text class="event-time">{{item.time}}</text><text>{{item.summary}}</text></view
+          >
+        </view>
+      </view>
+      <view class="bottom-spacer"></view>
+    </view>
+  </scroll-view>
+</view>

@@ -12,6 +12,12 @@ export default defineConfig({
         ),
       },
       {
+        find: '@schedule/contracts/past-schedule-limits',
+        replacement: fileURLToPath(
+          new URL('./packages/contracts/src/past-schedule-limits.ts', import.meta.url),
+        ),
+      },
+      {
         find: '@schedule/contracts/workspace-name',
         replacement: fileURLToPath(
           new URL('./packages/contracts/src/workspace-name.ts', import.meta.url),

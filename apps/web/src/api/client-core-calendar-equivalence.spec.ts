@@ -210,7 +210,9 @@ describe('client-core calendar vertical slice', () => {
     ) as { readonly dependencies?: Readonly<Record<string, string>> };
 
     expect(webPackage.dependencies?.['@schedule/client-core']).toBe('workspace:*');
-    expect(source).toContain('createCalendarReadClient({');
+    expect(source).toContain('const sharedClientTransport = {');
+    expect(source).toContain('createCalendarReadClient(sharedClientTransport)');
+    expect(source).toContain('createPastScheduleClient(sharedClientTransport)');
     expect(source).toContain('return calendarReadClient.getCalendar(groupId, businessMonth);');
     expect(source).toContain('return calendarReadClient.getHolidays(year);');
     expect(source).toContain('return calendarReadClient.getGuestHolidays(year);');

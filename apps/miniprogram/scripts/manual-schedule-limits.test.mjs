@@ -56,8 +56,13 @@ describe('P5 manual scheduling limit boundary', () => {
       );
       const contractsInputs = inputs.filter((input) => input.includes('packages/contracts/'));
 
-      expect(contractsInputs).toHaveLength(1);
-      expect(contractsInputs[0]).toMatch(/packages\/contracts\/src\/manual-schedule-limits\.ts$/u);
+      expect(contractsInputs).toHaveLength(2);
+      expect(contractsInputs).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/packages\/contracts\/src\/manual-schedule-limits\.ts$/u),
+          expect.stringMatching(/packages\/contracts\/src\/past-schedule-limits\.ts$/u),
+        ]),
+      );
       expect(inputs.some((input) => input.endsWith('/packages/contracts/src/index.ts'))).toBe(
         false,
       );

@@ -10,6 +10,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { ScheduleGenerateService } from './generate-service.js';
 import { SchedulePublishService } from './publish-service.js';
 
@@ -293,19 +294,7 @@ export function resolveScheduleOperationId(
   rawHeader: string | readonly string[] | undefined,
   bodyOperationId?: string,
 ): string {
-  const headerOperationId =
-    rawHeader === undefined ? undefined : parseOrThrow(operationIdSchema, rawHeader);
-  if (
-    headerOperationId !== undefined &&
-    bodyOperationId !== undefined &&
-    headerOperationId !== bodyOperationId
-  ) {
-    throw validationError('幂等键与请求中的操作编号不一致。');
-  }
-  if (headerOperationId === undefined && bodyOperationId === undefined) {
-    throw validationError('危险操作必须提供幂等键。');
-  }
-  return headerOperationId ?? bodyOperationId ?? '';
+  return resolveDangerousOperationId(rawHeader, bodyOperationId);
 }
 
 function parseChangeImpactAction(query: unknown): 'publish' | 'withdraw' {

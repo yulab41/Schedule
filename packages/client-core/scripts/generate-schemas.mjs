@@ -12,6 +12,9 @@ import {
   manualApplyPreviewSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
+  pastScheduleBackfillBatchResultSchema,
+  pastScheduleBackfillRecordListSchema,
+  pastSchedulePeriodListSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   scheduleChangeImpactPreviewSchema,
@@ -56,6 +59,18 @@ const source = renderGeneratedSchemas({
     manualScheduleTemplateList: sanitizeJsonSchema(
       z.toJSONSchema(manualScheduleTemplateListSchema),
       'manualScheduleTemplateList',
+    ),
+    pastScheduleBackfillBatchResult: sanitizeJsonSchema(
+      z.toJSONSchema(pastScheduleBackfillBatchResultSchema),
+      'pastScheduleBackfillBatchResult',
+    ),
+    pastScheduleBackfillRecordList: sanitizeJsonSchema(
+      z.toJSONSchema(pastScheduleBackfillRecordListSchema),
+      'pastScheduleBackfillRecordList',
+    ),
+    pastSchedulePeriodList: sanitizeJsonSchema(
+      z.toJSONSchema(pastSchedulePeriodListSchema),
+      'pastSchedulePeriodList',
     ),
     publishSchedulePeriodBatchResult: sanitizeJsonSchema(
       z.toJSONSchema(publishSchedulePeriodBatchResultSchema),

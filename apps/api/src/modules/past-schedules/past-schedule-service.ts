@@ -1,12 +1,16 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
-import type {
-  CreatePastScheduleAssignmentInput,
-  PastScheduleAssignment,
-  PastScheduleBackfillRecord,
-  PastSchedulePeriod,
-  UpdatePastScheduleAssignmentInput,
-  UpdatePastScheduleAssignmentResult,
+import {
+  pastScheduleBackfillBatchRequestSchema,
+  type CreatePastScheduleAssignmentInput,
+  type PastScheduleBackfillBatchItem,
+  type PastScheduleBackfillBatchRequest,
+  type PastScheduleBackfillBatchResult,
+  type PastScheduleAssignment,
+  type PastScheduleBackfillRecord,
+  type PastSchedulePeriod,
+  type UpdatePastScheduleAssignmentInput,
+  type UpdatePastScheduleAssignmentResult,
 } from '@schedule/contracts';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
@@ -25,15 +29,24 @@ import {
   isPastBusinessDate,
   toChinaStandardTimeShiftRange,
 } from '@schedule/scheduling-domain';
-import { and, asc, desc, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { withIdempotentOperation } from '../../plugins/idempotency.js';
+import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
 import { StatisticsService } from '../statistics/statistics-service.js';
 import { WorkflowSelfHealingService } from '../workflows/workflow-self-healing-service.js';
 
+interface BackfillMutationResult {
+  readonly assignment: typeof shiftAssignments.$inferSelect;
+  readonly before: typeof shiftAssignments.$inferSelect | undefined;
+  readonly schedulePeriodId: string;
+}
+
 export class PastScheduleService {
+  private readonly eventWriter = new EventWriter();
   private readonly permissionService = new GroupPermissionService();
   private readonly statisticsService: StatisticsService;
   private readonly workflowSelfHealingService: WorkflowSelfHealingService;
@@ -303,6 +316,126 @@ export class PastScheduleService {
     });
   }
 
+  public async backfillBatch(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: PastScheduleBackfillBatchRequest,
+    operationId: string,
+  ): Promise<PastScheduleBackfillBatchResult> {
+    return withTransaction(this.databaseClient, async (transaction) => {
+      const authorization = await this.permissionService.requirePermission(
+        transaction,
+        identity,
+        groupId,
+        'manageScheduleConfiguration',
+      );
+      const parsedInput = pastScheduleBackfillBatchRequestSchema.safeParse(input);
+      if (!parsedInput.success) {
+        throw new ApiError({
+          code: 'VALIDATION_FAILED',
+          statusCode: 400,
+          userMessage: parsedInput.error.issues[0]?.message ?? '批量补录请求不符合要求。',
+        });
+      }
+      if (
+        parsedInput.data.operationId !== undefined &&
+        parsedInput.data.operationId !== operationId
+      ) {
+        throw new ApiError({
+          code: 'VALIDATION_FAILED',
+          statusCode: 400,
+          userMessage: '幂等键与请求中的操作编号不一致。',
+        });
+      }
+
+      const sortedItems = [...parsedInput.data.items].sort(compareBackfillItems);
+      const now = new Date();
+      for (const item of sortedItems) {
+        if (!isPastBusinessDate(item.businessDate, now)) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: `该班次日期（${item.businessDate}）尚未过去，请使用正常排班功能修改。`,
+          });
+        }
+      }
+
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: authorization.user.id,
+          operationId,
+          requestFingerprint: createBackfillBatchFingerprint({
+            groupId: authorization.group.id,
+            items: sortedItems,
+            reason: parsedInput.data.reason ?? null,
+          }),
+          scope: `past_schedule_backfill:${authorization.group.id}`,
+        },
+        async () => {
+          const assignments: PastScheduleAssignment[] = [];
+          const assignmentIds: string[] = [];
+          const eventIds: string[] = [];
+          const businessMonths = new Set<string>();
+          const mutations: BackfillMutationResult[] = [];
+
+          for (const item of sortedItems) {
+            const mutation = await this.mutateAssignmentInTransaction(
+              transaction,
+              authorization,
+              item,
+              parsedInput.data.reason,
+            );
+            mutations.push(mutation);
+            assignments.push(toPastScheduleAssignment(mutation.assignment));
+            assignmentIds.push(mutation.assignment.id);
+            businessMonths.add(`${item.businessDate.slice(0, 7)}-01`);
+          }
+
+          for (const mutation of mutations) {
+            const eventId = await this.eventWriter.append(transaction, {
+              affectedMembershipIds: collectDefinedIds(
+                mutation.before?.actualMembershipId,
+                mutation.assignment.actualMembershipId,
+              ),
+              affectedShiftIds: [mutation.assignment.id],
+              afterData: toBackfillEventState(mutation.assignment),
+              beforeData: toBackfillEventState(mutation.before),
+              eventStatus: 'completed',
+              eventType: 'schedule_backfill_completed',
+              groupId: authorization.group.id,
+              initiatedByUserId: authorization.user.id,
+              objectId: mutation.assignment.id,
+              objectType: 'shift_assignment',
+              operationId,
+              operatorUserId: authorization.user.id,
+              ...(parsedInput.data.reason === undefined ? {} : { reason: parsedInput.data.reason }),
+              schedulePeriodId: mutation.schedulePeriodId,
+            });
+
+            eventIds.push(eventId);
+          }
+
+          for (const businessMonth of [...businessMonths].sort()) {
+            await this.statisticsService.refreshInTransaction(
+              transaction,
+              authorization.group.id,
+              businessMonth,
+            );
+          }
+          await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+            actorUserId: authorization.user.id,
+            assignmentIds: [...new Set(assignmentIds)],
+            groupId: authorization.group.id,
+            operationId,
+          });
+
+          return { assignments, eventIds };
+        },
+      );
+    });
+  }
+
   public async createAssignment(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -329,90 +462,136 @@ export class PastScheduleService {
           userMessage: `该班次日期（${input.businessDate}）尚未过去，请使用正常排班功能修改。`,
         });
       }
-      const period = await this.findOrCreatePastPeriod(
+      const mutation = await this.mutateAssignmentInTransaction(
         transaction,
         authorization,
-        input.scheduleRoleId,
-        input.businessDate,
+        input,
+        input.reason,
       );
-      const memberName = await this.readMemberName(
-        transaction,
-        authorization,
-        input.actualMembershipId,
-      );
-      const shiftType = await this.readShiftType(transaction, authorization, input.shiftTypeId);
-      const timeRange = toChinaStandardTimeShiftRange({
-        businessDate: input.businessDate,
-        crossesMidnight: shiftType.crossesMidnight === 1,
-        endTime: (shiftType.endTime as string).slice(0, 5),
-        startTime: (shiftType.startTime as string).slice(0, 5),
-      });
-      const shiftSnapshot = {
-        shiftEndTime: (shiftType.endTime as string).slice(0, 5),
-        shiftStartTime: (shiftType.startTime as string).slice(0, 5),
-        shiftTypeAbbreviation: shiftType.abbreviation,
-        shiftTypeColor: shiftType.color,
-        shiftTypeConfigurationVersion: shiftType.configurationVersion,
-        shiftTypeId: shiftType.id,
-        shiftTypeName: shiftType.name,
-        shiftTypeTextColor: shiftType.textColor,
-        crossesMidnight: shiftType.crossesMidnight,
-        isAllDay: shiftType.isAllDay,
-        countsTowardStatistics: shiftType.countsTowardStatistics,
-      };
 
-      const [existing] = await transaction
+      await this.statisticsService.refreshInTransaction(
+        transaction,
+        authorization.group.id,
+        `${input.businessDate.slice(0, 7)}-01`,
+      );
+      await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
+        actorUserId: authorization.user.id,
+        assignmentIds: [mutation.assignment.id],
+        groupId: authorization.group.id,
+        operationId: randomUUID(),
+      });
+
+      return { assignment: toPastScheduleAssignment(mutation.assignment) };
+    });
+  }
+
+  private async mutateAssignmentInTransaction(
+    transaction: DatabaseTransaction,
+    authorization: GroupAuthorization,
+    input: PastScheduleBackfillBatchItem,
+    reason: string | undefined,
+  ): Promise<BackfillMutationResult> {
+    const period = await this.findOrCreatePastPeriod(
+      transaction,
+      authorization,
+      input.scheduleRoleId,
+      input.businessDate,
+    );
+    const memberName = await this.readMemberName(
+      transaction,
+      authorization,
+      input.actualMembershipId,
+    );
+    const shiftType = await this.readShiftType(transaction, authorization, input.shiftTypeId);
+    const timeRange = toChinaStandardTimeShiftRange({
+      businessDate: input.businessDate,
+      crossesMidnight: shiftType.crossesMidnight === 1,
+      endTime: (shiftType.endTime as string).slice(0, 5),
+      startTime: (shiftType.startTime as string).slice(0, 5),
+    });
+    const shiftSnapshot = {
+      shiftEndTime: (shiftType.endTime as string).slice(0, 5),
+      shiftStartTime: (shiftType.startTime as string).slice(0, 5),
+      shiftTypeAbbreviation: shiftType.abbreviation,
+      shiftTypeColor: shiftType.color,
+      shiftTypeConfigurationVersion: shiftType.configurationVersion,
+      shiftTypeId: shiftType.id,
+      shiftTypeName: shiftType.name,
+      shiftTypeTextColor: shiftType.textColor,
+      crossesMidnight: shiftType.crossesMidnight,
+      isAllDay: shiftType.isAllDay,
+      countsTowardStatistics: shiftType.countsTowardStatistics,
+    };
+
+    const [existing] = await transaction
+      .select()
+      .from(shiftAssignments)
+      .where(
+        and(
+          eq(shiftAssignments.schedulePeriodId, period.id),
+          eq(shiftAssignments.businessDate, input.businessDate),
+          isNull(shiftAssignments.deletedAt),
+        ),
+      )
+      .orderBy(asc(shiftAssignments.slotPosition), asc(shiftAssignments.id))
+      .limit(1)
+      .for('update');
+    let before = existing;
+    let assignmentId: string;
+    if (existing !== undefined) {
+      assignmentId = existing.id;
+      const revertedToPlanned =
+        existing.plannedMembershipId !== null &&
+        input.actualMembershipId === existing.plannedMembershipId &&
+        existing.actualMembershipId !== existing.plannedMembershipId;
+      const hasChange =
+        input.actualMembershipId !== existing.actualMembershipId ||
+        input.shiftTypeId !== existing.shiftTypeId;
+      await transaction
+        .update(shiftAssignments)
+        .set({
+          actualMembershipId: input.actualMembershipId,
+          actualMemberName: memberName,
+          backfillAt: revertedToPlanned ? null : hasChange ? new Date() : existing.backfillAt,
+          backfillOperatorUserId: revertedToPlanned
+            ? null
+            : hasChange
+              ? authorization.user.id
+              : existing.backfillOperatorUserId,
+          backfillReason: revertedToPlanned
+            ? null
+            : hasChange
+              ? (reason ?? existing.backfillReason)
+              : existing.backfillReason,
+          ...shiftSnapshot,
+          endsAt: timeRange.endsAt,
+          startsAt: timeRange.startsAt,
+          version: sql`${shiftAssignments.version} + 1`,
+        })
+        .where(eq(shiftAssignments.id, existing.id));
+    } else {
+      const [reusableDeleted] = await transaction
         .select()
         .from(shiftAssignments)
         .where(
           and(
             eq(shiftAssignments.schedulePeriodId, period.id),
             eq(shiftAssignments.businessDate, input.businessDate),
-            isNull(shiftAssignments.deletedAt),
+            eq(shiftAssignments.slotPosition, 1),
+            eq(shiftAssignments.startsAt, timeRange.startsAt),
+            isNotNull(shiftAssignments.deletedAt),
           ),
         )
         .limit(1)
         .for('update');
-      let assignmentId: string;
-      if (existing !== undefined) {
-        assignmentId = existing.id;
-        const revertedToPlanned =
-          existing.plannedMembershipId !== null &&
-          input.actualMembershipId === existing.plannedMembershipId &&
-          existing.actualMembershipId !== existing.plannedMembershipId;
-        const hasChange =
-          input.actualMembershipId !== existing.actualMembershipId ||
-          input.shiftTypeId !== existing.shiftTypeId;
-        await transaction
-          .update(shiftAssignments)
-          .set({
-            actualMembershipId: input.actualMembershipId,
-            actualMemberName: memberName,
-            backfillAt: revertedToPlanned ? null : hasChange ? new Date() : existing.backfillAt,
-            backfillOperatorUserId: revertedToPlanned
-              ? null
-              : hasChange
-                ? authorization.user.id
-                : existing.backfillOperatorUserId,
-            backfillReason: revertedToPlanned
-              ? null
-              : hasChange
-                ? (input.reason ?? existing.backfillReason)
-                : existing.backfillReason,
-            ...shiftSnapshot,
-            endsAt: timeRange.endsAt,
-            startsAt: timeRange.startsAt,
-            version: sql`${shiftAssignments.version} + 1`,
-          })
-          .where(eq(shiftAssignments.id, existing.id));
-      } else {
+      if (reusableDeleted === undefined) {
         assignmentId = randomUUID();
         await transaction.insert(shiftAssignments).values({
           actualMembershipId: input.actualMembershipId,
           actualMemberName: memberName,
           backfillAt: new Date(),
           backfillOperatorUserId: authorization.user.id,
-          backfillReason: input.reason ?? null,
+          backfillReason: reason ?? null,
           businessDate: input.businessDate,
           id: assignmentId,
           plannedMembershipId: input.actualMembershipId,
@@ -423,29 +602,37 @@ export class PastScheduleService {
           endsAt: timeRange.endsAt,
           startsAt: timeRange.startsAt,
         });
+      } else {
+        before = reusableDeleted;
+        assignmentId = reusableDeleted.id;
+        await transaction
+          .update(shiftAssignments)
+          .set({
+            actualMembershipId: input.actualMembershipId,
+            actualMemberName: memberName,
+            backfillAt: new Date(),
+            backfillOperatorUserId: authorization.user.id,
+            backfillReason: reason ?? null,
+            deletedAt: null,
+            plannedMembershipId: input.actualMembershipId,
+            plannedMemberName: memberName,
+            ...shiftSnapshot,
+            endsAt: timeRange.endsAt,
+            startsAt: timeRange.startsAt,
+            version: sql`${shiftAssignments.version} + 1`,
+          })
+          .where(eq(shiftAssignments.id, reusableDeleted.id));
       }
-      const [updated] = await transaction
-        .select()
-        .from(shiftAssignments)
-        .where(eq(shiftAssignments.id, assignmentId));
-      if (updated === undefined) {
-        throw new Error('The backfilled assignment could not be read back.');
-      }
+    }
+    const [updated] = await transaction
+      .select()
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.id, assignmentId));
+    if (updated === undefined) {
+      throw new Error('The backfilled assignment could not be read back.');
+    }
 
-      await this.statisticsService.refreshInTransaction(
-        transaction,
-        authorization.group.id,
-        `${input.businessDate.slice(0, 7)}-01`,
-      );
-      await this.workflowSelfHealingService.archiveStaleCompletedWorkflows(transaction, {
-        actorUserId: authorization.user.id,
-        assignmentIds: [assignmentId],
-        groupId: authorization.group.id,
-        operationId: randomUUID(),
-      });
-
-      return { assignment: toPastScheduleAssignment(updated) };
-    });
+    return { assignment: updated, before, schedulePeriodId: period.id };
   }
 
   public async listBackfillRecords(
@@ -693,5 +880,64 @@ function toPastScheduleAssignment(
     shiftTypeId: assignment.shiftTypeId,
     shiftTypeName: assignment.shiftTypeName,
     slotPosition: assignment.slotPosition,
+  };
+}
+
+function compareBackfillItems(
+  left: PastScheduleBackfillBatchItem,
+  right: PastScheduleBackfillBatchItem,
+): number {
+  return (
+    compareText(left.scheduleRoleId, right.scheduleRoleId) ||
+    compareText(left.businessDate, right.businessDate) ||
+    compareText(left.actualMembershipId, right.actualMembershipId) ||
+    compareText(left.shiftTypeId, right.shiftTypeId)
+  );
+}
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function createBackfillBatchFingerprint(input: {
+  readonly groupId: string;
+  readonly items: readonly PastScheduleBackfillBatchItem[];
+  readonly reason: string | null;
+}): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        groupId: input.groupId,
+        items: input.items.map((item) => ({
+          actualMembershipId: item.actualMembershipId,
+          businessDate: item.businessDate,
+          scheduleRoleId: item.scheduleRoleId,
+          shiftTypeId: item.shiftTypeId,
+        })),
+        reason: input.reason,
+      }),
+    )
+    .digest('hex');
+}
+
+function collectDefinedIds(...ids: readonly (string | null | undefined)[]): string[] {
+  return [...new Set(ids.filter((id): id is string => id !== null && id !== undefined))];
+}
+
+function toBackfillEventState(assignment: typeof shiftAssignments.$inferSelect | undefined): {
+  readonly actualMemberName: string | null;
+  readonly actualMembershipId: string | null;
+  readonly reason: string | null;
+  readonly shiftTypeId: string | null;
+  readonly shiftTypeName: string | null;
+  readonly version: number;
+} {
+  return {
+    actualMemberName: assignment?.actualMemberName ?? null,
+    actualMembershipId: assignment?.actualMembershipId ?? null,
+    reason: assignment?.backfillReason ?? null,
+    shiftTypeId: assignment?.shiftTypeId ?? null,
+    shiftTypeName: assignment?.shiftTypeName ?? null,
+    version: assignment?.version ?? 0,
   };
 }

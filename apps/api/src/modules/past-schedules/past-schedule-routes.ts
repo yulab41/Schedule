@@ -1,9 +1,14 @@
-import type { UpdatePastScheduleAssignmentInput } from '@schedule/contracts';
+import {
+  pastScheduleBackfillBatchRequestSchema,
+  type CreatePastScheduleAssignmentInput,
+  type PastScheduleBackfillBatchRequest,
+  type UpdatePastScheduleAssignmentInput,
+} from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import type { CreatePastScheduleAssignmentInput } from '@schedule/contracts';
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { PastScheduleService } from './past-schedule-service.js';
 
 const uuidSchema = z.string().uuid();
@@ -53,6 +58,20 @@ export function registerPastScheduleRoutes(
     { preHandler: app.authenticate },
     (request) =>
       service.listBackfillRecords(getAuthenticatedIdentity(request), parseGroupId(request)),
+  );
+
+  app.post(
+    '/groups/:groupId/past-schedules/backfill-batches',
+    { preHandler: app.authenticate },
+    (request) => {
+      const input = parseBackfillBatchInput(request.body);
+      return service.backfillBatch(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        input,
+        resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
+      );
+    },
   );
 
   app.post(
@@ -127,6 +146,10 @@ function parseCreateAssignmentInput(value: unknown): CreatePastScheduleAssignmen
     scheduleRoleId: input.scheduleRoleId,
     shiftTypeId: input.shiftTypeId,
   };
+}
+
+function parseBackfillBatchInput(value: unknown): PastScheduleBackfillBatchRequest {
+  return parseOrThrow(pastScheduleBackfillBatchRequestSchema, value);
 }
 
 function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {

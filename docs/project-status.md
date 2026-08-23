@@ -2,7 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P5 手排上限、原生编辑与发布版本闭环（当前 checkpoint）
+## 2026-08-24 P5 Web 同构原子排班补录（当前 checkpoint）
+
+- 前置与范围：用户已确认 P4 全部完成并解除后续 checkpoint 的提交等待；`c0d57729` 状态提交已以备份 `f4aaf98e-e50e-49f5-8eca-f20d8179be00` 同步为生产 `current-release`。本批只完成已确认 `--backfill-390` 黄金对应的原子补录，不实现手机号同意。`frontend-design` 沿用冻结的 Web 医疗蓝灰结构，没有新增视觉方向。
+- 完成范围：新增最多 31 项、严格真实日期、同批 `scheduleRoleId|businessDate` 唯一的 batch contracts；API `POST /groups/:groupId/past-schedules/backfill-batches` 以单事务完成管理员权限、group-scoped 24h 幂等、规范排序指纹、全部 mutation、逐项 `schedule_backfill_completed`、按月统计和一次 workflow self-heal，任一失败整体回滚。同 key/同 payload 重放、异 payload 409，header/body operationId 兼容且必须一致；过期 key 可安全复用，软删 slot 1 会锁定恢复而不触发唯一键 500。
+- Web/Mini：client-core compact decoder/endpoint 与 presentation-core staged ViewModel 跨端共用。Web 从逐条 loop 改为一次 batch，使用 MonthGrid `select-date`，保存中锁定 payload 控件；模糊失败保留草稿与 operationId。Mini 新增并注册 `subpackages/scheduling/pages/backfill`，复刻岗位/月、palette、reason、当前配班、待确认列表、全宽七列和最近记录；同日期二次点击取消，今天/未来/相邻月关闭，390/320 使用 Skyline flex/compact class，无 grid/clamp/media-query 依赖，无业务正文缓存或离线写队列。
+- 引入点与行为：Web staged/逐条确认和服务端单条创建来自 `561310ce`，trace 回退来自 `0bcc39fa`；幂等基础/重放/竞态分别来自 `7aac9c28`、`3a082d8d`、`31999918`，operation-id 兼容来自 `591ccff6`。旧单条端点和第一 slot 选择语义保留；新 batch 每项写 immutable event 并计入 manualAdjustment，`affectedShiftIds` 使用 assignment ID。同值的新 operation 仍保持旧 version+1；同 key replay 不增写。
+- 验证：MySQL 11/11；受控非 DB 工作区 163 文件/881 项，Mini 24 文件/122 项，相关 Web 日历不可变/移动端/原子补录 23/23；全仓 typecheck、Lint、production build 通过。Mini production verify 为 2/2 Worklet、822181 bytes、manifest `bfddbcd05dad7632b7e184335a681347ec60d862caaa109edc725310b222b4d3`，source/package/determinism/CI dry-run 通过。用户自有 `.artifacts/runtime/src` 历史副本需从根测试排除；正确工作目录真实源全绿且未修改这些目录。全量 format check 只被用户自有 `project.config.json`、未提交 Storybook 静态目录和既有 `directory-entry-groups.ts` 阻断；任务文件定向 Prettier 与 `git diff --check` 通过。
+- 运行/浏览器验证：`pnpm smoke:browser` 使用 4173 当前源码与本地 API 通过管理员、成员、访客 vkey、访问记录和既有补录 1280/390/320 颜色、44px、无横溢、成员二次点击检查，浏览器无错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-so5b9r`。原生微信真值仍须体验版人工复核。
+- checkpoint 与发布：代码 checkpoint 消息为 `feat(scheduling): add atomic backfill flow`；待显式 staging diff 复核后提交/推送，随后从精确 clean worktree 上传 production-profile 体验版并按规则备份、部署、验证。未提审、未正式发布。
+- 下一活动批次与停止条件：完成本 checkpoint 的推送、体验上传、生产同步和最终状态提交后，只实现 P5 群组设置中的手机号单独同意；隐私、权限、撤回/号码变化/跨群重新授权与原生复核门槛通过后才进入 P6。
+
+## 2026-08-24 P5 手排上限、原生编辑与发布版本闭环（已部署）
 
 - 前置确认：用户已明确确认 P4 全部完成，并解除 P5 后续 checkpoint 的提交、推送、体验上传和生产部署等待条件。P5 Web 黄金 `editor/maximum/preview/risk/release/release-blocked/release-withdraw/release-republish/release-delete/backfill/phone-consent` 的 390px 与相关 320px 边界均已确认；本批使用 `frontend-design` 严格跟随冻结的 Web 医疗蓝灰样式，没有建立第二套视觉语言。
 - 完成范围：手排模板、预览、应用、生成和草稿覆盖在 contracts/API/service/domain/database/Web/Mini 同源限制为 20 人、30 天、600 逻辑格和最多 30 个首尾日期；迁移 `0048_manual_schedule_limits` 对生产存量先失败关闭，再收紧两个数据库 CHECK。原生 `subpackages/scheduling/pages/manual` 完成模板保存、四层 WXS 7 行矩阵、同格同班种第二次点击取消（无撤销按钮）、显式保存后预览、风险确认和保存草稿。草稿成功后进入与 Web 同构的发布历史页，支持整批发布/覆盖冲突、当前版本撤回、归档重发、草稿/归档删除、版本预览和归档折叠。

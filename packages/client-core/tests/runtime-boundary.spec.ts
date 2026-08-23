@@ -11,6 +11,7 @@ const productionSources = [
   new URL('../src/error.ts', import.meta.url),
   new URL('../src/json-decoder.ts', import.meta.url),
   new URL('../src/manual-schedule-client.ts', import.meta.url),
+  new URL('../src/past-schedule-client.ts', import.meta.url),
   new URL('../src/generated/calendar-schemas.ts', import.meta.url),
 ];
 
@@ -48,6 +49,7 @@ describe('client-core runtime boundary', () => {
         'packages/client-core/src/index.ts',
         'packages/client-core/src/json-decoder.ts',
         'packages/client-core/src/manual-schedule-client.ts',
+        'packages/client-core/src/past-schedule-client.ts',
         'packages/client-core/src/schedule-publication-client.ts',
         'packages/contracts/src/manual-schedule-limits.ts',
       ].sort(),

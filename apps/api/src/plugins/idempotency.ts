@@ -40,9 +40,14 @@ export async function withIdempotentOperation<Result>(
         throw operationConflict('相同请求正在处理中，请稍后重试。');
       }
     } else {
-      const resolved = await resolveExistingOperation<Result>(existing, input);
-      if (resolved !== undefined) {
-        return resolved;
+      if (existing.expiresAt.valueOf() <= Date.now()) {
+        await deleteExistingOperation(transaction, input);
+        await insertIdempotencyKey(transaction, input);
+      } else {
+        const resolved = await resolveExistingOperation<Result>(existing, input);
+        if (resolved !== undefined) {
+          return resolved;
+        }
       }
     }
   }
@@ -65,6 +70,21 @@ export async function withIdempotentOperation<Result>(
     );
 
   return result;
+}
+
+async function deleteExistingOperation(
+  transaction: DatabaseTransaction,
+  input: IdempotentOperationInput,
+): Promise<void> {
+  await transaction
+    .delete(idempotencyKeys)
+    .where(
+      and(
+        eq(idempotencyKeys.actorUserId, input.actorUserId),
+        eq(idempotencyKeys.operationKey, input.operationId),
+        eq(idempotencyKeys.scope, input.scope),
+      ),
+    );
 }
 
 async function insertIdempotencyKey(

@@ -28,6 +28,7 @@ import type {
   MonthStatisticsSnapshot,
   NotificationRecord,
   PastScheduleAssignment,
+  PastScheduleBackfillBatchResult,
   PastScheduleBackfillRecord,
   PastSchedulePeriod,
   ScheduleChangeImpactPreview,
@@ -291,6 +292,11 @@ const pastScheduleBackfillRecord: PastScheduleBackfillRecord = {
   operatorName: '张医生',
   shiftTypeAbbreviation: '全',
   shiftTypeName: '全天班',
+};
+
+const pastScheduleBackfillBatchResult: PastScheduleBackfillBatchResult = {
+  assignments: [pastScheduleAssignment],
+  eventIds: ['event-1'],
 };
 
 const swapAssignment: SwapAssignmentSummary = {
@@ -1861,6 +1867,45 @@ describe('Web API client', () => {
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
+  });
+
+  it('submits one atomic past schedule backfill batch with its idempotency key', async () => {
+    const operationId = '22222222-2222-4222-8222-222222222222';
+    const input = {
+      items: [
+        {
+          actualMembershipId: '33333333-3333-4333-8333-333333333333',
+          businessDate: '2026-07-01',
+          scheduleRoleId: '44444444-4444-4444-8444-444444444444',
+          shiftTypeId: '55555555-5555-4555-8555-555555555555',
+        },
+      ],
+      operationId,
+      reason: '实际值班人员更正',
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify(pastScheduleBackfillBatchResult), { status: 201 }),
+      );
+    const client = createApiClient({ auth: createAuthClient(), fetch: fetchImplementation });
+
+    await expect(client.submitPastScheduleBackfillBatch(group.id, input)).resolves.toEqual(
+      pastScheduleBackfillBatchResult,
+    );
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      '/api/groups/group-1/past-schedules/backfill-batches',
+      {
+        body: JSON.stringify(input),
+        headers: {
+          Authorization: 'Bearer signed-in-token',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': operationId,
+        },
+        method: 'POST',
+      },
+    );
   });
 
   it('rejects an update past schedule result with an empty event id', async () => {
