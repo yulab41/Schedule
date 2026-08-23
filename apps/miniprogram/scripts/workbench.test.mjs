@@ -60,7 +60,7 @@ describe('P4 native workbench', () => {
     expect(template).toContain('calendarNavAnimating');
     expect(template).toContain('class="workbench-shell-header"');
     expect(template).toContain('style="{{shellHeaderStyle}}"');
-    expect(template).toContain('style="top:{{shellHeaderHeight}}px"');
+    expect(template).not.toContain('style="top:{{shellHeaderHeight}}px"');
     expect(template).toContain('id="workbench-content-top"');
     expect(template).toContain('scroll-y="{{viewMode !== \'list\'}}"');
     expect(template).toContain('class="group-switcher-trigger');
@@ -76,7 +76,18 @@ describe('P4 native workbench', () => {
     expect(template).toContain('/assets/icons/web-locate.svg');
     expect(template).toContain('/assets/icons/web-chevron-left.svg');
     expect(template).toContain('/assets/icons/web-chevron-right.svg');
-    expect(template).toContain('联系方式仅在群组成员单独同意后显示');
+    expect(template).toContain('class="selected-date-details"');
+    expect(template).toContain('class="detail-heading"');
+    expect(template).toContain('class="duty-group-grid"');
+    expect(template).toContain('class="shift-detail-card"');
+    expect(template).toContain('class="shift-card-heading"');
+    expect(template).toContain('class="grouped-staff-list"');
+    expect(template).toContain('class="staff-duty-row"');
+    expect(template).toContain('class="staff-name-button"');
+    expect(template).toContain('class="duty-status is-{{row.status}}"');
+    expect(template).toContain('class="phone-split-actions"');
+    expect(template).toContain('class="event-action"');
+    expect(template).toContain('当日暂无符合当前筛选条件的排班。');
     expect(template).toContain('aria-disabled="true"');
     expect(template).toContain('nav-icon nav-leave');
     expect(template).toContain('nav-icon nav-swap');
@@ -111,9 +122,17 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="list-call-action"');
     expect(template).toContain('>工作台</text>');
     expect(template).toContain("filterDropdownDirection === 'up'");
-    expect(pageStyles).toMatch(/\.view-controls\s*{[^}]*position:\s*sticky;/s);
+    expect(pageStyles).toMatch(/\.view-controls\s*{[^}]*position:\s*relative;/s);
+    expect(pageStyles).not.toMatch(/\.view-controls\s*{[^}]*position:\s*sticky;/s);
     expect(pageStyles).toMatch(/\.workbench-content\.is-list-mode\s*{[^}]*height:\s*100%;/s);
     expect(pageStyles).toMatch(/\.list-panel-scroll\s*{[^}]*height:\s*100%;/s);
+    expect(pageStyles).toMatch(
+      /\.list-swiper\s*{[^}]*overflow:\s*hidden;[^}]*background:\s*var\(--ui-color-background\);/s,
+    );
+    expect(pageStyles).toMatch(
+      /\.list-calendar-heading\s*{[^}]*position:\s*relative;[^}]*z-index:\s*1;/s,
+    );
+    expect(pageStyles).toMatch(/\.list-calendar-heading\s*{[^}]*box-shadow:\s*none;/s);
     expect(pageStyles).toMatch(/\.filter-sheet\s*{[^}]*height:\s*468px;/s);
     expect(pageStyles).toMatch(/\.filter-select-options\s*{[^}]*position:\s*absolute;/s);
     expect(pageStyles).toContain('.filter-select-options.is-up');
@@ -172,8 +191,66 @@ describe('P4 native workbench', () => {
         name: '李医生',
       }),
     );
-    expect(view.selectedDetails[0]?.name).toBe('李医生');
-    expect(view.selectedDetails[0]?.changeLabel).toBe('换班 · 请假补位 · 加班');
+    expect(view.selectedDetails).toHaveLength(1);
+    expect(view.selectedDetails[0]).toEqual(
+      expect.objectContaining({
+        shiftAbbreviation: '全',
+        shiftName: '全天班',
+        timeRange: '00:00–00:00',
+      }),
+    );
+    expect(view.selectedDetails[0]?.rows[0]).toEqual(
+      expect.objectContaining({
+        name: '李医生',
+        role: '一线',
+        status: 'changed',
+        statusLabel: '有变更',
+      }),
+    );
+    expect(view.selectedDetails[0]?.rows[0]?.markerDetails).toEqual([
+      { badge: '换', key: 'swap', label: '换班' },
+      { badge: '替', key: 'leave-cover', label: '请假替班' },
+      { badge: '加', key: 'overtime', label: '加班' },
+    ]);
+    expect(view.selectedDetails[0]?.rows[0]?.phoneOptions).toEqual([]);
+    expect(view.selectedLabel).toBe('8月22日 周六');
+
+    const contactView = createWorkbenchViewModel(
+      {
+        ...calendarApiGoldenResponse,
+        assignments: [
+          {
+            ...calendarApiGoldenResponse.assignments[0],
+            actualMemberName: '张医生',
+            actualMembershipId: 'membership-1',
+          },
+        ],
+      },
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+    );
+    expect(contactView.selectedDetails[0]?.rows[0]?.phoneOptions).toEqual([
+      { label: '短号', number: '61234' },
+      { label: '手机', number: '13800138000' },
+    ]);
+
+    const groupedView = createWorkbenchViewModel(
+      {
+        ...calendarApiGoldenResponse,
+        assignments: [
+          calendarApiGoldenResponse.assignments[0],
+          { ...calendarApiGoldenResponse.assignments[0], id: 'assignment-2', slotPosition: 2 },
+        ],
+      },
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+    );
+    expect(groupedView.selectedDetails).toHaveLength(1);
+    expect(groupedView.selectedDetails[0]?.rows).toHaveLength(2);
   });
 
   it('renders an already-prefetched adjacent-month assignee without waiting for another read', () => {

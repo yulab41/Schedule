@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 原生控件滚动、列表裁切与详情同构回归
+
+- 反馈与引入点：实体截图证明 Mini 月/周的视图筛选行被错误 sticky 并覆盖日历；用户进一步明确列表问题是月份工具栏下沿阴影本身应删除；选中日期仍使用旧扁平摘要。`git log -S`/`git blame` 定位 sticky 到 `3fc41610`，inline top、列表内滚动与工具栏阴影到 `50c6d1ed`，旧详情模型/模板到 `ad4cfb2c`/`733e3af6`。
+- 测试先行与实现：旧实现结构回归先后 2 项、阴影 1 项和详情标识口径 1 项失败；修复后 `.view-controls` 回普通文档流，列表由既有外层禁滚/内层滚动保持控制区固定；列表 toolbar 删除 box-shadow，只留边框/圆角/固定间距和 swiper 背景裁切。详情按生产 `SelectedDateDutyDetails.vue` 改为班种分组卡，补班种缩写/时间、成员/岗位、已排班/有变更/待安排、短号优先的电话展开、Web 的“替 / 请假替班”、其他变更说明与事件入口视觉；空态文案和日期/班种计数同步 Web。
+- 语义审计：没有改 API、鉴权、缓存 TTL、请求接收者、异步错误范围或 GET 次数；分组与筛选均为纯本地 ViewModel。完整手机号仍在缓存前删除，电话动作继续调用 `wx.makePhoneCall`；事件记录仍在 P9，当前仅沿既有 `handleUnavailable` 显示阶段提示，不伪造业务数据。
+- 验证：定向 8/8、受控 Mini 18 文件/79 项、typecheck、source/package audit、determinism、production verify（2/2 Worklet，405150 bytes，manifest `460c9c17dd514e03b08c0e2d0c74558bb915acc93ebb031554d487d42504cfff`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。完整测试显式排除仓库既有的忽略目录 `.artifacts/ecs-runner-deploy-*`（其中含不完整旧源码副本），未删除或改动该既有产物。
+- 运行/浏览器验证：生产域名 390×844 只读对照显示 Web 详情为“选中日期/班种数—班种卡—成员/岗位—电话/状态—事件记录”层级；浏览器提示弹层只取消、未提交数据，视口已恢复。未触及 Web 核心链路，无需完整 `pnpm smoke:browser`；原生最终视觉仍待用户体验版确认。
+- 行为变化清单：月/周不再固定视图筛选行；列表控制区仍固定并删除下沿阴影；详情按班种而非 assignment 数计数并分组；日期删除中点；电话面板本地展开；事件入口仅阶段提示。checkpoint 识别消息：`fix(miniprogram): match p4 selected duty details`。
+
 ## 2026-08-23 P4 安全区、筛选层与周/列表内容回归
 
 - 反馈与引入点：实体截图证明 Mini 月历顶部/沉浸式状态栏遮挡、筛选下拉撑高 sheet、三视图按压态不一致、周/列表内容与 Web 不同以及列表外层滚动。`git log -S`/`git blame` 定位到 `733e3af6`、`3fc41610`、`ad4cfb2` 和 `1f715c96` 的对应调用点。

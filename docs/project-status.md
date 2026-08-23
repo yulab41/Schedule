@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 原生控件滚动、列表裁切与详情同构修复（当前批次）
+
+- 用户反馈：月/周视图滚动后“月/周/列表 + 筛选”控件错误固定并覆盖月历，列表顶部月份工具栏下沿阴影区域不好看、应直接删除，月/周下方选中日期详情与生产 Web 手机版结构完全不同。本批只修上述 P4 只读视觉/交互，不进入 P5。
+- 引入点：`git log -S`/`git blame` 确认全局 `.view-controls` sticky 来自 `3fc41610`，动态 inline top 叠加来自 `50c6d1ed`；扁平详情模型来自 `ad4cfb2c`、旧摘要模板来自 `733e3af6`；列表内滚动与缺少独立裁切层来自 `50c6d1ed`。生产 Web 对照为 `SelectedDateDutyDetails.vue`、`ListGrid.vue` 和 `CalendarView.vue`。
+- 实现：视图/筛选控件恢复普通文档流，月/周随页面滚动，列表仍通过外层禁滚和内层 `scroll-view` 自然固定；列表月份工具栏删除下沿阴影，保留 1px 边框、圆角、固定底部间距和独立背景裁切。选中详情改为 Web 同构的“日期 + 班种数 → 班种卡 → 成员/岗位/状态 → 电话展开/变更说明/事件入口”，按班种与时间排序，并采用 Web 的“替 / 请假替班”详情口径；事件记录仍属于后续阶段，当前入口只给阶段提示，未新增业务读取或写入。
+- 语义审计：日历 GET、缓存、request serial、Promise catch、筛选和换期调用次数不变；手机号仍只来自已返回的日历成员字段，24 小时缓存继续删除完整手机号；新增状态仅控制电话展开，拨号仍以 `wx.makePhoneCall` 成员调用执行。日期视觉格式和计数由旧“8月23日 · 周日 / 1 个班次”明确改为 Web 的“8月23日 周日 / 1 个班种”。
+- 测试先行与验证：新结构/滚动/裁切断言在旧实现 2 项失败，用户澄清后的去阴影断言再失败 1 项，详情标识 Web 口径断言再失败 1 项；修复后定向 8/8、受控 Mini 18 文件/79 项通过；typecheck、source/package audit、determinism、production verify（2/2 Worklet，405150 bytes，manifest `460c9c17dd514e03b08c0e2d0c74558bb915acc93ebb031554d487d42504cfff`）、CI dry-run、ESLint、Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：生产 Web 390×844 只读对照确认详情层级与几何，未触发写入且浏览器视口已恢复；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。仓库既有忽略目录 `.artifacts/ecs-runner-deploy-*` 含一份不完整旧源码副本，故完整测试以 `--exclude "**/.artifacts/**"` 限定真实 `scripts/` 源码，未删除或改动该既有产物。
+- 当前状态：已完成本地实现和验证，待创建并推送代码 checkpoint `fix(miniprogram): match p4 selected duty details`，随后上传 production-profile 体验版、备份并部署同一精确 checkpoint。
+- 下一活动批次与停止条件：完成 checkpoint、体验上传和生产部署后暂停，只等待用户在实体微信复核三项反馈；未确认前不进入 P5、不补独立 staging。
+
 ## 2026-08-23 P4 原生安全区与视图内容一致性修复（当前批次）
 
 - 用户反馈：月视图顶部被固定工具栏遮挡；筛选下拉会撑高底部弹层；月/周/列表按压反馈不一致；周与列表班次内容未对齐生产 Web；列表定位时应只滚动内容区；沉浸式/全面屏状态栏会与小程序顶栏重叠。

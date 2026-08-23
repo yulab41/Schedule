@@ -44,12 +44,35 @@ export interface WorkbenchPanel {
 }
 
 export interface WorkbenchDetail {
-  readonly changeLabel: string;
-  readonly color: string;
+  readonly key: string;
+  readonly rows: readonly WorkbenchDetailRow[];
+  readonly shiftAbbreviation: string;
+  readonly shiftColor: string;
+  readonly shiftName: string;
+  readonly shiftTextColor: string;
+  readonly shiftTint: string;
+  readonly timeRange: string;
+}
+
+export interface WorkbenchDetailRow {
+  readonly key: string;
+  readonly markerDetails: readonly WorkbenchMarkerDetail[];
   readonly name: string;
-  readonly note: string;
-  readonly textColor: string;
-  readonly title: string;
+  readonly phoneOptions: readonly WorkbenchPhoneOption[];
+  readonly role: string;
+  readonly status: 'changed' | 'pending' | 'scheduled';
+  readonly statusLabel: string;
+}
+
+export interface WorkbenchMarkerDetail {
+  readonly badge: string;
+  readonly key: string;
+  readonly label: string;
+}
+
+export interface WorkbenchPhoneOption {
+  readonly label: '手机' | '短号';
+  readonly number: string;
 }
 
 export interface WorkbenchDuty {
@@ -120,8 +143,14 @@ export const emptyWorkbenchFilters: WorkbenchFilters = {
   shiftTypeIds: [],
 };
 
-const markerLabels: Readonly<Record<string, string>> = {
-  'leave-cover': '请假补位',
+const detailMarkerBadges: Readonly<Record<string, string>> = {
+  'leave-cover': '替',
+  overtime: '加',
+  swap: '换',
+};
+
+const detailMarkerLabels: Readonly<Record<string, string>> = {
+  'leave-cover': '请假替班',
   overtime: '加班',
   swap: '换班',
 };
@@ -219,12 +248,11 @@ export function createWorkbenchViewModel(
       weekOrdinalLabel: getWeekOfMonthLabel(panelWeekStart),
     } satisfies WorkbenchWeekPanel;
   });
-  const memberConfirmed = new Map(
-    calendar.members.map((member) => [member.membershipId, member.isConfirmed]),
+  const selectedDetails = createSelectedDetails(
+    assignments.filter((assignment) => assignment.businessDate === selectedDate),
+    memberById,
+    calendar.shiftTypes.map((shiftType) => shiftType.id),
   );
-  const selectedDetails = assignments
-    .filter((assignment) => assignment.businessDate === selectedDate)
-    .map((assignment) => createDetail(assignment, memberConfirmed));
   const listPanels = ([-1, 0, 1] as const).map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
     const dayList = buildDayList(assignments, today).filter(
@@ -326,31 +354,109 @@ function createMonthCells(
   });
 }
 
-function createDetail(
+function createSelectedDetails(
+  assignments: readonly CalendarReadModel['assignments'][number][],
+  memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
+  shiftTypeOrder: readonly string[],
+): readonly WorkbenchDetail[] {
+  const grouped = new Map<string, CalendarReadModel['assignments'][number][]>();
+  for (const assignment of assignments) {
+    const current = grouped.get(assignment.shiftTypeId);
+    if (current === undefined) grouped.set(assignment.shiftTypeId, [assignment]);
+    else current.push(assignment);
+  }
+  const orderByShiftTypeId = new Map(
+    shiftTypeOrder.map((shiftTypeId, index) => [shiftTypeId, index] as const),
+  );
+  return [...grouped.entries()]
+    .flatMap(([shiftTypeId, rows]) => {
+      const first = rows[0];
+      if (first === undefined) return [];
+      return [
+        {
+          key: shiftTypeId,
+          rows: rows.map((assignment) => createDetailRow(assignment, memberById)),
+          shiftAbbreviation: first.shiftTypeAbbreviation,
+          shiftColor: first.shiftTypeColor,
+          shiftName: first.shiftTypeName,
+          shiftTextColor: first.shiftTypeTextColor,
+          shiftTint: createColorTint(first.shiftTypeColor),
+          timeRange: `${formatClock(first.startsAt)}–${formatClock(first.endsAt)}`,
+        } satisfies WorkbenchDetail,
+      ];
+    })
+    .sort((left, right) => {
+      const timeComparison = left.timeRange.localeCompare(right.timeRange);
+      if (timeComparison !== 0) return timeComparison;
+      return (
+        (orderByShiftTypeId.get(left.key) ?? Number.MAX_SAFE_INTEGER) -
+        (orderByShiftTypeId.get(right.key) ?? Number.MAX_SAFE_INTEGER)
+      );
+    });
+}
+
+function createDetailRow(
   assignment: CalendarReadModel['assignments'][number],
-  memberConfirmed: ReadonlyMap<string, boolean>,
-): WorkbenchDetail {
+  memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
+): WorkbenchDetailRow {
+  const membershipId = assignment.actualMembershipId ?? assignment.plannedMembershipId;
+  const member = membershipId === undefined ? undefined : memberById.get(membershipId);
+  const status = getDetailStatus(assignment, membershipId);
   return {
-    changeLabel: createChangeLabel(assignment.changeMarkers),
-    color: assignment.shiftTypeColor,
-    name: getAssignmentName(assignment),
-    note: createAssignmentNote(assignment, memberConfirmed),
-    textColor: assignment.shiftTypeTextColor,
-    title: `${assignment.shiftTypeName} · ${getAssignmentName(assignment)}`,
+    key: assignment.id,
+    markerDetails: assignment.changeMarkers.map((marker) => ({
+      badge: detailMarkerBadges[marker] ?? marker,
+      key: marker,
+      label: detailMarkerLabels[marker] ?? marker,
+    })),
+    name: assignment.actualMemberName ?? assignment.plannedMemberName ?? '待安排',
+    phoneOptions: createPhoneOptions(member),
+    role: assignment.scheduleRoleName,
+    status,
+    statusLabel: status === 'changed' ? '有变更' : status === 'pending' ? '待安排' : '已排班',
   };
 }
 
-function createAssignmentNote(
+function createPhoneOptions(
+  member: CalendarReadModel['members'][number] | undefined,
+): readonly WorkbenchPhoneOption[] {
+  if (member === undefined) return [];
+  const options: WorkbenchPhoneOption[] = [];
+  if (member.shortPhone !== undefined && member.shortPhone.length > 0) {
+    options.push({ label: '短号', number: member.shortPhone });
+  }
+  if (member.mobilePhone !== undefined && member.mobilePhone.length > 0) {
+    options.push({ label: '手机', number: member.mobilePhone });
+  }
+  return options;
+}
+
+function getDetailStatus(
   assignment: CalendarReadModel['assignments'][number],
-  memberConfirmed: ReadonlyMap<string, boolean>,
-): string {
-  const status = memberConfirmed.get(
-    assignment.actualMembershipId ?? assignment.plannedMembershipId ?? '',
-  )
-    ? '已确认'
-    : '待确认';
-  const changeLabel = createChangeLabel(assignment.changeMarkers);
-  return `${formatClock(assignment.startsAt)}–${formatClock(assignment.endsAt)} · ${changeLabel || status}`;
+  membershipId: string | undefined,
+): WorkbenchDetailRow['status'] {
+  if (
+    membershipId === undefined &&
+    assignment.actualMemberName === undefined &&
+    assignment.plannedMemberName === undefined
+  ) {
+    return 'pending';
+  }
+  if (
+    assignment.changeMarkers.length > 0 ||
+    (assignment.actualMembershipId !== undefined &&
+      assignment.actualMembershipId !== assignment.plannedMembershipId)
+  ) {
+    return 'changed';
+  }
+  return 'scheduled';
+}
+
+function createColorTint(color: string): string {
+  const red = Number.parseInt(color.slice(1, 3), 16);
+  const green = Number.parseInt(color.slice(3, 5), 16);
+  const blue = Number.parseInt(color.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, 0.094)`;
 }
 
 function createMarker(markers: readonly string[]): string {
@@ -369,10 +475,6 @@ function createMarkerList(markers: readonly string[]): readonly string[] {
   });
 }
 
-function createChangeLabel(markers: readonly string[]): string {
-  return markers.map((marker) => markerLabels[marker] ?? marker).join(' · ');
-}
-
 function getAssignmentName(assignment: CalendarAssignmentLike): string {
   return assignment.actualMemberName ?? assignment.plannedMemberName ?? '待认领';
 }
@@ -383,7 +485,7 @@ function formatClock(value: string): string {
 }
 
 function formatDateLabel(businessDate: string): string {
-  return `${Number(businessDate.slice(5, 7))}月${Number(businessDate.slice(8, 10))}日 · 周${weekdayLabels[(new Date(`${businessDate}T00:00:00Z`).getUTCDay() + 6) % 7]}`;
+  return `${Number(businessDate.slice(5, 7))}月${Number(businessDate.slice(8, 10))}日 周${weekdayLabels[(new Date(`${businessDate}T00:00:00Z`).getUTCDay() + 6) % 7]}`;
 }
 
 function formatMonthLabel(businessMonth: string): string {

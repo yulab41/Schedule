@@ -80,7 +80,7 @@
         <text class="cache-note"><text class="cache-dot" />只读查看 · 24 小时缓存</text>
       </view>
       <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
-      <view class="view-controls" style="top:{{shellHeaderHeight}}px" aria-label="排班视图">
+      <view class="view-controls" aria-label="排班视图">
         <view class="view-switch" aria-role="tablist">
           <view
             wx:for="{{viewOptions}}"
@@ -127,26 +127,113 @@
             bind:monthchange="handleMonthChange"
             bind:select="handleDateSelect"
           ></calendar-month>
-          <view class="selected-detail" aria-label="选中日期值班详情">
-            <view class="selected-detail-heading">
-              <view class="summary-date"
-                ><text>选中日期</text
-                ><text class="summary-date-value">{{selectedLabel}}</text></view
+          <view class="selected-date-details" aria-label="选中日期值班详情">
+            <view class="detail-heading">
+              <view class="detail-date-copy"
+                ><text>选中日期</text><text class="detail-date-value">{{selectedLabel}}</text></view
               >
-              <text class="summary-count">{{selectedCountLabel}}</text>
+              <text class="duty-count">{{selectedCountLabel}}</text>
             </view>
-            <view wx:if="{{selectedDetails.length === 0}}" class="detail-empty"
-              >当天没有已发布排班。</view
-            >
-            <view wx:for="{{selectedDetails}}" wx:key="title" class="summary-duty">
-              <view class="shift-dot" style="background:{{item.color}}"></view>
-              <view class="summary-duty-copy">
-                <text class="summary-duty-title">{{item.title}}</text>
-                <text class="summary-duty-note">{{item.note}}</text>
-                <text wx:if="{{item.changeLabel}}" class="change-label">{{item.changeLabel}}</text>
+            <view wx:if="{{selectedDetails.length > 0}}" class="duty-group-grid">
+              <view
+                wx:for="{{selectedDetails}}"
+                wx:for-item="group"
+                wx:key="key"
+                class="shift-detail-card"
+              >
+                <view class="shift-detail-accent" style="background:{{group.shiftColor}}"></view>
+                <view class="shift-card-heading">
+                  <text
+                    class="shift-code"
+                    style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
+                    >{{group.shiftAbbreviation}}</text
+                  >
+                  <view
+                    ><text class="shift-name">{{group.shiftName}}</text
+                    ><text class="shift-time">{{group.timeRange}}</text></view
+                  >
+                </view>
+                <view class="grouped-staff-list">
+                  <view
+                    wx:for="{{group.rows}}"
+                    wx:for-item="row"
+                    wx:key="key"
+                    class="staff-duty-row"
+                  >
+                    <view class="staff-duty-heading">
+                      <view
+                        wx:if="{{row.phoneOptions.length > 0}}"
+                        class="staff-name-button"
+                        data-key="{{row.key}}"
+                        hover-class="is-pressed"
+                        aria-role="button"
+                        aria-label="{{row.name}}，展开电话"
+                        aria-expanded="{{expandedDetailKey === row.key}}"
+                        bindtap="handleDetailPhoneToggle"
+                      >
+                        <view class="staff-name-copy"
+                          ><text class="staff-name">{{row.name}}</text
+                          ><text class="staff-role">{{row.role}}</text></view
+                        >
+                        <image
+                          class="detail-phone-icon"
+                          src="/assets/icons/web-phone.svg"
+                          mode="aspectFit"
+                        />
+                        <image
+                          class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
+                          src="/assets/icons/web-chevron-right.svg"
+                          mode="aspectFit"
+                        />
+                      </view>
+                      <view wx:else class="staff-name-static"
+                        ><text class="staff-name">{{row.name}}</text
+                        ><text class="staff-role">{{row.role}}</text></view
+                      >
+                      <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
+                    </view>
+                    <view
+                      wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
+                      class="phone-split-actions"
+                    >
+                      <view
+                        wx:for="{{row.phoneOptions}}"
+                        wx:for-item="phone"
+                        wx:key="number"
+                        class="detail-phone-action"
+                        data-phone="{{phone.number}}"
+                        hover-class="is-pressed"
+                        aria-role="button"
+                        aria-label="拨打{{phone.label}} {{phone.number}}"
+                        catchtap="handleListCall"
+                        ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
+                        <text>{{phone.label}} {{phone.number}}</text></view
+                      >
+                    </view>
+                    <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                      <view
+                        wx:for="{{row.markerDetails}}"
+                        wx:for-item="markerDetail"
+                        wx:key="key"
+                        class="change-summary-item"
+                        ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                        ><text>{{markerDetail.label}}</text></view
+                      >
+                    </view>
+                    <view
+                      class="event-action"
+                      data-label="事件记录"
+                      hover-class="is-pressed"
+                      aria-role="button"
+                      bindtap="handleUnavailable"
+                      ><view class="history-icon" aria-hidden="true"></view
+                      ><text>事件记录</text></view
+                    >
+                  </view>
+                </view>
               </view>
             </view>
-            <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
+            <view wx:else class="selected-date-empty">当日暂无符合当前筛选条件的排班。</view>
           </view>
         </block>
 
@@ -225,7 +312,9 @@
                   >
                     <view class="week-date-line"
                       ><text class="day-number">{{day.day}}</text
-                      ><text wx:if="{{day.holiday}}" class="week-holiday">{{day.holiday}}</text></view
+                      ><text wx:if="{{day.holiday}}" class="week-holiday"
+                        >{{day.holiday}}</text
+                      ></view
                     >
                     <view wx:if="{{day.duties.length === 0}}" class="week-duty-empty">—</view>
                     <view
@@ -254,21 +343,113 @@
               </swiper-item>
             </swiper>
           </view>
-          <view class="selected-detail compact-detail" aria-label="选中日期值班详情">
-            <view class="selected-detail-heading"
-              ><view class="summary-date"
-                ><text>选中日期</text
-                ><text class="summary-date-value">{{selectedLabel}}</text></view
-              ><text class="summary-count">{{selectedCountLabel}}</text></view
-            >
-            <view wx:for="{{selectedDetails}}" wx:key="title" class="summary-duty"
-              ><view class="shift-dot" style="background:{{item.color}}"></view
-              ><view class="summary-duty-copy"
-                ><text class="summary-duty-title">{{item.title}}</text
-                ><text class="summary-duty-note">{{item.note}}</text></view
-              ></view
-            >
-            <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
+          <view class="selected-date-details" aria-label="选中日期值班详情">
+            <view class="detail-heading">
+              <view class="detail-date-copy"
+                ><text>选中日期</text><text class="detail-date-value">{{selectedLabel}}</text></view
+              >
+              <text class="duty-count">{{selectedCountLabel}}</text>
+            </view>
+            <view wx:if="{{selectedDetails.length > 0}}" class="duty-group-grid">
+              <view
+                wx:for="{{selectedDetails}}"
+                wx:for-item="group"
+                wx:key="key"
+                class="shift-detail-card"
+              >
+                <view class="shift-detail-accent" style="background:{{group.shiftColor}}"></view>
+                <view class="shift-card-heading">
+                  <text
+                    class="shift-code"
+                    style="color:{{group.shiftColor}};background:{{group.shiftTint}}"
+                    >{{group.shiftAbbreviation}}</text
+                  >
+                  <view
+                    ><text class="shift-name">{{group.shiftName}}</text
+                    ><text class="shift-time">{{group.timeRange}}</text></view
+                  >
+                </view>
+                <view class="grouped-staff-list">
+                  <view
+                    wx:for="{{group.rows}}"
+                    wx:for-item="row"
+                    wx:key="key"
+                    class="staff-duty-row"
+                  >
+                    <view class="staff-duty-heading">
+                      <view
+                        wx:if="{{row.phoneOptions.length > 0}}"
+                        class="staff-name-button"
+                        data-key="{{row.key}}"
+                        hover-class="is-pressed"
+                        aria-role="button"
+                        aria-label="{{row.name}}，展开电话"
+                        aria-expanded="{{expandedDetailKey === row.key}}"
+                        bindtap="handleDetailPhoneToggle"
+                      >
+                        <view class="staff-name-copy"
+                          ><text class="staff-name">{{row.name}}</text
+                          ><text class="staff-role">{{row.role}}</text></view
+                        >
+                        <image
+                          class="detail-phone-icon"
+                          src="/assets/icons/web-phone.svg"
+                          mode="aspectFit"
+                        />
+                        <image
+                          class="detail-disclosure {{expandedDetailKey === row.key ? 'is-expanded' : ''}}"
+                          src="/assets/icons/web-chevron-right.svg"
+                          mode="aspectFit"
+                        />
+                      </view>
+                      <view wx:else class="staff-name-static"
+                        ><text class="staff-name">{{row.name}}</text
+                        ><text class="staff-role">{{row.role}}</text></view
+                      >
+                      <text class="duty-status is-{{row.status}}">{{row.statusLabel}}</text>
+                    </view>
+                    <view
+                      wx:if="{{expandedDetailKey === row.key && row.phoneOptions.length > 0}}"
+                      class="phone-split-actions"
+                    >
+                      <view
+                        wx:for="{{row.phoneOptions}}"
+                        wx:for-item="phone"
+                        wx:key="number"
+                        class="detail-phone-action"
+                        data-phone="{{phone.number}}"
+                        hover-class="is-pressed"
+                        aria-role="button"
+                        aria-label="拨打{{phone.label}} {{phone.number}}"
+                        catchtap="handleListCall"
+                        ><image src="/assets/icons/web-phone.svg" mode="aspectFit" />
+                        <text>{{phone.label}} {{phone.number}}</text></view
+                      >
+                    </view>
+                    <view wx:if="{{row.markerDetails.length > 0}}" class="staff-duty-meta">
+                      <view
+                        wx:for="{{row.markerDetails}}"
+                        wx:for-item="markerDetail"
+                        wx:key="key"
+                        class="change-summary-item"
+                        ><text class="detail-change-badge">{{markerDetail.badge}}</text
+                        ><text>{{markerDetail.label}}</text></view
+                      >
+                    </view>
+                    <view
+                      class="event-action"
+                      data-label="事件记录"
+                      hover-class="is-pressed"
+                      aria-role="button"
+                      bindtap="handleUnavailable"
+                      ><view class="history-icon" aria-hidden="true"></view
+                      ><text>事件记录</text></view
+                    >
+                  </view>
+                </view>
+              </view>
+            </view>
+            <view wx:else class="selected-date-empty">当日暂无符合当前筛选条件的排班。</view>
           </view>
         </block>
 
@@ -386,8 +567,8 @@
                         aria-role="button"
                         aria-label="联系{{duty.name}}"
                         catchtap="handleListCall"
-                        ><image src="/assets/icons/web-phone.svg" mode="aspectFit" /></view
-                      >
+                        ><image src="/assets/icons/web-phone.svg" mode="aspectFit"
+                      /></view>
                     </view>
                   </view>
                 </scroll-view>

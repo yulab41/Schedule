@@ -62,6 +62,7 @@ interface WorkbenchPageData {
   readonly currentGroupRole: string;
   readonly canReLogin: boolean;
   readonly errorMessage: string;
+  readonly expandedDetailKey: string;
   readonly filterIconAnimating: boolean;
   readonly filterMembershipIds: readonly string[];
   readonly filterMemberOptions: readonly FilterOption[];
@@ -137,6 +138,7 @@ Page({
     currentGroupRole: '',
     canReLogin: false,
     errorMessage: '',
+    expandedDetailKey: '',
     filterIconAnimating: false,
     filterMembershipIds: [],
     filterMemberOptions: [],
@@ -173,7 +175,7 @@ Page({
     selectedDate: today,
     selectedDetails: [],
     selectedLabel: formatDateLabel(today),
-    selectedCountLabel: '0 个班次',
+    selectedCountLabel: '0 个班种',
     calendarNavAnimating: false,
     state: 'loading' as WorkbenchState,
     viewMode: 'month' as const,
@@ -417,6 +419,7 @@ Page({
     if (businessDate === undefined) return;
     this.setData({
       announcement: `已选择 ${formatDateLabel(businessDate)}。`,
+      expandedDetailKey: '',
       selectedDate: businessDate,
       selectedLabel: formatDateLabel(businessDate),
     });
@@ -428,6 +431,7 @@ Page({
     if (businessDate === undefined) return;
     this.setData({
       announcement: `已选择 ${formatDateLabel(businessDate)}。`,
+      expandedDetailKey: '',
       selectedDate: businessDate,
       selectedLabel: formatDateLabel(businessDate),
     });
@@ -439,6 +443,7 @@ Page({
     if (businessDate === undefined) return;
     this.setData({
       announcement: `已选择 ${formatDateLabel(businessDate)}。`,
+      expandedDetailKey: '',
       selectedDate: businessDate,
       selectedLabel: formatDateLabel(businessDate),
     });
@@ -452,6 +457,12 @@ Page({
       fail: () => this.setData({ announcement: '未能发起通话。' }),
       phoneNumber,
     });
+  },
+
+  handleDetailPhoneToggle(this: WorkbenchPageInstance, event: TapEvent): void {
+    const key = event.currentTarget.dataset.key;
+    if (key === undefined || key.length === 0) return;
+    this.setData({ expandedDetailKey: this.data.expandedDetailKey === key ? '' : key });
   },
 
   handleUnavailable(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -673,7 +684,7 @@ function createViewPatch(
     monthLabel: view.monthLabel,
     monthPanelHeights: view.monthPanels.map((panel) => (panel.cells.length / 7) * 54),
     monthPanels: view.monthPanels,
-    selectedCountLabel: `${view.selectedDetails.length} 个班次`,
+    selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     selectedDetails: view.selectedDetails,
     selectedLabel: view.selectedLabel,
     weekPanels: view.weekPanels,
