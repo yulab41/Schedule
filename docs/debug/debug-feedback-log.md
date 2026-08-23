@@ -9,7 +9,8 @@
 - 发布安全：显式 env 默认全关；production global/core/guest 开。switch 双锁、0600、只保留旧 boolean、信号/失败反改；manifest 固定 feature/hash/DB49/candidate。packager clean+fresh build+LF+逐脚本 bash-n+canonical/shell gate；rollback 只接受明示前驱，先 DB backup，不回退 DB，控制面前向保留，verify 失败自动前滚；update/current-release/system controls 均原子/可补偿。
 - 测试：API 28/133 non-DB，真实 MySQL 48/48；Mini 29/171（含 manual in-flight capability invalidation 红→绿）；contracts/client/release 8/36；受控 non-Mini 176/948，36/324 skip。全仓 typecheck/Lint/build/generated/Prettier/diff check 和 Mini production verify/package/source/determinism/dry-run 通过；Mini 1,276,505 bytes、2 Worklets、manifest `6579cd39868a1e1fc19b8d2a8bfd1e17336c467fe1007cf9366b45eaf1def9b9`。
 - 运行/浏览器验证：`pnpm smoke:browser` 当前源码 4173/API3000 最终通过管理员、成员、访客 vkey 与访问记录，无浏览器错误，截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-mbiazF`。首次缺 Web dev auth、随后两次 44px 瞬时量测停止，原样复跑通过；临时诊断已完全撤回。
-- 状态：主体 checkpoint `e25878f0`（含 manual in-flight 失效）已推送；Windows clean-worktree 纯 stat 假脏判定红→绿，随 `fix(release): verify content-clean worktrees` 提交。随后 push、生产备份/配置、deploy、kill-switch/rollback/roll-forward 演练及 .79 体验上传。未提审/正式发布。
+- 首次生产演练：`b96b0a63` 备份 `dae5243f-…` 后部署/verify，双版本 policy、426 与 global off/on 全通过。rollback 备份 `57db2af6-…` 后在应用变更前因 `/var/lock`→`/run/lock` 真实路径比较拒绝；现网仍为 `b96b0a63` 且健康。canonical inherited-lock 测试先红后绿。
+- 状态：主体 `e25878f0` 与 clean-worktree fix `b96b0a63` 已推送；`fix(release): canonicalize inherited lock path` 推送后重做 backup/deploy/kill-switch/rollback/roll-forward 与 .79 体验上传。未提审/正式发布。
 
 ## 2026-08-24 P6-A 会话、弱网与离线缓存安全壳
 

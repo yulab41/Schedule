@@ -166,6 +166,8 @@ describe('release control installation and backward compatibility', () => {
     expect(updateSource).toContain('readlink -f -- "$DIST_TAR"');
     expect(updateSource).toContain('/var/lock/schedule-release.lock');
     expect(updateSource).toContain('SCHEDULE_RELEASE_LOCK_FD');
+    expect(updateSource).toContain('CANONICAL_RELEASE_LOCK_PATH');
+    expect(updateSource).toContain('readlink -f -- "$RELEASE_LOCK_PATH"');
   });
 
   it('retains artifacts without failing when an operator supplies the retained path itself', async () => {

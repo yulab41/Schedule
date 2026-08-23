@@ -170,9 +170,10 @@ FLAT_TAR="$(readlink -f -- "$FLAT_TAR")"
 MANIFEST="$(readlink -f -- "$MANIFEST")"
 
 RELEASE_LOCK_PATH="/var/lock/schedule-release.lock"
+CANONICAL_RELEASE_LOCK_PATH="$(readlink -f -- "$RELEASE_LOCK_PATH")"
 if [ "${SCHEDULE_RELEASE_LOCK_FD:-}" = "9" ]; then
   INHERITED_LOCK_PATH="$(readlink -f -- "/proc/$$/fd/9" 2>/dev/null || true)"
-  if [ "$INHERITED_LOCK_PATH" != "$RELEASE_LOCK_PATH" ]; then
+  if [ "$INHERITED_LOCK_PATH" != "$CANONICAL_RELEASE_LOCK_PATH" ]; then
     fail "继承的发布锁无效。"
     exit 1
   fi
