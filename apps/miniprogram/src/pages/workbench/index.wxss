@@ -1642,7 +1642,7 @@ page {
 
 .workbench-view-anchor {
   box-sizing: border-box;
-  padding-top: 14px;
+  padding-top: 8px;
 }
 
 .workbench-content.is-list-mode {

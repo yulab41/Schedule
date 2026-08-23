@@ -45,7 +45,6 @@ Component({
     },
     panels(this: CalendarMonthInstance): void {
       if (!this._monthShiftPending && this.data.swiperCurrent === 1) return;
-      this._monthShiftPending = false;
       this.setData(
         {
           swiperCurrent: 1,
@@ -53,7 +52,9 @@ Component({
           viewportHeight: this.data.panelHeights?.[1] ?? 270,
         },
         () => {
-          this.setData({ swiperDuration: 240 });
+          this.setData({ swiperDuration: 240 }, () => {
+            this._monthShiftPending = false;
+          });
         },
       );
     },
@@ -65,6 +66,13 @@ Component({
   },
   methods: {
     handleMonthTransition(this: CalendarMonthInstance, event: MonthTransitionEvent): void {
+      if (
+        this._monthShiftPending ||
+        this.data.swiperDuration === 0 ||
+        this.data.swiperCurrent !== 1
+      ) {
+        return;
+      }
       const { dx } = event.detail;
       const targetIndex = dx < 0 ? 2 : dx > 0 ? 0 : 1;
       const viewportHeight =

@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 8px 节奏与月历高度闪动回归
+
+- 反馈与引入点：用户明确把上一 checkpoint `48f2dc4` 的三视图共享 14px 改为 8px。换月先长后缩来自 `3fc41610`：程序化换月已设置目标高度，`bindtransition.dx` 却仍可能重复覆盖；新月份提交后 `duration=0` 回中也会继续触发位置变化并读到相邻面板高度。
+- 测试先行与实现：8px、回中 pending 时序、回中 transition 噪声、程序化 transition 覆盖四项断言分别在对应旧实现上失败。修复后共享 anchor 改 8px；transition 只在中央面板、非 pending、非零动画的真实拖动阶段参与高度预判，程序化目标与无动画回中不再被覆盖；pending 保持到回中和 240ms 恢复两次 `setData` 均完成后释放。
+- 语义审计：五/六行高度仍按 `cells.length / 7 * 54`，按钮/手势/定位的目标月份、`monthchange` 次数、三面板回中、GET/缓存、Promise/错误路径均不变；只收紧 6px 空间并消除错误中间高度。
+- 验证：定向 21/21、受控 Mini 18 文件/86 项、typecheck、production verify（2/2 Worklet，405612 bytes，manifest `80a4135dfcf09f6be5f74891d389c46f611d74e25618d6c0057831db48e00aba`）及 CI dry-run 通过。一次未排除既有 `.artifacts/ecs-runner-deploy-*` 副本的定向命令额外出现 3 项路径失败，显式排除后真实源全绿，未修改该用户目录。未改 Web 核心链路，无需完整 `pnpm smoke:browser`。
+- 行为变化清单：三视图首卡距控制区统一从 14px 改 8px；按钮换月和提交回中不再被 transition 套用另一侧高度；真实拖动仍按目标五/六行高度过渡。checkpoint 识别消息：`fix(miniprogram): tighten p4 rhythm and stabilize month height`。
+
 ## 2026-08-23 P4 三视图卡片节奏与事件图标回归
 
 - 反馈与引入点：Mini 月卡到控制区只有 6px，周/列表各由自身 margin 留 12px；`git log -S`/`git blame` 定位到 `50c6d1ed`/`ad4cfb2c`。详情事件图标是 `d9296df` 新增的 13px 圆形伪元素拼图。生产 Web 390px 实测月/周/列表均为控制区底 144px→首卡顶 158px，即统一 14px；Web History SVG 实测 16×16。

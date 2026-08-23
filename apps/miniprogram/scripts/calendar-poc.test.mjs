@@ -108,6 +108,8 @@ describe('P1 native dynamic month calendar PoC', () => {
     });
     await import('../src/components/calendar/calendar-month/index.ts');
     const triggerEvent = vi.fn();
+    const recenterPendingStates = [];
+    const durationRestorePendingStates = [];
     const instance = {
       _monthShiftPending: false,
       data: {
@@ -116,7 +118,13 @@ describe('P1 native dynamic month calendar PoC', () => {
         swiperDuration: 240,
         viewportHeight: 324,
       },
-      setData: vi.fn(),
+      setData: vi.fn((patch, callback) => {
+        if (patch.swiperCurrent === 1) recenterPendingStates.push(instance._monthShiftPending);
+        if (patch.swiperDuration === 240) {
+          durationRestorePendingStates.push(instance._monthShiftPending);
+        }
+        callback?.();
+      }),
       triggerEvent,
     };
 
@@ -131,7 +139,55 @@ describe('P1 native dynamic month calendar PoC', () => {
       swiperDuration: 0,
       viewportHeight: 324,
     });
+    expect(recenterPendingStates).toEqual([true]);
+    expect(durationRestorePendingStates).toEqual([true]);
     expect(instance._monthShiftPending).toBe(false);
+  });
+
+  it('ignores zero-duration recenter transition noise instead of flashing an adjacent height', async () => {
+    let definition;
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    await import('../src/components/calendar/calendar-month/index.ts');
+    const setData = vi.fn();
+    const instance = {
+      _monthShiftPending: true,
+      data: {
+        panelHeights: [324, 270, 324],
+        swiperCurrent: 2,
+        swiperDuration: 0,
+        viewportHeight: 270,
+      },
+      setData,
+    };
+
+    definition.methods.handleMonthTransition.call(instance, { detail: { dx: -24 } });
+
+    expect(setData).not.toHaveBeenCalled();
+  });
+
+  it('does not let programmatic transition noise overwrite the explicit target height', async () => {
+    let definition;
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    await import('../src/components/calendar/calendar-month/index.ts');
+    const setData = vi.fn();
+    const instance = {
+      _monthShiftPending: false,
+      data: {
+        panelHeights: [324, 270, 270],
+        swiperCurrent: 2,
+        swiperDuration: 240,
+        viewportHeight: 270,
+      },
+      setData,
+    };
+
+    definition.methods.handleMonthTransition.call(instance, { detail: { dx: 24 } });
+
+    expect(setData).not.toHaveBeenCalled();
   });
 
   it('keeps adjacent cells inert and emits one semantic current-date selection', async () => {

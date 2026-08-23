@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 8px 卡片节奏与月历高度稳定修复（当前批次）
+
+- 用户反馈：上一体验版统一 14px 后视觉仍过宽，要求月/周/列表首卡统一改为 8px；换月时卡片会先按不需要的六行高度增高，再发现目标实际只有五行而缩回。本批只修这 2 项 P4 原生视觉/过渡回归，不进入 P5。
+- 引入点：8px 变更直接修正上一 checkpoint `48f2dc4` 的 14px 共享 anchor；`git log -S`/`git blame` 确认 `bindtransition` 提前改高、三面板 `panelHeights` 和回中高度逻辑由 `3fc41610` 引入。微信 `swiper` 官方文档说明 item 位置变化即触发 transition，而代码在程序化换月和 `duration=0` 回中时仍消费 `dx`，会把另一侧面板高度短暂覆盖到已明确的目标高度。
+- 实现与语义：共享 `.workbench-view-anchor` 从 14px 收紧为 8px，三视图仍由同一规则控制。程序化换月已显式按目标 index 设置高度，因此其 transition 不再重复猜方向；提交后的无动画回中、pending 阶段及 `swiperDuration=0` 阶段全部忽略 transition，并把 `_monthShiftPending` 保持到回中和 240ms 配置恢复均提交完成后才释放。真实用户拖动仍在中央面板且非 pending/非零动画时按目标相邻面板高度提前过渡，五/六行真实高度计算不变。
+- 测试与验证：8px、回中期间 pending、回中 transition 噪声和程序化 transition 覆盖 4 项回归断言均在对应旧实现上失败；修复后定向 21/21、受控 Mini 18 文件/86 项通过。Mini typecheck、production verify（2/2 Worklet，405612 bytes，manifest `80a4135dfcf09f6be5f74891d389c46f611d74e25618d6c0057831db48e00aba`）和 CI dry-run 通过。一次未加 exclude 的定向命令额外误扫既有 `.artifacts/ecs-runner-deploy-*` 副本并产生 3 项路径失败，真实任务文件同时正确暴露 3 项预期旧实现失败；后续命令显式排除该用户目录并全绿，未修改其内容。
+- 当前状态与下一批次：已实现并完成本地验证；下一步只创建并推送 `fix(miniprogram): tighten p4 rhythm and stabilize month height` checkpoint，上传同一精确 production-profile 体验版，备份并部署同一 Git release，记录最终状态后暂停，等待用户实体微信复核；不补独立 staging、不进入 P5。
+
 ## 2026-08-23 P4 三视图卡片节奏与事件图标修复（当前批次）
 
 - 用户反馈：实体微信中，月/周/列表首卡与“月/周/列表 + 筛选”控制区的垂直距离不一致；选中日期详情的“事件记录”图标显示异常。本批只修这 2 项 P4 视觉回归，不改变三视图按内容自然生成的内部高度，不进入 P5。

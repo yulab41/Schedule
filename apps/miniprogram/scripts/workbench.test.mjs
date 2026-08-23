@@ -57,11 +57,11 @@ describe('P4 native workbench', () => {
     expect(template.match(/hover-stay-time="60"/g)).toHaveLength(6);
   });
 
-  it('starts month, week and list cards on the same 14px Web rhythm', () => {
+  it('starts month, week and list cards on the same compact 8px rhythm', () => {
     const pageStyles = readSource('pages/workbench/index.wxss');
 
     expect(pageStyles).toMatch(
-      /\.workbench-view-anchor\s*{[^}]*box-sizing:\s*border-box;[^}]*padding-top:\s*14px;/s,
+      /\.workbench-view-anchor\s*{[^}]*box-sizing:\s*border-box;[^}]*padding-top:\s*8px;/s,
     );
     expect(pageStyles).not.toContain('.workbench-view-anchor.is-month-mode');
     expect(pageStyles).not.toMatch(
