@@ -8,6 +8,7 @@
 - 测试先行与实现：目标行高 override、单一格式器、1px 可见裁切边界、今天月常驻和定位目标面板预装 4 项契约在旧实现失败。修复后删除页面格式器，日期选择以一次 ViewPatch 同步标签/详情；列表边界线与 heading 底边重叠避免双线；requested month set 常驻今天月，定位前将目标中央面板放入滑入侧并把目标月高传给 calendar，finish 原子提交 period/ViewPatch 后立即滚动，后台读取不阻挡视觉。
 - 语义审计：普通导航、筛选、请求串行、catch、缓存 TTL、脱敏与业务写入不变；只读资源窗口最多增加一个今天月，首次读取后缓存复用。点击日期的中间旧标签和重复 ViewPatch 被移除，最终 Web 文案/详情数据不变。
 - 验证：定向 24/24；隔离 `ce4057b` + 本轮 7 文件的 Mini 18 文件/89 项、typecheck、production verify（2/2 Worklet，412558 bytes，manifest `a116e225eb4ed78ff80245228d454ab5f966e23d1f80f95d2d8579d9c894a822`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。一次仓库根定向命令因错误 cwd/既有 `.artifacts` 副本产生 13 项路径失败，正确 Mini 目录与隔离基线重跑全绿，未修改这些用户目录。checkpoint 识别消息：`fix(miniprogram): stabilize date selection and locate data`。
+- 发布：代码 checkpoint `4300fbe` 已推送；精确 worktree 上传 production-profile `.68`（63 文件，manifest `a125b79350f561546e13a96098b429f839d09b399795402b9ddb764f58e77f0a`），未审核/正式发布；首次同版本调用无回执，幂等重传取得成功回执。生产备份 archive `b1c2dd02-0ec3-4bf9-9b5a-05bc35ad37ad`（54 表、162555 行、76682476 bytes，SHA-256 `a3d541646f9ef2a4776e281f94e3aa355c2ea743eb1e3f4e77e4d9b7966ab071`）后部署 release `4300fbe711de9229951265ef714d86308cf81621`；预热首次 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record p4 date and locate deployment`。
 
 ## 2026-08-23 P4 月历横向/高度同步过渡回归
 
