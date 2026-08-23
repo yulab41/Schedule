@@ -66,6 +66,35 @@ describe('mobile calendar Storybook 2 parity', () => {
     );
   });
 
+  it('shows prefetched adjacent-month assignee names without making those dates interactive', () => {
+    const monthGrid = readSource('../../features/calendar/MonthGrid.vue');
+    const calendarView = readSource('./CalendarView.vue');
+
+    expect(monthGrid).toContain('class="adjacent-duty-name"');
+    expect(monthGrid).toContain('adjacentMonthAssignmentName(cell.businessDate)');
+    expect(monthGrid).toContain(':disabled="cell.isOutsideMonth"');
+    expect(calendarView).toContain('[-2, -1, 0, 1, 2]');
+    expect(calendarView).toContain('addBusinessMonths(businessMonth.value, relative)');
+  });
+
+  it('keeps the mobile view switch and filter control pinned during list location', () => {
+    const calendarView = readSource('./CalendarView.vue');
+
+    expect(calendarView).toContain('ref="calendarToolbar"');
+    expect(calendarView).toContain(
+      "document.querySelector<HTMLElement>('.workbench-shell-header')",
+    );
+    expect(calendarView).toContain('calendarToolbar.value?.offsetHeight');
+    expect(calendarView).toContain(':assignments="listVisibleAssignments"');
+    expect(calendarView).toContain('assignment.businessDate.startsWith(`${businessMonth.value}-`)');
+    expect(calendarView).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.calendar-toolbar\s*{[^}]*position:\s*sticky;[^}]*top:\s*calc\(var\(--ui-layout-header-height\) \+ env\(safe-area-inset-top\)\);/s,
+    );
+    expect(calendarView).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*?\.list-sticky-toolbar\s*{[^}]*top:\s*calc\(/s,
+    );
+  });
+
   it('fades adjacent-month weekday and weekend dates together', () => {
     const monthGrid = readSource('../../features/calendar/MonthGrid.vue');
     const desktopStyles = monthGrid.slice(

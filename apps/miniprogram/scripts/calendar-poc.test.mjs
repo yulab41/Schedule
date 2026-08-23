@@ -94,8 +94,9 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(template).toContain('bindanimationfinish="handleMonthSwipe"');
     expect(template).toContain('<swiper-item');
     expect(template).not.toContain('<pan-gesture-handler');
-    expect(template).toContain('class="chevron-line is-upper"');
-    expect(template).toContain('class="locate-tick is-top"');
+    expect(template).toContain('/assets/icons/web-chevron-left.svg');
+    expect(template).toContain('/assets/icons/web-chevron-right.svg');
+    expect(template).toContain('/assets/icons/web-locate.svg');
     const styles = readSource('components/calendar/calendar-month/index.wxss');
     expect(styles).not.toContain('locate-crosshair::before');
   });
@@ -109,7 +110,12 @@ describe('P1 native dynamic month calendar PoC', () => {
     const triggerEvent = vi.fn();
     const instance = {
       _monthShiftPending: false,
-      data: { swiperCurrent: 1, swiperDuration: 240 },
+      data: {
+        panelHeights: [270, 324, 270],
+        swiperCurrent: 1,
+        swiperDuration: 240,
+        viewportHeight: 324,
+      },
       setData: vi.fn(),
       triggerEvent,
     };
@@ -123,6 +129,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance.setData.mock.calls[0]?.[0]).toEqual({
       swiperCurrent: 1,
       swiperDuration: 0,
+      viewportHeight: 324,
     });
     expect(instance._monthShiftPending).toBe(false);
   });

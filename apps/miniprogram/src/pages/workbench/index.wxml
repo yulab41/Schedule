@@ -49,7 +49,7 @@
         bindtap="handleNotification"
       >
         <view class="top-icon bell-icon {{notificationAnimating ? 'is-animating' : ''}}">
-          <view class="bell-body"></view><view class="bell-clapper"></view>
+          <image class="top-icon-image" src="/assets/icons/web-bell.svg" mode="aspectFit" />
         </view>
       </view>
       <view
@@ -60,7 +60,7 @@
         bindtap="handleProfile"
       >
         <view class="top-icon profile-icon {{profileAnimating ? 'is-animating' : ''}}">
-          <view class="profile-head"></view><view class="profile-shoulders"></view>
+          <image class="top-icon-image" src="/assets/icons/web-profile.svg" mode="aspectFit" />
         </view>
       </view>
     </view>
@@ -112,11 +112,12 @@
       >
 
       <view id="workbench-view-anchor" class="workbench-view-anchor">
-        <block wx:if="{{state === 'ready' && viewMode === 'month'}}">
+        <block wx:if="{{(state === 'ready' || state === 'offline') && viewMode === 'month'}}">
           <calendar-month
             id="workbench-month"
             grid-height="{{gridHeight}}"
             month-label="{{monthLabel}}"
+            panel-heights="{{monthPanelHeights}}"
             panels="{{monthPanels}}"
             bind:locatetoday="handleLocateToday"
             bind:monthchange="handleMonthChange"
@@ -145,7 +146,7 @@
           </view>
         </block>
 
-        <block wx:elif="{{state === 'ready' && viewMode === 'week'}}">
+        <block wx:elif="{{(state === 'ready' || state === 'offline') && viewMode === 'week'}}">
           <view class="week-calendar" aria-label="周视图">
             <view class="calendar-navigation">
               <view
@@ -155,12 +156,15 @@
                 aria-role="button"
                 aria-label="上一周"
                 bindtap="handleWeekChange"
-                ><view
-                  class="chevron is-left {{weekSwiperCurrent === 0 ? 'is-animating' : ''}}"
-                ></view
+                ><view class="chevron is-left {{weekSwiperCurrent === 0 ? 'is-animating' : ''}}"
+                  ><image
+                    class="chevron-image"
+                    src="/assets/icons/web-chevron-left.svg"
+                    mode="aspectFit" /></view
               ></view>
               <view class="calendar-heading"
-                ><text>{{weekPanels[1].rangeLabel}}</text><text>按周查看 · 左右滑动切换</text></view
+                ><text>{{weekPanels[1].weekOrdinalLabel}}</text
+                ><text>{{weekPanels[1].rangeLabel}}</text></view
               >
               <view
                 class="calendar-locator"
@@ -169,7 +173,10 @@
                 aria-label="定位到今天"
                 bindtap="handleLocateToday"
                 ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
-                  ><view></view></view
+                  ><image
+                    class="locate-image"
+                    src="/assets/icons/web-locate.svg"
+                    mode="aspectFit" /></view
               ></view>
               <view
                 class="calendar-step"
@@ -178,9 +185,11 @@
                 aria-role="button"
                 aria-label="下一周"
                 bindtap="handleWeekChange"
-                ><view
-                  class="chevron is-right {{weekSwiperCurrent === 2 ? 'is-animating' : ''}}"
-                ></view
+                ><view class="chevron is-right {{weekSwiperCurrent === 2 ? 'is-animating' : ''}}"
+                  ><image
+                    class="chevron-image"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit" /></view
               ></view>
             </view>
             <view class="week-day-row" aria-hidden="true"
@@ -235,7 +244,7 @@
           </view>
         </block>
 
-        <block wx:elif="{{state === 'ready' && viewMode === 'list'}}">
+        <block wx:elif="{{(state === 'ready' || state === 'offline') && viewMode === 'list'}}">
           <view class="list-calendar" aria-label="列表视图">
             <view class="list-calendar-heading">
               <view
@@ -245,9 +254,11 @@
                 aria-role="button"
                 aria-label="上一月"
                 bindtap="handleListMonthChange"
-                ><view
-                  class="chevron is-left {{listSwiperCurrent === 0 ? 'is-animating' : ''}}"
-                ></view
+                ><view class="chevron is-left {{listSwiperCurrent === 0 ? 'is-animating' : ''}}"
+                  ><image
+                    class="chevron-image"
+                    src="/assets/icons/web-chevron-left.svg"
+                    mode="aspectFit" /></view
               ></view>
               <view class="calendar-heading"
                 ><text>{{monthLabel}}</text
@@ -260,7 +271,10 @@
                 aria-label="定位到今天"
                 bindtap="handleLocateToday"
                 ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
-                  ><view></view></view
+                  ><image
+                    class="locate-image"
+                    src="/assets/icons/web-locate.svg"
+                    mode="aspectFit" /></view
               ></view>
               <view
                 class="calendar-step"
@@ -269,9 +283,11 @@
                 aria-role="button"
                 aria-label="下一月"
                 bindtap="handleListMonthChange"
-                ><view
-                  class="chevron is-right {{listSwiperCurrent === 2 ? 'is-animating' : ''}}"
-                ></view
+                ><view class="chevron is-right {{listSwiperCurrent === 2 ? 'is-animating' : ''}}"
+                  ><image
+                    class="chevron-image"
+                    src="/assets/icons/web-chevron-right.svg"
+                    mode="aspectFit" /></view
               ></view>
             </view>
             <swiper
@@ -283,7 +299,7 @@
               bindanimationfinish="handleListSwiperFinish"
             >
               <swiper-item wx:for="{{listPanels}}" wx:key="key">
-                <scroll-view class="list-panel-scroll" scroll-y show-scrollbar="{{false}}">
+                <view class="list-panel-scroll">
                   <text class="list-meta">月份工具栏固定 · 已按日期排序</text>
                   <view wx:if="{{item.rows.length === 0}}" class="detail-empty list-empty"
                     >这个月没有已发布排班。</view
@@ -307,7 +323,7 @@
                       ><text class="list-note">{{row.note}}</text></view
                     ><view class="list-chevron" aria-hidden="true"></view>
                   </view>
-                </scroll-view>
+                </view>
               </swiper-item>
             </swiper>
           </view>
@@ -393,51 +409,92 @@
 
       <view class="filter-field">
         <text class="filter-field-label">排班岗位</text>
-        <view class="filter-chip-list">
+        <view
+          class="filter-select-trigger {{filterOpenField === 'role' ? 'is-open' : ''}}"
+          data-field="role"
+          aria-role="button"
+          aria-expanded="{{filterOpenField === 'role'}}"
+          bindtap="handleFilterFieldToggle"
+          ><text>{{filterRoleSummary}}</text><view class="filter-select-chevron"></view
+        ></view>
+        <scroll-view
+          wx:if="{{filterOpenField === 'role'}}"
+          class="filter-select-options"
+          scroll-y
+          show-scrollbar="{{false}}"
+        >
           <view
             wx:for="{{filterRoleOptions}}"
             wx:key="value"
-            class="filter-chip {{item.selected ? 'is-selected' : ''}}"
+            class="filter-select-option {{item.selected ? 'is-selected' : ''}}"
             data-kind="role"
             data-value="{{item.value}}"
             aria-role="checkbox"
             aria-checked="{{item.selected}}"
             bindtap="handleFilterOptionToggle"
-            >{{item.label}}<text wx:if="{{item.selected}}">✓</text></view
+            ><text>{{item.label}}</text
+            ><text class="filter-check">{{item.selected ? '✓' : ''}}</text></view
           >
           <text wx:if="{{filterRoleOptions.length === 0}}" class="filter-field-empty"
             >暂无岗位</text
           >
-        </view>
+        </scroll-view>
       </view>
 
       <view class="filter-field">
         <text class="filter-field-label">班种</text>
-        <view class="filter-chip-list">
+        <view
+          class="filter-select-trigger {{filterOpenField === 'shift' ? 'is-open' : ''}}"
+          data-field="shift"
+          aria-role="button"
+          aria-expanded="{{filterOpenField === 'shift'}}"
+          bindtap="handleFilterFieldToggle"
+          ><text>{{filterShiftTypeSummary}}</text><view class="filter-select-chevron"></view
+        ></view>
+        <scroll-view
+          wx:if="{{filterOpenField === 'shift'}}"
+          class="filter-select-options"
+          scroll-y
+          show-scrollbar="{{false}}"
+        >
           <view
             wx:for="{{filterShiftTypeOptions}}"
             wx:key="value"
-            class="filter-chip {{item.selected ? 'is-selected' : ''}}"
+            class="filter-select-option {{item.selected ? 'is-selected' : ''}}"
             data-kind="shift"
             data-value="{{item.value}}"
             aria-role="checkbox"
             aria-checked="{{item.selected}}"
             bindtap="handleFilterOptionToggle"
-            >{{item.label}}<text wx:if="{{item.selected}}">✓</text></view
+            ><text>{{item.label}}</text
+            ><text class="filter-check">{{item.selected ? '✓' : ''}}</text></view
           >
           <text wx:if="{{filterShiftTypeOptions.length === 0}}" class="filter-field-empty"
             >暂无班种</text
           >
-        </view>
+        </scroll-view>
       </view>
 
       <view class="filter-field">
         <text class="filter-field-label">成员</text>
-        <scroll-view class="member-filter-scroll" scroll-y show-scrollbar="{{false}}">
+        <view
+          class="filter-select-trigger {{filterOpenField === 'member' ? 'is-open' : ''}}"
+          data-field="member"
+          aria-role="button"
+          aria-expanded="{{filterOpenField === 'member'}}"
+          bindtap="handleFilterFieldToggle"
+          ><text>{{filterMemberSummary}}</text><view class="filter-select-chevron"></view
+        ></view>
+        <scroll-view
+          wx:if="{{filterOpenField === 'member'}}"
+          class="filter-select-options"
+          scroll-y
+          show-scrollbar="{{false}}"
+        >
           <view
             wx:for="{{filterMemberOptions}}"
             wx:key="value"
-            class="filter-member-option {{item.selected ? 'is-selected' : ''}}"
+            class="filter-select-option {{item.selected ? 'is-selected' : ''}}"
             data-kind="member"
             data-value="{{item.value}}"
             aria-role="checkbox"
@@ -468,7 +525,11 @@
       aria-current="page"
       bindtap="handleCalendarNav"
       ><view class="nav-icon nav-calendar is-looping {{calendarNavAnimating ? 'is-animating' : ''}}"
-        ><view class="nav-calendar-check"></view></view
+        ><image class="nav-icon-image" src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+        <image
+          class="nav-icon-image nav-icon-actor"
+          src="/assets/icons/web-calendar-check.svg"
+          mode="aspectFit" /></view
       ><text>日历</text></view
     >
     <view
@@ -479,7 +540,11 @@
       aria-role="button"
       bindtap="handleUnavailable"
       ><view class="nav-icon nav-leave {{navMotion === 'leave' ? 'is-animating' : ''}}"
-        ><view></view><view></view><view class="nav-leave-minus"></view></view
+        ><image class="nav-icon-image" src="/assets/icons/web-leave.svg" mode="aspectFit" />
+        <image
+          class="nav-icon-image nav-icon-actor"
+          src="/assets/icons/web-leave-minus.svg"
+          mode="aspectFit" /></view
       ><text>请假</text></view
     >
     <view
@@ -490,7 +555,14 @@
       aria-role="button"
       bindtap="handleUnavailable"
       ><view class="nav-icon nav-swap {{navMotion === 'swap' ? 'is-animating' : ''}}"
-        ><view class="nav-swap-left"></view><view class="nav-swap-right"></view></view
+        ><image
+          class="nav-icon-image nav-icon-actor"
+          src="/assets/icons/web-swap.svg"
+          mode="aspectFit" />
+        <image
+          class="nav-icon-image nav-icon-actor-secondary"
+          src="/assets/icons/web-swap-secondary.svg"
+          mode="aspectFit" /></view
       ><text>换班</text></view
     >
     <view
@@ -501,7 +573,7 @@
       aria-role="button"
       bindtap="handleUnavailable"
       ><view class="nav-icon nav-adjustment {{navMotion === 'duty' ? 'is-animating' : ''}}"
-        ><view class="nav-duty-actor"></view></view
+        ><image class="nav-icon-image" src="/assets/icons/web-duty.svg" mode="aspectFit" /></view
       ><text>调班</text></view
     >
     <view
@@ -512,7 +584,18 @@
       aria-role="button"
       bindtap="handleUnavailable"
       ><view class="nav-icon nav-more {{navMotion === 'more' ? 'is-animating' : ''}}"
-        ><view></view><view></view><view></view></view
+        ><image
+          class="nav-icon-image nav-icon-actor"
+          src="/assets/icons/web-more.svg"
+          mode="aspectFit" />
+        <image
+          class="nav-icon-image nav-icon-actor-secondary"
+          src="/assets/icons/web-more-secondary.svg"
+          mode="aspectFit" />
+        <image
+          class="nav-icon-image nav-icon-actor-tertiary"
+          src="/assets/icons/web-more-tertiary.svg"
+          mode="aspectFit" /></view
       ><text>更多</text></view
     >
   </view>

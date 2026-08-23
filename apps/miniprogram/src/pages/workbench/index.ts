@@ -24,6 +24,7 @@ import {
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
+type FilterField = '' | 'member' | 'role' | 'shift';
 
 interface TapEvent {
   readonly currentTarget: { readonly dataset: Record<string, string | undefined> };
@@ -44,6 +45,12 @@ interface FilterOption {
   readonly value: string;
 }
 
+interface MonthReadResult {
+  readonly calendar: CalendarReadModel;
+  readonly holidays: HolidayReadModel;
+  readonly offline: boolean;
+}
+
 interface WorkbenchPageData {
   readonly activeFilterCount: number;
   readonly announcement: string;
@@ -58,11 +65,15 @@ interface WorkbenchPageData {
   readonly filterMembershipIds: readonly string[];
   readonly filterMemberOptions: readonly FilterOption[];
   readonly filterOpen: boolean;
+  readonly filterOpenField: FilterField;
   readonly filterOnlyChanges: boolean;
   readonly filterRoleIds: readonly string[];
   readonly filterRoleOptions: readonly FilterOption[];
+  readonly filterRoleSummary: string;
   readonly filterShiftTypeIds: readonly string[];
   readonly filterShiftTypeOptions: readonly FilterOption[];
+  readonly filterShiftTypeSummary: string;
+  readonly filterMemberSummary: string;
   readonly groupOpen: boolean;
   readonly groups: readonly GroupSummary[];
   readonly gridHeight: number;
@@ -71,6 +82,7 @@ interface WorkbenchPageData {
   readonly listSwiperHeight: number;
   readonly locateIconAnimating: boolean;
   readonly monthLabel: string;
+  readonly monthPanelHeights: readonly number[];
   readonly monthPanels: WorkbenchViewModel['monthPanels'];
   readonly navMotion: string;
   readonly notificationAnimating: boolean;
@@ -96,6 +108,7 @@ interface WorkbenchPageInstance {
   calendar: CalendarReadModel | undefined;
   holidays: HolidayReadModel | undefined;
   monthLocateTarget: string | undefined;
+  monthResources: Map<string, MonthReadResult>;
   pendingListTarget: string | undefined;
   pendingScrollTarget: string | undefined;
   pendingWeekTarget: string | undefined;
@@ -123,11 +136,15 @@ Page({
     filterMembershipIds: [],
     filterMemberOptions: [],
     filterOpen: false,
+    filterOpenField: '' as FilterField,
     filterOnlyChanges: false,
     filterRoleIds: [],
     filterRoleOptions: [],
+    filterRoleSummary: '全部岗位',
     filterShiftTypeIds: [],
     filterShiftTypeOptions: [],
+    filterShiftTypeSummary: '全部班种',
+    filterMemberSummary: '全部成员',
     groupOpen: false,
     groups: [],
     gridHeight: 270,
@@ -136,6 +153,7 @@ Page({
     listSwiperHeight: 120,
     locateIconAnimating: false,
     monthLabel: formatMonthLabel(initialMonth),
+    monthPanelHeights: [270, 270, 270],
     monthPanels: [],
     navMotion: '',
     notificationAnimating: false,
@@ -159,6 +177,7 @@ Page({
   calendar: undefined,
   holidays: undefined,
   monthLocateTarget: undefined,
+  monthResources: new Map<string, MonthReadResult>(),
   pendingListTarget: undefined,
   pendingScrollTarget: undefined,
   pendingWeekTarget: undefined,
@@ -169,7 +188,7 @@ Page({
   },
 
   handleGroupToggle(this: WorkbenchPageInstance): void {
-    this.setData({ groupOpen: !this.data.groupOpen, filterOpen: false });
+    this.setData({ groupOpen: !this.data.groupOpen, filterOpen: false, filterOpenField: '' });
   },
 
   handleGroupSelect(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -181,14 +200,19 @@ Page({
     wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, groupId);
     this.calendar = undefined;
     this.holidays = undefined;
+    this.monthResources.clear();
     this.setData({
       activeFilterCount: 0,
       businessMonth: initialMonth,
       currentGroupId: groupId,
       filterMembershipIds: [],
+      filterMemberSummary: '全部成员',
+      filterOpenField: '',
       filterOnlyChanges: false,
       filterRoleIds: [],
+      filterRoleSummary: '全部岗位',
       filterShiftTypeIds: [],
+      filterShiftTypeSummary: '全部班种',
       groupOpen: false,
       selectedDate: today,
       selectedLabel: formatDateLabel(today),
@@ -207,6 +231,7 @@ Page({
       announcement:
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
       filterOpen: false,
+      filterOpenField: '',
       viewMode: nextView,
       weekStart: nextWeekStart,
     });
@@ -219,6 +244,7 @@ Page({
       {
         filterIconAnimating: false,
         filterOpen: true,
+        filterOpenField: '',
         groupOpen: false,
       },
       () => {
@@ -228,32 +254,45 @@ Page({
   },
 
   handleFilterClose(this: WorkbenchPageInstance): void {
-    this.setData({ announcement: '已关闭筛选。', filterOpen: false });
+    this.setData({ announcement: '已关闭筛选。', filterOpen: false, filterOpenField: '' });
   },
 
   handleFilterApply(this: WorkbenchPageInstance): void {
-    this.setData({ announcement: '已应用排班筛选。', filterOpen: false });
+    this.setData({ announcement: '已应用排班筛选。', filterOpen: false, filterOpenField: '' });
+  },
+
+  handleFilterFieldToggle(this: WorkbenchPageInstance, event: TapEvent): void {
+    const field = event.currentTarget.dataset.field;
+    if (field !== 'member' && field !== 'role' && field !== 'shift') return;
+    this.setData({ filterOpenField: this.data.filterOpenField === field ? '' : field });
   },
 
   handleFilterClear(this: WorkbenchPageInstance): void {
-    this.setData({
-      activeFilterCount: 0,
-      announcement: '已清除全部筛选。',
-      filterMembershipIds: [],
-      filterMemberOptions: setSelectedOptions(this.data.filterMemberOptions, []),
-      filterOnlyChanges: false,
-      filterRoleIds: [],
-      filterRoleOptions: setSelectedOptions(this.data.filterRoleOptions, []),
-      filterShiftTypeIds: [],
-      filterShiftTypeOptions: setSelectedOptions(this.data.filterShiftTypeOptions, []),
-    });
-    refreshView(this);
+    this.setData(
+      {
+        activeFilterCount: 0,
+        announcement: '已清除全部筛选。',
+        filterMembershipIds: [],
+        filterMemberOptions: setSelectedOptions(this.data.filterMemberOptions, []),
+        filterMemberSummary: '全部成员',
+        filterOpenField: '',
+        filterOnlyChanges: false,
+        filterRoleIds: [],
+        filterRoleOptions: setSelectedOptions(this.data.filterRoleOptions, []),
+        filterRoleSummary: '全部岗位',
+        filterShiftTypeIds: [],
+        filterShiftTypeOptions: setSelectedOptions(this.data.filterShiftTypeOptions, []),
+        filterShiftTypeSummary: '全部班种',
+      },
+      () => refreshView(this),
+    );
   },
 
   handleOnlyChangesToggle(this: WorkbenchPageInstance): void {
-    this.setData({ filterOnlyChanges: !this.data.filterOnlyChanges });
-    syncFilterCount(this);
-    refreshView(this);
+    this.setData({ filterOnlyChanges: !this.data.filterOnlyChanges }, () => {
+      syncFilterPresentation(this);
+      refreshView(this);
+    });
   },
 
   handleFilterOptionToggle(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -266,8 +305,6 @@ Page({
     } else if (kind === 'member') {
       toggleFilterOption(this, 'filterMembershipIds', 'filterMemberOptions', value);
     } else return;
-    syncFilterCount(this);
-    refreshView(this);
   },
 
   handleMonthChange(this: WorkbenchPageInstance, event: MonthChangeEvent): void {
@@ -342,17 +379,17 @@ Page({
   handleWeekSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
     const delta = getSwiperDelta(event.detail.current);
     if (delta === 0) return;
-    shiftWeek(this, delta, this.pendingWeekTarget);
+    const target = this.pendingWeekTarget;
     this.pendingWeekTarget = undefined;
-    recenterPeriodSwiper(this, 'week');
+    commitPeriodShift(this, 'week', delta, target);
   },
 
   handleListSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
     const delta = getSwiperDelta(event.detail.current);
     if (delta === 0) return;
-    shiftListMonth(this, delta, this.pendingListTarget);
+    const target = this.pendingListTarget;
     this.pendingListTarget = undefined;
-    recenterPeriodSwiper(this, 'list');
+    commitPeriodShift(this, 'list', delta, target);
   },
 
   handleDateSelect(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -446,6 +483,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
     if (selectedGroup === undefined) return;
     const groupChanged = page.data.currentGroupId !== selectedGroup.id;
     if (groupChanged) {
+      if (page.data.currentGroupId !== '') page.monthResources.clear();
       page.setData({
         currentGroupId: selectedGroup.id,
         currentGroupName: selectedGroup.name,
@@ -468,36 +506,47 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
       monthResults.find((result) => result.calendar.businessMonth === activeMonth) ??
       monthResults[0];
     if (activeResult === undefined) throw new Error('Calendar month data is unavailable.');
+    const loadedResults = [...page.monthResources.values()];
     page.calendar = {
       ...activeResult.calendar,
-      assignments: monthResults.flatMap((result) => result.calendar.assignments),
+      assignments: loadedResults.flatMap((result) => result.calendar.assignments),
     };
-    page.holidays = mergeHolidays(monthResults, activeResult.holidays.year);
+    page.holidays = mergeHolidays(loadedResults, activeResult.holidays.year);
+    const filterMemberOptions = createFilterOptions(
+      page.calendar.members.map((member) => ({
+        label: member.realName,
+        value: member.membershipId,
+      })),
+      page.data.filterMembershipIds,
+    );
+    const filterRoleOptions = createFilterOptions(page.calendar.roles, page.data.filterRoleIds);
+    const filterShiftTypeOptions = createFilterOptions(
+      page.calendar.shiftTypes.map((shiftType) => ({
+        label: `${shiftType.name}（${shiftType.abbreviation}）`,
+        value: shiftType.id,
+      })),
+      page.data.filterShiftTypeIds,
+    );
     page.setData({
       canReLogin: false,
-      filterMemberOptions: createFilterOptions(
-        page.calendar.members.map((member) => ({
-          label: member.realName,
-          value: member.membershipId,
-        })),
+      filterMemberOptions,
+      filterMemberSummary: getFilterSummary(
+        filterMemberOptions,
         page.data.filterMembershipIds,
+        '全部成员',
       ),
-      filterRoleOptions: createFilterOptions(page.calendar.roles, page.data.filterRoleIds),
-      filterShiftTypeOptions: createFilterOptions(
-        page.calendar.shiftTypes.map((shiftType) => ({
-          label: `${shiftType.name}（${shiftType.abbreviation}）`,
-          value: shiftType.id,
-        })),
+      filterRoleOptions,
+      filterRoleSummary: getFilterSummary(filterRoleOptions, page.data.filterRoleIds, '全部岗位'),
+      filterShiftTypeOptions,
+      filterShiftTypeSummary: getFilterSummary(
+        filterShiftTypeOptions,
         page.data.filterShiftTypeIds,
+        '全部班种',
       ),
       offlineNotice: monthResults.some((result) => result.offline)
         ? '离线只读 · 显示最近一次成功读取的排班'
         : '',
-      state: monthResults.some((result) => result.offline)
-        ? 'offline'
-        : activeResult.calendar.assignments.length === 0
-          ? 'empty'
-          : 'ready',
+      state: monthResults.some((result) => result.offline) ? 'offline' : 'ready',
     });
     refreshView(page);
     if (page.pendingScrollTarget !== undefined) {
@@ -520,14 +569,11 @@ async function readMonths(
   page: WorkbenchPageInstance,
   groupId: string,
   requestedMonths: readonly string[],
-): Promise<
-  readonly {
-    readonly calendar: CalendarReadModel;
-    readonly holidays: HolidayReadModel;
-    readonly offline: boolean;
-  }[]
-> {
-  const years = [...new Set(requestedMonths.map((month) => Number(month.slice(0, 4))))];
+): Promise<readonly MonthReadResult[]> {
+  const missingMonths = requestedMonths.filter(
+    (month) => page.monthResources.get(month)?.offline !== false,
+  );
+  const years = [...new Set(missingMonths.map((month) => Number(month.slice(0, 4))))];
   const holidayResults = await Promise.all(
     years.map(async (year) => {
       try {
@@ -540,26 +586,44 @@ async function readMonths(
   const holidayByYear = new Map(
     years.map((year, index) => [year, holidayResults[index] ?? emptyHoliday(year)]),
   );
-  return Promise.all(
-    requestedMonths.map(async (businessMonth) => {
+  const loaded = await Promise.all(
+    missingMonths.map(async (businessMonth) => {
       try {
         const calendar = await client.getCalendar(groupId, businessMonth);
         const holidays =
           holidayByYear.get(Number(businessMonth.slice(0, 4))) ??
           emptyHoliday(Number(businessMonth.slice(0, 4)));
         writeWorkbenchCache(groupId, businessMonth, calendar, holidays);
-        return { calendar, holidays, offline: false };
+        return { calendar, holidays, offline: false } satisfies MonthReadResult;
       } catch (error) {
         const cached = readWorkbenchCache(groupId, businessMonth);
-        if (cached !== undefined) return { ...cached, offline: true };
+        if (cached !== undefined) return { ...cached, offline: true } satisfies MonthReadResult;
         throw error;
       }
     }),
   );
+  for (const result of loaded) {
+    page.monthResources.set(result.calendar.businessMonth, result);
+  }
+  const requestedMonthSet = new Set(requestedMonths);
+  for (const loadedMonth of page.monthResources.keys()) {
+    if (!requestedMonthSet.has(loadedMonth)) page.monthResources.delete(loadedMonth);
+  }
+  return requestedMonths.flatMap((businessMonth) => {
+    const result = page.monthResources.get(businessMonth);
+    return result === undefined ? [] : [result];
+  });
 }
 
 function refreshView(page: WorkbenchPageInstance): void {
-  if (page.calendar === undefined || page.holidays === undefined) return;
+  page.setData(createViewPatch(page));
+}
+
+function createViewPatch(
+  page: WorkbenchPageInstance,
+  period: Pick<WorkbenchPageData, 'businessMonth' | 'selectedDate' | 'weekStart'> = page.data,
+): Partial<WorkbenchPageData> {
+  if (page.calendar === undefined || page.holidays === undefined) return {};
   const filters: WorkbenchFilters = {
     membershipIds: page.data.filterMembershipIds,
     onlyChanges: page.data.filterOnlyChanges,
@@ -569,58 +633,70 @@ function refreshView(page: WorkbenchPageInstance): void {
   const view = createWorkbenchViewModel(
     page.calendar,
     page.holidays,
-    page.data.selectedDate,
-    page.data.businessMonth,
-    page.data.weekStart,
+    period.selectedDate,
+    period.businessMonth,
+    period.weekStart,
     filters,
   );
-  page.setData({
+  return {
     gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 54,
     listPanels: view.listPanels,
     listSwiperHeight: Math.max(120, ...view.listPanels.map((panel) => 48 + panel.rows.length * 64)),
     monthLabel: view.monthLabel,
+    monthPanelHeights: view.monthPanels.map((panel) => (panel.cells.length / 7) * 54),
     monthPanels: view.monthPanels,
     selectedCountLabel: `${view.selectedDetails.length} 个班次`,
     selectedDetails: view.selectedDetails,
     selectedLabel: view.selectedLabel,
     weekPanels: view.weekPanels,
-  });
+  };
 }
 
-function shiftWeek(page: WorkbenchPageInstance, delta: -1 | 1, targetWeekStart?: string): void {
-  const weekStart = targetWeekStart ?? addWeeks(page.data.weekStart, delta);
-  const selectedDate =
-    targetWeekStart === undefined ? addWeeks(page.data.selectedDate, delta) : today;
-  page.setData({
-    announcement: delta < 0 ? '已切换到上一周。' : '已切换到下一周。',
-    businessMonth: getBusinessMonthOf(weekStart),
-    selectedDate,
-    selectedLabel: formatDateLabel(selectedDate),
-    weekStart,
-  });
-  refreshView(page);
-  void loadWorkbench(page);
-}
-
-function shiftListMonth(
+function commitPeriodShift(
   page: WorkbenchPageInstance,
+  view: 'list' | 'week',
   delta: -1 | 1,
-  targetBusinessMonth?: string,
+  target?: string,
 ): void {
-  const businessMonth = targetBusinessMonth ?? addBusinessMonths(page.data.businessMonth, delta);
+  const weekStart =
+    view === 'week'
+      ? (target ?? addWeeks(page.data.weekStart, delta))
+      : getWeekStartDate(`${target ?? addBusinessMonths(page.data.businessMonth, delta)}-01`);
+  const businessMonth =
+    view === 'week'
+      ? getBusinessMonthOf(weekStart)
+      : (target ?? addBusinessMonths(page.data.businessMonth, delta));
   const selectedDate =
-    targetBusinessMonth === undefined
-      ? retargetSelectedDateToMonth(page.data.selectedDate, businessMonth)
-      : today;
-  page.setData({
-    announcement: delta < 0 ? '已切换到上个月。' : '已切换到下个月。',
-    businessMonth,
-    selectedDate,
-    selectedLabel: formatDateLabel(selectedDate),
-    weekStart: getWeekStartDate(`${businessMonth}-01`),
-  });
-  refreshView(page);
-  void loadWorkbench(page);
+    target !== undefined
+      ? today
+      : view === 'week'
+        ? addWeeks(page.data.selectedDate, delta)
+        : retargetSelectedDateToMonth(page.data.selectedDate, businessMonth);
+  const period = { businessMonth, selectedDate, weekStart };
+  page.setData(
+    {
+      ...createViewPatch(page, period),
+      announcement:
+        view === 'week'
+          ? delta < 0
+            ? '已切换到上一周。'
+            : '已切换到下一周。'
+          : delta < 0
+            ? '已切换到上个月。'
+            : '已切换到下个月。',
+      businessMonth,
+      listSwiperCurrent: view === 'list' ? 1 : page.data.listSwiperCurrent,
+      periodSwiperDuration: 0,
+      selectedDate,
+      selectedLabel: formatDateLabel(selectedDate),
+      weekStart,
+      weekSwiperCurrent: view === 'week' ? 1 : page.data.weekSwiperCurrent,
+    },
+    () => {
+      page.setData({ periodSwiperDuration: 260 });
+      void loadWorkbench(page);
+    },
+  );
 }
 
 function getRequestedMonths(
@@ -637,7 +713,7 @@ function getRequestedMonths(
       ),
     ];
   }
-  return [-1, 0, 1].map((relative) => addBusinessMonths(businessMonth, relative));
+  return [-2, -1, 0, 1, 2].map((relative) => addBusinessMonths(businessMonth, relative));
 }
 
 function getSwiperDelta(current: number): -1 | 0 | 1 {
@@ -655,16 +731,6 @@ function startPeriodSwiper(
       ? { weekSwiperCurrent: delta < 0 ? 0 : 2 }
       : { listSwiperCurrent: delta < 0 ? 0 : 2 }),
   });
-}
-
-function recenterPeriodSwiper(page: WorkbenchPageInstance, view: 'list' | 'week'): void {
-  page.setData(
-    {
-      periodSwiperDuration: 0,
-      ...(view === 'week' ? { weekSwiperCurrent: 1 } : { listSwiperCurrent: 1 }),
-    },
-    () => page.setData({ periodSwiperDuration: 260 }),
-  );
 }
 
 function applyTodayLocation(page: WorkbenchPageInstance): void {
@@ -689,20 +755,54 @@ function toggleFilterOption(
   const ids = current.includes(value)
     ? current.filter((candidate) => candidate !== value)
     : [...current, value];
-  page.setData({
-    [idsKey]: ids,
-    [optionsKey]: setSelectedOptions(page.data[optionsKey], ids),
-  } as Partial<WorkbenchPageData>);
+  page.setData(
+    {
+      [idsKey]: ids,
+      [optionsKey]: setSelectedOptions(page.data[optionsKey], ids),
+    } as Partial<WorkbenchPageData>,
+    () => {
+      syncFilterPresentation(page);
+      refreshView(page);
+    },
+  );
 }
 
-function syncFilterCount(page: WorkbenchPageInstance): void {
+function syncFilterPresentation(page: WorkbenchPageInstance): void {
   page.setData({
     activeFilterCount:
       Number(page.data.filterOnlyChanges) +
       Number(page.data.filterRoleIds.length > 0) +
       Number(page.data.filterShiftTypeIds.length > 0) +
       Number(page.data.filterMembershipIds.length > 0),
+    filterMemberSummary: getFilterSummary(
+      page.data.filterMemberOptions,
+      page.data.filterMembershipIds,
+      '全部成员',
+    ),
+    filterRoleSummary: getFilterSummary(
+      page.data.filterRoleOptions,
+      page.data.filterRoleIds,
+      '全部岗位',
+    ),
+    filterShiftTypeSummary: getFilterSummary(
+      page.data.filterShiftTypeOptions,
+      page.data.filterShiftTypeIds,
+      '全部班种',
+    ),
   });
+}
+
+function getFilterSummary(
+  options: readonly FilterOption[],
+  selectedIds: readonly string[],
+  emptyLabel: string,
+): string {
+  if (selectedIds.length === 0) return emptyLabel;
+  const labels = options
+    .filter((option) => selectedIds.includes(option.value))
+    .map((option) => option.label);
+  if (labels.length === 0) return `${selectedIds.length} 项`;
+  return labels.length === 1 ? (labels[0] ?? emptyLabel) : `${labels[0]}等 ${labels.length} 项`;
 }
 
 function createFilterOptions(

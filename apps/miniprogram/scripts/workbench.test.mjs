@@ -28,7 +28,9 @@ describe('P4 native workbench', () => {
 
   it('keeps the P4 shell read-only and exposes the confirmed navigation states', () => {
     const template = readSource('pages/workbench/index.wxml');
+    const pageSource = readSource('pages/workbench/index.ts');
     const monthTemplate = readSource('components/calendar/calendar-month/index.wxml');
+    const cellStyles = readSource('components/calendar/calendar-cell/index.wxss');
     const pageStyles = readSource('pages/workbench/index.wxss');
     const monthStyles = readSource('components/calendar/calendar-month/index.wxss');
     expect(template).toContain('24 小时缓存');
@@ -44,6 +46,12 @@ describe('P4 native workbench', () => {
     expect(template).toContain('成员');
     expect(template).toContain('class="filter-sheet-backdrop"');
     expect(template).toContain('class="filter-sheet');
+    expect(template).toContain('class="filter-select-trigger');
+    expect(template).toContain("filterOpenField === 'role'");
+    expect(template).toContain("filterOpenField === 'shift'");
+    expect(template).toContain("filterOpenField === 'member'");
+    expect(template).not.toContain('class="filter-chip-list"');
+    expect(template).not.toContain('class="member-filter-scroll"');
     expect(template).toContain('bindanimationfinish="handleWeekSwiperFinish"');
     expect(template).toContain('bindanimationfinish="handleListSwiperFinish"');
     expect(template).toContain('scroll-into-view="{{scrollTarget}}"');
@@ -54,6 +62,16 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="group-switcher-trigger');
     expect(template).toContain('class="notification-action');
     expect(template).toContain('class="shell-profile-action');
+    expect(template).toContain('/assets/icons/web-bell.svg');
+    expect(template).toContain('/assets/icons/web-profile.svg');
+    expect(template).toContain('/assets/icons/web-calendar.svg');
+    expect(template).toContain('/assets/icons/web-leave.svg');
+    expect(template).toContain('/assets/icons/web-swap.svg');
+    expect(template).toContain('/assets/icons/web-duty.svg');
+    expect(template).toContain('/assets/icons/web-more.svg');
+    expect(template).toContain('/assets/icons/web-locate.svg');
+    expect(template).toContain('/assets/icons/web-chevron-left.svg');
+    expect(template).toContain('/assets/icons/web-chevron-right.svg');
     expect(template).toContain('联系方式仅在群组成员单独同意后显示');
     expect(template).toContain('aria-disabled="true"');
     expect(template).toContain('nav-icon nav-leave');
@@ -61,12 +79,26 @@ describe('P4 native workbench', () => {
     expect(template).toContain('nav-icon nav-adjustment');
     expect(template).toContain('nav-icon nav-more');
     expect(monthTemplate).toContain('is-bottom-row');
+    expect(monthTemplate).toContain('bindtransition="handleMonthTransition"');
+    expect(monthTemplate).toContain('style="height:{{viewportHeight}}px"');
+    expect(template).toContain('panel-heights="{{monthPanelHeights}}"');
     expect(pageStyles).toContain('@keyframes click-filter-top');
     expect(pageStyles).toContain('@keyframes click-locate');
     expect(pageStyles).toContain('@keyframes minimal-swap-left');
     expect(pageStyles).toContain('@keyframes minimal-dot');
     expect(pageStyles).toContain('@keyframes filter-sheet-enter');
     expect(monthStyles).toContain('@keyframes click-locate');
+    expect(cellStyles).toMatch(
+      /\.calendar-cell\.is-selected::after\s*{[^}]*inset:\s*1px;[^}]*border:\s*2px solid/s,
+    );
+    expect(pageSource).toContain("? 'offline' : 'ready'");
+    expect(pageSource).not.toContain('activeResult.calendar.assignments.length === 0');
+    expect(pageSource).toContain('commitPeriodShift');
+    expect(pageSource).not.toContain('recenterPeriodSwiper');
+    expect(pageSource).toContain('[-2, -1, 0, 1, 2]');
+    expect(pageSource).toContain('page.monthResources.delete(loadedMonth)');
+    expect(template).not.toContain('<scroll-view class="list-panel-scroll"');
+    expect(pageStyles).toMatch(/\.view-controls\s*{[^}]*position:\s*sticky;/s);
     expect(template).not.toContain('class="refresh-indicator"');
     expect(template).not.toContain('正在读取排班…');
     expect(template).not.toMatch(/bindtap="(save|publish|submit|create|delete|approve)/u);
@@ -87,9 +119,35 @@ describe('P4 native workbench', () => {
     expect(view.monthPanels[1].cells.length % 7).toBe(0);
     expect(view.monthPanels[1].cells.at(-1)?.isBottomRow).toBe(true);
     expect(view.weekPanels[1].days).toHaveLength(7);
+    expect(view.weekPanels[1].weekOrdinalLabel).toBe('8月第4周');
+    expect(view.weekPanels[1].rangeLabel).toBe('2026年8月17日 – 8月23日');
     expect(view.listPanels[1].rows).toHaveLength(1);
     expect(view.selectedDetails[0]?.name).toBe('李医生');
     expect(view.selectedDetails[0]?.changeLabel).toBe('换班 · 请假补位 · 加班');
+  });
+
+  it('renders an already-prefetched adjacent-month assignee without waiting for another read', () => {
+    const adjacentAssignment = {
+      ...calendarApiGoldenResponse.assignments[0],
+      businessDate: '2026-09-01',
+      id: 'assignment-adjacent',
+    };
+    const view = createWorkbenchViewModel(
+      {
+        ...calendarApiGoldenResponse,
+        assignments: [...calendarApiGoldenResponse.assignments, adjacentAssignment],
+      },
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+    );
+
+    const adjacentCell = view.monthPanels[1].cells.find(
+      (cell) => cell.businessDate === '2026-09-01',
+    );
+    expect(adjacentCell?.isCurrentMonth).toBe(false);
+    expect(adjacentCell?.person).toBe('李医生');
   });
 
   it('matches the Web filter dimensions for changes, roles, shift types and members', () => {

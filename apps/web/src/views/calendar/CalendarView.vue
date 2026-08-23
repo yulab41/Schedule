@@ -111,6 +111,7 @@ let resourceCacheGroupId = '';
 const listGridRef = ref<{
   scrollToDate: (businessDate: string, stickyOffset?: number) => boolean;
 }>();
+const calendarToolbar = ref<HTMLElement>();
 const listStickyToolbar = ref<HTMLElement>();
 const pendingListTodayLocation = ref(false);
 const listLocationMessage = ref<string>();
@@ -139,6 +140,11 @@ const monthVisibleAssignments = computed(() => {
     ? visibleAssignments.value
     : visibleAssignments.value.filter((assignment) => assignment.shiftTypeId === shiftTypeId);
 });
+const listVisibleAssignments = computed(() =>
+  visibleAssignments.value.filter((assignment) =>
+    assignment.businessDate.startsWith(`${businessMonth.value}-`),
+  ),
+);
 const roleOptions = computed(() =>
   (calendar.value?.roles ?? []).map((role) => ({ label: role.name, value: role.id })),
 );
@@ -327,7 +333,7 @@ function ensureResourceCacheGroup(): void {
 
 function getRequestedCalendarMonths(): readonly string[] {
   if (viewMode.value === 'month') {
-    return monthPanels.value;
+    return [-2, -1, 0, 1, 2].map((relative) => addBusinessMonths(businessMonth.value, relative));
   }
   if (viewMode.value === 'week' && weekStart.value !== '') {
     return [...new Set(weekPanels.value.flatMap((panelWeek) => getWeekBusinessMonths(panelWeek)))];
@@ -638,7 +644,13 @@ async function locateTodayInListWhenReady(): Promise<void> {
   }
 
   await nextTick();
-  const stickyOffset = (listStickyToolbar.value?.offsetHeight ?? 0) + 12;
+  const shellHeaderHeight =
+    document.querySelector<HTMLElement>('.workbench-shell-header')?.offsetHeight ?? 0;
+  const stickyOffset =
+    shellHeaderHeight +
+    (calendarToolbar.value?.offsetHeight ?? 0) +
+    (listStickyToolbar.value?.offsetHeight ?? 0) +
+    12;
   const located = listGridRef.value?.scrollToDate(todayBusinessDate, stickyOffset) ?? false;
   pendingListTodayLocation.value = false;
   listLocationMessage.value = located ? undefined : '当前筛选下今天没有排班';
@@ -682,7 +694,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
 <template>
   <section class="calendar-view" :aria-busy="isLoading">
     <t-alert v-if="errorMessage !== undefined" theme="error" :message="errorMessage" />
-    <div class="calendar-toolbar">
+    <div ref="calendarToolbar" class="calendar-toolbar">
       <div class="calendar-view-switch">
         <div class="view-mode-switch" role="tablist" aria-label="日历视图">
           <button
@@ -974,7 +986,7 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
             </button>
             <div class="list-month-heading">
               <strong>{{ getBusinessMonthLabel(businessMonth) }}</strong>
-              <span>固定月份 · {{ visibleAssignments.length }} 个班次</span>
+              <span>固定月份 · {{ listVisibleAssignments.length }} 个班次</span>
             </div>
             <button
               class="list-month-step"
@@ -1009,9 +1021,9 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
           {{ listLocationMessage }}
         </p>
         <ListGrid
-          v-if="visibleAssignments.length > 0"
+          v-if="listVisibleAssignments.length > 0"
           ref="listGridRef"
-          :assignments="visibleAssignments"
+          :assignments="listVisibleAssignments"
           :holidays="holidays"
           :members="calendar.members"
           :today="todayBusinessDate"
@@ -1527,11 +1539,21 @@ async function openAssignmentEvents(assignment: CalendarDutyAssignment): Promise
   }
 
   .calendar-toolbar {
+    position: sticky;
+    z-index: 4;
+    top: calc(var(--ui-layout-header-height) + env(safe-area-inset-top));
     gap: 0;
-    padding: 0;
-    background: transparent;
+    padding: 4px 0 8px;
+    background: var(--ui-color-background);
     border: 0;
     box-shadow: none;
+  }
+
+  .list-sticky-toolbar {
+    top: calc(
+      var(--ui-layout-header-height) + env(safe-area-inset-top) +
+        var(--ui-touch-target-comfortable) + 12px
+    );
   }
 
   .calendar-view-switch {

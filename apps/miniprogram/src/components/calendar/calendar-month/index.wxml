@@ -11,8 +11,7 @@
         class="chevron is-left {{stepMotion === 'previous' ? 'is-animating' : ''}}"
         aria-hidden="true"
       >
-        <view class="chevron-line is-upper"></view>
-        <view class="chevron-line is-lower"></view>
+        <image class="chevron-image" src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
       </view>
     </view>
     <view class="month-heading">
@@ -27,11 +26,7 @@
       bindtap="handleLocateToday"
     >
       <view class="locate-crosshair {{locateAnimating ? 'is-animating' : ''}}" aria-hidden="true">
-        <view class="locate-tick is-top"></view>
-        <view class="locate-tick is-right"></view>
-        <view class="locate-tick is-bottom"></view>
-        <view class="locate-tick is-left"></view>
-        <view class="locate-crosshair-center"></view>
+        <image class="locate-image" src="/assets/icons/web-locate.svg" mode="aspectFit" />
       </view>
     </view>
     <view
@@ -45,8 +40,7 @@
         class="chevron is-right {{stepMotion === 'next' ? 'is-animating' : ''}}"
         aria-hidden="true"
       >
-        <view class="chevron-line is-upper"></view>
-        <view class="chevron-line is-lower"></view>
+        <image class="chevron-image" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
       </view>
     </view>
   </view>
@@ -58,12 +52,13 @@
 
   <swiper
     class="calendar-motion-viewport"
-    style="height:{{gridHeight}}px"
+    style="height:{{viewportHeight}}px"
     current="{{swiperCurrent}}"
     duration="{{swiperDuration}}"
     easing-function="easeOutCubic"
     circular="{{false}}"
     skip-hidden-item-layout="{{false}}"
+    bindtransition="handleMonthTransition"
     bindanimationfinish="handleMonthSwipe"
     aria-label="月历，可左右滑动切换月份"
   >

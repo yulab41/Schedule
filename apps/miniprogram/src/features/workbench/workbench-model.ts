@@ -5,6 +5,8 @@ import {
   filterCalendarAssignments,
   getBusinessMonthOf,
   getWeekDays,
+  getWeekLabel,
+  getWeekOfMonthLabel,
   getWeekdayLabel,
   isWeekend,
   type CalendarAssignmentLike,
@@ -65,6 +67,7 @@ export interface WorkbenchWeekPanel {
   readonly key: string;
   readonly rangeLabel: string;
   readonly relative: WorkbenchRelativePanel;
+  readonly weekOrdinalLabel: string;
 }
 
 export interface WorkbenchListRow {
@@ -193,8 +196,9 @@ export function createWorkbenchViewModel(
         } satisfies WorkbenchWeekDay;
       }),
       key: panelWeekStart,
-      rangeLabel: `${formatDateLabel(weekDates[0] ?? panelWeekStart)}–${formatDateLabel(weekDates[6] ?? panelWeekStart)}`,
+      rangeLabel: getWeekLabel(panelWeekStart),
       relative,
+      weekOrdinalLabel: getWeekOfMonthLabel(panelWeekStart),
     } satisfies WorkbenchWeekPanel;
   });
   const memberConfirmed = new Map(

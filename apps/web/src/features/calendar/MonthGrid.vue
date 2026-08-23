@@ -86,6 +86,11 @@ function isSoleDuty(date: string | undefined): boolean {
   return assignmentsFor(date).length === 1;
 }
 
+function adjacentMonthAssignmentName(date: string): string {
+  const assignment = assignmentsFor(date)[0];
+  return assignment?.actualMemberName ?? assignment?.plannedMemberName ?? '';
+}
+
 function selectDate(cell: MonthDisplayCell): void {
   if (!cell.isOutsideMonth) emit('select-date', cell.businessDate);
 }
@@ -164,6 +169,12 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
             }}
           </span>
         </div>
+        <span
+          v-if="cell.isOutsideMonth && adjacentMonthAssignmentName(cell.businessDate) !== ''"
+          class="adjacent-duty-name"
+        >
+          {{ adjacentMonthAssignmentName(cell.businessDate) }}
+        </span>
         <ul v-if="!cell.isOutsideMonth" class="duty-list">
           <li
             v-for="assignment in assignmentsFor(cell.businessDate)"
@@ -413,6 +424,21 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
   list-style: none;
 }
 
+.adjacent-duty-name {
+  position: relative;
+  z-index: 1;
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .month-grid {
     gap: 1px;
@@ -497,6 +523,12 @@ function dateAriaLabel(cell: MonthDisplayCell): string {
 
   .duty-list {
     gap: 2px;
+  }
+
+  .adjacent-duty-name {
+    margin-top: 1px;
+    color: #a7b0bb;
+    font-size: clamp(8px, 2.3vw, 10px);
   }
 
   .duty-list li {
