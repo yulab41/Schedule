@@ -9,6 +9,7 @@
 - 语义审计：只删除冗余文案/样式、重排同一只读 `person`/`marker` 数据和配置微信 hover 时长；GET、24 小时缓存、手机号脱敏、Promise/错误路径、筛选、swiper/定位事件、图标动画与调用次数不变。
 - 验证：定向 11/11、受控 Mini 18 文件/82 项、typecheck、production verify（2/2 Worklet，405117 bytes，manifest `d9df7f147907e9c1a980c4537375a93d7c79c1bb460367890c786f390eabb4c3`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：生产 Web 390×844 只读确认无摘要行及姓名后标识几何，未触发业务写入且已恢复视口；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。一次根目录 Mini 测试仅因错误 `process.cwd()`/既有 `runtime` 副本出现 11 项路径失败，正确工作目录重跑全绿。
 - 行为变化清单：顶部减少一条 40px 摘要；月格标识从右下绝对定位改为姓名后 2px；导航蓝底释放从微信默认停留缩短到 60ms，图标动画不变。checkpoint 识别消息：`fix(miniprogram): align p4 calendar markers and feedback`。
+- 发布：代码 checkpoint `6525b1f` 已推送；production-profile 体验版 `0.1.0-p4.20260823.63` 上传成功，63 个平台代码文件，manifest `5e3ed404933e88ca0573b1361c3e406cb435d74279989a2aa84c4be4912db2ae`，未审核/正式发布。生产备份 archive `25dca2ba-3df0-408d-b856-b1f722bcdd38`（54 表、162546 行、76676524 bytes，SHA-256 `e301dd0aae0459f2f4d2129ab648e9b1eab68f459e3dee948b46bc5bba8a0adf`）后部署 release `6525b1f318685baa8256f727f5a9ccc006dd832d`；预热首次 502 后恢复，`ecs-verify.sh` 全项通过，公网健康 200，远端临时目录已清理。最终状态 checkpoint：`docs(status): record p4 marker feedback deployment`。
 
 ## 2026-08-23 P4 原生控件滚动、列表裁切与详情同构回归
 
