@@ -4,11 +4,11 @@
 
 ## 2026-08-23 P4 `.71` 实体复核：原生回中与列表内容边界
 
-- 实体结论与引入点：22:23–22:24 的 `.71` 截图否定了 `6ba2c72c` 的零时长三阶段回中、scroll-view 宿主 padding 和 slot inset shadow。原生 swiper 的 0/2→1 属性写回仍会回弹；宿主 padding 没有成为随日期卡滚走的内容，遗留 `listScrollTarget` 还会在节点重建时再次滚动。`9fdf659` 的分割带 shadow 与 heading shadow 叠加，通用末卡 8px margin + 宿主 16px bottom padding 留出底部空带；slot padding box 又被右/底 grid border 各缩进 1px。
-- 测试先行与实现：circular 稳定物理槽、finish 禁止写 current/duration、2→0 连续切月、逻辑月槽映射、列表内容内 8px、切视图清空旧锚点、末卡零尾距、分割带无第二阴影和边界实体 border 契约在旧实现先后失败。实现删除所有月历回中 patch，0/1/2 槽按当前月循环映射并只更新屏幕外槽；列表间距落在 `.list-panel-content`，宿主无 padding，最后一卡贴底；蓝框以 2px border 覆盖 1px grid border，最右/底边采用无 border 的 0 偏移。
-- 语义审计：月份、日期、定位、五六行高度、240ms 曲线、快速队列、缓存/预取、request serial、Promise catch、只读 GET 和业务写入不变；同一视图重复点击直接返回，防止存活组件槽位被外部重置。截图视觉审查沿用既有医疗蓝灰令牌，没有增加新装饰。
+- 实体结论与引入点：22:23–22:24 的 `.71` 截图否定了 `6ba2c72c` 的零时长三阶段回中、scroll-view 宿主 padding 和 slot inset shadow。原生 swiper 的 0/2→1 属性写回仍会回弹；宿主 padding 没有成为随日期卡滚走的内容。`9fdf659` 的分割带 shadow 与 heading shadow 叠加，通用末卡 8px margin + 宿主 16px bottom padding 留出底部空带；slot padding box 又被右/底 grid border 各缩进 1px。用户随后补充 22:45 初始截图，确认此前标题裁掉只是已滚动状态，撤回“遗留锚点复播”推断。
+- 测试先行与实现：circular 稳定物理槽、finish 禁止写 current/duration、2→0 连续切月、逻辑月槽映射、列表内容内 8px、末卡零尾距、分割带无第二阴影和边界实体 border 契约在旧实现失败。实现删除所有月历回中 patch，0/1/2 槽按当前月循环映射并只更新屏幕外槽；列表间距落在 `.list-panel-content`，宿主无 padding，最后一卡贴底且保留原滚动位置；蓝框以 2px border 覆盖 1px grid border，最右/底边采用无 border 的 0 偏移。
+- 语义审计：月份、日期、定位、五六行高度、240ms 曲线、快速队列、列表滚动目标、缓存/预取、request serial、Promise catch、只读 GET 和业务写入不变；同一视图重复点击直接返回，防止存活组件槽位被外部重置。截图视觉审查沿用既有医疗蓝灰令牌，没有增加新装饰。
 - 验证：定向 30/30；隔离 `e1d4c54` + 当前 10 文件的 Mini 18 文件/95 项、typecheck、production verify（413828 bytes，manifest `bb67cc585828b1db8b4d5b5c4a2b8d698fe7172057df0666eb09aba8e9c5dc0b`）、CI dry-run、核心门禁、ESLint/Prettier 与 diff check 通过。主工作区并行 P5 类型扩展造成的无关 typecheck 失败已隔离，用户文件未修改。checkpoint：`fix(miniprogram): remove native calendar recentering`。
-- 发布计划：production-profile `.72`，不提审/正式发布；生产备份/部署/验证后等待实体只复核本轮 5 项。
+- 发布计划：`9045dc02` 的 production-profile `.72` 已上传但不部署；按补充截图撤销滚动目标清空后上传 `.73`，不提审/正式发布，再执行生产备份/部署/验证。
 
 ## 2026-08-23 P4 月历反跳、全日缩写与列表边界回归
 

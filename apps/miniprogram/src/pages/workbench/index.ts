@@ -279,7 +279,6 @@ Page({
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
       filterOpen: false,
       filterOpenField: '',
-      listScrollTarget: '',
       listSwiperCurrent: 1,
       locateIconAnimating: false,
       periodSwiperDuration: 260,

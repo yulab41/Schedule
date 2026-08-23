@@ -96,7 +96,6 @@ describe('P4 native workbench', () => {
 
   it('places the list clipping line at the full-width card edge and keeps its floor flush', () => {
     const template = readSource('pages/workbench/index.wxml');
-    const pageSource = readSource('pages/workbench/index.ts');
     const pageStyles = readSource('pages/workbench/index.wxss');
 
     expect(template).toContain('class="list-scroll-boundary"');
@@ -112,11 +111,6 @@ describe('P4 native workbench', () => {
     expect(pageStyles).toMatch(/\.list-day-card:last-child\s*{[^}]*margin-bottom:\s*0;/s);
     expect(pageStyles).not.toMatch(/\.list-panel-scroll\s*{[^}]*padding:/s);
     expect(template).toContain('class="list-panel-content"');
-    const viewChangeSource = pageSource.slice(
-      pageSource.indexOf('handleViewChange('),
-      pageSource.indexOf('handleFilterToggle('),
-    );
-    expect(viewChangeSource).toContain("listScrollTarget: ''");
     expect(template).toContain(
       "class=\"workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}\"",
     );
