@@ -2,17 +2,24 @@ interface MonthSwipeEvent {
   readonly detail: { readonly current: number };
 }
 
+interface MonthChangeStartEvent {
+  readonly detail: { readonly current: number };
+}
+
 interface CalendarSelectEvent {
   readonly detail: { readonly businessDate: string };
 }
 
 interface CalendarMonthInstance {
+  _monthHeightTargetIndex: 0 | 2 | undefined;
   _monthShiftPending: boolean;
   readonly data: {
     readonly locateAnimating: boolean;
+    readonly panelHeights?: readonly number[];
     readonly stepMotion: string;
     readonly swiperCurrent: number;
     readonly swiperDuration: number;
+    readonly viewportHeight: number;
   };
   startProgrammaticShift(delta: -1 | 1): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
@@ -23,6 +30,7 @@ Component({
   properties: {
     gridHeight: { type: Number, value: 270 },
     monthLabel: { type: String, value: '' },
+    panelHeights: { type: Array, value: [270, 270, 270] },
     panels: { type: Array, value: [] },
   },
   data: {
@@ -30,17 +38,29 @@ Component({
     stepMotion: '',
     swiperCurrent: 1,
     swiperDuration: 240,
+    viewportHeight: 270,
   },
   observers: {
+    gridHeight(this: CalendarMonthInstance, value: number): void {
+      if (
+        !this._monthShiftPending &&
+        this._monthHeightTargetIndex === undefined &&
+        value !== this.data.viewportHeight
+      ) {
+        this.setData({ viewportHeight: value });
+      }
+    },
     panels(this: CalendarMonthInstance): void {
       if (!this._monthShiftPending && this.data.swiperCurrent === 1) return;
       this.setData(
         {
           swiperCurrent: 1,
           swiperDuration: 0,
+          viewportHeight: this.data.panelHeights?.[1] ?? 270,
         },
         () => {
           this.setData({ swiperDuration: 240 }, () => {
+            this._monthHeightTargetIndex = undefined;
             this._monthShiftPending = false;
           });
         },
@@ -49,23 +69,47 @@ Component({
   },
   lifetimes: {
     attached(this: CalendarMonthInstance): void {
+      this._monthHeightTargetIndex = undefined;
       this._monthShiftPending = false;
     },
   },
   methods: {
+    handleMonthChangeStart(this: CalendarMonthInstance, event: MonthChangeStartEvent): void {
+      const { current } = event.detail;
+      if (
+        this._monthShiftPending ||
+        this._monthHeightTargetIndex !== undefined ||
+        (current !== 0 && current !== 2)
+      ) {
+        return;
+      }
+      this._monthHeightTargetIndex = current;
+      const viewportHeight = this.data.panelHeights?.[current] ?? 270;
+      if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
+    },
     handleMonthSwipe(this: CalendarMonthInstance, event: MonthSwipeEvent): void {
       const { current } = event.detail;
-      if (current === 1 || this._monthShiftPending) return;
+      if (current === 1) {
+        if (this._monthHeightTargetIndex === undefined) return;
+        this._monthHeightTargetIndex = undefined;
+        const viewportHeight = this.data.panelHeights?.[1] ?? 270;
+        if (viewportHeight !== this.data.viewportHeight) this.setData({ viewportHeight });
+        return;
+      }
+      if (this._monthShiftPending) return;
       this._monthShiftPending = true;
       this.triggerEvent('monthchange', { delta: current === 0 ? -1 : 1 });
     },
     startProgrammaticShift(this: CalendarMonthInstance, delta: -1 | 1): void {
-      if (this._monthShiftPending) return;
+      if (this._monthShiftPending || this._monthHeightTargetIndex !== undefined) return;
+      const targetIndex = delta === -1 ? 0 : 2;
+      this._monthHeightTargetIndex = targetIndex;
       this.setData({ stepMotion: '' }, () => {
         this.setData({
           stepMotion: delta < 0 ? 'previous' : 'next',
-          swiperCurrent: delta === -1 ? 0 : 2,
+          swiperCurrent: targetIndex,
           swiperDuration: 240,
+          viewportHeight: this.data.panelHeights?.[targetIndex] ?? 270,
         });
       });
     },

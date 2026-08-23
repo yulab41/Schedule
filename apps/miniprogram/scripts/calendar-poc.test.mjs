@@ -86,27 +86,53 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(pageStyles).toMatch(/\.month-selected-summary\s*\{[^}]*margin-top:\s*12px;/su);
   });
 
-  it('uses one committed grid height instead of resizing during a native swipe', () => {
+  it('starts one locked height transition when the native swiper commits its target', () => {
     const template = readSource('components/calendar/calendar-month/index.wxml');
     const source = readSource('components/calendar/calendar-month/index.ts');
 
     expect(template).toContain('<swiper');
     expect(template).toContain('current="{{swiperCurrent}}"');
-    expect(template).toContain('style="height:{{gridHeight}}px"');
+    expect(template).toContain('style="height:{{viewportHeight}}px"');
+    expect(template).toContain('bindchange="handleMonthChangeStart"');
     expect(template).toContain('bindanimationfinish="handleMonthSwipe"');
     expect(template).not.toContain('bindtransition=');
-    expect(template).not.toContain('viewportHeight');
     expect(template).toContain('<swiper-item');
     expect(template).not.toContain('<pan-gesture-handler');
     expect(template).toContain('/assets/icons/web-chevron-left.svg');
     expect(template).toContain('/assets/icons/web-chevron-right.svg');
     expect(template).toContain('/assets/icons/web-locate.svg');
     const styles = readSource('components/calendar/calendar-month/index.wxss');
-    expect(styles).toMatch(/transition:\s*height 180ms ease-out;/u);
+    expect(styles).toMatch(/transition:\s*height 240ms cubic-bezier\(0\.33, 1, 0\.68, 1\);/u);
     expect(styles).not.toContain('locate-crosshair::before');
     expect(source).not.toContain('handleMonthTransition');
-    expect(source).not.toContain('panelHeights');
-    expect(source).not.toContain('viewportHeight');
+    expect(source).toContain('panelHeights');
+    expect(source).toContain('viewportHeight');
+  });
+
+  it('locks the committed swipe direction before animating height and ignores repeats', async () => {
+    let definition;
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    await import('../src/components/calendar/calendar-month/index.ts');
+    const instance = {
+      _monthHeightTargetIndex: undefined,
+      _monthShiftPending: false,
+      data: {
+        panelHeights: [324, 270, 324],
+        swiperCurrent: 1,
+        swiperDuration: 240,
+        viewportHeight: 270,
+      },
+      setData: vi.fn((patch) => Object.assign(instance.data, patch)),
+    };
+
+    definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 2 } });
+    definition.methods.handleMonthChangeStart.call(instance, { detail: { current: 0 } });
+
+    expect(instance._monthHeightTargetIndex).toBe(2);
+    expect(instance.setData).toHaveBeenCalledOnce();
+    expect(instance.setData).toHaveBeenCalledWith({ viewportHeight: 324 });
   });
 
   it('commits one native swipe and recenters when the panel data changes', async () => {
@@ -119,12 +145,16 @@ describe('P1 native dynamic month calendar PoC', () => {
     const recenterPendingStates = [];
     const durationRestorePendingStates = [];
     const instance = {
+      _monthHeightTargetIndex: 2,
       _monthShiftPending: false,
       data: {
+        panelHeights: [270, 324, 270],
         swiperCurrent: 1,
         swiperDuration: 240,
+        viewportHeight: 270,
       },
       setData: vi.fn((patch, callback) => {
+        Object.assign(instance.data, patch);
         if (patch.swiperCurrent === 1) recenterPendingStates.push(instance._monthShiftPending);
         if (patch.swiperDuration === 240) {
           durationRestorePendingStates.push(instance._monthShiftPending);
@@ -143,35 +173,47 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance.setData.mock.calls[0]?.[0]).toEqual({
       swiperCurrent: 1,
       swiperDuration: 0,
+      viewportHeight: 324,
     });
     expect(recenterPendingStates).toEqual([true]);
     expect(durationRestorePendingStates).toEqual([true]);
     expect(instance._monthShiftPending).toBe(false);
+    expect(instance._monthHeightTargetIndex).toBeUndefined();
   });
 
-  it('keeps programmatic month shifts horizontal until the final month is committed', async () => {
+  it('starts programmatic horizontal and height motion in the same update', async () => {
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;
     });
     await import('../src/components/calendar/calendar-month/index.ts');
     const instance = {
+      _monthHeightTargetIndex: undefined,
       _monthShiftPending: false,
       data: {
+        panelHeights: [324, 270, 324],
         swiperCurrent: 1,
         swiperDuration: 240,
+        viewportHeight: 270,
       },
-      setData: vi.fn((_patch, callback) => callback?.()),
+      setData: vi.fn((patch, callback) => {
+        Object.assign(instance.data, patch);
+        callback?.();
+      }),
     };
 
     definition.methods.startProgrammaticShift.call(instance, 1);
+    definition.methods.startProgrammaticShift.call(instance, -1);
 
     expect(instance.setData).toHaveBeenNthCalledWith(1, { stepMotion: '' }, expect.any(Function));
     expect(instance.setData.mock.calls[1]?.[0]).toEqual({
       stepMotion: 'next',
       swiperCurrent: 2,
       swiperDuration: 240,
+      viewportHeight: 324,
     });
+    expect(instance.setData).toHaveBeenCalledTimes(2);
+    expect(instance._monthHeightTargetIndex).toBe(2);
   });
 
   it('keeps adjacent cells inert and emits one semantic current-date selection', async () => {

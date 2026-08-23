@@ -85,6 +85,7 @@ interface WorkbenchPageData {
   readonly listSwiperCurrent: number;
   readonly locateIconAnimating: boolean;
   readonly monthLabel: string;
+  readonly monthPanelHeights: readonly number[];
   readonly monthPanels: WorkbenchViewModel['monthPanels'];
   readonly navMotion: string;
   readonly notificationAnimating: boolean;
@@ -160,6 +161,7 @@ Page({
     listSwiperCurrent: 1,
     locateIconAnimating: false,
     monthLabel: formatMonthLabel(initialMonth),
+    monthPanelHeights: [270, 270, 270],
     monthPanels: [],
     navMotion: '',
     notificationAnimating: false,
@@ -680,6 +682,7 @@ function createViewPatch(
     gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 54,
     listPanels: view.listPanels,
     monthLabel: view.monthLabel,
+    monthPanelHeights: view.monthPanels.map((panel) => (panel.cells.length / 7) * 54),
     monthPanels: view.monthPanels,
     selectedCountLabel: `${view.selectedDetails.length} 个班种`,
     selectedDetails: view.selectedDetails,

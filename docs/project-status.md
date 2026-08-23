@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 月历横向与高度同步过渡修复（当前批次）
+
+- 用户反馈：体验版 `.66` 已消除底边抖动，但五/六行高度要等横向换月结束后才变化，两个动作视觉割裂。本批只把目标月份行数判断提前并与换月动画同步，不改变 8px 节奏或其他 P4 行为，不进入 P5。
+- 引入点与方案：`git log -S`/`git blame` 确认 `3ed0e31` 为消除连续 `dx` 反向改判而删除滑动期高度通道；更早的 `3fc41610` 则因每个 `bindtransition.dx` 都能重算左右目标而产生错误增减。本轮不恢复连续位移判断，改用早于 `animationfinish`、且已明确目标 index 的原生 `swiper change` 作为手势单一判定点；按钮在同一个 `setData` 中写入目标 index 和目标高度。
+- 实现与语义：重新提供三个已预取面板的 270/324px 高度，`_monthHeightTargetIndex` 在一次换月中只允许从 `undefined` 锁到 0 或 2，重复 change、快速重复按钮和无动画回中均不能改判。高度和横向 swiper 统一为 240ms ease-out cubic；完成后只以 `duration=0` 回中并确认最终中央高度。取消的手势仍回到中央高度；月份目标、`monthchange` 次数、三面板数据、GET/缓存、Promise/错误路径和业务写入不变。
+- 测试与验证：目标提交事件、方向单次锁定、回中时序、按钮同批次更新和模板契约在 `27d767d` 上 5 项失败，修复后定向 21/21。隔离 worktree 中 Mini 18 文件/86 项、typecheck、production verify（2/2 Worklet，412303 bytes，manifest `f77c03e602f16c2811c9fbb95c7964c8a0238d5e16baf4f25eb304bc148c3420`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；未改 Web 核心链路，无需完整浏览器 smoke。主工作区 typecheck/核心门禁受并行用户自有手排 contracts 改动阻断，故验证在精确 `27d767d` + 本轮 7 文件的隔离 worktree 完成，未修改或暂存并行文件。
+- 当前状态与停止条件：已实现并完成本地验证；下一步创建并推送 `fix(miniprogram): synchronize month height transition` checkpoint，上传同一精确 production-profile 体验版 `.67`，备份并部署同一 Git release，记录最终状态后暂停等待实体微信复核；不补独立 staging、不进入 P5。
+
 ## 2026-08-23 P4 8px 节奏与月历单次定高修复（当前批次）
 
 - 用户反馈与中间结论：月/周/列表首卡已按要求从 14px 统一为 8px；第一轮仅屏蔽程序化换月和无动画回中的 transition 噪声，checkpoint `206a16e`、production-profile 体验版 `.65`（manifest `a1dde130aa45d0330746035b06182404a80f13b6ed6ecc7941de59fa20aff412`）及生产 release `206a16eaebea0adea0556a6ca3cc6de5e31ebe52` 均已发布。实体微信复核证明五/六行切换的底边仍会短暂闪动，该 checkpoint 只是未完成的中间修复。

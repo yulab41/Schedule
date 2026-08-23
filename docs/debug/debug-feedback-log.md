@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 月历横向/高度同步过渡回归
+
+- 反馈与引入点：`.66` 不再抖动，但 `3ed0e31` 的最终 `gridHeight` 只在 `animationfinish → monthchange → ViewModel` 后提交，导致横向动作结束后才开始纵向变化。连续 `bindtransition.dx` 方案由 `3fc41610` 引入并已证明会在回弹/回中时反向改判，因此不能直接恢复。
+- 测试先行与实现：新增 `swiper change` 目标提交、方向只锁一次、回中最终高度、按钮横纵同批次以及 240ms 同曲线契约，旧实现 5 项失败。手势只在确定 current=0/2 时读取对应预取高度并锁定；程序按钮在启动横向动画的同一 patch 写目标高度；连续 change、快速重复按钮、pending 和 `duration=0` 回中均不能重写锁定目标。
+- 语义审计：`this` 接收者、月份 delta、`monthchange` 调用次数、三面板回中、空值 fallback、GET/缓存、异步拒绝范围和业务写入不变；明确行为变化是高度从“横滑完成后启动 180ms”改为“目标确定时与横滑共同启动 240ms”。取消换月时只恢复中央高度，不提交月份事件。
+- 验证：定向 21/21；隔离 `27d767d` + 本轮 7 文件的 Mini 18 文件/86 项、typecheck、production verify（2/2 Worklet，412303 bytes，manifest `f77c03e602f16c2811c9fbb95c7964c8a0238d5e16baf4f25eb304bc148c3420`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。主工作区的手排 contracts 并行修改造成无关 typecheck/核心门禁失败，用户文件未修改或暂存。checkpoint 识别消息：`fix(miniprogram): synchronize month height transition`。
+
 ## 2026-08-23 P4 8px 节奏与月历高度闪动回归
 
 - 反馈与引入点：8px 已在中间 checkpoint `206a16e` 完成；实体微信复核表明其月高保护只加快/过滤了部分错误动作，五/六行切换时底边仍闪。`git log -S`/`git blame` 和 `git show 3fc41610^` 证明根因是 `3fc41610` 新增的滑动期 `bindtransition.dx → panelHeights → viewportHeight` 独立改高通道，横向滑动与纵向裁切动画并发。

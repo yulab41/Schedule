@@ -58,12 +58,13 @@
 
   <swiper
     class="calendar-motion-viewport"
-    style="height:{{gridHeight}}px"
+    style="height:{{viewportHeight}}px"
     current="{{swiperCurrent}}"
     duration="{{swiperDuration}}"
     easing-function="easeOutCubic"
     circular="{{false}}"
     skip-hidden-item-layout="{{false}}"
+    bindchange="handleMonthChangeStart"
     bindanimationfinish="handleMonthSwipe"
     aria-label="月历，可左右滑动切换月份"
   >
