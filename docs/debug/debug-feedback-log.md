@@ -8,7 +8,7 @@
 - 测试先行与实现：回中桥接、稳定 `relative` 槽、回中间隙快速点击、混合全日班、动画重置、列表阴影/8px 滚动顶距/底界和外层角落描边契约在旧实现失败。换月现先把目标月镜像到当前活动边缘和中央槽，零时长回中后才无视觉变化地补齐真实两侧，并在最终回调读取和消费快速点击队列；全日紧凑徽标统一“全”，非全日按 Web 2 字口径；切视图清零定位动效。列表使用统一 card shadow、可滚走的 8px 首间距和 `61px + safe-area` 底界；选中框由父 slot 最高层向内绘制。
 - 语义审计：组件/页面接收者、目标月份、五/六行高度、240ms 同步过渡、选中日期、request serial、缓存/预取、Promise catch、空值和只读边界不变；没有修改班种业务配置或详情。调用次数变化仅是回中拆成无视觉跳变的三阶段 patch，且快速队列在中央面板完成后继续。
 - 验证：测试先红后绿；定向 30/30，隔离 `e1d4c54` + 本轮 10 文件的 Mini 18 文件/95 项、typecheck、production verify（2/2 Worklet，411296 bytes，manifest `e865cbaa55a3c0a77569faf70aec55d34133ebe6c202a3af0cd0a48aad4ba5e4`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。既有 `.artifacts` 不完整副本和隔离 pnpm 自动依赖检查只产生环境噪声，正确受控命令全绿且没有修改用户并行文件。checkpoint 识别消息：`fix(miniprogram): eliminate calendar recenter regressions`。
-- 发布计划：production-profile 体验版 `.71`，不提审/正式发布；生产备份、部署和最终验证完成后记录实际 commit/release/manifest，状态转为待实体微信复核。
+- 发布：代码 checkpoint `6ba2c72c` 已推送；精确干净 worktree 18 文件/95 项、typecheck 与 production verify（414813 bytes）通过，production-profile 体验版 `.71` 上传成功（63 文件，manifest `2f4b9ccf301890e812c4c6fefc8e8a92e54dfa951895d02b146303c08e9f41a8`），未提审/正式发布。生产备份 archive `b94c8363-132e-4d2f-b415-d94863832e5d`（54 表、162561 行、76686444 bytes，SHA-256 `9f2b1384b10abcb702a80cb4b7109dc4f9a00b9fb31a0dea08a4430ffc28eb95`）后部署 release `6ba2c72cccb96c55a2831bd9d8a40ab854e05ecb`；预热首次 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record calendar recenter deployment`。
 
 ## 2026-08-23 P4 列表视口、月格描边与快速切换回归
 
