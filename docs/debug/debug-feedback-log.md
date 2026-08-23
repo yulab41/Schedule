@@ -9,7 +9,7 @@
 - 真机取证：显式 `performance=1` 才创建内存 probe；工作台 cold/resume、最大矩阵 render/tap 都以真实 `setData` callback 为终点并显示样本。默认路径零额外 patch/storage/network/视觉。RC JSON/runbook 固定 5/5/5/10 样本和 2500/2500/1000/100ms，仍待用户实体 Android 数字与滚动手感。
 - 行为审计：workbench 请求、capability、缓存、ready commit、pending scroll、错误路径不变；manual matrix receiver、cell mutation、undo、WXS 坐标与默认 setData 次数不变。诊断文字只在被测 callback 完成后出现；P5 写链路和 Web 1:1 页面未触及。
 - 验证：Mini 32/181，定向 5/25，non-Mini 176/948（36/324 skip）；全仓 lint/typecheck/build、任务 Prettier/diff、Mini verify/determinism/source/package/dry-run 通过。运行/浏览器验证：`pnpm smoke:check-core` 判定未涉及 Web 核心链路，无需 `pnpm smoke:browser`。宽泛根测试的 35 项错误 cwd Mini 噪声已用正确 Mini cwd复核全绿；全量格式只剩 15 个本批前已有文件。
-- 状态：当前 manifest `166a4567605c7c4d8d86733d532147e9cc47f238074a7bea5a5092e2f358057b`，131 files、2 Worklets、1,283,985 bytes。实现 `e2270bde` 已推送；待 `chore(release): allow p6 performance client` 固定 `.80` production allowlist 后，从最终 clean commit 完成 ECS 发布和 `.80` 体验上传；未提审/正式发布，状态为“已实现待实体性能复核”。
+- 体验与生产：实现 `e2270bde`、allowlist `ceeea26c` 已推送。clean `.80` 为 131 files、2 Worklets、1,294,199 bytes、manifest `f3728c55dda9a76b7c3514597c94364a80e120792450e380cd0e61c442dd2690`；体验上传 72 文件/zip459105 completed，未提审/正式发布。备份 `d96c7d70-…` 后原子扩展 `.78,.79,.80` allowlist 并部署 `ceeea26c1b4fa9e19a4a949707f69604974c44d3`；首个 502 自动恢复，full verify、49 migrations、首页/健康200、`.80` 七维和未知版本426通过，env仍0:0/0600。最终状态 checkpoint 为 `docs(status): record p6 performance deployment`；当前“已实现待实体性能复核”。
 
 ## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布
 
