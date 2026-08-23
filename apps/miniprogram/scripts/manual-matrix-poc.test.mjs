@@ -510,6 +510,46 @@ describe('P1 native manual scheduling matrix PoC', () => {
     expect(instance._undoStack).toEqual([]);
   });
 
+  it('measures maximum render and tap feedback only on the explicit performance route', async () => {
+    let definition;
+    const now = vi
+      .fn()
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(180)
+      .mockReturnValueOnce(200)
+      .mockReturnValueOnce(240);
+    vi.stubGlobal('wx', {
+      getPerformance: () => ({ now }),
+      getWindowInfo: () => ({ windowWidth: 390 }),
+    });
+    vi.stubGlobal('Page', (value) => {
+      definition = value;
+    });
+    vi.stubGlobal('Component', vi.fn());
+    await import('../src/pages/manual-matrix-poc/index.ts');
+    const data = structuredClone(definition.data);
+    const instance = {
+      ...definition,
+      data,
+      setData(patch, callback) {
+        applySetDataPatch(this.data, patch);
+        callback?.();
+      },
+    };
+
+    definition.onLoad.call(instance, { mode: 'maximum', performance: '1' });
+    expect(instance.data.performanceEvidence).toContain('20×30 渲染 80ms');
+
+    const target = instance.data.rows[0].cells[0];
+    definition.handleCellTap.call(instance, {
+      currentTarget: {
+        dataset: { columnIndex: 0, key: target.key, rowIndex: 0 },
+      },
+    });
+    expect(instance.data.performanceEvidence).toContain('点击反馈 40ms');
+    expect(now).toHaveBeenCalledTimes(4);
+  });
+
   it('updates only the selected cell paths and stores incremental key/before/after undo', async () => {
     let definition;
     vi.stubGlobal('wx', {

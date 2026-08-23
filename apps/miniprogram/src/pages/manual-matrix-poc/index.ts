@@ -15,6 +15,11 @@ import {
   type ManualMatrixPocViewModel,
 } from '../../testing/fixtures/manual-matrix-poc.js';
 import { buildInfo } from '../../platform/build-info.js';
+import {
+  createNativePerformanceProbe,
+  formatNativePerformanceEvidence,
+  type NativePerformanceProbe,
+} from '../../platform/performance-probe.js';
 
 interface ManualMatrixCellSelectEvent {
   readonly detail: ManualMatrixLocation & { readonly key: string };
@@ -58,15 +63,17 @@ type ManualMatrixUndoEntry = ManualCellMutation<ManualMatrixCellAssignment> & {
 
 interface ManualMatrixPageInstance {
   _matrixGestureRevision: number;
+  _performanceProbe: NativePerformanceProbe | undefined;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
   readonly data: ManualMatrixPocViewModel & {
     readonly matrixGestureConfig: ManualMatrixGestureConfig;
+    readonly performanceEvidence: string;
   };
   commitScrollProgress(progress: number): void;
   handleCellSelect(event: ManualMatrixCellSelectEvent): void;
   handleMatrixGestureSettled(result: ManualMatrixGestureSettled): void;
-  setData(patch: Record<string, unknown>): void;
+  setData(patch: Record<string, unknown>, callback?: () => void): void;
   updateMatrixViewport(): void;
 }
 
@@ -83,21 +90,36 @@ Page({
     ...defaultViewModel,
     buildLabel: buildInfo.buildLabel,
     matrixGestureConfig: defaultMatrixGestureConfig,
+    performanceEvidence: '',
   },
-  onLoad(this: ManualMatrixPageInstance, options: { readonly mode?: string } = {}): void {
+  _performanceProbe: undefined,
+  onLoad(
+    this: ManualMatrixPageInstance,
+    options: { readonly mode?: string; readonly performance?: string } = {},
+  ): void {
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
+    this._performanceProbe =
+      mode === 'maximum' && options.performance === '1'
+        ? createNativePerformanceProbe()
+        : undefined;
     this._matrixGestureRevision = 0;
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
     if (mode !== defaultViewModel.mode) {
-      this.setData({
+      const patch = {
         ...viewModel,
         matrixGestureConfig: createMatrixGestureConfig(
           viewModel,
           resolveMaxHorizontalOffset(viewModel),
         ),
-      });
+      };
+      if (this._performanceProbe === undefined) {
+        this.setData(patch);
+      } else {
+        this._performanceProbe.start('maximum-matrix-render');
+        this.setData(patch, () => completeMaximumMatrixRenderProbe(this));
+      }
     }
   },
   onResize(this: ManualMatrixPageInstance): void {
@@ -156,6 +178,7 @@ Page({
     const rowIndex = Number(event.currentTarget.dataset.rowIndex);
     const key = event.currentTarget.dataset.key;
     if (!Number.isInteger(columnIndex) || !Number.isInteger(rowIndex) || key === undefined) return;
+    this._performanceProbe?.start('tap-feedback');
     this.handleCellSelect({ detail: { columnIndex, key, rowIndex } });
   },
   handleCellSelect(this: ManualMatrixPageInstance, event: ManualMatrixCellSelectEvent): void {
@@ -196,7 +219,11 @@ Page({
     patch[cellPath(nextLocation)] = updateManualMatrixCell(currentCell, mutation.after, true);
     this._undoStack.push(mutation);
     this._selectedLocation = nextLocation;
-    this.setData(patch);
+    if (this._performanceProbe === undefined) {
+      this.setData(patch);
+    } else {
+      this.setData(patch, () => completeTapFeedbackProbe(this));
+    }
   },
   handleUndo(this: ManualMatrixPageInstance): void {
     const entry = this._undoStack.pop();
@@ -214,6 +241,30 @@ Page({
     });
   },
 });
+
+function completeMaximumMatrixRenderProbe(page: ManualMatrixPageInstance): void {
+  const measurement = page._performanceProbe?.complete('maximum-matrix-render');
+  if (measurement === undefined) return;
+  page.setData({
+    performanceEvidence: formatNativePerformanceEvidence(measurement, {
+      label: '20×30 渲染',
+      requiredSamples: 5,
+      thresholdMs: 1000,
+    }),
+  });
+}
+
+function completeTapFeedbackProbe(page: ManualMatrixPageInstance): void {
+  const measurement = page._performanceProbe?.complete('tap-feedback');
+  if (measurement === undefined) return;
+  page.setData({
+    performanceEvidence: formatNativePerformanceEvidence(measurement, {
+      label: '点击反馈',
+      requiredSamples: 10,
+      thresholdMs: 100,
+    }),
+  });
+}
 
 function resolveMaxHorizontalOffset(viewModel: ManualMatrixPocViewModel): number {
   const viewportWidth = resolveMatrixViewportWidth();

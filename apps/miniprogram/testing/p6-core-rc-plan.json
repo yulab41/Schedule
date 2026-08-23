@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "stage": "P6-core-v1",
+  "description": "User-operated native evidence for the Mini Program core release candidate",
+  "channel": "user-manual",
+  "requiredDevice": "user-android-physical",
+  "performance": {
+    "coreReady": {
+      "metric": "core-ready",
+      "route": "pages/workbench/index?performance=1",
+      "startBoundary": "workbench-onLoad-before-shell-and-capability-read",
+      "endBoundary": "first-ready-or-offline-setData-callback",
+      "requiredSamples": 5,
+      "thresholdMs": 2500
+    },
+    "foregroundReady": {
+      "metric": "foreground-ready",
+      "route": "pages/workbench/index?performance=1",
+      "startBoundary": "non-initial-workbench-onShow-before-capability-read",
+      "endBoundary": "refreshed-ready-or-offline-setData-callback",
+      "requiredSamples": 5,
+      "thresholdMs": 2500
+    },
+    "maximumMatrixRender": {
+      "metric": "maximum-matrix-render",
+      "route": "pages/manual-matrix-poc/index?mode=maximum&performance=1",
+      "startBoundary": "maximum-view-model-built-before-setData",
+      "endBoundary": "maximum-matrix-setData-callback",
+      "requiredSamples": 5,
+      "thresholdMs": 1000
+    },
+    "tapFeedback": {
+      "metric": "tap-feedback",
+      "route": "pages/manual-matrix-poc/index?mode=maximum&performance=1",
+      "startBoundary": "validated-tap-before-cell-mutation",
+      "endBoundary": "target-cell-setData-callback",
+      "requiredSamples": 10,
+      "thresholdMs": 100
+    }
+  },
+  "automatedEvidence": {
+    "maximumMatrixViewModelBytes": 171340,
+    "nodeTargetDisposition": "warning-with-exact-no-growth-ceilings",
+    "pocHostElementLowerBound": 1445,
+    "productionManualHostElementLowerBound": 1506,
+    "wxsHotPathSetDataCalls": 0
+  },
+  "requiredEvidence": [
+    "buildLabel",
+    "deviceModel",
+    "androidVersion",
+    "wechatVersion",
+    "baseLibraryVersion",
+    "systemFontScale",
+    "metric",
+    "startBoundary",
+    "endBoundary",
+    "samplesMs",
+    "maxMs",
+    "thresholdMs",
+    "result",
+    "symptomOnFailure"
+  ],
+  "completion": {
+    "acceptedFeedback": ["P6核心RC通过", "P6 核心 RC 通过"],
+    "screenshotsRequiredOnPass": false
+  },
+  "cases": [
+    {
+      "id": "normal-cold-start",
+      "route": "pages/workbench/index?performance=1",
+      "networkStates": ["normal"],
+      "checks": ["cold-start-to-interactive", "signed-version", "calendar-ready"]
+    },
+    {
+      "id": "foreground-refresh",
+      "route": "pages/workbench/index?performance=1",
+      "networkStates": ["normal"],
+      "checks": ["background-foreground", "capability-refresh", "stale-request-not-committed"]
+    },
+    {
+      "id": "weak-network-read",
+      "route": "pages/workbench/index",
+      "networkStates": ["weak"],
+      "checks": ["current-month-first", "adjacent-best-effort", "no-write-retry-without-key"]
+    },
+    {
+      "id": "offline-cache-read-only",
+      "route": "pages/workbench/index",
+      "networkStates": ["offline"],
+      "checks": ["same-owner-cache", "offline-notice", "all-write-actions-rejected"]
+    },
+    {
+      "id": "maximum-matrix-performance",
+      "route": "pages/manual-matrix-poc/index?mode=maximum&performance=1",
+      "networkStates": ["normal"],
+      "checks": ["20x30-render", "horizontal-vertical-freeze", "tap-feedback", "no-sustained-jank"]
+    }
+  ]
+}

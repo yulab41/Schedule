@@ -90,6 +90,7 @@
   >
     <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
       <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
+      <text wx:if="{{performanceEvidence}}" class="offline-note">{{performanceEvidence}}</text>
       <view id="workbench-content-top" class="view-controls" aria-label="排班视图">
         <view class="view-switch" aria-role="tablist">
           <view

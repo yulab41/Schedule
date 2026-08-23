@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C1 性能量化与实体回调探针
+
+- 范围/引入点：只做 P6 性能与 RC，不改 Web UI。门槛/人工清单来自 `c8d50f53`/`e53f3611`，20×30 fixture/限制来自 `6cc7463d`/`591ccff6`，WXS 热路径来自 `c35b35b8`。缺文件、false 分支双计、缺 probe/foreground wiring 均先红后绿。
+- 自动门禁：修正 WXML 确定 false 与 unknown 的语义后，maximum PoC/正式 manual 的展开宿主元素下界为 1445/1506，depth/direct 为 8/31、11/31；view-model 171340 bytes，WXS `setData=0`、tap cell paths≤2。节点 `<1000` 明确未达并保持 warning+各页 exact no-growth，不将 desktop logic smoke 宣称为 Android 性能。
+- 真机取证：显式 `performance=1` 才创建内存 probe；工作台 cold/resume、最大矩阵 render/tap 都以真实 `setData` callback 为终点并显示样本。默认路径零额外 patch/storage/network/视觉。RC JSON/runbook 固定 5/5/5/10 样本和 2500/2500/1000/100ms，仍待用户实体 Android 数字与滚动手感。
+- 行为审计：workbench 请求、capability、缓存、ready commit、pending scroll、错误路径不变；manual matrix receiver、cell mutation、undo、WXS 坐标与默认 setData 次数不变。诊断文字只在被测 callback 完成后出现；P5 写链路和 Web 1:1 页面未触及。
+- 验证：Mini 32/181，定向 5/25，non-Mini 176/948（36/324 skip）；全仓 lint/typecheck/build、任务 Prettier/diff、Mini verify/determinism/source/package/dry-run 通过。运行/浏览器验证：`pnpm smoke:check-core` 判定未涉及 Web 核心链路，无需 `pnpm smoke:browser`。宽泛根测试的 35 项错误 cwd Mini 噪声已用正确 Mini cwd复核全绿；全量格式只剩 15 个本批前已有文件。
+- 状态：当前 manifest `166a4567605c7c4d8d86733d532147e9cc47f238074a7bea5a5092e2f358057b`，131 files、2 Worklets、1,283,985 bytes。待 `feat(miniprogram): quantify p6 performance budgets` 提交/推送、ECS 发布和 `.80` 体验上传；未提审/正式发布，状态为“已实现待实体性能复核”。
+
 ## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布
 
 - 范围/引入点：本轮只做 capability 与 rollback，不改 Web UI。shared endpoint/error 来自 `60cec6ed`/`884512c0`/`5ba3993d`，JWT/auth/env 来自 `39f9c66e`/`4416f79b`/`0a794d9a`/`c4504055`，Mini App/transport/workbench/consent 来自 `3884713b`/`9e3a966c`/`ad4cfb2c`/`59300957`，ECS immutable release 基础来自 `5f2bb8b3`。

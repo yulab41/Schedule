@@ -49,6 +49,8 @@ P1 风险 PoC、P6 核心 v1 RC、P7–P9 阶段 RC，以及重大 Skyline/构�
 - 月历连续翻页、矩阵双轴滚动和冻结层没有持续可感知卡顿。
 - 节点尽量 <1000、深度 <30、单节点直接子项 <60。
 - 滚动采样证明无高频 `setData`；点击只改变目标 cell/row 路径。
+- 自动门禁分别冻结 PoC/正式手排最大矩阵的展开宿主元素下界 1445/1506、20×30 view-model 171340 bytes、深度与直接子项，并把节点未低于 1000 保持为 warning；桌面逻辑计时不得充当 Android 结论。
+- P6 核心 RC 使用 `testing/p6-core-rc-plan.json` 的精确起止、样本数和阈值；实体操作及证据格式见 [P6 核心 RC 实体 Android 验收](../runbooks/p6-core-rc.md)。
 
 ## P1 月历 PoC 当前覆盖
 

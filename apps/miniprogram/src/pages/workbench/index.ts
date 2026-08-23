@@ -26,6 +26,11 @@ import {
 } from '../../platform/workbench-read.js';
 import { getStoredWechatProfile } from '../../platform/wechat-identity.js';
 import {
+  createNativePerformanceProbe,
+  formatNativePerformanceEvidence,
+  type NativePerformanceProbe,
+} from '../../platform/performance-probe.js';
+import {
   createMonthRing,
   createWorkbenchViewModel,
   formatDateLabel,
@@ -111,6 +116,7 @@ interface WorkbenchPageData {
   readonly notificationAnimating: boolean;
   readonly offlineNotice: string;
   readonly periodSwiperDuration: number;
+  readonly performanceEvidence: string;
   readonly profileAnimating: boolean;
   readonly scrollTarget: string;
   readonly shellActionsStyle: string;
@@ -130,6 +136,7 @@ interface WorkbenchPageData {
 }
 
 interface WorkbenchPageInstance {
+  _performanceProbe: NativePerformanceProbe | undefined;
   data: WorkbenchPageData;
   calendar: CalendarReadModel | undefined;
   holidays: HolidayReadModel | undefined;
@@ -200,6 +207,7 @@ Page({
     notificationAnimating: false,
     offlineNotice: '',
     periodSwiperDuration: 260,
+    performanceEvidence: '',
     profileAnimating: false,
     scrollTarget: '',
     shellActionsStyle: 'right:10px;top:16px;bottom:auto;',
@@ -232,9 +240,13 @@ Page({
   periodShiftCommitPending: false,
   periodShiftQueue: 0,
   requestSerial: 0,
+  _performanceProbe: undefined,
 
-  onLoad(this: WorkbenchPageInstance): void {
+  onLoad(this: WorkbenchPageInstance, options: { readonly performance?: string } = {}): void {
     this.isVisible = true;
+    this._performanceProbe =
+      options.performance === '1' ? createNativePerformanceProbe() : undefined;
+    this._performanceProbe?.start('core-ready');
     this.setData(createShellLayoutPatch());
     void loadWorkbenchWithCapability(this);
   },
@@ -243,6 +255,7 @@ Page({
     this.isVisible = true;
     const isInitialShow = !this.hasShown;
     this.hasShown = true;
+    if (!isInitialShow) this._performanceProbe?.start('foreground-ready');
     void requireClientCapability('core')
       .then(() => {
         if (isInitialShow) return;
@@ -712,7 +725,10 @@ async function loadWorkbench(
             : '',
         state: groupSnapshotOffline || activeResult.offline ? 'offline' : 'ready',
       },
-      () => flushPendingScrollTarget(page),
+      () => {
+        completeCoreReadyProbe(page);
+        flushPendingScrollTarget(page);
+      },
     );
     void staged.adjacent
       .then((adjacentResults) => {
@@ -730,6 +746,20 @@ async function loadWorkbench(
       state: 'error',
     });
   }
+}
+
+function completeCoreReadyProbe(page: WorkbenchPageInstance): void {
+  const coreMeasurement = page._performanceProbe?.complete('core-ready');
+  const foregroundMeasurement = page._performanceProbe?.complete('foreground-ready');
+  const measurement = coreMeasurement ?? foregroundMeasurement;
+  if (measurement === undefined) return;
+  page.setData({
+    performanceEvidence: formatNativePerformanceEvidence(measurement, {
+      label: coreMeasurement === undefined ? '前台恢复' : '工作台可交互',
+      requiredSamples: 5,
+      thresholdMs: 2500,
+    }),
+  });
 }
 
 async function loadWorkbenchWithCapability(

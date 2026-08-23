@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C1 性能量化、自动门禁与实体 RC 探针（待 checkpoint）
+
+- 范围与基线：从 Git/origin/production 同一 `6dfb8ec2` 开始；用户已确认 P4 全部完成并授权后续版本直接提交。本批只完成 P6 性能预算、默认零影响的实体回调探针及核心 RC 证据计划，不实现遥测、访客 IP 保留或 P7，不改 Web UI。用户自有 Mini config、workspace、Storybook、`.artifacts/runtime/src` 和工作簿均未修改、未暂存。
+- 引入点与测试先行：`git log -S`/`git blame` 将 Android 门槛与人工清单定位到 `c8d50f53`/`e53f3611`，20×30 fixture 与正式 20/30/600 限制定位到 `6cc7463d`/`591ccff6`，WXS 热路径定位到 `c35b35b8`。性能脚本/RC 文件缺失先红；条件展开器又以 1 项回归证明旧算法会把确定 false 分支误计为最大分支；原生 probe、页面接线和 foreground 样本也分别先红后绿。
+- 自动量化：production build 后展开真实数据，PoC/正式手排宿主元素下界固定为 `1445(depth 8/direct 31)` / `1506(depth 11/direct 31)`，20×30 view-model 固定 `171340 bytes`；WXS 热路径 `setData=0`，tap 动态 cell path≤2。`<1000` 明确未达，只发 warning；两页使用独立 exact no-growth ceiling，深度/直接子项超限、payload/patch/热路径增长均失败关闭。Node 墙钟明确命名 desktop logic smoke，不冒充 Android 结论。
+- 实体探针与 RC：只有 `?performance=1` 才在页面内存创建 `wx.getPerformance().now()` probe；工作台测 onLoad→首个 ready/offline callback 及非首次 onShow→刷新 callback，最大矩阵测 view-model ready→600 格 callback 与合法 tap→目标 cell callback。默认路径不新增 `setData`、storage、网络或视觉；诊断路径只在被测 callback 后追加现有样式证据文字。RC 固定 cold/resume/render 各 5 次、tap 10 次和 2500/2500/1000/100ms max 门槛，弱网/离线/滚动仍必须用户实体 Android 复核。
+- 语义审计：工作台既有 ready callback 仍先完成同一数据 commit，再执行 pending scroll；probe 未启用或没有 start 时不读时钟、不写数据。矩阵默认 maximum 仍一次相同 view-model patch，tap 的 receiver、validation、mutation、undo、cell path 与调用次数不变；只在显式诊断 query 下为同一 patch增加 callback 并在其后写诊断字符串。WXS 坐标、异步/catch、capability、缓存、离线、P5 写请求和 Web 1:1 UI 均未改变。
+- 验证：Mini 32 files/181 tests；性能/RC/真实 workbench/矩阵定向 5 files/25 tests；受控 non-Mini 176 files/948 tests 通过，36 files/324 tests 按无测试 MySQL 跳过。全仓 lint/typecheck/build、任务 Prettier、`git diff --check`、Mini production verify/source/package/Worklet/determinism 与 CI dry-run 通过。宽泛根 Vitest 曾以错误 cwd 启动 Mini 静态测试并产生 35 项预期路径失败，Mini 正确 cwd 全绿；根 format check 只报告本批前已有的用户/既有 15 个文件，任务文件单独全绿。
+- Mini 门禁与运行验证：production `0.1.0-p6.20260824.80` 当前为 131 files、2/2 Worklet、1,283,985 bytes，manifest `166a4567605c7c4d8d86733d532147e9cc47f238074a7bea5a5092e2f358057b`；`pnpm smoke:check-core` 确认未改 Web 核心链路，无需 `pnpm smoke:browser`。实体时间尚无用户样本，因此状态只能是“已实现待实体性能复核”。
+- checkpoint 与下一批：本实现 checkpoint 识别消息为 `feat(miniprogram): quantify p6 performance budgets`；提交、推送、生产备份/部署及 `.80` 体验上传完成后补记精确结果，未提审、未正式发布。下一活动批次只做 P6 现有访客原始 IP 的 90 天保留安全发布（先建立 additive schema compatibility bridge，再做匿名月聚合/清理/备份与 Nginx 隐私边界）；遥测在其后独立完成，不提前进入 P7。
+
 ## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布（已部署并完成演练）
 
 - 范围与基线：P6-A 代码/状态、`origin/main` 与 production 均为 `0cfdeba6`；用户已确认 P4 全部完成并允许后续 checkpoint 直接提交。本批只完成 P6-B signed `clientVersion`、`/client-capabilities`、Mini/API 双端守卫、生产 kill switch 和应用回滚控制，不进入 P6 性能/遥测/IP 保留或 P7，不改 Web UI。用户自有 Mini config、workspace、Storybook、`.artifacts/runtime/src` 和工作簿保持未纳入。

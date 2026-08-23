@@ -162,6 +162,44 @@ describe('P6-A workbench runtime coordination', () => {
     expect(instance.data.offlineNotice).toContain('离线只读');
     expect(instance.calendar?.businessMonth).toBe(activeMonth);
   });
+
+  it('measures cold-start through the first ready setData callback on the explicit route', async () => {
+    const storage = createStorage();
+    const now = vi
+      .fn()
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(600)
+      .mockReturnValueOnce(700)
+      .mockReturnValueOnce(1100);
+    const request = vi.fn((options) => {
+      if (options.url.endsWith('/groups')) {
+        options.success({ data: [groupSummary()], statusCode: 200 });
+        return;
+      }
+      const month = readBusinessMonth(options.url);
+      options.success({
+        data: month === undefined ? holidayApiGoldenResponse : calendar(month),
+        statusCode: 200,
+      });
+    });
+    const runtime = createWx(storage, request);
+    runtime.getPerformance = () => ({ now });
+    vi.stubGlobal('wx', runtime);
+    await import('../src/pages/workbench/index.ts');
+    await enableTestClientCapabilities();
+    const instance = createPageInstance(definition);
+
+    definition.onLoad.call(instance, { performance: '1' });
+    definition.onShow.call(instance);
+
+    await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
+    expect(instance.data.performanceEvidence).toContain('工作台可交互 500ms');
+
+    definition.onHide.call(instance);
+    definition.onShow.call(instance);
+    await vi.waitFor(() => expect(instance.data.performanceEvidence).toContain('前台恢复 400ms'));
+    expect(now).toHaveBeenCalledTimes(4);
+  });
 });
 
 function createStorage(extra = {}) {
