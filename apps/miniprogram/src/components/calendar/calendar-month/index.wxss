@@ -29,6 +29,8 @@
 
 .month-step.is-pressed,
 .locate-button.is-pressed {
+  border-radius: 12px;
+  transform: scale(0.9);
   background: var(--ui-color-primary-light);
 }
 

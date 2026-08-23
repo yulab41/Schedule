@@ -52,10 +52,24 @@ export interface WorkbenchDetail {
   readonly title: string;
 }
 
+export interface WorkbenchDuty {
+  readonly details: string;
+  readonly key: string;
+  readonly markers: readonly string[];
+  readonly name: string;
+  readonly phone: string;
+  readonly shiftAbbreviation: string;
+  readonly shiftColor: string;
+  readonly shiftTextColor: string;
+}
+
 export interface WorkbenchWeekDay {
   readonly businessDate: string;
   readonly day: string;
-  readonly duty: string;
+  readonly duties: readonly WorkbenchDuty[];
+  readonly holiday: string;
+  readonly isHoliday: boolean;
+  readonly isPast: boolean;
   readonly isSelected: boolean;
   readonly isToday: boolean;
   readonly isWeekend: boolean;
@@ -70,21 +84,24 @@ export interface WorkbenchWeekPanel {
   readonly weekOrdinalLabel: string;
 }
 
-export interface WorkbenchListRow {
+export interface WorkbenchListDay {
   readonly businessDate: string;
-  readonly day: string;
-  readonly key: string;
-  readonly name: string;
-  readonly note: string;
-  readonly shift: string;
+  readonly dateLabel: string;
+  readonly duties: readonly WorkbenchDuty[];
+  readonly dutyCountLabel: string;
+  readonly holiday: string;
+  readonly isHoliday: boolean;
+  readonly isToday: boolean;
+  readonly isWeekend: boolean;
   readonly weekday: string;
 }
 
 export interface WorkbenchListPanel {
+  readonly days: readonly WorkbenchListDay[];
+  readonly dutyCount: number;
   readonly key: string;
   readonly monthLabel: string;
   readonly relative: WorkbenchRelativePanel;
-  readonly rows: readonly WorkbenchListRow[];
 }
 
 export interface WorkbenchViewModel {
@@ -159,6 +176,7 @@ export function createWorkbenchViewModel(
     shiftTypeIds: filters.shiftTypeIds,
   });
   const monthLabel = formatMonthLabel(businessMonth);
+  const memberById = new Map(calendar.members.map((member) => [member.membershipId, member]));
   const monthPanels = ([-1, 0, 1] as const).map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
     return {
@@ -181,14 +199,14 @@ export function createWorkbenchViewModel(
         const dayAssignments = assignments.filter(
           (assignment) => assignment.businessDate === businessDate,
         );
-        const firstAssignment = dayAssignments[0];
+        const holiday = holidayByDate.get(businessDate);
         return {
           businessDate,
           day: businessDate.slice(8),
-          duty:
-            firstAssignment === undefined
-              ? '—'
-              : `${firstAssignment.shiftTypeName} · ${getAssignmentName(firstAssignment)}`,
+          duties: dayAssignments.map((assignment) => createDuty(assignment, memberById)),
+          holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
+          isHoliday: holiday?.isOffDay === true,
+          isPast: businessDate < today,
           isSelected: relative === 0 && businessDate === selectedDate,
           isToday: businessDate === today,
           isWeekend: isWeekend(businessDate),
@@ -213,20 +231,24 @@ export function createWorkbenchViewModel(
       (entry) => getBusinessMonthOf(entry.businessDate) === panelMonth,
     );
     return {
+      days: dayList.map((entry) => {
+        const holiday = holidayByDate.get(entry.businessDate);
+        return {
+          businessDate: entry.businessDate,
+          dateLabel: entry.businessDate.slice(5),
+          duties: entry.assignments.map((assignment) => createDuty(assignment, memberById)),
+          dutyCountLabel: `${entry.assignments.length} 班`,
+          holiday: holiday?.isOffDay === true ? holiday.holidayName : '',
+          isHoliday: holiday?.isOffDay === true,
+          isToday: entry.businessDate === today,
+          isWeekend: isWeekend(entry.businessDate),
+          weekday: entry.weekdayLabel,
+        } satisfies WorkbenchListDay;
+      }),
+      dutyCount: dayList.reduce((total, entry) => total + entry.assignments.length, 0),
       key: panelMonth,
       monthLabel: formatMonthLabel(panelMonth),
       relative,
-      rows: dayList.flatMap((entry) =>
-        entry.assignments.map((assignment) => ({
-          businessDate: entry.businessDate,
-          day: entry.businessDate.slice(8),
-          key: assignment.id,
-          name: getAssignmentName(assignment),
-          note: createAssignmentNote(assignment, memberConfirmed),
-          shift: assignment.shiftTypeName,
-          weekday: entry.weekdayLabel,
-        })),
-      ),
     } satisfies WorkbenchListPanel;
   });
 
@@ -237,6 +259,24 @@ export function createWorkbenchViewModel(
     selectedDetails,
     selectedLabel: formatDateLabel(selectedDate),
     weekPanels,
+  };
+}
+
+function createDuty(
+  assignment: CalendarReadModel['assignments'][number],
+  memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
+): WorkbenchDuty {
+  const membershipId = assignment.actualMembershipId ?? assignment.plannedMembershipId ?? '';
+  const member = memberById.get(membershipId);
+  return {
+    details: `${assignment.shiftTypeName} · ${formatClock(assignment.startsAt)}–${formatClock(assignment.endsAt)} · ${assignment.scheduleRoleName}`,
+    key: assignment.id,
+    markers: createMarkerList(assignment.changeMarkers),
+    name: getAssignmentName(assignment),
+    phone: member?.mobilePhone ?? member?.shortPhone ?? '',
+    shiftAbbreviation: assignment.shiftTypeAbbreviation,
+    shiftColor: assignment.shiftTypeColor,
+    shiftTextColor: assignment.shiftTypeTextColor,
   };
 }
 
@@ -318,6 +358,15 @@ function createMarker(markers: readonly string[]): string {
   if (markers.includes('leave-cover')) return '补';
   if (markers.includes('overtime')) return '加';
   return '';
+}
+
+function createMarkerList(markers: readonly string[]): readonly string[] {
+  return markers.map((marker) => {
+    if (marker === 'swap') return '换';
+    if (marker === 'leave-cover') return '补';
+    if (marker === 'overtime') return '加';
+    return marker;
+  });
 }
 
 function createChangeLabel(markers: readonly string[]): string {

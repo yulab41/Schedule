@@ -4,6 +4,7 @@ page {
 }
 
 .workbench-page {
+  height: 100%;
   min-height: 100%;
   color: var(--ui-color-text-primary);
   background: var(--ui-color-background);
@@ -1453,6 +1454,35 @@ page {
   padding: 14px 12px 92px;
 }
 
+.workbench-view-anchor.is-month-mode {
+  padding-top: 6px;
+}
+
+.workbench-content.is-list-mode {
+  height: 100%;
+  min-height: 0;
+  padding-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.workbench-content.is-list-mode .period-row,
+.workbench-content.is-list-mode .offline-note,
+.workbench-content.is-list-mode .view-controls {
+  flex: none;
+}
+
+.workbench-content.is-list-mode .view-controls {
+  position: relative;
+  top: auto !important;
+}
+
+.workbench-content.is-list-mode .workbench-view-anchor {
+  min-height: 0;
+  flex: 1;
+}
+
 .period-row {
   margin-top: 0;
 }
@@ -1506,14 +1536,14 @@ page {
 }
 
 .week-swiper {
-  height: 102px;
+  height: 112px;
   overflow: hidden;
   border-bottom-right-radius: 17px;
   border-bottom-left-radius: 17px;
 }
 
 .week-swiper .week-day-grid {
-  height: 102px;
+  height: 112px;
 }
 
 .week-day:first-child {
@@ -1531,6 +1561,318 @@ page {
 
 .list-panel-scroll {
   height: 100%;
+  box-sizing: border-box;
+  padding: 8px 0 16px;
+}
+
+.list-calendar {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.list-calendar-heading {
+  flex: none;
+  min-height: 54px;
+  padding: 4px;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
+}
+
+.list-swiper {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+.week-date-line,
+.week-duty-badges,
+.list-day-heading,
+.list-date-copy,
+.list-duty-item,
+.list-duty-name-line {
+  display: flex;
+  align-items: center;
+}
+
+.week-date-line {
+  width: 100%;
+  min-height: 20px;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.week-day {
+  position: relative;
+  min-height: 112px;
+  padding: 4px 3px;
+  align-items: stretch;
+}
+
+.week-date-line .day-number {
+  width: 18px;
+  height: 18px;
+  color: var(--ui-color-text-primary);
+  background: transparent;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.week-day.is-past {
+  background: #f3f4f6;
+}
+
+.week-day.is-selected {
+  box-shadow: none;
+}
+
+.week-day.is-selected::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
+  content: '';
+  pointer-events: none;
+}
+
+.week-day.is-today .day-number {
+  color: var(--ui-color-near-black);
+  background: var(--ui-color-today-marker);
+}
+
+.week-holiday {
+  height: 14px;
+  max-width: calc(100% - 20px);
+  padding: 0 2px;
+  overflow: hidden;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-duty-empty {
+  margin-top: 5px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+}
+
+.week-duty-item {
+  display: flex;
+  min-width: 0;
+  margin-top: 3px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.week-duty-name {
+  width: 100%;
+  overflow: hidden;
+  color: var(--ui-color-text-primary);
+  font-size: 10px;
+  line-height: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-day.is-past .week-duty-name {
+  color: #4b5563;
+}
+
+.week-duty-badges {
+  min-height: 14px;
+  gap: 2px;
+}
+
+.week-shift-badge,
+.week-change-badge {
+  min-width: 12px;
+  height: 14px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 14px;
+  text-align: center;
+}
+
+.week-change-badge,
+.list-change-badge {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+}
+
+.list-day-card {
+  margin: 0 0 8px;
+  padding: 11px;
+  box-sizing: border-box;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.list-day-card.is-today {
+  padding: 10px;
+  background: var(--ui-color-primary-light);
+  border: 2px solid var(--ui-color-primary);
+}
+
+.list-day-heading {
+  min-height: 30px;
+  padding-bottom: 8px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  gap: 7px;
+}
+
+.list-date-copy {
+  min-width: 0;
+  gap: 7px;
+}
+
+.list-date-label {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.list-weekday.is-weekend {
+  color: var(--ui-color-weekend);
+}
+
+.list-day-card.is-weekend .list-date-label {
+  color: var(--ui-color-weekend);
+}
+
+.list-today-badge {
+  padding: 1px 6px;
+  color: var(--ui-color-near-black);
+  background: var(--ui-color-today-marker);
+  border-radius: 10px;
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.list-holiday {
+  padding: 1px 5px;
+  color: var(--ui-color-danger);
+  background: var(--ui-color-danger-light);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.list-duty-count {
+  margin-left: auto;
+  padding: 4px 7px;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: 9px;
+  font-weight: var(--ui-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.list-duty-item {
+  position: relative;
+  min-height: 52px;
+  padding: 8px 0 8px 10px;
+  box-sizing: border-box;
+  border-top: 1px solid #edf1f5;
+}
+
+.list-duty-accent {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: var(--ui-radius-pill);
+}
+
+.list-duty-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.list-duty-name-line {
+  min-width: 0;
+  gap: 4px;
+}
+
+.list-duty-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-color-text-primary);
+  font-size: 12px;
+  font-weight: var(--ui-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-change-badge {
+  min-width: 18px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+}
+
+.list-duty-details {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ui-color-text-muted);
+  font-size: 9px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-call-action {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  margin-left: 8px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-success);
+  background: var(--ui-color-success-light);
+  border-radius: 10px;
+}
+
+.list-call-action image {
+  width: 20px;
+  height: 20px;
+}
+
+.calendar-step.is-pressed,
+.calendar-locator.is-pressed {
+  border-radius: 12px;
+  opacity: 1;
+  transform: scale(0.9);
+  background: var(--ui-color-primary-light);
 }
 
 .calendar-navigation .chevron.is-animating,
@@ -1557,10 +1899,12 @@ page {
 }
 
 .filter-sheet {
+  position: relative;
   width: 100%;
-  max-height: 82vh;
+  height: 468px;
+  max-height: calc(100vh - 32px);
   padding: 7px 16px calc(14px + env(safe-area-inset-bottom));
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   background: var(--ui-color-surface);
   border-radius: 22px 22px 0 0;
@@ -1642,6 +1986,7 @@ page {
 }
 
 .filter-field {
+  position: relative;
   padding-top: 10px;
 }
 
@@ -1693,12 +2038,25 @@ page {
 }
 
 .filter-select-options {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  left: 0;
   max-height: 148px;
-  margin-top: 6px;
+  margin: 0;
   overflow: hidden;
+  background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
   border-radius: 10px;
   box-shadow: 0 8px 20px rgba(22, 32, 42, 0.08);
+}
+
+.filter-select-options.is-down {
+  top: calc(100% + 6px);
+}
+
+.filter-select-options.is-up {
+  bottom: 50px;
 }
 
 .filter-select-option {
@@ -1731,6 +2089,10 @@ page {
 }
 
 .filter-sheet-actions {
+  position: absolute;
+  right: 16px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  left: 16px;
   padding-top: 14px;
   gap: 10px;
 }

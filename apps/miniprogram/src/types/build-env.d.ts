@@ -20,9 +20,30 @@ interface MiniProgramWindowInfo {
   readonly screenHeight: number;
   readonly safeArea?: {
     readonly bottom: number;
+    readonly height: number;
+    readonly left: number;
+    readonly right: number;
+    readonly top: number;
+    readonly width: number;
   };
+  readonly statusBarHeight?: number;
   readonly windowHeight: number;
   readonly windowWidth: number;
+}
+
+interface MiniProgramRect {
+  readonly bottom: number;
+  readonly height: number;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly width: number;
+}
+
+interface MiniProgramSelectorQuery {
+  boundingClientRect(): MiniProgramSelectorQuery;
+  exec(callback: (results: readonly (MiniProgramRect | null | undefined)[]) => void): void;
+  select(selector: string): MiniProgramSelectorQuery;
 }
 
 interface MiniProgramAppBaseInfo {
@@ -50,13 +71,20 @@ interface MiniProgramLoginSuccess {
 }
 
 declare const wx: {
+  createSelectorQuery(): MiniProgramSelectorQuery;
   getAppBaseInfo(): MiniProgramAppBaseInfo;
   getDeviceInfo(): MiniProgramDeviceInfo;
+  getMenuButtonBoundingClientRect(): MiniProgramRect;
   getWindowInfo(): MiniProgramWindowInfo;
   getStorageSync(key: string): unknown;
   login(options: {
     readonly fail: (error: unknown) => void;
     readonly success: (response: MiniProgramLoginSuccess) => void;
+  }): unknown;
+  makePhoneCall(options: {
+    readonly fail?: (error: unknown) => void;
+    readonly phoneNumber: string;
+    readonly success?: () => void;
   }): unknown;
   removeStorageSync(key: string): void;
   request(options: MiniProgramRequestOptions): unknown;

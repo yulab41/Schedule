@@ -59,6 +59,10 @@ describe('P4 native workbench', () => {
     expect(template).toContain('locateIconAnimating');
     expect(template).toContain('calendarNavAnimating');
     expect(template).toContain('class="workbench-shell-header"');
+    expect(template).toContain('style="{{shellHeaderStyle}}"');
+    expect(template).toContain('style="top:{{shellHeaderHeight}}px"');
+    expect(template).toContain('id="workbench-content-top"');
+    expect(template).toContain('scroll-y="{{viewMode !== \'list\'}}"');
     expect(template).toContain('class="group-switcher-trigger');
     expect(template).toContain('class="notification-action');
     expect(template).toContain('class="shell-profile-action');
@@ -97,8 +101,32 @@ describe('P4 native workbench', () => {
     expect(pageSource).not.toContain('recenterPeriodSwiper');
     expect(pageSource).toContain('[-2, -1, 0, 1, 2]');
     expect(pageSource).toContain('page.monthResources.delete(loadedMonth)');
-    expect(template).not.toContain('<scroll-view class="list-panel-scroll"');
+    expect(template).toContain('class="list-panel-scroll"');
+    expect(template).toContain('scroll-into-view="{{listScrollTarget}}"');
+    expect(template).not.toContain('月份工具栏固定 · 已按日期排序');
+    expect(template).toContain('class="week-duty-name"');
+    expect(template).toContain('class="week-shift-badge"');
+    expect(template).toContain('class="list-day-card');
+    expect(template).toContain('class="list-duty-details"');
+    expect(template).toContain('class="list-call-action"');
+    expect(template).toContain('>工作台</text>');
+    expect(template).toContain("filterDropdownDirection === 'up'");
     expect(pageStyles).toMatch(/\.view-controls\s*{[^}]*position:\s*sticky;/s);
+    expect(pageStyles).toMatch(/\.workbench-content\.is-list-mode\s*{[^}]*height:\s*100%;/s);
+    expect(pageStyles).toMatch(/\.list-panel-scroll\s*{[^}]*height:\s*100%;/s);
+    expect(pageStyles).toMatch(/\.filter-sheet\s*{[^}]*height:\s*468px;/s);
+    expect(pageStyles).toMatch(/\.filter-select-options\s*{[^}]*position:\s*absolute;/s);
+    expect(pageStyles).toContain('.filter-select-options.is-up');
+    expect(pageStyles).toContain('.filter-select-options.is-down');
+    expect(pageSource).toContain('getMenuButtonBoundingClientRect');
+    expect(pageSource).toContain('statusBarHeight');
+    expect(pageSource).toContain('resolveFilterDropdownDirection');
+    expect(monthStyles).toMatch(
+      /\.month-step\.is-pressed,[\s\S]*?\.locate-button\.is-pressed\s*{[^}]*border-radius:\s*12px;[^}]*transform:\s*scale\(0\.9\);/s,
+    );
+    expect(pageStyles).toMatch(
+      /\.calendar-step\.is-pressed,[\s\S]*?\.calendar-locator\.is-pressed\s*{[^}]*border-radius:\s*12px;[^}]*transform:\s*scale\(0\.9\);/s,
+    );
     expect(template).not.toContain('class="refresh-indicator"');
     expect(template).not.toContain('正在读取排班…');
     expect(template).not.toMatch(/bindtap="(save|publish|submit|create|delete|approve)/u);
@@ -121,7 +149,29 @@ describe('P4 native workbench', () => {
     expect(view.weekPanels[1].days).toHaveLength(7);
     expect(view.weekPanels[1].weekOrdinalLabel).toBe('8月第4周');
     expect(view.weekPanels[1].rangeLabel).toBe('2026年8月17日 – 8月23日');
-    expect(view.listPanels[1].rows).toHaveLength(1);
+    expect(view.weekPanels[1].days.at(-2)?.duties).toEqual([
+      expect.objectContaining({
+        markers: ['换', '补', '加'],
+        name: '李医生',
+        shiftAbbreviation: '全',
+      }),
+    ]);
+    expect(view.listPanels[1].days).toHaveLength(1);
+    expect(view.listPanels[1].days[0]).toEqual(
+      expect.objectContaining({
+        dateLabel: '08-22',
+        dutyCountLabel: '1 班',
+        isWeekend: true,
+        weekday: '周六',
+      }),
+    );
+    expect(view.listPanels[1].days[0]?.duties[0]).toEqual(
+      expect.objectContaining({
+        details: '全天班 · 00:00–00:00 · 一线',
+        markers: ['换', '补', '加'],
+        name: '李医生',
+      }),
+    );
     expect(view.selectedDetails[0]?.name).toBe('李医生');
     expect(view.selectedDetails[0]?.changeLabel).toBe('换班 · 请假补位 · 加班');
   });
@@ -164,7 +214,7 @@ describe('P4 native workbench', () => {
         shiftTypeIds: [],
       },
     );
-    expect(hidden.listPanels[1].rows).toHaveLength(0);
+    expect(hidden.listPanels[1].days).toHaveLength(0);
 
     const visible = createWorkbenchViewModel(
       calendarApiGoldenResponse,
@@ -179,7 +229,7 @@ describe('P4 native workbench', () => {
         shiftTypeIds: ['shift-1'],
       },
     );
-    expect(visible.listPanels[1].rows).toHaveLength(1);
+    expect(visible.listPanels[1].days).toHaveLength(1);
   });
 
   it('keeps today and month navigation in China-standard business dates', () => {

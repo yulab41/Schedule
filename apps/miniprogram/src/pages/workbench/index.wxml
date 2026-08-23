@@ -1,5 +1,5 @@
 <view class="workbench-page">
-  <view class="workbench-shell-header">
+  <view class="workbench-shell-header" style="{{shellHeaderStyle}}">
     <view class="workbench-shell-heading">
       <view class="group-switcher">
         <view
@@ -38,9 +38,9 @@
           </view>
         </view>
       </view>
-      <text class="shell-page-title">日历</text>
+      <text class="shell-page-title">工作台</text>
     </view>
-    <view class="shell-actions">
+    <view class="shell-actions" style="{{shellActionsStyle}}">
       <view
         class="notification-action"
         hover-class="is-pressed"
@@ -68,18 +68,19 @@
 
   <scroll-view
     class="workbench-scroll"
-    scroll-y
+    style="padding-top:{{shellHeaderHeight}}px"
+    scroll-y="{{viewMode !== 'list'}}"
     scroll-with-animation="{{true}}"
     scroll-into-view="{{scrollTarget}}"
     show-scrollbar="{{false}}"
   >
-    <view class="workbench-content">
-      <view class="period-row">
+    <view class="workbench-content {{viewMode === 'list' ? 'is-list-mode' : ''}}">
+      <view id="workbench-content-top" class="period-row">
         <text class="period-label">{{monthLabel}}</text>
         <text class="cache-note"><text class="cache-dot" />只读查看 · 24 小时缓存</text>
       </view>
       <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
-      <view class="view-controls" aria-label="排班视图">
+      <view class="view-controls" style="top:{{shellHeaderHeight}}px" aria-label="排班视图">
         <view class="view-switch" aria-role="tablist">
           <view
             wx:for="{{viewOptions}}"
@@ -111,7 +112,10 @@
         >{{announcement}}</text
       >
 
-      <view id="workbench-view-anchor" class="workbench-view-anchor">
+      <view
+        id="workbench-view-anchor"
+        class="workbench-view-anchor {{viewMode === 'month' ? 'is-month-mode' : ''}}"
+      >
         <block wx:if="{{(state === 'ready' || state === 'offline') && viewMode === 'month'}}">
           <calendar-month
             id="workbench-month"
@@ -213,14 +217,38 @@
                     wx:for="{{item.days}}"
                     wx:for-item="day"
                     wx:key="businessDate"
-                    class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
+                    class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}} {{day.isPast ? 'is-past' : ''}}"
                     data-business-date="{{day.businessDate}}"
                     hover-class="is-pressed"
                     aria-role="button"
                     bindtap="handleWeekDaySelect"
                   >
-                    <text class="day-number">{{day.day}}</text
-                    ><text class="week-duty">{{day.duty}}</text>
+                    <view class="week-date-line"
+                      ><text class="day-number">{{day.day}}</text
+                      ><text wx:if="{{day.holiday}}" class="week-holiday">{{day.holiday}}</text></view
+                    >
+                    <view wx:if="{{day.duties.length === 0}}" class="week-duty-empty">—</view>
+                    <view
+                      wx:for="{{day.duties}}"
+                      wx:for-item="duty"
+                      wx:key="key"
+                      class="week-duty-item"
+                    >
+                      <text class="week-duty-name">{{duty.name}}</text>
+                      <view class="week-duty-badges"
+                        ><text
+                          class="week-shift-badge"
+                          style="color:{{duty.shiftTextColor}};background:{{duty.shiftColor}}"
+                          >{{duty.shiftAbbreviation}}</text
+                        ><text
+                          wx:for="{{duty.markers}}"
+                          wx:for-item="marker"
+                          wx:key="*this"
+                          class="week-change-badge"
+                          >{{marker}}</text
+                        ></view
+                      >
+                    </view>
                   </view>
                 </view>
               </swiper-item>
@@ -262,20 +290,8 @@
               ></view>
               <view class="calendar-heading"
                 ><text>{{monthLabel}}</text
-                ><text>固定月份 · {{listPanels[1].rows.length}} 个班次</text></view
+                ><text>固定月份 · {{listPanels[1].dutyCount}} 个班次</text></view
               >
-              <view
-                class="calendar-locator"
-                hover-class="is-pressed"
-                aria-role="button"
-                aria-label="定位到今天"
-                bindtap="handleLocateToday"
-                ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
-                  ><image
-                    class="locate-image"
-                    src="/assets/icons/web-locate.svg"
-                    mode="aspectFit" /></view
-              ></view>
               <view
                 class="calendar-step"
                 data-delta="1"
@@ -289,41 +305,92 @@
                     src="/assets/icons/web-chevron-right.svg"
                     mode="aspectFit" /></view
               ></view>
+              <view
+                class="calendar-locator"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="定位到今天"
+                bindtap="handleLocateToday"
+                ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
+                  ><image
+                    class="locate-image"
+                    src="/assets/icons/web-locate.svg"
+                    mode="aspectFit" /></view
+              ></view>
             </view>
             <swiper
               class="period-swiper list-swiper"
               current="{{listSwiperCurrent}}"
               duration="{{periodSwiperDuration}}"
               easing-function="easeOutCubic"
-              style="height:{{listSwiperHeight}}px"
               bindanimationfinish="handleListSwiperFinish"
             >
               <swiper-item wx:for="{{listPanels}}" wx:key="key">
-                <view class="list-panel-scroll">
-                  <text class="list-meta">月份工具栏固定 · 已按日期排序</text>
-                  <view wx:if="{{item.rows.length === 0}}" class="detail-empty list-empty"
+                <scroll-view
+                  class="list-panel-scroll"
+                  scroll-y
+                  scroll-with-animation="{{true}}"
+                  scroll-into-view="{{listScrollTarget}}"
+                  show-scrollbar="{{false}}"
+                >
+                  <view wx:if="{{item.days.length === 0}}" class="detail-empty list-empty"
                     >这个月没有已发布排班。</view
                   >
                   <view
-                    wx:for="{{item.rows}}"
-                    wx:for-item="row"
-                    wx:key="key"
-                    id="list-row-{{row.businessDate}}"
-                    class="list-row {{row.businessDate === selectedDate ? 'is-selected' : ''}}"
-                    data-business-date="{{row.businessDate}}"
-                    hover-class="is-pressed"
-                    aria-role="button"
-                    bindtap="handleListSelect"
+                    wx:for="{{item.days}}"
+                    wx:for-item="day"
+                    wx:key="businessDate"
+                    id="list-day-{{day.businessDate}}"
+                    class="list-day-card {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
                   >
-                    <view class="list-date"
-                      ><text>{{row.day}}</text><text>{{row.weekday}}</text></view
+                    <view
+                      class="list-day-heading"
+                      data-business-date="{{day.businessDate}}"
+                      hover-class="is-pressed"
+                      aria-role="button"
+                      bindtap="handleListSelect"
                     >
-                    <view class="list-copy"
-                      ><text class="list-title">{{row.shift}} · {{row.name}}</text
-                      ><text class="list-note">{{row.note}}</text></view
-                    ><view class="list-chevron" aria-hidden="true"></view>
+                      <view class="list-date-copy"
+                        ><text class="list-date-label">{{day.dateLabel}}</text
+                        ><text class="list-weekday {{day.isWeekend ? 'is-weekend' : ''}}"
+                          >{{day.weekday}}</text
+                        ><text wx:if="{{day.holiday}}" class="list-holiday">{{day.holiday}}</text
+                        ><text wx:if="{{day.isToday}}" class="list-today-badge">今天</text></view
+                      >
+                      <text class="list-duty-count">{{day.dutyCountLabel}}</text>
+                    </view>
+                    <view
+                      wx:for="{{day.duties}}"
+                      wx:for-item="duty"
+                      wx:key="key"
+                      class="list-duty-item"
+                    >
+                      <view class="list-duty-accent" style="background:{{duty.shiftColor}}"></view>
+                      <view class="list-duty-copy"
+                        ><view class="list-duty-name-line"
+                          ><text class="list-duty-name">{{duty.name}}</text
+                          ><text
+                            wx:for="{{duty.markers}}"
+                            wx:for-item="marker"
+                            wx:key="*this"
+                            class="list-change-badge"
+                            >{{marker}}</text
+                          ></view
+                        ><text class="list-duty-details">{{duty.details}}</text></view
+                      >
+                      <view
+                        wx:if="{{duty.phone}}"
+                        class="list-call-action"
+                        data-phone="{{duty.phone}}"
+                        hover-class="is-pressed"
+                        aria-role="button"
+                        aria-label="联系{{duty.name}}"
+                        catchtap="handleListCall"
+                        ><image src="/assets/icons/web-phone.svg" mode="aspectFit" /></view
+                      >
+                    </view>
                   </view>
-                </view>
+                </scroll-view>
               </swiper-item>
             </swiper>
           </view>
@@ -411,6 +478,7 @@
         <text class="filter-field-label">排班岗位</text>
         <view
           class="filter-select-trigger {{filterOpenField === 'role' ? 'is-open' : ''}}"
+          id="filter-role-trigger"
           data-field="role"
           aria-role="button"
           aria-expanded="{{filterOpenField === 'role'}}"
@@ -419,7 +487,7 @@
         ></view>
         <scroll-view
           wx:if="{{filterOpenField === 'role'}}"
-          class="filter-select-options"
+          class="filter-select-options {{filterDropdownDirection === 'up' ? 'is-up' : 'is-down'}}"
           scroll-y
           show-scrollbar="{{false}}"
         >
@@ -445,6 +513,7 @@
         <text class="filter-field-label">班种</text>
         <view
           class="filter-select-trigger {{filterOpenField === 'shift' ? 'is-open' : ''}}"
+          id="filter-shift-trigger"
           data-field="shift"
           aria-role="button"
           aria-expanded="{{filterOpenField === 'shift'}}"
@@ -453,7 +522,7 @@
         ></view>
         <scroll-view
           wx:if="{{filterOpenField === 'shift'}}"
-          class="filter-select-options"
+          class="filter-select-options {{filterDropdownDirection === 'up' ? 'is-up' : 'is-down'}}"
           scroll-y
           show-scrollbar="{{false}}"
         >
@@ -479,6 +548,7 @@
         <text class="filter-field-label">成员</text>
         <view
           class="filter-select-trigger {{filterOpenField === 'member' ? 'is-open' : ''}}"
+          id="filter-member-trigger"
           data-field="member"
           aria-role="button"
           aria-expanded="{{filterOpenField === 'member'}}"
@@ -487,7 +557,7 @@
         ></view>
         <scroll-view
           wx:if="{{filterOpenField === 'member'}}"
-          class="filter-select-options"
+          class="filter-select-options {{filterDropdownDirection === 'up' ? 'is-up' : 'is-down'}}"
           scroll-y
           show-scrollbar="{{false}}"
         >

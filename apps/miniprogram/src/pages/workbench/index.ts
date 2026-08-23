@@ -25,6 +25,7 @@ import {
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
 type FilterField = '' | 'member' | 'role' | 'shift';
+type FilterDropdownDirection = 'down' | 'up';
 
 interface TapEvent {
   readonly currentTarget: { readonly dataset: Record<string, string | undefined> };
@@ -65,6 +66,7 @@ interface WorkbenchPageData {
   readonly filterMembershipIds: readonly string[];
   readonly filterMemberOptions: readonly FilterOption[];
   readonly filterOpen: boolean;
+  readonly filterDropdownDirection: FilterDropdownDirection;
   readonly filterOpenField: FilterField;
   readonly filterOnlyChanges: boolean;
   readonly filterRoleIds: readonly string[];
@@ -78,8 +80,8 @@ interface WorkbenchPageData {
   readonly groups: readonly GroupSummary[];
   readonly gridHeight: number;
   readonly listPanels: WorkbenchViewModel['listPanels'];
+  readonly listScrollTarget: string;
   readonly listSwiperCurrent: number;
-  readonly listSwiperHeight: number;
   readonly locateIconAnimating: boolean;
   readonly monthLabel: string;
   readonly monthPanelHeights: readonly number[];
@@ -90,6 +92,9 @@ interface WorkbenchPageData {
   readonly periodSwiperDuration: number;
   readonly profileAnimating: boolean;
   readonly scrollTarget: string;
+  readonly shellActionsStyle: string;
+  readonly shellHeaderHeight: number;
+  readonly shellHeaderStyle: string;
   readonly selectedDate: string;
   readonly selectedDetails: WorkbenchViewModel['selectedDetails'];
   readonly selectedLabel: string;
@@ -136,6 +141,7 @@ Page({
     filterMembershipIds: [],
     filterMemberOptions: [],
     filterOpen: false,
+    filterDropdownDirection: 'down' as FilterDropdownDirection,
     filterOpenField: '' as FilterField,
     filterOnlyChanges: false,
     filterRoleIds: [],
@@ -149,8 +155,8 @@ Page({
     groups: [],
     gridHeight: 270,
     listPanels: [],
+    listScrollTarget: '',
     listSwiperCurrent: 1,
-    listSwiperHeight: 120,
     locateIconAnimating: false,
     monthLabel: formatMonthLabel(initialMonth),
     monthPanelHeights: [270, 270, 270],
@@ -161,6 +167,9 @@ Page({
     periodSwiperDuration: 260,
     profileAnimating: false,
     scrollTarget: '',
+    shellActionsStyle: 'right:10px;top:16px;bottom:auto;',
+    shellHeaderHeight: 64,
+    shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;padding-right:102px;',
     selectedDate: today,
     selectedDetails: [],
     selectedLabel: formatDateLabel(today),
@@ -184,6 +193,7 @@ Page({
   requestSerial: 0,
 
   onLoad(this: WorkbenchPageInstance): void {
+    this.setData(createShellLayoutPatch());
     void loadWorkbench(this);
   },
 
@@ -264,7 +274,17 @@ Page({
   handleFilterFieldToggle(this: WorkbenchPageInstance, event: TapEvent): void {
     const field = event.currentTarget.dataset.field;
     if (field !== 'member' && field !== 'role' && field !== 'shift') return;
-    this.setData({ filterOpenField: this.data.filterOpenField === field ? '' : field });
+    if (this.data.filterOpenField === field) {
+      this.setData({ filterOpenField: '' });
+      return;
+    }
+    this.setData(
+      {
+        filterDropdownDirection: field === 'member' ? 'up' : 'down',
+        filterOpenField: field,
+      },
+      () => resolveFilterDropdownDirection(this, field),
+    );
   },
 
   handleFilterClear(this: WorkbenchPageInstance): void {
@@ -348,7 +368,7 @@ Page({
 
     if (this.data.viewMode === 'month' && this.data.businessMonth !== initialMonth) {
       this.monthLocateTarget = initialMonth;
-      this.pendingScrollTarget = 'workbench-view-anchor';
+      this.pendingScrollTarget = 'workbench-content-top';
       const direction: -1 | 1 = initialMonth < this.data.businessMonth ? -1 : 1;
       const month = this.selectComponent('#workbench-month');
       if (month?.startProgrammaticShift !== undefined) month.startProgrammaticShift(direction);
@@ -357,13 +377,13 @@ Page({
     }
     if (this.data.viewMode === 'week' && this.data.weekStart !== targetWeekStart) {
       this.pendingWeekTarget = targetWeekStart;
-      this.pendingScrollTarget = 'workbench-view-anchor';
+      this.pendingScrollTarget = 'workbench-content-top';
       startPeriodSwiper(this, 'week', targetWeekStart < this.data.weekStart ? -1 : 1);
       return;
     }
     if (this.data.viewMode === 'list' && this.data.businessMonth !== initialMonth) {
       this.pendingListTarget = initialMonth;
-      this.pendingScrollTarget = `list-row-${today}`;
+      this.pendingScrollTarget = `list-day-${today}`;
       startPeriodSwiper(this, 'list', initialMonth < this.data.businessMonth ? -1 : 1);
       return;
     }
@@ -372,7 +392,7 @@ Page({
 
   handleCalendarNav(this: WorkbenchPageInstance): void {
     this.setData({ calendarNavAnimating: false, scrollTarget: '' }, () => {
-      this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-view-anchor' });
+      this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-content-top' });
     });
   },
 
@@ -423,6 +443,15 @@ Page({
       selectedLabel: formatDateLabel(businessDate),
     });
     refreshView(this);
+  },
+
+  handleListCall(this: WorkbenchPageInstance, event: TapEvent): void {
+    const phoneNumber = event.currentTarget.dataset.phone;
+    if (phoneNumber === undefined || phoneNumber.length === 0) return;
+    wx.makePhoneCall({
+      fail: () => this.setData({ announcement: '未能发起通话。' }),
+      phoneNumber,
+    });
   },
 
   handleUnavailable(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -552,7 +581,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
     if (page.pendingScrollTarget !== undefined) {
       const target = page.pendingScrollTarget;
       page.pendingScrollTarget = undefined;
-      page.setData({ scrollTarget: '' }, () => page.setData({ scrollTarget: target }));
+      scrollToTarget(page, target);
     }
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
@@ -641,7 +670,6 @@ function createViewPatch(
   return {
     gridHeight: ((view.monthPanels[1]?.cells.length ?? 35) / 7) * 54,
     listPanels: view.listPanels,
-    listSwiperHeight: Math.max(120, ...view.listPanels.map((panel) => 48 + panel.rows.length * 64)),
     monthLabel: view.monthLabel,
     monthPanelHeights: view.monthPanels.map((panel) => (panel.cells.length / 7) * 54),
     monthPanels: view.monthPanels,
@@ -741,8 +769,71 @@ function applyTodayLocation(page: WorkbenchPageInstance): void {
     weekStart: getWeekStartDate(today),
   });
   refreshView(page);
-  const target = page.data.viewMode === 'list' ? `list-row-${today}` : 'workbench-view-anchor';
+  const target = page.data.viewMode === 'list' ? `list-day-${today}` : 'workbench-content-top';
+  scrollToTarget(page, target);
+}
+
+function scrollToTarget(page: WorkbenchPageInstance, target: string): void {
+  if (target.startsWith('list-day-')) {
+    page.setData({ listScrollTarget: '' }, () => page.setData({ listScrollTarget: target }));
+    return;
+  }
   page.setData({ scrollTarget: '' }, () => page.setData({ scrollTarget: target }));
+}
+
+function resolveFilterDropdownDirection(
+  page: WorkbenchPageInstance,
+  field: Exclude<FilterField, ''>,
+): void {
+  const optionCount =
+    field === 'role'
+      ? page.data.filterRoleOptions.length
+      : field === 'shift'
+        ? page.data.filterShiftTypeOptions.length
+        : page.data.filterMemberOptions.length;
+  const optionsHeight = Math.min(148, Math.max(46, optionCount * 44 + 2));
+  wx.createSelectorQuery()
+    .select(`#filter-${field}-trigger`)
+    .boundingClientRect()
+    .select('.filter-sheet')
+    .boundingClientRect()
+    .exec((results) => {
+      if (page.data.filterOpenField !== field) return;
+      const trigger = results[0];
+      const sheet = results[1];
+      if (trigger === undefined || trigger === null || sheet === undefined || sheet === null)
+        return;
+      const spaceBelow = sheet.bottom - 68 - trigger.bottom;
+      const spaceAbove = trigger.top - sheet.top - 54;
+      page.setData({
+        filterDropdownDirection:
+          spaceBelow >= optionsHeight || spaceBelow >= spaceAbove ? 'down' : 'up',
+      });
+    });
+}
+
+function createShellLayoutPatch(): Pick<
+  WorkbenchPageData,
+  'shellActionsStyle' | 'shellHeaderHeight' | 'shellHeaderStyle'
+> {
+  const windowInfo = wx.getWindowInfo();
+  const capsule = wx.getMenuButtonBoundingClientRect();
+  const statusBarHeight = Math.max(0, windowInfo.statusBarHeight ?? windowInfo.safeArea?.top ?? 0);
+  const hasCapsule =
+    capsule.width > 0 &&
+    capsule.height > 0 &&
+    capsule.left > 0 &&
+    capsule.right <= windowInfo.windowWidth;
+  const contentTop = statusBarHeight + 8;
+  const shellHeaderHeight = Math.ceil(statusBarHeight + 64);
+  const actionsTop = hasCapsule ? Math.max(statusBarHeight + 4, capsule.top - 4) : contentTop;
+  const actionsRight = hasCapsule ? windowInfo.windowWidth - capsule.left + 4 : 10;
+  const headerRightPadding = actionsRight + 90;
+  return {
+    shellActionsStyle: `right:${actionsRight}px;top:${actionsTop}px;bottom:auto;`,
+    shellHeaderHeight,
+    shellHeaderStyle: `height:${shellHeaderHeight}px;min-height:${shellHeaderHeight}px;padding-top:${contentTop}px;padding-right:${headerRightPadding}px;`,
+  };
 }
 
 function toggleFilterOption(
