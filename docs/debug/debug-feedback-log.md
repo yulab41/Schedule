@@ -8,7 +8,9 @@
 - 测试先行：共享 publication client 4 项、原生发布控制器 3 项在实现前全部失败；迁移/20-30-600 限制在旧实现上先失败。实现后 MySQL 迁移 20/20、手排模板/应用 26/26、关联撤回/重发工作流 60/60、受控真实工作区 862 项、Mini 113 项通过。撤回/删除重放、header/body 一致性、网络结果不明确时操作号复用均有回归覆盖。
 - 行为与语义审计：手排上限明确收紧为 20 人、30 天、600 格，不截断存量；迁移违规即停止。矩阵同格同班种第二次点触取消且没有撤销按钮。发布/撤回/重发/删除的接收者、异步 catch、空值分支和业务调用次数保持原 Web 语义；新增的稳定操作号只在成功后清除。`Idempotency-Key` 为危险写统一入口，旧 body 字段兼容且不一致返回 400。
 - 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动停止；4173 当前源码服务中先修正两个过时 P4 smoke 文案/选择器和旧 31 天压力输入，最终管理员、成员、访客 vkey、访问记录全流程通过且无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-RkP89G`。Storybook build 2720 modules、Mini production verify（693683 bytes，manifest `bd2fe99ba2dfccbc5aed8104d65f5d69f49b057936418bd96609a174c3cc69e5`）及 source/package/determinism/CI dry-run 通过。默认格式门禁只报告用户自有 `project.config.json`、未提交 Storybook 产物和既有目录文件；任务文件格式与 diff check 通过，未改这些无关文件。
-- 状态：已完成本地实现与浏览器运行验证；checkpoint 识别消息 `feat(scheduling): add p5 manual release flow`。提交/推送/体验上传/生产备份部署后转为待原生微信复核；下一批仅做原子补录和群组设置中的手机号同意。
+- 发布：代码 checkpoint `591ccff6` 已推送；精确 clean worktree 的 production-profile 体验版 `0.1.0-p5.20260824.75` 上传成功（66 个代码文件，manifest `d0b57bef9b7247c61f177f808256a0d48d6dd75c08b2500afd2b57825fc0f1f8`），未提审/正式发布。首次 pnpm 委托只在上传前被依赖安装脚本策略阻断，微信无外部变化；随后使用同一仓库 Node 封装直传成功。
+- 生产：四类存量上限违规预检均为 0；备份 archive `e00e5848-d6d0-45b8-9318-1a9dcf96e6fa`（54 表、162566 行、76689752 bytes，SHA-256 `cf8a51a4aeeb32172e5886bfd7fc2d07f5db3a0f8a4175eccc605f6b0e43af4e`）后部署 release `591ccff6ac29f504cd57578a684552d9856b547e`。迁移前停止旧 API；预热首个 TLS 请求短暂 EOF 后恢复，`ecs-verify.sh` 通过产物、域名、容器、依赖和 48 条迁移检查，公网健康 200，远端临时目录已清理。
+- 状态：代码已完成推送、体验上传和生产发布，待原生微信复核。最终状态 checkpoint `docs(status): record p5 manual release deployment` 同步生产后，下一批仅做原子补录和群组设置中的手机号同意。
 
 ## 2026-08-23 P4 `.73` 实体复核：角落裁切与列表控件
 
