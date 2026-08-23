@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 实体复核：角落描边与列表定位/控件几何（当前批次）
+
+- 实体反馈与范围：production-profile `.73` 截图确认普通月格选中框厚度正常，但底左/底右角仍被裁细；列表定位到今天后目标卡贴住上裁切线；列表月份控件仍比月/周矮、圆角更小且下阴影不一致。本批只修这 3 组 P4 原生视觉问题，不进入并行 P5。
+- 引入点与根因：`git log -S`/`git blame` 定位角落 slot 的双重 `overflow:hidden` 到 `4b33274e`，slot 右/底分隔线和 month-grid `border-top:1px` 到 `733e3af6`，外层选中框与负 offset 到 `6ba2c72c`/`9045dc02`。Skyline `defaultContentBox:true` 下，5/6×54px 行再加 grid 顶边实际为 271/325px，却被 270/324px swiper 裁掉底部 1px；角落 slot 自身裁切又截掉 `right:-1px`。列表 scroll id 仍在卡片本体，`scroll-into-view` 必然把卡片 border-box 对齐顶部，绕过只存在于内容容器开头的 8px；54px/14px list override 来自 `50c6d1ed`。heading 与后绘制的 opaque 分割带同为 z-index 2，后者覆盖 heading 下阴影，分别来自 `4300fbe`/`6ba2c72c`。
+- 实现与视觉：星期栏在固定 28px 内用 `border-box` 承载 1px 下分隔线，month-grid 删除额外顶边并改为 `overflow:visible`，角落 slot 删除第二重 overflow；选中框仍统一 2px，不做 DPR 相关的 3px 补粗，月卡保持唯一 18px 外框裁切和精确 270/324px 内容高。列表每个日期改为带 `padding-top:8px` 的 `list-day-slot`，滚动 id 移到 slot，卡片 margin 清零，因此默认、卡间和定位后均为同一 8px，末卡无尾距。列表 heading 改为月/周一致的 62px、`4px 6px`、18px 大圆角和 card shadow；heading z-index 3、分割带 2、swiper 1，完整保留下阴影且不增加装饰。`frontend-design` 审查继续使用医疗蓝灰令牌、系统字体和原密度。
+- 语义审计：列表 target 字符串、定位日期、滚动调用次数和 `scroll-into-view` 语义不变，只把 target 从 card 移到其 8px 前置槽；卡片点击/电话事件仍绑定原节点。月格 5/6 周、单元数据、圆角状态、选中日期、circular 槽、横纵 240ms、缓存/预取、request serial、Promise catch、只读 GET 与业务写入次数不变。样式改动不触及 P5 子包或 client-core。
+- 测试与验证：新增月格几何不得多 1px/角落不得二次裁切、slot 定位 8px、卡片零 margin，以及 list heading 62px/large radius/z3/单层 shadow 契约；`.73` 旧实现定向 30 项中 3 项失败，修复后 30/30。精确 `11a1f462` + 本轮 5 文件隔离 worktree 中 Mini 18 文件/95 项、typecheck、production verify（2/2 Worklet，414316 bytes，manifest `9059abbe992308cadcb5645c19e4c63ace4b615975694ed17eb1199f85e98547`）、CI dry-run、`pnpm smoke:check-core`、任务文件 ESLint/Prettier 与 `git diff --check` 通过；未触及 Web 核心链路，无需完整浏览器 smoke。主工作区并行 P5/Storybook/迁移/构建配置未修改、未暂存。
+- 发布与停止条件：代码 checkpoint 识别消息 `fix(miniprogram): align calendar edge and list controls`，计划上传 production-profile `.74`，不提审/正式发布；完成推送、体验上传、生产备份/部署/验证和最终状态 checkpoint 后转为待实体微信只复核本轮 4 点，暂停且不进入 P5。
+
 ## 2026-08-23 P4 实体复核：取消月历回中与列表真实滚动边界（当前批次）
 
 - 实体证据与范围：用户在 production-profile `.71` 的 22:23–22:24 截图中确认 5 项仍未解决：底左角月格蓝框右/底边仍被裁细；列表首卡日期标题被上边界裁掉、底部仍有空带、控件阴影仍突兀；换月仍反跳/回弹。本批只按截图修复月历原生槽位、列表真实滚动内容和角落描边 3 个任务，不进入 P5。

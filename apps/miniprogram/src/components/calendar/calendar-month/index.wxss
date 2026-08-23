@@ -168,9 +168,11 @@
 .weekday-row {
   display: flex;
   height: 28px;
+  box-sizing: border-box;
   align-items: center;
   color: var(--ui-color-text-muted);
   background: var(--ui-color-surface-muted);
+  border-bottom: 1px solid var(--ui-color-border);
   font-size: 11px;
   font-weight: var(--ui-font-weight-semibold);
   text-align: center;
@@ -198,9 +200,8 @@
   display: flex;
   width: 100%;
   flex-wrap: wrap;
-  overflow: hidden;
+  overflow: visible;
   background: var(--ui-color-surface);
-  border-top: 1px solid var(--ui-color-border);
   border-bottom-right-radius: 17px;
   border-bottom-left-radius: 17px;
 }
@@ -267,12 +268,10 @@
 }
 
 .calendar-cell-slot.is-bottom-left {
-  overflow: hidden;
   border-bottom-left-radius: 17px;
 }
 
 .calendar-cell-slot.is-bottom-right {
-  overflow: hidden;
   border-bottom-right-radius: 17px;
 }
 

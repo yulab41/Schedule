@@ -541,56 +541,63 @@
                       wx:for-item="day"
                       wx:key="businessDate"
                       id="list-day-{{day.businessDate}}"
-                      class="list-day-card {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
+                      class="list-day-slot"
                     >
                       <view
-                        class="list-day-heading"
-                        data-business-date="{{day.businessDate}}"
-                        hover-class="is-pressed"
-                        aria-role="button"
-                        bindtap="handleListSelect"
-                      >
-                        <view class="list-date-copy"
-                          ><text class="list-date-label">{{day.dateLabel}}</text
-                          ><text class="list-weekday {{day.isWeekend ? 'is-weekend' : ''}}"
-                            >{{day.weekday}}</text
-                          ><text wx:if="{{day.holiday}}" class="list-holiday">{{day.holiday}}</text
-                          ><text wx:if="{{day.isToday}}" class="list-today-badge">今天</text></view
-                        >
-                        <text class="list-duty-count">{{day.dutyCountLabel}}</text>
-                      </view>
-                      <view
-                        wx:for="{{day.duties}}"
-                        wx:for-item="duty"
-                        wx:key="key"
-                        class="list-duty-item"
+                        class="list-day-card {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
                       >
                         <view
-                          class="list-duty-accent"
-                          style="background:{{duty.shiftColor}}"
-                        ></view>
-                        <view class="list-duty-copy"
-                          ><view class="list-duty-name-line"
-                            ><text class="list-duty-name">{{duty.name}}</text
-                            ><text
-                              wx:for="{{duty.markers}}"
-                              wx:for-item="marker"
-                              wx:key="*this"
-                              class="list-change-badge"
-                              >{{marker}}</text
-                            ></view
-                          ><text class="list-duty-details">{{duty.details}}</text></view
-                        >
-                        <view
-                          wx:if="{{duty.phone}}"
-                          class="list-call-action"
-                          data-phone="{{duty.phone}}"
+                          class="list-day-heading"
+                          data-business-date="{{day.businessDate}}"
                           hover-class="is-pressed"
                           aria-role="button"
-                          aria-label="联系{{duty.name}}"
-                          catchtap="handleListCall"
-                          ><image src="/assets/icons/web-phone.svg" mode="aspectFit"
-                        /></view>
+                          bindtap="handleListSelect"
+                        >
+                          <view class="list-date-copy"
+                            ><text class="list-date-label">{{day.dateLabel}}</text
+                            ><text class="list-weekday {{day.isWeekend ? 'is-weekend' : ''}}"
+                              >{{day.weekday}}</text
+                            ><text wx:if="{{day.holiday}}" class="list-holiday"
+                              >{{day.holiday}}</text
+                            ><text wx:if="{{day.isToday}}" class="list-today-badge"
+                              >今天</text
+                            ></view
+                          >
+                          <text class="list-duty-count">{{day.dutyCountLabel}}</text>
+                        </view>
+                        <view
+                          wx:for="{{day.duties}}"
+                          wx:for-item="duty"
+                          wx:key="key"
+                          class="list-duty-item"
+                        >
+                          <view
+                            class="list-duty-accent"
+                            style="background:{{duty.shiftColor}}"
+                          ></view>
+                          <view class="list-duty-copy"
+                            ><view class="list-duty-name-line"
+                              ><text class="list-duty-name">{{duty.name}}</text
+                              ><text
+                                wx:for="{{duty.markers}}"
+                                wx:for-item="marker"
+                                wx:key="*this"
+                                class="list-change-badge"
+                                >{{marker}}</text
+                              ></view
+                            ><text class="list-duty-details">{{duty.details}}</text></view
+                          >
+                          <view
+                            wx:if="{{duty.phone}}"
+                            class="list-call-action"
+                            data-phone="{{duty.phone}}"
+                            hover-class="is-pressed"
+                            aria-role="button"
+                            aria-label="联系{{duty.name}}"
+                            catchtap="handleListCall"
+                            ><image src="/assets/icons/web-phone.svg" mode="aspectFit"
+                          /></view>
+                        </view>
                       </view>
                     </view>
                   </view>

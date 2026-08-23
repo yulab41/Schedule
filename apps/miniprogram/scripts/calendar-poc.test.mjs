@@ -84,13 +84,15 @@ describe('P1 native dynamic month calendar PoC', () => {
     );
     expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
     expect(monthStyles).toMatch(
+      /\.weekday-row\s*\{[^}]*height:\s*28px;[^}]*box-sizing:\s*border-box;[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/su,
+    );
+    expect(monthStyles).toMatch(/\.month-grid\s*\{[^}]*overflow:\s*visible;/su);
+    expect(monthStyles).not.toMatch(/\.month-grid\s*\{[^}]*border-top:/su);
+    expect(monthStyles).toMatch(
       /\.calendar-cell-slot\.is-selected::after\s*\{[^}]*right:\s*-1px;[^}]*bottom:\s*-1px;[^}]*border:\s*2px solid var\(--ui-color-primary\);/su,
     );
-    expect(monthStyles).toMatch(
-      /\.calendar-cell-slot\.is-selected\.is-bottom-row::after\s*\{[^}]*bottom:\s*0;/su,
-    );
-    expect(monthStyles).toMatch(
-      /\.calendar-cell-slot\.is-selected:nth-child\(7n\)::after\s*\{[^}]*right:\s*0;/su,
+    expect(monthStyles).not.toMatch(
+      /\.calendar-cell-slot\.is-bottom-(?:left|right)\s*\{[^}]*overflow:\s*hidden;/su,
     );
     expect(cellStyles).not.toContain('.calendar-cell.is-selected::after');
     expect(pageTemplate).toContain('class="selected-summary month-selected-summary"');

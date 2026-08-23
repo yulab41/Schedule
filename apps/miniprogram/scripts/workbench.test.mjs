@@ -103,14 +103,21 @@ describe('P4 native workbench', () => {
       /\.list-scroll-boundary\s*{[^}]*width:\s*auto;[^}]*height:\s*8px;[^}]*margin:\s*0 -12px;[^}]*background:\s*var\(--ui-color-background\);[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/s,
     );
     expect(pageStyles).toMatch(
-      /\.list-calendar-heading\s*{[^}]*box-shadow:\s*var\(--ui-shadow-card\);/s,
+      /\.list-calendar-heading\s*{[^}]*z-index:\s*3;[^}]*min-height:\s*62px;[^}]*padding:\s*4px 6px;[^}]*border-radius:\s*var\(--ui-radius-large\);[^}]*box-shadow:\s*var\(--ui-shadow-card\);/s,
     );
-    expect(pageStyles).toMatch(/\.list-scroll-boundary\s*{[^}]*box-shadow:\s*none;/s);
+    expect(pageStyles).toMatch(
+      /\.list-scroll-boundary\s*{[^}]*z-index:\s*2;[^}]*box-shadow:\s*none;/s,
+    );
     expect(pageStyles).toMatch(/\.workbench-content\.is-list-mode\s*{[^}]*padding-bottom:\s*0;/s);
-    expect(pageStyles).toMatch(/\.list-panel-content\s*{[^}]*padding-top:\s*8px;/s);
-    expect(pageStyles).toMatch(/\.list-day-card:last-child\s*{[^}]*margin-bottom:\s*0;/s);
+    expect(pageStyles).toMatch(/\.list-day-slot\s*{[^}]*padding-top:\s*8px;/s);
+    expect(pageStyles).toMatch(/\.list-day-card\s*{[^}]*margin:\s*0;/s);
+    expect(pageStyles).not.toMatch(/\.list-panel-content\s*{[^}]*padding-top:/s);
+    expect(pageStyles).not.toContain('.list-day-card:last-child');
     expect(pageStyles).not.toMatch(/\.list-panel-scroll\s*{[^}]*padding:/s);
     expect(template).toContain('class="list-panel-content"');
+    expect(template).toMatch(
+      /id="list-day-\{\{day\.businessDate\}\}"\s+class="list-day-slot"[\s\S]*?class="list-day-card/s,
+    );
     expect(template).toContain(
       "class=\"workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}\"",
     );
@@ -344,7 +351,7 @@ describe('P4 native workbench', () => {
       /\.list-swiper\s*{[^}]*overflow:\s*hidden;[^}]*background:\s*var\(--ui-color-background\);/s,
     );
     expect(pageStyles).toMatch(
-      /\.list-calendar-heading\s*{[^}]*position:\s*relative;[^}]*z-index:\s*2;/s,
+      /\.list-calendar-heading\s*{[^}]*position:\s*relative;[^}]*z-index:\s*3;/s,
     );
     expect(pageStyles).not.toMatch(/\.list-calendar-heading\s*{[^}]*box-shadow:\s*none;/s);
     expect(pageStyles).toMatch(/\.filter-sheet\s*{[^}]*height:\s*468px;/s);

@@ -1412,7 +1412,6 @@ page {
 }
 
 .list-panel-content {
-  padding-top: 8px;
   box-sizing: border-box;
 }
 
@@ -1431,14 +1430,14 @@ page {
 
 .list-calendar-heading {
   position: relative;
-  z-index: 2;
+  z-index: 3;
   flex: none;
-  min-height: 54px;
+  min-height: 62px;
   margin-bottom: 0;
-  padding: 4px;
+  padding: 4px 6px;
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-medium);
+  border-radius: var(--ui-radius-large);
   box-shadow: var(--ui-shadow-card);
 }
 
@@ -1590,17 +1589,18 @@ page {
   background: var(--ui-color-warning-light);
 }
 
+.list-day-slot {
+  padding-top: 8px;
+  box-sizing: border-box;
+}
+
 .list-day-card {
-  margin: 0 0 8px;
+  margin: 0;
   padding: 11px;
   box-sizing: border-box;
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-medium);
-}
-
-.list-day-card:last-child {
-  margin-bottom: 0;
 }
 
 .list-day-card.is-today {

@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 `.73` 实体复核：角落裁切与列表控件
+
+- 反馈与引入点：普通格 2px 选中框正常，只有底角格右/底边变细。`4b33274e` 的 month-grid/corner slot 多层 overflow、`733e3af6` 的 grid 顶边和 slot divider、`9045dc02` 的负 offset 共同造成：`defaultContentBox:true` 下 270/324px 内容实际多 1px，被 swiper 裁底，角落 slot 又裁掉跨 divider 的 right:-1。列表定位 id 位于 card 本体，原生对齐后没有前置 8px；`50c6d1ed` 的 54px/14px override 与同层级分割带覆盖造成 list heading 矮、小圆角和下阴影异常。
+- 测试先行与实现：新增固定 28px 星期栏内分隔、month-grid 无额外顶边/角落无第二裁切、slot target 8px、card margin0，以及 list heading 62px/large radius/z3/card shadow 契约，`.73` 旧实现 3 项失败。修复后分隔线不再增加月格高度，统一 2px frame 保留；日期 id 移至 8px slot，默认/卡间/定位后三态同距；heading 提升到 z3，分割带 z2、swiper z1，复用现有大圆角与阴影令牌。
+- 语义审计：没有 3px/DPR 补偿，也没有 Skyline 不支持的 CSS Grid。月格数据、270/324px、circular 动画、列表 target 值与调用次数、点击/电话事件、缓存/异步/只读边界不变；只改变原生布局载体与绘制层级。
+- 验证：定向 30/30；隔离 `11a1f462` + 本轮 5 文件的 Mini 18 文件/95 项、typecheck、production verify（414316 bytes，manifest `9059abbe992308cadcb5645c19e4c63ace4b615975694ed17eb1199f85e98547`）、CI dry-run、核心门禁、ESLint/Prettier 与 diff check 通过。checkpoint：`fix(miniprogram): align calendar edge and list controls`。
+- 发布计划：production-profile `.74`，不提审/正式发布；生产备份/部署/验证后等待实体只复核本轮 4 点。
+
 ## 2026-08-23 P4 `.71` 实体复核：原生回中与列表内容边界
 
 - 实体结论与引入点：22:23–22:24 的 `.71` 截图否定了 `6ba2c72c` 的零时长三阶段回中、scroll-view 宿主 padding 和 slot inset shadow。原生 swiper 的 0/2→1 属性写回仍会回弹；宿主 padding 没有成为随日期卡滚走的内容。`9fdf659` 的分割带 shadow 与 heading shadow 叠加，通用末卡 8px margin + 宿主 16px bottom padding 留出底部空带；slot padding box 又被右/底 grid border 各缩进 1px。用户随后补充 22:45 初始截图，确认此前标题裁掉只是已滚动状态，撤回“遗留锚点复播”推断。
