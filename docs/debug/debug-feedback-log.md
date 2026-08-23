@@ -8,7 +8,7 @@
 - 测试先行与实现：改写回归契约，要求模板仅绑定最终 `gridHeight`、无 `bindtransition`，回中与程序化 shift patch 都不能包含高度；这些断言在 `206a16e` 上 4 项失败。实现完整删除 transition handler、三个面板高度、独立 viewport 和三处中间高度写入，父页只在最终月份 ViewModel 提交时计算一次 `cells.length / 7 * 54`；保留上一轮更严的 pending 回中时序，并恢复改版前 180ms height ease-out。
 - 语义审计：接收者绑定、按钮/手势/定位目标、`monthchange` 调用次数、swiper duration/回中顺序、空值、GET/缓存、Promise catch 和业务写入均不变；明确行为变化只有“滑动期间不再预读相邻面板高度”，最终五/六行高度仍正确。
 - 验证：定向 20/20、受控 Mini 18 文件/85 项、typecheck、production verify（2/2 Worklet，404393 bytes，manifest `0a9ee5e807606fb6341e781f1e2af72c48d57d5d705d854d7a3cfe8f7ed84773`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。红灯阶段命令额外误扫既有 `.artifacts` 旧副本并出现 3 项路径失败，显式排除后真实源全绿，用户目录未改。
-- 中间发布与下一步：`206a16e` 已推送，体验版 `.65`（manifest `a1dde130aa45d0330746035b06182404a80f13b6ed6ecc7941de59fa20aff412`）及生产 release 已发布；生产备份 archive `3d24a9ae-82b5-4c7c-9352-8fdf6b1d4f07`，`ecs-verify.sh` 通过，但实体结论为未解决。新 checkpoint 识别消息：`fix(miniprogram): remove eager month resizing`，随后上传 `.66` 并部署精确 commit，等待实体复核。
+- 发布：`206a16e` 的体验版 `.65` 和生产 release 已发布但实体结论为未解决。最终 checkpoint `3ed0e31` 已推送；精确 worktree 上传 production-profile `.66`（63 文件，manifest `e511d2d3f5cc73ced327c0d81bc97f990a7ecb81e138ae7fd5e9904f4ec08ebb`），未审核/正式发布。生产备份 archive `8b778460-7ecc-4999-b2a6-fa71a4ff5150`（54 表、162551 行、76679832 bytes，SHA-256 `90fc0f293818ebeba166d9fbf20060ca875345e9471025cb79400fb456d6bccc`）后部署 release `3ed0e31beaaf5afbf864cd63b668067aaf7fcfac`；仅 Mini/文档变化，服务器包复用上一 release 哈希一致的 Web/API/迁移产物。预热首次 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record single-height month deployment`。
 
 ## 2026-08-23 P4 三视图卡片节奏与事件图标回归
 
