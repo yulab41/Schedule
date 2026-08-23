@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 列表视口、月格描边与快速切换回归
+
+- 反馈与引入点：`50c6d1ed` 的列表底部 8px 留白、`d9296df` 的控件无阴影、`4300fbe` 紧贴控件的 1px 边界共同造成列表上下裁切层级错误；`3fc41610` 的 1px inset 月格框留下缝隙，其 `panels` observer 又会在异步数据到达时无条件回中；`53b5c74` 过渡锁直接丢快速月按钮，周/列表也没有输入队列。每次 finish 继续走完整 `loadWorkbench/listGroups`，放大下一段动画被数据刷新打断的概率。
+- 测试先行与实现：新增通栏 8px 消失带/上阴影/底栏贴合、零缝隙边界安全内描边、显式 month finish、月周列表快速队列、重复 finish 防护与 stale read 无副作用契约，旧实现失败。修复后列表控件使用上沿轻阴影+卡片阴影，裁切线位于 8px 带下沿并通栏，列表内容盒贴底栏；月格用 Web 同口径 2px inset shadow。月 swiper 只接受父页 period commit 的显式回中，三视图保留快速输入；队列清空后仅预取缺失边缘月，在线命中不请求、不渲染，过期读取不能改资源 Map。
+- 语义与视觉审查：接收者仍为组件/页面成员调用；目标 period 的 `??`、选中日期、定位、横纵高度、缓存/离线 fallback、错误 catch 和业务写入次数不变。视觉沿用现有蓝灰/1px 分界/卡片阴影；生产 Web 390px browser webview 未 attach，临时视口已 reset，静态审查以冻结 Web `MonthGrid`/tokens 与用户实体截图为准，实体原生真值仍待用户复核。
+- 验证：定向 27/27；隔离 `940358e` + 本轮 6 文件的 Mini 18 文件/92 项、typecheck、production verify（2/2 Worklet，408847 bytes，manifest `85256aed45eea7d152158c5ad36b4b795799b5ba64185df03a27bec358280097`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。checkpoint 识别消息：`fix(miniprogram): stabilize calendar viewport and rapid shifts`。
+
 ## 2026-08-23 P4 Mini 表现层债务/包体回归审计
 
 - 审计与引入点：扫描 production `src` 格式器、WXML↔WXSS 可达类、重复 `setData/ViewModel` 和 build manifest。日期格式已收口，唯一剩余页面/ViewModel 双源是 `ad4cfb2c` 的月份标题；工作台仍有 30 余个多轮改版遗留、模板不可达的旧页头/筛选/列表/手绘图标 CSS；`loadWorkbench` 和视图切换仍各做两次表现层提交。P1/矩阵资源虽约 85940 bytes，但仍被手册和并行 P5 测试引用，本轮不删。

@@ -120,10 +120,16 @@ interface WorkbenchPageInstance {
   pendingListTarget: string | undefined;
   pendingScrollTarget: string | undefined;
   pendingWeekTarget: string | undefined;
+  periodShiftActive: 'list' | 'week' | undefined;
+  periodShiftCommitPending: boolean;
+  periodShiftQueue: number;
   requestSerial: number;
-  selectComponent(
-    selector: string,
-  ): { startProgrammaticShift?(delta: -1 | 1, targetHeight?: number): void } | undefined;
+  selectComponent(selector: string):
+    | {
+        finishPeriodShift?(): boolean;
+        startProgrammaticShift?(delta: -1 | 1, targetHeight?: number): void;
+      }
+    | undefined;
   setData(patch: Partial<WorkbenchPageData>, callback?: () => void): void;
 }
 
@@ -196,6 +202,9 @@ Page({
   pendingListTarget: undefined,
   pendingScrollTarget: undefined,
   pendingWeekTarget: undefined,
+  periodShiftActive: undefined,
+  periodShiftCommitPending: false,
+  periodShiftQueue: 0,
   requestSerial: 0,
 
   onLoad(this: WorkbenchPageInstance): void {
@@ -248,16 +257,22 @@ Page({
       selectedDate: this.data.selectedDate,
       weekStart: nextWeekStart,
     };
+    this.periodShiftActive = undefined;
+    this.periodShiftCommitPending = false;
+    this.periodShiftQueue = 0;
     this.setData({
       ...createViewPatch(this, period),
       announcement:
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
       filterOpen: false,
       filterOpenField: '',
+      listSwiperCurrent: 1,
+      periodSwiperDuration: 260,
       viewMode: nextView,
       weekStart: nextWeekStart,
+      weekSwiperCurrent: 1,
     });
-    if (nextView === 'week') void loadWorkbench(this);
+    if (nextView === 'week') void refreshWorkbenchWindow(this);
   },
 
   handleFilterToggle(this: WorkbenchPageInstance): void {
@@ -364,8 +379,10 @@ Page({
               : '已切换到下个月。',
       },
       () => {
+        const month = this.selectComponent('#workbench-month');
+        const shiftContinues = month?.finishPeriodShift?.() ?? false;
         flushPendingScrollTarget(this);
-        void loadWorkbench(this);
+        if (!shiftContinues) void refreshWorkbenchWindow(this);
       },
     );
   },
@@ -435,17 +452,21 @@ Page({
 
   handleWeekSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
     const delta = getSwiperDelta(event.detail.current);
-    if (delta === 0) return;
+    if (delta === 0 || this.periodShiftCommitPending) return;
     const target = this.pendingWeekTarget;
     this.pendingWeekTarget = undefined;
+    this.periodShiftActive = 'week';
+    this.periodShiftCommitPending = true;
     commitPeriodShift(this, 'week', delta, target);
   },
 
   handleListSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
     const delta = getSwiperDelta(event.detail.current);
-    if (delta === 0) return;
+    if (delta === 0 || this.periodShiftCommitPending) return;
     const target = this.pendingListTarget;
     this.pendingListTarget = undefined;
+    this.periodShiftActive = 'list';
+    this.periodShiftCommitPending = true;
     commitPeriodShift(this, 'list', delta, target);
   },
 
@@ -557,18 +578,9 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
     );
     const monthResults = await readMonths(page, selectedGroup.id, requestedMonths);
     if (!isCurrentRequest(page, requestSerial)) return;
-    const activeMonth =
-      page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
-    const activeResult =
-      monthResults.find((result) => result.calendar.businessMonth === activeMonth) ??
-      monthResults[0];
-    if (activeResult === undefined) throw new Error('Calendar month data is unavailable.');
-    const loadedResults = [...page.monthResources.values()];
-    page.calendar = {
-      ...activeResult.calendar,
-      assignments: loadedResults.flatMap((result) => result.calendar.assignments),
-    };
-    page.holidays = mergeHolidays(loadedResults, activeResult.holidays.year);
+    if (!applyMonthWindow(page, monthResults)) {
+      throw new Error('Calendar month data is unavailable.');
+    }
     const filterMemberOptions = createFilterOptions(
       page.calendar.members.map((member) => ({
         label: member.realName,
@@ -625,8 +637,9 @@ async function readMonths(
   groupId: string,
   requestedMonths: readonly string[],
 ): Promise<readonly MonthReadResult[]> {
+  const resolvedMonths = new Map(page.monthResources);
   const missingMonths = requestedMonths.filter(
-    (month) => page.monthResources.get(month)?.offline !== false,
+    (month) => resolvedMonths.get(month)?.offline !== false,
   );
   const years = [...new Set(missingMonths.map((month) => Number(month.slice(0, 4))))];
   const holidayResults = await Promise.all(
@@ -657,17 +670,66 @@ async function readMonths(
       }
     }),
   );
-  for (const result of loaded) {
-    page.monthResources.set(result.calendar.businessMonth, result);
-  }
-  const requestedMonthSet = new Set(requestedMonths);
-  for (const loadedMonth of page.monthResources.keys()) {
-    if (!requestedMonthSet.has(loadedMonth)) page.monthResources.delete(loadedMonth);
-  }
+  for (const result of loaded) resolvedMonths.set(result.calendar.businessMonth, result);
   return requestedMonths.flatMap((businessMonth) => {
-    const result = page.monthResources.get(businessMonth);
+    const result = resolvedMonths.get(businessMonth);
     return result === undefined ? [] : [result];
   });
+}
+
+async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void> {
+  const groupId = page.data.currentGroupId;
+  if (groupId === '') return;
+  const requestedMonths = getRequestedMonths(
+    page.data.viewMode,
+    page.data.businessMonth,
+    page.data.weekStart,
+  );
+  if (requestedMonths.every((month) => page.monthResources.get(month)?.offline === false)) return;
+  const requestSerial = page.requestSerial + 1;
+  page.requestSerial = requestSerial;
+  try {
+    const monthResults = await readMonths(page, groupId, requestedMonths);
+    if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
+    if (!applyMonthWindow(page, monthResults)) return;
+    page.setData({
+      ...createViewPatch(page),
+      canReLogin: false,
+      errorMessage: '',
+      offlineNotice: monthResults.some((result) => result.offline)
+        ? '离线只读 · 显示最近一次成功读取的排班'
+        : '',
+      state: monthResults.some((result) => result.offline) ? 'offline' : 'ready',
+    });
+  } catch (error) {
+    if (!isCurrentRequest(page, requestSerial)) return;
+    page.setData({
+      canReLogin: isAuthRequired(error),
+      errorMessage: getReadErrorMessage(error),
+      state: 'error',
+    });
+  }
+}
+
+function applyMonthWindow(
+  page: WorkbenchPageInstance,
+  monthResults: readonly MonthReadResult[],
+): page is WorkbenchPageInstance & { calendar: CalendarReadModel; holidays: HolidayReadModel } {
+  page.monthResources = new Map(
+    monthResults.map((result) => [result.calendar.businessMonth, result]),
+  );
+  const activeMonth =
+    page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+  const activeResult =
+    monthResults.find((result) => result.calendar.businessMonth === activeMonth) ?? monthResults[0];
+  if (activeResult === undefined) return false;
+  const loadedResults = [...page.monthResources.values()];
+  page.calendar = {
+    ...activeResult.calendar,
+    assignments: loadedResults.flatMap((result) => result.calendar.assignments),
+  };
+  page.holidays = mergeHolidays(loadedResults, activeResult.holidays.year);
+  return true;
 }
 
 function refreshView(page: WorkbenchPageInstance): void {
@@ -746,9 +808,8 @@ function commitPeriodShift(
       weekSwiperCurrent: view === 'week' ? 1 : page.data.weekSwiperCurrent,
     },
     () => {
-      page.setData({ periodSwiperDuration: 260 });
       flushPendingScrollTarget(page);
-      void loadWorkbench(page);
+      continuePeriodShift(page, view);
     },
   );
 }
@@ -782,12 +843,36 @@ function startPeriodSwiper(
   view: 'list' | 'week',
   delta: -1 | 1,
 ): void {
+  const current = view === 'week' ? page.data.weekSwiperCurrent : page.data.listSwiperCurrent;
+  if (page.periodShiftActive !== undefined || current !== 1) {
+    page.periodShiftQueue = clampPeriodShiftQueue(page.periodShiftQueue + delta);
+    return;
+  }
+  page.periodShiftActive = view;
   page.setData({
     periodSwiperDuration: 260,
     ...(view === 'week'
       ? { weekSwiperCurrent: delta < 0 ? 0 : 2 }
       : { listSwiperCurrent: delta < 0 ? 0 : 2 }),
   });
+}
+
+function continuePeriodShift(page: WorkbenchPageInstance, view: 'list' | 'week'): void {
+  page.periodShiftActive = undefined;
+  page.periodShiftCommitPending = false;
+  const queuedDelta = page.periodShiftQueue;
+  if (queuedDelta === 0) {
+    page.setData({ periodSwiperDuration: 260 });
+    void refreshWorkbenchWindow(page);
+    return;
+  }
+  const delta: -1 | 1 = queuedDelta < 0 ? -1 : 1;
+  page.periodShiftQueue = queuedDelta - delta;
+  page.setData({ periodSwiperDuration: 260 }, () => startPeriodSwiper(page, view, delta));
+}
+
+function clampPeriodShiftQueue(value: number): number {
+  return Math.max(-6, Math.min(6, value));
 }
 
 function startLocateTransition(

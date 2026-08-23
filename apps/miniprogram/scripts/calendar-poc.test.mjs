@@ -82,6 +82,9 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(cellStyles).toMatch(
       /\.calendar-cell\.is-bottom-right\s*\{[^}]*border-bottom-right-radius:\s*17px;/su,
     );
+    expect(cellStyles).toMatch(
+      /\.calendar-cell\.is-selected::after\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/su,
+    );
     expect(pageTemplate).toContain('class="selected-summary month-selected-summary"');
     expect(pageStyles).toMatch(/\.month-selected-summary\s*\{[^}]*margin-top:\s*12px;/su);
   });
@@ -135,7 +138,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance.setData).toHaveBeenCalledWith({ viewportHeight: 324 });
   });
 
-  it('commits one native swipe and recenters when the panel data changes', async () => {
+  it('commits one native swipe and recenters only after the parent confirms the period', async () => {
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;
@@ -147,6 +150,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     const instance = {
       _monthHeightTargetIndex: 2,
       _monthShiftPending: false,
+      _queuedMonthDelta: 0,
       data: {
         panelHeights: [270, 324, 270],
         swiperCurrent: 1,
@@ -169,7 +173,8 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(triggerEvent).toHaveBeenCalledOnce();
     expect(triggerEvent).toHaveBeenCalledWith('monthchange', { delta: 1 });
 
-    definition.observers.panels.call(instance);
+    expect(definition.observers.panels).toBeUndefined();
+    definition.methods.finishPeriodShift.call(instance);
     expect(instance.setData.mock.calls[0]?.[0]).toEqual({
       swiperCurrent: 1,
       swiperDuration: 0,
@@ -181,7 +186,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(instance._monthHeightTargetIndex).toBeUndefined();
   });
 
-  it('starts programmatic horizontal and height motion in the same update', async () => {
+  it('starts programmatic horizontal and height motion together and queues rapid taps', async () => {
     let definition;
     vi.stubGlobal('Component', (value) => {
       definition = value;
@@ -190,6 +195,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     const instance = {
       _monthHeightTargetIndex: undefined,
       _monthShiftPending: false,
+      _queuedMonthDelta: 0,
       data: {
         panelHeights: [324, 270, 324],
         swiperCurrent: 1,
@@ -200,10 +206,13 @@ describe('P1 native dynamic month calendar PoC', () => {
         Object.assign(instance.data, patch);
         callback?.();
       }),
+      triggerEvent: vi.fn(),
     };
+    instance.startProgrammaticShift = (...args) =>
+      definition.methods.startProgrammaticShift.call(instance, ...args);
 
     definition.methods.startProgrammaticShift.call(instance, 1, 306);
-    definition.methods.startProgrammaticShift.call(instance, -1);
+    definition.methods.startProgrammaticShift.call(instance, 1);
 
     expect(instance.setData).toHaveBeenNthCalledWith(1, { stepMotion: '' }, expect.any(Function));
     expect(instance.setData.mock.calls[1]?.[0]).toEqual({
@@ -214,6 +223,14 @@ describe('P1 native dynamic month calendar PoC', () => {
     });
     expect(instance.setData).toHaveBeenCalledTimes(2);
     expect(instance._monthHeightTargetIndex).toBe(2);
+    expect(instance._queuedMonthDelta).toBe(1);
+
+    definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
+    definition.methods.finishPeriodShift.call(instance);
+
+    expect(instance._queuedMonthDelta).toBe(0);
+    expect(instance._monthHeightTargetIndex).toBe(2);
+    expect(instance.data.swiperCurrent).toBe(2);
   });
 
   it('keeps adjacent cells inert and emits one semantic current-date selection', async () => {

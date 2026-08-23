@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 列表视口层级、月格描边与快速切换修复（当前批次）
+
+- 用户反馈与范围：列表日期卡的底部裁切边界没有贴住底栏，顶部裁切线错误地贴在左右切换控件下沿且未通栏，切换控件缺少尤其是上沿的阴影；月格蓝色选中框与单元格有 1px 空隙，边角格还需避免描边被裁细；快速连续切月/周会丢点击或闪回原月份。本批只修这 3 组 P4 视觉/调度回归，不进入并行 P5。
+- 引入点与根因：`git log -S`/`git blame` 定位列表固定高度/底部 8px 留白到 `50c6d1ed`，控件 `box-shadow:none` 到 `d9296df`，紧贴控件下沿的 1px 边界到 `4300fbe`；月格 `inset:1px + border` 和 `panels` 任意变化即回中的 observer 到 `3fc41610`，过渡期直接丢弃月按钮来自 `53b5c74`，周/列表无排队且每次完成都重新进入 `loadWorkbench→listGroups` 来自 `733e3af6`/`3fc41610`。因此后台相邻月数据到达时可在下一次动画中途强制 swiper 回中，形成“闪一下又是原月份”。
+- 视觉实现与审查：列表模式底部 padding 归零，使 swiper 下裁切面与固定底栏上边界相接；控件下保留 8px 呼吸带，但把 1px 裁切线放到呼吸带下沿，并以 `margin:0 -12px` 延伸到屏幕左右边界。列表切换卡恢复卡片阴影并额外提供轻量上沿阴影，swiper 自身继续负责裁切。月格选中态改为与 Web `MonthGrid` 相同的 `inset 0 0 0 2px` 内阴影，零间隙且边界格全部向内绘制，继承底角半径，不会被月卡裁细。`frontend-design` 审查沿用现有蓝灰令牌；生产 Web 390px 浏览器页因 webview attach 超时未建立，已恢复临时视口，最终以冻结 Web 源码和用户实体截图完成静态截图批评。
+- 调度实现与语义：月组件删除“任何 panels 更新都回中”的隐式 observer，改由父页提交目标 period 后显式 `finishPeriodShift`；过渡期同向/反向点击按净方向排队并在无动画回中后继续。周/列表增加 active/commit/queue 三态，重复 finish 不会二次提交，连续点击不丢失。队列清空后才调用 `refreshWorkbenchWindow`，已在线预取的五个月窗口直接返回，不再请求群组或重复 `setData`；只读取缺失边缘月。`readMonths` 只构造局部快照，request serial 与群组仍有效后才原子替换资源，过期请求不能删除/覆盖当前窗口。业务月份、选中日、五/六行高度、定位目标、缓存 fallback、错误文案、Promise catch、GET 内容、无写入语义均保持；明确变化仅为快速输入被保留、无效重复读取被移除、后台结果不再有权打断动画。
+- 测试与验证：列表全宽裁切/阴影/底栏贴合、月格无缝内描边、显式回中、月/周快速队列、重复 finish 和只提交有效读取等回归在 `940358e` 上失败，修复后定向 27/27。精确 `940358e` + 本轮 6 文件的隔离 worktree 中 Mini 18 文件/92 项、typecheck、production verify（2/2 Worklet，408847 bytes，manifest `85256aed45eea7d152158c5ad36b4b795799b5ba64185df03a27bec358280097`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需完整浏览器 smoke。主工作区并行 P5、Storybook、构建配置和迁移文件未修改、未暂存。
+- 当前状态与停止条件：已实现待实体微信复核；下一步创建并推送 `fix(miniprogram): stabilize calendar viewport and rapid shifts` checkpoint，上传同一精确 production-profile 体验版 `.70`，完成生产备份/release/验证和最终状态记录后暂停；不提交审核/正式发布，不进入 P5。
+
 ## 2026-08-23 P4 Mini 表现层债务与包体审计（当前批次）
 
 - 用户要求：再次检查类似“页面层与 ViewModel 各保留一套文案/格式/状态”的遗留实现，删除可证明无用的屎山代码，减少加载渲染与包体。本批只审计已经进入 production Mini 主包的表现层和构建 manifest，不碰并行 P5 手排/contracts/迁移，不进入新功能。

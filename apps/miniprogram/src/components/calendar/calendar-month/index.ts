@@ -13,6 +13,7 @@ interface CalendarSelectEvent {
 interface CalendarMonthInstance {
   _monthHeightTargetIndex: 0 | 2 | undefined;
   _monthShiftPending: boolean;
+  _queuedMonthDelta: number;
   readonly data: {
     readonly locateAnimating: boolean;
     readonly panelHeights?: readonly number[];
@@ -21,6 +22,7 @@ interface CalendarMonthInstance {
     readonly swiperDuration: number;
     readonly viewportHeight: number;
   };
+  finishPeriodShift(): boolean;
   startProgrammaticShift(delta: -1 | 1, targetHeight?: number): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail?: unknown): void;
@@ -50,27 +52,12 @@ Component({
         this.setData({ viewportHeight: value });
       }
     },
-    panels(this: CalendarMonthInstance): void {
-      if (!this._monthShiftPending && this.data.swiperCurrent === 1) return;
-      this.setData(
-        {
-          swiperCurrent: 1,
-          swiperDuration: 0,
-          viewportHeight: this.data.panelHeights?.[1] ?? 270,
-        },
-        () => {
-          this.setData({ swiperDuration: 240 }, () => {
-            this._monthHeightTargetIndex = undefined;
-            this._monthShiftPending = false;
-          });
-        },
-      );
-    },
   },
   lifetimes: {
     attached(this: CalendarMonthInstance): void {
       this._monthHeightTargetIndex = undefined;
       this._monthShiftPending = false;
+      this._queuedMonthDelta = 0;
     },
   },
   methods: {
@@ -105,7 +92,10 @@ Component({
       delta: -1 | 1,
       targetHeight?: number,
     ): void {
-      if (this._monthShiftPending || this._monthHeightTargetIndex !== undefined) return;
+      if (this._monthShiftPending || this._monthHeightTargetIndex !== undefined) {
+        this._queuedMonthDelta = clampMonthShiftQueue(this._queuedMonthDelta + delta);
+        return;
+      }
       const targetIndex = delta === -1 ? 0 : 2;
       this._monthHeightTargetIndex = targetIndex;
       this.setData({ stepMotion: '' }, () => {
@@ -116,6 +106,28 @@ Component({
           viewportHeight: targetHeight ?? this.data.panelHeights?.[targetIndex] ?? 270,
         });
       });
+    },
+    finishPeriodShift(this: CalendarMonthInstance): boolean {
+      const queuedDelta = this._queuedMonthDelta;
+      const continues = queuedDelta !== 0;
+      this.setData(
+        {
+          swiperCurrent: 1,
+          swiperDuration: 0,
+          viewportHeight: this.data.panelHeights?.[1] ?? 270,
+        },
+        () => {
+          this.setData({ swiperDuration: 240 }, () => {
+            this._monthHeightTargetIndex = undefined;
+            this._monthShiftPending = false;
+            if (!continues) return;
+            const delta: -1 | 1 = queuedDelta < 0 ? -1 : 1;
+            this._queuedMonthDelta = queuedDelta - delta;
+            this.startProgrammaticShift(delta);
+          });
+        },
+      );
+      return continues;
     },
     handlePrevious(this: CalendarMonthInstance): void {
       this.startProgrammaticShift(-1);
@@ -134,3 +146,7 @@ Component({
     },
   },
 });
+
+function clampMonthShiftQueue(value: number): number {
+  return Math.max(-6, Math.min(6, value));
+}

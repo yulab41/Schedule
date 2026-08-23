@@ -93,15 +93,20 @@ describe('P4 native workbench', () => {
     expect(pageSource).not.toContain(' · 星期');
   });
 
-  it('draws the list scroll clipping boundary directly below the month controls', () => {
+  it('places the list clipping line at the full-width card edge and keeps its floor flush', () => {
     const template = readSource('pages/workbench/index.wxml');
     const pageStyles = readSource('pages/workbench/index.wxss');
 
     expect(template).toContain('class="list-scroll-boundary"');
     expect(pageStyles).toMatch(
-      /\.list-scroll-boundary\s*{[^}]*height:\s*1px;[^}]*background:\s*var\(--ui-color-border\);/s,
+      /\.list-scroll-boundary\s*{[^}]*width:\s*auto;[^}]*height:\s*8px;[^}]*margin:\s*0 -12px;[^}]*background:\s*var\(--ui-color-background\);[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/s,
     );
-    expect(pageStyles).toMatch(/\.list-calendar-heading\s*{[^}]*margin-bottom:\s*0;/s);
+    expect(pageStyles).toMatch(
+      /\.list-calendar-heading\s*{[^}]*box-shadow:\s*0 -4px 14px rgba\(22, 32, 42, 0\.06\),\s*var\(--ui-shadow-card\);/s,
+    );
+    expect(pageStyles).toMatch(/\.workbench-content\.is-list-mode\s*{[^}]*padding-bottom:\s*0;/s);
+    expect(pageStyles).toMatch(/\.list-panel-scroll\s*{[^}]*padding:\s*0 0 16px;/s);
+    expect(pageStyles).toMatch(/\.list-calendar\s*{[^}]*overflow:\s*visible;/s);
   });
 
   it('keeps today prefetched and stages locate target panels before motion starts', () => {
@@ -146,6 +151,31 @@ describe('P4 native workbench', () => {
       /page\.setData\(\{[\s\S]*?state:[\s\S]*?\}\);\s*refreshView\(page\);\s*flushPendingScrollTarget/u,
     );
     expect(pageSource).not.toContain('else refreshView(this);');
+  });
+
+  it('queues rapid month and week shifts without stale reads recentering active motion', () => {
+    const pageSource = readSource('pages/workbench/index.ts');
+    const monthSource = readSource('components/calendar/calendar-month/index.ts');
+    const readMonthsSource = pageSource.slice(
+      pageSource.indexOf('async function readMonths('),
+      pageSource.indexOf('function refreshView('),
+    );
+    const periodShiftSource = pageSource.slice(
+      pageSource.indexOf('function commitPeriodShift('),
+      pageSource.indexOf('function startLocateTransition('),
+    );
+
+    expect(monthSource).toContain('_queuedMonthDelta');
+    expect(monthSource).toContain('finishPeriodShift');
+    expect(monthSource).not.toMatch(/panels\(this:\s*CalendarMonthInstance\)/u);
+    expect(pageSource).toContain('periodShiftQueue');
+    expect(pageSource).toContain('periodShiftCommitPending');
+    expect(pageSource).toContain('function continuePeriodShift(');
+    expect(pageSource).toContain('async function refreshWorkbenchWindow(');
+    expect(pageSource).toContain('month?.finishPeriodShift?.()');
+    expect(periodShiftSource).not.toContain('loadWorkbench(');
+    expect(readMonthsSource).not.toContain('page.monthResources.set(');
+    expect(readMonthsSource).not.toContain('page.monthResources.delete(');
   });
 
   it('keeps the P4 shell read-only and exposes the confirmed navigation states', () => {
@@ -226,14 +256,15 @@ describe('P4 native workbench', () => {
     expect(pageStyles).toContain('@keyframes filter-sheet-enter');
     expect(monthStyles).toContain('@keyframes click-locate');
     expect(cellStyles).toMatch(
-      /\.calendar-cell\.is-selected::after\s*{[^}]*inset:\s*1px;[^}]*border:\s*2px solid/s,
+      /\.calendar-cell\.is-selected::after\s*{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/s,
     );
+    expect(cellStyles).not.toMatch(/\.calendar-cell\.is-selected::after\s*{[^}]*inset:\s*1px;/s);
     expect(pageSource).toContain("? 'offline' : 'ready'");
     expect(pageSource).not.toContain('activeResult.calendar.assignments.length === 0');
     expect(pageSource).toContain('commitPeriodShift');
     expect(pageSource).not.toContain('recenterPeriodSwiper');
     expect(pageSource).toContain('[-2, -1, 0, 1, 2]');
-    expect(pageSource).toContain('page.monthResources.delete(loadedMonth)');
+    expect(pageSource).toContain('function applyMonthWindow(');
     expect(template).toContain('class="list-panel-scroll"');
     expect(template).toContain('scroll-into-view="{{listScrollTarget}}"');
     expect(template).not.toContain('月份工具栏固定 · 已按日期排序');
@@ -254,7 +285,7 @@ describe('P4 native workbench', () => {
     expect(pageStyles).toMatch(
       /\.list-calendar-heading\s*{[^}]*position:\s*relative;[^}]*z-index:\s*2;/s,
     );
-    expect(pageStyles).toMatch(/\.list-calendar-heading\s*{[^}]*box-shadow:\s*none;/s);
+    expect(pageStyles).not.toMatch(/\.list-calendar-heading\s*{[^}]*box-shadow:\s*none;/s);
     expect(pageStyles).toMatch(/\.filter-sheet\s*{[^}]*height:\s*468px;/s);
     expect(pageStyles).toMatch(/\.filter-select-options\s*{[^}]*position:\s*absolute;/s);
     expect(pageStyles).toContain('.filter-select-options.is-up');
