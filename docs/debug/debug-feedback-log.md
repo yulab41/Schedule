@@ -8,7 +8,7 @@
 - 测试先行与实现：新增固定 28px 星期栏内分隔、month-grid 无额外顶边/角落无第二裁切、slot target 8px、card margin0，以及 list heading 62px/large radius/z3/card shadow 契约，`.73` 旧实现 3 项失败。修复后分隔线不再增加月格高度，统一 2px frame 保留；日期 id 移至 8px slot，默认/卡间/定位后三态同距；heading 提升到 z3，分割带 z2、swiper z1，复用现有大圆角与阴影令牌。
 - 语义审计：没有 3px/DPR 补偿，也没有 Skyline 不支持的 CSS Grid。月格数据、270/324px、circular 动画、列表 target 值与调用次数、点击/电话事件、缓存/异步/只读边界不变；只改变原生布局载体与绘制层级。
 - 验证：定向 30/30；隔离 `11a1f462` + 本轮 5 文件的 Mini 18 文件/95 项、typecheck、production verify（414316 bytes，manifest `9059abbe992308cadcb5645c19e4c63ace4b615975694ed17eb1199f85e98547`）、CI dry-run、核心门禁、ESLint/Prettier 与 diff check 通过。checkpoint：`fix(miniprogram): align calendar edge and list controls`。
-- 发布计划：production-profile `.74`，不提审/正式发布；生产备份/部署/验证后等待实体只复核本轮 4 点。
+- 发布：代码 checkpoint `0d8e385d` 已推送；精确 worktree 18 文件/95 项、typecheck、production verify（417647 bytes，manifest `40eda6083bc9e919aadb22c41867e51c808d74528ee2cb6bac934fdb82a69fb3`）和 CI dry-run 通过。production-profile `.74` 上传成功（63 文件，manifest `bf3241f75a2430e4b0526029d213cefa10272865bbbd246ffe7050ef71e0f156`），未提审/正式发布。生产备份 archive `4de6838a-93c4-4e19-be56-25be1f1eda85`（54 表、162564 行、76688428 bytes，SHA-256 `f0a58e099029185537ee68b49bbe3ab4b530e484eb8c057e7198ceb75002ffbb`）后部署 release `0d8e385def2e8d1f8ec787cd690aa9df188b569c`；预热首个 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record calendar edge deployment`。
 
 ## 2026-08-23 P4 `.71` 实体复核：原生回中与列表内容边界
 
