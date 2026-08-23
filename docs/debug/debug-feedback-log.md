@@ -7,7 +7,8 @@
 - 引入点：`git log -S 'upload-experience --profile=staging'`/`git blame` 确认默认 staging 由 `3884713b` 初始化；用户已决定不补建 staging，体验版与正式版统一使用 production API。
 - 实现：默认 build、preview、verify、determinism、CI dry-run 和 experience upload 命令改为 production；保留显式 `build:staging`，不增加运行时切换。新增 profile 默认回归测试，旧配置 2/2 失败后转为 2/2 通过。
 - 验证：受控 Mini 17 文件/71 项、typecheck、production verify（2/2 Worklet，203145 bytes）和 `git diff --check` 通过；主工作区既有 `.artifacts/ecs-runner-deploy-*` 副本误扫导致的 17 项失败已排除并单独记录，未修改该目录。
-- 状态：已实现待提交；提交后从同一 checkpoint 上传新的 production-profile 体验版，等待用户原生复核。
+- 发布：代码 checkpoint `8927eae` 已推送；默认 `upload:experience` 成功上传 production-profile 体验版 `0.1.0-p3.20260823.56`，60 个代码文件，manifest `8e0455060cac0c61159c3955e5f7bb76db5a7af47bc8c8a7369d87675fd9480c`；未审核/正式发布。
+- 状态：已完成（含运行验证）→待人工原生复核；等待用户在体验版复核微信登录及完整 P3 身份流程。
 - checkpoint 识别消息：`fix(miniprogram): default experience builds to production`。
 
 ## 2026-08-23 P3 Mini 生产 API 体验版联通修复

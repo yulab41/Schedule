@@ -7,8 +7,9 @@
 - 实现：`apps/miniprogram/package.json` 的默认 `build`、`check:determinism`、`ci:dry-run`、`preview`、`upload:experience` 和 `verify` 全部改为 `--profile=production`；保留显式 `build:staging` 作为未部署环境的本地入口，不提供运行时环境切换。
 - 引入点与测试：`git log -S 'upload-experience --profile=staging'`/`git blame` 定位 staging 默认来自 `3884713b`；新增默认 profile 回归测试，旧配置先失败 2/2，production 配置后通过。
 - 验证：受控 Mini `vitest run scripts --exclude .artifacts/** --fileParallelism=false` 17 文件/71 项、typecheck、`node scripts/verify.mjs --profile=production` 和 `git diff --check` 通过（2/2 Worklet，203145 bytes，manifest `a5250654fad9005e89e012478b6c7e5daf729d92fa5b6246e630f22a8201c1d1`）；未运行 `pnpm smoke:browser`，本轮仅 Mini 构建 profile/上传链路。
-- 当前状态：已实现待提交；提交并推送后必须从同一 checkpoint 重新上传 production-profile 体验版，再由用户复核微信登录、绑定、建档、管理员绑定和解绑。
-- 下一活动批次与停止条件：只做本 checkpoint 的 Git/体验上传和实体 Android/微信复核；用户明确通过前不补 staging、不进入 P4 或新的 Web/Mini 页面。
+- checkpoint 与体验上传：代码 checkpoint `8927eae`（`fix(miniprogram): default experience builds to production`）已推送；默认 `upload:experience` 从该 checkpoint 成功上传 production-profile 体验版 `0.1.0-p3.20260823.56`，60 个平台代码文件，上传 manifest `8e0455060cac0c61159c3955e5f7bb76db5a7af47bc8c8a7369d87675fd9480c`；未审核/正式发布。
+- 当前状态：已完成（含运行验证）→待人工原生复核；请用户在微信体验版 `0.1.0-p3.20260823.56` 复核微信登录、绑定、建档、管理员绑定和解绑。
+- 下一活动批次与停止条件：只做本 checkpoint 的实体 Android/微信复核；用户明确通过前不补 staging、不进入 P4 或新的 Web/Mini 页面。
 - checkpoint 识别消息：`fix(miniprogram): default experience builds to production`。
 
 ## 2026-08-23 P3 Mini 生产 API 体验版联通修复（前一 checkpoint）
