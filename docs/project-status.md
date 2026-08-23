@@ -10,7 +10,7 @@
 - 测试先行与验证：新增滑动方向/阈值、底行标记和模板契约断言；`pnpm exec vitest run scripts --exclude '.artifacts/**' --fileParallelism=false` 18 文件/77 项通过；Mini typecheck、production build、source audit、package audit、determinism、verify 通过。全量默认测试仍会扫描仓库既有 `.artifacts/ecs-runner-deploy-*` 临时副本并报告其相对 tsconfig/生成 tokens 路径错误，未修改该副本；本批未触及 Web 核心链路，未运行 `pnpm smoke:browser`。
 - 当前状态：已实现待人工原生复核。尚未宣称 Android/微信运行时视觉通过；Storybook/模拟器/构建不能替代实体设备确认。
 - 原生验收停止点：体验版安装后，确认月切换不再整页闪屏、周/列表左右滑动、周选择框左右边界、月历底线、筛选面板/计数、定位滚动、定位/筛选/底部导航图标动效，并复核 390/320 边界；用户确认前不进入 P5 或扩展 P4 业务写入。
-- checkpoint 与发布：代码 checkpoint 将使用 `fix(miniprogram): refine p4 workbench interactions`；体验上传与 production ECS 备份/部署/验证待本轮代码 checkpoint 后执行。
+- checkpoint 与发布：代码 checkpoint `9cdd0a8`（`fix(miniprogram): refine p4 workbench interactions`）已推送；production profile 体验版 `0.1.0-p4.20260823.58` 上传成功，63 个平台代码文件，上传 manifest `41d60b9a4772f680a7ae24f023f90b0db1425a4387426c0666755a964c2d9980`，未审核/正式发布。ECS 发布前数据库备份 archive `bb52323f-c52a-4ded-80cd-1c8c952aadff`（54 表、161979 行、76489864 bytes，SHA-256 `b92275867d1f7047d1d9064b0539385bb7aac8662e3d38e212ccd7ded9cc4d14`）后部署 release `9cdd0a8d37650fcd4a239630a252f00e1683f51a`；`ecs-verify.sh` 的健康、域名隔离、产物哈希、容器、迁移和旧记录检查全项通过，部署临时目录已删除。状态文档对齐 checkpoint 待下一 docs-only release 完成。
 
 ## 2026-08-23 P4 小程序原生工作台接续（当前批次）
 
