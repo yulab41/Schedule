@@ -273,7 +273,9 @@ describe('schedule publication presentation-core equivalence', () => {
     ]) {
       expect(source).toContain(sharedCall);
     }
-    expect(source).toContain('operationId: crypto.randomUUID()');
+    expect(source).toContain('const pendingOperationIds = new Map<string, string>()');
+    expect(source).toContain('operationId: getPendingOperationId(operationKey)');
+    expect(source).toContain('pendingOperationIds.delete(operationKey)');
     expect(source).toContain('await api.publishScheduleDraftBatch(');
     expect(source).toContain('await api.withdrawSchedulePeriod(');
     expect(source).toContain('await api.publishSchedulePeriod(');

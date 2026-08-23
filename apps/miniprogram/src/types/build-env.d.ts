@@ -61,7 +61,7 @@ interface MiniProgramRequestOptions {
   readonly data?: unknown;
   readonly fail: (error: unknown) => void;
   readonly header: Readonly<Record<string, string>>;
-  readonly method: 'GET' | 'POST';
+  readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
   readonly success: (response: { readonly data: unknown; readonly statusCode: number }) => void;
   readonly url: string;
 }

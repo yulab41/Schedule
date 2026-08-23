@@ -1,5 +1,12 @@
 import type { ManualScheduleTemplate, SchedulePeriodHistoryItem } from '@schedule/contracts';
 import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+  getManualScheduleInclusiveDayCount,
+  isValidManualScheduleDate,
+} from '@schedule/contracts/manual-schedule-limits';
+import {
   applyManualCellMutation,
   clearManualCell,
   clearManualColumn,
@@ -42,7 +49,12 @@ export function getTemplateDateColumns(
   startDate: string,
   cycleDays: number,
 ): readonly TemplateDateColumn[] {
-  if (!isValidDate(startDate) || !Number.isInteger(cycleDays) || cycleDays < 1 || cycleDays > 31) {
+  if (
+    !isValidManualScheduleDate(startDate) ||
+    !Number.isInteger(cycleDays) ||
+    cycleDays < 1 ||
+    cycleDays > MAX_MANUAL_DAYS
+  ) {
     throw new Error('The template start date and cycle days are invalid.');
   }
 
@@ -53,6 +65,41 @@ export function getTemplateDateColumns(
   }
 
   return columns;
+}
+
+export function getManualTemplateLimitError(input: {
+  readonly cellCount: number;
+  readonly cycleDays: number;
+  readonly memberCount: number;
+}): string | undefined {
+  if (!Number.isInteger(input.cycleDays) || input.cycleDays < 1) {
+    return `周期天数必须是 1 到 ${MAX_MANUAL_DAYS} 之间的整数。`;
+  }
+  if (input.cycleDays > MAX_MANUAL_DAYS) {
+    return `单个模板最多包含 ${MAX_MANUAL_DAYS} 天。`;
+  }
+  if (input.memberCount > MAX_MANUAL_MEMBERS) {
+    return `单个模板最多选择 ${MAX_MANUAL_MEMBERS} 位值班人员。`;
+  }
+  if (input.cellCount > MAX_MANUAL_CELLS) {
+    return `单个模板最多包含 ${MAX_MANUAL_CELLS} 个排班格。`;
+  }
+
+  return undefined;
+}
+
+export function getManualApplyRangeError(startDate: string, endDate: string): string | undefined {
+  if (!isValidManualScheduleDate(startDate) || !isValidManualScheduleDate(endDate)) {
+    return '应用开始日期和结束日期必须是有效日期。';
+  }
+  if (endDate < startDate) {
+    return '结束日期不能早于应用开始日期。';
+  }
+  if (getManualScheduleInclusiveDayCount(startDate, endDate) > MAX_MANUAL_DAYS) {
+    return `单次预览或应用的总区间不能超过 ${MAX_MANUAL_DAYS} 天。`;
+  }
+
+  return undefined;
 }
 
 export function applyShiftToCell(
@@ -167,20 +214,7 @@ function getWeekdayLabel(value: string): string {
 }
 
 function isValidDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
-  if (match === null) {
-    return false;
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const candidate = new Date(Date.UTC(year, month - 1, day));
-  return (
-    candidate.getUTCFullYear() === year &&
-    candidate.getUTCMonth() === month - 1 &&
-    candidate.getUTCDate() === day
-  );
+  return isValidManualScheduleDate(value);
 }
 
 function parseDate(value: string): {

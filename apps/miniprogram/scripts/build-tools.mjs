@@ -24,6 +24,13 @@ export const DIST_ROOT = path.join(APP_ROOT, 'dist');
 export const ARTIFACT_ROOT = path.join(APP_ROOT, '.artifacts');
 const REPOSITORY_ROOT = path.resolve(APP_ROOT, '..', '..');
 const CLIENT_CORE_ENTRY = path.join(REPOSITORY_ROOT, 'packages', 'client-core', 'src', 'index.ts');
+const CONTRACTS_MANUAL_SCHEDULE_LIMITS_ENTRY = path.join(
+  REPOSITORY_ROOT,
+  'packages',
+  'contracts',
+  'src',
+  'manual-schedule-limits.ts',
+);
 const PRESENTATION_CORE_ENTRY = path.join(
   REPOSITORY_ROOT,
   'packages',
@@ -74,6 +81,7 @@ const forbiddenModules = [
   'vue-router',
   'zod',
 ];
+const forbiddenExactModules = new Set(['@schedule/contracts']);
 
 const forbiddenRuntimeIdentifiers = new Set([
   'Buffer',
@@ -269,6 +277,7 @@ export async function buildMiniProgram({
     absWorkingDir: APP_ROOT,
     alias: {
       '@schedule/client-core': CLIENT_CORE_ENTRY,
+      '@schedule/contracts/manual-schedule-limits': CONTRACTS_MANUAL_SCHEDULE_LIMITS_ENTRY,
       '@schedule/presentation-core': PRESENTATION_CORE_ENTRY,
     },
     bundle: true,
@@ -371,10 +380,21 @@ function isPropertyName(identifier) {
 function isForbiddenModule(moduleName) {
   return (
     nodeBuiltins.has(moduleName) ||
+    forbiddenExactModules.has(moduleName) ||
     forbiddenModules.some(
       (forbidden) => moduleName === forbidden || moduleName.startsWith(`${forbidden}/`),
     )
   );
+}
+
+function importDeclarationHasRuntimeEffect(node) {
+  const clause = node.importClause;
+  if (clause === undefined) return true;
+  if (clause.isTypeOnly) return false;
+  if (clause.name !== undefined) return true;
+  if (clause.namedBindings === undefined) return false;
+  if (ts.isNamespaceImport(clause.namedBindings)) return true;
+  return clause.namedBindings.elements.some((element) => !element.isTypeOnly);
 }
 
 export function findRuntimeBoundaryIssues(source, fileName = 'source.ts') {
@@ -389,7 +409,11 @@ export function findRuntimeBoundaryIssues(source, fileName = 'source.ts') {
   }
 
   function visit(node) {
-    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      importDeclarationHasRuntimeEffect(node)
+    ) {
       inspectModule(node.moduleSpecifier.text);
     }
     if (

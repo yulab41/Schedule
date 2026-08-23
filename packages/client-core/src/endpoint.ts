@@ -4,9 +4,11 @@ export type ClientEndpointAuth = 'bearer' | 'public';
 
 export interface ClientEndpoint<Input, Output> {
   readonly auth: ClientEndpointAuth;
+  readonly body?: ((input: Input) => unknown) | undefined;
   readonly decoder: CompactDecoder<Output>;
   readonly id: string;
-  readonly method: 'GET';
+  readonly idempotencyKey?: ((input: Input) => string | undefined) | undefined;
+  readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
   readonly path: (input: Input) => string;
 }
 

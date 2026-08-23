@@ -166,20 +166,36 @@ export class SchedulePublishService {
     identity: AuthenticatedIdentity,
     groupId: string,
     schedulePeriodId: string,
+    operationId: string,
   ): Promise<void> {
-    return withTransaction(this.databaseClient, async (transaction) => {
+    await withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
         transaction,
         identity,
         groupId,
         'manageScheduleConfiguration',
       );
-      await this.repository.deleteDraftInTransaction(transaction, {
-        actorUserId: authorization.user.id,
-        groupId: authorization.group.id,
-        operationId: randomUUID(),
-        schedulePeriodId,
-      });
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: authorization.user.id,
+          operationId,
+          requestFingerprint: createDeleteFingerprint({
+            groupId: authorization.group.id,
+            schedulePeriodId,
+          }),
+          scope: 'schedule_period_delete',
+        },
+        async () => {
+          await this.repository.deleteDraftInTransaction(transaction, {
+            actorUserId: authorization.user.id,
+            groupId: authorization.group.id,
+            operationId,
+            schedulePeriodId,
+          });
+          return { deleted: true };
+        },
+      );
     });
   }
 
@@ -411,23 +427,44 @@ export class SchedulePublishService {
         groupId,
         'manageScheduleConfiguration',
       );
-      const period = await this.lockPeriod(transaction, authorization.group.id, schedulePeriodId);
-      const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(transaction, [
-        period.id,
-      ]);
-      const withdrawn = await this.repository.withdrawInTransaction(transaction, {
-        actorUserId: authorization.user.id,
-        acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
-        expectedVersion: input.expectedVersion,
-        operationId: input.operationId,
-        schedulePeriodId: period.id,
-      });
-      await this.statisticsService.refreshInTransaction(
+      return withIdempotentOperation(
         transaction,
-        authorization.group.id,
-        period.businessMonth,
+        {
+          actorUserId: authorization.user.id,
+          operationId: input.operationId,
+          requestFingerprint: createMutationFingerprint({
+            acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
+            expectedVersion: input.expectedVersion,
+            groupId: authorization.group.id,
+            schedulePeriodId,
+          }),
+          scope: 'schedule_period_withdraw',
+        },
+        async () => {
+          const period = await this.lockPeriod(
+            transaction,
+            authorization.group.id,
+            schedulePeriodId,
+          );
+          const workflowImpacts = await this.repository.listWorkflowImpactsInTransaction(
+            transaction,
+            [period.id],
+          );
+          const withdrawn = await this.repository.withdrawInTransaction(transaction, {
+            actorUserId: authorization.user.id,
+            acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations === true,
+            expectedVersion: input.expectedVersion,
+            operationId: input.operationId,
+            schedulePeriodId: period.id,
+          });
+          await this.statisticsService.refreshInTransaction(
+            transaction,
+            authorization.group.id,
+            period.businessMonth,
+          );
+          return { period: toPeriodSummary(withdrawn), workflowImpacts };
+        },
       );
-      return { period: toPeriodSummary(withdrawn), workflowImpacts };
     });
   }
 
@@ -583,6 +620,22 @@ function createBatchPublishFingerprint(input: {
   readonly groupId: string;
   readonly replacePublished: boolean;
   readonly schedulePeriodIds: readonly string[];
+}): string {
+  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+}
+
+function createDeleteFingerprint(input: {
+  readonly groupId: string;
+  readonly schedulePeriodId: string;
+}): string {
+  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+}
+
+function createMutationFingerprint(input: {
+  readonly acknowledgeWorkflowRevocations: boolean;
+  readonly expectedVersion: number;
+  readonly groupId: string;
+  readonly schedulePeriodId: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }

@@ -1,8 +1,11 @@
 export interface CompactJsonSchema {
   readonly additionalProperties?: false | undefined;
+  readonly const?: boolean | number | string | undefined;
   readonly enum?: readonly string[] | undefined;
   readonly items?: CompactJsonSchema | undefined;
+  readonly maxItems?: number | undefined;
   readonly maximum?: number | undefined;
+  readonly minItems?: number | undefined;
   readonly minLength?: number | undefined;
   readonly minimum?: number | undefined;
   readonly pattern?: string | undefined;
@@ -38,10 +41,16 @@ function compileSchema(schema: CompactJsonSchema): Validator {
         throw new Error('Compact array schemas require an items decoder.');
       }
       const validateItem = compileSchema(schema.items);
-      return (value) => Array.isArray(value) && value.every((item) => validateItem(item));
+      return (value) =>
+        Array.isArray(value) &&
+        (schema.minItems === undefined || value.length >= schema.minItems) &&
+        (schema.maxItems === undefined || value.length <= schema.maxItems) &&
+        value.every((item) => validateItem(item));
     }
     case 'boolean':
-      return (value) => typeof value === 'boolean';
+      return (value) =>
+        typeof value === 'boolean' &&
+        (schema.const === undefined || Object.is(value, schema.const));
     case 'integer':
       return compileNumberSchema(schema, true);
     case 'number':
@@ -58,6 +67,7 @@ function compileNumberSchema(schema: CompactJsonSchema, integerOnly: boolean): V
     typeof value === 'number' &&
     Number.isFinite(value) &&
     (!integerOnly || Number.isInteger(value)) &&
+    (schema.const === undefined || Object.is(value, schema.const)) &&
     (schema.minimum === undefined || value >= schema.minimum) &&
     (schema.maximum === undefined || value <= schema.maximum);
 }
@@ -108,6 +118,7 @@ function compileStringSchema(schema: CompactJsonSchema): Validator {
   return (value) =>
     typeof value === 'string' &&
     (schema.minLength === undefined || value.length >= schema.minLength) &&
+    (schema.const === undefined || Object.is(value, schema.const)) &&
     (allowedValues === undefined || allowedValues.has(value)) &&
     (pattern === undefined || pattern.test(value));
 }

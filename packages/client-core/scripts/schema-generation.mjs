@@ -1,12 +1,16 @@
 const ignoredSchemaKeys = new Set(['$schema', 'readOnly']);
 const supportedSchemaKeys = new Set([
   'additionalProperties',
+  'const',
   'enum',
   'items',
+  'maxItems',
   'maximum',
+  'minItems',
   'minLength',
   'minimum',
   'pattern',
+  'prefixItems',
   'properties',
   'required',
   'type',
@@ -52,30 +56,51 @@ export function sanitizeJsonSchema(schema, path = '$') {
   if (schema.items !== undefined) {
     result.items = sanitizeJsonSchema(schema.items, `${path}.items`);
   }
+  if (schema.prefixItems !== undefined) {
+    if (!Array.isArray(schema.prefixItems) || schema.prefixItems.length === 0) {
+      throw new Error(`${path}.prefixItems must be a non-empty tuple`);
+    }
+    const tupleItems = schema.prefixItems.map((item, index) =>
+      sanitizeJsonSchema(item, `${path}.prefixItems[${index}]`),
+    );
+    const firstItem = JSON.stringify(tupleItems[0]);
+    if (!tupleItems.every((item) => JSON.stringify(item) === firstItem)) {
+      throw new Error(`${path}.prefixItems must use one homogeneous item schema`);
+    }
+    result.items = tupleItems[0];
+    result.minItems = tupleItems.length;
+    result.maxItems = tupleItems.length;
+  }
   if (schema.enum !== undefined) result.enum = [...schema.enum];
-  for (const key of ['maximum', 'minLength', 'minimum', 'pattern']) {
+  if (schema.const !== undefined) {
+    if (!['boolean', 'number', 'string'].includes(typeof schema.const)) {
+      throw new Error(`${path}.const must be a supported primitive`);
+    }
+    result.const = schema.const;
+  }
+  for (const key of ['maximum', 'maxItems', 'minItems', 'minLength', 'minimum', 'pattern']) {
     if (schema[key] !== undefined) result[key] = schema[key];
   }
   return result;
 }
 
-export function renderGeneratedSchemas({ calendar, errorCodes, holidays }) {
+export function renderGeneratedSchemas({ errorCodes, schemas }) {
+  const schemaEntries = Object.entries(schemas);
   return [
     "import type { CompactJsonSchema } from '../json-decoder.js';",
     '',
-    'const calendarReadModelSchemaJson =',
-    `  ${quoteJson(calendar)};`,
-    'const holidayReadModelSchemaJson =',
-    `  ${quoteJson(holidays)};`,
+    ...schemaEntries.flatMap(([name, schema]) => [
+      `const ${name}SchemaJson =`,
+      `  ${quoteJson(schema)};`,
+    ]),
     'const apiErrorCodesJson =',
     `  ${quoteJson(errorCodes)};`,
     '',
-    'export const calendarReadModelJsonSchema = JSON.parse(',
-    '  calendarReadModelSchemaJson,',
-    ') as CompactJsonSchema;',
-    'export const holidayReadModelJsonSchema = JSON.parse(',
-    '  holidayReadModelSchemaJson,',
-    ') as CompactJsonSchema;',
+    ...schemaEntries.flatMap(([name]) => [
+      `export const ${name}JsonSchema = JSON.parse(`,
+      `  ${name}SchemaJson,`,
+      ') as CompactJsonSchema;',
+    ]),
     'export const generatedApiErrorCodes = JSON.parse(apiErrorCodesJson) as readonly string[];',
     '',
   ].join('\n');

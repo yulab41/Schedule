@@ -1,6 +1,8 @@
-import type {
-  CreateManualScheduleTemplateRequest,
-  UpdateManualScheduleTemplateRequest,
+import {
+  createManualScheduleTemplateRequestSchema,
+  updateManualScheduleTemplateRequestSchema,
+  type CreateManualScheduleTemplateRequest,
+  type UpdateManualScheduleTemplateRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -10,34 +12,6 @@ import { ManualScheduleTemplateService } from './template-service.js';
 
 const groupIdSchema = z.string().uuid();
 const templateIdSchema = z.string().uuid();
-const uuidSchema = z.string().uuid();
-const cycleDaySchema = z.number().int().min(1).max(31);
-const cycleDaysSchema = z.number().int().min(1).max(31);
-const startDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-
-const templateCellInputSchema = z
-  .object({
-    cycleDay: cycleDaySchema,
-    membershipId: uuidSchema,
-    shiftTypeId: uuidSchema,
-  })
-  .strict();
-
-const createTemplateInputSchema = z
-  .object({
-    cells: z.array(templateCellInputSchema).max(5_000),
-    cycleDays: cycleDaysSchema,
-    membershipIds: z.array(uuidSchema).min(1).max(100),
-    scheduleRoleId: uuidSchema,
-    startDate: startDateSchema,
-  })
-  .strict();
-
-const updateTemplateInputSchema = createTemplateInputSchema
-  .extend({
-    expectedVersion: z.number().int().min(1),
-  })
-  .strict();
 
 export function registerManualScheduleTemplateRoutes(
   app: FastifyInstance,
@@ -107,11 +81,11 @@ function parseTemplateId(request: FastifyRequest): string {
 }
 
 function parseCreateInput(value: unknown): CreateManualScheduleTemplateRequest {
-  return parseOrThrow(createTemplateInputSchema, value);
+  return parseOrThrow(createManualScheduleTemplateRequestSchema, value);
 }
 
 function parseUpdateInput(value: unknown): UpdateManualScheduleTemplateRequest {
-  return parseOrThrow(updateTemplateInputSchema, value);
+  return parseOrThrow(updateManualScheduleTemplateRequestSchema, value);
 }
 
 function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {

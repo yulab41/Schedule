@@ -2,6 +2,7 @@ export * from './errors.js';
 export * from './concurrency.js';
 export * from './events.js';
 export * from './groups.js';
+export * from './manual-schedule-limits.js';
 export * from './manual-schedules.js';
 export * from './schedules.js';
 export * from './past-schedules.js';

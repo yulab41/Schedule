@@ -1,12 +1,34 @@
 import {
+  appliedManualScheduleTemplateResultJsonSchema,
   calendarReadModelJsonSchema,
   generatedApiErrorCodes,
   holidayReadModelJsonSchema,
+  manualApplyPreviewJsonSchema,
+  manualScheduleTemplateJsonSchema,
+  manualScheduleTemplateListJsonSchema,
+  publishSchedulePeriodBatchResultJsonSchema,
+  publishSchedulePeriodResultJsonSchema,
+  scheduleChangeImpactPreviewJsonSchema,
+  scheduleGenerationPreviewJsonSchema,
+  schedulePeriodHistoryItemListJsonSchema,
+  schedulePeriodMutationResultJsonSchema,
+  schedulingConfigJsonSchema,
 } from '../src/generated/calendar-schemas.js';
 import {
   apiErrorCodes,
+  appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
   holidayReadModelSchema,
+  manualApplyPreviewSchema,
+  manualScheduleTemplateListSchema,
+  manualScheduleTemplateSchema,
+  publishSchedulePeriodBatchResultSchema,
+  publishSchedulePeriodResultSchema,
+  scheduleChangeImpactPreviewSchema,
+  scheduleGenerationPreviewSchema,
+  schedulePeriodHistoryItemListSchema,
+  schedulePeriodMutationResultSchema,
+  schedulingConfigSchema,
 } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -20,6 +42,63 @@ describe('client-core generated schemas', () => {
     );
     expect(holidayReadModelJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(holidayReadModelSchema), 'holidayReadModel'),
+    );
+    expect(manualScheduleTemplateJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(manualScheduleTemplateSchema), 'manualScheduleTemplate'),
+    );
+    expect(manualScheduleTemplateListJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(manualScheduleTemplateListSchema),
+        'manualScheduleTemplateList',
+      ),
+    );
+    expect(manualApplyPreviewJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(manualApplyPreviewSchema), 'manualApplyPreview'),
+    );
+    expect(appliedManualScheduleTemplateResultJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(appliedManualScheduleTemplateResultSchema),
+        'appliedManualScheduleTemplateResult',
+      ),
+    );
+    expect(schedulingConfigJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(schedulingConfigSchema), 'schedulingConfig'),
+    );
+    expect(schedulePeriodHistoryItemListJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(schedulePeriodHistoryItemListSchema),
+        'schedulePeriodHistoryItemList',
+      ),
+    );
+    expect(scheduleGenerationPreviewJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(scheduleGenerationPreviewSchema),
+        'scheduleGenerationPreview',
+      ),
+    );
+    expect(scheduleChangeImpactPreviewJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(scheduleChangeImpactPreviewSchema),
+        'scheduleChangeImpactPreview',
+      ),
+    );
+    expect(schedulePeriodMutationResultJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(schedulePeriodMutationResultSchema),
+        'schedulePeriodMutationResult',
+      ),
+    );
+    expect(publishSchedulePeriodBatchResultJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(publishSchedulePeriodBatchResultSchema),
+        'publishSchedulePeriodBatchResult',
+      ),
+    );
+    expect(publishSchedulePeriodResultJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(publishSchedulePeriodResultSchema),
+        'publishSchedulePeriodResult',
+      ),
     );
     expect(generatedApiErrorCodes).toEqual(apiErrorCodes);
   });

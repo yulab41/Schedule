@@ -9,14 +9,15 @@ import type {
   ScheduleWorkflowImpact,
   SchedulingConfig,
 } from '@schedule/contracts';
-import { computed, onMounted, ref } from 'vue';
+import { MAX_MANUAL_DAYS } from '@schedule/contracts/manual-schedule-limits';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { getConflictLatestData, isDataConflictError } from '../../api/conflict-handler.js';
 import { localAuth } from '../../auth/local-auth.js';
 import TemporalPicker from '../../components/TemporalPicker.vue';
-import { getTemplateDateColumns } from './manual-schedule-logic.js';
+import { getManualApplyRangeError, getTemplateDateColumns } from './manual-schedule-logic.js';
 
 const props = defineProps<{
   readonly group: GroupSummary;
@@ -47,6 +48,8 @@ const isLoading = ref(true);
 const isPreviewing = ref(false);
 const isApplying = ref(false);
 const errorMessage = ref<string>();
+const previewRangeFingerprint = ref<string>();
+let previewRequestVersion = 0;
 
 const visible = ref(true);
 const blockerCount = computed(
@@ -56,6 +59,19 @@ const hasBlockers = computed(() => blockerCount.value > 0);
 const publishLabel = computed(() =>
   publishMode.value?.publishMode === 'published' ? '直接发布' : '保存草稿',
 );
+const effectiveEndDate = computed(() =>
+  repeatEnabled.value ? endDate.value : getDefaultEndDate(),
+);
+const manualApplyRangeFingerprint = computed(
+  () => `${rangeStart.value}:${repeatEnabled.value ? endDate.value : 'single-cycle'}`,
+);
+const rangeErrorMessage = computed(() =>
+  getManualApplyRangeError(rangeStart.value, effectiveEndDate.value),
+);
+const maximumEndDate = computed(() => {
+  const columns = getTemplateDateColumns(rangeStart.value, MAX_MANUAL_DAYS);
+  return columns.at(-1)?.date ?? rangeStart.value;
+});
 const affectedMonths = computed(() => {
   if (preview.value === undefined) {
     return new Set<string>();
@@ -73,11 +89,15 @@ const overlappingDrafts = computed(() =>
 );
 const canConfirmApply = computed(
   () =>
+    rangeErrorMessage.value === undefined &&
+    previewRangeFingerprint.value === manualApplyRangeFingerprint.value &&
     (!hasBlockers.value || acknowledgeBlockers.value) &&
     (overlappingDrafts.value.length === 0 || replaceExistingDrafts.value) &&
     (!needsReplacePublished.value || replacePublished.value) &&
     (workflowImpacts.value.length === 0 || acknowledgeWorkflowRevocations.value),
 );
+
+watch(manualApplyRangeFingerprint, resetPreviewState);
 
 onMounted(() => {
   void loadContext();
@@ -106,32 +126,44 @@ async function computePreview(): Promise<void> {
   if (config.value === undefined) {
     return;
   }
-  if (repeatEnabled.value && endDate.value < rangeStart.value) {
-    errorMessage.value = '结束日期不能早于应用开始日期。';
+  if (rangeErrorMessage.value !== undefined) {
+    errorMessage.value = rangeErrorMessage.value;
     return;
   }
 
   errorMessage.value = undefined;
   isPreviewing.value = true;
+  const currentRequest = ++previewRequestVersion;
+  const requestedRangeFingerprint = manualApplyRangeFingerprint.value;
   try {
-    preview.value = await api.previewManualTemplateApply(props.group.id, props.template.id, {
+    const nextPreview = await api.previewManualTemplateApply(props.group.id, props.template.id, {
       expectedRulesVersion: config.value.rulesVersion,
       ...(repeatEnabled.value ? { endDate: endDate.value } : {}),
       startDate: rangeStart.value,
     });
-    acknowledgeBlockers.value = false;
-    replaceExistingDrafts.value = false;
-    replacePublished.value = false;
-    needsReplacePublished.value = false;
-    workflowImpacts.value = [];
-    acknowledgeWorkflowRevocations.value = false;
+    if (
+      currentRequest !== previewRequestVersion ||
+      requestedRangeFingerprint !== manualApplyRangeFingerprint.value
+    ) {
+      return;
+    }
+    preview.value = nextPreview;
+    previewRangeFingerprint.value = requestedRangeFingerprint;
+    resetPreviewConfirmations();
   } catch (error) {
+    if (currentRequest !== previewRequestVersion) {
+      return;
+    }
     if (isDataConflictError(error)) {
       await loadContext();
     }
-    errorMessage.value = toUserMessage(error, '模板暂时无法应用，请稍后重试。');
+    if (currentRequest === previewRequestVersion) {
+      errorMessage.value = toUserMessage(error, '模板暂时无法应用，请稍后重试。');
+    }
   } finally {
-    isPreviewing.value = false;
+    if (currentRequest === previewRequestVersion) {
+      isPreviewing.value = false;
+    }
   }
 }
 
@@ -139,11 +171,25 @@ async function apply(): Promise<void> {
   if (config.value === undefined) {
     return;
   }
-  if (preview.value === undefined) {
+  if (rangeErrorMessage.value !== undefined) {
+    errorMessage.value = rangeErrorMessage.value;
+    return;
+  }
+  if (
+    preview.value === undefined ||
+    previewRangeFingerprint.value !== manualApplyRangeFingerprint.value
+  ) {
     await computePreview();
-    if (preview.value === undefined) {
+    if (
+      preview.value === undefined ||
+      previewRangeFingerprint.value !== manualApplyRangeFingerprint.value
+    ) {
       return;
     }
+  }
+  if (hasBlockers.value && !acknowledgeBlockers.value) {
+    errorMessage.value = '预览包含冲突或空缺，请确认风险后再应用。';
+    return;
   }
   if (overlappingDrafts.value.length > 0 && !replaceExistingDrafts.value) {
     errorMessage.value = '目标月份已有该岗位的草稿，请勾选“覆盖已有草稿”后再应用。';
@@ -203,6 +249,24 @@ function close(): void {
   emit('close');
 }
 
+function resetPreviewConfirmations(): void {
+  acknowledgeBlockers.value = false;
+  replaceExistingDrafts.value = false;
+  replacePublished.value = false;
+  needsReplacePublished.value = false;
+  workflowImpacts.value = [];
+  acknowledgeWorkflowRevocations.value = false;
+}
+
+function resetPreviewState(): void {
+  previewRequestVersion += 1;
+  preview.value = undefined;
+  previewRangeFingerprint.value = undefined;
+  isPreviewing.value = false;
+  errorMessage.value = undefined;
+  resetPreviewConfirmations();
+}
+
 function getDefaultEndDate(): string {
   const columns = getTemplateDateColumns(rangeStart.value, props.template.cycleDays);
   return columns[columns.length - 1]?.date ?? rangeStart.value;
@@ -219,7 +283,7 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
     :cancel-btn="{ content: '关闭' }"
     :confirm-btn="{
       content: '应用模板',
-      disabled: preview !== undefined && !canConfirmApply,
+      disabled: rangeErrorMessage !== undefined || (preview !== undefined && !canConfirmApply),
       loading: isApplying,
       theme: 'primary',
     }"
@@ -261,9 +325,10 @@ function workflowKindLabel(impact: ScheduleWorkflowImpact): string {
             v-if="repeatEnabled"
             v-model="endDate"
             class="end-date-input"
-            min="2020-01-01"
+            :min="rangeStart"
+            :max="maximumEndDate"
             kind="date"
-            label="重复结束日期"
+            :label="`重复结束日期（最多 ${MAX_MANUAL_DAYS} 天）`"
           />
         </label>
 

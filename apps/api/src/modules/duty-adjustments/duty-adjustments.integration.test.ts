@@ -1060,14 +1060,19 @@ describeWithDatabase('paired duty adjustments', () => {
       workflowImpacts: [{ id: completedBody.id, kind: 'duty_adjustment' }],
     });
 
+    const withdrawOperationId = randomUUID();
+    const withdrawPayload = {
+      acknowledgeWorkflowRevocations: true,
+      expectedVersion: period?.version,
+      operationId: withdrawOperationId,
+    };
     const withdrawn = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
-      method: 'POST',
-      payload: {
-        acknowledgeWorkflowRevocations: true,
-        expectedVersion: period?.version,
-        operationId: randomUUID(),
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': withdrawOperationId,
       },
+      method: 'POST',
+      payload: withdrawPayload,
       url: `/groups/${context.groupId}/schedules/${period?.id}/withdraw`,
     });
     expect(withdrawn.statusCode).toBe(200);
@@ -1075,6 +1080,18 @@ describeWithDatabase('paired duty adjustments', () => {
       period: { status: 'withdrawn' },
       workflowImpacts: [{ id: completedBody.id, kind: 'duty_adjustment' }],
     });
+
+    const replayedWithdraw = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': withdrawOperationId,
+      },
+      method: 'POST',
+      payload: withdrawPayload,
+      url: `/groups/${context.groupId}/schedules/${period?.id}/withdraw`,
+    });
+    expect(replayedWithdraw.statusCode).toBe(200);
+    expect(replayedWithdraw.json()).toEqual(withdrawn.json());
 
     const mine = (
       await listMyDutyAdjustments('a-token', context.groupId)

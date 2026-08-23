@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
 import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+  isManualScheduleDateRangeWithinLimit,
+  isValidManualScheduleDate,
+} from './manual-schedule-limits.js';
+
+import {
   scheduleGenerationStatisticsSchema,
   scheduleGenerationVacancySchema,
   scheduleGenerationWarningSchema,
@@ -13,11 +21,19 @@ import {
   type SchedulePublishMode,
 } from './schedules.js';
 
-export interface ManualScheduleTemplateCellInput {
-  readonly cycleDay: number;
-  readonly membershipId: string;
-  readonly shiftTypeId: string;
-}
+const manualScheduleDateSchema = z
+  .string()
+  .refine(isValidManualScheduleDate, '日期必须使用有效的 YYYY-MM-DD 格式。');
+const manualScheduleUuidSchema = z.string().uuid();
+
+export const manualScheduleTemplateCellInputSchema = z
+  .object({
+    cycleDay: z.number().int().min(1).max(MAX_MANUAL_DAYS),
+    membershipId: manualScheduleUuidSchema,
+    shiftTypeId: manualScheduleUuidSchema,
+  })
+  .strict();
+export type ManualScheduleTemplateCellInput = z.infer<typeof manualScheduleTemplateCellInputSchema>;
 
 export const manualScheduleTemplateMemberSchema = z
   .object({
@@ -33,7 +49,7 @@ export type ManualScheduleTemplateMember = z.infer<typeof manualScheduleTemplate
 
 export const manualScheduleTemplateCellSchema = z
   .object({
-    cycleDay: z.number().int().min(1).max(31),
+    cycleDay: z.number().int().min(1).max(MAX_MANUAL_DAYS),
     currentShiftTypeConfigurationVersion: z.number().int().min(0),
     isShiftTypeEnabled: z.boolean(),
     isStale: z.boolean(),
@@ -50,17 +66,18 @@ export type ManualScheduleTemplateCell = z.infer<typeof manualScheduleTemplateCe
 
 export const manualScheduleTemplateSchema = z
   .object({
-    cells: z.readonly(z.array(manualScheduleTemplateCellSchema)),
-    cycleDays: z.number().int().min(1).max(31),
+    cells: z.readonly(z.array(manualScheduleTemplateCellSchema).max(MAX_MANUAL_CELLS)),
+    cycleDays: z.number().int().min(1).max(MAX_MANUAL_DAYS),
     groupId: z.string().min(1),
     id: z.string().min(1),
-    members: z.readonly(z.array(manualScheduleTemplateMemberSchema)),
+    members: z.readonly(z.array(manualScheduleTemplateMemberSchema).max(MAX_MANUAL_MEMBERS)),
     scheduleRoleId: z.string().min(1),
     scheduleRoleName: z.string().min(1),
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    startDate: manualScheduleDateSchema,
     version: z.number().int().min(1),
   })
-  .strict();
+  .strict()
+  .superRefine(validateManualTemplateResponse);
 export type ManualScheduleTemplate = z.infer<typeof manualScheduleTemplateSchema>;
 export const manualScheduleTemplateListSchema = z.array(manualScheduleTemplateSchema);
 
@@ -72,9 +89,28 @@ export interface CreateManualScheduleTemplateRequest {
   readonly startDate: string;
 }
 
+const createManualScheduleTemplateRequestBaseSchema = z
+  .object({
+    cells: z.array(manualScheduleTemplateCellInputSchema).max(MAX_MANUAL_CELLS),
+    cycleDays: z.number().int().min(1).max(MAX_MANUAL_DAYS),
+    membershipIds: z.array(manualScheduleUuidSchema).min(1).max(MAX_MANUAL_MEMBERS),
+    scheduleRoleId: manualScheduleUuidSchema,
+    startDate: manualScheduleDateSchema,
+  })
+  .strict();
+
+export const createManualScheduleTemplateRequestSchema =
+  createManualScheduleTemplateRequestBaseSchema.superRefine(validateManualTemplateRequest);
+
 export interface UpdateManualScheduleTemplateRequest extends CreateManualScheduleTemplateRequest {
   readonly expectedVersion: number;
 }
+
+export const updateManualScheduleTemplateRequestSchema =
+  createManualScheduleTemplateRequestBaseSchema
+    .extend({ expectedVersion: z.number().int().min(1) })
+    .strict()
+    .superRefine(validateManualTemplateRequest);
 
 export const manualApplyConflictSchema = z
   .object({
@@ -89,7 +125,7 @@ export type ManualApplyConflict = z.infer<typeof manualApplyConflictSchema>;
 // 旧守卫只校验 businessDate/shiftTypeId 等字段；scheduleRoleName 按旧守卫要求非空。
 export const manualApplyAssignmentSchema = z
   .object({
-    businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
+    businessDate: manualScheduleDateSchema,
     endsAt: z.string(),
     plannedMemberId: z.string().optional(),
     plannedMemberName: z.string().optional(),
@@ -106,12 +142,12 @@ export const manualApplyAssignmentSchema = z
 
 export const manualApplyPreviewSchema = z
   .object({
-    applyEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
-    applyStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/u),
-    assignments: z.readonly(z.array(manualApplyAssignmentSchema)),
+    applyEndDate: manualScheduleDateSchema,
+    applyStartDate: manualScheduleDateSchema,
+    assignments: z.readonly(z.array(manualApplyAssignmentSchema).max(MAX_MANUAL_CELLS)),
     conflicts: z.readonly(z.array(manualApplyConflictSchema)),
     continuousDutyWarnings: z.readonly(z.array(scheduleGenerationWarningSchema)),
-    cycleDays: z.number().int(),
+    cycleDays: z.number().int().min(1).max(MAX_MANUAL_DAYS),
     rulesVersion: z.number().int(),
     scheduleRoleId: z.string().min(1),
     scheduleRoleName: z.string().min(1),
@@ -120,7 +156,16 @@ export const manualApplyPreviewSchema = z
     templateVersion: z.number().int(),
     vacancies: z.readonly(z.array(scheduleGenerationVacancySchema)),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (!isManualScheduleDateRangeWithinLimit(value.applyStartDate, value.applyEndDate)) {
+      context.addIssue({
+        code: 'custom',
+        message: `手动排班应用范围最多 ${MAX_MANUAL_DAYS} 天。`,
+        path: ['applyEndDate'],
+      });
+    }
+  });
 // schema 推断类型比导出契约类型宽松（统计分项含未校验字段）；导出类型保留完整契约。
 export type ManualApplyPreview = {
   readonly applyEndDate: string;
@@ -144,6 +189,17 @@ export interface PreviewManualTemplateApplyRequest {
   readonly startDate?: string;
 }
 
+const previewManualTemplateApplyRequestBaseSchema = z
+  .object({
+    endDate: manualScheduleDateSchema.optional(),
+    expectedRulesVersion: z.number().int().min(1),
+    startDate: manualScheduleDateSchema.optional(),
+  })
+  .strict();
+
+export const previewManualTemplateApplyRequestSchema =
+  previewManualTemplateApplyRequestBaseSchema.superRefine(validateExplicitManualApplyRange);
+
 export interface ApplyManualScheduleTemplateRequest {
   readonly acknowledgeBlockers?: boolean;
   readonly acknowledgeWorkflowRevocations?: boolean;
@@ -155,6 +211,18 @@ export interface ApplyManualScheduleTemplateRequest {
   readonly replaceExistingDrafts?: boolean;
   readonly startDate?: string;
 }
+
+export const applyManualScheduleTemplateRequestSchema = previewManualTemplateApplyRequestBaseSchema
+  .extend({
+    acknowledgeBlockers: z.boolean().optional(),
+    acknowledgeWorkflowRevocations: z.boolean().optional(),
+    operationId: manualScheduleUuidSchema,
+    publishMode: z.enum(['draft', 'published']).optional(),
+    replacePublished: z.boolean().optional(),
+    replaceExistingDrafts: z.boolean().optional(),
+  })
+  .strict()
+  .superRefine(validateExplicitManualApplyRange);
 
 export const appliedManualScheduleTemplateResultSchema = z
   .object({
@@ -177,3 +245,109 @@ export type AppliedManualScheduleTemplateResult = {
   readonly templateId: string;
   readonly templateVersion: number;
 };
+
+function validateManualTemplateRequest(
+  input: CreateManualScheduleTemplateRequest,
+  context: z.RefinementCtx,
+): void {
+  const membershipIds = new Set(input.membershipIds);
+  if (membershipIds.size !== input.membershipIds.length) {
+    context.addIssue({
+      code: 'custom',
+      message: '模板成员不能重复。',
+      path: ['membershipIds'],
+    });
+  }
+
+  const cellKeys = new Set<string>();
+  for (const [index, cell] of input.cells.entries()) {
+    if (cell.cycleDay > input.cycleDays) {
+      context.addIssue({
+        code: 'custom',
+        message: '模板单元格的周期日必须在模板周期天数内。',
+        path: ['cells', index, 'cycleDay'],
+      });
+    }
+    if (!membershipIds.has(cell.membershipId)) {
+      context.addIssue({
+        code: 'custom',
+        message: '模板单元格的成员必须属于模板。',
+        path: ['cells', index, 'membershipId'],
+      });
+    }
+    const cellKey = `${cell.cycleDay}:${cell.membershipId}`;
+    if (cellKeys.has(cellKey)) {
+      context.addIssue({
+        code: 'custom',
+        message: '同一成员在同一天只能有一个模板单元格。',
+        path: ['cells', index],
+      });
+    }
+    cellKeys.add(cellKey);
+  }
+}
+
+function validateManualTemplateResponse(
+  input: {
+    readonly cells: readonly { readonly cycleDay: number; readonly membershipId: string }[];
+    readonly cycleDays: number;
+    readonly members: readonly { readonly membershipId: string }[];
+  },
+  context: z.RefinementCtx,
+): void {
+  const membershipIds = new Set(input.members.map((member) => member.membershipId));
+  if (membershipIds.size !== input.members.length) {
+    context.addIssue({
+      code: 'custom',
+      message: '模板成员不能重复。',
+      path: ['members'],
+    });
+  }
+
+  const cellKeys = new Set<string>();
+  for (const [index, cell] of input.cells.entries()) {
+    if (cell.cycleDay > input.cycleDays) {
+      context.addIssue({
+        code: 'custom',
+        message: '模板单元格的周期日必须在模板周期天数内。',
+        path: ['cells', index, 'cycleDay'],
+      });
+    }
+    if (!membershipIds.has(cell.membershipId)) {
+      context.addIssue({
+        code: 'custom',
+        message: '模板单元格的成员必须属于模板。',
+        path: ['cells', index, 'membershipId'],
+      });
+    }
+    const cellKey = `${cell.cycleDay}:${cell.membershipId}`;
+    if (cellKeys.has(cellKey)) {
+      context.addIssue({
+        code: 'custom',
+        message: '同一成员在同一天只能有一个模板单元格。',
+        path: ['cells', index],
+      });
+    }
+    cellKeys.add(cellKey);
+  }
+}
+
+function validateExplicitManualApplyRange(
+  input: {
+    readonly endDate?: string | undefined;
+    readonly startDate?: string | undefined;
+  },
+  context: z.RefinementCtx,
+): void {
+  if (
+    input.startDate !== undefined &&
+    input.endDate !== undefined &&
+    !isManualScheduleDateRangeWithinLimit(input.startDate, input.endDate)
+  ) {
+    context.addIssue({
+      code: 'custom',
+      message: `手动排班应用范围最多 ${MAX_MANUAL_DAYS} 天。`,
+      path: ['endDate'],
+    });
+  }
+}

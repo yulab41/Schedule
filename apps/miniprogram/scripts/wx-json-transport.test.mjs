@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 
-import { ClientCoreError, calendarReadEndpoints } from '@schedule/client-core';
+import {
+  ClientCoreError,
+  calendarReadEndpoints,
+  createCompactDecoder,
+  defineClientEndpoint,
+} from '@schedule/client-core';
 import { calendarApiGoldenResponse, holidayApiGoldenResponse } from '@schedule/client-core/testing';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -51,6 +56,42 @@ describe('P2 Mini wx.request JSON transport', () => {
     ).resolves.toBe(holidayApiGoldenResponse);
     expect(getAccessToken).not.toHaveBeenCalled();
     expect(request.mock.calls[0]?.[0].header).toEqual({});
+  });
+
+  it('forwards JSON bodies and idempotency keys for protected writes', async () => {
+    const request = vi.fn((options) => {
+      options.success({ data: 'ok', statusCode: 200 });
+    });
+    const endpoint = defineClientEndpoint({
+      auth: 'bearer',
+      body: (input) => input.body,
+      decoder: createCompactDecoder({ type: 'string' }),
+      id: 'test.write',
+      idempotencyKey: (input) => input.operationId,
+      method: 'POST',
+      path: () => '/write',
+    });
+    const transport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      getAccessToken: () => 'mini-token',
+      request,
+    });
+
+    await expect(
+      transport.request(endpoint, {
+        body: { operationId: 'operation-1', value: 7 },
+        operationId: 'operation-1',
+      }),
+    ).resolves.toBe('ok');
+    expect(request.mock.calls[0]?.[0]).toMatchObject({
+      data: { operationId: 'operation-1', value: 7 },
+      header: {
+        Authorization: 'Bearer mini-token',
+        'Idempotency-Key': 'operation-1',
+      },
+      method: 'POST',
+      url: 'https://example.test/api/write',
+    });
   });
 
   it('rejects a missing bearer before wx.request', async () => {

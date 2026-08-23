@@ -877,7 +877,7 @@ async function assertManualScheduleDenseInteractions(page) {
   for (let index = 0; index < memberCount; index += 1) {
     await memberCheckboxes.nth(index).check();
   }
-  await page.locator('.editor-config input[type="number"]').fill('31');
+  await page.locator('.editor-config input[type="number"]').fill('30');
   const gridFrame = page.locator('.manual-grid-frame');
   await gridFrame.waitFor({ state: 'visible', timeout: 5000 });
 
@@ -1515,11 +1515,11 @@ async function assertMonthCalendarInteractions(page) {
   const dutyDetails = page.locator('.selected-date-details');
   await dutyDetails.waitFor({ state: 'visible', timeout: 5000 });
   const dutyDetailsText = await dutyDetails.innerText();
-  if (!dutyDetailsText.includes('选中日期') || !dutyDetailsText.includes('个班次')) {
-    fail('选中日期下方缺少完整值班详情轨道。');
+  if (!dutyDetailsText.includes('选中日期') || !dutyDetailsText.includes('个班种')) {
+    fail('选中日期下方缺少按班种分组的完整值班详情轨道。');
   }
-  if ((await dutyDetails.locator('.track-event').count()) === 0) {
-    fail('有排班的选中日期未显示班次轨道卡片。');
+  if ((await dutyDetails.locator('.shift-detail-card').count()) === 0) {
+    fail('有排班的选中日期未显示班种详情卡片。');
   }
 
   for (const width of [390, 320]) {

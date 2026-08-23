@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P5 手排上限、原生编辑与发布版本闭环（当前 checkpoint）
+
+- 前置确认：用户已明确确认 P4 全部完成，并解除 P5 后续 checkpoint 的提交、推送、体验上传和生产部署等待条件。P5 Web 黄金 `editor/maximum/preview/risk/release/release-blocked/release-withdraw/release-republish/release-delete/backfill/phone-consent` 的 390px 与相关 320px 边界均已确认；本批使用 `frontend-design` 严格跟随冻结的 Web 医疗蓝灰样式，没有建立第二套视觉语言。
+- 完成范围：手排模板、预览、应用、生成和草稿覆盖在 contracts/API/service/domain/database/Web/Mini 同源限制为 20 人、30 天、600 逻辑格和最多 30 个首尾日期；迁移 `0048_manual_schedule_limits` 对生产存量先失败关闭，再收紧两个数据库 CHECK。原生 `subpackages/scheduling/pages/manual` 完成模板保存、四层 WXS 7 行矩阵、同格同班种第二次点击取消（无撤销按钮）、显式保存后预览、风险确认和保存草稿。草稿成功后进入与 Web 同构的发布历史页，支持整批发布/覆盖冲突、当前版本撤回、归档重发、草稿/归档删除、版本预览和归档折叠。
+- 危险写与兼容：发布、批量发布、撤回和删除统一发送 `Idempotency-Key`；旧 `body.operationId` 暂时兼容，两者并存必须相同。撤回和删除补齐 24 小时服务端幂等结果重放；Web/Mini 在网络结果不明确时保留同一操作号，成功后才清除。Web API 接收者、调用次数、Promise catch 范围和既有冲突流程不变；新增 header 合并不改变 GET/公开请求，删除仍返回空响应。部署脚本在迁移 0048 前先停止旧 API 写入口。
+- 引入点与回归：`git log -S`/`git blame` 确认发布历史基线来自 `2834f07e`，发布生命周期来自 `7c783c71`，共享 publication-core 来自 `3be831be`，既往日期撤回修复来自 `b24db461`。完整浏览器 smoke 的旧“个班次”/`.track-event` 断言来自 `1c84fd65`，生产按班种分组与 `.shift-detail-card` 已由 `f723b0db` 替代；P5 还把旧 31 天压力输入收紧为冻结的 30 天上限。本批测试均先在缺少端点/控制器或旧上限下失败，再实现转绿。
+- 验证：MySQL 迁移 20/20、手排模板/应用 26/26、关联撤回/重发工作流 60/60 通过；受控真实工作区（排除用户自有 `.artifacts/runtime/src` 副本）157 文件/862 项、Mini 22 文件/113 项通过。Mini production verify 通过（2/2 Worklet，693683 bytes，manifest `bd2fe99ba2dfccbc5aed8104d65f5d69f49b057936418bd96609a174c3cc69e5`），source/package/determinism/CI dry-run 通过；Storybook production build 2720 modules、全仓 build/typecheck/Lint 通过。默认 format check 只被用户自有 `project.config.json`、未提交目录文件和既有 `directory-entry-groups.ts` 格式阻断，任务文件显式 Prettier 与 `git diff --check` 通过，未修改这些无关文件。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因本地 5173 未启动停止；改用 Windows 未保留的 4173 端口并启用仅当前进程的开发认证后，先暴露并修正上述两个过时 P4 smoke 选择器/文案和旧 31 天压力输入。最终管理员、成员、访客 vkey 与访问记录全流程通过，无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-RkP89G`。原生微信/Android 运行真值仍须体验版人工复核，构建和 Storybook 不替代该结论。
+- checkpoint：待提交消息 `feat(scheduling): add p5 manual release flow`；提交后按根规则推送、上传 production-profile 体验版、备份生产数据库、部署精确 Git release 并运行 `ecs-verify.sh`。不提审、不正式发布小程序。
+- 下一活动批次与停止条件：只实现 P5 剩余两项——Web 同构原子排班补录，以及把手机号同意放入群组设置；完成权限/隐私/幂等/运行验证并形成独立 checkpoint 后，才进入 P6，不提前开展 P7–P10。
+
 ## 2026-08-23 P4 实体复核：角落描边与列表定位/控件几何（当前批次）
 
 - 实体反馈与范围：production-profile `.73` 截图确认普通月格选中框厚度正常，但底左/底右角仍被裁细；列表定位到今天后目标卡贴住上裁切线；列表月份控件仍比月/周矮、圆角更小且下阴影不一致。本批只修这 3 组 P4 原生视觉问题，不进入并行 P5。

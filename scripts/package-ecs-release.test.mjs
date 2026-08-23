@@ -27,7 +27,20 @@ describe('ECS directory import runtime packaging', () => {
   it('verifies the directory import artifact and current migration count', () => {
     expect(verifySource).toContain('infraScriptsDistTreeSha256');
     expect(verifySource).toContain('$DEPLOY_DIR/infra/scripts/dist');
-    expect(verifySource).toContain("grep -qx '47'");
+    expect(verifySource).toContain("grep -qx '48'");
+  });
+
+  it('stops the old API write path before migrations and only restarts it afterward', () => {
+    const stopIndex = updateSource.indexOf('compose stop api');
+    const migrateIndex = updateSource.indexOf('compose run --rm api node apps/api/dist/migrate.js');
+    const restartIndex = updateSource.indexOf(
+      'compose up -d --force-recreate api web',
+      migrateIndex,
+    );
+
+    expect(stopIndex).toBeGreaterThan(-1);
+    expect(stopIndex).toBeLessThan(migrateIndex);
+    expect(migrateIndex).toBeLessThan(restartIndex);
   });
 
   it('hashes release trees in the same sibling-sorted recursive order as the packager', () => {

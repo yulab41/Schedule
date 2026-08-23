@@ -47,7 +47,7 @@ const publishPeriodInputSchema = z
     acknowledgeBlockers: z.boolean().optional(),
     acknowledgeWorkflowRevocations: z.boolean().optional(),
     expectedVersion: z.number().int().min(1),
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     replacePublished: z.boolean().optional(),
   })
   .strict();
@@ -56,7 +56,7 @@ const publishBatchInputSchema = z
   .object({
     acknowledgeBlockers: z.boolean().optional(),
     acknowledgeWorkflowRevocations: z.boolean().optional(),
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     replacePublished: z.boolean().optional(),
     schedulePeriodIds: z.array(schedulePeriodIdSchema).min(1).max(100),
   })
@@ -127,7 +127,7 @@ export function registerScheduleRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSchedulePeriodId(request),
-        parsePeriodMutationInput(request.body),
+        parsePeriodMutationInput(request),
       ),
   );
 
@@ -158,7 +158,7 @@ export function registerScheduleRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSchedulePeriodId(request),
-        parsePublishPeriodInput(request.body),
+        parsePublishPeriodInput(request),
       ),
   );
 
@@ -169,7 +169,7 @@ export function registerScheduleRoutes(
       publishService.publishDraftBatch(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
-        parsePublishBatchInput(request.body),
+        parsePublishBatchInput(request),
       ),
   );
 
@@ -181,6 +181,7 @@ export function registerScheduleRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSchedulePeriodId(request),
+        resolveOperationId(request),
       ),
   );
 }
@@ -235,8 +236,8 @@ function parseSaveGeneratedInput(value: unknown): SaveGeneratedScheduleRequest {
   };
 }
 
-function parsePublishPeriodInput(value: unknown): PublishSchedulePeriodRequest {
-  const input = parseOrThrow(publishPeriodInputSchema, value);
+function parsePublishPeriodInput(request: FastifyRequest): PublishSchedulePeriodRequest {
+  const input = parseOrThrow(publishPeriodInputSchema, request.body);
   return {
     ...(input.acknowledgeBlockers === undefined
       ? {}
@@ -245,13 +246,13 @@ function parsePublishPeriodInput(value: unknown): PublishSchedulePeriodRequest {
       ? {}
       : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
     expectedVersion: input.expectedVersion,
-    operationId: input.operationId,
+    operationId: resolveOperationId(request, input.operationId),
     ...(input.replacePublished === undefined ? {} : { replacePublished: input.replacePublished }),
   };
 }
 
-function parsePublishBatchInput(value: unknown): PublishSchedulePeriodBatchRequest {
-  const input = parseOrThrow(publishBatchInputSchema, value);
+function parsePublishBatchInput(request: FastifyRequest): PublishSchedulePeriodBatchRequest {
+  const input = parseOrThrow(publishBatchInputSchema, request.body);
   return {
     ...(input.acknowledgeBlockers === undefined
       ? {}
@@ -259,7 +260,7 @@ function parsePublishBatchInput(value: unknown): PublishSchedulePeriodBatchReque
     ...(input.acknowledgeWorkflowRevocations === undefined
       ? {}
       : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
-    operationId: input.operationId,
+    operationId: resolveOperationId(request, input.operationId),
     ...(input.replacePublished === undefined ? {} : { replacePublished: input.replacePublished }),
     schedulePeriodIds: input.schedulePeriodIds,
   };
@@ -269,19 +270,42 @@ const periodMutationInputSchema = z
   .object({
     acknowledgeWorkflowRevocations: z.boolean().optional(),
     expectedVersion: z.number().int().min(1),
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
   })
   .strict();
 
-function parsePeriodMutationInput(value: unknown): SchedulePeriodMutationRequest {
-  const input = parseOrThrow(periodMutationInputSchema, value);
+function parsePeriodMutationInput(request: FastifyRequest): SchedulePeriodMutationRequest {
+  const input = parseOrThrow(periodMutationInputSchema, request.body);
   return {
     ...(input.acknowledgeWorkflowRevocations === undefined
       ? {}
       : { acknowledgeWorkflowRevocations: input.acknowledgeWorkflowRevocations }),
     expectedVersion: input.expectedVersion,
-    operationId: input.operationId,
+    operationId: resolveOperationId(request, input.operationId),
   };
+}
+
+function resolveOperationId(request: FastifyRequest, bodyOperationId?: string): string {
+  return resolveScheduleOperationId(request.headers['idempotency-key'], bodyOperationId);
+}
+
+export function resolveScheduleOperationId(
+  rawHeader: string | readonly string[] | undefined,
+  bodyOperationId?: string,
+): string {
+  const headerOperationId =
+    rawHeader === undefined ? undefined : parseOrThrow(operationIdSchema, rawHeader);
+  if (
+    headerOperationId !== undefined &&
+    bodyOperationId !== undefined &&
+    headerOperationId !== bodyOperationId
+  ) {
+    throw validationError('幂等键与请求中的操作编号不一致。');
+  }
+  if (headerOperationId === undefined && bodyOperationId === undefined) {
+    throw validationError('危险操作必须提供幂等键。');
+  }
+  return headerOperationId ?? bodyOperationId ?? '';
 }
 
 function parseChangeImpactAction(query: unknown): 'publish' | 'withdraw' {
@@ -295,12 +319,12 @@ function parseUpdatePublishModeInput(value: unknown): UpdateGroupSchedulePublish
 function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {
   const result = schema.safeParse(value);
   if (!result.success) {
-    throw new ApiError({
-      code: 'VALIDATION_FAILED',
-      statusCode: 400,
-      userMessage: '请求数据不符合要求。',
-    });
+    throw validationError('请求数据不符合要求。');
   }
 
   return result.data;
+}
+
+function validationError(userMessage: string): ApiError {
+  return new ApiError({ code: 'VALIDATION_FAILED', statusCode: 400, userMessage });
 }

@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P5 手排限制与发布版本闭环
+
+- 前置与引入点：用户确认 P4 已全部完成并允许直接提交后续版本。`git log -S`/`git blame` 确认草稿/历史、发布状态机、共享 presentation-core 和既往日期撤回分别来自 `2834f07e`、`7c783c71`、`3be831be`、`b24db461`；浏览器 smoke 的旧“个班次”/`.track-event` 选择器来自 `1c84fd65`，生产按班种分组结构由 `f723b0db` 引入。
+- 测试先行：共享 publication client 4 项、原生发布控制器 3 项在实现前全部失败；迁移/20-30-600 限制在旧实现上先失败。实现后 MySQL 迁移 20/20、手排模板/应用 26/26、关联撤回/重发工作流 60/60、受控真实工作区 862 项、Mini 113 项通过。撤回/删除重放、header/body 一致性、网络结果不明确时操作号复用均有回归覆盖。
+- 行为与语义审计：手排上限明确收紧为 20 人、30 天、600 格，不截断存量；迁移违规即停止。矩阵同格同班种第二次点触取消且没有撤销按钮。发布/撤回/重发/删除的接收者、异步 catch、空值分支和业务调用次数保持原 Web 语义；新增的稳定操作号只在成功后清除。`Idempotency-Key` 为危险写统一入口，旧 body 字段兼容且不一致返回 400。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动停止；4173 当前源码服务中先修正两个过时 P4 smoke 文案/选择器和旧 31 天压力输入，最终管理员、成员、访客 vkey、访问记录全流程通过且无浏览器错误，截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-RkP89G`。Storybook build 2720 modules、Mini production verify（693683 bytes，manifest `bd2fe99ba2dfccbc5aed8104d65f5d69f49b057936418bd96609a174c3cc69e5`）及 source/package/determinism/CI dry-run 通过。默认格式门禁只报告用户自有 `project.config.json`、未提交 Storybook 产物和既有目录文件；任务文件格式与 diff check 通过，未改这些无关文件。
+- 状态：已完成本地实现与浏览器运行验证；checkpoint 识别消息 `feat(scheduling): add p5 manual release flow`。提交/推送/体验上传/生产备份部署后转为待原生微信复核；下一批仅做原子补录和群组设置中的手机号同意。
+
 ## 2026-08-23 P4 `.73` 实体复核：角落裁切与列表控件
 
 - 反馈与引入点：普通格 2px 选中框正常，只有底角格右/底边变细。`4b33274e` 的 month-grid/corner slot 多层 overflow、`733e3af6` 的 grid 顶边和 slot divider、`9045dc02` 的负 offset 共同造成：`defaultContentBox:true` 下 270/324px 内容实际多 1px，被 swiper 裁底，角落 slot 又裁掉跨 divider 的 right:-1。列表定位 id 位于 card 本体，原生对齐后没有前置 8px；`50c6d1ed` 的 54px/14px override 与同层级分割带覆盖造成 list heading 矮、小圆角和下阴影异常。

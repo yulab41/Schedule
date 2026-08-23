@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   char,
+  check,
   date,
   index,
   int,
@@ -30,6 +31,10 @@ export const manualScheduleTemplates = mysqlTable(
     ...auditableColumns(),
   },
   (table) => [
+    check(
+      'manual_schedule_templates_cycle_days_check',
+      sql`${table.deletedAt} is not null or ${table.cycleDays} between 1 and 30`,
+    ),
     index('manual_schedule_templates_group_active_idx').on(table.groupId, table.deletedAt),
     index('manual_schedule_templates_role_idx').on(table.scheduleRoleId),
   ],
@@ -78,6 +83,10 @@ export const manualScheduleCells = mysqlTable(
     ...auditableColumns(),
   },
   (table) => [
+    check(
+      'manual_schedule_cells_cycle_day_check',
+      sql`${table.deletedAt} is not null or ${table.cycleDay} between 1 and 30`,
+    ),
     uniqueIndex('manual_schedule_cells_active_cell_unique').on(table.activeCellKey),
     index('manual_schedule_cells_template_idx').on(table.templateId),
   ],

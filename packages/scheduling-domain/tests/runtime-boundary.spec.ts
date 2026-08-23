@@ -10,7 +10,7 @@ describe('scheduling-domain runtime boundary', () => {
     expect(createDomainSummary()).toBe('medical-staff-scheduling-system domain is ready.');
   });
 
-  it('bundles through only the Zod-free contracts metadata leaf', async () => {
+  it('bundles through only the approved Zod-free contracts leaves', async () => {
     const result = await build({
       bundle: true,
       entryPoints: [fileURLToPath(new URL('../src/index.ts', import.meta.url))],
@@ -22,6 +22,7 @@ describe('scheduling-domain runtime boundary', () => {
     });
     const inputs = Object.keys(result.metafile.inputs).sort();
     expect(inputs.filter((input) => input.includes('packages/contracts/'))).toEqual([
+      'packages/contracts/src/manual-schedule-limits.ts',
       'packages/contracts/src/workspace-name.ts',
     ]);
     expect(inputs.some((input) => input.includes('/zod/'))).toBe(false);

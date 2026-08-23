@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@schedule/client-core": "workspace:*",
+    "@schedule/contracts": "workspace:*",
     "@schedule/presentation-core": "workspace:*"
   },
   "scripts": {

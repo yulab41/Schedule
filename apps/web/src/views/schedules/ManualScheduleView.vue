@@ -12,6 +12,7 @@ import type {
   ScheduleWorkflowImpact,
   SchedulingConfig,
 } from '@schedule/contracts';
+import { MAX_MANUAL_DAYS, MAX_MANUAL_MEMBERS } from '@schedule/contracts/manual-schedule-limits';
 import {
   applyManualCellMutation,
   canConfirmSchedulePeriodMutation,
@@ -56,6 +57,7 @@ import {
   createTemplateUndoStack,
   findPublishedOverlapMonths,
   formatScheduleDraftCode,
+  getManualTemplateLimitError,
   getNextAvailableStartDate,
   getTemplateDateColumns,
   templateToCellMap,
@@ -120,6 +122,7 @@ const isLoadingPeriodMutation = ref(false);
 const isMutatingPeriod = ref(false);
 let requestVersion = 0;
 let businessHandoverRefreshTimer: number | undefined;
+const pendingOperationIds = new Map<string, string>();
 
 interface BlockedBatch {
   readonly batch: ScheduleDraftBatch<SchedulePeriodHistoryItem>;
@@ -159,6 +162,25 @@ const roleMembers = computed(() => {
     (candidate) => candidate.id === scheduleRoleId.value,
   );
   return role?.members ?? [];
+});
+const staleSelectedMembers = computed(() => {
+  const currentMemberIds = new Set(roleMembers.value.map((member) => member.membershipId));
+  const selectedTemplate = templates.value.find(
+    (template) => template.id === selectedTemplateId.value,
+  );
+  const templateNames = new Map(
+    (selectedTemplate?.members ?? []).map((member) => [member.membershipId, member.realName]),
+  );
+
+  return staleMemberIds.value
+    .filter(
+      (membershipId) =>
+        membershipIds.value.includes(membershipId) && !currentMemberIds.has(membershipId),
+    )
+    .map((membershipId) => ({
+      membershipId,
+      realName: templateNames.get(membershipId) ?? '未知成员',
+    }));
 });
 const enabledShiftTypes = computed(() =>
   (config.value?.shiftTypes ?? []).filter((shiftType) => shiftType.isEnabled),
@@ -316,11 +338,20 @@ function toggleMember(membershipId: string): void {
     pushUndo();
     membershipIds.value = membershipIds.value.filter((id) => id !== membershipId);
     cells.value = clearRow(cells.value, membershipId);
+    staleMemberIds.value = staleMemberIds.value.filter((id) => id !== membershipId);
+    staleCellKeys.value = new Set(
+      [...staleCellKeys.value].filter((key) => !key.endsWith(`:${membershipId}`)),
+    );
     if (selectedCell.value?.membershipId === membershipId) {
       selectedCell.value = undefined;
     }
   } else {
+    if (membershipIds.value.length >= MAX_MANUAL_MEMBERS) {
+      errorMessage.value = `单个模板最多选择 ${MAX_MANUAL_MEMBERS} 位值班人员。`;
+      return;
+    }
     membershipIds.value = [...membershipIds.value, membershipId];
+    errorMessage.value = undefined;
   }
 }
 
@@ -423,8 +454,17 @@ async function save(): Promise<void> {
     errorMessage.value = '请至少勾选一位值班人员。';
     return;
   }
+  const limitError = getManualTemplateLimitError({
+    cellCount: cells.value.size,
+    cycleDays: cycleDays.value,
+    memberCount: membershipIds.value.length,
+  });
+  if (limitError !== undefined) {
+    errorMessage.value = limitError;
+    return;
+  }
   if (columns.value.length === 0) {
-    errorMessage.value = '请检查开始日期和周期天数（1 到 31 天）。';
+    errorMessage.value = `请检查开始日期和周期天数（1 到 ${MAX_MANUAL_DAYS} 天）。`;
     return;
   }
 
@@ -543,6 +583,7 @@ async function publishBatch(
   isPublishingId.value = batch.key;
 
   try {
+    const operationKey = `publish-batch:${batch.key}`;
     const intent = createScheduleDraftBatchPublishIntent(batch, {
       acknowledgeBlockers: acknowledge,
       acknowledgeWorkflowRevocations: acknowledgeWorkflows,
@@ -550,8 +591,9 @@ async function publishBatch(
     });
     const result = await api.publishScheduleDraftBatch(props.group.id, {
       ...intent,
-      operationId: crypto.randomUUID(),
+      operationId: getPendingOperationId(operationKey),
     });
+    pendingOperationIds.delete(operationKey);
     infoMessage.value = `已发布 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班（共 ${result.periods.length} 个月）。`;
     await loadData();
   } catch (error) {
@@ -606,7 +648,9 @@ async function deleteBatch(batch: ScheduleDraftBatch<SchedulePeriodHistoryItem>)
   isDeletingDraftId.value = batch.key;
   try {
     for (const item of batch.items) {
-      await api.deleteScheduleDraft(props.group.id, item.id);
+      const operationKey = `delete-period:${item.id}`;
+      await api.deleteScheduleDraft(props.group.id, item.id, getPendingOperationId(operationKey));
+      pendingOperationIds.delete(operationKey);
     }
     infoMessage.value = `已删除 ${batch.rangeStart} 至 ${batch.rangeEnd} 的排班草稿。`;
     await loadData();
@@ -701,16 +745,20 @@ async function confirmPeriodMutation(): Promise<void> {
       hasBlockers: hasPeriodMutationBlockers.value,
     });
     if (intent.action === 'withdraw') {
+      const operationKey = `withdraw-period:${intent.schedulePeriodId}`;
       await api.withdrawSchedulePeriod(props.group.id, intent.schedulePeriodId, {
         ...intent.request,
-        operationId: crypto.randomUUID(),
+        operationId: getPendingOperationId(operationKey),
       });
+      pendingOperationIds.delete(operationKey);
       infoMessage.value = `${target.businessMonth.slice(0, 7)} 的当前排班已撤销并归档。`;
     } else {
+      const operationKey = `publish-period:${intent.schedulePeriodId}`;
       await api.publishSchedulePeriod(props.group.id, intent.schedulePeriodId, {
         ...intent.request,
-        operationId: crypto.randomUUID(),
+        operationId: getPendingOperationId(operationKey),
       });
+      pendingOperationIds.delete(operationKey);
       infoMessage.value = `${target.businessMonth.slice(0, 7)} 的归档排班已重新发布。`;
     }
     periodMutationVisible.value = false;
@@ -737,7 +785,9 @@ async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
   errorMessage.value = undefined;
   isDeletingDraftId.value = draft.id;
   try {
-    await api.deleteScheduleDraft(props.group.id, draft.id);
+    const operationKey = `delete-period:${draft.id}`;
+    await api.deleteScheduleDraft(props.group.id, draft.id, getPendingOperationId(operationKey));
+    pendingOperationIds.delete(operationKey);
     history.value = history.value.filter((item) => item.id !== draft.id);
     infoMessage.value = `已删除 ${draft.businessMonth.slice(0, 7)} 的${label}。`;
     await loadData();
@@ -750,6 +800,14 @@ async function deleteDraft(draft: SchedulePeriodHistoryItem): Promise<void> {
 
 function draftCode(item: SchedulePeriodHistoryItem): string {
   return formatScheduleDraftCode(item.createdAt);
+}
+
+function getPendingOperationId(key: string): string {
+  const existing = pendingOperationIds.get(key);
+  if (existing !== undefined) return existing;
+  const created = crypto.randomUUID();
+  pendingOperationIds.set(key, created);
+  return created;
 }
 
 function isPastMonth(item: SchedulePeriodHistoryItem): boolean {
@@ -821,12 +879,12 @@ function scheduleBusinessHandoverRefresh(): void {
         </label>
         <label>
           周期天数
-          <input v-model.number="cycleDays" min="1" max="31" type="number" />
+          <input v-model.number="cycleDays" min="1" :max="MAX_MANUAL_DAYS" type="number" />
         </label>
       </div>
 
       <fieldset class="member-selector">
-        <legend>值班人员</legend>
+        <legend>值班人员（{{ membershipIds.length }}/{{ MAX_MANUAL_MEMBERS }}）</legend>
         <p v-if="roleMembers.length === 0" class="member-empty">
           该排班岗位还没有成员，请先在排班配置中添加。
         </p>
@@ -834,9 +892,21 @@ function scheduleBusinessHandoverRefresh(): void {
           <input
             type="checkbox"
             :checked="membershipIds.includes(member.membershipId)"
+            :disabled="
+              !membershipIds.includes(member.membershipId) &&
+              membershipIds.length >= MAX_MANUAL_MEMBERS
+            "
             @change="toggleMember(member.membershipId)"
           />
           {{ member.realName }}
+        </label>
+        <label
+          v-for="member in staleSelectedMembers"
+          :key="`stale:${member.membershipId}`"
+          class="stale-member-option"
+        >
+          <input type="checkbox" checked @change="toggleMember(member.membershipId)" />
+          {{ member.realName }} · 失效成员（可移除）
         </label>
       </fieldset>
 
@@ -1373,6 +1443,11 @@ function scheduleBusinessHandoverRefresh(): void {
   width: 18px;
   height: 18px;
   accent-color: var(--ui-color-primary);
+}
+
+.member-selector .stale-member-option {
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
 }
 
 .member-empty,

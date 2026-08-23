@@ -193,7 +193,8 @@ rm -rf "$DEPLOY_DIR/runtime/api-flat/node_modules"
 mv "$DEPLOY_DIR/runtime/api-flat-new/node_modules" "$DEPLOY_DIR/runtime/api-flat/node_modules"
 rmdir "$DEPLOY_DIR/runtime/api-flat-new"
 
-echo "[deploy] 4/7 容器内执行数据库迁移"
+echo "[deploy] 4/7 停止旧 API 写入并在容器内执行数据库迁移"
+compose stop api
 compose run --rm api node apps/api/dist/migrate.js
 
 echo "[deploy] 5/7 重建 api/web 容器"

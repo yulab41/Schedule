@@ -81,6 +81,9 @@ importers:
       '@schedule/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
+      '@schedule/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@schedule/presentation-core':
         specifier: workspace:*
         version: link:../../packages/presentation-core

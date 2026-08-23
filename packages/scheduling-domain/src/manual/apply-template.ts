@@ -1,3 +1,11 @@
+import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+  isManualScheduleDateRangeWithinLimit,
+  isValidManualScheduleDate,
+} from '@schedule/contracts/manual-schedule-limits';
+
 import { findContinuousDutyWarnings, findRotationHardConflicts } from '../conflicts.js';
 import type { ContinuousDutyWarning, GeneratedRotationAssignment } from '../rotation/types.js';
 import { getBusinessDates } from '../rotation/cursor.js';
@@ -157,14 +165,37 @@ export function createManualAssignmentBusinessKey(
 }
 
 function assertApplyTemplateInput(input: ManualApplyTemplateInput): void {
-  if (!Number.isSafeInteger(input.cycleDays) || input.cycleDays < 1 || input.cycleDays > 31) {
-    throw new Error('The template cycle days must be an integer between 1 and 31.');
+  if (
+    !Number.isSafeInteger(input.cycleDays) ||
+    input.cycleDays < 1 ||
+    input.cycleDays > MAX_MANUAL_DAYS
+  ) {
+    throw new Error(`The template cycle days must be an integer between 1 and ${MAX_MANUAL_DAYS}.`);
   }
-  if (input.endDate !== undefined && input.endDate < input.startDate) {
+  if (input.members.length < 1 || input.members.length > MAX_MANUAL_MEMBERS) {
+    throw new Error(`The manual template must contain 1 to ${MAX_MANUAL_MEMBERS} members.`);
+  }
+  if (input.cells.length > MAX_MANUAL_CELLS) {
+    throw new Error(`The manual template cannot contain more than ${MAX_MANUAL_CELLS} cells.`);
+  }
+  if (!isValidManualScheduleDate(input.startDate)) {
+    throw new Error('The apply start date must use a valid YYYY-MM-DD format.');
+  }
+  const applyEndDate = input.endDate ?? addDays(input.startDate, input.cycleDays - 1);
+  if (!isValidManualScheduleDate(applyEndDate)) {
+    throw new Error('The apply end date must use a valid YYYY-MM-DD format.');
+  }
+  if (applyEndDate < input.startDate) {
     throw new Error('The apply end date cannot precede the template start date.');
+  }
+  if (!isManualScheduleDateRangeWithinLimit(input.startDate, applyEndDate)) {
+    throw new Error(`The manual apply date range must not exceed ${MAX_MANUAL_DAYS} days.`);
   }
 
   const memberIds = new Set(input.members.map((member) => member.membershipId));
+  if (memberIds.size !== input.members.length) {
+    throw new Error('A manual template member cannot appear more than once.');
+  }
   const shiftTypeIds = new Set(input.shiftTypes.map((shiftType) => shiftType.id));
   const cellKeys = new Set<string>();
   for (const cell of input.cells) {

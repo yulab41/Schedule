@@ -49,7 +49,7 @@ describeWithDatabase('identity and group migrations', () => {
           AND table_name IN ('users', 'user_profiles', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 47 }]);
+    expect(migrations).toEqual([{ count: 48 }]);
     expect(tables).toEqual([{ count: 54 }]);
   });
 
@@ -119,6 +119,212 @@ describeWithDatabase('identity and group migrations', () => {
            0, 0, 0, 0, JSON_OBJECT(), JSON_OBJECT())
       `),
     ).resolves.toBeDefined();
+  });
+
+  it('blocks active over-limit manual templates before applying P5 constraints', async () => {
+    const preP5MigrationsDirectory = await createLegacyMigrationsDirectory(47);
+    try {
+      await migrateDatabase(client, preP5MigrationsDirectory);
+      const ownerId = randomUUID();
+      const groupId = randomUUID();
+      const roleId = randomUUID();
+      await client.database.execute(sql`INSERT INTO users (id) VALUES (${ownerId})`);
+      await client.database.execute(sql`
+        INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
+        VALUES (${groupId}, 'P5 limit group', '4830', ${ownerId}, ${'8'.repeat(32)})
+      `);
+      await client.database.execute(sql`
+        INSERT INTO schedule_roles (id, group_id, name)
+        VALUES (${roleId}, ${groupId}, 'P5 role')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO manual_schedule_templates
+          (id, group_id, schedule_role_id, start_date, cycle_days)
+        VALUES (${randomUUID()}, ${groupId}, ${roleId}, '2026-09-01', 31)
+      `);
+
+      await expect(runMigrationFile(client, '0048_manual_schedule_limits')).rejects.toThrow();
+    } finally {
+      await rm(preP5MigrationsDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('preserves soft-deleted legacy 31-day templates while rejecting new active ones', async () => {
+    const preP5MigrationsDirectory = await createLegacyMigrationsDirectory(47);
+    try {
+      await migrateDatabase(client, preP5MigrationsDirectory);
+      const ownerId = randomUUID();
+      const groupId = randomUUID();
+      const roleId = randomUUID();
+      await client.database.execute(sql`INSERT INTO users (id) VALUES (${ownerId})`);
+      await client.database.execute(sql`
+        INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
+        VALUES (${groupId}, 'P5 archived group', '4831', ${ownerId}, ${'9'.repeat(32)})
+      `);
+      await client.database.execute(sql`
+        INSERT INTO schedule_roles (id, group_id, name)
+        VALUES (${roleId}, ${groupId}, 'P5 archived role')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO manual_schedule_templates
+          (id, group_id, schedule_role_id, start_date, cycle_days, deleted_at)
+        VALUES (
+          ${randomUUID()}, ${groupId}, ${roleId}, '2026-09-01', 31,
+          CURRENT_TIMESTAMP(3)
+        )
+      `);
+
+      await expect(
+        runMigrationFile(client, '0048_manual_schedule_limits'),
+      ).resolves.toBeUndefined();
+      await expect(
+        client.database.execute(sql`
+          INSERT INTO manual_schedule_templates
+            (id, group_id, schedule_role_id, start_date, cycle_days)
+          VALUES (${randomUUID()}, ${groupId}, ${roleId}, '2026-10-01', 31)
+        `),
+      ).rejects.toThrow();
+    } finally {
+      await rm(preP5MigrationsDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it('blocks member, cell-day, and cell-count violations and can rerun after repair', async () => {
+    const preP5MigrationsDirectory = await createLegacyMigrationsDirectory(47);
+    try {
+      await migrateDatabase(client, preP5MigrationsDirectory);
+      const ownerId = randomUUID();
+      const groupId = randomUUID();
+      const roleId = randomUUID();
+      const templateId = randomUUID();
+      const shiftTypeId = randomUUID();
+      await client.database.execute(sql`INSERT INTO users (id) VALUES (${ownerId})`);
+      await client.database.execute(sql`
+        INSERT INTO \`groups\` (id, name, group_code, owner_user_id, visitor_key)
+        VALUES (${groupId}, 'P5 count limits', '4832', ${ownerId}, ${'7'.repeat(32)})
+      `);
+      await client.database.execute(sql`
+        INSERT INTO schedule_roles (id, group_id, name)
+        VALUES (${roleId}, ${groupId}, 'P5 count role')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO shift_types
+          (id, group_id, name, abbreviation, display_order, color, text_color)
+        VALUES (${shiftTypeId}, ${groupId}, 'P5 shift', 'P5', 1, '#1F5AA6', '#FFFFFF')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO manual_schedule_templates
+          (id, group_id, schedule_role_id, start_date, cycle_days)
+        VALUES (${templateId}, ${groupId}, ${roleId}, '2026-09-01', 30)
+      `);
+
+      const membershipIds: string[] = [];
+      const templateMemberIds: string[] = [];
+      for (let index = 0; index < 21; index += 1) {
+        const userId = randomUUID();
+        const membershipId = randomUUID();
+        const templateMemberId = randomUUID();
+        await client.database.execute(sql`
+          INSERT INTO users (id, cloudbase_uid, status)
+          VALUES (${userId}, ${`p5-migration-user-${userId}`}, 'active')
+        `);
+        await client.database.execute(sql`
+          INSERT INTO group_memberships (id, group_id, user_id, role, status)
+          VALUES (${membershipId}, ${groupId}, ${userId}, 'member', 'active')
+        `);
+        await client.database.execute(sql`
+          INSERT INTO manual_schedule_template_members
+            (id, template_id, membership_id, member_schedule_role_version)
+          VALUES (${templateMemberId}, ${templateId}, ${membershipId}, 1)
+        `);
+        membershipIds.push(membershipId);
+        templateMemberIds.push(templateMemberId);
+      }
+
+      await expect(runMigrationFile(client, '0048_manual_schedule_limits')).rejects.toThrow();
+      await client.database.execute(sql`
+        UPDATE manual_schedule_template_members
+        SET deleted_at = CURRENT_TIMESTAMP(3)
+        WHERE id = ${templateMemberIds[20]}
+      `);
+
+      const invalidCellId = randomUUID();
+      await client.database.execute(sql`
+        INSERT INTO manual_schedule_cells
+          (id, template_id, cycle_day, membership_id, shift_type_id,
+           shift_type_configuration_version)
+        VALUES (${invalidCellId}, ${templateId}, 31, ${membershipIds[0]}, ${shiftTypeId}, 1)
+      `);
+      await client.database.execute(sql`
+        UPDATE manual_schedule_templates
+        SET deleted_at = CURRENT_TIMESTAMP(3)
+        WHERE id = ${templateId}
+      `);
+      await expect(runMigrationFile(client, '0048_manual_schedule_limits')).rejects.toThrow();
+      await client.database.execute(sql`
+        UPDATE manual_schedule_templates
+        SET deleted_at = NULL
+        WHERE id = ${templateId}
+      `);
+      await client.database.execute(sql`
+        UPDATE manual_schedule_cells
+        SET deleted_at = CURRENT_TIMESTAMP(3)
+        WHERE id = ${invalidCellId}
+      `);
+
+      const validCellRows = membershipIds.slice(0, 20).flatMap((membershipId) =>
+        Array.from(
+          { length: 30 },
+          (_, index) => sql`
+          (${randomUUID()}, ${templateId}, ${index + 1}, ${membershipId}, ${shiftTypeId}, 1)
+        `,
+        ),
+      );
+      await client.database.execute(sql`
+        INSERT INTO manual_schedule_cells
+          (id, template_id, cycle_day, membership_id, shift_type_id,
+           shift_type_configuration_version)
+        VALUES ${sql.join(validCellRows, sql`, `)}
+      `);
+      const extraCellId = randomUUID();
+      await client.database.execute(sql`
+        INSERT INTO manual_schedule_cells
+          (id, template_id, cycle_day, membership_id, shift_type_id,
+           shift_type_configuration_version)
+        VALUES (${extraCellId}, ${templateId}, 31, ${membershipIds[0]}, ${shiftTypeId}, 1)
+      `);
+      await expect(runMigrationFile(client, '0048_manual_schedule_limits')).rejects.toThrow();
+      await client.database.execute(sql`
+        UPDATE manual_schedule_cells
+        SET deleted_at = CURRENT_TIMESTAMP(3)
+        WHERE id = ${extraCellId}
+      `);
+
+      await expect(
+        runMigrationFile(client, '0048_manual_schedule_limits'),
+      ).resolves.toBeUndefined();
+      const [activeMemberRows] = await client.database.execute<{ count: number }>(sql`
+        SELECT COUNT(*) AS count
+        FROM manual_schedule_template_members
+        WHERE template_id = ${templateId} AND deleted_at IS NULL
+      `);
+      const [activeCellRows] = await client.database.execute<{ count: number }>(sql`
+        SELECT COUNT(*) AS count
+        FROM manual_schedule_cells
+        WHERE template_id = ${templateId} AND deleted_at IS NULL
+      `);
+      const [routineRows] = await client.database.execute<{ count: number }>(sql`
+        SELECT COUNT(*) AS count
+        FROM information_schema.routines
+        WHERE routine_schema = DATABASE()
+          AND routine_name = '_assert_p5_manual_schedule_limits'
+      `);
+      expect(activeMemberRows).toEqual([{ count: 20 }]);
+      expect(activeCellRows).toEqual([{ count: 600 }]);
+      expect(routineRows).toEqual([{ count: 0 }]);
+    } finally {
+      await rm(preP5MigrationsDirectory, { force: true, recursive: true });
+    }
   });
 
   it('accepts the guest membership role after migration 0032', async () => {

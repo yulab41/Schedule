@@ -1,6 +1,8 @@
-import type {
-  ApplyManualScheduleTemplateRequest,
-  PreviewManualTemplateApplyRequest,
+import {
+  applyManualScheduleTemplateRequestSchema,
+  previewManualTemplateApplyRequestSchema,
+  type ApplyManualScheduleTemplateRequest,
+  type PreviewManualTemplateApplyRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -10,33 +12,6 @@ import { ManualScheduleApplyService } from './apply-service.js';
 
 const groupIdSchema = z.string().uuid();
 const templateIdSchema = z.string().uuid();
-const operationIdSchema = z.string().uuid();
-const endDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const startDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const rulesVersionSchema = z.number().int().min(1);
-const publishModeSchema = z.enum(['draft', 'published']);
-
-const previewInputSchema = z
-  .object({
-    endDate: endDateSchema.optional(),
-    expectedRulesVersion: rulesVersionSchema,
-    startDate: startDateSchema.optional(),
-  })
-  .strict();
-
-const applyInputSchema = z
-  .object({
-    acknowledgeBlockers: z.boolean().optional(),
-    acknowledgeWorkflowRevocations: z.boolean().optional(),
-    endDate: endDateSchema.optional(),
-    expectedRulesVersion: rulesVersionSchema,
-    operationId: operationIdSchema,
-    publishMode: publishModeSchema.optional(),
-    replacePublished: z.boolean().optional(),
-    replaceExistingDrafts: z.boolean().optional(),
-    startDate: startDateSchema.optional(),
-  })
-  .strict();
 
 export function registerManualScheduleApplyRoutes(
   app: FastifyInstance,
@@ -88,7 +63,7 @@ function parseTemplateId(request: FastifyRequest): string {
 }
 
 function parsePreviewInput(value: unknown): PreviewManualTemplateApplyRequest {
-  const input = parseOrThrow(previewInputSchema, value);
+  const input = parseOrThrow(previewManualTemplateApplyRequestSchema, value);
   return {
     expectedRulesVersion: input.expectedRulesVersion,
     ...(input.endDate === undefined ? {} : { endDate: input.endDate }),
@@ -97,7 +72,7 @@ function parsePreviewInput(value: unknown): PreviewManualTemplateApplyRequest {
 }
 
 function parseApplyInput(value: unknown): ApplyManualScheduleTemplateRequest {
-  const input = parseOrThrow(applyInputSchema, value);
+  const input = parseOrThrow(applyManualScheduleTemplateRequestSchema, value);
   return {
     ...(input.acknowledgeBlockers === undefined
       ? {}

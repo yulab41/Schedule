@@ -1783,6 +1783,34 @@ describe('Web API client', () => {
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'Idempotency-Key': 'op-1' }),
+      }),
+    );
+  });
+
+  it('sends the delete operation id in the Idempotency-Key header', async () => {
+    const operationId = '33333333-3333-4333-8333-333333333333';
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    const client = createApiClient({
+      auth: createAuthClient(),
+      fetch: fetchImplementation,
+    });
+
+    await expect(
+      client.deleteScheduleDraft(group.id, schedulePeriodHistoryItem.id, operationId),
+    ).resolves.toBeUndefined();
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'Idempotency-Key': operationId }),
+        method: 'DELETE',
+      }),
+    );
   });
 
   it('rejects a past schedule period with a malformed business month', async () => {
@@ -2539,8 +2567,8 @@ describe('Web API client', () => {
     });
   });
 
-  it('rejects a manual schedule template with a cycle days above 31', async () => {
-    const invalidTemplate = { ...manualTemplate, cycleDays: 32 };
+  it('rejects a manual schedule template with a cycle days above 30', async () => {
+    const invalidTemplate = { ...manualTemplate, cycleDays: 31 };
     const fetchImplementation = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify([invalidTemplate]), { status: 200 }));

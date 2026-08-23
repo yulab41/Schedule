@@ -44,6 +44,15 @@ describe('Mini Program deterministic toolchain guards', () => {
     expect(findRuntimeBoundaryIssues("import '@schedule/database';")).toContain(
       'imports forbidden runtime module: @schedule/database',
     );
+    expect(findRuntimeBoundaryIssues("import '@schedule/contracts';")).toContain(
+      'imports forbidden runtime module: @schedule/contracts',
+    );
+    expect(
+      findRuntimeBoundaryIssues("import type { CalendarReadModel } from '@schedule/contracts';"),
+    ).not.toContain('imports forbidden runtime module: @schedule/contracts');
+    expect(
+      findRuntimeBoundaryIssues("import '@schedule/contracts/manual-schedule-limits';"),
+    ).not.toContain('imports forbidden runtime module: @schedule/contracts/manual-schedule-limits');
   });
 
   it('requires worklet to be the first and only directive', () => {

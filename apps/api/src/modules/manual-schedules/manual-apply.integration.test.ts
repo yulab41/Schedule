@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-import type { ManualApplyPreview, ShiftType } from '@schedule/contracts';
+import type {
+  AppliedManualScheduleTemplateResult,
+  ManualApplyPreview,
+  ShiftType,
+} from '@schedule/contracts';
 import {
   createTestDatabaseClient,
   migrateDatabase,
@@ -118,16 +122,16 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(applyEventCount).toEqual([{ count: 0 }]);
   });
 
-  it('repeats the cycle and truncates at the requested end date', async () => {
+  it('repeats the cycle through the exact 30-day apply boundary', async () => {
     const templateId = await createTemplate();
 
     const preview = await applyPreview(templateId, {
-      endDate: '2026-10-06',
+      endDate: '2026-09-30',
       expectedRulesVersion: rulesVersion,
     });
     const body = preview.json() as ManualApplyPreview;
 
-    expect(body.applyEndDate).toBe('2026-10-06');
+    expect(body.applyEndDate).toBe('2026-09-30');
     expect(body.assignments.map((assignment) => assignment.businessDate)).toEqual([
       '2026-09-01',
       '2026-09-02',
@@ -139,12 +143,72 @@ describeWithDatabase('manual schedule template apply', () => {
       '2026-09-23',
       '2026-09-29',
       '2026-09-30',
-      '2026-10-06',
     ]);
-    expect(body.statistics.assignmentCount).toBe(11);
-    expect(body.assignments.some((assignment) => assignment.businessDate === '2026-10-07')).toBe(
+    expect(body.statistics.assignmentCount).toBe(10);
+    expect(body.assignments.some((assignment) => assignment.businessDate === '2026-10-01')).toBe(
       false,
     );
+
+    const applied = await applyTemplate(templateId, {
+      endDate: '2026-09-30',
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(applied.statusCode, applied.body).toBe(200);
+    expect((applied.json() as AppliedManualScheduleTemplateResult).preview.applyEndDate).toBe(
+      '2026-09-30',
+    );
+  });
+
+  it('rejects 31-day and invalid apply ranges with no write side effects', async () => {
+    const templateId = await createTemplate();
+    const before = await readManualApplySideEffectCounts();
+
+    const tooLongPreview = await applyPreview(templateId, {
+      endDate: '2026-10-01',
+      expectedRulesVersion: rulesVersion,
+    });
+    expect(tooLongPreview.statusCode).toBe(400);
+
+    const invalidPreview = await applyPreview(templateId, {
+      endDate: '2026-09-31',
+      expectedRulesVersion: rulesVersion,
+    });
+    expect(invalidPreview.statusCode).toBe(400);
+
+    const tooLongApply = await applyTemplate(templateId, {
+      endDate: '2026-10-01',
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(tooLongApply.statusCode).toBe(400);
+    const invalidApply = await applyTemplate(templateId, {
+      endDate: '2026-09-31',
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(invalidApply.statusCode).toBe(400);
+    expect(await readManualApplySideEffectCounts()).toEqual(before);
+  });
+
+  it('rejects a persisted template above the member limit before apply-side queries or writes', async () => {
+    const templateId = await createTemplate();
+    await appendCorruptTemplateMembers(templateId, 19);
+    const before = await readManualApplySideEffectCounts();
+
+    const previewResponse = await applyPreview(templateId, {
+      expectedRulesVersion: rulesVersion,
+    });
+    expect(previewResponse.statusCode).toBe(400);
+    expect(previewResponse.json()).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+
+    const applyResponse = await applyTemplate(templateId, {
+      expectedRulesVersion: rulesVersion,
+      operationId: randomUUID(),
+    });
+    expect(applyResponse.statusCode).toBe(400);
+    expect(applyResponse.json()).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+    expect(await readManualApplySideEffectCounts()).toEqual(before);
   });
 
   it('saves a draft under the default draft publish mode without touching the published version', async () => {
@@ -223,6 +287,21 @@ describeWithDatabase('manual schedule template apply', () => {
     });
     expect(memberDrafts.statusCode).toBe(403);
 
+    const mismatchedBodyOperationId = randomUUID();
+    const mismatchedKey = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
+      method: 'POST',
+      payload: {
+        expectedVersion: period?.version,
+        operationId: mismatchedBodyOperationId,
+      },
+      url: `/groups/${groupId}/schedules/${period?.id}/publish`,
+    });
+    expect(mismatchedKey.statusCode).toBe(400);
+
     const published = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
@@ -270,12 +349,33 @@ describeWithDatabase('manual schedule template apply', () => {
     });
     expect((preview.json() as { assignments: readonly unknown[] }).assignments).toHaveLength(2);
 
-    const deleted = await app.inject({
+    const missingDeleteKey = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
       url: `/groups/${groupId}/schedules/${period?.id}`,
     });
+    expect(missingDeleteKey.statusCode).toBe(400);
+
+    const deleteOperationId = randomUUID();
+    const deleted = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': deleteOperationId,
+      },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedules/${period?.id}`,
+    });
     expect(deleted.statusCode).toBe(200);
+
+    const replayedDelete = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': deleteOperationId,
+      },
+      method: 'DELETE',
+      url: `/groups/${groupId}/schedules/${period?.id}`,
+    });
+    expect(replayedDelete.statusCode).toBe(200);
 
     const drafts = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -347,10 +447,10 @@ describeWithDatabase('manual schedule template apply', () => {
   });
 
   it('lists history with batch ranges, publishes a whole range at once, and archives/deletes versions', async () => {
-    const templateId = await createTemplate();
+    const templateId = await createTemplate(undefined, '2026-09-15');
     const applyOperationId = randomUUID();
     const applied = await applyTemplate(templateId, {
-      endDate: '2026-10-06',
+      endDate: '2026-10-14',
       expectedRulesVersion: rulesVersion,
       operationId: applyOperationId,
     });
@@ -378,8 +478,8 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(items.map((item) => item.businessMonth).sort()).toEqual(['2026-09', '2026-10']);
     expect(items.every((item) => item.status === 'draft')).toBe(true);
     expect(items.every((item) => item.operationId === applyOperationId)).toBe(true);
-    expect(items.every((item) => item.applyStartDate === '2026-09-01')).toBe(true);
-    expect(items.every((item) => item.applyEndDate === '2026-10-06')).toBe(true);
+    expect(items.every((item) => item.applyStartDate === '2026-09-15')).toBe(true);
+    expect(items.every((item) => item.applyEndDate === '2026-10-14')).toBe(true);
 
     const batchPublish = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -448,7 +548,10 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(current).toBeDefined();
 
     const deleteArchived = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'DELETE',
       url: `/groups/${groupId}/schedules/${archived[0]?.id}`,
     });
@@ -465,7 +568,10 @@ describeWithDatabase('manual schedule template apply', () => {
     ).toBe(false);
 
     const deleteCurrent = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'DELETE',
       url: `/groups/${groupId}/schedules/${current?.id}`,
     });
@@ -515,9 +621,9 @@ describeWithDatabase('manual schedule template apply', () => {
   });
 
   it('records template version and scope events for every applied month', async () => {
-    const templateId = await createTemplate();
+    const templateId = await createTemplate(undefined, '2026-09-15');
     const response = await applyTemplate(templateId, {
-      endDate: '2026-10-06',
+      endDate: '2026-10-14',
       expectedRulesVersion: rulesVersion,
       operationId: randomUUID(),
     });
@@ -545,8 +651,8 @@ describeWithDatabase('manual schedule template apply', () => {
       '2026-10',
     ]);
     expect(events[0]?.afterData).toMatchObject({
-      applyEndDate: '2026-10-06',
-      applyStartDate: '2026-09-01',
+      applyEndDate: '2026-10-14',
+      applyStartDate: '2026-09-15',
       cycleDays: 7,
       publishMode: 'draft',
       rulesVersion,
@@ -700,6 +806,44 @@ describeWithDatabase('manual schedule template apply', () => {
     expect(eventCount).toEqual([{ count: 1 }]);
   });
 
+  async function readManualApplySideEffectCounts(): Promise<{
+    readonly assignments: number;
+    readonly idempotencyKeys: number;
+    readonly periods: number;
+    readonly scheduleEvents: number;
+  }> {
+    const [periodRows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM schedule_periods WHERE group_id = ${groupId}`,
+    );
+    const [assignmentRows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count
+          FROM shift_assignments sa
+          INNER JOIN schedule_periods sp ON sp.id = sa.schedule_period_id
+          WHERE sp.group_id = ${groupId}`,
+    );
+    const [eventRows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count
+          FROM schedule_events
+          WHERE group_id = ${groupId}
+            AND event_type = 'manual_schedule_template_applied'`,
+    );
+    const [idempotencyRows] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM idempotency_keys`,
+    );
+
+    const periods = periodRows as unknown as readonly { readonly count: number }[];
+    const assignments = assignmentRows as unknown as readonly { readonly count: number }[];
+    const scheduleEvents = eventRows as unknown as readonly { readonly count: number }[];
+    const idempotencyKeys = idempotencyRows as unknown as readonly { readonly count: number }[];
+
+    return {
+      assignments: assignments[0]?.count ?? 0,
+      idempotencyKeys: idempotencyKeys[0]?.count ?? 0,
+      periods: periods[0]?.count ?? 0,
+      scheduleEvents: scheduleEvents[0]?.count ?? 0,
+    };
+  }
+
   it('restricts preview and apply to administrators', async () => {
     const templateId = await createTemplate();
     const body = { expectedRulesVersion: rulesVersion };
@@ -829,6 +973,26 @@ describeWithDatabase('manual schedule template apply', () => {
 
     expect(response.statusCode).toBe(201);
     return (response.json() as { id: string }).id;
+  }
+
+  async function appendCorruptTemplateMembers(templateId: string, count: number): Promise<void> {
+    for (let index = 0; index < count; index += 1) {
+      const userId = randomUUID();
+      const membershipId = randomUUID();
+      await client.database.execute(sql`
+        INSERT INTO users (id, cloudbase_uid, status)
+        VALUES (${userId}, ${`manual-limit-user-${userId}`}, 'active')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO group_memberships (id, group_id, user_id, role, status)
+        VALUES (${membershipId}, ${groupId}, ${userId}, 'member', 'active')
+      `);
+      await client.database.execute(sql`
+        INSERT INTO manual_schedule_template_members
+          (id, template_id, membership_id, member_schedule_role_version)
+        VALUES (${randomUUID()}, ${templateId}, ${membershipId}, 1)
+      `);
+    }
   }
 
   async function applyPreview(

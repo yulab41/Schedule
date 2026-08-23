@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+} from '@schedule/contracts/manual-schedule-limits';
+
+import {
   applyManualTemplate,
   type ManualApplyCell,
   type ManualApplyMember,
@@ -87,6 +93,21 @@ function fullCycleCells(
   }));
 }
 
+function maximumMembers(): readonly ManualApplyMember[] {
+  return Array.from({ length: MAX_MANUAL_MEMBERS }, (_, index) => ({
+    currentMemberScheduleRoleVersion: 1,
+    isActive: true,
+    membershipId: `membership-limit-${String(index + 1).padStart(2, '0')}`,
+    realName: `Limit Member ${String(index + 1).padStart(2, '0')}`,
+  }));
+}
+
+function maximumCells(members: readonly ManualApplyMember[]): readonly ManualApplyCell[] {
+  return Array.from({ length: MAX_MANUAL_DAYS }, (_, dayIndex) =>
+    members.map((member) => cell(dayIndex + 1, member.membershipId, allDayShift.id)),
+  ).flat();
+}
+
 describe('applyManualTemplate', () => {
   it('applies one cycle from the template start date when no end date is given', () => {
     const result = applyManualTemplate(baseInput({ cells: fullCycleCells(7), cycleDays: 7 }));
@@ -134,6 +155,54 @@ describe('applyManualTemplate', () => {
     expect(new Set(result.assignments.map((assignment) => assignment.slotPosition))).toEqual(
       new Set([1]),
     );
+  });
+
+  it('accepts the exact 20-member, 30-day, 600-cell manual schedule boundary', () => {
+    const members = maximumMembers();
+    const cells = maximumCells(members);
+
+    expect(cells).toHaveLength(MAX_MANUAL_CELLS);
+    const result = applyManualTemplate(
+      baseInput({
+        cells,
+        cycleDays: MAX_MANUAL_DAYS,
+        members,
+      }),
+    );
+
+    expect(result.assignments).toHaveLength(MAX_MANUAL_CELLS);
+    expect(result.assignments[0]?.businessDate).toBe('2026-08-01');
+    expect(result.assignments.at(-1)?.businessDate).toBe('2026-08-30');
+  });
+
+  it('rejects 21 members, 31 days, 601 cells, and a 31-day apply range', () => {
+    const members = maximumMembers();
+    const cells = maximumCells(members);
+    const extraMember: ManualApplyMember = {
+      currentMemberScheduleRoleVersion: 1,
+      isActive: true,
+      membershipId: 'membership-limit-21',
+      realName: 'Limit Member 21',
+    };
+
+    expect(() => applyManualTemplate(baseInput({ members: [...members, extraMember] }))).toThrow(
+      /members/u,
+    );
+    expect(() => applyManualTemplate(baseInput({ cycleDays: MAX_MANUAL_DAYS + 1 }))).toThrow(
+      /cycle days/u,
+    );
+    expect(() =>
+      applyManualTemplate(
+        baseInput({
+          cells: [...cells, cells[0] as ManualApplyCell],
+          cycleDays: MAX_MANUAL_DAYS,
+          members,
+        }),
+      ),
+    ).toThrow(/cells/u);
+    expect(() =>
+      applyManualTemplate(baseInput({ endDate: '2026-08-31', startDate: '2026-08-01' })),
+    ).toThrow(/30 days/u);
   });
 
   it('truncates correctly when the end date falls inside a cycle', () => {
@@ -417,7 +486,7 @@ describe('applyManualTemplate', () => {
 
   it('rejects invalid cycles, dates, and duplicate cells', () => {
     expect(() => applyManualTemplate(baseInput({ cycleDays: 0 }))).toThrow(/cycle days/u);
-    expect(() => applyManualTemplate(baseInput({ cycleDays: 32 }))).toThrow(/cycle days/u);
+    expect(() => applyManualTemplate(baseInput({ cycleDays: 31 }))).toThrow(/cycle days/u);
     expect(() =>
       applyManualTemplate(baseInput({ endDate: '2026-07-31', startDate: '2026-08-01' })),
     ).toThrow(/end date/u);

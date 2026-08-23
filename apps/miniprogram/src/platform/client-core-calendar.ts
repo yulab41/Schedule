@@ -5,10 +5,14 @@ import {
   createCalendarReadClient,
   createHttpClientError,
   createInvalidResponseError,
+  createManualScheduleClient,
   createNetworkError,
+  createSchedulePublicationClient,
   holidayReadModelDecoder,
   type CalendarReadClient,
   type ClientTransport,
+  type ManualScheduleClient,
+  type SchedulePublicationClient,
 } from '@schedule/client-core';
 
 export interface WxJsonRequestSuccess {
@@ -17,9 +21,10 @@ export interface WxJsonRequestSuccess {
 }
 
 export interface WxJsonRequestOptions {
+  readonly data?: unknown;
   readonly fail: (error: unknown) => void;
   readonly header: Readonly<Record<string, string>>;
-  readonly method: 'GET';
+  readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
   readonly success: (response: WxJsonRequestSuccess) => void;
   readonly url: string;
 }
@@ -56,9 +61,16 @@ export function createWxJsonTransport(options: {
         }
 
         try {
-          options.request({
+          const idempotencyKey = endpoint.idempotencyKey?.(input);
+          const body = endpoint.body?.(input);
+          const header = {
+            ...(accessToken === undefined ? {} : { Authorization: `Bearer ${accessToken}` }),
+            ...(idempotencyKey === undefined ? {} : { 'Idempotency-Key': idempotencyKey }),
+          };
+          const requestOptions: WxJsonRequestOptions = {
+            ...(body === undefined ? {} : { data: body }),
             fail: () => reject(createNetworkError()),
-            header: accessToken === undefined ? {} : { Authorization: `Bearer ${accessToken}` },
+            header,
             method: endpoint.method,
             success: (response) => {
               if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -73,13 +85,38 @@ export function createWxJsonTransport(options: {
               resolve(decoded.data);
             },
             url: `${baseUrl}${endpoint.path(input)}`,
-          });
+          };
+          options.request(requestOptions);
         } catch {
           reject(createNetworkError());
         }
       });
     },
   };
+}
+
+export function createRuntimeManualScheduleClient(
+  getAccessToken: () => string | undefined,
+): ManualScheduleClient {
+  return createManualScheduleClient(
+    createWxJsonTransport({
+      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
+      getAccessToken,
+      request: (requestOptions) => wx.request(requestOptions),
+    }),
+  );
+}
+
+export function createRuntimeSchedulePublicationClient(
+  getAccessToken: () => string | undefined,
+): SchedulePublicationClient {
+  return createSchedulePublicationClient(
+    createWxJsonTransport({
+      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
+      getAccessToken,
+      request: (requestOptions) => wx.request(requestOptions),
+    }),
+  );
 }
 
 export function createRuntimeCalendarReadClient(

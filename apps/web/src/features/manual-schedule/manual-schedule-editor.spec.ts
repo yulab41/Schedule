@@ -3,6 +3,11 @@ import type {
   SchedulePeriodHistoryItem,
   ShiftType,
 } from '@schedule/contracts';
+import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+} from '@schedule/contracts/manual-schedule-limits';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -13,6 +18,8 @@ import {
   createTemplateUndoStack,
   findPublishedOverlapMonths,
   formatScheduleDraftCode,
+  getManualApplyRangeError,
+  getManualTemplateLimitError,
   getNextAvailableStartDate,
   getTemplateCellShiftTypeId,
   getTemplateDateColumns,
@@ -33,8 +40,52 @@ describe('manual schedule template editor logic', () => {
     expect(thirtyDays).toHaveLength(30);
     expect(thirtyDays.at(-1)).toEqual({ cycleDay: 30, date: '2026-09-23', weekday: '三' });
 
-    expect(() => getTemplateDateColumns('2026-08-01', 32)).toThrow();
+    expect(() => getTemplateDateColumns('2026-08-01', 31)).toThrow();
     expect(() => getTemplateDateColumns('2026-8-1', 7)).toThrow();
+  });
+
+  it('enforces the frozen 20 member, 30 day, and 600 cell template limits', () => {
+    expect({
+      cells: MAX_MANUAL_CELLS,
+      days: MAX_MANUAL_DAYS,
+      members: MAX_MANUAL_MEMBERS,
+    }).toEqual({ cells: 600, days: 30, members: 20 });
+    expect(
+      getManualTemplateLimitError({
+        cellCount: 600,
+        cycleDays: 30,
+        memberCount: 20,
+      }),
+    ).toBeUndefined();
+    expect(
+      getManualTemplateLimitError({
+        cellCount: 600,
+        cycleDays: 30,
+        memberCount: 21,
+      }),
+    ).toContain('20');
+    expect(
+      getManualTemplateLimitError({
+        cellCount: 600,
+        cycleDays: 31,
+        memberCount: 20,
+      }),
+    ).toContain('30');
+    expect(
+      getManualTemplateLimitError({
+        cellCount: 601,
+        cycleDays: 30,
+        memberCount: 20,
+      }),
+    ).toContain('600');
+  });
+
+  it('allows at most 30 inclusive business dates for preview and apply', () => {
+    expect(getManualApplyRangeError('2026-08-01', '2026-08-30')).toBeUndefined();
+    expect(getManualApplyRangeError('2026-08-01', '2026-08-31')).toContain('30');
+    expect(getManualApplyRangeError('2028-02-01', '2028-03-01')).toBeUndefined();
+    expect(getManualApplyRangeError('2026-02-30', '2026-03-01')).toContain('日期');
+    expect(getManualApplyRangeError('2026-08-02', '2026-08-01')).toContain('早于');
   });
 
   it('fills and clears only the targeted cell', () => {

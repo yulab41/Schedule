@@ -10,6 +10,7 @@ const productionSources = [
   new URL('../src/endpoint.ts', import.meta.url),
   new URL('../src/error.ts', import.meta.url),
   new URL('../src/json-decoder.ts', import.meta.url),
+  new URL('../src/manual-schedule-client.ts', import.meta.url),
   new URL('../src/generated/calendar-schemas.ts', import.meta.url),
 ];
 
@@ -37,7 +38,8 @@ describe('client-core runtime boundary', () => {
       write: false,
     });
     expect(result.outputFiles[0]?.text.length ?? 0).toBeGreaterThan(0);
-    expect(Object.keys(result.metafile.inputs).sort()).toEqual(
+    const bundledInputs = Object.keys(result.metafile.inputs).map(normalizeBundledInput).sort();
+    expect(bundledInputs).toEqual(
       [
         'packages/client-core/src/calendar-client.ts',
         'packages/client-core/src/endpoint.ts',
@@ -45,7 +47,23 @@ describe('client-core runtime boundary', () => {
         'packages/client-core/src/generated/calendar-schemas.ts',
         'packages/client-core/src/index.ts',
         'packages/client-core/src/json-decoder.ts',
+        'packages/client-core/src/manual-schedule-client.ts',
+        'packages/client-core/src/schedule-publication-client.ts',
+        'packages/contracts/src/manual-schedule-limits.ts',
       ].sort(),
     );
   });
 });
+
+function normalizeBundledInput(input: string): string {
+  const normalized = input.replaceAll('\\', '/');
+  for (const marker of ['packages/client-core/', 'packages/contracts/']) {
+    const markerIndex = normalized.lastIndexOf(marker);
+    if (markerIndex >= 0) return normalized.slice(markerIndex);
+  }
+  if (normalized.startsWith('src/')) return `packages/client-core/${normalized}`;
+  if (normalized.startsWith('../contracts/')) {
+    return `packages/contracts/${normalized.slice('../contracts/'.length)}`;
+  }
+  return normalized;
+}

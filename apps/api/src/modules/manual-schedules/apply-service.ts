@@ -14,6 +14,13 @@ import type {
   SchedulePeriodSummary,
   SchedulePreviewAssignment,
 } from '@schedule/contracts';
+import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+  isManualScheduleDateRangeWithinLimit,
+  isValidManualScheduleDate,
+} from '@schedule/contracts/manual-schedule-limits';
 import type { DatabaseClient, DatabaseTransaction } from '@schedule/database';
 import {
   groupMemberships,
@@ -105,6 +112,7 @@ export class ManualScheduleApplyService {
     templateId: string,
     input: PreviewManualTemplateApplyRequest,
   ): Promise<ManualApplyPreview> {
+    assertProvidedManualApplyDates(input.startDate, input.endDate);
     return withTransaction(this.databaseClient, async (transaction) => {
       const authorization = await this.permissionService.requirePermission(
         transaction,
@@ -131,6 +139,7 @@ export class ManualScheduleApplyService {
     templateId: string,
     input: ApplyManualScheduleTemplateRequest,
   ): Promise<AppliedManualScheduleTemplateResult> {
+    assertProvidedManualApplyDates(input.startDate, input.endDate);
     try {
       return await withTransaction(this.databaseClient, async (transaction) => {
         const authorization = await this.permissionService.requirePermission(
@@ -139,7 +148,6 @@ export class ManualScheduleApplyService {
           groupId,
           'manageScheduleConfiguration',
         );
-
         return withIdempotentOperation(
           transaction,
           {
@@ -353,7 +361,11 @@ export class ManualScheduleApplyService {
     }
 
     const template = await this.lockTemplate(transaction, authorization.group.id, templateId);
-    const applyStartDate = startDate ?? template.startDate;
+    const { applyEndDate, applyStartDate } = assertResolvedManualApplyRange(
+      template,
+      startDate,
+      endDate,
+    );
     const today = getChinaStandardTimeBusinessDate(new Date());
     if (applyStartDate < today) {
       throw new ApiError({
@@ -399,6 +411,7 @@ export class ManualScheduleApplyService {
         )
         .orderBy(asc(manualScheduleCells.cycleDay), asc(manualScheduleCells.membershipId)),
     ]);
+    assertPersistedManualTemplateLimits(template, templateMembers, templateCells);
 
     const membershipIds = [...new Set(templateMembers.map((member) => member.membershipId))];
     const shiftTypeIds = [...new Set(templateCells.map((cell) => cell.shiftTypeId))];
@@ -455,7 +468,6 @@ export class ManualScheduleApplyService {
         shiftTypesForApply.map((shiftType) => [shiftType.id, shiftType] as const),
       ).values(),
     ];
-    const applyEndDate = endDate ?? addDays(applyStartDate, template.cycleDays - 1);
     const approvedLeaves = await this.loadApprovedLeavesInRange(
       transaction,
       authorization.group.id,
@@ -475,7 +487,7 @@ export class ManualScheduleApplyService {
         shiftTypeId: cell.shiftTypeId,
       })),
       cycleDays: template.cycleDays,
-      ...(endDate === undefined ? {} : { endDate }),
+      endDate: applyEndDate,
       leaveIntervals,
       members,
       scheduleRoleId: template.scheduleRoleId,
@@ -504,7 +516,7 @@ export class ManualScheduleApplyService {
             applyStartDate,
             cycleDays: template.cycleDays,
             domainResult,
-            endDate,
+            endDate: applyEndDate,
             memberNamesById,
             roleName: role.name,
             rulesVersion: expectedRulesVersion,
@@ -528,7 +540,7 @@ export class ManualScheduleApplyService {
         applyStartDate,
         cycleDays: template.cycleDays,
         domainResult,
-        endDate,
+        endDate: applyEndDate,
         memberNamesById,
         roleName: role.name,
         rulesVersion: expectedRulesVersion,
@@ -709,6 +721,80 @@ export class ManualScheduleApplyService {
         ),
       );
   }
+}
+
+function assertProvidedManualApplyDates(startDate?: string, endDate?: string): void {
+  if (startDate !== undefined && !isValidManualScheduleDate(startDate)) {
+    throw manualApplyValidationError('应用开始日期必须使用有效的 YYYY-MM-DD 格式。');
+  }
+  if (endDate !== undefined && !isValidManualScheduleDate(endDate)) {
+    throw manualApplyValidationError('应用结束日期必须使用有效的 YYYY-MM-DD 格式。');
+  }
+  if (startDate !== undefined && endDate !== undefined) {
+    if (endDate < startDate) {
+      throw manualApplyValidationError('应用结束日期不能早于开始日期。');
+    }
+    if (!isManualScheduleDateRangeWithinLimit(startDate, endDate)) {
+      throw manualApplyValidationError(`手动排班应用范围最多 ${MAX_MANUAL_DAYS} 天。`);
+    }
+  }
+}
+
+function assertPersistedManualTemplateLimits(
+  template: ManualApplyTemplateRow,
+  members: readonly { readonly membershipId: string }[],
+  cells: readonly { readonly cycleDay: number; readonly membershipId: string }[],
+): void {
+  if (
+    !Number.isInteger(template.cycleDays) ||
+    template.cycleDays < 1 ||
+    template.cycleDays > MAX_MANUAL_DAYS
+  ) {
+    throw manualApplyValidationError(`模板周期天数必须是 1 到 ${MAX_MANUAL_DAYS} 之间的整数。`);
+  }
+  if (members.length < 1 || members.length > MAX_MANUAL_MEMBERS) {
+    throw manualApplyValidationError(`模板需要 1 到 ${MAX_MANUAL_MEMBERS} 位不重复成员。`);
+  }
+  if (cells.length > MAX_MANUAL_CELLS || members.length * template.cycleDays > MAX_MANUAL_CELLS) {
+    throw manualApplyValidationError(`模板逻辑单元格数量不能超过 ${MAX_MANUAL_CELLS}。`);
+  }
+
+  const membershipIds = new Set(members.map((member) => member.membershipId));
+  if (membershipIds.size !== members.length) {
+    throw manualApplyValidationError('模板成员不能重复。');
+  }
+  const cellKeys = new Set<string>();
+  for (const cell of cells) {
+    const cellKey = `${cell.cycleDay}:${cell.membershipId}`;
+    if (
+      !Number.isInteger(cell.cycleDay) ||
+      cell.cycleDay < 1 ||
+      cell.cycleDay > template.cycleDays ||
+      !membershipIds.has(cell.membershipId) ||
+      cellKeys.has(cellKey)
+    ) {
+      throw manualApplyValidationError('模板单元格与成员或周期范围不一致，请先修正模板。');
+    }
+    cellKeys.add(cellKey);
+  }
+}
+
+function assertResolvedManualApplyRange(
+  template: ManualApplyTemplateRow,
+  startDate?: string,
+  endDate?: string,
+): { readonly applyEndDate: string; readonly applyStartDate: string } {
+  const applyStartDate = startDate ?? template.startDate;
+  if (!isValidManualScheduleDate(applyStartDate)) {
+    throw manualApplyValidationError('应用开始日期必须使用有效的 YYYY-MM-DD 格式。');
+  }
+  const applyEndDate = endDate ?? addDays(applyStartDate, template.cycleDays - 1);
+  assertProvidedManualApplyDates(applyStartDate, applyEndDate);
+  return { applyEndDate, applyStartDate };
+}
+
+function manualApplyValidationError(userMessage: string): ApiError {
+  return new ApiError({ code: 'VALIDATION_FAILED', statusCode: 400, userMessage });
 }
 
 function buildPreview(input: {

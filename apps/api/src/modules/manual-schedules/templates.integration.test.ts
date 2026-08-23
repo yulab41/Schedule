@@ -125,6 +125,66 @@ describeWithDatabase('manual schedule templates', () => {
     expect(list.json()).toEqual([template]);
   });
 
+  it('accepts 20 members, 30 days, and 600 cells while rejecting every plus-one boundary', async () => {
+    const membershipIds = await createMaximumRoleMemberships();
+    const cells = Array.from({ length: 30 }, (_, dayIndex) =>
+      membershipIds.map((membershipId) => ({
+        cycleDay: dayIndex + 1,
+        membershipId,
+        shiftTypeId: allDayShiftTypeId,
+      })),
+    ).flat();
+    expect(membershipIds).toHaveLength(20);
+    expect(cells).toHaveLength(600);
+
+    const accepted = await createTemplate({
+      cells,
+      cycleDays: 30,
+      membershipIds,
+      startDate: '2026-09-01',
+    });
+    expect(accepted.statusCode, accepted.body).toBe(201);
+    expect(accepted.json()).toMatchObject({ cycleDays: 30 });
+    expect((accepted.json() as ManualScheduleTemplate).members).toHaveLength(20);
+    expect((accepted.json() as ManualScheduleTemplate).cells).toHaveLength(600);
+
+    const tooManyMembers = await createTemplate({
+      cells,
+      cycleDays: 30,
+      membershipIds: [...membershipIds, randomUUID()],
+      startDate: '2026-09-01',
+    });
+    const tooManyDays = await createTemplate({
+      cells,
+      cycleDays: 31,
+      membershipIds,
+      startDate: '2026-09-01',
+    });
+    const tooManyCells = await createTemplate({
+      cells: [...cells, cells[0] as (typeof cells)[number]],
+      cycleDays: 30,
+      membershipIds,
+      startDate: '2026-09-01',
+    });
+    expect(tooManyMembers.statusCode).toBe(400);
+    expect(tooManyDays.statusCode).toBe(400);
+    expect(tooManyCells.statusCode).toBe(400);
+
+    const [templateCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count
+          FROM manual_schedule_templates
+          WHERE group_id = ${groupId} AND deleted_at IS NULL`,
+    );
+    const [eventCount] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count
+          FROM schedule_events
+          WHERE group_id = ${groupId}
+            AND event_type = 'manual_schedule_template_created'`,
+    );
+    expect(templateCount).toEqual([{ count: 1 }]);
+    expect(eventCount).toEqual([{ count: 1 }]);
+  });
+
   it('soft-deletes a template and hides it from later lists', async () => {
     const created = await createTemplate({
       cells: [{ cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId }],
@@ -222,6 +282,51 @@ describeWithDatabase('manual schedule templates', () => {
         latestData: { id: template.id, version: 2 },
       },
     });
+  });
+
+  it('persists a changed schedule role together with its validated members and audit event', async () => {
+    const created = await createTemplate({
+      cells: [{ cycleDay: 1, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId }],
+      cycleDays: 7,
+      membershipIds: [ownerMembershipId],
+      startDate: '2026-08-01',
+    });
+    const template = created.json() as ManualScheduleTemplate;
+    const secondaryRoleId = await createRole(groupId, '二线');
+    await replaceRoleMembers(groupId, secondaryRoleId, [ownerMembershipId]);
+
+    const updated = await updateTemplate(
+      template.id,
+      {
+        cells: [{ cycleDay: 2, membershipId: ownerMembershipId, shiftTypeId: allDayShiftTypeId }],
+        cycleDays: 7,
+        expectedVersion: template.version,
+        membershipIds: [ownerMembershipId],
+        startDate: '2026-09-01',
+      },
+      'owner-token',
+      secondaryRoleId,
+    );
+
+    expect(updated.statusCode, updated.body).toBe(200);
+    expect(updated.json()).toMatchObject({
+      scheduleRoleId: secondaryRoleId,
+      scheduleRoleName: '二线',
+      version: 2,
+    });
+    const [templateRows] = await client.database.execute<{ scheduleRoleId: string }>(sql`
+      SELECT schedule_role_id AS scheduleRoleId
+      FROM manual_schedule_templates
+      WHERE id = ${template.id}
+    `);
+    expect(templateRows).toEqual([{ scheduleRoleId: secondaryRoleId }]);
+    const [eventRows] = await client.database.execute<{ scheduleRoleId: string }>(sql`
+      SELECT JSON_UNQUOTE(JSON_EXTRACT(after_data, '$.scheduleRoleId')) AS scheduleRoleId
+      FROM schedule_events
+      WHERE object_id = ${template.id}
+        AND event_type = 'manual_schedule_template_updated'
+    `);
+    expect(eventRows).toEqual([{ scheduleRoleId: secondaryRoleId }]);
   });
 
   it('rejects disabled shift types, invalid cycles, duplicates, and non-role members', async () => {
@@ -515,11 +620,12 @@ describeWithDatabase('manual schedule templates', () => {
       readonly startDate: string;
     },
     token = 'owner-token',
+    scheduleRoleId = primaryRoleId,
   ) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'PUT',
-      payload: { ...body, scheduleRoleId: primaryRoleId },
+      payload: { ...body, scheduleRoleId },
       url: `/groups/${groupId}/manual-schedule-templates/${templateId}`,
     });
   }
@@ -530,6 +636,32 @@ describeWithDatabase('manual schedule templates', () => {
       method: 'GET',
       url: `/groups/${groupId}/manual-schedule-templates`,
     });
+  }
+
+  async function createMaximumRoleMemberships(): Promise<readonly string[]> {
+    const membershipIds = [ownerMembershipId, candidateMembershipId];
+    for (let index = membershipIds.length; index < 20; index += 1) {
+      const userId = randomUUID();
+      const membershipId = randomUUID();
+      const realName = `Limit Doctor ${String(index + 1).padStart(2, '0')}`;
+      await client.database.execute(
+        sql`INSERT INTO users (id, cloudbase_uid, status)
+            VALUES (${userId}, ${`limit-cloudbase-${userId}`}, 'active')`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO user_profiles (user_id, real_name) VALUES (${userId}, ${realName})`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO group_memberships (id, group_id, user_id, role, status)
+            VALUES (${membershipId}, ${groupId}, ${userId}, 'member', 'active')`,
+      );
+      await client.database.execute(
+        sql`INSERT INTO member_schedule_roles (id, schedule_role_id, membership_id)
+            VALUES (${randomUUID()}, ${primaryRoleId}, ${membershipId})`,
+      );
+      membershipIds.push(membershipId);
+    }
+    return membershipIds;
   }
 });
 

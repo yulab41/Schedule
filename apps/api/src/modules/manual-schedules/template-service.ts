@@ -8,6 +8,12 @@ import type {
   UpdateManualScheduleTemplateRequest,
 } from '@schedule/contracts';
 import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+  isValidManualScheduleDate,
+} from '@schedule/contracts/manual-schedule-limits';
+import {
   groupMemberships,
   manualScheduleCells,
   manualScheduleTemplateMembers,
@@ -28,10 +34,6 @@ import { ApiError } from '../../plugins/error-handler.js';
 import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { EventWriter } from '../events/event-writer.js';
 import { GroupPermissionService, type GroupAuthorization } from '../groups/permission-service.js';
-
-const maximumCycleDays = 31;
-const maximumTemplateMembers = 100;
-const maximumTemplateCells = 5_000;
 
 interface TemplateRow {
   readonly cycleDays: number;
@@ -180,6 +182,7 @@ export class ManualScheduleTemplateService {
         .update(manualScheduleTemplates)
         .set({
           cycleDays: input.cycleDays,
+          scheduleRoleId: input.scheduleRoleId,
           startDate: input.startDate,
           version: sql`${manualScheduleTemplates.version} + 1`,
         })
@@ -664,22 +667,25 @@ function validateTemplateInput(input: CreateManualScheduleTemplateRequest): void
   if (
     !Number.isInteger(input.cycleDays) ||
     input.cycleDays < 1 ||
-    input.cycleDays > maximumCycleDays
+    input.cycleDays > MAX_MANUAL_DAYS
   ) {
-    throw validationError(`模板周期天数必须是 1 到 ${maximumCycleDays} 之间的整数。`);
+    throw validationError(`模板周期天数必须是 1 到 ${MAX_MANUAL_DAYS} 之间的整数。`);
   }
-  if (!isValidDate(input.startDate)) {
+  if (!isValidManualScheduleDate(input.startDate)) {
     throw validationError('模板开始日期必须使用有效的 YYYY-MM-DD 格式。');
   }
   if (
     input.membershipIds.length < 1 ||
-    input.membershipIds.length > maximumTemplateMembers ||
+    input.membershipIds.length > MAX_MANUAL_MEMBERS ||
     new Set(input.membershipIds).size !== input.membershipIds.length
   ) {
-    throw validationError('模板至少需要一位成员，且成员不能重复。');
+    throw validationError(`模板需要 1 到 ${MAX_MANUAL_MEMBERS} 位不重复成员。`);
   }
-  if (input.cells.length > maximumTemplateCells) {
-    throw validationError('模板单元格数量超出限制。');
+  if (
+    input.cells.length > MAX_MANUAL_CELLS ||
+    input.membershipIds.length * input.cycleDays > MAX_MANUAL_CELLS
+  ) {
+    throw validationError(`模板逻辑单元格数量不能超过 ${MAX_MANUAL_CELLS}。`);
   }
 
   const membershipIds = new Set(input.membershipIds);
@@ -697,23 +703,6 @@ function validateTemplateInput(input: CreateManualScheduleTemplateRequest): void
     }
     cellKeys.add(cellKey);
   }
-}
-
-function isValidDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
-  if (match === null) {
-    return false;
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const candidate = new Date(Date.UTC(year, month - 1, day));
-  return (
-    candidate.getUTCFullYear() === year &&
-    candidate.getUTCMonth() === month - 1 &&
-    candidate.getUTCDate() === day
-  );
 }
 
 function toTemplate(

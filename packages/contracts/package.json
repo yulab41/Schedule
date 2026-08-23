@@ -10,6 +10,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./manual-schedule-limits": {
+      "types": "./dist/manual-schedule-limits.d.ts",
+      "import": "./dist/manual-schedule-limits.js"
+    },
     "./workspace-name": {
       "types": "./dist/workspace-name.d.ts",
       "import": "./dist/workspace-name.js"

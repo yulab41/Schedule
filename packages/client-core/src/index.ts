@@ -25,3 +25,24 @@ export {
   type CompactDecodeResult,
   type CompactJsonSchema,
 } from './json-decoder.js';
+export {
+  appliedManualScheduleTemplateResultDecoder,
+  createManualScheduleClient,
+  manualApplyPreviewDecoder,
+  manualScheduleEndpoints,
+  manualScheduleTemplateDecoder,
+  manualScheduleTemplateListDecoder,
+  schedulingConfigDecoder,
+  type ManualScheduleClient,
+} from './manual-schedule-client.js';
+export {
+  createSchedulePublicationClient,
+  publishSchedulePeriodBatchResultDecoder,
+  publishSchedulePeriodResultDecoder,
+  scheduleChangeImpactPreviewDecoder,
+  scheduleGenerationPreviewDecoder,
+  schedulePeriodHistoryListDecoder,
+  schedulePeriodMutationResultDecoder,
+  schedulePublicationEndpoints,
+  type SchedulePublicationClient,
+} from './schedule-publication-client.js';

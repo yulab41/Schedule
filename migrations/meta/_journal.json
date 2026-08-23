@@ -330,6 +330,13 @@
       "when": 1785542400047,
       "tag": "0047_wechat_admin_binding_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1785542400048,
+      "tag": "0048_manual_schedule_limits",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,12 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: '@schedule/contracts/manual-schedule-limits',
+        replacement: fileURLToPath(
+          new URL('./packages/contracts/src/manual-schedule-limits.ts', import.meta.url),
+        ),
+      },
+      {
         find: '@schedule/contracts/workspace-name',
         replacement: fileURLToPath(
           new URL('./packages/contracts/src/workspace-name.ts', import.meta.url),

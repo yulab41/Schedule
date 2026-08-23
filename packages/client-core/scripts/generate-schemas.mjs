@@ -6,8 +6,19 @@ import { fileURLToPath } from 'node:url';
 
 import {
   apiErrorCodes,
+  appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
   holidayReadModelSchema,
+  manualApplyPreviewSchema,
+  manualScheduleTemplateListSchema,
+  manualScheduleTemplateSchema,
+  publishSchedulePeriodBatchResultSchema,
+  publishSchedulePeriodResultSchema,
+  scheduleChangeImpactPreviewSchema,
+  scheduleGenerationPreviewSchema,
+  schedulePeriodHistoryItemListSchema,
+  schedulePeriodMutationResultSchema,
+  schedulingConfigSchema,
 } from '../../contracts/dist/index.js';
 import { z } from 'zod';
 
@@ -20,9 +31,61 @@ import {
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = path.join(packageRoot, 'src', 'generated', 'calendar-schemas.ts');
 const source = renderGeneratedSchemas({
-  calendar: sanitizeJsonSchema(z.toJSONSchema(calendarReadModelSchema), 'calendarReadModel'),
   errorCodes: [...apiErrorCodes],
-  holidays: sanitizeJsonSchema(z.toJSONSchema(holidayReadModelSchema), 'holidayReadModel'),
+  schemas: {
+    appliedManualScheduleTemplateResult: sanitizeJsonSchema(
+      z.toJSONSchema(appliedManualScheduleTemplateResultSchema),
+      'appliedManualScheduleTemplateResult',
+    ),
+    calendarReadModel: sanitizeJsonSchema(
+      z.toJSONSchema(calendarReadModelSchema),
+      'calendarReadModel',
+    ),
+    holidayReadModel: sanitizeJsonSchema(
+      z.toJSONSchema(holidayReadModelSchema),
+      'holidayReadModel',
+    ),
+    manualApplyPreview: sanitizeJsonSchema(
+      z.toJSONSchema(manualApplyPreviewSchema),
+      'manualApplyPreview',
+    ),
+    manualScheduleTemplate: sanitizeJsonSchema(
+      z.toJSONSchema(manualScheduleTemplateSchema),
+      'manualScheduleTemplate',
+    ),
+    manualScheduleTemplateList: sanitizeJsonSchema(
+      z.toJSONSchema(manualScheduleTemplateListSchema),
+      'manualScheduleTemplateList',
+    ),
+    publishSchedulePeriodBatchResult: sanitizeJsonSchema(
+      z.toJSONSchema(publishSchedulePeriodBatchResultSchema),
+      'publishSchedulePeriodBatchResult',
+    ),
+    publishSchedulePeriodResult: sanitizeJsonSchema(
+      z.toJSONSchema(publishSchedulePeriodResultSchema),
+      'publishSchedulePeriodResult',
+    ),
+    scheduleChangeImpactPreview: sanitizeJsonSchema(
+      z.toJSONSchema(scheduleChangeImpactPreviewSchema),
+      'scheduleChangeImpactPreview',
+    ),
+    scheduleGenerationPreview: sanitizeJsonSchema(
+      z.toJSONSchema(scheduleGenerationPreviewSchema),
+      'scheduleGenerationPreview',
+    ),
+    schedulePeriodHistoryItemList: sanitizeJsonSchema(
+      z.toJSONSchema(schedulePeriodHistoryItemListSchema),
+      'schedulePeriodHistoryItemList',
+    ),
+    schedulePeriodMutationResult: sanitizeJsonSchema(
+      z.toJSONSchema(schedulePeriodMutationResultSchema),
+      'schedulePeriodMutationResult',
+    ),
+    schedulingConfig: sanitizeJsonSchema(
+      z.toJSONSchema(schedulingConfigSchema),
+      'schedulingConfig',
+    ),
+  },
 });
 
 if (process.argv.includes('--check')) {

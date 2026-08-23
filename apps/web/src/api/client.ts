@@ -435,7 +435,11 @@ export interface ApiClient {
     groupId: string,
     input: PublishSchedulePeriodBatchRequest,
   ): Promise<PublishSchedulePeriodBatchResult>;
-  deleteScheduleDraft(groupId: string, schedulePeriodId: string): Promise<void>;
+  deleteScheduleDraft(
+    groupId: string,
+    schedulePeriodId: string,
+    operationId: string,
+  ): Promise<void>;
   withdrawSchedulePeriod(
     groupId: string,
     schedulePeriodId: string,
@@ -587,7 +591,11 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     fetchImplementationOverride: typeof fetch,
     baseUrlOverride: string,
     path: string,
-    init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT' },
+    init: {
+      readonly body?: string;
+      readonly headers?: Readonly<Record<string, string>>;
+      readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
+    },
     isResponseBody: (value: unknown) => value is ResponseBody,
     parseResponseBody?: (value: unknown) => ResponseBody,
   ): Promise<ResponseBody> {
@@ -606,7 +614,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     fetchImplementationOverride: typeof fetch,
     baseUrlOverride: string,
     path: string,
-    init: { readonly body?: string; readonly method: 'GET' | 'POST' },
+    init: { readonly body?: string; readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT' },
     isResponseBody: (value: unknown) => value is ResponseBody,
   ): Promise<ResponseBody> {
     return requestWithOnline({
@@ -1536,7 +1544,11 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/publish`,
-        { method: 'POST', body: JSON.stringify(input) },
+        {
+          method: 'POST',
+          body: JSON.stringify(input),
+          headers: { 'Idempotency-Key': input.operationId },
+        },
         isResponseBodyMatching<PublishSchedulePeriodResult>(publishSchedulePeriodResultSchema),
       );
     },
@@ -1548,6 +1560,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/schedules/publish-batch`,
         {
           body: JSON.stringify(input),
+          headers: { 'Idempotency-Key': input.operationId },
           method: 'POST',
         },
         isResponseBodyMatching<PublishSchedulePeriodBatchResult>(
@@ -1555,13 +1568,13 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         ),
       );
     },
-    deleteScheduleDraft(groupId, schedulePeriodId) {
+    deleteScheduleDraft(groupId, schedulePeriodId, operationId) {
       return requestJson(
         options.auth,
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}`,
-        { method: 'DELETE' },
+        { headers: { 'Idempotency-Key': operationId }, method: 'DELETE' },
         isUndefined,
       );
     },
@@ -1571,7 +1584,11 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         fetchImplementation,
         baseUrl,
         `/groups/${encodeURIComponent(groupId)}/schedules/${encodeURIComponent(schedulePeriodId)}/withdraw`,
-        { body: JSON.stringify(input), method: 'POST' },
+        {
+          body: JSON.stringify(input),
+          headers: { 'Idempotency-Key': input.operationId },
+          method: 'POST',
+        },
         isResponseBodyMatching<SchedulePeriodMutationResult>(schedulePeriodMutationResultSchema),
       );
     },
@@ -2312,6 +2329,7 @@ async function requestWithOnline<ResponseBody>(options: {
   readonly fetchImplementation: typeof fetch;
   readonly init: {
     readonly body?: string;
+    readonly headers?: Readonly<Record<string, string>>;
     readonly method: 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT';
   };
   readonly isOnline: () => boolean;
@@ -2344,6 +2362,7 @@ async function requestWithOnline<ResponseBody>(options: {
         headers: {
           ...(session === undefined ? {} : { Authorization: `Bearer ${session.access_token}` }),
           ...(options.init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...options.init.headers,
         },
         method: options.init.method,
         ...(options.init.body === undefined ? {} : { body: options.init.body }),

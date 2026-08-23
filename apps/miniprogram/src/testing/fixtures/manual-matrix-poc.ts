@@ -1,3 +1,9 @@
+import {
+  MAX_MANUAL_CELLS,
+  MAX_MANUAL_DAYS,
+  MAX_MANUAL_MEMBERS,
+} from '@schedule/contracts/manual-schedule-limits';
+
 export type ManualMatrixMode = 'daily' | 'maximum';
 
 export interface ManualMatrixShiftType {
@@ -126,8 +132,12 @@ export const manualMatrixPocShiftTypes: readonly ManualMatrixShiftType[] = [
 ];
 
 export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMatrixPocViewModel {
-  const memberCount = mode === 'daily' ? 7 : 20;
-  const dayCount = mode === 'daily' ? 7 : 30;
+  const memberCount = mode === 'daily' ? 7 : MAX_MANUAL_MEMBERS;
+  const dayCount = mode === 'daily' ? 7 : MAX_MANUAL_DAYS;
+  const logicalCellCount = memberCount * dayCount;
+  if (mode === 'maximum' && logicalCellCount !== MAX_MANUAL_CELLS) {
+    throw new Error('The maximum manual matrix does not match the shared logical-cell limit.');
+  }
   const columns = Array.from({ length: dayCount }, (_, columnIndex) => createColumn(columnIndex));
   const selectedLocation = { columnIndex: 2, rowIndex: 1 } as const;
   const rows = memberNames.slice(0, memberCount).map((realName, rowIndex) => {
@@ -164,7 +174,7 @@ export function createManualMatrixPocViewModel(mode: ManualMatrixMode): ManualMa
     columns,
     contentWidth: MEMBER_COLUMN_WIDTH + dayCount * DATE_COLUMN_WIDTH,
     dimensionLabel: `${memberCount} 人 × ${dayCount} 天 = ${memberCount * dayCount} 个逻辑格`,
-    logicalCellCount: memberCount * dayCount,
+    logicalCellCount,
     matrixBodyViewportHeight: matrixViewportHeight - MANUAL_MATRIX_HEADER_HEIGHT,
     matrixContentHeight,
     matrixViewportHeight,
