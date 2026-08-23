@@ -18,6 +18,7 @@ import {
 import {
   createWorkbenchViewModel,
   formatDateLabel,
+  formatMonthLabel,
   getTodayBusinessDate,
   type WorkbenchFilters,
   type WorkbenchViewModel,
@@ -242,7 +243,13 @@ Page({
     const nextView = view as WorkbenchView;
     const nextWeekStart =
       nextView === 'week' ? getWeekStartDate(this.data.selectedDate) : this.data.weekStart;
+    const period = {
+      businessMonth: this.data.businessMonth,
+      selectedDate: this.data.selectedDate,
+      weekStart: nextWeekStart,
+    };
     this.setData({
+      ...createViewPatch(this, period),
       announcement:
         nextView === 'month' ? '已切换到月视图。' : `${nextView === 'week' ? '周' : '列表'}视图。`,
       filterOpen: false,
@@ -251,7 +258,6 @@ Page({
       weekStart: nextWeekStart,
     });
     if (nextView === 'week') void loadWorkbench(this);
-    else refreshView(this);
   },
 
   handleFilterToggle(this: WorkbenchPageInstance): void {
@@ -578,29 +584,31 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
       })),
       page.data.filterShiftTypeIds,
     );
-    page.setData({
-      canReLogin: false,
-      filterMemberOptions,
-      filterMemberSummary: getFilterSummary(
+    page.setData(
+      {
+        ...createViewPatch(page),
+        canReLogin: false,
         filterMemberOptions,
-        page.data.filterMembershipIds,
-        '全部成员',
-      ),
-      filterRoleOptions,
-      filterRoleSummary: getFilterSummary(filterRoleOptions, page.data.filterRoleIds, '全部岗位'),
-      filterShiftTypeOptions,
-      filterShiftTypeSummary: getFilterSummary(
+        filterMemberSummary: getFilterSummary(
+          filterMemberOptions,
+          page.data.filterMembershipIds,
+          '全部成员',
+        ),
+        filterRoleOptions,
+        filterRoleSummary: getFilterSummary(filterRoleOptions, page.data.filterRoleIds, '全部岗位'),
         filterShiftTypeOptions,
-        page.data.filterShiftTypeIds,
-        '全部班种',
-      ),
-      offlineNotice: monthResults.some((result) => result.offline)
-        ? '离线只读 · 显示最近一次成功读取的排班'
-        : '',
-      state: monthResults.some((result) => result.offline) ? 'offline' : 'ready',
-    });
-    refreshView(page);
-    flushPendingScrollTarget(page);
+        filterShiftTypeSummary: getFilterSummary(
+          filterShiftTypeOptions,
+          page.data.filterShiftTypeIds,
+          '全部班种',
+        ),
+        offlineNotice: monthResults.some((result) => result.offline)
+          ? '离线只读 · 显示最近一次成功读取的排班'
+          : '',
+        state: monthResults.some((result) => result.offline) ? 'offline' : 'ready',
+      },
+      () => flushPendingScrollTarget(page),
+    );
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
     const message = getReadErrorMessage(error);
@@ -1056,10 +1064,6 @@ function formatRole(role: GroupSummary['role']): string {
       : role === 'guest'
         ? '访客'
         : '成员';
-}
-
-function formatMonthLabel(businessMonth: string): string {
-  return `${Number(businessMonth.slice(0, 4))} 年 ${Number(businessMonth.slice(5, 7))} 月`;
 }
 
 function emptyHoliday(year: number): HolidayReadModel {

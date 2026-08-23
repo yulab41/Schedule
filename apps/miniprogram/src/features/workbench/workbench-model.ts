@@ -488,7 +488,7 @@ export function formatDateLabel(businessDate: string): string {
   return `${Number(businessDate.slice(5, 7))}月${Number(businessDate.slice(8, 10))}日 周${weekdayLabels[(new Date(`${businessDate}T00:00:00Z`).getUTCDay() + 6) % 7]}`;
 }
 
-function formatMonthLabel(businessMonth: string): string {
+export function formatMonthLabel(businessMonth: string): string {
   return `${Number(businessMonth.slice(0, 4))} 年 ${Number(businessMonth.slice(5, 7))} 月`;
 }
 

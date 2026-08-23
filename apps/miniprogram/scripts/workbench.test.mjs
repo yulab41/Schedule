@@ -115,6 +115,39 @@ describe('P4 native workbench', () => {
     );
   });
 
+  it('keeps month labels in the ViewModel and removes unreachable legacy workbench CSS', () => {
+    const pageSource = readSource('pages/workbench/index.ts');
+    const modelSource = readSource('features/workbench/workbench-model.ts');
+    const pageStyles = readSource('pages/workbench/index.wxss');
+
+    expect(modelSource).toContain('export function formatMonthLabel');
+    expect(pageSource).not.toMatch(/\nfunction formatMonthLabel\(/u);
+    for (const legacyClass of [
+      'workbench-header',
+      'brand-lockup',
+      'identity-chip',
+      'filter-panel',
+      'refresh-indicator',
+      'list-row',
+      'bell-body',
+      'profile-head',
+      'nav-calendar-check',
+    ]) {
+      expect(pageStyles).not.toContain(`.${legacyClass}`);
+    }
+    expect(Buffer.byteLength(pageStyles, 'utf8')).toBeLessThan(43_000);
+  });
+
+  it('commits loaded data and view changes with one presentation patch', () => {
+    const pageSource = readSource('pages/workbench/index.ts');
+
+    expect(pageSource).toContain('...createViewPatch(page),');
+    expect(pageSource).not.toMatch(
+      /page\.setData\(\{[\s\S]*?state:[\s\S]*?\}\);\s*refreshView\(page\);\s*flushPendingScrollTarget/u,
+    );
+    expect(pageSource).not.toContain('else refreshView(this);');
+  });
+
   it('keeps the P4 shell read-only and exposes the confirmed navigation states', () => {
     const template = readSource('pages/workbench/index.wxml');
     const pageSource = readSource('pages/workbench/index.ts');

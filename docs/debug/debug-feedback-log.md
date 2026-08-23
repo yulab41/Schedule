@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 Mini 表现层债务/包体回归审计
+
+- 审计与引入点：扫描 production `src` 格式器、WXML↔WXSS 可达类、重复 `setData/ViewModel` 和 build manifest。日期格式已收口，唯一剩余页面/ViewModel 双源是 `ad4cfb2c` 的月份标题；工作台仍有 30 余个多轮改版遗留、模板不可达的旧页头/筛选/列表/手绘图标 CSS；`loadWorkbench` 和视图切换仍各做两次表现层提交。P1/矩阵资源虽约 85940 bytes，但仍被手册和并行 P5 测试引用，本轮不删。
+- 测试先行与实现：新增唯一月份格式、不可达类清零、工作台 WXSS <43KB 和加载/视图切换单 patch 契约，旧实现 2 项失败。修复后页面复用 ViewModel 月份格式；删除不可达 CSS 与组合选择器死分支；网络读取完成后把 ViewPatch、筛选摘要和状态一次提交，视图切换同理。
+- 语义审计：CSS 只删除模板/动态类集合均不可达的规则，现用类、状态和 keyframes 保留；加载合并不改变 calendar/holiday 赋值顺序、request serial、catch、缓存、筛选或 GET/写入次数。月份字符串字节级一致，接收者/空值/调用次数不变。
+- 验证与体积：定向 18/18；隔离 `aa17776` + 本轮 4 文件的 Mini 18 文件/91 项、typecheck、production verify（2/2 Worklet，405716 bytes，manifest `7f3e872ac6136de930bdf44dff5a35f60103c05cc752c3af94d5e037fe484c59`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。编译 WXSS 50258→39891 bytes，production package 412558→405716 bytes。checkpoint 识别消息：`refactor(miniprogram): remove legacy presentation debt`。
+
 ## 2026-08-23 P4 日期闪动、列表无形门槛与定位慢拍回归
 
 - 反馈与引入点：页面 `ad4cfb2c` 遗留 `“8 月 23 日 · 星期日”` 格式器，ViewModel 已在 `d9296df` 改成 `“8月23日 周日”`，日期点击先后写两种标签。`d9296df` 给列表 heading 留 8px 外间距，swiper 的真实上裁切点不可见。`733e3af6` 定位先播旧相邻面板、finish 后才构建今天面板，`3fc41610` 五个月淘汰还会移除今天月份。

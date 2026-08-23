@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 Mini 表现层债务与包体审计（当前批次）
+
+- 用户要求：再次检查类似“页面层与 ViewModel 各保留一套文案/格式/状态”的遗留实现，删除可证明无用的屎山代码，减少加载渲染与包体。本批只审计已经进入 production Mini 主包的表现层和构建 manifest，不碰并行 P5 手排/contracts/迁移，不进入新功能。
+- 审计与引入点：对非测试 `src` 的日期/月/周/时间格式器、页面 `setData→ViewModel`、WXML 类名可达性和 production manifest 逐项核对。日期格式已在 `4300fbe` 收口，剩余同类问题只有 `ad4cfb2c` 同时在页面/ViewModel 建立的 `formatMonthLabel`。工作台 WXSS 多轮追加后仍含 30 余个模板不可达的旧页头、旧筛选、旧列表、旧手绘图标选择器，来源跨 `ad4cfb2c`/`9cdd0a8`/`50c6d1ed`/`d9296df`；数据加载完成及视图切换仍由旧调用点分两次提交表现层。P1 诊断/矩阵资源在 manifest 中约 85940 bytes，但仍被人工测试手册和并行 P5 矩阵测试引用，明确保留而非误删。
+- 实现与语义：`formatMonthLabel` 与日期格式一样只由 ViewModel 导出，页面删除副本。清除所有已证明无 WXML/动态状态引用的旧 CSS，并从组合选择器中移除不可达分支；现用筛选 sheet、群组菜单、SVG 分层动效、状态变体和媒体规则保留。`loadWorkbench` 将最终 ViewPatch、筛选摘要、离线/ready 状态合并为一次 `setData`；月/周/列表视图切换也在同一 patch 中提交目标周和完整 ViewModel。API、缓存、request serial、Promise catch、筛选值、动画接收者和业务写入次数不变。
+- 测试与验证：唯一月份格式/不可达 CSS/43KB 源码预算和单次表现层提交 2 项契约在 `aa17776` 上失败，修复后定向 18/18。隔离 `aa17776` + 本轮 4 文件的 Mini 18 文件/91 项、typecheck、production verify（2/2 Worklet，405716 bytes，manifest `7f3e872ac6136de930bdf44dff5a35f60103c05cc752c3af94d5e037fe484c59`）、CI dry-run、任务文件 ESLint/Prettier、`git diff --check` 与 `pnpm smoke:check-core` 通过；未改 Web 核心链路，无需完整浏览器 smoke。编译后工作台 WXSS 从 50258 降至 39891 bytes（-10367，-20.6%），production package 从 412558 降至 405716 bytes（-6842，-1.66%）。主工作区并行文件未修改、未暂存。
+- 当前状态与停止条件：已实现并完成本地验证；下一步创建并推送 `refactor(miniprogram): remove legacy presentation debt` checkpoint，上传同一精确 production-profile 体验版 `.69`，备份并部署同一 Git release，记录最终状态后暂停等待实体微信回归；不补独立 staging、不进入 P5。
+
 ## 2026-08-23 P4 日期详情、列表裁切边界与定位预调度修复（当前批次）
 
 - 用户反馈：点击月/周/列表日期后，下方详情日期会从带空格和“· 星期”的旧格式快速闪成 Web 的紧凑格式；列表月份控件与日期卡之间缺少可见上滑边界；定位到今天时目标卡片先到位，日期格内容和五/六行高度随后才补上。本批只修这 3 项 P4 视觉/调度回归，不进入 P5。
