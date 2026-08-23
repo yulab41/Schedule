@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 工作台首个视觉黄金切片（当前批次）
+
+- 范围：新增 Web Storybook `MiniProgram Parity/P4 Workbench`，覆盖身份确认后进入有权限群组的工作台/月视图、390×844 黄金、320px 边界，以及空态、加载、错误可重试和离线只读缓存状态；月历复用现有 Web 黄金组件，不提前实现手排、发布或业务写入。
+- 设计意图：延续当前医护工作台蓝白令牌；以“身份已确认 → 当前群组 → 只读月历”作为单一视觉叙事，底部导航保留后续工作流入口但不制造未接入业务内容；所有触控目标至少 44px，减少动态可用。
+- 验证：P4 定向视觉源测试 3/3 通过；Web `vue-tsc --noEmit -p tsconfig.json` 通过；Storybook build 通过（2852 modules）；`pnpm smoke:check-core` 通过并确认未涉及核心链路。
+- 运行/浏览器验证：静态 Storybook `miniprogram-parity-p4-workbench--ready-390`、`--ready-320`、`--empty`、`--loading`、`--error`、`--offline` 全部可渲染；390px/320px 无横向滚动，320px 经典滚动条场景修正后 `documentScrollWidth=320`，浏览器 error/warn 为 0。
+- 当前状态：已实现待人工视觉确认；Storybook story ID 为 `miniprogram-parity-p4-workbench--ready-390`、`--ready-320`、`--empty`、`--loading`、`--error`、`--offline`。此阶段尚未修改小程序原生 WXML/WXSS、API 或生产数据。
+- checkpoint：待提交，提交消息 `feat(miniprogram): add p4 workbench visual golden`。
+- 停止条件：用户人工确认 390×844/320px 的工作台层级、群组卡、月历密度、底部导航和异常文案后，才进入原生 `pages/workbench`/日历接线；确认前不开始 P4 原生页面或生产部署。
+
 ## 2026-08-23 P3 已有账号绑定遗留微信身份修复（当前批次）
 
 - 根因与引入点：生产只读核对确认 D0796 密码账号正常，但当前微信身份已被历史迁移产生的无业务“空壳用户”占用；`git log -S 'identity.existingUserId !== undefined && identity.existingUserId !== account.userId'`/`git blame` 定位原始拒绝逻辑来自 `2fc9c164`，因此输入正确密码仍返回 `CONFLICT`。
