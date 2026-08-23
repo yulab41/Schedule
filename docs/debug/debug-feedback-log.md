@@ -9,6 +9,7 @@
 - 语义审计：只调整布局几何与图标载体；日历读取、缓存、筛选、swiper/定位、详情入口 `handleUnavailable`、Promise/错误路径和调用次数不变，无 API 或业务写入。
 - 验证：定向 13/13、受控 Mini 18 文件/84 项、typecheck、production verify（2/2 Worklet，405458 bytes，manifest `108f9d0126dd21419839843469ef9e437fb197f727f6f1ea8d9ae30c7162b2b6`）与 CI dry-run 通过。运行/浏览器验证：生产 Web 390px 三视图间距均为 14px、History SVG 为 16×16，未触发业务写入且视口已恢复；未改 Web 核心链路，无需完整 `pnpm smoke:browser`。
 - 行为变化清单：月/周/列表首卡统一离控制区 14px；事件记录图标从不稳定的 13px 伪元素拼图改为标准 16px SVG；其余布局和事件不变。checkpoint 识别消息：`fix(miniprogram): unify p4 card rhythm and event icon`。
+- 发布：代码 checkpoint `48f2dc4` 已推送；production-profile 体验版 `0.1.0-p4.20260823.64` 上传成功，63 个平台代码文件，manifest `d0e29cdd27c41350caef2d17aaa863e4eab284cc20f2e8ffa3fbc34c4afe1fe2`，未审核/正式发布。生产备份 archive `b5b27a9a-a5e8-48a7-93f3-75656c4e460a`（54 表、162548 行、76677848 bytes，SHA-256 `5cf166bd6bf1d0203d94f196474f2cc0d69027cdc3bcb1d8ddbc54bae63a4ad9`）后部署 release `48f2dc47101eb17ae36343c1374379339d17225a`；预热首次 502 后恢复，`ecs-verify.sh` 全项通过，公网健康 200，远端临时目录已清理。最终状态 checkpoint：`docs(status): record p4 card rhythm deployment`。
 
 ## 2026-08-23 P4 月历摘要、标识位置与按压反馈回归
 

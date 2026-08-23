@@ -8,7 +8,8 @@
 - 引入点与视觉审查：`git log -S`/`git blame` 确认周/列表 12px 卡片 margin 来自 `ad4cfb2c`，月视图独立 6px anchor padding 来自 `50c6d1ed`，13px 圆形加伪元素的事件图标来自 `d9296df`。生产 Web 390×844 实测控制区底边为 144px，月卡、周卡、列表首层均从 158px 开始，三者间距统一为 14px；Web `HistoryIcon` 为标准 16×16、`viewBox="0 0 24 24"` 的 SVG 路径。
 - 实现与语义：以共享 `.workbench-view-anchor` 统一 14px `padding-top` 并使用 `border-box`，移除月视图特例和周/列表各自 margin；列表的 flex/内层 `scroll-view` 仍在扣除间距后的内容盒内工作。事件入口改为与生产 Web 同路径的 `web-history.svg`，颜色固定为同源次要文字色 `#5e6a78`，删除容易在原生渲染中错位的伪元素拼图。日历 GET、缓存、筛选、swiper、定位、详情事件入口和调用次数均未变。
 - 测试与验证：统一节奏和 History SVG 断言在旧实现 2/2 失败，修复后定向 13/13、受控 Mini 18 文件/84 项通过；Mini typecheck、production verify（2/2 Worklet，405458 bytes，manifest `108f9d0126dd21419839843469ef9e437fb197f727f6f1ea8d9ae30c7162b2b6`）及 CI dry-run 通过。运行/浏览器验证：生产 Web 390px 逐项切换月/周/列表并测得统一 14px，事件 SVG 实测 16×16；未触发业务写入且浏览器视口已恢复。未改 Web 核心链路，无需完整 `pnpm smoke:browser`。
-- 当前状态与下一批次：已实现并完成本地/运行验证；下一步只创建并推送 `fix(miniprogram): unify p4 card rhythm and event icon` checkpoint，上传同一精确 production-profile 体验版，备份并部署同一 Git release，记录最终状态后暂停，等待用户实体微信复核；不补独立 staging、不进入 P5。
+- 当前状态：已完成（含运行验证、体验上传和生产发布）→待用户实体微信复核。代码 checkpoint `48f2dc4`（`fix(miniprogram): unify p4 card rhythm and event icon`）已推送；production-profile 体验版 `0.1.0-p4.20260823.64` 上传成功，63 个平台代码文件，上传 manifest `d0e29cdd27c41350caef2d17aaa863e4eab284cc20f2e8ffa3fbc34c4afe1fe2`，未审核/正式发布。生产备份 archive `b5b27a9a-a5e8-48a7-93f3-75656c4e460a`（54 表、162548 行、76677848 bytes，SHA-256 `5cf166bd6bf1d0203d94f196474f2cc0d69027cdc3bcb1d8ddbc54bae63a4ad9`）后部署 release `48f2dc47101eb17ae36343c1374379339d17225a`；预热首次 502 后自动恢复，`ecs-verify.sh` 的健康、域名/IP 隔离、产物哈希、容器、迁移和旧记录检查全项通过，公网健康 200，远端临时目录已清理。
+- 下一活动批次与停止条件：最终状态 checkpoint 识别消息为 `docs(status): record p4 card rhythm deployment`；推送并同步为 production `current-release` 后暂停，只等待用户在实体微信复核三视图统一 14px 节奏和事件记录 SVG 图标；未确认前不进入 P5、不补独立 staging。
 
 ## 2026-08-23 P4 月历摘要、标识位置与按压反馈修复（当前批次）
 
