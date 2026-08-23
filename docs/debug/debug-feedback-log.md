@@ -9,7 +9,8 @@
 - 修正：移除已有数据刷新占位行；月/周/列表预取并绘制前中后三面板，周/列表切换改用原生 `swiper`，按钮、手势和定位共用动画路径；月切换先用预取数据即时重建再后台刷新。筛选改为底部 sheet，覆盖变更、岗位、班种、成员多选与清除/应用。顶部改成紧凑群组上下文和通知/我的动作，图标全部用原生 WXML/WXSS 几何及 keyframes 重绘；月历边界改为单一 1px，周选择态保留卡片底角。
 - 语义审计：不改 API、鉴权、缓存 TTL 或 P4 只读边界；异步仍由 `requestSerial` 丢弃旧响应，月份/周/列表切换不会增加写入；筛选调用次数保持纯本地重建，只有换期/换群触发网络读取；跨群组清空旧筛选 ID。小程序不能直接继承 Vue 组件中的 SVG DOM 动画，采用原生分层节点复刻几何和局部运动，不依赖第三方 UI。
 - 验证：测试先失败后通过；受控 Mini 18 文件/78 项、typecheck、verify、source/package/determinism 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：浏览器读取 390×844 P4 黄金稿并核对生产 Web 源；本轮不改 Web 核心链路，`pnpm smoke:browser` 非强制。最终视觉状态必须由微信实体运行时复核。
-- 状态：已实现待官方微信编译/上传与实体 Android 复核；checkpoint 识别消息 `fix(miniprogram): align p4 workbench with web motion`。
+- 发布：代码 checkpoint `733e3af6`（`fix(miniprogram): align p4 workbench with web motion`）已推送；production-profile 体验版 `0.1.0-p4.20260823.59` 上传成功，63 个平台代码文件，manifest `90c9d5940495558be06dadec6d29d8baaa3599e48e066180e3b2ae343bed014d`，未审核/正式发布。生产备份 archive `cf55e8db-431b-4400-9f0e-addf34e72a7a`（54 表、162176 行、76554532 bytes，SHA-256 `f508cb8ef649c1f53cd6176f65554626bd6534d48ff64e05dbbf7c8d4c9f6866`）后部署 release `733e3af67969e29aec6dcc943b571288c33e8549`，`ecs-verify.sh` 全项通过。
+- 状态：已完成（含运行验证、体验上传和生产发布）→待实体 Android/微信复核；用户确认前不进入 P5。最终状态 checkpoint 识别消息 `docs(status): record p4 web-motion deployment`。
 
 ## 2026-08-23 P3 已有账号绑定遗留微信身份修复
 

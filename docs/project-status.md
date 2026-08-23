@@ -9,7 +9,7 @@
 - 实现：已有数据切换时完全移除会占位的顶部刷新行；月/周/列表都预取相邻三面板，月份在滑动完成时先用已聚合数据即时重建，周/列表改用原生三页 `swiper` 并经同一动画通道处理按钮、手势和定位；月历网格改为单一 1px 边界，消除底部/顶部叠线；周选择框在卡片左右底角内裁剪。筛选改为生产 Web 同维度底部弹层，支持“只看有变更”、岗位、班种、成员多选、清除和查看结果。顶部改为紧凑“群组 · 角色 / 日历 / 通知 / 我的”壳层，群组箭头、定位、筛选、左右换期、顶部动作及底部导航用原生 WXML/WXSS 分段图形和 keyframes 复刻，不依赖不可直接继承的 Vue/SVG DOM 动画。
 - 行为边界：仍是 P4 只读工作台；未接入请假、换班、调班、通知或其他写入。相邻月/周/列表网络刷新在后台完成，现有面板保持稳定；筛选字段与 Web 的 `filterCalendarAssignments` 共用岗位、班种、成员、变更语义；群组切换时清空跨群组筛选 ID，避免隐藏新群组全部班次。
 - 测试先行与验证：结构/筛选/三面板回归测试先失败后通过；定向 `workbench` 7/7，通过受控 Mini 测试 18 文件/78 项；Mini typecheck、production verify（2/2 Worklet，352661 bytes，manifest `212f38bf15e908a5780c011f072753e673f4df9b81a786f7debfac905a6ceb53`）、source audit、package audit、determinism和 `pnpm smoke:check-core` 通过；未改 Web 核心链路，无需 `pnpm smoke:browser`。默认 Vitest 会误扫仓库既有 `.artifacts/ecs-runner-deploy-*` 副本，受控命令用 `--exclude '.artifacts/**'`，未修改该用户目录。
-- 当前状态：已实现待官方微信编译、体验上传和人工原生复核。checkpoint 识别消息使用 `fix(miniprogram): align p4 workbench with web motion`；完成推送后上传 production-profile 体验版，再按仓库规则备份并部署同一 Git release。
+- 当前状态：已完成（含运行验证、体验上传和生产发布）→待用户实体原生复核。代码 checkpoint `733e3af6`（`fix(miniprogram): align p4 workbench with web motion`）已推送；production-profile 体验版 `0.1.0-p4.20260823.59` 上传成功，63 个平台代码文件，上传 manifest `90c9d5940495558be06dadec6d29d8baaa3599e48e066180e3b2ae343bed014d`，未审核/正式发布。代码发布前数据库备份 archive `cf55e8db-431b-4400-9f0e-addf34e72a7a`（54 表、162176 行、76554532 bytes，SHA-256 `f508cb8ef649c1f53cd6176f65554626bd6534d48ff64e05dbbf7c8d4c9f6866`）后部署 release `733e3af67969e29aec6dcc943b571288c33e8549`；`ecs-verify.sh` 的健康、域名隔离、产物哈希、容器、迁移和旧记录检查全项通过。
 - 原生验收停止点：新体验版依次确认顶部/群组菜单、月份连续切换无纵向抖动、月/周/列表手势与按钮滑动、跨期定位动画、周选择框圆角、月历单线边界、完整筛选弹层与计数、全部动作图标；同时复核 390/320 宽度。用户确认前不进入 P5。
 - 下一活动批次：只处理本次实体 Android/微信视觉反馈；若全部通过则收口 P4，仍不补独立 staging，不自动开始 P5。
 
