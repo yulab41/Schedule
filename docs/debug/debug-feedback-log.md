@@ -8,6 +8,7 @@
 - 测试先行与实现：新增通栏 8px 消失带/上阴影/底栏贴合、零缝隙边界安全内描边、显式 month finish、月周列表快速队列、重复 finish 防护与 stale read 无副作用契约，旧实现失败。修复后列表控件使用上沿轻阴影+卡片阴影，裁切线位于 8px 带下沿并通栏，列表内容盒贴底栏；月格用 Web 同口径 2px inset shadow。月 swiper 只接受父页 period commit 的显式回中，三视图保留快速输入；队列清空后仅预取缺失边缘月，在线命中不请求、不渲染，过期读取不能改资源 Map。
 - 语义与视觉审查：接收者仍为组件/页面成员调用；目标 period 的 `??`、选中日期、定位、横纵高度、缓存/离线 fallback、错误 catch 和业务写入次数不变。视觉沿用现有蓝灰/1px 分界/卡片阴影；生产 Web 390px browser webview 未 attach，临时视口已 reset，静态审查以冻结 Web `MonthGrid`/tokens 与用户实体截图为准，实体原生真值仍待用户复核。
 - 验证：定向 27/27；隔离 `940358e` + 本轮 6 文件的 Mini 18 文件/92 项、typecheck、production verify（2/2 Worklet，408847 bytes，manifest `85256aed45eea7d152158c5ad36b4b795799b5ba64185df03a27bec358280097`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。checkpoint 识别消息：`fix(miniprogram): stabilize calendar viewport and rapid shifts`。
+- 发布：代码 checkpoint `9fdf659` 已推送；精确干净 worktree verify 为 411118 bytes，production-profile `.70` 上传成功（63 文件，manifest `7d3c6e3bb89f079fc1a8ba5e9e0481fefbe9c4e043ca5608f1307114f24aad05`），未审核/正式发布。首次代理上传被微信按未登记 IPv6 拒绝且未形成版本，移除代理后以已登记 IPv4 `103.54.154.21` 同版本重传成功。生产备份 archive `57285f39-d961-4169-a440-2532545a7ac6`（54 表、162559 行、76685124 bytes，SHA-256 `fd243107a5f5f43d8d4e08056dfdf6b03d9b4c0a11253e9e9665fce510b881eb`）后部署 release `9fdf659ac4413423da4b4b4f4e4fadd8f3509da5`；预热首次 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record calendar viewport deployment`。
 
 ## 2026-08-23 P4 Mini 表现层债务/包体回归审计
 
