@@ -137,6 +137,12 @@ function gitOutput(args) {
   return result.stdout.trim();
 }
 
+function gitExitSucceeded(args) {
+  const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  if (result.status === null) fail(`git ${args.join(' ')} 无法启动。`);
+  return result.status === 0;
+}
+
 function ensureInsideRuntime() {
   if (!RELEASE_ROOT.startsWith(RELEASE_PATH_PREFIX)) {
     fail(`发布目录必须位于 runtime/ 下：${RELEASE_ROOT}`);
@@ -172,8 +178,12 @@ function assertExpectedCleanCommit() {
   if (!/^[0-9a-f]{40}$/.test(expected ?? '') || expected !== commit) {
     fail('ECS_RELEASE_EXPECTED_COMMIT 必须与当前 40 位 Git HEAD 完全一致。');
   }
-  const status = gitOutput(['status', '--porcelain', '--untracked-files=all']);
-  if (status !== '') fail('正式 release 禁止包含 tracked 或 staged 工作树改动。');
+  const unstagedClean = gitExitSucceeded(['diff', '--quiet', '--exit-code']);
+  const stagedClean = gitExitSucceeded(['diff', '--cached', '--quiet', '--exit-code']);
+  const untracked = gitOutput(['ls-files', '--others', '--exclude-standard']);
+  if (!unstagedClean || !stagedClean || untracked !== '') {
+    fail('正式 release 禁止包含 tracked、staged 或 untracked 内容改动。');
+  }
   return commit;
 }
 

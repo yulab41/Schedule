@@ -94,7 +94,9 @@ describe('ECS directory import runtime packaging', () => {
   it('refuses mislabeled or non-portable release artifacts before packaging', () => {
     expect(attributesSource).toContain('*.sh text eol=lf');
     expect(packageSource).toContain('ECS_RELEASE_EXPECTED_COMMIT');
-    expect(packageSource).toContain("'status', '--porcelain', '--untracked-files=all'");
+    expect(packageSource).toContain("['diff', '--quiet', '--exit-code']");
+    expect(packageSource).toContain("['diff', '--cached', '--quiet', '--exit-code']");
+    expect(packageSource).toContain("['ls-files', '--others', '--exclude-standard']");
     expect(packageSource).toContain('assertPortableShellScripts');
     expect(packageSource).toContain('assertPortableShellSyntax');
     expect(packageSource).toContain("RELEASE_FEATURE_LEVEL = 'p6-client-capabilities-v1'");
