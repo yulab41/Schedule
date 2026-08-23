@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布（待生产演练）
+## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布（已部署并完成演练）
 
 - 范围与基线：P6-A 代码/状态、`origin/main` 与 production 均为 `0cfdeba6`；用户已确认 P4 全部完成并允许后续 checkpoint 直接提交。本批只完成 P6-B signed `clientVersion`、`/client-capabilities`、Mini/API 双端守卫、生产 kill switch 和应用回滚控制，不进入 P6 性能/遥测/IP 保留或 P7，不改 Web UI。用户自有 Mini config、workspace、Storybook、`.artifacts/runtime/src` 和工作簿保持未纳入。
 - 引入点：`git log -S`/`git blame` 定位 shared endpoint/decoder 到 `60cec6ed`，错误生成到 `884512c0`/`5ba3993d`，JWT/session 到 `39f9c66e`/`4416f79b`，集中认证到 `0a794d9a`，env 到 `c4504055`，Mini App/request/工作台/手机号 client 到 `3884713b`、`9e3a966c`、`ad4cfb2c`、`59300957`；ECS immutable updater/packager/verify 的恢复与归档基础来自 `5f2bb8b3`。
@@ -12,10 +12,10 @@
 - 回滚语义：rollback 只接受当前 manifest 明示的直接安全前驱，严格 realpath/hash/root 权限/DB range，先独立加密备份；应用文件和 current-release 原子回退，数据库绝不降级/恢复。可信 updater/verifier/rollback/switch/backup 控制面以独立 manifest 前向保留；target full verify 失败自动前滚原 release。updater 自身对 artifact、schema、迁移后 count、system controls 和信号/退出做事务式补偿；pre-P6 只在 DB=49 且无 P6 feature 文件时兼容本次直接前驱。
 - 语义审计：成员调用、body/path/operationId/idempotency snapshot、重试次数、事务与 catch 范围不变；新增行为只在 Mini 版本/能力前置边界。global=false 的有效响应七维全 false；版本比较为精确 allowlist，无 latest/range fallback。Web/API 普通身份、headerless public guest、P5 危险写、缓存/离线规则与视觉不变。
 - 验证：测试先行 capability/headers/policy/guest/escape/App race/错误透传、manual in-flight invalidation 与 release controls 全部先红后绿。API 非 DB 28 files/133 tests；真实 MySQL auth/admin-bind/unbind/password/invite 共 48/48；Mini 29 files/171 tests；contracts/client/release 定向 8 files/36 tests。受控非 Mini 176 files/948 tests 通过，36 files/324 tests 按环境跳过；根宽泛 Vitest 唯一 35 项失败是 Mini 被错误 cwd 启动，正确 Mini cwd 全绿。全仓 typecheck、Lint、generated freshness、任务 Prettier、`git diff --check` 通过；production build 首次 Web 在 Vite 已完成后触发 Windows libuv assertion，原样串行重跑 Web+holiday build 通过。
-- Mini 门禁：production verify 2/2 Worklet、1,276,505 bytes、manifest `6579cd39868a1e1fc19b8d2a8bfd1e17336c467fe1007cf9366b45eaf1def9b9`；package main/scheduling/organization 为 828349/333041/115115 bytes，source/determinism/CI dry-run 同 manifest 通过。
+- Mini 门禁：精确 `72d5dd34` clean worktree production verify 2/2 Worklet、1,286,719 bytes、manifest `6e08894f73dbfe6dc1c24be1b8cef227ef10b51630d97fff11427ad07710a57d`；package main/scheduling/organization 为 835586/335395/115738 bytes，source/determinism/CI dry-run 同 manifest 通过。
 - 运行/浏览器验证：`pnpm smoke:browser` 在当前源码 4173 与本地 API 3000 运行；首次未设置 Web dev auth 按门禁停止，随后两次手机 filter 44px 瞬时量测失败，未改产品代码的原样复跑最终通过管理员、成员、访客 vkey 和访问记录全链路，无浏览器错误，截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-mbiazF`。诊断插桩已撤回，smoke 源码无 diff。
-- 首次生产演练：checkpoint `b96b0a63` 已以备份 `dae5243f-14e8-4adf-ad13-8dc9c5fe581e` 部署并完整 verify；`.78/.79` effective policy 和 unknown 426 通过，global false/true 往返通过且 Web/password 不受影响。rollback 自带备份 `57db2af6-002c-481a-96b6-e1a1100cca3d` 后，在任何应用变更前因 `/var/lock` 实际规范化为 `/run/lock` 而拒绝继承 FD；补偿同样前置拒绝，现网/current-release 保持 `b96b0a63` 且健康。该真实失败新增 canonical lock path 回归，随 `fix(release): canonicalize inherited lock path` 提交后重跑完整演练。
-- checkpoint/下一批：主体 `e25878f0` 与 Windows clean-worktree 修复 `b96b0a63` 已推送；canonical lock fix 推送后重新备份/部署、演练 global kill switch→回退 `0cfdeba6d079f2b7957f5be31e78ae450f5ec645`→完整验证→前滚恢复，再上传 `.79` 体验版。上述全部成功并另做状态 checkpoint 后，下一活动批次只做 P6-C 性能预算/遥测/90天访客IP清理与核心 RC；未取得用户当次明确批准前不提审、不正式发布。
+- 生产部署与演练：主体 `e25878f0`、Windows content-clean fix `b96b0a63` 和 canonical lock fix `72d5dd34` 均已推送。首次回滚在应用变更前安全暴露 `/var/lock`→`/run/lock` 比较问题并保持 `b96b0a63` 健康；修复后以备份 `15d8de8f-dca7-42ce-a870-0576ab9a4135` 部署 `72d5dd340f65d4b7a08ce869f562fcad28f3dcd3`。两版本 global off/on 往返通过；回滚备份 `0030fc85-3bce-4d81-aa4a-cf344c7351ba` 后成功回到 `0cfdeba6`、能力端点 404、49 migrations/控制面/数据完整，再以前滚备份 `f08f77ea-85a3-4eb1-a514-2e50a3722a45` 恢复 `72d5dd34`。最终 `ecs-verify.sh` 含域名/IP/端口、artifact/control hashes、capability/426、容器/认证/49 migrations 全通过，`.env.production` 仍 UID0/0600。
+- 体验版与下一批：从同一 clean worktree 上传 production-profile `0.1.0-p6.20260824.79`，72 个代码文件、zip 455469 bytes、manifest `6e08894f73dbfe6dc1c24be1b8cef227ef10b51630d97fff11427ad07710a57d`；未提审、未正式发布。最终状态 checkpoint 识别消息为 `docs(status): record p6 capability rollback deployment`；该 docs-only release 同步生产后，下一活动批次只做 P6-C 性能预算/遥测/90天访客IP清理与核心 RC，不提前进入 P7。
 
 ## 2026-08-24 P6-A 会话、弱网与离线缓存安全壳（当前 checkpoint）
 
