@@ -25,13 +25,7 @@ describe('P5 native group mobile-phone consent controller', () => {
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
     vi.stubGlobal('wx', {
       getStorageSync: vi.fn((key) =>
-        key === 'schedule.wechat.session'
-          ? {
-              expiresAt: '2026-09-24T00:00:00.000Z',
-              profile: { id: 'user-1', realName: '林恩宇', version: 1 },
-              token: 'test-token',
-            }
-          : groupId,
+        key === 'schedule.wechat.session' ? validSession('林恩宇') : groupId,
       ),
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth }),
       navigateBack: vi.fn(),
@@ -116,30 +110,36 @@ describe('P5 native group mobile-phone consent controller', () => {
   });
 
   it('recovers an initial status failure through the explicit retry action', async () => {
-    statusResponses = [new Error('offline'), status({ state: 'not-consented' })];
+    statusResponses = [
+      new Error('offline-1'),
+      new Error('offline-2'),
+      new Error('offline-3'),
+      status({ state: 'not-consented' }),
+    ];
     const instance = createPageInstance(definition);
     definition.onLoad.call(instance, { groupId });
     await vi.waitFor(() => expect(instance.data.state).toBe('error'));
 
     definition.handleRetry.call(instance);
     await vi.waitFor(() => expect(instance.data.state).toBe('ready'));
-    expect(statusRequests()).toHaveLength(2);
+    expect(statusRequests()).toHaveLength(4);
   });
 
   it('reuses one frozen payload and operation id after an ambiguous failure', async () => {
-    updateResponses.push(new Error('network lost'), new Error('network lost again'));
+    updateResponses.push(...Array.from({ length: 6 }, () => new Error('network lost')));
     const instance = await loadReadyInstance(definition);
 
     definition.handleConsentToggle.call(instance);
     definition.handleSave.call(instance);
     await vi.waitFor(() => expect(instance.data.isSaving).toBe(false));
     definition.handleSave.call(instance);
-    await vi.waitFor(() => expect(updateRequests()).toHaveLength(2));
+    await vi.waitFor(() => expect(updateRequests()).toHaveLength(6));
 
-    const [first, second] = updateRequests();
+    const first = updateRequests()[0];
+    const second = updateRequests()[5];
     expect(second.data).toEqual(first.data);
     expect(second.header['Idempotency-Key']).toBe(first.header['Idempotency-Key']);
-    for (const request of [first, second]) {
+    for (const request of updateRequests()) {
       expect(request.header['Idempotency-Key']).toBe(request.data.operationId);
       expect(request.data).toMatchObject({
         consented: true,
@@ -151,7 +151,7 @@ describe('P5 native group mobile-phone consent controller', () => {
   });
 
   it('changes the operation id after the desired choice changes', async () => {
-    updateResponses.push(new Error('first failure'), new Error('second failure'));
+    updateResponses.push(...Array.from({ length: 6 }, () => new Error('network failure')));
     const instance = await loadReadyInstance(definition);
 
     definition.handleConsentToggle.call(instance);
@@ -162,9 +162,9 @@ describe('P5 native group mobile-phone consent controller', () => {
     definition.handleConsentToggle.call(instance);
     definition.handleConsentToggle.call(instance);
     definition.handleSave.call(instance);
-    await vi.waitFor(() => expect(updateRequests()).toHaveLength(2));
+    await vi.waitFor(() => expect(updateRequests()).toHaveLength(6));
 
-    expect(updateRequests()[1].header['Idempotency-Key']).not.toBe(firstKey);
+    expect(updateRequests()[3].header['Idempotency-Key']).not.toBe(firstKey);
   });
 
   it('submits a revoke and atomically replaces the saved response', async () => {
@@ -192,7 +192,12 @@ describe('P5 native group mobile-phone consent controller', () => {
       status({ state: 'not-consented' }),
       status({ contactVersion: 4, state: 'stale' }),
     ];
-    updateResponses.push({ kind: 'conflict' }, new Error('network remains ambiguous'));
+    updateResponses.push(
+      { kind: 'conflict' },
+      new Error('network remains ambiguous-1'),
+      new Error('network remains ambiguous-2'),
+      new Error('network remains ambiguous-3'),
+    );
     const instance = await loadReadyInstance(definition);
 
     definition.handleConsentToggle.call(instance);
@@ -207,14 +212,29 @@ describe('P5 native group mobile-phone consent controller', () => {
 
     definition.handleConsentToggle.call(instance);
     definition.handleSave.call(instance);
-    await vi.waitFor(() => expect(updateRequests()).toHaveLength(2));
+    await vi.waitFor(() => expect(updateRequests()).toHaveLength(4));
+    await vi.waitFor(() => expect(instance.data.isSaving).toBe(false));
     expect(updateRequests()[1].data.expectedContactVersion).toBe(4);
     expect(updateRequests()[1].header['Idempotency-Key']).not.toBe(conflictKey);
+    expect(
+      updateRequests()
+        .slice(1)
+        .map((request) => request.header['Idempotency-Key']),
+    ).toEqual([
+      updateRequests()[1].header['Idempotency-Key'],
+      updateRequests()[1].header['Idempotency-Key'],
+      updateRequests()[1].header['Idempotency-Key'],
+    ]);
     expect(statusRequests()).toHaveLength(2);
   });
 
   it('fails closed when the status reload after a 409 is unavailable', async () => {
-    statusResponses = [status({ state: 'not-consented' }), new Error('reload unavailable')];
+    statusResponses = [
+      status({ state: 'not-consented' }),
+      new Error('reload unavailable-1'),
+      new Error('reload unavailable-2'),
+      new Error('reload unavailable-3'),
+    ];
     updateResponses.push({ kind: 'conflict' });
     const instance = await loadReadyInstance(definition);
 
@@ -228,6 +248,9 @@ describe('P5 native group mobile-phone consent controller', () => {
       saveDisabled: true,
       switchDisabled: true,
     });
+    expect(instance._consentDraft).toBeUndefined();
+    expect(instance._consentStatus).toBeUndefined();
+    expect(updateRequests()).toHaveLength(1);
     definition.handleConsentToggle.call(instance);
     definition.handleSave.call(instance);
     expect(updateRequests()).toHaveLength(1);
@@ -294,5 +317,13 @@ function status(overrides = {}) {
     noticeVersion: 'v1',
     state: 'not-consented',
     ...overrides,
+  };
+}
+
+function validSession(realName) {
+  return {
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    profile: { id: 'user-1', realName, version: 1 },
+    token: 'test-token',
   };
 }

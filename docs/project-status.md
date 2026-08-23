@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-A 会话、弱网与离线缓存安全壳（当前 checkpoint）
+
+- 范围与基线：P5 已完成并以 `02286282` 对齐 Git、`origin/main` 与 production release。本批只完成 P6 核心 v1 的会话—transport—缓存生命周期，不改 Web/API/contracts/数据库或视觉，不进入 capability/回滚、性能预算、遥测、访客 IP 清理或 P7。用户自有 Mini 配置、workspace、Storybook、`.artifacts/runtime/src` 和工作簿保持未修改。
+- 引入点与风险：`git log -S`/`git blame` 确认 session 持久化来自 `e69cfb76`，一次请求 transport 来自 `884512c0`，24h group/month 缓存与任意错误 fallback 来自 `ad4cfb2c`，解绑成功只切页面状态来自 `9b7ffbef`，多月完整表现提交来自 `3fc41610`。旧实现会在 401/403 后读取旧缓存、解绑后保留 token/cache、跨用户复用同 group/month key，且相邻月弱网可拖垮当前月。
+- 请求与会话：新增单一 `wx-request-executor`，统一 12s timeout；GET 和带非空 `Idempotency-Key` 的写只对 network/502/503/504 做 200/400ms 两次退避，body/key 只求值一次并保持同一对象；无 key/空 key 写、普通 4xx 和无效 2xx 严格一次。Bearer 401 只在错误码为 `AUTHENTICATION_REQUIRED`/legacy 空体时触发；fresh-code proof 的 `WECHAT_LOGIN_FAILED` 不重登、不重放、不清有效 session。
+- 401 与身份一致性：64 个并发及稍后到达的旧 token 401 共用一次 `wx.login` 和一次 login POST，每个原请求最多一次 auth replay。session 使用严格 UTC ISO `expiresAt`、≤31 天、profile/token 结构和内存 generation/tombstone；过期、损坏、link-required、恢复失败或最终 401 会清 session、当前群组和私有缓存。换账号后旧 generation 的 200 也拒绝提交；物理 storage 删除失败时 tombstone 仍阻止旧 token 复活。解绑成功在 identity client 内同步清理全部私有状态。
+- 缓存与后台：缓存升级为 owner+group+month 的 v2 key，旧 v1 自动清除；group snapshot 同 owner、24h 且不保存四位 groupCode。完整 mobile 继续在写缓存前剥离；=24h、未来时钟、损坏、group/month 不符均删除；quota 写失败不影响在线结果。只有 network/502/503/504 可离线回退，401/403/invalid 失败关闭；在线离群/403 清 group cache、snapshot 和选中群组。工作台支持同 owner 真离线冷启动，当前月先 ready，邻月随后 best-effort；邻月非暂态错误清当前视图。`onHide/onUnload` 使旧 serial 失效，后续 `onShow` 强制重验权限与数据。
+- 语义审计：`wx.request` 继续以宿主成员调用；公开请求不读 token。401 重放只发生在认证 prehandler 已拒绝的请求；P5 发布/补录/手机号等危险写仍使用原冻结 payload 与同 operationId，自动重试不会建立离线队列。Promise catch、409 reload、成功后清 key、非幂等调用次数和 Web 行为不变。主审追加真实回归，修复邻月后台结果错误覆盖 active month 的合并缺陷。
+- 测试与验证：测试先行旧实现为 15 failed/5 passed，并产生 64 个预期未处理 401 rejection；实现后 P6 executor/session/cache + 真实工作台 3 文件/26 项、全 Mini 28 文件/155 项通过。受控非 Mini 工作区 169 文件/901 项通过（36 文件/323 项按环境跳过）；全仓 typecheck、Lint、production build、Mini source audit 和任务 `git diff --check` 通过。根 `format:check` 的既有用户文件阻塞沿用 P5，不修改这些文件。
+- Mini 门禁：主工作区 production verify 通过 2/2 Worklet，1077632 bytes，manifest `dae4bb9ef77b649f9674a8a2f5a8b7b4f6603569bec2b5975f23dbd0924b56f2`；package（main 649397、scheduling 320113、organization 108122）、determinism 与官方 CI dry-run 通过。无 Web 核心链路变化，不需要 `pnpm smoke:browser`；`pnpm smoke:check-core` 已确认未涉及核心链路文件。
+- checkpoint 与下一批：代码 checkpoint 识别消息为 `fix(miniprogram): harden session and offline runtime`。完成显式暂存、commit/push、production-profile 体验上传和生产备份/部署/验证后，本批状态为“已完成（含自动运行验证）→待 P6 RC 实体复核”。下一活动批次只做 P6-B signed clientVersion、`/client-capabilities`、7 维 kill switch、Mini/API 双端守卫与应用回滚脚本/演练；P6 尚未完成，不提前进入 P7。
+
 ## 2026-08-24 P5 群组内手机号单独同意（当前 checkpoint）
 
 - 前置与范围：用户已确认 P4 全部完成并允许后续版本直接提交。本批只关闭 P5 最后一项：手机号同意归入群组设置，不放在排班补录；Web 与 Mini 严格沿用已确认 `--phone-consent-390`/320 医疗蓝灰结构。现有完整号码全部默认隐藏，成员必须在每个群组分别自行同意。

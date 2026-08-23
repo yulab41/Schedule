@@ -17,7 +17,10 @@ describe('P5 native atomic backfill controller', () => {
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
     vi.stubGlobal('wx', {
-      getStorageSync: vi.fn(() => ({ token: 'test-token' })),
+      getStorageInfoSync: vi.fn(() => ({ keys: [] })),
+      getStorageSync: vi.fn((key) =>
+        key === 'schedule.wechat.session' ? validSession() : undefined,
+      ),
       getWindowInfo: () => ({ statusBarHeight: 24, windowWidth: 390 }),
       navigateBack: vi.fn(),
       request: vi.fn(),
@@ -88,7 +91,7 @@ describe('P5 native atomic backfill controller', () => {
     definition.handleConfirm.call(instance);
     await vi.waitFor(() => expect(instance.data.isBusy).toBe(false));
     definition.handleConfirm.call(instance);
-    await vi.waitFor(() => expect(requests).toHaveLength(2));
+    await vi.waitFor(() => expect(requests).toHaveLength(6));
 
     expect(requests[0].url).toContain('/groups/group-1/past-schedules/backfill-batches');
     expect(requests[0].data.items.map((item) => item.businessDate)).toEqual([
@@ -96,8 +99,8 @@ describe('P5 native atomic backfill controller', () => {
       '2026-07-02',
     ]);
     expect(requests[0].data.reason).toBe('实际值班人员更正');
-    expect(requests[1].header['Idempotency-Key']).toBe(requests[0].header['Idempotency-Key']);
-    expect(requests[1].data.operationId).toBe(requests[0].data.operationId);
+    expect(requests[5].header['Idempotency-Key']).toBe(requests[0].header['Idempotency-Key']);
+    expect(requests[5].data.operationId).toBe(requests[0].data.operationId);
     for (const request of requests) {
       expect(request.header['Idempotency-Key']).toBe(request.data.operationId);
     }
@@ -181,4 +184,12 @@ function createPageInstance(definition) {
     },
   };
   return instance;
+}
+
+function validSession() {
+  return {
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    profile: { id: 'user-1', realName: '林医生', version: 1 },
+    token: 'test-token',
+  };
 }

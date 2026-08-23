@@ -37,10 +37,15 @@ import {
   createRuntimeManualScheduleClient,
   createRuntimeSchedulePublicationClient,
 } from '../../../../platform/client-core-calendar.js';
-import { getStoredWechatToken } from '../../../../platform/wechat-identity.js';
+import {
+  getStoredWechatProfile,
+  getStoredWechatToken,
+  getWechatRequestAuthentication,
+} from '../../../../platform/wechat-identity.js';
 import {
   createWorkbenchReadClient,
-  WORKBENCH_GROUP_STORAGE_KEY,
+  readStoredWorkbenchGroupId,
+  writeStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
 
 type ManualPageState = 'editor' | 'error' | 'loading' | 'preview' | 'release';
@@ -331,8 +336,12 @@ const EMPTY_ASSIGNMENT: MatrixAssignment = {
   textColor: '',
 };
 const cycleDayOptions = Array.from({ length: MAX_MANUAL_DAYS }, (_, index) => index + 1);
-const manualClient = createRuntimeManualScheduleClient(getStoredWechatToken);
-const publicationClient = createRuntimeSchedulePublicationClient(getStoredWechatToken);
+const requestAuthentication = getWechatRequestAuthentication();
+const manualClient = createRuntimeManualScheduleClient(getStoredWechatToken, requestAuthentication);
+const publicationClient = createRuntimeSchedulePublicationClient(
+  getStoredWechatToken,
+  requestAuthentication,
+);
 const workbenchClient = createWorkbenchReadClient();
 const today = getTodayBusinessDate();
 const emptyMatrix = createMatrixModel({
@@ -824,7 +833,9 @@ async function loadManualPage(page: ManualPageInstance): Promise<void> {
   page.setData({ errorMessage: '', isBusy: true, state: 'loading' });
   try {
     const groups = await workbenchClient.listGroups();
-    const storedGroupId = wx.getStorageSync(WORKBENCH_GROUP_STORAGE_KEY);
+    const ownerId = getStoredWechatProfile()?.id;
+    if (ownerId === undefined) throw new Error('登录状态已失效，请重新登录。');
+    const storedGroupId = readStoredWorkbenchGroupId(ownerId);
     const group =
       groups.find(
         (candidate) =>
@@ -841,7 +852,7 @@ async function loadManualPage(page: ManualPageInstance): Promise<void> {
       );
     if (group === undefined) throw new Error('仅管理员与群主可以使用手动排班。');
     page._currentGroupId = group.id;
-    wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, group.id);
+    writeStoredWorkbenchGroupId(ownerId, group.id);
     const [config, templates, history] = await Promise.all([
       manualClient.getConfig(group.id),
       manualClient.listTemplates(group.id),

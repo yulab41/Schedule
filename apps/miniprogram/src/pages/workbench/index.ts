@@ -10,11 +10,17 @@ import {
 
 import { buildInfo } from '../../platform/build-info.js';
 import {
+  canUseWorkbenchOfflineFallback,
+  clearWorkbenchGroupCaches,
   createWorkbenchReadClient,
+  loadActiveThenAdjacent,
   readWorkbenchCache,
-  WORKBENCH_GROUP_STORAGE_KEY,
+  readWorkbenchGroupSnapshot,
+  readStoredWorkbenchGroupId,
+  writeStoredWorkbenchGroupId,
   writeWorkbenchCache,
 } from '../../platform/workbench-read.js';
+import { getStoredWechatProfile } from '../../platform/wechat-identity.js';
 import {
   createMonthRing,
   createWorkbenchViewModel,
@@ -126,6 +132,8 @@ interface WorkbenchPageInstance {
   monthLocateTarget: string | undefined;
   monthRingSlot: MonthSlot;
   monthResources: Map<string, MonthReadResult>;
+  hasShown: boolean;
+  isVisible: boolean;
   pendingListTarget: string | undefined;
   pendingScrollTarget: string | undefined;
   pendingWeekTarget: string | undefined;
@@ -211,6 +219,8 @@ Page({
   monthLocateTarget: undefined,
   monthRingSlot: 1,
   monthResources: new Map<string, MonthReadResult>(),
+  hasShown: false,
+  isVisible: true,
   pendingListTarget: undefined,
   pendingScrollTarget: undefined,
   pendingWeekTarget: undefined,
@@ -220,8 +230,29 @@ Page({
   requestSerial: 0,
 
   onLoad(this: WorkbenchPageInstance): void {
+    this.isVisible = true;
     this.setData(createShellLayoutPatch());
     void loadWorkbench(this);
+  },
+
+  onShow(this: WorkbenchPageInstance): void {
+    this.isVisible = true;
+    if (!this.hasShown) {
+      this.hasShown = true;
+      return;
+    }
+    void loadWorkbench(this, { forceRefresh: true });
+  },
+
+  onHide(this: WorkbenchPageInstance): void {
+    this.isVisible = false;
+    this.requestSerial += 1;
+    this.setData({ expandedDetailKey: '', filterOpen: false, groupOpen: false });
+  },
+
+  onUnload(this: WorkbenchPageInstance): void {
+    this.isVisible = false;
+    this.requestSerial += 1;
   },
 
   handleGroupToggle(this: WorkbenchPageInstance): void {
@@ -234,7 +265,9 @@ Page({
       this.setData({ groupOpen: false });
       return;
     }
-    wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, groupId);
+    const ownerId = getStoredWechatProfile()?.id;
+    if (ownerId === undefined) return;
+    writeStoredWorkbenchGroupId(ownerId, groupId);
     this.calendar = undefined;
     this.holidays = undefined;
     this.monthRingSlot = 1;
@@ -563,9 +596,13 @@ Page({
   },
 });
 
-async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
+async function loadWorkbench(
+  page: WorkbenchPageInstance,
+  options: { readonly forceRefresh?: boolean } = {},
+): Promise<void> {
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
+  const ownerId = getStoredWechatProfile()?.id;
   const hasLoadedData = page.calendar !== undefined && page.holidays !== undefined;
   page.setData({
     canReLogin: false,
@@ -573,7 +610,20 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
     state: hasLoadedData ? page.data.state : 'loading',
   });
   try {
-    const groups = await client.listGroups();
+    if (ownerId === undefined) {
+      throw { code: 'AUTH_REQUIRED', status: 401 };
+    }
+    let groups: readonly GroupSummary[];
+    let groupSnapshotOffline = false;
+    try {
+      groups = await client.listGroups();
+    } catch (error) {
+      if (!canUseWorkbenchOfflineFallback(error)) throw error;
+      const cachedGroups = readWorkbenchGroupSnapshot(ownerId);
+      if (cachedGroups === undefined) throw error;
+      groups = cachedGroups;
+      groupSnapshotOffline = true;
+    }
     if (!isCurrentRequest(page, requestSerial)) return;
     if (groups.length === 0) {
       page.setData({
@@ -585,7 +635,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
       });
       return;
     }
-    const storedGroupId = wx.getStorageSync(WORKBENCH_GROUP_STORAGE_KEY);
+    const storedGroupId = readStoredWorkbenchGroupId(ownerId);
     const selectedGroup = groups.find((group) => group.id === storedGroupId) ?? groups[0];
     if (selectedGroup === undefined) return;
     const groupChanged = page.data.currentGroupId !== selectedGroup.id;
@@ -596,7 +646,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
         currentGroupName: selectedGroup.name,
         currentGroupRole: formatRole(selectedGroup.role),
       });
-      wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, selectedGroup.id);
+      writeStoredWorkbenchGroupId(ownerId, selectedGroup.id);
     }
     page.setData({ canOpenGroupSettings: selectedGroup.role !== 'guest', groups });
 
@@ -605,9 +655,15 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
       page.data.businessMonth,
       page.data.weekStart,
     );
-    const monthResults = await readMonths(page, selectedGroup.id, requestedMonths);
+    const activeMonth = getActiveBusinessMonth(page);
+    const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
+      readMonth(page, ownerId, selectedGroup.id, businessMonth, requestSerial, {
+        forceRefresh: options.forceRefresh === true,
+      }),
+    );
+    const activeResult = await staged.active;
     if (!isCurrentRequest(page, requestSerial)) return;
-    if (!applyMonthWindow(page, monthResults)) {
+    if (!applyMonthWindow(page, [activeResult], requestedMonths)) {
       throw new Error('Calendar month data is unavailable.');
     }
     const filterMemberOptions = createFilterOptions(
@@ -643,13 +699,21 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
           page.data.filterShiftTypeIds,
           '全部班种',
         ),
-        offlineNotice: monthResults.some((result) => result.offline)
-          ? '离线只读 · 显示最近一次成功读取的排班'
-          : '',
-        state: monthResults.some((result) => result.offline) ? 'offline' : 'ready',
+        offlineNotice:
+          groupSnapshotOffline || activeResult.offline
+            ? '离线只读 · 显示最近一次成功读取的排班'
+            : '',
+        state: groupSnapshotOffline || activeResult.offline ? 'offline' : 'ready',
       },
       () => flushPendingScrollTarget(page),
     );
+    void staged.adjacent
+      .then((adjacentResults) => {
+        if (!isCurrentRequest(page, requestSerial) || adjacentResults.length === 0) return;
+        if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
+        page.setData(createViewPatch(page));
+      })
+      .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
     const message = getReadErrorMessage(error);
@@ -661,49 +725,44 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
   }
 }
 
-async function readMonths(
+async function readMonth(
   page: WorkbenchPageInstance,
+  ownerId: string,
   groupId: string,
-  requestedMonths: readonly string[],
-): Promise<readonly MonthReadResult[]> {
-  const resolvedMonths = new Map(page.monthResources);
-  const missingMonths = requestedMonths.filter(
-    (month) => resolvedMonths.get(month)?.offline !== false,
-  );
-  const years = [...new Set(missingMonths.map((month) => Number(month.slice(0, 4))))];
-  const holidayResults = await Promise.all(
-    years.map(async (year) => {
-      try {
-        return await client.getHolidays(year);
-      } catch {
-        return undefined;
-      }
-    }),
-  );
-  const holidayByYear = new Map(
-    years.map((year, index) => [year, holidayResults[index] ?? emptyHoliday(year)]),
-  );
-  const loaded = await Promise.all(
-    missingMonths.map(async (businessMonth) => {
-      try {
-        const calendar = await client.getCalendar(groupId, businessMonth);
-        const holidays =
-          holidayByYear.get(Number(businessMonth.slice(0, 4))) ??
-          emptyHoliday(Number(businessMonth.slice(0, 4)));
-        writeWorkbenchCache(groupId, businessMonth, calendar, holidays);
-        return { calendar, holidays, offline: false } satisfies MonthReadResult;
-      } catch (error) {
-        const cached = readWorkbenchCache(groupId, businessMonth);
-        if (cached !== undefined) return { ...cached, offline: true } satisfies MonthReadResult;
-        throw error;
-      }
-    }),
-  );
-  for (const result of loaded) resolvedMonths.set(result.calendar.businessMonth, result);
-  return requestedMonths.flatMap((businessMonth) => {
-    const result = resolvedMonths.get(businessMonth);
-    return result === undefined ? [] : [result];
-  });
+  businessMonth: string,
+  requestSerial: number,
+  options: { readonly forceRefresh: boolean },
+): Promise<MonthReadResult> {
+  const existing = page.monthResources.get(businessMonth);
+  if (!options.forceRefresh && existing?.offline === false) return existing;
+
+  const [calendarResult, holidayResult] = await Promise.allSettled([
+    client.getCalendar(groupId, businessMonth),
+    client.getHolidays(Number(businessMonth.slice(0, 4))),
+  ]);
+  if (calendarResult.status === 'rejected') {
+    if (getErrorStatus(calendarResult.reason) === 403) clearWorkbenchGroupCaches(ownerId, groupId);
+    if (!canUseWorkbenchOfflineFallback(calendarResult.reason)) throw calendarResult.reason;
+    const cached = readWorkbenchCache(ownerId, groupId, businessMonth);
+    if (cached !== undefined) return { ...cached, offline: true } satisfies MonthReadResult;
+    throw calendarResult.reason;
+  }
+  if (
+    holidayResult.status === 'rejected' &&
+    !canUseWorkbenchOfflineFallback(holidayResult.reason)
+  ) {
+    throw holidayResult.reason;
+  }
+  const holidays =
+    holidayResult.status === 'fulfilled'
+      ? holidayResult.value
+      : (readWorkbenchCache(ownerId, groupId, businessMonth)?.holidays ??
+        emptyHoliday(Number(businessMonth.slice(0, 4))));
+  const offline = holidayResult.status === 'rejected';
+  if (!offline && isCurrentRequest(page, requestSerial)) {
+    writeWorkbenchCache(ownerId, groupId, businessMonth, calendarResult.value, holidays);
+  }
+  return { calendar: calendarResult.value, holidays, offline };
 }
 
 async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void> {
@@ -714,22 +773,33 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
     page.data.businessMonth,
     page.data.weekStart,
   );
-  if (requestedMonths.every((month) => page.monthResources.get(month)?.offline === false)) return;
+  const ownerId = getStoredWechatProfile()?.id;
+  if (ownerId === undefined) return;
   const requestSerial = page.requestSerial + 1;
   page.requestSerial = requestSerial;
   try {
-    const monthResults = await readMonths(page, groupId, requestedMonths);
+    const activeMonth = getActiveBusinessMonth(page);
+    const staged = loadActiveThenAdjacent(requestedMonths, activeMonth, (businessMonth) =>
+      readMonth(page, ownerId, groupId, businessMonth, requestSerial, { forceRefresh: false }),
+    );
+    const activeResult = await staged.active;
     if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
-    if (!applyMonthWindow(page, monthResults)) return;
+    if (!applyMonthWindow(page, [activeResult], requestedMonths)) return;
     page.setData({
       ...createViewPatch(page),
       canReLogin: false,
       errorMessage: '',
-      offlineNotice: monthResults.some((result) => result.offline)
-        ? '离线只读 · 显示最近一次成功读取的排班'
-        : '',
-      state: monthResults.some((result) => result.offline) ? 'offline' : 'ready',
+      offlineNotice: activeResult.offline ? '离线只读 · 显示最近一次成功读取的排班' : '',
+      state: activeResult.offline ? 'offline' : 'ready',
     });
+    void staged.adjacent
+      .then((adjacentResults) => {
+        if (!isCurrentRequest(page, requestSerial) || page.data.currentGroupId !== groupId) return;
+        if (adjacentResults.length === 0) return;
+        if (!applyMonthWindow(page, adjacentResults, requestedMonths)) return;
+        page.setData(createViewPatch(page));
+      })
+      .catch((error: unknown) => failClosedAfterBackgroundRead(page, requestSerial, error));
   } catch (error) {
     if (!isCurrentRequest(page, requestSerial)) return;
     page.setData({
@@ -743,14 +813,19 @@ async function refreshWorkbenchWindow(page: WorkbenchPageInstance): Promise<void
 function applyMonthWindow(
   page: WorkbenchPageInstance,
   monthResults: readonly MonthReadResult[],
+  requestedMonths: readonly string[],
 ): page is WorkbenchPageInstance & { calendar: CalendarReadModel; holidays: HolidayReadModel } {
+  const merged = new Map(page.monthResources);
+  for (const result of monthResults) merged.set(result.calendar.businessMonth, result);
   page.monthResources = new Map(
-    monthResults.map((result) => [result.calendar.businessMonth, result]),
+    requestedMonths.flatMap((businessMonth) => {
+      const result = merged.get(businessMonth);
+      return result === undefined ? [] : [[businessMonth, result] as const];
+    }),
   );
   const activeMonth =
     page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
-  const activeResult =
-    monthResults.find((result) => result.calendar.businessMonth === activeMonth) ?? monthResults[0];
+  const activeResult = merged.get(activeMonth) ?? monthResults[0];
   if (activeResult === undefined) return false;
   const loadedResults = [...page.monthResources.values()];
   page.calendar = {
@@ -1179,7 +1254,33 @@ function mergeHolidays(
 }
 
 function isCurrentRequest(page: WorkbenchPageInstance, requestSerial: number): boolean {
-  return page.requestSerial === requestSerial;
+  return page.isVisible && page.requestSerial === requestSerial;
+}
+
+function getActiveBusinessMonth(page: WorkbenchPageInstance): string {
+  return page.data.viewMode === 'week' ? page.data.weekStart.slice(0, 7) : page.data.businessMonth;
+}
+
+function getErrorStatus(error: unknown): number | undefined {
+  return typeof error === 'object' && error !== null && 'status' in error
+    ? (error as { readonly status?: number }).status
+    : undefined;
+}
+
+function failClosedAfterBackgroundRead(
+  page: WorkbenchPageInstance,
+  requestSerial: number,
+  error: unknown,
+): void {
+  if (!isCurrentRequest(page, requestSerial)) return;
+  page.calendar = undefined;
+  page.holidays = undefined;
+  page.monthResources.clear();
+  page.setData({
+    canReLogin: isAuthRequired(error),
+    errorMessage: getReadErrorMessage(error),
+    state: 'error',
+  });
 }
 
 function formatRole(role: GroupSummary['role']): string {
@@ -1199,9 +1300,11 @@ function emptyHoliday(year: number): HolidayReadModel {
 function getReadErrorMessage(error: unknown): string {
   if (typeof error === 'object' && error !== null && 'code' in error) {
     const code = (error as { readonly code?: string }).code;
-    if (code === 'AUTH_REQUIRED') return '登录状态已失效，请重新登录。';
+    if (code === 'AUTH_REQUIRED' || code === 'AUTHENTICATION_REQUIRED')
+      return '登录状态已失效，请重新登录。';
     if (code === 'NETWORK_ERROR') return '网络连接失败；没有可用的离线排班缓存。';
   }
+  if (getErrorStatus(error) === 401) return '登录状态已失效，请重新登录。';
   return '排班暂时无法加载，请检查网络连接后重试。';
 }
 
@@ -1209,7 +1312,9 @@ function isAuthRequired(error: unknown): boolean {
   return (
     typeof error === 'object' &&
     error !== null &&
-    'code' in error &&
-    (error as { readonly code?: string }).code === 'AUTH_REQUIRED'
+    (('code' in error &&
+      ((error as { readonly code?: string }).code === 'AUTH_REQUIRED' ||
+        (error as { readonly code?: string }).code === 'AUTHENTICATION_REQUIRED')) ||
+      ('status' in error && (error as { readonly status?: number }).status === 401))
   );
 }

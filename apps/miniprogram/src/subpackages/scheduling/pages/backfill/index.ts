@@ -27,10 +27,15 @@ import {
   createRuntimePastScheduleClient,
   createRuntimeSchedulePublicationClient,
 } from '../../../../platform/client-core-calendar.js';
-import { getStoredWechatToken } from '../../../../platform/wechat-identity.js';
+import {
+  getStoredWechatProfile,
+  getStoredWechatToken,
+  getWechatRequestAuthentication,
+} from '../../../../platform/wechat-identity.js';
 import {
   createWorkbenchReadClient,
-  WORKBENCH_GROUP_STORAGE_KEY,
+  readStoredWorkbenchGroupId,
+  writeStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
 
 interface PickerChangeEvent {
@@ -143,9 +148,16 @@ interface BackfillPageInstance {
   setData(patch: Partial<BackfillPageData>, callback?: () => void): void;
 }
 
-const manualClient = createRuntimeManualScheduleClient(getStoredWechatToken);
-const pastScheduleClient = createRuntimePastScheduleClient(getStoredWechatToken);
-const publicationClient = createRuntimeSchedulePublicationClient(getStoredWechatToken);
+const requestAuthentication = getWechatRequestAuthentication();
+const manualClient = createRuntimeManualScheduleClient(getStoredWechatToken, requestAuthentication);
+const pastScheduleClient = createRuntimePastScheduleClient(
+  getStoredWechatToken,
+  requestAuthentication,
+);
+const publicationClient = createRuntimeSchedulePublicationClient(
+  getStoredWechatToken,
+  requestAuthentication,
+);
 const workbenchClient = createWorkbenchReadClient();
 const initialToday = getChinaStandardTimeBusinessDate();
 
@@ -330,7 +342,9 @@ async function loadBackfillPage(page: BackfillPageInstance): Promise<void> {
   page.setData({ errorMessage: '', infoMessage: '', isBusy: true, state: 'loading' });
   try {
     const groups = await workbenchClient.listGroups();
-    const storedGroupId = wx.getStorageSync(WORKBENCH_GROUP_STORAGE_KEY);
+    const ownerId = getStoredWechatProfile()?.id;
+    if (ownerId === undefined) throw new Error('登录状态已失效，请重新登录。');
+    const storedGroupId = readStoredWorkbenchGroupId(ownerId);
     const group =
       groups.find(
         (candidate) =>
@@ -347,7 +361,7 @@ async function loadBackfillPage(page: BackfillPageInstance): Promise<void> {
       );
     if (group === undefined) throw new Error('仅管理员与群主可以使用排班补录。');
     page._currentGroupId = group.id;
-    wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, group.id);
+    writeStoredWorkbenchGroupId(ownerId, group.id);
     const [config, periods, records] = await Promise.all([
       manualClient.getConfig(group.id),
       pastScheduleClient.listPeriods(group.id),

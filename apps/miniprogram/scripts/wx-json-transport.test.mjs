@@ -153,7 +153,141 @@ describe('P2 Mini wx.request JSON transport', () => {
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
   });
 
-  it('maps callback and synchronous request failures without retrying', async () => {
+  it('retries bearer GET network failures with finite exponential backoff', async () => {
+    const delay = vi.fn(() => Promise.resolve());
+    const request = vi.fn((options) => {
+      if (request.mock.calls.length < 3) options.fail({ errMsg: 'request:fail timeout' });
+      else options.success({ data: holidayApiGoldenResponse, statusCode: 200 });
+    });
+    const transport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      delay,
+      getAccessToken: () => 'token',
+      request,
+    });
+
+    await expect(transport.request(calendarReadEndpoints.holidays, { year: 2026 })).resolves.toBe(
+      holidayApiGoldenResponse,
+    );
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(delay.mock.calls.map(([milliseconds]) => milliseconds)).toEqual([200, 400]);
+    expect(request.mock.calls.map(([options]) => options.header.Authorization)).toEqual([
+      'Bearer token',
+      'Bearer token',
+      'Bearer token',
+    ]);
+  });
+
+  it('retries only writes protected by a non-empty idempotency key with the same snapshot', async () => {
+    const decoder = createCompactDecoder({ type: 'string' });
+    const idempotentEndpoint = defineClientEndpoint({
+      auth: 'bearer',
+      body: (input) => input.body,
+      decoder,
+      id: 'test.idempotent-write',
+      idempotencyKey: (input) => input.operationId,
+      method: 'POST',
+      path: () => '/idempotent-write',
+    });
+    const unsafeEndpoint = defineClientEndpoint({
+      auth: 'bearer',
+      body: (input) => input,
+      decoder,
+      id: 'test.unsafe-write',
+      method: 'POST',
+      path: () => '/unsafe-write',
+    });
+    const delay = vi.fn(() => Promise.resolve());
+    const body = { operationId: 'operation-1', value: 7 };
+    const request = vi.fn((options) => {
+      if (request.mock.calls.length === 1) options.fail({ errMsg: 'request:fail timeout' });
+      else options.success({ data: 'ok', statusCode: 200 });
+    });
+    const transport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      delay,
+      getAccessToken: () => 'token',
+      request,
+    });
+
+    await expect(
+      transport.request(idempotentEndpoint, { body, operationId: 'operation-1' }),
+    ).resolves.toBe('ok');
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(request.mock.calls[0]?.[0].data).toBe(body);
+    expect(request.mock.calls[1]?.[0].data).toBe(body);
+    expect(request.mock.calls.map(([options]) => options.header['Idempotency-Key'])).toEqual([
+      'operation-1',
+      'operation-1',
+    ]);
+
+    request.mockClear();
+    request.mockImplementation((options) => options.fail({ errMsg: 'request:fail timeout' }));
+    await expect(transport.request(unsafeEndpoint, { value: 8 })).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+
+    const emptyKeyEndpoint = defineClientEndpoint({
+      auth: 'bearer',
+      body: (input) => input,
+      decoder,
+      id: 'test.empty-key-write',
+      idempotencyKey: () => '',
+      method: 'POST',
+      path: () => '/empty-key-write',
+    });
+    request.mockClear();
+    await expect(transport.request(emptyKeyEndpoint, { value: 9 })).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0]?.[0].header).not.toHaveProperty('Idempotency-Key');
+  });
+
+  it.each([502, 503, 504])('retries transient HTTP %s but not ordinary 4xx', async (statusCode) => {
+    const delay = vi.fn(() => Promise.resolve());
+    const request = vi.fn((options) => {
+      if (request.mock.calls.length === 1) options.success({ data: {}, statusCode });
+      else options.success({ data: holidayApiGoldenResponse, statusCode: 200 });
+    });
+    const transport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      delay,
+      getAccessToken: () => 'token',
+      request,
+    });
+
+    await expect(transport.request(calendarReadEndpoints.holidays, { year: 2026 })).resolves.toBe(
+      holidayApiGoldenResponse,
+    );
+    expect(request).toHaveBeenCalledTimes(2);
+
+    request.mockClear();
+    request.mockImplementation((options) =>
+      options.success({ data: { error: { code: 'FORBIDDEN' } }, statusCode: 403 }),
+    );
+    await expect(
+      transport.request(calendarReadEndpoints.holidays, { year: 2026 }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry malformed 2xx responses and still maps synchronous bridge failures', async () => {
+    const invalidRequest = vi.fn((options) => {
+      options.success({ data: { year: 2026 }, statusCode: 200 });
+    });
+    const invalidTransport = createWxJsonTransport({
+      apiBaseUrl: 'https://example.test/api',
+      delay: () => Promise.resolve(),
+      getAccessToken: () => 'token',
+      request: invalidRequest,
+    });
+    await expect(
+      invalidTransport.request(calendarReadEndpoints.holidays, { year: 2026 }),
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
+    expect(invalidRequest).toHaveBeenCalledTimes(1);
+
     const callbackRequest = vi.fn((options) => {
       options.fail({ errMsg: 'request:fail timeout' });
     });
@@ -164,6 +298,7 @@ describe('P2 Mini wx.request JSON transport', () => {
     for (const request of [callbackRequest, synchronousRequest]) {
       const transport = createWxJsonTransport({
         apiBaseUrl: 'https://example.test/api',
+        delay: () => Promise.resolve(),
         getAccessToken: () => 'token',
         request,
       });
@@ -172,7 +307,7 @@ describe('P2 Mini wx.request JSON transport', () => {
         .catch((reason) => reason);
       expect(error).toBeInstanceOf(ClientCoreError);
       expect(error).toMatchObject({ code: 'NETWORK_ERROR' });
-      expect(request).toHaveBeenCalledTimes(1);
+      expect(request).toHaveBeenCalledTimes(3);
     }
   });
 
@@ -181,7 +316,7 @@ describe('P2 Mini wx.request JSON transport', () => {
     expect(source).toContain('request: (requestOptions) => wx.request(requestOptions)');
     expect(source).toContain('apiBaseUrl: __MINIPROGRAM_API_BASE_URL__');
     expect(source).toContain('return createCalendarReadClient(');
-    expect(source).not.toContain('setTimeout');
+    expect(source).toContain('executeWxJsonRequest');
   });
 });
 

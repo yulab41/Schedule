@@ -6,6 +6,7 @@ declare const __MINIPROGRAM_BUILD_VERSION__: string;
 declare function App<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function Component<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function Page<TOptions extends Record<string, unknown>>(options: TOptions): void;
+declare function setTimeout(callback: () => void, milliseconds: number): unknown;
 
 interface MiniProgramSharedValue<T> {
   value: T;
@@ -63,6 +64,7 @@ interface MiniProgramRequestOptions {
   readonly header: Readonly<Record<string, string>>;
   readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
   readonly success: (response: { readonly data: unknown; readonly statusCode: number }) => void;
+  readonly timeout?: number;
   readonly url: string;
 }
 
@@ -75,6 +77,7 @@ declare const wx: {
   getAppBaseInfo(): MiniProgramAppBaseInfo;
   getDeviceInfo(): MiniProgramDeviceInfo;
   getMenuButtonBoundingClientRect(): MiniProgramRect;
+  getStorageInfoSync(): { readonly keys: readonly string[] };
   getWindowInfo(): MiniProgramWindowInfo;
   getStorageSync(key: string): unknown;
   login(options: {

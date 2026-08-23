@@ -12,10 +12,11 @@ import { createRuntimeGroupMobilePhoneConsentClient } from '../../../../platform
 import {
   getStoredWechatProfile,
   getStoredWechatToken,
+  getWechatRequestAuthentication,
 } from '../../../../platform/wechat-identity.js';
 import {
   createWorkbenchReadClient,
-  WORKBENCH_GROUP_STORAGE_KEY,
+  readStoredWorkbenchGroupId,
 } from '../../../../platform/workbench-read.js';
 
 interface GroupCodeDigitView {
@@ -58,7 +59,10 @@ interface GroupSettingsPageInstance {
   setData(patch: Partial<GroupSettingsPageData>, callback?: () => void): void;
 }
 
-const consentClient = createRuntimeGroupMobilePhoneConsentClient(getStoredWechatToken);
+const consentClient = createRuntimeGroupMobilePhoneConsentClient(
+  getStoredWechatToken,
+  getWechatRequestAuthentication(),
+);
 const workbenchClient = createWorkbenchReadClient();
 
 Page({
@@ -309,11 +313,12 @@ function resolveTargetGroup(
 ): GroupSummary | undefined {
   const requested = groups.find((group) => group.id === requestedGroupId);
   if (requested !== undefined) return requested;
-  const storedGroupId = wx.getStorageSync(WORKBENCH_GROUP_STORAGE_KEY);
+  const ownerId = getStoredWechatProfile()?.id;
+  const storedGroupId = ownerId === undefined ? undefined : readStoredWorkbenchGroupId(ownerId);
   const stored =
-    typeof storedGroupId === 'string'
-      ? groups.find((group) => group.id === storedGroupId && group.role !== 'guest')
-      : undefined;
+    storedGroupId === undefined
+      ? undefined
+      : groups.find((group) => group.id === storedGroupId && group.role !== 'guest');
   return stored ?? groups.find((group) => group.role !== 'guest');
 }
 

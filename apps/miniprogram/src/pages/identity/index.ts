@@ -1,6 +1,7 @@
 import { buildInfo } from '../../platform/build-info.js';
 import {
   getIdentityErrorMessage,
+  getStoredWechatProfile,
   linkWechatPassword,
   loginWithWechat,
   persistWechatSession,
@@ -32,7 +33,13 @@ interface IdentityPageInstance {
 
 function authenticatedPatch(result: WechatAuthenticatedResult): Partial<IdentityPageData> {
   persistWechatSession(result);
-  return { errorMessage: '', loading: false, mode: 'authenticated' };
+  return {
+    errorMessage: '',
+    linkToken: '',
+    loading: false,
+    mode: 'authenticated',
+    password: '',
+  };
 }
 
 Page({
@@ -45,6 +52,10 @@ Page({
     password: '',
     realName: '',
     username: '',
+  },
+
+  onLoad(this: IdentityPageInstance): void {
+    if (getStoredWechatProfile() !== undefined) this.setData({ mode: 'authenticated' });
   },
 
   handleBackToChoice(this: IdentityPageInstance): void {

@@ -63,8 +63,9 @@ describe('P3 native identity pages', () => {
     expect(template).toContain('不删除 Web 账号或排班资料');
     expect(source).toContain('createIdempotencyKey');
     expect(source).toContain('unbindWechatIdentity(this._idempotencyKey)');
-    expect(client).toContain("'/me/wechat/miniprogram/unbind'");
-    expect(client).toContain("'Idempotency-Key'");
+    expect(client).toContain('/me/wechat/miniprogram/unbind');
+    expect(client).toContain('idempotencyKey,');
+    expect(client).toContain('clearWechatSession(true)');
   });
 
   it('keeps the identity client native-only and free of shared runtime violations', () => {

@@ -18,22 +18,23 @@ import {
   type PastScheduleClient,
   type SchedulePublicationClient,
 } from '@schedule/client-core';
+import {
+  executeWxJsonRequest,
+  WxRequestNetworkError,
+  WxRequestStaleSessionError,
+  type WxJsonRequest,
+  type WxJsonRequestOptions,
+  type WxJsonRequestSuccess,
+} from './wx-request-executor.js';
 
-export interface WxJsonRequestSuccess {
-  readonly data: unknown;
-  readonly statusCode: number;
+export type { WxJsonRequest, WxJsonRequestOptions, WxJsonRequestSuccess };
+
+export interface RuntimeWechatRequestAuthentication {
+  readonly awaitAccessToken: () => Promise<string | undefined>;
+  readonly finalizeUnauthorized: (failedToken: string) => void;
+  readonly getSessionGeneration: () => number;
+  readonly recoverAccessToken: (failedToken: string) => Promise<string | undefined>;
 }
-
-export interface WxJsonRequestOptions {
-  readonly data?: unknown;
-  readonly fail: (error: unknown) => void;
-  readonly header: Readonly<Record<string, string>>;
-  readonly method: 'DELETE' | 'GET' | 'POST' | 'PUT';
-  readonly success: (response: WxJsonRequestSuccess) => void;
-  readonly url: string;
-}
-
-export type WxJsonRequest = (options: WxJsonRequestOptions) => unknown;
 
 export function decodeCalendarReadPayload(value: unknown): unknown | undefined {
   const decoded = calendarReadModelDecoder.safeDecode(value);
@@ -51,110 +52,131 @@ export function getCalendarReadPath(groupId: string, businessMonth: string): str
 
 export function createWxJsonTransport(options: {
   readonly apiBaseUrl: string;
+  readonly awaitAccessToken?: (() => Promise<string | undefined>) | undefined;
+  readonly delay?: ((milliseconds: number) => Promise<void>) | undefined;
+  readonly finalizeUnauthorized?: ((failedToken: string) => void) | undefined;
+  readonly getSessionGeneration?: (() => number) | undefined;
   readonly getAccessToken: () => string | undefined;
+  readonly recoverAccessToken?: ((failedToken: string) => Promise<string | undefined>) | undefined;
+  readonly sessionGeneration?: (() => number) | undefined;
   readonly request: WxJsonRequest;
 }): ClientTransport {
   const baseUrl = options.apiBaseUrl.replace(/\/$/u, '');
   return {
-    request(endpoint, input) {
-      return new Promise((resolve, reject) => {
-        const accessToken = endpoint.auth === 'bearer' ? options.getAccessToken() : undefined;
+    async request(endpoint, input) {
+      try {
+        const idempotencyKey = endpoint.idempotencyKey?.(input);
+        const body = endpoint.body?.(input);
+        const path = endpoint.path(input);
+        let accessToken = endpoint.auth === 'bearer' ? options.getAccessToken() : undefined;
+        if (
+          endpoint.auth === 'bearer' &&
+          (accessToken === undefined || accessToken.length === 0) &&
+          options.awaitAccessToken !== undefined
+        ) {
+          accessToken = await options.awaitAccessToken();
+        }
         if (endpoint.auth === 'bearer' && (accessToken === undefined || accessToken.length === 0)) {
-          reject(createAuthenticationRequiredError());
-          return;
+          throw createAuthenticationRequiredError();
         }
-
-        try {
-          const idempotencyKey = endpoint.idempotencyKey?.(input);
-          const body = endpoint.body?.(input);
-          const header = {
-            ...(accessToken === undefined ? {} : { Authorization: `Bearer ${accessToken}` }),
-            ...(idempotencyKey === undefined ? {} : { 'Idempotency-Key': idempotencyKey }),
-          };
-          const requestOptions: WxJsonRequestOptions = {
-            ...(body === undefined ? {} : { data: body }),
-            fail: () => reject(createNetworkError()),
-            header,
-            method: endpoint.method,
-            success: (response) => {
-              if (response.statusCode < 200 || response.statusCode >= 300) {
-                reject(createHttpClientError(response.statusCode, response.data));
-                return;
-              }
-              const decoded = endpoint.decoder.safeDecode(response.data);
-              if (!decoded.success) {
-                reject(createInvalidResponseError(response.statusCode));
-                return;
-              }
-              resolve(decoded.data);
-            },
-            url: `${baseUrl}${endpoint.path(input)}`,
-          };
-          options.request(requestOptions);
-        } catch {
-          reject(createNetworkError());
+        const response = await executeWxJsonRequest({
+          ...(accessToken === undefined
+            ? {}
+            : {
+                authentication: {
+                  accessToken,
+                  ...(options.finalizeUnauthorized === undefined
+                    ? {}
+                    : { finalizeUnauthorized: options.finalizeUnauthorized }),
+                  ...(options.getSessionGeneration === undefined
+                    ? {}
+                    : { getSessionGeneration: options.getSessionGeneration }),
+                  ...(options.recoverAccessToken === undefined
+                    ? {}
+                    : { recoverAccessToken: options.recoverAccessToken }),
+                  ...(options.sessionGeneration === undefined
+                    ? {}
+                    : { sessionGeneration: options.sessionGeneration() }),
+                },
+              }),
+          ...(body === undefined ? {} : { data: body }),
+          ...(options.delay === undefined ? {} : { delay: options.delay }),
+          ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+          method: endpoint.method,
+          request: options.request,
+          url: `${baseUrl}${path}`,
+        });
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw createHttpClientError(response.statusCode, response.data);
         }
-      });
+        const decoded = endpoint.decoder.safeDecode(response.data);
+        if (!decoded.success) throw createInvalidResponseError(response.statusCode);
+        return decoded.data;
+      } catch (error) {
+        if (error instanceof WxRequestNetworkError) throw createNetworkError();
+        if (error instanceof WxRequestStaleSessionError) throw createAuthenticationRequiredError();
+        if (error instanceof Error) throw error;
+        throw createNetworkError();
+      }
     },
   };
 }
 
+function createRuntimeWxJsonTransport(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): ClientTransport {
+  return createWxJsonTransport({
+    apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
+    ...(authentication === undefined
+      ? {}
+      : {
+          awaitAccessToken: authentication.awaitAccessToken,
+          finalizeUnauthorized: authentication.finalizeUnauthorized,
+          getSessionGeneration: authentication.getSessionGeneration,
+          recoverAccessToken: authentication.recoverAccessToken,
+          sessionGeneration: authentication.getSessionGeneration,
+        }),
+    getAccessToken,
+    request: (requestOptions) => wx.request(requestOptions),
+  });
+}
+
 export function createRuntimeManualScheduleClient(
   getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
 ): ManualScheduleClient {
-  return createManualScheduleClient(
-    createWxJsonTransport({
-      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
-      getAccessToken,
-      request: (requestOptions) => wx.request(requestOptions),
-    }),
-  );
+  return createManualScheduleClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
 }
 
 export function createRuntimeGroupMobilePhoneConsentClient(
   getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
 ): GroupMobilePhoneConsentClient {
   return createGroupMobilePhoneConsentClient(
-    createWxJsonTransport({
-      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
-      getAccessToken,
-      request: (requestOptions) => wx.request(requestOptions),
-    }),
+    createRuntimeWxJsonTransport(getAccessToken, authentication),
   );
 }
 
 export function createRuntimeSchedulePublicationClient(
   getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
 ): SchedulePublicationClient {
   return createSchedulePublicationClient(
-    createWxJsonTransport({
-      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
-      getAccessToken,
-      request: (requestOptions) => wx.request(requestOptions),
-    }),
+    createRuntimeWxJsonTransport(getAccessToken, authentication),
   );
 }
 
 export function createRuntimePastScheduleClient(
   getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
 ): PastScheduleClient {
-  return createPastScheduleClient(
-    createWxJsonTransport({
-      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
-      getAccessToken,
-      request: (requestOptions) => wx.request(requestOptions),
-    }),
-  );
+  return createPastScheduleClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
 }
 
 export function createRuntimeCalendarReadClient(
   getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
 ): CalendarReadClient {
-  return createCalendarReadClient(
-    createWxJsonTransport({
-      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
-      getAccessToken,
-      request: (requestOptions) => wx.request(requestOptions),
-    }),
-  );
+  return createCalendarReadClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
 }

@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-A 会话、弱网与离线缓存安全壳
+
+- 范围/引入点：本轮只做 P6-A Mini runtime，不改 UI、Web/API/contracts/DB。session、一次请求 transport、24h 缓存、解绑成功状态和多月表现分别来自 `e69cfb76`、`884512c0`、`ad4cfb2c`、`9b7ffbef`、`3fc41610`。审计确认旧实现可在 401/403 后读缓存、解绑留 token/cache、换账号复用 group/month cache，并被邻月弱网拖垮当前月。
+- 测试先行：新增 `p6-runtime`、`workbench-runtime` 并扩展 transport/P5 controller 回归；旧实现 15 failed/5 passed，另有 64 个未处理 401 rejection。实现后核心 3 文件/26 项、全 Mini 28 文件/155 项、受控非 Mini 169 文件/901 项通过；主审新增活动月保持断言先失败（邻月回写成 2026-06），修复后转绿。
+- 实现：统一 executor 为 GET/非空幂等写提供 12s timeout 与 network/502/503/504 的 200/400ms 两次退避；空/无 key 写、4xx、invalid 不重试。64 并发/顺序旧 token 401 单飞一次 `wx.login`/login POST，fresh-code proof 401 不误判；严格 UTC session expiry、generation/tombstone、跨用户/解绑/final401/link-required 清理。v2 owner cache、无 groupCode snapshot、24h/未来/损坏/quota/离群门禁与真离线冷启完成；active month 先 ready，邻月非暂态失败关闭；hide/unload 旧 serial 不提交，show 强制重验。
+- 行为审计：P5 所有危险写保持同 payload/key 自动重放，不建立离线写队列；非幂等写仍一次。`wx.request` 接收者、409/失败草稿、成功清 key、公开请求、完整手机号缓存剥离和 Web 语义不变。旧 generation 200 拒绝但不清新 session；storage 物理删除失败也不能恢复旧 token。
+- 验证：全仓 typecheck/Lint/build、Mini source、production verify/package/determinism/CI dry-run 和任务 diff check 通过。主工作区 Mini 为 1077632 bytes，2/2 Worklet，manifest `dae4bb9ef77b649f9674a8a2f5a8b7b4f6603569bec2b5975f23dbd0924b56f2`；无 Web 核心变化，不运行浏览器 smoke，`pnpm smoke:check-core` 通过。
+- checkpoint：`fix(miniprogram): harden session and offline runtime`。推送/体验上传/ECS 发布后，下一批只做 P6-B client capability、kill switch 和应用回滚演练；P6 性能量化、遥测/IP 保留和人工 RC 仍未关闭。
+
 ## 2026-08-24 P5 群组内手机号单独同意
 
 - 范围与引入点：用户确认 P4 已全部完成并授权直接提交后续版本；本轮只把 P5 手机号同意落在群组设置，不再归入排班补录。`git log -S`/`git blame` 定位完整成员目录/原始联系人读取/管理员确认到 `6183e9d1`、`8e42afb8`、`394b1c87`，calendar 联系方式读取到 `20407fcf`/`ab250646`，手机号黄金到 `591ccff6`，Mini 完整号码缓存剥离到 `ad4cfb2c`。旧实现的 `isConfirmed` 是管理员核验，不是成员同意，无法阻止同群/guest calendar raw mobile 泄露。

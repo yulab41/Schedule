@@ -13,7 +13,10 @@ describe('P5 native manual schedule controller', () => {
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
     vi.stubGlobal('wx', {
-      getStorageSync: vi.fn(() => ({ token: 'test-token' })),
+      getStorageInfoSync: vi.fn(() => ({ keys: [] })),
+      getStorageSync: vi.fn((key) =>
+        key === 'schedule.wechat.session' ? validSession() : undefined,
+      ),
       getWindowInfo: () => ({ statusBarHeight: 24, windowWidth: 390 }),
       request: vi.fn(),
     });
@@ -110,16 +113,14 @@ describe('P5 native manual schedule controller', () => {
     definition.handleApplyDraft.call(instance);
     await vi.waitFor(() => expect(instance.data.isBusy).toBe(false));
     definition.handleApplyDraft.call(instance);
-    await vi.waitFor(() => expect(requests).toHaveLength(2));
+    await vi.waitFor(() => expect(requests).toHaveLength(6));
 
-    expect(requests.map((request) => request.header['Idempotency-Key'])).toEqual([
-      'operation-fixed',
-      'operation-fixed',
-    ]);
-    expect(requests.map((request) => request.data.operationId)).toEqual([
-      'operation-fixed',
-      'operation-fixed',
-    ]);
+    expect(requests.map((request) => request.header['Idempotency-Key'])).toEqual(
+      Array.from({ length: 6 }, () => 'operation-fixed'),
+    );
+    expect(requests.map((request) => request.data.operationId)).toEqual(
+      Array.from({ length: 6 }, () => 'operation-fixed'),
+    );
   });
 });
 
@@ -189,4 +190,12 @@ function createPageInstance(definition) {
     },
   };
   return instance;
+}
+
+function validSession() {
+  return {
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    profile: { id: 'user-1', realName: '林医生', version: 1 },
+    token: 'test-token',
+  };
 }

@@ -1,6 +1,27 @@
 import { runtimeConfig } from './runtime-config.js';
+import {
+  clearPrivateBusinessStorage,
+  clearWechatSessionStorage,
+  WECHAT_SESSION_STORAGE_KEY,
+} from './private-storage.js';
+import {
+  executeWxJsonRequest,
+  isBearerAuthenticationRequired,
+  WxRequestNetworkError,
+} from './wx-request-executor.js';
 
-const SESSION_STORAGE_KEY = 'schedule.wechat.session';
+const MAX_SESSION_LIFETIME_MS = 31 * 24 * 60 * 60 * 1000;
+const utcIsoInstantPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+
+interface StoredWechatSession {
+  readonly expiresAt: string;
+  readonly profile: WechatAuthenticatedProfile;
+  readonly token: string;
+}
+
+let sessionRecoveryPromise: Promise<string | undefined> | undefined;
+let sessionGeneration = 0;
+let sessionInvalidated = false;
 
 export interface WechatAuthenticatedProfile {
   readonly id: string;
@@ -57,7 +78,7 @@ function decodeAuthenticated(value: unknown): WechatAuthenticatedResult {
   if (
     value.status !== 'authenticated' ||
     readString(value.token) === undefined ||
-    readString(value.expiresAt) === undefined ||
+    !isAcceptableSessionExpiry(value.expiresAt) ||
     !isRecord(profile) ||
     readString(profile.id) === undefined ||
     readString(profile.realName) === undefined ||
@@ -125,32 +146,33 @@ function readApiError(value: unknown, statusCode: number): WechatIdentityClientE
   );
 }
 
-function postJson(
+async function postJson(
   path: string,
   data: Readonly<Record<string, string>>,
   extraHeaders: Readonly<Record<string, string>> = {},
 ): Promise<unknown> {
   const baseUrl = runtimeConfig.apiBaseUrl.replace(/\/$/u, '');
-  return new Promise((resolve, reject) => {
-    try {
-      wx.request({
-        data,
-        fail: () => reject(new WechatIdentityClientError('网络连接失败，请稍后重试。')),
-        header: { 'content-type': 'application/json', ...extraHeaders },
-        method: 'POST',
-        success: (response) => {
-          if (response.statusCode < 200 || response.statusCode >= 300) {
-            reject(readApiError(response.data, response.statusCode));
-            return;
-          }
-          resolve(response.data);
-        },
-        url: `${baseUrl}${path}`,
-      });
-    } catch {
-      reject(new WechatIdentityClientError('网络连接失败，请稍后重试。'));
+  const idempotencyKey = readString(extraHeaders['Idempotency-Key']);
+  try {
+    const response = await executeWxJsonRequest({
+      data,
+      header: { 'content-type': 'application/json', ...extraHeaders },
+      ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+      method: 'POST',
+      request: (requestOptions) => wx.request(requestOptions),
+      url: `${baseUrl}${path}`,
+    });
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw readApiError(response.data, response.statusCode);
     }
-  });
+    return response.data;
+  } catch (error) {
+    if (error instanceof WechatIdentityClientError) throw error;
+    if (error instanceof WxRequestNetworkError) {
+      throw new WechatIdentityClientError('网络连接失败，请稍后重试。');
+    }
+    throw new WechatIdentityClientError('操作未完成，请稍后重试。');
+  }
 }
 
 function getWechatCode(): Promise<string> {
@@ -204,48 +226,198 @@ export async function confirmAdminBinding(ticket: string): Promise<WechatAuthent
 }
 
 export async function unbindWechatIdentity(idempotencyKey: string): Promise<WechatUnbindResult> {
-  const value = await postJson(
-    '/me/wechat/miniprogram/unbind',
-    { code: await getWechatCode() },
-    { 'Idempotency-Key': idempotencyKey },
-  );
+  const accessToken = getStoredWechatToken();
+  if (accessToken === undefined) {
+    throw new WechatIdentityClientError('登录状态已失效，请重新登录。');
+  }
+  const baseUrl = runtimeConfig.apiBaseUrl.replace(/\/$/u, '');
+  let response;
+  try {
+    response = await executeWxJsonRequest({
+      authentication: {
+        accessToken,
+        finalizeUnauthorized: finalizeWechatUnauthorized,
+        getSessionGeneration: getWechatSessionGeneration,
+        isAuthenticationRequired: isBearerAuthenticationRequired,
+        recoverAccessToken: recoverWechatSession,
+        sessionGeneration: getWechatSessionGeneration(),
+      },
+      data: { code: await getWechatCode() },
+      header: { 'content-type': 'application/json' },
+      idempotencyKey,
+      method: 'POST',
+      request: (requestOptions) => wx.request(requestOptions),
+      url: `${baseUrl}/me/wechat/miniprogram/unbind`,
+    });
+  } catch (error) {
+    if (error instanceof WxRequestNetworkError) {
+      throw new WechatIdentityClientError('网络连接失败，请稍后重试。');
+    }
+    throw error;
+  }
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw readApiError(response.data, response.statusCode);
+  }
+  const value = response.data;
   if (!isRecord(value) || value.unbound !== true) {
     throw new WechatIdentityClientError('解绑响应无效。');
   }
+  clearWechatSession(true);
   return { unbound: true };
 }
 
 export function persistWechatSession(result: WechatAuthenticatedResult): void {
-  wx.setStorageSync(SESSION_STORAGE_KEY, {
+  persistWechatSessionForOwner(result);
+}
+
+function persistWechatSessionForOwner(
+  result: WechatAuthenticatedResult,
+  preservedOwnerId?: string,
+): void {
+  if (!isAcceptableSessionExpiry(result.expiresAt)) {
+    clearWechatSession(true);
+    throw new WechatIdentityClientError('登录响应无效。');
+  }
+  const previous = readStoredWechatSession(Date.now(), false);
+  if (
+    (previous === undefined && preservedOwnerId !== result.profile.id) ||
+    (previous !== undefined && previous.profile.id !== result.profile.id)
+  ) {
+    clearPrivateBusinessStorage();
+  }
+  sessionInvalidated = true;
+  sessionGeneration += 1;
+  wx.setStorageSync(WECHAT_SESSION_STORAGE_KEY, {
     expiresAt: result.expiresAt,
     profile: result.profile,
     token: result.token,
-  });
+  } satisfies StoredWechatSession);
+  sessionInvalidated = false;
 }
 
-export function getStoredWechatToken(): string | undefined {
-  const stored = wx.getStorageSync(SESSION_STORAGE_KEY);
-  if (!isRecord(stored)) return undefined;
-  return readString(stored.token);
+export function getStoredWechatToken(now = Date.now()): string | undefined {
+  return readStoredWechatSession(now)?.token;
 }
 
-export function getStoredWechatProfile(): WechatAuthenticatedProfile | undefined {
-  const stored = wx.getStorageSync(SESSION_STORAGE_KEY);
-  if (!isRecord(stored) || !isRecord(stored.profile)) return undefined;
-  const id = readString(stored.profile.id);
-  const realName = readString(stored.profile.realName);
-  const version = stored.profile.version;
-  if (
-    id === undefined ||
-    realName === undefined ||
-    typeof version !== 'number' ||
-    !Number.isInteger(version)
-  ) {
-    return undefined;
+export function getStoredWechatProfile(now = Date.now()): WechatAuthenticatedProfile | undefined {
+  return readStoredWechatSession(now)?.profile;
+}
+
+export function clearWechatSession(includePrivateBusinessStorage = false): void {
+  sessionInvalidated = true;
+  clearWechatSessionStorage();
+  if (includePrivateBusinessStorage) clearPrivateBusinessStorage();
+  sessionGeneration += 1;
+}
+
+export function getWechatSessionGeneration(): number {
+  return sessionGeneration;
+}
+
+export function getWechatRequestAuthentication(): {
+  readonly awaitAccessToken: () => Promise<string | undefined>;
+  readonly finalizeUnauthorized: (failedToken: string) => void;
+  readonly getSessionGeneration: () => number;
+  readonly recoverAccessToken: (failedToken: string) => Promise<string | undefined>;
+} {
+  return {
+    awaitAccessToken: awaitWechatSessionRecovery,
+    finalizeUnauthorized: finalizeWechatUnauthorized,
+    getSessionGeneration: getWechatSessionGeneration,
+    recoverAccessToken: recoverWechatSession,
+  };
+}
+
+export async function awaitWechatSessionRecovery(): Promise<string | undefined> {
+  return sessionRecoveryPromise;
+}
+
+export async function recoverWechatSession(failedToken: string): Promise<string | undefined> {
+  const current = readStoredWechatSession(Date.now(), false);
+  if (current !== undefined && current.token !== failedToken) return current.token;
+  if (sessionRecoveryPromise !== undefined) return sessionRecoveryPromise;
+
+  const previousOwnerId = current?.profile.id;
+  clearWechatSession(false);
+  const recovery = (async (): Promise<string | undefined> => {
+    try {
+      const result = await loginWithWechat();
+      if (result.status !== 'authenticated') {
+        clearWechatSession(true);
+        return undefined;
+      }
+      if (previousOwnerId !== undefined && previousOwnerId !== result.profile.id) {
+        clearPrivateBusinessStorage();
+      }
+      persistWechatSessionForOwner(result, previousOwnerId);
+      return result.token;
+    } catch {
+      clearWechatSession(true);
+      return undefined;
+    }
+  })();
+  sessionRecoveryPromise = recovery;
+  try {
+    return await recovery;
+  } finally {
+    if (sessionRecoveryPromise === recovery) sessionRecoveryPromise = undefined;
   }
-  return { id, realName, version };
+}
+
+export function finalizeWechatUnauthorized(failedToken: string): void {
+  const current = readStoredWechatSession(Date.now(), false);
+  if (current !== undefined && current.token !== failedToken) return;
+  clearWechatSession(true);
 }
 
 export function getIdentityErrorMessage(error: unknown): string {
   return error instanceof WechatIdentityClientError ? error.message : '操作未完成，请稍后重试。';
+}
+
+function readStoredWechatSession(
+  now: number,
+  clearInvalid = true,
+): StoredWechatSession | undefined {
+  if (sessionInvalidated) return undefined;
+  let stored: unknown;
+  try {
+    stored = wx.getStorageSync(WECHAT_SESSION_STORAGE_KEY);
+  } catch {
+    stored = undefined;
+  }
+  if (!isRecord(stored) || !isRecord(stored.profile)) {
+    if (stored !== undefined && clearInvalid) clearWechatSession(true);
+    return undefined;
+  }
+  const token = readString(stored.token);
+  const expiresAt = readString(stored.expiresAt);
+  const id = readString(stored.profile.id);
+  const realName = readString(stored.profile.realName);
+  const version = stored.profile.version;
+  if (
+    token === undefined ||
+    expiresAt === undefined ||
+    id === undefined ||
+    realName === undefined ||
+    typeof version !== 'number' ||
+    !Number.isInteger(version) ||
+    version < 1 ||
+    !isAcceptableSessionExpiry(expiresAt, now)
+  ) {
+    if (clearInvalid) clearWechatSession(true);
+    return undefined;
+  }
+  return { expiresAt, profile: { id, realName, version }, token };
+}
+
+function isAcceptableSessionExpiry(value: unknown, now = Date.now()): value is string {
+  const expiresAt = readString(value);
+  if (expiresAt === undefined || !utcIsoInstantPattern.test(expiresAt)) return false;
+  const timestamp = Date.parse(expiresAt);
+  return (
+    Number.isFinite(timestamp) &&
+    new Date(timestamp).toISOString() === expiresAt &&
+    timestamp > now &&
+    timestamp - now <= MAX_SESSION_LIFETIME_MS
+  );
 }

@@ -8,12 +8,31 @@ import { calendarReadModelDecoder, holidayReadModelDecoder } from '@schedule/cli
 
 import { runtimeConfig } from './runtime-config.js';
 import { createRuntimeCalendarReadClient } from './client-core-calendar.js';
-import { getStoredWechatToken } from './wechat-identity.js';
+import {
+  awaitWechatSessionRecovery,
+  finalizeWechatUnauthorized,
+  getStoredWechatProfile,
+  getStoredWechatToken,
+  getWechatRequestAuthentication,
+  getWechatSessionGeneration,
+  recoverWechatSession,
+} from './wechat-identity.js';
+import {
+  clearLegacyWorkbenchStorage,
+  clearPrivateBusinessStorageForGroup,
+  readStorageKeys,
+  WORKBENCH_CACHE_V2_PREFIX,
+  WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX,
+  WORKBENCH_GROUP_STORAGE_KEY,
+} from './private-storage.js';
+import {
+  executeWxJsonRequest,
+  WxRequestNetworkError,
+  WxRequestStaleSessionError,
+} from './wx-request-executor.js';
 
 export const WORKBENCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-export const WORKBENCH_GROUP_STORAGE_KEY = 'schedule.wechat.workbench.current-group';
-
-const WORKBENCH_CACHE_KEY_PREFIX = 'schedule.wechat.workbench.cache.v1:';
+export { WORKBENCH_GROUP_STORAGE_KEY };
 
 export interface WorkbenchCacheEntry {
   readonly calendar: CalendarReadModel;
@@ -38,14 +57,6 @@ export class WorkbenchReadError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-interface WorkbenchRequestOptions {
-  readonly fail: (error: unknown) => void;
-  readonly header: Readonly<Record<string, string>>;
-  readonly method: 'GET';
-  readonly success: (response: { readonly data: unknown; readonly statusCode: number }) => void;
-  readonly url: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -128,43 +139,51 @@ function decodeMembers(value: unknown): readonly WorkbenchMember[] {
 }
 
 function requestJson(path: string): Promise<unknown> {
-  const token = getStoredWechatToken();
-  if (token === undefined) {
-    return Promise.reject(
-      new WorkbenchReadError('登录状态已失效，请重新登录。', 'AUTH_REQUIRED', 401),
+  return requestJsonWithSession(path);
+}
+
+async function requestJsonWithSession(path: string): Promise<unknown> {
+  let token = getStoredWechatToken();
+  if (token === undefined) token = await awaitWechatSessionRecovery();
+  if (token === undefined)
+    throw new WorkbenchReadError('登录状态已失效，请重新登录。', 'AUTH_REQUIRED', 401);
+  const baseUrl = runtimeConfig.apiBaseUrl.replace(/\/$/u, '');
+  let response;
+  try {
+    response = await executeWxJsonRequest({
+      authentication: {
+        accessToken: token,
+        finalizeUnauthorized: finalizeWechatUnauthorized,
+        getSessionGeneration: getWechatSessionGeneration,
+        recoverAccessToken: recoverWechatSession,
+        sessionGeneration: getWechatSessionGeneration(),
+      },
+      method: 'GET',
+      request: (requestOptions) => wx.request(requestOptions),
+      url: `${baseUrl}${path}`,
+    });
+  } catch (error) {
+    if (error instanceof WxRequestNetworkError) {
+      throw new WorkbenchReadError('网络连接失败，请稍后重试。', 'NETWORK_ERROR');
+    }
+    if (error instanceof WxRequestStaleSessionError) {
+      throw new WorkbenchReadError('登录状态已变化，请重新读取。', 'AUTH_REQUIRED', 401);
+    }
+    throw error;
+  }
+  if (response.statusCode === 401) {
+    throw new WorkbenchReadError('登录状态已失效，请重新登录。', 'AUTH_REQUIRED', 401);
+  }
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new WorkbenchReadError(
+      response.statusCode === 403
+        ? '当前账户无权查看这项排班。'
+        : '排班数据暂时无法加载，请稍后重试。',
+      'HTTP_ERROR',
+      response.statusCode,
     );
   }
-  const baseUrl = runtimeConfig.apiBaseUrl.replace(/\/$/u, '');
-  return new Promise((resolve, reject) => {
-    try {
-      const options: WorkbenchRequestOptions = {
-        fail: () => reject(new WorkbenchReadError('网络连接失败，请稍后重试。', 'NETWORK_ERROR')),
-        header: { Authorization: `Bearer ${token}` },
-        method: 'GET',
-        success: (response) => {
-          if (response.statusCode === 401) {
-            reject(new WorkbenchReadError('登录状态已失效，请重新登录。', 'AUTH_REQUIRED', 401));
-            return;
-          }
-          if (response.statusCode < 200 || response.statusCode >= 300) {
-            reject(
-              new WorkbenchReadError(
-                '排班数据暂时无法加载，请稍后重试。',
-                'HTTP_ERROR',
-                response.statusCode,
-              ),
-            );
-            return;
-          }
-          resolve(response.data);
-        },
-        url: `${baseUrl}${path}`,
-      };
-      wx.request(options);
-    } catch {
-      reject(new WorkbenchReadError('网络连接失败，请稍后重试。', 'NETWORK_ERROR'));
-    }
-  });
+  return response.data;
 }
 
 export function createWorkbenchReadClient(): {
@@ -173,58 +192,228 @@ export function createWorkbenchReadClient(): {
   readonly getHolidays: (year: number) => Promise<HolidayReadModel>;
   readonly listGroups: () => Promise<readonly GroupSummary[]>;
 } {
-  const calendarClient = createRuntimeCalendarReadClient(getStoredWechatToken);
+  const calendarClient = createRuntimeCalendarReadClient(
+    getStoredWechatToken,
+    getWechatRequestAuthentication(),
+  );
   return {
     getCalendar: (groupId, businessMonth) => calendarClient.getCalendar(groupId, businessMonth),
     getMembers: async (groupId) =>
       decodeMembers(await requestJson(`/groups/${encodeURIComponent(groupId)}/members`)),
     getHolidays: (year) => calendarClient.getHolidays(year),
-    listGroups: async () => decodeGroups(await requestJson('/groups')),
+    listGroups: async () => {
+      const groups = decodeGroups(await requestJson('/groups'));
+      const ownerId = getStoredWechatProfile()?.id;
+      if (ownerId !== undefined) {
+        writeWorkbenchGroupSnapshot(ownerId, groups);
+        pruneWorkbenchCaches(ownerId, new Set(groups.map((group) => group.id)));
+      }
+      return groups;
+    },
   };
 }
 
-export function getWorkbenchCacheKey(groupId: string, businessMonth: string): string {
-  return `${WORKBENCH_CACHE_KEY_PREFIX}${groupId}:${businessMonth}`;
+export function getWorkbenchCacheKey(
+  ownerId: string,
+  groupId: string,
+  businessMonth: string,
+): string {
+  return `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:${groupId}:${businessMonth}`;
 }
 
 export function readWorkbenchCache(
+  ownerId: string,
   groupId: string,
   businessMonth: string,
   now = Date.now(),
 ): WorkbenchCacheEntry | undefined {
-  const value = wx.getStorageSync(getWorkbenchCacheKey(groupId, businessMonth));
-  if (!isRecord(value)) return undefined;
+  clearLegacyWorkbenchStorage();
+  const key = getWorkbenchCacheKey(ownerId, groupId, businessMonth);
+  const value = readStorage(key);
+  if (!isRecord(value)) {
+    if (value !== undefined) removeStorage(key);
+    return undefined;
+  }
   const savedAt = value.savedAt;
   const calendar = value.calendar;
   const holidays = value.holidays;
   if (
     typeof savedAt !== 'number' ||
+    !Number.isFinite(savedAt) ||
+    savedAt > now ||
     now - savedAt >= WORKBENCH_CACHE_TTL_MS ||
     !isRecord(calendar) ||
     !isRecord(holidays)
   ) {
+    removeStorage(key);
     return undefined;
   }
   const decodedCalendar = calendarReadModelDecoder.safeDecode(calendar);
   const decodedHolidays = holidayReadModelDecoder.safeDecode(holidays);
-  if (!decodedCalendar.success || !decodedHolidays.success) return undefined;
+  if (
+    !decodedCalendar.success ||
+    !decodedHolidays.success ||
+    decodedCalendar.data.groupId !== groupId ||
+    decodedCalendar.data.businessMonth !== businessMonth
+  ) {
+    removeStorage(key);
+    return undefined;
+  }
   return {
-    calendar: decodedCalendar.data,
+    calendar: sanitizeCalendarForCache(decodedCalendar.data),
     holidays: decodedHolidays.data,
     savedAt,
   };
 }
 
 export function writeWorkbenchCache(
+  ownerId: string,
   groupId: string,
   businessMonth: string,
   calendar: CalendarReadModel,
   holidays: HolidayReadModel,
   now = Date.now(),
 ): void {
-  wx.setStorageSync(getWorkbenchCacheKey(groupId, businessMonth), {
+  if (calendar.groupId !== groupId || calendar.businessMonth !== businessMonth) return;
+  clearLegacyWorkbenchStorage();
+  writeStorage(getWorkbenchCacheKey(ownerId, groupId, businessMonth), {
     calendar: sanitizeCalendarForCache(calendar),
     holidays,
     savedAt: now,
   } satisfies WorkbenchCacheEntry);
+}
+
+export function writeWorkbenchGroupSnapshot(
+  ownerId: string,
+  groups: readonly GroupSummary[],
+  now = Date.now(),
+): void {
+  clearLegacyWorkbenchStorage();
+  const sanitizedGroups = groups.map((group) => {
+    const sanitized = { ...group };
+    delete sanitized.groupCode;
+    return sanitized;
+  });
+  writeStorage(getWorkbenchGroupSnapshotKey(ownerId), { groups: sanitizedGroups, savedAt: now });
+}
+
+export function readWorkbenchGroupSnapshot(
+  ownerId: string,
+  now = Date.now(),
+): readonly GroupSummary[] | undefined {
+  clearLegacyWorkbenchStorage();
+  const key = getWorkbenchGroupSnapshotKey(ownerId);
+  const value = readStorage(key);
+  if (!isRecord(value)) {
+    if (value !== undefined) removeStorage(key);
+    return undefined;
+  }
+  const savedAt = value.savedAt;
+  if (
+    typeof savedAt !== 'number' ||
+    !Number.isFinite(savedAt) ||
+    savedAt > now ||
+    now - savedAt >= WORKBENCH_CACHE_TTL_MS
+  ) {
+    removeStorage(key);
+    return undefined;
+  }
+  try {
+    return decodeGroups(value.groups);
+  } catch {
+    removeStorage(key);
+    return undefined;
+  }
+}
+
+export function pruneWorkbenchCaches(ownerId: string, activeGroupIds: ReadonlySet<string>): void {
+  clearLegacyWorkbenchStorage();
+  const ownerPrefix = `${WORKBENCH_CACHE_V2_PREFIX}${ownerId}:`;
+  for (const key of readStorageKeys()) {
+    if (!key.startsWith(ownerPrefix)) continue;
+    const groupId = key.slice(ownerPrefix.length).split(':', 1)[0];
+    if (groupId !== undefined && !activeGroupIds.has(groupId)) {
+      clearPrivateBusinessStorageForGroup(ownerId, groupId);
+    }
+  }
+  const selectedGroupId = readStoredWorkbenchGroupId(ownerId);
+  if (selectedGroupId !== undefined && !activeGroupIds.has(selectedGroupId)) {
+    clearPrivateBusinessStorageForGroup(ownerId, selectedGroupId);
+  }
+}
+
+export function clearWorkbenchGroupCaches(ownerId: string, groupId: string): void {
+  clearPrivateBusinessStorageForGroup(ownerId, groupId);
+  const groups = readWorkbenchGroupSnapshot(ownerId);
+  if (groups === undefined) return;
+  const remaining = groups.filter((group) => group.id !== groupId);
+  if (remaining.length === 0) removeStorage(getWorkbenchGroupSnapshotKey(ownerId));
+  else writeWorkbenchGroupSnapshot(ownerId, remaining);
+}
+
+export function readStoredWorkbenchGroupId(ownerId: string): string | undefined {
+  const value = readStorage(WORKBENCH_GROUP_STORAGE_KEY);
+  if (!isRecord(value) || value.ownerId !== ownerId) return undefined;
+  return readRequiredString(value.groupId);
+}
+
+export function writeStoredWorkbenchGroupId(ownerId: string, groupId: string): void {
+  writeStorage(WORKBENCH_GROUP_STORAGE_KEY, { groupId, ownerId });
+}
+
+export function canUseWorkbenchOfflineFallback(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  if (error.code === 'NETWORK_ERROR') return true;
+  return error.status === 502 || error.status === 503 || error.status === 504;
+}
+
+export function loadActiveThenAdjacent<T>(
+  keys: readonly string[],
+  activeKey: string,
+  load: (key: string) => Promise<T>,
+): { readonly active: Promise<T>; readonly adjacent: Promise<readonly T[]> } {
+  const active = load(activeKey);
+  const adjacentKeys = [...new Set(keys)].filter((key) => key !== activeKey);
+  const adjacent = active.then(
+    async () => {
+      await Promise.resolve();
+      const results = await Promise.allSettled(adjacentKeys.map((key) => load(key)));
+      const fatal = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === 'rejected' && !canUseWorkbenchOfflineFallback(result.reason),
+      );
+      if (fatal !== undefined) throw fatal.reason;
+      return results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+    },
+    () => [],
+  );
+  return { active, adjacent };
+}
+
+function getWorkbenchGroupSnapshotKey(ownerId: string): string {
+  return `${WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX}${ownerId}`;
+}
+
+function readStorage(key: string): unknown {
+  try {
+    return wx.getStorageSync(key);
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStorage(key: string, value: unknown): void {
+  try {
+    wx.setStorageSync(key, value);
+  } catch {
+    // A storage quota failure must never turn a successful online read into an error.
+  }
+}
+
+function removeStorage(key: string): void {
+  try {
+    wx.removeStorageSync(key);
+  } catch {
+    // Invalid private cache entries remain unusable even if physical cleanup fails.
+  }
 }

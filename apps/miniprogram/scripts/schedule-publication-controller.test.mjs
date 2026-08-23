@@ -13,7 +13,16 @@ describe('P5 native schedule publication controller', () => {
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
     vi.stubGlobal('__MINIPROGRAM_BUILD_VERSION__', 'test');
     vi.stubGlobal('wx', {
-      getStorageSync: vi.fn(() => ({ token: 'test-token' })),
+      getStorageInfoSync: vi.fn(() => ({ keys: [] })),
+      getStorageSync: vi.fn((key) =>
+        key === 'schedule.wechat.session'
+          ? {
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              profile: { id: 'user-1', realName: '林医生', version: 1 },
+              token: 'test-token',
+            }
+          : undefined,
+      ),
       getWindowInfo: () => ({ statusBarHeight: 24, windowWidth: 390 }),
       request: vi.fn(),
     });
@@ -39,14 +48,13 @@ describe('P5 native schedule publication controller', () => {
     definition.handlePublishBatch.call(instance, {
       currentTarget: { dataset: { batchKey: 'apply-operation' } },
     });
-    await vi.waitFor(() => expect(requests).toHaveLength(2));
+    await vi.waitFor(() => expect(requests).toHaveLength(6));
 
-    expect(requests.map((request) => request.header['Idempotency-Key'])).toEqual([
-      expect.any(String),
-      expect.any(String),
-    ]);
-    expect(requests[0].header['Idempotency-Key']).toBe(requests[1].header['Idempotency-Key']);
-    expect(requests[0].data.operationId).toBe(requests[1].data.operationId);
+    expect(requests.map((request) => request.header['Idempotency-Key'])).toEqual(
+      Array.from({ length: 6 }, () => expect.any(String)),
+    );
+    expect(new Set(requests.map((request) => request.header['Idempotency-Key'])).size).toBe(1);
+    expect(new Set(requests.map((request) => request.data.operationId)).size).toBe(1);
   });
 
   it('requires both acknowledgements for a republish containing past dates and impacts', () => {
