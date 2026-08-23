@@ -8,7 +8,8 @@
 - 定位：生产只读检查确认 D0796 是正常密码账号；当前微信 identity 先指向历史迁移遗留的 active 空壳用户。原 `linkPassword` 在 `identity.existingUserId !== account.userId` 时直接返回 `CONFLICT`，引入点为 `2fc9c164`。
 - 测试先行与实现：新增空壳无资料、首次使用后已有同名资料、资料姓名不匹配拒绝三条回归路径；通过后才实现受严格不变量保护的原子 rehome。来源存在密码、群组/群主、解绑记录、UnionID、多个 identity 或不同资料时不迁移，link token 保持 pending。
 - 验证：API 微信认证集成测试 25/25、API typecheck、`git diff --check` 通过；本轮只改 API 与测试/文档，未触及 Web 核心链路，不运行浏览器 smoke；小程序体验版 56 无需重新上传。
-- 发布状态：待提交、推送、生产备份和部署；发布后用体验版 `0.1.0-p3.20260823.56` 重新开始登录并复核 D0796 绑定。
+- 发布：代码 checkpoint `7d454a5` 已推送并部署到 production release `7d454a5571cb996abf0ee2af57230d16d696267c`；代码发布前备份 archive `1a955aa1-0a8e-46a7-bc3f-c2db353b6213`，`ecs-verify.sh` 通过。身份迁移前再次备份 archive `2110eaaa-ecee-498a-b1e2-d4d3ba09db72`，D0796 线上已绑定当前微信 identity，来源空壳用户软删除并写入迁移审计；小程序体验版 `0.1.0-p3.20260823.56` 无需重新上传。
+- 状态：已完成（含代码发布、线上身份迁移和核验）→待人工原生复核；用户重新登录体验版 56 应直接进入 D0796 对应排班台。
 
 ## 2026-08-23 P3 Mini production 默认 profile 固化
 
