@@ -11,7 +11,7 @@
 - 语义审计：工作台既有 ready callback 仍先完成同一数据 commit，再执行 pending scroll；probe 未启用或没有 start 时不读时钟、不写数据。矩阵默认 maximum 仍一次相同 view-model patch，tap 的 receiver、validation、mutation、undo、cell path 与调用次数不变；只在显式诊断 query 下为同一 patch增加 callback 并在其后写诊断字符串。WXS 坐标、异步/catch、capability、缓存、离线、P5 写请求和 Web 1:1 UI 均未改变。
 - 验证：Mini 32 files/181 tests；性能/RC/真实 workbench/矩阵定向 5 files/25 tests；受控 non-Mini 176 files/948 tests 通过，36 files/324 tests 按无测试 MySQL 跳过。全仓 lint/typecheck/build、任务 Prettier、`git diff --check`、Mini production verify/source/package/Worklet/determinism 与 CI dry-run 通过。宽泛根 Vitest 曾以错误 cwd 启动 Mini 静态测试并产生 35 项预期路径失败，Mini 正确 cwd 全绿；根 format check 只报告本批前已有的用户/既有 15 个文件，任务文件单独全绿。
 - Mini 门禁与运行验证：production `0.1.0-p6.20260824.80` 当前为 131 files、2/2 Worklet、1,283,985 bytes，manifest `166a4567605c7c4d8d86733d532147e9cc47f238074a7bea5a5092e2f358057b`；`pnpm smoke:check-core` 确认未改 Web 核心链路，无需 `pnpm smoke:browser`。实体时间尚无用户样本，因此状态只能是“已实现待实体性能复核”。
-- checkpoint 与下一批：本实现 checkpoint 识别消息为 `feat(miniprogram): quantify p6 performance budgets`；提交、推送、生产备份/部署及 `.80` 体验上传完成后补记精确结果，未提审、未正式发布。下一活动批次只做 P6 现有访客原始 IP 的 90 天保留安全发布（先建立 additive schema compatibility bridge，再做匿名月聚合/清理/备份与 Nginx 隐私边界）；遥测在其后独立完成，不提前进入 P7。
+- checkpoint 与下一批：实现 checkpoint `e2270bde`（`feat(miniprogram): quantify p6 performance budgets`）已推送；`.80` production allowlist/example 的发布 checkpoint 识别消息为 `chore(release): allow p6 performance client`。两者从同一最终 clean release 提交完成生产备份/部署及 `.80` 体验上传后补记精确结果，未提审、未正式发布。下一活动批次只做 P6 现有访客原始 IP 的 90 天保留安全发布（先建立 additive schema compatibility bridge，再做匿名月聚合/清理/备份与 Nginx 隐私边界）；遥测在其后独立完成，不提前进入 P7。
 
 ## 2026-08-24 P6-B 签名版本、七维能力与可回滚发布（已部署并完成演练）
 

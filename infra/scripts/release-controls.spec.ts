@@ -8,6 +8,18 @@ async function readScript(name: string): Promise<string> {
 }
 
 describe('production Mini Program capability control', () => {
+  it('keeps the current P6 performance experience version in the production allowlist', async () => {
+    const environment = await readFile(
+      fileURLToPath(new URL('../../.env.production.example', import.meta.url)),
+      'utf8',
+    );
+
+    expect(environment).toContain(
+      'MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79,0.1.0-p6.20260824.80',
+    );
+    expect(environment).toContain('MINIPROGRAM_LEGACY_CLIENT_VERSION=0.1.0-p6.20260824.78');
+  });
+
   it('uses the same strict semver-like validator in switch, deploy, and verify controls', async () => {
     const sources = await Promise.all(
       ['client-capability-switch.sh', 'ecs-update.sh', 'ecs-verify.sh'].map(readScript),
