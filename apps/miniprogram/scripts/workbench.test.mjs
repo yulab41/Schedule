@@ -37,14 +37,23 @@ describe('P4 native workbench', () => {
     expect(template).toContain('列表');
     expect(template).toContain('定位到今天');
     expect(template).toContain('筛选排班');
-    expect(template).toContain('完成');
-    expect(template).toContain('bindtouchstart="handleSwipeStart"');
-    expect(template).toContain('bindtouchend="handleWeekSwipeEnd"');
-    expect(template).toContain('bindtouchend="handleListSwipeEnd"');
+    expect(template).toContain('查看结果');
+    expect(template).toContain('清除筛选');
+    expect(template).toContain('排班岗位');
+    expect(template).toContain('班种');
+    expect(template).toContain('成员');
+    expect(template).toContain('class="filter-sheet-backdrop"');
+    expect(template).toContain('class="filter-sheet');
+    expect(template).toContain('bindanimationfinish="handleWeekSwiperFinish"');
+    expect(template).toContain('bindanimationfinish="handleListSwiperFinish"');
     expect(template).toContain('scroll-into-view="{{scrollTarget}}"');
     expect(template).toContain('filterIconAnimating');
     expect(template).toContain('locateIconAnimating');
     expect(template).toContain('calendarNavAnimating');
+    expect(template).toContain('class="workbench-shell-header"');
+    expect(template).toContain('class="group-switcher-trigger');
+    expect(template).toContain('class="notification-action');
+    expect(template).toContain('class="shell-profile-action');
     expect(template).toContain('联系方式仅在群组成员单独同意后显示');
     expect(template).toContain('aria-disabled="true"');
     expect(template).toContain('nav-icon nav-leave');
@@ -54,7 +63,12 @@ describe('P4 native workbench', () => {
     expect(monthTemplate).toContain('is-bottom-row');
     expect(pageStyles).toContain('@keyframes click-filter-top');
     expect(pageStyles).toContain('@keyframes click-locate');
+    expect(pageStyles).toContain('@keyframes minimal-swap-left');
+    expect(pageStyles).toContain('@keyframes minimal-dot');
+    expect(pageStyles).toContain('@keyframes filter-sheet-enter');
     expect(monthStyles).toContain('@keyframes click-locate');
+    expect(template).not.toContain('class="refresh-indicator"');
+    expect(template).not.toContain('正在读取排班…');
     expect(template).not.toMatch(/bindtap="(save|publish|submit|create|delete|approve)/u);
   });
 
@@ -68,12 +82,46 @@ describe('P4 native workbench', () => {
     );
 
     expect(view.monthPanels).toHaveLength(3);
+    expect(view.weekPanels).toHaveLength(3);
+    expect(view.listPanels).toHaveLength(3);
     expect(view.monthPanels[1].cells.length % 7).toBe(0);
     expect(view.monthPanels[1].cells.at(-1)?.isBottomRow).toBe(true);
-    expect(view.weekDays).toHaveLength(7);
-    expect(view.listRows).toHaveLength(1);
+    expect(view.weekPanels[1].days).toHaveLength(7);
+    expect(view.listPanels[1].rows).toHaveLength(1);
     expect(view.selectedDetails[0]?.name).toBe('李医生');
     expect(view.selectedDetails[0]?.changeLabel).toBe('换班 · 请假补位 · 加班');
+  });
+
+  it('matches the Web filter dimensions for changes, roles, shift types and members', () => {
+    const hidden = createWorkbenchViewModel(
+      calendarApiGoldenResponse,
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+      {
+        membershipIds: ['membership-1'],
+        onlyChanges: false,
+        roleIds: [],
+        shiftTypeIds: [],
+      },
+    );
+    expect(hidden.listPanels[1].rows).toHaveLength(0);
+
+    const visible = createWorkbenchViewModel(
+      calendarApiGoldenResponse,
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+      {
+        membershipIds: ['membership-2'],
+        onlyChanges: true,
+        roleIds: ['role-1'],
+        shiftTypeIds: ['shift-1'],
+      },
+    );
+    expect(visible.listPanels[1].rows).toHaveLength(1);
   });
 
   it('keeps today and month navigation in China-standard business dates', () => {

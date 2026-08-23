@@ -7,7 +7,10 @@
       aria-label="上一月"
       bindtap="handlePrevious"
     >
-      <view class="chevron is-left" aria-hidden="true">
+      <view
+        class="chevron is-left {{stepMotion === 'previous' ? 'is-animating' : ''}}"
+        aria-hidden="true"
+      >
         <view class="chevron-line is-upper"></view>
         <view class="chevron-line is-lower"></view>
       </view>
@@ -38,7 +41,10 @@
       aria-label="下一月"
       bindtap="handleNext"
     >
-      <view class="chevron is-right" aria-hidden="true">
+      <view
+        class="chevron is-right {{stepMotion === 'next' ? 'is-animating' : ''}}"
+        aria-hidden="true"
+      >
         <view class="chevron-line is-upper"></view>
         <view class="chevron-line is-lower"></view>
       </view>

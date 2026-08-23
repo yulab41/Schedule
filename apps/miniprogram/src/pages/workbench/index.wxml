@@ -1,4 +1,71 @@
 <view class="workbench-page">
+  <view class="workbench-shell-header">
+    <view class="workbench-shell-heading">
+      <view class="group-switcher">
+        <view
+          class="group-switcher-trigger {{groupOpen ? 'is-open' : ''}}"
+          hover-class="is-pressed"
+          aria-role="button"
+          aria-label="切换当前群组"
+          bindtap="handleGroupToggle"
+        >
+          <text class="group-switcher-copy">{{currentGroupName}} · {{currentGroupRole}}</text>
+          <view
+            class="group-switcher-arrow {{groupOpen ? 'is-open' : ''}}"
+            aria-hidden="true"
+          ></view>
+        </view>
+        <view wx:if="{{groupOpen}}" class="group-menu" aria-label="选择当前群组">
+          <view
+            wx:for="{{groups}}"
+            wx:key="id"
+            class="group-option {{item.id === currentGroupId ? 'is-selected' : ''}}"
+            data-group-id="{{item.id}}"
+            hover-class="is-pressed"
+            aria-role="button"
+            bindtap="handleGroupSelect"
+          >
+            <view class="group-option-copy"
+              ><text>{{item.name}}</text
+              ><text
+                >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' :
+                item.role === 'guest' ? '访客' : '成员'}}</text
+              ></view
+            >
+            <text wx:if="{{item.id === currentGroupId}}" class="option-check" aria-hidden="true"
+              >✓</text
+            >
+          </view>
+        </view>
+      </view>
+      <text class="shell-page-title">日历</text>
+    </view>
+    <view class="shell-actions">
+      <view
+        class="notification-action"
+        hover-class="is-pressed"
+        aria-role="button"
+        aria-label="打开通知"
+        bindtap="handleNotification"
+      >
+        <view class="top-icon bell-icon {{notificationAnimating ? 'is-animating' : ''}}">
+          <view class="bell-body"></view><view class="bell-clapper"></view>
+        </view>
+      </view>
+      <view
+        class="shell-profile-action"
+        hover-class="is-pressed"
+        aria-role="button"
+        aria-label="打开我的"
+        bindtap="handleProfile"
+      >
+        <view class="top-icon profile-icon {{profileAnimating ? 'is-animating' : ''}}">
+          <view class="profile-head"></view><view class="profile-shoulders"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <scroll-view
     class="workbench-scroll"
     scroll-y
@@ -6,68 +73,12 @@
     scroll-into-view="{{scrollTarget}}"
     show-scrollbar="{{false}}"
   >
-    <view class="workbench-header">
-      <view class="brand-lockup">
-        <text class="brand-mark" aria-hidden="true">+</text>
-        <text>排班台</text>
-      </view>
-      <text class="identity-chip">身份已确认</text>
-    </view>
-
     <view class="workbench-content">
-      <view class="workbench-heading">
-        <view class="heading-copy">
-          <text class="eyebrow">P4 · 已认证工作台</text>
-          <text class="page-title">工作台</text>
-          <text class="page-lede">只查看你有权限的群组排班。</text>
-        </view>
-        <view
-          class="group-switch"
-          hover-class="is-pressed"
-          aria-role="button"
-          aria-label="切换当前群组"
-          bindtap="handleGroupToggle"
-        >
-          <text class="group-switch-label">当前群组</text>
-          <text class="group-switch-name">{{currentGroupName}}</text>
-          <text class="group-switch-role">{{currentGroupRole}}⌄</text>
-        </view>
-      </view>
-
-      <view wx:if="{{groupOpen}}" class="group-menu" aria-label="选择当前群组">
-        <view class="group-menu-heading"><text>选择群组</text><text>只读切换</text></view>
-        <view
-          wx:for="{{groups}}"
-          wx:key="id"
-          class="group-option {{item.id === currentGroupId ? 'is-selected' : ''}}"
-          data-group-id="{{item.id}}"
-          hover-class="is-pressed"
-          aria-role="button"
-          bindtap="handleGroupSelect"
-        >
-          <view class="group-option-copy"
-            ><text>{{item.name}}</text
-            ><text
-              >{{item.role === 'owner' ? '群主' : item.role === 'administrator' ? '管理员' :
-              item.role === 'guest' ? '访客' : '成员'}}</text
-            ></view
-          >
-          <text wx:if="{{item.id === currentGroupId}}" class="option-check" aria-hidden="true"
-            >✓</text
-          >
-        </view>
-      </view>
-
       <view class="period-row">
         <text class="period-label">{{monthLabel}}</text>
         <text class="cache-note"><text class="cache-dot" />只读查看 · 24 小时缓存</text>
       </view>
       <text wx:if="{{offlineNotice}}" class="offline-note">{{offlineNotice}}</text>
-      <view wx:if="{{refreshing}}" class="refresh-indicator" aria-live="polite">
-        <view class="refresh-spinner" aria-hidden="true"></view>
-        <text>正在读取排班…</text>
-      </view>
-
       <view class="view-controls" aria-label="排班视图">
         <view class="view-switch" aria-role="tablist">
           <view
@@ -82,48 +93,17 @@
           >
         </view>
         <view
-          class="filter-button {{activeFilter !== 'all' ? 'has-filter' : ''}}"
+          class="filter-button {{activeFilterCount > 0 ? 'has-filter' : ''}}"
           hover-class="is-pressed"
           aria-role="button"
           aria-label="筛选排班"
           bindtap="handleFilterToggle"
         >
-          <view
-            class="filter-icon {{filterIconAnimating ? 'is-animating' : ''}}"
-            aria-hidden="true"
+          <view class="filter-icon {{filterIconAnimating ? 'is-animating' : ''}}" aria-hidden="true"
             ><view></view><view></view><view></view
           ></view>
           <text>筛选</text>
-          <text wx:if="{{activeFilter !== 'all'}}" class="filter-count">1</text>
-        </view>
-      </view>
-
-      <view wx:if="{{filterOpen}}" class="filter-panel" aria-label="筛选排班">
-        <view class="filter-panel-heading">
-          <text>筛选排班</text>
-          <view
-            class="filter-complete"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleFilterComplete"
-            >完成</view
-          >
-        </view>
-        <view
-          wx:for="{{filterOptions}}"
-          wx:key="*this"
-          class="filter-option {{item === activeFilter ? 'is-selected' : ''}}"
-          data-filter="{{item}}"
-          hover-class="is-pressed"
-          aria-role="radio"
-          aria-checked="{{item === activeFilter}}"
-          bindtap="handleFilterSelect"
-        >
-          <text
-            >{{item === 'all' ? '全部班次' : item === 'mine' ? '只看我的排班' :
-            '只看有变更的班次'}}</text
-          >
-          <text wx:if="{{item === activeFilter}}" class="option-check" aria-hidden="true">✓</text>
+          <text wx:if="{{activeFilterCount > 0}}" class="filter-count">{{activeFilterCount}}</text>
         </view>
       </view>
 
@@ -134,6 +114,7 @@
       <view id="workbench-view-anchor" class="workbench-view-anchor">
         <block wx:if="{{state === 'ready' && viewMode === 'month'}}">
           <calendar-month
+            id="workbench-month"
             grid-height="{{gridHeight}}"
             month-label="{{monthLabel}}"
             panels="{{monthPanels}}"
@@ -141,165 +122,194 @@
             bind:monthchange="handleMonthChange"
             bind:select="handleDateSelect"
           ></calendar-month>
-        <view class="selected-detail" aria-label="选中日期值班详情">
-          <view class="selected-detail-heading">
-            <view class="summary-date"
-              ><text>选中日期</text><text class="summary-date-value">{{selectedLabel}}</text></view
-            >
-            <text class="summary-count">{{selectedCountLabel}}</text>
-          </view>
-          <view wx:if="{{selectedDetails.length === 0}}" class="detail-empty"
-            >当天没有已发布排班。</view
-          >
-          <view wx:for="{{selectedDetails}}" wx:key="title" class="summary-duty">
-            <view class="shift-dot" style="background:{{item.color}}"></view>
-            <view class="summary-duty-copy">
-              <text class="summary-duty-title">{{item.title}}</text>
-              <text class="summary-duty-note">{{item.note}}</text>
-              <text wx:if="{{item.changeLabel}}" class="change-label">{{item.changeLabel}}</text>
+          <view class="selected-detail" aria-label="选中日期值班详情">
+            <view class="selected-detail-heading">
+              <view class="summary-date"
+                ><text>选中日期</text
+                ><text class="summary-date-value">{{selectedLabel}}</text></view
+              >
+              <text class="summary-count">{{selectedCountLabel}}</text>
             </view>
+            <view wx:if="{{selectedDetails.length === 0}}" class="detail-empty"
+              >当天没有已发布排班。</view
+            >
+            <view wx:for="{{selectedDetails}}" wx:key="title" class="summary-duty">
+              <view class="shift-dot" style="background:{{item.color}}"></view>
+              <view class="summary-duty-copy">
+                <text class="summary-duty-title">{{item.title}}</text>
+                <text class="summary-duty-note">{{item.note}}</text>
+                <text wx:if="{{item.changeLabel}}" class="change-label">{{item.changeLabel}}</text>
+              </view>
+            </view>
+            <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
           </view>
-          <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
-        </view>
         </block>
 
         <block wx:elif="{{state === 'ready' && viewMode === 'week'}}">
-          <view
-            class="week-calendar"
-            aria-label="周视图"
-            bindtouchstart="handleSwipeStart"
-            bindtouchend="handleWeekSwipeEnd"
-          >
-          <view class="calendar-navigation">
-            <view
-              class="calendar-step"
-              data-delta="-1"
-              hover-class="is-pressed"
-              aria-role="button"
-              aria-label="上一周"
-              bindtap="handleWeekChange"
-              ><view class="chevron is-left"></view
-            ></view>
-            <view class="calendar-heading"
-              ><text>{{weekRangeLabel}}</text><text>按周查看 · 左右滑动切换</text></view
-            >
-            <view
-              class="calendar-locator"
-              hover-class="is-pressed"
-              aria-role="button"
-              aria-label="定位到今天"
-              bindtap="handleLocateToday"
-              ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
-                ><view></view></view
-            ></view>
-            <view
-              class="calendar-step"
-              data-delta="1"
-              hover-class="is-pressed"
-              aria-role="button"
-              aria-label="下一周"
-              bindtap="handleWeekChange"
-              ><view class="chevron is-right"></view
-            ></view>
-          </view>
-          <view class="week-day-row" aria-hidden="true"
-            ><text
-              wx:for="{{weekDays}}"
-              wx:key="businessDate"
-              class="{{item.isWeekend ? 'is-weekend' : ''}}"
-              >{{item.weekday}}</text
-            ></view
-          >
-          <view class="week-day-grid">
-            <view
-              wx:for="{{weekDays}}"
-              wx:key="businessDate"
-              class="week-day {{item.isSelected ? 'is-selected' : ''}} {{item.isToday ? 'is-today' : ''}} {{item.isWeekend ? 'is-weekend' : ''}}"
-              data-business-date="{{item.businessDate}}"
-              hover-class="is-pressed"
-              aria-role="button"
-              bindtap="handleWeekDaySelect"
-            >
-              <text class="day-number">{{item.day}}</text
-              ><text class="week-duty">{{item.duty}}</text>
+          <view class="week-calendar" aria-label="周视图">
+            <view class="calendar-navigation">
+              <view
+                class="calendar-step"
+                data-delta="-1"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="上一周"
+                bindtap="handleWeekChange"
+                ><view
+                  class="chevron is-left {{weekSwiperCurrent === 0 ? 'is-animating' : ''}}"
+                ></view
+              ></view>
+              <view class="calendar-heading"
+                ><text>{{weekPanels[1].rangeLabel}}</text><text>按周查看 · 左右滑动切换</text></view
+              >
+              <view
+                class="calendar-locator"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="定位到今天"
+                bindtap="handleLocateToday"
+                ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
+                  ><view></view></view
+              ></view>
+              <view
+                class="calendar-step"
+                data-delta="1"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="下一周"
+                bindtap="handleWeekChange"
+                ><view
+                  class="chevron is-right {{weekSwiperCurrent === 2 ? 'is-animating' : ''}}"
+                ></view
+              ></view>
             </view>
+            <view class="week-day-row" aria-hidden="true"
+              ><text
+                wx:for="{{weekPanels[1].days}}"
+                wx:key="businessDate"
+                class="{{item.isWeekend ? 'is-weekend' : ''}}"
+                >{{item.weekday}}</text
+              ></view
+            >
+            <swiper
+              class="period-swiper week-swiper"
+              current="{{weekSwiperCurrent}}"
+              duration="{{periodSwiperDuration}}"
+              easing-function="easeOutCubic"
+              bindanimationfinish="handleWeekSwiperFinish"
+            >
+              <swiper-item wx:for="{{weekPanels}}" wx:key="key">
+                <view class="week-day-grid">
+                  <view
+                    wx:for="{{item.days}}"
+                    wx:for-item="day"
+                    wx:key="businessDate"
+                    class="week-day {{day.isSelected ? 'is-selected' : ''}} {{day.isToday ? 'is-today' : ''}} {{day.isWeekend ? 'is-weekend' : ''}}"
+                    data-business-date="{{day.businessDate}}"
+                    hover-class="is-pressed"
+                    aria-role="button"
+                    bindtap="handleWeekDaySelect"
+                  >
+                    <text class="day-number">{{day.day}}</text
+                    ><text class="week-duty">{{day.duty}}</text>
+                  </view>
+                </view>
+              </swiper-item>
+            </swiper>
           </view>
+          <view class="selected-detail compact-detail" aria-label="选中日期值班详情">
+            <view class="selected-detail-heading"
+              ><view class="summary-date"
+                ><text>选中日期</text
+                ><text class="summary-date-value">{{selectedLabel}}</text></view
+              ><text class="summary-count">{{selectedCountLabel}}</text></view
+            >
+            <view wx:for="{{selectedDetails}}" wx:key="title" class="summary-duty"
+              ><view class="shift-dot" style="background:{{item.color}}"></view
+              ><view class="summary-duty-copy"
+                ><text class="summary-duty-title">{{item.title}}</text
+                ><text class="summary-duty-note">{{item.note}}</text></view
+              ></view
+            >
+            <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
           </view>
-        <view class="selected-detail compact-detail" aria-label="选中日期值班详情">
-          <view class="selected-detail-heading"
-            ><view class="summary-date"
-              ><text>选中日期</text><text class="summary-date-value">{{selectedLabel}}</text></view
-            ><text class="summary-count">{{selectedCountLabel}}</text></view
-          >
-          <view wx:for="{{selectedDetails}}" wx:key="title" class="summary-duty"
-            ><view class="shift-dot" style="background:{{item.color}}"></view
-            ><view class="summary-duty-copy"
-              ><text class="summary-duty-title">{{item.title}}</text
-              ><text class="summary-duty-note">{{item.note}}</text></view
-            ></view
-          >
-          <text class="privacy-note">联系方式仅在群组成员单独同意后显示</text>
-        </view>
         </block>
 
         <block wx:elif="{{state === 'ready' && viewMode === 'list'}}">
-          <view
-            class="list-calendar"
-            aria-label="列表视图"
-            bindtouchstart="handleSwipeStart"
-            bindtouchend="handleListSwipeEnd"
-          >
-          <view class="list-calendar-heading">
-            <view
-              class="calendar-step"
-              data-delta="-1"
-              hover-class="is-pressed"
-              aria-role="button"
-              aria-label="上一月"
-              bindtap="handleListMonthChange"
-              ><view class="chevron is-left"></view
-            ></view>
-            <view class="calendar-heading"
-              ><text>{{monthLabel}}</text><text>固定月份 · {{listRows.length}} 个班次</text></view
+          <view class="list-calendar" aria-label="列表视图">
+            <view class="list-calendar-heading">
+              <view
+                class="calendar-step"
+                data-delta="-1"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="上一月"
+                bindtap="handleListMonthChange"
+                ><view
+                  class="chevron is-left {{listSwiperCurrent === 0 ? 'is-animating' : ''}}"
+                ></view
+              ></view>
+              <view class="calendar-heading"
+                ><text>{{monthLabel}}</text
+                ><text>固定月份 · {{listPanels[1].rows.length}} 个班次</text></view
+              >
+              <view
+                class="calendar-locator"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="定位到今天"
+                bindtap="handleLocateToday"
+                ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
+                  ><view></view></view
+              ></view>
+              <view
+                class="calendar-step"
+                data-delta="1"
+                hover-class="is-pressed"
+                aria-role="button"
+                aria-label="下一月"
+                bindtap="handleListMonthChange"
+                ><view
+                  class="chevron is-right {{listSwiperCurrent === 2 ? 'is-animating' : ''}}"
+                ></view
+              ></view>
+            </view>
+            <swiper
+              class="period-swiper list-swiper"
+              current="{{listSwiperCurrent}}"
+              duration="{{periodSwiperDuration}}"
+              easing-function="easeOutCubic"
+              style="height:{{listSwiperHeight}}px"
+              bindanimationfinish="handleListSwiperFinish"
             >
-            <view
-              class="calendar-locator"
-              hover-class="is-pressed"
-              aria-role="button"
-              aria-label="定位到今天"
-              bindtap="handleLocateToday"
-              ><view class="locate-crosshair {{locateIconAnimating ? 'is-animating' : ''}}"
-                ><view></view></view
-            ></view>
-            <view
-              class="calendar-step"
-              data-delta="1"
-              hover-class="is-pressed"
-              aria-role="button"
-              aria-label="下一月"
-              bindtap="handleListMonthChange"
-              ><view class="chevron is-right"></view
-            ></view>
-          </view>
-          <text class="list-meta">月份工具栏固定 · 已按日期排序</text>
-          <view wx:if="{{listRows.length === 0}}" class="detail-empty list-empty"
-            >这个月没有已发布排班。</view
-          >
-          <view
-            wx:for="{{listRows}}"
-            wx:key="key"
-            class="list-row {{item.businessDate === selectedDate ? 'is-selected' : ''}}"
-            data-business-date="{{item.businessDate}}"
-            hover-class="is-pressed"
-            aria-role="button"
-            bindtap="handleListSelect"
-          >
-            <view class="list-date"><text>{{item.day}}</text><text>{{item.weekday}}</text></view>
-            <view class="list-copy"
-              ><text class="list-title">{{item.shift}} · {{item.name}}</text
-              ><text class="list-note">{{item.note}}</text></view
-            ><view class="list-chevron" aria-hidden="true"></view>
-          </view>
+              <swiper-item wx:for="{{listPanels}}" wx:key="key">
+                <scroll-view class="list-panel-scroll" scroll-y show-scrollbar="{{false}}">
+                  <text class="list-meta">月份工具栏固定 · 已按日期排序</text>
+                  <view wx:if="{{item.rows.length === 0}}" class="detail-empty list-empty"
+                    >这个月没有已发布排班。</view
+                  >
+                  <view
+                    wx:for="{{item.rows}}"
+                    wx:for-item="row"
+                    wx:key="key"
+                    id="list-row-{{row.businessDate}}"
+                    class="list-row {{row.businessDate === selectedDate ? 'is-selected' : ''}}"
+                    data-business-date="{{row.businessDate}}"
+                    hover-class="is-pressed"
+                    aria-role="button"
+                    bindtap="handleListSelect"
+                  >
+                    <view class="list-date"
+                      ><text>{{row.day}}</text><text>{{row.weekday}}</text></view
+                    >
+                    <view class="list-copy"
+                      ><text class="list-title">{{row.shift}} · {{row.name}}</text
+                      ><text class="list-note">{{row.note}}</text></view
+                    ><view class="list-chevron" aria-hidden="true"></view>
+                  </view>
+                </scroll-view>
+              </swiper-item>
+            </swiper>
           </view>
         </block>
 
@@ -345,6 +355,111 @@
     </view>
   </scroll-view>
 
+  <view
+    wx:if="{{filterOpen}}"
+    class="filter-sheet-backdrop"
+    aria-label="关闭筛选"
+    bindtap="handleFilterClose"
+    catchtouchmove="preventSheetTouchMove"
+  >
+    <view
+      class="filter-sheet"
+      aria-label="筛选排班"
+      catchtap="preventSheetTouchMove"
+      catchtouchmove="preventSheetTouchMove"
+    >
+      <view class="filter-sheet-handle" aria-hidden="true"></view>
+      <view class="filter-sheet-heading">
+        <text>筛选排班</text>
+        <view
+          class="sheet-close"
+          aria-role="button"
+          aria-label="关闭筛选"
+          bindtap="handleFilterClose"
+          >×</view
+        >
+      </view>
+
+      <view class="changes-filter" bindtap="handleOnlyChangesToggle">
+        <text>只看有变更的班次</text>
+        <view
+          class="compact-switch {{filterOnlyChanges ? 'is-on' : ''}}"
+          aria-role="switch"
+          aria-checked="{{filterOnlyChanges}}"
+        >
+          <view></view>
+        </view>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field-label">排班岗位</text>
+        <view class="filter-chip-list">
+          <view
+            wx:for="{{filterRoleOptions}}"
+            wx:key="value"
+            class="filter-chip {{item.selected ? 'is-selected' : ''}}"
+            data-kind="role"
+            data-value="{{item.value}}"
+            aria-role="checkbox"
+            aria-checked="{{item.selected}}"
+            bindtap="handleFilterOptionToggle"
+            >{{item.label}}<text wx:if="{{item.selected}}">✓</text></view
+          >
+          <text wx:if="{{filterRoleOptions.length === 0}}" class="filter-field-empty"
+            >暂无岗位</text
+          >
+        </view>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field-label">班种</text>
+        <view class="filter-chip-list">
+          <view
+            wx:for="{{filterShiftTypeOptions}}"
+            wx:key="value"
+            class="filter-chip {{item.selected ? 'is-selected' : ''}}"
+            data-kind="shift"
+            data-value="{{item.value}}"
+            aria-role="checkbox"
+            aria-checked="{{item.selected}}"
+            bindtap="handleFilterOptionToggle"
+            >{{item.label}}<text wx:if="{{item.selected}}">✓</text></view
+          >
+          <text wx:if="{{filterShiftTypeOptions.length === 0}}" class="filter-field-empty"
+            >暂无班种</text
+          >
+        </view>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field-label">成员</text>
+        <scroll-view class="member-filter-scroll" scroll-y show-scrollbar="{{false}}">
+          <view
+            wx:for="{{filterMemberOptions}}"
+            wx:key="value"
+            class="filter-member-option {{item.selected ? 'is-selected' : ''}}"
+            data-kind="member"
+            data-value="{{item.value}}"
+            aria-role="checkbox"
+            aria-checked="{{item.selected}}"
+            bindtap="handleFilterOptionToggle"
+          >
+            <text>{{item.label}}</text
+            ><text class="filter-check">{{item.selected ? '✓' : ''}}</text>
+          </view>
+          <text wx:if="{{filterMemberOptions.length === 0}}" class="filter-field-empty"
+            >暂无成员</text
+          >
+        </scroll-view>
+      </view>
+
+      <view class="filter-sheet-actions">
+        <view class="filter-clear" aria-role="button" bindtap="handleFilterClear">清除筛选</view>
+        <view class="filter-apply" aria-role="button" bindtap="handleFilterApply">查看结果</view>
+      </view>
+    </view>
+  </view>
+
   <view class="bottom-nav" aria-label="工作台导航">
     <view
       class="bottom-nav-item is-active"
@@ -352,42 +467,52 @@
       aria-role="button"
       aria-current="page"
       bindtap="handleCalendarNav"
-      ><view class="nav-icon nav-calendar {{calendarNavAnimating ? 'is-animating' : ''}}"
-        ><view></view></view
+      ><view class="nav-icon nav-calendar is-looping {{calendarNavAnimating ? 'is-animating' : ''}}"
+        ><view class="nav-calendar-check"></view></view
       ><text>日历</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
       data-label="请假"
+      data-motion="leave"
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-leave"><view></view><view></view><view></view></view
+      ><view class="nav-icon nav-leave {{navMotion === 'leave' ? 'is-animating' : ''}}"
+        ><view></view><view></view><view class="nav-leave-minus"></view></view
       ><text>请假</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
       data-label="换班"
+      data-motion="swap"
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-swap"><view></view><view></view></view><text>换班</text></view
+      ><view class="nav-icon nav-swap {{navMotion === 'swap' ? 'is-animating' : ''}}"
+        ><view class="nav-swap-left"></view><view class="nav-swap-right"></view></view
+      ><text>换班</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
       data-label="调班"
+      data-motion="duty"
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-adjustment"><view></view></view><text>调班</text></view
+      ><view class="nav-icon nav-adjustment {{navMotion === 'duty' ? 'is-animating' : ''}}"
+        ><view class="nav-duty-actor"></view></view
+      ><text>调班</text></view
     >
     <view
       class="bottom-nav-item is-disabled"
       data-label="更多"
+      data-motion="more"
       aria-disabled="true"
       aria-role="button"
       bindtap="handleUnavailable"
-      ><view class="nav-icon nav-more"><view></view><view></view><view></view></view
+      ><view class="nav-icon nav-more {{navMotion === 'more' ? 'is-animating' : ''}}"
+        ><view></view><view></view><view></view></view
       ><text>更多</text></view
     >
   </view>

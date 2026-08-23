@@ -11,7 +11,12 @@ import {
 } from '@schedule/presentation-core';
 
 export type WorkbenchRelativePanel = -1 | 0 | 1;
-export type WorkbenchFilter = 'all' | 'mine' | 'changes';
+export interface WorkbenchFilters {
+  readonly membershipIds: readonly string[];
+  readonly onlyChanges: boolean;
+  readonly roleIds: readonly string[];
+  readonly shiftTypeIds: readonly string[];
+}
 
 export interface WorkbenchCell {
   readonly ariaLabel: string;
@@ -55,6 +60,13 @@ export interface WorkbenchWeekDay {
   readonly weekday: string;
 }
 
+export interface WorkbenchWeekPanel {
+  readonly days: readonly WorkbenchWeekDay[];
+  readonly key: string;
+  readonly rangeLabel: string;
+  readonly relative: WorkbenchRelativePanel;
+}
+
 export interface WorkbenchListRow {
   readonly businessDate: string;
   readonly day: string;
@@ -65,15 +77,28 @@ export interface WorkbenchListRow {
   readonly weekday: string;
 }
 
+export interface WorkbenchListPanel {
+  readonly key: string;
+  readonly monthLabel: string;
+  readonly relative: WorkbenchRelativePanel;
+  readonly rows: readonly WorkbenchListRow[];
+}
+
 export interface WorkbenchViewModel {
-  readonly listRows: readonly WorkbenchListRow[];
+  readonly listPanels: readonly WorkbenchListPanel[];
   readonly monthLabel: string;
   readonly monthPanels: readonly WorkbenchPanel[];
   readonly selectedDetails: readonly WorkbenchDetail[];
   readonly selectedLabel: string;
-  readonly weekDays: readonly WorkbenchWeekDay[];
-  readonly weekRangeLabel: string;
+  readonly weekPanels: readonly WorkbenchWeekPanel[];
 }
+
+export const emptyWorkbenchFilters: WorkbenchFilters = {
+  membershipIds: [],
+  onlyChanges: false,
+  roleIds: [],
+  shiftTypeIds: [],
+};
 
 const markerLabels: Readonly<Record<string, string>> = {
   'leave-cover': '请假补位',
@@ -120,14 +145,15 @@ export function createWorkbenchViewModel(
   selectedDate: string,
   businessMonth: string,
   weekStart: string,
-  activeFilter: WorkbenchFilter = 'all',
-  currentMembershipId = '',
+  filters: WorkbenchFilters = emptyWorkbenchFilters,
   today = getTodayBusinessDate(),
 ): WorkbenchViewModel {
   const holidayByDate = new Map(holidays.dates.map((holiday) => [holiday.date, holiday]));
   const assignments = filterCalendarAssignments(calendar.assignments, {
-    membershipIds: activeFilter === 'mine' ? [currentMembershipId] : [],
-    onlyChanges: activeFilter === 'changes',
+    membershipIds: filters.membershipIds,
+    onlyChanges: filters.onlyChanges,
+    roleIds: filters.roleIds,
+    shiftTypeIds: filters.shiftTypeIds,
   });
   const monthLabel = formatMonthLabel(businessMonth);
   const monthPanels = ([-1, 0, 1] as const).map((relative) => {
@@ -135,7 +161,7 @@ export function createWorkbenchViewModel(
     return {
       cells: createMonthCells(
         panelMonth,
-        relative === 0 ? assignments : [],
+        assignments,
         holidayByDate,
         relative === 0 ? selectedDate : '',
         today,
@@ -144,55 +170,76 @@ export function createWorkbenchViewModel(
       relative,
     } satisfies WorkbenchPanel;
   });
-  const weekDates = getWeekDays(weekStart);
-  const weekDays = weekDates.map((businessDate) => {
-    const dayAssignments = assignments.filter(
-      (assignment) => assignment.businessDate === businessDate,
-    );
-    const firstAssignment = dayAssignments[0];
+  const weekPanels = ([-1, 0, 1] as const).map((relative) => {
+    const panelWeekStart = addWeek(weekStart, relative);
+    const weekDates = getWeekDays(panelWeekStart);
     return {
-      businessDate,
-      day: businessDate.slice(8),
-      duty:
-        firstAssignment === undefined
-          ? '—'
-          : `${firstAssignment.shiftTypeName} · ${getAssignmentName(firstAssignment)}`,
-      isSelected: businessDate === selectedDate,
-      isToday: businessDate === today,
-      isWeekend: isWeekend(businessDate),
-      weekday: getWeekdayLabel(businessDate).slice(1),
-    } satisfies WorkbenchWeekDay;
+      days: weekDates.map((businessDate) => {
+        const dayAssignments = assignments.filter(
+          (assignment) => assignment.businessDate === businessDate,
+        );
+        const firstAssignment = dayAssignments[0];
+        return {
+          businessDate,
+          day: businessDate.slice(8),
+          duty:
+            firstAssignment === undefined
+              ? '—'
+              : `${firstAssignment.shiftTypeName} · ${getAssignmentName(firstAssignment)}`,
+          isSelected: relative === 0 && businessDate === selectedDate,
+          isToday: businessDate === today,
+          isWeekend: isWeekend(businessDate),
+          weekday: getWeekdayLabel(businessDate).slice(1),
+        } satisfies WorkbenchWeekDay;
+      }),
+      key: panelWeekStart,
+      rangeLabel: `${formatDateLabel(weekDates[0] ?? panelWeekStart)}–${formatDateLabel(weekDates[6] ?? panelWeekStart)}`,
+      relative,
+    } satisfies WorkbenchWeekPanel;
   });
-  const dayList = buildDayList(assignments, today).filter(
-    (entry) => getBusinessMonthOf(entry.businessDate) === businessMonth,
-  );
   const memberConfirmed = new Map(
     calendar.members.map((member) => [member.membershipId, member.isConfirmed]),
   );
   const selectedDetails = assignments
     .filter((assignment) => assignment.businessDate === selectedDate)
     .map((assignment) => createDetail(assignment, memberConfirmed));
-  const listRows = dayList.flatMap((entry) =>
-    entry.assignments.map((assignment) => ({
-      businessDate: entry.businessDate,
-      day: entry.businessDate.slice(8),
-      key: assignment.id,
-      name: getAssignmentName(assignment),
-      note: createAssignmentNote(assignment, memberConfirmed),
-      shift: assignment.shiftTypeName,
-      weekday: entry.weekdayLabel,
-    })),
-  );
+  const listPanels = ([-1, 0, 1] as const).map((relative) => {
+    const panelMonth = addMonth(businessMonth, relative);
+    const dayList = buildDayList(assignments, today).filter(
+      (entry) => getBusinessMonthOf(entry.businessDate) === panelMonth,
+    );
+    return {
+      key: panelMonth,
+      monthLabel: formatMonthLabel(panelMonth),
+      relative,
+      rows: dayList.flatMap((entry) =>
+        entry.assignments.map((assignment) => ({
+          businessDate: entry.businessDate,
+          day: entry.businessDate.slice(8),
+          key: assignment.id,
+          name: getAssignmentName(assignment),
+          note: createAssignmentNote(assignment, memberConfirmed),
+          shift: assignment.shiftTypeName,
+          weekday: entry.weekdayLabel,
+        })),
+      ),
+    } satisfies WorkbenchListPanel;
+  });
 
   return {
-    listRows,
+    listPanels,
     monthLabel,
     monthPanels,
     selectedDetails,
     selectedLabel: formatDateLabel(selectedDate),
-    weekDays,
-    weekRangeLabel: `${formatDateLabel(weekDates[0] ?? weekStart)}–${formatDateLabel(weekDates[6] ?? weekStart)}`,
+    weekPanels,
   };
+}
+
+function addWeek(weekStart: string, offset: number): string {
+  const date = new Date(`${weekStart}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset * 7);
+  return date.toISOString().slice(0, 10);
 }
 
 function createMonthCells(

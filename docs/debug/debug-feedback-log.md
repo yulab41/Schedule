@@ -2,6 +2,15 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-23 P4 生产 Web 动效与筛选对齐
+
+- 反馈：月份刷新行约 200ms 仍造成整页上下抖动；周/列表和定位硬跳；筛选不是生产 Web 弹层；顶部群组切换及定位、筛选、换期、顶部/底部导航图标和动效不一致。
+- 引入点审计：`git log -S 'refresh-indicator'`/`git blame` 定位到 `9cdd0a8`；周/列表 `touchend` 后直接 `shiftWeek`/`shiftListMonth` 同样来自 `9cdd0a8`；内嵌三选一筛选和卡片式顶部群组入口来自 `ad4cfb2`。生产 Web 以 `HomeView`/`GroupSwitcher`/`CalendarView`/`ResponsiveSheet`/`LucideMinimalActionIcon`/`WorkbenchNavIcon` 为对照。
+- 修正：移除已有数据刷新占位行；月/周/列表预取并绘制前中后三面板，周/列表切换改用原生 `swiper`，按钮、手势和定位共用动画路径；月切换先用预取数据即时重建再后台刷新。筛选改为底部 sheet，覆盖变更、岗位、班种、成员多选与清除/应用。顶部改成紧凑群组上下文和通知/我的动作，图标全部用原生 WXML/WXSS 几何及 keyframes 重绘；月历边界改为单一 1px，周选择态保留卡片底角。
+- 语义审计：不改 API、鉴权、缓存 TTL 或 P4 只读边界；异步仍由 `requestSerial` 丢弃旧响应，月份/周/列表切换不会增加写入；筛选调用次数保持纯本地重建，只有换期/换群触发网络读取；跨群组清空旧筛选 ID。小程序不能直接继承 Vue 组件中的 SVG DOM 动画，采用原生分层节点复刻几何和局部运动，不依赖第三方 UI。
+- 验证：测试先失败后通过；受控 Mini 18 文件/78 项、typecheck、verify、source/package/determinism 与 `pnpm smoke:check-core` 通过。运行/浏览器验证：浏览器读取 390×844 P4 黄金稿并核对生产 Web 源；本轮不改 Web 核心链路，`pnpm smoke:browser` 非强制。最终视觉状态必须由微信实体运行时复核。
+- 状态：已实现待官方微信编译/上传与实体 Android 复核；checkpoint 识别消息 `fix(miniprogram): align p4 workbench with web motion`。
+
 ## 2026-08-23 P3 已有账号绑定遗留微信身份修复
 
 - 反馈：体验版微信登录已成功；选择“绑定既有账号”输入 D0796 和密码后提示“身份状态发生变化”，而“第一次使用”可以在排班台前完成。

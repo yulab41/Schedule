@@ -193,7 +193,8 @@
   width: 100%;
   flex-wrap: wrap;
   overflow: hidden;
-  background: var(--ui-color-border);
+  background: var(--ui-color-surface);
+  border-top: 1px solid var(--ui-color-border);
   border-bottom-right-radius: 17px;
   border-bottom-left-radius: 17px;
 }
@@ -201,13 +202,35 @@
 .calendar-cell-slot {
   width: 14.285714%;
   height: 54px;
-  padding-right: 1px;
-  padding-bottom: 1px;
+  border-right: 1px solid var(--ui-color-border);
+  border-bottom: 1px solid var(--ui-color-border);
   box-sizing: border-box;
 }
 
+.calendar-cell-slot:nth-child(7n) {
+  border-right: 0;
+}
+
 .calendar-cell-slot.is-bottom-row {
-  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.chevron.is-animating {
+  animation: click-chevron 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes click-chevron {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  48% {
+    transform: translateX(2px);
+  }
+}
+
+.chevron.is-left.is-animating {
+  animation-direction: reverse;
 }
 
 .calendar-cell-slot.is-bottom-left {
@@ -232,6 +255,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .locate-crosshair.is-animating {
+    animation: none;
+  }
+
+  .chevron.is-animating {
     animation: none;
   }
 }

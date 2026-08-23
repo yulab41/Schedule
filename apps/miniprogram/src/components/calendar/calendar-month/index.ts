@@ -10,6 +10,7 @@ interface CalendarMonthInstance {
   _monthShiftPending: boolean;
   readonly data: {
     readonly locateAnimating: boolean;
+    readonly stepMotion: string;
     readonly swiperCurrent: number;
     readonly swiperDuration: number;
   };
@@ -26,6 +27,7 @@ Component({
   },
   data: {
     locateAnimating: false,
+    stepMotion: '',
     swiperCurrent: 1,
     swiperDuration: 240,
   },
@@ -52,7 +54,13 @@ Component({
     },
     startProgrammaticShift(this: CalendarMonthInstance, delta: -1 | 1): void {
       if (this._monthShiftPending) return;
-      this.setData({ swiperCurrent: delta === -1 ? 0 : 2, swiperDuration: 240 });
+      this.setData({ stepMotion: '' }, () => {
+        this.setData({
+          stepMotion: delta < 0 ? 'previous' : 'next',
+          swiperCurrent: delta === -1 ? 0 : 2,
+          swiperDuration: 240,
+        });
+      });
     },
     handlePrevious(this: CalendarMonthInstance): void {
       this.startProgrammaticShift(-1);
