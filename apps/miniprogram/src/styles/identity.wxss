@@ -166,6 +166,26 @@ page {
   margin-top: 9px;
 }
 
+.identity-card__button--navigator {
+  display: flex;
+  min-height: 44px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 44px;
+  text-align: center;
+}
+
+.identity-card__button--navigator.is-pressed {
+  opacity: 0.82;
+}
+
 .identity-card__note {
   display: block;
   margin: 16px 3px 0;

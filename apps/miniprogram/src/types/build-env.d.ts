@@ -62,6 +62,7 @@ declare const wx: {
   request(options: MiniProgramRequestOptions): unknown;
   setStorageSync(key: string, value: unknown): void;
   navigateBack(options?: { readonly delta?: number }): void;
+  navigateTo(options: { readonly url: string }): void;
   readonly worklet: {
     readonly Easing: {
       bezier(x1: number, y1: number, x2: number, y2: number): unknown;

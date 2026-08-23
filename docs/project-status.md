@@ -2,7 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-23 P4 工作台 Web 黄金审查与月历规范修正（当前批次）
+## 2026-08-23 P4 小程序原生工作台接续（当前批次）
+
+- 前置确认：用户已确认 Web 黄金稿 `miniprogram-parity-p4-workbench--ready-390`、`--ready-320` 及月/周/列表、定位、筛选和异常状态；现进入原生 `pages/workbench/index`，不再等待 Web 视觉确认。
+- 范围：接入身份确认后的“进入排班台”导航；新增只读群组选择、月/周/列表视图、上一期/下一期、定位到今天、筛选、选中日期详情、联系方式同意边界、加载/空/错误/离线 24 小时缓存状态和 P4 底部禁用入口。未实现请假、换班、调班、发布或任何业务写入。
+- 设计意图：沿用 Web 医护工作台的蓝白令牌、紧凑群组切换器、固定比例月历和 44px 触控区；原生层只使用 WXML/WXSS/TS 与既有 `CalendarMonth`，不引入 TDesign 或第三方 UI。
+- 数据边界：日历/节假日复用 `client-core` 只读解码与 transport；群组/成员在 Mini read client 做同样的结构校验；缓存写入前剥离完整 `mobilePhone`，读取时校验 decoder，过期后只允许重新读取，不建立离线写入队列。
+- 回归引入点：执行 `git log -S 'pages/workbench' --oneline -- apps/miniprogram/src apps/miniprogram/docs` 确认无既有原生工作台；执行 `git log -S 'createRuntimeCalendarReadClient' --oneline -- apps/miniprogram/src/platform/client-core-calendar.ts` 与 `git blame` 核对既有 P2 日历 transport；月历三面板/定位行为沿用 P1 `CalendarMonth` 的 `git blame` 来源。
+- 测试先行与验证：P4 回归测试先在缺少页面/模型时失败，接入后 `workbench` 5/5、identity 6/6、calendar POC 6/6、calendar simulate 1/1 通过；Mini typecheck、source audit、package audit、determinism、production build、`verify`、CI dry-run 均通过（2/2 Worklet，production manifest `cd0d11bff7a20e6b56917d5bf821c78259c1682b9297bebee59e47f7507fb865`）。受控测试命令排除仓库既有 `.artifacts/ecs-runner-deploy-*` 临时副本；该副本的相对 tsconfig 失败未修改。
+- 当前状态：已实现待人工原生复核。尚未宣称 Android/微信运行时视觉通过；Storybook/模拟器/构建不能替代实体设备确认。
+- 原生验收停止点：体验版安装后，从身份页点击“进入排班台”，依次确认 390/320 边界、群组切换、月历左右滑动/上一期/下一期/定位/选中详情、周视图、列表视图、筛选、离线/错误/空态和底部禁用入口；用户反馈前不继续扩展 P4 业务功能。
+- 下一活动批次：仅处理用户原生设备反馈及由反馈直接证明的 P4 视觉/交互修正；不补独立 staging，不进入 P5 手排/发布。
+
+## 2026-08-23 P4 工作台 Web 黄金审查与月历规范修正（前一阶段）
 
 - 范围：在首个 P4 工作台黄金稿上补齐 Web 规范中属于 P4 只读链路的定位到今天、筛选入口/面板、月/周/列表及其上一期/下一期、选中日期详情和联系方式同意边界；复用 `Ui2MonthCalendar` 的移动月历单元格固定为 `aspect-ratio: 1 / 1`，不提前实现手排、发布或业务写入。
 - 设计审查结论：当前群组、24 小时只读缓存、加载/空/错误可重试/离线态、月历节假日/变更标记、定位按钮和 44px 触控区属于 P4；请假/换班/调班、群组/成员管理、通知/导出/统计和完整联系方式公开分别留在 P7–P9 或需单独同意的后续边界。P4 底部导航保留结构但对未迁功能明确标记禁用并提供阶段提示，避免无响应入口。

@@ -157,13 +157,18 @@
       <block wx:else>
         <view class="identity-success-mark" aria-hidden="true">✓</view>
         <text class="identity-card__heading">准备进入排班台</text>
-        <text class="identity-success-copy"
-          >身份已确认。P4 工作台接入后，这里将进入你有权限的群组。</text
+        <text class="identity-success-copy">身份已确认。进入你有权限的群组，查看只读排班。</text>
+        <navigator
+          class="identity-card__button identity-card__button--navigator"
+          url="/pages/workbench/index"
+          hover-class="is-pressed"
+          aria-role="button"
+          >进入排班台</navigator
         >
         <navigator class="identity-navigator" url="/pages/identity/unbind"
           >解除当前微信绑定</navigator
         >
-        <text class="identity-card__note">本轮只完成身份安全，不提前显示未迁移的业务页面。</text>
+        <text class="identity-card__note">排班内容只读查看；业务变更功能将在后续阶段开放。</text>
       </block>
     </view>
 
