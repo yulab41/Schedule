@@ -8,6 +8,7 @@
 - 测试先行与实现：新增 `swiper change` 目标提交、方向只锁一次、回中最终高度、按钮横纵同批次以及 240ms 同曲线契约，旧实现 5 项失败。手势只在确定 current=0/2 时读取对应预取高度并锁定；程序按钮在启动横向动画的同一 patch 写目标高度；连续 change、快速重复按钮、pending 和 `duration=0` 回中均不能重写锁定目标。
 - 语义审计：`this` 接收者、月份 delta、`monthchange` 调用次数、三面板回中、空值 fallback、GET/缓存、异步拒绝范围和业务写入不变；明确行为变化是高度从“横滑完成后启动 180ms”改为“目标确定时与横滑共同启动 240ms”。取消换月时只恢复中央高度，不提交月份事件。
 - 验证：定向 21/21；隔离 `27d767d` + 本轮 7 文件的 Mini 18 文件/86 项、typecheck、production verify（2/2 Worklet，412303 bytes，manifest `f77c03e602f16c2811c9fbb95c7964c8a0238d5e16baf4f25eb304bc148c3420`）、CI dry-run、ESLint/Prettier、`git diff --check` 和 `pnpm smoke:check-core` 通过。主工作区的手排 contracts 并行修改造成无关 typecheck/核心门禁失败，用户文件未修改或暂存。checkpoint 识别消息：`fix(miniprogram): synchronize month height transition`。
+- 发布：代码 checkpoint `53b5c74` 已推送；精确 worktree 上传 production-profile `.67`（63 文件，manifest `6506f55ef6ffe00d58219a899316e9baad5a18a8ddf76d4fbee4ea5f4cac33b3`），未审核/正式发布。生产备份 archive `06330b7b-6d49-4ce8-8587-0731ec9840f5`（54 表、162553 行、76681156 bytes，SHA-256 `749e2927195c5aa9c79a6ac8e7ba12f401984ccaabd9b715aa9d9bc6703877dc`）后部署 release `53b5c742f211b067c14ffc205c019b43271cb185`；预热首次 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record synchronized month transition deployment`。
 
 ## 2026-08-23 P4 8px 节奏与月历高度闪动回归
 
