@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C2 数据库 49→50 可回滚兼容桥（待 checkpoint）
+
+- 范围与基线：Git `HEAD`/`origin/main` 与 production `current-release` 均为 `5e010927`，生产健康 200、数据库 schema 49。本桥接 checkpoint 只把不可变 release manifest 的应用兼容上界从 49 提升到 50，不新增迁移、表、API、定时任务或运行行为，不修改 Web/Mini UI；用户自有配置、Storybook、`.artifacts/runtime/src` 和工作簿不纳入。
+- 引入点与测试先行：`git log -S`/`git blame` 确认 DB 49..49 rollback declaration 由 `e25878f0` 引入。回归测试先要求 `databaseSchemaMin=49`、`databaseSchemaMax=50` 并在旧 packager 上 1 项失败，实现后 package/release controls 2 files/21 tests 通过。一次未排除用户历史 release 副本的宽泛命令额外扫到重复测试与 1 个不完整副本，随后显式排除后真实源全绿，未修改副本。
+- 安全语义：当前代码和 0049 schema 对新增独立表/索引为加法兼容；bridge 在 DB49 部署，直接回滚候选 `5e010927` 仍接受 DB49。下一 release 应用 0050 后只能回滚到本 bridge（其 manifest 接受 DB50），不得直接回滚到 max49 release，也不降级/恢复数据库。min=49 保持失败关闭，未放宽到未知旧 schema。
+- 验证与 checkpoint：任务 Prettier、`node --check`、package/release controls tests、`git diff --check` 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需 `pnpm smoke:browser`。直接对 root MJS 调用 ESLint 因该文件未在仓库 ESLint Node globals 匹配范围而报告既有 `process/console` no-undef，根 `pnpm lint` 才是权威门禁。checkpoint 识别消息为 `chore(release): bridge visitor retention schema`。
+- 下一活动批次：本 bridge 提交、推送、生产备份/部署、manifest 49..50 与回滚候选核验完成后，只实现 migration 0050 的访客 IP 90 天匿名月聚合、API 过期隐藏/平台管理员权限、可信代理、备份/恢复排除、Nginx 隐私日志和 retention 调度；不进入遥测或 P7。
+
 ## 2026-08-24 P6-C1 性能量化、自动门禁与实体 RC 探针（已部署待实体复核）
 
 - 范围与基线：从 Git/origin/production 同一 `6dfb8ec2` 开始；用户已确认 P4 全部完成并授权后续版本直接提交。本批只完成 P6 性能预算、默认零影响的实体回调探针及核心 RC 证据计划，不实现遥测、访客 IP 保留或 P7，不改 Web UI。用户自有 Mini config、workspace、Storybook、`.artifacts/runtime/src` 和工作簿均未修改、未暂存。

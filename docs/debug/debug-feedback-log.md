@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C2 数据库 49→50 兼容桥
+
+- 基线/引入点：Git/origin/production `5e010927`、DB49；manifest 的 49..49 由 `e25878f0` 引入。本轮只声明当前应用接受 additive schema50，不含迁移、表、API、任务或 UI。
+- 测试与语义：先把 max 期望改为50，旧 packager 1项失败，修复后 package/release controls 2 files/21 tests；min仍49。DB49 bridge 可回到 `5e010927`；0050 feature release 只能回到接受DB50的 bridge，数据库从不降级。
+- 验证/运行：任务 Prettier、Node syntax、diff、核心 smoke通过；无需浏览器 smoke。宽泛 Vitest 扫到用户历史副本噪声后，排除副本的真实源全绿；root MJS直接 ESLint的既有Node globals噪声不作为门禁，提交前运行根 lint。
+- checkpoint：`chore(release): bridge visitor retention schema`；部署后核对 manifest 49..50、生产仍49 migrations及 current-release，再进入0050隐私保留实现。
+
 ## 2026-08-24 P6-C1 性能量化与实体回调探针
 
 - 范围/引入点：只做 P6 性能与 RC，不改 Web UI。门槛/人工清单来自 `c8d50f53`/`e53f3611`，20×30 fixture/限制来自 `6cc7463d`/`591ccff6`，WXS 热路径来自 `c35b35b8`。缺文件、false 分支双计、缺 probe/foreground wiring 均先红后绿。
