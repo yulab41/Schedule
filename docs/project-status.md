@@ -7,11 +7,12 @@
 - 范围：在首个 P4 工作台黄金稿上补齐 Web 规范中属于 P4 只读链路的定位到今天、筛选入口/面板、月/周/列表及其上一期/下一期、选中日期详情和联系方式同意边界；复用 `Ui2MonthCalendar` 的移动月历单元格固定为 `aspect-ratio: 1 / 1`，不提前实现手排、发布或业务写入。
 - 设计审查结论：当前群组、24 小时只读缓存、加载/空/错误可重试/离线态、月历节假日/变更标记、定位按钮和 44px 触控区属于 P4；请假/换班/调班、群组/成员管理、通知/导出/统计和完整联系方式公开分别留在 P7–P9 或需单独同意的后续边界。P4 底部导航保留结构但对未迁功能明确标记禁用并提供阶段提示，避免无响应入口。
 - 回归来源：`git log -S 'aspect-ratio: 1 / 1'`/`git blame` 对照 Web `MonthGrid.vue` 的移动单元格规范；`Ui2MonthCalendar` 新增定位事件后同步修复其两个既有 Storybook 父级的定位回调，避免共享组件出现无响应按钮。
-- 验证：P4 定向视觉源测试 7/7、Web 日历/工作台相关测试 31/31、Web `vue-tsc --noEmit -p tsconfig.json`、Prettier check 和 Storybook build（2852 modules）通过；`pnpm --config.verifyDepsBeforeRun=false --config.confirmModulesPurge=false smoke:check-core` 通过并确认未涉及核心链路。
+- 验证：P4 定向视觉源测试 7/7、Web 日历/工作台相关测试 32/32、Web `vue-tsc --noEmit -p tsconfig.json`、Prettier check 和 Storybook build（2852 modules）通过；`pnpm --config.verifyDepsBeforeRun=false --config.confirmModulesPurge=false smoke:check-core` 通过并确认未涉及核心链路。
 - 运行/浏览器验证：最新 Storybook dev 预览覆盖 `--ready-390`、`--ready-320`、`--filter-open-390`、`--week-390`、`--list-390` 及异常态；点击验证月/周/列表上一期/下一期会更新标题、详情或行数据，定位会同步回到当前月/本周/今天；390px 月格首列实测 `49×49`、定位 `44×44`、筛选 `76×44`、筛选项 `44px`，周格 `51×102`；320px 月格 `46×46`、定位 `44×44`，`documentElement.scrollWidth === 320`，浏览器 error/warn 为 0。
-- 当前状态：已实现待人工视觉确认；Storybook 清单已登记 9 个 P4 状态：`miniprogram-parity-p4-workbench--ready-390`、`--ready-320`、`--filter-open-390`、`--week-390`、`--list-390`、`--empty`、`--loading`、`--error`、`--offline`。此阶段尚未修改小程序原生 WXML/WXSS、API 或生产数据。
-- checkpoint：本轮待提交消息为 `feat(miniprogram): align p4 workbench with web calendar`；提交前需只纳入本轮 Web/UI 与 P4 清单/状态文件，不纳入现有用户未提交目录、静态构建物、runtime、src 或工作簿。若 checkpoint 完成，按根规约推送、生产备份、部署并运行 `ecs-verify.sh`；小程序不上传新体验版，因为本轮未修改 Mini 原生代码。
+- 当前状态：已完成（含测试、Storybook/浏览器验证、生产备份、ECS 部署与 `ecs-verify.sh`）→待用户人工视觉确认；Storybook 清单已登记 9 个 P4 状态：`miniprogram-parity-p4-workbench--ready-390`、`--ready-320`、`--filter-open-390`、`--week-390`、`--list-390`、`--empty`、`--loading`、`--error`、`--offline`。此阶段尚未修改小程序原生 WXML/WXSS、API 或生产数据。
+- checkpoint 与发布：代码 checkpoint `2ae913b`（`feat(miniprogram): align p4 workbench with web calendar`）已推送；生产发布前数据库备份 archive `2d304969-a4ae-4fcc-b656-32a139a30338`（54 表、161657 行、76385032 bytes，SHA-256 `2b259a9b38cdb3d2012ae3d7b3332e2a0502c270f3c32afbfa3188ade865ed7b`）后部署 release `2ae913bbd7be8f06472e55fc37cd8ea142cf542c`；`ecs-verify.sh` 全项通过，部署临时目录已删除，Git `HEAD`、`origin/main` 与服务器 `current-release` 一致。小程序不上传新体验版，因为本轮未修改 Mini 原生代码。
 - 停止条件：用户人工确认 390×844/320px 的工作台层级、群组卡、方形月历密度、定位/筛选、周/列表/详情、底部禁用入口和异常文案后，才进入原生 `pages/workbench`/日历接线；确认前不开始 P4 原生页面。
+- 最终状态 checkpoint 识别消息：`docs(status): record p4 calendar navigation deployment`。
 
 ## 2026-08-23 P3 已有账号绑定遗留微信身份修复（当前批次）
 
