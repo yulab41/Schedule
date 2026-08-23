@@ -8,19 +8,19 @@
     "@schedule/presentation-core": "workspace:*"
   },
   "scripts": {
-    "build": "node scripts/build.mjs --profile=staging",
+    "build": "node scripts/build.mjs --profile=production",
     "build:production": "node scripts/build.mjs --profile=production",
     "build:staging": "node scripts/build.mjs --profile=staging",
-    "check:determinism": "node scripts/determinism.mjs --profile=staging",
+    "check:determinism": "node scripts/determinism.mjs --profile=production",
     "check:package": "node scripts/package-audit.mjs",
     "check:source": "node scripts/source-audit.mjs",
-    "ci:dry-run": "node scripts/miniprogram-ci.mjs preview --profile=staging --dry-run",
-    "preview": "node scripts/miniprogram-ci.mjs preview --profile=staging",
+    "ci:dry-run": "node scripts/miniprogram-ci.mjs preview --profile=production --dry-run",
+    "preview": "node scripts/miniprogram-ci.mjs preview --profile=production",
     "test": "vitest run scripts --fileParallelism=false",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "upload:experience": "node scripts/miniprogram-ci.mjs upload-experience --profile=staging",
+    "upload:experience": "node scripts/miniprogram-ci.mjs upload-experience --profile=production",
     "visual:compare": "node scripts/visual-compare.mjs",
-    "verify": "tsc --noEmit -p tsconfig.json && node scripts/verify.mjs --profile=staging"
+    "verify": "tsc --noEmit -p tsconfig.json && node scripts/verify.mjs --profile=production"
   },
   "devDependencies": {
     "@babel/preset-typescript": "7.21.4",

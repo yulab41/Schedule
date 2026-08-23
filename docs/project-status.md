@@ -2,7 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-23 P3 Mini 生产 API 体验版联通修复（当前批次）
+## 2026-08-23 P3 Mini production 默认 profile 固化（当前批次）
+
+- 实现：`apps/miniprogram/package.json` 的默认 `build`、`check:determinism`、`ci:dry-run`、`preview`、`upload:experience` 和 `verify` 全部改为 `--profile=production`；保留显式 `build:staging` 作为未部署环境的本地入口，不提供运行时环境切换。
+- 引入点与测试：`git log -S 'upload-experience --profile=staging'`/`git blame` 定位 staging 默认来自 `3884713b`；新增默认 profile 回归测试，旧配置先失败 2/2，production 配置后通过。
+- 验证：受控 Mini `vitest run scripts --exclude .artifacts/** --fileParallelism=false` 17 文件/71 项、typecheck、`node scripts/verify.mjs --profile=production` 和 `git diff --check` 通过（2/2 Worklet，203145 bytes，manifest `a5250654fad9005e89e012478b6c7e5daf729d92fa5b6246e630f22a8201c1d1`）；未运行 `pnpm smoke:browser`，本轮仅 Mini 构建 profile/上传链路。
+- 当前状态：已实现待提交；提交并推送后必须从同一 checkpoint 重新上传 production-profile 体验版，再由用户复核微信登录、绑定、建档、管理员绑定和解绑。
+- 下一活动批次与停止条件：只做本 checkpoint 的 Git/体验上传和实体 Android/微信复核；用户明确通过前不补 staging、不进入 P4 或新的 Web/Mini 页面。
+- checkpoint 识别消息：`fix(miniprogram): default experience builds to production`。
+
+## 2026-08-23 P3 Mini 生产 API 体验版联通修复（前一 checkpoint）
 
 - 根因与决策：体验版 `0.1.0-p3.20260823.53` 按既有 staging profile 指向 `staging-hosp.schedule.eylinhome.top`；该域名未部署到当前 2G ECS，HTTPS 握手失败。用户确认不补建独立 staging，体验版测试身份允许写入 production；今后体验版与正式版均使用 production profile，不增加运行时环境切换。
 - 验证：生产 `https://hosp.schedule.eylinhome.top/api/health` 返回 200；Mini production profile typecheck 通过，`node scripts/verify.mjs --profile=production` 通过（2/2 Worklet，203145 bytes，manifest `232bddf2d61a01f1a176d29aa14b09e1cf81ffca0d27a75f24d57274e40e4320`）。
