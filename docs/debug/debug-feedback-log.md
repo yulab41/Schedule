@@ -2,6 +2,16 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P5 群组内手机号单独同意
+
+- 范围与引入点：用户确认 P4 已全部完成并授权直接提交后续版本；本轮只把 P5 手机号同意落在群组设置，不再归入排班补录。`git log -S`/`git blame` 定位完整成员目录/原始联系人读取/管理员确认到 `6183e9d1`、`8e42afb8`、`394b1c87`，calendar 联系方式读取到 `20407fcf`/`ab250646`，手机号黄金到 `591ccff6`，Mini 完整号码缓存剥离到 `ad4cfb2c`。旧实现的 `isConfirmed` 是管理员核验，不是成员同意，无法阻止同群/guest calendar raw mobile 泄露。
+- 测试先行与实现：contracts、路由、客户端、Web/Mini 页面缺失和 calendar raw 泄露均先红；后端增加 0049 nullable evidence、self-only GET/PUT、current contact version、header/body 幂等和精确 replay。fingerprint 绑定 group/membership/规范号码；grant/revoke/invalidated audit 含 fingerprint、noticeVersion、contactVersion 且不含 raw。号码、说明、新群或撤回均失败关闭；管理员不能代授权或提交他人 mobile，但 shortPhone/isConfirmed 旧权限不变。
+- 跨端与语义：client-core compact decoder 新增 UUID/date-time/maxLength 支持并保持 Web Zod 等价；presentation-core 统一四态、冻结 request snapshot 和模糊失败稳定 key。Web 群组设置卡覆盖 loading/error/retry/missing/stale/consented/revoke/saving，跨群序号隔离；非本人联系方式编辑经白名单复制，getter-trap 证明不读取 mobile。Mini organization 分包只显示 masked phone，ready 态复刻已确认 22×22 checkbox，无额外状态 chip/action note/save hint；409 后若刷新也失败会清旧草稿并进入整页 error，不可继续旧版本写。
+- 验证：相关真实 MySQL 43/43；受控非 DB 169 文件/901 项通过，36 文件/323 项按环境跳过；Mini 26 文件/136 项、共享/Web 187 项和 Mini consent 14 项通过。全仓 typecheck、Lint、production build、generated check、任务 Prettier 与 `git diff --check` 通过。宽泛根 Vitest 曾误扫用户自有 `.artifacts/runtime/src` 历史副本并以错误 cwd 运行 Mini 脚本，随后显式排除副本、Mini 正确 cwd 全绿，未修改这些用户目录。根 `format:check` 只报告用户自有 `project.config.json`、既有 `directory-entry-groups.ts` 和 3 个未跟踪 Storybook 静态目录共 14 文件，任务文件单独全绿。
+- Mini production：2/2 Worklet，934228 bytes，manifest `2f3f4e5c5bf62eba3cf05735f6751925054f902815f73dd10369991a1c64d5c4`；source/package/determinism/CI dry-run 通过，organization 分包 91555 bytes。不写完整手机号、同意状态、payload 或离线队列。
+- 运行/浏览器验证：`pnpm smoke:browser` 在当前源码 4173 + 本地 API 通过管理员、成员、访客 vkey 和访问记录；1280/390/320 群组卡无横溢、操作 ≥44px。缺号码 fixture 临时写入测试号码，真实完成同意后管理员可见、撤回后立即隐藏，再恢复原缺号码/确认状态；截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-gWdKMl\16-member-mobile-phone-consent-ready-390.png`。浏览器无 error，Storybook 开关/视口已恢复。
+- checkpoint：`feat(groups): add scoped mobile phone consent`。推送、体验上传和生产 0049 发布后进入 P6 核心 v1；不提审或正式发布 Mini，实体微信仍须人工复核。
+
 ## 2026-08-24 P5 Web 同构原子排班补录
 
 - 范围与引入点：用户确认 P4 已全部完成并授权直接提交后续版本，本轮只收口 P5 排班补录，不提前实现手机号同意。`git log -S`/`git blame` 确认 Web 多日期 staged/逐条确认来自 `561310ce`，服务端单条补录来自 `561310ce`，补录当前状态追踪来自 `0bcc39fa`；幂等 helper 最初来自 `7aac9c28`，completed 重放分支来自 `3a082d8d`、重试竞态修复来自 `31999918`，header/body operation-id 兼容来自 `591ccff6`。旧 Web 逐条事务会部分成功，Mini 发布历史入口则指向未注册页面。

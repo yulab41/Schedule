@@ -9,6 +9,7 @@ import { localAuth } from '../../auth/local-auth.js';
 
 const props = defineProps<{
   readonly canConfirm: boolean;
+  readonly canEditMobilePhone: boolean;
   readonly contact: GroupMemberContact | undefined;
   readonly groupId: string;
   readonly membershipId: string;
@@ -28,9 +29,9 @@ const infoMessage = ref<string>();
 const isSaving = ref(false);
 
 watch(
-  () => props.contact,
-  (contact) => {
-    mobilePhone.value = contact?.mobilePhone ?? '';
+  () => [props.contact, props.canEditMobilePhone] as const,
+  ([contact, canEditMobilePhone]) => {
+    mobilePhone.value = canEditMobilePhone ? (contact?.mobilePhone ?? '') : '';
     shortPhone.value = contact?.shortPhone ?? '';
     isConfirmed.value = contact?.isConfirmed ?? false;
   },
@@ -45,7 +46,7 @@ async function saveContact(): Promise<void> {
   try {
     await api.updateGroupMemberContact(props.groupId, props.membershipId, {
       ...(props.canConfirm ? { isConfirmed: isConfirmed.value } : {}),
-      mobilePhone: emptyToNull(mobilePhone.value),
+      ...(props.canEditMobilePhone ? { mobilePhone: emptyToNull(mobilePhone.value) } : {}),
       shortPhone: emptyToNull(shortPhone.value),
     });
     infoMessage.value = '联系方式已保存。';
@@ -66,7 +67,7 @@ function emptyToNull(value: string): string | null {
 <template>
   <form class="group-contact-form" @submit.prevent="saveContact">
     <p class="contact-editor-intro">修改后将立即更新成员列表中的联系方式。</p>
-    <label class="contact-field">
+    <label v-if="canEditMobilePhone" class="contact-field">
       <span>长号</span>
       <input
         v-model="mobilePhone"

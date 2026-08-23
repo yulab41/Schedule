@@ -36,6 +36,20 @@
               >✓</text
             >
           </view>
+          <view
+            wx:if="{{canOpenGroupSettings}}"
+            class="group-settings-option"
+            hover-class="is-pressed"
+            aria-role="button"
+            aria-label="打开当前群组设置"
+            bindtap="handleOpenGroupSettings"
+          >
+            <view class="group-option-copy">
+              <text>群组设置</text>
+              <text>管理本人在当前群组的共享身份</text>
+            </view>
+            <image src="/assets/icons/web-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
+          </view>
         </view>
       </view>
       <text class="shell-page-title">工作台</text>

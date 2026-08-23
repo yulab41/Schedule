@@ -12,6 +12,13 @@ export {
   type ClientTransport,
 } from './endpoint.js';
 export {
+  createGroupMobilePhoneConsentClient,
+  groupMobilePhoneConsentDecoder,
+  groupMobilePhoneConsentEndpoints,
+  type GroupMobilePhoneConsentClient,
+  type GroupMobilePhoneConsentSubmission,
+} from './mobile-phone-consent-client.js';
+export {
   ClientCoreError,
   createAuthenticationRequiredError,
   createHttpClientError,

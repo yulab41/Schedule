@@ -27,7 +27,7 @@ describe('ECS directory import runtime packaging', () => {
   it('verifies the directory import artifact and current migration count', () => {
     expect(verifySource).toContain('infraScriptsDistTreeSha256');
     expect(verifySource).toContain('$DEPLOY_DIR/infra/scripts/dist');
-    expect(verifySource).toContain("grep -qx '48'");
+    expect(verifySource).toContain("grep -qx '49'");
   });
 
   it('stops the old API write path before migrations and only restarts it afterward', () => {

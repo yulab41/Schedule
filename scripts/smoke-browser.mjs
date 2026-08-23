@@ -1803,6 +1803,9 @@ async function assertGroupManagementConfigAndEventNav(page) {
   await page.locator('.workbench-sidebar button', { hasText: '群组管理' }).first().click();
   await waitForBodyText(page, '加入其他群组', 15000, '加入其他群组');
   await waitForBodyText(page, '共享群组码', 15000, '共享群组码');
+  await page.locator('.contact-consent-card').waitFor({ state: 'visible', timeout: 15000 });
+  await waitForBodyText(page, '我的手机号公开设置', 15000, '手机号公开设置');
+  await waitForBodyText(page, '管理员不能代替成员授权', 15000, '手机号公开边界');
   const groupCode = page.locator('.group-code-digits').first();
   const groupCodeLabel = await groupCode.getAttribute('aria-label');
   if (!/^群组码 (?:\d ){3}\d$/u.test(groupCodeLabel ?? '')) {
@@ -1839,6 +1842,9 @@ async function assertGroupManagementConfigAndEventNav(page) {
       return {
         cardColumns:
           cardGrid === null ? 0 : getComputedStyle(cardGrid).gridTemplateColumns.split(' ').length,
+        consentCardCount: document.querySelectorAll('.contact-consent-card').length,
+        consentControlHeight:
+          document.querySelector('.phone-consent-control')?.getBoundingClientRect().height ?? 0,
         digitCount: digits.length,
         digitsFit: digits.every((digit) => {
           const rect = digit.getBoundingClientRect();
@@ -1858,6 +1864,9 @@ async function assertGroupManagementConfigAndEventNav(page) {
       };
     });
     if (metrics.overflow) fail(`${width}px 群组管理页面出现横向溢出。`);
+    if (metrics.consentCardCount !== 1 || metrics.consentControlHeight < 44) {
+      fail(`${width}px 群组设置缺少本人手机号同意卡或其触控区小于 44px。`);
+    }
     if (metrics.digitCount !== 4 || !metrics.digitsFit) {
       fail(`${width}px 群组码四位数字没有完整显示。`);
     }
@@ -2316,6 +2325,207 @@ async function assertRegularMemberDirectory(page) {
   }
 }
 
+async function assertRegularMemberMobilePhoneConsent(page) {
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '群组管理' }).first().click();
+  await page.locator('.contact-consent-card').waitFor({ state: 'visible', timeout: 15000 });
+  await waitForBodyText(page, '我的手机号公开设置', 15000, '普通成员手机号公开设置');
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ height: 844, width });
+    await page.waitForTimeout(200);
+    await page.locator('.contact-consent-card').scrollIntoViewIfNeeded();
+    const metrics = await page.evaluate(() => {
+      const card = document.querySelector('.contact-consent-card');
+      const control = document.querySelector('.phone-consent-control');
+      const save = document.querySelector('.consent-save');
+      return {
+        cardOverflow: (card?.scrollWidth ?? 0) > (card?.clientWidth ?? 0),
+        controlHeight: control?.getBoundingClientRect().height ?? 0,
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        saveHeight: save?.getBoundingClientRect().height ?? 0,
+      };
+    });
+    if (metrics.overflow || metrics.cardOverflow) {
+      fail(`${width}px 普通成员手机号同意卡出现横向溢出。`);
+    }
+    if (metrics.controlHeight < 44 || metrics.saveHeight < 44) {
+      fail(`${width}px 普通成员手机号同意卡存在小于 44px 的操作区域。`);
+    }
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, `16-member-mobile-phone-consent-${width}.png`),
+      fullPage: true,
+    });
+  }
+
+  const consentContext = await page.evaluate(async () => {
+    const groupResponse = await fetch('/api/groups', {
+      headers: { Authorization: 'Bearer local-member' },
+    });
+    if (!groupResponse.ok) return { error: `groups:${groupResponse.status}` };
+    const groups = await groupResponse.json();
+    const group = Array.isArray(groups) ? groups.find((item) => item?.role !== 'guest') : undefined;
+    if (typeof group?.id !== 'string') return { error: 'missing-active-group' };
+    const statusResponse = await fetch(
+      `/api/groups/${encodeURIComponent(group.id)}/mobile-phone-consent`,
+      { headers: { Authorization: 'Bearer local-member' } },
+    );
+    if (!statusResponse.ok) return { error: `status:${statusResponse.status}` };
+    const status = await statusResponse.json();
+    const contactsResponse = await fetch(`/api/groups/${encodeURIComponent(group.id)}/contacts`, {
+      headers: { Authorization: 'Bearer local-member' },
+    });
+    if (!contactsResponse.ok) return { error: `contacts:${contactsResponse.status}` };
+    const contacts = await contactsResponse.json();
+    const selfContact = Array.isArray(contacts)
+      ? contacts.find((item) => item?.membershipId === status.membershipId)
+      : undefined;
+    return {
+      groupId: group.id,
+      membershipId: status.membershipId,
+      originalIsConfirmed: selfContact?.isConfirmed === true,
+      state: status.state,
+    };
+  });
+  if ('error' in consentContext) {
+    fail(`普通成员手机号同意 API 上下文异常：${consentContext.error}`);
+  }
+
+  const switchInput = page.locator('.phone-consent-control input[role="switch"]');
+  const saveButton = page.locator('.consent-save');
+  let usesTemporaryPhone = false;
+  if (consentContext.state === 'missing-phone') {
+    const prepared = await page.evaluate(async ({ groupId, membershipId }) => {
+      const response = await fetch(
+        `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
+        {
+          body: JSON.stringify({ mobilePhone: '13800138009' }),
+          headers: {
+            Authorization: 'Bearer local-member',
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
+        },
+      );
+      return { status: response.status };
+    }, consentContext);
+    if (prepared.status !== 200) {
+      fail(`准备手机号同意浏览器生命周期失败：contact:${prepared.status}`);
+    }
+    usesTemporaryPhone = true;
+    consentContext.state = 'not-consented';
+    await page.setViewportSize({ height: 900, width: 1280 });
+    await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
+    await waitForBodyText(page, '我的资料', 15000, '临时号码准备后的成员页');
+    await page.locator('.workbench-sidebar button', { hasText: '群组管理' }).first().click();
+    await page.locator('.contact-consent-card').waitFor({ state: 'visible', timeout: 15000 });
+    await page.waitForFunction(
+      () => document.querySelector('.phone-consent-control input')?.disabled === false,
+      undefined,
+      { timeout: 10000 },
+    );
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page.locator('.contact-consent-card').scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, '16-member-mobile-phone-consent-ready-390.png'),
+      fullPage: true,
+    });
+  }
+  const readAdministratorVisibility = () =>
+    page.evaluate(async ({ groupId, membershipId }) => {
+      const response = await fetch(`/api/groups/${encodeURIComponent(groupId)}/contacts`, {
+        headers: { Authorization: 'Bearer local-admin' },
+      });
+      if (!response.ok) return { error: `contacts:${response.status}` };
+      const contacts = await response.json();
+      const contact = Array.isArray(contacts)
+        ? contacts.find((item) => item?.membershipId === membershipId)
+        : undefined;
+      return {
+        hasMobilePhone:
+          contact !== undefined &&
+          Object.prototype.hasOwnProperty.call(contact, 'mobilePhone') &&
+          typeof contact.mobilePhone === 'string' &&
+          contact.mobilePhone.length > 0,
+      };
+    }, consentContext);
+
+  if (consentContext.state === 'consented' || consentContext.state === 'not-consented') {
+    const initiallyConsented = consentContext.state === 'consented';
+    const initialVisibility = await readAdministratorVisibility();
+    if ('error' in initialVisibility) fail(`管理员通讯录读取失败：${initialVisibility.error}`);
+    if (initialVisibility.hasMobilePhone !== initiallyConsented) {
+      fail('手机号同意初始状态与管理员通讯录可见性不一致。');
+    }
+
+    if (initiallyConsented) {
+      await switchInput.uncheck();
+      await saveButton.click();
+      await waitForBodyText(page, '手机号同意已撤回，完整号码已隐藏。', 10000);
+      const hidden = await readAdministratorVisibility();
+      if ('error' in hidden || hidden.hasMobilePhone) {
+        fail('撤回同意后管理员通讯录仍能读取完整手机号。');
+      }
+      await switchInput.check();
+      await saveButton.click();
+      await waitForBodyText(page, '手机号同意已保存。', 10000);
+      const restored = await readAdministratorVisibility();
+      if ('error' in restored || !restored.hasMobilePhone) {
+        fail('重新同意后管理员通讯录未恢复完整手机号。');
+      }
+    } else {
+      await switchInput.check();
+      await saveButton.click();
+      await waitForBodyText(page, '手机号同意已保存。', 10000);
+      const visible = await readAdministratorVisibility();
+      if ('error' in visible || !visible.hasMobilePhone) {
+        fail('保存同意后管理员通讯录未显示完整手机号。');
+      }
+      await switchInput.uncheck();
+      await saveButton.click();
+      await waitForBodyText(page, '手机号同意已撤回，完整号码已隐藏。', 10000);
+      const hidden = await readAdministratorVisibility();
+      if ('error' in hidden || hidden.hasMobilePhone) {
+        fail('撤回同意后管理员通讯录仍能读取完整手机号。');
+      }
+    }
+  }
+
+  if (usesTemporaryPhone) {
+    const restored = await page.evaluate(async ({ groupId, membershipId, originalIsConfirmed }) => {
+      const memberResponse = await fetch(
+        `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
+        {
+          body: JSON.stringify({ mobilePhone: null }),
+          headers: {
+            Authorization: 'Bearer local-member',
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
+        },
+      );
+      if (!memberResponse.ok) return { error: `member:${memberResponse.status}` };
+      const adminResponse = await fetch(
+        `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
+        {
+          body: JSON.stringify({ isConfirmed: originalIsConfirmed }),
+          headers: {
+            Authorization: 'Bearer local-admin',
+            'Content-Type': 'application/json',
+          },
+          method: 'PUT',
+        },
+      );
+      return adminResponse.ok ? { restored: true } : { error: `admin:${adminResponse.status}` };
+    }, consentContext);
+    if ('error' in restored) fail(`还原浏览器手机号测试数据失败：${restored.error}`);
+  }
+
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.locator('.workbench-sidebar button', { hasText: '成员' }).first().click();
+  await waitForBodyText(page, '我的资料', 15000, '返回普通成员通讯录');
+}
+
 async function assertStatisticsNotificationAndExportResponsive(page) {
   await page.setViewportSize({ height: 900, width: 1280 });
   await page.locator('.workbench-sidebar button', { hasText: '统计' }).first().click();
@@ -2654,6 +2864,7 @@ async function runSmoke() {
       fail('成员模式缺少“通讯录”导航入口。');
     }
     await assertRegularMemberDirectory(page);
+    await assertRegularMemberMobilePhoneConsent(page);
     assertNoErrors(errors, '成员模式');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '3-member.png') });
 

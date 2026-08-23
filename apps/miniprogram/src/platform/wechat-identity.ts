@@ -229,6 +229,23 @@ export function getStoredWechatToken(): string | undefined {
   return readString(stored.token);
 }
 
+export function getStoredWechatProfile(): WechatAuthenticatedProfile | undefined {
+  const stored = wx.getStorageSync(SESSION_STORAGE_KEY);
+  if (!isRecord(stored) || !isRecord(stored.profile)) return undefined;
+  const id = readString(stored.profile.id);
+  const realName = readString(stored.profile.realName);
+  const version = stored.profile.version;
+  if (
+    id === undefined ||
+    realName === undefined ||
+    typeof version !== 'number' ||
+    !Number.isInteger(version)
+  ) {
+    return undefined;
+  }
+  return { id, realName, version };
+}
+
 export function getIdentityErrorMessage(error: unknown): string {
   return error instanceof WechatIdentityClientError ? error.message : '操作未完成，请稍后重试。';
 }

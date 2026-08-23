@@ -2,6 +2,7 @@ import {
   appliedManualScheduleTemplateResultJsonSchema,
   calendarReadModelJsonSchema,
   generatedApiErrorCodes,
+  groupMobilePhoneConsentJsonSchema,
   holidayReadModelJsonSchema,
   manualApplyPreviewJsonSchema,
   manualScheduleTemplateJsonSchema,
@@ -21,6 +22,7 @@ import {
   apiErrorCodes,
   appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
+  groupMobilePhoneConsentSchema,
   holidayReadModelSchema,
   manualApplyPreviewSchema,
   manualScheduleTemplateListSchema,
@@ -45,6 +47,9 @@ describe('client-core generated schemas', () => {
   it('stay structurally equal to the authoritative Zod contracts', () => {
     expect(calendarReadModelJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(calendarReadModelSchema), 'calendarReadModel'),
+    );
+    expect(groupMobilePhoneConsentJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(groupMobilePhoneConsentSchema), 'groupMobilePhoneConsent'),
     );
     expect(holidayReadModelJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(holidayReadModelSchema), 'holidayReadModel'),

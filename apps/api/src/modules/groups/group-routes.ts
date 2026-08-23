@@ -1,20 +1,23 @@
-import type {
-  AddGroupMembersRequest,
-  AddRosterEntriesRequest,
-  ClaimGroupRequest,
-  ConvertPendingRosterRequest,
-  CreateGroupRequest,
-  UpdateGroupCodeRequest,
-  TransferGroupOwnershipRequest,
-  UpdateGroupMemberContactRequest,
-  UpdateGroupMemberNameRequest,
-  UpdateGroupMemberRoleRequest,
-  UpdateGroupNameRequest,
+import {
+  updateGroupMobilePhoneConsentRequestSchema,
+  type AddGroupMembersRequest,
+  type AddRosterEntriesRequest,
+  type ClaimGroupRequest,
+  type ConvertPendingRosterRequest,
+  type CreateGroupRequest,
+  type TransferGroupOwnershipRequest,
+  type UpdateGroupCodeRequest,
+  type UpdateGroupMemberContactRequest,
+  type UpdateGroupMemberNameRequest,
+  type UpdateGroupMemberRoleRequest,
+  type UpdateGroupMobilePhoneConsentRequest,
+  type UpdateGroupNameRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import type { VisitorAccessLogService } from '../calendar/visitor-access-log.js';
 import { ContactService } from './contact-service.js';
 import { GroupService } from './group-service.js';
@@ -246,6 +249,16 @@ export function registerGroupRoutes(
     contactService.listContacts(getAuthenticatedIdentity(request), parseGroupId(request)),
   );
 
+  app.get(
+    '/groups/:groupId/mobile-phone-consent',
+    { preHandler: app.authenticate },
+    async (request) =>
+      contactService.getMobilePhoneConsent(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+      ),
+  );
+
   app.post('/groups/:groupId/roster-entries', { preHandler: app.authenticate }, async (request) =>
     groupService.addRosterEntries(
       getAuthenticatedIdentity(request),
@@ -370,6 +383,20 @@ export function registerGroupRoutes(
         parseMembershipId(request),
         parseUpdateContactInput(request.body),
       ),
+  );
+
+  app.put(
+    '/groups/:groupId/mobile-phone-consent',
+    { preHandler: app.authenticate },
+    async (request) => {
+      const input = parseMobilePhoneConsentInput(request.body);
+      return contactService.updateMobilePhoneConsent(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        input,
+        resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
+      );
+    },
   );
 
   app.delete('/groups/:groupId', { preHandler: app.authenticate }, async (request, reply) => {
@@ -537,6 +564,14 @@ function parseUpdateContactInput(value: unknown): UpdateGroupMemberContactReques
     ...(result.data.mobilePhone === undefined ? {} : { mobilePhone: result.data.mobilePhone }),
     ...(result.data.shortPhone === undefined ? {} : { shortPhone: result.data.shortPhone }),
   };
+}
+
+function parseMobilePhoneConsentInput(value: unknown): UpdateGroupMobilePhoneConsentRequest {
+  const result = updateGroupMobilePhoneConsentRequestSchema.safeParse(value);
+  if (!result.success) {
+    throwValidationError();
+  }
+  return result.data;
 }
 
 function parseUpdateMemberNameInput(value: unknown): UpdateGroupMemberNameRequest {

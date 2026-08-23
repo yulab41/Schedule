@@ -2,8 +2,10 @@ export interface CompactJsonSchema {
   readonly additionalProperties?: false | undefined;
   readonly const?: boolean | number | string | undefined;
   readonly enum?: readonly string[] | undefined;
+  readonly format?: 'date-time' | 'uuid' | undefined;
   readonly items?: CompactJsonSchema | undefined;
   readonly maxItems?: number | undefined;
+  readonly maxLength?: number | undefined;
   readonly maximum?: number | undefined;
   readonly minItems?: number | undefined;
   readonly minLength?: number | undefined;
@@ -118,7 +120,37 @@ function compileStringSchema(schema: CompactJsonSchema): Validator {
   return (value) =>
     typeof value === 'string' &&
     (schema.minLength === undefined || value.length >= schema.minLength) &&
+    (schema.maxLength === undefined || value.length <= schema.maxLength) &&
     (schema.const === undefined || Object.is(value, schema.const)) &&
     (allowedValues === undefined || allowedValues.has(value)) &&
+    (schema.format === undefined || isFormattedString(value, schema.format)) &&
     (pattern === undefined || pattern.test(value));
+}
+
+const utcDateTimePattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z$/u;
+const uuidPattern =
+  /^(?:00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff|[\da-f]{8}-[\da-f]{4}-[1-8][\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12})$/iu;
+
+function isFormattedString(value: string, format: 'date-time' | 'uuid'): boolean {
+  return format === 'date-time' ? isUtcDateTime(value) : uuidPattern.test(value);
+}
+
+function isUtcDateTime(value: string): boolean {
+  const match = utcDateTimePattern.exec(value);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  if (year === 0 || hour > 23 || minute > 59 || second > 59) return false;
+  const candidate = new Date(0);
+  candidate.setUTCHours(hour, minute, second, 0);
+  candidate.setUTCFullYear(year, month - 1, day);
+  return (
+    candidate.getUTCFullYear() === year &&
+    candidate.getUTCMonth() === month - 1 &&
+    candidate.getUTCDate() === day
+  );
 }

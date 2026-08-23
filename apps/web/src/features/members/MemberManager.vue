@@ -13,6 +13,7 @@ import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import { hasDuplicateRosterName, parseRosterNames } from '../groups/roster-input.js';
 import GroupContactForm from '../profile/GroupContactForm.vue';
+import { createEditableGroupContact } from './member-contact-edit.js';
 import { getClaimRequestTone } from './member-presentation.js';
 
 const props = defineProps<{
@@ -316,6 +317,11 @@ function canEditContact(member: GroupMember): boolean {
 
 function contactFor(member: GroupMember): GroupMemberContact | undefined {
   return contactsByMembershipId.value.get(member.id);
+}
+
+function editableContactFor(member: GroupMember | undefined): GroupMemberContact | undefined {
+  if (member === undefined) return undefined;
+  return createEditableGroupContact(contactFor(member), member.isCurrentUser === true);
 }
 
 function mobilePhoneFor(member: GroupMember): string {
@@ -704,7 +710,8 @@ async function runMemberAction(
         v-if="editingContactMemberId !== undefined"
         class="contact-editor"
         :can-confirm="canManageContacts"
-        :contact="contactEditorMember === undefined ? undefined : contactFor(contactEditorMember)"
+        :can-edit-mobile-phone="contactEditorMember?.isCurrentUser === true"
+        :contact="editableContactFor(contactEditorMember)"
         :group-id="group.id"
         :membership-id="editingContactMemberId"
         @cancelled="contactEditorVisible = false"

@@ -3,8 +3,10 @@ const supportedSchemaKeys = new Set([
   'additionalProperties',
   'const',
   'enum',
+  'format',
   'items',
   'maxItems',
+  'maxLength',
   'maximum',
   'minItems',
   'minLength',
@@ -78,7 +80,21 @@ export function sanitizeJsonSchema(schema, path = '$') {
     }
     result.const = schema.const;
   }
-  for (const key of ['maximum', 'maxItems', 'minItems', 'minLength', 'minimum', 'pattern']) {
+  if (schema.format !== undefined) {
+    if (schema.format !== 'date-time' && schema.format !== 'uuid') {
+      throw new Error(`${path}.format must be date-time or uuid`);
+    }
+    result.format = schema.format;
+  }
+  for (const key of [
+    'maximum',
+    'maxItems',
+    'maxLength',
+    'minItems',
+    'minLength',
+    'minimum',
+    'pattern',
+  ]) {
     if (schema[key] !== undefined) result[key] = schema[key];
   }
   return result;

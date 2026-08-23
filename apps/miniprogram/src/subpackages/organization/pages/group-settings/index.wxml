@@ -1,0 +1,151 @@
+<view class="group-settings-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回排班台"
+      bindtap="handleBack"
+    >
+      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+    </view>
+    <view class="header-title">
+      <text class="header-title-main">群组管理</text>
+      <text class="header-title-sub">{{currentGroupName}} · {{currentGroupRole}}</text>
+    </view>
+    <text class="phase-chip">P5</text>
+  </view>
+
+  <scroll-view
+    class="group-settings-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card">
+        <ui-loading label="正在读取群组设置"></ui-loading>
+      </view>
+
+      <view wx:elif="{{state === 'error'}}" class="page-state-card">
+        <ui-alert tone="danger" title="群组设置暂时无法加载" message="{{errorMessage}}"></ui-alert>
+        <view
+          class="web-button is-primary"
+          hover-class="is-pressed"
+          aria-role="button"
+          bindtap="handleRetry"
+          >重新加载</view
+        >
+      </view>
+
+      <view wx:else class="group-setup-panel">
+        <view class="group-panel-heading">
+          <view>
+            <text class="section-eyebrow">协作身份</text>
+            <text class="page-title">群组管理</text>
+          </view>
+          <text class="page-description">创建或加入工作群组，并管理当前群组的共享身份。</text>
+        </view>
+
+        <view class="group-identity-band">
+          <view class="group-identity-copy">
+            <text>当前工作群组</text>
+            <text class="group-name">{{currentGroupName}}</text>
+            <text class="role-chip">{{currentGroupRole}}</text>
+          </view>
+          <view class="group-code-block">
+            <text>共享群组码</text>
+            <view class="group-code-digits" aria-label="{{groupCodeAriaLabel}}">
+              <text wx:for="{{currentGroupCodeDigits}}" wx:key="key">{{item.value}}</text>
+            </view>
+          </view>
+        </view>
+
+        <ui-alert
+          wx:if="{{errorMessage}}"
+          tone="danger"
+          title="设置未保存"
+          message="{{errorMessage}}"
+        ></ui-alert>
+        <ui-alert
+          wx:if="{{infoMessage}}"
+          tone="success"
+          title="手机号公开设置"
+          message="{{infoMessage}}"
+        ></ui-alert>
+
+        <view class="group-card contact-consent-card">
+          <view class="group-card-header"><text>联系方式公开</text></view>
+          <view class="group-card-body">
+            <view class="contact-consent-section">
+              <view class="consent-heading">
+                <view class="consent-heading-copy">
+                  <text class="consent-title">我的手机号公开设置</text>
+                  <text>仅决定当前群组成员能否查看您的完整手机号。</text>
+                </view>
+                <text class="preference-scope">仅自己</text>
+              </view>
+
+              <view class="contact-member-row">
+                <view class="phone-avatar">{{profileInitial}}</view>
+                <view class="contact-member-copy">
+                  <text class="profile-name">{{profileName}}</text>
+                  <text wx:if="{{consentState === 'missing-phone'}}">尚未设置手机号</text>
+                  <text wx:else>手机号 {{maskedMobilePhone}}</text>
+                  <text>说明版本 {{noticeVersion}} · 号码变更后需重新同意</text>
+                </view>
+              </view>
+
+              <ui-alert
+                wx:if="{{consentState === 'missing-phone'}}"
+                tone="warning"
+                title="尚未设置手机号"
+                message="请先在账号资料中设置手机号，再决定是否向当前群组公开。"
+              ></ui-alert>
+              <ui-alert
+                wx:elif="{{consentState === 'stale'}}"
+                tone="warning"
+                title="需要重新同意"
+                message="号码或说明版本已变化，公开设置已关闭；请重新确认后保存同意。"
+              ></ui-alert>
+
+              <view
+                class="phone-consent-control {{switchDisabled || isSaving ? 'is-disabled' : ''}}"
+                hover-class="{{switchDisabled || isSaving ? 'none' : 'is-pressed'}}"
+                aria-role="switch"
+                aria-checked="{{desiredConsent}}"
+                aria-disabled="{{switchDisabled || isSaving}}"
+                bindtap="handleConsentToggle"
+              >
+                <view
+                  class="phone-consent-checkbox {{desiredConsent ? 'is-checked' : ''}}"
+                  aria-hidden="true"
+                  ><text wx:if="{{desiredConsent}}">✓</text></view
+                >
+                <view class="phone-consent-copy">
+                  <text>允许本群组显示完整手机号</text>
+                  <text>此选择可随时撤回，不影响账号、资料或排班。</text>
+                </view>
+              </view>
+
+              <text class="privacy-boundary"
+                >管理员不能代替成员授权，也不能把同意复制到其他群组；撤回后完整号码立即隐藏。</text
+              >
+              <view
+                class="web-button consent-save {{saveDisabled ? 'is-disabled' : 'is-primary'}}"
+                hover-class="{{saveDisabled ? 'none' : 'is-pressed'}}"
+                aria-role="button"
+                aria-disabled="{{saveDisabled}}"
+                aria-busy="{{isSaving}}"
+                bindtap="handleSave"
+                >{{isSaving ? '正在保存' : actionLabel}}</view
+              >
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="bottom-spacer"></view>
+    </view>
+  </scroll-view>
+</view>

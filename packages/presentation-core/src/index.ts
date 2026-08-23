@@ -56,6 +56,21 @@ export {
   type ManualSnapshotUndoStack,
 } from './manual-schedule.js';
 export {
+  createGroupMobilePhoneConsentDraft,
+  createGroupMobilePhoneConsentIntent,
+  createGroupMobilePhoneConsentViewModel,
+  resolveGroupMobilePhoneConsentSubmission,
+  setGroupMobilePhoneConsentDesired,
+  type GroupMobilePhoneConsentAttempt,
+  type GroupMobilePhoneConsentDraft,
+  type GroupMobilePhoneConsentIntent,
+  type GroupMobilePhoneConsentSnapshot,
+  type GroupMobilePhoneConsentState,
+  type GroupMobilePhoneConsentStatusLike,
+  type GroupMobilePhoneConsentSubmission,
+  type GroupMobilePhoneConsentViewModel,
+} from './mobile-phone-consent.js';
+export {
   createBackfillStageKey,
   createPastScheduleBackfillBatchSnapshot,
   filterPastScheduleBackfillStages,

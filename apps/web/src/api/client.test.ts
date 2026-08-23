@@ -11,6 +11,7 @@ import type {
   GroupNotificationSettings,
   GroupMember,
   GroupMemberContact,
+  GroupMobilePhoneConsent,
   GroupSummary,
   GuestCalendarReadModel,
   HolidayReadModel,
@@ -140,6 +141,15 @@ const groupMemberContact: GroupMemberContact = {
   isConfirmed: false,
   membershipId: 'membership-1',
   version: 1,
+};
+
+const groupMobilePhoneConsent: GroupMobilePhoneConsent = {
+  contactVersion: 3,
+  groupId: '11111111-1111-4111-8111-111111111111',
+  maskedMobilePhone: '138 **** 7926',
+  membershipId: '22222222-2222-4222-8222-222222222222',
+  noticeVersion: 'v1',
+  state: 'not-consented',
 };
 
 const membershipClaimRequest: MembershipClaimRequest = {
@@ -1363,6 +1373,53 @@ describe('Web API client', () => {
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
     });
+  });
+
+  it('loads and updates the current member mobile phone consent with one idempotent call', async () => {
+    const operationId = '33333333-3333-4333-8333-333333333333';
+    const input = {
+      consented: true,
+      expectedContactVersion: 3,
+      noticeVersion: 'v1',
+      operationId,
+    } as const;
+    const consented = {
+      ...groupMobilePhoneConsent,
+      consentedAt: '2026-08-24T01:02:03.000Z',
+      state: 'consented' as const,
+    };
+    const fetchImplementation = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify(groupMobilePhoneConsent), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(consented), { status: 200 }));
+    const client = createApiClient({ auth: createAuthClient(), fetch: fetchImplementation });
+
+    await expect(client.getGroupMobilePhoneConsent(group.id)).resolves.toEqual(
+      groupMobilePhoneConsent,
+    );
+    await expect(client.updateGroupMobilePhoneConsent(group.id, input)).resolves.toEqual(consented);
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      '/api/groups/group-1/mobile-phone-consent',
+      {
+        headers: { Authorization: 'Bearer signed-in-token' },
+        method: 'GET',
+      },
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      '/api/groups/group-1/mobile-phone-consent',
+      {
+        body: JSON.stringify(input),
+        headers: {
+          Authorization: 'Bearer signed-in-token',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': operationId,
+        },
+        method: 'PUT',
+      },
+    );
   });
 
   it('rejects a group summary with a malformed group code', async () => {

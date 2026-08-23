@@ -87,6 +87,28 @@ page {
   font-weight: var(--ui-font-weight-semibold);
 }
 
+.group-settings-option {
+  display: flex;
+  min-height: 52px;
+  padding: 5px 8px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+}
+
+.group-settings-option.is-pressed {
+  background: var(--ui-color-primary-light);
+}
+
+.group-settings-option image {
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  flex: none;
+}
+
 .option-check {
   margin-left: 8px;
   color: var(--ui-color-primary);

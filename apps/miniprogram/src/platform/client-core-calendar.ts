@@ -3,6 +3,7 @@ import {
   calendarReadModelDecoder,
   createAuthenticationRequiredError,
   createCalendarReadClient,
+  createGroupMobilePhoneConsentClient,
   createHttpClientError,
   createInvalidResponseError,
   createManualScheduleClient,
@@ -12,6 +13,7 @@ import {
   holidayReadModelDecoder,
   type CalendarReadClient,
   type ClientTransport,
+  type GroupMobilePhoneConsentClient,
   type ManualScheduleClient,
   type PastScheduleClient,
   type SchedulePublicationClient,
@@ -101,6 +103,18 @@ export function createRuntimeManualScheduleClient(
   getAccessToken: () => string | undefined,
 ): ManualScheduleClient {
   return createManualScheduleClient(
+    createWxJsonTransport({
+      apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
+      getAccessToken,
+      request: (requestOptions) => wx.request(requestOptions),
+    }),
+  );
+}
+
+export function createRuntimeGroupMobilePhoneConsentClient(
+  getAccessToken: () => string | undefined,
+): GroupMobilePhoneConsentClient {
+  return createGroupMobilePhoneConsentClient(
     createWxJsonTransport({
       apiBaseUrl: __MINIPROGRAM_API_BASE_URL__,
       getAccessToken,

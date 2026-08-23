@@ -23,6 +23,7 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { isMobilePhoneConsentEffective } from '../groups/mobile-phone-consent.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
 
 export const calendarMarkerEventTypes = [
@@ -50,10 +51,14 @@ interface ContactRow {
   readonly isConfirmed: number;
   readonly membershipId: string;
   readonly mobilePhone: string | null;
+  readonly mobilePhoneConsentFingerprint: string | null;
+  readonly mobilePhoneConsentNoticeVersion: string | null;
+  readonly mobilePhoneConsentRevokedAt: Date | null;
+  readonly mobilePhoneConsentedAt: Date | null;
   readonly shortPhone: string | null;
 }
 
-type CalendarContactVisibility = 'all' | 'confirmed-only' | 'none';
+type CalendarContactVisibility = 'member' | 'guest';
 
 export class CalendarQuery {
   private readonly permissionService = new GroupPermissionService();
@@ -91,7 +96,7 @@ export class CalendarQuery {
         authorization.group.id,
         businessMonth,
         periods,
-        'all',
+        'member',
         true,
       );
     });
@@ -137,7 +142,7 @@ export class CalendarQuery {
         authorization.group.id,
         period.businessMonth.slice(0, 7),
         [period],
-        'all',
+        'member',
         true,
       );
     });
@@ -211,14 +216,7 @@ export class CalendarQuery {
           ),
         )
         .orderBy(asc(schedulePeriods.scheduleRoleId), asc(schedulePeriods.revision));
-      return this.buildCalendar(
-        transaction,
-        group.id,
-        businessMonth,
-        periods,
-        'confirmed-only',
-        false,
-      );
+      return this.buildCalendar(transaction, group.id, businessMonth, periods, 'guest', false);
     });
     return { calendar, groupName: group.name };
   }
@@ -282,10 +280,7 @@ export class CalendarQuery {
     const markersByShiftId = includeChangeMarkers ? collectMarkers(markerEvents) : new Map();
     const memberNamesById = collectMemberNames(assignments);
     const membershipIds = [...memberNamesById.keys()].sort();
-    const contactsByMembershipId =
-      contactVisibility !== 'none'
-        ? await this.readContacts(transaction, membershipIds)
-        : new Map<string, ContactRow>();
+    const contactsByMembershipId = await this.readContacts(transaction, membershipIds);
 
     return {
       assignments: assignments.map((assignment) =>
@@ -293,7 +288,7 @@ export class CalendarQuery {
       ),
       businessMonth,
       groupId,
-      members: buildMembers(memberNamesById, contactsByMembershipId, contactVisibility),
+      members: buildMembers(groupId, memberNamesById, contactsByMembershipId, contactVisibility),
       roles: buildRoleSummaries(roleNamesById),
       shiftTypes: buildShiftTypeSummaries(assignments),
     };
@@ -312,6 +307,10 @@ export class CalendarQuery {
         isConfirmed: groupMemberContacts.isConfirmed,
         membershipId: groupMemberContacts.membershipId,
         mobilePhone: groupMemberContacts.mobilePhone,
+        mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
+        mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
+        mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
+        mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
         shortPhone: groupMemberContacts.shortPhone,
       })
       .from(groupMemberContacts)
@@ -421,6 +420,7 @@ function toCalendarAssignment(
 }
 
 function buildMembers(
+  groupId: string,
   memberNamesById: ReadonlyMap<string, string>,
   contactsByMembershipId: ReadonlyMap<string, ContactRow>,
   contactVisibility: CalendarContactVisibility,
@@ -428,18 +428,23 @@ function buildMembers(
   return [...memberNamesById.entries()]
     .map(([membershipId, realName]) => {
       const contact = contactsByMembershipId.get(membershipId);
-      const visibleContact =
-        contactVisibility === 'all' || contact?.isConfirmed === 1 ? contact : undefined;
+      const mobilePhoneVisible =
+        contact !== undefined &&
+        contactVisibility === 'member' &&
+        isMobilePhoneConsentEffective(groupId, membershipId, contact);
+      const shortPhoneVisible = contactVisibility === 'member' || contact?.isConfirmed === 1;
       return {
         isConfirmed: contact?.isConfirmed === 1,
         membershipId,
         realName,
-        ...(visibleContact?.mobilePhone === null || visibleContact?.mobilePhone === undefined
+        ...(contact?.mobilePhone === null ||
+        contact?.mobilePhone === undefined ||
+        !mobilePhoneVisible
           ? {}
-          : { mobilePhone: visibleContact.mobilePhone }),
-        ...(visibleContact?.shortPhone === null || visibleContact?.shortPhone === undefined
+          : { mobilePhone: contact.mobilePhone }),
+        ...(contact?.shortPhone === null || contact?.shortPhone === undefined || !shortPhoneVisible
           ? {}
-          : { shortPhone: visibleContact.shortPhone }),
+          : { shortPhone: contact.shortPhone }),
       };
     })
     .sort(

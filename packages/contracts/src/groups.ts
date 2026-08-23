@@ -158,6 +158,33 @@ export const groupMemberContactListSchema = z.array(groupMemberContactSchema);
 export const groupMemberListSchema = z.array(groupMemberSchema);
 export const groupSummaryListSchema = z.array(groupSummarySchema);
 
+export const GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION = 'v1';
+
+export const groupMobilePhoneConsentSchema = z
+  .object({
+    consentedAt: z.string().datetime().optional(),
+    contactVersion: z.number().int().nonnegative(),
+    groupId: z.string().uuid(),
+    maskedMobilePhone: z.string().min(1).max(32).optional(),
+    membershipId: z.string().uuid(),
+    noticeVersion: z.literal(GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION),
+    state: z.enum(['missing-phone', 'not-consented', 'consented', 'stale']),
+  })
+  .strict();
+export type GroupMobilePhoneConsent = z.infer<typeof groupMobilePhoneConsentSchema>;
+
+export const updateGroupMobilePhoneConsentRequestSchema = z
+  .object({
+    consented: z.boolean(),
+    expectedContactVersion: z.number().int().nonnegative(),
+    noticeVersion: z.literal(GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION),
+    operationId: z.string().uuid().optional(),
+  })
+  .strict();
+export type UpdateGroupMobilePhoneConsentRequest = z.infer<
+  typeof updateGroupMobilePhoneConsentRequestSchema
+>;
+
 export const groupCatalogRelationSchema = z.enum([
   'none',
   'active-member',

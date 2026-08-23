@@ -32,6 +32,7 @@ import type {
   GroupCatalogEntry,
   GroupMember,
   GroupMemberContact,
+  GroupMobilePhoneConsent,
   GroupDutyAdjustmentSettings,
   GroupSchedulePublishMode,
   GroupLeaveReflowStrategy,
@@ -128,10 +129,12 @@ import type {
 } from '@schedule/contracts';
 import {
   createCalendarReadClient,
+  createGroupMobilePhoneConsentClient,
   createPastScheduleClient,
   type ClientEndpoint,
   type ClientTransport,
   type PastScheduleBackfillBatchSubmission,
+  type GroupMobilePhoneConsentSubmission,
 } from '@schedule/client-core';
 
 import {
@@ -353,6 +356,7 @@ export interface ApiClient {
     query: Omit<ScheduleEventQuery, 'groupId'>,
   ): Promise<ScheduleEventPage>;
   getGroupDutyAdjustmentSettings(groupId: string): Promise<GroupDutyAdjustmentSettings>;
+  getGroupMobilePhoneConsent(groupId: string): Promise<GroupMobilePhoneConsent>;
   getGroupSwapSettings(groupId: string): Promise<GroupSwapSettings>;
   getLeaveReflowStrategy(groupId: string): Promise<GroupLeaveReflowStrategy>;
   getMySwapSettings(groupId: string): Promise<MemberSwapSettings>;
@@ -534,6 +538,10 @@ export interface ApiClient {
     membershipId: string,
     input: UpdateGroupMemberContactRequest,
   ): Promise<GroupMemberContact>;
+  updateGroupMobilePhoneConsent(
+    groupId: string,
+    input: GroupMobilePhoneConsentSubmission,
+  ): Promise<GroupMobilePhoneConsent>;
   updateGroupMemberName(
     groupId: string,
     membershipId: string,
@@ -680,6 +688,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     },
   } satisfies ClientTransport;
   const calendarReadClient = createCalendarReadClient(sharedClientTransport);
+  const groupMobilePhoneConsentClient = createGroupMobilePhoneConsentClient(sharedClientTransport);
   const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
 
   return {
@@ -1399,6 +1408,9 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         { method: 'GET' },
         isResponseBodyFromSchema(groupDutyAdjustmentSettingsSchema),
       );
+    },
+    getGroupMobilePhoneConsent(groupId) {
+      return groupMobilePhoneConsentClient.getStatus(groupId);
     },
     getGroupSwapSettings(groupId) {
       return requestJson(
@@ -2187,6 +2199,9 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         },
         isResponseBodyFromSchema(groupMemberContactSchema),
       );
+    },
+    updateGroupMobilePhoneConsent(groupId, input) {
+      return groupMobilePhoneConsentClient.update(groupId, input);
     },
     updateGroupMemberName(groupId, membershipId, input) {
       return requestJson(

@@ -12,6 +12,7 @@ import { createApiClient } from '../../api/client.js';
 import { toUserMessage } from '../../utils/user-message.js';
 import { localAuth } from '../../auth/local-auth.js';
 import ResponsiveSheet from '../../components/ResponsiveSheet.vue';
+import GroupMobilePhoneConsentCard from './GroupMobilePhoneConsentCard.vue';
 import { getGroupRoleLabel, splitGroupCode } from './group-presentation.js';
 import { hasDuplicateRosterName, parseRosterNames } from './roster-input.js';
 
@@ -421,6 +422,10 @@ function resetMessages(): void {
     <t-alert v-if="infoMessage !== undefined" theme="success" :message="infoMessage" />
 
     <div class="group-card-grid">
+      <GroupMobilePhoneConsentCard
+        v-if="props.group !== undefined && props.group.role !== 'guest'"
+        :group-id="props.group.id"
+      />
       <t-card
         v-if="calendarPreferences !== undefined"
         title="日历偏好"

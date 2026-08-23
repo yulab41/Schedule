@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -113,7 +114,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(contactUpdate.statusCode).toBe(403);
   });
 
-  it('returns the full active member contact directory while excluding guest, hidden, and suspended users', async () => {
+  it('returns self mobile but hides unconsented mobile for other active members', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');
     const owner = await getMember(groupId, 'Owner Doctor');
@@ -167,18 +168,18 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(crossGroupRead.statusCode).toBe(403);
     expect(crossGroupRead.json()).not.toHaveProperty('contacts');
     expect(sameGroupRead.statusCode).toBe(200);
-    expect(sameGroupRead.json()).toEqual([
-      expect.objectContaining({
-        membershipId: candidate.id,
-        mobilePhone: '13800000000',
-        shortPhone: '8000',
-      }),
-      expect.objectContaining({
-        membershipId: owner.id,
-        mobilePhone: '13900000000',
-        shortPhone: '9000',
-      }),
-    ]);
+    const contacts = sameGroupRead.json() as Array<{
+      membershipId: string;
+      mobilePhone?: string;
+      shortPhone?: string;
+    }>;
+    expect(contacts.find((contact) => contact.membershipId === candidate.id)).toMatchObject({
+      mobilePhone: '13800000000',
+      shortPhone: '8000',
+    });
+    const ownerResult = contacts.find((contact) => contact.membershipId === owner.id);
+    expect(ownerResult).toMatchObject({ shortPhone: '9000' });
+    expect(ownerResult).not.toHaveProperty('mobilePhone');
   });
 
   it('lets members edit only themselves while owner, administrator, and developer confirm any active member', async () => {
@@ -235,11 +236,371 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(memberConfirm.statusCode).toBe(403);
     expect(ownerConfirm.statusCode).toBe(200);
     expect(ownerConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '8001' });
+    expect(ownerConfirm.json()).not.toHaveProperty('mobilePhone');
     expect(makeAdministrator.statusCode).toBe(200);
     expect(administratorConfirm.statusCode).toBe(200);
     expect(administratorConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '9001' });
+    expect(administratorConfirm.json()).not.toHaveProperty('mobilePhone');
     expect(developerConfirm.statusCode).toBe(200);
     expect(developerConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '8002' });
+    expect(developerConfirm.json()).not.toHaveProperty('mobilePhone');
+  });
+
+  it('requires self-granted, version-bound mobile consent and never lets administrators grant it for others', async () => {
+    const groupId = await createClaimedGroup();
+    const candidate = await getMember(groupId, 'Candidate Doctor');
+    const saved = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13800000000', shortPhone: '8000' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    let contactVersion = (saved.json() as { version: number }).version;
+    const administratorVerification = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { isConfirmed: true, shortPhone: '8001' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    expect(administratorVerification.statusCode, administratorVerification.body).toBe(200);
+    expect(administratorVerification.json()).not.toHaveProperty('mobilePhone');
+    contactVersion = (administratorVerification.json() as { version: number }).version;
+
+    const initial = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(initial.statusCode, initial.body).toBe(200);
+    expect(initial.json()).toMatchObject({
+      contactVersion,
+      groupId,
+      maskedMobilePhone: '138 **** 0000',
+      membershipId: candidate.id,
+      noticeVersion: 'v1',
+      state: 'not-consented',
+    });
+
+    const beforeGrant = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/contacts`,
+    });
+    expect(beforeGrant.statusCode).toBe(200);
+    expect(
+      (beforeGrant.json() as Array<{ membershipId: string; mobilePhone?: string }>).find(
+        (contact) => contact.membershipId === candidate.id,
+      ),
+    ).not.toHaveProperty('mobilePhone');
+
+    const missingKey = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: contactVersion,
+        noticeVersion: 'v1',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(missingKey.statusCode).toBe(400);
+    const headerOperationId = randomUUID();
+    const mismatchedKey = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': headerOperationId,
+      },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: contactVersion,
+        noticeVersion: 'v1',
+        operationId: randomUUID(),
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(mismatchedKey.statusCode).toBe(400);
+    const unknownNotice = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': randomUUID(),
+      },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: contactVersion,
+        noticeVersion: 'v2',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(unknownNotice.statusCode).toBe(400);
+
+    const guestJoin = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'POST',
+      url: `/groups/${groupId}/join-guest`,
+    });
+    expect(guestJoin.statusCode).toBe(201);
+    const guestConsent = await app.inject({
+      headers: { authorization: 'Bearer outsider-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(guestConsent.statusCode).toBe(403);
+
+    const operationId = randomUUID();
+    const request = {
+      consented: true,
+      expectedContactVersion: contactVersion,
+      noticeVersion: 'v1',
+      operationId,
+    };
+    const granted = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': operationId,
+      },
+      method: 'PUT',
+      payload: request,
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(granted.statusCode, granted.body).toBe(200);
+    expect(granted.json()).toMatchObject({ state: 'consented' });
+
+    const replay = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': operationId,
+      },
+      method: 'PUT',
+      payload: request,
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(replay.statusCode, replay.body).toBe(200);
+    expect(replay.json()).toEqual(granted.json());
+
+    const changedPayload = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': operationId,
+      },
+      method: 'PUT',
+      payload: { ...request, consented: false },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(changedPayload.statusCode).toBe(409);
+
+    const afterGrant = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/contacts`,
+    });
+    expect(
+      (afterGrant.json() as Array<{ membershipId: string; mobilePhone?: string }>).find(
+        (contact) => contact.membershipId === candidate.id,
+      ),
+    ).toMatchObject({ mobilePhone: '13800000000' });
+
+    const administratorMobileUpdate = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13900000000' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    expect(administratorMobileUpdate.statusCode).toBe(403);
+    const forgedTarget = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: contactVersion,
+        membershipId: candidate.id,
+        noticeVersion: 'v1',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(forgedTarget.statusCode).toBe(400);
+
+    const [auditRows] = await client.database.execute(
+      sql`SELECT action, metadata FROM audit_logs
+          WHERE group_id = ${groupId} AND action LIKE 'mobile_phone_consent_%'`,
+    );
+    expect(auditRows).toHaveLength(1);
+    expect(
+      (auditRows as unknown as Array<{ metadata: Record<string, unknown> }>)[0]?.metadata,
+    ).toMatchObject({
+      contactVersion: contactVersion + 1,
+      fingerprint: expect.stringMatching(/^[a-f\d]{64}$/u),
+      noticeVersion: 'v1',
+    });
+    expect(JSON.stringify(auditRows)).not.toContain('13800000000');
+
+    await client.database
+      .update(groupMemberships)
+      .set({ deletedAt: new Date(), status: 'inactive' })
+      .where(eq(groupMemberships.id, candidate.id));
+    const inactiveConsent = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(inactiveConsent.statusCode).toBe(403);
+  });
+
+  it('invalidates consent on number or notice changes, supports revoke, and never copies consent across groups', async () => {
+    const groupId = await createClaimedGroup();
+    const candidate = await getMember(groupId, 'Candidate Doctor');
+    const saved = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13800000000' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    const firstVersion = (saved.json() as { version: number }).version;
+    const grantOperationId = randomUUID();
+    const grant = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': grantOperationId,
+      },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: firstVersion,
+        noticeVersion: 'v1',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(grant.statusCode, grant.body).toBe(200);
+
+    const changed = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'PUT',
+      payload: { mobilePhone: '13900000000' },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    expect(changed.statusCode, changed.body).toBe(200);
+    const changedVersion = (changed.json() as { version: number }).version;
+    const oldGrantReplay = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': grantOperationId,
+      },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: firstVersion,
+        noticeVersion: 'v1',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(oldGrantReplay.statusCode, oldGrantReplay.body).toBe(200);
+    expect(oldGrantReplay.json()).toEqual(grant.json());
+    const staleAfterNumber = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(staleAfterNumber.json()).toMatchObject({
+      contactVersion: changedVersion,
+      state: 'stale',
+    });
+
+    const versionConflict = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': randomUUID(),
+      },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: firstVersion,
+        noticeVersion: 'v1',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(versionConflict.statusCode).toBe(409);
+
+    const regrant = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': randomUUID(),
+      },
+      method: 'PUT',
+      payload: {
+        consented: true,
+        expectedContactVersion: changedVersion,
+        noticeVersion: 'v1',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(regrant.statusCode, regrant.body).toBe(200);
+    const regrantedVersion = (regrant.json() as { contactVersion: number }).contactVersion;
+
+    await client.database.execute(
+      sql`UPDATE group_member_contacts
+          SET mobile_phone_consent_notice_version = 'v0'
+          WHERE membership_id = ${candidate.id}`,
+    );
+    const staleNotice = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(staleNotice.json()).toMatchObject({ state: 'stale' });
+
+    const revoke = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': randomUUID(),
+      },
+      method: 'PUT',
+      payload: {
+        consented: false,
+        expectedContactVersion: regrantedVersion,
+        noticeVersion: 'v1',
+      },
+      url: `/groups/${groupId}/mobile-phone-consent`,
+    });
+    expect(revoke.statusCode, revoke.body).toBe(200);
+    expect(revoke.json()).toMatchObject({ state: 'not-consented' });
+
+    const otherGroup = await createGroup('candidate-token', 'Candidate other group', '5678');
+    const otherGroupId = (otherGroup.json() as { id: string }).id;
+    const otherStatus = await app.inject({
+      headers: { authorization: 'Bearer candidate-token' },
+      method: 'GET',
+      url: `/groups/${otherGroupId}/mobile-phone-consent`,
+    });
+    expect(otherStatus.statusCode, otherStatus.body).toBe(200);
+    expect(otherStatus.json()).toMatchObject({ state: 'missing-phone' });
+
+    const [auditRows] = await client.database.execute(
+      sql`SELECT action, metadata FROM audit_logs
+          WHERE group_id = ${groupId} AND action LIKE 'mobile_phone_consent_%'
+          ORDER BY occurred_at, id`,
+    );
+    expect((auditRows as unknown as Array<{ action: string }>).map((row) => row.action)).toEqual([
+      'mobile_phone_consent_granted',
+      'mobile_phone_consent_invalidated',
+      'mobile_phone_consent_granted',
+      'mobile_phone_consent_revoked',
+    ]);
+    expect(
+      (auditRows as unknown as Array<{ metadata: Record<string, unknown> }>).every(
+        (row) => typeof row.metadata.contactVersion === 'number',
+      ),
+    ).toBe(true);
+    expect(
+      (auditRows as unknown as Array<{ metadata: Record<string, unknown> }>).every(
+        (row) => typeof row.metadata.fingerprint === 'string',
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(auditRows)).not.toContain('13900000000');
   });
 
   it('keeps exactly one owner when transfer validation fails and when a transfer succeeds', async () => {

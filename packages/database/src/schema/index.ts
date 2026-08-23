@@ -193,6 +193,12 @@ export const groupMemberContacts = mysqlTable(
     mobilePhone: varchar('mobile_phone', { length: 32 }),
     shortPhone: varchar('short_phone', { length: 32 }),
     isConfirmed: tinyint('is_confirmed', { unsigned: true }).default(0).notNull(),
+    mobilePhoneConsentFingerprint: char('mobile_phone_consent_fingerprint', { length: 64 }),
+    mobilePhoneConsentNoticeVersion: varchar('mobile_phone_consent_notice_version', {
+      length: 32,
+    }),
+    mobilePhoneConsentedAt: timestamp('mobile_phone_consented_at', { fsp: 3 }),
+    mobilePhoneConsentRevokedAt: timestamp('mobile_phone_consent_revoked_at', { fsp: 3 }),
     activeMembershipId: char('active_membership_id', { length: 36 }).generatedAlwaysAs(
       sql`if(deleted_at is null, membership_id, null)`,
       { mode: 'stored' },

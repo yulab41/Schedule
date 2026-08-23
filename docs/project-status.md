@@ -2,6 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P5 群组内手机号单独同意（当前 checkpoint）
+
+- 前置与范围：用户已确认 P4 全部完成并允许后续版本直接提交。本批只关闭 P5 最后一项：手机号同意归入群组设置，不放在排班补录；Web 与 Mini 严格沿用已确认 `--phone-consent-390`/320 医疗蓝灰结构。现有完整号码全部默认隐藏，成员必须在每个群组分别自行同意。
+- 引入点：`git log -S`/`git blame` 确认完整成员通讯录测试来自 `6183e9d1`、原始联系人读取来自 `8e42afb8`、管理员确认语义来自 `394b1c87`；calendar raw/confirmed 读取来自 `20407fcf`/`ab250646`；P5 手机号黄金来自 `591ccff6`，Mini 缓存删除完整号码来自 `ad4cfb2c`。旧实现把 `isConfirmed` 当展示门槛，但仍向同群成员和访客日历泄露 raw mobile，且管理员可编辑他人号码。
+- 数据与 API：加法迁移 `0049_mobile_phone_consent_evidence` 在现有 contact 行记录 group-scoped fingerprint、说明版本、同意/撤回时间，不自动授权存量。新增 self-only GET/PUT `/groups/:groupId/mobile-phone-consent`；PUT 使用 header/body 一致的 24h 幂等、contact version 冲突保护和精确旧结果重放。grant/revoke/号码变化 invalidation 均写 append-only audit，metadata 只有 fingerprint/版本/时间证据，无原始手机号。
+- 隐私与权限：fingerprint 绑定 group+membership+规范化号码；有效状态同时要求当前号码、当前说明 v1、同意时间和未撤回。本人 contacts 仍可读取自己的完整号码；其他成员只有有效同意才可读取；认证 calendar 同样只返回有效同意号码；guest/vkey 永不返回 mobile，已确认 short phone 维持旧行为。非本人提交 mobilePhone 一律 403，管理员仍可维护 shortPhone/isConfirmed，但响应和编辑表单不会读取或提交未授权号码。
+- Web/Mini：Web 在所有 active non-guest 的群组管理页首卡加入四态同意卡，跨群 request serial、409 reload 和模糊失败稳定 operationId 均失败关闭；管理员编辑他人资料先用白名单副本剥离 mobile。Mini 新增 `subpackages/organization/pages/group-settings`，入口只在当前非访客群组菜单；复刻 22×22 左侧 checkbox、58px 行、44px 操作和 390/320 compact 边界，无 grid/clamp/media query。页面只接收 masked phone，不缓存号码、同意、请求正文或离线写队列。
+- 测试与门禁：测试先行覆盖缺端点/泄露、权限、grant/revoke/replay/different payload/version、号码/说明变化、跨群、guest/inactive、audit 与客户端四态。相关真实 MySQL 43/43；受控非 DB 169 文件/901 项通过（36 文件/323 项按环境跳过）；Mini 26 文件/136 项；共享/Web 定向 10 文件/187 项及 Mini consent 14 项通过。全仓 typecheck、Lint、production build、client generated check、任务文件 Prettier 和 `git diff --check` 通过；根 `format:check` 仅被用户自有 `project.config.json`、既有 `directory-entry-groups.ts` 与 3 个未跟踪 Storybook 静态目录共 14 文件阻断，均未修改。
+- Mini production：verify 通过 2/2 Worklet，934228 bytes，manifest `2f3f4e5c5bf62eba3cf05735f6751925054f902815f73dd10369991a1c64d5c4`；source/package（main 556870、scheduling 285803、organization 91555）、determinism 与官方 CI dry-run 均通过。原生微信运行真值仍须体验版实体复核。
+- 运行/浏览器验证：`pnpm smoke:browser` 在 4173 当前源码和本地 API 通过管理员、成员、访客 vkey 与访问记录全链路；群组设置 1280/390/320 无横溢且操作区 ≥44px。缺号码 fixture 会临时写入测试号码，实际完成成员授权→管理员 contacts 可见→撤回→立即隐藏，并恢复缺号码/确认原状态；截图目录 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-gWdKMl`。浏览器无 error，Storybook 检查后已恢复开关和视口。
+- checkpoint 与下一批：代码 checkpoint 识别消息为 `feat(groups): add scoped mobile phone consent`；完成 commit/push、production-profile 体验上传、生产备份/0049 部署/`ecs-verify.sh` 后，P5 状态为“已完成（含运行验证）→待实体微信复核”。下一活动批次只进入 P6 核心 v1 的弱网、后台、权限、缓存、性能、隐私和回滚硬化；停止条件是本 checkpoint 的 Git `HEAD`、`origin/main`、体验版和 production release 可追溯且一致，不提前进入 P7。
+
 ## 2026-08-24 P5 Web 同构原子排班补录（当前 checkpoint）
 
 - 前置与范围：用户已确认 P4 全部完成并解除后续 checkpoint 的提交等待；`c0d57729` 状态提交已以备份 `f4aaf98e-e50e-49f5-8eca-f20d8179be00` 同步为生产 `current-release`。本批只完成已确认 `--backfill-390` 黄金对应的原子补录，不实现手机号同意。`frontend-design` 沿用冻结的 Web 医疗蓝灰结构，没有新增视觉方向。

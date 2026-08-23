@@ -13,6 +13,10 @@
     {
       "root": "subpackages/scheduling",
       "pages": ["pages/manual/index", "pages/backfill/index"]
+    },
+    {
+      "root": "subpackages/organization",
+      "pages": ["pages/group-settings/index"]
     }
   ],
   "window": {

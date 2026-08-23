@@ -66,6 +66,7 @@ interface WorkbenchPageData {
   readonly announcement: string;
   readonly buildLabel: string;
   readonly businessMonth: string;
+  readonly canOpenGroupSettings: boolean;
   readonly currentGroupId: string;
   readonly currentGroupName: string;
   readonly currentGroupRole: string;
@@ -152,6 +153,7 @@ Page({
     announcement: '',
     buildLabel: buildInfo.buildLabel,
     businessMonth: initialMonth,
+    canOpenGroupSettings: false,
     currentGroupId: '',
     currentGroupName: '正在读取群组',
     currentGroupRole: '',
@@ -255,6 +257,15 @@ Page({
       weekStart: getWeekStartDate(today),
     });
     void loadWorkbench(this);
+  },
+
+  handleOpenGroupSettings(this: WorkbenchPageInstance): void {
+    if (!this.data.canOpenGroupSettings || this.data.currentGroupId === '') return;
+    const groupId = encodeURIComponent(this.data.currentGroupId);
+    this.setData({ groupOpen: false });
+    wx.navigateTo({
+      url: `/subpackages/organization/pages/group-settings/index?groupId=${groupId}`,
+    });
   },
 
   handleViewChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -566,6 +577,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
     if (!isCurrentRequest(page, requestSerial)) return;
     if (groups.length === 0) {
       page.setData({
+        canOpenGroupSettings: false,
         currentGroupId: '',
         currentGroupName: '暂无可查看的群组',
         groups,
@@ -586,7 +598,7 @@ async function loadWorkbench(page: WorkbenchPageInstance): Promise<void> {
       });
       wx.setStorageSync(WORKBENCH_GROUP_STORAGE_KEY, selectedGroup.id);
     }
-    page.setData({ groups });
+    page.setData({ canOpenGroupSettings: selectedGroup.role !== 'guest', groups });
 
     const requestedMonths = getRequestedMonths(
       page.data.viewMode,
