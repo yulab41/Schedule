@@ -67,7 +67,7 @@
   </view>
 
   <scroll-view
-    class="workbench-scroll"
+    class="workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}"
     style="padding-top:{{shellHeaderHeight}}px"
     scroll-y="{{viewMode !== 'list'}}"
     scroll-with-animation="{{true}}"
@@ -121,6 +121,7 @@
             panels="{{monthPanels}}"
             bind:locatetoday="handleLocateToday"
             bind:monthchange="handleMonthChange"
+            bind:monthrecentered="handleMonthRecentered"
             bind:select="handleDateSelect"
           ></calendar-month>
           <view class="selected-date-details" aria-label="选中日期值班详情">

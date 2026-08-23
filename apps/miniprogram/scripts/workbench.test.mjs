@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  createMonthRecenterBridge,
   createWorkbenchViewModel,
   getTodayBusinessDate,
   getHorizontalSwipeDelta,
@@ -102,10 +103,16 @@ describe('P4 native workbench', () => {
       /\.list-scroll-boundary\s*{[^}]*width:\s*auto;[^}]*height:\s*8px;[^}]*margin:\s*0 -12px;[^}]*background:\s*var\(--ui-color-background\);[^}]*border-bottom:\s*1px solid var\(--ui-color-border\);/s,
     );
     expect(pageStyles).toMatch(
-      /\.list-calendar-heading\s*{[^}]*box-shadow:\s*0 -4px 14px rgba\(22, 32, 42, 0\.06\),\s*var\(--ui-shadow-card\);/s,
+      /\.list-calendar-heading\s*{[^}]*box-shadow:\s*var\(--ui-shadow-card\);/s,
     );
     expect(pageStyles).toMatch(/\.workbench-content\.is-list-mode\s*{[^}]*padding-bottom:\s*0;/s);
-    expect(pageStyles).toMatch(/\.list-panel-scroll\s*{[^}]*padding:\s*0 0 16px;/s);
+    expect(pageStyles).toMatch(/\.list-panel-scroll\s*{[^}]*padding:\s*8px 0 16px;/s);
+    expect(template).toContain(
+      "class=\"workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}\"",
+    );
+    expect(pageStyles).toMatch(
+      /\.workbench-scroll\.is-list-mode\s*{[^}]*padding-bottom:\s*calc\(61px \+ env\(safe-area-inset-bottom\)\);/s,
+    );
     expect(pageStyles).toMatch(/\.list-calendar\s*{[^}]*overflow:\s*visible;/s);
   });
 
@@ -116,7 +123,7 @@ describe('P4 native workbench', () => {
     expect(pageSource).toContain('function startLocateTransition(');
     expect(pageSource).toContain('month.startProgrammaticShift(delta, targetHeight)');
     expect(pageSource).toMatch(
-      /handleMonthChange[\s\S]*?\.setData\(\s*{[\s\S]*?\.\.\.createViewPatch\(this, period\)/s,
+      /handleMonthChange[\s\S]*?const viewPatch = createViewPatch\(this, period\);[\s\S]*?createMonthRecenterBridge/s,
     );
   });
 
@@ -154,6 +161,7 @@ describe('P4 native workbench', () => {
   });
 
   it('queues rapid month and week shifts without stale reads recentering active motion', () => {
+    const template = readSource('pages/workbench/index.wxml');
     const pageSource = readSource('pages/workbench/index.ts');
     const monthSource = readSource('components/calendar/calendar-month/index.ts');
     const readMonthsSource = pageSource.slice(
@@ -167,15 +175,64 @@ describe('P4 native workbench', () => {
 
     expect(monthSource).toContain('_queuedMonthDelta');
     expect(monthSource).toContain('finishPeriodShift');
+    expect(monthSource).toContain('continueQueuedShift');
+    expect(monthSource).toContain(
+      "this.triggerEvent('monthrecentered', { continues: this._queuedMonthDelta !== 0 });",
+    );
     expect(monthSource).not.toMatch(/panels\(this:\s*CalendarMonthInstance\)/u);
+    expect(template).toContain('bind:monthrecentered="handleMonthRecentered"');
+    expect(pageSource).toContain('pendingMonthViewPatch');
+    expect(pageSource).toContain('handleMonthRecentered');
+    expect(pageSource).toContain('createMonthRecenterBridge');
     expect(pageSource).toContain('periodShiftQueue');
     expect(pageSource).toContain('periodShiftCommitPending');
     expect(pageSource).toContain('function continuePeriodShift(');
     expect(pageSource).toContain('async function refreshWorkbenchWindow(');
-    expect(pageSource).toContain('month?.finishPeriodShift?.()');
+    expect(pageSource).toContain('month?.finishPeriodShift !== undefined');
     expect(periodShiftSource).not.toContain('loadWorkbench(');
     expect(readMonthsSource).not.toContain('page.monthResources.set(');
     expect(readMonthsSource).not.toContain('page.monthResources.delete(');
+  });
+
+  it('mirrors the committed month into the active and center slots before recentering', () => {
+    const august = createWorkbenchViewModel(
+      calendarApiGoldenResponse,
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+    );
+    const september = createWorkbenchViewModel(
+      calendarApiGoldenResponse,
+      holidayApiGoldenResponse,
+      '2026-09-22',
+      '2026-09',
+      '2026-09-21',
+    );
+    const heights = (panels) => panels.map((panel) => (panel.cells.length / 7) * 54);
+
+    const next = createMonthRecenterBridge(
+      august.monthPanels,
+      heights(august.monthPanels),
+      september.monthPanels,
+      heights(september.monthPanels),
+      1,
+    );
+    expect(next.monthPanels.map((panel) => panel.key)).toEqual(['2026-07', '2026-09', '2026-09']);
+    expect(next.monthPanels.map((panel) => panel.relative)).toEqual([-1, 0, 1]);
+    expect(next.monthPanels[1]?.cells).toBe(september.monthPanels[1]?.cells);
+    expect(next.monthPanels[2]?.cells).toBe(september.monthPanels[1]?.cells);
+    expect(next.monthPanelHeights[1]).toBe(next.monthPanelHeights[2]);
+  });
+
+  it('resets a previous locate animation when switching week or list views', () => {
+    const pageSource = readSource('pages/workbench/index.ts');
+    const viewChangeSource = pageSource.slice(
+      pageSource.indexOf('handleViewChange('),
+      pageSource.indexOf('handleFilterToggle('),
+    );
+
+    expect(viewChangeSource).toContain('locateIconAnimating: false');
   });
 
   it('keeps the P4 shell read-only and exposes the confirmed navigation states', () => {
@@ -255,10 +312,11 @@ describe('P4 native workbench', () => {
     expect(pageStyles).toContain('@keyframes minimal-dot');
     expect(pageStyles).toContain('@keyframes filter-sheet-enter');
     expect(monthStyles).toContain('@keyframes click-locate');
-    expect(cellStyles).toMatch(
-      /\.calendar-cell\.is-selected::after\s*{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/s,
+    expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
+    expect(monthStyles).toMatch(
+      /\.calendar-cell-slot\.is-selected::after\s*{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/s,
     );
-    expect(cellStyles).not.toMatch(/\.calendar-cell\.is-selected::after\s*{[^}]*inset:\s*1px;/s);
+    expect(cellStyles).not.toContain('.calendar-cell.is-selected::after');
     expect(pageSource).toContain("? 'offline' : 'ready'");
     expect(pageSource).not.toContain('activeResult.calendar.assignments.length === 0');
     expect(pageSource).toContain('commitPeriodShift');
@@ -367,6 +425,30 @@ describe('P4 native workbench', () => {
     ]);
     expect(view.selectedDetails[0]?.rows[0]?.phoneOptions).toEqual([]);
     expect(view.selectedLabel).toBe('8月22日 周六');
+
+    const mixedAllDayView = createWorkbenchViewModel(
+      {
+        ...calendarApiGoldenResponse,
+        assignments: [
+          { ...calendarApiGoldenResponse.assignments[0], shiftTypeAbbreviation: '全天' },
+          {
+            ...calendarApiGoldenResponse.assignments[0],
+            businessDate: '2026-08-23',
+            id: 'assignment-2',
+            shiftTypeAbbreviation: '全',
+          },
+        ],
+      },
+      holidayApiGoldenResponse,
+      '2026-08-22',
+      '2026-08',
+      '2026-08-17',
+    );
+    expect(
+      mixedAllDayView.weekPanels[1]?.days.flatMap((day) =>
+        day.duties.map((duty) => duty.shiftAbbreviation),
+      ),
+    ).toEqual(['全', '全']);
 
     const contactView = createWorkbenchViewModel(
       {

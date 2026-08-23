@@ -9,6 +9,7 @@ import {
   getWeekOfMonthLabel,
   getWeekdayLabel,
   isWeekend,
+  truncateCalendarBadgeLabel,
   type CalendarAssignmentLike,
 } from '@schedule/presentation-core';
 
@@ -136,12 +137,39 @@ export interface WorkbenchViewModel {
   readonly weekPanels: readonly WorkbenchWeekPanel[];
 }
 
+export interface MonthRecenterBridge {
+  readonly monthPanelHeights: readonly number[];
+  readonly monthPanels: readonly WorkbenchPanel[];
+}
+
 export const emptyWorkbenchFilters: WorkbenchFilters = {
   membershipIds: [],
   onlyChanges: false,
   roleIds: [],
   shiftTypeIds: [],
 };
+
+export function createMonthRecenterBridge(
+  currentPanels: readonly WorkbenchPanel[],
+  currentHeights: readonly number[],
+  nextPanels: readonly WorkbenchPanel[],
+  nextHeights: readonly number[],
+  delta: -1 | 1,
+): MonthRecenterBridge {
+  const targetPanel = nextPanels[1];
+  const targetHeight = nextHeights[1];
+  if (currentPanels.length !== 3 || targetPanel === undefined || targetHeight === undefined) {
+    return { monthPanelHeights: nextHeights, monthPanels: nextPanels };
+  }
+  const targetIndex: 0 | 2 = delta < 0 ? 0 : 2;
+  const monthPanels = [...currentPanels];
+  const monthPanelHeights = [...currentHeights];
+  monthPanels[1] = { ...targetPanel, relative: 0 };
+  monthPanels[targetIndex] = { ...targetPanel, relative: delta };
+  monthPanelHeights[1] = targetHeight;
+  monthPanelHeights[targetIndex] = targetHeight;
+  return { monthPanelHeights, monthPanels };
+}
 
 const detailMarkerBadges: Readonly<Record<string, string>> = {
   'leave-cover': '替',
@@ -206,6 +234,9 @@ export function createWorkbenchViewModel(
   });
   const monthLabel = formatMonthLabel(businessMonth);
   const memberById = new Map(calendar.members.map((member) => [member.membershipId, member]));
+  const allDayShiftTypeIds = new Set(
+    calendar.shiftTypes.filter((shiftType) => shiftType.isAllDay).map((shiftType) => shiftType.id),
+  );
   const monthPanels = ([-1, 0, 1] as const).map((relative) => {
     const panelMonth = addMonth(businessMonth, relative);
     return {
@@ -232,7 +263,9 @@ export function createWorkbenchViewModel(
         return {
           businessDate,
           day: businessDate.slice(8),
-          duties: dayAssignments.map((assignment) => createDuty(assignment, memberById)),
+          duties: dayAssignments.map((assignment) =>
+            createDuty(assignment, memberById, allDayShiftTypeIds.has(assignment.shiftTypeId)),
+          ),
           holiday: holiday?.isOffDay === true ? holiday.holidayName.slice(0, 2) : '',
           isHoliday: holiday?.isOffDay === true,
           isPast: businessDate < today,
@@ -264,7 +297,9 @@ export function createWorkbenchViewModel(
         return {
           businessDate: entry.businessDate,
           dateLabel: entry.businessDate.slice(5),
-          duties: entry.assignments.map((assignment) => createDuty(assignment, memberById)),
+          duties: entry.assignments.map((assignment) =>
+            createDuty(assignment, memberById, allDayShiftTypeIds.has(assignment.shiftTypeId)),
+          ),
           dutyCountLabel: `${entry.assignments.length} 班`,
           holiday: holiday?.isOffDay === true ? holiday.holidayName : '',
           isHoliday: holiday?.isOffDay === true,
@@ -293,6 +328,7 @@ export function createWorkbenchViewModel(
 function createDuty(
   assignment: CalendarReadModel['assignments'][number],
   memberById: ReadonlyMap<string, CalendarReadModel['members'][number]>,
+  isAllDay: boolean,
 ): WorkbenchDuty {
   const membershipId = assignment.actualMembershipId ?? assignment.plannedMembershipId ?? '';
   const member = memberById.get(membershipId);
@@ -302,7 +338,9 @@ function createDuty(
     markers: createMarkerList(assignment.changeMarkers),
     name: getAssignmentName(assignment),
     phone: member?.mobilePhone ?? member?.shortPhone ?? '',
-    shiftAbbreviation: assignment.shiftTypeAbbreviation,
+    shiftAbbreviation: isAllDay
+      ? '全'
+      : truncateCalendarBadgeLabel(assignment.shiftTypeAbbreviation),
     shiftColor: assignment.shiftTypeColor,
     shiftTextColor: assignment.shiftTypeTextColor,
   };

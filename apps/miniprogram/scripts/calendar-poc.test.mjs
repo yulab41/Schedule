@@ -82,9 +82,11 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(cellStyles).toMatch(
       /\.calendar-cell\.is-bottom-right\s*\{[^}]*border-bottom-right-radius:\s*17px;/su,
     );
-    expect(cellStyles).toMatch(
-      /\.calendar-cell\.is-selected::after\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/su,
+    expect(monthTemplate).toContain("{{item.isSelected ? 'is-selected' : ''}}");
+    expect(monthStyles).toMatch(
+      /\.calendar-cell-slot\.is-selected::after\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*inherit;[^}]*box-shadow:\s*inset 0 0 0 2px var\(--ui-color-primary\);/su,
     );
+    expect(cellStyles).not.toContain('.calendar-cell.is-selected::after');
     expect(pageTemplate).toContain('class="selected-summary month-selected-summary"');
     expect(pageStyles).toMatch(/\.month-selected-summary\s*\{[^}]*margin-top:\s*12px;/su);
   });
@@ -100,6 +102,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(template).toContain('bindanimationfinish="handleMonthSwipe"');
     expect(template).not.toContain('bindtransition=');
     expect(template).toContain('<swiper-item');
+    expect(template).toContain('wx:key="relative"');
     expect(template).not.toContain('<pan-gesture-handler');
     expect(template).toContain('/assets/icons/web-chevron-left.svg');
     expect(template).toContain('/assets/icons/web-chevron-right.svg');
@@ -184,6 +187,7 @@ describe('P1 native dynamic month calendar PoC', () => {
     expect(durationRestorePendingStates).toEqual([true]);
     expect(instance._monthShiftPending).toBe(false);
     expect(instance._monthHeightTargetIndex).toBeUndefined();
+    expect(triggerEvent).toHaveBeenLastCalledWith('monthrecentered', { continues: false });
   });
 
   it('starts programmatic horizontal and height motion together and queues rapid taps', async () => {
@@ -228,9 +232,51 @@ describe('P1 native dynamic month calendar PoC', () => {
     definition.methods.handleMonthSwipe.call(instance, { detail: { current: 2 } });
     definition.methods.finishPeriodShift.call(instance);
 
+    expect(instance._queuedMonthDelta).toBe(1);
+    expect(instance._monthHeightTargetIndex).toBeUndefined();
+    expect(instance.data.swiperCurrent).toBe(1);
+    expect(instance.triggerEvent).toHaveBeenLastCalledWith('monthrecentered', {
+      continues: true,
+    });
+
+    definition.methods.continueQueuedShift.call(instance);
     expect(instance._queuedMonthDelta).toBe(0);
     expect(instance._monthHeightTargetIndex).toBe(2);
     expect(instance.data.swiperCurrent).toBe(2);
+  });
+
+  it('reads the rapid-tap queue only after the zero-duration recenter finishes', async () => {
+    let definition;
+    vi.stubGlobal('Component', (value) => {
+      definition = value;
+    });
+    await import('../src/components/calendar/calendar-month/index.ts');
+    const callbacks = [];
+    const instance = {
+      _monthHeightTargetIndex: 2,
+      _monthShiftPending: true,
+      _queuedMonthDelta: 0,
+      data: {
+        panelHeights: [270, 324, 270],
+        swiperCurrent: 2,
+        swiperDuration: 240,
+        viewportHeight: 270,
+      },
+      setData: vi.fn((patch, callback) => {
+        Object.assign(instance.data, patch);
+        if (callback !== undefined) callbacks.push(callback);
+      }),
+      triggerEvent: vi.fn(),
+    };
+
+    definition.methods.finishPeriodShift.call(instance);
+    instance._queuedMonthDelta = 1;
+    callbacks.shift()?.();
+    callbacks.shift()?.();
+
+    expect(instance.triggerEvent).toHaveBeenLastCalledWith('monthrecentered', {
+      continues: true,
+    });
   });
 
   it('keeps adjacent cells inert and emits one semantic current-date selection', async () => {

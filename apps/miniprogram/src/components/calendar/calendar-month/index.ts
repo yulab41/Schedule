@@ -22,7 +22,8 @@ interface CalendarMonthInstance {
     readonly swiperDuration: number;
     readonly viewportHeight: number;
   };
-  finishPeriodShift(): boolean;
+  continueQueuedShift(): void;
+  finishPeriodShift(): void;
   startProgrammaticShift(delta: -1 | 1, targetHeight?: number): void;
   setData(patch: Record<string, unknown>, callback?: () => void): void;
   triggerEvent(name: string, detail?: unknown): void;
@@ -107,9 +108,7 @@ Component({
         });
       });
     },
-    finishPeriodShift(this: CalendarMonthInstance): boolean {
-      const queuedDelta = this._queuedMonthDelta;
-      const continues = queuedDelta !== 0;
+    finishPeriodShift(this: CalendarMonthInstance): void {
       this.setData(
         {
           swiperCurrent: 1,
@@ -120,14 +119,17 @@ Component({
           this.setData({ swiperDuration: 240 }, () => {
             this._monthHeightTargetIndex = undefined;
             this._monthShiftPending = false;
-            if (!continues) return;
-            const delta: -1 | 1 = queuedDelta < 0 ? -1 : 1;
-            this._queuedMonthDelta = queuedDelta - delta;
-            this.startProgrammaticShift(delta);
+            this.triggerEvent('monthrecentered', { continues: this._queuedMonthDelta !== 0 });
           });
         },
       );
-      return continues;
+    },
+    continueQueuedShift(this: CalendarMonthInstance): void {
+      const queuedDelta = this._queuedMonthDelta;
+      if (queuedDelta === 0) return;
+      const delta: -1 | 1 = queuedDelta < 0 ? -1 : 1;
+      this._queuedMonthDelta = queuedDelta - delta;
+      this.startProgrammaticShift(delta);
     },
     handlePrevious(this: CalendarMonthInstance): void {
       this.startProgrammaticShift(-1);

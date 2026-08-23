@@ -16,6 +16,7 @@ import {
   writeWorkbenchCache,
 } from '../../platform/workbench-read.js';
 import {
+  createMonthRecenterBridge,
   createWorkbenchViewModel,
   formatDateLabel,
   formatMonthLabel,
@@ -36,6 +37,10 @@ interface TapEvent {
 
 interface MonthChangeEvent {
   readonly detail: { readonly delta: -1 | 1 };
+}
+
+interface MonthRecenterEvent {
+  readonly detail: { readonly continues: boolean };
 }
 
 interface SwiperFinishEvent {
@@ -117,6 +122,7 @@ interface WorkbenchPageInstance {
   holidays: HolidayReadModel | undefined;
   monthLocateTarget: string | undefined;
   monthResources: Map<string, MonthReadResult>;
+  pendingMonthViewPatch: Partial<WorkbenchPageData> | undefined;
   pendingListTarget: string | undefined;
   pendingScrollTarget: string | undefined;
   pendingWeekTarget: string | undefined;
@@ -126,7 +132,8 @@ interface WorkbenchPageInstance {
   requestSerial: number;
   selectComponent(selector: string):
     | {
-        finishPeriodShift?(): boolean;
+        continueQueuedShift?(): void;
+        finishPeriodShift?(): void;
         startProgrammaticShift?(delta: -1 | 1, targetHeight?: number): void;
       }
     | undefined;
@@ -199,6 +206,7 @@ Page({
   holidays: undefined,
   monthLocateTarget: undefined,
   monthResources: new Map<string, MonthReadResult>(),
+  pendingMonthViewPatch: undefined,
   pendingListTarget: undefined,
   pendingScrollTarget: undefined,
   pendingWeekTarget: undefined,
@@ -257,6 +265,7 @@ Page({
       selectedDate: this.data.selectedDate,
       weekStart: nextWeekStart,
     };
+    this.pendingMonthViewPatch = undefined;
     this.periodShiftActive = undefined;
     this.periodShiftCommitPending = false;
     this.periodShiftQueue = 0;
@@ -267,6 +276,7 @@ Page({
       filterOpen: false,
       filterOpenField: '',
       listSwiperCurrent: 1,
+      locateIconAnimating: false,
       periodSwiperDuration: 260,
       viewMode: nextView,
       weekStart: nextWeekStart,
@@ -367,24 +377,40 @@ Page({
       selectedDate,
       weekStart: getWeekStartDate(`${businessMonth}-01`),
     };
+    const viewPatch = createViewPatch(this, period);
+    const finalPatch: Partial<WorkbenchPageData> = {
+      ...viewPatch,
+      ...period,
+      announcement:
+        locateTarget !== undefined
+          ? '已定位到今天。'
+          : event.detail.delta < 0
+            ? '已切换到上个月。'
+            : '已切换到下个月。',
+    };
+    this.pendingMonthViewPatch = finalPatch;
+    const bridge = createMonthRecenterBridge(
+      this.data.monthPanels,
+      this.data.monthPanelHeights,
+      viewPatch.monthPanels ?? this.data.monthPanels,
+      viewPatch.monthPanelHeights ?? this.data.monthPanelHeights,
+      event.detail.delta,
+    );
     this.setData(
       {
-        ...createViewPatch(this, period),
-        ...period,
-        announcement:
-          locateTarget !== undefined
-            ? '已定位到今天。'
-            : event.detail.delta < 0
-              ? '已切换到上个月。'
-              : '已切换到下个月。',
+        ...finalPatch,
+        ...bridge,
       },
       () => {
         const month = this.selectComponent('#workbench-month');
-        const shiftContinues = month?.finishPeriodShift?.() ?? false;
-        flushPendingScrollTarget(this);
-        if (!shiftContinues) void refreshWorkbenchWindow(this);
+        if (month?.finishPeriodShift !== undefined) month.finishPeriodShift();
+        else finalizeMonthRecenter(this, false);
       },
     );
+  },
+
+  handleMonthRecentered(this: WorkbenchPageInstance, event: MonthRecenterEvent): void {
+    finalizeMonthRecenter(this, event.detail.continues);
   },
 
   handleWeekChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -766,6 +792,21 @@ function createViewPatch(
     selectedLabel: view.selectedLabel,
     weekPanels: view.weekPanels,
   };
+}
+
+function finalizeMonthRecenter(page: WorkbenchPageInstance, continues: boolean): void {
+  const finalPatch = page.pendingMonthViewPatch;
+  page.pendingMonthViewPatch = undefined;
+  if (finalPatch === undefined) return;
+  page.setData(finalPatch, () => {
+    flushPendingScrollTarget(page);
+    const month = page.selectComponent('#workbench-month');
+    if (continues && month?.continueQueuedShift !== undefined) {
+      month.continueQueuedShift();
+      return;
+    }
+    void refreshWorkbenchWindow(page);
+  });
 }
 
 function commitPeriodShift(

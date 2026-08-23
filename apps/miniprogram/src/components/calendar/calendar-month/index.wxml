@@ -70,7 +70,7 @@
   >
     <swiper-item
       wx:for="{{panels}}"
-      wx:key="key"
+      wx:key="relative"
       class="calendar-slide-panel"
       aria-hidden="{{item.relative !== 0}}"
     >
@@ -78,7 +78,7 @@
         <view
           wx:for="{{item.cells}}"
           wx:key="businessDate"
-          class="calendar-cell-slot {{item.isBottomRow ? 'is-bottom-row' : ''}} {{item.isBottomLeft ? 'is-bottom-left' : ''}} {{item.isBottomRight ? 'is-bottom-right' : ''}}"
+          class="calendar-cell-slot {{item.isSelected ? 'is-selected' : ''}} {{item.isBottomRow ? 'is-bottom-row' : ''}} {{item.isBottomLeft ? 'is-bottom-left' : ''}} {{item.isBottomRight ? 'is-bottom-right' : ''}}"
         >
           <calendar-cell
             aria-label="{{item.ariaLabel}}"

@@ -1315,6 +1315,10 @@ page {
   overflow: hidden;
 }
 
+.workbench-scroll.is-list-mode {
+  padding-bottom: calc(61px + env(safe-area-inset-bottom));
+}
+
 .workbench-content.is-list-mode .offline-note,
 .workbench-content.is-list-mode .view-controls {
   flex: none;
@@ -1405,7 +1409,7 @@ page {
 .list-panel-scroll {
   height: 100%;
   box-sizing: border-box;
-  padding: 0 0 16px;
+  padding: 8px 0 16px;
 }
 
 .list-calendar {
@@ -1431,9 +1435,7 @@ page {
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-medium);
-  box-shadow:
-    0 -4px 14px rgba(22, 32, 42, 0.06),
-    var(--ui-shadow-card);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .list-scroll-boundary {
