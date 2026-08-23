@@ -13,7 +13,9 @@
 - 运行验证：Mini/Web typecheck、Mini production verify（2/2 Worklet，370126 bytes，manifest `8d3fb688176fb370f6660a51236f8cdc90d1f42c9726a0d3f86d443bfc8e72e0`）、Mini production build（112 文件）、Web production build、任务文件 Prettier 通过；Web build 仅有既有大 chunk warning。
 - 运行/浏览器验证：390×844 当前 Web 源码实测月视图相邻月姓名首屏存在、底行蓝框完整、无横向溢出；列表严格为 8 月 1–31 日共 31 项，定位后 `scrollY=2466`，月/周/列表工具栏固定于 68–130px、筛选栏固定于 130–216px，目标行平滑滚至可见区域，console error/warning 为 0。`pnpm smoke:browser` 指向本地 6012 时在管理员工作台因本地既有 `/calendar-preferences` 返回 500 停止；该 API/偏好链路不在本轮 diff，定向 UI 浏览器验证已通过。
 - 行为变化清单：保留空月导航；折叠筛选；Web 路径图标与分层动效；底行选择框层级；拖动期月高同步；周序/日期格式；取消反跳；列表固定控制条；相邻月姓名无延迟及 Web 同步。checkpoint 识别消息：`fix(calendar): stabilize p4 mobile navigation`。
-- 状态：已实现待实体 Android/微信复核；发布体验版后暂停，用户确认前不进入 P5。
+- 发布：代码 checkpoint `3fc4161`（`fix(calendar): stabilize p4 mobile navigation`）已推送；production-profile 体验版 `0.1.0-p4.20260823.60` 上传成功，63 个代码文件，manifest `c937f97a8127147a9b0b9977ba683e1b1d19332ed7afac544f049c436b9d51dd`，未审核/正式发布。代码发布前加密备份 archive `3421dc2d-4581-4132-a259-8db5bdc3f88f`（54 表、162537 行、76671592 bytes，SHA-256 `5ed33819c65d26c93ac97e4037287a0fb7fd6d91951a648a4f133c3e3f7846e6`）后部署 release `3fc41610c2e52eb09a98a674dcd77b398d0ca82f`，`ecs-verify.sh` 全项通过。
+- 正式域名复核：390px 月历上下月姓名均在首屏数据中；列表严格为 `2026-08-01` 至 `2026-08-31` 共 31 条。点击定位后 `scrollY=2703`，月/周/列表工具栏固定于 68–130px、列表工具栏固定于 130–216px，今天行位于 433–556px；横向溢出为 0，未触发业务写入。
+- 状态：已完成（含运行验证、体验上传、生产发布和正式域名只读复核）→待实体 Android/微信复核；用户确认前不进入 P5。最终状态 checkpoint 识别消息为 `docs(status): record p4 calendar stabilization release`。
 
 ## 2026-08-23 P4 生产 Web 动效与筛选对齐
 
