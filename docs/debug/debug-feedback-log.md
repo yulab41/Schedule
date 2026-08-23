@@ -8,7 +8,7 @@
 - 测试先行与实现：circular 稳定物理槽、finish 禁止写 current/duration、2→0 连续切月、逻辑月槽映射、列表内容内 8px、末卡零尾距、分割带无第二阴影和边界实体 border 契约在旧实现失败。实现删除所有月历回中 patch，0/1/2 槽按当前月循环映射并只更新屏幕外槽；列表间距落在 `.list-panel-content`，宿主无 padding，最后一卡贴底且保留原滚动位置；蓝框以 2px border 覆盖 1px grid border，最右/底边采用无 border 的 0 偏移。
 - 语义审计：月份、日期、定位、五六行高度、240ms 曲线、快速队列、列表滚动目标、缓存/预取、request serial、Promise catch、只读 GET 和业务写入不变；同一视图重复点击直接返回，防止存活组件槽位被外部重置。截图视觉审查沿用既有医疗蓝灰令牌，没有增加新装饰。
 - 验证：定向 30/30；隔离 `e1d4c54` + 当前 10 文件的 Mini 18 文件/95 项、typecheck、production verify（413828 bytes，manifest `bb67cc585828b1db8b4d5b5c4a2b8d698fe7172057df0666eb09aba8e9c5dc0b`）、CI dry-run、核心门禁、ESLint/Prettier 与 diff check 通过。主工作区并行 P5 类型扩展造成的无关 typecheck 失败已隔离，用户文件未修改。checkpoint：`fix(miniprogram): remove native calendar recentering`。
-- 发布计划：`9045dc02` 的 production-profile `.72` 已上传但不部署；按补充截图撤销滚动目标清空后上传 `.73`，不提审/正式发布，再执行生产备份/部署/验证。
+- 发布：代码 checkpoint `9045dc02` 与截图纠正 checkpoint `4761c31f` 已推送；`.72` 被纠正版替代。精确 `4761c31f` worktree 18 文件/95 项、typecheck、production verify（417342 bytes，manifest `b74c809eeda554367987abfbe052526dc89ac988ec672f0b9b0418db2015295c`）和 CI dry-run 通过，production-profile `.73` 上传成功（63 文件，manifest `e71bf2064a15fbb87b27e69994fee6bc8e54763ed93357f77d9e981a73c2f302`），未提审/正式发布；首次 IPv6 白名单拒绝未形成版本，幂等重传成功。生产备份 archive `72616c10-7478-48ab-8a07-af09fdf8e21f`（54 表、162562 行、76687108 bytes，SHA-256 `a3e8b5fa19e020b56a5fc43e638663d1944f670b97dcb40831bcb60beb6a7d8f`）后部署 release `4761c31f20232b68857ffdb9b458600071c65943`；首次 SSH 连接超时未执行任何远端步骤，重连后备份/部署。预热首个 502 后恢复，`ecs-verify.sh` 全项通过，远端临时目录已清理。最终状态 checkpoint：`docs(status): record circular calendar deployment`。
 
 ## 2026-08-23 P4 月历反跳、全日缩写与列表边界回归
 
