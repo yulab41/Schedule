@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7-B 工作流 Storybook 全状态黄金
+
+- 来源/范围：production leave/swap/duty=`0d5ec55c/b20ff9b8/5d8b205a`，seed=`b903c6dc`；只做真实HomeView+production panels的P7黄金与一处44px生产样式，不改Mini源码/API/DB/capability。
+- 红绿：缺production复用/20态/manifest先3红；浏览器发现TDesign未注册后新增回归再红；请假重排预览按钮32px后新增触控断言再红。实现Storybook全局Web TDesign注册、fixture fail-closed装配和按钮44px后4/4转绿。Web没有弃用TDesign；Mini仍禁止任何TDesign/第三方UI运行时。
+- 状态：20 stories覆盖三工作流、成员/群主、list/form/approval/preview/conflict/direct/settings、全部状态及empty/error/loading，390/320精确ID已写入黄金清单。fixture只在story iframe替换fetch/auth，卸载恢复；没有第二套workflow-card。
+- 浏览器/验证：最终静态Storybook 20/20 ready；未知TDesign、装配错误、console warn/error、页面/panel/Sheet横溢、低于44px工作流按钮均为0。截图artifact=`schedule-p7-workflow-golden-7cbb`。定向47、non-integration984、Web typecheck/build、Storybook build、Prettier/ESLint通过；下一步checkpoint=`feat(storybook): freeze p7 workflow parity states`，随后仅做P7-C原生请假。
+
 ## 2026-08-24 P7-A 工作流危险写与共享客户端
 
 - 来源/红绿：leave=`0d5ec55c`、swap=`b20ff9b8`、duty=`5d8b205a`、mutation骨架=`beae8e84/7fcd6ae4/e5608cf3`。contract、19个危险route、38端点client-core、Web delegation、深冻结attempt和四panel wiring测试均先失败后通过。

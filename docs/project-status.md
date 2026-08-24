@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7-B 工作流 Storybook 全状态黄金（待 checkpoint）
+
+- 基线/范围：Git/origin/production均为`7cbb171c`、DB51；本批只从真实`HomeView`和production `LeavePanel/LeaveApprovalDialog/SwapPanel/DutyAdjustmentPanel`固化P7视觉状态，不写Mini WXML/WXSS/TS、不启用workflows capability、不改API/DB。生产面板及seed来源分别为`0d5ec55c`/`b20ff9b8`/`5d8b205a`和`b903c6dc`；`git log -S`/blame已逐项定位。
+- 设计/组件边界：`frontend-design`审查服从用户“1:1 Web手机版”固定方向，不创建新配色、字体或第二套简化卡片；继续使用Web生产TDesign Vue、系统字体和蓝灰令牌，工作流状态→信息→动作层级是唯一视觉强调。Storybook全局注册现有TDesign插件只是为了真实渲染生产组件；Mini仍严格禁止TDesign MiniProgram/第三方UI，后续只用原生WXML/WXSS和自绘组件复刻。
+- 黄金实现：新增一个fixture fetch/harness和20个精确Storybook ID，覆盖leave/swap/duty的成员/群主、mine/review、list/create/approval/preview/conflict/direct/settings、`pending/approved/rejected`与`pending_target/pending_approval/completed/rejected/cancelled/revoked`、empty/error/loading及390/320。harness先加载真实Home shell，再按真实“更多”导航、TDesign select和ResponsiveSheet交互装配目标状态；缺route/装配超时显式失败，不以静态仿制替代。
+- 测试先行/修正：缺生产复用、全状态和清单映射先3/3红；真实浏览器随后发现Storybook移除auto-import后把TDesign标签当未知元素，新增全局TDesign注册回归先红后绿。20态几何审计唯一发现请假审批“生成重排预览”仍为32px；blame到`3f6a15ac`，新增44px断言先红后只补`min-height`，无文案/事件/API/调用次数变化。
+- 验证：P7定向10 files/47 tests、主工作区非integration 189 files/984（25 skip）、Web typecheck/production build、任务Prettier/ESLint和最终静态Storybook build通过。最终静态产物逐20态浏览器验证为unknown TDesign=0、stage error=0、console warn/error=0、页面/panel/Sheet横溢=0、工作流与Sheet按钮<44px=0，preview/conflict/direct均真实装配；390/320视觉证据在系统临时artifact`schedule-p7-workflow-golden-7cbb`。本批未触及核心Web链路，无需完整`pnpm smoke:browser`，提交前仍运行`pnpm smoke:check-core`。
+- 语义/下一批：唯一生产变化是重排预览按钮高度32→44px；fixture仅Storybook iframe内替换fetch/localAuth并在卸载恢复，不进入production bundle或写外部状态。checkpoint识别消息为`feat(storybook): freeze p7 workflow parity states`。下一活动批次只做P7-C原生请假垂直切片（controller/ViewModel、页面、导航失败关闭和全状态），保持workflows capability关闭，不提前实现换班/加扣班或进入P8。
+
 ## 2026-08-24 P7-A 工作流危险写与共享客户端边界（代码已部署）
 
 - 基线/来源：P7审计`3dd3c0fe`已与Git/origin/production对齐、DB51；leave/swap/duty来源`0d5ec55c`/`b20ff9b8`/`5d8b205a`，事务幂等骨架`beae8e84`/`7fcd6ae4`/`e5608cf3`。本批只完成安全与Web-first共享边界，不写Mini WXML/WXSS、不启用workflows capability或改DB。

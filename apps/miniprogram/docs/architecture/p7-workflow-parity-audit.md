@@ -2,9 +2,9 @@
 
 ## 结论
 
-P7 不需要重写后端领域模型。现有 Web/API 已完整覆盖请假、换班、加扣班、审批、拒绝、取消、完成后撤销、冲突、事件和通知写入；Mini 的缺口是共享客户端边界、完整 Storybook 状态黄金、原生 `subpackage-workflows` 页面、工作台导航和 `workflows` capability 发布。
+P7 不需要重写后端领域模型。现有 Web/API 已完整覆盖请假、换班、加扣班、审批、拒绝、取消、完成后撤销、冲突、事件和通知写入；P7-A 已关闭共享客户端与危险写幂等缺口，P7-B 已用真实 `HomeView` 和 production panels 固化完整 Storybook 状态黄金。Mini 剩余缺口是原生 `subpackage-workflows` 页面、controller/ViewModel、工作台导航和 `workflows` capability 发布。
 
-第一实施批不能直接写 WXML。必须先补齐危险写幂等入口与跨端 decoder：请假新建目前没有客户端 operation id；换班/加扣班虽把 operation id 放在 body 并由服务幂等执行，但路由没有统一校验 `Idempotency-Key` header/body 一致性。Mini 网络结果不明确时若没有这层边界，将无法安全重放。
+P7-A/B 已完成并通过真实 MySQL、Web/Storybook build 和 390/320 浏览器自检；下一实施批才允许从请假原生垂直切片开始，继续禁止把 Web/TDesign 运行时带入 Mini。
 
 ## 权威来源与引入点
 
@@ -69,15 +69,14 @@ P7 不需要重写后端领域模型。现有 Web/API 已完整覆盖请假、�
 ## Mini 当前缺口
 
 1. `app.json` 没有 `subpackages/workflows`，工作台三项导航仍 `is-disabled + handleUnavailable`。
-2. `@schedule/client-core` 没有 leave/swap/duty endpoint、compact decoder、golden response 或 Web 委托；Mini 不能安全解析真实响应。
-3. Mini 没有工作流 controller/ViewModel、operation freeze、409刷新、前后台 serial、loading/error/empty/success 状态。
-4. production `MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED=false`；`.81` 只能 core，不能调用工作流路由。
-5. 请假 create 没有 operation id/idempotent service；三类危险路由没有统一 header/body operation id 门禁。
-6. Storybook 只有请假/换班/加扣班 seed 画面，没有所有角色、状态、弹层、冲突和320边界的 P7 专用黄金。
+2. Mini 没有工作流 controller/ViewModel、operation freeze、409刷新、前后台 serial、loading/error/empty/success 状态。
+3. production `MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED=false`；`.81` 只能 core，不能调用工作流路由。
+
+已关闭：client-core 的 38 个 workflow endpoint/compact decoder/Web 委托、19 个危险写 header/body 门禁、leave create 幂等，以及 20 个 production-panel Storybook 390/320 黄金状态。
 
 ## 冻结实施顺序
 
-### P7-A 安全与共享客户端边界
+### P7-A 安全与共享客户端边界（已完成）
 
 - 为 leave create 增加 operation id、规范 fingerprint 和 `runAuthorizedMutation`；同 key同payload重放，同 key异payload 409。
 - 所有 workflow dangerous writes 用 `resolveDangerousOperationId` 强制 `Idempotency-Key` 与 body 一致；Web 先改为冻结同一 operation id/header，网络结果不明确保留。
@@ -86,7 +85,7 @@ P7 不需要重写后端领域模型。现有 Web/API 已完整覆盖请假、�
 
 停止条件：相关 contracts/client/Web/API 单测先红后绿，真实 MySQL leave/swap/duty/notification 全绿，浏览器 smoke 通过；不写 Mini WXML。
 
-### P7-B Storybook 完整状态黄金
+### P7-B Storybook 完整状态黄金（已完成）
 
 - 使用 `frontend-design`，从 production Web 手机版固化 leave/swap/duty 的390/320、成员/管理员、列表/表单/preview/冲突/确认/错误/空状态。
 - 用户已明确要求不再询问 UI 设计并固定1:1 Web手机版；该指令视为视觉方向确认，但仍必须执行截图/几何/溢出自检。

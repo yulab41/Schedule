@@ -261,7 +261,12 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
               getReflowStrategyLabel(groupDefaultStrategy)
             }}；管理员可先通过换班、加扣班或手动排班完成安排，再选择顺延或保持原顺序重排。
           </p>
-          <t-button variant="outline" :loading="isPreviewing" @click="refreshPreview">
+          <t-button
+            class="strategy-preview-action"
+            variant="outline"
+            :loading="isPreviewing"
+            @click="refreshPreview"
+          >
             生成重排预览
           </t-button>
         </template>
@@ -382,6 +387,10 @@ function navigate(tab: 'duty' | 'manual' | 'swap'): void {
   color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
   line-height: var(--ui-line-height-normal);
+}
+
+.strategy-preview-action {
+  min-height: var(--ui-touch-target-minimum);
 }
 
 .affected-count {

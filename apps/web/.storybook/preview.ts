@@ -1,8 +1,11 @@
-import type { Preview } from '@storybook/vue3-vite';
+import { setup, type Preview } from '@storybook/vue3-vite';
+import TDesign from 'tdesign-vue-next';
 
 import 'tdesign-vue-next/es/style/index.css';
 import '../src/styles/tokens.css';
 import './storybook.css';
+
+setup((app) => app.use(TDesign));
 
 const preview: Preview = {
   parameters: {
