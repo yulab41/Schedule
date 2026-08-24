@@ -9,6 +9,8 @@
 - 红绿：Mini picker/leave/static 旧实现 7 项失败后转绿；自然日边界和跨午夜重开表单在 Mini/API/Web 旧实现分别失败后通过。最终 Mini 44 files/252、Web 100 files/598、API 35 files/148 通过，API 33 files/311 数据库集成按本机无数据库配置跳过；Mini/Web/API typecheck、Web/API/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 lint/format/diff/core smoke 通过。Mini 2/2 Worklet、3,034,245 bytes、manifest `e2a350b2e6e467aa79ad03c02cfa1ed45cf4d477869d8fec5097655d97dc5bc6`，仅既有 600 格 warning。体验上传与生产部署待本 checkpoint 收口。
 - 语义审计：selector 只延迟可见性，不改 open/选择事件；wheel 只改显示吸附进度与完成时机，完成/取消 payload 不变；日期定位不提前 emit；冲突列表只拆分展示字段；自然日守卫仅收紧请假日期，不改变排班业务日、事务、权限、幂等、409/弱网和写次数。
 - 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 无服务未进入断言；改用 127.0.0.1:4173 + dev auth 后两次均在既有周视图左切换按下态断言停止，未到本轮请假页。应用内浏览器 390×844 专项确认 Web 请假表单无横溢、空态为灰色、起止日期触发器完整，开始日期选择器 1–23 日禁用、24 日为首个可选自然日，console warn/error=0；未提交业务写入，临时 API/Web 已关闭。`pnpm smoke:check-core` 通过并确认本轮未触及其定义的核心链路路径。
+- 体验/生产：`0975b2d1` 已推送；`.94@0975b2d` 官方上传 96 files/zip 792699/manifest `cb9e7a63…3f64`，未提审/正式发布。备份 `d289468d-c317-4dbd-982b-fb1697ad2955`（54 表/166064 行/78003772 bytes/SHA `7726622f…36fa`）后部署同 release，预热 1 次 502 恢复、privacy 0/0；双锁追加 `.94`，`.93/.94` 200、partial/unknown 426、`.94` core/workflows=true、env root/600、ECS_PUBLIC_IP full verifier 通过。
+- 生产数据修复：徐漫彬 `8125ca23…` 仍为 active/approved 且无 revoke；备份 `f8878d42-1c05-4d9a-88dc-4a4e90ed1c5e`（54 表/166111 行/78019548 bytes/SHA `f2e06a69…b452`）后，单事务软删除 1 行、version 2→3、追加 1 条系统 `leave_request_revoked` 事件；既有 cover 审计/排班格不改，8/10、8/16、8/22 marker projection 均为 0。修复后 full verifier 通过、远端 temp 已删。
 
 ## 2026-08-24 P7 `.92` 请假日期与历史标识修复
 

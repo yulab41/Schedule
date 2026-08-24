@@ -2,12 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7 实体反馈修复候选 `.94`（已实现待上传/生产部署）
+## 2026-08-24 P7 实体反馈修复候选 `.94`（已开放体验并部署，待实体复核）
 
 - 范围：收口本轮 5 项反馈——请假 Sheet/冲突列表 Web 对齐、一行日期与 44px 原因框、日期横滑/当天定位；selector 向上定位无闪现；年月滚轮平滑吸附；周视图姓名加粗；Web/Mini/API 禁止中国标准时间自然日今天以前的请假，并隐藏已取消请假的 `leave-cover` 标识。不进入 P8，不提审/正式发布。
 - 引入点/实现：message/list=`bc32a4f1`，Sheet 日期=`c1b9536a`，reason=`80ddadf0`，placement=`c1b9536a`，snap=`80ddadf0/c1b9536a`，周姓名=`50c6d1ed`，日期横滑=`b5603189`，历史保护=`18d2a2ea`。selector 测量期不可见；wheel 字体随真实 scrollTop 连续更新并以 scrollend 收口；日期 picker 复用月视图定位动效；自然日与 08:00 排班业务日分离。
-- 验证：Mini 44 files/252 tests、Web 100 files/598 tests、API 35 files/148 tests 通过（33 files/311 数据库集成按本机无数据库配置跳过）；Mini/Web/API typecheck、Web/API/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 ESLint/Prettier、`git diff --check`、`smoke:check-core` 通过。Mini 2/2 Worklet、3,034,245 bytes、manifest `e2a350b2e6e467aa79ad03c02cfa1ed45cf4d477869d8fec5097655d97dc5bc6`，仅既有 600 格矩阵 best-effort warning。完整 browser smoke 两次均被既有周视图左切换按下态断言阻断；应用内浏览器 390×844 请假专项确认过去日禁用、灰色提示、无横溢、console 0，未业务写入。上传、备份、部署、allowlist 与徐漫彬历史记录只读复核尚待执行。
-- checkpoint/下一批：代码 checkpoint 识别消息 `fix(workflows): refine p7 feedback interactions`；显式审查 diff 后提交并推送，从持久发布 worktree 上传体验版；生产备份后部署并原子加入 `.94` allowlist，运行 full verifier 与历史标识只读复核后停止，等待实体复核。
+- 验证：Mini 44 files/252 tests、Web 100 files/598 tests、API 35 files/148 tests 通过（33 files/311 数据库集成按本机无数据库配置跳过）；Mini/Web/API typecheck、Web/API/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 ESLint/Prettier、`git diff --check`、`smoke:check-core` 通过。Mini 2/2 Worklet、3,034,245 bytes、manifest `e2a350b2e6e467aa79ad03c02cfa1ed45cf4d477869d8fec5097655d97dc5bc6`，仅既有 600 格矩阵 best-effort warning。完整 browser smoke 两次均被既有周视图左切换按下态断言阻断；应用内浏览器 390×844 请假专项确认过去日禁用、灰色提示、无横溢、console 0，未业务写入。
+- 体验/生产：代码 checkpoint `0975b2d1` 已推送；官方 Summer 上传 `.94@0975b2d` 成功（96 code files、zip 792,699 bytes、manifest `cb9e7a63e7e8cef5bb36290bddb122b156d6089f9affb54fbc07df8402aa3f64`），未提审/正式发布。部署前加密备份 `d289468d-c317-4dbd-982b-fb1697ad2955`（54 表、166,064 行、78,003,772 bytes、SHA-256 `7726622fc573a1f57aa3d5dd7ca064e68e5e82a94f778f7ab861280940f336fa`）后部署 release `0975b2d1f5157eacb7e8661864f1e25bd7b5b5f6`；预热一次 502 后恢复、privacy 0/0。双锁原子追加 `.94` 并同时 recreate api/web；`.93/.94` 200、`.84-duty`/unknown 426，`.94` core/workflows=true，env root/0600，ECS_PUBLIC_IP full verifier/health 200 通过。
+- 数据修复：只读核对确认徐漫彬历史请假 `8125ca23…` 仍为 active/approved 且无撤销事件。修复前再次备份 `f8878d42-1c05-4d9a-88dc-4a4e90ed1c5e`（54 表、166,111 行、78,019,548 bytes、SHA-256 `f2e06a6947689b5850b11efbfc0aa4315b105b1b783c9a1358f6160cbaa4b452`）；单事务软删除 1 行、version 2→3，并追加 1 条 `leave_request_revoked` 系统修复事件，既有 cover 审计和排班格不改。8/10、8/16、8/22 三班的 `visible_leave_cover_marker=0`；修复后 full verifier 再通过，远端 temp 已删。
+- checkpoint/下一批：最终状态 checkpoint 识别消息 `docs(status): record p7 feedback deployment`；该 docs-only commit 仍须备份保护、推送并同步为 production release，使 Git/origin/server 对齐后停止，只等待用户在 `.94@0975b2d` 实体复核，不进入 P8。
 
 ## 2026-08-24 P7 请假日期与历史标识修复候选 `.92`（已实现待体验上传/生产部署）
 
