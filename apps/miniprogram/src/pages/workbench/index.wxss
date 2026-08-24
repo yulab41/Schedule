@@ -30,11 +30,22 @@ page {
 .embedded-workspace,
 .more-workspace {
   position: absolute;
-  z-index: 1;
-  inset: 0 0 calc(var(--ui-layout-bottom-nav-height) + env(safe-area-inset-bottom));
+  top: var(--workspace-top);
+  right: 0;
+  bottom: calc(var(--ui-layout-bottom-nav-height) + env(safe-area-inset-bottom));
+  left: 0;
   box-sizing: border-box;
-  overflow: hidden;
   background: var(--ui-color-background);
+}
+
+.embedded-workspace {
+  z-index: 60;
+  overflow: visible;
+}
+
+.more-workspace {
+  z-index: 1;
+  overflow: hidden;
 }
 
 .embedded-workspace workflow-leave-panel,
@@ -933,6 +944,7 @@ page {
   bottom: 0;
   left: 0;
   display: flex;
+  height: calc(var(--ui-layout-bottom-nav-height) + env(safe-area-inset-bottom));
   min-height: var(--ui-layout-bottom-nav-height);
   padding: 5px 6px env(safe-area-inset-bottom);
   box-sizing: border-box;
@@ -945,6 +957,7 @@ page {
 
 .bottom-nav-item {
   width: 20%;
+  height: 56px;
   min-height: 56px;
   padding-top: 4px;
   box-sizing: border-box;

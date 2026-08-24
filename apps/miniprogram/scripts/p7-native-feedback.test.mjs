@@ -14,6 +14,7 @@ describe('P7 physical-device feedback regressions', () => {
   it('keeps the workbench shell mounted while switching calendar, leave, swap, duty, and more', () => {
     const controller = read('pages/workbench/index.ts');
     const template = read('pages/workbench/index.wxml');
+    const styles = read('pages/workbench/index.wxss');
     const pageJson = JSON.parse(read('pages/workbench/index.json'));
 
     expect(controller).toContain("activeWorkspace: 'calendar'");
@@ -27,8 +28,20 @@ describe('P7 physical-device feedback regressions', () => {
     expect(template).toContain('<workflow-leave-panel');
     expect(template).toContain('<workflow-swap-panel');
     expect(template).toContain('<workflow-duty-panel');
-    expect(template).toContain("activeWorkspace === 'calendar'");
+    expect(template).toContain('hidden="{{activeWorkspace !== \'calendar\'}}"');
+    expect(template).toContain('wx:if="{{workflowPanelsMounted}}"');
+    expect(template).toContain('hidden="{{activeWorkspace !== \'leave\'}}"');
+    expect(template).toContain('hidden="{{activeWorkspace !== \'swap\'}}"');
+    expect(template).toContain('hidden="{{activeWorkspace !== \'duty\'}}"');
+    expect(template).not.toContain('wx:elif="{{activeWorkspace === \'leave\'}}"');
+    expect(controller).toContain('workflowPanelsMounted: false');
+    expect(controller).toContain('workflowPanelsMounted: shouldMountWorkflowPanels');
+    expect(controller).toMatch(
+      /handleCalendarNav[\s\S]*activeWorkspace !== 'calendar'[\s\S]*activeWorkspace: 'calendar'/u,
+    );
     expect(template).toContain("activeWorkspace === 'more'");
+    expect(styles).toMatch(/\.bottom-nav\s*\{[^}]*height:\s*calc\(/su);
+    expect(styles).toMatch(/\.embedded-workspace\s*\{[^}]*overflow:\s*visible/su);
     expect(pageJson.usingComponents).toMatchObject({
       'workflow-duty-panel': '/subpackages/workflows/components/workflow-duty-panel/index',
       'workflow-leave-panel': '/subpackages/workflows/components/workflow-leave-panel/index',
@@ -71,18 +84,35 @@ describe('P7 physical-device feedback regressions', () => {
       expect(template).toContain('<workflow-picker');
     }
     for (const jsonPath of pageJsonPaths) {
-      expect(JSON.parse(read(jsonPath)).usingComponents).toMatchObject({
+      const componentJson = JSON.parse(read(jsonPath));
+      expect(componentJson.styleIsolation).toBe('apply-shared');
+      expect(componentJson.usingComponents).toMatchObject({
         'workflow-picker': '/subpackages/workflows/components/workflow-picker/index',
       });
     }
+    expect(
+      JSON.parse(read('subpackages/workflows/components/workflow-picker/index.json'))
+        .styleIsolation,
+    ).toBe('apply-shared');
     const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
     const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
     expect(pickerTemplate).toContain('class="workflow-picker-sheet"');
+    expect(pickerTemplate).toContain('class="workflow-picker-selector-popover"');
+    expect(pickerTemplate).toContain("open && mode !== 'selector'");
+    expect(pickerTemplate).toContain('class="workflow-picker-summary"');
+    expect(pickerTemplate).toContain('class="workflow-picker-date-navigation"');
+    expect(pickerTemplate).toContain('class="workflow-picker-date-grid"');
     expect(pickerTemplate).toContain('<picker-view');
     expect(pickerTemplate).toContain("item.isWeekend ? 'is-weekend' : ''");
     expect(pickerTemplate).toContain('取消');
     expect(pickerTemplate).toContain('完成');
     expect(pickerStyles).toContain('.workflow-picker-option.is-weekend');
     expect(pickerStyles).toContain('color: var(--ui-color-danger)');
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-sheet\s*\{[^}]*right:\s*12px;[^}]*bottom:\s*max\(12px,/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-selector-popover\s*\{[^}]*position:\s*absolute;[^}]*max-height:\s*240px;/su,
+    );
   });
 });

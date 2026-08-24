@@ -71,7 +71,7 @@ P7-A/B 已完成并通过真实 MySQL、Web/Storybook build 和 390/320 浏览�
 1. `subpackages/workflows` 已注册请假、换班、加扣班三个原生页面；工作台与页内底栏三项真实互转，guest/disabled/deep link失败关闭。
 2. 三页 controller/ViewModel 已覆盖operation freeze、409刷新、前后台serial、loading/error/empty/success、成员/管理员、preview/direct/revoke与设置；离线只读且没有写队列。
 3. client-core 的38个workflow endpoint/compact decoder/Web委托、19个危险写header/body门禁、leave create幂等和20个production-panel Storybook 390/320黄金均已关闭。
-4. `.85` 已完成首轮 RC 上传并收到实体反馈；剩余门槛是反馈修复候选 `.86` 的上传、production allowlist/回滚探测，以及用户实体 Android P7 复核；明确通过前不进入 P8。
+4. `.85/.86` 已完成两轮 RC 上传并收到实体反馈；剩余门槛是交互稳定性修复候选 `.87` 的上传、production allowlist/回滚探测，以及用户实体 Android P7 复核；明确通过前不进入 P8。
 
 ## 冻结实施顺序
 
@@ -95,7 +95,7 @@ P7-A/B 已完成并通过真实 MySQL、Web/Storybook build 和 390/320 浏览�
 2. 换班：跨月候选、preview/提交、接受/拒绝/取消/审批/direct/revoke、设置。
 3. 加扣班：候选、原因、preview/提交、接受/拒绝/取消/审批/direct/revoke、设置。
 4. 注册 `subpackages/workflows`，工作台底栏启用三项真实导航；guest/disabled/deep link失败关闭。
-5. 完整 P7 候选固定为`0.1.0-p7.20260824.86`；`.82-leave/.83-swap/.84-duty`仅用于逐切片可追溯上传，部分切片候选永不加入 production allowlist；`.85` 是首轮完整 RC，已被实体 UI/交互反馈修复版 `.86` 取代。`.86` 上传、代码部署、自动 RC 和回滚探测通过后，才在 release 锁下原子加入 allowlist；旧版本继续保留自身 UI 行为，不新增离线写队列。
+5. 完整 P7 候选固定为`0.1.0-p7.20260824.87`；`.82-leave/.83-swap/.84-duty`仅用于逐切片可追溯上传，部分切片候选永不加入 production allowlist；`.85/.86` 是前两轮完整 RC，已被实体 UI/交互稳定性修复版 `.87` 取代。`.87` 上传、代码部署、自动 RC 和回滚探测通过后，才在 release 锁下原子加入 allowlist；旧版本继续保留自身 UI 行为，不新增离线写队列。
 
 ### P7 RC
 

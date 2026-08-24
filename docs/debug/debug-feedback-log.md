@@ -1074,3 +1074,10 @@
 - 语义等价审计：工作流 API、危险写 operation snapshot、错误/重试、独立深链页面保持原控制器行为；中央切换只改变挂载位置。联系方式是用户明确要求的独立策略变化，不伪装为重构；管理员仍不能代替成员关闭/开启，主动关闭跨手机号变更继续保留。过期撤销增加服务端只读呈现门禁与 Mini 防御门禁，真实 revoke API 原有拒绝保持不变。
 - 运行/浏览器验证：Mini typecheck、production verify（2/2 Worklet、2,836,191 bytes、manifest `ab55e4a609f6369ae7940316c3db13e95c6d41467d97bb14938505cfbd4276c1`）、无凭据 CI dry-run、任务 Prettier/ESLint、`git diff --check` 与 `node scripts/smoke-browser.mjs --check-core` 通过；未触及 Web 核心链路，无需 Web 浏览器冒烟。跨分包异步组件仍需微信官方上传编译和实体 Android 复核，状态为已实现待浏览器复核。
 - checkpoint/体验/生产：`bc32a4f1` 已推送；微信官方 Summer 编译并上传 `.86`（93 files、zip 767,784 bytes、manifest `bcca6267d9592aabf0362711e7e4dc64bae05280810da0c7808f98c2a4a7c5de`），未提审/正式发布。生产备份 `c74e6442-534f-4ca0-8388-59f3f58fd7aa`（54 表、164,551 行、77,396,940 bytes、SHA-256 `4588b17d730b0b569e555f03351250def36467d18dc74ca75b76ac376120dfc2`）后部署 release `bc32a4f1be0defd41c85b8e5e6d078a993d0e25c`；预热 502 恢复、privacy 0/0、full verifier 通过，release 锁下原子追加 `.86`，`.86` 为 200 且 core/workflows=true，`.84-duty`/未知仍 426。状态为已完成（含运行验证）→ 待用户用 `.86@bc32a4f` 实体复核。
+
+## 2026-08-24 P7 实体反馈二轮：选择器确认、底栏与切换稳定性
+
+- 引入点/根因：`git log -S`/`git blame` 定位到 `bc32a4f1`：工作台以互斥 `wx:if/wx:elif` 挂载日历/工作流，导致组件反复销毁、重读和返回日历滚动重置；Panel/Picker 使用 `styleIsolation:shared`，其 `.bottom-nav` 反向污染工作台；嵌入工作区 `overflow:hidden` 且层级低于底栏，使 Picker 已存在的 actions 被裁切。用户确认滚轮截图值为人工调整，不存在初始值错位。
+- 测试先行：新增常驻日历/预挂载 Panel、单向样式隔离、返回日历不滚顶、Web selector/month/date 结构和 controller 草稿/提交断言，旧实现 5 项失败；实现后 Mini 43 files/227、反馈+工作台 4 files/31、release-control 15/15 通过。
+- 实现/视觉：依 `frontend-design` 直接复刻 production `TemporalPicker`，不新增视觉方向。普通 selector 改为就地下拉并点选即生效/收起；月份/日期浮层使用 12px 屏幕边距、22px 圆角、浅蓝摘要、188px 月份双滚轮、日期 7 列月历及固定取消/完成区。日历/三 Panel 常驻 hidden 切换，Panel 在 core ready 后后台预挂载；底栏固定高度，组件改 `apply-shared`，弹层不再被底栏遮挡。
+- 语义审计/验证：危险写、幂等 snapshot、异步错误/409、空值、深链和 API 次数不变；新增副作用仅为首载后的工作流只读预取，后续切换减少重复 GET。selector 一次点击发一次 change；month/date 完成发一次、取消零次。Mini typecheck、任务 ESLint/Prettier、production verify（2/2 Worklet、2,847,420 bytes、manifest `e5d2b0c7d4feb3e9acbe4ac3a6d1cd2b7e3f9851076b8f81aa18c5b4fd878f96`）与 `git diff --check` 通过；状态为已实现待官方编译与实体复核。

@@ -138,6 +138,7 @@ interface WorkbenchPageData {
   readonly weekStart: string;
   readonly weekSwiperCurrent: number;
   readonly viewOptions: readonly WorkbenchView[];
+  readonly workflowPanelsMounted: boolean;
   readonly workflowsEnabled: boolean;
 }
 
@@ -233,6 +234,7 @@ Page({
     weekStart: getWeekStartDate(today),
     weekSwiperCurrent: 1,
     viewOptions: ['month', 'week', 'list'],
+    workflowPanelsMounted: false,
     workflowsEnabled: false,
   } satisfies WorkbenchPageData,
 
@@ -538,12 +540,13 @@ Page({
   },
 
   handleCalendarNav(this: WorkbenchPageInstance): void {
-    this.setData(
-      { activeWorkspace: 'calendar', calendarNavAnimating: false, scrollTarget: '' },
-      () => {
-        this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-content-top' });
-      },
-    );
+    if (this.data.activeWorkspace !== 'calendar') {
+      this.setData({ activeWorkspace: 'calendar', calendarNavAnimating: false });
+      return;
+    }
+    this.setData({ calendarNavAnimating: false, scrollTarget: '' }, () => {
+      this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-content-top' });
+    });
   },
 
   handleWeekSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
@@ -698,6 +701,7 @@ async function loadWorkbench(
         currentGroupName: '暂无可查看的群组',
         groups,
         state: 'empty',
+        workflowPanelsMounted: false,
       });
       return;
     }
@@ -705,6 +709,7 @@ async function loadWorkbench(
     const selectedGroup = groups.find((group) => group.id === storedGroupId) ?? groups[0];
     if (selectedGroup === undefined) return;
     const groupChanged = page.data.currentGroupId !== selectedGroup.id;
+    const shouldMountWorkflowPanels = page.data.workflowsEnabled && selectedGroup.role !== 'guest';
     if (groupChanged) {
       if (page.data.currentGroupId !== '') page.monthResources.clear();
       page.setData({
@@ -719,6 +724,7 @@ async function loadWorkbench(
         selectedGroup.role === 'owner' || selectedGroup.role === 'administrator',
       canOpenGroupSettings: selectedGroup.role !== 'guest',
       groups,
+      workflowPanelsMounted: shouldMountWorkflowPanels,
     });
 
     const requestedMonths = getRequestedMonths(
@@ -842,7 +848,15 @@ function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown
 
 function syncWorkflowsCapability(page: WorkbenchPageInstance): void {
   const capability = getClientCapabilitySnapshot();
-  page.setData({ workflowsEnabled: capability.global && capability.workflows });
+  const workflowsEnabled = capability.global && capability.workflows;
+  const currentGroup = page.data.groups.find(
+    (candidate) => candidate.id === page.data.currentGroupId,
+  );
+  page.setData({
+    workflowPanelsMounted:
+      workflowsEnabled && currentGroup !== undefined && currentGroup.role !== 'guest',
+    workflowsEnabled,
+  });
 }
 
 async function openWorkflowWorkspace(

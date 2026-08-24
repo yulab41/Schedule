@@ -70,7 +70,7 @@
   </view>
 
   <scroll-view
-    wx:if="{{activeWorkspace === 'calendar'}}"
+    hidden="{{activeWorkspace !== 'calendar'}}"
     class="workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}"
     style="padding-top:{{shellHeaderHeight}}px"
     scroll-y="{{viewMode !== 'list'}}"
@@ -655,30 +655,33 @@
   </scroll-view>
 
   <view
-    wx:elif="{{activeWorkspace === 'leave'}}"
+    wx:if="{{workflowPanelsMounted}}"
     class="embedded-workspace"
-    style="padding-top:{{shellHeaderHeight}}px"
+    style="--workspace-top:{{shellHeaderHeight}}px"
+    hidden="{{activeWorkspace !== 'leave'}}"
   >
     <workflow-leave-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-leave-panel>
   </view>
   <view
-    wx:elif="{{activeWorkspace === 'swap'}}"
+    wx:if="{{workflowPanelsMounted}}"
     class="embedded-workspace"
-    style="padding-top:{{shellHeaderHeight}}px"
+    style="--workspace-top:{{shellHeaderHeight}}px"
+    hidden="{{activeWorkspace !== 'swap'}}"
   >
     <workflow-swap-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-swap-panel>
   </view>
   <view
-    wx:elif="{{activeWorkspace === 'duty'}}"
+    wx:if="{{workflowPanelsMounted}}"
     class="embedded-workspace"
-    style="padding-top:{{shellHeaderHeight}}px"
+    style="--workspace-top:{{shellHeaderHeight}}px"
+    hidden="{{activeWorkspace !== 'duty'}}"
   >
     <workflow-duty-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-duty-panel>
   </view>
   <scroll-view
-    wx:elif="{{activeWorkspace === 'more'}}"
+    wx:if="{{activeWorkspace === 'more'}}"
     class="more-workspace"
-    style="padding-top:{{shellHeaderHeight}}px"
+    style="--workspace-top:{{shellHeaderHeight}}px"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"

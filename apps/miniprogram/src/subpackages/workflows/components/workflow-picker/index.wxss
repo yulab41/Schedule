@@ -1,22 +1,32 @@
+.workflow-picker-root {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.workflow-picker-root.is-open {
+  z-index: 30;
+}
+
 .workflow-picker-trigger {
   display: flex;
   width: 100%;
   min-height: 44px;
-  padding: 0 13px;
+  padding: 5px 10px;
   box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
   color: var(--ui-color-text-primary);
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border-strong);
-  border-radius: var(--ui-radius-medium);
+  border-radius: var(--ui-radius-small);
   font-size: var(--ui-font-size-sm);
 }
 
 .workflow-picker-trigger.is-pressed {
+  background: var(--ui-color-primary-light);
   border-color: var(--ui-color-primary);
-  box-shadow: 0 0 0 2px var(--ui-color-primary-light);
 }
 
 .workflow-picker-trigger.is-disabled {
@@ -27,6 +37,7 @@
   min-width: 0;
   overflow: hidden;
   flex: 1;
+  font-weight: var(--ui-font-weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -36,89 +47,152 @@
   color: var(--ui-color-text-muted);
 }
 
+.workflow-picker-chevron {
+  flex: none;
+  font-size: 22px;
+  font-weight: 300;
+}
+
 .workflow-picker-layer {
   position: fixed;
-  z-index: 80;
+  z-index: var(--ui-z-index-dialog);
   inset: 0;
 }
 
 .workflow-picker-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(13, 25, 40, 0.52);
+  background: rgba(22, 32, 42, 0.28);
 }
 
 .workflow-picker-sheet {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 12px;
   display: flex;
-  max-height: 76%;
-  padding-bottom: env(safe-area-inset-bottom);
+  max-height: 78vh;
+  overflow: hidden;
   box-sizing: border-box;
   flex-direction: column;
-  background: var(--ui-color-surface);
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -16px 48px rgba(13, 25, 40, 0.24);
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(220, 227, 235, 0.9);
+  border-radius: 22px;
+  box-shadow: 0 20px 48px rgba(22, 32, 42, 0.18);
 }
 
 .workflow-picker-handle {
-  width: 40px;
+  width: 36px;
   height: 4px;
-  margin: 8px auto 2px;
+  margin: 7px auto 1px;
   flex: none;
-  background: var(--ui-color-border-strong);
-  border-radius: 4px;
+  background: #cbd3dc;
+  border-radius: var(--ui-radius-pill);
 }
 
 .workflow-picker-heading {
   display: flex;
-  min-height: 70px;
-  padding: 8px 14px 12px;
+  min-height: 58px;
+  padding: 8px 14px;
   box-sizing: border-box;
   flex: none;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .workflow-picker-heading > view:first-child {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .workflow-picker-heading view:first-child > text:first-child {
   color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-xs);
+  font-size: 11px;
 }
 
 .workflow-picker-heading view:first-child > text:last-child {
   overflow: hidden;
-  font-size: var(--ui-font-size-lg);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
   font-weight: var(--ui-font-weight-strong);
+  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.workflow-picker-close {
+.workflow-picker-close,
+.workflow-picker-date-step {
   display: flex;
   width: 44px;
   height: 44px;
+  flex: none;
   align-items: center;
   justify-content: center;
   color: var(--ui-color-primary);
-  border-radius: var(--ui-radius-medium);
-  font-size: 26px;
+  border-radius: 13px;
+  font-size: 24px;
 }
 
-.workflow-picker-options {
-  min-height: 180px;
-  max-height: 390px;
-  padding: 8px 16px;
+.workflow-picker-summary {
+  display: flex;
+  min-height: 58px;
+  margin: 0 14px 8px;
+  padding: 9px 10px;
   box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: 12px;
+}
+
+.workflow-picker-summary-mark {
+  width: 4px;
+  height: 30px;
+  flex: none;
+  background: var(--ui-color-primary);
+  border-radius: var(--ui-radius-pill);
+}
+
+.workflow-picker-summary > view:last-child {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workflow-picker-summary view:last-child > text:first-child {
+  overflow: hidden;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--ui-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-picker-summary view:last-child > text:last-child {
+  color: var(--ui-color-text-secondary);
+  font-size: 10px;
+}
+
+.workflow-picker-selector-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  min-height: 0;
+  max-height: 240px;
+  padding: 4px 10px;
+  box-sizing: border-box;
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: 12px;
+  box-shadow: var(--ui-shadow-elevated);
 }
 
 .workflow-picker-option {
@@ -141,7 +215,7 @@
   color: var(--ui-color-primary-dark);
   background: var(--ui-color-primary-light);
   border-color: var(--ui-color-primary-border);
-  border-radius: var(--ui-radius-medium);
+  border-radius: 12px;
   font-weight: var(--ui-font-weight-semibold);
 }
 
@@ -167,48 +241,146 @@
   color: var(--ui-color-primary);
 }
 
+.workflow-picker-empty {
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
 .workflow-picker-wheel {
-  width: 100%;
-  height: 252px;
+  width: 292px;
+  height: 188px;
+  margin: 0 auto 8px;
+  flex: none;
+  background: var(--ui-color-surface);
 }
 
 .workflow-picker-wheel-item {
   display: flex;
-  height: 48px;
+  height: 44px;
   align-items: center;
   justify-content: center;
   gap: 6px;
   color: var(--ui-color-text-primary);
   font-size: 24px;
   font-variant-numeric: tabular-nums;
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .workflow-picker-unit {
   color: var(--ui-color-text-secondary);
-  font-size: var(--ui-font-size-xs);
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-medium);
 }
 
 .workflow-picker-indicator {
-  height: 48px;
-  border-top: 1px solid var(--ui-color-primary-border);
-  border-bottom: 1px solid var(--ui-color-primary-border);
+  height: 44px;
+  background: transparent;
+  border-top: 1px solid var(--ui-color-border);
+  border-bottom: 1px solid var(--ui-color-border);
 }
 
 .workflow-picker-mask {
   background: linear-gradient(
     to bottom,
     rgba(255, 255, 255, 0.96),
-    rgba(255, 255, 255, 0.12) 42%,
-    rgba(255, 255, 255, 0.12) 58%,
+    rgba(255, 255, 255, 0.1) 38%,
+    rgba(255, 255, 255, 0.1) 62%,
     rgba(255, 255, 255, 0.96)
   );
 }
 
+.workflow-picker-date-panel {
+  padding: 0 14px 8px;
+  flex: none;
+}
+
+.workflow-picker-date-navigation {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+}
+
+.workflow-picker-date-navigation > text {
+  flex: 1;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.workflow-picker-weekdays,
+.workflow-picker-date-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.workflow-picker-weekdays {
+  min-height: 24px;
+  align-items: center;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  font-weight: var(--ui-font-weight-semibold);
+  text-align: center;
+}
+
+.workflow-picker-weekdays > text,
+.workflow-picker-date-cell {
+  width: 14.285714%;
+  flex: none;
+}
+
+.workflow-picker-weekdays .is-weekend,
+.workflow-picker-date-cell.is-weekend:not(.is-muted) {
+  color: var(--ui-color-danger);
+}
+
+.workflow-picker-date-cell {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-picker-date-cell > text {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.workflow-picker-date-cell.is-muted {
+  color: #bec6cf;
+}
+
+.workflow-picker-date-cell.is-selected {
+  color: var(--ui-color-white);
+  font-weight: var(--ui-font-weight-strong);
+}
+
+.workflow-picker-date-cell.is-selected > text {
+  background: var(--ui-color-primary);
+  box-shadow: 0 5px 12px rgba(10, 102, 213, 0.24);
+}
+
+.workflow-picker-date-cell.is-disabled {
+  opacity: 0.52;
+}
+
 .workflow-picker-actions {
   display: flex;
-  padding: 10px 16px 12px;
+  padding: 8px 14px 14px;
   flex: none;
-  gap: 10px;
+  gap: 8px;
   border-top: 1px solid var(--ui-color-border);
 }
 
@@ -218,19 +390,27 @@
   flex: 1;
   align-items: center;
   justify-content: center;
-  border-radius: var(--ui-radius-medium);
-  font-size: var(--ui-font-size-sm);
+  border-radius: 12px;
+  font-size: 14px;
   font-weight: var(--ui-font-weight-semibold);
 }
 
 .workflow-picker-button.is-secondary {
   color: var(--ui-color-text-secondary);
-  background: var(--ui-color-surface);
-  border: 1px solid var(--ui-color-border-strong);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border);
 }
 
 .workflow-picker-button.is-primary {
+  flex: 1.35;
   color: var(--ui-color-white);
   background: var(--ui-color-primary);
   border: 1px solid var(--ui-color-primary);
+  box-shadow: 0 6px 14px rgba(10, 102, 213, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-picker-sheet {
+    animation: none;
+  }
 }

@@ -19,6 +19,15 @@ page {
   padding-bottom: 20px;
 }
 
+.leave-page.is-embedded {
+  overflow: visible;
+}
+
+.leave-page.is-embedded .sheet-layer {
+  position: fixed;
+  inset: 0;
+}
+
 .mini-header {
   position: relative;
   z-index: 8;

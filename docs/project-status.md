@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 实体交互稳定性候选 `.87`（待 checkpoint / 上传 / 部署）
+
+- 基线/范围：Git/origin/production 为 `ab16ff6f`；只修 `.86` 实体反馈中的工作台底栏高度变化、普通选择无法生效/收起、日期/月选择器 Web 差异、返回日历回弹和工作流切换重复 loading。不改 API/数据库/工作流危险写，不进入 P8，不提审/正式发布。用户已澄清截图中月份滚轮 `2026/9` 是人工调整，不按初始索引错误处理。
+- 引入点/根因：`git log -S`/`git blame` 确认 `bc32a4f1` 把日历和三个 Panel 放进互斥 `wx:if/wx:elif`，每次切换都会销毁/重建；同提交把 Panel/Picker 设为 `styleIsolation:shared`，子组件 `.bottom-nav` 反向覆盖工作台底栏，并让嵌套 Picker 的固定操作区被父级裁切/底栏遮挡。返回日历还复用了“已在日历时滚到顶部”的 `scrollTarget` 动画，形成下拉回弹。
+- 测试先行/实现：工作台常驻、Panel 预挂载、样式单向隔离、返回日历不滚顶、Web 选择器结构和 selector/month/date controller 6 项在旧实现 5 项失败后转绿。日历改为 `hidden` 常驻；三个 Panel 在当前群组/能力确认后后台挂载并仅切换 hidden，不再反复请求/闪 loading。组件隔离改为 `apply-shared`，底栏固定总高和 56px item；嵌入工作区允许弹层越过内容裁切但仍低于顶部壳层。普通类型/班次/人员按 Web 改为就地下拉、点选立即 emit 并收起；月份/日期采用 Web 同构浮动面板、当前选择摘要、188px 双滚轮或 7 列日期月历，以及固定“取消/完成”。
+- 语义审计：工作流 controller、API 接收者、operation snapshot、Promise/409/弱网路径、写入次数和 standalone 深链不变；首次后台预挂载只增加已有只读 GET，后续 tab 切换不再重建。普通 selector 从“草稿后确认”改为 Web 的点选即提交一次；月份/日期继续只在完成时发一次 change，取消不写值。日历 tab 仅从其他模块返回时保留原滚动位置，再次点击已激活日历仍执行原滚顶动作。
+- 验证：Mini 全量 43 files/227，反馈+工作台定向 4 files/31，release-control 15/15；Mini typecheck、任务 ESLint/Prettier、production verify、`git diff --check` 通过。production verify 为 2/2 Worklet、2,847,420 bytes、manifest `e5d2b0c7d4feb3e9acbe4ac3a6d1cd2b7e3f9851076b8f81aa18c5b4fd878f96`；只保留既有 600 格矩阵 best-effort 警告。
+- 版本/下一批/停止条件：新体验候选 `0.1.0-p7.20260824.87`，保留 `.85/.86` 兼容；checkpoint 识别消息 `fix(miniprogram): stabilize p7 workspace interactions`。完成显式 staging、提交推送、微信官方上传、生产备份部署/allowlist/full verifier 后暂停，只等待用户用 `.87@<commit>` 复核本节五项，不提前进入 P8。
+
 ## 2026-08-24 P7 实体反馈修复候选 `.86`（已开放体验，待实体复核）
 
 - 基线/范围：基线 `a3e6950e`，只处理用户实体反馈：请假/换班/加扣班保留工作台顶部与底部导航并在中央切换；三个模块改用 Web 式自绘选择器并标红周末班次；过去换班不显示撤销；联系方式默认群内可见、成员明确关闭才隐藏；群组管理移入“更多”，与手动排班、排班补录并列。不进入 P8、不提审/正式发布。
