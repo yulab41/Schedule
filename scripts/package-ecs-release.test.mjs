@@ -110,6 +110,7 @@ describe('ECS directory import runtime packaging', () => {
     expect(packageSource.indexOf("'build'")).toBeLessThan(
       packageSource.indexOf("run(tarPath(), ['-czf'"),
     );
+    expect(packageSource).toContain("['--config.verifyDepsBeforeRun=false', 'build']");
   });
 
   it('verifies schema 51 telemetry retention and backup exclusion in production', () => {

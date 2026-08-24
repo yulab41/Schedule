@@ -237,7 +237,9 @@ if (
 }
 const commit = assertExpectedCleanCommit();
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-run(pnpmCommand, ['build'], { shell: process.platform === 'win32' });
+run(pnpmCommand, ['--config.verifyDepsBeforeRun=false', 'build'], {
+  shell: process.platform === 'win32',
+});
 assertExpectedCleanCommit();
 assertPortableShellScripts();
 assertPortableShellSyntax();
