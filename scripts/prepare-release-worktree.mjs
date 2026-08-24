@@ -200,19 +200,40 @@ function trackedDependencyInputs(worktreeRoot) {
   return collectDependencyInputs(source.split('\0').filter(Boolean));
 }
 
-function runPnpmInstall(worktreeRoot) {
-  const environment = { ...process.env, CI: 'true' };
-  const npmExecutable = process.env.npm_execpath;
-  if (npmExecutable !== undefined && /pnpm(?:\.c?js)?$/iu.test(npmExecutable)) {
-    run(process.execPath, [npmExecutable, 'install', '--frozen-lockfile'], {
-      cwd: worktreeRoot,
-      env: environment,
-      stdio: 'inherit',
-    });
-    return;
+export function resolvePnpmInvocation(
+  environment = process.env,
+  platform = process.platform,
+  nodeExecutable = process.execPath,
+) {
+  const explicitCli = environment.npm_execpath;
+  if (explicitCli !== undefined && fs.existsSync(explicitCli)) {
+    return { argumentsPrefix: [explicitCli], command: nodeExecutable };
   }
 
-  run(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install', '--frozen-lockfile'], {
+  if (platform === 'win32') {
+    const candidates = [
+      environment.APPDATA === undefined
+        ? undefined
+        : path.join(environment.APPDATA, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
+      path.join(path.dirname(nodeExecutable), 'node_modules', 'pnpm', 'bin', 'pnpm.mjs'),
+      path.join(path.dirname(nodeExecutable), 'node_modules', 'corepack', 'dist', 'pnpm.js'),
+    ];
+    const cliPath = candidates.find(
+      (candidate) => candidate !== undefined && fs.existsSync(candidate),
+    );
+    if (cliPath === undefined) {
+      fail('找不到可直接交给 Node 执行的 pnpm JavaScript 入口。');
+    }
+    return { argumentsPrefix: [cliPath], command: nodeExecutable };
+  }
+
+  return { argumentsPrefix: [], command: 'pnpm' };
+}
+
+function runPnpmInstall(worktreeRoot) {
+  const environment = { ...process.env, CI: 'true' };
+  const invocation = resolvePnpmInvocation(environment);
+  run(invocation.command, [...invocation.argumentsPrefix, 'install', '--frozen-lockfile'], {
     cwd: worktreeRoot,
     env: environment,
     stdio: 'inherit',

@@ -9,6 +9,7 @@ import {
   computeDependencyFingerprint,
   parseArguments,
   parseWorktreeList,
+  resolvePnpmInvocation,
   shouldReuseDependencies,
 } from './prepare-release-worktree.mjs';
 
@@ -106,5 +107,19 @@ describe('reusable isolated release worktree', () => {
     expect(shouldReuseDependencies(root, gitDirectory, 'different')).toBe(false);
     fs.rmSync(path.join(root, 'node_modules'), { recursive: true });
     expect(shouldReuseDependencies(root, gitDirectory, 'same')).toBe(false);
+  });
+
+  it('invokes the pnpm JavaScript entry directly on Windows instead of spawning pnpm.cmd', () => {
+    const appData = createTemporaryDirectory();
+    const cliPath = path.join(appData, 'npm', 'node_modules', 'pnpm', 'bin', 'pnpm.mjs');
+    fs.mkdirSync(path.dirname(cliPath), { recursive: true });
+    fs.writeFileSync(cliPath, '', 'utf8');
+
+    expect(
+      resolvePnpmInvocation({ APPDATA: appData }, 'win32', 'C:/Program Files/nodejs/node.exe'),
+    ).toEqual({
+      argumentsPrefix: [cliPath],
+      command: 'C:/Program Files/nodejs/node.exe',
+    });
   });
 });

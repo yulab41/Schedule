@@ -7,9 +7,11 @@
 服务器不负责安装依赖或编译。Windows 本地发布固定复用仓库外的隔离 detached worktree；首次创建时才完整落地依赖，后续切换 commit 时保留该目录的 `node_modules`，仅当受 Git 跟踪的 lockfile、workspace 配置、patch 或任一 `package.json` 变化时执行增量 `pnpm install --frozen-lockfile`：
 
 ```powershell
-pnpm release:worktree -- --commit HEAD
+node scripts/prepare-release-worktree.mjs --commit HEAD
 Set-Location ..\Schedule-release-worktree
 ```
+
+直接使用 Node 入口可以避免开发工作区尚未提交的 pnpm 配置触发包管理器自身的依赖预检；`pnpm release:worktree -- --commit HEAD` 是工作区配置已经稳定时的等价别名。
 
 脚本只接管 Git 已登记、detached、状态干净的专用 worktree。目标目录若含用户分支、未提交/未忽略文件，或只是同名普通目录，会失败关闭且绝不删除、清理或覆盖。依赖指纹保存在该 worktree 自己的 Git 元数据目录，不污染 release 源码状态。不要每轮删除这个目录，也不要在其中进行开发。
 
