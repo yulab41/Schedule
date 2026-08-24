@@ -4,7 +4,7 @@
 
 本清单只由用户在实体 Android 的微信原生运行时执行。Storybook、Vitest、`miniprogram-simulate`、桌面 JS 墙钟和 `miniprogram-ci` 均不能代替这些数据。Codex 不启动、控制或自动化微信开发者工具 GUI/CLI。
 
-性能探针只在显式 query `performance=1` 时启用：数据仅驻当前页面内存，不写 storage、不上传、不携带身份或排班正文。默认产品路径没有额外 `setData`，也不显示诊断文字。
+性能测量在核心页面默认启用；只有显式 query `performance=1` 才在当前页面内存保留并显示完整 `samplesMs/maxMs` 诊断证据。服务端只 best-effort 接收固定 page/device tier/network type/metric/单次 duration，不接收身份、联系方式、凭证、客户端时间或排班正文；不写 Mini storage、不建立离线队列，失败不重试。默认产品路径没有额外诊断 `setData`，也不显示诊断文字。
 
 ## 交付前自动证据
 

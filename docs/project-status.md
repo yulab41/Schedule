@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C9 核心 RC 实体 Android 验收（用户已通过）
+
+- 验收证据：用户在`.81`体验版完成P6核心RC后明确回复“通过，继续”；按`apps/miniprogram/docs/runbooks/p6-core-rc.md`约定，该明确反馈足以证明5/5/5/10性能阈值、弱网/离线/后台恢复和矩阵滚动手感全部通过，不强制提交截图或逐项数字。此证据只能来自用户实体Android操作，未由Storybook/simulate/miniprogram-ci或桌面墙钟替代。
+- 文档一致性：RC手册原“性能探针只在query启用且不上传”源自`e2270bde`，在`.81`的`c5322516`匿名遥测后已过时；修正为测量始终存在、只有`performance=1`显示并保留页面内samples/max、服务端只接收固定metric+单次duration且无身份/正文，失败丢弃。测试步骤、阈值、样本数和证据口径不变。
+- 当前状态：P6核心v1已完成自动门禁、体验上传、实体RC、隐私保留、capability与应用回滚演练、生产部署；Git/origin/production均为`7d9a81b6`，DB51、`.81` global/core/guest有效。用户未明确授权微信提审/正式发布，故仍只保持体验版，不代替用户执行正式发布。
+- 下一活动批次：进入P7工作流，先审计现有Web/API的请假、换班、加扣班、审批/撤销/冲突/通知与Mini缺口，并冻结Web手机版1:1状态映射；用户已明确无需逐页询问UI设计，视觉实现直接以现有Web手机版为黄金源。首批只做P7审计、共享边界与首个依赖闭环，不提前进入P8。
+
 ## 2026-08-24 P6-C8 Mini `.81` 纯内存脱敏遥测（已部署待实体 RC）
 
 - 范围/基线：Git/origin/production均为`a1d25fde`、DB51/telemetry表空。本checkpoint只实现Mini匿名emitter、App runtime error和既有性能probe接线，并把production allowlist样例扩展至`.81`；无WXML/WXSS/Web UI/API/DB变更。App/capability来源`e25878f0`，POST无幂等不重试语义来源`9e3a966c`，callback-delimited性能probe来源`e2270bde`。

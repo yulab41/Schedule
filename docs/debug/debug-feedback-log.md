@@ -2,6 +2,12 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C9 核心 RC（用户已通过）
+
+- 用户对`.81`实体Android RC明确回复“通过，继续”；依runbook约定，无需截图/数字即可将5/5/5/10阈值、弱网/离线/前后台/滚动项记为通过。P6正式关闭并允许进入P7，但未授权微信提审/正式发布。
+- 修正文档漂移：`e2270bde`的“probe仅query/不上传”已被`c5322516`替代；`.81`始终测量并best-effort上传固定匿名duration，只有`performance=1`显示/保留页面样本证据，阈值与操作不变。
+- Git/origin/production=`7d9a81b6`、DB51、`.81`能力正常。下一批只做P7 Web/API/Mini差距审计与首个工作流闭环；UI直接1:1复刻Web手机版，不再请求逐页设计选择。
+
 ## 2026-08-24 P6-C8 Mini `.81` anonymous telemetry（已部署待RC）
 
 - 基线/来源：`a1d25fde`/DB51；App+capability=`e25878f0`，POST no-idempotency no-retry=`9e3a966c`，performance callbacks=`e2270bde`。不改UI/API/DB。
