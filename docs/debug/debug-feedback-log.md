@@ -7,7 +7,8 @@
 - 范围/引入点：只修 `.88` 实体反馈 7 项；timer=`0d971de1`，独立 picker/120px empty/native wheel=`bc32a4f1/7f4f70a0`，筛选阻断冒泡=`733e3af6`，群组点击后 mount=`0d971de1`，月/周姓名=`1f715c96/50c6d1ed`。不改 API/DB/危险写/P8。
 - 红绿/实现：1秒 timer、sibling/parent close 5项，filter outside/empty/warmup，year/month continuous scroll，native picker removal，月/周固定字号及 `.89` contract 均先红后绿。Panel 用冒泡 request-open 同步关 sibling，组件 catchtap 保留内部选择；筛选 option catchtap 保持多选，Sheet 空白只收下拉。年月改双 enhanced scroll-view，拖动中按 44px 中心实时高亮并在 scrollend 吸附；Apple HIG/UIPickerView 作为交互参考。核心 ready 后后台预热群组 Panel；empty=44px；月/周姓名固定 10/11px。
 - 语义审计：selector 仍点选一次 emit，month/date 完成一次、取消零次；互斥/外部 close 只改 open。筛选多选/summary/refresh不变；group warmup 只增加 ready 后既有只读 GET，无号码缓存/写队列。字体不改变数据/点击。业务 receiver、幂等、409/弱网路径和写次数均未触及。
-- 验证：真实 Mini 44 files/238、release 18/18、定向 feedback/host/picker 15，typecheck、production verify/determinism/source/package/performance、CI dry-run、diff check通过；主工作区=2 Worklets/3,010,618 bytes/manifest`9023dbad…8fbc`，仅既有600格warning。提交前补任务 lint/format/core smoke 和 persistent clean复验。checkpoint=`fix(miniprogram): refine p7 picker interactions`。
+- 验证/发布：persistent clean Mini44/238、release18/18、定向15，typecheck、production verify/determinism/source/package/performance、CI dry-run、任务 lint/format/core smoke/diff通过；clean=2 Worklets/3024024 bytes/manifest`2ba339de…98c44`，仅既有600格warning。`16c02f56`已推送，`.89@16c02f5`官方上传96 files/zip784225/manifest`d6122a44…ffea`，未提审/正式发布。部署前备份`515fc053-7ca0-4fd7-9840-4fd4d03c0232`（54表/165292行/77686716 bytes/SHA-256`8da250f1…7be6`）后部署同release，预热2次502恢复、privacy0/0。首次allowlist只recreate API后健康超时，trap恢复`.88`但Nginx旧upstream造成短暂502；同时recreate api/web恢复后，改良双锁脚本幂等追加`.89`成功。`.88/.89`200、partial/unknown426、env root/600、full verifier/health200通过，temp已删。
+- 状态：已实现待实体复核。最终状态 checkpoint=`docs(status): record p7 interaction refinement deployment`；先备份再同步production后停止等待`.89@16c02f5`。
 
 ## 2026-08-24 P7 `.88` 实体反馈与发布 worktree
 
