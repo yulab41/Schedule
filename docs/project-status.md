@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 实体交互精修候选 `.89`（本地门禁完成，待 checkpoint/体验上传/生产同步）
+
+- 基线/范围：Git/origin/production 为 `be1d275e`，`.88@a6a029b` 已开放体验；本批只处理用户实体反馈的 1 秒成功提示、工作流下拉互斥/外部收起、筛选多选外部收起、年月拖动中连续高亮、群组管理首开预热、紧凑空态和月/周姓名字号，不改 API/DB/危险写，不进入 P8，不提审/正式发布。
+- 引入点/根因：3 秒 timer 来自 `0d971de1`；工作流 picker 自 `bc32a4f1/7f4f70a0` 各自维护 `open`、无父级协调，空态固定 120px；筛选 Sheet 的全层 `catchtap=preventSheetTouchMove` 来自 `733e3af6`，option 多选正确但空白点无关闭路径；原生 `picker-view` 来自 `7f4f70a0`，其 change 在实体拖动中不持续更新 data；群组 Panel 的点击后才 mount 来自 `0d971de1`；月姓名 9px 来自 `1f715c96`，周姓名 10px 来自 `50c6d1ed`。
+- 下拉/筛选/提示：workflow picker 打开前冒泡 `pickerrequestopen`，Panel host 同步关闭全部 sibling；picker 根阻止普通 tap 冒泡，Panel 空白 tap 收起全部 picker，选择行为仍一次 emit。筛选 trigger/option/action 改用 `catchtap`，所以多选 option 保持展开；Sheet 其余空白 tap 只清 `filterOpenField`，不关闭整个筛选。成功提示改为 1 秒，卸载 timer 清理不变；空 option 高度从 120px 收紧到 44px。
+- 年月/预热/字体：月份模式用两列 188px enhanced `scroll-view` 替代只在松手后 change 的原生 `picker-view`，72px 首尾 spacer 与 44px 行让 `round(scrollTop/44)` 在拖动/惯性期间持续更新 19→24px 选中态，scrollend/tap 回到对应行；取消仍不写值、完成只 emit 一次。该 wheel 与 Apple HIG/UIPickerView 的“滚轮值对齐 selection indicator 即成为当前值”模型一致。工作台先完成核心日历 ready，再后台 mount 隐藏的群组 Panel，避免竞争首屏并预热首开数据。月姓名统一 10px、周姓名统一 11px，不按姓名长度分档；月内三字姓名+13px change mark 仍单行裁切在现有宽度内，周名保持 ellipsis/nowrap。
+- 测试先行：提示 1 秒、sibling/outside close、picker parent close 共 5 项先红；filter outside、44px empty、group warmup 静态契约先红；scrollTop 持续 year/month draft 和移除 native picker 2 项先红；月/周固定字号 1 项先红；`.89` release contract 3 项先红，全部实现后转绿。真实 Mini 源 44 files/238，release-control 18/18，定向 feedback/host/picker 15 项通过。
+- 验证：Mini typecheck、production source/build/package/performance/determinism、无凭据 CI dry-run、`git diff --check` 已通过；当前主工作区 production verify 为 2/2 Worklet、3,010,618 bytes、manifest `9023dbadd582add6b03ac918ba8f2db96e1aede49a75268eeb8d21c248c58fbc`，仅既有 600 格矩阵 best-effort warning。提交前仍需任务 ESLint/Prettier、`smoke:check-core` 和精确 persistent clean worktree 复验；官方原生编译/上传在 checkpoint 后执行，禁止的微信开发者工具 GUI 不启动/控制。
+- 行为审计：工作流 selector 点选仍只触发一次 change 并收起；month/date 仍只在完成时写入、取消无 change。父级 close 只改各 picker 的视觉 `open`，不改 selectedIndex/draft/operation payload；筛选 option 多选、summary 和 refresh 次数不变，外部 tap 只清下拉字段。群组 warmup 只新增核心 ready 后已有 self-only GET，不缓存手机号/同意/payload，不增加写队列。日历字体只改固定视觉字号，无日期、成员、标记或点击语义变化。
+- checkpoint/下一批：代码 checkpoint 识别消息 `fix(miniprogram): refine p7 picker interactions`；显式暂存继续排除用户 `project.config.json`、`pnpm-workspace.yaml`、`.artifacts/runtime/src`、Storybook/Excel 等既有改动。推送后用 persistent worktree 复验并上传 `0.1.0-p7.20260824.89`，再严格先备份后部署/allowlist/full verify；最终状态 checkpoint 同步 production 后暂停，只等待用户实体复核本节 7 项，不进入 P8。
+
 ## 2026-08-24 P7 实体反馈修复候选 `.88`（已开放体验并部署，待实体复核）
 
 - 基线/范围：Git/origin/production 为 `f070b696`；本批只收口 `.87` 实体反馈并把 Windows 发布流程改为可复用隔离 worktree，不改 API/DB/工作流危险写，不进入 P8，不提审/正式发布。用户口述“继续 P5 debug”按仓库当前活动阶段解释为继续 P7 实体 RC；P5 已完成且群组管理入口只是本轮被反馈的既有 P5 页面。

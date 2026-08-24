@@ -757,7 +757,7 @@
     <view
       class="filter-sheet"
       aria-label="筛选排班"
-      catchtap="preventSheetTouchMove"
+      catchtap="handleFilterSheetBackgroundTap"
       catchtouchmove="preventSheetTouchMove"
     >
       <view class="filter-sheet-handle" aria-hidden="true"></view>
@@ -767,12 +767,12 @@
           class="sheet-close"
           aria-role="button"
           aria-label="关闭筛选"
-          bindtap="handleFilterClose"
+          catchtap="handleFilterClose"
           >×</view
         >
       </view>
 
-      <view class="changes-filter" bindtap="handleOnlyChangesToggle">
+      <view class="changes-filter" catchtap="handleOnlyChangesToggle">
         <text>只看有变更的班次</text>
         <view
           class="compact-switch {{filterOnlyChanges ? 'is-on' : ''}}"
@@ -791,7 +791,7 @@
           data-field="role"
           aria-role="button"
           aria-expanded="{{filterOpenField === 'role'}}"
-          bindtap="handleFilterFieldToggle"
+          catchtap="handleFilterFieldToggle"
           ><text>{{filterRoleSummary}}</text><view class="filter-select-chevron"></view
         ></view>
         <scroll-view
@@ -808,7 +808,7 @@
             data-value="{{item.value}}"
             aria-role="checkbox"
             aria-checked="{{item.selected}}"
-            bindtap="handleFilterOptionToggle"
+            catchtap="handleFilterOptionToggle"
             ><text>{{item.label}}</text
             ><text class="filter-check">{{item.selected ? '✓' : ''}}</text></view
           >
@@ -826,7 +826,7 @@
           data-field="shift"
           aria-role="button"
           aria-expanded="{{filterOpenField === 'shift'}}"
-          bindtap="handleFilterFieldToggle"
+          catchtap="handleFilterFieldToggle"
           ><text>{{filterShiftTypeSummary}}</text><view class="filter-select-chevron"></view
         ></view>
         <scroll-view
@@ -843,7 +843,7 @@
             data-value="{{item.value}}"
             aria-role="checkbox"
             aria-checked="{{item.selected}}"
-            bindtap="handleFilterOptionToggle"
+            catchtap="handleFilterOptionToggle"
             ><text>{{item.label}}</text
             ><text class="filter-check">{{item.selected ? '✓' : ''}}</text></view
           >
@@ -861,7 +861,7 @@
           data-field="member"
           aria-role="button"
           aria-expanded="{{filterOpenField === 'member'}}"
-          bindtap="handleFilterFieldToggle"
+          catchtap="handleFilterFieldToggle"
           ><text>{{filterMemberSummary}}</text><view class="filter-select-chevron"></view
         ></view>
         <scroll-view
@@ -878,7 +878,7 @@
             data-value="{{item.value}}"
             aria-role="checkbox"
             aria-checked="{{item.selected}}"
-            bindtap="handleFilterOptionToggle"
+            catchtap="handleFilterOptionToggle"
           >
             <text>{{item.label}}</text
             ><text class="filter-check">{{item.selected ? '✓' : ''}}</text>
@@ -890,8 +890,8 @@
       </view>
 
       <view class="filter-sheet-actions">
-        <view class="filter-clear" aria-role="button" bindtap="handleFilterClear">清除筛选</view>
-        <view class="filter-apply" aria-role="button" bindtap="handleFilterApply">查看结果</view>
+        <view class="filter-clear" aria-role="button" catchtap="handleFilterClear">清除筛选</view>
+        <view class="filter-apply" aria-role="button" catchtap="handleFilterApply">查看结果</view>
       </view>
     </view>
   </view>

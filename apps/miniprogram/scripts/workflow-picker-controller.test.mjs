@@ -49,6 +49,12 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.methods.handleOpen.call(instance);
     expect(instance.data.open).toBe(true);
     expect(instance.data.draftDisplayValue).toBe('病假');
+    expect(instance.triggerEvent).toHaveBeenCalledWith(
+      'pickerrequestopen',
+      {},
+      { bubbles: true, composed: true },
+    );
+    instance.triggerEvent.mockClear();
     definition.methods.handleOptionTap.call(instance, { currentTarget: { dataset: { index: 0 } } });
     expect(instance.data.draftDisplayValue).toBe('进修');
     expect(instance.triggerEvent).toHaveBeenCalledOnce();
@@ -58,6 +64,21 @@ describe('P7 Web-parity workflow picker controller', () => {
       value: '0',
     });
     expect(instance.data.open).toBe(false);
+  });
+
+  it('exposes a parent close method without emitting a value change', async () => {
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, {
+      mode: 'selector',
+      options: [{ label: '病假', value: 'sick' }],
+      selectedIndex: 0,
+    });
+    instance.data.open = true;
+
+    definition.methods.closeFromParent.call(instance);
+
+    expect(instance.data.open).toBe(false);
+    expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
   });
 
   it('keeps only the weekend token red before and after an option is selected', async () => {
@@ -95,12 +116,20 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.methods.handleOpen.call(instance);
     expect(instance.data.draftDisplayValue).toBe('2026年8月');
     expect(instance.data.draftIndices).toEqual([5, 7, 0]);
-    definition.methods.handlePickerViewChange.call(instance, { detail: { value: [5, 8, 0] } });
+    expect(instance.data.yearWheelTop).toBe(5 * 44);
+    expect(instance.data.monthWheelTop).toBe(7 * 44);
+    instance.triggerEvent.mockClear();
+    definition.methods.handleMonthWheelScroll.call(instance, { detail: { scrollTop: 8 * 44 } });
     expect(instance.data.draftDisplayValue).toBe('2026年9月');
+    expect(instance.data.draftIndices).toEqual([5, 8, 0]);
     expect(instance.triggerEvent).not.toHaveBeenCalled();
 
+    definition.methods.handleYearWheelScroll.call(instance, { detail: { scrollTop: 6 * 44 } });
+    expect(instance.data.draftDisplayValue).toBe('2027年9月');
+    expect(instance.data.draftIndices).toEqual([6, 8, 0]);
+
     definition.methods.handleConfirm.call(instance);
-    expect(instance.triggerEvent).toHaveBeenCalledWith('change', { value: '2026-09' });
+    expect(instance.triggerEvent).toHaveBeenCalledWith('change', { value: '2027-09' });
     expect(instance.data.open).toBe(false);
   });
 
@@ -110,6 +139,7 @@ describe('P7 Web-parity workflow picker controller', () => {
 
     definition.methods.handleOpen.call(instance);
     expect(instance.data.draftDisplayValue).toBe('2026年8月24日');
+    instance.triggerEvent.mockClear();
     expect(instance.data.dateCells).toHaveLength(42);
     expect(instance.data.dateCells.find((cell) => cell.value === '2026-08-24')).toMatchObject({
       isSelected: true,

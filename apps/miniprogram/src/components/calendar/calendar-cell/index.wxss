@@ -91,7 +91,7 @@
   min-width: 0;
   overflow: hidden;
   flex: 0 1 auto;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: var(--ui-font-weight-semibold);
   line-height: 14px;
   text-overflow: clip;

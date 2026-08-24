@@ -95,7 +95,7 @@ P7-A/B 已完成并通过真实 MySQL、Web/Storybook build 和 390/320 浏览�
 2. 换班：跨月候选、preview/提交、接受/拒绝/取消/审批/direct/revoke、设置。
 3. 加扣班：候选、原因、preview/提交、接受/拒绝/取消/审批/direct/revoke、设置。
 4. 注册 `subpackages/workflows`，工作台底栏启用三项真实导航；guest/disabled/deep link失败关闭。
-5. 完整 P7 候选固定为`0.1.0-p7.20260824.88`；`.82-leave/.83-swap/.84-duty`仅用于逐切片可追溯上传，部分切片候选永不加入 production allowlist；`.85/.86/.87` 是前三轮完整 RC，已被本轮实体反馈修复版 `.88` 取代。`.88` 上传、代码部署、自动 RC 和回滚探测通过后，才在 release 锁下原子加入 allowlist；旧版本继续保留自身 UI 行为，不新增离线写队列。
+5. 完整 P7 候选固定为`0.1.0-p7.20260824.89`；`.82-leave/.83-swap/.84-duty`仅用于逐切片可追溯上传，部分切片候选永不加入 production allowlist；`.85/.86/.87/.88` 是前四轮完整 RC，已被本轮交互精修版 `.89` 取代。`.89` 上传、代码部署、自动 RC 和回滚探测通过后，才在 release 锁下原子加入 allowlist；旧版本继续保留自身 UI 行为，不新增离线写队列。
 
 ### P7 RC
 

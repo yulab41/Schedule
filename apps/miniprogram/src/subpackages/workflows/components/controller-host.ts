@@ -12,12 +12,13 @@ interface WorkflowPanelHost {
   __loadedGroupId?: string;
   readonly data: Readonly<Record<string, unknown>>;
   readonly properties: { readonly embedded: boolean; readonly groupId: string };
+  selectAllComponents?(selector: string): readonly { closeFromParent?(): void }[];
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
 }
 
 export function registerWorkflowPanel(createDefinition: (embedded: boolean) => unknown): void {
   const prototype = normalizeDefinition(createDefinition(true));
-  const methods = Object.fromEntries(
+  const delegatedMethods = Object.fromEntries(
     Object.entries(prototype).flatMap(([key, value]) =>
       isControllerMethod(key, value)
         ? [
@@ -66,7 +67,7 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
           if (this.__attached === true && this.data['infoMessage'] === expected) {
             this.setData({ infoMessage: '' });
           }
-        }, 3_000);
+        }, 1_000);
       },
     },
     pageLifetimes: {
@@ -75,8 +76,22 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
         if (typeof onShow === 'function') onShow.call(this);
       },
     },
-    methods,
+    methods: {
+      ...delegatedMethods,
+      handlePickerRequestOpen(this: WorkflowPanelHost): void {
+        closeWorkflowPickers(this);
+      },
+      handlePanelBackgroundTap(this: WorkflowPanelHost): void {
+        closeWorkflowPickers(this);
+      },
+    },
   });
+}
+
+function closeWorkflowPickers(host: WorkflowPanelHost): void {
+  for (const picker of host.selectAllComponents?.('workflow-picker') ?? []) {
+    picker.closeFromParent?.();
+  }
 }
 
 function clearInfoMessageTimer(host: WorkflowPanelHost): void {

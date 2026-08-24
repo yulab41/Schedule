@@ -393,6 +393,10 @@ Page({
     this.setData({ announcement: '已应用排班筛选。', filterOpen: false, filterOpenField: '' });
   },
 
+  handleFilterSheetBackgroundTap(this: WorkbenchPageInstance): void {
+    if (this.data.filterOpenField !== '') this.setData({ filterOpenField: '' });
+  },
+
   handleFilterFieldToggle(this: WorkbenchPageInstance, event: TapEvent): void {
     const field = event.currentTarget.dataset.field;
     if (field !== 'member' && field !== 'role' && field !== 'shift') return;
@@ -800,6 +804,7 @@ async function loadWorkbench(
             ? '离线只读 · 显示最近一次成功读取的排班'
             : '',
         state: groupSnapshotOffline || activeResult.offline ? 'offline' : 'ready',
+        groupSettingsMounted: selectedGroup.role !== 'guest',
       },
       () => {
         completeCoreReadyProbe(page);

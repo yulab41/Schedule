@@ -23,6 +23,14 @@ interface PickerChangeEvent {
   readonly detail: { readonly value: readonly number[] };
 }
 
+interface WheelScrollEvent {
+  readonly detail: { readonly scrollTop: number };
+}
+
+interface WheelTapEvent {
+  readonly currentTarget: { readonly dataset: { readonly index?: number } };
+}
+
 interface OptionTapEvent {
   readonly currentTarget: { readonly dataset: { readonly index?: number } };
 }
@@ -47,6 +55,8 @@ interface WorkflowPickerInstance {
     readonly open: boolean;
     readonly renderedOptions: readonly WorkflowPickerRenderedOption[];
     readonly selectedOptionIndex: number;
+    readonly monthWheelTop: number;
+    readonly yearWheelTop: number;
     readonly years: readonly number[];
   };
   readonly properties: {
@@ -60,11 +70,16 @@ interface WorkflowPickerInstance {
     readonly value: string;
   };
   setData(patch: Readonly<Record<string, unknown>>, callback?: () => void): void;
-  triggerEvent(name: string, detail?: unknown): void;
+  triggerEvent(
+    name: string,
+    detail?: unknown,
+    options?: { readonly bubbles?: boolean; readonly composed?: boolean },
+  ): void;
 }
 
 const monthValues = Array.from({ length: 12 }, (_, index) => index + 1);
 const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+const wheelItemHeight = 44;
 
 Component({
   properties: {
@@ -89,16 +104,19 @@ Component({
     draftMonth: 1,
     draftYear: new Date().getUTCFullYear(),
     months: monthValues,
+    monthWheelTop: 0,
     open: false,
     renderedOptions: [] as readonly WorkflowPickerRenderedOption[],
     selectedOptionIndex: -1,
     weekdays,
+    yearWheelTop: 0,
     years: createYearValues(new Date().getUTCFullYear()),
   },
 
   methods: {
     handleOpen(this: WorkflowPickerInstance): void {
       if (this.properties.disabled) return;
+      this.triggerEvent('pickerrequestopen', {}, { bubbles: true, composed: true });
       if (this.properties.mode === 'selector') {
         const selectedOptionIndex = validOptionIndex(
           this.properties.options,
@@ -143,7 +161,9 @@ Component({
         draftIndices: [yearIndex, monthIndex, draftDay - 1],
         draftMonth: temporal.month,
         draftYear: centerYear,
+        monthWheelTop: monthIndex * wheelItemHeight,
         open: true,
+        yearWheelTop: yearIndex * wheelItemHeight,
         years,
       });
     },
@@ -151,6 +171,12 @@ Component({
     handleClose(this: WorkflowPickerInstance): void {
       this.setData({ open: false });
     },
+
+    closeFromParent(this: WorkflowPickerInstance): void {
+      if (this.data.open) this.setData({ open: false });
+    },
+
+    handleInternalTap(): void {},
 
     handleOptionTap(this: WorkflowPickerInstance, event: OptionTapEvent): void {
       const index = Number(event.currentTarget.dataset.index);
@@ -166,18 +192,41 @@ Component({
 
     handlePickerViewChange(this: WorkflowPickerInstance, event: PickerChangeEvent): void {
       const [yearIndex = 0, monthIndex = 0] = event.detail.value;
-      const year = this.data.years[yearIndex] ?? this.data.draftYear;
-      const month = Math.min(12, Math.max(1, monthIndex + 1));
-      const days = createDayValues(year, month);
-      const draftDay = Math.min(this.data.draftDay, days.length);
-      this.setData({
-        days,
-        draftDay,
-        draftDisplayValue: formatTemporalDisplay('month', year, month, draftDay),
-        draftIndices: [yearIndex, month - 1, draftDay - 1],
-        draftMonth: month,
-        draftYear: year,
-      });
+      applyMonthWheelDraft(this, yearIndex, monthIndex);
+    },
+
+    handleYearWheelScroll(this: WorkflowPickerInstance, event: WheelScrollEvent): void {
+      const yearIndex = nearestWheelIndex(event.detail.scrollTop, this.data.years.length);
+      if (yearIndex === this.data.draftIndices[0]) return;
+      applyMonthWheelDraft(this, yearIndex, this.data.draftIndices[1] ?? 0);
+    },
+
+    handleMonthWheelScroll(this: WorkflowPickerInstance, event: WheelScrollEvent): void {
+      const monthIndex = nearestWheelIndex(event.detail.scrollTop, monthValues.length);
+      if (monthIndex === this.data.draftIndices[1]) return;
+      applyMonthWheelDraft(this, this.data.draftIndices[0] ?? 0, monthIndex);
+    },
+
+    handleYearWheelScrollEnd(this: WorkflowPickerInstance): void {
+      this.setData({ yearWheelTop: (this.data.draftIndices[0] ?? 0) * wheelItemHeight });
+    },
+
+    handleMonthWheelScrollEnd(this: WorkflowPickerInstance): void {
+      this.setData({ monthWheelTop: (this.data.draftIndices[1] ?? 0) * wheelItemHeight });
+    },
+
+    handleYearWheelTap(this: WorkflowPickerInstance, event: WheelTapEvent): void {
+      const yearIndex = validWheelTapIndex(event, this.data.years.length);
+      if (yearIndex === undefined) return;
+      applyMonthWheelDraft(this, yearIndex, this.data.draftIndices[1] ?? 0);
+      this.setData({ yearWheelTop: yearIndex * wheelItemHeight });
+    },
+
+    handleMonthWheelTap(this: WorkflowPickerInstance, event: WheelTapEvent): void {
+      const monthIndex = validWheelTapIndex(event, monthValues.length);
+      if (monthIndex === undefined) return;
+      applyMonthWheelDraft(this, this.data.draftIndices[0] ?? 0, monthIndex);
+      this.setData({ monthWheelTop: monthIndex * wheelItemHeight });
     },
 
     handleDateNavigate(this: WorkflowPickerInstance, event: DateNavigateEvent): void {
@@ -224,6 +273,37 @@ Component({
     },
   },
 });
+
+function applyMonthWheelDraft(
+  instance: WorkflowPickerInstance,
+  yearIndex: number,
+  monthIndex: number,
+): void {
+  const boundedYearIndex = Math.min(instance.data.years.length - 1, Math.max(0, yearIndex));
+  const boundedMonthIndex = Math.min(monthValues.length - 1, Math.max(0, monthIndex));
+  const year = instance.data.years[boundedYearIndex] ?? instance.data.draftYear;
+  const month = boundedMonthIndex + 1;
+  const days = createDayValues(year, month);
+  const draftDay = Math.min(instance.data.draftDay, days.length);
+  instance.setData({
+    days,
+    draftDay,
+    draftDisplayValue: formatTemporalDisplay('month', year, month, draftDay),
+    draftIndices: [boundedYearIndex, boundedMonthIndex, draftDay - 1],
+    draftMonth: month,
+    draftYear: year,
+  });
+}
+
+function nearestWheelIndex(scrollTop: number, optionCount: number): number {
+  if (!Number.isFinite(scrollTop) || optionCount <= 0) return 0;
+  return Math.min(optionCount - 1, Math.max(0, Math.round(scrollTop / wheelItemHeight)));
+}
+
+function validWheelTapIndex(event: WheelTapEvent, optionCount: number): number | undefined {
+  const index = Number(event.currentTarget.dataset.index);
+  return Number.isInteger(index) && index >= 0 && index < optionCount ? index : undefined;
+}
 
 function createDateDraftPatch(
   instance: WorkflowPickerInstance,

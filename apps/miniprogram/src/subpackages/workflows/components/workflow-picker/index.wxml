@@ -1,4 +1,4 @@
-<view class="workflow-picker-root {{open ? 'is-open' : ''}}">
+<view class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
   <view
     class="workflow-picker-trigger {{disabled ? 'is-disabled' : ''}}"
     hover-class="{{disabled ? 'none' : 'is-pressed'}}"
@@ -69,32 +69,50 @@
       </view>
     </view>
 
-    <picker-view
-      wx:if="{{mode === 'month'}}"
-      class="workflow-picker-wheel"
-      value="{{draftIndices}}"
-      indicator-class="workflow-picker-indicator"
-      mask-class="workflow-picker-mask"
-      immediate-change="{{true}}"
-      bindchange="handlePickerViewChange"
-    >
-      <picker-view-column class="workflow-picker-year-column">
+    <view wx:if="{{mode === 'month'}}" class="workflow-picker-wheel">
+      <scroll-view
+        class="workflow-picker-wheel-column workflow-picker-year-column"
+        scroll-y
+        enhanced
+        show-scrollbar="{{false}}"
+        scroll-top="{{yearWheelTop}}"
+        bindscroll="handleYearWheelScroll"
+        bindscrollend="handleYearWheelScrollEnd"
+      >
+        <view class="workflow-picker-wheel-spacer"></view>
         <view
           wx:for="{{years}}"
           wx:key="*this"
           class="workflow-picker-wheel-item {{index === draftIndices[0] ? 'is-selected' : ''}}"
+          data-index="{{index}}"
+          catchtap="handleYearWheelTap"
           ><text>{{item}}</text><text class="workflow-picker-unit">年</text></view
         >
-      </picker-view-column>
-      <picker-view-column class="workflow-picker-month-column">
+        <view class="workflow-picker-wheel-spacer"></view>
+      </scroll-view>
+      <scroll-view
+        class="workflow-picker-wheel-column workflow-picker-month-column"
+        scroll-y
+        enhanced
+        show-scrollbar="{{false}}"
+        scroll-top="{{monthWheelTop}}"
+        bindscroll="handleMonthWheelScroll"
+        bindscrollend="handleMonthWheelScrollEnd"
+      >
+        <view class="workflow-picker-wheel-spacer"></view>
         <view
           wx:for="{{months}}"
           wx:key="*this"
           class="workflow-picker-wheel-item {{index === draftIndices[1] ? 'is-selected' : ''}}"
+          data-index="{{index}}"
+          catchtap="handleMonthWheelTap"
           ><text>{{item}}</text><text class="workflow-picker-unit">月</text></view
         >
-      </picker-view-column>
-    </picker-view>
+        <view class="workflow-picker-wheel-spacer"></view>
+      </scroll-view>
+      <view class="workflow-picker-wheel-rails"></view>
+      <view class="workflow-picker-wheel-mask"></view>
+    </view>
 
     <view wx:elif="{{mode === 'date'}}" class="workflow-picker-date-panel">
       <view class="workflow-picker-date-navigation">

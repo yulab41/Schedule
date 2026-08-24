@@ -1,4 +1,8 @@
-<view class="swap-page leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}">
+<view
+  class="swap-page leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}"
+  bindtap="handlePanelBackgroundTap"
+  bind:pickerrequestopen="handlePickerRequestOpen"
+>
   <view wx:if="{{!embedded}}" class="mini-header" style="{{shellHeaderStyle}}">
     <view class="header-back" aria-role="button" aria-label="返回排班台" bindtap="handleBack">
       <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />

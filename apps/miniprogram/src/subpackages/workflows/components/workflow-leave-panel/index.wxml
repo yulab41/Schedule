@@ -1,4 +1,8 @@
-<view class="leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}">
+<view
+  class="leave-page {{viewportClass}} {{embedded ? 'is-embedded' : ''}}"
+  bindtap="handlePanelBackgroundTap"
+  bind:pickerrequestopen="handlePickerRequestOpen"
+>
   <view wx:if="{{!embedded}}" class="mini-header" style="{{shellHeaderStyle}}">
     <view
       class="header-back"

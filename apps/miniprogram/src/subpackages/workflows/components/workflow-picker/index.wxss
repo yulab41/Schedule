@@ -244,7 +244,7 @@
 
 .workflow-picker-empty {
   display: flex;
-  min-height: 120px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   color: var(--ui-color-text-muted);
@@ -252,11 +252,28 @@
 }
 
 .workflow-picker-wheel {
+  position: relative;
+  display: flex;
   width: 292px;
   height: 188px;
   margin: 0 auto 8px;
+  overflow: hidden;
   flex: none;
+  gap: 10px;
   background: var(--ui-color-surface);
+}
+
+.workflow-picker-wheel-column {
+  position: relative;
+  z-index: 2;
+  height: 188px;
+  min-width: 0;
+  scroll-snap-type: y mandatory;
+  touch-action: pan-y;
+}
+
+.workflow-picker-wheel-spacer {
+  height: 72px;
 }
 
 .workflow-picker-wheel-item {
@@ -269,6 +286,7 @@
   font-size: 19px;
   font-variant-numeric: tabular-nums;
   opacity: 0.58;
+  scroll-snap-align: center;
   transform: scale(0.94);
 }
 
@@ -295,14 +313,24 @@
   flex: 0.88;
 }
 
-.workflow-picker-indicator {
+.workflow-picker-wheel-rails {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  right: 0;
+  left: 0;
   height: 44px;
   background: transparent;
   border-top: 1px solid var(--ui-color-border);
   border-bottom: 1px solid var(--ui-color-border);
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
-.workflow-picker-mask {
+.workflow-picker-wheel-mask {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
   background: linear-gradient(
     to bottom,
     rgba(255, 255, 255, 0.96),
@@ -310,6 +338,7 @@
     rgba(255, 255, 255, 0.1) 62%,
     rgba(255, 255, 255, 0.96)
   );
+  pointer-events: none;
 }
 
 .workflow-picker-date-panel {

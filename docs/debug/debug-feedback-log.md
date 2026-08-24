@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 `.89` 下拉、滚轮、预热与日历字号
+
+- 范围/引入点：只修 `.88` 实体反馈 7 项；timer=`0d971de1`，独立 picker/120px empty/native wheel=`bc32a4f1/7f4f70a0`，筛选阻断冒泡=`733e3af6`，群组点击后 mount=`0d971de1`，月/周姓名=`1f715c96/50c6d1ed`。不改 API/DB/危险写/P8。
+- 红绿/实现：1秒 timer、sibling/parent close 5项，filter outside/empty/warmup，year/month continuous scroll，native picker removal，月/周固定字号及 `.89` contract 均先红后绿。Panel 用冒泡 request-open 同步关 sibling，组件 catchtap 保留内部选择；筛选 option catchtap 保持多选，Sheet 空白只收下拉。年月改双 enhanced scroll-view，拖动中按 44px 中心实时高亮并在 scrollend 吸附；Apple HIG/UIPickerView 作为交互参考。核心 ready 后后台预热群组 Panel；empty=44px；月/周姓名固定 10/11px。
+- 语义审计：selector 仍点选一次 emit，month/date 完成一次、取消零次；互斥/外部 close 只改 open。筛选多选/summary/refresh不变；group warmup 只增加 ready 后既有只读 GET，无号码缓存/写队列。字体不改变数据/点击。业务 receiver、幂等、409/弱网路径和写次数均未触及。
+- 验证：真实 Mini 44 files/238、release 18/18、定向 feedback/host/picker 15，typecheck、production verify/determinism/source/package/performance、CI dry-run、diff check通过；主工作区=2 Worklets/3,010,618 bytes/manifest`9023dbad…8fbc`，仅既有600格warning。提交前补任务 lint/format/core smoke 和 persistent clean复验。checkpoint=`fix(miniprogram): refine p7 picker interactions`。
+
 ## 2026-08-24 P7 `.88` 实体反馈与发布 worktree
 
 - 范围/引入点：`.87@7f4f70a` 实体反馈只修日历同步、工作流/群组壳层、提示生命周期和 picker/Sheet 视觉；另修本地 Windows 每轮临时 clean worktree 重装配。`git log -S`/blame 定位发布文字到 `de3ad5f7/e25878f0`、日历内存缓存到 `9e3a966c`、群组全页入口到 `59300957`，Panel/picker/form/hover/周末/常驻提示到 `bc32a4f1/7f4f70a0`。

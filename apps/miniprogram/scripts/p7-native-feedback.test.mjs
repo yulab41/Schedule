@@ -130,7 +130,11 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerTemplate).toContain('class="workflow-picker-summary"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-navigation"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-grid"');
-    expect(pickerTemplate).toContain('<picker-view');
+    expect(pickerTemplate).not.toContain('<picker-view');
+    expect(pickerTemplate).toContain('bindscroll="handleYearWheelScroll"');
+    expect(pickerTemplate).toContain('bindscroll="handleMonthWheelScroll"');
+    expect(pickerTemplate).toContain('class="workflow-picker-wheel-rails"');
+    expect(pickerTemplate).toContain('class="workflow-picker-wheel-mask"');
     expect(pickerTemplate).toContain("item.isWeekend ? 'is-weekend' : ''");
     expect(pickerTemplate).toContain('取消');
     expect(pickerTemplate).toContain('完成');
@@ -178,5 +182,50 @@ describe('P7 physical-device feedback regressions', () => {
     expect(leaveStyles).toMatch(
       /\.native-sheet\s*>\s*\.sheet-heading\s*>\s*\.sheet-close\s*\{[^}]*margin-left:\s*auto;[^}]*flex:\s*0 0 44px/su,
     );
+  });
+
+  it('coordinates dropdown dismissal, compact empty state, filter outside taps, and group warmup', () => {
+    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
+    const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const pickerController = read('subpackages/workflows/components/workflow-picker/index.ts');
+    const host = read('subpackages/workflows/components/controller-host.ts');
+    const workbenchTemplate = read('pages/workbench/index.wxml');
+    const workbenchController = read('pages/workbench/index.ts');
+
+    expect(pickerTemplate).toContain('catchtap="handleInternalTap"');
+    expect(pickerController).toContain("triggerEvent('pickerrequestopen'");
+    expect(pickerStyles).toMatch(/\.workflow-picker-empty\s*\{[^}]*min-height:\s*44px;/su);
+    expect(host).toContain("selectAllComponents?.('workflow-picker')");
+    for (const workflow of ['leave', 'swap', 'duty']) {
+      const template = read(
+        `subpackages/workflows/components/workflow-${workflow}-panel/index.wxml`,
+      );
+      expect(template).toContain('bindtap="handlePanelBackgroundTap"');
+      expect(template).toContain('bind:pickerrequestopen="handlePickerRequestOpen"');
+    }
+    expect(workbenchTemplate).toContain('catchtap="handleFilterSheetBackgroundTap"');
+    expect(workbenchTemplate).toContain('catchtap="handleFilterOptionToggle"');
+    expect(workbenchController).toMatch(
+      /handleFilterSheetBackgroundTap[\s\S]*filterOpenField:\s*''/u,
+    );
+    expect(workbenchController).toMatch(
+      /state:\s*groupSnapshotOffline[\s\S]*groupSettingsMounted:\s*selectedGroup\.role !== 'guest'/u,
+    );
+  });
+
+  it('uses one larger single-line name scale in month and week cells', () => {
+    const monthTemplate = read('components/calendar/calendar-cell/index.wxml');
+    const monthStyles = read('components/calendar/calendar-cell/index.wxss');
+    const workbenchTemplate = read('pages/workbench/index.wxml');
+    const workbenchStyles = read('pages/workbench/index.wxss');
+
+    expect(monthStyles).toMatch(
+      /\.month-person\s*\{[^}]*font-size:\s*10px;[^}]*white-space:\s*nowrap;/su,
+    );
+    expect(workbenchStyles).toMatch(
+      /\.week-duty-name\s*\{[^}]*font-size:\s*11px;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/su,
+    );
+    expect(monthTemplate).not.toMatch(/person\.length|name-length/u);
+    expect(workbenchTemplate).not.toMatch(/duty\.name\.length|name-length/u);
   });
 });

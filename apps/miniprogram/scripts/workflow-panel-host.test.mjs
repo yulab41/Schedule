@@ -19,15 +19,27 @@ describe('workflow panel host transient status', () => {
     vi.unstubAllGlobals();
   });
 
-  it('clears a non-empty operation result after three seconds', () => {
+  it('clears a non-empty operation result after one second', () => {
     registerWorkflowPanel(() => ({ data: { infoMessage: '' } }));
     const instance = createHostInstance('换班已完成。');
 
     definition.observers.infoMessage.call(instance, '换班已完成。');
-    vi.advanceTimersByTime(2_999);
+    vi.advanceTimersByTime(999);
     expect(instance.data.infoMessage).toBe('换班已完成。');
     vi.advanceTimersByTime(1);
     expect(instance.data.infoMessage).toBe('');
+  });
+
+  it('closes every sibling picker before a new picker opens or the panel background is tapped', () => {
+    registerWorkflowPanel(() => ({ data: { infoMessage: '' } }));
+    const closeFromParent = vi.fn();
+    const instance = createHostInstance('');
+    instance.selectAllComponents = vi.fn(() => [{ closeFromParent }, { closeFromParent }]);
+
+    definition.methods.handlePickerRequestOpen.call(instance);
+    expect(closeFromParent).toHaveBeenCalledTimes(2);
+    definition.methods.handlePanelBackgroundTap.call(instance);
+    expect(closeFromParent).toHaveBeenCalledTimes(4);
   });
 
   it('cancels the pending clear when the component detaches', () => {

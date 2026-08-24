@@ -9,7 +9,7 @@ const DEPLOYMENT_URL = new URL('../../../docs/deployment/aliyun-ecs.md', import.
 const AUDIT_URL = new URL('../docs/architecture/p7-workflow-parity-audit.md', import.meta.url);
 const APP_URL = new URL('../src/app.json', import.meta.url);
 
-const finalVersion = '0.1.0-p7.20260824.88';
+const finalVersion = '0.1.0-p7.20260824.89';
 const partialVersions = [
   '0.1.0-p7.20260824.82-leave',
   '0.1.0-p7.20260824.83-swap',
