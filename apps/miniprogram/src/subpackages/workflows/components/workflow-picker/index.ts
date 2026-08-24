@@ -26,6 +26,11 @@ interface WorkflowPickerDateCell {
   readonly muted: boolean;
   readonly value: string;
 }
+interface WorkflowPickerDatePanel {
+  readonly cells: readonly WorkflowPickerDateCell[];
+  readonly month: number;
+  readonly year: number;
+}
 
 interface PickerChangeEvent {
   readonly detail: { readonly value: readonly number[] };
@@ -50,6 +55,9 @@ interface DateNavigateEvent {
 interface DateTapEvent {
   readonly currentTarget: { readonly dataset: { readonly value?: string } };
 }
+interface DateSwiperEvent {
+  readonly detail: { readonly current: number };
+}
 
 interface WorkflowPickerInstance {
   _monthWheelLatestTop?: number;
@@ -62,6 +70,8 @@ interface WorkflowPickerInstance {
   createSelectorQuery?(): MiniProgramSelectorQuery;
   readonly data: {
     readonly dateCells: readonly WorkflowPickerDateCell[];
+    readonly datePanels: readonly WorkflowPickerDatePanel[];
+    readonly dateSwiperIndex: number;
     readonly days: readonly number[];
     readonly draftDay: number;
     readonly draftDisplayValue: string;
@@ -122,6 +132,8 @@ Component({
 
   data: {
     dateCells: [] as readonly WorkflowPickerDateCell[],
+    datePanels: [] as readonly WorkflowPickerDatePanel[],
+    dateSwiperIndex: 1,
     days: Array.from({ length: 31 }, (_, index) => index + 1),
     draftDay: 1,
     draftDisplayValue: '',
@@ -202,6 +214,14 @@ Component({
           this.properties.min,
           this.properties.max,
         ),
+        datePanels: createDatePanels(
+          centerYear,
+          temporal.month,
+          draftDay,
+          this.properties.min,
+          this.properties.max,
+        ),
+        dateSwiperIndex: 1,
         days,
         draftDay,
         draftDisplayValue: formatTemporalDisplay(
@@ -330,6 +350,23 @@ Component({
       const days = createDayValues(year, month);
       const draftDay = Math.min(this.data.draftDay, days.length);
       this.setData(createDateDraftPatch(this, year, month, draftDay));
+    },
+
+    handleDateSwiperChange(this: WorkflowPickerInstance, event: DateSwiperEvent): void {
+      const offset = event.detail.current - 1;
+      if (offset !== -1 && offset !== 1) return;
+      const next = new Date(Date.UTC(this.data.draftYear, this.data.draftMonth - 1 + offset, 1));
+      const year = next.getUTCFullYear();
+      const month = next.getUTCMonth() + 1;
+      const day = Math.min(this.data.draftDay, createDayValues(year, month).length);
+      this.setData(createDateDraftPatch(this, year, month, day));
+    },
+
+    handleDateToday(this: WorkflowPickerInstance): void {
+      const today = currentUtcDateParts();
+      const value = `${today.year}-${pad(today.month)}-${pad(today.day)}`;
+      if (isOutsideRange(value, this.properties.min, this.properties.max)) return;
+      this.setData(createDateDraftPatch(this, today.year, today.month, today.day));
     },
 
     handleDateSelect(this: WorkflowPickerInstance, event: DateTapEvent): void {
@@ -546,12 +583,37 @@ function createDateDraftPatch(
 ): Readonly<Record<string, unknown>> {
   return {
     dateCells: createDateCells(year, month, day, instance.properties.min, instance.properties.max),
+    datePanels: createDatePanels(
+      year,
+      month,
+      day,
+      instance.properties.min,
+      instance.properties.max,
+    ),
+    dateSwiperIndex: 1,
     days: createDayValues(year, month),
     draftDay: day,
     draftDisplayValue: formatTemporalDisplay('date', year, month, day),
     draftMonth: month,
     draftYear: year,
   };
+}
+
+function createDatePanels(
+  year: number,
+  month: number,
+  day: number,
+  min: string,
+  max: string,
+): readonly WorkflowPickerDatePanel[] {
+  return [-1, 0, 1].map((offset) => {
+    const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+    return {
+      cells: createDateCells(date.getUTCFullYear(), date.getUTCMonth() + 1, day, min, max),
+      month: date.getUTCMonth() + 1,
+      year: date.getUTCFullYear(),
+    };
+  });
 }
 
 function createYearValues(centerYear: number): readonly number[] {

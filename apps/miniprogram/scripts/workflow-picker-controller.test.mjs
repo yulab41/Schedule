@@ -265,4 +265,17 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.triggerEvent).toHaveBeenCalledWith('change', { value: '2026-08-25' });
     expect(instance.data.open).toBe(false);
   });
+
+  it('supports horizontal date month paging and a today locator without emitting early', async () => {
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-24' });
+    definition.methods.handleOpen.call(instance);
+    definition.methods.handleDateSwiperChange.call(instance, { detail: { current: 2 } });
+
+    expect(instance.data.datePanels).toHaveLength(3);
+    expect(instance.data.draftMonth).toBe(9);
+    expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
+    definition.methods.handleDateToday.call(instance);
+    expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
+  });
 });

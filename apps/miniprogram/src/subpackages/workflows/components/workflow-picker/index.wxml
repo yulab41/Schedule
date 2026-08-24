@@ -141,6 +141,13 @@
         >
         <text>{{draftYear}}年{{draftMonth}}月</text>
         <view
+          class="workflow-picker-date-today"
+          aria-role="button"
+          aria-label="定位今天"
+          bindtap="handleDateToday"
+          ><image src="/assets/icons/web-locate.svg" mode="aspectFit"
+        /></view>
+        <view
           class="workflow-picker-date-step"
           data-offset="1"
           aria-role="button"
@@ -154,20 +161,29 @@
           >{{item}}</text
         >
       </view>
-      <view class="workflow-picker-date-grid">
-        <view
-          wx:for="{{dateCells}}"
-          wx:key="value"
-          class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
-          data-value="{{item.value}}"
-          aria-role="button"
-          aria-disabled="{{item.disabled}}"
-          aria-pressed="{{item.isSelected}}"
-          bindtap="handleDateSelect"
-        >
-          <text>{{item.day}}</text>
-        </view>
-      </view>
+      <swiper
+        class="workflow-picker-date-swiper"
+        current="{{dateSwiperIndex}}"
+        duration="240"
+        bindchange="handleDateSwiperChange"
+      >
+        <swiper-item wx:for="{{datePanels}}" wx:key="year" wx:for-item="panel">
+          <view class="workflow-picker-date-grid">
+            <view
+              wx:for="{{panel.cells}}"
+              wx:key="value"
+              class="workflow-picker-date-cell {{item.muted ? 'is-muted' : ''}} {{item.isWeekend ? 'is-weekend' : ''}} {{item.isSelected ? 'is-selected' : ''}} {{item.disabled ? 'is-disabled' : ''}}"
+              data-value="{{item.value}}"
+              aria-role="button"
+              aria-disabled="{{item.disabled}}"
+              aria-pressed="{{item.isSelected}}"
+              bindtap="handleDateSelect"
+            >
+              <text>{{item.day}}</text>
+            </view>
+          </view>
+        </swiper-item>
+      </swiper>
     </view>
 
     <view class="workflow-picker-actions">
