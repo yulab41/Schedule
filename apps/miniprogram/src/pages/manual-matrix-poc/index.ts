@@ -20,6 +20,7 @@ import {
   formatNativePerformanceEvidence,
   type NativePerformanceProbe,
 } from '../../platform/performance-probe.js';
+import { recordMiniTelemetryPerformance } from '../../platform/telemetry.js';
 
 interface ManualMatrixCellSelectEvent {
   readonly detail: ManualMatrixLocation & { readonly key: string };
@@ -63,6 +64,7 @@ type ManualMatrixUndoEntry = ManualCellMutation<ManualMatrixCellAssignment> & {
 
 interface ManualMatrixPageInstance {
   _matrixGestureRevision: number;
+  _performanceDiagnosticsEnabled: boolean;
   _performanceProbe: NativePerformanceProbe | undefined;
   _selectedLocation: ManualMatrixLocation;
   _undoStack: ManualMatrixUndoEntry[];
@@ -92,6 +94,7 @@ Page({
     matrixGestureConfig: defaultMatrixGestureConfig,
     performanceEvidence: '',
   },
+  _performanceDiagnosticsEnabled: false,
   _performanceProbe: undefined,
   onLoad(
     this: ManualMatrixPageInstance,
@@ -99,10 +102,8 @@ Page({
   ): void {
     const mode = options.mode === 'maximum' ? 'maximum' : 'daily';
     const viewModel = createManualMatrixPocViewModel(mode);
-    this._performanceProbe =
-      mode === 'maximum' && options.performance === '1'
-        ? createNativePerformanceProbe()
-        : undefined;
+    this._performanceDiagnosticsEnabled = options.performance === '1';
+    this._performanceProbe = createNativePerformanceProbe();
     this._matrixGestureRevision = 0;
     this._selectedLocation = viewModel.selectedLocation;
     this._undoStack = [];
@@ -114,12 +115,8 @@ Page({
           resolveMaxHorizontalOffset(viewModel),
         ),
       };
-      if (this._performanceProbe === undefined) {
-        this.setData(patch);
-      } else {
-        this._performanceProbe.start('maximum-matrix-render');
-        this.setData(patch, () => completeMaximumMatrixRenderProbe(this));
-      }
+      this._performanceProbe.start('maximum-matrix-render');
+      this.setData(patch, () => completeMaximumMatrixRenderProbe(this));
     }
   },
   onResize(this: ManualMatrixPageInstance): void {
@@ -245,6 +242,8 @@ Page({
 function completeMaximumMatrixRenderProbe(page: ManualMatrixPageInstance): void {
   const measurement = page._performanceProbe?.complete('maximum-matrix-render');
   if (measurement === undefined) return;
+  recordMiniTelemetryPerformance('manual-matrix', measurement.metric, measurement.durationMs);
+  if (!page._performanceDiagnosticsEnabled) return;
   page.setData({
     performanceEvidence: formatNativePerformanceEvidence(measurement, {
       label: '20×30 渲染',
@@ -257,6 +256,8 @@ function completeMaximumMatrixRenderProbe(page: ManualMatrixPageInstance): void 
 function completeTapFeedbackProbe(page: ManualMatrixPageInstance): void {
   const measurement = page._performanceProbe?.complete('tap-feedback');
   if (measurement === undefined) return;
+  recordMiniTelemetryPerformance('manual-matrix', measurement.metric, measurement.durationMs);
+  if (!page._performanceDiagnosticsEnabled) return;
   page.setData({
     performanceEvidence: formatNativePerformanceEvidence(measurement, {
       label: '点击反馈',

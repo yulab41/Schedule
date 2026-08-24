@@ -30,6 +30,7 @@ import {
   formatNativePerformanceEvidence,
   type NativePerformanceProbe,
 } from '../../platform/performance-probe.js';
+import { recordMiniTelemetryPerformance } from '../../platform/telemetry.js';
 import {
   createMonthRing,
   createWorkbenchViewModel,
@@ -136,6 +137,7 @@ interface WorkbenchPageData {
 }
 
 interface WorkbenchPageInstance {
+  _performanceDiagnosticsEnabled: boolean;
   _performanceProbe: NativePerformanceProbe | undefined;
   data: WorkbenchPageData;
   calendar: CalendarReadModel | undefined;
@@ -240,13 +242,14 @@ Page({
   periodShiftCommitPending: false,
   periodShiftQueue: 0,
   requestSerial: 0,
+  _performanceDiagnosticsEnabled: false,
   _performanceProbe: undefined,
 
   onLoad(this: WorkbenchPageInstance, options: { readonly performance?: string } = {}): void {
     this.isVisible = true;
-    this._performanceProbe =
-      options.performance === '1' ? createNativePerformanceProbe() : undefined;
-    this._performanceProbe?.start('core-ready');
+    this._performanceDiagnosticsEnabled = options.performance === '1';
+    this._performanceProbe = createNativePerformanceProbe();
+    this._performanceProbe.start('core-ready');
     this.setData(createShellLayoutPatch());
     void loadWorkbenchWithCapability(this);
   },
@@ -753,6 +756,8 @@ function completeCoreReadyProbe(page: WorkbenchPageInstance): void {
   const foregroundMeasurement = page._performanceProbe?.complete('foreground-ready');
   const measurement = coreMeasurement ?? foregroundMeasurement;
   if (measurement === undefined) return;
+  recordMiniTelemetryPerformance('workbench', measurement.metric, measurement.durationMs);
+  if (!page._performanceDiagnosticsEnabled) return;
   page.setData({
     performanceEvidence: formatNativePerformanceEvidence(measurement, {
       label: coreMeasurement === undefined ? '前台恢复' : '工作台可交互',

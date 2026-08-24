@@ -15,7 +15,7 @@ describe('production Mini Program capability control', () => {
     );
 
     expect(environment).toContain(
-      'MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79,0.1.0-p6.20260824.80',
+      'MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79,0.1.0-p6.20260824.80,0.1.0-p6.20260824.81',
     );
     expect(environment).toContain('MINIPROGRAM_LEGACY_CLIENT_VERSION=0.1.0-p6.20260824.78');
   });

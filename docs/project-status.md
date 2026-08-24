@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C8 Mini `.81` 纯内存脱敏遥测（待 checkpoint/上传/部署）
+
+- 范围/基线：Git/origin/production均为`a1d25fde`、DB51/telemetry表空。本checkpoint只实现Mini匿名emitter、App runtime error和既有性能probe接线，并把production allowlist样例扩展至`.81`；无WXML/WXSS/Web UI/API/DB变更。App/capability来源`e25878f0`，POST无幂等不重试语义来源`9e3a966c`，callback-delimited性能probe来源`e2270bde`。
+- 测试先行/隐私边界：缺模块/App hooks/性能接线先8/8失败；随后in-flight总量、私有路径归一化、hostile rejection getter又分别先红后绿。emitter只在global+core同步有效时工作，queued+in-flight总计最多10条并按匿名事件去重；单POST/3s、无Bearer/idempotency/retry/storage/offline queue，失败即丢弃且不能递归报错。队列永远只持固定page/tier/error/performance和SHA-256 fingerprint，不持raw stack/message、身份、群组、手机号、token、客户端时间或业务正文。
+- 粗粒度与脱敏：只读取`benchmarkLevel`，非正/缺失=`unknown`、1–2=`low`、3–5=`medium`、6+=`high`；从不读取/上传其他设备身份字段。网络只保留none/wifi/2g/3g/4g/5g/unknown。纯TS SHA-256通过ASCII/UTF-8向量；URL/query、UUID、长hex、数字和本地绝对路径先归一化，Proxy getter异常回落unknown fingerprint。固定page alias覆盖identity/workbench/manual matrix/manual/backfill/group settings，未知路由失败关闭为unknown。
+- 接线/语义审计：App新增`onError/onUnhandledRejection`，只发`MINI_RUNTIME_ERROR`的app fingerprint。工作台core/foreground与矩阵maximum-render/tap继续以原`setData` callback为终点；probe现在默认创建并发送匿名duration，但`performanceEvidence`额外patch仍只在`?performance=1`，默认视觉/setData数量不增加。既有capability refresh、请求接收者、认证/重试、业务读取/写入、catch范围、空值、矩阵mutation/undo和WXS热路径不变；唯一新增副作用是允许时的best-effort匿名POST。
+- 验证：Mini 33 files/191 tests；全仓lint/typecheck/build、受控non-integration 168 files/913（25 skip）通过。`.81` production verify/source/2 Worklets/determinism/package/dry-run通过：132 files、1319302 bytes（main871146/scheduling333041/organization115115）、matrix1445/1506、view-model171340、manifest`2a321577236e6df8855ecae4980d1e4e1fce634c0a0d5a59d615b2a3454a9385`。运行/浏览器验证：`pnpm smoke:check-core`确认无Web核心变化，无需`pnpm smoke:browser`；格式/diff check通过。
+- checkpoint/下一步：识别消息为`feat(miniprogram): emit anonymous runtime telemetry`。提交推送后从精确clean commit重跑`.81`门禁并用仓库外key上传体验版；随后在production release锁下原子扩展`.78,.79,.80,.81`、验证七维能力/遥测写入、备份并部署ECS。P6实体Android RC仍未通过前不进入P7，也不提审/正式发布。
+
 ## 2026-08-24 P6-C7 遥测 schema 51 与保留激活（已部署并完成回滚演练）
 
 - 范围/基线：Git/origin/production均为`be740fc`、DB50、telemetry表不存在；本checkpoint只应用additive migration0051、把release schema收紧为51..51并强化生产verifier，不改Mini/Web UI或已部署的API/retention/backup运行时。`databaseSchemaMin`失败关闭来源为`e25878f0`，上一个迁移/feature范式来自`1514de25`，telemetry metadata/runtime来自`03c5d465`。

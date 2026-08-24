@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C8 Mini `.81` anonymous telemetry（待发布）
+
+- 基线/来源：`a1d25fde`/DB51；App+capability=`e25878f0`，POST no-idempotency no-retry=`9e3a966c`，performance callbacks=`e2270bde`。不改UI/API/DB。
+- 红绿/实现：缺emitter/hooks/wiring先8红；in-flight ceiling、path normalization、hostile getter再各1红。实现global+core、总量10/去重、单POST3s、无Bearer/retry/storage/offline queue；raw error只在本地归一化后纯TS SHA-256，队列只有固定匿名字段。tier只读benchmark并分unknown/1-2/3-5/6+；network/page严格枚举。
+- 语义：App error/rejection只发app MINI_RUNTIME_ERROR；既有4项callback duration默认发送，诊断文字仍只`performance=1`，默认无新增setData/视觉。receiver/catch/null/认证重试/业务调用/矩阵mutation+undo/WXS不变；失败丢弃且不递归。
+- 验证：Mini33/191，non-integration913，lint/typecheck/build、source/verify/2 Worklets/determinism/package/dry-run通过；`.81`132 files/1319302 bytes/manifest`2a321577236e6df8855ecae4980d1e4e1fce634c0a0d5a59d615b2a3454a9385`。运行/浏览器验证：pnpm smoke:check-core无Web核心变化，无需pnpm smoke:browser。checkpoint=`feat(miniprogram): emit anonymous runtime telemetry`；推送后clean上传`.81`并扩生产allowlist/部署，不提审。
+
 ## 2026-08-24 P6-C7 telemetry schema 51 feature（已部署并演练）
 
 - 基线/来源：Git/origin/production`be740fc`、DB50/无表；schema失败关闭来自`e25878f0`，0050范式`1514de25`，telemetry runtime`03c5d465`。只新增0051并收紧manifest51..51，不改UI/API运行时/Mini源码。

@@ -8,6 +8,7 @@ declare function Component<TOptions extends Record<string, unknown>>(options: TO
 declare function getApp<TApp = Record<string, unknown>>(): TApp;
 declare function Page<TOptions extends Record<string, unknown>>(options: TOptions): void;
 declare function setTimeout(callback: () => void, milliseconds: number): unknown;
+declare function clearTimeout(timeout: unknown): void;
 
 interface MiniProgramSharedValue<T> {
   value: T;
@@ -54,6 +55,7 @@ interface MiniProgramAppBaseInfo {
 }
 
 interface MiniProgramDeviceInfo {
+  readonly benchmarkLevel?: number;
   readonly model: string;
   readonly platform: string;
   readonly system: string;
@@ -73,10 +75,16 @@ interface MiniProgramLoginSuccess {
   readonly code: string;
 }
 
+interface MiniProgramNetworkTypeOptions {
+  readonly fail: (error: unknown) => void;
+  readonly success: (response: { readonly networkType?: unknown }) => void;
+}
+
 declare const wx: {
   createSelectorQuery(): MiniProgramSelectorQuery;
   getAppBaseInfo(): MiniProgramAppBaseInfo;
   getDeviceInfo(): MiniProgramDeviceInfo;
+  getNetworkType(options: MiniProgramNetworkTypeOptions): unknown;
   getMenuButtonBoundingClientRect(): MiniProgramRect;
   getStorageInfoSync(): { readonly keys: readonly string[] };
   getWindowInfo(): MiniProgramWindowInfo;
