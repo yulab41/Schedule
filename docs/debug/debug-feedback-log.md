@@ -7,8 +7,9 @@
 - 范围/引入点：`.89` 二次实体反馈；2秒状态目标覆盖 `16c02f56` 的1秒，picker独立 open=`bc32a4f1/7f4f70a0`，60ms hover=`0d971de1`，双滚轮静态 scrollend=`16c02f56`，82%灰底Sheet/96px textarea=`bc32a4f1`。只改 Mini UI/controller 和 `.90` 发布契约，不改业务/API/DB/P8。
 - 红绿/实现：timer、实例registry互斥、100ms idle/180ms animated snap、Web select几何/常亮态、Web request Sheet/紧凑原因框和 `.90` contract 均先红后绿。selector=300px/6px/28px/3px/shadow-2，移除60ms hover；滚动中按44px实时 draft，原生惯性期间只存私有top，停止后再受控吸附；request Sheet=白底/22px/78vh/32%遮罩/右上完成，leave=88px三行，duty=44px单行。
 - 语义审计：picker互斥只改open；selector仍一次change，month/date完成一次、取消零次。wheel timer/registry均在close/detached清理，不改value；reason input继续同handler/detail.value/maxlength/payload。Promise、receiver、空值、幂等、409/弱网与写次数未触及。
-- 验证：定向20、release3、Mini精确44 files/243、typecheck、production verify/determinism/source/package/performance/build、CI dry-run、lint/format/diff/core smoke通过；最终2 Worklets/3016422 bytes/manifest`cc093f1b…d9cb`，仅既有600格warning。根目录/路径式 Vitest 会误扫用户`.artifacts`旧副本，保留副本后用包目录`--dir scripts`验证真实源码。Windows二次build首次瞬时ENOTEMPTY，800ms重试通过；未重装依赖或操作微信开发者工具。
-- 状态：已实现待体验上传/生产部署；checkpoint=`fix(miniprogram): align p7 workflow controls`，随后只发布 `.90` 并等待实体复核。
+- 验证：定向20、release3、Mini精确44 files/243、typecheck、production verify/determinism/source/package/performance/build、CI dry-run、lint/format/diff/core smoke通过；persistent clean=2 Worklets/3029919 bytes/manifest`34520295…96a0`，仅既有600格warning。根目录/路径式 Vitest 会误扫用户`.artifacts`旧副本，保留副本后用包目录`--dir scripts`验证真实源码。发布worktree=`dependencies:reused`，直接pnpm预检失败后使用既有执行入口，未重装依赖；Windows主工作区二次build首次瞬时ENOTEMPTY，800ms重试通过；未操作微信开发者工具。
+- 体验/生产：`80ddadf0`已推送；`.90@80ddadf`官方上传96 files/zip787035/manifest`279ff1f7…9db0`，未提审/正式发布。首次缺key失败未成版；ECS首传API归档partial被hash门禁拦截，持续会话重传完整。首次备份CRLF参数只打印usage、未成archive；随后正确备份`6c1259df-1652-4908-b4fe-e6abe0e1f6c6`（54表/165519行/77785416 bytes/SHA`cbe645a4…406e`）后部署同release，预热1次502恢复、privacy0/0。双锁同时recreate api/web追加`.90`成功，`.89/.90`200且core/workflows=true，partial/unknown426，env root/600，full verifier/current release/health200通过，temp已删。
+- 状态：已实现待实体复核。最终checkpoint=`docs(status): record p7 web control deployment`；备份后同步production，再停止等待`.90@80ddadf`。
 
 ## 2026-08-24 P7 `.89` 下拉、滚轮、预热与日历字号
 

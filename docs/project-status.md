@@ -2,16 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7 Web 控件对齐候选 `.90`（已实现待体验上传/生产部署）
+## 2026-08-24 P7 Web 控件对齐候选 `.90`（已开放体验并部署，待实体复核）
 
 - 基线/范围：Git/origin/production 为 `aaf0a9bd`，`.89@16c02f5` 已开放体验；本批只处理用户对 `.89` 的二次实体反馈：成功提示改 2 秒、工作流成员/班次 picker 强互斥、年月滚轮保留惯性并自动吸附、下拉 1:1 对齐 Web，以及请假/换班/加扣班 request Sheet 的白底/圆角/按钮/右上“完成”和紧凑原因框。不改 API/DB/危险写，不进入 P8，不提审/正式发布。
 - 引入点/根因：1 秒 timer 与受 60ms hover 控制的 selector 来自 `16c02f56/0d971de1`；`bc32a4f1/7f4f70a0` 让每个 picker 独立维护 `open`，父级 tag query 在嵌套 Panel 实体环境未可靠覆盖；`16c02f56` 的双 `scroll-view` 只有 `scrollend` 静态回写、无动画兜底；固定 82% 灰底 Sheet/96px textarea 来自 `bc32a4f1`。均已执行 `git log -S` 与 `git blame`。
 - 实现：成功视觉状态严格在 2,000ms 清除。Picker 实例通过 attached/detached 注册表互斥，打开任意成员、班次或年月控件前同步关闭其他已开实例；selector 移除 60ms hover，打开触发器与已选 option 使用 Web 常亮品牌态，popover 按 Web TDesign 的 300px 上限、6px 内边距、28px 行、3px 行圆角和 shadow-2。年月滚动事件只更新草稿/选中放大和私有实际位置，不回写受控 scrollTop，因此不打断原生惯性；scrollend 或 100ms 无事件后从实际位置以 180ms 动画吸附最近 44px 行。
 - Sheet：request Sheet 改 Web 的 32% 遮罩、白底、22px 顶圆角、78vh 上限和自动内容高度；标题栏 56px/16px，右上统一“完成”；底部操作按钮用 10px 圆角且主按钮无额外阴影。请假原因保持 Web 三行 88px；普通/管理员加扣班原因改为 44px 单行 input，绑定、maxlength 和 payload 不变；换班 request/admin Sheet 同步相同壳层。
 - 测试先行：2 秒 timer、实例互斥、滚轮 idle snap/按住不抢吸附、Web select 几何/常亮态、request Sheet/原因框契约及 `.90` release contract 均在旧实现先红后绿。定向 3 files/20、release 3/3、当前 Mini 精确 `--dir scripts` 44 files/243 通过；首次从仓库根/按路径过滤的 Vitest 会误扫用户 `.artifacts` 旧副本，已保留副本并改用官方包目录 + `--dir scripts` 限定真实源。
-- 验证：Mini typecheck、production verify/determinism/source/package/performance/build、无凭据 CI dry-run、任务 ESLint/Prettier、`git diff --check`、`smoke:check-core` 通过；最终 verify 为 2/2 Worklet、3,016,422 bytes、manifest `cc093f1bed4e8091b8d3715d64e7c88304fd71d4405bf5e2f5064372a9dad9cb`，仅既有 600 格矩阵 best-effort warning。Windows 重复 build 首次清理刚生成 `dist` 遇瞬时 ENOTEMPTY，800ms 后原命令重试通过；未重装依赖、未删除用户文件、未启动/控制微信开发者工具 GUI。
+- 验证：Mini typecheck、production verify/determinism/source/package/performance/build、无凭据 CI dry-run、任务 ESLint/Prettier、`git diff --check`、`smoke:check-core` 通过；persistent clean verify 为 2/2 Worklet、3,029,919 bytes、manifest `345202956cb49ed24b4d90ec18cd408321b9d0474d75bbff5ab2eddc15c696a0`，仅既有 600 格矩阵 best-effort warning。发布 worktree 返回 `created:false/dependencies:reused`，没有 pnpm 依赖装配；直接 pnpm 命令的依赖预检被安全中止后改用既有可执行入口。主工作区重复 build 首次清理刚生成 `dist` 遇瞬时 ENOTEMPTY，800ms 后原命令重试通过；未删除用户文件、未启动/控制微信开发者工具 GUI。
 - 行为审计：selector 点选仍只 emit 一次并由父级更新值，month/date 仍只有“完成” emit、取消零次；互斥只清其他实例的视觉 `open`，不改 selectedIndex/draft/payload。滚轮新增 timer 只在 UI idle 后对齐显示，原生惯性期间不受控回写；attached/detached 对称清 registry/timer。input 与 textarea 的 `detail.value`、maxlength=200、receiver 和调用次数等价；业务 Promise/错误/409/弱网/幂等及写次数未触及。
-- checkpoint/下一批：代码 checkpoint 识别消息 `fix(miniprogram): align p7 workflow controls`；只允许从持久干净 worktree 复核、上传 `.90` 体验版、显式生产备份、部署同一 release、原子追加 allowlist 并完整验证，随后写最终状态 checkpoint 并停止等待 `.90` 实体复核。
+- 体验/生产：`80ddadf0`（`fix(miniprogram): align p7 workflow controls`）已推送；官方 Summer 上传 `.90@80ddadf` 成功（96 code files、zip 787,035 bytes、manifest `279ff1f72ec1f5fe2f3b1c231336be29f5b8178a4c7bdb30f2eb994729129db0`），未提审/正式发布。上传第一次因未注入仓库外 key 在编译前失败且未成版，注入既有本机 key 后成功。ECS 上传首轮 30 秒只完整传 dist、API 归档为 partial；哈希门禁阻止部署，持续会话重传至 5,511,769 bytes/SHA `43bb6cf0…c7f4d` 后才继续。第一次备份命令受 CRLF 影响仅打印用法、未成 archive；改为单条远端命令后，部署前加密备份 `6c1259df-1652-4908-b4fe-e6abe0e1f6c6`（54 表、165,519 行、77,785,416 bytes、SHA-256 `cbe645a45928b8137a281f5df004fca05cdad79a0955757702907011bb53406e`）成功。随后部署 release `80ddadf072fc3429a6fb87a99983d7663aebe952`，预热一次 502 后恢复、privacy 0/0；release/capability 双锁原子追加 `.90` 并同时 recreate api/web，`.89/.90` core/workflows=true、partial/unknown=426、env root/0600。ECS_PUBLIC_IP full verifier、current release、health 200 均通过，远端 temp 已删。
+- checkpoint/下一批：最终状态 checkpoint 识别消息 `docs(status): record p7 web control deployment`；该 docs-only commit 必须在新部署前备份保护下同步 production 后停止，只等待用户在 `.90@80ddadf` 实体复核本节交互，不进入 P8。
 
 ## 2026-08-24 P7 实体交互精修候选 `.89`（已开放体验并部署，待实体复核）
 
