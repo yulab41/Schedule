@@ -2,14 +2,23 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7 实体反馈修复候选 `.94`（已开放体验并部署，待实体复核）
+## 2026-08-25 P8 组织管理对等与安全预检（当前批次）
+
+- P7 门槛：用户已明确回复通过 `.94@0975b2d` 实体 Android RC；Git、`origin/main` 与 production release 均为 `e6f2e10c`，发布前备份 `ae9641a0-e596-44a1-bb33-0ee71e06c59b`，ECS_PUBLIC_IP full verifier 通过。P7 完成，不提审/正式发布。
+- 范围：本批只完成 P8 权限/接口/数据预检与冻结实施顺序，不写原生页面、不打开 production `organization` capability，不提前进入 P9/P10。Mini 当前只有 P5 手机号公开同意 panel；完整群组/成员/预设、班种/岗位/规则、邀请/访客码和平台账号后台均待实现。
+- 引入点：群组/成员 Web=`8e42afb8/322550d9/394b1c87`，配置=`04c7da36/d24b6920`，邀请 API=`a50c4fce`，平台账号=`02a508dd`，Mini settings=`0d971de1`，capability=`e25878f0`；均已执行 `git log -S` 与 `git blame`。
+- 生产只读预检：2 个 active group；owner/admin/member 为 2/3/21，owner mismatch 0；pending roster 0；岗位 2、班种 13（disabled 5）、无 rotation rule 岗位 0；invite/admin-binding ticket 均为空且无过期 pending；active user 35、password identity 24、Mini identity 1。未读取/输出姓名、电话、群组码、visitor key、token 或 subject。
+- 结论：现有权限真值可复用，但 P8 旧写调用普遍缺少统一 operation id/idempotency 和 expected version，不能直接接入 Mini。冻结顺序为共享只读边界 → 写契约/并发硬化并由 Web 先使用 → 390/320 黄金 → 原生页面 → P8 RC；详见 `apps/miniprogram/docs/architecture/p8-organization-parity-audit.md`。
+- 验证/checkpoint：P8 范围/权限/能力映射复核、任务文档直接 Prettier 和 `git diff --check` 通过；`pnpm exec prettier` 被本机非 TTY 依赖预检安全中止，未改依赖或用户文件，改用既有 `node_modules/prettier/bin/prettier.cjs` 完成同范围校验。checkpoint 识别消息 `docs(miniprogram): open p8 organization preflight`。下一活动批次只做 P8-A1 共享只读 endpoint/decoder、Web 委托和 Mini 现有手写 decoder 收口，完成验证/上传/部署后停止，不开始写 UI。
+
+## 2026-08-24 P7 实体反馈修复候选 `.94`（已通过实体复核）
 
 - 范围：收口本轮 5 项反馈——请假 Sheet/冲突列表 Web 对齐、一行日期与 44px 原因框、日期横滑/当天定位；selector 向上定位无闪现；年月滚轮平滑吸附；周视图姓名加粗；Web/Mini/API 禁止中国标准时间自然日今天以前的请假，并隐藏已取消请假的 `leave-cover` 标识。不进入 P8，不提审/正式发布。
 - 引入点/实现：message/list=`bc32a4f1`，Sheet 日期=`c1b9536a`，reason=`80ddadf0`，placement=`c1b9536a`，snap=`80ddadf0/c1b9536a`，周姓名=`50c6d1ed`，日期横滑=`b5603189`，历史保护=`18d2a2ea`。selector 测量期不可见；wheel 字体随真实 scrollTop 连续更新并以 scrollend 收口；日期 picker 复用月视图定位动效；自然日与 08:00 排班业务日分离。
 - 验证：Mini 44 files/252 tests、Web 100 files/598 tests、API 35 files/148 tests 通过（33 files/311 数据库集成按本机无数据库配置跳过）；Mini/Web/API typecheck、Web/API/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 ESLint/Prettier、`git diff --check`、`smoke:check-core` 通过。Mini 2/2 Worklet、3,034,245 bytes、manifest `e2a350b2e6e467aa79ad03c02cfa1ed45cf4d477869d8fec5097655d97dc5bc6`，仅既有 600 格矩阵 best-effort warning。完整 browser smoke 两次均被既有周视图左切换按下态断言阻断；应用内浏览器 390×844 请假专项确认过去日禁用、灰色提示、无横溢、console 0，未业务写入。
 - 体验/生产：代码 checkpoint `0975b2d1` 已推送；官方 Summer 上传 `.94@0975b2d` 成功（96 code files、zip 792,699 bytes、manifest `cb9e7a63e7e8cef5bb36290bddb122b156d6089f9affb54fbc07df8402aa3f64`），未提审/正式发布。部署前加密备份 `d289468d-c317-4dbd-982b-fb1697ad2955`（54 表、166,064 行、78,003,772 bytes、SHA-256 `7726622fc573a1f57aa3d5dd7ca064e68e5e82a94f778f7ab861280940f336fa`）后部署 release `0975b2d1f5157eacb7e8661864f1e25bd7b5b5f6`；预热一次 502 后恢复、privacy 0/0。双锁原子追加 `.94` 并同时 recreate api/web；`.93/.94` 200、`.84-duty`/unknown 426，`.94` core/workflows=true，env root/0600，ECS_PUBLIC_IP full verifier/health 200 通过。
 - 数据修复：只读核对确认徐漫彬历史请假 `8125ca23…` 仍为 active/approved 且无撤销事件。修复前再次备份 `f8878d42-1c05-4d9a-88dc-4a4e90ed1c5e`（54 表、166,111 行、78,019,548 bytes、SHA-256 `f2e06a6947689b5850b11efbfc0aa4315b105b1b783c9a1358f6160cbaa4b452`）；单事务软删除 1 行、version 2→3，并追加 1 条 `leave_request_revoked` 系统修复事件，既有 cover 审计和排班格不改。8/10、8/16、8/22 三班的 `visible_leave_cover_marker=0`；修复后 full verifier 再通过，远端 temp 已删。
-- checkpoint/下一批：最终状态 checkpoint 识别消息 `docs(status): record p7 feedback deployment`；该 docs-only commit 仍须备份保护、推送并同步为 production release，使 Git/origin/server 对齐后停止，只等待用户在 `.94@0975b2d` 实体复核，不进入 P8。
+- checkpoint/结果：最终状态 checkpoint `e6f2e10c` 已推送并在备份 `ae9641a0-e596-44a1-bb33-0ee71e06c59b` 后同步为 production release；2026-08-25 用户明确通过 `.94@0975b2d` 实体 Android RC，P7 完成并进入 P8。
 
 ## 2026-08-24 P7 请假日期与历史标识修复候选 `.92`（已实现待体验上传/生产部署）
 
