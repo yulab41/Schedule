@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "stage": "P7-workflows",
+  "description": "User-operated native evidence for leave, swap, and duty-adjustment workflows",
+  "candidateVersion": "0.1.0-p7.20260824.85",
+  "channel": "user-manual",
+  "requiredDevice": "user-android-physical",
+  "routes": {
+    "leave": "subpackages/workflows/pages/leave/index",
+    "swap": "subpackages/workflows/pages/swap/index",
+    "duty": "subpackages/workflows/pages/duty/index"
+  },
+  "roles": ["member", "owner-or-administrator"],
+  "statuses": [
+    "pending_target",
+    "pending_approval",
+    "completed",
+    "rejected",
+    "cancelled",
+    "revoked"
+  ],
+  "automatedEvidence": {
+    "capabilityFailClosed": true,
+    "crossMonthSwapCovered": true,
+    "dangerousWritesIdempotent": true,
+    "displayedPreviewSnapshotRequired": true,
+    "offlineWriteQueue": false,
+    "partialCandidatesAllowlisted": false,
+    "productionProfile": true
+  },
+  "requiredEvidence": [
+    "buildLabel",
+    "deviceModel",
+    "androidVersion",
+    "wechatVersion",
+    "baseLibraryVersion",
+    "systemFontScale",
+    "role",
+    "caseId",
+    "result",
+    "duplicateWriteObserved",
+    "calendarMarkerObserved",
+    "notificationObserved",
+    "symptomOnFailure"
+  ],
+  "completion": {
+    "acceptedFeedback": ["P7工作流RC通过", "P7 工作流 RC 通过"],
+    "screenshotsRequiredOnPass": false
+  },
+  "cases": [
+    {
+      "id": "member-leave-lifecycle",
+      "role": "member",
+      "workflow": "leave",
+      "checks": ["create", "affected-shifts", "pending", "cancel", "approved", "rejected"]
+    },
+    {
+      "id": "admin-leave-approval-conflict",
+      "role": "owner-or-administrator",
+      "workflow": "leave",
+      "checks": ["approval-preview", "conflict-acknowledgement", "approve", "reject", "revoke"]
+    },
+    {
+      "id": "member-swap-lifecycle",
+      "role": "member",
+      "workflow": "swap",
+      "checks": ["cross-month-preview", "submit", "target-accept", "target-reject", "cancel"]
+    },
+    {
+      "id": "admin-swap-approval-direct-revoke",
+      "role": "owner-or-administrator",
+      "workflow": "swap",
+      "checks": ["approve", "reject", "direct-preview", "direct-create", "revoke"]
+    },
+    {
+      "id": "member-duty-lifecycle",
+      "role": "member",
+      "workflow": "duty",
+      "checks": ["preview", "reason", "submit", "overtime-accept", "overtime-reject", "cancel"]
+    },
+    {
+      "id": "admin-duty-approval-direct-revoke",
+      "role": "owner-or-administrator",
+      "workflow": "duty",
+      "checks": ["approve", "reject", "direct-preview", "direct-create", "revoke-restores-member"]
+    },
+    {
+      "id": "weak-network-idempotent-retry",
+      "role": "member",
+      "workflow": "all",
+      "checks": [
+        "ambiguous-result-copy",
+        "same-payload-retry",
+        "no-duplicate-write",
+        "no-offline-queue"
+      ]
+    },
+    {
+      "id": "foreground-capability-refresh",
+      "role": "member",
+      "workflow": "all",
+      "checks": ["background-foreground", "fresh-lists", "stale-request-not-committed"]
+    },
+    {
+      "id": "calendar-and-notification-effects",
+      "role": "member",
+      "workflow": "all",
+      "checks": [
+        "calendar-marker",
+        "affected-member-notification",
+        "admin-notification",
+        "on-show-refresh"
+      ]
+    },
+    {
+      "id": "capability-rollback",
+      "role": "operator-preflight",
+      "workflow": "all",
+      "checks": ["disable-fail-closed", "enable-restores-entry", "health-remains-ready"]
+    }
+  ]
+}

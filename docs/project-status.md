@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7-F 完整工作流 RC 与生产能力契约（已实现待发布）
+
+- 基线/范围：Git/origin/production均为`03079a18`、DB51；P7-C/D/E三原生页面已部署但production workflows仍false。本批不改工作流领域/API/DB/UI，只冻结最终候选版本、生产allowlist/capability契约、实体Android RC计划和回滚门禁；不进入P8、不提审/正式发布。
+- 版本决策：完整候选固定`0.1.0-p7.20260824.85`；逐切片`.82-leave/.83-swap/.84-duty`只作可追溯上传，永不加入production allowlist。生产样例/部署手册只在原`.78-.81`兼容列表后加入`.85`并将workflows设true；legacy仍`.78`。审计现已确认三页/controller/危险写/视觉黄金全部关闭，剩余只有`.85`上传、原子allowlist+capability、回滚探测和实体RC。
+- 测试先行/RC：allowlist/workflows/计划文件断言在旧配置先3项失败，更新后release-control+P7 plan 18/18。新增机器可读RC JSON与runbook，精确锁定成员/管理员的请假、跨月换班、加扣班提交→接受/审批→拒绝/取消→direct→完成后撤销，以及弱网结果不确定同payload重试、前后台刷新、日历标记、成员/管理员通知和capability关闭→重开；通过反馈固定“P7 工作流 RC 通过”，不强制通过截图。
+- 自动证据：Mini 41 files/221；P7 Web/shared client/presentation 12 files/45；API env/runtime/release 4 files/42；Mini typecheck/任务ESLint/Prettier/production verify/source/package/performance/determinism、`smoke:check-core`、`git diff --check`通过。当前主源码真实MySQL请假20+换班34+加扣班26+通知8+微信4=92/92；命令随后误扫用户`runtime/ecs-directory-favorites-*`旧副本并出现旧迁移建表冲突，主源码92项已先完整通过，后续命令显式排除`runtime/**`/`src/**`且不修改副本。
+- 构建：2/2 Worklet、2282116 bytes、manifest`766bdfab7b2546e048f229f8ea8f9c63d8e5da9556f3ec7c40e224030c4f42c8`；只保留既有600格矩阵节点best-effort警告。无Mini UI源码变化，因此不新增视觉真值；原生视觉/交互仍只能由用户实体设备确认。
+- checkpoint/停止条件：代码checkpoint识别消息`chore(miniprogram): prepare p7 workflow rc`；推送后上传production-profile`.85`，做ECS加密备份/部署，在release锁下原子加入allowlist并开启workflows，验证`.85`全能力、部分候选426、旧`.81`兼容；再执行workflows false→true回滚预演和full verifier。状态checkpoint同步生产后立即暂停，等待用户按`apps/miniprogram/docs/runbooks/p7-workflow-rc.md`实体Android复核；明确通过前不进入P8。
+
 ## 2026-08-24 P7-E 原生加扣班垂直切片（代码已部署，能力保持关闭）
 
 - 基线/范围：Git/origin/production均为`f830405b`、DB51；本批只实现Mini原生加扣班月份候选、原因、preview/提交、目标接受/拒绝、申请人取消、管理员审批/拒绝/direct、完成后revoke及两级设置，不启用production workflows、不改API/DB。视觉1:1复用已确认的production `DutyAdjustmentPanel` 390/320黄金和既有医疗蓝灰令牌；纯WXML/WXSS/TS/JSON，无TDesign MiniProgram/第三方UI。

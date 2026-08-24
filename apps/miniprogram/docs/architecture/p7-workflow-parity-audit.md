@@ -66,13 +66,12 @@ P7-A/B 已完成并通过真实 MySQL、Web/Storybook build 和 390/320 浏览�
 - 管理员 direct form 与普通成员 form 分离；成功、网络失败、409 conflict、刷新失败必须使用 Web 同义状态。
 - 390px 来源为 production panel 加 `web-ui-2-0-shell-refinement-preview--swap-390/--duty-390`；320px 与完整状态需在 P7 专用 Storybook fixture 中从 production panel 固化，不能把现有简化卡片当完整黄金。
 
-## Mini 当前缺口
+## Mini 当前状态
 
-1. `app.json` 没有 `subpackages/workflows`，工作台三项导航仍 `is-disabled + handleUnavailable`。
-2. Mini 没有工作流 controller/ViewModel、operation freeze、409刷新、前后台 serial、loading/error/empty/success 状态。
-3. production `MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED=false`；`.81` 只能 core，不能调用工作流路由。
-
-已关闭：client-core 的 38 个 workflow endpoint/compact decoder/Web 委托、19 个危险写 header/body 门禁、leave create 幂等，以及 20 个 production-panel Storybook 390/320 黄金状态。
+1. `subpackages/workflows` 已注册请假、换班、加扣班三个原生页面；工作台与页内底栏三项真实互转，guest/disabled/deep link失败关闭。
+2. 三页 controller/ViewModel 已覆盖operation freeze、409刷新、前后台serial、loading/error/empty/success、成员/管理员、preview/direct/revoke与设置；离线只读且没有写队列。
+3. client-core 的38个workflow endpoint/compact decoder/Web委托、19个危险写header/body门禁、leave create幂等和20个production-panel Storybook 390/320黄金均已关闭。
+4. 剩余门槛只有最终`.85`上传、production allowlist/workflows原子开启与回滚探测，以及用户实体Android P7 RC；明确通过前不进入P8。
 
 ## 冻结实施顺序
 
@@ -96,7 +95,7 @@ P7-A/B 已完成并通过真实 MySQL、Web/Storybook build 和 390/320 浏览�
 2. 换班：跨月候选、preview/提交、接受/拒绝/取消/审批/direct/revoke、设置。
 3. 加扣班：候选、原因、preview/提交、接受/拒绝/取消/审批/direct/revoke、设置。
 4. 注册 `subpackages/workflows`，工作台底栏启用三项真实导航；guest/disabled/deep link失败关闭。
-5. 新体验版本暂定`.82`；上传后才在release锁下开启production workflows capability。旧版本继续显示禁用入口，不新增离线写队列。
+5. 完整 P7 候选固定为`0.1.0-p7.20260824.85`；`.82-leave/.83-swap/.84-duty`仅用于逐切片可追溯上传，部分切片候选永不加入 production allowlist。`.85`上传、代码部署、自动RC和回滚探测通过后，才在release锁下原子加入allowlist并开启production workflows capability；旧版本继续保留自身UI行为，不新增离线写队列。
 
 ### P7 RC
 
