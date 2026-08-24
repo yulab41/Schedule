@@ -146,4 +146,15 @@ describe('reusable isolated release worktree', () => {
       ),
     ).toBe(['allowBuilds:', '  esbuild: true', ''].join('\r\n'));
   });
+
+  it('checks content, index, and untracked files instead of rejecting stat-only EOL noise', () => {
+    const source = fs.readFileSync(
+      new URL('./prepare-release-worktree.mjs', import.meta.url),
+      'utf8',
+    );
+    expect(source).not.toContain("['status', '--porcelain=v1', '--untracked-files=all']");
+    expect(source).toContain("['diff', '--quiet', '--exit-code']");
+    expect(source).toContain("['diff', '--cached', '--quiet', '--exit-code']");
+    expect(source).toContain("['ls-files', '--others', '--exclude-standard']");
+  });
 });

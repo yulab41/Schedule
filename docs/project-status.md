@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7 实体反馈修复候选 `.88`（本地门禁完成，待 checkpoint/体验上传/生产同步）
+## 2026-08-24 P7 实体反馈修复候选 `.88`（已开放体验并部署，持久 worktree 收口待 checkpoint）
 
 - 基线/范围：Git/origin/production 为 `f070b696`；本批只收口 `.87` 实体反馈并把 Windows 发布流程改为可复用隔离 worktree，不改 API/DB/工作流危险写，不进入 P8，不提审/正式发布。用户口述“继续 P5 debug”按仓库当前活动阶段解释为继续 P7 实体 RC；P5 已完成且群组管理入口只是本轮被反馈的既有 P5 页面。
 - 引入点/根因：发布文档自 `de3ad5f7/e25878f0` 只要求干净 worktree、没有复用入口，人工每轮新建临时目录导致重复装配；日历 `monthResources` 读缓存来自 `9e3a966c`，`bc32a4f1` 把工作流常驻后没有 mutation→calendar 失效事件；群组设置全页跳转来自 `59300957`；Panel `infoMessage`、form `wx:if`、周末整行红、默认 400ms hover 和静态 24px picker item 来自 `bc32a4f1/7f4f70a0`。
@@ -12,7 +12,8 @@
 - 测试先行：发布脚本缺失 1 suite 先红；壳层/日历事件/提示 timer/群组 Panel 7 项先红；周末分段、press/flicker/close/wheel/遮罩 4 组先红；`.88` release contract 3 项先红，全部实现后转绿。真实 Mini 源（显式排除用户 `.artifacts` 历史副本）44 files/233，release/worktree/controls 4 files/29，定向反馈/host/picker/group/capability 通过。首次精确 clean worktree 又让 `9a436e8b` 的 CSS 原始字节预算被 CRLF 误增至 45,005，并复现既有 Vitest/Vite 对 CRLF `performance-budget.test.mjs` 的语法误报；预算现先归一化 EOL，`.gitattributes` 固定 Mini scripts 为 LF，新增契约先红后绿。
 - 验证：精确 persistent clean worktree Mini 44 files/234、typecheck、production source/build/package/performance/determinism、无凭据 CI dry-run、任务 ESLint/Prettier、Node syntax、`git diff --check` 通过；production verify 为 2/2 Worklet、3,018,325 bytes、manifest `500966810019827ab35929d464025c916918443c9a902d7b42ffeb13bdbae142`，只保留既有 600 格矩阵 best-effort 警告。`.88` 官方 Summer 上传成功（96 code files、zip 780,059 bytes、manifest `705af2e7ee9d7b45466688ab721296168aa47acae3b3dbade0c28d223a3c32fe`），未提审/正式发布。运行/浏览器验证：`pnpm smoke:check-core` 确认未触及 Web 核心链路，无需 `pnpm smoke:browser`；按计划未启动/控制微信开发者工具。
 - 行为审计：新增副作用仅为工作流成功后同群日历只读 GET 和 3 秒视觉清理；mutation payload/operationId、receiver、Promise/409/弱网重试、成功写入次数和 standalone deep link 不变。群组设置共享同一 controller/client/权限/幂等；picker selector 仍点选只 emit 一次，month/date 仍仅完成 emit、取消不写值；表单预挂载不发请求，只有显式打开继续读取受影响班次。
-- checkpoint/下一批：功能代码 `0d971de1`、Windows Node→pnpm `1c042e95`、未审脚本保持阻止 `741daf8f`、review 占位恢复 `86591227`、clean 行尾门禁 `a6a029ba` 已推送；ECS build 预检修正 checkpoint 识别消息 `fix(release): skip redundant dependency preflight`。显式暂存继续排除用户 `project.config.json`、`pnpm-workspace.yaml`、`.artifacts/runtime/src`、Storybook/Excel 等既有改动。推送后只用持久 worktree 完成 ECS 备份/部署/完整验证和 release 锁下 `.88` allowlist；随后写最终状态 checkpoint 并暂停，等待用户在 `.88@<commit>` 实体复核本节 8 组反馈，不进入 P8。
+- 体验/生产：`.88@a6a029b` 已由官方 Summer 上传（96 code files、zip 780,059 bytes、manifest `705af2e7ee9d7b45466688ab721296168aa47acae3b3dbade0c28d223a3c32fe`），未提审/正式发布。ECS release `1d19d493761eb6a713d68adc3c493e33dc0ba4fb` 部署成功，预热一次 502 后恢复、privacy 0/0；复核 updater 后发现其只备份应用文件、未运行数据库 job，本次无 API/DB/迁移改动但违反“部署前备份”顺序，已立即补做加密备份 `b7ea25b8-0753-4799-929e-e58a4ac38fbd`（54 表、165,115 行、77,606,204 bytes、SHA-256 `140345f19255b5bbd8f07acbb1fe8b670a20992a112e7fb6b7641b58fb22e1ed`），明确记录为部署后补备份。release/version 双锁下原子追加 `.88`，`.87/.88` core/workflows=true，`.84-duty`/未知为 426，env root/0600；ECS_PUBLIC_IP full verifier、health 200 通过，远端临时目录已删。
+- checkpoint/下一批：功能代码 `0d971de1`、Windows Node→pnpm `1c042e95`、未审脚本保持阻止 `741daf8f`、review 占位恢复 `86591227`、clean 行尾门禁 `a6a029ba`、ECS 预检 `1d19d493` 已推送。打包后生成的 `components.d.ts` 与 HEAD 哈希相同但被 Git stat-only 标为 M；第 8 项回归现让 helper 与正式 packager 同用 content/index/untracked 判定，真实内容变化仍失败关闭，checkpoint 识别消息 `fix(release): ignore stat-only worktree noise`。推送后先显式生产备份，再复用 `1d19d493` 已审计 archives 部署该非应用 checkpoint；随后最终状态 checkpoint 也在部署前备份并复用同制品，使 Git/origin/production 对齐后暂停，等待用户在 `.88@a6a029b` 实体复核本节 8 组反馈，不进入 P8。
 
 ## 2026-08-24 P7 实体交互稳定性候选 `.87`（已开放体验，待实体复核）
 

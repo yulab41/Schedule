@@ -164,11 +164,19 @@ function resolveCommit(reference) {
 }
 
 function assertCleanWorktree(worktreeRoot) {
-  const status = git(['status', '--porcelain=v1', '--untracked-files=all'], {
+  const unstagedClean =
+    git(['diff', '--quiet', '--exit-code'], { allowFailure: true, cwd: worktreeRoot }).status === 0;
+  const stagedClean =
+    git(['diff', '--cached', '--quiet', '--exit-code'], {
+      allowFailure: true,
+      cwd: worktreeRoot,
+    }).status === 0;
+  const untracked = git(['ls-files', '--others', '--exclude-standard'], {
     cwd: worktreeRoot,
   }).stdout.trim();
-  if (status !== '') {
-    fail(`复用目录存在未提交或未忽略内容，已停止以免覆盖：${worktreeRoot}\n${status}`);
+  if (!unstagedClean || !stagedClean || untracked !== '') {
+    const detail = git(['status', '--short'], { cwd: worktreeRoot }).stdout.trim();
+    fail(`复用目录存在未提交或未忽略内容，已停止以免覆盖：${worktreeRoot}\n${detail}`);
   }
 }
 
