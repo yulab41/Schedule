@@ -158,7 +158,7 @@ describe('P4 native workbench', () => {
     ]) {
       expect(pageStyles).not.toContain(`.${legacyClass}`);
     }
-    expect(Buffer.byteLength(pageStyles, 'utf8')).toBeLessThan(43_000);
+    expect(Buffer.byteLength(pageStyles.replaceAll('\r\n', '\n'), 'utf8')).toBeLessThan(43_000);
   });
 
   it('commits loaded data and view changes with one presentation patch', () => {

@@ -13,6 +13,10 @@ import {
 } from './build-tools.mjs';
 
 describe('Mini Program deterministic toolchain guards', () => {
+  it('pins Mini test and build scripts to LF in every clean Windows worktree', () => {
+    const attributes = readFileSync(new URL('../../../.gitattributes', import.meta.url), 'utf8');
+    expect(attributes).toContain('apps/miniprogram/scripts/*.mjs text eol=lf');
+  });
   it('requires an explicit supported build profile', () => {
     expect(resolveBuildProfile('staging')).toBe('staging');
     expect(resolveBuildProfile('production')).toBe('production');
