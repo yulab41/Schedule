@@ -16,6 +16,7 @@ Set-Location ..\Schedule-release-worktree
 脚本只接管 Git 已登记、detached、状态干净的专用 worktree。目标目录若含用户分支、未提交/未忽略文件，或只是同名普通目录，会失败关闭且绝不删除、清理或覆盖。依赖指纹保存在该 worktree 自己的 Git 元数据目录，不污染 release 源码状态。不要每轮删除这个目录，也不要在其中进行开发。
 
 安装保持仓库 `allowBuilds` 白名单：已批准的 `esbuild` 脚本照常执行，未批准的转依赖脚本继续被阻止；发布 helper 只把 pnpm 的 `strictDepBuilds` 从“未审脚本即非零退出”调整为警告，不会放行这些脚本，也不会使用 `dangerouslyAllowAllBuilds`。
+pnpm 11 会把未审包自动追加为 `set this to true or false` 占位值；helper 只在确认安装后的唯一差异正是这些占位行时恢复安装前原文，出现任何其他 workspace 变化都会失败关闭。
 
 完成本地验证后，在上述发布 worktree 根目录执行：
 

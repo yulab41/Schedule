@@ -235,14 +235,38 @@ export function resolvePnpmInvocation(
   return { argumentsPrefix: [], command: 'pnpm' };
 }
 
+export function stripPnpmBuildPlaceholders(source) {
+  return source.replace(
+    /^[ \t]+(?:'[^'\r\n]+'|"[^"\r\n]+"|[^:\r\n]+): set this to true or false\r?\n/gmu,
+    '',
+  );
+}
+
+function restorePnpmWorkspaceAfterInstall(workspacePath, original) {
+  const current = fs.readFileSync(workspacePath);
+  if (current.equals(original)) return;
+  const stripped = stripPnpmBuildPlaceholders(current.toString('utf8'));
+  const normalize = (value) => value.replaceAll('\r\n', '\n');
+  if (normalize(stripped) !== normalize(original.toString('utf8'))) {
+    fail('pnpm install 修改了 build-review 占位值以外的 workspace 配置，拒绝自动恢复。');
+  }
+  fs.writeFileSync(workspacePath, original);
+}
+
 function runPnpmInstall(worktreeRoot) {
   const environment = { ...process.env, CI: 'true' };
   const invocation = resolvePnpmInvocation(environment);
-  run(invocation.command, [...invocation.argumentsPrefix, ...PNPM_INSTALL_ARGUMENTS], {
-    cwd: worktreeRoot,
-    env: environment,
-    stdio: 'inherit',
-  });
+  const workspacePath = path.join(worktreeRoot, 'pnpm-workspace.yaml');
+  const originalWorkspace = fs.readFileSync(workspacePath);
+  try {
+    run(invocation.command, [...invocation.argumentsPrefix, ...PNPM_INSTALL_ARGUMENTS], {
+      cwd: worktreeRoot,
+      env: environment,
+      stdio: 'inherit',
+    });
+  } finally {
+    restorePnpmWorkspaceAfterInstall(workspacePath, originalWorkspace);
+  }
 }
 
 function writeDependencyMarker(gitDirectory, fingerprint, commit) {

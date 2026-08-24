@@ -12,6 +12,7 @@ import {
   parseWorktreeList,
   resolvePnpmInvocation,
   shouldReuseDependencies,
+  stripPnpmBuildPlaceholders,
 } from './prepare-release-worktree.mjs';
 
 const temporaryDirectories = [];
@@ -130,5 +131,19 @@ describe('reusable isolated release worktree', () => {
       '--frozen-lockfile',
       '--config.strictDepBuilds=false',
     ]);
+  });
+
+  it('recognizes only pnpm generated build-review placeholders for restoration', () => {
+    expect(
+      stripPnpmBuildPlaceholders(
+        [
+          'allowBuilds:',
+          "  '@parcel/watcher': set this to true or false",
+          '  esbuild: true',
+          '  protobufjs: set this to true or false',
+          '',
+        ].join('\r\n'),
+      ),
+    ).toBe(['allowBuilds:', '  esbuild: true', ''].join('\r\n'));
   });
 });
