@@ -9,7 +9,8 @@
 - 语义审计：共享transport receiver、认证、异步catch/错误映射、preview/settings调用次数与空值语义不变；危险写新增header/body一致性，leave新建从非幂等变为精确重放。生成器只新增typed map/propertyNames和仓库Prettier配置解析，不放宽未知字段。
 - 验证：定向172、runtime boundary4、non-integration980、Mini191通过；真实MySQL leave20/swap34/duty26/notifications8/WeChat4共92/92。首次7失败均为跨suite旧leave helper漏operation ID，补齐同header/body后全绿。typecheck/build、Web production build、generated freshness、Mini production verify通过。
 - 运行/浏览器验证：`pnpm smoke:browser`等价直接入口`SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/smoke-browser.mjs`在最终源码通过管理员、成员、访客vkey和访问记录，全流程无浏览器错误，最终截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-oKEqzb`，临时服务已停止。前两轮周导航按下态失败定位为`0aaa5620`验证器先滚动周面板后在视口外按钮取CDP坐标；只给helper补`scrollIntoViewIfNeeded`后原样通过，未改产品UI。
-- 下一步：checkpoint=`feat(workflows): harden shared operation clients`；P7-B只固化production panels的390/320全状态Storybook与1:1证据，通知中心仍留P9，不写Mini页面。
+- 发布：`b667dcc5`已推送；加密备份`e81f6b7d-62e1-4c0c-9a82-33af178a6b3b`（54表/163744行/77097920 bytes/SHA-256`4d134322…24c0`）后部署同一release。DB51、retention0/0，预热首个502后恢复，完整verifier通过且远端临时文件已删除。
+- 下一步：最终状态checkpoint=`docs(status): record p7 workflow safety deployment`；P7-B只固化production panels的390/320全状态Storybook与1:1证据，通知中心仍留P9，不写Mini页面。
 
 ## 2026-08-24 P6-C9 核心 RC（用户已通过）
 

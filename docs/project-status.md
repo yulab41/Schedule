@@ -2,14 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7-A 工作流危险写与共享客户端边界（待 checkpoint）
+## 2026-08-24 P7-A 工作流危险写与共享客户端边界（代码已部署）
 
 - 基线/来源：P7审计`3dd3c0fe`已与Git/origin/production对齐、DB51；leave/swap/duty来源`0d5ec55c`/`b20ff9b8`/`5d8b205a`，事务幂等骨架`beae8e84`/`7fcd6ae4`/`e5608cf3`。本批只完成安全与Web-first共享边界，不写Mini WXML/WXSS、不启用workflows capability或改DB。
 - 安全实现：leave create contract强制`operationId`并进入`runAuthorizedMutation(leave_request_create)`，canonical payload fingerprint保证同ID同载荷精确重放、同ID异载荷409且只写一次request/event。leave/swap/duty共19个危险写路由统一用`resolveDangerousOperationId`校验`Idempotency-Key`与body；只传其中一侧保持兼容，两侧不一致在service调用前400。
 - 共享边界：client-core新增38个三工作流read/preview/settings/write endpoint与严格compact decoder；生成schema扩展typed `additionalProperties`/`propertyNames`，生成器读取仓库Prettier配置后输出，generated/freshness/structural equality一致。Web API 38个方法全部委托共享client；presentation-core新增canonical、深冻结的operation attempt，四个production panel对同一payload的模糊失败重试复用ID、payload变化换ID、仅成功后清理。
 - 测试先行/联动：contract/routes/client/Web delegation/operation attempt/panel wiring均先红后绿；定向8 files/172，运行时边界4/4，主工作区非集成188 files/980（25 skip），正确Mini cwd 33 files/191通过。真实MySQL最终leave20+swap34+duty26+notifications8+WeChat4=92/92；第一次联动运行的7个400均定位为旧测试helper漏传新leave operation ID，补齐同header/body后全绿，无业务实现回退。
 - 构建/运行：contracts/client-core/presentation-core/API typecheck/build及Web typecheck/production build、Mini production verify通过（2/2 Worklet，1681889 bytes，manifest`205b035ea39b825d0460c1d62442744cdb2a82ad5088457d5e4b32d56dd81e1f`）。运行/浏览器验证：`pnpm smoke:browser`的等价直接入口在最终源码4173/API3000通过管理员、成员、访客vkey和访问记录且无浏览器错误，最终截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-oKEqzb`，临时服务已停止。前两次稳定停在视口外周导航触摸采样；`git log -S`/blame定位验证器到`0aaa5620`，只在取坐标前`scrollIntoViewIfNeeded`，产品UI未改。
-- 语义审计/下一批：receiver仍经同一shared transport调用，preview/settings无幂等头且读取/错误解析次数不变；危险写body/header一致、失败保留attempt、成功一次清理，没有离线写队列或额外业务调用。checkpoint识别消息为`feat(workflows): harden shared operation clients`。下一活动批次只做P7-B：从四个production Web panels固化请假/审批、换班、加扣班的390/320完整状态Storybook与1:1验收证据，验证通过即停，不提前写Mini工作流或进入P8。
+- 语义审计：receiver仍经同一shared transport调用，preview/settings无幂等头且读取/错误解析次数不变；危险写body/header一致、失败保留attempt、成功一次清理，没有离线写队列或额外业务调用。
+- checkpoint/生产：`b667dcc5`（`feat(workflows): harden shared operation clients`）已推送。发布前加密备份`e81f6b7d-62e1-4c0c-9a82-33af178a6b3b`（54表、163744行、77097920 bytes、SHA-256`4d1343221c40a5c944c911b32ec1756eebbe11f998db91fc34dbc52beacb24c0`）后部署release`b667dcc5cb46dc266a08c0ca064c10641de04b69`；DB保持schema51，privacy retention首跑0/0，预热首个502后恢复，完整`ecs-verify.sh`通过产物/控制面/能力/容器/迁移/健康检查，远端临时上传已删除。最终状态checkpoint识别消息为`docs(status): record p7 workflow safety deployment`。
+- 下一批/停止条件：状态checkpoint推送并部署后，只做P7-B——从四个production Web panels固化请假/审批、换班、加扣班的390/320完整状态Storybook与1:1验收证据；验证通过即停，不提前写Mini工作流或进入P8。
 
 ## 2026-08-24 P6-C9 核心 RC 实体 Android 验收（用户已通过）
 
