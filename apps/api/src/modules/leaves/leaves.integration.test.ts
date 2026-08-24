@@ -8,17 +8,36 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
-import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
+import { getChinaStandardTimeCalendarDate } from '@schedule/scheduling-domain';
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import { isLeaveStartBeforeChinaToday } from './leave-service.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
 const databaseOptions = getTestDatabaseOptions();
 const describeWithDatabase = databaseOptions === undefined ? describe.skip : describe;
+
+describe('leave natural-calendar-date guard', () => {
+  it('allows China Standard Time midnight on the same calendar date after the 08:00 handover', () => {
+    const now = new Date('2026-08-24T12:00:00.000Z');
+    const sameCalendarDateStart = new Date('2026-08-23T16:00:00.000Z');
+
+    expect(getChinaStandardTimeCalendarDate(now)).toBe('2026-08-24');
+    expect(isLeaveStartBeforeChinaToday(sameCalendarDateStart, now)).toBe(false);
+  });
+
+  it('rejects the previous China Standard Time calendar date before the 08:00 handover', () => {
+    const now = new Date('2026-08-23T18:00:00.000Z');
+    const previousCalendarDateStart = new Date('2026-08-22T16:00:00.000Z');
+
+    expect(getChinaStandardTimeCalendarDate(now)).toBe('2026-08-24');
+    expect(isLeaveStartBeforeChinaToday(previousCalendarDateStart, now)).toBe(true);
+  });
+});
 
 describeWithDatabase('leave requests and reflow', () => {
   let allDayShiftTypeId: string;
@@ -59,7 +78,7 @@ describeWithDatabase('leave requests and reflow', () => {
 
   it('rejects a leave request whose start date is before today', async () => {
     const context = await seedPublishedRotation();
-    const today = getChinaStandardTimeBusinessDate(new Date());
+    const today = getChinaStandardTimeCalendarDate(new Date());
     const yesterday = new Date(`${today}T00:00:00.000Z`);
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     const start = yesterday.toISOString();

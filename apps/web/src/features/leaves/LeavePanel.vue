@@ -28,7 +28,7 @@ import {
   getLeaveStatusTone,
   getLeaveTypeLabel,
   getReflowStrategyLabel,
-  getTodayBusinessDate,
+  getTodayCalendarDate,
   leaveTypeLabels,
   reflowStrategyLabels,
 } from './leave-logic.js';
@@ -46,8 +46,9 @@ const myRequests = ref<LeaveRequest[]>([]);
 const approvals = ref<LeaveRequest[]>([]);
 const strategy = ref<GroupLeaveReflowStrategy>();
 const leaveType = ref<LeaveRequestType>('sick');
-const startDate = ref(getTodayBusinessDate());
-const endDate = ref(getTodayBusinessDate());
+const todayDate = ref(getTodayCalendarDate());
+const startDate = ref(todayDate.value);
+const endDate = ref(todayDate.value);
 const affectedShifts = ref<readonly LeaveAffectedShift[]>([]);
 const affectedShiftsLoading = ref(false);
 const reason = ref('');
@@ -99,6 +100,9 @@ const decidedApprovals = computed(() =>
   approvals.value.filter((request) => request.status !== 'pending'),
 );
 const leaveDayCount = computed(() => getLeaveDayCount(startDate.value, endDate.value));
+const endDateMin = computed(() =>
+  startDate.value > todayDate.value ? startDate.value : todayDate.value,
+);
 const uncoveredAffectedShifts = computed(() =>
   affectedShifts.value.filter((shift) => !shift.isCovered),
 );
@@ -294,6 +298,10 @@ onBeforeUnmount(() => {
 });
 
 function onWindowFocus(): void {
+  const nextToday = getTodayCalendarDate();
+  todayDate.value = nextToday;
+  if (startDate.value < nextToday) startDate.value = nextToday;
+  if (endDate.value < startDate.value) endDate.value = startDate.value;
   void loadData();
 }
 </script>
@@ -542,11 +550,23 @@ function onWindowFocus(): void {
           <div class="date-fields">
             <label>
               开始日期
-              <TemporalPicker v-model="startDate" kind="date" label="开始日期" required />
+              <TemporalPicker
+                v-model="startDate"
+                kind="date"
+                label="开始日期"
+                :min="todayDate"
+                required
+              />
             </label>
             <label>
               结束日期
-              <TemporalPicker v-model="endDate" kind="date" label="结束日期" required />
+              <TemporalPicker
+                v-model="endDate"
+                kind="date"
+                label="结束日期"
+                :min="endDateMin"
+                required
+              />
             </label>
           </div>
           <p v-if="leaveDayCount > 0" class="day-count-hint">

@@ -42,6 +42,7 @@ import {
 import {
   createRotationBusinessKey,
   getChinaStandardTimeBusinessDate,
+  getChinaStandardTimeCalendarDate,
   intervalsOverlap,
   isPastBusinessDate,
   leaveOverlapsInterval,
@@ -1916,11 +1917,14 @@ function parseTimestamp(value: string, fieldName: string): Date {
 }
 
 function assertLeaveStartsTodayOrLater(startsAt: Date): void {
-  const startDate = getChinaStandardTimeBusinessDate(startsAt);
-  if (isPastBusinessDate(startDate)) {
-    const today = getChinaStandardTimeBusinessDate(new Date());
+  if (isLeaveStartBeforeChinaToday(startsAt)) {
+    const today = getChinaStandardTimeCalendarDate(new Date());
     throw validationError(`开始日期最早只能是当天（${today}）。`);
   }
+}
+
+export function isLeaveStartBeforeChinaToday(startsAt: Date, now: Date = new Date()): boolean {
+  return getChinaStandardTimeCalendarDate(startsAt) < getChinaStandardTimeCalendarDate(now);
 }
 
 function validationError(userMessage: string): ApiError {

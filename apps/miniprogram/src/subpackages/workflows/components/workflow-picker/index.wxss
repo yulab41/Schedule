@@ -226,6 +226,20 @@
   bottom: calc(100% + 6px);
 }
 
+.workflow-picker-selector-popover.is-measuring {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.workflow-picker-selector-popover.is-ready {
+  animation: selector-popover-in-down 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.workflow-picker-selector-popover.is-up.is-ready {
+  animation-name: selector-popover-in-up;
+}
+
 .workflow-picker-selector-backdrop {
   position: fixed;
   z-index: -1;
@@ -313,13 +327,6 @@
   transform: scale(0.94);
 }
 
-.workflow-picker-wheel-item.is-animating {
-  transition:
-    font-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
 .workflow-picker-wheel-item.is-selected {
   color: var(--ui-color-text-primary);
   font-size: 24px;
@@ -392,9 +399,22 @@
   color: var(--ui-color-primary);
   border-radius: 12px;
 }
-.workflow-picker-date-today image {
+
+.workflow-picker-date-step.is-pressed,
+.workflow-picker-date-today.is-pressed {
+  background: var(--ui-color-primary-light);
+  transform: scale(0.9);
+}
+
+.workflow-picker-date-step image,
+.workflow-picker-date-locate-icon,
+.workflow-picker-date-locate-icon image {
   width: 20px;
   height: 20px;
+}
+
+.workflow-picker-date-locate-icon.is-animating {
+  animation: click-date-locate 520ms cubic-bezier(0.2, 0, 0, 1);
 }
 .workflow-picker-date-swiper {
   width: 100%;
@@ -504,8 +524,44 @@
   box-shadow: 0 6px 14px rgba(10, 102, 213, 0.22);
 }
 
+@keyframes selector-popover-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes selector-popover-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes click-date-locate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(90deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .workflow-picker-sheet {
+  .workflow-picker-sheet,
+  .workflow-picker-selector-popover.is-ready,
+  .workflow-picker-date-locate-icon.is-animating {
     animation: none;
   }
 }

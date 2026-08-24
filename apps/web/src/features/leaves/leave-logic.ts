@@ -7,7 +7,7 @@ import type {
 } from '@schedule/contracts';
 import {
   formatChinaDateTime,
-  getChinaStandardTimeBusinessDate,
+  getChinaStandardTimeCalendarDate,
   toChinaStandardTimeUtcTimestamp,
 } from '@schedule/scheduling-domain';
 
@@ -146,8 +146,8 @@ export function getReflowStrategyLabel(strategy: LeaveReflowStrategy): string {
   return reflowStrategyLabels[strategy];
 }
 
-export function getTodayBusinessDate(): string {
-  return getChinaStandardTimeBusinessDate(new Date());
+export function getTodayCalendarDate(now: Date = new Date()): string {
+  return getChinaStandardTimeCalendarDate(now);
 }
 
 function parseLocalDateStart(date: string): Date {

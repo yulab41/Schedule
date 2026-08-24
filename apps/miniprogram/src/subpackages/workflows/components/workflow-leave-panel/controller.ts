@@ -55,6 +55,7 @@ interface LeaveRequestView {
 interface LeaveShiftView {
   readonly detail: string;
   readonly id: string;
+  readonly statusLabel: string;
   readonly tone: string;
 }
 
@@ -74,6 +75,7 @@ interface LeavePageData {
   readonly affectedShiftMessage: string;
   readonly affectedShifts: readonly LeaveShiftView[];
   readonly affectedShiftsLoading: boolean;
+  readonly affectedWarningMessage: string;
   readonly approvalAcknowledged: boolean;
   readonly approvalAlerts: readonly LeaveAlertView[];
   readonly approvalBusy: boolean;
@@ -163,7 +165,7 @@ const workflowClient = createRuntimeWorkflowClient(
   getWechatRequestAuthentication(),
 );
 const workbenchClient = createWorkbenchReadClient();
-const initialDate = getTodayBusinessDate();
+const initialDate = getTodayCalendarDate();
 
 export function createLeavePanelControllerDefinition(embedded = false) {
   return {
@@ -172,6 +174,7 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       affectedShiftMessage: '',
       affectedShifts: [],
       affectedShiftsLoading: false,
+      affectedWarningMessage: '',
       approvalAcknowledged: false,
       approvalAlerts: [],
       approvalBusy: false,
@@ -261,14 +264,20 @@ export function createLeavePanelControllerDefinition(embedded = false) {
 
     handleOpenForm(this: LeavePageInstance): void {
       if (this.data.state !== 'ready') return;
+      const todayDate = getTodayCalendarDate();
+      const startDate = this.data.startDate < todayDate ? todayDate : this.data.startDate;
+      const endDate = this.data.endDate < startDate ? startDate : this.data.endDate;
       this.setData(
         {
+          ...createDatePatch(startDate, endDate),
           affectedShiftMessage: '',
           affectedShifts: [],
           affectedShiftsLoading: true,
+          affectedWarningMessage: '',
           formErrorMessage: '',
           formVisible: true,
           infoMessage: '',
+          todayDate,
         },
         () => void loadAffectedShifts(this),
       );
@@ -507,10 +516,14 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
   try {
     interval = buildAllDayInterval(page.data.startDate, page.data.endDate);
   } catch {
-    page.setData({ affectedShiftMessage: '', affectedShifts: [] });
+    page.setData({ affectedShiftMessage: '', affectedShifts: [], affectedWarningMessage: '' });
     return;
   }
-  page.setData({ affectedShiftMessage: '', affectedShiftsLoading: true });
+  page.setData({
+    affectedShiftMessage: '',
+    affectedShiftsLoading: true,
+    affectedWarningMessage: '',
+  });
   try {
     const shifts = await workflowClient.getLeaveAffectedShifts(page._currentGroupId, {
       endsAt: interval.endsAt,
@@ -518,14 +531,18 @@ async function loadAffectedShifts(page: LeavePageInstance): Promise<void> {
       startsAt: interval.startsAt,
     });
     page.setData({
-      affectedShiftMessage:
-        shifts.length === 0
-          ? '所选日期暂未涉及已发布班次。'
-          : `涉及 ${shifts.length} 个已发布班次。`,
+      affectedShiftMessage: shifts.length === 0 ? '请假期间没有已发布的未来班次。' : '',
       affectedShifts: shifts.map(createAffectedShiftView),
+      affectedWarningMessage: shifts.some((shift) => !shift.isCovered)
+        ? '可先到“换班”或“加扣班”安排替班；未安排也可以提交申请。'
+        : '',
     });
   } catch {
-    page.setData({ affectedShiftMessage: '暂时无法读取受影响班次。', affectedShifts: [] });
+    page.setData({
+      affectedShiftMessage: '暂时无法读取受影响班次。',
+      affectedShifts: [],
+      affectedWarningMessage: '',
+    });
   } finally {
     page.setData({ affectedShiftsLoading: false });
   }
@@ -747,6 +764,7 @@ function createApprovalPreviewPatch(
     approvalShifts: preview.affectedAssignments.map((assignment) => ({
       detail: `${formatBusinessDate(assignment.businessDate)} ${assignment.shiftTypeName}（${assignment.shiftTypeAbbreviation}）：${assignment.previousMemberName ?? '空缺'} → ${assignment.nextMemberName ?? '空缺'}`,
       id: assignment.assignmentId,
+      statusLabel: '',
       tone: 'primary',
     })),
     approvalStatistics:
@@ -786,8 +804,9 @@ function createLeaveRequestView(request: LeaveRequest, canReview: boolean): Leav
 
 function createAffectedShiftView(shift: LeaveAffectedShift): LeaveShiftView {
   return {
-    detail: `${formatBusinessDate(shift.businessDate)} ${shift.shiftTypeName}（${shift.shiftTypeAbbreviation}）${shift.isCovered ? ' · 已覆盖' : ' · 待安排'}`,
+    detail: `${shift.businessDate} ${shift.shiftTypeName}`,
     id: shift.assignmentId,
+    statusLabel: shift.isCovered ? '已安排' : '未安排',
     tone: shift.isCovered ? 'success' : 'warning',
   };
 }
@@ -869,7 +888,7 @@ function resolveTargetGroup(
 }
 
 function createDatePatch(startDate: string, endDate: string): Partial<LeavePageData> {
-  const today = getTodayBusinessDate();
+  const today = getTodayCalendarDate();
   const endDateMin = startDate > today ? startDate : today;
   return {
     endDate,
@@ -899,9 +918,8 @@ function buildAllDayInterval(
   };
 }
 
-function getTodayBusinessDate(): string {
+export function getTodayCalendarDate(): string {
   const chinaNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  if (chinaNow.getUTCHours() < 8) chinaNow.setUTCDate(chinaNow.getUTCDate() - 1);
   return chinaNow.toISOString().slice(0, 10);
 }
 

@@ -10,10 +10,15 @@ import {
   getLeaveStatusTone,
   getLeaveTypeLabel,
   getReflowStrategyLabel,
+  getTodayCalendarDate,
   summarizeStatisticsDelta,
 } from './leave-logic.js';
 
 describe('leave form logic', () => {
+  it('uses the China Standard Time natural date before the 08:00 duty handover', () => {
+    expect(getTodayCalendarDate(new Date('2026-08-23T18:00:00.000Z'))).toBe('2026-08-24');
+  });
+
   it('builds an all-day interval from 08:00 China Standard Time', () => {
     const interval = buildLeaveFormInterval({
       allDay: true,

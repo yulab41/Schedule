@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 `.94` 请假/选择器/日历实体反馈修复
+
+- 范围：Mini 请假 Sheet 改为一行日期、44px 原因框、Web 同款灰色空态与受影响班次列表；日期 picker 增加三面板横滑、当天定位按钮及按压/旋转动效；selector 测量完成前隐藏，消除先下后上的闪现；年月吸附不再预跳字体状态，并以 `scrollend` 完成、320ms 兜底；周视图姓名补 semibold。Web/Mini/API 请假最早日期统一按中国标准时间自然日，不复用 08:00 业务日。
+- 引入点：affected message/list=`bc32a4f1`，Sheet 日期列=`c1b9536a`，reason 88px=`80ddadf0`，selector placement=`c1b9536a`，wheel snap=`80ddadf0/c1b9536a`，周姓名无字重=`50c6d1ed`，日期横滑首版=`b5603189`，历史日期保护首版=`18d2a2ea`。上述调用点已执行 `git log -S` 与 `git blame`。
+- 红绿：Mini picker/leave/static 旧实现 7 项失败后转绿；自然日边界和跨午夜重开表单在 Mini/API/Web 旧实现分别失败后通过。最终 Mini 44 files/252、Web 100 files/598、API 35 files/148 通过，API 33 files/311 数据库集成按本机无数据库配置跳过；Mini/Web/API typecheck、Web/API/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 lint/format/diff/core smoke 通过。Mini 2/2 Worklet、3,034,245 bytes、manifest `e2a350b2e6e467aa79ad03c02cfa1ed45cf4d477869d8fec5097655d97dc5bc6`，仅既有 600 格 warning。体验上传与生产部署待本 checkpoint 收口。
+- 语义审计：selector 只延迟可见性，不改 open/选择事件；wheel 只改显示吸附进度与完成时机，完成/取消 payload 不变；日期定位不提前 emit；冲突列表只拆分展示字段；自然日守卫仅收紧请假日期，不改变排班业务日、事务、权限、幂等、409/弱网和写次数。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 无服务未进入断言；改用 127.0.0.1:4173 + dev auth 后两次均在既有周视图左切换按下态断言停止，未到本轮请假页。应用内浏览器 390×844 专项确认 Web 请假表单无横溢、空态为灰色、起止日期触发器完整，开始日期选择器 1–23 日禁用、24 日为首个可选自然日，console warn/error=0；未提交业务写入，临时 API/Web 已关闭。`pnpm smoke:check-core` 通过并确认本轮未触及其定义的核心链路路径。
+
 ## 2026-08-24 P7 `.92` 请假日期与历史标识修复
 
 - API 创建/affected/preview/approve 均拒绝今天以前的开始日期；Mini 传入 `min` 并在 controller 层二次拦截。calendar-query 对 `leave_cover_completed` 关联 leave request，删除或非 approved 时不返回 marker。

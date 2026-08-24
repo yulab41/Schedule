@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 实体反馈修复候选 `.94`（已实现待上传/生产部署）
+
+- 范围：收口本轮 5 项反馈——请假 Sheet/冲突列表 Web 对齐、一行日期与 44px 原因框、日期横滑/当天定位；selector 向上定位无闪现；年月滚轮平滑吸附；周视图姓名加粗；Web/Mini/API 禁止中国标准时间自然日今天以前的请假，并隐藏已取消请假的 `leave-cover` 标识。不进入 P8，不提审/正式发布。
+- 引入点/实现：message/list=`bc32a4f1`，Sheet 日期=`c1b9536a`，reason=`80ddadf0`，placement=`c1b9536a`，snap=`80ddadf0/c1b9536a`，周姓名=`50c6d1ed`，日期横滑=`b5603189`，历史保护=`18d2a2ea`。selector 测量期不可见；wheel 字体随真实 scrollTop 连续更新并以 scrollend 收口；日期 picker 复用月视图定位动效；自然日与 08:00 排班业务日分离。
+- 验证：Mini 44 files/252 tests、Web 100 files/598 tests、API 35 files/148 tests 通过（33 files/311 数据库集成按本机无数据库配置跳过）；Mini/Web/API typecheck、Web/API/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 ESLint/Prettier、`git diff --check`、`smoke:check-core` 通过。Mini 2/2 Worklet、3,034,245 bytes、manifest `e2a350b2e6e467aa79ad03c02cfa1ed45cf4d477869d8fec5097655d97dc5bc6`，仅既有 600 格矩阵 best-effort warning。完整 browser smoke 两次均被既有周视图左切换按下态断言阻断；应用内浏览器 390×844 请假专项确认过去日禁用、灰色提示、无横溢、console 0，未业务写入。上传、备份、部署、allowlist 与徐漫彬历史记录只读复核尚待执行。
+- checkpoint/下一批：代码 checkpoint 识别消息 `fix(workflows): refine p7 feedback interactions`；显式审查 diff 后提交并推送，从持久发布 worktree 上传体验版；生产备份后部署并原子加入 `.94` allowlist，运行 full verifier 与历史标识只读复核后停止，等待实体复核。
+
 ## 2026-08-24 P7 请假日期与历史标识修复候选 `.92`（已实现待体验上传/生产部署）
 
 - 范围：禁止请假开始日期早于中国标准时间当天；Mini 与 API 双重校验；日期选择器传入最小日期；取消/失效请假不再保留已删除请假产生的 `leave-cover` 日历标识。不改其他工作流写入。

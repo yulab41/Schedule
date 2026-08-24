@@ -24,7 +24,7 @@
   ></view>
   <scroll-view
     wx:if="{{open && mode === 'selector'}}"
-    class="workflow-picker-selector-popover {{popoverPlacement === 'up' ? 'is-up' : 'is-down'}}"
+    class="workflow-picker-selector-popover {{popoverPlacement === 'up' ? 'is-up' : 'is-down'}} {{popoverPlacementReady ? 'is-ready' : 'is-measuring'}}"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
@@ -92,7 +92,7 @@
         <view
           wx:for="{{yearWheelItems}}"
           wx:key="label"
-          class="workflow-picker-wheel-item {{index === draftIndices[0] ? 'is-selected' : ''}} {{wheelSnapAnimating ? 'is-animating' : ''}}"
+          class="workflow-picker-wheel-item {{index === draftIndices[0] ? 'is-selected' : ''}}"
           data-index="{{index}}"
           catchtap="handleYearWheelTap"
           style="font-size:{{item.fontSize}}px;opacity:{{item.opacity}};transform:scale({{item.scale}})"
@@ -117,7 +117,7 @@
         <view
           wx:for="{{monthWheelItems}}"
           wx:key="label"
-          class="workflow-picker-wheel-item {{index === draftIndices[1] ? 'is-selected' : ''}} {{wheelSnapAnimating ? 'is-animating' : ''}}"
+          class="workflow-picker-wheel-item {{index === draftIndices[1] ? 'is-selected' : ''}}"
           data-index="{{index}}"
           catchtap="handleMonthWheelTap"
           style="font-size:{{item.fontSize}}px;opacity:{{item.opacity}};transform:scale({{item.scale}})"
@@ -136,25 +136,36 @@
           data-offset="-1"
           aria-role="button"
           aria-label="上一月"
+          hover-class="is-pressed"
+          hover-start-time="0"
+          hover-stay-time="60"
           bindtap="handleDateNavigate"
-          >‹</view
-        >
+          ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit"
+        /></view>
         <text>{{draftYear}}年{{draftMonth}}月</text>
         <view
           class="workflow-picker-date-today"
           aria-role="button"
           aria-label="定位今天"
+          hover-class="is-pressed"
+          hover-start-time="0"
+          hover-stay-time="60"
           bindtap="handleDateToday"
-          ><image src="/assets/icons/web-locate.svg" mode="aspectFit"
-        /></view>
+          ><view
+            class="workflow-picker-date-locate-icon {{dateLocateAnimating ? 'is-animating' : ''}}"
+            ><image src="/assets/icons/web-locate.svg" mode="aspectFit" /></view
+        ></view>
         <view
           class="workflow-picker-date-step"
           data-offset="1"
           aria-role="button"
           aria-label="下一月"
+          hover-class="is-pressed"
+          hover-start-time="0"
+          hover-stay-time="60"
           bindtap="handleDateNavigate"
-          >›</view
-        >
+          ><image src="/assets/icons/web-chevron-right.svg" mode="aspectFit"
+        /></view>
       </view>
       <view class="workflow-picker-weekdays">
         <text wx:for="{{weekdays}}" wx:key="*this" class="{{index >= 5 ? 'is-weekend' : ''}}"
@@ -165,9 +176,10 @@
         class="workflow-picker-date-swiper"
         current="{{dateSwiperIndex}}"
         duration="240"
+        easing-function="easeOutCubic"
         bindchange="handleDateSwiperChange"
       >
-        <swiper-item wx:for="{{datePanels}}" wx:key="year" wx:for-item="panel">
+        <swiper-item wx:for="{{datePanels}}" wx:key="key" wx:for-item="panel">
           <view class="workflow-picker-date-grid">
             <view
               wx:for="{{panel.cells}}"

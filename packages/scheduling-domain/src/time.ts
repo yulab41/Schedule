@@ -48,6 +48,12 @@ export function getChinaStandardTimeBusinessDate(timestamp: Date): string {
   return shifted.toISOString().slice(0, 10);
 }
 
+export function getChinaStandardTimeCalendarDate(timestamp: Date): string {
+  return new Date(timestamp.valueOf() + chinaStandardTimeOffsetMilliseconds)
+    .toISOString()
+    .slice(0, 10);
+}
+
 export function getCurrentBusinessMonth(now = new Date()): string {
   return getChinaStandardTimeBusinessDate(now).slice(0, 7);
 }

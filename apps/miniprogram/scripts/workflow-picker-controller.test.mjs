@@ -105,6 +105,7 @@ describe('P7 Web-parity workflow picker controller', () => {
   it('opens a selector upward when the Web-sized option list would overflow the viewport', async () => {
     vi.stubGlobal('wx', { getWindowInfo: () => ({ windowHeight: 844 }) });
     const definition = await loadPickerDefinition();
+    let resolvePlacement;
     const instance = createPickerInstance(definition, {
       mode: 'selector',
       options: Array.from({ length: 6 }, (_, index) => ({
@@ -117,7 +118,7 @@ describe('P7 Web-parity workflow picker controller', () => {
         return this;
       },
       exec(callback) {
-        callback([{ bottom: 810, height: 44, left: 16, right: 374, top: 766, width: 358 }]);
+        resolvePlacement = callback;
       },
       select() {
         return this;
@@ -126,7 +127,10 @@ describe('P7 Web-parity workflow picker controller', () => {
 
     definition.methods.handleOpen.call(instance);
 
+    expect(instance.data.popoverPlacementReady).toBe(false);
+    resolvePlacement([{ bottom: 810, height: 44, left: 16, right: 374, top: 766, width: 358 }]);
     expect(instance.data.popoverPlacement).toBe('up');
+    expect(instance.data.popoverPlacementReady).toBe(true);
     definition.lifetimes.detached.call(instance);
   });
 
@@ -200,8 +204,12 @@ describe('P7 Web-parity workflow picker controller', () => {
     vi.advanceTimersByTime(1);
     expect(instance.data.monthWheelTop).toBe(8 * 44);
     expect(instance.data.wheelSnapAnimating).toBe(true);
-    vi.advanceTimersByTime(240);
+    expect(instance.data.monthWheelPosition).toBeCloseTo(8 + 17 / 44);
+    vi.advanceTimersByTime(319);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+    vi.advanceTimersByTime(1);
     expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance.data.monthWheelPosition).toBe(8);
     definition.lifetimes.detached.call(instance);
   });
 
@@ -219,6 +227,26 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(current.fontSize).toBeLessThan(24);
     expect(current.opacity).toBeGreaterThan(0.58);
     expect(current.opacity).toBeLessThan(1);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('finishes a programmatic snap on scrollend instead of waiting for a mismatched timer', async () => {
+    vi.useFakeTimers();
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 8 * 44 + 17 },
+    });
+    vi.advanceTimersByTime(100);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+
+    definition.methods.handleMonthWheelScroll.call(instance, { detail: { scrollTop: 8 * 44 } });
+    definition.methods.handleMonthWheelScrollEnd.call(instance);
+
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    expect(instance.data.monthWheelPosition).toBe(8);
     definition.lifetimes.detached.call(instance);
   });
 
@@ -267,15 +295,30 @@ describe('P7 Web-parity workflow picker controller', () => {
   });
 
   it('supports horizontal date month paging and a today locator without emitting early', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-23T18:00:00.000Z'));
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'date', value: '2026-08-24' });
+    definition.lifetimes.attached.call(instance);
     definition.methods.handleOpen.call(instance);
     definition.methods.handleDateSwiperChange.call(instance, { detail: { current: 2 } });
 
     expect(instance.data.datePanels).toHaveLength(3);
+    expect(instance.data.datePanels.map((panel) => panel.key)).toEqual([
+      '2026-08',
+      '2026-09',
+      '2026-10',
+    ]);
     expect(instance.data.draftMonth).toBe(9);
     expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
     definition.methods.handleDateToday.call(instance);
+    expect(instance.data.draftDisplayValue).toBe('2026年8月24日');
+    expect(instance.data.dateLocateAnimating).toBe(true);
+    vi.advanceTimersByTime(519);
+    expect(instance.data.dateLocateAnimating).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(instance.data.dateLocateAnimating).toBe(false);
     expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
+    definition.lifetimes.detached.call(instance);
   });
 });

@@ -7,6 +7,7 @@ const requestId = '33333333-3333-4333-8333-333333333333';
 
 describe('P7 native leave workflow controller', () => {
   let createResponses;
+  let controllerModule;
   let definition;
   let groupRole;
   let requests;
@@ -35,9 +36,9 @@ describe('P7 native leave workflow controller', () => {
       setStorageSync: vi.fn(),
       showModal: vi.fn(({ success }) => success({ confirm: true })),
     });
-    const controller =
+    controllerModule =
       await import('../src/subpackages/workflows/components/workflow-leave-panel/controller.ts');
-    definition = controller.createLeavePanelControllerDefinition(false);
+    definition = controllerModule.createLeavePanelControllerDefinition(false);
     await enableTestClientCapabilities();
   });
 
@@ -73,6 +74,26 @@ describe('P7 native leave workflow controller', () => {
     expect(instance.data.endDateDisplay).toMatch(/^\d{4}-\d{2}-\d{2} 周[一二三四五六日]$/u);
   });
 
+  it('renders affected shifts with the same neutral list and uncovered guidance as Web', async () => {
+    const instance = await loadReadyInstance();
+
+    definition.handleOpenForm.call(instance);
+    await vi.waitFor(() => expect(instance.data.affectedShiftsLoading).toBe(false));
+
+    expect(instance.data.affectedShiftMessage).toBe('');
+    expect(instance.data.affectedShifts).toEqual([
+      {
+        detail: '2026-08-26 全天班',
+        id: '44444444-4444-4444-8444-444444444444',
+        statusLabel: '未安排',
+        tone: 'warning',
+      },
+    ]);
+    expect(instance.data.affectedWarningMessage).toBe(
+      '可先到“换班”或“加扣班”安排替班；未安排也可以提交申请。',
+    );
+  });
+
   it('blocks a start date before today before requesting affected shifts', async () => {
     const instance = await loadReadyInstance();
     const originalDate = instance.data.startDate;
@@ -81,6 +102,31 @@ describe('P7 native leave workflow controller', () => {
 
     expect(instance.data.startDate).toBe(originalDate);
     expect(instance.data.formErrorMessage).toBe('开始日期最早只能是当天。');
+  });
+
+  it('uses the China Standard Time natural date before the 08:00 duty handover', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-23T18:00:00.000Z'));
+
+    expect(controllerModule.getTodayCalendarDate()).toBe('2026-08-24');
+
+    vi.useRealTimers();
+  });
+
+  it('refreshes and clamps the leave date range when the form opens after midnight', async () => {
+    const instance = await loadReadyInstance();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-25T02:00:00.000Z'));
+
+    definition.handleOpenForm.call(instance);
+
+    expect(instance.data).toMatchObject({
+      endDate: '2026-08-25',
+      endDateMin: '2026-08-25',
+      startDate: '2026-08-25',
+      todayDate: '2026-08-25',
+    });
+    vi.useRealTimers();
   });
 
   it('loads the owner review tab and complete conflict preview before approval', async () => {

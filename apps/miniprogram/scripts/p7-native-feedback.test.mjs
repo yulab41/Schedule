@@ -158,8 +158,11 @@ describe('P7 physical-device feedback regressions', () => {
     const leaveTemplate = read('subpackages/workflows/components/workflow-leave-panel/index.wxml');
     const leaveStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
 
-    expect(pickerTemplate).not.toContain('hover-start-time="0"');
-    expect(pickerTemplate).not.toContain('hover-stay-time="60"');
+    const pickerTrigger = pickerTemplate.match(
+      /class="workflow-picker-trigger[^"]*"[\s\S]*?bindtap="handleOpen"/u,
+    )?.[0];
+    expect(pickerTrigger).not.toContain('hover-start-time="0"');
+    expect(pickerTrigger).not.toContain('hover-stay-time="60"');
     expect(pickerStyles).not.toMatch(
       /\.workflow-picker-trigger\.is-pressed\s*\{[^}]*background:\s*var\(--ui-color-primary-light\)/su,
     );
@@ -223,7 +226,7 @@ describe('P7 physical-device feedback regressions', () => {
       /\.month-person\s*\{[^}]*font-size:\s*11px;[^}]*white-space:\s*nowrap;/su,
     );
     expect(workbenchStyles).toMatch(
-      /\.week-duty-name\s*\{[^}]*font-size:\s*12px;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/su,
+      /\.week-duty-name\s*\{[^}]*font-size:\s*12px;[^}]*font-weight:\s*var\(--ui-font-weight-semibold\);[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/su,
     );
     expect(monthTemplate).not.toMatch(/person\.length|name-length/u);
     expect(workbenchTemplate).not.toMatch(/duty\.name\.length|name-length/u);
@@ -233,7 +236,7 @@ describe('P7 physical-device feedback regressions', () => {
     const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
     const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
 
-    expect(pickerTemplate).not.toContain('hover-stay-time="60"');
+    expect(pickerTemplate).not.toMatch(/class="workflow-picker-option[^>]*hover-/u);
     expect(pickerStyles).toMatch(
       /\.workflow-picker-root\.is-open \.workflow-picker-trigger\s*\{[^}]*border-color:\s*var\(--ui-color-primary\);[^}]*box-shadow:/su,
     );
@@ -251,6 +254,7 @@ describe('P7 physical-device feedback regressions', () => {
     );
     expect(pickerTemplate).toContain('workflow-picker-selector-backdrop');
     expect(pickerTemplate).toContain('popoverPlacement');
+    expect(pickerTemplate).toContain("popoverPlacementReady ? 'is-ready' : 'is-measuring'");
     expect(pickerTemplate).not.toContain("open ? '⌃' : '⌄'");
     expect(pickerStyles).toMatch(
       /\.workflow-picker-selector-popover\.is-up\s*\{[^}]*top:\s*auto;[^}]*bottom:\s*calc\(100% \+ 6px\);/su,
@@ -259,8 +263,12 @@ describe('P7 physical-device feedback regressions', () => {
       /\.workflow-picker-chevron\.is-right\s*\{[^}]*transform:\s*rotate\(-45deg\);/su,
     );
     expect(pickerStyles).toMatch(
-      /\.workflow-picker-wheel-item\.is-animating\s*\{[^}]*font-size 240ms[^}]*transform 240ms/su,
+      /\.workflow-picker-selector-popover\.is-measuring\s*\{[^}]*visibility:\s*hidden;[^}]*opacity:\s*0;/su,
     );
+    expect(pickerStyles).not.toMatch(/\.workflow-picker-wheel-item\.is-animating/u);
+    expect(pickerTemplate).toContain("dateLocateAnimating ? 'is-animating' : ''");
+    expect(pickerTemplate).toContain('hover-start-time="0"');
+    expect(pickerTemplate).toContain('wx:key="key"');
   });
 
   it('matches the Web request Sheet, compact reason fields, buttons, and Done action', () => {
@@ -285,7 +293,9 @@ describe('P7 physical-device feedback regressions', () => {
     expect(sharedStyles).toMatch(
       /\.request-sheet \.sheet-heading\s*\{[^}]*min-height:\s*56px;[^}]*padding:\s*4px 16px;[^}]*border-bottom:\s*0;/su,
     );
-    expect(sharedStyles).toMatch(/\.leave-reason-field\s*\{[^}]*min-height:\s*88px;/su);
+    expect(sharedStyles).toMatch(
+      /\.leave-reason-field\s*\{[^}]*height:\s*44px;[^}]*min-height:\s*44px;/su,
+    );
     expect(sharedStyles).toMatch(/\.native-reason-input\s*\{[^}]*min-height:\s*44px;/su);
     expect(sharedStyles).toMatch(
       /\.request-sheet \.web-button\.is-primary\s*\{[^}]*box-shadow:\s*none;/su,
@@ -304,11 +314,15 @@ describe('P7 physical-device feedback regressions', () => {
     expect(leaveTemplate).toContain('请假按整天计算；提交前会检查已发布的未来班次。');
     expect(leaveTemplate).toContain('class="day-count-hint"');
     expect(leaveTemplate).toContain('class="affected-hint"');
+    expect(leaveTemplate).toContain('class="affected-status is-{{item.tone}}"');
+    expect(leaveTemplate).toContain('class="affected-warning"');
+    expect(leaveTemplate).toContain('请假期间没有已发布的未来班次。');
     expect(leaveTemplate).toContain('原因说明（选填）');
     expect(leaveTemplate).toContain('请填写请假原因');
     expect(leaveTemplate).toContain('提交请假');
+    expect(sharedStyles).toMatch(/\.request-sheet \.date-fields\s*\{[^}]*flex-direction:\s*row;/su);
     expect(sharedStyles).toMatch(
-      /\.request-sheet \.date-fields\s*\{[^}]*flex-direction:\s*column;/su,
+      /\.leave-page\.is-compact \.date-fields\s*\{[^}]*flex-direction:\s*row;/su,
     );
     expect(sharedStyles).toMatch(
       /\.day-count-hint\s*\{[^}]*color:\s*var\(--ui-color-primary\);[^}]*background:\s*var\(--ui-color-primary-light\)/su,

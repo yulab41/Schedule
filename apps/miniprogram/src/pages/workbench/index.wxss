@@ -1690,6 +1690,7 @@ page {
   overflow: hidden;
   color: var(--ui-color-text-primary);
   font-size: 12px;
+  font-weight: var(--ui-font-weight-semibold);
   line-height: 12px;
   text-align: left;
   text-overflow: ellipsis;

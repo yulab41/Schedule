@@ -21,6 +21,8 @@ describe('P7 workflow parity Storybook golden', () => {
     }
     expect(leavePanel).toContain("import LeaveApprovalDialog from './LeaveApprovalDialog.vue'");
     expect(leavePanel).toContain('<LeaveApprovalDialog');
+    expect(leavePanel).toContain(':min="todayDate"');
+    expect(leavePanel).toContain(':min="endDateMin"');
     expect(storybookPreview).toContain('setup((app) => app.use(TDesign))');
     expect(preview).not.toContain('class="workflow-card"');
   });

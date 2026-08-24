@@ -34,6 +34,7 @@ export {
   formatChinaDateTime,
   formatChinaStandardTime,
   getChinaStandardTimeBusinessDate,
+  getChinaStandardTimeCalendarDate,
   getCurrentBusinessMonth,
   isPastBusinessDate,
   isPastBusinessMonth,
