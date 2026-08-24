@@ -7,8 +7,9 @@
 - 范围/引入点：`.90` 实体反馈；字号=`1f715c96/50c6d1ed/16c02f56`，picker root/定位=`bc32a4f1/7f4f70a0`，离散 wheel/snap=`16c02f56/80ddadf0`，Sheet=`80ddadf0`。只改 Mini UI/controller、测试和 `.91` 契约。
 - 红绿/实现：连续 wheel 字体、向上 placement、空白 backdrop、箭头/完成几何、leave 日期周几和 Web body 结构均先红后绿。月11px、周12px固定统一；progress 插值19–24px/0.58–1/0.94–1，snap 240ms cubic-bezier；selector用组件 query 判断窗口上下空间；leave字段组、day-count、affected hint/list、单列日期、reason=1000、submit=提交请假。
 - 语义审计：下拉 backdrop/placement只改视觉 open/placement；picker instance registry、month/date complete/cancel、operation payload与写次数不变。请假日期保留原始YYYY-MM-DD提交值，新增display label；原因仍走同一handler。
-- 验证：Mini精确44 files/246、typecheck、production verify/determinism/source/package/build/performance、CI dry-run、lint/format/diff/core smoke通过；2 Worklets/3025268 bytes/manifest`f56ce673…ace36`，仅既有600格warning。尚未上传/部署，未操作微信开发者工具。
-- 状态：已实现待体验上传/生产部署；checkpoint=`fix(miniprogram): align p7 calendar and sheets`。
+- 验证：Mini精确44 files/246、typecheck、production verify/determinism/source/package/build/performance、CI dry-run、lint/format/diff/core smoke通过；persistent clean=2 Worklets/3038926 bytes/manifest`a69c74fe…09bb`，仅既有600格warning。未操作微信开发者工具。
+- 体验/生产：`c1b9536a`已推送；`.91@c1b9536`官方上传96 files/zip790149/manifest`39370032…076bb`，未提审/正式发布。部署前备份`ae5c5d1e-f1f1-457e-8479-38856f6fa946`（54表/165673行/77862612 bytes/SHA`5ee7eb42…8d6d`）后部署同release，预热1次502恢复、privacy0/0。双锁追加`.91`、`.90/.91` capability200且core/workflows=true，partial/unknown426，env root/600，full verifier/current release/health200及temp清理通过。
+- 状态：已实现待实体复核。最终checkpoint=`docs(status): record p7 calendar sheets deployment`；最后一次备份保护 docs release 后停止等待`.91@c1b9536`。
 
 ## 2026-08-24 P7 `.90` Web 下拉/滚轮/Sheet 对齐
 
