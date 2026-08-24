@@ -17,6 +17,10 @@
     {
       "root": "subpackages/organization",
       "pages": ["pages/group-settings/index"]
+    },
+    {
+      "root": "subpackages/workflows",
+      "pages": ["pages/leave/index"]
     }
   ],
   "window": {

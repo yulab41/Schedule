@@ -10,6 +10,7 @@ import {
   createNetworkError,
   createPastScheduleClient,
   createSchedulePublicationClient,
+  createWorkflowClient,
   holidayReadModelDecoder,
   type CalendarReadClient,
   type ClientTransport,
@@ -17,6 +18,7 @@ import {
   type ManualScheduleClient,
   type PastScheduleClient,
   type SchedulePublicationClient,
+  type WorkflowClient,
 } from '@schedule/client-core';
 import type { ClientEndpoint } from '@schedule/client-core';
 import {
@@ -198,6 +200,16 @@ export function createRuntimeCalendarReadClient(
   authentication?: RuntimeWechatRequestAuthentication,
 ): CalendarReadClient {
   return createCalendarReadClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
+}
+
+export function createRuntimeWorkflowClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): WorkflowClient {
+  const capability = 'workflows';
+  return createWorkflowClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, capability),
+  );
 }
 
 function resolvePhoneConsentCapability(

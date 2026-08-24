@@ -829,12 +829,12 @@
       ><text>日历</text></view
     >
     <view
-      class="bottom-nav-item is-disabled"
+      class="bottom-nav-item {{workflowsEnabled ? '' : 'is-disabled'}}"
       data-label="请假"
       data-motion="leave"
-      aria-disabled="true"
+      aria-disabled="{{!workflowsEnabled}}"
       aria-role="button"
-      bindtap="handleUnavailable"
+      bindtap="handleLeaveNav"
       ><view class="nav-icon nav-leave {{navMotion === 'leave' ? 'is-animating' : ''}}"
         ><image class="nav-icon-image" src="/assets/icons/web-leave.svg" mode="aspectFit" />
         <image

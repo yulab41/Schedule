@@ -11,6 +11,7 @@ import {
 import { buildInfo } from '../../platform/build-info.js';
 import {
   ClientCapabilityDisabledError,
+  getClientCapabilitySnapshot,
   requireClientCapability,
 } from '../../app/client-capability-store.js';
 import {
@@ -134,6 +135,7 @@ interface WorkbenchPageData {
   readonly weekStart: string;
   readonly weekSwiperCurrent: number;
   readonly viewOptions: readonly WorkbenchView[];
+  readonly workflowsEnabled: boolean;
 }
 
 interface WorkbenchPageInstance {
@@ -226,6 +228,7 @@ Page({
     weekStart: getWeekStartDate(today),
     weekSwiperCurrent: 1,
     viewOptions: ['month', 'week', 'list'],
+    workflowsEnabled: false,
   } satisfies WorkbenchPageData,
 
   calendar: undefined,
@@ -261,6 +264,7 @@ Page({
     if (!isInitialShow) this._performanceProbe?.start('foreground-ready');
     void requireClientCapability('core')
       .then(() => {
+        syncWorkflowsCapability(this);
         if (isInitialShow) return;
         return loadWorkbench(this, { forceRefresh: true });
       })
@@ -595,6 +599,11 @@ Page({
     });
   },
 
+  handleLeaveNav(this: WorkbenchPageInstance): void {
+    this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'leave' }));
+    void openLeaveWorkflow(this);
+  },
+
   handleNotification(this: WorkbenchPageInstance): void {
     this.setData({ notificationAnimating: false }, () => {
       this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });
@@ -773,6 +782,7 @@ async function loadWorkbenchWithCapability(
 ): Promise<void> {
   try {
     await requireClientCapability('core');
+    syncWorkflowsCapability(page);
     await loadWorkbench(page, options);
   } catch (error) {
     setWorkbenchCapabilityError(page, error);
@@ -787,7 +797,38 @@ function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown
     errorMessage: error.message,
     offlineNotice: '',
     state: 'error',
+    workflowsEnabled: false,
   });
+}
+
+async function openLeaveWorkflow(page: WorkbenchPageInstance): Promise<void> {
+  try {
+    await requireClientCapability('workflows');
+    syncWorkflowsCapability(page);
+    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
+    if (group === undefined || group.role === 'guest') {
+      page.setData({ announcement: '当前群组不能提交或审批请假。' });
+      return;
+    }
+    const groupId = encodeURIComponent(group.id);
+    wx.navigateTo({
+      fail: () => page.setData({ announcement: '请假页面暂时无法打开，请稍后重试。' }),
+      url: `/subpackages/workflows/pages/leave/index?groupId=${groupId}`,
+    });
+  } catch (error) {
+    syncWorkflowsCapability(page);
+    page.setData({
+      announcement:
+        error instanceof ClientCapabilityDisabledError
+          ? error.message
+          : '请假页面暂时无法打开，请稍后重试。',
+    });
+  }
+}
+
+function syncWorkflowsCapability(page: WorkbenchPageInstance): void {
+  const capability = getClientCapabilitySnapshot();
+  page.setData({ workflowsEnabled: capability.global && capability.workflows });
 }
 
 async function readMonth(

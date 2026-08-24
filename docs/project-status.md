@@ -2,6 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7-C 原生请假垂直切片（已实现待发布）
+
+- 基线/范围：Git/origin/production均为`5054deef`、DB51；本批只实现Mini原生请假创建、影响班次、我的申请、取消/撤销、管理员列表、预览/批准/驳回和群组默认重排策略，不实现换班/加扣班、不启用production workflows capability、不改API/DB。Web黄金为`a2f98361`固化的真实`LeavePanel/LeaveApprovalDialog` 390/320状态；Mini严格使用WXML/WXSS/TS/JSON、Skyline和glass-easel，无TDesign MiniProgram或第三方UI。
+- 来源/回归：`git log -S`/blame定位工作台禁用请假入口到`ad4cfb2c`（后续动效/图标`733e3af6`/`3fc41610`）、能力失败关闭范式到`e25878f0`、共享workflow client/危险写快照到`b667dcc5`、Web请假生产实现到`0d5ec55c`。缺分包/运行客户端/页面/能力关闭/操作快照的3 files/11 tests先全红，实现后转绿；源码审计另先发现textarea按void tag处理并在生产verify中失败，改为合法自闭合后通过。
+- 实现/安全：新增workflows分包原生请假页和能力门控工作台入口；成员不读取审批列表，guest/深链在网络前失败关闭。所有危险写通过`resolveWorkflowOperationAttempt`冻结payload和operationId，header/body同ID；仅成功清理，模糊网络结果保留同一快照供直接重试，payload变化换ID，无storage/offline write queue。批准严格提交用户已看见的预览版本/rules/period快照；冲突或空缺必须确认，409丢弃陈旧attempt并重新读取。
+- 语义/视觉：Web仍保留`tdesign-vue-next`；Mini仅自绘原生44px动作、状态卡、表单和底部Sheet，复用现有医疗蓝灰令牌及Web文案/状态层级。新增副作用仅为workflows能力有效时的请假读取/显式用户写入；core能力、工作台排班读取/缓存、swap/duty入口、认证接收者和重试边界不变。production workflows仍false，因此已部署旧体验版本继续显示禁用入口。
+- 验证：Mini定向3 files/11、全量36 files/202、Mini typecheck、任务ESLint/Prettier、`git diff --check`通过；production verify通过source/build/package/performance/determinism（2/2 Worklet、1885090 bytes、manifest`07c75bf6a1c8fc977ef64cce155f03d588a66dbf2a994e059594aeb3a5d3594c`；仅既有600格矩阵>1000节点best-effort警告）。`node scripts/smoke-browser.mjs --check-core`确认未触及Web核心链路，无需完整Web浏览器冒烟；按禁令未启动或控制微信开发者工具，原生视觉/交互仍须用户在体验版实体设备复核。
+- checkpoint/发布：代码checkpoint识别消息为`feat(miniprogram): add native leave workflow`；推送后必须上传独立的production-profile体验版本并完成ECS加密备份/部署/验证。为防止部分P7被误加入production allowlist，本切片体验版本使用带`leave`后缀的候选号，正式完整P7版本另定；不提审、不正式发布。
+- 下一批/停止条件：本checkpoint推送、体验上传、生产备份部署与状态checkpoint同步完成后停；下一会话只做P7-D原生换班垂直切片，保持workflows capability关闭，不提前做加扣班或P8。
+
 ## 2026-08-24 P7-B 工作流 Storybook 全状态黄金（代码已部署）
 
 - 基线/范围：Git/origin/production均为`7cbb171c`、DB51；本批只从真实`HomeView`和production `LeavePanel/LeaveApprovalDialog/SwapPanel/DutyAdjustmentPanel`固化P7视觉状态，不写Mini WXML/WXSS/TS、不启用workflows capability、不改API/DB。生产面板及seed来源分别为`0d5ec55c`/`b20ff9b8`/`5d8b205a`和`b903c6dc`；`git log -S`/blame已逐项定位。

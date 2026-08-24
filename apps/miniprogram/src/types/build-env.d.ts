@@ -102,7 +102,15 @@ declare const wx: {
   request(options: MiniProgramRequestOptions): unknown;
   setStorageSync(key: string, value: unknown): void;
   navigateBack(options?: { readonly delta?: number }): void;
-  navigateTo(options: { readonly url: string }): void;
+  navigateTo(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;
+  showModal(options: {
+    readonly cancelText?: string;
+    readonly confirmText?: string;
+    readonly content: string;
+    readonly fail?: (error: unknown) => void;
+    readonly success?: (result: { readonly cancel: boolean; readonly confirm: boolean }) => void;
+    readonly title?: string;
+  }): void;
   readonly worklet: {
     readonly Easing: {
       bezier(x1: number, y1: number, x2: number, y2: number): unknown;
