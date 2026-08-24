@@ -10,7 +10,8 @@
 - 数据与权限：raw list 强制 `created_at >= now-90天`，等于边界保留；环境平台管理员与 developer admin 无需群成员关系，群主/群管理员保持原权限，member继续403。Fastify只信任1 hop；Nginx覆盖XFF，服务只接受规范IPv4/IPv6并把非法/多跳文本存NULL。匿名响应只含accessMonth/businessMonth/decimal accessCount。
 - 备份与基础设施：新 backup payload 升级format2并永久排除`visitor_access_logs`，format1旧归档仍可解密但恢复时跳过raw，aggregate允许备份。Nginx privacy log不含remote/query/request，error仅emerg；MySQL显式30天binlog且general log关闭。retention脚本带host flock，控制脚本/cron/hash/失败恢复均进入forward-only release control。
 - 运行/浏览器验证：pnpm smoke:browser 已强制运行。首次 5173 未启动按门禁停止，随后默认 Vite 绑定 `::1:5173` 被系统 EACCES 拒绝，再以显式 `127.0.0.1:4173` 启动；首次未显式启用 Web dev auth 再次按门禁停止，最终以当前源码/API、仅当前进程 dev auth 完整通过管理员、成员、访客 vkey 与访问记录全链路，无浏览器错误，截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-9arQfM`。临时服务已停止。
-- checkpoint 与下一步：运行时桥 checkpoint 识别消息为 `fix(privacy): harden visitor retention runtime`；从clean DB49 release构建、测试、备份/部署并核对无0050、无cron、manifest49..50后，才提交 migration0050、真实聚合/事务/并发/备份恢复集成测试和minSchema50 feature release，rollback candidate固定为本桥。不进入遥测或P7。
+- 部署反馈与修正：运行时桥 `4f1047c8` 已推送，备份 `f71c6fca-b2a0-4fa7-99fe-60e389413941` 后在 DB49 部署；迁移/健康/控制面通过，但独立 verifier 发现 conf.d 的 http 级 privacy access log 与 Nginx 镜像既有 `main` log 并存，容器仍双写 raw IP/query，因而明确失败且本桥尚未验收完成。新增“4个 server 均必须覆盖 inherited access_log”回归先1项失败；follow-up checkpoint 识别消息为 `fix(privacy): override inherited nginx access log`。
+- checkpoint 与下一步：follow-up 从clean DB49 release重建/部署并确认新容器日志只剩privacy格式、无0050/cron、manifest49..50后，才提交migration0050、真实聚合/事务/并发/备份恢复集成测试和minSchema50 feature release；rollback candidate固定为最终runtime bridge。不进入遥测或P7。
 
 ## 2026-08-24 P6-C2 数据库 49→50 可回滚兼容桥（已部署）
 

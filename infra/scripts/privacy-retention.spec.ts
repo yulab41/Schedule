@@ -32,6 +32,7 @@ describe('production privacy retention controls', () => {
 
     expect(app).toContain('trustProxy: 1');
     expect(nginx).toContain('log_format schedule_privacy');
+    expect(nginx.match(/access_log \/dev\/stdout schedule_privacy;/gu)).toHaveLength(4);
     expect(nginx).toContain('proxy_set_header X-Forwarded-For $remote_addr;');
     expect(nginx).not.toContain('$proxy_add_x_forwarded_for');
     const logFormat = /log_format schedule_privacy([\s\S]*?);/u.exec(nginx)?.[1] ?? '';

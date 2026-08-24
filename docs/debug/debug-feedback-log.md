@@ -9,7 +9,7 @@
 - 运行/浏览器验证：pnpm smoke:browser 初次因5173未启动、`::1` EACCES及未显式dev auth依次安全停止；最终在127.0.0.1:4173当前源码+本地API通过管理员/成员/访客vkey/访问记录全链路且无浏览器错误，截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-9arQfM`，临时服务已停。
 - 运行/浏览器验证：pnpm smoke:browser 完整通过后，以 pnpm smoke:check-core 复核核心链路门禁。
 - 兼容/回滚：DB49 aggregate endpoint 503、recycle跳过缺表、control只安装不调度；DB50才建cron并首跑。feature回滚后保留前向control plane，runtime bridge在DB50继续清理、隐藏raw并保持隐私日志/备份。
-- checkpoint：`fix(privacy): harden visitor retention runtime`；clean DB49部署验证后才提交0050及真实MySQL聚合/并发/恢复证据。
+- 部署反馈：`4f1047c8`/备份`f71c6fca-…`在DB49部署，健康/控制面通过；full verify发现http级privacy access_log没有覆盖镜像已有main log，仍双写raw IP/query并失败关闭。新增4个server逐一覆盖断言先红，follow-up为`fix(privacy): override inherited nginx access log`；修复验证前不提交0050。
 
 ## 2026-08-24 P6-C2 数据库 49→50 兼容桥（已部署）
 
