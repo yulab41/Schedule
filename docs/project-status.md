@@ -2,14 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C4 访客 IP 90 天聚合与清理（待 checkpoint）
+## 2026-08-24 P6-C4 访客 IP 90 天聚合与清理（已部署并完成回滚演练）
 
 - 范围与基线：最终 privacy runtime bridge `bbcd00d4` 已与 Git/origin/production 对齐，生产 DB49、raw rows=0、健康200。本 checkpoint 只应用 migration0050、把release min/max收紧为50..50，并激活已部署的匿名聚合/事务清理/API/15分钟cron；不改UI、不进入遥测或P7。
 - 迁移与不变量：0050只给raw表增加全局`(created_at,id)`索引，并创建PK=`group_id/access_month/business_month`、BIGINT count、month/count CHECK和group FK的`visitor_access_monthly_aggregates`；不复制或回填raw IP。空生产raw表意味着首次运行应为no-op，历史31份归档已只读核对raw rows为0，不需不可逆改写。
 - 事务与边界证据：cutoff一次捕获为`now-90*24h`，只处理严格`<cutoff`，等于边界保留；按createdAt/id加锁、SKIP LOCKED、1000行批次，在同一事务按北京时间accessMonth+businessMonth聚合、删除精确ID并写无IP/request/raw ID的audit。真实MySQL覆盖中国月边界、跨businessMonth/群组、重复运行、audit失败全回滚、bounded backlog续跑和并发worker无重复。
 - 测试：migrations22/22、privacy transaction4/4、visitor API9/9、platform backup/restore10/10，共真实MySQL45/45；unit/static9 files/50 tests、API/DB/Web typecheck、root build、完整browser smoke已在runtime bridge通过。中间失败准确暴露复合索引在information_schema返回2行、测试迁移相对路径、随机group排序和恢复前seed数据未清空，均只修正验证夹具/期望后全绿。
-- 发布/回滚计划：feature checkpoint识别消息为`feat(privacy): enforce visitor access retention`，rollback candidate必须是`bbcd00d4`。部署到DB50并首跑retention/备份验证后，必须真实回滚到runtime bridge（DB保持50、privacy cron/control/Nginx/backup继续有效）并full verify，再前滚feature并再次verify；不得回到更早raw日志release，不降级数据库。
-- 下一活动批次：0050代码/状态提交、推送、生产备份、迁移、rollback/roll-forward演练与最终docs release完成后，独立实现P6脱敏遥测及30天保留；P6实体Android RC仍未通过前不进入P7。
+- 发布与首次验证：feature `1514de25` 已推送；迁移前备份 `73e56ae0-2ec6-43da-9d74-f009d21c2c71`（53表、163064行、76869876 bytes、SHA-256`653be5db2b3a7e5139a68f3f89a88c0ef05bea7f79e2324e43cfd7fcc180dc44`）后部署并迁移到DB50，首跑`b945b606-…`为deleted/remaining=0；full verifier通过。迁移后备份`2921998f-0af7-4026-be05-30600af8e884`为54表，证明55张业务表中raw被排除且aggregate纳入。
+- 回滚/前滚演练：rollback自动备份`8d3b59eb-6bfe-4e99-9b78-7af777c3894d`后成功回到`bbcd00d4`，数据库保持50，前向control/cron保留，full verifier通过；bridge手工运行retention `909316b9-…`成功。随后用同一不可变artifact前滚`1514de25`，retention `cd2423b1-…`与最终full verifier再次通过。未降级/恢复数据库，也未回到更早raw日志release。
+- 最终生产状态：current release=`1514de25937077aa1bae166ec8819f19b1339f32`，manifest50..50/candidate=`bbcd00d4`，50 migrations、55业务表；raw/过期raw/aggregate=0/0/0，completed retention runs=4，cron present，MySQL=2592000/0，首页/健康200且Nginx日志无raw IP/query。无Mini源码变化，不新增体验上传。
+- 下一活动批次：最终状态 checkpoint 识别消息为`docs(status): record visitor retention deployment`；该docs-only release同步production后，下一批独立建立DB50→51兼容桥并实现P6脱敏遥测/30天保留。P6实体Android RC仍未通过前不进入P7。
 
 ## 2026-08-24 P6-C3 访客 IP 隐私运行时兼容桥（已部署）
 

@@ -2,11 +2,11 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C4 访客 IP 90 天 feature
+## 2026-08-24 P6-C4 访客 IP 90 天 feature（已部署并演练）
 
 - 基线/范围：`bbcd00d4` runtime bridge已部署且DB49/raw0。本轮只提交0050、minSchema50并激活aggregate/job/cron，无UI/遥测/P7。
 - 真实MySQL：migrations22、privacy事务4、visitor API9、platform backup/restore10，共45/45；覆盖严格90天边界、中国月桶、多群/月、幂等、rollback、backlog续跑、并发worker、平台管理员、trusted proxy和raw backup exclusion。中间索引行数/相对路径/随机排序/seed清理均为测试夹具修正。
-- 发布门槛：checkpoint`feat(privacy): enforce visitor access retention`，candidate=`bbcd00d4`；DB50部署后必须回滚runtime bridge并前滚feature，两个方向都full verify且数据库不降级。
+- 发布/演练：`1514de25`已推送；迁移前备份`73e56ae0-…`(53表)后升DB50，首跑`b945b606-…` no-op/full verify通过；迁移后备份`2921998f-…`为54表。rollback备份`8d3b59eb-…`后回到`bbcd00d4`，DB50/control/cron保留并full verify，bridge job`909316b9-…`成功；再前滚feature，job`cd2423b1-…`和full verify通过。最终50 migrations、55业务表、raw/expired/aggregate=0/0/0、retention completed=4、MySQL2592000/0、health200。最终状态checkpoint为`docs(status): record visitor retention deployment`。
 
 ## 2026-08-24 P6-C3 访客 IP 隐私运行时桥（已部署）
 
