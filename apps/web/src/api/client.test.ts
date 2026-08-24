@@ -2255,6 +2255,7 @@ describe('Web API client', () => {
         endsAt: '2026-08-05T00:00:00.000Z',
         isAllDay: true,
         leaveType: 'training',
+        operationId: '33333333-3333-4333-8333-333333333333',
         startsAt: '2026-08-01T00:00:00.000Z',
       }),
     ).rejects.toMatchObject({
@@ -3792,6 +3793,7 @@ describe('Web API client', () => {
   });
 
   it('creates and lists leave requests with validated responses', async () => {
+    const operationId = '33333333-3333-4333-8333-333333333333';
     const leaveRequest = {
       createdAt: '2026-08-01T00:00:00.000Z',
       endsAt: '2026-08-02T00:00:00.000Z',
@@ -3820,12 +3822,22 @@ describe('Web API client', () => {
       endsAt: '2026-08-02T00:00:00.000Z',
       isAllDay: true,
       leaveType: 'sick',
+      operationId,
       reason: '病假',
       startsAt: '2026-08-01T00:00:00.000Z',
     });
     expect(created).toEqual(leaveRequest);
     expect(await client.listMyLeaveRequests('group-1')).toEqual([leaveRequest]);
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    expect(fetchImplementation).toHaveBeenNthCalledWith(1, '/api/groups/group-1/leave-requests', {
+      body: expect.any(String),
+      headers: {
+        Authorization: 'Bearer signed-in-token',
+        'Content-Type': 'application/json',
+        'Idempotency-Key': operationId,
+      },
+      method: 'POST',
+    });
   });
 
   it('previews and approves a leave request and rejects malformed previews', async () => {

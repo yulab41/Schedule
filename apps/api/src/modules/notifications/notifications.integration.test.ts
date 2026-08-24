@@ -700,13 +700,15 @@ describeWithDatabase('notification workflows', () => {
     startsAt = '2026-09-02T00:00:00.000Z',
     endsAt = '2026-09-03T00:00:00.000Z',
   ) {
+    const operationId = randomUUID();
     return app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': operationId },
       method: 'POST',
       payload: {
         endsAt,
         isAllDay: true,
         leaveType: 'sick',
+        operationId,
         reason: '休息',
         startsAt,
       },

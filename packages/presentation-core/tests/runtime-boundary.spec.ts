@@ -11,6 +11,7 @@ const productionSources = [
   new URL('../src/mobile-phone-consent.ts', import.meta.url),
   new URL('../src/past-schedule-backfill.ts', import.meta.url),
   new URL('../src/schedule-publication.ts', import.meta.url),
+  new URL('../src/workflow-operation.ts', import.meta.url),
 ];
 
 describe('presentation-core runtime boundary', () => {
@@ -55,6 +56,7 @@ describe('presentation-core runtime boundary', () => {
         'packages/presentation-core/src/mobile-phone-consent.ts',
         'packages/presentation-core/src/past-schedule-backfill.ts',
         'packages/presentation-core/src/schedule-publication.ts',
+        'packages/presentation-core/src/workflow-operation.ts',
       ].sort(),
     );
   });

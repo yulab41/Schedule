@@ -7,6 +7,10 @@ import type {
   LeaveRequest,
   LeaveRequestType,
 } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
@@ -54,6 +58,26 @@ const isSubmitting = ref(false);
 const approvalTarget = ref<LeaveRequest>();
 const formVisible = ref(false);
 const mobileTab = ref<'mine' | 'review'>('mine');
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
+
+function resolveOperation<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
 
 const canApprove = computed(() => props.group.role !== 'member');
 const leaveTypeOptions = computed(() =>
@@ -115,14 +139,19 @@ async function submit(): Promise<void> {
     return;
   }
   isSubmitting.value = true;
+  const operationKey = `${props.group.id}:leave:create`;
   try {
-    await api.createLeaveRequest(props.group.id, {
-      endsAt: interval.endsAt,
-      isAllDay: true,
-      leaveType: leaveType.value,
-      ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
-      startsAt: interval.startsAt,
-    });
+    await api.createLeaveRequest(
+      props.group.id,
+      resolveOperation(operationKey, {
+        endsAt: interval.endsAt,
+        isAllDay: true,
+        leaveType: leaveType.value,
+        ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
+        startsAt: interval.startsAt,
+      }),
+    );
+    operationAttempts.delete(operationKey);
     infoMessage.value = '请假申请已提交，等待管理员审批。';
     reason.value = '';
     await loadData();
@@ -191,12 +220,17 @@ async function cancelRequest(request: LeaveRequest): Promise<void> {
   if (!window.confirm('确定取消该请假申请吗？')) {
     return;
   }
+  const operationKey = `${props.group.id}:leave:cancel:${request.id}:${request.version}`;
   await runLeaveMutation(
+    operationKey,
     () =>
-      api.cancelLeaveRequest(props.group.id, request.id, {
-        expectedVersion: request.version,
-        operationId: crypto.randomUUID(),
-      }),
+      api.cancelLeaveRequest(
+        props.group.id,
+        request.id,
+        resolveOperation(operationKey, {
+          expectedVersion: request.version,
+        }),
+      ),
     '请假申请已取消。',
   );
 }
@@ -205,23 +239,30 @@ async function revokeRequest(request: LeaveRequest): Promise<void> {
   if (!window.confirm('确定撤销该已批准的请假吗？撤销后如需恢复原排班，请重新生成或发布排班。')) {
     return;
   }
+  const operationKey = `${props.group.id}:leave:revoke:${request.id}:${request.version}`;
   await runLeaveMutation(
+    operationKey,
     () =>
-      api.revokeLeaveRequest(props.group.id, request.id, {
-        expectedVersion: request.version,
-        operationId: crypto.randomUUID(),
-      }),
+      api.revokeLeaveRequest(
+        props.group.id,
+        request.id,
+        resolveOperation(operationKey, {
+          expectedVersion: request.version,
+        }),
+      ),
     '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
   );
 }
 
 async function runLeaveMutation(
+  operationKey: string,
   mutation: () => Promise<unknown>,
   successMessage: string,
 ): Promise<void> {
   errorMessage.value = undefined;
   try {
     await mutation();
+    operationAttempts.delete(operationKey);
     infoMessage.value = successMessage;
     await loadData();
   } catch (error) {

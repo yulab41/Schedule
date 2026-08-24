@@ -128,102 +128,113 @@ export class LeaveService {
     groupId: string,
     input: CreateLeaveRequestInput,
   ): Promise<LeaveRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.services.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runAuthorizedMutation({
+      databaseClient: this.databaseClient,
+      groupId,
+      identity,
+      operationId: input.operationId,
+      permission: 'viewScheduleConfiguration',
+      permissionService: this.services.permissionService,
+      requestFingerprint: createLeaveRequestFingerprint({
+        endsAt: input.endsAt,
         groupId,
-        'viewScheduleConfiguration',
-      );
-      const startsAt = parseTimestamp(input.startsAt, '开始时间');
-      const endsAt = parseTimestamp(input.endsAt, '结束时间');
-      if (startsAt.valueOf() >= endsAt.valueOf()) {
-        throw validationError('结束时间必须晚于开始时间。');
-      }
-
-      const existingLeaves = await transaction
-        .select()
-        .from(leaveRequests)
-        .where(
-          and(
-            eq(leaveRequests.groupId, groupId),
-            eq(leaveRequests.membershipId, authorization.membership.id),
-            inArray(leaveRequests.status, ['pending', 'approved']),
-            isNull(leaveRequests.deletedAt),
-          ),
-        );
-      const overlappingLeave = existingLeaves.find((leave) =>
-        intervalsOverlap(leave, { endsAt, startsAt }),
-      );
-      if (overlappingLeave !== undefined) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          latestData: {
-            id: overlappingLeave.id,
-            objectType: 'leave_request',
-            overlappingLeaveRequestId: overlappingLeave.id,
-            version: overlappingLeave.version,
-          },
-          statusCode: 409,
-          userMessage: '该成员的请假时间与已有请假重叠，请先撤销或调整原申请。',
-        });
-      }
-
-      let reflowStrategy = authorization.group.leaveReflowStrategy;
-      if (input.resolutionMode === 'shift-forward') {
-        reflowStrategy = 'shift-forward';
-      }
-      if (input.resolutionMode === 'manual') {
-        reflowStrategy = 'keep-original-order';
-      }
-
-      const operationId = randomUUID();
-      const leaveRequestId = randomUUID();
-      await transaction.insert(leaveRequests).values({
-        endsAt,
-        groupId,
-        id: leaveRequestId,
-        isAllDay: input.isAllDay === true ? 1 : 0,
+        isAllDay: input.isAllDay === true,
         leaveType: input.leaveType,
-        membershipId: authorization.membership.id,
-        ...(input.reason === undefined ? {} : { reason: input.reason }),
-        reflowStrategy,
-        startsAt,
-      });
-      const submittedEventId = await this.services.eventWriter.append(transaction, {
-        affectedMembershipIds: [authorization.membership.id],
-        afterData: toLatestData({
-          endsAt: endsAt.toISOString(),
-          isAllDay: input.isAllDay === true,
-          leaveType: input.leaveType,
-          reflowStrategy,
-          ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
-          startsAt: startsAt.toISOString(),
-        }),
-        eventStatus: 'completed',
-        eventType: 'leave_request_submitted',
-        groupId,
-        initiatedByUserId: authorization.user.id,
-        objectId: leaveRequestId,
-        objectType: 'leave_request',
-        operationId,
-        operatorUserId: authorization.user.id,
-        ...(input.reason === undefined ? {} : { reason: input.reason }),
-      });
-      await this.services.notificationWriter.append(transaction, {
-        administratorRecipients: true,
-        body: '成员提交了新的请假申请，请及时审批。',
-        excludeRecipientUserIds: [authorization.user.id],
-        groupId,
-        notificationType: 'approval_pending',
-        objectId: leaveRequestId,
-        objectType: 'leave_request',
-        payload: { requestType: 'leave' },
-        scheduleEventId: submittedEventId,
-        title: '新的请假申请待审批',
-      });
+        reason: input.reason ?? null,
+        resolutionMode: input.resolutionMode ?? null,
+        startsAt: input.startsAt,
+      }),
+      run: async (transaction, authorization) => {
+        const startsAt = parseTimestamp(input.startsAt, '开始时间');
+        const endsAt = parseTimestamp(input.endsAt, '结束时间');
+        if (startsAt.valueOf() >= endsAt.valueOf()) {
+          throw validationError('结束时间必须晚于开始时间。');
+        }
 
-      return this.readLeaveRequest(transaction, leaveRequestId);
+        const existingLeaves = await transaction
+          .select()
+          .from(leaveRequests)
+          .where(
+            and(
+              eq(leaveRequests.groupId, groupId),
+              eq(leaveRequests.membershipId, authorization.membership.id),
+              inArray(leaveRequests.status, ['pending', 'approved']),
+              isNull(leaveRequests.deletedAt),
+            ),
+          );
+        const overlappingLeave = existingLeaves.find((leave) =>
+          intervalsOverlap(leave, { endsAt, startsAt }),
+        );
+        if (overlappingLeave !== undefined) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            latestData: {
+              id: overlappingLeave.id,
+              objectType: 'leave_request',
+              overlappingLeaveRequestId: overlappingLeave.id,
+              version: overlappingLeave.version,
+            },
+            statusCode: 409,
+            userMessage: '该成员的请假时间与已有请假重叠，请先撤销或调整原申请。',
+          });
+        }
+
+        let reflowStrategy = authorization.group.leaveReflowStrategy;
+        if (input.resolutionMode === 'shift-forward') {
+          reflowStrategy = 'shift-forward';
+        }
+        if (input.resolutionMode === 'manual') {
+          reflowStrategy = 'keep-original-order';
+        }
+
+        const leaveRequestId = randomUUID();
+        await transaction.insert(leaveRequests).values({
+          endsAt,
+          groupId,
+          id: leaveRequestId,
+          isAllDay: input.isAllDay === true ? 1 : 0,
+          leaveType: input.leaveType,
+          membershipId: authorization.membership.id,
+          ...(input.reason === undefined ? {} : { reason: input.reason }),
+          reflowStrategy,
+          startsAt,
+        });
+        const submittedEventId = await this.services.eventWriter.append(transaction, {
+          affectedMembershipIds: [authorization.membership.id],
+          afterData: toLatestData({
+            endsAt: endsAt.toISOString(),
+            isAllDay: input.isAllDay === true,
+            leaveType: input.leaveType,
+            reflowStrategy,
+            ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
+            startsAt: startsAt.toISOString(),
+          }),
+          eventStatus: 'completed',
+          eventType: 'leave_request_submitted',
+          groupId,
+          initiatedByUserId: authorization.user.id,
+          objectId: leaveRequestId,
+          objectType: 'leave_request',
+          operationId: input.operationId,
+          operatorUserId: authorization.user.id,
+          ...(input.reason === undefined ? {} : { reason: input.reason }),
+        });
+        await this.services.notificationWriter.append(transaction, {
+          administratorRecipients: true,
+          body: '成员提交了新的请假申请，请及时审批。',
+          excludeRecipientUserIds: [authorization.user.id],
+          groupId,
+          notificationType: 'approval_pending',
+          objectId: leaveRequestId,
+          objectType: 'leave_request',
+          payload: { requestType: 'leave' },
+          scheduleEventId: submittedEventId,
+          title: '新的请假申请待审批',
+        });
+
+        return this.readLeaveRequest(transaction, leaveRequestId);
+      },
+      scope: 'leave_request_create',
     });
   }
 
@@ -1853,6 +1864,18 @@ function createLeaveMutationFingerprint(input: {
   readonly expectedVersion: number;
   readonly groupId: string;
   readonly leaveRequestId: string;
+}): string {
+  return createHash('sha256').update(JSON.stringify(input)).digest('hex');
+}
+
+function createLeaveRequestFingerprint(input: {
+  readonly endsAt: string;
+  readonly groupId: string;
+  readonly isAllDay: boolean;
+  readonly leaveType: string;
+  readonly reason: string | null;
+  readonly resolutionMode: string | null;
+  readonly startsAt: string;
 }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
 }

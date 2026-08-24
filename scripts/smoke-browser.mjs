@@ -1353,6 +1353,7 @@ async function performTouchSwipe(page, bounds, deltaX, deltaY) {
 }
 
 async function assertTouchPressFeedback(page, locator, label) {
+  await locator.scrollIntoViewIfNeeded();
   const bounds = await locator.boundingBox();
   if (bounds === null) fail(`无法取得${label}的点触区域。`);
   const session = await page.context().newCDPSession(page);

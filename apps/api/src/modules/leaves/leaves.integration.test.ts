@@ -99,6 +99,42 @@ describeWithDatabase('leave requests and reflow', () => {
     expect(invalid.statusCode).toBe(400);
   });
 
+  it('replays leave creation by operation id and rejects payload or header mismatches', async () => {
+    const context = await seedPublishedRotation();
+    const operationId = randomUUID();
+    const body = {
+      endsAt: '2026-09-02T00:00:00.000Z',
+      isAllDay: true,
+      leaveType: 'sick',
+      operationId,
+      reason: '幂等创建',
+      startsAt: '2026-09-01T00:00:00.000Z',
+    };
+
+    const created = await submitLeave('a-token', context.groupId, body, operationId);
+    expect(created.statusCode).toBe(201);
+    const replayed = await submitLeave('a-token', context.groupId, body, operationId);
+    expect(replayed.statusCode).toBe(201);
+    expect(replayed.json()).toEqual(created.json());
+
+    const reused = await submitLeave(
+      'a-token',
+      context.groupId,
+      { ...body, reason: '另一个请求' },
+      operationId,
+    );
+    expect(reused.statusCode).toBe(409);
+    const mismatched = await submitLeave('a-token', context.groupId, body, randomUUID());
+    expect(mismatched.statusCode).toBe(400);
+
+    const [rows] = (await client.database.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM leave_requests WHERE group_id = ${context.groupId}) AS leaveCount,
+        (SELECT COUNT(*) FROM schedule_events WHERE event_type = 'leave_request_submitted') AS eventCount
+    `)) as unknown as [readonly { eventCount: number; leaveCount: number }[], unknown];
+    expect(rows).toEqual([{ eventCount: 1, leaveCount: 1 }]);
+  });
+
   it('lets the applicant cancel a pending leave request and records the event', async () => {
     const context = await seedPublishedRotation();
     const leaveRequestId = await createLeave(context, 'a-token', {
@@ -1039,11 +1075,18 @@ describeWithDatabase('leave requests and reflow', () => {
     });
   }
 
-  async function submitLeave(token: string, groupId: string, body: object) {
+  async function submitLeave(token: string, groupId: string, body: object, operationId?: string) {
+    const bodyOperationId =
+      'operationId' in body && typeof body.operationId === 'string'
+        ? body.operationId
+        : (operationId ?? randomUUID());
     return app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        'idempotency-key': operationId ?? bodyOperationId,
+      },
       method: 'POST',
-      payload: body,
+      payload: { ...body, operationId: bodyOperationId },
       url: `/groups/${groupId}/leave-requests`,
     });
   }

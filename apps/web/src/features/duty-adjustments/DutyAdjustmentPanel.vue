@@ -9,6 +9,10 @@ import type {
   GroupSummary,
   MemberSwapSettings,
 } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
@@ -61,6 +65,26 @@ const isSubmitting = ref(false);
 const isAdminSubmitting = ref(false);
 const requestFormVisible = ref(false);
 const adminFormVisible = ref(false);
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
+
+function resolveOperation<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
 
 const canApprove = computed(() => props.group.role !== 'member');
 const candidates = computed(() =>
@@ -243,13 +267,17 @@ async function submit(): Promise<void> {
   }
 
   isSubmitting.value = true;
+  const operationKey = `${props.group.id}:duty-adjustment:create`;
   try {
-    const created = await api.createDutyAdjustmentRequest(props.group.id, {
-      coveredAssignmentId: selectedMyAssignmentId.value,
-      operationId: crypto.randomUUID(),
-      overtimeMembershipId: selectedOvertimeMembershipId.value,
-      ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
-    });
+    const created = await api.createDutyAdjustmentRequest(
+      props.group.id,
+      resolveOperation(operationKey, {
+        coveredAssignmentId: selectedMyAssignmentId.value,
+        overtimeMembershipId: selectedOvertimeMembershipId.value,
+        ...(reason.value.trim() === '' ? {} : { reason: reason.value.trim() }),
+      }),
+    );
+    operationAttempts.delete(operationKey);
     infoMessage.value =
       created.status === 'completed'
         ? '加扣班已生效，加班成员将代值该班次。'
@@ -277,13 +305,17 @@ async function submitDirect(): Promise<void> {
   }
 
   isAdminSubmitting.value = true;
+  const operationKey = `${props.group.id}:duty-adjustment:create-direct`;
   try {
-    const created = await api.createDirectDutyAdjustment(props.group.id, {
-      coveredAssignmentId: selectedAdminAssignmentId.value,
-      operationId: crypto.randomUUID(),
-      overtimeMembershipId: selectedAdminOvertimeMembershipId.value,
-      ...(adminReason.value.trim() === '' ? {} : { reason: adminReason.value.trim() }),
-    });
+    const created = await api.createDirectDutyAdjustment(
+      props.group.id,
+      resolveOperation(operationKey, {
+        coveredAssignmentId: selectedAdminAssignmentId.value,
+        overtimeMembershipId: selectedAdminOvertimeMembershipId.value,
+        ...(adminReason.value.trim() === '' ? {} : { reason: adminReason.value.trim() }),
+      }),
+    );
+    operationAttempts.delete(operationKey);
     infoMessage.value = `管理员代值已生效：${created.deductedMemberName ?? ''} 扣班，${created.overtimeMemberName ?? ''} 加班。`;
     resetForm();
     await loadData();
@@ -299,20 +331,28 @@ async function submitDirect(): Promise<void> {
 }
 
 async function accept(request: DutyAdjustmentRequest): Promise<void> {
-  await runMutation(() =>
-    api.acceptDutyAdjustment(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('accept', request);
+  await runMutation(operationKey, () =>
+    api.acceptDutyAdjustment(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
 async function approve(request: DutyAdjustmentRequest): Promise<void> {
-  await runMutation(() =>
-    api.approveDutyAdjustment(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('approve', request);
+  await runMutation(operationKey, () =>
+    api.approveDutyAdjustment(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
@@ -320,11 +360,15 @@ async function reject(request: DutyAdjustmentRequest): Promise<void> {
   if (!window.confirm(`确定驳回 ${request.deductedMemberName ?? ''} 的加扣班申请吗？`)) {
     return;
   }
-  await runMutation(() =>
-    api.rejectDutyAdjustment(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('reject', request);
+  await runMutation(operationKey, () =>
+    api.rejectDutyAdjustment(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
@@ -332,11 +376,15 @@ async function cancel(request: DutyAdjustmentRequest): Promise<void> {
   if (!window.confirm('确定撤销该加扣班申请吗？')) {
     return;
   }
-  await runMutation(() =>
-    api.cancelDutyAdjustment(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('cancel', request);
+  await runMutation(operationKey, () =>
+    api.cancelDutyAdjustment(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
@@ -348,19 +396,31 @@ async function revoke(request: DutyAdjustmentRequest): Promise<void> {
   if (revokeReason === null) {
     return;
   }
-  await runMutation(() =>
-    api.revokeDutyAdjustment(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-      ...(revokeReason.trim() === '' ? {} : { reason: revokeReason.trim() }),
-    }),
+  const operationKey = getMutationOperationKey('revoke', request);
+  await runMutation(operationKey, () =>
+    api.revokeDutyAdjustment(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+        ...(revokeReason.trim() === '' ? {} : { reason: revokeReason.trim() }),
+      }),
+    ),
   );
 }
 
-async function runMutation(mutation: () => Promise<DutyAdjustmentRequest>): Promise<void> {
+function getMutationOperationKey(action: string, request: DutyAdjustmentRequest): string {
+  return `${props.group.id}:duty-adjustment:${action}:${request.id}:${request.version}`;
+}
+
+async function runMutation(
+  operationKey: string,
+  mutation: () => Promise<DutyAdjustmentRequest>,
+): Promise<void> {
   errorMessage.value = undefined;
   try {
     await mutation();
+    operationAttempts.delete(operationKey);
     infoMessage.value = '加扣班状态已更新。';
     await loadData();
   } catch (error) {

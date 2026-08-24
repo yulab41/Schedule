@@ -2,12 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7-A 工作流对等审计
+## 2026-08-24 P7-A 工作流危险写与共享客户端
 
-- 来源：leave=`0d5ec55c`、swap=`b20ff9b8`、duty=`5d8b205a`、mutation骨架=`beae8e84/7fcd6ae4/e5608cf3`、Mini disabled nav=`ad4cfb2c/733e3af6`。
-- Web/API已有完整三工作流、状态/权限/冲突/撤销链/事件通知；定向8 files/193 tests通过。Mini缺workflow subpackage/client decoder/controller/真实入口，flag=false。
-- 首要风险：leave create无operation id/idempotency；其他dangerous routes未校验Idempotency-Key/body一致。先做P7-A安全+client-core/Web-first，再固化Storybook和原生leave→swap→duty；通知中心留P9。
-- 详细矩阵：`apps/miniprogram/docs/architecture/p7-workflow-parity-audit.md`。下一批不写WXML，只做安全与共享边界。
+- 来源/红绿：leave=`0d5ec55c`、swap=`b20ff9b8`、duty=`5d8b205a`、mutation骨架=`beae8e84/7fcd6ae4/e5608cf3`。contract、19个危险route、38端点client-core、Web delegation、深冻结attempt和四panel wiring测试均先失败后通过。
+- 实现：leave create强制operation ID并用canonical fingerprint事务幂等；三工作流危险写统一校验header/body，不一致在service前400。client-core严格解码全部工作流结果并生成schema；Web 38方法委托共享client。四panel同payload模糊失败重试复用ID、payload变化换ID、成功才删除attempt，不增加离线队列。
+- 语义审计：共享transport receiver、认证、异步catch/错误映射、preview/settings调用次数与空值语义不变；危险写新增header/body一致性，leave新建从非幂等变为精确重放。生成器只新增typed map/propertyNames和仓库Prettier配置解析，不放宽未知字段。
+- 验证：定向172、runtime boundary4、non-integration980、Mini191通过；真实MySQL leave20/swap34/duty26/notifications8/WeChat4共92/92。首次7失败均为跨suite旧leave helper漏operation ID，补齐同header/body后全绿。typecheck/build、Web production build、generated freshness、Mini production verify通过。
+- 运行/浏览器验证：`pnpm smoke:browser`等价直接入口`SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/smoke-browser.mjs`在最终源码通过管理员、成员、访客vkey和访问记录，全流程无浏览器错误，最终截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-oKEqzb`，临时服务已停止。前两轮周导航按下态失败定位为`0aaa5620`验证器先滚动周面板后在视口外按钮取CDP坐标；只给helper补`scrollIntoViewIfNeeded`后原样通过，未改产品UI。
+- 下一步：checkpoint=`feat(workflows): harden shared operation clients`；P7-B只固化production panels的390/320全状态Storybook与1:1证据，通知中心仍留P9，不写Mini页面。
 
 ## 2026-08-24 P6-C9 核心 RC（用户已通过）
 

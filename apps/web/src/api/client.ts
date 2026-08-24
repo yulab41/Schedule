@@ -132,6 +132,7 @@ import {
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
   createPastScheduleClient,
+  createWorkflowClient,
   type ClientEndpoint,
   type ClientTransport,
   type PastScheduleBackfillBatchSubmission,
@@ -143,41 +144,29 @@ import {
   apiErrorCodes,
   appliedManualScheduleTemplateResultSchema,
   createWechatAdminBindingLinkResponseSchema,
-  approvedLeaveRequestResultSchema,
   calendarPreferencesSchema,
   calendarReadModelSchema,
   claimGroupResponseSchema,
   convertPendingRosterResponseSchema,
   createMembershipClaimResponseSchema,
   deletedResultSchema,
-  dutyAdjustmentPreviewSchema,
-  dutyAdjustmentRequestListSchema,
-  dutyAdjustmentRequestSchema,
   directoryFacetSnapshotSchema,
   directoryEntryLookupResponseSchema,
   directoryPageSchema,
   dissolvedGroupListSchema,
   guestCalendarReadModelSchema,
   groupCatalogListSchema,
-  groupDutyAdjustmentSettingsSchema,
   groupMemberContactListSchema,
   groupMemberContactSchema,
   groupMemberListSchema,
   groupMemberSchema,
   groupSchedulePublishModeSchema,
-  groupSwapSettingsSchema,
   groupSummaryListSchema,
   groupSummarySchema,
-  groupLeaveReflowStrategySchema,
   groupNotificationSettingsSchema,
   visitorAccessAggregatePageSchema,
   visitorAccessLogPageSchema,
   visitorResolveResponseSchema,
-  leaveAffectedShiftListSchema,
-  leaveReflowPreviewSchema,
-  leaveRequestListSchema,
-  leaveRequestMutationResultSchema,
-  leaveRequestSchema,
   manualApplyPreviewSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
@@ -185,7 +174,6 @@ import {
   membershipClaimRequestListSchema,
   membershipClaimRequestSchema,
   memberNotificationPreferencesSchema,
-  memberSwapSettingsSchema,
   monthStatisticsSnapshotSchema,
   pastScheduleAssignmentListSchema,
   notificationPageSchema,
@@ -196,7 +184,6 @@ import {
   publishSchedulePeriodResultSchema,
   pushConfigurationSchema,
   readAllResultSchema,
-  rejectedLeaveRequestResultSchema,
   savedResultSchema,
   scheduleChangeImpactPreviewSchema,
   scheduleDraftSummaryListSchema,
@@ -209,9 +196,6 @@ import {
   schedulePeriodMutationResultSchema,
   schedulingConfigSchema,
   shiftTypeSchema,
-  swapPreviewSchema,
-  swapRequestListSchema,
-  swapRequestSchema,
   statisticsRecalculateCheckResultSchema,
   unreadCountResultSchema,
   updatePastScheduleAssignmentResultSchema,
@@ -693,6 +677,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const calendarReadClient = createCalendarReadClient(sharedClientTransport);
   const groupMobilePhoneConsentClient = createGroupMobilePhoneConsentClient(sharedClientTransport);
   const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
+  const workflowClient = createWorkflowClient(sharedClientTransport);
 
   return {
     assignPlatformPasswordIdentity(userId, input) {
@@ -944,30 +929,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     acceptDutyAdjustment(groupId, dutyAdjustmentId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/accept`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
-      );
+      return workflowClient.acceptDutyAdjustment(groupId, dutyAdjustmentId, input);
     },
     acceptSwapRequest(groupId, swapRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/accept`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapRequestSchema),
-      );
+      return workflowClient.acceptSwapRequest(groupId, swapRequestId, input);
     },
     applyManualTemplate(groupId, templateId, input) {
       return requestJson(
@@ -985,43 +950,13 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     approveLeaveRequest(groupId, leaveRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/approve`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyMatching<ApprovedLeaveRequestResult>(approvedLeaveRequestResultSchema),
-      );
+      return workflowClient.approveLeaveRequest(groupId, leaveRequestId, input);
     },
     approveDutyAdjustment(groupId, dutyAdjustmentId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/approve`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
-      );
+      return workflowClient.approveDutyAdjustment(groupId, dutyAdjustmentId, input);
     },
     approveSwapRequest(groupId, swapRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/approve`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapRequestSchema),
-      );
+      return workflowClient.approveSwapRequest(groupId, swapRequestId, input);
     },
     addRosterEntries(groupId, input) {
       return requestJson(
@@ -1076,95 +1011,25 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     cancelSwapRequest(groupId, swapRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/cancel`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapRequestSchema),
-      );
+      return workflowClient.cancelSwapRequest(groupId, swapRequestId, input);
     },
     cancelDutyAdjustment(groupId, dutyAdjustmentId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/cancel`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
-      );
+      return workflowClient.cancelDutyAdjustment(groupId, dutyAdjustmentId, input);
     },
     createLeaveRequest(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(leaveRequestSchema),
-      );
+      return workflowClient.createLeaveRequest(groupId, input);
     },
     createDirectDutyAdjustment(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/direct`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
-      );
+      return workflowClient.createDirectDutyAdjustment(groupId, input);
     },
     createDutyAdjustmentRequest(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
-      );
+      return workflowClient.createDutyAdjustmentRequest(groupId, input);
     },
     createSwapRequest(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapRequestSchema),
-      );
+      return workflowClient.createSwapRequest(groupId, input);
     },
     createDirectSwapRequest(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/direct`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapRequestSchema),
-      );
+      return workflowClient.createDirectSwapRequest(groupId, input);
     },
     createManualScheduleTemplate(groupId, input) {
       return requestJson(
@@ -1414,57 +1279,22 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     getGroupDutyAdjustmentSettings(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/settings`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(groupDutyAdjustmentSettingsSchema),
-      );
+      return workflowClient.getGroupDutyAdjustmentSettings(groupId);
     },
     getGroupMobilePhoneConsent(groupId) {
       return groupMobilePhoneConsentClient.getStatus(groupId);
     },
     getGroupSwapSettings(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/settings`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(groupSwapSettingsSchema),
-      );
+      return workflowClient.getGroupSwapSettings(groupId);
     },
     getLeaveReflowStrategy(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-reflow-strategy`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(groupLeaveReflowStrategySchema),
-      );
+      return workflowClient.getLeaveReflowStrategy(groupId);
     },
     getMySwapSettings(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/my-settings`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(memberSwapSettingsSchema),
-      );
+      return workflowClient.getMySwapSettings(groupId);
     },
     getMyDutyAdjustmentSettings(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/my-settings`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(memberSwapSettingsSchema),
-      );
+      return workflowClient.getMyDutyAdjustmentSettings(groupId);
     },
     getSchedulePublishMode(groupId) {
       return requestJson(
@@ -1911,77 +1741,25 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listDutyAdjustmentApprovals(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/approvals`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(dutyAdjustmentRequestListSchema),
-      );
+      return workflowClient.listDutyAdjustmentApprovals(groupId);
     },
     listLeaveRequestApprovals(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests/approvals`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(leaveRequestListSchema),
-      );
+      return workflowClient.listLeaveRequestApprovals(groupId);
     },
     listMyDutyAdjustments(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(dutyAdjustmentRequestListSchema),
-      );
+      return workflowClient.listMyDutyAdjustments(groupId);
     },
     listMyLeaveRequests(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(leaveRequestListSchema),
-      );
+      return workflowClient.listMyLeaveRequests(groupId);
     },
     getLeaveAffectedShifts(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests/affected-shifts`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(leaveAffectedShiftListSchema),
-      );
+      return workflowClient.getLeaveAffectedShifts(groupId, input);
     },
     listMySwapRequests(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(swapRequestListSchema),
-      );
+      return workflowClient.listMySwapRequests(groupId);
     },
     listSwapApprovals(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/approvals`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(swapRequestListSchema),
-      );
+      return workflowClient.listSwapApprovals(groupId);
     },
     previewManualTemplateApply(groupId, templateId, input) {
       return requestJson(
@@ -1997,43 +1775,13 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     previewDutyAdjustment(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/preview`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentPreviewSchema),
-      );
+      return workflowClient.previewDutyAdjustment(groupId, input);
     },
     previewSwap(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/preview`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapPreviewSchema),
-      );
+      return workflowClient.previewSwap(groupId, input);
     },
     previewLeaveRequestApproval(groupId, leaveRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/preview`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyMatching<LeaveReflowPreview>(leaveReflowPreviewSchema),
-      );
+      return workflowClient.previewLeaveRequestApproval(groupId, leaveRequestId, input);
     },
     updateGroupCode(groupId, input) {
       return requestJson(
@@ -2059,95 +1807,25 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     rejectLeaveRequest(groupId, leaveRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/reject`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(rejectedLeaveRequestResultSchema),
-      );
+      return workflowClient.rejectLeaveRequest(groupId, leaveRequestId, input);
     },
     cancelLeaveRequest(groupId, leaveRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/cancel`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(leaveRequestMutationResultSchema),
-      );
+      return workflowClient.cancelLeaveRequest(groupId, leaveRequestId, input);
     },
     revokeLeaveRequest(groupId, leaveRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-requests/${encodeURIComponent(leaveRequestId)}/revoke`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(leaveRequestMutationResultSchema),
-      );
+      return workflowClient.revokeLeaveRequest(groupId, leaveRequestId, input);
     },
     rejectSwapRequest(groupId, swapRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/reject`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapRequestSchema),
-      );
+      return workflowClient.rejectSwapRequest(groupId, swapRequestId, input);
     },
     revokeSwapRequest(groupId, swapRequestId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/${encodeURIComponent(swapRequestId)}/revoke`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(swapRequestSchema),
-      );
+      return workflowClient.revokeSwapRequest(groupId, swapRequestId, input);
     },
     rejectDutyAdjustment(groupId, dutyAdjustmentId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/reject`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
-      );
+      return workflowClient.rejectDutyAdjustment(groupId, dutyAdjustmentId, input);
     },
     revokeDutyAdjustment(groupId, dutyAdjustmentId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/${encodeURIComponent(dutyAdjustmentId)}/revoke`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(dutyAdjustmentRequestSchema),
-      );
+      return workflowClient.revokeDutyAdjustment(groupId, dutyAdjustmentId, input);
     },
     reorderRotationMembers(groupId, roleId, input) {
       return requestJson(
@@ -2241,56 +1919,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     updateGroupDutyAdjustmentSettings(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/duty-adjustments/settings`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(groupDutyAdjustmentSettingsSchema),
-      );
+      return workflowClient.updateGroupDutyAdjustmentSettings(groupId, input);
     },
     updateGroupSwapSettings(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/settings`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(groupSwapSettingsSchema),
-      );
+      return workflowClient.updateGroupSwapSettings(groupId, input);
     },
     updateLeaveReflowStrategy(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave-reflow-strategy`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(groupLeaveReflowStrategySchema),
-      );
+      return workflowClient.updateLeaveReflowStrategy(groupId, input);
     },
     updateMySwapSettings(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/swaps/my-settings`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(memberSwapSettingsSchema),
-      );
+      return workflowClient.updateMySwapSettings(groupId, input);
     },
     updateMyCalendarPreferences(groupId, input) {
       return requestJson(

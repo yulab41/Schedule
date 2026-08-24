@@ -8,6 +8,10 @@ import type {
   SwapPreview,
   SwapRequest,
 } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { ApiClientError, createApiClient } from '../../api/client.js';
@@ -71,6 +75,26 @@ const adminIsSubmitting = ref(false);
 const requestFormVisible = ref(false);
 const adminFormVisible = ref(false);
 let loadDataRequestId = 0;
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
+
+function resolveOperation<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
 
 const canApprove = computed(() => props.group.role !== 'member');
 const myCandidates = computed(() =>
@@ -429,13 +453,17 @@ async function submit(): Promise<void> {
   }
 
   isSubmitting.value = true;
+  const operationKey = `${props.group.id}:swap:create`;
   try {
-    const created = await api.createSwapRequest(props.group.id, {
-      initiatorAssignmentId: selectedMyAssignmentId.value,
-      operationId: crypto.randomUUID(),
-      targetAssignmentId: selectedTargetAssignmentId.value,
-      targetMembershipId: selectedTargetMembershipId.value,
-    });
+    const created = await api.createSwapRequest(
+      props.group.id,
+      resolveOperation(operationKey, {
+        initiatorAssignmentId: selectedMyAssignmentId.value,
+        targetAssignmentId: selectedTargetAssignmentId.value,
+        targetMembershipId: selectedTargetMembershipId.value,
+      }),
+    );
+    operationAttempts.delete(operationKey);
     infoMessage.value =
       created.status === 'completed'
         ? '换班已生效，双方实际班次已交换。'
@@ -499,12 +527,16 @@ async function submitAdminSwap(): Promise<void> {
   }
 
   adminIsSubmitting.value = true;
+  const operationKey = `${props.group.id}:swap:create-direct`;
   try {
-    const created = await api.createDirectSwapRequest(props.group.id, {
-      initiatorAssignmentId: adminInitiatorAssignmentId.value,
-      operationId: crypto.randomUUID(),
-      targetAssignmentId: adminTargetAssignmentId.value,
-    });
+    const created = await api.createDirectSwapRequest(
+      props.group.id,
+      resolveOperation(operationKey, {
+        initiatorAssignmentId: adminInitiatorAssignmentId.value,
+        targetAssignmentId: adminTargetAssignmentId.value,
+      }),
+    );
+    operationAttempts.delete(operationKey);
     adminInfoMessage.value = `已为 ${created.initiatorMemberName ?? ''} 与 ${created.targetMemberName ?? ''} 完成换班，实际班次已交换。`;
     resetAdminForm();
     await loadData();
@@ -520,20 +552,28 @@ async function submitAdminSwap(): Promise<void> {
 }
 
 async function accept(request: SwapRequest): Promise<void> {
-  await runMutation(() =>
-    api.acceptSwapRequest(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('accept', request);
+  await runMutation(operationKey, () =>
+    api.acceptSwapRequest(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
 async function approve(request: SwapRequest): Promise<void> {
-  await runMutation(() =>
-    api.approveSwapRequest(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('approve', request);
+  await runMutation(operationKey, () =>
+    api.approveSwapRequest(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
@@ -541,11 +581,15 @@ async function reject(request: SwapRequest): Promise<void> {
   if (!window.confirm(`确定驳回与 ${request.initiatorMemberName ?? '对方'} 的换班申请吗？`)) {
     return;
   }
-  await runMutation(() =>
-    api.rejectSwapRequest(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('reject', request);
+  await runMutation(operationKey, () =>
+    api.rejectSwapRequest(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
@@ -553,11 +597,15 @@ async function cancel(request: SwapRequest): Promise<void> {
   if (!window.confirm('确定撤销该换班申请吗？')) {
     return;
   }
-  await runMutation(() =>
-    api.cancelSwapRequest(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-    }),
+  const operationKey = getMutationOperationKey('cancel', request);
+  await runMutation(operationKey, () =>
+    api.cancelSwapRequest(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+      }),
+    ),
   );
 }
 
@@ -569,19 +617,31 @@ async function revokeSwap(request: SwapRequest): Promise<void> {
   if (reason === null) {
     return;
   }
-  await runMutation(() =>
-    api.revokeSwapRequest(props.group.id, request.id, {
-      expectedVersion: request.version,
-      operationId: crypto.randomUUID(),
-      ...(reason.trim() === '' ? {} : { reason: reason.trim() }),
-    }),
+  const operationKey = getMutationOperationKey('revoke', request);
+  await runMutation(operationKey, () =>
+    api.revokeSwapRequest(
+      props.group.id,
+      request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: request.version,
+        ...(reason.trim() === '' ? {} : { reason: reason.trim() }),
+      }),
+    ),
   );
 }
 
-async function runMutation(mutation: () => Promise<SwapRequest>): Promise<void> {
+function getMutationOperationKey(action: string, request: SwapRequest): string {
+  return `${props.group.id}:swap:${action}:${request.id}:${request.version}`;
+}
+
+async function runMutation(
+  operationKey: string,
+  mutation: () => Promise<SwapRequest>,
+): Promise<void> {
   errorMessage.value = undefined;
   try {
     await mutation();
+    operationAttempts.delete(operationKey);
     await loadData();
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'CONFLICT') {

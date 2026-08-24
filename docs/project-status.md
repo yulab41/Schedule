@@ -2,13 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7-A 工作流对等与安全依赖审计（待 checkpoint）
+## 2026-08-24 P7-A 工作流危险写与共享客户端边界（待 checkpoint）
 
-- 基线/范围：P6 RC checkpoint `1802e14a`已与Git/origin/production对齐、DB51。本批只审计既有Web/API和Mini缺口并冻结P7顺序，不修改生产代码/UI/API/DB或capability。请假、换班、加扣班分别源自`0d5ec55c`、`b20ff9b8`、`5d8b205a`；共享事务幂等骨架来自`beae8e84`/`7fcd6ae4`/`e5608cf3`；Mini禁用入口来自`ad4cfb2c`/`733e3af6`。
-- 结论：Web/API三类工作流的成员/管理员、preview、接受/审批/驳回/取消/完成后逆序撤销、跨月/今天/历史归档、leave reflow/冲突/空缺/统计、事件和通知写入均已存在；Web workflow/client定向8 files/193 tests通过。Mini完全缺`subpackage-workflows`、client-core decoders/endpoints、controller/ViewModel和真实导航，production workflows flag仍false。
-- 安全缺口：leave create没有客户端operation id/服务幂等；swap/duty与各mutation虽已有body operation id和事务幂等，但路由未统一校验`Idempotency-Key` header/body。P7首批必须先修该边界并让Web先用共享client-core/presentation-core，之后才能在弱网Mini中安全重放，禁止直接从WXML起步。
-- 视觉/消息边界：请假已有`web-ui-2-0-mobile-screens--leave-and-approval`，换班/加扣班已有shell refinement 390 seed，但不足以覆盖完整状态与320；P7-B用production Web panels固化专用Storybook，用户standing指令视为1:1方向确认，不再询问设计。工作流事务已生成in-app/WeChat消息；通知中心/订阅/设置原生页留P9，P7页面onShow刷新业务状态。
-- 详细审计/下一步：见`apps/miniprogram/docs/architecture/p7-workflow-parity-audit.md`与黄金清单P7行。下一批仅做P7-A危险写幂等+client-core decoder/Web先行共享边界，真实MySQL与browser smoke通过后停止，不写Mini视觉、不进入P8。
+- 基线/来源：P7审计`3dd3c0fe`已与Git/origin/production对齐、DB51；leave/swap/duty来源`0d5ec55c`/`b20ff9b8`/`5d8b205a`，事务幂等骨架`beae8e84`/`7fcd6ae4`/`e5608cf3`。本批只完成安全与Web-first共享边界，不写Mini WXML/WXSS、不启用workflows capability或改DB。
+- 安全实现：leave create contract强制`operationId`并进入`runAuthorizedMutation(leave_request_create)`，canonical payload fingerprint保证同ID同载荷精确重放、同ID异载荷409且只写一次request/event。leave/swap/duty共19个危险写路由统一用`resolveDangerousOperationId`校验`Idempotency-Key`与body；只传其中一侧保持兼容，两侧不一致在service调用前400。
+- 共享边界：client-core新增38个三工作流read/preview/settings/write endpoint与严格compact decoder；生成schema扩展typed `additionalProperties`/`propertyNames`，生成器读取仓库Prettier配置后输出，generated/freshness/structural equality一致。Web API 38个方法全部委托共享client；presentation-core新增canonical、深冻结的operation attempt，四个production panel对同一payload的模糊失败重试复用ID、payload变化换ID、仅成功后清理。
+- 测试先行/联动：contract/routes/client/Web delegation/operation attempt/panel wiring均先红后绿；定向8 files/172，运行时边界4/4，主工作区非集成188 files/980（25 skip），正确Mini cwd 33 files/191通过。真实MySQL最终leave20+swap34+duty26+notifications8+WeChat4=92/92；第一次联动运行的7个400均定位为旧测试helper漏传新leave operation ID，补齐同header/body后全绿，无业务实现回退。
+- 构建/运行：contracts/client-core/presentation-core/API typecheck/build及Web typecheck/production build、Mini production verify通过（2/2 Worklet，1681889 bytes，manifest`205b035ea39b825d0460c1d62442744cdb2a82ad5088457d5e4b32d56dd81e1f`）。运行/浏览器验证：`pnpm smoke:browser`的等价直接入口在最终源码4173/API3000通过管理员、成员、访客vkey和访问记录且无浏览器错误，最终截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-oKEqzb`，临时服务已停止。前两次稳定停在视口外周导航触摸采样；`git log -S`/blame定位验证器到`0aaa5620`，只在取坐标前`scrollIntoViewIfNeeded`，产品UI未改。
+- 语义审计/下一批：receiver仍经同一shared transport调用，preview/settings无幂等头且读取/错误解析次数不变；危险写body/header一致、失败保留attempt、成功一次清理，没有离线写队列或额外业务调用。checkpoint识别消息为`feat(workflows): harden shared operation clients`。下一活动批次只做P7-B：从四个production Web panels固化请假/审批、换班、加扣班的390/320完整状态Storybook与1:1验收证据，验证通过即停，不提前写Mini工作流或进入P8。
 
 ## 2026-08-24 P6-C9 核心 RC 实体 Android 验收（用户已通过）
 

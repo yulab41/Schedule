@@ -1509,10 +1509,11 @@ describeWithDatabase('paired duty adjustments', () => {
   }
 
   async function submitLeave(token: string, groupId: string, body: object) {
+    const operationId = randomUUID();
     return app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': operationId },
       method: 'POST',
-      payload: body,
+      payload: { ...body, operationId },
       url: `/groups/${groupId}/leave-requests`,
     });
   }

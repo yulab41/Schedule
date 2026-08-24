@@ -10,6 +10,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { DutyAdjustmentService } from './duty-adjustment-service.js';
 
 const groupIdSchema = z.string().uuid();
@@ -28,14 +29,14 @@ const pairInputSchema = z
 
 const createInputSchema = pairInputSchema
   .extend({
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     reason: reasonSchema.optional(),
   })
   .strict();
 
 const directCreateInputSchema = pairInputSchema
   .extend({
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     reason: reasonSchema.optional(),
   })
   .strict();
@@ -43,14 +44,14 @@ const directCreateInputSchema = pairInputSchema
 const mutationInputSchema = z
   .object({
     expectedVersion: versionSchema,
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
   })
   .strict();
 
 const revokeInputSchema = z
   .object({
     expectedVersion: versionSchema,
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     reason: reasonSchema.optional(),
   })
   .strict();
@@ -81,11 +82,7 @@ export function registerDutyAdjustmentRoutes(
     { preHandler: app.authenticate },
     (request, reply) =>
       dutyAdjustmentService
-        .create(
-          getAuthenticatedIdentity(request),
-          parseGroupId(request),
-          parseCreateInput(request.body),
-        )
+        .create(getAuthenticatedIdentity(request), parseGroupId(request), parseCreateInput(request))
         .then((dutyAdjustment) => reply.code(201).send(dutyAdjustment)),
   );
 
@@ -97,7 +94,7 @@ export function registerDutyAdjustmentRoutes(
         .createDirect(
           getAuthenticatedIdentity(request),
           parseGroupId(request),
-          parseDirectCreateInput(request.body),
+          parseDirectCreateInput(request),
         )
         .then((dutyAdjustment) => reply.code(201).send(dutyAdjustment)),
   );
@@ -121,7 +118,7 @@ export function registerDutyAdjustmentRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseDutyAdjustmentId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -133,7 +130,7 @@ export function registerDutyAdjustmentRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseDutyAdjustmentId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -145,7 +142,7 @@ export function registerDutyAdjustmentRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseDutyAdjustmentId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -157,7 +154,7 @@ export function registerDutyAdjustmentRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseDutyAdjustmentId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -169,7 +166,7 @@ export function registerDutyAdjustmentRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseDutyAdjustmentId(request),
-        parseRevokeInput(request.body),
+        parseRevokeInput(request),
       ),
   );
 
@@ -229,52 +226,68 @@ function parsePairInput(value: unknown): DutyAdjustmentPairInput {
   return parseOrThrow(pairInputSchema, value);
 }
 
-function parseCreateInput(value: unknown): CreateDutyAdjustmentRequestInput {
-  const parsed = parseOrThrow(createInputSchema, value);
+function parseCreateInput(request: FastifyRequest): CreateDutyAdjustmentRequestInput {
+  const parsed = parseOrThrow(createInputSchema, request.body);
+  const operationId = resolveDangerousOperationId(
+    request.headers['idempotency-key'],
+    parsed.operationId,
+  );
   return parsed.reason === undefined
     ? {
         coveredAssignmentId: parsed.coveredAssignmentId,
-        operationId: parsed.operationId,
+        operationId,
         overtimeMembershipId: parsed.overtimeMembershipId,
       }
     : {
         coveredAssignmentId: parsed.coveredAssignmentId,
-        operationId: parsed.operationId,
+        operationId,
         overtimeMembershipId: parsed.overtimeMembershipId,
         reason: parsed.reason,
       };
 }
 
-function parseDirectCreateInput(value: unknown): CreateDirectDutyAdjustmentInput {
-  const parsed = parseOrThrow(directCreateInputSchema, value);
+function parseDirectCreateInput(request: FastifyRequest): CreateDirectDutyAdjustmentInput {
+  const parsed = parseOrThrow(directCreateInputSchema, request.body);
+  const operationId = resolveDangerousOperationId(
+    request.headers['idempotency-key'],
+    parsed.operationId,
+  );
   return parsed.reason === undefined
     ? {
         coveredAssignmentId: parsed.coveredAssignmentId,
-        operationId: parsed.operationId,
+        operationId,
         overtimeMembershipId: parsed.overtimeMembershipId,
       }
     : {
         coveredAssignmentId: parsed.coveredAssignmentId,
-        operationId: parsed.operationId,
+        operationId,
         overtimeMembershipId: parsed.overtimeMembershipId,
         reason: parsed.reason,
       };
 }
 
-function parseMutationInput(value: unknown): DutyAdjustmentMutationInput {
-  return parseOrThrow(mutationInputSchema, value);
+function parseMutationInput(request: FastifyRequest): DutyAdjustmentMutationInput {
+  const input = parseOrThrow(mutationInputSchema, request.body);
+  return {
+    ...input,
+    operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
+  };
 }
 
-function parseRevokeInput(value: unknown): RevokeDutyAdjustmentInput {
-  const parsed = parseOrThrow(revokeInputSchema, value);
+function parseRevokeInput(request: FastifyRequest): RevokeDutyAdjustmentInput {
+  const parsed = parseOrThrow(revokeInputSchema, request.body);
+  const operationId = resolveDangerousOperationId(
+    request.headers['idempotency-key'],
+    parsed.operationId,
+  );
   return parsed.reason === undefined
     ? {
         expectedVersion: parsed.expectedVersion,
-        operationId: parsed.operationId,
+        operationId,
       }
     : {
         expectedVersion: parsed.expectedVersion,
-        operationId: parsed.operationId,
+        operationId,
         reason: parsed.reason,
       };
 }

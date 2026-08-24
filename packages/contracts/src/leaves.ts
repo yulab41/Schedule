@@ -25,6 +25,7 @@ export interface CreateLeaveRequestInput {
   readonly endsAt: string;
   readonly isAllDay?: boolean;
   readonly leaveType: LeaveRequestType;
+  readonly operationId: string;
   readonly reason?: string;
   readonly resolutionMode?: LeaveResolutionMode;
   readonly startsAt: string;

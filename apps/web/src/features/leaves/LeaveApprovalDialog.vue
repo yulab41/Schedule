@@ -5,6 +5,10 @@ import type {
   LeaveReflowStrategy,
   LeaveRequest,
 } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { computed, onMounted, ref } from 'vue';
 import type { SelectValue } from 'tdesign-vue-next';
 
@@ -45,6 +49,26 @@ const isLoading = ref(false);
 const isPreviewing = ref(false);
 const isApproving = ref(false);
 const isRejecting = ref(false);
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
+
+function resolveOperation<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
 
 const strategyOptions = computed(() =>
   (Object.keys(reflowStrategyLabels) as LeaveReflowStrategy[]).map((item) => ({
@@ -115,15 +139,20 @@ async function approve(): Promise<void> {
 
   errorMessage.value = undefined;
   isApproving.value = true;
+  const operationKey = `${props.group.id}:leave:approve:${props.request.id}:${props.request.version}`;
   try {
-    await api.approveLeaveRequest(props.group.id, props.request.id, {
-      ...(hasBlockers.value && acknowledgeBlockers.value ? { acknowledgeBlockers: true } : {}),
-      expectedPeriodVersions: preview.value.periodVersions,
-      expectedRulesVersion: preview.value.rulesVersion,
-      expectedVersion: props.request.version,
-      operationId: crypto.randomUUID(),
-      strategy: strategy.value,
-    });
+    await api.approveLeaveRequest(
+      props.group.id,
+      props.request.id,
+      resolveOperation(operationKey, {
+        ...(hasBlockers.value && acknowledgeBlockers.value ? { acknowledgeBlockers: true } : {}),
+        expectedPeriodVersions: preview.value.periodVersions,
+        expectedRulesVersion: preview.value.rulesVersion,
+        expectedVersion: props.request.version,
+        strategy: strategy.value,
+      }),
+    );
+    operationAttempts.delete(operationKey);
     emit('changed');
   } catch (error) {
     errorMessage.value = toUserMessage(error, '请假审批暂时无法完成，请稍后重试。');
@@ -138,11 +167,16 @@ async function reject(): Promise<void> {
   }
   errorMessage.value = undefined;
   isRejecting.value = true;
+  const operationKey = `${props.group.id}:leave:reject:${props.request.id}:${props.request.version}`;
   try {
-    await api.rejectLeaveRequest(props.group.id, props.request.id, {
-      expectedVersion: props.request.version,
-      operationId: crypto.randomUUID(),
-    });
+    await api.rejectLeaveRequest(
+      props.group.id,
+      props.request.id,
+      resolveOperation(operationKey, {
+        expectedVersion: props.request.version,
+      }),
+    );
+    operationAttempts.delete(operationKey);
     emit('changed');
   } catch (error) {
     errorMessage.value = toUserMessage(error, '请假审批暂时无法完成，请稍后重试。');

@@ -1,5 +1,5 @@
 export interface CompactJsonSchema {
-  readonly additionalProperties?: false | undefined;
+  readonly additionalProperties?: CompactJsonSchema | false | undefined;
   readonly const?: boolean | number | string | undefined;
   readonly enum?: readonly string[] | undefined;
   readonly format?: 'date-time' | 'uuid' | undefined;
@@ -12,6 +12,7 @@ export interface CompactJsonSchema {
   readonly minimum?: number | undefined;
   readonly pattern?: string | undefined;
   readonly properties?: Readonly<Record<string, CompactJsonSchema>> | undefined;
+  readonly propertyNames?: CompactJsonSchema | undefined;
   readonly required?: readonly string[] | undefined;
   readonly type: 'array' | 'boolean' | 'integer' | 'number' | 'object' | 'string';
 }
@@ -83,12 +84,24 @@ function compileObjectSchema(schema: CompactJsonSchema): Validator {
     ]),
   );
   const required = new Set(schema.required ?? []);
+  const validateAdditionalProperty =
+    schema.additionalProperties === undefined || schema.additionalProperties === false
+      ? undefined
+      : compileSchema(schema.additionalProperties);
+  const validatePropertyName =
+    schema.propertyNames === undefined ? undefined : compileSchema(schema.propertyNames);
 
   return (value) => {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) {
       return false;
     }
     const record = value as Readonly<Record<string, unknown>>;
+    if (
+      validatePropertyName !== undefined &&
+      Object.keys(record).some((name) => !validatePropertyName(name))
+    ) {
+      return false;
+    }
     for (const name of required) {
       const validator = validators.get(name);
       if (
@@ -103,6 +116,9 @@ function compileObjectSchema(schema: CompactJsonSchema): Validator {
       const validator = validators.get(name);
       if (validator === undefined) {
         if (schema.additionalProperties === false) return false;
+        if (validateAdditionalProperty !== undefined && !validateAdditionalProperty(record[name])) {
+          return false;
+        }
         continue;
       }
       if (!required.has(name) && record[name] === undefined) {

@@ -13,6 +13,7 @@ const supportedSchemaKeys = new Set([
   'minimum',
   'pattern',
   'prefixItems',
+  'propertyNames',
   'properties',
   'required',
   'type',
@@ -50,10 +51,23 @@ export function sanitizeJsonSchema(schema, path = '$') {
   }
   if (schema.required !== undefined) result.required = [...schema.required];
   if (schema.additionalProperties !== undefined) {
-    if (schema.additionalProperties !== false) {
-      throw new Error(`${path}.additionalProperties must fail closed`);
+    if (schema.additionalProperties === false) {
+      result.additionalProperties = false;
+    } else if (
+      schema.additionalProperties !== null &&
+      typeof schema.additionalProperties === 'object' &&
+      !Array.isArray(schema.additionalProperties)
+    ) {
+      result.additionalProperties = sanitizeJsonSchema(
+        schema.additionalProperties,
+        `${path}.additionalProperties`,
+      );
+    } else {
+      throw new Error(`${path}.additionalProperties must be false or a typed schema`);
     }
-    result.additionalProperties = false;
+  }
+  if (schema.propertyNames !== undefined) {
+    result.propertyNames = sanitizeJsonSchema(schema.propertyNames, `${path}.propertyNames`);
   }
   if (schema.items !== undefined) {
     result.items = sanitizeJsonSchema(schema.items, `${path}.items`);

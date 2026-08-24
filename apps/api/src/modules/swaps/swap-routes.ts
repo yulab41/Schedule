@@ -11,6 +11,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { SwapService } from './swap-service.js';
 
 const groupIdSchema = z.string().uuid();
@@ -30,14 +31,14 @@ const swapPairInputSchema = z
 
 const createSwapInputSchema = swapPairInputSchema
   .extend({
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
   })
   .strict();
 
 const directCreateSwapInputSchema = z
   .object({
     initiatorAssignmentId: uuidSchema,
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     targetAssignmentId: uuidSchema,
   })
   .strict();
@@ -45,14 +46,14 @@ const directCreateSwapInputSchema = z
 const mutationInputSchema = z
   .object({
     expectedVersion: versionSchema,
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
   })
   .strict();
 
 const revokeSwapInputSchema = z
   .object({
     expectedVersion: versionSchema,
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     reason: z.string().trim().min(1).max(1000).optional(),
   })
   .strict();
@@ -80,11 +81,7 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
 
   app.post('/groups/:groupId/swaps', { preHandler: app.authenticate }, (request, reply) =>
     swapService
-      .create(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseCreateInput(request.body),
-      )
+      .create(getAuthenticatedIdentity(request), parseGroupId(request), parseCreateInput(request))
       .then((swapRequest) => reply.code(201).send(swapRequest)),
   );
 
@@ -93,7 +90,7 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
       .createDirect(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
-        parseDirectCreateInput(request.body),
+        parseDirectCreateInput(request),
       )
       .then((swapRequest) => reply.code(201).send(swapRequest)),
   );
@@ -114,7 +111,7 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSwapRequestId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -126,7 +123,7 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSwapRequestId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -138,7 +135,7 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSwapRequestId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -150,7 +147,7 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSwapRequestId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -162,7 +159,7 @@ export function registerSwapRoutes(app: FastifyInstance, swapService: SwapServic
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseSwapRequestId(request),
-        parseRevokeSwapInput(request.body),
+        parseRevokeSwapInput(request),
       ),
   );
 
@@ -230,11 +227,14 @@ function parseSwapPairInput(value: unknown): SwapPairInput {
       };
 }
 
-function parseCreateInput(value: unknown): CreateSwapRequestInput {
-  const parsed = parseOrThrow(createSwapInputSchema, value);
+function parseCreateInput(request: FastifyRequest): CreateSwapRequestInput {
+  const parsed = parseOrThrow(createSwapInputSchema, request.body);
   return {
     initiatorAssignmentId: parsed.initiatorAssignmentId,
-    operationId: parsed.operationId,
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      parsed.operationId,
+    ),
     targetAssignmentId: parsed.targetAssignmentId,
     targetMembershipId: parsed.targetMembershipId,
     ...(parsed.initiatorMembershipId === undefined
@@ -243,24 +243,36 @@ function parseCreateInput(value: unknown): CreateSwapRequestInput {
   };
 }
 
-function parseDirectCreateInput(value: unknown): CreateDirectSwapInput {
-  return parseOrThrow(directCreateSwapInputSchema, value);
+function parseDirectCreateInput(request: FastifyRequest): CreateDirectSwapInput {
+  const input = parseOrThrow(directCreateSwapInputSchema, request.body);
+  return {
+    ...input,
+    operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
+  };
 }
 
-function parseMutationInput(value: unknown): SwapRequestMutationInput {
-  return parseOrThrow(mutationInputSchema, value);
+function parseMutationInput(request: FastifyRequest): SwapRequestMutationInput {
+  const input = parseOrThrow(mutationInputSchema, request.body);
+  return {
+    ...input,
+    operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
+  };
 }
 
-function parseRevokeSwapInput(value: unknown): RevokeSwapRequestInput {
-  const parsed = parseOrThrow(revokeSwapInputSchema, value);
+function parseRevokeSwapInput(request: FastifyRequest): RevokeSwapRequestInput {
+  const parsed = parseOrThrow(revokeSwapInputSchema, request.body);
+  const operationId = resolveDangerousOperationId(
+    request.headers['idempotency-key'],
+    parsed.operationId,
+  );
   return parsed.reason === undefined
     ? {
         expectedVersion: parsed.expectedVersion,
-        operationId: parsed.operationId,
+        operationId,
       }
     : {
         expectedVersion: parsed.expectedVersion,
-        operationId: parsed.operationId,
+        operationId,
         reason: parsed.reason,
       };
 }

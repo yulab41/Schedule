@@ -108,3 +108,8 @@ export {
   type SchedulePublicationHistoryItemLike,
   type ScheduleVersionMonthGroup,
 } from './schedule-publication.js';
+export {
+  getWorkflowOperationFingerprint,
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from './workflow-operation.js';

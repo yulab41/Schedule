@@ -11,6 +11,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { LeaveService } from './leave-service.js';
 
 const groupIdSchema = z.string().uuid();
@@ -28,6 +29,7 @@ const createLeaveInputSchema = z
     endsAt: datetimeSchema,
     isAllDay: z.boolean().optional(),
     leaveType: leaveTypeSchema,
+    operationId: operationIdSchema.optional(),
     reason: z.string().trim().min(1).max(1000).optional(),
     resolutionMode: resolutionModeSchema.optional(),
     startsAt: datetimeSchema,
@@ -54,7 +56,7 @@ const approveInputSchema = z
     expectedPeriodVersions: periodVersionsSchema,
     expectedRulesVersion: versionSchema,
     expectedVersion: versionSchema,
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
     strategy: strategySchema.optional(),
   })
   .strict();
@@ -62,7 +64,7 @@ const approveInputSchema = z
 const rejectInputSchema = z
   .object({
     expectedVersion: versionSchema,
-    operationId: operationIdSchema,
+    operationId: operationIdSchema.optional(),
   })
   .strict();
 
@@ -77,11 +79,7 @@ const updateStrategyInputSchema = z
 export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveService): void {
   app.post('/groups/:groupId/leave-requests', { preHandler: app.authenticate }, (request, reply) =>
     leaveService
-      .submit(
-        getAuthenticatedIdentity(request),
-        parseGroupId(request),
-        parseCreateInput(request.body),
-      )
+      .submit(getAuthenticatedIdentity(request), parseGroupId(request), parseCreateInput(request))
       .then((leaveRequest) => reply.code(201).send(leaveRequest)),
   );
 
@@ -127,7 +125,7 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseLeaveRequestId(request),
-        parseApproveInput(request.body),
+        parseApproveInput(request),
       ),
   );
 
@@ -139,7 +137,7 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseLeaveRequestId(request),
-        parseRejectInput(request.body),
+        parseRejectInput(request),
       ),
   );
 
@@ -151,7 +149,7 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseLeaveRequestId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -163,7 +161,7 @@ export function registerLeaveRoutes(app: FastifyInstance, leaveService: LeaveSer
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseLeaveRequestId(request),
-        parseMutationInput(request.body),
+        parseMutationInput(request),
       ),
   );
 
@@ -203,12 +201,13 @@ function parseLeaveRequestId(request: FastifyRequest): string {
   );
 }
 
-function parseCreateInput(value: unknown): CreateLeaveRequestInput {
-  const input = parseOrThrow(createLeaveInputSchema, value);
+function parseCreateInput(request: FastifyRequest): CreateLeaveRequestInput {
+  const input = parseOrThrow(createLeaveInputSchema, request.body);
   return {
     endsAt: input.endsAt,
     ...(input.isAllDay === undefined ? {} : { isAllDay: input.isAllDay }),
     leaveType: input.leaveType,
+    operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
     ...(input.reason === undefined ? {} : { reason: input.reason }),
     ...(input.resolutionMode === undefined ? {} : { resolutionMode: input.resolutionMode }),
     startsAt: input.startsAt,
@@ -231,8 +230,8 @@ function parsePreviewInput(value: unknown): PreviewLeaveRequestInput {
   };
 }
 
-function parseApproveInput(value: unknown): ApproveLeaveRequestInput {
-  const input = parseOrThrow(approveInputSchema, value);
+function parseApproveInput(request: FastifyRequest): ApproveLeaveRequestInput {
+  const input = parseOrThrow(approveInputSchema, request.body);
   return {
     ...(input.acknowledgeBlockers === undefined
       ? {}
@@ -240,17 +239,25 @@ function parseApproveInput(value: unknown): ApproveLeaveRequestInput {
     expectedPeriodVersions: input.expectedPeriodVersions,
     expectedRulesVersion: input.expectedRulesVersion,
     expectedVersion: input.expectedVersion,
-    operationId: input.operationId,
+    operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
     ...(input.strategy === undefined ? {} : { strategy: input.strategy }),
   };
 }
 
-function parseRejectInput(value: unknown): RejectLeaveRequestInput {
-  return parseOrThrow(rejectInputSchema, value);
+function parseRejectInput(request: FastifyRequest): RejectLeaveRequestInput {
+  const input = parseOrThrow(rejectInputSchema, request.body);
+  return {
+    ...input,
+    operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
+  };
 }
 
-function parseMutationInput(value: unknown): LeaveRequestMutationInput {
-  return parseOrThrow(mutationInputSchema, value);
+function parseMutationInput(request: FastifyRequest): LeaveRequestMutationInput {
+  const input = parseOrThrow(mutationInputSchema, request.body);
+  return {
+    ...input,
+    operationId: resolveDangerousOperationId(request.headers['idempotency-key'], input.operationId),
+  };
 }
 
 function parseUpdateStrategyInput(value: unknown): UpdateGroupLeaveReflowStrategyInput {
