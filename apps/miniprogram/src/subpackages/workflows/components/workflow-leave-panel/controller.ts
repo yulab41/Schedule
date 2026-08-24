@@ -126,6 +126,7 @@ interface LeavePageInstance {
   _requestedGroupId: string;
   readonly data: LeavePageData;
   setData(patch: Partial<LeavePageData>, callback?: () => void): void;
+  triggerEvent?(name: string, detail: Readonly<Record<string, unknown>>): void;
 }
 
 interface DatasetEvent {
@@ -252,8 +253,17 @@ export function createLeavePanelControllerDefinition(embedded = false) {
 
     handleOpenForm(this: LeavePageInstance): void {
       if (this.data.state !== 'ready') return;
-      this.setData({ formErrorMessage: '', formVisible: true, infoMessage: '' });
-      void loadAffectedShifts(this);
+      this.setData(
+        {
+          affectedShiftMessage: '',
+          affectedShifts: [],
+          affectedShiftsLoading: true,
+          formErrorMessage: '',
+          formVisible: true,
+          infoMessage: '',
+        },
+        () => void loadAffectedShifts(this),
+      );
     },
 
     handleCloseForm(this: LeavePageInstance): void {
@@ -462,6 +472,7 @@ async function submitLeave(page: LeavePageInstance): Promise<void> {
       infoMessage: '请假申请已提交，等待管理员审批。',
       reason: '',
     });
+    notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
   } catch (error) {
     page.setData({ formErrorMessage: getMutationErrorMessage(error) });
@@ -587,6 +598,7 @@ async function approveLeave(page: LeavePageInstance): Promise<void> {
     page._approvalPreview = undefined;
     page._approvalTarget = undefined;
     page.setData({ approvalVisible: false, infoMessage: '请假申请已处理。' });
+    notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
   } catch (error) {
     page.setData({ approvalErrorMessage: getMutationErrorMessage(error) });
@@ -616,6 +628,7 @@ async function confirmRejectLeave(page: LeavePageInstance): Promise<void> {
     page._approvalPreview = undefined;
     page._approvalTarget = undefined;
     page.setData({ approvalVisible: false, infoMessage: '请假申请已处理。' });
+    notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
   } catch (error) {
     page.setData({ approvalErrorMessage: getMutationErrorMessage(error) });
@@ -657,6 +670,7 @@ async function confirmRequestMutation(
           ? '请假申请已取消。'
           : '请假已撤销；如需恢复原排班，请重新生成或发布排班。',
     });
+    notifyCalendarChanged(page);
     await loadLeavePageWithCapability(page, { preserveTab: true });
   } catch (error) {
     page.setData({ errorMessage: getMutationErrorMessage(error) });
@@ -987,6 +1001,10 @@ function toUserMessage(error: unknown, fallback: string): string {
   if (error instanceof ClientCapabilityDisabledError) return error.message;
   if (error instanceof ClientCoreError && error.message.length > 0) return error.message;
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}
+
+function notifyCalendarChanged(page: LeavePageInstance): void {
+  page.triggerEvent?.('calendarchanged', { groupId: page._currentGroupId });
 }
 
 function showConfirm(content: string): Promise<boolean> {

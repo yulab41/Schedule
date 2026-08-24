@@ -137,6 +137,7 @@ interface SwapPageInstance {
   _revokeTarget: SwapRequest | undefined;
   readonly data: SwapPageData;
   setData(patch: Partial<SwapPageData>, callback?: () => void): void;
+  triggerEvent?(name: string, detail: Readonly<Record<string, unknown>>): void;
 }
 
 interface ValueEvent {
@@ -700,6 +701,7 @@ async function submitSwap(page: SwapPageInstance): Promise<void> {
       requestFormVisible: false,
     });
     resetRequestForm(page);
+    notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ requestErrorMessage: getMutationErrorMessage(error) });
@@ -763,6 +765,7 @@ async function submitAdminSwap(page: SwapPageInstance): Promise<void> {
       infoMessage: `已为 ${created.initiatorMemberName ?? ''} 与 ${created.targetMemberName ?? ''} 完成换班，实际班次已交换。`,
     });
     resetAdminForm(page);
+    notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ adminErrorMessage: getMutationErrorMessage(error) });
@@ -802,6 +805,7 @@ async function mutateSwap(
     }
     page._operationAttempts.delete(operationKey);
     page.setData({ infoMessage: getMutationSuccessMessage(action) });
+    notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ errorMessage: getMutationErrorMessage(error) });
@@ -843,6 +847,7 @@ async function revokeSwap(page: SwapPageInstance): Promise<void> {
     page._operationAttempts.delete(operationKey);
     page._revokeTarget = undefined;
     page.setData({ infoMessage: '换班已撤销。', revokeVisible: false });
+    notifyCalendarChanged(page);
     await loadSwapPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ revokeErrorMessage: getMutationErrorMessage(error) });
@@ -1219,6 +1224,10 @@ function getStatusTone(status: SwapRequestStatus): 'danger' | 'neutral' | 'succe
       : status === 'rejected'
         ? 'danger'
         : 'neutral';
+}
+
+function notifyCalendarChanged(page: SwapPageInstance): void {
+  page.triggerEvent?.('calendarchanged', { groupId: page._currentGroupId });
 }
 
 function getNextStatusDescription(status: SwapRequestStatus): string {

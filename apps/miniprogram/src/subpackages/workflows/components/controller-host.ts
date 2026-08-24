@@ -8,6 +8,7 @@ interface ControllerDefinition {
 interface WorkflowPanelHost {
   __attached?: boolean;
   __controller: ControllerDefinition | undefined;
+  __infoMessageTimer?: unknown;
   __loadedGroupId?: string;
   readonly data: Readonly<Record<string, unknown>>;
   readonly properties: { readonly embedded: boolean; readonly groupId: string };
@@ -46,6 +47,7 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
         startController(this, createDefinition);
       },
       detached(this: WorkflowPanelHost): void {
+        clearInfoMessageTimer(this);
         this.__attached = false;
         this.__controller = undefined;
         this.__loadedGroupId = '';
@@ -54,6 +56,17 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     observers: {
       groupId(this: WorkflowPanelHost): void {
         if (this.__attached === true) startController(this, createDefinition);
+      },
+      infoMessage(this: WorkflowPanelHost, value: unknown): void {
+        clearInfoMessageTimer(this);
+        if (typeof value !== 'string' || value === '') return;
+        const expected = value;
+        this.__infoMessageTimer = setTimeout(() => {
+          this.__infoMessageTimer = undefined;
+          if (this.__attached === true && this.data['infoMessage'] === expected) {
+            this.setData({ infoMessage: '' });
+          }
+        }, 3_000);
       },
     },
     pageLifetimes: {
@@ -64,6 +77,12 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
     },
     methods,
   });
+}
+
+function clearInfoMessageTimer(host: WorkflowPanelHost): void {
+  if (host.__infoMessageTimer === undefined) return;
+  clearTimeout(host.__infoMessageTimer);
+  host.__infoMessageTimer = undefined;
 }
 
 function startController(

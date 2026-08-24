@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stage": "P7-workflows",
   "description": "User-operated native evidence for leave, swap, and duty-adjustment workflows",
-  "candidateVersion": "0.1.0-p7.20260824.87",
+  "candidateVersion": "0.1.0-p7.20260824.88",
   "channel": "user-manual",
   "requiredDevice": "user-android-physical",
   "routes": {

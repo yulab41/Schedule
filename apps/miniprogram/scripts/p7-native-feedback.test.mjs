@@ -52,6 +52,7 @@ describe('P7 physical-device feedback regressions', () => {
   it('keeps the top-left group control switch-only and moves management entries into More', () => {
     const controller = read('pages/workbench/index.ts');
     const template = read('pages/workbench/index.wxml');
+    const pageJson = JSON.parse(read('pages/workbench/index.json'));
     const groupMenuStart = template.indexOf('class="group-menu"');
     const groupMenuEnd = template.indexOf('</view>\n      </view>', groupMenuStart);
     const groupMenu = template.slice(groupMenuStart, groupMenuEnd);
@@ -65,9 +66,36 @@ describe('P7 physical-device feedback regressions', () => {
     expect(template).toContain('bindtap="handleOpenManualSchedule"');
     expect(template).toContain('bindtap="handleOpenBackfill"');
     expect(template).toContain("more-item {{canManageScheduleTools ? '' : 'is-disabled'}}");
+    expect(template).toContain('<group-settings-panel');
+    expect(template).toContain('hidden="{{activeWorkspace !== \'group\'}}"');
+    expect(controller).toContain("activeWorkspace: 'group'");
+    expect(controller).not.toContain(
+      '/subpackages/organization/pages/group-settings/index?groupId=',
+    );
+    expect(pageJson.usingComponents).toMatchObject({
+      'group-settings-panel': '/subpackages/organization/components/group-settings-panel/index',
+    });
     expect(controller).toMatch(
       /canManageScheduleTools:\s*selectedGroup\.role === 'owner' \|\| selectedGroup\.role === 'administrator'/u,
     );
+  });
+
+  it('invalidates the mounted calendar immediately after a workflow mutation succeeds', () => {
+    const controller = read('pages/workbench/index.ts');
+    const template = read('pages/workbench/index.wxml');
+
+    expect(template.match(/bind:calendarchanged="handleWorkflowCalendarChanged"/gu)).toHaveLength(
+      3,
+    );
+    expect(controller).toMatch(
+      /handleWorkflowCalendarChanged[\s\S]*monthResources\.clear\(\)[\s\S]*forceRefresh:\s*true/u,
+    );
+    for (const workflow of ['leave', 'swap', 'duty']) {
+      const workflowController = read(
+        `subpackages/workflows/components/workflow-${workflow}-panel/controller.ts`,
+      );
+      expect(workflowController).toContain("triggerEvent?.('calendarchanged'");
+    }
   });
 
   it('replaces every workflow system picker with the self-drawn Web-style picker', () => {
@@ -107,12 +135,48 @@ describe('P7 physical-device feedback regressions', () => {
     expect(pickerTemplate).toContain('取消');
     expect(pickerTemplate).toContain('完成');
     expect(pickerStyles).toContain('.workflow-picker-option.is-weekend');
-    expect(pickerStyles).toContain('color: var(--ui-color-danger)');
+    expect(pickerStyles).toContain('.workflow-picker-option-weekend');
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-option-weekend\s*\{[^}]*color:\s*var\(--ui-color-danger\)/su,
+    );
+    expect(pickerStyles).not.toMatch(/\.workflow-picker-option\.is-weekend\s*\{[^}]*color:/su);
     expect(pickerStyles).toMatch(
       /\.workflow-picker-sheet\s*\{[^}]*right:\s*12px;[^}]*bottom:\s*max\(12px,/su,
     );
     expect(pickerStyles).toMatch(
       /\.workflow-picker-selector-popover\s*\{[^}]*position:\s*absolute;[^}]*max-height:\s*240px;/su,
+    );
+  });
+
+  it('removes long blue press fills and pre-mounts the leave form without transient copy', () => {
+    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
+    const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+    const leaveTemplate = read('subpackages/workflows/components/workflow-leave-panel/index.wxml');
+    const leaveStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
+
+    expect(pickerTemplate).toContain('hover-start-time="0"');
+    expect(pickerTemplate).toContain('hover-stay-time="60"');
+    expect(pickerStyles).not.toMatch(
+      /\.workflow-picker-trigger\.is-pressed\s*\{[^}]*background:\s*var\(--ui-color-primary-light\)/su,
+    );
+    expect(pickerTemplate).toContain("index === draftIndices[0] ? 'is-selected' : ''");
+    expect(pickerTemplate).toContain("index === draftIndices[1] ? 'is-selected' : ''");
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-wheel-item\s*\{[^}]*font-size:\s*19px;[^}]*opacity:\s*0\.58/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-wheel-item\.is-selected\s*\{[^}]*font-size:\s*24px;[^}]*opacity:\s*1/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-scrim\s*\{[^}]*background:\s*rgba\(22, 32, 42, 0\.18\)/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-sheet\s*\{[^}]*box-shadow:\s*0 16px 36px rgba\(22, 32, 42, 0\.14\)/su,
+    );
+    expect(leaveTemplate).toContain('hidden="{{!formVisible}}"');
+    expect(leaveTemplate).not.toContain('wx:if="{{affectedShiftsLoading}}">读取中');
+    expect(leaveStyles).toMatch(
+      /\.native-sheet\s*>\s*\.sheet-heading\s*>\s*\.sheet-close\s*\{[^}]*margin-left:\s*auto;[^}]*flex:\s*0 0 44px/su,
     );
   });
 });

@@ -46,7 +46,7 @@ import {
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
-type ActiveWorkspace = 'calendar' | 'duty' | 'leave' | 'more' | 'swap';
+type ActiveWorkspace = 'calendar' | 'duty' | 'group' | 'leave' | 'more' | 'swap';
 type FilterField = '' | 'member' | 'role' | 'shift';
 type FilterDropdownDirection = 'down' | 'up';
 
@@ -61,6 +61,10 @@ interface MonthChangeEvent {
 
 interface MonthSettledEvent {
   readonly detail: { readonly continues: boolean };
+}
+
+interface WorkflowCalendarChangedEvent {
+  readonly detail: { readonly groupId?: string };
 }
 
 interface SwiperFinishEvent {
@@ -108,6 +112,7 @@ interface WorkbenchPageData {
   readonly filterShiftTypeSummary: string;
   readonly filterMemberSummary: string;
   readonly groupOpen: boolean;
+  readonly groupSettingsMounted: boolean;
   readonly groups: readonly GroupSummary[];
   readonly gridHeight: number;
   readonly listPanels: WorkbenchViewModel['listPanels'];
@@ -204,6 +209,7 @@ Page({
     filterShiftTypeSummary: '全部班种',
     filterMemberSummary: '全部成员',
     groupOpen: false,
+    groupSettingsMounted: false,
     groups: [],
     gridHeight: 270,
     listPanels: [],
@@ -307,6 +313,7 @@ Page({
     this.monthRingSlot = 1;
     this.monthResources.clear();
     this.setData({
+      activeWorkspace: this.data.activeWorkspace === 'group' ? 'more' : this.data.activeWorkspace,
       activeFilterCount: 0,
       businessMonth: initialMonth,
       currentGroupId: groupId,
@@ -319,6 +326,7 @@ Page({
       filterShiftTypeIds: [],
       filterShiftTypeSummary: '全部班种',
       groupOpen: false,
+      groupSettingsMounted: false,
       selectedDate: today,
       selectedLabel: formatDateLabel(today),
       weekStart: getWeekStartDate(today),
@@ -328,11 +336,7 @@ Page({
 
   handleOpenGroupSettings(this: WorkbenchPageInstance): void {
     if (!this.data.canOpenGroupSettings || this.data.currentGroupId === '') return;
-    const groupId = encodeURIComponent(this.data.currentGroupId);
-    this.setData({ groupOpen: false });
-    wx.navigateTo({
-      url: `/subpackages/organization/pages/group-settings/index?groupId=${groupId}`,
-    });
+    this.setData({ activeWorkspace: 'group', groupOpen: false, groupSettingsMounted: true });
   },
 
   handleViewChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -623,6 +627,21 @@ Page({
   handleDutyNav(this: WorkbenchPageInstance): void {
     this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'duty' }));
     void openWorkflowWorkspace(this, 'duty');
+  },
+
+  handleWorkflowCalendarChanged(
+    this: WorkbenchPageInstance,
+    event: WorkflowCalendarChangedEvent,
+  ): void {
+    if (
+      event.detail.groupId !== undefined &&
+      event.detail.groupId !== '' &&
+      event.detail.groupId !== this.data.currentGroupId
+    ) {
+      return;
+    }
+    this.monthResources.clear();
+    void loadWorkbench(this, { forceRefresh: true });
   },
 
   handleMoreNav(this: WorkbenchPageInstance): void {

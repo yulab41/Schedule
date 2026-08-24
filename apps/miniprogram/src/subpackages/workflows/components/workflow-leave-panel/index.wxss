@@ -569,6 +569,11 @@ page {
   border-bottom: 1px solid var(--ui-color-border);
 }
 
+.native-sheet > .sheet-heading > .sheet-close {
+  margin-left: auto;
+  flex: 0 0 44px;
+}
+
 .sheet-title {
   font-size: var(--ui-font-size-lg);
 }
@@ -619,6 +624,7 @@ page {
 }
 
 .impact-card {
+  min-height: 84px;
   gap: var(--ui-spacing-sm);
   box-shadow: none;
 }

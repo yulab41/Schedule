@@ -4,6 +4,12 @@ interface WorkflowPickerOption {
   readonly value: string;
 }
 
+interface WorkflowPickerRenderedOption extends WorkflowPickerOption {
+  readonly leadingLabel: string;
+  readonly trailingLabel: string;
+  readonly weekendLabel: string;
+}
+
 interface WorkflowPickerDateCell {
   readonly day: number;
   readonly disabled: boolean;
@@ -39,6 +45,7 @@ interface WorkflowPickerInstance {
     readonly draftMonth: number;
     readonly draftYear: number;
     readonly open: boolean;
+    readonly renderedOptions: readonly WorkflowPickerRenderedOption[];
     readonly selectedOptionIndex: number;
     readonly years: readonly number[];
   };
@@ -83,6 +90,7 @@ Component({
     draftYear: new Date().getUTCFullYear(),
     months: monthValues,
     open: false,
+    renderedOptions: [] as readonly WorkflowPickerRenderedOption[],
     selectedOptionIndex: -1,
     weekdays,
     years: createYearValues(new Date().getUTCFullYear()),
@@ -102,6 +110,7 @@ Component({
               ? this.properties.title
               : (this.properties.options[selectedOptionIndex]?.label ?? this.properties.title),
           open: true,
+          renderedOptions: createRenderedOptions(this.properties.options),
           selectedOptionIndex,
         });
         return;
@@ -286,6 +295,20 @@ function validOptionIndex(options: readonly WorkflowPickerOption[], selectedInde
   return Number.isInteger(selectedIndex) && options[selectedIndex] !== undefined
     ? selectedIndex
     : -1;
+}
+
+function createRenderedOptions(
+  options: readonly WorkflowPickerOption[],
+): readonly WorkflowPickerRenderedOption[] {
+  return options.map((option) => {
+    const match = option.isWeekend ? /^(.*?)(（周[六日]）)(.*)$/u.exec(option.label) : null;
+    return {
+      ...option,
+      leadingLabel: match?.[1] ?? option.label,
+      trailingLabel: match?.[3] ?? '',
+      weekendLabel: match?.[2] ?? '',
+    };
+  });
 }
 
 function currentUtcDateParts(): {

@@ -136,6 +136,7 @@ interface DutyPageInstance {
   _revokeTarget: DutyAdjustmentRequest | undefined;
   readonly data: DutyPageData;
   setData(patch: Partial<DutyPageData>, callback?: () => void): void;
+  triggerEvent?(name: string, detail: Readonly<Record<string, unknown>>): void;
 }
 
 interface ValueEvent {
@@ -607,6 +608,7 @@ async function submitDutyRequest(page: DutyPageInstance): Promise<void> {
       requestFormVisible: false,
     });
     resetRequestForm(page);
+    notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ requestErrorMessage: getMutationErrorMessage(error) });
@@ -664,6 +666,7 @@ async function submitDirectDuty(page: DutyPageInstance): Promise<void> {
       infoMessage: `管理员代值已生效：${created.deductedMemberName ?? ''} 扣班，${created.overtimeMemberName ?? ''} 加班。`,
     });
     resetAdminForm(page);
+    notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ adminErrorMessage: getMutationErrorMessage(error) });
@@ -703,6 +706,7 @@ async function mutateDuty(
     }
     page._operationAttempts.delete(operationKey);
     page.setData({ infoMessage: '加扣班状态已更新。' });
+    notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ errorMessage: getMutationErrorMessage(error) });
@@ -747,6 +751,7 @@ async function revokeDuty(page: DutyPageInstance): Promise<void> {
       infoMessage: '加扣班已撤销，被扣班成员恢复为实际值班人员。',
       revokeVisible: false,
     });
+    notifyCalendarChanged(page);
     await loadDutyPageWithCapability(page, { preserveForms: true });
   } catch (error) {
     page.setData({ revokeErrorMessage: getMutationErrorMessage(error) });
@@ -1026,6 +1031,10 @@ function getStatusTone(status: DutyAdjustmentStatus): 'danger' | 'neutral' | 'su
       : status === 'rejected'
         ? 'danger'
         : 'neutral';
+}
+
+function notifyCalendarChanged(page: DutyPageInstance): void {
+  page.triggerEvent?.('calendarchanged', { groupId: page._currentGroupId });
 }
 
 function getNextStatusDescription(status: DutyAdjustmentStatus): string {

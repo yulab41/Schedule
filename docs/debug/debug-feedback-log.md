@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 `.88` 实体反馈与发布 worktree
+
+- 范围/引入点：`.87@7f4f70a` 实体反馈只修日历同步、工作流/群组壳层、提示生命周期和 picker/Sheet 视觉；另修本地 Windows 每轮临时 clean worktree 重装配。`git log -S`/blame 定位发布文字到 `de3ad5f7/e25878f0`、日历内存缓存到 `9e3a966c`、群组全页入口到 `59300957`，Panel/picker/form/hover/周末/常驻提示到 `bc32a4f1/7f4f70a0`。
+- 红绿/实现：缺 release helper 先整 suite 红；Panel 壳层、calendar event、3 秒 timer、群组嵌入先 7 红；weekend 分段、19/24px wheel、60ms 无蓝填充、预挂载表单/固定关闭位/较轻遮罩先 4 组红；`.88` contract 3 红，现均转绿。release helper 复用仓库外 detached worktree 和 Git-dir 依赖指纹，任何脏目录/分支/非登记目录失败关闭。三工作流成功后触发同群 calendar 强刷；群组管理中央 Panel 保留工作台壳层；提示自动收起。周末仅括号字样红且选中不丢，leave form 不再运行时创建 textarea/闪“读取中”。
+- 语义审计：所有业务写 payload/幂等 key/409/模糊重试/receiver/catch 与次数不变；只新增成功后的日历 GET。timer 只清视觉字符串；Panel 复用原 P5 controller；selector 仍一次即选，month/date 完成才 emit。发布脚本不执行 clean/delete/reset，不接管普通目录或用户分支。
+- 验证：真实 Mini 源 44 files/233（宽命令误扫用户 `.artifacts/ecs-runner-*` 旧副本出现缺 token/tsconfig 噪声，显式排除后全绿）；release/worktree/controls 4 files/29；Mini typecheck、production verify/determinism/source/package/performance、CI dry-run、任务 ESLint/Prettier、Node syntax、diff check 通过。production=2 Worklets/3,004,978 bytes/manifest `b5de9225b6223155a6f46747c055c275be4bba83d1341a06c76422854e76d0c2`，仅既有 600 格节点 warning。运行/浏览器验证：`pnpm smoke:check-core` 通过并判定无 Web 核心变化，无需 `pnpm smoke:browser`；禁止的微信开发者工具 GUI 未启动/控制。
+- 状态：已实现待实体复核；checkpoint=`fix(miniprogram): close p7 physical feedback gaps`。推送后仅做 `.88` 持久 worktree 复验、体验上传、生产备份/部署/allowlist/verify，再暂停等待实体反馈。
+
 ## 2026-08-24 P7-B 工作流 Storybook 全状态黄金
 
 - 来源/范围：production leave/swap/duty=`0d5ec55c/b20ff9b8/5d8b205a`，seed=`b903c6dc`；只做真实HomeView+production panels的P7黄金与一处44px生产样式，不改Mini源码/API/DB/capability。

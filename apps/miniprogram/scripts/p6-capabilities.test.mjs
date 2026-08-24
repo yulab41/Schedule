@@ -398,7 +398,7 @@ describe('P6-B Mini capability bootstrap and guards', () => {
       'pages/workbench/index.ts',
       'subpackages/scheduling/pages/manual/index.ts',
       'subpackages/scheduling/pages/backfill/index.ts',
-      'subpackages/organization/pages/group-settings/index.ts',
+      'subpackages/organization/components/group-settings-panel/controller.ts',
     ].map((relativePath) => readSource(relativePath));
 
     for (const source of pageSources) {
@@ -436,7 +436,9 @@ describe('P6-B Mini capability bootstrap and guards', () => {
     await import('../src/pages/workbench/index.ts');
     await import('../src/subpackages/scheduling/pages/manual/index.ts');
     await import('../src/subpackages/scheduling/pages/backfill/index.ts');
-    await import('../src/subpackages/organization/pages/group-settings/index.ts');
+    const { createGroupSettingsPanelControllerDefinition } =
+      await import('../src/subpackages/organization/components/group-settings-panel/controller.ts');
+    definitions.push(createGroupSettingsPanelControllerDefinition(false));
     await seedRuntimeCapabilities({ ...enabledCapabilities, core: false, global: false });
 
     const instances = definitions.map(createPageInstance);
@@ -473,9 +475,7 @@ describe('P6-B Mini capability bootstrap and guards', () => {
 
     expect(source).toContain('const serial = ++page._loadSerial');
     expect(source).toContain('if (serial !== page._loadSerial) return;');
-    expect(source).toMatch(
-      /function setManualCapabilityError[\s\S]*page\._loadSerial \+= 1;/u,
-    );
+    expect(source).toMatch(/function setManualCapabilityError[\s\S]*page\._loadSerial \+= 1;/u);
   });
 
   it('does not persist capability payloads or create a second visual system', () => {

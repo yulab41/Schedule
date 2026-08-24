@@ -40,7 +40,8 @@
       </view>
       <text class="shell-page-title"
         >{{activeWorkspace === 'calendar' ? '日历' : activeWorkspace === 'leave' ? '请假' :
-        activeWorkspace === 'swap' ? '换班' : activeWorkspace === 'duty' ? '加扣班' : '更多'}}</text
+        activeWorkspace === 'swap' ? '换班' : activeWorkspace === 'duty' ? '加扣班' :
+        activeWorkspace === 'group' ? '群组管理' : '更多'}}</text
       >
     </view>
     <view class="shell-actions" style="{{shellActionsStyle}}">
@@ -660,7 +661,11 @@
     style="--workspace-top:{{shellHeaderHeight}}px"
     hidden="{{activeWorkspace !== 'leave'}}"
   >
-    <workflow-leave-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-leave-panel>
+    <workflow-leave-panel
+      group-id="{{currentGroupId}}"
+      embedded="{{true}}"
+      bind:calendarchanged="handleWorkflowCalendarChanged"
+    ></workflow-leave-panel>
   </view>
   <view
     wx:if="{{workflowPanelsMounted}}"
@@ -668,7 +673,11 @@
     style="--workspace-top:{{shellHeaderHeight}}px"
     hidden="{{activeWorkspace !== 'swap'}}"
   >
-    <workflow-swap-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-swap-panel>
+    <workflow-swap-panel
+      group-id="{{currentGroupId}}"
+      embedded="{{true}}"
+      bind:calendarchanged="handleWorkflowCalendarChanged"
+    ></workflow-swap-panel>
   </view>
   <view
     wx:if="{{workflowPanelsMounted}}"
@@ -676,7 +685,19 @@
     style="--workspace-top:{{shellHeaderHeight}}px"
     hidden="{{activeWorkspace !== 'duty'}}"
   >
-    <workflow-duty-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-duty-panel>
+    <workflow-duty-panel
+      group-id="{{currentGroupId}}"
+      embedded="{{true}}"
+      bind:calendarchanged="handleWorkflowCalendarChanged"
+    ></workflow-duty-panel>
+  </view>
+  <view
+    wx:if="{{groupSettingsMounted}}"
+    class="embedded-workspace"
+    style="--workspace-top:{{shellHeaderHeight}}px"
+    hidden="{{activeWorkspace !== 'group'}}"
+  >
+    <group-settings-panel group-id="{{currentGroupId}}" embedded="{{true}}"></group-settings-panel>
   </view>
   <scroll-view
     wx:if="{{activeWorkspace === 'more'}}"
@@ -935,7 +956,7 @@
       ><text>加扣班</text></view
     >
     <view
-      class="bottom-nav-item {{activeWorkspace === 'more' ? 'is-active' : ''}}"
+      class="bottom-nav-item {{activeWorkspace === 'more' || activeWorkspace === 'group' ? 'is-active' : ''}}"
       data-label="更多"
       data-motion="more"
       aria-disabled="false"

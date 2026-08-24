@@ -17,9 +17,6 @@ describe('P5 native group mobile-phone consent controller', () => {
     statusResponses = [status({ state: 'not-consented' })];
     updateResponses = [];
     windowWidth = 390;
-    vi.stubGlobal('Page', (value) => {
-      definition = value;
-    });
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
     vi.stubGlobal('__MINIPROGRAM_BUILD_COMMIT__', 'test');
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
@@ -71,7 +68,9 @@ describe('P5 native group mobile-phone consent controller', () => {
         throw new Error(`unexpected request ${options.method} ${options.url}`);
       }),
     });
-    await import('../src/subpackages/organization/pages/group-settings/index.ts');
+    const { createGroupSettingsPanelControllerDefinition } =
+      await import('../src/subpackages/organization/components/group-settings-panel/controller.ts');
+    definition = createGroupSettingsPanelControllerDefinition(false);
     await enableTestClientCapabilities();
   });
 

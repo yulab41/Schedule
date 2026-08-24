@@ -60,6 +60,34 @@ describe('P7 Web-parity workflow picker controller', () => {
     expect(instance.data.open).toBe(false);
   });
 
+  it('keeps only the weekend token red before and after an option is selected', async () => {
+    const definition = await loadPickerDefinition();
+    const options = [
+      {
+        isWeekend: true,
+        label: '2026-09-27 全天班（周日） · 徐漫彬',
+        value: 'assignment-weekend',
+      },
+    ];
+    const instance = createPickerInstance(definition, {
+      mode: 'selector',
+      options,
+      selectedIndex: 0,
+      value: '0',
+    });
+
+    definition.methods.handleOpen.call(instance);
+    expect(instance.data.renderedOptions).toEqual([
+      {
+        ...options[0],
+        leadingLabel: '2026-09-27 全天班',
+        trailingLabel: ' · 徐漫彬',
+        weekendLabel: '（周日）',
+      },
+    ]);
+    expect(instance.data.selectedOptionIndex).toBe(0);
+  });
+
   it('uses the Web month wheel draft summary and only emits the completed month', async () => {
     const definition = await loadPickerDefinition();
     const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });

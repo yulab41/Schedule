@@ -4,7 +4,16 @@
 
 ## 本地生成 release
 
-服务器不负责安装依赖或编译。完成本地验证后，在仓库根目录执行：
+服务器不负责安装依赖或编译。Windows 本地发布固定复用仓库外的隔离 detached worktree；首次创建时才完整落地依赖，后续切换 commit 时保留该目录的 `node_modules`，仅当受 Git 跟踪的 lockfile、workspace 配置、patch 或任一 `package.json` 变化时执行增量 `pnpm install --frozen-lockfile`：
+
+```powershell
+pnpm release:worktree -- --commit HEAD
+Set-Location ..\Schedule-release-worktree
+```
+
+脚本只接管 Git 已登记、detached、状态干净的专用 worktree。目标目录若含用户分支、未提交/未忽略文件，或只是同名普通目录，会失败关闭且绝不删除、清理或覆盖。依赖指纹保存在该 worktree 自己的 Git 元数据目录，不污染 release 源码状态。不要每轮删除这个目录，也不要在其中进行开发。
+
+完成本地验证后，在上述发布 worktree 根目录执行：
 
 ```bash
 RELEASE_COMMIT="$(git rev-parse HEAD)"
@@ -50,7 +59,7 @@ NODE_ENV=production
 AUTH_DEV_MODE=false
 AUTH_PASSWORD_ENABLED=true
 WECHAT_SESSION_SECRET=服务器上的随机长密钥
-MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79,0.1.0-p6.20260824.80,0.1.0-p6.20260824.81,0.1.0-p7.20260824.85,0.1.0-p7.20260824.86,0.1.0-p7.20260824.87
+MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79,0.1.0-p6.20260824.80,0.1.0-p6.20260824.81,0.1.0-p7.20260824.85,0.1.0-p7.20260824.86,0.1.0-p7.20260824.87,0.1.0-p7.20260824.88
 MINIPROGRAM_LEGACY_CLIENT_VERSION=0.1.0-p6.20260824.78
 MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED=true
 MINIPROGRAM_CAPABILITY_CORE_ENABLED=true

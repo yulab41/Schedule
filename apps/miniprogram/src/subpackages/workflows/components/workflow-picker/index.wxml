@@ -2,6 +2,8 @@
   <view
     class="workflow-picker-trigger {{disabled ? 'is-disabled' : ''}}"
     hover-class="{{disabled ? 'none' : 'is-pressed'}}"
+    hover-start-time="0"
+    hover-stay-time="60"
     aria-role="button"
     aria-disabled="{{disabled}}"
     aria-expanded="{{open}}"
@@ -21,7 +23,7 @@
     show-scrollbar="{{false}}"
   >
     <view
-      wx:for="{{options}}"
+      wx:for="{{renderedOptions}}"
       wx:key="value"
       class="workflow-picker-option {{item.isWeekend ? 'is-weekend' : ''}} {{index === selectedOptionIndex ? 'is-selected' : ''}}"
       data-index="{{index}}"
@@ -30,7 +32,12 @@
       bindtap="handleOptionTap"
     >
       <view class="workflow-picker-option-marker"></view>
-      <text>{{item.label}}</text>
+      <text class="workflow-picker-option-label"
+        ><text>{{item.leadingLabel}}</text
+        ><text wx:if="{{item.weekendLabel}}" class="workflow-picker-option-weekend"
+          >{{item.weekendLabel}}</text
+        ><text>{{item.trailingLabel}}</text></text
+      >
       <text wx:if="{{index === selectedOptionIndex}}" class="workflow-picker-option-check">✓</text>
     </view>
     <view wx:if="{{options.length === 0}}" class="workflow-picker-empty">暂无可选项</view>
@@ -43,9 +50,7 @@
     <view class="workflow-picker-handle"></view>
     <view class="workflow-picker-heading">
       <view>
-        <text
-          >{{mode === 'month' ? '选择月份' : mode === 'date' ? '选择日期' : '选择'}}</text
-        >
+        <text>{{mode === 'month' ? '选择月份' : mode === 'date' ? '选择日期' : '选择'}}</text>
         <text>{{draftDisplayValue}}</text>
       </view>
       <view class="workflow-picker-close" aria-role="button" aria-label="关闭" bindtap="handleClose"
@@ -73,13 +78,19 @@
       immediate-change="{{true}}"
       bindchange="handlePickerViewChange"
     >
-      <picker-view-column>
-        <view wx:for="{{years}}" wx:key="*this" class="workflow-picker-wheel-item"
+      <picker-view-column class="workflow-picker-year-column">
+        <view
+          wx:for="{{years}}"
+          wx:key="*this"
+          class="workflow-picker-wheel-item {{index === draftIndices[0] ? 'is-selected' : ''}}"
           ><text>{{item}}</text><text class="workflow-picker-unit">年</text></view
         >
       </picker-view-column>
-      <picker-view-column>
-        <view wx:for="{{months}}" wx:key="*this" class="workflow-picker-wheel-item"
+      <picker-view-column class="workflow-picker-month-column">
+        <view
+          wx:for="{{months}}"
+          wx:key="*this"
+          class="workflow-picker-wheel-item {{index === draftIndices[1] ? 'is-selected' : ''}}"
           ><text>{{item}}</text><text class="workflow-picker-unit">月</text></view
         >
       </picker-view-column>

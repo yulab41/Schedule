@@ -6,6 +6,13 @@ import { describe, expect, it } from 'vitest';
 const miniRoot = process.cwd();
 const sourceRoot = path.join(miniRoot, 'src');
 const pageRoot = path.join(sourceRoot, 'subpackages', 'organization', 'pages', 'group-settings');
+const componentRoot = path.join(
+  sourceRoot,
+  'subpackages',
+  'organization',
+  'components',
+  'group-settings-panel',
+);
 
 function readPageFile(extension) {
   const filePath = path.join(pageRoot, `index.${extension}`);
@@ -41,13 +48,15 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(template).toMatch(/activeWorkspace === 'more'[\s\S]*?群组管理/u);
     expect(template).toContain('手动排班');
     expect(template).toContain('排班补录');
-    expect(source).toContain('/subpackages/organization/pages/group-settings/index?groupId=');
+    expect(source).not.toContain('/subpackages/organization/pages/group-settings/index?groupId=');
+    expect(template).toContain('<group-settings-panel');
+    expect(template).toContain("activeWorkspace !== 'group'");
     expect(source).toContain("selectedGroup.role !== 'guest'");
     expect(template).toMatch(/data-label="更多"[\s\S]*?bindtap="handleMoreNav"/u);
   });
 
   it('mirrors the accepted PhoneConsent390 information hierarchy and all native states', () => {
-    const template = readPageFile('wxml');
+    const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
     for (const expected of [
       '返回排班台',
       '群组管理',
@@ -71,17 +80,29 @@ describe('native P5 group mobile-phone consent page', () => {
     expect(template).toContain('bindtap="handleConsentToggle"');
     expect(template).toContain('bindtap="handleSave"');
     expect(template).toContain('bindtap="handleRetry"');
-    expect(readPageFile('ts')).toContain("'撤回同意'");
+    expect(readFileSync(path.join(componentRoot, 'controller.ts'), 'utf8')).toContain("'撤回同意'");
+  });
+
+  it('reuses the group settings controller as an embedded workbench panel', () => {
+    const componentJson = JSON.parse(readFileSync(path.join(componentRoot, 'index.json'), 'utf8'));
+    const componentTemplate = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
+    const componentStyles = readFileSync(path.join(componentRoot, 'index.wxss'), 'utf8');
+
+    expect(componentJson.component).toBe(true);
+    expect(componentJson.styleIsolation).toBe('apply-shared');
+    expect(componentTemplate).toContain('wx:if="{{!embedded}}"');
+    expect(componentStyles).toContain('.group-settings-page.is-embedded');
+    expect(readPageFile('wxml')).toContain('<group-settings-panel');
   });
 
   it('uses Skyline-safe flex layout, the 22 by 22 golden checkbox, compact class, and 44px actions', () => {
-    const styles = readPageFile('wxss');
-    const template = readPageFile('wxml');
+    const styles = readFileSync(path.join(componentRoot, 'index.wxss'), 'utf8');
+    const template = readFileSync(path.join(componentRoot, 'index.wxml'), 'utf8');
     const pageJson = JSON.parse(readPageFile('json'));
 
     expect(pageJson.renderer).toBe('skyline');
     expect(pageJson.usingComponents['ui-switch']).toBeUndefined();
-    expect(template).toContain('class="group-settings-page {{viewportClass}}"');
+    expect(template).toContain('group-settings-page {{viewportClass}}');
     expect(template).toContain('aria-role="switch"');
     expect(template).toContain('aria-checked="{{desiredConsent}}"');
     expect(styles).toContain('.group-settings-page.is-compact');
@@ -103,7 +124,7 @@ describe('native P5 group mobile-phone consent page', () => {
   });
 
   it('uses the shared runtime client without persisting phone, consent, payload, or a write queue', () => {
-    const source = readPageFile('ts');
+    const source = readFileSync(path.join(componentRoot, 'controller.ts'), 'utf8');
     const factory = readFileSync(
       path.join(sourceRoot, 'platform', 'client-core-calendar.ts'),
       'utf8',
