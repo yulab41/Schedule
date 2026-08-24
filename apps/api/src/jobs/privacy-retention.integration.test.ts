@@ -184,6 +184,41 @@ describeWithDatabase('privacy retention transaction', () => {
       },
     ]);
   });
+
+  it('deletes only telemetry strictly older than 30 days in bounded batches', async () => {
+    const telemetryCutoff = new Date(now.valueOf() - 30 * 24 * 60 * 60 * 1000);
+    const expiredIds = [randomUUID(), randomUUID(), randomUUID()];
+    for (const [index, id] of expiredIds.entries()) {
+      await insertTelemetry(client, id, new Date(telemetryCutoff.valueOf() - index - 1));
+    }
+    const boundaryId = randomUUID();
+    await insertTelemetry(client, boundaryId, telemetryCutoff);
+
+    await expect(
+      new PrivacyRetentionJob(client, { batchSize: 1, maxBatches: 2 }).run(now),
+    ).rejects.toThrow('client telemetry retention backlog remains: 1');
+    expect(await readTelemetryIds(client)).toEqual([expiredIds[0], boundaryId].sort());
+
+    await expect(new PrivacyRetentionJob(client).run(now)).resolves.toMatchObject({
+      telemetryDeletedRows: 1,
+      telemetryRemainingRows: 0,
+    });
+    expect(await readTelemetryIds(client)).toEqual([boundaryId]);
+  });
+
+  it('allows concurrent telemetry workers without double deletion', async () => {
+    const telemetryCutoff = new Date(now.valueOf() - 30 * 24 * 60 * 60 * 1000);
+    for (let index = 0; index < 20; index += 1) {
+      await insertTelemetry(client, randomUUID(), new Date(telemetryCutoff.valueOf() - index - 1));
+    }
+
+    const results = await Promise.all([
+      new PrivacyRetentionJob(client, { batchSize: 2 }).run(now),
+      new PrivacyRetentionJob(client, { batchSize: 2 }).run(now),
+    ]);
+    expect(results.reduce((sum, result) => sum + result.telemetryDeletedRows, 0)).toBe(20);
+    expect(await readTelemetryIds(client)).toEqual([]);
+  });
 });
 
 async function createGroup(
@@ -219,6 +254,21 @@ async function insertAccess(
       ${randomUUID()}, ${input.createdAt}
     )
   `);
+}
+
+async function insertTelemetry(client: DatabaseClient, id: string, createdAt: Date): Promise<void> {
+  await client.database.execute(sql`
+    INSERT INTO miniprogram_telemetry_events
+      (id, client_version, page, device_tier, error_code, network_type, created_at)
+    VALUES (${id}, '0.1.0-p6.20260824.80', 'app', 'unknown', 'UNKNOWN', 'unknown', ${createdAt})
+  `);
+}
+
+async function readTelemetryIds(client: DatabaseClient): Promise<readonly string[]> {
+  const [rows] = (await client.database.execute(sql`
+    SELECT id FROM miniprogram_telemetry_events ORDER BY id
+  `)) as unknown as [readonly { id: string }[], unknown];
+  return rows.map((row) => row.id);
 }
 
 async function readAggregates(client: DatabaseClient): Promise<

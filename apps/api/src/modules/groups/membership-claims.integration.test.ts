@@ -253,6 +253,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'directory_campuses',
     'membership_claim_requests',
     'invite_tokens',
+    'miniprogram_telemetry_events',
     'visitor_access_monthly_aggregates',
     'visitor_access_logs',
     'platform_job_runs',

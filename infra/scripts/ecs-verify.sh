@@ -492,6 +492,25 @@ if [ "$CURRENT_DATABASE_SCHEMA" -ge 50 ]; then
   }
 fi
 
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 51 ]; then
+  TELEMETRY_PRIVACY_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
+      -e "SELECT
+        (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = \"miniprogram_telemetry_events\"),
+        (SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = \"miniprogram_telemetry_events\" AND index_name IN (\"miniprogram_telemetry_created_idx\", \"miniprogram_telemetry_version_page_idx\", \"miniprogram_telemetry_error_fingerprint_idx\")),
+        (SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema = DATABASE() AND table_name = \"miniprogram_telemetry_events\" AND constraint_type = \"CHECK\" AND constraint_name IN (\"miniprogram_telemetry_error_or_performance_check\", \"miniprogram_telemetry_performance_pair_check\", \"miniprogram_telemetry_stack_requires_error_check\")),
+        (SELECT COUNT(*) FROM miniprogram_telemetry_events WHERE created_at < TIMESTAMPADD(DAY, -30, CURRENT_TIMESTAMP(3))),
+        (SELECT COUNT(*) FROM platform_job_runs WHERE job_name = \"privacy-retention\" AND status = \"completed\"),
+        COALESCE((SELECT table_count FROM backup_archives WHERE deleted_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 1), -1)"')"
+  IFS=$'\t' read -r telemetry_table telemetry_indexes telemetry_checks expired_telemetry_rows telemetry_retention_runs latest_backup_table_count <<< "$TELEMETRY_PRIVACY_SCHEMA"
+  [ "$telemetry_table" = "1" ] && [ "$telemetry_indexes" = "3" ] &&
+    [ "$telemetry_checks" = "3" ] && [ "$expired_telemetry_rows" = "0" ] &&
+    [ "$telemetry_retention_runs" -ge 1 ] && [ "$latest_backup_table_count" = "54" ] || {
+    echo "[verify] 错误：遥测表、索引、CHECK、30天边界、retention job 或备份排除无效。" >&2
+    exit 1
+  }
+fi
+
 WEB_LOGS="$(docker logs --since 15m medical-schedule-prod-web-1 2>&1 || true)"
 if printf '%s\n' "$WEB_LOGS" | grep -Eq \
   'client: ([0-9a-fA-F:.]+)|(^|[[:space:]])([0-9]{1,3}\.){3}[0-9]{1,3}[[:space:]]+-[[:space:]]+-|visitorKey=|businessMonth='; then

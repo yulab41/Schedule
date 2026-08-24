@@ -214,6 +214,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'directory_import_batches',
     'directory_campuses',
     'invite_tokens',
+    'miniprogram_telemetry_events',
     'visitor_access_monthly_aggregates',
     'visitor_access_logs',
     'backup_archives',

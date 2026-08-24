@@ -348,6 +348,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_import_batches`);
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_campuses`);
   await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS miniprogram_telemetry_events`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_monthly_aggregates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);

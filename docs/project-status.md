@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C7 遥测 schema 51 与保留激活（待 checkpoint/部署演练）
+
+- 范围/基线：Git/origin/production均为`be740fc`、DB50、telemetry表不存在；本checkpoint只应用additive migration0051、把release schema收紧为51..51并强化生产verifier，不改Mini/Web UI或已部署的API/retention/backup运行时。`databaseSchemaMin`失败关闭来源为`e25878f0`，上一个迁移/feature范式来自`1514de25`，telemetry metadata/runtime来自`03c5d465`。
+- 测试先行与实现：旧代码先出现缺0051、manifest min仍50、verifier无schema51检查共3项失败。0051创建无FK/身份/群组/JSON的10列匿名表、3个固定索引和3个数据库CHECK；journal升51，release只接受51。verifier在DB51强制表/索引/CHECK、严格`<now-30天`零过期、retention已成功以及最新备份54表（56业务表减raw visitor和telemetry）。29个旧式真实MySQL reset夹具显式删除新表，避免后续迁移重复建表。
+- 运行与保留验证：真实MySQL migrations23、platform backup/restore10、privacy retention6、telemetry ingestion3，共42/42；覆盖无效CHECK写失败、header-derived单SQL写、30天等边界保留/-1ms删除、bounded backlog续跑、双worker无重复，以及备份/恢复均无telemetry。静态8 files/40、受控非integration 168 files/913（25 skip）、Mini正确cwd且排除历史副本32 files/181通过；全仓lint/typecheck/build和Mini production verify通过（131 files、2 Worklets、1283685 bytes、manifest`cb44f95f321e3f638e7087a33eae4e5847dee336b8fd8b95ffb8bf4617fc998b`）。
+- 验证噪声/审计：一次未排除用户`.artifacts`的真实MySQL命令匹配历史副本后立即停止；一次并行/随后宽串行全API命令暴露共享单库争用、既有calendar-preferences不完整旧表reset与既有concurrency fixture 403，均不涉及0051调用点。改用排除副本、文件串行的相关真实源42/42作为门禁；遥测结果测试另修正“同毫秒随机UUID可代表输入顺序”的错误假设。行为变化仅为新增空匿名表、DB51 retention/backup/API激活与feature release拒绝DB50；现有业务表、身份、请求接收者、异步/错误/空值和调用次数均不变。
+- 运行/浏览器验证：`pnpm smoke:check-core`确认本checkpoint未改Web核心链路，无需`pnpm smoke:browser`；`bash -n infra/scripts/ecs-verify.sh`与`git diff --check`通过。checkpoint识别消息为`feat(telemetry): activate anonymous event retention`；推送后先备份并升DB51，首跑job/完整verify/迁移后备份，再回滚至`be740fc`（数据库保持51）并前滚。Mini源码未变，本checkpoint不上传体验版；演练完成后下一批才做`.81`纯内存emitter。
+
 ## 2026-08-24 P6-C6 脱敏遥测运行时兼容桥（已部署）
 
 - 范围/基线：schema bridge `b8c60827` 已与Git/origin/production对齐，DB50/health200。本checkpoint发布可运行于DB50/51的Mini-only telemetry contract/API/schema metadata、30天retention、backup exclusion、Nginx/API限流和日志redaction，不应用0051、不修改Mini源码/UI。

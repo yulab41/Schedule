@@ -46,11 +46,11 @@ describeWithDatabase('identity and group migrations', () => {
       sql`SELECT COUNT(*) AS count
           FROM information_schema.tables
           WHERE table_schema = DATABASE()
-          AND table_name IN ('users', 'user_profiles', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
+          AND table_name IN ('users', 'user_profiles', 'user_auth_identities', 'wechat_union_accounts', 'wechat_link_tokens', 'wechat_identity_detachments', 'wechat_admin_binding_tickets', 'user_password_credentials', 'groups', 'roster_entries', 'group_memberships', 'group_member_contacts', 'idempotency_keys', 'group_code_attempts', 'guest_schedule_access_attempts', 'group_join_requests', 'membership_claim_requests', 'schedule_roles', 'member_schedule_roles', 'shift_types', 'rotation_rules', 'rotation_members', 'schedule_events', 'audit_logs', 'schedule_periods', 'shift_assignments', 'manual_schedule_templates', 'manual_schedule_template_members', 'manual_schedule_cells', 'leave_requests', 'swap_requests', 'duty_adjustments', 'workflow_sequence_allocations', 'notifications', 'notification_deliveries', 'notification_settings', 'notification_preferences', 'web_push_subscriptions', 'notification_batches', 'holiday_calendar_versions', 'holiday_dates', 'statistics_snapshots', 'statistics_recalc_checks', 'export_jobs', 'platform_job_runs', 'backup_archives', 'invite_tokens', 'visitor_access_logs', 'visitor_access_monthly_aggregates', 'miniprogram_telemetry_events', 'directory_campuses', 'directory_import_batches', 'directory_source_documents', 'directory_entries', 'directory_contact_methods', 'directory_search_aliases')`,
     );
 
-    expect(migrations).toEqual([{ count: 50 }]);
-    expect(tables).toEqual([{ count: 55 }]);
+    expect(migrations).toEqual([{ count: 51 }]);
+    expect(tables).toEqual([{ count: 56 }]);
   });
 
   it('creates the visitor access retention aggregate and expiry index', async () => {
@@ -75,6 +75,71 @@ describeWithDatabase('identity and group migrations', () => {
     expect(createStatement).toContain('PRIMARY KEY (`group_id`,`access_month`,`business_month`)');
     expect(createStatement).toContain('`access_count` bigint unsigned NOT NULL');
     expect(createStatement).toContain('visitor_access_monthly_aggregates_group_id_fk');
+  });
+
+  it('creates the anonymous Mini telemetry table with only frozen indexes and checks', async () => {
+    await migrateDatabase(client, migrationsDirectory);
+
+    const [tableRows] = (await client.database.execute(
+      sql`SHOW CREATE TABLE miniprogram_telemetry_events`,
+    )) as unknown as [readonly Record<string, string>[], unknown];
+    const createStatement = Object.values(tableRows[0] ?? {}).join('\n');
+    expect(createStatement).toContain('PRIMARY KEY (`id`)');
+    for (const index of [
+      'miniprogram_telemetry_created_idx',
+      'miniprogram_telemetry_version_page_idx',
+      'miniprogram_telemetry_error_fingerprint_idx',
+    ]) {
+      expect(createStatement).toContain(`KEY \`${index}\``);
+    }
+    for (const constraint of [
+      'miniprogram_telemetry_error_or_performance_check',
+      'miniprogram_telemetry_performance_pair_check',
+      'miniprogram_telemetry_stack_requires_error_check',
+    ]) {
+      expect(createStatement).toContain(`CONSTRAINT \`${constraint}\` CHECK`);
+    }
+    expect(createStatement).not.toMatch(/FOREIGN KEY|user_id|group_id|metadata|json/iu);
+
+    await expect(
+      client.database.execute(sql`
+        INSERT INTO miniprogram_telemetry_events
+          (id, client_version, page, device_tier, network_type)
+        VALUES (${randomUUID()}, '0.1.0-p6.20260824.80', 'app', 'unknown', 'unknown')
+      `),
+    ).rejects.toThrow();
+    await expect(
+      client.database.execute(sql`
+        INSERT INTO miniprogram_telemetry_events
+          (id, client_version, page, device_tier, network_type, performance_metric)
+        VALUES (
+          ${randomUUID()}, '0.1.0-p6.20260824.80', 'workbench', 'unknown', 'unknown',
+          'core-ready'
+        )
+      `),
+    ).rejects.toThrow();
+    await expect(
+      client.database.execute(sql`
+        INSERT INTO miniprogram_telemetry_events
+          (id, client_version, page, device_tier, network_type, performance_metric,
+           performance_duration_ms, stack_fingerprint)
+        VALUES (
+          ${randomUUID()}, '0.1.0-p6.20260824.80', 'workbench', 'unknown', 'unknown',
+          'core-ready', 100, ${'a'.repeat(64)}
+        )
+      `),
+    ).rejects.toThrow();
+    await expect(
+      client.database.execute(sql`
+        INSERT INTO miniprogram_telemetry_events
+          (id, client_version, page, device_tier, network_type, performance_metric,
+           performance_duration_ms)
+        VALUES (
+          ${randomUUID()}, '0.1.0-p6.20260824.80', 'workbench', 'unknown', 'unknown',
+          'core-ready', 100
+        )
+      `),
+    ).resolves.toBeDefined();
   });
 
   it('adds nullable mobile phone consent evidence without creating another table', async () => {
@@ -967,6 +1032,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS user_password_credentials`);
   await client.database.execute(sql`DROP TABLE IF EXISTS user_auth_identities`);
   await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS miniprogram_telemetry_events`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_monthly_aggregates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);

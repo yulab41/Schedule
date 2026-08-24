@@ -375,6 +375,14 @@ describeWithDatabase('platform administration and recovery', () => {
         (id, group_id, business_month, client_ip, request_id)
       VALUES (${randomUUID()}, ${groupId}, '2026-08', '203.0.113.55', ${randomUUID()})
     `);
+    await client.database.execute(sql`
+      INSERT INTO miniprogram_telemetry_events
+        (id, client_version, page, device_tier, error_code, network_type)
+      VALUES (
+        ${randomUUID()}, '0.1.0-p6.20260824.80', 'app', 'unknown',
+        'UNKNOWN', 'unknown'
+      )
+    `);
 
     temporaryDirectory = await mkdtemp(join(tmpdir(), 'schedule-backup-'));
     const job = new DatabaseBackupJob(client, {
@@ -383,7 +391,7 @@ describeWithDatabase('platform administration and recovery', () => {
     });
     const result = await job.run(new Date('2026-08-02T04:00:00.000Z'));
     expect(result.backupKind).toBe('monthly');
-    expect(result.tableCount).toBeGreaterThanOrEqual(36);
+    expect(result.tableCount).toBe(54);
     expect(result.rowCount).toBeGreaterThanOrEqual(4);
 
     const [archiveRows] = (await client.database.execute(
@@ -394,6 +402,7 @@ describeWithDatabase('platform administration and recovery', () => {
     const content = await new LocalBackupStorage(temporaryDirectory).read(result.storageKey);
     const decrypted = decryptBackupArchive(JSON.parse(content.toString('utf8')), encryptionKey);
     expect(decrypted.tables).not.toHaveProperty('visitor_access_logs');
+    expect(decrypted.tables).not.toHaveProperty('miniprogram_telemetry_events');
     const [aggregateTables] = (await client.database.execute(sql`
       SELECT COUNT(*) AS count
       FROM information_schema.tables
@@ -440,6 +449,10 @@ describeWithDatabase('platform administration and recovery', () => {
       sql`SELECT COUNT(*) AS count FROM visitor_access_logs`,
     )) as unknown as [{ count: number }[], unknown];
     expect(restoredRawVisitorRows[0]?.count).toBe(0);
+    const [restoredTelemetryRows] = (await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM miniprogram_telemetry_events`,
+    )) as unknown as [{ count: number }[], unknown];
+    expect(restoredTelemetryRows[0]?.count).toBe(0);
   });
 
   it('rebuilds statistics snapshots from published periods', async () => {
@@ -638,6 +651,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_import_batches`);
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_campuses`);
   await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS miniprogram_telemetry_events`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_monthly_aggregates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);

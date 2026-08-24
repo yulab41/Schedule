@@ -91,7 +91,7 @@ describeWithDatabase('Mini-only client telemetry ingestion', () => {
     const [rows] = (await client.database.execute(sql`
       SELECT client_version AS clientVersion, page, error_code AS errorCode,
              performance_metric AS performanceMetric
-      FROM miniprogram_telemetry_events ORDER BY created_at, id
+      FROM miniprogram_telemetry_events ORDER BY page
     `)) as unknown as [
       readonly {
         clientVersion: string;

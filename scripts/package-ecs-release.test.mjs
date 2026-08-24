@@ -103,12 +103,20 @@ describe('ECS directory import runtime packaging', () => {
     expect(packageSource).toContain('assertPortableShellSyntax');
     expect(packageSource).toContain("RELEASE_FEATURE_LEVEL = 'p6-client-capabilities-v1'");
     expect(packageSource).toContain('releaseFeatureLevel: RELEASE_FEATURE_LEVEL');
-    expect(packageSource).toContain("databaseSchemaMin: '50'");
+    expect(packageSource).toContain("databaseSchemaMin: '51'");
     expect(packageSource).toContain("databaseSchemaMax: '51'");
     expect(packageSource).toContain('ECS_ROLLBACK_CANDIDATE');
     expect(packageSource).toContain('rollbackCandidate: rollbackCandidate()');
     expect(packageSource.indexOf("'build'")).toBeLessThan(
       packageSource.indexOf("run(tarPath(), ['-czf'"),
     );
+  });
+
+  it('verifies schema 51 telemetry retention and backup exclusion in production', () => {
+    expect(verifySource).toContain('miniprogram_telemetry_events');
+    expect(verifySource).toContain('miniprogram_telemetry_created_idx');
+    expect(verifySource).toContain('miniprogram_telemetry_error_or_performance_check');
+    expect(verifySource).toContain('TIMESTAMPADD(DAY, -30, CURRENT_TIMESTAMP(3))');
+    expect(verifySource).toContain('latest_backup_table_count');
   });
 });

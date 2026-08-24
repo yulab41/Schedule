@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C7 telemetry schema 51 feature（待部署）
+
+- 基线/来源：Git/origin/production`be740fc`、DB50/无表；schema失败关闭来自`e25878f0`，0050范式`1514de25`，telemetry runtime`03c5d465`。只新增0051并收紧manifest51..51，不改UI/API运行时/Mini源码。
+- 红绿/实现：缺migration、min51和DB51 verifier先3红；新增10列/3索引/3 CHECK匿名表，verifier检查严格30天、retention和最新backup54表，29个custom reset显式drop telemetry。真实MySQL migration/backup-retention/ingestion 42/42，静态40、non-integration913、Mini181、lint/typecheck/build/Mini verify通过。
+- 验证说明：未排除历史副本和共享单库并行命令分别产生副本路径/建表冲突并停止；宽串行又暴露既有calendar-preferences reset与concurrency fixture噪声。排除副本并串行的相关源全绿；随机UUID同毫秒排序假设修正为按page断言。运行/浏览器验证：pnpm smoke:check-core判定无Web核心变化，无需pnpm smoke:browser；bash-n/diff check通过。
+- 行为审计/下一步：additive表不接触任何业务表/身份/FK；只激活已部署endpoint/job并让feature release拒绝DB50。checkpoint=`feat(telemetry): activate anonymous event retention`；提交后执行DB51备份、部署、job、backup、rollback-to-`be740fc`/forward演练，再做Mini `.81`。
+
 ## 2026-08-24 P6-C6 脱敏遥测 runtime bridge（已部署）
 
 - 基线/范围：`b8c60827` schema bridge已部署、DB50。本轮只做DB50/51 strict telemetry runtime，不含0051/Mini/UI。
