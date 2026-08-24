@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7-A 工作流对等与安全依赖审计（待 checkpoint）
+
+- 基线/范围：P6 RC checkpoint `1802e14a`已与Git/origin/production对齐、DB51。本批只审计既有Web/API和Mini缺口并冻结P7顺序，不修改生产代码/UI/API/DB或capability。请假、换班、加扣班分别源自`0d5ec55c`、`b20ff9b8`、`5d8b205a`；共享事务幂等骨架来自`beae8e84`/`7fcd6ae4`/`e5608cf3`；Mini禁用入口来自`ad4cfb2c`/`733e3af6`。
+- 结论：Web/API三类工作流的成员/管理员、preview、接受/审批/驳回/取消/完成后逆序撤销、跨月/今天/历史归档、leave reflow/冲突/空缺/统计、事件和通知写入均已存在；Web workflow/client定向8 files/193 tests通过。Mini完全缺`subpackage-workflows`、client-core decoders/endpoints、controller/ViewModel和真实导航，production workflows flag仍false。
+- 安全缺口：leave create没有客户端operation id/服务幂等；swap/duty与各mutation虽已有body operation id和事务幂等，但路由未统一校验`Idempotency-Key` header/body。P7首批必须先修该边界并让Web先用共享client-core/presentation-core，之后才能在弱网Mini中安全重放，禁止直接从WXML起步。
+- 视觉/消息边界：请假已有`web-ui-2-0-mobile-screens--leave-and-approval`，换班/加扣班已有shell refinement 390 seed，但不足以覆盖完整状态与320；P7-B用production Web panels固化专用Storybook，用户standing指令视为1:1方向确认，不再询问设计。工作流事务已生成in-app/WeChat消息；通知中心/订阅/设置原生页留P9，P7页面onShow刷新业务状态。
+- 详细审计/下一步：见`apps/miniprogram/docs/architecture/p7-workflow-parity-audit.md`与黄金清单P7行。下一批仅做P7-A危险写幂等+client-core decoder/Web先行共享边界，真实MySQL与browser smoke通过后停止，不写Mini视觉、不进入P8。
+
 ## 2026-08-24 P6-C9 核心 RC 实体 Android 验收（用户已通过）
 
 - 验收证据：用户在`.81`体验版完成P6核心RC后明确回复“通过，继续”；按`apps/miniprogram/docs/runbooks/p6-core-rc.md`约定，该明确反馈足以证明5/5/5/10性能阈值、弱网/离线/后台恢复和矩阵滚动手感全部通过，不强制提交截图或逐项数字。此证据只能来自用户实体Android操作，未由Storybook/simulate/miniprogram-ci或桌面墙钟替代。

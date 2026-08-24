@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7-A 工作流对等审计
+
+- 来源：leave=`0d5ec55c`、swap=`b20ff9b8`、duty=`5d8b205a`、mutation骨架=`beae8e84/7fcd6ae4/e5608cf3`、Mini disabled nav=`ad4cfb2c/733e3af6`。
+- Web/API已有完整三工作流、状态/权限/冲突/撤销链/事件通知；定向8 files/193 tests通过。Mini缺workflow subpackage/client decoder/controller/真实入口，flag=false。
+- 首要风险：leave create无operation id/idempotency；其他dangerous routes未校验Idempotency-Key/body一致。先做P7-A安全+client-core/Web-first，再固化Storybook和原生leave→swap→duty；通知中心留P9。
+- 详细矩阵：`apps/miniprogram/docs/architecture/p7-workflow-parity-audit.md`。下一批不写WXML，只做安全与共享边界。
+
 ## 2026-08-24 P6-C9 核心 RC（用户已通过）
 
 - 用户对`.81`实体Android RC明确回复“通过，继续”；依runbook约定，无需截图/数字即可将5/5/5/10阈值、弱网/离线/前后台/滚动项记为通过。P6正式关闭并允许进入P7，但未授权微信提审/正式发布。
