@@ -2,14 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7 实体反馈修复候选 `.86`（待 checkpoint / 上传 / 部署）
+## 2026-08-24 P7 实体反馈修复候选 `.86`（已开放体验，待实体复核）
 
 - 基线/范围：基线 `a3e6950e`，只处理用户实体反馈：请假/换班/加扣班保留工作台顶部与底部导航并在中央切换；三个模块改用 Web 式自绘选择器并标红周末班次；过去换班不显示撤销；联系方式默认群内可见、成员明确关闭才隐藏；群组管理移入“更多”，与手动排班、排班补录并列。不进入 P8、不提审/正式发布。
 - 引入点/测试先行：跳转和三个系统 picker 来自 `9fae3869`/`7d3b93c8`/`764276f1`，换班可撤销展示来自 `f65a57df`，手机号 opt-in 与左上群组设置来自 `59300957`；已逐调用点执行 `git log -S` / `git blame`。结构、选择器、过期撤销、默认可见和 `.86` 契约断言均先红后绿。
 - 实现：三工作流抽为 workflows 分包可复用 Panel，工作台以 `calendar/leave/swap/duty/more` 中央工作区承载，独立深链页继续兼容；更多中的群组管理对非访客可用，手动排班/排班补录仅群主和管理员可用。自绘 Sheet 覆盖月份、日期和普通选项，班次 option 携带 weekend tone。API hydrate 与 Mini controller 双层过滤过去换班撤销。手机号策略只把 `fingerprint=null + revoked_at!=null` 认作明确关闭，guest/跨群/成员自控边界不变；生产只读聚合确认冯钦有手机号且未明确关闭，无需数据迁移或单条修数。
 - 验证：Mini 全量 42 files/224，API 单测 5/5，真实 MySQL 日历+群组+换班 56/56，Mini/API typecheck、API build、任务 Prettier/ESLint、production verify、无凭据 CI dry-run、release-control 红绿、`smoke:check-core`、`git diff --check` 通过。production verify 为 2/2 Worklet、2,836,191 bytes、manifest `ab55e4a609f6369ae7940316c3db13e95c6d41467d97bb14938505cfbd4276c1`；只保留既有 600 格矩阵 best-effort 警告。
-- 版本/外部状态：新体验候选为 `0.1.0-p7.20260824.86`，保留 `.85` 兼容；checkpoint 识别消息 `fix(miniprogram): align p7 physical feedback`。当前尚未提交、推送、上传或部署；官方微信上传编译、生产备份/发布/allowlist 与实体 Android 视觉交互复核待完成。
-- 下一批/停止条件：完成本 checkpoint 的显式 staging、提交推送、`.86` 体验上传、生产备份部署与 allowlist 健康核验后暂停。仅等待用户用 `.86@<commit>` 复核本节五项反馈；未通过只修对应差异，通过后再恢复原 P7 后续门禁，不提前进入 P8。
+- checkpoint/体验：`bc32a4f1`（`fix(miniprogram): align p7 physical feedback`）已推送；微信官方 Summer 编译并成功上传 `0.1.0-p7.20260824.86`，93 个代码文件、zip 767,784 bytes、manifest `bcca6267d9592aabf0362711e7e4dc64bae05280810da0c7808f98c2a4a7c5de`，跨分包异步组件编译通过。未提审、未正式发布。
+- 生产/能力：部署前加密备份 `c74e6442-534f-4ca0-8388-59f3f58fd7aa`（54 表、164,551 行、77,396,940 bytes、SHA-256 `4588b17d730b0b569e555f03351250def36467d18dc74ca75b76ac376120dfc2`）后部署 release `bc32a4f1be0defd41c85b8e5e6d078a993d0e25c`；预热两次 502 后恢复，privacy 0/0、full verifier 通过。release 锁下原子追加 `.86` 并保持 env root/0600；`.81/.85/.86` 为 200，`.84-duty`/未知为 426，`.86` 返回 core/workflows=true；远端上传临时目录已清理。
+- 下一批/停止条件：状态 checkpoint 识别消息 `docs(status): record p7 physical feedback deployment`；推送并同步生产后暂停。仅等待用户用 `.86@bc32a4f` 复核本节五项反馈；未通过只修对应差异，通过后再恢复原 P7 后续门禁，不提前进入 P8。
 
 ## 2026-08-24 P7-F 完整工作流 RC（已开放体验，待实体 UI/交互复核）
 
