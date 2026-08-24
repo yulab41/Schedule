@@ -1,0 +1,236 @@
+.workflow-picker-trigger {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 13px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+}
+
+.workflow-picker-trigger.is-pressed {
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 0 0 2px var(--ui-color-primary-light);
+}
+
+.workflow-picker-trigger.is-disabled {
+  opacity: 0.55;
+}
+
+.workflow-picker-trigger-value {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-picker-trigger-value.is-placeholder,
+.workflow-picker-chevron {
+  color: var(--ui-color-text-muted);
+}
+
+.workflow-picker-layer {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+}
+
+.workflow-picker-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 25, 40, 0.52);
+}
+
+.workflow-picker-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  max-height: 76%;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: border-box;
+  flex-direction: column;
+  background: var(--ui-color-surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -16px 48px rgba(13, 25, 40, 0.24);
+}
+
+.workflow-picker-handle {
+  width: 40px;
+  height: 4px;
+  margin: 8px auto 2px;
+  flex: none;
+  background: var(--ui-color-border-strong);
+  border-radius: 4px;
+}
+
+.workflow-picker-heading {
+  display: flex;
+  min-height: 70px;
+  padding: 8px 14px 12px;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.workflow-picker-heading > view:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workflow-picker-heading view:first-child > text:first-child {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.workflow-picker-heading view:first-child > text:last-child {
+  overflow: hidden;
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-picker-close {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary);
+  border-radius: var(--ui-radius-medium);
+  font-size: 26px;
+}
+
+.workflow-picker-options {
+  min-height: 180px;
+  max-height: 390px;
+  padding: 8px 16px;
+  box-sizing: border-box;
+}
+
+.workflow-picker-option {
+  display: flex;
+  min-height: 48px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 10px;
+  color: var(--ui-color-text-primary);
+  border-bottom: 1px solid var(--ui-color-border);
+  font-size: var(--ui-font-size-sm);
+}
+
+.workflow-picker-option.is-weekend {
+  color: var(--ui-color-danger);
+}
+
+.workflow-picker-option.is-selected {
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-color: var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.workflow-picker-option-marker {
+  width: 3px;
+  height: 28px;
+  flex: none;
+  background: transparent;
+  border-radius: 3px;
+}
+
+.workflow-picker-option.is-selected .workflow-picker-option-marker {
+  background: var(--ui-color-primary);
+}
+
+.workflow-picker-option > text:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.workflow-picker-option-check {
+  flex: none;
+  color: var(--ui-color-primary);
+}
+
+.workflow-picker-wheel {
+  width: 100%;
+  height: 252px;
+}
+
+.workflow-picker-wheel-item {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--ui-color-text-primary);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-picker-unit {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+
+.workflow-picker-indicator {
+  height: 48px;
+  border-top: 1px solid var(--ui-color-primary-border);
+  border-bottom: 1px solid var(--ui-color-primary-border);
+}
+
+.workflow-picker-mask {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 255, 255, 0.12) 42%,
+    rgba(255, 255, 255, 0.12) 58%,
+    rgba(255, 255, 255, 0.96)
+  );
+}
+
+.workflow-picker-actions {
+  display: flex;
+  padding: 10px 16px 12px;
+  flex: none;
+  gap: 10px;
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.workflow-picker-button {
+  display: flex;
+  min-height: 44px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.workflow-picker-button.is-secondary {
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+}
+
+.workflow-picker-button.is-primary {
+  color: var(--ui-color-white);
+  background: var(--ui-color-primary);
+  border: 1px solid var(--ui-color-primary);
+}

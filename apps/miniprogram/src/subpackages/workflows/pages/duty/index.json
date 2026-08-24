@@ -3,5 +3,7 @@
   "disableScroll": true,
   "navigationStyle": "custom",
   "renderer": "skyline",
-  "usingComponents": {}
+  "usingComponents": {
+    "workflow-duty-panel": "/subpackages/workflows/components/workflow-duty-panel/index"
+  }
 }

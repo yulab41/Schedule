@@ -5,7 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 const appRoot = process.cwd();
 const sourceRoot = path.join(appRoot, 'src');
-const pageRoot = path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'swap');
+const pageRoot = path.join(
+  sourceRoot,
+  'subpackages',
+  'workflows',
+  'components',
+  'workflow-swap-panel',
+);
 
 function readPage(extension) {
   return readFileSync(path.join(pageRoot, `index.${extension}`), 'utf8');
@@ -26,11 +32,25 @@ describe('P7 native swap workflow page', () => {
       'utf8',
     );
     const leaveTemplate = readFileSync(
-      path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'leave', 'index.wxml'),
+      path.join(
+        sourceRoot,
+        'subpackages',
+        'workflows',
+        'components',
+        'workflow-leave-panel',
+        'index.wxml',
+      ),
       'utf8',
     );
     const leaveController = readFileSync(
-      path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'leave', 'index.ts'),
+      path.join(
+        sourceRoot,
+        'subpackages',
+        'workflows',
+        'components',
+        'workflow-leave-panel',
+        'controller.ts',
+      ),
       'utf8',
     );
 
@@ -41,7 +61,7 @@ describe('P7 native swap workflow page', () => {
     ]);
     expect(workbench).toContain('bindtap="handleSwapNav"');
     expect(workbench.match(/\{\{workflowsEnabled \? '' : 'is-disabled'\}\}/gu)).toHaveLength(3);
-    expect(workbenchController).toContain('/subpackages/workflows/pages/swap/index?groupId=');
+    expect(workbenchController).toContain("openWorkflowWorkspace(this, 'swap')");
     expect(leaveTemplate).toContain('bindtap="handleSwapNav"');
     expect(leaveController).toContain('/subpackages/workflows/pages/swap/index?groupId=');
   });
@@ -78,7 +98,7 @@ describe('P7 native swap workflow page', () => {
   });
 
   it('keeps cross-month candidates, displayed preview snapshots, serial guards, and no queue', () => {
-    const controller = readPage('ts');
+    const controller = readFileSync(path.join(pageRoot, 'controller.ts'), 'utf8');
     for (const boundary of [
       'createRuntimeWorkflowClient',
       'createWorkbenchReadClient',
@@ -107,11 +127,16 @@ describe('P7 native swap workflow page', () => {
   });
 
   it('uses Skyline-safe 390/320 native geometry without CSS grid', () => {
-    const pageJson = JSON.parse(readPage('json'));
+    const pageJson = JSON.parse(
+      readFileSync(
+        path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'swap', 'index.json'),
+        'utf8',
+      ),
+    );
     const styles = readPage('wxss');
 
     expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
-    expect(pageJson.usingComponents).toEqual({});
+    expect(JSON.parse(readPage('json')).usingComponents).toHaveProperty('workflow-picker');
     expect(styles).toContain('.swap-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
     expect(styles).toMatch(/\.bottom-nav-item\s*\{[^}]*min-height:\s*44px;/su);

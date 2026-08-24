@@ -25,7 +25,7 @@ describe('native P5 group mobile-phone consent page', () => {
     ).not.toContain('pages/group-settings/index');
   });
 
-  it('puts the entry in the active group menu without repurposing More', () => {
+  it('keeps the group switcher focused and puts group administration under More', () => {
     const template = readFileSync(
       path.join(sourceRoot, 'pages', 'workbench', 'index.wxml'),
       'utf8',
@@ -36,15 +36,14 @@ describe('native P5 group mobile-phone consent page', () => {
       template.indexOf('<text class="shell-page-title">'),
     );
 
-    expect(template).toContain('wx:if="{{canOpenGroupSettings}}"');
-    expect(template).toContain('class="group-settings-option"');
     expect(template).toContain('bindtap="handleOpenGroupSettings"');
-    expect(groupMenu).toContain('群组设置');
+    expect(groupMenu).not.toContain('群组设置');
+    expect(template).toMatch(/activeWorkspace === 'more'[\s\S]*?群组管理/u);
+    expect(template).toContain('手动排班');
+    expect(template).toContain('排班补录');
     expect(source).toContain('/subpackages/organization/pages/group-settings/index?groupId=');
     expect(source).toContain("selectedGroup.role !== 'guest'");
-    expect(template).toMatch(
-      /data-label="更多"[\s\S]*?aria-disabled="true"[\s\S]*?bindtap="handleUnavailable"/u,
-    );
+    expect(template).toMatch(/data-label="更多"[\s\S]*?bindtap="handleMoreNav"/u);
   });
 
   it('mirrors the accepted PhoneConsent390 information hierarchy and all native states', () => {

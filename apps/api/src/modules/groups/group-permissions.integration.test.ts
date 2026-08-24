@@ -114,7 +114,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(contactUpdate.statusCode).toBe(403);
   });
 
-  it('returns self mobile but hides unconsented mobile for other active members', async () => {
+  it('returns mobile phones for active members by default while preserving group boundaries', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');
     const owner = await getMember(groupId, 'Owner Doctor');
@@ -178,8 +178,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       shortPhone: '8000',
     });
     const ownerResult = contacts.find((contact) => contact.membershipId === owner.id);
-    expect(ownerResult).toMatchObject({ shortPhone: '9000' });
-    expect(ownerResult).not.toHaveProperty('mobilePhone');
+    expect(ownerResult).toMatchObject({ mobilePhone: '13900000000', shortPhone: '9000' });
   });
 
   it('lets members edit only themselves while owner, administrator, and developer confirm any active member', async () => {
@@ -235,18 +234,24 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(otherUpdate.statusCode).toBe(403);
     expect(memberConfirm.statusCode).toBe(403);
     expect(ownerConfirm.statusCode).toBe(200);
-    expect(ownerConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '8001' });
-    expect(ownerConfirm.json()).not.toHaveProperty('mobilePhone');
+    expect(ownerConfirm.json()).toMatchObject({
+      isConfirmed: true,
+      mobilePhone: '13800000000',
+      shortPhone: '8001',
+    });
     expect(makeAdministrator.statusCode).toBe(200);
     expect(administratorConfirm.statusCode).toBe(200);
     expect(administratorConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '9001' });
     expect(administratorConfirm.json()).not.toHaveProperty('mobilePhone');
     expect(developerConfirm.statusCode).toBe(200);
-    expect(developerConfirm.json()).toMatchObject({ isConfirmed: true, shortPhone: '8002' });
-    expect(developerConfirm.json()).not.toHaveProperty('mobilePhone');
+    expect(developerConfirm.json()).toMatchObject({
+      isConfirmed: true,
+      mobilePhone: '13800000000',
+      shortPhone: '8002',
+    });
   });
 
-  it('requires self-granted, version-bound mobile consent and never lets administrators grant it for others', async () => {
+  it('keeps the self-controlled visibility preference version-bound and rejects administrator overrides', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');
     const saved = await app.inject({
@@ -264,7 +269,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     expect(administratorVerification.statusCode, administratorVerification.body).toBe(200);
-    expect(administratorVerification.json()).not.toHaveProperty('mobilePhone');
+    expect(administratorVerification.json()).toMatchObject({ mobilePhone: '13800000000' });
     contactVersion = (administratorVerification.json() as { version: number }).version;
 
     const initial = await app.inject({
@@ -279,7 +284,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       maskedMobilePhone: '138 **** 0000',
       membershipId: candidate.id,
       noticeVersion: 'v1',
-      state: 'not-consented',
+      state: 'consented',
     });
 
     const beforeGrant = await app.inject({
@@ -292,7 +297,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       (beforeGrant.json() as Array<{ membershipId: string; mobilePhone?: string }>).find(
         (contact) => contact.membershipId === candidate.id,
       ),
-    ).not.toHaveProperty('mobilePhone');
+    ).toMatchObject({ mobilePhone: '13800000000' });
 
     const missingKey = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
@@ -451,7 +456,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(inactiveConsent.statusCode).toBe(403);
   });
 
-  it('invalidates consent on number or notice changes, supports revoke, and never copies consent across groups', async () => {
+  it('keeps default visibility on number or notice changes, supports explicit revoke, and never copies a phone across groups', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');
     const saved = await app.inject({
@@ -507,7 +512,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     });
     expect(staleAfterNumber.json()).toMatchObject({
       contactVersion: changedVersion,
-      state: 'stale',
+      state: 'consented',
     });
 
     const versionConflict = await app.inject({
@@ -551,7 +556,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       method: 'GET',
       url: `/groups/${groupId}/mobile-phone-consent`,
     });
-    expect(staleNotice.json()).toMatchObject({ state: 'stale' });
+    expect(staleNotice.json()).toMatchObject({ state: 'consented' });
 
     const revoke = await app.inject({
       headers: {

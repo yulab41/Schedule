@@ -1682,11 +1682,26 @@ export class SwapService {
           targetAssignment !== undefined &&
           targetAssignment.deletedAt === null &&
           targetAssignment.actualMembershipId === (initiatorMember?.id ?? null);
-        if (initiatorStateMatches && targetStateMatches) {
+        if (
+          initiatorStateMatches &&
+          targetStateMatches &&
+          isSwapRequestDateRevocable(
+            initiatorAssignment.businessDate,
+            targetAssignment.businessDate,
+          )
+        ) {
           isRevocable = true;
         } else {
           isRevocable = false;
-          revocationBlockedReason = '该换班后续还有排班变动或班次已失效，请按先后顺序撤销。';
+          revocationBlockedReason =
+            initiatorAssignment !== undefined &&
+            targetAssignment !== undefined &&
+            !isSwapRequestDateRevocable(
+              initiatorAssignment.businessDate,
+              targetAssignment.businessDate,
+            )
+              ? '该换班包含已过日期，不能撤销。'
+              : '该换班后续还有排班变动或班次已失效，请按先后顺序撤销。';
         }
       }
       return {
@@ -1728,6 +1743,16 @@ export class SwapService {
       };
     });
   }
+}
+
+export function isSwapRequestDateRevocable(
+  initiatorBusinessDate: string,
+  targetBusinessDate: string,
+  now: Date = new Date(),
+): boolean {
+  return (
+    !isPastBusinessDate(initiatorBusinessDate, now) && !isPastBusinessDate(targetBusinessDate, now)
+  );
 }
 
 function buildSwapPreview(input: {

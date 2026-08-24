@@ -38,7 +38,9 @@ describe('P7 native duty-adjustment workflow controller', () => {
       setStorageSync: vi.fn(),
       showModal: vi.fn(({ success }) => success?.({ cancel: false, confirm: true })),
     });
-    await import('../src/subpackages/workflows/pages/duty/index.ts');
+    const controller =
+      await import('../src/subpackages/workflows/components/workflow-duty-panel/controller.ts');
+    definition = controller.createDutyPanelControllerDefinition(false);
     await enableTestClientCapabilities();
   });
 

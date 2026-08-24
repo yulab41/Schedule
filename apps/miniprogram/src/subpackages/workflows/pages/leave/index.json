@@ -3,5 +3,7 @@
   "disableScroll": true,
   "navigationStyle": "custom",
   "renderer": "skyline",
-  "usingComponents": {}
+  "usingComponents": {
+    "workflow-leave-panel": "/subpackages/workflows/components/workflow-leave-panel/index"
+  }
 }

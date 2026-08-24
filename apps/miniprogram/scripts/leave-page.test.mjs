@@ -5,7 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 const appRoot = process.cwd();
 const sourceRoot = path.join(appRoot, 'src');
-const pageRoot = path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'leave');
+const pageRoot = path.join(
+  sourceRoot,
+  'subpackages',
+  'workflows',
+  'components',
+  'workflow-leave-panel',
+);
 
 function readPage(extension) {
   return readFileSync(path.join(pageRoot, `index.${extension}`), 'utf8');
@@ -31,8 +37,7 @@ describe('P7 native leave workflow page', () => {
     expect(workbench).toContain("{{workflowsEnabled ? '' : 'is-disabled'}}");
     expect(workbench).toContain('aria-disabled="{{!workflowsEnabled}}"');
     expect(workbenchController).toContain("requireClientCapability('workflows')");
-    expect(workbenchController).toContain('/subpackages/workflows/pages/leave/index?groupId=');
-    expect(workbench.match(/bindtap="handleUnavailable"/gu)).toHaveLength(3);
+    expect(workbenchController).toContain("openWorkflowWorkspace(this, 'leave')");
   });
 
   it('mirrors the frozen Web leave list, form, approval, conflict, and empty/error/loading states', () => {
@@ -63,7 +68,7 @@ describe('P7 native leave workflow page', () => {
   });
 
   it('uses the shared workflow client, operation snapshots, serial guards, and no write queue', () => {
-    const controller = readPage('ts');
+    const controller = readFileSync(path.join(pageRoot, 'controller.ts'), 'utf8');
 
     expect(controller).toContain('createRuntimeWorkflowClient');
     expect(controller).toContain('resolveWorkflowOperationAttempt');
@@ -79,10 +84,16 @@ describe('P7 native leave workflow page', () => {
   });
 
   it('keeps Skyline-safe 390/320 geometry and 44px native actions without CSS grid', () => {
-    const pageJson = JSON.parse(readPage('json'));
+    const pageJson = JSON.parse(
+      readFileSync(
+        path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'leave', 'index.json'),
+        'utf8',
+      ),
+    );
     const styles = readPage('wxss');
 
     expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
+    expect(JSON.parse(readPage('json')).usingComponents).toHaveProperty('workflow-picker');
     expect(styles).toContain('.leave-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
     expect(styles).toMatch(/\.bottom-nav-item\s*\{[^}]*min-height:\s*44px;/su);

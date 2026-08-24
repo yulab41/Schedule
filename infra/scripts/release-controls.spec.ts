@@ -8,14 +8,14 @@ async function readScript(name: string): Promise<string> {
 }
 
 describe('production Mini Program capability control', () => {
-  it('keeps P6 compatibility and adds only the full P7 workflow candidate', async () => {
+  it('keeps P6 compatibility and adds the P7 feedback candidate', async () => {
     const environment = await readFile(
       fileURLToPath(new URL('../../.env.production.example', import.meta.url)),
       'utf8',
     );
 
     expect(environment).toContain(
-      'MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79,0.1.0-p6.20260824.80,0.1.0-p6.20260824.81,0.1.0-p7.20260824.85',
+      'MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS=0.1.0-p6.20260824.78,0.1.0-p6.20260824.79,0.1.0-p6.20260824.80,0.1.0-p6.20260824.81,0.1.0-p7.20260824.85,0.1.0-p7.20260824.86',
     );
     expect(environment).toContain('MINIPROGRAM_LEGACY_CLIENT_VERSION=0.1.0-p6.20260824.78');
     expect(environment).toContain('MINIPROGRAM_CAPABILITY_WORKFLOWS_ENABLED=true');

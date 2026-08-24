@@ -5,7 +5,13 @@ import { describe, expect, it } from 'vitest';
 
 const appRoot = process.cwd();
 const sourceRoot = path.join(appRoot, 'src');
-const pageRoot = path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'duty');
+const pageRoot = path.join(
+  sourceRoot,
+  'subpackages',
+  'workflows',
+  'components',
+  'workflow-duty-panel',
+);
 
 function readPage(extension) {
   return readFileSync(path.join(pageRoot, `index.${extension}`), 'utf8');
@@ -26,11 +32,25 @@ describe('P7 native duty-adjustment workflow page', () => {
       'utf8',
     );
     const leaveTemplate = readFileSync(
-      path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'leave', 'index.wxml'),
+      path.join(
+        sourceRoot,
+        'subpackages',
+        'workflows',
+        'components',
+        'workflow-leave-panel',
+        'index.wxml',
+      ),
       'utf8',
     );
     const swapTemplate = readFileSync(
-      path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'swap', 'index.wxml'),
+      path.join(
+        sourceRoot,
+        'subpackages',
+        'workflows',
+        'components',
+        'workflow-swap-panel',
+        'index.wxml',
+      ),
       'utf8',
     );
 
@@ -42,7 +62,7 @@ describe('P7 native duty-adjustment workflow page', () => {
     expect(workbench).toContain('bindtap="handleDutyNav"');
     expect(workbench).toContain('data-label="加扣班"');
     expect(workbench.match(/\{\{workflowsEnabled \? '' : 'is-disabled'\}\}/gu)).toHaveLength(3);
-    expect(workbenchController).toContain('/subpackages/workflows/pages/duty/index?groupId=');
+    expect(workbenchController).toContain("openWorkflowWorkspace(this, 'duty')");
     expect(leaveTemplate).toContain('bindtap="handleDutyNav"');
     expect(swapTemplate).toContain('bindtap="handleDutyNav"');
   });
@@ -79,7 +99,7 @@ describe('P7 native duty-adjustment workflow page', () => {
   });
 
   it('keeps displayed previews, serial guards, operation snapshots, and no write queue', () => {
-    const controller = readPage('ts');
+    const controller = readFileSync(path.join(pageRoot, 'controller.ts'), 'utf8');
     for (const boundary of [
       'createRuntimeWorkflowClient',
       'createWorkbenchReadClient',
@@ -107,11 +127,16 @@ describe('P7 native duty-adjustment workflow page', () => {
   });
 
   it('uses Skyline-safe native 390/320 geometry without CSS grid', () => {
-    const pageJson = JSON.parse(readPage('json'));
+    const pageJson = JSON.parse(
+      readFileSync(
+        path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'duty', 'index.json'),
+        'utf8',
+      ),
+    );
     const styles = readPage('wxss');
 
     expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
-    expect(pageJson.usingComponents).toEqual({});
+    expect(JSON.parse(readPage('json')).usingComponents).toHaveProperty('workflow-picker');
     expect(styles).toContain('.duty-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
     expect(styles).toMatch(/\.bottom-nav-item\s*\{[^}]*min-height:\s*44px;/su);

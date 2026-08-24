@@ -1,5 +1,13 @@
 {
   "usingComponents": {
-    "calendar-month": "/components/calendar/calendar-month/index"
+    "calendar-month": "/components/calendar/calendar-month/index",
+    "workflow-duty-panel": "/subpackages/workflows/components/workflow-duty-panel/index",
+    "workflow-leave-panel": "/subpackages/workflows/components/workflow-leave-panel/index",
+    "workflow-swap-panel": "/subpackages/workflows/components/workflow-swap-panel/index"
+  },
+  "componentPlaceholder": {
+    "workflow-duty-panel": "view",
+    "workflow-leave-panel": "view",
+    "workflow-swap-panel": "view"
   }
 }

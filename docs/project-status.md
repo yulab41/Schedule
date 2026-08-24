@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 实体反馈修复候选 `.86`（待 checkpoint / 上传 / 部署）
+
+- 基线/范围：基线 `a3e6950e`，只处理用户实体反馈：请假/换班/加扣班保留工作台顶部与底部导航并在中央切换；三个模块改用 Web 式自绘选择器并标红周末班次；过去换班不显示撤销；联系方式默认群内可见、成员明确关闭才隐藏；群组管理移入“更多”，与手动排班、排班补录并列。不进入 P8、不提审/正式发布。
+- 引入点/测试先行：跳转和三个系统 picker 来自 `9fae3869`/`7d3b93c8`/`764276f1`，换班可撤销展示来自 `f65a57df`，手机号 opt-in 与左上群组设置来自 `59300957`；已逐调用点执行 `git log -S` / `git blame`。结构、选择器、过期撤销、默认可见和 `.86` 契约断言均先红后绿。
+- 实现：三工作流抽为 workflows 分包可复用 Panel，工作台以 `calendar/leave/swap/duty/more` 中央工作区承载，独立深链页继续兼容；更多中的群组管理对非访客可用，手动排班/排班补录仅群主和管理员可用。自绘 Sheet 覆盖月份、日期和普通选项，班次 option 携带 weekend tone。API hydrate 与 Mini controller 双层过滤过去换班撤销。手机号策略只把 `fingerprint=null + revoked_at!=null` 认作明确关闭，guest/跨群/成员自控边界不变；生产只读聚合确认冯钦有手机号且未明确关闭，无需数据迁移或单条修数。
+- 验证：Mini 全量 42 files/224，API 单测 5/5，真实 MySQL 日历+群组+换班 56/56，Mini/API typecheck、API build、任务 Prettier/ESLint、production verify、无凭据 CI dry-run、release-control 红绿、`smoke:check-core`、`git diff --check` 通过。production verify 为 2/2 Worklet、2,836,191 bytes、manifest `ab55e4a609f6369ae7940316c3db13e95c6d41467d97bb14938505cfbd4276c1`；只保留既有 600 格矩阵 best-effort 警告。
+- 版本/外部状态：新体验候选为 `0.1.0-p7.20260824.86`，保留 `.85` 兼容；checkpoint 识别消息 `fix(miniprogram): align p7 physical feedback`。当前尚未提交、推送、上传或部署；官方微信上传编译、生产备份/发布/allowlist 与实体 Android 视觉交互复核待完成。
+- 下一批/停止条件：完成本 checkpoint 的显式 staging、提交推送、`.86` 体验上传、生产备份部署与 allowlist 健康核验后暂停。仅等待用户用 `.86@<commit>` 复核本节五项反馈；未通过只修对应差异，通过后再恢复原 P7 后续门禁，不提前进入 P8。
+
 ## 2026-08-24 P7-F 完整工作流 RC（已开放体验，待实体 UI/交互复核）
 
 - 基线/范围：Git/origin/production均为`03079a18`、DB51；P7-C/D/E三原生页面已部署但production workflows仍false。本批不改工作流领域/API/DB/UI，只冻结最终候选版本、生产allowlist/capability契约、实体Android RC计划和回滚门禁；不进入P8、不提审/正式发布。

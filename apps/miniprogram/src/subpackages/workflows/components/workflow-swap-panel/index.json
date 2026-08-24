@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "styleIsolation": "shared",
+  "usingComponents": {
+    "workflow-picker": "/subpackages/workflows/components/workflow-picker/index"
+  }
+}

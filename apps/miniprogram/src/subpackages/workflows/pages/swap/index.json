@@ -3,5 +3,7 @@
   "disableScroll": true,
   "navigationStyle": "custom",
   "renderer": "skyline",
-  "usingComponents": {}
+  "usingComponents": {
+    "workflow-swap-panel": "/subpackages/workflows/components/workflow-swap-panel/index"
+  }
 }

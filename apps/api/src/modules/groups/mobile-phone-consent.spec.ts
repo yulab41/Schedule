@@ -13,6 +13,22 @@ const membershipId = '22222222-2222-4222-8222-222222222222';
 const mobilePhone = '13800008000';
 
 describe('mobile phone consent privacy primitives', () => {
+  it('treats a never-configured phone as visible and only an explicit revocation as hidden', () => {
+    const defaultVisible = {
+      mobilePhone: '13800138000',
+      mobilePhoneConsentFingerprint: null,
+      mobilePhoneConsentNoticeVersion: null,
+      mobilePhoneConsentRevokedAt: null,
+      mobilePhoneConsentedAt: null,
+    };
+    const explicitlyHidden = {
+      ...defaultVisible,
+      mobilePhoneConsentRevokedAt: new Date('2026-08-24T00:00:00.000Z'),
+    };
+
+    expect(isMobilePhoneConsentEffective(groupId, membershipId, defaultVisible)).toBe(true);
+    expect(isMobilePhoneConsentEffective(groupId, membershipId, explicitlyHidden)).toBe(false);
+  });
   it('binds fingerprints to the group, membership, and normalized current number', () => {
     const fingerprint = createMobilePhoneConsentFingerprint(groupId, membershipId, mobilePhone);
 
@@ -42,7 +58,7 @@ describe('mobile phone consent privacy primitives', () => {
     );
   });
 
-  it('requires the current fingerprint, notice, consent time, and no revocation', () => {
+  it('keeps legacy evidence visible and only hides an explicit fingerprint-clearing revocation', () => {
     const fingerprint = createMobilePhoneConsentFingerprint(groupId, membershipId, mobilePhone);
     const valid = {
       mobilePhone,
@@ -58,23 +74,30 @@ describe('mobile phone consent privacy primitives', () => {
         ...valid,
         mobilePhoneConsentedAt: null,
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isMobilePhoneConsentEffective(groupId, membershipId, {
         ...valid,
         mobilePhoneConsentNoticeVersion: 'v0',
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isMobilePhoneConsentEffective(groupId, membershipId, {
         ...valid,
         mobilePhoneConsentRevokedAt: new Date(),
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isMobilePhoneConsentEffective(groupId, membershipId, {
         ...valid,
         mobilePhone: '13900008000',
+      }),
+    ).toBe(true);
+    expect(
+      isMobilePhoneConsentEffective(groupId, membershipId, {
+        ...valid,
+        mobilePhoneConsentFingerprint: null,
+        mobilePhoneConsentRevokedAt: new Date(),
       }),
     ).toBe(false);
   });

@@ -75,7 +75,7 @@ describe('P4 native workbench', () => {
     const pageStyles = readSource('pages/workbench/index.wxss');
     const historyIcon = readSource('assets/icons/web-history.svg');
 
-    expect(template.match(/src="\/assets\/icons\/web-history\.svg"/g)).toHaveLength(2);
+    expect(template.match(/src="\/assets\/icons\/web-history\.svg"/g)).toHaveLength(3);
     expect(template).not.toContain('class="history-icon"');
     expect(pageStyles).toMatch(/\.event-history-icon\s*{[^}]*width:\s*16px;[^}]*height:\s*16px;/s);
     expect(pageStyles).not.toContain('.history-icon::before');
@@ -306,7 +306,8 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="phone-split-actions"');
     expect(template).toContain('class="event-action"');
     expect(template).toContain('当日暂无符合当前筛选条件的排班。');
-    expect(template).toContain('aria-disabled="true"');
+    expect(template).toContain('aria-disabled="{{!workflowsEnabled}}"');
+    expect(template).toContain('bindtap="handleMoreNav"');
     expect(template).toContain('nav-icon nav-leave');
     expect(template).toContain('nav-icon nav-swap');
     expect(template).toContain('nav-icon nav-adjustment');
@@ -341,7 +342,7 @@ describe('P4 native workbench', () => {
     expect(template).toContain('class="list-day-card');
     expect(template).toContain('class="list-duty-details"');
     expect(template).toContain('class="list-call-action"');
-    expect(template).toContain('>工作台</text>');
+    expect(template).toContain("activeWorkspace === 'calendar' ? '日历'");
     expect(template).toContain("filterDropdownDirection === 'up'");
     expect(pageStyles).toMatch(/\.view-controls\s*{[^}]*position:\s*relative;/s);
     expect(pageStyles).not.toMatch(/\.view-controls\s*{[^}]*position:\s*sticky;/s);

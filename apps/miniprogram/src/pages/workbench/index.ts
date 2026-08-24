@@ -46,6 +46,7 @@ import {
 
 type WorkbenchState = 'empty' | 'error' | 'loading' | 'offline' | 'ready';
 type WorkbenchView = 'list' | 'month' | 'week';
+type ActiveWorkspace = 'calendar' | 'duty' | 'leave' | 'more' | 'swap';
 type FilterField = '' | 'member' | 'role' | 'shift';
 type FilterDropdownDirection = 'down' | 'up';
 
@@ -79,10 +80,12 @@ interface MonthReadResult {
 }
 
 interface WorkbenchPageData {
+  readonly activeWorkspace: ActiveWorkspace;
   readonly activeFilterCount: number;
   readonly announcement: string;
   readonly buildLabel: string;
   readonly businessMonth: string;
+  readonly canManageScheduleTools: boolean;
   readonly canOpenGroupSettings: boolean;
   readonly currentGroupId: string;
   readonly currentGroupName: string;
@@ -172,10 +175,12 @@ const initialMonth = today.slice(0, 7);
 
 Page({
   data: {
+    activeWorkspace: 'calendar' as ActiveWorkspace,
     activeFilterCount: 0,
     announcement: '',
     buildLabel: buildInfo.buildLabel,
     businessMonth: initialMonth,
+    canManageScheduleTools: false,
     canOpenGroupSettings: false,
     currentGroupId: '',
     currentGroupName: '正在读取群组',
@@ -533,9 +538,12 @@ Page({
   },
 
   handleCalendarNav(this: WorkbenchPageInstance): void {
-    this.setData({ calendarNavAnimating: false, scrollTarget: '' }, () => {
-      this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-content-top' });
-    });
+    this.setData(
+      { activeWorkspace: 'calendar', calendarNavAnimating: false, scrollTarget: '' },
+      () => {
+        this.setData({ calendarNavAnimating: true, scrollTarget: 'workbench-content-top' });
+      },
+    );
   },
 
   handleWeekSwiperFinish(this: WorkbenchPageInstance, event: SwiperFinishEvent): void {
@@ -601,17 +609,32 @@ Page({
 
   handleLeaveNav(this: WorkbenchPageInstance): void {
     this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'leave' }));
-    void openLeaveWorkflow(this);
+    void openWorkflowWorkspace(this, 'leave');
   },
 
   handleSwapNav(this: WorkbenchPageInstance): void {
     this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'swap' }));
-    void openSwapWorkflow(this);
+    void openWorkflowWorkspace(this, 'swap');
   },
 
   handleDutyNav(this: WorkbenchPageInstance): void {
     this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'duty' }));
-    void openDutyWorkflow(this);
+    void openWorkflowWorkspace(this, 'duty');
+  },
+
+  handleMoreNav(this: WorkbenchPageInstance): void {
+    this.setData(
+      { activeWorkspace: 'more', filterOpen: false, groupOpen: false, navMotion: '' },
+      () => this.setData({ navMotion: 'more' }),
+    );
+  },
+
+  handleOpenManualSchedule(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, '/subpackages/scheduling/pages/manual/index');
+  },
+
+  handleOpenBackfill(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, '/subpackages/scheduling/pages/backfill/index');
   },
 
   handleNotification(this: WorkbenchPageInstance): void {
@@ -669,6 +692,7 @@ async function loadWorkbench(
     if (!isCurrentRequest(page, requestSerial)) return;
     if (groups.length === 0) {
       page.setData({
+        canManageScheduleTools: false,
         canOpenGroupSettings: false,
         currentGroupId: '',
         currentGroupName: '暂无可查看的群组',
@@ -690,7 +714,12 @@ async function loadWorkbench(
       });
       writeStoredWorkbenchGroupId(ownerId, selectedGroup.id);
     }
-    page.setData({ canOpenGroupSettings: selectedGroup.role !== 'guest', groups });
+    page.setData({
+      canManageScheduleTools:
+        selectedGroup.role === 'owner' || selectedGroup.role === 'administrator',
+      canOpenGroupSettings: selectedGroup.role !== 'guest',
+      groups,
+    });
 
     const requestedMonths = getRequestedMonths(
       page.data.viewMode,
@@ -811,84 +840,39 @@ function setWorkbenchCapabilityError(page: WorkbenchPageInstance, error: unknown
   });
 }
 
-async function openLeaveWorkflow(page: WorkbenchPageInstance): Promise<void> {
-  try {
-    await requireClientCapability('workflows');
-    syncWorkflowsCapability(page);
-    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
-    if (group === undefined || group.role === 'guest') {
-      page.setData({ announcement: '当前群组不能提交或审批请假。' });
-      return;
-    }
-    const groupId = encodeURIComponent(group.id);
-    wx.navigateTo({
-      fail: () => page.setData({ announcement: '请假页面暂时无法打开，请稍后重试。' }),
-      url: `/subpackages/workflows/pages/leave/index?groupId=${groupId}`,
-    });
-  } catch (error) {
-    syncWorkflowsCapability(page);
-    page.setData({
-      announcement:
-        error instanceof ClientCapabilityDisabledError
-          ? error.message
-          : '请假页面暂时无法打开，请稍后重试。',
-    });
-  }
-}
-
 function syncWorkflowsCapability(page: WorkbenchPageInstance): void {
   const capability = getClientCapabilitySnapshot();
   page.setData({ workflowsEnabled: capability.global && capability.workflows });
 }
 
-async function openSwapWorkflow(page: WorkbenchPageInstance): Promise<void> {
+async function openWorkflowWorkspace(
+  page: WorkbenchPageInstance,
+  workspace: 'duty' | 'leave' | 'swap',
+): Promise<void> {
   try {
     await requireClientCapability('workflows');
     syncWorkflowsCapability(page);
     const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
     if (group === undefined || group.role === 'guest') {
-      page.setData({ announcement: '当前群组不能发起或处理换班。' });
+      page.setData({ announcement: '当前群组不能使用工作流功能。' });
       return;
     }
-    const groupId = encodeURIComponent(group.id);
-    wx.navigateTo({
-      fail: () => page.setData({ announcement: '换班页面暂时无法打开，请稍后重试。' }),
-      url: `/subpackages/workflows/pages/swap/index?groupId=${groupId}`,
-    });
+    page.setData({ activeWorkspace: workspace, filterOpen: false, groupOpen: false });
   } catch (error) {
     syncWorkflowsCapability(page);
     page.setData({
       announcement:
         error instanceof ClientCapabilityDisabledError
           ? error.message
-          : '换班页面暂时无法打开，请稍后重试。',
+          : '工作流页面暂时无法打开，请稍后重试。',
     });
   }
 }
 
-async function openDutyWorkflow(page: WorkbenchPageInstance): Promise<void> {
-  try {
-    await requireClientCapability('workflows');
-    syncWorkflowsCapability(page);
-    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
-    if (group === undefined || group.role === 'guest') {
-      page.setData({ announcement: '当前群组不能发起或处理加扣班。' });
-      return;
-    }
-    const groupId = encodeURIComponent(group.id);
-    wx.navigateTo({
-      fail: () => page.setData({ announcement: '加扣班页面暂时无法打开，请稍后重试。' }),
-      url: `/subpackages/workflows/pages/duty/index?groupId=${groupId}`,
-    });
-  } catch (error) {
-    syncWorkflowsCapability(page);
-    page.setData({
-      announcement:
-        error instanceof ClientCapabilityDisabledError
-          ? error.message
-          : '加扣班页面暂时无法打开，请稍后重试。',
-    });
-  }
+function navigateGroupTool(page: WorkbenchPageInstance, route: string): void {
+  if (!page.data.canManageScheduleTools || page.data.currentGroupId === '') return;
+  const groupId = encodeURIComponent(page.data.currentGroupId);
+  wx.navigateTo({ url: `${route}?groupId=${groupId}` });
 }
 
 async function readMonth(

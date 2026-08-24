@@ -36,23 +36,12 @@
               >✓</text
             >
           </view>
-          <view
-            wx:if="{{canOpenGroupSettings}}"
-            class="group-settings-option"
-            hover-class="is-pressed"
-            aria-role="button"
-            aria-label="打开当前群组设置"
-            bindtap="handleOpenGroupSettings"
-          >
-            <view class="group-option-copy">
-              <text>群组设置</text>
-              <text>管理本人在当前群组的共享身份</text>
-            </view>
-            <image src="/assets/icons/web-chevron-right.svg" mode="aspectFit" aria-hidden="true" />
-          </view>
         </view>
       </view>
-      <text class="shell-page-title">工作台</text>
+      <text class="shell-page-title"
+        >{{activeWorkspace === 'calendar' ? '日历' : activeWorkspace === 'leave' ? '请假' :
+        activeWorkspace === 'swap' ? '换班' : activeWorkspace === 'duty' ? '加扣班' : '更多'}}</text
+      >
     </view>
     <view class="shell-actions" style="{{shellActionsStyle}}">
       <view
@@ -81,6 +70,7 @@
   </view>
 
   <scroll-view
+    wx:if="{{activeWorkspace === 'calendar'}}"
     class="workbench-scroll {{viewMode === 'list' ? 'is-list-mode' : ''}}"
     style="padding-top:{{shellHeaderHeight}}px"
     scroll-y="{{viewMode !== 'list'}}"
@@ -665,7 +655,76 @@
   </scroll-view>
 
   <view
-    wx:if="{{filterOpen}}"
+    wx:elif="{{activeWorkspace === 'leave'}}"
+    class="embedded-workspace"
+    style="padding-top:{{shellHeaderHeight}}px"
+  >
+    <workflow-leave-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-leave-panel>
+  </view>
+  <view
+    wx:elif="{{activeWorkspace === 'swap'}}"
+    class="embedded-workspace"
+    style="padding-top:{{shellHeaderHeight}}px"
+  >
+    <workflow-swap-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-swap-panel>
+  </view>
+  <view
+    wx:elif="{{activeWorkspace === 'duty'}}"
+    class="embedded-workspace"
+    style="padding-top:{{shellHeaderHeight}}px"
+  >
+    <workflow-duty-panel group-id="{{currentGroupId}}" embedded="{{true}}"></workflow-duty-panel>
+  </view>
+  <scroll-view
+    wx:elif="{{activeWorkspace === 'more'}}"
+    class="more-workspace"
+    style="padding-top:{{shellHeaderHeight}}px"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view class="more-workspace-content">
+      <view class="more-heading">
+        <text>更多工具</text>
+        <text>管理群组与排班编辑工具。</text>
+      </view>
+      <view class="more-card">
+        <view
+          class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canOpenGroupSettings}}"
+          bindtap="handleOpenGroupSettings"
+        >
+          <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+          <view><text>群组管理</text><text>管理当前群组及联系方式公开设置</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
+          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canManageScheduleTools}}"
+          bindtap="handleOpenManualSchedule"
+        >
+          <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+          <view><text>手动排班</text><text>编辑、预览并发布排班</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
+          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canManageScheduleTools}}"
+          bindtap="handleOpenBackfill"
+        >
+          <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+          <view><text>排班补录</text><text>补录过去日期的实际班次</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view
+    wx:if="{{activeWorkspace === 'calendar' && filterOpen}}"
     class="filter-sheet-backdrop"
     aria-label="关闭筛选"
     bindtap="handleFilterClose"
@@ -815,10 +874,10 @@
 
   <view class="bottom-nav" aria-label="工作台导航">
     <view
-      class="bottom-nav-item is-active"
+      class="bottom-nav-item {{activeWorkspace === 'calendar' ? 'is-active' : ''}}"
       hover-class="is-pressed"
       aria-role="button"
-      aria-current="page"
+      aria-current="{{activeWorkspace === 'calendar' ? 'page' : ''}}"
       bindtap="handleCalendarNav"
       ><view class="nav-icon nav-calendar is-looping {{calendarNavAnimating ? 'is-animating' : ''}}"
         ><image class="nav-icon-image" src="/assets/icons/web-calendar.svg" mode="aspectFit" />
@@ -829,7 +888,7 @@
       ><text>日历</text></view
     >
     <view
-      class="bottom-nav-item {{workflowsEnabled ? '' : 'is-disabled'}}"
+      class="bottom-nav-item {{activeWorkspace === 'leave' ? 'is-active' : ''}} {{workflowsEnabled ? '' : 'is-disabled'}}"
       data-label="请假"
       data-motion="leave"
       aria-disabled="{{!workflowsEnabled}}"
@@ -844,7 +903,7 @@
       ><text>请假</text></view
     >
     <view
-      class="bottom-nav-item {{workflowsEnabled ? '' : 'is-disabled'}}"
+      class="bottom-nav-item {{activeWorkspace === 'swap' ? 'is-active' : ''}} {{workflowsEnabled ? '' : 'is-disabled'}}"
       data-label="换班"
       data-motion="swap"
       aria-disabled="{{!workflowsEnabled}}"
@@ -862,7 +921,7 @@
       ><text>换班</text></view
     >
     <view
-      class="bottom-nav-item {{workflowsEnabled ? '' : 'is-disabled'}}"
+      class="bottom-nav-item {{activeWorkspace === 'duty' ? 'is-active' : ''}} {{workflowsEnabled ? '' : 'is-disabled'}}"
       data-label="加扣班"
       data-motion="duty"
       aria-disabled="{{!workflowsEnabled}}"
@@ -873,12 +932,12 @@
       ><text>加扣班</text></view
     >
     <view
-      class="bottom-nav-item is-disabled"
+      class="bottom-nav-item {{activeWorkspace === 'more' ? 'is-active' : ''}}"
       data-label="更多"
       data-motion="more"
-      aria-disabled="true"
+      aria-disabled="false"
       aria-role="button"
-      bindtap="handleUnavailable"
+      bindtap="handleMoreNav"
       ><view class="nav-icon nav-more {{navMotion === 'more' ? 'is-animating' : ''}}"
         ><image
           class="nav-icon-image nav-icon-actor"

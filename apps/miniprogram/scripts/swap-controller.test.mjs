@@ -39,7 +39,9 @@ describe('P7 native swap workflow controller', () => {
       setStorageSync: vi.fn(),
       showModal: vi.fn(({ success }) => success?.({ cancel: false, confirm: true })),
     });
-    await import('../src/subpackages/workflows/pages/swap/index.ts');
+    const controller =
+      await import('../src/subpackages/workflows/components/workflow-swap-panel/controller.ts');
+    definition = controller.createSwapPanelControllerDefinition(false);
     await enableTestClientCapabilities();
   });
 

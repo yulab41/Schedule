@@ -35,7 +35,9 @@ describe('P7 native leave workflow controller', () => {
       setStorageSync: vi.fn(),
       showModal: vi.fn(({ success }) => success({ confirm: true })),
     });
-    await import('../src/subpackages/workflows/pages/leave/index.ts');
+    const controller =
+      await import('../src/subpackages/workflows/components/workflow-leave-panel/controller.ts');
+    definition = controller.createLeavePanelControllerDefinition(false);
     await enableTestClientCapabilities();
   });
 

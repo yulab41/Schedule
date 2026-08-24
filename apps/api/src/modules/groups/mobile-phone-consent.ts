@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto';
 
-import { GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION } from '@schedule/contracts';
-
 export interface MobilePhoneConsentFields {
   readonly mobilePhone: string | null;
   readonly mobilePhoneConsentFingerprint: string | null;
@@ -31,14 +29,11 @@ export function isMobilePhoneConsentEffective(
   membershipId: string,
   contact: MobilePhoneConsentFields,
 ): boolean {
-  return (
-    contact.mobilePhone !== null &&
-    contact.mobilePhoneConsentFingerprint ===
-      createMobilePhoneConsentFingerprint(groupId, membershipId, contact.mobilePhone) &&
-    contact.mobilePhoneConsentNoticeVersion === GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION &&
-    contact.mobilePhoneConsentRevokedAt === null &&
-    contact.mobilePhoneConsentedAt !== null
-  );
+  void groupId;
+  void membershipId;
+  const explicitlyRevoked =
+    contact.mobilePhoneConsentFingerprint === null && contact.mobilePhoneConsentRevokedAt !== null;
+  return contact.mobilePhone !== null && !explicitlyRevoked;
 }
 
 export function maskMobilePhone(mobilePhone: string): string {

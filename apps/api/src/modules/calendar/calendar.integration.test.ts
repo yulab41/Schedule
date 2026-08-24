@@ -219,7 +219,7 @@ describeWithDatabase('current month calendar read model', () => {
     });
   });
 
-  it('requires member consent for mobile phones and never exposes them to guest calendars', async () => {
+  it('shows member mobile phones by default, supports explicit control, and never exposes them to guests', async () => {
     await savePublished('2026-08');
     const saved = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
@@ -245,6 +245,7 @@ describeWithDatabase('current month calendar read model', () => {
     ).toEqual({
       isConfirmed: true,
       membershipId: candidateMembershipId,
+      mobilePhone: '13900139000',
       realName: 'Candidate Doctor',
       shortPhone: '67890',
     });

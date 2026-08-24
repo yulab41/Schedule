@@ -1065,3 +1065,11 @@
 - 运行/浏览器验证：`pnpm smoke:browser` 已运行，在第 1/6 步访问 `http://localhost:5173` 因本机无 Web 服务以 `ERR_CONNECTION_REFUSED` 停止；`pnpm smoke:check-core` 首次按门禁提示需先记录本条浏览器结果，记录后待复核。Web typecheck/build、Storybook build、任务文件 Prettier/ESLint、定向 Vitest 通过；Storybook 390×844 需复核“不再提示”文案、无右上角按钮及取消/永久偏好交互。
 - 正式发布：代码 checkpoint `fc05236` 已推送；数据库备份 archive `cd80262e-341e-4b41-8aef-10f3b4cd7c5d`（50 表、157702 行、70981852 bytes，SHA-256 `7ff5252339a3072defdf91bfaccb1eed01f501d1d6aa8afd934c4470a5572e95`）后，release `fc052367239cf4c67430c9d61ddc993bb33974d6` 已部署；预热首次 502 后恢复，`ecs-verify.sh`、正式首页/API 200，线上 bundle 只读命中“不再提示”且不含旧文案/关闭类名。
 - 当前状态：已完成（含 Storybook、代码发布、生产备份、ECS 验证与正式 bundle 只读复核）→ 待状态 checkpoint 收口；其他用户自有小程序/Storybook/runtime/src 改动未纳入。
+
+## 2026-08-24 P7 实体反馈：工作台内嵌、Web 式选择器、撤销与联系方式默认值
+
+- 引入点：`git log -S` / `git blame` 确认工作台跳转请假、换班、加扣班分别由 `9fae3869`、`7d3b93c8`、`764276f1` 引入；三个原生页中的系统 `<picker>` 同样来自这三次切片；完成换班的 `isRevocable` 展示由 `f65a57df` 引入且只审计排班链状态；手机号显式 opt-in 由 `59300957` 引入；群组设置入口也由 `59300957` 放入左上群组菜单。
+- 测试先行：新增工作台常驻壳、左上仅切群组、更多菜单、自绘选择器/周末红字、过期换班不可撤销、手机号默认可见/明确关闭才隐藏及 `.86` 发布契约断言，均在旧实现先红；修复后 Mini 42 files/224、API 手机号/撤销单测 5/5、真实 MySQL 日历/群组/换班 56/56 通过。
+- 实现与语义：工作台改为 `calendar/leave/swap/duty/more` 中央工作区，顶部和底部导航不卸载；三页业务控制器抽为分包组件，保留独立深链页兼容。“更多”内群组管理对非访客可用，手动排班/排班补录继续仅群主和管理员可用，与 Web 权限一致。全部工作流系统 `<picker>` 替换为自绘底部 Sheet，月份/日期使用内嵌滚轮，普通选择使用自绘列表，班次周末日期标红。服务端与 Mini 同时禁止过去业务日的完成换班显示/执行撤销。联系方式改为有手机号即默认群内可见，只有成员明确关闭形成的 `fingerprint=null + revoked_at!=null` 才隐藏，访客/跨群边界不变；生产只读聚合确认冯钦 1 条有效记录有手机号且明确关闭计数为 0，未读取号码、未写数据。
+- 语义等价审计：工作流 API、危险写 operation snapshot、错误/重试、独立深链页面保持原控制器行为；中央切换只改变挂载位置。联系方式是用户明确要求的独立策略变化，不伪装为重构；管理员仍不能代替成员关闭/开启，主动关闭跨手机号变更继续保留。过期撤销增加服务端只读呈现门禁与 Mini 防御门禁，真实 revoke API 原有拒绝保持不变。
+- 运行/浏览器验证：Mini typecheck、production verify（2/2 Worklet、2,836,191 bytes、manifest `ab55e4a609f6369ae7940316c3db13e95c6d41467d97bb14938505cfbd4276c1`）、无凭据 CI dry-run、任务 Prettier/ESLint、`git diff --check` 与 `node scripts/smoke-browser.mjs --check-core` 通过；未触及 Web 核心链路，无需 Web 浏览器冒烟。跨分包异步组件仍需微信官方上传编译和实体 Android 复核，状态为已实现待浏览器复核。

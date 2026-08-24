@@ -1,32 +1,5 @@
-@import '../swap/index.wxss';
-
-.duty-page.is-compact {
-  letter-spacing: 0;
-}
-
-.duty-page .page-content {
-  padding-bottom: calc(64px + env(safe-area-inset-bottom));
-}
-
-.web-button {
-  min-height: 44px;
-}
-
-.bottom-nav-item {
-  min-height: 44px;
-}
-
-.duty-heading {
-  display: flex;
-  min-width: 0;
-}
-
-.duty-page.is-compact .heading-actions,
-.duty-page.is-compact .form-actions {
-  flex-direction: column;
-}
-
-.duty-page.is-compact .heading-actions .web-button,
-.duty-page.is-compact .form-actions .web-button {
+page {
   width: 100%;
+  height: 100%;
+  overflow: hidden;
 }

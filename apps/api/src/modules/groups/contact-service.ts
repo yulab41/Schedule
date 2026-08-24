@@ -218,8 +218,22 @@ export class ContactService {
                 targetType: 'group_member_contact',
               });
             }
-          } else if (contact !== undefined && contact.mobilePhoneConsentFingerprint !== null) {
-            const revokedFingerprint = contact.mobilePhoneConsentFingerprint;
+          } else if (
+            contact !== undefined &&
+            !(
+              contact.mobilePhoneConsentFingerprint === null &&
+              contact.mobilePhoneConsentRevokedAt !== null
+            )
+          ) {
+            const revokedFingerprint =
+              contact.mobilePhoneConsentFingerprint ??
+              (contact.mobilePhone === null
+                ? null
+                : createMobilePhoneConsentFingerprint(
+                    authorization.group.id,
+                    authorization.membership.id,
+                    contact.mobilePhone,
+                  ));
             const revokedNoticeVersion = contact.mobilePhoneConsentNoticeVersion;
             await transaction
               .update(groupMemberContacts)
@@ -237,7 +251,7 @@ export class ContactService {
               groupId: authorization.group.id,
               metadata: {
                 contactVersion: currentVersion + 1,
-                fingerprint: revokedFingerprint,
+                fingerprint: revokedFingerprint ?? 'missing-phone',
                 noticeVersion: revokedNoticeVersion ?? GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION,
               },
               operationId,
@@ -517,12 +531,10 @@ function toMobilePhoneConsent(
   const state =
     mobilePhone === null
       ? 'missing-phone'
-      : contact?.mobilePhoneConsentFingerprint === null ||
-          contact?.mobilePhoneConsentFingerprint === undefined
+      : contact?.mobilePhoneConsentFingerprint === null &&
+          contact.mobilePhoneConsentRevokedAt !== null
         ? 'not-consented'
-        : isMobilePhoneConsentEffective(groupId, membershipId, contact)
-          ? 'consented'
-          : 'stale';
+        : 'consented';
   return {
     ...(contact?.mobilePhoneConsentedAt === null || contact?.mobilePhoneConsentedAt === undefined
       ? {}

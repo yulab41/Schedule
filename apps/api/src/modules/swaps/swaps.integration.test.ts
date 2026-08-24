@@ -636,6 +636,14 @@ describeWithDatabase('member shift swaps', () => {
           WHERE id = ${context.assignments.bSep2.id}`,
     );
 
+    const approvals = (
+      await listSwapApprovals('owner-token', context.groupId)
+    ).json() as SwapRequest[];
+    expect(approvals.find((request) => request.id === createdBody.id)).toMatchObject({
+      isRevocable: false,
+      revocationBlockedReason: expect.stringContaining('已过日期'),
+    });
+
     const blocked = await revokeSwap('owner-token', context.groupId, createdBody.id, {
       expectedVersion: createdBody.version,
       operationId: randomUUID(),

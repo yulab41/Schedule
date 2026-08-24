@@ -1,0 +1,124 @@
+@import '../workflow-leave-panel/index.wxss';
+
+.swap-page.is-compact {
+  letter-spacing: 0;
+}
+
+.swap-page .page-content {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+
+.swap-page.is-embedded .page-content {
+  padding-bottom: 20px;
+}
+
+.web-button {
+  min-height: 44px;
+}
+
+.bottom-nav-item {
+  min-height: 44px;
+}
+
+.swap-heading,
+.heading-actions,
+.settings-row,
+.setting-card,
+.setting-copy,
+.form-actions,
+.preview-card {
+  display: flex;
+  min-width: 0;
+}
+
+.heading-actions,
+.settings-row,
+.form-actions {
+  gap: var(--ui-spacing-xs);
+}
+
+.heading-actions {
+  flex-wrap: wrap;
+}
+
+.heading-actions .web-button,
+.form-actions .web-button {
+  min-width: 120px;
+  flex: 1;
+}
+
+.settings-row {
+  flex-direction: column;
+}
+
+.setting-card {
+  min-height: 68px;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-spacing-md);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-large);
+}
+
+.setting-copy,
+.preview-card {
+  flex-direction: column;
+  gap: 3px;
+}
+
+.setting-copy {
+  flex: 1;
+}
+
+.setting-copy > text:first-child,
+.preview-title {
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.setting-copy > text:last-child {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.4;
+}
+
+.status-reason {
+  padding: 8px 10px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.4;
+}
+
+.form-actions {
+  align-items: stretch;
+}
+
+.preview-card {
+  padding: 12px 14px;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border: 1px solid var(--ui-color-primary-border);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.revoke-sheet {
+  height: auto;
+  max-height: 62%;
+}
+
+.swap-page.is-compact .heading-actions,
+.swap-page.is-compact .form-actions {
+  flex-direction: column;
+}
+
+.swap-page.is-compact .heading-actions .web-button,
+.swap-page.is-compact .form-actions .web-button {
+  width: 100%;
+}
