@@ -25,6 +25,21 @@ export {
   type GroupMobilePhoneConsentSubmission,
 } from './mobile-phone-consent-client.js';
 export {
+  createOrganizationReadClient,
+  dissolvedGroupListDecoder,
+  groupCatalogListDecoder,
+  groupMemberContactListDecoder,
+  groupMemberListDecoder,
+  groupSummaryListDecoder,
+  membershipClaimLookupResponseDecoder,
+  membershipClaimRequestListDecoder,
+  organizationReadEndpoints,
+  platformAdminUserAccountListDecoder,
+  resolveInviteResponseDecoder,
+  schedulingConfigReadDecoder,
+  type OrganizationReadClient,
+} from './organization-read-client.js';
+export {
   ClientCoreError,
   createAuthenticationRequiredError,
   createHttpClientError,

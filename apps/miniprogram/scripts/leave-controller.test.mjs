@@ -66,12 +66,23 @@ describe('P7 native leave workflow controller', () => {
   });
 
   it('keeps date trigger labels aligned with Web weekday formatting', async () => {
-    const instance = await loadReadyInstance();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-08-23T18:00:00.000Z'));
+      vi.resetModules();
+      controllerModule =
+        await import('../src/subpackages/workflows/components/workflow-leave-panel/controller.ts');
+      definition = controllerModule.createLeavePanelControllerDefinition(false);
+      await enableTestClientCapabilities();
+      const instance = await loadReadyInstance();
 
-    definition.handleStartDateChange.call(instance, { detail: { value: '2026-08-24' } });
+      definition.handleStartDateChange.call(instance, { detail: { value: '2026-08-24' } });
 
-    expect(instance.data.startDateDisplay).toBe('2026-08-24 周一');
-    expect(instance.data.endDateDisplay).toMatch(/^\d{4}-\d{2}-\d{2} 周[一二三四五六日]$/u);
+      expect(instance.data.startDateDisplay).toBe('2026-08-24 周一');
+      expect(instance.data.endDateDisplay).toMatch(/^\d{4}-\d{2}-\d{2} 周[一二三四五六日]$/u);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders affected shifts with the same neutral list and uncovered guidance as Web', async () => {

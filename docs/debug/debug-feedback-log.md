@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-A1 组织管理共享只读边界
+
+- 范围/引入点：只建立群组摘要/目录、成员/预设、联系方式、认领请求/查找、排班配置、平台账号和邀请预览的共享 endpoint/decoder；Web 既有只读调用先委托，Mini 工作台移除 groups/members 手写结构校验。群组/成员=`8e42afb8`，配置=`04c7da36`，邀请=`a50c4fce`，平台账号=`02a508dd`，Mini workbench=`733e3af6`；均已执行 `git log -S`/`git blame`。不接入写 UI，不打开 organization capability。
+- 红绿：新增 client-core/Web/Mini 三组契约在旧实现分别因模块不存在、Web 未委托和 Mini 仍手写解码而失败；实现后 3 files/8 tests 首轮通过，补充 legacy rulesVersion 兼容后 client-core 5 项通过。Web 全量 101 files/600 tests、Mini 45 files/254 tests 通过；Mini 星期格式测试在系统日期跨至 8/25 后暴露既有硬编码日期，现只在该测试冻结 Date 并重载模块，不改生产日期守卫。
+- 语义审计：Web 仍通过原 shared transport 和 `requestWithOnline`，保持 `fetch.call(globalThis)` receiver、Bearer/Content-Type、离线只读、HTTP/无效响应和每方法一次调用；缺省 `rulesVersion` 继续按旧 Web 行为接受。Mini 复用原 `createWxJsonTransport`，groups/members 仍要求 core，401 单飞恢复、错误拒绝和请求次数不变；缓存仍删除 groupCode/手机号。platform/dissolved/claim lookup 继续要求 organization，邀请 resolve 保持 core；无写请求、重试或存储新增。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次触发 pnpm 非 TTY 依赖目录重装询问，已拒绝且未改依赖；127.0.0.1:4173 + 本地 dev auth 下运行 `pnpm --config.verifyDepsBeforeRun=false smoke:browser`，登录、管理员、成员、vkey 访客和访问记录全流程通过且无浏览器错误。`pnpm --config.verifyDepsBeforeRun=false smoke:check-core` 找到本节记录并通过；临时 API/Web 已关闭，4173/3000 无监听。
+
 ## 2026-08-24 P7 `.94` 请假/选择器/日历实体反馈修复
 
 - 范围：Mini 请假 Sheet 改为一行日期、44px 原因框、Web 同款灰色空态与受影响班次列表；日期 picker 增加三面板横滑、当天定位按钮及按压/旋转动效；selector 测量完成前隐藏，消除先下后上的闪现；年月吸附不再预跳字体状态，并以 `scrollend` 完成、320ms 兜底；周视图姓名补 semibold。Web/Mini/API 请假最早日期统一按中国标准时间自然日，不复用 08:00 业务日。

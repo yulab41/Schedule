@@ -10,12 +10,17 @@ import {
   appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
   clientCapabilityResponseSchema,
+  dissolvedGroupListSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
   dutyAdjustmentRequestSchema,
   groupDutyAdjustmentSettingsSchema,
+  groupCatalogListSchema,
   groupLeaveReflowStrategySchema,
+  groupMemberContactListSchema,
+  groupMemberListSchema,
   groupMobilePhoneConsentSchema,
+  groupSummaryListSchema,
   groupSwapSettingsSchema,
   holidayReadModelSchema,
   leaveAffectedShiftListSchema,
@@ -27,17 +32,21 @@ import {
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
   memberSwapSettingsSchema,
+  membershipClaimLookupResponseSchema,
+  membershipClaimRequestListSchema,
   pastScheduleBackfillBatchResultSchema,
   pastScheduleBackfillRecordListSchema,
   pastSchedulePeriodListSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   rejectedLeaveRequestResultSchema,
+  resolveInviteResponseSchema,
   scheduleChangeImpactPreviewSchema,
   scheduleGenerationPreviewSchema,
   schedulePeriodHistoryItemListSchema,
   schedulePeriodMutationResultSchema,
   schedulingConfigSchema,
+  platformAdminUserAccountListSchema,
   swapPreviewSchema,
   swapRequestListSchema,
   swapRequestSchema,
@@ -74,6 +83,10 @@ const source = await format(
         z.toJSONSchema(clientCapabilityResponseSchema),
         'clientCapabilityResponse',
       ),
+      dissolvedGroupList: sanitizeJsonSchema(
+        z.toJSONSchema(dissolvedGroupListSchema),
+        'dissolvedGroupList',
+      ),
       dutyAdjustmentPreview: sanitizeJsonSchema(
         z.toJSONSchema(dutyAdjustmentPreviewSchema),
         'dutyAdjustmentPreview',
@@ -90,6 +103,10 @@ const source = await format(
         z.toJSONSchema(groupDutyAdjustmentSettingsSchema),
         'groupDutyAdjustmentSettings',
       ),
+      groupCatalogList: sanitizeJsonSchema(
+        z.toJSONSchema(groupCatalogListSchema),
+        'groupCatalogList',
+      ),
       groupLeaveReflowStrategy: sanitizeJsonSchema(
         z.toJSONSchema(groupLeaveReflowStrategySchema),
         'groupLeaveReflowStrategy',
@@ -97,6 +114,15 @@ const source = await format(
       groupMobilePhoneConsent: sanitizeJsonSchema(
         z.toJSONSchema(groupMobilePhoneConsentSchema),
         'groupMobilePhoneConsent',
+      ),
+      groupMemberContactList: sanitizeJsonSchema(
+        z.toJSONSchema(groupMemberContactListSchema),
+        'groupMemberContactList',
+      ),
+      groupMemberList: sanitizeJsonSchema(z.toJSONSchema(groupMemberListSchema), 'groupMemberList'),
+      groupSummaryList: sanitizeJsonSchema(
+        z.toJSONSchema(groupSummaryListSchema),
+        'groupSummaryList',
       ),
       groupSwapSettings: sanitizeJsonSchema(
         z.toJSONSchema(groupSwapSettingsSchema),
@@ -139,6 +165,14 @@ const source = await format(
         z.toJSONSchema(memberSwapSettingsSchema),
         'memberSwapSettings',
       ),
+      membershipClaimLookupResponse: sanitizeJsonSchema(
+        z.toJSONSchema(membershipClaimLookupResponseSchema),
+        'membershipClaimLookupResponse',
+      ),
+      membershipClaimRequestList: sanitizeJsonSchema(
+        z.toJSONSchema(membershipClaimRequestListSchema),
+        'membershipClaimRequestList',
+      ),
       pastScheduleBackfillBatchResult: sanitizeJsonSchema(
         z.toJSONSchema(pastScheduleBackfillBatchResultSchema),
         'pastScheduleBackfillBatchResult',
@@ -159,9 +193,17 @@ const source = await format(
         z.toJSONSchema(publishSchedulePeriodResultSchema),
         'publishSchedulePeriodResult',
       ),
+      platformAdminUserAccountList: sanitizeJsonSchema(
+        z.toJSONSchema(platformAdminUserAccountListSchema),
+        'platformAdminUserAccountList',
+      ),
       rejectedLeaveRequestResult: sanitizeJsonSchema(
         z.toJSONSchema(rejectedLeaveRequestResultSchema),
         'rejectedLeaveRequestResult',
+      ),
+      resolveInviteResponse: sanitizeJsonSchema(
+        z.toJSONSchema(resolveInviteResponseSchema),
+        'resolveInviteResponse',
       ),
       scheduleChangeImpactPreview: sanitizeJsonSchema(
         z.toJSONSchema(scheduleChangeImpactPreviewSchema),

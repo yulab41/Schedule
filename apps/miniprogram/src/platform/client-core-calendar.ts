@@ -8,14 +8,18 @@ import {
   createInvalidResponseError,
   createManualScheduleClient,
   createNetworkError,
+  createOrganizationReadClient,
   createPastScheduleClient,
   createSchedulePublicationClient,
   createWorkflowClient,
   holidayReadModelDecoder,
+  groupMemberListDecoder,
+  groupSummaryListDecoder,
   type CalendarReadClient,
   type ClientTransport,
   type GroupMobilePhoneConsentClient,
   type ManualScheduleClient,
+  type OrganizationReadClient,
   type PastScheduleClient,
   type SchedulePublicationClient,
   type WorkflowClient,
@@ -55,6 +59,16 @@ export function decodeCalendarReadPayload(value: unknown): unknown | undefined {
 
 export function decodeHolidayReadPayload(value: unknown): unknown | undefined {
   const decoded = holidayReadModelDecoder.safeDecode(value);
+  return decoded.success ? decoded.data : undefined;
+}
+
+export function decodeOrganizationGroups(value: unknown): unknown | undefined {
+  const decoded = groupSummaryListDecoder.safeDecode(value);
+  return decoded.success ? decoded.data : undefined;
+}
+
+export function decodeOrganizationGroupMembers(value: unknown): unknown | undefined {
+  const decoded = groupMemberListDecoder.safeDecode(value);
   return decoded.success ? decoded.data : undefined;
 }
 
@@ -202,6 +216,15 @@ export function createRuntimeCalendarReadClient(
   return createCalendarReadClient(createRuntimeWxJsonTransport(getAccessToken, authentication));
 }
 
+export function createRuntimeOrganizationReadClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): OrganizationReadClient {
+  return createOrganizationReadClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, resolveOrganizationReadCapability),
+  );
+}
+
 export function createRuntimeWorkflowClient(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
@@ -226,6 +249,23 @@ function resolvePhoneConsentCapability(
     return 'bypass';
   }
   return 'core';
+}
+
+function resolveOrganizationReadCapability(
+  endpoint: ClientEndpoint<unknown, unknown>,
+): ClientCapabilityRequirement {
+  switch (endpoint.id) {
+    case 'organization.catalog':
+    case 'organization.claim-requests':
+    case 'organization.contacts':
+    case 'organization.groups':
+    case 'organization.members':
+    case 'organization.resolve-invite':
+    case 'organization.scheduling-config':
+      return 'core';
+    default:
+      return 'organization';
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

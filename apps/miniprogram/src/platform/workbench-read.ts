@@ -4,19 +4,20 @@ import type {
   GroupSummary,
   HolidayReadModel,
 } from '@schedule/contracts';
-import { requireClientCapability } from '../app/client-capability-store.js';
-import { calendarReadModelDecoder, holidayReadModelDecoder } from '@schedule/client-core';
-
-import { runtimeConfig } from './runtime-config.js';
-import { createRuntimeCalendarReadClient } from './client-core-calendar.js';
 import {
-  awaitWechatSessionRecovery,
-  finalizeWechatUnauthorized,
+  calendarReadModelDecoder,
+  groupSummaryListDecoder,
+  holidayReadModelDecoder,
+} from '@schedule/client-core';
+
+import {
+  createRuntimeCalendarReadClient,
+  createRuntimeOrganizationReadClient,
+} from './client-core-calendar.js';
+import {
   getStoredWechatProfile,
   getStoredWechatToken,
   getWechatRequestAuthentication,
-  getWechatSessionGeneration,
-  recoverWechatSession,
 } from './wechat-identity.js';
 import {
   clearLegacyWorkbenchStorage,
@@ -26,11 +27,6 @@ import {
   WORKBENCH_GROUP_SNAPSHOT_V2_PREFIX,
   WORKBENCH_GROUP_STORAGE_KEY,
 } from './private-storage.js';
-import {
-  executeWxJsonRequest,
-  WxRequestNetworkError,
-  WxRequestStaleSessionError,
-} from './wx-request-executor.js';
 
 export const WORKBENCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 export { WORKBENCH_GROUP_STORAGE_KEY };
@@ -46,18 +42,6 @@ export interface WorkbenchMember {
   readonly isCurrentUser: boolean;
   readonly realName: string;
   readonly role: GroupRole;
-}
-
-export class WorkbenchReadError extends Error {
-  public readonly code: 'AUTH_REQUIRED' | 'NETWORK_ERROR' | 'INVALID_RESPONSE' | 'HTTP_ERROR';
-  public readonly status: number | undefined;
-
-  public constructor(message: string, code: WorkbenchReadError['code'], status?: number) {
-    super(message);
-    this.name = 'WorkbenchReadError';
-    this.code = code;
-    this.status = status;
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -79,133 +63,27 @@ function sanitizeCalendarForCache(calendar: CalendarReadModel): CalendarReadMode
   };
 }
 
-function decodeGroups(value: unknown): readonly GroupSummary[] {
-  if (!Array.isArray(value)) {
-    throw new WorkbenchReadError('群组响应无效，请稍后重试。', 'INVALID_RESPONSE');
-  }
-  return value.map((item) => {
-    if (!isRecord(item)) {
-      throw new WorkbenchReadError('群组响应无效，请稍后重试。', 'INVALID_RESPONSE');
-    }
-    const id = readRequiredString(item.id);
-    const name = readRequiredString(item.name);
-    const role = item.role;
-    const version = item.version;
-    const groupCode = item.groupCode;
-    const isDeveloperAdmin = item.isDeveloperAdmin;
-    if (
-      id === undefined ||
-      name === undefined ||
-      (role !== 'administrator' && role !== 'member' && role !== 'owner' && role !== 'guest') ||
-      typeof version !== 'number' ||
-      !Number.isInteger(version) ||
-      version < 1 ||
-      (groupCode !== undefined && (typeof groupCode !== 'string' || !/^\d{4}$/u.test(groupCode))) ||
-      (isDeveloperAdmin !== undefined && typeof isDeveloperAdmin !== 'boolean')
-    ) {
-      throw new WorkbenchReadError('群组响应无效，请稍后重试。', 'INVALID_RESPONSE');
-    }
-    return {
-      ...(groupCode === undefined ? {} : { groupCode }),
-      id,
-      ...(isDeveloperAdmin === undefined ? {} : { isDeveloperAdmin }),
-      name,
-      role,
-      version,
-    } satisfies GroupSummary;
-  });
-}
-
-function decodeMembers(value: unknown): readonly WorkbenchMember[] {
-  if (!Array.isArray(value)) {
-    throw new WorkbenchReadError('成员响应无效，请稍后重试。', 'INVALID_RESPONSE');
-  }
-  return value.map((item) => {
-    if (!isRecord(item)) {
-      throw new WorkbenchReadError('成员响应无效，请稍后重试。', 'INVALID_RESPONSE');
-    }
-    const id = readRequiredString(item.id);
-    const realName = readRequiredString(item.realName);
-    const role = item.role;
-    if (
-      id === undefined ||
-      realName === undefined ||
-      typeof item.isCurrentUser !== 'boolean' ||
-      (role !== 'administrator' && role !== 'member' && role !== 'owner' && role !== 'guest')
-    ) {
-      throw new WorkbenchReadError('成员响应无效，请稍后重试。', 'INVALID_RESPONSE');
-    }
-    return { id, isCurrentUser: item.isCurrentUser, realName, role } satisfies WorkbenchMember;
-  });
-}
-
-function requestJson(path: string): Promise<unknown> {
-  return requestJsonWithSession(path);
-}
-
-async function requestJsonWithSession(path: string): Promise<unknown> {
-  await requireClientCapability('core');
-  let token = getStoredWechatToken();
-  if (token === undefined) token = await awaitWechatSessionRecovery();
-  if (token === undefined)
-    throw new WorkbenchReadError('登录状态已失效，请重新登录。', 'AUTH_REQUIRED', 401);
-  const baseUrl = runtimeConfig.apiBaseUrl.replace(/\/$/u, '');
-  let response;
-  try {
-    response = await executeWxJsonRequest({
-      authentication: {
-        accessToken: token,
-        finalizeUnauthorized: finalizeWechatUnauthorized,
-        getSessionGeneration: getWechatSessionGeneration,
-        recoverAccessToken: recoverWechatSession,
-        sessionGeneration: getWechatSessionGeneration(),
-      },
-      capability: 'core',
-      method: 'GET',
-      request: (requestOptions) => wx.request(requestOptions),
-      url: `${baseUrl}${path}`,
-    });
-  } catch (error) {
-    if (error instanceof WxRequestNetworkError) {
-      throw new WorkbenchReadError('网络连接失败，请稍后重试。', 'NETWORK_ERROR');
-    }
-    if (error instanceof WxRequestStaleSessionError) {
-      throw new WorkbenchReadError('登录状态已变化，请重新读取。', 'AUTH_REQUIRED', 401);
-    }
-    throw error;
-  }
-  if (response.statusCode === 401) {
-    throw new WorkbenchReadError('登录状态已失效，请重新登录。', 'AUTH_REQUIRED', 401);
-  }
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new WorkbenchReadError(
-      response.statusCode === 403
-        ? '当前账户无权查看这项排班。'
-        : '排班数据暂时无法加载，请稍后重试。',
-      'HTTP_ERROR',
-      response.statusCode,
-    );
-  }
-  return response.data;
-}
-
 export function createWorkbenchReadClient(): {
   readonly getCalendar: (groupId: string, businessMonth: string) => Promise<CalendarReadModel>;
   readonly getMembers: (groupId: string) => Promise<readonly WorkbenchMember[]>;
   readonly getHolidays: (year: number) => Promise<HolidayReadModel>;
   readonly listGroups: () => Promise<readonly GroupSummary[]>;
 } {
-  const calendarClient = createRuntimeCalendarReadClient(
+  const authentication = getWechatRequestAuthentication();
+  const calendarClient = createRuntimeCalendarReadClient(getStoredWechatToken, authentication);
+  const organizationReadClient = createRuntimeOrganizationReadClient(
     getStoredWechatToken,
-    getWechatRequestAuthentication(),
+    authentication,
   );
   return {
     getCalendar: (groupId, businessMonth) => calendarClient.getCalendar(groupId, businessMonth),
     getMembers: async (groupId) =>
-      decodeMembers(await requestJson(`/groups/${encodeURIComponent(groupId)}/members`)),
+      (await organizationReadClient.listGroupMembers(groupId)).map(
+        ({ id, isCurrentUser, realName, role }) => ({ id, isCurrentUser, realName, role }),
+      ),
     getHolidays: (year) => calendarClient.getHolidays(year),
     listGroups: async () => {
-      const groups = decodeGroups(await requestJson('/groups'));
+      const groups = await organizationReadClient.listGroups();
       const ownerId = getStoredWechatProfile()?.id;
       if (ownerId !== undefined) {
         writeWorkbenchGroupSnapshot(ownerId, groups);
@@ -321,12 +199,12 @@ export function readWorkbenchGroupSnapshot(
     removeStorage(key);
     return undefined;
   }
-  try {
-    return decodeGroups(value.groups);
-  } catch {
+  const decodedGroups = groupSummaryListDecoder.safeDecode(value.groups);
+  if (!decodedGroups.success) {
     removeStorage(key);
     return undefined;
   }
+  return decodedGroups.data;
 }
 
 export function pruneWorkbenchCaches(ownerId: string, activeGroupIds: ReadonlySet<string>): void {

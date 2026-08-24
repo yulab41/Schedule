@@ -2,7 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-25 P8 组织管理对等与安全预检（当前批次）
+## 2026-08-25 P8-A1 组织管理共享只读边界（已实现待上传/部署）
+
+- 基线/范围：P8 预检 checkpoint `62d59c68` 已推送并部署，备份 `a7b48fdf-4510-466b-b86d-150cf27baf8e`，production `organization=false`。本批只共享群组摘要/目录、成员/预设、联系方式、认领请求/查找、排班配置、平台账号和邀请预览；Web 先委托，Mini 工作台移除 groups/members 手写 decoder。不接写 UI、不改 API/DB/权限、不打开 capability。
+- 引入点/红绿：群组/成员=`8e42afb8`，配置=`04c7da36`，邀请=`a50c4fce`，平台账号=`02a508dd`，Mini workbench=`733e3af6`，均已执行 `git log -S`/`git blame`。client-core/Web/Mini 新契约在旧实现因模块缺失、未委托和手写解码先红；实现后新增定向 3 files/9 tests 通过，Web 全量 101 files/600 tests、Mini 45 files/254 tests 通过。既有星期测试在当前日期跨至 8/25 后被过去日守卫拦截，现仅冻结测试 Date 并重载模块，生产逻辑不变。
+- 实现/语义：新增 10 个 bearer endpoint、确定性紧凑 schema 和 golden；Web 保持原 shared transport、`fetch.call(globalThis)` receiver、Bearer/Content-Type、离线只读、错误/Promise 和每方法一次调用，旧响应缺省 `rulesVersion` 继续接受。Mini 复用原 wx transport/401 单飞：groups/members/core 路径、缓存 groupCode/手机号清理、错误拒绝和次数不变；platform/dissolved/claim lookup 要求 organization，invite resolve 保持 core。无新增存储、重试、写队列或业务副作用。
+- 验证：client-core/Mini/Web typecheck，client-core build/generated freshness，Web build，任务 ESLint/Prettier，Mini production verify/source/package/performance/determinism/CI dry-run 与 `git diff --check` 通过。Mini 2/2 Worklet、3,139,214 bytes、manifest `d2a9bd245b215a066d0bfc0e5a8a7519bd91b45f3130dd976b594ef9980ad237`，仅既有 600 格矩阵 best-effort warning。`pnpm smoke:browser` 的依赖重装询问被拒绝，使用 `verifyDepsBeforeRun=false` 在 127.0.0.1:4173 完整通过；`smoke:check-core` 通过，临时服务已关闭。
+- checkpoint/下一批：识别消息 `refactor(clients): share p8 organization reads`；显式审查后提交/推送，以 `0.1.0-p8.20260825.95-read` 上传体验轨道但不加入 production allowlist，随后备份/部署/full verifier。下一活动批次只做 P8-A2-1 群组/成员/预设/认领写入的 operation id、expected version、API 事务重放与 Web 委托，不处理排班配置/邀请/平台身份，不写 Mini UI。
+
+## 2026-08-25 P8 组织管理对等与安全预检（已完成）
 
 - P7 门槛：用户已明确回复通过 `.94@0975b2d` 实体 Android RC；Git、`origin/main` 与 production release 均为 `e6f2e10c`，发布前备份 `ae9641a0-e596-44a1-bb33-0ee71e06c59b`，ECS_PUBLIC_IP full verifier 通过。P7 完成，不提审/正式发布。
 - 范围：本批只完成 P8 权限/接口/数据预检与冻结实施顺序，不写原生页面、不打开 production `organization` capability，不提前进入 P9/P10。Mini 当前只有 P5 手机号公开同意 panel；完整群组/成员/预设、班种/岗位/规则、邀请/访客码和平台账号后台均待实现。

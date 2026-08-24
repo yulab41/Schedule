@@ -59,7 +59,6 @@ import type {
   PasswordIdentityAssignmentRequest,
   PasswordIdentityAssignmentResponse,
   PlatformAdminUserAccount,
-  PlatformAdminUserAccountList,
   PastScheduleAssignment,
   PastScheduleBackfillBatchResult,
   PastScheduleBackfillRecord,
@@ -131,6 +130,7 @@ import type {
 import {
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
+  createOrganizationReadClient,
   createPastScheduleClient,
   createWorkflowClient,
   type ClientEndpoint,
@@ -153,15 +153,10 @@ import {
   directoryFacetSnapshotSchema,
   directoryEntryLookupResponseSchema,
   directoryPageSchema,
-  dissolvedGroupListSchema,
   guestCalendarReadModelSchema,
-  groupCatalogListSchema,
-  groupMemberContactListSchema,
   groupMemberContactSchema,
-  groupMemberListSchema,
   groupMemberSchema,
   groupSchedulePublishModeSchema,
-  groupSummaryListSchema,
   groupSummarySchema,
   groupNotificationSettingsSchema,
   visitorAccessAggregatePageSchema,
@@ -170,8 +165,6 @@ import {
   manualApplyPreviewSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
-  membershipClaimLookupResponseSchema,
-  membershipClaimRequestListSchema,
   membershipClaimRequestSchema,
   memberNotificationPreferencesSchema,
   monthStatisticsSnapshotSchema,
@@ -179,7 +172,6 @@ import {
   notificationPageSchema,
   notificationRecordSchema,
   passwordIdentityAssignmentResponseSchema,
-  platformAdminUserAccountListSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   pushConfigurationSchema,
@@ -194,7 +186,6 @@ import {
   scheduleRoleSchema,
   schedulePeriodHistoryItemListSchema,
   schedulePeriodMutationResultSchema,
-  schedulingConfigSchema,
   shiftTypeSchema,
   statisticsRecalculateCheckResultSchema,
   unreadCountResultSchema,
@@ -676,6 +667,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   } satisfies ClientTransport;
   const calendarReadClient = createCalendarReadClient(sharedClientTransport);
   const groupMobilePhoneConsentClient = createGroupMobilePhoneConsentClient(sharedClientTransport);
+  const organizationReadClient = createOrganizationReadClient(sharedClientTransport);
   const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
   const workflowClient = createWorkflowClient(sharedClientTransport);
 
@@ -844,14 +836,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listPlatformUserAccounts() {
-      return requestJson<PlatformAdminUserAccountList>(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        '/platform-admin/users',
-        { method: 'GET' },
-        isResponseBodyFromSchema(platformAdminUserAccountListSchema),
-      ).then((result) => result.users);
+      return organizationReadClient.listPlatformUserAccounts();
     },
     resolveGuestGroup(visitorKey) {
       return requestPublicJson(
@@ -1450,14 +1435,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     getSchedulingConfig(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/scheduling-config`,
-        { method: 'GET' },
-        isSchedulingConfigResponse,
-      );
+      return organizationReadClient.getSchedulingConfig(groupId);
     },
     listManualScheduleTemplates(groupId) {
       return requestJson(
@@ -1470,14 +1448,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listGroupContacts(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/contacts`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(groupMemberContactListSchema),
-      );
+      return organizationReadClient.listGroupContacts(groupId);
     },
     getDirectoryFacets(groupId) {
       return requestJson(
@@ -1582,27 +1553,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listGroupMembers(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/members`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(groupMemberListSchema),
-      );
+      return organizationReadClient.listGroupMembers(groupId);
     },
     lookupClaimMatches(groupId, realName) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/claim-lookups`,
-        {
-          body: JSON.stringify({ realName }),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(membershipClaimLookupResponseSchema),
-      );
+      return organizationReadClient.lookupClaimMatches(groupId, realName);
     },
     createMembershipClaimRequest(groupId, input) {
       return requestJson(
@@ -1618,14 +1572,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listMembershipClaimRequests(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/claim-requests`,
-        { method: 'GET' },
-        isResponseBodyFromSchema(membershipClaimRequestListSchema),
-      );
+      return organizationReadClient.listMembershipClaimRequests(groupId);
     },
     approveMembershipClaimRequest(groupId, claimRequestId) {
       return requestJson(
@@ -1658,24 +1605,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listGroups() {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        '/groups',
-        { method: 'GET' },
-        isResponseBodyFromSchema(groupSummaryListSchema),
-      );
+      return organizationReadClient.listGroups();
     },
     listGroupCatalog() {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        '/groups/catalog',
-        { method: 'GET' },
-        isResponseBodyFromSchema(groupCatalogListSchema),
-      );
+      return organizationReadClient.listGroupCatalog();
     },
     joinGroupAsGuest(groupId) {
       return requestJson(
@@ -1711,14 +1644,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     listDissolvedGroups() {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        '/groups/dissolved',
-        { method: 'GET' },
-        isResponseBodyFromSchema(dissolvedGroupListSchema),
-      );
+      return organizationReadClient.listDissolvedGroups();
     },
     restoreGroup(groupId) {
       return requestJson(
@@ -2104,11 +2030,6 @@ function parseResponseBodyFromSchema<ResponseBody>(
     }
     return parsed.data;
   };
-}
-
-function isSchedulingConfigResponse(value: unknown): value is SchedulingConfig {
-  // schema 允许缺省 rulesVersion（旧守卫不校验该字段）；导出类型保持必填供模板应用使用。
-  return schedulingConfigSchema.safeParse(value).success;
 }
 
 function isResponseBodyMatching<ResponseBody>(
