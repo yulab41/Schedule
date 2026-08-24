@@ -19,6 +19,11 @@ import { fileURLToPath } from 'node:url';
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
 const DEPENDENCY_MARKER = 'schedule-release-dependencies.json';
+export const PNPM_INSTALL_ARGUMENTS = [
+  'install',
+  '--frozen-lockfile',
+  '--config.strictDepBuilds=false',
+];
 
 function fail(message) {
   throw new Error(`[release:worktree] ${message}`);
@@ -233,7 +238,7 @@ export function resolvePnpmInvocation(
 function runPnpmInstall(worktreeRoot) {
   const environment = { ...process.env, CI: 'true' };
   const invocation = resolvePnpmInvocation(environment);
-  run(invocation.command, [...invocation.argumentsPrefix, 'install', '--frozen-lockfile'], {
+  run(invocation.command, [...invocation.argumentsPrefix, ...PNPM_INSTALL_ARGUMENTS], {
     cwd: worktreeRoot,
     env: environment,
     stdio: 'inherit',

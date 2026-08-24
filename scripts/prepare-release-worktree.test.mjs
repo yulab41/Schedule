@@ -5,6 +5,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  PNPM_INSTALL_ARGUMENTS,
   collectDependencyInputs,
   computeDependencyFingerprint,
   parseArguments,
@@ -121,5 +122,13 @@ describe('reusable isolated release worktree', () => {
       argumentsPrefix: [cliPath],
       command: 'C:/Program Files/nodejs/node.exe',
     });
+  });
+
+  it('keeps unapproved dependency scripts blocked without failing the reusable install', () => {
+    expect(PNPM_INSTALL_ARGUMENTS).toEqual([
+      'install',
+      '--frozen-lockfile',
+      '--config.strictDepBuilds=false',
+    ]);
   });
 });
