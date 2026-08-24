@@ -2,6 +2,11 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥
+
+- 基线/范围：Git/origin/production`47e753e3`、DB50；仅把manifest max50→51，min仍50，无迁移/API/Mini/runtime变化。
+- 红绿/安全：package max51断言在旧代码1项失败后转绿；DB50 bridge可回当前release，0051 feature不得绕过后续DB50/51 telemetry runtime bridge。checkpoint=`chore(release): bridge telemetry schema`。
+
 ## 2026-08-24 P6-C4 访客 IP 90 天 feature（已部署并演练）
 
 - 基线/范围：`bbcd00d4` runtime bridge已部署且DB49/raw0。本轮只提交0050、minSchema50并激活aggregate/job/cron，无UI/遥测/P7。

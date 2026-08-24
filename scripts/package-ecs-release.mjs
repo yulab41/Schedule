@@ -284,7 +284,7 @@ const manifest = {
   schemaVersion: 1,
   releaseFeatureLevel: RELEASE_FEATURE_LEVEL,
   databaseSchemaMin: '50',
-  databaseSchemaMax: '50',
+  databaseSchemaMax: '51',
   rollbackCandidate: rollbackCandidate(),
   releaseId: commit,
   gitCommit: commit,

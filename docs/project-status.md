@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥（待 checkpoint）
+
+- 范围与基线：Git/origin/production均为`47e753e3`，DB50、health200、privacy retention正常。本checkpoint只把release manifest兼容上界从50提升到51，不新增0051、表、API、Mini代码或运行行为；用户自有配置/Storybook/副本不纳入。
+- 来源与测试：schema范围声明沿用`e25878f0`建立的失败关闭机制；package test先把max期望改为51并在旧packager上1项失败，修复后保持min=50/max=51。DB50部署可回到`47e753e3`，未来0051只能回到接受DB51的后续telemetry runtime bridge，数据库不降级。
+- checkpoint/下一步：识别消息为`chore(release): bridge telemetry schema`；提交推送、备份部署并核对manifest50..51/production仍50 migrations后，才实现DB50/51遥测runtime bridge（严格contract、Mini-only API、30天job/backup exclusion/rate limit），不提前应用0051或修改Mini。
+
 ## 2026-08-24 P6-C4 访客 IP 90 天聚合与清理（已部署并完成回滚演练）
 
 - 范围与基线：最终 privacy runtime bridge `bbcd00d4` 已与 Git/origin/production 对齐，生产 DB49、raw rows=0、健康200。本 checkpoint 只应用 migration0050、把release min/max收紧为50..50，并激活已部署的匿名聚合/事务清理/API/15分钟cron；不改UI、不进入遥测或P7。

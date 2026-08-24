@@ -104,7 +104,7 @@ describe('ECS directory import runtime packaging', () => {
     expect(packageSource).toContain("RELEASE_FEATURE_LEVEL = 'p6-client-capabilities-v1'");
     expect(packageSource).toContain('releaseFeatureLevel: RELEASE_FEATURE_LEVEL');
     expect(packageSource).toContain("databaseSchemaMin: '50'");
-    expect(packageSource).toContain("databaseSchemaMax: '50'");
+    expect(packageSource).toContain("databaseSchemaMax: '51'");
     expect(packageSource).toContain('ECS_ROLLBACK_CANDIDATE');
     expect(packageSource).toContain('rollbackCandidate: rollbackCandidate()');
     expect(packageSource.indexOf("'build'")).toBeLessThan(
