@@ -103,6 +103,7 @@ declare const wx: {
   setStorageSync(key: string, value: unknown): void;
   navigateBack(options?: { readonly delta?: number }): void;
   navigateTo(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;
+  redirectTo(options: { readonly fail?: (error: unknown) => void; readonly url: string }): void;
   showModal(options: {
     readonly cancelText?: string;
     readonly confirmText?: string;

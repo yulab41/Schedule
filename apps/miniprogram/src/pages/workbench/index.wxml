@@ -844,12 +844,12 @@
       ><text>请假</text></view
     >
     <view
-      class="bottom-nav-item is-disabled"
+      class="bottom-nav-item {{workflowsEnabled ? '' : 'is-disabled'}}"
       data-label="换班"
       data-motion="swap"
-      aria-disabled="true"
+      aria-disabled="{{!workflowsEnabled}}"
       aria-role="button"
-      bindtap="handleUnavailable"
+      bindtap="handleSwapNav"
       ><view class="nav-icon nav-swap {{navMotion === 'swap' ? 'is-animating' : ''}}"
         ><image
           class="nav-icon-image nav-icon-actor"

@@ -604,6 +604,11 @@ Page({
     void openLeaveWorkflow(this);
   },
 
+  handleSwapNav(this: WorkbenchPageInstance): void {
+    this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'swap' }));
+    void openSwapWorkflow(this);
+  },
+
   handleNotification(this: WorkbenchPageInstance): void {
     this.setData({ notificationAnimating: false }, () => {
       this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });
@@ -829,6 +834,31 @@ async function openLeaveWorkflow(page: WorkbenchPageInstance): Promise<void> {
 function syncWorkflowsCapability(page: WorkbenchPageInstance): void {
   const capability = getClientCapabilitySnapshot();
   page.setData({ workflowsEnabled: capability.global && capability.workflows });
+}
+
+async function openSwapWorkflow(page: WorkbenchPageInstance): Promise<void> {
+  try {
+    await requireClientCapability('workflows');
+    syncWorkflowsCapability(page);
+    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
+    if (group === undefined || group.role === 'guest') {
+      page.setData({ announcement: '当前群组不能发起或处理换班。' });
+      return;
+    }
+    const groupId = encodeURIComponent(group.id);
+    wx.navigateTo({
+      fail: () => page.setData({ announcement: '换班页面暂时无法打开，请稍后重试。' }),
+      url: `/subpackages/workflows/pages/swap/index?groupId=${groupId}`,
+    });
+  } catch (error) {
+    syncWorkflowsCapability(page);
+    page.setData({
+      announcement:
+        error instanceof ClientCapabilityDisabledError
+          ? error.message
+          : '换班页面暂时无法打开，请稍后重试。',
+    });
+  }
 }
 
 async function readMonth(

@@ -20,7 +20,7 @@
     },
     {
       "root": "subpackages/workflows",
-      "pages": ["pages/leave/index"]
+      "pages": ["pages/leave/index", "pages/swap/index"]
     }
   ],
   "window": {
