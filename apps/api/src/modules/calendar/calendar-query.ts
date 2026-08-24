@@ -10,6 +10,7 @@ import type {
 import {
   groups,
   groupMemberContacts,
+  leaveRequests,
   scheduleEvents,
   schedulePeriods,
   scheduleRoles,
@@ -19,7 +20,7 @@ import {
   withTransaction,
 } from '@schedule/database';
 import { assertBusinessMonthContainsDate } from '@schedule/scheduling-domain';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
@@ -262,11 +263,22 @@ export class CalendarQuery {
               occurredAt: scheduleEvents.occurredAt,
             })
             .from(scheduleEvents)
+            .leftJoin(
+              leaveRequests,
+              and(
+                eq(scheduleEvents.objectType, 'leave_cover'),
+                eq(scheduleEvents.objectId, leaveRequests.id),
+              ),
+            )
             .where(
               and(
                 eq(scheduleEvents.groupId, groupId),
                 inArray(scheduleEvents.schedulePeriodId, periodIds),
                 inArray(scheduleEvents.eventType, [...calendarMarkerEventTypes]),
+                or(
+                  ne(scheduleEvents.eventType, 'leave_cover_completed'),
+                  and(isNull(leaveRequests.deletedAt), eq(leaveRequests.status, 'approved')),
+                ),
               ),
             )
             .orderBy(asc(scheduleEvents.occurredAt), asc(scheduleEvents.id))

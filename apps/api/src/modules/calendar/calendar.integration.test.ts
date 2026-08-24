@@ -8,6 +8,7 @@ import type {
 } from '@schedule/contracts';
 import {
   createTestDatabaseClient,
+  leaveRequests,
   migrateDatabase,
   scheduleEvents,
   shiftAssignments,
@@ -523,6 +524,55 @@ describeWithDatabase('current month calendar read model', () => {
     const restored = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
     expect(
       restored.assignments.find((assignment) => assignment.id === assignmentId)?.changeMarkers,
+    ).toEqual([]);
+  });
+
+  it('does not keep a leave-cover marker after its leave request is cancelled', async () => {
+    const saved = await savePublished('2026-08');
+    const periodId = (saved.json() as SavedScheduleGeneration).periods[0]?.id as string;
+    const [assignmentRow] = await client.database
+      .select({ id: shiftAssignments.id })
+      .from(shiftAssignments)
+      .where(eq(shiftAssignments.schedulePeriodId, periodId))
+      .orderBy(sql`${shiftAssignments.businessDate}`)
+      .limit(1);
+    const leaveRequestId = randomUUID();
+    await client.database.insert(leaveRequests).values({
+      endsAt: new Date('2026-08-28T00:00:00.000Z'),
+      groupId,
+      id: leaveRequestId,
+      isAllDay: 1,
+      leaveType: 'sick',
+      membershipId: candidateMembershipId,
+      startsAt: new Date('2026-08-27T00:00:00.000Z'),
+      status: 'approved',
+    });
+    await client.database.insert(scheduleEvents).values({
+      affectedMembershipIds: [candidateMembershipId],
+      affectedShiftIds: [assignmentRow?.id as string],
+      eventStatus: 'completed',
+      eventType: 'leave_cover_completed',
+      groupId,
+      id: randomUUID(),
+      objectId: leaveRequestId,
+      objectType: 'leave_cover',
+      operationId: randomUUID(),
+      schedulePeriodId: periodId,
+    });
+
+    const active = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    expect(
+      active.assignments.find((assignment) => assignment.id === assignmentRow?.id)?.changeMarkers,
+    ).toEqual(['leave-cover']);
+
+    await client.database
+      .update(leaveRequests)
+      .set({ deletedAt: new Date() })
+      .where(eq(leaveRequests.id, leaveRequestId));
+    const cancelled = (await readCalendar('owner-token', '2026-08')).json() as CalendarReadModel;
+    expect(
+      cancelled.assignments.find((assignment) => assignment.id === assignmentRow?.id)
+        ?.changeMarkers,
     ).toEqual([]);
   });
 

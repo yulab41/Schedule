@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 请假日期与历史标识修复候选 `.92`（已实现待体验上传/生产部署）
+
+- 范围：禁止请假开始日期早于中国标准时间当天；Mini 与 API 双重校验；日期选择器传入最小日期；取消/失效请假不再保留已删除请假产生的 `leave-cover` 日历标识。不改其他工作流写入。
+- 验证：Mini 全量 44 files/247 tests、Mini/API typecheck、API calendar/leaves 精确模块测试（数据库未配置时按既有规则跳过）、production verify、格式和 diff 检查通过；Mini verify 2/2 Worklet、3,026,337 bytes、manifest `3b21085c5d3f351212f732b08b5a1c6f31b97e5a8ffa234d5854f0c6ff26aeec`。
+- checkpoint/下一批：代码与 API checkpoint 识别消息 `fix(workflows): block historical leave mutations`；更新 `.92` 契约后从持久 worktree 上传、备份、部署、allowlist 验证，随后等待实体复核。
+
 ## 2026-08-24 P7 日历/滚轮/Sheet 对齐候选 `.91`（已开放体验并部署，待实体复核）
 
 - 基线/范围：Git/origin/production 为 `cafa12f5`；`.90@80ddadf` 已开放体验并部署。本批只处理实体反馈：月/周成员字号统一放大、selector 点击空白收起与上下溢出定位、右上完成/选择箭头几何、年月滚轮连续缩放与丝滑吸附、请假 Sheet Web 布局对齐。不改 API/DB/危险写，不进入 P8，不提审/正式发布。

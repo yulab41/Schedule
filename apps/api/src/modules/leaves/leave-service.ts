@@ -147,6 +147,7 @@ export class LeaveService {
       run: async (transaction, authorization) => {
         const startsAt = parseTimestamp(input.startsAt, '开始时间');
         const endsAt = parseTimestamp(input.endsAt, '结束时间');
+        assertLeaveStartsTodayOrLater(startsAt);
         if (startsAt.valueOf() >= endsAt.valueOf()) {
           throw validationError('结束时间必须晚于开始时间。');
         }
@@ -252,6 +253,7 @@ export class LeaveService {
       );
       const startsAt = parseTimestamp(input.startsAt, '开始时间');
       const endsAt = parseTimestamp(input.endsAt, '结束时间');
+      assertLeaveStartsTodayOrLater(startsAt);
       if (startsAt.valueOf() >= endsAt.valueOf()) {
         throw validationError('结束时间必须晚于开始时间。');
       }
@@ -337,6 +339,7 @@ export class LeaveService {
           userMessage: '该请假申请已处理，无法再生成重排预览。',
         });
       }
+      assertLeaveStartsTodayOrLater(leaveRequest.startsAt);
       const strategy = input.strategy ?? leaveRequest.reflowStrategy;
       const context = await this.loadReflowContext(
         transaction,
@@ -526,6 +529,7 @@ export class LeaveService {
         userMessage: '该请假申请已处理，不能重复审批。',
       });
     }
+    assertLeaveStartsTodayOrLater(leaveRequest.startsAt);
     assertExpectedVersion({
       actualVersion: leaveRequest.version,
       expectedVersion: input.expectedVersion,
@@ -1909,6 +1913,14 @@ function parseTimestamp(value: string, fieldName: string): Date {
     throw validationError(`${fieldName}必须是有效的时间。`);
   }
   return timestamp;
+}
+
+function assertLeaveStartsTodayOrLater(startsAt: Date): void {
+  const startDate = getChinaStandardTimeBusinessDate(startsAt);
+  if (isPastBusinessDate(startDate)) {
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    throw validationError(`开始日期最早只能是当天（${today}）。`);
+  }
 }
 
 function validationError(userMessage: string): ApiError {

@@ -73,6 +73,16 @@ describe('P7 native leave workflow controller', () => {
     expect(instance.data.endDateDisplay).toMatch(/^\d{4}-\d{2}-\d{2} 周[一二三四五六日]$/u);
   });
 
+  it('blocks a start date before today before requesting affected shifts', async () => {
+    const instance = await loadReadyInstance();
+    const originalDate = instance.data.startDate;
+
+    definition.handleStartDateChange.call(instance, { detail: { value: '2000-01-01' } });
+
+    expect(instance.data.startDate).toBe(originalDate);
+    expect(instance.data.formErrorMessage).toBe('开始日期最早只能是当天。');
+  });
+
   it('loads the owner review tab and complete conflict preview before approval', async () => {
     groupRole = 'owner';
     const instance = await loadReadyInstance();

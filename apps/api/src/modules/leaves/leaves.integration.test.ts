@@ -8,6 +8,7 @@ import {
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
+import { getChinaStandardTimeBusinessDate } from '@schedule/scheduling-domain';
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -54,6 +55,27 @@ describeWithDatabase('leave requests and reflow', () => {
     if (client !== undefined) {
       await client.close();
     }
+  });
+
+  it('rejects a leave request whose start date is before today', async () => {
+    const context = await seedPublishedRotation();
+    const today = getChinaStandardTimeBusinessDate(new Date());
+    const yesterday = new Date(`${today}T00:00:00.000Z`);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const start = yesterday.toISOString();
+    const end = new Date(yesterday.valueOf() + 24 * 60 * 60 * 1000).toISOString();
+
+    const response = await submitLeave('a-token', context.groupId, {
+      endsAt: end,
+      isAllDay: true,
+      leaveType: 'sick',
+      startsAt: start,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: { message: expect.stringContaining('最早只能是当天') },
+    });
   });
 
   it('submits a typed all-day leave with a reason and rejects overlapping intervals', async () => {

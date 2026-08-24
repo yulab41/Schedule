@@ -2,6 +2,11 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 `.92` 请假日期与历史标识修复
+
+- API 创建/affected/preview/approve 均拒绝今天以前的开始日期；Mini 传入 `min` 并在 controller 层二次拦截。calendar-query 对 `leave_cover_completed` 关联 leave request，删除或非 approved 时不返回 marker。
+- 验证：Mini 44/247、API typecheck、calendar/leaves 精确测试入口通过/数据库集成按环境跳过；尚未上传或部署。
+
 ## 2026-08-24 P7 `.91` 日历/滚轮/Sheet 对齐
 
 - 范围/引入点：`.90` 实体反馈；字号=`1f715c96/50c6d1ed/16c02f56`，picker root/定位=`bc32a4f1/7f4f70a0`，离散 wheel/snap=`16c02f56/80ddadf0`，Sheet=`80ddadf0`。只改 Mini UI/controller、测试和 `.91` 契约。

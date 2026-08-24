@@ -93,6 +93,7 @@ interface LeavePageData {
   readonly decidedApprovals: readonly LeaveRequestView[];
   readonly endDate: string;
   readonly endDateDisplay: string;
+  readonly endDateMin: string;
   readonly embedded: boolean;
   readonly errorMessage: string;
   readonly formBusy: boolean;
@@ -111,6 +112,7 @@ interface LeavePageData {
   readonly shellHeaderStyle: string;
   readonly startDate: string;
   readonly startDateDisplay: string;
+  readonly todayDate: string;
   readonly state: PageState;
   readonly strategyBusy: boolean;
   readonly strategyIndex: number;
@@ -189,6 +191,7 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       decidedApprovals: [],
       endDate: initialDate,
       endDateDisplay: formatDateWithWeekday(initialDate),
+      endDateMin: initialDate,
       embedded,
       errorMessage: '',
       formBusy: false,
@@ -211,6 +214,7 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       strategyBusy: false,
       strategyIndex: 0,
       strategyOptions,
+      todayDate: initialDate,
       viewportClass: '',
     } satisfies LeavePageData,
 
@@ -283,12 +287,20 @@ export function createLeavePanelControllerDefinition(embedded = false) {
 
     handleStartDateChange(this: LeavePageInstance, event: ValueEvent): void {
       if (typeof event.detail.value !== 'string') return;
+      if (event.detail.value < this.data.todayDate) {
+        this.setData({ formErrorMessage: '开始日期最早只能是当天。' });
+        return;
+      }
       this.setData(createDatePatch(event.detail.value, this.data.endDate));
       void loadAffectedShifts(this);
     },
 
     handleEndDateChange(this: LeavePageInstance, event: ValueEvent): void {
       if (typeof event.detail.value !== 'string') return;
+      if (event.detail.value < this.data.todayDate) {
+        this.setData({ formErrorMessage: '结束日期不能早于今天。' });
+        return;
+      }
       this.setData(createDatePatch(this.data.startDate, event.detail.value));
       void loadAffectedShifts(this);
     },
@@ -857,9 +869,12 @@ function resolveTargetGroup(
 }
 
 function createDatePatch(startDate: string, endDate: string): Partial<LeavePageData> {
+  const today = getTodayBusinessDate();
+  const endDateMin = startDate > today ? startDate : today;
   return {
     endDate,
     endDateDisplay: formatDateWithWeekday(endDate),
+    endDateMin,
     formErrorMessage: '',
     leaveDayCount: getLeaveDayCount(startDate, endDate),
     startDate,

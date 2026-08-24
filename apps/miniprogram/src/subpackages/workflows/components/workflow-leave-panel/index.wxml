@@ -268,6 +268,7 @@
               <text class="field-label">开始日期</text>
               <workflow-picker
                 mode="date"
+                min="{{todayDate}}"
                 value="{{startDate}}"
                 display-value="{{startDateDisplay}}"
                 title="开始日期"
@@ -278,6 +279,7 @@
               <text class="field-label">结束日期</text>
               <workflow-picker
                 mode="date"
+                min="{{endDateMin}}"
                 value="{{endDate}}"
                 display-value="{{endDateDisplay}}"
                 title="结束日期"
