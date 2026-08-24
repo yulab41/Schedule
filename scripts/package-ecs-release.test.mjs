@@ -70,6 +70,7 @@ describe('ECS directory import runtime packaging', () => {
       'infra/scripts/ecs-rollback.sh',
       'infra/scripts/client-capability-switch.sh',
       'infra/scripts/schedule-backup.sh',
+      'infra/scripts/schedule-privacy-retention.sh',
     ]) {
       expect(packageSource).toContain(`'${scriptPath}'`);
     }
@@ -80,6 +81,7 @@ describe('ECS directory import runtime packaging', () => {
       'ecsRollbackSha256',
       'clientCapabilitySwitchSha256',
       'backupSchedulerSha256',
+      'privacyRetentionSchedulerSha256',
     ]) {
       expect(packageSource).toContain(hashName);
       expect(updateSource).toContain(hashName);

@@ -15,6 +15,7 @@ import {
   computeTableChecksum,
   createBackupStorageKey,
   encryptBackupArchive,
+  shouldIncludeBackupTable,
   type BackupArchivePayload,
 } from './backup-archive.js';
 import { selectArchivesToDelete } from './backup-retention.js';
@@ -183,5 +184,5 @@ async function listTableNames(transaction: DatabaseTransaction): Promise<readonl
           AND TABLE_NAME <> '__drizzle_migrations'
         ORDER BY TABLE_NAME`,
   )) as unknown as [{ TABLE_NAME: string }[], unknown];
-  return rows.map((row) => row.TABLE_NAME);
+  return rows.map((row) => row.TABLE_NAME).filter(shouldIncludeBackupTable);
 }

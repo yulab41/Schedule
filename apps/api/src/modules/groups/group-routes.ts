@@ -120,6 +120,15 @@ const visitorLogsQuerySchema = z
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
   })
   .strict();
+const visitorAggregatesQuerySchema = z
+  .object({
+    cursor: z
+      .string()
+      .regex(/^\d{4}-(0[1-9]|1[0-2])\|\d{4}-(0[1-9]|1[0-2])$/u)
+      .optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  })
+  .strict();
 
 export function registerGroupRoutes(
   app: FastifyInstance,
@@ -321,6 +330,20 @@ export function registerGroupRoutes(
     async (request) => {
       const query = parseOrThrow(visitorLogsQuerySchema, request.query);
       return visitorAccessLogService.listLogs(
+        getAuthenticatedIdentity(request),
+        parseGroupId(request),
+        query.cursor,
+        query.pageSize,
+      );
+    },
+  );
+
+  app.get(
+    '/groups/:groupId/visitor-access-aggregates',
+    { preHandler: app.authenticate },
+    async (request) => {
+      const query = parseOrThrow(visitorAggregatesQuerySchema, request.query);
+      return visitorAccessLogService.listAggregates(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         query.cursor,

@@ -368,6 +368,12 @@ describeWithDatabase('platform administration and recovery', () => {
       INSERT INTO group_member_contacts (id, membership_id, mobile_phone, is_confirmed)
       SELECT ${randomUUID()}, m.id, '13900139000', 1
       FROM group_memberships m WHERE m.group_id = ${groupId}
+      LIMIT 1
+    `);
+    await client.database.execute(sql`
+      INSERT INTO visitor_access_logs
+        (id, group_id, business_month, client_ip, request_id)
+      VALUES (${randomUUID()}, ${groupId}, '2026-08', '203.0.113.55', ${randomUUID()})
     `);
 
     temporaryDirectory = await mkdtemp(join(tmpdir(), 'schedule-backup-'));
@@ -386,13 +392,33 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(archiveRows[0]?.count).toBe(1);
 
     const content = await new LocalBackupStorage(temporaryDirectory).read(result.storageKey);
-    expect(decryptBackupArchive(JSON.parse(content.toString('utf8')), encryptionKey)).toBeDefined();
+    const decrypted = decryptBackupArchive(JSON.parse(content.toString('utf8')), encryptionKey);
+    expect(decrypted.tables).not.toHaveProperty('visitor_access_logs');
+    const [aggregateTables] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+        AND table_name = 'visitor_access_monthly_aggregates'
+    `)) as unknown as [readonly { count: number }[], unknown];
+    if ((aggregateTables[0]?.count ?? 0) === 1) {
+      expect(decrypted.tables).toHaveProperty(
+        'visitor_access_monthly_aggregates',
+        expect.any(Object),
+      );
+    } else {
+      expect(decrypted.tables).not.toHaveProperty('visitor_access_monthly_aggregates');
+    }
     expect(() =>
       decryptBackupArchive(JSON.parse(content.toString('utf8')), deriveBackupKey('d'.repeat(64))),
     ).toThrow();
 
     await resetDatabase(client);
     await migrateDatabase(client, migrationsDirectory);
+    await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
+    await client.database.execute(sql`DELETE FROM user_password_credentials`);
+    await client.database.execute(sql`DELETE FROM user_profiles`);
+    await client.database.execute(sql`DELETE FROM users`);
+    await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 1`);
     const restore = await restoreBackupArchive(client, content, encryptionKey);
     expect(restore.mismatches).toEqual([]);
     expect(restore.tableCount).toBe(result.tableCount);
@@ -401,7 +427,7 @@ describeWithDatabase('platform administration and recovery', () => {
     const [restoredUsers] = (await client.database.execute(
       sql`SELECT COUNT(*) AS count FROM users`,
     )) as unknown as [{ count: number }[], unknown];
-    expect(restoredUsers[0]?.count).toBe(3);
+    expect(restoredUsers[0]?.count).toBe(4);
     const [restoredGroups] = (await client.database.execute(
       sql`SELECT COUNT(*) AS count FROM \`groups\` WHERE id = ${groupId}`,
     )) as unknown as [{ count: number }[], unknown];
@@ -410,6 +436,10 @@ describeWithDatabase('platform administration and recovery', () => {
       sql`SELECT mobile_phone FROM group_member_contacts WHERE mobile_phone = '13900139000'`,
     )) as unknown as [{ mobile_phone: string }[], unknown];
     expect(restoredContacts).toHaveLength(1);
+    const [restoredRawVisitorRows] = (await client.database.execute(
+      sql`SELECT COUNT(*) AS count FROM visitor_access_logs`,
+    )) as unknown as [{ count: number }[], unknown];
+    expect(restoredRawVisitorRows[0]?.count).toBe(0);
   });
 
   it('rebuilds statistics snapshots from published periods', async () => {
@@ -608,6 +638,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_import_batches`);
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_campuses`);
   await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_monthly_aggregates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
   await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);

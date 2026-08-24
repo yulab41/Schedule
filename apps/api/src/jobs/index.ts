@@ -5,4 +5,5 @@ export { ExportJobProcessor } from './export-jobs.js';
 export { DatabaseBackupJob } from './database-backup.js';
 export { GroupRecycleJob } from './group-recycle.js';
 export { recordJobRun } from './job-runs.js';
+export { PrivacyRetentionJob } from './privacy-retention.js';
 export { StatisticsRebuildJob } from './statistics-rebuild.js';

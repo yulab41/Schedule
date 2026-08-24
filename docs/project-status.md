@@ -2,13 +2,23 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C2 数据库 49→50 可回滚兼容桥（待 checkpoint）
+## 2026-08-24 P6-C3 访客 IP 隐私运行时兼容桥（待 checkpoint）
+
+- 范围与基线：schema bridge `da144470` 已与 Git/origin/production 对齐，生产 DB49、健康 200。本 checkpoint 先发布可同时运行于 DB49/50 的隐私运行时，不应用 0050：原始 90 天 API 截止、平台管理员读取、IP 规范化/可信代理、备份/旧恢复排除、Nginx 无 IP/query 日志、MySQL 30 天 binlog/general-log 边界，以及 dormant retention job/control plane；不改 Web/Mini UI。
+- 引入点与测试先行：`git log -S`/`git blame` 将 visitor 表/服务/`request.ip`/全表备份/group recycle 分别定位到 `4fc6bd21`、`4b337490`、`7c783c71`、`a837586e`、`9e4a6765`。缺 aggregate contract/schema/job/scheduler、trustProxy/Nginx/MySQL 门禁先出现 6 项失败；backup format 2/旧格式 raw skip 先 2 项失败；group recycle 明示 raw/aggregate 覆盖先 1 项失败，修复后相关 unit/static 9 files/50 tests、真实 MySQL visitor/platform+backup 19/19 与 API/DB/Web typecheck 通过。
+- DB49/50 兼容语义：Drizzle 提前声明 aggregate 及 job，但 DB49 时 aggregate API 明确 503、group recycle 跳过尚不存在的 aggregate、updater只安装并哈希 retention control而不创建cron/运行job；DB50时同一代码启用15分钟cron并在发布窗口先执行一次。feature回滚到本 runtime bridge 后保留前向control plane，job/API/backup/Nginx在DB50继续满足隐私，不会退回raw日志或失效清理。
+- 数据与权限：raw list 强制 `created_at >= now-90天`，等于边界保留；环境平台管理员与 developer admin 无需群成员关系，群主/群管理员保持原权限，member继续403。Fastify只信任1 hop；Nginx覆盖XFF，服务只接受规范IPv4/IPv6并把非法/多跳文本存NULL。匿名响应只含accessMonth/businessMonth/decimal accessCount。
+- 备份与基础设施：新 backup payload 升级format2并永久排除`visitor_access_logs`，format1旧归档仍可解密但恢复时跳过raw，aggregate允许备份。Nginx privacy log不含remote/query/request，error仅emerg；MySQL显式30天binlog且general log关闭。retention脚本带host flock，控制脚本/cron/hash/失败恢复均进入forward-only release control。
+- 运行/浏览器验证：pnpm smoke:browser 已强制运行。首次 5173 未启动按门禁停止，随后默认 Vite 绑定 `::1:5173` 被系统 EACCES 拒绝，再以显式 `127.0.0.1:4173` 启动；首次未显式启用 Web dev auth 再次按门禁停止，最终以当前源码/API、仅当前进程 dev auth 完整通过管理员、成员、访客 vkey 与访问记录全链路，无浏览器错误，截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-9arQfM`。临时服务已停止。
+- checkpoint 与下一步：运行时桥 checkpoint 识别消息为 `fix(privacy): harden visitor retention runtime`；从clean DB49 release构建、测试、备份/部署并核对无0050、无cron、manifest49..50后，才提交 migration0050、真实聚合/事务/并发/备份恢复集成测试和minSchema50 feature release，rollback candidate固定为本桥。不进入遥测或P7。
+
+## 2026-08-24 P6-C2 数据库 49→50 可回滚兼容桥（已部署）
 
 - 范围与基线：Git `HEAD`/`origin/main` 与 production `current-release` 均为 `5e010927`，生产健康 200、数据库 schema 49。本桥接 checkpoint 只把不可变 release manifest 的应用兼容上界从 49 提升到 50，不新增迁移、表、API、定时任务或运行行为，不修改 Web/Mini UI；用户自有配置、Storybook、`.artifacts/runtime/src` 和工作簿不纳入。
 - 引入点与测试先行：`git log -S`/`git blame` 确认 DB 49..49 rollback declaration 由 `e25878f0` 引入。回归测试先要求 `databaseSchemaMin=49`、`databaseSchemaMax=50` 并在旧 packager 上 1 项失败，实现后 package/release controls 2 files/21 tests 通过。一次未排除用户历史 release 副本的宽泛命令额外扫到重复测试与 1 个不完整副本，随后显式排除后真实源全绿，未修改副本。
 - 安全语义：当前代码和 0049 schema 对新增独立表/索引为加法兼容；bridge 在 DB49 部署，直接回滚候选 `5e010927` 仍接受 DB49。下一 release 应用 0050 后只能回滚到本 bridge（其 manifest 接受 DB50），不得直接回滚到 max49 release，也不降级/恢复数据库。min=49 保持失败关闭，未放宽到未知旧 schema。
 - 验证与 checkpoint：任务 Prettier、`node --check`、package/release controls tests、`git diff --check` 与 `pnpm smoke:check-core` 通过；未触及 Web 核心链路，无需 `pnpm smoke:browser`。直接对 root MJS 调用 ESLint 因该文件未在仓库 ESLint Node globals 匹配范围而报告既有 `process/console` no-undef，根 `pnpm lint` 才是权威门禁。checkpoint 识别消息为 `chore(release): bridge visitor retention schema`。
-- 下一活动批次：本 bridge 提交、推送、生产备份/部署、manifest 49..50 与回滚候选核验完成后，只实现 migration 0050 的访客 IP 90 天匿名月聚合、API 过期隐藏/平台管理员权限、可信代理、备份/恢复排除、Nginx 隐私日志和 retention 调度；不进入遥测或 P7。
+- 发布与下一活动批次：checkpoint `da144470` 已推送；备份 `88931ea1-f908-4f59-bc45-b005d09bd702`（54表、162859行、76800076 bytes、SHA-256 `c250b20fc4a2138ba389f26e24ab689e705d9f9b6a97b47cc9ca64f2c9c4609c`）后部署。首次502自动恢复，full verifier通过；manifest min49/max50、rollback=`5e010927`、生产仍49 migrations。下一批先做DB49/50隐私运行时桥，再应用0050；不进入遥测或P7。
 
 ## 2026-08-24 P6-C1 性能量化、自动门禁与实体 RC 探针（已部署待实体复核）
 

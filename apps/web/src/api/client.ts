@@ -124,6 +124,7 @@ import type {
   UpdateMemberCalendarPreferences,
   UpdateShiftTypeRequest,
   UserProfile,
+  VisitorAccessAggregatePage,
   VisitorAccessLogPage,
   VisitorResolveResponse,
 } from '@schedule/contracts';
@@ -169,6 +170,7 @@ import {
   groupSummarySchema,
   groupLeaveReflowStrategySchema,
   groupNotificationSettingsSchema,
+  visitorAccessAggregatePageSchema,
   visitorAccessLogPageSchema,
   visitorResolveResponseSchema,
   leaveAffectedShiftListSchema,
@@ -345,6 +347,7 @@ export interface ApiClient {
     visitorKey: string,
     businessMonth: string,
   ): Promise<GuestCalendarReadModel>;
+  getVisitorAccessAggregates(groupId: string, cursor?: string): Promise<VisitorAccessAggregatePage>;
   getVisitorAccessLogs(groupId: string, cursor?: string): Promise<VisitorAccessLogPage>;
   getCurrentProfile(): Promise<UserProfile>;
   getHolidays(year: number): Promise<HolidayReadModel>;
@@ -1319,6 +1322,17 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         `/groups/${encodeURIComponent(groupId)}/visitor-access-logs${query}`,
         { method: 'GET' },
         isResponseBodyFromSchema(visitorAccessLogPageSchema),
+      );
+    },
+    getVisitorAccessAggregates(groupId, cursor) {
+      const query = cursor === undefined ? '' : `?cursor=${encodeURIComponent(cursor)}`;
+      return requestJson(
+        options.auth,
+        fetchImplementation,
+        baseUrl,
+        `/groups/${encodeURIComponent(groupId)}/visitor-access-aggregates${query}`,
+        { method: 'GET' },
+        isResponseBodyFromSchema(visitorAccessAggregatePageSchema),
       );
     },
     getCurrentProfile() {

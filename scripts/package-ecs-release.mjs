@@ -35,6 +35,7 @@ const DIST_PATHS = [
   'infra/scripts/client-capability-switch.sh',
   'infra/scripts/schedule-backup.sh',
   'infra/scripts/schedule-notifications.sh',
+  'infra/scripts/schedule-privacy-retention.sh',
   '.env.production.example',
 ];
 const TREE_PATHS = {
@@ -53,6 +54,7 @@ const PORTABLE_SHELL_PATHS = [
   'infra/scripts/client-capability-switch.sh',
   'infra/scripts/schedule-backup.sh',
   'infra/scripts/schedule-notifications.sh',
+  'infra/scripts/schedule-privacy-retention.sh',
 ];
 
 function fail(message) {
@@ -306,6 +308,9 @@ const manifest = {
       path.join(ROOT, 'infra/scripts/schedule-notifications.sh'),
     ),
     backupSchedulerSha256: sha256File(path.join(ROOT, 'infra/scripts/schedule-backup.sh')),
+    privacyRetentionSchedulerSha256: sha256File(
+      path.join(ROOT, 'infra/scripts/schedule-privacy-retention.sh'),
+    ),
     ecsUpdateSha256: sha256File(path.join(ROOT, 'infra/scripts/ecs-update.sh')),
     ecsVerifySha256: sha256File(path.join(ROOT, 'infra/scripts/ecs-verify.sh')),
     ecsRollbackSha256: sha256File(path.join(ROOT, 'infra/scripts/ecs-rollback.sh')),

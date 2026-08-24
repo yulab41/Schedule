@@ -37,6 +37,8 @@ describe('group recycle delete plan', () => {
     }
 
     const coveredTables = new Set(groupRecycleDeleteSteps.map((step) => step.table));
+    expect(coveredTables.has('visitor_access_logs')).toBe(true);
+    expect(coveredTables.has('visitor_access_monthly_aggregates')).toBe(true);
     const missing = [...reachable].filter((table) => !coveredTables.has(table)).sort();
     expect(missing).toEqual([]);
 

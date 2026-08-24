@@ -4,8 +4,11 @@ import { type DatabaseClient, type DatabaseTransaction, withTransaction } from '
 import { sql, type SQL } from 'drizzle-orm';
 
 export const backupFormatName = 'medical-schedule-backup';
-export const backupFormatVersion = 1;
+export const backupFormatVersion = 2;
 export const backupKeyLengthBytes = 32;
+const excludedBackupTableNames = new Set(['visitor_access_logs']);
+
+export type BackupFormatVersion = 1 | typeof backupFormatVersion;
 
 export interface BackupTablePayload {
   readonly rowCount: number;
@@ -16,7 +19,7 @@ export interface BackupTablePayload {
 export interface BackupArchivePayload {
   readonly createdAt: string;
   readonly format: typeof backupFormatName;
-  readonly formatVersion: typeof backupFormatVersion;
+  readonly formatVersion: BackupFormatVersion;
   readonly tables: Readonly<Record<string, BackupTablePayload>>;
 }
 
@@ -81,7 +84,10 @@ export function decryptBackupArchive(
     decipher.final(),
   ]);
   const payload = JSON.parse(plaintext.toString('utf8')) as BackupArchivePayload;
-  if (payload.format !== backupFormatName || payload.formatVersion !== backupFormatVersion) {
+  if (
+    payload.format !== backupFormatName ||
+    (payload.formatVersion !== 1 && payload.formatVersion !== backupFormatVersion)
+  ) {
     throw new Error('The backup archive uses an unsupported format.');
   }
 
@@ -102,13 +108,28 @@ export function createBackupStorageKey(now: Date, kind: 'daily' | 'monthly'): st
   return `backups/${kind}/${now.toISOString().replaceAll(':', '-')}.backup`;
 }
 
+export function shouldIncludeBackupTable(tableName: string): boolean {
+  return !excludedBackupTableNames.has(tableName);
+}
+
+export function sanitizeBackupPayloadForRestore(
+  payload: BackupArchivePayload,
+): BackupArchivePayload {
+  return {
+    ...payload,
+    tables: Object.fromEntries(
+      Object.entries(payload.tables).filter(([tableName]) => shouldIncludeBackupTable(tableName)),
+    ),
+  };
+}
+
 export async function restoreBackupArchive(
   client: DatabaseClient,
   archiveContent: Buffer,
   encryptionKey: Buffer,
 ): Promise<RestoreBackupResult> {
   const envelope = JSON.parse(archiveContent.toString('utf8')) as EncryptedBackupEnvelope;
-  const payload = decryptBackupArchive(envelope, encryptionKey);
+  const payload = sanitizeBackupPayloadForRestore(decryptBackupArchive(envelope, encryptionKey));
 
   return withTransaction(client, async (transaction) => {
     await transaction.execute(sql.raw('SET FOREIGN_KEY_CHECKS = 0'));
@@ -125,10 +146,11 @@ export async function verifyRestoredArchive(
   transaction: DatabaseTransaction,
   payload: BackupArchivePayload,
 ): Promise<RestoreBackupResult> {
+  const sanitizedPayload = sanitizeBackupPayloadForRestore(payload);
   const mismatches: string[] = [];
   let totalRowCount = 0;
 
-  for (const [tableName, expected] of Object.entries(payload.tables)) {
+  for (const [tableName, expected] of Object.entries(sanitizedPayload.tables)) {
     const rows = await readTableRows(transaction, tableName);
     totalRowCount += rows.length;
     if (rows.length !== expected.rowCount) {
@@ -144,7 +166,7 @@ export async function verifyRestoredArchive(
   return {
     mismatches,
     rowCount: totalRowCount,
-    tableCount: Object.keys(payload.tables).length,
+    tableCount: Object.keys(sanitizedPayload.tables).length,
   };
 }
 

@@ -16,6 +16,15 @@ export interface GroupRecycleDeleteStep {
 
 export const groupRecycleDeleteSteps: readonly GroupRecycleDeleteStep[] = [
   {
+    table: 'visitor_access_monthly_aggregates',
+    buildQuery: (groupId) =>
+      sql`DELETE FROM visitor_access_monthly_aggregates WHERE group_id = ${groupId}`,
+  },
+  {
+    table: 'visitor_access_logs',
+    buildQuery: (groupId) => sql`DELETE FROM visitor_access_logs WHERE group_id = ${groupId}`,
+  },
+  {
     table: 'export_jobs',
     buildQuery: (groupId) => sql`DELETE FROM export_jobs WHERE group_id = ${groupId}`,
   },
@@ -145,6 +154,13 @@ export class GroupRecycleJob {
     const cutoff = new Date(now.valueOf() - recycleWindowDays * 24 * 60 * 60 * 1000);
 
     return withTransaction(this.databaseClient, async (transaction) => {
+      const [schemaRows] = (await transaction.execute(sql`
+        SELECT COUNT(*) AS count
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = 'visitor_access_monthly_aggregates'
+      `)) as unknown as [readonly { count: number }[], unknown];
+      const aggregateTableExists = (schemaRows[0]?.count ?? 0) === 1;
       const [rows] = (await transaction.execute(
         sql`SELECT id FROM \`groups\`
             WHERE deleted_at IS NOT NULL AND deleted_at <= ${cutoff}
@@ -154,6 +170,7 @@ export class GroupRecycleJob {
       let scanned = 0;
       for (const row of rows) {
         for (const step of groupRecycleDeleteSteps) {
+          if (step.table === 'visitor_access_monthly_aggregates' && !aggregateTableExists) continue;
           const [header] = (await transaction.execute(step.buildQuery(row.id))) as unknown as [
             { readonly affectedRows?: number },
             unknown,

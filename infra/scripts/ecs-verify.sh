@@ -218,12 +218,13 @@ verify_installed_control_plane() {
   if [ ! -f "$CONTROL_PLANE_MANIFEST" ]; then
     return 1
   fi
-  local backup_sha update_sha verify_sha rollback_sha capability_sha
+  local backup_sha update_sha verify_sha rollback_sha capability_sha privacy_sha
   backup_sha="$(control_manifest_value backupSchedulerSha256)"
   update_sha="$(control_manifest_value ecsUpdateSha256)"
   verify_sha="$(control_manifest_value ecsVerifySha256)"
   rollback_sha="$(control_manifest_value ecsRollbackSha256)"
   capability_sha="$(control_manifest_value clientCapabilitySwitchSha256)"
+  privacy_sha="$(control_manifest_value privacyRetentionSchedulerSha256)"
   for expected_hash in "$backup_sha" "$update_sha" "$verify_sha" "$rollback_sha" "$capability_sha"; do
     [[ "$expected_hash" =~ ^[0-9a-f]{64}$ ]] || return 1
   done
@@ -232,6 +233,10 @@ verify_installed_control_plane() {
   [ "$(sha256sum /usr/local/lib/schedule/ecs-verify.sh | awk '{print $1}')" = "$verify_sha" ] || return 1
   [ "$(sha256sum /usr/local/bin/schedule-ecs-rollback | awk '{print $1}')" = "$rollback_sha" ] || return 1
   [ "$(sha256sum /usr/local/bin/schedule-client-capability | awk '{print $1}')" = "$capability_sha" ] || return 1
+  if [ -n "$privacy_sha" ]; then
+    [[ "$privacy_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+    [ "$(sha256sum /usr/local/lib/schedule/schedule-privacy-retention.sh | awk '{print $1}')" = "$privacy_sha" ] || return 1
+  fi
   local installed_path
   for installed_path in \
     /usr/local/lib/schedule/schedule-backup.sh \
@@ -246,6 +251,13 @@ verify_installed_control_plane() {
       return 1
     fi
   done
+  if [ -n "$privacy_sha" ]; then
+    [ -f /usr/local/lib/schedule/schedule-privacy-retention.sh ] || return 1
+    [ "$(stat -c '%u' /usr/local/lib/schedule/schedule-privacy-retention.sh)" = "0" ] || return 1
+    if find /usr/local/lib/schedule/schedule-privacy-retention.sh -perm /022 -print -quit | grep -q .; then
+      return 1
+    fi
+  fi
   echo "[verify] installed forward-only control plane matches its own manifest"
 }
 
@@ -323,6 +335,7 @@ EXPECTED_COMPOSE_SHA="$(manifest_value composeProdSha256)"
 EXPECTED_NGINX_SHA="$(manifest_value nginxConfigSha256)"
 EXPECTED_NOTIFICATION_SCHEDULER_SHA="$(manifest_value notificationSchedulerSha256)"
 EXPECTED_BACKUP_SCHEDULER_SHA="$(manifest_value backupSchedulerSha256)"
+EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA="$(manifest_value privacyRetentionSchedulerSha256)"
 EXPECTED_ECS_UPDATE_SHA="$(manifest_value ecsUpdateSha256)"
 EXPECTED_ECS_VERIFY_SHA="$(manifest_value ecsVerifySha256)"
 EXPECTED_ECS_ROLLBACK_SHA="$(manifest_value ecsRollbackSha256)"
@@ -390,6 +403,10 @@ if [ "$RELEASE_FEATURE_LEVEL" = "$P6_RELEASE_FEATURE_LEVEL" ]; then
   [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/ecs-verify.sh" | awk '{print $1}')" = "$EXPECTED_ECS_VERIFY_SHA" ]
   [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/ecs-rollback.sh" | awk '{print $1}')" = "$EXPECTED_ECS_ROLLBACK_SHA" ]
   [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/client-capability-switch.sh" | awk '{print $1}')" = "$EXPECTED_CAPABILITY_SWITCH_SHA" ]
+  if [ -n "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" ]; then
+    [[ "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" =~ ^[0-9a-f]{64}$ ]]
+    [ "$(sha256sum "$DEPLOY_DIR/infra/scripts/schedule-privacy-retention.sh" | awk '{print $1}')" = "$EXPECTED_PRIVACY_RETENTION_SCHEDULER_SHA" ]
+  fi
 elif [ -z "$RELEASE_FEATURE_LEVEL" ] && [ "$DEPLOY_HAS_CAPABILITY_CONTROL" = "false" ]; then
   echo "[verify] pre-P6 release: capability endpoint probe skipped"
 else
@@ -446,6 +463,39 @@ if [[ ! "$CURRENT_DATABASE_SCHEMA" =~ ^[0-9]+$ ]] ||
   [ "$CURRENT_DATABASE_SCHEMA" -lt "$EXPECTED_DATABASE_SCHEMA_MIN" ] ||
   [ "$CURRENT_DATABASE_SCHEMA" -gt "$EXPECTED_DATABASE_SCHEMA_MAX" ]; then
   echo "[verify] 错误：数据库 schema $CURRENT_DATABASE_SCHEMA 不在 release 兼容范围 ${EXPECTED_DATABASE_SCHEMA_MIN}..${EXPECTED_DATABASE_SCHEMA_MAX}。" >&2
+  exit 1
+fi
+
+MYSQL_PRIVACY_SETTINGS="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+  'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
+    -e "SELECT @@global.binlog_expire_logs_seconds, @@global.general_log"')"
+[ "$MYSQL_PRIVACY_SETTINGS" = $'2592000\t0' ] || {
+  echo "[verify] 错误：MySQL binlog/general log 隐私保留配置无效。" >&2
+  exit 1
+}
+
+if [ "$CURRENT_DATABASE_SCHEMA" -ge 50 ]; then
+  [ -f /etc/cron.d/schedule-privacy-retention ]
+  grep -Fxq '*/15 * * * * root /usr/local/lib/schedule/schedule-privacy-retention.sh >> /var/log/schedule-privacy-retention.log 2>&1' /etc/cron.d/schedule-privacy-retention
+  VISITOR_PRIVACY_SCHEMA="$(docker exec medical-schedule-prod-mysql-1 sh -c \
+    'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -N -D "$MYSQL_DATABASE" \
+      -e "SELECT
+        (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = \"visitor_access_monthly_aggregates\"),
+        (SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = \"visitor_access_logs\" AND index_name = \"visitor_access_logs_created_idx\"),
+        (SELECT COUNT(*) FROM visitor_access_logs WHERE created_at < TIMESTAMPADD(DAY, -90, CURRENT_TIMESTAMP(3))),
+        (SELECT COUNT(*) FROM platform_job_runs WHERE job_name = \"privacy-retention\" AND status = \"completed\")"')"
+  IFS=$'\t' read -r aggregate_table expiry_index expired_rows completed_runs <<< "$VISITOR_PRIVACY_SCHEMA"
+  [ "$aggregate_table" = "1" ] && [ "$expiry_index" = "2" ] && [ "$expired_rows" = "0" ] &&
+    [ "$completed_runs" -ge 1 ] || {
+    echo "[verify] 错误：访客隐私表、索引、90天边界或 retention job 无效。" >&2
+    exit 1
+  }
+fi
+
+WEB_LOGS="$(docker logs --since 15m medical-schedule-prod-web-1 2>&1 || true)"
+if printf '%s\n' "$WEB_LOGS" | grep -Eq \
+  'client: ([0-9a-fA-F:.]+)|(^|[[:space:]])([0-9]{1,3}\.){3}[0-9]{1,3}[[:space:]]+-[[:space:]]+-|visitorKey=|businessMonth='; then
+  echo "[verify] 错误：Nginx 容器日志仍可能包含原始来源 IP 或 query。" >&2
   exit 1
 fi
 echo "[verify] complete"

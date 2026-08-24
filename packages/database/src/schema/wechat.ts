@@ -158,19 +158,3 @@ export const inviteTokens = mysqlTable(
     ),
   ],
 );
-
-export const visitorAccessLogs = mysqlTable(
-  'visitor_access_logs',
-  {
-    id: identifier(),
-    groupId: char('group_id', { length: 36 }).notNull(),
-    businessMonth: char('business_month', { length: 7 }).notNull(),
-    clientIp: varchar('client_ip', { length: 45 }),
-    requestId: char('request_id', { length: 36 }),
-    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
-  },
-  (table) => [
-    index('visitor_access_logs_group_created_idx').on(table.groupId, table.createdAt, table.id),
-    index('visitor_access_logs_business_month_idx').on(table.businessMonth),
-  ],
-);

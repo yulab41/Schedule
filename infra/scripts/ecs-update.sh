@@ -134,6 +134,12 @@ database_migration_count() {
     -e "SELECT COUNT(*) FROM __drizzle_migrations"'
 }
 
+configure_database_privacy_retention() {
+  docker exec medical-schedule-prod-mysql-1 sh -c \
+    'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -D "$MYSQL_DATABASE" \
+      -e "SET PERSIST binlog_expire_logs_seconds = 2592000; SET PERSIST general_log = OFF"'
+}
+
 assert_release_path() {
   local path="$1"
   case "$path" in
@@ -236,6 +242,10 @@ if archive_has_path infra/scripts/client-capability-switch.sh; then
     ecsRollbackSha256
     clientCapabilitySwitchSha256
   )
+  if archive_has_path infra/scripts/schedule-privacy-retention.sh; then
+    CONTROL_PATHS+=(infra/scripts/schedule-privacy-retention.sh)
+    CONTROL_HASH_KEYS+=(privacyRetentionSchedulerSha256)
+  fi
   for index in "${!CONTROL_PATHS[@]}"; do
     expected_control_sha="$(manifest_value "${CONTROL_HASH_KEYS[$index]}")"
     if [[ ! "$expected_control_sha" =~ ^[0-9a-f]{64}$ ]] ||
@@ -282,6 +292,7 @@ for relative_path in \
   infra/scripts/client-capability-switch.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-notifications.sh \
+  infra/scripts/schedule-privacy-retention.sh \
   .env.production.example \
   runtime/api-flat/node_modules \
   deploy-manifest.json \
@@ -304,6 +315,7 @@ if [ "$PRESERVE_CONTROL_PLANE" = "false" ]; then
     /usr/local/lib/schedule
     /etc/cron.d/schedule-notifications
     /etc/cron.d/schedule-backup
+    /etc/cron.d/schedule-privacy-retention
     /etc/logrotate.d/schedule
   )
 fi
@@ -341,6 +353,7 @@ restore_previous() {
     infra/scripts/client-capability-switch.sh \
     infra/scripts/schedule-backup.sh \
     infra/scripts/schedule-notifications.sh \
+    infra/scripts/schedule-privacy-retention.sh \
     .env.production.example \
     runtime/api-flat/node_modules \
     deploy-manifest.json \
@@ -430,6 +443,7 @@ for relative_path in \
   infra/scripts/client-capability-switch.sh \
   infra/scripts/schedule-backup.sh \
   infra/scripts/schedule-notifications.sh \
+  infra/scripts/schedule-privacy-retention.sh \
   .env.production.example; do
   assert_release_path "$DEPLOY_DIR/$relative_path"
   rm -rf "$DEPLOY_DIR/$relative_path"
@@ -453,7 +467,8 @@ for optional_path in \
   infra/scripts/ecs-verify.sh \
   infra/scripts/ecs-rollback.sh \
   infra/scripts/client-capability-switch.sh \
-  infra/scripts/schedule-backup.sh; do
+  infra/scripts/schedule-backup.sh \
+  infra/scripts/schedule-privacy-retention.sh; do
   if archive_has_path "$optional_path"; then
     EXTRACT_PATHS+=("$optional_path")
   fi
@@ -475,6 +490,7 @@ rmdir "$DEPLOY_DIR/runtime/api-flat-new"
 echo "[deploy] 4/7 停止旧 API 写入并在容器内执行数据库迁移"
 compose stop api
 compose run --rm api node apps/api/dist/migrate.js
+configure_database_privacy_retention
 CURRENT_DATABASE_SCHEMA="$(database_migration_count)"
 if [[ ! "$CURRENT_DATABASE_SCHEMA" =~ ^[0-9]+$ ]] ||
   [ "$CURRENT_DATABASE_SCHEMA" -lt "$DATABASE_SCHEMA_MIN" ] ||
@@ -518,8 +534,21 @@ EOF
 30 3 * * * root /usr/local/lib/schedule/schedule-backup.sh >> /var/log/schedule-backup.log 2>&1
 EOF
   fi
+  if [ -f infra/scripts/schedule-privacy-retention.sh ]; then
+    install -d -m 0755 /usr/local/lib/schedule
+    install -m 0755 infra/scripts/schedule-privacy-retention.sh \
+      /usr/local/lib/schedule/schedule-privacy-retention.sh
+    if [ "$CURRENT_DATABASE_SCHEMA" -ge 50 ]; then
+      cat > /etc/cron.d/schedule-privacy-retention <<'EOF'
+*/15 * * * * root /usr/local/lib/schedule/schedule-privacy-retention.sh >> /var/log/schedule-privacy-retention.log 2>&1
+EOF
+      bash /usr/local/lib/schedule/schedule-privacy-retention.sh
+    else
+      rm -f -- /etc/cron.d/schedule-privacy-retention
+    fi
+  fi
   cat > /etc/logrotate.d/schedule <<'EOF'
-/var/log/schedule-monitor.log /var/log/schedule-backup.log /var/log/schedule-notifications.log {
+/var/log/schedule-monitor.log /var/log/schedule-backup.log /var/log/schedule-notifications.log /var/log/schedule-privacy-retention.log {
   weekly
   rotate 4
   compress

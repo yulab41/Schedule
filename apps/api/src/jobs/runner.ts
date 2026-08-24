@@ -11,6 +11,7 @@ import { ExportJobProcessor } from './export-jobs.js';
 import { GroupRecycleJob } from './group-recycle.js';
 import { HolidayAlertJob } from './holiday-alerts.js';
 import { NotificationRetryJob } from './notification-retry.js';
+import { PrivacyRetentionJob } from './privacy-retention.js';
 import { StatisticsRebuildJob } from './statistics-rebuild.js';
 import { createWechatGateway } from '../modules/wechat/wechat-gateway.js';
 import { WechatPushDispatcher } from '../modules/wechat/wechat-push-dispatcher.js';
@@ -22,6 +23,7 @@ export type JobName =
   | 'group-recycle'
   | 'holiday-alerts'
   | 'notification-retry'
+  | 'privacy-retention'
   | 'statistics-rebuild';
 
 type JobRunner = (
@@ -55,6 +57,7 @@ export const jobRunners: Readonly<Record<JobName, JobRunner>> = {
         }),
       ),
     ).run(),
+  'privacy-retention': (client) => new PrivacyRetentionJob(client).run(),
   'statistics-rebuild': (client) => new StatisticsRebuildJob(client).run(),
 };
 

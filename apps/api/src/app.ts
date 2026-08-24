@@ -104,6 +104,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     genReqId: () => randomUUID(),
     logger: options.logger === false ? false : createLoggerOptions(options.loggerStream),
     requestIdHeader: false,
+    trustProxy: 1,
   });
 
   registerRequestContext(app);
@@ -175,13 +176,16 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         platformAdminUids,
       }),
     );
+    const visitorAccessLogService = new VisitorAccessLogService(options.databaseClient, {
+      platformAdminUids,
+    });
     registerGroupRoutes(
       app,
       new GroupService(options.databaseClient),
       new MembershipService(options.databaseClient),
       new ContactService(options.databaseClient),
       new VisitorKeyService(options.databaseClient),
-      new VisitorAccessLogService(options.databaseClient),
+      visitorAccessLogService,
     );
     registerSchedulingConfigRoutes(app, new SchedulingConfigService(options.databaseClient));
     const scheduleRepository = new ScheduleRepository(options.databaseClient);
@@ -193,7 +197,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerCalendarRoutes(
       app,
       new CalendarQuery(options.databaseClient),
-      new VisitorAccessLogService(options.databaseClient),
+      visitorAccessLogService,
       clientCapabilityPolicy,
     );
     registerCalendarPreferencesRoutes(app, new CalendarPreferencesService(options.databaseClient));

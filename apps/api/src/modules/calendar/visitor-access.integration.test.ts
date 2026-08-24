@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -12,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { insertDirectMembership } from '@schedule/test-fixtures';
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
 import { createApp } from '../../app.js';
+import { VisitorAccessLogService } from './visitor-access-log.js';
 import { WechatGatewayError, type WechatGateway } from '../wechat/wechat-gateway.js';
 
 const migrationsDirectory = fileURLToPath(new URL('../../../../../migrations', import.meta.url));
@@ -33,16 +35,24 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     app = createApp({
       authPort: createFakeAuthPort({
         'admin-token': 'cloudbase-admin',
+        'developer-token': 'cloudbase-developer',
         'member-token': 'cloudbase-member',
         'owner-token': 'cloudbase-owner',
+        'platform-token': 'cloudbase-platform',
       }),
       databaseClient: client,
       logger: false,
+      platformAdminUids: new Set(['cloudbase-platform']),
       wechatGateway: qrGateway,
     });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('admin-token', 'Admin Doctor');
     await registerUser('member-token', 'Member Doctor');
+    await registerUser('platform-token', 'Platform Doctor');
+    await registerUser('developer-token', 'Developer Doctor');
+    await client.database.execute(sql`
+      UPDATE users SET is_developer_admin = 1 WHERE cloudbase_uid = 'cloudbase-developer'
+    `);
     groupId = await createGroup('Visitor group', '1234');
     await addRosterEntries(groupId, ['Admin Doctor', 'Member Doctor']);
     await claimGroup('admin-token', '1234', 'Admin Doctor');
@@ -211,6 +221,120 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     expect(memberLogs.statusCode).toBe(403);
   });
 
+  it('hides raw rows before 90 days and lets both platform-admin classes read without membership', async () => {
+    const oldId = randomId();
+    const retainedId = randomId();
+    await client.database.execute(sql`
+      INSERT INTO visitor_access_logs
+        (id, group_id, business_month, client_ip, request_id, created_at)
+      VALUES
+        (${oldId}, ${groupId}, '2026-07', '203.0.113.1', ${randomId()},
+         ${new Date(Date.now() - 91 * 24 * 60 * 60 * 1000)}),
+        (${retainedId}, ${groupId}, '2026-08', '203.0.113.2', ${randomId()},
+         ${new Date(Date.now() - 89 * 24 * 60 * 60 * 1000)})
+    `);
+
+    for (const token of ['owner-token', 'admin-token', 'platform-token', 'developer-token']) {
+      const response = await app.inject({
+        headers: { authorization: `Bearer ${token}` },
+        method: 'GET',
+        url: `/groups/${groupId}/visitor-access-logs`,
+      });
+      expect(response.statusCode, `${token}: ${response.body}`).toBe(200);
+      const ids = (response.json() as { logs: readonly { id: string }[] }).logs.map(
+        (entry) => entry.id,
+      );
+      expect(ids).toContain(retainedId);
+      expect(ids).not.toContain(oldId);
+    }
+  });
+
+  it('returns only anonymous aggregate fields to group and platform administrators', async () => {
+    const aggregateTableExists = await hasAggregateTable();
+    if (!aggregateTableExists) {
+      const unavailable = await app.inject({
+        headers: { authorization: 'Bearer owner-token' },
+        method: 'GET',
+        url: `/groups/${groupId}/visitor-access-aggregates`,
+      });
+      expect(unavailable.statusCode).toBe(503);
+      return;
+    }
+    await client.database.execute(sql`
+      INSERT INTO visitor_access_monthly_aggregates
+        (group_id, access_month, business_month, access_count)
+      VALUES (${groupId}, '2026-05', '2026-08', 42)
+    `);
+    await expect(
+      new VisitorAccessLogService(client).listAggregates(
+        { cloudbaseUid: 'cloudbase-owner' },
+        groupId,
+        undefined,
+      ),
+    ).resolves.toEqual({
+      aggregates: [{ accessCount: '42', accessMonth: '2026-05', businessMonth: '2026-08' }],
+    });
+
+    for (const token of ['owner-token', 'admin-token', 'platform-token', 'developer-token']) {
+      const response = await app.inject({
+        headers: { authorization: `Bearer ${token}` },
+        method: 'GET',
+        url: `/groups/${groupId}/visitor-access-aggregates`,
+      });
+      expect(response.statusCode, `${token}: ${response.body}`).toBe(200);
+      expect(response.json()).toEqual({
+        aggregates: [{ accessCount: '42', accessMonth: '2026-05', businessMonth: '2026-08' }],
+      });
+      expect(response.body).not.toMatch(/clientIp|requestId|groupId/iu);
+    }
+
+    const member = await app.inject({
+      headers: { authorization: 'Bearer member-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/visitor-access-aggregates`,
+    });
+    expect(member.statusCode).toBe(403);
+  });
+
+  it('fails the aggregate endpoint closed while the runtime bridge is still on schema 49', async () => {
+    await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_monthly_aggregates`);
+    const response = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: `/groups/${groupId}/visitor-access-aggregates`,
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toMatchObject({ error: { code: 'SERVICE_UNAVAILABLE' } });
+  });
+
+  it('uses the nearest trusted proxy value and stores no invalid IP text', async () => {
+    const visitorKey = await getVisitorKey(groupId);
+    const spoofed = await app.inject({
+      headers: { 'x-forwarded-for': '198.51.100.99, 203.0.113.7' },
+      method: 'GET',
+      remoteAddress: '127.0.0.1',
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-08&visitorKey=${visitorKey}`,
+    });
+    expect(spoofed.statusCode, spoofed.body).toBe(200);
+    const invalid = await app.inject({
+      headers: { 'x-forwarded-for': 'not-an-ip' },
+      method: 'GET',
+      remoteAddress: '127.0.0.1',
+      url: `/guest/groups/${groupId}/calendar?businessMonth=2026-09&visitorKey=${visitorKey}`,
+    });
+    expect(invalid.statusCode, invalid.body).toBe(200);
+
+    const [rows] = (await client.database.execute(sql`
+      SELECT business_month AS businessMonth, client_ip AS clientIp
+      FROM visitor_access_logs
+      ORDER BY created_at
+    `)) as unknown as [readonly { businessMonth: string; clientIp: string | null }[], unknown];
+    expect(rows).toEqual([
+      { businessMonth: '2026-08', clientIp: '203.0.113.7' },
+      { businessMonth: '2026-09', clientIp: null },
+    ]);
+  });
+
   async function registerUser(token: string, realName: string): Promise<void> {
     const response = await app.inject({
       headers: { authorization: `Bearer ${token}` },
@@ -279,6 +403,16 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
       url: `/guest/groups/${groupId}/calendar?businessMonth=${businessMonth}&visitorKey=${visitorKey}`,
     });
     expect(response.statusCode, response.body).toBe(200);
+  }
+
+  async function hasAggregateTable(): Promise<boolean> {
+    const [rows] = (await client.database.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+        AND table_name = 'visitor_access_monthly_aggregates'
+    `)) as unknown as [readonly { count: number }[], unknown];
+    return (rows[0]?.count ?? 0) === 1;
   }
 });
 
@@ -350,6 +484,10 @@ function createFakeAuthPort(tokens: Readonly<Record<string, string>>): AuthPort 
   };
 }
 
+function randomId(): string {
+  return randomUUID();
+}
+
 async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`SET FOREIGN_KEY_CHECKS = 0`);
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_search_aliases`);
@@ -359,6 +497,7 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_import_batches`);
   await client.database.execute(sql`DROP TABLE IF EXISTS directory_campuses`);
   await client.database.execute(sql`DROP TABLE IF EXISTS invite_tokens`);
+  await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_monthly_aggregates`);
   await client.database.execute(sql`DROP TABLE IF EXISTS visitor_access_logs`);
   await client.database.execute(sql`DROP TABLE IF EXISTS backup_archives`);
   await client.database.execute(sql`DROP TABLE IF EXISTS platform_job_runs`);

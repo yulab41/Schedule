@@ -188,6 +188,25 @@ export const visitorAccessLogPageSchema = z
   .strict();
 export type VisitorAccessLogPage = z.infer<typeof visitorAccessLogPageSchema>;
 
+const visitorAccessMonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u);
+
+export const visitorAccessAggregateSchema = z
+  .object({
+    accessCount: z.string().regex(/^[1-9]\d*$/u),
+    accessMonth: visitorAccessMonthSchema,
+    businessMonth: visitorAccessMonthSchema,
+  })
+  .strict();
+export type VisitorAccessAggregate = z.infer<typeof visitorAccessAggregateSchema>;
+
+export const visitorAccessAggregatePageSchema = z
+  .object({
+    aggregates: z.readonly(z.array(visitorAccessAggregateSchema)),
+    nextCursor: z.string().optional(),
+  })
+  .strict();
+export type VisitorAccessAggregatePage = z.infer<typeof visitorAccessAggregatePageSchema>;
+
 export const groupQrResponseSchema = z
   .object({
     imageBase64: z.string().min(1),

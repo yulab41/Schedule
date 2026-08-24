@@ -2,12 +2,15 @@ import { randomBytes } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   char,
+  check,
   index,
   int,
   json,
   mysqlEnum,
   mysqlTable,
+  primaryKey,
   timestamp,
   tinyint,
   uniqueIndex,
@@ -122,6 +125,49 @@ export const groups = mysqlTable(
     uniqueIndex('groups_group_code_unique').on(table.groupCode),
     uniqueIndex('groups_visitor_key_unique').on(table.visitorKey),
     index('groups_owner_user_id_idx').on(table.ownerUserId),
+  ],
+);
+
+export const visitorAccessLogs = mysqlTable(
+  'visitor_access_logs',
+  {
+    id: identifier(),
+    groupId: char('group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id),
+    businessMonth: char('business_month', { length: 7 }).notNull(),
+    clientIp: varchar('client_ip', { length: 45 }),
+    requestId: char('request_id', { length: 36 }),
+    createdAt: timestamp('created_at', { fsp: 3 }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('visitor_access_logs_group_created_idx').on(table.groupId, table.createdAt, table.id),
+    index('visitor_access_logs_created_idx').on(table.createdAt, table.id),
+    index('visitor_access_logs_business_month_idx').on(table.businessMonth),
+  ],
+);
+
+export const visitorAccessMonthlyAggregates = mysqlTable(
+  'visitor_access_monthly_aggregates',
+  {
+    groupId: char('group_id', { length: 36 })
+      .notNull()
+      .references(() => groups.id),
+    accessMonth: char('access_month', { length: 7 }).notNull(),
+    businessMonth: char('business_month', { length: 7 }).notNull(),
+    accessCount: bigint('access_count', { mode: 'bigint', unsigned: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.groupId, table.accessMonth, table.businessMonth] }),
+    check(
+      'visitor_access_monthly_aggregates_access_month_check',
+      sql`${table.accessMonth} REGEXP '^[0-9]{4}-(0[1-9]|1[0-2])$'`,
+    ),
+    check(
+      'visitor_access_monthly_aggregates_business_month_check',
+      sql`${table.businessMonth} REGEXP '^[0-9]{4}-(0[1-9]|1[0-2])$'`,
+    ),
+    check('visitor_access_monthly_aggregates_count_check', sql`${table.accessCount} > 0`),
   ],
 );
 

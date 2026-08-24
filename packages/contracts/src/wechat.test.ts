@@ -7,6 +7,7 @@ import {
   groupQrResponseSchema,
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
+  visitorAccessAggregatePageSchema,
   visitorResolveRequestSchema,
   platformAdminWechatMiniProgramUnbindRequestSchema,
   wechatLinkPasswordRequestSchema,
@@ -177,6 +178,27 @@ describe('wechat mini program contracts', () => {
         nextCursor: 'log-1',
       }).success,
     ).toBe(true);
+  });
+
+  it('accepts only anonymous decimal visitor aggregates', () => {
+    expect(
+      visitorAccessAggregatePageSchema.safeParse({
+        aggregates: [{ accessCount: '42', accessMonth: '2026-08', businessMonth: '2026-09' }],
+        nextCursor: '2026-08|2026-09',
+      }).success,
+    ).toBe(true);
+    expect(
+      visitorAccessAggregatePageSchema.safeParse({
+        aggregates: [
+          {
+            accessCount: '42',
+            accessMonth: '2026-08',
+            businessMonth: '2026-09',
+            clientIp: '127.0.0.1',
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 
   it('requires a non-empty group QR image payload', () => {

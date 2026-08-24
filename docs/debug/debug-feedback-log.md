@@ -2,12 +2,21 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C2 数据库 49→50 兼容桥
+## 2026-08-24 P6-C3 访客 IP 隐私运行时桥
+
+- 基线/来源：`da144470` schema bridge已部署且DB49。visitor表/服务/IP/备份/recycle来源为`4fc6bd21`、`4b337490`、`7c783c71`、`a837586e`、`9e4a6765`。
+- 红绿与实现：aggregate/schema/job/scheduler、trustProxy/Nginx/MySQL先6红，backup format2/legacy raw skip先2红，recycle明示覆盖先1红；实现raw API先行90天隐藏、平台管理员、IP规范化、backup raw永久排除、privacy log/MySQL retention及dormant 15分钟job控制，unit/static 9 files/50、真实MySQL visitor/platform+backup 19/19和typecheck通过。
+- 运行/浏览器验证：pnpm smoke:browser 初次因5173未启动、`::1` EACCES及未显式dev auth依次安全停止；最终在127.0.0.1:4173当前源码+本地API通过管理员/成员/访客vkey/访问记录全链路且无浏览器错误，截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-9arQfM`，临时服务已停。
+- 运行/浏览器验证：pnpm smoke:browser 完整通过后，以 pnpm smoke:check-core 复核核心链路门禁。
+- 兼容/回滚：DB49 aggregate endpoint 503、recycle跳过缺表、control只安装不调度；DB50才建cron并首跑。feature回滚后保留前向control plane，runtime bridge在DB50继续清理、隐藏raw并保持隐私日志/备份。
+- checkpoint：`fix(privacy): harden visitor retention runtime`；clean DB49部署验证后才提交0050及真实MySQL聚合/并发/恢复证据。
+
+## 2026-08-24 P6-C2 数据库 49→50 兼容桥（已部署）
 
 - 基线/引入点：Git/origin/production `5e010927`、DB49；manifest 的 49..49 由 `e25878f0` 引入。本轮只声明当前应用接受 additive schema50，不含迁移、表、API、任务或 UI。
 - 测试与语义：先把 max 期望改为50，旧 packager 1项失败，修复后 package/release controls 2 files/21 tests；min仍49。DB49 bridge 可回到 `5e010927`；0050 feature release 只能回到接受DB50的 bridge，数据库从不降级。
 - 验证/运行：任务 Prettier、Node syntax、diff、核心 smoke通过；无需浏览器 smoke。宽泛 Vitest 扫到用户历史副本噪声后，排除副本的真实源全绿；root MJS直接 ESLint的既有Node globals噪声不作为门禁，提交前运行根 lint。
-- checkpoint：`chore(release): bridge visitor retention schema`；部署后核对 manifest 49..50、生产仍49 migrations及 current-release，再进入0050隐私保留实现。
+- 发布：`da144470`已推送；备份`88931ea1-…`后部署，首个502自动恢复，full verify通过。manifest 49..50、rollback=`5e010927`、生产仍49 migrations；随后进入隐私运行时桥。
 
 ## 2026-08-24 P6-C1 性能量化与实体回调探针
 
