@@ -2,13 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C6 脱敏遥测运行时兼容桥（待 checkpoint）
+## 2026-08-24 P6-C6 脱敏遥测运行时兼容桥（已部署）
 
 - 范围/基线：schema bridge `b8c60827` 已与Git/origin/production对齐，DB50/health200。本checkpoint发布可运行于DB50/51的Mini-only telemetry contract/API/schema metadata、30天retention、backup exclusion、Nginx/API限流和日志redaction，不应用0051、不修改Mini源码/UI。
 - 严格数据边界：batch1..10、body16KiB；固定page/deviceTier/networkType/errorCode/performance metric，duration为0..600000整数，fingerprint只允许64位小写hex且必须伴随error。禁止身份、群组、手机号、token、IP、raw stack/message、客户端时间、metadata/JSON和排班正文；version只从成对exact Mini headers写入。无Bearer、无read route，global+core任一关闭即503，headerless/partial为400、未知版本426。
 - DB50/51兼容：Drizzle提前声明无FK/身份/JSON的telemetry表；DB50 endpoint明确503，privacy job检测缺表并返回telemetry 0/0，backup/legacy restore预先排除表。DB51时同一runtime进行单SQL批插入和严格`<now-30天`分批SKIP LOCKED删除。Nginx exact route 30r/min+burst10/body16k，API全局budget不保存IP。
 - 测试先行/验证：缺contract/schema/service、backup/retention/rate/redaction先出现8个失败测试+2个缺模块suite；实现后unit/static 8 files/32 tests、真实MySQL runtime bridge ingestion3/3、全仓lint/typecheck/build通过。运行/浏览器验证：pnpm smoke:browser在127.0.0.1:4173当前源码/API完整通过管理员、成员、访客vkey和访问记录，无浏览器错误，截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-EGPa7t`，临时服务已停止。
-- checkpoint/下一步：runtime bridge识别消息为`feat(telemetry): add anonymous client runtime`；从clean DB50 release验证endpoint503、retention 0/0、backup table count不变、manifest50..51后部署。随后才提交0051、Mini纯内存emitter/App error+性能接线、`.81` allowlist/体验上传及DB51rollback/forward，不进入P7。
+- checkpoint/发布：runtime bridge `03c5d465`（`feat(telemetry): add anonymous client runtime`）已推送；发布前加密备份`09e4200d-6ecc-4acb-956e-0aed6e1e4b67`（54表、163179行、76909408 bytes、SHA-256 `d69afa9e5005ebe40f8a350d33ed45fe13f1c86741b626537a3e5adc60c58157`）后部署。生产`current-release=03c5d4655bca17915cde64f4c5577baddc477863`、manifest50..51、仍50 migrations且telemetry表不存在；完整verifier通过，手工retention `8a2b4d2e-f1e2-49f3-879e-329e1718c939`返回visitor/telemetry均0/0。下一批才提交0051、Mini纯内存emitter/App error+性能接线、`.81` allowlist/体验上传及DB51 rollback/forward，不进入P7。
 
 ## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥（已部署）
 

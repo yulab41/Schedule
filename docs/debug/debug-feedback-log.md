@@ -2,13 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C6 脱敏遥测 runtime bridge
+## 2026-08-24 P6-C6 脱敏遥测 runtime bridge（已部署）
 
 - 基线/范围：`b8c60827` schema bridge已部署、DB50。本轮只做DB50/51 strict telemetry runtime，不含0051/Mini/UI。
 - 红绿/实现：缺contract/schema/service与backup/30天job/rate/redaction共8红+2缺模块suite；实现固定匿名字段、Mini exact headers+global/core、16KiB/10条、no Bearer/read、单SQL插入、30天skip-locked、backup exclusion、Nginx/API budget和stack/message redaction。unit/static32、真实MySQL bridge ingestion3/3、lint/typecheck/build通过。
 - 运行/浏览器验证：pnpm smoke:browser在127.0.0.1:4173当前源码/API通过管理员/成员/访客vkey/访问记录，无浏览器错误，截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-EGPa7t`，临时服务已停。
 - 运行/浏览器验证：pnpm smoke:browser 完整通过后，以 pnpm smoke:check-core 复核telemetry核心链路。
-- checkpoint=`feat(telemetry): add anonymous client runtime`；clean DB50部署验证后才应用0051/Mini `.81`。
+- 发布：`03c5d465`已推送；备份`09e4200d-…`后部署同一release，full verifier通过。生产仍DB50且telemetry表数0；手工job `8a2b4d2e-…`返回visitor/telemetry 0/0，证明DB50兼容跳过。下一批才应用0051/Mini `.81`。
 
 ## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥（已部署）
 
