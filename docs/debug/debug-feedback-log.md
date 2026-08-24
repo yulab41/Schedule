@@ -2,12 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C8 Mini `.81` anonymous telemetry（待发布）
+## 2026-08-24 P6-C8 Mini `.81` anonymous telemetry（已部署待RC）
 
 - 基线/来源：`a1d25fde`/DB51；App+capability=`e25878f0`，POST no-idempotency no-retry=`9e3a966c`，performance callbacks=`e2270bde`。不改UI/API/DB。
 - 红绿/实现：缺emitter/hooks/wiring先8红；in-flight ceiling、path normalization、hostile getter再各1红。实现global+core、总量10/去重、单POST3s、无Bearer/retry/storage/offline queue；raw error只在本地归一化后纯TS SHA-256，队列只有固定匿名字段。tier只读benchmark并分unknown/1-2/3-5/6+；network/page严格枚举。
 - 语义：App error/rejection只发app MINI_RUNTIME_ERROR；既有4项callback duration默认发送，诊断文字仍只`performance=1`，默认无新增setData/视觉。receiver/catch/null/认证重试/业务调用/矩阵mutation+undo/WXS不变；失败丢弃且不递归。
-- 验证：Mini33/191，non-integration913，lint/typecheck/build、source/verify/2 Worklets/determinism/package/dry-run通过；`.81`132 files/1319302 bytes/manifest`2a321577236e6df8855ecae4980d1e4e1fce634c0a0d5a59d615b2a3454a9385`。运行/浏览器验证：pnpm smoke:check-core无Web核心变化，无需pnpm smoke:browser。checkpoint=`feat(miniprogram): emit anonymous runtime telemetry`；推送后clean上传`.81`并扩生产allowlist/部署，不提审。
+- 验证/发布：Mini33/191，non-integration913，lint/typecheck/build、source/verify/2 Worklets/determinism/package/dry-run通过；clean `c5322516` `.81`为132 files/1329516 bytes/manifest`8e11d0fc6a074a4ac78bdd76b5cd5a389aa4b433b1d1f76577929005eb522d5b`。CRLF只触发一次clean Vite解析噪声，规范行尾cached diff0后全绿。运行/浏览器验证：pnpm smoke:check-core无Web核心变化，无需pnpm smoke:browser。
+- 体验/生产：第一次代理IPv6被微信拒绝且未成版；直连同commit `.81`上传72文件/zip476544成功。production allowlist原子扩`.78-.81`，env0/600，`.81` global/core/guest=true。备份`5d10a80c-…`后部署`c5322516`，job`55eccf06-…`/full verify/DB51/telemetry0/backup54通过。未提审；等待实体RC，checkpoint=`docs(status): record mini telemetry deployment`。
 
 ## 2026-08-24 P6-C7 telemetry schema 51 feature（已部署并演练）
 
