@@ -50,4 +50,13 @@ describe('production privacy retention controls', () => {
     expect(verify).toContain('@@global.binlog_expire_logs_seconds');
     expect(verify).toContain('@@global.general_log');
   });
+
+  it('rate-limits the exact telemetry route and caps its body before proxying', async () => {
+    const nginx = await read('infra/docker/nginx.prod.conf');
+
+    expect(nginx).toContain('limit_req_zone $binary_remote_addr zone=schedule_telemetry:1m');
+    expect(nginx).toContain('location = /api/client-telemetry');
+    expect(nginx).toContain('client_max_body_size 16k');
+    expect(nginx).toContain('limit_req zone=schedule_telemetry');
+  });
 });

@@ -6,7 +6,7 @@ import { sql, type SQL } from 'drizzle-orm';
 export const backupFormatName = 'medical-schedule-backup';
 export const backupFormatVersion = 2;
 export const backupKeyLengthBytes = 32;
-const excludedBackupTableNames = new Set(['visitor_access_logs']);
+const excludedBackupTableNames = new Set(['miniprogram_telemetry_events', 'visitor_access_logs']);
 
 export type BackupFormatVersion = 1 | typeof backupFormatVersion;
 

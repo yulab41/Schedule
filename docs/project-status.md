@@ -2,11 +2,19 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥（待 checkpoint）
+## 2026-08-24 P6-C6 脱敏遥测运行时兼容桥（待 checkpoint）
+
+- 范围/基线：schema bridge `b8c60827` 已与Git/origin/production对齐，DB50/health200。本checkpoint发布可运行于DB50/51的Mini-only telemetry contract/API/schema metadata、30天retention、backup exclusion、Nginx/API限流和日志redaction，不应用0051、不修改Mini源码/UI。
+- 严格数据边界：batch1..10、body16KiB；固定page/deviceTier/networkType/errorCode/performance metric，duration为0..600000整数，fingerprint只允许64位小写hex且必须伴随error。禁止身份、群组、手机号、token、IP、raw stack/message、客户端时间、metadata/JSON和排班正文；version只从成对exact Mini headers写入。无Bearer、无read route，global+core任一关闭即503，headerless/partial为400、未知版本426。
+- DB50/51兼容：Drizzle提前声明无FK/身份/JSON的telemetry表；DB50 endpoint明确503，privacy job检测缺表并返回telemetry 0/0，backup/legacy restore预先排除表。DB51时同一runtime进行单SQL批插入和严格`<now-30天`分批SKIP LOCKED删除。Nginx exact route 30r/min+burst10/body16k，API全局budget不保存IP。
+- 测试先行/验证：缺contract/schema/service、backup/retention/rate/redaction先出现8个失败测试+2个缺模块suite；实现后unit/static 8 files/32 tests、真实MySQL runtime bridge ingestion3/3、全仓lint/typecheck/build通过。运行/浏览器验证：pnpm smoke:browser在127.0.0.1:4173当前源码/API完整通过管理员、成员、访客vkey和访问记录，无浏览器错误，截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-EGPa7t`，临时服务已停止。
+- checkpoint/下一步：runtime bridge识别消息为`feat(telemetry): add anonymous client runtime`；从clean DB50 release验证endpoint503、retention 0/0、backup table count不变、manifest50..51后部署。随后才提交0051、Mini纯内存emitter/App error+性能接线、`.81` allowlist/体验上传及DB51rollback/forward，不进入P7。
+
+## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥（已部署）
 
 - 范围与基线：Git/origin/production均为`47e753e3`，DB50、health200、privacy retention正常。本checkpoint只把release manifest兼容上界从50提升到51，不新增0051、表、API、Mini代码或运行行为；用户自有配置/Storybook/副本不纳入。
 - 来源与测试：schema范围声明沿用`e25878f0`建立的失败关闭机制；package test先把max期望改为51并在旧packager上1项失败，修复后保持min=50/max=51。DB50部署可回到`47e753e3`，未来0051只能回到接受DB51的后续telemetry runtime bridge，数据库不降级。
-- checkpoint/下一步：识别消息为`chore(release): bridge telemetry schema`；提交推送、备份部署并核对manifest50..51/production仍50 migrations后，才实现DB50/51遥测runtime bridge（严格contract、Mini-only API、30天job/backup exclusion/rate limit），不提前应用0051或修改Mini。
+- 发布/下一步：`b8c60827`已推送；备份`80341696-f4d6-4374-914e-7f72ee6ee85f`（54表、163120行、76889840 bytes、SHA-256`eb1b305658a0702d846dbb24d1d6c3c5017d1f734afa4cc69efac780b6e8b719`）后部署，privacy job `e7655f6c-…` no-op、full verify通过。manifest50..51/candidate=`47e753e3`、生产仍50 migrations；随后进入DB50/51 telemetry runtime bridge。
 
 ## 2026-08-24 P6-C4 访客 IP 90 天聚合与清理（已部署并完成回滚演练）
 

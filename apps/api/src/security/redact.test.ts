@@ -19,6 +19,9 @@ const canonicalSensitiveFields = [
   'token',
   'unionId',
   'visitorKey',
+  'stack',
+  'errorStack',
+  'errorMessage',
 ] as const;
 
 describe('sensitive field redaction', () => {

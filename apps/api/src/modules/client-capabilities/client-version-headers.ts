@@ -40,6 +40,15 @@ export function resolveMiniClientVersion(
   return version.data;
 }
 
+export function resolveRequiredMiniClientVersion(
+  request: FastifyRequest,
+  policy: ClientCapabilityPolicy,
+): ClientVersion {
+  const version = resolveMiniClientVersion(request, policy);
+  if (version === undefined) throw invalidClientHeadersError();
+  return version;
+}
+
 function readSingleHeader(value: string | readonly string[] | undefined): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

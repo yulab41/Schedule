@@ -20,6 +20,9 @@ const sensitiveFieldNames = [
   'openid',
   'unionId',
   'visitorKey',
+  'stack',
+  'errorStack',
+  'errorMessage',
 ] as const;
 
 // Pino redact 依赖静态路径列表；深于 3 层的嵌套由 redactSensitiveFields 兜底。

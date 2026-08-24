@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createVisitorAccessCutoff,
+  createTelemetryCutoff,
   toChinaAccessMonth,
   visitorAccessRetentionDays,
 } from './privacy-retention.js';
@@ -20,5 +21,11 @@ describe('visitor access privacy retention', () => {
   it('buckets access months at the fixed China-standard boundary', () => {
     expect(toChinaAccessMonth(new Date('2026-01-31T15:59:59.999Z'))).toBe('2026-01');
     expect(toChinaAccessMonth(new Date('2026-01-31T16:00:00.000Z'))).toBe('2026-02');
+  });
+
+  it('uses a strict 30-day cutoff for anonymous telemetry', () => {
+    expect(createTelemetryCutoff(new Date('2026-08-24T00:00:00.000Z')).toISOString()).toBe(
+      '2026-07-25T00:00:00.000Z',
+    );
   });
 });

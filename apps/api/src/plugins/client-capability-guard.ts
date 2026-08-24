@@ -5,6 +5,7 @@ import type { AuthenticatedIdentity } from '../adapters/auth/auth-port.js';
 import type { ClientCapabilityPolicy } from '../modules/client-capabilities/client-capability-policy.js';
 import {
   resolveMiniClientVersion,
+  resolveRequiredMiniClientVersion,
   unsupportedClientVersionError,
 } from '../modules/client-capabilities/client-version-headers.js';
 import { ApiError } from './error-handler.js';
@@ -37,6 +38,17 @@ export function createPublicMiniCapabilityGuard(
     const capabilities = policy.resolve('miniprogram', clientVersion);
     if (capabilities === undefined) throw unsupportedClientVersionError();
     if (!capabilities.guest) throw disabledCapabilityError();
+  };
+}
+
+export function createPublicMiniCoreCapabilityGuard(
+  policy: ClientCapabilityPolicy,
+): preHandlerHookHandler {
+  return async (request) => {
+    const clientVersion = resolveRequiredMiniClientVersion(request, policy);
+    const capabilities = policy.resolve('miniprogram', clientVersion);
+    if (capabilities === undefined) throw unsupportedClientVersionError();
+    if (!capabilities.global || !capabilities.core) throw disabledCapabilityError();
   };
 }
 

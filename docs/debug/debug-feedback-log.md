@@ -2,10 +2,18 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥
+## 2026-08-24 P6-C6 脱敏遥测 runtime bridge
+
+- 基线/范围：`b8c60827` schema bridge已部署、DB50。本轮只做DB50/51 strict telemetry runtime，不含0051/Mini/UI。
+- 红绿/实现：缺contract/schema/service与backup/30天job/rate/redaction共8红+2缺模块suite；实现固定匿名字段、Mini exact headers+global/core、16KiB/10条、no Bearer/read、单SQL插入、30天skip-locked、backup exclusion、Nginx/API budget和stack/message redaction。unit/static32、真实MySQL bridge ingestion3/3、lint/typecheck/build通过。
+- 运行/浏览器验证：pnpm smoke:browser在127.0.0.1:4173当前源码/API通过管理员/成员/访客vkey/访问记录，无浏览器错误，截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-EGPa7t`，临时服务已停。
+- 运行/浏览器验证：pnpm smoke:browser 完整通过后，以 pnpm smoke:check-core 复核telemetry核心链路。
+- checkpoint=`feat(telemetry): add anonymous client runtime`；clean DB50部署验证后才应用0051/Mini `.81`。
+
+## 2026-08-24 P6-C5 数据库 50→51 遥测兼容桥（已部署）
 
 - 基线/范围：Git/origin/production`47e753e3`、DB50；仅把manifest max50→51，min仍50，无迁移/API/Mini/runtime变化。
-- 红绿/安全：package max51断言在旧代码1项失败后转绿；DB50 bridge可回当前release，0051 feature不得绕过后续DB50/51 telemetry runtime bridge。checkpoint=`chore(release): bridge telemetry schema`。
+- 发布：package max51断言先红后绿，`b8c60827`/备份`80341696-…`部署，job no-op/full verify通过；manifest50..51且DB仍50。0051不得绕过runtime bridge。
 
 ## 2026-08-24 P6-C4 访客 IP 90 天 feature（已部署并演练）
 

@@ -72,6 +72,7 @@ describe('Backup archive format', () => {
       'visitor_access_logs',
     );
     expect(shouldIncludeBackupTable('visitor_access_logs')).toBe(false);
+    expect(shouldIncludeBackupTable('miniprogram_telemetry_events')).toBe(false);
     expect(shouldIncludeBackupTable('visitor_access_monthly_aggregates')).toBe(true);
   });
 

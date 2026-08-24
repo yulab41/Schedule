@@ -74,6 +74,8 @@ import { registerCalendarPreferencesRoutes } from './modules/calendar-preference
 import { CalendarPreferencesService } from './modules/calendar-preferences/calendar-preferences-service.js';
 import { ClientCapabilityPolicy } from './modules/client-capabilities/client-capability-policy.js';
 import { registerClientCapabilityRoutes } from './modules/client-capabilities/client-capability-routes.js';
+import { registerClientTelemetryRoutes } from './modules/client-telemetry/client-telemetry-routes.js';
+import { ClientTelemetryService } from './modules/client-telemetry/client-telemetry-service.js';
 
 type ApiLoggerOptions = NonNullable<FastifyServerOptions['logger']>;
 type ApiLoggerConfiguration = Exclude<ApiLoggerOptions, boolean>;
@@ -179,6 +181,11 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     const visitorAccessLogService = new VisitorAccessLogService(options.databaseClient, {
       platformAdminUids,
     });
+    registerClientTelemetryRoutes(
+      app,
+      new ClientTelemetryService(options.databaseClient),
+      clientCapabilityPolicy,
+    );
     registerGroupRoutes(
       app,
       new GroupService(options.databaseClient),

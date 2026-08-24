@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   type DatabaseClient,
   type DatabaseTransaction,
+  miniprogramTelemetryEvents,
   visitorAccessLogs,
   visitorAccessMonthlyAggregates,
   withTransaction,
@@ -15,6 +16,7 @@ const dayMilliseconds = 24 * 60 * 60 * 1000;
 const chinaOffsetMilliseconds = 8 * 60 * 60 * 1000;
 const defaultBatchSize = 1000;
 const defaultMaxBatches = 100;
+const telemetryRetentionDays = 30;
 
 export const visitorAccessRetentionDays = 90;
 
@@ -51,6 +53,8 @@ export interface PrivacyRetentionRunResult {
   readonly cutoff: string;
   readonly deletedRows: number;
   readonly remainingRows: number;
+  readonly telemetryDeletedRows: number;
+  readonly telemetryRemainingRows: number;
 }
 
 export class PrivacyRetentionJob {
@@ -84,17 +88,65 @@ export class PrivacyRetentionJob {
     }
 
     const remainingRows = await this.countRemaining(cutoff);
+    const telemetry = await this.purgeTelemetry(createTelemetryCutoff(now));
     const result = {
       aggregateBuckets,
       batches,
       cutoff: cutoff.toISOString(),
       deletedRows,
       remainingRows,
+      telemetryDeletedRows: telemetry.deletedRows,
+      telemetryRemainingRows: telemetry.remainingRows,
     };
     if (remainingRows > 0) {
       throw new Error(`visitor access retention backlog remains: ${remainingRows}`);
     }
+    if (telemetry.remainingRows > 0) {
+      throw new Error(`client telemetry retention backlog remains: ${telemetry.remainingRows}`);
+    }
     return result;
+  }
+
+  private async purgeTelemetry(
+    cutoff: Date,
+  ): Promise<{ readonly deletedRows: number; readonly remainingRows: number }> {
+    const [schemaRows] = (await this.databaseClient.database.execute(sql`
+      SELECT COUNT(*) AS count
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+        AND table_name = 'miniprogram_telemetry_events'
+    `)) as unknown as [readonly { count: number }[], unknown];
+    if ((schemaRows[0]?.count ?? 0) !== 1) return { deletedRows: 0, remainingRows: 0 };
+
+    let batches = 0;
+    let deletedRows = 0;
+    while (batches < this.maxBatches) {
+      const deleted = await withTransaction(this.databaseClient, async (transaction) => {
+        const rows = await transaction
+          .select({ id: miniprogramTelemetryEvents.id })
+          .from(miniprogramTelemetryEvents)
+          .where(lt(miniprogramTelemetryEvents.createdAt, cutoff))
+          .orderBy(asc(miniprogramTelemetryEvents.createdAt), asc(miniprogramTelemetryEvents.id))
+          .limit(this.batchSize)
+          .for('update', { skipLocked: true });
+        if (rows.length === 0) return 0;
+        await transaction.delete(miniprogramTelemetryEvents).where(
+          inArray(
+            miniprogramTelemetryEvents.id,
+            rows.map((row) => row.id),
+          ),
+        );
+        return rows.length;
+      });
+      if (deleted === 0) break;
+      batches += 1;
+      deletedRows += deleted;
+    }
+    const [remaining] = await this.databaseClient.database
+      .select({ value: count() })
+      .from(miniprogramTelemetryEvents)
+      .where(lt(miniprogramTelemetryEvents.createdAt, cutoff));
+    return { deletedRows, remainingRows: remaining?.value ?? 0 };
   }
 
   private async processBatch(
@@ -171,6 +223,10 @@ export class PrivacyRetentionJob {
 
 export function createVisitorAccessCutoff(now: Date): Date {
   return new Date(now.valueOf() - visitorAccessRetentionDays * dayMilliseconds);
+}
+
+export function createTelemetryCutoff(now: Date): Date {
+  return new Date(now.valueOf() - telemetryRetentionDays * dayMilliseconds);
 }
 
 export function toChinaAccessMonth(createdAt: Date): string {

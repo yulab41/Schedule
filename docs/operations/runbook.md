@@ -28,6 +28,13 @@ docker compose logs --tail 100 api web nginx
 - Nginx access log 只记录 method、`$uri`、status、bytes 和耗时，不记录来源 IP、query 或 `$request`；`X-Forwarded-For` 必须覆盖为 `$remote_addr`，API 只信任一个反向代理 hop。
 - MySQL `binlog_expire_logs_seconds=2592000`、`general_log=OFF`；生产 verifier 同时检查 90 天以前原始行为 0、匿名表/索引、定时任务和容器日志隐私边界。
 
+## 小程序脱敏遥测
+
+- `POST /client-telemetry` 只接受成对且受支持的 Mini platform/version headers，不接收 Bearer、用户/群组/联系方式/凭证/IP/原始 stack/message/客户端时间或排班正文；版本只取服务端已验证 header。
+- 单批最多 10 条、body 最大 16KiB。事件只含固定 page、device tier、network type、error code、性能 metric/duration 和本地脱敏后的 64 位 stack fingerprint；发送失败 best-effort 丢弃，不重试、不落 storage、不建立离线队列。
+- Nginx 对 exact route 按来源 IP 做内存限流，API 另有不保留 IP 的全局分钟预算；没有遥测读取 API。
+- `privacy-retention` 每 15 分钟删除严格早于 30 天 cutoff 的遥测行。`miniprogram_telemetry_events` 永久排除在备份/恢复之外；job summary 只记录数量和 cutoff。
+
 ## 事故响应
 
 - S1：数据丢失、服务不可用或需要恢复数据库。
