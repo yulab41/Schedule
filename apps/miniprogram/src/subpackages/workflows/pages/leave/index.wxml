@@ -221,12 +221,7 @@
     <view class="bottom-nav-item" data-label="换班" aria-disabled="false" bindtap="handleSwapNav">
       <image src="/assets/icons/web-swap.svg" mode="aspectFit" /><text>换班</text>
     </view>
-    <view
-      class="bottom-nav-item is-disabled"
-      data-label="加扣班"
-      aria-disabled="true"
-      bindtap="handleUnavailable"
-    >
+    <view class="bottom-nav-item" data-label="加扣班" aria-disabled="false" bindtap="handleDutyNav">
       <image src="/assets/icons/web-duty.svg" mode="aspectFit" /><text>加扣班</text>
     </view>
     <view

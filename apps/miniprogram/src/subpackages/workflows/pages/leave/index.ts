@@ -365,6 +365,13 @@ Page({
       url: `/subpackages/workflows/pages/swap/index?groupId=${encodeURIComponent(this._currentGroupId)}`,
     });
   },
+
+  handleDutyNav(this: LeavePageInstance): void {
+    if (this._currentGroupId === '') return;
+    wx.redirectTo({
+      url: `/subpackages/workflows/pages/duty/index?groupId=${encodeURIComponent(this._currentGroupId)}`,
+    });
+  },
 });
 
 async function loadLeavePageWithCapability(

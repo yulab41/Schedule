@@ -5,14 +5,14 @@ import { describe, expect, it } from 'vitest';
 
 const appRoot = process.cwd();
 const sourceRoot = path.join(appRoot, 'src');
-const pageRoot = path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'swap');
+const pageRoot = path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'duty');
 
 function readPage(extension) {
   return readFileSync(path.join(pageRoot, `index.${extension}`), 'utf8');
 }
 
-describe('P7 native swap workflow page', () => {
-  it('registers swap beside leave and capability-gates both real workbench entries', () => {
+describe('P7 native duty-adjustment workflow page', () => {
+  it('registers duty and capability-gates all three real workflow entries', () => {
     const appJson = JSON.parse(readFileSync(path.join(sourceRoot, 'app.json'), 'utf8'));
     const workflowPackage = appJson.subpackages.find(
       (candidate) => candidate.root === 'subpackages/workflows',
@@ -29,8 +29,8 @@ describe('P7 native swap workflow page', () => {
       path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'leave', 'index.wxml'),
       'utf8',
     );
-    const leaveController = readFileSync(
-      path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'leave', 'index.ts'),
+    const swapTemplate = readFileSync(
+      path.join(sourceRoot, 'subpackages', 'workflows', 'pages', 'swap', 'index.wxml'),
       'utf8',
     );
 
@@ -39,31 +39,32 @@ describe('P7 native swap workflow page', () => {
       'pages/swap/index',
       'pages/duty/index',
     ]);
-    expect(workbench).toContain('bindtap="handleSwapNav"');
+    expect(workbench).toContain('bindtap="handleDutyNav"');
+    expect(workbench).toContain('data-label="加扣班"');
     expect(workbench.match(/\{\{workflowsEnabled \? '' : 'is-disabled'\}\}/gu)).toHaveLength(3);
-    expect(workbenchController).toContain('/subpackages/workflows/pages/swap/index?groupId=');
-    expect(leaveTemplate).toContain('bindtap="handleSwapNav"');
-    expect(leaveController).toContain('/subpackages/workflows/pages/swap/index?groupId=');
+    expect(workbenchController).toContain('/subpackages/workflows/pages/duty/index?groupId=');
+    expect(leaveTemplate).toContain('bindtap="handleDutyNav"');
+    expect(swapTemplate).toContain('bindtap="handleDutyNav"');
   });
 
-  it('mirrors every frozen Web swap section, form, direct form, and page state', () => {
+  it('mirrors every frozen Web duty section, form, direct form, and page state', () => {
     const template = readPage('wxml');
     for (const copy of [
-      '换班管理',
-      '发起换班',
-      '管理员换班',
-      '换班需要管理员审批',
-      '自动接受换班',
+      '加扣班管理',
+      '发起加扣班',
+      '管理员代值',
+      '加扣班需要管理员审批',
+      '自动接受换班/加扣班',
       '待我接受',
       '待管理员审批',
       '已受理记录',
       '已生效待撤销',
-      '我的换班申请',
+      '我的加扣班记录',
       '生成预览',
-      '提交换班',
-      '管理员直接换班',
-      '直接执行换班',
-      '暂无换班申请',
+      '提交加扣班',
+      '管理员直接代值',
+      '直接执行代值',
+      '暂无加扣班记录',
       '重新加载',
     ]) {
       expect(template).toContain(copy);
@@ -77,7 +78,7 @@ describe('P7 native swap workflow page', () => {
     expect(template).not.toMatch(/<t-|tdesign|<button|<scroll-view[^>]*scroll-x/iu);
   });
 
-  it('keeps cross-month candidates, displayed preview snapshots, serial guards, and no queue', () => {
+  it('keeps displayed previews, serial guards, operation snapshots, and no write queue', () => {
     const controller = readPage('ts');
     for (const boundary of [
       'createRuntimeWorkflowClient',
@@ -89,8 +90,7 @@ describe('P7 native swap workflow page', () => {
       '_operationAttempts',
       '_requestPreview',
       '_adminPreview',
-      'handleMyMonthChange',
-      'handleTargetMonthChange',
+      'handleMonthChange',
       'handleAccept',
       'handleApprove',
       'handleReject',
@@ -103,16 +103,16 @@ describe('P7 native swap workflow page', () => {
     ]) {
       expect(controller).toContain(boundary);
     }
-    expect(controller).not.toMatch(/writeQueue|offlineQueue|setStorageSync\([^)]*(swap|request)/iu);
+    expect(controller).not.toMatch(/writeQueue|offlineQueue|setStorageSync\([^)]*(duty|request)/iu);
   });
 
-  it('uses Skyline-safe 390/320 native geometry without CSS grid', () => {
+  it('uses Skyline-safe native 390/320 geometry without CSS grid', () => {
     const pageJson = JSON.parse(readPage('json'));
     const styles = readPage('wxss');
 
     expect(pageJson).toMatchObject({ disableScroll: true, renderer: 'skyline' });
     expect(pageJson.usingComponents).toEqual({});
-    expect(styles).toContain('.swap-page.is-compact');
+    expect(styles).toContain('.duty-page.is-compact');
     expect(styles).toMatch(/\.web-button\s*\{[^}]*min-height:\s*44px;/su);
     expect(styles).toMatch(/\.bottom-nav-item\s*\{[^}]*min-height:\s*44px;/su);
     expect(styles).toContain('padding-bottom: calc(64px + env(safe-area-inset-bottom))');

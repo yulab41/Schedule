@@ -862,15 +862,15 @@
       ><text>换班</text></view
     >
     <view
-      class="bottom-nav-item is-disabled"
-      data-label="调班"
+      class="bottom-nav-item {{workflowsEnabled ? '' : 'is-disabled'}}"
+      data-label="加扣班"
       data-motion="duty"
-      aria-disabled="true"
+      aria-disabled="{{!workflowsEnabled}}"
       aria-role="button"
-      bindtap="handleUnavailable"
+      bindtap="handleDutyNav"
       ><view class="nav-icon nav-adjustment {{navMotion === 'duty' ? 'is-animating' : ''}}"
         ><image class="nav-icon-image" src="/assets/icons/web-duty.svg" mode="aspectFit" /></view
-      ><text>调班</text></view
+      ><text>加扣班</text></view
     >
     <view
       class="bottom-nav-item is-disabled"

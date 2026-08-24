@@ -609,6 +609,11 @@ Page({
     void openSwapWorkflow(this);
   },
 
+  handleDutyNav(this: WorkbenchPageInstance): void {
+    this.setData({ navMotion: '' }, () => this.setData({ navMotion: 'duty' }));
+    void openDutyWorkflow(this);
+  },
+
   handleNotification(this: WorkbenchPageInstance): void {
     this.setData({ notificationAnimating: false }, () => {
       this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });
@@ -857,6 +862,31 @@ async function openSwapWorkflow(page: WorkbenchPageInstance): Promise<void> {
         error instanceof ClientCapabilityDisabledError
           ? error.message
           : '换班页面暂时无法打开，请稍后重试。',
+    });
+  }
+}
+
+async function openDutyWorkflow(page: WorkbenchPageInstance): Promise<void> {
+  try {
+    await requireClientCapability('workflows');
+    syncWorkflowsCapability(page);
+    const group = page.data.groups.find((candidate) => candidate.id === page.data.currentGroupId);
+    if (group === undefined || group.role === 'guest') {
+      page.setData({ announcement: '当前群组不能发起或处理加扣班。' });
+      return;
+    }
+    const groupId = encodeURIComponent(group.id);
+    wx.navigateTo({
+      fail: () => page.setData({ announcement: '加扣班页面暂时无法打开，请稍后重试。' }),
+      url: `/subpackages/workflows/pages/duty/index?groupId=${groupId}`,
+    });
+  } catch (error) {
+    syncWorkflowsCapability(page);
+    page.setData({
+      announcement:
+        error instanceof ClientCapabilityDisabledError
+          ? error.message
+          : '加扣班页面暂时无法打开，请稍后重试。',
     });
   }
 }

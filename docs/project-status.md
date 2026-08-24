@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7-E 原生加扣班垂直切片（已实现待发布）
+
+- 基线/范围：Git/origin/production均为`f830405b`、DB51；本批只实现Mini原生加扣班月份候选、原因、preview/提交、目标接受/拒绝、申请人取消、管理员审批/拒绝/direct、完成后revoke及两级设置，不启用production workflows、不改API/DB。视觉1:1复用已确认的production `DutyAdjustmentPanel` 390/320黄金和既有医疗蓝灰令牌；纯WXML/WXSS/TS/JSON，无TDesign MiniProgram/第三方UI。
+- 来源/测试先行：`git log -S`/blame定位Web加扣班到`5d8b205a`、移动卡片到`2bb9fce1`、Mini“调班”占位到`ad4cfb2c`（动效/图标`733e3af6`/`3fc41610`），危险写快照沿用`b667dcc5`。缺页面/分包/导航/controller/operation snapshot的2 files/8 tests先全红；实现后P7 leave/swap/duty 6 files/25、Mini全量40 files/218转绿，旧leave/swap subpackage与不可用入口断言仅按计划增加真实duty入口更新。
+- 实现/安全：workflows分包加入duty页，工作台“调班”按Web真值统一为“加扣班”，三工作流底栏真实互转且均先受`workflows`能力门控；guest/disabled/deep link在业务请求前失败关闭。成员不读管理员approvals；月份切换立即清空旧候选并以group/month/request serial阻止迟到覆盖。create/direct/accept/approve/reject/cancel/revoke全部冻结payload/operationId并保持header/body同ID，显示过的preview与当前covered assignment/overtime member精确匹配才写；原因变化自动换ID，模糊失败保留快照，409丢弃并刷新，无离线写队列。设置PUT保持Web语义：群组审批走duty settings，个人自动接受复用swap settings且不重试。
+- 对等状态：页面覆盖Web同序的主操作、管理员direct、审批/自动接受设置、待我接受、待管理员审批、已受理、已生效待撤销、我的记录，以及`pending_target/pending_approval/completed/rejected/cancelled/revoked`、empty/error/loading、逐条冲突preview、普通/管理员原因和撤销原因；撤销成功明确恢复原扣班成员。所有主动作≥44px，390/320仅flex布局，无横滚/CSS grid。
+- 验证：Mini typecheck、任务Prettier/ESLint、`git diff --check`、source/built/package/performance/determinism通过；production verify为2/2 Worklet、2282116 bytes、manifest`578d62705107a4ade1aebaa0a597c7f65081460212a8cce2f7337ea44e374afc`，仅既有600格矩阵节点best-effort警告。`smoke:check-core`确认未触及Web核心链路；按禁令未启动/控制微信开发者工具，原生视觉仍不得由自动门禁冒充实体验收。
+- checkpoint/下一批：代码checkpoint识别消息`feat(miniprogram): add native duty workflow`；推送后上传独立production-profile体验候选并做ECS加密备份/部署/验证，仍不allowlist、不提审/正式发布。状态checkpoint同步生产后，下一批只做完整P7 capability/版本/RC整合；形成可用体验版后暂停，等待用户实体Android视觉/交互确认。
+
 ## 2026-08-24 P7-D 原生换班垂直切片（代码已部署，能力保持关闭）
 
 - 基线/范围：Git/origin/production均为`50054703`、DB51；本批只实现Mini原生换班跨月候选、preview/提交、目标接受/拒绝、申请人取消、管理员审批/拒绝/direct、完成后revoke及两级设置，不实现加扣班、不启用production workflows、不改API/DB。视觉继续1:1复用已确认的production `SwapPanel` 390/320黄金和现有医疗蓝灰令牌；纯WXML/WXSS/TS/JSON，无TDesign MiniProgram/第三方UI。
