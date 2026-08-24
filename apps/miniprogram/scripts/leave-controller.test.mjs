@@ -64,6 +64,15 @@ describe('P7 native leave workflow controller', () => {
     expect(requests.some((request) => request.url.endsWith('/approvals'))).toBe(false);
   });
 
+  it('keeps date trigger labels aligned with Web weekday formatting', async () => {
+    const instance = await loadReadyInstance();
+
+    definition.handleStartDateChange.call(instance, { detail: { value: '2026-08-24' } });
+
+    expect(instance.data.startDateDisplay).toBe('2026-08-24 周一');
+    expect(instance.data.endDateDisplay).toMatch(/^\d{4}-\d{2}-\d{2} 周[一二三四五六日]$/u);
+  });
+
   it('loads the owner review tab and complete conflict preview before approval', async () => {
     groupRole = 'owner';
     const instance = await loadReadyInstance();

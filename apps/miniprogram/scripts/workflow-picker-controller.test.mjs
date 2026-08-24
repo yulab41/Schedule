@@ -102,6 +102,34 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.lifetimes.detached.call(second);
   });
 
+  it('opens a selector upward when the Web-sized option list would overflow the viewport', async () => {
+    vi.stubGlobal('wx', { getWindowInfo: () => ({ windowHeight: 844 }) });
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, {
+      mode: 'selector',
+      options: Array.from({ length: 6 }, (_, index) => ({
+        label: `成员${index + 1}`,
+        value: String(index + 1),
+      })),
+    });
+    instance.createSelectorQuery = () => ({
+      boundingClientRect() {
+        return this;
+      },
+      exec(callback) {
+        callback([{ bottom: 810, height: 44, left: 16, right: 374, top: 766, width: 358 }]);
+      },
+      select() {
+        return this;
+      },
+    });
+
+    definition.methods.handleOpen.call(instance);
+
+    expect(instance.data.popoverPlacement).toBe('up');
+    definition.lifetimes.detached.call(instance);
+  });
+
   it('keeps only the weekend token red before and after an option is selected', async () => {
     const definition = await loadPickerDefinition();
     const options = [
@@ -172,8 +200,25 @@ describe('P7 Web-parity workflow picker controller', () => {
     vi.advanceTimersByTime(1);
     expect(instance.data.monthWheelTop).toBe(8 * 44);
     expect(instance.data.wheelSnapAnimating).toBe(true);
-    vi.advanceTimersByTime(180);
+    vi.advanceTimersByTime(240);
     expect(instance.data.wheelSnapAnimating).toBe(false);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('interpolates wheel typography while the scroll position crosses the selection rail', async () => {
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 7 * 44 + 11 },
+    });
+
+    const current = instance.data.monthWheelItems[7];
+    expect(current.fontSize).toBeGreaterThan(19);
+    expect(current.fontSize).toBeLessThan(24);
+    expect(current.opacity).toBeGreaterThan(0.58);
+    expect(current.opacity).toBeLessThan(1);
     definition.lifetimes.detached.call(instance);
   });
 

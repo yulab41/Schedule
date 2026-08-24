@@ -288,15 +288,14 @@
     <view class="native-sheet request-sheet" aria-role="dialog" aria-label="发起换班">
       <view class="sheet-handle"></view>
       <view class="sheet-heading"
-        ><view
-          ><text class="sheet-title">发起换班</text
-          ><text>选择双方已发布班次，预览后提交。</text></view
+        ><view><text class="sheet-title">发起换班</text></view
         ><view class="sheet-finish" aria-role="button" bindtap="handleCloseRequestForm"
           >完成</view
         ></view
       >
       <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
         <view class="sheet-body">
+          <view class="sheet-form-intro"><text class="form-section-title">选择双方班次</text></view>
           <view wx:if="{{requestErrorMessage}}" class="native-alert is-danger"
             ><text>{{requestErrorMessage}}</text></view
           >
@@ -379,15 +378,17 @@
     <view class="native-sheet request-sheet" aria-role="dialog" aria-label="管理员直接换班">
       <view class="sheet-handle"></view>
       <view class="sheet-heading"
-        ><view
-          ><text class="sheet-title">管理员直接换班</text
-          ><text>直接生效，无需对方同意或审批。</text></view
+        ><view><text class="sheet-title">管理员直接换班</text></view
         ><view class="sheet-finish" aria-role="button" bindtap="handleCloseAdminForm"
           >完成</view
         ></view
       >
       <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
         <view class="sheet-body">
+          <view class="sheet-form-intro">
+            <text class="form-section-title">选择双方班次</text>
+            <text class="workflow-form-hint">直接生效，无需对方同意或审批。</text>
+          </view>
           <view wx:if="{{adminErrorMessage}}" class="native-alert is-danger"
             ><text>{{adminErrorMessage}}</text></view
           >

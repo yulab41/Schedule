@@ -616,6 +616,11 @@ page {
   padding: 0 16px calc(16px + env(safe-area-inset-bottom));
 }
 
+.request-sheet .sheet-heading > .sheet-finish {
+  width: 44px;
+  flex: 0 0 44px;
+}
+
 .sheet-finish {
   display: flex;
   min-width: 44px;
@@ -666,6 +671,100 @@ page {
   border: 1px solid var(--ui-color-border-strong);
   border-radius: var(--ui-radius-medium);
   font-size: var(--ui-font-size-sm);
+}
+
+.request-sheet .date-fields {
+  flex-direction: column;
+  gap: var(--ui-spacing-md);
+}
+
+.leave-form-intro,
+.sheet-form-intro,
+.affected-block {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-section-title {
+  color: var(--ui-color-text-primary);
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.form-intro {
+  margin-top: -4px;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.5;
+}
+
+.workflow-form-hint {
+  margin-top: -4px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  color: var(--ui-color-warning);
+  background: var(--ui-color-warning-light);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.day-count-hint {
+  margin: 0;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  color: var(--ui-color-primary);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: var(--ui-line-height-body);
+}
+
+.affected-hint,
+.affected-title {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.affected-hint.is-danger {
+  color: var(--ui-color-danger);
+}
+
+.affected-title {
+  color: var(--ui-color-text-primary);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.affected-list {
+  display: flex;
+  margin-top: var(--ui-spacing-xs);
+  overflow: hidden;
+  flex-direction: column;
+  background: var(--ui-color-background);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+}
+
+.affected-row {
+  min-height: var(--ui-touch-target-minimum);
+  padding: 8px 12px;
+  box-sizing: border-box;
+  color: var(--ui-color-text-primary);
+  border-bottom: 1px solid var(--ui-color-border);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+
+.affected-row:last-child {
+  border-bottom: 0;
+}
+
+.leave-submit {
+  min-height: 48px;
 }
 
 .leave-reason-field {

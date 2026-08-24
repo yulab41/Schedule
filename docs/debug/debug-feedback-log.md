@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 `.91` 日历/滚轮/Sheet 对齐
+
+- 范围/引入点：`.90` 实体反馈；字号=`1f715c96/50c6d1ed/16c02f56`，picker root/定位=`bc32a4f1/7f4f70a0`，离散 wheel/snap=`16c02f56/80ddadf0`，Sheet=`80ddadf0`。只改 Mini UI/controller、测试和 `.91` 契约。
+- 红绿/实现：连续 wheel 字体、向上 placement、空白 backdrop、箭头/完成几何、leave 日期周几和 Web body 结构均先红后绿。月11px、周12px固定统一；progress 插值19–24px/0.58–1/0.94–1，snap 240ms cubic-bezier；selector用组件 query 判断窗口上下空间；leave字段组、day-count、affected hint/list、单列日期、reason=1000、submit=提交请假。
+- 语义审计：下拉 backdrop/placement只改视觉 open/placement；picker instance registry、month/date complete/cancel、operation payload与写次数不变。请假日期保留原始YYYY-MM-DD提交值，新增display label；原因仍走同一handler。
+- 验证：Mini精确44 files/246、typecheck、production verify/determinism/source/package/build/performance、CI dry-run、lint/format/diff/core smoke通过；2 Worklets/3025268 bytes/manifest`f56ce673…ace36`，仅既有600格warning。尚未上传/部署，未操作微信开发者工具。
+- 状态：已实现待体验上传/生产部署；checkpoint=`fix(miniprogram): align p7 calendar and sheets`。
+
 ## 2026-08-24 P7 `.90` Web 下拉/滚轮/Sheet 对齐
 
 - 范围/引入点：`.89` 二次实体反馈；2秒状态目标覆盖 `16c02f56` 的1秒，picker独立 open=`bc32a4f1/7f4f70a0`，60ms hover=`0d971de1`，双滚轮静态 scrollend=`16c02f56`，82%灰底Sheet/96px textarea=`bc32a4f1`。只改 Mini UI/controller 和 `.90` 发布契约，不改业务/API/DB/P8。

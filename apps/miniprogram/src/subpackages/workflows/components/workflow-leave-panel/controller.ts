@@ -92,6 +92,7 @@ interface LeavePageData {
   readonly currentGroupRole: string;
   readonly decidedApprovals: readonly LeaveRequestView[];
   readonly endDate: string;
+  readonly endDateDisplay: string;
   readonly embedded: boolean;
   readonly errorMessage: string;
   readonly formBusy: boolean;
@@ -109,6 +110,7 @@ interface LeavePageData {
   readonly reason: string;
   readonly shellHeaderStyle: string;
   readonly startDate: string;
+  readonly startDateDisplay: string;
   readonly state: PageState;
   readonly strategyBusy: boolean;
   readonly strategyIndex: number;
@@ -186,6 +188,7 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       currentGroupRole: '',
       decidedApprovals: [],
       endDate: initialDate,
+      endDateDisplay: formatDateWithWeekday(initialDate),
       embedded,
       errorMessage: '',
       formBusy: false,
@@ -203,6 +206,7 @@ export function createLeavePanelControllerDefinition(embedded = false) {
       reason: '',
       shellHeaderStyle: 'height:64px;min-height:64px;padding-top:8px;',
       startDate: initialDate,
+      startDateDisplay: formatDateWithWeekday(initialDate),
       state: 'loading',
       strategyBusy: false,
       strategyIndex: 0,
@@ -855,9 +859,11 @@ function resolveTargetGroup(
 function createDatePatch(startDate: string, endDate: string): Partial<LeavePageData> {
   return {
     endDate,
+    endDateDisplay: formatDateWithWeekday(endDate),
     formErrorMessage: '',
     leaveDayCount: getLeaveDayCount(startDate, endDate),
     startDate,
+    startDateDisplay: formatDateWithWeekday(startDate),
   };
 }
 
@@ -927,6 +933,14 @@ function formatRole(role: GroupSummary['role']): string {
 
 function formatBusinessDate(value: string): string {
   return `${Number(value.slice(5, 7))}月${Number(value.slice(8, 10))}日`;
+}
+
+function formatDateWithWeekday(value: string): string {
+  if (!isDateValue(value)) return value;
+  const weekday = ['日', '一', '二', '三', '四', '五', '六'][
+    new Date(`${value}T00:00:00Z`).getUTCDay()
+  ];
+  return `${value} 周${weekday ?? '日'}`;
 }
 
 function formatChinaDateTime(value: string): string {

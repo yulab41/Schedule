@@ -2,6 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 日历/滚轮/Sheet 对齐候选 `.91`（已实现待体验上传/生产部署）
+
+- 基线/范围：Git/origin/production 为 `cafa12f5`；`.90@80ddadf` 已开放体验并部署。本批只处理实体反馈：月/周成员字号统一放大、selector 点击空白收起与上下溢出定位、右上完成/选择箭头几何、年月滚轮连续缩放与丝滑吸附、请假 Sheet Web 布局对齐。不改 API/DB/危险写，不进入 P8，不提审/正式发布。
+- 引入点/根因：月字号 10px 来自 `1f715c96`，周字号 11px 来自 `50c6d1ed/16c02f56`；selector 绝对定位与 root `catchtap` 来自 `bc32a4f1/7f4f70a0`，此前没有 backdrop/viewport placement；离散 19/24px wheel 与 240ms 前的生硬 snap 来自 `16c02f56/80ddadf0`；request Sheet 标题副文案、双列日期、旧 impact-card 和完成按钮 flex 覆盖来自 `80ddadf0`。均已执行 `git log -S` 与 `git blame`。
+- 实现：月名固定 11px、周名固定 12px，仍 nowrap/ellipsis，换/加标识不改变姓名字号。selector 新增 fixed 空白收起层；打开后用组件 `createSelectorQuery` 测触发器与窗口空间，选项列表溢出时自动加 `is-up` 向上弹出。完成按钮强制 44px 宽度与 `flex:0 0 44px`；右箭头改为统一 CSS chevron，不再使用字体字符。
+- 年月/请假：wheel item 根据实际 `scrollTop / 44` 连续插值 19–24px、0.58–1 opacity、0.94–1 scale；吸附改为 240ms cubic-bezier 并同步字号/透明度/缩放 transition，按住期间不触发 idle snap。请假 Sheet 增加 Web 的“请假信息”和说明、日期+周几、蓝色日期范围提示、单列日期、无卡片空态提示、`原因说明（选填）`、1000 字原因框和“提交请假”。换班/加扣班 request/admin Sheet 同步 Web 的正文标题与 hint。
+- 测试先行：连续字号、底部向上弹出、日期周几、箭头/完成按钮几何和请假结构均先红后绿；当前 Mini 精确 `--dir scripts` 44 files/246 tests 通过。production verify 为 2/2 Worklet、3,025,268 bytes、manifest `f56ce673e4689adb0ef546e3528ee10ae5d7096fc42c89d08e2e8c44673ace36`，仅既有 600 格矩阵 best-effort warning。
+- 验证：Mini typecheck、determinism/source/package/build/performance、无凭据 CI dry-run、任务 ESLint/Prettier、`git diff --check`、`smoke:check-core` 通过；未启动/控制微信开发者工具，尚未上传 `.91` 或部署。
+- 行为审计：selector 空白层只关闭视觉 open；placement 只写视觉 placement；wheel 仅新增 UI progress/timer，month/date 完成/取消语义、receiver、payload、幂等、Promise/409/弱网与写次数不变。请假日期 display 增加周几，不改变提交的 `YYYY-MM-DD`；原因 maxlength 从 Mini 旧 200 调整到 Web 的 1000，仍同一 input detail/value。
+- checkpoint/下一批：代码 checkpoint 识别消息 `fix(miniprogram): align p7 calendar and sheets`；从持久干净 worktree复核、上传 `.91`、显式备份、部署、allowlist 原子追加并完整验证，随后写最终状态 checkpoint，等待 `.91` 实体复核。
+
 ## 2026-08-24 P7 Web 控件对齐候选 `.90`（已开放体验并部署，待实体复核）
 
 - 基线/范围：Git/origin/production 为 `aaf0a9bd`，`.89@16c02f5` 已开放体验；本批只处理用户对 `.89` 的二次实体反馈：成功提示改 2 秒、工作流成员/班次 picker 强互斥、年月滚轮保留惯性并自动吸附、下拉 1:1 对齐 Web，以及请假/换班/加扣班 request Sheet 的白底/圆角/按钮/右上“完成”和紧凑原因框。不改 API/DB/危险写，不进入 P8，不提审/正式发布。

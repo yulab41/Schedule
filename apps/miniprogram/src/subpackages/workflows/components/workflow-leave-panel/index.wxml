@@ -240,9 +240,7 @@
     <view class="native-sheet request-sheet" aria-role="dialog" aria-label="新建请假">
       <view class="sheet-handle"></view>
       <view class="sheet-heading">
-        <view
-          ><text class="sheet-title">新建请假</text><text>提交前确认日期与受影响班次。</text></view
-        >
+        <view><text class="sheet-title">新建请假</text></view>
         <view class="sheet-finish" aria-role="button" bindtap="handleCloseForm">完成</view>
       </view>
       <scroll-view class="sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
@@ -250,6 +248,10 @@
           <view wx:if="{{formErrorMessage}}" class="native-alert is-danger"
             ><text>{{formErrorMessage}}</text></view
           >
+          <view class="leave-form-intro">
+            <text class="form-section-title">请假信息</text>
+            <text class="form-intro">请假按整天计算；提交前会检查已发布的未来班次。</text>
+          </view>
           <view class="field-block">
             <text class="field-label">请假类型</text>
             <workflow-picker
@@ -267,7 +269,7 @@
               <workflow-picker
                 mode="date"
                 value="{{startDate}}"
-                display-value="{{startDate}}"
+                display-value="{{startDateDisplay}}"
                 title="开始日期"
                 bindchange="handleStartDateChange"
               ></workflow-picker>
@@ -277,38 +279,48 @@
               <workflow-picker
                 mode="date"
                 value="{{endDate}}"
-                display-value="{{endDate}}"
+                display-value="{{endDateDisplay}}"
                 title="结束日期"
                 bindchange="handleEndDateChange"
               ></workflow-picker>
             </view>
           </view>
-          <text class="duration-hint">全天请假 · 共 {{leaveDayCount}} 天</text>
-          <view class="field-block">
-            <text class="field-label">请假原因（选填）</text>
+          <view class="day-count-hint"
+            >{{startDateDisplay}} 至 {{endDateDisplay}}，共 {{leaveDayCount}} 天</view
+          >
+          <view class="affected-block" aria-busy="{{affectedShiftsLoading}}">
+            <text wx:if="{{affectedShiftsLoading}}" class="affected-hint"
+              >正在检查请假期间班次…</text
+            >
+            <text wx:elif="{{affectedShiftMessage}}" class="affected-hint is-danger"
+              >{{affectedShiftMessage}}</text
+            >
+            <view wx:elif="{{affectedShifts.length > 0}}">
+              <text class="affected-title">涉及 {{affectedShifts.length}} 个已发布班次</text>
+              <view class="affected-list">
+                <view wx:for="{{affectedShifts}}" wx:key="id" class="affected-row"
+                  ><text>{{item.detail}}</text></view
+                >
+              </view>
+            </view>
+            <text wx:else class="affected-hint">请假期间没有已发布的未来班次。</text>
+          </view>
+          <view class="field-block reason-field">
+            <text class="field-label">原因说明（选填）</text>
             <textarea
               class="native-textarea leave-reason-field"
               value="{{reason}}"
-              maxlength="200"
-              placeholder="补充请假原因"
+              maxlength="1000"
+              placeholder="请填写请假原因"
               bindinput="handleReasonInput"
             />
           </view>
-          <view class="impact-card" aria-busy="{{affectedShiftsLoading}}">
-            <view class="impact-heading"><text>受影响班次</text></view>
-            <text wx:if="{{affectedShiftMessage}}" class="impact-message"
-              >{{affectedShiftMessage}}</text
-            >
-            <view wx:for="{{affectedShifts}}" wx:key="id" class="impact-row is-{{item.tone}}"
-              ><text>{{item.detail}}</text></view
-            >
-          </view>
           <view
-            class="web-button is-primary {{formBusy ? 'is-disabled' : ''}}"
+            class="web-button is-primary leave-submit {{formBusy ? 'is-disabled' : ''}}"
             aria-role="button"
             aria-busy="{{formBusy}}"
             bindtap="handleSubmitLeave"
-            >{{formBusy ? '正在提交' : '提交请假申请'}}</view
+            >{{formBusy ? '正在提交' : '提交请假'}}</view
           >
         </view>
       </scroll-view>

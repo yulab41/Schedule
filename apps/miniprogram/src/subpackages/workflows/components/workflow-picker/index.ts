@@ -10,6 +10,14 @@ interface WorkflowPickerRenderedOption extends WorkflowPickerOption {
   readonly weekendLabel: string;
 }
 
+interface WorkflowPickerWheelItem {
+  readonly fontSize: number;
+  readonly label: string;
+  readonly opacity: number;
+  readonly scale: number;
+  readonly unit: string;
+}
+
 interface WorkflowPickerDateCell {
   readonly day: number;
   readonly disabled: boolean;
@@ -51,6 +59,7 @@ interface WorkflowPickerInstance {
   _yearWheelLatestTop?: number;
   _yearWheelSnapTimer?: unknown;
   _yearWheelTouching?: boolean;
+  createSelectorQuery?(): MiniProgramSelectorQuery;
   readonly data: {
     readonly dateCells: readonly WorkflowPickerDateCell[];
     readonly days: readonly number[];
@@ -63,7 +72,12 @@ interface WorkflowPickerInstance {
     readonly renderedOptions: readonly WorkflowPickerRenderedOption[];
     readonly selectedOptionIndex: number;
     readonly monthWheelTop: number;
+    readonly monthWheelItems: readonly WorkflowPickerWheelItem[];
+    readonly monthWheelPosition: number;
+    readonly popoverPlacement: 'down' | 'up';
     readonly wheelSnapAnimating: boolean;
+    readonly yearWheelItems: readonly WorkflowPickerWheelItem[];
+    readonly yearWheelPosition: number;
     readonly yearWheelTop: number;
     readonly years: readonly number[];
   };
@@ -89,7 +103,7 @@ const monthValues = Array.from({ length: 12 }, (_, index) => index + 1);
 const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
 const wheelItemHeight = 44;
 const wheelIdleSnapMs = 100;
-const wheelSnapAnimationMs = 180;
+const wheelSnapAnimationMs = 240;
 const pickerInstances = new Set<WorkflowPickerInstance>();
 
 Component({
@@ -116,11 +130,16 @@ Component({
     draftYear: new Date().getUTCFullYear(),
     months: monthValues,
     monthWheelTop: 0,
+    monthWheelItems: createWheelItems(monthValues, '月', 0),
+    monthWheelPosition: 0,
     open: false,
+    popoverPlacement: 'down' as const,
     renderedOptions: [] as readonly WorkflowPickerRenderedOption[],
     selectedOptionIndex: -1,
     weekdays,
     wheelSnapAnimating: false,
+    yearWheelItems: createWheelItems(createYearValues(new Date().getUTCFullYear()), '年', 5),
+    yearWheelPosition: 5,
     yearWheelTop: 0,
     years: createYearValues(new Date().getUTCFullYear()),
   },
@@ -159,9 +178,11 @@ Component({
               ? this.properties.title
               : (this.properties.options[selectedOptionIndex]?.label ?? this.properties.title),
           open: true,
+          popoverPlacement: 'down',
           renderedOptions: createRenderedOptions(this.properties.options),
           selectedOptionIndex,
         });
+        scheduleSelectorPlacement(this);
         return;
       }
 
@@ -193,9 +214,14 @@ Component({
         draftMonth: temporal.month,
         draftYear: centerYear,
         monthWheelTop: monthIndex * wheelItemHeight,
+        monthWheelItems: createWheelItems(monthValues, '月', monthIndex),
+        monthWheelPosition: monthIndex,
         open: true,
+        popoverPlacement: 'down',
         wheelSnapAnimating: false,
+        yearWheelItems: createWheelItems(years, '年', yearIndex),
         yearWheelTop: yearIndex * wheelItemHeight,
+        yearWheelPosition: yearIndex,
         years,
       });
     },
@@ -232,9 +258,10 @@ Component({
     },
 
     handleYearWheelScroll(this: WorkflowPickerInstance, event: WheelScrollEvent): void {
-      if (this.data.wheelSnapAnimating) return;
       const scrollTop = Math.max(0, event.detail.scrollTop);
       this._yearWheelLatestTop = scrollTop;
+      setWheelProgress(this, 'year', scrollTop / wheelItemHeight);
+      if (this.data.wheelSnapAnimating) return;
       const yearIndex = nearestWheelIndex(event.detail.scrollTop, this.data.years.length);
       if (yearIndex !== this.data.draftIndices[0]) {
         applyMonthWheelDraft(this, yearIndex, this.data.draftIndices[1] ?? 0);
@@ -243,9 +270,10 @@ Component({
     },
 
     handleMonthWheelScroll(this: WorkflowPickerInstance, event: WheelScrollEvent): void {
-      if (this.data.wheelSnapAnimating) return;
       const scrollTop = Math.max(0, event.detail.scrollTop);
       this._monthWheelLatestTop = scrollTop;
+      setWheelProgress(this, 'month', scrollTop / wheelItemHeight);
+      if (this.data.wheelSnapAnimating) return;
       const monthIndex = nearestWheelIndex(event.detail.scrollTop, monthValues.length);
       if (monthIndex !== this.data.draftIndices[1]) {
         applyMonthWheelDraft(this, this.data.draftIndices[0] ?? 0, monthIndex);
@@ -281,6 +309,7 @@ Component({
       const yearIndex = validWheelTapIndex(event, this.data.years.length);
       if (yearIndex === undefined) return;
       applyMonthWheelDraft(this, yearIndex, this.data.draftIndices[1] ?? 0);
+      setWheelProgress(this, 'year', yearIndex);
       this.setData({ yearWheelTop: yearIndex * wheelItemHeight });
     },
 
@@ -288,6 +317,7 @@ Component({
       const monthIndex = validWheelTapIndex(event, monthValues.length);
       if (monthIndex === undefined) return;
       applyMonthWheelDraft(this, this.data.draftIndices[0] ?? 0, monthIndex);
+      setWheelProgress(this, 'month', monthIndex);
       this.setData({ monthWheelTop: monthIndex * wheelItemHeight });
     },
 
@@ -346,6 +376,28 @@ function scheduleWheelSnap(instance: WorkflowPickerInstance, kind: 'month' | 'ye
   }, wheelIdleSnapMs);
 }
 
+function scheduleSelectorPlacement(instance: WorkflowPickerInstance): void {
+  if (typeof wx === 'undefined' || instance.createSelectorQuery === undefined) return;
+  const query = instance.createSelectorQuery();
+  query
+    .select('.workflow-picker-trigger')
+    .boundingClientRect()
+    .exec((results) => {
+      if (!instance.data.open) return;
+      const trigger = results[0];
+      if (trigger === undefined || trigger === null) return;
+      const optionCount = instance.properties.options.length;
+      const popupHeight = Math.min(300, Math.max(44, optionCount * 30 + 12));
+      const windowHeight = wx.getWindowInfo().windowHeight;
+      const spaceBelow = windowHeight - trigger.bottom - 8;
+      const spaceAbove = trigger.top - 8;
+      instance.setData({
+        popoverPlacement:
+          spaceBelow < popupHeight && spaceAbove > spaceBelow ? ('up' as const) : ('down' as const),
+      });
+    });
+}
+
 function startWheelTouch(instance: WorkflowPickerInstance, kind: 'month' | 'year'): void {
   const touchingKey = kind === 'year' ? '_yearWheelTouching' : '_monthWheelTouching';
   const timerKey = kind === 'year' ? '_yearWheelSnapTimer' : '_monthWheelSnapTimer';
@@ -370,15 +422,33 @@ function snapWheel(instance: WorkflowPickerInstance, kind: 'month' | 'year'): vo
   const topKey = kind === 'year' ? 'yearWheelTop' : 'monthWheelTop';
   const latestTopKey = kind === 'year' ? '_yearWheelLatestTop' : '_monthWheelLatestTop';
   const latestTop = instance[latestTopKey] ?? instance.data[topKey];
-  instance.setData({ [topKey]: latestTop, wheelSnapAnimating: false }, () => {
-    instance.setData({ [topKey]: index * wheelItemHeight, wheelSnapAnimating: true });
-    if (instance._wheelAnimationTimer !== undefined) clearTimeout(instance._wheelAnimationTimer);
-    instance._wheelAnimationTimer = setTimeout(() => {
-      instance._wheelAnimationTimer = undefined;
-      delete instance[latestTopKey];
-      instance.setData({ wheelSnapAnimating: false });
-    }, wheelSnapAnimationMs);
-  });
+  const latestPosition = latestTop / wheelItemHeight;
+  const itemKey = kind === 'year' ? 'yearWheelItems' : 'monthWheelItems';
+  const positionKey = kind === 'year' ? 'yearWheelPosition' : 'monthWheelPosition';
+  const values = kind === 'year' ? instance.data.years : monthValues;
+  const unit = kind === 'year' ? '年' : '月';
+  instance.setData(
+    {
+      [itemKey]: createWheelItems(values, unit, latestPosition),
+      [positionKey]: latestPosition,
+      [topKey]: latestTop,
+      wheelSnapAnimating: false,
+    },
+    () => {
+      instance.setData({
+        [itemKey]: createWheelItems(values, unit, index),
+        [positionKey]: index,
+        [topKey]: index * wheelItemHeight,
+        wheelSnapAnimating: true,
+      });
+      if (instance._wheelAnimationTimer !== undefined) clearTimeout(instance._wheelAnimationTimer);
+      instance._wheelAnimationTimer = setTimeout(() => {
+        instance._wheelAnimationTimer = undefined;
+        delete instance[latestTopKey];
+        instance.setData({ wheelSnapAnimating: false });
+      }, wheelSnapAnimationMs);
+    },
+  );
 }
 
 function clearWheelTimers(instance: WorkflowPickerInstance): void {
@@ -415,6 +485,46 @@ function applyMonthWheelDraft(
     draftIndices: [boundedYearIndex, boundedMonthIndex, draftDay - 1],
     draftMonth: month,
     draftYear: year,
+  });
+}
+
+function setWheelProgress(
+  instance: WorkflowPickerInstance,
+  kind: 'month' | 'year',
+  position: number,
+): void {
+  const boundedPosition = Math.max(
+    0,
+    Math.min(
+      (kind === 'year' ? instance.data.years.length : monthValues.length) - 1,
+      Number.isFinite(position) ? position : 0,
+    ),
+  );
+  const itemKey = kind === 'year' ? 'yearWheelItems' : 'monthWheelItems';
+  const positionKey = kind === 'year' ? 'yearWheelPosition' : 'monthWheelPosition';
+  const values = kind === 'year' ? instance.data.years : monthValues;
+  const unit = kind === 'year' ? '年' : '月';
+  instance.setData({
+    [itemKey]: createWheelItems(values, unit, boundedPosition),
+    [positionKey]: boundedPosition,
+  });
+}
+
+function createWheelItems(
+  values: readonly number[],
+  unit: string,
+  position: number,
+): readonly WorkflowPickerWheelItem[] {
+  return values.map((value, index) => {
+    const distance = Math.min(1, Math.abs(index - position));
+    const selection = 1 - distance;
+    return {
+      fontSize: 19 + selection * 5,
+      label: String(value),
+      opacity: 0.58 + selection * 0.42,
+      scale: 0.94 + selection * 0.06,
+      unit,
+    };
   });
 }
 

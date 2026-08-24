@@ -125,7 +125,7 @@ describe('P7 physical-device feedback regressions', () => {
     const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
     const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
     expect(pickerTemplate).toContain('class="workflow-picker-sheet"');
-    expect(pickerTemplate).toContain('class="workflow-picker-selector-popover"');
+    expect(pickerTemplate).toContain('workflow-picker-selector-popover');
     expect(pickerTemplate).toContain("open && mode !== 'selector'");
     expect(pickerTemplate).toContain('class="workflow-picker-summary"');
     expect(pickerTemplate).toContain('class="workflow-picker-date-navigation"');
@@ -220,10 +220,10 @@ describe('P7 physical-device feedback regressions', () => {
     const workbenchStyles = read('pages/workbench/index.wxss');
 
     expect(monthStyles).toMatch(
-      /\.month-person\s*\{[^}]*font-size:\s*10px;[^}]*white-space:\s*nowrap;/su,
+      /\.month-person\s*\{[^}]*font-size:\s*11px;[^}]*white-space:\s*nowrap;/su,
     );
     expect(workbenchStyles).toMatch(
-      /\.week-duty-name\s*\{[^}]*font-size:\s*11px;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/su,
+      /\.week-duty-name\s*\{[^}]*font-size:\s*12px;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/su,
     );
     expect(monthTemplate).not.toMatch(/person\.length|name-length/u);
     expect(workbenchTemplate).not.toMatch(/duty\.name\.length|name-length/u);
@@ -248,6 +248,18 @@ describe('P7 physical-device feedback regressions', () => {
     );
     expect(pickerStyles).toMatch(
       /\.workflow-picker-option\.is-selected\s*\{[^}]*color:\s*var\(--ui-color-primary\);[^}]*background:\s*var\(--ui-color-primary-light\)/su,
+    );
+    expect(pickerTemplate).toContain('workflow-picker-selector-backdrop');
+    expect(pickerTemplate).toContain('popoverPlacement');
+    expect(pickerTemplate).not.toContain("open ? '⌃' : '⌄'");
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-selector-popover\.is-up\s*\{[^}]*top:\s*auto;[^}]*bottom:\s*calc\(100% \+ 6px\);/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-chevron\.is-right\s*\{[^}]*transform:\s*rotate\(-45deg\);/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-wheel-item\.is-animating\s*\{[^}]*font-size 240ms[^}]*transform 240ms/su,
     );
   });
 
@@ -279,10 +291,27 @@ describe('P7 physical-device feedback regressions', () => {
       /\.request-sheet \.web-button\.is-primary\s*\{[^}]*box-shadow:\s*none;/su,
     );
     expect(sharedStyles).toMatch(
+      /\.request-sheet \.sheet-heading > \.sheet-finish\s*\{[^}]*width:\s*44px;[^}]*flex:\s*0 0 44px;/su,
+    );
+    expect(sharedStyles).toMatch(
       /\.leave-page\.is-compact \.request-sheet \.sheet-body\s*\{[^}]*padding:\s*0 16px calc\(16px \+ env\(safe-area-inset-bottom\)\);/su,
     );
     expect(sharedStyles).toMatch(
       /\.duty-page\.is-compact \.request-sheet \.form-actions,[^}]*\.swap-page\.is-compact \.request-sheet \.form-actions\s*\{[^}]*flex-direction:\s*row;/su,
+    );
+    expect(leaveTemplate).toContain('leave-form-intro');
+    expect(leaveTemplate).toContain('请假信息');
+    expect(leaveTemplate).toContain('请假按整天计算；提交前会检查已发布的未来班次。');
+    expect(leaveTemplate).toContain('class="day-count-hint"');
+    expect(leaveTemplate).toContain('class="affected-hint"');
+    expect(leaveTemplate).toContain('原因说明（选填）');
+    expect(leaveTemplate).toContain('请填写请假原因');
+    expect(leaveTemplate).toContain('提交请假');
+    expect(sharedStyles).toMatch(
+      /\.request-sheet \.date-fields\s*\{[^}]*flex-direction:\s*column;/su,
+    );
+    expect(sharedStyles).toMatch(
+      /\.day-count-hint\s*\{[^}]*color:\s*var\(--ui-color-primary\);[^}]*background:\s*var\(--ui-color-primary-light\)/su,
     );
   });
 });
