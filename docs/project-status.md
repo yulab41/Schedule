@@ -2,14 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P7-F 完整工作流 RC 与生产能力契约（已实现待发布）
+## 2026-08-24 P7-F 完整工作流 RC（已开放体验，待实体 UI/交互复核）
 
 - 基线/范围：Git/origin/production均为`03079a18`、DB51；P7-C/D/E三原生页面已部署但production workflows仍false。本批不改工作流领域/API/DB/UI，只冻结最终候选版本、生产allowlist/capability契约、实体Android RC计划和回滚门禁；不进入P8、不提审/正式发布。
 - 版本决策：完整候选固定`0.1.0-p7.20260824.85`；逐切片`.82-leave/.83-swap/.84-duty`只作可追溯上传，永不加入production allowlist。生产样例/部署手册只在原`.78-.81`兼容列表后加入`.85`并将workflows设true；legacy仍`.78`。审计现已确认三页/controller/危险写/视觉黄金全部关闭，剩余只有`.85`上传、原子allowlist+capability、回滚探测和实体RC。
 - 测试先行/RC：allowlist/workflows/计划文件断言在旧配置先3项失败，更新后release-control+P7 plan 18/18。新增机器可读RC JSON与runbook，精确锁定成员/管理员的请假、跨月换班、加扣班提交→接受/审批→拒绝/取消→direct→完成后撤销，以及弱网结果不确定同payload重试、前后台刷新、日历标记、成员/管理员通知和capability关闭→重开；通过反馈固定“P7 工作流 RC 通过”，不强制通过截图。
 - 自动证据：Mini 41 files/221；P7 Web/shared client/presentation 12 files/45；API env/runtime/release 4 files/42；Mini typecheck/任务ESLint/Prettier/production verify/source/package/performance/determinism、`smoke:check-core`、`git diff --check`通过。当前主源码真实MySQL请假20+换班34+加扣班26+通知8+微信4=92/92；命令随后误扫用户`runtime/ecs-directory-favorites-*`旧副本并出现旧迁移建表冲突，主源码92项已先完整通过，后续命令显式排除`runtime/**`/`src/**`且不修改副本。
 - 构建：2/2 Worklet、2282116 bytes、manifest`766bdfab7b2546e048f229f8ea8f9c63d8e5da9556f3ec7c40e224030c4f42c8`；只保留既有600格矩阵节点best-effort警告。无Mini UI源码变化，因此不新增视觉真值；原生视觉/交互仍只能由用户实体设备确认。
-- checkpoint/停止条件：代码checkpoint识别消息`chore(miniprogram): prepare p7 workflow rc`；推送后上传production-profile`.85`，做ECS加密备份/部署，在release锁下原子加入allowlist并开启workflows，验证`.85`全能力、部分候选426、旧`.81`兼容；再执行workflows false→true回滚预演和full verifier。状态checkpoint同步生产后立即暂停，等待用户按`apps/miniprogram/docs/runbooks/p7-workflow-rc.md`实体Android复核；明确通过前不进入P8。
+- checkpoint/体验：`350e5a1a`（`chore(miniprogram): prepare p7 workflow rc`）已推送；从该提交干净worktree成功上传production-profile最终体验版`0.1.0-p7.20260824.85`，81个代码文件、zip752204 bytes、manifest`36d84ea33111b2c2de3f8e0a4e3d538ebafb4a949d6c791a20fed9728e6ccea0`，未提审/正式发布。
+- 生产/能力：部署前加密备份`cd676334-c033-4b6f-8b2a-b3cbf491c41b`（54表、164254行、77268968 bytes、SHA-256`f010287ea385c3c8aad14e59a84b56370db9d2d57e1338e63feb31d6bba00398`）后部署release`350e5a1a05d469da306651fa1c5323296aeca589`；DB51、privacy0/0、full verifier通过。随后在release/version锁下只把`.85`原子加入allowlist，保持env root/0600；`.84-duty`/未知均426、`.81`兼容。受信任控制器完成workflows true→false→true回滚预演，`.85`逐步返回true→false→true且健康始终ready；最终workflows=true，full verifier再次通过，远端/本地临时目录已删。
+- 当前停止点：状态checkpoint识别消息`docs(status): open p7 workflow rc`；推送并同步生产后暂停。请用户只用`.85@350e5a1`在专用测试群组按`apps/miniprogram/docs/runbooks/p7-workflow-rc.md`完成成员/管理员三工作流、弱网、前后台、日历标记和通知实体Android复核。明确回复“P7 工作流 RC 通过”前不进入P8、不提审/正式发布；失败只修对应P7差异。
 
 ## 2026-08-24 P7-E 原生加扣班垂直切片（代码已部署，能力保持关闭）
 
