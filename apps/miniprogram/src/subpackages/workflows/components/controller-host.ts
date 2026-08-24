@@ -67,7 +67,7 @@ export function registerWorkflowPanel(createDefinition: (embedded: boolean) => u
           if (this.__attached === true && this.data['infoMessage'] === expected) {
             this.setData({ infoMessage: '' });
           }
-        }, 1_000);
+        }, 2_000);
       },
     },
     pageLifetimes: {

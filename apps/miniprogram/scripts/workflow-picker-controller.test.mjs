@@ -31,7 +31,10 @@ function createPickerInstance(definition, properties) {
 
 describe('P7 Web-parity workflow picker controller', () => {
   beforeEach(() => vi.resetModules());
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
 
   it('applies a Web-style selector option immediately and closes the dropdown', async () => {
     const definition = await loadPickerDefinition();
@@ -79,6 +82,24 @@ describe('P7 Web-parity workflow picker controller', () => {
 
     expect(instance.data.open).toBe(false);
     expect(instance.triggerEvent).not.toHaveBeenCalledWith('change', expect.anything());
+  });
+
+  it('closes the previously open member or assignment picker before opening another', async () => {
+    const definition = await loadPickerDefinition();
+    const options = [{ label: '冯钦', value: 'member-1' }];
+    const first = createPickerInstance(definition, { mode: 'selector', options });
+    const second = createPickerInstance(definition, { mode: 'selector', options });
+    definition.lifetimes.attached.call(first);
+    definition.lifetimes.attached.call(second);
+
+    definition.methods.handleOpen.call(first);
+    expect(first.data.open).toBe(true);
+    definition.methods.handleOpen.call(second);
+
+    expect(first.data.open).toBe(false);
+    expect(second.data.open).toBe(true);
+    definition.lifetimes.detached.call(first);
+    definition.lifetimes.detached.call(second);
   });
 
   it('keeps only the weekend token red before and after an option is selected', async () => {
@@ -131,6 +152,50 @@ describe('P7 Web-parity workflow picker controller', () => {
     definition.methods.handleConfirm.call(instance);
     expect(instance.triggerEvent).toHaveBeenCalledWith('change', { value: '2027-09' });
     expect(instance.data.open).toBe(false);
+  });
+
+  it('keeps inertia running, then snaps an idle wheel to the nearest 44px row', async () => {
+    vi.useFakeTimers();
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 8 * 44 + 17 },
+    });
+    expect(instance._monthWheelLatestTop).toBe(8 * 44 + 17);
+    expect(instance.data.monthWheelTop).toBe(7 * 44);
+    expect(instance.data.draftIndices[1]).toBe(8);
+    vi.advanceTimersByTime(99);
+    expect(instance.data.monthWheelTop).toBe(7 * 44);
+    vi.advanceTimersByTime(1);
+    expect(instance.data.monthWheelTop).toBe(8 * 44);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+    vi.advanceTimersByTime(180);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    definition.lifetimes.detached.call(instance);
+  });
+
+  it('never starts the idle snap while the user is still holding the wheel', async () => {
+    vi.useFakeTimers();
+    const definition = await loadPickerDefinition();
+    const instance = createPickerInstance(definition, { mode: 'month', value: '2026-08' });
+    definition.lifetimes.attached.call(instance);
+    definition.methods.handleOpen.call(instance);
+    definition.methods.handleMonthWheelTouchStart.call(instance);
+    definition.methods.handleMonthWheelScroll.call(instance, {
+      detail: { scrollTop: 9 * 44 + 8 },
+    });
+
+    vi.advanceTimersByTime(250);
+    expect(instance.data.monthWheelTop).toBe(7 * 44);
+    expect(instance.data.wheelSnapAnimating).toBe(false);
+    definition.methods.handleMonthWheelTouchEnd.call(instance);
+    vi.advanceTimersByTime(100);
+    expect(instance.data.monthWheelTop).toBe(9 * 44);
+    expect(instance.data.wheelSnapAnimating).toBe(true);
+    definition.lifetimes.detached.call(instance);
   });
 
   it('builds the Web calendar date grid and confirms the selected day', async () => {

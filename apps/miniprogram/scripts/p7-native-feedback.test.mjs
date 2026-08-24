@@ -148,7 +148,7 @@ describe('P7 physical-device feedback regressions', () => {
       /\.workflow-picker-sheet\s*\{[^}]*right:\s*12px;[^}]*bottom:\s*max\(12px,/su,
     );
     expect(pickerStyles).toMatch(
-      /\.workflow-picker-selector-popover\s*\{[^}]*position:\s*absolute;[^}]*max-height:\s*240px;/su,
+      /\.workflow-picker-selector-popover\s*\{[^}]*position:\s*absolute;[^}]*max-height:\s*300px;/su,
     );
   });
 
@@ -158,8 +158,8 @@ describe('P7 physical-device feedback regressions', () => {
     const leaveTemplate = read('subpackages/workflows/components/workflow-leave-panel/index.wxml');
     const leaveStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
 
-    expect(pickerTemplate).toContain('hover-start-time="0"');
-    expect(pickerTemplate).toContain('hover-stay-time="60"');
+    expect(pickerTemplate).not.toContain('hover-start-time="0"');
+    expect(pickerTemplate).not.toContain('hover-stay-time="60"');
     expect(pickerStyles).not.toMatch(
       /\.workflow-picker-trigger\.is-pressed\s*\{[^}]*background:\s*var\(--ui-color-primary-light\)/su,
     );
@@ -227,5 +227,62 @@ describe('P7 physical-device feedback regressions', () => {
     );
     expect(monthTemplate).not.toMatch(/person\.length|name-length/u);
     expect(workbenchTemplate).not.toMatch(/duty\.name\.length|name-length/u);
+  });
+
+  it('matches Web select geometry and keeps the open trigger blue until the dropdown closes', () => {
+    const pickerTemplate = read('subpackages/workflows/components/workflow-picker/index.wxml');
+    const pickerStyles = read('subpackages/workflows/components/workflow-picker/index.wxss');
+
+    expect(pickerTemplate).not.toContain('hover-stay-time="60"');
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-root\.is-open \.workflow-picker-trigger\s*\{[^}]*border-color:\s*var\(--ui-color-primary\);[^}]*box-shadow:/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-selector-popover\s*\{[^}]*padding:\s*6px;[^}]*border-radius:\s*10px;[^}]*box-shadow:\s*0 3px 14px 2px/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-option\s*\{[^}]*height:\s*28px;[^}]*min-height:\s*28px;[^}]*padding:\s*0 8px;[^}]*border-radius:\s*3px;[^}]*font-size:\s*14px;[^}]*line-height:\s*22px;/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-option \+ \.workflow-picker-option\s*\{[^}]*margin-top:\s*2px;/su,
+    );
+    expect(pickerStyles).toMatch(
+      /\.workflow-picker-option\.is-selected\s*\{[^}]*color:\s*var\(--ui-color-primary\);[^}]*background:\s*var\(--ui-color-primary-light\)/su,
+    );
+  });
+
+  it('matches the Web request Sheet, compact reason fields, buttons, and Done action', () => {
+    const leaveTemplate = read('subpackages/workflows/components/workflow-leave-panel/index.wxml');
+    const dutyTemplate = read('subpackages/workflows/components/workflow-duty-panel/index.wxml');
+    const swapTemplate = read('subpackages/workflows/components/workflow-swap-panel/index.wxml');
+    const sharedStyles = read('subpackages/workflows/components/workflow-leave-panel/index.wxss');
+
+    for (const template of [leaveTemplate, dutyTemplate, swapTemplate]) {
+      expect(template).toContain('native-sheet request-sheet');
+      expect(template).toContain('class="sheet-finish"');
+      expect(template).toMatch(/class="sheet-finish"[^>]*>完成</u);
+    }
+    expect(leaveTemplate).toContain('class="native-textarea leave-reason-field"');
+    expect(dutyTemplate.match(/class="native-reason-input"/gu)).toHaveLength(2);
+    expect(sharedStyles).toMatch(
+      /\.sheet-scrim\s*\{[^}]*background:\s*rgba\(22, 32, 42, 0\.32\)/su,
+    );
+    expect(sharedStyles).toMatch(
+      /\.request-sheet\s*\{[^}]*height:\s*auto;[^}]*max-height:\s*78vh;[^}]*background:\s*var\(--ui-color-surface\);[^}]*border-radius:\s*22px 22px 0 0;/su,
+    );
+    expect(sharedStyles).toMatch(
+      /\.request-sheet \.sheet-heading\s*\{[^}]*min-height:\s*56px;[^}]*padding:\s*4px 16px;[^}]*border-bottom:\s*0;/su,
+    );
+    expect(sharedStyles).toMatch(/\.leave-reason-field\s*\{[^}]*min-height:\s*88px;/su);
+    expect(sharedStyles).toMatch(/\.native-reason-input\s*\{[^}]*min-height:\s*44px;/su);
+    expect(sharedStyles).toMatch(
+      /\.request-sheet \.web-button\.is-primary\s*\{[^}]*box-shadow:\s*none;/su,
+    );
+    expect(sharedStyles).toMatch(
+      /\.leave-page\.is-compact \.request-sheet \.sheet-body\s*\{[^}]*padding:\s*0 16px calc\(16px \+ env\(safe-area-inset-bottom\)\);/su,
+    );
+    expect(sharedStyles).toMatch(
+      /\.duty-page\.is-compact \.request-sheet \.form-actions,[^}]*\.swap-page\.is-compact \.request-sheet \.form-actions\s*\{[^}]*flex-direction:\s*row;/su,
+    );
   });
 });

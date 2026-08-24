@@ -1,9 +1,6 @@
 <view class="workflow-picker-root {{open ? 'is-open' : ''}}" catchtap="handleInternalTap">
   <view
     class="workflow-picker-trigger {{disabled ? 'is-disabled' : ''}}"
-    hover-class="{{disabled ? 'none' : 'is-pressed'}}"
-    hover-start-time="0"
-    hover-stay-time="60"
     aria-role="button"
     aria-disabled="{{disabled}}"
     aria-expanded="{{open}}"
@@ -12,7 +9,9 @@
     <text class="workflow-picker-trigger-value {{displayValue ? '' : 'is-placeholder'}}"
       >{{displayValue || placeholder}}</text
     >
-    <text class="workflow-picker-chevron" aria-hidden="true">›</text>
+    <text class="workflow-picker-chevron" aria-hidden="true"
+      >{{mode === 'selector' ? (open ? '⌃' : '⌄') : '›'}}</text
+    >
   </view>
 
   <scroll-view
@@ -31,14 +30,12 @@
       aria-selected="{{index === selectedOptionIndex}}"
       bindtap="handleOptionTap"
     >
-      <view class="workflow-picker-option-marker"></view>
       <text class="workflow-picker-option-label"
         ><text>{{item.leadingLabel}}</text
         ><text wx:if="{{item.weekendLabel}}" class="workflow-picker-option-weekend"
           >{{item.weekendLabel}}</text
         ><text>{{item.trailingLabel}}</text></text
       >
-      <text wx:if="{{index === selectedOptionIndex}}" class="workflow-picker-option-check">✓</text>
     </view>
     <view wx:if="{{options.length === 0}}" class="workflow-picker-empty">暂无可选项</view>
   </scroll-view>
@@ -76,6 +73,10 @@
         enhanced
         show-scrollbar="{{false}}"
         scroll-top="{{yearWheelTop}}"
+        scroll-with-animation="{{wheelSnapAnimating}}"
+        bindtouchstart="handleYearWheelTouchStart"
+        bindtouchend="handleYearWheelTouchEnd"
+        bindtouchcancel="handleYearWheelTouchEnd"
         bindscroll="handleYearWheelScroll"
         bindscrollend="handleYearWheelScrollEnd"
       >
@@ -96,6 +97,10 @@
         enhanced
         show-scrollbar="{{false}}"
         scroll-top="{{monthWheelTop}}"
+        scroll-with-animation="{{wheelSnapAnimating}}"
+        bindtouchstart="handleMonthWheelTouchStart"
+        bindtouchend="handleMonthWheelTouchEnd"
+        bindtouchcancel="handleMonthWheelTouchEnd"
         bindscroll="handleMonthWheelScroll"
         bindscrollend="handleMonthWheelScrollEnd"
       >

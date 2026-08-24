@@ -19,12 +19,12 @@ describe('workflow panel host transient status', () => {
     vi.unstubAllGlobals();
   });
 
-  it('clears a non-empty operation result after one second', () => {
+  it('clears a non-empty operation result after two seconds', () => {
     registerWorkflowPanel(() => ({ data: { infoMessage: '' } }));
     const instance = createHostInstance('换班已完成。');
 
     definition.observers.infoMessage.call(instance, '换班已完成。');
-    vi.advanceTimersByTime(999);
+    vi.advanceTimersByTime(1_999);
     expect(instance.data.infoMessage).toBe('换班已完成。');
     vi.advanceTimersByTime(1);
     expect(instance.data.infoMessage).toBe('');

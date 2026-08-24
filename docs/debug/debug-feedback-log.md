@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-24 P7 `.90` Web 下拉/滚轮/Sheet 对齐
+
+- 范围/引入点：`.89` 二次实体反馈；2秒状态目标覆盖 `16c02f56` 的1秒，picker独立 open=`bc32a4f1/7f4f70a0`，60ms hover=`0d971de1`，双滚轮静态 scrollend=`16c02f56`，82%灰底Sheet/96px textarea=`bc32a4f1`。只改 Mini UI/controller 和 `.90` 发布契约，不改业务/API/DB/P8。
+- 红绿/实现：timer、实例registry互斥、100ms idle/180ms animated snap、Web select几何/常亮态、Web request Sheet/紧凑原因框和 `.90` contract 均先红后绿。selector=300px/6px/28px/3px/shadow-2，移除60ms hover；滚动中按44px实时 draft，原生惯性期间只存私有top，停止后再受控吸附；request Sheet=白底/22px/78vh/32%遮罩/右上完成，leave=88px三行，duty=44px单行。
+- 语义审计：picker互斥只改open；selector仍一次change，month/date完成一次、取消零次。wheel timer/registry均在close/detached清理，不改value；reason input继续同handler/detail.value/maxlength/payload。Promise、receiver、空值、幂等、409/弱网与写次数未触及。
+- 验证：定向20、release3、Mini精确44 files/243、typecheck、production verify/determinism/source/package/performance/build、CI dry-run、lint/format/diff/core smoke通过；最终2 Worklets/3016422 bytes/manifest`cc093f1b…d9cb`，仅既有600格warning。根目录/路径式 Vitest 会误扫用户`.artifacts`旧副本，保留副本后用包目录`--dir scripts`验证真实源码。Windows二次build首次瞬时ENOTEMPTY，800ms重试通过；未重装依赖或操作微信开发者工具。
+- 状态：已实现待体验上传/生产部署；checkpoint=`fix(miniprogram): align p7 workflow controls`，随后只发布 `.90` 并等待实体复核。
+
 ## 2026-08-24 P7 `.89` 下拉、滚轮、预热与日历字号
 
 - 范围/引入点：只修 `.88` 实体反馈 7 项；timer=`0d971de1`，独立 picker/120px empty/native wheel=`bc32a4f1/7f4f70a0`，筛选阻断冒泡=`733e3af6`，群组点击后 mount=`0d971de1`，月/周姓名=`1f715c96/50c6d1ed`。不改 API/DB/危险写/P8。

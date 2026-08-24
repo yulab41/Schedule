@@ -8,6 +8,11 @@
   z-index: 30;
 }
 
+.workflow-picker-root.is-open .workflow-picker-trigger {
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 0 0 2px rgba(10, 102, 213, 0.12);
+}
+
 .workflow-picker-trigger {
   display: flex;
   width: 100%;
@@ -186,25 +191,29 @@
   right: 0;
   left: 0;
   min-height: 0;
-  max-height: 240px;
-  padding: 4px 10px;
+  max-height: 300px;
+  padding: 6px;
   box-sizing: border-box;
   background: var(--ui-color-surface);
   border: 1px solid var(--ui-color-border);
-  border-radius: 12px;
-  box-shadow: var(--ui-shadow-elevated);
+  border-radius: 10px;
+  box-shadow:
+    0 3px 14px 2px rgba(0, 0, 0, 0.05),
+    0 8px 10px 1px rgba(0, 0, 0, 0.06),
+    0 5px 5px -3px rgba(0, 0, 0, 0.1);
 }
 
 .workflow-picker-option {
   display: flex;
-  min-height: 48px;
-  padding: 8px 12px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
   box-sizing: border-box;
   align-items: center;
-  gap: 10px;
   color: var(--ui-color-text-primary);
-  border-bottom: 1px solid var(--ui-color-border);
-  font-size: var(--ui-font-size-sm);
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 .workflow-picker-option-weekend,
@@ -213,33 +222,18 @@
 }
 
 .workflow-picker-option.is-selected {
-  color: var(--ui-color-primary-dark);
+  color: var(--ui-color-primary);
   background: var(--ui-color-primary-light);
-  border-color: var(--ui-color-primary-border);
-  border-radius: 12px;
   font-weight: var(--ui-font-weight-semibold);
 }
 
-.workflow-picker-option-marker {
-  width: 3px;
-  height: 28px;
-  flex: none;
-  background: transparent;
-  border-radius: 3px;
-}
-
-.workflow-picker-option.is-selected .workflow-picker-option-marker {
-  background: var(--ui-color-primary);
+.workflow-picker-option + .workflow-picker-option {
+  margin-top: 2px;
 }
 
 .workflow-picker-option-label {
   min-width: 0;
   flex: 1;
-}
-
-.workflow-picker-option-check {
-  flex: none;
-  color: var(--ui-color-primary);
 }
 
 .workflow-picker-empty {

@@ -529,7 +529,7 @@ page {
 .sheet-scrim {
   position: absolute;
   inset: 0;
-  background: rgba(13, 25, 40, 0.45);
+  background: rgba(22, 32, 42, 0.32);
 }
 
 .native-sheet {
@@ -584,6 +584,57 @@ page {
   font-weight: 300;
 }
 
+.request-sheet {
+  height: auto;
+  max-height: 78vh;
+  padding-bottom: 0;
+  background: var(--ui-color-surface);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -16px 48px rgba(22, 32, 42, 0.18);
+}
+
+.request-sheet .sheet-handle {
+  width: 38px;
+  height: 5px;
+  margin: 8px auto 0;
+  border-radius: var(--ui-radius-pill);
+}
+
+.request-sheet .sheet-heading {
+  min-height: 56px;
+  padding: 4px 16px;
+  border-bottom: 0;
+}
+
+.request-sheet .sheet-scroll {
+  height: auto;
+  max-height: calc(78vh - 65px);
+  flex: none;
+}
+
+.request-sheet .sheet-body {
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.sheet-finish {
+  display: flex;
+  min-width: 44px;
+  height: 44px;
+  margin-left: auto;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary);
+  background: transparent;
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.sheet-finish.is-pressed {
+  background: var(--ui-color-primary-light);
+}
+
 .sheet-scroll {
   min-height: 0;
   flex: 1;
@@ -615,6 +666,34 @@ page {
   border: 1px solid var(--ui-color-border-strong);
   border-radius: var(--ui-radius-medium);
   font-size: var(--ui-font-size-sm);
+}
+
+.leave-reason-field {
+  min-height: 88px;
+}
+
+.native-reason-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-medium);
+  font-size: var(--ui-font-size-sm);
+}
+
+.request-sheet .form-actions {
+  gap: var(--ui-spacing-sm);
+}
+
+.request-sheet .web-button {
+  border-radius: var(--ui-radius-small);
+}
+
+.request-sheet .web-button.is-primary {
+  box-shadow: none;
 }
 
 .duration-hint,
@@ -725,4 +804,13 @@ page {
 
 .leave-page.is-compact .bottom-nav-item {
   font-size: 9px;
+}
+
+.leave-page.is-compact .request-sheet .sheet-body {
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.duty-page.is-compact .request-sheet .form-actions,
+.swap-page.is-compact .request-sheet .form-actions {
+  flex-direction: row;
 }
