@@ -344,6 +344,13 @@
       "when": 1785542400049,
       "tag": "0049_mobile_phone_consent_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1785542400050,
+      "tag": "0050_visitor_access_retention",
+      "breakpoints": true
     }
   ]
 }

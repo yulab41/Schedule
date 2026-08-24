@@ -283,7 +283,7 @@ fs.rmSync(apiFlatPath, { force: true, recursive: true });
 const manifest = {
   schemaVersion: 1,
   releaseFeatureLevel: RELEASE_FEATURE_LEVEL,
-  databaseSchemaMin: '49',
+  databaseSchemaMin: '50',
   databaseSchemaMax: '50',
   rollbackCandidate: rollbackCandidate(),
   releaseId: commit,

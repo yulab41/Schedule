@@ -2,7 +2,16 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C3 访客 IP 隐私运行时兼容桥（待 checkpoint）
+## 2026-08-24 P6-C4 访客 IP 90 天聚合与清理（待 checkpoint）
+
+- 范围与基线：最终 privacy runtime bridge `bbcd00d4` 已与 Git/origin/production 对齐，生产 DB49、raw rows=0、健康200。本 checkpoint 只应用 migration0050、把release min/max收紧为50..50，并激活已部署的匿名聚合/事务清理/API/15分钟cron；不改UI、不进入遥测或P7。
+- 迁移与不变量：0050只给raw表增加全局`(created_at,id)`索引，并创建PK=`group_id/access_month/business_month`、BIGINT count、month/count CHECK和group FK的`visitor_access_monthly_aggregates`；不复制或回填raw IP。空生产raw表意味着首次运行应为no-op，历史31份归档已只读核对raw rows为0，不需不可逆改写。
+- 事务与边界证据：cutoff一次捕获为`now-90*24h`，只处理严格`<cutoff`，等于边界保留；按createdAt/id加锁、SKIP LOCKED、1000行批次，在同一事务按北京时间accessMonth+businessMonth聚合、删除精确ID并写无IP/request/raw ID的audit。真实MySQL覆盖中国月边界、跨businessMonth/群组、重复运行、audit失败全回滚、bounded backlog续跑和并发worker无重复。
+- 测试：migrations22/22、privacy transaction4/4、visitor API9/9、platform backup/restore10/10，共真实MySQL45/45；unit/static9 files/50 tests、API/DB/Web typecheck、root build、完整browser smoke已在runtime bridge通过。中间失败准确暴露复合索引在information_schema返回2行、测试迁移相对路径、随机group排序和恢复前seed数据未清空，均只修正验证夹具/期望后全绿。
+- 发布/回滚计划：feature checkpoint识别消息为`feat(privacy): enforce visitor access retention`，rollback candidate必须是`bbcd00d4`。部署到DB50并首跑retention/备份验证后，必须真实回滚到runtime bridge（DB保持50、privacy cron/control/Nginx/backup继续有效）并full verify，再前滚feature并再次verify；不得回到更早raw日志release，不降级数据库。
+- 下一活动批次：0050代码/状态提交、推送、生产备份、迁移、rollback/roll-forward演练与最终docs release完成后，独立实现P6脱敏遥测及30天保留；P6实体Android RC仍未通过前不进入P7。
+
+## 2026-08-24 P6-C3 访客 IP 隐私运行时兼容桥（已部署）
 
 - 范围与基线：schema bridge `da144470` 已与 Git/origin/production 对齐，生产 DB49、健康 200。本 checkpoint 先发布可同时运行于 DB49/50 的隐私运行时，不应用 0050：原始 90 天 API 截止、平台管理员读取、IP 规范化/可信代理、备份/旧恢复排除、Nginx 无 IP/query 日志、MySQL 30 天 binlog/general-log 边界，以及 dormant retention job/control plane；不改 Web/Mini UI。
 - 引入点与测试先行：`git log -S`/`git blame` 将 visitor 表/服务/`request.ip`/全表备份/group recycle 分别定位到 `4fc6bd21`、`4b337490`、`7c783c71`、`a837586e`、`9e4a6765`。缺 aggregate contract/schema/job/scheduler、trustProxy/Nginx/MySQL 门禁先出现 6 项失败；backup format 2/旧格式 raw skip 先 2 项失败；group recycle 明示 raw/aggregate 覆盖先 1 项失败，修复后相关 unit/static 9 files/50 tests、真实 MySQL visitor/platform+backup 19/19 与 API/DB/Web typecheck 通过。
@@ -10,8 +19,8 @@
 - 数据与权限：raw list 强制 `created_at >= now-90天`，等于边界保留；环境平台管理员与 developer admin 无需群成员关系，群主/群管理员保持原权限，member继续403。Fastify只信任1 hop；Nginx覆盖XFF，服务只接受规范IPv4/IPv6并把非法/多跳文本存NULL。匿名响应只含accessMonth/businessMonth/decimal accessCount。
 - 备份与基础设施：新 backup payload 升级format2并永久排除`visitor_access_logs`，format1旧归档仍可解密但恢复时跳过raw，aggregate允许备份。Nginx privacy log不含remote/query/request，error仅emerg；MySQL显式30天binlog且general log关闭。retention脚本带host flock，控制脚本/cron/hash/失败恢复均进入forward-only release control。
 - 运行/浏览器验证：pnpm smoke:browser 已强制运行。首次 5173 未启动按门禁停止，随后默认 Vite 绑定 `::1:5173` 被系统 EACCES 拒绝，再以显式 `127.0.0.1:4173` 启动；首次未显式启用 Web dev auth 再次按门禁停止，最终以当前源码/API、仅当前进程 dev auth 完整通过管理员、成员、访客 vkey 与访问记录全链路，无浏览器错误，截图 `C:\Users\eylin\AppData\Local\Temp\schedule-smoke-9arQfM`。临时服务已停止。
-- 部署反馈与修正：运行时桥 `4f1047c8` 已推送，备份 `f71c6fca-b2a0-4fa7-99fe-60e389413941` 后在 DB49 部署；迁移/健康/控制面通过，但独立 verifier 发现 conf.d 的 http 级 privacy access log 与 Nginx 镜像既有 `main` log 并存，容器仍双写 raw IP/query，因而明确失败且本桥尚未验收完成。新增“4个 server 均必须覆盖 inherited access_log”回归先1项失败；follow-up checkpoint 识别消息为 `fix(privacy): override inherited nginx access log`。
-- checkpoint 与下一步：follow-up 从clean DB49 release重建/部署并确认新容器日志只剩privacy格式、无0050/cron、manifest49..50后，才提交migration0050、真实聚合/事务/并发/备份恢复集成测试和minSchema50 feature release；rollback candidate固定为最终runtime bridge。不进入遥测或P7。
+- 部署反馈与修正：运行时桥 `4f1047c8` 已推送，备份 `f71c6fca-b2a0-4fa7-99fe-60e389413941` 后在 DB49 部署；迁移/健康/控制面通过，但独立 verifier 发现 conf.d 的 http 级 privacy access log 与 Nginx 镜像既有 `main` log 并存，容器仍双写 raw IP/query，因而明确失败。新增“4个 server 均必须覆盖 inherited access_log”回归先1项失败，follow-up `bbcd00d4` 修复。
+- 最终发布：用新runtime先生成备份`d8ec7b2b-ebef-4cae-901f-84638dddec21`（53表、163037行、76860864 bytes、SHA-256`39c5ca6c5e8d49bf9d37ab938c5bc8559c71e863e3d23e9d4a21e8351ee6da20`），表数从54降到53证明raw visitor整表已排除；随后部署`bbcd00d4a8942227201e5241737e92f16476b4fd`。首次502自动恢复，full verify通过privacy日志、MySQL2592000/0、control hash、49 migrations；raw rows=0、control installed、cron absent、manifest49..50。该release是0050唯一rollback candidate。
 
 ## 2026-08-24 P6-C2 数据库 49→50 可回滚兼容桥（已部署）
 

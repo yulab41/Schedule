@@ -2,14 +2,20 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
-## 2026-08-24 P6-C3 访客 IP 隐私运行时桥
+## 2026-08-24 P6-C4 访客 IP 90 天 feature
+
+- 基线/范围：`bbcd00d4` runtime bridge已部署且DB49/raw0。本轮只提交0050、minSchema50并激活aggregate/job/cron，无UI/遥测/P7。
+- 真实MySQL：migrations22、privacy事务4、visitor API9、platform backup/restore10，共45/45；覆盖严格90天边界、中国月桶、多群/月、幂等、rollback、backlog续跑、并发worker、平台管理员、trusted proxy和raw backup exclusion。中间索引行数/相对路径/随机排序/seed清理均为测试夹具修正。
+- 发布门槛：checkpoint`feat(privacy): enforce visitor access retention`，candidate=`bbcd00d4`；DB50部署后必须回滚runtime bridge并前滚feature，两个方向都full verify且数据库不降级。
+
+## 2026-08-24 P6-C3 访客 IP 隐私运行时桥（已部署）
 
 - 基线/来源：`da144470` schema bridge已部署且DB49。visitor表/服务/IP/备份/recycle来源为`4fc6bd21`、`4b337490`、`7c783c71`、`a837586e`、`9e4a6765`。
 - 红绿与实现：aggregate/schema/job/scheduler、trustProxy/Nginx/MySQL先6红，backup format2/legacy raw skip先2红，recycle明示覆盖先1红；实现raw API先行90天隐藏、平台管理员、IP规范化、backup raw永久排除、privacy log/MySQL retention及dormant 15分钟job控制，unit/static 9 files/50、真实MySQL visitor/platform+backup 19/19和typecheck通过。
 - 运行/浏览器验证：pnpm smoke:browser 初次因5173未启动、`::1` EACCES及未显式dev auth依次安全停止；最终在127.0.0.1:4173当前源码+本地API通过管理员/成员/访客vkey/访问记录全链路且无浏览器错误，截图`C:\Users\eylin\AppData\Local\Temp\schedule-smoke-9arQfM`，临时服务已停。
 - 运行/浏览器验证：pnpm smoke:browser 完整通过后，以 pnpm smoke:check-core 复核核心链路门禁。
 - 兼容/回滚：DB49 aggregate endpoint 503、recycle跳过缺表、control只安装不调度；DB50才建cron并首跑。feature回滚后保留前向control plane，runtime bridge在DB50继续清理、隐藏raw并保持隐私日志/备份。
-- 部署反馈：`4f1047c8`/备份`f71c6fca-…`在DB49部署，健康/控制面通过；full verify发现http级privacy access_log没有覆盖镜像已有main log，仍双写raw IP/query并失败关闭。新增4个server逐一覆盖断言先红，follow-up为`fix(privacy): override inherited nginx access log`；修复验证前不提交0050。
+- 部署反馈：`4f1047c8`/备份`f71c6fca-…`在DB49部署，full verify发现http级privacy log与main log双写并失败关闭；4个server覆盖回归先红，`bbcd00d4`修复。新runtime备份`d8ec7b2b-…`为53表（raw整表排除），部署后full verify通过；DB49/raw0、MySQL2592000/0、control installed、cron absent、manifest49..50。该release固定为0050 candidate。
 
 ## 2026-08-24 P6-C2 数据库 49→50 兼容桥（已部署）
 
