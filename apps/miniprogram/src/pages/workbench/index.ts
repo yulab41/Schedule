@@ -679,6 +679,10 @@ Page({
     navigateGroupTool(this, '/subpackages/insights/pages/visitor-access/index');
   },
 
+  handleOpenInsights(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, '/subpackages/insights/pages/insights/index');
+  },
+
   handleNotification(this: WorkbenchPageInstance): void {
     this.setData({ notificationAnimating: false }, () => {
       this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });

@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A7 原生事件与统计只读页（已实现，待体验版复核）
+
+- 范围：新增 `subpackages/insights/pages/insights/index` 与 `insights-dashboard-panel`，提供事件时间线/排班统计两个只读 tab；从 More 入口进入，支持 loading、empty、error、insights-disabled、390/320 紧凑布局和 44px 触达区。
+- 数据/隐私：复用 `createRuntimeInsightsReadClient` 的事件列表与按月统计读取；事件仅展示类型、时间、对象类型和影响数量，统计展示实际/计划、计值班次、岗位完成度，不展示原始 payload、操作 ID 或完整身份标识，不写缓存/日志。
+- 验证：P9 原生边界 3/3、visitor access 回归 3/3；Mini production verify/source/package/determinism/CI dry-run 通过，packageBytes `5,240,691`，`subpackages/insights` `740,237` bytes。正式源码范围在当前日期门禁下 57 files/289 tests（其中 leave 日期测试已冻结到业务日，正式重跑需在提交后再次确认）。
+- 发布/下一步：本批已改 Mini runtime/UI，需提交后上传新的体验版本并补充候选白名单；生产 `insights=false` 保持关闭。用户需先复核 P9 Storybook（当前稳定端口 `6009`）和体验版，再进入通知/导出共享边界。
+
 ## 2026-08-26 P9-A6 Mini runtime 事件/统计 transport bridge（已实现，待体验版复核）
 
 - 范围：新增 `createRuntimeInsightsReadClient`，把 P9-A5 的事件列表/详情和按月/按年统计边界接入 Mini `wx.request` transport；统一 Bearer 会话恢复、错误映射和 `insights` capability 前置守卫。

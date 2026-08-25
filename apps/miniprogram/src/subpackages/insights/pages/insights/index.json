@@ -1,0 +1,8 @@
+{
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "insights-dashboard-panel": "/subpackages/insights/components/insights-dashboard-panel/index"
+  }
+}

@@ -767,6 +767,16 @@
           class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
           aria-role="button"
           aria-disabled="{{!canManageScheduleTools}}"
+          bindtap="handleOpenInsights"
+        >
+          <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+          <view><text>事件与统计</text><text>查看排班变更与按月统计</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
+          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canManageScheduleTools}}"
           bindtap="handleOpenManualSchedule"
         >
           <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />

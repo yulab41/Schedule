@@ -20,7 +20,7 @@ describe('P9 native visitor access insights', () => {
 
     expect(app.subpackages).toContainEqual({
       root: 'subpackages/insights',
-      pages: ['pages/visitor-access/index'],
+      pages: ['pages/visitor-access/index', 'pages/insights/index'],
     });
     expect(page).toContain('访客访问');
     expect(page).toContain('访问记录');
