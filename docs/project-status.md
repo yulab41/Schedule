@@ -7,7 +7,8 @@
 - 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。
 - 隐私/安全：资料仅来自现有微信会话内存/私有会话读取，解绑仍进入既有确认流程；未登录显示安全空态，系统大字号自动扩展字号与 44px 操作。
 - 验证：P10 个人中心静态回归 3/3、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,945,269` bytes，组织分包 `1,649,991` bytes。
-- checkpoint：待提交消息为 `feat(miniprogram): add p10 profile page`；提交后上传体验版并补候选白名单，生产 `organization=false` 保持关闭。
+- 体验/运行：`0.1.0-p9.20260826.14` 已上传成功，147 个代码文件、zip `1,303,568` bytes、manifest `1f12304565693b50425a4e475b7578b6e17e3d7edc704179efeb9ef72a5215c5`。生产备份 archive `1c919fbd-9d90-415d-8acc-4db4180d963d`（54 表/171,722 行/79,989,252 bytes/SHA `3299bf980939c7a935b7286ff4b930ad8e39d6142ac6ee6de0495e2063e1f7c8`）后追加候选白名单；代码 checkpoint `6639ece2`（`feat(miniprogram): add p10 profile page`）部署 release `6639ece2d3390af44a842076266e8eeb7c10f99a`，ECS verifier 通过，`organization=false` 保持关闭。
+- checkpoint：下一活动批次为用户体验版复核个人中心入口、未登录态、解绑/切换/退出和大字号；不新增个人资料网络请求。
 
 ## 2026-08-26 P10-RC 实体 Android 验收清单（已固化，待用户执行）
 
