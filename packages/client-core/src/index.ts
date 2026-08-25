@@ -48,6 +48,14 @@ export {
   type OrganizationReadClient,
 } from './organization-read-client.js';
 export {
+  createVisitorAccessReadClient,
+  visitorAccessAggregatePageDecoder,
+  visitorAccessLogPageDecoder,
+  visitorAccessReadEndpoints,
+  type VisitorAccessPageInput,
+  type VisitorAccessReadClient,
+} from './visitor-access-read-client.js';
+export {
   addGroupMembersResponseDecoder,
   addRosterEntriesResponseDecoder,
   claimGroupResponseDecoder,

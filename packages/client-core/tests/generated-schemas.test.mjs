@@ -35,6 +35,8 @@ import {
   swapPreviewJsonSchema,
   swapRequestJsonSchema,
   swapRequestListJsonSchema,
+  visitorAccessAggregatePageJsonSchema,
+  visitorAccessLogPageJsonSchema,
 } from '../src/generated/calendar-schemas.js';
 import {
   apiErrorCodes,
@@ -73,6 +75,8 @@ import {
   swapPreviewSchema,
   swapRequestSchema,
   swapRequestListSchema,
+  visitorAccessAggregatePageSchema,
+  visitorAccessLogPageSchema,
 } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -236,6 +240,15 @@ describe('client-core generated schemas', () => {
     );
     expect(swapRequestListJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(swapRequestListSchema), 'swapRequestList'),
+    );
+    expect(visitorAccessAggregatePageJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(visitorAccessAggregatePageSchema),
+        'visitorAccessAggregatePage',
+      ),
+    );
+    expect(visitorAccessLogPageJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(visitorAccessLogPageSchema), 'visitorAccessLogPage'),
     );
     expect(generatedApiErrorCodes).toEqual(apiErrorCodes);
   });

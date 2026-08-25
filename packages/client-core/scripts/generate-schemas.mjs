@@ -65,7 +65,9 @@ import {
   swapPreviewSchema,
   swapRequestListSchema,
   swapRequestSchema,
+  visitorAccessAggregatePageSchema,
   visitorKeyChangedResponseSchema,
+  visitorAccessLogPageSchema,
 } from '../../contracts/dist/index.js';
 import { format, resolveConfig } from 'prettier';
 import { z } from 'zod';
@@ -292,6 +294,14 @@ const source = await format(
       visitorKeyChangedResponse: sanitizeJsonSchema(
         z.toJSONSchema(visitorKeyChangedResponseSchema),
         'visitorKeyChangedResponse',
+      ),
+      visitorAccessAggregatePage: sanitizeJsonSchema(
+        z.toJSONSchema(visitorAccessAggregatePageSchema),
+        'visitorAccessAggregatePage',
+      ),
+      visitorAccessLogPage: sanitizeJsonSchema(
+        z.toJSONSchema(visitorAccessLogPageSchema),
+        'visitorAccessLogPage',
       ),
     },
   }),

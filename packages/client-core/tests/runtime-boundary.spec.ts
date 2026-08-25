@@ -66,6 +66,7 @@ describe('client-core runtime boundary', () => {
         'packages/client-core/src/platform-identity-write-client.ts',
         'packages/client-core/src/schedule-publication-client.ts',
         'packages/client-core/src/scheduling-config-write-client.ts',
+        'packages/client-core/src/visitor-access-read-client.ts',
         'packages/client-core/src/workflow-client.ts',
         'packages/contracts/src/manual-schedule-limits.ts',
       ].sort(),
