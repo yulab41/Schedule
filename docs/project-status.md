@@ -8,6 +8,8 @@
 - 数据/隐私：复用 `createRuntimeInsightsReadClient` 的事件列表与按月统计读取；事件仅展示类型、时间、对象类型和影响数量，统计展示实际/计划、计值班次、岗位完成度，不展示原始 payload、操作 ID 或完整身份标识，不写缓存/日志。
 - 验证：P9 原生边界 3/3、visitor access 回归 3/3；Mini production verify/source/package/determinism/CI dry-run 通过，packageBytes `5,240,691`，`subpackages/insights` `740,237` bytes。正式源码范围在当前日期门禁下 57 files/289 tests（其中 leave 日期测试已冻结到业务日，正式重跑需在提交后再次确认）。
 - 发布/下一步：本批已改 Mini runtime/UI，需提交后上传新的体验版本并补充候选白名单；生产 `insights=false` 保持关闭。用户需先复核 P9 Storybook（当前稳定端口 `6009`）和体验版，再进入通知/导出共享边界。
+- 体验/运行：`0.1.0-p9.20260826.2` 已上传成功，123 个代码文件、zip `1,039,596` bytes、manifest `0a2b38adc269bc8813630c93558f13b43aeb9a83e6b71786d9c067d639cfc619`，未提审/未正式发布。生产备份 archive `f1bba16c-310b-40d2-9f77-0c157b286906` 后追加候选白名单；候选 capability HTTP 200 且 `insights=false`。
+- 发布：代码 checkpoint `ee6f9cb8`（`feat(miniprogram): add p9 insights dashboard`）在备份 archive `d7eec8c3-4bf3-4dc1-9492-b7503c993980`（54 表/170,920 行/79,707,536 bytes/SHA `38391067f16073150fa87fcfdd6b4285c5b06d369afd93805fda5179b99248ca`）后部署 release `ee6f9cb8deca4102d70152f1787377da67948852`；ECS full verifier、候选版本 capability、health 和远端临时清理通过。
 
 ## 2026-08-26 P9-A6 Mini runtime 事件/统计 transport bridge（已实现，待体验版复核）
 
