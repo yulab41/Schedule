@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A13 原生通知设置入口（已实现，待体验版复核）
+
+- 范围：工作台 More 为所有非访客成员增加“通知设置”，复用 `notifications-panel` 的既有 runtime bundle，以 `mode=settings` 展示本人微信值班提醒；支持 loading/disabled/error/ready、明确点击授权、拒绝/封禁失败关闭和关闭后保留站内通知。
+- 体积/安全：未新增重复 client-core bundle，`subpackages/insights` packageBytes `1,555,495`、总包 `6,211,082`，低于 1.8M/15M 内部门槛；模板 ID 仍为空，生产 `externalMessages=false`，不会发起授权或偏好请求。
+- 验证：P9 原生回归 21/21、Mini/client-core typecheck、production verify/source/package/determinism/CI dry-run 通过；首次独立组件实现触发 1.917M 分包阻断，随后合并到通知组件并回归通过。提交后需上传体验版并补候选白名单，再由用户实体机复核普通成员入口、关闭态和大字号。
+- checkpoint：待提交消息为 `feat(miniprogram): add p9 notification settings`；下一活动批次为体验版 `.8` 上传/白名单与实体 Android 复核，停止条件是普通成员入口、externalMessages 关闭态、模板未配置态和大字号均由用户确认通过后，才决定是否配置模板并开启能力。
+
 ## 2026-08-26 P9-A12 外部消息偏好与订阅授权边界（已实现，待原生设置入口）
 
 - 范围：新增 `@schedule/client-core` 通知偏好 GET/PUT 严格边界、Mini `externalMessages` runtime client，以及 `wx.requestSubscribeMessage` 适配器；授权结果只在内存归一化为 `accepted/rejected/blocked/filtered/unknown`。

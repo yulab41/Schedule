@@ -734,6 +734,16 @@
           <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
         </view>
         <view
+          class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canOpenGroupSettings}}"
+          bindtap="handleOpenNotificationSettings"
+        >
+          <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+          <view><text>通知设置</text><text>管理本人微信值班提醒授权</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
           class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
           aria-role="button"
           aria-disabled="{{!canManageScheduleTools}}"

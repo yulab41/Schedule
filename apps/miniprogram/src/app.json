@@ -29,7 +29,13 @@
     },
     {
       "root": "subpackages/insights",
-      "pages": ["pages/visitor-access/index", "pages/insights/index", "pages/notifications/index", "pages/exports/index"]
+      "pages": [
+        "pages/visitor-access/index",
+        "pages/insights/index",
+        "pages/notifications/index",
+        "pages/exports/index",
+        "pages/notification-settings/index"
+      ]
     }
   ],
   "window": {

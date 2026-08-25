@@ -41,7 +41,7 @@ Web 与 Mini 使用相同 endpoint descriptor 和黄金响应。Web 的 Zod 解�
 
 `notification-preferences-client.ts` 只委托既有 `/groups/:groupId/notification-preferences/mine` 读写契约，runtime 工厂将其 capability 固定为 `externalMessages`；当生产能力关闭时，transport 在发出 `wx.request` 前失败关闭。`dutyReminderHours` 的 `null | integer[]` 联合由 client-core 手写严格 decoder 处理，不扩大生成 compact-schema 语言。
 
-`wechat-subscription.ts` 只负责显式授权桥接和结果归一化，不保存模板 ID、grant、token 或业务正文。后续页面必须先取得用户点击，再传入已获批准的模板 ID；授权结果的审计/偏好写入由独立 API 调用负责，模板资格和生产能力开关不由客户端自行推断或开启。
+`wechat-subscription.ts` 只负责显式授权桥接和结果归一化，不保存模板 ID、grant、token 或业务正文。`notifications-panel` 的 `mode=settings` 已提供普通成员入口，但当前模板 ID 为空而保持关闭；后续配置必须先取得用户点击，再传入已获批准的模板 ID。授权结果的审计/偏好写入由独立 API 调用负责，模板资格和生产能力开关不由客户端自行推断或开启。
 
 ## 当前 P2 月历垂直切片
 

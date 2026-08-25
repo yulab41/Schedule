@@ -1,10 +1,162 @@
 <view class="notifications-page {{viewportClass}}">
-  <view class="mini-header" style="{{shellHeaderStyle}}"><view class="header-back" hover-class="is-pressed" aria-role="button" aria-label="返回更多工具" bindtap="handleBack"><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view><view class="header-title"><text class="header-title-main">通知中心</text><text class="header-title-sub">排班、请假与换班提醒</text></view><text class="phase-chip">P9</text></view>
-  <scroll-view class="notifications-scroll" style="{{pageScrollStyle}}" scroll-y enhanced show-scrollbar="{{false}}"><view class="page-content">
-    <view wx:if="{{state === 'loading'}}" class="page-state-card"><ui-loading label="正在读取通知"></ui-loading></view>
-    <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"><view class="state-mark">—</view><text class="state-title">通知中心暂未开放</text><text class="state-copy">当前版本未开启 insights 能力，不会读取或展示通知内容。</text></view>
-    <view wx:elif="{{state === 'error'}}" class="page-state-card"><ui-alert tone="danger" title="通知暂时无法加载" message="{{errorMessage}}"></ui-alert><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button></view>
-    <view wx:elif="{{state === 'empty'}}" class="page-state-card"><view class="state-mark">○</view><text class="state-title">暂无通知</text><text class="state-copy">排班发布、请假和换班产生的提醒会显示在这里。</text></view>
-    <view wx:else class="notifications-content"><view class="page-heading"><text class="section-eyebrow">值班台账 / 消息</text><text class="page-title">通知中心</text><text class="page-description">只展示与当前群组和本人有关的提醒；通知正文不会写入本地缓存。</text></view><view class="summary-row"><text class="unread-badge">{{unreadCountLabel}}</text><ui-button variant="secondary" label="全部标为已读" disabled="{{actionBusyId !== ''}}" loading="{{actionBusyId === 'all'}}" bindpress="handleMarkAllRead"></ui-button></view><view class="notifications-card"><view wx:for="{{notifications}}" wx:key="id" class="notification-row {{item.isRead ? 'is-read' : 'is-unread'}}"><view class="notification-marker"><view></view></view><view class="notification-main"><view class="notification-heading"><text class="notification-title">{{item.title}}</text><text class="notification-type">{{item.typeLabel}}</text></view><text class="notification-body">{{item.body}}</text><text class="notification-time">{{item.createdAtLabel}}</text></view><ui-button wx:if="{{!item.isRead}}" variant="secondary" label="已读" data-id="{{item.id}}" disabled="{{actionBusyId !== ''}}" loading="{{actionBusyId === item.id}}" bindpress="handleMarkRead"></ui-button></view><view wx:if="{{nextCursor}}" class="load-more"><ui-button variant="secondary" label="{{loadingMore ? '正在加载' : '加载更多通知'}}" loading="{{loadingMore}}" disabled="{{loadingMore}}" bindpress="handleLoadMore"></ui-button></view></view><ui-alert wx:if="{{errorMessage}}" tone="danger" title="通知操作未完成" message="{{errorMessage}}"></ui-alert><view class="bottom-spacer"></view></view>
-  </view></scroll-view>
+  <view class="mini-header" style="{{shellHeaderStyle}}"
+    ><view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view
+    ><view class="header-title"
+      ><text class="header-title-main">{{mode === 'settings' ? '通知设置' : '通知中心'}}</text
+      ><text class="header-title-sub"
+        >{{mode === 'settings' ? '本人微信值班提醒' : '排班、请假与换班提醒'}}</text
+      ></view
+    ><text class="phase-chip">P9</text></view
+  >
+  <scroll-view
+    class="notifications-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    ><view class="page-content">
+      <block wx:if="{{mode === 'settings'}}">
+        <view wx:if="{{state === 'loading'}}" class="page-state-card"
+          ><ui-loading label="正在读取通知设置"></ui-loading
+        ></view>
+        <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
+          ><view class="state-mark">—</view><text class="state-title">通知提醒暂未开放</text
+          ><text class="state-copy"
+            >当前版本未开启 externalMessages 能力，不会请求微信授权或读取通知偏好。</text
+          ></view
+        >
+        <view wx:elif="{{state === 'error'}}" class="page-state-card"
+          ><ui-alert
+            tone="danger"
+            title="通知设置暂时无法加载"
+            message="{{errorMessage}}"
+          ></ui-alert
+          ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+        ></view>
+        <view wx:else class="settings-content"
+          ><view class="page-heading"
+            ><text class="section-eyebrow">提醒设置 / 微信</text
+            ><text class="page-title">微信值班提醒</text
+            ><text class="page-description"
+              >订阅授权只在点击开启时请求；关闭后，应用内通知仍然可用。</text
+            ></view
+          ><view class="settings-card"
+            ><view class="settings-row"
+              ><view class="settings-copy"
+                ><text class="settings-title">接收微信值班提醒</text
+                ><text class="settings-description"
+                  >当前状态：{{enabled ? '已开启' : '已关闭'}}</text
+                ></view
+              ><ui-switch
+                checked="{{enabled}}"
+                label="接收微信值班提醒"
+                disabled="{{busy}}"
+                loading="{{busy}}"
+                bind:change="handleToggle"
+              ></ui-switch></view
+            ><view class="audit-note"
+              ><text class="audit-mark">⌁</text
+              ><text
+                >授权结果仅用于本次设置。未获得微信订阅授权、被拒绝或被封禁时，不会把开关误显示为开启。</text
+              ></view
+            ></view
+          ><ui-alert
+            wx:if="{{errorMessage}}"
+            tone="danger"
+            title="设置未保存"
+            message="{{errorMessage}}"
+          ></ui-alert
+          ><ui-alert
+            wx:if="{{infoMessage}}"
+            tone="info"
+            title="授权状态"
+            message="{{infoMessage}}"
+          ></ui-alert
+          ><view wx:if="{{!templateConfigured}}" class="template-note"
+            ><text class="template-note-title">模板尚未配置</text
+            ><text class="template-note-copy"
+              >当前体验版本尚未配置已批准的微信订阅模板，授权入口保持关闭。</text
+            ></view
+          ><view class="bottom-spacer"></view
+        ></view>
+      </block>
+      <block wx:else>
+        <view wx:if="{{state === 'loading'}}" class="page-state-card"
+          ><ui-loading label="正在读取通知"></ui-loading
+        ></view>
+        <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
+          ><view class="state-mark">—</view><text class="state-title">通知中心暂未开放</text
+          ><text class="state-copy"
+            >当前版本未开启 insights 能力，不会读取或展示通知内容。</text
+          ></view
+        >
+        <view wx:elif="{{state === 'error'}}" class="page-state-card"
+          ><ui-alert tone="danger" title="通知暂时无法加载" message="{{errorMessage}}"></ui-alert
+          ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+        ></view>
+        <view wx:elif="{{state === 'empty'}}" class="page-state-card"
+          ><view class="state-mark">○</view><text class="state-title">暂无通知</text
+          ><text class="state-copy">排班发布、请假和换班产生的提醒会显示在这里。</text></view
+        >
+        <view wx:else class="notifications-content"
+          ><view class="page-heading"
+            ><text class="section-eyebrow">值班台账 / 消息</text
+            ><text class="page-title">通知中心</text
+            ><text class="page-description"
+              >只展示与当前群组和本人有关的提醒；通知正文不会写入本地缓存。</text
+            ></view
+          ><view class="summary-row"
+            ><text class="unread-badge">{{unreadCountLabel}}</text
+            ><ui-button
+              variant="secondary"
+              label="全部标为已读"
+              disabled="{{actionBusyId !== ''}}"
+              loading="{{actionBusyId === 'all'}}"
+              bindpress="handleMarkAllRead"
+            ></ui-button></view
+          ><view class="notifications-card"
+            ><view
+              wx:for="{{notifications}}"
+              wx:key="id"
+              class="notification-row {{item.isRead ? 'is-read' : 'is-unread'}}"
+              ><view class="notification-marker"><view></view></view
+              ><view class="notification-main"
+                ><view class="notification-heading"
+                  ><text class="notification-title">{{item.title}}</text
+                  ><text class="notification-type">{{item.typeLabel}}</text></view
+                ><text class="notification-body">{{item.body}}</text
+                ><text class="notification-time">{{item.createdAtLabel}}</text></view
+              ><ui-button
+                wx:if="{{!item.isRead}}"
+                variant="secondary"
+                label="已读"
+                data-id="{{item.id}}"
+                disabled="{{actionBusyId !== ''}}"
+                loading="{{actionBusyId === item.id}}"
+                bindpress="handleMarkRead"
+              ></ui-button></view
+            ><view wx:if="{{nextCursor}}" class="load-more"
+              ><ui-button
+                variant="secondary"
+                label="{{loadingMore ? '正在加载' : '加载更多通知'}}"
+                loading="{{loadingMore}}"
+                disabled="{{loadingMore}}"
+                bindpress="handleLoadMore"
+              ></ui-button></view></view
+          ><ui-alert
+            wx:if="{{errorMessage}}"
+            tone="danger"
+            title="通知操作未完成"
+            message="{{errorMessage}}"
+          ></ui-alert
+          ><view class="bottom-spacer"></view
+        ></view>
+      </block> </view
+  ></scroll-view>
 </view>

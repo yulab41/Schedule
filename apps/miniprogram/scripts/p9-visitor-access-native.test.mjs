@@ -13,14 +13,18 @@ function read(relativePath) {
 describe('P9 native visitor access insights', () => {
   it('registers an insights subpackage page and a More entry', () => {
     const app = JSON.parse(read('src/app.json'));
-    const page = read(
-      'src/subpackages/insights/components/visitor-access-panel/index.wxml',
-    );
+    const page = read('src/subpackages/insights/components/visitor-access-panel/index.wxml');
     const workbench = read('src/pages/workbench/index.wxml');
 
     expect(app.subpackages).toContainEqual({
       root: 'subpackages/insights',
-      pages: ['pages/visitor-access/index', 'pages/insights/index', 'pages/notifications/index', 'pages/exports/index'],
+      pages: [
+        'pages/visitor-access/index',
+        'pages/insights/index',
+        'pages/notifications/index',
+        'pages/exports/index',
+        'pages/notification-settings/index',
+      ],
     });
     expect(page).toContain('访客访问');
     expect(page).toContain('访问记录');

@@ -23,6 +23,7 @@ describe('P9 native export download boundary', () => {
         'pages/insights/index',
         'pages/notifications/index',
         'pages/exports/index',
+        'pages/notification-settings/index',
       ],
     });
     expect(page).toContain('导出排班与统计');

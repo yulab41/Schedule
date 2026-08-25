@@ -687,6 +687,13 @@ Page({
     navigateGroupTool(this, '/subpackages/insights/pages/notifications/index');
   },
 
+  handleOpenNotificationSettings(this: WorkbenchPageInstance): void {
+    if (!this.data.canOpenGroupSettings) return;
+    navigateGroupTool(this, '/subpackages/insights/pages/notification-settings/index', {
+      allowMembers: true,
+    });
+  },
+
   handleOpenExports(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, '/subpackages/insights/pages/exports/index');
   },
@@ -935,8 +942,16 @@ async function openWorkflowWorkspace(
   }
 }
 
-function navigateGroupTool(page: WorkbenchPageInstance, route: string): void {
-  if (!page.data.canManageScheduleTools || page.data.currentGroupId === '') return;
+function navigateGroupTool(
+  page: WorkbenchPageInstance,
+  route: string,
+  options: { readonly allowMembers?: boolean } = {},
+): void {
+  if (
+    (!options.allowMembers && !page.data.canManageScheduleTools) ||
+    page.data.currentGroupId === ''
+  )
+    return;
   const groupId = encodeURIComponent(page.data.currentGroupId);
   wx.navigateTo({ url: `${route}?groupId=${groupId}` });
 }

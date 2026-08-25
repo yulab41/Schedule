@@ -13,14 +13,18 @@ function read(relativePath) {
 describe('P9 native insights events and statistics', () => {
   it('registers an insights dashboard page and More entry', () => {
     const app = JSON.parse(read('src/app.json'));
-    const page = read(
-      'src/subpackages/insights/components/insights-dashboard-panel/index.wxml',
-    );
+    const page = read('src/subpackages/insights/components/insights-dashboard-panel/index.wxml');
     const workbench = read('src/pages/workbench/index.wxml');
 
     expect(app.subpackages).toContainEqual({
       root: 'subpackages/insights',
-      pages: ['pages/visitor-access/index', 'pages/insights/index', 'pages/notifications/index', 'pages/exports/index'],
+      pages: [
+        'pages/visitor-access/index',
+        'pages/insights/index',
+        'pages/notifications/index',
+        'pages/exports/index',
+        'pages/notification-settings/index',
+      ],
     });
     expect(page).toContain('事件时间线');
     expect(page).toContain('排班统计');
