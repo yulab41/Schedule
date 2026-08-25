@@ -7,6 +7,7 @@
 - 范围：新增 `P9InsightsActionsClient`，覆盖通知列表/未读数/单条已读/全部已读，以及导出任务创建与状态查询；所有 JSON 请求统一 Bearer、严格 decoder、游标/筛选和 URI 编码。
 - 平台边界：不把 `Blob`、FileSystem、`wx.downloadFile` 或 URL token 带进 `client-core`；导出二进制下载将在 Mini platform adapter 中使用登录态下载，通知/导出原生页面尚未创建。
 - 验证：client-core 正式源码范围 17 files/54 tests 通过；schema generation/check、runtime boundary、typecheck 通过。本批不改 Mini runtime、不上传体验版、不打开生产 `insights`。
+- 发布/运行：checkpoint `a60b57fc`（`feat(client-core): add p9 notifications and export jobs`）在备份 archive `c6cef75b-034b-47aa-9e35-e2ab8ec0dde1`（54 表/170,972 行/79,725,912 bytes/SHA `9db9796ad7c5686ac34cb0ee4c42dc1680760c74d1cd7a37e04d755080bb0e49`）后部署 release `a60b57fc34abda4a432d3406881d7a54a37bdc89`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
 - 下一步：接入 Mini runtime actions client，随后实现通知中心与导出任务原生页面；P9-A3/A4/A7 继续等待对应 Storybook/实体机复核。
 
 ## 2026-08-26 P9-A7 原生事件与统计只读页（已实现，待体验版复核）
