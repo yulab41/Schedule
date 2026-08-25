@@ -8,6 +8,7 @@
 - 白名单防回归：同步 `.env.production.example` 与 `docs/deployment/aliyun-ecs.md`，保留 P6/P7 并加入 P8 `.1/.2/.3`，避免后续按文档重建环境再次把已上传体验版拒绝为 426；服务器真实 `.env.production` 仍由 ECS 受控配置，未写入 Git secrets。
 - 验证：P8 RC 契约 3/3；正式 Mini 源码范围（排除用户自有 `.artifacts/` 副本）54 files/279 tests；`pnpm --filter @schedule/miniprogram verify` 通过（production、193 files、packageBytes `4,162,200`、manifest `46c59888c9383cb77c592da3d790a1c1c736254cb575e4b3d8ec248c5cdaddff`）；determinism 与 CI dry-run 通过。未纳入的完整默认扫描会额外发现用户 `.artifacts/` 副本 17 项路径/生成物失败，未修改或提交这些副本。
 - 发布/回滚证据：checkpoint `a1cf99ba`（`test(miniprogram): add p8 organization rc contract`）已推送；生产备份 archive `0def6bd2-3a85-47b0-a18f-7bee85ef1348`（54 表/169,746 行/79,257,740 bytes/SHA `dad35d3ad5a8843022d7f845fce75683557185358bbd726fa34886417d953960`）后部署 release `a1cf99ba312ea674320be8f2cb7ece485c370e4d`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、P8 `.1/.2/.3` capability HTTP 200、`organization=false`、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
+- 回滚契约增量：checkpoint `e061e210`（`test(miniprogram): lock p8 capability rollback`）已推送；生产备份 archive `8c5d78b1-3853-4956-bfc4-6dce676ed6fb`（54 表/169,780 行/79,269,568 bytes/SHA `5743ff9f9cca0aa9ce737e3eb288908ef18bacd0878ff36455bd1368334f06b9`）后部署 release `e061e2108e3bd4fb23495b8ede725060f5461bb7`，回滚脚本的校验、原子恢复、trap 与健康探测不变量已纳入自动契约；`ecs-verify.sh` 完整通过，远端临时目录已清理。
 - 当前状态：已完成（含运行验证）→ 待用户实体 Android 视觉/交互复核。用户需按 P8 清单记录设备与四角色案例并明确回复“P8 组织管理 RC 通过”；在此之前不进入 P9、不打开 `organization`、不提审或正式发布。下一活动批次为 P8 RC 人工验收，停止条件是收到明确通过或带 `buildLabel + caseId + symptomOnFailure` 的失败反馈。
 
 ## 2026-08-25 小程序启动卡在“正在读取排班”修复（已完成）
