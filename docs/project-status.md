@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
+
+- 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。
+- 隐私/安全：资料仅来自现有微信会话内存/私有会话读取，解绑仍进入既有确认流程；未登录显示安全空态，系统大字号自动扩展字号与 44px 操作。
+- 验证：P10 个人中心静态回归 3/3、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,945,269` bytes，组织分包 `1,649,991` bytes。
+- checkpoint：待提交消息为 `feat(miniprogram): add p10 profile page`；提交后上传体验版并补候选白名单，生产 `organization=false` 保持关闭。
+
 ## 2026-08-26 P10-RC 实体 Android 验收清单（已固化，待用户执行）
 
 - 新增 `apps/miniprogram/docs/runbooks/p10-directory-rc.md`，锁定体验版 `0.1.0-p9.20260826.13`、More 入口、院内/员工模式、七级筛选、cursor、拨号、权限/隐私、loading/empty/error/organization-disabled 与 390/320/大字号矩阵。

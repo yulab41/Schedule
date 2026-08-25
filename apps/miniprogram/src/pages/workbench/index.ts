@@ -714,7 +714,7 @@ Page({
   handleProfile(this: WorkbenchPageInstance): void {
     this.setData({ profileAnimating: false }, () => {
       this.setData({ profileAnimating: true });
-      wx.navigateTo({ url: '/pages/identity/index' });
+      wx.navigateTo({ url: '/pages/profile/index' });
     });
   },
 
