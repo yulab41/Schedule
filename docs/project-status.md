@@ -7,7 +7,8 @@
 - 范围：新增 `P10DirectoryParityPreview`，复用生产 `InternalDirectoryView` 与隔离合成目录数据，固化院内/员工模式、390/320、大字号、loading/empty/error/organization-disabled 八个 Storybook 状态；不连接生产 API、不包含真实号码。
 - 视觉/隐私：采用“医院导览台”方向——纸张白卡、临床蓝七级导览带、44px 操作和清晰空/失败引导；所有合成号码为 `0000` 片段，故事源码不读 auth、localStorage 或 API。
 - 验证：P10 Storybook 定向 2/2、Web typecheck、Storybook production build 4437 modules 通过；6008 端口实际浏览器渲染 `internal-ready-390`，Storybook URL HTTP 200，console 仅 Storybook 自身 ariaLabel 未来版本 warning。
-- checkpoint：待提交消息为 `feat(web): add p10 directory parity golden`；下一活动批次为 Mini P10-A3 原生通讯录页面，停止条件是复用这些 story 状态并通过 organization capability/号码隐私/390/320/大字号验证，生产 `organization=false` 不变。
+- 发布：代码 checkpoint `e6e635d7`（`feat(web): add p10 directory parity golden`）在备份 archive `7b307c6e-ad87-4128-a3e2-23301d54601e`（54 表/171,366 行/79,863,352 bytes/SHA `6aa9825806e7a11ef4be92e18c4c367b910584dc4f8cef9e8371d332158a7223`）后部署 release `e6e635d7f33c1af0d179497e08770f87197d3865`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过。
+- 下一活动批次与停止条件：Mini P10-A3 原生通讯录页面，停止条件是复用这些 story 状态并通过 organization capability/号码隐私/390/320/大字号验证，生产 `organization=false` 不变。
 
 ## 2026-08-26 P10-A1 通讯录共享只读边界（已实现，待原生页面）
 
