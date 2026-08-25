@@ -13,6 +13,12 @@
 .contact-row {
   display: flex;
 }
+.contact-row.is-dialable {
+  border-radius: 10px;
+}
+.contact-row.is-dialable.is-pressed {
+  background: var(--ui-color-primary-light);
+}
 .mini-header {
   box-sizing: border-box;
   position: relative;

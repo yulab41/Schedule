@@ -11,6 +11,7 @@ describe('P10 native directory controller', () => {
   beforeEach(async () => {
     vi.resetModules();
     requests = [];
+    const makePhoneCall = vi.fn();
     vi.stubGlobal('__MINIPROGRAM_API_BASE_URL__', 'https://example.test/api');
     vi.stubGlobal('__MINIPROGRAM_BUILD_COMMIT__', 'test');
     vi.stubGlobal('__MINIPROGRAM_BUILD_PROFILE__', 'production');
@@ -19,6 +20,7 @@ describe('P10 native directory controller', () => {
       getStorageSync: vi.fn((key) => (key === 'schedule.wechat.session' ? session() : undefined)),
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
       navigateBack: vi.fn(),
+      makePhoneCall,
       request: vi.fn((options) => {
         requests.push(options);
         if (options.url.endsWith(`/groups/${groupId}/directory/facets`)) {
@@ -71,6 +73,22 @@ describe('P10 native directory controller', () => {
     await vi.waitFor(() => expect(page.data.loadingMore).toBe(false));
     expect(lastRequest().url).toContain('cursor=cursor-1');
     expect(page.data.entries).toHaveLength(2);
+  });
+
+  it('makes complete numbers dialable but keeps extension-only contacts read-only', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+    definition.methods.handleSearchInput.call(page, { detail: { value: '病案' } });
+    definition.methods.handleSearch.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+    const contact = page.data.entries[0]?.contacts[0];
+    expect(contact).toMatchObject({ dialable: true, dialNumber: '075400000000' });
+    expect(page.data.entries[0]?.contacts.some((item) => item.dialable === false)).toBe(true);
+    definition.methods.handleCall.call(page, {
+      currentTarget: { dataset: { number: contact?.dialNumber } },
+    });
+    expect(globalThis.wx.makePhoneCall).toHaveBeenCalledWith({ phoneNumber: '075400000000' });
   });
 
   it('fails closed before a request when organization capability is disabled', async () => {
@@ -153,6 +171,13 @@ function page(withoutCursor) {
             id: '10000000-0000-4000-8000-000000000001',
             internalExtension: '6101',
             isPrimary: true,
+            type: 'voice',
+          },
+          {
+            displayOrder: 1,
+            id: '10000000-0000-4000-8000-000000000002',
+            internalExtension: '6102',
+            isPrimary: false,
             type: 'voice',
           },
         ],

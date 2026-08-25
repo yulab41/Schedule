@@ -150,9 +150,21 @@
                 ><text class="entry-title">{{item.title}}</text
                 ><text class="entry-context">{{item.context}}</text></view
               ><text class="entry-kind">{{item.kindLabel}}</text></view
-            ><view wx:for="{{item.contacts}}" wx:key="id" class="contact-row"
-              ><text class="contact-label">{{contact.label}}</text
-              ><text class="contact-number">{{contact.number}}</text></view
+            ><block wx:for="{{item.contacts}}" wx:key="id"
+              ><view
+                wx:if="{{contact.dialable}}"
+                class="contact-row is-dialable"
+                hover-class="is-pressed"
+                data-number="{{contact.dialNumber}}"
+                aria-role="button"
+                aria-label="拨打{{contact.label}} {{contact.number}}"
+                bindtap="handleCall"
+                ><text class="contact-label">{{contact.label}}</text
+                ><text class="contact-number">{{contact.number}}</text></view
+              ><view wx:else class="contact-row"
+                ><text class="contact-label">{{contact.label}}</text
+                ><text class="contact-number">{{contact.number}}</text></view
+              ></block
             ></view
           ><view wx:if="{{nextCursor}}" class="load-more"
             ><ui-button

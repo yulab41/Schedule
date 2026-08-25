@@ -22,6 +22,8 @@ type FilterKey =
   'building' | 'campusCode' | 'department' | 'entryKind' | 'floor' | 'section' | 'subunit';
 
 interface DirectoryContactCard {
+  readonly dialable: boolean;
+  readonly dialNumber: string | undefined;
   readonly id: string;
   readonly label: string;
   readonly number: string;
@@ -219,6 +221,12 @@ export function createDirectoryPanelControllerDefinition() {
       handleLoadMore(this: DirectoryPageInstance): void {
         void loadMore(this);
       },
+      handleCall(this: DirectoryPageInstance, event: CallEvent): void {
+        const number = event.currentTarget.dataset.number;
+        if (number !== undefined && isDialableNumber(number)) {
+          wx.makePhoneCall({ phoneNumber: number });
+        }
+      },
     },
   };
 }
@@ -229,6 +237,9 @@ interface InputEvent {
 interface PickerEvent {
   readonly currentTarget: { readonly dataset: { readonly filter: FilterKey } };
   readonly detail: { readonly value: number };
+}
+interface CallEvent {
+  readonly currentTarget: { readonly dataset: { readonly number?: string } };
 }
 
 function startLoad(page: DirectoryPageInstance): void {
@@ -403,6 +414,11 @@ function buildQuery(page: DirectoryPageInstance): DirectoryQuery {
 function toCard(entry: DirectoryEntry): DirectoryCard {
   return {
     contacts: entry.contacts.map((contact) => ({
+      dialable: contact.fullNumber !== undefined && isDialableNumber(contact.fullNumber),
+      dialNumber:
+        contact.fullNumber !== undefined && isDialableNumber(contact.fullNumber)
+          ? normalizeDialNumber(contact.fullNumber)
+          : undefined,
       id: contact.id,
       label: contact.label ?? (contact.type === 'mobile' ? '手机' : '电话'),
       number: contact.fullNumber ?? `分机 ${contact.internalExtension ?? '未提供'}`,
@@ -414,6 +430,15 @@ function toCard(entry: DirectoryEntry): DirectoryCard {
     kindLabel: entryKindLabels[entry.entryKind] ?? '其他',
     title: entry.contactName ?? entry.department ?? entry.subunit ?? '未命名条目',
   };
+}
+
+function isDialableNumber(value: string): boolean {
+  const digits = value.replaceAll(/\D/gu, '');
+  return digits.length >= 3 && digits.length <= 20;
+}
+
+function normalizeDialNumber(value: string): string {
+  return value.replaceAll(/\D/gu, '');
 }
 
 function toUserMessage(error: unknown, fallback: string): string {
