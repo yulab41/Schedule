@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P10-RC 实体 Android 验收清单（已固化，待用户执行）
+
+- 新增 `apps/miniprogram/docs/runbooks/p10-directory-rc.md`，锁定体验版 `0.1.0-p9.20260826.13`、More 入口、院内/员工模式、七级筛选、cursor、拨号、权限/隐私、loading/empty/error/organization-disabled 与 390/320/大字号矩阵。
+- 验证：RC 计划一致性测试 2/2 通过；清单明确 `organization=false` 时不得发通讯录请求，只有用户回复“P10 通讯录 RC 通过”后才评估能力开启/审核发布。
+- checkpoint：待提交消息为 `docs(miniprogram): add p10 directory rc runbook`；清单交付后继续等待实体 Android 证据，不把 Storybook/CI 当作原生通过替代。
+
 ## 2026-08-26 P10-A3 原生通讯录页面（已实现，待体验版复核）
 
 - 范围：新增 `subpackage-organization/pages/directory` 与 `directory-panel`，普通成员可从 More 进入；支持院内/员工模式、搜索、院区/片区/楼宇/楼层/科室/单元/类型七级独立筛选、结果卡、游标加载更多及 loading/empty/error/organization-disabled。
