@@ -56,6 +56,19 @@ export {
   type VisitorAccessReadClient,
 } from './visitor-access-read-client.js';
 export {
+  createInsightsReadClient,
+  insightsReadEndpoints,
+  monthStatisticsSnapshotDecoder,
+  scheduleEventDetailDecoder,
+  scheduleEventPageDecoder,
+  yearStatisticsDecoder,
+  type InsightsEventDetailInput,
+  type InsightsEventQueryInput,
+  type InsightsMonthStatisticsInput,
+  type InsightsReadClient,
+  type InsightsYearStatisticsInput,
+} from './insights-read-client.js';
+export {
   addGroupMembersResponseDecoder,
   addRosterEntriesResponseDecoder,
   claimGroupResponseDecoder,

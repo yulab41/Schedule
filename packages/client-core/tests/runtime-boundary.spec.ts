@@ -21,6 +21,7 @@ const productionSources = [
   new URL('../src/scheduling-config-write-client.ts', import.meta.url),
   new URL('../src/workflow-client.ts', import.meta.url),
   new URL('../src/generated/calendar-schemas.ts', import.meta.url),
+  new URL('../src/insights-read-client.ts', import.meta.url),
 ];
 
 describe('client-core runtime boundary', () => {
@@ -56,6 +57,7 @@ describe('client-core runtime boundary', () => {
         'packages/client-core/src/error.ts',
         'packages/client-core/src/generated/calendar-schemas.ts',
         'packages/client-core/src/index.ts',
+        'packages/client-core/src/insights-read-client.ts',
         'packages/client-core/src/invite-visitor-write-client.ts',
         'packages/client-core/src/json-decoder.ts',
         'packages/client-core/src/manual-schedule-client.ts',

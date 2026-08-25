@@ -54,12 +54,15 @@ import {
   rejectedLeaveRequestResultSchema,
   resolveInviteResponseSchema,
   scheduleChangeImpactPreviewSchema,
+  scheduleEventDetailSchema,
+  scheduleEventPageSchema,
   scheduleGenerationPreviewSchema,
   schedulePeriodHistoryItemListSchema,
   schedulePeriodMutationResultSchema,
   scheduleRoleSchema,
   schedulingConfigSchema,
   shiftTypeSchema,
+  monthStatisticsSnapshotSchema,
   platformAdminUserAccountListSchema,
   passwordIdentityAssignmentResponseSchema,
   swapPreviewSchema,
@@ -68,6 +71,7 @@ import {
   visitorAccessAggregatePageSchema,
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
+  yearStatisticsSchema,
 } from '../../contracts/dist/index.js';
 import { format, resolveConfig } from 'prettier';
 import { z } from 'zod';
@@ -76,11 +80,13 @@ import {
   isGeneratedSourceCurrent,
   renderGeneratedSchemas,
   sanitizeJsonSchema,
+  sanitizeStatisticsSchema,
 } from './schema-generation.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = path.join(packageRoot, 'src', 'generated', 'calendar-schemas.ts');
 const prettierConfig = (await resolveConfig(outputPath)) ?? {};
+
 const source = await format(
   renderGeneratedSchemas({
     errorCodes: [...apiErrorCodes],
@@ -270,6 +276,14 @@ const source = await format(
         z.toJSONSchema(scheduleChangeImpactPreviewSchema),
         'scheduleChangeImpactPreview',
       ),
+      scheduleEventDetail: sanitizeJsonSchema(
+        z.toJSONSchema(scheduleEventDetailSchema, { unrepresentable: 'any' }),
+        'scheduleEventDetail',
+      ),
+      scheduleEventPage: sanitizeJsonSchema(
+        z.toJSONSchema(scheduleEventPageSchema, { unrepresentable: 'any' }),
+        'scheduleEventPage',
+      ),
       scheduleGenerationPreview: sanitizeJsonSchema(
         z.toJSONSchema(scheduleGenerationPreviewSchema),
         'scheduleGenerationPreview',
@@ -288,6 +302,10 @@ const source = await format(
         'schedulingConfig',
       ),
       shiftType: sanitizeJsonSchema(z.toJSONSchema(shiftTypeSchema), 'shiftType'),
+      monthStatisticsSnapshot: sanitizeStatisticsSchema(
+        z.toJSONSchema(monthStatisticsSnapshotSchema, { unrepresentable: 'any' }),
+        'monthStatisticsSnapshot',
+      ),
       swapPreview: sanitizeJsonSchema(z.toJSONSchema(swapPreviewSchema), 'swapPreview'),
       swapRequest: sanitizeJsonSchema(z.toJSONSchema(swapRequestSchema), 'swapRequest'),
       swapRequestList: sanitizeJsonSchema(z.toJSONSchema(swapRequestListSchema), 'swapRequestList'),
@@ -302,6 +320,10 @@ const source = await format(
       visitorAccessLogPage: sanitizeJsonSchema(
         z.toJSONSchema(visitorAccessLogPageSchema),
         'visitorAccessLogPage',
+      ),
+      yearStatistics: sanitizeStatisticsSchema(
+        z.toJSONSchema(yearStatisticsSchema, { unrepresentable: 'any' }),
+        'yearStatistics',
       ),
     },
   }),

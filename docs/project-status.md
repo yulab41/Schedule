@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A5 事件与统计共享只读边界（已完成）
+
+- 范围：新增 `@schedule/client-core` `InsightsReadClient`，覆盖事件列表/详情、按月统计和按年统计四个 Bearer GET endpoint；事件筛选、游标、pageSize、URI 编码与统计月份/年份参数均由 endpoint 定义统一生成。
+- 契约/隐私：新增严格事件/统计 compact decoder 与黄金响应；`JsonObject`/统计对照数组保留服务端对象边界，不把 API client、fetch、Vue 或 Zod runtime 带入共享包。尚未接入 Mini 页面，不打开 `insights`。
+- 验证：client-core 正式源码范围 16 files/51 tests 通过；schema generation/check、runtime boundary、typecheck 通过。既有 visitor access 边界回归保持通过。本批不修改 Mini runtime、不上传体验版。
+- 下一步：接入 Mini runtime capability resolver 后，实现事件/统计原生页面；通知、导出边界仍待后续 P9 切片。P9-A3 访客访问页和 P9-A4 Web 黄金继续等待用户对应复核。
+
 ## 2026-08-25 P9-A4 Web 数据与消息黄金（已实现，待用户视觉复核）
 
 - 范围：新增 `P9InsightsWebGolden`，把事件时间线、排班统计、通知中心和导出入口统一为“值班台账”视觉；覆盖 ready、loading、empty、error、成员权限关闭、390/320 边界和大字号，不发起 API 请求。

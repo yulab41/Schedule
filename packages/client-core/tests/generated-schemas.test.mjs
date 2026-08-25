@@ -37,6 +37,10 @@ import {
   swapRequestListJsonSchema,
   visitorAccessAggregatePageJsonSchema,
   visitorAccessLogPageJsonSchema,
+  monthStatisticsSnapshotJsonSchema,
+  scheduleEventDetailJsonSchema,
+  scheduleEventPageJsonSchema,
+  yearStatisticsJsonSchema,
 } from '../src/generated/calendar-schemas.js';
 import {
   apiErrorCodes,
@@ -77,11 +81,19 @@ import {
   swapRequestListSchema,
   visitorAccessAggregatePageSchema,
   visitorAccessLogPageSchema,
+  monthStatisticsSnapshotSchema,
+  scheduleEventDetailSchema,
+  scheduleEventPageSchema,
+  yearStatisticsSchema,
 } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { isGeneratedSourceCurrent, sanitizeJsonSchema } from '../scripts/schema-generation.mjs';
+import {
+  isGeneratedSourceCurrent,
+  sanitizeJsonSchema,
+  sanitizeStatisticsSchema,
+} from '../scripts/schema-generation.mjs';
 
 describe('client-core generated schemas', () => {
   it('stay structurally equal to the authoritative Zod contracts', () => {
@@ -249,6 +261,30 @@ describe('client-core generated schemas', () => {
     );
     expect(visitorAccessLogPageJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(visitorAccessLogPageSchema), 'visitorAccessLogPage'),
+    );
+    expect(scheduleEventPageJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(scheduleEventPageSchema, { unrepresentable: 'any' }),
+        'scheduleEventPage',
+      ),
+    );
+    expect(scheduleEventDetailJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(scheduleEventDetailSchema, { unrepresentable: 'any' }),
+        'scheduleEventDetail',
+      ),
+    );
+    expect(monthStatisticsSnapshotJsonSchema).toEqual(
+      sanitizeStatisticsSchema(
+        z.toJSONSchema(monthStatisticsSnapshotSchema, { unrepresentable: 'any' }),
+        'monthStatisticsSnapshot',
+      ),
+    );
+    expect(yearStatisticsJsonSchema).toEqual(
+      sanitizeStatisticsSchema(
+        z.toJSONSchema(yearStatisticsSchema, { unrepresentable: 'any' }),
+        'yearStatistics',
+      ),
     );
     expect(generatedApiErrorCodes).toEqual(apiErrorCodes);
   });

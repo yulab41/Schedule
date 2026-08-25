@@ -24,6 +24,13 @@ export function sanitizeJsonSchema(schema, path = '$') {
   if (schema === null || typeof schema !== 'object' || Array.isArray(schema)) {
     throw new Error(`${path} must be a JSON schema object`);
   }
+  // Zod's `unrepresentable: any` emits `{}` for recursive JsonObject/custom
+  // payloads.  Those contracts explicitly require an object, so keep the
+  // compact decoder strict at the container boundary while accepting the
+  // server-owned object contents without pretending to know their shape.
+  if (schema.type === undefined && Object.keys(schema).length === 0) {
+    return { type: 'object' };
+  }
   for (const key of Object.keys(schema)) {
     if (!ignoredSchemaKeys.has(key) && !supportedSchemaKeys.has(key)) {
       throw new Error(`${path} uses unsupported JSON schema keyword: ${key}`);
@@ -112,6 +119,21 @@ export function sanitizeJsonSchema(schema, path = '$') {
     if (schema[key] !== undefined) result[key] = schema[key];
   }
   return result;
+}
+
+export function sanitizeStatisticsSchema(schema, path = '$') {
+  const sanitized = sanitizeJsonSchema(schema, path);
+  const summaries = [
+    sanitized.properties?.summary,
+    sanitized.properties?.months?.items?.properties?.summary,
+  ];
+  for (const summary of summaries) {
+    const members = summary?.properties?.members?.items;
+    if (members?.properties?.actualVsPlanned !== undefined) {
+      members.properties.actualVsPlanned = { type: 'array', items: { type: 'object' } };
+    }
+  }
+  return sanitized;
 }
 
 export function renderGeneratedSchemas({ errorCodes, schemas }) {
