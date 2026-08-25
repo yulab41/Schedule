@@ -9,6 +9,7 @@
 - 验证：client-core 19 files/61 tests、P10 boundary 3/3、generated freshness、Mini/client-core typecheck、Mini production verify/source/package/determinism/CI dry-run 通过；packageBytes `6,504,938`，`subpackages/organization` `1,229,420`，`subpackages/insights` `1,645,671`。
 - 体验/运行：`0.1.0-p9.20260826.9` 已上传成功，138 个代码文件、zip `1,221,020` bytes、manifest `522b5b491f4ddb6a4d3bef6aa3de7757ed3ff404de7d41d7e83baed989f4a4ae`。生产备份 archive `9bf53517-9d06-4e42-bf82-f1e65097f262`（54 表/171,309 行/79,843,376 bytes/SHA `573b87ed5cf7b6557afefa23255ca93f2366ad872bd6ddcb18d335ac0f52d986`）后原子追加候选白名单；候选 capability HTTP 200，`organization=false`、`insights=false`，未提审/未正式发布。
 - 发布：代码 checkpoint `c8cb49be`（`feat(client-core): add p10 directory read boundary`）在上述备份后部署 release `c8cb49be63215749292bf06a5433db32eb87c23d`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
+- 状态同步：docs checkpoint `f3c93ae7` 在备份 archive `9b343d6c-0b32-4463-8e00-1adc5115ca97`（54 表/171,322 行/79,848,048 bytes/SHA `173d5c363ab08f389b7aab2b3bb2e16c49a6858c0b70323e1301769bb9af60db`）后部署 release `f3c93ae7cd55b3ffff6c7d83d87b9465166dae0a`；full verifier、候选 capability 200 和远端临时目录清理通过。
 - 下一活动批次与停止条件：先完成 P10-A2 Web Storybook 对照和原生通讯录页面，用户复核普通成员/管理员权限、号码显示隐私、七级筛选、游标加载、空/错误态和 390/320/大字号；生产 `organization=false` 保持关闭。
 
 ## 2026-08-26 P9-A13 原生通知设置入口（已实现，待体验版复核）
