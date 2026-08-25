@@ -14,8 +14,8 @@ function readApp() {
   return JSON.parse(read('src/app.json'));
 }
 
-describe('P9/P10 golden manifest coherence', () => {
-  it('keeps every implemented P9/P10 native route registered in app.json', () => {
+describe('P8/P9/P10 golden manifest coherence', () => {
+  it('keeps every implemented P8/P9/P10 native route registered in app.json', () => {
     const app = readApp();
     const routes = new Set(app.pages);
     for (const subpackage of app.subpackages) {
@@ -23,6 +23,10 @@ describe('P9/P10 golden manifest coherence', () => {
     }
 
     for (const route of [
+      'subpackages/organization/pages/group-settings/index',
+      'subpackages/organization/pages/scheduling-config/index',
+      'subpackages/organization/pages/invite-visitor/index',
+      'subpackages/organization/pages/platform-accounts/index',
       'subpackages/insights/pages/visitor-access/index',
       'subpackages/insights/pages/insights/index',
       'subpackages/insights/pages/notifications/index',
@@ -42,5 +46,13 @@ describe('P9/P10 golden manifest coherence', () => {
       expect(row).toBeDefined();
       expect(row).not.toContain('原生页面待实现');
     }
+  });
+
+  it('does not report the implemented P8 organization pages as a future step', () => {
+    const manifest = read('docs/design/page-golden-manifest.md');
+    const row = manifest.split('\n').find((line) => line.startsWith('| P8-B |'));
+    expect(row).toBeDefined();
+    expect(row).toContain('原生页面已实现');
+    expect(row).not.toContain('待用户确认后进入原生页面');
   });
 });
