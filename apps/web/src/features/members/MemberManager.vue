@@ -5,6 +5,10 @@ import type {
   GroupSummary,
   MembershipClaimRequest,
 } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { computed, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -25,6 +29,10 @@ const emit = defineEmits<{
 }>();
 
 const api = createApiClient({ auth: localAuth });
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
 const members = ref<GroupMember[]>([]);
 const contacts = ref<GroupMemberContact[]>([]);
 const claimRequests = ref<MembershipClaimRequest[]>([]);
@@ -40,6 +48,26 @@ const rosterEditorVisible = ref(false);
 const editingContactMemberId = ref<string>();
 const memberActionTarget = ref<GroupMember>();
 let requestVersion = 0;
+
+function resolveOrganizationAttempt<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
+
+function completeOrganizationAttempt(key: string): void {
+  operationAttempts.delete(key);
+}
 
 const contactsByMembershipId = computed(
   () => new Map(contacts.value.map((contact) => [contact.membershipId, contact])),
@@ -123,9 +151,18 @@ async function loadMembers(): Promise<void> {
 async function updateRole(member: GroupMember, role: 'administrator' | 'member'): Promise<void> {
   errorMessage.value = undefined;
   isUpdating.value = true;
+  const attemptKey = `member-role:${member.id}`;
 
   try {
-    await api.updateGroupMemberRole(props.group.id, member.id, { role });
+    await api.updateGroupMemberRole(
+      props.group.id,
+      member.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: member.version,
+        role,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     await loadMembers();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
@@ -143,8 +180,17 @@ async function updateMemberName(member: GroupMember): Promise<void> {
   }
   errorMessage.value = undefined;
   isUpdating.value = true;
+  const attemptKey = `member-name:${member.id}`;
   try {
-    await api.updateGroupMemberName(props.group.id, member.id, { realName });
+    await api.updateGroupMemberName(
+      props.group.id,
+      member.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: member.version,
+        realName,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     await loadMembers();
   } catch (error) {
     errorMessage.value = toUserMessage(error, '成员姓名暂时无法保存，请稍后重试。');
@@ -167,8 +213,13 @@ async function addMembers(): Promise<void> {
   }
 
   isAddingRoster.value = true;
+  const attemptKey = `members-add:${props.group.id}`;
   try {
-    const result = await api.addGroupMembers(props.group.id, { realNames: names });
+    const result = await api.addGroupMembers(
+      props.group.id,
+      resolveOrganizationAttempt(attemptKey, { realNames: names }),
+    );
+    completeOrganizationAttempt(attemptKey);
     rosterNames.value = '';
     rosterEditorVisible.value = false;
     rosterMessage.value = `已添加 ${result.added} 位预设成员；成员使用已保存姓名和群组码加入后会自动关联账号。`;
@@ -195,8 +246,13 @@ async function convertPending(names: readonly string[]): Promise<void> {
   errorMessage.value = undefined;
   rosterMessage.value = undefined;
   isUpdating.value = true;
+  const attemptKey = `roster-convert:${props.group.id}`;
   try {
-    const result = await api.convertRosterEntries(props.group.id, { realNames: [...names] });
+    const result = await api.convertRosterEntries(
+      props.group.id,
+      resolveOrganizationAttempt(attemptKey, { realNames: [...names] }),
+    );
+    completeOrganizationAttempt(attemptKey);
     rosterMessage.value =
       result.skipped > 0
         ? `已转正 ${result.converted} 位成员，跳过 ${result.skipped} 位（已存在或找不到）。`
@@ -221,8 +277,16 @@ async function deleteMember(member: GroupMember): Promise<void> {
 
   errorMessage.value = undefined;
   isDeletingMemberId.value = member.id;
+  const attemptKey = `member-delete:${member.id}`;
   try {
-    await api.deleteGroupMember(props.group.id, member.id);
+    await api.deleteGroupMember(
+      props.group.id,
+      member.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: member.version,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     rosterMessage.value = `已删除${label}“${member.realName}”。`;
     await loadMembers();
   } catch (error) {
@@ -239,8 +303,17 @@ async function transferOwnership(member: GroupMember): Promise<void> {
 
   errorMessage.value = undefined;
   isUpdating.value = true;
+  const attemptKey = `owner-transfer:${member.id}`;
   try {
-    await api.transferGroupOwnership(props.group.id, { membershipId: member.id });
+    await api.transferGroupOwnership(
+      props.group.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedGroupVersion: props.group.version,
+        expectedMemberVersion: member.version,
+        membershipId: member.id,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     await loadMembers();
     emit('group-changed');
   } catch (error) {
@@ -257,8 +330,15 @@ async function deleteGroup(): Promise<void> {
 
   errorMessage.value = undefined;
   isUpdating.value = true;
+  const attemptKey = `group-delete:${props.group.id}`;
   try {
-    await api.deleteGroup(props.group.id);
+    await api.deleteGroup(
+      props.group.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: props.group.version,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     emit('group-changed');
   } catch (error) {
     errorMessage.value = toUserMessage(error, '成员数据暂时无法加载，请稍后重试。');
@@ -273,8 +353,16 @@ async function revokeClaim(member: GroupMember): Promise<void> {
   }
   errorMessage.value = undefined;
   isUpdating.value = true;
+  const attemptKey = `claim-revoke:${member.id}`;
   try {
-    await api.revokeMembershipClaim(props.group.id, member.id);
+    await api.revokeMembershipClaim(
+      props.group.id,
+      member.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: member.version,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     identityMessage.value = `已撤销成员“${member.realName}”的认领。`;
     await loadMembers();
   } catch (error) {
@@ -296,12 +384,15 @@ async function decideClaim(request: MembershipClaimRequest, approve: boolean): P
   }
   errorMessage.value = undefined;
   isUpdating.value = true;
+  const attemptKey = `claim-${approve ? 'approve' : 'reject'}:${request.id}`;
+  const input = resolveOrganizationAttempt(attemptKey, { expectedVersion: request.version });
   try {
     if (approve) {
-      await api.approveMembershipClaimRequest(props.group.id, request.id);
+      await api.approveMembershipClaimRequest(props.group.id, request.id, input);
     } else {
-      await api.rejectMembershipClaimRequest(props.group.id, request.id);
+      await api.rejectMembershipClaimRequest(props.group.id, request.id, input);
     }
+    completeOrganizationAttempt(attemptKey);
     identityMessage.value = approve ? '已同意该认领申请。' : '已驳回该认领申请。';
     await loadMembers();
   } catch (error) {

@@ -56,6 +56,7 @@ export interface ActiveGroupMembership {
   readonly isDeveloperAdmin: boolean;
   readonly role: 'administrator' | 'guest' | 'member' | 'owner';
   readonly userId: string;
+  readonly version: number;
 }
 
 export interface GroupAuthorization {
@@ -159,6 +160,7 @@ export class GroupPermissionService {
         id: groupMemberships.id,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
+        version: groupMemberships.version,
       })
       .from(groupMemberships)
       .where(
@@ -189,6 +191,7 @@ export class GroupPermissionService {
       isDeveloperAdmin: false,
       role: membership.role,
       userId: membership.userId,
+      version: membership.version,
     };
   }
 
@@ -205,6 +208,7 @@ export class GroupPermissionService {
         isDeveloperAdmin: users.isDeveloperAdmin,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
+        version: groupMemberships.version,
       })
       .from(groupMemberships)
       .innerJoin(users, eq(users.id, groupMemberships.userId))
@@ -240,6 +244,7 @@ export class GroupPermissionService {
       isDeveloperAdmin: membership.isDeveloperAdmin === 1,
       role: membership.role,
       userId: membership.userId,
+      version: membership.version,
     };
   }
 

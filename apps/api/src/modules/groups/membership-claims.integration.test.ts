@@ -3,11 +3,13 @@ import { fileURLToPath } from 'node:url';
 
 import {
   createTestDatabaseClient,
+  groupMemberships,
   membershipClaimRequests,
   migrateDatabase,
   type DatabaseClient,
   type DatabaseConnectionOptions,
 } from '@schedule/database';
+import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -22,6 +24,7 @@ describeWithDatabase('membership identity claims', () => {
   let client: DatabaseClient;
   let groupId: string;
   let memberMembershipId: string;
+  let memberMembershipVersion: number;
 
   beforeEach(async () => {
     client = createTestDatabaseClient(databaseOptions as DatabaseConnectionOptions);
@@ -35,6 +38,15 @@ describeWithDatabase('membership identity claims', () => {
       }),
       databaseClient: client,
       logger: false,
+    });
+    app.addHook('preValidation', (request, _reply, done) => {
+      if (
+        (request.method === 'POST' || request.method === 'PUT' || request.method === 'DELETE') &&
+        request.headers['idempotency-key'] === undefined
+      ) {
+        request.headers['idempotency-key'] = randomUUID();
+      }
+      done();
     });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
@@ -52,9 +64,11 @@ describeWithDatabase('membership identity claims', () => {
       readonly id: string;
       readonly isUnclaimed?: boolean;
       readonly realName: string;
+      readonly version: number;
     }[];
-    memberMembershipId = members.find((member) => member.realName === 'Target Doctor')
-      ?.id as string;
+    const target = members.find((member) => member.realName === 'Target Doctor');
+    memberMembershipId = target?.id as string;
+    memberMembershipVersion = target?.version as number;
   });
 
   afterEach(async () => {
@@ -106,7 +120,16 @@ describeWithDatabase('membership identity claims', () => {
     expect(approved.statusCode, approved.body).toBe(200);
     expect(approved.json()).toMatchObject({ id: requestId, status: 'approved' });
 
-    const revoked = await revokeClaim('developer-token', groupId, memberMembershipId);
+    const [boundMembership] = await client.database
+      .select({ version: groupMemberships.version })
+      .from(groupMemberships)
+      .where(eq(groupMemberships.id, memberMembershipId));
+    const revoked = await revokeClaim(
+      'developer-token',
+      groupId,
+      memberMembershipId,
+      boundMembership!.version,
+    );
     expect(revoked.statusCode, revoked.body).toBe(200);
   });
 
@@ -168,7 +191,7 @@ describeWithDatabase('membership identity claims', () => {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: { membershipId },
+      payload: { expectedMemberVersion: memberMembershipVersion, membershipId },
       url: `/groups/${targetGroupId}/claim-requests`,
     });
   }
@@ -185,14 +208,21 @@ describeWithDatabase('membership identity claims', () => {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
+      payload: { expectedVersion: 1 },
       url: `/groups/${targetGroupId}/claim-requests/${claimRequestId}/approve`,
     });
   }
 
-  function revokeClaim(token: string, targetGroupId: string, membershipId: string) {
+  function revokeClaim(
+    token: string,
+    targetGroupId: string,
+    membershipId: string,
+    expectedVersion: number,
+  ) {
     return app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
+      payload: { expectedVersion },
       url: `/groups/${targetGroupId}/members/${membershipId}/revoke-claim`,
     });
   }
@@ -294,6 +324,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'idempotency_keys',
     '`groups`',
     'wechat_link_tokens',
+    'wechat_admin_binding_tickets',
+    'wechat_identity_detachments',
     'wechat_union_accounts',
     'user_auth_identities',
     'user_password_credentials',

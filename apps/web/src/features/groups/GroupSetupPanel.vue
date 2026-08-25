@@ -6,6 +6,10 @@ import type {
   GroupCatalogEntry,
   GroupSummary,
 } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { computed, onMounted, ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -25,6 +29,10 @@ const emit = defineEmits<{
 }>();
 
 const api = createApiClient({ auth: localAuth });
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
 const createdGroup = ref<GroupSummary>();
 const createGroupName = ref('');
 const customGroupCode = ref('');
@@ -74,6 +82,26 @@ const selectedCatalogEntry = computed(() =>
 );
 const currentGroupCodeDigits = computed(() => splitGroupCode(props.group?.groupCode));
 const createdGroupCodeDigits = computed(() => splitGroupCode(createdGroup.value?.groupCode));
+
+function resolveOrganizationAttempt<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
+
+function completeOrganizationAttempt(key: string): void {
+  operationAttempts.delete(key);
+}
 
 watch(
   () => props.group?.id,
@@ -198,11 +226,15 @@ async function createGroup(): Promise<void> {
   resetMessages();
   isCreating.value = true;
 
+  const attemptKey = 'group-create';
   try {
-    createdGroup.value = await api.createGroup({
-      groupCode: customGroupCode.value.trim(),
-      name: createGroupName.value,
-    });
+    createdGroup.value = await api.createGroup(
+      resolveOrganizationAttempt(attemptKey, {
+        groupCode: customGroupCode.value.trim(),
+        name: createGroupName.value,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     createGroupName.value = '';
     customGroupCode.value = '';
     emit('groups-changed', createdGroup.value.id);
@@ -232,10 +264,15 @@ async function saveRoster(): Promise<void> {
   }
 
   isSavingRoster.value = true;
+  const attemptKey = `roster-add:${createdGroup.value.id}`;
   try {
-    const result = await api.addRosterEntries(createdGroup.value.id, {
-      realNames: parsedRosterNames.value,
-    });
+    const result = await api.addRosterEntries(
+      createdGroup.value.id,
+      resolveOrganizationAttempt(attemptKey, {
+        realNames: parsedRosterNames.value,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     rosterNames.value = '';
     infoMessage.value = `已添加 ${result.added} 位预设成员（可转为正式排班成员；成员使用已保存姓名和群组码加入后会自动关联账号）。`;
   } catch (error) {
@@ -262,8 +299,12 @@ async function joinSelectedGroup(): Promise<void> {
   }
 
   isJoining.value = true;
+  const attemptKey = 'group-claim';
   try {
-    const result = await api.claimGroup({ groupCode: claimCode.value.trim() });
+    const result = await api.claimGroup(
+      resolveOrganizationAttempt(attemptKey, { groupCode: claimCode.value.trim() }),
+    );
+    completeOrganizationAttempt(attemptKey);
     if (result.status === 'claimed') {
       resetJoinForm();
       infoMessage.value = `已加入“${result.group.name}”。`;
@@ -286,8 +327,10 @@ async function leaveCurrentGroup(): Promise<void> {
   }
   leaveConfirmVisible.value = false;
   isLeaving.value = true;
+  const attemptKey = `group-leave:${props.group.id}`;
   try {
-    await api.leaveGroup(props.group.id);
+    await api.leaveGroup(props.group.id, resolveOrganizationAttempt(attemptKey, {}));
+    completeOrganizationAttempt(attemptKey);
     infoMessage.value = '已退出该群组。';
     emit('groups-changed');
     await loadCatalog();
@@ -307,8 +350,16 @@ async function saveGroupName(): Promise<void> {
     return;
   }
   isSavingName.value = true;
+  const attemptKey = `group-name:${props.group.id}`;
   try {
-    await api.updateGroupName(props.group.id, { name: groupName.value });
+    await api.updateGroupName(
+      props.group.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: props.group.version,
+        name: groupName.value,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     infoMessage.value = '群组名称已更新。';
     emit('groups-changed', props.group.id);
   } catch (error) {
@@ -327,10 +378,16 @@ async function saveGroupCode(): Promise<void> {
     return;
   }
   isRegeneratingCode.value = true;
+  const attemptKey = `group-code:${props.group.id}`;
   try {
-    const result = await api.updateGroupCode(props.group.id, {
-      groupCode: editedGroupCode.value.trim(),
-    });
+    const result = await api.updateGroupCode(
+      props.group.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: props.group.version,
+        groupCode: editedGroupCode.value.trim(),
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     infoMessage.value =
       result.groupCode === undefined
         ? '群组码已更新，旧码立即失效。'
@@ -350,8 +407,15 @@ async function dissolveCurrentGroup(): Promise<void> {
   }
   dissolveConfirmVisible.value = false;
   isDissolving.value = true;
+  const attemptKey = `group-delete:${props.group.id}`;
   try {
-    await api.deleteGroup(props.group.id);
+    await api.deleteGroup(
+      props.group.id,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: props.group.version,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     infoMessage.value = '群组已解散，30 天内可在下方恢复。';
     emit('groups-changed');
     await loadDissolved();
@@ -365,9 +429,18 @@ async function dissolveCurrentGroup(): Promise<void> {
 
 async function restoreGroup(groupId: string): Promise<void> {
   resetMessages();
+  const dissolved = dissolvedGroups.value.find((group) => group.id === groupId);
+  if (dissolved === undefined) return;
   isRestoring.value = true;
+  const attemptKey = `group-restore:${groupId}`;
   try {
-    await api.restoreGroup(groupId);
+    await api.restoreGroup(
+      groupId,
+      resolveOrganizationAttempt(attemptKey, {
+        expectedVersion: dissolved.version,
+      }),
+    );
+    completeOrganizationAttempt(attemptKey);
     infoMessage.value = '群组已恢复。';
     emit('groups-changed', groupId);
     await loadDissolved();

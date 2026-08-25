@@ -270,26 +270,16 @@ describeWithDatabase('leave requests and reflow', () => {
 
   it('blocks revoking an approved leave that includes past dates', async () => {
     const context = await seedPublishedRotation(['a', 'b', 'c'], '2026-09');
-    const leaveRequestId = await createLeave(context, 'a-token', {
-      endsAt: '2026-08-02T00:00:00.000Z',
-      isAllDay: true,
-      leaveType: 'sick',
-      reason: '已过日期撤销测试',
-      startsAt: '2026-08-01T00:00:00.000Z',
-    });
-    const preview = (
-      await previewLeave('owner-token', context.groupId, leaveRequestId)
-    ).json() as LeaveReflowPreview;
-    expect(
-      (
-        await approveLeave('owner-token', context.groupId, leaveRequestId, {
-          expectedPeriodVersions: preview.periodVersions,
-          expectedRulesVersion: preview.rulesVersion,
-          expectedVersion: 1,
-          operationId: randomUUID(),
-        })
-      ).statusCode,
-    ).toBe(200);
+    const leaveRequestId = randomUUID();
+    await client.database.execute(sql`
+      INSERT INTO leave_requests
+        (id, group_id, membership_id, leave_type, starts_at, ends_at, is_all_day,
+         reason, status, reflow_strategy, version)
+      VALUES
+        (${leaveRequestId}, ${context.groupId}, ${context.membershipIds.a!}, 'sick',
+         '2026-08-01 00:00:00.000', '2026-08-02 00:00:00.000', 1,
+         '已过日期撤销测试', 'approved', 'keep-original-order', 2)
+    `);
 
     const blocked = await revokeLeave('owner-token', context.groupId, leaveRequestId, {
       expectedVersion: 2,
@@ -1394,7 +1384,10 @@ describeWithDatabase('leave requests and reflow', () => {
 
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',
@@ -1406,7 +1399,10 @@ describeWithDatabase('leave requests and reflow', () => {
 
   async function addRosterEntry(groupId: string, realName: string): Promise<void> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { realNames: [realName] },
       url: `/groups/${groupId}/roster-entries`,

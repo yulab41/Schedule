@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -374,7 +375,10 @@ describeWithDatabase('scheduling configuration', () => {
 
   async function createGroup(): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode: '1234', name: 'Scheduling group' },
       url: '/groups',
@@ -387,7 +391,10 @@ describeWithDatabase('scheduling configuration', () => {
   async function createClaimedGroup(): Promise<string> {
     const groupId = await createGroup();
     const roster = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { realNames: ['Candidate Doctor'] },
       url: `/groups/${groupId}/roster-entries`,

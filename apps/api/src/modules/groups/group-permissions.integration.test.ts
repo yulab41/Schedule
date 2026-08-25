@@ -41,6 +41,16 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       databaseClient: client,
       logger: false,
     });
+    app.addHook('preValidation', (request, _reply, done) => {
+      if (
+        (request.method === 'POST' || request.method === 'PUT' || request.method === 'DELETE') &&
+        !request.url.endsWith('/mobile-phone-consent') &&
+        request.headers['idempotency-key'] === undefined
+      ) {
+        request.headers['idempotency-key'] = randomUUID();
+      }
+      done();
+    });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
     await registerUser('developer-token', 'Developer Doctor');
@@ -70,7 +80,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const makeAdministrator = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { role: 'administrator' },
+      payload: { expectedVersion: candidate.version, role: 'administrator' },
       url: `/groups/${groupId}/members/${candidate.id}/role`,
     });
     const administratorRoster = await app.inject({
@@ -79,10 +89,11 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       payload: { realNames: ['Administrator Added Doctor'] },
       url: `/groups/${groupId}/roster-entries`,
     });
+    const promotedVersion = (makeAdministrator.json() as { version: number }).version;
     const removeAdministrator = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { role: 'member' },
+      payload: { expectedVersion: promotedVersion, role: 'member' },
       url: `/groups/${groupId}/members/${candidate.id}/role`,
     });
 
@@ -93,6 +104,142 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     expect(removeAdministrator.json()).toMatchObject({ id: candidate.id, role: 'member' });
   });
 
+  it('replays member, contact, and ownership writes before changed authorization is rechecked', async () => {
+    const groupId = await createClaimedGroup();
+    const candidate = await getMember(groupId, 'Candidate Doctor');
+    const groupVersion = await getGroupVersion(groupId);
+
+    const roleOperationId = randomUUID();
+    const rolePayload = {
+      expectedVersion: candidate.version,
+      operationId: roleOperationId,
+      role: 'administrator',
+    } as const;
+    const roleUpdate = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': roleOperationId,
+      },
+      method: 'PUT',
+      payload: rolePayload,
+      url: `/groups/${groupId}/members/${candidate.id}/role`,
+    });
+    const roleReplay = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': roleOperationId,
+      },
+      method: 'PUT',
+      payload: rolePayload,
+      url: `/groups/${groupId}/members/${candidate.id}/role`,
+    });
+    const staleRoleOperationId = randomUUID();
+    const staleRole = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': staleRoleOperationId,
+      },
+      method: 'PUT',
+      payload: {
+        expectedVersion: candidate.version,
+        operationId: staleRoleOperationId,
+        role: 'member',
+      },
+      url: `/groups/${groupId}/members/${candidate.id}/role`,
+    });
+    expect(roleUpdate.statusCode, roleUpdate.body).toBe(200);
+    expect(roleReplay.json()).toEqual(roleUpdate.json());
+    expect(staleRole.statusCode).toBe(409);
+    expect(staleRole.json()).toMatchObject({
+      error: {
+        latestData: {
+          id: candidate.id,
+          objectType: 'group_member',
+          version: candidate.version + 1,
+        },
+      },
+    });
+
+    const contactOperationId = randomUUID();
+    const contactPayload = {
+      expectedVersion: 0,
+      mobilePhone: '13800000000',
+      operationId: contactOperationId,
+    };
+    const contactUpdate = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': contactOperationId,
+      },
+      method: 'PUT',
+      payload: contactPayload,
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    const contactReplay = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': contactOperationId,
+      },
+      method: 'PUT',
+      payload: contactPayload,
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    const staleContactOperationId = randomUUID();
+    const staleContact = await app.inject({
+      headers: {
+        authorization: 'Bearer candidate-token',
+        'idempotency-key': staleContactOperationId,
+      },
+      method: 'PUT',
+      payload: {
+        expectedVersion: 0,
+        operationId: staleContactOperationId,
+        shortPhone: '6601',
+      },
+      url: `/groups/${groupId}/members/${candidate.id}/contact`,
+    });
+    expect(contactUpdate.statusCode, contactUpdate.body).toBe(200);
+    expect(contactReplay.json()).toEqual(contactUpdate.json());
+    expect(staleContact.statusCode).toBe(409);
+    expect(staleContact.json()).toMatchObject({
+      error: {
+        latestData: {
+          objectType: 'group_member_contact',
+          version: 1,
+        },
+      },
+    });
+
+    const transferOperationId = randomUUID();
+    const transferPayload = {
+      expectedGroupVersion: groupVersion,
+      expectedMemberVersion: candidate.version + 1,
+      membershipId: candidate.id,
+      operationId: transferOperationId,
+    };
+    const transfer = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': transferOperationId,
+      },
+      method: 'POST',
+      payload: transferPayload,
+      url: `/groups/${groupId}/owner-transfer`,
+    });
+    const transferReplay = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': transferOperationId,
+      },
+      method: 'POST',
+      payload: transferPayload,
+      url: `/groups/${groupId}/owner-transfer`,
+    });
+    expect(transfer.statusCode, transfer.body).toBe(200);
+    expect(transferReplay.statusCode, transferReplay.body).toBe(200);
+    expect(transferReplay.json()).toEqual(transfer.json());
+  });
+
   it('prevents members from changing another member contact or any administrator role', async () => {
     const groupId = await createClaimedGroup();
     const owner = await getMember(groupId, 'Owner Doctor');
@@ -100,13 +247,13 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const roleUpdate = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { role: 'member' },
+      payload: { expectedVersion: owner.version, role: 'member' },
       url: `/groups/${groupId}/members/${owner.id}/role`,
     });
     const contactUpdate = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13800000000' },
+      payload: { expectedVersion: 0, mobilePhone: '13800000000' },
       url: `/groups/${groupId}/members/${owner.id}/contact`,
     });
 
@@ -122,13 +269,13 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const ownerContact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13900000000', shortPhone: '9000' },
+      payload: { expectedVersion: 0, mobilePhone: '13900000000', shortPhone: '9000' },
       url: `/groups/${groupId}/members/${owner.id}/contact`,
     });
     const candidateContact = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13800000000', shortPhone: '8000' },
+      payload: { expectedVersion: 0, mobilePhone: '13800000000', shortPhone: '8000' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     const guestJoin = await app.inject({
@@ -189,43 +336,43 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const ownUpdate = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13800000000', shortPhone: '8000' },
+      payload: { expectedVersion: 0, mobilePhone: '13800000000', shortPhone: '8000' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     const otherUpdate = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13700000000' },
+      payload: { expectedVersion: 0, mobilePhone: '13700000000' },
       url: `/groups/${groupId}/members/${owner.id}/contact`,
     });
     const memberConfirm = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { isConfirmed: true },
+      payload: { expectedVersion: 1, isConfirmed: true },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     const ownerConfirm = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { isConfirmed: true, shortPhone: '8001' },
+      payload: { expectedVersion: 1, isConfirmed: true, shortPhone: '8001' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     const makeAdministrator = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { role: 'administrator' },
+      payload: { expectedVersion: candidate.version, role: 'administrator' },
       url: `/groups/${groupId}/members/${candidate.id}/role`,
     });
     const administratorConfirm = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { isConfirmed: true, shortPhone: '9001' },
+      payload: { expectedVersion: 0, isConfirmed: true, shortPhone: '9001' },
       url: `/groups/${groupId}/members/${owner.id}/contact`,
     });
     const developerConfirm = await app.inject({
       headers: { authorization: 'Bearer developer-token' },
       method: 'PUT',
-      payload: { isConfirmed: true, shortPhone: '8002' },
+      payload: { expectedVersion: 2, isConfirmed: true, shortPhone: '8002' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
 
@@ -257,7 +404,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const saved = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13800000000', shortPhone: '8000' },
+      payload: { expectedVersion: 0, mobilePhone: '13800000000', shortPhone: '8000' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     expect(saved.statusCode, saved.body).toBe(200);
@@ -265,7 +412,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const administratorVerification = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { isConfirmed: true, shortPhone: '8001' },
+      payload: { expectedVersion: contactVersion, isConfirmed: true, shortPhone: '8001' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     expect(administratorVerification.statusCode, administratorVerification.body).toBe(200);
@@ -410,7 +557,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const administratorMobileUpdate = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13900000000' },
+      payload: { expectedVersion: contactVersion, mobilePhone: '13900000000' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     expect(administratorMobileUpdate.statusCode).toBe(403);
@@ -462,7 +609,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const saved = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13800000000' },
+      payload: { expectedVersion: 0, mobilePhone: '13800000000' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     const firstVersion = (saved.json() as { version: number }).version;
@@ -481,11 +628,12 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
       url: `/groups/${groupId}/mobile-phone-consent`,
     });
     expect(grant.statusCode, grant.body).toBe(200);
+    const grantedVersion = (grant.json() as { contactVersion: number }).contactVersion;
 
     const changed = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13900000000' },
+      payload: { expectedVersion: grantedVersion, mobilePhone: '13900000000' },
       url: `/groups/${groupId}/members/${candidate.id}/contact`,
     });
     expect(changed.statusCode, changed.body).toBe(200);
@@ -611,6 +759,7 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
   it('keeps exactly one owner when transfer validation fails and when a transfer succeeds', async () => {
     const groupId = await createClaimedGroup();
     const candidate = await getMember(groupId, 'Candidate Doctor');
+    const groupVersion = await getGroupVersion(groupId);
     const [ownerUser] = await client.database
       .select({ id: users.id })
       .from(users)
@@ -619,7 +768,11 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const invalidTransfer = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { membershipId: '00000000-0000-4000-8000-000000000000' },
+      payload: {
+        expectedGroupVersion: groupVersion,
+        expectedMemberVersion: 1,
+        membershipId: '00000000-0000-4000-8000-000000000000',
+      },
       url: `/groups/${groupId}/owner-transfer`,
     });
     await expectOwnerState(groupId, ownerUser?.id);
@@ -627,7 +780,11 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     const successfulTransfer = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { membershipId: candidate.id },
+      payload: {
+        expectedGroupVersion: groupVersion,
+        expectedMemberVersion: candidate.version,
+        membershipId: candidate.id,
+      },
       url: `/groups/${groupId}/owner-transfer`,
     });
     const [candidateUser] = await client.database
@@ -643,11 +800,13 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
 
   it('soft deletes a group and excludes it from subsequent group switching data', async () => {
     const group = await createGroup('owner-token', 'Recoverable group', '5678');
-    const groupId = (group.json() as { id: string }).id;
+    const groupSnapshot = group.json() as { id: string; version: number };
+    const groupId = groupSnapshot.id;
 
     const deleted = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: { expectedVersion: groupSnapshot.version },
       url: `/groups/${groupId}`,
     });
     const listed = await app.inject({
@@ -722,11 +881,20 @@ describeWithDatabase('group permissions, contacts, and ownership', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const member = (response.json() as { id: string; realName: string }[]).find(
+    const member = (response.json() as { id: string; realName: string; version: number }[]).find(
       (entry) => entry.realName === realName,
     );
     expect(member).toBeDefined();
-    return member as { id: string; realName: string };
+    return member as { id: string; realName: string; version: number };
+  }
+
+  async function getGroupVersion(groupId: string): Promise<number> {
+    const [group] = await client.database
+      .select({ version: groups.version })
+      .from(groups)
+      .where(eq(groups.id, groupId));
+    expect(group).toBeDefined();
+    return group!.version;
   }
 
   async function expectOwnerState(

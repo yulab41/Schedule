@@ -61,18 +61,21 @@ const groupMembers: readonly GroupMember[] = [
     isCurrentUser: true,
     realName: '林医生',
     role: 'member',
+    version: 1,
   },
   {
     id: colleagueMembershipId,
     isCurrentUser: false,
     realName: '陈医生',
     role: 'member',
+    version: 1,
   },
   {
     id: thirdMembershipId,
     isCurrentUser: false,
     realName: '王医生',
     role: 'member',
+    version: 1,
   },
 ];
 

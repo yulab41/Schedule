@@ -390,7 +390,10 @@ describeWithDatabase('invite links and identity binding', () => {
 
   async function createGroup(token: string, name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',
@@ -405,7 +408,10 @@ describeWithDatabase('invite links and identity binding', () => {
     realNames: readonly string[],
   ): Promise<void> {
     const response = await app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { realNames: [...realNames] },
       url: `/groups/${groupId}/members`,
@@ -419,7 +425,10 @@ describeWithDatabase('invite links and identity binding', () => {
     realNames: readonly string[],
   ): Promise<void> {
     const response = await app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { realNames: [...realNames] },
       url: `/groups/${groupId}/roster-entries`,

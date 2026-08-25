@@ -2,13 +2,21 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-25 P8-A1 组织管理共享只读边界（已实现待上传/部署）
+## 2026-08-25 P8-A2-1 群组/成员写入安全硬化（已实现待上传/部署）
+
+- 基线/范围：A1 checkpoint `5aee10d4` 已推送；`.95-read@5aee10d` 官方上传 96 files/zip 804,539/manifest `7fafa443…30a67`，备份 `8b575691-f3a3-48ab-bf00-f79483dce34e` 后部署同 release，full verifier 通过；`.95-read` 未进 allowlist且 `organization=false`。本批只硬化群组/成员/预设/认领写入，不处理配置、邀请、visitor key、平台身份或 Mini UI。
+- 引入点/红绿：群组/成员 Web/API=`1b5a17ae/8e42afb8/322550d9/394b1c87`，均已执行 `git log -S`/`git blame`。Contracts/route/client-core/Web 新契约在旧实现先 4 组失败；实现后 4 files/8 tests 通过。20 个 shared write endpoint 统一 header/body operation id，版本化 group/member/roster/dissolved/contact/claim；Web 三表面复用 presentation-core 冻结快照，成功清理、失败同 payload 复用。
+- API/并发：新增 actor-first organization transaction helper；idempotency 先于会删除目标或改变 actor 权限的领域校验，使创建/退出/删除/恢复/所有权转让可重放。expected version 失败为 409 + 最小 latest data；姓名更新同步推进 membership version；联系人 audit 使用同一 operation id 且不记录电话。真实 MySQL 全量 69 files/463 tests 通过，P8 核心 3 files/23 tests 覆盖重放、fingerprint mismatch、stale version、唯一 owner 和事务回滚。
+- 语义/验证：Web receiver、Promise/catch、loading/空值、成功刷新与请求次数不变；Mini 无写入口/缓存/重试/离线队列，organization 仍关闭。Contracts 15/56、client-core 2/7、Web 102/602、Mini 45/254，全端 typecheck/build、Web/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 ESLint/Prettier/`git diff --check` 通过。Mini 2/2 Worklet、3,289,359 bytes、manifest `9a83af3b34901403ee16064f077bf85ee2f0dcd69b45c11944a4e4dfc7cc6ca6`，仅既有 600 格 best-effort warning。
+- 运行/checkpoint：browser smoke 首轮由旧 smoke contact payload 400 阻断；脚本版本化后完整重跑通过且无浏览器错误，`smoke:check-core` 通过，临时服务已关闭。checkpoint 识别消息 `feat(groups): harden p8 organization mutations`；提交推送后以 `0.1.0-p8.20260825.96-groups` 上传体验轨道但不加 allowlist，再备份/部署/full verifier。下一活动批次只做 P8-A2-2 班种/岗位成员/轮转规则写入的 operation id、rules/entity version、事务重放与 Web 委托，不处理邀请/平台身份或 UI。
+
+## 2026-08-25 P8-A1 组织管理共享只读边界（已完成）
 
 - 基线/范围：P8 预检 checkpoint `62d59c68` 已推送并部署，备份 `a7b48fdf-4510-466b-b86d-150cf27baf8e`，production `organization=false`。本批只共享群组摘要/目录、成员/预设、联系方式、认领请求/查找、排班配置、平台账号和邀请预览；Web 先委托，Mini 工作台移除 groups/members 手写 decoder。不接写 UI、不改 API/DB/权限、不打开 capability。
 - 引入点/红绿：群组/成员=`8e42afb8`，配置=`04c7da36`，邀请=`a50c4fce`，平台账号=`02a508dd`，Mini workbench=`733e3af6`，均已执行 `git log -S`/`git blame`。client-core/Web/Mini 新契约在旧实现因模块缺失、未委托和手写解码先红；实现后新增定向 3 files/9 tests 通过，Web 全量 101 files/600 tests、Mini 45 files/254 tests 通过。既有星期测试在当前日期跨至 8/25 后被过去日守卫拦截，现仅冻结测试 Date 并重载模块，生产逻辑不变。
 - 实现/语义：新增 10 个 bearer endpoint、确定性紧凑 schema 和 golden；Web 保持原 shared transport、`fetch.call(globalThis)` receiver、Bearer/Content-Type、离线只读、错误/Promise 和每方法一次调用，旧响应缺省 `rulesVersion` 继续接受。Mini 复用原 wx transport/401 单飞：groups/members/core 路径、缓存 groupCode/手机号清理、错误拒绝和次数不变；platform/dissolved/claim lookup 要求 organization，invite resolve 保持 core。无新增存储、重试、写队列或业务副作用。
 - 验证：client-core/Mini/Web typecheck，client-core build/generated freshness，Web build，任务 ESLint/Prettier，Mini production verify/source/package/performance/determinism/CI dry-run 与 `git diff --check` 通过。Mini 2/2 Worklet、3,139,214 bytes、manifest `d2a9bd245b215a066d0bfc0e5a8a7519bd91b45f3130dd976b594ef9980ad237`，仅既有 600 格矩阵 best-effort warning。`pnpm smoke:browser` 的依赖重装询问被拒绝，使用 `verifyDepsBeforeRun=false` 在 127.0.0.1:4173 完整通过；`smoke:check-core` 通过，临时服务已关闭。
-- checkpoint/下一批：识别消息 `refactor(clients): share p8 organization reads`；显式审查后提交/推送，以 `0.1.0-p8.20260825.95-read` 上传体验轨道但不加入 production allowlist，随后备份/部署/full verifier。下一活动批次只做 P8-A2-1 群组/成员/预设/认领写入的 operation id、expected version、API 事务重放与 Web 委托，不处理排班配置/邀请/平台身份，不写 Mini UI。
+- checkpoint/结果：`5aee10d4` 已推送；`.95-read@5aee10d` 上传成功且未进 allowlist。备份 `8b575691-f3a3-48ab-bf00-f79483dce34e` 后部署 release `5aee10d4913d0ab10c7da1f8858952d5500723f8`，ECS_PUBLIC_IP full verifier/health 200、`.94` core/workflows=true/organization=false、`.95-read` 426 和远端 temp 清理均通过。
 
 ## 2026-08-25 P8 组织管理对等与安全预检（已完成）
 

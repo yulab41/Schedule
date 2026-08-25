@@ -12,6 +12,8 @@ import type {
   CreateGroupRequest,
   DissolvedGroup,
   GroupSummary,
+  GroupVersionMutationRequest,
+  OrganizationMutationCompleted,
   UpdateGroupCodeRequest,
   UpdateGroupNameRequest,
 } from '@schedule/contracts';
@@ -24,13 +26,19 @@ import {
   rosterEntries,
   userProfiles,
   users,
-  withTransaction,
 } from '@schedule/database';
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { GroupCodeService } from './group-code-service.js';
+import {
+  createOrganizationFingerprint,
+  organizationMutationCompleted,
+  runOrganizationMutation,
+  type OrganizationMutationActor,
+} from './organization-operation.js';
 import { GroupPermissionService } from './permission-service.js';
 import { createDefaultShiftTypes } from '../scheduling-config/scheduling-config-service.js';
 
@@ -64,7 +72,18 @@ export class GroupService {
     input: CreateGroupRequest,
   ): Promise<GroupSummary> {
     try {
-      return await this.createWithCode(identity, input.name, input.groupCode);
+      return await runOrganizationMutation({
+        databaseClient: this.databaseClient,
+        identity,
+        operationId: input.operationId,
+        requestFingerprint: createOrganizationFingerprint({
+          groupCode: input.groupCode,
+          name: input.name,
+        }),
+        run: (transaction, actor) =>
+          this.createWithCode(transaction, actor, input.name, input.groupCode),
+        scope: 'organization_group_create',
+      });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
         throw groupCodeConflict();
@@ -82,30 +101,40 @@ export class GroupService {
     ensureDistinctNames(input.realNames);
 
     try {
-      return await withTransaction(this.databaseClient, async (transaction) => {
-        const authorization = await this.permissionService.requirePermission(
-          transaction,
-          identity,
+      return await runOrganizationMutation({
+        databaseClient: this.databaseClient,
+        identity,
+        operationId: input.operationId,
+        requestFingerprint: createOrganizationFingerprint({
           groupId,
-          'manageRoster',
-        );
-        for (const realName of input.realNames) {
-          await this.assertNoSameNameInGroup(transaction, authorization.group.id, realName);
-        }
-        for (const realName of input.realNames) {
-          await this.createUnboundMemberInTransaction(
+          realNames: [...input.realNames].sort((left, right) => left.localeCompare(right)),
+        }),
+        run: async (transaction) => {
+          const authorization = await this.permissionService.requirePermission(
             transaction,
-            authorization.group.id,
-            realName,
-          );
-          await transaction.insert(rosterEntries).values({
+            identity,
             groupId,
-            id: randomUUID(),
-            realName,
-          });
-        }
+            'manageRoster',
+          );
+          for (const realName of input.realNames) {
+            await this.assertNoSameNameInGroup(transaction, authorization.group.id, realName);
+          }
+          for (const realName of input.realNames) {
+            await this.createUnboundMemberInTransaction(
+              transaction,
+              authorization.group.id,
+              realName,
+            );
+            await transaction.insert(rosterEntries).values({
+              groupId,
+              id: randomUUID(),
+              realName,
+            });
+          }
 
-        return { added: input.realNames.length };
+          return { added: input.realNames.length };
+        },
+        scope: 'organization_roster_add',
       });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
@@ -127,60 +156,74 @@ export class GroupService {
   ): Promise<ConvertPendingRosterResponse> {
     ensureDistinctNames(input.realNames);
 
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
         groupId,
-        'manageRoster',
-      );
-      let converted = 0;
-      let skipped = 0;
-      for (const realName of input.realNames) {
-        const [rosterEntry] = await transaction
-          .select({ id: rosterEntries.id })
-          .from(rosterEntries)
-          .where(
-            and(
-              eq(rosterEntries.groupId, authorization.group.id),
-              eq(rosterEntries.status, 'pending'),
-              isNull(rosterEntries.deletedAt),
-              sql`binary ${rosterEntries.realName} = binary ${realName}`,
-            ),
-          )
-          .limit(1)
-          .for('update');
-        if (rosterEntry === undefined) {
-          skipped += 1;
-          continue;
+        realNames: [...input.realNames].sort((left, right) => left.localeCompare(right)),
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageRoster',
+        );
+        let converted = 0;
+        let skipped = 0;
+        for (const realName of input.realNames) {
+          const [rosterEntry] = await transaction
+            .select({ id: rosterEntries.id })
+            .from(rosterEntries)
+            .where(
+              and(
+                eq(rosterEntries.groupId, authorization.group.id),
+                eq(rosterEntries.status, 'pending'),
+                isNull(rosterEntries.deletedAt),
+                sql`binary ${rosterEntries.realName} = binary ${realName}`,
+              ),
+            )
+            .limit(1)
+            .for('update');
+          if (rosterEntry === undefined) {
+            skipped += 1;
+            continue;
+          }
+
+          const [existingMember] = await transaction
+            .select({ id: groupMemberships.id })
+            .from(groupMemberships)
+            .innerJoin(users, eq(users.id, groupMemberships.userId))
+            .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+            .where(
+              and(
+                eq(groupMemberships.groupId, authorization.group.id),
+                eq(groupMemberships.status, 'active'),
+                isNull(groupMemberships.deletedAt),
+                isNull(users.deletedAt),
+                isNull(userProfiles.deletedAt),
+                sql`binary ${userProfiles.realName} = binary ${realName}`,
+              ),
+            )
+            .limit(1);
+          if (existingMember !== undefined) {
+            skipped += 1;
+            continue;
+          }
+
+          await this.createUnboundMemberInTransaction(
+            transaction,
+            authorization.group.id,
+            realName,
+          );
+          converted += 1;
         }
 
-        const [existingMember] = await transaction
-          .select({ id: groupMemberships.id })
-          .from(groupMemberships)
-          .innerJoin(users, eq(users.id, groupMemberships.userId))
-          .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-          .where(
-            and(
-              eq(groupMemberships.groupId, authorization.group.id),
-              eq(groupMemberships.status, 'active'),
-              isNull(groupMemberships.deletedAt),
-              isNull(users.deletedAt),
-              isNull(userProfiles.deletedAt),
-              sql`binary ${userProfiles.realName} = binary ${realName}`,
-            ),
-          )
-          .limit(1);
-        if (existingMember !== undefined) {
-          skipped += 1;
-          continue;
-        }
-
-        await this.createUnboundMemberInTransaction(transaction, authorization.group.id, realName);
-        converted += 1;
-      }
-
-      return { converted, skipped };
+        return { converted, skipped };
+      },
+      scope: 'organization_roster_convert',
     });
   }
 
@@ -191,22 +234,36 @@ export class GroupService {
   ): Promise<AddGroupMembersResponse> {
     ensureDistinctNames(input.realNames);
 
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
         groupId,
-        'manageMembers',
-      );
-      for (const realName of input.realNames) {
-        await this.assertNoSameNameInGroup(transaction, authorization.group.id, realName);
-      }
+        realNames: [...input.realNames].sort((left, right) => left.localeCompare(right)),
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageMembers',
+        );
+        for (const realName of input.realNames) {
+          await this.assertNoSameNameInGroup(transaction, authorization.group.id, realName);
+        }
 
-      for (const realName of input.realNames) {
-        await this.createUnboundMemberInTransaction(transaction, authorization.group.id, realName);
-      }
+        for (const realName of input.realNames) {
+          await this.createUnboundMemberInTransaction(
+            transaction,
+            authorization.group.id,
+            realName,
+          );
+        }
 
-      return { added: input.realNames.length };
+        return { added: input.realNames.length };
+      },
+      scope: 'organization_members_add',
     });
   }
 
@@ -236,102 +293,106 @@ export class GroupService {
     identity: AuthenticatedIdentity,
     input: ClaimGroupRequest,
   ): Promise<ClaimGroupResponse> {
-    const attemptingUser = await this.getActiveUser(identity);
-    await this.groupCodeService.consumeAttempt(attemptingUser.id);
-
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const user = await this.getActiveUserInTransaction(transaction, identity);
-      const claimRealName = user.realName;
-      const [group] = await transaction
-        .select({
-          groupCode: groups.groupCode,
-          id: groups.id,
-          name: groups.name,
-          ownerUserId: groups.ownerUserId,
-          version: groups.version,
-        })
-        .from(groups)
-        .where(and(eq(groups.groupCode, input.groupCode), isNull(groups.deletedAt)))
-        .limit(1)
-        .for('update');
-
-      if (group === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '群组码无效或群组不可用。',
-        });
-      }
-
-      const [existingMembership] = await transaction
-        .select({ id: groupMemberships.id })
-        .from(groupMemberships)
-        .where(
-          and(
-            eq(groupMemberships.groupId, group.id),
-            eq(groupMemberships.userId, user.id),
-            eq(groupMemberships.status, 'active'),
-            isNull(groupMemberships.deletedAt),
-          ),
-        )
-        .limit(1)
-        .for('update');
-
-      if (existingMembership !== undefined) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '您已经加入该群组。',
-        });
-      }
-
-      const [rosterEntry] = await transaction
-        .select({ id: rosterEntries.id })
-        .from(rosterEntries)
-        .where(
-          and(
-            eq(rosterEntries.groupId, group.id),
-            eq(rosterEntries.status, 'pending'),
-            isNull(rosterEntries.deletedAt),
-            sql`binary ${rosterEntries.realName} = binary ${claimRealName}`,
-          ),
-        )
-        .limit(1)
-        .for('update');
-
-      const unboundMembership = await this.findUnboundMembership(
-        transaction,
-        group.id,
-        claimRealName,
-      );
-      if (unboundMembership === undefined) {
-        throw new ApiError({
-          code: 'FORBIDDEN',
-          statusCode: 403,
-          userMessage: '该群没有与您姓名相同的预设成员，暂不能加入。',
-        });
-      }
-
-      await transaction
-        .update(groupMemberships)
-        .set({ userId: user.id, version: sql`${groupMemberships.version} + 1` })
-        .where(eq(groupMemberships.id, unboundMembership.id));
-      if (rosterEntry !== undefined) {
-        await transaction
-          .update(rosterEntries)
-          .set({
-            claimedByUserId: user.id,
-            status: 'claimed',
-            version: sql`${rosterEntries.version} + 1`,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({ groupCode: input.groupCode }),
+      run: async (transaction, actor) => {
+        await this.groupCodeService.consumeAttempt(actor.id, transaction);
+        const claimRealName = actor.realName;
+        const [group] = await transaction
+          .select({
+            groupCode: groups.groupCode,
+            id: groups.id,
+            name: groups.name,
+            ownerUserId: groups.ownerUserId,
+            version: groups.version,
           })
-          .where(eq(rosterEntries.id, rosterEntry.id));
-      }
-      await this.removePlaceholderUserIfUnused(transaction, unboundMembership.userId);
+          .from(groups)
+          .where(and(eq(groups.groupCode, input.groupCode), isNull(groups.deletedAt)))
+          .limit(1)
+          .for('update');
 
-      return {
-        group: toGroupSummary(group, unboundMembership.role, user.isDeveloperAdmin),
-        status: 'claimed',
-      };
+        if (group === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '群组码无效或群组不可用。',
+          });
+        }
+
+        const [existingMembership] = await transaction
+          .select({ id: groupMemberships.id })
+          .from(groupMemberships)
+          .where(
+            and(
+              eq(groupMemberships.groupId, group.id),
+              eq(groupMemberships.userId, actor.id),
+              eq(groupMemberships.status, 'active'),
+              isNull(groupMemberships.deletedAt),
+            ),
+          )
+          .limit(1)
+          .for('update');
+
+        if (existingMembership !== undefined) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '您已经加入该群组。',
+          });
+        }
+
+        const [rosterEntry] = await transaction
+          .select({ id: rosterEntries.id })
+          .from(rosterEntries)
+          .where(
+            and(
+              eq(rosterEntries.groupId, group.id),
+              eq(rosterEntries.status, 'pending'),
+              isNull(rosterEntries.deletedAt),
+              sql`binary ${rosterEntries.realName} = binary ${claimRealName}`,
+            ),
+          )
+          .limit(1)
+          .for('update');
+
+        const unboundMembership = await this.findUnboundMembership(
+          transaction,
+          group.id,
+          claimRealName,
+        );
+        if (unboundMembership === undefined) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '该群没有与您姓名相同的预设成员，暂不能加入。',
+          });
+        }
+
+        await transaction
+          .update(groupMemberships)
+          .set({ userId: actor.id, version: sql`${groupMemberships.version} + 1` })
+          .where(eq(groupMemberships.id, unboundMembership.id));
+        if (rosterEntry !== undefined) {
+          await transaction
+            .update(rosterEntries)
+            .set({
+              claimedByUserId: actor.id,
+              status: 'claimed',
+              version: sql`${rosterEntries.version} + 1`,
+            })
+            .where(eq(rosterEntries.id, rosterEntry.id));
+        }
+        await this.removePlaceholderUserIfUnused(transaction, unboundMembership.userId);
+
+        return {
+          group: toGroupSummary(group, unboundMembership.role, actor.isDeveloperAdmin),
+          status: 'claimed',
+        };
+      },
+      scope: 'organization_group_claim',
     });
   }
 
@@ -470,7 +531,44 @@ export class GroupService {
     input: UpdateGroupCodeRequest,
   ): Promise<GroupSummary> {
     try {
-      return await this.updateGroupCode(groupId, identity, input.groupCode);
+      return await runOrganizationMutation({
+        databaseClient: this.databaseClient,
+        identity,
+        operationId: input.operationId,
+        requestFingerprint: createOrganizationFingerprint({
+          expectedVersion: input.expectedVersion,
+          groupCode: input.groupCode,
+          groupId,
+        }),
+        run: async (transaction) => {
+          const authorization = await this.permissionService.requirePermission(
+            transaction,
+            identity,
+            groupId,
+            'updateGroupCode',
+          );
+          assertExpectedVersion({
+            actualVersion: authorization.group.version,
+            expectedVersion: input.expectedVersion,
+            id: authorization.group.id,
+            objectType: 'group',
+          });
+          await transaction
+            .update(groups)
+            .set({ groupCode: input.groupCode, version: sql`${groups.version} + 1` })
+            .where(eq(groups.id, authorization.group.id));
+          return {
+            ...toGroupSummary(
+              authorization.group,
+              authorization.membership.role,
+              authorization.user.isDeveloperAdmin,
+            ),
+            groupCode: input.groupCode,
+            version: authorization.group.version + 1,
+          };
+        },
+        scope: 'organization_group_code_update',
+      });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
         throw groupCodeConflict();
@@ -485,33 +583,55 @@ export class GroupService {
     groupId: string,
     input: UpdateGroupNameRequest,
   ): Promise<GroupSummary> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'updateGroupName',
-      );
-      await transaction
-        .update(groups)
-        .set({ name: input.name, version: sql`${groups.version} + 1` })
-        .where(eq(groups.id, authorization.group.id));
-
-      return {
-        groupCode: authorization.group.groupCode,
-        id: authorization.group.id,
-        ...(authorization.user.isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
         name: input.name,
-        role: authorization.membership.role,
-        version: authorization.group.version + 1,
-      };
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'updateGroupName',
+        );
+        assertExpectedVersion({
+          actualVersion: authorization.group.version,
+          expectedVersion: input.expectedVersion,
+          id: authorization.group.id,
+          objectType: 'group',
+        });
+        await transaction
+          .update(groups)
+          .set({ name: input.name, version: sql`${groups.version} + 1` })
+          .where(eq(groups.id, authorization.group.id));
+
+        return {
+          groupCode: authorization.group.groupCode,
+          id: authorization.group.id,
+          ...(authorization.user.isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
+          name: input.name,
+          role: authorization.membership.role,
+          version: authorization.group.version + 1,
+        };
+      },
+      scope: 'organization_group_name_update',
     });
   }
 
   public async listDissolved(identity: AuthenticatedIdentity): Promise<DissolvedGroup[]> {
     const user = await this.getActiveUser(identity);
     const rows = await this.databaseClient.database
-      .select({ deletedAt: groups.deletedAt, id: groups.id, name: groups.name })
+      .select({
+        deletedAt: groups.deletedAt,
+        id: groups.id,
+        name: groups.name,
+        version: groups.version,
+      })
       .from(groups)
       .where(
         and(
@@ -526,86 +646,104 @@ export class GroupService {
       deletedAt: row.deletedAt!.toISOString(),
       id: row.id,
       name: row.name,
+      version: row.version,
     }));
   }
 
-  public async restoreGroup(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
-    await withTransaction(this.databaseClient, async (transaction) => {
-      const user = await this.getActiveUserInTransaction(transaction, identity);
-      const [group] = await transaction
-        .select({ id: groups.id })
-        .from(groups)
-        .where(
-          and(
-            eq(groups.id, groupId),
-            ...(user.isDeveloperAdmin ? [] : [eq(groups.ownerUserId, user.id)]),
-            sql`${groups.deletedAt} is not null`,
-            sql`${groups.deletedAt} >= timestampadd(day, -30, current_timestamp(3))`,
-          ),
-        )
-        .limit(1)
-        .for('update');
-      if (group === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '群组不存在、不属于您或已超过恢复期限。',
+  public async restoreGroup(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: GroupVersionMutationRequest,
+  ): Promise<OrganizationMutationCompleted> {
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
+        groupId,
+      }),
+      run: async (transaction, actor) => {
+        const [group] = await transaction
+          .select({ id: groups.id, version: groups.version })
+          .from(groups)
+          .where(
+            and(
+              eq(groups.id, groupId),
+              ...(actor.isDeveloperAdmin ? [] : [eq(groups.ownerUserId, actor.id)]),
+              sql`${groups.deletedAt} is not null`,
+              sql`${groups.deletedAt} >= timestampadd(day, -30, current_timestamp(3))`,
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (group === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '群组不存在、不属于您或已超过恢复期限。',
+          });
+        }
+        assertExpectedVersion({
+          actualVersion: group.version,
+          expectedVersion: input.expectedVersion,
+          id: group.id,
+          objectType: 'group',
         });
-      }
 
-      await transaction
-        .update(groups)
-        .set({ deletedAt: null, version: sql`${groups.version} + 1` })
-        .where(eq(groups.id, group.id));
+        await transaction
+          .update(groups)
+          .set({ deletedAt: null, version: sql`${groups.version} + 1` })
+          .where(eq(groups.id, group.id));
+        return organizationMutationCompleted();
+      },
+      scope: 'organization_group_restore',
     });
   }
 
   private async createWithCode(
-    identity: AuthenticatedIdentity,
+    transaction: DatabaseTransaction,
+    actor: OrganizationMutationActor,
     name: string,
     groupCode: string,
   ): Promise<GroupSummary> {
     const groupId = randomUUID();
-
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const user = await this.getActiveUserInTransaction(transaction, identity);
-      await transaction.insert(groups).values({
-        groupCode,
-        id: groupId,
-        name,
-        ownerUserId: user.id,
-      });
+    await transaction.insert(groups).values({
+      groupCode,
+      id: groupId,
+      name,
+      ownerUserId: actor.id,
+    });
+    await transaction.insert(groupMemberships).values({
+      groupId,
+      id: randomUUID(),
+      role: 'owner',
+      userId: actor.id,
+    });
+    const developerAdmins = await transaction
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(eq(users.isDeveloperAdmin, 1), eq(users.status, 'active'), isNull(users.deletedAt)),
+      );
+    for (const developerAdmin of developerAdmins) {
+      if (developerAdmin.id === actor.id) {
+        continue;
+      }
       await transaction.insert(groupMemberships).values({
         groupId,
         id: randomUUID(),
-        role: 'owner',
-        userId: user.id,
+        role: 'administrator',
+        userId: developerAdmin.id,
       });
-      const developerAdmins = await transaction
-        .select({ id: users.id })
-        .from(users)
-        .where(
-          and(eq(users.isDeveloperAdmin, 1), eq(users.status, 'active'), isNull(users.deletedAt)),
-        );
-      for (const developerAdmin of developerAdmins) {
-        if (developerAdmin.id === user.id) {
-          continue;
-        }
-        await transaction.insert(groupMemberships).values({
-          groupId,
-          id: randomUUID(),
-          role: 'administrator',
-          userId: developerAdmin.id,
-        });
-      }
-      await createDefaultShiftTypes(transaction, groupId);
+    }
+    await createDefaultShiftTypes(transaction, groupId);
 
-      return toGroupSummary(
-        { groupCode, id: groupId, name, ownerUserId: user.id, version: 1 },
-        'owner',
-        user.isDeveloperAdmin,
-      );
-    });
+    return toGroupSummary(
+      { groupCode, id: groupId, name, ownerUserId: actor.id, version: 1 },
+      'owner',
+      actor.isDeveloperAdmin,
+    );
   }
 
   private async getActiveUser(identity: AuthenticatedIdentity): Promise<ActiveGroupUser> {
@@ -640,121 +778,6 @@ export class GroupService {
       isDeveloperAdmin: user.isDeveloperAdmin === 1,
       realName: user.realName,
     };
-  }
-
-  private async getActiveUserInTransaction(
-    transaction: DatabaseTransaction,
-    identity: AuthenticatedIdentity,
-  ): Promise<ActiveGroupUser> {
-    const [user] = await transaction
-      .select({
-        id: users.id,
-        isDeveloperAdmin: users.isDeveloperAdmin,
-        realName: userProfiles.realName,
-        status: users.status,
-      })
-      .from(users)
-      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-      .where(
-        and(
-          eq(users.cloudbaseUid, identity.cloudbaseUid),
-          isNull(users.deletedAt),
-          isNull(userProfiles.deletedAt),
-        ),
-      )
-      .limit(1)
-      .for('update');
-
-    if (user === undefined) {
-      throw new ApiError({
-        code: 'NOT_FOUND',
-        statusCode: 404,
-        userMessage: '当前账号尚未完成个人资料。',
-      });
-    }
-
-    if (user.status !== 'active') {
-      throw new ApiError({
-        code: 'FORBIDDEN',
-        statusCode: 403,
-        userMessage: '当前账号无法执行群组操作。',
-      });
-    }
-
-    return {
-      id: user.id,
-      isDeveloperAdmin: user.isDeveloperAdmin === 1,
-      realName: user.realName,
-    };
-  }
-
-  private async getOwnedGroup(
-    transaction: DatabaseTransaction,
-    groupId: string,
-    userId: string,
-  ): Promise<ActiveGroup> {
-    const [group] = await transaction
-      .select({
-        groupCode: groups.groupCode,
-        id: groups.id,
-        name: groups.name,
-        ownerUserId: groups.ownerUserId,
-        version: groups.version,
-      })
-      .from(groups)
-      .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
-      .limit(1)
-      .for('update');
-
-    if (group === undefined) {
-      throw new ApiError({
-        code: 'NOT_FOUND',
-        statusCode: 404,
-        userMessage: '群组不存在或不可用。',
-      });
-    }
-
-    if (group.ownerUserId !== userId) {
-      throw new ApiError({
-        code: 'FORBIDDEN',
-        statusCode: 403,
-        userMessage: '只有群主可以执行此操作。',
-      });
-    }
-
-    return group;
-  }
-
-  private async updateGroupCode(
-    groupId: string,
-    identity: AuthenticatedIdentity,
-    groupCode: string,
-  ): Promise<GroupSummary> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'updateGroupCode',
-      );
-      await transaction
-        .update(groups)
-        .set({
-          groupCode,
-          version: sql`${groups.version} + 1`,
-        })
-        .where(eq(groups.id, authorization.group.id));
-
-      return {
-        ...toGroupSummary(
-          authorization.group,
-          authorization.membership.role,
-          authorization.user.isDeveloperAdmin,
-        ),
-        groupCode,
-        version: authorization.group.version + 1,
-      };
-    });
   }
 }
 

@@ -50,6 +50,7 @@ export const organizationReadApiGoldenResponse = {
       deletedAt: '2026-08-20T08:00:00.000Z',
       id: 'group-old',
       name: '历史群组',
+      version: 4,
     },
   ] as const satisfies readonly DissolvedGroup[],
   groupCatalog: [
@@ -79,6 +80,7 @@ export const organizationReadApiGoldenResponse = {
       isCurrentUser: true,
       realName: '林医生',
       role: 'owner',
+      version: 3,
     },
     {
       id: 'roster-1',
@@ -87,6 +89,7 @@ export const organizationReadApiGoldenResponse = {
       isUnclaimed: true,
       realName: '陈医生',
       role: 'member',
+      version: 1,
     },
   ] as const satisfies readonly GroupMember[],
   platformAccounts: {

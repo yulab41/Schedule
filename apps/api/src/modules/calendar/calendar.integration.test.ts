@@ -58,6 +58,15 @@ describeWithDatabase('current month calendar read model', () => {
       databaseClient: client,
       logger: false,
     });
+    app.addHook('preValidation', (request, _reply, done) => {
+      if (
+        (request.method === 'POST' || request.method === 'PUT' || request.method === 'DELETE') &&
+        request.headers['idempotency-key'] === undefined
+      ) {
+        request.headers['idempotency-key'] = randomUUID();
+      }
+      done();
+    });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
     await registerUser('outsider-token', 'Outside Doctor');
@@ -176,6 +185,7 @@ describeWithDatabase('current month calendar read model', () => {
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
+        expectedVersion: 0,
         isConfirmed: true,
         mobilePhone: '13800138000',
         shortPhone: '12345',
@@ -225,7 +235,7 @@ describeWithDatabase('current month calendar read model', () => {
     const saved = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13900139000', shortPhone: '67890' },
+      payload: { expectedVersion: 0, mobilePhone: '13900139000', shortPhone: '67890' },
       url: `/groups/${groupId}/members/${candidateMembershipId}/contact`,
     });
     expect(saved.statusCode, saved.body).toBe(200);
@@ -233,7 +243,7 @@ describeWithDatabase('current month calendar read model', () => {
     const verified = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { isConfirmed: true },
+      payload: { expectedVersion: contactVersion, isConfirmed: true },
       url: `/groups/${groupId}/members/${candidateMembershipId}/contact`,
     });
     expect(verified.statusCode, verified.body).toBe(200);
@@ -295,6 +305,7 @@ describeWithDatabase('current month calendar read model', () => {
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
+        expectedVersion: 0,
         isConfirmed: true,
         mobilePhone: '13800138000',
         shortPhone: '12345',
@@ -307,6 +318,7 @@ describeWithDatabase('current month calendar read model', () => {
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
       payload: {
+        expectedVersion: 0,
         mobilePhone: '13900139000',
         shortPhone: '67890',
       },
@@ -589,7 +601,10 @@ describeWithDatabase('current month calendar read model', () => {
 
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',
@@ -608,7 +623,10 @@ describeWithDatabase('current month calendar read model', () => {
 
   async function addRosterEntry(targetGroupId: string, realName: string): Promise<void> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { realNames: [realName] },
       url: `/groups/${targetGroupId}/roster-entries`,
@@ -726,7 +744,7 @@ describeWithDatabase('current month calendar read model', () => {
     const unconfirmedContact = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13900139000', shortPhone: '67890' },
+      payload: { expectedVersion: 0, mobilePhone: '13900139000', shortPhone: '67890' },
       url: `/groups/${groupId}/members/${candidateMembershipId}/contact`,
     });
     expect(unconfirmedContact.statusCode).toBe(200);

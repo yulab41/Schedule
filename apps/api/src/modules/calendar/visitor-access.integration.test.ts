@@ -45,6 +45,15 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
       platformAdminUids: new Set(['cloudbase-platform']),
       wechatGateway: qrGateway,
     });
+    app.addHook('preValidation', (request, _reply, done) => {
+      if (
+        (request.method === 'POST' || request.method === 'PUT' || request.method === 'DELETE') &&
+        request.headers['idempotency-key'] === undefined
+      ) {
+        request.headers['idempotency-key'] = randomUUID();
+      }
+      done();
+    });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('admin-token', 'Admin Doctor');
     await registerUser('member-token', 'Member Doctor');
@@ -61,12 +70,14 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     const members = (await listMembers(groupId)).json() as readonly {
       readonly id: string;
       readonly realName: string;
+      readonly version: number;
     }[];
-    adminMembershipId = members.find((member) => member.realName === 'Admin Doctor')?.id as string;
+    const admin = members.find((member) => member.realName === 'Admin Doctor');
+    adminMembershipId = admin?.id as string;
     const role = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { role: 'administrator' },
+      payload: { expectedVersion: admin?.version, role: 'administrator' },
       url: `/groups/${groupId}/members/${adminMembershipId}/role`,
     });
     expect(role.statusCode, role.body).toBe(200);
@@ -347,7 +358,10 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
 
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',
@@ -361,7 +375,10 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
     realNames: readonly string[],
   ): Promise<void> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { realNames: [...realNames] },
       url: `/groups/${targetGroupId}/roster-entries`,

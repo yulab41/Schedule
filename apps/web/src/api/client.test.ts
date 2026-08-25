@@ -135,7 +135,10 @@ const groupMember: GroupMember = {
   isCurrentUser: true,
   realName: '张医生',
   role: 'owner',
+  version: 1,
 };
+
+const organizationOperationId = '11111111-1111-4111-8111-111111111111';
 
 const groupMemberContact: GroupMemberContact = {
   isConfirmed: false,
@@ -859,12 +862,24 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.createGroup({ groupCode: '1234', name: 'Emergency Department' }),
+      client.createGroup({
+        groupCode: '1234',
+        name: 'Emergency Department',
+        operationId: organizationOperationId,
+      }),
     ).resolves.toEqual(group);
-    await expect(client.claimGroup({ groupCode: '1234' })).resolves.toEqual({
+    await expect(
+      client.claimGroup({ groupCode: '1234', operationId: organizationOperationId }),
+    ).resolves.toEqual({
       status: 'request_created',
     });
-    await expect(client.updateGroupCode(group.id, { groupCode: '5678' })).resolves.toEqual({
+    await expect(
+      client.updateGroupCode(group.id, {
+        expectedVersion: group.version,
+        groupCode: '5678',
+        operationId: organizationOperationId,
+      }),
+    ).resolves.toEqual({
       ...group,
       groupCode: '9876',
       version: 2,
@@ -874,7 +889,11 @@ describe('Web API client', () => {
       1,
       '/api/groups',
       expect.objectContaining({
-        body: JSON.stringify({ groupCode: '1234', name: 'Emergency Department' }),
+        body: JSON.stringify({
+          groupCode: '1234',
+          name: 'Emergency Department',
+          operationId: organizationOperationId,
+        }),
         method: 'POST',
       }),
     );
@@ -882,14 +901,21 @@ describe('Web API client', () => {
       2,
       '/api/groups/claim',
       expect.objectContaining({
-        body: JSON.stringify({ groupCode: '1234' }),
+        body: JSON.stringify({ groupCode: '1234', operationId: organizationOperationId }),
         method: 'POST',
       }),
     );
     expect(fetchImplementation).toHaveBeenNthCalledWith(
       3,
       '/api/groups/group-1/group-code',
-      expect.objectContaining({ body: JSON.stringify({ groupCode: '5678' }), method: 'PUT' }),
+      expect.objectContaining({
+        body: JSON.stringify({
+          expectedVersion: group.version,
+          groupCode: '5678',
+          operationId: organizationOperationId,
+        }),
+        method: 'PUT',
+      }),
     );
   });
 
@@ -904,7 +930,12 @@ describe('Web API client', () => {
       version: 1,
     };
     const dissolved: DissolvedGroup[] = [
-      { deletedAt: '2026-08-08T00:00:00.000Z', id: 'group-1', name: 'Emergency Department' },
+      {
+        deletedAt: '2026-08-08T00:00:00.000Z',
+        id: 'group-1',
+        name: 'Emergency Department',
+        version: 2,
+      },
     ];
     const guestCalendar: GuestCalendarReadModel = {
       calendar,
@@ -925,13 +956,26 @@ describe('Web API client', () => {
     });
 
     await expect(client.listGroupCatalog()).resolves.toEqual(catalog);
-    await expect(client.joinGroupAsGuest('group-1')).resolves.toEqual(guestGroup);
-    await expect(client.leaveGroup('group-1')).resolves.toBeUndefined();
-    await expect(client.updateGroupName('group-1', { name: 'Renamed group' })).resolves.toEqual(
-      group,
-    );
+    await expect(
+      client.joinGroupAsGuest('group-1', { operationId: organizationOperationId }),
+    ).resolves.toEqual(guestGroup);
+    await expect(
+      client.leaveGroup('group-1', { operationId: organizationOperationId }),
+    ).resolves.toBeUndefined();
+    await expect(
+      client.updateGroupName('group-1', {
+        expectedVersion: group.version,
+        name: 'Renamed group',
+        operationId: organizationOperationId,
+      }),
+    ).resolves.toEqual(group);
     await expect(client.listDissolvedGroups()).resolves.toEqual(dissolved);
-    await expect(client.restoreGroup('group-1')).resolves.toBeUndefined();
+    await expect(
+      client.restoreGroup('group-1', {
+        expectedVersion: dissolved[0]!.version,
+        operationId: organizationOperationId,
+      }),
+    ).resolves.toBeUndefined();
     await expect(client.getGroupGuestCalendar('group-1', '2026-08')).resolves.toEqual(
       guestCalendar,
     );
@@ -955,7 +999,11 @@ describe('Web API client', () => {
       4,
       '/api/groups/group-1/name',
       expect.objectContaining({
-        body: JSON.stringify({ name: 'Renamed group' }),
+        body: JSON.stringify({
+          expectedVersion: group.version,
+          name: 'Renamed group',
+          operationId: organizationOperationId,
+        }),
         method: 'PUT',
       }),
     );
@@ -1186,7 +1234,10 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.addRosterEntries(group.id, { realNames: ['张医生'] }),
+      client.addRosterEntries(group.id, {
+        operationId: organizationOperationId,
+        realNames: ['张医生'],
+      }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
@@ -1205,7 +1256,10 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.convertRosterEntries(group.id, { realNames: ['张医生'] }),
+      client.convertRosterEntries(group.id, {
+        operationId: organizationOperationId,
+        realNames: ['张医生'],
+      }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
@@ -1222,7 +1276,7 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.claimGroup({ groupCode: '1234', realName: '张医生' }),
+      client.claimGroup({ groupCode: '1234', operationId: organizationOperationId }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
@@ -1265,7 +1319,10 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.approveMembershipClaimRequest(group.id, membershipClaimRequest.id),
+      client.approveMembershipClaimRequest(group.id, membershipClaimRequest.id, {
+        expectedVersion: membershipClaimRequest.version,
+        operationId: organizationOperationId,
+      }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
@@ -1299,7 +1356,11 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.createMembershipClaimRequest(group.id, { membershipId: 'membership-2' }),
+      client.createMembershipClaimRequest(group.id, {
+        expectedMemberVersion: 1,
+        membershipId: 'membership-2',
+        operationId: organizationOperationId,
+      }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
@@ -1316,7 +1377,11 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.createMembershipClaimRequest(group.id, { membershipId: 'membership-2' }),
+      client.createMembershipClaimRequest(group.id, {
+        expectedMemberVersion: 1,
+        membershipId: 'membership-2',
+        operationId: organizationOperationId,
+      }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 200,
@@ -3770,7 +3835,11 @@ describe('Web API client', () => {
     });
 
     await expect(
-      client.createGroup({ groupCode: '1234', name: 'Emergency Department' }),
+      client.createGroup({
+        groupCode: '1234',
+        name: 'Emergency Department',
+        operationId: organizationOperationId,
+      }),
     ).rejects.toMatchObject({
       code: 'OFFLINE',
       message: expect.stringContaining('提交已暂停') as string,

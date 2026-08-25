@@ -96,6 +96,7 @@ function member(id: string, isCurrentUser: boolean): GroupMember {
     isCurrentUser,
     realName: '同名成员',
     role: 'member',
+    version: 1,
   };
 }
 

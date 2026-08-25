@@ -5,6 +5,11 @@ import {
   type ClaimGroupRequest,
   type ConvertPendingRosterRequest,
   type CreateGroupRequest,
+  type CreateMembershipClaimRequest,
+  type GroupMemberVersionMutationRequest,
+  type GroupVersionMutationRequest,
+  type MembershipClaimDecisionRequest,
+  type OrganizationOperationRequest,
   type TransferGroupOwnershipRequest,
   type UpdateGroupCodeRequest,
   type UpdateGroupMemberContactRequest,
@@ -28,28 +33,34 @@ const groupCodeSchema = z.string().regex(/^\d{4}$/);
 const groupIdSchema = z.string().uuid();
 const groupNameSchema = z.string().trim().min(1).max(100);
 const realNameSchema = z.string().trim().min(1).max(100);
+const operationIdSchema = z.string().uuid().optional();
+const expectedVersionSchema = z.number().int().min(1);
 
 const createGroupInputSchema = z
   .object({
     groupCode: groupCodeSchema,
     name: groupNameSchema,
+    operationId: operationIdSchema,
   })
   .strict();
 
 const rosterEntriesInputSchema = z
   .object({
+    operationId: operationIdSchema,
     realNames: z.array(realNameSchema).min(1).max(500),
   })
   .strict();
 
 const convertRosterEntriesInputSchema = z
   .object({
+    operationId: operationIdSchema,
     realNames: z.array(realNameSchema).min(1).max(500),
   })
   .strict();
 
 const addGroupMembersInputSchema = z
   .object({
+    operationId: operationIdSchema,
     realNames: z.array(realNameSchema).min(1).max(100),
   })
   .strict();
@@ -57,18 +68,23 @@ const addGroupMembersInputSchema = z
 const claimGroupInputSchema = z
   .object({
     groupCode: groupCodeSchema,
+    operationId: operationIdSchema,
   })
   .strict();
 
 const updateGroupCodeInputSchema = z
   .object({
+    expectedVersion: expectedVersionSchema,
     groupCode: groupCodeSchema,
+    operationId: operationIdSchema,
   })
   .strict();
 
 const updateGroupNameInputSchema = z
   .object({
+    expectedVersion: expectedVersionSchema,
     name: groupNameSchema,
+    operationId: operationIdSchema,
   })
   .strict();
 
@@ -79,13 +95,18 @@ const phoneSchema = z.string().trim().min(1).max(32);
 
 const updateMemberRoleInputSchema = z
   .object({
+    expectedVersion: expectedVersionSchema,
+    operationId: operationIdSchema,
     role: membershipRoleSchema,
   })
   .strict();
 
 const transferOwnershipInputSchema = z
   .object({
+    expectedGroupVersion: expectedVersionSchema,
+    expectedMemberVersion: expectedVersionSchema,
     membershipId: membershipIdSchema,
+    operationId: operationIdSchema,
   })
   .strict();
 
@@ -97,14 +118,18 @@ const claimLookupInputSchema = z
 
 const createMembershipClaimInputSchema = z
   .object({
+    expectedMemberVersion: expectedVersionSchema,
     membershipId: membershipIdSchema,
+    operationId: operationIdSchema,
   })
   .strict();
 
 const updateContactInputSchema = z
   .object({
+    expectedVersion: z.number().int().min(0),
     isConfirmed: z.boolean().optional(),
     mobilePhone: phoneSchema.nullable().optional(),
+    operationId: operationIdSchema,
     shortPhone: phoneSchema.nullable().optional(),
   })
   .strict()
@@ -114,6 +139,10 @@ const updateContactInputSchema = z
       input.mobilePhone !== undefined ||
       input.shortPhone !== undefined,
   );
+const organizationOperationInputSchema = z.object({ operationId: operationIdSchema }).strict();
+const versionMutationInputSchema = z
+  .object({ expectedVersion: expectedVersionSchema, operationId: operationIdSchema })
+  .strict();
 const visitorLogsQuerySchema = z
   .object({
     cursor: z.string().min(1).max(100).optional(),
@@ -141,7 +170,7 @@ export function registerGroupRoutes(
   app.post('/groups', { preHandler: app.authenticate }, async (request, reply) => {
     const group = await groupService.create(
       getAuthenticatedIdentity(request),
-      parseCreateGroupInput(request.body),
+      parseCreateGroupInput(request),
     );
 
     return reply.code(201).send(group);
@@ -150,7 +179,7 @@ export function registerGroupRoutes(
   app.post('/groups/claim', { preHandler: app.authenticate }, async (request, reply) => {
     const result = await groupService.claim(
       getAuthenticatedIdentity(request),
-      parseClaimGroupInput(request.body),
+      parseClaimGroupInput(request),
     );
 
     return reply.code(result.status === 'claimed' ? 201 : 202).send(result);
@@ -171,13 +200,18 @@ export function registerGroupRoutes(
       const group = await membershipService.joinAsGuest(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
+        parseOrganizationOperationInput(request),
       );
       return reply.code(201).send(group);
     },
   );
 
   app.post('/groups/:groupId/leave', { preHandler: app.authenticate }, async (request, reply) => {
-    await membershipService.leaveGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+    await membershipService.leaveGroup(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseOrganizationOperationInput(request),
+    );
     return reply.code(204).send();
   });
 
@@ -200,7 +234,7 @@ export function registerGroupRoutes(
       const result = await membershipService.createClaimRequest(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
-        parseCreateMembershipClaimInput(request.body),
+        parseCreateMembershipClaimInput(request),
       );
       return reply.code(result.direct ? 201 : 202).send(result);
     },
@@ -218,6 +252,7 @@ export function registerGroupRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseClaimRequestId(request),
+        parseClaimDecisionInput(request),
       ),
   );
 
@@ -229,29 +264,34 @@ export function registerGroupRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseClaimRequestId(request),
+        parseClaimDecisionInput(request),
       ),
   );
 
   app.post(
     '/groups/:groupId/members/:membershipId/revoke-claim',
     { preHandler: app.authenticate },
-    (request) =>
-      membershipService.revokeClaim(
+    async (request) => {
+      await membershipService.revokeClaim(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseMembershipId(request),
-      ),
+        parseMemberVersionMutationInput(request),
+      );
+    },
   );
 
   app.delete(
     '/groups/:groupId/members/:membershipId',
     { preHandler: app.authenticate },
-    async (request) =>
-      membershipService.deleteMember(
+    async (request) => {
+      await membershipService.deleteMember(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseMembershipId(request),
-      ),
+        parseMemberVersionMutationInput(request),
+      );
+    },
   );
 
   app.get('/groups/:groupId/contacts', { preHandler: app.authenticate }, async (request) =>
@@ -272,7 +312,7 @@ export function registerGroupRoutes(
     groupService.addRosterEntries(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
-      parseRosterEntriesInput(request.body),
+      parseRosterEntriesInput(request),
     ),
   );
 
@@ -283,7 +323,7 @@ export function registerGroupRoutes(
       groupService.convertRosterEntries(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
-        parseConvertRosterEntriesInput(request.body),
+        parseConvertRosterEntriesInput(request),
       ),
   );
 
@@ -291,7 +331,7 @@ export function registerGroupRoutes(
     groupService.addGroupMembers(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
-      parseAddGroupMembersInput(request.body),
+      parseAddGroupMembersInput(request),
     ),
   );
 
@@ -299,7 +339,7 @@ export function registerGroupRoutes(
     groupService.updateCode(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
-      parseUpdateGroupCodeInput(request.body),
+      parseUpdateGroupCodeInput(request),
     ),
   );
 
@@ -356,7 +396,7 @@ export function registerGroupRoutes(
     groupService.updateName(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
-      parseUpdateGroupNameInput(request.body),
+      parseUpdateGroupNameInput(request),
     ),
   );
 
@@ -372,7 +412,7 @@ export function registerGroupRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseMembershipId(request),
-        parseUpdateMemberRoleInput(request.body),
+        parseUpdateMemberRoleInput(request),
       ),
   );
 
@@ -384,7 +424,7 @@ export function registerGroupRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseMembershipId(request),
-        parseUpdateMemberNameInput(request.body),
+        parseUpdateMemberNameInput(request),
       ),
   );
 
@@ -392,7 +432,7 @@ export function registerGroupRoutes(
     membershipService.transferOwnership(
       getAuthenticatedIdentity(request),
       parseGroupId(request),
-      parseTransferOwnershipInput(request.body),
+      parseTransferOwnershipInput(request),
     ),
   );
 
@@ -404,7 +444,7 @@ export function registerGroupRoutes(
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseMembershipId(request),
-        parseUpdateContactInput(request.body),
+        parseUpdateContactInput(request),
       ),
   );
 
@@ -423,12 +463,20 @@ export function registerGroupRoutes(
   );
 
   app.delete('/groups/:groupId', { preHandler: app.authenticate }, async (request, reply) => {
-    await membershipService.deleteGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+    await membershipService.deleteGroup(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseGroupVersionMutationInput(request),
+    );
     return reply.code(204).send();
   });
 
   app.post('/groups/:groupId/restore', { preHandler: app.authenticate }, async (request, reply) => {
-    await groupService.restoreGroup(getAuthenticatedIdentity(request), parseGroupId(request));
+    await groupService.restoreGroup(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseGroupVersionMutationInput(request),
+    );
     return reply.code(204).send();
   });
 }
@@ -445,66 +493,35 @@ function getAuthenticatedIdentity(request: FastifyRequest) {
   return request.authenticatedIdentity;
 }
 
-function parseCreateGroupInput(value: unknown): CreateGroupRequest {
-  const result = createGroupInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseCreateGroupInput(request: FastifyRequest): CreateGroupRequest {
+  return parseDangerousBody(request, createGroupInputSchema) as CreateGroupRequest;
 }
 
-function parseRosterEntriesInput(value: unknown): AddRosterEntriesRequest {
-  const result = rosterEntriesInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseRosterEntriesInput(request: FastifyRequest): AddRosterEntriesRequest {
+  return parseDangerousBody(request, rosterEntriesInputSchema) as AddRosterEntriesRequest;
 }
 
-function parseConvertRosterEntriesInput(value: unknown): ConvertPendingRosterRequest {
-  const result = convertRosterEntriesInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseConvertRosterEntriesInput(request: FastifyRequest): ConvertPendingRosterRequest {
+  return parseDangerousBody(
+    request,
+    convertRosterEntriesInputSchema,
+  ) as ConvertPendingRosterRequest;
 }
 
-function parseAddGroupMembersInput(value: unknown): AddGroupMembersRequest {
-  const result = addGroupMembersInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseAddGroupMembersInput(request: FastifyRequest): AddGroupMembersRequest {
+  return parseDangerousBody(request, addGroupMembersInputSchema) as AddGroupMembersRequest;
 }
 
-function parseClaimGroupInput(value: unknown): ClaimGroupRequest {
-  const result = claimGroupInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseClaimGroupInput(request: FastifyRequest): ClaimGroupRequest {
+  return parseDangerousBody(request, claimGroupInputSchema) as ClaimGroupRequest;
 }
 
-function parseUpdateGroupCodeInput(value: unknown): UpdateGroupCodeRequest {
-  const result = updateGroupCodeInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseUpdateGroupCodeInput(request: FastifyRequest): UpdateGroupCodeRequest {
+  return parseDangerousBody(request, updateGroupCodeInputSchema) as UpdateGroupCodeRequest;
 }
 
-function parseUpdateGroupNameInput(value: unknown): UpdateGroupNameRequest {
-  const result = updateGroupNameInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-  return result.data;
+function parseUpdateGroupNameInput(request: FastifyRequest): UpdateGroupNameRequest {
+  return parseDangerousBody(request, updateGroupNameInputSchema) as UpdateGroupNameRequest;
 }
 
 function parseGroupId(request: FastifyRequest): string {
@@ -527,22 +544,12 @@ function parseMembershipId(request: FastifyRequest): string {
   return result.data;
 }
 
-function parseUpdateMemberRoleInput(value: unknown): UpdateGroupMemberRoleRequest {
-  const result = updateMemberRoleInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseUpdateMemberRoleInput(request: FastifyRequest): UpdateGroupMemberRoleRequest {
+  return parseDangerousBody(request, updateMemberRoleInputSchema) as UpdateGroupMemberRoleRequest;
 }
 
-function parseTransferOwnershipInput(value: unknown): TransferGroupOwnershipRequest {
-  const result = transferOwnershipInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseTransferOwnershipInput(request: FastifyRequest): TransferGroupOwnershipRequest {
+  return parseDangerousBody(request, transferOwnershipInputSchema) as TransferGroupOwnershipRequest;
 }
 
 function parseClaimLookupInput(value: unknown): { readonly realName: string } {
@@ -554,15 +561,11 @@ function parseClaimLookupInput(value: unknown): { readonly realName: string } {
   return result.data;
 }
 
-function parseCreateMembershipClaimInput(value: unknown): {
-  readonly membershipId: string;
-} {
-  const result = createMembershipClaimInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return result.data;
+function parseCreateMembershipClaimInput(request: FastifyRequest): CreateMembershipClaimRequest {
+  return parseDangerousBody(
+    request,
+    createMembershipClaimInputSchema,
+  ) as CreateMembershipClaimRequest;
 }
 
 function parseClaimRequestId(request: FastifyRequest): string {
@@ -576,17 +579,8 @@ function parseClaimRequestId(request: FastifyRequest): string {
   return result.data;
 }
 
-function parseUpdateContactInput(value: unknown): UpdateGroupMemberContactRequest {
-  const result = updateContactInputSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-
-  return {
-    ...(result.data.isConfirmed === undefined ? {} : { isConfirmed: result.data.isConfirmed }),
-    ...(result.data.mobilePhone === undefined ? {} : { mobilePhone: result.data.mobilePhone }),
-    ...(result.data.shortPhone === undefined ? {} : { shortPhone: result.data.shortPhone }),
-  };
+function parseUpdateContactInput(request: FastifyRequest): UpdateGroupMemberContactRequest {
+  return parseDangerousBody(request, updateContactInputSchema) as UpdateGroupMemberContactRequest;
 }
 
 function parseMobilePhoneConsentInput(value: unknown): UpdateGroupMobilePhoneConsentRequest {
@@ -597,12 +591,56 @@ function parseMobilePhoneConsentInput(value: unknown): UpdateGroupMobilePhoneCon
   return result.data;
 }
 
-function parseUpdateMemberNameInput(value: unknown): UpdateGroupMemberNameRequest {
-  const result = z.object({ realName: realNameSchema }).strict().safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-  return result.data;
+function parseUpdateMemberNameInput(request: FastifyRequest): UpdateGroupMemberNameRequest {
+  return parseDangerousBody(
+    request,
+    z
+      .object({
+        expectedVersion: expectedVersionSchema,
+        operationId: operationIdSchema,
+        realName: realNameSchema,
+      })
+      .strict(),
+  ) as UpdateGroupMemberNameRequest;
+}
+
+function parseOrganizationOperationInput(request: FastifyRequest): OrganizationOperationRequest {
+  return parseDangerousBody(
+    request,
+    organizationOperationInputSchema,
+  ) as OrganizationOperationRequest;
+}
+
+function parseGroupVersionMutationInput(request: FastifyRequest): GroupVersionMutationRequest {
+  return parseDangerousBody(request, versionMutationInputSchema) as GroupVersionMutationRequest;
+}
+
+function parseMemberVersionMutationInput(
+  request: FastifyRequest,
+): GroupMemberVersionMutationRequest {
+  return parseDangerousBody(
+    request,
+    versionMutationInputSchema,
+  ) as GroupMemberVersionMutationRequest;
+}
+
+function parseClaimDecisionInput(request: FastifyRequest): MembershipClaimDecisionRequest {
+  return parseDangerousBody(request, versionMutationInputSchema) as MembershipClaimDecisionRequest;
+}
+
+function parseDangerousBody<Parsed extends { readonly operationId?: string | undefined }>(
+  request: FastifyRequest,
+  schema: z.ZodType<Parsed>,
+): Parsed & { readonly operationId: string } {
+  const result = schema.safeParse(request.body ?? {});
+  if (!result.success) throwValidationError();
+  return {
+    ...result.data,
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      result.data.operationId,
+    ),
+  };
 }
 
 function throwValidationError(): never {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -11,7 +12,7 @@ import {
   type DatabaseConnectionOptions,
 } from '@schedule/database';
 import { insertDirectMembership } from '@schedule/test-fixtures';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { AuthPort } from '../../adapters/auth/auth-port.js';
@@ -41,6 +42,15 @@ describeWithDatabase('groups and roster claiming', () => {
       databaseClient: client,
       logger: false,
     });
+    app.addHook('preValidation', (request, _reply, done) => {
+      if (
+        (request.method === 'POST' || request.method === 'PUT' || request.method === 'DELETE') &&
+        request.headers['idempotency-key'] === undefined
+      ) {
+        request.headers['idempotency-key'] = randomUUID();
+      }
+      done();
+    });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('other-owner-token', 'Other Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
@@ -66,11 +76,11 @@ describeWithDatabase('groups and roster claiming', () => {
       const [first, second] = await Promise.allSettled([
         new GroupService(firstClient).create(
           { cloudbaseUid: 'cloudbase-owner' },
-          { groupCode: '1234', name: 'Concurrent group one' },
+          { groupCode: '1234', name: 'Concurrent group one', operationId: randomUUID() },
         ),
         new GroupService(secondClient).create(
           { cloudbaseUid: 'cloudbase-other-owner' },
-          { groupCode: '1234', name: 'Concurrent group two' },
+          { groupCode: '1234', name: 'Concurrent group two', operationId: randomUUID() },
         ),
       ]);
 
@@ -89,10 +99,125 @@ describeWithDatabase('groups and roster claiming', () => {
       .select({ role: groupMemberships.role })
       .from(groupMemberships)
       .innerJoin(groups, eq(groups.id, groupMemberships.groupId))
-      .where(eq(groups.groupCode, '1234'));
+      .where(and(eq(groups.groupCode, '1234'), eq(groupMemberships.userId, groups.ownerUserId)));
 
     expect(storedGroup).toEqual({ groupCode: '1234', name: expect.stringContaining('Concurrent') });
     expect(ownerMembership).toEqual({ role: 'owner' });
+  });
+
+  it('replays group and roster writes while rejecting changed fingerprints and stale versions', async () => {
+    const createOperationId = randomUUID();
+    const createPayload = {
+      groupCode: '1357',
+      name: 'Idempotent group',
+      operationId: createOperationId,
+    };
+    const firstCreate = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': createOperationId,
+      },
+      method: 'POST',
+      payload: createPayload,
+      url: '/groups',
+    });
+    const replayCreate = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': createOperationId,
+      },
+      method: 'POST',
+      payload: createPayload,
+      url: '/groups',
+    });
+    const changedCreate = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': createOperationId,
+      },
+      method: 'POST',
+      payload: { ...createPayload, name: 'Changed group' },
+      url: '/groups',
+    });
+    expect(firstCreate.statusCode, firstCreate.body).toBe(201);
+    expect(replayCreate.statusCode, replayCreate.body).toBe(201);
+    expect(replayCreate.json()).toEqual(firstCreate.json());
+    expect(changedCreate.statusCode).toBe(409);
+
+    const group = firstCreate.json() as { id: string; version: number };
+    const rosterOperationId = randomUUID();
+    const rosterPayload = { operationId: rosterOperationId, realNames: ['Replay Doctor'] };
+    const firstRoster = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': rosterOperationId,
+      },
+      method: 'POST',
+      payload: rosterPayload,
+      url: `/groups/${group.id}/roster-entries`,
+    });
+    const replayRoster = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': rosterOperationId,
+      },
+      method: 'POST',
+      payload: rosterPayload,
+      url: `/groups/${group.id}/roster-entries`,
+    });
+    expect(firstRoster.statusCode, firstRoster.body).toBe(200);
+    expect(replayRoster.json()).toEqual(firstRoster.json());
+
+    const renameOperationId = randomUUID();
+    const renamePayload = {
+      expectedVersion: group.version,
+      name: 'Idempotent group renamed',
+      operationId: renameOperationId,
+    };
+    const renamed = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': renameOperationId,
+      },
+      method: 'PUT',
+      payload: renamePayload,
+      url: `/groups/${group.id}/name`,
+    });
+    const renameReplay = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': renameOperationId,
+      },
+      method: 'PUT',
+      payload: renamePayload,
+      url: `/groups/${group.id}/name`,
+    });
+    const staleOperationId = randomUUID();
+    const staleRename = await app.inject({
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': staleOperationId,
+      },
+      method: 'PUT',
+      payload: {
+        expectedVersion: group.version,
+        name: 'Stale rename',
+        operationId: staleOperationId,
+      },
+      url: `/groups/${group.id}/name`,
+    });
+    expect(renamed.statusCode, renamed.body).toBe(200);
+    expect(renameReplay.json()).toEqual(renamed.json());
+    expect(staleRename.statusCode).toBe(409);
+    expect(staleRename.json()).toMatchObject({
+      error: { latestData: { id: group.id, objectType: 'group', version: group.version + 1 } },
+    });
+
+    const [counts] = await client.database.execute<{ count: number }>(
+      sql`SELECT COUNT(*) AS count FROM roster_entries
+          WHERE group_id = ${group.id} AND real_name = 'Replay Doctor'`,
+    );
+    expect(counts).toEqual([{ count: 1 }]);
   });
 
   it('requires a manually supplied group code and only binds a matching pre-set member', async () => {
@@ -215,7 +340,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const contact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13900000000' },
+      payload: { expectedVersion: 0, shortPhone: '6601' },
       url: `/groups/${groupId}/members/${convertedRow?.id}/contact`,
     });
     expect(contact.statusCode).toBe(200);
@@ -256,6 +381,7 @@ describeWithDatabase('groups and roster claiming', () => {
       readonly isPendingRoster?: boolean;
       readonly realName: string;
       readonly role: string;
+      readonly version: number;
     }[];
     const outsider = rows.find((row) => row.realName === 'Outsider Doctor');
     const owner = rows.find((row) => row.role === 'owner');
@@ -265,7 +391,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const contact = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { mobilePhone: '13700000000' },
+      payload: { expectedVersion: 0, shortPhone: '6602' },
       url: `/groups/${groupId}/members/${outsider?.id}/contact`,
     });
     expect(contact.statusCode).toBe(200);
@@ -286,6 +412,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const memberForbidden = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'DELETE',
+      payload: { expectedVersion: 1 },
       url: `/groups/${groupId}/members/00000000-0000-4000-8000-000000000004`,
     });
     expect(memberForbidden.statusCode).toBe(403);
@@ -293,6 +420,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const deletedRoster = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: { expectedVersion: 1 },
       url: `/groups/${groupId}/members/00000000-0000-4000-8000-000000000004`,
     });
     expect(deletedRoster.statusCode).toBe(200);
@@ -300,6 +428,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const deletedMember = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: { expectedVersion: outsider?.version },
       url: `/groups/${groupId}/members/${outsider?.id}`,
     });
     expect(deletedMember.statusCode).toBe(200);
@@ -307,6 +436,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const ownerBlocked = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: { expectedVersion: owner?.version },
       url: `/groups/${groupId}/members/${owner?.id}`,
     });
     expect(ownerBlocked.statusCode).toBe(409);
@@ -340,13 +470,14 @@ describeWithDatabase('groups and roster claiming', () => {
 
   it('invalidates the previous code immediately when the owner regenerates it', async () => {
     const group = await createGroup('Code rotation group', '5678');
-    const groupId = (group.json() as { id: string }).id;
+    const groupSnapshot = group.json() as { id: string; version: number };
+    const groupId = groupSnapshot.id;
     await addRosterEntry(groupId, 'Candidate Doctor');
 
     const regenerated = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { groupCode: '6789' },
+      payload: { expectedVersion: groupSnapshot.version, groupCode: '6789' },
       url: `/groups/${groupId}/group-code`,
     });
     const oldCodeClaim = await app.inject({
@@ -371,7 +502,7 @@ describeWithDatabase('groups and roster claiming', () => {
     await expect(
       service.create(
         { cloudbaseUid: 'cloudbase-owner' },
-        { groupCode: '7890', name: 'Blocked group' },
+        { groupCode: '7890', name: 'Blocked group', operationId: randomUUID() },
       ),
     ).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
 
@@ -449,7 +580,8 @@ describeWithDatabase('groups and roster claiming', () => {
 
   it('rejects owner leave and non-owner group name changes', async () => {
     const group = await createGroup('Owner group', '4567');
-    const groupId = (group.json() as { id: string }).id;
+    const groupSnapshot = group.json() as { id: string; version: number };
+    const groupId = groupSnapshot.id;
 
     const ownerLeave = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
@@ -461,7 +593,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const outsiderRename = await app.inject({
       headers: { authorization: 'Bearer other-owner-token' },
       method: 'PUT',
-      payload: { name: 'Renamed by outsider' },
+      payload: { expectedVersion: groupSnapshot.version, name: 'Renamed by outsider' },
       url: `/groups/${groupId}/name`,
     });
     expect(outsiderRename.statusCode).toBe(403);
@@ -469,7 +601,7 @@ describeWithDatabase('groups and roster claiming', () => {
     const ownerRename = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { name: 'Renamed group' },
+      payload: { expectedVersion: groupSnapshot.version, name: 'Renamed group' },
       url: `/groups/${groupId}/name`,
     });
     expect(ownerRename.statusCode).toBe(200);
@@ -478,11 +610,13 @@ describeWithDatabase('groups and roster claiming', () => {
 
   it('supports dissolve and restore by the owner', async () => {
     const group = await createGroup('Dissolve group', '5678');
-    const groupId = (group.json() as { id: string }).id;
+    const groupSnapshot = group.json() as { id: string; version: number };
+    const groupId = groupSnapshot.id;
 
     const dissolve = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: { expectedVersion: groupSnapshot.version },
       url: `/groups/${groupId}`,
     });
     expect(dissolve.statusCode).toBe(204);
@@ -494,10 +628,12 @@ describeWithDatabase('groups and roster claiming', () => {
     });
     expect(dissolved.statusCode).toBe(200);
     expect(dissolved.json()).toHaveLength(1);
+    const dissolvedGroup = (dissolved.json() as Array<{ version: number }>)[0]!;
 
     const restore = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
+      payload: { expectedVersion: dissolvedGroup.version },
       url: `/groups/${groupId}/restore`,
     });
     expect(restore.statusCode).toBe(204);

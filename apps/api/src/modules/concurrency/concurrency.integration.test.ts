@@ -137,7 +137,7 @@ describeWithDatabase('optimistic concurrency protection', () => {
     expect(publishEvents).toEqual([{ count: 1 }]);
   });
 
-  it('returns the latest profile version to a losing concurrent profile update', async () => {
+  it('rejects concurrent self profile updates after names became administrator-managed', async () => {
     const body = { realName: 'Owner Doctor', version: 1 };
     const responses = await Promise.all([
       app.inject({
@@ -154,18 +154,13 @@ describeWithDatabase('optimistic concurrency protection', () => {
       }),
     ]);
     const statuses = responses.map((response) => response.statusCode).sort();
-    expect(statuses).toEqual([200, 409]);
-
-    const losing = responses.find((response) => response.statusCode === 409);
-    expect(losing?.json()).toMatchObject({
-      error: {
-        code: 'CONFLICT',
-        latestData: {
-          objectType: 'user_profile',
-          version: 2,
-        },
-      },
+    expect(statuses).toEqual([403, 403]);
+    const current = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'GET',
+      url: '/users/me',
     });
+    expect(current.json()).toMatchObject({ realName: 'Owner Doctor', version: 1 });
   });
 
   it('rejects an operation id reused with a different request without writing anything', async () => {
@@ -209,7 +204,10 @@ describeWithDatabase('optimistic concurrency protection', () => {
 
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',

@@ -107,8 +107,12 @@ describeWithDatabase('platform administration and recovery', () => {
       url: `/groups/${groupId}/members`,
     });
     const deleted = await app.inject({
-      headers: { authorization: 'Bearer developer-token' },
+      headers: {
+        authorization: 'Bearer developer-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'DELETE',
+      payload: { expectedVersion: 1 },
       url: `/groups/${groupId}`,
     });
 
@@ -127,8 +131,12 @@ describeWithDatabase('platform administration and recovery', () => {
   it('restores a soft-deleted group inside the 30-day recycle window and audits it', async () => {
     const groupId = await createGroup('member-token', 'Recycle Group', '1234');
     const deleted = await app.inject({
-      headers: { authorization: 'Bearer member-token' },
+      headers: {
+        authorization: 'Bearer member-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'DELETE',
+      payload: { expectedVersion: 1 },
       url: `/groups/${groupId}`,
     });
     expect(deleted.statusCode).toBe(204);
@@ -178,8 +186,12 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(activeRestore.statusCode).toBe(404);
 
     await app.inject({
-      headers: { authorization: 'Bearer member-token' },
+      headers: {
+        authorization: 'Bearer member-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'DELETE',
+      payload: { expectedVersion: 1 },
       url: `/groups/${groupId}`,
     });
     await client.database.execute(
@@ -197,7 +209,10 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(remainingGroups[0]?.count).toBe(0);
 
     const recreated = await app.inject({
-      headers: { authorization: 'Bearer member-token' },
+      headers: {
+        authorization: 'Bearer member-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode: '4321', name: 'New Group' },
       url: '/groups',
@@ -218,9 +233,12 @@ describeWithDatabase('platform administration and recovery', () => {
     expect(membershipId).toBeDefined();
 
     const contact = await app.inject({
-      headers: { authorization: 'Bearer member-token' },
+      headers: {
+        authorization: 'Bearer member-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'PUT',
-      payload: { isConfirmed: true, mobilePhone: '13800138000' },
+      payload: { expectedVersion: 0, isConfirmed: true, mobilePhone: '13800138000' },
       url: `/groups/${groupId}/members/${membershipId}/contact`,
     });
     expect(contact.statusCode).toBe(200);
@@ -588,7 +606,10 @@ describeWithDatabase('platform administration and recovery', () => {
 
   async function createGroup(token: string, name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: {
+        authorization: `Bearer ${token}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',

@@ -20,6 +20,7 @@ import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import {
@@ -28,6 +29,10 @@ import {
   maskMobilePhone,
 } from './mobile-phone-consent.js';
 import { GroupPermissionService } from './permission-service.js';
+import {
+  createOrganizationFingerprint,
+  runOrganizationMutation,
+} from './organization-operation.js';
 
 interface MobileConsentContactRow {
   readonly id: string;
@@ -277,103 +282,164 @@ export class ContactService {
     membershipId: string,
     input: UpdateGroupMemberContactRequest,
   ): Promise<GroupMemberContact> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'viewContacts',
-      );
-      const target = await this.permissionService.getActiveMemberForUpdate(
-        transaction,
-        authorization.group.id,
+        isConfirmed: input.isConfirmed,
         membershipId,
-      );
-      const canManageContacts =
-        authorization.user.isDeveloperAdmin ||
-        authorization.membership.role === 'owner' ||
-        authorization.membership.role === 'administrator';
-      const isCurrentMember = target.userId === authorization.user.id;
+        mobilePhone: input.mobilePhone,
+        shortPhone: input.shortPhone,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'viewContacts',
+        );
+        const target = await this.permissionService.getActiveMemberForUpdate(
+          transaction,
+          authorization.group.id,
+          membershipId,
+        );
+        const canManageContacts =
+          authorization.user.isDeveloperAdmin ||
+          authorization.membership.role === 'owner' ||
+          authorization.membership.role === 'administrator';
+        const isCurrentMember = target.userId === authorization.user.id;
 
-      if (target.role === 'guest' || target.isDeveloperAdmin) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '群组成员不存在或不可用。',
-        });
-      }
+        if (target.role === 'guest' || target.isDeveloperAdmin) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '群组成员不存在或不可用。',
+          });
+        }
 
-      if (!isCurrentMember && !canManageContacts) {
-        throw new ApiError({
-          code: 'FORBIDDEN',
-          statusCode: 403,
-          userMessage: '只能修改自己的联系方式。',
-        });
-      }
-      if (input.mobilePhone !== undefined && !isCurrentMember) {
-        throw new ApiError({
-          code: 'FORBIDDEN',
-          statusCode: 403,
-          userMessage: '手机号只能由成员本人修改。',
-        });
-      }
-      if (input.isConfirmed !== undefined && !canManageContacts) {
-        throw new ApiError({
-          code: 'FORBIDDEN',
-          statusCode: 403,
-          userMessage: '只有群主、群管理员或后台管理员可以确认联系方式。',
-        });
-      }
+        if (!isCurrentMember && !canManageContacts) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '只能修改自己的联系方式。',
+          });
+        }
+        if (input.mobilePhone !== undefined && !isCurrentMember) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '手机号只能由成员本人修改。',
+          });
+        }
+        if (input.isConfirmed !== undefined && !canManageContacts) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '只有群主、群管理员或后台管理员可以确认联系方式。',
+          });
+        }
 
-      const [existing] = await transaction
-        .select({
-          id: groupMemberContacts.id,
-          isConfirmed: groupMemberContacts.isConfirmed,
-          membershipId: groupMemberContacts.membershipId,
-          mobilePhone: groupMemberContacts.mobilePhone,
-          mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
-          mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
-          mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
-          mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
-          shortPhone: groupMemberContacts.shortPhone,
-          updatedAt: groupMemberContacts.updatedAt,
-          version: groupMemberContacts.version,
-        })
-        .from(groupMemberContacts)
-        .where(
-          and(
-            eq(groupMemberContacts.membershipId, target.id),
-            isNull(groupMemberContacts.deletedAt),
-          ),
-        )
-        .limit(1)
-        .for('update');
-
-      const mobilePhone =
-        input.mobilePhone === undefined ? existing?.mobilePhone : input.mobilePhone;
-      const shortPhone = input.shortPhone === undefined ? existing?.shortPhone : input.shortPhone;
-      const mobilePhoneChanged = mobilePhone !== (existing?.mobilePhone ?? null);
-      const phoneChanged = mobilePhoneChanged || shortPhone !== (existing?.shortPhone ?? null);
-      const isConfirmed =
-        input.isConfirmed === undefined
-          ? phoneChanged
-            ? 0
-            : (existing?.isConfirmed ?? 0)
-          : input.isConfirmed
-            ? 1
-            : 0;
-
-      if (existing === undefined) {
-        const contactId = randomUUID();
-        await transaction.insert(groupMemberContacts).values({
-          id: contactId,
-          isConfirmed,
-          membershipId: target.id,
-          mobilePhone: mobilePhone ?? null,
-          shortPhone: shortPhone ?? null,
+        const [existing] = await transaction
+          .select({
+            id: groupMemberContacts.id,
+            isConfirmed: groupMemberContacts.isConfirmed,
+            membershipId: groupMemberContacts.membershipId,
+            mobilePhone: groupMemberContacts.mobilePhone,
+            mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
+            mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
+            mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
+            mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
+            shortPhone: groupMemberContacts.shortPhone,
+            updatedAt: groupMemberContacts.updatedAt,
+            version: groupMemberContacts.version,
+          })
+          .from(groupMemberContacts)
+          .where(
+            and(
+              eq(groupMemberContacts.membershipId, target.id),
+              isNull(groupMemberContacts.deletedAt),
+            ),
+          )
+          .limit(1)
+          .for('update');
+        assertExpectedVersion({
+          actualVersion: existing?.version ?? 0,
+          expectedVersion: input.expectedVersion,
+          id: existing?.id ?? membershipId,
+          objectType: 'group_member_contact',
         });
 
-        const [created] = await transaction
+        const mobilePhone =
+          input.mobilePhone === undefined ? existing?.mobilePhone : input.mobilePhone;
+        const shortPhone = input.shortPhone === undefined ? existing?.shortPhone : input.shortPhone;
+        const mobilePhoneChanged = mobilePhone !== (existing?.mobilePhone ?? null);
+        const phoneChanged = mobilePhoneChanged || shortPhone !== (existing?.shortPhone ?? null);
+        const isConfirmed =
+          input.isConfirmed === undefined
+            ? phoneChanged
+              ? 0
+              : (existing?.isConfirmed ?? 0)
+            : input.isConfirmed
+              ? 1
+              : 0;
+
+        if (existing === undefined) {
+          const contactId = randomUUID();
+          await transaction.insert(groupMemberContacts).values({
+            id: contactId,
+            isConfirmed,
+            membershipId: target.id,
+            mobilePhone: mobilePhone ?? null,
+            shortPhone: shortPhone ?? null,
+          });
+
+          const [created] = await transaction
+            .select({
+              isConfirmed: groupMemberContacts.isConfirmed,
+              membershipId: groupMemberContacts.membershipId,
+              mobilePhone: groupMemberContacts.mobilePhone,
+              mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
+              mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
+              mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
+              mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
+              shortPhone: groupMemberContacts.shortPhone,
+              updatedAt: groupMemberContacts.updatedAt,
+              version: groupMemberContacts.version,
+            })
+            .from(groupMemberContacts)
+            .where(eq(groupMemberContacts.id, contactId))
+            .limit(1);
+
+          if (created === undefined) {
+            throw new ApiError({
+              code: 'INTERNAL_ERROR',
+              statusCode: 500,
+              userMessage: '联系方式暂时无法保存，请稍后重试。',
+            });
+          }
+
+          return toGroupMemberContact(created, isCurrentMember);
+        }
+
+        const consentInvalidated =
+          mobilePhoneChanged &&
+          existing.mobilePhoneConsentFingerprint !== null &&
+          existing.mobilePhoneConsentRevokedAt === null;
+        await transaction
+          .update(groupMemberContacts)
+          .set({
+            isConfirmed,
+            mobilePhone: mobilePhone ?? null,
+            ...(consentInvalidated ? { mobilePhoneConsentRevokedAt: new Date() } : {}),
+            shortPhone: shortPhone ?? null,
+            version: sql`${groupMemberContacts.version} + 1`,
+          })
+          .where(eq(groupMemberContacts.id, existing.id));
+
+        const [updated] = await transaction
           .select({
             isConfirmed: groupMemberContacts.isConfirmed,
             membershipId: groupMemberContacts.membershipId,
@@ -387,82 +453,42 @@ export class ContactService {
             version: groupMemberContacts.version,
           })
           .from(groupMemberContacts)
-          .where(eq(groupMemberContacts.id, contactId))
+          .where(eq(groupMemberContacts.id, existing.id))
           .limit(1);
 
-        if (created === undefined) {
+        if (updated === undefined) {
           throw new ApiError({
             code: 'INTERNAL_ERROR',
             statusCode: 500,
-            userMessage: '联系方式暂时无法保存，请稍后重试。',
+            userMessage: '联系信息暂时无法保存，请稍后重试。',
+          });
+        }
+        if (consentInvalidated) {
+          await this.auditWriter.append(transaction, {
+            action: 'mobile_phone_consent_invalidated',
+            actorUserId: authorization.user.id,
+            groupId: authorization.group.id,
+            metadata: {
+              contactVersion: updated.version,
+              fingerprint: existing.mobilePhoneConsentFingerprint,
+              noticeVersion:
+                existing.mobilePhoneConsentNoticeVersion ??
+                GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION,
+            },
+            operationId: input.operationId,
+            outcome: 'completed',
+            targetId: existing.id,
+            targetType: 'group_member_contact',
           });
         }
 
-        return toGroupMemberContact(created, isCurrentMember);
-      }
-
-      const consentInvalidated =
-        mobilePhoneChanged &&
-        existing.mobilePhoneConsentFingerprint !== null &&
-        existing.mobilePhoneConsentRevokedAt === null;
-      await transaction
-        .update(groupMemberContacts)
-        .set({
-          isConfirmed,
-          mobilePhone: mobilePhone ?? null,
-          ...(consentInvalidated ? { mobilePhoneConsentRevokedAt: new Date() } : {}),
-          shortPhone: shortPhone ?? null,
-          version: sql`${groupMemberContacts.version} + 1`,
-        })
-        .where(eq(groupMemberContacts.id, existing.id));
-
-      const [updated] = await transaction
-        .select({
-          isConfirmed: groupMemberContacts.isConfirmed,
-          membershipId: groupMemberContacts.membershipId,
-          mobilePhone: groupMemberContacts.mobilePhone,
-          mobilePhoneConsentFingerprint: groupMemberContacts.mobilePhoneConsentFingerprint,
-          mobilePhoneConsentNoticeVersion: groupMemberContacts.mobilePhoneConsentNoticeVersion,
-          mobilePhoneConsentRevokedAt: groupMemberContacts.mobilePhoneConsentRevokedAt,
-          mobilePhoneConsentedAt: groupMemberContacts.mobilePhoneConsentedAt,
-          shortPhone: groupMemberContacts.shortPhone,
-          updatedAt: groupMemberContacts.updatedAt,
-          version: groupMemberContacts.version,
-        })
-        .from(groupMemberContacts)
-        .where(eq(groupMemberContacts.id, existing.id))
-        .limit(1);
-
-      if (updated === undefined) {
-        throw new ApiError({
-          code: 'INTERNAL_ERROR',
-          statusCode: 500,
-          userMessage: '联系信息暂时无法保存，请稍后重试。',
-        });
-      }
-      if (consentInvalidated) {
-        await this.auditWriter.append(transaction, {
-          action: 'mobile_phone_consent_invalidated',
-          actorUserId: authorization.user.id,
-          groupId: authorization.group.id,
-          metadata: {
-            contactVersion: updated.version,
-            fingerprint: existing.mobilePhoneConsentFingerprint,
-            noticeVersion:
-              existing.mobilePhoneConsentNoticeVersion ?? GROUP_MOBILE_PHONE_CONSENT_NOTICE_VERSION,
-          },
-          operationId: randomUUID(),
-          outcome: 'completed',
-          targetId: existing.id,
-          targetType: 'group_member_contact',
-        });
-      }
-
-      return toGroupMemberContact(
-        updated,
-        isCurrentMember ||
-          isMobilePhoneConsentEffective(authorization.group.id, target.id, updated),
-      );
+        return toGroupMemberContact(
+          updated,
+          isCurrentMember ||
+            isMobilePhoneConsentEffective(authorization.group.id, target.id, updated),
+        );
+      },
+      scope: 'organization_member_contact_update',
     });
   }
 

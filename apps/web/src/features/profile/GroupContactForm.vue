@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import type { GroupMemberContact } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { ref, watch } from 'vue';
 
 import { createApiClient } from '../../api/client.js';
@@ -21,12 +25,32 @@ const emit = defineEmits<{
 }>();
 
 const api = createApiClient({ auth: localAuth });
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
 const mobilePhone = ref('');
 const shortPhone = ref('');
 const isConfirmed = ref(false);
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
 const isSaving = ref(false);
+
+function resolveContactAttempt<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
 
 watch(
   () => [props.contact, props.canEditMobilePhone] as const,
@@ -42,13 +66,20 @@ async function saveContact(): Promise<void> {
   errorMessage.value = undefined;
   infoMessage.value = undefined;
   isSaving.value = true;
+  const attemptKey = `member-contact:${props.membershipId}`;
 
   try {
-    await api.updateGroupMemberContact(props.groupId, props.membershipId, {
-      ...(props.canConfirm ? { isConfirmed: isConfirmed.value } : {}),
-      ...(props.canEditMobilePhone ? { mobilePhone: emptyToNull(mobilePhone.value) } : {}),
-      shortPhone: emptyToNull(shortPhone.value),
-    });
+    await api.updateGroupMemberContact(
+      props.groupId,
+      props.membershipId,
+      resolveContactAttempt(attemptKey, {
+        expectedVersion: props.contact?.version ?? 0,
+        ...(props.canConfirm ? { isConfirmed: isConfirmed.value } : {}),
+        ...(props.canEditMobilePhone ? { mobilePhone: emptyToNull(mobilePhone.value) } : {}),
+        shortPhone: emptyToNull(shortPhone.value),
+      }),
+    );
+    operationAttempts.delete(attemptKey);
     infoMessage.value = '联系方式已保存。';
     emit('saved');
   } catch (error) {

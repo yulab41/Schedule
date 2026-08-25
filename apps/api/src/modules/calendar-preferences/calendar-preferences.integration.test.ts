@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import type { CalendarPreferences, SchedulingConfig } from '@schedule/contracts';
@@ -119,7 +120,10 @@ describeWithDatabase('calendar preferences', () => {
 
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',
@@ -132,7 +136,7 @@ describeWithDatabase('calendar preferences', () => {
     return app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'GET',
-      url: `/groups/${groupId}/config`,
+      url: `/groups/${groupId}/scheduling-config`,
     });
   }
 
@@ -256,6 +260,8 @@ async function resetDatabase(client: DatabaseClient): Promise<void> {
     'idempotency_keys',
     'groups',
     'wechat_link_tokens',
+    'wechat_admin_binding_tickets',
+    'wechat_identity_detachments',
     'wechat_union_accounts',
     'user_password_credentials',
     'user_auth_identities',

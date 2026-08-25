@@ -174,8 +174,20 @@ describe('P7 native swap workflow controller', () => {
     }
     if (path.endsWith('/members') && options.method === 'GET') {
       respond(options, [
-        { id: currentMembershipId, isCurrentUser: true, realName: '林医生', role: 'member' },
-        { id: targetMembershipId, isCurrentUser: false, realName: '陈医生', role: 'member' },
+        {
+          id: currentMembershipId,
+          isCurrentUser: true,
+          realName: '林医生',
+          role: 'member',
+          version: 1,
+        },
+        {
+          id: targetMembershipId,
+          isCurrentUser: false,
+          realName: '陈医生',
+          role: 'member',
+          version: 1,
+        },
       ]);
       return;
     }

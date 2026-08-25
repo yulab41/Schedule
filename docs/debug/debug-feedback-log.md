@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-A2-1 群组/成员写入安全硬化
+
+- 范围/引入点：仅硬化群组创建/认领/加入/退出/改名/群组码/解散恢复、成员/预设增删转换、角色/姓名/联系方式、所有权及历史认领决定；不处理排班配置、邀请、visitor key、平台身份或 Mini UI。调用点来自 `1b5a17ae/8e42afb8/322550d9/394b1c87`，API 事务来自相同首版服务；已执行 `git log -S`/`git blame`。
+- 红绿/实现：Contracts、group route、client-core 和 Web 三表面 4 组新契约在旧实现分别因缺 operation/version、路由未拒绝、共享写客户端不存在及重试未冻结而先红；实现后 4 files/8 tests 通过。20 个 endpoint 统一 header/body operation id；actor 锁和 idempotency row 先于会改变权限/删除目标的领域校验，因此所有权转让、退出、删除和恢复可重放原结果。Group/member/roster/dissolved/contact/claim 使用 expected version，409 返回最小 latest data；姓名变更同时推进 membership version。
+- 真实数据库：API 全量真实 MySQL 串行 69 files/463 tests 全绿；其中 P8 核心 group/permission/claim 3 files/23 tests 覆盖同键同 payload 重放、同键异 payload 409、stale group/member/contact version、所有权变化后的重放、唯一 owner 和事务回滚。所有下游日历、手排、发布、请假/换班/加扣班、通知、统计与导出 fixture 已带独立测试幂等键。顺带修正 4 项既有测试漂移：缺两张身份表清理、旧 `/config` 路径、已关闭的自助改名并发预期、历史请假改为直接历史 fixture；均不改生产语义。
+- 语义审计：Web 仍经原 shared transport/`fetch.call(globalThis)` 发一次请求；三个 production surface 使用 presentation-core fingerprint 冻结同 payload operation id，成功后清理，失败后同 payload 可安全重试。receiver、Promise/catch、loading、表单空值和成功刷新次数不变。Mini 仅因共享包/严格 GroupMember version 更新测试 fixture，没有写入口、存储或离线队列；organization capability 仍关闭。联系人 audit 改用本次 operation id，不记录原始电话。
+- 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 首轮在 smoke 自身旧 contact payload 得到 400 后停止；补 expectedVersion/header+body operation id 和版本化清理后重跑，登录、管理员、成员、vkey 访客及访问记录全通过，无浏览器错误。Contracts 15/56、client-core 2/7、API 69/463（真实 MySQL）、Web 102/602、Mini 45/254 通过；三端 typecheck/build、Web/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 lint/format/diff 通过。`pnpm --config.verifyDepsBeforeRun=false smoke:check-core` 找到本节记录并通过；临时 API/Web 已关闭。
+
 ## 2026-08-25 P8-A1 组织管理共享只读边界
 
 - 范围/引入点：只建立群组摘要/目录、成员/预设、联系方式、认领请求/查找、排班配置、平台账号和邀请预览的共享 endpoint/decoder；Web 既有只读调用先委托，Mini 工作台移除 groups/members 手写结构校验。群组/成员=`8e42afb8`，配置=`04c7da36`，邀请=`a50c4fce`，平台账号=`02a508dd`，Mini workbench=`733e3af6`；均已执行 `git log -S`/`git blame`。不接入写 UI，不打开 organization capability。

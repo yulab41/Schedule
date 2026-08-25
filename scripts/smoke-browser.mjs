@@ -2382,6 +2382,7 @@ async function assertRegularMemberMobilePhoneConsent(page) {
       ? contacts.find((item) => item?.membershipId === status.membershipId)
       : undefined;
     return {
+      contactVersion: typeof selfContact?.version === 'number' ? selfContact.version : 0,
       groupId: group.id,
       membershipId: status.membershipId,
       originalIsConfirmed: selfContact?.isConfirmed === true,
@@ -2396,14 +2397,20 @@ async function assertRegularMemberMobilePhoneConsent(page) {
   const saveButton = page.locator('.consent-save');
   let usesTemporaryPhone = false;
   if (consentContext.state === 'missing-phone') {
-    const prepared = await page.evaluate(async ({ groupId, membershipId }) => {
+    const prepared = await page.evaluate(async ({ contactVersion, groupId, membershipId }) => {
+      const operationId = crypto.randomUUID();
       const response = await fetch(
         `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
         {
-          body: JSON.stringify({ mobilePhone: '13800138009' }),
+          body: JSON.stringify({
+            expectedVersion: contactVersion,
+            mobilePhone: '13800138009',
+            operationId,
+          }),
           headers: {
             Authorization: 'Bearer local-member',
             'Content-Type': 'application/json',
+            'Idempotency-Key': operationId,
           },
           method: 'PUT',
         },
@@ -2494,25 +2501,47 @@ async function assertRegularMemberMobilePhoneConsent(page) {
 
   if (usesTemporaryPhone) {
     const restored = await page.evaluate(async ({ groupId, membershipId, originalIsConfirmed }) => {
+      const contactsResponse = await fetch(`/api/groups/${encodeURIComponent(groupId)}/contacts`, {
+        headers: { Authorization: 'Bearer local-member' },
+      });
+      if (!contactsResponse.ok) return { error: `contacts:${contactsResponse.status}` };
+      const contacts = await contactsResponse.json();
+      const currentContact = Array.isArray(contacts)
+        ? contacts.find((item) => item?.membershipId === membershipId)
+        : undefined;
+      if (typeof currentContact?.version !== 'number') return { error: 'missing-contact-version' };
+      const memberOperationId = crypto.randomUUID();
       const memberResponse = await fetch(
         `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
         {
-          body: JSON.stringify({ mobilePhone: null }),
+          body: JSON.stringify({
+            expectedVersion: currentContact.version,
+            mobilePhone: null,
+            operationId: memberOperationId,
+          }),
           headers: {
             Authorization: 'Bearer local-member',
             'Content-Type': 'application/json',
+            'Idempotency-Key': memberOperationId,
           },
           method: 'PUT',
         },
       );
       if (!memberResponse.ok) return { error: `member:${memberResponse.status}` };
+      const updatedContact = await memberResponse.json();
+      const adminOperationId = crypto.randomUUID();
       const adminResponse = await fetch(
         `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
         {
-          body: JSON.stringify({ isConfirmed: originalIsConfirmed }),
+          body: JSON.stringify({
+            expectedVersion: updatedContact.version,
+            isConfirmed: originalIsConfirmed,
+            operationId: adminOperationId,
+          }),
           headers: {
             Authorization: 'Bearer local-admin',
             'Content-Type': 'application/json',
+            'Idempotency-Key': adminOperationId,
           },
           method: 'PUT',
         },

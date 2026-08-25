@@ -5,11 +5,16 @@ import type {
   CreateMembershipClaimResponse,
   GroupCatalogEntry,
   GroupMember,
+  GroupMemberVersionMutationRequest,
   GroupRole,
   GroupSummary,
+  GroupVersionMutationRequest,
+  MembershipClaimDecisionRequest,
   MembershipClaimLookupRequest,
   MembershipClaimLookupResponse,
   MembershipClaimRequest,
+  OrganizationMutationCompleted,
+  OrganizationOperationRequest,
   TransferGroupOwnershipRequest,
   UpdateGroupMemberNameRequest,
   UpdateGroupMemberRoleRequest,
@@ -37,7 +42,13 @@ import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { updateShiftAssignments } from '../schedules/shift-assignment-writer.js';
+import {
+  createOrganizationFingerprint,
+  organizationMutationCompleted,
+  runOrganizationMutation,
+} from './organization-operation.js';
 import { GroupPermissionService } from './permission-service.js';
 
 export class MembershipService {
@@ -135,160 +146,178 @@ export class MembershipService {
   public async joinAsGuest(
     identity: AuthenticatedIdentity,
     groupId: string,
+    input: OrganizationOperationRequest,
   ): Promise<GroupSummary> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const user = await this.getActiveUserInTransaction(transaction, identity);
-      const [group] = await transaction
-        .select({ id: groups.id, name: groups.name, version: groups.version })
-        .from(groups)
-        .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
-        .limit(1)
-        .for('update');
-      if (group === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '群组不存在或不可用。',
-        });
-      }
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({ groupId }),
+      run: async (transaction, user) => {
+        const [group] = await transaction
+          .select({ id: groups.id, name: groups.name, version: groups.version })
+          .from(groups)
+          .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
+          .limit(1)
+          .for('update');
+        if (group === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '群组不存在或不可用。',
+          });
+        }
 
-      const memberships = await transaction
-        .select({
-          id: groupMemberships.id,
-          realName: userProfiles.realName,
-          role: groupMemberships.role,
-          status: groupMemberships.status,
-          userId: groupMemberships.userId,
-        })
-        .from(groupMemberships)
-        .innerJoin(users, eq(users.id, groupMemberships.userId))
-        .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-        .where(
-          and(
-            eq(groupMemberships.groupId, group.id),
-            or(eq(groupMemberships.userId, user.id), isNull(groupMemberships.deletedAt)),
-          ),
-        )
-        .for('update');
-
-      const activeMine = memberships.find(
-        (membership) => membership.userId === user.id && membership.status === 'active',
-      );
-      if (activeMine !== undefined) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '您已经加入该群组。',
-        });
-      }
-      const leftMemberPlaceholder = memberships.some(
-        (membership) =>
-          membership.role !== 'guest' &&
-          membership.userId !== user.id &&
-          membership.realName === user.realName,
-      );
-      if (leftMemberPlaceholder) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该群有您的未认领成员身份，请以成员身份输入群组码重新加入。',
-        });
-      }
-
-      const existingGuest = memberships.find(
-        (membership) => membership.userId === user.id && membership.role === 'guest',
-      );
-      if (existingGuest !== undefined) {
-        await transaction
-          .update(groupMemberships)
-          .set({
-            deletedAt: null,
-            status: 'active',
-            version: sql`${groupMemberships.version} + 1`,
+        const memberships = await transaction
+          .select({
+            id: groupMemberships.id,
+            realName: userProfiles.realName,
+            role: groupMemberships.role,
+            status: groupMemberships.status,
+            userId: groupMemberships.userId,
           })
-          .where(eq(groupMemberships.id, existingGuest.id));
-      } else {
-        await transaction.insert(groupMemberships).values({
-          groupId: group.id,
-          id: randomUUID(),
-          role: 'guest',
-          userId: user.id,
-        });
-      }
+          .from(groupMemberships)
+          .innerJoin(users, eq(users.id, groupMemberships.userId))
+          .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
+          .where(
+            and(
+              eq(groupMemberships.groupId, group.id),
+              or(eq(groupMemberships.userId, user.id), isNull(groupMemberships.deletedAt)),
+            ),
+          )
+          .for('update');
 
-      return {
-        id: group.id,
-        name: group.name,
-        role: 'guest',
-        version: group.version,
-      };
+        const activeMine = memberships.find(
+          (membership) => membership.userId === user.id && membership.status === 'active',
+        );
+        if (activeMine !== undefined) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '您已经加入该群组。',
+          });
+        }
+        const leftMemberPlaceholder = memberships.some(
+          (membership) =>
+            membership.role !== 'guest' &&
+            membership.userId !== user.id &&
+            membership.realName === user.realName,
+        );
+        if (leftMemberPlaceholder) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '该群有您的未认领成员身份，请以成员身份输入群组码重新加入。',
+          });
+        }
+
+        const existingGuest = memberships.find(
+          (membership) => membership.userId === user.id && membership.role === 'guest',
+        );
+        if (existingGuest !== undefined) {
+          await transaction
+            .update(groupMemberships)
+            .set({
+              deletedAt: null,
+              status: 'active',
+              version: sql`${groupMemberships.version} + 1`,
+            })
+            .where(eq(groupMemberships.id, existingGuest.id));
+        } else {
+          await transaction.insert(groupMemberships).values({
+            groupId: group.id,
+            id: randomUUID(),
+            role: 'guest',
+            userId: user.id,
+          });
+        }
+
+        return {
+          id: group.id,
+          name: group.name,
+          role: 'guest',
+          version: group.version,
+        };
+      },
+      scope: 'organization_guest_join',
     });
   }
 
-  public async leaveGroup(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
-    await withTransaction(this.databaseClient, async (transaction) => {
-      const user = await this.getActiveUserInTransaction(transaction, identity);
-      if (user.isDeveloperAdmin) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '后台管理员不能退出群组。',
-        });
-      }
-      const [group] = await transaction
-        .select({ id: groups.id })
-        .from(groups)
-        .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
-        .limit(1)
-        .for('update');
-      if (group === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '群组不存在或不可用。',
-        });
-      }
+  public async leaveGroup(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: OrganizationOperationRequest,
+  ): Promise<OrganizationMutationCompleted> {
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({ groupId }),
+      run: async (transaction, user) => {
+        if (user.isDeveloperAdmin) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '后台管理员不能退出群组。',
+          });
+        }
+        const [group] = await transaction
+          .select({ id: groups.id })
+          .from(groups)
+          .where(and(eq(groups.id, groupId), isNull(groups.deletedAt)))
+          .limit(1)
+          .for('update');
+        if (group === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '群组不存在或不可用。',
+          });
+        }
 
-      const [membership] = await transaction
-        .select({ id: groupMemberships.id, role: groupMemberships.role })
-        .from(groupMemberships)
-        .where(
-          and(
-            eq(groupMemberships.groupId, group.id),
-            eq(groupMemberships.userId, user.id),
-            eq(groupMemberships.status, 'active'),
-            isNull(groupMemberships.deletedAt),
-          ),
-        )
-        .limit(1)
-        .for('update');
-      if (membership === undefined) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '您当前没有加入该群组。',
-        });
-      }
-      if (membership.role === 'owner') {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '群主不能退出，请先转让群主或解散群组。',
-        });
-      }
-      if (membership.role === 'guest') {
-        await transaction
-          .update(groupMemberships)
-          .set({
-            deletedAt: sql`current_timestamp(3)`,
-            status: 'inactive',
-            version: sql`${groupMemberships.version} + 1`,
-          })
-          .where(eq(groupMemberships.id, membership.id));
-        return;
-      }
+        const [membership] = await transaction
+          .select({ id: groupMemberships.id, role: groupMemberships.role })
+          .from(groupMemberships)
+          .where(
+            and(
+              eq(groupMemberships.groupId, group.id),
+              eq(groupMemberships.userId, user.id),
+              eq(groupMemberships.status, 'active'),
+              isNull(groupMemberships.deletedAt),
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (membership === undefined) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '您当前没有加入该群组。',
+          });
+        }
+        if (membership.role === 'owner') {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '群主不能退出，请先转让群主或解散群组。',
+          });
+        }
+        if (membership.role === 'guest') {
+          await transaction
+            .update(groupMemberships)
+            .set({
+              deletedAt: sql`current_timestamp(3)`,
+              status: 'inactive',
+              version: sql`${groupMemberships.version} + 1`,
+            })
+            .where(eq(groupMemberships.id, membership.id));
+          return organizationMutationCompleted();
+        }
 
-      await this.detachMembershipToPlaceholder(transaction, membership.id);
+        await this.detachMembershipToPlaceholder(transaction, membership.id);
+        return organizationMutationCompleted();
+      },
+      scope: 'organization_group_leave',
     });
   }
 
@@ -346,53 +375,6 @@ export class MembershipService {
     return user;
   }
 
-  private async getActiveUserInTransaction(
-    transaction: DatabaseTransaction,
-    identity: AuthenticatedIdentity,
-  ): Promise<{
-    readonly id: string;
-    readonly isDeveloperAdmin: boolean;
-    readonly realName: string;
-  }> {
-    const [user] = await transaction
-      .select({
-        id: users.id,
-        isDeveloperAdmin: users.isDeveloperAdmin,
-        realName: userProfiles.realName,
-        status: users.status,
-      })
-      .from(users)
-      .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-      .where(
-        and(
-          eq(users.cloudbaseUid, identity.cloudbaseUid),
-          isNull(users.deletedAt),
-          isNull(userProfiles.deletedAt),
-        ),
-      )
-      .limit(1)
-      .for('update');
-    if (user === undefined) {
-      throw new ApiError({
-        code: 'NOT_FOUND',
-        statusCode: 404,
-        userMessage: '当前账号尚未完成个人资料。',
-      });
-    }
-    if (user.status !== 'active') {
-      throw new ApiError({
-        code: 'FORBIDDEN',
-        statusCode: 403,
-        userMessage: '当前账号无法执行群组操作。',
-      });
-    }
-    return {
-      id: user.id,
-      isDeveloperAdmin: user.isDeveloperAdmin === 1,
-      realName: user.realName,
-    };
-  }
-
   public async listMembers(
     identity: AuthenticatedIdentity,
     groupId: string,
@@ -411,6 +393,7 @@ export class MembershipService {
           realName: userProfiles.realName,
           role: groupMemberships.role,
           userId: groupMemberships.userId,
+          version: groupMemberships.version,
         })
         .from(groupMemberships)
         .innerJoin(users, eq(users.id, groupMemberships.userId))
@@ -429,7 +412,11 @@ export class MembershipService {
         )
         .orderBy(asc(userProfiles.realName), asc(groupMemberships.id));
       const pendingRoster = await transaction
-        .select({ id: rosterEntries.id, realName: rosterEntries.realName })
+        .select({
+          id: rosterEntries.id,
+          realName: rosterEntries.realName,
+          version: rosterEntries.version,
+        })
         .from(rosterEntries)
         .where(
           and(
@@ -460,6 +447,7 @@ export class MembershipService {
         isUnclaimed: member.cloudbaseUid === null,
         realName: member.realName,
         role: member.role,
+        version: member.version,
       }));
       const memberNames = new Set(memberRows.map((member) => member.realName));
       for (const roster of pendingRoster) {
@@ -473,6 +461,7 @@ export class MembershipService {
           isUnclaimed: true,
           realName: roster.realName,
           role: 'member',
+          version: roster.version,
         });
       }
 
@@ -658,65 +647,83 @@ export class MembershipService {
     identity: AuthenticatedIdentity,
     groupId: string,
     claimRequestId: string,
+    input: MembershipClaimDecisionRequest,
   ): Promise<MembershipClaimRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageMembers',
-      );
-      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
-      const request = await this.lockClaimRequest(
-        transaction,
-        authorization.group.id,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
         claimRequestId,
-      );
-      if (request === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '认领申请不存在或不可用。',
+        expectedVersion: input.expectedVersion,
+        groupId,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageMembers',
+        );
+        this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
+        const request = await this.lockClaimRequest(
+          transaction,
+          authorization.group.id,
+          claimRequestId,
+        );
+        if (request === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '认领申请不存在或不可用。',
+          });
+        }
+        assertExpectedVersion({
+          actualVersion: request.version,
+          expectedVersion: input.expectedVersion,
+          id: request.id,
+          objectType: 'membership_claim_request',
         });
-      }
-      if (request.status !== 'pending') {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该认领申请已被处理。',
-        });
-      }
-      const target = await this.findMembershipForUpdate(
-        transaction,
-        authorization.group.id,
-        request.targetMembershipId,
-      );
-      if (target === undefined || target.cloudbaseUid !== null) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该成员已被其他账号认领，申请无法生效。',
-        });
-      }
+        if (request.status !== 'pending') {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '该认领申请已被处理。',
+          });
+        }
+        const target = await this.findMembershipForUpdate(
+          transaction,
+          authorization.group.id,
+          request.targetMembershipId,
+        );
+        if (target === undefined || target.cloudbaseUid !== null) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '该成员已被其他账号认领，申请无法生效。',
+          });
+        }
 
-      await this.endMembershipForClaim(
-        transaction,
-        authorization.group.id,
-        request.requestingUserId,
-      );
-      await this.bindMembershipToUser(transaction, target.id, request.requestingUserId);
-      await this.cancelPendingClaimsForTarget(transaction, target.id);
-      await transaction
-        .update(membershipClaimRequests)
-        .set({
-          decidedAt: new Date(),
-          decidedByUserId: authorization.user.id,
-          status: 'approved',
-          version: sql`${membershipClaimRequests.version} + 1`,
-        })
-        .where(eq(membershipClaimRequests.id, request.id));
+        await this.endMembershipForClaim(
+          transaction,
+          authorization.group.id,
+          request.requestingUserId,
+        );
+        await this.bindMembershipToUser(transaction, target.id, request.requestingUserId);
+        await this.cancelPendingClaimsForTarget(transaction, target.id);
+        await transaction
+          .update(membershipClaimRequests)
+          .set({
+            decidedAt: new Date(),
+            decidedByUserId: authorization.user.id,
+            status: 'approved',
+            version: sql`${membershipClaimRequests.version} + 1`,
+          })
+          .where(eq(membershipClaimRequests.id, request.id));
 
-      return this.readClaimRequest(transaction, authorization.group.id, request.id);
+        return this.readClaimRequest(transaction, authorization.group.id, request.id);
+      },
+      scope: 'organization_claim_approve',
     });
   }
 
@@ -724,45 +731,63 @@ export class MembershipService {
     identity: AuthenticatedIdentity,
     groupId: string,
     claimRequestId: string,
+    input: MembershipClaimDecisionRequest,
   ): Promise<MembershipClaimRequest> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
-        groupId,
-        'manageMembers',
-      );
-      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
-      const request = await this.lockClaimRequest(
-        transaction,
-        authorization.group.id,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
         claimRequestId,
-      );
-      if (request === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '认领申请不存在或不可用。',
+        expectedVersion: input.expectedVersion,
+        groupId,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageMembers',
+        );
+        this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
+        const request = await this.lockClaimRequest(
+          transaction,
+          authorization.group.id,
+          claimRequestId,
+        );
+        if (request === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '认领申请不存在或不可用。',
+          });
+        }
+        assertExpectedVersion({
+          actualVersion: request.version,
+          expectedVersion: input.expectedVersion,
+          id: request.id,
+          objectType: 'membership_claim_request',
         });
-      }
-      if (request.status !== 'pending') {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该认领申请已被处理。',
-        });
-      }
-      await transaction
-        .update(membershipClaimRequests)
-        .set({
-          decidedAt: new Date(),
-          decidedByUserId: authorization.user.id,
-          status: 'rejected',
-          version: sql`${membershipClaimRequests.version} + 1`,
-        })
-        .where(eq(membershipClaimRequests.id, request.id));
+        if (request.status !== 'pending') {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '该认领申请已被处理。',
+          });
+        }
+        await transaction
+          .update(membershipClaimRequests)
+          .set({
+            decidedAt: new Date(),
+            decidedByUserId: authorization.user.id,
+            status: 'rejected',
+            version: sql`${membershipClaimRequests.version} + 1`,
+          })
+          .where(eq(membershipClaimRequests.id, request.id));
 
-      return this.readClaimRequest(transaction, authorization.group.id, request.id);
+        return this.readClaimRequest(transaction, authorization.group.id, request.id);
+      },
+      scope: 'organization_claim_reject',
     });
   }
 
@@ -770,52 +795,71 @@ export class MembershipService {
     identity: AuthenticatedIdentity,
     groupId: string,
     membershipId: string,
-  ): Promise<void> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    input: GroupMemberVersionMutationRequest,
+  ): Promise<OrganizationMutationCompleted> {
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageMembers',
-      );
-      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
-      const target = await this.findMembershipForUpdate(
-        transaction,
-        authorization.group.id,
         membershipId,
-      );
-      if (target === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '成员不存在或不可用。',
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageMembers',
+        );
+        this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
+        const target = await this.findMembershipForUpdate(
+          transaction,
+          authorization.group.id,
+          membershipId,
+        );
+        if (target === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '成员不存在或不可用。',
+          });
+        }
+        assertExpectedVersion({
+          actualVersion: target.version,
+          expectedVersion: input.expectedVersion,
+          id: target.id,
+          objectType: 'group_member',
         });
-      }
-      if (target.cloudbaseUid === null) {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '该成员尚未被认领。',
-        });
-      }
+        if (target.cloudbaseUid === null) {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '该成员尚未被认领。',
+          });
+        }
 
-      const placeholderUserId = randomUUID();
-      await transaction.insert(users).values({
-        id: placeholderUserId,
-        status: 'active',
-      });
-      await transaction.insert(userProfiles).values({
-        realName: target.realName,
-        userId: placeholderUserId,
-      });
-      await transaction
-        .update(groupMemberships)
-        .set({
+        const placeholderUserId = randomUUID();
+        await transaction.insert(users).values({
+          id: placeholderUserId,
+          status: 'active',
+        });
+        await transaction.insert(userProfiles).values({
+          realName: target.realName,
           userId: placeholderUserId,
-          version: sql`${groupMemberships.version} + 1`,
-        })
-        .where(eq(groupMemberships.id, target.id));
-      await this.cancelPendingClaimsForTarget(transaction, target.id);
+        });
+        await transaction
+          .update(groupMemberships)
+          .set({
+            userId: placeholderUserId,
+            version: sql`${groupMemberships.version} + 1`,
+          })
+          .where(eq(groupMemberships.id, target.id));
+        await this.cancelPendingClaimsForTarget(transaction, target.id);
+        return organizationMutationCompleted();
+      },
+      scope: 'organization_claim_revoke',
     });
   }
 
@@ -1084,82 +1128,104 @@ export class MembershipService {
     identity: AuthenticatedIdentity,
     groupId: string,
     memberId: string,
-  ): Promise<void> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    input: GroupMemberVersionMutationRequest,
+  ): Promise<OrganizationMutationCompleted> {
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageMembers',
-      );
-      const rosterEntry = await this.findPendingRosterForUpdate(
-        transaction,
-        authorization.group.id,
         memberId,
-      );
-      let membership = await this.findMembershipForUpdate(
-        transaction,
-        authorization.group.id,
-        memberId,
-      );
-      if (membership === undefined && rosterEntry !== undefined) {
-        membership = await this.findMembershipByRealNameForUpdate(
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageMembers',
+        );
+        const rosterEntry = await this.findPendingRosterForUpdate(
           transaction,
           authorization.group.id,
-          rosterEntry.realName,
+          memberId,
         );
-      }
-      if (membership === undefined && rosterEntry === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '成员不存在或不可用。',
-        });
-      }
-
-      if (membership !== undefined) {
-        if (membership.isDeveloperAdmin === 1) {
-          throw new ApiError({
-            code: 'CONFLICT',
-            statusCode: 409,
-            userMessage: '后台管理员成员关系不可删除。',
-          });
-        }
-        if (membership.role === 'owner') {
-          throw new ApiError({
-            code: 'CONFLICT',
-            statusCode: 409,
-            userMessage: '不能删除群主，请先转让群主身份。',
-          });
-        }
-        if (
-          membership.role === 'administrator' &&
-          authorization.membership.role !== 'owner' &&
-          !authorization.user.isDeveloperAdmin
-        ) {
-          throw new ApiError({
-            code: 'FORBIDDEN',
-            statusCode: 403,
-            userMessage: '只有群主可以删除管理员。',
-          });
-        }
-
-        await this.hardDeleteMembership(transaction, membership);
-      }
-
-      const realName = membership?.realName ?? rosterEntry?.realName;
-      if (realName !== undefined) {
-        await transaction
-          .delete(rosterEntries)
-          .where(
-            and(
-              eq(rosterEntries.groupId, authorization.group.id),
-              eq(rosterEntries.status, 'pending'),
-              isNull(rosterEntries.deletedAt),
-              sql`binary ${rosterEntries.realName} = binary ${realName}`,
-            ),
+        let membership = await this.findMembershipForUpdate(
+          transaction,
+          authorization.group.id,
+          memberId,
+        );
+        if (membership === undefined && rosterEntry !== undefined) {
+          membership = await this.findMembershipByRealNameForUpdate(
+            transaction,
+            authorization.group.id,
+            rosterEntry.realName,
           );
-      }
+        }
+        if (membership === undefined && rosterEntry === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '成员不存在或不可用。',
+          });
+        }
+        const actualVersion = membership?.version ?? rosterEntry?.version;
+        if (actualVersion !== undefined) {
+          assertExpectedVersion({
+            actualVersion,
+            expectedVersion: input.expectedVersion,
+            id: membership?.id ?? rosterEntry?.id ?? memberId,
+            objectType: membership === undefined ? 'roster_entry' : 'group_member',
+          });
+        }
+
+        if (membership !== undefined) {
+          if (membership.isDeveloperAdmin === 1) {
+            throw new ApiError({
+              code: 'CONFLICT',
+              statusCode: 409,
+              userMessage: '后台管理员成员关系不可删除。',
+            });
+          }
+          if (membership.role === 'owner') {
+            throw new ApiError({
+              code: 'CONFLICT',
+              statusCode: 409,
+              userMessage: '不能删除群主，请先转让群主身份。',
+            });
+          }
+          if (
+            membership.role === 'administrator' &&
+            authorization.membership.role !== 'owner' &&
+            !authorization.user.isDeveloperAdmin
+          ) {
+            throw new ApiError({
+              code: 'FORBIDDEN',
+              statusCode: 403,
+              userMessage: '只有群主可以删除管理员。',
+            });
+          }
+
+          await this.hardDeleteMembership(transaction, membership);
+        }
+
+        const realName = membership?.realName ?? rosterEntry?.realName;
+        if (realName !== undefined) {
+          await transaction
+            .delete(rosterEntries)
+            .where(
+              and(
+                eq(rosterEntries.groupId, authorization.group.id),
+                eq(rosterEntries.status, 'pending'),
+                isNull(rosterEntries.deletedAt),
+                sql`binary ${rosterEntries.realName} = binary ${realName}`,
+              ),
+            );
+        }
+        return organizationMutationCompleted();
+      },
+      scope: 'organization_member_delete',
     });
   }
 
@@ -1169,7 +1235,11 @@ export class MembershipService {
     memberId: string,
   ) {
     const [rosterEntry] = await transaction
-      .select({ id: rosterEntries.id, realName: rosterEntries.realName })
+      .select({
+        id: rosterEntries.id,
+        realName: rosterEntries.realName,
+        version: rosterEntries.version,
+      })
       .from(rosterEntries)
       .where(
         and(
@@ -1198,6 +1268,7 @@ export class MembershipService {
         realName: userProfiles.realName,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
+        version: groupMemberships.version,
       })
       .from(groupMemberships)
       .innerJoin(users, eq(users.id, groupMemberships.userId))
@@ -1231,6 +1302,7 @@ export class MembershipService {
         realName: userProfiles.realName,
         role: groupMemberships.role,
         userId: groupMemberships.userId,
+        version: groupMemberships.version,
       })
       .from(groupMemberships)
       .innerJoin(users, eq(users.id, groupMemberships.userId))
@@ -1349,38 +1421,61 @@ export class MembershipService {
     membershipId: string,
     input: UpdateGroupMemberNameRequest,
   ): Promise<GroupMember> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageMembers',
-      );
-      this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
-      const target = await this.permissionService.getActiveMemberForUpdate(
-        transaction,
-        authorization.group.id,
         membershipId,
-      );
-      if (target.isDeveloperAdmin) {
-        throw new ApiError({
-          code: 'FORBIDDEN',
-          statusCode: 403,
-          userMessage: '后台管理员姓名不可在群组中修改。',
-        });
-      }
-
-      await transaction
-        .update(userProfiles)
-        .set({ realName: input.realName, version: sql`${userProfiles.version} + 1` })
-        .where(and(eq(userProfiles.userId, target.userId), isNull(userProfiles.deletedAt)));
-
-      return {
-        id: target.id,
-        isCurrentUser: target.userId === authorization.user.id,
         realName: input.realName,
-        role: target.role,
-      };
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageMembers',
+        );
+        this.requireDeveloperAdmin(authorization.user.isDeveloperAdmin);
+        const target = await this.permissionService.getActiveMemberForUpdate(
+          transaction,
+          authorization.group.id,
+          membershipId,
+        );
+        assertExpectedVersion({
+          actualVersion: target.version,
+          expectedVersion: input.expectedVersion,
+          id: target.id,
+          objectType: 'group_member',
+        });
+        if (target.isDeveloperAdmin) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '后台管理员姓名不可在群组中修改。',
+          });
+        }
+
+        await transaction
+          .update(userProfiles)
+          .set({ realName: input.realName, version: sql`${userProfiles.version} + 1` })
+          .where(and(eq(userProfiles.userId, target.userId), isNull(userProfiles.deletedAt)));
+        await transaction
+          .update(groupMemberships)
+          .set({ version: sql`${groupMemberships.version} + 1` })
+          .where(eq(groupMemberships.id, target.id));
+
+        return {
+          id: target.id,
+          isCurrentUser: target.userId === authorization.user.id,
+          realName: input.realName,
+          role: target.role,
+          version: target.version + 1,
+        };
+      },
+      scope: 'organization_member_name_update',
     });
   }
 
@@ -1390,59 +1485,78 @@ export class MembershipService {
     membershipId: string,
     input: UpdateGroupMemberRoleRequest,
   ): Promise<GroupMember> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageAdministrators',
-      );
-      const target = await this.permissionService.getActiveMemberForUpdate(
-        transaction,
-        authorization.group.id,
         membershipId,
-      );
-
-      if (target.role === 'owner') {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '请先转让群主身份，再调整原群主权限。',
-        });
-      }
-      if (target.isDeveloperAdmin) {
-        throw new ApiError({
-          code: 'FORBIDDEN',
-          statusCode: 403,
-          userMessage: '后台管理员成员关系不可调整。',
-        });
-      }
-
-      await transaction
-        .update(groupMemberships)
-        .set({ role: input.role, version: sql`${groupMemberships.version} + 1` })
-        .where(eq(groupMemberships.id, target.id));
-
-      const [member] = await transaction
-        .select({ realName: userProfiles.realName })
-        .from(userProfiles)
-        .where(and(eq(userProfiles.userId, target.userId), isNull(userProfiles.deletedAt)))
-        .limit(1);
-
-      if (member === undefined) {
-        throw new ApiError({
-          code: 'NOT_FOUND',
-          statusCode: 404,
-          userMessage: '群组成员不存在或不可用。',
-        });
-      }
-
-      return {
-        id: target.id,
-        isCurrentUser: target.userId === authorization.user.id,
-        realName: member.realName,
         role: input.role,
-      };
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageAdministrators',
+        );
+        const target = await this.permissionService.getActiveMemberForUpdate(
+          transaction,
+          authorization.group.id,
+          membershipId,
+        );
+
+        assertExpectedVersion({
+          actualVersion: target.version,
+          expectedVersion: input.expectedVersion,
+          id: target.id,
+          objectType: 'group_member',
+        });
+        if (target.role === 'owner') {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '请先转让群主身份，再调整原群主权限。',
+          });
+        }
+        if (target.isDeveloperAdmin) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '后台管理员成员关系不可调整。',
+          });
+        }
+
+        await transaction
+          .update(groupMemberships)
+          .set({ role: input.role, version: sql`${groupMemberships.version} + 1` })
+          .where(eq(groupMemberships.id, target.id));
+
+        const [member] = await transaction
+          .select({ realName: userProfiles.realName })
+          .from(userProfiles)
+          .where(and(eq(userProfiles.userId, target.userId), isNull(userProfiles.deletedAt)))
+          .limit(1);
+
+        if (member === undefined) {
+          throw new ApiError({
+            code: 'NOT_FOUND',
+            statusCode: 404,
+            userMessage: '群组成员不存在或不可用。',
+          });
+        }
+
+        return {
+          id: target.id,
+          isCurrentUser: target.userId === authorization.user.id,
+          realName: member.realName,
+          role: input.role,
+          version: target.version + 1,
+        };
+      },
+      scope: 'organization_member_role_update',
     });
   }
 
@@ -1451,71 +1565,116 @@ export class MembershipService {
     groupId: string,
     input: TransferGroupOwnershipRequest,
   ): Promise<GroupSummary> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedGroupVersion: input.expectedGroupVersion,
+        expectedMemberVersion: input.expectedMemberVersion,
         groupId,
-        'transferOwnership',
-      );
-      const target = await this.permissionService.getActiveMemberForUpdate(
-        transaction,
-        authorization.group.id,
-        input.membershipId,
-      );
+        membershipId: input.membershipId,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'transferOwnership',
+        );
+        const target = await this.permissionService.getActiveMemberForUpdate(
+          transaction,
+          authorization.group.id,
+          input.membershipId,
+        );
 
-      if (target.isDeveloperAdmin) {
-        throw new ApiError({
-          code: 'VALIDATION_FAILED',
-          statusCode: 400,
-          userMessage: '不能将群主身份转让给后台管理员。',
+        assertExpectedVersion({
+          actualVersion: authorization.group.version,
+          expectedVersion: input.expectedGroupVersion,
+          id: authorization.group.id,
+          objectType: 'group',
         });
-      }
-
-      if (target.id === authorization.membership.id) {
-        throw new ApiError({
-          code: 'VALIDATION_FAILED',
-          statusCode: 400,
-          userMessage: '请选择另一位有效成员作为群主。',
+        assertExpectedVersion({
+          actualVersion: target.version,
+          expectedVersion: input.expectedMemberVersion,
+          id: target.id,
+          objectType: 'group_member',
         });
-      }
+        if (target.isDeveloperAdmin) {
+          throw new ApiError({
+            code: 'VALIDATION_FAILED',
+            statusCode: 400,
+            userMessage: '不能将群主身份转让给后台管理员。',
+          });
+        }
 
-      await transaction
-        .update(groupMemberships)
-        .set({ role: 'administrator', version: sql`${groupMemberships.version} + 1` })
-        .where(eq(groupMemberships.id, authorization.membership.id));
-      await transaction
-        .update(groupMemberships)
-        .set({ role: 'owner', version: sql`${groupMemberships.version} + 1` })
-        .where(eq(groupMemberships.id, target.id));
-      await transaction
-        .update(groups)
-        .set({ ownerUserId: target.userId, version: sql`${groups.version} + 1` })
-        .where(eq(groups.id, authorization.group.id));
+        if (target.id === authorization.membership.id) {
+          throw new ApiError({
+            code: 'VALIDATION_FAILED',
+            statusCode: 400,
+            userMessage: '请选择另一位有效成员作为群主。',
+          });
+        }
 
-      return {
-        groupCode: authorization.group.groupCode,
-        id: authorization.group.id,
-        ...(authorization.user.isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
-        name: authorization.group.name,
-        role: 'administrator',
-        version: authorization.group.version + 1,
-      };
+        await transaction
+          .update(groupMemberships)
+          .set({ role: 'administrator', version: sql`${groupMemberships.version} + 1` })
+          .where(eq(groupMemberships.id, authorization.membership.id));
+        await transaction
+          .update(groupMemberships)
+          .set({ role: 'owner', version: sql`${groupMemberships.version} + 1` })
+          .where(eq(groupMemberships.id, target.id));
+        await transaction
+          .update(groups)
+          .set({ ownerUserId: target.userId, version: sql`${groups.version} + 1` })
+          .where(eq(groups.id, authorization.group.id));
+
+        return {
+          groupCode: authorization.group.groupCode,
+          id: authorization.group.id,
+          ...(authorization.user.isDeveloperAdmin ? { isDeveloperAdmin: true } : {}),
+          name: authorization.group.name,
+          role: 'administrator',
+          version: authorization.group.version + 1,
+        };
+      },
+      scope: 'organization_owner_transfer',
     });
   }
 
-  public async deleteGroup(identity: AuthenticatedIdentity, groupId: string): Promise<void> {
-    await withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+  public async deleteGroup(
+    identity: AuthenticatedIdentity,
+    groupId: string,
+    input: GroupVersionMutationRequest,
+  ): Promise<OrganizationMutationCompleted> {
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'deleteGroup',
-      );
-      await transaction
-        .update(groups)
-        .set({ deletedAt: sql`current_timestamp(3)`, version: sql`${groups.version} + 1` })
-        .where(and(eq(groups.id, authorization.group.id), isNull(groups.deletedAt)));
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'deleteGroup',
+        );
+        assertExpectedVersion({
+          actualVersion: authorization.group.version,
+          expectedVersion: input.expectedVersion,
+          id: authorization.group.id,
+          objectType: 'group',
+        });
+        await transaction
+          .update(groups)
+          .set({ deletedAt: sql`current_timestamp(3)`, version: sql`${groups.version} + 1` })
+          .where(and(eq(groups.id, authorization.group.id), isNull(groups.deletedAt)));
+        return organizationMutationCompleted();
+      },
+      scope: 'organization_group_delete',
     });
   }
 

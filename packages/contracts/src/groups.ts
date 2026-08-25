@@ -21,9 +21,11 @@ export type GroupSummary = z.infer<typeof groupSummarySchema>;
 export interface CreateGroupRequest {
   readonly groupCode: string;
   readonly name: string;
+  readonly operationId: string;
 }
 
 export interface AddRosterEntriesRequest {
+  readonly operationId: string;
   readonly realNames: readonly string[];
 }
 
@@ -35,14 +37,15 @@ export const addRosterEntriesResponseSchema = z
 export type AddRosterEntriesResponse = z.infer<typeof addRosterEntriesResponseSchema>;
 
 export interface AddGroupMembersRequest {
+  readonly operationId: string;
   readonly realNames: readonly string[];
 }
 
-export interface AddGroupMembersResponse {
-  readonly added: number;
-}
+export const addGroupMembersResponseSchema = addRosterEntriesResponseSchema;
+export type AddGroupMembersResponse = z.infer<typeof addGroupMembersResponseSchema>;
 
 export interface ConvertPendingRosterRequest {
+  readonly operationId: string;
   readonly realNames: readonly string[];
 }
 
@@ -56,6 +59,7 @@ export type ConvertPendingRosterResponse = z.infer<typeof convertPendingRosterRe
 
 export interface ClaimGroupRequest {
   readonly groupCode: string;
+  readonly operationId: string;
 }
 
 export const claimGroupResponseSchema = z.discriminatedUnion('status', [
@@ -65,7 +69,9 @@ export const claimGroupResponseSchema = z.discriminatedUnion('status', [
 export type ClaimGroupResponse = z.infer<typeof claimGroupResponseSchema>;
 
 export interface UpdateGroupCodeRequest {
+  readonly expectedVersion: number;
   readonly groupCode: string;
+  readonly operationId: string;
 }
 
 export const groupMemberSchema = z
@@ -79,6 +85,7 @@ export const groupMemberSchema = z
     isUnclaimed: z.boolean().optional(),
     realName: z.string().min(1),
     role: groupRoleSchema,
+    version: z.number().int().min(1),
   })
   .strict();
 export type GroupMember = z.infer<typeof groupMemberSchema>;
@@ -113,7 +120,9 @@ export const membershipClaimLookupResponseSchema = z
 export type MembershipClaimLookupResponse = z.infer<typeof membershipClaimLookupResponseSchema>;
 
 export interface CreateMembershipClaimRequest {
+  readonly expectedMemberVersion: number;
   readonly membershipId: string;
+  readonly operationId: string;
 }
 
 export const membershipClaimRequestSchema = z
@@ -206,16 +215,23 @@ export const groupCatalogListSchema = z.array(groupCatalogEntrySchema);
 
 export const updateGroupNameRequestSchema = z
   .object({
+    expectedVersion: z.number().int().min(1),
     name: z.string().trim().min(1).max(100),
+    operationId: z.string().uuid(),
   })
   .strict();
-export type UpdateGroupNameRequest = z.infer<typeof updateGroupNameRequestSchema>;
+export interface UpdateGroupNameRequest {
+  readonly expectedVersion: number;
+  readonly name: string;
+  readonly operationId: string;
+}
 
 export const dissolvedGroupSchema = z
   .object({
     deletedAt: z.string(),
     id: z.string().min(1),
     name: z.string().min(1),
+    version: z.number().int().min(1),
   })
   .strict();
 export type DissolvedGroup = z.infer<typeof dissolvedGroupSchema>;
@@ -223,19 +239,52 @@ export type DissolvedGroup = z.infer<typeof dissolvedGroupSchema>;
 export const dissolvedGroupListSchema = z.array(dissolvedGroupSchema);
 
 export interface UpdateGroupMemberRoleRequest {
+  readonly expectedVersion: number;
+  readonly operationId: string;
   readonly role: Extract<GroupRole, 'administrator' | 'member'>;
 }
 
 export interface TransferGroupOwnershipRequest {
+  readonly expectedGroupVersion: number;
+  readonly expectedMemberVersion: number;
   readonly membershipId: string;
+  readonly operationId: string;
 }
 
 export interface UpdateGroupMemberContactRequest {
+  readonly expectedVersion: number;
   readonly isConfirmed?: boolean;
   readonly mobilePhone?: string | null;
+  readonly operationId: string;
   readonly shortPhone?: string | null;
 }
 
 export interface UpdateGroupMemberNameRequest {
+  readonly expectedVersion: number;
+  readonly operationId: string;
   readonly realName: string;
 }
+
+export interface OrganizationOperationRequest {
+  readonly operationId: string;
+}
+
+export interface GroupVersionMutationRequest {
+  readonly expectedVersion: number;
+  readonly operationId: string;
+}
+
+export interface GroupMemberVersionMutationRequest {
+  readonly expectedVersion: number;
+  readonly operationId: string;
+}
+
+export interface MembershipClaimDecisionRequest {
+  readonly expectedVersion: number;
+  readonly operationId: string;
+}
+
+export const organizationMutationCompletedSchema = z
+  .object({ completed: z.literal(true) })
+  .strict();
+export type OrganizationMutationCompleted = z.infer<typeof organizationMutationCompletedSchema>;

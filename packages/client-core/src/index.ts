@@ -40,6 +40,20 @@ export {
   type OrganizationReadClient,
 } from './organization-read-client.js';
 export {
+  addGroupMembersResponseDecoder,
+  addRosterEntriesResponseDecoder,
+  claimGroupResponseDecoder,
+  convertPendingRosterResponseDecoder,
+  createMembershipClaimResponseDecoder,
+  createOrganizationWriteClient,
+  groupMemberContactMutationDecoder,
+  groupMemberMutationDecoder,
+  groupSummaryMutationDecoder,
+  membershipClaimRequestMutationDecoder,
+  organizationWriteEndpoints,
+  type OrganizationWriteClient,
+} from './organization-write-client.js';
+export {
   ClientCoreError,
   createAuthenticationRequiredError,
   createHttpClientError,

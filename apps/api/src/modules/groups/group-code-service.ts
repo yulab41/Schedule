@@ -1,4 +1,8 @@
-import { type DatabaseClient, groupCodeAttempts } from '@schedule/database';
+import {
+  type DatabaseClient,
+  type DatabaseTransaction,
+  groupCodeAttempts,
+} from '@schedule/database';
 import { eq, sql } from 'drizzle-orm';
 
 import { ApiError } from '../../plugins/error-handler.js';
@@ -9,10 +13,12 @@ const groupCodeAttemptWindowSeconds = 60;
 export class GroupCodeService {
   public constructor(private readonly databaseClient: DatabaseClient) {}
 
-  public async consumeAttempt(userId: string): Promise<void> {
+  public async consumeAttempt(userId: string, transaction?: DatabaseTransaction): Promise<void> {
+    const database =
+      transaction ?? (this.databaseClient.database as unknown as DatabaseTransaction);
     const windowExpired = sql`${groupCodeAttempts.windowStartedAt} < timestampadd(second, -${groupCodeAttemptWindowSeconds}, current_timestamp(3))`;
 
-    await this.databaseClient.database
+    await database
       .insert(groupCodeAttempts)
       .values({ userId })
       .onDuplicateKeyUpdate({
@@ -22,7 +28,7 @@ export class GroupCodeService {
         },
       });
 
-    const [attempt] = await this.databaseClient.database
+    const [attempt] = await database
       .select({ count: groupCodeAttempts.attemptCount })
       .from(groupCodeAttempts)
       .where(eq(groupCodeAttempts.userId, userId))

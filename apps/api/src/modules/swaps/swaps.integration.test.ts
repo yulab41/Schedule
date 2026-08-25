@@ -2082,7 +2082,10 @@ describeWithDatabase('member shift swaps', () => {
 
   async function createGroup(name: string, groupCode: string): Promise<string> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { groupCode, name },
       url: '/groups',
@@ -2094,7 +2097,10 @@ describeWithDatabase('member shift swaps', () => {
 
   async function addRosterEntry(groupId: string, realName: string): Promise<void> {
     const response = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: {
+        authorization: 'Bearer owner-token',
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
       payload: { realNames: [realName] },
       url: `/groups/${groupId}/roster-entries`,

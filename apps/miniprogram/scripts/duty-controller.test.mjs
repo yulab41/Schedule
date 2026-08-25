@@ -178,8 +178,20 @@ describe('P7 native duty-adjustment workflow controller', () => {
     }
     if (path.endsWith('/members') && options.method === 'GET') {
       respond(options, [
-        { id: currentMembershipId, isCurrentUser: true, realName: '林医生', role: 'member' },
-        { id: overtimeMembershipId, isCurrentUser: false, realName: '陈医生', role: 'member' },
+        {
+          id: currentMembershipId,
+          isCurrentUser: true,
+          realName: '林医生',
+          role: 'member',
+          version: 1,
+        },
+        {
+          id: overtimeMembershipId,
+          isCurrentUser: false,
+          realName: '陈医生',
+          role: 'member',
+          version: 1,
+        },
       ]);
       return;
     }

@@ -5,11 +5,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  addGroupMembersResponseSchema,
+  addRosterEntriesResponseSchema,
   apiErrorCodes,
   approvedLeaveRequestResultSchema,
   appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
   clientCapabilityResponseSchema,
+  convertPendingRosterResponseSchema,
   dissolvedGroupListSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
@@ -17,9 +20,12 @@ import {
   groupDutyAdjustmentSettingsSchema,
   groupCatalogListSchema,
   groupLeaveReflowStrategySchema,
+  groupMemberContactSchema,
   groupMemberContactListSchema,
+  groupMemberSchema,
   groupMemberListSchema,
   groupMobilePhoneConsentSchema,
+  groupSummarySchema,
   groupSummaryListSchema,
   groupSwapSettingsSchema,
   holidayReadModelSchema,
@@ -33,7 +39,9 @@ import {
   manualScheduleTemplateSchema,
   memberSwapSettingsSchema,
   membershipClaimLookupResponseSchema,
+  membershipClaimRequestSchema,
   membershipClaimRequestListSchema,
+  organizationMutationCompletedSchema,
   pastScheduleBackfillBatchResultSchema,
   pastScheduleBackfillRecordListSchema,
   pastSchedulePeriodListSchema,
@@ -67,6 +75,14 @@ const source = await format(
   renderGeneratedSchemas({
     errorCodes: [...apiErrorCodes],
     schemas: {
+      addGroupMembersResponse: sanitizeJsonSchema(
+        z.toJSONSchema(addGroupMembersResponseSchema),
+        'addGroupMembersResponse',
+      ),
+      addRosterEntriesResponse: sanitizeJsonSchema(
+        z.toJSONSchema(addRosterEntriesResponseSchema),
+        'addRosterEntriesResponse',
+      ),
       approvedLeaveRequestResult: sanitizeJsonSchema(
         z.toJSONSchema(approvedLeaveRequestResultSchema),
         'approvedLeaveRequestResult',
@@ -82,6 +98,10 @@ const source = await format(
       clientCapabilityResponse: sanitizeJsonSchema(
         z.toJSONSchema(clientCapabilityResponseSchema),
         'clientCapabilityResponse',
+      ),
+      convertPendingRosterResponse: sanitizeJsonSchema(
+        z.toJSONSchema(convertPendingRosterResponseSchema),
+        'convertPendingRosterResponse',
       ),
       dissolvedGroupList: sanitizeJsonSchema(
         z.toJSONSchema(dissolvedGroupListSchema),
@@ -111,6 +131,10 @@ const source = await format(
         z.toJSONSchema(groupLeaveReflowStrategySchema),
         'groupLeaveReflowStrategy',
       ),
+      groupMemberContact: sanitizeJsonSchema(
+        z.toJSONSchema(groupMemberContactSchema),
+        'groupMemberContact',
+      ),
       groupMobilePhoneConsent: sanitizeJsonSchema(
         z.toJSONSchema(groupMobilePhoneConsentSchema),
         'groupMobilePhoneConsent',
@@ -120,6 +144,8 @@ const source = await format(
         'groupMemberContactList',
       ),
       groupMemberList: sanitizeJsonSchema(z.toJSONSchema(groupMemberListSchema), 'groupMemberList'),
+      groupMember: sanitizeJsonSchema(z.toJSONSchema(groupMemberSchema), 'groupMember'),
+      groupSummary: sanitizeJsonSchema(z.toJSONSchema(groupSummarySchema), 'groupSummary'),
       groupSummaryList: sanitizeJsonSchema(
         z.toJSONSchema(groupSummaryListSchema),
         'groupSummaryList',
@@ -169,9 +195,17 @@ const source = await format(
         z.toJSONSchema(membershipClaimLookupResponseSchema),
         'membershipClaimLookupResponse',
       ),
+      membershipClaimRequest: sanitizeJsonSchema(
+        z.toJSONSchema(membershipClaimRequestSchema),
+        'membershipClaimRequest',
+      ),
       membershipClaimRequestList: sanitizeJsonSchema(
         z.toJSONSchema(membershipClaimRequestListSchema),
         'membershipClaimRequestList',
+      ),
+      organizationMutationCompleted: sanitizeJsonSchema(
+        z.toJSONSchema(organizationMutationCompletedSchema),
+        'organizationMutationCompleted',
       ),
       pastScheduleBackfillBatchResult: sanitizeJsonSchema(
         z.toJSONSchema(pastScheduleBackfillBatchResultSchema),

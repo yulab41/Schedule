@@ -1,6 +1,7 @@
 import type {
   AddGroupMembersRequest,
   AddGroupMembersResponse,
+  AddRosterEntriesRequest,
   AddRosterEntriesResponse,
   ConvertPendingRosterRequest,
   ConvertPendingRosterResponse,
@@ -14,6 +15,7 @@ import type {
   ApprovedLeaveRequestResult,
   CalendarPreferences,
   CalendarReadModel,
+  ClaimGroupRequest,
   ClaimGroupResponse,
   CreatePastScheduleAssignmentInput,
   CreateScheduleExportInput,
@@ -32,12 +34,14 @@ import type {
   GroupCatalogEntry,
   GroupMember,
   GroupMemberContact,
+  GroupMemberVersionMutationRequest,
   GroupMobilePhoneConsent,
   GroupDutyAdjustmentSettings,
   GroupSchedulePublishMode,
   GroupLeaveReflowStrategy,
   GroupSwapSettings,
   GroupSummary,
+  GroupVersionMutationRequest,
   GuestCalendarReadModel,
   HolidayReadModel,
   JsonObject,
@@ -53,9 +57,11 @@ import type {
   MemberNotificationPreferences,
   MembershipClaimLookupResponse,
   MembershipClaimRequest,
+  MembershipClaimDecisionRequest,
   MonthStatisticsSnapshot,
   NotificationPage,
   NotificationRecord,
+  OrganizationOperationRequest,
   PasswordIdentityAssignmentRequest,
   PasswordIdentityAssignmentResponse,
   PlatformAdminUserAccount,
@@ -131,6 +137,7 @@ import {
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
   createOrganizationReadClient,
+  createOrganizationWriteClient,
   createPastScheduleClient,
   createWorkflowClient,
   type ClientEndpoint,
@@ -140,24 +147,17 @@ import {
 } from '@schedule/client-core';
 
 import {
-  addRosterEntriesResponseSchema,
   apiErrorCodes,
   appliedManualScheduleTemplateResultSchema,
   createWechatAdminBindingLinkResponseSchema,
   calendarPreferencesSchema,
   calendarReadModelSchema,
-  claimGroupResponseSchema,
-  convertPendingRosterResponseSchema,
-  createMembershipClaimResponseSchema,
   deletedResultSchema,
   directoryFacetSnapshotSchema,
   directoryEntryLookupResponseSchema,
   directoryPageSchema,
   guestCalendarReadModelSchema,
-  groupMemberContactSchema,
-  groupMemberSchema,
   groupSchedulePublishModeSchema,
-  groupSummarySchema,
   groupNotificationSettingsSchema,
   visitorAccessAggregatePageSchema,
   visitorAccessLogPageSchema,
@@ -165,7 +165,6 @@ import {
   manualApplyPreviewSchema,
   manualScheduleTemplateListSchema,
   manualScheduleTemplateSchema,
-  membershipClaimRequestSchema,
   memberNotificationPreferencesSchema,
   monthStatisticsSnapshotSchema,
   pastScheduleAssignmentListSchema,
@@ -250,7 +249,7 @@ export interface ApiClient {
   ): Promise<SwapRequest>;
   addRosterEntries(
     groupId: string,
-    input: { readonly realNames: readonly string[] },
+    input: AddRosterEntriesRequest,
   ): Promise<AddRosterEntriesResponse>;
   addGroupMembers(groupId: string, input: AddGroupMembersRequest): Promise<AddGroupMembersResponse>;
   convertRosterEntries(
@@ -277,10 +276,7 @@ export interface ApiClient {
     templateId: string,
     input: ApplyManualScheduleTemplateRequest,
   ): Promise<AppliedManualScheduleTemplateResult>;
-  claimGroup(input: {
-    readonly groupCode: string;
-    readonly realName?: string;
-  }): Promise<ClaimGroupResponse>;
+  claimGroup(input: ClaimGroupRequest): Promise<ClaimGroupResponse>;
   cancelSwapRequest(
     groupId: string,
     swapRequestId: string,
@@ -310,8 +306,12 @@ export interface ApiClient {
   createShiftType(groupId: string, input: CreateShiftTypeRequest): Promise<ShiftType>;
   createGroup(input: CreateGroupRequest): Promise<GroupSummary>;
   createCurrentProfile(input: { readonly realName: string }): Promise<UserProfile>;
-  deleteGroup(groupId: string): Promise<void>;
-  deleteGroupMember(groupId: string, memberId: string): Promise<void>;
+  deleteGroup(groupId: string, input: GroupVersionMutationRequest): Promise<void>;
+  deleteGroupMember(
+    groupId: string,
+    memberId: string,
+    input: GroupMemberVersionMutationRequest,
+  ): Promise<void>;
   deleteManualScheduleTemplate(groupId: string, templateId: string): Promise<void>;
   deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
   deleteShiftType(groupId: string, shiftTypeId: string): Promise<void>;
@@ -380,11 +380,11 @@ export interface ApiClient {
   listGroupMembers(groupId: string): Promise<GroupMember[]>;
   listGroups(): Promise<GroupSummary[]>;
   listGroupCatalog(): Promise<GroupCatalogEntry[]>;
-  joinGroupAsGuest(groupId: string): Promise<GroupSummary>;
-  leaveGroup(groupId: string): Promise<void>;
+  joinGroupAsGuest(groupId: string, input: OrganizationOperationRequest): Promise<GroupSummary>;
+  leaveGroup(groupId: string, input: OrganizationOperationRequest): Promise<void>;
   updateGroupName(groupId: string, input: UpdateGroupNameRequest): Promise<GroupSummary>;
   listDissolvedGroups(): Promise<DissolvedGroup[]>;
-  restoreGroup(groupId: string): Promise<void>;
+  restoreGroup(groupId: string, input: GroupVersionMutationRequest): Promise<void>;
   getGroupGuestCalendar(groupId: string, businessMonth: string): Promise<GuestCalendarReadModel>;
   lookupClaimMatches(groupId: string, realName: string): Promise<MembershipClaimLookupResponse>;
   createMembershipClaimRequest(
@@ -395,12 +395,18 @@ export interface ApiClient {
   approveMembershipClaimRequest(
     groupId: string,
     claimRequestId: string,
+    input: MembershipClaimDecisionRequest,
   ): Promise<MembershipClaimRequest>;
   rejectMembershipClaimRequest(
     groupId: string,
     claimRequestId: string,
+    input: MembershipClaimDecisionRequest,
   ): Promise<MembershipClaimRequest>;
-  revokeMembershipClaim(groupId: string, membershipId: string): Promise<void>;
+  revokeMembershipClaim(
+    groupId: string,
+    membershipId: string,
+    input: GroupMemberVersionMutationRequest,
+  ): Promise<void>;
   updateProfile(realName: string): Promise<UserProfile>;
   listDutyAdjustmentApprovals(groupId: string): Promise<DutyAdjustmentRequest[]>;
   listLeaveRequestApprovals(groupId: string): Promise<LeaveRequest[]>;
@@ -668,6 +674,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const calendarReadClient = createCalendarReadClient(sharedClientTransport);
   const groupMobilePhoneConsentClient = createGroupMobilePhoneConsentClient(sharedClientTransport);
   const organizationReadClient = createOrganizationReadClient(sharedClientTransport);
+  const organizationWriteClient = createOrganizationWriteClient(sharedClientTransport);
   const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
   const workflowClient = createWorkflowClient(sharedClientTransport);
 
@@ -944,56 +951,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       return workflowClient.approveSwapRequest(groupId, swapRequestId, input);
     },
     addRosterEntries(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/roster-entries`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(addRosterEntriesResponseSchema),
-      );
+      return organizationWriteClient.addRosterEntries(groupId, input);
     },
     addGroupMembers(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/members`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(addRosterEntriesResponseSchema),
-      );
+      return organizationWriteClient.addGroupMembers(groupId, input);
     },
     convertRosterEntries(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/roster-entries/convert`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(convertPendingRosterResponseSchema),
-      );
+      return organizationWriteClient.convertRosterEntries(groupId, input);
     },
     claimGroup(input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        '/groups/claim',
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(claimGroupResponseSchema),
-      );
+      return organizationWriteClient.claimGroup(input);
     },
     cancelSwapRequest(groupId, swapRequestId, input) {
       return workflowClient.cancelSwapRequest(groupId, swapRequestId, input);
@@ -1066,17 +1033,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     createGroup(input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        '/groups',
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(groupSummarySchema),
-      );
+      return organizationWriteClient.createGroup(input);
     },
     createCurrentProfile(input) {
       return requestJson(
@@ -1091,25 +1048,11 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isResponseBodyFromSchema(userProfileSchema),
       );
     },
-    deleteGroup(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}`,
-        { method: 'DELETE' },
-        isUndefined,
-      );
+    deleteGroup(groupId, input) {
+      return organizationWriteClient.deleteGroup(groupId, input);
     },
-    deleteGroupMember(groupId, memberId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberId)}`,
-        { method: 'DELETE' },
-        isUndefined,
-      );
+    deleteGroupMember(groupId, memberId, input) {
+      return organizationWriteClient.deleteGroupMember(groupId, memberId, input);
     },
     deleteManualScheduleTemplate(groupId, templateId) {
       return requestJson(
@@ -1559,50 +1502,19 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       return organizationReadClient.lookupClaimMatches(groupId, realName);
     },
     createMembershipClaimRequest(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/claim-requests`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(createMembershipClaimResponseSchema),
-      );
+      return organizationWriteClient.createMembershipClaimRequest(groupId, input);
     },
     listMembershipClaimRequests(groupId) {
       return organizationReadClient.listMembershipClaimRequests(groupId);
     },
-    approveMembershipClaimRequest(groupId, claimRequestId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/claim-requests/${encodeURIComponent(claimRequestId)}/approve`,
-        { method: 'POST' },
-        isResponseBodyFromSchema(membershipClaimRequestSchema),
-      );
+    approveMembershipClaimRequest(groupId, claimRequestId, input) {
+      return organizationWriteClient.approveMembershipClaimRequest(groupId, claimRequestId, input);
     },
-    rejectMembershipClaimRequest(groupId, claimRequestId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/claim-requests/${encodeURIComponent(claimRequestId)}/reject`,
-        { method: 'POST' },
-        isResponseBodyFromSchema(membershipClaimRequestSchema),
-      );
+    rejectMembershipClaimRequest(groupId, claimRequestId, input) {
+      return organizationWriteClient.rejectMembershipClaimRequest(groupId, claimRequestId, input);
     },
-    revokeMembershipClaim(groupId, membershipId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/revoke-claim`,
-        { method: 'POST' },
-        isUndefined,
-      );
+    revokeMembershipClaim(groupId, membershipId, input) {
+      return organizationWriteClient.revokeMembershipClaim(groupId, membershipId, input);
     },
     listGroups() {
       return organizationReadClient.listGroups();
@@ -1610,51 +1522,20 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     listGroupCatalog() {
       return organizationReadClient.listGroupCatalog();
     },
-    joinGroupAsGuest(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/join-guest`,
-        { method: 'POST' },
-        isResponseBodyFromSchema(groupSummarySchema),
-      );
+    joinGroupAsGuest(groupId, input) {
+      return organizationWriteClient.joinGroupAsGuest(groupId, input);
     },
-    leaveGroup(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/leave`,
-        { method: 'POST' },
-        isUndefined,
-      );
+    leaveGroup(groupId, input) {
+      return organizationWriteClient.leaveGroup(groupId, input);
     },
     updateGroupName(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/name`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(groupSummarySchema),
-      );
+      return organizationWriteClient.updateGroupName(groupId, input);
     },
     listDissolvedGroups() {
       return organizationReadClient.listDissolvedGroups();
     },
-    restoreGroup(groupId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/restore`,
-        { method: 'POST' },
-        isUndefined,
-      );
+    restoreGroup(groupId, input) {
+      return organizationWriteClient.restoreGroup(groupId, input);
     },
     getGroupGuestCalendar(groupId, businessMonth) {
       return requestJson(
@@ -1710,17 +1591,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       return workflowClient.previewLeaveRequestApproval(groupId, leaveRequestId, input);
     },
     updateGroupCode(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/group-code`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(groupSummarySchema),
-      );
+      return organizationWriteClient.updateGroupCode(groupId, input);
     },
     updateGroupCalendarDefaults(groupId, input) {
       return requestJson(
@@ -1780,17 +1651,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     transferGroupOwnership(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/owner-transfer`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(groupSummarySchema),
-      );
+      return organizationWriteClient.transferGroupOwnership(groupId, input);
     },
     updateManualScheduleTemplate(groupId, templateId, input) {
       return requestJson(
@@ -1806,43 +1667,16 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     updateGroupMemberContact(groupId, membershipId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/contact`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(groupMemberContactSchema),
-      );
+      return organizationWriteClient.updateGroupMemberContact(groupId, membershipId, input);
     },
     updateGroupMobilePhoneConsent(groupId, input) {
       return groupMobilePhoneConsentClient.update(groupId, input);
     },
     updateGroupMemberName(groupId, membershipId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/name`,
-        { body: JSON.stringify(input), method: 'PUT' },
-        isResponseBodyFromSchema(groupMemberSchema),
-      );
+      return organizationWriteClient.updateGroupMemberName(groupId, membershipId, input);
     },
     updateGroupMemberRole(groupId, membershipId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(membershipId)}/role`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(groupMemberSchema),
-      );
+      return organizationWriteClient.updateGroupMemberRole(groupId, membershipId, input);
     },
     updateGroupDutyAdjustmentSettings(groupId, input) {
       return workflowClient.updateGroupDutyAdjustmentSettings(groupId, input);
