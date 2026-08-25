@@ -61,6 +61,11 @@
       "checks": ["read-members", "read-config", "write-denied", "organization-disabled-copy"]
     },
     {
+      "id": "member-wechat-quick-login",
+      "role": "member",
+      "checks": ["bound-wechat-entry", "quick-login", "profile-preserved", "no-password-prompt"]
+    },
+    {
       "id": "owner-admin-scheduling-configuration",
       "role": "owner-or-administrator",
       "checks": ["shift-type", "role-members", "rotation-rule", "409-refresh", "retry-preserves-form"]
@@ -79,6 +84,11 @@
       "id": "platform-admin-account-lifecycle",
       "role": "platform-admin",
       "checks": ["list-status", "assign-username", "binding-link", "auth-version-409", "no-subject-or-password"]
+    },
+    {
+      "id": "platform-admin-password-login",
+      "role": "platform-admin",
+      "checks": ["account-form", "password-login", "profile-loaded", "invalid-credentials-copy", "password-session"]
     },
     {
       "id": "weak-network-idempotent-retry",

@@ -47,11 +47,19 @@
 
 普通成员可读取成员、联系方式和排班配置；所有群组、成员、配置、邀请和平台账号写入均显示清晰失败关闭提示。无 `organization` 能力时不得出现可提交的伪成功状态。
 
+### 5.1 D0796 微信快捷登录
+
+退出当前会话后回到登录页，点击“微信快捷登录”，不要填写账号或密码。确认微信身份直接进入已绑定的普通成员排班台，资料与群组保持原账号，不出现账号密码绑定表单或新的建档流程；记录 `member-wechat-quick-login` 与 `capabilityGateObserved`。
+
 ## 平台管理员账号
 
 ### 6. 平台账号后台
 
 打开“平台账号”，查看服务端批准的用户标识、用户名状态和 `authVersion`；分配用户名并生成一次性绑定链接。页面不得显示姓名、密码、完整联系方式、微信 subject 或 ticket。旧 `authVersion` 提交必须 409，绑定 URL 只在当前页面内存中展示。
+
+### 7. 账号密码登录
+
+退出当前会话后回到登录页，使用平台管理员已分配的账号和密码提交“账号密码登录”。确认登录成功后加载正确资料和群组；错误密码只显示明确的账号/密码错误，不创建新用户、不触发 `wx.login`、不切换到其他身份。记录 `platform-admin-password-login` 与 `secretPersistenceObserved`。
 
 ## 弱网、生命周期与回滚
 
@@ -68,10 +76,12 @@ deviceModel / Android / WeChat / baseLibrary / fontScale:
 owner-group-member-lifecycle result / duplicateWriteObserved:
 administrator-roster-claims-contacts result / capabilityGateObserved:
 member-readonly-boundary result:
+member-wechat-quick-login result / capabilityGateObserved:
 owner-admin-scheduling-configuration result / duplicateWriteObserved:
 owner-admin-invite-and-visitor result / secretPersistenceObserved:
 guest-qr-dual-capability result / capabilityGateObserved:
 platform-admin-account-lifecycle result / secretPersistenceObserved:
+platform-admin-password-login result / secretPersistenceObserved:
 weak-network-idempotent-retry result / duplicateWriteObserved:
 foreground-capability-refresh result:
 capability-rollback result:
