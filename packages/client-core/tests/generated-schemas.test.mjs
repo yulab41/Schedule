@@ -3,6 +3,9 @@ import {
   appliedManualScheduleTemplateResultJsonSchema,
   calendarReadModelJsonSchema,
   clientCapabilityResponseJsonSchema,
+  directoryEntryLookupResponseJsonSchema,
+  directoryFacetSnapshotJsonSchema,
+  directoryPageJsonSchema,
   dutyAdjustmentPreviewJsonSchema,
   dutyAdjustmentRequestJsonSchema,
   dutyAdjustmentRequestListJsonSchema,
@@ -53,6 +56,9 @@ import {
   appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
   clientCapabilityResponseSchema,
+  directoryEntryLookupResponseSchema,
+  directoryFacetSnapshotSchema,
+  directoryPageSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestSchema,
   dutyAdjustmentRequestListSchema,
@@ -121,6 +127,18 @@ describe('client-core generated schemas', () => {
         z.toJSONSchema(clientCapabilityResponseSchema),
         'clientCapabilityResponse',
       ),
+    );
+    expect(directoryEntryLookupResponseJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(directoryEntryLookupResponseSchema),
+        'directoryEntryLookupResponse',
+      ),
+    );
+    expect(directoryFacetSnapshotJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(directoryFacetSnapshotSchema), 'directoryFacetSnapshot'),
+    );
+    expect(directoryPageJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(directoryPageSchema), 'directoryPage'),
     );
     expect(dutyAdjustmentPreviewJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(dutyAdjustmentPreviewSchema), 'dutyAdjustmentPreview'),
@@ -323,5 +341,15 @@ describe('client-core generated schemas', () => {
   it('treats Git CRLF checkout and generated LF source as the same content', () => {
     expect(isGeneratedSourceCurrent('first\r\nsecond\r\n', 'first\nsecond\n')).toBe(true);
     expect(isGeneratedSourceCurrent('first\r\nchanged\r\n', 'first\nsecond\n')).toBe(false);
+  });
+
+  it('maps strict positive integer bounds into the compact schema subset', () => {
+    expect(sanitizeJsonSchema({ type: 'integer', exclusiveMinimum: 0 }, 'count')).toEqual({
+      minimum: 1,
+      type: 'integer',
+    });
+    expect(() => sanitizeJsonSchema({ type: 'number', exclusiveMinimum: 0 }, 'ratio')).toThrow(
+      /only supported for integer schemas/u,
+    );
   });
 });

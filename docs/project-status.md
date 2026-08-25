@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P10-A1 通讯录共享只读边界（已实现，待原生页面）
+
+- 范围：新增 `@schedule/client-core` `DirectoryReadClient`，覆盖院内/员工 facets、独立筛选与游标列表、批量 lookup；Mini runtime 固定使用 `organization` capability，未创建原生通讯录页面或读取生产目录数据。
+- 契约/隐私：复用 contracts 的严格目录条目、联系人、facet 和日期 schema；支持 `internal/employee` 两种路径、URI 编码、`q/campus/section/department/subunit/building/floor/entryKind` 筛选与稳定游标；不写缓存、不复制数据库逻辑、不把号码存入日志。
+- 验证：client-core 19 files/61 tests、P10 boundary 3/3、generated freshness、Mini/client-core typecheck、Mini production verify/source/package/determinism/CI dry-run 通过；packageBytes `6,504,938`，`subpackages/organization` `1,229,420`，`subpackages/insights` `1,645,671`。
+- checkpoint：待提交消息为 `feat(client-core): add p10 directory read boundary`；提交后上传体验版并补候选白名单。下一活动批次是 P10-A2 Web 对照后的 Mini 通讯录原生页面，停止条件是 Storybook 状态矩阵和权限/号码隐私验收先完成，生产 `organization=false` 不变。
+
 ## 2026-08-26 P9-A13 原生通知设置入口（已实现，待体验版复核）
 
 - 范围：工作台 More 为所有非访客成员增加“通知设置”，复用 `notifications-panel` 的既有 runtime bundle，以 `mode=settings` 展示本人微信值班提醒；支持 loading/disabled/error/ready、明确点击授权、拒绝/封禁失败关闭和关闭后保留站内通知。

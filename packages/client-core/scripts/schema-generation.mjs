@@ -3,6 +3,8 @@ const supportedSchemaKeys = new Set([
   'additionalProperties',
   'const',
   'enum',
+  'exclusiveMaximum',
+  'exclusiveMinimum',
   'format',
   'items',
   'maxItems',
@@ -101,9 +103,21 @@ export function sanitizeJsonSchema(schema, path = '$') {
     }
     result.const = schema.const;
   }
+  if (schema.exclusiveMinimum !== undefined) {
+    if (schema.type !== 'integer' || !Number.isInteger(schema.exclusiveMinimum)) {
+      throw new Error(`${path}.exclusiveMinimum is only supported for integer schemas`);
+    }
+    result.minimum = schema.exclusiveMinimum + 1;
+  }
+  if (schema.exclusiveMaximum !== undefined) {
+    if (schema.type !== 'integer' || !Number.isInteger(schema.exclusiveMaximum)) {
+      throw new Error(`${path}.exclusiveMaximum is only supported for integer schemas`);
+    }
+    result.maximum = schema.exclusiveMaximum - 1;
+  }
   if (schema.format !== undefined) {
-    if (schema.format !== 'date-time' && schema.format !== 'uuid') {
-      throw new Error(`${path}.format must be date-time or uuid`);
+    if (schema.format !== 'date' && schema.format !== 'date-time' && schema.format !== 'uuid') {
+      throw new Error(`${path}.format must be date, date-time or uuid`);
     }
     result.format = schema.format;
   }

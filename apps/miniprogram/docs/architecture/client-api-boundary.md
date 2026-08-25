@@ -43,6 +43,10 @@ Web 与 Mini 使用相同 endpoint descriptor 和黄金响应。Web 的 Zod 解�
 
 `wechat-subscription.ts` 只负责显式授权桥接和结果归一化，不保存模板 ID、grant、token 或业务正文。`notifications-panel` 的 `mode=settings` 已提供普通成员入口，但当前模板 ID 为空而保持关闭；后续配置必须先取得用户点击，再传入已获批准的模板 ID。授权结果的审计/偏好写入由独立 API 调用负责，模板资格和生产能力开关不由客户端自行推断或开启。
 
+## P10 通讯录读取边界
+
+`directory-read-client.ts` 复用 Web/API 的院内与员工通讯录契约，覆盖 facets、独立筛选/游标列表和批量 lookup；`directoryKind` 明确区分 `internal` 与 `employee`，路径、query 和批量 ID 均由 endpoint 统一编码。Mini runtime 工厂将这三类读取固定到 `organization` capability，普通成员/访客权限仍由服务端最终判断。原生页面接入前不新增缓存、号码脱敏逻辑或本地搜索副本，完整联系方式只允许停留在页面内存。
+
 ## 当前 P2 月历垂直切片
 
 首个 `@schedule/client-core` 切片固定为三个既有只读端点：鉴权月历、鉴权节假日和公开节假日。共享包提供 endpoint ID、auth 模式、GET 方法、编码路径、紧凑 decoder、service 和 transport 接口；不包含 base URL、fetch、`wx`、会话、缓存、重试或 UI。

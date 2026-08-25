@@ -11,6 +11,7 @@ import {
   createInvalidResponseError,
   createManualScheduleClient,
   createNotificationPreferencesClient,
+  createDirectoryReadClient,
   createNetworkError,
   createOrganizationReadClient,
   createOrganizationWriteClient,
@@ -31,6 +32,7 @@ import {
   type InviteVisitorWriteClient,
   type ManualScheduleClient,
   type NotificationPreferencesClient,
+  type DirectoryReadClient,
   type OrganizationReadClient,
   type OrganizationWriteClient,
   type SchedulingConfigWriteClient,
@@ -238,6 +240,15 @@ export function createRuntimeOrganizationReadClient(
 ): OrganizationReadClient {
   return createOrganizationReadClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, resolveOrganizationReadCapability),
+  );
+}
+
+export function createRuntimeDirectoryReadClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): DirectoryReadClient {
+  return createDirectoryReadClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
   );
 }
 

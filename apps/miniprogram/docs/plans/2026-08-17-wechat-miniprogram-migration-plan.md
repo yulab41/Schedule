@@ -3,7 +3,7 @@
 - 批准日期：2026-08-17
 - 工作区：`E:\AItools\Schedule`
 - 应用目录：`apps/miniprogram`
-- 状态：P0–P7 已完成；P7 `.94@0975b2d` 于 2026-08-25 获得用户实体 Android 明确通过。当前只从 P8 组织管理对等与安全预检开始，production `organization` capability 保持关闭；P9/P10 不提前实施。
+- 状态：P0–P7 已完成；P7 `.94@0975b2d` 于 2026-08-25 获得用户实体 Android 明确通过。P8 组织管理仍保持 `organization=false`，P9 数据/消息原生切片已实现但待实体复核，当前进入 P10-A1 通讯录共享读取边界；生产 `organization/insights/externalMessages` capability 继续关闭。
 - 产品目标：保留 Web 和服务器 API，在原生微信小程序中复刻完整业务、状态、权限和交互语义
 
 ## 1. 已冻结边界

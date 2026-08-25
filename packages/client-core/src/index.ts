@@ -6,6 +6,14 @@ export {
   type CalendarReadClient,
 } from './calendar-client.js';
 export {
+  createDirectoryReadClient,
+  directoryEntryLookupResponseDecoder,
+  directoryFacetSnapshotDecoder,
+  directoryPageDecoder,
+  directoryReadEndpoints,
+  type DirectoryReadClient,
+} from './directory-read-client.js';
+export {
   clientCapabilityEndpoints,
   clientCapabilityResponseDecoder,
   createClientCapabilityClient,

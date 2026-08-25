@@ -2,7 +2,7 @@ export interface CompactJsonSchema {
   readonly additionalProperties?: CompactJsonSchema | false | undefined;
   readonly const?: boolean | number | string | undefined;
   readonly enum?: readonly string[] | undefined;
-  readonly format?: 'date-time' | 'uuid' | undefined;
+  readonly format?: 'date' | 'date-time' | 'uuid' | undefined;
   readonly items?: CompactJsonSchema | undefined;
   readonly maxItems?: number | undefined;
   readonly maxLength?: number | undefined;
@@ -144,11 +144,26 @@ function compileStringSchema(schema: CompactJsonSchema): Validator {
 }
 
 const utcDateTimePattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z$/u;
+const isoDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/u;
 const uuidPattern =
   /^(?:00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff|[\da-f]{8}-[\da-f]{4}-[1-8][\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12})$/iu;
 
-function isFormattedString(value: string, format: 'date-time' | 'uuid'): boolean {
+function isFormattedString(value: string, format: 'date' | 'date-time' | 'uuid'): boolean {
+  if (format === 'date') return isIsoDate(value);
   return format === 'date-time' ? isUtcDateTime(value) : uuidPattern.test(value);
+}
+
+function isIsoDate(value: string): boolean {
+  const match = isoDatePattern.exec(value);
+  if (match === null) return false;
+  const candidate = new Date(0);
+  candidate.setUTCFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  candidate.setUTCHours(0, 0, 0, 0);
+  return (
+    candidate.getUTCFullYear() === Number(match[1]) &&
+    candidate.getUTCMonth() === Number(match[2]) - 1 &&
+    candidate.getUTCDate() === Number(match[3])
+  );
 }
 
 function isUtcDateTime(value: string): boolean {

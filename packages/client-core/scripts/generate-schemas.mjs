@@ -17,6 +17,9 @@ import {
   createInviteLinkResponseSchema,
   createWechatAdminBindingLinkResponseSchema,
   dissolvedGroupListSchema,
+  directoryEntryLookupResponseSchema,
+  directoryFacetSnapshotSchema,
+  directoryPageSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
   dutyAdjustmentRequestSchema,
@@ -140,6 +143,15 @@ const source = await format(
         z.toJSONSchema(dissolvedGroupListSchema),
         'dissolvedGroupList',
       ),
+      directoryEntryLookupResponse: sanitizeJsonSchema(
+        z.toJSONSchema(directoryEntryLookupResponseSchema),
+        'directoryEntryLookupResponse',
+      ),
+      directoryFacetSnapshot: sanitizeJsonSchema(
+        z.toJSONSchema(directoryFacetSnapshotSchema),
+        'directoryFacetSnapshot',
+      ),
+      directoryPage: sanitizeJsonSchema(z.toJSONSchema(directoryPageSchema), 'directoryPage'),
       dutyAdjustmentPreview: sanitizeJsonSchema(
         z.toJSONSchema(dutyAdjustmentPreviewSchema),
         'dutyAdjustmentPreview',
