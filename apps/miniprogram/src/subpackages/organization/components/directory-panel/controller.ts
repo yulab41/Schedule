@@ -97,6 +97,15 @@ const filterKeys: readonly FilterKey[] = [
   'subunit',
   'entryKind',
 ];
+const filterFieldNames: Readonly<Record<FilterKey, string>> = {
+  building: 'building',
+  campusCode: 'campus',
+  department: 'department',
+  entryKind: 'entryKind',
+  floor: 'floor',
+  section: 'section',
+  subunit: 'subunit',
+};
 const filterLabels: Readonly<Record<FilterKey, string>> = {
   building: '楼宇',
   campusCode: '院区',
@@ -292,13 +301,14 @@ function switchMode(page: DirectoryPageInstance, kind: DirectoryKind): void {
 
 async function selectFilter(page: DirectoryPageInstance, event: PickerEvent): Promise<void> {
   const key = event.currentTarget.dataset.filter;
+  const fieldName = filterFieldNames[key];
   const options = page.data[
-    `${key}Options` as keyof DirectoryPageData
+    `${fieldName}Options` as keyof DirectoryPageData
   ] as readonly DirectoryOption[];
   const selected = options[event.detail.value];
   if (selected === undefined) return;
-  const indexKey = `${key}Index` as keyof DirectoryPageData;
-  const labelKey = `${key}Label` as keyof DirectoryPageData;
+  const indexKey = `${fieldName}Index` as keyof DirectoryPageData;
+  const labelKey = `${fieldName}Label` as keyof DirectoryPageData;
   page.setData({
     [indexKey]: event.detail.value,
     [labelKey]: selected.label,
@@ -381,9 +391,10 @@ function buildQuery(page: DirectoryPageInstance): DirectoryQuery {
   const query: Record<string, string> = {};
   if (page.data.searchQuery.trim()) query.q = page.data.searchQuery.trim();
   for (const key of filterKeys) {
+    const fieldName = filterFieldNames[key];
     const value = (
-      page.data[`${key}Options` as keyof DirectoryPageData] as readonly DirectoryOption[]
-    )[page.data[`${key}Index` as keyof DirectoryPageData] as number]?.value;
+      page.data[`${fieldName}Options` as keyof DirectoryPageData] as readonly DirectoryOption[]
+    )[page.data[`${fieldName}Index` as keyof DirectoryPageData] as number]?.value;
     if (value) query[key] = value;
   }
   return query as DirectoryQuery;
