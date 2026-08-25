@@ -7,7 +7,9 @@
 - 范围：新增 `subpackage-organization/pages/directory` 与 `directory-panel`，普通成员可从 More 进入；支持院内/员工模式、搜索、院区/片区/楼宇/楼层/科室/单元/类型七级独立筛选、结果卡、游标加载更多及 loading/empty/error/organization-disabled。
 - 隐私/权限：复用 `createRuntimeDirectoryReadClient`，organization capability 与服务端权限双重守卫；联系人只在页面内存展示，不写缓存/日志/visitor key，访客无入口。
 - 验证：P9/P10 定向回归 30/30、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,923,239` bytes，`subpackages/organization` `1,645,259`、`subpackages/insights` `1,645,671`，均低于 1.8M 阻断线。
-- checkpoint：待提交消息为 `feat(miniprogram): add p10 directory page`；提交后上传体验版并补候选白名单。下一活动批次为用户体验版/实体 Android 复核，生产 `organization=false` 保持关闭。
+- 体验/运行：`0.1.0-p9.20260826.10` 已上传成功，144 个代码文件、zip `1,292,439` bytes、manifest `bf88c9991cbaead6dd5518dbabf9c67a35ebf6175cf8f8e89c5703191a422c0d`。生产备份 archive `ad9e3416-576e-4efe-82b6-04b036fe9f18`（54 表/171,413 行/79,879,620 bytes/SHA `215ea993497dd2217ed8b118d77040cc89ba74709ca59e2a41dcd5dfb034dd0c`）后原子追加候选白名单；候选 capability HTTP 200，`organization=false`、`insights=false`，未提审/未正式发布。
+- 发布：代码 checkpoint `14e9c6cb`（`feat(miniprogram): add p10 directory page`）在上述备份后部署 release `14e9c6cb8b2ea9ad1cf4f9396d2945dad73afbac`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
+- 下一活动批次与停止条件：用户在体验版/实体 Android 复核普通成员/管理员权限、号码显示隐私、七级筛选、游标加载、空/错误/能力关闭态和 390/320/大字号；确认通过后再评估开启 `organization`，不自动提审/发布。
 
 ## 2026-08-26 P10-A2 通讯录 Web Storybook 黄金（已实现，待原生页面）
 
