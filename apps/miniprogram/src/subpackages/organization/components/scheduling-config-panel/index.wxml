@@ -1,0 +1,502 @@
+<view class="scheduling-config-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+    >
+      <image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" />
+    </view>
+    <view class="header-title">
+      <text class="header-title-main">排班配置</text>
+      <text class="header-title-sub">{{currentGroupName}} · {{currentGroupRole}}</text>
+    </view>
+    <text class="phase-chip">P8</text>
+  </view>
+
+  <scroll-view
+    class="scheduling-config-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card">
+        <ui-loading label="正在加载排班配置"></ui-loading>
+      </view>
+      <view wx:elif="{{state === 'error'}}" class="page-state-card">
+        <ui-alert tone="danger" title="排班配置暂时无法加载" message="{{errorMessage}}"></ui-alert>
+        <ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button>
+      </view>
+      <view wx:else class="config-content">
+        <view class="config-heading">
+          <text class="section-eyebrow">临床交接轨</text>
+          <text class="page-title">排班配置</text>
+          <text class="page-description">先建立班种、岗位成员与轮转规则，再进入排班编制。</text>
+        </view>
+
+        <view class="readiness-card">
+          <view class="readiness-heading">
+            <view
+              ><text class="readiness-eyebrow">排班准备状态</text
+              ><text class="readiness-title">版本 v{{rulesVersion}}</text></view
+            >
+            <text class="readiness-scope">{{organizationEnabled ? '可编辑' : '只读预览'}}</text>
+          </view>
+          <view class="readiness-grid">
+            <view class="readiness-step"
+              ><text class="readiness-mark {{shiftDrafts.length > 0 ? 'is-complete' : ''}}"
+                >{{shiftDrafts.length > 0 ? '✓' : '1'}}</text
+              ><text>班种</text><text>{{shiftDrafts.length}} 个</text></view
+            >
+            <view class="readiness-step"
+              ><text class="readiness-mark {{roleCards.length > 0 ? 'is-complete' : ''}}"
+                >{{roleCards.length > 0 ? '✓' : '2'}}</text
+              ><text>岗位</text><text>{{roleCards.length}} 个</text></view
+            >
+            <view class="readiness-step"
+              ><text class="readiness-mark {{roleCards.length > 0 ? 'is-complete' : ''}}"
+                >{{roleCards.length > 0 ? '✓' : '3'}}</text
+              ><text>轮转规则</text
+              ><text>{{roleCards.length > 0 ? '待核对' : '待建立'}}</text></view
+            >
+          </view>
+        </view>
+
+        <view wx:if="{{!organizationEnabled}}" class="organization-capability-note">
+          <text class="capability-note-title">组织管理写入能力暂未开放</text>
+          <text>当前可查看排班配置；启用组织管理能力后才会提交新增、修改或删除。</text>
+        </view>
+
+        <view class="config-card">
+          <view class="card-header">
+            <view
+              ><text class="card-title">班种</text
+              ><text class="card-subtitle">时段、颜色与统计口径</text></view
+            >
+            <ui-button
+              wx:if="{{canManage}}"
+              variant="primary"
+              label="{{newShiftEditorOpen ? '收起新增' : '新增班种'}}"
+              bindpress="handleNewShiftToggle"
+            ></ui-button>
+          </view>
+          <view wx:if="{{newShiftEditorOpen}}" class="editor-card">
+            <text class="editor-title">新增自定义班种</text>
+            <view class="field-grid">
+              <view class="field-block"
+                ><text class="field-label">名称</text
+                ><input
+                  class="native-field"
+                  maxlength="100"
+                  data-field="name"
+                  value="{{newShiftName}}"
+                  bindinput="handleNewShiftInput"
+              /></view>
+              <view class="field-block"
+                ><text class="field-label">简称</text
+                ><input
+                  class="native-field"
+                  maxlength="16"
+                  data-field="abbreviation"
+                  value="{{newShiftAbbreviation}}"
+                  bindinput="handleNewShiftInput"
+              /></view>
+              <view class="field-block"
+                ><text class="field-label">开始</text
+                ><picker
+                  mode="time"
+                  value="{{newShiftStartTime}}"
+                  data-field="startTime"
+                  bindchange="handleNewShiftInput"
+                  ><view class="native-picker">{{newShiftStartTime || '选择时间'}}</view></picker
+                ></view
+              >
+              <view class="field-block"
+                ><text class="field-label">结束</text
+                ><picker
+                  mode="time"
+                  value="{{newShiftEndTime}}"
+                  data-field="endTime"
+                  bindchange="handleNewShiftInput"
+                  ><view class="native-picker">{{newShiftEndTime || '选择时间'}}</view></picker
+                ></view
+              >
+              <view class="field-block"
+                ><text class="field-label">颜色 HEX</text
+                ><input
+                  class="native-field native-color"
+                  maxlength="7"
+                  value="{{newShiftColor}}"
+                  data-field="color"
+                  bindinput="handleNewShiftInput"
+              /></view>
+            </view>
+            <view class="option-row">
+              <view
+                class="option-item"
+                data-field="crossesMidnight"
+                bindtap="handleNewShiftToggleField"
+                ><view><text>跨日</text><text>结束时间属于次日</text></view
+                ><ui-switch
+                  checked="{{newShiftCrossesMidnight}}"
+                  disabled="{{!canManage}}"
+                  label="新班种跨日"
+                ></ui-switch
+              ></view>
+              <view class="option-item" data-field="enabled" bindtap="handleNewShiftToggleField"
+                ><view><text>启用</text><text>创建后可用于排班</text></view
+                ><ui-switch
+                  checked="{{newShiftEnabled}}"
+                  disabled="{{!canManage}}"
+                  label="启用新班种"
+                ></ui-switch
+              ></view>
+              <view
+                class="option-item"
+                data-field="countsStatistics"
+                bindtap="handleNewShiftToggleField"
+                ><view><text>计入统计</text><text>纳入值班次数</text></view
+                ><ui-switch
+                  checked="{{newShiftCountsStatistics}}"
+                  disabled="{{!canManage}}"
+                  label="计入统计"
+                ></ui-switch
+              ></view>
+            </view>
+            <ui-button
+              variant="primary"
+              label="新增班种"
+              loading="{{managementState === 'loading'}}"
+              disabled="{{!canManage}}"
+              bindpress="handleCreateShift"
+            ></ui-button>
+          </view>
+          <view wx:if="{{shiftDrafts.length === 0}}" class="empty-note"
+            >还没有班种，请先新增一个可用于排班的班种。</view
+          >
+          <view
+            wx:for="{{shiftDrafts}}"
+            wx:for-item="shift"
+            wx:key="id"
+            class="shift-row {{shift.editing ? 'is-editing' : ''}} {{!shift.isEnabled ? 'is-disabled' : ''}}"
+          >
+            <view class="shift-glyph" style="background:{{shift.color}};color:{{shift.textColor}}"
+              >{{shift.abbreviation || '班'}}</view
+            >
+            <view class="shift-summary"
+              ><view class="shift-name-line"
+                ><text>{{shift.name}}</text
+                ><text wx:if="{{shift.isBuiltIn}}" class="built-in-badge">固定</text></view
+              ><text
+                >{{shift.startTime && shift.endTime ? shift.startTime + '–' + (shift.crossesMidnight
+                ? '次日 ' : '') + shift.endTime : '未设置时段'}}</text
+              ></view
+            >
+            <view class="shift-status"
+              ><text>{{shift.isEnabled ? '启用' : '停用'}}</text
+              ><text wx:if="{{shift.isAllDay}}">全天固定</text></view
+            >
+            <view class="row-actions"
+              ><ui-button
+                variant="secondary"
+                label="{{shift.editing ? '收起' : '编辑'}}"
+                data-shift-id="{{shift.id}}"
+                bindpress="handleShiftToggleEditor"
+              ></ui-button
+              ><view
+                class="mini-toggle {{shift.isEnabled ? 'is-on' : ''}}"
+                data-shift-id="{{shift.id}}"
+                data-field="isEnabled"
+                aria-role="switch"
+                aria-checked="{{shift.isEnabled}}"
+                bindtap="handleShiftToggleField"
+                >{{shift.isEnabled ? '开' : '关'}}</view
+              ></view
+            >
+            <view wx:if="{{shift.editing}}" class="editor-card row-editor">
+              <view class="field-grid"
+                ><view class="field-block"
+                  ><text class="field-label">名称</text
+                  ><input
+                    class="native-field"
+                    data-shift-id="{{shift.id}}"
+                    data-field="name"
+                    value="{{shift.name}}"
+                    bindinput="handleShiftInput" /></view
+                ><view class="field-block"
+                  ><text class="field-label">简称</text
+                  ><input
+                    class="native-field"
+                    data-shift-id="{{shift.id}}"
+                    data-field="abbreviation"
+                    value="{{shift.abbreviation}}"
+                    bindinput="handleShiftInput" /></view
+                ><view class="field-block"
+                  ><text class="field-label">开始</text
+                  ><picker
+                    mode="time"
+                    value="{{shift.startTime}}"
+                    data-shift-id="{{shift.id}}"
+                    data-field="startTime"
+                    bindchange="handleShiftInput"
+                    ><view class="native-picker">{{shift.startTime || '选择时间'}}</view></picker
+                  ></view
+                ><view class="field-block"
+                  ><text class="field-label">结束</text
+                  ><picker
+                    mode="time"
+                    value="{{shift.endTime}}"
+                    data-shift-id="{{shift.id}}"
+                    data-field="endTime"
+                    bindchange="handleShiftInput"
+                    ><view class="native-picker">{{shift.endTime || '选择时间'}}</view></picker
+                  ></view
+                ><view class="field-block"
+                  ><text class="field-label">颜色 HEX</text
+                  ><input
+                    class="native-field native-color"
+                    maxlength="7"
+                    value="{{shift.color}}"
+                    data-shift-id="{{shift.id}}"
+                    data-field="color"
+                    bindinput="handleShiftInput" /></view
+              ></view>
+              <view class="option-row"
+                ><view
+                  class="option-item"
+                  data-shift-id="{{shift.id}}"
+                  data-field="crossesMidnight"
+                  bindtap="handleShiftToggleField"
+                  ><view><text>跨日</text><text>结束时间属于次日</text></view
+                  ><ui-switch
+                    checked="{{shift.crossesMidnight}}"
+                    disabled="{{shift.isAllDay || !canManage}}"
+                    label="{{shift.name}}跨日"
+                  ></ui-switch></view
+                ><view
+                  class="option-item"
+                  data-shift-id="{{shift.id}}"
+                  data-field="countsTowardStatistics"
+                  bindtap="handleShiftToggleField"
+                  ><view><text>计入统计</text><text>纳入值班次数</text></view
+                  ><ui-switch
+                    checked="{{shift.countsTowardStatistics}}"
+                    disabled="{{!canManage}}"
+                    label="{{shift.name}}计入统计"
+                  ></ui-switch></view
+              ></view>
+              <ui-alert
+                wx:if="{{shift.contrastWarning}}"
+                tone="warning"
+                title="颜色对比度不足"
+                message="建议选择与白色文字有至少 4.5:1 对比度的颜色。"
+              ></ui-alert>
+              <view class="editor-actions"
+                ><ui-button
+                  wx:if="{{!shift.isBuiltIn}}"
+                  variant="danger"
+                  label="删除班种"
+                  data-shift-id="{{shift.id}}"
+                  bindpress="handleDeleteShift"
+                ></ui-button
+                ><ui-button
+                  variant="primary"
+                  label="完成"
+                  disabled="{{!canManage}}"
+                  data-shift-id="{{shift.id}}"
+                  bindpress="handleSaveShift"
+                ></ui-button
+              ></view>
+            </view>
+          </view>
+        </view>
+
+        <view class="config-card">
+          <view class="card-header"
+            ><view
+              ><text class="card-title">岗位成员</text
+              ><text class="card-subtitle">岗位不是成员姓名；成员顺序会影响轮转</text></view
+            ></view
+          >
+          <view class="new-role-row"
+            ><input
+              class="native-field"
+              maxlength="100"
+              placeholder="例如：一线、二线"
+              value="{{newRoleName}}"
+              bindinput="handleNewRoleInput" /><ui-button
+              variant="primary"
+              label="新增岗位"
+              disabled="{{!canManage}}"
+              bindpress="handleCreateRole"
+            ></ui-button
+          ></view>
+          <view wx:if="{{roleCards.length === 0}}" class="empty-note"
+            >还没有排班岗位。新增首个岗位后，再选择参与成员。</view
+          >
+          <view wx:for="{{roleCards}}" wx:for-item="role" wx:key="id" class="role-card">
+            <view class="role-heading"
+              ><view
+                ><text class="role-title">{{role.name}}</text
+                ><text class="role-meta"
+                  >{{role.members.length}} 位成员 · 岗位版本 v{{role.version}}</text
+                ></view
+              ><ui-button
+                variant="danger"
+                label="删除岗位"
+                data-role-id="{{role.id}}"
+                disabled="{{!canManage}}"
+                bindpress="handleRoleDelete"
+              ></ui-button
+            ></view>
+            <view class="role-section"
+              ><text class="field-label">参与成员</text
+              ><view wx:if="{{role.members.length === 0}}" class="empty-note"
+                >当前岗位还没有成员。</view
+              ><view
+                wx:for="{{role.members}}"
+                wx:for-item="member"
+                wx:key="id"
+                class="role-member-row"
+                ><view
+                  class="member-choice {{member.selected ? 'is-selected' : ''}}"
+                  data-role-id="{{role.id}}"
+                  data-membership-id="{{member.membershipId}}"
+                  bindtap="handleToggleRoleMember"
+                  ><view class="choice-mark">{{member.selected ? '✓' : ''}}</view
+                  ><text>{{member.name}}</text></view
+                ><view class="order-actions"
+                  ><view
+                    class="order-button"
+                    data-role-id="{{role.id}}"
+                    data-member-id="{{member.id}}"
+                    data-direction="up"
+                    aria-role="button"
+                    bindtap="handleMoveRoleMember"
+                    >↑</view
+                  ><view
+                    class="order-button"
+                    data-role-id="{{role.id}}"
+                    data-member-id="{{member.id}}"
+                    data-direction="down"
+                    aria-role="button"
+                    bindtap="handleMoveRoleMember"
+                    >↓</view
+                  ></view
+                ></view
+              ><ui-button
+                variant="secondary"
+                label="保存岗位成员"
+                data-role-id="{{role.id}}"
+                disabled="{{!canManage}}"
+                bindpress="handleSaveRoleMembers"
+              ></ui-button
+              ><ui-button
+                variant="secondary"
+                label="保存轮转顺序"
+                data-role-id="{{role.id}}"
+                disabled="{{!canManage}}"
+                bindpress="handleSaveRoleOrder"
+              ></ui-button
+            ></view>
+            <view class="role-section rotation-section"
+              ><view class="rotation-heading"
+                ><view
+                  ><text class="field-label">轮转规则</text
+                  ><text class="role-meta">规则版本 v{{role.rotationVersion}}</text></view
+                ><ui-button
+                  variant="secondary"
+                  label="{{role.editing ? '收起规则' : '编辑规则'}}"
+                  data-role-id="{{role.id}}"
+                  bindpress="handleRotationToggle"
+                ></ui-button></view
+              ><view class="rotation-summary"
+                ><text>每天 {{role.requiredMembersPerDay}} 人</text
+                ><text>默认 {{role.defaultShiftTypeName}}</text
+                ><text>当前位置 {{role.currentPosition}}</text></view
+              ><view wx:if="{{role.editing}}" class="rotation-editor"
+                ><view class="field-grid"
+                  ><view class="field-block"
+                    ><text class="field-label">每天需要人数</text
+                    ><input
+                      class="native-field"
+                      type="number"
+                      value="{{role.requiredMembersPerDay}}"
+                      data-role-id="{{role.id}}"
+                      data-field="requiredMembersPerDay"
+                      bindinput="handleRotationInput" /></view
+                  ><view class="field-block"
+                    ><text class="field-label">当前位置</text
+                    ><input
+                      class="native-field"
+                      type="number"
+                      value="{{role.currentPosition}}"
+                      data-role-id="{{role.id}}"
+                      data-field="currentPosition"
+                      bindinput="handleRotationInput" /></view
+                  ><view class="field-block"
+                    ><text class="field-label">默认班种</text
+                    ><picker
+                      mode="selector"
+                      range="{{shiftDrafts}}"
+                      range-key="name"
+                      value="{{role.defaultShiftIndex}}"
+                      data-role-id="{{role.id}}"
+                      data-field="defaultShift"
+                      bindchange="handleRotationPicker"
+                      ><view class="native-picker">{{role.defaultShiftTypeName}}</view></picker
+                    ></view
+                  ><view class="field-block"
+                    ><text class="field-label">起始日期</text
+                    ><picker
+                      mode="date"
+                      value="{{role.startDate}}"
+                      data-role-id="{{role.id}}"
+                      data-field="startDate"
+                      bindchange="handleRotationInput"
+                      ><view class="native-picker">{{role.startDate || '选择日期'}}</view></picker
+                    ></view
+                  ><view class="field-block"
+                    ><text class="field-label">起始成员</text
+                    ><picker
+                      mode="selector"
+                      range="{{role.memberNames}}"
+                      value="{{role.startingMemberIndex}}"
+                      data-role-id="{{role.id}}"
+                      data-field="startingMember"
+                      bindchange="handleRotationPicker"
+                      ><view class="native-picker">{{role.startingMemberName}}</view></picker
+                    ></view
+                  ></view
+                ><ui-button
+                  variant="primary"
+                  label="保存轮转规则"
+                  data-role-id="{{role.id}}"
+                  disabled="{{!canManage}}"
+                  bindpress="handleSaveRotation"
+                ></ui-button></view
+            ></view>
+          </view>
+        </view>
+
+        <ui-alert
+          wx:if="{{managementError}}"
+          tone="danger"
+          title="排班配置操作未完成"
+          message="{{managementError}}"
+        ></ui-alert>
+        <ui-alert
+          wx:if="{{managementInfo}}"
+          tone="success"
+          title="排班配置"
+          message="{{managementInfo}}"
+        ></ui-alert>
+        <view class="bottom-spacer"></view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

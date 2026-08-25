@@ -24,7 +24,7 @@ describe('native P5 group mobile-phone consent page', () => {
   it('registers group settings in the organization subpackage only', () => {
     const appJson = JSON.parse(readFileSync(path.join(sourceRoot, 'app.json'), 'utf8'));
     expect(appJson.subpackages).toContainEqual({
-      pages: ['pages/group-settings/index'],
+      pages: ['pages/group-settings/index', 'pages/scheduling-config/index'],
       root: 'subpackages/organization',
     });
     expect(

@@ -727,6 +727,16 @@
           class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
           aria-role="button"
           aria-disabled="{{!canManageScheduleTools}}"
+          bindtap="handleOpenSchedulingConfig"
+        >
+          <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />
+          <view><text>排班配置</text><text>管理班种、岗位成员与轮转规则</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
+          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canManageScheduleTools}}"
           bindtap="handleOpenManualSchedule"
         >
           <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />

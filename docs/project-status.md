@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-C-2 原生班种、岗位与轮转配置（已完成，待用户复核）
+
+- 基线/范围：P8-C-1 已完成并部署，production `organization` capability 继续为 `false`。本批只新增原生排班配置页：班种名称/简称/时段/颜色/跨日/启用/统计、岗位创建/删除、岗位成员选择与顺序、轮转默认班种/人数/当前位置/起始日期/起始成员；不进入邀请/visitor key、平台账号或 P9。
+- 原生实现：新增 `subpackage-organization/pages/scheduling-config` 与 `scheduling-config-panel`，沿用临床蓝与病历卡片的“临床交接轨”视觉，More 工具入口只对 owner/administrator 可见；组织 capability 关闭时仍可读取配置但所有写操作失败关闭。所有写入经 `createRuntimeSchedulingConfigWriteClient`，header/body 共用 `operationId`，同时提交 `expectedRulesVersion` 与对应 role/rotation/shift version。
+- 隐私/并发：草稿、token、visitor key 和 raw ticket 只存在内存；读取使用 shared organization read decoder，写入由 transport 统一 capability/认证/幂等处理，409/网络失败保留当前输入以便重试。
+- 验证：Mini typecheck、production build（177 files）、source/package/性能/确定性校验通过；新增 C2 静态 3/3、控制器 2/2，既有 P8-C1/P5 回归保持通过。源码范围 Vitest（排除用户自有 `.artifacts/` 临时副本）49 files/265 tests 通过；`pnpm smoke:check-core` 通过且本批未触及 Web 核心链路。Mini packageBytes `3,775,964`，verify manifest `e39fc89df9bb09c3595eb020754e6cc098c53b923676f7f8176d989e8ea31d20`。
+- 预览/状态：P8-B Storybook 组织管理黄金继续在 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p8-organization-parity--organization-large-text-390` 提供；配置页通过原生 production build/source audit，仍需用户在现有 Storybook 标签与小程序环境复核视觉和交互。当前 checkpoint 识别消息为 `feat(miniprogram): add p8 scheduling configuration`（待提交）；下一批为 P8-D 邀请、visitor key 与小程序码，停止条件是先取得本批原生配置页面用户复核。
+
 ## 2026-08-25 P8-C-1 原生群组与成员管理（已完成，待用户复核）
 
 - 基线/范围：用户已确认 P8-B Web 黄金并继续开发。本批只把 `subpackage-organization` 的群组设置扩展为原生群组生命周期与成员管理：创建、加入、退出、改名、群组码、解散/恢复，以及成员/预设/认领/角色/联系方式；不进入班种/岗位配置、邀请/visitor key 或平台账号原生页面，production `organization` capability 继续保持 `false`。

@@ -16,7 +16,7 @@
     },
     {
       "root": "subpackages/organization",
-      "pages": ["pages/group-settings/index"]
+      "pages": ["pages/group-settings/index", "pages/scheduling-config/index"]
     },
     {
       "root": "subpackages/workflows",

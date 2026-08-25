@@ -18,7 +18,7 @@ describe('P8-C-1 native organization management', () => {
 
     expect(app.subpackages).toContainEqual({
       root: 'subpackages/organization',
-      pages: ['pages/group-settings/index'],
+      pages: ['pages/group-settings/index', 'pages/scheduling-config/index'],
     });
     expect(groupSettingsPage).toContain('groupId');
     expect(panel).toContain('成员与预设');
