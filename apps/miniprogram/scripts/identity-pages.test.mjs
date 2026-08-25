@@ -18,6 +18,7 @@ describe('P3 native identity pages', () => {
     expect(app.pages).toEqual([
       'pages/identity/index',
       'pages/workbench/index',
+      'pages/directory/index',
       'pages/index/index',
       'pages/calendar-poc/index',
       'pages/manual-matrix-poc/index',

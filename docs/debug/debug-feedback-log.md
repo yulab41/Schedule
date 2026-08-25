@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P10 原生通讯录首个只读切片
+
+- 用户授权/范围：用户明确允许进行视觉确认。本轮新增 `pages/directory/index` 原生页面和“更多 → 通讯录”入口；只读搜索/筛选/分页/拨号，不做收藏持久化、离线写队列、visitor key 或组织管理写入，`organization=false` 保持不变。
+- 能力决策：目录正式成员只读接口的 GET facets/search 与 POST lookup 归 `core`，API `classifyRoute` 与 Mini runtime resolver 均锁定该语义；guest/vkey 目录路径无路由，组织写路径仍归 `organization`。这是本轮记录的产品/安全选择，不伪装为重构。
+- 设计与实现：沿用 `frontend-design` 的临床蓝、病历卡白底、院区导览带和 44px 触达区；原生页覆盖 loading/ready/error/empty、科室/人员、七级筛选 Sheet、搜索、cursor load-more、号码可拨/只读和 reduced-motion。页面状态机以 request serial 丢弃过期响应。
+- 运行/浏览器验证：Mini 全量 `pnpm --config.verifyDepsBeforeRun=false --filter @schedule/miniprogram test` 57 files/289 tests 通过；Mini typecheck、production verify、determinism、CI dry-run、API typecheck/build、P10 定向 9 tests 与 `git diff --check` 通过。此前 `pnpm smoke:browser` 在默认 5173 未启动时的 `ERR_CONNECTION_REFUSED` 已记录；本轮未启动微信开发者工具。
+
 ## 2026-08-25 P10 通讯录首个共享边界与 Web 黄金 checkpoint
 
 - 范围/偏差：用户明确要求在 P8 RC 人工通过前启动通讯录开发；本轮只做 P10 只读共享契约/decoder 与 Web Storybook 黄金，不打开 `organization`，不修改 Mini `app.json`/导航，不实现原生 WXML/WXSS，不上传体验版或部署生产。

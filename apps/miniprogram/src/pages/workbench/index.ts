@@ -90,6 +90,7 @@ interface WorkbenchPageData {
   readonly buildLabel: string;
   readonly businessMonth: string;
   readonly canManageScheduleTools: boolean;
+  readonly canOpenDirectory: boolean;
   readonly canOpenGroupSettings: boolean;
   readonly currentGroupId: string;
   readonly currentGroupName: string;
@@ -187,6 +188,7 @@ Page({
     buildLabel: buildInfo.buildLabel,
     businessMonth: initialMonth,
     canManageScheduleTools: false,
+    canOpenDirectory: false,
     canOpenGroupSettings: false,
     currentGroupId: '',
     currentGroupName: '正在读取群组',
@@ -337,6 +339,13 @@ Page({
   handleOpenGroupSettings(this: WorkbenchPageInstance): void {
     if (!this.data.canOpenGroupSettings || this.data.currentGroupId === '') return;
     this.setData({ activeWorkspace: 'group', groupOpen: false, groupSettingsMounted: true });
+  },
+
+  handleOpenDirectory(this: WorkbenchPageInstance): void {
+    if (!this.data.canOpenDirectory || this.data.currentGroupId === '') return;
+    wx.navigateTo({
+      url: `/pages/directory/index?groupId=${encodeURIComponent(this.data.currentGroupId)}`,
+    });
   },
 
   handleViewChange(this: WorkbenchPageInstance, event: TapEvent): void {
@@ -731,6 +740,7 @@ async function loadWorkbench(
     if (groups.length === 0) {
       page.setData({
         canManageScheduleTools: false,
+        canOpenDirectory: false,
         canOpenGroupSettings: false,
         currentGroupId: '',
         currentGroupName: '暂无可查看的群组',
@@ -757,6 +767,7 @@ async function loadWorkbench(
     page.setData({
       canManageScheduleTools:
         selectedGroup.role === 'owner' || selectedGroup.role === 'administrator',
+      canOpenDirectory: selectedGroup.role !== 'guest',
       canOpenGroupSettings: selectedGroup.role !== 'guest',
       groups,
       workflowPanelsMounted: shouldMountWorkflowPanels,

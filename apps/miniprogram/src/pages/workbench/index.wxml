@@ -714,6 +714,16 @@
       </view>
       <view class="more-card">
         <view
+          class="more-item {{canOpenDirectory ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canOpenDirectory}}"
+          bindtap="handleOpenDirectory"
+        >
+          <image src="/assets/icons/web-profile.svg" mode="aspectFit" />
+          <view><text>通讯录</text><text>搜索院区、科室、人员与号码</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
           class="more-item {{canOpenGroupSettings ? '' : 'is-disabled'}}"
           aria-role="button"
           aria-disabled="{{!canOpenGroupSettings}}"

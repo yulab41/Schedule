@@ -122,6 +122,16 @@ function isCoreRoute(method: string, route: string): boolean {
     return true;
   }
   if (
+    route === '/groups/:groupId/directory' ||
+    route === '/groups/:groupId/directory/facets' ||
+    route === '/groups/:groupId/directory/lookup' ||
+    route === '/groups/:groupId/employee-directory' ||
+    route === '/groups/:groupId/employee-directory/facets' ||
+    route === '/groups/:groupId/employee-directory/lookup'
+  ) {
+    return method === 'GET' || method === 'POST';
+  }
+  if (
     route.includes('/manual-schedule-templates') ||
     route.includes('/schedule-periods') ||
     route.includes('/schedule-publish-mode') ||
@@ -192,8 +202,7 @@ function isOrganizationRoute(route: string): boolean {
     route.startsWith('/groups/') ||
     route.startsWith('/invites/') ||
     route.startsWith('/platform') ||
-    route.startsWith('/users') ||
-    route.includes('/directory')
+    route.startsWith('/users')
   );
 }
 

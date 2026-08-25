@@ -263,6 +263,26 @@ describe('Mini capability guard', () => {
       ).toBe(200);
     }
   });
+
+  it('classifies formal-member directory reads as core while leaving guest routes unclassified', async () => {
+    const { app } = await createGuardApp(
+      { clientPlatform: 'miniprogram', clientVersion: CURRENT_VERSION, cloudbaseUid: 'mini-user' },
+      { core: true, global: true },
+    );
+
+    expect((await app.inject({ method: 'GET', url: '/groups/group-1/directory' })).statusCode).toBe(
+      200,
+    );
+    expect(
+      (await app.inject({ method: 'GET', url: '/groups/group-1/directory/facets' })).statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ method: 'POST', url: '/groups/group-1/directory/lookup' })).statusCode,
+    ).toBe(200);
+    expect(
+      (await app.inject({ method: 'GET', url: '/guest/groups/group-1/directory' })).statusCode,
+    ).toBe(503);
+  });
 });
 
 async function createGuardApp(
@@ -313,6 +333,10 @@ async function createGuardApp(
   app.post('/me/wechat/miniprogram/unbind', guarded, mutation);
   app.get('/groups/:groupId/mobile-phone-consent', guarded, mutation);
   app.put('/groups/:groupId/mobile-phone-consent', guarded, mutation);
+  app.get('/groups/:groupId/directory', guarded, mutation);
+  app.get('/groups/:groupId/directory/facets', guarded, mutation);
+  app.post('/groups/:groupId/directory/lookup', guarded, mutation);
+  app.get('/guest/groups/:groupId/directory', guarded, mutation);
   await app.ready();
   return { app, mutation };
 }

@@ -1,0 +1,96 @@
+<view class="directory-page {{viewportClass}}" style="{{pageStyle}}">
+  <view class="directory-header" style="{{shellHeaderStyle}}">
+    <view class="directory-back" aria-role="button" aria-label="返回" hover-class="is-pressed" bindtap="handleBack">
+      <text aria-hidden="true">‹</text>
+    </view>
+    <view class="directory-heading">
+      <text class="directory-title">通讯录</text>
+      <text class="directory-context">{{groupName}} · {{groupRole}}</text>
+    </view>
+  </view>
+
+  <scroll-view class="directory-scroll" style="{{contentStyle}}" scroll-y enhanced show-scrollbar="{{false}}">
+    <view class="directory-content">
+      <view class="directory-mode-rail" aria-role="tablist" aria-label="通讯录范围">
+        <view class="directory-mode-tab {{mode === 'internal' ? 'is-active' : ''}}" data-mode="internal" aria-role="tab" aria-selected="{{mode === 'internal'}}" bindtap="handleModeSelect">科室</view>
+        <view class="directory-mode-tab {{mode === 'employee' ? 'is-active' : ''}}" data-mode="employee" aria-role="tab" aria-selected="{{mode === 'employee'}}" bindtap="handleModeSelect">人员</view>
+      </view>
+
+      <view class="directory-search-row">
+        <input class="directory-search-input" value="{{searchDraft}}" type="text" confirm-type="search" placeholder="搜索科室、姓名、拼音或号码" bindinput="handleSearchInput" bindconfirm="handleSearchSubmit" />
+        <view wx:if="{{searchDraft}}" class="directory-clear" aria-role="button" aria-label="清空搜索" bindtap="handleClearSearch">×</view>
+        <view class="directory-search-button" aria-role="button" bindtap="handleSearchSubmit">搜索</view>
+      </view>
+
+      <view class="directory-summary-row">
+        <text class="directory-summary">{{summary}}</text>
+        <view class="directory-filter-button {{filterOpen ? 'is-open' : ''}}" aria-role="button" bindtap="handleFilterToggle">
+          <text>筛选</text><text wx:if="{{activeFilterCount > 0}}" class="directory-filter-count">{{activeFilterCount}}</text>
+        </view>
+      </view>
+
+      <text class="directory-announcement" wx:if="{{announcement}}" aria-live="polite">{{announcement}}</text>
+
+      <view wx:if="{{state === 'error'}}" class="directory-error" aria-role="alert">
+        <text class="directory-error-title">通讯录未能更新</text>
+        <text class="directory-error-copy">{{errorMessage}}</text>
+        <view class="directory-retry" aria-role="button" bindtap="handleRetry">重新加载</view>
+      </view>
+
+      <view wx:elif="{{state === 'loading' && entries.length === 0}}" class="directory-skeleton" aria-label="正在加载通讯录">
+        <view wx:for="{{[1, 2, 3]}}" wx:key="*this" class="directory-skeleton-row"></view>
+      </view>
+
+      <view wx:elif="{{state === 'ready' && !hasActiveQuery}}" class="directory-idle">
+        <text class="directory-idle-mark">⌕</text>
+        <text class="directory-idle-title">从院区导览开始</text>
+        <text class="directory-idle-copy">输入科室、姓名、拼音或号码，查找可见的院内联系方式。</text>
+      </view>
+
+      <view wx:elif="{{state === 'ready' && hasActiveQuery && entries.length === 0}}" class="directory-empty">
+        <text class="directory-empty-mark">⌕</text>
+        <text class="directory-empty-title">没有找到匹配条目</text>
+        <text class="directory-empty-copy">可以缩短搜索词，或清除一项层级筛选后重试。</text>
+        <view class="directory-empty-action" aria-role="button" bindtap="handleClearSearch">清空搜索</view>
+      </view>
+
+      <view wx:else class="directory-results">
+        <view wx:for="{{entries}}" wx:key="id" class="directory-entry">
+          <view class="directory-entry-heading">
+            <view class="directory-entry-copy">
+              <text class="directory-entry-kind">{{item.kindLabel}}</text>
+              <text class="directory-entry-title">{{item.title}}</text>
+              <text wx:if="{{item.jobTitle}}" class="directory-entry-job">{{item.jobTitle}}</text>
+            </view>
+            <text class="directory-entry-location">{{item.location}}</text>
+          </view>
+          <text wx:if="{{item.path}}" class="directory-entry-path">{{item.path}}</text>
+          <view wx:for="{{item.contacts}}" wx:key="id" class="directory-contact">
+            <view class="directory-contact-label"><text>{{contact.label}}</text><text wx:if="{{contact.note}}">{{contact.note}}</text></view>
+            <view wx:if="{{contact.dialable}}" class="directory-contact-action" data-phone="{{contact.number}}" aria-role="button" bindtap="handleCall">
+              <text>{{contact.number}}</text><text class="directory-phone-mark">⌕</text>
+            </view>
+            <text wx:else class="directory-contact-static">{{contact.number}}</text>
+          </view>
+          <text wx:if="{{item.notes}}" class="directory-entry-notes">{{item.notes}}</text>
+        </view>
+        <view wx:if="{{hasNextPage}}" class="directory-load-more {{isLoadingMore ? 'is-loading' : ''}}" aria-role="button" bindtap="handleLoadMore">{{isLoadingMore ? '正在加载' : '加载更多'}}</view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{filterOpen}}" class="directory-sheet-mask" aria-label="关闭筛选" bindtap="handleFilterClose">
+    <view class="directory-sheet" catchtap="stopSheetTap">
+      <view class="directory-sheet-header"><text>筛选通讯录</text><view class="directory-sheet-close" aria-role="button" bindtap="handleFilterClose">×</view></view>
+      <scroll-view class="directory-sheet-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <view wx:for="{{filterSections}}" wx:key="key" class="directory-filter-section">
+          <view class="directory-filter-section-heading"><text>{{item.label}}</text><text>{{item.summary}}</text></view>
+          <view class="directory-filter-options">
+            <view wx:for="{{item.options}}" wx:key="value" class="directory-filter-option {{option.selected ? 'is-selected' : ''}}" data-key="{{item.key}}" data-value="{{option.value}}" aria-role="button" bindtap="handleFilterOption"><text>{{option.label}}</text><text>{{option.count}}</text></view>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="directory-sheet-actions"><view class="directory-sheet-clear" aria-role="button" bindtap="handleFilterClear">清除</view><view class="directory-sheet-apply" aria-role="button" bindtap="handleFilterApply">查看结果</view></view>
+    </view>
+  </view>
+</view>

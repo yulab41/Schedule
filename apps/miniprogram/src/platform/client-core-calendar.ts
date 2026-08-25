@@ -3,6 +3,7 @@ import {
   calendarReadModelDecoder,
   createAuthenticationRequiredError,
   createCalendarReadClient,
+  createDirectoryReadClient,
   createGroupMobilePhoneConsentClient,
   createHttpClientError,
   createInviteVisitorWriteClient,
@@ -21,6 +22,7 @@ import {
   groupSummaryListDecoder,
   type CalendarReadClient,
   type ClientTransport,
+  type DirectoryReadClient,
   type GroupMobilePhoneConsentClient,
   type InviteVisitorWriteClient,
   type ManualScheduleClient,
@@ -233,6 +235,15 @@ export function createRuntimeOrganizationReadClient(
   );
 }
 
+export function createRuntimeDirectoryReadClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): DirectoryReadClient {
+  return createDirectoryReadClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, resolveDirectoryReadCapability),
+  );
+}
+
 export function createRuntimeOrganizationWriteClient(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
@@ -312,6 +323,13 @@ function resolveOrganizationReadCapability(
     default:
       return 'organization';
   }
+}
+
+function resolveDirectoryReadCapability(
+  endpoint: ClientEndpoint<unknown, unknown>,
+): ClientCapabilityRequirement {
+  if (endpoint.id.startsWith('directory.')) return 'core';
+  return resolveOrganizationReadCapability(endpoint);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

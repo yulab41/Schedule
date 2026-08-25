@@ -1,6 +1,6 @@
 # P10 院内通讯录对等预研台账
 
-状态：只读预研，未进入 Mini 页面实现、共享契约接线或生产能力变更。
+状态：预研台账已转入首个原生只读切片；仍不包含生产发布或组织管理写能力。
 
 隔离基线：`codex/p10-parity-preflight`，worktree `E:\AItools\Schedule-p10-preflight`，基线 `22049266`。
 
@@ -11,7 +11,7 @@
 本轮明确不修改：
 
 - `packages/contracts`、`@schedule/client-core`、API 路由、数据库迁移或生产数据；
-- `client-capability-guard`、小程序 `app.json`、工作台导航、底栏和任何 P9 `insights` 能力；
+- P9 `insights` 能力、工作台底栏和组织管理写能力；目录只读入口现在从“更多”进入，不改变底栏密度；
 - Web 生产页面、Web 路由和现有 Storybook 黄金；
 - 真实姓名、真实手机号、visitor key、token、二维码或可回溯业务数据。
 
@@ -81,11 +81,11 @@
 
 ## 阻塞项与进入 P10 的条件
 
-- 当前 capability guard 将 `/directory` 归入 `organization` 路由；P8 RC 前不得修改这一归类，也不得打开 `organization`。P10 进入时需单独决定通讯录归属能力并配套 API/UI 双端失败关闭测试。
-- 当前 Mini `app.json` 尚无通讯录页面，runtime adapter、capability 归属和页面注册仍待后续任务；本台账不修改导航、分包或页面注册。
+- 当前目录 `GET` facets/search 与 `POST` lookup 已明确归入 `core`，guest/vkey 仍无目录路由；组织管理写能力继续归 `organization` 且保持关闭。
+- Mini `app.json` 已注册 `pages/directory/index`，工作台“更多”只对非 guest 展示入口；未新增底栏、分包或 P9 页面。
 - P9 `subpackage-insights` 可能同时改主包/底栏/能力读取；P10 页面接线必须在这些共享改动稳定后串行合并。
-- P8 RC 用户明确通过、P9 共享边界冻结、P10 Storybook 390/320/大字号黄金固化、权限/隐私/号码/错误矩阵定向测试通过后，才可进入 Mini 原生实现。
+- P10 原生代码已完成首个只读切片；下一门禁是体验版与实体 Android/微信复核，确认后再扩展收藏/常用、层级级联细节和 P10 完整对等审计。
 
 ## 本轮停止条件
 
-本 worktree 只交付本台账和合成 fixture；不上传体验版、不部署生产、不修改 `main` 工作树。后续若要进入 P10 实现，应从本台账新开独立任务，并重新读取当前 `docs/project-status.md`、P9 变更和 P10 相关 Web diff。
+本 worktree 当前交付原生首个只读切片；代码仍保持在独立分支，不上传体验版、不部署生产，直到 checkpoint 推送后按同一提交进入体验复核。后续继续实现前必须重新读取当前 `docs/project-status.md`、P9 变更和 P10 相关 Web diff。
