@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A10 原生通知中心（已实现，待体验版复核）
+
+- 范围：新增 `subpackages/insights/pages/notifications/index` 与 `notifications-panel`，支持未读数、单条已读、全部已读、游标加载更多，以及 loading/empty/error/insights-disabled 状态；从 More 入口进入。
+- 数据/隐私：复用 `createRuntimeP9InsightsActionsClient`，页面只保留标题、正文、类型、时间和已读状态，不写本地缓存、token、payload 或日志；生产 `insights=false` 仍安全失败关闭。
+- 验证：P9 通知边界 3/3、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；packageBytes `5,745,826`，`subpackages/insights` `1,142,225` bytes。提交后上传体验版并补候选白名单。
+
 ## 2026-08-26 P9-A9 Mini runtime 通知/导出任务 bridge（已实现，待体验版复核）
 
 - 范围：新增 `createRuntimeP9InsightsActionsClient`，把通知列表/未读/已读与导出任务创建/状态 JSON 边界接入 Mini transport；统一 Bearer 会话恢复和 `insights` capability。

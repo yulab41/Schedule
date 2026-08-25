@@ -683,6 +683,10 @@ Page({
     navigateGroupTool(this, '/subpackages/insights/pages/insights/index');
   },
 
+  handleOpenNotifications(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, '/subpackages/insights/pages/notifications/index');
+  },
+
   handleNotification(this: WorkbenchPageInstance): void {
     this.setData({ notificationAnimating: false }, () => {
       this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });
