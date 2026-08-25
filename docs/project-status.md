@@ -6,7 +6,10 @@
 
 - 范围：新增 `@schedule/client-core` 通知偏好 GET/PUT 严格边界、Mini `externalMessages` runtime client，以及 `wx.requestSubscribeMessage` 适配器；授权结果只在内存归一化为 `accepted/rejected/blocked/filtered/unknown`。
 - 安全/权限：偏好请求由 `externalMessages` capability 前置守卫；授权桥不携带 Bearer、不写缓存、不保存模板 ID 或业务正文；生产 `externalMessages=false` 保持关闭。模板资格、模板 ID 配置和正式能力开关不在本批擅自决定。
-- 验证：client-core 定向 9 files/25 tests、P9-A12 边界 3/3、client-core/Mini typecheck、generated freshness 通过；下一批接入原生设置入口并在用户点击后调用授权桥，再上传体验版。
+- 验证：client-core 定向 9 files/25 tests、P9-A12 边界 3/3、client-core/Mini typecheck、generated freshness 通过；Mini production verify/source/package/determinism/CI dry-run 通过，packageBytes `6,191,430`，manifest `63a01e274e85290a13e7d6b039d2065165715af4846fd628da1ed9949089252f`。
+- 体验/运行：`0.1.0-p9.20260826.7` 已上传成功，135 个代码文件、zip `1,181,514` bytes、manifest `e77508c48c3b566103b5737ba1245cd19cd98c2c4ae93ed6749074cfa285bffe`。生产备份 archive `5ca9cfdf-caba-48e6-809d-eebace6184e9`（54 表/171,213 行/79,810,192 bytes/SHA `578c6df51f2c185bd556260e5ed53ec38d16c66c1e96d9d16d2a4efa5619603d`）后原子追加候选白名单；候选 capability HTTP 200，`externalMessages=false`、`insights=false`，未提审/未正式发布。
+- 发布：代码 checkpoint `cb82cb78`（`feat(miniprogram): add p9 subscription boundary`）在上述备份后部署 release `cb82cb78c00f989226db1c272406939db25a1d5a`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
+- 下一步：接入原生设置入口，使用已获批准的模板 ID 在用户明确点击后调用授权桥，并将 accepted/rejected/blocked/filtered 结果与既有偏好写入策略对齐；模板资格和生产 `externalMessages` 开关仍需明确配置/批准。
 
 ## 2026-08-26 P9-A11 原生导出任务与安全下载（已完成，待用户复核）
 
