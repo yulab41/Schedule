@@ -7,6 +7,7 @@
 - 范围：新增 `@schedule/client-core` 的 `visitorAccessReadEndpoints`、紧凑 decoder 与 `VisitorAccessReadClient`，覆盖 `/groups/:groupId/visitor-access-logs` 和 `/visitor-access-aggregates` 的 Bearer 权限、游标、pageSize 与 URI 编码；不把 client IP、token、visitor key 或原始访问内容写入 Mini 状态。
 - 对等/隐私：decoder 与 `@schedule/contracts` 的 Web Zod schema 严格等价，保留 API 脱敏字段边界；P9-A1 不创建原生页面、不打开 `insights` capability、不改业务数据。
 - 验证：正式 client-core 15 files/48 tests 通过（排除用户自有 `.artifacts/` 副本），runtime boundary、generated schema、typecheck 与 `check:generated` 通过。新增 golden fixture `packages/client-core/src/testing/visitor-access-api-golden.ts` 与测试 `packages/client-core/src/visitor-access-read-client.spec.ts`。
+- 发布：checkpoint `6130b6fb`（`feat(client-core): add p9 visitor access read boundary`）已推送；生产备份 archive `37aff46e-bfaf-4545-a26c-12006a7150be`（54 表/170,421 行/79,537,192 bytes/SHA `121beeafac01df5672bc6623d1f66afda3865e7360464cdeb5db8ef2b6632be1`）后部署 release `6130b6fb408c32aed3476bf4315ca43cbb6cf9ff`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过，`organization=false` 未变，远端临时目录已清理。
 - 当前状态：已完成（含运行验证）→ 下一批 P9-A2 为 Web Storybook 访客日志/聚合黄金与原生 `subpackage-insights` 只读页面；停止条件是先完成 390/320/大字号黄金、权限失败关闭与用户页面复核，不提前开放生产 `insights`。
 
 ## 2026-08-25 Mini 登录双入口（已实现，待用户复核）
