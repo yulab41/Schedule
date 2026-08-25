@@ -87,10 +87,21 @@ export const wechatMiniProgramUnbindResponseSchema = z
   .strict();
 export type WechatMiniProgramUnbindResponse = z.infer<typeof wechatMiniProgramUnbindResponseSchema>;
 
+export const createWechatAdminBindingLinkRequestSchema = z
+  .object({
+    expectedAuthVersion: z.number().int().min(1),
+    operationId: z.string().uuid(),
+  })
+  .strict();
+export type CreateWechatAdminBindingLinkRequest = z.infer<
+  typeof createWechatAdminBindingLinkRequestSchema
+>;
+
 export const createWechatAdminBindingLinkResponseSchema = z
   .object({
+    authVersion: z.number().int().min(1),
     expiresAt: z.string().datetime({ offset: true }),
-    urlLink: z.string().url(),
+    urlLink: z.string().regex(/^https:\/\/[^\s]+$/u),
   })
   .strict();
 export type CreateWechatAdminBindingLinkResponse = z.infer<

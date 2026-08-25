@@ -1,11 +1,14 @@
 import {
+  createWechatAdminBindingLinkRequestSchema,
   wechatAdminBindingConfirmRequestSchema,
   wechatAdminBindingPreviewRequestSchema,
 } from '@schedule/contracts';
+import type { CreateWechatAdminBindingLinkRequest } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { ClientCapabilityPolicy } from '../client-capabilities/client-capability-policy.js';
 import { resolveMiniClientVersion } from '../client-capabilities/client-version-headers.js';
 import type { WechatAdminBindingService } from './wechat-admin-binding-service.js';
@@ -21,7 +24,12 @@ export function registerWechatAdminBindingRoutes(
     '/platform-admin/users/:userId/wechat-miniprogram-binding-links',
     { preHandler: app.authenticate },
     async (request) =>
-      service.createLink(getAuthenticatedIdentity(request), parseUserId(request), request.id),
+      service.createLink(
+        getAuthenticatedIdentity(request),
+        parseUserId(request),
+        parseCreateLinkInput(request),
+        request.id,
+      ),
   );
 
   app.post('/auth/wechat/admin-bind/preview', async (request) =>
@@ -50,6 +58,19 @@ function getAuthenticatedIdentity(request: FastifyRequest) {
 
 function parsePreviewInput(value: unknown) {
   const result = wechatAdminBindingPreviewRequestSchema.safeParse(value);
+  if (!result.success) throw validationError();
+  return result.data;
+}
+
+function parseCreateLinkInput(request: FastifyRequest): CreateWechatAdminBindingLinkRequest {
+  const body = request.body as Readonly<Record<string, unknown>> | null | undefined;
+  const result = createWechatAdminBindingLinkRequestSchema.safeParse({
+    ...(body ?? {}),
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      body?.['operationId'] as string | undefined,
+    ),
+  });
   if (!result.success) throw validationError();
   return result.data;
 }

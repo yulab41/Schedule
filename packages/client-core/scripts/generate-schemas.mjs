@@ -15,6 +15,7 @@ import {
   clientCapabilityResponseSchema,
   convertPendingRosterResponseSchema,
   createInviteLinkResponseSchema,
+  createWechatAdminBindingLinkResponseSchema,
   dissolvedGroupListSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
@@ -59,6 +60,7 @@ import {
   schedulingConfigSchema,
   shiftTypeSchema,
   platformAdminUserAccountListSchema,
+  passwordIdentityAssignmentResponseSchema,
   swapPreviewSchema,
   swapRequestListSchema,
   swapRequestSchema,
@@ -115,6 +117,10 @@ const source = await format(
       createInviteLinkResponse: sanitizeJsonSchema(
         z.toJSONSchema(createInviteLinkResponseSchema),
         'createInviteLinkResponse',
+      ),
+      createWechatAdminBindingLinkResponse: sanitizeJsonSchema(
+        z.toJSONSchema(createWechatAdminBindingLinkResponseSchema),
+        'createWechatAdminBindingLinkResponse',
       ),
       dissolvedGroupList: sanitizeJsonSchema(
         z.toJSONSchema(dissolvedGroupListSchema),
@@ -243,6 +249,10 @@ const source = await format(
       platformAdminUserAccountList: sanitizeJsonSchema(
         z.toJSONSchema(platformAdminUserAccountListSchema),
         'platformAdminUserAccountList',
+      ),
+      passwordIdentityAssignmentResponse: sanitizeJsonSchema(
+        z.toJSONSchema(passwordIdentityAssignmentResponseSchema),
+        'passwordIdentityAssignmentResponse',
       ),
       rejectedLeaveRequestResult: sanitizeJsonSchema(
         z.toJSONSchema(rejectedLeaveRequestResultSchema),

@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import type { PlatformAdminUserAccount } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 
-import { createApiClient } from '../../api/client.js';
+import { ApiClientError, createApiClient } from '../../api/client.js';
 import { localAuth } from '../../auth/local-auth.js';
 import { toUserMessage } from '../../utils/user-message.js';
 
 const api = createApiClient({ auth: localAuth });
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
 const accounts = ref<PlatformAdminUserAccount[]>([]);
 const errorMessage = ref<string>();
 const feedback = ref<string>();
@@ -26,6 +34,26 @@ const pendingCount = computed(
   () => accounts.value.filter((account) => !account.hasPassword).length,
 );
 
+function resolvePlatformIdentityAttempt<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
+
+function completePlatformIdentityAttempt(key: string): void {
+  operationAttempts.delete(key);
+}
+
 onMounted(() => {
   void refresh();
 });
@@ -34,7 +62,12 @@ async function refresh(): Promise<void> {
   loading.value = true;
   errorMessage.value = undefined;
   try {
-    accounts.value = await api.listPlatformUserAccounts();
+    const nextAccounts = await api.listPlatformUserAccounts();
+    accounts.value = nextAccounts;
+    const selectedId = selectedUser.value?.id;
+    if (selectedId !== undefined) {
+      selectedUser.value = nextAccounts.find((account) => account.id === selectedId);
+    }
   } catch (error) {
     errorMessage.value = toUserMessage(error, '平台账号暂时无法加载，请稍后重试。');
   } finally {
@@ -68,11 +101,28 @@ async function saveAssignment(): Promise<void> {
   errorMessage.value = undefined;
   feedback.value = undefined;
   try {
-    await api.assignPlatformPasswordIdentity(account.id, { username: username.value.trim() });
+    const attemptKey = `password-identity:${account.id}`;
+    const input = resolvePlatformIdentityAttempt(attemptKey, {
+      expectedAuthVersion: account.authVersion,
+      username: username.value.trim(),
+    });
+    const result = await api.assignPlatformPasswordIdentity(account.id, input);
+    completePlatformIdentityAttempt(attemptKey);
+    selectedUser.value = {
+      ...account,
+      authVersion: result.authVersion,
+      hasPassword: result.passwordConfigured,
+      username: result.username,
+    };
     feedback.value = '用户名已保存；用户可继续完成密码证明。';
     await refresh();
   } catch (error) {
-    errorMessage.value = toUserMessage(error, '用户名没有保存，请稍后重试。');
+    const message = toUserMessage(error, '用户名没有保存，请稍后重试。');
+    if (error instanceof ApiClientError && error.code === 'CONFLICT') {
+      completePlatformIdentityAttempt(`password-identity:${account.id}`);
+      await refresh();
+    }
+    errorMessage.value = message;
   } finally {
     saving.value = false;
   }
@@ -85,12 +135,22 @@ async function generateBindingLink(): Promise<void> {
   errorMessage.value = undefined;
   feedback.value = undefined;
   try {
-    const result = await api.createWechatAdminBindingLink(account.id);
+    const attemptKey = `wechat-binding-link:${account.id}`;
+    const input = resolvePlatformIdentityAttempt(attemptKey, {
+      expectedAuthVersion: account.authVersion,
+    });
+    const result = await api.createWechatAdminBindingLink(account.id, input);
+    completePlatformIdentityAttempt(attemptKey);
     generatedUrl.value = result.urlLink;
     generatedExpiry.value = result.expiresAt;
     feedback.value = '绑定链接已生成；请通过受控渠道交给用户。';
   } catch (error) {
-    errorMessage.value = toUserMessage(error, '绑定链接没有生成，请稍后重试。');
+    const message = toUserMessage(error, '绑定链接没有生成，请稍后重试。');
+    if (error instanceof ApiClientError && error.code === 'CONFLICT') {
+      completePlatformIdentityAttempt(`wechat-binding-link:${account.id}`);
+      await refresh();
+    }
+    errorMessage.value = message;
   } finally {
     saving.value = false;
   }

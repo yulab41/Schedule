@@ -24,6 +24,7 @@ import type {
   CreatePastScheduleAssignmentInput,
   CreateScheduleExportInput,
   CreateWechatAdminBindingLinkResponse,
+  CreateWechatAdminBindingLinkRequest,
   CreateDirectDutyAdjustmentInput,
   CreateDutyAdjustmentRequestInput,
   CreateDirectSwapInput,
@@ -145,6 +146,7 @@ import {
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
   createInviteVisitorWriteClient,
+  createPlatformIdentityWriteClient,
   createOrganizationReadClient,
   createOrganizationWriteClient,
   createSchedulingConfigWriteClient,
@@ -159,7 +161,6 @@ import {
 import {
   apiErrorCodes,
   appliedManualScheduleTemplateResultSchema,
-  createWechatAdminBindingLinkResponseSchema,
   calendarPreferencesSchema,
   calendarReadModelSchema,
   deletedResultSchema,
@@ -180,7 +181,6 @@ import {
   pastScheduleAssignmentListSchema,
   notificationPageSchema,
   notificationRecordSchema,
-  passwordIdentityAssignmentResponseSchema,
   publishSchedulePeriodBatchResultSchema,
   publishSchedulePeriodResultSchema,
   pushConfigurationSchema,
@@ -215,7 +215,10 @@ export interface ApiClient {
     input: PasswordIdentityAssignmentRequest,
   ): Promise<PasswordIdentityAssignmentResponse>;
   createExportJob(groupId: string, input: CreateScheduleExportInput): Promise<ScheduleExportJob>;
-  createWechatAdminBindingLink(userId: string): Promise<CreateWechatAdminBindingLinkResponse>;
+  createWechatAdminBindingLink(
+    userId: string,
+    input: CreateWechatAdminBindingLinkRequest,
+  ): Promise<CreateWechatAdminBindingLinkResponse>;
   deletePushSubscription(): Promise<{ readonly deleted: boolean }>;
   downloadExport(groupId: string, exportJobId: string): Promise<string>;
   getExportJob(groupId: string, exportJobId: string): Promise<ScheduleExportJob>;
@@ -704,6 +707,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const organizationWriteClient = createOrganizationWriteClient(sharedClientTransport);
   const schedulingConfigWriteClient = createSchedulingConfigWriteClient(sharedClientTransport);
   const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
+  const platformIdentityWriteClient = createPlatformIdentityWriteClient(sharedClientTransport);
   const workflowClient = createWorkflowClient(sharedClientTransport);
 
   return {
@@ -711,14 +715,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       return inviteVisitorWriteClient.acceptInvite(input);
     },
     assignPlatformPasswordIdentity(userId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/platform-admin/users/${encodeURIComponent(userId)}/password-identity`,
-        { body: JSON.stringify(input), method: 'PUT' },
-        isResponseBodyFromSchema(passwordIdentityAssignmentResponseSchema),
-      );
+      return platformIdentityWriteClient.assignPasswordIdentity(userId, input);
     },
     createExportJob(groupId, input) {
       return requestJson(
@@ -1033,15 +1030,8 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
     createShiftType(groupId, input) {
       return schedulingConfigWriteClient.createShiftType(groupId, input);
     },
-    createWechatAdminBindingLink(userId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/platform-admin/users/${encodeURIComponent(userId)}/wechat-miniprogram-binding-links`,
-        { method: 'POST' },
-        isResponseBodyFromSchema(createWechatAdminBindingLinkResponseSchema),
-      );
+    createWechatAdminBindingLink(userId, input) {
+      return platformIdentityWriteClient.createWechatBindingLink(userId, input);
     },
     createGroup(input) {
       return organizationWriteClient.createGroup(input);

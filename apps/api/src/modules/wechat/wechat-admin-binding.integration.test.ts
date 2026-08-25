@@ -59,13 +59,19 @@ describeWithDatabase('admin WeChat binding ticket', () => {
 
   it('creates a hashed ten-minute ticket, previews masked state, and confirms once', async () => {
     const target = await seedTarget('target');
+    const operationId = randomUUID();
     const created = await app.inject({
-      headers: { authorization: `Bearer ${adminToken()}` },
+      headers: {
+        authorization: `Bearer ${adminToken()}`,
+        'idempotency-key': operationId,
+      },
       method: 'POST',
+      payload: { expectedAuthVersion: 1 },
       url: `/platform-admin/users/${target.userId}/wechat-miniprogram-binding-links`,
     });
     expect(created.statusCode, created.body).toBe(200);
-    const link = created.json() as { expiresAt: string; urlLink: string };
+    const link = created.json() as { authVersion: number; expiresAt: string; urlLink: string };
+    expect(link.authVersion).toBe(1);
     const ticket = new URL(link.urlLink).searchParams.get('ticket');
     expect(ticket).toEqual(expect.any(String));
     const [ticketRows] = (await client.database.execute(sql`
@@ -124,6 +130,65 @@ describeWithDatabase('admin WeChat binding ticket', () => {
     expect(usedPreview.statusCode).toBe(409);
   });
 
+  it('replays one binding ticket without persisting its raw URL or ticket', async () => {
+    const target = await seedTarget('replay');
+    const operationId = randomUUID();
+    const request = { expectedAuthVersion: 1, operationId };
+    const create = (payload: typeof request) =>
+      app.inject({
+        headers: {
+          authorization: `Bearer ${adminToken()}`,
+          'idempotency-key': payload.operationId,
+        },
+        method: 'POST',
+        payload,
+        url: `/platform-admin/users/${target.userId}/wechat-miniprogram-binding-links`,
+      });
+
+    const first = await create(request);
+    const replay = await create(request);
+    expect(first.statusCode, first.body).toBe(200);
+    expect(replay.statusCode, replay.body).toBe(200);
+    expect(replay.json()).toEqual(first.json());
+    const body = first.json() as { authVersion: number; urlLink: string };
+    const rawTicket = new URL(body.urlLink).searchParams.get('ticket') as string;
+    expect(body.authVersion).toBe(1);
+
+    const [ticketRows] = (await client.database.execute(sql`
+      SELECT ticket_hash AS ticketHash FROM wechat_admin_binding_tickets
+      WHERE target_user_id = ${target.userId}
+    `)) as unknown as [{ ticketHash: string }[], unknown];
+    expect(ticketRows).toHaveLength(1);
+    expect(ticketRows[0]?.ticketHash).not.toBe(rawTicket);
+    const [operationRows] = (await client.database.execute(sql`
+      SELECT result FROM idempotency_keys
+      WHERE operation_key = ${operationId}
+        AND scope = 'platform_wechat_binding_link_create'
+    `)) as unknown as [{ result: unknown }[], unknown];
+    const stored = JSON.stringify(operationRows[0]?.result);
+    expect(stored).not.toContain(rawTicket);
+    expect(stored).not.toContain(body.urlLink);
+
+    const changed = await create({ ...request, expectedAuthVersion: 2 });
+    expect(changed.statusCode).toBe(409);
+    await client.database.execute(sql`
+      UPDATE users SET auth_version = auth_version + 1 WHERE id = ${target.userId}
+    `);
+    const staleReplay = await create(request);
+    expect(staleReplay.statusCode).toBe(409);
+    const stale = await create({ expectedAuthVersion: 1, operationId: randomUUID() });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toMatchObject({
+      error: {
+        latestData: {
+          authVersion: 2,
+          id: target.userId,
+          objectType: 'platform_user',
+        },
+      },
+    });
+  });
+
   it('fails closed for tampered or expired tickets without consuming them', async () => {
     const target = await seedTarget('expiry');
     const created = await createLink(target.userId);
@@ -151,6 +216,59 @@ describeWithDatabase('admin WeChat binding ticket', () => {
     expect(rows).toEqual([{ status: 'pending' }]);
   });
 
+  it('invalidates a pending binding link when the target auth version changes', async () => {
+    const target = await seedTarget('stale-ticket');
+    const created = await createLink(target.userId);
+    const ticket = new URL(created.urlLink).searchParams.get('ticket') as string;
+    await client.database.execute(sql`
+      UPDATE users SET auth_version = auth_version + 1 WHERE id = ${target.userId}
+    `);
+
+    const preview = await app.inject({
+      method: 'POST',
+      payload: { ticket },
+      url: '/auth/wechat/admin-bind/preview',
+    });
+    expect(preview.statusCode).toBe(409);
+    const confirm = await app.inject({
+      method: 'POST',
+      payload: { code: 'admin-stale-ticket', ticket },
+      url: '/auth/wechat/admin-bind/confirm',
+    });
+    expect(confirm.statusCode).toBe(409);
+    const [state] = await client.database.execute<{ consumed: number; identities: number }>(sql`
+      SELECT
+        (SELECT COUNT(*) FROM wechat_admin_binding_tickets WHERE status = 'consumed') AS consumed,
+        (SELECT COUNT(*) FROM user_auth_identities WHERE user_id = ${target.userId}) AS identities
+    `);
+    expect(state).toEqual([{ consumed: 0, identities: 0 }]);
+  });
+
+  it('keeps an already-issued legacy ticket usable during the ten-minute rollout window', async () => {
+    const target = await seedTarget('legacy-ticket');
+    const ticket = 'legacy-rollout-ticket';
+    await client.database.execute(sql`
+      INSERT INTO wechat_admin_binding_tickets
+        (id, target_user_id, app_id, ticket_hash, expires_at, status)
+      VALUES
+        (${randomUUID()}, ${target.userId}, ${CURRENT_APP_ID}, SHA2(${ticket}, 256),
+         DATE_ADD(CURRENT_TIMESTAMP(3), INTERVAL 10 MINUTE), 'pending')
+    `);
+
+    const preview = await app.inject({
+      method: 'POST',
+      payload: { ticket },
+      url: '/auth/wechat/admin-bind/preview',
+    });
+    expect(preview.statusCode, preview.body).toBe(200);
+    const confirm = await app.inject({
+      method: 'POST',
+      payload: { code: 'admin-legacy-ticket', ticket },
+      url: '/auth/wechat/admin-bind/confirm',
+    });
+    expect(confirm.statusCode, confirm.body).toBe(200);
+  });
+
   it('does not bind a code belonging to another user', async () => {
     const target = await seedTarget('target-conflict');
     const other = await seedTarget('other-conflict');
@@ -175,15 +293,23 @@ describeWithDatabase('admin WeChat binding ticket', () => {
   it('requires platform admin permission and a password-enabled target', async () => {
     const target = await seedTarget('guard');
     const outsider = await app.inject({
-      headers: { authorization: `Bearer ${passwordToken(target.userId, target.username)}` },
+      headers: {
+        authorization: `Bearer ${passwordToken(target.userId, target.username)}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
+      payload: { expectedAuthVersion: 1 },
       url: `/platform-admin/users/${target.userId}/wechat-miniprogram-binding-links`,
     });
     expect(outsider.statusCode).toBe(403);
     const passwordless = await seedTarget('passwordless', false);
     const unavailable = await app.inject({
-      headers: { authorization: `Bearer ${adminToken()}` },
+      headers: {
+        authorization: `Bearer ${adminToken()}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'POST',
+      payload: { expectedAuthVersion: 1 },
       url: `/platform-admin/users/${passwordless.userId}/wechat-miniprogram-binding-links`,
     });
     expect(unavailable.statusCode).toBe(403);
@@ -196,13 +322,18 @@ describeWithDatabase('admin WeChat binding ticket', () => {
   });
 
   async function createLink(userId: string) {
+    const operationId = randomUUID();
     const response = await app.inject({
-      headers: { authorization: `Bearer ${adminToken()}` },
+      headers: {
+        authorization: `Bearer ${adminToken()}`,
+        'idempotency-key': operationId,
+      },
       method: 'POST',
+      payload: { expectedAuthVersion: 1 },
       url: `/platform-admin/users/${userId}/wechat-miniprogram-binding-links`,
     });
     expect(response.statusCode).toBe(200);
-    return response.json() as { expiresAt: string; urlLink: string };
+    return response.json() as { authVersion: number; expiresAt: string; urlLink: string };
   }
 
   async function seedTarget(label: string, withPassword = true) {

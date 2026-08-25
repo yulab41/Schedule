@@ -1,11 +1,13 @@
 import {
   passwordIdentityAssignmentRequestSchema,
+  type PasswordIdentityAssignmentRequest,
   type UpdatePlatformUserStatusInput,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import { PlatformAdminService } from './platform-admin-service.js';
 
 const userIdSchema = z.string().uuid();
@@ -39,7 +41,7 @@ export function registerPlatformAdminRoutes(
       platformAdminService.assignPasswordIdentity(
         getAuthenticatedIdentity(request),
         parseUserId(request),
-        parsePasswordIdentityAssignment(request.body),
+        parsePasswordIdentityAssignment(request),
       ),
   );
 
@@ -107,8 +109,17 @@ function parseUserStatusInput(value: unknown): UpdatePlatformUserStatusInput {
   return result.data;
 }
 
-function parsePasswordIdentityAssignment(value: unknown) {
-  const result = passwordIdentityAssignmentRequestSchema.safeParse(value);
+function parsePasswordIdentityAssignment(
+  request: FastifyRequest,
+): PasswordIdentityAssignmentRequest {
+  const body = request.body as Readonly<Record<string, unknown>> | null | undefined;
+  const result = passwordIdentityAssignmentRequestSchema.safeParse({
+    ...(body ?? {}),
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      body?.['operationId'] as string | undefined,
+    ),
+  });
   if (!result.success) throwValidationError();
   return result.data;
 }

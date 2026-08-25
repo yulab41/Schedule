@@ -9,8 +9,9 @@ export async function requirePlatformAdmin(
   transaction: DatabaseTransaction,
   identity: AuthenticatedIdentity,
   allowedCloudbaseUids: ReadonlySet<string>,
+  options: { readonly lock?: boolean } = {},
 ): Promise<string> {
-  const [user] = await transaction
+  const query = transaction
     .select({ id: users.id, isDeveloperAdmin: users.isDeveloperAdmin })
     .from(users)
     .where(
@@ -21,6 +22,7 @@ export async function requirePlatformAdmin(
       ),
     )
     .limit(1);
+  const [user] = options.lock === true ? await query.for('update') : await query;
   if (user === undefined) {
     throw new ApiError({
       code: 'NOT_FOUND',

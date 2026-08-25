@@ -82,13 +82,20 @@ describeWithDatabase('admin password identity and proof', () => {
     expect(listed).not.toHaveProperty('realName');
 
     const assigned = await app.inject({
-      headers: { authorization: `Bearer ${developerAdminToken()}` },
+      headers: {
+        authorization: `Bearer ${developerAdminToken()}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'PUT',
-      payload: { username: '  Assigned.User  ' },
+      payload: { expectedAuthVersion: 1, username: '  Assigned.User  ' },
       url: `/platform-admin/users/${userId}/password-identity`,
     });
     expect(assigned.statusCode, assigned.body).toBe(200);
-    expect(assigned.json()).toEqual({ passwordConfigured: false, username: 'assigned.user' });
+    expect(assigned.json()).toEqual({
+      authVersion: 2,
+      passwordConfigured: false,
+      username: 'assigned.user',
+    });
     const [rows] = (await client.database.execute(sql`
       SELECT
         u.auth_version AS authVersion,
@@ -118,9 +125,12 @@ describeWithDatabase('admin password identity and proof', () => {
     ]);
 
     const repeated = await app.inject({
-      headers: { authorization: `Bearer ${developerAdminToken()}` },
+      headers: {
+        authorization: `Bearer ${developerAdminToken()}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'PUT',
-      payload: { username: 'assigned.user' },
+      payload: { expectedAuthVersion: 2, username: 'assigned.user' },
       url: `/platform-admin/users/${userId}/password-identity`,
     });
     expect(repeated.statusCode).toBe(200);
@@ -130,21 +140,88 @@ describeWithDatabase('admin password identity and proof', () => {
     expect(versionRows).toEqual([{ authVersion: 2 }]);
   });
 
+  it('replays username assignment and rejects stale or changed operation payloads', async () => {
+    const target = await seedUser('assignment-replay', {
+      withCredential: false,
+      withMini: false,
+    });
+    const operationId = randomUUID();
+    const request = {
+      expectedAuthVersion: 1,
+      operationId,
+      username: 'replay.user',
+    };
+    const assign = (payload: typeof request) =>
+      app.inject({
+        headers: {
+          authorization: `Bearer ${developerAdminToken()}`,
+          'idempotency-key': payload.operationId,
+        },
+        method: 'PUT',
+        payload,
+        url: `/platform-admin/users/${target.userId}/password-identity`,
+      });
+
+    const first = await assign(request);
+    const replay = await assign(request);
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json()).toEqual({
+      authVersion: 2,
+      passwordConfigured: false,
+      username: 'replay.user',
+    });
+    expect(replay.statusCode, replay.body).toBe(200);
+    expect(replay.json()).toEqual(first.json());
+
+    const changed = await assign({ ...request, username: 'changed.user' });
+    expect(changed.statusCode).toBe(409);
+    const stale = await assign({
+      ...request,
+      operationId: randomUUID(),
+      username: 'stale.user',
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toMatchObject({
+      error: {
+        latestData: {
+          authVersion: 2,
+          id: target.userId,
+          objectType: 'platform_user',
+        },
+      },
+    });
+
+    const [counts] = (await client.database.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM audit_logs
+          WHERE action = 'password_identity_assigned' AND target_id = ${target.userId}) AS audits,
+        (SELECT COUNT(*) FROM idempotency_keys
+          WHERE operation_key = ${operationId} AND scope = 'platform_password_identity_assign') AS operations
+    `)) as unknown as [{ audits: number; operations: number }[], unknown];
+    expect(counts).toEqual([{ audits: 1, operations: 1 }]);
+  });
+
   it('rejects non-admin assignment and duplicate usernames without changing the target', async () => {
     const target = await seedUser('assignment-target', { withCredential: false, withMini: false });
     const owner = await seedUser('existing-name', { withCredential: true, withMini: false });
     const outsider = await app.inject({
-      headers: { authorization: `Bearer ${passwordToken(owner.userId, owner.username, 1)}` },
+      headers: {
+        authorization: `Bearer ${passwordToken(owner.userId, owner.username, 1)}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'PUT',
-      payload: { username: 'new-name' },
+      payload: { expectedAuthVersion: 1, username: 'new-name' },
       url: `/platform-admin/users/${target.userId}/password-identity`,
     });
     expect(outsider.statusCode).toBe(403);
 
     const duplicate = await app.inject({
-      headers: { authorization: `Bearer ${developerAdminToken()}` },
+      headers: {
+        authorization: `Bearer ${developerAdminToken()}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'PUT',
-      payload: { username: owner.username },
+      payload: { expectedAuthVersion: 1, username: owner.username },
       url: `/platform-admin/users/${target.userId}/password-identity`,
     });
     expect(duplicate.statusCode).toBe(409);
@@ -153,6 +230,36 @@ describeWithDatabase('admin password identity and proof', () => {
       FROM users WHERE id = ${target.userId}
     `)) as unknown as [{ authVersion: number; cloudbaseUid: string | null }[], unknown];
     expect(rows).toEqual([{ authVersion: 1, cloudbaseUid: null }]);
+  });
+
+  it('allows only one concurrent username assignment at the same auth version', async () => {
+    const target = await seedUser('assignment-concurrent', {
+      withCredential: false,
+      withMini: false,
+    });
+    const assign = (username: string) => {
+      const operationId = randomUUID();
+      return app.inject({
+        headers: {
+          authorization: `Bearer ${developerAdminToken()}`,
+          'idempotency-key': operationId,
+        },
+        method: 'PUT',
+        payload: { expectedAuthVersion: 1, operationId, username },
+        url: `/platform-admin/users/${target.userId}/password-identity`,
+      });
+    };
+
+    const responses = await Promise.all([assign('first.user'), assign('second.user')]);
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([200, 409]);
+    const [rows] = (await client.database.execute(sql`
+      SELECT u.auth_version AS authVersion, c.username
+      FROM users u INNER JOIN user_password_credentials c ON c.user_id = u.id
+      WHERE u.id = ${target.userId}
+    `)) as unknown as [{ authVersion: number; username: string }[], unknown];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.authVersion).toBe(2);
+    expect(['first.user', 'second.user']).toContain(rows[0]?.username);
   });
 
   it('changes a password with current proof and immediately invalidates the old session', async () => {
@@ -186,9 +293,12 @@ describeWithDatabase('admin password identity and proof', () => {
   it('sets a preallocated password through a matching current-AppID WeChat code proof', async () => {
     const user = await seedUser('code-proof', { withCredential: false, withMini: true });
     const assignment = await app.inject({
-      headers: { authorization: `Bearer ${developerAdminToken()}` },
+      headers: {
+        authorization: `Bearer ${developerAdminToken()}`,
+        'idempotency-key': randomUUID(),
+      },
       method: 'PUT',
-      payload: { username: user.username },
+      payload: { expectedAuthVersion: 1, username: user.username },
       url: `/platform-admin/users/${user.userId}/password-identity`,
     });
     expect(assignment.statusCode).toBe(200);

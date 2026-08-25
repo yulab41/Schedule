@@ -72,8 +72,16 @@ describe('password authentication contracts', () => {
     ).toBe(false);
   });
 
-  it('keeps admin password identity assignment username-only', () => {
-    expect(passwordIdentityAssignmentRequestSchema.parse({ username: '  Doctor.One  ' })).toEqual({
+  it('normalizes admin password identity assignment usernames with concurrency metadata', () => {
+    expect(
+      passwordIdentityAssignmentRequestSchema.parse({
+        expectedAuthVersion: 1,
+        operationId: '11111111-1111-4111-8111-111111111111',
+        username: '  Doctor.One  ',
+      }),
+    ).toEqual({
+      expectedAuthVersion: 1,
+      operationId: '11111111-1111-4111-8111-111111111111',
       username: 'Doctor.One',
     });
   });

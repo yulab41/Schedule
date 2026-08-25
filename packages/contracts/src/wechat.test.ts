@@ -122,6 +122,7 @@ describe('wechat mini program contracts', () => {
   it('defines a masked preview and authenticated admin-binding confirmation', () => {
     expect(
       createWechatAdminBindingLinkResponseSchema.safeParse({
+        authVersion: 1,
         expiresAt: '2026-09-21T00:00:00.000Z',
         urlLink: 'https://w.example.test/link',
       }).success,

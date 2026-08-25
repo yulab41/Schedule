@@ -1,7 +1,9 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 
+import { createWechatAdminBindingLinkResponseSchema } from '@schedule/contracts';
 import type {
   ClientVersion,
+  CreateWechatAdminBindingLinkRequest,
   CreateWechatAdminBindingLinkResponse,
   WechatAdminBindingConfirmRequest,
   WechatAdminBindingConfirmResponse,
@@ -21,7 +23,11 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
-import { requirePlatformAdmin } from '../platform-admin/platform-admin.js';
+import {
+  assertExpectedAuthVersion,
+  createPlatformAdminFingerprint,
+  runPlatformAdminMutation,
+} from '../platform-admin/platform-admin-operation.js';
 import { WechatGatewayError, type WechatGateway } from './wechat-gateway.js';
 import { toWechatGatewayApiError } from './wechat-errors.js';
 import { WechatIdentityResolver } from './wechat-identity-resolver.js';
@@ -56,44 +62,84 @@ export class WechatAdminBindingService {
   public async createLink(
     identity: AuthenticatedIdentity,
     targetUserId: string,
+    input: CreateWechatAdminBindingLinkRequest,
     requestId?: string,
   ): Promise<CreateWechatAdminBindingLinkResponse> {
     const appId = this.getAppId();
     const generateUrlLink = this.gateway.generateUrlLink?.bind(this.gateway);
     if (generateUrlLink === undefined) throw serviceUnavailableError();
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const actorUserId = await requirePlatformAdmin(
-        transaction,
-        identity,
-        this.allowedPlatformAdminUids,
-      );
-      const target = await this.getTarget(transaction, targetUserId);
-      const ticket = randomBytes(32).toString('base64url');
-      const expiresAt = new Date(Date.now() + ADMIN_BINDING_TTL_MS);
-      await transaction.insert(wechatAdminBindingTickets).values({
+    return runPlatformAdminMutation({
+      allowedCloudbaseUids: this.allowedPlatformAdminUids,
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createPlatformAdminFingerprint({
         appId,
-        expiresAt,
-        id: randomUUID(),
-        status: 'pending',
+        expectedAuthVersion: input.expectedAuthVersion,
         targetUserId,
-        ticketHash: hashTicket(ticket),
-      });
-      const urlLink = await generateUrlLink(
-        'pages/admin-bind/preview',
-        `ticket=${encodeURIComponent(ticket)}`,
-        'release',
-      );
-      await this.auditWriter.append(transaction, {
-        action: 'wechat_admin_binding_ticket_created',
-        actorUserId,
-        metadata: { expiresAt: expiresAt.toISOString() },
-        operationId: randomUUID(),
-        outcome: 'completed',
-        ...(requestId === undefined ? {} : { requestId }),
-        targetId: target.userId,
-        targetType: 'user',
-      });
-      return { expiresAt: expiresAt.toISOString(), urlLink };
+      }),
+      resultCodec: {
+        deserialize: async (stored, actorUserId, transaction) => {
+          const safeResult = deserializeStoredBindingLinkResult(stored);
+          if (safeResult.authVersion !== input.expectedAuthVersion) {
+            throw invalidStoredOperationResult();
+          }
+          if (Date.parse(safeResult.expiresAt) <= Date.now()) throw expiredTicketError();
+          await this.getTarget(transaction, targetUserId, safeResult.authVersion);
+          const ticket = this.deriveBindingTicket(
+            actorUserId,
+            targetUserId,
+            input.operationId,
+            safeResult.authVersion,
+          );
+          const urlLink = await generateUrlLink(
+            'pages/admin-bind/preview',
+            `ticket=${encodeURIComponent(ticket)}`,
+            'release',
+          );
+          return { ...safeResult, urlLink };
+        },
+        serialize: serializeBindingLinkResult,
+      },
+      run: async (transaction, actorUserId) => {
+        const target = await this.getTarget(transaction, targetUserId, input.expectedAuthVersion);
+        const ticket = this.deriveBindingTicket(
+          actorUserId,
+          targetUserId,
+          input.operationId,
+          target.authVersion,
+        );
+        const expiresAt = new Date(Date.now() + ADMIN_BINDING_TTL_MS);
+        await transaction.insert(wechatAdminBindingTickets).values({
+          appId,
+          expiresAt,
+          id: randomUUID(),
+          status: 'pending',
+          targetUserId,
+          ticketHash: hashTicket(ticket),
+        });
+        const urlLink = await generateUrlLink(
+          'pages/admin-bind/preview',
+          `ticket=${encodeURIComponent(ticket)}`,
+          'release',
+        );
+        await this.auditWriter.append(transaction, {
+          action: 'wechat_admin_binding_ticket_created',
+          actorUserId,
+          metadata: { expiresAt: expiresAt.toISOString() },
+          operationId: input.operationId,
+          outcome: 'completed',
+          ...(requestId === undefined ? {} : { requestId }),
+          targetId: target.userId,
+          targetType: 'user',
+        });
+        return {
+          authVersion: target.authVersion,
+          expiresAt: expiresAt.toISOString(),
+          urlLink,
+        };
+      },
+      scope: 'platform_wechat_binding_link_create',
     });
   }
 
@@ -101,9 +147,11 @@ export class WechatAdminBindingService {
     const appId = this.getAppId();
     const [row] = await this.databaseClient.database
       .select({
+        authVersion: users.authVersion,
         expiresAt: wechatAdminBindingTickets.expiresAt,
         realName: userProfiles.realName,
         status: wechatAdminBindingTickets.status,
+        targetUserId: wechatAdminBindingTickets.targetUserId,
         username: userPasswordCredentials.username,
       })
       .from(wechatAdminBindingTickets)
@@ -122,6 +170,14 @@ export class WechatAdminBindingService {
     this.assertTicket(row);
     if (row.status !== 'pending') throw usedTicketError();
     if (row.expiresAt.valueOf() <= Date.now()) throw expiredTicketError();
+    const expectedAuthVersion = readTicketAuthVersion(ticket);
+    if (expectedAuthVersion !== undefined) {
+      assertExpectedAuthVersion({
+        actualAuthVersion: row.authVersion,
+        expectedAuthVersion,
+        userId: row.targetUserId,
+      });
+    }
     return {
       expiresAt: row.expiresAt.toISOString(),
       realNameMasked: maskRealName(row.realName),
@@ -156,7 +212,11 @@ export class WechatAdminBindingService {
       if (ticket.status !== 'pending') throw usedTicketError();
       if (ticket.expiresAt.valueOf() <= Date.now()) throw expiredTicketError();
       if (this.gateway === undefined) throw serviceUnavailableError();
-      const target = await this.getTarget(transaction, ticket.targetUserId);
+      const target = await this.getTarget(
+        transaction,
+        ticket.targetUserId,
+        readTicketAuthVersion(input.ticket),
+      );
       let exchanged;
       try {
         exchanged = await this.gateway.exchangeCode(input.code);
@@ -221,7 +281,11 @@ export class WechatAdminBindingService {
     });
   }
 
-  private async getTarget(transaction: DatabaseTransaction, userId: string) {
+  private async getTarget(
+    transaction: DatabaseTransaction,
+    userId: string,
+    expectedAuthVersion?: number,
+  ) {
     const [target] = await transaction
       .select({
         authVersion: users.authVersion,
@@ -234,19 +298,43 @@ export class WechatAdminBindingService {
       })
       .from(users)
       .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
-      .innerJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
+      .leftJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
       .where(and(eq(users.id, userId), isNull(users.deletedAt), isNull(userProfiles.deletedAt)))
       .limit(1)
       .for('update');
-    if (
-      target === undefined ||
-      target.status !== 'active' ||
-      target.passwordHash === null ||
-      target.username.length === 0
-    ) {
+    if (target === undefined) {
       throw targetUnavailableError();
     }
+    if (expectedAuthVersion !== undefined) {
+      assertExpectedAuthVersion({
+        actualAuthVersion: target.authVersion,
+        expectedAuthVersion,
+        userId,
+      });
+    }
+    if (
+      target.status !== 'active' ||
+      target.passwordHash === null ||
+      target.username === null ||
+      target.username.length === 0
+    )
+      throw targetUnavailableError();
     return target;
+  }
+
+  private deriveBindingTicket(
+    actorUserId: string,
+    targetUserId: string,
+    operationId: string,
+    authVersion: number,
+  ): string {
+    if (this.sessionSecret === undefined || this.sessionSecret.length < 32) {
+      throw serviceUnavailableError();
+    }
+    const signature = createHmac('sha256', this.sessionSecret)
+      .update(`schedule-admin-bind:v1:${actorUserId}:${targetUserId}:${operationId}:${authVersion}`)
+      .digest('base64url');
+    return `p8.${authVersion}.${signature}`;
   }
 
   private getAppId(): string {
@@ -265,6 +353,48 @@ export class WechatAdminBindingService {
 
 function hashTicket(ticket: string): string {
   return createHash('sha256').update(ticket).digest('hex');
+}
+
+function readTicketAuthVersion(ticket: string): number | undefined {
+  const [prefix, rawVersion, signature, ...extra] = ticket.split('.');
+  if (prefix !== 'p8') return undefined;
+  const authVersion = Number(rawVersion);
+  if (
+    signature === undefined ||
+    signature.length === 0 ||
+    extra.length > 0 ||
+    !Number.isInteger(authVersion) ||
+    authVersion < 1
+  ) {
+    throw invalidTicketError();
+  }
+  return authVersion;
+}
+
+function serializeBindingLinkResult(
+  result: CreateWechatAdminBindingLinkResponse,
+): Record<string, unknown> {
+  return { authVersion: result.authVersion, expiresAt: result.expiresAt };
+}
+
+function deserializeStoredBindingLinkResult(stored: Record<string, unknown>): {
+  readonly authVersion: number;
+  readonly expiresAt: string;
+} {
+  const parsed = createWechatAdminBindingLinkResponseSchema.safeParse({
+    ...stored,
+    urlLink: 'https://wxaurl.cn/idempotent-replay',
+  });
+  if (!parsed.success) throw invalidStoredOperationResult();
+  return { authVersion: parsed.data.authVersion, expiresAt: parsed.data.expiresAt };
+}
+
+function invalidStoredOperationResult(): ApiError {
+  return new ApiError({
+    code: 'INTERNAL_ERROR',
+    statusCode: 500,
+    userMessage: '操作已完成，但绑定链接恢复失败，请重新生成。',
+  });
 }
 
 function maskRealName(value: string): string {

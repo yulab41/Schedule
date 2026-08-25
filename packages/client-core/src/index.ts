@@ -102,6 +102,13 @@ export {
   type PastScheduleClient,
 } from './past-schedule-client.js';
 export {
+  createPlatformIdentityWriteClient,
+  createWechatAdminBindingLinkResponseDecoder,
+  passwordIdentityAssignmentResponseDecoder,
+  platformIdentityWriteEndpoints,
+  type PlatformIdentityWriteClient,
+} from './platform-identity-write-client.js';
+export {
   createSchedulePublicationClient,
   publishSchedulePeriodBatchResultDecoder,
   publishSchedulePeriodResultDecoder,

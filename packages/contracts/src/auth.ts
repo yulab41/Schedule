@@ -65,7 +65,11 @@ export const passwordProofChangeRequestSchema = z.union([
 export type PasswordProofChangeRequest = z.infer<typeof passwordProofChangeRequestSchema>;
 
 export const passwordIdentityAssignmentRequestSchema = z
-  .object({ username: passwordUsernameSchema })
+  .object({
+    expectedAuthVersion: z.number().int().min(1),
+    operationId: z.string().uuid(),
+    username: passwordUsernameSchema,
+  })
   .strict();
 export type PasswordIdentityAssignmentRequest = z.infer<
   typeof passwordIdentityAssignmentRequestSchema
@@ -73,6 +77,7 @@ export type PasswordIdentityAssignmentRequest = z.infer<
 
 export const passwordIdentityAssignmentResponseSchema = z
   .object({
+    authVersion: z.number().int().min(1),
     passwordConfigured: z.boolean(),
     username: passwordUsernameSchema,
   })

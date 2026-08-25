@@ -27,6 +27,11 @@ import { isDuplicateKeyError } from '../../database-error.js';
 import { ApiError } from '../../plugins/error-handler.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { normalizeUsername } from '../auth/password-auth-service.js';
+import {
+  assertExpectedAuthVersion,
+  createPlatformAdminFingerprint,
+  runPlatformAdminMutation,
+} from './platform-admin-operation.js';
 import { requirePlatformAdmin } from './platform-admin.js';
 
 const recycleWindowDays = 30;
@@ -106,72 +111,92 @@ export class PlatformAdminService {
   ): Promise<PasswordIdentityAssignmentResponse> {
     const username = normalizeUsername(input.username);
     try {
-      return await withTransaction(this.databaseClient, async (transaction) => {
-        const actorUserId = await requirePlatformAdmin(
-          transaction,
-          identity,
-          this.allowedCloudbaseUids,
-        );
-        const [target] = await transaction
-          .select({
-            authVersion: users.authVersion,
-            cloudbaseUid: users.cloudbaseUid,
-            credentialUsername: userPasswordCredentials.username,
-            id: users.id,
-            isDeveloperAdmin: users.isDeveloperAdmin,
-            passwordHash: userPasswordCredentials.passwordHash,
-            status: users.status,
-          })
-          .from(users)
-          .leftJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
-          .where(and(eq(users.id, userId), isNull(users.deletedAt)))
-          .limit(1)
-          .for('update');
-        if (target === undefined)
-          throw new ApiError({
-            code: 'NOT_FOUND',
-            statusCode: 404,
-            userMessage: '用户不存在。',
-          });
-        if (target.isDeveloperAdmin === 1)
-          throw new ApiError({
-            code: 'FORBIDDEN',
-            statusCode: 403,
-            userMessage: '后台系统账号不能通过此接口修改。',
-          });
-        if (target.credentialUsername === username) {
-          return { passwordConfigured: target.passwordHash !== null, username };
-        }
-        if (target.credentialUsername === null) {
-          await transaction.insert(userPasswordCredentials).values({
-            passwordHash: null,
+      return await runPlatformAdminMutation({
+        allowedCloudbaseUids: this.allowedCloudbaseUids,
+        databaseClient: this.databaseClient,
+        identity,
+        operationId: input.operationId,
+        requestFingerprint: createPlatformAdminFingerprint({
+          expectedAuthVersion: input.expectedAuthVersion,
+          userId,
+          username,
+        }),
+        run: async (transaction, actorUserId) => {
+          const [target] = await transaction
+            .select({
+              authVersion: users.authVersion,
+              cloudbaseUid: users.cloudbaseUid,
+              credentialUsername: userPasswordCredentials.username,
+              id: users.id,
+              isDeveloperAdmin: users.isDeveloperAdmin,
+              passwordHash: userPasswordCredentials.passwordHash,
+              status: users.status,
+            })
+            .from(users)
+            .leftJoin(userPasswordCredentials, eq(userPasswordCredentials.userId, users.id))
+            .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+            .limit(1)
+            .for('update');
+          if (target === undefined)
+            throw new ApiError({
+              code: 'NOT_FOUND',
+              statusCode: 404,
+              userMessage: '用户不存在。',
+            });
+          assertExpectedAuthVersion({
+            actualAuthVersion: target.authVersion,
+            expectedAuthVersion: input.expectedAuthVersion,
             userId,
-            username,
           });
-        } else {
+          if (target.isDeveloperAdmin === 1)
+            throw new ApiError({
+              code: 'FORBIDDEN',
+              statusCode: 403,
+              userMessage: '后台系统账号不能通过此接口修改。',
+            });
+          if (target.credentialUsername === username) {
+            return {
+              authVersion: target.authVersion,
+              passwordConfigured: target.passwordHash !== null,
+              username,
+            };
+          }
+          if (target.credentialUsername === null) {
+            await transaction.insert(userPasswordCredentials).values({
+              passwordHash: null,
+              userId,
+              username,
+            });
+          } else {
+            await transaction
+              .update(userPasswordCredentials)
+              .set({ username })
+              .where(eq(userPasswordCredentials.userId, userId));
+          }
           await transaction
-            .update(userPasswordCredentials)
-            .set({ username })
-            .where(eq(userPasswordCredentials.userId, userId));
-        }
-        await transaction
-          .update(users)
-          .set({
-            authVersion: sql`${users.authVersion} + 1`,
-            cloudbaseUid: target.cloudbaseUid ?? `password_${userId}`,
-            version: sql`${users.version} + 1`,
-          })
-          .where(eq(users.id, userId));
-        await this.auditWriter.append(transaction, {
-          action: 'password_identity_assigned',
-          actorUserId,
-          metadata: { passwordConfigured: target.passwordHash !== null },
-          operationId: randomUUID(),
-          outcome: 'completed',
-          targetId: userId,
-          targetType: 'user',
-        });
-        return { passwordConfigured: target.passwordHash !== null, username };
+            .update(users)
+            .set({
+              authVersion: sql`${users.authVersion} + 1`,
+              cloudbaseUid: target.cloudbaseUid ?? `password_${userId}`,
+              version: sql`${users.version} + 1`,
+            })
+            .where(eq(users.id, userId));
+          await this.auditWriter.append(transaction, {
+            action: 'password_identity_assigned',
+            actorUserId,
+            metadata: { passwordConfigured: target.passwordHash !== null },
+            operationId: input.operationId,
+            outcome: 'completed',
+            targetId: userId,
+            targetType: 'user',
+          });
+          return {
+            authVersion: target.authVersion + 1,
+            passwordConfigured: target.passwordHash !== null,
+            username,
+          };
+        },
+        scope: 'platform_password_identity_assign',
       });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
