@@ -69,6 +69,16 @@ export {
   type InsightsYearStatisticsInput,
 } from './insights-read-client.js';
 export {
+  createP9InsightsActionsClient,
+  notificationPageDecoder,
+  notificationRecordDecoder,
+  p9InsightsActionsEndpoints,
+  readAllResultDecoder,
+  scheduleExportJobDecoder,
+  unreadCountDecoder,
+  type P9InsightsActionsClient,
+} from './p9-insights-actions-client.js';
+export {
   addGroupMembersResponseDecoder,
   addRosterEntriesResponseDecoder,
   claimGroupResponseDecoder,

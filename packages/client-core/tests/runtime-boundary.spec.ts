@@ -58,6 +58,7 @@ describe('client-core runtime boundary', () => {
         'packages/client-core/src/generated/calendar-schemas.ts',
         'packages/client-core/src/index.ts',
         'packages/client-core/src/insights-read-client.ts',
+        'packages/client-core/src/p9-insights-actions-client.ts',
         'packages/client-core/src/invite-visitor-write-client.ts',
         'packages/client-core/src/json-decoder.ts',
         'packages/client-core/src/manual-schedule-client.ts',

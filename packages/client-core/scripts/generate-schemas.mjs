@@ -59,10 +59,14 @@ import {
   scheduleGenerationPreviewSchema,
   schedulePeriodHistoryItemListSchema,
   schedulePeriodMutationResultSchema,
+  scheduleExportJobSchema,
   scheduleRoleSchema,
   schedulingConfigSchema,
   shiftTypeSchema,
   monthStatisticsSnapshotSchema,
+  notificationPageSchema,
+  notificationRecordSchema,
+  readAllResultSchema,
   platformAdminUserAccountListSchema,
   passwordIdentityAssignmentResponseSchema,
   swapPreviewSchema,
@@ -72,6 +76,7 @@ import {
   visitorKeyChangedResponseSchema,
   visitorAccessLogPageSchema,
   yearStatisticsSchema,
+  unreadCountResultSchema,
 } from '../../contracts/dist/index.js';
 import { format, resolveConfig } from 'prettier';
 import { z } from 'zod';
@@ -306,6 +311,19 @@ const source = await format(
         z.toJSONSchema(monthStatisticsSnapshotSchema, { unrepresentable: 'any' }),
         'monthStatisticsSnapshot',
       ),
+      notificationPage: sanitizeJsonSchema(
+        z.toJSONSchema(notificationPageSchema, { unrepresentable: 'any' }),
+        'notificationPage',
+      ),
+      notificationRecord: sanitizeJsonSchema(
+        z.toJSONSchema(notificationRecordSchema, { unrepresentable: 'any' }),
+        'notificationRecord',
+      ),
+      readAllResult: sanitizeJsonSchema(z.toJSONSchema(readAllResultSchema), 'readAllResult'),
+      scheduleExportJob: sanitizeJsonSchema(
+        z.toJSONSchema(scheduleExportJobSchema),
+        'scheduleExportJob',
+      ),
       swapPreview: sanitizeJsonSchema(z.toJSONSchema(swapPreviewSchema), 'swapPreview'),
       swapRequest: sanitizeJsonSchema(z.toJSONSchema(swapRequestSchema), 'swapRequest'),
       swapRequestList: sanitizeJsonSchema(z.toJSONSchema(swapRequestListSchema), 'swapRequestList'),
@@ -324,6 +342,10 @@ const source = await format(
       yearStatistics: sanitizeStatisticsSchema(
         z.toJSONSchema(yearStatisticsSchema, { unrepresentable: 'any' }),
         'yearStatistics',
+      ),
+      unreadCountResult: sanitizeJsonSchema(
+        z.toJSONSchema(unreadCountResultSchema),
+        'unreadCountResult',
       ),
     },
   }),

@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A8 通知与导出任务共享 JSON 边界（已完成）
+
+- 范围：新增 `P9InsightsActionsClient`，覆盖通知列表/未读数/单条已读/全部已读，以及导出任务创建与状态查询；所有 JSON 请求统一 Bearer、严格 decoder、游标/筛选和 URI 编码。
+- 平台边界：不把 `Blob`、FileSystem、`wx.downloadFile` 或 URL token 带进 `client-core`；导出二进制下载将在 Mini platform adapter 中使用登录态下载，通知/导出原生页面尚未创建。
+- 验证：client-core 正式源码范围 17 files/54 tests 通过；schema generation/check、runtime boundary、typecheck 通过。本批不改 Mini runtime、不上传体验版、不打开生产 `insights`。
+- 下一步：接入 Mini runtime actions client，随后实现通知中心与导出任务原生页面；P9-A3/A4/A7 继续等待对应 Storybook/实体机复核。
+
 ## 2026-08-26 P9-A7 原生事件与统计只读页（已实现，待体验版复核）
 
 - 范围：新增 `subpackages/insights/pages/insights/index` 与 `insights-dashboard-panel`，提供事件时间线/排班统计两个只读 tab；从 More 入口进入，支持 loading、empty、error、insights-disabled、390/320 紧凑布局和 44px 触达区。

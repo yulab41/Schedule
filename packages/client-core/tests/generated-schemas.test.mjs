@@ -38,9 +38,14 @@ import {
   visitorAccessAggregatePageJsonSchema,
   visitorAccessLogPageJsonSchema,
   monthStatisticsSnapshotJsonSchema,
+  notificationPageJsonSchema,
+  notificationRecordJsonSchema,
+  readAllResultJsonSchema,
+  scheduleExportJobJsonSchema,
   scheduleEventDetailJsonSchema,
   scheduleEventPageJsonSchema,
   yearStatisticsJsonSchema,
+  unreadCountResultJsonSchema,
 } from '../src/generated/calendar-schemas.js';
 import {
   apiErrorCodes,
@@ -82,9 +87,14 @@ import {
   visitorAccessAggregatePageSchema,
   visitorAccessLogPageSchema,
   monthStatisticsSnapshotSchema,
+  notificationPageSchema,
+  notificationRecordSchema,
+  readAllResultSchema,
+  scheduleExportJobSchema,
   scheduleEventDetailSchema,
   scheduleEventPageSchema,
   yearStatisticsSchema,
+  unreadCountResultSchema,
 } from '@schedule/contracts';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -285,6 +295,27 @@ describe('client-core generated schemas', () => {
         z.toJSONSchema(yearStatisticsSchema, { unrepresentable: 'any' }),
         'yearStatistics',
       ),
+    );
+    expect(notificationPageJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(notificationPageSchema, { unrepresentable: 'any' }),
+        'notificationPage',
+      ),
+    );
+    expect(notificationRecordJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(notificationRecordSchema, { unrepresentable: 'any' }),
+        'notificationRecord',
+      ),
+    );
+    expect(readAllResultJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(readAllResultSchema), 'readAllResult'),
+    );
+    expect(scheduleExportJobJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(scheduleExportJobSchema), 'scheduleExportJob'),
+    );
+    expect(unreadCountResultJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(unreadCountResultSchema), 'unreadCountResult'),
     );
     expect(generatedApiErrorCodes).toEqual(apiErrorCodes);
   });
