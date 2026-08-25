@@ -694,6 +694,13 @@ Page({
     });
   },
 
+  handleOpenDirectory(this: WorkbenchPageInstance): void {
+    if (!this.data.canOpenGroupSettings) return;
+    navigateGroupTool(this, '/subpackages/organization/pages/directory/index', {
+      allowMembers: true,
+    });
+  },
+
   handleOpenExports(this: WorkbenchPageInstance): void {
     navigateGroupTool(this, '/subpackages/insights/pages/exports/index');
   },

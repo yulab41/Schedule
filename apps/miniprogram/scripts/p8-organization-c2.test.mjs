@@ -23,6 +23,7 @@ describe('P8-C-2 native scheduling configuration', () => {
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
         'pages/platform-accounts/index',
+        'pages/directory/index',
       ],
     });
     expect(page).toContain('班种');

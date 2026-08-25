@@ -20,7 +20,8 @@
         "pages/group-settings/index",
         "pages/scheduling-config/index",
         "pages/invite-visitor/index",
-        "pages/platform-accounts/index"
+        "pages/platform-accounts/index",
+        "pages/directory/index"
       ]
     },
     {

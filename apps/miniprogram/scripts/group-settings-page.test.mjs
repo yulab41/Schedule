@@ -29,6 +29,7 @@ describe('native P5 group mobile-phone consent page', () => {
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
         'pages/platform-accounts/index',
+        'pages/directory/index',
       ],
       root: 'subpackages/organization',
     });

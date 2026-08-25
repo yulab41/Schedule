@@ -1,0 +1,175 @@
+<view class="directory-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}"
+    ><view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view
+    ><view class="header-title"
+      ><text class="header-title-main"
+        >{{directoryKind === 'employee' ? '员工通讯录' : '院内通讯录'}}</text
+      ><text class="header-title-sub">搜索工作号码与组织位置</text></view
+    ><text class="phase-chip">P10</text></view
+  >
+  <scroll-view
+    class="directory-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    ><view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card"
+        ><ui-loading label="正在读取通讯录"></ui-loading
+      ></view>
+      <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
+        ><view class="state-mark">—</view><text class="state-title">通讯录暂未开放</text
+        ><text class="state-copy"
+          >当前版本未开启 organization 能力，不会读取目录或号码。</text
+        ></view
+      >
+      <view wx:elif="{{state === 'error'}}" class="page-state-card"
+        ><ui-alert tone="danger" title="通讯录暂时无法更新" message="{{errorMessage}}"></ui-alert
+        ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+      ></view>
+      <view wx:else class="directory-content">
+        <view class="page-heading"
+          ><text class="section-eyebrow">组织目录 / 只读</text
+          ><text class="page-title"
+            >{{directoryKind === 'employee' ? '员工通讯录' : '院内通讯录'}}</text
+          ><text class="page-description"
+            >号码只按当前成员权限展示，搜索结果不会写入本地缓存。</text
+          ></view
+        >
+        <view class="mode-tabs" aria-role="tablist" aria-label="通讯录模式"
+          ><view
+            class="mode-tab {{directoryKind === 'internal' ? 'is-active' : ''}}"
+            aria-role="tab"
+            aria-selected="{{directoryKind === 'internal'}}"
+            bindtap="handleInternalMode"
+            >院内</view
+          ><view
+            class="mode-tab {{directoryKind === 'employee' ? 'is-active' : ''}}"
+            aria-role="tab"
+            aria-selected="{{directoryKind === 'employee'}}"
+            bindtap="handleEmployeeMode"
+            >员工</view
+          ></view
+        >
+        <view class="search-row"
+          ><input
+            class="search-input"
+            value="{{searchQuery}}"
+            maxlength="100"
+            confirm-type="search"
+            placeholder="搜索科室、姓名或号码"
+            bindinput="handleSearchInput"
+            bindconfirm="handleSearch" /><ui-button
+            variant="primary"
+            label="搜索"
+            loading="{{searching}}"
+            disabled="{{searching}}"
+            bindpress="handleSearch"
+          ></ui-button
+        ></view>
+        <view class="filter-grid">
+          <picker
+            mode="selector"
+            range="{{campusOptions}}"
+            range-key="label"
+            value="{{campusIndex}}"
+            data-filter="campusCode"
+            bindchange="handleFilterChange"
+            ><view class="filter-picker">院区：{{campusLabel}}</view></picker
+          >
+          <picker
+            mode="selector"
+            range="{{sectionOptions}}"
+            range-key="label"
+            value="{{sectionIndex}}"
+            data-filter="section"
+            bindchange="handleFilterChange"
+            ><view class="filter-picker">片区：{{sectionLabel}}</view></picker
+          >
+          <picker
+            mode="selector"
+            range="{{buildingOptions}}"
+            range-key="label"
+            value="{{buildingIndex}}"
+            data-filter="building"
+            bindchange="handleFilterChange"
+            ><view class="filter-picker">楼宇：{{buildingLabel}}</view></picker
+          >
+          <picker
+            mode="selector"
+            range="{{floorOptions}}"
+            range-key="label"
+            value="{{floorIndex}}"
+            data-filter="floor"
+            bindchange="handleFilterChange"
+            ><view class="filter-picker">楼层：{{floorLabel}}</view></picker
+          >
+          <picker
+            mode="selector"
+            range="{{departmentOptions}}"
+            range-key="label"
+            value="{{departmentIndex}}"
+            data-filter="department"
+            bindchange="handleFilterChange"
+            ><view class="filter-picker">科室：{{departmentLabel}}</view></picker
+          >
+          <picker
+            mode="selector"
+            range="{{subunitOptions}}"
+            range-key="label"
+            value="{{subunitIndex}}"
+            data-filter="subunit"
+            bindchange="handleFilterChange"
+            ><view class="filter-picker">单元：{{subunitLabel}}</view></picker
+          >
+          <picker
+            mode="selector"
+            range="{{entryKindOptions}}"
+            range-key="label"
+            value="{{entryKindIndex}}"
+            data-filter="entryKind"
+            bindchange="handleFilterChange"
+            ><view class="filter-picker">类型：{{entryKindLabel}}</view></picker
+          >
+        </view>
+        <view class="result-summary">{{resultSummary}}</view>
+        <view wx:if="{{state === 'empty'}}" class="empty-card"
+          ><view class="state-mark">○</view><text class="state-title">暂无匹配条目</text
+          ><text class="state-copy">输入关键词或选择筛选条件后开始查找。</text></view
+        >
+        <view wx:elif="{{state === 'ready'}}" class="directory-list"
+          ><view wx:for="{{entries}}" wx:key="id" class="directory-card"
+            ><view class="entry-heading"
+              ><view class="entry-copy"
+                ><text class="entry-title">{{item.title}}</text
+                ><text class="entry-context">{{item.context}}</text></view
+              ><text class="entry-kind">{{item.kindLabel}}</text></view
+            ><view wx:for="{{item.contacts}}" wx:key="id" class="contact-row"
+              ><text class="contact-label">{{contact.label}}</text
+              ><text class="contact-number">{{contact.number}}</text></view
+            ></view
+          ><view wx:if="{{nextCursor}}" class="load-more"
+            ><ui-button
+              variant="secondary"
+              label="{{loadingMore ? '正在加载' : '加载更多'}}"
+              loading="{{loadingMore}}"
+              disabled="{{loadingMore}}"
+              bindpress="handleLoadMore"
+            ></ui-button></view
+        ></view>
+        <view wx:if="{{errorMessage}}" class="inline-error"
+          ><ui-alert tone="danger" title="搜索未完成" message="{{errorMessage}}"></ui-alert
+        ></view>
+        <view class="privacy-note"
+          >号码仅供当前群组工作使用；员工与院内目录按角色隔离，访客不提供入口。</view
+        >
+      </view>
+    </view></scroll-view
+  >
+</view>

@@ -23,6 +23,7 @@ describe('P8-C-1 native organization management', () => {
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
         'pages/platform-accounts/index',
+        'pages/directory/index',
       ],
     });
     expect(groupSettingsPage).toContain('groupId');

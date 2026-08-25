@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P10-A3 原生通讯录页面（已实现，待体验版复核）
+
+- 范围：新增 `subpackage-organization/pages/directory` 与 `directory-panel`，普通成员可从 More 进入；支持院内/员工模式、搜索、院区/片区/楼宇/楼层/科室/单元/类型七级独立筛选、结果卡、游标加载更多及 loading/empty/error/organization-disabled。
+- 隐私/权限：复用 `createRuntimeDirectoryReadClient`，organization capability 与服务端权限双重守卫；联系人只在页面内存展示，不写缓存/日志/visitor key，访客无入口。
+- 验证：P9/P10 定向回归 30/30、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,923,239` bytes，`subpackages/organization` `1,645,259`、`subpackages/insights` `1,645,671`，均低于 1.8M 阻断线。
+- checkpoint：待提交消息为 `feat(miniprogram): add p10 directory page`；提交后上传体验版并补候选白名单。下一活动批次为用户体验版/实体 Android 复核，生产 `organization=false` 保持关闭。
+
 ## 2026-08-26 P10-A2 通讯录 Web Storybook 黄金（已实现，待原生页面）
 
 - 范围：新增 `P10DirectoryParityPreview`，复用生产 `InternalDirectoryView` 与隔离合成目录数据，固化院内/员工模式、390/320、大字号、loading/empty/error/organization-disabled 八个 Storybook 状态；不连接生产 API、不包含真实号码。
