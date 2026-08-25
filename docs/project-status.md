@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P10 院内通讯录隔离只读预研（已完成，未进入实现）
+
+- 范围/边界：在独立 worktree `E:\AItools\Schedule-p10-preflight`、分支 `codex/p10-parity-preflight` 上，基于 `22049266` 盘点现有 Web/API 通讯录接口、角色/状态/错误/号码隐私语义，生成 Mini P10 后续可复用的接口矩阵和 15 个合成 fixture case；未修改 `main` 工作树。
+- 保护项：未修改 `packages/contracts`、`@schedule/client-core`、API、数据库、`client-capability-guard`、Mini `app.json`、导航、P9 `insights` 或生产配置；fixture 不含真实姓名、手机号、visitor key、token、二维码或业务数据。
+- 产物：`apps/miniprogram/docs/architecture/p10-directory-parity-preflight.md`、`apps/miniprogram/docs/architecture/p10-directory-parity-fixtures.json`。记录了内部/员工两组只读 endpoints、active member/administrator/developer 视图、guest/匿名/vkey 拒绝、400/401/403/404、游标/七级筛选/号码展示/合并和 390/320/大字号状态边界。
+- 验证：fixture JSON 解析、schemaVersion/15 case ID 唯一性/双数据集非空检查、任务文件 Prettier、`git diff --check` 通过；隔离 worktree 仅含上述预研文件，主工作树原有用户改动未触碰。
+- 当前状态：已完成（只读预研）→ 待后续 P8 RC 和 P9 共享边界稳定后再评审；本 checkpoint 不上传体验版、不部署生产、不打开通讯录 Mini 能力。
+- 下一活动批次：主线仍为 P8 RC 人工验收；P10 下一停止条件是用户批准后另开实现任务，先补 Mini-safe client-core decoder/endpoint 和 Storybook 390/320/大字号黄金，再进入原生页面。
+
 ## 2026-08-25 Mini 登录双入口（已实现，待用户复核）
 
 - 用户需求：微信已绑定账号 `D0796` 为普通成员，需要保留微信快速登录；后台管理员需要使用当前 Web 同源的账号/密码表单登录。Mini 初始登录卡现同时提供“账号密码登录”和“微信快捷登录”，账号统一 trim/lowercase 并校验 3–64 位规则。

@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "purpose": "P10 directory parity preflight only; synthetic data, no production identifiers",
+  "sourceBaseline": {
+    "branch": "codex/p10-parity-preflight",
+    "commit": "22049266",
+    "apiSecureSearch": "e74e5f35",
+    "webWorkbench": "8309dce1",
+    "webUnifiedModes": "34fbaeaa",
+    "webEmployeeMode": "9bc49224",
+    "webContactGrouping": "54379957"
+  },
+  "syntheticGroup": {
+    "id": "p10-fixture-group",
+    "role": "member",
+    "name": "示例医疗中心",
+    "version": 1
+  },
+  "datasets": {
+    "internal": {
+      "publishedImportVersion": "p10-internal-v1",
+      "publishedEffectiveOn": "2026-08-19",
+      "entries": [
+        {
+          "id": "31000000-0000-4000-8000-000000000001",
+          "campus": { "code": "main", "name": "本部院区", "dialingNote": "合成数据" },
+          "section": "行政服务区",
+          "department": "医疗服务部",
+          "subunit": "病案服务台",
+          "building": "门诊楼",
+          "floor": "5楼",
+          "room": "502室",
+          "entryKind": "department",
+          "displayOrder": 1,
+          "contacts": [
+            {
+              "id": "41000000-0000-4000-8000-000000000001",
+              "type": "voice",
+              "fullNumber": "0754-00000000",
+              "internalExtension": "6101",
+              "isPrimary": true,
+              "displayOrder": 0
+            }
+          ]
+        },
+        {
+          "id": "31000000-0000-4000-8000-000000000002",
+          "campus": { "code": "main", "name": "本部院区" },
+          "section": "住院诊疗区",
+          "department": "内科部",
+          "subunit": "综合病区",
+          "building": "住院楼",
+          "floor": "6楼",
+          "room": "护士站",
+          "entryKind": "department",
+          "displayOrder": 2,
+          "contacts": [
+            {
+              "id": "41000000-0000-4000-8000-000000000002",
+              "type": "mobile",
+              "label": "值班手机",
+              "fullNumber": "130-0000-0001",
+              "internalExtension": "6202",
+              "isPrimary": true,
+              "displayOrder": 0
+            },
+            {
+              "id": "41000000-0000-4000-8000-000000000003",
+              "type": "voice",
+              "label": "护士站",
+              "fullNumber": "0754-00000001",
+              "internalExtension": "6203",
+              "isPrimary": false,
+              "displayOrder": 1
+            }
+          ]
+        },
+        {
+          "id": "31000000-0000-4000-8000-000000000003",
+          "campus": { "code": "east", "name": "东院区" },
+          "section": "门诊服务区",
+          "department": "健康管理部",
+          "subunit": "预约服务台",
+          "building": "健康管理楼",
+          "floor": "2楼",
+          "entryKind": "service",
+          "displayOrder": 3,
+          "contacts": []
+        }
+      ]
+    },
+    "employee": {
+      "publishedImportVersion": "p10-employee-v1",
+      "publishedEffectiveOn": "2026-08-19",
+      "entries": [
+        {
+          "id": "32000000-0000-4000-8000-000000000001",
+          "campus": { "code": "hospital", "name": "示例肿瘤医院", "dialingNote": "合成数据" },
+          "contactName": "合成人员甲",
+          "employeeCode": "d0001",
+          "jobTitle": "示例职务",
+          "section": "医疗系统",
+          "department": "肿瘤内科",
+          "subunit": "化疗一区",
+          "building": "临床科室",
+          "floor": "内科系统",
+          "entryKind": "person",
+          "displayOrder": 1,
+          "contacts": [
+            {
+              "id": "42000000-0000-4000-8000-000000000001",
+              "type": "mobile",
+              "fullNumber": "130-0000-1001",
+              "internalExtension": "661001",
+              "isPrimary": true,
+              "displayOrder": 0
+            }
+          ]
+        },
+        {
+          "id": "32000000-0000-4000-8000-000000000002",
+          "campus": { "code": "hospital", "name": "示例肿瘤医院" },
+          "contactName": "合成人员乙",
+          "employeeCode": "d0002",
+          "jobTitle": "示例职务",
+          "section": "医疗系统",
+          "department": "胸外科",
+          "subunit": "胸外科病区",
+          "building": "临床科室",
+          "floor": "外科系统",
+          "entryKind": "person",
+          "displayOrder": 2,
+          "contacts": [
+            {
+              "id": "42000000-0000-4000-8000-000000000002",
+              "type": "mobile",
+              "fullNumber": "130-0000-1002",
+              "isPrimary": true,
+              "displayOrder": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "idle-does-not-load-all",
+      "kind": "state",
+      "input": { "q": "", "filters": {} },
+      "assertions": ["no-full-directory-search", "show-empty-or-priority-state"]
+    },
+    {
+      "id": "search-chinese",
+      "kind": "query",
+      "directory": "internal",
+      "query": { "q": "病案", "pageSize": 30 },
+      "assertions": ["matches-subunit", "preserve-server-order"]
+    },
+    {
+      "id": "search-pinyin-initials",
+      "kind": "query",
+      "directory": "employee",
+      "query": { "q": "jzk", "pageSize": 30 },
+      "assertions": ["matches-pinyin-initials", "show-job-title"]
+    },
+    {
+      "id": "search-employee-code",
+      "kind": "query",
+      "directory": "employee",
+      "query": { "q": "d0001", "pageSize": 30 },
+      "assertions": ["matches-employee-code", "show-job-title"]
+    },
+    {
+      "id": "phone-exact-and-prefix",
+      "kind": "query",
+      "query": { "q": "620", "pageSize": 1 },
+      "assertions": [
+        "phone-prefix-rank",
+        "next-cursor-is-opaque",
+        "cursor-only-continues-same-query"
+      ]
+    },
+    {
+      "id": "independent-floor-filter",
+      "kind": "query",
+      "query": { "floor": "5楼", "pageSize": 30 },
+      "assertions": ["does-not-require-campus-or-section"]
+    },
+    {
+      "id": "member-visibility",
+      "kind": "authorization",
+      "role": "member",
+      "assertions": ["only-visibility-member", "administrator-entry-hidden"]
+    },
+    {
+      "id": "administrator-visibility",
+      "kind": "authorization",
+      "role": "administrator",
+      "assertions": ["visibility-member-and-administrator"]
+    },
+    {
+      "id": "guest-denied",
+      "kind": "authorization",
+      "credential": "guest",
+      "expectedHttpStatus": 403,
+      "assertions": ["no-directory-data"]
+    },
+    {
+      "id": "anonymous-denied",
+      "kind": "authorization",
+      "credential": "anonymous",
+      "expectedHttpStatus": 401,
+      "assertions": ["no-directory-data"]
+    },
+    {
+      "id": "visitor-key-path-denied",
+      "kind": "authorization",
+      "credential": "visitor-key",
+      "expectedHttpStatus": 404,
+      "assertions": ["do-not-reuse-guest-calendar-route"]
+    },
+    {
+      "id": "invalid-cursor",
+      "kind": "validation",
+      "query": { "cursor": "not-a-cursor" },
+      "expectedHttpStatus": 400,
+      "assertions": ["discard-cursor", "reload-first-page"]
+    },
+    {
+      "id": "contact-display-policy",
+      "kind": "privacy",
+      "assertions": [
+        "mobile-full-and-extension-dialable",
+        "voice-full-dialable",
+        "voice-extension-static",
+        "fax-static",
+        "no-raw-number-logging"
+      ]
+    },
+    {
+      "id": "same-contact-merge",
+      "kind": "presentation",
+      "assertions": ["merge-only-identical-contact-signature", "retain-all-entry-labels"]
+    },
+    {
+      "id": "retry-preserves-query",
+      "kind": "state",
+      "assertions": ["keep-search-draft", "keep-filters", "no-duplicate-append"]
+    }
+  ]
+}
