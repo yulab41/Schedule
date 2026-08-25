@@ -661,10 +661,11 @@ describeWithDatabase('current month calendar read model', () => {
   }
 
   async function createRole(targetGroupId: string, name: string): Promise<string> {
+    const config = await getConfig('owner-token', targetGroupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name },
       url: `/groups/${targetGroupId}/schedule-roles`,
     });
 
@@ -677,10 +678,17 @@ describeWithDatabase('current month calendar read model', () => {
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('owner-token', targetGroupId);
+    const role = config.roles.find((item) => item.id === roleId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+      },
       url: `/groups/${targetGroupId}/schedule-roles/${roleId}/members`,
     });
 
@@ -698,10 +706,17 @@ describeWithDatabase('current month calendar read model', () => {
       readonly startingMemberScheduleRoleId: string | null;
     },
   ): Promise<void> {
+    const config = await getConfig('owner-token', targetGroupId);
+    const role = config.roles.find((item) => item.id === roleId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: body,
+      payload: {
+        ...body,
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+      },
       url: `/groups/${targetGroupId}/schedule-roles/${roleId}/rotation-rule`,
     });
 
@@ -802,6 +817,8 @@ interface SchedulingConfigResponse {
   readonly roles: readonly {
     readonly id: string;
     readonly members: readonly { readonly id: string; readonly realName: string }[];
+    readonly rotationRule: { readonly version: number };
+    readonly version: number;
   }[];
   readonly rulesVersion: number;
   readonly shiftTypes: readonly {

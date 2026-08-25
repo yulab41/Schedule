@@ -1612,7 +1612,13 @@ describe('Web API client', () => {
       fetch: fetchImplementation,
     });
 
-    await expect(client.createScheduleRole(group.id, { name: '一线' })).rejects.toMatchObject({
+    await expect(
+      client.createScheduleRole(group.id, {
+        expectedRulesVersion: schedulingConfig.rulesVersion,
+        name: '一线',
+        operationId: organizationOperationId,
+      }),
+    ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
       status: 201,
     });
@@ -1633,7 +1639,11 @@ describe('Web API client', () => {
 
     await expect(
       client.replaceScheduleRoleMembers(group.id, scheduleRole.id, {
+        expectedRoleVersion: scheduleRole.version,
+        expectedRotationRuleVersion: scheduleRole.rotationRule.version,
+        expectedRulesVersion: schedulingConfig.rulesVersion,
         membershipIds: ['membership-1'],
+        operationId: organizationOperationId,
       }),
     ).rejects.toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
@@ -1658,6 +1668,10 @@ describe('Web API client', () => {
       client.updateRotationRule(group.id, scheduleRole.id, {
         currentPosition: 1,
         defaultShiftTypeId: 'shift-1',
+        expectedRoleVersion: scheduleRole.version,
+        expectedRotationRuleVersion: scheduleRole.rotationRule.version,
+        expectedRulesVersion: schedulingConfig.rulesVersion,
+        operationId: organizationOperationId,
         requiredMembersPerDay: 1,
       }),
     ).rejects.toMatchObject({
@@ -1683,8 +1697,10 @@ describe('Web API client', () => {
         countsTowardStatistics: true,
         crossesMidnight: true,
         endTime: '08:00',
+        expectedRulesVersion: schedulingConfig.rulesVersion,
         isEnabled: true,
         name: '全天班',
+        operationId: organizationOperationId,
         startTime: '08:00',
       }),
     ).rejects.toMatchObject({
@@ -1710,8 +1726,11 @@ describe('Web API client', () => {
         countsTowardStatistics: true,
         crossesMidnight: true,
         endTime: '08:00',
+        expectedRulesVersion: schedulingConfig.rulesVersion,
+        expectedVersion: shiftType.version,
         isEnabled: true,
         name: '全天班',
+        operationId: organizationOperationId,
         startTime: '08:00',
       }),
     ).rejects.toMatchObject({

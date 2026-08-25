@@ -1681,10 +1681,11 @@ describeWithDatabase('paired duty adjustments', () => {
   }
 
   async function createRole(groupId: string, name: string): Promise<string> {
+    const config = await getConfig('owner-token', groupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${groupId}/schedule-roles`,
     });
 
@@ -1697,10 +1698,19 @@ describeWithDatabase('paired duty adjustments', () => {
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+        operationId: randomUUID(),
+      },
       url: `/groups/${groupId}/schedule-roles/${roleId}/members`,
     });
 
@@ -1718,10 +1728,19 @@ describeWithDatabase('paired duty adjustments', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload,
+      payload: {
+        ...payload,
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        operationId: randomUUID(),
+      },
       url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
     });
 

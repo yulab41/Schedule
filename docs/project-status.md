@@ -2,13 +2,21 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-25 P8-A2-1 群组/成员写入安全硬化（已实现待上传/部署）
+## 2026-08-25 P8-A2-2 排班配置写入安全硬化（已实现待上传/部署）
+
+- 基线/范围：A2-1 checkpoint `adf1f851` 已推送并部署；`.96-groups@adf1f85` 官方上传 96 files/zip 827,270/manifest `07ee6de7…4089`，备份 `86ecae97-7989-43e3-95ec-bcd9f669ab09` 后部署同 release，full verifier 通过；`.96-groups` 未进 allowlist且 `organization=false`。本批只硬化岗位创建/成员替换/轮转排序/轮转规则/岗位删除和班种创建/更新/删除，不处理邀请、visitor key、平台身份或 Mini UI。
+- 引入点/红绿：配置 Web/API=`04c7da36`、班种删除=`d24b6920`，均重新执行 `git log -S`/`git blame`。Contracts/route/client-core/Web 4 组新契约在旧实现为 4 files/6 failures；实现后 4 files/8 tests 通过。8 个 shared write endpoint 统一 header/body operation id；每次写提交 aggregate `expectedRulesVersion`，岗位子树同时校验 role/rotation-rule version，班种更新/删除校验 shift-type version。
+- API/并发：复用 actor-first organization transaction helper，使幂等行早于权限/目标校验；岗位成员/排序/规则成功后同步推进 role、rotation-rule 与 group rules 三层版本，删除结果可在目标消失后重放。真实 MySQL 全量 70 files/467 tests 通过；配置核心 1 file/7 tests 覆盖同键重放、异载荷 409、角色/规则/班种 stale、删除后重放、同 rules version 并发仅一胜及事务回滚。
+- 客户端/语义：client-core 新增 8 个 strict endpoint/decoder，Web 8 方法全部委托原 shared transport；production `SchedulingConfigPanel` 复用 presentation-core 冻结同 payload operation id，成功清理、失败保留。receiver、Promise/catch、空值、确认、成功刷新与请求次数不变；班种即时启停只在成功响应后本地推进一次 rulesVersion，不新增整页刷新、离线写队列或后台重试。
+- 验证/checkpoint：Contracts 16/58、client-core 12/41、Web 103/604、Mini 45/254；全端 typecheck、API/Web/Storybook build、generated freshness、Mini production verify/source/package/performance/determinism/CI dry-run、任务 lint/format/diff 通过。Mini 2/2 Worklet、3,367,089 bytes、manifest `a7ee17d9fdbb6fe3ad42a24760982ddb0c1278863c4ff08e9e19f58e11cbbf5f`，仅既有 600 格 best-effort warning。browser smoke 首轮因 Vite cwd 误设仓库根返回 404、未进入产品断言；改从 `apps/web` 启动后完整通过且无浏览器错误，`smoke:check-core` 通过，临时服务已关闭。checkpoint 识别消息 `feat(scheduling): harden p8 configuration mutations`；提交推送后以 `0.1.0-p8.20260825.97-config` 上传体验轨道但不加 allowlist，再备份/部署/full verifier。下一活动批次只做 P8-A2-3 邀请与 visitor key 写入的 operation/version、事务重放和 Web 委托，不处理平台身份或 UI。
+
+## 2026-08-25 P8-A2-1 群组/成员写入安全硬化（已完成）
 
 - 基线/范围：A1 checkpoint `5aee10d4` 已推送；`.95-read@5aee10d` 官方上传 96 files/zip 804,539/manifest `7fafa443…30a67`，备份 `8b575691-f3a3-48ab-bf00-f79483dce34e` 后部署同 release，full verifier 通过；`.95-read` 未进 allowlist且 `organization=false`。本批只硬化群组/成员/预设/认领写入，不处理配置、邀请、visitor key、平台身份或 Mini UI。
 - 引入点/红绿：群组/成员 Web/API=`1b5a17ae/8e42afb8/322550d9/394b1c87`，均已执行 `git log -S`/`git blame`。Contracts/route/client-core/Web 新契约在旧实现先 4 组失败；实现后 4 files/8 tests 通过。20 个 shared write endpoint 统一 header/body operation id，版本化 group/member/roster/dissolved/contact/claim；Web 三表面复用 presentation-core 冻结快照，成功清理、失败同 payload 复用。
 - API/并发：新增 actor-first organization transaction helper；idempotency 先于会删除目标或改变 actor 权限的领域校验，使创建/退出/删除/恢复/所有权转让可重放。expected version 失败为 409 + 最小 latest data；姓名更新同步推进 membership version；联系人 audit 使用同一 operation id 且不记录电话。真实 MySQL 全量 69 files/463 tests 通过，P8 核心 3 files/23 tests 覆盖重放、fingerprint mismatch、stale version、唯一 owner 和事务回滚。
 - 语义/验证：Web receiver、Promise/catch、loading/空值、成功刷新与请求次数不变；Mini 无写入口/缓存/重试/离线队列，organization 仍关闭。Contracts 15/56、client-core 2/7、Web 102/602、Mini 45/254，全端 typecheck/build、Web/Storybook build、Mini production verify/source/package/performance/determinism/CI dry-run、任务 ESLint/Prettier/`git diff --check` 通过。Mini 2/2 Worklet、3,289,359 bytes、manifest `9a83af3b34901403ee16064f077bf85ee2f0dcd69b45c11944a4e4dfc7cc6ca6`，仅既有 600 格 best-effort warning。
-- 运行/checkpoint：browser smoke 首轮由旧 smoke contact payload 400 阻断；脚本版本化后完整重跑通过且无浏览器错误，`smoke:check-core` 通过，临时服务已关闭。checkpoint 识别消息 `feat(groups): harden p8 organization mutations`；提交推送后以 `0.1.0-p8.20260825.96-groups` 上传体验轨道但不加 allowlist，再备份/部署/full verifier。下一活动批次只做 P8-A2-2 班种/岗位成员/轮转规则写入的 operation id、rules/entity version、事务重放与 Web 委托，不处理邀请/平台身份或 UI。
+- 运行/checkpoint：browser smoke 首轮由旧 smoke contact payload 400 阻断；脚本版本化后完整重跑通过且无浏览器错误，`smoke:check-core` 通过，临时服务已关闭。checkpoint `adf1f851` 已推送；`.96-groups@adf1f85` 上传成功且未进 allowlist。备份 `86ecae97-7989-43e3-95ec-bcd9f669ab09`（54 表/168,067 行/78,697,640 bytes/SHA `fed389ed…ee74`）后部署 release `adf1f851aaebbfd27e4c17ed3975661c9136442d`，ECS_PUBLIC_IP full verifier/health 200、`.94` organization=false、`.96-groups` 426 和远端 temp 清理均通过。
 
 ## 2026-08-25 P8-A1 组织管理共享只读边界（已完成）
 

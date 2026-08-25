@@ -927,10 +927,11 @@ describeWithDatabase('manual schedule template apply', () => {
   }
 
   async function createRole(targetGroupId: string, name: string): Promise<string> {
+    const config = await getConfig('owner-token', targetGroupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${targetGroupId}/schedule-roles`,
     });
 
@@ -943,10 +944,19 @@ describeWithDatabase('manual schedule template apply', () => {
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('owner-token', targetGroupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+        operationId: randomUUID(),
+      },
       url: `/groups/${targetGroupId}/schedule-roles/${roleId}/members`,
     });
 
@@ -1047,6 +1057,7 @@ describeWithDatabase('manual schedule template apply', () => {
   }
 
   async function createEnabledShiftType(): Promise<ShiftType> {
+    const config = await getConfig('owner-token', groupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
@@ -1056,6 +1067,8 @@ describeWithDatabase('manual schedule template apply', () => {
         countsTowardStatistics: true,
         crossesMidnight: false,
         endTime: '18:00',
+        expectedRulesVersion: config.rulesVersion,
+        operationId: randomUUID(),
         isEnabled: true,
         name: '白班',
         startTime: '09:00',
@@ -1068,6 +1081,8 @@ describeWithDatabase('manual schedule template apply', () => {
   }
 
   async function disableShiftType(shiftTypeId: string): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const shiftType = config.shiftTypes.find((item) => item.id === shiftTypeId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
@@ -1077,8 +1092,11 @@ describeWithDatabase('manual schedule template apply', () => {
         countsTowardStatistics: true,
         crossesMidnight: false,
         endTime: '18:00',
+        expectedRulesVersion: config.rulesVersion,
+        expectedVersion: shiftType?.version,
         isEnabled: false,
         name: '白班',
+        operationId: randomUUID(),
         startTime: '09:00',
       },
       url: `/groups/${groupId}/shift-types/${shiftTypeId}`,
@@ -1088,6 +1106,8 @@ describeWithDatabase('manual schedule template apply', () => {
   }
 
   async function changeShiftTypeColor(): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const shiftType = config.shiftTypes.find((item) => item.id === allDayShiftTypeId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
@@ -1097,8 +1117,11 @@ describeWithDatabase('manual schedule template apply', () => {
         countsTowardStatistics: true,
         crossesMidnight: true,
         endTime: '08:00',
+        expectedRulesVersion: config.rulesVersion,
+        expectedVersion: shiftType?.version,
         isEnabled: true,
         name: '全天班',
+        operationId: randomUUID(),
         startTime: '08:00',
       },
       url: `/groups/${groupId}/shift-types/${allDayShiftTypeId}`,
@@ -1122,6 +1145,7 @@ interface ConfigResponse {
   readonly shiftTypes: readonly {
     readonly id: string;
     readonly isEnabled: boolean;
+    readonly version: number;
   }[];
 }
 

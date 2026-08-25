@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import type { GroupSummary, ScheduleRole, ShiftType, ShiftTypeInput } from '@schedule/contracts';
+import {
+  resolveWorkflowOperationAttempt,
+  type WorkflowOperationAttempt,
+} from '@schedule/presentation-core';
 import { getBestContrastRatio, pickReadableTextColor } from '@schedule/ui-tokens';
 import { computed, ref, watch } from 'vue';
 
@@ -32,6 +36,10 @@ const props = defineProps<{
 }>();
 
 const api = createApiClient({ auth: localAuth });
+const operationAttempts = new Map<
+  string,
+  WorkflowOperationAttempt<Readonly<Record<string, unknown>>>
+>();
 const config = ref<Awaited<ReturnType<typeof api.getSchedulingConfig>>>();
 const errorMessage = ref<string>();
 const infoMessage = ref<string>();
@@ -47,6 +55,26 @@ let requestVersion = 0;
 const configurationOverview = computed(() =>
   config.value === undefined ? undefined : getSchedulingConfigurationOverview(config.value),
 );
+
+function resolveConfigurationAttempt<Payload extends Readonly<Record<string, unknown>>>(
+  key: string,
+  payload: Payload,
+): Readonly<Payload & { readonly operationId: string }> {
+  const resolved = resolveWorkflowOperationAttempt(
+    operationAttempts.get(key) as WorkflowOperationAttempt<Payload> | undefined,
+    payload,
+    () => crypto.randomUUID(),
+  );
+  operationAttempts.set(
+    key,
+    resolved.attempt as WorkflowOperationAttempt<Readonly<Record<string, unknown>>>,
+  );
+  return resolved.snapshot;
+}
+
+function completeConfigurationAttempt(key: string): void {
+  operationAttempts.delete(key);
+}
 
 watch(
   () => props.group.id,
@@ -92,25 +120,46 @@ async function createRole(): Promise<void> {
     return;
   }
 
+  if (config.value === undefined) return;
+  const attemptKey = `schedule-role-create:${props.group.id}`;
+  const input = resolveConfigurationAttempt(attemptKey, {
+    expectedRulesVersion: config.value.rulesVersion,
+    name: newRoleName.value,
+  });
   await save(async () => {
-    await api.createScheduleRole(props.group.id, { name: newRoleName.value });
+    await api.createScheduleRole(props.group.id, input);
+    completeConfigurationAttempt(attemptKey);
     newRoleName.value = '';
     infoMessage.value = '排班岗位已创建，请配置参与成员。';
   });
 }
 
 async function saveRoleMembers(role: ScheduleRole): Promise<void> {
+  if (config.value === undefined) return;
+  const attemptKey = `schedule-role-members:${role.id}`;
+  const input = resolveConfigurationAttempt(attemptKey, {
+    expectedRoleVersion: role.version,
+    expectedRotationRuleVersion: role.rotationRule.version,
+    expectedRulesVersion: config.value.rulesVersion,
+    membershipIds: getRoleDraft(role.id).memberIds,
+  });
   await save(async () => {
-    await api.replaceScheduleRoleMembers(props.group.id, role.id, {
-      membershipIds: getRoleDraft(role.id).memberIds,
-    });
+    await api.replaceScheduleRoleMembers(props.group.id, role.id, input);
+    completeConfigurationAttempt(attemptKey);
     infoMessage.value = '排班岗位成员已保存。';
   });
 }
 
 async function createShift(): Promise<void> {
+  if (config.value === undefined) return;
+  const attemptKey = `shift-type-create:${props.group.id}`;
+  const input = resolveConfigurationAttempt(attemptKey, {
+    ...toShiftTypeInput(newShift.value),
+    expectedRulesVersion: config.value.rulesVersion,
+  });
   const created = await save(async () => {
-    await api.createShiftType(props.group.id, toShiftTypeInput(newShift.value));
+    await api.createShiftType(props.group.id, input);
+    completeConfigurationAttempt(attemptKey);
     newShift.value = createEmptyShiftDraft();
     infoMessage.value = '自定义班种已创建。';
   });
@@ -118,31 +167,39 @@ async function createShift(): Promise<void> {
 }
 
 async function saveShift(shiftType: ShiftType, closeAfterSave = true): Promise<void> {
+  if (config.value === undefined) return;
+  const attemptKey = `shift-type-update:${shiftType.id}`;
+  const input = resolveConfigurationAttempt(attemptKey, {
+    ...toShiftTypeInput(getShiftDraft(shiftType.id)),
+    expectedRulesVersion: config.value.rulesVersion,
+    expectedVersion: shiftType.version,
+  });
   const saved = await save(async () => {
-    await api.updateShiftType(
-      props.group.id,
-      shiftType.id,
-      toShiftTypeInput(getShiftDraft(shiftType.id)),
-    );
+    await api.updateShiftType(props.group.id, shiftType.id, input);
+    completeConfigurationAttempt(attemptKey);
     infoMessage.value = `${shiftType.name}已保存。`;
   });
   if (saved && closeAfterSave) editingShiftId.value = undefined;
 }
 
 async function updateShiftEnabled(shiftType: ShiftType, enabled: boolean): Promise<void> {
+  if (config.value === undefined) return;
   const draft = getShiftDraft(shiftType.id);
   const previousEnabled = draft.isEnabled;
   draft.isEnabled = enabled;
   errorMessage.value = undefined;
   infoMessage.value = undefined;
   isSaving.value = true;
+  const attemptKey = `shift-type-update:${shiftType.id}`;
+  const input = resolveConfigurationAttempt(attemptKey, {
+    ...toShiftTypeInput(draft),
+    expectedRulesVersion: config.value.rulesVersion,
+    expectedVersion: shiftType.version,
+  });
 
   try {
-    const savedShiftType = await api.updateShiftType(
-      props.group.id,
-      shiftType.id,
-      toShiftTypeInput(draft),
-    );
+    const savedShiftType = await api.updateShiftType(props.group.id, shiftType.id, input);
+    completeConfigurationAttempt(attemptKey);
     applySavedShiftType(savedShiftType);
     infoMessage.value = `${savedShiftType.name}已${savedShiftType.isEnabled ? '启用' : '停用'}。`;
   } catch (error) {
@@ -157,6 +214,7 @@ function applySavedShiftType(savedShiftType: ShiftType): void {
   if (config.value !== undefined) {
     config.value = {
       ...config.value,
+      rulesVersion: config.value.rulesVersion + 1,
       shiftTypes: config.value.shiftTypes.map((item) =>
         item.id === savedShiftType.id ? savedShiftType : item,
       ),
@@ -173,8 +231,15 @@ async function deleteRole(role: ScheduleRole): Promise<void> {
     return;
   }
 
+  if (config.value === undefined) return;
+  const attemptKey = `schedule-role-delete:${role.id}`;
+  const input = resolveConfigurationAttempt(attemptKey, {
+    expectedRulesVersion: config.value.rulesVersion,
+    expectedVersion: role.version,
+  });
   const deleted = await save(async () => {
-    await api.deleteScheduleRole(props.group.id, role.id);
+    await api.deleteScheduleRole(props.group.id, role.id, input);
+    completeConfigurationAttempt(attemptKey);
   });
   if (deleted) {
     infoMessage.value = `排班岗位“${role.name}”已删除。`;
@@ -186,8 +251,15 @@ async function deleteShift(shiftType: ShiftType): Promise<void> {
     return;
   }
 
+  if (config.value === undefined) return;
+  const attemptKey = `shift-type-delete:${shiftType.id}`;
+  const input = resolveConfigurationAttempt(attemptKey, {
+    expectedRulesVersion: config.value.rulesVersion,
+    expectedVersion: shiftType.version,
+  });
   const deleted = await save(async () => {
-    await api.deleteShiftType(props.group.id, shiftType.id);
+    await api.deleteShiftType(props.group.id, shiftType.id, input);
+    completeConfigurationAttempt(attemptKey);
   });
   if (deleted) {
     infoMessage.value = `班种“${shiftType.name}”已删除。`;

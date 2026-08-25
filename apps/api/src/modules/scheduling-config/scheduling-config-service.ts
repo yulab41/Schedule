@@ -3,13 +3,16 @@ import { randomUUID } from 'node:crypto';
 import type {
   CreateScheduleRoleRequest,
   CreateShiftTypeRequest,
+  OrganizationMutationCompleted,
   ReorderRotationMembersRequest,
   ReplaceScheduleRoleMembersRequest,
   RotationRule,
   ScheduleRole,
+  ScheduleRoleVersionMutationRequest,
   SchedulingConfig,
   ShiftType,
   ShiftTypeInput,
+  ShiftTypeVersionMutationRequest,
   UpdateRotationRuleRequest,
   UpdateShiftTypeRequest,
 } from '@schedule/contracts';
@@ -35,6 +38,12 @@ import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
+import {
+  createOrganizationFingerprint,
+  organizationMutationCompleted,
+  runOrganizationMutation,
+} from '../groups/organization-operation.js';
 import { GroupPermissionService } from '../groups/permission-service.js';
 
 const allDayTemplateKey = 'all_day';
@@ -150,31 +159,47 @@ export class SchedulingConfigService {
     groupId: string,
     input: CreateScheduleRoleRequest,
   ): Promise<ScheduleRole> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedRulesVersion: input.expectedRulesVersion,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const defaultShiftType = await this.getEnabledAllDayShiftForUpdate(
-        transaction,
-        authorization.group.id,
-      );
-      const roleId = randomUUID();
-      await transaction.insert(scheduleRoles).values({
-        groupId: authorization.group.id,
-        id: roleId,
         name: input.name,
-      });
-      await transaction.insert(rotationRules).values({
-        defaultShiftTypeId: defaultShiftType.id,
-        id: randomUUID(),
-        scheduleRoleId: roleId,
-      });
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const defaultShiftType = await this.getEnabledAllDayShiftForUpdate(
+          transaction,
+          authorization.group.id,
+        );
+        const roleId = randomUUID();
+        await transaction.insert(scheduleRoles).values({
+          groupId: authorization.group.id,
+          id: roleId,
+          name: input.name,
+        });
+        await transaction.insert(rotationRules).values({
+          defaultShiftTypeId: defaultShiftType.id,
+          id: randomUUID(),
+          scheduleRoleId: roleId,
+        });
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
 
-      return this.readRole(transaction, roleId);
+        return this.readRole(transaction, roleId);
+      },
+      scope: 'scheduling_role_create',
     });
   }
 
@@ -184,109 +209,146 @@ export class SchedulingConfigService {
     roleId: string,
     input: ReplaceScheduleRoleMembersRequest,
   ): Promise<ScheduleRole> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedRoleVersion: input.expectedRoleVersion,
+        expectedRotationRuleVersion: input.expectedRotationRuleVersion,
+        expectedRulesVersion: input.expectedRulesVersion,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
-      const rule = await this.getRuleForUpdate(transaction, role.id);
-      await this.requireActiveGroupMemberships(
-        transaction,
-        authorization.group.id,
-        input.membershipIds,
-      );
-
-      const existingMembers = await transaction
-        .select({ id: memberScheduleRoles.id, membershipId: memberScheduleRoles.membershipId })
-        .from(memberScheduleRoles)
-        .where(
-          and(
-            eq(memberScheduleRoles.scheduleRoleId, role.id),
-            isNull(memberScheduleRoles.deletedAt),
-          ),
-        )
-        .for('update');
-      const existingByMembershipId = new Map(
-        existingMembers.map((member) => [member.membershipId, member]),
-      );
-      const requestedMembershipIds = new Set(input.membershipIds);
-      const removedMembers = existingMembers.filter(
-        (member) => !requestedMembershipIds.has(member.membershipId),
-      );
-      const newMembershipIds = input.membershipIds.filter(
-        (membershipId) => !existingByMembershipId.has(membershipId),
-      );
-
-      if (newMembershipIds.length > 0) {
-        await transaction.insert(memberScheduleRoles).values(
-          newMembershipIds.map((membershipId) => ({
-            id: randomUUID(),
-            membershipId,
-            scheduleRoleId: role.id,
-          })),
+        membershipIds: input.membershipIds,
+        roleId,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
         );
-      }
-
-      const activeMembers = await transaction
-        .select({ id: memberScheduleRoles.id, membershipId: memberScheduleRoles.membershipId })
-        .from(memberScheduleRoles)
-        .where(
-          and(
-            eq(memberScheduleRoles.scheduleRoleId, role.id),
-            isNull(memberScheduleRoles.deletedAt),
-          ),
-        )
-        .for('update');
-      const activeMembersByMembershipId = new Map(
-        activeMembers.map((member) => [member.membershipId, member]),
-      );
-      const activeRotations = await this.getActiveRotationsForUpdate(transaction, rule.id);
-      const activeRotationByMemberId = new Map(
-        activeRotations.map((rotation) => [rotation.memberScheduleRoleId, rotation]),
-      );
-      const orderedExistingMemberIds = activeRotations
-        .sort((first, second) => first.position - second.position)
-        .map((rotation) => rotation.memberScheduleRoleId)
-        .filter((memberId) =>
-          Array.from(activeMembersByMembershipId.values()).some(
-            (member) => member.id === memberId && requestedMembershipIds.has(member.membershipId),
-          ),
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
         );
-      const desiredMemberIds = [
-        ...orderedExistingMemberIds,
-        ...input.membershipIds
-          .map((membershipId) => activeMembersByMembershipId.get(membershipId)?.id)
-          .filter(
-            (memberId): memberId is string =>
-              memberId !== undefined && !activeRotationByMemberId.has(memberId),
-          ),
-      ];
+        const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
+        const rule = await this.getRuleForUpdate(transaction, role.id);
+        assertExpectedVersion({
+          actualVersion: role.version,
+          expectedVersion: input.expectedRoleVersion,
+          id: role.id,
+          objectType: 'schedule_role',
+        });
+        assertExpectedVersion({
+          actualVersion: rule.version,
+          expectedVersion: input.expectedRotationRuleVersion,
+          id: rule.id,
+          objectType: 'rotation_rule',
+        });
+        await this.requireActiveGroupMemberships(
+          transaction,
+          authorization.group.id,
+          input.membershipIds,
+        );
 
-      await this.persistRotationOrder(transaction, rule, desiredMemberIds, activeRotations);
-
-      if (removedMembers.length > 0) {
-        const removedMemberIds = new Set(removedMembers.map((member) => member.id));
-        await transaction
-          .update(memberScheduleRoles)
-          .set({
-            deletedAt: sql`current_timestamp(3)`,
-            version: sql`${memberScheduleRoles.version} + 1`,
-          })
+        const existingMembers = await transaction
+          .select({ id: memberScheduleRoles.id, membershipId: memberScheduleRoles.membershipId })
+          .from(memberScheduleRoles)
           .where(
             and(
               eq(memberScheduleRoles.scheduleRoleId, role.id),
-              inArray(memberScheduleRoles.id, [...removedMemberIds]),
               isNull(memberScheduleRoles.deletedAt),
             ),
-          );
-        await this.clearRemovedMemberFromRotationRule(transaction, rule, role.id, removedMemberIds);
-      }
+          )
+          .for('update');
+        const existingByMembershipId = new Map(
+          existingMembers.map((member) => [member.membershipId, member]),
+        );
+        const requestedMembershipIds = new Set(input.membershipIds);
+        const removedMembers = existingMembers.filter(
+          (member) => !requestedMembershipIds.has(member.membershipId),
+        );
+        const newMembershipIds = input.membershipIds.filter(
+          (membershipId) => !existingByMembershipId.has(membershipId),
+        );
 
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
-      return this.readRole(transaction, role.id);
+        if (newMembershipIds.length > 0) {
+          await transaction.insert(memberScheduleRoles).values(
+            newMembershipIds.map((membershipId) => ({
+              id: randomUUID(),
+              membershipId,
+              scheduleRoleId: role.id,
+            })),
+          );
+        }
+
+        const activeMembers = await transaction
+          .select({ id: memberScheduleRoles.id, membershipId: memberScheduleRoles.membershipId })
+          .from(memberScheduleRoles)
+          .where(
+            and(
+              eq(memberScheduleRoles.scheduleRoleId, role.id),
+              isNull(memberScheduleRoles.deletedAt),
+            ),
+          )
+          .for('update');
+        const activeMembersByMembershipId = new Map(
+          activeMembers.map((member) => [member.membershipId, member]),
+        );
+        const activeRotations = await this.getActiveRotationsForUpdate(transaction, rule.id);
+        const activeRotationByMemberId = new Map(
+          activeRotations.map((rotation) => [rotation.memberScheduleRoleId, rotation]),
+        );
+        const orderedExistingMemberIds = activeRotations
+          .sort((first, second) => first.position - second.position)
+          .map((rotation) => rotation.memberScheduleRoleId)
+          .filter((memberId) =>
+            Array.from(activeMembersByMembershipId.values()).some(
+              (member) => member.id === memberId && requestedMembershipIds.has(member.membershipId),
+            ),
+          );
+        const desiredMemberIds = [
+          ...orderedExistingMemberIds,
+          ...input.membershipIds
+            .map((membershipId) => activeMembersByMembershipId.get(membershipId)?.id)
+            .filter(
+              (memberId): memberId is string =>
+                memberId !== undefined && !activeRotationByMemberId.has(memberId),
+            ),
+        ];
+
+        await this.persistRotationOrder(transaction, rule, desiredMemberIds, activeRotations);
+
+        if (removedMembers.length > 0) {
+          const removedMemberIds = new Set(removedMembers.map((member) => member.id));
+          await transaction
+            .update(memberScheduleRoles)
+            .set({
+              deletedAt: sql`current_timestamp(3)`,
+              version: sql`${memberScheduleRoles.version} + 1`,
+            })
+            .where(
+              and(
+                eq(memberScheduleRoles.scheduleRoleId, role.id),
+                inArray(memberScheduleRoles.id, [...removedMemberIds]),
+                isNull(memberScheduleRoles.deletedAt),
+              ),
+            );
+          await this.clearRemovedMemberFromRotationRule(
+            transaction,
+            rule,
+            role.id,
+            removedMemberIds,
+          );
+        }
+
+        await this.bumpRoleAndRuleVersions(transaction, role.id, rule.id);
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return this.readRole(transaction, role.id);
+      },
+      scope: 'scheduling_role_members_replace',
     });
   }
 
@@ -294,78 +356,105 @@ export class SchedulingConfigService {
     identity: AuthenticatedIdentity,
     groupId: string,
     roleId: string,
-  ): Promise<void> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    input: ScheduleRoleVersionMutationRequest,
+  ): Promise<OrganizationMutationCompleted> {
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedRulesVersion: input.expectedRulesVersion,
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
+        roleId,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
+        assertExpectedVersion({
+          actualVersion: role.version,
+          expectedVersion: input.expectedVersion,
+          id: role.id,
+          objectType: 'schedule_role',
+        });
 
-      const usedPeriod = await transaction
-        .select({ id: schedulePeriods.id })
-        .from(schedulePeriods)
-        .where(and(eq(schedulePeriods.scheduleRoleId, role.id), isNull(schedulePeriods.deletedAt)))
-        .limit(1);
-      if (usedPeriod[0] !== undefined) {
-        throw validationError('该排班岗位已用于排班，为保留历史数据不能删除。');
-      }
+        const usedPeriod = await transaction
+          .select({ id: schedulePeriods.id })
+          .from(schedulePeriods)
+          .where(
+            and(eq(schedulePeriods.scheduleRoleId, role.id), isNull(schedulePeriods.deletedAt)),
+          )
+          .limit(1);
+        if (usedPeriod[0] !== undefined) {
+          throw validationError('该排班岗位已用于排班，为保留历史数据不能删除。');
+        }
 
-      const usedTemplate = await transaction
-        .select({ id: manualScheduleTemplates.id })
-        .from(manualScheduleTemplates)
-        .where(
-          and(
-            eq(manualScheduleTemplates.scheduleRoleId, role.id),
-            isNull(manualScheduleTemplates.deletedAt),
-          ),
-        )
-        .limit(1);
-      if (usedTemplate[0] !== undefined) {
-        throw validationError('该排班岗位仍被手动排班模板使用，请先删除相关模板。');
-      }
-
-      const rule = await this.getRuleForUpdate(transaction, role.id);
-      await Promise.all([
-        transaction
-          .update(memberScheduleRoles)
-          .set({
-            deletedAt: sql`current_timestamp(3)`,
-            version: sql`${memberScheduleRoles.version} + 1`,
-          })
+        const usedTemplate = await transaction
+          .select({ id: manualScheduleTemplates.id })
+          .from(manualScheduleTemplates)
           .where(
             and(
-              eq(memberScheduleRoles.scheduleRoleId, role.id),
-              isNull(memberScheduleRoles.deletedAt),
+              eq(manualScheduleTemplates.scheduleRoleId, role.id),
+              isNull(manualScheduleTemplates.deletedAt),
             ),
-          ),
-        transaction
-          .update(rotationMembers)
-          .set({
-            deletedAt: sql`current_timestamp(3)`,
-            version: sql`${rotationMembers.version} + 1`,
-          })
-          .where(
-            and(eq(rotationMembers.rotationRuleId, rule.id), isNull(rotationMembers.deletedAt)),
-          ),
-        transaction
-          .update(rotationRules)
-          .set({
-            deletedAt: sql`current_timestamp(3)`,
-            version: sql`${rotationRules.version} + 1`,
-          })
-          .where(and(eq(rotationRules.scheduleRoleId, role.id), isNull(rotationRules.deletedAt))),
-        transaction
-          .update(scheduleRoles)
-          .set({
-            deletedAt: sql`current_timestamp(3)`,
-            version: sql`${scheduleRoles.version} + 1`,
-          })
-          .where(eq(scheduleRoles.id, role.id)),
-      ]);
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+          )
+          .limit(1);
+        if (usedTemplate[0] !== undefined) {
+          throw validationError('该排班岗位仍被手动排班模板使用，请先删除相关模板。');
+        }
+
+        const rule = await this.getRuleForUpdate(transaction, role.id);
+        await Promise.all([
+          transaction
+            .update(memberScheduleRoles)
+            .set({
+              deletedAt: sql`current_timestamp(3)`,
+              version: sql`${memberScheduleRoles.version} + 1`,
+            })
+            .where(
+              and(
+                eq(memberScheduleRoles.scheduleRoleId, role.id),
+                isNull(memberScheduleRoles.deletedAt),
+              ),
+            ),
+          transaction
+            .update(rotationMembers)
+            .set({
+              deletedAt: sql`current_timestamp(3)`,
+              version: sql`${rotationMembers.version} + 1`,
+            })
+            .where(
+              and(eq(rotationMembers.rotationRuleId, rule.id), isNull(rotationMembers.deletedAt)),
+            ),
+          transaction
+            .update(rotationRules)
+            .set({
+              deletedAt: sql`current_timestamp(3)`,
+              version: sql`${rotationRules.version} + 1`,
+            })
+            .where(and(eq(rotationRules.scheduleRoleId, role.id), isNull(rotationRules.deletedAt))),
+          transaction
+            .update(scheduleRoles)
+            .set({
+              deletedAt: sql`current_timestamp(3)`,
+              version: sql`${scheduleRoles.version} + 1`,
+            })
+            .where(eq(scheduleRoles.id, role.id)),
+        ]);
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return organizationMutationCompleted();
+      },
+      scope: 'scheduling_role_delete',
     });
   }
 
@@ -375,49 +464,81 @@ export class SchedulingConfigService {
     roleId: string,
     input: ReorderRotationMembersRequest,
   ): Promise<ScheduleRole> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedRoleVersion: input.expectedRoleVersion,
+        expectedRotationRuleVersion: input.expectedRotationRuleVersion,
+        expectedRulesVersion: input.expectedRulesVersion,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
-      const rule = await this.getRuleForUpdate(transaction, role.id);
-      const activeMembers = await transaction
-        .select({ id: memberScheduleRoles.id })
-        .from(memberScheduleRoles)
-        .where(
-          and(
-            eq(memberScheduleRoles.scheduleRoleId, role.id),
-            isNull(memberScheduleRoles.deletedAt),
-          ),
-        )
-        .for('update');
-      const activeMemberIds = new Set(activeMembers.map((member) => member.id));
-      const orderedEntries = [...input.members].sort(
-        (first, second) => first.position - second.position,
-      );
+        members: input.members,
+        roleId,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
+        const rule = await this.getRuleForUpdate(transaction, role.id);
+        assertExpectedVersion({
+          actualVersion: role.version,
+          expectedVersion: input.expectedRoleVersion,
+          id: role.id,
+          objectType: 'schedule_role',
+        });
+        assertExpectedVersion({
+          actualVersion: rule.version,
+          expectedVersion: input.expectedRotationRuleVersion,
+          id: rule.id,
+          objectType: 'rotation_rule',
+        });
+        const activeMembers = await transaction
+          .select({ id: memberScheduleRoles.id })
+          .from(memberScheduleRoles)
+          .where(
+            and(
+              eq(memberScheduleRoles.scheduleRoleId, role.id),
+              isNull(memberScheduleRoles.deletedAt),
+            ),
+          )
+          .for('update');
+        const activeMemberIds = new Set(activeMembers.map((member) => member.id));
+        const orderedEntries = [...input.members].sort(
+          (first, second) => first.position - second.position,
+        );
 
-      if (
-        orderedEntries.length !== activeMemberIds.size ||
-        new Set(orderedEntries.map((member) => member.scheduleRoleMemberId)).size !==
-          activeMemberIds.size ||
-        orderedEntries.some(
-          (member, index) =>
-            member.position !== index + 1 || !activeMemberIds.has(member.scheduleRoleMemberId),
-        )
-      ) {
-        throw validationError('轮值顺序必须包含角色中的每位成员，并从 1 开始连续编号。');
-      }
+        if (
+          orderedEntries.length !== activeMemberIds.size ||
+          new Set(orderedEntries.map((member) => member.scheduleRoleMemberId)).size !==
+            activeMemberIds.size ||
+          orderedEntries.some(
+            (member, index) =>
+              member.position !== index + 1 || !activeMemberIds.has(member.scheduleRoleMemberId),
+          )
+        ) {
+          throw validationError('轮值顺序必须包含角色中的每位成员，并从 1 开始连续编号。');
+        }
 
-      await this.persistRotationOrder(
-        transaction,
-        rule,
-        orderedEntries.map((member) => member.scheduleRoleMemberId),
-      );
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
-      return this.readRole(transaction, role.id);
+        await this.persistRotationOrder(
+          transaction,
+          rule,
+          orderedEntries.map((member) => member.scheduleRoleMemberId),
+        );
+        await this.bumpRoleAndRuleVersions(transaction, role.id, rule.id);
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return this.readRole(transaction, role.id);
+      },
+      scope: 'scheduling_rotation_members_reorder',
     });
   }
 
@@ -427,56 +548,97 @@ export class SchedulingConfigService {
     roleId: string,
     input: UpdateRotationRuleRequest,
   ): Promise<ScheduleRole> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        currentPosition: input.currentPosition,
+        defaultShiftTypeId: input.defaultShiftTypeId,
+        expectedRoleVersion: input.expectedRoleVersion,
+        expectedRotationRuleVersion: input.expectedRotationRuleVersion,
+        expectedRulesVersion: input.expectedRulesVersion,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
-      const rule = await this.getRuleForUpdate(transaction, role.id);
-      await this.getEnabledShiftTypeForUpdate(
-        transaction,
-        authorization.group.id,
-        input.defaultShiftTypeId,
-      );
-      const members = await transaction
-        .select({ id: memberScheduleRoles.id })
-        .from(memberScheduleRoles)
-        .where(
-          and(
-            eq(memberScheduleRoles.scheduleRoleId, role.id),
-            isNull(memberScheduleRoles.deletedAt),
-          ),
-        )
-        .for('update');
-      const memberIds = new Set(members.map((member) => member.id));
-      const startingMemberScheduleRoleId = input.startingMemberScheduleRoleId ?? null;
+        requiredMembersPerDay: input.requiredMembersPerDay,
+        roleId,
+        startDate: input.startDate,
+        startingMemberScheduleRoleId: input.startingMemberScheduleRoleId,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const role = await this.getRoleForUpdate(transaction, authorization.group.id, roleId);
+        const rule = await this.getRuleForUpdate(transaction, role.id);
+        assertExpectedVersion({
+          actualVersion: role.version,
+          expectedVersion: input.expectedRoleVersion,
+          id: role.id,
+          objectType: 'schedule_role',
+        });
+        assertExpectedVersion({
+          actualVersion: rule.version,
+          expectedVersion: input.expectedRotationRuleVersion,
+          id: rule.id,
+          objectType: 'rotation_rule',
+        });
+        await this.getEnabledShiftTypeForUpdate(
+          transaction,
+          authorization.group.id,
+          input.defaultShiftTypeId,
+        );
+        const members = await transaction
+          .select({ id: memberScheduleRoles.id })
+          .from(memberScheduleRoles)
+          .where(
+            and(
+              eq(memberScheduleRoles.scheduleRoleId, role.id),
+              isNull(memberScheduleRoles.deletedAt),
+            ),
+          )
+          .for('update');
+        const memberIds = new Set(members.map((member) => member.id));
+        const startingMemberScheduleRoleId = input.startingMemberScheduleRoleId ?? null;
 
-      if (startingMemberScheduleRoleId !== null && !memberIds.has(startingMemberScheduleRoleId)) {
-        throw validationError('轮值起始成员必须属于该排班角色。');
-      }
+        if (startingMemberScheduleRoleId !== null && !memberIds.has(startingMemberScheduleRoleId)) {
+          throw validationError('轮值起始成员必须属于该排班角色。');
+        }
 
-      if (
-        members.length === 0 ? input.currentPosition !== 1 : input.currentPosition > members.length
-      ) {
-        throw validationError('当前轮值游标必须在已配置成员的连续顺序内。');
-      }
+        if (
+          members.length === 0
+            ? input.currentPosition !== 1
+            : input.currentPosition > members.length
+        ) {
+          throw validationError('当前轮值游标必须在已配置成员的连续顺序内。');
+        }
 
-      await transaction
-        .update(rotationRules)
-        .set({
-          currentPosition: input.currentPosition,
-          defaultShiftTypeId: input.defaultShiftTypeId,
-          requiredMembersPerDay: input.requiredMembersPerDay,
-          startDate: input.startDate ?? null,
-          startingMemberScheduleRoleId,
-          version: sql`${rotationRules.version} + 1`,
-        })
-        .where(eq(rotationRules.id, rule.id));
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
-      return this.readRole(transaction, role.id);
+        await transaction
+          .update(rotationRules)
+          .set({
+            currentPosition: input.currentPosition,
+            defaultShiftTypeId: input.defaultShiftTypeId,
+            requiredMembersPerDay: input.requiredMembersPerDay,
+            startDate: input.startDate ?? null,
+            startingMemberScheduleRoleId,
+            version: sql`${rotationRules.version} + 1`,
+          })
+          .where(eq(rotationRules.id, rule.id));
+        await transaction
+          .update(scheduleRoles)
+          .set({ version: sql`${scheduleRoles.version} + 1` })
+          .where(eq(scheduleRoles.id, role.id));
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return this.readRole(transaction, role.id);
+      },
+      scope: 'scheduling_rotation_rule_update',
     });
   }
 
@@ -485,34 +647,50 @@ export class SchedulingConfigService {
     groupId: string,
     input: CreateShiftTypeRequest,
   ): Promise<ShiftType> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        ...input,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const normalized = normalizeShiftTypeInput(input);
-      validateShiftTypeInput(normalized);
-      const [lastShiftType] = await transaction
-        .select({ displayOrder: shiftTypes.displayOrder })
-        .from(shiftTypes)
-        .where(and(eq(shiftTypes.groupId, authorization.group.id), isNull(shiftTypes.deletedAt)))
-        .orderBy(sql`${shiftTypes.displayOrder} desc`)
-        .limit(1)
-        .for('update');
-      const shiftTypeId = randomUUID();
-      await transaction.insert(shiftTypes).values({
-        ...normalized,
-        displayOrder: (lastShiftType?.displayOrder ?? 0) + 1,
-        groupId: authorization.group.id,
-        id: shiftTypeId,
-        isAllDay: 0,
-        templateKey: null,
-        textColor: calculateReadableTextColor(normalized.color),
-      });
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
-      return this.readShiftType(transaction, shiftTypeId);
+        operationId: undefined,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const normalized = normalizeShiftTypeInput(input);
+        validateShiftTypeInput(normalized);
+        const [lastShiftType] = await transaction
+          .select({ displayOrder: shiftTypes.displayOrder })
+          .from(shiftTypes)
+          .where(and(eq(shiftTypes.groupId, authorization.group.id), isNull(shiftTypes.deletedAt)))
+          .orderBy(sql`${shiftTypes.displayOrder} desc`)
+          .limit(1)
+          .for('update');
+        const shiftTypeId = randomUUID();
+        await transaction.insert(shiftTypes).values({
+          ...normalized,
+          displayOrder: (lastShiftType?.displayOrder ?? 0) + 1,
+          groupId: authorization.group.id,
+          id: shiftTypeId,
+          isAllDay: 0,
+          templateKey: null,
+          textColor: calculateReadableTextColor(normalized.color),
+        });
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return this.readShiftType(transaction, shiftTypeId);
+      },
+      scope: 'scheduling_shift_type_create',
     });
   }
 
@@ -522,61 +700,84 @@ export class SchedulingConfigService {
     shiftTypeId: string,
     input: UpdateShiftTypeRequest,
   ): Promise<ShiftType> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        ...input,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const existing = await this.getShiftTypeForUpdate(
-        transaction,
-        authorization.group.id,
+        operationId: undefined,
         shiftTypeId,
-      );
-      const isAllDay = existing.isAllDay === 1;
-      const normalized = normalizeShiftTypeInput(input, isAllDay);
-      validateShiftTypeInput(normalized, isAllDay);
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const existing = await this.getShiftTypeForUpdate(
+          transaction,
+          authorization.group.id,
+          shiftTypeId,
+        );
+        assertExpectedVersion({
+          actualVersion: existing.version,
+          expectedVersion: input.expectedVersion,
+          id: existing.id,
+          objectType: 'shift_type',
+        });
+        const isAllDay = existing.isAllDay === 1;
+        const normalized = normalizeShiftTypeInput(input, isAllDay);
+        validateShiftTypeInput(normalized, isAllDay);
 
-      if (existing.isAllDay === 1 && !normalized.isEnabled) {
-        throw validationError('全天班是群组的固定默认班种，不能停用。');
-      }
-
-      if (existing.isEnabled === 1 && !normalized.isEnabled) {
-        const [ruleUsingShiftType] = await transaction
-          .select({ id: rotationRules.id })
-          .from(rotationRules)
-          .innerJoin(scheduleRoles, eq(scheduleRoles.id, rotationRules.scheduleRoleId))
-          .where(
-            and(
-              eq(rotationRules.defaultShiftTypeId, existing.id),
-              isNull(rotationRules.deletedAt),
-              isNull(scheduleRoles.deletedAt),
-            ),
-          )
-          .limit(1)
-          .for('update');
-
-        if (ruleUsingShiftType !== undefined) {
-          throw new ApiError({
-            code: 'CONFLICT',
-            statusCode: 409,
-            userMessage: '该班种仍被轮值规则使用，请先为相关角色选择其他启用班种。',
-          });
+        if (existing.isAllDay === 1 && !normalized.isEnabled) {
+          throw validationError('全天班是群组的固定默认班种，不能停用。');
         }
-      }
 
-      await transaction
-        .update(shiftTypes)
-        .set({
-          ...normalized,
-          configurationVersion: sql`${shiftTypes.configurationVersion} + 1`,
-          textColor: calculateReadableTextColor(normalized.color),
-          version: sql`${shiftTypes.version} + 1`,
-        })
-        .where(eq(shiftTypes.id, existing.id));
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
-      return this.readShiftType(transaction, existing.id);
+        if (existing.isEnabled === 1 && !normalized.isEnabled) {
+          const [ruleUsingShiftType] = await transaction
+            .select({ id: rotationRules.id })
+            .from(rotationRules)
+            .innerJoin(scheduleRoles, eq(scheduleRoles.id, rotationRules.scheduleRoleId))
+            .where(
+              and(
+                eq(rotationRules.defaultShiftTypeId, existing.id),
+                isNull(rotationRules.deletedAt),
+                isNull(scheduleRoles.deletedAt),
+              ),
+            )
+            .limit(1)
+            .for('update');
+
+          if (ruleUsingShiftType !== undefined) {
+            throw new ApiError({
+              code: 'CONFLICT',
+              statusCode: 409,
+              userMessage: '该班种仍被轮值规则使用，请先为相关角色选择其他启用班种。',
+            });
+          }
+        }
+
+        await transaction
+          .update(shiftTypes)
+          .set({
+            ...normalized,
+            configurationVersion: sql`${shiftTypes.configurationVersion} + 1`,
+            textColor: calculateReadableTextColor(normalized.color),
+            version: sql`${shiftTypes.version} + 1`,
+          })
+          .where(eq(shiftTypes.id, existing.id));
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return this.readShiftType(transaction, existing.id);
+      },
+      scope: 'scheduling_shift_type_update',
     });
   }
 
@@ -584,58 +785,83 @@ export class SchedulingConfigService {
     identity: AuthenticatedIdentity,
     groupId: string,
     shiftTypeId: string,
-  ): Promise<void> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    input: ShiftTypeVersionMutationRequest,
+  ): Promise<OrganizationMutationCompleted> {
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedRulesVersion: input.expectedRulesVersion,
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageScheduleConfiguration',
-      );
-      const existing = await this.getShiftTypeForUpdate(
-        transaction,
-        authorization.group.id,
         shiftTypeId,
-      );
-      if (existing.templateKey !== null) {
-        throw validationError('内置班种不能删除，只能停用。');
-      }
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageScheduleConfiguration',
+        );
+        assertExpectedRulesVersion(
+          authorization.group.id,
+          authorization.group.rulesVersion,
+          input.expectedRulesVersion,
+        );
+        const existing = await this.getShiftTypeForUpdate(
+          transaction,
+          authorization.group.id,
+          shiftTypeId,
+        );
+        assertExpectedVersion({
+          actualVersion: existing.version,
+          expectedVersion: input.expectedVersion,
+          id: existing.id,
+          objectType: 'shift_type',
+        });
+        if (existing.templateKey !== null) {
+          throw validationError('内置班种不能删除，只能停用。');
+        }
 
-      const [ruleUsingShiftType] = await transaction
-        .select({ id: rotationRules.id })
-        .from(rotationRules)
-        .where(
-          and(eq(rotationRules.defaultShiftTypeId, existing.id), isNull(rotationRules.deletedAt)),
-        )
-        .limit(1)
-        .for('update');
-      if (ruleUsingShiftType !== undefined) {
-        throw validationError('该班种仍被排班岗位作为默认班种使用，请先更换后再删除。');
-      }
+        const [ruleUsingShiftType] = await transaction
+          .select({ id: rotationRules.id })
+          .from(rotationRules)
+          .where(
+            and(eq(rotationRules.defaultShiftTypeId, existing.id), isNull(rotationRules.deletedAt)),
+          )
+          .limit(1)
+          .for('update');
+        if (ruleUsingShiftType !== undefined) {
+          throw validationError('该班种仍被排班岗位作为默认班种使用，请先更换后再删除。');
+        }
 
-      const [cellUsingShiftType] = await transaction
-        .select({ id: manualScheduleCells.id })
-        .from(manualScheduleCells)
-        .where(
-          and(
-            eq(manualScheduleCells.shiftTypeId, existing.id),
-            isNull(manualScheduleCells.deletedAt),
-          ),
-        )
-        .limit(1)
-        .for('update');
-      if (cellUsingShiftType !== undefined) {
-        throw validationError('该班种仍被手动排班模板使用，请先删除相关模板。');
-      }
+        const [cellUsingShiftType] = await transaction
+          .select({ id: manualScheduleCells.id })
+          .from(manualScheduleCells)
+          .where(
+            and(
+              eq(manualScheduleCells.shiftTypeId, existing.id),
+              isNull(manualScheduleCells.deletedAt),
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (cellUsingShiftType !== undefined) {
+          throw validationError('该班种仍被手动排班模板使用，请先删除相关模板。');
+        }
 
-      await transaction
-        .update(shiftTypes)
-        .set({
-          deletedAt: sql`current_timestamp(3)`,
-          version: sql`${shiftTypes.version} + 1`,
-        })
-        .where(eq(shiftTypes.id, existing.id));
-      await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        await transaction
+          .update(shiftTypes)
+          .set({
+            deletedAt: sql`current_timestamp(3)`,
+            version: sql`${shiftTypes.version} + 1`,
+          })
+          .where(eq(shiftTypes.id, existing.id));
+        await this.bumpGroupRulesVersion(transaction, authorization.group.id);
+        return organizationMutationCompleted();
+      },
+      scope: 'scheduling_shift_type_delete',
     });
   }
 
@@ -805,6 +1031,7 @@ export class SchedulingConfigService {
         currentPosition: rotationRules.currentPosition,
         id: rotationRules.id,
         startingMemberScheduleRoleId: rotationRules.startingMemberScheduleRoleId,
+        version: rotationRules.version,
       })
       .from(rotationRules)
       .where(and(eq(rotationRules.scheduleRoleId, roleId), isNull(rotationRules.deletedAt)))
@@ -885,6 +1112,7 @@ export class SchedulingConfigService {
         isAllDay: shiftTypes.isAllDay,
         isEnabled: shiftTypes.isEnabled,
         templateKey: shiftTypes.templateKey,
+        version: shiftTypes.version,
       })
       .from(shiftTypes)
       .where(
@@ -1046,10 +1274,24 @@ export class SchedulingConfigService {
         .set({
           currentPosition: nextCurrentPosition,
           startingMemberScheduleRoleId,
-          version: sql`${rotationRules.version} + 1`,
         })
         .where(eq(rotationRules.id, rule.id));
     }
+  }
+
+  private async bumpRoleAndRuleVersions(
+    transaction: DatabaseTransaction,
+    roleId: string,
+    ruleId: string,
+  ): Promise<void> {
+    await transaction
+      .update(scheduleRoles)
+      .set({ version: sql`${scheduleRoles.version} + 1` })
+      .where(eq(scheduleRoles.id, roleId));
+    await transaction
+      .update(rotationRules)
+      .set({ version: sql`${rotationRules.version} + 1` })
+      .where(eq(rotationRules.id, ruleId));
   }
 
   private async bumpGroupRulesVersion(
@@ -1061,6 +1303,24 @@ export class SchedulingConfigService {
       .set({ rulesVersion: sql`${groups.rulesVersion} + 1` })
       .where(eq(groups.id, groupId));
   }
+}
+
+function assertExpectedRulesVersion(
+  groupId: string,
+  actualRulesVersion: number,
+  expectedRulesVersion: number,
+): void {
+  if (actualRulesVersion === expectedRulesVersion) return;
+  throw new ApiError({
+    code: 'CONFLICT',
+    latestData: {
+      id: groupId,
+      objectType: 'scheduling_rules',
+      rulesVersion: actualRulesVersion,
+    },
+    statusCode: 409,
+    userMessage: '排班配置已被其他操作更新，请刷新后重新确认。',
+  });
 }
 
 function normalizeShiftTypeInput(input: ShiftTypeInput, isAllDay = false) {

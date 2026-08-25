@@ -34,6 +34,15 @@ describeWithDatabase('scheduling configuration', () => {
       databaseClient: client,
       logger: false,
     });
+    app.addHook('preValidation', (request, _reply, done) => {
+      if (
+        (request.method === 'POST' || request.method === 'PUT' || request.method === 'DELETE') &&
+        request.headers['idempotency-key'] === undefined
+      ) {
+        request.headers['idempotency-key'] = randomUUID();
+      }
+      done();
+    });
     await registerUser('owner-token', 'Owner Doctor');
     await registerUser('candidate-token', 'Candidate Doctor');
   });
@@ -83,6 +92,8 @@ describeWithDatabase('scheduling configuration', () => {
         countsTowardStatistics: aShift?.countsTowardStatistics,
         crossesMidnight: false,
         endTime: null,
+        expectedRulesVersion: config.rulesVersion,
+        expectedVersion: aShift?.version,
         isEnabled: true,
         name: aShift?.name,
         startTime: null,
@@ -101,6 +112,8 @@ describeWithDatabase('scheduling configuration', () => {
         countsTowardStatistics: aShift?.countsTowardStatistics,
         crossesMidnight: true,
         endTime: '08:00',
+        expectedRulesVersion: config.rulesVersion,
+        expectedVersion: aShift?.version,
         isEnabled: true,
         name: aShift?.name,
         startTime: '08:00',
@@ -123,18 +136,39 @@ describeWithDatabase('scheduling configuration', () => {
     const owner = members.find((member) => member.realName === 'Owner Doctor');
     const candidate = members.find((member) => member.realName === 'Candidate Doctor');
     const firstRole = await createRole(groupId, '一线');
+    const configBeforeMembers = await getConfig('owner-token', groupId);
 
     const membersSaved = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds: [owner?.id, candidate?.id] },
+      payload: {
+        expectedRoleVersion: firstRole.version,
+        expectedRotationRuleVersion: firstRole.rotationRule.version,
+        expectedRulesVersion: configBeforeMembers.rulesVersion,
+        membershipIds: [owner?.id, candidate?.id],
+      },
       url: `/groups/${groupId}/schedule-roles/${firstRole.id}/members`,
     });
     const firstRoleWithMembers = membersSaved.json() as ScheduleRoleResponse;
+    const rulesAfterMembers = (await getConfig('owner-token', groupId)).rulesVersion;
+    const staleRoleMembers = await app.inject({
+      headers: { authorization: 'Bearer owner-token' },
+      method: 'PUT',
+      payload: {
+        expectedRoleVersion: firstRole.version,
+        expectedRotationRuleVersion: firstRole.rotationRule.version,
+        expectedRulesVersion: rulesAfterMembers,
+        membershipIds: [owner?.id],
+      },
+      url: `/groups/${groupId}/schedule-roles/${firstRole.id}/members`,
+    });
     const invalidOrder = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
+        expectedRoleVersion: firstRoleWithMembers.version,
+        expectedRotationRuleVersion: firstRoleWithMembers.rotationRule.version,
+        expectedRulesVersion: rulesAfterMembers,
         members: firstRoleWithMembers.members.map((member, index) => ({
           position: index + 2,
           scheduleRoleMemberId: member.id,
@@ -146,6 +180,9 @@ describeWithDatabase('scheduling configuration', () => {
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
       payload: {
+        expectedRoleVersion: firstRoleWithMembers.version,
+        expectedRotationRuleVersion: firstRoleWithMembers.rotationRule.version,
+        expectedRulesVersion: rulesAfterMembers,
         members: [...firstRoleWithMembers.members].reverse().map((member, index) => ({
           position: index + 1,
           scheduleRoleMemberId: member.id,
@@ -154,7 +191,8 @@ describeWithDatabase('scheduling configuration', () => {
       url: `/groups/${groupId}/schedule-roles/${firstRole.id}/rotation-members`,
     });
     const reorderedFirstRole = validOrder.json() as ScheduleRoleResponse;
-    const defaultShiftTypeId = (await getConfig('owner-token', groupId)).shiftTypes.find(
+    const configBeforeRule = await getConfig('owner-token', groupId);
+    const defaultShiftTypeId = configBeforeRule.shiftTypes.find(
       (shiftType) => shiftType.isEnabled,
     )?.id;
     const rotationRule = await app.inject({
@@ -163,6 +201,9 @@ describeWithDatabase('scheduling configuration', () => {
       payload: {
         currentPosition: 1,
         defaultShiftTypeId,
+        expectedRoleVersion: reorderedFirstRole.version,
+        expectedRotationRuleVersion: reorderedFirstRole.rotationRule.version,
+        expectedRulesVersion: configBeforeRule.rulesVersion,
         requiredMembersPerDay: 2,
         startDate: '2026-08-31',
         startingMemberScheduleRoleId: reorderedFirstRole.members[0]?.id,
@@ -170,16 +211,40 @@ describeWithDatabase('scheduling configuration', () => {
       url: `/groups/${groupId}/schedule-roles/${firstRole.id}/rotation-rule`,
     });
     const secondRole = await createRole(groupId, '二线');
+    const configBeforeSecondMembers = await getConfig('owner-token', groupId);
     const secondRoleMembers = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds: [candidate?.id] },
+      payload: {
+        expectedRoleVersion: secondRole.version,
+        expectedRotationRuleVersion: secondRole.rotationRule.version,
+        expectedRulesVersion: configBeforeSecondMembers.rulesVersion,
+        membershipIds: [candidate?.id],
+      },
       url: `/groups/${groupId}/schedule-roles/${secondRole.id}/members`,
     });
 
     expect(membersSaved.statusCode).toBe(200);
+    expect(firstRoleWithMembers).toMatchObject({
+      rotationRule: { version: firstRole.rotationRule.version + 1 },
+      version: firstRole.version + 1,
+    });
+    expect(staleRoleMembers.statusCode).toBe(409);
+    expect(staleRoleMembers.json()).toMatchObject({
+      error: {
+        latestData: {
+          id: firstRole.id,
+          objectType: 'schedule_role',
+          version: firstRole.version + 1,
+        },
+      },
+    });
     expect(invalidOrder.statusCode).toBe(400);
     expect(validOrder.statusCode).toBe(200);
+    expect(reorderedFirstRole).toMatchObject({
+      rotationRule: { version: firstRoleWithMembers.rotationRule.version + 1 },
+      version: firstRoleWithMembers.version + 1,
+    });
     expect(validOrder.json()).toMatchObject({
       members: [
         { position: 1, realName: 'Candidate Doctor' },
@@ -188,11 +253,13 @@ describeWithDatabase('scheduling configuration', () => {
     });
     expect(rotationRule.statusCode).toBe(200);
     expect(rotationRule.json()).toMatchObject({
+      version: reorderedFirstRole.version + 1,
       rotationRule: {
         currentPosition: 1,
         requiredMembersPerDay: 2,
         startDate: '2026-08-31',
         startingMemberScheduleRoleId: reorderedFirstRole.members[0]?.id,
+        version: reorderedFirstRole.rotationRule.version + 1,
       },
     });
     expect(secondRoleMembers.statusCode).toBe(200);
@@ -223,6 +290,10 @@ describeWithDatabase('scheduling configuration', () => {
     const deleted = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: {
+        expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+        expectedVersion: unusedRole.version,
+      },
       url: `/groups/${groupId}/schedule-roles/${unusedRole.id}`,
     });
     expect(deleted.statusCode).toBe(200);
@@ -238,6 +309,10 @@ describeWithDatabase('scheduling configuration', () => {
     const blocked = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: {
+        expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+        expectedVersion: usedRole.version,
+      },
       url: `/groups/${groupId}/schedule-roles/${usedRole.id}`,
     });
     expect(blocked.statusCode).toBe(400);
@@ -255,6 +330,10 @@ describeWithDatabase('scheduling configuration', () => {
     const deletedAfterSoftDelete = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: {
+        expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+        expectedVersion: usedRole.version,
+      },
       url: `/groups/${groupId}/schedule-roles/${usedRole.id}`,
     });
     expect(deletedAfterSoftDelete.statusCode).toBe(200);
@@ -265,6 +344,7 @@ describeWithDatabase('scheduling configuration', () => {
 
   it('deletes unused custom shift types and keeps built-in shift types', async () => {
     const groupId = await createClaimedGroup();
+    const initialConfig = await getConfig('owner-token', groupId);
     const createShift = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
@@ -274,6 +354,7 @@ describeWithDatabase('scheduling configuration', () => {
         countsTowardStatistics: true,
         crossesMidnight: false,
         endTime: '18:00',
+        expectedRulesVersion: initialConfig.rulesVersion,
         isEnabled: true,
         name: '可删除班种',
         startTime: '09:00',
@@ -291,6 +372,10 @@ describeWithDatabase('scheduling configuration', () => {
     const builtInDelete = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: {
+        expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+        expectedVersion: builtIn?.version,
+      },
       url: `/groups/${groupId}/shift-types/${builtIn?.id}`,
     });
     expect(builtInDelete.statusCode).toBe(400);
@@ -298,6 +383,10 @@ describeWithDatabase('scheduling configuration', () => {
     const deleted = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'DELETE',
+      payload: {
+        expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+        expectedVersion: shiftType.version,
+      },
       url: `/groups/${groupId}/shift-types/${shiftType.id}`,
     });
     expect(deleted.statusCode).toBe(200);
@@ -307,6 +396,7 @@ describeWithDatabase('scheduling configuration', () => {
 
   it('keeps disabled shift configuration available while blocking direct member changes', async () => {
     const groupId = await createClaimedGroup();
+    const initialConfig = await getConfig('owner-token', groupId);
     const createShift = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
@@ -316,6 +406,7 @@ describeWithDatabase('scheduling configuration', () => {
         countsTowardStatistics: true,
         crossesMidnight: true,
         endTime: '08:00',
+        expectedRulesVersion: initialConfig.rulesVersion,
         isEnabled: true,
         name: '自定义夜班',
         startTime: '20:00',
@@ -323,6 +414,7 @@ describeWithDatabase('scheduling configuration', () => {
       url: `/groups/${groupId}/shift-types`,
     });
     const shiftType = createShift.json() as ShiftTypeResponse;
+    const configBeforeDisable = await getConfig('owner-token', groupId);
     const disableShift = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
@@ -332,6 +424,8 @@ describeWithDatabase('scheduling configuration', () => {
         countsTowardStatistics: shiftType.countsTowardStatistics,
         crossesMidnight: shiftType.crossesMidnight,
         endTime: shiftType.endTime,
+        expectedRulesVersion: configBeforeDisable.rulesVersion,
+        expectedVersion: shiftType.version,
         isEnabled: false,
         name: shiftType.name,
         startTime: shiftType.startTime,
@@ -341,7 +435,10 @@ describeWithDatabase('scheduling configuration', () => {
     const memberCreatesRole = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'POST',
-      payload: { name: '越权角色' },
+      payload: {
+        expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+        name: '越权角色',
+      },
       url: `/groups/${groupId}/schedule-roles`,
     });
 
@@ -360,6 +457,188 @@ describeWithDatabase('scheduling configuration', () => {
         expect.objectContaining({ id: shiftType.id, isEnabled: false, name: '自定义夜班' }),
       ]),
     );
+  });
+
+  it('replays role and shift-type writes before deleted targets are rechecked', async () => {
+    const groupId = await createClaimedGroup();
+    const initialConfig = await getConfig('owner-token', groupId);
+    const roleOperationId = randomUUID();
+    const rolePayload = {
+      expectedRulesVersion: initialConfig.rulesVersion,
+      name: '幂等岗位',
+      operationId: roleOperationId,
+    };
+    const roleCreated = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': roleOperationId },
+      method: 'POST',
+      payload: rolePayload,
+      url: `/groups/${groupId}/schedule-roles`,
+    });
+    const roleReplay = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': roleOperationId },
+      method: 'POST',
+      payload: rolePayload,
+      url: `/groups/${groupId}/schedule-roles`,
+    });
+    const changedRole = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': roleOperationId },
+      method: 'POST',
+      payload: { ...rolePayload, name: '异载荷岗位' },
+      url: `/groups/${groupId}/schedule-roles`,
+    });
+    expect(roleCreated.statusCode, roleCreated.body).toBe(201);
+    expect(roleReplay.json()).toEqual(roleCreated.json());
+    expect(changedRole.statusCode).toBe(409);
+
+    const role = roleCreated.json() as ScheduleRoleResponse;
+    const deleteRoleOperationId = randomUUID();
+    const deleteRolePayload = {
+      expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+      expectedVersion: role.version,
+      operationId: deleteRoleOperationId,
+    };
+    const roleDeleted = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': deleteRoleOperationId },
+      method: 'DELETE',
+      payload: deleteRolePayload,
+      url: `/groups/${groupId}/schedule-roles/${role.id}`,
+    });
+    const roleDeleteReplay = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': deleteRoleOperationId },
+      method: 'DELETE',
+      payload: deleteRolePayload,
+      url: `/groups/${groupId}/schedule-roles/${role.id}`,
+    });
+    expect(roleDeleted.statusCode, roleDeleted.body).toBe(200);
+    expect(roleDeleteReplay.statusCode, roleDeleteReplay.body).toBe(200);
+
+    const shiftOperationId = randomUUID();
+    const shiftPayload = {
+      abbreviation: '幂',
+      color: '#1F5AA6',
+      countsTowardStatistics: true,
+      crossesMidnight: false,
+      endTime: '17:30',
+      expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+      isEnabled: true,
+      name: '幂等班种',
+      operationId: shiftOperationId,
+      startTime: '08:00',
+    };
+    const shiftCreated = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': shiftOperationId },
+      method: 'POST',
+      payload: shiftPayload,
+      url: `/groups/${groupId}/shift-types`,
+    });
+    const shiftReplay = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': shiftOperationId },
+      method: 'POST',
+      payload: shiftPayload,
+      url: `/groups/${groupId}/shift-types`,
+    });
+    expect(shiftCreated.statusCode, shiftCreated.body).toBe(201);
+    expect(shiftReplay.json()).toEqual(shiftCreated.json());
+
+    const shift = shiftCreated.json() as ShiftTypeResponse;
+    const updateOperationId = randomUUID();
+    const updatePayload = {
+      ...shiftPayload,
+      expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+      expectedVersion: shift.version,
+      name: '幂等班种更新',
+      operationId: updateOperationId,
+    };
+    const shiftUpdated = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': updateOperationId },
+      method: 'PUT',
+      payload: updatePayload,
+      url: `/groups/${groupId}/shift-types/${shift.id}`,
+    });
+    const shiftUpdateReplay = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': updateOperationId },
+      method: 'PUT',
+      payload: updatePayload,
+      url: `/groups/${groupId}/shift-types/${shift.id}`,
+    });
+    expect(shiftUpdated.statusCode, shiftUpdated.body).toBe(200);
+    expect(shiftUpdateReplay.json()).toEqual(shiftUpdated.json());
+
+    const staleOperationId = randomUUID();
+    const staleShift = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': staleOperationId },
+      method: 'PUT',
+      payload: {
+        ...updatePayload,
+        expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+        operationId: staleOperationId,
+      },
+      url: `/groups/${groupId}/shift-types/${shift.id}`,
+    });
+    expect(staleShift.statusCode).toBe(409);
+    expect(staleShift.json()).toMatchObject({
+      error: {
+        latestData: { id: shift.id, objectType: 'shift_type', version: shift.version + 1 },
+      },
+    });
+
+    const updatedShift = shiftUpdated.json() as ShiftTypeResponse;
+    const deleteShiftOperationId = randomUUID();
+    const deleteShiftPayload = {
+      expectedRulesVersion: (await getConfig('owner-token', groupId)).rulesVersion,
+      expectedVersion: updatedShift.version,
+      operationId: deleteShiftOperationId,
+    };
+    const shiftDeleted = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': deleteShiftOperationId },
+      method: 'DELETE',
+      payload: deleteShiftPayload,
+      url: `/groups/${groupId}/shift-types/${shift.id}`,
+    });
+    const shiftDeleteReplay = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': deleteShiftOperationId },
+      method: 'DELETE',
+      payload: deleteShiftPayload,
+      url: `/groups/${groupId}/shift-types/${shift.id}`,
+    });
+    expect(shiftDeleted.statusCode, shiftDeleted.body).toBe(200);
+    expect(shiftDeleteReplay.statusCode, shiftDeleteReplay.body).toBe(200);
+  });
+
+  it('serializes concurrent configuration writes with one aggregate rules winner', async () => {
+    const groupId = await createClaimedGroup();
+    const config = await getConfig('owner-token', groupId);
+    const payload = (name: string, abbreviation: string) => ({
+      abbreviation,
+      color: '#1F5AA6',
+      countsTowardStatistics: true,
+      crossesMidnight: false,
+      endTime: '17:30',
+      expectedRulesVersion: config.rulesVersion,
+      isEnabled: true,
+      name,
+      operationId: randomUUID(),
+      startTime: '08:00',
+    });
+    const firstPayload = payload('并发班种一', '并1');
+    const secondPayload = payload('并发班种二', '并2');
+    const responses = await Promise.all(
+      [firstPayload, secondPayload].map((requestPayload) =>
+        app.inject({
+          headers: {
+            authorization: 'Bearer owner-token',
+            'idempotency-key': requestPayload.operationId,
+          },
+          method: 'POST',
+          payload: requestPayload,
+          url: `/groups/${groupId}/shift-types`,
+        }),
+      ),
+    );
+
+    expect(responses.map((response) => response.statusCode).sort()).toEqual([201, 409]);
+    const names = (await getConfig('owner-token', groupId)).shiftTypes.map((shift) => shift.name);
+    expect(names.filter((name) => name.startsWith('并发班种'))).toHaveLength(1);
   });
 
   async function registerUser(token: string, realName: string): Promise<void> {
@@ -404,16 +683,17 @@ describeWithDatabase('scheduling configuration', () => {
     return groupId;
   }
 
-  async function createRole(groupId: string, name: string): Promise<{ id: string }> {
+  async function createRole(groupId: string, name: string): Promise<ScheduleRoleResponse> {
+    const config = await getConfig('owner-token', groupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name },
       url: `/groups/${groupId}/schedule-roles`,
     });
 
     expect(response.statusCode).toBe(201);
-    return response.json() as { id: string };
+    return response.json() as ScheduleRoleResponse;
   }
 
   async function getConfig(token: string, groupId: string): Promise<SchedulingConfigResponse> {
@@ -446,13 +726,23 @@ interface MemberResponse {
 
 interface ScheduleRoleResponse {
   readonly id: string;
-  readonly members: readonly { readonly id: string; readonly realName: string }[];
+  readonly members: readonly {
+    readonly id: string;
+    readonly realName: string;
+    readonly version: number;
+  }[];
+  readonly rotationRule: {
+    readonly version: number;
+  };
+  readonly version: number;
 }
 
 interface SchedulingConfigResponse {
   readonly roles: readonly {
     readonly members: readonly { readonly realName: string }[];
     readonly name: string;
+    readonly rotationRule: { readonly version: number };
+    readonly version: number;
   }[];
   readonly shiftTypes: readonly ShiftTypeResponse[];
   readonly rulesVersion: number;
@@ -472,6 +762,7 @@ interface ShiftTypeResponse {
   readonly name: string;
   readonly startTime?: string;
   readonly textColor: string;
+  readonly version: number;
 }
 
 function createFakeAuthPort(tokens: Readonly<Record<string, string>>): AuthPort {

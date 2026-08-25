@@ -240,10 +240,11 @@ describeWithDatabase('optimistic concurrency protection', () => {
   }
 
   async function createRole(targetGroupId: string, name: string): Promise<string> {
+    const config = await getConfig('owner-token', targetGroupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${targetGroupId}/schedule-roles`,
     });
 
@@ -256,10 +257,18 @@ describeWithDatabase('optimistic concurrency protection', () => {
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('owner-token', targetGroupId);
+    const role = config.roles.find((item) => item.id === roleId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+        operationId: randomUUID(),
+      },
       url: `/groups/${targetGroupId}/schedule-roles/${roleId}/members`,
     });
 
@@ -344,6 +353,8 @@ interface ConfigResponse {
   readonly roles: readonly {
     readonly id: string;
     readonly members: readonly { readonly id: string; readonly realName: string }[];
+    readonly rotationRule: { readonly version: number };
+    readonly version: number;
   }[];
   readonly rulesVersion: number;
   readonly shiftTypes: readonly {

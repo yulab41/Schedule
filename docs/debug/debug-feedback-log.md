@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-A2-2 排班配置写入安全硬化
+
+- 范围/引入点：只硬化岗位创建/成员替换/轮转排序/轮转规则/岗位删除及班种创建/更新/删除；不处理邀请、visitor key、平台身份或 Mini UI。Web/API 主调用来自 `04c7da36`，班种删除来自 `d24b6920`；已执行 `git log -S`/`git blame`。
+- 红绿/实现：Contracts、scheduling route、client-core 和 Web 配置表面 4 组新契约在旧实现为 4 files/6 failures；实现后 4 files/8 tests 通过。8 个 endpoint 统一 operation id；group rules + role + rotation-rule/shift-type 多层 expected version，actor-first 幂等事务先于权限/目标检查，删除后可重放；同 payload 重试冻结，成功清理，失败复用。
+- 真实数据库/联动：配置核心 7/7 覆盖创建/更新/删除重放、同键异 payload、stale aggregate/entity、角色/规则版本推进及并发单一胜者；API 全量真实 MySQL 串行 70 files/467 tests 全绿。下游日历、自动生成、手排、请假、换班、加扣班、通知、事件、统计、导出、邀请和历史补录夹具均提交当前版本。
+- 语义审计：Web 仍经同一 shared transport/`fetch.call(globalThis)` 发一次请求；Promise/catch/finally、确认框、空值、loading、错误文案和成功 `loadConfig` 次数保持。班种即时启停继续不整页刷新，只在成功结果局部替换实体并将本地 rulesVersion 推进一次；失败恢复开关并保留相同 snapshot。Mini 无配置写入口、存储或离线写队列，organization 仍关闭。
+- 运行/浏览器验证：Contracts 16/58、client-core 12/41、Web 103/604、Mini 45/254；typecheck、API/Web/Storybook build、generated freshness、Mini production verify/source/package/performance/determinism/CI dry-run、任务 lint/format/diff 通过。`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 首轮因 Vite 在仓库根启动导致站点根 404、未进入产品断言；改在 `apps/web` 启动同一当前源码后，登录、管理员、成员、vkey 访客及访问记录完整通过且无浏览器错误；`pnpm --config.verifyDepsBeforeRun=false smoke:check-core` 通过。临时 API/Web 已关闭。Mini 2/2 Worklet、3,367,089 bytes、manifest `a7ee17d9fdbb6fe3ad42a24760982ddb0c1278863c4ff08e9e19f58e11cbbf5f`，仅既有 600 格 warning。
+
 ## 2026-08-25 P8-A2-1 群组/成员写入安全硬化
 
 - 范围/引入点：仅硬化群组创建/认领/加入/退出/改名/群组码/解散恢复、成员/预设增删转换、角色/姓名/联系方式、所有权及历史认领决定；不处理排班配置、邀请、visitor key、平台身份或 Mini UI。调用点来自 `1b5a17ae/8e42afb8/322550d9/394b1c87`，API 事务来自相同首版服务；已执行 `git log -S`/`git blame`。

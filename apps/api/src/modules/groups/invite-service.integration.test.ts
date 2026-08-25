@@ -437,10 +437,17 @@ describeWithDatabase('invite links and identity binding', () => {
   }
 
   async function createScheduleRole(token: string, groupId: string, name: string): Promise<string> {
+    const config = await app.inject({
+      headers: { authorization: `Bearer ${token}` },
+      method: 'GET',
+      url: `/groups/${groupId}/scheduling-config`,
+    });
+    expect(config.statusCode).toBe(200);
+    const rulesVersion = (config.json() as { rulesVersion: number }).rulesVersion;
     const response = await app.inject({
       headers: { authorization: `Bearer ${token}` },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${groupId}/schedule-roles`,
     });
     expect(response.statusCode).toBe(201);

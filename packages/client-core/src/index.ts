@@ -54,6 +54,13 @@ export {
   type OrganizationWriteClient,
 } from './organization-write-client.js';
 export {
+  createSchedulingConfigWriteClient,
+  scheduleRoleMutationDecoder,
+  schedulingConfigWriteEndpoints,
+  shiftTypeMutationDecoder,
+  type SchedulingConfigWriteClient,
+} from './scheduling-config-write-client.js';
+export {
   ClientCoreError,
   createAuthenticationRequiredError,
   createHttpClientError,

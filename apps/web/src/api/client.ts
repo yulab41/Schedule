@@ -97,12 +97,14 @@ import type {
   ReplaceScheduleRoleMembersRequest,
   RevokeDutyAdjustmentInput,
   ScheduleRole,
+  ScheduleRoleVersionMutationRequest,
   ScheduleEventDetail,
   ScheduleEventPage,
   ScheduleEventQuery,
   ScheduleExportJob,
   SchedulingConfig,
   ShiftType,
+  ShiftTypeVersionMutationRequest,
   SwapPairInput,
   SwapPreview,
   SwapRequest,
@@ -138,6 +140,7 @@ import {
   createGroupMobilePhoneConsentClient,
   createOrganizationReadClient,
   createOrganizationWriteClient,
+  createSchedulingConfigWriteClient,
   createPastScheduleClient,
   createWorkflowClient,
   type ClientEndpoint,
@@ -182,10 +185,8 @@ import {
   scheduleEventPageSchema,
   scheduleExportJobSchema,
   scheduleGenerationPreviewSchema,
-  scheduleRoleSchema,
   schedulePeriodHistoryItemListSchema,
   schedulePeriodMutationResultSchema,
-  shiftTypeSchema,
   statisticsRecalculateCheckResultSchema,
   unreadCountResultSchema,
   updatePastScheduleAssignmentResultSchema,
@@ -313,8 +314,16 @@ export interface ApiClient {
     input: GroupMemberVersionMutationRequest,
   ): Promise<void>;
   deleteManualScheduleTemplate(groupId: string, templateId: string): Promise<void>;
-  deleteScheduleRole(groupId: string, roleId: string): Promise<void>;
-  deleteShiftType(groupId: string, shiftTypeId: string): Promise<void>;
+  deleteScheduleRole(
+    groupId: string,
+    roleId: string,
+    input: ScheduleRoleVersionMutationRequest,
+  ): Promise<void>;
+  deleteShiftType(
+    groupId: string,
+    shiftTypeId: string,
+    input: ShiftTypeVersionMutationRequest,
+  ): Promise<void>;
   getCalendar(groupId: string, businessMonth: string): Promise<CalendarReadModel>;
   getCalendarPreferences(groupId: string): Promise<CalendarPreferences>;
   getGuestGroupCalendarByVisitorKey(
@@ -675,6 +684,7 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
   const groupMobilePhoneConsentClient = createGroupMobilePhoneConsentClient(sharedClientTransport);
   const organizationReadClient = createOrganizationReadClient(sharedClientTransport);
   const organizationWriteClient = createOrganizationWriteClient(sharedClientTransport);
+  const schedulingConfigWriteClient = createSchedulingConfigWriteClient(sharedClientTransport);
   const pastScheduleClient = createPastScheduleClient(sharedClientTransport);
   const workflowClient = createWorkflowClient(sharedClientTransport);
 
@@ -997,30 +1007,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     createScheduleRole(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/schedule-roles`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(scheduleRoleSchema),
-      );
+      return schedulingConfigWriteClient.createScheduleRole(groupId, input);
     },
     createShiftType(groupId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/shift-types`,
-        {
-          body: JSON.stringify(input),
-          method: 'POST',
-        },
-        isResponseBodyFromSchema(shiftTypeSchema),
-      );
+      return schedulingConfigWriteClient.createShiftType(groupId, input);
     },
     createWechatAdminBindingLink(userId) {
       return requestJson(
@@ -1064,25 +1054,11 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
         isUndefined,
       );
     },
-    deleteScheduleRole(groupId, roleId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}`,
-        { method: 'DELETE' },
-        isUndefined,
-      );
+    deleteScheduleRole(groupId, roleId, input) {
+      return schedulingConfigWriteClient.deleteScheduleRole(groupId, roleId, input);
     },
-    deleteShiftType(groupId, shiftTypeId) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/shift-types/${encodeURIComponent(shiftTypeId)}`,
-        { method: 'DELETE' },
-        isUndefined,
-      );
+    deleteShiftType(groupId, shiftTypeId, input) {
+      return schedulingConfigWriteClient.deleteShiftType(groupId, shiftTypeId, input);
     },
     getCalendar(groupId, businessMonth) {
       return calendarReadClient.getCalendar(groupId, businessMonth);
@@ -1625,30 +1601,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       return workflowClient.revokeDutyAdjustment(groupId, dutyAdjustmentId, input);
     },
     reorderRotationMembers(groupId, roleId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}/rotation-members`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(scheduleRoleSchema),
-      );
+      return schedulingConfigWriteClient.reorderRotationMembers(groupId, roleId, input);
     },
     replaceScheduleRoleMembers(groupId, roleId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}/members`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(scheduleRoleSchema),
-      );
+      return schedulingConfigWriteClient.replaceScheduleRoleMembers(groupId, roleId, input);
     },
     transferGroupOwnership(groupId, input) {
       return organizationWriteClient.transferGroupOwnership(groupId, input);
@@ -1701,30 +1657,10 @@ export function createApiClient(options: CreateApiClientOptions): ApiClient {
       );
     },
     updateRotationRule(groupId, roleId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/schedule-roles/${encodeURIComponent(roleId)}/rotation-rule`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(scheduleRoleSchema),
-      );
+      return schedulingConfigWriteClient.updateRotationRule(groupId, roleId, input);
     },
     updateShiftType(groupId, shiftTypeId, input) {
-      return requestJson(
-        options.auth,
-        fetchImplementation,
-        baseUrl,
-        `/groups/${encodeURIComponent(groupId)}/shift-types/${encodeURIComponent(shiftTypeId)}`,
-        {
-          body: JSON.stringify(input),
-          method: 'PUT',
-        },
-        isResponseBodyFromSchema(shiftTypeSchema),
-      );
+      return schedulingConfigWriteClient.updateShiftType(groupId, shiftTypeId, input);
     },
   };
 }

@@ -524,10 +524,11 @@ describeWithDatabase('manual schedule templates', () => {
   }
 
   async function createRole(targetGroupId: string, name: string): Promise<string> {
+    const config = await getConfig('owner-token', targetGroupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${targetGroupId}/schedule-roles`,
     });
 
@@ -540,10 +541,19 @@ describeWithDatabase('manual schedule templates', () => {
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('owner-token', targetGroupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+        operationId: randomUUID(),
+      },
       url: `/groups/${targetGroupId}/schedule-roles/${roleId}/members`,
     });
 
@@ -551,6 +561,7 @@ describeWithDatabase('manual schedule templates', () => {
   }
 
   async function createEnabledShiftType(): Promise<ShiftType> {
+    const config = await getConfig('owner-token', groupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
@@ -560,6 +571,8 @@ describeWithDatabase('manual schedule templates', () => {
         countsTowardStatistics: true,
         crossesMidnight: false,
         endTime: '18:00',
+        expectedRulesVersion: config.rulesVersion,
+        operationId: randomUUID(),
         isEnabled: true,
         name: '白班',
         startTime: '09:00',
@@ -572,6 +585,8 @@ describeWithDatabase('manual schedule templates', () => {
   }
 
   async function disableShiftType(shiftTypeId: string): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const shiftType = config.shiftTypes.find((item) => item.id === shiftTypeId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
@@ -581,8 +596,11 @@ describeWithDatabase('manual schedule templates', () => {
         countsTowardStatistics: true,
         crossesMidnight: false,
         endTime: '18:00',
+        expectedRulesVersion: config.rulesVersion,
+        expectedVersion: shiftType?.version,
         isEnabled: false,
         name: '白班',
+        operationId: randomUUID(),
         startTime: '09:00',
       },
       url: `/groups/${groupId}/shift-types/${shiftTypeId}`,
@@ -681,9 +699,11 @@ interface ConfigResponse {
     readonly id: string;
     readonly members: readonly { readonly id: string; readonly realName: string }[];
   }[];
+  readonly rulesVersion: number;
   readonly shiftTypes: readonly {
     readonly id: string;
     readonly isEnabled: boolean;
+    readonly version: number;
   }[];
 }
 

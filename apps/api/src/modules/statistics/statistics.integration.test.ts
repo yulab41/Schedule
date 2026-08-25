@@ -423,10 +423,11 @@ describeWithDatabase('statistics snapshots', () => {
   }
 
   async function createRole(groupId: string, name: string): Promise<string> {
+    const config = await getConfig('admin-token', groupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${groupId}/schedule-roles`,
     });
     expect(response.statusCode).toBe(201);
@@ -438,10 +439,19 @@ describeWithDatabase('statistics snapshots', () => {
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('admin-token', groupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+        operationId: randomUUID(),
+      },
       url: `/groups/${groupId}/schedule-roles/${roleId}/members`,
     });
     expect(response.statusCode).toBe(200);
@@ -458,10 +468,19 @@ describeWithDatabase('statistics snapshots', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
+    const config = await getConfig('admin-token', groupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer admin-token' },
       method: 'PUT',
-      payload,
+      payload: {
+        ...payload,
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        operationId: randomUUID(),
+      },
       url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
     });
     expect(response.statusCode).toBe(200);

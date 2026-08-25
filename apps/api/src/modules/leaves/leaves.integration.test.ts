@@ -1352,6 +1352,9 @@ describeWithDatabase('leave requests and reflow', () => {
   }
 
   async function changeShiftTypeColor(groupId: string): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const shiftType = config.shiftTypes.find((item) => item.id === allDayShiftTypeId) as
+      { readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
@@ -1361,8 +1364,11 @@ describeWithDatabase('leave requests and reflow', () => {
         countsTowardStatistics: true,
         crossesMidnight: true,
         endTime: '08:00',
+        expectedRulesVersion: config.rulesVersion,
+        expectedVersion: shiftType?.version,
         isEnabled: true,
         name: '全天班',
+        operationId: randomUUID(),
         startTime: '08:00',
       },
       url: `/groups/${groupId}/shift-types/${allDayShiftTypeId}`,
@@ -1439,10 +1445,11 @@ describeWithDatabase('leave requests and reflow', () => {
   }
 
   async function createRole(groupId: string, name: string): Promise<string> {
+    const config = await getConfig('owner-token', groupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${groupId}/schedule-roles`,
     });
 
@@ -1455,10 +1462,19 @@ describeWithDatabase('leave requests and reflow', () => {
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+        operationId: randomUUID(),
+      },
       url: `/groups/${groupId}/schedule-roles/${roleId}/members`,
     });
 
@@ -1476,10 +1492,19 @@ describeWithDatabase('leave requests and reflow', () => {
       readonly startingMemberScheduleRoleId: string;
     },
   ): Promise<void> {
+    const config = await getConfig('owner-token', groupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload,
+      payload: {
+        ...payload,
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        operationId: randomUUID(),
+      },
       url: `/groups/${groupId}/schedule-roles/${roleId}/rotation-rule`,
     });
 

@@ -558,10 +558,11 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
   }
 
   async function createRole(targetGroupId: string, name: string): Promise<string> {
+    const config = await getConfig('owner-token', targetGroupId);
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { name },
+      payload: { expectedRulesVersion: config.rulesVersion, name, operationId: randomUUID() },
       url: `/groups/${targetGroupId}/schedule-roles`,
     });
 
@@ -574,10 +575,19 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
     roleId: string,
     membershipIds: readonly string[],
   ): Promise<void> {
+    const config = await getConfig('owner-token', targetGroupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: { membershipIds },
+      payload: {
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        membershipIds,
+        operationId: randomUUID(),
+      },
       url: `/groups/${targetGroupId}/schedule-roles/${roleId}/members`,
     });
 
@@ -595,10 +605,19 @@ describeWithDatabase('automatic schedule generation, preview, and publishing', (
       readonly startingMemberScheduleRoleId: string | null;
     },
   ): Promise<void> {
+    const config = await getConfig('owner-token', targetGroupId);
+    const role = config.roles.find((item) => item.id === roleId) as
+      { readonly rotationRule: { readonly version: number }; readonly version: number } | undefined;
     const response = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'PUT',
-      payload: body,
+      payload: {
+        ...body,
+        expectedRoleVersion: role?.version,
+        expectedRotationRuleVersion: role?.rotationRule.version,
+        expectedRulesVersion: config.rulesVersion,
+        operationId: randomUUID(),
+      },
       url: `/groups/${targetGroupId}/schedule-roles/${roleId}/rotation-rule`,
     });
 

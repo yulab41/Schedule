@@ -82,15 +82,25 @@ export type SchedulingConfig = z.infer<typeof schedulingConfigSchema> & {
 };
 
 export interface CreateScheduleRoleRequest {
+  readonly expectedRulesVersion: number;
   readonly name: string;
+  readonly operationId: string;
 }
 
 export interface ReplaceScheduleRoleMembersRequest {
+  readonly expectedRoleVersion: number;
+  readonly expectedRotationRuleVersion: number;
+  readonly expectedRulesVersion: number;
   readonly membershipIds: readonly string[];
+  readonly operationId: string;
 }
 
 export interface ReorderRotationMembersRequest {
+  readonly expectedRoleVersion: number;
+  readonly expectedRotationRuleVersion: number;
+  readonly expectedRulesVersion: number;
   readonly members: readonly RotationMemberPosition[];
+  readonly operationId: string;
 }
 
 export interface RotationMemberPosition {
@@ -101,9 +111,19 @@ export interface RotationMemberPosition {
 export interface UpdateRotationRuleRequest {
   readonly currentPosition: number;
   readonly defaultShiftTypeId: string;
+  readonly expectedRoleVersion: number;
+  readonly expectedRotationRuleVersion: number;
+  readonly expectedRulesVersion: number;
+  readonly operationId: string;
   readonly requiredMembersPerDay: number;
   readonly startDate?: string | null;
   readonly startingMemberScheduleRoleId?: string | null;
+}
+
+export interface ScheduleRoleVersionMutationRequest {
+  readonly expectedRulesVersion: number;
+  readonly expectedVersion: number;
+  readonly operationId: string;
 }
 
 export interface ShiftTypeInput {
@@ -117,5 +137,19 @@ export interface ShiftTypeInput {
   readonly startTime?: string | null;
 }
 
-export type CreateShiftTypeRequest = ShiftTypeInput;
-export type UpdateShiftTypeRequest = ShiftTypeInput;
+export interface CreateShiftTypeRequest extends ShiftTypeInput {
+  readonly expectedRulesVersion: number;
+  readonly operationId: string;
+}
+
+export interface UpdateShiftTypeRequest extends ShiftTypeInput {
+  readonly expectedRulesVersion: number;
+  readonly expectedVersion: number;
+  readonly operationId: string;
+}
+
+export interface ShiftTypeVersionMutationRequest {
+  readonly expectedRulesVersion: number;
+  readonly expectedVersion: number;
+  readonly operationId: string;
+}
