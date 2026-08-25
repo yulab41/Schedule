@@ -82,7 +82,7 @@ P7 工作流候选 `.94@0975b2d` 已于 2026-08-25 获得用户实体 Android �
 
 ### P8-B Web 黄金
 
-- 状态（2026-08-25）：34 个精确 Storybook ID、390×844/320px/大字号、五类角色和八类状态已固化，34/34 浏览器装配与六类代表 Axe 扫描通过；详见 `page-golden-manifest.md`。当前等待用户确认，未开始 P8-C–F。
+- 状态（2026-08-25）：34 个精确 Storybook ID、390×844/320px/大字号、五类角色和八类状态已固化，34/34 浏览器装配与六类代表 Axe 扫描通过；详见 `page-golden-manifest.md`。Web 黄金已获准进入 P8-C–F 原生实现。
 
 - 使用 production `GroupSetupPanel`、`MemberManager`、`SchedulingConfigPanel`、`PlatformAdminUsersView` 固化 390×844、320px 和大字号状态。
 - 补齐群主/管理员/成员/平台管理员、loading/empty/error/409/确认/成功/禁用状态；邀请和 visitor key 使用与现有 Web 同源的新 story，不建立第二套视觉方向。
@@ -95,8 +95,11 @@ P7 工作流候选 `.94@0975b2d` 已于 2026-08-25 获得用户实体 Android �
 3. 邀请、visitor key 和小程序码；邀请 token、visitor key、完整电话和二维码内容不得持久化。
 4. 平台账号列表、用户名分配和一次性管理员绑定链接；只显示 Web 已批准的必要字段。
 
+状态（2026-08-25）：P8-C–F 原生页面已完成，四项原生页面均已实现并上传体验版 `0.1.0-p8.20260825.3`；生产 `organization=false`，等待 P8 RC 自动契约与用户实体 Android 复核。实现 checkpoint 依次为 P8-C-1 `70f9a98f`、P8-C-2 `38233039`、P8-D `ddd5c107`、P8-E `c0ea31e9`。
+
 ### P8 RC
 
+- 自动契约文件：`apps/miniprogram/testing/p8-organization-rc-plan.json`、`apps/miniprogram/scripts/p8-organization-rc-plan.test.mjs`；实体机清单：`apps/miniprogram/docs/runbooks/p8-organization-rc.md`。
 - 自动：权限、身份、幂等、版本、事务、409、前后台、弱网、隐私、capability 回滚、package/Worklet/determinism/simulate、390/320。
 - 实体 Android：群主/管理员/成员/平台管理员覆盖各自可见/禁用边界和完整增删改流程；弱网结果不明确时重试不得重复写。
 - 用户明确通过前不进入 P9，不提交审核或正式发布。

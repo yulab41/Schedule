@@ -2,11 +2,18 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8 RC 自动契约与实体机清单（已完成，待用户复核）
+
+- 范围/边界：为 P8-C–F 四个原生页面固定候选 `0.1.0-p8.20260825.3`，新增 `apps/miniprogram/testing/p8-organization-rc-plan.json`、`apps/miniprogram/scripts/p8-organization-rc-plan.test.mjs` 与 `apps/miniprogram/docs/runbooks/p8-organization-rc.md`；覆盖群主、管理员、普通成员、平台管理员、guest/organization 双能力门禁、幂等/版本/409、弱网、前后台、隐私和 capability 回滚。生产 `organization=false`，不提交审核、不正式发布。
+- 白名单防回归：同步 `.env.production.example` 与 `docs/deployment/aliyun-ecs.md`，保留 P6/P7 并加入 P8 `.1/.2/.3`，避免后续按文档重建环境再次把已上传体验版拒绝为 426；服务器真实 `.env.production` 仍由 ECS 受控配置，未写入 Git secrets。
+- 验证：P8 RC 契约 3/3；正式 Mini 源码范围（排除用户自有 `.artifacts/` 副本）54 files/279 tests；`pnpm --filter @schedule/miniprogram verify` 通过（production、193 files、packageBytes `4,162,200`、manifest `46c59888c9383cb77c592da3d790a1c1c736254cb575e4b3d8ec248c5cdaddff`）；determinism 与 CI dry-run 通过。未纳入的完整默认扫描会额外发现用户 `.artifacts/` 副本 17 项路径/生成物失败，未修改或提交这些副本。
+- 当前状态：已完成（含运行验证）→ 待用户实体 Android 视觉/交互复核。用户需按 P8 清单记录设备与四角色案例并明确回复“P8 组织管理 RC 通过”；在此之前不进入 P9、不打开 `organization`、不提审或正式发布。下一活动批次为 P8 RC 人工验收，停止条件是收到明确通过或带 `buildLabel + caseId + symptomOnFailure` 的失败反馈。
+
 ## 2026-08-25 小程序启动卡在“正在读取排班”修复（已完成）
 
 - 现象/定位：用户实体截图显示工作台长期停在 `正在读取群组/正在读取排班`。对当前体验版本 `0.1.0-p8.20260825.2` 请求生产 `/api/client-capabilities` 得到 426 `CLIENT_VERSION_UNSUPPORTED`；`git log -S`/`git blame` 定位版本白名单从 capability gate checkpoint `e25878f0` 建立，服务器只保留 P7 版本，导致 capability 初始化无法进入正常工作台读链路。
 - 修复/验证：生产备份 archive `571adfb3-fa4b-4c70-a26a-2ef4bb632cb4`（54 表/169,576 行/79,198,784 bytes/SHA `9918b8d805223d5c8d80c790f353bbcc86403c0a5574745f9f92fe6278f45add`）后原子追加 `0.1.0-p8.20260825.1/.2` 到 `MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS`，随后体验版 `.3` 发布前又以备份 `5ffd2615-21a5-4e66-88d6-86b96f41ea68`（54 表/169,636 行/79,219,568 bytes/SHA `28e52c59cb444c9ca68b70ec5b1df7056ebad20ec646b141e91a5020b943ceff`）追加 `.3` 并重建 API；三个版本 capability endpoint 均返回 HTTP 200、`global/core/workflows/guest=true`、`organization=false`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过，未打开组织能力或改动业务数据。
-- 当前状态：启动白名单修复已在生产生效，用户可重新打开/切换到体验版本复核工作台；该配置不写入 Git secrets，后续 ECS release 不覆盖 `.env.production`。下一步继续 P8-E 平台账号原生页，当前工作区未提交的 P8-E 代码仍属于本轮实现范围。
+- 当前状态：启动白名单修复已在生产生效，用户可重新打开/切换到体验版本复核工作台；该配置不写入 Git secrets，后续 ECS release 不覆盖 `.env.production`。P8-E 已完成，下一步为 P8 RC 自动与实体机验收。
 
 ## 2026-08-25 P8-E 原生平台账号后台（已完成，待用户复核）
 

@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "stage": "P8-organization",
+  "description": "User-operated native evidence for organization administration and platform accounts",
+  "candidateVersion": "0.1.0-p8.20260825.3",
+  "channel": "user-manual",
+  "requiredDevice": "user-android-physical",
+  "routes": {
+    "groupManagement": "subpackages/organization/pages/group-settings/index",
+    "schedulingConfiguration": "subpackages/organization/pages/scheduling-config/index",
+    "inviteVisitor": "subpackages/organization/pages/invite-visitor/index",
+    "platformAccounts": "subpackages/organization/pages/platform-accounts/index"
+  },
+  "roles": ["owner", "administrator", "member", "platform-admin"],
+  "automatedEvidence": {
+    "capabilityFailClosed": true,
+    "organizationDisabledInProduction": true,
+    "guestAndOrganizationDualGate": true,
+    "dangerousWritesIdempotent": true,
+    "expectedVersionsEnforced": true,
+    "offlineWriteQueue": false,
+    "secretsMemoryOnly": true,
+    "unknownVersionRejected": true,
+    "productionProfile": true,
+    "packageWorkletDeterminismVerified": true
+  },
+  "requiredEvidence": [
+    "buildLabel",
+    "deviceModel",
+    "androidVersion",
+    "wechatVersion",
+    "baseLibraryVersion",
+    "systemFontScale",
+    "role",
+    "caseId",
+    "result",
+    "duplicateWriteObserved",
+    "capabilityGateObserved",
+    "secretPersistenceObserved",
+    "symptomOnFailure"
+  ],
+  "completion": {
+    "acceptedFeedback": ["P8组织管理RC通过", "P8 组织管理 RC 通过"],
+    "screenshotsRequiredOnPass": false,
+    "formalReviewOrPublish": "not included"
+  },
+  "cases": [
+    {
+      "id": "owner-group-member-lifecycle",
+      "role": "owner",
+      "checks": ["create-group", "rename", "group-code", "member-role", "dissolve-and-restore"]
+    },
+    {
+      "id": "administrator-roster-claims-contacts",
+      "role": "administrator",
+      "checks": ["member-read", "preset-create-edit", "claim-approve-revoke", "contact-consent"]
+    },
+    {
+      "id": "member-readonly-boundary",
+      "role": "member",
+      "checks": ["read-members", "read-config", "write-denied", "organization-disabled-copy"]
+    },
+    {
+      "id": "owner-admin-scheduling-configuration",
+      "role": "owner-or-administrator",
+      "checks": ["shift-type", "role-members", "rotation-rule", "409-refresh", "retry-preserves-form"]
+    },
+    {
+      "id": "owner-admin-invite-and-visitor",
+      "role": "owner-or-administrator",
+      "checks": ["invite-create", "invite-revoke", "visitor-key-rotate", "memory-only-material"]
+    },
+    {
+      "id": "guest-qr-dual-capability",
+      "role": "member",
+      "checks": ["guest-qr-read", "guest-disabled-fails-closed", "organization-disabled-write-denied"]
+    },
+    {
+      "id": "platform-admin-account-lifecycle",
+      "role": "platform-admin",
+      "checks": ["list-status", "assign-username", "binding-link", "auth-version-409", "no-subject-or-password"]
+    },
+    {
+      "id": "weak-network-idempotent-retry",
+      "role": "all-write-roles",
+      "checks": ["ambiguous-result-copy", "same-payload-retry", "no-duplicate-write", "no-offline-queue"]
+    },
+    {
+      "id": "foreground-capability-refresh",
+      "role": "all",
+      "checks": ["background-foreground", "fresh-organization-read", "stale-request-not-committed"]
+    },
+    {
+      "id": "capability-rollback",
+      "role": "operator-preflight",
+      "checks": ["organization-off-fails-closed", "guest-off-fails-closed", "health-remains-ready", "restore-without-data-write"]
+    }
+  ]
+}
