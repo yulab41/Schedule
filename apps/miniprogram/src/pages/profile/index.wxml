@@ -37,13 +37,18 @@
             ><text class="setting-title">登录身份</text
             ><text class="setting-copy">{{authMethodLabel}}</text></view
           ><text class="setting-value">当前</text></view
-        ><view class="setting-row"
+        ><view wx:if="{{canUnbindWechat}}" class="setting-row"
           ><view
             ><text class="setting-title">微信绑定</text
             ><text class="setting-copy">仅解除当前小程序身份，不影响排班资料</text></view
           ><button class="row-action" type="button" bindtap="handleUnbind">
             解除当前微信绑定
           </button></view
+        ><view wx:else class="setting-row"
+          ><view
+            ><text class="setting-title">微信绑定</text
+            ><text class="setting-copy">账号密码登录无需解除微信绑定</text></view
+          ><text class="setting-value">不适用</text></view
         ></view
       >
       <view class="section-card"

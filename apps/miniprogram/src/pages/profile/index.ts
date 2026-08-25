@@ -10,6 +10,7 @@ type ProfileMode = 'missing' | 'ready';
 interface ProfilePageData {
   readonly authMethodLabel: string;
   readonly buildLabel: string;
+  readonly canUnbindWechat: boolean;
   readonly initial: string;
   readonly largeText: boolean;
   readonly mode: ProfileMode;
@@ -26,6 +27,7 @@ Page({
   data: {
     authMethodLabel: '微信快捷登录',
     buildLabel: buildInfo.buildLabel,
+    canUnbindWechat: false,
     initial: '我',
     largeText: false,
     mode: 'missing' as ProfileMode,
@@ -69,12 +71,20 @@ Page({
 function loadProfile(page: ProfilePageInstance): void {
   const profile = getStoredWechatProfile();
   if (profile === undefined) {
-    page.setData({ mode: 'missing', realName: '当前账号', initial: '我', profileVersion: '—' });
+    page.setData({
+      canUnbindWechat: false,
+      mode: 'missing',
+      realName: '当前账号',
+      initial: '我',
+      profileVersion: '—',
+    });
     return;
   }
   const name = profile.realName.trim() || '未完善资料';
+  const authMethod = getStoredWechatAuthMethod() ?? 'wechat';
   page.setData({
-    authMethodLabel: getStoredWechatAuthMethod() === 'password' ? '账号密码登录' : '微信快捷登录',
+    authMethodLabel: authMethod === 'password' ? '账号密码登录' : '微信快捷登录',
+    canUnbindWechat: authMethod === 'wechat',
     initial: [...name][0] ?? '我',
     mode: 'ready',
     profileVersion: `资料版本 ${profile.version}`,

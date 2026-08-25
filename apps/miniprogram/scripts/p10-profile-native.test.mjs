@@ -32,6 +32,9 @@ describe('P10 native profile parity', () => {
     expect(controller).not.toContain('wx.setStorageSync');
     expect(controller).not.toContain('wx.request');
     expect(page).toContain('解除当前微信绑定');
+    expect(controller).toContain('canUnbindWechat');
+    expect(page).toContain('canUnbindWechat');
+    expect(page).toContain('账号密码登录无需解除微信绑定');
     expect(page).toContain('切换登录方式');
   });
 

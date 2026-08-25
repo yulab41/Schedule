@@ -4,11 +4,12 @@
 
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
-- 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。
+- 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。账号密码管理员不再显示无效的微信解绑按钮，改为明确的“不适用”说明。
 - 隐私/安全：资料仅来自现有微信会话内存/私有会话读取，解绑仍进入既有确认流程；未登录显示安全空态，系统大字号自动扩展字号与 44px 操作。
-- 验证：P10 个人中心静态回归 3/3、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,945,269` bytes，组织分包 `1,649,991` bytes。
+- 验证：P10 个人中心静态回归 3/3（新增账号密码解绑可用性回归，先红后绿）、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `6,945,752` bytes，组织分包 `1,649,991` bytes，manifest `2ea366c256a0308e3e8d28c0c2f7f17a1eee134c8c94fb373c1dc13d01d4a0ec`。
 - 体验/运行：`0.1.0-p9.20260826.14` 已上传成功，147 个代码文件、zip `1,303,568` bytes、manifest `1f12304565693b50425a4e475b7578b6e17e3d7edc704179efeb9ef72a5215c5`。生产备份 archive `1c919fbd-9d90-415d-8acc-4db4180d963d`（54 表/171,722 行/79,989,252 bytes/SHA `3299bf980939c7a935b7286ff4b930ad8e39d6142ac6ee6de0495e2063e1f7c8`）后追加候选白名单；代码 checkpoint `6639ece2`（`feat(miniprogram): add p10 profile page`）部署 release `6639ece2d3390af44a842076266e8eeb7c10f99a`，ECS verifier 通过，`organization=false` 保持关闭。
 - checkpoint：下一活动批次为用户体验版复核个人中心入口、未登录态、解绑/切换/退出和大字号；不新增个人资料网络请求。
+- 增量 checkpoint：代码提交消息为 `fix(miniprogram): guard profile unbind by auth method`；提交后须上传新的体验版本并补候选白名单，生产 `organization=false` 保持关闭。
 - 发布同步：docs checkpoint `0317d346` 在备份 archive `ba61b683-b044-46f8-bb3d-56f746f774d3`（54 表/171,736 行/79,994,252 bytes/SHA `d92e86355a88469a068812cd35afe4ea2888281c8f087b750aa982b81ed8804d`）后部署 release `0317d346716aa80018fbaad186eb09adbaaf5458`；full verifier、候选 capability 200 和远端临时目录清理通过。
 - 个人中心文档同步：docs checkpoint `d2433322` 在备份 archive `47a6196f-1946-4dbf-9688-fc3e0ce9dbb1`（54 表/171,750 行/79,994,252 bytes/SHA `9fea60f2fec0bc4169f22b15408a69377b7c0b7548e442a8c130fed8c57afff5`）后部署 release `d2433322e2564297e090beebbf1812ee35fa19f4`；full verifier、候选 capability 200 和远端临时目录清理通过。
 - 个人中心最终同步：docs checkpoint `bdde82a9` 在备份 archive `93e77649-78b2-48d4-a481-551fea01b05d`（54 表/171,762 行/80,003,772 bytes/SHA `76928a77fe1194e14117caadf9b7e20b06c79c6eb067064f4155caa3c5a7ce75`）后部署 release `bdde82a947aa80fe1702e3ba218de99ca8732a32`；full verifier、候选 capability 200 和远端临时目录清理通过。
