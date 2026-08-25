@@ -11,6 +11,7 @@
 - checkpoint：下一活动批次为用户体验版复核个人中心入口、未登录态、解绑/切换/退出和大字号；不新增个人资料网络请求。
 - 发布同步：docs checkpoint `0317d346` 在备份 archive `ba61b683-b044-46f8-bb3d-56f746f774d3`（54 表/171,736 行/79,994,252 bytes/SHA `d92e86355a88469a068812cd35afe4ea2888281c8f087b750aa982b81ed8804d`）后部署 release `0317d346716aa80018fbaad186eb09adbaaf5458`；full verifier、候选 capability 200 和远端临时目录清理通过。
 - 个人中心文档同步：docs checkpoint `d2433322` 在备份 archive `47a6196f-1946-4dbf-9688-fc3e0ce9dbb1`（54 表/171,750 行/79,994,252 bytes/SHA `9fea60f2fec0bc4169f22b15408a69377b7c0b7548e442a8c130fed8c57afff5`）后部署 release `d2433322e2564297e090beebbf1812ee35fa19f4`；full verifier、候选 capability 200 和远端临时目录清理通过。
+- 个人中心最终同步：docs checkpoint `bdde82a9` 在备份 archive `93e77649-78b2-48d4-a481-551fea01b05d`（54 表/171,762 行/80,003,772 bytes/SHA `76928a77fe1194e14117caadf9b7e20b06c79c6eb067064f4155caa3c5a7ce75`）后部署 release `bdde82a947aa80fe1702e3ba218de99ca8732a32`；full verifier、候选 capability 200 和远端临时目录清理通过。
 
 ## 2026-08-26 P10-RC 实体 Android 验收清单（已固化，待用户执行）
 
