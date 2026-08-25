@@ -5,7 +5,7 @@
 ## 2026-08-25 小程序启动卡在“正在读取排班”修复（已完成）
 
 - 现象/定位：用户实体截图显示工作台长期停在 `正在读取群组/正在读取排班`。对当前体验版本 `0.1.0-p8.20260825.2` 请求生产 `/api/client-capabilities` 得到 426 `CLIENT_VERSION_UNSUPPORTED`；`git log -S`/`git blame` 定位版本白名单从 capability gate checkpoint `e25878f0` 建立，服务器只保留 P7 版本，导致 capability 初始化无法进入正常工作台读链路。
-- 修复/验证：生产备份 archive `571adfb3-fa4b-4c70-a26a-2ef4bb632cb4`（54 表/169,576 行/79,198,784 bytes/SHA `9918b8d805223d5c8d80c790f353bbcc86403c0a5574745f9f92fe6278f45add`）后原子追加 `0.1.0-p8.20260825.1/.2` 到 `MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS`，重建 API；两个版本 capability endpoint 均返回 HTTP 200、`global/core/workflows/guest=true`、`organization=false`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过，未打开组织能力或改动业务数据。
+- 修复/验证：生产备份 archive `571adfb3-fa4b-4c70-a26a-2ef4bb632cb4`（54 表/169,576 行/79,198,784 bytes/SHA `9918b8d805223d5c8d80c790f353bbcc86403c0a5574745f9f92fe6278f45add`）后原子追加 `0.1.0-p8.20260825.1/.2` 到 `MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS`，随后体验版 `.3` 发布前又以备份 `5ffd2615-21a5-4e66-88d6-86b96f41ea68`（54 表/169,636 行/79,219,568 bytes/SHA `28e52c59cb444c9ca68b70ec5b1df7056ebad20ec646b141e91a5020b943ceff`）追加 `.3` 并重建 API；三个版本 capability endpoint 均返回 HTTP 200、`global/core/workflows/guest=true`、`organization=false`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过，未打开组织能力或改动业务数据。
 - 当前状态：启动白名单修复已在生产生效，用户可重新打开/切换到体验版本复核工作台；该配置不写入 Git secrets，后续 ECS release 不覆盖 `.env.production`。下一步继续 P8-E 平台账号原生页，当前工作区未提交的 P8-E 代码仍属于本轮实现范围。
 
 ## 2026-08-25 P8-E 原生平台账号后台（已完成，待用户复核）
