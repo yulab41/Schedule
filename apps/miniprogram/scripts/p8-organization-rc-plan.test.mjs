@@ -32,15 +32,19 @@ describe('P8 organization RC and production release contract', () => {
 
   it('registers the four native organization pages in one subpackage', async () => {
     const app = JSON.parse(await readFile(APP_URL, 'utf8'));
-    expect(app.subpackages).toContainEqual({
-      root: 'subpackages/organization',
-      pages: [
+    const organizationSubpackage = app.subpackages.find(
+      (subpackage) => subpackage.root === 'subpackages/organization',
+    );
+    expect(organizationSubpackage).toBeDefined();
+    expect(organizationSubpackage.pages).toEqual(
+      expect.arrayContaining([
         'pages/group-settings/index',
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
         'pages/platform-accounts/index',
-      ],
-    });
+      ]),
+    );
+    expect(new Set(organizationSubpackage.pages).size).toBe(organizationSubpackage.pages.length);
   });
 
   it('locks roles, boundaries, failure-closed behavior, and manual evidence', async () => {

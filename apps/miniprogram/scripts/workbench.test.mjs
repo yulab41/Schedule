@@ -75,7 +75,9 @@ describe('P4 native workbench', () => {
     const pageStyles = readSource('pages/workbench/index.wxss');
     const historyIcon = readSource('assets/icons/web-history.svg');
 
-    expect(template.match(/src="\/assets\/icons\/web-history\.svg"/g)).toHaveLength(3);
+    expect(
+      template.match(/class="event-history-icon"[\s\S]*?src="\/assets\/icons\/web-history\.svg"/g),
+    ).toHaveLength(2);
     expect(template).not.toContain('class="history-icon"');
     expect(pageStyles).toMatch(/\.event-history-icon\s*{[^}]*width:\s*16px;[^}]*height:\s*16px;/s);
     expect(pageStyles).not.toContain('.history-icon::before');

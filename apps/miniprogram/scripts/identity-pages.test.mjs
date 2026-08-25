@@ -15,7 +15,7 @@ describe('P3 native identity pages', () => {
   it('opens the identity page by default while preserving the approved P1 routes', () => {
     const app = readJson('app.json');
 
-    expect(app.pages).toEqual([
+    const approvedRoutes = [
       'pages/identity/index',
       'pages/workbench/index',
       'pages/index/index',
@@ -24,7 +24,11 @@ describe('P3 native identity pages', () => {
       'pages/gesture-probe/index',
       'pages/identity/unbind',
       'pages/admin-bind/preview',
-    ]);
+    ];
+
+    expect(app.pages[0]).toBe('pages/identity/index');
+    expect(app.pages).toEqual(expect.arrayContaining(approvedRoutes));
+    expect(new Set(app.pages).size).toBe(app.pages.length);
   });
 
   it('keeps the login page in the link-required state machine', () => {

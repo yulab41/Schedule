@@ -16,6 +16,12 @@
 - 个人中心文档同步：docs checkpoint `d2433322` 在备份 archive `47a6196f-1946-4dbf-9688-fc3e0ce9dbb1`（54 表/171,750 行/79,994,252 bytes/SHA `9fea60f2fec0bc4169f22b15408a69377b7c0b7548e442a8c130fed8c57afff5`）后部署 release `d2433322e2564297e090beebbf1812ee35fa19f4`；full verifier、候选 capability 200 和远端临时目录清理通过。
 - 个人中心最终同步：docs checkpoint `bdde82a9` 在备份 archive `93e77649-78b2-48d4-a481-551fea01b05d`（54 表/171,762 行/80,003,772 bytes/SHA `76928a77fe1194e14117caadf9b7e20b06c79c6eb067064f4155caa3c5a7ce75`）后部署 release `bdde82a947aa80fe1702e3ba218de99ca8732a32`；full verifier、候选 capability 200 和远端临时目录清理通过。
 
+## 2026-08-26 Mini 正式源码全量回归审计（已完成）
+
+- 运行/浏览器验证：在 `apps/miniprogram` 工作目录执行 `pnpm exec vitest run scripts --fileParallelism=false --exclude '.artifacts/**'`，正式源码范围 67 files/318 tests 全部通过；此前根目录 `pnpm test` 的 18 项失败均来自用户自有 `.artifacts/` 副本缺少根 `tsconfig.base.json`/生成 tokens，未修改或纳入提交。
+- 回归修复：`git log -S`/`git blame` 定位旧断言来源后，身份页改为保留批准路由并允许新增页面，P8 组织 RC 改为保留四个核心页面并允许通讯录扩展，工作台历史图标断言限定事件操作图标；生产 Mini 行为未改变。
+- 下一活动批次与停止条件：继续等待体验版 `.15` 的 P10 通讯录/个人中心实体 Android RC；生产 `organization`、`insights`、`externalMessages` 保持关闭。
+
 ## 2026-08-26 P10-RC 实体 Android 验收清单（已固化，待用户执行）
 
 - 新增 `apps/miniprogram/docs/runbooks/p10-directory-rc.md`，锁定当前体验版 `0.1.0-p9.20260826.15`、More 入口、院内/员工模式、七级筛选、cursor、拨号、权限/隐私、loading/empty/error/organization-disabled 与 390/320/大字号矩阵；`.15` 包含个人中心认证方式防误操作修复，通讯录验收不变。
