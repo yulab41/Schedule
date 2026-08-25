@@ -7,6 +7,7 @@
 - 设计意图：采用“医疗审计台”方向——临床蓝、白色病历卡、访问脉搏柱状聚合与纵向审计针线；单一任务是回答“谁在查看排班”，只呈现访问时间、查看月份、最小化来源线索和 90 天保留说明。
 - 黄金状态：新增 `P9VisitorAccessGolden` 与 7 个精确 story：390 ready、320 边界、大字号、loading、empty、error retry、insights disabled；主要操作保持 44px，移动端日志转卡片，无横向溢出设计。
 - 验证/预览：P9 黄金定向 2 tests、Web typecheck、Storybook production build 通过；预览地址 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p9-visitor-access--ready-390`。本批不创建原生页面、不打开生产 `insights` capability、不读写业务数据。
+- 发布/运行：checkpoint `fbe912ff`（`feat(web): add p9 visitor access golden`）已推送；生产备份 archive `f1b57d5b-e742-4873-827e-5db761221044`（54 表/170,515 行/79,569,064 bytes/SHA `2759fc531fda6208e6a353212ea1b4ee205c1bbad13f9ece4319e36c217a7cc5`）后部署 release `fbe912ff02efe362dbfdbb1c784b284fbc0e6114`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过；`0.1.0-p8.20260825.5` capability HTTP 200 且 `organization=false`、`insights=false`，远端临时目录已清理。为后续复用，隔离发布 worktree 保留在 `E:\AItools\Schedule-release-fbe912ff`，首次依赖装配完成后可直接复用。
 - 当前状态：已完成（含运行验证）→ 待用户视觉复核。用户确认黄金后，下一批实现 `subpackage-insights` 的原生访客日志/月份聚合只读页；如有差异请提供 viewport + state + 现象。
 
 ## 2026-08-25 P9-A1 访客访问只读边界（已完成）
