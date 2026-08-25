@@ -44,18 +44,22 @@ interface DirectoryPageData {
   readonly buildingLabel: string;
   readonly buildingOptions: readonly DirectoryOption[];
   readonly campusIndex: number;
+  readonly campusFilterLabel: string;
   readonly campusLabel: string;
   readonly campusOptions: readonly DirectoryOption[];
   readonly departmentIndex: number;
+  readonly departmentFilterLabel: string;
   readonly departmentLabel: string;
   readonly departmentOptions: readonly DirectoryOption[];
   readonly directoryKind: DirectoryKind;
   readonly entries: readonly DirectoryCard[];
   readonly entryKindIndex: number;
+  readonly entryKindFilterLabel: string;
   readonly entryKindLabel: string;
   readonly entryKindOptions: readonly DirectoryOption[];
   readonly errorMessage: string;
   readonly floorIndex: number;
+  readonly floorFilterLabel: string;
   readonly floorLabel: string;
   readonly floorOptions: readonly DirectoryOption[];
   readonly groupId: string;
@@ -65,11 +69,14 @@ interface DirectoryPageData {
   readonly searching: boolean;
   readonly searchQuery: string;
   readonly sectionIndex: number;
+  readonly sectionFilterLabel: string;
   readonly sectionLabel: string;
   readonly sectionOptions: readonly DirectoryOption[];
   readonly shellHeaderStyle: string;
   readonly state: DirectoryState;
   readonly subunitIndex: number;
+  readonly subunitFilterLabel: string;
+  readonly buildingFilterLabel: string;
   readonly subunitLabel: string;
   readonly subunitOptions: readonly DirectoryOption[];
   readonly resultSummary: string;
@@ -134,18 +141,22 @@ export function createDirectoryPanelControllerDefinition() {
     buildingLabel: '全部',
     buildingOptions: [{ count: 0, label: '全部', value: '' }],
     campusIndex: 0,
+    campusFilterLabel: '院区',
     campusLabel: '全部',
     campusOptions: [{ count: 0, label: '全部', value: '' }],
     departmentIndex: 0,
+    departmentFilterLabel: '科室',
     departmentLabel: '全部',
     departmentOptions: [{ count: 0, label: '全部', value: '' }],
     directoryKind: 'internal',
     entries: [],
     entryKindIndex: 0,
+    entryKindFilterLabel: '类型',
     entryKindLabel: '全部',
     entryKindOptions: [{ count: 0, label: '全部', value: '' }],
     errorMessage: '',
     floorIndex: 0,
+    floorFilterLabel: '楼层',
     floorLabel: '全部',
     floorOptions: [{ count: 0, label: '全部', value: '' }],
     groupId: '',
@@ -155,11 +166,14 @@ export function createDirectoryPanelControllerDefinition() {
     searching: false,
     searchQuery: '',
     sectionIndex: 0,
+    sectionFilterLabel: '片区',
     sectionLabel: '全部',
     sectionOptions: [{ count: 0, label: '全部', value: '' }],
     shellHeaderStyle: 'height:76px;min-height:76px;padding-top:24px;',
     state: 'loading',
     subunitIndex: 0,
+    subunitFilterLabel: '单元',
+    buildingFilterLabel: '楼宇',
     subunitLabel: '全部',
     subunitOptions: [{ count: 0, label: '全部', value: '' }],
     resultSummary: '输入关键词或选择筛选条件后开始查找。',
@@ -248,7 +262,7 @@ function startLoad(page: DirectoryPageInstance): void {
   const key = `${groupId}:${kind}`;
   if (groupId.length === 0 || key === page._loadedKey) return;
   page._loadedKey = key;
-  page.setData({ directoryKind: kind, groupId });
+  page.setData({ directoryKind: kind, groupId, ...filterLabelsForKind(kind) });
   void loadFacets(page);
 }
 
@@ -306,8 +320,37 @@ function applyFacets(page: DirectoryPageInstance, facets: DirectoryFacetSnapshot
 function switchMode(page: DirectoryPageInstance, kind: DirectoryKind): void {
   if (page.data.directoryKind === kind) return;
   page._loadedKey = '';
-  page.setData({ directoryKind: kind, searchQuery: '', entries: [], errorMessage: '' });
-  startLoad(page);
+  page.setData({
+    directoryKind: kind,
+    searchQuery: '',
+    entries: [],
+    errorMessage: '',
+    ...filterLabelsForKind(kind),
+  });
+  page._loadedKey = `${page.data.groupId}:${kind}`;
+  void loadFacets(page);
+}
+
+function filterLabelsForKind(kind: DirectoryKind): Partial<DirectoryPageData> {
+  return kind === 'employee'
+    ? {
+        buildingFilterLabel: '二级组织',
+        campusFilterLabel: '组织根',
+        departmentFilterLabel: '四级组织',
+        entryKindFilterLabel: '类型',
+        floorFilterLabel: '三级组织',
+        sectionFilterLabel: '一级组织',
+        subunitFilterLabel: '五级组织',
+      }
+    : {
+        buildingFilterLabel: '楼宇',
+        campusFilterLabel: '院区',
+        departmentFilterLabel: '科室',
+        entryKindFilterLabel: '类型',
+        floorFilterLabel: '楼层',
+        sectionFilterLabel: '片区',
+        subunitFilterLabel: '单元',
+      };
 }
 
 async function selectFilter(page: DirectoryPageInstance, event: PickerEvent): Promise<void> {

@@ -81,7 +81,7 @@
             value="{{campusIndex}}"
             data-filter="campusCode"
             bindchange="handleFilterChange"
-            ><view class="filter-picker">院区：{{campusLabel}}</view></picker
+            ><view class="filter-picker">{{campusFilterLabel}}：{{campusLabel}}</view></picker
           >
           <picker
             mode="selector"
@@ -90,7 +90,7 @@
             value="{{sectionIndex}}"
             data-filter="section"
             bindchange="handleFilterChange"
-            ><view class="filter-picker">片区：{{sectionLabel}}</view></picker
+            ><view class="filter-picker">{{sectionFilterLabel}}：{{sectionLabel}}</view></picker
           >
           <picker
             mode="selector"
@@ -99,7 +99,7 @@
             value="{{buildingIndex}}"
             data-filter="building"
             bindchange="handleFilterChange"
-            ><view class="filter-picker">楼宇：{{buildingLabel}}</view></picker
+            ><view class="filter-picker">{{buildingFilterLabel}}：{{buildingLabel}}</view></picker
           >
           <picker
             mode="selector"
@@ -108,7 +108,7 @@
             value="{{floorIndex}}"
             data-filter="floor"
             bindchange="handleFilterChange"
-            ><view class="filter-picker">楼层：{{floorLabel}}</view></picker
+            ><view class="filter-picker">{{floorFilterLabel}}：{{floorLabel}}</view></picker
           >
           <picker
             mode="selector"
@@ -117,7 +117,9 @@
             value="{{departmentIndex}}"
             data-filter="department"
             bindchange="handleFilterChange"
-            ><view class="filter-picker">科室：{{departmentLabel}}</view></picker
+            ><view class="filter-picker"
+              >{{departmentFilterLabel}}：{{departmentLabel}}</view
+            ></picker
           >
           <picker
             mode="selector"
@@ -126,7 +128,7 @@
             value="{{subunitIndex}}"
             data-filter="subunit"
             bindchange="handleFilterChange"
-            ><view class="filter-picker">单元：{{subunitLabel}}</view></picker
+            ><view class="filter-picker">{{subunitFilterLabel}}：{{subunitLabel}}</view></picker
           >
           <picker
             mode="selector"
@@ -135,7 +137,7 @@
             value="{{entryKindIndex}}"
             data-filter="entryKind"
             bindchange="handleFilterChange"
-            ><view class="filter-picker">类型：{{entryKindLabel}}</view></picker
+            ><view class="filter-picker">{{entryKindFilterLabel}}：{{entryKindLabel}}</view></picker
           >
         </view>
         <view class="result-summary">{{resultSummary}}</view>

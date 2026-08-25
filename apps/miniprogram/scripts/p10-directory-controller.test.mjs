@@ -23,7 +23,10 @@ describe('P10 native directory controller', () => {
       makePhoneCall,
       request: vi.fn((options) => {
         requests.push(options);
-        if (options.url.endsWith(`/groups/${groupId}/directory/facets`)) {
+        if (
+          options.url.endsWith(`/groups/${groupId}/directory/facets`) ||
+          options.url.endsWith(`/groups/${groupId}/employee-directory/facets`)
+        ) {
           options.success({ data: facets(), statusCode: 200 });
           return;
         }
@@ -89,6 +92,21 @@ describe('P10 native directory controller', () => {
       currentTarget: { dataset: { number: contact?.dialNumber } },
     });
     expect(globalThis.wx.makePhoneCall).toHaveBeenCalledWith({ phoneNumber: '075400000000' });
+  });
+
+  it('switches employee mode and relabels filters as organization levels', async () => {
+    const page = createPageInstance(definition, { groupId, directoryKind: 'internal' });
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+    definition.methods.handleEmployeeMode.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('empty'));
+    expect(page.data).toMatchObject({
+      campusFilterLabel: '组织根',
+      directoryKind: 'employee',
+      sectionFilterLabel: '一级组织',
+      subunitFilterLabel: '五级组织',
+    });
+    expect(lastRequest().url).toContain(`/groups/${groupId}/employee-directory/facets`);
   });
 
   it('fails closed before a request when organization capability is disabled', async () => {

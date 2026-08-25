@@ -76,5 +76,8 @@ describe('P10 native directory parity', () => {
     }
     expect(controller).toContain('nextCursor');
     expect(controller).toContain('directoryKind');
+    expect(controller).toContain("campusFilterLabel: '组织根'");
+    expect(controller).toContain("sectionFilterLabel: '一级组织'");
+    expect(controller).toContain("subunitFilterLabel: '五级组织'");
   });
 });
