@@ -2,13 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-25 Mini 登录双入口（已实现待上传）
+## 2026-08-25 Mini 登录双入口（已实现，待用户复核）
 
 - 用户需求：微信已绑定账号 `D0796` 为普通成员，需要保留微信快速登录；后台管理员需要使用当前 Web 同源的账号/密码表单登录。Mini 初始登录卡现同时提供“账号密码登录”和“微信快捷登录”，账号统一 trim/lowercase 并校验 3–64 位规则。
 - 实现/安全：新增 Mini `POST /auth/password/login` strict decoder 与密码会话持久化；会话槽位增加 `authMethod`，密码会话收到 401 只清理当前会话，不静默调用 `wx.login` 切换身份；微信会话继续保留单飞静默恢复。密码、token、微信 code 不写入日志或业务缓存，账号密码登录不显示微信解绑入口。
 - 黄金/文档：同步 `P3IdentitySecurityPreview` 的 `mini-login-390/320` 为账号密码表单 + 微信快捷入口；更新 P3 identity preflight 与 page golden manifest。设计意图沿用 Web 的临床蓝、白色病历卡、44px 触达区，强调“后台账号 / 成员快捷进入”的双通道。
-- 验证：Mini 定向身份/运行时 3 files/20 tests、Web P3 黄金 5 tests、Mini typecheck、production verify（193 files、packageBytes `4,175,041`、manifest `57c7966725b58db3356df0f70ddea8061d166d2c0856c8f9a6318c4cc3d03841`）、source/package/determinism/CI dry-run、Storybook build 均通过。当前 checkpoint 待提交、推送后必须上传同一体验版；P8 RC 实体机验收仍未被本次登录改动替代。
-- 下一步：提交并上传该 Mini checkpoint，部署 ECS 后请用户在体验版分别验证 D0796 的微信快捷登录和管理员账号密码登录；P8 RC 通过后再进入 P9。
+- 验证：Mini 正式源码范围（排除用户自有 `.artifacts/` 副本）55 files/282 tests；Web P3 黄金 5 tests；Mini typecheck、production verify（193 files、packageBytes `4,175,041`、manifest `57c7966725b58db3356df0f70ddea8061d166d2c0856c8f9a6318c4cc3d03841`）、source/package/determinism/CI dry-run、Storybook build 均通过。登录代码 checkpoint `75ec2c1d`、版本/RC 文档 checkpoint `4b30c0eb` 已推送。
+- 体验/生产：体验版 `0.1.0-p8.20260825.4` 上传成功，111 个代码文件、zip `887,778` bytes、manifest `442e99a6889c9f4ba91d813e1456ecb2f04340e37bd96a1f1ccd08773d43a0d2`，未提审/未正式发布。生产追加 `.4` 前备份 archive `645db788-77d7-46f1-a149-74aeedce2538`（54 表/169,854 行/79,297,240 bytes/SHA `3aa3dfa05726d132c6e5fea3ab4b9b36c4c6930c2a7ddbd5a2494d049f34fb70`），`.4` capability 已 HTTP 200、`organization=false`；生产代码 release 同步部署待本轮 checkpoint 完成。
+- 下一步：完成 ECS release 同步后，请用户在体验版分别验证 D0796 的微信快捷登录和管理员账号密码登录；P8 RC 通过后再进入 P9。
 
 ## 2026-08-25 P8 RC 自动契约与实体机清单（已完成，待用户复核）
 
