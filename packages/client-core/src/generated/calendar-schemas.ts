@@ -38,6 +38,8 @@ const groupMemberContactSchemaJson =
   '{"type":"object","properties":{"isConfirmed":{"type":"boolean"},"membershipId":{"type":"string","minLength":1},"mobilePhone":{"type":"string"},"shortPhone":{"type":"string"},"updatedAt":{"type":"string"},"version":{"type":"integer","maximum":9007199254740991,"minimum":0}},"required":["isConfirmed","membershipId","version"],"additionalProperties":false}';
 const groupMobilePhoneConsentSchemaJson =
   '{"type":"object","properties":{"consentedAt":{"type":"string","format":"date-time","pattern":"^(?:(?:\\\\d\\\\d[2468][048]|\\\\d\\\\d[13579][26]|\\\\d\\\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\\\d|30)|(?:02)-(?:0[1-9]|1\\\\d|2[0-8])))T(?:(?:[01]\\\\d|2[0-3]):[0-5]\\\\d(?::[0-5]\\\\d(?:\\\\.\\\\d+)?)?(?:Z))$"},"contactVersion":{"type":"integer","maximum":9007199254740991,"minimum":0},"groupId":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"},"maskedMobilePhone":{"type":"string","maxLength":32,"minLength":1},"membershipId":{"type":"string","format":"uuid","pattern":"^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"},"noticeVersion":{"type":"string","const":"v1"},"state":{"type":"string","enum":["missing-phone","not-consented","consented","stale"]}},"required":["contactVersion","groupId","membershipId","noticeVersion","state"],"additionalProperties":false}';
+const groupQrResponseSchemaJson =
+  '{"type":"object","properties":{"imageBase64":{"type":"string","minLength":1}},"required":["imageBase64"],"additionalProperties":false}';
 const groupMemberContactListSchemaJson =
   '{"type":"array","items":{"type":"object","properties":{"isConfirmed":{"type":"boolean"},"membershipId":{"type":"string","minLength":1},"mobilePhone":{"type":"string"},"shortPhone":{"type":"string"},"updatedAt":{"type":"string"},"version":{"type":"integer","maximum":9007199254740991,"minimum":0}},"required":["isConfirmed","membershipId","version"],"additionalProperties":false}}';
 const groupMemberListSchemaJson =
@@ -178,6 +180,7 @@ export const groupMemberContactJsonSchema = JSON.parse(
 export const groupMobilePhoneConsentJsonSchema = JSON.parse(
   groupMobilePhoneConsentSchemaJson,
 ) as CompactJsonSchema;
+export const groupQrResponseJsonSchema = JSON.parse(groupQrResponseSchemaJson) as CompactJsonSchema;
 export const groupMemberContactListJsonSchema = JSON.parse(
   groupMemberContactListSchemaJson,
 ) as CompactJsonSchema;

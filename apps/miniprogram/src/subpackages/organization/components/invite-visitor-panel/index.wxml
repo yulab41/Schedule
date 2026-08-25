@@ -1,0 +1,185 @@
+<view class="invite-visitor-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit"
+    /></view>
+    <view class="header-title"
+      ><text class="header-title-main">邀请与访客</text
+      ><text class="header-title-sub">{{currentGroupName}} · {{currentGroupRole}}</text></view
+    >
+    <text class="phase-chip">P8</text>
+  </view>
+  <scroll-view
+    class="invite-visitor-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card"
+        ><ui-loading label="正在加载邀请与访客入口"></ui-loading
+      ></view>
+      <view wx:elif="{{state === 'error'}}" class="page-state-card"
+        ><ui-alert
+          tone="danger"
+          title="邀请与访客入口暂时无法加载"
+          message="{{errorMessage}}"
+        ></ui-alert
+        ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+      ></view>
+      <view wx:else class="invite-content">
+        <view class="page-heading"
+          ><text class="section-eyebrow">安全入口</text><text class="page-title">邀请与访客</text
+          ><text class="page-description"
+            >邀请只用于加入当前群组；访客码只开放已发布排班，旧码轮换后立即失效。</text
+          ></view
+        >
+        <view wx:if="{{!organizationEnabled || !guestEnabled}}" class="capability-note"
+          ><text class="capability-title">部分入口暂未开放</text
+          ><text wx:if="{{!organizationEnabled}}">组织管理写入能力关闭，无法生成或撤销邀请。</text
+          ><text wx:if="{{!guestEnabled}}"
+            >访客入口能力关闭，无法轮换访客码或读取二维码。</text
+          ></view
+        >
+
+        <view class="invite-card">
+          <view class="card-header"
+            ><view
+              ><text class="card-title">成员邀请</text
+              ><text class="card-subtitle">生成一次性邀请链接</text></view
+            ><ui-button
+              wx:if="{{canManage}}"
+              variant="primary"
+              label="{{inviteEditorOpen ? '收起生成' : '生成邀请'}}"
+              bindpress="handleInviteToggle"
+            ></ui-button
+          ></view>
+          <view wx:if="{{inviteEditorOpen}}" class="editor-card">
+            <view class="field-block"
+              ><text class="field-label">邀请对象</text
+              ><picker
+                mode="selector"
+                range="{{targets}}"
+                range-key="name"
+                value="{{targetIndex}}"
+                bindchange="handleTargetPicker"
+                ><view class="native-picker">{{targetLabel}}</view></picker
+              ></view
+            >
+            <view class="field-block"
+              ><text class="field-label">加入角色</text
+              ><picker
+                mode="selector"
+                range="{{permissionLabels}}"
+                value="{{permissionRole === 'administrator' ? 1 : 0}}"
+                bindchange="handlePermissionPicker"
+                ><view class="native-picker"
+                  >{{permissionRole === 'administrator' ? '管理员' : '成员'}}</view
+                ></picker
+              ></view
+            >
+            <view class="field-block"
+              ><text class="field-label">排班岗位（可选）</text
+              ><picker
+                mode="selector"
+                range="{{roleOptions}}"
+                range-key="label"
+                value="{{roleIndex}}"
+                bindchange="handleRolePicker"
+                ><view class="native-picker">{{roleLabel}}</view></picker
+              ></view
+            >
+            <ui-button
+              variant="primary"
+              label="生成邀请"
+              disabled="{{!canManage}}"
+              bindpress="handleCreateInvite"
+            ></ui-button>
+          </view>
+          <view wx:if="{{inviteSharePath}}" class="invite-result">
+            <view class="result-heading"
+              ><text>邀请已生成</text
+              ><text class="result-expiry">有效期至 {{inviteExpiresAt}}</text></view
+            >
+            <text class="result-copy"
+              >{{inviteRealName}} · {{inviteRoleLabel}} · {{inviteGroupName}}</text
+            >
+            <text class="share-path" user-select="true">{{inviteSharePath}}</text>
+            <text class="memory-note">链接只保留在当前页面内存中；离开页面后需要重新生成。</text>
+            <ui-button
+              variant="danger"
+              label="撤销当前邀请"
+              disabled="{{!canManage}}"
+              bindpress="handleRevokeInvite"
+            ></ui-button>
+          </view>
+          <view wx:else class="empty-note"
+            >还没有当前页面内的邀请。生成后可在本页查看有效期和撤销。</view
+          >
+        </view>
+
+        <view class="visitor-card">
+          <view class="card-header"
+            ><view
+              ><text class="card-title">访客码</text
+              ><text class="card-subtitle">只允许访问已发布排班</text></view
+            ><text class="owner-badge">群主专属</text></view
+          >
+          <view class="visitor-body"
+            ><text class="visitor-copy"
+              >访客码不会显示完整密钥；轮换后旧二维码立即失效。二维码内容只在本页面内存中加载。</text
+            ><ui-alert
+              wx:if="{{visitorMessage}}"
+              tone="{{visitorState === 'error' ? 'danger' : 'success'}}"
+              title="访客入口"
+              message="{{visitorMessage}}"
+            ></ui-alert
+            ><view class="visitor-actions"
+              ><ui-button
+                variant="secondary"
+                label="读取群组二维码"
+                disabled="{{!guestEnabled || !organizationEnabled}}"
+                loading="{{visitorState === 'loading'}}"
+                bindpress="handleLoadQr"
+              ></ui-button
+              ><ui-button
+                variant="danger"
+                label="轮换访客码"
+                disabled="{{!canManageVisitorKey}}"
+                bindpress="handleRegenerateVisitorKey"
+              ></ui-button></view
+          ></view>
+          <view wx:if="{{qrVisible && qrImageSrc}}" class="qr-sheet"
+            ><view class="qr-heading"
+              ><text>群组二维码</text
+              ><view class="qr-close" aria-role="button" bindtap="handleHideQr">完成</view></view
+            ><image class="qr-image" src="{{qrImageSrc}}" mode="aspectFit" /><text
+              class="memory-note"
+              >二维码不会写入缓存、相册或日志。</text
+            ></view
+          >
+        </view>
+
+        <ui-alert
+          wx:if="{{managementError}}"
+          tone="danger"
+          title="邀请与访客操作未完成"
+          message="{{managementError}}"
+        ></ui-alert
+        ><ui-alert
+          wx:if="{{managementInfo}}"
+          tone="success"
+          title="邀请与访客"
+          message="{{managementInfo}}"
+        ></ui-alert>
+        <view class="bottom-spacer"></view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

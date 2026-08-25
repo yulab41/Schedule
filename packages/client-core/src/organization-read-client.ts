@@ -3,6 +3,7 @@ import type {
   GroupCatalogEntry,
   GroupMember,
   GroupMemberContact,
+  GroupQrResponse,
   GroupSummary,
   MembershipClaimLookupResponse,
   MembershipClaimRequest,
@@ -17,6 +18,7 @@ import {
   groupCatalogListJsonSchema,
   groupMemberContactListJsonSchema,
   groupMemberListJsonSchema,
+  groupQrResponseJsonSchema,
   groupSummaryListJsonSchema,
   membershipClaimLookupResponseJsonSchema,
   membershipClaimRequestListJsonSchema,
@@ -68,6 +70,8 @@ export const resolveInviteResponseDecoder = createCompactDecoder<ResolveInviteRe
 export const schedulingConfigReadDecoder = createCompactDecoder<SchedulingConfig>(
   schedulingConfigJsonSchema,
 );
+export const groupQrResponseDecoder =
+  createCompactDecoder<GroupQrResponse>(groupQrResponseJsonSchema);
 
 export const organizationReadEndpoints = {
   catalog: defineClientEndpoint<EmptyInput, GroupCatalogEntry[]>({
@@ -113,6 +117,13 @@ export const organizationReadEndpoints = {
     method: 'GET',
     path: () => '/groups',
   }),
+  groupQr: defineClientEndpoint<GroupInput, GroupQrResponse>({
+    auth: 'bearer',
+    decoder: groupQrResponseDecoder,
+    id: 'organization.group-qr',
+    method: 'GET',
+    path: ({ groupId }) => `${groupPath(groupId)}/group-qr`,
+  }),
   members: defineClientEndpoint<GroupInput, GroupMember[]>({
     auth: 'bearer',
     decoder: groupMemberListDecoder,
@@ -146,6 +157,7 @@ export const organizationReadEndpoints = {
 
 export interface OrganizationReadClient {
   getSchedulingConfig(groupId: string): Promise<SchedulingConfig>;
+  getGroupQr(groupId: string): Promise<GroupQrResponse>;
   listDissolvedGroups(): Promise<DissolvedGroup[]>;
   listGroupCatalog(): Promise<GroupCatalogEntry[]>;
   listGroupContacts(groupId: string): Promise<GroupMemberContact[]>;
@@ -161,6 +173,9 @@ export function createOrganizationReadClient(transport: ClientTransport): Organi
   return {
     getSchedulingConfig(groupId) {
       return transport.request(organizationReadEndpoints.schedulingConfig, { groupId });
+    },
+    getGroupQr(groupId) {
+      return transport.request(organizationReadEndpoints.groupQr, { groupId });
     },
     listDissolvedGroups() {
       return transport.request(organizationReadEndpoints.dissolvedGroups, {});

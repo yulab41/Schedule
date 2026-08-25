@@ -28,6 +28,7 @@ import {
   groupMemberSchema,
   groupMemberListSchema,
   groupMobilePhoneConsentSchema,
+  groupQrResponseSchema,
   groupSummarySchema,
   groupSummaryListSchema,
   groupSwapSettingsSchema,
@@ -158,6 +159,7 @@ const source = await format(
         z.toJSONSchema(groupMobilePhoneConsentSchema),
         'groupMobilePhoneConsent',
       ),
+      groupQrResponse: sanitizeJsonSchema(z.toJSONSchema(groupQrResponseSchema), 'groupQrResponse'),
       groupMemberContactList: sanitizeJsonSchema(
         z.toJSONSchema(groupMemberContactListSchema),
         'groupMemberContactList',

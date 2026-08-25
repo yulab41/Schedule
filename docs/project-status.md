@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-D 原生邀请、访客码与群组二维码（进行中）
+
+- 基线/范围：P8-C-2 已完成并部署，production `organization` capability 继续为 `false`。本批新增邀请生成/撤销、访客码轮换和群组二维码原生入口；邀请 token、visitor key、二维码 base64 只在当前页面内存中存在，不写缓存、相册、日志或幂等结果，不进入 P9 访客访问日志。
+- 共享边界：`@schedule/client-core` 增加 strict `group-qr` read endpoint/decoder；Mini runtime 增加 invite/visitor write client。邀请写请求统一 `operationId`、target/version 与岗位版本；二维码 read 同时要求 `guest` capability，管理写入同时要求 `organization` 与角色权限，不能因组织 capability 开启而绕过 guest kill switch。
+- 原生实现：新增 `invite-visitor-panel` 与 More 入口，支持正式成员/预设成员目标、成员/管理员角色、可选排班岗位、邀请有效期/撤销、访客码轮换和二维码内存预览；生产 capability 关闭时只读并明确提示。继续沿用临床蓝、白色病历卡和 44px 触达区。
+- 当前验证：client-core read/write 定向 7/7、Mini D 静态 3/3、控制器 3/3；Mini 源码全量范围上一 checkpoint 为 51 files/271 tests，新增 D 后将重跑完整 gates。P8-B Storybook 黄金继续在 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p8-organization-parity--organization-large-text-390` 提供；当前 checkpoint 识别消息为 `feat(miniprogram): add p8 invite visitor access`（待提交）。
+- 下一步/停止条件：完成 Mini verify、体验版上传和用户复核所需证据后，提交、推送、生产备份部署并登记 P8-E 平台账号后台；未上传、未提审、未正式发布前不开放 capability。
+
 ## 2026-08-25 P8-C-2 原生班种、岗位与轮转配置（已完成，待用户复核）
 
 - 基线/范围：P8-C-1 已完成并部署，production `organization` capability 继续为 `false`。本批只新增原生排班配置页：班种名称/简称/时段/颜色/跨日/启用/统计、岗位创建/删除、岗位成员选择与顺序、轮转默认班种/人数/当前位置/起始日期/起始成员；不进入邀请/visitor key、平台账号或 P9。

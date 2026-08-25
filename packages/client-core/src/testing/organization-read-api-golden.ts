@@ -12,6 +12,7 @@ import type {
 } from '@schedule/contracts';
 
 export const organizationReadApiGoldenResponse = {
+  groupQr: { imageBase64: 'iVBORw0KGgo=' } as const,
   claimLookup: {
     matches: [
       {

@@ -5,6 +5,7 @@ import {
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
   createHttpClientError,
+  createInviteVisitorWriteClient,
   createInvalidResponseError,
   createManualScheduleClient,
   createNetworkError,
@@ -20,6 +21,7 @@ import {
   type CalendarReadClient,
   type ClientTransport,
   type GroupMobilePhoneConsentClient,
+  type InviteVisitorWriteClient,
   type ManualScheduleClient,
   type OrganizationReadClient,
   type OrganizationWriteClient,
@@ -247,6 +249,15 @@ export function createRuntimeSchedulingConfigWriteClient(
   );
 }
 
+export function createRuntimeInviteVisitorWriteClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): InviteVisitorWriteClient {
+  return createInviteVisitorWriteClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
+  );
+}
+
 export function createRuntimeWorkflowClient(
   getAccessToken: () => string | undefined,
   authentication?: RuntimeWechatRequestAuthentication,
@@ -285,6 +296,8 @@ function resolveOrganizationReadCapability(
     case 'organization.resolve-invite':
     case 'organization.scheduling-config':
       return 'core';
+    case 'organization.group-qr':
+      return 'guest';
     default:
       return 'organization';
   }

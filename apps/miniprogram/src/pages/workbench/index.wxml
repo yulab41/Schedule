@@ -737,6 +737,16 @@
           class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
           aria-role="button"
           aria-disabled="{{!canManageScheduleTools}}"
+          bindtap="handleOpenInviteVisitor"
+        >
+          <image src="/assets/icons/web-bell.svg" mode="aspectFit" />
+          <view><text>邀请与访客</text><text>生成邀请、访客码与群组二维码</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
+          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canManageScheduleTools}}"
           bindtap="handleOpenManualSchedule"
         >
           <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />

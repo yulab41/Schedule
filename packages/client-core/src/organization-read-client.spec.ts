@@ -3,6 +3,7 @@ import {
   groupCatalogListSchema,
   groupMemberContactListSchema,
   groupMemberListSchema,
+  groupQrResponseSchema,
   groupSummaryListSchema,
   membershipClaimLookupResponseSchema,
   membershipClaimRequestListSchema,
@@ -19,6 +20,7 @@ import {
   groupCatalogListDecoder,
   groupMemberContactListDecoder,
   groupMemberListDecoder,
+  groupQrResponseDecoder,
   groupSummaryListDecoder,
   membershipClaimLookupResponseDecoder,
   membershipClaimRequestListDecoder,
@@ -46,6 +48,9 @@ describe('P8 organization shared read boundary', () => {
     );
     expect(organizationReadEndpoints.schedulingConfig.path({ groupId })).toBe(
       '/groups/group%20%2F%E4%B8%80/scheduling-config',
+    );
+    expect(organizationReadEndpoints.groupQr.path({ groupId })).toBe(
+      '/groups/group%20%2F%E4%B8%80/group-qr',
     );
     expect(organizationReadEndpoints.platformAccounts.path({})).toBe('/platform-admin/users');
     expect(organizationReadEndpoints.claimLookup.body?.({ groupId, realName: ' 林医生 ' })).toEqual(
@@ -80,6 +85,7 @@ describe('P8 organization shared read boundary', () => {
         golden.claimLookup,
       ],
       [schedulingConfigSchema, schedulingConfigReadDecoder, golden.schedulingConfig],
+      [groupQrResponseSchema, groupQrResponseDecoder, golden.groupQr],
       [
         platformAdminUserAccountListSchema,
         platformAdminUserAccountListDecoder,
@@ -146,6 +152,7 @@ describe('P8 organization shared read boundary', () => {
       ['organization.claim-requests', golden.claimRequests],
       ['organization.claim-lookup', golden.claimLookup],
       ['organization.scheduling-config', golden.schedulingConfig],
+      ['organization.group-qr', golden.groupQr],
       ['organization.platform-accounts', golden.platformAccounts],
       ['organization.resolve-invite', golden.invite],
     ]);
@@ -161,9 +168,10 @@ describe('P8 organization shared read boundary', () => {
     await expect(client.listMembershipClaimRequests('group-1')).resolves.toBe(golden.claimRequests);
     await expect(client.lookupClaimMatches('group-1', '陈医生')).resolves.toBe(golden.claimLookup);
     await expect(client.getSchedulingConfig('group-1')).resolves.toBe(golden.schedulingConfig);
+    await expect(client.getGroupQr('group-1')).resolves.toBe(golden.groupQr);
     await expect(client.listPlatformUserAccounts()).resolves.toBe(golden.platformAccounts.users);
     await expect(client.resolveInvite('invite-token')).resolves.toBe(golden.invite);
-    expect(request).toHaveBeenCalledTimes(10);
-    expect(request.mock.contexts).toEqual(Array.from({ length: 10 }, () => transport));
+    expect(request).toHaveBeenCalledTimes(11);
+    expect(request.mock.contexts).toEqual(Array.from({ length: 11 }, () => transport));
   });
 });

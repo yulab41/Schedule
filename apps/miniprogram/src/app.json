@@ -16,7 +16,11 @@
     },
     {
       "root": "subpackages/organization",
-      "pages": ["pages/group-settings/index", "pages/scheduling-config/index"]
+      "pages": [
+        "pages/group-settings/index",
+        "pages/scheduling-config/index",
+        "pages/invite-visitor/index"
+      ]
     },
     {
       "root": "subpackages/workflows",

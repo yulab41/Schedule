@@ -18,7 +18,11 @@ describe('P8-C-2 native scheduling configuration', () => {
 
     expect(app.subpackages).toContainEqual({
       root: 'subpackages/organization',
-      pages: ['pages/group-settings/index', 'pages/scheduling-config/index'],
+      pages: [
+        'pages/group-settings/index',
+        'pages/scheduling-config/index',
+        'pages/invite-visitor/index',
+      ],
     });
     expect(page).toContain('班种');
     expect(page).toContain('岗位成员');

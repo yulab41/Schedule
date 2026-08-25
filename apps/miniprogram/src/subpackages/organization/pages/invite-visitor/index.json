@@ -1,0 +1,8 @@
+{
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "invite-visitor-panel": "/subpackages/organization/components/invite-visitor-panel/index"
+  }
+}
