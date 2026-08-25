@@ -7,6 +7,7 @@
 - 范围：新增 `@schedule/client-core` `InsightsReadClient`，覆盖事件列表/详情、按月统计和按年统计四个 Bearer GET endpoint；事件筛选、游标、pageSize、URI 编码与统计月份/年份参数均由 endpoint 定义统一生成。
 - 契约/隐私：新增严格事件/统计 compact decoder 与黄金响应；`JsonObject`/统计对照数组保留服务端对象边界，不把 API client、fetch、Vue 或 Zod runtime 带入共享包。尚未接入 Mini 页面，不打开 `insights`。
 - 验证：client-core 正式源码范围 16 files/51 tests 通过；schema generation/check、runtime boundary、typecheck 通过。既有 visitor access 边界回归保持通过。本批不修改 Mini runtime、不上传体验版。
+- 发布/运行：checkpoint `7fbd390b`（`feat(client-core): add p9 event and statistics reads`）已推送；生产备份 archive `69fdcc23-c6d7-4c6f-8011-45c22c97ff31`（54 表/170,809 行/79,668,860 bytes/SHA `226f28ec1b7dbafcee94b123902944b180129a52ae553730b17dec9c4b0326f1`）后部署 release `7fbd390bed05f0d92de0a6d6f8e960e02ee820c5`。ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，`insights=false` 未变，远端临时目录已清理。
 - 下一步：接入 Mini runtime capability resolver 后，实现事件/统计原生页面；通知、导出边界仍待后续 P9 切片。P9-A3 访客访问页和 P9-A4 Web 黄金继续等待用户对应复核。
 
 ## 2026-08-25 P9-A4 Web 数据与消息黄金（已实现，待用户视觉复核）
