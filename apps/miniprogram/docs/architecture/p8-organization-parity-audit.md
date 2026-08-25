@@ -82,6 +82,8 @@ P7 工作流候选 `.94@0975b2d` 已于 2026-08-25 获得用户实体 Android �
 
 ### P8-B Web 黄金
 
+- 状态（2026-08-25）：34 个精确 Storybook ID、390×844/320px/大字号、五类角色和八类状态已固化，34/34 浏览器装配与六类代表 Axe 扫描通过；详见 `page-golden-manifest.md`。当前等待用户确认，未开始 P8-C–F。
+
 - 使用 production `GroupSetupPanel`、`MemberManager`、`SchedulingConfigPanel`、`PlatformAdminUsersView` 固化 390×844、320px 和大字号状态。
 - 补齐群主/管理员/成员/平台管理员、loading/empty/error/409/确认/成功/禁用状态；邀请和 visitor key 使用与现有 Web 同源的新 story，不建立第二套视觉方向。
 - 更新 `page-golden-manifest.md`，用户确认后才实现原生 WXML/WXSS。

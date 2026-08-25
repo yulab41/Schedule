@@ -1,11 +1,25 @@
 import { setup, type Preview } from '@storybook/vue3-vite';
+import { createPinia } from 'pinia';
 import TDesign from 'tdesign-vue-next';
+import { createMemoryHistory, createRouter } from 'vue-router';
 
 import 'tdesign-vue-next/es/style/index.css';
 import '../src/styles/tokens.css';
 import './storybook.css';
 
-setup((app) => app.use(TDesign));
+const storyRouter = createRouter({
+  history: createMemoryHistory(),
+  routes: [
+    { path: '/', component: { template: '<div />' } },
+    { path: '/platform-admin/users', component: { template: '<div />' } },
+  ],
+});
+
+setup((app) => {
+  app.use(createPinia());
+  app.use(TDesign);
+  app.use(storyRouter);
+});
 
 const preview: Preview = {
   parameters: {

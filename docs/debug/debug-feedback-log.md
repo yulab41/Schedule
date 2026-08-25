@@ -2,6 +2,14 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-B 组织管理 Web 黄金
+
+- 引入点/测试先行：production 群组/成员/配置/平台页分别来自既有实现；本轮额外定位 `5102950a` 的 320 成员管理隐藏、`02a508dd` 的平台绝对定位屏幕阅读器标签、`bfa07554` 的群组/配置 muted labels、`f723b0db/59300957` 的个人 scope 与 `41d284b3` 的禁用班种 opacity。P8 黄金测试最初因 story/fixture/manifest 缺失先 4 项红；Pinia、320 状态装配、平台溢出和 AA 对比度均先补失败断言后修复。
+- 行为/语义：34 个 Storybook story 直接渲染 production `GroupSetupPanel`、`MemberManager`、`SchedulingConfigPanel`、`PlatformAdminUsersView`，覆盖五类角色、八类状态、390/320/大字号；邀请/访客使用无 secret 的同源新 story。Storybook 只安装 Pinia/memory router、脱敏 fetch fixture 和状态装配器。production 改动仅为更深现有 token、禁用 glyph 移除 opacity、危险按钮颜色、screen-reader label 绝对锚点；请求接收者、异步/错误、空值、权限、副作用、调用次数和离线无写队列语义不变。
+- 视觉/无障碍：34/34 最终装配、根横向溢出 0、console error/warn 0；群组、成员确认、配置冲突、邀请成功、平台链接和大字号六类 Storybook Accessibility/Axe 均 `Violations 0`。390/320 首屏、成员 bottom sheet、配置 409、邀请成功、平台一次性链接与大字号均已实际截图检查；链接/二维码全部为脱敏占位，没有输出真实 secret/电话/subject。
+- 运行/浏览器验证：`pnpm smoke:browser` 首次访问默认 5173 因本地服务未启动停止；仓库 dev 首启又因 Windows 保留 5173–5240，首个 6009 Web 未设 `VITE_AUTH_DEV_MODE=true` 按门禁停止。随后当前源码 API `127.0.0.1:3000`、Web `127.0.0.1:6009` 完整通过登录、管理员、成员、访客扫码 vkey 与访问记录，全流程无浏览器错误；临时服务已关闭。`pnpm smoke:check-core` 通过并确认本批不含列明核心链路。
+- 其他验证/状态：P8 定向 4 files/14 tests、Web 106 files/612 tests、typecheck、production build、Storybook static build、任务文件 Prettier 与 diff 检查通过；首次 Web 全量只被 P7 对旧单行 Storybook setup 的源码形状断言阻断，收窄为实际 `app.use(TDesign)` 后全绿。checkpoint 识别消息 `feat(web): add p8 organization golden states`；部署完成前状态为已完成待 checkpoint，production `organization=false`，等待用户确认 Web 黄金后才进入 P8-C-1。
+
 ## 2026-08-25 P8-A2-2 排班配置写入安全硬化
 
 - 范围/引入点：只硬化岗位创建/成员替换/轮转排序/轮转规则/岗位删除及班种创建/更新/删除；不处理邀请、visitor key、平台身份或 Mini UI。Web/API 主调用来自 `04c7da36`，班种删除来自 `d24b6920`；已执行 `git log -S`/`git blame`。

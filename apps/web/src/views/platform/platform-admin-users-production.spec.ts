@@ -21,4 +21,12 @@ describe('P3 platform admin users production view', () => {
     expect(router).toContain("name: 'platform-admin-users'");
     expect(router).toContain("path: '/platform-admin/users'");
   });
+
+  it('anchors screen-reader-only table labels so narrow layouts do not widen the page', () => {
+    const view = readSource('./PlatformAdminUsersView.vue');
+
+    expect(view).toMatch(
+      /\.visually-hidden\s*{[^}]*position:\s*absolute;[^}]*top:\s*0;[^}]*left:\s*0;/s,
+    );
+  });
 });

@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-B 组织管理 Web 黄金（已完成，待用户确认）
+
+- 基线/范围：从已推送并部署的 `fbe26885` 开始；本批只固化 P8 组织管理 Web 黄金，不实现 Mini WXML/WXSS、不上传体验版、不进入 allowlist/审核/发布，production `organization` capability 继续为 `false`。`frontend-design` 保持临床蓝、病历纸灰白、系统中文字体和 production 信息层级，只在 Storybook 外层增加身份/状态“权限腕带”。
+- 黄金/权限：新增 34 个精确 story，直接复用 production `GroupSetupPanel`、`MemberManager`、`SchedulingConfigPanel`、`PlatformAdminUsersView`，覆盖群主/管理员/成员/后台管理员/平台管理员与 ready/loading/empty/error/409/confirm/success/disabled、390×844、320px、大字号。邀请/visitor key 因 Web 尚无完整管理页而新增同源 `P8InviteVisitorGolden`；仅使用脱敏假链接/二维码占位，不持久化 token、visitor key、URL、联系方式或身份 subject。`page-golden-manifest.md` 已登记全部 34 个 ID。
+- 回归/无障碍：Storybook 补 Pinia 与 memory router；320px 成员确认态通过已有隐藏管理按钮只作状态装配，不改 `5102950a` 批准的生产 320 层级。`git log -S`/`git blame` 定位平台 visually-hidden 溢出=`02a508dd`、群组/配置 muted token=`bfa07554`、个人 scope=`f723b0db/59300957`、禁用班种 opacity=`41d284b3`；先红后绿测试锁定 Pinia/Router、状态装配、无根横溢与 AA token。平台屏幕阅读器标签固定左上锚点；production 群组/配置/平台小字号与危险操作改用现有更深 token，禁用班种保留灰度但移除会降低对比度的整元素透明度。业务接收者、Promise/catch、空值、请求次数、写入/409/确认和权限均未变化。
+- 验证：定向 4 files/14 tests、Web 全量 106 files/612 tests、Web typecheck/production build、Storybook 静态构建通过。浏览器最终 34/34 装配完成、390/320 根横溢 0、console error/warn 0；群组、成员确认、配置冲突、邀请成功、平台链接、大字号六类 Storybook Axe 均为 `Violations 0`。运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 未启动停止；本机 5173–5240 为 Windows 保留端口且首次自定义端口未开 dev auth，随后当前源码 API `127.0.0.1:3000` + Web `127.0.0.1:6009` 完整通过登录、管理员、成员、访客/vkey 与访问记录且无浏览器错误，临时服务已关闭；`pnpm smoke:check-core` 通过（本批不含列明核心链路）。
+- checkpoint/下一批：本批代码 checkpoint 识别消息 `feat(web): add p8 organization golden states`；提交、推送、生产备份/部署完成后补实际 hash/release。P8-B 停止条件已满足，状态为“已完成（含运行验证）→ 待用户确认 Web 黄金”。只有用户明确确认后，下一活动批次才是 P8-C-1 群组与成员/预设/认领/联系方式原生页面；本对话不得提前进入配置、邀请/visitor key、平台账号原生切片或开启 capability。
+
 ## 2026-08-25 P8-A2-4 平台身份写入安全硬化（已完成）
 
 - 基线/范围：A2-3 代码 `cf453205` 与最终状态 `b0929d51` 已推送；`.98-invite@cf45320` 官方上传后保持 426，代码/文档发布分别由备份 `abe33fb4-07d3-410a-905f-001d0dc8308b`、`3958d9a0-b280-483a-9651-d142ed3ba8ce` 保护，Git/origin/production 均为 `b0929d51c5b5dafc00537414b0cf6b7dbaf20484`，production `organization=false`。本批只硬化平台用户名分配和管理员绑定链接生成，不改 password proof、绑定 confirm 之外的身份流程、Web 黄金、Mini UI 或 capability。

@@ -780,7 +780,7 @@ function resetMessages(): void {
 }
 
 .group-panel-heading > span {
-  color: var(--ui-color-text-muted);
+  color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
   text-align: right;
 }
@@ -806,7 +806,7 @@ function resetMessages(): void {
 .group-identity-copy span,
 .group-code-block > span,
 .created-group-code > span {
-  color: var(--ui-color-text-muted);
+  color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
 }
 
@@ -937,8 +937,13 @@ function resetMessages(): void {
 }
 
 .preference-scope.is-personal {
-  color: var(--ui-color-success);
+  color: var(--ui-color-text-primary);
   background: var(--ui-color-success-light);
+}
+
+.current-group-card :deep(.t-button--theme-danger.t-button--variant-outline) {
+  color: var(--ui-color-danger);
+  border-color: var(--ui-color-danger);
 }
 
 .calendar-view-segment {

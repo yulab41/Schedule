@@ -292,7 +292,7 @@ function formatConsentTime(value: string): string {
 }
 
 .preference-scope.is-personal {
-  color: var(--ui-color-success);
+  color: var(--ui-color-text-primary);
   background: var(--ui-color-success-light);
 }
 

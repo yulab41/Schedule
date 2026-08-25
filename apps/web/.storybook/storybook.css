@@ -2,8 +2,8 @@
   color: #16202a;
   background: #f4f7fb;
   font-family:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Segoe UI',
-    'Microsoft YaHei', sans-serif;
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Segoe UI', 'Microsoft YaHei',
+    sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -18,6 +18,10 @@ body,
 body {
   min-width: 320px;
   background: #f4f7fb;
+}
+
+body:has(.p8-organization-preview) {
+  min-width: 0;
 }
 
 *,

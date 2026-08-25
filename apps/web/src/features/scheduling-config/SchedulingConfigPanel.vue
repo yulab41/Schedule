@@ -954,7 +954,7 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
 }
 
 .config-panel-heading > span {
-  color: var(--ui-color-text-muted);
+  color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
   text-align: right;
 }
@@ -985,7 +985,7 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
 
 .configuration-readiness > header span,
 .configuration-readiness > header small {
-  color: var(--ui-color-text-muted);
+  color: var(--ui-color-text-secondary);
   font-size: var(--ui-font-size-sm);
 }
 
@@ -1374,7 +1374,14 @@ function setRoleMember(roleId: string, membershipId: string, selected: boolean):
 
 .shift-type-row.is-disabled .shift-glyph {
   filter: grayscale(0.6);
-  opacity: 0.7;
+}
+
+.scheduling-config-panel :deep(.t-alert--error .t-alert__description) {
+  color: var(--ui-color-text-primary);
+}
+
+.scheduling-config-panel :deep(.t-button--theme-danger) {
+  color: var(--ui-color-danger);
 }
 
 .shift-glyph {

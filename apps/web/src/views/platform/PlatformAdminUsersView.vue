@@ -548,7 +548,7 @@ td {
 }
 
 th {
-  color: var(--ui-color-text-muted);
+  color: var(--ui-color-text-secondary);
   background: var(--ui-color-surface-muted);
   font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-semibold);
@@ -723,6 +723,8 @@ td code {
 
 .visually-hidden {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 1px;
   height: 1px;
   padding: 0;
