@@ -18,9 +18,14 @@
 
 ## 2026-08-26 Mini 正式源码全量回归审计（已完成）
 
-- 运行/浏览器验证：在 `apps/miniprogram` 工作目录执行 `pnpm exec vitest run scripts --fileParallelism=false --exclude '.artifacts/**'`，正式源码范围 67 files/318 tests 全部通过；此前根目录 `pnpm test` 的 18 项失败均来自用户自有 `.artifacts/` 副本缺少根 `tsconfig.base.json`/生成 tokens，未修改或纳入提交。
+- 运行/浏览器验证：在 `apps/miniprogram` 工作目录执行 `pnpm exec vitest run scripts --fileParallelism=false --exclude '.artifacts/**'`，正式源码范围 68 files/320 tests 全部通过；此前根目录 `pnpm test` 的 18 项失败均来自用户自有 `.artifacts/` 副本缺少根 `tsconfig.base.json`/生成 tokens，未修改或纳入提交。
 - 回归修复：`git log -S`/`git blame` 定位旧断言来源后，身份页改为保留批准路由并允许新增页面，P8 组织 RC 改为保留四个核心页面并允许通讯录扩展，工作台历史图标断言限定事件操作图标；生产 Mini 行为未改变。
 - 下一活动批次与停止条件：继续等待体验版 `.15` 的 P10 通讯录/个人中心实体 Android RC；生产 `organization`、`insights`、`externalMessages` 保持关闭。
+
+## 2026-08-26 P9/P10 黄金清单一致性审计（已完成）
+
+- 页面黄金清单已与 `src/app.json` 对齐：访客访问、事件/统计、通知、导出、通知设置、通讯录和个人中心路由均已登记；P9-A4/A5/A6/A8/A9 不再误报“原生页面待实现”。
+- 新增 `p9-p10-golden-manifest.test.mjs`，覆盖 7 个原生路由和已实现边界状态；定向测试 2/2 通过。生产能力开关与体验版候选不变。
 
 ## 2026-08-26 P10-RC 实体 Android 验收清单（已固化，待用户执行）
 
