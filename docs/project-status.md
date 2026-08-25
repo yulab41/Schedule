@@ -34,6 +34,11 @@
 - checkpoint：待提交消息为 `docs(miniprogram): add p10 directory rc runbook`；清单交付后继续等待实体 Android 证据，不把 Storybook/CI 当作原生通过替代。
 - 发布同步：docs checkpoint `984110a9` 在备份 archive `3670b339-8f74-404a-a4c5-63cd1438b9f5`（54 表/171,645 行/79,962,684 bytes/SHA `93bff05b884bfe6995665f7d8ce980ff562e1881841d44ec175c75fd1338f0f5`）后部署 release `984110a9d6ff22079fa395e23ebc5fed9254e73a`；full verifier、候选 capability 200 和远端临时目录清理通过。
 
+## 2026-08-26 P8 RC 候选版本同步（已完成）
+
+- P8 组织管理 RC JSON/runbook 与部署示例已从旧 `0.1.0-p8.20260825.5` 对齐到当前体验版 `0.1.0-p9.20260826.15`；`.15` 包含 P8/P9/P10 页面但生产 `organization=false` 仍保持关闭。
+- P8 RC 定向契约继续通过，用户应使用同一 `.15` 完成组织管理、通讯录和个人中心实体 Android 复核；未收到对应 RC 通过消息前不提审或正式发布。
+
 ## 2026-08-26 P10-A4 个人中心实体 Android RC 清单（已固化，待用户执行）
 
 - 新增 `apps/miniprogram/docs/runbooks/p10-profile-rc.md`，锁定体验版 `0.1.0-p9.20260826.15`，覆盖工作台头像入口、D0796 微信快捷登录、管理员账号密码登录、认证方式对应的解绑边界、切换/退出、未登录和 390/320/大字号矩阵。
