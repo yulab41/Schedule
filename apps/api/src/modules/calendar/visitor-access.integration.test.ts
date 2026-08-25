@@ -106,17 +106,21 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
 
   it('regenerates the visitor key only for the owner and invalidates the old key', async () => {
     const oldKey = await getVisitorKey(groupId);
+    const expectedVersion = await getGroupVersion(groupId);
 
     const forbidden = await app.inject({
-      headers: { authorization: 'Bearer admin-token' },
+      headers: { authorization: 'Bearer admin-token', 'idempotency-key': randomUUID() },
       method: 'PUT',
+      payload: { expectedVersion },
       url: `/groups/${groupId}/visitor-key`,
     });
     expect(forbidden.statusCode).toBe(403);
 
+    const operationId = randomUUID();
     const regenerated = await app.inject({
-      headers: { authorization: 'Bearer owner-token' },
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': operationId },
       method: 'PUT',
+      payload: { expectedVersion },
       url: `/groups/${groupId}/visitor-key`,
     });
     expect(regenerated.statusCode).toBe(200);
@@ -124,6 +128,21 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
 
     const newKey = await getVisitorKey(groupId);
     expect(newKey).not.toBe(oldKey);
+    const replay = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': operationId },
+      method: 'PUT',
+      payload: { expectedVersion },
+      url: `/groups/${groupId}/visitor-key`,
+    });
+    expect(replay.statusCode, replay.body).toBe(200);
+    expect(await getVisitorKey(groupId)).toBe(newKey);
+    const stale = await app.inject({
+      headers: { authorization: 'Bearer owner-token', 'idempotency-key': randomUUID() },
+      method: 'PUT',
+      payload: { expectedVersion },
+      url: `/groups/${groupId}/visitor-key`,
+    });
+    expect(stale.statusCode).toBe(409);
     const oldResolve = await resolveVisitorKey(oldKey);
     expect(oldResolve.statusCode).toBe(404);
     const newResolve = await resolveVisitorKey(newKey);
@@ -404,6 +423,13 @@ describeWithDatabase('visitor access, QR codes and access logs', () => {
       sql`SELECT visitor_key AS visitorKey FROM \`groups\` WHERE id = ${targetGroupId}`,
     )) as unknown as [{ visitorKey: string }[], unknown];
     return rows[0]?.visitorKey as string;
+  }
+
+  async function getGroupVersion(targetGroupId: string): Promise<number> {
+    const [rows] = (await client.database.execute(
+      sql`SELECT version FROM \`groups\` WHERE id = ${targetGroupId}`,
+    )) as unknown as [{ version: number }[], unknown];
+    return rows[0]?.version as number;
   }
 
   function resolveVisitorKey(visitorKey: string) {

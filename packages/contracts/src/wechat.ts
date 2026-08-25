@@ -229,6 +229,9 @@ export type InviteStatus = z.infer<typeof inviteStatusSchema>;
 
 export const createInviteLinkRequestSchema = z
   .object({
+    expectedScheduleRoleVersion: z.number().int().min(1).optional(),
+    expectedTargetVersion: z.number().int().min(1),
+    operationId: z.string().uuid(),
     permissionRole: invitePermissionRoleSchema.optional(),
     scheduleRoleId: z.string().min(1).optional(),
     targetMembershipId: z.string().min(1).optional(),
@@ -239,6 +242,11 @@ export const createInviteLinkRequestSchema = z
     (value) =>
       (value.targetMembershipId === undefined) !== (value.targetRosterEntryId === undefined),
     { message: 'exactly one of targetMembershipId or targetRosterEntryId is required' },
+  )
+  .refine(
+    (value) =>
+      (value.scheduleRoleId === undefined) === (value.expectedScheduleRoleVersion === undefined),
+    { message: 'scheduleRoleId and expectedScheduleRoleVersion must be provided together' },
   );
 export type CreateInviteLinkRequest = z.infer<typeof createInviteLinkRequestSchema>;
 
@@ -251,6 +259,7 @@ export const createInviteLinkResponseSchema = z
     scheduleRoleName: z.string().optional(),
     sharePath: z.string().min(1),
     token: z.string().min(1),
+    version: z.number().int().min(1),
   })
   .strict();
 export type CreateInviteLinkResponse = z.infer<typeof createInviteLinkResponseSchema>;
@@ -269,6 +278,7 @@ export const resolveInviteResponseSchema = z
     inviteeRealName: z.string().min(1),
     permissionRole: invitePermissionRoleSchema,
     scheduleRoleName: z.string().optional(),
+    version: z.number().int().min(1),
   })
   .strict();
 export type ResolveInviteResponse = z.infer<typeof resolveInviteResponseSchema>;
@@ -276,10 +286,20 @@ export type ResolveInviteResponse = z.infer<typeof resolveInviteResponseSchema>;
 export const acceptInviteRequestSchema = z
   .object({
     confirmRealName: z.string().min(1),
+    expectedVersion: z.number().int().min(1),
+    operationId: z.string().uuid(),
     token: z.string().min(1),
   })
   .strict();
 export type AcceptInviteRequest = z.infer<typeof acceptInviteRequestSchema>;
+
+export const revokeInviteRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().min(1),
+    operationId: z.string().uuid(),
+  })
+  .strict();
+export type RevokeInviteRequest = z.infer<typeof revokeInviteRequestSchema>;
 
 export const acceptInviteResponseSchema = z
   .object({

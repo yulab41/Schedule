@@ -2,13 +2,21 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-25 P8-A2-2 排班配置写入安全硬化（已实现待上传/部署）
+## 2026-08-25 P8-A2-3 邀请与访客密钥写入安全硬化（已实现待上传/部署）
+
+- 基线/范围：A2-2 checkpoint `0bb58654` 已推送；`.97-config@0bb5865` 官方上传 96 files/zip 834,852/manifest `0cd25453…f685`，未进 allowlist；备份 `44dba6b3-fc8d-40dd-8714-7876ebefd363` 后部署同 release，full verifier 通过且 production `organization=false`。本批只硬化邀请创建/接受/撤销和 visitor key 轮换四个写入口；邀请 resolve、群二维码保持只读，不处理平台身份、Mini UI 或 capability 开启。
+- 引入点/红绿：邀请 route/service=`a50c4fce`、visitor key=`4b337490`、基础邀请 schema=`4fc6bd21`，均已重新执行 `git log -S`/`git blame`。Contracts/route/idempotency/client-core/Web 5 组测试在旧实现因缺少 operation/version、敏感结果 codec、共享客户端和 Web 委托先红；实现后定向 7 files/26 tests 通过。四个写入口统一 header/body operation id；创建同时校验 target 与可选岗位版本，接受/撤销校验 invite version，visitor key 校验 group version。
+- API/隐私/并发：邀请创建 token 由服务器 secret、actor 与 operation id 确定性 HMAC 派生，同键重放返回同一链接但幂等表只保存非敏感展示字段；接受合并只保存目标 user id 对应的安全结果与“需重签”标记，重放时重新签发会话，raw invite token/sharePath/session token 均不落幂等结果。邀请保持单次使用，非实际接受者不能借已用 token 重放；visitor key 同操作只旋转一次。真实 MySQL 全量 71 files/471 tests 通过，定向 3 files/28 tests 覆盖 replay、异载荷/陈旧版本 409、管理员提权禁止、合并重签和敏感结果不落库。
+- 客户端/语义：client-core 新增四个 strict endpoint/decoder；Web 四方法全部委托原 shared transport，保持 `transport.request` receiver、Promise/错误、空值与每操作一次请求语义。Mini 本批没有页面、存储、后台重试或离线写队列；共享边界随 production build 验证，但 `organization` 继续关闭。
+- 验证/checkpoint：API 71/471（真实 MySQL）、Contracts 17/60、client-core 13/43、Web 104/605、Mini 45/254；全端 typecheck、API/Web build、generated freshness、Mini production verify、任务格式和 `smoke:check-core` 通过。Mini 2/2 Worklet、3,422,199 bytes、manifest `339b37db38d5b53b79b329163c80a2c48add59aab8050f3549b700352b7d0c4c`，仅既有 600 格 best-effort warning。运行/浏览器验证：`pnpm smoke:browser` 等价入口 `node scripts/smoke-browser.mjs` 在本机 5173 被 Windows 保留、未开启 dev auth 两次按门禁停止后，改用当前源码 127.0.0.1:4173 完整通过管理员、成员、访客/vkey 与访问记录且无浏览器错误，临时服务已按 PID 关闭。checkpoint 识别消息 `feat(organization): harden p8 invite visitor mutations`；提交推送后以 `0.1.0-p8.20260825.98-invite` 上传体验轨道但不加 allowlist，再备份/部署/full verifier。下一活动批次只做 P8-A2-4 平台用户名分配与管理员绑定链接危险写入硬化，不处理 Web 黄金、Mini UI 或 capability 开启。
+
+## 2026-08-25 P8-A2-2 排班配置写入安全硬化（已完成）
 
 - 基线/范围：A2-1 checkpoint `adf1f851` 已推送并部署；`.96-groups@adf1f85` 官方上传 96 files/zip 827,270/manifest `07ee6de7…4089`，备份 `86ecae97-7989-43e3-95ec-bcd9f669ab09` 后部署同 release，full verifier 通过；`.96-groups` 未进 allowlist且 `organization=false`。本批只硬化岗位创建/成员替换/轮转排序/轮转规则/岗位删除和班种创建/更新/删除，不处理邀请、visitor key、平台身份或 Mini UI。
 - 引入点/红绿：配置 Web/API=`04c7da36`、班种删除=`d24b6920`，均重新执行 `git log -S`/`git blame`。Contracts/route/client-core/Web 4 组新契约在旧实现为 4 files/6 failures；实现后 4 files/8 tests 通过。8 个 shared write endpoint 统一 header/body operation id；每次写提交 aggregate `expectedRulesVersion`，岗位子树同时校验 role/rotation-rule version，班种更新/删除校验 shift-type version。
 - API/并发：复用 actor-first organization transaction helper，使幂等行早于权限/目标校验；岗位成员/排序/规则成功后同步推进 role、rotation-rule 与 group rules 三层版本，删除结果可在目标消失后重放。真实 MySQL 全量 70 files/467 tests 通过；配置核心 1 file/7 tests 覆盖同键重放、异载荷 409、角色/规则/班种 stale、删除后重放、同 rules version 并发仅一胜及事务回滚。
 - 客户端/语义：client-core 新增 8 个 strict endpoint/decoder，Web 8 方法全部委托原 shared transport；production `SchedulingConfigPanel` 复用 presentation-core 冻结同 payload operation id，成功清理、失败保留。receiver、Promise/catch、空值、确认、成功刷新与请求次数不变；班种即时启停只在成功响应后本地推进一次 rulesVersion，不新增整页刷新、离线写队列或后台重试。
-- 验证/checkpoint：Contracts 16/58、client-core 12/41、Web 103/604、Mini 45/254；全端 typecheck、API/Web/Storybook build、generated freshness、Mini production verify/source/package/performance/determinism/CI dry-run、任务 lint/format/diff 通过。Mini 2/2 Worklet、3,367,089 bytes、manifest `a7ee17d9fdbb6fe3ad42a24760982ddb0c1278863c4ff08e9e19f58e11cbbf5f`，仅既有 600 格 best-effort warning。browser smoke 首轮因 Vite cwd 误设仓库根返回 404、未进入产品断言；改从 `apps/web` 启动后完整通过且无浏览器错误，`smoke:check-core` 通过，临时服务已关闭。checkpoint 识别消息 `feat(scheduling): harden p8 configuration mutations`；提交推送后以 `0.1.0-p8.20260825.97-config` 上传体验轨道但不加 allowlist，再备份/部署/full verifier。下一活动批次只做 P8-A2-3 邀请与 visitor key 写入的 operation/version、事务重放和 Web 委托，不处理平台身份或 UI。
+- 验证/checkpoint：Contracts 16/58、client-core 12/41、Web 103/604、Mini 45/254；全端 typecheck、API/Web/Storybook build、generated freshness、Mini production verify/source/package/performance/determinism/CI dry-run、任务 lint/format/diff 通过。Mini 2/2 Worklet、3,367,089 bytes、manifest `a7ee17d9fdbb6fe3ad42a24760982ddb0c1278863c4ff08e9e19f58e11cbbf5f`，仅既有 600 格 best-effort warning。browser smoke 改从 `apps/web` 启动后完整通过且无浏览器错误，`smoke:check-core` 通过。checkpoint `0bb58654` 已推送；`.97-config@0bb5865` 上传成功且未进 allowlist。备份 `44dba6b3-fc8d-40dd-8714-7876ebefd363`（54 表/168,296 行/78,772,532 bytes/SHA `c76e4410…78a1`）后部署 release `0bb586548e07002aced1fcf82ea1df3012d87e67`，full verifier/health 200、`.94` organization=false、`.96/.97-config` 426 和远端 temp 清理均通过。
 
 ## 2026-08-25 P8-A2-1 群组/成员写入安全硬化（已完成）
 

@@ -216,15 +216,20 @@ describe('wechat mini program contracts', () => {
   });
 
   it('requires exactly one invite target', () => {
-    expect(createInviteLinkRequestSchema.safeParse({ targetMembershipId: 'm1' }).success).toBe(
-      true,
-    );
-    expect(createInviteLinkRequestSchema.safeParse({ targetRosterEntryId: 'r1' }).success).toBe(
-      true,
-    );
+    const mutation = {
+      expectedTargetVersion: 1,
+      operationId: '11111111-1111-4111-8111-111111111111',
+    };
+    expect(
+      createInviteLinkRequestSchema.safeParse({ ...mutation, targetMembershipId: 'm1' }).success,
+    ).toBe(true);
+    expect(
+      createInviteLinkRequestSchema.safeParse({ ...mutation, targetRosterEntryId: 'r1' }).success,
+    ).toBe(true);
     expect(createInviteLinkRequestSchema.safeParse({}).success).toBe(false);
     expect(
       createInviteLinkRequestSchema.safeParse({
+        ...mutation,
         targetMembershipId: 'm1',
         targetRosterEntryId: 'r1',
       }).success,

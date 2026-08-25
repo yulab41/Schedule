@@ -25,6 +25,16 @@ export async function runOrganizationMutation<Result>(options: {
   readonly identity: AuthenticatedIdentity;
   readonly operationId: string;
   readonly requestFingerprint: string;
+  readonly resultCodec?: {
+    readonly deserialize: (
+      stored: Record<string, unknown>,
+      actor: OrganizationMutationActor,
+    ) => Promise<Result> | Result;
+    readonly serialize: (
+      result: Result,
+      actor: OrganizationMutationActor,
+    ) => Record<string, unknown>;
+  };
   readonly run: (
     transaction: DatabaseTransaction,
     actor: OrganizationMutationActor,
@@ -42,6 +52,12 @@ export async function runOrganizationMutation<Result>(options: {
         scope: options.scope,
       },
       () => options.run(transaction, actor),
+      options.resultCodec === undefined
+        ? undefined
+        : {
+            deserialize: (stored) => options.resultCodec!.deserialize(stored, actor),
+            serialize: (result) => options.resultCodec!.serialize(result, actor),
+          },
     );
   });
 }

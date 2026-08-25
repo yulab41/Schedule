@@ -75,6 +75,7 @@ describeWithDatabase('invite links and identity binding', () => {
       scheduleRoleName?: string;
       sharePath: string;
       token: string;
+      version: number;
     };
     expect(createdBody).toMatchObject({
       permissionRole: 'administrator',
@@ -96,11 +97,27 @@ describeWithDatabase('invite links and identity binding', () => {
     const wrongName = await acceptInvite(alice.token, createdBody.token, 'Bob Doctor');
     expect(wrongName.statusCode).toBe(400);
 
-    const accepted = await acceptInvite(alice.token, createdBody.token, 'Alice Doctor');
+    const acceptOperationId = randomUUID();
+    const accepted = await acceptInvite(
+      alice.token,
+      createdBody.token,
+      'Alice Doctor',
+      acceptOperationId,
+      createdBody.version,
+    );
     expect(accepted.statusCode, accepted.body).toBe(200);
     expect(accepted.json()).toMatchObject({
       group: { id: groupId, name: 'Invite group', role: 'administrator' },
     });
+    const replayedAccept = await acceptInvite(
+      alice.token,
+      createdBody.token,
+      'Alice Doctor',
+      acceptOperationId,
+      createdBody.version,
+    );
+    expect(replayedAccept.statusCode, replayedAccept.body).toBe(200);
+    expect(replayedAccept.json()).toEqual(accepted.json());
 
     const [roleRows] = (await client.database.execute(
       sql`SELECT COUNT(*) AS count FROM member_schedule_roles`,
@@ -110,6 +127,14 @@ describeWithDatabase('invite links and identity binding', () => {
     const duplicate = await acceptInvite(alice.token, createdBody.token, 'Alice Doctor');
     expect(duplicate.statusCode).toBe(409);
     expect(duplicate.json()).toMatchObject({ error: { code: 'INVITE_USED' } });
+
+    await addMembers(owner.token, groupId, ['Second Doctor']);
+    const secondMembershipId = await membershipIdByRealName(owner.token, groupId, 'Second Doctor');
+    const forbiddenAdminInvite = await createInvite(alice.token, groupId, {
+      permissionRole: 'administrator',
+      targetMembershipId: secondMembershipId,
+    });
+    expect(forbiddenAdminInvite.statusCode).toBe(403);
   });
 
   it('accepts a pending roster invite and claims the roster entry', async () => {
@@ -174,10 +199,53 @@ describeWithDatabase('invite links and identity binding', () => {
     });
     expect(forbidden.statusCode).toBe(403);
 
-    const revoked = await revokeInvite(owner.token, groupId, token);
+    const revokeOperationId = randomUUID();
+    const revoked = await revokeInvite(owner.token, groupId, token, revokeOperationId, 1);
     expect(revoked.statusCode).toBe(204);
+    const replayed = await revokeInvite(owner.token, groupId, token, revokeOperationId, 1);
+    expect(replayed.statusCode).toBe(204);
     expect((await resolveInvite(dana.token, token)).statusCode).toBe(400);
     expect((await acceptInvite(dana.token, token, 'Dana Doctor')).statusCode).toBe(400);
+  });
+
+  it('replays invite creation without persisting raw invitation secrets', async () => {
+    const owner = await registerUser('replay-owner', 'Replay Owner');
+    const groupId = await createGroup(owner.token, 'Replay group', '4678');
+    await addMembers(owner.token, groupId, ['Replay Doctor']);
+    const membershipId = await membershipIdByRealName(owner.token, groupId, 'Replay Doctor');
+    const operationId = randomUUID();
+    const first = await createInvite(
+      owner.token,
+      groupId,
+      { targetMembershipId: membershipId },
+      operationId,
+    );
+    const replay = await createInvite(
+      owner.token,
+      groupId,
+      { targetMembershipId: membershipId },
+      operationId,
+    );
+    expect(first.statusCode, first.body).toBe(201);
+    expect(replay.statusCode, replay.body).toBe(201);
+    expect(replay.json()).toEqual(first.json());
+    const response = first.json() as { sharePath: string; token: string };
+
+    const [rows] = (await client.database.execute(sql`
+      SELECT result FROM idempotency_keys
+      WHERE operation_key = ${operationId} AND scope = 'organization_invite_create'
+    `)) as unknown as [{ result: unknown }[], unknown];
+    const stored = JSON.stringify(rows[0]?.result);
+    expect(stored).not.toContain(response.token);
+    expect(stored).not.toContain(response.sharePath);
+
+    const changed = await createInvite(
+      owner.token,
+      groupId,
+      { permissionRole: 'administrator', targetMembershipId: membershipId },
+      operationId,
+    );
+    expect(changed.statusCode).toBe(409);
   });
 
   it('rejects expired invites', async () => {
@@ -239,7 +307,14 @@ describeWithDatabase('invite links and identity binding', () => {
       targetMembershipId,
     });
     const secondToken = (secondInvite.json() as { token: string }).token;
-    const merged = await acceptInvite(versionedSourceToken, secondToken, 'Target User');
+    const mergeOperationId = randomUUID();
+    const merged = await acceptInvite(
+      versionedSourceToken,
+      secondToken,
+      'Target User',
+      mergeOperationId,
+      1,
+    );
     expect(merged.statusCode, merged.body).toBe(200);
     const mergedBody = merged.json() as { group: { id: string }; token?: string };
     expect(mergedBody.group.id).toBe(groupId);
@@ -252,6 +327,24 @@ describeWithDatabase('invite links and identity binding', () => {
       provider: 'wechat_mini_program',
       sub: target.id,
     });
+    const replayedMerge = await acceptInvite(
+      mergedBody.token as string,
+      secondToken,
+      'Target User',
+      mergeOperationId,
+      1,
+    );
+    expect(replayedMerge.statusCode, replayedMerge.body).toBe(200);
+    const replayedMergeBody = replayedMerge.json() as { group: { id: string }; token?: string };
+    expect(replayedMergeBody.group).toEqual(mergedBody.group);
+    expect(verifyWechatSessionToken(replayedMergeBody.token, TEST_SESSION_SECRET)).toMatchObject({
+      sub: target.id,
+    });
+    const [idempotencyRows] = (await client.database.execute(sql`
+      SELECT result FROM idempotency_keys
+      WHERE operation_key = ${mergeOperationId} AND scope = 'organization_invite_accept'
+    `)) as unknown as [{ result: unknown }[], unknown];
+    expect(JSON.stringify(idempotencyRows[0]?.result)).not.toContain(mergedBody.token as string);
 
     const [sourceRows] = (await client.database.execute(
       sql`SELECT status, wechat_openid AS openid FROM users WHERE id = ${source.id}`,
@@ -482,11 +575,30 @@ describeWithDatabase('invite links and identity binding', () => {
     return rows[0]?.id as string;
   }
 
-  function createInvite(token: string, groupId: string, payload: Record<string, unknown>) {
+  async function createInvite(
+    token: string,
+    groupId: string,
+    payload: Record<string, unknown>,
+    operationId = randomUUID(),
+    expectedTargetVersion?: number,
+  ) {
+    const targetVersion =
+      expectedTargetVersion ??
+      (await readTargetVersion(
+        payload['targetMembershipId'] as string | undefined,
+        payload['targetRosterEntryId'] as string | undefined,
+      ));
+    const scheduleRoleId = payload['scheduleRoleId'] as string | undefined;
+    const expectedScheduleRoleVersion =
+      scheduleRoleId === undefined ? undefined : await readScheduleRoleVersion(scheduleRoleId);
     return app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': operationId },
       method: 'POST',
-      payload,
+      payload: {
+        ...payload,
+        expectedTargetVersion: targetVersion,
+        ...(expectedScheduleRoleVersion === undefined ? {} : { expectedScheduleRoleVersion }),
+      },
       url: `/groups/${groupId}/invite-links`,
     });
   }
@@ -500,21 +612,65 @@ describeWithDatabase('invite links and identity binding', () => {
     });
   }
 
-  function acceptInvite(token: string, inviteToken: string, confirmRealName: string) {
+  async function acceptInvite(
+    token: string,
+    inviteToken: string,
+    confirmRealName: string,
+    operationId = randomUUID(),
+    expectedVersion?: number,
+  ) {
     return app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': operationId },
       method: 'POST',
-      payload: { confirmRealName, token: inviteToken },
+      payload: {
+        confirmRealName,
+        expectedVersion: expectedVersion ?? (await readInviteVersion(inviteToken)),
+        token: inviteToken,
+      },
       url: '/invites/accept',
     });
   }
 
-  function revokeInvite(token: string, groupId: string, inviteToken: string) {
+  async function revokeInvite(
+    token: string,
+    groupId: string,
+    inviteToken: string,
+    operationId = randomUUID(),
+    expectedVersion?: number,
+  ) {
     return app.inject({
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': operationId },
       method: 'POST',
+      payload: { expectedVersion: expectedVersion ?? (await readInviteVersion(inviteToken)) },
       url: `/groups/${groupId}/invite-links/${inviteToken}/revoke`,
     });
+  }
+
+  async function readTargetVersion(
+    membershipId: string | undefined,
+    rosterEntryId: string | undefined,
+  ): Promise<number> {
+    const table =
+      membershipId === undefined ? sql.raw('roster_entries') : sql.raw('group_memberships');
+    const id = membershipId ?? rosterEntryId ?? '';
+    const [rows] = (await client.database.execute(
+      sql`SELECT version FROM ${table} WHERE id = ${id}`,
+    )) as unknown as [{ version: number }[], unknown];
+    return rows[0]?.version as number;
+  }
+
+  async function readScheduleRoleVersion(roleId: string): Promise<number> {
+    const [rows] = (await client.database.execute(
+      sql`SELECT version FROM schedule_roles WHERE id = ${roleId}`,
+    )) as unknown as [{ version: number }[], unknown];
+    return rows[0]?.version as number;
+  }
+
+  async function readInviteVersion(inviteToken: string): Promise<number> {
+    const [rows] = (await client.database.execute(
+      sql`SELECT version FROM invite_tokens WHERE token_hash = ${sha256(inviteToken)}`,
+    )) as unknown as [{ version: number }[], unknown];
+    return rows[0]?.version as number;
   }
 });
 

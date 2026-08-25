@@ -1,13 +1,18 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 import type {
+  AcceptInviteRequest,
   AcceptInviteResponse,
   ClientVersion,
+  CreateInviteLinkRequest,
   CreateInviteLinkResponse,
   GroupRole,
   InvitePermissionRole,
+  OrganizationMutationCompleted,
+  RevokeInviteRequest,
   ResolveInviteResponse,
 } from '@schedule/contracts';
+import { acceptInviteResponseSchema, createInviteLinkResponseSchema } from '@schedule/contracts';
 import {
   type DatabaseClient,
   type DatabaseTransaction,
@@ -30,18 +35,19 @@ import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { withIdempotentOperation } from '../../plugins/idempotency.js';
 import { AuditWriter } from '../audit/audit-writer.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
+import {
+  createOrganizationFingerprint,
+  organizationMutationCompleted,
+  runOrganizationMutation,
+  type OrganizationMutationActor,
+} from './organization-operation.js';
 import { GroupPermissionService } from './permission-service.js';
 
 const MAX_PENDING_INVITES_PER_GROUP = 10;
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-export interface CreateInviteLinkInput {
-  readonly permissionRole?: InvitePermissionRole;
-  readonly scheduleRoleId?: string;
-  readonly targetMembershipId?: string;
-  readonly targetRosterEntryId?: string;
-}
 
 export interface InviteServiceOptions {
   readonly databaseClient: DatabaseClient;
@@ -52,6 +58,7 @@ export interface InviteServiceOptions {
     authVersion: number,
     clientVersion?: ClientVersion,
   ) => string;
+  readonly inviteTokenSecret?: string;
   readonly platformAdminUids?: ReadonlySet<string>;
 }
 
@@ -67,6 +74,7 @@ export class InviteService {
         clientVersion?: ClientVersion,
       ) => string)
     | undefined;
+  private readonly inviteTokenSecret: string | undefined;
   private readonly permissionService = new GroupPermissionService();
   private readonly platformAdminUids: ReadonlySet<string>;
 
@@ -74,83 +82,126 @@ export class InviteService {
     this.databaseClient = options.databaseClient;
     this.holidayAdminUids = options.holidayAdminUids ?? new Set();
     this.issueSessionForUser = options.issueSessionForUser;
+    this.inviteTokenSecret = options.inviteTokenSecret;
     this.platformAdminUids = options.platformAdminUids ?? new Set();
   }
 
   public async createLink(
     identity: AuthenticatedIdentity,
     groupId: string,
-    input: CreateInviteLinkInput,
+    input: CreateInviteLinkRequest,
   ): Promise<CreateInviteLinkResponse> {
-    return withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedScheduleRoleVersion: input.expectedScheduleRoleVersion,
+        expectedTargetVersion: input.expectedTargetVersion,
         groupId,
-        'manageInvites',
-      );
-
-      const [pendingCount] = await transaction
-        .select({ count: sql<number>`count(*)` })
-        .from(inviteTokens)
-        .where(
-          and(eq(inviteTokens.groupId, authorization.group.id), eq(inviteTokens.status, 'pending')),
+        permissionRole: input.permissionRole,
+        scheduleRoleId: input.scheduleRoleId,
+        targetMembershipId: input.targetMembershipId,
+        targetRosterEntryId: input.targetRosterEntryId,
+      }),
+      resultCodec: {
+        deserialize: (stored, actor) =>
+          deserializeInviteLinkResult(stored, this.deriveInviteToken(actor, input.operationId)),
+        serialize: serializeInviteLinkResult,
+      },
+      run: async (transaction, actor) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageInvites',
         );
-      if ((pendingCount?.count ?? 0) >= MAX_PENDING_INVITES_PER_GROUP) {
-        throw new ApiError({
-          code: 'RATE_LIMITED',
-          statusCode: 429,
-          userMessage: '该群待使用的邀请链接已达上限，请先撤销或等待使用。',
+
+        const [pendingCount] = await transaction
+          .select({ count: sql<number>`count(*)` })
+          .from(inviteTokens)
+          .where(
+            and(
+              eq(inviteTokens.groupId, authorization.group.id),
+              eq(inviteTokens.status, 'pending'),
+            ),
+          );
+        if ((pendingCount?.count ?? 0) >= MAX_PENDING_INVITES_PER_GROUP) {
+          throw new ApiError({
+            code: 'RATE_LIMITED',
+            statusCode: 429,
+            userMessage: '该群待使用的邀请链接已达上限，请先撤销或等待使用。',
+          });
+        }
+
+        const target = await this.resolveCreateTarget(transaction, authorization.group.id, input);
+        assertExpectedVersion({
+          actualVersion: target.version,
+          expectedVersion: input.expectedTargetVersion,
+          id: target.id,
+          objectType: target.objectType,
         });
-      }
+        const scheduleRoleName = await this.validateScheduleRole(
+          transaction,
+          authorization.group.id,
+          input.scheduleRoleId,
+          input.expectedScheduleRoleVersion,
+        );
+        const permissionRole = input.permissionRole ?? 'member';
+        if (
+          permissionRole === 'administrator' &&
+          authorization.membership.role !== 'owner' &&
+          !authorization.user.isDeveloperAdmin
+        ) {
+          throw new ApiError({
+            code: 'FORBIDDEN',
+            statusCode: 403,
+            userMessage: '只有群主可以邀请新的群管理员。',
+          });
+        }
+        const token = this.deriveInviteToken(actor, input.operationId);
+        const tokenHash = hashToken(token);
+        const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
 
-      const target = await this.resolveCreateTarget(transaction, authorization.group.id, input);
-      const scheduleRoleName = await this.validateScheduleRole(
-        transaction,
-        authorization.group.id,
-        input.scheduleRoleId,
-      );
-      const permissionRole = input.permissionRole ?? 'member';
-      const token = randomBytes(32).toString('hex');
-      const tokenHash = createHash('sha256').update(token).digest('hex');
-      const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-
-      await transaction.insert(inviteTokens).values({
-        createdByUserId: authorization.user.id,
-        expiresAt,
-        groupId: authorization.group.id,
-        id: randomUUID(),
-        inviteeRealName: target.realName,
-        permissionRole,
-        scheduleRoleId: input.scheduleRoleId ?? null,
-        targetMembershipId: input.targetMembershipId ?? null,
-        targetRosterEntryId: input.targetRosterEntryId ?? null,
-        tokenHash,
-      });
-      await this.auditWriter.append(transaction, {
-        action: 'invite_created',
-        actorUserId: authorization.user.id,
-        groupId: authorization.group.id,
-        metadata: {
+        await transaction.insert(inviteTokens).values({
+          createdByUserId: authorization.user.id,
+          expiresAt,
+          groupId: authorization.group.id,
+          id: randomUUID(),
           inviteeRealName: target.realName,
           permissionRole,
-          targetType: input.targetMembershipId === undefined ? 'roster_entry' : 'membership',
-        },
-        operationId: randomUUID(),
-        outcome: 'completed',
-        targetId: authorization.group.id,
-        targetType: 'group',
-      });
+          scheduleRoleId: input.scheduleRoleId ?? null,
+          targetMembershipId: input.targetMembershipId ?? null,
+          targetRosterEntryId: input.targetRosterEntryId ?? null,
+          tokenHash,
+        });
+        await this.auditWriter.append(transaction, {
+          action: 'invite_created',
+          actorUserId: authorization.user.id,
+          groupId: authorization.group.id,
+          metadata: {
+            inviteeRealName: target.realName,
+            permissionRole,
+            targetType: input.targetMembershipId === undefined ? 'roster_entry' : 'membership',
+          },
+          operationId: input.operationId,
+          outcome: 'completed',
+          targetId: authorization.group.id,
+          targetType: 'group',
+        });
 
-      return {
-        expiresAt: expiresAt.toISOString(),
-        groupName: authorization.group.name,
-        permissionRole,
-        realName: target.realName,
-        ...(scheduleRoleName === undefined ? {} : { scheduleRoleName }),
-        sharePath: `pages/invite/invite?t=${token}`,
-        token,
-      };
+        return {
+          expiresAt: expiresAt.toISOString(),
+          groupName: authorization.group.name,
+          permissionRole,
+          realName: target.realName,
+          ...(scheduleRoleName === undefined ? {} : { scheduleRoleName }),
+          sharePath: `pages/invite/invite?t=${token}`,
+          token,
+          version: 1,
+        };
+      },
+      scope: 'organization_invite_create',
     });
   }
 
@@ -186,88 +237,133 @@ export class InviteService {
                 invite.scheduleRoleId,
               )) ?? undefined,
           }),
+      version: invite.version,
     };
   }
 
   public async accept(
     identity: AuthenticatedIdentity,
-    token: string,
-    confirmRealName: string,
+    input: AcceptInviteRequest,
   ): Promise<AcceptInviteResponse> {
-    const tokenHash = hashToken(token);
+    const tokenHash = hashToken(input.token);
 
     return withTransaction(this.databaseClient, async (transaction) => {
       const currentUser = await this.getActiveUserInTransaction(transaction, identity);
       const invite = await this.lockInvite(transaction, tokenHash);
-      assertInviteUsable(invite);
-      const confirmedName = confirmRealName.trim();
-      if (confirmedName.length === 0 || confirmedName !== invite.inviteeRealName) {
+      const resultUserId = await this.resolveInviteResultUserId(
+        transaction,
+        invite,
+        currentUser.id,
+      );
+      if (
+        invite.status === 'used' &&
+        (invite.usedByUserId === null || currentUser.id !== invite.usedByUserId)
+      ) {
         throw new ApiError({
-          code: 'VALIDATION_FAILED',
-          statusCode: 400,
-          userMessage: '确认姓名与邀请不一致。',
+          code: 'INVITE_USED',
+          statusCode: 409,
+          userMessage: '该邀请链接已被使用。',
         });
       }
-
-      const [group] = await transaction
-        .select({
-          groupCode: groups.groupCode,
-          id: groups.id,
-          name: groups.name,
-          version: groups.version,
-        })
-        .from(groups)
-        .where(and(eq(groups.id, invite.groupId), isNull(groups.deletedAt)))
-        .limit(1)
-        .for('update');
-      if (group === undefined) {
-        throw inviteInvalid();
-      }
-
-      let role: GroupRole;
-      let tokenOverride: string | undefined;
-      if (invite.targetRosterEntryId !== null) {
-        role = await this.acceptRosterTarget(transaction, group, invite, currentUser.id);
-      } else if (invite.targetMembershipId !== null) {
-        const result = await this.acceptMembershipTarget(
-          transaction,
-          group,
-          invite,
-          currentUser,
-          identity.clientVersion,
-        );
-        role = result.role;
-        tokenOverride = result.token;
-      } else {
-        throw inviteInvalid();
-      }
-
-      await this.markInviteUsed(transaction, invite.id, currentUser.id);
-      const usedByUserId = currentUser.id;
-      await this.auditWriter.append(transaction, {
-        action: tokenOverride === undefined ? 'invite_accepted' : 'invite_accepted_merged',
-        actorUserId: usedByUserId,
-        groupId: group.id,
-        metadata: {
-          inviteeRealName: invite.inviteeRealName,
-          permissionRole: invite.permissionRole,
+      return withIdempotentOperation(
+        transaction,
+        {
+          actorUserId: resultUserId,
+          operationId: input.operationId,
+          requestFingerprint: createOrganizationFingerprint({
+            confirmRealName: input.confirmRealName,
+            expectedVersion: input.expectedVersion,
+            tokenHash,
+          }),
+          scope: 'organization_invite_accept',
         },
-        operationId: randomUUID(),
-        outcome: 'completed',
-        targetId: group.id,
-        targetType: 'group',
-      });
+        async () => {
+          assertExpectedVersion({
+            actualVersion: invite.version,
+            expectedVersion: input.expectedVersion,
+            id: invite.id,
+            objectType: 'invite',
+          });
+          assertInviteUsable(invite);
+          const confirmedName = input.confirmRealName.trim();
+          if (confirmedName.length === 0 || confirmedName !== invite.inviteeRealName) {
+            throw new ApiError({
+              code: 'VALIDATION_FAILED',
+              statusCode: 400,
+              userMessage: '确认姓名与邀请不一致。',
+            });
+          }
 
-      return {
-        group: {
-          groupCode: group.groupCode,
-          id: group.id,
-          name: group.name,
-          role,
-          version: group.version,
+          const [group] = await transaction
+            .select({
+              groupCode: groups.groupCode,
+              id: groups.id,
+              name: groups.name,
+              version: groups.version,
+            })
+            .from(groups)
+            .where(and(eq(groups.id, invite.groupId), isNull(groups.deletedAt)))
+            .limit(1)
+            .for('update');
+          if (group === undefined) {
+            throw inviteInvalid();
+          }
+
+          let role: GroupRole;
+          let tokenOverride: string | undefined;
+          if (invite.targetRosterEntryId !== null) {
+            role = await this.acceptRosterTarget(transaction, group, invite, currentUser.id);
+          } else if (invite.targetMembershipId !== null) {
+            const result = await this.acceptMembershipTarget(
+              transaction,
+              group,
+              invite,
+              currentUser,
+              identity.clientVersion,
+            );
+            role = result.role;
+            tokenOverride = result.token;
+          } else {
+            throw inviteInvalid();
+          }
+
+          await this.markInviteUsed(transaction, invite.id, resultUserId);
+          await this.auditWriter.append(transaction, {
+            action: tokenOverride === undefined ? 'invite_accepted' : 'invite_accepted_merged',
+            actorUserId: resultUserId,
+            groupId: group.id,
+            metadata: {
+              inviteeRealName: invite.inviteeRealName,
+              permissionRole: invite.permissionRole,
+            },
+            operationId: input.operationId,
+            outcome: 'completed',
+            targetId: group.id,
+            targetType: 'group',
+          });
+
+          return {
+            group: {
+              groupCode: group.groupCode,
+              id: group.id,
+              name: group.name,
+              role,
+              version: group.version,
+            },
+            ...(tokenOverride === undefined ? {} : { token: tokenOverride }),
+          };
         },
-        ...(tokenOverride === undefined ? {} : { token: tokenOverride }),
-      };
+        {
+          deserialize: (stored) =>
+            this.deserializeAcceptInviteResult(
+              transaction,
+              stored,
+              resultUserId,
+              identity.clientVersion,
+            ),
+          serialize: serializeAcceptInviteResult,
+        },
+      );
     });
   }
 
@@ -275,62 +371,90 @@ export class InviteService {
     identity: AuthenticatedIdentity,
     groupId: string,
     token: string,
-  ): Promise<void> {
+    input: RevokeInviteRequest,
+  ): Promise<OrganizationMutationCompleted> {
     const tokenHash = hashToken(token);
-    await withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    return runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'manageInvites',
-      );
-      const [invite] = await transaction
-        .select()
-        .from(inviteTokens)
-        .where(
-          and(
-            eq(inviteTokens.groupId, authorization.group.id),
-            eq(inviteTokens.tokenHash, tokenHash),
-          ),
-        )
-        .limit(1)
-        .for('update');
-      if (invite === undefined) {
-        throw inviteInvalid();
-      }
-      if (invite.status !== 'pending') {
-        throw new ApiError({
-          code: 'CONFLICT',
-          statusCode: 409,
-          userMessage: '只能撤销待使用的邀请链接。',
+        tokenHash,
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'manageInvites',
+        );
+        const [invite] = await transaction
+          .select()
+          .from(inviteTokens)
+          .where(
+            and(
+              eq(inviteTokens.groupId, authorization.group.id),
+              eq(inviteTokens.tokenHash, tokenHash),
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (invite === undefined) {
+          throw inviteInvalid();
+        }
+        assertExpectedVersion({
+          actualVersion: invite.version,
+          expectedVersion: input.expectedVersion,
+          id: invite.id,
+          objectType: 'invite',
         });
-      }
+        if (invite.status !== 'pending') {
+          throw new ApiError({
+            code: 'CONFLICT',
+            statusCode: 409,
+            userMessage: '只能撤销待使用的邀请链接。',
+          });
+        }
 
-      await transaction
-        .update(inviteTokens)
-        .set({ status: 'revoked', version: sql`${inviteTokens.version} + 1` })
-        .where(eq(inviteTokens.id, invite.id));
-      await this.auditWriter.append(transaction, {
-        action: 'invite_revoked',
-        actorUserId: authorization.user.id,
-        groupId: authorization.group.id,
-        metadata: { inviteeRealName: invite.inviteeRealName },
-        operationId: randomUUID(),
-        outcome: 'completed',
-        targetId: authorization.group.id,
-        targetType: 'group',
-      });
+        await transaction
+          .update(inviteTokens)
+          .set({ status: 'revoked', version: sql`${inviteTokens.version} + 1` })
+          .where(eq(inviteTokens.id, invite.id));
+        await this.auditWriter.append(transaction, {
+          action: 'invite_revoked',
+          actorUserId: authorization.user.id,
+          groupId: authorization.group.id,
+          metadata: { inviteeRealName: invite.inviteeRealName },
+          operationId: input.operationId,
+          outcome: 'completed',
+          targetId: authorization.group.id,
+          targetType: 'group',
+        });
+        return organizationMutationCompleted();
+      },
+      scope: 'organization_invite_revoke',
     });
   }
 
   private async resolveCreateTarget(
     transaction: DatabaseTransaction,
     groupId: string,
-    input: CreateInviteLinkInput,
-  ): Promise<{ readonly realName: string }> {
+    input: CreateInviteLinkRequest,
+  ): Promise<{
+    readonly id: string;
+    readonly objectType: 'group_membership' | 'roster_entry';
+    readonly realName: string;
+    readonly version: number;
+  }> {
     if (input.targetMembershipId !== undefined) {
       const [membership] = await transaction
-        .select({ realName: userProfiles.realName })
+        .select({
+          id: groupMemberships.id,
+          realName: userProfiles.realName,
+          version: groupMemberships.version,
+        })
         .from(groupMemberships)
         .innerJoin(users, eq(users.id, groupMemberships.userId))
         .innerJoin(userProfiles, eq(userProfiles.userId, users.id))
@@ -354,11 +478,20 @@ export class InviteService {
           userMessage: '邀请目标成员不存在或不可用。',
         });
       }
-      return { realName: membership.realName };
+      return {
+        id: membership.id,
+        objectType: 'group_membership',
+        realName: membership.realName,
+        version: membership.version,
+      };
     }
 
     const [roster] = await transaction
-      .select({ realName: rosterEntries.realName })
+      .select({
+        id: rosterEntries.id,
+        realName: rosterEntries.realName,
+        version: rosterEntries.version,
+      })
       .from(rosterEntries)
       .where(
         and(
@@ -377,19 +510,29 @@ export class InviteService {
         userMessage: '邀请目标待认领人员不存在或不可用。',
       });
     }
-    return { realName: roster.realName };
+    return {
+      id: roster.id,
+      objectType: 'roster_entry',
+      realName: roster.realName,
+      version: roster.version,
+    };
   }
 
   private async validateScheduleRole(
     transaction: DatabaseTransaction,
     groupId: string,
     scheduleRoleId: string | undefined,
+    expectedVersion: number | undefined,
   ): Promise<string | undefined> {
     if (scheduleRoleId === undefined) {
       return undefined;
     }
     const [role] = await transaction
-      .select({ name: scheduleRoles.name })
+      .select({
+        id: scheduleRoles.id,
+        name: scheduleRoles.name,
+        version: scheduleRoles.version,
+      })
       .from(scheduleRoles)
       .where(
         and(
@@ -398,7 +541,8 @@ export class InviteService {
           isNull(scheduleRoles.deletedAt),
         ),
       )
-      .limit(1);
+      .limit(1)
+      .for('update');
     if (role === undefined) {
       throw new ApiError({
         code: 'VALIDATION_FAILED',
@@ -406,7 +550,115 @@ export class InviteService {
         userMessage: '排班岗位不存在或不属于该群组。',
       });
     }
+    if (expectedVersion === undefined) {
+      throw new ApiError({
+        code: 'VALIDATION_FAILED',
+        statusCode: 400,
+        userMessage: '选择排班岗位时必须提交其当前版本。',
+      });
+    }
+    assertExpectedVersion({
+      actualVersion: role.version,
+      expectedVersion,
+      id: role.id,
+      objectType: 'schedule_role',
+    });
     return role.name;
+  }
+
+  private deriveInviteToken(actor: OrganizationMutationActor, operationId: string): string {
+    if (this.inviteTokenSecret === undefined || this.inviteTokenSecret.length < 32) {
+      throw new ApiError({
+        code: 'INTERNAL_ERROR',
+        statusCode: 500,
+        userMessage: '邀请链接签发暂不可用，请稍后重试。',
+      });
+    }
+    return createHmac('sha256', this.inviteTokenSecret)
+      .update(`schedule-invite:v1:${actor.id}:${operationId}`)
+      .digest('hex');
+  }
+
+  private async resolveInviteResultUserId(
+    transaction: DatabaseTransaction,
+    invite: typeof inviteTokens.$inferSelect,
+    currentUserId: string,
+  ): Promise<string> {
+    if (invite.status === 'used') {
+      if (invite.usedByUserId === null) throw inviteInvalid();
+      return invite.usedByUserId;
+    }
+    if (invite.targetRosterEntryId !== null) {
+      const [roster] = await transaction
+        .select({ status: rosterEntries.status })
+        .from(rosterEntries)
+        .where(
+          and(
+            eq(rosterEntries.id, invite.targetRosterEntryId),
+            eq(rosterEntries.groupId, invite.groupId),
+            isNull(rosterEntries.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (roster?.status !== 'pending') throw inviteInvalid();
+      return currentUserId;
+    }
+    if (invite.targetMembershipId !== null) {
+      const [membership] = await transaction
+        .select({ cloudbaseUid: users.cloudbaseUid, userId: groupMemberships.userId })
+        .from(groupMemberships)
+        .innerJoin(users, eq(users.id, groupMemberships.userId))
+        .where(
+          and(
+            eq(groupMemberships.id, invite.targetMembershipId),
+            eq(groupMemberships.groupId, invite.groupId),
+            eq(groupMemberships.status, 'active'),
+            isNull(groupMemberships.deletedAt),
+            isNull(users.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for('update');
+      if (membership === undefined) throw inviteInvalid();
+      return membership.cloudbaseUid === null ? currentUserId : membership.userId;
+    }
+    throw inviteInvalid();
+  }
+
+  private async deserializeAcceptInviteResult(
+    transaction: DatabaseTransaction,
+    stored: Record<string, unknown>,
+    resultUserId: string,
+    clientVersion?: ClientVersion,
+  ): Promise<AcceptInviteResponse> {
+    const reissueSession = stored['reissueSession'];
+    if (typeof reissueSession !== 'boolean') {
+      throw invalidStoredOperationResult();
+    }
+    const parsed = acceptInviteResponseSchema.safeParse({ group: stored['group'] });
+    if (!parsed.success) throw invalidStoredOperationResult();
+    if (!reissueSession) return parsed.data;
+    if (this.issueSessionForUser === undefined) throw invalidStoredOperationResult();
+
+    const [user] = await transaction
+      .select({ authVersion: users.authVersion, wechatOpenid: users.wechatOpenid })
+      .from(users)
+      .where(and(eq(users.id, resultUserId), eq(users.status, 'active'), isNull(users.deletedAt)))
+      .limit(1)
+      .for('update');
+    if (user?.wechatOpenid === null || user?.wechatOpenid === undefined) {
+      throw invalidStoredOperationResult();
+    }
+    return {
+      ...parsed.data,
+      token: this.issueSessionForUser(
+        resultUserId,
+        user.wechatOpenid,
+        user.authVersion,
+        clientVersion,
+      ),
+    };
   }
 
   private async acceptRosterTarget(
@@ -930,6 +1182,45 @@ export class InviteService {
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+function serializeInviteLinkResult(result: CreateInviteLinkResponse): Record<string, unknown> {
+  return {
+    expiresAt: result.expiresAt,
+    groupName: result.groupName,
+    permissionRole: result.permissionRole,
+    realName: result.realName,
+    ...(result.scheduleRoleName === undefined ? {} : { scheduleRoleName: result.scheduleRoleName }),
+    version: result.version,
+  };
+}
+
+function deserializeInviteLinkResult(
+  stored: Record<string, unknown>,
+  token: string,
+): CreateInviteLinkResponse {
+  const parsed = createInviteLinkResponseSchema.safeParse({
+    ...stored,
+    sharePath: `pages/invite/invite?t=${token}`,
+    token,
+  });
+  if (!parsed.success) throw invalidStoredOperationResult();
+  return parsed.data;
+}
+
+function serializeAcceptInviteResult(result: AcceptInviteResponse): Record<string, unknown> {
+  return {
+    group: result.group,
+    reissueSession: result.token !== undefined,
+  };
+}
+
+function invalidStoredOperationResult(): ApiError {
+  return new ApiError({
+    code: 'INTERNAL_ERROR',
+    statusCode: 500,
+    userMessage: '操作已完成，但结果恢复失败，请刷新后重试。',
+  });
 }
 
 function assertInviteUsable(invite: typeof inviteTokens.$inferSelect): void {

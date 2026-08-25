@@ -344,7 +344,11 @@ export function registerGroupRoutes(
   );
 
   app.put('/groups/:groupId/visitor-key', { preHandler: app.authenticate }, async (request) =>
-    visitorKeyService.regenerateKey(getAuthenticatedIdentity(request), parseGroupId(request)),
+    visitorKeyService.regenerateKey(
+      getAuthenticatedIdentity(request),
+      parseGroupId(request),
+      parseGroupVersionMutationInput(request),
+    ),
   );
 
   app.get('/groups/:groupId/group-qr', { preHandler: app.authenticate }, async (request) => {

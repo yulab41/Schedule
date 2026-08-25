@@ -41,6 +41,7 @@ describeWithDatabase('groups and roster claiming', () => {
       }),
       databaseClient: client,
       logger: false,
+      wechatSessionSecret: 'group-routes-invite-secret-0123456789abcdef',
     });
     app.addHook('preValidation', (request, _reply, done) => {
       if (
@@ -555,23 +556,34 @@ describeWithDatabase('groups and roster claiming', () => {
       id: string;
       isUnclaimed?: boolean;
       realName: string;
+      version: number;
     }>;
     expect(memberRows.find((row) => row.realName === 'Candidate Doctor')?.isUnclaimed).toBe(true);
 
     const unclaimedMembershipId = memberRows.find((row) => row.realName === 'Candidate Doctor')
       ?.id as string;
+    const unclaimedMembershipVersion = memberRows.find((row) => row.realName === 'Candidate Doctor')
+      ?.version as number;
     const invite = await app.inject({
       headers: { authorization: 'Bearer owner-token' },
       method: 'POST',
-      payload: { targetMembershipId: unclaimedMembershipId },
+      payload: {
+        expectedTargetVersion: unclaimedMembershipVersion,
+        targetMembershipId: unclaimedMembershipId,
+      },
       url: `/groups/${groupId}/invite-links`,
     });
     expect(invite.statusCode, invite.body).toBe(201);
-    const inviteToken = (invite.json() as { token: string }).token;
+    const inviteBody = invite.json() as { token: string; version: number };
+    const inviteToken = inviteBody.token;
     const rejoin = await app.inject({
       headers: { authorization: 'Bearer candidate-token' },
       method: 'POST',
-      payload: { confirmRealName: 'Candidate Doctor', token: inviteToken },
+      payload: {
+        confirmRealName: 'Candidate Doctor',
+        expectedVersion: inviteBody.version,
+        token: inviteToken,
+      },
       url: '/invites/accept',
     });
     expect(rejoin.statusCode, rejoin.body).toBe(200);

@@ -164,6 +164,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       new InviteService({
         databaseClient: options.databaseClient,
         holidayAdminUids,
+        ...(options.wechatSessionSecret === undefined
+          ? {}
+          : { inviteTokenSecret: options.wechatSessionSecret }),
         ...(wechatAuthService === undefined
           ? {}
           : {

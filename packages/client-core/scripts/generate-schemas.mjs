@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  acceptInviteResponseSchema,
   addGroupMembersResponseSchema,
   addRosterEntriesResponseSchema,
   apiErrorCodes,
@@ -13,6 +14,7 @@ import {
   calendarReadModelSchema,
   clientCapabilityResponseSchema,
   convertPendingRosterResponseSchema,
+  createInviteLinkResponseSchema,
   dissolvedGroupListSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestListSchema,
@@ -60,6 +62,7 @@ import {
   swapPreviewSchema,
   swapRequestListSchema,
   swapRequestSchema,
+  visitorKeyChangedResponseSchema,
 } from '../../contracts/dist/index.js';
 import { format, resolveConfig } from 'prettier';
 import { z } from 'zod';
@@ -77,6 +80,10 @@ const source = await format(
   renderGeneratedSchemas({
     errorCodes: [...apiErrorCodes],
     schemas: {
+      acceptInviteResponse: sanitizeJsonSchema(
+        z.toJSONSchema(acceptInviteResponseSchema),
+        'acceptInviteResponse',
+      ),
       addGroupMembersResponse: sanitizeJsonSchema(
         z.toJSONSchema(addGroupMembersResponseSchema),
         'addGroupMembersResponse',
@@ -104,6 +111,10 @@ const source = await format(
       convertPendingRosterResponse: sanitizeJsonSchema(
         z.toJSONSchema(convertPendingRosterResponseSchema),
         'convertPendingRosterResponse',
+      ),
+      createInviteLinkResponse: sanitizeJsonSchema(
+        z.toJSONSchema(createInviteLinkResponseSchema),
+        'createInviteLinkResponse',
       ),
       dissolvedGroupList: sanitizeJsonSchema(
         z.toJSONSchema(dissolvedGroupListSchema),
@@ -266,6 +277,10 @@ const source = await format(
       swapPreview: sanitizeJsonSchema(z.toJSONSchema(swapPreviewSchema), 'swapPreview'),
       swapRequest: sanitizeJsonSchema(z.toJSONSchema(swapRequestSchema), 'swapRequest'),
       swapRequestList: sanitizeJsonSchema(z.toJSONSchema(swapRequestListSchema), 'swapRequestList'),
+      visitorKeyChangedResponse: sanitizeJsonSchema(
+        z.toJSONSchema(visitorKeyChangedResponseSchema),
+        'visitorKeyChangedResponse',
+      ),
     },
   }),
   { ...prettierConfig, filepath: outputPath },

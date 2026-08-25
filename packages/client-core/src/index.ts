@@ -18,6 +18,14 @@ export {
   type ClientTransport,
 } from './endpoint.js';
 export {
+  acceptInviteResponseDecoder,
+  createInviteLinkResponseDecoder,
+  createInviteVisitorWriteClient,
+  inviteVisitorWriteEndpoints,
+  visitorKeyChangedResponseDecoder,
+  type InviteVisitorWriteClient,
+} from './invite-visitor-write-client.js';
+export {
   createGroupMobilePhoneConsentClient,
   groupMobilePhoneConsentDecoder,
   groupMobilePhoneConsentEndpoints,

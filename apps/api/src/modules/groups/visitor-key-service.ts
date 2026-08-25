@@ -1,13 +1,19 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 
+import type { GroupVersionMutationRequest, VisitorKeyChangedResponse } from '@schedule/contracts';
 import { type DatabaseClient, groups, withTransaction } from '@schedule/database';
 import { eq, sql } from 'drizzle-orm';
 
 import type { AuthenticatedIdentity } from '../../adapters/auth/auth-port.js';
 import { ApiError } from '../../plugins/error-handler.js';
+import { assertExpectedVersion } from '../concurrency/version-guard.js';
 import { AuditWriter } from '../audit/audit-writer.js';
 import { toWechatGatewayApiError } from '../wechat/wechat-errors.js';
 import { WechatGatewayError, type WechatGateway } from '../wechat/wechat-gateway.js';
+import {
+  createOrganizationFingerprint,
+  runOrganizationMutation,
+} from './organization-operation.js';
 import { GroupPermissionService } from './permission-service.js';
 
 const QR_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -25,33 +31,51 @@ export class VisitorKeyService {
   public async regenerateKey(
     identity: AuthenticatedIdentity,
     groupId: string,
-  ): Promise<{ readonly visitorKeyChanged: true }> {
-    await withTransaction(this.databaseClient, async (transaction) => {
-      const authorization = await this.permissionService.requirePermission(
-        transaction,
-        identity,
+    input: GroupVersionMutationRequest,
+  ): Promise<VisitorKeyChangedResponse> {
+    const result = await runOrganizationMutation({
+      databaseClient: this.databaseClient,
+      identity,
+      operationId: input.operationId,
+      requestFingerprint: createOrganizationFingerprint({
+        expectedVersion: input.expectedVersion,
         groupId,
-        'regenerateVisitorKey',
-      );
-      const visitorKey = randomBytes(16).toString('hex');
-      await transaction
-        .update(groups)
-        .set({ visitorKey, version: sql`${groups.version} + 1` })
-        .where(eq(groups.id, authorization.group.id));
-      await this.auditWriter.append(transaction, {
-        action: 'visitor_key_regenerated',
-        actorUserId: authorization.user.id,
-        groupId: authorization.group.id,
-        metadata: {},
-        operationId: randomUUID(),
-        outcome: 'completed',
-        targetId: authorization.group.id,
-        targetType: 'group',
-      });
+      }),
+      run: async (transaction) => {
+        const authorization = await this.permissionService.requirePermission(
+          transaction,
+          identity,
+          groupId,
+          'regenerateVisitorKey',
+        );
+        assertExpectedVersion({
+          actualVersion: authorization.group.version,
+          expectedVersion: input.expectedVersion,
+          id: authorization.group.id,
+          objectType: 'group',
+        });
+        const visitorKey = randomBytes(16).toString('hex');
+        await transaction
+          .update(groups)
+          .set({ visitorKey, version: sql`${groups.version} + 1` })
+          .where(eq(groups.id, authorization.group.id));
+        await this.auditWriter.append(transaction, {
+          action: 'visitor_key_regenerated',
+          actorUserId: authorization.user.id,
+          groupId: authorization.group.id,
+          metadata: {},
+          operationId: input.operationId,
+          outcome: 'completed',
+          targetId: authorization.group.id,
+          targetType: 'group',
+        });
+        return { visitorKeyChanged: true } as const;
+      },
+      scope: 'organization_visitor_key_regenerate',
     });
     this.qrCache.delete(groupId);
 
-    return { visitorKeyChanged: true };
+    return result;
   }
 
   public async getGroupQr(

@@ -33,6 +33,74 @@ function createTransaction(): {
 }
 
 describe('withIdempotentOperation', () => {
+  it('stores only serialized safe data and rehydrates a secret result on replay', async () => {
+    const storedSet = vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) }));
+    const firstTransaction = {
+      insert: vi.fn(() => ({ values: vi.fn().mockResolvedValue(undefined) })),
+      update: vi.fn(() => ({ set: storedSet })),
+    } as unknown as DatabaseTransaction;
+    const codec = {
+      deserialize: async (stored: Record<string, unknown>) => {
+        if (typeof stored['safe'] !== 'string') throw new Error('invalid stored result');
+        return { safe: stored['safe'], secret: 'reissued-secret' };
+      },
+      serialize: (result: { readonly safe: string; readonly secret: string }) => ({
+        safe: result.safe,
+      }),
+    };
+
+    await expect(
+      withIdempotentOperation(
+        firstTransaction,
+        {
+          actorUserId: 'user-1',
+          operationId: 'operation-1',
+          requestFingerprint: 'fingerprint-1',
+          scope: 'scope-1',
+        },
+        async () => ({ safe: 'stored', secret: 'raw-secret' }),
+        codec,
+      ),
+    ).resolves.toEqual({ safe: 'stored', secret: 'raw-secret' });
+    expect(storedSet).toHaveBeenCalledWith(expect.objectContaining({ result: { safe: 'stored' } }));
+
+    const replayTransaction = {
+      insert: vi.fn(() => ({ values: vi.fn().mockRejectedValue(duplicateKeyError()) })),
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            limit: vi.fn(() => ({
+              for: vi.fn(() =>
+                Promise.resolve([
+                  {
+                    expiresAt: new Date(Date.now() + 60_000),
+                    requestFingerprint: 'fingerprint-1',
+                    result: { safe: 'stored' },
+                    status: 'completed',
+                  },
+                ]),
+              ),
+            })),
+          })),
+        })),
+      })),
+    } as unknown as DatabaseTransaction;
+
+    await expect(
+      withIdempotentOperation(
+        replayTransaction,
+        {
+          actorUserId: 'user-1',
+          operationId: 'operation-1',
+          requestFingerprint: 'fingerprint-1',
+          scope: 'scope-1',
+        },
+        vi.fn(async () => ({ safe: 'unused', secret: 'unused' })),
+        codec,
+      ),
+    ).resolves.toEqual({ safe: 'stored', secret: 'reissued-secret' });
+  });
+
   it('maps a duplicate key on the retry insert to 409 instead of a driver error', async () => {
     const { insertValues, transaction } = createTransaction();
 

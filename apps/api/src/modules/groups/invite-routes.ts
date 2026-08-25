@@ -2,11 +2,18 @@ import {
   acceptInviteRequestSchema,
   createInviteLinkRequestSchema,
   resolveInviteRequestSchema,
+  revokeInviteRequestSchema,
+} from '@schedule/contracts';
+import type {
+  AcceptInviteRequest,
+  CreateInviteLinkRequest,
+  RevokeInviteRequest,
 } from '@schedule/contracts';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
 import { ApiError } from '../../plugins/error-handler.js';
+import { resolveDangerousOperationId } from '../../plugins/operation-id.js';
 import type { InviteService } from './invite-service.js';
 
 const groupIdSchema = z.string().uuid();
@@ -17,7 +24,7 @@ export function registerInviteRoutes(app: FastifyInstance, inviteService: Invite
     '/groups/:groupId/invite-links',
     { preHandler: app.authenticate },
     async (request, reply) => {
-      const input = parseCreateInviteLink(request.body);
+      const input = parseCreateInviteLink(request);
       return reply
         .code(201)
         .send(
@@ -35,11 +42,7 @@ export function registerInviteRoutes(app: FastifyInstance, inviteService: Invite
   );
 
   app.post('/invites/accept', { preHandler: app.authenticate }, (request) =>
-    inviteService.accept(
-      getAuthenticatedIdentity(request),
-      parseAcceptToken(request.body),
-      parseConfirmRealName(request.body),
-    ),
+    inviteService.accept(getAuthenticatedIdentity(request), parseAcceptInvite(request)),
   );
 
   app.post(
@@ -50,6 +53,7 @@ export function registerInviteRoutes(app: FastifyInstance, inviteService: Invite
         getAuthenticatedIdentity(request),
         parseGroupId(request),
         parseRevokeToken(request),
+        parseRevokeInvite(request),
       );
       return reply.code(204).send();
     },
@@ -75,25 +79,8 @@ function parseRevokeToken(request: FastifyRequest): string {
   return parseOrThrow(tokenSchema, (request.params as { token?: unknown }).token);
 }
 
-function parseCreateInviteLink(value: unknown) {
-  const result = createInviteLinkRequestSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-  return {
-    ...(result.data.permissionRole === undefined
-      ? {}
-      : { permissionRole: result.data.permissionRole }),
-    ...(result.data.scheduleRoleId === undefined
-      ? {}
-      : { scheduleRoleId: result.data.scheduleRoleId }),
-    ...(result.data.targetMembershipId === undefined
-      ? {}
-      : { targetMembershipId: result.data.targetMembershipId }),
-    ...(result.data.targetRosterEntryId === undefined
-      ? {}
-      : { targetRosterEntryId: result.data.targetRosterEntryId }),
-  };
+function parseCreateInviteLink(request: FastifyRequest): CreateInviteLinkRequest {
+  return parseDangerousContractBody(request, createInviteLinkRequestSchema);
 }
 
 function parseResolveToken(value: unknown): string {
@@ -104,20 +91,31 @@ function parseResolveToken(value: unknown): string {
   return result.data.token;
 }
 
-function parseAcceptToken(value: unknown): string {
-  const result = acceptInviteRequestSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-  return result.data.token;
+function parseAcceptInvite(request: FastifyRequest): AcceptInviteRequest {
+  return parseDangerousContractBody(request, acceptInviteRequestSchema);
 }
 
-function parseConfirmRealName(value: unknown): string {
-  const result = acceptInviteRequestSchema.safeParse(value);
-  if (!result.success) {
-    throwValidationError();
-  }
-  return result.data.confirmRealName;
+function parseRevokeInvite(request: FastifyRequest): RevokeInviteRequest {
+  return parseDangerousContractBody(request, revokeInviteRequestSchema);
+}
+
+function parseDangerousContractBody<Output extends { readonly operationId: string }>(
+  request: FastifyRequest,
+  schema: z.ZodType<Output>,
+): Output {
+  const body =
+    typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body)
+      ? (request.body as Readonly<Record<string, unknown>>)
+      : {};
+  const result = schema.safeParse({
+    ...body,
+    operationId: resolveDangerousOperationId(
+      request.headers['idempotency-key'],
+      body['operationId'] as string | undefined,
+    ),
+  });
+  if (!result.success) throwValidationError();
+  return result.data;
 }
 
 function parseOrThrow<Output>(schema: z.ZodType<Output>, value: unknown): Output {

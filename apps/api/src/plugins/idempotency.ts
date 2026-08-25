@@ -17,10 +17,16 @@ export interface IdempotentOperationInput {
   readonly scope: string;
 }
 
+export interface IdempotentOperationResultCodec<Result> {
+  readonly deserialize: (stored: Record<string, unknown>) => Promise<Result> | Result;
+  readonly serialize: (result: Result) => Record<string, unknown>;
+}
+
 export async function withIdempotentOperation<Result>(
   transaction: DatabaseTransaction,
   input: IdempotentOperationInput,
   operation: () => Promise<Result>,
+  resultCodec?: IdempotentOperationResultCodec<Result>,
 ): Promise<Result> {
   try {
     await insertIdempotencyKey(transaction, input);
@@ -44,7 +50,7 @@ export async function withIdempotentOperation<Result>(
         await deleteExistingOperation(transaction, input);
         await insertIdempotencyKey(transaction, input);
       } else {
-        const resolved = await resolveExistingOperation<Result>(existing, input);
+        const resolved = await resolveExistingOperation<Result>(existing, input, resultCodec);
         if (resolved !== undefined) {
           return resolved;
         }
@@ -57,7 +63,10 @@ export async function withIdempotentOperation<Result>(
     .update(idempotencyKeys)
     .set({
       completedAt: new Date(),
-      result: result as unknown as Record<string, unknown>,
+      result:
+        resultCodec === undefined
+          ? (result as unknown as Record<string, unknown>)
+          : resultCodec.serialize(result),
       status: 'completed',
       version: sql`${idempotencyKeys.version} + 1`,
     })
@@ -125,12 +134,15 @@ async function readExistingOperation(
 async function resolveExistingOperation<Result>(
   existing: NonNullable<Awaited<ReturnType<typeof readExistingOperation>>>,
   input: IdempotentOperationInput,
+  resultCodec?: IdempotentOperationResultCodec<Result>,
 ): Promise<Result | undefined> {
   if (existing.requestFingerprint !== input.requestFingerprint) {
     throw operationConflict('该操作编号已用于其他请求，请使用新的操作编号。');
   }
   if (existing.status === 'completed' && existing.result !== null) {
-    return existing.result as unknown as Result;
+    return resultCodec === undefined
+      ? (existing.result as unknown as Result)
+      : resultCodec.deserialize(existing.result);
   }
   if (existing.status === 'processing' && existing.expiresAt.valueOf() > Date.now()) {
     throw operationConflict('相同请求正在处理中，请稍后重试。');

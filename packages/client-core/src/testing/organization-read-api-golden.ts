@@ -73,6 +73,7 @@ export const organizationReadApiGoldenResponse = {
     inviteeRealName: '陈医生',
     permissionRole: 'member',
     scheduleRoleName: '一线',
+    version: 1,
   } as const satisfies ResolveInviteResponse,
   members: [
     {
