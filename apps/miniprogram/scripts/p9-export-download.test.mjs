@@ -1,0 +1,54 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { describe, expect, it } from 'vitest';
+
+const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function read(relativePath) {
+  return readFileSync(path.join(appRoot, relativePath), 'utf8');
+}
+
+describe('P9 native export download boundary', () => {
+  it('registers a secure export page and More entry', () => {
+    const app = JSON.parse(read('src/app.json'));
+    const page = read('src/subpackages/insights/components/exports-panel/index.wxml');
+    const workbench = read('src/pages/workbench/index.wxml');
+
+    expect(app.subpackages).toContainEqual({
+      root: 'subpackages/insights',
+      pages: [
+        'pages/visitor-access/index',
+        'pages/insights/index',
+        'pages/notifications/index',
+        'pages/exports/index',
+      ],
+    });
+    expect(page).toContain('导出排班与统计');
+    expect(page).toContain('下载文件');
+    expect(workbench).toContain('handleOpenExports');
+  });
+
+  it('keeps download auth in headers and avoids persistent file/token state', () => {
+    const adapter = read('src/platform/secure-download.ts');
+    const controller = read('src/subpackages/insights/components/exports-panel/controller.ts');
+
+    expect(adapter).toContain('downloadScheduleExport');
+    expect(adapter).toContain('Authorization');
+    expect(adapter).toContain("requireClientCapability('insights')");
+    expect(adapter).not.toContain('visitorKey');
+    expect(adapter).not.toContain('token=');
+    expect(controller).not.toContain('wx.setStorageSync');
+    expect(controller).not.toContain('wx.saveImageToPhotosAlbum');
+  });
+
+  it('covers idle, waiting, ready, failed, and capability-disabled copy', () => {
+    const template = read('src/subpackages/insights/components/exports-panel/index.wxml');
+    expect(template).toContain('导出任务');
+    expect(template).toContain('正在准备导出');
+    expect(template).toContain('下载文件');
+    expect(template).toContain('insights');
+    expect(template).toContain('重新开始');
+  });
+});

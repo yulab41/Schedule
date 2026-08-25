@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A11 原生导出任务与安全下载（已实现，待体验版复核）
+
+- 范围：新增 `subpackages/insights/pages/exports/index` 与 `exports-panel`，支持排班/统计选择、导出任务创建、状态轮询、完成后下载文件和重新开始；从 More 入口进入。
+- 安全边界：`secure-download.ts` 使用登录态 `Authorization` header 调用 `wx.downloadFile`，完成后仅交给 `wx.openDocument`；不把 token 放 URL，不写相册、不写业务缓存、不保存长期文件。
+- 验证：P9 导出边界 3/3、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；packageBytes `6,134,709`，`subpackages/insights` `1,522,211` bytes。正式源码全量测试需在提交后重跑。
+
 ## 2026-08-26 P9-A10 原生通知中心（已实现，待体验版复核）
 
 - 范围：新增 `subpackages/insights/pages/notifications/index` 与 `notifications-panel`，支持未读数、单条已读、全部已读、游标加载更多，以及 loading/empty/error/insights-disabled 状态；从 More 入口进入。

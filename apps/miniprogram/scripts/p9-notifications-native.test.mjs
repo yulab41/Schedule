@@ -18,7 +18,7 @@ describe('P9 native notifications', () => {
 
     expect(app.subpackages).toContainEqual({
       root: 'subpackages/insights',
-      pages: ['pages/visitor-access/index', 'pages/insights/index', 'pages/notifications/index'],
+      pages: ['pages/visitor-access/index', 'pages/insights/index', 'pages/notifications/index', 'pages/exports/index'],
     });
     expect(page).toContain('通知中心');
     expect(page).toContain('unreadCountLabel');

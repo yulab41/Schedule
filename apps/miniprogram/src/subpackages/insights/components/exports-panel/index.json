@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "ui-alert": "/components/ui/ui-alert/index",
+    "ui-button": "/components/ui/ui-button/index"
+  }
+}

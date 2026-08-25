@@ -1,0 +1,8 @@
+{
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "exports-panel": "/subpackages/insights/components/exports-panel/index"
+  }
+}

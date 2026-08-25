@@ -787,6 +787,16 @@
           class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
           aria-role="button"
           aria-disabled="{{!canManageScheduleTools}}"
+          bindtap="handleOpenExports"
+        >
+          <image src="/assets/icons/web-history.svg" mode="aspectFit" />
+          <view><text>导出排班</text><text>生成当前群组的排班或统计文件</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
+          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canManageScheduleTools}}"
           bindtap="handleOpenManualSchedule"
         >
           <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />

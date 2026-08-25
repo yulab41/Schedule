@@ -20,7 +20,7 @@ describe('P9 native insights events and statistics', () => {
 
     expect(app.subpackages).toContainEqual({
       root: 'subpackages/insights',
-      pages: ['pages/visitor-access/index', 'pages/insights/index'],
+      pages: ['pages/visitor-access/index', 'pages/insights/index', 'pages/notifications/index', 'pages/exports/index'],
     });
     expect(page).toContain('事件时间线');
     expect(page).toContain('排班统计');
