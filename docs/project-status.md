@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A12 外部消息偏好与订阅授权边界（已实现，待原生设置入口）
+
+- 范围：新增 `@schedule/client-core` 通知偏好 GET/PUT 严格边界、Mini `externalMessages` runtime client，以及 `wx.requestSubscribeMessage` 适配器；授权结果只在内存归一化为 `accepted/rejected/blocked/filtered/unknown`。
+- 安全/权限：偏好请求由 `externalMessages` capability 前置守卫；授权桥不携带 Bearer、不写缓存、不保存模板 ID 或业务正文；生产 `externalMessages=false` 保持关闭。模板资格、模板 ID 配置和正式能力开关不在本批擅自决定。
+- 验证：client-core 定向 9 files/25 tests、P9-A12 边界 3/3、client-core/Mini typecheck、generated freshness 通过；下一批接入原生设置入口并在用户点击后调用授权桥，再上传体验版。
+
 ## 2026-08-26 P9-A11 原生导出任务与安全下载（已完成，待用户复核）
 
 - 范围：新增 `subpackages/insights/pages/exports/index` 与 `exports-panel`，支持排班/统计选择、导出任务创建、状态轮询、完成后下载文件和重新开始；从 More 入口进入。

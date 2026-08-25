@@ -79,6 +79,12 @@ export {
   type P9InsightsActionsClient,
 } from './p9-insights-actions-client.js';
 export {
+  createNotificationPreferencesClient,
+  memberNotificationPreferencesDecoder,
+  notificationPreferencesEndpoints,
+  type NotificationPreferencesClient,
+} from './notification-preferences-client.js';
+export {
   addGroupMembersResponseDecoder,
   addRosterEntriesResponseDecoder,
   claimGroupResponseDecoder,

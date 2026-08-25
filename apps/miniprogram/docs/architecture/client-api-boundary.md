@@ -21,6 +21,7 @@ Web 与 Mini 使用相同 endpoint descriptor 和黄金响应。Web 的 Zod 解�
 - GET 可以有限次指数退避；非幂等写入不得自动重试。
 - 带 `Idempotency-Key` 的写入可按既定退避重放；body `operationId` 兼容期间与 header 同时出现必须相等。
 - 下载使用 `wx.downloadFile` 的 Bearer header，再通过 FileSystem 复制/打开/分享；凭证不进入 URL。
+- 订阅授权只能由明确的用户点击触发 `wx.requestSubscribeMessage`；只把 `accept/reject/ban/filter` 归一化到内存结果，不写本地存储，不携带 Bearer/token 到微信授权桥。
 - 401 只触发一次会话清理和 `wx.login` 静默重登，必须防止并发请求形成登录风暴。
 
 ## 身份和缓存
@@ -35,6 +36,12 @@ Web 与 Mini 使用相同 endpoint descriptor 和黄金响应。Web 的 Zod 解�
 客户端 capability 和 UI 隐藏只是体验层。API 必须独立校验身份、群成员关系、角色、能力开关、输入、版本、幂等和事务。小程序目录不得复制后端实现或数据库 schema。
 
 具体公共契约、登录/解绑、手排限制、原子补录、访客、订阅和导出决策见[总计划](../plans/2026-08-17-wechat-miniprogram-migration-plan.md#7-公共接口和后端改造)。
+
+## P9 外部消息边界
+
+`notification-preferences-client.ts` 只委托既有 `/groups/:groupId/notification-preferences/mine` 读写契约，runtime 工厂将其 capability 固定为 `externalMessages`；当生产能力关闭时，transport 在发出 `wx.request` 前失败关闭。`dutyReminderHours` 的 `null | integer[]` 联合由 client-core 手写严格 decoder 处理，不扩大生成 compact-schema 语言。
+
+`wechat-subscription.ts` 只负责显式授权桥接和结果归一化，不保存模板 ID、grant、token 或业务正文。后续页面必须先取得用户点击，再传入已获批准的模板 ID；授权结果的审计/偏好写入由独立 API 调用负责，模板资格和生产能力开关不由客户端自行推断或开启。
 
 ## 当前 P2 月历垂直切片
 

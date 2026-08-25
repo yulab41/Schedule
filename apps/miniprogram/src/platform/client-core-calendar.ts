@@ -10,6 +10,7 @@ import {
   createInviteVisitorWriteClient,
   createInvalidResponseError,
   createManualScheduleClient,
+  createNotificationPreferencesClient,
   createNetworkError,
   createOrganizationReadClient,
   createOrganizationWriteClient,
@@ -29,6 +30,7 @@ import {
   type P9InsightsActionsClient,
   type InviteVisitorWriteClient,
   type ManualScheduleClient,
+  type NotificationPreferencesClient,
   type OrganizationReadClient,
   type OrganizationWriteClient,
   type SchedulingConfigWriteClient,
@@ -299,6 +301,15 @@ export function createRuntimeP9InsightsActionsClient(
 ): P9InsightsActionsClient {
   return createP9InsightsActionsClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, 'insights'),
+  );
+}
+
+export function createRuntimeNotificationPreferencesClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): NotificationPreferencesClient {
+  return createNotificationPreferencesClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'externalMessages'),
   );
 }
 
