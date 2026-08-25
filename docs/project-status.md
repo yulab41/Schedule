@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A9 Mini runtime 通知/导出任务 bridge（已实现，待体验版复核）
+
+- 范围：新增 `createRuntimeP9InsightsActionsClient`，把通知列表/未读/已读与导出任务创建/状态 JSON 边界接入 Mini transport；统一 Bearer 会话恢复和 `insights` capability。
+- 边界：本批不接入 `wx.downloadFile`、Blob、FileSystem 或 URL token，不创建通知/导出原生页面；生产 `insights=false` 保持关闭。
+- 验证：Mini typecheck、runtime boundary 3/3、production verify、source/package/determinism/CI dry-run 通过；packageBytes `5,363,577`，`subpackages/insights` `762,357` bytes。提交后必须上传体验版本并追加候选白名单。
+
 ## 2026-08-26 P9-A8 通知与导出任务共享 JSON 边界（已完成）
 
 - 范围：新增 `P9InsightsActionsClient`，覆盖通知列表/未读数/单条已读/全部已读，以及导出任务创建与状态查询；所有 JSON 请求统一 Bearer、严格 decoder、游标/筛选和 URI 编码。

@@ -38,5 +38,7 @@ describe('P2 client-core calendar boundary', () => {
     expect(source).toContain('createRuntimeInsightsReadClient');
     expect(source).toContain('createInsightsReadClient');
     expect(source).toContain("createRuntimeWxJsonTransport(getAccessToken, authentication, 'insights')");
+    expect(source).toContain('createRuntimeP9InsightsActionsClient');
+    expect(source).toContain('createP9InsightsActionsClient');
   });
 });
