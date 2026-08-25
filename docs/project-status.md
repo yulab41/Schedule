@@ -9,8 +9,8 @@
 - 能力决策：目录接口属于正式成员只读 core 能力，API `GET` facets/search 与 `POST` lookup 明确分类为 `core`；guest/vkey 路径仍拒绝，组织管理写接口仍归 `organization`。该决策已由 API capability 单测锁定。
 - Mini 边界：新增 `createRuntimeDirectoryReadClient` 和纯 TS directory controller；不改工作台底栏，不引入第三方 UI，不使用 WebView，不写离线队列或业务缓存。视觉沿用临床蓝、病历卡白底、院区导览、44px 触达区和减少动态。
 - 验证：Mini 全量 57 files/289 tests、P10 controller/page/API capability 定向 9 tests、Mini typecheck/production verify（packageBytes `4,610,600`、manifest `587903cf8d008f7e7b2c1bfb568b5f3d7ebd37127ef5426405c31b60672ef886`）、determinism、CI dry-run、API typecheck/build、contracts/client-core 回归通过；矩阵 600 格既有性能 warning 保持不变。
-- 当前状态：已实现（代码与静态视觉门禁）→ 待体验版/实体 Android 微信复核；本批尚未推送、上传体验版或部署生产。
-- 下一活动批次：推送并上传同一 checkpoint 后，按 P10 清单复核 390/320/大字号、正式成员/管理员、搜索/筛选/拨号、空/错/弱网和前后台；停止条件是用户提供明确通过或带 `buildLabel + caseId + symptomOnFailure` 的失败反馈。
+- 当前状态：已实现（代码与静态视觉门禁）→ 待体验版/实体 Android 微信复核；代码 checkpoint `d9584c09` 已推送到 `origin/codex/p10-directory-implementation`，体验上传已尝试但被 `WECHAT_CI_PRIVATE_KEY_PATH is required` 阻断，未部署生产。
+- 下一活动批次：补充仓库外微信上传私钥后，必须从同一 `d9584c09` 上传体验版，再按 P10 清单复核 390/320/大字号、正式成员/管理员、搜索/筛选/拨号、空/错/弱网和前后台；在同一 checkpoint 上传前不开始下一实现任务。停止条件是用户提供明确通过或带 `buildLabel + caseId + symptomOnFailure` 的失败反馈。
 
 ## 2026-08-25 P10 通讯录共享边界与 Web 黄金（已实现，待用户黄金确认）
 

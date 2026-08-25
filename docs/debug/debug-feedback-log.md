@@ -8,6 +8,7 @@
 - 能力决策：目录正式成员只读接口的 GET facets/search 与 POST lookup 归 `core`，API `classifyRoute` 与 Mini runtime resolver 均锁定该语义；guest/vkey 目录路径无路由，组织写路径仍归 `organization`。这是本轮记录的产品/安全选择，不伪装为重构。
 - 设计与实现：沿用 `frontend-design` 的临床蓝、病历卡白底、院区导览带和 44px 触达区；原生页覆盖 loading/ready/error/empty、科室/人员、七级筛选 Sheet、搜索、cursor load-more、号码可拨/只读和 reduced-motion。页面状态机以 request serial 丢弃过期响应。
 - 运行/浏览器验证：Mini 全量 `pnpm --config.verifyDepsBeforeRun=false --filter @schedule/miniprogram test` 57 files/289 tests 通过；Mini typecheck、production verify、determinism、CI dry-run、API typecheck/build、P10 定向 9 tests 与 `git diff --check` 通过。此前 `pnpm smoke:browser` 在默认 5173 未启动时的 `ERR_CONNECTION_REFUSED` 已记录；本轮未启动微信开发者工具。
+- 上传：checkpoint `d9584c09` 已推送到 `origin/codex/p10-directory-implementation`；`pnpm --config.verifyDepsBeforeRun=false --filter @schedule/miniprogram upload:experience` 因仓库外 `WECHAT_CI_PRIVATE_KEY_PATH` 缺失阻断。未使用 DevTools/CLI 替代路径，未提交审核或正式发布。
 
 ## 2026-08-25 P10 通讯录首个共享边界与 Web 黄金 checkpoint
 
