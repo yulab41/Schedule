@@ -7,6 +7,8 @@
 - 范围：新增 `createRuntimeP9InsightsActionsClient`，把通知列表/未读/已读与导出任务创建/状态 JSON 边界接入 Mini transport；统一 Bearer 会话恢复和 `insights` capability。
 - 边界：本批不接入 `wx.downloadFile`、Blob、FileSystem 或 URL token，不创建通知/导出原生页面；生产 `insights=false` 保持关闭。
 - 验证：Mini typecheck、runtime boundary 3/3、production verify、source/package/determinism/CI dry-run 通过；packageBytes `5,363,577`，`subpackages/insights` `762,357` bytes。提交后必须上传体验版本并追加候选白名单。
+- 体验/运行：`0.1.0-p9.20260826.3` 已上传成功，123 个代码文件、zip `1,049,972` bytes、manifest `81b637c15bf638da32edd97f561a6ebba1599855347a1746208eced6036159de`。生产备份 archive `347c295c-c7b8-456c-b3a0-4512a24d0000` 后追加候选白名单；候选 capability HTTP 200 且 `insights=false`，未提审/未正式发布。
+- 发布：代码 checkpoint `1ccbae28`（`feat(miniprogram): bridge p9 notification and export jobs`）在备份 archive `a45314b4-f1ef-4beb-b582-4aac0d880379`（54 表/171,011 行/79,739,948 bytes/SHA `b52b380dd7462caac0eedfbe58fff679dda20d6f44aec8419d791f6270a3ef0b`）后部署 release `1ccbae28e44ddd183723b1f37f3c030fd8c842fd`；ECS full verifier、health 200 和远端临时清理通过。
 
 ## 2026-08-26 P9-A8 通知与导出任务共享 JSON 边界（已完成）
 
