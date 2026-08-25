@@ -39,6 +39,10 @@ describe('P5 native group mobile-phone consent controller', () => {
           });
           return;
         }
+        if (options.url.endsWith('/groups/catalog') && options.method === 'GET') {
+          options.success({ data: [], statusCode: 200 });
+          return;
+        }
         if (options.url.endsWith(`/groups/${groupId}/mobile-phone-consent`)) {
           if (options.method === 'GET') {
             const response = statusResponses.shift();
@@ -63,6 +67,40 @@ describe('P5 native group mobile-phone consent controller', () => {
           } else {
             options.success({ data: response, statusCode: 200 });
           }
+          return;
+        }
+        if (options.url.endsWith(`/groups/${groupId}/members`) && options.method === 'GET') {
+          options.success({
+            data: [
+              {
+                id: membershipId,
+                isCurrentUser: true,
+                realName: '林医生',
+                role: 'member',
+                version: 3,
+              },
+            ],
+            statusCode: 200,
+          });
+          return;
+        }
+        if (options.url.endsWith(`/groups/${groupId}/contacts`) && options.method === 'GET') {
+          options.success({
+            data: [
+              {
+                isConfirmed: false,
+                membershipId,
+                mobilePhone: '13800007926',
+                shortPhone: '6601',
+                version: 3,
+              },
+            ],
+            statusCode: 200,
+          });
+          return;
+        }
+        if (options.url.endsWith(`/groups/${groupId}/claim-requests`) && options.method === 'GET') {
+          options.success({ data: [], statusCode: 200 });
           return;
         }
         throw new Error(`unexpected request ${options.method} ${options.url}`);

@@ -13,7 +13,7 @@
       <text class="header-title-main">群组管理</text>
       <text class="header-title-sub">{{currentGroupName}} · {{currentGroupRole}}</text>
     </view>
-    <text class="phase-chip">P5</text>
+    <text class="phase-chip">P8</text>
   </view>
 
   <scroll-view
@@ -143,6 +143,400 @@
               >
             </view>
           </view>
+        </view>
+
+        <view wx:if="{{!organizationEnabled}}" class="organization-capability-note">
+          <text class="capability-note-title">组织管理写入能力暂未开放</text>
+          <text>当前可查看成员与联系方式；启用组织管理能力后才会提交新增、修改或删除。</text>
+        </view>
+
+        <view wx:if="{{canManageGroup}}" class="group-card group-mutation-card">
+          <view class="group-card-header"
+            ><text>群组资料</text><text class="card-scope">群主专属</text></view
+          >
+          <view class="group-card-body mutation-fields">
+            <view class="field-block">
+              <text class="field-label">群组名称</text>
+              <input
+                class="native-field"
+                value="{{groupNameDraft}}"
+                maxlength="100"
+                bindinput="handleGroupNameInput"
+              />
+              <view
+                class="web-button is-primary"
+                hover-class="is-pressed"
+                aria-role="button"
+                bindtap="handleSaveGroupName"
+                >保存名称</view
+              >
+            </view>
+            <view class="field-block">
+              <text class="field-label">四位群组码</text>
+              <input
+                class="native-field"
+                type="number"
+                value="{{groupCodeDraft}}"
+                maxlength="4"
+                bindinput="handleGroupCodeInput"
+              />
+              <view
+                class="web-button is-primary"
+                hover-class="is-pressed"
+                aria-role="button"
+                bindtap="handleSaveGroupCode"
+                >保存群组码</view
+              >
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{canLeaveGroup}}" class="group-card group-exit-card">
+          <view class="group-card-header"
+            ><text>当前群组操作</text><text class="card-scope">成员操作</text></view
+          >
+          <view class="group-card-body group-action-row">
+            <view
+              class="web-button is-danger"
+              hover-class="is-pressed"
+              aria-role="button"
+              bindtap="handleLeaveGroup"
+              >退出群组</view
+            >
+          </view>
+        </view>
+
+        <view wx:if="{{canDissolveGroup}}" class="group-card group-exit-card">
+          <view class="group-card-header"
+            ><text>当前群组操作</text><text class="card-scope">群主专属</text></view
+          >
+          <view class="group-card-body group-action-row">
+            <view
+              class="web-button is-danger"
+              hover-class="is-pressed"
+              aria-role="button"
+              bindtap="handleDissolveGroup"
+              >解散群组</view
+            >
+          </view>
+        </view>
+
+        <view wx:if="{{organizationEnabled}}" class="group-card group-lifecycle-card">
+          <view class="group-card-header"><text>创建或加入群组</text></view>
+          <view class="group-card-body mutation-fields">
+            <view class="field-block">
+              <text class="field-label">创建群组</text>
+              <input
+                class="native-field"
+                value="{{createGroupName}}"
+                maxlength="100"
+                placeholder="新群组名称"
+                bindinput="handleCreateGroupNameInput"
+              />
+              <input
+                class="native-field"
+                type="number"
+                value="{{createGroupCode}}"
+                maxlength="4"
+                placeholder="四位群组码"
+                bindinput="handleCreateGroupCodeInput"
+              />
+              <view
+                class="web-button is-primary"
+                hover-class="is-pressed"
+                aria-role="button"
+                bindtap="handleCreateGroup"
+                >创建群组</view
+              >
+            </view>
+            <view class="field-block">
+              <text class="field-label">加入其他群组</text>
+              <picker
+                mode="selector"
+                range="{{catalogLabels}}"
+                value="{{catalogIndex}}"
+                bindchange="handleJoinGroupPickerChange"
+              >
+                <view class="native-picker">{{selectedCatalogLabel}}</view>
+              </picker>
+              <input
+                class="native-field"
+                type="number"
+                value="{{joinGroupCode}}"
+                maxlength="4"
+                placeholder="输入四位群组码"
+                bindinput="handleJoinGroupCodeInput"
+              />
+              <view
+                class="web-button is-primary"
+                hover-class="is-pressed"
+                aria-role="button"
+                bindtap="handleJoinGroup"
+                >加入群组</view
+              >
+            </view>
+          </view>
+        </view>
+
+        <view
+          wx:if="{{canDissolveGroup && dissolvedCards.length > 0}}"
+          class="group-card dissolved-group-card"
+        >
+          <view class="group-card-header"
+            ><text>已解散群组</text><text class="card-scope">30 天内可恢复</text></view
+          >
+          <view class="group-card-body member-card-list">
+            <view wx:for="{{dissolvedCards}}" wx:for-item="dissolved" wx:key="id" class="claim-row">
+              <view class="claim-row-copy"
+                ><text>{{dissolved.name}}</text
+                ><text class="member-row-meta"
+                  >解散于 {{dissolved.deletedAt}} · 版本 v{{dissolved.version}}</text
+                ></view
+              >
+              <view
+                class="web-button compact-button is-primary"
+                data-group-id="{{dissolved.id}}"
+                aria-role="button"
+                bindtap="handleRestoreGroup"
+                >恢复</view
+              >
+            </view>
+          </view>
+        </view>
+
+        <view class="group-card member-management-card">
+          <view class="group-card-header member-card-header">
+            <view
+              ><text>成员与预设</text
+              ><text class="card-subtitle"
+                >{{memberCards.length}} 位成员 · 当前群组版本 v{{groupVersion}}</text
+              ></view
+            >
+            <view
+              wx:if="{{canManageMembers}}"
+              class="web-button compact-button {{!organizationEnabled ? 'is-disabled' : 'is-primary'}}"
+              aria-role="button"
+              aria-disabled="{{!organizationEnabled}}"
+              bindtap="handleRosterToggle"
+              >添加预设成员</view
+            >
+          </view>
+          <view class="group-card-body member-card-list">
+            <view wx:if="{{managementState === 'loading'}}" class="inline-loading"
+              ><ui-loading label="正在读取成员资料"></ui-loading
+            ></view>
+            <view wx:elif="{{memberCards.length === 0}}" class="inline-empty"
+              ><text>当前群组暂无成员。</text></view
+            >
+            <view
+              wx:else
+              wx:for="{{memberCards}}"
+              wx:for-item="member"
+              wx:key="id"
+              class="member-management-row"
+            >
+              <view class="member-row-main">
+                <view class="member-avatar">{{member.name[0]}}</view>
+                <view class="member-row-copy">
+                  <text class="member-row-name"
+                    >{{member.name}}{{member.isCurrentUser ? ' · 我' : ''}}</text
+                  >
+                  <text class="member-row-meta">{{member.roleLabel}} · {{member.statusLabel}}</text>
+                  <text wx:if="{{member.hasMobilePhone}}" class="member-contact-line"
+                    >长号 {{member.mobilePhone}}</text
+                  >
+                  <text wx:if="{{member.hasShortPhone}}" class="member-contact-line"
+                    >短号 {{member.shortPhone}}</text
+                  >
+                  <text
+                    wx:if="{{!member.hasMobilePhone && !member.hasShortPhone}}"
+                    class="member-contact-line"
+                    >联系方式未填写</text
+                  >
+                </view>
+              </view>
+              <view
+                wx:if="{{member.canManage || (member.isUnclaimed && !member.isCurrentUser)}}"
+                class="member-row-actions"
+              >
+                <view
+                  wx:if="{{member.canEdit}}"
+                  class="web-button compact-button"
+                  data-member-id="{{member.id}}"
+                  aria-role="button"
+                  bindtap="handleOpenContactEditor"
+                  >修改</view
+                >
+                <view
+                  wx:if="{{member.isPendingRoster && member.canManage}}"
+                  class="web-button compact-button is-primary"
+                  data-real-name="{{member.name}}"
+                  aria-role="button"
+                  bindtap="handleConvertRoster"
+                  >转为正式成员</view
+                >
+                <view
+                  wx:if="{{member.isUnclaimed && !member.isCurrentUser}}"
+                  class="web-button compact-button is-primary"
+                  data-member-id="{{member.id}}"
+                  data-action="claim"
+                  aria-role="button"
+                  bindtap="handleMemberAction"
+                  >认领</view
+                >
+                <view
+                  wx:if="{{member.canManage && !member.isCurrentUser && !member.isPendingRoster}}"
+                  class="web-button compact-button is-danger"
+                  data-member-id="{{member.id}}"
+                  data-action="delete"
+                  aria-role="button"
+                  bindtap="handleMemberAction"
+                  >删除</view
+                >
+                <view
+                  wx:if="{{canManageGroup && member.roleLabel === '成员' && !member.isCurrentUser}}"
+                  class="web-button compact-button"
+                  data-member-id="{{member.id}}"
+                  data-action="administrator"
+                  aria-role="button"
+                  bindtap="handleMemberAction"
+                  >设为管理员</view
+                >
+                <view
+                  wx:if="{{canManageGroup && member.roleLabel === '管理员' && !member.isCurrentUser}}"
+                  class="web-button compact-button"
+                  data-member-id="{{member.id}}"
+                  data-action="member"
+                  aria-role="button"
+                  bindtap="handleMemberAction"
+                  >降为成员</view
+                >
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{claimCards.length > 0}}" class="group-card claim-management-card">
+          <view class="group-card-header"
+            ><text>认领请求</text><text class="card-scope">管理员可处理</text></view
+          >
+          <view class="group-card-body claim-card-list">
+            <view wx:for="{{claimCards}}" wx:for-item="claim" wx:key="id" class="claim-row">
+              <view class="claim-row-copy"
+                ><text>{{claim.requesterName}} → {{claim.targetName}}</text
+                ><text class="member-row-meta"
+                  >{{claim.statusLabel}} · 请求版本 v{{claim.version}}</text
+                ></view
+              >
+              <view wx:if="{{claim.canDecide}}" class="claim-row-actions"
+                ><view
+                  class="web-button compact-button is-primary"
+                  data-claim-id="{{claim.id}}"
+                  data-action="approve"
+                  aria-role="button"
+                  bindtap="handleClaimAction"
+                  >同意</view
+                ><view
+                  class="web-button compact-button is-danger"
+                  data-claim-id="{{claim.id}}"
+                  data-action="reject"
+                  aria-role="button"
+                  bindtap="handleClaimAction"
+                  >驳回</view
+                ></view
+              >
+            </view>
+          </view>
+        </view>
+
+        <ui-alert
+          wx:if="{{managementError}}"
+          tone="danger"
+          title="组织管理操作未完成"
+          message="{{managementError}}"
+        ></ui-alert>
+        <ui-alert
+          wx:if="{{managementInfo}}"
+          tone="success"
+          title="组织管理"
+          message="{{managementInfo}}"
+        ></ui-alert>
+
+        <view
+          wx:if="{{rosterEditorOpen}}"
+          class="inline-editor-sheet"
+          role="dialog"
+          aria-label="添加预设成员"
+        >
+          <view class="inline-editor-heading"
+            ><text>添加预设成员</text
+            ><view class="editor-close" aria-role="button" bindtap="handleRosterToggle"
+              >完成</view
+            ></view
+          >
+          <text class="inline-editor-copy"
+            >每行输入一个姓名。成员使用保存姓名和群组码加入后会自动关联账号。</text
+          >
+          <textarea
+            class="native-textarea"
+            maxlength="2000"
+            placeholder="例如：\n张三\n李四"
+            value="{{rosterNames}}"
+            bindinput="handleRosterInput"
+          />
+          <view class="web-button is-primary" aria-role="button" bindtap="handleAddRoster"
+            >添加预设成员</view
+          >
+        </view>
+
+        <view
+          wx:if="{{contactEditorOpen}}"
+          class="inline-editor-sheet"
+          role="dialog"
+          aria-label="编辑成员联系方式"
+        >
+          <view class="inline-editor-heading"
+            ><text>编辑成员资料</text
+            ><view class="editor-close" aria-role="button" bindtap="handleCloseContactEditor"
+              >完成</view
+            ></view
+          >
+          <view class="field-block"
+            ><text class="field-label">成员姓名</text
+            ><input
+              class="native-field"
+              value="{{editingMemberName}}"
+              maxlength="100"
+              bindinput="handleContactNameInput"
+          /></view>
+          <view class="field-block"
+            ><text class="field-label">手机号</text
+            ><input
+              class="native-field"
+              type="number"
+              value="{{editingMobilePhone}}"
+              maxlength="32"
+              bindinput="handleContactMobileInput"
+          /></view>
+          <view class="field-block"
+            ><text class="field-label">短号</text
+            ><input
+              class="native-field"
+              type="number"
+              value="{{editingShortPhone}}"
+              maxlength="16"
+              bindinput="handleContactShortInput"
+          /></view>
+          <view
+            class="phone-confirm-toggle {{editingIsConfirmed ? 'is-checked' : ''}}"
+            aria-role="switch"
+            aria-checked="{{editingIsConfirmed}}"
+            bindtap="handleContactConfirmToggle"
+            ><view class="phone-confirm-dot"></view><text>确认联系方式</text></view
+          >
+          <view class="web-button is-primary" aria-role="button" bindtap="handleSaveContact"
+            >保存成员资料</view
+          >
         </view>
       </view>
       <view class="bottom-spacer"></view>

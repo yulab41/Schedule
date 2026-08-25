@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P8-C-1 原生群组与成员管理（已完成，待用户复核）
+
+- 基线/范围：用户已确认 P8-B Web 黄金并继续开发。本批只把 `subpackage-organization` 的群组设置扩展为原生群组生命周期与成员管理：创建、加入、退出、改名、群组码、解散/恢复，以及成员/预设/认领/角色/联系方式；不进入班种/岗位配置、邀请/visitor key 或平台账号原生页面，production `organization` capability 继续保持 `false`。
+- 原生实现：`group-settings-panel` 继续使用 WXML/WXSS/TS/JSON 与现有临床蓝 token，新增成员、联系人、认领请求、预设编辑器、群组目录/已解散列表和危险操作确认；所有写入经 `createRuntimeOrganizationWriteClient`，header/body 共用 `operationId`，版本化对象提交 `expectedVersion`，错误时保留可重试输入，不写本地业务缓存。
+- 只读/权限/隐私：成员、联系方式、认领、群组目录和解散列表统一走 `@schedule/client-core` 与现有 `wx` transport；生产 capability 关闭时只展示已脱敏的只读成员资料并明确提示，访客不能进入，源码不持久化 token、raw ticket、visitor key 或完整电话以外的非必要状态。手机号公开同意 P5 语义保持不变。
+- 测试先行：新增 P8-C-1 静态边界 3/3、控制器读写/幂等 3/3；修复 P5 fixture 后既有群组设置 9/9、页面 6/6；Mini 源码范围 Vitest（排除用户自有 `.artifacts/` 副本）47 files/260 tests 通过，typecheck、production build（169 files）、source audit、package/性能/确定性校验通过。完整 `pnpm --filter @schedule/miniprogram test` 被未纳入本任务的 `.artifacts/` 临时副本额外扫描，17 项失败均为副本缺少 `tsconfig.base.json`/生成 tokens，未修改或纳入提交；正式源码范围无失败。
+- 浏览器/预览：`pnpm smoke:check-core` 通过并确认本批未触及 Web 核心链路；P8-B Storybook 静态预览继续在 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p8-organization-parity--organization-large-text-390` 提供，原生页面通过小程序 production build 与 source audit 验证，待用户在现有 Storybook 标签复核视觉黄金。
+- checkpoint/发布/下一批：代码 checkpoint 识别消息为 `feat(miniprogram): add p8 organization management`（待提交）；本批不上传体验版、不开放 capability、不部署业务代码。下一活动批次为 P8-C-2 班种、岗位成员与轮转规则，停止条件是先取得本批原生页面用户复核后再进入配置页面。
+
 ## 2026-08-25 P8-B 组织管理 Web 黄金（已完成，待用户确认）
 
 - 基线/范围：从已推送并部署的 `fbe26885` 开始；本批只固化 P8 组织管理 Web 黄金，不实现 Mini WXML/WXSS、不上传体验版、不进入 allowlist/审核/发布，production `organization` capability 继续为 `false`。`frontend-design` 保持临床蓝、病历纸灰白、系统中文字体和 production 信息层级，只在 Storybook 外层增加身份/状态“权限腕带”。

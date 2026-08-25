@@ -9,6 +9,7 @@ import {
   createManualScheduleClient,
   createNetworkError,
   createOrganizationReadClient,
+  createOrganizationWriteClient,
   createPastScheduleClient,
   createSchedulePublicationClient,
   createWorkflowClient,
@@ -20,6 +21,7 @@ import {
   type GroupMobilePhoneConsentClient,
   type ManualScheduleClient,
   type OrganizationReadClient,
+  type OrganizationWriteClient,
   type PastScheduleClient,
   type SchedulePublicationClient,
   type WorkflowClient,
@@ -222,6 +224,15 @@ export function createRuntimeOrganizationReadClient(
 ): OrganizationReadClient {
   return createOrganizationReadClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, resolveOrganizationReadCapability),
+  );
+}
+
+export function createRuntimeOrganizationWriteClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): OrganizationWriteClient {
+  return createOrganizationWriteClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
   );
 }
 
