@@ -151,7 +151,7 @@ export const directoryFacetPathSchema = z
   .object({
     building: z.string().min(1).max(100).optional(),
     campusCode: z.string().min(1).max(64),
-    count: z.number().int().positive(),
+    count: z.number().int().min(1),
     department: z.string().min(1).max(150).optional(),
     entryKind: directoryEntryKindSchema,
     floor: z.string().min(1).max(64).optional(),

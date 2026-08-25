@@ -95,8 +95,8 @@ export function sanitizeJsonSchema(schema, path = '$') {
     result.const = schema.const;
   }
   if (schema.format !== undefined) {
-    if (schema.format !== 'date-time' && schema.format !== 'uuid') {
-      throw new Error(`${path}.format must be date-time or uuid`);
+    if (!['date', 'date-time', 'uuid'].includes(schema.format)) {
+      throw new Error(`${path}.format must be date, date-time, or uuid`);
     }
     result.format = schema.format;
   }

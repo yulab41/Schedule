@@ -11,7 +11,7 @@ import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import type { DirectoryDataSource } from '../../views/directory/InternalDirectoryView.vue';
 import UnifiedDirectoryView from '../../views/directory/UnifiedDirectoryView.vue';
 
-const previewGroup: GroupSummary = {
+export const previewGroup: GroupSummary = {
   groupCode: '0001',
   id: 'storybook-unified-directory-group',
   name: '示例医疗中心',
@@ -286,8 +286,14 @@ function createDataSource(
   };
 }
 
-const internalDataSource = createDataSource(internalEntries, 'storybook-unified-internal-v1');
-const employeeDataSource = createDataSource(employeeEntries, 'storybook-unified-employee-v1');
+export const internalDataSource = createDataSource(
+  internalEntries,
+  'storybook-unified-internal-v1',
+);
+export const employeeDataSource = createDataSource(
+  employeeEntries,
+  'storybook-unified-employee-v1',
+);
 
 const meta = {
   title: 'Web UI 2.0/Unified Directory',

@@ -52,6 +52,7 @@ describe('client-core runtime boundary', () => {
       [
         'packages/client-core/src/calendar-client.ts',
         'packages/client-core/src/client-capability-client.ts',
+        'packages/client-core/src/directory-read-client.ts',
         'packages/client-core/src/endpoint.ts',
         'packages/client-core/src/error.ts',
         'packages/client-core/src/generated/calendar-schemas.ts',

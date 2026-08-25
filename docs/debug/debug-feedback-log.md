@@ -2,6 +2,13 @@
 
 本文件只记录当前轮次的变更、验证和状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P10 通讯录首个共享边界与 Web 黄金 checkpoint
+
+- 范围/偏差：用户明确要求在 P8 RC 人工通过前启动通讯录开发；本轮只做 P10 只读共享契约/decoder 与 Web Storybook 黄金，不打开 `organization`，不修改 Mini `app.json`/导航，不实现原生 WXML/WXSS，不上传体验版或部署生产。
+- 引入点/语义：`git log -S`/`git blame` 定位 API=`e74e5f35`、Web 工作台=`8309dce1`、统一科室/人员模式=`34fbaeaa`、员工模式=`9bc49224`、同号合并=`54379957`。新增 `directory-read-client` 只读 endpoints/compact decoders，保留 Bearer、URL 编码、查询参数顺序、lookup 解包、Web Zod/Compact 身份和错误边界；`directoryFacetPath.count` 从 `positive()` 改为整数 `min(1)`，语义等价且允许 generator 支持 `date` format。
+- 视觉/黄金：新增真实 Storybook IDs `miniprogram-parity-p10-directory--department-390`、`--employee-390`、`--department-320`、`--employee-desktop-1280`，直接复用 production `UnifiedDirectoryView` 和合成通讯录数据；设计意图沿用临床蓝、病历卡白底、院区/层级导览带和 44px 触达区，未创建第二套生产视觉。
+- 运行/浏览器验证：`pnpm smoke:browser` 已运行，在默认 `http://localhost:5173` 第 1/6 步因本地 Web 服务未启动以 `ERR_CONNECTION_REFUSED` 停止；未伪造通过。待启动本轮临时 API/Web 服务后复跑。`pnpm smoke:check-core` 在记录前按门禁拒绝，需本记录后复核。
+
 ## 2026-08-25 P8-B 组织管理 Web 黄金
 
 - 引入点/测试先行：production 群组/成员/配置/平台页分别来自既有实现；本轮额外定位 `5102950a` 的 320 成员管理隐藏、`02a508dd` 的平台绝对定位屏幕阅读器标签、`bfa07554` 的群组/配置 muted labels、`f723b0db/59300957` 的个人 scope 与 `41d284b3` 的禁用班种 opacity。P8 黄金测试最初因 story/fixture/manifest 缺失先 4 项红；Pinia、320 状态装配、平台溢出和 AA 对比度均先补失败断言后修复。

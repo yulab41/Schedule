@@ -3,6 +3,9 @@ import {
   appliedManualScheduleTemplateResultJsonSchema,
   calendarReadModelJsonSchema,
   clientCapabilityResponseJsonSchema,
+  directoryEntryLookupResponseJsonSchema,
+  directoryFacetSnapshotJsonSchema,
+  directoryPageJsonSchema,
   dutyAdjustmentPreviewJsonSchema,
   dutyAdjustmentRequestJsonSchema,
   dutyAdjustmentRequestListJsonSchema,
@@ -42,6 +45,9 @@ import {
   appliedManualScheduleTemplateResultSchema,
   calendarReadModelSchema,
   clientCapabilityResponseSchema,
+  directoryEntryLookupResponseSchema,
+  directoryFacetSnapshotSchema,
+  directoryPageSchema,
   dutyAdjustmentPreviewSchema,
   dutyAdjustmentRequestSchema,
   dutyAdjustmentRequestListSchema,
@@ -95,6 +101,18 @@ describe('client-core generated schemas', () => {
         z.toJSONSchema(clientCapabilityResponseSchema),
         'clientCapabilityResponse',
       ),
+    );
+    expect(directoryEntryLookupResponseJsonSchema).toEqual(
+      sanitizeJsonSchema(
+        z.toJSONSchema(directoryEntryLookupResponseSchema),
+        'directoryEntryLookupResponse',
+      ),
+    );
+    expect(directoryFacetSnapshotJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(directoryFacetSnapshotSchema), 'directoryFacetSnapshot'),
+    );
+    expect(directoryPageJsonSchema).toEqual(
+      sanitizeJsonSchema(z.toJSONSchema(directoryPageSchema), 'directoryPage'),
     );
     expect(dutyAdjustmentPreviewJsonSchema).toEqual(
       sanitizeJsonSchema(z.toJSONSchema(dutyAdjustmentPreviewSchema), 'dutyAdjustmentPreview'),

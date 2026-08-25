@@ -48,6 +48,14 @@ export {
   type OrganizationReadClient,
 } from './organization-read-client.js';
 export {
+  createDirectoryReadClient,
+  directoryEntryLookupResponseDecoder,
+  directoryFacetSnapshotDecoder,
+  directoryPageDecoder,
+  directoryReadEndpoints,
+  type DirectoryReadClient,
+} from './directory-read-client.js';
+export {
   addGroupMembersResponseDecoder,
   addRosterEntriesResponseDecoder,
   claimGroupResponseDecoder,

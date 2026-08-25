@@ -77,12 +77,12 @@
 2. 预期使用自绘 `UiInputShell`、`UiChip`、`UiSheet`、`UiLoading`、`UiAlert` 和普通 `scroll-view`；七级筛选在底部 Sheet 内按当前路径展示，不引入横向滚动条。
 3. 搜索草稿、筛选、cursor、当前结果和错误重试上下文先保持内存态；本轮不批准业务缓存、离线写队列、文件系统或通讯录快照持久化。
 4. 号码显示只能从服务器返回的 `DirectoryContactMethod` 进入最终展示边界；短号再次经过 3–6 位校验；拨号权限按 Web `canDialDirectoryNumber` 等价迁移。
-5. Mini 共享 endpoint/decoder 尚不存在；正式 P10 实现前必须先新增 Mini-safe 的 `client-core` 只读边界，并证明 Web Zod 结果与 Mini decoder 深等价。当前不要把 Web API client 直接搬入 Mini。
+5. Mini-safe 的 `client-core` directory endpoint/decoder 已在本 checkpoint 新增并通过 Web Zod/Compact 深等价测试；正式原生实现前仍需补 runtime adapter，并证明它不绕过 capability/身份边界。当前不要把 Web API client 直接搬入 Mini。
 
 ## 阻塞项与进入 P10 的条件
 
 - 当前 capability guard 将 `/directory` 归入 `organization` 路由；P8 RC 前不得修改这一归类，也不得打开 `organization`。P10 进入时需单独决定通讯录归属能力并配套 API/UI 双端失败关闭测试。
-- 当前 Mini `app.json` 尚无通讯录页面，也没有 `client-core` directory endpoint；本台账不修改导航、分包或页面注册。
+- 当前 Mini `app.json` 尚无通讯录页面，runtime adapter、capability 归属和页面注册仍待后续任务；本台账不修改导航、分包或页面注册。
 - P9 `subpackage-insights` 可能同时改主包/底栏/能力读取；P10 页面接线必须在这些共享改动稳定后串行合并。
 - P8 RC 用户明确通过、P9 共享边界冻结、P10 Storybook 390/320/大字号黄金固化、权限/隐私/号码/错误矩阵定向测试通过后，才可进入 Mini 原生实现。
 

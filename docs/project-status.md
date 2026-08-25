@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P10 通讯录共享边界与 Web 黄金（已实现，待用户黄金确认）
+
+- 显式范围偏差：用户要求在 P8 RC 人工通过前启动通讯录开发；本批只实现只读 `@schedule/client-core` directory endpoints/compact decoders、Web parity Storybook 和黄金清单，不打开 `organization`，不修改 Mini `app.json`/工作台导航，不写原生 WXML/WXSS，不上传体验版或部署生产。
+- 实现：新增内部/员工 facets、分页搜索和 lookup 六个 Bearer endpoint；查询参数顺序、URL 编码、lookup 解包、Web Zod/Compact decoder 深等价与严格错误边界已锁定。为支持 `z.iso.date()`，compact schema 增加 `date` format 日历校验；`directoryFacetPath.count` 改为整数 `min(1)`，与原 positive 语义等价。
+- 黄金：新增真实 Storybook IDs `miniprogram-parity-p10-directory--department-390`、`--employee-390`、`--department-320`、`--employee-desktop-1280`，直接复用生产 `UnifiedDirectoryView` 与合成数据；更新 `apps/miniprogram/docs/design/page-golden-manifest.md`。
+- 验证：Contracts/client-core/Web 定向 23+22 tests、client-core typecheck/generated freshness、Web typecheck/build、Storybook build、任务 ESLint/Prettier、`git diff --check`、`pnpm smoke:check-core` 通过；Storybook build 已确认 4 个 P10 ID。`pnpm smoke:browser` 已运行但默认 5173 未启动，在第 1/6 步 `ERR_CONNECTION_REFUSED` 停止，结果已记入 `docs/debug/debug-feedback-log.md`。
+- 当前状态：已实现（共享边界与 Web 黄金）→ 待用户确认 390/320/1280 黄金；在确认前不进入原生 Mini 页面。P8 `organization=false` 保持不变。
+- 下一活动批次：用户确认黄金后，另开一个原生 Mini 任务，先实现 runtime directory read adapter、capability 明确归属和页面状态机，再注册页面；停止条件是 native 页面在体验版完成实体 Android/微信复核。
+
 ## 2026-08-25 P10 院内通讯录隔离只读预研（已完成，未进入实现）
 
 - 范围/边界：在独立 worktree `E:\AItools\Schedule-p10-preflight`、分支 `codex/p10-parity-preflight` 上，基于 `22049266` 盘点现有 Web/API 通讯录接口、角色/状态/错误/号码隐私语义，生成 Mini P10 后续可复用的接口矩阵和 15 个合成 fixture case；未修改 `main` 工作树。

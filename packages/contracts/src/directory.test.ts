@@ -124,4 +124,22 @@ describe('directory contracts', () => {
     expect(snapshot.paths).toHaveLength(2);
     expect(snapshot.paths[0]).toMatchObject({ campusCode: 'central', department: '急诊科' });
   });
+
+  it('rejects empty facet paths while keeping compact schema generation compatible', () => {
+    expect(() =>
+      directoryFacetSnapshotSchema.parse({
+        buildings: [],
+        campuses: [],
+        departments: [],
+        entryKinds: [],
+        floors: [],
+        paths: [{ campusCode: 'central', count: 0, entryKind: 'department' }],
+        publishedEffectiveOn: '2026-08-19',
+        publishedImportVersion: 'p10-test-v1',
+        sections: [],
+        subunits: [],
+        totalCount: 0,
+      }),
+    ).toThrow();
+  });
 });
