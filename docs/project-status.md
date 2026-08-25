@@ -9,7 +9,7 @@
 - 只读/权限/隐私：成员、联系方式、认领、群组目录和解散列表统一走 `@schedule/client-core` 与现有 `wx` transport；生产 capability 关闭时只展示已脱敏的只读成员资料并明确提示，访客不能进入，源码不持久化 token、raw ticket、visitor key 或完整电话以外的非必要状态。手机号公开同意 P5 语义保持不变。
 - 测试先行：新增 P8-C-1 静态边界 3/3、控制器读写/幂等 3/3；修复 P5 fixture 后既有群组设置 9/9、页面 6/6；Mini 源码范围 Vitest（排除用户自有 `.artifacts/` 副本）47 files/260 tests 通过，typecheck、production build（169 files）、source audit、package/性能/确定性校验通过。完整 `pnpm --filter @schedule/miniprogram test` 被未纳入本任务的 `.artifacts/` 临时副本额外扫描，17 项失败均为副本缺少 `tsconfig.base.json`/生成 tokens，未修改或纳入提交；正式源码范围无失败。
 - 浏览器/预览：`pnpm smoke:check-core` 通过并确认本批未触及 Web 核心链路；P8-B Storybook 静态预览继续在 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p8-organization-parity--organization-large-text-390` 提供，原生页面通过小程序 production build 与 source audit 验证，待用户在现有 Storybook 标签复核视觉黄金。
-- checkpoint/发布/下一批：代码 checkpoint 识别消息为 `feat(miniprogram): add p8 organization management`（待提交）；本批不上传体验版、不开放 capability、不部署业务代码。下一活动批次为 P8-C-2 班种、岗位成员与轮转规则，停止条件是先取得本批原生页面用户复核后再进入配置页面。
+- checkpoint/发布/下一批：代码 checkpoint `70f9a98f`（`feat(miniprogram): add p8 organization management`）已推送；本批不上传体验版、不开放 capability。生产备份 archive `5546c6ef-ef47-41ba-bf2c-009efc61a9a6`（54 表/168,938 行/78,984,468 bytes/SHA `684852580bcfd589e915a69413437017314b2480d14de5d1f9b8baa7e00f79a4`）后部署 release `70f9a98ff35aa63453dd0aba5b1dee5ae61d3a83`；部署预热一次 502 后恢复，`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、`.94 organization=false`、artifact/control-plane/migration/unknown-host 检查均通过，远端临时目录已清理。最终状态 checkpoint 识别消息：`docs(status): record p8 native organization deployment`。下一活动批次为 P8-C-2 班种、岗位成员与轮转规则，停止条件是先取得本批原生页面用户复核后再进入配置页面。
 
 ## 2026-08-25 P8-B 组织管理 Web 黄金（已完成，待用户确认）
 
