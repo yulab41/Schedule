@@ -6,8 +6,10 @@
 
 - 范围：工作台 More 为所有非访客成员增加“通知设置”，复用 `notifications-panel` 的既有 runtime bundle，以 `mode=settings` 展示本人微信值班提醒；支持 loading/disabled/error/ready、明确点击授权、拒绝/封禁失败关闭和关闭后保留站内通知。
 - 体积/安全：未新增重复 client-core bundle，`subpackages/insights` packageBytes `1,555,495`、总包 `6,211,082`，低于 1.8M/15M 内部门槛；模板 ID 仍为空，生产 `externalMessages=false`，不会发起授权或偏好请求。
-- 验证：P9 原生回归 21/21、Mini/client-core typecheck、production verify/source/package/determinism/CI dry-run 通过；首次独立组件实现触发 1.917M 分包阻断，随后合并到通知组件并回归通过。提交后需上传体验版并补候选白名单，再由用户实体机复核普通成员入口、关闭态和大字号。
-- checkpoint：待提交消息为 `feat(miniprogram): add p9 notification settings`；下一活动批次为体验版 `.8` 上传/白名单与实体 Android 复核，停止条件是普通成员入口、externalMessages 关闭态、模板未配置态和大字号均由用户确认通过后，才决定是否配置模板并开启能力。
+- 验证：P9 原生回归 21/21、Mini/client-core typecheck、production verify/source/package/determinism/CI dry-run 通过；首次独立组件实现触发 1.917M 分包阻断，随后合并到通知组件并回归通过。`subpackages/insights` packageBytes `1,555,495`、总包 `6,211,082`。
+- 体验/运行：`0.1.0-p9.20260826.8` 已上传成功，138 个代码文件、zip `1,187,397` bytes、manifest `727e58286bcedd20473b044a5bad40419f28cd76870d9d8e11368ca20fdef9eb`。生产备份 archive `a5a7ac52-8a20-4d0f-93ed-276247f1d26f`（54 表/171,267 行/79,828,712 bytes/SHA `dcd27d65e84d226a84bde331adbc09edfd24c7997bc879ad076736210c4f4b87`）后原子追加候选白名单；候选 capability HTTP 200，`externalMessages=false`、`insights=false`，未提审/未正式发布。
+- 发布：代码 checkpoint `766ec6ac`（`feat(miniprogram): add p9 notification settings`）在上述备份后部署 release `766ec6ac6afa50047446e439b220b8ed9ec0826f`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
+- 下一活动批次与停止条件：用户在体验版/实体 Android 复核普通成员入口、externalMessages 关闭态、模板未配置态和大字号；确认通过后，再根据明确的模板资格与 ID 配置决定开启 externalMessages，不自动提审/发布。
 
 ## 2026-08-26 P9-A12 外部消息偏好与订阅授权边界（已实现，待原生设置入口）
 
