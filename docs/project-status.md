@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P9-A2 访客访问 Web 黄金（已完成，待用户复核）
+
+- 设计意图：采用“医疗审计台”方向——临床蓝、白色病历卡、访问脉搏柱状聚合与纵向审计针线；单一任务是回答“谁在查看排班”，只呈现访问时间、查看月份、最小化来源线索和 90 天保留说明。
+- 黄金状态：新增 `P9VisitorAccessGolden` 与 7 个精确 story：390 ready、320 边界、大字号、loading、empty、error retry、insights disabled；主要操作保持 44px，移动端日志转卡片，无横向溢出设计。
+- 验证/预览：P9 黄金定向 2 tests、Web typecheck、Storybook production build 通过；预览地址 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p9-visitor-access--ready-390`。本批不创建原生页面、不打开生产 `insights` capability、不读写业务数据。
+- 当前状态：已完成（含运行验证）→ 待用户视觉复核。用户确认黄金后，下一批实现 `subpackage-insights` 的原生访客日志/月份聚合只读页；如有差异请提供 viewport + state + 现象。
+
 ## 2026-08-25 P9-A1 访客访问只读边界（已完成）
 
 - 范围：新增 `@schedule/client-core` 的 `visitorAccessReadEndpoints`、紧凑 decoder 与 `VisitorAccessReadClient`，覆盖 `/groups/:groupId/visitor-access-logs` 和 `/visitor-access-aggregates` 的 Bearer 权限、游标、pageSize 与 URI 编码；不把 client IP、token、visitor key 或原始访问内容写入 Mini 状态。
