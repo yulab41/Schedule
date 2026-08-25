@@ -7,6 +7,7 @@
 - 范围：新增 `P9InsightsWebGolden`，把事件时间线、排班统计、通知中心和导出入口统一为“值班台账”视觉；覆盖 ready、loading、empty、error、成员权限关闭、390/320 边界和大字号，不发起 API 请求。
 - 设计：临床蓝与纸张白为基础，时间线针线表达不可变事件，统计条带表达班次事实，通知/导出共用 44px 控件和明确的登录态下载安全说明；尊重键盘焦点与 reduced-motion。
 - 验证/预览：P9 定向 2 tests、Web typecheck、Storybook production build 通过；预览 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p9-insights-suite--events-ready-390` HTTP 200。本批不创建原生页面、不打开 `insights`、不读写业务数据。
+- 发布/运行：checkpoint `742524c6`（`feat(web): add p9 insights suite golden`）已推送；生产备份 archive `ab006a06-f5d3-4229-9efe-48c883f14607`（54 表/170,758 行/79,651,304 bytes/SHA `6fb6e8ba6d7d878d5eb04c42170ee1adc80bd2ea9a4ef5a5459caaf3a186aa88`）后部署 release `742524c66ce76a8eb228b86765286f4c19372358`。`ECS_PUBLIC_IP` full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，候选版本 capability 200 且 `insights=false`，远端临时目录已清理。
 - 下一步：用户确认 Web 黄金后，按事件/统计/通知/导出实际 API 逐项建立 `client-core` 边界与 `subpackage-insights` 原生页面；P9-A3 访客访问页继续等待实体 Android 复核，不把 Storybook/CI 作为原生验收替代。
 
 ## 2026-08-25 P9-A3 原生访客访问审计页（已实现，待实体机复核）
