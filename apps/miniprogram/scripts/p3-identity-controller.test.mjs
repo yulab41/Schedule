@@ -70,5 +70,9 @@ describe('P3 identity login controller', () => {
       profile: { id: 'user-d0796' },
       token: 'password-token',
     });
+
+    definition.handleSwitchLogin.call(page);
+    expect(page.data.mode).toBe('login');
+    expect(storage.has('schedule.wechat.session')).toBe(false);
   });
 });

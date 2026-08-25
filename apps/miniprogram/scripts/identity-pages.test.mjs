@@ -48,8 +48,11 @@ describe('P3 native identity pages', () => {
 
     expect(template).toContain('账号密码登录');
     expect(template).toContain('微信快捷登录');
+    expect(template).toContain('切换登录方式');
     expect(template).toContain('请输入密码');
     expect(source).toContain('handlePasswordLogin');
+    expect(source).toContain('handleSwitchLogin');
+    expect(source).toContain('clearWechatSession(true)');
     expect(source).toContain('loginWithPassword');
     expect(client).toContain("'/auth/password/login'");
     expect(client).toContain('persistPasswordSession');

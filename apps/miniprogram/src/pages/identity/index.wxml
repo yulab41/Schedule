@@ -195,6 +195,12 @@
           url="/pages/identity/unbind"
           >解除当前微信绑定</navigator
         >
+        <ui-button
+          class="identity-card__button identity-card__button--secondary"
+          label="切换登录方式"
+          variant="secondary"
+          bind:press="handleSwitchLogin"
+        ></ui-button>
         <text class="identity-card__note">排班内容只读查看；业务变更功能将在后续阶段开放。</text>
       </block>
     </view>

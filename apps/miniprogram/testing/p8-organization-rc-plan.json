@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "stage": "P8-organization",
   "description": "User-operated native evidence for organization administration and platform accounts",
-  "candidateVersion": "0.1.0-p8.20260825.4",
+  "candidateVersion": "0.1.0-p8.20260825.5",
   "channel": "user-manual",
   "requiredDevice": "user-android-physical",
   "routes": {

@@ -4,6 +4,7 @@ import {
   requireClientCapability,
 } from '../../app/client-capability-store.js';
 import {
+  clearWechatSession,
   getIdentityErrorMessage,
   getStoredWechatAuthMethod,
   getStoredWechatProfile,
@@ -129,6 +130,20 @@ Page({
 
   handleRealNameChange(this: IdentityPageInstance, event: InputEvent): void {
     this.setData({ realName: event.detail.value });
+  },
+
+  handleSwitchLogin(this: IdentityPageInstance): void {
+    clearWechatSession(true);
+    this.setData({
+      authMethod: 'wechat',
+      errorMessage: '',
+      linkToken: '',
+      loading: false,
+      mode: 'login',
+      password: '',
+      realName: '',
+      username: '',
+    });
   },
 
   handleRegister(this: IdentityPageInstance): void {
