@@ -2,13 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-25 P8-A2-3 邀请与访客密钥写入安全硬化（已实现待上传/部署）
+## 2026-08-25 P8-A2-3 邀请与访客密钥写入安全硬化（已完成）
 
 - 基线/范围：A2-2 checkpoint `0bb58654` 已推送；`.97-config@0bb5865` 官方上传 96 files/zip 834,852/manifest `0cd25453…f685`，未进 allowlist；备份 `44dba6b3-fc8d-40dd-8714-7876ebefd363` 后部署同 release，full verifier 通过且 production `organization=false`。本批只硬化邀请创建/接受/撤销和 visitor key 轮换四个写入口；邀请 resolve、群二维码保持只读，不处理平台身份、Mini UI 或 capability 开启。
 - 引入点/红绿：邀请 route/service=`a50c4fce`、visitor key=`4b337490`、基础邀请 schema=`4fc6bd21`，均已重新执行 `git log -S`/`git blame`。Contracts/route/idempotency/client-core/Web 5 组测试在旧实现因缺少 operation/version、敏感结果 codec、共享客户端和 Web 委托先红；实现后定向 7 files/26 tests 通过。四个写入口统一 header/body operation id；创建同时校验 target 与可选岗位版本，接受/撤销校验 invite version，visitor key 校验 group version。
 - API/隐私/并发：邀请创建 token 由服务器 secret、actor 与 operation id 确定性 HMAC 派生，同键重放返回同一链接但幂等表只保存非敏感展示字段；接受合并只保存目标 user id 对应的安全结果与“需重签”标记，重放时重新签发会话，raw invite token/sharePath/session token 均不落幂等结果。邀请保持单次使用，非实际接受者不能借已用 token 重放；visitor key 同操作只旋转一次。真实 MySQL 全量 71 files/471 tests 通过，定向 3 files/28 tests 覆盖 replay、异载荷/陈旧版本 409、管理员提权禁止、合并重签和敏感结果不落库。
 - 客户端/语义：client-core 新增四个 strict endpoint/decoder；Web 四方法全部委托原 shared transport，保持 `transport.request` receiver、Promise/错误、空值与每操作一次请求语义。Mini 本批没有页面、存储、后台重试或离线写队列；共享边界随 production build 验证，但 `organization` 继续关闭。
-- 验证/checkpoint：API 71/471（真实 MySQL）、Contracts 17/60、client-core 13/43、Web 104/605、Mini 45/254；全端 typecheck、API/Web build、generated freshness、Mini production verify、任务格式和 `smoke:check-core` 通过。Mini 2/2 Worklet、3,422,199 bytes、manifest `339b37db38d5b53b79b329163c80a2c48add59aab8050f3549b700352b7d0c4c`，仅既有 600 格 best-effort warning。运行/浏览器验证：`pnpm smoke:browser` 等价入口 `node scripts/smoke-browser.mjs` 在本机 5173 被 Windows 保留、未开启 dev auth 两次按门禁停止后，改用当前源码 127.0.0.1:4173 完整通过管理员、成员、访客/vkey 与访问记录且无浏览器错误，临时服务已按 PID 关闭。checkpoint 识别消息 `feat(organization): harden p8 invite visitor mutations`；提交推送后以 `0.1.0-p8.20260825.98-invite` 上传体验轨道但不加 allowlist，再备份/部署/full verifier。下一活动批次只做 P8-A2-4 平台用户名分配与管理员绑定链接危险写入硬化，不处理 Web 黄金、Mini UI 或 capability 开启。
+- 验证/发布：API 71/471（真实 MySQL）、Contracts 17/60、client-core 13/43、Web 104/605、Mini 45/254；全端 typecheck、API/Web build、generated freshness、Mini production verify、任务格式和 `smoke:check-core` 通过。Mini 2/2 Worklet、3,422,199 bytes、manifest `339b37db…d0c4c`，仅既有 600 格 best-effort warning。运行/浏览器验证：`pnpm smoke:browser` 等价入口 `node scripts/smoke-browser.mjs` 在本机 5173 被 Windows 保留、未开启 dev auth 两次按门禁停止后，改用当前源码 127.0.0.1:4173 完整通过管理员、成员、访客/vkey 与访问记录且无浏览器错误，临时服务已按 PID 关闭。checkpoint `cf453205` 已推送；`.98-invite@cf45320` 官方上传 96 files/zip 840,636/manifest `90dc30ee…5656`，未进 allowlist。备份 `abe33fb4-07d3-410a-905f-001d0dc8308b`（54 表/168,476 行/78,831,520 bytes/SHA `67c31964…86d3`）后部署 release `cf453205cef53ebb1006838c11b3af1522f07dc7`；带 `ECS_PUBLIC_IP` full verifier/health 200、`.94` organization=false、`.96/.97/.98-invite` 426 和远端 temp 清理均通过。最终状态 checkpoint 识别消息 `docs(status): record p8 invite visitor deployment`；该 docs-only HEAD 备份部署后，下一活动批次只做 P8-A2-4 平台用户名分配与管理员绑定链接危险写入硬化，不处理 Web 黄金、Mini UI 或 capability 开启。
 
 ## 2026-08-25 P8-A2-2 排班配置写入安全硬化（已完成）
 
