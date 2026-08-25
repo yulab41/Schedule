@@ -7,7 +7,9 @@
 - 范围：新增 `@schedule/client-core` `DirectoryReadClient`，覆盖院内/员工 facets、独立筛选与游标列表、批量 lookup；Mini runtime 固定使用 `organization` capability，未创建原生通讯录页面或读取生产目录数据。
 - 契约/隐私：复用 contracts 的严格目录条目、联系人、facet 和日期 schema；支持 `internal/employee` 两种路径、URI 编码、`q/campus/section/department/subunit/building/floor/entryKind` 筛选与稳定游标；不写缓存、不复制数据库逻辑、不把号码存入日志。
 - 验证：client-core 19 files/61 tests、P10 boundary 3/3、generated freshness、Mini/client-core typecheck、Mini production verify/source/package/determinism/CI dry-run 通过；packageBytes `6,504,938`，`subpackages/organization` `1,229,420`，`subpackages/insights` `1,645,671`。
-- checkpoint：待提交消息为 `feat(client-core): add p10 directory read boundary`；提交后上传体验版并补候选白名单。下一活动批次是 P10-A2 Web 对照后的 Mini 通讯录原生页面，停止条件是 Storybook 状态矩阵和权限/号码隐私验收先完成，生产 `organization=false` 不变。
+- 体验/运行：`0.1.0-p9.20260826.9` 已上传成功，138 个代码文件、zip `1,221,020` bytes、manifest `522b5b491f4ddb6a4d3bef6aa3de7757ed3ff404de7d41d7e83baed989f4a4ae`。生产备份 archive `9bf53517-9d06-4e42-bf82-f1e65097f262`（54 表/171,309 行/79,843,376 bytes/SHA `573b87ed5cf7b6557afefa23255ca93f2366ad872bd6ddcb18d335ac0f52d986`）后原子追加候选白名单；候选 capability HTTP 200，`organization=false`、`insights=false`，未提审/未正式发布。
+- 发布：代码 checkpoint `c8cb49be`（`feat(client-core): add p10 directory read boundary`）在上述备份后部署 release `c8cb49be63215749292bf06a5433db32eb87c23d`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
+- 下一活动批次与停止条件：先完成 P10-A2 Web Storybook 对照和原生通讯录页面，用户复核普通成员/管理员权限、号码显示隐私、七级筛选、游标加载、空/错误态和 390/320/大字号；生产 `organization=false` 保持关闭。
 
 ## 2026-08-26 P9-A13 原生通知设置入口（已实现，待体验版复核）
 
