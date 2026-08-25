@@ -8,7 +8,8 @@
 - 共享/权限：接入 `createRuntimeVisitorAccessReadClient`，两个 GET 只读端点统一 `insights` capability 和 Bearer transport；生产 `insights=false` 仍只显示关闭态，不读取业务数据；普通成员入口继续由服务端权限失败关闭。
 - 隐私：只在页面内存保存脱敏展示模型，IPv4 末段与 request id 均最小化遮罩；不写缓存、日志、token、visitor key 或原始访问正文；明确 90 天明细保留/匿名聚合说明。
 - 回归/验证：先红后绿 P9 原生边界 3/3；Mini 正式源码范围 56 files/285 tests（排除用户自有 `.artifacts/` 副本）通过；`typecheck`、production verify（193 files、packageBytes `4,563,146`、manifest `4bd52c96f1f5d387d646d7954409e5320dab75be9a937cc158f662f56a06eff1`）、source/package/determinism/CI dry-run 全部通过；`subpackages/insights` 约 340,309 bytes。
-- 状态：已实现待浏览器/原生复核；体验版上传必须使用本 checkpoint 的外部 `miniprogram-ci` key，正式审核/发布不在本批范围。用户需在 Android 实机验证管理员/成员权限失败关闭、访客访问记录、加载更多、弱网、前后台和大字号。
+- 发布/运行：代码 checkpoint `ca7d92ee`（`feat(miniprogram): add p9 visitor access insights page`）已推送；生产备份 archive `b47cff9f-9f80-48a3-93c6-33148f170df9`（54 表/170,676 行/79,622,292 bytes/SHA `ceb9204a68eee47e64aa14cb222de45a91b8a124daad935a9a2c84dae4889655`）后部署 release `ca7d92ee761432ae2aaf4560a272e99fd1673598`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过；生产 `insights=false` 未变，远端临时目录已清理。
+- 体验/状态：已实现待浏览器/原生复核。尝试用仓库外 key 上传 `0.1.0-p9.20260825.1` 时，微信 CI 返回 `invalid ip: 2409:8a55:4012:49f0:6902:ba73:37c8:810f`，外部状态未改变；需先将当前出口 IP 加入微信公众平台 CI 白名单，再补传同一 commit，不能用 dry-run 代替。正式审核/发布不在本批范围。用户需在 Android 实机验证管理员/成员权限失败关闭、访客访问记录、加载更多、弱网、前后台和大字号。
 
 ## 2026-08-25 P9-A2 访客访问 Web 黄金（已完成，待用户复核）
 
