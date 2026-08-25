@@ -8,6 +8,13 @@
 - 修复/验证：生产备份 archive `571adfb3-fa4b-4c70-a26a-2ef4bb632cb4`（54 表/169,576 行/79,198,784 bytes/SHA `9918b8d805223d5c8d80c790f353bbcc86403c0a5574745f9f92fe6278f45add`）后原子追加 `0.1.0-p8.20260825.1/.2` 到 `MINIPROGRAM_SUPPORTED_CLIENT_VERSIONS`，重建 API；两个版本 capability endpoint 均返回 HTTP 200、`global/core/workflows/guest=true`、`organization=false`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过，未打开组织能力或改动业务数据。
 - 当前状态：启动白名单修复已在生产生效，用户可重新打开/切换到体验版本复核工作台；该配置不写入 Git secrets，后续 ECS release 不覆盖 `.env.production`。下一步继续 P8-E 平台账号原生页，当前工作区未提交的 P8-E 代码仍属于本轮实现范围。
 
+## 2026-08-25 P8-E 原生平台账号后台（已完成，待用户复核）
+
+- 基线/范围：P8-D 已完成；本批新增原生平台账号页，只显示服务端批准的用户标识、用户名、密码证明状态和 `authVersion`，支持平台管理员分配用户名与生成一次性小程序绑定链接；不显示姓名、密码、完整联系方式、微信 subject 或 ticket，不从群组角色推导平台权限。
+- 原生/权限：新增 `platform-accounts-panel` 与 More 入口，账号列表由 platform-admin API 服务端权限决定；非平台管理员请求失败关闭。写入经 `createRuntimePlatformIdentityWriteClient`，提交 `expectedAuthVersion` 与共用 `operationId`，绑定 URL 只留在当前页面内存。
+- 验证/体验：Mini 全量源码范围 53 files/276 tests、typecheck、production build（193 files）、source/package/performance/determinism/CI dry-run 通过；packageBytes `4,162,200`，verify manifest `87003651267a972f8af4f10101cbee3f481b6f7e858d57b1da8194224dcacf14`。代码 checkpoint `c0ea31e9`（`feat(miniprogram): add p8 platform account administration`）已推送；体验版 `0.1.0-p8.20260825.3` 上传成功，111 个代码文件、zip 884,266 bytes、manifest `cad7161da1d668f8fbec473f0debeb7784e4633edb3d82a2b5899bfeef6a3a77`，未提审/未正式发布。
+- 发布/下一步：生产备份 archive `59253ae6-ad98-40d1-866e-11d56f050882`（54 表/169,605 行/79,208,604 bytes/SHA `f656512ad44dbf5148107716cf2adea8ffbdd7d16aba87dab18f5fcfb808320a`）后部署 release `c0ea31e977abadd4347aa55d8fd964a359271795`；预热一次 502 后恢复，`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、P8 capability allowlist/organization=false、artifact/control-plane/migration/unknown-host 检查通过。当前 docs checkpoint 识别消息为 `docs(status): record p8 platform account deployment`（待提交）；下一批 P8 RC 综合验收，停止条件是先取得本批页面用户复核。
+
 ## 2026-08-25 P8-D 原生邀请、访客码与群组二维码（进行中）
 
 - 基线/范围：P8-C-2 已完成并部署，production `organization` capability 继续为 `false`。本批新增邀请生成/撤销、访客码轮换和群组二维码原生入口；邀请 token、visitor key、二维码 base64 只在当前页面内存中存在，不写缓存、相册、日志或幂等结果，不进入 P9 访客访问日志。
