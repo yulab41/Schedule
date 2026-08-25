@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P9-A4 Web 数据与消息黄金（已实现，待用户视觉复核）
+
+- 范围：新增 `P9InsightsWebGolden`，把事件时间线、排班统计、通知中心和导出入口统一为“值班台账”视觉；覆盖 ready、loading、empty、error、成员权限关闭、390/320 边界和大字号，不发起 API 请求。
+- 设计：临床蓝与纸张白为基础，时间线针线表达不可变事件，统计条带表达班次事实，通知/导出共用 44px 控件和明确的登录态下载安全说明；尊重键盘焦点与 reduced-motion。
+- 验证/预览：P9 定向 2 tests、Web typecheck、Storybook production build 通过；预览 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p9-insights-suite--events-ready-390` HTTP 200。本批不创建原生页面、不打开 `insights`、不读写业务数据。
+- 下一步：用户确认 Web 黄金后，按事件/统计/通知/导出实际 API 逐项建立 `client-core` 边界与 `subpackage-insights` 原生页面；P9-A3 访客访问页继续等待实体 Android 复核，不把 Storybook/CI 作为原生验收替代。
+
 ## 2026-08-25 P9-A3 原生访客访问审计页（已实现，待实体机复核）
 
 - 范围：新增 `subpackage-insights/pages/visitor-access` 与 `visitor-access-panel`，从 More 入口进入；并行读取月份聚合/最近访客日志，支持 ready/loading/empty/error/insights-disabled、游标加载更多、390/320 紧凑布局和 44px 操作。
