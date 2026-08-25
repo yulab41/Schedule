@@ -2,11 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-26 P9-A11 原生导出任务与安全下载（已实现，待体验版复核）
+## 2026-08-26 P9-A11 原生导出任务与安全下载（已完成，待用户复核）
 
 - 范围：新增 `subpackages/insights/pages/exports/index` 与 `exports-panel`，支持排班/统计选择、导出任务创建、状态轮询、完成后下载文件和重新开始；从 More 入口进入。
 - 安全边界：`secure-download.ts` 使用登录态 `Authorization` header 调用 `wx.downloadFile`，完成后仅交给 `wx.openDocument`；不把 token 放 URL，不写相册、不写业务缓存、不保存长期文件。
-- 验证：P9 导出边界 3/3、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；packageBytes `6,134,709`，`subpackages/insights` `1,522,211` bytes。正式源码全量测试需在提交后重跑。
+- 验证：P9 导出边界 3/3、P9 原生回归 12/12、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；packageBytes `6,134,709`，`subpackages/insights` `1,522,211` bytes。全量 Mini 脚本 72 files/352 tests 中 334 通过；其余失败来自用户自有 `.artifacts/` 副本缺少根 tsconfig/generated tokens，以及未关联的 Workbench 历史断言，未修改用户文件。
+- 体验/运行：`0.1.0-p9.20260826.6` 已上传成功，135 个代码文件、zip `1,179,022` bytes、manifest `cf50a82be61979b256a44e45158972d3dcc083293f67daf8e94dc97d5ca8a2cd`。生产备份 archive `b67b88f9-ee68-4d59-80ff-14454d16f614`（54 表/171,152 行/79,789,416 bytes/SHA `3c94f96d75e2d70035250c9cd86035a37f4f6c225db1eb3d6d50a793753f6a39`）后原子追加候选白名单；候选 capability HTTP 200，`core/workflows/guest=true`、`organization=false`、`insights=false`，未提审/未正式发布。
+- 发布：代码 checkpoint `de710eaf`（`feat(miniprogram): add p9 export download page`）在上述备份后部署 release `de710eaf43c7b6377420f6a2205a09b905ca6530`；ECS full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。生产 `insights=false` 保持关闭，普通成员仍安全显示关闭态。
+- 下一步：用户在体验版复核导出任务创建、轮询、登录态下载、文档打开、失败重试和 `insights=false` 关闭态；正式审核/发布仍需用户明确批准。
 
 ## 2026-08-26 P9-A10 原生通知中心（已实现，待体验版复核）
 
