@@ -13,7 +13,7 @@ const CAPABILITY_SWITCH_URL = new URL(
   import.meta.url,
 );
 
-const candidateVersion = '0.1.0-p8.20260825.3';
+const candidateVersion = '0.1.0-p8.20260825.4';
 
 describe('P8 organization RC and production release contract', () => {
   it('keeps the full P8 candidate allowlisted while organization remains fail-closed', async () => {

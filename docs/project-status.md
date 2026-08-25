@@ -12,7 +12,7 @@
 
 ## 2026-08-25 P8 RC 自动契约与实体机清单（已完成，待用户复核）
 
-- 范围/边界：为 P8-C–F 四个原生页面固定候选 `0.1.0-p8.20260825.3`，新增 `apps/miniprogram/testing/p8-organization-rc-plan.json`、`apps/miniprogram/scripts/p8-organization-rc-plan.test.mjs` 与 `apps/miniprogram/docs/runbooks/p8-organization-rc.md`；覆盖群主、管理员、普通成员、平台管理员、guest/organization 双能力门禁、幂等/版本/409、弱网、前后台、隐私和 capability 回滚。生产 `organization=false`，不提交审核、不正式发布。
+- 范围/边界：为 P8-C–F 四个原生页面固定候选 `0.1.0-p8.20260825.4`，新增 `apps/miniprogram/testing/p8-organization-rc-plan.json`、`apps/miniprogram/scripts/p8-organization-rc-plan.test.mjs` 与 `apps/miniprogram/docs/runbooks/p8-organization-rc.md`；覆盖群主、管理员、普通成员、平台管理员、guest/organization 双能力门禁、幂等/版本/409、弱网、前后台、隐私和 capability 回滚。生产 `organization=false`，不提交审核、不正式发布。
 - 白名单防回归：同步 `.env.production.example` 与 `docs/deployment/aliyun-ecs.md`，保留 P6/P7 并加入 P8 `.1/.2/.3`，避免后续按文档重建环境再次把已上传体验版拒绝为 426；服务器真实 `.env.production` 仍由 ECS 受控配置，未写入 Git secrets。
 - 验证：P8 RC 契约 3/3；正式 Mini 源码范围（排除用户自有 `.artifacts/` 副本）54 files/279 tests；`pnpm --filter @schedule/miniprogram verify` 通过（production、193 files、packageBytes `4,162,200`、manifest `46c59888c9383cb77c592da3d790a1c1c736254cb575e4b3d8ec248c5cdaddff`）；determinism 与 CI dry-run 通过。未纳入的完整默认扫描会额外发现用户 `.artifacts/` 副本 17 项路径/生成物失败，未修改或提交这些副本。
 - 发布/回滚证据：checkpoint `a1cf99ba`（`test(miniprogram): add p8 organization rc contract`）已推送；生产备份 archive `0def6bd2-3a85-47b0-a18f-7bee85ef1348`（54 表/169,746 行/79,257,740 bytes/SHA `dad35d3ad5a8843022d7f845fce75683557185358bbd726fa34886417d953960`）后部署 release `a1cf99ba312ea674320be8f2cb7ece485c370e4d`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、P8 `.1/.2/.3` capability HTTP 200、`organization=false`、artifact/control-plane/migration/unknown-host 检查通过，远端临时目录已清理。
