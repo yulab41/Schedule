@@ -7,6 +7,8 @@
 - 范围：新增 `subpackages/insights/pages/notifications/index` 与 `notifications-panel`，支持未读数、单条已读、全部已读、游标加载更多，以及 loading/empty/error/insights-disabled 状态；从 More 入口进入。
 - 数据/隐私：复用 `createRuntimeP9InsightsActionsClient`，页面只保留标题、正文、类型、时间和已读状态，不写本地缓存、token、payload 或日志；生产 `insights=false` 仍安全失败关闭。
 - 验证：P9 通知边界 3/3、Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；packageBytes `5,745,826`，`subpackages/insights` `1,142,225` bytes。提交后上传体验版并补候选白名单。
+- 体验/运行：`0.1.0-p9.20260826.4` 已上传成功，129 个代码文件、zip `1,115,069` bytes、manifest `00e58692d5776f635cc3e9e487b8198e019cf3baf29d9d66354248957b41efd4`。生产备份 archive `2dce163c-03b4-42ff-a261-b3d24de41307` 后追加候选白名单；候选 capability HTTP 200 且 `insights=false`，未提审/未正式发布。
+- 发布：代码 checkpoint `1a428d73`（`feat(miniprogram): add p9 notification center`）在备份 archive `53520268-4df8-4732-b055-e076749f4696`（54 表/171,072 行/79,761,548 bytes/SHA `55a61e3e776fe957c6f49df3095066da204d7d802671913c56410e8786b5cf52`）后部署 release `1a428d73aaabb59eea15dca193201d2709602ac9`；ECS full verifier、health 200 和远端临时清理通过。
 
 ## 2026-08-26 P9-A9 Mini runtime 通知/导出任务 bridge（已实现，待体验版复核）
 
