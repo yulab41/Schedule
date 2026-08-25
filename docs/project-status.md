@@ -15,6 +15,7 @@
 - 拨号发布：`0.1.0-p9.20260826.12` 已上传成功，144 个代码文件、zip `1,293,234` bytes、manifest `e2acc466138b62fa520fe7dc97b600b02e19eed58194ad24bf8be30ebe9de4c7`。生产备份 archive `4a6d7681-da50-4d74-8a57-d9e3de9aab73`（54 表/171,514 行/79,915,756 bytes/SHA `63f0c7d46936b3085dcb0ed745c744f2698df4f771bdd1cd9d3dd38186dbaf63`）后追加候选白名单；代码 checkpoint `06a34bab`（`feat(miniprogram): add p10 directory dialing`）部署 release `06a34babd16f74acd13ba978d0c8245ab0470ae3`，ECS verifier 通过，`organization=false` 保持关闭。
 - 状态同步：docs checkpoint `1fc6c148` 在备份 archive `b1f10342-5d83-4815-a18f-0049cf0d2976`（54 表/171,528 行/79,920,756 bytes/SHA `05f1df4f0ee9b04e70889dd74555358816203c4b92bf41f93049954f8a1790f6`）后部署 release `1fc6c1483e1d16208854cab4cf7654a4d9986c11`；full verifier、候选 capability 200 和远端临时目录清理通过。
 - 状态同步：docs checkpoint `6f19980d` 在备份 archive `0b2d2921-6bbc-4672-9f88-935c62b5ca57`（54 表/171,438 行/79,888,656 bytes/SHA `2c1b7051ef4b8525d76c3eb48da04338bfba67ae0507a4938eee96eaf12224f1`）后部署 release `6f19980d3c5a2c9e2211fc6eedad9e7dd057d8ee`；full verifier、候选 capability 200 和远端临时目录清理通过。下一活动批次为用户体验版/实体 Android 复核，生产 `organization=false` 保持关闭。
+- 拨号文档同步：docs checkpoint `5e1037ce` 在备份 archive `0d327498-2924-4b87-b7f5-921ee29fe5a1`（54 表/171,542 行/79,925,756 bytes/SHA `f78549a1d9d81a31b6640ba3223b55b8e855ed08c78953a92edbc38cd4c85768`）后部署 release `5e1037ce865ad27870d2a3bdb27251d1db599486`；full verifier、候选 capability 200 和远端临时目录清理通过。
 - 下一活动批次与停止条件：用户在体验版/实体 Android 复核普通成员/管理员权限、号码显示隐私、七级筛选、游标加载、空/错误/能力关闭态和 390/320/大字号；确认通过后再评估开启 `organization`，不自动提审/发布。
 
 ## 2026-08-26 P10-A2 通讯录 Web Storybook 黄金（已实现，待原生页面）
