@@ -7,6 +7,8 @@
 - 范围：新增 `createRuntimeInsightsReadClient`，把 P9-A5 的事件列表/详情和按月/按年统计边界接入 Mini `wx.request` transport；统一 Bearer 会话恢复、错误映射和 `insights` capability 前置守卫。
 - 边界：本批不创建事件/统计原生页面，不读写业务数据，不打开生产 `insights`；页面仍需按 P9-A4 黄金确认后实现。
 - 验证：Mini typecheck、P9 client-core boundary 3/3 通过；提交前继续运行 production verify/source/package/determinism/CI dry-run。由于触及 Mini runtime，提交后必须上传新的体验版本并补充候选版本白名单，但不提审/正式发布。
+- 体验/运行：`0.1.0-p9.20260826.1` 已直连上传成功，117 个代码文件、zip `975,255` bytes、manifest `24075f3b8b0c0c4a09e20b9ca793bcc79ecbaf0a83acb6e6494dcadd24d7c5b9`，未提审/未正式发布。生产备份 archive `edcababa-140a-42f1-b146-b0f270210198` 后原子追加候选版本到支持白名单，候选 capability HTTP 200 且 `core/workflows/guest=true`、`organization=false`、`insights=false`；API/Web 重建后 full verifier 通过，env 保持 `root:root/0600`。
+- 发布：代码 checkpoint `f0cbd9d0`（`feat(miniprogram): bridge p9 insights runtime reads`）在备份 archive `b39ec5cf-9e72-421a-85bd-cb636420ec28`（54 表/170,860 行/79,686,752 bytes/SHA `57d6848709be6d3b5e9cb18bcc10bcd771e32799264b9854d10179e3d4e64660`）后部署 release `f0cbd9d0c35b9743ccbb5becddf5888424c80469`；Mini verify packageBytes `4,868,877`、manifest `5ea87df0c601b12ffc648588d414e28f5d822965382cd2a261f7d6d35dfe3aa7`，远端临时目录已清理。
 
 ## 2026-08-26 P9-A5 事件与统计共享只读边界（已完成）
 
