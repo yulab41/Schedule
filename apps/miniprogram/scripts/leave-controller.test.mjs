@@ -125,19 +125,27 @@ describe('P7 native leave workflow controller', () => {
   });
 
   it('refreshes and clamps the leave date range when the form opens after midnight', async () => {
-    const instance = await loadReadyInstance();
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-08-25T02:00:00.000Z'));
+    try {
+      vi.setSystemTime(new Date('2026-08-25T02:00:00.000Z'));
+      vi.resetModules();
+      controllerModule =
+        await import('../src/subpackages/workflows/components/workflow-leave-panel/controller.ts');
+      definition = controllerModule.createLeavePanelControllerDefinition(false);
+      await enableTestClientCapabilities();
+      const instance = await loadReadyInstance();
 
-    definition.handleOpenForm.call(instance);
+      definition.handleOpenForm.call(instance);
 
-    expect(instance.data).toMatchObject({
-      endDate: '2026-08-25',
-      endDateMin: '2026-08-25',
-      startDate: '2026-08-25',
-      todayDate: '2026-08-25',
-    });
-    vi.useRealTimers();
+      expect(instance.data).toMatchObject({
+        endDate: '2026-08-25',
+        endDateMin: '2026-08-25',
+        startDate: '2026-08-25',
+        todayDate: '2026-08-25',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('loads the owner review tab and complete conflict preview before approval', async () => {

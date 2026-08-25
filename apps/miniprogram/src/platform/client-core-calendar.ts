@@ -4,6 +4,7 @@ import {
   createAuthenticationRequiredError,
   createCalendarReadClient,
   createGroupMobilePhoneConsentClient,
+  createInsightsReadClient,
   createHttpClientError,
   createInviteVisitorWriteClient,
   createInvalidResponseError,
@@ -23,6 +24,7 @@ import {
   type CalendarReadClient,
   type ClientTransport,
   type GroupMobilePhoneConsentClient,
+  type InsightsReadClient,
   type InviteVisitorWriteClient,
   type ManualScheduleClient,
   type OrganizationReadClient,
@@ -276,6 +278,15 @@ export function createRuntimeVisitorAccessReadClient(
   authentication?: RuntimeWechatRequestAuthentication,
 ): VisitorAccessReadClient {
   return createVisitorAccessReadClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'insights'),
+  );
+}
+
+export function createRuntimeInsightsReadClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): InsightsReadClient {
+  return createInsightsReadClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, 'insights'),
   );
 }

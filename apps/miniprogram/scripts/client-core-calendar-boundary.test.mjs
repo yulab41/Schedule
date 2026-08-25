@@ -29,4 +29,14 @@ describe('P2 client-core calendar boundary', () => {
       '/groups/group-1/calendar?businessMonth=2026-08',
     );
   });
+
+  it('exposes the P9 insights runtime client behind the insights capability', async () => {
+    const source = readFileSync(
+      path.join(appRoot, 'src', 'platform', 'client-core-calendar.ts'),
+      'utf8',
+    );
+    expect(source).toContain('createRuntimeInsightsReadClient');
+    expect(source).toContain('createInsightsReadClient');
+    expect(source).toContain("createRuntimeWxJsonTransport(getAccessToken, authentication, 'insights')");
+  });
 });

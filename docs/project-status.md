@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P9-A6 Mini runtime 事件/统计 transport bridge（已实现，待体验版复核）
+
+- 范围：新增 `createRuntimeInsightsReadClient`，把 P9-A5 的事件列表/详情和按月/按年统计边界接入 Mini `wx.request` transport；统一 Bearer 会话恢复、错误映射和 `insights` capability 前置守卫。
+- 边界：本批不创建事件/统计原生页面，不读写业务数据，不打开生产 `insights`；页面仍需按 P9-A4 黄金确认后实现。
+- 验证：Mini typecheck、P9 client-core boundary 3/3 通过；提交前继续运行 production verify/source/package/determinism/CI dry-run。由于触及 Mini runtime，提交后必须上传新的体验版本并补充候选版本白名单，但不提审/正式发布。
+
 ## 2026-08-26 P9-A5 事件与统计共享只读边界（已完成）
 
 - 范围：新增 `@schedule/client-core` `InsightsReadClient`，覆盖事件列表/详情、按月统计和按年统计四个 Bearer GET endpoint；事件筛选、游标、pageSize、URI 编码与统计月份/年份参数均由 endpoint 定义统一生成。
