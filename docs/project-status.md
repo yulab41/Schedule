@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P10-A2 通讯录 Web Storybook 黄金（已实现，待原生页面）
+
+- 范围：新增 `P10DirectoryParityPreview`，复用生产 `InternalDirectoryView` 与隔离合成目录数据，固化院内/员工模式、390/320、大字号、loading/empty/error/organization-disabled 八个 Storybook 状态；不连接生产 API、不包含真实号码。
+- 视觉/隐私：采用“医院导览台”方向——纸张白卡、临床蓝七级导览带、44px 操作和清晰空/失败引导；所有合成号码为 `0000` 片段，故事源码不读 auth、localStorage 或 API。
+- 验证：P10 Storybook 定向 2/2、Web typecheck、Storybook production build 4437 modules 通过；6008 端口实际浏览器渲染 `internal-ready-390`，Storybook URL HTTP 200，console 仅 Storybook 自身 ariaLabel 未来版本 warning。
+- checkpoint：待提交消息为 `feat(web): add p10 directory parity golden`；下一活动批次为 Mini P10-A3 原生通讯录页面，停止条件是复用这些 story 状态并通过 organization capability/号码隐私/390/320/大字号验证，生产 `organization=false` 不变。
+
 ## 2026-08-26 P10-A1 通讯录共享只读边界（已实现，待原生页面）
 
 - 范围：新增 `@schedule/client-core` `DirectoryReadClient`，覆盖院内/员工 facets、独立筛选与游标列表、批量 lookup；Mini runtime 固定使用 `organization` capability，未创建原生通讯录页面或读取生产目录数据。
