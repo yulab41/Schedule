@@ -1,0 +1,134 @@
+<view class="platform-accounts-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}"
+    ><view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit" /></view
+    ><view class="header-title"
+      ><text class="header-title-main">平台账号</text
+      ><text class="header-title-sub">平台管理员后台</text></view
+    ><text class="phase-chip">P8</text></view
+  >
+  <scroll-view
+    class="platform-accounts-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card"
+        ><ui-loading label="正在加载平台账号"></ui-loading
+      ></view>
+      <view wx:elif="{{state === 'error'}}" class="page-state-card"
+        ><ui-alert tone="danger" title="平台账号暂时无法加载" message="{{errorMessage}}"></ui-alert
+        ><text class="permission-note">仅平台管理员可见；页面不会根据群组角色猜测权限。</text
+        ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+      ></view>
+      <view wx:else class="accounts-content">
+        <view class="page-heading"
+          ><text class="section-eyebrow">平台管理员后台</text
+          ><text class="page-title">账号与身份</text
+          ><text class="page-description"
+            >只显示必要状态，不显示姓名、密码、联系方式或微信身份 subject。</text
+          ></view
+        >
+        <view class="metrics-row"
+          ><view class="metric-card"
+            ><text>全部账号</text><text>{{totalCount}}</text><text>当前业务用户</text></view
+          ><view class="metric-card"
+            ><text>已设密码</text><text>{{configuredCount}}</text><text>可进行密码证明</text></view
+          ><view class="metric-card"
+            ><text>待设密码</text><text>{{pendingCount}}</text><text>已有用户名或待分配</text></view
+          ></view
+        >
+        <view class="accounts-card"
+          ><view class="card-header"
+            ><view
+              ><text class="card-title">用户账号</text
+              ><text class="card-subtitle">平台管理员权限由服务端确认</text></view
+            ><ui-button
+              variant="secondary"
+              label="重新加载"
+              bindpress="handleRefresh"
+            ></ui-button></view
+          ><view wx:if="{{accounts.length === 0}}" class="empty-note">暂无可管理账号。</view
+          ><view wx:for="{{accounts}}" wx:for-item="account" wx:key="id" class="account-row"
+            ><view class="account-main"
+              ><text class="account-id">{{account.idLabel}}</text
+              ><text class="account-status"
+                >{{account.statusLabel}} · auth v{{account.authVersion}}</text
+              ></view
+            ><view class="account-username {{account.username ? '' : 'is-muted'}}"
+              >{{account.usernameLabel}}</view
+            ><view class="password-status {{account.hasPassword ? 'is-ready' : 'is-pending'}}"
+              ><view class="status-dot"></view>{{account.passwordLabel}}</view
+            ><ui-button
+              variant="secondary"
+              label="管理"
+              data-account-id="{{account.id}}"
+              bindpress="handleOpenEditor"
+            ></ui-button></view
+        ></view>
+        <ui-alert
+          wx:if="{{managementError}}"
+          tone="danger"
+          title="平台账号操作未完成"
+          message="{{managementError}}"
+        ></ui-alert
+        ><ui-alert
+          wx:if="{{managementInfo}}"
+          tone="success"
+          title="平台账号"
+          message="{{managementInfo}}"
+        ></ui-alert>
+        <view class="bottom-spacer"></view>
+      </view>
+    </view>
+  </scroll-view>
+  <view wx:if="{{editorOpen}}" class="editor-backdrop" catchtouchmove="preventTouchMove"
+    ><view class="editor-sheet" catchtap="preventTouchMove"
+      ><view class="sheet-heading"
+        ><view
+          ><text class="section-eyebrow">账号证明</text
+          ><text class="sheet-title">管理 {{selectedAccountLabel}}</text></view
+        ><view class="sheet-close" aria-role="button" aria-label="关闭" bindtap="handleCloseEditor"
+          >×</view
+        ></view
+      ><text class="sheet-copy">只修改用户名或生成一次性小程序绑定链接，不设置或显示密码。</text
+      ><view class="field-block"
+        ><text class="field-label">用户名</text
+        ><input
+          class="native-field"
+          maxlength="64"
+          value="{{usernameDraft}}"
+          placeholder="3–64 位账号"
+          bindinput="handleUsernameInput" /></view
+      ><view class="sheet-actions"
+        ><ui-button variant="secondary" label="取消" bindpress="handleCloseEditor"></ui-button
+        ><ui-button
+          variant="primary"
+          label="分配用户名"
+          disabled="{{!canManage || !usernameDraft}}"
+          loading="{{managementState === 'loading'}}"
+          bindpress="handleSaveUsername"
+        ></ui-button></view
+      ><view class="divider"><text>小程序绑定</text></view
+      ><ui-button
+        variant="secondary"
+        label="生成绑定链接（10 分钟）"
+        disabled="{{!canManage}}"
+        loading="{{managementState === 'loading'}}"
+        bindpress="handleGenerateBinding"
+      ></ui-button
+      ><view wx:if="{{bindingUrl}}" class="binding-result"
+        ><text>请通过受控渠道交给用户，链接不会自动完成绑定。</text
+        ><text class="binding-url" user-select="true">{{bindingUrl}}</text
+        ><text>有效期：{{bindingExpiresAt}}</text></view
+      ></view
+    ></view
+  >
+</view>

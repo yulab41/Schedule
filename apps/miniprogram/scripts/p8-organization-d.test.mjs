@@ -22,6 +22,7 @@ describe('P8-D native invite and visitor access', () => {
         'pages/group-settings/index',
         'pages/scheduling-config/index',
         'pages/invite-visitor/index',
+        'pages/platform-accounts/index',
       ],
     });
     expect(panel).toContain('生成邀请');

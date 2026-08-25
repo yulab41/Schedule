@@ -1,0 +1,8 @@
+{
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "platform-accounts-panel": "/subpackages/organization/components/platform-accounts-panel/index"
+  }
+}

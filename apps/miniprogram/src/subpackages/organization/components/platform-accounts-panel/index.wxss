@@ -1,0 +1,356 @@
+.platform-accounts-page {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-background);
+}
+.mini-header {
+  display: flex;
+  padding: 0 14px 0 8px;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 8px;
+  background: var(--ui-color-surface);
+  border-bottom: 1px solid var(--ui-color-border);
+}
+.header-back {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.header-back image {
+  width: 20px;
+  height: 20px;
+}
+.header-title {
+  min-width: 0;
+  flex: 1;
+}
+.header-title-main,
+.header-title-sub,
+.page-heading,
+.card-header,
+.account-main,
+.password-status,
+.sheet-heading,
+.sheet-actions,
+.field-block,
+.page-state-card {
+  display: flex;
+}
+.header-title-main,
+.header-title-sub,
+.page-heading,
+.account-main,
+.field-block,
+.page-state-card {
+  flex-direction: column;
+}
+.header-title-main {
+  overflow: hidden;
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-title-sub {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phase-chip {
+  display: inline-flex;
+  min-height: 24px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-pill);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.platform-accounts-scroll {
+  width: 100%;
+}
+.page-content,
+.editor-sheet {
+  padding: 16px 14px;
+}
+.accounts-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.page-heading {
+  gap: 3px;
+}
+.section-eyebrow,
+.field-label,
+.card-subtitle,
+.account-status,
+.metric-card > text:first-child,
+.metric-card > text:last-child,
+.permission-note,
+.sheet-copy,
+.binding-result {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+.page-title {
+  font-size: var(--ui-font-size-xl);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.page-description {
+  color: var(--ui-color-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: var(--ui-line-height-body);
+}
+.metrics-row,
+.accounts-card,
+.page-state-card {
+  background: var(--ui-color-surface);
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-medium);
+  box-shadow: var(--ui-shadow-card);
+}
+.metrics-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+}
+.metric-card {
+  display: flex;
+  min-height: 100px;
+  flex: 1;
+  padding: 10px;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--ui-color-surface-muted);
+  border-radius: var(--ui-radius-small);
+}
+.metric-card > text:nth-child(2) {
+  margin: 6px 0;
+  font-size: 24px;
+  font-weight: var(--ui-font-weight-semibold);
+  line-height: 1;
+}
+.card-header {
+  min-height: 58px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+.card-header > view {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.card-title,
+.sheet-title {
+  font-size: var(--ui-font-size-md);
+  font-weight: var(--ui-font-weight-semibold);
+}
+.account-row {
+  display: grid;
+  min-height: 72px;
+  padding: 10px 12px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+.account-main {
+  min-width: 0;
+  gap: 3px;
+}
+.account-id {
+  overflow: hidden;
+  color: var(--ui-color-primary-dark);
+  font-family: ui-monospace, monospace;
+  font-size: var(--ui-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-status {
+  white-space: nowrap;
+}
+.account-username {
+  max-width: 130px;
+  overflow: hidden;
+  padding: 4px 7px;
+  color: var(--ui-color-primary-dark);
+  background: var(--ui-color-primary-light);
+  border-radius: 6px;
+  font-size: var(--ui-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-username.is-muted {
+  color: var(--ui-color-text-muted);
+  background: var(--ui-color-surface-muted);
+}
+.password-status {
+  align-items: center;
+  gap: 5px;
+  color: var(--ui-color-success);
+  font-size: var(--ui-font-size-xs);
+  white-space: nowrap;
+}
+.password-status.is-pending {
+  color: var(--ui-color-warning);
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.empty-note {
+  margin: 10px 12px;
+  padding: 10px;
+  color: var(--ui-color-text-secondary);
+  background: var(--ui-color-surface-muted);
+  border: 1px dashed var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+}
+.permission-note {
+  line-height: var(--ui-line-height-body);
+}
+.page-state-card {
+  min-height: 240px;
+  padding: 20px;
+  align-items: stretch;
+  justify-content: center;
+  gap: 12px;
+}
+.bottom-spacer {
+  height: calc(24px + env(safe-area-inset-bottom));
+}
+.editor-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  padding: 16px;
+  align-items: flex-end;
+  background: rgb(22 32 42 / 42%);
+}
+.editor-sheet {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--ui-color-surface);
+  border-radius: var(--ui-radius-large) var(--ui-radius-large) 0 0;
+  box-shadow: var(--ui-shadow-elevated);
+}
+.sheet-heading {
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sheet-heading > view:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.sheet-close {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-muted);
+  font-size: 24px;
+}
+.sheet-copy {
+  display: block;
+  margin: 10px 0 18px;
+  line-height: var(--ui-line-height-body);
+}
+.field-block {
+  gap: 5px;
+}
+.native-field {
+  width: 100%;
+  height: 44px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  color: var(--ui-color-text-primary);
+  background: var(--ui-color-surface-muted);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-small);
+  font-size: var(--ui-font-size-sm);
+  line-height: 44px;
+}
+.sheet-actions {
+  margin-top: 14px;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.divider {
+  display: flex;
+  margin: 24px 0 12px;
+  align-items: center;
+  gap: 10px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+.divider::before,
+.divider::after {
+  height: 1px;
+  flex: 1;
+  background: var(--ui-color-border);
+  content: '';
+}
+.binding-result {
+  display: flex;
+  margin-top: 12px;
+  padding: 10px;
+  flex-direction: column;
+  gap: 6px;
+  line-height: var(--ui-line-height-body);
+  background: var(--ui-color-primary-light);
+  border-radius: var(--ui-radius-small);
+}
+.binding-url {
+  overflow-wrap: anywhere;
+  color: var(--ui-color-primary-dark);
+  font-size: 11px;
+  user-select: text;
+}
+@media (max-width: 360px) {
+  .page-content {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+  .metrics-row {
+    flex-direction: column;
+  }
+  .account-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .account-username,
+  .password-status {
+    display: none;
+  }
+  .account-row ui-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}

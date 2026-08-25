@@ -13,6 +13,7 @@ import {
   createOrganizationWriteClient,
   createSchedulingConfigWriteClient,
   createPastScheduleClient,
+  createPlatformIdentityWriteClient,
   createSchedulePublicationClient,
   createWorkflowClient,
   holidayReadModelDecoder,
@@ -27,6 +28,7 @@ import {
   type OrganizationWriteClient,
   type SchedulingConfigWriteClient,
   type PastScheduleClient,
+  type PlatformIdentityWriteClient,
   type SchedulePublicationClient,
   type WorkflowClient,
 } from '@schedule/client-core';
@@ -254,6 +256,15 @@ export function createRuntimeInviteVisitorWriteClient(
   authentication?: RuntimeWechatRequestAuthentication,
 ): InviteVisitorWriteClient {
   return createInviteVisitorWriteClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
+  );
+}
+
+export function createRuntimePlatformIdentityWriteClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): PlatformIdentityWriteClient {
+  return createPlatformIdentityWriteClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
   );
 }
