@@ -2,6 +2,12 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-26 P8/P10 实体验收通过（能力开启待明确授权）
+
+- 用户已明确确认：`P10 通讯录 RC 通过`、`P10 个人中心 RC 通过`、`P8 组织管理 RC 通过`。验收候选为体验版 `0.1.0-p9.20260826.15`。
+- 生产只读核查：`MINIPROGRAM_CAPABILITY_GLOBAL_ENABLED=true`、`CORE=true`、`WORKFLOWS=true`、`GUEST=true`；`organization=false`、`insights=false`、`externalMessages=false`，`.15` capability HTTP 200，未自动切换开关。
+- 下一活动批次与停止条件：在用户明确授权后才执行 `organization=true` 的原子能力切换、健康/回滚验证；P9 `insights` 与 `externalMessages` 仍需各自的阶段确认和模板资格，不随本次 RC 自动开启。
+
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
 - 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。账号密码管理员不再显示无效的微信解绑按钮，改为明确的“不适用”说明。
