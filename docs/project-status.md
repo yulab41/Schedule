@@ -23,6 +23,12 @@
 - checkpoint：待提交消息为 `docs(miniprogram): add p10 directory rc runbook`；清单交付后继续等待实体 Android 证据，不把 Storybook/CI 当作原生通过替代。
 - 发布同步：docs checkpoint `984110a9` 在备份 archive `3670b339-8f74-404a-a4c5-63cd1438b9f5`（54 表/171,645 行/79,962,684 bytes/SHA `93bff05b884bfe6995665f7d8ce980ff562e1881841d44ec175c75fd1338f0f5`）后部署 release `984110a9d6ff22079fa395e23ebc5fed9254e73a`；full verifier、候选 capability 200 和远端临时目录清理通过。
 
+## 2026-08-26 P10-A4 个人中心实体 Android RC 清单（已固化，待用户执行）
+
+- 新增 `apps/miniprogram/docs/runbooks/p10-profile-rc.md`，锁定体验版 `0.1.0-p9.20260826.15`，覆盖工作台头像入口、D0796 微信快捷登录、管理员账号密码登录、认证方式对应的解绑边界、切换/退出、未登录和 390/320/大字号矩阵。
+- 验证：RC 计划一致性测试 2/2；清单明确不新增个人资料网络请求、不打开 `organization`/`insights`/`externalMessages`，只有用户回复“P10 个人中心 RC 通过”后才标记实体验收完成。
+- 下一活动批次与停止条件：用户在体验版/实体 Android 执行个人中心清单；若发现问题提供认证方式、尺寸、状态和现象，未通过前不提交审核或正式发布。
+
 ## 2026-08-26 P10-A3 原生通讯录页面（已实现，待体验版复核）
 
 - 范围：新增 `subpackage-organization/pages/directory` 与 `directory-panel`，普通成员可从 More 进入；支持院内/员工模式、搜索、院区/片区/楼宇/楼层/科室/单元/类型七级独立筛选、结果卡、游标加载更多及 loading/empty/error/organization-disabled。
