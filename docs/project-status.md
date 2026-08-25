@@ -121,7 +121,7 @@
 - 发布/下一步：本批已改 Mini runtime/UI，需提交后上传新的体验版本并补充候选白名单；生产 `insights=false` 保持关闭。用户需先复核 P9 Storybook（当前稳定端口 `6009`）和体验版，再进入通知/导出共享边界。
 - 体验/运行：`0.1.0-p9.20260826.2` 已上传成功，123 个代码文件、zip `1,039,596` bytes、manifest `0a2b38adc269bc8813630c93558f13b43aeb9a83e6b71786d9c067d639cfc619`，未提审/未正式发布。生产备份 archive `f1bba16c-310b-40d2-9f77-0c157b286906` 后追加候选白名单；候选 capability HTTP 200 且 `insights=false`。
 - 发布：代码 checkpoint `ee6f9cb8`（`feat(miniprogram): add p9 insights dashboard`）在备份 archive `d7eec8c3-4bf3-4dc1-9492-b7503c993980`（54 表/170,920 行/79,707,536 bytes/SHA `38391067f16073150fa87fcfdd6b4285c5b06d369afd93805fda5179b99248ca`）后部署 release `ee6f9cb8deca4102d70152f1787377da67948852`；ECS full verifier、候选版本 capability、health 和远端临时清理通过。
-- 预览修复：6008 原先由旧 P8 临时静态服务器和 service worker 占用，导致 P9 story index 缺失；当前 Storybook 构建由稳定端口 `6009` 提供，P9 访客与事件/统计 story 已在浏览器实际渲染。6008 旧标签需硬刷新或改用 6009。
+- 预览修复与复核：回归引入点为 checkpoint `5b134c81f`（旧 P8 临时静态服务器/service worker 使 6008 的 P9 story index 缺失），已用 `git log -S`/`git blame` 定位。当前 6009 为主入口、6008 为同一 `apps/web/storybook-static` 产物镜像；两端 `index.json` 均包含 19 个 P9 条目（17 个 Story + 2 个 Docs），P9 访客访问与数据/消息的全部状态均已在浏览器实际渲染，console 仅 Storybook 自身未来版本 `ariaLabel` warning。旧标签若仍显示空白需硬刷新，优先改用 6009。
 - 状态同步：docs checkpoint `518596ef` 在备份 archive `45645f7d-f112-4ad3-938e-e2fcfa41b1c8`（54 表/170,931 行/79,711,572 bytes/SHA `b3b5dc81ad54323a695bacb8bc144117aab0f164f9833823251c154ba0494382`）后部署 release `518596ef7d0116fc2b396eef3260141fae3d163c`；full verifier、候选 capability HTTP 200 与远端临时目录清理通过。
 
 ## 2026-08-26 P9-A6 Mini runtime 事件/统计 transport bridge（已实现，待体验版复核）
@@ -144,7 +144,7 @@
 
 - 范围：新增 `P9InsightsWebGolden`，把事件时间线、排班统计、通知中心和导出入口统一为“值班台账”视觉；覆盖 ready、loading、empty、error、成员权限关闭、390/320 边界和大字号，不发起 API 请求。
 - 设计：临床蓝与纸张白为基础，时间线针线表达不可变事件，统计条带表达班次事实，通知/导出共用 44px 控件和明确的登录态下载安全说明；尊重键盘焦点与 reduced-motion。
-- 验证/预览：P9 定向 2 tests、Web typecheck、Storybook production build 通过；预览 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p9-insights-suite--events-ready-390` HTTP 200。本批不创建原生页面、不打开 `insights`、不读写业务数据。
+- 验证/预览：P9 定向 2 tests、Web typecheck、Storybook production build 通过；主预览 `http://127.0.0.1:6009/?path=/story/miniprogram-parity-p9-insights-suite--events-ready-390` HTTP 200，6008 镜像同样可用。本批不创建原生页面、不打开 `insights`、不读写业务数据。
 - 发布/运行：checkpoint `742524c6`（`feat(web): add p9 insights suite golden`）已推送；生产备份 archive `ab006a06-f5d3-4229-9efe-48c883f14607`（54 表/170,758 行/79,651,304 bytes/SHA `6fb6e8ba6d7d878d5eb04c42170ee1adc80bd2ea9a4ef5a5459caaf3a186aa88`）后部署 release `742524c66ce76a8eb228b86765286f4c19372358`。`ECS_PUBLIC_IP` full verifier、health 200、artifact/control-plane/migration/unknown-host 检查通过，候选版本 capability 200 且 `insights=false`，远端临时目录已清理。
 - 下一步：用户确认 Web 黄金后，按事件/统计/通知/导出实际 API 逐项建立 `client-core` 边界与 `subpackage-insights` 原生页面；P9-A3 访客访问页继续等待实体 Android 复核，不把 Storybook/CI 作为原生验收替代。
 
@@ -162,7 +162,7 @@
 
 - 设计意图：采用“医疗审计台”方向——临床蓝、白色病历卡、访问脉搏柱状聚合与纵向审计针线；单一任务是回答“谁在查看排班”，只呈现访问时间、查看月份、最小化来源线索和 90 天保留说明。
 - 黄金状态：新增 `P9VisitorAccessGolden` 与 7 个精确 story：390 ready、320 边界、大字号、loading、empty、error retry、insights disabled；主要操作保持 44px，移动端日志转卡片，无横向溢出设计。
-- 验证/预览：P9 黄金定向 2 tests、Web typecheck、Storybook production build 通过；预览地址 `http://127.0.0.1:6008/?path=/story/miniprogram-parity-p9-visitor-access--ready-390`。本批不创建原生页面、不打开生产 `insights` capability、不读写业务数据。
+- 验证/预览：P9 黄金定向 2 tests、Web typecheck、Storybook production build 通过；主预览地址 `http://127.0.0.1:6009/?path=/story/miniprogram-parity-p9-visitor-access--ready-390`，6008 镜像同样可用。本批不创建原生页面、不打开生产 `insights` capability、不读写业务数据。
 - 发布/运行：checkpoint `fbe912ff`（`feat(web): add p9 visitor access golden`）已推送；生产备份 archive `f1b57d5b-e742-4873-827e-5db761221044`（54 表/170,515 行/79,569,064 bytes/SHA `2759fc531fda6208e6a353212ea1b4ee205c1bbad13f9ece4319e36c217a7cc5`）后部署 release `fbe912ff02efe362dbfdbb1c784b284fbc0e6114`。`ECS_PUBLIC_IP` full `ecs-verify.sh`、health 200、artifact/control-plane/migration/unknown-host 检查通过；`0.1.0-p8.20260825.5` capability HTTP 200 且 `organization=false`、`insights=false`，远端临时目录已清理。为后续复用，隔离发布 worktree 保留在 `E:\AItools\Schedule-release-fbe912ff`，首次依赖装配完成后可直接复用。
 - 当前状态：已完成（含运行验证）→ 待用户视觉复核。用户确认黄金后，下一批实现 `subpackage-insights` 的原生访客日志/月份聚合只读页；如有差异请提供 viewport + state + 现象。
 
