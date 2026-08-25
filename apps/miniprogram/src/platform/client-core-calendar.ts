@@ -15,6 +15,7 @@ import {
   createPastScheduleClient,
   createPlatformIdentityWriteClient,
   createSchedulePublicationClient,
+  createVisitorAccessReadClient,
   createWorkflowClient,
   holidayReadModelDecoder,
   groupMemberListDecoder,
@@ -31,6 +32,7 @@ import {
   type PlatformIdentityWriteClient,
   type SchedulePublicationClient,
   type WorkflowClient,
+  type VisitorAccessReadClient,
 } from '@schedule/client-core';
 import type { ClientEndpoint } from '@schedule/client-core';
 import {
@@ -266,6 +268,15 @@ export function createRuntimePlatformIdentityWriteClient(
 ): PlatformIdentityWriteClient {
   return createPlatformIdentityWriteClient(
     createRuntimeWxJsonTransport(getAccessToken, authentication, 'organization'),
+  );
+}
+
+export function createRuntimeVisitorAccessReadClient(
+  getAccessToken: () => string | undefined,
+  authentication?: RuntimeWechatRequestAuthentication,
+): VisitorAccessReadClient {
+  return createVisitorAccessReadClient(
+    createRuntimeWxJsonTransport(getAccessToken, authentication, 'insights'),
   );
 }
 

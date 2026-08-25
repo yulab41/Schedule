@@ -757,6 +757,16 @@
           class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
           aria-role="button"
           aria-disabled="{{!canManageScheduleTools}}"
+          bindtap="handleOpenVisitorAccess"
+        >
+          <image src="/assets/icons/web-calendar-check.svg" mode="aspectFit" />
+          <view><text>访客访问</text><text>查看谁在访问排班及最近访问月份</text></view>
+          <image class="more-chevron" src="/assets/icons/web-chevron-right.svg" mode="aspectFit" />
+        </view>
+        <view
+          class="more-item {{canManageScheduleTools ? '' : 'is-disabled'}}"
+          aria-role="button"
+          aria-disabled="{{!canManageScheduleTools}}"
           bindtap="handleOpenManualSchedule"
         >
           <image src="/assets/icons/web-calendar.svg" mode="aspectFit" />

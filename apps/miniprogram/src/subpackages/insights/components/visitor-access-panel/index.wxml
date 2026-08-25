@@ -1,0 +1,106 @@
+<view class="visitor-access-page {{viewportClass}}">
+  <view class="mini-header" style="{{shellHeaderStyle}}">
+    <view
+      class="header-back"
+      hover-class="is-pressed"
+      aria-role="button"
+      aria-label="返回更多工具"
+      bindtap="handleBack"
+      ><image src="/assets/icons/web-chevron-left.svg" mode="aspectFit"
+    /></view>
+    <view class="header-title"
+      ><text class="header-title-main">访客访问</text
+      ><text class="header-title-sub">排班访问审计 · {{groupId}}</text></view
+    >
+    <text class="phase-chip">P9</text>
+  </view>
+  <scroll-view
+    class="visitor-access-scroll"
+    style="{{pageScrollStyle}}"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+  >
+    <view class="page-content">
+      <view wx:if="{{state === 'loading'}}" class="page-state-card"
+        ><ui-loading label="正在读取访客访问"></ui-loading
+      ></view>
+      <view wx:elif="{{state === 'disabled'}}" class="page-state-card insights-disabled"
+        ><view class="disabled-mark">i</view
+        ><text class="state-title">访客访问分析暂未开放</text
+        ><text class="state-copy"
+          >当前版本暂未开启 insights 能力。生产环境保持关闭，不会读取或展示任何访问记录。</text
+        ></view
+      >
+      <view wx:elif="{{state === 'error'}}" class="page-state-card"
+        ><ui-alert tone="danger" title="访客访问暂时无法加载" message="{{errorMessage}}"></ui-alert
+        ><ui-button variant="primary" label="重新加载" bindpress="handleRetry"></ui-button
+      ></view>
+      <view wx:elif="{{state === 'empty'}}" class="page-state-card empty-state"
+        ><view class="empty-mark">—</view
+        ><text class="state-title">还没有访客访问记录</text
+        ><text class="state-copy"
+          >访客打开已发布排班后，这里会显示按月聚合与最近访问时间。</text
+        ></view
+      >
+      <view wx:else class="visitor-access-content">
+        <view class="page-heading"
+          ><text class="section-eyebrow">医疗审计台</text
+          ><text class="page-title">谁在查看排班</text
+          ><text class="page-description"
+            >只显示访问时间、查看月份和最小化来源线索；完整 IP、访问令牌和访客密钥不会进入小程序状态。</text
+        ></view>
+        <view class="privacy-note"
+          ><text class="privacy-title">隐私保留</text
+          ><text>访问明细最多保留 90 天，随后只保留匿名月份聚合。</text></view
+        >
+        <view class="aggregate-card">
+          <view class="card-header"
+            ><view
+              ><text class="card-title">访问脉搏</text
+              ><text class="card-subtitle">按访问月份聚合 · 最近 12 个月</text></view
+            ><text class="count-badge">{{aggregateCountLabel}}</text></view
+          ><view wx:if="{{aggregates.length === 0}}" class="card-empty">暂无月份聚合。</view
+          ><view wx:else class="chart-row"
+            ><view wx:for="{{aggregates}}" wx:key="accessMonth" class="chart-item"
+              ><text class="chart-value">{{item.accessCountLabel}}</text
+              ><view class="bar-track"
+                ><view class="bar-fill" style="height:{{item.barHeight}}%;"></view></view
+              ><text class="chart-label">{{item.accessMonthLabel}}</text></view
+          ></view>
+        </view>
+        <view class="logs-card">
+          <view class="card-header"
+            ><view
+              ><text class="card-title">访问记录</text
+              ><text class="card-subtitle">来源线索已脱敏，仅供权限内审计</text></view
+            ><text class="count-badge">{{logCountLabel}}</text></view
+          ><view wx:if="{{logs.length === 0}}" class="card-empty">暂无访问记录。</view
+          ><view wx:for="{{logs}}" wx:key="id" class="access-row"
+            ><view class="audit-line" aria-hidden="true"><view class="audit-dot"></view></view
+            ><view class="access-main"
+              ><text class="access-date">{{item.createdAtLabel}}</text
+              ><text class="access-month">查看 {{item.businessMonthLabel}} 排班</text></view
+            ><view class="access-meta"
+              ><text>{{item.ipLabel}}</text><text>{{item.requestIdLabel}}</text></view
+          ></view
+          ><view wx:if="{{nextCursor}}" class="load-more"
+            ><ui-button
+              variant="secondary"
+              label="{{loadingMore ? '正在加载' : '加载更多记录'}}"
+              loading="{{loadingMore}}"
+              disabled="{{loadingMore}}"
+              bindpress="handleLoadMore"
+          ></ui-button></view
+        ></view>
+        <ui-alert
+          wx:if="{{loadMoreError}}"
+          tone="danger"
+          title="更多记录加载失败"
+          message="{{loadMoreError}}"
+        ></ui-alert>
+        <view class="bottom-spacer"></view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

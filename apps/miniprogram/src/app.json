@@ -26,6 +26,10 @@
     {
       "root": "subpackages/workflows",
       "pages": ["pages/leave/index", "pages/swap/index", "pages/duty/index"]
+    },
+    {
+      "root": "subpackages/insights",
+      "pages": ["pages/visitor-access/index"]
     }
   ],
   "window": {

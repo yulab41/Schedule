@@ -675,6 +675,10 @@ Page({
     navigateGroupTool(this, '/subpackages/organization/pages/platform-accounts/index');
   },
 
+  handleOpenVisitorAccess(this: WorkbenchPageInstance): void {
+    navigateGroupTool(this, '/subpackages/insights/pages/visitor-access/index');
+  },
+
   handleNotification(this: WorkbenchPageInstance): void {
     this.setData({ notificationAnimating: false }, () => {
       this.setData({ announcement: '通知功能将在后续阶段开放。', notificationAnimating: true });

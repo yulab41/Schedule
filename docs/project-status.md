@@ -2,6 +2,14 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-25 P9-A3 原生访客访问审计页（已实现，待实体机复核）
+
+- 范围：新增 `subpackage-insights/pages/visitor-access` 与 `visitor-access-panel`，从 More 入口进入；并行读取月份聚合/最近访客日志，支持 ready/loading/empty/error/insights-disabled、游标加载更多、390/320 紧凑布局和 44px 操作。
+- 共享/权限：接入 `createRuntimeVisitorAccessReadClient`，两个 GET 只读端点统一 `insights` capability 和 Bearer transport；生产 `insights=false` 仍只显示关闭态，不读取业务数据；普通成员入口继续由服务端权限失败关闭。
+- 隐私：只在页面内存保存脱敏展示模型，IPv4 末段与 request id 均最小化遮罩；不写缓存、日志、token、visitor key 或原始访问正文；明确 90 天明细保留/匿名聚合说明。
+- 回归/验证：先红后绿 P9 原生边界 3/3；Mini 正式源码范围 56 files/285 tests（排除用户自有 `.artifacts/` 副本）通过；`typecheck`、production verify（193 files、packageBytes `4,563,146`、manifest `4bd52c96f1f5d387d646d7954409e5320dab75be9a937cc158f662f56a06eff1`）、source/package/determinism/CI dry-run 全部通过；`subpackages/insights` 约 340,309 bytes。
+- 状态：已实现待浏览器/原生复核；体验版上传必须使用本 checkpoint 的外部 `miniprogram-ci` key，正式审核/发布不在本批范围。用户需在 Android 实机验证管理员/成员权限失败关闭、访客访问记录、加载更多、弱网、前后台和大字号。
+
 ## 2026-08-25 P9-A2 访客访问 Web 黄金（已完成，待用户复核）
 
 - 设计意图：采用“医疗审计台”方向——临床蓝、白色病历卡、访问脉搏柱状聚合与纵向审计针线；单一任务是回答“谁在查看排班”，只呈现访问时间、查看月份、最小化来源线索和 90 天保留说明。

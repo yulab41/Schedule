@@ -1,0 +1,8 @@
+{
+  "disableScroll": true,
+  "navigationStyle": "custom",
+  "renderer": "skyline",
+  "usingComponents": {
+    "visitor-access-panel": "/subpackages/insights/components/visitor-access-panel/index"
+  }
+}
