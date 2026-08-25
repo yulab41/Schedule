@@ -23,7 +23,7 @@
 
     <view class="identity-heading">
       <text class="identity-eyebrow"
-        >{{mode === 'login' ? '微信登录' : mode === 'register' ? '首次建档' : '账号证明'}}</text
+        >{{mode === 'login' ? '账号登录' : mode === 'register' ? '首次建档' : '账号证明'}}</text
       >
       <text class="identity-title"
         >{{mode === 'login' ? '进入你的排班台' : mode === 'choice' ? '找到你的排班账号' : mode ===
@@ -31,11 +31,11 @@
         '身份已确认'}}</text
       >
       <text class="identity-description"
-        >{{mode === 'login' ? '微信登录只用于确认你的排班身份，不创建公开账号。' : mode === 'choice'
+        >{{mode === 'login' ? '使用账号密码登录后台，或用微信快速进入已绑定的成员账号。' : mode === 'choice'
         ? '这个微信身份还没有绑定排班账号，请选择下一步。' : mode === 'password' ?
         '使用平台管理员分配的账号完成一次绑定。' : mode === 'register' ?
         '只需填写真实姓名，之后可由管理员完成入组。' :
-        '当前微信身份已准备进入有权限的排班群组。'}}</text
+        '当前登录身份已准备进入有权限的排班群组。'}}</text
       >
     </view>
 
@@ -49,17 +49,41 @@
       ></ui-alert>
 
       <block wx:if="{{mode === 'login'}}">
-        <view class="identity-mark" aria-hidden="true">微</view>
-        <text class="identity-card__heading">使用当前微信身份</text>
-        <text class="identity-card__copy">我们只读取微信提供的身份标识，不公开你的联系方式。</text>
+        <view class="identity-mark" aria-hidden="true">排</view>
+        <text class="identity-card__heading">账号密码登录</text>
+        <text class="identity-card__copy">账号由平台管理员预置，密码只用于建立当前登录会话。</text>
+        <ui-input-shell
+          label="账号"
+          value="{{username}}"
+          placeholder="3-64 位字母、数字或 ._-"
+          required
+          bind:change="handleUsernameChange"
+        ></ui-input-shell>
+        <view class="identity-field"
+          ><text class="identity-field__label">密码</text
+          ><input
+            class="identity-field__control"
+            password
+            value="{{password}}"
+            placeholder="请输入密码"
+            bindinput="handlePasswordInput"
+        /></view>
         <ui-button
           class="identity-card__button"
-          label="微信登录"
+          label="账号密码登录"
           variant="primary"
+          loading="{{loading}}"
+          bind:press="handlePasswordLogin"
+        ></ui-button>
+        <view class="identity-divider" aria-hidden="true"><view></view><text>或</text><view></view></view>
+        <ui-button
+          class="identity-card__button identity-card__button--secondary identity-card__button--wechat"
+          label="微信快捷登录"
+          variant="secondary"
           loading="{{loading}}"
           bind:press="handleWechatLogin"
         ></ui-button>
-        <text class="identity-card__note">首次登录不会自动创建业务账号。</text>
+        <text class="identity-card__note">已绑定微信的普通成员可直接快速登录；首次微信登录不会自动创建业务账号。</text>
       </block>
 
       <block wx:elif="{{mode === 'choice'}}">
@@ -157,7 +181,7 @@
       <block wx:else>
         <view class="identity-success-mark" aria-hidden="true">✓</view>
         <text class="identity-card__heading">准备进入排班台</text>
-        <text class="identity-success-copy">身份已确认。进入你有权限的群组，查看只读排班。</text>
+        <text class="identity-success-copy">登录身份已确认。进入你有权限的群组，查看只读排班。</text>
         <navigator
           class="identity-card__button identity-card__button--navigator"
           url="/pages/workbench/index"
@@ -165,7 +189,10 @@
           aria-role="button"
           >进入排班台</navigator
         >
-        <navigator class="identity-navigator" url="/pages/identity/unbind"
+        <navigator
+          wx:if="{{authMethod === 'wechat'}}"
+          class="identity-navigator"
+          url="/pages/identity/unbind"
           >解除当前微信绑定</navigator
         >
         <text class="identity-card__note">排班内容只读查看；业务变更功能将在后续阶段开放。</text>

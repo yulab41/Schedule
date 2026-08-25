@@ -53,7 +53,7 @@ const miniDescription = computed(() => {
   if (screen.value === 'mini-admin-preview') return '请核对脱敏信息，确认是管理员为你准备的账号。';
   if (screen.value === 'mini-admin-confirm') return '当前微信身份将绑定到以下排班账号。';
   if (screen.value === 'mini-unbind') return '只移除当前小程序身份，不删除 Web 账号或排班资料。';
-  return '微信登录只用于确认你的排班身份，不创建公开账号。';
+  return '使用账号密码登录后台，或用微信快速进入已绑定的成员账号。';
 });
 const miniStep = computed(() => {
   if (
@@ -317,7 +317,7 @@ function advanceMiniFlow(): void {
               ? '管理员绑定'
               : screen === 'mini-unbind'
                 ? '账号安全'
-                : '微信登录'
+              : '账号登录'
           }}
         </p>
         <h1>{{ miniTitle }}</h1>
@@ -326,13 +326,31 @@ function advanceMiniFlow(): void {
 
       <section class="mini-card">
         <template v-if="screen === 'mini-login'">
-          <div class="wechat-orb" aria-hidden="true"><span>微</span></div>
-          <h2>使用当前微信身份</h2>
-          <p class="mini-card-copy">我们只读取微信提供的身份标识，不公开你的联系方式。</p>
-          <button class="mini-primary" type="button" @click="advanceMiniFlow">微信登录</button>
+          <div class="wechat-orb" aria-hidden="true"><span>排</span></div>
+          <h2>账号密码登录</h2>
+          <p class="mini-card-copy">账号由平台管理员预置，密码只用于建立当前登录会话。</p>
+          <label class="mini-field"
+            ><span>账号</span><input value="d0796" autocomplete="username" readonly
+          /></label>
+          <label class="mini-field"
+            ><span>密码</span
+            ><input
+              value="preview-password"
+              type="password"
+              autocomplete="current-password"
+              readonly
+          /></label>
+          <button class="mini-primary" type="button" @click="showFeedback('预览状态：账号密码登录')">
+            账号密码登录
+          </button>
+          <div class="mini-divider" aria-hidden="true"><span /><b>或</b><span /></div>
+          <button class="mini-secondary" type="button" @click="advanceMiniFlow">
+            微信快捷登录
+          </button>
           <button class="mini-secondary" type="button" @click="screen = 'mini-admin-preview'">
             我有管理员绑定链接
           </button>
+          <p v-if="feedback" class="preview-feedback" role="status">{{ feedback }}</p>
         </template>
 
         <template v-else-if="screen === 'mini-link'">
@@ -1293,6 +1311,25 @@ code {
   width: 100%;
   margin-top: 22px;
   padding: 0 14px;
+}
+
+.mini-divider {
+  display: flex;
+  margin-top: 18px;
+  align-items: center;
+  gap: 10px;
+  color: var(--p3-faint);
+  font-size: var(--ui-font-size-xs);
+}
+
+.mini-divider span {
+  height: 1px;
+  flex: 1;
+  background: var(--p3-line);
+}
+
+.mini-divider b {
+  font-weight: var(--ui-font-weight-regular);
 }
 
 .mini-secondary {

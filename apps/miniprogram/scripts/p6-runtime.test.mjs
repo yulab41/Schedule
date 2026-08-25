@@ -128,6 +128,45 @@ describe('P6-A session, transport and private cache runtime', () => {
     expect(wxLogin).toHaveBeenCalledTimes(1);
   });
 
+  it('supports password sessions without treating a password 401 as a WeChat re-login', async () => {
+    const storageWx = createStorageWx();
+    const wxLogin = vi.fn();
+    const request = vi.fn((options) => {
+      if (options.url.endsWith('/auth/password/login')) {
+        options.success({
+          data: {
+            isNewUser: false,
+            mustChangePassword: false,
+            profile: profile('user-password'),
+            token: 'password-token',
+          },
+          statusCode: 200,
+        });
+        return;
+      }
+      if (options.header.Authorization === 'Bearer password-token') {
+        options.success({ data: {}, statusCode: 401 });
+        return;
+      }
+      throw new Error(`unexpected request ${options.method} ${options.url}`);
+    });
+    vi.stubGlobal('wx', { ...storageWx, login: wxLogin, request });
+    const [identity, , transportModule] = await importRuntime();
+
+    const result = await identity.loginWithPassword('D0796', 'password');
+    identity.persistPasswordSession(result);
+    expect(identity.getStoredWechatAuthMethod()).toBe('password');
+    expect(identity.getStoredWechatToken()).toBe('password-token');
+
+    const client = transportModule.createRuntimeCalendarReadClient(
+      identity.getStoredWechatToken,
+      identity.getWechatRequestAuthentication(),
+    );
+    await expect(client.getHolidays(2026)).rejects.toMatchObject({ status: 401 });
+    expect(wxLogin).not.toHaveBeenCalled();
+    expect(identity.getStoredWechatToken()).toBeUndefined();
+  });
+
   it('clears session and private cache when silent login needs linking or final replay is 401', async () => {
     const now = Date.now();
     for (const mode of ['link-required', 'final-401']) {

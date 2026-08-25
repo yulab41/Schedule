@@ -82,6 +82,13 @@ Web 登录页改为仅登录，平台账号后台增加账号状态/用户名/�
 - 旧 Web 和上一 Mini 体验版在 P3 期间必须继续读取既有 API；新增 response 字段只能 additive，判别联合只用于 Mini 微信登录端点。
 - 不通过聊天、日志或测试输出任何真实 identity、credential、token、AppSecret 或完整生产资料。
 
+## 当前 Mini 登录入口（2026-08-25）
+
+- `pages/identity/index` 初始页同时提供 Web 同源账号/密码表单与“微信快捷登录”；平台管理员账号可直接调用 `POST /auth/password/login`，已绑定微信的普通成员可调用 `POST /auth/wechat/login`。
+- 两类 bearer 会话共用当前私有会话槽位，但持久化 `authMethod`；密码会话收到 401 时只清理当前会话，不得静默调用 `wx.login` 切换到另一位微信用户。微信会话仍保留原有单飞静默恢复。
+- 密码登录必须返回已有 `profile`；不接受公开注册或无资料自动建号。密码只发送给服务端，不写 Mini storage；绑定 URL、ticket 和微信 code 仍按原有内存/单次语义处理。
+- 视觉黄金继续使用 `P3IdentitySecurityPreview` 的 `mini-login-390/320`，原生页面需用户在实体 Android 复核账号密码、微信快捷登录和两种会话切换。
+
 ## 必测安全矩阵
 
 - 旧/新 JWT、版本递增、悬挂/删除用户、provider/AppID/subject 错配。

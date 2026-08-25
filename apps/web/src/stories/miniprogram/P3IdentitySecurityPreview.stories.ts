@@ -10,7 +10,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'P3 身份安全视觉黄金稿。Web 先确认登录与平台账号后台；小程序随后复用同一令牌复刻微信登录、账号证明、真实姓名建档和管理员 URL Link 绑定。所有按钮仅改变预览状态，不调用 API。',
+          'P3 身份安全视觉黄金稿。Web 先确认登录与平台账号后台；小程序复用同一账号密码表单，并提供微信快捷登录、账号证明、真实姓名建档和管理员 URL Link 绑定。所有按钮仅改变预览状态，不调用 API。',
       },
     },
   },
@@ -38,13 +38,13 @@ export const PlatformAdminAssignment: Story = {
 };
 
 export const MiniLogin390: Story = {
-  name: '4 · Mini 微信登录 · 390×844',
+  name: '4 · Mini 账号 / 微信登录 · 390×844',
   args: { screen: 'mini-login' },
   globals: { viewport: 'mobile390' },
 };
 
 export const MiniLogin320: Story = {
-  name: '5 · Mini 微信登录边界 · 320×844',
+  name: '5 · Mini 账号 / 微信登录边界 · 320×844',
   args: { screen: 'mini-login' },
   globals: { viewport: 'mobile320' },
 };

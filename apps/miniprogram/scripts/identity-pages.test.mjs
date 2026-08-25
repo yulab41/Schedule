@@ -41,6 +41,20 @@ describe('P3 native identity pages', () => {
     expect(template).not.toContain('公开注册');
   });
 
+  it('offers Web-equivalent password login beside the WeChat quick-login entry', () => {
+    const template = readSource('pages/identity/index.wxml');
+    const source = readSource('pages/identity/index.ts');
+    const client = readSource('platform/wechat-identity.ts');
+
+    expect(template).toContain('账号密码登录');
+    expect(template).toContain('微信快捷登录');
+    expect(template).toContain('请输入密码');
+    expect(source).toContain('handlePasswordLogin');
+    expect(source).toContain('loginWithPassword');
+    expect(client).toContain("'/auth/password/login'");
+    expect(client).toContain('persistPasswordSession');
+  });
+
   it('keeps the admin URL Link path preview-first and confirm-code based', () => {
     const template = readSource('pages/admin-bind/preview.wxml');
     const source = readSource('pages/admin-bind/preview.ts');

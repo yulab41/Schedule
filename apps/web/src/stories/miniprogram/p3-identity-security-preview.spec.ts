@@ -37,6 +37,16 @@ describe('P3 identity security preview', () => {
     expect(source).toContain('不会删除 Web 账号或排班资料');
   });
 
+  it('keeps the Mini login golden aligned with Web password login plus WeChat quick login', () => {
+    const source = readSource('./P3IdentitySecurityPreview.vue');
+
+    expect(source).toContain('账号密码登录');
+    expect(source).toContain('微信快捷登录');
+    expect(source).toContain('autocomplete="username"');
+    expect(source).toContain('autocomplete="current-password"');
+    expect(source).toContain('使用账号密码登录后台，或用微信快速进入已绑定的成员账号。');
+  });
+
   it('keeps the 44px touch target and reduced-motion guard', () => {
     const source = readSource('./P3IdentitySecurityPreview.vue');
 

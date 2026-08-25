@@ -15,9 +15,13 @@ import {
 } from './wx-request-executor.js';
 
 const MAX_SESSION_LIFETIME_MS = 31 * 24 * 60 * 60 * 1000;
+const PASSWORD_SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const utcIsoInstantPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
+export type IdentityAuthMethod = 'password' | 'wechat';
+
 interface StoredWechatSession {
+  readonly authMethod?: IdentityAuthMethod;
   readonly expiresAt: string;
   readonly profile: WechatAuthenticatedProfile;
   readonly token: string;
@@ -76,27 +80,55 @@ function readString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
+function decodeProfile(value: unknown): WechatAuthenticatedProfile {
+  if (
+    !isRecord(value) ||
+    readString(value.id) === undefined ||
+    readString(value.realName) === undefined ||
+    typeof value.version !== 'number' ||
+    !Number.isInteger(value.version) ||
+    value.version < 1
+  ) {
+    throw new WechatIdentityClientError('登录响应无效。');
+  }
+  return {
+    id: value.id as string,
+    realName: value.realName as string,
+    version: value.version,
+  };
+}
+
 function decodeAuthenticated(value: unknown): WechatAuthenticatedResult {
   if (!isRecord(value)) throw new WechatIdentityClientError('登录响应无效。');
-  const profile = value.profile;
   if (
     value.status !== 'authenticated' ||
     readString(value.token) === undefined ||
     !isAcceptableSessionExpiry(value.expiresAt) ||
-    !isRecord(profile) ||
-    readString(profile.id) === undefined ||
-    readString(profile.realName) === undefined ||
-    typeof profile.version !== 'number'
+    value.profile === undefined
   ) {
     throw new WechatIdentityClientError('登录响应无效。');
   }
   return {
     expiresAt: value.expiresAt as string,
-    profile: {
-      id: profile.id as string,
-      realName: profile.realName as string,
-      version: profile.version,
-    },
+    profile: decodeProfile(value.profile),
+    status: 'authenticated',
+    token: value.token as string,
+  };
+}
+
+function decodePasswordLogin(value: unknown): WechatAuthenticatedResult {
+  if (
+    !isRecord(value) ||
+    value.isNewUser !== false ||
+    typeof value.mustChangePassword !== 'boolean' ||
+    readString(value.token) === undefined ||
+    value.profile === undefined
+  ) {
+    throw new WechatIdentityClientError('账号密码登录响应无效。');
+  }
+  return {
+    expiresAt: new Date(Date.now() + PASSWORD_SESSION_LIFETIME_MS).toISOString(),
+    profile: decodeProfile(value.profile),
     status: 'authenticated',
     token: value.token as string,
   };
@@ -203,6 +235,14 @@ export async function loginWithWechat(): Promise<WechatLoginResult> {
   return decodeLogin(await postJson('/auth/wechat/login', { code: await getWechatCode() }));
 }
 
+export async function loginWithPassword(
+  username: string,
+  password: string,
+): Promise<WechatAuthenticatedResult> {
+  await requireClientCapability('core');
+  return decodePasswordLogin(await postJson('/auth/password/login', { password, username }));
+}
+
 export async function linkWechatPassword(
   linkToken: string,
   username: string,
@@ -237,6 +277,9 @@ export async function confirmAdminBinding(ticket: string): Promise<WechatAuthent
 }
 
 export async function unbindWechatIdentity(idempotencyKey: string): Promise<WechatUnbindResult> {
+  if (getStoredWechatAuthMethod() === 'password') {
+    throw new WechatIdentityClientError('账号密码登录无需解除微信绑定。');
+  }
   const accessToken = getStoredWechatToken();
   if (accessToken === undefined) {
     throw new WechatIdentityClientError('登录状态已失效，请重新登录。');
@@ -279,11 +322,16 @@ export async function unbindWechatIdentity(idempotencyKey: string): Promise<Wech
 }
 
 export function persistWechatSession(result: WechatAuthenticatedResult): void {
-  persistWechatSessionForOwner(result);
+  persistSession(result, 'wechat');
 }
 
-function persistWechatSessionForOwner(
+export function persistPasswordSession(result: WechatAuthenticatedResult): void {
+  persistSession(result, 'password');
+}
+
+function persistSession(
   result: WechatAuthenticatedResult,
+  authMethod: IdentityAuthMethod,
   preservedOwnerId?: string,
 ): void {
   if (!isAcceptableSessionExpiry(result.expiresAt)) {
@@ -300,6 +348,7 @@ function persistWechatSessionForOwner(
   sessionInvalidated = true;
   sessionGeneration += 1;
   wx.setStorageSync(WECHAT_SESSION_STORAGE_KEY, {
+    authMethod,
     expiresAt: result.expiresAt,
     profile: result.profile,
     token: result.token,
@@ -313,6 +362,10 @@ export function getStoredWechatToken(now = Date.now()): string | undefined {
 
 export function getStoredWechatProfile(now = Date.now()): WechatAuthenticatedProfile | undefined {
   return readStoredWechatSession(now)?.profile;
+}
+
+export function getStoredWechatAuthMethod(now = Date.now()): IdentityAuthMethod | undefined {
+  return readStoredWechatSession(now)?.authMethod;
 }
 
 export function clearWechatSession(includePrivateBusinessStorage = false): void {
@@ -346,6 +399,10 @@ export async function awaitWechatSessionRecovery(): Promise<string | undefined> 
 
 export async function recoverWechatSession(failedToken: string): Promise<string | undefined> {
   const current = readStoredWechatSession(Date.now(), false);
+  if (current?.authMethod === 'password') {
+    clearWechatSession(true);
+    return undefined;
+  }
   if (current !== undefined && current.token !== failedToken) return current.token;
   if (sessionRecoveryPromise !== undefined) return sessionRecoveryPromise;
 
@@ -361,7 +418,7 @@ export async function recoverWechatSession(failedToken: string): Promise<string 
       if (previousOwnerId !== undefined && previousOwnerId !== result.profile.id) {
         clearPrivateBusinessStorage();
       }
-      persistWechatSessionForOwner(result, previousOwnerId);
+      persistSession(result, 'wechat', previousOwnerId);
       return result.token;
     } catch {
       clearWechatSession(true);
@@ -420,7 +477,12 @@ function readStoredWechatSession(
     if (clearInvalid) clearWechatSession(true);
     return undefined;
   }
-  return { expiresAt, profile: { id, realName, version }, token };
+  return {
+    authMethod: stored.authMethod === 'password' ? 'password' : 'wechat',
+    expiresAt,
+    profile: { id, realName, version },
+    token,
+  };
 }
 
 function isAcceptableSessionExpiry(value: unknown, now = Date.now()): value is string {

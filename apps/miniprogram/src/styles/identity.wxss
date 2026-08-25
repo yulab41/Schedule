@@ -166,6 +166,26 @@ page {
   margin-top: 9px;
 }
 
+.identity-divider {
+  display: flex;
+  margin: 18px 0 0;
+  align-items: center;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-xs);
+  gap: 10px;
+}
+
+.identity-divider view {
+  height: 1px;
+  flex: 1;
+  background: var(--ui-color-border);
+}
+
+.identity-card__button--wechat {
+  color: var(--ui-color-primary-dark);
+  border-color: var(--ui-color-primary-light);
+}
+
 .identity-card__button--navigator {
   display: flex;
   min-height: 44px;

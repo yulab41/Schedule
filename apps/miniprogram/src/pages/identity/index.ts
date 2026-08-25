@@ -5,10 +5,14 @@ import {
 } from '../../app/client-capability-store.js';
 import {
   getIdentityErrorMessage,
+  getStoredWechatAuthMethod,
   getStoredWechatProfile,
   linkWechatPassword,
+  loginWithPassword,
   loginWithWechat,
+  persistPasswordSession,
   persistWechatSession,
+  type IdentityAuthMethod,
   registerWechat,
   type WechatAuthenticatedResult,
 } from '../../platform/wechat-identity.js';
@@ -20,6 +24,7 @@ interface InputEvent {
 }
 
 interface IdentityPageData {
+  readonly authMethod: IdentityAuthMethod;
   readonly buildLabel: string;
   readonly errorMessage: string;
   readonly linkToken: string;
@@ -35,9 +40,14 @@ interface IdentityPageInstance {
   setData(patch: Partial<IdentityPageData>): void;
 }
 
-function authenticatedPatch(result: WechatAuthenticatedResult): Partial<IdentityPageData> {
-  persistWechatSession(result);
+function authenticatedPatch(
+  result: WechatAuthenticatedResult,
+  authMethod: IdentityAuthMethod,
+): Partial<IdentityPageData> {
+  if (authMethod === 'password') persistPasswordSession(result);
+  else persistWechatSession(result);
   return {
+    authMethod,
     errorMessage: '',
     linkToken: '',
     loading: false,
@@ -48,6 +58,7 @@ function authenticatedPatch(result: WechatAuthenticatedResult): Partial<Identity
 
 Page({
   data: {
+    authMethod: 'wechat' as IdentityAuthMethod,
     buildLabel: buildInfo.buildLabel,
     errorMessage: '',
     linkToken: '',
@@ -59,7 +70,12 @@ Page({
   },
 
   onLoad(this: IdentityPageInstance): void {
-    if (getStoredWechatProfile() !== undefined) this.setData({ mode: 'authenticated' });
+    if (getStoredWechatProfile() !== undefined) {
+      this.setData({
+        authMethod: getStoredWechatAuthMethod() ?? 'wechat',
+        mode: 'authenticated',
+      });
+    }
     void guardIdentityCapability(this);
   },
 
@@ -80,13 +96,28 @@ Page({
   },
 
   handleLinkPassword(this: IdentityPageInstance): void {
-    if (this.data.username.trim().length === 0 || this.data.password.length === 0) {
+    const username = normalizeUsername(this.data.username);
+    if (!isValidUsername(username) || this.data.password.length === 0) {
       this.setData({ errorMessage: '请输入账号和密码。' });
       return;
     }
     this.setData({ errorMessage: '', loading: true });
-    void linkWechatPassword(this.data.linkToken, this.data.username.trim(), this.data.password)
-      .then((result) => this.setData(authenticatedPatch(result)))
+    void linkWechatPassword(this.data.linkToken, username, this.data.password)
+      .then((result) => this.setData(authenticatedPatch(result, 'wechat')))
+      .catch((error: unknown) =>
+        this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
+      );
+  },
+
+  handlePasswordLogin(this: IdentityPageInstance): void {
+    const username = normalizeUsername(this.data.username);
+    if (!isValidUsername(username) || this.data.password.length === 0) {
+      this.setData({ errorMessage: '请输入有效账号和密码。' });
+      return;
+    }
+    this.setData({ errorMessage: '', loading: true });
+    void loginWithPassword(username, this.data.password)
+      .then((result) => this.setData(authenticatedPatch(result, 'password')))
       .catch((error: unknown) =>
         this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
       );
@@ -107,7 +138,7 @@ Page({
     }
     this.setData({ errorMessage: '', loading: true });
     void registerWechat(this.data.linkToken, this.data.realName.trim())
-      .then((result) => this.setData(authenticatedPatch(result)))
+      .then((result) => this.setData(authenticatedPatch(result, 'wechat')))
       .catch((error: unknown) =>
         this.setData({ errorMessage: getIdentityErrorMessage(error), loading: false }),
       );
@@ -118,7 +149,7 @@ Page({
     void loginWithWechat()
       .then((result) => {
         if (result.status === 'authenticated') {
-          this.setData(authenticatedPatch(result));
+          this.setData(authenticatedPatch(result, 'wechat'));
           return;
         }
         this.setData({
@@ -137,6 +168,14 @@ Page({
     this.setData({ username: event.detail.value });
   },
 });
+
+function normalizeUsername(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isValidUsername(value: string): boolean {
+  return value.length >= 3 && value.length <= 64 && /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value);
+}
 
 async function guardIdentityCapability(page: IdentityPageInstance): Promise<void> {
   try {
