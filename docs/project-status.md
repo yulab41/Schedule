@@ -2,6 +2,13 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9/P10 RC 候选版本清单同步（已完成自动验证，待用户执行）
+
+- 范围：将未完成实体验收的 P9 数据与消息、P10 通讯录、P10 个人中心三份 runbook 从已过时的 `.15` 同步到当前体验版 `0.1.0-p9.20260827.28`；P8 已完成的 `.15` 历史证据不改写。无运行时代码、API、数据库或能力开关变化。
+- 验证：先把三项 runbook 契约测试改为要求 `.28`，旧文档上 3 项失败；更新后 `p9-insights-rc-plan`、`p10-directory-rc-plan`、`p10-profile-rc-plan` 共 3 files/6 tests 通过，`git diff --check` 通过。
+- 当前策略：`.28` 已上传并进入生产版本白名单，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`；清单仍要求用户实体 Android/微信开发者工具复核，未收到 RC 通过消息前不打开能力、不提审、不正式发布。
+- checkpoint/下一步：代码未变更；文档提交消息拟为 `docs(miniprogram): refresh p9 p10 rc candidate`，提交后按根规则同步生产 release。下一活动批次是用户用 `.28` 执行 P9/P10 清单并反馈明确 RC 结论，之后才继续 P9 能力评估和 P10 最终对等审计。
+
 ## 2026-08-27 P9 访客访问 Web→Mini 对等审计（已完成代码/体验/生产发布，待用户复核）
 
 - 范围与边界：承接导出 `.27` 后的下一垂直切片；用户已明确要求继续实现，但不以此替代导出 `.27` 的实体复核。Web 生产代码/黄金保持冻结，`insights=false`、`externalMessages=false` 不变，不新增 API、数据库迁移或能力开放。
