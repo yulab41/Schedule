@@ -9,7 +9,8 @@
 - 行为/语义：Mini 未来班次改用 Web 的中国时间 08:00 业务日交接，非法请假日期采用 Web 精确错误；其他显示行为等价。API client/receiver、Promise/catch/finally、空值、权限/capability、operation id、版本、冲突/网络重试、调用次数、写入、刷新和存储不变；无 API/DB/capability 变化。
 - 验证：共享/Web 定向 6 files/36、Mini/共享定向 5 files/30；Web+presentation 115 files/642、Mini 73 files/338 通过。三端 typecheck、presentation/Web production build、任务 Prettier/ESLint、Mini verify/source/package/determinism/CI dry-run 通过；包体 `5,614,509` bytes、workflows `1,135,823`、manifest `d1d19c52ed3a292307bdce33738d679771c8e140af87094e70959d94058e3387`。宽泛 Vitest 误扫用户 `.artifacts/runtime/src` 历史副本后按正确 cwd/排除重跑全绿；`pnpm verify` 仅被 32 个用户自有/既有文件格式差异阻断，任务文件全绿。
 - 运行/浏览器验证：`pnpm --config.verifyDepsBeforeRun=false smoke:browser` 首次因 5173 无服务停止；当前源码 API 3000/Web 4173 重跑进入管理员工作台后，被既有“周视图定位按钮按下反馈”断言提前阻断，未到工作流。应用内浏览器本地 WebView 两次无法附着；临时服务关闭。提交前运行 `pnpm --config.verifyDepsBeforeRun=false smoke:check-core`。
-- checkpoint：识别消息 `feat(workflows): share Web presentation rules`；推送后上传下一 production-profile 体验版并完成生产备份/部署/verifier。下一批只审计通知/事件/统计展示规则，P9 capability 保持关闭。
+- checkpoint/发布：代码 `08c8414e`（`feat(workflows): share Web presentation rules`）已推送；production-profile `.24` 官方上传 153 files/zip `1,359,588`/manifest `65e80f65…8949`，未提审/正式发布。备份 `e8fcb486-ad25-43c1-93fe-485566976a55`（54 表/174,379 行/80,876,900 bytes/SHA `a374ed32…569e`）后部署 release `08c8414e1593e3561fd4b519e1d49477de7d60e8`；预热一次 TLS EOF 恢复、privacy 0/0、full verifier 通过。
+- allowlist 偏差：`.24` 首次原子追加因探针错误要求 JSON 字段顺序一致且预热短暂 502 触发安全回滚；确认旧列表、`.23=200`、`.24=426` 和健康后，改为字段顺序无关并带 30 次重试的同一原子流程成功追加。`.24` HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`，第二次 verifier 通过，远端 temp 已清理。下一批只审计通知/事件/统计展示规则。
 
 ## 2026-08-25 P8-B 组织管理 Web 黄金
 

@@ -11,7 +11,9 @@
 - 语义审计：API client 接收者、Promise/catch/finally、请求次数、Bearer、capability、权限、operation id、版本、409/网络模糊重试、写入/刷新和私有存储均未修改；没有新增 API、数据库迁移、离线写队列或 capability 开放。
 - 验证：共享/Web 定向 6 files/36 tests、Mini/共享定向 5 files/30 tests；Web+presentation 主源码 115 files/642 tests、Mini 73 files/338 tests、三端 typecheck、presentation/Web production build、任务 Prettier/ESLint、Mini production verify/source/package/determinism/CI dry-run 通过。Mini `5,614,509` bytes（main `1,121,889`、workflows `1,135,823`、organization `1,722,624`），manifest `d1d19c52ed3a292307bdce33738d679771c8e140af87094e70959d94058e3387`。
 - 运行/浏览器验证：`pnpm smoke:browser` 首次因 5173 无服务停止；当前源码 API 3000/Web 4173 运行后进入管理员工作台，但被既有“周视图定位按钮按下反馈”断言提前停止，未触及工作流页面。应用内浏览器连续两次无法附着本地 WebView；临时服务已关闭。`pnpm verify` 只在第一步报告 32 个用户自有/既有文件格式差异，任务文件单独通过。
-- checkpoint：识别消息 `feat(workflows): share Web presentation rules`；提交后上传下一体验版并按根规则完成生产备份、部署、allowlist/capability 与 full verifier。P9 `insights/externalMessages=false` 保持。
+- checkpoint/体验：代码提交 `08c8414e`（`feat(workflows): share Web presentation rules`）已 fast-forward 推送；production-profile 体验版 `0.1.0-p9.20260826.24` 官方上传成功，153 个代码文件、zip `1,359,588` bytes、上传 manifest `65e80f6534a514c1012916949b97b7dd1241bacb73c23c75395ce78d86b18949`，未提审/未正式发布。
+- 生产发布：备份 archive `e8fcb486-ad25-43c1-93fe-485566976a55`（54 表/174,379 行/80,876,900 bytes/SHA `a374ed32c7dfcc860ce87a7629693838385cbd50b9fb575b642329971474569e`）后部署 release `08c8414e1593e3561fd4b519e1d49477de7d60e8`；预热一次 TLS EOF 后恢复，privacy retention 0/0，full verifier、health、产物/控制平面/迁移/未知 Host 和远端临时目录清理通过。
+- 白名单/偏差：`.24` 首次原子追加后的探针错误要求 JSON 字段顺序一致，并在 API 预热 502 期间触发安全回滚；只读确认旧列表、`.23=200`、`.24=426` 与 release 健康后，以字段顺序无关、30 次健康重试的同一原子流程成功追加。`.24` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`，第二次 full verifier 通过。
 - 下一活动批次与停止条件：审计通知中心、事件/统计和通知设置的 Web/Mini 重复展示算法，选择一个完整垂直切片先红后共享；本批 checkpoint 完成体验上传与生产双 release 后停止，不在同一复杂批次提前修改下一模块。
 
 ## 2026-08-26 Web/Mini 通讯录共享规则与视觉对等第一批（已完成，用户真机通过）
