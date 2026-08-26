@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P9 事件/统计与通知自动闭环硬化（代码完成，待发布）
+
+- 范围：只硬化 P9 事件/统计与通知组件的卸载、换群、加载更多和能力关闭竞态，并补齐系统大字号下的可重排类；不新增 API、数据库迁移、权限或能力开放。引入点已审计：事件/统计 `ee6f9cb8`、统计并发 `4de2cd91`、通知 `1a428d73`/`766ec6ac`、运行时私有字段恢复 `5e9bdb79`。
+- 实现：所有只读响应按请求序列与群组 ID双重校验；`detached` 失效化待处理 promise；insights/externalMessages 运行中关闭时清空页面数据并进入 disabled；通知设置/订阅/已读写入也拒绝旧群组或卸载后的 UI 回写；`fontSizeSetting >= 20` 进入大字号重排，标题和正文不截断。receiver、Bearer、请求方法、错误传播、调用次数及业务写入语义保持不变。
+- 测试先行：旧实现上控制器新增回归为 insights 6 项中 3 项失败、notifications 5 项中 3 项失败；候选版本 `.29` 契约测试在旧 runbook 上 3 项失败。实现后相关控制器、原生静态/能力关闭和 RC 契约共 25 项通过，`git diff --check`、任务 Prettier/ESLint 通过。
+- 自动验证：Mini 全量 83 files/373 tests、source audit、typecheck、production verify、package audit、determinism、CI dry-run、根 build/typecheck 通过；产物总包 `5,740,896` bytes，insights 分包 `1,314,035` bytes，manifest `4ddb2006b3e93596804e2793609e4d2e9665ce04a83aae2c05dd95df634e33a7`。根定向 Vitest 218 files/1024 tests 通过、35 files/346 tests 跳过；仅既有 `ui-tokens` CRLF/LF 2 项失败，root lint 仍为既有 5 个未落地 Mini 文件 7 项错误；`smoke:check-core` 确认未触及核心链路。
+- 当前策略：用户已明确“无需人工复核”，本轮不等待微信/Android 人工操作；自动测试、确定性构建、生产探针和只读能力验证作为验收依据。候选 `.29` 仍保持 `global/core/workflows/organization/guest=true`、`insights/externalMessages=false`，不提审、不正式发布、不自行开放能力。
+- checkpoint/下一步：代码与 3 份 `.29` runbook 变更待提交，提交消息拟为 `feat(miniprogram): harden p9 insight lifecycles`；随后从干净 release worktree 打包、主动说明并上传体验 `.29`、备份后加入版本白名单、部署并运行 `ecs-verify.sh`，再提交最终状态 checkpoint，使 Git、origin 和服务器 release 一致。P9/P10 继续按自动验证推进，不因人工清单停步。
+
 ## 2026-08-27 P9/P10 RC 候选版本清单同步（已完成自动验证，待用户执行）
 
 - 范围：将未完成实体验收的 P9 数据与消息、P10 通讯录、P10 个人中心三份 runbook 从已过时的 `.15` 同步到当前体验版 `0.1.0-p9.20260827.28`；P8 已完成的 `.15` 历史证据不改写。无运行时代码、API、数据库或能力开关变化。

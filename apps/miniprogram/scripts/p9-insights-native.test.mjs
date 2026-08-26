@@ -42,6 +42,8 @@ describe('P9 native insights events and statistics', () => {
     expect(controller).toContain('listEvents');
     expect(controller).toContain('getMonthStatistics');
     expect(controller).toContain("requireClientCapability('insights')");
+    expect(controller).toContain('detached(this: InsightsDashboardInstance)');
+    expect(controller).toContain('fontSizeSetting');
   });
 
   it('keeps the read-only page in memory and exposes loading, empty, and error guidance', () => {
@@ -59,5 +61,6 @@ describe('P9 native insights events and statistics', () => {
     expect(template).toContain('正在读取事件与统计');
     expect(template).toContain('没有符合筛选条件的事件');
     expect(template).toContain('重新加载');
+    expect(template).toContain("largeText ? 'is-large-text' : ''");
   });
 });

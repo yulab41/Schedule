@@ -2,14 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
 const mocks = vi.hoisted(() => ({
+  ClientCapabilityDisabledError: class ClientCapabilityDisabledError extends Error {},
   getMonthStatistics: vi.fn(),
   getYearStatistics: vi.fn(),
   listEvents: vi.fn(),
+  requireClientCapability: vi.fn(),
 }));
 
 vi.mock('../src/app/client-capability-store.ts', () => ({
-  ClientCapabilityDisabledError: class ClientCapabilityDisabledError extends Error {},
-  requireClientCapability: vi.fn(async () => undefined),
+  ClientCapabilityDisabledError: mocks.ClientCapabilityDisabledError,
+  requireClientCapability: mocks.requireClientCapability,
 }));
 
 vi.mock('../src/platform/client-core-calendar.ts', () => ({
@@ -55,6 +57,7 @@ describe('insights dashboard shared parity controller', () => {
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
       navigateBack: vi.fn(),
     });
+    mocks.requireClientCapability.mockResolvedValue(undefined);
     mocks.listEvents.mockResolvedValue({
       events: [scheduleEvent('event-1', '2026-08-25T16:30:00.000Z')],
       nextCursor: 'cursor-1',
@@ -158,6 +161,75 @@ describe('insights dashboard shared parity controller', () => {
     await Promise.resolve();
     expect(page.data.primaryStatistics[1].value).toBe('9');
   });
+
+  it('does not commit a pending dashboard response after detaching', async () => {
+    let resolveEvents;
+    let resolveStatistics;
+    mocks.listEvents.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveEvents = resolve;
+        }),
+    );
+    mocks.getMonthStatistics.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStatistics = resolve;
+        }),
+    );
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(mocks.listEvents).toHaveBeenCalledTimes(1));
+    definition.lifetimes.detached.call(page);
+    resolveEvents({ events: [scheduleEvent('stale-event', '2026-08-25T16:30:00.000Z')] });
+    resolveStatistics({
+      summary,
+      businessMonth: '2026-08',
+      computedAt: '2026-08-26T00:00:00.000Z',
+      groupId,
+      version: 1,
+    });
+    await flushPromises();
+
+    expect(page.data.state).toBe('loading');
+    expect(page.data.eventGroups).toEqual([]);
+    expect(page.data.primaryStatistics).toEqual([]);
+  });
+
+  it('closes the dashboard when a later statistics read loses the insights capability', async () => {
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+
+    mocks.requireClientCapability.mockRejectedValueOnce(
+      new mocks.ClientCapabilityDisabledError('insights'),
+    );
+    definition.methods.handleStatisticsMode.call(page, {
+      currentTarget: { dataset: { mode: 'year' } },
+    });
+    await vi.waitFor(() => expect(page.data.statisticsBusy).toBe(false));
+
+    expect(page.data.state).toBe('disabled');
+    expect(page.data.eventGroups).toEqual([]);
+    expect(page.data.memberRows).toEqual([]);
+  });
+
+  it('marks the dashboard as large text when the system font setting requests it', async () => {
+    globalThis.wx.getWindowInfo = () => ({
+      fontSizeSetting: 20,
+      statusBarHeight: 24,
+      windowHeight: 844,
+      windowWidth: 390,
+    });
+    const definition = await controllerDefinition();
+    const page = pageFor(definition);
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+
+    expect(page.data.largeText).toBe(true);
+  });
 });
 
 async function controllerDefinition() {
@@ -174,6 +246,10 @@ function pageFor(definition) {
       this.data = { ...this.data, ...patch };
     },
   };
+}
+
+async function flushPromises() {
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
 }
 
 function member(membershipId, realName, actualCount) {

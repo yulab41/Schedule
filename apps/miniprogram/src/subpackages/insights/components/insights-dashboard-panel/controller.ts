@@ -86,6 +86,7 @@ interface InsightsDashboardData {
   readonly eventsLoadingMore: boolean;
   readonly groupId: string;
   readonly hasMoreEvents: boolean;
+  readonly largeText: boolean;
   readonly memberRows: readonly MemberStatisticsCard[];
   readonly pageScrollStyle: string;
   readonly primaryStatistics: readonly StatisticsSummaryItem[];
@@ -133,6 +134,7 @@ export function createInsightsDashboardPanelControllerDefinition() {
       eventsLoadingMore: false,
       groupId: '',
       hasMoreEvents: false,
+      largeText: false,
       memberRows: [],
       pageScrollStyle: 'height:calc(100% - 76px);',
       primaryStatistics: [],
@@ -175,9 +177,19 @@ export function createInsightsDashboardPanelControllerDefinition() {
         this.setData({
           pageScrollStyle: `height:calc(100% - ${headerHeight}px);`,
           shellHeaderStyle: `height:${headerHeight}px;min-height:${headerHeight}px;padding-top:${statusBarHeight}px;`,
+          largeText:
+            ((windowInfo as unknown as { readonly fontSizeSetting?: number }).fontSizeSetting ??
+              16) >= 20,
           viewportClass: windowInfo.windowWidth <= 340 ? 'is-compact' : '',
         });
         startLoad(this);
+      },
+      detached(this: InsightsDashboardInstance): void {
+        initializeRuntimeState(this);
+        invalidateDashboardRequests(this);
+        this._loadedGroupId = '';
+        this._eventCards = [];
+        this._eventsNextCursor = undefined;
       },
     },
 
@@ -227,17 +239,25 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
   initializeRuntimeState(page);
   const groupId = page.data.groupId;
   if (groupId.length === 0) {
-    page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
+    invalidateDashboardRequests(page);
+    page._loadedGroupId = '';
+    page._eventCards = [];
+    page._eventsNextCursor = undefined;
+    page.setData({
+      ...emptyDashboardDataPatch(),
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      groupId: '',
+      state: 'error',
+    });
     return;
   }
   const requestSerial = page._requestSerial + 1;
   page._requestSerial = requestSerial;
   page._statisticsSerial += 1;
   page.setData({
+    ...emptyDashboardDataPatch(),
     errorMessage: '',
-    eventsLoadingMore: false,
     state: 'loading',
-    statisticsBusy: false,
   });
   try {
     await requireClientCapability('insights');
@@ -252,7 +272,7 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
         ? page._insightsReadClient.getMonthStatistics(groupId, period.businessMonth)
         : page._insightsReadClient.getYearStatistics(groupId, period.statisticsYear),
     ]);
-    if (requestSerial !== page._requestSerial) return;
+    if (!isDashboardRequestCurrent(page, requestSerial, groupId)) return;
     page._eventCards = eventPage.events.map(toEventCard);
     page._eventsNextCursor = eventPage.nextCursor;
     page.setData({
@@ -261,13 +281,14 @@ async function loadDashboard(page: InsightsDashboardInstance): Promise<void> {
       state: 'ready',
     });
   } catch (error) {
-    if (requestSerial !== page._requestSerial) return;
+    if (!isDashboardRequestCurrent(page, requestSerial, groupId)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setDashboardDisabled(page, error.message);
+      return;
+    }
     page.setData({
-      errorMessage:
-        error instanceof ClientCapabilityDisabledError
-          ? error.message
-          : toUserMessage(error, '事件与统计暂时无法加载，请稍后重试。'),
-      state: error instanceof ClientCapabilityDisabledError ? 'disabled' : 'error',
+      errorMessage: toUserMessage(error, '事件与统计暂时无法加载，请稍后重试。'),
+      state: 'error',
     });
   }
 }
@@ -284,14 +305,15 @@ async function loadMoreEvents(page: InsightsDashboardInstance): Promise<void> {
     return;
   }
   const requestSerial = page._requestSerial;
+  const groupId = page.data.groupId;
   page.setData({ errorMessage: '', eventsLoadingMore: true });
   try {
     await requireClientCapability('insights');
-    const eventPage = await page._insightsReadClient.listEvents(page.data.groupId, {
+    const eventPage = await page._insightsReadClient.listEvents(groupId, {
       cursor,
       pageSize: 50,
     });
-    if (requestSerial !== page._requestSerial) return;
+    if (!isDashboardRequestCurrent(page, requestSerial, groupId)) return;
     page._eventCards = [...page._eventCards, ...eventPage.events.map(toEventCard)];
     page._eventsNextCursor = eventPage.nextCursor;
     page.setData({
@@ -299,7 +321,11 @@ async function loadMoreEvents(page: InsightsDashboardInstance): Promise<void> {
       eventsLoadingMore: false,
     });
   } catch (error) {
-    if (requestSerial !== page._requestSerial) return;
+    if (!isDashboardRequestCurrent(page, requestSerial, groupId)) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setDashboardDisabled(page, error.message);
+      return;
+    }
     page.setData({
       errorMessage: toUserMessage(error, '事件数据暂时无法加载，请稍后重试。'),
       eventsLoadingMore: false,
@@ -309,7 +335,8 @@ async function loadMoreEvents(page: InsightsDashboardInstance): Promise<void> {
 
 async function loadStatistics(page: InsightsDashboardInstance): Promise<void> {
   initializeRuntimeState(page);
-  if (page.data.groupId.length === 0) return;
+  const groupId = page.data.groupId;
+  if (groupId.length === 0) return;
   const statisticsSerial = page._statisticsSerial + 1;
   page._statisticsSerial = statisticsSerial;
   const period = {
@@ -322,18 +349,19 @@ async function loadStatistics(page: InsightsDashboardInstance): Promise<void> {
     await requireClientCapability('insights');
     const response =
       period.statisticsMode === 'month'
-        ? await page._insightsReadClient.getMonthStatistics(page.data.groupId, period.businessMonth)
-        : await page._insightsReadClient.getYearStatistics(
-            page.data.groupId,
-            period.statisticsYear,
-          );
-    if (statisticsSerial !== page._statisticsSerial) return;
+        ? await page._insightsReadClient.getMonthStatistics(groupId, period.businessMonth)
+        : await page._insightsReadClient.getYearStatistics(groupId, period.statisticsYear);
+    if (statisticsSerial !== page._statisticsSerial || groupId !== page.data.groupId) return;
     page.setData({
       ...toStatisticsPatch(response.summary, period),
       statisticsBusy: false,
     });
   } catch (error) {
-    if (statisticsSerial !== page._statisticsSerial) return;
+    if (statisticsSerial !== page._statisticsSerial || groupId !== page.data.groupId) return;
+    if (error instanceof ClientCapabilityDisabledError) {
+      setDashboardDisabled(page, error.message);
+      return;
+    }
     page.setData({
       statisticsBusy: false,
       statisticsErrorMessage: toUserMessage(error, '统计数据暂时无法加载，请稍后重试。'),
@@ -371,14 +399,29 @@ function startLoad(page: InsightsDashboardInstance): void {
   initializeRuntimeState(page);
   const groupId = page.properties.groupId;
   if (groupId.length === 0) {
-    page.setData({ errorMessage: '当前群组信息缺失，请返回工作台后重试。', state: 'error' });
+    invalidateDashboardRequests(page);
+    page._loadedGroupId = '';
+    page._eventCards = [];
+    page._eventsNextCursor = undefined;
+    page.setData({
+      ...emptyDashboardDataPatch(),
+      errorMessage: '当前群组信息缺失，请返回工作台后重试。',
+      groupId: '',
+      state: 'error',
+    });
     return;
   }
   if (groupId === page._loadedGroupId) return;
   page._loadedGroupId = groupId;
+  invalidateDashboardRequests(page);
   page._eventCards = [];
   page._eventsNextCursor = undefined;
-  page.setData({ groupId });
+  page.setData({
+    ...emptyDashboardDataPatch(),
+    errorMessage: '',
+    groupId,
+    state: 'loading',
+  });
   void loadDashboard(page);
 }
 
@@ -388,6 +431,61 @@ function initializeRuntimeState(page: InsightsDashboardInstance): void {
   if (typeof page._loadedGroupId !== 'string') page._loadedGroupId = '';
   if (!Number.isFinite(page._requestSerial)) page._requestSerial = 0;
   if (!Number.isFinite(page._statisticsSerial)) page._statisticsSerial = 0;
+}
+
+function invalidateDashboardRequests(page: InsightsDashboardInstance): void {
+  page._requestSerial += 1;
+  page._statisticsSerial += 1;
+}
+
+function isDashboardRequestCurrent(
+  page: InsightsDashboardInstance,
+  requestSerial: number,
+  groupId: string,
+): boolean {
+  return requestSerial === page._requestSerial && groupId === page.data.groupId;
+}
+
+function emptyDashboardDataPatch(): Pick<
+  InsightsDashboardData,
+  | 'eventCountLabel'
+  | 'eventDateGroupCountLabel'
+  | 'eventGroups'
+  | 'eventsLoadingMore'
+  | 'hasMoreEvents'
+  | 'memberRows'
+  | 'primaryStatistics'
+  | 'roleRows'
+  | 'secondaryStatistics'
+  | 'shiftTypeRows'
+  | 'statisticsBusy'
+  | 'statisticsErrorMessage'
+> {
+  return {
+    eventCountLabel: '0 条事件',
+    eventDateGroupCountLabel: '0 个日期',
+    eventGroups: [],
+    eventsLoadingMore: false,
+    hasMoreEvents: false,
+    memberRows: [],
+    primaryStatistics: [],
+    roleRows: [],
+    secondaryStatistics: [],
+    shiftTypeRows: [],
+    statisticsBusy: false,
+    statisticsErrorMessage: '',
+  };
+}
+
+function setDashboardDisabled(page: InsightsDashboardInstance, message: string): void {
+  invalidateDashboardRequests(page);
+  page._eventCards = [];
+  page._eventsNextCursor = undefined;
+  page.setData({
+    ...emptyDashboardDataPatch(),
+    errorMessage: message,
+    state: 'disabled',
+  });
 }
 
 function toEventCard(event: ScheduleEvent): EventCard {

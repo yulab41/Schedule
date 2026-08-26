@@ -43,6 +43,8 @@ describe('P9 native notifications', () => {
     expect(controller).toContain('markNotificationRead');
     expect(controller).toContain('markAllNotificationsRead');
     expect(controller).toContain("requireClientCapability('insights')");
+    expect(controller).toContain('detached(this: NotificationsPageInstance)');
+    expect(controller).toContain('fontSizeSetting');
     expect(controller).not.toContain('wx.setStorageSync');
     expect(controller).not.toContain('console.log');
   });
@@ -53,5 +55,6 @@ describe('P9 native notifications', () => {
     expect(template).toContain('暂无通知');
     expect(template).toContain('重新加载');
     expect(template).toContain('通知中心暂未开放');
+    expect(template).toContain("largeText ? 'is-large-text' : ''");
   });
 });

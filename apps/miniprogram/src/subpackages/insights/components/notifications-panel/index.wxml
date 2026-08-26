@@ -1,4 +1,4 @@
-<view class="notifications-page {{viewportClass}}">
+<view class="notifications-page {{viewportClass}} {{largeText ? 'is-large-text' : ''}}">
   <view class="mini-header" style="{{shellHeaderStyle}}"
     ><view
       class="header-back"

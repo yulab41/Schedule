@@ -1,18 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const groupId = '11111111-1111-4111-8111-111111111111';
+const otherGroupId = '22222222-2222-4222-8222-222222222222';
 const mocks = vi.hoisted(() => ({
+  ClientCapabilityDisabledError: class ClientCapabilityDisabledError extends Error {},
   getGroup: vi.fn(),
   getMine: vi.fn(),
   listGroups: vi.fn(),
   listNotifications: vi.fn(),
   updateGroup: vi.fn(),
   updateMine: vi.fn(),
+  requireClientCapability: vi.fn(),
 }));
 
 vi.mock('../src/app/client-capability-store.ts', () => ({
-  ClientCapabilityDisabledError: class ClientCapabilityDisabledError extends Error {},
-  requireClientCapability: vi.fn(async () => undefined),
+  ClientCapabilityDisabledError: mocks.ClientCapabilityDisabledError,
+  requireClientCapability: mocks.requireClientCapability,
 }));
 
 vi.mock('../src/platform/client-core-calendar.ts', () => ({
@@ -50,6 +53,7 @@ describe('notification parity controller', () => {
       getWindowInfo: () => ({ statusBarHeight: 24, windowHeight: 844, windowWidth: 390 }),
       navigateBack: vi.fn(),
     });
+    mocks.requireClientCapability.mockResolvedValue(undefined);
     mocks.listGroups.mockResolvedValue([
       { id: groupId, isDeveloperAdmin: false, name: '测试群组', role: 'administrator' },
     ]);
@@ -128,6 +132,84 @@ describe('notification parity controller', () => {
       typeTone: 'danger',
     });
   });
+
+  it('does not commit a pending notification response after detaching', async () => {
+    let resolveNotifications;
+    mocks.listNotifications.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveNotifications = resolve;
+        }),
+    );
+    const definition = await definitionFor('notifications');
+    const page = pageFor(definition, 'notifications');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(mocks.listNotifications).toHaveBeenCalledTimes(1));
+    definition.lifetimes.detached.call(page);
+    resolveNotifications({ nextCursor: undefined, notifications: [], unreadCount: 0 });
+    await flushPromises();
+
+    expect(page.data.state).toBe('loading');
+    expect(page.data.notifications).toEqual([]);
+  });
+
+  it('ignores a stale load-more response after switching groups', async () => {
+    mocks.listNotifications.mockResolvedValueOnce({
+      nextCursor: 'cursor-1',
+      notifications: [notification('first', false)],
+      unreadCount: 1,
+    });
+    const definition = await definitionFor('notifications');
+    const page = pageFor(definition, 'notifications');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+
+    let resolveLoadMore;
+    mocks.listNotifications.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLoadMore = resolve;
+        }),
+    );
+    definition.methods.handleLoadMore.call(page);
+    await vi.waitFor(() => expect(page.data.loadingMore).toBe(true));
+    mocks.listNotifications.mockResolvedValueOnce({
+      nextCursor: undefined,
+      notifications: [notification('new-group', true)],
+      unreadCount: 0,
+    });
+    page.properties.groupId = otherGroupId;
+    definition.observers.groupId.call(page);
+    await vi.waitFor(() => expect(page.data.groupId).toBe(otherGroupId));
+    resolveLoadMore({
+      nextCursor: undefined,
+      notifications: [notification('stale', false)],
+      unreadCount: 99,
+    });
+    await flushPromises();
+
+    expect(page.data.notifications.map((item) => item.id)).not.toContain('stale');
+  });
+
+  it('marks the page as large text when the system font setting requests it', async () => {
+    globalThis.wx.getWindowInfo = () => ({
+      fontSizeSetting: 20,
+      statusBarHeight: 24,
+      windowHeight: 844,
+      windowWidth: 390,
+    });
+    mocks.listNotifications.mockResolvedValueOnce({
+      nextCursor: undefined,
+      notifications: [notification('large-text', false)],
+      unreadCount: 0,
+    });
+    const definition = await definitionFor('notifications');
+    const page = pageFor(definition, 'notifications');
+    definition.lifetimes.attached.call(page);
+    await vi.waitFor(() => expect(page.data.state).toBe('ready'));
+
+    expect(page.data.largeText).toBe(true);
+  });
 });
 
 async function definitionFor(mode) {
@@ -144,4 +226,20 @@ function pageFor(definition, mode) {
       this.data = { ...this.data, ...patch };
     },
   };
+}
+
+function notification(id, isRead) {
+  return {
+    body: id,
+    createdAt: new Date().toISOString(),
+    id,
+    isRead,
+    notificationType: 'schedule_period_published',
+    recipientUserId: 'user-1',
+    title: id,
+  };
+}
+
+async function flushPromises() {
+  for (let index = 0; index < 8; index += 1) await Promise.resolve();
 }

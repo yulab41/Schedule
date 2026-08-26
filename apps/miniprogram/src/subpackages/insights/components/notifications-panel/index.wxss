@@ -348,3 +348,51 @@
 .is-compact .template-note {
   padding: 12px;
 }
+.is-large-text .header-title-main,
+.is-large-text .header-title-sub {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .page-title {
+  font-size: 26px;
+}
+.is-large-text .page-description,
+.is-large-text .settings-description,
+.is-large-text .audit-note,
+.is-large-text .template-note-copy,
+.is-large-text .notification-body,
+.is-large-text .notification-time,
+.is-large-text .state-copy {
+  font-size: var(--ui-font-size-md);
+  line-height: var(--ui-line-height-body);
+}
+.is-large-text .notification-row {
+  min-height: 120px;
+}
+.is-large-text .notification-heading {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+.is-large-text .notification-title {
+  overflow: visible;
+  font-size: var(--ui-font-size-md);
+  text-overflow: clip;
+  white-space: normal;
+}
+.is-large-text .reminder-mode {
+  align-items: stretch;
+  flex-direction: column;
+}
+.is-large-text .reminder-mode-option {
+  min-height: 52px;
+  padding: 0 12px;
+  justify-content: flex-start;
+}
+@media (max-width: 340px) {
+  .is-large-text .summary-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
