@@ -2,7 +2,7 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-26 Web/Mini 通知中心与通知设置共享（已实现，待 checkpoint 发布）
+## 2026-08-26 Web/Mini 通知中心与通知设置共享（已完成，待能力开放后真机复核）
 
 - 范围：以 Web 现有通知规则为基准，把通知类型标签/色调、相对时间与绝对时间回退、提醒小时输入、个人默认/自定义/关闭模式和群组管理权限下沉到 `presentation-core/notification`；群组与个人通知设置读写下沉到 `client-core`。Web 改为共享重导出/共享客户端，Mini 直接调用同一实现；微信订阅授权仍只属于 Mini 平台适配。
 - 引入点：Web 通知展示规则来自 `52e9e1f4`、色调来自 `6ec287da`；Mini 模糊标签/时间来自 `1a428d73`，共享客户端边界来自 `cb82cb78`，Mini 订阅与设置入口来自 `766ec6ac`。相关调用点已执行 `git log -S` 与 `git blame`。
@@ -11,8 +11,9 @@
 - 语义等价：共享 Web transport 仍通过原 `requestWithOnline`、同一 Bearer/路径/方法与一次 HTTP 请求；decoder 只在成功响应边界执行一次并返回其共享结果。Promise/catch、无效响应、空值、权限、请求次数、微信原生授权与存储语义不变。
 - 验证：Web+presentation+client-core 136 files/709 tests、Mini 75 files/342 tests 通过；四端 typecheck、presentation/client/Web production build、任务 Prettier/ESLint、Mini production verify/source/package/determinism/CI dry-run 和 diff check 通过。Mini 包体 `5,662,838` bytes，manifest `7614a08eda86c7337f20d8dc3c348c2024b65c3cea2e0d8e47d6677f4e57a37e`。
 - 运行/浏览器验证：`pnpm smoke:browser` 等价直接入口在当前源码 API `127.0.0.1:3000`、Web `127.0.0.1:5400` 完整通过登录、管理员、成员、访客 vkey 与访问记录，全流程无浏览器错误；截图只保留项目内 `runtime/smoke/latest`，临时服务已关闭。提交前继续运行 `pnpm smoke:check-core`。
-- checkpoint：待以 `feat(notifications): share Web presentation rules` 创建并推送代码 checkpoint，上传 production-profile `.25` 体验版（不提审/不正式发布），完成生产备份、部署与 full verifier 后再更新本节证据。
-- 下一活动批次与停止条件：本 checkpoint 发布完成后进入事件与统计共享规则垂直切片；未落地 P10 worktree 必须继续保留，只可覆盖 `runtime/smoke/latest` 等最新测试产物。
+- checkpoint/体验：代码 `5aa23fd7`（`feat(notifications): share Web presentation rules`）已 fast-forward 推送；production-profile `0.1.0-p9.20260826.25` 官方上传成功，153 个代码文件、zip `1,371,373` bytes、上传 manifest `fc75d4f974130a4f527262f454677770c45f50df793a8a7ab9795ab190f281fd`，未提审/未正式发布。
+- 生产发布：部署前加密备份 archive `94fa0c8f-c143-403d-a7fc-dc36426c6996`（54 表/174,969 行/81,070,972 bytes/SHA `9ed228b70f255e623b84b25a01f1bedd74e65dbd3c837dfa92ce001b336394c2`）后部署 release `5aa23fd798ded2b942fed86ecb74964da2e31f0d`；预热一次 502 后恢复、privacy 0/0、`ECS_PUBLIC_IP` full verifier、产物/控制面/迁移/未知 Host 均通过。`.25` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`，env `root:root/0600`，远端临时目录已删除。
+- 下一活动批次与停止条件：状态文档 checkpoint 同步生产后进入事件与统计共享规则垂直切片；未落地 P10 worktree 必须继续保留，只可覆盖 `runtime/smoke/latest` 等最新测试产物。通知页当前因生产 capability 关闭保持安全禁用态，待未来明确开放时再做实体功能验收。
 
 ## 2026-08-26 项目内生成物约束与历史目录清理（已完成）
 
