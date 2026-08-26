@@ -2,15 +2,17 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
-## 2026-08-27 P9 访客访问 Web→Mini 对等审计（已完成自动验证，待体验版/用户复核）
+## 2026-08-27 P9 访客访问 Web→Mini 对等审计（已完成代码/体验/生产发布，待用户复核）
 
 - 范围与边界：承接导出 `.27` 后的下一垂直切片；用户已明确要求继续实现，但不以此替代导出 `.27` 的实体复核。Web 生产代码/黄金保持冻结，`insights=false`、`externalMessages=false` 不变，不新增 API、数据库迁移或能力开放。
 - 引入点与黄金：Mini 访客页来自 `ca7d92ee`，Component 运行时字段修复来自 `5e9bdb79`；Web 视觉黄金为 `P9VisitorAccessGolden`（`fbe912ff`），Web 生产访问日志读取来自 `EventCenterView.vue`。已执行 `git log -S`/`git blame`，确认旧实现私有时间/IP/request-id/聚合算法、首屏缩小 pageSize，且卸载/换群与加载更多缺少完整 serial 防护。
 - 实现：新增隔离 `@schedule/presentation-core/visitor-access`，共享中国标准时间、最近四个访问月份合并聚合/总次数、图表标签和 Mini 脱敏规则；Mini controller 改用 Web 默认分页、重复月份合并、卸载/换群/加载更多 serial 保护、能力关闭清空与 `fontSizeSetting` 大字号类；WXML/WXSS 对齐“医疗审计台”黄金层级，覆盖 loading/empty/error/disabled/ready、44px 操作、320px 紧凑和大字号不截断布局。
-- 测试先行：旧实现先红于缺共享模块、错误 pageSize、未处理 detached、私有规则和旧模板层级；实现后共享/跨 Web/controller/native 定向 4 files/13 tests 全绿。Mini 全量 83 files/366 tests、source audit、typecheck、production verify、package audit、determinism、CI dry-run、根 build/typecheck 均通过；`smoke:check-core` 判定未涉及 Web 核心链路。
-- 产物/状态：Mini production verify manifest `041fc7a496b94242e4d7f0cd99f475b7ce8001121355c91b5a0e7a92035bb309`，总包约 `5.73 MB`，insights 分包 `1.31 MB`；任务文件 Prettier/ESLint 通过。根全量 format 的既有 412 个文件差异、root lint 的既有 5 个未落地 Mini 文件 7 项错误及 ui-tokens 的 2 项既有 CRLF/LF 测试差异继续保留，不纳入本批修复。
-- checkpoint/下一步：代码提交消息拟为 `feat(miniprogram): align visitor access parity`；显式暂存前仍需确认 Web tracked diff 为 0。提交推送后主动说明 `.28` 版本、更新内容、影响范围、能力开关和验收重点，上传体验版并仅追加 `.28` 白名单；随后生产备份/部署/full verify。生产实体渲染和 P9 全阶段 RC 仍待用户复核，不提审、不正式发布、不打开 `insights`。
-- 停止条件：`.28` 体验版可进入生产安全关闭态，用户完成访客访问的 320/390/大字号、管理员权限失败关闭、时间/聚合/分页、前后台/弱网和隐私检查；导出 `.27` 与访客切片均获用户复核后，才进入 P9 剩余消息/数据 RC 或 P10 最终对等审计。
+- 测试先行：旧实现先红于缺共享模块、错误 pageSize、未处理 detached、私有规则和旧模板层级；实现后共享/跨 Web/controller/native 定向 4 files/14 tests 全绿。Mini 全量 83 files/367 tests、source audit、typecheck、production verify、package audit、determinism、CI dry-run、根 build/typecheck 均通过；`smoke:check-core` 判定未涉及 Web 核心链路。
+- 产物/状态：Mini production verify manifest `4532e127422dd33998196cd48e4e29ddb69936a8cf803fe81a19b1dc7c8bd894`，总包约 `5.73 MB`，insights 分包约 `1.31 MB`；`.28` 官方上传 153 个代码文件、zip `1,398,005` bytes、manifest `fda4c4066fdd7615db53c1568275ebe8e3c61afd0fe09184ca99ec6420a94fcb`。任务文件 Prettier/ESLint 通过。根全量 format 的既有 412 个文件差异、root lint 的既有 5 个未落地 Mini 文件 7 项错误及 ui-tokens 的 2 项既有 CRLF/LF 测试差异继续保留，不纳入本批修复。
+- checkpoint/生产：代码 `59dbc40d6aa88db33600b45e30d4262ce7e20dce`（`feat(miniprogram): align visitor access parity`）已推送并部署；部署前加密数据库备份 archive `dc1ce40b-2ac8-4ca9-89e7-87e384ff5dc1`（54 表、175,656 行、81,297,880 bytes、SHA-256 `4981dacdd54353de96d0dab9cb33d73480d69ba029bc4698643d022db82573b1`）。为追加 `.28` 白名单再次备份 archive `b59f46bf-7b07-4b51-b385-f60701027857`（54 表、175,661 行、81,299,988 bytes、SHA-256 `2af36542600405a6af0a0b614e672a973b59b1722f409a9ee0be5ad85734b56c`），只追加版本、不改变能力开关；当前 release 与 Git 一致，远端临时目录已清理。
+- 线上验证：部署预热一次 502 后恢复；两次 `ECS_PUBLIC_IP=120.77.220.79 bash infra/scripts/ecs-verify.sh` 均通过健康、产物/控制面哈希、迁移、域名隔离、容器和依赖检查；privacy-retention `deletedRows=0/remainingRows=0`。`.28` capability HTTP 200，`global/core/workflows/organization/guest=true`、`insights/externalMessages=false`。上传前已主动说明版本、更新内容、影响范围、能力开关和验收重点；不提审、不正式发布、不打开 `insights`。
+- 当前状态：已完成（含代码发布、体验上传、版本白名单、生产备份、部署与线上验证）→待用户体验版/实体 Android 复核。导出 `.27` 同样仍待用户复核；访客页的 320/390/大字号实体渲染、权限失败关闭、时间/聚合/分页、前后台/弱网和隐私检查尚未由自动测试替代。
+- 下一活动批次与停止条件：先提交并部署本状态文档 checkpoint，使 Git `HEAD`、`origin/main` 与服务器 `current-release` 一致；随后等待用户完成 `.27`/`.28` P9 数据与导出复核。用户确认 P9 数据与消息 RC 通过后，才评估是否开启 `insights`/`externalMessages`，再进入 P10 最终对等审计；不得自行提审或正式发布。
 
 ## 2026-08-27 P9 Mini 导出 Web→Mini 适配（已完成自动验证，待体验版/用户复核）
 
