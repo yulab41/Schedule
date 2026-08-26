@@ -780,13 +780,15 @@ async function loadWorkbench(
       page.setData({
         currentGroupId: selectedGroup.id,
         currentGroupName: selectedGroup.name,
-        currentGroupRole: formatRole(selectedGroup.role),
+        currentGroupRole: formatRole(selectedGroup),
       });
       writeStoredWorkbenchGroupId(ownerId, selectedGroup.id);
     }
     page.setData({
       canManageScheduleTools:
-        selectedGroup.role === 'owner' || selectedGroup.role === 'administrator',
+        selectedGroup.isDeveloperAdmin === true ||
+        selectedGroup.role === 'owner' ||
+        selectedGroup.role === 'administrator',
       canOpenGroupSettings: selectedGroup.role !== 'guest',
       groups,
       workflowPanelsMounted: shouldMountWorkflowPanels,
@@ -1535,12 +1537,13 @@ function failClosedAfterBackgroundRead(
   });
 }
 
-function formatRole(role: GroupSummary['role']): string {
-  return role === 'owner'
+function formatRole(group: Pick<GroupSummary, 'isDeveloperAdmin' | 'role'>): string {
+  if (group.isDeveloperAdmin === true) return '后台管理员';
+  return group.role === 'owner'
     ? '群主'
-    : role === 'administrator'
+    : group.role === 'administrator'
       ? '管理员'
-      : role === 'guest'
+      : group.role === 'guest'
         ? '访客'
         : '成员';
 }

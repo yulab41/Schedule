@@ -2,6 +2,15 @@
 
 本文档只记录当前可安全接续的状态；详细历史以 Git 提交为准。
 
+## 2026-08-27 P10 工作台角色入口最终对等硬化（代码完成，待发布）
+
+- 范围：只修正工作台对后台/平台管理员（`isDeveloperAdmin`）的工具权限派生与角色文案；不改 API、数据库、会话、请求、工作流服务端权限或能力开关。引入点已审计：Mini 旧派生来自 `bc32a4f1`，Web 黄金 `HomeView.vue` 同时把 `isDeveloperAdmin` 视为管理员，并由 `GroupSwitcher.vue` 显示后台管理员。
+- 实现：工作台 `canManageScheduleTools` 纳入 `isDeveloperAdmin`，群组抬头改用完整 `GroupSummary` 输出“后台管理员”；既有 owner/administrator/member/guest 入口边界和服务端权限继续保留。无平台管理员伪装成员、无新增写入。
+- 测试先行：旧角色契约先失败 1 项；修复后 P7/P10 角色入口门禁 9/9、Mini 全量 83 files/377 tests、`.32` RC 契约 6/6 通过。任务 Prettier/ESLint、`git diff --check` 通过。
+- 自动验证：Mini typecheck、production verify、source audit、package audit、determinism、CI dry-run、根 build/typecheck、`smoke:check-core` 均通过；总包 `5,745,661` bytes，主包 `1,130,736` bytes，organization `1,742,633` bytes（仅既有内部 1.5M 提示），verify manifest `2d2979f7bc87a4159672e77c5840f88e67d6b732d48d0fc62555701bdc9dd170`。生产当前 `.31`，`organization=true`、`insights/externalMessages=false`。
+- 当前策略：用户已明确“无需人工复核”，本项只以自动角色矩阵、构建和生产 verifier 验收；候选 `.32` 不提审、不正式发布，不自行开启 P9 能力。
+- checkpoint/下一步：代码与 `.32` runbook 变更待提交，提交消息拟为 `fix(miniprogram): align platform admin tool access`；随后从干净 worktree 打包、上传体验 `.32`，备份后加入白名单、部署并运行 ECS verifier，再提交 docs-only 状态 checkpoint。停止条件是角色矩阵、体验上传、生产部署、线上 capability/release 验证与临时目录清理全部完成。
+
 ## 2026-08-27 P10 个人中心大字号自动对等硬化（已完成自动发布验证，继续推进）
 
 - 范围：只修复个人中心大字号下长姓名可能被 `nowrap/ellipsis` 截断的问题；不改认证、解绑、退出、切换登录、网络请求或会话存储。引入点已审计：个人中心页面与原始姓名样式来自 `6639ece2`，认证方式安全边界来自 `a9966222`。

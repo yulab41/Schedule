@@ -76,8 +76,9 @@ describe('P7 physical-device feedback regressions', () => {
       'group-settings-panel': '/subpackages/organization/components/group-settings-panel/index',
     });
     expect(controller).toMatch(
-      /canManageScheduleTools:\s*selectedGroup\.role === 'owner' \|\| selectedGroup\.role === 'administrator'/u,
+      /canManageScheduleTools:\s*selectedGroup\.isDeveloperAdmin === true\s*\|\|\s*selectedGroup\.role === 'owner'\s*\|\|\s*selectedGroup\.role === 'administrator'/u,
     );
+    expect(controller).toContain('currentGroupRole: formatRole(selectedGroup)');
   });
 
   it('invalidates the mounted calendar immediately after a workflow mutation succeeds', () => {
