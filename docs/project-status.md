@@ -27,6 +27,13 @@
 - 增量体验/运行：`0.1.0-p9.20260826.17` 已上传成功，150 个代码文件、zip `1,332,351` bytes、manifest `02035ff63f85551349b406b5c650291224dc20f8eae29bb7a7b706c8d50f1c1e`。生产备份 archive `891a2e74-40a2-449f-9590-258370543397` 后追加候选白名单；`.17` capability HTTP 200，`organization=true`、`insights=false`、`externalMessages=false`。
 - 增量发布：代码 checkpoint `ccc38ff0ef8a9e910750e78691b6f20918b12aab` 部署 release `ccc38ff0ef8a9e910750e78691b6f20918b12aab`；ECS full verifier、health 200、候选版本 capability 和远端临时目录清理通过。
 
+## 2026-08-26 Mini 请求桥持续 loading 修复（已实现，待体验版复核）
+
+- 用户反馈院内通讯录、通知设置、访客访问、事件/统计和通知中心持续 loading；定位到 `wx.request` 在某些失败场景既不回调 `success` 也不回调 `fail`，公共 Promise 永不结束。
+- 修复：`requestOnce` 增加与 WX timeout 同步的 JS 兜底定时器，成功/失败/同步异常统一只结算一次并清理 timer；`createWxJsonTransport` 支持透传 timeout，页面最终进入可重试错误/关闭态而不会永久转圈。
+- 验证：新增超时回归先红后绿；Mini typecheck、production verify/source/package/determinism/CI dry-run 通过；总包 `5,562,361` bytes，`subpackages/organization` `1,679,900` bytes，manifest `c9eda404b7da6fe18b3f33180cb62d531a8e9c4f10074fcd6e2049694f413902`。
+- checkpoint：代码提交消息为 `fix(miniprogram): settle wx request bridges`；提交后上传候选体验版 `.18`，生产 `organization=true` 保持不变。
+
 ## 2026-08-26 P10-A4 原生个人中心（已实现，待体验版复核）
 
 - 范围：工作台顶部头像改为进入 `pages/profile/index`，展示登录态姓名、认证方式、资料版本、解绑当前小程序身份、切换登录和退出会话；无网络读取、不新增业务缓存。账号密码管理员不再显示无效的微信解绑按钮，改为明确的“不适用”说明。

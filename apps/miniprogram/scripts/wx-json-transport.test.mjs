@@ -160,6 +160,35 @@ describe('P2 Mini wx.request JSON transport', () => {
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', status: 200 });
   });
 
+  it('settles when the wx.request bridge never calls success or fail', async () => {
+    vi.useFakeTimers();
+    try {
+      const request = vi.fn();
+      const endpoint = defineClientEndpoint({
+        auth: 'bearer',
+        body: (input) => input,
+        decoder: createCompactDecoder({ type: 'string' }),
+        id: 'test.never-settles',
+        method: 'POST',
+        path: () => '/never-settles',
+      });
+      const transport = createWxJsonTransport({
+        apiBaseUrl: 'https://example.test/api',
+        getAccessToken: () => 'token',
+        request,
+        timeout: 5,
+      });
+      const pending = expect(transport.request(endpoint, { value: 1 })).rejects.toMatchObject({
+        code: 'NETWORK_ERROR',
+      });
+      await vi.advanceTimersByTimeAsync(5);
+      await pending;
+      expect(request).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('retries bearer GET network failures with finite exponential backoff', async () => {
     const delay = vi.fn(() => Promise.resolve());
     const request = vi.fn((options) => {

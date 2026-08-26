@@ -104,6 +104,7 @@ export function createWxJsonTransport(options: {
   readonly getAccessToken: () => string | undefined;
   readonly recoverAccessToken?: ((failedToken: string) => Promise<string | undefined>) | undefined;
   readonly sessionGeneration?: (() => number) | undefined;
+  readonly timeout?: number | undefined;
   readonly request: WxJsonRequest;
 }): ClientTransport {
   const baseUrl = options.apiBaseUrl.replace(/\/$/u, '');
@@ -155,6 +156,7 @@ export function createWxJsonTransport(options: {
           ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
           method: endpoint.method,
           request: options.request,
+          ...(options.timeout === undefined ? {} : { timeout: options.timeout }),
           url: `${baseUrl}${path}`,
         });
         if (response.statusCode < 200 || response.statusCode >= 300) {

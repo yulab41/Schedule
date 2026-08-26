@@ -137,6 +137,20 @@ function requestOnce(
   accessToken: string | undefined,
 ): Promise<WxJsonRequestSuccess> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let timer: unknown;
+    const settleFailure = (): void => {
+      if (settled) return;
+      settled = true;
+      if (timer !== undefined) clearTimeout(timer);
+      reject(new WxRequestNetworkError());
+    };
+    const settleSuccess = (response: WxJsonRequestSuccess): void => {
+      if (settled) return;
+      settled = true;
+      if (timer !== undefined) clearTimeout(timer);
+      resolve(response);
+    };
     const header = {
       ...(input.header ?? {}),
       'X-Schedule-Client-Platform': 'miniprogram',
@@ -148,17 +162,18 @@ function requestOnce(
     };
     const requestOptions: WxJsonRequestOptions = {
       ...(input.data === undefined ? {} : { data: input.data }),
-      fail: () => reject(new WxRequestNetworkError()),
+      fail: settleFailure,
       header,
       method: input.method,
-      success: resolve,
+      success: settleSuccess,
       timeout: input.timeout ?? 12_000,
       url: input.url,
     };
+    timer = setTimeout(settleFailure, input.timeout ?? 12_000);
     try {
       input.request(requestOptions);
     } catch {
-      reject(new WxRequestNetworkError());
+      settleFailure();
     }
   });
 }
